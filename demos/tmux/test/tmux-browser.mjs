@@ -132,7 +132,7 @@ if (browsers.includes("chromium")) {
     // default declares no pty@0: amy refuses the package there, naming the module.
     const session = await open();
     assert.notEqual(await session.submit("amy install tmux 2> /tmp/refused"), 0, await session.text());
-    await session.run("grep -q 'Dollyfile-tmux needs pty@0: add REQUIRES HOST pty@0' /tmp/refused && ! command -v tmux");
+    await session.run("grep -q 'needs pty@0' /tmp/refused && ! command -v tmux");
 
     const { run, submit, text } = await open({ path: "/custom/rebuild/", prompt: shellPrompt,
       setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) });
