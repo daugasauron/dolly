@@ -1,6 +1,6 @@
 # tmux in use: one pane's output on another's screen, a flickering status line, and what using it finds
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: demo,tmux,bug,terminal
 
@@ -148,3 +148,29 @@ The same in Firefox, screen for screen. The status row sampled again after
 the fixes (`flicker.mjs`): no change in any phase in either browser, the
 editor in the left pane and a pane scrolling beside it among them (before:
 five changes and the row gone).
+
+## Closed 2026-10-14
+
+The done-when is met on `core/tmux-use` (`2fcc6c62`, `6a50ec00`,
+`eca9972d`): tmux was used as the task lists, in Chromium and Firefox; the
+two defects the owner named are fixed, each with a test that failed before;
+what else it met is above with its reproduction, in the demo's README as a
+limit, and in [the next round's task](../20261012-220109-next-round/TASK.md)
+where it needs the seed.
+
+Measured in `work/tmuxuse` (image inputs unchanged, `538c5a8a…`; runtime
+`1e4cdfb2…`; `libterminfo`, `tmux` and `tmux-panes` rebuilt):
+
+| Check | Result |
+| --- | --- |
+| `demos/tmux/test/tmux-browser.mjs` | passes in both |
+| amy's `libterminfo` case, alone in `default` | passes in both |
+| Status row sampled at every frame (`flicker.mjs`) | no change in any phase, both |
+| `use.mjs`, `editors.mjs` (dte, nvim beside a scrolling pane) | screens as meant, both |
+| Core suite (`slot.sh hugebuild`) | 44 tests pass in each browser; `amy-browser.mjs` stops at `amy install cmake`: this tree registers 33 images |
+| Pi's demo test | 12 of 12 |
+| `javascript`, `python` demo tests | pass |
+| Source suite, `test/dolly.artifacts.mjs` | 349 of 349, 17 of 17 |
+
+For the owner to see it, the integrator rebuilds `libterminfo`, `tmux` and
+`tmux-panes` and serves the new runtime.
