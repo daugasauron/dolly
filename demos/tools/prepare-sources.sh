@@ -67,6 +67,15 @@ if has_image tree; then
     "${tool_dir}/LICENSE" /usr/share/licenses/tree/LICENSE \
     "${tool_dir}/doc/tree.1" /usr/share/man/man1/tree.1
 fi
+if has_image dte; then
+  tool_dir="$(bash scripts/fetch-pinned-source.sh dte)"
+  node scripts/build-source-tar.mjs "${static_dir}/tools/dte.tar" \
+    "${tool_dir}/src" /tmp/dte/src \
+    "${tool_dir}/config" /tmp/dte/config \
+    "${tool_dir}/mk/config2c.awk" /tmp/dte/mk/config2c.awk \
+    "${tool_dir}/LICENSE" /usr/share/licenses/dte/LICENSE \
+    "${tool_dir}/docs/dte.1" /usr/share/man/man1/dte.1
+fi
 if has_image bc; then
   tool_dir="$(bash scripts/fetch-pinned-source.sh bc)"
   node scripts/build-source-tar.mjs "${static_dir}/tools/bc.tar" \

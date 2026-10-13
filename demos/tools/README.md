@@ -27,6 +27,7 @@ the script would find here, in the comments beside its flags.
 - `wabt`: the WebAssembly Binary Toolkit: `wat2wasm`, `wasm2wat`, `wasm-objdump`, `wasm-strip` and `wasm-validate`, as a package.
 - `meson`: Meson, with the `python`, `cc` and `ninja` packages it runs on, as a package.
 - `toybox`: toybox's `grep` and `sed`, which have `grep -r` and `sed -i`, in place of the image's, as a package.
+- `dte`: dte, a small full-screen editor with the keys of a desktop one, as a package.
 - `mandoc`: mandoc, which formats a manual page of man or mdoc macros as text, as a package.
 - `tools-build`: Build-only: `cmake-build` with mandoc, what these packages are built on.
 - `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks, as a package.
@@ -71,8 +72,10 @@ What the platform decides ([process model](../../docs/process-model.md)):
   and `sed` alone, and the recipe compiles the C. It is the one build step of
   this demo that does not run in Dolly. The recipe takes three `#error`
   lines out of the source and says why.
+- There are no process groups, and `dte` asks `tcgetpgrp` whether a stream
+  is the terminal: its recipe changes that line to `isatty`.
 
 Test: the `amy tools` case of [`test/amy-browser.mjs`](../../test/amy-browser.mjs)
 installs each into `default`, uses it, links a program with each library and
-types at the terminal into `sqlite3`, `dc` and `vi`; `amy meson alone`
+types at the terminal into `sqlite3`, `dc`, `vi` and `dte`; `amy meson alone`
 builds a project in a session that had no compiler.

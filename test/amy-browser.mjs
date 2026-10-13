@@ -268,6 +268,7 @@ const pages = {
   meson: { meson: "build" },
   lua: { lua: "interpreter" },
   nvim: { nvim: "edit text" },
+  dte: { dte: "text editor" },
 };
 const reads = name => Object.entries(pages[name] ?? {}).map(([page, word]) =>
   `man ${page} > /tmp/amy-man && grep -q '${word}' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man`);
@@ -350,6 +351,9 @@ const tools = {
     "uuencode /tmp/amy-sponge sponge | uudecode -o /tmp/amy-uu && cmp /tmp/amy-uu /tmp/amy-sponge"],
   // ex edits by commands; vi at the terminal is the step after this table.
   vi: ["vi", "printf 'one\\ntwo\\n' > /tmp/amy-ex && printf '%s\\n' '%s/two/2/' w q | ex -s /tmp/amy-ex > /dev/null && test \"$(tr '\\n' ' ' < /tmp/amy-ex)\" = 'one 2 '"],
+  // A syntax file dte holds is written out and loads; dte at the terminal is
+  // the step after this table too.
+  dte: ["dte", "dte -b syntax/json > /tmp/json && dte -s /tmp/json > /dev/null"],
   // grep and sed with the options the image's lack, in their place: a tree is
   // searched, edited where it matched, and searched again. Last in this table,
   // so that the checks above ran the image's own.
@@ -365,6 +369,8 @@ const typed = {
   "sqlite3 /tmp/amy.db": [[/amy\.db->\s*$/, "select count(*) * 14 from word;\n"], [/\D42\D[^>]*amy\.db->\s*$/, ".quit\n"]],
   dc: [[/>>>\s*$/, "6 7 * p\n"], [/\n42\n>>>\s*$/, "q\n"]],
   "vi /tmp/amy-vi": [[/^~$/m, "ione\ntwo\x1b:wq\n"]],
+  // Its status line is up; Ctrl+S saves and Ctrl+Q quits.
+  "dte /tmp/amy-dte": [[/INS +UTF-8/, "one\ntwo\x13\x11"]],
 };
 await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ open }) => {
   const session = await open(), run = check(session);
@@ -381,12 +387,15 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
       await session.waitForText(shown);
       for (const [index, text] of keys.split("\x1b").entries()) {
         if (index) await session.page.keyboard.press("Escape");
-        await session.page.keyboard.type(text);
+        for (const [control, part] of text.split(/([\x11\x13])/).entries()) {
+          if (control % 2) await session.page.keyboard.press(`Control+${String.fromCharCode(part.charCodeAt(0) + 96)}`);
+          else await session.page.keyboard.type(part);
+        }
       }
     }
     assert.equal(await running, 0, `${command}\n${await session.text()}`);
   }
-  await run("test \"$(tr '\\n' ' ' < /tmp/amy-vi)\" = 'one two '");
+  await run("test \"$(tr '\\n' ' ' < /tmp/amy-vi)\" = 'one two ' && test \"$(tr '\\n' ' ' < /tmp/amy-dte)\" = 'one two '");
   await run("amy install dolly-docs && test -f /usr/share/doc/dolly/docs/dollyfile.md");
   // The core's tar only unpacks files and directories. The tar package puts
   // sbase's in its place: a tree with a link archived, listed and unpacked.
