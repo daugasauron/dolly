@@ -3,7 +3,6 @@ import { hostContracts } from "../host/modules.mjs";
 import { hostFiles } from "../scripts/host-modules.mjs";
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";

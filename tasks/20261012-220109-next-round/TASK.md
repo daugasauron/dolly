@@ -60,6 +60,8 @@ The browser runtime and the boundary:
   and [the one list nothing compares](../20261013-170737-receipt-hosts/TASK.md).
 - [The broker's list of credential header names](../20261013-190106-credential-headers/TASK.md).
 - [The mouse in the terminal](../20261013-154704-terminal-mouse/TASK.md).
+- [Tests that assert wording](../20261013-191218-wording-tests/TASK.md): half
+  of them have no other way to tell one refusal from another.
 
 Host modules:
 
