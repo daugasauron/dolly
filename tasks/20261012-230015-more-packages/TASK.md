@@ -266,3 +266,14 @@ the integration tree.
 - Dropped for cost: nano and `ne` (above), GNU sed and grep (gnulib), a roff
   formatter (useful only through `man`). `vi` at the terminal: insert,
   Backspace, Enter, arrow keys and `:wq` were typed and work.
+
+### pigz (09:50)
+
+`gzip` here is Dolly's own and only unpacks (`gzip: Dolly version 0
+intentionally implements decompression to stdout only`), so nothing wrote a
+`.gz` or a `.tar.gz`. `pigz` 2.8 (zlib's author's gzip, from the release
+archive as published, `NOTHREAD`, with the Zopfli it vendors and the `zlib`
+package) does: 9 files, 507 KB. Its check packs 20,000 lines smaller and
+back, and the image's `gzip -dc` reads what it wrote; the tar check now
+goes `tar -cf - in | pigz | gzip -dc | tar -tf -`. Both browsers. tar's
+advice (recipe and README) names pigz, bzip2, xz and zstd.

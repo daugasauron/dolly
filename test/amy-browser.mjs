@@ -231,6 +231,8 @@ const tools = {
   zstd: ["zstd", `${packs("zstd", "unzstd", "zst")} && ${links("zstd", "zstd", "ZSTD_versionNumber() != ZSTD_VERSION_NUMBER")} && man zstd > /dev/null`],
   bzip2: ["bzip2", `${packs("bzip2", "bunzip2", "bz2")} && ${links("bzlib", "bz2", "BZ2_bzlibVersion()[0] != '1'")} && man bzip2 > /dev/null`],
   lz4: ["lz4", `${packs("lz4", "unlz4", "lz4")} && ${links("lz4", "lz4", "LZ4_versionNumber() != LZ4_VERSION_NUMBER")} && man lz4 > /dev/null`],
+  // gzip, earlier in this table, only unpacks: it reads what pigz packs.
+  pigz: ["pigz", `${packs("pigz", "unpigz", "gz")} && pigz -c /tmp/amy-pigz | gzip -dc | cmp - /tmp/amy-pigz && man pigz > /dev/null`],
   unzip: ["unzip", `mkdir /tmp/amy-unzip && cd /tmp/amy-unzip && printf '${zipped}' > note.zip && test "$(zipinfo -1 note.zip)" = note && ` +
     "unzip -q note.zip && grep -qx packed note && man unzip > /dev/null"],
   // zip comes with unzip, which zip -T starts.
@@ -297,7 +299,7 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
   // sbase's in its place: a tree with a link archived, listed and unpacked.
   await run("mkdir -p /tmp/amy-tar/in/deep /tmp/amy-tar/out && cd /tmp/amy-tar && seq 1 2000 > in/deep/numbers && ln -s deep/numbers in/link && ! tar -cf in.tar in 2> /dev/null");
   await run("amy install tar && cd /tmp/amy-tar && tar -cf in.tar in && tar -xf in.tar -C out && cmp out/in/deep/numbers in/deep/numbers && " +
-    "test \"$(readlink out/in/link)\" = deep/numbers && tar -cf - in | tar -tf - | grep -qx in/link && amy files tar | grep -q ' /usr/share/man/cat1/tar.1$'");
+    "test \"$(readlink out/in/link)\" = deep/numbers && tar -cf - in | pigz | gzip -dc | tar -tf - | grep -qx in/link && amy files tar | grep -q ' /usr/share/man/cat1/tar.1$'");
   // dolly-llama computes on the GPU, a host module default does not declare:
   // the package is refused by the module's name and nothing of it is installed.
   assert.notEqual(await session.submit("amy install llama 2> /tmp/refused"), 0);

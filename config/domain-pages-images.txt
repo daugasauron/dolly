@@ -70,3 +70,4 @@ meson
 wabt
 yacc
 flex
+pigz

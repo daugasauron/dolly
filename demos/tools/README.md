@@ -14,6 +14,7 @@ the script would find here, in the comments beside its flags.
 - `zstd`: Zstandard: `zstd`, `unzstd`, `zstdcat` and libzstd, as a package.
 - `bzip2`: bzip2: `bzip2`, `bunzip2`, `bzcat` and libbz2, as a package.
 - `lz4`: LZ4: `lz4`, `unlz4`, `lz4cat` and liblz4, as a package.
+- `pigz`: pigz, which writes the `.gz` files `gzip` here only reads, and `unpigz`, as a package.
 - `zip`: Info-ZIP's `zip`, with the `unzip` package, which `zip -T` starts, as a package.
 - `unzip`: Info-ZIP's `unzip` and `zipinfo`, as a package.
 - `tree`: tree, which draws a directory as a tree, as a package.
@@ -46,11 +47,11 @@ What the platform decides ([process model](../../docs/process-model.md)):
 - Dolly's `tar` reads files and directories. An archive with a pax header
   (every `git archive`) or links is staged as a plain tar of the files a
   build reads ([`prepare-sources.sh`](prepare-sources.sh)); `sqlite`, `xz`,
-  `bzip2`, `zip`, `unzip`, `yacc` and `flex` build from the archive as
+  `bzip2`, `pigz`, `zip`, `unzip`, `yacc` and `flex` build from the archive as
   published.
 - `fork` fails: `vi`'s `!` commands and language servers, and `tar`'s `-z`,
   `-j` and `-J`, which start the compressor that way, say so. Pipe an
-  archive through `gzip`, `bzip2` or `xz`.
+  archive through `pigz`, `bzip2`, `xz` or `zstd`.
 - `/bin` comes before `/usr/bin`, so `tar` installs over the core's
   `/bin/tar`; no other package here replaces a command.
 

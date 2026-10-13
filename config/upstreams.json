@@ -126,6 +126,7 @@
 {"name": "bzip2", "use": "bzip2 and libbz2", "licence": "bzip2-1.0.6", "repository": "https://sourceware.org/bzip2/", "pins": ["BZIP2"], "sources": ["dist/static/tools/bzip2-1.0.8.tar.gz"]},
 {"name": "tree", "use": "tree", "licence": "GPL-2.0-or-later", "repository": "https://gitlab.com/OldManProgrammer/unix-tree", "pins": ["TREE"], "sources": ["dist/static/tools/tree.tar"]},
 {"name": "LZ4", "use": "lz4 (GPL-2.0-or-later) and liblz4 (BSD-2-Clause)", "licence": "BSD-2-Clause AND GPL-2.0-or-later", "repository": "https://github.com/lz4/lz4", "pins": ["LZ4"], "sources": ["dist/static/tools/lz4.tar"]},
+{"name": "pigz", "use": "pigz and unpigz, with the Zopfli it vendors", "licence": "Zlib AND Apache-2.0", "repository": "https://github.com/madler/pigz", "pins": ["PIGZ"], "sources": ["dist/static/tools/pigz-2.8.tar.gz"]},
 {"name": "Info-ZIP Zip", "use": "zip", "licence": "Info-ZIP", "repository": "https://infozip.sourceforge.net/Zip.html", "pins": ["ZIP"], "sources": ["dist/static/tools/zip30.tar.gz"]},
 {"name": "Info-ZIP UnZip", "use": "unzip and zipinfo", "licence": "Info-ZIP", "repository": "https://infozip.sourceforge.net/UnZip.html", "pins": ["UNZIP"], "sources": ["dist/static/tools/unzip60.tar.gz"]},
 {"name": "bc (Gavin Howard)", "use": "bc and dc", "licence": "BSD-2-Clause", "repository": "https://github.com/gavinhoward/bc", "pins": ["BC"], "sources": ["dist/static/tools/bc.tar"]},
