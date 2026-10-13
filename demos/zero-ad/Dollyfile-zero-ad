@@ -12,8 +12,7 @@ REQUIRES HOST upload@0
 
 FROM /v0.1.3/Dollyfile 918e6d61ddaec97324bd74db384099888ce3d83c82546eb98f30d50150c65f9b
 # default's nena command asks for nena@0, which a game's page does not declare:
-# the image keeps default without it. (An image of its own packages, not
-# FROM default, is the cleaner shape: tasks/20261012-220109-next-round.)
+# the image keeps default without it.
 REQUIRES TOOL rm
 SLOP rm /bin/nena /usr/share/man/cat1/nena.1
 COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-engine f3323444f3726f53f4bc9235a008409248ff0146f5c32f7ee2e2805ffb930af8 /opt/0ad/system/pyrogenesis /opt/0ad/system/pyrogenesis

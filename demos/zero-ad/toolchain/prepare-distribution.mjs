@@ -38,6 +38,10 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
 FROM ${siteReference("Dollyfile")} ${hash(await readFile(resolve(root, "Dollyfile")))}
+# default's nena command asks for nena@0, which a game's page does not declare:
+# the image keeps default without it.
+REQUIRES TOOL rm
+SLOP rm /bin/nena /usr/share/man/cat1/nena.1
 COPY ${engine} /opt/0ad/system/pyrogenesis /opt/0ad/system/pyrogenesis
 # Licences of the libraries statically linked into the engine.
 ${linked.map(name => `COPY ${engine} /usr/share/licenses/${name} /usr/share/licenses/${name}`).join("\n")}
