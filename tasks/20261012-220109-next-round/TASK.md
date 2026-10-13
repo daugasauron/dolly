@@ -8,8 +8,10 @@ State (2026-10-13): the round of 2026-10-13 took four of the seven items this
 task was filed with: `pty@0` as a contract with tmux, `default` installing
 `transfer`, dependencies by reference, and `python` installing `cc` and
 `ninja`; `nena@0` answers a fifth, since `default` now enables a module
-instead of declaring it. Nothing below is started. Each item is the owner's
-to take or leave.
+instead of declaring it. After it, with no round: `zero-ad` became an image
+of its own packages (audit 19), and `gpu-sdk` and `audio-sdk`, which held
+nothing, were deleted (audit 18). Nothing below is started. Each item is the
+owner's to take or leave.
 
 Done when: each item is in a round that passed, or is dropped here with the
 reason.
@@ -51,6 +53,10 @@ that change the seed or every recipe, and so want one round together:
   [file modes](../20261006-120641-umask/TASK.md)), `file`, and formatted
   pages for `less`, `ninja`, `posix`, Python, Emacs, Cargo, Rust, `fd`,
   CMake ([man and --help](../20261005-220754-man-help/TASK.md)).
+- The fluid demo's GPU test passes in Chrome on the GPU and its Firefox half
+  times out waiting for a frame on an Xvfb display (2026-10-13, after the
+  SDK images went; not attributed): it starts Playwright's Firefox, where
+  Mojo's test starts the installed one and gets an adapter.
 - At their next rebuild: `xonotic-build` and `wine-build` install `libpng`
   and `freetype`; `gamedev-sdk` drops its `/usr/lib/libm.a`.
 - `qwen3.5-4b` is one package of four rows now; the four shard packages stay
