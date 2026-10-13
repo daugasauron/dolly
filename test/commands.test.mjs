@@ -86,6 +86,15 @@ test("Dolly's own core tools keep their no-permission and finite semantics", asy
     `-[-rwx]{9}${columns}file\nl[-rwx]{9}${columns}link -> file\n$`));
   assert.equal(run(ls, ["-l", "listing/empty"]).stdout, "total 0\n");
   assert.equal(run(ls, ["listing/file", "listing/link"]).stdout, "listing/file\nlisting/link\n");
+  // Every configure asks for the working directory's serial number (ls -di .);
+  // automake's sanity check: -t lists operands newest first, -L by what a link names.
+  assert.match(run(ls, ["-di", "."]).stdout, /^[1-9]\d* \.\n$/);
+  assert.equal(run(ls, ["-di", "."]).stdout, run(ls, ["-di", scratch]).stdout.replace(scratch, "."));
+  await utimes(join(scratch, "listing/file"), 1000, 1000);
+  await writeFile(join(scratch, "listing/newer"), "");
+  assert.equal(run(ls, ["-t", "listing/file", "listing/newer"]).stdout, "listing/newer\nlisting/file\n");
+  assert.equal(run(ls, ["-Lt", "listing/link", "listing/newer"]).stdout, "listing/newer\nlisting/link\n");
+  assert.equal(run(ls, ["-rt", "listing/newer", "listing/file"]).stdout, "listing/file\nlisting/newer\n");
   await writeFile(join(scratch, "install-source"), "bytes");
   assert.equal(status(build("install"), ["-m", "755", "-o", "nobody", "-g", "nogroup",
     "install-source", "installed"]), 0);
