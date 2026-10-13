@@ -1,6 +1,7 @@
 {
   "name": "microphone",
   "version": 0,
+  "gives": "the default microphone, behind the browser's permission prompt",
   "dependencies": ["runtime@0"],
   "phase": "kernel",
   "imports": ["env.dolly_microphone_dispatch"],

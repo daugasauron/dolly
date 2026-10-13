@@ -21,6 +21,7 @@ flowchart TB
     au["audio@0"]
     mic["microphone@0"]
     btn["buttons@0"]
+    nena["nena@0"]
   end
   subgraph mailboxes["Mailboxes"]
     disp["display@0"]
@@ -42,6 +43,7 @@ flowchart TB
   up --> picker["user picks a file"]
   mic --> prompt["browser's own permission prompt"]
   btn --> paste["user presses the page's Paste button"]
+  nena --> set["the page's set of modules for this session"]
 ```
 
 ## Host modules
@@ -68,6 +70,7 @@ Worker URL.
 | `audio@0` | `env.dolly_audio_dispatch` | Stereo PCM output, 4 streams of 1 s; no capture | [`host/audio/`](../host/audio/module.json) |
 | `microphone@0` | `env.dolly_microphone_dispatch` | Mono PCM of the browser's default input: one capture, 2 s queued. The browser is asked only when a program opens it and grants it only through its own prompt; the page shows it while held; tracks stop on close and exit. No device list, labels or choice, no video | [`host/microphone/`](../host/microphone/module.json) |
 | `buttons@0` | `env.dolly_buttons_dispatch` | A strip of page DOM below the terminal, for one process: a caption (480 bytes) and 12 buttons (24-byte labels) set as text, 16 queued presses. The clipboard's text (4,096 bytes) is read only inside the user's press of the page's own Paste button, which the guest cannot name. What the process types into the terminal stays in Wasm | [`host/buttons/`](../host/buttons/module.json) |
+| `nena@0` | `env.dolly_nena_dispatch` | List the page's modules and ask the page to enable or disable one for this session. A packet names a module of the fixed registry, never a URL, file or provider; a switch grants what the switched module's row says, and nothing of the page's policy or the browser's prompts changes | [`host/nena/`](../host/nena/module.json) |
 | `threads@0` | supervisor | Worker per thread of an admitted executable: 16 per process, 64 total | [`host/threads/`](../host/threads/module.json) |
 | `sockets@0` | none | Local stream sockets between processes of the kernel, in its memory: 128 sockets, 16 unaccepted connections a listener, 64 KiB a direction. No network family and nothing outside Wasm | [`host/sockets/`](../host/sockets/module.json) |
 | `dso@0` | process Worker of an executable that records it | Instantiate Wasm the process supplies into its own memory and function table, and call its table entries with signatures chosen at run time; no import, no kernel entry, nothing outside that process | [`host/dso/`](../host/dso/module.json) ([`process.mjs`](../host/dso/process.mjs)) |
@@ -81,6 +84,38 @@ Worker URL.
   sealing refuses a retained executable stamped with an undeclared module, and
   the loader refuses one at run time. An embedding can restrict the set with
   `globalThis.DOLLY_HOST_MODULES`.
+- `nena@0` is the one way a session's set changes after boot, and only an
+  image that declares it has it (`default` does). Such a session enables and
+  disables modules freely, by design: assume it can use every module of this
+  table that is not fixed, each within its own bounds, the browser's
+  permission prompts and the page's HTTP policy, none of which a switch
+  touches. In any other image the provider does not exist: the import answers
+  `ENOSYS`, the page handles no such request, and the set stays the recipe's
+  list after total compromise of the userspace.
+  - The page holds the set and makes each switch
+    ([`modules.mjs`](../host/modules.mjs)), its own side first when enabling
+    and last when disabling; the Worker's side follows by message. An enabled
+    module starts as at boot, after its own `check()`, which the browser
+    must answer within five seconds.
+  - A disabled module is gone at once, for running processes too: its
+    providers are disposed, its imports answer `ENOSYS`, and the loader
+    refuses executables that record it at every launch, also ones it has
+    compiled before. `threads@0` terminates its Workers and ends the programs
+    that ran on them, each told why. What a module keeps
+    in Wasm, such as local sockets, stays with the processes that hold it.
+  - A module whose manifest says `fixed` is never switched: `runtime@0`,
+    `http@0` (its policy is consumed once, at load), `build@0`, and
+    `display@0`, `input@0` and `snapshot@0`, which the terminal and the
+    session's baseline are built on before ENTRY; the modules others depend
+    on are among them. A module an
+    embedding's `DOLLY_HOST_MODULES` leaves out is not enabled.
+  - `nena disable nena` disposes the provider itself: nothing switches a
+    module again until the page is reloaded.
+  - The provider writes the modules a session enabled beyond its image's to
+    `/etc/dolly/enabled` and enables what that file lists when the session is
+    loaded. The file is the session's own; it is read only where the image
+    declares `nena@0`, where the userspace decides anyway. A module the page
+    cannot enable then is reported on the page and left out.
 - The page enables exactly the image's requirements, its runtime among them;
   rebuild routes add `http@0`, `threads@0` and `dso@0` for building (sources
   are fetched, and toolchains run threaded tools and compilers and
@@ -202,6 +237,8 @@ Worker URL.
   unsupported fork, network socket and host operations fail without fallbacks.
 - Fixed loaders cannot resolve guest-selected URLs, paths or JavaScript.
 - Process failure and forced termination preserve the kernel and shell.
+- An image without `nena@0` cannot change its modules; with it, a fixed module
+  stays fixed and a disabled one answers nothing.
 
 These are testable design invariants, not a formal containment proof. Worker
 termination and resource bounds help availability but do not protect against

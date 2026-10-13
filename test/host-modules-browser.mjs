@@ -15,7 +15,8 @@ function handle(request, response, path, headers) {
   response.writeHead(200, headers).end();
   return true;
 }
-await browserTest("host modules", { image: "system", server: { sourceOverrides, handle }, timeout: 300_000 }, async ({ server, open }) => {
+await browserTest("host modules", { image: "system", server: { sourceOverrides, handle, fixtures: { "nena.c": "src/commands/nena.c" } },
+  timeout: 300_000 }, async ({ server, open }) => {
   const loaderFetches = () => server.requests.get("/dist/dolly-process-dso.mjs") ?? 0;
   const loaderFetchesBefore = loaderFetches();
   const { page, submit, text } = await open({
@@ -84,6 +85,15 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides, 
   await source("#include <dolly/process.h>\n#include <dolly/gpu-abi.h>\n#include <stdint.h>\n#include <errno.h>\nint main(void){uint64_t p[5]={DOLLY_GPU_OPEN*(1ull<<32),0,1,8,0};char reply[64];return dolly_process_call(DOLLY_GPU_PROCESS_OP,p,sizeof p,reply,sizeof reply)!=-ENOSYS;}");
   await run("cc -O1 /tmp/probe.c -o /tmp/forged && /tmp/forged");
   assert.ok(!(await requirements("/tmp/forged")).includes("gpu@0"));
+  // This image does not declare nena@0, so nothing in it switches a module:
+  // the command is refused as any program recording an undeclared module, its
+  // operation is ENOSYS to a program that links no client, and the program
+  // that needs gpu@0 is refused as before.
+  await run(`curl -fsS ${server.origin}/fixture/nena.c -o /tmp/nena.c && cc -O1 /tmp/nena.c -o /tmp/nena`);
+  await refused("/tmp/nena enable gpu", "nena@0");
+  await source("#include <dolly/process.h>\n#include <dolly/nena-abi.h>\n#include <stdint.h>\n#include <errno.h>\nint main(void){uint32_t p[8]={DOLLY_NENA_VERSION,DOLLY_NENA_OPEN,0,0,1};char reply[DOLLY_NENA_REPLY_BYTES];return dolly_process_call(DOLLY_NENA_PROCESS_OP,p,sizeof p,reply,sizeof reply)!=-ENOSYS;}");
+  await run("cc -O1 /tmp/probe.c -o /tmp/forged-nena && /tmp/forged-nena");
+  await refused("/tmp/gpu-client", "gpu@0");
   // dso@0, which this image does not declare, is recorded by a host of modules
   // (cc -rdynamic) and by a caller of the FFI client, and both are refused. A
   // program that only calls dlopen records nothing: libc refuses at the call,

@@ -1,6 +1,7 @@
 {
   "name": "audio",
   "version": 0,
+  "gives": "stereo PCM playback",
   "dependencies": ["runtime@0"],
   "phase": "kernel",
   "imports": ["env.dolly_audio_dispatch"],

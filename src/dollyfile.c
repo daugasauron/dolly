@@ -86,6 +86,9 @@ typedef struct {
   size_t host_requirement_count;
   size_t host_requirement_capacity;
   char *selected_image;
+  // A live install in a session with nena@0: the session's record of the
+  // modules it enabled since, one name@version a line; NULL in every other run.
+  char *enabled;
   Scope exports;
   Artifact artifact;
 } Engine;
@@ -1057,9 +1060,18 @@ static int host_declared(const Engine *engine, const char *requirement) {
   return 0;
 }
 
+static int host_enabled(const Engine *engine, const char *requirement) {
+  const size_t length = strlen(requirement);
+  for (const char *line = engine->enabled; line != NULL && *line != '\0'; line += strcspn(line, "\n"), line += *line == '\n') {
+    if (strncmp(line, requirement, length) == 0 && (line[length] == '\n' || line[length] == '\0')) return 1;
+  }
+  return 0;
+}
+
 // Reads the receipt's recipe chain into the engine, its exports into `exports`
 // when given, and the imported image's role into `kind_out`. An installed
-// package's host modules must already be declared: nothing is inherited.
+// package's host modules must already be declared: nothing is inherited. A
+// session with nena@0 may have enabled them instead, and is told the command.
 static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
                                  size_t length, const char *locator,
                                  const char *expected, Scope *exports,
@@ -1094,8 +1106,10 @@ static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
     char *host = NULL;
     result = take_text(&cursor, end, &host);
     if (result == 0 && !valid_host_requirement(host)) result = -EINVAL;
-    if (result == 0 && install && !host_declared(engine, host)) {
-      fprintf(stderr, "dollyfile: %s needs %s: add REQUIRES HOST %s\n", locator, host, host);
+    if (result == 0 && install && !host_declared(engine, host) && !host_enabled(engine, host)) {
+      if (engine->enabled != NULL) {
+        fprintf(stderr, "dollyfile: %s needs %s: nena enable %.*s\n", locator, host, (int)strcspn(host, "@"), host);
+      } else fprintf(stderr, "dollyfile: %s needs %s: add REQUIRES HOST %s\n", locator, host, host);
       result = 2;
     }
     free(host);
@@ -2114,6 +2128,14 @@ static int install_live(Engine *engine, const char *locator, const char *expecte
   // Parsing applied the recipe's own ENV declarations; the file holds the final values.
   dispose_environment_names(engine);
   if (result == 0) result = read_environment_file(engine);
+  if (result == 0 && host_declared(engine, "nena@0")) {
+    Buffer record = {.limit = 4096};
+    result = read_file_buffer("/etc/dolly/enabled", &record);
+    if (result == -ENOENT) result = 0;
+    if (result == 0) engine->enabled = record.data != NULL ? (char *)record.data : strdup("");
+    else free(record.data);
+    if (result == 0 && engine->enabled == NULL) result = -ENOMEM;
+  }
   if (result == 0 && (!valid_image_reference(locator) || !valid_sha256(expected))) {
     fprintf(stderr, "dollyfile: install takes a recipe's site path and its SHA256\n");
     result = 2;
@@ -2146,6 +2168,7 @@ static void dispose_engine(Engine *engine) {
     free(engine->host_requirements[index]);
   }
   free(engine->host_requirements);
+  free(engine->enabled);
 }
 
 static void usage(FILE *stream) {

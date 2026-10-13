@@ -1,6 +1,7 @@
 {
   "name": "dso",
   "version": 0,
+  "gives": "dlopen and FFI in the process's own Worker",
   "dependencies": ["runtime@0"],
   "phase": "kernel",
   "imports": [],

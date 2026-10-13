@@ -1,6 +1,7 @@
 {
   "name": "threads",
   "version": 0,
+  "gives": "threads, a Worker each: 16 a process, 64 in all",
   "dependencies": ["runtime@0"],
   "imports": [],
   "host": "threads.mjs",

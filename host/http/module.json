@@ -1,6 +1,8 @@
 {
   "name": "http",
   "version": 0,
+  "gives": "HTTP(S) requests under the page's policy",
+  "fixed": "the page's HTTP policy is consumed once, at load",
   "dependencies": ["runtime@0"],
   "phase": "kernel",
   "imports": ["env.dolly_http_dispatch"],

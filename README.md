@@ -17,7 +17,7 @@ Every image declares its role: an `APPLICATION` people open, a `TOOLCHAIN`
 recipes build on, or a `PACKAGE` recipes and sessions install
 ([Dollyfile](docs/dollyfile.md#roles-and-names)).
 
-- `default`: A shell, its text tools, curl and amy, which installs the rest.
+- `default`: A shell, its text tools, curl, amy, which installs the rest, and nena, which enables the host modules they need.
 - `system`: `system-tools` with saved sessions (`snapshot@0`, `session-recover`).
 - `system-tools`: Shell, display, Git, curl, Make and POSIX tools.
 - `system-build`: C/C++ compiler, headers and basic build tools.
@@ -28,6 +28,7 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `core`: Slop and its core commands, as a package.
 - `cc`: the C/C++ compiler, headers, libraries and Make, as a package.
 - `amy`: the package installer and the recipe engine it runs, as a package.
+- `nena`: lists a session's host modules and enables or disables them, where the image declares `nena@0`, as a package.
 - `posix`: grep, sed, sort, find, xargs, awk, sh and the other text and file tools, as a package.
 - `git`: Git over the HTTP broker, with diff and patch, as a package.
 - `zlib`: the zlib headers and static library, for programs the `cc` package builds; it installs no compiler, as a package.

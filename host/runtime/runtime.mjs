@@ -107,13 +107,15 @@ export function worker({ send, applicationBase, abi, service }) {
         return 0;
       },
     },
+    // Both follow their modules, which nena@0 may enable or disable while the
+    // supervisor runs: undefined takes the provider or the module away.
     setThreadProvider(provider) {
-      if (supervisor || threadProvider) throw new Error("thread provider already initialized");
       threadProvider = provider;
+      if (provider) { if (supervisor) supervisor.threadHost = provider; }
+      else supervisor?.withdrawThreads();
     },
     serveInProcess(requirement, module) {
-      if (supervisor) throw new Error("process modules are fixed once the supervisor starts");
-      processModules.set(requirement, module);
+      if (module) processModules.set(requirement, module); else processModules.delete(requirement);
     },
     async supervisor(dolly) {
       return supervisor ??= await DollyProcessSupervisor.create(dolly, memory, applicationBase, abi, service, threadProvider, processModules);

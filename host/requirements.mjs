@@ -50,10 +50,13 @@ export function executableHostRequirements(module) {
   return required;
 }
 
-// available: name@version -> the ABI digest its provider implements.
+// available: name@version -> the ABI digest its provider implements. A session
+// with nena@0 can enable a module; any other has its image's list.
 export function checkHostAbi(required, available) {
   for (const [requirement, digest] of required) {
-    if (!available.has(requirement)) throw new Error(`host module ${requirement} is not declared by this image (REQUIRES HOST)`);
+    if (!available.has(requirement)) throw new Error(available.has("nena@0")
+      ? `host module ${requirement} is not enabled: nena enable ${hostRequirement(requirement).name}`
+      : `host module ${requirement} is not declared by this image (REQUIRES HOST)`);
     if (available.get(requirement) !== digest) throw new Error(`host module ${requirement} has a different layout than this program was built for`);
   }
 }

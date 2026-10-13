@@ -28,6 +28,8 @@ export function worker({ get }) {
     },
     release(worker) { worker.terminate(); workers.delete(worker); },
     dispose() { for (const worker of workers.keys()) worker.terminate(); workers.clear(); },
+    // The runtime goes on without the module: the programs on its Workers end.
+    disabled() { get("runtime").setThreadProvider(undefined); },
   };
   get("runtime").setThreadProvider(provider);
   return provider;

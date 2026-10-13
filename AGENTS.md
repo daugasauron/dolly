@@ -45,7 +45,11 @@ semantics, and lifecycle rules matter more than a high-level wrapper API.
   and source buffers remain in Wasm; the sound interface grants no audio capture.
 - Microphone capture is its own explicit external resource, `microphone@0`:
   mono PCM of the browser's default input, only for an image that declares
-  the module, only after the browser's own permission prompt.
+  the module or enables it with `nena@0`, only after the browser's own
+  permission prompt.
+- An image's host modules are its recipe's list. Only an image that declares
+  `nena@0` may enable and disable modules while it runs; the page makes each
+  switch, and without that module nothing in Wasm changes the set.
 - The button strip is its own explicit external resource, `buttons@0`: a
   caption and labelled buttons the page draws as text for one process, and
   the clipboard's text only by the user's press of the page's own Paste

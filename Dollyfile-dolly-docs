@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # The platform as a program sees it: the documents and machine contracts of
 # this release at their repository paths, so their links to each other work.
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
-SOURCE /v0.1.2/docs/process-model.md a289f00904437d9f13689ee450423aab2676db650b1e23a890f4cae942048195 /usr/share/doc/dolly/docs/process-model.md
+SOURCE /v0.1.2/docs/process-model.md de19a2a0cb3da2257b59234100f4b39e5cda2603331b9314d67774262bd4e2ab /usr/share/doc/dolly/docs/process-model.md
 SOURCE /v0.1.2/docs/browser-stack.md 2944e47cd37225b0729452455d762054021a50c09a87c1254af8d2b1fbb6a335 /usr/share/doc/dolly/docs/browser-stack.md
 SOURCE /v0.1.2/docs/slop.md 63eed39c0dc495f4be624571a6cb2ed652af39c4b5eb2b17dc9ea69a152484f1 /usr/share/doc/dolly/docs/slop.md
 SOURCE /v0.1.2/docs/display.md 899caac956383f6795adae9c67b5364197d709ba3da0dbb6e141fbf4e735664f /usr/share/doc/dolly/docs/display.md
@@ -13,13 +13,13 @@ SOURCE /v0.1.2/docs/gpu.md f57940e72153898014baa7882a70a0d5d5fcd24508d5d22c70bcf
 SOURCE /v0.1.2/docs/audio.md 89f9be5ce1814b8eaf6502df06150d2b77a4224b7c9aa16663f501df70b6304c /usr/share/doc/dolly/docs/audio.md
 SOURCE /v0.1.2/docs/http.md 5936786e22365406fc79b00db86feaf25c1c829db325f9295fb1d4eb01b76168 /usr/share/doc/dolly/docs/http.md
 SOURCE /v0.1.2/docs/sessions.md 116fb5d1535f39243029af1ad4b6796982da203f5493cbfd456d09fbef85ad9e /usr/share/doc/dolly/docs/sessions.md
-SOURCE /v0.1.2/docs/dollyfile.md c9cb878b49b0b383dcba3069a5dcbf7a17371768178b65ea3a2b6bcecae7c780 /usr/share/doc/dolly/docs/dollyfile.md
+SOURCE /v0.1.2/docs/dollyfile.md 54cbf544be5c882dd2cfc0c468fbad9a3697b5d507237a4986492d135f7069d2 /usr/share/doc/dolly/docs/dollyfile.md
 SOURCE /v0.1.2/docs/architecture.md 426e04102b4c97517553efa7ee910d7462f44d67e9ae3e1ccfd76e96681d847b /usr/share/doc/dolly/docs/architecture.md
-SOURCE /v0.1.2/docs/browser-boundary.md 9a5a6bd46699fb2ea71a301b0aa4ab55c2a795977c74115cb3d1f49f95ee9573 /usr/share/doc/dolly/docs/browser-boundary.md
+SOURCE /v0.1.2/docs/browser-boundary.md 8807af9f5a186a105b63d80b29fcbf078dc46e3dcbdbf7921e2b9cb61d20753b /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE /v0.1.2/docs/image-build-service.md 43bbcfcf7c5e7c8ce83f91c55b3c4bc0682651b2905ba35089b2b85b3b13efa9 /usr/share/doc/dolly/docs/image-build-service.md
 SOURCE /v0.1.2/abi/README.md 4a3caf8ffbf15cf7a4b4aaea5e1ec1f0278cd1df5e23b61d71cccef796f1788d /usr/share/doc/dolly/abi/README.md
-SOURCE /v0.1.2/host/README.md 18e1a5e6b4f40496f513dd294992543fe36cdb64124bcb0d4a3e1e5839ecca9d /usr/share/doc/dolly/host/README.md
-SOURCE /v0.1.2/abi/dolly-browser-0.wat f3e8ac03887ef766d983ff7fb9263faff1310455fec47caad50628a589be827a /usr/share/doc/dolly/abi/dolly-browser-0.wat
+SOURCE /v0.1.2/host/README.md 6c04739fe3edea96b1ea57165693f53118a4616df166eea190ad8c1b3a8cce33 /usr/share/doc/dolly/host/README.md
+SOURCE /v0.1.2/abi/dolly-browser-0.wat 6d77eb50ec406c144ccd37325749c1e018df683d072b91744a1f136771dcd0c3 /usr/share/doc/dolly/abi/dolly-browser-0.wat
 SOURCE /v0.1.2/abi/dolly-host-0.wat 7d1a02e3317086c06ca022e917d6d8537d9a005e9804e5ffdf256dc7d70c8671 /usr/share/doc/dolly/abi/dolly-host-0.wat
 SOURCE /v0.1.2/abi/dolly-image-0.wat 9a16a6472d26ee6ca5d7a67a474a1723745b3eefaf585bd292d115725bf44d6a /usr/share/doc/dolly/abi/dolly-image-0.wat
 SOURCE /v0.1.2/abi/dolly-kernel-plugin-0.wat 8ed18bd8b9221ac11e077bba609db2e161b34f90f3ab1adc088a5597bb409d36 /usr/share/doc/dolly/abi/dolly-kernel-plugin-0.wat
@@ -30,6 +30,7 @@ SOURCE /v0.1.2/abi/dolly-supervisor-0.wat 3d3d16fdb57f01ca23537affa4bf72a7ac24b8
 SOURCE /v0.1.2/host/audio/dolly-audio-0.wat f216dedd6a02c35f51e5b6222cadf9af584f41cdd3d9587c42ebba586ea8e778 /usr/share/doc/dolly/host/audio/dolly-audio-0.wat
 SOURCE /v0.1.2/host/microphone/dolly-microphone-0.wat 76694b97ce96556e72f8e0c5a64a3649405e4b967c2e34a020ef776489abe6ba /usr/share/doc/dolly/host/microphone/dolly-microphone-0.wat
 SOURCE /v0.1.2/host/buttons/dolly-buttons-0.wat 07974ea1a33d75064f84ebb5794b5bb7971de8bac235f240c0cea069f3bbbc11 /usr/share/doc/dolly/host/buttons/dolly-buttons-0.wat
+SOURCE /v0.1.2/host/nena/dolly-nena-0.wat 30925d4e7efe40f7d0f8628f1102b57f6c0b7b6b943094c308274f26d57be748 /usr/share/doc/dolly/host/nena/dolly-nena-0.wat
 SOURCE /v0.1.2/host/input/dolly-input-0.wat 00b2c08636e16c2cc29dd8b12daee83eca13f52b919e72dcb7465c3a683fc879 /usr/share/doc/dolly/host/input/dolly-input-0.wat
 SOURCE /v0.1.2/host/display/dolly-display-0.wat 3aa860644850c15c5a3cb7e28c3ece28b3ec26d8e3c988b12a6363414b7c6fdf /usr/share/doc/dolly/host/display/dolly-display-0.wat
 SOURCE /v0.1.2/host/download/dolly-download-0.wat 6aacfaf743af4bc16ce3099e0068369370d5924c3783bd297039eec458498943 /usr/share/doc/dolly/host/download/dolly-download-0.wat

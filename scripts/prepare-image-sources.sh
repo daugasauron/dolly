@@ -103,6 +103,9 @@ fi
 if has_image gzip; then
   copy_static src/commands/gzip.c default/commands/gzip.c
 fi
+if has_image nena; then
+  copy_static src/commands/nena.c default/commands/nena.c
+fi
 if has_image system-tools; then
   for source in run-program.h install.c du.c rev.c command.c xargs.c amy.c \
       find.c env.c time.c timeout.c realpath.c diff.c patch.c hostname.c tty.c nproc.c; do

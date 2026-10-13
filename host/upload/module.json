@@ -1,6 +1,7 @@
 {
   "name": "upload",
   "version": 0,
+  "gives": "ask for a file; the user picks it",
   "dependencies": ["runtime@0"],
   "phase": "image",
   "imports": [],

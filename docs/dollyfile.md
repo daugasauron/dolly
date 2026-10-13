@@ -134,7 +134,7 @@ mounted, and reads no other version's.
   package keeps none of it: the base is only the environment the package is
   built in. The build runs the base's `/bin/dollyfile`.
 - A recipe without `FROM` starts from nothing and keeps only what it installs
-  and declares: `default` is `core`, `posix`, `display`, `curl`, `amy`, its
+  and declares: `default` is `core`, `posix`, `display`, `curl`, `amy`, `nena`, its
   start-up script and an ENTRY, with no compiler. It opens, and `amy` installs
   into it, but it is not a base to compile on: `FROM` a toolchain for that.
 - `INSTALL` restores a package's retained files, applies and exports its
@@ -219,8 +219,10 @@ mounted, and reads no other version's.
   ([browser boundary](browser-boundary.md)). `system` declares the runtime,
   display, input, http, download, upload and snapshot; `default` adds packages,
   threads and dso, because the packages people install into it need them
-  (`python` and `nvim` load modules); a declared module costs a program that
-  does not record it nothing. A terminal draws with `display@0` and reads keys
+  (`python` and `nvim` load modules), and `nena`, with which its session
+  enables what else a package needs
+  ([process model](process-model.md#host-modules-at-run-time)); a declared
+  module costs a program that does not record it nothing. A terminal draws with `display@0` and reads keys
   with `input@0`; the `display` package asks only for the first, so an image
   may show one without reading.
 - Linked client libraries (`-ldolly-gpu`, `-ldolly-audio`) stamp their module
@@ -309,7 +311,9 @@ EXPORTS TOOL rg
   SHA256` restores the files, merges the exported variables into
   `/etc/dolly/environment` and records the row as a build does; `amy
   installed` prints the record. The check is the recipe's: a package whose
-  host modules the booted image does not declare is refused by name. Looking
+  host modules the booted image does not declare is refused by name, and
+  where the image declares `nena@0` the session may have enabled them
+  (`/etc/dolly/enabled`) or is told the command: `nena enable pty`. Looking
   a name up in the index is the only unpinned step. The index describes the
   site's newest release and the service serves the release the tab runs: a
   pin that release does not publish fails by name, asking for a reload, and

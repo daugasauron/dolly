@@ -1,0 +1,14 @@
+{
+  "name": "nena",
+  "version": 0,
+  "gives": "enable and disable host modules with nena; disabling it fixes them",
+  "dependencies": ["runtime@0"],
+  "phase": "image",
+  "imports": ["env.dolly_nena_dispatch"],
+  "host": "nena.mjs",
+  "contracts": ["dolly-nena-0.wat"],
+  "process": [],
+  "headers": ["nena.h", "nena-abi.h"],
+  "kernel": ["kernel.c"],
+  "client": ["client.c"]
+}
