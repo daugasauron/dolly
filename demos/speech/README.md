@@ -11,9 +11,9 @@ place of a keyboard, for Pi on a phone.
 - `speech-build`: transcribe.cpp built with CMake, and `speech-to-text` and `voice` linked against it.
 - `speech-to-text-mic`: Speak, and what the microphone hears is written as text. English.
 - `pi-phone`: Pi for a phone: say what it should do, and tap buttons for the rest. English.
-- `speech-to-text`: `speech-to-text` with the Parakeet model and Silero VAD, for an image that declares `microphone@0`, as a package.
-- `voice`: `voice` with the Parakeet model, for an image that declares `microphone@0` and `buttons@0`, as a package.
-- `parakeet`: NVIDIA's Parakeet TDT-CTC 110M speech model (English, 135 MB), which `speech-to-text` and `voice` read, as a package.
+- `speech-to-text`: `speech-to-text` with the Parakeet model and Silero VAD, for an image that declares `microphone@0`.
+- `voice`: `voice` with the Parakeet model, for an image that declares `microphone@0` and `buttons@0`.
+- `parakeet`: NVIDIA's Parakeet TDT-CTC 110M speech model (English, 135 MB), which `speech-to-text` and `voice` read.
 
 Open `/speech-to-text-mic/` or `/pi-phone/` and allow the microphone; build with
 `npm run image -- pi-phone`.

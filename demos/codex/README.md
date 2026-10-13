@@ -5,7 +5,7 @@ the Rust toolchain Dolly builds ([Rust demo](../rust/README.md)).
 
 ## Images
 
-- `codex`: Codex, its launcher, ripgrep and fd, as a package.
+- `codex`: `codex`, the Codex coding agent with its launcher, and the `ripgrep` and `fd` packages.
 - `codex-agent`: Codex TUI with shell tools, ripgrep and fd.
 - `codex-build`: Source-built Codex and its build record.
 

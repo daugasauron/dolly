@@ -8,13 +8,13 @@ libraries and SpiderMonkey are built inside Dolly from pinned sources.
 
 - `zero-ad`: 0 A.D. Release 28: Athens economy and combat scenarios, audio and replay. Requires WebGPU.
 - `openal-build`: OpenAL Soft built for the 0 A.D. audio path.
-- `openal`: OpenAL Soft's mixer through its loopback device, a library for programs the `cc` package builds; it installs no compiler, as a package.
+- `openal`: OpenAL Soft's mixer through its loopback device, a library for programs the `cc` package builds; it brings no compiler.
 - `zero-ad-deps`: Build-only: the engine's libraries, pkgconf and SDL2 built from pinned sources.
 - `zero-ad-spidermonkey`: Build-only: SpiderMonkey 128.13.0 built inside Dolly with mozbuild, Cargo and cbindgen.
 - `zero-ad-engine`: Build-only: the 0 A.D. engine built inside Dolly with premake and Make.
-- `pkgconf`: pkgconf, also as `pkg-config`, which reads the `.pc` files libraries install, as a package.
-- `libpng`: libpng with zlib, a library for programs the `cc` package builds; it installs no compiler, as a package.
-- `freetype`: FreeType with libpng and zlib, a library for programs the `cc` package builds; it installs no compiler, as a package.
+- `pkgconf`: pkgconf, also as `pkg-config`, which reads the `.pc` files libraries install.
+- `libpng`: libpng with zlib, a library for programs the `cc` package builds; it brings no compiler.
+- `freetype`: FreeType with libpng and zlib, a library for programs the `cc` package builds; it brings no compiler.
 
 Open `/zero-ad/` for the main menu, or run `zero-ad [engine arguments]`, for
 example `zero-ad -autostart=scenarios/combat_demo`. F10 opens the game menu;

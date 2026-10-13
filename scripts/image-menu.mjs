@@ -1,22 +1,25 @@
-import { readdir, readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { readFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { alphabetical } from "../src/alphabetical.mjs";
 
-// Menu descriptions are the "- `IMAGE`: description" items of README.md
-// (core images) and demos/DEMO/README.md (that demo's images). An item may
-// continue on indented lines, as Markdown wraps it.
-export async function imageDescriptions(projectDir) {
-  const readmes = ["README.md", ...(await readdir(resolve(projectDir, "demos"), { withFileTypes: true }))
-    .filter(entry => entry.isDirectory()).map(entry => `demos/${entry.name}/README.md`)];
-  const descriptions = new Map();
-  for (const readme of readmes) {
-    const text = await readFile(resolve(projectDir, readme), "utf8").catch(error => {
-      if (error.code === "ENOENT") return "";
-      throw error;
-    });
-    for (const [, image, description] of text.matchAll(/^- `([a-z][a-z0-9]*(?:-[a-z0-9]+|\.[0-9]+)*)`: (.+(?:\n  +\S.*)*)$/gm)) {
-      descriptions.set(image, description.replace(/\n +/g, " "));
+// An image is described by one "- `IMAGE`: description" item of the README
+// beside its recipe: README.md for the core's, demos/DEMO/README.md for a
+// demo's. An item may continue on indented lines, as Markdown wraps it. The
+// description is what the menu shows and what amy list prints for a package.
+export async function imageDescriptions(projectDir, definitions) {
+  const descriptions = new Map(), readmes = new Map();
+  for (const { image, filename } of definitions) {
+    const readme = join(dirname(filename), "README.md");
+    if (!readmes.has(readme)) {
+      readmes.set(readme, await readFile(resolve(projectDir, readme), "utf8").catch(error => {
+        if (error.code === "ENOENT") return "";
+        throw error;
+      }));
     }
+    const items = [...readmes.get(readme).matchAll(/^- `([^`\n]+)`: (.+(?:\n  +\S.*)*)$/gm)].filter(([, name]) => name === image);
+    if (items.length > 1) throw new Error(`${readme}: ${image} is described ${items.length} times`);
+    if (!items.length) throw new Error(`${filename}: describe it as "- \`${image}\`: …" in ${readme}`);
+    descriptions.set(image, items[0][2].replace(/\n +/g, " "));
   }
   return descriptions;
 }
