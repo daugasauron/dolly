@@ -40,6 +40,15 @@ holds it, and the suites pass.
   compare. Tried on 2026-10-14 and taken back: without the field the plan
   calls all 130 images stale ("recipe graph changed"). So it goes with a
   change of the metadata's format, in a catalog round, not alone.
+- `demos/emacs/Dollyfile-emacs:69-73` turns `xterm-mouse-mode` on under the
+  comment "Dolly's terminal reports the mouse." It does not: the display
+  library has no line about the mouse
+  ([the investigation](../20261013-154704-terminal-mouse/investigation.md)).
+  The row also skips Emacs's XTVERSION probe, which is why it works. A
+  correction rebuilds `emacs` and the image that opens into it.
+- `demos/tmux/README.md:81-83` says a new pane starts "in the server's
+  directory"; it is the session's, the directory of the client that created
+  it ([who holds a terminal](../20261013-154704-terminal-holder/investigation.md)).
 
 ## 2026-10-14 02:30: two of them done
 
