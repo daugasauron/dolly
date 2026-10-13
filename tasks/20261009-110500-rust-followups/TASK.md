@@ -19,7 +19,8 @@ Ghostty as C. The tests of `rust` and of the `zig` and `cargo` packages passed o
 Measured on 2026-10-13 in Chromium, in `default` after `amy install cargo`: **Cargo builds
 incrementally.** `CARGO_INCREMENTAL=1 cargo build --offline` of a one-file crate takes 5.3 s,
 and 2.3 s again after an edit, with one warning each time ("hard linking files in the
-incremental compilation cache failed. copying files instead"). So `CARGO_INCREMENTAL=0` is no
+incremental compilation cache failed. copying files instead": the filesystem has no hard
+links, `ln a b` answers "Not supported"). So `CARGO_INCREMENTAL=0` is no
 longer needed for the locks it was set for; it stays the default until someone decides whether
 the warning and the copies are worth the faster rebuild. SQLite's dot-file locking is compiled
 into Cargo and needs a `cargo` build to try.
