@@ -13,7 +13,7 @@
 #include "memory_backend.h"
 #include "wasmfs.h"
 
-extern "C" int dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length);
+extern "C" int dolly_kernel_terminal_write(const unsigned char *bytes, uintptr_t length);
 
 namespace {
 
@@ -159,7 +159,7 @@ class TerminalFile : public DataFile {
   ssize_t read(uint8_t *, size_t, off_t) override { return 0; }
 
   ssize_t write(const uint8_t *buf, size_t len, off_t) override {
-    const int status = dolly_terminal_write_bytes(buf, len);
+    const int status = dolly_kernel_terminal_write(buf, len);
     return status < 0 ? status : len;
   }
 

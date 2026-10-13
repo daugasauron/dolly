@@ -598,6 +598,30 @@ static int controlling_terminal(int kernel_fd) {
       terminal.st_ino == opened.st_ino;
 }
 
+/* The process whose executable the supervisor prepares: the last one taken. */
+static int launching_pid;
+
+/* What the supervisor says about that executable is for whoever reads the
+ * process's complaints: it goes to the process's descriptor 2 where that is
+ * a terminal, the display's or a stream, and nowhere otherwise. Never into a
+ * file or a pipe, and not onto the display from a process that is not on it:
+ * a program that draws the display (tmux) does not know of the lines.
+ * 1 when the display's terminal is the one to show it. */
+int dolly_kernel_launch_diagnostic(const unsigned char *bytes, size_t size) {
+  const dolly_kernel_process *process = find_process(launching_pid);
+  if (process == NULL || process->state != DOLLY_KERNEL_PROCESS_PENDING) return 0;
+  if (process->terminal_descriptors[STDERR_FILENO]) return 1;
+  dolly_kernel_socket *stream = process->sockets[STDERR_FILENO];
+  const dolly_process_terminal_request request = {DOLLY_PROCESS_TERMINAL_ISATTY, 0, 0, 0, 0};
+  dolly_process_terminal_response response = {0};
+  if (stream != NULL && stream->kind->terminal != NULL &&
+      stream->kind->terminal(stream, &request, &response) == 0 && response.value == 1) {
+    /* A terminal that takes no more loses the line. */
+    (void)stream->kind->send(stream, bytes, size, 0);
+  }
+  return 0;
+}
+
 /* The terminal a process stands on when it is not the display's: the first
  * of its descriptors 0, 1 and 2 that is a terminal stream, or -1. */
 static int terminal_stream(const dolly_kernel_process *process) {
@@ -2383,6 +2407,7 @@ int dolly_process_image_consumed(int pid) {
   free(process->image);
   process->image = NULL;
   process->image_size = 0;
+  launching_pid = pid;
   return 0;
 }
 

@@ -101,7 +101,14 @@ int dolly_kernel_terminal_set_mode(uint32_t flags) {
   return 0;
 }
 
+/* The supervisor's words (abi/dolly-supervisor-0.wat): about the executable it
+ * prepares, for the terminal of the process that waits for it. */
 int dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length) {
+  if (dolly_kernel_terminal_attached() && !dolly_kernel_launch_diagnostic(bytes, (size_t)length)) return 0;
+  return dolly_kernel_terminal_write(bytes, length);
+}
+
+int dolly_kernel_terminal_write(const unsigned char *bytes, uintptr_t length) {
   if (bytes == NULL || length == 0) return 0;
   if (!dolly_kernel_terminal_attached()) return dolly_bootstrap_write_bytes(bytes, length);
   const uint32_t newline = DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR;
