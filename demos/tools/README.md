@@ -27,8 +27,15 @@ the script would find here, in the comments beside its flags.
 - `wabt`: the WebAssembly Binary Toolkit: `wat2wasm`, `wasm2wat`, `wasm-objdump`, `wasm-strip` and `wasm-validate`, as a package.
 - `meson`: Meson, with the `python`, `cc` and `ninja` packages it runs on, as a package.
 - `mandoc`: mandoc, which formats a manual page of man or mdoc macros as text, as a package.
+- `tools-build`: Build-only: `cmake-build` with mandoc, what these packages are built on.
 - `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks, as a package.
 - `sbase`: the sbase commands the image leaves out: `yes`, `cal`, `sha1sum`, `sha512sum`, `sponge`, `cols`, `uuencode` and `uudecode`, as a package.
+
+`man` prints a page of text (`/usr/share/man/cat1`) as it is and has no
+formatter, so a package formats its upstream page when it is built:
+`text-page` in `tools-build` runs mandoc and takes the overstrikes out. A
+package with a page is built `FROM tools-build` and keeps none of it, so
+mandoc is no row of the package and nothing installs it for a page.
 
 What the platform decides ([process model](../../docs/process-model.md)):
 
