@@ -103,6 +103,8 @@ Left:
    (240 MB), compares 7 (225 MB), patches 15 and stages the 1.4 GB model. All three closures
    hold `rust-build` (through `ripgrep` and `fd`, or `cbindgen`), so each run extracts, patches
    and archives rustc, its LLVM and Cargo again (58,029 files); `default`'s closure holds none.
+   `rust-build` came into these closures with `2370dc85` (2026-10-09), when Rust began to be
+   built inside Dolly; the runs were not timed before and after that commit.
    Not measured: the seconds of each preparer. That needs a timed trace of the script; a
    safety check of the session stopped the one tried, and it was not run another way.
 5. **Demo tests run in Chrome only.** `demos/run-browser-tests.mjs` starts headless Chrome; ten
