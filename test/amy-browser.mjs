@@ -248,6 +248,7 @@ const zipped = "\\120\\113\\003\\004\\012\\000\\000\\000\\000\\000\\307\\273\\11
 // of its text: man prints the text, and no macros.
 const pages = {
   sqlite: { sqlite3: "SQLite" },
+  jq: { jq: "JSON" },
   mandoc: { mandoc: "manual" },
 };
 const reads = name => Object.entries(pages[name] ?? {}).map(([page, word]) =>
@@ -290,7 +291,7 @@ const tools = {
     links("sqlite3", "sqlite3", "sqlite3_libversion_number() != SQLITE_VERSION_NUMBER")],
   // A sum, and a number that a regular expression takes out of a string.
   jq: ["jq", "echo '{\"a\": [1, 20, 21], \"b\": \"x-42\"}' > /tmp/amy.json && " +
-    "test \"$(jq -r '(.a | add | tostring) + \" \" + (.b | capture(\"(?<n>[0-9]+)\").n)' /tmp/amy.json)\" = '42 42' && man jq > /dev/null"],
+    "test \"$(jq -r '(.a | add | tostring) + \" \" + (.b | capture(\"(?<n>[0-9]+)\").n)' /tmp/amy.json)\" = '42 42'"],
   xz: ["xz", `${packs("xz", "unxz", "xz")} && ${links("lzma", "lzma", "lzma_version_number() != LZMA_VERSION")} && man xz > /dev/null`],
   zstd: ["zstd", `${packs("zstd", "unzstd", "zst")} && ${links("zstd", "zstd", "ZSTD_versionNumber() != ZSTD_VERSION_NUMBER")} && man zstd > /dev/null`],
   bzip2: ["bzip2", `${packs("bzip2", "bunzip2", "bz2")} && ${links("bzlib", "bz2", "BZ2_bzlibVersion()[0] != '1'")} && man bzip2 > /dev/null`],
