@@ -12,7 +12,7 @@ README. Demos may use each other; the core never uses a demo.
 - [emacs](emacs/README.md): GNU Emacs for the terminal, as a package and an application.
 - [game-agent](game-agent/README.md): agent code and the Codex relay shared by the games.
 - [gpu-fluid](gpu-fluid/README.md): an upstream WebGPU fluid solver.
-- [javascript](javascript/README.md): QuickJS-ng, Janis and TypeScript.
+- [javascript](javascript/README.md): QuickJS-ng, Janis and TypeScript, each a package.
 - [llvm](llvm/README.md): LLVM, Clang and LLD built inside Dolly by its own `cc`, and the resulting compiler.
 - [local-llm](local-llm/README.md): llama.cpp and model packages for Pi.
 - [mojo](mojo/README.md): the Mojo compiler built inside Dolly, as the package `mojo`; its programs run there, and in `mojo-gpu` with kernels on WebGPU.

@@ -5,7 +5,9 @@ codex-agent
 dollyfile-studio
 gnu-emacs
 gpu-fluid
-javascript
+quickjs
+janis
+typescript
 neovim
 openal-build
 pi-agent

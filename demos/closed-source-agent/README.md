@@ -2,7 +2,7 @@
 
 Runs Claude Code, Anthropic's command-line coding agent, unchanged under
 Janis ([JavaScript](../javascript/README.md)) in a session of `system`,
-`javascript` and `ripgrep`. Claude Code is Anthropic's software under its
+`janis` and `ripgrep`. Claude Code is Anthropic's software under its
 [Commercial Terms](https://code.claude.com/docs/en/legal-and-compliance), not
 part of Dolly, which is not affiliated with Anthropic: nothing of it is in
 this repository, in the image or on the sites ([licences](../../docs/licences.md)).

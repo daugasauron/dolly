@@ -25,7 +25,7 @@ REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM ${await pin("demos/slopyard/Dollyfile-gamedev-sdk")}
-INSTALL ${await pin("demos/javascript/Dollyfile-javascript")}
+INSTALL ${await pin("demos/javascript/Dollyfile-janis")}
 INSTALL ${await pin("demos/pi/Dollyfile-pi")}
 REQUIRES TOOL cc
 REQUIRES TOOL ar
@@ -60,6 +60,7 @@ REQUIRES LIB raylib
 REQUIRES LIB box3d
 REQUIRES LIB dolly-raylib
 REQUIRES LIB dolly-js
+REQUIRES LIB quickjs
 REQUIRES LIB lua55
 REQUIRES HEADER lua55
 REQUIRES HEADER gpu
@@ -69,7 +70,7 @@ REQUIRES HEADER quickjs-runner
 SOURCE ${siteReference("dist/static/slopyard/source.tar")} ${hash(await readFile(output))} /tmp/slopyard.tar
 SLOP tar -xf /tmp/slopyard.tar -C / && rm /tmp/slopyard.tar
 SLOP make -f /usr/src/dolly/slopyard/box3d.mk
-SLOP cc -std=c17 -O2 -pthread -U__SIZEOF_INT128__ -I/usr/include/lua5.5 /usr/src/dolly/slopyard/main.c /usr/src/dolly/slopyard/data.c /usr/src/dolly/slopyard/pi.c /usr/src/dolly/slopyard/character.c /usr/src/dolly/slopyard/render.c /usr/src/dolly/slopyard/world.c /usr/src/dolly/slopyard/terrain.c /usr/src/dolly/slopyard/magnet.c -ldolly-gpu -llua5.5 -ldolly-js -ldolly-raylib -lraylib -lslopyard-box3d -lm -o /usr/bin/slopyard
+SLOP cc -std=c17 -O2 -pthread -U__SIZEOF_INT128__ -I/usr/include/lua5.5 /usr/src/dolly/slopyard/main.c /usr/src/dolly/slopyard/data.c /usr/src/dolly/slopyard/pi.c /usr/src/dolly/slopyard/character.c /usr/src/dolly/slopyard/render.c /usr/src/dolly/slopyard/world.c /usr/src/dolly/slopyard/terrain.c /usr/src/dolly/slopyard/magnet.c -ldolly-gpu -llua5.5 -ldolly-js -lquickjs -ldolly-raylib -lraylib -lslopyard-box3d -lm -o /usr/bin/slopyard
 SLOP /usr/bin/slopyard --check
 SLOP rm -rf /tmp/slopyard-box3d
 EXPORTS TOOL slopyard

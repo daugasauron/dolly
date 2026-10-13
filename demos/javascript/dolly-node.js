@@ -44,14 +44,14 @@ const env = new Proxy(envTarget, {
 
 globalThis.process = {
   argv: [
-    globalThis.scriptExecutable ?? "qjs",
+    globalThis.scriptExecutable ?? "janis",
     ...(globalThis.scriptPath ? [globalThis.scriptPath] : []),
     ...(globalThis.scriptArgs ?? []),
   ],
   env,
   pid: Dolly.pid,
   ppid: Dolly.ppid,
-  title: "qjs",
+  title: "janis",
   exitCode: undefined,
   cwd: () => Dolly.cwd(),
   chdir: (path) => Dolly.chdir(String(path)),

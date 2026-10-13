@@ -23,7 +23,7 @@ await demoTest("studio", { image: "dollyfile-studio", webgpu: true, timeout: 900
   }
   await run("test -f /home/dolly/.pi/agent/skills/dollyfiles/SKILL.md && test -f /home/dolly/.pi/agent/extensions/local-model-provider.js");
   // Recipes name site paths; the page serves its own copies, pinned by hash.
-  await run(`curl -f ${siteReference("demos/javascript/Dollyfile-typescript-build")} -o /tmp/recipe && curl -f ${siteReference("dist/static/default/quickjs.tar")} -o /tmp/source.tar && grep -q "$(sha256sum /tmp/source.tar | cut -d ' ' -f 1)" /tmp/recipe`);
+  await run(`curl -f ${siteReference("demos/javascript/Dollyfile-quickjs")} -o /tmp/recipe && curl -f ${siteReference("dist/static/default/quickjs.tar")} -o /tmp/source.tar && grep -q "$(sha256sum /tmp/source.tar | cut -d ' ' -f 1)" /tmp/recipe`);
   await run(`curl -f ${siteReference("dist/static/default/runtimes/quickjs-main.c")} | grep -q dolly_quickjs_run && rm /tmp/recipe /tmp/source.tar`);
   await run(`curl -fsS ${server.origin}/fixture/studio-nvim.lua -o /tmp/studio-nvim.lua && timeout 60 nvim --headless -n -i NONE -S /tmp/studio-nvim.lua`);
   await run("rm -f /tmp/studio-nvim.lua /tmp/Dollyfile-studio-lint && clear");

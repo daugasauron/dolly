@@ -1,6 +1,8 @@
 default
 gpu-fluid
-javascript
+quickjs
+janis
+typescript
 python
 cc
 git
