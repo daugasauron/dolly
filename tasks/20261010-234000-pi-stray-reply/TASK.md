@@ -8,6 +8,8 @@
 
 Fixed in `cb9ae5cd` (branch `core/polish`): Janis's terminal read hands over all that waits, up
 to 64 KiB, in place of 256 bytes a call (`demos/javascript/quickjs-main.c`, `js_dolly_read_raw`).
+The tmux agent fixed the same function the same morning (`503e90fc`, one `read` after the first
+byte in place of a call a byte); the round of 2026-10-13 keeps that one, with this task's test.
 
 The cause, measured:
 

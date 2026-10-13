@@ -21,7 +21,8 @@ the input discarded at exit (`9abd08b0`), and on 2026-10-13 (`core/polish`):
 - **A burst of typed keys** costs a frame a tick: `test/display-browser.mjs` pushes 100 keys at
   Slop's prompt and counts the frames (`e3ff5fc1`). It passes on `input@0` as it is, so the
   kernel change of `92a64117` is not needed.
-- **Janis cut a read at 256 bytes** (`cb9ae5cd`): one read takes all that waits. That is
+- **Janis cut a read at 256 bytes** (`cb9ae5cd`, and the tmux agent's `503e90fc`, which the
+  round keeps): one read takes all that waits. That is
   sighting 1 (`DOLLY-ENTRY-CWuD`) and the `/d7d7` of
   `tasks/20261010-234000-pi-stray-reply`, which has the measurements.
 
