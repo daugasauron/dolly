@@ -268,7 +268,52 @@ Nothing in the module is on the display terminal's read path (read in the
 code, and the drain taken out changes nothing).
 
 Decision: the cut is fixed where it is, in Janis, in a commit of its own on
-this branch (today's round rebuilds Pi's chain anyway), with a test in the
-`javascript` demo that fails before it. **The branch must not merge until
-Pi's test passes 12 of 12 on it.**
+this branch (`503e90fc`; today's round rebuilds Pi's chain anyway): the first
+byte is waited for as before and the rest comes in one read of up to 64 KiB.
+**The branch must not merge until Pi's test passes 12 of 12 on it.**
+
+Measured on the branch's kernel and supervisor with the old seed
+(`aacab8fb…`, the runtime that failed above), Chromium:
+
+- The `javascript` demo's new case types 60 keys under kitty flags 7 at a
+  program that reads three seconds late. Against the image before the fix it
+  fails: reads of 256, 256 and 148 bytes. After it the whole test passes.
+- Pi's chain rebuilt with the fix (`typescript-build`, `javascript`,
+  `pi-build`, `pi-coding-agent`, `pi-runtime`, `pi`: 218 s): **Pi's test 12
+  of 12**, three at a time, the load under which 2 of 9 and 2 of 9 had
+  failed.
+- Pi's chain cannot be staged in this tree by itself (its Rust sources are
+  in `work/rust/build/rustc-port`, read here through a link for this build
+  only), and on the new seed it needs `rust-build`, which the caps here do
+  not allow: Pi on the new seed is for the round to measure.
+
+## 2026-10-13: `pty@0` from prototype to contract (a seed change)
+
+The owner accepted the module ("adding pty is fine"). `706afa45` makes it
+what the proposal's first open point describes; image inputs go from
+`a7ee26c5…` to `09ec882b…`, so every image is stale until the round.
+
+- `host/pty/module.json` lists `pty.h`, the generated `pty-abi.h` and
+  `client.c`. `libdolly-pty.a` defines `openpty` and records `pty@0` with
+  the module's digest; a program asks for it with `-ldolly-pty`, as for
+  sockets, because libc has an `openpty` of its own that programs name
+  without using (`scripts/build.sh`, `src/compiler.cpp`). The loader refuses
+  a program that asked in an image that does not declare the module, and
+  such a recipe does not seal (tested).
+- The libc forwards `ioctl(TIOCSWINSZ)` on a master (`libc-adapter.c`): the
+  only way to a master is `openpty`, so nothing unstamped can use it.
+- The two libc findings: `ttyname` of a terminal answers `/dev/tty`, and
+  `waitpid` accepts `WUNTRACED`. With them tmux's patch loses two hunks
+  (eight are left) and the demo its own `pty.c`.
+- `docs/process-model.md` has the section, `docs/browser-boundary.md` the
+  row, `host/README.md` a paragraph; all three and the two WAT files are
+  pinned in `Dollyfile-dolly-docs`, which repins `pi`, `pi-local` and
+  `dollyfile-studio`.
+- `tmux` and `tmux-panes` are in `config/domain-pages-images.txt`.
+- For `nena@0`: nothing in the module reads an image's declared list. The
+  kernel part is always there and serves any process, the supervisor's
+  drain runs for every session, and `pty.mjs` has no page or Worker side to
+  start. The one gate is the loader's check of an executable's `pty@0`
+  record against the modules admitted for the session, which is the other
+  agent's.
 
