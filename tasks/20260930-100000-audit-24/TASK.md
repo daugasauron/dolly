@@ -18,10 +18,18 @@ Trusted JavaScript by that review's count (`wc -l`):
 | 2026-10-05 (`c5b9e132`) | 4,942 | 4,164 | 9,106 |
 | v0.1.0 and v0.1.1 | 4,121 | 5,602 | 9,723 |
 | v0.1.2 and `main` `4ed1d9ef` (2026-10-13) | 4,121 | 6,083 | 10,204 |
+| the v0.1.3 round with `core/nena-audit` (2026-10-13) | 4,199 | 6,379 | 10,578 |
 
 Up to v0.1.0 the DSO loader and FFI moved from `src/` into `host/dso`, and `input@0` and
 `sockets@0` became modules. v0.1.2 added authority the owner asked for: `microphone@0` (236
-lines), `buttons@0` (203) and touch in `host/input` (38).
+lines), `buttons@0` (203) and touch in `host/input` (38). The v0.1.3 round added `nena@0`,
+which the owner asked for, and with it the authority to change a session's host modules while
+it runs: 309 lines, 277 as merged (`host/nena` 151, the registry's switches in
+`host/modules.mjs`, 218 lines to 330, the loader's check at every launch) and 32 for the
+audit of 2026-10-13 (`20261012-230015-bridges`: a pending call answered when its module goes,
+the switches given to one provider, the GPU indicator). The round's other 65 lines are not
+`nena@0`'s (`pty@0`'s signals in the supervisor and the page's indicator of an image without
+a GPU module among them).
 
 Done: step 1 of "Order proposed" (`133ac892`, five lines nobody read). Left:
 

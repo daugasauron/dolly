@@ -8,6 +8,14 @@ export function createLeaseBridge({ type, slots: count, packetBytes, replyBytes,
   const slots = new Array(count), stride = 64 + replyBytes;
   if (!Number.isSafeInteger(mailbox) || mailbox <= 0 || mailbox % 4 ||
       mailbox > memory.buffer.byteLength - count * stride) throw new Error(`Invalid ${type} mailbox`);
+  // The reply to the call a slot's lease waits for; its state is published last.
+  function publish(slot, entry, error, bytes) {
+    const words = new Int32Array(memory.buffer, mailbox + slot * stride, 16);
+    new Uint8Array(memory.buffer, mailbox + slot * stride + 64, bytes.length).set(bytes);
+    Atomics.store(words, 1, entry.scope); Atomics.store(words, 2, entry.sequence);
+    Atomics.store(words, 3, error); Atomics.store(words, 4, bytes.length); Atomics.store(words, 0, 1);
+    entry.pending = false;
+  }
   function acknowledge(message) {
     const slot = (message.scope - 1) % count, entry = slots[slot];
     if (!entry || entry.scope !== message.scope) return;
@@ -15,15 +23,17 @@ export function createLeaseBridge({ type, slots: count, packetBytes, replyBytes,
     else if (entry.sequence === message.sequence) {
       const valid = message.bytes instanceof Uint8Array && message.bytes.byteLength <= replyBytes &&
         Number.isInteger(message.error) && message.error >= 0 && message.error <= 4095;
-      const error = valid ? message.error : E.EIO, bytes = valid && !error ? message.bytes : new Uint8Array();
-      const words = new Int32Array(memory.buffer, mailbox + slot * stride, 16);
-      new Uint8Array(memory.buffer, mailbox + slot * stride + 64, bytes.length).set(bytes);
-      Atomics.store(words, 1, entry.scope); Atomics.store(words, 2, entry.sequence);
-      Atomics.store(words, 3, error); Atomics.store(words, 4, bytes.length); Atomics.store(words, 0, 1);
-      entry.pending = false;
+      const error = valid ? message.error : E.EIO;
+      publish(slot, entry, error, valid && !error ? message.bytes : new Uint8Array());
       if (!entry.released && (entry.operation === close || (entry.operation === open && error))) slots[slot] = undefined;
     }
     complete();
+  }
+  // The device is going (its module was disabled, or the page ends): the page's
+  // answer to a call still waiting will find no one, so the call is answered
+  // here as every later one is, ENOSYS. The supervisor's next tick delivers it.
+  function dispose() {
+    slots.forEach((entry, slot) => { if (entry?.pending) publish(slot, entry, E.ENOSYS, new Uint8Array()); });
   }
   function dispatch({address: addressValue, bytes: sizeValue}) {
     const address = Number(addressValue), size = Number(sizeValue);
@@ -51,5 +61,5 @@ export function createLeaseBridge({ type, slots: count, packetBytes, replyBytes,
     send({type: `${type}-request`, scope, sequence, packet}, [packet.buffer]);
     return 0;
   }
-  return {dispatch, acknowledge};
+  return {dispatch, acknowledge, dispose};
 }

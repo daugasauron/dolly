@@ -12,6 +12,8 @@ export const lease = { type: "nena", slots: N.DOLLY_NENA_SLOTS, packetBytes: N.D
 // The Worker writes it after every switch and the page enables what it lists
 // when the session is loaded again; the recipe engine reads it for amy.
 const record = "/etc/dolly/enabled";
+// Boot waits ten seconds for a provider's page side (host/modules.mjs).
+const restoreMilliseconds = 3000;
 
 const encoder = new TextEncoder(), decoder = new TextDecoder("utf-8", { fatal: true });
 const fail = errno => { throw Object.assign(new Error("nena request failed"), { errno }); };
@@ -82,15 +84,24 @@ export function browser({ send, modules, showStatus }) {
       },
       "nena-revoke"(message) { send({ type: "nena-complete", scope: message.scope, revoked: true }); },
     },
-    // A loaded session has the modules its record lists again, before its
-    // ENTRY. One the page cannot enable now is said so, with the command that
-    // tries again.
+    // A loaded session has the modules its record lists again, and the page
+    // says in one line which, and which it could not enable, with the command
+    // that tries again. Boot waits for them, so that the ENTRY finds them,
+    // but only so long: a module slower than that comes while the session
+    // runs, and never stops it from loading.
     async start({ enabled }) {
-      for (const value of enabled) {
-        const refusal = await modules.enable(value);
-        if (refusal) showStatus(`${value} is not enabled: ${refusal}. nena enable ${value.split("@")[0]} tries again.`, true);
-      }
-      send({ type: "nena-record", enabled: enabledSince() });
+      const restored = (async () => {
+        const refused = [];
+        for (const value of enabled) {
+          const refusal = await modules.enable(value);
+          if (refusal) refused.push(`${value} is not enabled: ${refusal}. nena enable ${value.split("@")[0]} tries again.`);
+        }
+        const again = enabledSince();
+        send({ type: "nena-record", enabled: again });
+        const said = [...again.length ? [`This session enabled ${again.join(", ")} again.`] : [], ...refused];
+        if (said.length) showStatus(said.join(" "), refused.length > 0);
+      })();
+      await Promise.race([restored, new Promise(resolve => setTimeout(resolve, restoreMilliseconds))]);
     },
   };
 }
@@ -117,6 +128,6 @@ export function worker({ send, get }) {
         if (enabled.length) files.write(record, `${enabled.join("\n")}\n`); else files.remove(record);
       },
     },
-    dispose() { bridge = undefined; },
+    dispose() { bridge?.dispose(); bridge = undefined; },
   };
 }

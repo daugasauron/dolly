@@ -35,7 +35,12 @@ test("audio module binds the bridge, acknowledges replies, revokes and disposes"
   assert.equal(sent.length, 2, "revocation must be bounded");
   assert.deepEqual(sent[1].message, { type: "audio-revoke", scope: 1 });
   module.messages["audio-complete"]({ scope: 1, revoked: true });
+  // A call still waiting for the page when the module goes is answered ENOSYS.
+  packet.fill(0);
+  view.setUint32(4, 1, true); view.setUint32(8, 5, true); view.setUint32(16, 1, true);
+  assert.equal(dispatch(BigInt(address), 32n), 0);
   module.dispose();
+  assert.deepEqual([...new Int32Array(memory.buffer, mailbox, 5)], [1, 5, 1, E.ENOSYS, 0]);
   assert.equal(dispatch(BigInt(address), 32n), -E.ENOSYS);
 });
 

@@ -1,12 +1,13 @@
 import { createGpuBridge } from "./bridge.mjs";
 import { DOLLY_ERRNO as E } from "../../src/process-constants.mjs";
 import { publicURL } from "../../src/static-asset.mjs";
-import { gpuIndicator, holdIndicators, showIndicators } from "../../src/page-indicators.mjs";
+import { gpuIndicator, holdIndicators, indicateNoGpu, showIndicators } from "../../src/page-indicators.mjs";
 export { DOLLY_GPU_ABI_DIGEST as digest } from "./abi.mjs";
 
 // The page names the adapter gpu@0 programs get before any of them runs. A
-// refused module never reaches browser(), so check() also shows the refusal.
-export async function check() {
+// refused module never reaches browser(), so check() also shows the refusal,
+// unless the registry stopped waiting for the answer (`abandoned`).
+export async function check(abandoned) {
   let adapter, reason = null;
   if (!globalThis.navigator?.gpu) reason = "WebGPU is unavailable in this browser";
   else try {
@@ -14,7 +15,7 @@ export async function check() {
     if (!adapter) reason = "the browser did not provide a GPU adapter";
   } catch (error) { reason = `GPU adapter initialization failed: ${error.message}`; }
   const { vendor, architecture, description, isFallbackAdapter } = adapter?.info ?? {};
-  indicate({ vendor, architecture, description, isFallbackAdapter, f16: adapter?.features.has("shader-f16") }, reason);
+  if (!abandoned?.aborted) indicate({ vendor, architecture, description, isFallbackAdapter, f16: adapter?.features.has("shader-f16") }, reason);
   return reason;
 }
 
@@ -72,6 +73,8 @@ export function browser({ mount }) {
       if (message.error) console.warn("Dolly GPU:", message.error);
     } },
     dispose() { canvas?.remove(); },
+    // Disabled while the page goes on: it names no adapter programs do not get.
+    disabled: indicateNoGpu,
   };
 }
 

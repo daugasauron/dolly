@@ -47,7 +47,9 @@ semantics, and lifecycle rules matter more than a high-level wrapper API.
   mono PCM of the browser's default input, only for an image that declares
   the module or enables it with `nena@0`, only after the browser's own
   permission prompt.
-- An image's host modules are its recipe's list. Only an image that declares
+- A page gives an image the host modules its recipe lists. Only the page adds
+  to them (the build's three on a rebuild, `snapshot@0` on a session route)
+  or replaces them (an embedding's list). Only an image that declares
   `nena@0` may enable and disable modules while it runs; the page makes each
   switch, and without that module nothing in Wasm changes the set.
 - The button strip is its own explicit external resource, `buttons@0`: a

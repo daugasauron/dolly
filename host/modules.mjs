@@ -102,7 +102,7 @@ export async function createHost(side, enabled, { send, resources = {}, configur
     const instance = module[side]?.({ ...resources, send, get: dependency,
       service: () => { for (const instance of instances.values()) instance.service?.(); },
       claimsKey, surfaceSize,
-      abi: admittedAbi, modules: side === "browser" ? { list, enable, disable } : undefined,
+      abi: admittedAbi, modules: module.contract.switches && side === "browser" ? { list, enable, disable } : undefined,
       configuration: configuration[name] ?? {} }) ?? {};
     instances.set(name, instance);
     for (const [type, handler] of Object.entries(instance.messages ?? {})) {
@@ -150,8 +150,9 @@ export async function createHost(side, enabled, { send, resources = {}, configur
       send({ type: "host-ready", module: name, descriptor });
     });
   }
-  // Switching a module after boot, for the page side of nena@0 alone: an image
-  // without that module has no caller, so its set stays what the page chose.
+  // Switching a module after boot, for the page side of the one module whose
+  // manifest says `switches` (nena@0): an image without that module has no
+  // caller, so its set stays what the page chose.
   // The page decides and goes first when enabling, last when disabling; the
   // Worker's side follows by message. Each resolves to null, or to one line
   // saying why not. A module whose manifest says `fixed` is never switched;
@@ -179,9 +180,12 @@ export async function createHost(side, enabled, { send, resources = {}, configur
     reasons.delete(name);
     try {
       // A browser that never answers a module's check must not hold every
-      // later switch, nor the boot of a session that recorded the module.
-      const unavailable = await Promise.race([module.check?.(),
-        new Promise(resolve => setTimeout(resolve, 5000, "the browser did not answer in time"))]);
+      // later switch: after five seconds the switch is refused and the check
+      // told so, that an answer coming later shows nothing on the page.
+      const abandoned = new AbortController(), timer = setTimeout(() => abandoned.abort(), 5000);
+      const unavailable = await Promise.race([module.check?.(abandoned.signal), new Promise(resolve =>
+        abandoned.signal.addEventListener("abort", () => resolve("the browser did not answer in time")))]);
+      clearTimeout(timer);
       if (unavailable) return unavailable;
       await attach(value, new Set(), true);
       if (!instances.has(name)) return reasons.get(name);

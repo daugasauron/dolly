@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import { executableHostRequirements, checkHostAbi } from "../host/requirements.mjs";
+import { executableHostRequirements, checkHostAbi, hostRequirement } from "../host/requirements.mjs";
 import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 import { hostManifests } from "../host/manifests.mjs";
@@ -94,6 +94,18 @@ test("every host module says what it gives within nena's record", () => {
   for (const { name, gives, fixed } of hostManifests) {
     assert.ok(typeof gives === "string" && gives && Buffer.byteLength(gives) < DOLLY_NENA_GIVES_BYTES, `host/${name}/module.json: gives`);
     assert.ok(fixed === undefined || (fixed && Buffer.byteLength(`fixed: ${fixed}`) < DOLLY_NENA_REASON_BYTES), `host/${name}/module.json: fixed`);
+  }
+});
+
+// The registry's list, enable and disable go to the page side of the module
+// whose manifest asks for them (host/modules.mjs), and nothing else switches
+// a module. Disabling asks for no dependents: every module another depends
+// on is fixed.
+test("nena@0 alone is given the registry's switches, and no module is switched off under its user", () => {
+  assert.deepEqual(hostManifests.filter(manifest => manifest.switches).map(manifest => manifest.name), ["nena"]);
+  for (const { name, dependencies } of hostManifests) for (const dependency of dependencies) {
+    assert.ok(hostManifests.find(manifest => manifest.name === hostRequirement(dependency).name).fixed,
+      `${name} depends on ${dependency}, which nena could disable`);
   }
 });
 

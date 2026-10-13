@@ -61,6 +61,6 @@ export function worker({ send, get }) {
         () => get("runtime").serviceDeferred());
     },
     messages: { "microphone-complete": message => bridge?.acknowledge(message) },
-    dispose() { bridge = undefined; },
+    dispose() { bridge?.dispose(); bridge = undefined; },
   };
 }
