@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # unchanged, configured by its own CMake: the tools that read, write and
 # check a module. Dolly's programs are such modules. Its interpreter, wasm2c
 # and their runtime are not built.
-FROM /v0.1.2/demos/cmake/Dollyfile-cmake-build 7c1a8aa0eb6e27afe59c40294c79d4c556f031f85f2cbcd01f85e9fd328feed1
+FROM /v0.1.2/demos/cmake/Dollyfile-cmake-build a993df9a5a6f5c1fe31b817dad7f8d4ab8b36758a2a30eb691406ad91c29424b
 
 REQUIRES HEADER libc
 REQUIRES HEADER cpp

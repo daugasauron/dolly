@@ -85,7 +85,7 @@ mounted, and reads no other version's.
 | `APPLICATION name`, `TOOLCHAIN name`, `PACKAGE name` | Role and name. |
 | `REQUIRES HOST name@abi` | The image uses this host module when it runs. |
 | `FROM RECIPE SHA256` | First operation: start from a completed application or toolchain. |
-| `INSTALL RECIPE SHA256` | Import a completed package: its files, exports and environment. |
+| `INSTALL RECIPE SHA256` | Import a completed package, after the packages its recipe installs: files, exports and environment. |
 | `COPY RECIPE SHA256 SOURCE DESTINATION` | Copy a retained file or tree out of a completed image. |
 | `SOURCE LOCATION SHA256 DESTINATION` | Download a file. |
 | `RUN [CWD /directory] /program [word…]` | Run a program; failure stops the build. |
@@ -135,12 +135,17 @@ mounted, and reads no other version's.
   package keeps none of it: the base is only the environment the package is
   built in. The build runs the base's `/bin/dollyfile`.
 - A recipe without `FROM` starts from nothing and keeps only what it installs
-  and declares: `default` is `core`, `posix`, `display`, `curl`, `amy`, its
-  start-up script and an ENTRY, with no compiler. It opens, and `amy` installs
+  and declares: `default` is `core`, `posix`, `display`, `curl`, `amy`,
+  `transfer`, its start-up script and an ENTRY, with no compiler. It opens, and `amy` installs
   into it, but it is not a base to compile on: `FROM` a toolchain for that.
 - `INSTALL` restores a package's retained files, applies and exports its
   environment and exports its objects. It may appear anywhere and names only a
-  package. It imports the package's contents, not the files that describe the
+  package. A package holds its own files and names the packages its recipe
+  installs: its `INSTALL` rows, which its record keeps. Whoever installs it,
+  a recipe or a session, installs those rows first, each from its own
+  snapshot, and skips a row its own record holds. In a package's recipe
+  `INSTALL` therefore keeps nothing: the installed files, environment and
+  exports serve the build. It imports the package's contents, not the files that describe the
   package image (`/etc/dolly/Dollyfile`, `artifact`, `environment`, `image`,
   `image.manifest`, `recipes.lock`). The package's `REQUIRES HOST` lines must
   all be declared by the installing recipe, or the row fails naming the missing
@@ -148,7 +153,9 @@ mounted, and reads no other version's.
   same recipe fails the install: an image carries one pin per recipe.
 - `INSTALL` records its row in `/etc/dolly/installed`, after the rows of the
   packages the package itself installed: the record lists the packages an
-  image or session holds.
+  image or session holds. It holds a recipe at one pin: an `INSTALL` of a
+  recipe it holds at another pin fails, naming the recipe, in a session as
+  in a build.
 - `COPY` merges directories, replaces files and fails on a missing source; it
   imports no environment, exports or host requirements. Imported images are
   earlier builds of at most 2 GiB; an image cannot share a name with one it
@@ -184,13 +191,15 @@ mounted, and reads no other version's.
 - Objects are captured when their recipe finishes, so an export may precede its
   files; a repeated export of the same type and name replaces the earlier one,
   and a recipe's own exports win over imported ones wherever they appear.
-- An image exports its own objects plus those of the packages it installs and,
-  unless it is a package, those of its base. It retains every object it exports.
+- An application or toolchain exports its own objects, those of the packages
+  it installs and those of its base; a package exports its own. An image
+  retains every object it exports.
 - `REQUIRES TOOL` checks `PATH`, `REQUIRES ENV` the environment, other types an
   earlier visible export of that kind: the recipe's own, a package's or the
   base's.
 - The image keeps only `FILE` and `FOLDER` paths, exported objects, `FROM`,
-  `INSTALL` and `COPY` results, and its recipes. Scratch needs no cleanup. ENTRY
+  `INSTALL` and `COPY` results, and its recipes; a package keeps `COPY`
+  results and neither of the other two. Scratch needs no cleanup. ENTRY
   and RUN have at most 256 words of at most 4096 bytes and a record of at most
   64 KiB.
 
@@ -309,7 +318,13 @@ EXPORTS TOOL rg
   hands over the verified snapshot of that pin, and `dollyfile install RECIPE
   SHA256` restores the files, merges the exported variables into
   `/etc/dolly/environment` and records the row as a build does; `amy
-  installed` prints the record. The check is the recipe's: a package whose
+  installed` prints the record. The rows the package's record names come
+  first. The engine is asked before anything is fetched for them, so a
+  package the image may not hold is refused with nothing installed; it ends
+  with status 3 when a row is not installed yet, and amy then fetches that
+  row's snapshot and installs it the same way: `amy install cmake` installs
+  `cc` and then `cmake`, and says so. No solver chooses anything: the rows
+  are the pins of the recipe. The check is the recipe's: a package whose
   host modules the booted image does not declare is refused by name. Looking
   a name up in the index is the only unpinned step. The index describes the
   site's newest release and the service serves the release the tab runs: a
@@ -342,8 +357,8 @@ flowchart TD
   recipe builds everything else, Slop included. Other builds restore their
   base image.
 - Every image is cached. A cache identity is the image build ID, the recipe
-  hash and the snapshot digests of its direct `FROM`, `INSTALL` and `COPY`
-  images. The browser uses a verified local artifact, then a published one,
+  hash and the snapshot digests of the images its build reads: its `FROM`,
+  `INSTALL` and `COPY` rows and the packages those packages install. The browser uses a verified local artifact, then a published one,
   and otherwise builds the missing dependency in a disposable runtime first.
   Unpinned downloads inside a `SLOP` command are not made reproducible by the
   cache.

@@ -3,7 +3,8 @@
 // per package, read like any URL under the page's HTTP policy. An install is
 // the Dollyfile row INSTALL PATH SHA256, executed against the live filesystem
 // by /bin/dollyfile and recorded in /etc/dolly/installed; the page's
-// packages@0 service hands over the verified package snapshot.
+// packages@0 service hands over the verified package snapshot. A package's
+// snapshot records the INSTALL rows of its own recipe: those come first.
 #define _POSIX_C_SOURCE 200809L
 
 #include <errno.h>
@@ -134,6 +135,15 @@ static const Package *find_row(const Packages *packages, const char *recipe, con
   return NULL;
 }
 
+// Whether the session's record holds a row. The engine writes the record, so it is read each time.
+static int session_holds(const char *recipe, const char *sha256) {
+  Packages record = {0};
+  const int held = read_installed(&record) == 0 && find_row(&record, recipe, sha256) != NULL;
+  free(record.items);
+  free(record.text);
+  return held;
+}
+
 static const Package *find_name(const Packages *index, const char *name) {
   for (size_t position = 0; position < index->count; ++position) {
     if (strcmp(index->items[position].name, name) == 0) return &index->items[position];
@@ -180,6 +190,31 @@ static int list_files(const char *snapshot, FILE *list, Summary *summary) {
   return valid && fflush(list) == 0 ? 0 : -1;
 }
 
+// The rows a package's snapshot records: the packages its recipe installs, dependencies first.
+static int snapshot_rows(const char *snapshot, Packages *rows) {
+  FILE *stream = fopen(snapshot, "rb");
+  unsigned char header[16];
+  char path[4096];
+  int valid = stream != NULL && fread(header, 1, sizeof(header), stream) == sizeof(header) &&
+      memcmp(header, "DOLLYSNP", 8) == 0;
+  for (uint64_t records = valid ? little_endian(header + 12, 4) : 0; valid && records != 0; --records) {
+    valid = fread(header, 1, sizeof(header), stream) == sizeof(header);
+    const uint64_t length = little_endian(header + 4, 4), size = little_endian(header + 8, 8);
+    valid = valid && length < sizeof(path) && fread(path, 1, length, stream) == length;
+    if (!valid) break;
+    path[length] = '\0';
+    if (strcmp(path, installed_path) != 0) {
+      valid = fseeko(stream, (off_t)size, SEEK_CUR) == 0;
+      continue;
+    }
+    rows->text = size < MAX_INDEX_BYTES ? calloc(1, size + 1) : NULL;
+    valid = rows->text != NULL && fread(rows->text, 1, size, stream) == size;
+    break;
+  }
+  if (stream != NULL) fclose(stream);
+  return valid ? parse_rows(rows, snapshot) : -1;
+}
+
 // Fetches a package's verified snapshot to `path`; the caller removes it.
 static int fetch_snapshot(const Package *package, const char *path) {
   char url[sizeof(service) + 64];
@@ -215,39 +250,57 @@ static int snapshot_files(const Package *package, const char *snapshot, int keep
   return status;
 }
 
-static int install(const Packages *index, Packages *installed, const char *name) {
-  const Package *package = find_name(index, name);
-  if (package == NULL) return -1;
-  if (find_row(installed, package->recipe, package->sha256) != NULL) {
-    printf("amy: %s is already installed\n", name);
-    return 0;
-  }
+// Runs the row INSTALL RECIPE SHA256 against the session. The engine's log is
+// diagnostics here; amy's stdout reports the result.
+static int engine_install(const Package *package) {
+  char *arguments[] = {"/bin/dollyfile", "install", package->recipe, package->sha256, NULL};
+  int exit_status = 126;
+  const int pid = dolly_spawn(arguments[0], 4, arguments, STDIN_FILENO, STDERR_FILENO, STDERR_FILENO);
+  const int waited = pid < 0 ? pid : dolly_wait(pid, &exit_status);
+  if (waited < 0) fprintf(stderr, "amy: %s: %s\n", arguments[0], strerror(-waited));
+  return waited < 0 ? -1 : exit_status;
+}
+
+// Installs the row INSTALL RECIPE SHA256. The engine decides first whether
+// the package may be installed here; it ends with 3 when a row the package
+// records is not installed yet: those are installed, each as an install of
+// its own, and the engine is asked again.
+static int install_row(const char *name, const char *recipe, const char *sha256) {
+  const Package package = {.name = (char *)name, .recipe = (char *)recipe, .sha256 = (char *)sha256};
   char path[sizeof(artifacts_dir) + 80];
-  snprintf(path, sizeof(path), "%s/%s.snapshot", artifacts_dir, package->sha256);
-  int status = fetch_snapshot(package, path);
-  Summary summary = {0};
-  if (status == 0) {
-    // The engine's log is diagnostics here; amy's stdout reports the result.
-    char *arguments[] = {"/bin/dollyfile", "install", package->recipe, package->sha256, NULL};
-    int exit_status = 126;
-    const int pid = dolly_spawn(arguments[0], 4, arguments, STDIN_FILENO, STDERR_FILENO, STDERR_FILENO);
-    const int waited = pid < 0 ? pid : dolly_wait(pid, &exit_status);
-    if (waited < 0) fprintf(stderr, "amy: %s: %s\n", arguments[0], strerror(-waited));
-    if (waited < 0 || exit_status != 0) {
-      fprintf(stderr, "amy: %s: not installed\n", name);
-      status = -1;
+  snprintf(path, sizeof(path), "%s/%s.snapshot", artifacts_dir, sha256);
+  int status = fetch_snapshot(&package, path);
+  if (status == 0 && (status = engine_install(&package)) == 3) {
+    Packages needs = {0};
+    if ((status = snapshot_rows(path, &needs)) != 0) fprintf(stderr, "amy: %s: cannot read its record\n", name);
+    for (size_t index = 0; status == 0 && index < needs.count; ++index) {
+      const Package *need = &needs.items[index];
+      if (!session_holds(need->recipe, need->sha256)) status = install_row(need->name, need->recipe, need->sha256);
     }
+    free(needs.items);
+    free(needs.text);
+    if (status == 0) status = engine_install(&package);
   }
-  if (status == 0) status = snapshot_files(package, path, 1, &summary);
+  if (status != 0) fprintf(stderr, "amy: %s: not installed\n", name);
+  Summary summary = {0};
+  if (status == 0) status = snapshot_files(&package, path, 1, &summary);
   unlink(path);
   rmdir(artifacts_dir);
-  if (status != 0) return status;
+  if (status != 0) return -1;
   printf("amy: %s installed: %llu files, %llu bytes%s%s; amy files %s lists them\n"
          "amy: its environment applies when the session is next loaded\n",
          name, summary.files, summary.bytes, summary.commands[0] != '\0' ? ", commands:" : "", summary.commands, name);
-  char row[8192];
-  snprintf(row, sizeof(row), "INSTALL %s %s\n", package->recipe, package->sha256);
-  return append_text(row, strlen(row), installed) == strlen(row) ? 0 : -1;
+  return 0;
+}
+
+static int install(const Packages *index, const char *name) {
+  const Package *package = find_name(index, name);
+  if (package == NULL) return -1;
+  if (session_holds(package->recipe, package->sha256)) {
+    printf("amy: %s is already installed\n", name);
+    return 0;
+  }
+  return install_row(name, package->recipe, package->sha256);
 }
 
 // The record an install left; needs no index.
@@ -320,7 +373,7 @@ int main(int argc, char **argv) {
   }
   if (status == 0 && naming && !local) status = files(&index, argv[2]);
   for (int argument = 2; status == 0 && installing && argument < argc; ++argument) {
-    status = install(&index, &installed, argv[argument]);
+    status = install(&index, argv[argument]);
   }
   free(index.items);
   free(index.text);

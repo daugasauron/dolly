@@ -1,0 +1,11 @@
+DOLLY 7
+PACKAGE qwen3.5-4b
+REQUIRES HOST runtime@0
+
+# Qwen3.5-4B Q4_K_M. One image holds 2 GiB and the model is 3.01 GB, so its
+# weights are four shard packages; this one names them, and installing it
+# installs the four.
+INSTALL /v0.1.2/demos/local-llm/Dollyfile-qwen3.5-4b-1 af07d730318053ded7ab68c23caacf9a9f1f458ac824e5b302f9fc4c9db1801b
+INSTALL /v0.1.2/demos/local-llm/Dollyfile-qwen3.5-4b-2 1b4b73ac45b681f11182f96a54ce3d92073d8ef6ff236f8d1246b73212e53a04
+INSTALL /v0.1.2/demos/local-llm/Dollyfile-qwen3.5-4b-3 ded69d112a06ef95604c6dcbeede00b2a8efa28b1e51e356f381d9a75041c3c5
+INSTALL /v0.1.2/demos/local-llm/Dollyfile-qwen3.5-4b-4 1bdb7904650a2980be04bd80aaf32ab07ba285bcba5752f7789edef793fcfaa3

@@ -41,6 +41,26 @@ const snapshot = encodeSnapshotRecords(new Map([["/etc/dolly/Dollyfile", file(th
 const scratch = await mkdtemp(join(tmpdir(), "dolly-amy-"));
 await writeFile(join(scratch, "threaded.snapshot"), snapshot);
 const fixtures = { "threaded.snapshot": join(scratch, "threaded.snapshot") };
+// Sealed packages of one file, /usr/share/NAME, as the engine would build
+// them. `needed` are the packages the recipe installs: its INSTALL rows, which
+// the snapshot records and does not hold. `hosts` are its host modules.
+async function sealed(name, body, needed = [], hosts = []) {
+  const url = siteReference(`Dollyfile-${name}`), rows = needed.map(({ url, sha256 }) => `INSTALL ${url} ${sha256}\n`).join("");
+  const source = `DOLLY 7\nPACKAGE ${name}\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}${rows}FILE /usr/share/${name}\n    ${body}\n`;
+  const pin = sha256(source), chain = [...needed, { name, url, sha256: pin, source }];
+  const receipt = [encoder.encode("DOLLYART"), u32(5), u32(chain.length),
+    ...chain.flatMap(recipe => ["PACKAGE", recipe.name, recipe.url, recipe.sha256, recipe.source].flatMap(text)),
+    u32(hosts.length), ...hosts.flatMap(text), u32(1), ...text("FILE"), ...text(name), ...text(`/usr/share/${name}`), u32(1), ...text(`/usr/share/${name}`)];
+  const records = new Map([["/etc/dolly/Dollyfile", file(source)], ["/etc/dolly/artifact", { kind: 2, data: bytes(receipt) }],
+    ...rows ? [["/etc/dolly/installed", file(rows)]] : [], [`/usr/share/${name}`, file(`${body}\n`)]]);
+  await writeFile(join(scratch, `${pin}.snapshot`), encodeSnapshotRecords(new Map([...records].sort(([left], [right]) => left < right ? -1 : 1))));
+  fixtures[`${pin}.snapshot`] = join(scratch, `${pin}.snapshot`);
+  return { name, url, sha256: pin, source };
+}
+// The same recipe at two pins, a package whose recipe installs the newer, and
+// one that also needs a host module default does not declare.
+const [older, newer] = [await sealed("needed", "one"), await sealed("needed", "two")];
+const needs = await sealed("needs", "top", [newer]), listens = await sealed("listens", "ears", [newer], ["microphone@0"]);
 const artifact = `/etc/dolly/artifacts/${threaded.sha256}.snapshot`;
 const row = `INSTALL ${threaded.url} ${threaded.sha256}`;
 const check = ({ submit, text }) => async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
@@ -104,6 +124,27 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   await run(`dollyfile install ${threaded.url} ${threaded.sha256} && rm ${artifact}`);
   await run(`test "$(cat /usr/share/threaded)" = 'needs threads' && grep -qx '${row}' /etc/dolly/installed`);
   await run(`test "$(amy installed | tail -n 1)" = "threaded ${threaded.url} ${threaded.sha256}"`);
+  // A package names the packages its recipe installs and holds none of their
+  // files: the engine installs those rows first, each from its own snapshot.
+  // Without a row's snapshot it ends with 3 and changes nothing: amy then
+  // installs the row and asks again.
+  const place = ({ sha256 }) => `curl -fsS ${server.origin}/fixture/${sha256}.snapshot -o /etc/dolly/artifacts/${sha256}.snapshot`;
+  const install = ({ url, sha256 }) => `dollyfile install ${url} ${sha256}`;
+  await run(`mkdir -p /etc/dolly/artifacts && ${place(needs)}`);
+  assert.equal(await session.submit(install(needs)), 3);
+  await run("test ! -e /usr/share/needs && ! grep -q Dollyfile-need /etc/dolly/installed");
+  // A package the image may not hold is refused before any of its rows is installed.
+  await run(`${place(newer)} && ${place(listens)}`);
+  assert.equal(await session.submit(install(listens)), 2);
+  await run("test ! -e /usr/share/needed && test ! -e /usr/share/listens && ! grep -q Dollyfile-need /etc/dolly/installed");
+  await run(`${install(needs)} && test "$(cat /usr/share/needed)" = two && test "$(cat /usr/share/needs)" = top`);
+  await run(`test "$(grep Dollyfile-need /etc/dolly/installed | tr '\\n' ' ')" = 'INSTALL ${newer.url} ${newer.sha256} INSTALL ${needs.url} ${needs.sha256} '`);
+  // A row the record holds is not installed again: the file changed since stays.
+  await run(`echo kept > /usr/share/needed && ${install(needs)} && test "$(cat /usr/share/needed)" = kept`);
+  // The record holds a recipe at one pin, in a session as in a build: another pin is refused.
+  await run(`${place(older)}`);
+  assert.equal(await session.submit(install(older)), 2);
+  await run(`test "$(cat /usr/share/needed)" = kept && test "$(grep -c Dollyfile-needed /etc/dolly/installed)" = 1 && rm -r /etc/dolly/artifacts`);
   // Saved and reloaded, the installed tools and environment are there.
   assert.equal(await session.page.evaluate(() => __dolly.saveSession("amy-proof")), "amy-proof");
   const delta = Number(await session.page.evaluate(() => document.documentElement.dataset.sessionUncompressedBytes));
@@ -116,6 +157,7 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   await session.page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "session shell"));
   await run("test \"$(python3 -c 'print(6 * 7)')\" = 42 && test \"$PYTHONUTF8\" = 1 && test \"$PYTHONDONTWRITEBYTECODE\" = 1");
   await run(`amy installed | grep -qx "python ${pin("python")}" && test "$(cat /usr/share/threaded)" = 'needs threads'`);
+  await run(`test "$(cat /usr/share/needs)" = top && amy installed | grep -qx "needed ${newer.url} ${newer.sha256}"`);
 });
 
 // Compilers, libraries and an agent: each installs into a running default
@@ -191,7 +233,7 @@ const zipped = "\\120\\113\\003\\004\\012\\000\\000\\000\\000\\000\\307\\273\\11
 
 // What a session adds one package at a time: each command is absent from
 // default, installs alone and is used. None brings the compiler until zig,
-// which writes C for it. transfer holds the two commands default copies.
+// which writes C for it.
 const tools = {
   ninja: ["ninja", "mkdir /tmp/amy-ninja && cd /tmp/amy-ninja && printf '%s\\n' 'rule write' '  command = echo built > $out' 'build out: write' > build.ninja && " +
     "ninja && test \"$(cat out)\" = built && man ninja > /dev/null"],
@@ -294,7 +336,6 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
   }
   await run("test \"$(tr '\\n' ' ' < /tmp/amy-vi)\" = 'one two '");
   await run("amy install dolly-docs && test -f /usr/share/doc/dolly/docs/dollyfile.md");
-  await run("amy install transfer && amy files transfer | grep -q ' /bin/upload$' && download --help | grep -q '^usage: download'");
   // The core's tar only unpacks files and directories. The tar package puts
   // sbase's in its place: a tree with a link archived, listed and unpacked.
   await run("mkdir -p /tmp/amy-tar/in/deep /tmp/amy-tar/out && cd /tmp/amy-tar && seq 1 2000 > in/deep/numbers && ln -s deep/numbers in/link && ! tar -cf in.tar in 2> /dev/null");
@@ -311,10 +352,10 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
 const elsewhere = {
   git: "man-browser.mjs, pager-browser.mjs", less: "pager-browser.mjs", llvm: "demos/llvm",
   parakeet: "demos/speech", "speech-to-text": "demos/speech: default refuses it", voice: "demos/speech, in pi-phone",
-  "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm",
+  "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm", "qwen3.5-4b": "demos/local-llm",
   ...Object.fromEntries([1, 2, 3, 4].map(shard => [`qwen3.5-4b-${shard}`, "demos/local-llm"])),
 };
-const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "transfer", "llama", "tar", "meson", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
+const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "llama", "tar", "meson", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
 assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no test installs and uses");
 
 // A package brings the programs its own programs start. rustc links through
@@ -350,6 +391,12 @@ await browserTest("amy cc", { image: "default", timeout: 300_000 }, async ({ ope
   await run("! cc --version 2> /dev/null");
   console.log(`amy install cc: ${await timed(run, "amy install cc")} ms`);
   await run("echo 'int main(void) { return 42; }' > /tmp/amy-cc.c && cc /tmp/amy-cc.c -o /tmp/amy-cc; /tmp/amy-cc; test $? = 42");
+  // zig names cc and holds none of it. The session has cc: it is not installed
+  // again, so a file of it changed since stays; each package lists its own files.
+  await run("echo changed > /usr/share/man/cat1/cc.1");
+  console.log(`amy install zig beside cc: ${await timed(run, "amy install zig")} ms`);
+  await run("test \"$(cat /usr/share/man/cat1/cc.1)\" = changed && amy files zig | grep -q ' /usr/bin/zig$' && " +
+    "! amy files zig | grep -q ' /bin/cc$' && amy files cc | grep -q ' /bin/cc$'");
 });
 
 // An image that does not declare a package's host module refuses it, naming

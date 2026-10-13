@@ -54,13 +54,14 @@ await demoTest("speech refused", { image, browser, launch: refuses }, async ({ o
   assert.match(await text(), /the browser refused the microphone/);
 });
 
-// The model is a package any session installs. The programs need the
-// microphone, which default does not declare: amy refuses them, naming it.
+// The programs need the microphone, which default does not declare: amy
+// refuses speech-to-text, naming the module, before the model it names is
+// fetched. The model alone installs into any session.
 await demoTest("speech packages", { image: "default", browser }, async ({ open }) => {
   const { run, submit } = await open();
-  await run("amy install parakeet && test -f /usr/share/dolly/speech/parakeet-tdt_ctc-110m.gguf");
   assert.notEqual(await submit("amy install speech-to-text 2> /tmp/refused"), 0);
-  await run("grep -q 'REQUIRES HOST microphone@0' /tmp/refused && test ! -e /usr/bin/speech-to-text");
+  await run("grep -q 'REQUIRES HOST microphone@0' /tmp/refused && test ! -e /usr/bin/speech-to-text && test ! -e /usr/share/dolly/speech");
+  await run("amy install parakeet && test -f /usr/share/dolly/speech/parakeet-tdt_ctc-110m.gguf");
 });
 
 // Chrome on Android is the phone this is for; Firefox has no phone to stand in for.

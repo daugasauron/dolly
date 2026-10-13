@@ -128,7 +128,7 @@ test("images separate reusable toolchains and packages from applications", async
     "system-build": [], zlib: ["system-build"], curl: ["system-build"], gzip: ["system-build", "zlib"],
     "zig-build": ["system-build"], "ghostty-build": ["zig-build"], display: ["ghostty-build"],
     "system-tools": ["system-build", "zlib", "gzip", "curl", "display"], system: ["system-tools"],
-    default: ["core", "posix", "display", "curl", "amy", "system-tools"], "gpu-sdk": ["system"], "audio-sdk": ["system"],
+    default: ["core", "posix", "display", "curl", "amy", "transfer"], "gpu-sdk": ["system"], "audio-sdk": ["system"],
   };
   const files = await recipeFiles(project);
   const definitions = await discoverImageDefinitions(project);
@@ -150,10 +150,11 @@ test("images separate reusable toolchains and packages from applications", async
     assert.equal(records.at(-1).name, definition.image);
     assert.equal(new Set(records.map(record => record.locator)).size, records.length);
     const page = renderDollyfilePage(graph.root, graph);
-    for (const dependency of dependencies) {
-      assert.ok(page.includes(`/view/${dependency}/"`), `${definition.image} must link its ${dependency} dependency`);
-      assert.ok(records.some(record => record.name === dependency));
+    // The page links the rows of the recipe; a build also reads what those packages install.
+    for (const { target } of graph.root.artifactTargets) {
+      assert.ok(page.includes(`/view/${target.image}/"`), `${definition.image} must link its ${target.image} dependency`);
     }
+    for (const dependency of dependencies) assert.ok(records.some(record => record.name === dependency));
   }
   assert.deepEqual((await selectImageDefinitions(definitions, "all")).map(item => item.image),
     definitions.map(item => item.image));
@@ -209,7 +210,9 @@ test("roles decide what FROM, INSTALL and COPY import; host requirements are nev
     assert.deepEqual([...graph.exporters.keys()].sort(), ["ENV:DISPLAY", "ENV:RG", "TOOL:cc", "TOOL:rg"]);
     assert.equal(graph.exporters.get("TOOL:rg").module.name, "addon");
     assert.deepEqual(graph.root.hostRequirements, ["display@0", "threads@0"]);
-    assert.deepEqual(graph.artifacts.map(({ operation, image }) => `${operation} ${image}`), ["from base", "install addon"]);
+    // A build of default reads pkg too: addon names it and does not hold it.
+    assert.deepEqual(graph.artifacts.map(({ operation, image }) => `${operation} ${image}`), ["from base", "install pkg", "install addon"]);
+    assert.deepEqual([...(await loadDollyfileGraph(directory, "Dollyfile-addon")).exporters.keys()], ["TOOL:rg"]);
     const copier = await loadDollyfileGraph(directory, "Dollyfile-copier");
     assert.deepEqual([...copier.exporters.keys()], []);
     assert.deepEqual(copier.root.hostRequirements, []);
