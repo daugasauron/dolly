@@ -4,6 +4,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { browserTest } from "./browser.mjs";
+import { DOLLY_AUDIO_SLOTS } from "../host/audio/abi.mjs";
 import { hostManifests } from "../host/manifests.mjs";
 import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
 import { siteReference } from "../src/static-asset.mjs";
@@ -28,7 +29,7 @@ await writeFile(join(scratch, "audible.snapshot"), encodeSnapshotRecords(new Map
 const artifact = `/etc/dolly/artifacts/${audible.sha256}.snapshot`;
 const install = `dollyfile install ${audible.url} ${audible.sha256}`;
 
-// Programs of the session: one per module it switches, and two that link no
+// Programs of the session: one per module it switches, and three that link no
 // client and call an operation directly, as a compromised program could.
 const direct = (header, operation, packet) => `#include <dolly/process.h>\n#include <dolly/${header}-abi.h>\n#include <stdint.h>\n` +
   `#include <errno.h>\nint main(void) { ${packet}; char reply[512]; ` +
@@ -49,7 +50,15 @@ const programs = {
     "return pid < 0 || dolly_wait(pid, &ended) < 0 ? 3 : 4; }", "-pthread"],
   "direct-audio": [direct("audio", "DOLLY_AUDIO_PROCESS_OP", "uint32_t packet[8] = { DOLLY_AUDIO_VERSION, DOLLY_AUDIO_OPEN, 0, 0, 1 }"), ""],
   "direct-nena": [direct("nena", "DOLLY_NENA_PROCESS_OP", "uint32_t packet[8] = { DOLLY_NENA_VERSION, DOLLY_NENA_OPEN, 0, 0, 1 }"), ""],
+  "direct-microphone": [direct("microphone", "DOLLY_MICROPHONE_PROCESS_OP", "uint32_t packet[8] = { DOLLY_MICROPHONE_VERSION, DOLLY_MICROPHONE_OPEN, 0, 0, 1 }"), ""],
 };
+// Records each AudioContext the page makes.
+function recordAudioContexts() {
+  globalThis.audioContexts = [];
+  globalThis.AudioContext = class extends AudioContext {
+    constructor(...options) { super(...options); audioContexts.push(this); }
+  };
+}
 const fixtures = { "audible.snapshot": join(scratch, "audible.snapshot") };
 for (const [name, [code]] of Object.entries(programs)) {
   await writeFile(fixtures[`${name}.c`] = join(scratch, `${name}.c`), code);
@@ -62,7 +71,8 @@ try {
 await browserTest("nena", { image: "default", timeout: 300_000,
   server: { fixtures } }, async ({ server, open }) => {
   const session = await open({ policy: { maxRequests: 256, rules: [{ origin: server.origin, path: "/amy-index.txt", methods: ["GET"] },
-    { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
+    { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
+    setup: page => page.addInitScript(recordAudioContexts) });
   const { page, submit } = session;
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await session.text()}`);
   // A refused program exits 126 and its one line names the command that enables the module.
@@ -98,14 +108,24 @@ await browserTest("nena", { image: "default", timeout: 300_000,
   await state("audio", "enabled");
   await run(`$HOME/sound && ${install} && rm ${artifact} && test "$(cat /usr/share/audible)" = 'needs audio'`);
   assert.equal(await page.evaluate(() => __dolly.audio.activeScopes), 0);
+  // audio@0 gives playback and no capture: the microphone's operation stays ENOSYS beside it.
+  await run("$HOME/direct-microphone");
   // Disabled, it is gone for programs that record it and for those that do not.
   await run("nena disable audio && test ! -e /etc/dolly/enabled");
   assert.ok(!(await enabled()).includes("audio@0"));
   assert.equal(await page.evaluate(() => "audio" in __dolly), false);
   await refused("$HOME/sound", "audio");
   await run("$HOME/direct-audio");
-  // A program that holds the module when it is disabled loses it at its next call.
-  await run("nena enable audio && $HOME/holder");
+  // A program that holds the module when it is disabled loses it at its next
+  // call. The page side that is disabled lets go of what it held: enabled
+  // again more often than the module has slots, each time's AudioContext is
+  // closed and audio still opens.
+  for (let enabling = 0; enabling <= DOLLY_AUDIO_SLOTS; ++enabling) {
+    await page.waitForFunction(() => audioContexts.every(context => context.state === "closed"));
+    await run("nena enable audio && $HOME/holder");
+  }
+  await page.waitForFunction(count => audioContexts.length === count && audioContexts.every(context => context.state === "closed"),
+    DOLLY_AUDIO_SLOTS + 2);
   await state("audio", "available");
   assert.equal(await page.evaluate(() => "audio" in __dolly), false);
   // A module the image declares is switched the same way.
