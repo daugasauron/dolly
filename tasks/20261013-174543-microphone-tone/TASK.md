@@ -1,6 +1,6 @@
 # The microphone test once recorded 290 Hz for a 440 Hz tone: a third of the frames were silence
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 125
 - TAGS: tests,flaky,microphone,chromium
 
@@ -32,3 +32,37 @@ has checked) or the second is fixed with a test that fails before.
   blocks to the provider, which queues them; whether any step fills a gap
   with zeros was not read to the end. The fixture skips frames before it
   measures (`test/fixtures/microphone.c`), by count, not by content.
+
+## Closed 2026-10-14 03:10: the silence is Chrome's, and the test no longer measures it
+
+Reproduced: the test pinned to one processor (`taskset -c 3`) failed one run
+of three, with a temporary count in the fixture: `lead=1 zeros=520`, 431 Hz,
+rms 0.3417. The tone was there from the first frame; 480 frames in the middle
+were exact zeros (the other 40 are the sine's own: one sample in 600 is zero
+at 440 Hz and 48 kHz). 480 frames is one 10 ms buffer of the device. The
+first failure's 34% is seventeen such buffers.
+
+Dolly's path writes no zeros, read to the end: the worklet posts the input's
+samples as they come (`host/microphone/worklet.mjs`), the provider appends
+each block to its ring and a read copies what is queued
+(`host/microphone/provider.mjs`, `queue` and the `READ` branch), the client
+copies exactly the frames the reply names (`host/microphone/client.c:59-72`).
+So the zeros are what the browser's audio graph gives when its capture did
+not deliver a buffer in time: Chrome's fake device on a starved machine. A
+real microphone would glitch the same way.
+
+The fixture now measures the first half second without such a gap (64 or
+more samples of exact zero in a row end the window and it starts again after
+them; ten seconds without one clean half second fail the test and say so).
+The assertions on pitch and level are as strict as before, and the count of
+frames (captured = skipped + read + queued + dropped) is unchanged.
+`test/fixtures/microphone.c`, `test/microphone-browser.mjs` (one comment:
+the old one said a lost block would shift the numbers, which it would not).
+
+Measured after: 12 of 12 runs pinned to one processor pass in both browsers
+(440 or 439 Hz, rms 0.3453; Firefox 1000 or 999 Hz, 0.0707), 2 of 2
+unpinned; source suite 429.
+
+What the test no longer shows: a block that Dolly itself would fill with
+zeros would be taken for a gap. Dolly has no code that does.
+

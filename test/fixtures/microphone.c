@@ -60,12 +60,20 @@ int main(int argc, char **argv) {
     check(now() < end, "no samples arrived");
     if (!n) usleep(10000);
   }
+  /* A starved device plays silence for a buffer or more (Chrome's fake one
+   * does on a busy machine): the measurement is the first half second
+   * without such a gap. */
+  unsigned quiet = 0;
   for (double end = now() + 10; frames < 24000;) {
     unsigned want = 24000 - frames < 4096 ? 24000 - frames : 4096;
-    int n = dolly_microphone_read(&microphone, pcm + frames, want);
+    int n = dolly_microphone_read(&microphone, scratch, want);
     check(n >= 0 && (unsigned)n <= want, "microphone read");
-    frames += n;
-    check(now() < end, "no samples arrived");
+    for (int i = 0; i < n; ++i) {
+      quiet = scratch[i] == 0 ? quiet + 1 : 0;
+      if (quiet >= 64) { skipped += frames + 1; frames = 0; }
+      else pcm[frames++] = scratch[i];
+    }
+    check(now() < end, "no half second without a gap arrived");
     if (!n) usleep(10000);
   }
   double energy = 0;

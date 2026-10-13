@@ -60,7 +60,7 @@ await browserTest("microphone", { image: "system", server: { fixtures }, launch:
   await run("/tmp/microphone");
   const [, rms, hertz] = (await text()).match(/MICROPHONE_CAPTURED frames=24000 rms=([\d.]+) hz=(\d+)/);
   // Chrome's device plays the file above; Firefox's fake device plays 1 kHz at a tenth of full scale.
-  // A lost or repeated block would shift both numbers.
+  // Silence in place of sound would lower both numbers.
   assert.ok(rms > 0.05, `silence was recorded: rms ${rms}`);
   const [played, level] = name === "chromium" ? [440, 16000 / 32768] : [1000, 0.1];
   assert.ok(Math.abs(hertz - played) <= 3, `the tone is not the one played: ${hertz} Hz`);
