@@ -143,5 +143,7 @@ if (browsers.includes("chromium")) {
     await run("tmux send-keys 'echo PACKAGE-$((6 * 7)) > /tmp/tmux-package' Enter");
     await run("until test -s /tmp/tmux-package; do sleep 1; done; grep -qx PACKAGE-42 /tmp/tmux-package");
     await run("tmux kill-server; wait");
+    // Its manual page was formatted when the package was built: text, no macros.
+    await run("man tmux > /tmp/page && grep -q 'terminal multiplexer' /tmp/page && ! grep -Eq '^[.](Dd|Sh) ' /tmp/page");
   });
 }
