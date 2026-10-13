@@ -56,6 +56,8 @@ The browser runtime and the boundary:
   with the memory budget decided on 2026-10-01 and not built.
 - [Chrome keeps a terminated Worker for two seconds](../20261013-183624-worker-two-seconds/TASK.md):
   three measured lines, not committed.
+- [Emacs runs out of stack in a fresh Chromium](../20261013-202443-emacs-stack/TASK.md):
+  how a program that needs more stack than a Worker gives gets it.
 - [The recipe language parsed twice](../20261013-144241-recipe-parsers/TASK.md)
   and [the one list nothing compares](../20261013-170737-receipt-hosts/TASK.md).
 - [The broker's list of credential header names](../20261013-190106-credential-headers/TASK.md).

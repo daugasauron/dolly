@@ -47,8 +47,10 @@ ending the process, or that question has a task of its own.
   was measured deeper.
 - Ways the record shows, none chosen: Emacs's recipe gives it the section
   (rebuilds `emacs` and the image that opens into it); Emacs is compiled
-  with optimisation, which needs less stack (its recipe builds at `-O0`;
-  why is in the Emacs task); the stack a process gets is stated in the
+  with optimisation, which needs less stack: but it is built at `-O0` for a
+  recorded reason ("-O0 keeps C locals in linear memory, where Emacs's
+  conservative collector scans the stack: Wasm locals are invisible to it,
+  and an -O2 temacs crashes", `demos/emacs/prepare-emacs.sh:51-52`); the stack a process gets is stated in the
   contract and a program that needs more says so. The test could wait 0.3 s
   before it types (0 of 26 lost) and would then hide the cause.
 - It bears on more than Emacs: any program built at `-O0` with deep
