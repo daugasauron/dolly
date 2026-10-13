@@ -13,7 +13,6 @@ import {
 } from "./abi.mjs";
 
 const FFI_OK = 0;
-const FFI_BAD_TYPEDEF = 1;
 const FFI_WASM64_EMSCRIPTEN = 2;
 const VARARGS_FLAG = 1;
 const MAX_ARGS = 1000;

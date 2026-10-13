@@ -7,10 +7,8 @@ import {
   inspectStaticSources,
   selectImageDefinitions,
 } from "./image-definitions.mjs";
-import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
-const loadGraph = createDollyfileGraphLoader(projectDir);
 const definitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
 if (process.argv[2] === "--sources") {
   // Served paths, which are their checkout paths.

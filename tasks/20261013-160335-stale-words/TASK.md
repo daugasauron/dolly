@@ -106,4 +106,12 @@ Searched on `main` `e72b7f8e`, nothing changed:
   `src/`, `host/`, `scripts/` and `test/`: one, `mkdir` in
   `test/host-modules.test.mjs:3`. Removed (2026-10-14; that file's six tests
   and the source tests pass, 430/0).
+- Top-level functions and constants neither exported nor used in their
+  file, in the same 231 files: two. `scripts/list-images.mjs` made a recipe
+  graph loader it never called (its import and one line), and
+  `host/dso/ffi.mjs` declared `FFI_BAD_TYPEDEF`. Both removed (2026-10-14):
+  the script prints the same 130 images, the same 31 for `pi-local` and the
+  same 534 sources as before; the plan builds nothing; source tests 430/0;
+  `test/dso-browser.mjs` passes in both browsers and
+  `test/host-modules-browser.mjs` in Chromium.
 
