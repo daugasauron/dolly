@@ -13,8 +13,8 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.2/demos/local-llm/Dollyfile-pi-local 2478c8d6428e9f7a15745feade4382273fe2e7bf66277e2295f1339432d79a33
-INSTALL /v0.1.2/demos/neovim/Dollyfile-nvim 3c844db3d33b613e179875d85609833255db06f081b34a530a0a57561269e2b0
+FROM /v0.1.2/demos/local-llm/Dollyfile-pi-local 29037aaa91e0ca52135cd51e687c572b2f1af0f638131f96fa4b6acbb5d80ca3
+INSTALL /v0.1.2/demos/neovim/Dollyfile-nvim 64b82a11eb2979801d64c2db30dd1e786f86ebaa6fb9dcec3f3473cdb13f3637
 REQUIRES TOOL pi
 REQUIRES TOOL nvim
 REQUIRES TOOL janis

@@ -15,8 +15,8 @@ REQUIRES HOST runtime@0
 # - zlib, for the shell's archives (.archive, sqlite3 -A, zip files as tables);
 # - linenoise (--with-linenoise): the terminal has no line discipline, so the
 #   shell edits its own lines.
-FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
-INSTALL /v0.1.2/Dollyfile-zlib d4b599bd8e0b9abadc856d1c387716fde1982758021a8ff16d6e77b5fcde90ef
+FROM /v0.1.2/Dollyfile-system-tools 6d24c018ea4deb8800bccd0e0804aceea3ebcc99bc588d128871aeebbeb149e6
+INSTALL /v0.1.2/Dollyfile-zlib de52ff78ed3be8aa36d3e05f10b3ce18606d8c26ac0ec3218f8475720e9fff39
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib

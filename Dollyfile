@@ -15,16 +15,16 @@ REQUIRES HOST upload@0
 # The image people open: a shell, its text tools, the terminal, curl and amy.
 # It holds no compiler; amy installs what a session needs. The host modules
 # are those packages may need, since an image's list is fixed.
-INSTALL /v0.1.2/Dollyfile-core df5b101a605e45348e95929d202fb24c3a1e38cb0f69763a0973047710294220
-INSTALL /v0.1.2/Dollyfile-posix f86fffdfdd22e67543d0c8f787f3623f6cf1953f89242a0da66ae287d21a9ec2
-INSTALL /v0.1.2/Dollyfile-display 133d99fcd484b7cb260939ee300895459bd30164ec61aadfcd853cb9571215e8
-INSTALL /v0.1.2/Dollyfile-curl fa7dc027b8d70e8439ba5f6e03c12c396af3773b38577ceec7bcb30763a0c6f3
-INSTALL /v0.1.2/Dollyfile-amy 32d0c32b1443a49c7ef0720e261961ca6f6ca4f6b7419222392f2ca4a321bcb0
+INSTALL /v0.1.2/Dollyfile-core c1c0894ea836f0e380bec49fc9caab44851f6fee0419b38b6133b6af783dee7b
+INSTALL /v0.1.2/Dollyfile-posix fc610080dec33d59d00bce5104af7a2ac90fda7b78aa1f4bc4beadbf31b144f1
+INSTALL /v0.1.2/Dollyfile-display 4e221423a0cfaa4b178e73b0132d86321524a3a1d377a44e75e79dacb87d1050
+INSTALL /v0.1.2/Dollyfile-curl 81e861b717ce22eaf5110cc9ea457f278c58e4931ceeeff9011b4e4c052a1cad
+INSTALL /v0.1.2/Dollyfile-amy 3a38ab0190f29026fd71c3d49e7486aa3b8533770d1806eaad7124545d849136
 # The page's file exchange. system-tools builds them and no package holds them yet.
-COPY /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632 /bin/download /bin/download
-COPY /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632 /bin/upload /bin/upload
-COPY /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632 /usr/share/man/cat1/download.1 /usr/share/man/cat1/download.1
-COPY /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632 /usr/share/man/cat1/upload.1 /usr/share/man/cat1/upload.1
+COPY /v0.1.2/Dollyfile-system-tools 6d24c018ea4deb8800bccd0e0804aceea3ebcc99bc588d128871aeebbeb149e6 /bin/download /bin/download
+COPY /v0.1.2/Dollyfile-system-tools 6d24c018ea4deb8800bccd0e0804aceea3ebcc99bc588d128871aeebbeb149e6 /bin/upload /bin/upload
+COPY /v0.1.2/Dollyfile-system-tools 6d24c018ea4deb8800bccd0e0804aceea3ebcc99bc588d128871aeebbeb149e6 /usr/share/man/cat1/download.1 /usr/share/man/cat1/download.1
+COPY /v0.1.2/Dollyfile-system-tools 6d24c018ea4deb8800bccd0e0804aceea3ebcc99bc588d128871aeebbeb149e6 /usr/share/man/cat1/upload.1 /usr/share/man/cat1/upload.1
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL echo
