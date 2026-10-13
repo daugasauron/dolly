@@ -74,6 +74,20 @@ for (const browser of browsers) {
     assert.match(built, right("dolly: preparing [^\\n]* executable"), built);
     assert.doesNotMatch(built, /^[^│\n]*dolly: [^\n]*│/m, built);
 
+    // An editor in the other pane draws in its pane: its text on the pane's
+    // first row, and the status line still the screen's last.
+    await prefix("o");
+    await input("amy install vi > /dev/null 2>&1; vi /tmp/edited\r");
+    await waitText(left("~"));
+    await page.keyboard.type("ihello from the left pane");
+    const edited = (await waitText(left("hello from the left pane"))).trimEnd().split("\n");
+    assert.match(edited[0], /^hello from the left pane\s*│/, edited.join("\n"));
+    assert.match(edited.at(-1), /^\[0\] 0:/, edited.join("\n"));
+    await page.keyboard.press("Escape");
+    await input(":q!\r");
+    await waitText(/^dolly:[^│\n]*\$\s*│[^\n]*\n\[0\] 0:/m);
+    await prefix("o");
+
     // The window resized: the program in the pane takes SIGWINCH and reads its new size.
     await input("clear && /tmp/size\r");
     const [, columns, rows] = /│SIZE-0 (\d+)x(\d+)/.exec(await waitText(right("SIZE-0 \\d+x\\d+")));

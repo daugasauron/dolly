@@ -40,7 +40,9 @@ puts an editor beside a shell.
   `-levent_core`, and `-ldolly-sockets` after it for a program that gives
   it sockets.
 - [`Dollyfile-libterminfo`](Dollyfile-libterminfo): builds NetBSD's
-  libterminfo, its tables written by its own scripts with `nbperf` and
+  libterminfo with one fix (`tparm` formatted a number as a long and passed
+  an int, which on wasm64 gave tmux cursor addresses from the stack's
+  leftovers), its tables written by its own scripts with `nbperf` and
   `tic` compiled in the same recipe: `-lterminfo`, `<term.h>` and
   `<termcap.h>`. It is not curses, which is not built.
 - [`Dollyfile-tmux`](Dollyfile-tmux): installs the two, states what

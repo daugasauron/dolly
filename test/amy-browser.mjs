@@ -191,8 +191,10 @@ const programs = {
     "event_base_once(base, -1, EV_TIMEOUT, fire, &ends[1], &soon); return event_base_dispatch(base) < 0 || seen != 1; }' " +
     "> /tmp/amy-event.c && cc -O0 /tmp/amy-event.c -levent_core -o /tmp/amy-event && /tmp/amy-event",
   // The description of the display's terminal, and a cursor address written from it.
+  // The stack is dirtied first: the address is formatted from the numbers given, not from what lay there.
   libterminfo: "printf '%s\\n' '#include <term.h>' '#include <string.h>' " +
-    "'int main(void) { int error; if (setupterm(\"xterm-256color\", 1, &error) != OK) return 2; " +
+    "'static void dirty(void) { volatile char stack[16384]; memset((char *)stack, 255, sizeof(stack)); }' " +
+    "'int main(void) { int error; if (setupterm(\"xterm-256color\", 1, &error) != OK) return 2; dirty(); " +
     "return tigetnum(\"colors\") != 256 || strcmp(tiparm(tigetstr(\"cup\"), 4, 9), \"\\033[5;10H\") != 0; }' " +
     "> /tmp/amy-term.c && cc -O0 /tmp/amy-term.c -lterminfo -o /tmp/amy-term && /tmp/amy-term",
   // pkg-config knows a library once its package is there, and gives cc its flags.
