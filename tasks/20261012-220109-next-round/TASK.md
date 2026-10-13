@@ -4,17 +4,75 @@
 - PRIORITY: 150
 - TAGS: catalog,owner,packages,host-modules
 
-State (2026-10-13): the round of 2026-10-13 took four of the seven items this
-task was filed with: `pty@0` as a contract with tmux, `default` installing
-`transfer`, dependencies by reference, and `python` installing `cc` and
-`ninja`; `nena@0` answers a fifth, since `default` now enables a module
-instead of declaring it. After it, with no round: `zero-ad` became an image
-of its own packages (audit 19), and `gpu-sdk` and `audio-sdk`, which held
-nothing, were deleted (audit 18). Nothing below is started. Each item is the
-owner's to take or leave.
+State (2026-10-14, 04:10). In the night of 2026-10-14 the owner's feedback
+of the evening was done and verified without a round (a minimal `ps`, tmux's
+two defects, the CPU/GPU column out, `javascript` split into `quickjs`,
+`janis` and `typescript`, the four-part Qwen model out), and every point of
+the two reports he called too blunt was investigated without deciding. What
+waits for him is below, first the questions, then what a round would carry.
+Nothing below is started. Each item is the owner's to take or leave.
 
 Done when: each item is in a round that passed, or is dropped here with the
 reason.
+
+## Questions the investigations leave to the owner (2026-10-14)
+
+Each task holds its report and a summary; none gives a verdict.
+
+The language:
+
+- [What a package needs only to build](../20261013-144754-build-needs/TASK.md):
+  a base image per set of tools, as today, or a way to say it in the
+  recipe. Every investigation of builds came back to this.
+- [What a library package declares of host modules](../20261013-175624-library-hosts/TASK.md):
+  what every program built with it needs, or nothing because its archive
+  stamps nothing. `sdl2` and `mojo` answer differently today.
+- [The words to retain, export and require](../20261013-144241-dollyfile-words/TASK.md),
+  [`COPY`](../20261013-144241-copy-directive/TASK.md),
+  [the three roles](../20261013-144241-roles/TASK.md),
+  [`SLOP` and `RUN`](../20261013-144241-slop-and-run/TASK.md): each has a
+  design record or a ruling of his that the reflection had not read.
+- [Eight toolchains called build-only have an `ENTRY`](../20261013-161624-build-only-entry/TASK.md):
+  which of the two is meant.
+
+The process contract and the kernel:
+
+- [File modes](../20261006-120641-umask/TASK.md): whether "one user, no
+  permission bits" covers a bit that is kept and not enforced; a branch that
+  stores and enforces is built and waits.
+- [The line discipline](../20261013-144241-line-discipline/TASK.md): never
+  decided away; the question was filed on 2026-10-01 and not taken.
+- [`SPAWN_INTERACTIVE`](../20261013-144241-spawn-interactive/TASK.md),
+  [`runtime.h`](../20261013-144241-runtime-h/TASK.md),
+  [the twin operations and module numbers](../20261013-144241-contract-twins/TASK.md).
+- [Who holds a terminal](../20261013-154704-terminal-holder/TASK.md) (tmux's
+  window names): what a process may learn about another.
+
+The browser runtime and the boundary:
+
+- [What every page ships for tests](../20261013-144241-test-surface/TASK.md):
+  what `__dolly` is, put to him four times since 2026-09-30.
+- [The supervisor's own tree and limit](../20261013-144241-supervisor-mirror/TASK.md),
+  with the memory budget decided on 2026-10-01 and not built.
+- [Chrome keeps a terminated Worker for two seconds](../20261013-183624-worker-two-seconds/TASK.md):
+  three measured lines, not committed.
+- [The recipe language parsed twice](../20261013-144241-recipe-parsers/TASK.md)
+  and [the one list nothing compares](../20261013-170737-receipt-hosts/TASK.md).
+- [The broker's list of credential header names](../20261013-190106-credential-headers/TASK.md).
+- [The mouse in the terminal](../20261013-154704-terminal-mouse/TASK.md).
+
+Host modules:
+
+- [Headers and clients in the seed](../20261013-144241-module-sdks/TASK.md).
+- [The touch module](../20261013-144001-touch-module/TASK.md): the
+  groundwork is gathered, sixteen questions, the contract is his.
+
+Builds as packages ([overview](../20261013-142800-generic-builds/TASK.md)):
+[SpiderMonkey and the 0 A.D. libraries](../20261013-145359-builds-zero-ad-deps/TASK.md),
+[the base images](../20261013-145359-builds-root/TASK.md),
+[the views](../20261013-145359-builds-views/TASK.md),
+[the engines](../20261013-145359-builds-engines/TASK.md),
+[what is compiled twice](../20261013-145359-builds-twice/TASK.md).
 
 ## The audit's ranking, as the owner reads it
 
@@ -64,15 +122,19 @@ the builds as packages).
   pixels".
 - At their next rebuild: `xonotic-build` and `wine-build` install `libpng`
   and `freetype`; `gamedev-sdk` drops its `/usr/lib/libm.a`.
-- `qwen3.5-4b` is one package of four rows now; the four shard packages stay
-  until Pi's `/local` installs the one.
+- `qwen3.5-4b` and its four shards left the catalog on 2026-10-14
+  ([task](../20261013-143039-qwen-4b-out/TASK.md)); the limit that split it
+  is recorded there.
 - From tmux in use ([task](../20261013-133111-tmux-use/TASK.md)), each a
   task now: [the terminal reports the mouse to no program](../20261013-154704-terminal-mouse/TASK.md)
   (`src/ghostty/display.c`, an image input);
   [nothing can ask which program holds a terminal](../20261013-154704-terminal-holder/TASK.md)
   (tmux's window names, a new pane's directory);
-  [CJK and emoji are boxes](../20261013-154704-terminal-glyphs/TASK.md). And
-  the comment on `dolly_terminal_write_bytes` in
-  `abi/dolly-supervisor-0.wat`, pinned in the docs package, should say that
-  the supervisor's words go to the terminal of the process being launched
-  (`2fcc6c62`).
+  [CJK and emoji are boxes](../20261013-154704-terminal-glyphs/TASK.md). The
+  comment on `dolly_terminal_write_bytes` in `abi/dolly-supervisor-0.wat` is
+  corrected (2026-10-14).
+- Small stale things for a round, none a decision:
+  [comments that still say `COMPILEC`, the parser's `kind`, two wrong comments](../20261013-160335-stale-words/TASK.md).
+- `mojo run`'s refusal says what to type instead
+  ([task](../20261013-134032-mojo-run-message/TASK.md)), with the next
+  rebuild of `mojo-build`.
