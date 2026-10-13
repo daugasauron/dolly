@@ -4,6 +4,66 @@
 - PRIORITY: 240
 - TAGS: core,kernel,slop
 
+## State (2026-10-14, 03:35): investigated, the owner's to read
+
+[The investigation](investigation.md), by a Fable agent that read `main` and
+the branches `core/file-modes` and `core/file-modes-2`, and changed nothing.
+The integrator checked the decision's commit and its message, the document's
+paragraph, Slop's refusal of `umask`, the libc adapter's `chmod`, the
+socket marker and the branch's size. Of the thirteen recipes it says write a
+`configure`'s answers by hand, seven say so in one line that a search finds;
+the others were not counted again. It gives no verdict. What it found:
+
+- The owner's decision of 2026-09-30 and its reason are on record. Real,
+  enforced modes existed for three hours that day (`26277ef5`, answering an
+  audit: "`chmod` … report success without doing anything") and were
+  removed (`d41df0cb`): "That reversed a documented design". The reason
+  written the same hour: "One user, no permission bits. Every process is
+  the same principal and the containment boundary is the browser, so modes
+  would protect nothing. Execute bits never select programs"
+  (`docs/architecture.md`). A non-goal since 2026-08-31: "permission and
+  user models inside a single disposable sandbox".
+- That decision removed storing and enforcing together. The sources it
+  cites say both things: "Modes are compatibility metadata, not an
+  execution permission model" (a bit that is kept and not enforced) and
+  "modes would protect nothing" (against enforcing). No word of the owner
+  was found on a stored, unenforced bit, on `umask`, or on the branch.
+- Today: a created file reports 0644, a directory 0755, every file of an
+  image 0755. `chmod` and `chown` check that the path exists and return 0;
+  `access` ignores what it is asked; the kernel starts any readable file
+  that is a Wasm module or begins with `#!`. Nothing reads an x bit.
+- What an unchanged `configure` needs of modes, read in the scripts: two
+  commands that exit 0 (`umask 077` and `chmod +x config.status`) and
+  `test -x` true afterwards. It never reads a bit back to see it enforced.
+  Slop refuses `umask` by name and no image has a `chmod` command, because
+  a command that succeeds and changes nothing was judged (2026-10-06, by
+  the integrator) to be what `AGENTS.md` rules out.
+- `core/file-modes-2` (2026-10-08) is built and measured: nine bits in the
+  filesystem's own inode, creation mode and mask in the kernel, operations
+  58 and 60, images and sessions in a new format; GNU Make's unchanged
+  `configure` runs to exit 0 in 49 s; `git` sets `core.filemode true`. It
+  enforces read and write bits, because WasmFS enforces what its inode
+  holds. It is not on `main` by no decision of the owner's: it was cut from
+  0.1.0 under "keep it lean" and not taken up since.
+- The reflection's "store the bits and enforce nothing" has no code:
+  storing in the inode means WasmFS enforces; not enforcing needs a kernel
+  that lends bits around every call, or modes kept beside the inode.
+- One thing in the kernel relies on today's rule: a bound socket's path is
+  a file marked with the sticky bit, "which no process can set: chmod
+  changes nothing" (`src/process-kernel.h:85-88`, 2026-10-08).
+- By reading, not measured on `main`: `git` records a new script as 644 and
+  checks an executable out as 644; both `tar`s drop the mode; `install -m`
+  is accepted and dropped; `cp -p` is refused. tmux needed a compile flag
+  because `mkdir(0700)` reads back 0755.
+- Any form that passes a mode to the kernel edits `process.h`, so every
+  executable and image; modes that survive a save change the record's
+  format too. Only a `umask` builtin and a `chmod` command that change
+  nothing touch no contract, and that is the form refused in 2026-10-06.
+- Not found out: whether "one user, no permission bits" covers a stored
+  bit that nothing enforces; which programs find executables by
+  `access(X_OK)`; what a catalog round on the branch costs today (it is 325
+  commits behind).
+
 ## State (2026-10-13)
 
 The reflection on the direction

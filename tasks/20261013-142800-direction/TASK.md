@@ -75,10 +75,12 @@ What came out, in one line each (the tasks hold the evidence):
    times and never answered.
 7. [No line discipline](../20261013-144241-line-discipline/TASK.md): the
    first commit had one in the kernel; private processes made it
-   unreachable and it was removed as a hazard, not by decision. No stored
-   file mode: [umask](../20261006-120641-umask/TASK.md), not investigated
-   this night. No list of processes: [ps](../20261013-132514-ps/TASK.md),
-   done.
+   unreachable and it was removed as a hazard, not by decision.
+   [No stored file mode](../20261006-120641-umask/TASK.md): the owner
+   decided "one user, no permission bits" on 2026-09-30 with its reason;
+   an unchanged `configure` needs two commands that exit 0, and a branch
+   that stores and enforces modes is built and waits. No list of
+   processes: [ps](../20261013-132514-ps/TASK.md), done.
 8. [The recipe language parsed twice](../20261013-144241-recipe-parsers/TASK.md):
    the page parses because a build's base holds the engine, so the base
    must be there before a row can be read; the list the page trusts is
