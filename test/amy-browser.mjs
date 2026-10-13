@@ -266,6 +266,8 @@ const pages = {
   mandoc: { mandoc: "manual" },
   tar: { tar: "archive" },
   meson: { meson: "build" },
+  lua: { lua: "interpreter" },
+  nvim: { nvim: "edit text" },
 };
 const reads = name => Object.entries(pages[name] ?? {}).map(([page, word]) =>
   `man ${page} > /tmp/amy-man && grep -q '${word}' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man`);
