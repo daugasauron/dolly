@@ -106,3 +106,45 @@ tmux draws next is in the wrong place until it redraws: wrong rows, text in
 another pane, a status line that goes and comes back. Which addresses came
 out wrong depended on what tmux had done before, so it looked like many
 bugs. The library's recipe now makes `onum` take the long it is given.
+
+`6a50ec00`. Before it, both new checks failed in Chromium: the tmux test's
+editor in the left pane never had its text on the pane's first row, and
+amy's `libterminfo` case, which now dirties the stack before it asks for a
+cursor address, got another address. The recipe change rebuilds
+`libterminfo`, `tmux` and `tmux-panes`.
+
+### 3. tmux used as a person uses it (after the two fixes)
+
+`use.mjs`, a screenshot after each step (`use-BROWSER-NN-*.png`), on
+`default`: three windows and switching between them by `n`, `p` and number,
+a rename; panes split both ways, moving between them, zoom, resizing a pane
+and the browser window; 3000 lines of output and copy mode back through
+them; `less` and `vi` in a pane, `vi` beside a pane that scrolls; Ctrl+C;
+256 colours, bold, underline, reverse; a paste; `less` in a second window
+while switching away and back; detach and attach. Each screen is as tmux
+means it.
+
+What it met that is not tmux's and not fixed here:
+
+- **The mouse does nothing in tmux.** tmux asks the terminal for mouse
+  reports (`mouse` is on in this build) and gets none: a click selects no
+  pane and the wheel scrolls nothing. The display's terminal keeps the
+  pointer and the wheel for its own selection and scrollback
+  (`docs/input.md`) and has no scrollback to show under a full-screen
+  program. Reproduce: two panes, click in the other one, type. Reporting the
+  mouse to a program that asks is the display library's
+  (`src/ghostty/display.c`), an image input: left.
+- **A window's name stays `slop`** whatever runs in it, and a new pane
+  starts in the server's directory, not the pane's. The port's
+  `osdep_get_name` and `osdep_get_cwd` answer nothing: the kernel has no
+  way to ask which program holds a terminal or where it stands. Left until
+  it has one.
+- **Ctrl+Z does nothing**, here as at the display's terminal: Dolly's
+  processes do not stop (`docs/process-model.md`).
+- CJK text and emoji are drawn as boxes, two cells wide as they should be:
+  the terminal's font has no glyphs for them, in tmux or out of it.
+
+The same in Firefox, screen for screen. The status row sampled again after
+the fixes (`flicker.mjs`): no change in any phase in either browser, the
+editor in the left pane and a pane scrolling beside it among them (before:
+five changes and the row gone).
