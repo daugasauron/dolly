@@ -102,4 +102,8 @@ Searched on `main` `e72b7f8e`, nothing changed:
   shows in `npm run image -- --plan` after the edit.
 - The search reads names in `.mjs`, `.js` and `.html` files. It does not see
   a function that is exported, imported and never called.
+- Imported names their own file never uses, in the 231 `.mjs` files of
+  `src/`, `host/`, `scripts/` and `test/`: one, `mkdir` in
+  `test/host-modules.test.mjs:3`. Removed (2026-10-14; that file's six tests
+  and the source tests pass, 430/0).
 
