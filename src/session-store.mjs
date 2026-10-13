@@ -1,3 +1,4 @@
+import { alphabetical } from "./alphabetical.mjs";
 import { inspectDollyfile, validName } from "./dollyfile-view.mjs";
 import { imageInputs } from "./image-inputs.mjs";
 import { publicURL } from "./static-asset.mjs";
@@ -62,7 +63,7 @@ export function sessionLoadUrl(name, applicationBase) {
 export async function listStoredSessions() {
   const records = await transaction("readonly", store => store.getAll());
   return records.map(({ bytes, ...metadata }) => ({ ...metadata, byteLength: bytes.size }))
-    .sort((left, right) => right.updatedAt - left.updatedAt);
+    .sort((left, right) => alphabetical(left.name, right.name));
 }
 
 async function collectStream(stream, maximum) {

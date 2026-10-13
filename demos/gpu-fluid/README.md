@@ -25,7 +25,7 @@ stirring, Q or Escape returns to Slop. `fluid --check` verifies the solver;
   `gpu@0`; not a complete WebGPU API.
 - [`src/app.c`](src/app.c): Dolly input, timing and a replacement control panel
   for ImGui.
-- [`test/fluid-browser.mjs`](test/fluid-browser.mjs): Chrome and Firefox
+- [`test/gpu-fluid-browser.mjs`](test/gpu-fluid-browser.mjs): Chrome and Firefox
   rendering, interrupt/restart and packet validation.
 
 ## Limits

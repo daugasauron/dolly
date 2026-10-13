@@ -17,22 +17,32 @@ curl; `amy install NAME` adds a package, such as `cc` (C and C++, make) or
 megabytes for default, far more for the largest. The bulk is under dist/,
 which crawlers are asked to leave alone.
 
+## Driving a page
+
+The terminal is drawn on a canvas, so its text is not in the page's DOM: read
+it from a screenshot. The `data-dolly-status` attribute of the page's `html`
+element says where the page is: `loading`, then `ready` when the image runs
+(`built` on a rebuild page of an image that only builds), `failed` when it
+could not start, with the reason in the page's text, and `exited` when the
+image's program has ended. Once it is `ready`, keys typed into the page go to
+the terminal.
+
 ## Pages
 
-- [Menu](./): every image with its page, its rebuild page and its recipe
-- [default](default/): boots the default image to a shell prompt
-- [Recipe of default](view/default/): its Dollyfile and sources
-- [Your own image](custom/): write a recipe and build it in the page
-- [Saved sessions](sessions/): list, export and import saves
+- [default](default/): boots the default image to a shell prompt; start here
 - [Licences](licences/): the licences of what is served, and upstream sources
+- [Menu](./): every image with its page, its rebuild page and its recipe
+- [Recipe of default](view/default/): its Dollyfile and sources
+- [Saved sessions](sessions/): list, export and import saves
+- [Your own image](custom/): write a recipe and build it in the page
 
 ## Files
 
-- [Package index](amy-index.txt): what `amy install` can fetch
-- [Dollyfile](docs/dollyfile.md): the recipe language, packages and `amy`
-- [Slop](docs/slop.md): the shell and its commands
-- [HTTP](docs/http.md): the broker, CORS and what it refuses
-- [Sessions](docs/sessions.md): saving, exporting, file transfer
-- [Browser boundary](docs/browser-boundary.md): what a page can reach
 - [Architecture](docs/architecture.md): components, system calls, images
+- [Browser boundary](docs/browser-boundary.md): what a page can reach
+- [Dollyfile](docs/dollyfile.md): the recipe language, packages and `amy`
+- [HTTP](docs/http.md): the broker, CORS and what it refuses
+- [Package index](amy-index.txt): what `amy install` can fetch
+- [Sessions](docs/sessions.md): saving, exporting, file transfer
+- [Slop](docs/slop.md): the shell and its commands
 - [Source](https://github.com/daugasauron/dolly)

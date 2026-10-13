@@ -1,18 +1,22 @@
 # Phone: Pi by buttons and speech (parked), and touch for programs
 
 - STATUS: OPEN
-- PRIORITY: 100
-- TAGS: demo,speech,pi,phone,host-modules
+- PRIORITY: 60
+- TAGS: demo,speech,pi,phone,host-modules,owner
 
-## State (2026-10-12)
+## State (2026-10-13)
+
+Parked by the owner on 2026-10-10: "I want to park this locally for now and focus on the wine
+stuff." It waits for him to take it up again; lowered from 100 for that reason.
 
 In v0.1.2, on the domain: the `pi-phone` image, `voice`, `buttons@0` (`7a6daada`, `c6fed63f`),
 the 48-column font rule (`870b6ab4`), and in `host/input` a finger's drag that scrolls the
 terminal and a pinch that changes the font's size (`c6fed63f`, `077bb981`). "Done means" 1 to 6
 are met in Chrome's phone emulation and on the owner's phone ("Result", "On the owner's phone").
+On `main` on 2026-10-13 the tests of `pi-phone` and `speech` passed in Chrome
+(`work/rust/build/integrate-evidence/final-demos.log`).
 
-Parked by the owner on 2026-10-10: "I want to park this locally for now and focus on the wine
-stuff." Lowered from 200 for that reason. Open, in the order to take it up:
+Open, in the order to take it up:
 
 1. **Hearing is slow on a phone** (1.8 times as fast as speech, against 29 on this desktop):
    whether the phone's Chrome has WebGPU and transcribe.cpp's ggml a backend for it over

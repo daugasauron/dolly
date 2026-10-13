@@ -1,8 +1,9 @@
 if exists('b:current_syntax')
   finish
 endif
-syntax match dollyDirective /^\s*\%(DOLLY\|IMAGE\|MODULE\|FROM\|COPY\|USE\|SOURCE\|REQUIRES\|EXPORTS\|SLOP\|FILE\|FOLDER\|ENTRY\)\>/
+syntax match dollyDirective /^\s*\%(DOLLY\|APPLICATION\|TOOLCHAIN\|PACKAGE\|FROM\|INSTALL\|COPY\|SOURCE\|REQUIRES\|EXPORTS\|RUN\|SLOP\|FILE\|FOLDER\|ENTRY\)\>/
 syntax keyword dollyType HOST TOOL LIB ENV HEADER CWD APPEND
+syntax match dollyType /\%(^\s*\%(EXPORTS\|REQUIRES\)\s\+\)\@<=\%(FILE\|FOLDER\)\>/
 syntax match dollyHash /\<[0-9a-f]\{64}\>/
 syntax match dollyComment /^\s*#.*/
 syntax region dollyBody matchgroup=dollyDirective start=/^FILE\>/ end=/^\ze\S/ keepend

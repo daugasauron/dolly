@@ -16,9 +16,10 @@ import {
 } from "./image-definitions.mjs";
 import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
 import { renderDollyfilePage } from "./render-dollyfile-view.mjs";
-import { imageDescriptions, menuRow, pageRoutes } from "./image-menu.mjs";
+import { imageDescriptions, menuBody, menuGroup, pageRoutes } from "./image-menu.mjs";
 import { bundleProcessWorker } from "./bundle-process-worker.mjs";
 import { renderLicencesPage, upstreamInventory } from "./upstreams.mjs";
+import { alphabetical } from "../src/alphabetical.mjs";
 import { siteReference } from "../src/static-asset.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
@@ -38,31 +39,24 @@ const openable = new Set(graphs.filter(({ definition, graph }) =>
   definition.parsed.entry && graph.root.hostRequirements.includes("display@0")).map(({ definition }) => definition.image));
 await writeImageRegistry(projectDir, definitions, staticSources);
 const descriptions = await imageDescriptions(projectDir);
-// Applications (default first), then toolchains by directory, then packages.
-const roles = [["application", "Applications"], ["toolchain", "Toolchains"], ["package", "Packages"]];
-const rank = ({ image, parsed, filename }) =>
-  [roles.findIndex(([role]) => role === parsed.role), image === "default" ? "" : dirname(filename), image];
-const ordered = [...definitions].sort((a, b) => {
-  const [left, right] = [rank(a), rank(b)];
-  return left[0] - right[0] || left[1].localeCompare(right[1], "en") || left[2].localeCompare(right[2], "en");
+const described = definitions.map(({ image, parsed }) => {
+  const description = descriptions.get(image);
+  if (!description) throw new Error(`${image}: describe it as "- \`${image}\`: …" in its README`);
+  return { image, description, parsed };
 });
-const rows = ordered.map((definition, index) => {
-  const description = descriptions.get(definition.image);
-  if (!description) throw new Error(`${definition.image}: describe it as "- \`${definition.image}\`: …" in its README`);
-  const heading = ordered[index - 1]?.parsed.role === definition.parsed.role ? "" :
-    `<tr class="group"><th colspan="3">${roles.find(([role]) => role === definition.parsed.role)[1]}</th></tr>\n`;
-  return heading + menuRow(definition.image, description, openable.has(definition.image));
-});
-const menu = await readFile(resolve(projectDir, "menu.html"), "utf8");
+const groups = [["application", "Applications"], ["package", "Packages"], ["toolchain", "Toolchains"]]
+  .map(([role, heading]) => [heading, described.filter(({ parsed }) => parsed.role === role)])
+  .filter(([, images]) => images.length).map(([heading, images]) => menuGroup(heading, images));
+const menu = (await readFile(resolve(projectDir, "menu.html"), "utf8")).replaceAll("{{DOLLY_PRIMARY}}", primaryImage);
 await writeFile(resolve(projectDir, "index.html"),
-  menu.replace(/<tbody>[\s\S]*?<\/tbody>/, () => `<tbody>\n${rows.join("\n")}\n</tbody>`));
+  menu.replace(/<tbody>[\s\S]*?<\/tbody>/, () => `<tbody>\n${menuBody(groups)}\n</tbody>`));
 await mkdir(resolve(projectDir, "licences"), { recursive: true });
 await writeFile(resolve(projectDir, "licences/index.html"),
   renderLicencesPage(menu, await upstreamInventory(projectDir, definitions)));
 // The package index people and amy read: "NAME PATH SHA256 DESCRIPTION" per
 // package, the INSTALL row's operands and the description the menu shows.
 await writeFile(resolve(projectDir, "amy-index.txt"), definitions
-  .filter(({ parsed }) => parsed.role === "package")
+  .filter(({ parsed }) => parsed.role === "package").sort((left, right) => alphabetical(left.image, right.image))
   .map(({ image, filename, source }) => `${image} ${siteReference(filename)} ` +
     `${createHash("sha256").update(source).digest("hex")} ${descriptions.get(image)}\n`)
   .join(""));

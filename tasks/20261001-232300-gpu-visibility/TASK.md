@@ -1,31 +1,47 @@
 # GPU or CPU: the start page and the image pages do not say which a demo uses
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: gpu,display,ux,demo
 
-## State (2026-10-12)
+## Closed (2026-10-13, `46a6cb94` and `8a7561d8`)
 
 Owner (2026-10-01): "everything that uses GPU should be obvious. The user should always know if
 GPU is used or if there's some CPU fallback in place."
 
-Shipped: the trusted `#gpu-status` indicator with its three states (hardware adapter, software
-adapter, WebGPU unavailable) and `test/gpu-indicator-browser.mjs`. Since `7ecc1466` the corner
-indicators hide after ten seconds and return on Ctrl+Shift+F (the owner's decision,
-`20261006-105730-corner-indicators`), so "persistent" in the done-when means that.
+What says it now, each derived from the image's `REQUIRES HOST` lines and nothing else: a
+program reaches a GPU only through `gpu@0`, so an image that does not declare it draws and
+computes everything on the CPU, whatever its renderer.
 
-Left, checked against `main` today (`scripts/image-menu.mjs` and
-`scripts/render-dollyfile-view.mjs` name no GPU):
+- **The start page**: every row has a "Uses" cell, `GPU` for an image that declares `gpu@0` and
+  `CPU` for every other image that opens (`graphics` in `scripts/image-menu.mjs`); a row that
+  cannot be opened and declares no `gpu@0` says nothing. The cell's title says what the word
+  means. So ClassiCube, Airtime, RTS Arena, Xonotic and Wine say `CPU`, as do the shells.
+- **An image's page with `gpu@0`**: the `#gpu-status` indicator shipped on 2026-10-01 names the
+  adapter (`GPU: …`), a software adapter (`CPU (software GPU): …`) or why there is none, with
+  the link to the enable steps ("Page indicator", below). Since `7ecc1466` the corner indicators
+  hide after ten seconds and return on Ctrl+Shift+F (the owner's decision,
+  `20261006-105730-corner-indicators`); the start page's shortcuts name the chord now.
+- **An image's page without `gpu@0`**: the same indicator says `CPU: this image has no GPU
+  module` (`indicateNoGpu` in `src/page-indicators.mjs`, `data-gpu="absent"`). Before, such a
+  page said nothing.
+- **Firefox** (from `20261005-225813-firefox-adapter`): it hides every adapter's name, and the
+  indicator says what it can know, `GPU: unnamed WebGPU adapter`. Whether a second, unused
+  adapter exists a page cannot learn: WebGPU answers one request with one adapter.
+  `docs/gpu.md` ("Enabling WebGPU") says which adapter each browser gives, measured, and the
+  flags and the Mesa variable that force another.
 
-- Start-page and image-page labels (GPU, software adapter, CPU) for the demo images, derived
-  from `REQUIRES HOST gpu@0` and the demo's README line ("Start page and image page labels").
-  SDL2 games and Slopyard's raylib path draw on the CPU and no page says so.
-- From `20261005-225813-firefox-adapter` (closed into this task): when Firefox hides the
-  adapter's name, say what the indicator can truthfully say and whether a second, unused
-  adapter exists; `docs/gpu.md` says how to tell which card is in use and how to switch.
+Tests, 2026-10-13, Chrome 151 and Firefox 155: `test/site-browser.mjs` (every row's label
+against the registry's host modules; `default`'s page has the indicator in the state `absent`),
+`test/indicators-browser.mjs` (the indicator is shown on `system`'s page and leaves with the
+others) and `test/gpu-indicator-browser.mjs` (software adapter, a Worker without an adapter, no
+WebGPU). Its `hardware` case needs a GPU window and was last run on 2026-10-01.
 
-Lowered from 200: what keeps the user informed while a program runs is shipped; the rest is
-wording on two pages and one document.
+Known and not changed: inside a GPU image the guest is told only `WebGPU`, never the adapter (a
+fingerprinting choice of `host/gpu/worker.mjs`), so the local-LLM status line says `GPU` on a
+software adapter too, and llama.cpp runs some operations on the CPU ("Demo audit"); the page's
+indicator is the authority. `docs/gpu.md` does not yet name the `absent` state: that sentence
+is on `core/site-polish-help`, because the document is an image input.
 
 ## Measured (2026-10-01, Linux, NVIDIA Blackwell)
 

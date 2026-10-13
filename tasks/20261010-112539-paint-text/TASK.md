@@ -1,19 +1,17 @@
 # Paint's text tool does not write
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: bug,wine,demo
 
-## State (2026-10-12)
+## Closed into `20261012-232215-owner-answers` (2026-10-13)
 
-Open, and as the owner found it: in v0.1.2's `wine` image Paint's text tool takes no typing. A
+Not fixed: in the `wine` image Paint's text tool takes no typing, as the owner found it. A
 two-line focus patch made it write (`afd70568`) and was taken out again at the owner's word
-(`2926295a`): "The \"fix\" that seemed to have been added in paint for text input is bad I don't
-want this." He did not say what was bad about it.
-
-Left: ask the owner what was wrong before another attempt. The integrator's guess, unconfirmed:
-text should be typed in the box on the image, as in Windows' Paint, and ReactOS Paint 0.3.17
-takes it in a window of its own, so that is a change to its design, not a patch of two lines.
+(`2926295a`): "The \"fix\" that seemed to have been added in paint for text input is bad I
+don't want this." He did not say what was bad about it, and another attempt before he does
+would be a guess. The question is the third item of `tasks/20261012-232215-owner-answers`; the
+reproduction and the removed fix are below.
 
 ## The report
 

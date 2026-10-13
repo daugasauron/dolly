@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { escapeHtml } from "./render-dollyfile-view.mjs";
+import { alphabetical } from "../src/alphabetical.mjs";
 import { siteReference, sitePath } from "../src/static-asset.mjs";
 
 // config/upstreams.json names every upstream the catalog builds or bundles.
@@ -77,7 +78,7 @@ export async function upstreamInventory(projectDir, definitions) {
       ...row.seed ? ["runtime"] : [],
     ];
     const entry = { name: row.name, use: row.use, licence: row.licence, repository: row.repository,
-      images: [...row.images], served };
+      images: [...row.images].sort(alphabetical), served };
     if (row.npm) {
       for (const location of locations) {
         for (const item of npmPackages(await readFile(resolve(projectDir, sitePath(location).slice(1))))) {
@@ -91,7 +92,7 @@ export async function upstreamInventory(projectDir, definitions) {
       locations.map(location => /\/([0-9a-f]{40})\//.exec(location)?.[1]).find(Boolean) ?? "";
     inventory.push({ ...entry, version: /^[0-9a-f]{40}$/.test(version) ? version.slice(0, 12) : version });
   }
-  return inventory;
+  return inventory.sort((left, right) => alphabetical(left.name, right.name));
 }
 
 // The licences page, in the front page's style.

@@ -1,32 +1,36 @@
-# 0 A.D.: its content (shaders through Naga, the data packaging) is still prepared on the host
+# 0 A.D.: its content is still prepared on the host; developed matches stall
 
 - STATUS: OPEN
-- PRIORITY: 150
-- TAGS: demo,0ad,bootstrap
+- PRIORITY: 90
+- TAGS: demo,0ad,bootstrap,performance
 
-## State (2026-10-12)
+## State (2026-10-13)
 
-Owner goal: the 0 A.D. engine, SpiderMonkey and its dependencies compiled inside Dolly instead
-of by `demos/zero-ad/toolchain` on the host.
+Two things are left of the 0 A.D. port, and nobody is on either. Neither blocks a user: the
+image plays, and its GPU tests (`0ad-spidermonkey`, `0ad-engine`, `0ad-graphics`) passed in
+each release round, last on 2026-10-11 (`work/rust/build/v012-evidence/round.log`). Lowered from
+150 for that reason.
 
-Met for every compiled file, in v0.1.0 and since: `zero-ad-deps`, `zero-ad-spidermonkey`
-(SpiderMonkey 128.13.0, with mozbuild and Cargo inside Dolly) and `zero-ad-engine` are image
-builds, the host bootstrap scripts are deleted ("0 A.D. on the Dolly-built SpiderMonkey: green"),
-and the GPU tests `0ad-spidermonkey`, `0ad-engine` and `0ad-graphics` passed on it in each
-release round.
-
-Left: the content is prepared on the host before `npm run image -- zero-ad`
-(`demos/zero-ad/README.md`, "Build"):
-
-- `toolchain/prepare-shaders.sh`: SPIR-V to WGSL with Naga, a Rust tool run natively;
-- `toolchain/prepare-headless.sh`, `package-graphics.py` and `prepare-distribution.mjs`: the
-  release data, packaged by the host's Python and Node.
-
-To do: build Naga with the `cargo` package, run `convert-shaders.py` and the packaging in
-Dolly's CPython, and stage the release data as `.tar.gz` (Dolly has no `xz`); then those four
-commands leave the README. Nothing of it is started.
-
-Lowered from 270: no compiled code comes from the host any more.
+1. **The content is prepared on the host** before `npm run image -- zero-ad`
+   (`demos/zero-ad/README.md`, "Build", read on 2026-10-13: the four commands are still there):
+   `toolchain/prepare-shaders.sh` (SPIR-V to WGSL with Naga, a Rust tool run natively) and
+   `toolchain/prepare-headless.sh`, `package-graphics.py`, `prepare-distribution.mjs` (the
+   release data, packaged by the host's Python and Node). To do: build Naga with the `cargo`
+   package, run `convert-shaders.py` and the packaging in Dolly's CPython, and stage the release
+   data as `.tar.gz` (Dolly has no `xz`); then those four commands leave the README. Nothing of
+   it is started. Every compiled file has been built inside Dolly since v0.1.0
+   (`zero-ad-deps`, `zero-ad-spidermonkey` with mozbuild and Cargo, `zero-ad-engine`), which
+   was the owner's goal for this task.
+2. **Developed matches stall**, from `tasks/20260925-064500-0ad-large-match-stalls` (closed
+   into this task on 2026-10-13; its setup command, harness and numbers are there). Four Petra
+   AIs on a 256 mainland map, thirty minutes: mean frame 13.6 ms, 8,837 of 132,654 intervals
+   above 33 ms, the longest 868 ms; one kept 578 ms frame spent 498 ms in Petra. That was
+   measured on 2026-09-25 on the host-built engine, which no longer exists: the engine and
+   SpiderMonkey are built inside Dolly since 2026-10-07, without debug info, and the workload
+   has not been run on them. To do first: run it again (the harness is
+   `.cache/0ad/large-economies-soak.mjs` on this machine; Radeon ICD, two cores, a 6 GiB
+   scope, no other GPU job), then profile Petra's placement searches before changing anything.
+   Keep upstream's simulation, RNG, save and replay identity; no AI fork.
 
 ## SpiderMonkey built inside Dolly, 2026-10-07 09:26 (headline)
 
