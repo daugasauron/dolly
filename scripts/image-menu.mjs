@@ -41,7 +41,8 @@ export function menuRow({ image, description, parsed }) {
   const interactive = parsed.entry && parsed.hostRequirements.includes("display@0"), uses = graphics(parsed);
   const name = interactive ? `<a href="./${image}/">${image}</a>` : image;
   const open = interactive ? `<a href="./${image}/">open →</a>`
-    : '<span class="unavailable" title="This image only builds; rebuild it instead">open →</span>';
+    : `<span class="unavailable" title="${parsed.role === "package" ? `A package: amy install ${image} adds it to a running image`
+      : "This image only builds; rebuild it instead"}">open →</span>`;
   return `<tr class="image" data-image="${image}" data-graphics="${uses}"><th scope="row">${name}</th>
   <td>${graphicsLabels[uses]}</td><td class="description">${description}</td><td><div class="image-links">${open}<a href="./${image}/rebuild/">rebuild</a><a href="./view/${image}/">Dollyfile</a></div></td></tr>`;
 }
