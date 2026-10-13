@@ -88,8 +88,8 @@ flowchart LR
   `clock_gettime(CLOCK_MONOTONIC)` and use the frame only to avoid drawing
   more often than the page shows.
 
-- There is no compositor, DOM or WebGL access; GPU programs use
-  [`gpu@0`](gpu.md).
+- There is no compositor, DOM or WebGL access; a program reaches the GPU
+  through [`gpu@0`](gpu.md).
 
 ## Zig and the Ghostty build
 

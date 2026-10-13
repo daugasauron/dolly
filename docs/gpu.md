@@ -41,18 +41,18 @@ flowchart LR
 ## Enabling WebGPU
 
 While `gpu@0` is enabled, the page shows the adapter its programs get: `GPU`
-with the name the browser gives, `CPU (software GPU)` for a fallback adapter,
-SwiftShader or llvmpipe, or `No GPU` with the reason and a link here, followed
-by whether the adapter has `shader-f16`. Guest frames cannot cover it, and it
-takes no clicks except on that link. Like the page's other indicators
-([`page-indicators.mjs`](../src/page-indicators.mjs)) it shows for ten seconds
-once the page is ready and again when the adapter state changes, `No GPU`
-stays, and `Ctrl+Shift+F` shows or hides it; no program can. An image
+with the name the browser gives, `Software adapter, not a GPU` for a fallback
+adapter, SwiftShader or llvmpipe, or `No GPU` with the reason and a link
+here, followed by whether the adapter has `shader-f16`. Guest frames cannot
+cover it, and it takes no clicks except on that link. Like the page's other
+indicators ([`page-indicators.mjs`](../src/page-indicators.mjs)) it shows for
+ten seconds once the page is ready and again when the adapter state changes,
+`No GPU` stays, and `Ctrl+Shift+F` shows or hides it; no program can. A
+session without the module has no such indicator: `nena disable gpu` removes
+it, and a refused `nena enable gpu` prints its reason and shows none. An image
 that requires `gpu@0` stops before ENTRY when the page gets no adapter; when the
 GPU Worker gets none, `OPEN` fails with `ENODEV` (`ENOSYS` without
-`navigator.gpu`); in an image without `gpu@0`, calls fail with `ENOSYS`, and
-its page shows `CPU: this image has no GPU module` in the same place: none of
-its programs can reach a GPU.
+`navigator.gpu`); in a session without `gpu@0`, calls fail with `ENOSYS`.
 
 The page and the GPU Worker ask for one adapter with
 `powerPreference: "high-performance"`, which selects the discrete GPU of a
