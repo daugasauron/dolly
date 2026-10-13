@@ -28,16 +28,19 @@ the input discarded at exit (`9abd08b0`), and on 2026-10-13 (`core/polish`):
 
 Left (2026-10-14, "Pinned to one processor" has the measurements):
 
-- **Sighting 3** is reproduced and is Emacs's own: in a Chromium that has just started, the
-  first "Find file" loses the name after `/t` in 8 of 42 first steps of the probe and in 6 of
-  37 runs of the demo's test (Firefox 0 of 28 and 0 of 31), pinned to one processor. The kernel hands
-  Emacs all 26 bytes in one `read` (logged in the kernel, failing and passing runs alike) and
-  Emacs handles two of them. Which code of Emacs drops the other 24 is not found: no Lisp call
-  of `discard-input`, no command error. The test is unchanged: 0.3 s between the prompt and the name avoids it (0 of 26), and would
-  hide a loss that is not explained.
+- **Sighting 3** is reproduced and is the Emacs process running out of stack: in a Chromium
+  that has just started, the first "Find file" loses the name after `/t` in 8 of 42 first
+  steps of the probe and in 6 of 37 runs of the demo's test (Firefox 0 of 28 and 0 of 31),
+  pinned to one processor. The kernel hands Emacs all 26 bytes in one `read` (logged in the
+  kernel, failing and passing runs alike). With Chrome kept in its baseline compiler Emacs
+  dies there of "Maximum call stack size exceeded", 8 of 8; entered on the large stack it
+  passes, and the loss is gone, 0 of 70. Left: the decision how Emacs gets that stack (a
+  `dolly.process.stack` section rebuilds `emacs` and `gnu-emacs`; the supervisor's comment says
+  why only the compiler has one), and how a full stack loses bytes without ending Emacs. The
+  test is unchanged; 0.3 s between the prompt and the name would only hide it (0 of 26).
 - **The mouse drag** after font zoom and paste and **"timed out waiting for terminal selection
-  reset"** were not reproduced: the drag 0 of 55 in Chromium and 0 of 105 in Firefox, and no screen read
-  failed in about 9,000 timed ones. A read takes 32 to 57 ms on a processor shared with two
+  reset"** were not reproduced: the drag 0 of 55 in Chromium and 0 of 105 in Firefox, and no
+  screen read failed in about 9,000 timed ones. A read takes 32 to 57 ms on a processor shared with two
   busy loops and at most 75 ms with eight; the reader's limit is 5 s.
 - The ring drops what it has no room for and counts it on the page (`data-input-dropped`); a
   test that types does not read that when it fails.
@@ -49,8 +52,8 @@ Firefox, JavaScript's demo test, Pi's twelve times (12 of 12, twice: with the re
 and with the page and kernel commits).
 
 Done when the two unexplained lines are explained or have a rate from a hundred runs that says
-they are gone, and the code of Emacs that drops the typed-ahead name is found or the loss is
-shown outside the browser. Lowered from 190: what a person met is fixed.
+they are gone, and Emacs's first "Find file" has the stack it needs in a fresh Chromium (the
+demo's test pinned to one processor, 0 of 40). Lowered from 190: what a person met is fixed.
 
 ## Narrowed (2026-10-01, 12:40)
 
@@ -547,12 +550,10 @@ one service tick after the prompt is drawn. Waiting a second between the
 welcome text and `C-x C-f` does not remove it: 2 of the 36 logged first steps
 are of the 20 made with that wait, 3 of the 16 without. With 0.3 s between
 the prompt and the name it is gone: 0 of 26 first steps. All 8 failures are
-in the first browser a test process started and none in a later one, where
-Node answers faster: the name has to arrive in some short moment after the prompt
-is drawn, shorter than a service tick (the kernel's log has the same ticks
-for a step that fails and one that passes).
+in the first browser a test process started and none in a later one; why
+that matters is not known (each browser has a new profile).
 
-### The kernel hands Emacs the whole record; Emacs drops 24 of its 26 bytes
+### The kernel hands Emacs the whole record; 24 of its 26 bytes are lost inside the Emacs process
 
 Measured with a temporary log in the kernel (`fill_terminal_input` of
 `host/input/kernel.c`, the terminal read of `src/process-kernel.c`, the
@@ -584,7 +585,7 @@ text: the two replies Emacs asks for at its start (`ESC [ > 1 ; 0 ; 0 c`,
 follows its question. Not a query sent late (no write of one). Not a command
 error (`*Messages*` is empty of one, and both of Emacs's error paths write).
 
-### Inside Emacs: not a Lisp `discard-input`; the code that drops is not found
+### Inside Emacs: not a Lisp `discard-input`, not a command error
 
 An image built in the page from `gnu-emacs` with one more form in
 `site-start.el`, an advice on `discard-input` that keeps a backtrace
@@ -598,6 +599,37 @@ every byte it reads; `Fdiscard_input` is called from C only for a command
 error and `yes-or-no-p`; nothing else empties `kbd_buffer`. What differs
 between a failing and a passing step is not in the kernel's log.
 
+### The lead: Emacs's first "Find file" runs out of stack while its code is baseline code
+
+Chromium started with `--js-flags=--liftoff-only` keeps WebAssembly in V8's
+baseline compiler, where a fresh browser has every function of a module
+until it compiles the hot ones again:
+
+- the image as built: 8 of 8 first steps end with Emacs's process
+  gone at the prompt, as the name arrives: `dolly: process 103 failed:
+  Maximum call stack size exceeded`, and the image falls to its recovery
+  shell (`emacsfirst-liftoff-c6-*.log`);
+- with every process entered on the large stack (one line changed for the
+  measurement and put back, `largeStack = true` at
+  `src/process-supervisor.mjs:349`: the JSPI entry the compiler alone asks
+  for, 1.9 times as deep in Chrome): 3 of 3 pass;
+- and without the flag, with that line: 0 of 70 first steps lost the name,
+  against 8 of 42 without it (and 6 of 37 runs of the demo's test).
+
+So the first minibuffer of an Emacs built at `-O0` needs more stack than a
+Worker has until Chrome has optimized its code. That is where the loss was
+seen and where it was not: a fresh Chromium's first page; not a later page,
+which reuses the browser's compiled module; not Firefox, another compiler
+and stack. Not shown: how a stack that runs out loses 24 bytes while Emacs
+lives on and the page reports no failure, as in every `/t` run.
+
+What a fix would be is a decision, and none is made here: Emacs asking for
+the large stack with a `dolly.process.stack` section as the compiler does
+(`src/process/compiler-main.c`) changes the recipe and rebuilds `emacs` and
+`gnu-emacs`; the supervisor's comment at `:171` says why only the compiler
+has it (a Codex build crashed Chrome's tab twice on that stack) and that
+Firefox does not take that entry.
+
 What it means for a person: the loss was seen only for a burst that reaches
 Emacs in one read just as its first minibuffer prompt is drawn (the same
 burst in a later step: 0 of 1,017); keys typed one at a time are a read each.
@@ -606,7 +638,6 @@ What it means for the tests: the Emacs demo's test pushes the name as one
 record one tick after the prompt, and every run of it is a first browser of
 a process: pinned to one processor it failed 6 of 37 runs, each with
 "terminal never showed /dolly-emacs-test\.txt/" and the `/t` screen, the
-failure of 2026-10-07. The test is left as it is. A wait of 0.3 s before the
-name would pass (0 of 26 against 8 of 42 in the probe) and would be a sleep
-over a loss nobody has explained; the test is what shows it.
-
+failure of 2026-10-07. The test is left as it is: a wait of 0.3 s before the
+name would pass (0 of 26 against 8 of 42 in the probe) and would hide a stack
+that runs out.
