@@ -847,6 +847,56 @@ static int allocate_pipe_descriptor(dolly_kernel_process *process,
   return descriptor;
 }
 
+/* The process that has not exited with the lowest PID above `after`. */
+static const dolly_kernel_process *next_live_process(int after) {
+  const dolly_kernel_process *next = NULL;
+  for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
+    const dolly_kernel_process *process = &process_table[index];
+    if ((process->state == DOLLY_KERNEL_PROCESS_PENDING ||
+         process->state == DOLLY_KERNEL_PROCESS_RUNNING) && process->pid > after &&
+        (next == NULL || process->pid < next->pid)) next = process;
+  }
+  return next;
+}
+
+/* /proc/processes is no file: each open gets the table as it is then, in a
+ * pipe without a writer. A line is "PID PARENT STATE ARGUMENTS" for a process
+ * that has not exited, cut so that the lines of every process fit the pipe. */
+static int64_t open_process_list(dolly_kernel_process *reader, uint32_t flags) {
+  enum { line_limit = DOLLY_KERNEL_PIPE_CAPACITY / DOLLY_KERNEL_PROCESS_LIMIT };
+  if ((flags & ~(DOLLY_PROCESS_OPEN_READ | DOLLY_PROCESS_OPEN_NOFOLLOW |
+                 DOLLY_PROCESS_OPEN_CLOEXEC)) != 0) return -EACCES;
+  if (live_pipe_count >= DOLLY_KERNEL_PIPE_LIMIT) return -ENFILE;
+  dolly_kernel_pipe *list = calloc(1, sizeof(*list));
+  if (list == NULL) return -ENOMEM;
+  const int descriptor = allocate_pipe_descriptor(reader, list, DOLLY_KERNEL_PIPE_READ);
+  if (descriptor < 0) {
+    free(list);
+    return descriptor;
+  }
+  ++live_pipe_count;
+  for (const dolly_kernel_process *process = next_live_process(0); process != NULL;
+       process = next_live_process(process->pid)) {
+    char *line = (char *)list->bytes + list->size;
+    size_t length = (size_t)snprintf(line, line_limit, "%d %d %s", process->pid, process->parent_pid,
+        process->state == DOLLY_KERNEL_PROCESS_RUNNING ? "running" : "starting");
+    for (uint32_t argument = 0; argument < process->argument_count; ++argument) {
+      if (length < line_limit - 1) line[length++] = ' ';
+      for (const char *byte = process->arguments[argument];
+           *byte != 0 && length < line_limit - 1; ++byte) {
+        /* A control byte would end the line or steer the terminal that prints it. */
+        line[length++] = (unsigned char)*byte < ' ' || *byte == 0x7f ? '?' : *byte;
+      }
+    }
+    line[length++] = '\n';
+    list->size += length;
+  }
+  reader->descriptor_flags[descriptor] =
+      (flags & DOLLY_PROCESS_OPEN_CLOEXEC) ? DOLLY_PROCESS_FD_CLOEXEC : 0;
+  const dolly_process_path_open_response response = {(uint32_t)descriptor, 0};
+  return respond(&response, sizeof(response));
+}
+
 static int path_from_packet(dolly_kernel_process *process,
                             uint32_t directory_descriptor,
                             const unsigned char *bytes, uint32_t size,
@@ -1878,6 +1928,10 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
                                        &request, &path, &directory);
       int flags = result == 0 ? open_flags(request.flags) : result;
       if (flags < 0) result = flags;
+      if (result == 0 && strcmp(path, "/proc/processes") == 0) {
+        free(path);
+        return open_process_list(process, request.flags);
+      }
       int guest_fd = result == 0 ? unused_descriptor(process, 0) : -1;
       if (result == 0 && guest_fd < 0) result = guest_fd;
       int kernel_fd = -1;
