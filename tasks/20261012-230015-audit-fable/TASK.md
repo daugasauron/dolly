@@ -14,11 +14,12 @@ says so.
 
 ## State (2026-10-13)
 
-Four of five reports are in, each by a Fable auditor that read `main`
-`743757a4` and changed nothing: [the core](core.md), [the Dollyfile and the
-builder](dollyfile.md), [packages and the catalog](packages.md), [hygiene
-and iteration speed](hygiene.md). The fifth, the browser boundary, reads the
-tree once `nena@0` is in it. Below is the integrator's ranking across them;
+Five reports, each by a Fable auditor that read the tree and changed
+nothing: [the core](core.md), [the Dollyfile and the builder](dollyfile.md),
+[packages and the catalog](packages.md), [hygiene and iteration
+speed](hygiene.md) on `main` `743757a4`, and [the browser boundary](boundary.md)
+on the round's branch with `nena@0` in it. Below is the integrator's ranking
+across them;
 the evidence (file and line, counts, commits) is in the reports under the
 finding numbers given. "Round" means a change to the seed or to every recipe:
 one rebuild of the catalog, 5.5 h.
@@ -44,6 +45,32 @@ one rebuild of the catalog, 5.5 h.
   `amy`: a package's snapshot already holds the pinned `INSTALL` rows of its
   recipe in `/etc/dolly/installed` (dollyfile, the answer section). Done
   today: [dependencies](../20261012-230015-package-dependencies/TASK.md).
+
+## The boundary, and `nena@0`
+
+No hole was found. Without `nena@0` nothing the userspace writes reaches the
+set the page enforces: the set is the page's, the Worker follows it by
+message, kernel memory holds no module state, and `/etc/dolly/enabled` is
+read by trusted code only where the page attached `nena@0`. With it, in
+`default`, a compromised userspace can add the GPU, audio (resumed only by a
+real key or click), the microphone (the browser's prompt decides), the
+button strip (the clipboard only in the user's click on the page's Paste),
+pseudo-terminals and sockets; `runtime`, `http`, `display`, `input`,
+`snapshot` and `build` are never switched, by a manifest field enforced in
+the page. `nena disable nena` is enforced outside Wasm. The kernel has 12
+imports; none hands out an eval, a fetch outside the broker, a DOM handle or
+a free-form message.
+
+| # | Weakness or cleanliness | Evidence | Cost |
+| --- | --- | --- | --- |
+| B1 | The switch capability is handed to every provider, though the documents say nena's alone | `host/modules.mjs:105` (boundary W1) | cheap, page side |
+| B2 | A call in flight when its module is disabled never completes | `src/device-lease.c:52,71-73`; GPU's bridge does it right (W2) | cheap, page side |
+| B3 | A session's recorded modules are enabled inside the 10 s start-up timer, silently | a recorded `gpu@0` on a slow adapter stops the boot (W3, W6) | cheap, page side |
+| B4 | Disable asks no dependent; nothing asserts that every depended-on module is fixed | (W4) | a test |
+| B5 | Credential stripping is a list of six header names | `host/http/policy.mjs:8-15` (W5) | a sentence, or an allow list |
+| B6 | The test surface `__dolly` (24 members) ships in every page | `src/browser.mjs:226-230`; not reachable from Wasm (C1) | the older audit-24 task |
+| B7 | Every provider's JavaScript is loaded on every page | `host/modules.mjs:7-8` (C2) | cheap |
+| B8 | The page parses the recipe language in JavaScript to decide a custom image's modules | 442 lines whose output is a trust decision (C5) | a redesign of one path |
 
 ## Ranked: what to do, and what it costs
 
@@ -112,4 +139,12 @@ fails by name for a package nobody installs.
 
 ## Done today from this list
 
-Nothing yet.
+- 12, in the round of 2026-10-13: twenty-three C programs moved from
+  `Dollyfile-system-build` (2,248 lines to 475) to `src/commands/`, the
+  installed tools byte for byte the same (`core/commands-source`).
+- Dependencies by reference, the owner's question
+  ([task](../20261012-230015-package-dependencies/TASK.md)), in the same round.
+- B1 to B4 and B3's status line: with the `nena@0` agent, page side, to merge
+  after the round.
+- 7, 23, 28 and the residue of hygiene 17: with the site agent, to merge
+  after the round where they change no image.
