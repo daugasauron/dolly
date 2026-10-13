@@ -116,8 +116,12 @@ int dolly_kernel_terminal_set_mode(uint32_t flags);
  * holds at most DOLLY_PROCESS_PACKET_LIMIT bytes; the page refuses more. */
 DOLLY_BROWSER_IMPORT(dolly_bootstrap_write_bytes)
 int dolly_bootstrap_write_bytes(const unsigned char *bytes, uintptr_t length);
-/* Zero, or the negative errno of a refused boot text write. */
+/* What a process writes to the display's terminal. Zero, or the negative
+ * errno of a refused boot text write. */
+int dolly_kernel_terminal_write(const unsigned char *bytes, uintptr_t length);
 int dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length);
+/* The supervisor's words about the executable it prepares, src/process-kernel.c. */
+int dolly_kernel_launch_diagnostic(const unsigned char *bytes, size_t size);
 void dolly_terminal_publish_result(int status);
 void dolly_kernel_foreground_publish(int pid, int interruptible);
 /* The terminal's foreground owner, or zero. */

@@ -33,7 +33,11 @@ int main(void) {
 }`;
 
 for (const browser of browsers) {
-  await demoTest("tmux", { image: "tmux-panes", timeout: 300_000, browser }, async ({ open }) => {
+  // Chrome compiles an executable lazily and can be done before the runtime's
+  // quarter second is up: it is asked to compile all of one on one thread, as
+  // a slower machine does, so that the notice below is always given.
+  const launch = browser === "chromium" ? ["--js-flags=--no-wasm-lazy-compilation --wasm-num-compilation-tasks=1"] : undefined;
+  await demoTest("tmux", { image: "tmux-panes", timeout: 300_000, browser, launch }, async ({ open }) => {
     const { page, run, submit, text, start, prompt, waitText, input } = await open({ prompt: null });
     const prefix = async key => { await page.keyboard.press("Control+b"); await page.keyboard.press(key); };
     // In a line of the screen: left of the panes' border, or right of it.
@@ -63,8 +67,29 @@ for (const browser of browsers) {
     await input("echo INTERRUPTED-$?\r");
     await waitText(right("INTERRUPTED-130"));
 
+    // The session's first cc: the runtime says that it prepares the compiler,
+    // in the pane that asked. The other pane's screen is not written on.
+    await input(`${writeCommand("/tmp/size.c", sizeProgram)} && cc /tmp/size.c -o /tmp/size; echo BUILT-$?-\r`);
+    const built = await waitText(right("BUILT-0-"));
+    assert.match(built, right("dolly: preparing [^\\n]* executable"), built);
+    assert.doesNotMatch(built, /^[^│\n]*dolly: [^\n]*│/m, built);
+
+    // An editor in the other pane draws in its pane: its text on the pane's
+    // first row, and the status line still the screen's last.
+    await prefix("o");
+    await input("amy install vi > /dev/null 2>&1; vi /tmp/edited\r");
+    await waitText(left("~"));
+    await page.keyboard.type("ihello from the left pane");
+    const edited = (await waitText(left("hello from the left pane"))).trimEnd().split("\n");
+    assert.match(edited[0], /^hello from the left pane\s*│/, edited.join("\n"));
+    assert.match(edited.at(-1), /^\[0\] 0:/, edited.join("\n"));
+    await page.keyboard.press("Escape");
+    await input(":q!\r");
+    await waitText(/^dolly:[^│\n]*\$\s*│[^\n]*\n\[0\] 0:/m);
+    await prefix("o");
+
     // The window resized: the program in the pane takes SIGWINCH and reads its new size.
-    await input(`${writeCommand("/tmp/size.c", sizeProgram)} && cc /tmp/size.c -o /tmp/size && clear && /tmp/size\r`);
+    await input("clear && /tmp/size\r");
     const [, columns, rows] = /│SIZE-0 (\d+)x(\d+)/.exec(await waitText(right("SIZE-0 \\d+x\\d+")));
     await page.setViewportSize({ width: 1000, height: 600 });
     const [, narrower, shorter] = /│SIZE-1 (\d+)x(\d+)/.exec(await waitText(right("SIZE-1 \\d+x\\d+")));

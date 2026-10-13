@@ -9,7 +9,7 @@ REQUIRES HOST sockets@0
 # system file.
 FROM /v0.1.3/demos/tools/Dollyfile-tools-build 6ba4c47ce2631185f78f778a161ffc23f43f3948e2676ed8a287f7b07d6cbfc4
 INSTALL /v0.1.3/demos/tmux/Dollyfile-libevent ac53755420c8a517a6d0829fb54fd0c52832d7feac6a3de1b498862582bb0f0c
-INSTALL /v0.1.3/demos/tmux/Dollyfile-libterminfo 376751be3ca3d9a1957ef0550a1c17205df4995ed13d8d94a2a8c500006a6239
+INSTALL /v0.1.3/demos/tmux/Dollyfile-libterminfo f338c76e81331e5be6dfc3d19c1c91a92d39bd8703e1df401dcfa515aad9bbfa
 
 REQUIRES HEADER libc
 REQUIRES HEADER event

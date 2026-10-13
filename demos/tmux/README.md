@@ -40,7 +40,9 @@ puts an editor beside a shell.
   `-levent_core`, and `-ldolly-sockets` after it for a program that gives
   it sockets.
 - [`Dollyfile-libterminfo`](Dollyfile-libterminfo): builds NetBSD's
-  libterminfo, its tables written by its own scripts with `nbperf` and
+  libterminfo with one fix (`tparm` formatted a number as a long and passed
+  an int, which on wasm64 gave tmux cursor addresses from the stack's
+  leftovers), its tables written by its own scripts with `nbperf` and
   `tic` compiled in the same recipe: `-lterminfo`, `<term.h>` and
   `<termcap.h>`. It is not curses, which is not built.
 - [`Dollyfile-tmux`](Dollyfile-tmux): installs the two, states what
@@ -73,6 +75,12 @@ puts an editor beside a shell.
   sessions to put it in. `tmux-panes` starts it beside the shell instead.
 - One client at a time: the server opens the client's terminal by name, and
   Dolly has one.
+- The mouse does nothing: tmux asks the terminal for mouse reports and the
+  display's terminal gives none ([input](../../docs/input.md)). Keys choose a
+  pane (`Ctrl+B o`, `Ctrl+B` and an arrow) and scroll one back (`Ctrl+B [`).
+- A window keeps its shell's name whatever runs in it, and a new pane starts
+  in the server's directory: nothing tells tmux which program holds a pane
+  or where it stands.
 - `man tmux` shows the page's source: Dolly has no formatter for it.
 
 Test: `npm run test:demos -- tmux` ([`test/`](test/)); the module's own is
