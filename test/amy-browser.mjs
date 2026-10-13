@@ -254,6 +254,7 @@ const pages = {
   bzip2: { bzip2: "compress" },
   lz4: { lz4: "compress" },
   pigz: { pigz: "compress" },
+  unzip: { unzip: "extract", zipinfo: "archive" },
   mandoc: { mandoc: "manual" },
 };
 const reads = name => Object.entries(pages[name] ?? {}).map(([page, word]) =>
@@ -304,7 +305,7 @@ const tools = {
   // gzip, earlier in this table, only unpacks: it reads what pigz packs.
   pigz: ["pigz", `${packs("pigz", "unpigz", "gz")} && pigz -c /tmp/amy-pigz | gzip -dc | cmp - /tmp/amy-pigz`],
   unzip: ["unzip", `mkdir /tmp/amy-unzip && cd /tmp/amy-unzip && printf '${zipped}' > note.zip && test "$(zipinfo -1 note.zip)" = note && ` +
-    "unzip -q note.zip && grep -qx packed note && man unzip > /dev/null"],
+    "unzip -q note.zip && grep -qx packed note"],
   // zip comes with unzip, which zip -T starts.
   zip: ["zip", "mkdir -p /tmp/amy-zip/in/deep /tmp/amy-zip/out && cd /tmp/amy-zip && seq 1 2000 > in/deep/numbers && zip -q -r in.zip in && zip -T in.zip > /dev/null && " +
     "unzip -q in.zip -d out && cmp out/in/deep/numbers in/deep/numbers && test \"$(stat -c %s in.zip)\" -lt \"$(stat -c %s in/deep/numbers)\" && man zip > /dev/null"],
