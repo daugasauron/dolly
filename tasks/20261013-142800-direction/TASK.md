@@ -22,41 +22,87 @@ with its evidence, and what the smallest change is that brings it in line;
 ranked by how much smaller and more composable the core gets, not by what a
 change costs to rebuild.
 
-## State (2026-10-14, 00:00)
+## State (2026-10-14, 02:20): each point is investigated; none is decided
 
-[The reflection](reflection.md) is in, by a Fable agent that read `main`
+[The reflection](reflection.md) came from a Fable agent that read `main`
 `d89bca74` and changed nothing. The owner read it: "The audit is too blunt.
 Some of the points are good but some are garbage. Both SLOP and RUN are
 needed, see the history, this is hard earned wisdom. Create tasks to
 investigate each of your points more in detail without deciding if they
 should go or not".
 
-So the reflection is a list of claims, not of changes. It gave verdicts from
-the code as it stands and did not read how the code came to be so. Each of
-its points is a task that investigates and decides nothing: the history
-first (the commits and tasks that made the thing, and why), then who uses it
-today, then each claim checked, then what a change would break or make
-simpler. Nothing of the reflection is acted on before its investigation is
-done and the owner has decided.
+So each point became a task that investigates and decides nothing. In the
+night of 2026-10-14 each was read by a Fable agent, read-only: the history
+first (the commits and tasks that made the thing, and the owner's words in
+them), then who uses it today, each claim checked, and what a change would
+touch on real cases. The integrator checked each report's counts, commits
+and quotes against the tree before storing it. Every task holds its report
+(`investigation.md`) and a summary under "State". Nothing of the reflection
+is acted on; the tasks stay open for the owner.
 
-The points, in the reflection's order:
+What came out, in one line each (the tasks hold the evidence):
 
-1. [The Dollyfile's ways to retain, to export and to require](../20261013-144241-dollyfile-words/TASK.md).
-2. [`COPY`, and packages that are another image's files](../20261013-144241-copy-directive/TASK.md)
-   (with [builds become generic](../20261013-142800-generic-builds/TASK.md)).
-3. [`SPAWN_INTERACTIVE`](../20261013-144241-spawn-interactive/TASK.md) and
-   [the supervisor's own process tree and limit](../20261013-144241-supervisor-mirror/TASK.md).
-4. [The three roles](../20261013-144241-roles/TASK.md).
-5. [Modules' headers and clients in the seed, and what a host module is](../20261013-144241-module-sdks/TASK.md).
-6. [What every page ships for tests](../20261013-144241-test-surface/TASK.md).
-7. [No line discipline](../20261013-144241-line-discipline/TASK.md),
-   [no stored file mode](../20261006-120641-umask/TASK.md),
-   [no list of processes](../20261013-132514-ps/TASK.md).
-8. [The recipe language parsed twice](../20261013-144241-recipe-parsers/TASK.md).
-9. [`SLOP` and `RUN`](../20261013-144241-slop-and-run/TASK.md): by the owner's
-   word both are needed; the investigation starts from why.
-10. [`runtime.h` beside libc](../20261013-144241-runtime-h/TASK.md) and
-    [operations that look like twins](../20261013-144241-contract-twins/TASK.md).
+1. [The words to retain, export and require](../20261013-144241-dollyfile-words/TASK.md):
+   the owner ruled on them in Phase 3, "the assertions are the explicit
+   contract"; the four ways to retain differ in when they look; "one row
+   later" is the exception.
+2. [`COPY`](../20261013-144241-copy-directive/TASK.md): designed for
+   multi-stage builds before `INSTALL` and packages existed and kept beside
+   them on purpose; half of its 108 rows copy licences; three uses have no
+   equivalent without it.
+3. [`SPAWN_INTERACTIVE`](../20261013-144241-spawn-interactive/TASK.md): the
+   flag took two program names out of the page and stands in for "not in
+   the foreground process group"; the owner's one decision on Ctrl+C is
+   `ISIG`. [The supervisor's own tree and limit](../20261013-144241-supervisor-mirror/TASK.md):
+   its limit came from a security audit, as a bound that holds when the
+   kernel lies; a memory budget in its place was decided on 2026-10-01 and
+   not built.
+4. [The three roles](../20261013-144241-roles/TASK.md): the role replaced
+   two guesses of the start page and is the only key of six things outside
+   the engine; "opens is `ENTRY` plus `display@0`, not the role" was written
+   into the design.
+5. [Modules' headers and clients in the seed](../20261013-144241-module-sdks/TASK.md):
+   a client built by a recipe existed for a week and was removed as a
+   duplicate; five modules' headers are in the seed without the core
+   including them; `sockets@0` and `pty@0` are modules by the owner's word.
+6. [What every page ships for tests](../20261013-144241-test-surface/TASK.md):
+   the published result is from the first commit and was the page's own
+   way to drive its shell; what `__dolly` is has been put to the owner four
+   times and never answered.
+7. [No line discipline](../20261013-144241-line-discipline/TASK.md): the
+   first commit had one in the kernel; private processes made it
+   unreachable and it was removed as a hazard, not by decision. No stored
+   file mode: [umask](../20261006-120641-umask/TASK.md), not investigated
+   this night. No list of processes: [ps](../20261013-132514-ps/TASK.md),
+   done.
+8. [The recipe language parsed twice](../20261013-144241-recipe-parsers/TASK.md):
+   the page parses because a build's base holds the engine, so the base
+   must be there before a row can be read; the list the page trusts is
+   hashed recipe text, never a field Wasm wrote.
+9. [`SLOP` and `RUN`](../20261013-144241-slop-and-run/TASK.md): `RUN` came
+   on 2026-10-01 as the general form of `COMPILEC`, so that the recipe and
+   not the bootstrap builds Slop; what the reflection proposed is the state
+   of 2026-09-05.
+10. [`runtime.h` beside libc](../20261013-144241-runtime-h/TASK.md): it was
+    the libc before there was one, and libc now sits on it; three kinds of
+    spawn have no POSIX spelling. [Twin operations](../20261013-144241-contract-twins/TASK.md):
+    the pairs are WASI's and Linux's entry points and were never one
+    operation; how modules get their numbers is three habits and one line.
+
+A pattern in the ten: the reflection read the code as it stands. In eight of
+them the history holds a design task or a decision of the owner that it did
+not read ([Dollyfile 6](../20261001-214000-dollyfile-v6/TASK.md),
+[the bootstrap boundary](../20261001-123500-bootstrap-boundary/TASK.md),
+[Ctrl+C and `ISIG`](../20261001-000500-slop-loop-interrupt/TASK.md),
+[audit 19](../20260930-100000-audit-19/TASK.md),
+[audit 24](../20260930-100000-audit-24/TASK.md),
+[sockets](../20261007-074904-sockets-module/TASK.md)).
+
+Met on the way and filed, none acted on:
+[stale words in comments and an unread field](../20261013-160335-stale-words/TASK.md),
+[eight build-only toolchains that open](../20261013-161624-build-only-entry/TASK.md),
+[no test of a trap with running children](../20261013-163336-crash-with-children/TASK.md),
+[nothing compares the engine's module list with the page's](../20261013-170737-receipt-hosts/TASK.md).
 
 ## As filed (2026-10-13, main `50c698f8`)
 
