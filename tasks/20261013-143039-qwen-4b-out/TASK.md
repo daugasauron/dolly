@@ -1,6 +1,6 @@
 # The four-part Qwen model leaves the catalog
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 220
 - TAGS: packages,local-llm,owner
 
@@ -110,3 +110,25 @@ Left, for the tree that can build them; the task closes after it:
   model is `minicpm5-2b`, a path the test took only with f32 before.
 - `npm run test:demos -- studio` and `-- pi`; `test/amy-browser.mjs` (its
   catalog check lost five names) and `test/docs-browser.mjs`.
+
+## Closed 2026-10-14
+
+Built and tested on `main` `f51cc4be` in the night of 2026-10-14, with the
+other pieces of the evening
+(`work/evidence-2026-10-14/integration/status.log`):
+
+- `pi-local` and `dollyfile-studio` rebuilt among 21 images (618 s).
+- The local models' GPU test on a private display, both browsers, both
+  images: "task with qwen3.5-2b, minicpm5-2b installed and chosen with
+  /local, temperature and context size changed, task again: passed with
+  external requests denied".
+- Core suite passed in both browsers (407 s), `amy` among it without the
+  two lines; 27 demo suites passed, 6 skipped for want of a GPU window,
+  none failed; 25 artifact tests.
+- `git grep qwen3.5-4b` outside `tasks/` finds nothing: the last one was a
+  valid-name case in `test/fixtures/dollyfile-syntax.mjs`, now
+  `qwen3.5-2b`.
+
+The limit and what would lift it stay above, for
+[the direction](../20261013-142800-direction/TASK.md).
+

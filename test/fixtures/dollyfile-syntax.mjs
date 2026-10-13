@@ -32,7 +32,7 @@ export const syntaxCases = [
   [false, root("DOLLY 7\nAPPLICATION Default\nENTRY /bin/slop\n")],
   [true, root(`DOLLY 7\nAPPLICATION ${"a".repeat(32)}\nENTRY /bin/slop\n`)],
   [false, root(`DOLLY 7\nAPPLICATION ${"a".repeat(33)}\nENTRY /bin/slop\n`)],
-  ...["qwen3.5-4b", "lua5.5", "qwen2.5-coder", "llama3.2-3b", "gemma-3n", "python3.14", "lua5.4.6-rc1"]
+  ...["qwen3.5-2b", "lua5.5", "qwen2.5-coder", "llama3.2-3b", "gemma-3n", "python3.14", "lua5.4.6-rc1"]
     .map(name => [true, root(`DOLLY 7\nAPPLICATION ${name}\nENTRY /bin/slop\n`)]),
   ...["example.txt", "a.b", "qwen3.5b", "a.5b", "a..5", "a-", "a.", "-a", "a--b", "a-.5", "a.5.", "a_b"]
     .map(name => [false, root(`DOLLY 7\nAPPLICATION ${name}\nENTRY /bin/slop\n`)]),
