@@ -4,7 +4,7 @@
 - PRIORITY: 120
 - TAGS: tests,flaky,display,firefox
 
-## State (2026-10-13)
+## State (2026-10-14)
 
 `__dolly.visibleTerminalText()` reads the screen by a pointer drag and the display library's
 copy, and a script types faster than a person: both have lost text under load. This task began
@@ -26,13 +26,22 @@ the input discarded at exit (`9abd08b0`), and on 2026-10-13 (`core/polish`):
   sighting 1 (`DOLLY-ENTRY-CWuD`) and the `/d7d7` of
   `tasks/20261010-234000-pi-stray-reply`, which has the measurements.
 
-Left, none of them reproduced:
+Left (2026-10-14, "Pinned to one processor" has the measurements):
 
-- **Sighting 3**: Emacs received `/t` of a 26-byte text record, once, on 2026-10-07. Emacs is
-  not Janis, so the 256-byte cut does not explain it.
-- **The mouse drag** at `test/terminal-browser.mjs:67` after font zoom and paste ("Narrowed"),
-  and **"timed out waiting for terminal selection reset"** in Firefox under load ("Seen
-  again", "Note"). Neither was seen in the release rounds.
+- **Sighting 3** is reproduced and is the Emacs process running out of stack: in a Chromium
+  that has just started, the first "Find file" loses the name after `/t` in 8 of 42 first
+  steps of the probe and in 6 of 37 runs of the demo's test (Firefox 0 of 28 and 0 of 31),
+  pinned to one processor. The kernel hands Emacs all 26 bytes in one `read` (logged in the
+  kernel, failing and passing runs alike). With Chrome kept in its baseline compiler Emacs
+  dies there of "Maximum call stack size exceeded", 8 of 8; entered on the large stack it
+  passes, and the loss is gone, 0 of 70. Left: the decision how Emacs gets that stack (a
+  `dolly.process.stack` section rebuilds `emacs` and `gnu-emacs`; the supervisor's comment says
+  why only the compiler has one), and how a full stack loses bytes without ending Emacs. The
+  test is unchanged; 0.3 s between the prompt and the name would only hide it (0 of 26).
+- **The mouse drag** after font zoom and paste and **"timed out waiting for terminal selection
+  reset"** were not reproduced: the drag 0 of 55 in Chromium and 0 of 105 in Firefox, and no
+  screen read failed in about 9,000 timed ones. A read takes 32 to 57 ms on a processor shared with two
+  busy loops and at most 75 ms with eight; the reader's limit is 5 s.
 - The ring drops what it has no room for and counts it on the page (`data-input-dropped`); a
   test that types does not read that when it fails.
 - Not measured: key-to-paint after 250 ms of silence, Python's REPL, a paste over 50,000
@@ -43,7 +52,8 @@ Firefox, JavaScript's demo test, Pi's twelve times (12 of 12, twice: with the re
 and with the page and kernel commits).
 
 Done when the two unexplained lines are explained or have a rate from a hundred runs that says
-they are gone. Lowered from 190: what a person met is fixed.
+they are gone, and Emacs's first "Find file" has the stack it needs in a fresh Chromium (the
+demo's test pinned to one processor, 0 of 40). Lowered from 190: what a person met is fixed.
 
 ## Narrowed (2026-10-01, 12:40)
 
@@ -452,3 +462,185 @@ code, and the drain taken out changes nothing).
 The cut is still the one "Left open" names. It is being fixed on `demo/tmux`
 (`tasks/20261012-130814-tmux`).
 
+## Pinned to one processor (2026-10-14, `core/terminal-flakes`)
+
+The three lines left were looked for on a starved browser, as the microphone
+task did: the whole test pinned to one processor
+(`taskset -c 5 work/slot.sh browser node TEST`), and "beside two loops" with
+two busy shell loops pinned to that same processor. `main` at `66f9fc47`,
+runtime `c470bb6e…`, images as built in `work/rust`. Logs and the probes:
+`build/flake-evidence/` (not committed). No tracked source is changed.
+
+| What ran | Chromium | Firefox |
+| --- | --- | --- |
+| `test/terminal-browser.mjs`, pinned | 13 of 13 passed (34.3 to 34.8 s) | 13 of 13 (33.2 to 33.6 s) |
+| the same beside two loops | 12 of 12 (41.0 to 42.2 s) | 12 of 12 (40.6 to 41.6 s) |
+| `test/display-browser.mjs`, pinned | 10 of 10 | 10 of 10 |
+| the same beside two loops | 7 of 7 | 7 of 7 |
+| the terminal test up to its mouse drag, a fresh page each time, beside two loops (`drag-probe.mjs`) | 0 of 30 drags failed | 0 of 80 |
+| screen reads at Slop's prompt beside two loops, each timed | 2,000: median 32 ms, 99th 44, slowest 54, no error | 2,500: median 40 ms, 99th 52 to 54, slowest 57, no error |
+| screen reads in a loop from the page's start for 10 to 15 s, beside two loops (`read-latency.mjs`) | `gnu-emacs` 3 starts of about 456 reads, `system` 2 of 308: no error | `gnu-emacs` 3 starts of about 400, `system` 2 of 256: no error |
+| the same for 20 s from the start of `system`, beside eight loops | 391 reads, slowest 75 ms, no error | 378 reads, slowest 70 ms, no error |
+| `demos/emacs/test/emacs-browser.mjs`, pinned | 6 of 37 failed, each at its first step with `/t` | 31 of 31 passed (it runs after Chromium's part) |
+
+A run of the terminal test takes as long pinned as not (68 s for both
+browsers) and a fifth longer beside two loops: the test waits more than it
+computes, so one processor does not starve it much.
+
+### The mouse drag after zoom and paste: not reproduced
+
+The sequence of "Narrowed" (zoom in and out, fullscreen, two pastes, echo,
+read the row, clear, drag with the mouse, 10 s for the selection) ran 55
+times in Chromium and 105 times in Firefox without a failure, in the test
+itself and in fresh pages that stop after the drag. The probe keeps what the page saw (pointer, blur, focus and
+fullscreen events, the geometry, the ring) for a drag that fails; none did.
+Nothing was found by reading either: the press, the one drag sample and the
+release reach Ghostty's gesture in order whatever the tick that takes them,
+and the geometry the test computes from is the one the terminal publishes.
+The code between the page and the gesture has been replaced since 2026-10-01
+(`input@0`, the motion sample, the presenter), so the failure of that day may
+have gone with it; that is a guess, the count is the fact.
+
+### "timed out waiting for terminal selection reset": not reproduced, and what the time is
+
+No screen read failed: 4,500 timed reads at a prompt, 4,468 while an image
+starts (12 starts), and those of 25 runs of the terminal test in each
+browser. A read is two service ticks and the page's polls: 32 to 57 ms
+beside two loops, at most 75 ms beside eight.
+The one slow read of each Emacs start, 300 to 328 ms about 0.3 s after the
+page is ready, is the reader's own second gesture: Emacs enters its screen
+between the press and the drag, the first gesture selects nothing and the
+reader waits its 25 polls before it makes it again (`521ef85f`).
+
+So the reader's limits (5 s for the reset, 5 s in all for the four gestures)
+are 66 times the slowest read measured here. The message needs the kernel's
+Worker not to run one tick for five seconds, or a press the driver does not
+take: a program holding the input lease reads it instead
+(`host/input/kernel.c`, `dolly_kernel_terminal_input_service`), and a terminal
+that a graphics program covers ignores it and publishes nothing
+(`src/ghostty/display.c`, `decode_record` and `render_frame`, read and not
+run), so a selection left by an earlier read would stay published.
+`waitForInteractiveTerminal` checks both before it reads; `text()` and `waitForText` do not. No test met either
+case here. A processor shared nine ways slows a read from 40 to 75 ms, so the
+failures of 2026-10-06 (ten Firefox loops, a CMake bootstrap) were not
+processor time alone; what stopped the Worker then is not known. A longer
+limit in the reader is not shown to help and is not made.
+
+### Sighting 3 reproduced: the first "Find file" of a fresh Chromium
+
+Two probes repeat the Emacs test's step (`C-x C-f`, wait for "Find file:" by
+reading the screen, one text record with the name and Return):
+`emacs-probe.mjs` many times in one page, `emacs-first.mjs` once in each of
+many pages or browsers. Counted over the night, the image as built, pinned to
+one processor:
+
+| | First browser a test process starts | A later browser of that process | A later page of a browser | A later step in a page |
+| --- | --- | --- | --- | --- |
+| Chromium, the runtime as built | 3 of 6 | 0 of 18 | 0 of 11 | 0 of 1,017 |
+| Chromium, the kernel's log kept in memory (below) | 5 of 36 | | | |
+| Chromium, the kernel's log written a line a record | 0 of 4 | 0 of 28 | | |
+| Firefox, the runtime as built | 0 of 28 | | 0 of 11 | 0 of 1,017 |
+
+Every failure is the screen of 2026-10-07: `Find file: {/usr/share/emacs/} /t`.
+The ring was read to its end (`event_read == event_write`), nothing was
+counted as dropped, no lease. Emacs's own record of what it read (`C-h l`)
+holds `C-x C-f`, `/`, `t` and nothing after; its `*Messages*` holds no error.
+The prompt appears about 30 ms after the welcome text and the name is typed
+one service tick after the prompt is drawn. Waiting a second between the
+welcome text and `C-x C-f` does not remove it: 2 of the 36 logged first steps
+are of the 20 made with that wait, 3 of the 16 without. With 0.3 s between
+the prompt and the name it is gone: 0 of 26 first steps. All 8 failures are
+in the first browser a test process started and none in a later one; why
+that matters is not known (each browser has a new profile).
+
+### The kernel hands Emacs the whole record; 24 of its 26 bytes are lost inside the Emacs process
+
+Measured with a temporary log in the kernel (`fill_terminal_input` of
+`host/input/kernel.c`, the terminal read of `src/process-kernel.c`, the
+terminal write of `src/dolly.c`; lines kept in memory and written to the
+page's log after 2.4 s without one). Image inputs `538c5a8aea82…` with and
+without it; the log is taken out again and `dist/dolly.wasm` is `main`'s byte
+for byte (`build/flake-evidence/kernel-log-buffered.patch` keeps the log).
+36 first steps logged, 5 failed, every one with the same lines
+(`pair-klog2-2-c6.log`, the number is the service tick, 16 ms):
+
+    47 record type=2 action=0 -> 26 [/tmp/dolly-emacs-test.txt<0d>]
+    47 read pid=103 size=4095 -> 26 [/tmp/dolly-emacs-test.txt<0d>]
+    47 write 57 first 40 [<1b>[30;12H<1b>[?25l{/usr/share/emacs/} /t<1b>[?1]
+
+and nothing after: no discard (`discard_pending_input`), no lease, no mode
+change, no second reader, no further read or write until the probe's `C-g`.
+A step that passes has the same two first lines and then Emacs's writes for
+the new buffer, with no frame drawn in between. So the text record reaches
+one `read` of Emacs (pid 103) whole, in the failing runs as in the passing
+ones. Emacs then handles `/` and `t`, finds no more input, draws, and waits.
+Between the kernel's reply and Emacs's command loop are the process's libc
+adapter (`fd_read_full` of `src/process/libc-adapter.c`: one call, the count
+returned as given; read, not measured) and Emacs's own C.
+
+Not the kernel, the ring, the page or the display library. Not a 256-byte cut
+(one read of 4,095 asked, 26 given). Not a terminal reply arriving in the
+text: the two replies Emacs asks for at its start (`ESC [ > 1 ; 0 ; 0 c`,
+`ESC [ ? 6 2 ; 2 2 c`) are read 15 ticks earlier, each by the read that
+follows its question. Not a query sent late (no write of one). Not a command
+error (`*Messages*` is empty of one, and both of Emacs's error paths write).
+
+### Inside Emacs: not a Lisp `discard-input`, not a command error
+
+An image built in the page from `gnu-emacs` with one more form in
+`site-start.el`, an advice on `discard-input` that keeps a backtrace
+(`emacs-advice-only.mjs`): 1 of 15 first steps failed, and its list holds the
+two calls of Emacs's start (`xterm--query` from `xterm--init`, before the
+welcome text) and none after. With hooks that note every command instead
+(`emacs-advice.mjs`): 1 of 27 first steps failed, and it ran 23 commands
+fewer than one that passes: the 24 characters never became commands.
+Read in Emacs 31.1's source, without a find: `tty_read_avail_input` stores
+every byte it reads; `Fdiscard_input` is called from C only for a command
+error and `yes-or-no-p`; nothing else empties `kbd_buffer`. What differs
+between a failing and a passing step is not in the kernel's log.
+
+### The lead: Emacs's first "Find file" runs out of stack while its code is baseline code
+
+Chromium started with `--js-flags=--liftoff-only` keeps WebAssembly in V8's
+baseline compiler, where a fresh browser has every function of a module
+until it compiles the hot ones again:
+
+- the image as built: 8 of 8 first steps end with Emacs's process
+  gone at the prompt, as the name arrives: `dolly: process 103 failed:
+  Maximum call stack size exceeded`, and the image falls to its recovery
+  shell (`emacsfirst-liftoff-c6-*.log`);
+- with every process entered on the large stack (one line changed for the
+  measurement and put back, `largeStack = true` at
+  `src/process-supervisor.mjs:349`: the JSPI entry the compiler alone asks
+  for, 1.9 times as deep in Chrome): 3 of 3 pass;
+- and without the flag, with that line: 0 of 70 first steps lost the name,
+  against 8 of 42 without it (and 6 of 37 runs of the demo's test).
+
+So the first minibuffer of an Emacs built at `-O0` needs more stack than a
+Worker has while its code is baseline code, and the `/t` loss goes with the
+large stack as the crash does: that is the evidence that the two are one
+cause. It is not seen directly: in every `/t` run Emacs lives on and the page
+reports no failure, and how a stack that runs out loses 24 bytes that way is
+not shown. It fits where the loss was seen and where it was not: a fresh
+Chromium's first page; not a later page (Chrome is said to keep a compiled
+module for the pages of one browser; not measured here); not Firefox,
+another compiler and stack.
+
+What a fix would be is a decision, and none is made here: Emacs asking for
+the large stack with a `dolly.process.stack` section as the compiler does
+(`src/process/compiler-main.c`) changes the recipe and rebuilds `emacs` and
+`gnu-emacs`; the supervisor's comment at `:171` says why only the compiler
+has it (a Codex build crashed Chrome's tab twice on that stack) and that
+Firefox does not take that entry.
+
+What it means for a person: the loss was seen only for a burst that reaches
+Emacs in one read just as its first minibuffer prompt is drawn (the same
+burst in a later step: 0 of 1,017); keys typed one at a time are a read each.
+A paste arrives bracketed (Emacs asks for mode 2004) and was not tried.
+What it means for the tests: the Emacs demo's test pushes the name as one
+record one tick after the prompt, and every run of it is a first browser of
+a process: pinned to one processor it failed 6 of 37 runs, each with
+"terminal never showed /dolly-emacs-test\.txt/" and the `/t` screen, the
+failure of 2026-10-07. The test is left as it is: a wait of 0.3 s before the
+name would pass (0 of 26 against 8 of 42 in the probe) and would hide a stack
+that runs out.
