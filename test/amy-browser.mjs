@@ -151,6 +151,15 @@ const programs = {
     "BeginDrawing(); ClearBackground(RAYWHITE); DrawCircle(64, 64, 32, RED); int shown = dolly_raylib_end_frame(&window); " +
     "return dolly_raylib_close(&window) != 0 || shown != 0; }' > /tmp/amy-raylib.c && " +
     "cc -O0 /tmp/amy-raylib.c -ldolly-raylib -lraylib -lm -o /tmp/amy-raylib && /tmp/amy-raylib > /dev/null",
+  // A square wave played from a buffer is in the samples the loopback device renders.
+  openal: "printf '%s\\n' '#define AL_ALEXT_PROTOTYPES' '#include <AL/al.h>' '#include <AL/alc.h>' '#include <AL/alext.h>' " +
+    "'int main() { ALCdevice *device = alcLoopbackOpenDeviceSOFT(0); " +
+    "int format[] = { ALC_FORMAT_CHANNELS_SOFT, ALC_MONO_SOFT, ALC_FORMAT_TYPE_SOFT, ALC_SHORT_SOFT, ALC_FREQUENCY, 48000, 0 }; " +
+    "alcMakeContextCurrent(alcCreateContext(device, format)); short wave[4800], heard[4800]; int loud = 0; ALuint buffer, source; " +
+    "for (int at = 0; at < 4800; at++) wave[at] = at % 100 < 50 ? 12000 : -12000; alGenBuffers(1, &buffer); alGenSources(1, &source); " +
+    "alBufferData(buffer, AL_FORMAT_MONO16, wave, sizeof wave, 48000); alSourcei(source, AL_BUFFER, buffer); alSourcePlay(source); " +
+    "alcRenderSamplesSOFT(device, heard, 4800); for (int at = 0; at < 4800; at++) loud += heard[at] > 1000 || heard[at] < -1000; " +
+    "return loud < 2400 || alGetError() != AL_NO_ERROR; }' > /tmp/amy-openal.cpp && c++ -O0 /tmp/amy-openal.cpp -lopenal -o /tmp/amy-openal && /tmp/amy-openal",
   // A body dropped for a second falls.
   box3d: "printf '%s\\n' '#include <box3d/box3d.h>' 'int main(void) { b3WorldDef world = b3DefaultWorldDef(); b3WorldId id = b3CreateWorld(&world); " +
     "b3BodyDef body = b3DefaultBodyDef(); body.type = b3_dynamicBody; b3BodyId ball = b3CreateBody(id, &body); b3ShapeDef shape = b3DefaultShapeDef(); " +
@@ -165,6 +174,20 @@ await browserTest("amy programs", { image: "default", timeout: 600_000 }, async 
     await run(program);
   }
 });
+
+// Checks of the demos/tools packages. A file that NAME packs is smaller and
+// unpacks to the same bytes, as a file and through a pipe.
+const packs = (pack, unpack, suffix) => `seq 1 20000 > /tmp/amy-${pack} && ${pack} -k /tmp/amy-${pack} && ` +
+  `test "$(stat -c %s /tmp/amy-${pack}.${suffix})" -lt "$(stat -c %s /tmp/amy-${pack})" && ` +
+  `${unpack} -c /tmp/amy-${pack}.${suffix} | cmp - /tmp/amy-${pack} && ${pack} -c < /tmp/amy-${pack} | ${pack} -dc | cmp - /tmp/amy-${pack}`;
+// A program that includes HEADER links LIBRARY, and EXPRESSION is zero in it.
+const links = (header, library, expression) => `printf '%s\\n' '#include <${header}.h>' "int main(void) { return ${expression}; }" > /tmp/amy-${header}.c && ` +
+  `cc -O0 /tmp/amy-${header}.c -l${library} -o /tmp/amy-${header} && /tmp/amy-${header}`;
+// "packed" in the file note, stored.
+const zipped = "\\120\\113\\003\\004\\012\\000\\000\\000\\000\\000\\307\\273\\114\\135\\103\\340\\101\\057\\007\\000\\000\\000\\007\\000\\000\\000\\004\\000\\000\\000" +
+  "\\156\\157\\164\\145\\160\\141\\143\\153\\145\\144\\012\\120\\113\\001\\002\\036\\003\\012\\000\\000\\000\\000\\000\\307\\273\\114\\135\\103\\340\\101\\057\\007\\000" +
+  "\\000\\000\\007\\000\\000\\000\\004\\000\\000\\000\\000\\000\\000\\000\\000\\000\\000\\000\\264\\201\\000\\000\\000\\000\\156\\157\\164\\145\\120\\113\\005\\006\\000\\000" +
+  "\\000\\000\\001\\000\\001\\000\\062\\000\\000\\000\\051\\000\\000\\000\\000\\000";
 
 // What a session adds one package at a time: each command is absent from
 // default, installs alone and is used. None brings the compiler until zig,
@@ -195,6 +218,60 @@ const tools = {
     "printf 'const std = @import(\"std\");\\npub fn main() void { std.debug.print(\"{d}\", .{6 * 7}); }\\n' > hello.zig && " +
     "zig build-exe -target wasm64-emscripten -fsingle-threaded -ofmt=c -lc -femit-bin=hello.c hello.zig && " +
     "cc -Wno-incompatible-pointer-types '-Dzig_unimplemented()=(__builtin_trap(),0)' -I /usr/lib/zig hello.c -o hello && test \"$(./hello 2>&1)\" = 42"],
+  // demos/tools. zig brought cc, so a package that holds a library also links a program with it.
+  // A database written and queried; a second process is told that the first has it.
+  sqlite: ["sqlite3", "sqlite3 /tmp/amy.db \"create table word(n, name); insert into word values (6, 'six'), (7, 'seven'), (9, 'nine'); pragma journal_mode = wal\" > /dev/null && " +
+    "test \"$(sqlite3 /tmp/amy.db \"select sum(n) * 3 + 3, json_group_array(name) from word where name like 's%'\")\" = '42|[\"six\",\"seven\"]' && " +
+    "sqlite3 /tmp/amy.db 'select count(*) from word' \".shell sqlite3 /tmp/amy.db 'select count(*) from word' 2>&1\" | grep -q 'database is locked' && " +
+    links("sqlite3", "sqlite3", "sqlite3_libversion_number() != SQLITE_VERSION_NUMBER") + " && man sqlite3 > /dev/null"],
+  // A sum, and a number that a regular expression takes out of a string.
+  jq: ["jq", "echo '{\"a\": [1, 20, 21], \"b\": \"x-42\"}' > /tmp/amy.json && " +
+    "test \"$(jq -r '(.a | add | tostring) + \" \" + (.b | capture(\"(?<n>[0-9]+)\").n)' /tmp/amy.json)\" = '42 42' && man jq > /dev/null"],
+  xz: ["xz", `${packs("xz", "unxz", "xz")} && ${links("lzma", "lzma", "lzma_version_number() != LZMA_VERSION")} && man xz > /dev/null`],
+  zstd: ["zstd", `${packs("zstd", "unzstd", "zst")} && ${links("zstd", "zstd", "ZSTD_versionNumber() != ZSTD_VERSION_NUMBER")} && man zstd > /dev/null`],
+  bzip2: ["bzip2", `${packs("bzip2", "bunzip2", "bz2")} && ${links("bzlib", "bz2", "BZ2_bzlibVersion()[0] != '1'")} && man bzip2 > /dev/null`],
+  lz4: ["lz4", `${packs("lz4", "unlz4", "lz4")} && ${links("lz4", "lz4", "LZ4_versionNumber() != LZ4_VERSION_NUMBER")} && man lz4 > /dev/null`],
+  // gzip, earlier in this table, only unpacks: it reads what pigz packs.
+  pigz: ["pigz", `${packs("pigz", "unpigz", "gz")} && pigz -c /tmp/amy-pigz | gzip -dc | cmp - /tmp/amy-pigz && man pigz > /dev/null`],
+  unzip: ["unzip", `mkdir /tmp/amy-unzip && cd /tmp/amy-unzip && printf '${zipped}' > note.zip && test "$(zipinfo -1 note.zip)" = note && ` +
+    "unzip -q note.zip && grep -qx packed note && man unzip > /dev/null"],
+  // zip comes with unzip, which zip -T starts.
+  zip: ["zip", "mkdir -p /tmp/amy-zip/in/deep /tmp/amy-zip/out && cd /tmp/amy-zip && seq 1 2000 > in/deep/numbers && zip -q -r in.zip in && zip -T in.zip > /dev/null && " +
+    "unzip -q in.zip -d out && cmp out/in/deep/numbers in/deep/numbers && test \"$(stat -c %s in.zip)\" -lt \"$(stat -c %s in/deep/numbers)\" && man zip > /dev/null"],
+  tree: ["tree", "mkdir -p /tmp/amy-tree/a/b && touch /tmp/amy-tree/a/b/leaf /tmp/amy-tree/top && cd /tmp/amy-tree && " +
+    "test \"$(tree --noreport -i -f . | tr '\\n' ' ')\" = '. ./a ./a/b ./a/b/leaf ./top ' && tree -J . | grep -q '\"name\":\"leaf\"' && man tree > /dev/null"],
+  bc: ["bc", "test \"$(echo '6 * 7; 2 ^ 64; scale = 20; 4 * a(1)' | bc -l | tr '\\n' ' ')\" = '42 18446744073709551616 3.14159265358979323844 ' && " +
+    "test \"$(echo '6 7 * p' | dc)\" = 42 && man bc > /dev/null && man dc > /dev/null"],
+  xxd: ["xxd", "test \"$(echo hello | xxd -p)\" = 68656c6c6f0a && seq 1 300 > /tmp/amy-xxd && xxd /tmp/amy-xxd | xxd -r | cmp - /tmp/amy-xxd && man xxd > /dev/null"],
+  base64: ["base64", `test "$(echo packed | base64)" = cGFja2VkCg== && seq 1 3000 | base64 > /tmp/amy-base64 && base64 -d /tmp/amy-base64 | tail -n 1 | grep -qx 3000 && ` +
+    links("libbase64", "base64", "base64_decode(0, 0, 0, 0, 0) != 1")],
+  // A module written from text is valid, reads back and loses its names to
+  // wasm-strip; a program cc links here is a module with 64-bit memory.
+  wabt: ["wasm2wat", "cd /tmp && echo '(module (func $answer (export \"answer\") (result i32) i32.const 42))' > amy.wat && wat2wasm --debug-names amy.wat -o amy.wasm && " +
+    "wasm-validate amy.wasm && wasm2wat amy.wasm | grep -q 'i32.const 42' && wasm-objdump -x amy.wasm | grep -q answer && cp amy.wasm amy-named.wasm && " +
+    "wasm-strip amy.wasm && test \"$(stat -c %s amy.wasm)\" -lt \"$(stat -c %s amy-named.wasm)\" && echo 'int main(void) { return 0; }' > amy-wabt.c && " +
+    "cc amy-wabt.c -o amy-wabt && wasm-objdump -x amy-wabt | grep -q i64 && man wasm-objdump > /dev/null"],
+  // A grammar becomes a parser that counts its tokens, and a scanner counts the numbers it reads. flex comes with yacc.
+  yacc: ["yacc", "cd /tmp && printf '%s\\n' '%{' 'int count; int yylex(void); void yyerror(const char *message) {}' '%}' '%token A' '%%' 'list: | list A { count++; };' '%%' " +
+    "'#include <stdio.h>' 'int yylex(void) { return getchar() == EOF ? 0 : A; }' 'int main(void) { yyparse(); return count; }' > amy.y && " +
+    "yacc -o amy-y.c amy.y && cc amy-y.c -o amy-y; printf abcdef | ./amy-y; test $? = 6 && man yacc > /dev/null"],
+  flex: ["flex", "cd /tmp && printf '%s\\n' '%{' 'static int numbers;' '%}' '%%' '[0-9]+ numbers++;' '.|\\n ;' '%%' 'int main(void) { yylex(); return numbers; }' > amy.l && " +
+    "flex -o amy-l.c amy.l && cc amy-l.c -lfl -o amy-l; echo 'a 1 bb 22 c 333' | ./amy-l; test $? = 3 && lex --version > /dev/null && man flex > /dev/null"],
+  // yes ends when its reader does.
+  sbase: ["yes", "test \"$(yes | head -n 3 | tr '\\n' ' ')\" = 'y y y ' && test \"$(printf abc | sha1sum | cut -c 1-40)\" = a9993e364706816aba3e25717850c26c9cd0d89d && " +
+    "printf abc | sha512sum | grep -q '^ddaf35a193617aba' && cal 10 2026 | grep -q 2026 && echo sponged > /tmp/amy-sponge && " +
+    "tr a-z A-Z < /tmp/amy-sponge | sponge /tmp/amy-sponge && grep -qx SPONGED /tmp/amy-sponge && " +
+    "uuencode /tmp/amy-sponge sponge | uudecode -o /tmp/amy-uu && cmp /tmp/amy-uu /tmp/amy-sponge && man yes > /dev/null"],
+  // ex edits by commands; vi at the terminal is the step after this table.
+  vi: ["vi", "printf 'one\\ntwo\\n' > /tmp/amy-ex && printf '%s\\n' '%s/two/2/' w q | ex -s /tmp/amy-ex > /dev/null && test \"$(tr '\\n' ' ' < /tmp/amy-ex)\" = 'one 2 '"],
+};
+// The terminal has no line discipline: a program that reads lines there edits
+// them itself. For each command, what the screen shows and what is then typed
+// (\n is Enter, \x1b Escape); the command ends with status 0.
+const typed = {
+  "sqlite3 /tmp/amy.db": [[/amy\.db->\s*$/, "select count(*) * 14 from word;\n"], [/\D42\D[^>]*amy\.db->\s*$/, ".quit\n"]],
+  dc: [[/>>>\s*$/, "6 7 * p\n"], [/\n42\n>>>\s*$/, "q\n"]],
+  "vi /tmp/amy-vi": [[/^~$/m, "ione\ntwo\x1b:wq\n"]],
 };
 await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ open }) => {
   const session = await open(), run = check(session);
@@ -203,8 +280,30 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
     console.log(`amy install ${name}: ${await timed(run, `amy install ${name}`)} ms`);
     await run(use);
   }
+  for (const [command, steps] of Object.entries(typed)) {
+    const running = session.submit(command);
+    await session.page.locator("#keyboard").focus();
+    for (const [shown, keys] of steps) {
+      await session.waitForText(shown);
+      for (const [index, text] of keys.split("\x1b").entries()) {
+        if (index) await session.page.keyboard.press("Escape");
+        await session.page.keyboard.type(text);
+      }
+    }
+    assert.equal(await running, 0, `${command}\n${await session.text()}`);
+  }
+  await run("test \"$(tr '\\n' ' ' < /tmp/amy-vi)\" = 'one two '");
   await run("amy install dolly-docs && test -f /usr/share/doc/dolly/docs/dollyfile.md");
   await run("amy install transfer && amy files transfer | grep -q ' /bin/upload$' && download --help | grep -q '^usage: download'");
+  // The core's tar only unpacks files and directories. The tar package puts
+  // sbase's in its place: a tree with a link archived, listed and unpacked.
+  await run("mkdir -p /tmp/amy-tar/in/deep /tmp/amy-tar/out && cd /tmp/amy-tar && seq 1 2000 > in/deep/numbers && ln -s deep/numbers in/link && ! tar -cf in.tar in 2> /dev/null");
+  await run("amy install tar && cd /tmp/amy-tar && tar -cf in.tar in && tar -xf in.tar -C out && cmp out/in/deep/numbers in/deep/numbers && " +
+    "test \"$(readlink out/in/link)\" = deep/numbers && tar -cf - in | pigz | gzip -dc | tar -tf - | grep -qx in/link && amy files tar | grep -q ' /usr/share/man/cat1/tar.1$'");
+  // dolly-llama computes on the GPU, a host module default does not declare:
+  // the package is refused by the module's name and nothing of it is installed.
+  assert.notEqual(await session.submit("amy install llama 2> /tmp/refused"), 0);
+  await run("grep -q gpu /tmp/refused && ! command -v dolly-llama");
 });
 
 // Every package of the catalog is installed into default and used: by a case
@@ -215,7 +314,7 @@ const elsewhere = {
   "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm",
   ...Object.fromEntries([1, 2, 3, 4].map(shard => [`qwen3.5-4b-${shard}`, "demos/local-llm"])),
 };
-const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "transfer", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
+const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "transfer", "llama", "tar", "meson", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
 assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no test installs and uses");
 
 // A package brings the programs its own programs start. rustc links through
@@ -231,8 +330,12 @@ const crate = "mkdir -p /tmp/amy-crate/src && cd /tmp/amy-crate && " +
 // mojo build links what it compiles through cc.
 const hello = "mkdir /tmp/amy-mojo && cd /tmp/amy-mojo && printf 'def main():\\n    print(\"hello\", 6 * 7)\\n' > hello.mojo && " +
   "mojo build hello.mojo && test \"$(./hello)\" = 'hello 42'";
+// Python runs Meson; meson setup configures with the C compiler and meson
+// compile builds with Ninja: the meson package installs the three.
+const mesoned = "mkdir /tmp/amy-meson && cd /tmp/amy-meson && printf 'int main(void) { return 42; }\\n' > main.c && " +
+  "printf '%s\\n' \"project('probe', 'c')\" \"executable('probe', 'main.c')\" > meson.build && meson setup build && meson compile -C build; build/probe; test $? = 42";
 for (const [name, command, program] of [["rust", "rustc", programs.rust], ["cargo", "cargo", crate], ["cmake", "cmake", programs.cmake],
-  ["mojo", "mojo", hello]]) {
+  ["mojo", "mojo", hello], ["meson", "meson", mesoned]]) {
   await browserTest(`amy ${name} alone`, { image: "default", timeout: 300_000 }, async ({ open }) => {
     const run = check(await open());
     await run(`! cc --version 2> /dev/null && ! command -v ${command}`);

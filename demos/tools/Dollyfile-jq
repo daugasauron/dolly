@@ -1,0 +1,96 @@
+DOLLY 7
+PACKAGE jq
+REQUIRES HOST runtime@0
+
+# jq from the files of upstream's release archive, unchanged, with the
+# Oniguruma and decNumber it vendors and the parser it ships generated.
+FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
+
+REQUIRES HEADER libc
+REQUIRES TOOL   cc
+REQUIRES TOOL   echo
+REQUIRES TOOL   make
+REQUIRES TOOL   tar
+REQUIRES TOOL   test
+
+SOURCE /v0.1.2/dist/static/tools/jq.tar 691ae56938eaee12dd4ef955033579c456f4d5327423bf06f2f0f43e2d18a2e6 /tmp/jq.tar
+SLOP tar -xf /tmp/jq.tar -C /
+
+# Slop does not run the two configure scripts, so these say what they would
+# find here. Oniguruma reads its answers from config.h.
+FILE /tmp/jq/vendor/oniguruma/src/config.h
+    #define HAVE_ALLOCA 1
+    #define HAVE_ALLOCA_H 1
+    #define HAVE_INTTYPES_H 1
+    #define HAVE_STDINT_H 1
+    #define HAVE_STDIO_H 1
+    #define HAVE_STDLIB_H 1
+    #define HAVE_STRINGS_H 1
+    #define HAVE_STRING_H 1
+    #define HAVE_SYS_STAT_H 1
+    #define HAVE_SYS_TIMES_H 1
+    #define HAVE_SYS_TIME_H 1
+    #define HAVE_SYS_TYPES_H 1
+    #define HAVE_UNISTD_H 1
+    #define SIZEOF_INT 4
+    #define SIZEOF_LONG 8
+    #define SIZEOF_LONG_LONG 8
+    #define SIZEOF_VOIDP 8
+    #define STDC_HEADERS 1
+FILE /tmp/jq/src/config_opts.inc
+    #define JQ_CONFIG "--with-oniguruma=builtin"
+# jq compiles its library of definitions in as a C array. Upstream's rule
+# writes it with od -t o1 and sed; sbase's od stops at -t o1.
+FILE /tmp/jq/bytes.c
+    #include <stdio.h>
+    int main(void) {
+      for (int byte; (byte = getchar()) != EOF;) printf("%d,\n", byte);
+      return 0;
+    }
+FILE /tmp/jq.mk
+    .RECIPEPREFIX := >
+    # The lexer and parser ship generated: no rule remakes them with lex and yacc.
+    MAKEFLAGS += -r
+    S := /tmp/jq
+    BIN := /usr/bin
+    # Not claimed: gamma and arc4random, which libc lacks, and __thread
+    # storage, in whose place jq keeps a thread's data under pthread keys.
+    MATH := ACOS ACOSH ASIN ASINH ATAN2 ATAN ATANH CBRT CEIL COPYSIGN COS COSH DREM ERF ERFC EXP10 \
+      EXP2 EXP EXPM1 FABS FDIM FLOOR FMA FMAX FMIN FMOD FREXP HYPOT J0 J1 JN LDEXP LGAMMA LOG10 \
+      LOG1P LOG2 LOG LOGB MODF LGAMMA_R NEARBYINT NEXTAFTER NEXTTOWARD POW REMAINDER RINT ROUND \
+      SCALB SCALBLN SIGNIFICAND SCALBN ILOGB SIN SINH SQRT TAN TANH TGAMMA TRUNC Y0 Y1 YN
+    HAVE := $(MATH) ALLOCA_H ATEXIT GETENTROPY GETTIMEOFDAY GMTIME GMTIME_R ISATTY LIBONIG \
+      LOCALTIME LOCALTIME_R MEMMEM PTHREAD_KEY_CREATE PTHREAD_ONCE SETENV SETLOCALE STRFTIME \
+      STRPTIME TIMEGM TM_TM_GMT_OFF
+    # _GNU_SOURCE as AC_USE_SYSTEM_EXTENSIONS defines it.
+    CPPFLAGS := $(addprefix -DHAVE_,$(HAVE)) -D_GNU_SOURCE=1 -DIEEE_8087=1 -DUSE_DECNUM=1 \
+      -I $S -I $S/src -I $S/vendor -I $S/vendor/oniguruma/src
+    # The sources of upstream's Makefile.am: libjq, its lexer and parser, jq.
+    NAMES := builtin bytecode compile execute jq_test jv jv_alloc jv_aux jv_dtoa jv_file jv_parse \
+      jv_print jv_unicode linker locfile util jv_dtoa_tsd lexer parser main
+    # Oniguruma's, without its POSIX API.
+    ONIG := regparse regcomp regexec regenc regerror regext regsyntax regtrav regversion st reggnu \
+      unicode unicode_unfold_key unicode_fold1_key unicode_fold2_key unicode_fold3_key ascii utf8 \
+      utf16_be utf16_le utf32_be utf32_le euc_jp euc_jp_prop sjis sjis_prop iso8859_1 iso8859_2 \
+      iso8859_3 iso8859_4 iso8859_5 iso8859_6 iso8859_7 iso8859_8 iso8859_9 iso8859_10 iso8859_11 \
+      iso8859_13 iso8859_14 iso8859_15 iso8859_16 euc_tw euc_kr big5 gb18030 koi8_r cp1251 onig_init
+    OBJECTS := $(addprefix $S/src/,$(addsuffix .o,$(NAMES))) \
+      $(addprefix $S/vendor/decNumber/,decContext.o decNumber.o) \
+      $(addprefix $S/vendor/oniguruma/src/,$(addsuffix .o,$(ONIG)))
+    $(BIN)/jq: $(OBJECTS)
+    >cc $^ -lm -o $@
+    $S/bytes: $S/bytes.c
+    >cc $< -o $@
+    $S/src/builtin.inc: $S/src/builtin.jq $S/bytes
+    >$S/bytes < $< > $@
+    $S/src/builtin.o: $S/src/builtin.inc
+    $S/%.o: $S/%.c
+    >cc -O2 $(CPPFLAGS) -c $< -o $@
+SLOP make -j4 -f /tmp/jq.mk
+
+SLOP test "$(echo '{"a": [1, 20, 21], "b": "2026-10-13T00:00:00Z"}' | jq -c '[(.a | add), (.b | fromdate | todate | test("^2026-10")), ("x" | ascii_upcase)]')" = '[42,true,"X"]'
+
+EXPORTS TOOL jq
+FILE /usr/share/licenses/jq/COPYING
+FILE /usr/share/licenses/oniguruma/COPYING
+FILE /usr/share/man/man1/jq.1

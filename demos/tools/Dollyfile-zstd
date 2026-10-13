@@ -1,0 +1,59 @@
+DOLLY 7
+PACKAGE zstd
+REQUIRES HOST runtime@0
+
+# Zstandard from the files of upstream's release archive, unchanged: zstd and
+# libzstd, with the files and flags of upstream's Makefiles for one thread
+# (a -pthread program would need threads@0) and without the gzip, xz and lz4
+# formats, which their own packages read. unzstd and zstdcat are zstd under
+# the names it looks for.
+FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
+
+REQUIRES HEADER libc
+REQUIRES TOOL   ar
+REQUIRES TOOL   cc
+REQUIRES TOOL   cmp
+REQUIRES TOOL   cp
+REQUIRES TOOL   ln
+REQUIRES TOOL   make
+REQUIRES TOOL   tar
+
+SOURCE /v0.1.2/dist/static/tools/zstd.tar 16bb1c795593c0a6d4016e17b240b071cdb726d6b09e6922b36413aa7b93bbc3 /tmp/zstd.tar
+SLOP tar -xf /tmp/zstd.tar -C /
+
+FILE /tmp/zstd.mk
+    .RECIPEPREFIX := >
+    S := /tmp/zstd
+    BIN := /usr/bin
+    LIB := /usr/lib
+    # Frames since 0.5 are read, as upstream's Makefile builds the library.
+    LIBRARY := $(wildcard $(addprefix $S/lib/,common/*.c compress/*.c decompress/*.c dictBuilder/*.c)) \
+      $(addprefix $S/lib/legacy/zstd_v0,5.c 6.c 7.c)
+    PROGRAM := $(wildcard $S/programs/*.c)
+    CPPFLAGS := -DXXH_NAMESPACE=ZSTD_ -DDEBUGLEVEL=0 -DZSTD_LEGACY_SUPPORT=5 -DBACKTRACE_ENABLE=0 \
+      -I $S/lib -I $S/lib/common -I $S/lib/dictBuilder -I $S/lib/legacy
+    all: $(BIN)/zstd
+    $S/%.o: $S/%.c
+    >cc -O2 $(CPPFLAGS) -c $< -o $@
+    $(LIB)/libzstd.a: $(LIBRARY:.c=.o)
+    >ar rcs $@ $^
+    $(BIN)/zstd: $(PROGRAM:.c=.o) $(LIB)/libzstd.a
+    >cc $^ -o $@
+SLOP make -j4 -f /tmp/zstd.mk
+SLOP ln -s zstd /usr/bin/unzstd
+SLOP ln -s zstd /usr/bin/zstdcat
+SLOP cp /tmp/zstd/lib/zstd.h /tmp/zstd/lib/zdict.h /tmp/zstd/lib/zstd_errors.h /usr/include
+
+SLOP zstd -19 -c /tmp/zstd/lib/zstd.h | unzstd | cmp - /tmp/zstd/lib/zstd.h
+SLOP zstd -q /tmp/zstd/lib/zstd.h -o /tmp/zstd-check.zst && zstdcat /tmp/zstd-check.zst | cmp - /tmp/zstd/lib/zstd.h
+
+EXPORTS TOOL   zstd
+EXPORTS TOOL   unzstd
+EXPORTS TOOL   zstdcat
+EXPORTS LIB    zstd        /usr/lib/libzstd.a
+EXPORTS HEADER zstd        /usr/include/zstd.h
+EXPORTS HEADER zdict       /usr/include/zdict.h
+EXPORTS HEADER zstd_errors /usr/include/zstd_errors.h
+# Zstandard is taken under its BSD licence.
+FILE /usr/share/licenses/zstd/LICENSE
+FILE /usr/share/man/man1/zstd.1

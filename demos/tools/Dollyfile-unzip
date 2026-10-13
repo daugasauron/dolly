@@ -1,0 +1,53 @@
+DOLLY 7
+PACKAGE unzip
+REQUIRES HOST runtime@0
+
+# Info-ZIP's UnZip from upstream's release archive, unchanged: unzip, and
+# zipinfo, which is unzip under the name it looks for. Slop does not run
+# unix/configure, so the flags say what it would find here; there is no
+# lchmod. The sources are C of 1990, which -std=gnu89 compiles; they call
+# read, write and lseek without their header unless the system says it is
+# BSD 4.4 or System V, and a call through the wrong type traps in Wasm.
+FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
+
+REQUIRES HEADER libc
+REQUIRES TOOL   cc
+REQUIRES TOOL   cp
+REQUIRES TOOL   gzip
+REQUIRES TOOL   ln
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   tar
+REQUIRES TOOL   test
+
+SOURCE /v0.1.2/dist/static/tools/unzip60.tar.gz 036d96991646d0449ed0aa952e4fbe21b476ce994abc276e49d30e686708bd37 /tmp/unzip.tar.gz
+SLOP gzip -dc /tmp/unzip.tar.gz | tar -xf - -C /tmp
+
+FILE /tmp/unzip.mk
+    .RECIPEPREFIX := >
+    S := /tmp/unzip60
+    BIN := /usr/bin
+    # The objects of unix/Makefile.
+    NAMES := unzip crc32 crypt envargs explode extract fileio globals inflate list match process \
+      ttyio ubz2err unreduce unshrink zipinfo unix/unix
+    CPPFLAGS := -I $S -DUNIX -DLARGE_FILE_SUPPORT -DUNICODE_SUPPORT -DUNICODE_WCHAR \
+      -DUTF8_MAYBE_NATIVE -DNO_LCHMOD -DHAVE_DIRENT_H -DHAVE_TERMIOS_H -D_MBCS
+    $(BIN)/unzip: $(addprefix $S/,$(addsuffix .o,$(NAMES)))
+    >cc $^ -o $@
+    $S/%.o: $S/%.c
+    >cc -O2 -std=gnu89 -include unistd.h $(CPPFLAGS) -c $< -o $@
+SLOP make -j4 -f /tmp/unzip.mk
+SLOP ln -s unzip /usr/bin/zipinfo
+SLOP mkdir -p /usr/share/licenses/unzip
+SLOP cp /tmp/unzip60/LICENSE /usr/share/licenses/unzip/LICENSE
+SLOP cp /tmp/unzip60/man/unzip.1 /tmp/unzip60/man/zipinfo.1 /usr/share/man/man1
+
+# The archive upstream ships to test a build with.
+SLOP CWD /tmp/unzip60 unzip -tq testmake.zip
+SLOP CWD /tmp unzip -q /tmp/unzip60/testmake.zip notes && test -s /tmp/notes
+
+EXPORTS TOOL unzip
+EXPORTS TOOL zipinfo
+FILE /usr/share/licenses/unzip/LICENSE
+FILE /usr/share/man/man1/unzip.1
+FILE /usr/share/man/man1/zipinfo.1

@@ -1,0 +1,53 @@
+DOLLY 7
+PACKAGE base64
+REQUIRES HOST runtime@0
+
+# base64 by Alfred Klomp from the files of upstream's tagged archive,
+# unchanged: the base64 program and libbase64, by the rules of its Makefile
+# with none of the codecs written for x86 and ARM vector instructions.
+FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
+
+REQUIRES HEADER libc
+REQUIRES TOOL   ar
+REQUIRES TOOL   cc
+REQUIRES TOOL   cp
+REQUIRES TOOL   echo
+REQUIRES TOOL   make
+REQUIRES TOOL   tar
+REQUIRES TOOL   test
+
+SOURCE /v0.1.2/dist/static/tools/base64.tar 42736effaa4eab13712b57cffa44922b45931bde9a03dac109bd0f9c279ca6a2 /tmp/base64.tar
+SLOP tar -xf /tmp/base64.tar -C /
+
+# As upstream's Makefile writes it when no codec is asked for.
+FILE /tmp/base64/lib/config.h
+    #define HAVE_AVX512 0
+    #define HAVE_AVX2   0
+    #define HAVE_NEON32 0
+    #define HAVE_NEON64 0
+    #define HAVE_SSSE3  0
+    #define HAVE_SSE41  0
+    #define HAVE_SSE42  0
+    #define HAVE_AVX    0
+FILE /tmp/base64.mk
+    .RECIPEPREFIX := >
+    S := /tmp/base64
+    BIN := /usr/bin
+    LIB := /usr/lib
+    LIBRARY := $(wildcard $S/lib/arch/*/codec.c) $(addprefix $S/lib/,lib.c codec_choose.c tables/tables.c)
+    all: $(BIN)/base64
+    $S/%.o: $S/%.c $S/lib/config.h
+    >cc -std=c99 -O2 -DBASE64_STATIC_DEFINE -I $S/lib -c $< -o $@
+    $(LIB)/libbase64.a: $(LIBRARY:.c=.o)
+    >ar rcs $@ $^
+    $(BIN)/base64: $S/bin/base64.o $(LIB)/libbase64.a
+    >cc $^ -o $@
+SLOP make -j4 -f /tmp/base64.mk
+SLOP cp /tmp/base64/include/libbase64.h /usr/include/libbase64.h
+
+SLOP test "$(echo packed | base64)" = cGFja2VkCg== && test "$(echo cGFja2VkCg== | base64 -d)" = packed
+
+EXPORTS TOOL   base64
+EXPORTS LIB    base64    /usr/lib/libbase64.a
+EXPORTS HEADER libbase64 /usr/include/libbase64.h
+FILE /usr/share/licenses/base64/LICENSE

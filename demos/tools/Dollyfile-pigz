@@ -1,0 +1,53 @@
+DOLLY 7
+PACKAGE pigz
+REQUIRES HOST runtime@0
+
+# pigz, the gzip of zlib's author, from upstream's release archive, unchanged,
+# by the rules of its Makefile, with the Zopfli it vendors and on one thread
+# (its NOTHREAD: a -pthread program would need threads@0). It writes the .gz
+# files that the gzip package only reads. unpigz is pigz under the name it
+# looks for.
+FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
+INSTALL /v0.1.2/Dollyfile-zlib d4b599bd8e0b9abadc856d1c387716fde1982758021a8ff16d6e77b5fcde90ef
+
+REQUIRES HEADER libc
+REQUIRES HEADER zlib
+REQUIRES LIB    z
+REQUIRES TOOL   cc
+REQUIRES TOOL   cmp
+REQUIRES TOOL   cp
+REQUIRES TOOL   gzip
+REQUIRES TOOL   ln
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   tar
+
+SOURCE /v0.1.2/dist/static/tools/pigz-2.8.tar.gz eb872b4f0e1f0ebe59c9f7bd8c506c4204893ba6a8492de31df416f0d5170fd0 /tmp/pigz.tar.gz
+SLOP gzip -dc /tmp/pigz.tar.gz | tar -xf - -C /tmp
+
+FILE /tmp/pigz.mk
+    .RECIPEPREFIX := >
+    S := /tmp/pigz-2.8
+    BIN := /usr/bin
+    ZOPFLI := deflate blocksplitter tree lz77 cache hash util squeeze katajainen symbols
+    $(BIN)/pigz: $S/pigz.o $S/try.o $(addprefix $S/zopfli/src/zopfli/,$(addsuffix .o,$(ZOPFLI)))
+    >cc $^ -lz -lm -o $@
+    $S/%.o: $S/%.c
+    >cc -O2 -DNOTHREAD -c $< -o $@
+SLOP make -j4 -f /tmp/pigz.mk
+SLOP ln -s pigz /usr/bin/unpigz
+# pigz's licence is at the end of its README; Zopfli's is Apache's.
+SLOP mkdir -p /usr/share/licenses/pigz
+SLOP cp /tmp/pigz-2.8/README /usr/share/licenses/pigz/README
+SLOP cp /tmp/pigz-2.8/zopfli/COPYING /usr/share/licenses/pigz/zopfli-COPYING
+SLOP cp /tmp/pigz-2.8/pigz.1 /usr/share/man/man1/pigz.1
+
+# Packed by pigz, read by pigz and by the gzip of the image.
+SLOP pigz -9 -c /tmp/pigz-2.8/pigz.c | unpigz -c | cmp - /tmp/pigz-2.8/pigz.c
+SLOP pigz -c /tmp/pigz-2.8/pigz.c | gzip -dc | cmp - /tmp/pigz-2.8/pigz.c
+
+EXPORTS TOOL pigz
+EXPORTS TOOL unpigz
+FILE /usr/share/licenses/pigz/README
+FILE /usr/share/licenses/pigz/zopfli-COPYING
+FILE /usr/share/man/man1/pigz.1

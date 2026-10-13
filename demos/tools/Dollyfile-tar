@@ -1,0 +1,46 @@
+DOLLY 7
+PACKAGE tar
+REQUIRES HOST runtime@0
+
+# sbase's tar, unchanged, built by sbase's own Makefile from the archive
+# system-tools builds its commands from. It writes archives and reads links
+# and pax headers, which the tar of the core package does not, and it takes
+# that one's place: /bin comes first on PATH. Its -z, -j and -J start the
+# compressor by fork, which fails here; pipe through pigz, bzip2 or xz.
+FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
+
+REQUIRES HEADER libc
+REQUIRES TOOL   ar
+REQUIRES TOOL   cc
+REQUIRES TOOL   cmp
+REQUIRES TOOL   ln
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   mv
+REQUIRES TOOL   readlink
+REQUIRES TOOL   test
+
+SOURCE /v0.1.2/dist/static/default/sbase.tar c05c64631cbc8441a50785da447c129c0a4f07fa3c3a10a5355c0f1102d3b1cd /tmp/sbase.tar
+SLOP tar -xf /tmp/sbase.tar -C /
+
+FILE /tmp/sbase/dolly.mk
+    .RECIPEPREFIX := >
+    dolly-bin: tar
+    >mv tar /bin/tar
+    # Where the core's page is, which man reads first.
+    >mv tar.1 /usr/share/man/cat1/tar.1
+    .RECIPEPREFIX :=
+    include Makefile
+SLOP make -C /tmp/sbase -f dolly.mk CFLAGS=-O2 ARFLAGS=rc RANLIB=:
+
+FILE /tmp/tar-check/names
+    in
+    in/deep
+    in/link
+SLOP mkdir -p /tmp/tar-check/in/deep /tmp/tar-check/out && ln -s deep /tmp/tar-check/in/link
+SLOP CWD /tmp/tar-check tar -cf in.tar in && tar -xf in.tar -C out && test "$(readlink out/in/link)" = deep
+SLOP CWD /tmp/tar-check tar -cf - in | tar -tf - | cmp - /tmp/tar-check/names
+
+EXPORTS TOOL tar
+FILE /usr/share/licenses/sbase/LICENSE
+FILE /usr/share/man/cat1/tar.1

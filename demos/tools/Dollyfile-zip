@@ -1,0 +1,45 @@
+DOLLY 7
+PACKAGE zip
+REQUIRES HOST runtime@0
+
+# Info-ZIP's Zip from upstream's release archive, unchanged. Slop does not
+# run unix/configure, so the flags say what it would find here. The sources
+# are C of 1990, which -std=gnu89 compiles. zip -T starts unzip, so unzip
+# comes with it.
+FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
+INSTALL /v0.1.2/demos/tools/Dollyfile-unzip ade17a94dfc73852899a3803dc3508715907669ccd3f33a3db3cf4b0bd6d1e81
+
+REQUIRES HEADER libc
+REQUIRES TOOL   cc
+REQUIRES TOOL   cp
+REQUIRES TOOL   gzip
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   tar
+REQUIRES TOOL   unzip
+
+SOURCE /v0.1.2/dist/static/tools/zip30.tar.gz f0e8bb1f9b7eb0b01285495a2699df3a4b766784c1765a8f1aeedf63c0806369 /tmp/zip.tar.gz
+SLOP gzip -dc /tmp/zip.tar.gz | tar -xf - -C /tmp
+
+FILE /tmp/zip.mk
+    .RECIPEPREFIX := >
+    S := /tmp/zip30
+    BIN := /usr/bin
+    # The objects of unix/Makefile.
+    NAMES := zip zipfile zipup fileio util globals crypt ttyio unix/unix crc32 zbz2err deflate trees
+    CPPFLAGS := -I $S -DUNIX -DUIDGID_NOT_16BIT -DLARGE_FILE_SUPPORT -DUNICODE_SUPPORT \
+      -DHAVE_DIRENT_H -DHAVE_TERMIOS_H
+    $(BIN)/zip: $(addprefix $S/,$(addsuffix .o,$(NAMES)))
+    >cc $^ -o $@
+    $S/%.o: $S/%.c
+    >cc -O2 -std=gnu89 $(CPPFLAGS) -c $< -o $@
+SLOP make -j4 -f /tmp/zip.mk
+SLOP mkdir -p /usr/share/licenses/zip
+SLOP cp /tmp/zip30/LICENSE /usr/share/licenses/zip/LICENSE
+SLOP cp /tmp/zip30/man/zip.1 /usr/share/man/man1/zip.1
+
+SLOP CWD /tmp/zip30 zip -q -r /tmp/zip-check.zip man && zip -T /tmp/zip-check.zip
+
+EXPORTS TOOL zip
+FILE /usr/share/licenses/zip/LICENSE
+FILE /usr/share/man/man1/zip.1

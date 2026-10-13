@@ -1,0 +1,90 @@
+DOLLY 7
+PACKAGE flex
+REQUIRES HOST runtime@0
+
+# flex 2.5.4 as Thomas Dickey maintains it (reflex), from upstream's release
+# archive, unchanged: it writes a scanner itself, where flex since 2.5.31
+# starts m4 by fork, which fails here. lex is the same program. Slop does not
+# run its configure, so config.h says what it would find here. Its own
+# grammar is compiled by yacc, and a scanner seldom goes without a grammar,
+# so the yacc package comes with it.
+FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
+INSTALL /v0.1.2/demos/tools/Dollyfile-yacc c72003b24d0769578c4a977e7c0ac073a8be5de22a28b5d1277553291f07e28e
+
+REQUIRES HEADER libc
+REQUIRES TOOL   ar
+REQUIRES TOOL   cc
+REQUIRES TOOL   cp
+REQUIRES TOOL   echo
+REQUIRES TOOL   gzip
+REQUIRES TOOL   ln
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   mv
+REQUIRES TOOL   tar
+REQUIRES TOOL   test
+REQUIRES TOOL   yacc
+
+SOURCE /v0.1.2/dist/static/tools/reflex-20260131.tgz ab51a65f33623bb9a3877fc5991ca7960b2421ed112d94c733d85597991748bd /tmp/reflex.tgz
+SLOP gzip -dc /tmp/reflex.tgz | tar -xf - -C /tmp
+
+FILE /tmp/reflex-20260131/config.h
+    #define HAVE_ALLOCA 1
+    #define HAVE_ALLOCA_H 1
+    #define HAVE_INTTYPES_H 1
+    #define HAVE_STDINT_H 1
+    #define HAVE_STDLIB_H 1
+    #define HAVE_STDNORETURN_H 1
+    #define HAVE_STRINGS_H 1
+    #define HAVE_STRING_H 1
+    #define HAVE_SYS_STAT_H 1
+    #define HAVE_SYS_TYPES_H 1
+    #define HAVE_UNISTD_H 1
+    #define MIXEDCASE_FILENAMES 1
+    #define STDC_HEADERS 1
+    #define STDC_NORETURN 1
+FILE /tmp/flex.mk
+    .RECIPEPREFIX := >
+    S := /tmp/reflex-20260131
+    BIN := /usr/bin
+    LIB := /usr/lib
+    # The sources of upstream's Makefile. Its scanner ships generated, as
+    # initscan.c; its grammar does not.
+    NAMES := ccl dfa ecs gen main misc nfa parse scan skel sym tblcmp yylex
+    all: $(BIN)/flex $(LIB)/libfl.a
+    $(BIN)/flex: $(addprefix $S/,$(addsuffix .o,$(NAMES)))
+    >cc $^ -o $@
+    $(LIB)/libfl.a: $S/libmain.o $S/libyywrap.o
+    >ar rcs $@ $^
+    $S/parse.c: $S/parse.y
+    >cd $S && yacc -d parse.y && mv y.tab.c parse.c && mv y.tab.h parse.h
+    $S/scan.c: $S/initscan.c
+    >cp $< $@
+    $(addprefix $S/,$(addsuffix .o,$(NAMES))): $S/parse.c
+    $S/%.o: $S/%.c $S/config.h
+    >cc -O2 -DHAVE_CONFIG_H -I $S -c $< -o $@
+SLOP make -j4 -f /tmp/flex.mk
+SLOP ln -s flex /usr/bin/lex
+SLOP cp /tmp/reflex-20260131/FlexLexer.h /usr/include/FlexLexer.h
+SLOP mkdir -p /usr/share/licenses/flex
+SLOP cp /tmp/reflex-20260131/COPYING /usr/share/licenses/flex/COPYING
+SLOP cp /tmp/reflex-20260131/flex.1 /usr/share/man/man1/flex.1
+
+# A scanner that counts the numbers in its input.
+FILE /tmp/flex-check/count.l
+    %{
+    static int numbers;
+    %}
+    %%
+    [0-9]+ numbers++;
+    .|\n ;
+    %%
+    int main(void) { yylex(); printf("%d\n", numbers); return 0; }
+SLOP CWD /tmp/flex-check flex -o count.c count.l && cc count.c -lfl -o count && test "$(echo 'a 1 bb 22 c 333' | ./count)" = 3
+
+EXPORTS TOOL   flex
+EXPORTS TOOL   lex
+EXPORTS LIB    fl        /usr/lib/libfl.a
+EXPORTS HEADER FlexLexer /usr/include/FlexLexer.h
+FILE /usr/share/licenses/flex/COPYING
+FILE /usr/share/man/man1/flex.1
