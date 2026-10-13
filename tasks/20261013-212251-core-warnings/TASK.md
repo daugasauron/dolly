@@ -80,3 +80,10 @@ would need them as `-isystem` paths or the two remarks switched off. Four
 `-Wshift-op-parentheses` remarks from that header are in
 `npm run build:runtime`'s output today, with no flag asking.
 
+`src/slop.c`, `src/dollyfile.c` and 40 of the 43 files of `src/commands/`
+have no remark under `-Wall` either, compiled for syntax by the container's
+compiler with the process side's flags. That is not the compiler that
+builds them (the one inside Dolly, in the recipes of `system-build` and
+`system-tools`). `amy.c`, `curl.c` and `gzip.c` were not checked: they
+include `version.h`, `curl/curl.h` and `zlib.h`, which their recipes supply.
+
