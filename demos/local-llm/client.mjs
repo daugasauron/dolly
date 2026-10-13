@@ -1,6 +1,5 @@
 import {spawn} from 'node:child_process';
 import {appendFileSync,mkdirSync} from 'node:fs';
-import {unmet} from './model.mjs';
 
 const command='/usr/bin/dolly-llama';
 // The shader kind this page's GPU adapter gives: what `dolly-llama --check` prints.
@@ -28,7 +27,6 @@ export class LocalLlama {
     this.progress('Checking WebGPU…');
     const gpu=this.gpu??=await checkGpu();
     if(!model.installed)throw Error(`${model.name} is not installed; run /local, or: amy install ${model.packages.join(' ')}`);
-    const missing=unmet(model,gpu.shaders);if(missing)throw Error(`${model.name} ${missing}`);
     this.progress(`Loading ${model.id} on the GPU…`);
     const child=spawn(command,[model.path,String(context)],{stdio:['pipe','pipe','pipe']});
     this.process=child;this.loaded=loaded;

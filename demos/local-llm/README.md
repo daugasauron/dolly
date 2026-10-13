@@ -12,35 +12,26 @@ or remote fallback.
 - `llama`: `dolly-llama`, llama.cpp on WebGPU serving a GGUF over stdin and stdout; it needs `gpu@0`.
 - `qwen3.5-2b`: Model package: Qwen3.5-2B weights, description and license.
 - `minicpm5-2b`: Model package: MiniCPM5-2B weights, description and license.
-- `qwen3.5-4b`: Model package: Qwen3.5-4B; it names the four shards below and installing it installs them.
-- `qwen3.5-4b-1`: Model package: Qwen3.5-4B, shard 1 of 4, description and license.
-- `qwen3.5-4b-2`: Model package: Qwen3.5-4B, shard 2 of 4.
-- `qwen3.5-4b-3`: Model package: Qwen3.5-4B, shard 3 of 4.
-- `qwen3.5-4b-4`: Model package: Qwen3.5-4B, shard 4 of 4.
 
 Open `/pi-local/` (or Dollyfile Studio) and ask; the first prompt loads the
 bundled model. In Pi, `/local` lists every model of the release with the GPU
-memory it needs on this adapter and its state, or why this adapter cannot run
-it. Choosing one that is not installed runs `amy install` for its packages and
-switches to it; choosing an installed one switches; **Parameters** changes
-sampling, context size and output limit; **Unload** frees the GPU. `/model` and
-`/thinking` are Pi's own: any provider's models, and reasoning on or off. Build
-with `npm run image -- pi-local`.
+memory it needs on this adapter and its state. Choosing one that is not
+installed runs `amy install` for its packages and switches to it; choosing an
+installed one switches; **Parameters** changes sampling, context size and
+output limit; **Unload** frees the GPU. `/model` and `/thinking` are Pi's own:
+any provider's models, and reasoning on or off. Build with
+`npm run image -- pi-local`.
 
 | Model | Packages | Download | GPU memory, f16 / f32 | Task, Chrome / Firefox | Tokens/s, Chrome / Firefox |
 | --- | --- | ---: | ---: | ---: | ---: |
 | Qwen3.5-2B | `qwen3.5-2b` (bundled) | 1.40 GB | 2.1 / 2.3 GB | 8 of 8 / 4 of 4 | 63 / 5 |
 | MiniCPM5-2B (2.6B parameters) | `minicpm5-2b` | 1.56 GB | 2.4 / 3.4 GB | 8 of 8 / 4 of 4 | 61 / 5 |
-| Qwen3.5-4B | `qwen3.5-4b-1` to `-4` | 3.01 GB | 3.9 GB / does not fit | 8 of 8 / not run | 49 / 5 |
 
 Q4_K_M weights, 16,384 tokens of context, thinking off, on an NVIDIA RTX 5070.
 GPU memory is Chrome's peak in `nvidia-smi` with one model loaded; an
 integrated GPU shares system memory. The task: list a directory, write a C
 program, compile it, run it and report its output
-([measurements](../../tasks/20261005-215557-local-models/TASK.md)). Qwen3.5-4B
-needs `shader-f16` (below) and is the one for real work: 44 of 48 coding tasks
-against 15 to 23 for the 2B-class models
-([comparison](../../tasks/20261001-214000-pi-local-model/TASK.md)).
+([measurements](../../tasks/20261005-215557-local-models/TASK.md)).
 
 ## A model is a package
 
@@ -52,12 +43,8 @@ what no upstream file knows:
 
 - `source`: the pinned upstream GGUF and the license file shipped with it.
 - `packages`, `files`: what `amy install` takes and the weight files with their
-  sizes. A model is installed when the files are there. One above the 2 GiB an
-  image holds is llama.cpp's own shards ([`build-gguf-split.sh`](build-gguf-split.sh)),
-  one package each, loaded from the first.
-- `gpu`: GPU memory in GB measured with f16 and with f32 shaders. A kind that
-  is missing does not fit the 4 GiB of buffers `gpu@0` grants, and `/local`
-  says so instead of loading.
+  sizes. A model is installed when the files are there.
+- `gpu`: GPU memory in GB measured with f16 and with f32 shaders.
 - `pi`: a Pi model definition (Pi's `docs/models.md`), passed through:
   context, output limit, whether it reasons, and the publisher's sampling where
   the GGUF carries none.
@@ -85,7 +72,7 @@ stays f32, at the same speed on the RTX 5070. A shader that would need f16 in
 a buffer fails naming `shader-f16`. No browser flag is needed beyond enabling
 WebGPU ([GPU](../../docs/gpu.md#enabling-webgpu)); optionally, Chrome started
 with `--enable-dawn-features=vulkan_enable_f16_on_nvidia` gets f16 on NVIDIA,
-which saves memory and fits Qwen3.5-4B.
+which saves memory.
 
 ## Key files
 
@@ -121,6 +108,8 @@ which saves memory and fits Qwen3.5-4B.
   25-80.
 - `gpu@0` grants 4 GiB of buffers, 1 GiB each, for weights, KV cache and
   scratch together: a GGUF above about 3 GB cannot load on any card.
+- A package is an image and an image holds at most 2 GiB, so a model's weights
+  do too ([the limit](../../tasks/20261013-143039-qwen-4b-out/TASK.md)).
 - Weight sizes are not total memory: each tab holds weights in WasmFS, the
   process and the GPU, and a model just unloaded can still hold GPU memory
   while the next one loads. Installed packages are session files: a session

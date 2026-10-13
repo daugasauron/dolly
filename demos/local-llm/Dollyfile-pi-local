@@ -11,7 +11,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.3/demos/pi/Dollyfile-pi-agent 910bd9293f5a9240c91e1440030eb7471324b36af15214db3db16a54e3bd5c1a
+FROM /v0.1.3/demos/pi/Dollyfile-pi-agent 1b5421f9ff5814cbb22d0f1d991e4eb7edc5526b83762986ca0ecf6ca3597063
 COPY /v0.1.3/demos/local-llm/Dollyfile-local-llm-build 21127b74648141670e8adf80c11579eecb8ed3136765a2024aa40ba56834840a /usr/bin/dolly-llama /usr/bin/dolly-llama
 COPY /v0.1.3/demos/local-llm/Dollyfile-llama-build 676c1bd8bdfb8cd644d5ded29d769b7a32ffd6785ec995f94aee0ed86e7ced03 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
@@ -21,7 +21,7 @@ REQUIRES TOOL janis
 REQUIRES TOOL tar
 REQUIRES TOOL dolly-llama
 
-SOURCE /v0.1.3/dist/static/llama/provider.tar 0c92a330cceb666ebabe9a93e1bbeb68c7f21f61c9167864ab82319c9d24c426 /tmp/llm-provider.tar
+SOURCE /v0.1.3/dist/static/llama/provider.tar 817376e879b6852d0c103716aa49bbd9f377fdd21cfd3b6cb0efd279e68fefb9 /tmp/llm-provider.tar
 SLOP tar -xf /tmp/llm-provider.tar -C /
 
 FILE /home/dolly/.pi/agent/settings.json

@@ -31,10 +31,8 @@ for(const image of ['pi-local','dollyfile-studio']) {
 if(!process.env.DISPLAY){console.log('local-llm: the model steps are skipped, they need a GPU window on DISPLAY');process.exit(0);}
 
 const root=new URL('../../../',import.meta.url).pathname;
-// The model both images bundle, and the one the user installs next: the most capable
-// model the adapter's shader kind can load.
-const model='qwen3.5-2b',weights=`/usr/share/dolly/llm/${model}.gguf`;
-const second={f16:{id:'qwen3.5-4b',packages:['qwen3.5-4b-1','qwen3.5-4b-2','qwen3.5-4b-3','qwen3.5-4b-4']},f32:{id:'minicpm5-2b',packages:['minicpm5-2b']}};
+// The model both images bundle, and the one the user installs next.
+const model='qwen3.5-2b',weights=`/usr/share/dolly/llm/${model}.gguf`,second='minicpm5-2b';
 // Playwright drives the installed Firefox, which on Ubuntu is a snap with a
 // private /tmp: its profile and downloads must live under $HOME.
 process.env.TMPDIR=new URL('tmp/',output).pathname;await mkdir(process.env.TMPDIR,{recursive:true});
@@ -160,13 +158,12 @@ for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local,dollyfile-studio').s
         assert.doesNotMatch(await text(),hint,'the hint stays after the first prompt');
         await page.screenshot({path:new URL(`${name}-${image}-first.png`,output).pathname});
         await type('/local');
-        const shaders=/this GPU adapter runs (f16|f32) shaders/.exec(await until(/Local models · this GPU adapter runs/,'/local'))[1];
-        const next=second[shaders];
+        await until(/Local models · this GPU adapter runs/,'/local');
         assert.match(await text(),new RegExp(`${model} · [\\d.]+ GB GPU memory · in use`));
-        assert.match(await text(),new RegExp(`${next.id} · [\\d.]+ GB GPU memory · not installed`));
+        assert.match(await text(),new RegExp(`${second} · [\\d.]+ GB GPU memory · not installed`));
         await page.screenshot({path:new URL(`${name}-${image}-local.png`,output).pathname});
-        await choose(`${next.id} ·`);
-        await until(new RegExp(`amy install ${next.packages.join('[\\s\\S]*')}`),'install question');
+        await choose(`${second} ·`);
+        await until(new RegExp(`amy install ${second}`),'install question');
         await key('Enter');
         await until(/Using /,'installed model',900000);
         // Sets one parameter of the model in use through /local and leaves the list open.
@@ -188,17 +185,17 @@ for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local,dollyfile-studio').s
         await parameter('contextWindow','12288');await key('Escape');await page.waitForTimeout(500);
         await until(/\/12k/,'context in the footer');
         await task('second.txt');
-        await until(new RegExp(`${next.id.replaceAll('.','\\.')} · [\\d.]+ tokens/s`),'rate of the second model');
+        await until(new RegExp(`${second} · [\\d.]+ tokens/s`),'rate of the second model');
         await page.screenshot({path:new URL(`${name}-${image}-second.png`,output).pathname});
         await shell('shell after Pi');
-        for(const name of next.packages)assert.equal(await submit(`amy installed | grep -q "^${name} "`),0,`${name} is not installed`);
+        assert.equal(await submit(`amy installed | grep -q "^${second} "`),0,`${second} is not installed`);
         // The user's values are Pi's overrides; the engine sampled with one and was loaded with the other.
         assert.equal(await submit(`grep -q '"temperature": 0.35' /home/dolly/.pi/agent/models.json && grep -q 'temperature 0.35' /home/dolly/.cache/dolly-llm/engine.log`),0,await text());
         assert.equal(await submit(`grep -q '"contextWindow": 12288' /home/dolly/.pi/agent/models.json && grep -q 'n_ctx *= 12288' /home/dolly/.cache/dolly-llm/engine.log`),0,await text());
         const external=requests.filter(url=>new URL(url).origin!==site.origin);
         assert.deepEqual(external,[],'Local models attempted external network access');
         assert.deepEqual(errors,[]);
-        console.log(image,name,`task with ${model}, ${next.id} installed and chosen with /local, temperature and context size changed, task again: passed with external requests denied`);
+        console.log(image,name,`task with ${model}, ${second} installed and chosen with /local, temperature and context size changed, task again: passed with external requests denied`);
       } finally {await browser.close();}
     }
   } finally {await site.close();}

@@ -62,7 +62,7 @@ mounted, and reads no other version's.
 
 - `COPY` takes files out of an image of any role.
 - Names match `[a-z][a-z0-9]*(-[a-z0-9]+|\.[0-9]+)*` and are at most 32 bytes: a
-  dot starts a run of version digits (`qwen3.5-4b`, `python3.14`), so a
+  dot starts a run of version digits (`qwen3.5-2b`, `python3.14`), so a
   documentation copy such as `Dollyfile-example.txt` is never a recipe.
 - A recipe is the file `Dollyfile-NAME` (`Dollyfile` for `default`); the site
   path that imports it must name that file.
@@ -70,7 +70,7 @@ mounted, and reads no other version's.
   command (`pi`, `mojo`, `nvim`) or the product (`ripgrep`, `python`,
   `sdl2`); toolchains are `family-variant`
   (`rust-sdk`, `cmake-build`, `pi-runtime`); versions go in the family
-  (`qwen3.5-4b`). An application that opens into a package takes another
+  (`qwen3.5-2b`). An application that opens into a package takes another
   name: what the image adds (`pi-agent`, `mojo-gpu`) or the product's
   longer name (`neovim`, `gnu-emacs`). The
   start page lists images in groups by role, each group by name.

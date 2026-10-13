@@ -6,7 +6,7 @@ import {readFileSync,writeFileSync} from 'node:fs';
 import {streamSimple} from '@earendil-works/pi-ai';
 import {getAgentDir} from '@earendil-works/pi-coding-agent';
 import {LocalLlama,checkGpu} from '/usr/lib/dolly-llm/client.mjs';
-import {models,unmet} from '/usr/lib/dolly-llm/model.mjs';
+import {models} from '/usr/lib/dolly-llm/model.mjs';
 
 const provider='webgpu';
 const gigabytes=bytes=>`${(bytes/1e9).toFixed(1)} GB`;
@@ -102,8 +102,7 @@ export default function(pi) {
     const gpu=await checkGpu().catch(error=>({error:error.message}));
     const active=ctx.model?.provider===provider?ctx.model.id:undefined,all=models();
     const rows=all.map(model=>{
-      const missing=gpu.error??unmet(model,gpu.shaders);
-      if(missing)return `${model.id} · cannot run: ${missing}`;
+      if(gpu.error)return `${model.id} · cannot run: ${gpu.error}`;
       const state=model.id===active?'in use':model.installed?'installed':`not installed, ${gigabytes(model.bytes)} to download`;
       return `${model.id} · ${model.gpu[gpu.shaders]} GB GPU memory · ${state}`;
     });
@@ -114,7 +113,7 @@ export default function(pi) {
     if(choice===edit)return editParameters(ctx,active);
     if(choice===unload) {engine.stop();ctx.ui.setStatus('local-model',undefined);return ctx.ui.notify('Local model unloaded','info');}
     const model=all[rows.indexOf(choice)];
-    if(gpu.error || unmet(model,gpu.shaders))return ctx.ui.notify(choice,'error');
+    if(gpu.error)return ctx.ui.notify(choice,'error');
     if(!model.installed) {
       if(!await ctx.ui.confirm(`Install ${model.name}?`,`amy install ${model.packages.join(' ')} fetches ${gigabytes(model.bytes)} from this site into the session. A session holding it is too large to save.`))return;
       for(const [index,name] of model.packages.entries()) {
