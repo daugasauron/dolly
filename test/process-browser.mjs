@@ -7,7 +7,7 @@ import { shellQuote } from "./fixtures/slop-cases.mjs";
 import { DOLLY_ERRNO } from "../src/process-constants.mjs";
 
 const scratch = "/tmp/dolly-process-test";
-const fixtures = Object.fromEntries(["process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c"]
+const fixtures = Object.fromEntries(["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c"]
   .map(name => [name, `test/fixtures/${name}`]));
 for (const name of await readdir(new URL("../build", import.meta.url))) {
   if (/^(?:process|dso)-.+\.wasm$/.test(name)) fixtures[name] = `build/${name}`;
@@ -69,6 +69,8 @@ const settle = () => new Promise(resolve => setTimeout(resolve, 200));
 await browserTest("process", { image: "system", server: { fixtures, handle } }, async ({ server, open }) => {
   const { page, submit, text, waitForText } = await open({
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
+  // The page's Workers while the shell waits for a line: the runtime's and one a process.
+  const idleWorkers = page.workers().length;
   const run = async command => assert.equal(await submit(command), 0, command);
   const fetchFixture = name => run(`curl -fsS ${server.origin}/fixture/${name} -o ${scratch}/${name}`);
   const interrupt = () => page.keyboard.press("Control+c");
@@ -95,7 +97,27 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   await interrupt();
   assert.equal(await cancelled, 0, "an interrupted process sleep returns EINTR after the handler runs");
 
-  for (const name of ["process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c", "input.tgz"]) await fetchFixture(name);
+  for (const name of ["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c", "input.tgz"]) await fetchFixture(name);
+  // A parent that ends without a say takes its running child and grandchild
+  // with it: on a trap, on a call through a null pointer, and when Ctrl-C,
+  // which they ignore, ends its Worker in a loop that never enters the kernel.
+  // The shell reads its next line and the kernel lists neither of them; the
+  // lifecycle test below counts the room they left in the table.
+  await run(`cc -O0 ${scratch}/process-tree.c -o ${scratch}/tree`);
+  for (const [ending, status] of [["trap", 126], ["null", 126], ["spin", 130]]) {
+    const ended = submit(`${scratch}/tree ${ending}`);
+    if (ending === "spin") {
+      await waitForText(/TREE-READY\s*$/);
+      await interrupt();
+    }
+    assert.equal(await ended, status, ending);
+    await run(`! grep -q "^[0-9]* [0-9]* [a-z]* ${scratch}/tree " /proc/processes`);
+  }
+  // Their Workers are gone too. Chrome keeps one that was blocked in a system
+  // call or spinning for two seconds after it is terminated.
+  for (const deadline = Date.now() + 5000; page.workers().length !== idleWorkers; await settle()) {
+    assert.ok(Date.now() < deadline, `${page.workers().length - idleWorkers} Workers of the trees are left`);
+  }
   await run(`cc -O0 ${scratch}/process-lifecycle.c -o ${scratch}/lifecycle && timeout 15 ${scratch}/lifecycle`);
   await run(`cc -O0 ${scratch}/process-descriptors.c -o ${scratch}/descriptors && timeout 60 ${scratch}/descriptors`);
   // Two processes contend for flock and fcntl locks; a release wakes its waiter at once.
