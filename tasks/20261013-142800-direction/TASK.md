@@ -168,6 +168,20 @@ read six names from the environment: which images (`DOLLY_BUILD_IMAGES`,
 turns a behaviour on or off. The other `DOLLY_*` names in `scripts/` are the
 294 pins of `config/source-pins.sh`.
 
+"An unimplemented operation cannot return success" (`AGENTS.md`), a narrow
+search on the same commit: in `src/process/`, `src/process-kernel.c`,
+`src/libc-host.c` and `src/dolly.c`, five functions have a body that is only
+`return 0`: the four user and group ids (`src/process/libc-adapter.c:759-762`;
+one user, by the decision of 2026-09-30) and `sched_yield`
+(`src/process/threads.c:84`, with its reason). One operation says it does
+nothing on purpose: `posix_fadvise` checks the descriptor and the advice and
+changes nothing (`src/process/libc-adapter.c:608`). The search does not find
+an operation that checks its arguments and then returns 0 without an effect.
+The known ones are in [file modes](../20261006-120641-umask/TASK.md):
+`chmod`, `fchmod` and `chown` check that the file exists and store nothing
+(`src/process/libc-adapter.c:948-962`), and `umask` keeps a value per process
+that nothing applies (`:767`).
+
 ## As filed (2026-10-13, main `50c698f8`)
 
 - [The audit of 2026-10-13](../20261012-230015-audit-fable/TASK.md) has five
