@@ -107,9 +107,13 @@ Left:
    built inside Dolly; the runs were not timed before and after that commit.
    Not measured: the seconds of each preparer. That needs a timed trace of the script; a
    safety check of the session stopped the one tried, and it was not run another way.
-5. **Demo tests run in Chrome only.** `demos/run-browser-tests.mjs` starts headless Chrome; ten
-   of the thirty demo test files name Firefox. "Every demo test once in Firefox" was on
-   v0.1.0's list (`tasks/20261007-133708-v010`) and has not been done.
+5. **Every demo test once in Firefox: done (2026-10-14).** With a temporary default of Firefox
+   for the tests that name no browser (`main` `ac618739`, the one-line change and the log in
+   `work/evidence-2026-10-14/demos-firefox.*`; not kept, since one run was what was asked):
+   23 passed and 6 skipped as in Chrome. 4 failed only because they are Chrome's by design:
+   `sdl2` and `classicube` type through Chrome DevTools ("CDP session is only available in
+   Chromium"), and `pi-local` and `dollyfile-studio` declare `gpu@0`, which headless Firefox
+   does not have ("WebGPU is unavailable in this browser").
 6. **A single-image run narrows what the suites check, and they do not say so.**
    `npm run image -- NAME` writes `dist/dolly-images.mjs` and the routes for NAME's closure,
    also when nothing is built: 31 images after `-- pi-local`. The artifact tests then read 31
