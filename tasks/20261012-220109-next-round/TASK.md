@@ -174,7 +174,8 @@ not reproduced in 160 drags and about 9,000 screen reads.
   `select` header, the launcher's kill), and `x11-browser.mjs` passed in both
   browsers on that seed (06:22); so did tmux's tests, which read pty masters
   (06:35), Python's (06:42), JavaScript's and CMake's with libuv (06:44),
-  `core-browser.mjs` (06:46), and `pager-browser.mjs` with `less` (06:47). Only the images these need were rebuilt there;
+  `core-browser.mjs` (06:46), `pager-browser.mjs` with `less` (06:47), and
+  the man, indicators, upload and threads tests (06:48). Only the images these need were rebuilt there;
   the branch needs a full round.
 
 ## Left for a later round, none started
