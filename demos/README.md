@@ -31,3 +31,4 @@ README. Demos may use each other; the core never uses a demo.
 - [x11](x11/README.md): the X Window System built inside Dolly: X.Org's server on the display, twm, and X's own clients in windows of their own.
 - [xonotic](xonotic/README.md): Xonotic 0.8.6 on the DarkPlaces engine, built inside Dolly and drawn by its software rasterizer.
 - [zero-ad](zero-ad/README.md): 0 A.D. Release 28 and its OpenAL build.
+- [zig](zig/README.md): Zig 0.16 with its LLVM backend, built inside Dolly against LLVM 21.
