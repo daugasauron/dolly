@@ -1,16 +1,17 @@
 // The x11-desktop image: Xsdl takes Dolly's display and twm frames xclock,
 // xeyes and xterm in windows of their own. The page's pointer reaches them
 // (xeyes' pupils follow it, a drag of a title bar moves the clock's window)
-// and its keyboard reaches the shell in xterm, which writes a file and ends
+// and its keyboard reaches the shell in xterm, which starts Dear ImGui's
+// example in a window of its own (SDL2's X11 driver), writes a file and ends
 // the server; the terminal's shell then reads the file. Prints the time to
-// the first window and a drag's frames.
+// the first window, a drag's frames and ImGui's frames.
 // Usage: node demos/x11/test/x11-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { delay, demoTest, shellPrompt } from "../../browser.mjs";
 
 const evidence = new URL("../../../build/x11-evidence/", import.meta.url).pathname;
-const width = 1024, height = 768;
+const width = 1600, height = 900;
 
 // The frame's pixels in a box: how many are not the root window's black, and
 // a digest that changes with any of them.
@@ -31,7 +32,7 @@ async function at(page, x, y) {
 const frameSequence = page => page.evaluate(() => Number(document.documentElement.dataset.frameSequence ?? 0));
 // Types text as a person does on a US keyboard: X maps keys, not characters,
 // so a shifted character is Shift and its key.
-const shifted = { ">": "Period", "$": "Digit4", "(": "Digit9", ")": "Digit0" };
+const shifted = { ">": "Period", "$": "Digit4", "(": "Digit9", ")": "Digit0", "&": "Digit7" };
 async function type(page, text) {
   for (const character of text) {
     if (shifted[character]) await page.keyboard.press(`Shift+${shifted[character]}`);
@@ -46,7 +47,7 @@ for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", ti
   const started = performance.now();
   const { page, run, prompt } = await open({ prompt: null });
   const booted = performance.now();
-  // The server's frame: 1024x768 once it holds the display.
+  // The server's frame: 1600x900 once it holds the display.
   await page.waitForFunction(([width, height]) => __dolly.transport.graphicsActive() &&
     document.querySelector("#display").width === width && document.querySelector("#display").height === height,
   [width, height], { timeout: 120_000, polling: 50 });
@@ -127,6 +128,25 @@ for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", ti
   console.log(`x11 ${browser}: a key typed into xterm was shown ${(performance.now() - pressed).toFixed(0)} ms after its press`);
   await type(page, "cho typed in xterm > /tmp/xterm-typed\n");
   await page.screenshot({ path: `${evidence}${browser}-xterm.png` });
+
+  // ImGui's example, centred, 1280x800: its clear colour (0.45, 0.55, 0.60)
+  // fills the corner its own windows leave.
+  await type(page, "imgui-x11 &\n");
+  await page.waitForFunction(() => {
+    const data = document.querySelector("#display").getContext("2d").getImageData(1100, 650, 300, 150).data;
+    let clear = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      clear += Math.abs(data[i] - 115) < 3 && Math.abs(data[i + 1] - 140) < 3 && Math.abs(data[i + 2] - 153) < 3;
+    }
+    return clear > 40000;
+  }, null, { timeout: 120_000, polling: 100 });
+  const imguiFrames = await frameSequence(page);
+  await delay(2000);
+  console.log(`x11 ${browser}: ImGui's window showed ${((await frameSequence(page) - imguiFrames) / 2).toFixed(0)} frames/s`);
+  await page.screenshot({ path: `${evidence}${browser}-imgui.png` });
+  // xterm's left edge stays out from under ImGui's window: the focus follows the pointer there.
+  await page.mouse.move(...await at(page, 100, 450));
+  await delay(300);
   await type(page, "kill $(cat /tmp/.X0-pid)\n");
   await prompt(shellPrompt);
   await run("grep -qx 'typed in xterm' /tmp/xterm-typed");

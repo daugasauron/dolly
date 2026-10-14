@@ -6,7 +6,7 @@ own under a stock window manager.
 
 ## Images
 
-- `x11-desktop`: an X session: the X server, twm, xclock, xeyes and xterm.
+- `x11-desktop`: an X session: the X server, twm, xclock, xeyes and xterm, with `imgui-x11` ([the SDL2 demo](../sdl2/README.md)) for xterm to start.
 - `xorg-server`: Xsdl, the X server in Dolly's display, with xkbcomp and the keyboard descriptions.
 - `twm`: twm, the Tab Window Manager.
 - `xclock`: xclock, the Athena clock.
@@ -17,7 +17,8 @@ own under a stock window manager.
 
 Open `/x11-desktop/`; build with `npm run image -- x11-desktop`. The session
 starts the server, twm, xclock, xeyes and xterm. Windows move by their title
-bars; the keyboard goes to the window under the pointer.
+bars; the keyboard goes to the window under the pointer. `imgui-x11 &` in
+xterm opens Dear ImGui's example, SDL2 drawing through its X11 driver.
 `kill $(cat /tmp/.X0-pid)` in xterm ends the server, and the terminal's shell
 is back.
 
@@ -61,7 +62,7 @@ is back.
 
 ## Limits
 
-- One screen of 1024x768, depth 24, which the page scales to the canvas. No
+- One screen of 1600x900, depth 24, which the page scales to the canvas. No
   GLX, DRI, MIT-SHM, XDMCP or TCP: clients connect at `/tmp/.X11-unix/X0`.
 - Keys are keys: X maps them with its own US layout, whatever the page's
   layout types.

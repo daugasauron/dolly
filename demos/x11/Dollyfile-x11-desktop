@@ -12,13 +12,15 @@ REQUIRES HOST upload@0
 
 # An X session on Dolly's display: the Xsdl server, twm managing the
 # windows, and three of X's own clients in theirs: a clock, eyes that follow
-# the pointer and a terminal with a shell.
+# the pointer and a terminal with a shell, where imgui-x11 starts Dear ImGui's
+# example in a window of its own.
 FROM /v0.1.3/Dollyfile-system 6537319cb5da6fdf6da34117e1b97113b8bc0d788d1f5c9453f05ff7207828df
 INSTALL /v0.1.3/demos/x11/Dollyfile-xorg-server fad8f156bb8e4c5fa51a56e2d1d4155a759bcde08f4d82faf3b6f60dbfc13a39
 INSTALL /v0.1.3/demos/x11/Dollyfile-twm f0d3ce780ff6c01f32e34ba545372d093e59660b42e3705b762fff8e2becbd96
 INSTALL /v0.1.3/demos/x11/Dollyfile-xclock 9c28b8014d1bd907285edd1bfd4ca41f871a8e96e93cf54824b490abb8b5827f
 INSTALL /v0.1.3/demos/x11/Dollyfile-xeyes 9d8250ef334f6735ad9a49c65e933c5ecd8ccdf28a06bc75a585034118bcdb76
-INSTALL /v0.1.3/demos/x11/Dollyfile-xterm 7f451c7ab713dc3358e6829f6d921029043944ef087373a0312fdefc4722be27
+INSTALL /v0.1.3/demos/x11/Dollyfile-xterm ee181bf89ba74067e6ff87a83d7bb8de85e1ee22efceca2a7e3b924f7de77a62
+INSTALL /v0.1.3/demos/sdl2/Dollyfile-imgui-x11 73da9035c240e97aac997793022dc0d5dd39bcce709f1bcd7024b5a89f64ddda
 
 # The server takes the display, the keyboard and the pointer until it ends
 # (kill $(cat /tmp/.X0-pid) in the terminal); its clients end with it, and
@@ -27,7 +29,7 @@ INSTALL /v0.1.3/demos/x11/Dollyfile-xterm 7f451c7ab713dc3358e6829f6d921029043944
 # end with the shell twm runs it in.
 FILE /etc/dolly/init.slop
     export DISPLAY=:0
-    Xsdl :0 -screen 1024x768 -nolock -dumbSched -s 0 &
+    Xsdl :0 -screen 1600x900 -nolock -dumbSched -s 0 &
     server=$!
     echo $server > /tmp/.X0-pid
     tries=0
