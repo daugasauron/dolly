@@ -405,7 +405,6 @@ EXPORTS TOOL pip3
 # pip builds what has no wheel for Dolly, which is every native package: a C
 # extension with the compiler, a Meson project such as NumPy with Ninja too.
 INSTALL /v0.1.3/Dollyfile-cc 496482dedb8df6eda0014425cc726c9f1dafd1225a2af952f0b8e147efeaf295
-INSTALL /v0.1.3/Dollyfile-ninja d0d732690414cfe3a4d2b7608afe4e286110022a2928bbe81c3b129c6dc58022
 
 # The browser policy decides which indexes are reachable; skip pip's own
 # PyPI version check. Dolly has one user, uid 0. Progress bars refresh from a
