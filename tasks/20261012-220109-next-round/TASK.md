@@ -177,6 +177,14 @@ not reproduced in 160 drags and about 9,000 screen reads.
 
 ## Left for a later round, none started
 
+- Python's `os.geteuid` (the X11 port's `meson install --no-rebuild`):
+  upstream's `Platforms/emscripten/config.site-wasm32-emscripten` turns it
+  off, since the stub always says root and code that trusts root misbehaves;
+  Dolly's ids are all 0 too, so turning it on would report root (pip warns,
+  `meson install` works). `demos/python/prepare-cpython.sh` also turns off
+  `setuid`, `setreuid`, `setgid` and `setregid`, which `core/x11-fixes`
+  makes work. A judgment call, and a Python rebuild.
+
 - `pty@0`: a spawn that is not the caller's child (tmux starting its own
   server, which the owner called fine as it is), a terminal recorded per
   process, `pipe-pane` ([tmux](../20261012-130814-tmux/TASK.md)).
