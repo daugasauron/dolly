@@ -175,7 +175,8 @@ not reproduced in 160 drags and about 9,000 screen reads.
   browsers on that seed (06:22); so did tmux's tests, which read pty masters
   (06:35), Python's (06:42), JavaScript's and CMake's with libuv (06:44),
   `core-browser.mjs` (06:46), `pager-browser.mjs` with `less` (06:47), and
-  the man, indicators, upload and threads tests (06:48). Only the images these need were rebuilt there;
+  the man, indicators, upload, threads, terminal, display, image and ending
+  tests (06:52). Only the images these need were rebuilt there;
   the branch needs a full round.
 
 ## Left for a later round, none started
