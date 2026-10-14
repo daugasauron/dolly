@@ -15,12 +15,12 @@ REQUIRES HOST upload@0
 # the pointer and a terminal with a shell, where imgui-x11 starts Dear ImGui's
 # example in a window of its own.
 FROM /v0.1.3/Dollyfile-system b33663b148885d0a8f2ef14025a1b3a4e5f6da23f38959d0e25fba61281e0c87
-INSTALL /v0.1.3/demos/x11/Dollyfile-xorg-server 295e2ba7e38bd58ee3fd9aba2db4c387bb34e757c98875a9ec2caf4140edb256
-INSTALL /v0.1.3/demos/x11/Dollyfile-twm f5a389f1fb6f495e4a42b63e2a65f26d07455fc7fbe3797055d5340eeedaf17b
-INSTALL /v0.1.3/demos/x11/Dollyfile-xclock 26303d50c0c7a71e3335aaef08c4b256fd649c41384b15fd45822668a6c54836
-INSTALL /v0.1.3/demos/x11/Dollyfile-xeyes 96eaafac66422e5c3342535f6e10d01563ced2b9ba5a1de2348612898b0af6c8
-INSTALL /v0.1.3/demos/x11/Dollyfile-xterm 371940dbdc0c3730dd003c3e7ee0e6dd70fd4de43b68eb667b72841608bfd08c
-INSTALL /v0.1.3/demos/sdl2/Dollyfile-imgui-x11 d4e4df229081ad4f25c9fea6739771df23ef621815f3d586972176b41ec0e9bc
+INSTALL /v0.1.3/demos/x11/Dollyfile-xorg-server b26bdd3087ae0bcecd582ba565707041a8acbd9c704eb864ebc09fc641df1bee
+INSTALL /v0.1.3/demos/x11/Dollyfile-twm 9f3e9cd4ae83b64b240317ce35b8dae0db012304456b51767b0d83134a8d0099
+INSTALL /v0.1.3/demos/x11/Dollyfile-xclock 69cb85659968d41cf224464411a4badb09d774a42506914cbb30b6da85d8e5cd
+INSTALL /v0.1.3/demos/x11/Dollyfile-xeyes cd14e3d6e962ed3fec7e7f11c714e81e972f9e5b87cb3314691e1afa020920ae
+INSTALL /v0.1.3/demos/x11/Dollyfile-xterm 9458d8d240725bc5076eb21e0690d0de81a98c73062cdae7e64f07809a434fd7
+INSTALL /v0.1.3/demos/sdl2/Dollyfile-imgui-x11 60b7b3d71d9da2ad8351c81209c60a315e70118dfd296d7be6d3717e5599fc35
 
 # The server takes the display, the keyboard and the pointer until it ends
 # (kill $(cat /tmp/.X0-pid) in the terminal); its clients end with it, and
@@ -32,6 +32,8 @@ FILE /etc/dolly/init.slop
     Xsdl :0 -screen 1600x900 -nolock -dumbSched -s 0 &
     server=$!
     echo $server > /tmp/.X0-pid
+    # SDL programs started from here draw through X, not Dolly's display.
+    export SDL_VIDEODRIVER=x11
     tries=0
     until test -e /tmp/.X11-unix/X0 || test $tries = 3000; do tries=$((tries + 1)); done
     twm &
