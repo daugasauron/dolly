@@ -1,8 +1,23 @@
 diff --git a/lib/std/Io/Threaded.zig b/lib/std/Io/Threaded.zig
-index b7c40ce..f855095 100644
+index b7c40ce..cc2a2e1 100644
 --- a/lib/std/Io/Threaded.zig
 +++ b/lib/std/Io/Threaded.zig
-@@ -10267,7 +10267,7 @@ fn processExecutablePath(userdata: ?*anyopaque, out_buffer: []u8) process.Execut
+@@ -7377,6 +7377,14 @@ fn dirRenamePreserve(
+     const t: *Threaded = @ptrCast(@alignCast(userdata));
+     if (is_windows) return dirRenameWindowsInner(old_dir, old_sub_path, new_dir, new_sub_path, false);
+     if (native_os == .linux) return dirRenamePreserveLinux(old_dir, old_sub_path, new_dir, new_sub_path);
++    // Dolly, Emscripten's libc in a browser, has no hard links: refuse a
++    // destination that exists, then rename (not atomic against a second writer).
++    if (native_os == .emscripten) {
++        if (dirAccess(userdata, new_dir, new_sub_path, .{ .follow_symlinks = false })) |_| {
++            return error.PathAlreadyExists;
++        } else |_| {}
++        return dirRename(userdata, old_dir, old_sub_path, new_dir, new_sub_path);
++    }
+     // Make a hard link then delete the original.
+     try dirHardLink(t, old_dir, old_sub_path, new_dir, new_sub_path, .{ .follow_symlinks = false });
+     const prev = swapCancelProtection(t, .blocked);
+@@ -10267,7 +10275,7 @@ fn processExecutablePath(userdata: ?*anyopaque, out_buffer: []u8) process.Execut
                  else => |e| return e,
              };
          },
@@ -11,7 +26,7 @@ index b7c40ce..f855095 100644
              error.UnsupportedReparsePointType => unreachable, // Windows-only
              error.NetworkNotFound => unreachable, // Windows-only
              error.FileBusy => unreachable, // Windows-only
-@@ -14851,7 +14851,7 @@ fn processSpawnPath(userdata: ?*anyopaque, dir: Dir, options: process.SpawnOptio
+@@ -14851,7 +14859,7 @@ fn processSpawnPath(userdata: ?*anyopaque, dir: Dir, options: process.SpawnOptio
  }
  
  const processSpawn = switch (native_os) {
@@ -20,7 +35,7 @@ index b7c40ce..f855095 100644
      .windows => processSpawnWindows,
      else => processSpawnPosix,
  };
-@@ -14949,7 +14949,15 @@ fn spawnPosix(t: *Threaded, options: process.SpawnOptions) process.SpawnError!Sp
+@@ -14949,7 +14957,15 @@ fn spawnPosix(t: *Threaded, options: process.SpawnOptions) process.SpawnError!Sp
      t.scanEnviron(); // for PATH
      const PATH = t.environ.string.PATH orelse default_PATH;
  
@@ -37,7 +52,7 @@ index b7c40ce..f855095 100644
          const rc = posix.system.fork();
          switch (posix.errno(rc)) {
              .SUCCESS => break :fork @intCast(rc),
-@@ -14960,7 +14968,7 @@ fn spawnPosix(t: *Threaded, options: process.SpawnOptions) process.SpawnError!Sp
+@@ -14960,7 +14976,7 @@ fn spawnPosix(t: *Threaded, options: process.SpawnOptions) process.SpawnError!Sp
          }
      };
  
@@ -46,7 +61,7 @@ index b7c40ce..f855095 100644
          defer comptime unreachable; // We are the child.
          if (Thread.current) |current_thread| current_thread.cancel_protection = .blocked;
          const ep1 = err_pipe[1];
-@@ -15055,6 +15063,83 @@ fn spawnPosix(t: *Threaded, options: process.SpawnOptions) process.SpawnError!Sp
+@@ -15055,6 +15071,83 @@ fn spawnPosix(t: *Threaded, options: process.SpawnOptions) process.SpawnError!Sp
      };
  }
  
