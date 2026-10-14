@@ -150,14 +150,16 @@ process_link_flags=(
   fi
 )
 emcc="/emsdk/upstream/emscripten/emcc ${process_compile_flags[*]}"
+# Dolly's own sources stop the build at a warning; musl's compile as upstream wrote them.
+checked="${emcc} -Wall -Werror"
 libc_internal="${process_libc_internal_flags[*]}"
 emscripten_libc=/emsdk/upstream/emscripten/system/lib
 in_container <<EOF
-${emcc} -c src/process/libc-adapter.c -o build/process-libc-adapter.o
-${emcc} -c src/process/mmap.c -o build/process-mmap.o
-${emcc} -c src/process/time.c -o build/process-time.o
-${emcc} -c src/process/poll.c -o build/process-poll.o
-${emcc} -c src/process/signal.c -o build/process-signal.o
+${checked} -c src/process/libc-adapter.c -o build/process-libc-adapter.o
+${checked} -c src/process/mmap.c -o build/process-mmap.o
+${checked} -c src/process/time.c -o build/process-time.o
+${checked} -c src/process/poll.c -o build/process-poll.o
+${checked} -c src/process/signal.c -o build/process-signal.o
 ${emcc} ${libc_internal} -c ${emscripten_libc}/pthread/pthread_self_stub.c -o build/process-pthread-self.o
 ${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/default_attr.c -o build/process-default-attr.o
 ${emcc} ${libc_internal} -c src/process/pthread-stubs.c -o build/process-pthread-stub.o
@@ -186,7 +188,7 @@ for client in "${clients[@]}"; do
   read -r module source <<<"${client}"
   rm -f -- "build/libdolly-${module}.a.new"
   object="build/process-${module}-$(basename "${source}" .c).o"
-  echo "${emcc} -c ${source} -o ${object}"
+  echo "${checked} -c ${source} -o ${object}"
   echo "/emsdk/upstream/emscripten/emar rcsD build/libdolly-${module}.a.new ${object}"
 done | in_container
 for module in $(printf '%s\n' "${clients[@]%% *}" | uniq); do

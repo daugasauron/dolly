@@ -87,3 +87,13 @@ builds them (the one inside Dolly, in the recipes of `system-build` and
 `system-tools`). `amy.c`, `curl.c` and `gzip.c` were not checked: they
 include `version.h`, `curl/curl.h` and `zlib.h`, which their recipes supply.
 
+## The process side (2026-10-14, 09:50)
+
+`scripts/build.sh` compiles the libc adapter's five sources and every
+module's client with `-Wall -Werror`. The seed has the bytes it had: after
+`npm run build:runtime` the image inputs are `538c5a8a…` as before, so the
+flags alone rebuild no image. musl's own files and `pthread-stubs.c`, which
+includes one, compile as before; so does the threaded build
+(`scripts/build-process-threads.sh`), where the libc's internal include paths
+make musl's `endian.h` an ordinary header that remarks twice.
+
