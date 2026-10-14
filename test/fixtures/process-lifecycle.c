@@ -182,6 +182,10 @@ int main(int argc, char **argv) {
     return 42;
   }
   CHECK(gettid() == getpid());
+  /* One user, id 0: a process sets the ids it has, and no other. */
+  CHECK(setuid(0) == 0 && setgid(0) == 0 && seteuid(0) == 0 && setegid(0) == 0);
+  CHECK(setresuid(-1, 0, -1) == 0 && setreuid(0, 0) == 0);
+  CHECK(setuid(1) == -1 && errno == EPERM);
   FILE *file = tmpfile();
   CHECK(file != NULL);
   if (file == NULL) return 1;
