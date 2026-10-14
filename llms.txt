@@ -19,8 +19,11 @@ which crawlers are asked to leave alone.
 
 ## Driving a page
 
-The terminal is drawn on a canvas, so its text is not in the page's DOM: read
-it from a screenshot. The `data-dolly-status` attribute of the page's `html`
+The terminal is drawn on a canvas, so its text is not in the page's DOM. A
+script in the page reads it with `__dolly.visibleTerminalText()`, and
+`await __dolly.submit("ls")` types a line and resolves to its exit status
+([the page's handle](docs/browser-boundary.md#the-pages-handle)); without one,
+read a screenshot. The `data-dolly-status` attribute of the page's `html`
 element says where the page is: `loading`, then `ready` when the image runs
 (`built` on a rebuild page of an image that only builds), `failed` when it
 could not start, with the reason in the page's text, and `exited` when the

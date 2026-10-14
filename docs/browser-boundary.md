@@ -216,6 +216,33 @@ Worker URL.
 | Process entry | The supervisor measures, with a recursion of its own, whether `WebAssembly.promising` gives a stack half again as deep; where it does, the process Worker calls through it the entry of an executable that carries a `dolly.process.stack` section (the compiler alone), only for that stack ([browser stack](browser-stack.md)). No import is `Suspending`, so the call still runs to completion before the Worker handles anything else ([`process-supervisor.mjs`](../src/process-supervisor.mjs), [`process-worker.mjs`](../src/process-worker.mjs)) |
 | Clocks, entropy, CPU and memory use | Inputs and availability effects only; the kernel grows its own memory up to its declared maximum, and its abort is a Wasm trap |
 
+## The page's handle
+
+Once an image's page is `ready`, `window.__dolly` drives and reads it: for a
+script in the page, an agent's browser or a test. The tests, release
+acceptance and the checks of a deployed site use it.
+
+- `submit(command)` types the line and Enter and resolves to the status the
+  shell publishes when it has run; `input(text)`, `paste(text)` and
+  `key(key, code, modifiers)` type as the keyboard and the paste chord do
+  (`input@0`).
+- `visibleTerminalText()` returns the screen's text, by selecting every cell
+  and reading the selection; `waitForInteractiveTerminal(pattern)` waits for
+  a program in raw mode whose screen matches.
+- `terminal` (the result's sequence, the foreground, `interruptForeground()`,
+  which is Ctrl+C), `foregroundPid`, `hostModules` (the session's modules) and
+  `systemSnapshot` (the bytes a rebuild built).
+- An enabled module adds its own and takes them away when `nena` disables it:
+  `transport`, `fontSize`, `graphicsActive`, `copySelection()` (`display@0`),
+  `inputTransport` (`input@0`), the broker's request counters (`http@0`),
+  `sessionName` and `saveSession(name)` (`snapshot@0`), `gpu`, `audio`,
+  `microphone` and `buttons`.
+
+None gives authority a user of the page lacks: each write is what a key, a
+paste, a click or Save does, through the same functions, without the gesture.
+Wasm cannot reach the handle. A process can publish any status, so the one
+`submit` resolves to is the shell's word, not a proof.
+
 ## Persistence
 
 - Unsaved state dies with the tab. Compromise can persist in a saved session, an

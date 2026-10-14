@@ -1,6 +1,6 @@
 # Investigate: what every page ships for tests (__dolly, terminal-text.mjs, the shell's published result)
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 285
 - TAGS: core,boundary,tests,owner
 
@@ -27,6 +27,23 @@ Done when it holds, with the evidence and without a verdict:
 - what could not be found out.
 
 The owner decides what, if anything, follows.
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the short questions of the next round: "Regarding
+next round, yes/signoff to everything except: I don't want ot add any
+permission stuff". The recommendation he signed was to document `__dolly`
+and change no code, since an injected module could not reach the page's
+objects anyway.
+
+`docs/browser-boundary.md` has a section "The page's handle": what each
+member does, which module adds it, that none gives authority a user lacks,
+that Wasm cannot reach it, and that the status `submit` resolves to is the
+shell's word and not a proof. `llms.txt` tells an agent's script to read the
+screen with `__dolly.visibleTerminalText()` and type with `__dolly.submit`.
+The four images that hold the documents were rebuilt (495 s); source tests
+430/0, artifact tests 25/0, the `pi` and `studio` demo suites, the site test
+in Chromium and Firefox.
 
 ## State (2026-10-14, 01:55): investigated, the owner's to read
 
