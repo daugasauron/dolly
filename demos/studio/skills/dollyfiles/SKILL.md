@@ -39,7 +39,9 @@ Never run `/bin/dollyfile` here: it replaces the running image.
   recipe first; otherwise the build fails on the `INSTALL` row, naming the
   missing line.
 - `FROM PATH SHA256` is the first operation. `INSTALL PATH SHA256` adds a
-  package anywhere after it. `COPY` takes files out of another image.
+  package anywhere after it. In a `PACKAGE`, `USE PATH SHA256` installs one
+  for the build only; what installs the package does not get it. `COPY`
+  takes files out of another image.
 - `SLOP command` runs one shell command line in `/`; each is a fresh shell, so
   use `SLOP CWD /dir ...` instead of `cd`. `RUN /program args` runs a program
   without a shell. Any failure stops the build.
