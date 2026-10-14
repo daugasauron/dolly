@@ -6,7 +6,7 @@ REQUIRES HOST http@0
 REQUIRES HOST input@0
 
 FROM /v0.1.3/Dollyfile-system-tools b8dfc75b8a479542d0651732894a05f8c83fae3f8a86266efc1638e432e1a053
-INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 b4a13d5e0c5e68063169307d9b55365ef282729acb53ff1683f3a4ba0be091ac
+INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 9a81db6f618d214abe66ddba33c2057a8a92eb4b0b4f650dbbb82c90d940f7fe
 # FreeType (with its libpng) for the client's fonts, libjpeg for its textures.
 INSTALL /v0.1.3/demos/xonotic/Dollyfile-libjpeg 54e2910006ced2065eae10e4f36b3f49898d143d1532236c03d2d09796f18f9c
 INSTALL /v0.1.3/demos/zero-ad/Dollyfile-freetype 96fd7e5f3d4b71b7aad694e939e539e5f63b4b6f3f205bf471d360645c34551d

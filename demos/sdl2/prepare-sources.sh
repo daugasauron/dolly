@@ -1,5 +1,6 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_image sdl2; then
+# imgui-x11 builds both again where X's libraries are.
+if has_image sdl2 || has_image imgui-x11; then
   sdl2_dir="$(bash demos/sdl2/prepare-sdl2.sh)"
   sdl2_inputs=()
   for entry in src include cmake CMakeLists.txt SDL2Config.cmake.in SDL2.spec.in \
@@ -10,7 +11,7 @@ if has_image sdl2; then
     "${sdl2_inputs[@]}" \
     "${sdl2_dir}/LICENSE.txt" /usr/share/licenses/SDL2/LICENSE.txt
 fi
-if has_image imgui; then
+if has_image imgui || has_image imgui-x11; then
   imgui_archive="$(bash scripts/fetch-pinned-archive.sh imgui)"
   imgui_dir="build/generated/imgui-$(source config/source-pins.sh && echo "${DOLLY_IMGUI_VERSION}")"
   if [[ ! -d "${imgui_dir}" ]]; then mkdir -p build/generated && tar -xzf "${imgui_archive}" -C build/generated; fi

@@ -10,12 +10,12 @@ REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM /v0.1.3/demos/pi/Dollyfile-pi-runtime 083df5371d87cde044e141d63ec0ee5f31a89a5a56fc3457eb5b3db22922665f
-INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 b4a13d5e0c5e68063169307d9b55365ef282729acb53ff1683f3a4ba0be091ac
-COPY /v0.1.3/demos/rts/Dollyfile-rts-build beeb7437aba9143f212416e292db4014d5ef83181268b71fe75a7dc3e370ce50 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
-COPY /v0.1.3/demos/rts/Dollyfile-rts-build beeb7437aba9143f212416e292db4014d5ef83181268b71fe75a7dc3e370ce50 /usr/share/7kaa /usr/share/7kaa
-COPY /v0.1.3/demos/rts/Dollyfile-rts-build beeb7437aba9143f212416e292db4014d5ef83181268b71fe75a7dc3e370ce50 /usr/src/7kaa /usr/src/7kaa
-COPY /v0.1.3/demos/rts/Dollyfile-rts-build beeb7437aba9143f212416e292db4014d5ef83181268b71fe75a7dc3e370ce50 /usr/src/dolly/rts /usr/src/dolly/rts
-COPY /v0.1.3/demos/rts/Dollyfile-rts-build beeb7437aba9143f212416e292db4014d5ef83181268b71fe75a7dc3e370ce50 /usr/share/licenses/7kaa /usr/share/licenses/7kaa
+INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 9a81db6f618d214abe66ddba33c2057a8a92eb4b0b4f650dbbb82c90d940f7fe
+COPY /v0.1.3/demos/rts/Dollyfile-rts-build 3c9e9829e4b5d20648a17c2c49bdae73a2f78a67784cd88439695bda366192fe /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
+COPY /v0.1.3/demos/rts/Dollyfile-rts-build 3c9e9829e4b5d20648a17c2c49bdae73a2f78a67784cd88439695bda366192fe /usr/share/7kaa /usr/share/7kaa
+COPY /v0.1.3/demos/rts/Dollyfile-rts-build 3c9e9829e4b5d20648a17c2c49bdae73a2f78a67784cd88439695bda366192fe /usr/src/7kaa /usr/src/7kaa
+COPY /v0.1.3/demos/rts/Dollyfile-rts-build 3c9e9829e4b5d20648a17c2c49bdae73a2f78a67784cd88439695bda366192fe /usr/src/dolly/rts /usr/src/dolly/rts
+COPY /v0.1.3/demos/rts/Dollyfile-rts-build 3c9e9829e4b5d20648a17c2c49bdae73a2f78a67784cd88439695bda366192fe /usr/share/licenses/7kaa /usr/share/licenses/7kaa
 EXPORTS TOOL seven-kingdoms
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner

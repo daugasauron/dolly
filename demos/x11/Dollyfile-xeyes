@@ -5,7 +5,7 @@ REQUIRES HOST sockets@0
 
 # xeyes from X.Org's release archive, unchanged, drawn with the Render
 # extension; Present is not built (it needs xcb's extension libraries).
-FROM /v0.1.3/demos/x11/Dollyfile-x11-build 98ae9243fde462a5357fd9d8099fe40b9e89c0d01b21f4586b47e717d794c748
+FROM /v0.1.3/demos/x11/Dollyfile-x11-build 559328220ab9b87e13ad8183afb0b18ae96c2e76a321fe44b3cda9d4bc141a17
 
 SOURCE /v0.1.3/dist/static/x11/xeyes-1.3.1.tar.gz d223283270488b1a6b408d0e97bd69a7704cf6a9596c0320035d807e63cdc084 /tmp/xeyes.tar.gz
 SLOP CWD /tmp gzip -dc xeyes.tar.gz | tar -xf -
