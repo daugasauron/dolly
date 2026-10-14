@@ -2,8 +2,8 @@
 // xeyes and xterm in windows of their own. The page's pointer reaches them
 // (xeyes' pupils follow it, a drag of a title bar moves the clock's window)
 // and its keyboard reaches the shell in xterm, which starts Dear ImGui's
-// example in a window of its own (SDL2's X11 driver), writes a file and ends
-// the server; the terminal's shell then reads the file. Prints the time to
+// example in a window of its own (SDL2's X11 driver), installs tmux with amy,
+// writes a file and ends the server; the terminal's shell then reads both. Prints the time to
 // the first window, a drag's frames and ImGui's frames.
 // Usage: node demos/x11/test/x11-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
@@ -32,7 +32,7 @@ async function at(page, x, y) {
 const frameSequence = page => page.evaluate(() => Number(document.documentElement.dataset.frameSequence ?? 0));
 // Types text as a person does on a US keyboard: X maps keys, not characters,
 // so a shifted character is Shift and its key.
-const shifted = { ">": "Period", "$": "Digit4", "(": "Digit9", ")": "Digit0", "&": "Digit7" };
+const shifted = { ">": "Period", "$": "Digit4", "(": "Digit9", ")": "Digit0", "&": "Digit7", "?": "Slash" };
 async function type(page, text) {
   for (const character of text) {
     if (shifted[character]) await page.keyboard.press(`Shift+${shifted[character]}`);
@@ -42,10 +42,11 @@ async function type(page, text) {
 }
 
 const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium"];
-for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", timeout: 600_000, browser }, async ({ open }) => {
+for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", timeout: 600_000, browser }, async ({ server: site, open }) => {
   await mkdir(evidence, { recursive: true });
   const started = performance.now();
-  const { page, run, prompt } = await open({ prompt: null });
+  const { page, run, prompt } = await open({ prompt: null,
+    policy: { rules: [{ origin: site.origin, path: "/amy-index.txt", methods: ["GET"] }] } });
   const booted = performance.now();
   // The server's frame: 1600x900 once it holds the display.
   await page.waitForFunction(([width, height]) => __dolly.transport.graphicsActive() &&
@@ -147,7 +148,11 @@ for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", ti
   // xterm's left edge stays out from under ImGui's window: the focus follows the pointer there.
   await page.mouse.move(...await at(page, 100, 450));
   await delay(300);
+  // amy installs a package from xterm's shell.
+  await type(page, "amy install tmux > /tmp/amy-tmux 2>&1; echo $? >> /tmp/amy-tmux\n");
+  await page.waitForFunction(() => __dolly.inputTransport.inputIdle(), null, { timeout: 60_000 });
+  await delay(15000);
   await type(page, "kill $(cat /tmp/.X0-pid)\n");
   await prompt(shellPrompt);
-  await run("grep -qx 'typed in xterm' /tmp/xterm-typed");
+  await run("grep -qx 'typed in xterm' /tmp/xterm-typed && grep -q 'tmux installed' /tmp/amy-tmux && tail -n 1 /tmp/amy-tmux | grep -qx 0");
 });

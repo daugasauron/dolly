@@ -5,9 +5,13 @@ REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST pty@0
 REQUIRES HOST download@0
+REQUIRES HOST dso@0
 REQUIRES HOST http@0
+REQUIRES HOST nena@0
+REQUIRES HOST packages@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 # An X session on Dolly's display: the Xsdl server, twm managing the
@@ -20,13 +24,15 @@ INSTALL /v0.1.3/demos/x11/Dollyfile-twm 4c4e0feede1800b70ff53b23e3d79a7a5438f0f6
 INSTALL /v0.1.3/demos/x11/Dollyfile-xclock 999a4558102de1237356e6d199a40424f0502641c0c5f5444030134e9e1c1283
 INSTALL /v0.1.3/demos/x11/Dollyfile-xeyes c8baecf318909f60caabcdfa94547685474fa9137c1434d5ac92d259c5d9bb7d
 INSTALL /v0.1.3/demos/x11/Dollyfile-xterm da0111f36915c0f4aac2cbb3a590815f322a2c57b115a928c14348e4dea8eb75
+# amy installs packages into the session (tmux, nvim and the rest), with the
+# modules default declares for them; nena enables another.
+INSTALL /v0.1.3/Dollyfile-amy a9e0c7a808cfae5c9b4ebd7e22668ed1eaa66dce1bbc2e337e064d5bf0e6bb67
+INSTALL /v0.1.3/Dollyfile-nena 7ecabfc08c0c7d7e7cf13ec5a5ea7cf260ae816e2d2ef83ad6e2d861719e34b0
 INSTALL /v0.1.3/demos/sdl2/Dollyfile-imgui-x11 60175511f9aa4cd7d0b36348af9be14bf4183d6820e3417ecdee1203ca7a0c24
 
 # The server takes the display, the keyboard and the pointer until it ends
 # (kill $(cat /tmp/.X0-pid) in the terminal); its clients end with it, and
-# this shell's terminal is back. A program lives as long as the process that
-# started it, so the clients are started here: what twm's menu starts would
-# end with the shell twm runs it in.
+# this shell's terminal is back.
 FILE /etc/dolly/init.slop
     export DISPLAY=:0
     Xsdl :0 -screen 1600x900 -nolock -dumbSched -s 0 &

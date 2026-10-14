@@ -99,7 +99,9 @@ beside three other tests, as recorded in `demos/run-browser-tests.mjs`). The
 three were fixed and each file passed alone in both of its browsers;
 ClassiCube passed alone. The GPU stage passed (local-llm, SpiderMonkey, the
 0 A.D. engine and graphics, Slopyard), and `zig-llvm-browser.mjs` in both
-browsers; local `main` was fast-forwarded to the branch (`00caf5ec`). On the way: SDL's timer subsystem needed a thread,
+browsers; local `main` was fast-forwarded to the branch (`00caf5ec`). On
+`main` as it stood at 06:30 (`ac833366`), the whole core browser suite passed
+in both browsers (`browser-final.log`). On the way: SDL's timer subsystem needed a thread,
 so ImGui's example never drew (fixed in `sdl2-dolly.patch`), and the X
 clients lost `-ldolly-sockets` to the module packages (`x11-build` installs
 `libdolly-sockets`).
@@ -162,7 +164,30 @@ Measured and open: [what a round costs and what an unchanged run costs](../20260
 [the two terminal flakes](../20261001-095000-terminal-text-flake/TASK.md),
 not reproduced in 160 drags and about 9,000 screen reads.
 
+## Ready for the next round
+
+- `core/x11-fixes` (worktree `work/x11fix`, 2026-10-15): `select`, `set*id`
+  to the ids a process has, and a pty master that reads EIO once its slave
+  is gone, as on Linux; what the X11 port worked around. A seed change.
+  `pty-browser.mjs` and `process-browser.mjs` passed in both browsers on the
+  rebuilt seed. It also drops xterm's three workarounds (its patch, a
+  `select` header, the launcher's kill), and `x11-browser.mjs` passed in both
+  browsers on that seed (06:22); so did tmux's tests, which read pty masters
+  (06:35), Python's (06:42), JavaScript's and CMake's with libuv (06:44),
+  `core-browser.mjs` (06:46), `pager-browser.mjs` with `less` (06:47), and
+  the man, indicators, upload, threads, terminal, display, image, ending,
+  both session tests and nena (06:55). Only the images these need were rebuilt there;
+  the branch needs a full round.
+
 ## Left for a later round, none started
+
+- Python's `os.geteuid` (the X11 port's `meson install --no-rebuild`):
+  upstream's `Platforms/emscripten/config.site-wasm32-emscripten` turns it
+  off, since the stub always says root and code that trusts root misbehaves;
+  Dolly's ids are all 0 too, so turning it on would report root (pip warns,
+  `meson install` works). `demos/python/prepare-cpython.sh` also turns off
+  `setuid`, `setreuid`, `setgid` and `setregid`, which `core/x11-fixes`
+  makes work. A judgment call, and a Python rebuild.
 
 - `pty@0`: a spawn that is not the caller's child (tmux starting its own
   server, which the owner called fine as it is), a terminal recorded per
