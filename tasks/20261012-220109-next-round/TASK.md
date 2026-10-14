@@ -25,8 +25,9 @@ Without a rebuild, each verified by the core suite in both browsers:
 [eighteen exports and three other names nothing reached](../20261013-160335-stale-words/TASK.md),
 [eight READMEs that said "build-only"](../20261013-161624-build-only-entry/TASK.md).
 
-In the round of 2026-10-14 (branch `integrate/round-1014`, evidence in
-`build/round-1014-evidence/`): [`python` without `ninja`](../20261013-132701-python-ninja/TASK.md)
+In the round of 2026-10-14, which passed (branch `integrate/round-1014`,
+evidence in `build/round-1014-evidence/`; `rts` failed once with its known
+early-input stall and passed alone after): [`python` without `ninja`](../20261013-132701-python-ninja/TASK.md)
 and [`mojo run`'s message](../20261013-134032-mojo-run-message/TASK.md), by
 his word; the parser's constant `kind` field and three comments that said
 `COMPILEC`; `xonotic-build` and `wine-build` installing `freetype` in place
