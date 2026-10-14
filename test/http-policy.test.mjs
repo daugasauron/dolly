@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { consumeDollyHttpPolicy, DollyHttpPolicy, isDollyCredentialHeader, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
+import { DOLLY_ERRNO } from "../src/process-constants.mjs";
 
 test("response quotas are optional and finite inherited quotas cannot be widened", () => {
   const target = new URL("https://models.example/weights");
@@ -54,7 +55,7 @@ test("the browser HTTP policy owns destination authority while credentials stay 
       new Headers(),
       0,
     ),
-    /denied/,
+    { errno: DOLLY_ERRNO.EACCES },
   );
   assert.throws(
     () => policy.authorize(
@@ -63,7 +64,7 @@ test("the browser HTTP policy owns destination authority while credentials stay 
       new Headers(),
       0,
     ),
-    /quota/,
+    { errno: DOLLY_ERRNO.EDQUOT },
   );
   assert.equal(isDollyCredentialHeader("Authorization"), true);
   assert.equal(isDollyCredentialHeader("content-type"), false);
@@ -119,7 +120,7 @@ test("exact HTTP policy paths cannot be widened by a matching prefix", () => {
       new Headers(),
       0,
     ),
-    /denied/,
+    { errno: DOLLY_ERRNO.EACCES },
   );
 });
 
@@ -150,14 +151,14 @@ test("bootstrap sources are exact read-only broker capabilities", () => {
   ]) {
     assert.throws(
       () => policy.authorize(new URL(target), "GET", new Headers(), 0),
-      /denied/,
+      { errno: DOLLY_ERRNO.EACCES },
     );
   }
   assert.throws(
     () => policy.authorize(
       new URL("https://dolly.example/app/static/tool.tar"), "POST", new Headers(), 0,
     ),
-    /denied/,
+    { errno: DOLLY_ERRNO.EACCES },
   );
 });
 
@@ -184,7 +185,7 @@ test("bootstrap sources have a bounded hardened quota separate from agent reques
     [{ path: "/static/tool.tar", byteLength: 1234 }], "https://dolly.example/app/");
   const fetchSource = () => policy.authorize(new URL("https://dolly.example/app/static/tool.tar"), "GET", new Headers(), 0);
   for (let index = 0; index < 4; index++) fetchSource();
-  assert.throws(fetchSource, /quota/);
+  assert.throws(fetchSource, { errno: DOLLY_ERRNO.EDQUOT });
   assert.equal(policy.requests, 0);
 });
 
@@ -200,7 +201,7 @@ test("a relay is transport for a destination the policy admits, with no credenti
   assert.equal(rule.followRedirects, false);
   assert.equal(headers.has("authorization"), false, "the relay was not named as a credential recipient");
   // The policy judges the real destination: the relay admits nothing by itself.
-  assert.throws(() => policy.authorize(new URL("https://forge.example/elsewhere"), "GET", new Headers(), 0), /policy denied/);
+  assert.throws(() => policy.authorize(new URL("https://forge.example/elsewhere"), "GET", new Headers(), 0), { errno: DOLLY_ERRNO.EACCES });
   assert.equal(policy.authorize(new URL("https://other.example/"), "GET", new Headers(), 0).relay, undefined);
 
   const trusted = new DollyHttpPolicy(undefined, [], "https://page.example/",
@@ -212,7 +213,7 @@ test("a relay is transport for a destination the policy admits, with no credenti
   // An inherited policy narrows what is admitted and keeps this page's relay.
   const narrowed = restrictDollyHttpPolicy(policy, [{ rules: [{ origin: "https://forge.example", pathPrefix: "/team/repo" }] }], [], "https://page.example/");
   assert.ok(narrowed.authorize(new URL("https://forge.example/team/repo/x"), "GET", new Headers(), 0).relay);
-  assert.throws(() => narrowed.authorize(new URL("https://forge.example/team/other"), "GET", new Headers(), 0), /policy denied/);
+  assert.throws(() => narrowed.authorize(new URL("https://forge.example/team/other"), "GET", new Headers(), 0), { errno: DOLLY_ERRNO.EACCES });
 
   for (const invalid of [{ origin: "https://forge.example/", through: "https://page.example/relay/" },
     { origin: "https://forge.example", through: "https://page.example/relay" },

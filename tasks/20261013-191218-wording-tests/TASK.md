@@ -1,6 +1,6 @@
 # Investigate: tests that assert wording, and the artifact test that asserts the build again
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 115
 - TAGS: tests,hygiene,owner
 
@@ -17,6 +17,32 @@ in the suites, each with the behaviour it stands for and whether another
 assertion in the same test already proves that behaviour; what the artifact
 test asserts that the build itself asserts; and what could not be found
 out. The owner decides what goes.
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the tasks that waited for him: "I'm not gonna go
+through 35 tasks, I'm sure some are not relevant anymore and some are
+confirmed actual good fixes. If your investigation confirms they are fixes
+that improve things and aligh with the main goal of the project go ahead. If
+you're uncertain, give me a short description".
+
+The investigation found the rule kept almost everywhere: half of the matched
+messages are the only way a test tells one refusal from another, and a third
+are the behaviour itself. Two places had a better thing to assert and assert
+it now:
+
+- `test/http-policy.test.mjs` matched `/denied/` and `/quota/` eight times
+  where the error carries an errno. It asserts the errno (`EACCES`,
+  `EDQUOT`), which is what a program sees.
+- `test/host-modules-browser.mjs` asserted a whole sentence of the kernel
+  for an undeclared module. It asserts that the refusal names the module
+  (`input@0`), beside the status 126 and the one line it already checked.
+
+Left as they are, each for its reason: the two assertions over the Pages
+workflow's YAML (that the artifact's digest is required and verified before
+extraction: a check of the publication, not of prose) and the one that the
+kernel plugin's loader holds no `fetch(` or `eval(` (a boundary assertion,
+which the rule sets apart).
 
 ## State (2026-10-14, 04:30): investigated, the owner's to read
 

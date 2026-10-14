@@ -161,7 +161,7 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides, 
       "/usr/share/probe/entry": `
 cc /usr/share/probe/leases.c -o /tmp/leases && cc /usr/share/probe/forged.c -o /tmp/forged && cc /usr/share/probe/reads.c -o /tmp/reads || exit
 /tmp/leases > /tmp/out 2> /tmp/err
-test $? -eq 126 && test ! -s /tmp/out && test $(wc -l < /tmp/err) -eq 1 && grep -q 'host module input@0 is not declared by this image (REQUIRES HOST)' /tmp/err
+test $? -eq 126 && test ! -s /tmp/out && test $(wc -l < /tmp/err) -eq 1 && grep -q 'input@0' /tmp/err
 refused=$?
 /tmp/forged
 forged=$?
