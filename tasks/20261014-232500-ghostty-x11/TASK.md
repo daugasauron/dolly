@@ -12,7 +12,7 @@ with its own renderer, running on Dolly's X server.
 Done when `ghostty` opens a window on Dolly's X server and a shell runs in it,
 with a browser test.
 
-## State (2026-10-15, 05:00): X11 and zig build run; GTK is next
+## State (2026-10-15, 05:30): X11 runs; Ghostty's build.zig builds libghostty-vt; GTK is next
 
 Each step needs the one before it; details from memory are marked.
 
@@ -41,18 +41,18 @@ Each step needs the one before it; details from memory are marked.
    unchecked), with softpipe as the rasterizer: llvmpipe generates machine
    code at run time, which a Wasm process cannot run.
 4. Ghostty: `zig build` runs in Dolly ([Zig with LLVM](../20261014-234000-zig-llvm/TASK.md),
-   package `zig-llvm`). Tried at 04:00-05:00 on 2026-10-15, upstream's
-   unmodified `build.zig` at the pinned commit with `-Demit-lib-vt=true`, in
-   a session (`work/zig`, scratch probe; the packages it needs, uucode and
-   six lazy ones, fetched on the host into the project's `zig-pkg/`, since
-   a session reaches no network but the broker: Zig's own fetch failed
-   with NameServerFailure, as it should). The build runner compiles and
-   runs (about 20 s), and 33 of 41 steps pass: uucode's table generator,
-   `generate-def` and others are Zig programs compiled and run in Dolly.
-   Fixed on the way, in the demo's Zig patch: a file placed without
+   package `zig-llvm`). Upstream's unmodified `build.zig` at the pinned
+   commit, `zig build -Demit-lib-vt=true` in a session (scratch probe in
+   `work/zig`, 2026-10-15 05:25), built `zig-out/lib/libghostty-vt.a`
+   (20.7 MB, Debug) in 127 s: the build runner, uucode's table generator,
+   translate-c and the library, all compiled by Zig in Dolly. The packages
+   (uucode and six lazy ones) were fetched on the host into the project's
+   `zig-pkg/`: a session reaches no network but the broker, and Zig's own
+   fetch fails there with NameServerFailure. The step that failed is
+   Ghostty's browser module (`ghostty-vt.wasm`, "unsupported arch" in
+   `std/start.zig`), which Dolly does not need. Fixed on the way, in the
+   demo's Zig patch (on `main`, `8edcaa0d`): a file placed without
    replacing (Dolly has no hard links), the compiler's stack (48 MB, as
-   upstream), Emscripten's `NAME_MAX`. Next to see: translate-c, then
-   `compile lib ghostty-vt-static`; the wasm build steps
-   (`wasm_patch_growable_table`) are Ghostty's for a browser module and may
-   need its build to treat Emscripten as a native OS.
+   upstream), Emscripten's `NAME_MAX`. Next: the GTK application, with its
+   C dependencies compiled by Zig.
    Threads exist (`threads@0`) for its renderer and IO threads.
