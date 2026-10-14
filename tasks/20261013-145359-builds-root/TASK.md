@@ -1,6 +1,6 @@
 # Investigate: the base images (system-build, system-tools, system, cmake-build) and the packages that are views of them
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 256
 - TAGS: packages,catalog,core,owner
 
@@ -103,3 +103,7 @@ gives no verdict. What it found:
   and that no base holds pkg-config.
 - The reflection on the direction makes the same proposal
   ([section 5](../20261013-142800-direction/reflection.md)).
+
+## Closed 2026-10-15
+
+amy, Git, `download` and `upload` hold their builds as packages (`5caa5e81`, signed off 2026-10-14); `system` installs `transfer`. Verified in the round of 2026-10-14/15 on `integrate/round-1014b` (evidence `work/rust/build/round-1014b-evidence/`: source 431/0, artifacts 25/0, the core browser suite and every demo test in their browsers, five GPU tests), fast-forwarded into local `main` (`00caf5ec`). `zero-ad-engine`, which descends from `system-tools`, installs `transfer` for its tests (`6ff53e8b`).

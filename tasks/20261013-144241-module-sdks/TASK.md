@@ -1,6 +1,6 @@
 # Investigate: host modules' headers and clients in the seed, and what a host module is
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 270
 - TAGS: core,host-modules,packages,owner
 
@@ -109,3 +109,7 @@ verdict. What it found:
   `pty@0` say `HOST` where no host is involved. The mechanism is right; the
   word is the owner's to weigh.
 - Changes the seed's contents: the seed branch.
+
+## Closed 2026-10-15
+
+The headers and clients of gpu, audio, microphone, buttons and sockets are the packages `libdolly-*` (`84769767`, signed off 2026-10-14); the images and tests that use them install them. Verified in the round of 2026-10-14/15 on `integrate/round-1014b` (evidence `work/rust/build/round-1014b-evidence/`: source 431/0, artifacts 25/0, the core browser suite and every demo test in their browsers, five GPU tests), fast-forwarded into local `main` (`00caf5ec`).

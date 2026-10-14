@@ -1,6 +1,6 @@
 # A package cannot say what it needs only to build: every INSTALL row is installed with it
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 255
 - TAGS: core,dollyfile,packages,owner
 
@@ -85,3 +85,7 @@ gives no verdict. What it found:
 - Related: `src/dollyfile.c:1401`, `keep = !(package_recipe && mode !=
   IMPORT_COPY)`: only a package's build keeps nothing of what it installs;
   a build image keeps the files of every package it installs.
+
+## Closed 2026-10-15
+
+`USE` (`37a3b94b`, the owner's sign-off of 2026-10-14 18:30): gzip, mandoc, pigz, sqlite and tmux use what they link statically and bring none of it. Verified in the round of 2026-10-14/15 on `integrate/round-1014b` (evidence `work/rust/build/round-1014b-evidence/`: source 431/0, artifacts 25/0, the core browser suite and every demo test in their browsers, five GPU tests), fast-forwarded into local `main` (`00caf5ec`); `amy-browser.mjs` tests USE in both browsers.

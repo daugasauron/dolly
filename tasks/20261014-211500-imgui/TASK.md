@@ -1,6 +1,6 @@
 # Dear ImGui as a package
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: packages,graphics
 
@@ -44,3 +44,7 @@ changes to `sdl2` let that example run as upstream wrote it:
 
 Both rebuild `sdl2` and the images that install it, so they wait for a
 round after the one of 2026-10-14.
+
+## Closed 2026-10-15
+
+`imgui-browser.mjs` passed in Chromium (5.0 s) and Firefox (7.5 s) in the round's demo suite, after SDL's timer subsystem stopped needing a thread (`2faec880`); `imgui-x11` draws in its own X window (`x11-browser.mjs`, both browsers). In the round of 2026-10-14/15 on `integrate/round-1014b` (evidence `work/rust/build/round-1014b-evidence/`: source 431/0, artifacts 25/0, the core browser suite and every demo test in their browsers, five GPU tests), fast-forwarded into local `main` (`00caf5ec`).

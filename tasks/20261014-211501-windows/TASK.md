@@ -1,6 +1,6 @@
 # Several programs in their own windows
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 90
 - TAGS: graphics,host-modules,owner
 
@@ -62,3 +62,7 @@ Next on this path is GTK ([Ghostty in X11](../20261014-232500-ghostty-x11/TASK.m
   Round trips are no obstacle; a full 1080p frame through a socket takes a
   third to a half of 16.7 ms in Chrome and about all of it in Firefox.
   To be measured again on an idle machine.
+
+## Closed 2026-10-15
+
+The owner took X11 ("Run the X11 benchmark", "launch X11 in a subagent"); `demos/x11` is merged (`81490af2`), `x11-browser.mjs` passed in both browsers, and the next step is [Ghostty in X11](../20261014-232500-ghostty-x11/TASK.md). The core behaviours it worked around are listed above. In the round of 2026-10-14/15 on `integrate/round-1014b` (evidence `work/rust/build/round-1014b-evidence/`: source 431/0, artifacts 25/0, the core browser suite and every demo test in their browsers, five GPU tests), fast-forwarded into local `main` (`00caf5ec`).

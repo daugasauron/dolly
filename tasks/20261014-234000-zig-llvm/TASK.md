@@ -1,6 +1,6 @@
 # Zig with LLVM inside Dolly, and `zig build`
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 190
 - TAGS: zig,toolchain,packages,owner
 
@@ -79,3 +79,7 @@ libc++ refuses; PIC off, since shared libraries link with version scripts),
    executable is linked with Dolly's libc, process stamp and host records,
    which `cc` adds today. Whether Zig's linker and `zig cc` can do that, or
    the final link goes to `cc`, is not known.
+
+## Closed 2026-10-15
+
+`zig-llvm-browser.mjs` passed in Chromium (33.4 s) and Firefox (43.6 s) in the round tree after the merge (`c321379d`): `zig version`, `zig build-exe` of a program that starts a child, `zig build` of a project. What is left is in the state above, for tasks of their own when wanted. In the round of 2026-10-14/15 on `integrate/round-1014b` (evidence `work/rust/build/round-1014b-evidence/`: source 431/0, artifacts 25/0, the core browser suite and every demo test in their browsers, five GPU tests), fast-forwarded into local `main` (`00caf5ec`).
