@@ -4,7 +4,8 @@
 - PRIORITY: 150
 - TAGS: catalog,owner,packages,host-modules
 
-State (2026-10-14, 10:00). The owner (2026-10-14): "I'm not gonna go through 35
+State (2026-10-15, 04:15): the six decided items passed a round and are on
+local `main` (`00caf5ec`); what is left is below. The owner (2026-10-14): "I'm not gonna go through 35
 tasks, I'm sure some are not relevant anymore and some are confirmed actual
 good fixes. If your investigation confirms they are fixes that improve things
 and aligh with the main goal of the project go ahead. If you're uncertain,
@@ -88,7 +89,7 @@ browser files pass in both browsers. Merged into the round branch
 (`a4c15668`) with ImGui and the description; its 16 stale images rebuild,
 then the suites and the GPU stage run again.
 
-The second pass (2026-10-15 02:42 to 03:36, with `demo/x11` and
+The second pass (2026-10-15 02:42 to 04:02, with `demo/x11` and
 `demo/zig-llvm` merged): source 431/0, artifacts 25/0. The core browser
 suite failed `amy-browser.mjs` (imgui unnamed in its coverage list) and
 `site-browser.mjs` (the greeting now has two links); the demos failed
@@ -96,7 +97,9 @@ suite failed `amy-browser.mjs` (imgui unnamed in its coverage list) and
 shorter greeting had put it) and `classicube-browser.mjs` (its pixel check
 beside three other tests, as recorded in `demos/run-browser-tests.mjs`). The
 three were fixed and each file passed alone in both of its browsers;
-ClassiCube passed alone. On the way: SDL's timer subsystem needed a thread,
+ClassiCube passed alone. The GPU stage passed (local-llm, SpiderMonkey, the
+0 A.D. engine and graphics, Slopyard), and `zig-llvm-browser.mjs` in both
+browsers; local `main` was fast-forwarded to the branch (`00caf5ec`). On the way: SDL's timer subsystem needed a thread,
 so ImGui's example never drew (fixed in `sdl2-dolly.patch`), and the X
 clients lost `-ldolly-sockets` to the module packages (`x11-build` installs
 `libdolly-sockets`).
