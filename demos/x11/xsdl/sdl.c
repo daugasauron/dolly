@@ -44,6 +44,7 @@ static SDL_Window *window;
 static DamagePtr damage;
 static ScreenBlockHandlerProcPtr screenBlockHandler;
 static ScreenWakeupHandlerProcPtr screenWakeupHandler;
+static CloseScreenProcPtr screenCloseScreen;
 static CARD32 lastCopy;
 static KdKeyboardInfo *sdlKeyboard;
 static KdPointerInfo *sdlPointer;
@@ -225,6 +226,17 @@ sdlWakeupHandler(ScreenPtr pScreen, int result)
     }
 }
 
+/* The damage goes before the damage layer, which closes first among those
+ * that wrap the screen when its resources are made. */
+static Bool
+sdlCloseScreen(ScreenPtr pScreen)
+{
+    DamageDestroy(damage);
+    damage = NULL;
+    pScreen->CloseScreen = screenCloseScreen;
+    return (*pScreen->CloseScreen) (pScreen);
+}
+
 static Bool
 sdlCreateResources(ScreenPtr pScreen)
 {
@@ -234,6 +246,8 @@ sdlCreateResources(ScreenPtr pScreen)
     if (!damage)
         return FALSE;
     DamageRegister(&pixmap->drawable, damage);
+    screenCloseScreen = pScreen->CloseScreen;
+    pScreen->CloseScreen = sdlCloseScreen;
     return TRUE;
 }
 
@@ -250,14 +264,6 @@ sdlFinishInitScreen(ScreenPtr pScreen)
 }
 
 static void
-sdlCloseScreen(ScreenPtr pScreen)
-{
-    if (damage)
-        DamageDestroy(damage);
-    damage = NULL;
-}
-
-static void
 sdlScreenFini(KdScreenInfo *screen)
 {
     SDL_DestroyWindow(window);
@@ -269,7 +275,6 @@ static KdCardFuncs sdlFuncs = {
     .finishInitScreen = sdlFinishInitScreen,
     .createRes = sdlCreateResources,
     .scrfini = sdlScreenFini,
-    .closeScreen = sdlCloseScreen,
 };
 
 static Status
