@@ -1,7 +1,7 @@
 # Sourced by scripts/prepare-image-sources.sh.
 if has_image cmake-build; then
   libuv_dir="$(bash demos/cmake/prepare-libuv.sh)"
-  node scripts/build-source-tar.mjs "${static_dir}/neovim/libuv.tar" \
+  node scripts/build-source-tar.mjs "${static_dir}/cmake/libuv.tar" \
     "${libuv_dir}/include" /tmp/libuv/source/include \
     "${libuv_dir}/src" /tmp/libuv/source/src \
     "${libuv_dir}/LICENSE" /usr/share/licenses/libuv/LICENSE \
@@ -10,7 +10,7 @@ if has_image cmake-build; then
 fi
 if has_image cmake-build; then
   cmake_dir="$(bash scripts/fetch-pinned-source.sh cmake)"
-  node scripts/build-source-tar.mjs "${static_dir}/neovim/cmake.tar.gz" \
+  node scripts/build-source-tar.mjs "${static_dir}/cmake/cmake.tar.gz" \
     "${cmake_dir}" /tmp/cmake/source \
     demos/cmake/Dolly.cmake /tmp/cmake/source/Modules/Platform/Dolly.cmake \
     "${cmake_dir}/LICENSE.rst" /usr/share/licenses/cmake/LICENSE.rst
