@@ -97,9 +97,10 @@ Searched on `main` `e72b7f8e`, nothing changed:
   `domainOnlyApplications` (`scripts/package-github-pages.mjs:10`),
   `bootVersions` (`scripts/published-version.mjs:107`), `verifySite`
   (`scripts/site-release.mjs:75`), and nine of the fifteen commands of
-  `scripts/dolly-abi.mjs`, which exports every command alike. Taking the
-  word `export` off changes no behaviour; whether a script is an image input
-  shows in `npm run image -- --plan` after the edit.
+  `scripts/dolly-abi.mjs`, which exports every command alike. The word
+  `export` is off all eighteen (2026-10-14): the runtime builds to the same
+  hash (`c470bb6e…`), the image inputs are the same, the plan builds
+  nothing, source tests 430/0, artifact tests 25/0.
 - The search reads names in `.mjs`, `.js` and `.html` files. It does not see
   a function that is exported, imported and never called.
 - Imported names their own file never uses, in the 231 `.mjs` files of

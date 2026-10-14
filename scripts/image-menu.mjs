@@ -26,7 +26,7 @@ export async function imageDescriptions(projectDir, definitions) {
 
 // An image's row; parsed is its recipe. An image without ENTRY or display
 // cannot be opened, only rebuilt.
-export function menuRow({ image, description, parsed }) {
+function menuRow({ image, description, parsed }) {
   const interactive = parsed.entry && parsed.hostRequirements.includes("display@0");
   const name = interactive ? `<a href="./${image}/">${image}</a>` : image;
   const open = interactive ? `<a href="./${image}/">open →</a>`

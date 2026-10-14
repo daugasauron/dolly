@@ -2,8 +2,8 @@ import { DOLLY_IMAGES } from "../../dist/dolly-images.mjs";
 import { loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } from "../../src/image-artifact.mjs";
 import { MAX_SNAPSHOT_BYTES } from "../../src/snapshot-records.mjs";
 
-export const PACKAGES_ORIGIN = "https://packages.dolly.invalid";
-export const PACKAGE_LIMITS = Object.freeze({
+const PACKAGES_ORIGIN = "https://packages.dolly.invalid";
+const PACKAGE_LIMITS = Object.freeze({
   maxRequestBytes: 0, maxResponseBytes: MAX_SNAPSHOT_BYTES,
   timeoutMilliseconds: 30 * 60_000, credentialHeaders: new Set(),
   // Snapshots served per page: enough for every package, not for a loop.

@@ -7,7 +7,7 @@ import { discoverImageDefinitions } from "./image-definitions.mjs";
 import { PUBLIC_ORIGIN, siteReference } from "../src/static-asset.mjs";
 
 // Applications the domain publishes beyond GitHub Pages' catalog link there.
-export async function domainOnlyApplications(projectDir) {
+async function domainOnlyApplications(projectDir) {
   const catalog = async name => (await readFile(resolve(projectDir, "config", name), "utf8")).split("\n").filter(Boolean);
   const github = new Set(await catalog("github-pages-images.txt")), domain = new Set(await catalog("domain-pages-images.txt"));
   return (await discoverImageDefinitions(projectDir))

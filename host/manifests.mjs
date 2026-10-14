@@ -1,6 +1,6 @@
 // The one list of trusted host modules. Each host/<name>/module.json names the
 // module's files; the registry, build, packaging and tests read only these.
-export const hostModuleNames = Object.freeze(["runtime", "display", "input", "http", "gpu", "audio", "microphone",
+const hostModuleNames = Object.freeze(["runtime", "display", "input", "http", "gpu", "audio", "microphone",
   "buttons", "download", "upload", "snapshot", "threads", "dso", "sockets", "pty", "build", "packages", "nena"]);
 
 export const hostManifests = Object.freeze(await Promise.all(hostModuleNames.map(async name => {

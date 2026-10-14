@@ -72,7 +72,7 @@ export async function sourceManifest(root) {
   return fileManifest(root, paths.filter(path => !deleted.has(path)));
 }
 
-export async function verifySite(site) {
+async function verifySite(site) {
   const loadGraph = createDollyfileGraphLoader(site);
   await verifyDocumentationLinks(site);
   const constant = async (file, name) => parseGeneratedConstant(await readFile(resolve(site, "dist", file), "utf8"), name);

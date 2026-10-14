@@ -104,7 +104,7 @@ export async function verifyDeployment(site, deployment, name) {
   return names;
 }
 
-export async function bootVersions(site, names, browsers) {
+async function bootVersions(site, names, browsers) {
   const { chromium, firefox } = await import("playwright-core");
   const root = siteRoot(site), newest = [...names].sort(compareVersions).at(-1);
   for (const browserName of browsers) {

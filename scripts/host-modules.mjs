@@ -35,7 +35,7 @@ export function stagedIncludeDirectory() {
 
 // The kernel's module table: every module with kernel sources defines
 // dolly_NAME_kernel, except the runtime, whose sources are the kernel itself.
-export const kernelModuleList = () => hostManifests.filter(({ provides, kernel }) => provides !== "kernel" && kernel.length)
+const kernelModuleList = () => hostManifests.filter(({ provides, kernel }) => provides !== "kernel" && kernel.length)
   .map(({ name }) => `DOLLY_KERNEL_MODULE(${name})\n`).join("");
 
 if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === "kernel-modules") {

@@ -246,7 +246,7 @@ export async function loadImageArtifact(descriptor) {
 
 // Rebuildable images only; a bounded cache so builds cannot fill browser storage.
 export const IMAGE_CACHE_MAX_ENTRIES = 32;
-export const IMAGE_CACHE_MAX_BYTES = 8 * 1024 ** 3;
+const IMAGE_CACHE_MAX_BYTES = 8 * 1024 ** 3;
 
 export async function saveImageArtifact(artifact, slot = artifact.recipeSha256) {
   try {

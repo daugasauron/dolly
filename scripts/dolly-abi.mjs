@@ -132,7 +132,7 @@ export function validateBrowserImports(expectedImports, actualImports) {
   }
 }
 
-export async function validateBrowser(contractPath, runtimePath) {
+async function validateBrowser(contractPath, runtimePath) {
   const contract = await readWasmInterface(contractPath);
   const runtime = await readWasmInterface(runtimePath);
   validateBrowserImports(contract.imports, runtime.imports);
@@ -199,7 +199,7 @@ export async function validateProcessDso(processContractPath, dsoContractPath, p
   }
 }
 
-export async function stampModules(contractPath, modulePaths) {
+async function stampModules(contractPath, modulePaths) {
   const contract = await readWasmInterface(contractPath);
   const digest = contractDigest(contract);
 
@@ -219,7 +219,7 @@ export async function stampModules(contractPath, modulePaths) {
   }
 }
 
-export async function stampProcesses(contractPath, processPaths) {
+async function stampProcesses(contractPath, processPaths) {
   const contract = await readWasmInterface(contractPath);
   const digest = contractDigest(contract);
 
@@ -263,13 +263,13 @@ export async function stampProcesses(contractPath, processPaths) {
 }
 
 // The exact source bytes, so any change to them changes executable identity.
-export async function layoutDigest(sourcePaths) {
+async function layoutDigest(sourcePaths) {
   const hash = createHash("sha256");
   for (const path of sourcePaths) hash.update(await readFile(path));
   return new Uint8Array(hash.digest());
 }
 
-export async function bindProcessLayout(contractPath, sourcePaths) {
+async function bindProcessLayout(contractPath, sourcePaths) {
   let bytes = new Uint8Array(await readFile(contractPath));
   const contract = parseWasmInterface(bytes, contractPath);
   const digest = await layoutDigest(sourcePaths);
@@ -293,13 +293,13 @@ export async function bindProcessLayout(contractPath, sourcePaths) {
 
 // The kernel exports exactly the functions its resident plugin imports and
 // its trusted host contracts declare; Emscripten adds only its own runtime.
-export function emscriptenExports(pluginContract, hostContracts) {
+function emscriptenExports(pluginContract, hostContracts) {
   const names = [...pluginContract.imports, ...hostContracts.flatMap(contract => contract.exports)]
     .filter(entry => entry.type.kind === "func").map(entry => `_${entry.name}`);
   return [...new Set(names)].sort();
 }
 
-export async function emitEmscriptenExports(contractPath, outputPath, hostContractPaths) {
+async function emitEmscriptenExports(contractPath, outputPath, hostContractPaths) {
   const exports = emscriptenExports(
     await readWasmInterface(contractPath),
     await Promise.all(hostContractPaths.map(path => readWasmInterface(path))),
@@ -308,7 +308,7 @@ export async function emitEmscriptenExports(contractPath, outputPath, hostContra
   console.log(`dolly-abi: wrote derived Emscripten exports to ${outputPath}`);
 }
 
-export async function emitDigestHeader(
+async function emitDigestHeader(
   contractPath,
   outputPath,
   symbol = "DOLLY_ABI_DIGEST",
@@ -333,7 +333,7 @@ export async function emitDigestHeader(
   console.log(`dolly-abi: wrote contract digest header to ${outputPath}`);
 }
 
-export async function emitDigestModule(contractPath, outputPath, exportName) {
+async function emitDigestModule(contractPath, outputPath, exportName) {
   if (!/^[A-Z][A-Z0-9_]*$/.test(exportName)) {
     throw new Error(`invalid digest export name ${exportName}`);
   }
