@@ -12,6 +12,22 @@ with its own renderer, running on Dolly's X server.
 Done when `ghostty` opens a window on Dolly's X server and a shell runs in it,
 with a browser test.
 
+## State (2026-10-15, 01:00): X11 runs; GTK is next
+
+Step 1 is done on branch `demo/x11` ([windows](../20261014-211501-windows/TASK.md)).
+Step 4 no longer means replicating `build.zig`: a Zig with LLVM and
+`zig build` is being built ([Zig with LLVM](../20261014-234000-zig-llvm/TASK.md)).
+
+For step 2, the X11 port's estimate (not yet tried): GLib, cairo, pango,
+harfbuzz, fribidi, fontconfig, gdk-pixbuf and libepoxy with Meson; xcb
+render/shm, Xrandr, Xcursor, Xinerama, Xcomposite and Xdamage; `threads@0`
+for GLib; RandR in the server's SDL output. The likely long pole: GObject
+calls signal handlers through casts to functions with more parameters than
+they declare, which traps in WebAssembly. That needs patches (wasm-vips keeps
+such patches for GLib) or a cast-emulating option in Dolly's toolchain, a
+core decision. GLib also needs libffi, whose WebAssembly port calls through
+JavaScript (from memory, unchecked).
+
 ## State (2026-10-14, 23:25): waits for X11
 
 Each step needs the one before it; details from memory are marked:
