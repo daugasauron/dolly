@@ -1,6 +1,6 @@
 # Investigate: packages that are views of a build image (pkgconf, libpng, freetype, openal, libuv, lua, raylib, box3d and the rest)
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 252
 - TAGS: packages,catalog,dollyfile,owner
 
@@ -31,6 +31,21 @@ in the group:
 - what could not be found out without building.
 
 The owner decides what, if anything, follows.
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the tasks that waited for him: "I'm not gonna go
+through 35 tasks, I'm sure some are not relevant anymore and some are
+confirmed actual good fixes. If your investigation confirms they are fixes
+that improve things and aligh with the main goal of the project go ahead. If
+you're uncertain, give me a short description".
+
+The investigation stands as the record; this task has no step of its own.
+Each view written out as a package holding its build is the build image's
+recipe with the export rows appended, and each time the open question is
+the same one: [what a package needs only to build](../20261013-144754-build-needs/TASK.md).
+The candidates are kept, in a few lines, in
+[builds become generic](../20261013-142800-generic-builds/TASK.md).
 
 ## State (2026-10-14, 02:45): investigated, the owner's to read
 

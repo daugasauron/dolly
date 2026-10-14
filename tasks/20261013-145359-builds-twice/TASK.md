@@ -1,6 +1,6 @@
 # Investigate: what is compiled more than once (sbase, libjpeg, Zstandard, Lua, Box3D, fmt, termcap, LLVM)
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 248
 - TAGS: packages,catalog,owner
 
@@ -31,6 +31,21 @@ in the group:
 - what could not be found out without building.
 
 The owner decides what, if anything, follows.
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the tasks that waited for him: "I'm not gonna go
+through 35 tasks, I'm sure some are not relevant anymore and some are
+confirmed actual good fixes. If your investigation confirms they are fixes
+that improve things and aligh with the main goal of the project go ahead. If
+you're uncertain, give me a short description".
+
+Nothing changes now. Of the three true repeats none is a clear gain as it
+stands: one sbase build of all 53 tools would put sbase's `tar` in every
+image on `system-tools`; `mojo-llvm` installing `zstd` would put the page
+formatter's pin under Mojo's 65-minute LLVM; `libjpeg` as a package means
+choosing one of two flag sets for Xonotic and NetSurf. `libjpeg` is kept as
+a candidate in [builds become generic](../20261013-142800-generic-builds/TASK.md).
 
 ## State (2026-10-14, 03:00): investigated, the owner's to read
 

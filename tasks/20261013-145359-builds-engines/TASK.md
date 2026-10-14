@@ -1,6 +1,6 @@
 # Investigate: the engines and compilers built in demo images (Neovim's libraries, llama.cpp, transcribe.cpp, Mojo, Codex, LLVM, Rust and Cargo) as packages
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: packages,catalog,toolchain,owner
 
@@ -31,6 +31,21 @@ in the group:
 - what could not be found out without building.
 
 The owner decides what, if anything, follows.
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the tasks that waited for him: "I'm not gonna go
+through 35 tasks, I'm sure some are not relevant anymore and some are
+confirmed actual good fixes. If your investigation confirms they are fixes
+that improve things and aligh with the main goal of the project go ahead. If
+you're uncertain, give me a short description".
+
+Nothing changes. The three LLVMs are three revisions with a recorded reason
+each and stay three builds; ggml is two revisions with two flag sets chosen
+on purpose; `rust-build` replaces the seed compiler twice by the owner's
+choice; Neovim's five libraries are at Neovim's pins with no second user.
+A library package of llama.cpp is kept as a candidate in
+[builds become generic](../20261013-142800-generic-builds/TASK.md).
 
 ## State (2026-10-14, 03:00): investigated, the owner's to read
 

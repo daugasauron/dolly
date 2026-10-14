@@ -18,57 +18,38 @@ only a view of a demo's build image; each has its check in
 `test/amy-browser.mjs` or its consumer's test; the list of what was not
 broken out says why for each.
 
-## State (2026-10-14, 03:00): each group is investigated; no step is taken
+## State (2026-10-14, 10:10): investigated; one step done, the rest waits on one question
 
-[The inventory](inventory.md) was made by an agent that read all 133 recipes
-and changed nothing. The owner read it: "I agree in some sense, but some of
-the judgement is again too blunt. These are all good points but needs way
-more understanding to make a call if the changes actually improve things or
-not."
+The five groups of [the inventory](inventory.md) were each investigated
+(history first, each written out as a recipe, the integrator checking the
+counts), and on the owner's word of 2026-10-14 ("If your investigation
+confirms they are fixes … go ahead. If you're uncertain, give me a short
+description") taken this way:
 
-So each group of its points became a task that investigates and decides
-nothing. In the night of 2026-10-14 each was read by a Fable agent,
-read-only: how each build came to be where it is, how it is built today and
-who uses it, what a package holding its own build would look like written
-out as a recipe, what that would change on real cases, what would rebuild.
-The integrator checked each report against the tree before storing it. No
-recipe has moved.
+- Done: [the javascript split](../20261013-135951-javascript-split/TASK.md)
+  (`quickjs`, `janis`, `typescript` hold their builds); `xonotic-build` and
+  `wine-build` install `freetype` (round of 2026-10-14).
+- Nothing to change, closed with the reason:
+  [the engines](../20261013-145359-builds-engines/TASK.md),
+  [what is compiled twice](../20261013-145359-builds-twice/TASK.md).
+- His call: [what a package needs only to build](../20261013-144754-build-needs/TASK.md),
+  which every candidate below meets, and
+  [`amy`, Git, `download` and `upload` out of `system-tools`](../20261013-145359-builds-root/TASK.md).
 
-What came out, in a few lines each (the tasks hold the evidence):
+The candidates for a package that holds its own build, each written out in
+its investigation ([the views](../20261013-145359-builds-views/investigation.md),
+[0 A.D.'s libraries](../20261013-145359-builds-zero-ad-deps/investigation.md),
+[twice](../20261013-145359-builds-twice/investigation.md)):
 
-- [The libraries of the 0 A.D. builds, and SpiderMonkey](../20261013-145359-builds-zero-ad-deps/TASK.md),
-  the owner's example. Why SpiderMonkey has an image of its own is written
-  down (2026-10-07). As a package it needs a build base that no image is
-  today; with its tools as `INSTALL` rows it would carry Python, Rust and
-  Cargo into whoever installs it. ICU and ENet are less 0 A.D.'s than the
-  ruling of 2026-10-12 says.
-- [The base images and their views](../20261013-145359-builds-root/TASK.md).
-  sbase, Git and awk are in `system-tools` by one decision of 2026-09-30.
-  What every build needs repins the catalog in any shape; what no build
-  needs (`amy`, Git, `download`, `upload`) would reach 1 or 2 images in
-  place of 114 as packages holding their builds.
-- [The packages that are views](../20261013-145359-builds-views/TASK.md).
-  30 of 77 hold no build. The document ranks no shape; "cheapest shape
-  first" was the packages task's rule. The build steps move whole; what is
-  entangled stands around them (a base built on the result, options chosen
-  for one user, a second build with other options).
-- [The engines and compilers in demo images](../20261013-145359-builds-engines/TASK.md).
-  Three LLVMs are three revisions with a reason each; ggml is two revisions
-  with two flag sets; a library package of llama.cpp meets the host-module
-  rule both ways.
-- [What is compiled more than once](../20261013-145359-builds-twice/TASK.md).
-  Three true repeats (sbase, libjpeg, Zstandard), none ever compiled to the
-  same bytes; `mojo-llvm` could install the `zstd` package as it is.
-
-One question of the language comes back in every one of the five, and is
-the owner's: [a package cannot say what it needs only to build](../20261013-144754-build-needs/TASK.md).
-A second one comes back in two: what a library package declares of host
-modules, what its archive stamps (nothing) or what every program built with
-it needs (`sdl2` and `mojo` answer differently today).
-
-Done by the owner's word of the same evening:
-[the javascript package split](../20261013-135951-javascript-split/TASK.md)
-(`quickjs`, `janis`, `typescript`, each holding its build).
+- FreeType and libpng: upstream's CMake builds, unchanged, a dozen rows each
+  on `cmake-build`; three images use them today.
+- libjpeg: about twenty rows; Xonotic and NetSurf then share one flag set.
+- SpiderMonkey, the owner's example: needs a base with Python, Rust, Cargo
+  and cbindgen, or those arrive with whoever installs it.
+- `openal` (options chosen for 0 A.D.; twelve images stand on its build
+  image), `libuv` (82 images stand on `cmake-build`), `raylib` and `box3d`
+  (Slopyard builds Box3D a second time with other options), a llama.cpp
+  library (meets the host-module rule both ways).
 
 ## As filed (2026-10-13, main `50c698f8`)
 

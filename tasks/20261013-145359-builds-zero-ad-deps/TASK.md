@@ -1,6 +1,6 @@
 # Investigate: the libraries inside the 0 A.D. builds, and SpiderMonkey, as packages
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 254
 - TAGS: packages,catalog,0ad,owner
 
@@ -34,6 +34,23 @@ The owner decides what, if anything, follows.
 
 The owner's example of what he meant by packages (2026-10-13): "One example
 would be breaking out spidermonkey (just an example) into a package."
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the tasks that waited for him: "I'm not gonna go
+through 35 tasks, I'm sure some are not relevant anymore and some are
+confirmed actual good fixes. If your investigation confirms they are fixes
+that improve things and aligh with the main goal of the project go ahead. If
+you're uncertain, give me a short description".
+
+The investigation stands as the record; this task has no step of its own.
+SpiderMonkey as a package needs a build base that no image is today,
+because a package's `INSTALL` rows arrive with it: Python, Rust and Cargo
+(about 425 MB) and three host modules. That is
+[what a package needs only to build](../20261013-144754-build-needs/TASK.md).
+One confirmed step is done in the round of 2026-10-14: `xonotic-build` and
+`wine-build` install `freetype` in place of thirteen `COPY` rows. The rest
+is kept in [builds become generic](../20261013-142800-generic-builds/TASK.md).
 
 ## State (2026-10-14, 02:30): investigated, the owner's to read
 
