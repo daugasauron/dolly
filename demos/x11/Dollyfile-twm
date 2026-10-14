@@ -19,4 +19,13 @@ SLOP text-page /tmp/twm-1.0.13.1/man/twm.man && mv /usr/share/man/cat1/twm.man /
 EXPORTS TOOL twm
 FILE /usr/share/X11/twm/system.twmrc
 FILE /usr/share/licenses/twm/COPYING
+# The licences of the X libraries it links.
+FOLDER /usr/share/licenses/libXmu
+FOLDER /usr/share/licenses/libXt
+FOLDER /usr/share/licenses/libSM
+FOLDER /usr/share/licenses/libICE
+FOLDER /usr/share/licenses/libXext
+FOLDER /usr/share/licenses/libX11
+FOLDER /usr/share/licenses/libxcb
+FOLDER /usr/share/licenses/libXau
 FILE /usr/share/man/cat1/twm.1

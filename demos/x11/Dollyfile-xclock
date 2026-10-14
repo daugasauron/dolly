@@ -21,4 +21,15 @@ EXPORTS TOOL xclock
 FILE /usr/share/X11/app-defaults/XClock
 FILE /usr/share/X11/app-defaults/XClock-color
 FILE /usr/share/licenses/xclock/COPYING
+# The licences of the X libraries it links.
+FOLDER /usr/share/licenses/libXaw
+FOLDER /usr/share/licenses/libXmu
+FOLDER /usr/share/licenses/libXpm
+FOLDER /usr/share/licenses/libXt
+FOLDER /usr/share/licenses/libSM
+FOLDER /usr/share/licenses/libICE
+FOLDER /usr/share/licenses/libXext
+FOLDER /usr/share/licenses/libX11
+FOLDER /usr/share/licenses/libxcb
+FOLDER /usr/share/licenses/libXau
 FILE /usr/share/man/cat1/xclock.1

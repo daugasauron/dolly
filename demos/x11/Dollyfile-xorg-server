@@ -22,3 +22,5 @@ FOLDER /usr/share/licenses/xkbcomp
 FOLDER /usr/share/licenses/xkeyboard-config
 FOLDER /usr/share/licenses/libmd
 FOLDER /usr/share/licenses/libX11
+FOLDER /usr/share/licenses/libxcb
+FOLDER /usr/share/licenses/libXau

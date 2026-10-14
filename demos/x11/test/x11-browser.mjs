@@ -3,7 +3,8 @@
 // (xeyes' pupils follow it, a drag of a title bar moves the clock's window)
 // and its keyboard reaches the shell in xterm, which writes a file and ends
 // the server; the terminal's shell then reads the file. Prints the time to
-// the first window and a drag's frames. Usage: node demos/x11/test/x11-browser.mjs
+// the first window and a drag's frames.
+// Usage: node demos/x11/test/x11-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { delay, demoTest, shellPrompt } from "../../browser.mjs";
@@ -39,7 +40,8 @@ async function type(page, text) {
   }
 }
 
-await demoTest("x11", { image: "x11-desktop", timeout: 600_000 }, async ({ open }) => {
+const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium"];
+for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", timeout: 600_000, browser }, async ({ open }) => {
   await mkdir(evidence, { recursive: true });
   const started = performance.now();
   const { page, run, prompt } = await open({ prompt: null });
@@ -64,8 +66,8 @@ await demoTest("x11", { image: "x11-desktop", timeout: 600_000 }, async ({ open 
     for (let i = 0; i < data.length; i += 4) lit += data[i] + data[i + 1] + data[i + 2] > 0;
     return lit > 4000;
   }, null, { timeout: 60_000, polling: 50 });
-  await page.screenshot({ path: `${evidence}desktop.png` });
-  console.log(`x11: page ready ${((booted - started) / 1000).toFixed(1)}s, X server's frame ` +
+  await page.screenshot({ path: `${evidence}${browser}-desktop.png` });
+  console.log(`x11 ${browser}: page ready ${((booted - started) / 1000).toFixed(1)}s, X server's frame ` +
     `${((server - started) / 1000).toFixed(1)}s, first window ${((firstWindow - started) / 1000).toFixed(1)}s after navigation`);
 
   // The pointer reaches the server: xeyes' pupils follow it.
@@ -78,7 +80,7 @@ await demoTest("x11", { image: "x11-desktop", timeout: 600_000 }, async ({ open 
     for (let i = 0; i < data.length; i += 4) digest = (digest * 31 + data[i] + 7 * data[i + 1] + 13 * data[i + 2]) >>> 0;
     return digest !== before;
   }, [eyes.digest], { timeout: 30_000, polling: 10 });
-  console.log(`x11: xeyes followed the pointer in ${(performance.now() - moved).toFixed(0)} ms`);
+  console.log(`x11 ${browser}: xeyes followed the pointer in ${(performance.now() - moved).toFixed(0)} ms`);
 
   // A drag of xclock's title bar: twm draws the outline while the button is
   // held and moves the window 600 pixels right on release.
@@ -93,7 +95,7 @@ await demoTest("x11", { image: "x11-desktop", timeout: 600_000 }, async ({ open 
     await delay(16);
   }
   const dragFrames = await frameSequence(page) - frames, dragSeconds = (performance.now() - dragStarted) / 1000;
-  await page.screenshot({ path: `${evidence}drag.png` });
+  await page.screenshot({ path: `${evidence}${browser}-drag.png` });
   const released = performance.now();
   await page.mouse.up();
   await page.waitForFunction(() => {
@@ -104,16 +106,27 @@ await demoTest("x11", { image: "x11-desktop", timeout: 600_000 }, async ({ open 
   }, null, { timeout: 30_000, polling: 10 });
   const placed = performance.now() - released;
   assert.ok((await region(page, 60, 80, 140, 140)).lit < 100, "the clock's old place is the root's again");
-  await page.screenshot({ path: `${evidence}moved.png` });
-  console.log(`x11: a ${dragSeconds.toFixed(1)}-second drag showed ${dragFrames} frames (${(dragFrames / dragSeconds).toFixed(0)}/s); ` +
+  await page.screenshot({ path: `${evidence}${browser}-moved.png` });
+  console.log(`x11 ${browser}: a ${dragSeconds.toFixed(1)}-second drag showed ${dragFrames} frames (${(dragFrames / dragSeconds).toFixed(0)}/s); ` +
     `the window was drawn in its new place ${placed.toFixed(0)} ms after release`);
 
   // The keyboard: twm gives xterm the focus under the pointer, and its shell
   // runs what is typed, then ends the X server.
   await page.mouse.move(...await at(page, 200, 450));
   await delay(300);
-  await type(page, "echo typed in xterm > /tmp/xterm-typed\n");
-  await page.screenshot({ path: `${evidence}xterm.png` });
+  // A key's echo: from the press to the frame that shows it.
+  const line = await region(page, 40, 320, 500, 20);
+  const pressed = performance.now();
+  await page.keyboard.press("e");
+  await page.waitForFunction(([before]) => {
+    const data = document.querySelector("#display").getContext("2d").getImageData(40, 320, 500, 20).data;
+    let digest = 0;
+    for (let i = 0; i < data.length; i += 4) digest = (digest * 31 + data[i] + 7 * data[i + 1] + 13 * data[i + 2]) >>> 0;
+    return digest !== before;
+  }, [line.digest], { timeout: 30_000, polling: 10 });
+  console.log(`x11 ${browser}: a key typed into xterm was shown ${(performance.now() - pressed).toFixed(0)} ms after its press`);
+  await type(page, "cho typed in xterm > /tmp/xterm-typed\n");
+  await page.screenshot({ path: `${evidence}${browser}-xterm.png` });
   await type(page, "kill $(cat /tmp/.X0-pid)\n");
   await prompt(shellPrompt);
   await run("grep -qx 'typed in xterm' /tmp/xterm-typed");

@@ -143,3 +143,14 @@ EXPORTS TOOL xterm
 FILE /usr/libexec/xterm
 FILE /usr/share/X11/app-defaults/XTerm
 FILE /usr/share/licenses/xterm/COPYING
+# The licences of the X libraries it links.
+FOLDER /usr/share/licenses/libXaw
+FOLDER /usr/share/licenses/libXmu
+FOLDER /usr/share/licenses/libXpm
+FOLDER /usr/share/licenses/libXt
+FOLDER /usr/share/licenses/libSM
+FOLDER /usr/share/licenses/libICE
+FOLDER /usr/share/licenses/libXext
+FOLDER /usr/share/licenses/libX11
+FOLDER /usr/share/licenses/libxcb
+FOLDER /usr/share/licenses/libXau

@@ -14,11 +14,11 @@ REQUIRES HOST upload@0
 # windows, and three of X's own clients in theirs: a clock, eyes that follow
 # the pointer and a terminal with a shell.
 FROM /v0.1.3/Dollyfile-system 6537319cb5da6fdf6da34117e1b97113b8bc0d788d1f5c9453f05ff7207828df
-INSTALL /v0.1.3/demos/x11/Dollyfile-xorg-server 87c7cbf6fefe259dffdd53602d8b1561bf7cceee1f10b18be0991a2b0921ab63
-INSTALL /v0.1.3/demos/x11/Dollyfile-twm f51ed22e249a02015b0c51fb43209d2243855601bd77cb826d65fe6dad4f8c78
-INSTALL /v0.1.3/demos/x11/Dollyfile-xclock 7c08dacb445a1459c9baad779c838943b511bf79a442025562775b8113156b7a
-INSTALL /v0.1.3/demos/x11/Dollyfile-xeyes b7764893c0ffe96937bfc7083eef5393e0580fae79505fca744829dc331abbe7
-INSTALL /v0.1.3/demos/x11/Dollyfile-xterm 6f5fe9658db163134d8f81276fac380c72e6901f850568277128eeb39360c730
+INSTALL /v0.1.3/demos/x11/Dollyfile-xorg-server 1b7d2d116345810078196225159791d79aba31728eaa6062f9e6a82da136b4e3
+INSTALL /v0.1.3/demos/x11/Dollyfile-twm f0d3ce780ff6c01f32e34ba545372d093e59660b42e3705b762fff8e2becbd96
+INSTALL /v0.1.3/demos/x11/Dollyfile-xclock 9c28b8014d1bd907285edd1bfd4ca41f871a8e96e93cf54824b490abb8b5827f
+INSTALL /v0.1.3/demos/x11/Dollyfile-xeyes 9d8250ef334f6735ad9a49c65e933c5ecd8ccdf28a06bc75a585034118bcdb76
+INSTALL /v0.1.3/demos/x11/Dollyfile-xterm 39f51a93fcc451e1c867cc57b61e71e7f75359d38b599bf35a9b8d674e4096a4
 
 # The server takes the display, the keyboard and the pointer until it ends
 # (kill $(cat /tmp/.X0-pid) in the terminal); its clients end with it, and

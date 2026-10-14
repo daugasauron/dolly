@@ -17,4 +17,16 @@ SLOP text-page /tmp/xeyes-1.3.1/man/xeyes.man && mv /usr/share/man/cat1/xeyes.ma
 
 EXPORTS TOOL xeyes
 FILE /usr/share/licenses/xeyes/COPYING
+# The licences of the X libraries it links.
+FOLDER /usr/share/licenses/libXi
+FOLDER /usr/share/licenses/libXrender
+FOLDER /usr/share/licenses/libXfixes
+FOLDER /usr/share/licenses/libXmu
+FOLDER /usr/share/licenses/libXt
+FOLDER /usr/share/licenses/libSM
+FOLDER /usr/share/licenses/libICE
+FOLDER /usr/share/licenses/libXext
+FOLDER /usr/share/licenses/libX11
+FOLDER /usr/share/licenses/libxcb
+FOLDER /usr/share/licenses/libXau
 FILE /usr/share/man/cat1/xeyes.1
