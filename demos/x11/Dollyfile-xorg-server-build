@@ -1,0 +1,161 @@
+DOLLY 7
+TOOLCHAIN xorg-server-build
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST upload@0
+REQUIRES HOST dso@0
+REQUIRES HOST sockets@0
+
+# The X server from X.Org's release archive: Xsdl, kdrive in an SDL window
+# (xsdl/), drawn by the sdl2 package into Dolly's display. Upstream's Meson
+# builds it and pixman, libxkbfile and xkbcomp; libXfont2, its built-in and
+# bitmap fonts, and the SHA-1 of libmd are built by the Makefile below, and
+# xkeyboard-config's rules by its own generator.
+FROM /v0.1.3/demos/x11/Dollyfile-x11-build 98ae9243fde462a5357fd9d8099fe40b9e89c0d01b21f4586b47e717d794c748
+INSTALL /v0.1.3/demos/tools/Dollyfile-meson d2428f8a9c299be18a202ae58889445bae4d598fbf55afad7d0c6335c364cc57
+INSTALL /v0.1.3/demos/zero-ad/Dollyfile-pkgconf 4c35d98b699d2e53026dc5ef77fefc724abd1011c5dfb5e2476fe4daaa3356f9
+INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 f2463bb7f0f94c0bf8b28872617c01b96cb89f24415aa8cb734508ae5e52a8ef
+INSTALL /v0.1.3/Dollyfile-zlib 9eb4ca9b77b03b75376dfafbc9fcc8a18968228664f70cb6d1dfa9be50220853
+INSTALL /v0.1.3/demos/tools/Dollyfile-tar c3653aceb385bf3266945c981134c2609851ce9f9bfdae8b7611e5c919726508
+INSTALL /v0.1.3/demos/tools/Dollyfile-xz 4d17da43f14929f5c8b2bd51634835679f116be7cd67231bcd174492821d85d6
+INSTALL /v0.1.3/demos/tools/Dollyfile-yacc 65d3f5e2aaadad784a31a6257cec109a8a231bd1b0cb313cfbb55910c0220758
+
+REQUIRES HEADER sdl2
+REQUIRES LIB SDL2
+REQUIRES LIB z
+REQUIRES TOOL byacc
+REQUIRES TOOL gzip
+REQUIRES TOOL meson
+REQUIRES TOOL patch
+REQUIRES TOOL pkg-config
+REQUIRES TOOL python3
+REQUIRES TOOL xz
+
+SOURCE /v0.1.3/dist/static/x11/libmd-1.3.0.tar.xz fc0f1eb6b6766470326f2c014693809190e67dba84274a6fbae9d4912d066706 /tmp/xorg/libmd.tar.xz
+SOURCE /v0.1.3/dist/static/x11/pixman-0.46.4.tar.gz d09c44ebc3bd5bee7021c79f922fe8fb2fb57f7320f55e97ff9914d2346a591c /tmp/xorg/pixman.tar.gz
+SOURCE /v0.1.3/dist/static/x11/libXfont2-2.0.9.tar.gz 8564b4df365bc5a6cb0c15900dc688f6e8f47b00a8571c6708c916dfb85066ba /tmp/xorg/libXfont2.tar.gz
+SOURCE /v0.1.3/dist/static/x11/libxkbfile-1.2.0.tar.xz 7f71884e5faf56fb0e823f3848599cf9b5a9afce51c90982baeb64f635233ebf /tmp/xorg/libxkbfile.tar.xz
+SOURCE /v0.1.3/dist/static/x11/xkbcomp-1.5.0.tar.gz d070694dd8d94714aa1da3e3590b75084a4b183da3980866aedd68835954b97c /tmp/xorg/xkbcomp.tar.gz
+SOURCE /v0.1.3/dist/static/x11/xkeyboard-config-2.48.tar.xz b77041324f0109f77161ee43743fe04baa485866af8460d31e476ad3f7648fd5 /tmp/xorg/xkeyboard-config.tar.xz
+SOURCE /v0.1.3/dist/static/x11/xorg-server-21.1.25.tar.gz fdb5ec9b4ab7371745b182b68c7054ed72fc4d13e185fc369cfc45e0c3a174e7 /tmp/xorg/xorg-server.tar.gz
+SOURCE /v0.1.3/dist/static/x11/xsdl.tar f0933a4d8392135d00fafd6fb1739494e077db5d3f3b58a28e5adb8f99ca1e6f /tmp/xorg/xsdl.tar
+# The tar package reads the pax headers of Meson's archives; it starts no
+# decompressor itself.
+SLOP CWD /tmp/xorg for archive in *.tar.gz; do gzip -dc "$archive" | tar -xf -; done
+SLOP CWD /tmp/xorg for archive in *.tar.xz; do xz -dc "$archive" | tar -xf -; done
+SLOP tar -xf /tmp/xorg/xsdl.tar -C /
+SLOP patch -p1 -d /tmp/xorg/xorg-server-21.1.25 -i /tmp/xorg/xorg-server-xsdl.patch
+SLOP patch -p1 -d /tmp/xorg/xorg-server-21.1.25 -i /tmp/xorg/xorg-server-dolly.patch
+
+# libmd's SHA-1, the one hash the server takes from it (glyph names), and
+# libXfont2 with what the server reads: its built-in "fixed" and "cursor"
+# fonts and PCF and BDF files, gzipped or not. Not built: FreeType (and so
+# libfontenc) and the font server client, which needs TCP.
+FILE /tmp/xorg/libs.mk
+    .RECIPEPREFIX := >
+    .DELETE_ON_ERROR:
+    MAKEFLAGS += -r
+    S := /tmp/xorg
+    B := /tmp/xorg/build
+    all: /usr/lib/libmd.a /usr/lib/libXfont2.a /usr/lib/pkgconfig/xfont2.pc
+    
+    MD := $(S)/libmd-1.3.0
+    $(B)/md/sha1.o: $(MD)/src/sha1.c
+    >mkdir -p $(@D)
+    >printf '#define HAVE_EXPLICIT_BZERO 1\n' > $(B)/md/config.h
+    >cc -O2 -I$(B)/md -I$(MD)/include -I$(MD)/src -c $< -o $@
+    /usr/lib/libmd.a: $(B)/md/sha1.o
+    >cp $(MD)/include/sha1.h /usr/include/
+    >ar rcs $@ $^
+    
+    XFONT := $(S)/libXfont2-2.0.9
+    XFONT_SOURCES := $(wildcard $(addprefix $(XFONT)/src/,stubs/*.c util/*.c fontfile/*.c bitmap/*.c builtins/*.c))
+    XFONT_SOURCES := $(filter-out $(addprefix %/,reallocarray.c realpath.c strlcat.c strlcpy.c bunzip2.c),$(XFONT_SOURCES))
+    # configure's answers here, and the formats it builds by default. The
+    # server calls it with its own 64-bit protocol types (_XSERVER64: XID,
+    # Mask and Atom are CARD32), and WebAssembly checks a call's signature.
+    XFONT_FLAGS := -D_XSERVER64 -D_GNU_SOURCE -DHAVE_POLL -DHAVE_POLL_H -DHAVE_READLINK -DHAVE_STRLCAT \
+      -DHAVE_REALLOCARRAY -DHAVE_REALPATH -DHAVE_STRLCPY -DHAVE_ENDIAN_H -DHAVE_ERR_H -DHAVE_FLOAT_H \
+      -DX_GZIP_FONT_COMPRESSION -DXFONT_BUILTINS -DXFONT_PCFFORMAT -DXFONT_BDFFORMAT \
+      -DXFONT_SNFFORMAT -DXFONT_BITMAP -DXFONT_FONTFILE -DNO_LOCALE -DXTHREADS -DXUSE_MTSAFE_API
+    $(B)/Xfont2/%.o: $(XFONT)/src/%.c
+    >mkdir -p $(@D)
+    >cc -O2 $(XFONT_FLAGS) -I$(XFONT) -I$(XFONT)/include -c $< -o $@
+    /usr/lib/libXfont2.a: $(patsubst $(XFONT)/src/%.c,$(B)/Xfont2/%.o,$(XFONT_SOURCES))
+    >cp $(XFONT)/include/X11/fonts/libxfont2.h /usr/include/X11/fonts/
+    >ar rcs $@ $^
+    /usr/lib/pkgconfig/xfont2.pc: /usr/lib/libXfont2.a
+    >printf '%s\n' 'prefix=/usr' 'Name: Xfont2' 'Description: X font Library version 2' 'Version: 2.0.9' \
+       'Requires: xproto fontsproto' 'Libs: -L/usr/lib -lXfont2 -lz -lm' 'Cflags: -I/usr/include' > $@
+SLOP make -j4 -f /tmp/xorg/libs.mk
+
+# The sdl2 package keeps no pkg-config file; this is what SDL's own writes
+# for its static library.
+FILE /usr/lib/pkgconfig/sdl2.pc
+    prefix=/usr
+    Name: sdl2
+    Description: Simple DirectMedia Layer
+    Version: 2.32.10
+    Libs: -L/usr/lib -lSDL2 -lm
+    Cflags: -I/usr/include/SDL2 -D_REENTRANT
+
+# pixman without the SIMD of other machines; Dolly runs no OpenMP. Meson's
+# install would rebuild first as another user: Dolly's Python has no
+# os.geteuid, so each build compiles, then installs what it compiled.
+SLOP meson setup /tmp/xorg/build/pixman /tmp/xorg/pixman-0.46.4 --prefix=/usr --libdir=lib \
+  --buildtype=release -Ddefault_library=static -Dloongson-mmi=disabled -Dmmx=disabled \
+  -Dsse2=disabled -Dssse3=disabled -Dvmx=disabled -Darm-simd=disabled -Dneon=disabled \
+  -Da64-neon=disabled -Dmips-dspr2=disabled -Drvv=disabled -Dgnu-inline-asm=disabled \
+  -Dopenmp=disabled -Dtimers=false -Dgtk=disabled -Dlibpng=disabled -Dtests=disabled -Ddemos=disabled
+SLOP meson compile -C /tmp/xorg/build/pixman && meson install --no-rebuild -C /tmp/xorg/build/pixman
+# Meson's threads dependency puts -pthread in pixman's pkg-config file,
+# which would make the server a threaded program; pixman needs no thread here.
+SLOP sed 's/ -pthread//g' /usr/lib/pkgconfig/pixman-1.pc > /tmp/xorg/pixman-1.pc && mv /tmp/xorg/pixman-1.pc /usr/lib/pkgconfig/pixman-1.pc
+
+# libxkbfile and xkbcomp, which the server runs to compile its keymap.
+SLOP meson setup /tmp/xorg/build/xkbfile /tmp/xorg/libxkbfile-1.2.0 --prefix=/usr --libdir=lib \
+  --buildtype=release -Ddefault_library=static
+SLOP meson compile -C /tmp/xorg/build/xkbfile && meson install --no-rebuild -C /tmp/xorg/build/xkbfile
+SLOP meson setup /tmp/xorg/build/xkbcomp /tmp/xorg/xkbcomp-1.5.0 --prefix=/usr --libdir=lib \
+  --buildtype=release
+SLOP meson compile -C /tmp/xorg/build/xkbcomp && meson install --no-rebuild -C /tmp/xorg/build/xkbcomp
+
+# xkeyboard-config's descriptions, and the evdev rules its Meson build writes
+# with this generator (the .lst files it adds need Perl).
+SLOP mkdir -p /usr/share/X11/xkb/rules
+SLOP CWD /tmp/xorg/xkeyboard-config-2.48 cp -r compat geometry keycodes symbols types /usr/share/X11/xkb/
+SLOP CWD /tmp/xorg/xkeyboard-config-2.48 PYTHONPATH=. python3 -m rules.generator rules \
+  --ruleset evdev --version v2 --output /usr/share/X11/xkb/rules/evdev rules/rules.in
+SLOP cp /tmp/xorg/xkeyboard-config-2.48/rules/base.xml /usr/share/X11/xkb/rules/evdev.xml
+
+# The server: Xsdl alone, without a GPU, TCP, shared memory or Xorg's
+# hardware. epoll_create1 and memfd_create are libc's stubs here, which
+# Meson's function checks would find: __stub_ names them so, as glibc does.
+# Its sockets are sockets@0's, which it asks for when it links: set after
+# setup, which would link its linker probe with them.
+SLOP meson setup /tmp/xorg/build/server /tmp/xorg/xorg-server-21.1.25 --prefix=/usr --libdir=lib \
+  --buildtype=release -Dc_args='-D__stub_epoll_create1 -D__stub_memfd_create' \
+  -Dxsdl=true -Dxorg=false -Dxephyr=false -Dxnest=false -Dxvfb=false -Dxwin=false -Dxquartz=false \
+  -Dglamor=false -Dglx=false -Ddri1=false -Ddri2=false -Ddri3=false -Ddrm=false -Dudev=false \
+  -Dudev_kms=false -Dhal=false -Dsystemd_logind=false -Dxdmcp=false -Dxdm-auth-1=false \
+  -Dsecure-rpc=false -Dipv6=false -Dinput_thread=false -Dmitshm=false -Dxselinux=false \
+  -Dlinux_apm=false -Dlinux_acpi=false -Dpciaccess=false -Dint10=false -Dvgahw=false -Ddga=false \
+  -Dxv=false -Dxvmc=false -Ddocs=false -Ddevel-docs=false -Dsha1=libmd -Dlibunwind=false \
+  -Ddefault_font_path=built-ins -Dxkb_output_dir=/tmp
+SLOP meson configure -Dc_link_args=-ldolly-sockets /tmp/xorg/build/server
+SLOP meson compile -C /tmp/xorg/build/server && meson install --no-rebuild -C /tmp/xorg/build/server
+SLOP text-page /usr/share/man/man1/Xserver.1 /usr/share/man/man1/xkbcomp.1
+
+# What the xorg-server package keeps of this stage.
+SLOP CWD /tmp/xorg for source in xorg-server-21.1.25 pixman-0.46.4 libXfont2-2.0.9 libxkbfile-1.2.0 xkbcomp-1.5.0 xkeyboard-config-2.48 libmd-1.3.0; do mkdir -p /usr/share/licenses/${source%%-[0-9]*} && cp $source/COPYING /usr/share/licenses/${source%%-[0-9]*}/; done
+EXPORTS TOOL Xsdl
+EXPORTS TOOL xkbcomp
+FOLDER /usr/share/X11/xkb
+FILE /usr/share/man/cat1/Xserver.1
+FILE /usr/share/man/cat1/xkbcomp.1
+FOLDER /usr/share/licenses
+
+ENTRY /bin/foreground -i /bin/slop

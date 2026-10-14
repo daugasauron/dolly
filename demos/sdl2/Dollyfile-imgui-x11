@@ -1,0 +1,66 @@
+DOLLY 7
+PACKAGE imgui-x11
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST sockets@0
+
+# Dear ImGui's SDL2 example as an X client: SDL2 from the sdl2 package's
+# sources, configured where X's libraries are, adds upstream's X11 video
+# driver to Dolly's, and takes X11 when DISPLAY names a server. ImGui and the
+# example are the imgui package's sources, unchanged.
+FROM /v0.1.3/demos/x11/Dollyfile-x11-build 98ae9243fde462a5357fd9d8099fe40b9e89c0d01b21f4586b47e717d794c748
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES TOOL c++
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL mkdir
+REQUIRES TOOL cp
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /v0.1.3/dist/static/sdl2/source.tar d167e861de21ab0bba8cf6cf3bb1e9e89d9dd9e2487a5069fa90b7fd03d8fa9f /tmp/sdl2/source.tar
+SLOP tar -xf /tmp/sdl2/source.tar -C /
+# As the sdl2 package configures it, with X's libraries. They are static, so
+# CMake's link probes name what libX11 links (pkg-config --static --libs x11).
+SLOP cmake -S /tmp/sdl2/source -B /tmp/sdl2/build \
+  -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/tmp/sdl2/install -DCMAKE_INSTALL_LIBDIR=lib \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE=-O1 \
+  -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST=OFF -DSDL_TESTS=OFF \
+  -DSDL_AUDIO=OFF -DSDL_HAPTIC=OFF -DSDL_SENSOR=OFF \
+  -DSDL_THREADS=OFF -DSDL_LOADSO=OFF -DSDL_POWER=OFF -DSDL_HIDAPI=OFF \
+  -DSDL_ASSEMBLY=OFF -DSDL_GCC_ATOMICS=ON -DSDL_SYSTEM_ICONV=OFF \
+  -DSDL_OPENGL=OFF -DSDL_OPENGLES=OFF -DSDL_VULKAN=OFF -DSDL_RENDER_METAL=OFF \
+  -DSDL_X11=ON -DSDL_X11_SHARED=OFF -DCMAKE_EXE_LINKER_FLAGS='-lxcb -lXau -ldolly-sockets'
+SLOP cmake --build /tmp/sdl2/build
+SLOP cmake --install /tmp/sdl2/build
+
+SOURCE /v0.1.3/dist/static/imgui/source.tar b2e714273ba9e28e383dcfcde11630181c5aff0dbd196c4efe4d99b0b71186f2 /tmp/imgui.tar
+SLOP tar -xf /tmp/imgui.tar -C /
+SLOP CWD /tmp/imgui/source c++ -O2 -I. -Ibackends -I/tmp/sdl2/install/include/SDL2 \
+  imgui.cpp imgui_draw.cpp imgui_tables.cpp imgui_widgets.cpp imgui_demo.cpp \
+  backends/imgui_impl_sdl2.cpp backends/imgui_impl_sdlrenderer2.cpp examples/example_sdl2_sdlrenderer2/main.cpp \
+  -L/tmp/sdl2/install/lib -lSDL2 -lXi -lXfixes -lXrender -lXext -lX11 -lxcb -lXau -ldolly-sockets -lm -o /usr/bin/imgui-x11
+SLOP mkdir -p /usr/share/licenses/imgui-x11
+SLOP cp /tmp/sdl2/source/LICENSE.txt /usr/share/licenses/imgui-x11/SDL2-LICENSE.txt
+SLOP cp /usr/share/licenses/imgui/LICENSE.txt /usr/share/licenses/imgui-x11/imgui-LICENSE.txt
+SLOP rm -rf /tmp/sdl2 /tmp/imgui /tmp/imgui.tar
+
+EXPORTS TOOL imgui-x11
+# Upstream's example asks for an accelerated renderer; SDL's software one is
+# the renderer here.
+EXPORTS ENV SDL_RENDER_DRIVER software
+FILE /usr/share/licenses/imgui-x11/SDL2-LICENSE.txt
+FILE /usr/share/licenses/imgui-x11/imgui-LICENSE.txt
+FOLDER /usr/share/licenses/libXi
+FOLDER /usr/share/licenses/libXfixes
+FOLDER /usr/share/licenses/libXrender
+FOLDER /usr/share/licenses/libXext
+FOLDER /usr/share/licenses/libX11
+FOLDER /usr/share/licenses/libxcb
+FOLDER /usr/share/licenses/libXau
+FILE /usr/share/man/cat1/imgui-x11.1
+    imgui-x11: Dear ImGui's demo window (upstream's example_sdl2_sdlrenderer2)
+    as an X client. Run it where DISPLAY names an X server.

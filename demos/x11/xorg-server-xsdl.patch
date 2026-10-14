@@ -1,0 +1,32 @@
+Xsdl, kdrive in an SDL 2 window, back in the build as -Dxsdl=true; its
+sources are hw/kdrive/sdl (sdl.c, meson.build).
+--- a/meson_options.txt
++++ b/meson_options.txt
+@@ -2,6 +2,8 @@
+        description: 'Enable Xorg X Server')
+ option('xephyr', type: 'boolean', value: false,
+        description: 'Enable Xephyr nested X server')
++option('xsdl', type: 'boolean', value: false,
++       description: 'Enable Xsdl, the kdrive X server in an SDL 2 window')
+ option('glamor', type: 'combo', choices: ['true', 'false', 'auto'], value: 'auto',
+        description: 'Enable glamor (default yes for Xorg builds)')
+ option('xnest', type: 'combo', choices: ['true', 'false', 'auto'], value: 'auto',
+--- a/hw/meson.build
++++ b/hw/meson.build
+@@ -1,4 +1,4 @@
+-if get_option('xephyr')
++if get_option('xephyr') or get_option('xsdl')
+     subdir('kdrive')
+ endif
+ 
+--- a/hw/kdrive/meson.build
++++ b/hw/kdrive/meson.build
+@@ -1,2 +1,7 @@
+ subdir('src')
+-subdir('ephyr')
++if get_option('xephyr')
++    subdir('ephyr')
++endif
++if get_option('xsdl')
++    subdir('sdl')
++endif
