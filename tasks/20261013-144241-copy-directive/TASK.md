@@ -1,6 +1,6 @@
 # Investigate: COPY in the Dollyfile, and packages that are another image's files
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 288
 - TAGS: core,dollyfile,packages,owner
 
@@ -27,6 +27,21 @@ Done when it holds, with the evidence and without a verdict:
 - what could not be found out.
 
 The owner decides what, if anything, follows.
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the tasks that waited for him: "I'm not gonna go
+through 35 tasks, I'm sure some are not relevant anymore and some are
+confirmed actual good fixes. If your investigation confirms they are fixes
+that improve things and aligh with the main goal of the project go ahead. If
+you're uncertain, give me a short description".
+
+Nothing changes in the language. `COPY` was kept beside `INSTALL` on purpose
+(Dollyfile 6: "multi-stage builds pick exact outputs"), and three kinds of
+use have no equivalent without it. The one simplification the investigation
+confirmed, `xonotic-build` and `wine-build` installing `libpng` and
+`freetype` in place of 13 `COPY` rows, goes into
+[the round](../20261012-220109-next-round/TASK.md).
 
 ## State (2026-10-14, 01:00): investigated, the owner's to read
 

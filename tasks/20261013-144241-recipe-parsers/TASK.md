@@ -1,6 +1,6 @@
 # Investigate: the recipe language is parsed twice, by the engine and by the page
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 260
 - TAGS: core,dollyfile,boundary,owner
 
@@ -27,6 +27,21 @@ Done when it holds, with the evidence and without a verdict:
 - what could not be found out.
 
 The owner decides what, if anything, follows.
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the tasks that waited for him: "I'm not gonna go
+through 35 tasks, I'm sure some are not relevant anymore and some are
+confirmed actual good fixes. If your investigation confirms they are fixes
+that improve things and aligh with the main goal of the project go ahead. If
+you're uncertain, give me a short description".
+
+Nothing changes. The page parses because a build's base holds the engine, so
+the base must be there before a row can be read. Everything the page trusts
+is hashed recipe text, the two parsers run 232 cases in common, and one
+grammar was proposed and rejected by the owner. The gap it met,
+[nothing compares the engine's module list with the page's](../20261013-170737-receipt-hosts/TASK.md),
+is put to the owner as one question.
 
 ## State (2026-10-14, 02:10): investigated, the owner's to read
 

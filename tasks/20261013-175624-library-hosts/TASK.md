@@ -1,6 +1,6 @@
 # Investigate: what a library package declares of host modules (sdl2 and raylib declare what their programs need, mojo and openal do not)
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 253
 - TAGS: core,dollyfile,packages,host-modules,owner
 
@@ -16,6 +16,22 @@ loader check today, what each package of a library declares and what its
 archive stamps, the cases where the two readings give different results
 (who can install what, what a session is refused, what `nena` changes), and
 what could not be found out.
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the tasks that waited for him: "I'm not gonna go
+through 35 tasks, I'm sure some are not relevant anymore and some are
+confirmed actual good fixes. If your investigation confirms they are fixes
+that improve things and aligh with the main goal of the project go ahead. If
+you're uncertain, give me a short description".
+
+Nothing changes. The catalog already follows one rule: a library declares the
+modules its own code calls (`sdl2`, `raylib`, `curl`, `janis`) and leaves a
+module that only an optional path reaches to the program (`openal`,
+`libevent`, `libuv`, `lua`, `mojo`), which is the owner's ruling for sockets
+of 2026-10-08: "Things that don't need it to run shouldnt require it." 16 of
+the 22 give the same answer under both readings, and since `nena@0` the
+difference on `default` is one command.
 
 ## State (2026-10-14, 03:15): investigated, the owner's to read
 

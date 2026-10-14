@@ -1,6 +1,6 @@
 # Investigate: SPAWN_INTERACTIVE, and where the rule for Ctrl+C at a shell lives
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 280
 - TAGS: core,process,abi,slop,owner
 
@@ -27,6 +27,22 @@ Done when it holds, with the evidence and without a verdict:
 - what could not be found out.
 
 The owner decides what, if anything, follows.
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the tasks that waited for him: "I'm not gonna go
+through 35 tasks, I'm sure some are not relevant anymore and some are
+confirmed actual good fixes. If your investigation confirms they are fixes
+that improve things and aligh with the main goal of the project go ahead. If
+you're uncertain, give me a short description".
+
+Nothing changes. The flag is Dolly's stand-in for "not in the terminal's
+foreground process group" and is what took two program names out of the
+page. Without it a Ctrl+C that a child handled and survived would cancel the
+shell's next command (`python; echo after`), and Pi and Codex would take
+`SIGINT` with their tool. The one change of the rule that was tried was
+reverted the day before. The six cases that need a build to measure stay in
+the investigation for whoever touches the rule next.
 
 ## State (2026-10-14, 01:20): investigated, the owner's to read
 

@@ -1,6 +1,6 @@
 # Investigate: the supervisor keeps a process tree and a process limit of its own beside the kernel's
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: core,kernel,boundary,owner
 
@@ -27,6 +27,20 @@ Done when it holds, with the evidence and without a verdict:
 - what could not be found out.
 
 The owner decides what, if anything, follows.
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the tasks that waited for him: "I'm not gonna go
+through 35 tasks, I'm sure some are not relevant anymore and some are
+confirmed actual good fixes. If your investigation confirms they are fixes
+that improve things and aligh with the main goal of the project go ahead. If
+you're uncertain, give me a short description".
+
+Nothing is removed. The supervisor's limit is the trusted bound that holds
+when the kernel lies (audit 19), and its tree serves the kernel's own rule
+that a parent is retired after its children. The memory budget that was
+decided on 2026-10-01 and not built stays in
+[iteration cost](../20260930-100000-audit-53/TASK.md), item 2.
 
 ## State (2026-10-14, 01:35): investigated, the owner's to read
 

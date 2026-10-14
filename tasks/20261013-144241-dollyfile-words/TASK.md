@@ -1,6 +1,6 @@
 # Investigate: the Dollyfile's ways to retain, to export and to require
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 290
 - TAGS: core,dollyfile,owner
 
@@ -27,6 +27,20 @@ Done when it holds, with the evidence and without a verdict:
 - what could not be found out.
 
 The owner decides what, if anything, follows.
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the tasks that waited for him: "I'm not gonna go
+through 35 tasks, I'm sure some are not relevant anymore and some are
+confirmed actual good fixes. If your investigation confirms they are fixes
+that improve things and aligh with the main goal of the project go ahead. If
+you're uncertain, give me a short description".
+
+Nothing changes. The owner ruled on these words in Phase 3 of Dollyfile 6
+("the assertions are the explicit contract"). The four ways to retain have
+four meanings in time, a required tool is used up to 82 rows after its row,
+and `REQUIRES TOOL` is the only check at sealing of a command that only
+`init.slop` names.
 
 ## State (2026-10-14, 01:05): investigated, the owner's to read
 

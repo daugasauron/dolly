@@ -1,6 +1,6 @@
 # Investigate: every provider's JavaScript is loaded on every page
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 105
 - TAGS: core,boundary,host-modules,owner
 
@@ -13,6 +13,20 @@ registry came to import every provider, what a page loads today (files and
 bytes, by image), each claim below checked, what loading a provider only
 when its module is enabled would mean on real cases, and what could not be
 found out.
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the tasks that waited for him: "I'm not gonna go
+through 35 tasks, I'm sure some are not relevant anymore and some are
+confirmed actual good fixes. If your investigation confirms they are fixes
+that improve things and aligh with the main goal of the project go ahead. If
+you're uncertain, give me a short description".
+
+Nothing changes. The six providers `default` does not declare are 41 KB of a
+1.2 MB page, 0.25% of a first load; importing one does nothing to the page;
+the heavy parts (the GPU's Worker, the build's panel, the microphone's
+worklet, the loader of shared objects) already load on use; and loading at
+enable would put the import in three more places on each side.
 
 ## State (2026-10-14, 04:40): investigated, the owner's to read
 

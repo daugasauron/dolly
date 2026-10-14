@@ -1,6 +1,6 @@
 # Investigate: operations of the process contract that look like twins, and how modules get their operation numbers
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 235
 - TAGS: core,process,abi,owner
 
@@ -27,6 +27,21 @@ Done when it holds, with the evidence and without a verdict:
 - what could not be found out.
 
 The owner decides what, if anything, follows.
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the tasks that waited for him: "I'm not gonna go
+through 35 tasks, I'm sure some are not relevant anymore and some are
+confirmed actual good fixes. If your investigation confirms they are fixes
+that improve things and aligh with the main goal of the project go ahead. If
+you're uncertain, give me a short description".
+
+Nothing changes. The pairs are WASI's and Linux's entry points and were never
+one operation: one answers for descriptors that have no path, the other
+resolves a path. Merging them gives an empty path a new meaning and every
+executable a new identity, and no caller gains. For the modules' numbers the
+test asserts what matters, that no two ranges overlap; renumbering
+`download` and `upload` changes nothing a program sees.
 
 ## State (2026-10-14, 02:15): investigated, the owner's to read
 

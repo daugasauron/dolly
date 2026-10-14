@@ -1,6 +1,6 @@
 # Investigate: SLOP and RUN, and build scripts written through FILE
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: core,dollyfile,owner
 
@@ -32,6 +32,21 @@ The owner on this point: "Both SLOP and RUN are needed, see the history, this
 is hard earned wisdom." Start from the history, not from the reflection: why
 there are two, what each can do that the other cannot, and what was tried
 before.
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the tasks that waited for him: "I'm not gonna go
+through 35 tasks, I'm sure some are not relevant anymore and some are
+confirmed actual good fixes. If your investigation confirms they are fixes
+that improve things and aligh with the main goal of the project go ahead. If
+you're uncertain, give me a short description".
+
+Nothing changes. Both words stay, by the owner's word ("Both SLOP and RUN are
+needed") and by the record: `RUN` is what lets the recipe, and not the
+bootstrap, build Slop, and what the reflection proposed is the state of
+2026-09-05 that he asked to leave. A body for `SLOP` has no delivery path in
+the engine, and 4 of the 13 script rows could not use one. The comments that
+still say `COMPILEC` are in [stale words](../20261013-160335-stale-words/TASK.md).
 
 ## State (2026-10-14, 00:50): investigated, the owner's to read
 

@@ -1,6 +1,6 @@
 # Is the core in line with the direction: Dollyfile, host modules, the browser runtime, read against the Unix philosophy
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 335
 - TAGS: audit,core,owner
 
@@ -25,6 +25,24 @@ task says where the code follows the direction and where it does not, each
 with its evidence, and what the smallest change is that brings it in line;
 ranked by how much smaller and more composable the core gets, not by what a
 change costs to rebuild.
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the tasks that waited for him: "I'm not gonna go
+through 35 tasks, I'm sure some are not relevant anymore and some are
+confirmed actual good fixes. If your investigation confirms they are fixes
+that improve things and aligh with the main goal of the project go ahead. If
+you're uncertain, give me a short description".
+
+Each of the ten points was investigated, and on 2026-10-14 each was taken one
+of three ways. Nothing to change, closed with the reason: `SLOP` and `RUN`,
+`COPY`, the words to retain, export and require, the roles, the two parsers,
+the twin operations, `runtime.h`, `SPAWN_INTERACTIVE`, the supervisor's tree
+and limit. Fixed: `ps` (point 7), the kernel under `-Wall -Werror`, the
+searches for code nothing reaches. Put to the owner as short questions, in
+[what waits for the owner](../20261012-220109-next-round/TASK.md): the
+modules' headers and clients in the seed, what every page ships for tests,
+the line discipline, file modes.
 
 ## State (2026-10-14, 02:20): each point is investigated; none is decided
 
