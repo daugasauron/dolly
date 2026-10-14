@@ -60,11 +60,10 @@ pinned runs).
    Those of gpu, audio, microphone, buttons and sockets are included by no
    core source; a change to `gpu.h` makes all 130 images stale, as a package
    12.
-4. [The line discipline](../20261013-144241-line-discipline/TASK.md).
-   Programs that read a line from the terminal (`unzip`'s question, `cat`,
-   Python's `input()`, Slop's `read`) show nothing typed, Enter does not end
-   the line and Ctrl+D ends nothing. The kernel had one in the first commit;
-   it fell out unreachable, not by decision.
+4. [The line discipline](../20261013-144241-line-discipline/TASK.md):
+   done on 2026-10-14. A read under `ICANON` takes a line as typed (echo,
+   Backspace, Ctrl+U, Enter, Ctrl+D); the raw read Slop and Janis use is
+   unedited. Kernel only, no image rebuilt but the four of the documents.
 5. [File modes](../20261006-120641-umask/TASK.md). An unchanged `configure`
    needs `umask`, `chmod +x` and `test -x`. A built branch stores nine bits
    and runs GNU Make's `configure`; it also enforces read and write bits,

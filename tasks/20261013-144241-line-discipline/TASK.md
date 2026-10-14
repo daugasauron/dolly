@@ -1,6 +1,6 @@
 # Investigate: the terminal stores ICANON and ECHO and has no line discipline
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 295
 - TAGS: core,kernel,terminal,owner
 
@@ -27,6 +27,23 @@ Done when it holds, with the evidence and without a verdict:
 - what could not be found out.
 
 The owner decides what, if anything, follows.
+
+## Done (2026-10-14)
+
+On `main` (`56c3b724`). Taken by the integrator on the owner's goal of that
+day, to work through the tasks, as the one of his short questions whose
+answer POSIX gives: a terminal edits a line under `ICANON`, and a raw reader
+is not touched. Verified on `main`'s images after the round of 2026-10-14:
+the runtime `aceed7cb…` with the image inputs unchanged, `dolly-docs`,
+`pi-agent`, `pi-local` and `dollyfile-studio` rebuilt for the document
+(498 s), source tests 430/0, artifact tests 25/0, the core suite in both
+browsers (all passed in 419 s) and the demo suites of `pi`, `studio`,
+`javascript`, `python`, `tmux`, `emacs`, `closed-source-agent`, `neovim`,
+`codex` and `rust` (10 passed).
+
+Left, none started: Janis in cooked mode (see the wart below); the packages
+that carry an editor because there was none (`dc`'s flag, linenoise in
+`sqlite`) could drop it with their next rebuild.
 
 ## Built on `core/line-discipline` (2026-10-14)
 
