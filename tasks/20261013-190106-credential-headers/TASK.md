@@ -1,6 +1,6 @@
 # Investigate: the HTTP broker strips credentials by a list of six header names
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: core,boundary,http,owner
 
@@ -17,6 +17,21 @@ came to be (commits, tasks, the owner's words), what the broker does with a
 credential on each kind of rule today, each claim below checked, what a
 change would mean on the real destinations the images use, and what could
 not be found out. The owner decides what, if anything, follows.
+
+## Done (2026-10-14)
+
+`docs/http.md` names the six headers a hardened rule removes unless it
+lists them, and says any other header reaches the destination the rule
+admits (`d30740ba`). The investigation found nothing else to change: an
+allow list of every request header would need about seventeen names for
+Claude Code alone and breaks with a new SDK, and the public pages run the
+default policy by the owner's decision of 2026-09-30.
+
+In the round of 2026-10-14 (`integrate/round-1014`, evidence in
+`work/rust/build/round-1014-evidence/`), which passed: every image built,
+source tests 430/0, artifact tests 25/0, the core suite in both browsers in
+419 s, the demo suites (26 passed; `rts` failed with its known early-input
+stall and passed alone after), the five GPU checks.
 
 ## State (2026-10-14, 04:15): investigated, the owner's to read
 

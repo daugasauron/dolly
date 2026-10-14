@@ -1,6 +1,6 @@
 # python does not install ninja: what NumPy's build needs is the session's to install
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: packages,amy,owner
 
@@ -13,6 +13,20 @@ Done when: `amy install python` brings no `ninja`; in a `default` session
 `amy install python ninja`, then `pip install numpy`, builds NumPy, tested in
 Chromium and Firefox; the README, the index and the Python demo's test say
 that and nothing else.
+
+## Done (2026-10-14)
+
+`python` installs `cc` and no longer `ninja` (`5b7c6ca5`); its README says
+what NumPy's build needs is the session's: `amy install python ninja`. The
+Python demo's test installs `python` on `default`, finds no `ninja`, installs
+it and builds NumPy: passed in Chromium and Firefox before the round, on
+today's seed (`DOLLY_BUILD_IMAGES=python,…`, 141 and 168 s), and in it.
+
+In the round of 2026-10-14 (`integrate/round-1014`, evidence in
+`work/rust/build/round-1014-evidence/`), which passed: every image built,
+source tests 430/0, artifact tests 25/0, the core suite in both browsers in
+419 s, the demo suites (26 passed; `rts` failed with its known early-input
+stall and passed alone after), the five GPU checks.
 
 ## As filed (2026-10-13, main `67a77d3b`)
 

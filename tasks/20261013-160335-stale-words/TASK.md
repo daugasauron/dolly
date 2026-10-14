@@ -1,6 +1,6 @@
 # Left by the investigations: comments that still say COMPILEC, a field of the page's parser nothing reads
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 110
 - TAGS: core,cleanup,seed
 
@@ -9,6 +9,22 @@ integrator, not acted on. None of it is a decision about the language.
 
 Done when: each is corrected or removed in the round that rebuilds what
 holds it, and the suites pass.
+
+## Done (2026-10-14)
+
+Every item is corrected or shown to need nothing: the three `COMPILEC`
+comments say `RUN`, the parser's constant `kind` field and its eight
+comparisons are gone, Emacs's comment over its mouse mode says what the
+row is for, CMake's sources are staged under its own name (all in the
+round); `runs`, the supervisor contract's comment, the tmux README, the
+eighteen exports, one import and two unused names went before it, without
+a rebuild.
+
+In the round of 2026-10-14 (`integrate/round-1014`, evidence in
+`work/rust/build/round-1014-evidence/`), which passed: every image built,
+source tests 430/0, artifact tests 25/0, the core suite in both browsers in
+419 s, the demo suites (26 passed; `rts` failed with its known early-input
+stall and passed alone after), the five GPU checks.
 
 ## As filed (2026-10-14, `integrate/round-1013` `3c50a513`)
 
