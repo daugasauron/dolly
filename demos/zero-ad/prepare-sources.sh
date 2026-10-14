@@ -12,7 +12,7 @@ if has_image openal-build; then
     "${openal_dir}/LICENSE-pffft" /usr/share/licenses/OpenAL/LICENSE-pffft \
     "${openal_dir}/fmt-11.1.1/LICENSE" /usr/share/licenses/OpenAL/fmt
 fi
-if has_image zero-ad-deps || has_image zero-ad-engine || has_image zero-ad-spidermonkey ||
+if has_image zero-ad-deps || has_image zero-ad-engine || has_image spidermonkey ||
    has_image pkgconf || has_image libpng || has_image freetype; then
   zad_dir="$(bash demos/zero-ad/prepare-build-sources.sh)"
 fi
@@ -70,7 +70,7 @@ if has_image zero-ad-engine; then
     demos/zero-ad/premake-dolly.patch /tmp/0ad-patches/premake.patch \
     demos/zero-ad/test/fixtures/0ad-spidermonkey.cpp /tmp/0ad-patches/spidermonkey-check.cpp
 fi
-if has_image zero-ad-spidermonkey; then
+if has_image spidermonkey; then
   # SpiderMonkey's pinned tarball without the test suites a --disable-tests build
   # never reads (490 MB), 0 A.D.'s patches and Dolly's.
   spidermonkey="${zad_dir}/0ad-$(source config/source-pins.sh && echo "${DOLLY_0AD_VERSION}")/libraries/source/spidermonkey"
@@ -82,7 +82,7 @@ if has_image zero-ad-spidermonkey; then
   tar -xf "${spidermonkey}/mozjs-128.13.0.tar.xz" -C "${zad_dir}" \
     --exclude='mozjs-128.13.0/js/src/tests/test262' --exclude='mozjs-128.13.0/js/src/tests/non262' \
     --exclude='mozjs-128.13.0/js/src/jit-test' --exclude='mozjs-128.13.0/testing/web-platform'
-  node scripts/build-source-tar.mjs "${static_dir}/zero-ad-build/mozjs.tar.gz" \
+  node scripts/build-source-tar.mjs "${static_dir}/spidermonkey/source.tar.gz" \
     "${mozjs_dir}" /tmp/mozjs/mozjs-128.13.0 \
     "${spidermonkey}/patches" /tmp/mozjs/patches \
     demos/zero-ad/toolchain/spidermonkey.patch /tmp/mozjs/spidermonkey.patch

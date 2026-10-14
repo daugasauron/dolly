@@ -10,7 +10,7 @@ libraries and SpiderMonkey are built inside Dolly from pinned sources.
 - `openal-build`: OpenAL Soft built for the 0 A.D. audio path.
 - `openal`: OpenAL Soft's mixer through its loopback device, a library for programs the `cc` package builds; it brings no compiler.
 - `zero-ad-deps`: A build stage: the engine's libraries built from pinned sources, with FreeType, pkgconf and SDL2.
-- `zero-ad-spidermonkey`: A build stage: SpiderMonkey 128.13.0 built inside Dolly with mozbuild, Cargo and cbindgen.
+- `spidermonkey`: SpiderMonkey 128.13.0, a library for programs the `cc` package builds, built inside Dolly with mozbuild, Python, Cargo and cbindgen, which it does not bring.
 - `zero-ad-engine`: A build stage: the 0 A.D. engine built inside Dolly with premake and Make.
 - `pkgconf`: pkgconf, also as `pkg-config`, which reads the `.pc` files libraries install; built by its own recipe.
 - `libpng`: libpng with zlib, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.

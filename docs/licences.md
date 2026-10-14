@@ -116,11 +116,12 @@ none ([deployment](deployment.md)).
 
 ## 0 A.D.
 
-0 A.D. is built in Dolly: `zero-ad-deps`, `zero-ad-spidermonkey` and
+0 A.D. is built in Dolly: `zero-ad-deps`, the `spidermonkey` package and
 `zero-ad-engine` compile the engine, SpiderMonkey and the libraries it links
-from `zero-ad-build/deps.tar.gz`, `mozjs.tar.gz` (SpiderMonkey 128.13's pinned
-tarball without its test suites, with 0 A.D.'s patches and Dolly's) and
-`engine.tar.gz`, which the site serves as recipe inputs. The game data's
+from `zero-ad-build/deps.tar.gz`, `spidermonkey/source.tar.gz` (SpiderMonkey
+128.13's pinned tarball without its test suites, with 0 A.D.'s patches and
+Dolly's) and `zero-ad-build/engine.tar.gz`, which the site serves as recipe
+inputs. The game data's
 SPIR-V shaders are translated to WGSL by `demos/zero-ad/toolchain` (the GLSL
 sources stay in the served mod archives). The `zero-ad` image keeps the
 licences of every statically linked library under `/usr/share/licenses/`,

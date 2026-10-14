@@ -43,16 +43,8 @@ FILE /tmp/premake.slop
     cc -O2 -o /usr/bin/premake5 $flags src/host/*.c src/scripts.c $lua -lm
 SLOP slop -e /tmp/premake.slop
 
-# SpiderMonkey, built inside Dolly by zero-ad-spidermonkey: its headers, the
-# two archives and its licences.
-COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-spidermonkey cd32e0d1091f40c6571d6ee3acdf970ec290402821e44ac5c91a723ebdfa7f70 /opt/mozjs /opt/mozjs
-COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-spidermonkey cd32e0d1091f40c6571d6ee3acdf970ec290402821e44ac5c91a723ebdfa7f70 /usr/share/licenses/spidermonkey /usr/share/licenses/spidermonkey
-FILE /tmp/pkgconfig/mozjs-128.pc
-    Name: SpiderMonkey 128.13.0
-    Description: The Mozilla library for JavaScript
-    Version: 128.13.0
-    Cflags: -I/opt/mozjs/include
-    Libs: -L/opt/mozjs/lib -ljs_static -ljsrust
+# SpiderMonkey: its headers, the two archives, its pkg-config file and licences.
+INSTALL /v0.1.3/demos/zero-ad/Dollyfile-spidermonkey 54c630a41ca19bb8a0d4cbf7890be7920cab60275d3a2122a96f28430d04080f
 
 # Probe for test/0ad-spidermonkey-browser.mjs.
 SLOP mkdir -p /usr/libexec/zero-ad
@@ -61,7 +53,7 @@ SLOP c++ -std=c++20 -O1 -I/opt/mozjs/include /tmp/0ad-patches/spidermonkey-check
 SLOP /usr/libexec/zero-ad/spidermonkey-check
 FOLDER /usr/libexec/zero-ad
 
-SLOP CWD /tmp/0ad/build/premake PKG_CONFIG_PATH=/tmp/pkgconfig CC=cc CXX=c++ \
+SLOP CWD /tmp/0ad/build/premake CC=cc CXX=c++ \
   premake5 --os=emscripten --minimal-flags --strip-binaries --with-system-mozjs \
   --without-atlas --without-nvtt --without-lobby --without-miniupnpc --without-pch \
   --without-tests --without-dap-interface --outpath=../workspaces/dolly gmake
