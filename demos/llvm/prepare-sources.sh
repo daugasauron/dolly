@@ -43,6 +43,7 @@ if has_image llvm21-tablegen; then
   stage_llvm "${llvm21_dir}" "${static_dir}/llvm21/llvm-project.tar.gz" \
     "${llvm21_dir}/clang/examples" /tmp/llvm-project/clang/examples
   copy_static demos/llvm/llvm-host-triple.patch llvm21/llvm-host-triple.patch
+  copy_static demos/llvm/llvm21-std-specializations.patch llvm21/llvm21-std-specializations.patch
   for project in llvm clang lld; do copy_static "${llvm21_dir}/${project}/LICENSE.TXT" "llvm21/licenses/${project}"; done
 fi
 if has_image llvm-cc; then

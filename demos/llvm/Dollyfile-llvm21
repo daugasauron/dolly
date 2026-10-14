@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # LLVM 21 with every default target, Clang and LLD as libraries and headers,
 # and llvm-config, under /usr/lib/llvm21: what Zig 0.16 links. Built by its
 # CMake inside Dolly with the TableGen tools of llvm21-tablegen.
-FROM /v0.1.3/demos/llvm/Dollyfile-llvm21-tablegen 160f84d8b976537ae952a58381dd26fb7dab173bad39596a728a0db63f38a39c
+FROM /v0.1.3/demos/llvm/Dollyfile-llvm21-tablegen 080c83b257746415db5f29415b25c4ac27d1ea86c65fbdfc779959272d47370b
 REQUIRES TOOL llvm-tblgen
 REQUIRES TOOL clang-tblgen
 REQUIRES TOOL cmake
@@ -22,6 +22,10 @@ SLOP time slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
 SOURCE /v0.1.3/dist/static/llvm21/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/llvm-project -i /tmp/llvm-host-triple.patch
+# Upstream's a558d656 from LLVM 22: LLVM 21's RDF gives std::less state, which
+# this libc++ (LLVM 24's) refuses.
+SOURCE /v0.1.3/dist/static/llvm21/llvm21-std-specializations.patch 7ca034008e6a5d4d95d305f883eb82b9107be62e294d7f14532327ad88022695 /tmp/llvm21-std-specializations.patch
+SLOP patch -p1 -d /tmp/llvm-project -i /tmp/llvm21-std-specializations.patch
 # Licences of the three projects whose libraries this package holds.
 SOURCE /v0.1.3/dist/static/llvm21/licenses/llvm 8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee /usr/share/licenses/llvm21/llvm/LICENSE.TXT
 SOURCE /v0.1.3/dist/static/llvm21/licenses/clang ebcd9bbf783a73d05c53ba4d586b8d5813dcdf3bbec50265860ccc885e606f47 /usr/share/licenses/llvm21/clang/LICENSE.TXT
