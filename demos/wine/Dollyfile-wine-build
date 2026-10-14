@@ -11,14 +11,7 @@ REQUIRES HOST upload@0
 
 FROM /v0.1.3/Dollyfile-system-tools e19ab2a237b16de1596ccbb3a2ae07dd34b65488de38762b66ec0207a89c4b83
 # FreeType (with its libpng) for gdi32's fonts, as 0 A.D. built them; libpng's headers for NetSurf.
-COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps f91cd1e4585ca389a932459100166f3371b15ff4cb06e052b27357ad5a01eaad /usr/include/freetype2 /usr/include/freetype2
-COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps f91cd1e4585ca389a932459100166f3371b15ff4cb06e052b27357ad5a01eaad /usr/lib/libfreetype.a /usr/lib/libfreetype.a
-COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps f91cd1e4585ca389a932459100166f3371b15ff4cb06e052b27357ad5a01eaad /usr/lib/libpng16.a /usr/lib/libpng16.a
-COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps f91cd1e4585ca389a932459100166f3371b15ff4cb06e052b27357ad5a01eaad /usr/include/png.h /usr/include/png.h
-COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps f91cd1e4585ca389a932459100166f3371b15ff4cb06e052b27357ad5a01eaad /usr/include/pngconf.h /usr/include/pngconf.h
-COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps f91cd1e4585ca389a932459100166f3371b15ff4cb06e052b27357ad5a01eaad /usr/include/pnglibconf.h /usr/include/pnglibconf.h
-COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps f91cd1e4585ca389a932459100166f3371b15ff4cb06e052b27357ad5a01eaad /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps f91cd1e4585ca389a932459100166f3371b15ff4cb06e052b27357ad5a01eaad /usr/share/licenses/libpng /usr/share/licenses/libpng
+INSTALL /v0.1.3/demos/zero-ad/Dollyfile-freetype fbb9bd82ca5091ce4de274c1d5fa085acb990abaceebae88e2cd498602b2166c
 REQUIRES HEADER curl
 REQUIRES HEADER zlib
 REQUIRES LIB curl
