@@ -30,7 +30,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL text-page
 
 SOURCE /v0.1.3/dist/static/tmux/tmux-3.8.tar.gz e79c699c7e949dccd0a4a125e17b8d1261e311b16979dbc8eb34542f3966d82e /tmp/tmux.tar.gz
-SOURCE /v0.1.3/dist/static/tmux/port.tar f6815632361e1f6f6593e01fbeb60701f0dc7a60d43cfd288f5864afcebbd763 /tmp/tmux-port.tar
+SOURCE /v0.1.3/dist/static/tmux/port.tar eb7bfa1c7a2f6619c9c4232b1a21595f5b348f8b8ead4f10d694b57a60179c9f /tmp/tmux-port.tar
 SLOP gzip -dc /tmp/tmux.tar.gz | tar -xf - -C /tmp
 SLOP tar -xf /tmp/tmux-port.tar -C /
 SLOP patch -p1 -d /tmp/tmux-3.8 -i /tmp/tmux-3.8/tmux-dolly.patch

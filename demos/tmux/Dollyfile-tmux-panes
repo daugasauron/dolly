@@ -17,7 +17,7 @@ REQUIRES HOST upload@0
 
 FROM /v0.1.3/Dollyfile-system b33663b148885d0a8f2ef14025a1b3a4e5f6da23f38959d0e25fba61281e0c87
 INSTALL /v0.1.3/Dollyfile-amy a9e0c7a808cfae5c9b4ebd7e22668ed1eaa66dce1bbc2e337e064d5bf0e6bb67
-INSTALL /v0.1.3/demos/tmux/Dollyfile-tmux 35a00a7b6e9c941a07714e6504085e293085817508fd64192f9eb3f6244e4805
+INSTALL /v0.1.3/demos/tmux/Dollyfile-tmux 242964b68d1facf26614178d5cd8b806093b6dea7922e6787eb642e8f8dedc3f
 
 FILE /usr/share/tmux/welcome.txt
     tmux inside Dolly: two shells, each on a pseudo-terminal.

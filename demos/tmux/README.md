@@ -68,15 +68,15 @@ puts an editor beside a shell.
   slave, with the pane's environment and no other descriptor of the server;
   `osdep_job` spawns a job's command on the socket tmux reads it from;
   `osdep_start_server` spawns the server with the client's socket and
-  configuration.
+  configuration, on the client's terminal.
 
 ## Limits
 
 - `pipe-pane` forks by itself and fails saying so ("fork error"). Jobs are
   spawned: `run-shell`, `if-shell` and `#()` in a status line are tested;
   `copy-pipe` and popups take the same way and are not.
-- One client at a time: the server opens the client's terminal by name, and
-  Dolly has one.
+- One client at a time, on one terminal: the server opens a client's terminal
+  as `/dev/tty`, which names the terminal of the client that started it.
 - The mouse does nothing: tmux asks the terminal for mouse reports and the
   display's terminal gives none ([input](../../docs/input.md)). Keys choose a
   pane (`Ctrl+B o`, `Ctrl+B` and an arrow) and scroll one back (`Ctrl+B [`).

@@ -19,8 +19,7 @@ Open `/x11-desktop/`; build with `npm run image -- x11-desktop`. The session
 starts the server, twm, xclock, xeyes and xterm. Windows move by their title
 bars; the keyboard goes to the window under the pointer. `imgui-x11 &` in
 xterm opens Dear ImGui's example, SDL2 drawing through its X11 driver, and
-amy installs packages there (`amy install tmux nvim`; tmux's server is started
-with `tmux -D &`).
+amy installs packages there (`amy install tmux nvim`).
 `kill $(cat /tmp/.X0-pid)` in xterm ends the server, and the terminal's shell
 is back.
 

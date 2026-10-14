@@ -200,6 +200,8 @@ osdep_job(int flags, int *master, char *tty, struct winsize *ws, int out,
  * fork and daemon for the server, as proc_fork_and_daemon: the client starts
  * this program again as `tmux -D`, with the socket and configuration it was
  * given, on one end of a pair, and keeps the other. Returns the client's end.
+ * sockets@0 passes no descriptor and a slave has no name, so the server
+ * stands on the client's terminal, the one it opens as /dev/tty.
  */
 int
 osdep_start_server(void)
@@ -227,7 +229,8 @@ osdep_start_server(void)
 	}
 	while (level-- > 0)
 		args[argc++] = (char *)"-v";
-	pid = dolly_spawn(path, argc, args, pair[1], null, null);
+	pid = dolly_spawn(path, argc, args, pair[1],
+	    isatty(STDIN_FILENO) ? STDIN_FILENO : null, null);
 	free(args);
 	close(null);
 	close(pair[1]);
