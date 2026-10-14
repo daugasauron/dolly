@@ -99,3 +99,12 @@ Chrome) `rts` has failed two runs of three, all under load; before it, it
 passed both rounds of 2026-10-07 and stalled in about half the loaded runs
 of this task's table. Not yet done: the same count with the entry disabled
 and on a quiet machine, which is what would say whether the entry matters.
+
+## Seen again (2026-10-14, the round)
+
+The round of 2026-10-14 (`integrate/round-1014`, every demo suite in one
+run after the core suite) failed `rts` alone with "mouse menu/quit must not
+stall either player", frames 17 and 18 before the input and after it
+(`build/round-1014-evidence/demos.log` in `work/rust`). The same test passed
+alone right after, at load 0.7, in 258 s. 26 other demo suites passed.
+
