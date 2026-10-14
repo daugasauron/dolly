@@ -53,3 +53,29 @@
 +#if defined(__dolly__) /* Dolly links statically and loads no SDL at run time. */
 +#define SDL_DYNAMIC_API 0
 +#elif defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE /* probably not useful on iOS. */
+--- a/src/timer/SDL_timer.c
++++ b/src/timer/SDL_timer.c
+@@ -208,6 +208,11 @@
+ {
+     SDL_TimerData *data = &SDL_timer_data;
+ 
++#if defined(__dolly__) && defined(SDL_THREADS_DISABLED)
++    /* Dolly's SDL starts no threads: the subsystem has SDL_GetTicks and
++     * SDL_Delay, and SDL_AddTimer reports that it has no timer thread. */
++    return 0;
++#endif
+     if (!SDL_AtomicGet(&data->active)) {
+         const char *name = "SDLTimer";
+         data->timermap_lock = SDL_CreateMutex();
+@@ -280,6 +285,11 @@
+     SDL_Timer *timer;
+     SDL_TimerMap *entry;
+ 
++#if defined(__dolly__) && defined(SDL_THREADS_DISABLED)
++    SDL_SetError("Timers need a thread, and this SDL starts none");
++    return 0;
++#endif
++
+     SDL_AtomicLock(&data->lock);
+     if (!SDL_AtomicGet(&data->active)) {
+         if (SDL_TimerInit() < 0) {

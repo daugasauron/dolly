@@ -25,8 +25,12 @@ for GLib; RandR in the server's SDL output. The likely long pole: GObject
 calls signal handlers through casts to functions with more parameters than
 they declare, which traps in WebAssembly. That needs patches (wasm-vips keeps
 such patches for GLib) or a cast-emulating option in Dolly's toolchain, a
-core decision. GLib also needs libffi, whose WebAssembly port calls through
-JavaScript (from memory, unchecked).
+core decision. GLib also needs libffi: 3.5.2 (2025) added an Emscripten
+wasm64 target, whose calls go through JavaScript (from memory, unchecked),
+which Dolly's processes have not. Precedent: QEMU's Emscripten port (2025)
+builds GLib for wasm64 and replaced GLib calls that cast function pointers
+(`g_list_sort` and others); GLib's own issue is #3596, and wasm-vips keeps a
+fork (searched 2026-10-15).
 
 ## State (2026-10-14, 23:25): waits for X11
 
