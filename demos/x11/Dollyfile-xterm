@@ -138,11 +138,13 @@ SLOP make -j4 -f /tmp/xterm/xterm.mk
 SLOP mkdir -p /usr/share/X11/app-defaults /usr/share/licenses/xterm
 SLOP cp /tmp/xterm/XTerm.ad /usr/share/X11/app-defaults/XTerm
 SLOP cp /tmp/xterm/COPYING /usr/share/licenses/xterm/
+SLOP text-page /tmp/xterm/xterm.man && mv /usr/share/man/cat1/xterm.man /usr/share/man/cat1/xterm.1
 
 EXPORTS TOOL xterm
 FILE /usr/libexec/xterm
 FILE /usr/share/X11/app-defaults/XTerm
 FILE /usr/share/licenses/xterm/COPYING
+FILE /usr/share/man/cat1/xterm.1
 # The licences of the X libraries it links.
 FOLDER /usr/share/licenses/libXaw
 FOLDER /usr/share/licenses/libXmu
