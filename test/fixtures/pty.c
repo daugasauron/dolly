@@ -72,6 +72,14 @@ static void expect(int descriptor, const char *text) {
   }
 }
 
+/* As a full-screen program has it: the slave's input unedited, not echoed. */
+static void unedited(int slave) {
+  struct termios mode;
+  CHECK(tcgetattr(slave, &mode) == 0);
+  mode.c_lflag &= ~(tcflag_t)(ICANON | ECHO);
+  CHECK(tcsetattr(slave, TCSANOW, &mode) == 0);
+}
+
 /* One process holding both ends: bytes cross, the slave is a terminal with a
  * mode and a size of its own, and the master is neither. */
 static int pair(void) {
@@ -87,8 +95,23 @@ static int pair(void) {
   CHECK(ioctl(ends[1], TIOCGWINSZ, &size) == 0 && size.ws_row == 24 && size.ws_col == 80);
   CHECK(ioctl(ends[0], TIOCGWINSZ, &size) == -1 && errno == ENOTTY);
   CHECK(read(ends[0], &byte, 1) == -1 && errno == EAGAIN);
+  /* The slave's input is a line it edits when it reads, echoing to the master:
+   * Enter ends it with a newline, Backspace erases a character and Ctrl+U the
+   * line, Ctrl+D on an empty line is end of file. A read takes one line. */
+  char line[16];
+  struct pollfd typed = {ends[1], POLLIN, 0};
+  CHECK(tcgetattr(ends[1], &mode) == 0 && (mode.c_lflag & ICANON) && (mode.c_lflag & ECHO));
+  CHECK(write(ends[0], "inx\x7f", 4) == 4 && poll(&typed, 1, 0) == 0);
+  CHECK(write(ends[0], "\rgone\x15two\r", 10) == 10 && poll(&typed, 1, 0) == 1);
+  CHECK(read(ends[1], line, sizeof(line)) == 3 && memcmp(line, "in\n", 3) == 0);
+  CHECK(read(ends[1], line, sizeof(line)) == 4 && memcmp(line, "two\n", 4) == 0);
+  expect(ends[0], "inx\b \b\r\ngone\b \b\b \b\b \b\b \btwo\r\n");
+  CHECK(write(ends[0], "\4", 1) == 1 && read(ends[1], line, sizeof(line)) == 0);
+  /* Unedited, bytes cross as written, those typed before first. */
+  CHECK(write(ends[0], "held", 4) == 4);
+  unedited(ends[1]);
   CHECK(write(ends[0], "in", 2) == 2);
-  expect(ends[1], "in");
+  expect(ends[1], "heldin");
   CHECK(write(ends[1], "out\n", 4) == 4);
   expect(ends[0], "out\r\n");
   CHECK(tcgetattr(ends[1], &mode) == 0 && (mode.c_oflag & OPOST) && (mode.c_lflag & ISIG));
@@ -131,6 +154,7 @@ static int terminal(void) {
   struct termios mode;
   char bytes[64];
   if (!isatty(0) || !isatty(1) || !isatty(2)) return 3;
+  unedited(0);
   sigaction(SIGWINCH, &action, NULL);
   sigaction(SIGINT, &action, NULL);
   write(1, "ready\n", 6);
@@ -300,6 +324,7 @@ static int flow(void) {
   char block[DOLLY_PTY_INPUT_BYTES + 100];
   struct pollfd query;
   CHECK(pty_open(DOLLY_PTY_CLOEXEC | DOLLY_PTY_NONBLOCK, ends) == 0);
+  unedited(ends[1]);
   memset(block, 'i', sizeof(block));
   CHECK(write(ends[0], block, sizeof(block)) == DOLLY_PTY_INPUT_BYTES);
   CHECK(write(ends[0], block, 1) == -1 && errno == EAGAIN);

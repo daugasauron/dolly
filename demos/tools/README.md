@@ -48,13 +48,10 @@ What the platform decides ([process model](../../docs/process-model.md)):
   locked`. A write-ahead log needs memory two processes share and a mapping
   is a private copy; in this mode its index is on the heap. SQLite loads no
   extension.
-- The terminal has no line discipline: nothing echoes a line, edits it or
-  turns Enter into a newline for a program that only reads one. So `sqlite3`
-  is built with linenoise, `dc` edits its lines as `bc` does, and `vi` reads
-  Enter through a few lines the recipe adds, a change to an upstream source
-  with its reason there. A question that waits for a line shows nothing
-  typed and ends at Ctrl+J, not at Enter: answer it on the command line
-  (`unzip -o` or `-n`, `zstd -f`).
+- `sqlite3` is built with linenoise and `dc` edits its lines as `bc` does,
+  from before the terminal edited a line itself. `vi` reads Enter through a
+  few lines the recipe adds, a change to an upstream source with its reason
+  there: Neatvi reads unedited and leaves Enter's mapping to the terminal.
 - Dolly's `tar` reads files and directories. An archive with a pax header
   (every `git archive`) or links is staged as a plain tar of the files a
   build reads ([`prepare-sources.sh`](prepare-sources.sh)); `sqlite`, `xz`,

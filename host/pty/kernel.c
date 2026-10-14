@@ -24,6 +24,7 @@ typedef struct {
 struct dolly_pty {
   pty_end master, slave;
   uint32_t mode, rows, columns;
+  dolly_kernel_line line; /* The slave's input while its mode is canonical. */
 };
 
 static dolly_pty *ptys[DOLLY_PTY_LIMIT];
@@ -67,6 +68,44 @@ static size_t take(pty_end *end, unsigned char *bytes, size_t size) {
   return size;
 }
 
+/* One byte of the slave's output for the master, LF as CRLF under OPOST with
+ * ONLCR. Zero when it does not fit. */
+static int show(dolly_pty *pty, unsigned char byte) {
+  const uint32_t newline = DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR;
+  const int carriage_return = byte == '\n' && (pty->mode & newline) == newline;
+  if (pty->master.capacity - pty->master.size < (carriage_return ? 2u : 1u)) return 0;
+  if (carriage_return) put(&pty->master, '\r');
+  put(&pty->master, byte);
+  return 1;
+}
+
+/* What an echoing slave displays is its output; what does not fit is not shown. */
+static void echo(void *terminal, const unsigned char *bytes, size_t length) {
+  for (size_t index = 0; index < length && show(terminal, bytes[index]); ++index) {}
+}
+
+/* The slave's input is typed into its line when a read asks under the
+ * canonical mode, so the raw read leaves it unedited, as at the display. */
+static void type_line(dolly_pty *pty) {
+  unsigned char byte;
+  while (pty->line.ready == 0 && !pty->line.end && take(&pty->slave, &byte, 1) == 1) {
+    dolly_kernel_line_type(&pty->line, byte, (pty->mode & DOLLY_TERMINAL_ECHO) != 0 ? echo : NULL, pty);
+  }
+}
+
+/* Whether a read of the slave returns without waiting. Under the canonical
+ * mode a line is due once Enter or Ctrl+D waits to be typed into it. */
+static int slave_readable(const dolly_pty *pty) {
+  const pty_end *slave = &pty->slave;
+  if ((pty->mode & DOLLY_TERMINAL_CANONICAL) == 0) return pty->line.size != 0 || slave->size != 0;
+  if (pty->line.ready != 0 || pty->line.end) return 1;
+  for (size_t index = 0; index < slave->size; ++index) {
+    const unsigned char byte = slave->unread[(slave->offset + index) % slave->capacity];
+    if (byte == '\r' || byte == '\n' || byte == 4) return 1;
+  }
+  return 0;
+}
+
 static int valid_size(uint32_t rows, uint32_t columns) {
   return rows != 0 && rows <= UINT16_MAX && columns != 0 && columns <= UINT16_MAX;
 }
@@ -93,7 +132,18 @@ static void pty_close(dolly_kernel_socket *closing) {
 static int64_t pty_receive(dolly_kernel_socket *shared, unsigned char *bytes, size_t size, int wait) {
   pty_end *end = (pty_end *)shared;
   if (size == 0) return 0;
-  if (end->size == 0) {
+  const int canonical = end == &end->pty->slave && (end->pty->mode & DOLLY_TERMINAL_CANONICAL) != 0;
+  if (end == &end->pty->slave) {
+    dolly_kernel_line *line = &end->pty->line;
+    if (canonical) type_line(end->pty);
+    const size_t count = dolly_kernel_line_take(line, bytes, size, !canonical);
+    if (count != 0) return (int64_t)count;
+    if (canonical && line->end) {
+      line->end = 0;
+      return 0;
+    }
+  }
+  if (canonical || end->size == 0) {
     if (!other_end(end)->open) return 0;
     return wait && !shared->nonblocking ? DOLLY_PROCESS_DISPATCH_DEFERRED : -EAGAIN;
   }
@@ -108,18 +158,17 @@ static int64_t pty_send(dolly_kernel_socket *shared, const unsigned char *bytes,
   if (size == 0) return 0;
   if (!reader->open) return -EIO;
   const int input = end == &pty->master;
-  const uint32_t newline = DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR;
   size_t taken = 0;
   for (; taken < size; ++taken) {
     const unsigned char byte = bytes[taken];
     if (input && byte == 3 && (pty->mode & DOLLY_TERMINAL_ISIG) != 0) {
       dolly_kernel_socket_holders(&pty->slave.shared, 1, raise_signal, DOLLY_PROCESS_SIGINT);
-      continue;
+    } else if (input) {
+      if (reader->size == reader->capacity) break;
+      put(reader, byte);
+    } else if (!show(pty, byte)) {
+      break;
     }
-    const int carriage_return = !input && byte == '\n' && (pty->mode & newline) == newline;
-    if (reader->capacity - reader->size < (carriage_return ? 2u : 1u)) break;
-    if (carriage_return) put(reader, '\r');
-    put(reader, byte);
   }
   if (taken == 0) return wait && !shared->nonblocking ? DOLLY_PROCESS_DISPATCH_DEFERRED : -EAGAIN;
   dolly_kernel_wake();
@@ -129,7 +178,8 @@ static int64_t pty_send(dolly_kernel_socket *shared, const unsigned char *bytes,
 static uint16_t pty_poll(const dolly_kernel_socket *shared, uint16_t requested) {
   const pty_end *end = (const pty_end *)shared, *reader = other_end(end);
   uint16_t events = 0;
-  if (end->size != 0 || !reader->open) events |= DOLLY_PROCESS_POLL_READ;
+  if (end == &end->pty->slave ? slave_readable(end->pty) : end->size != 0) events |= DOLLY_PROCESS_POLL_READ;
+  if (!reader->open) events |= DOLLY_PROCESS_POLL_READ;
   if (!reader->open || reader->capacity - reader->size >= 2) events |= DOLLY_PROCESS_POLL_WRITE;
   return (events & requested) | (!reader->open ? DOLLY_PROCESS_POLL_HANGUP : 0);
 }
@@ -148,7 +198,7 @@ static int64_t pty_terminal(dolly_kernel_socket *shared, const dolly_process_ter
   switch (request->operation) {
     case DOLLY_PROCESS_TERMINAL_READ: {
       unsigned char byte;
-      if (take(end, &byte, 1) == 1) {
+      if (dolly_kernel_line_take(&pty->line, &byte, 1, 1) == 1 || take(end, &byte, 1) == 1) {
         response->value = byte;
       } else if (pty->master.open && dolly_kernel_deadline_pending(request->deadline_nanoseconds)) {
         return DOLLY_PROCESS_DISPATCH_DEFERRED;

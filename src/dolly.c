@@ -101,6 +101,103 @@ int dolly_kernel_terminal_set_mode(uint32_t flags) {
   return 0;
 }
 
+static void erase_character(dolly_kernel_line *line,
+                            void (*show)(void *terminal, const unsigned char *bytes, size_t length),
+                            void *terminal) {
+  size_t start = line->size - 1;
+  while (start > line->ready && (line->bytes[start] & 0xc0) == 0x80) --start;
+  /* A control character was shown as two: ^X. A tab is erased as one cell. */
+  const int shown = line->bytes[start] < ' ' && line->bytes[start] != '\t' ? 2 : 1;
+  line->size = start;
+  if (show != NULL) show(terminal, (const unsigned char *)"\b \b\b \b", 3 * (size_t)shown);
+}
+
+void dolly_kernel_line_type(dolly_kernel_line *line, unsigned char byte,
+                            void (*show)(void *terminal, const unsigned char *bytes, size_t length),
+                            void *terminal) {
+  if (byte == 0x7f || byte == '\b' || byte == 0x15) {
+    while (line->size > line->ready) {
+      erase_character(line, show, terminal);
+      if (byte != 0x15) break;
+    }
+    return;
+  }
+  if (byte == 4) {
+    if (line->size == line->ready) line->end = 1;
+    line->ready = line->size;
+    return;
+  }
+  const int newline = byte == '\r' || byte == '\n';
+  if (newline) byte = '\n';
+  /* A full line takes nothing but the newline that ends it. */
+  if (line->size + !newline >= sizeof(line->bytes)) return;
+  line->bytes[line->size++] = byte;
+  if (newline) line->ready = line->size;
+  if (show == NULL) return;
+  if (byte < ' ' && byte != '\n' && byte != '\t') {
+    const unsigned char caret[2] = {'^', (unsigned char)(byte + '@')};
+    show(terminal, caret, sizeof(caret));
+  } else {
+    show(terminal, &byte, 1);
+  }
+}
+
+size_t dolly_kernel_line_take(dolly_kernel_line *line, unsigned char *bytes, size_t size, int raw) {
+  size_t count = raw ? line->size : line->ready;
+  const unsigned char *newline = raw ? NULL : memchr(line->bytes, '\n', count);
+  if (newline != NULL) count = (size_t)(newline - line->bytes) + 1;
+  if (raw) line->end = 0;
+  if (count > size) count = size;
+  memcpy(bytes, line->bytes, count);
+  memmove(line->bytes, line->bytes + count, line->size - count);
+  line->size -= count;
+  line->ready -= count < line->ready ? count : line->ready;
+  return count;
+}
+
+/* The display's line. Its input is decoded when a reader asks, so the line is
+ * typed then too: a read or a poll under the canonical mode edits and echoes. */
+static dolly_kernel_line terminal_line;
+
+static void terminal_echo(void *terminal, const unsigned char *bytes, size_t length) {
+  (void)terminal;
+  dolly_kernel_terminal_write(bytes, length);
+}
+
+int dolly_kernel_terminal_readable(void) {
+  if ((terminal_mode_flags & DOLLY_TERMINAL_CANONICAL) == 0) {
+    return terminal_line.size != 0 || dolly_kernel_terminal_ready();
+  }
+  for (int byte; terminal_line.ready == 0 && !terminal_line.end &&
+       (byte = dolly_kernel_terminal_read()) >= 0;) {
+    dolly_kernel_line_type(&terminal_line, (unsigned char)byte,
+        (terminal_mode_flags & DOLLY_TERMINAL_ECHO) != 0 ? terminal_echo : NULL, NULL);
+  }
+  return terminal_line.ready != 0 || terminal_line.end;
+}
+
+int64_t dolly_kernel_terminal_receive(unsigned char *bytes, size_t size) {
+  if (!dolly_kernel_terminal_readable()) return -EAGAIN;
+  const int raw = (terminal_mode_flags & DOLLY_TERMINAL_CANONICAL) == 0;
+  size_t count = dolly_kernel_line_take(&terminal_line, bytes, size, raw);
+  if (!raw && count == 0) terminal_line.end = 0;
+  for (int byte; raw && count < size && (byte = dolly_kernel_terminal_read()) >= 0;) {
+    bytes[count++] = (unsigned char)byte;
+  }
+  return (int64_t)count;
+}
+
+int dolly_kernel_terminal_key(void) {
+  unsigned char byte;
+  return dolly_kernel_line_take(&terminal_line, &byte, 1, 1) == 1 ? byte : dolly_kernel_terminal_read();
+}
+
+void dolly_kernel_terminal_discard(void) {
+  dolly_terminal_discard_pending_input();
+  terminal_line.size = terminal_line.ready = 0;
+  terminal_line.end = 0;
+}
+
 /* The supervisor's words (abi/dolly-supervisor-0.wat): about the executable it
  * prepares, for the terminal of the process that waits for it. */
 int dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length) {

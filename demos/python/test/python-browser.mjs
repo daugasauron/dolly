@@ -78,6 +78,13 @@ await demoTest("python", { image: "python", timeout: packages ? 7_200_000 : 600_
   await input("\x04");
   assert.equal(await repl.done, 0);
 
+  // input() reads a line as typed at the terminal: shown, edited, ended by Enter.
+  const asked = start("python -c 'print(\"PYTHON-GOT-\" + input(\"name? \"))'");
+  await waitText(/name\? /);
+  await input("pyx\x7fthon\r");
+  await waitText(/PYTHON-GOT-python/);
+  assert.equal(await asked.done, 0);
+
   // Ctrl+C's SIGINT ends signal.pause() with KeyboardInterrupt.
   const paused = start("python -c 'import signal; print(\"PYTHON-\" + \"PAUSED\", flush=True); signal.pause()'");
   await waitText(/PYTHON-PAUSED/);

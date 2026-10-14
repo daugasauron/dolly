@@ -153,6 +153,29 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
   await page.keyboard.press("Control+c");
   assert.equal(await raw, 0);
 
+  // A program that reads a line gets it as typed: echoed, Backspace and Ctrl+U
+  // erase, Enter ends it, Ctrl+D on an empty line ends the input. Slop's own
+  // editor reads the same keys raw, and its read builtin takes a line.
+  assert.equal(await submit("printf '\\033[2J\\033[H'"), 0);
+  const lines = start("cat > /tmp/typed-lines");
+  await page.waitForFunction(() => __dolly.terminal.foregroundInterruptible());
+  await keyboard.focus();
+  await page.keyboard.type("onx");
+  await page.keyboard.press("Backspace");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("gone");
+  await page.keyboard.press("Control+u");
+  await page.keyboard.type("two");
+  await page.keyboard.press("Enter");
+  await waitForText(/^on\ntwo$/m);
+  await page.keyboard.press("Control+d");
+  assert.equal(await lines, 0);
+  assert.equal(await submit("test \"$(cat /tmp/typed-lines)\" = \"$(printf 'on\\ntwo')\""), 0);
+  const reading = start("read word && test \"$word\" = yes");
+  await page.keyboard.type("yes");
+  await page.keyboard.press("Enter");
+  assert.equal(await reading, 0);
+
   // Reading and copying the selection while a child sleeps keeps queued
   // typed text, a paste and terminal query replies for that child.
   for (const argument of ["", "query", "partial"]) {

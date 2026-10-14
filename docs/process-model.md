@@ -108,13 +108,18 @@ sequenceDiagram
   [pseudo-terminal](#pseudo-terminals), which opens that. `ttyname` fails: a
   terminal has no name of its own.
 - `poll` covers files, pipes, sockets, pseudo-terminals and the terminal; signals wake it with `EINTR`.
-- Terminal reads return raw input bytes. `ICANON`/`ECHO` round-trip through termios
-  without a line discipline; `OPOST`/`ONLCR` map LF to CRLF on output. While
-  `ISIG` is set (the default), Ctrl+C sends SIGINT to the foreground; a program
-  that clears it (raw mode) reads Ctrl+C as the byte 0x03. termios reports no
-  input mapping, flow control or other signal keys, and `VMIN` 1, `VTIME` 0;
-  `tcsetattr` rejects anything else with `EINVAL`. `TCSAFLUSH` and `tcflush`
-  discard unread input; break and flow control fail with `ENOTSUP`.
+- A terminal edits a line while `ICANON` is set (the default): a read waits for
+  Enter, which arrives as LF, and returns one line; Backspace and Ctrl+U erase,
+  Ctrl+D ends a line without LF or, on an empty one, is end of file; `ECHO`
+  shows what is typed. With `ICANON` clear a read returns the bytes as typed.
+  The raw read of `runtime.h` (`dolly_terminal_read_raw_timeout`), Slop's and
+  Janis's, takes one byte unedited in either mode. `OPOST`/`ONLCR` map LF to
+  CRLF on output. While `ISIG` is set (the default), Ctrl+C sends SIGINT to the
+  foreground; a program that clears it (raw mode) reads Ctrl+C as the byte 0x03.
+  termios reports no input mapping, flow control or other signal keys, and
+  `VMIN` 1, `VTIME` 0; `tcsetattr` rejects anything else with `EINVAL`.
+  `TCSAFLUSH` and `tcflush` discard unread input; break and flow control fail
+  with `ENOTSUP`.
 - There is one user and no permission bits: `chmod`, `chown` and `access` only
   check that the file exists, and nothing changes a file's mode
   ([why](architecture.md#decisions)).
@@ -211,8 +216,8 @@ nothing and declares nothing: any program built for Dolly runs on one.
   `EAGAIN` for the rest.
 - The slave is a terminal to the program that holds it, with a mode and a
   size of its own: `isatty`, termios and `TIOCGWINSZ` answer as for the
-  display's terminal, with the same discipline (no input editing or echo,
-  `OPOST` with `ONLCR`, `ISIG`). A process whose descriptor 0, 1 or 2 is a
+  display's terminal, with the same discipline (`ICANON`, `ECHO` to the
+  master, `OPOST` with `ONLCR`, `ISIG`). A process whose descriptor 0, 1 or 2 is a
   slave opens it as `/dev/tty`: the same open file again, so `O_NONBLOCK` set
   there is set for every process that holds the slave. The master is not a
   terminal.

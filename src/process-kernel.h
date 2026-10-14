@@ -112,6 +112,31 @@ int dolly_kernel_terminal_type(const unsigned char *bytes, size_t length);
 /* The terminal line discipline and the page's terminal mailbox, src/dolly.c. */
 uint32_t dolly_kernel_terminal_mode(void);
 int dolly_kernel_terminal_set_mode(uint32_t flags);
+/* A terminal's line while its mode is canonical: what was typed and edited,
+ * of which the first `ready` bytes are lines a read may take. `end` is Ctrl+D
+ * on an empty line: the read after them returns no byte. */
+typedef struct {
+  unsigned char bytes[4096];
+  size_t size, ready;
+  int end;
+} dolly_kernel_line;
+/* One typed byte: Enter ends the line with a newline, Backspace erases a
+ * character and Ctrl+U the line, Ctrl+D ends it without a newline. `show`, of
+ * a terminal that echoes, gets what the byte displays. */
+void dolly_kernel_line_type(dolly_kernel_line *line, unsigned char byte,
+                            void (*show)(void *terminal, const unsigned char *bytes, size_t length),
+                            void *terminal);
+/* Moves bytes out and returns their count: one line at most, or with `raw`
+ * whatever is held. */
+size_t dolly_kernel_line_take(dolly_kernel_line *line, unsigned char *bytes, size_t size, int raw);
+/* The display's terminal for its readers. receive() is a read: a line under
+ * the canonical mode (zero at its end of input), the typed bytes otherwise,
+ * -EAGAIN while there is none. key() is the raw read, which no mode edits:
+ * one byte, or -1. */
+int64_t dolly_kernel_terminal_receive(unsigned char *bytes, size_t size);
+int dolly_kernel_terminal_readable(void);
+int dolly_kernel_terminal_key(void);
+void dolly_kernel_terminal_discard(void);
 /* Boot text while no display driver is resident: the page's log. One write
  * holds at most DOLLY_PROCESS_PACKET_LIMIT bytes; the page refuses more. */
 DOLLY_BROWSER_IMPORT(dolly_bootstrap_write_bytes)

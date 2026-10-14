@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <termios.h>
 #include <unistd.h>
 
 #define CHECK(test) do { if (!(test)) { fprintf(stderr, "JUMP FAIL %d: %s errno=%d\n", \
@@ -54,8 +55,13 @@ static void await(int number) {
 }
 
 /* Resizes and Ctrl+C at the terminal: a line for each jump, and q ends with
- * their number as the status. */
+ * their number as the status. Keys are read unedited, as a pager reads them. */
 static int at_terminal(int with_mask) {
+  struct termios saved, keys;
+  CHECK(tcgetattr(STDIN_FILENO, &saved) == 0);
+  keys = saved;
+  keys.c_lflag &= ~(tcflag_t)(ICANON | ECHO);
+  CHECK(tcsetattr(STDIN_FILENO, TCSANOW, &keys) == 0);
   puts("JUMP-READY");
   for (;;) {
     char key = 0;
@@ -64,7 +70,10 @@ static int at_terminal(int with_mask) {
       printf("JUMPED %d\n", (int)jumps);
     }
     fflush(stdout);
-    if (read(STDIN_FILENO, &key, 1) == 1 && key == 'q') return jumps;
+    if (read(STDIN_FILENO, &key, 1) == 1 && key == 'q') {
+      CHECK(tcsetattr(STDIN_FILENO, TCSANOW, &saved) == 0);
+      return jumps;
+    }
   }
 }
 

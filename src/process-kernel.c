@@ -363,7 +363,7 @@ static void mark_process_exited(dolly_kernel_process *process, int status,
   process->state = DOLLY_KERNEL_PROCESS_EXITED;
   /* What the terminal's owner left unread was typed for it. What is typed
    * from now on, while its Worker retires, is its successor's. */
-  if (foreground_pid == pid) dolly_terminal_discard_pending_input();
+  if (foreground_pid == pid) dolly_kernel_terminal_discard();
   refresh_foreground();
 }
 
@@ -1152,20 +1152,11 @@ static int64_t fd_read_packet(dolly_kernel_process *process,
   if (descriptor < 0) return descriptor;
   if (process->terminal_descriptors[request.descriptor]) {
     if (request.size == 0) return 0;
-    const int byte = dolly_kernel_terminal_read();
-    if (byte < 0) {
-      const int flags = fcntl(descriptor, F_GETFL);
-      if (flags < 0) return -errno;
-      return flags & O_NONBLOCK ? -EAGAIN : DOLLY_PROCESS_DISPATCH_DEFERRED;
-    }
-    process_mailbox[0] = (unsigned char)byte;
-    size_t count = 1;
-    while (count < request.size) {
-      const int next = dolly_kernel_terminal_read();
-      if (next < 0) break;
-      process_mailbox[count++] = (unsigned char)next;
-    }
-    return (int64_t)count;
+    const int64_t count = dolly_kernel_terminal_receive(process_mailbox, (size_t)request.size);
+    if (count != -EAGAIN) return count;
+    const int flags = fcntl(descriptor, F_GETFL);
+    if (flags < 0) return -errno;
+    return flags & O_NONBLOCK ? -EAGAIN : DOLLY_PROCESS_DISPATCH_DEFERRED;
   }
   for (;;) {
     ssize_t count = read(descriptor, process_mailbox, (size_t)request.size);
@@ -1518,7 +1509,7 @@ static int64_t terminal_packet(dolly_kernel_process *process,
   } else if (!terminal) {
     return -ENOTTY;
   } else if (request.operation == DOLLY_PROCESS_TERMINAL_READ) {
-    const int byte = dolly_kernel_terminal_read();
+    const int byte = dolly_kernel_terminal_key();
     if (byte < 0 && dolly_kernel_deadline_pending(request.deadline_nanoseconds)) {
       return DOLLY_PROCESS_DISPATCH_DEFERRED;
     }
@@ -1589,7 +1580,7 @@ static uint16_t fd_poll_events(dolly_kernel_process *process,
   uint16_t result = 0;
   if (process->terminal_descriptors[query->descriptor]) {
     if ((requested & DOLLY_PROCESS_POLL_READ) != 0 && access != O_WRONLY &&
-        dolly_kernel_terminal_ready()) {
+        dolly_kernel_terminal_readable()) {
       result |= DOLLY_PROCESS_POLL_READ;
     }
     if ((requested & DOLLY_PROCESS_POLL_WRITE) != 0 && access != O_RDONLY) {
