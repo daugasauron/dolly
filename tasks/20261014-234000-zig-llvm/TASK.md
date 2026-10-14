@@ -15,6 +15,28 @@ Done when a Zig 0.16 built inside Dolly against LLVM runs `zig build` on a
 project of its own and `zig build-exe hello.zig` gives a program that runs
 in a session, with a browser test.
 
+## State (2026-10-15, 04:05): zig build runs in Dolly
+
+`node demos/zig/test/zig-llvm-browser.mjs` passed in Chromium (34.6 s) and
+Firefox (45.8 s) in `work/zig`: `amy install zig-llvm` into `default`,
+`zig version` (0.16.0), `zig build-exe hello.zig` whose program starts
+`echo` and reads it through a pipe, and `zig build` of a `build.zig` that
+installs it (`zig-out/bin/hello.wasm`). Merged into `integrate/round-1014b`
+(`c321379d`). What the builds took beyond the plan: Clang 21's `examples`
+directory staged; upstream's `a558d656` for LLVM 24's libc++; no shared
+libraries (`LLVM_TOOL_LTO`, `REMARKS_SHLIB`, `CLANG_TOOL_LIBCLANG`,
+`CLANG_SHLIB` off; without PIC LLVM links with `-fno-pie`, which `cc`
+refuses); zigcpp with `-include endian.h` and one unit per `cc -c`; every
+LLVM archive by glob, since `llvm-config` takes `/usr/lib` for its prefix
+here; 128 MB of initial memory; zig2 with `dev = .full`. A session must name
+`ZIG_LIBC` until it is next loaded (amy applies a package's environment
+then).
+
+Left: `llvm-config --libs` in `llvm21` (its prefix), `zig cc` and C sources
+in a `build.zig` (not tried: Zig's Clang would define `__EMSCRIPTEN__`, and
+Dolly's headers test `__dolly__`), whole-archive inputs (cc puts `-Wl,` options after the
+inputs).
+
 ## State (2026-10-15, 01:00): building, branch `demo/zig-llvm` (worktree `work/zig`)
 
 Settled before any Dolly build, with the host's Zig 0.16 (LLVM 21) and the
