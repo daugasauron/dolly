@@ -41,7 +41,7 @@ SOURCE /v0.1.3/dist/static/x11/libxkbfile-1.2.0.tar.xz 7f71884e5faf56fb0e823f384
 SOURCE /v0.1.3/dist/static/x11/xkbcomp-1.5.0.tar.gz d070694dd8d94714aa1da3e3590b75084a4b183da3980866aedd68835954b97c /tmp/xorg/xkbcomp.tar.gz
 SOURCE /v0.1.3/dist/static/x11/xkeyboard-config-2.48.tar.xz b77041324f0109f77161ee43743fe04baa485866af8460d31e476ad3f7648fd5 /tmp/xorg/xkeyboard-config.tar.xz
 SOURCE /v0.1.3/dist/static/x11/xorg-server-21.1.25.tar.gz fdb5ec9b4ab7371745b182b68c7054ed72fc4d13e185fc369cfc45e0c3a174e7 /tmp/xorg/xorg-server.tar.gz
-SOURCE /v0.1.3/dist/static/x11/xsdl.tar c33916a6075c3b13fb031077578f35f8509356669e7c6643c749d58f5af75dbc /tmp/xorg/xsdl.tar
+SOURCE /v0.1.3/dist/static/x11/xsdl.tar 968ad193a410d30f011debd379fc9af941cbad66f029a852d1e820b429a9ba7c /tmp/xorg/xsdl.tar
 # The tar package reads the pax headers of Meson's archives; it starts no
 # decompressor itself.
 SLOP CWD /tmp/xorg for archive in *.tar.gz; do gzip -dc "$archive" | tar -xf -; done

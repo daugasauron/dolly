@@ -283,6 +283,13 @@ sdlKeyboardInit(KdKeyboardInfo *ki)
     return Success;
 }
 
+/* kdrive enables a device only through its driver; SDL's are always on. */
+static Status
+sdlKeyboardEnable(KdKeyboardInfo *ki)
+{
+    return Success;
+}
+
 static void
 sdlKeyboardFini(KdKeyboardInfo *ki)
 {
@@ -292,6 +299,7 @@ sdlKeyboardFini(KdKeyboardInfo *ki)
 static KdKeyboardDriver sdlKeyboardDriver = {
     .name = "sdl",
     .Init = sdlKeyboardInit,
+    .Enable = sdlKeyboardEnable,
     .Fini = sdlKeyboardFini,
 };
 
@@ -306,6 +314,12 @@ sdlMouseInit(KdPointerInfo *pi)
     return Success;
 }
 
+static Status
+sdlMouseEnable(KdPointerInfo *pi)
+{
+    return Success;
+}
+
 static void
 sdlMouseFini(KdPointerInfo *pi)
 {
@@ -315,6 +329,7 @@ sdlMouseFini(KdPointerInfo *pi)
 static KdPointerDriver sdlMouseDriver = {
     .name = "sdl",
     .Init = sdlMouseInit,
+    .Enable = sdlMouseEnable,
     .Fini = sdlMouseFini,
 };
 

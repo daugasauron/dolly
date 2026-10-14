@@ -12,7 +12,7 @@ REQUIRES HOST upload@0
 # An X session on Dolly's display: the Xsdl server, twm managing the
 # windows, and two of X's own clients in theirs.
 FROM /v0.1.3/Dollyfile-system 6537319cb5da6fdf6da34117e1b97113b8bc0d788d1f5c9453f05ff7207828df
-INSTALL /v0.1.3/demos/x11/Dollyfile-xorg-server 15adcc5aa9fd35565ccc7598a1554ba65c3c31103356b37ea12b8ab249e73d8e
+INSTALL /v0.1.3/demos/x11/Dollyfile-xorg-server 87c7cbf6fefe259dffdd53602d8b1561bf7cceee1f10b18be0991a2b0921ab63
 INSTALL /v0.1.3/demos/x11/Dollyfile-twm f51ed22e249a02015b0c51fb43209d2243855601bd77cb826d65fe6dad4f8c78
 INSTALL /v0.1.3/demos/x11/Dollyfile-xclock 7c08dacb445a1459c9baad779c838943b511bf79a442025562775b8113156b7a
 INSTALL /v0.1.3/demos/x11/Dollyfile-xeyes b7764893c0ffe96937bfc7083eef5393e0580fae79505fca744829dc331abbe7
