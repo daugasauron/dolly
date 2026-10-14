@@ -168,7 +168,9 @@ not reproduced in 160 drags and about 9,000 screen reads.
   to the ids a process has, and a pty master that reads EIO once its slave
   is gone, as on Linux; what the X11 port worked around. A seed change.
   `pty-browser.mjs` and `process-browser.mjs` passed in both browsers on the
-  rebuilt seed; the branch also drops xterm's three workarounds.
+  rebuilt seed. It also drops xterm's three workarounds (its patch, a
+  `select` header, the launcher's kill), and `x11-browser.mjs` passed in both
+  browsers on that seed (06:22).
 
 ## Left for a later round, none started
 
