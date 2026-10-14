@@ -1,5 +1,5 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_image zig-llvm; then
+if has_image zig-llvm-build; then
   zig_llvm_dir="$("${project_dir}/scripts/prepare-zig-native.sh")"
   zig_llvm_wamr="$("${project_dir}/scripts/fetch-pinned-checkout.sh" wamr)"
   node scripts/build-source-tar.mjs "${static_dir}/zig-llvm/zig.tar.gz" \
