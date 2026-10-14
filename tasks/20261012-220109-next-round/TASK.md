@@ -173,7 +173,9 @@ not reproduced in 160 drags and about 9,000 screen reads.
   rebuilt seed. It also drops xterm's three workarounds (its patch, a
   `select` header, the launcher's kill), and `x11-browser.mjs` passed in both
   browsers on that seed (06:22); so did tmux's tests, which read pty masters
-  (06:35), Python's (06:42), JavaScript's and CMake's with libuv (06:44).
+  (06:35), Python's (06:42), JavaScript's and CMake's with libuv (06:44),
+  `core-browser.mjs` (06:46). Only the images these need were rebuilt there;
+  the branch needs a full round.
 
 ## Left for a later round, none started
 
