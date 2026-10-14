@@ -36,12 +36,16 @@ Left, in the order of what a newcomer meets:
    starts with `.Dd October 8, 2015`. Rendering them when `system-tools` is built needs mandoc
    there (119 C files, a hand-written `./configure`; "Decisions", below): a port with a new
    source, pin and licence row, and a change of the seed.
-2. **17 packages bring commands without a page** (read from the recipes on 2026-10-13: the
-   packages with an `EXPORTS TOOL` and no row under `/usr/share/man`): `cargo`, `cbindgen`,
-   `cmake`, `codex-cli`, `emacs`, `fd`, `javascript`, `llvm`, `lua`, `mojo-compiler`, `nvim`,
-   `pi-coding-agent`, `protox`, `python`, `rust`, `transcribe`, `voice`. A page is one `FILE`
-   row beside the export, as in `Dollyfile-zig`; the check belongs in each package's row of
-   `test/amy-browser.mjs`.
+2. **17 packages bring commands without a page** (read from the recipes again on 2026-10-14:
+   a `PACKAGE` with an `EXPORTS TOOL` and no row under `/usr/share/man`; `lua` and `nvim` have
+   one since, the names are today's): `base64`, `cargo`, `cbindgen`, `cmake`, `codex`, `emacs`,
+   `fd`, `llama`, `llvm`, `mojo`, `pi`, `protox`, `python`, `rust`, `speech-to-text`, `vi`,
+   `voice`. A page is one `FILE` row beside the export: an in-house text page as in
+   `Dollyfile-zig`, or upstream's formatted by `text-page` where the package is built on
+   `tools-build`, as `lua` and `nvim` do. The check belongs in each package's row of
+   `test/amy-browser.mjs`. What it rebuilds is uneven: `python` repins the Rust, LLVM, Mojo and
+   0 A.D. chains, `protox` repins `codex-build`; most of the others repin a few images. So it
+   goes with a catalog round.
 3. **`amy install` says "its environment applies when the session is next loaded" after every
    package**, also one that exports no variable (`less`, `make`), and nothing between
    "fetching" and the end of a large install. `src/commands/amy.c` was the packages work's file on 2026-10-13; said to
