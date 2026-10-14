@@ -1,6 +1,6 @@
 # Nothing compares the engine's sealed module list with the list the page uses
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 170
 - TAGS: core,dollyfile,boundary,tests
 
@@ -13,6 +13,17 @@ engine wrote into the image's receipt is compared with the list the
 JavaScript graph gives for its recipe, and a difference fails the build
 naming the image and the module; or it is written down why the receipt's
 list needs no such check.
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the short questions of the next round: "Regarding
+next round, yes/signoff to everything except: I don't want ot add any
+permission stuff, better to use workarounds than adding permission bits."
+
+Not added: no check compares the engine's sealed module list with the
+page's. Every input to the page's list is recipe text whose hash it holds,
+and the two parsers run 232 cases in common; twenty lines against a
+disagreement with no known case do not earn their place.
 
 ## As filed (2026-10-14, `main` `5a756541`)
 

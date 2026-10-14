@@ -1,8 +1,19 @@
 # File modes: chmod and umask, where an autoconf configure under Slop now stops; on a branch, not on main
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 240
 - TAGS: core,kernel,slop
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the short questions of the next round: "Regarding
+next round, yes/signoff to everything except: I don't want ot add any
+permission stuff, better to use workarounds than adding permission bits."
+
+No permission bits. The recipes keep their workarounds (a `configure`'s
+answers written by hand where it would `chmod +x` or `umask`), Slop keeps
+refusing `umask` by name, and `core/file-modes-2` is not merged. The
+decision of 2026-09-30, "one user, no permission bits", stands as it was.
 
 ## State (2026-10-14, 03:35): investigated, the owner's to read
 
