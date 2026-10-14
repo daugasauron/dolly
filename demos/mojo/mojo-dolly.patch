@@ -47,15 +47,17 @@ diff --git a/Mojo/tools/mojo/Run/mojo-run.cpp b/Mojo/tools/mojo/Run/mojo-run.cpp
 index 1c05811..74c60c7 100644
 --- a/Mojo/tools/mojo/Run/mojo-run.cpp
 +++ b/Mojo/tools/mojo/Run/mojo-run.cpp
-@@ -352,6 +352,12 @@ executeModule(const State &state, AsyncRT::CPUDevice &cpuDevice,
+@@ -352,6 +352,14 @@ executeModule(const State &state, AsyncRT::CPUDevice &cpuDevice,
  /// the source file could be compiled and if it executed without raising an
  /// error, otherwise returns a failure code.
  static int run(const State &subcommandState) {
 +#if defined(__wasm__)
 +  // A WebAssembly process cannot execute the code it generates.
 +  return subcommandState.reportError(
-+      "`mojo run` compiles and executes a program in one process, which "
-+      "WebAssembly does not allow; build it with `mojo build`");
++      "`mojo run` is not available here: it runs a program through a JIT, "
++      "and a WebAssembly process cannot execute code it has just "
++      "generated.\nBuild the program, then start it:\n"
++      "  mojo build NAME.mojo && ./NAME");
 +#endif
    // Parse arguments.
    State state = subcommandState;

@@ -57,9 +57,8 @@ in the `mojo-gpu` image.
 What does not work, and how it says so:
 
 - `mojo run NAME.mojo` and `mojo NAME.mojo` execute through LLVM's JIT, and a
-  WebAssembly process cannot execute code it generates: ``error: `mojo run`
-  compiles and executes a program in one process, which WebAssembly does not
-  allow; build it with `mojo build` ``.
+  WebAssembly process cannot execute code it generates. The refusal says so
+  and prints the line that does the same: `mojo build NAME.mojo && ./NAME`.
 - `mojo`, `mojo repl` and `mojo debug` start LLDB, which is not built:
   `unable to resolve the lldb path`. `mojo format` starts the Python
   formatter `mblack`, which is not installed: `unable to resolve Mojo

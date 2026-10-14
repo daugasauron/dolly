@@ -75,6 +75,8 @@ try {
       await run("mojo build wrong.mojo", 1);
       await run("test ! -e wrong && cd / && rm -r /tmp/mojo-test");
       await run("mojo run /dev/null", 1);
+      // The refusal prints the line that does what was asked.
+      await run("mojo run /dev/null 2>&1 | grep -q 'mojo build NAME.mojo && ./NAME'");
       await run("mojo repl", 1);
       console.log(`mojo: ${name} ${browser.version()} passed on ${await page.evaluate(() => __dolly.gpu.adapter)}`);
     } finally {
