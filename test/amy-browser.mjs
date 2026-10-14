@@ -444,6 +444,8 @@ const elsewhere = {
   "libdolly-audio": "audio-browser.mjs", "libdolly-buttons": "buttons-browser.mjs", "libdolly-gpu": "gpu-render-browser.mjs",
   "libdolly-microphone": "microphone-browser.mjs", "libdolly-sockets": "sockets-browser.mjs",
   libjpeg: "demos/xonotic", spidermonkey: "demos/zero-ad",
+  "xorg-server": "demos/x11", twm: "demos/x11", xclock: "demos/x11", xeyes: "demos/x11", xterm: "demos/x11",
+  "imgui-x11": "demos/x11", llvm21: "demos/zig: zig-llvm uses it", "zig-llvm": "demos/zig",
 };
 const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "llama", "tar", "meson", "typescript", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
 assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no test installs and uses");
