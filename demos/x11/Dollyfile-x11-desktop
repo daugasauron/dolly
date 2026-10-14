@@ -42,6 +42,7 @@ FILE /etc/dolly/init.slop
     xterm -geometry 80x24+40+300 &
     wait $server
     printf 'The X server has ended.\n'
+    unset SDL_VIDEODRIVER
     /bin/foreground -i /bin/slop
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
