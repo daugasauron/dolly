@@ -480,3 +480,7 @@ DOLLY_XCLOCK_SHA256=b44845fae9857861a144a1be7418a8f18e745e05a7697804682d24702716
 DOLLY_XEYES_VERSION=1.3.1
 DOLLY_XEYES_URL='https://www.x.org/releases/individual/app/xeyes-1.3.1.tar.gz'
 DOLLY_XEYES_SHA256=d223283270488b1a6b408d0e97bd69a7704cf6a9596c0320035d807e63cdc084
+# xterm: Thomas Dickey's release 412, as his repository on GitHub tags it.
+DOLLY_XTERM_VERSION=412
+DOLLY_XTERM_URL='https://github.com/ThomasDickey/xterm-snapshots/archive/refs/tags/xterm-412.tar.gz'
+DOLLY_XTERM_SHA256=26b76917f13b56f5bfa69ac1984ef688c1b22cf7100cd4ad02352ba5899c537d

@@ -28,5 +28,6 @@ README. Demos may use each other; the core never uses a demo.
 - [tmux](tmux/README.md): tmux on pseudo-terminals, as a package and an application with two panes; libevent and NetBSD's terminfo library as packages.
 - [tools](tools/README.md): SQLite, jq, the xz, zstd, bzip2, lz4 and pigz compressors, zip and unzip, tree, bc, xxd, base64, Meson, yacc and flex, wabt, mandoc, toybox's grep and sed, a tar that writes archives, a small vi and the dte editor, as packages built from their release archives.
 - [wine](wine/README.md): Wine 4.0.4 as one wasm64 process: a desktop that is a folder, with Notepad, WineMine, ReactOS Paint, GIMP 2.2, the NetSurf browser (fetching through libcurl), a Command Prompt, and an interpreter for small x86-64 Windows programs with TinyCC to compile them.
+- [x11](x11/README.md): the X Window System built inside Dolly: X.Org's server on the display, twm, and X's own clients in windows of their own.
 - [xonotic](xonotic/README.md): Xonotic 0.8.6 on the DarkPlaces engine, built inside Dolly and drawn by its software rasterizer.
 - [zero-ad](zero-ad/README.md): 0 A.D. Release 28 and its OpenAL build.

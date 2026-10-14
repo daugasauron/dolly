@@ -3,6 +3,7 @@ APPLICATION x11-desktop
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
+REQUIRES HOST pty@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
@@ -10,24 +11,33 @@ REQUIRES HOST sockets@0
 REQUIRES HOST upload@0
 
 # An X session on Dolly's display: the Xsdl server, twm managing the
-# windows, and two of X's own clients in theirs.
+# windows, and three of X's own clients in theirs: a clock, eyes that follow
+# the pointer and a terminal with a shell.
 FROM /v0.1.3/Dollyfile-system 6537319cb5da6fdf6da34117e1b97113b8bc0d788d1f5c9453f05ff7207828df
 INSTALL /v0.1.3/demos/x11/Dollyfile-xorg-server 87c7cbf6fefe259dffdd53602d8b1561bf7cceee1f10b18be0991a2b0921ab63
 INSTALL /v0.1.3/demos/x11/Dollyfile-twm f51ed22e249a02015b0c51fb43209d2243855601bd77cb826d65fe6dad4f8c78
 INSTALL /v0.1.3/demos/x11/Dollyfile-xclock 7c08dacb445a1459c9baad779c838943b511bf79a442025562775b8113156b7a
 INSTALL /v0.1.3/demos/x11/Dollyfile-xeyes b7764893c0ffe96937bfc7083eef5393e0580fae79505fca744829dc331abbe7
+INSTALL /v0.1.3/demos/x11/Dollyfile-xterm 6f5fe9658db163134d8f81276fac380c72e6901f850568277128eeb39360c730
 
-# The server takes the display and the keyboard and pointer; the shell that
-# started it waits for it and is the recovery shell once it has ended.
+# The server takes the display, the keyboard and the pointer until it ends
+# (kill $(cat /tmp/.X0-pid) in the terminal); its clients end with it, and
+# this shell's terminal is back. A program lives as long as the process that
+# started it, so the clients are started here: what twm's menu starts would
+# end with the shell twm runs it in.
 FILE /etc/dolly/init.slop
     export DISPLAY=:0
     Xsdl :0 -screen 1024x768 -nolock -dumbSched -s 0 &
     server=$!
+    echo $server > /tmp/.X0-pid
     tries=0
     until test -e /tmp/.X11-unix/X0 || test $tries = 3000; do tries=$((tries + 1)); done
     twm &
     xclock -geometry 180x180+40+40 &
     xeyes -geometry 240x160+260+40 &
+    xterm -geometry 80x24+40+300 &
     wait $server
+    printf 'The X server has ended.\n'
+    /bin/foreground -i /bin/slop
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

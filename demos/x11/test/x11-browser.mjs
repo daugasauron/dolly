@@ -1,11 +1,12 @@
-// The x11-desktop image: Xsdl takes Dolly's display, twm frames xclock and
-// xeyes in windows of their own, and the page's pointer reaches them: xeyes'
-// pupils follow it and a drag of a title bar moves the clock's window.
-// Prints the time to the first window, a drag's frames and the time a frame
-// takes to reach the page. Usage: node demos/x11/test/x11-browser.mjs
+// The x11-desktop image: Xsdl takes Dolly's display and twm frames xclock,
+// xeyes and xterm in windows of their own. The page's pointer reaches them
+// (xeyes' pupils follow it, a drag of a title bar moves the clock's window)
+// and its keyboard reaches the shell in xterm, which writes a file and ends
+// the server; the terminal's shell then reads the file. Prints the time to
+// the first window and a drag's frames. Usage: node demos/x11/test/x11-browser.mjs
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-import { delay, demoTest } from "../../browser.mjs";
+import { delay, demoTest, shellPrompt } from "../../browser.mjs";
 
 const evidence = new URL("../../../build/x11-evidence/", import.meta.url).pathname;
 const width = 1024, height = 768;
@@ -27,11 +28,21 @@ async function at(page, x, y) {
   return [box.x + (x + 0.5) * box.width / width, box.y + (y + 0.5) * box.height / height];
 }
 const frameSequence = page => page.evaluate(() => Number(document.documentElement.dataset.frameSequence ?? 0));
+// Types text as a person does on a US keyboard: X maps keys, not characters,
+// so a shifted character is Shift and its key.
+const shifted = { ">": "Period", "$": "Digit4", "(": "Digit9", ")": "Digit0" };
+async function type(page, text) {
+  for (const character of text) {
+    if (shifted[character]) await page.keyboard.press(`Shift+${shifted[character]}`);
+    else if (/[A-Z]/.test(character)) await page.keyboard.press(`Shift+Key${character}`);
+    else await page.keyboard.press(character === " " ? "Space" : character === "\n" ? "Enter" : character);
+  }
+}
 
 await demoTest("x11", { image: "x11-desktop", timeout: 600_000 }, async ({ open }) => {
   await mkdir(evidence, { recursive: true });
   const started = performance.now();
-  const { page } = await open({ prompt: null });
+  const { page, run, prompt } = await open({ prompt: null });
   const booted = performance.now();
   // The server's frame: 1024x768 once it holds the display.
   await page.waitForFunction(([width, height]) => __dolly.transport.graphicsActive() &&
@@ -70,7 +81,7 @@ await demoTest("x11", { image: "x11-desktop", timeout: 600_000 }, async ({ open 
   console.log(`x11: xeyes followed the pointer in ${(performance.now() - moved).toFixed(0)} ms`);
 
   // A drag of xclock's title bar: twm draws the outline while the button is
-  // held and moves the window on release.
+  // held and moves the window 600 pixels right on release.
   const clockBefore = await region(page, 60, 80, 140, 140);
   assert.ok(clockBefore.lit > 1000);
   await page.mouse.move(...await at(page, 150, 51));
@@ -78,16 +89,15 @@ await demoTest("x11", { image: "x11-desktop", timeout: 600_000 }, async ({ open 
   const frames = await frameSequence(page);
   const dragStarted = performance.now();
   for (let step = 1; step <= 30; step++) {
-    await page.mouse.move(...await at(page, 150 + step * 15, 51 + step * 10));
+    await page.mouse.move(...await at(page, 150 + step * 20, 51));
     await delay(16);
   }
   const dragFrames = await frameSequence(page) - frames, dragSeconds = (performance.now() - dragStarted) / 1000;
   await page.screenshot({ path: `${evidence}drag.png` });
   const released = performance.now();
   await page.mouse.up();
-  // The clock's face is drawn 450 px right and 300 px down.
   await page.waitForFunction(() => {
-    const data = document.querySelector("#display").getContext("2d").getImageData(510, 380, 140, 140).data;
+    const data = document.querySelector("#display").getContext("2d").getImageData(660, 80, 140, 140).data;
     let lit = 0;
     for (let i = 0; i < data.length; i += 4) lit += data[i] + data[i + 1] + data[i + 2] > 0;
     return lit > 1000;
@@ -95,6 +105,16 @@ await demoTest("x11", { image: "x11-desktop", timeout: 600_000 }, async ({ open 
   const placed = performance.now() - released;
   assert.ok((await region(page, 60, 80, 140, 140)).lit < 100, "the clock's old place is the root's again");
   await page.screenshot({ path: `${evidence}moved.png` });
-  console.log(`x11: a 2-second drag showed ${dragFrames} frames (${(dragFrames / dragSeconds).toFixed(0)}/s); ` +
+  console.log(`x11: a ${dragSeconds.toFixed(1)}-second drag showed ${dragFrames} frames (${(dragFrames / dragSeconds).toFixed(0)}/s); ` +
     `the window was drawn in its new place ${placed.toFixed(0)} ms after release`);
+
+  // The keyboard: twm gives xterm the focus under the pointer, and its shell
+  // runs what is typed, then ends the X server.
+  await page.mouse.move(...await at(page, 200, 450));
+  await delay(300);
+  await type(page, "echo typed in xterm > /tmp/xterm-typed\n");
+  await page.screenshot({ path: `${evidence}xterm.png` });
+  await type(page, "kill $(cat /tmp/.X0-pid)\n");
+  await prompt(shellPrompt);
+  await run("grep -qx 'typed in xterm' /tmp/xterm-typed");
 });
