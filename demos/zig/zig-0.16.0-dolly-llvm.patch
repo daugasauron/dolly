@@ -1,7 +1,16 @@
 diff --git a/lib/std/Io/Threaded.zig b/lib/std/Io/Threaded.zig
-index b7c40ce..04b604b 100644
+index b7c40ce..f855095 100644
 --- a/lib/std/Io/Threaded.zig
 +++ b/lib/std/Io/Threaded.zig
+@@ -10267,7 +10267,7 @@ fn processExecutablePath(userdata: ?*anyopaque, out_buffer: []u8) process.Execut
+                 else => |e| return e,
+             };
+         },
+-        .linux, .serenity => return Io.Dir.readLinkAbsolute(io(t), "/proc/self/exe", out_buffer) catch |err| switch (err) {
++        .linux, .serenity, .emscripten => return Io.Dir.readLinkAbsolute(io(t), "/proc/self/exe", out_buffer) catch |err| switch (err) {
+             error.UnsupportedReparsePointType => unreachable, // Windows-only
+             error.NetworkNotFound => unreachable, // Windows-only
+             error.FileBusy => unreachable, // Windows-only
 @@ -14851,7 +14851,7 @@ fn processSpawnPath(userdata: ?*anyopaque, dir: Dir, options: process.SpawnOptio
  }
  
@@ -135,6 +144,18 @@ index 61f7809..fdce982 100644
          else => {},
      }
  
+diff --git a/src/Compilation/Config.zig b/src/Compilation/Config.zig
+index 3687db7..59d788d 100644
+--- a/src/Compilation/Config.zig
++++ b/src/Compilation/Config.zig
+@@ -240,6 +240,7 @@ pub fn resolve(options: Options) ResolveError!Config {
+             .freebsd,
+             .netbsd,
+             .openbsd,
++            .emscripten,
+             => break :b true,
+             else => {},
+         }
 diff --git a/src/link/Lld.zig b/src/link/Lld.zig
 index ffb9020..5a36f7a 100644
 --- a/src/link/Lld.zig
@@ -189,3 +210,23 @@ index ffb9020..5a36f7a 100644
  fn spawnLld(comp: *Compilation, arena: Allocator, argv: []const []const u8) !void {
      const io = comp.io;
      const gpa = comp.gpa;
+diff --git a/src/main.zig b/src/main.zig
+index fa4a53d..cc58b2e 100644
+--- a/src/main.zig
++++ b/src/main.zig
+@@ -5211,9 +5211,13 @@ fn cmdBuild(gpa: Allocator, arena: Allocator, io: Io, args: []const []const u8,
+         };
+     };
+     // Likewise, `--debug-libc` allows overriding the libc installation.
++    // Emscripten's libc is the system's, which ZIG_LIBC names.
+     const libc_installation: ?*const LibCInstallation = lci: {
+-        const paths_file = debug_libc_paths_file orelse break :lci null;
+-        if (!build_options.enable_debug_extensions) unreachable;
++        const paths_file = debug_libc_paths_file orelse switch (native_os) {
++            .emscripten => EnvVar.ZIG_LIBC.get(environ_map) orelse break :lci null,
++            else => break :lci null,
++        };
++        if (debug_libc_paths_file != null and !build_options.enable_debug_extensions) unreachable;
+         const lci = try arena.create(LibCInstallation);
+         lci.* = try .parse(arena, io, paths_file, &resolved_target.result);
+         break :lci lci;
