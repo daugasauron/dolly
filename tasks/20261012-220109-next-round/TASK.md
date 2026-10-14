@@ -173,7 +173,7 @@ not reproduced in 160 drags and about 9,000 screen reads.
   rebuilt seed. It also drops xterm's three workarounds (its patch, a
   `select` header, the launcher's kill), and `x11-browser.mjs` passed in both
   browsers on that seed (06:22); so did tmux's tests, which read pty masters
-  (06:35).
+  (06:35), and Python's (06:42).
 
 ## Left for a later round, none started
 
