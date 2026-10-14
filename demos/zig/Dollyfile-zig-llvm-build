@@ -136,5 +136,3 @@ SLOP rm -rf /tmp/zig /tmp/wamr /tmp/zig.tar /tmp/wamr.tar
 FOLDER /usr/lib/zig-llvm-build
 FOLDER /usr/lib/zig
 FILE /usr/share/licenses/zig/LICENSE
-
-ENTRY /bin/foreground -i /bin/slop
