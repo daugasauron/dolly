@@ -56,3 +56,31 @@ ending the process, or that question has a task of its own.
 - It bears on more than Emacs: any program built at `-O0` with deep
   recursion meets the same limit in a fresh Chromium, and the limit is the
   browser's, not Dolly's.
+
+## Tried on 2026-10-14: the large stack for Emacs alone. It ends the crash and not the loss
+
+By the owner's word of that day ("If your investigation confirms they are
+fixes that improve things … go ahead"), Emacs's recipe was given the
+`dolly.process.stack` section (one line appended to `src/emacs.c` before the
+build), `emacs` and `gnu-emacs` were built (44 s and 19 s), and it was
+measured. Not kept: the recipe is as it was and the images were built back.
+
+- The crash is gone. In Chromium held in its baseline compiler
+  (`--js-flags=--liftoff-only`, pinned to one processor) the first "Find
+  file" ended Emacs in 3 of 3 launches on today's image ("process 103
+  failed: Maximum call stack size exceeded") and in 0 of 3 with the section.
+- The loss is not. The demo's test, pinned to one processor in Chromium,
+  lost the name after `/t` in 4 of 30 runs with the section (0 of 12 on
+  today's image the same morning; 6 of 37 in the night). No run crashed.
+- So the two are not one cause in Emacs's own stack. What made the loss
+  go in the night's measurement (0 of 70 first steps) was every process
+  entered on the large stack, not Emacs alone: another process of the
+  entry (`foreground`, Slop, `foreground`, Emacs), or what that entry
+  changes in timing. Not followed.
+- A reading that fits "bytes lost, process alive", not tested: a stack that
+  runs out raises a JavaScript `RangeError`, and a Wasm `catch_all` (which
+  `longjmp` is built on here) may catch it, so that Emacs lands in its own
+  error handling, which discards pending input.
+- Evidence: `work/evidence-2026-10-14/emacs-stack/` (the two baseline
+  compiler logs, the four failing runs, the probe).
+
