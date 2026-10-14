@@ -28,6 +28,52 @@ Done when it holds, with the evidence and without a verdict:
 
 The owner decides what, if anything, follows.
 
+## Built on `core/line-discipline` (2026-10-14)
+
+The investigation's variant (F), the first commit's design: a line per
+terminal, applied to `read` and not to the raw read. Kernel C, a test
+fixture, two tests and three paragraphs of documents; no image input, so no
+image is rebuilt.
+
+- `src/dolly.c`: `dolly_kernel_line_type` and `dolly_kernel_line_take`, the
+  discipline shared by both kinds of terminal. Enter (`0d` or `0a`) ends a
+  line as `0a`; `7f` or `08` erases a character (UTF-8 whole) and Ctrl+U the
+  line; Ctrl+D ends a line without a newline or, on an empty one, is end of
+  file; a full line (4,096 bytes) takes nothing but the newline. Under
+  `ECHO` the typed byte is shown, a control character as `^X`, an erase as
+  `\b \b`. A read returns one line at most.
+- The display's terminal cooks when a read or a poll asks under the canonical
+  mode, since its input is decoded only then. The raw read
+  (`TERMINAL_READ`, Slop's editor and Janis) takes what the line holds, then
+  the decoded bytes, unedited in either mode; so does a read with `ICANON`
+  clear. The owner's exit discards the line with the unread input.
+- A pseudo-terminal's slave cooks when it is read too, so a raw reader in a
+  tmux pane is not echoed twice. Its poll has no side effect: a line is due
+  once Enter or Ctrl+D waits in the slave's input. The echo goes to the
+  master as the slave's output does.
+- Not changed: Slop and Janis (they read raw), the libc adapter (`tcgetattr`
+  reports `ICANON` and `ECHO` as before, `c_iflag` 0 although Enter arrives
+  as `0a` under the canonical mode), the packages that carry an editor
+  because there was none (`dc`, linenoise in `sqlite`, Neatvi's header).
+- Tests: `test/fixtures/pty.c` (`pair`: editing, echo, one line a read, end
+  of file, bytes handed over to a raw read; the programs on a slave set raw
+  mode first, as full-screen programs do); `test/terminal-browser.mjs`
+  (`cat` typed into with Backspace, Ctrl+U, Enter and Ctrl+D; Slop's `read`);
+  the Python demo's `input()`.
+- Tested on the round's images (`work/tty-test`, 13:00 to 13:15, the
+  kernel built to `aceed7cb…`, image inputs `538c5a8a…` as before):
+  `test/pty-browser.mjs`, `test/terminal-browser.mjs`, `test/shell-browser.mjs`
+  and `test/process-browser.mjs` in Chromium and Firefox; the whole core
+  suite, where one file failed, the process test, and passed in both
+  browsers once its jump fixture read keys unedited (it ended a one-byte
+  read with `q`, which now waits for Enter as on any Unix); and the demo
+  suites of `pi`, `javascript`, `python` (with `input()` typed with a
+  Backspace), `tmux`, `emacs`, `closed-source-agent` and `neovim`.
+- A wart left: Janis takes the first byte raw and the rest by `poll` and
+  `read`, so a Janis script that reads a terminal in cooked mode gets the
+  rest of a burst cooked and echoed. Its raw mode, which Pi, Codex's
+  launcher and Claude Code use, is not touched.
+
 ## State (2026-10-14, 01:35): investigated, the owner's to read
 
 [The investigation](investigation.md), by a Fable agent that read
