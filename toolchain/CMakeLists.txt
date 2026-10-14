@@ -86,7 +86,7 @@ add_custom_target(dolly-seed
   COMMAND bash /src/scripts/prepare-kernel-seed.sh
     /src/build/generated/libclang_rt.dolly.a@/usr/lib/libclang_rt.builtins.a
     /src/.cache/llvm-wasm/lib/clang/24/include@/usr/lib/clang/24/include
-    /src/build/include/dolly@/usr/include/dolly
+    /src/build/seed-include/dolly@/usr/include/dolly
     /src/src/dollyfile.c@/usr/src/dolly/dollyfile.c
     /src/src/sha256.h@/usr/src/dolly/sha256.h
     /src/src/fs-record.h@/usr/src/dolly/fs-record.h

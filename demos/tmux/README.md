@@ -37,16 +37,17 @@ puts an editor beside a shell.
 
 - [`Dollyfile-libevent`](Dollyfile-libevent): states what upstream's
   `configure` script would find and builds libevent's core over `poll`:
-  `-levent_core`, and `-ldolly-sockets` after it for a program that gives
-  it sockets.
+  `-levent_core`, and `-ldolly-sockets` (the `libdolly-sockets` package)
+  after it for a program that gives it sockets.
 - [`Dollyfile-libterminfo`](Dollyfile-libterminfo): builds NetBSD's
   libterminfo with one fix (`tparm` formatted a number as a long and passed
   an int, which on wasm64 gave tmux cursor addresses from the stack's
   leftovers), its tables written by its own scripts with `nbperf` and
   `tic` compiled in the same recipe: `-lterminfo`, `<term.h>` and
   `<termcap.h>`. It is not curses, which is not built.
-- [`Dollyfile-tmux`](Dollyfile-tmux): installs the two, states what
-  upstream's `configure` script would find and builds tmux, linked with
+- [`Dollyfile-tmux`](Dollyfile-tmux): uses the two and `libdolly-sockets`
+  to build, so an installer gets none of them, states what upstream's
+  `configure` script would find and builds tmux, linked with
   `-ldolly-sockets` and `-ldolly-pty`; then runs a server, a pane and a
   command typed into it.
 - [`tmux-dolly.patch`](tmux-dolly.patch), nine hunks:

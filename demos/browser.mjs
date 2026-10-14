@@ -122,8 +122,9 @@ export const redirectFetch = (origin, target) => page => page.addInitScript(([or
 
 // open() options for a headless build image with the terminal display and
 // HTTP added, built in the page by the custom image route; more names the
-// modules of programs the test builds there (dso@0 for a -rdynamic host).
-export async function displayProbe(image, ...more) {
+// modules of programs the test builds there (dso@0 for a -rdynamic host) and
+// packages what it installs for them.
+export async function displayProbe(image, more = [], packages = []) {
   const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
   const pin = name => {
     const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
@@ -133,6 +134,7 @@ export async function displayProbe(image, ...more) {
   const hosts = [...new Set([...DOLLY_IMAGES.find(definition => definition.image === image).hostRequirements,
     "display@0", "input@0", ...more])].sort();
   const recipe = ["DOLLY 7", "APPLICATION display-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin(image)}`,
+    ...packages.map(name => `INSTALL ${pin(name)}`),
     ...["/usr/lib/libdisplay.so", "/usr/share/fonts/IosevkaTerm-SemiBold.ttf"]
       .map(path => `COPY ${pin("ghostty-build")} ${path} ${path}`),
     "EXPORTS LIB display /usr/lib/libdisplay.so", "EXPORTS ENV DISPLAY /usr/lib/libdisplay.so",

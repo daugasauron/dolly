@@ -17,7 +17,7 @@ const options = { image: "system", server: { fixtures }, timeout: 300_000 };
 // `system` with the one module more, and the fixture compiled in it.
 async function compiled(open, server, { clipboard, context, initScript } = {}) {
   const errors = [];
-  const image = await composed(["runtime", "display", "input", "http", "download", "upload", "snapshot", "buttons"], [], { base: "system" });
+  const image = await composed(["runtime", "display", "input", "http", "download", "upload", "snapshot", "buttons"], ["libdolly-buttons"], { base: "system" });
   const session = await open({ ...image, context,
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
     async setup(page) {

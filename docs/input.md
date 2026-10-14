@@ -79,8 +79,9 @@ their presses and types into the terminal
   the terminal's input in the kernel, in order with the keyboard's records,
   and the foreground program reads them as keys. Byte 3 interrupts it while
   `ISIG` is set, as Ctrl+C does.
-- C SDK: `<dolly/buttons.h>` and `libdolly-buttons.a`, which `cc` links by
-  default; calling it stamps `buttons@0` into the executable.
+- C SDK: `<dolly/buttons.h>` and `libdolly-buttons.a`, from the
+  `libdolly-buttons` package, which `cc` links by default; calling it stamps
+  `buttons@0` into the executable.
 
 ## Images without one of the two
 

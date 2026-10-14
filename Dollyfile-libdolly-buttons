@@ -1,0 +1,24 @@
+DOLLY 7
+PACKAGE libdolly-buttons
+REQUIRES HOST runtime@0
+
+# The buttons@0 module's header and client (a caption and labelled buttons the
+# page draws), for programs the cc package builds: cc links every client
+# archive in /usr/lib/dolly/process, and a program records buttons@0 only when
+# it calls the client.
+FROM /v0.1.3/Dollyfile-system-build db420dd3f49939f655e592a18eb4ddfbd93e25c3b733a8c8d8f3a5eed5d0ea90
+REQUIRES HEADER libc
+REQUIRES TOOL ar
+REQUIRES TOOL cc
+REQUIRES TOOL rm
+
+SOURCE /v0.1.3/host/buttons/buttons.h 1cd4070533425cab7772d26f17bdf1875a3a9c097f36902e4da112968169d97e /usr/include/dolly/buttons.h
+SOURCE /v0.1.3/host/buttons/buttons-abi.h a59bd4e0dab929b7b36f8a5ee7e5a5fa97a94784243dbfdf175ce8f35fdd121e /usr/include/dolly/buttons-abi.h
+SOURCE /v0.1.3/host/buttons/client.c 94a9fa774e4393aaf5969faaee3845523a119438aea6092ae3a4f8dd25d7666b /tmp/libdolly-buttons/client.c
+SLOP cc -O1 -c /tmp/libdolly-buttons/client.c -o /tmp/libdolly-buttons/client.o
+SLOP ar rcs /usr/lib/dolly/process/libdolly-buttons.a /tmp/libdolly-buttons/client.o
+
+EXPORTS HEADER buttons     /usr/include/dolly/buttons.h
+EXPORTS HEADER buttons-abi /usr/include/dolly/buttons-abi.h
+EXPORTS LIB    dolly-buttons /usr/lib/dolly/process/libdolly-buttons.a
+SLOP rm -rf /tmp/libdolly-buttons

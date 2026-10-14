@@ -12,7 +12,7 @@ const systemModules = ["runtime", "display", "input", "http", "download", "uploa
 // module: the suite's image is `system` with that one line more.
 await browserTest("sockets", { image: "system", server: { fixtures } }, async ({ server, open }) => {
   const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
-  const { page, submit, text } = await open({ policy, ...await composed([...systemModules, "sockets"], [], { base: "system" }) });
+  const { page, submit, text } = await open({ policy, ...await composed([...systemModules, "sockets"], ["libdolly-sockets"], { base: "system" }) });
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
   const status = async (command, expected) => assert.equal(await submit(command), expected, `${command}\n${await text()}`);
   await run(`curl -fsS ${server.origin}/fixture/sockets.c -o /tmp/sockets.c && cc -O1 /tmp/sockets.c -ldolly-sockets -o /tmp/sockets`);
@@ -54,16 +54,16 @@ await browserTest("sockets", { image: "system", server: { fixtures } }, async ({
 // one without declaring the module does not seal.
 await browserTest("sockets not declared", { image: "system", server: { fixtures } }, async ({ server, open }) => {
   const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
-  const { submit, text } = await open({ policy });
+  const { submit, text } = await open({ policy, ...await composed(systemModules, ["libdolly-sockets"], { base: "system" }) });
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
   await run(`curl -fsS ${server.origin}/fixture/sockets.c -o /tmp/sockets.c && cc -O1 /tmp/sockets.c -o /tmp/unlinked && /tmp/unlinked unlinked`);
   await run("cc -O1 /tmp/sockets.c -ldolly-sockets -o /tmp/sockets");
   assert.equal(await submit("/tmp/sockets pair 2> /tmp/refused"), 126);
   await run("grep -q 'sockets@0' /tmp/refused");
 
-  const { dollyfile, sha256 } = DOLLY_IMAGES.find(({ image }) => image === "system");
+  const pin = name => { const { dollyfile, sha256 } = DOLLY_IMAGES.find(({ image }) => image === name); return `${siteReference(dollyfile)} ${sha256}`; };
   const recipe = ["DOLLY 7", "APPLICATION unsealed", ...systemModules.map(module => `REQUIRES HOST ${module}@0`),
-    `FROM ${siteReference(dollyfile)} ${sha256}`, "REQUIRES TOOL cc", "FILE /tmp/asked.c", "    #include <sys/socket.h>",
+    `FROM ${pin("system")}`, `INSTALL ${pin("libdolly-sockets")}`, "REQUIRES TOOL cc", "FILE /tmp/asked.c", "    #include <sys/socket.h>",
     "    int main(void) { int ends[2]; return socketpair(AF_UNIX, SOCK_STREAM, 0, ends); }",
     "SLOP cc /tmp/asked.c -ldolly-sockets -o /usr/bin/asked", "EXPORTS TOOL asked", "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
   await open({ prompt: null, path: "/custom/rebuild/",

@@ -15,7 +15,8 @@ function handle(request, response, path, headers) {
   response.writeHead(200, headers).end();
   return true;
 }
-await browserTest("host modules", { image: "system", server: { sourceOverrides, handle, fixtures: { "nena.c": "src/commands/nena.c" } },
+const fixtures = { "nena.c": "src/commands/nena.c", "gpu.h": "host/gpu/gpu.h", "gpu-abi.h": "host/gpu/gpu-abi.h", "gpu-client.c": "host/gpu/client.c" };
+await browserTest("host modules", { image: "system", server: { sourceOverrides, handle, fixtures },
   timeout: 300_000 }, async ({ server, open }) => {
   const loaderFetches = () => server.requests.get("/dist/dolly-process-dso.mjs") ?? 0;
   const loaderFetchesBefore = loaderFetches();
@@ -26,6 +27,11 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides, 
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
+  // gpu@0's header and client, as the libdolly-gpu package installs them.
+  const fixture = (name, path) => `curl -fsS ${server.origin}/fixture/${name} -o ${path}`;
+  await run(`${fixture("gpu.h", "/usr/include/dolly/gpu.h")} && ${fixture("gpu-abi.h", "/usr/include/dolly/gpu-abi.h")} && ` +
+    `${fixture("gpu-client.c", "/tmp/gpu-client.c")} && cc -O1 -c /tmp/gpu-client.c -o /tmp/gpu-client.o && ` +
+    "ar rcs /usr/lib/dolly/process/libdolly-gpu.a /tmp/gpu-client.o");
   // A refused program exits 126 with one line on its own stderr that names the cause.
   async function refused(command, cause) {
     assert.equal(await submit(`${command} > /tmp/refused.out 2> /tmp/refused.err`), 126, command);

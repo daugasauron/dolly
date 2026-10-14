@@ -26,7 +26,7 @@ try {
     globalThis.DOLLY_HTTP_POLICY={maxRequests:1,rules:[{origin,pathPrefix:'/fixture/',methods:['GET']}]};
   },server.origin);
   // system with gpu@0: an image that declares the module.
-  const image=await composed(['runtime','display','input','http','download','upload','snapshot','gpu'],[],{base:'system'});
+  const image=await composed(['runtime','display','input','http','download','upload','snapshot','gpu'],['libdolly-gpu'],{base:'system'});
   await image.setup(page);
   await page.goto(server.origin+image.path);
   await page.waitForFunction(()=>['ready','failed'].includes(document.documentElement.dataset.dollyStatus));

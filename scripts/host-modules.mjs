@@ -10,9 +10,9 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 export const hostFiles = field => hostManifests.flatMap(manifest => [manifest[field]].flat()
   .map(path => ({ name: manifest.name, file: relative(root, fileURLToPath(new URL(path, manifest.url))) })));
 
-// Module headers are published at their checkout path and installed as
-// /usr/include/dolly/NAME.h.
-export const publishedHeaders = new Set(hostFiles("headers").map(({ file }) => `/${file}`));
+// Module headers and clients are published at their checkout path; headers
+// are installed as /usr/include/dolly/NAME.h, by the seed or a package.
+export const publishedHostFiles = new Set([...hostFiles("headers"), ...hostFiles("client")].map(({ file }) => `/${file}`));
 
 // The platform's documents and machine contracts are published at their
 // checkout path as well (package-documentation.mjs) and installed under

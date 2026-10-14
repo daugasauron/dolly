@@ -4,7 +4,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 import { recipeFiles } from "./recipe-files.mjs";
-import { publishedHeaders, publishedDocument } from "./host-modules.mjs";
+import { publishedHostFiles, publishedDocument } from "./host-modules.mjs";
 import { siteReference, sitePath } from "../src/static-asset.mjs";
 import { discoverImageDefinitions, selectImageDefinitions } from "./image-definitions.mjs";
 
@@ -54,7 +54,7 @@ export async function updateRecipePins(projectDir, sources) {
     if (refreshed.has(files.get(location))) for (const source of recipe.sources) {
       const path = sitePath(source.location);
       if (path === null) continue;
-      if (!path.startsWith("/dist/static/") && !publishedHeaders.has(path) && !publishedDocument(path)) {
+      if (!path.startsWith("/dist/static/") && !publishedHostFiles.has(path) && !publishedDocument(path)) {
         throw new Error(`${location}: ${source.location} is outside trusted build inputs`);
       }
       const bytes = await readFile(resolve(projectDir, path.slice(1)));

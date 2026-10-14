@@ -72,7 +72,7 @@ await browserTest("audio", { image: "system", server: { fixtures } }, async ({ b
   const errors = [];
   const { page, submit, text } = await open({
     policy: { maxRequests: 3, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
-    ...await composed([...systemModules, "audio"], [], { base: "system", setup: page => {
+    ...await composed([...systemModules, "audio"], ["libdolly-audio"], { base: "system", setup: page => {
       page.on("pageerror", error => errors.push(error.message));
       return Promise.all([page.addInitScript(meter), page.addInitScript(countCaptures)]);
     } }) });

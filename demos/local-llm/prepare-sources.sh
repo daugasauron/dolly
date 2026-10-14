@@ -7,9 +7,7 @@ fi
 if has_image local-llm-build; then
   node scripts/build-source-tar.mjs "${static_dir}/llama/engine.tar" \
     demos/local-llm/main.cpp /usr/src/dolly-llm/main.cpp \
-    demos/local-llm/webgpu.cpp /usr/src/dolly-llm/webgpu.cpp \
-    host/gpu/gpu.h /usr/src/dolly-llm/include/dolly/gpu.h \
-    host/gpu/gpu-abi.h /usr/src/dolly-llm/include/dolly/gpu-abi.h
+    demos/local-llm/webgpu.cpp /usr/src/dolly-llm/webgpu.cpp
 fi
 if has_image pi-local; then
   node scripts/build-source-tar.mjs "${static_dir}/llama/provider.tar" \

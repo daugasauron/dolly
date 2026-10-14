@@ -1,0 +1,24 @@
+DOLLY 7
+PACKAGE libdolly-microphone
+REQUIRES HOST runtime@0
+
+# The microphone@0 module's header and client (mono PCM of the browser's
+# default input), for programs the cc package builds: cc links every client
+# archive in /usr/lib/dolly/process, and a program records microphone@0 only
+# when it calls the client.
+FROM /v0.1.3/Dollyfile-system-build db420dd3f49939f655e592a18eb4ddfbd93e25c3b733a8c8d8f3a5eed5d0ea90
+REQUIRES HEADER libc
+REQUIRES TOOL ar
+REQUIRES TOOL cc
+REQUIRES TOOL rm
+
+SOURCE /v0.1.3/host/microphone/microphone.h bb9f2c4cebd342ef527d6243ed17d03a599afc4e55bb901dc50f40219bead2ec /usr/include/dolly/microphone.h
+SOURCE /v0.1.3/host/microphone/microphone-abi.h 105a734a9511db9957c0e6166181e8d6ed7a6f57483e2c2c0c612a0574afb6b0 /usr/include/dolly/microphone-abi.h
+SOURCE /v0.1.3/host/microphone/client.c fd455eca484a97945a5f3359b879fbfd0d19815407a80c91f49ae9417306cbc8 /tmp/libdolly-microphone/client.c
+SLOP cc -O1 -c /tmp/libdolly-microphone/client.c -o /tmp/libdolly-microphone/client.o
+SLOP ar rcs /usr/lib/dolly/process/libdolly-microphone.a /tmp/libdolly-microphone/client.o
+
+EXPORTS HEADER microphone     /usr/include/dolly/microphone.h
+EXPORTS HEADER microphone-abi /usr/include/dolly/microphone-abi.h
+EXPORTS LIB    dolly-microphone /usr/lib/dolly/process/libdolly-microphone.a
+SLOP rm -rf /tmp/libdolly-microphone

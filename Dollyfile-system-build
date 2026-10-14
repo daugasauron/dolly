@@ -20,10 +20,6 @@ SOURCE /v0.1.3/host/download/download-abi.h 45cfbbc85fd2ea3846db581cc3129ef1ae13
 
 SOURCE /v0.1.3/include/dolly/host.h 9737f9b15bd65f5732e16bd942fe593132c7c886c3076dfda89a529a23fee08a /usr/include/dolly/host.h
 SOURCE /v0.1.3/include/dolly/host-abi.h 3f2d26426bb088d61a0cc18b6c464697e98c83d8d34ffaf1d063768e619eb766 /usr/include/dolly/host-abi.h
-SOURCE /v0.1.3/host/gpu/gpu.h 4c77c750144fb65eba1de4694ae3b78522a2162810fd83f72dda1592f1578000 /usr/include/dolly/gpu.h
-SOURCE /v0.1.3/host/gpu/gpu-abi.h 01e97fc225cda01fb5e295819ceb230252d45fb211b64262d5a2c63e9e065be2 /usr/include/dolly/gpu-abi.h
-SOURCE /v0.1.3/host/audio/audio.h 9d291eeb25345a75bb21dbd4c422beb15f30700a5f96d5f665ca52a5d8948b65 /usr/include/dolly/audio.h
-SOURCE /v0.1.3/host/audio/audio-abi.h 4eb1f6e8f948ec1371fd5bb0bf4e904c438504e0cbccc4380cca9c98280eea30 /usr/include/dolly/audio-abi.h
 SOURCE /v0.1.3/host/upload/upload.h 8d5b888175631a2f6dba010942f73e53c8514559de13ea336af804aa75f15eff /usr/include/dolly/upload.h
 SOURCE /v0.1.3/host/upload/upload-abi.h 006056e6891a4d4399f521bc3b6a52362044dc146efb1bca46184c3cd9afb3e6 /usr/include/dolly/upload-abi.h
 
@@ -31,8 +27,6 @@ SOURCE /v0.1.3/host/threads/threads.h ec223fbc34ff65f173f4b15e338cb25bf34d8bf01b
 SOURCE /v0.1.3/host/threads/threads-abi.h 894528f5f392b8f95e4617035ac799b9ff4d520a246ec1bd89b6d04257c644c1 /usr/include/dolly/threads-abi.h
 SOURCE /v0.1.3/host/dso/dso.h 8f58b257826b92a7f903d2a33484d6bc49bcc035dac5de3af288bc906728a67b /usr/include/dolly/dso.h
 SOURCE /v0.1.3/host/dso/dso-abi.h 7b2243afa5cf82109b2768264686cb57e4a611a577a74793056b4f7cfc2e68f4 /usr/include/dolly/dso-abi.h
-SOURCE /v0.1.3/host/sockets/sockets.h 8abea9ccf861677d4dec5a222d048a6be691e8c7f6596d604dd601d44cb65eb3 /usr/include/dolly/sockets.h
-SOURCE /v0.1.3/host/sockets/sockets-abi.h d707a200164602165663283a79c2cd43d3932a330dac2dbeddd1e0ef87d7b158 /usr/include/dolly/sockets-abi.h
 
 EXPORTS HEADER libc      /usr/include
 EXPORTS HEADER toolchain /usr/include/dolly/toolchain.h
@@ -49,22 +43,14 @@ EXPORTS HEADER download-abi /usr/include/dolly/download-abi.h
 
 EXPORTS HEADER host /usr/include/dolly/host.h
 EXPORTS HEADER host-abi /usr/include/dolly/host-abi.h
-EXPORTS HEADER gpu /usr/include/dolly/gpu.h
-EXPORTS HEADER gpu-abi /usr/include/dolly/gpu-abi.h
-EXPORTS HEADER audio /usr/include/dolly/audio.h
-EXPORTS HEADER audio-abi /usr/include/dolly/audio-abi.h
 EXPORTS HEADER upload /usr/include/dolly/upload.h
 EXPORTS HEADER upload-abi /usr/include/dolly/upload-abi.h
 EXPORTS HEADER threads /usr/include/dolly/threads.h
 EXPORTS HEADER threads-abi /usr/include/dolly/threads-abi.h
 EXPORTS HEADER dso /usr/include/dolly/dso.h
 EXPORTS HEADER dso-abi /usr/include/dolly/dso-abi.h
-EXPORTS HEADER sockets /usr/include/dolly/sockets.h
-EXPORTS HEADER sockets-abi /usr/include/dolly/sockets-abi.h
 
 EXPORTS LIB compiler-rt /usr/lib/libclang_rt.builtins.a
-EXPORTS LIB dolly-gpu /usr/lib/dolly/process/libdolly-gpu.a
-EXPORTS LIB dolly-audio /usr/lib/dolly/process/libdolly-audio.a
 
 # These are the complete externally seeded compiler dependencies, not ambient
 # additions to every boot. Images retain them by re-exporting these objects.

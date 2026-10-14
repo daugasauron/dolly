@@ -15,8 +15,8 @@ flowchart LR
 
 - Contract and packet layouts: [`host/gpu/dolly-gpu-0.wat`](../host/gpu/dolly-gpu-0.wat); C
   and JavaScript constants are generated from it. Client: [`host/gpu/gpu.h`](../host/gpu/gpu.h),
-  [`host/gpu/client.c`](../host/gpu/client.c), in the seed as `libdolly-gpu.a`, which `cc` links
-  by default.
+  [`host/gpu/client.c`](../host/gpu/client.c), installed by the `libdolly-gpu` package as
+  `libdolly-gpu.a`, which `cc` then links by default.
 - The kernel ([`host/gpu/kernel.c`](../host/gpu/kernel.c)) ties each scope to a process
   and revokes it on exit, abort or forced termination.
 - The provider copies each packet before acknowledging it and validates structure

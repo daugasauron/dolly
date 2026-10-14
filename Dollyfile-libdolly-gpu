@@ -1,0 +1,24 @@
+DOLLY 7
+PACKAGE libdolly-gpu
+REQUIRES HOST runtime@0
+
+# The gpu@0 module's header and client (WebGPU buffers, textures and compute),
+# for programs the cc package builds: cc links every client archive in
+# /usr/lib/dolly/process, and a program records gpu@0 only when it calls the
+# client.
+FROM /v0.1.3/Dollyfile-system-build db420dd3f49939f655e592a18eb4ddfbd93e25c3b733a8c8d8f3a5eed5d0ea90
+REQUIRES HEADER libc
+REQUIRES TOOL ar
+REQUIRES TOOL cc
+REQUIRES TOOL rm
+
+SOURCE /v0.1.3/host/gpu/gpu.h 4c77c750144fb65eba1de4694ae3b78522a2162810fd83f72dda1592f1578000 /usr/include/dolly/gpu.h
+SOURCE /v0.1.3/host/gpu/gpu-abi.h 01e97fc225cda01fb5e295819ceb230252d45fb211b64262d5a2c63e9e065be2 /usr/include/dolly/gpu-abi.h
+SOURCE /v0.1.3/host/gpu/client.c 57a3100dbb267e0c50fa440ceab55615ac18dcddb7cbec223e0e73a8821e9414 /tmp/libdolly-gpu/client.c
+SLOP cc -O1 -c /tmp/libdolly-gpu/client.c -o /tmp/libdolly-gpu/client.o
+SLOP ar rcs /usr/lib/dolly/process/libdolly-gpu.a /tmp/libdolly-gpu/client.o
+
+EXPORTS HEADER gpu     /usr/include/dolly/gpu.h
+EXPORTS HEADER gpu-abi /usr/include/dolly/gpu-abi.h
+EXPORTS LIB    dolly-gpu /usr/lib/dolly/process/libdolly-gpu.a
+SLOP rm -rf /tmp/libdolly-gpu

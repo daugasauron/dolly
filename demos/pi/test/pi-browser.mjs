@@ -109,7 +109,7 @@ await demoTest("pi", { image: "pi-agent", timeout: 900_000, server: { handle: pr
   await run(`cd ${skill} && printf '#include <dolly/display.h>\\nint main(void) { dolly_display_surface s; return dolly_display_acquire(&s) || dolly_display_release(s.generation); }\\n' > display.c && ` +
     "cc display.c -o display && strings display | grep -q dolly.hostdisplay && ./display");
   await run(`cd ${skill} && cc display.c && ./a.out && file a.out /bin/cc | grep -c WebAssembly | grep -q '^2$'`);
-  await run(`cd ${skill} && printf '#include <dolly/gpu.h>\\nint main(void) { dolly_gpu g; return dolly_gpu_open(&g, 64, 64); }\\n' > gpu.c && ` +
+  await run(`amy install libdolly-gpu > /dev/null && cd ${skill} && printf '#include <dolly/gpu.h>\\nint main(void) { dolly_gpu g; return dolly_gpu_open(&g, 64, 64); }\\n' > gpu.c && ` +
     "cc gpu.c -o gpu && strings gpu | grep -q dolly.hostgpu && ! grep -q 'REQUIRES HOST gpu@0' /etc/dolly/Dollyfile");
   assert.equal(await submit(`${skill}/gpu`), 126, "a program needing an undeclared module must exit 126");
   await run(`cd /workspace && rm -rf ${skill}`);

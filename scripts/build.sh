@@ -93,6 +93,15 @@ node scripts/generate-abi-constants.mjs
 mapfile -t headers < <(node scripts/host-modules.mjs headers)
 # -p keeps source mtimes so unchanged headers rebuild nothing.
 rm -rf build/include && mkdir -p build/include/dolly && cp -p -- "${headers[@]}" build/include/dolly/
+# The modules no core source includes ship their headers and clients as
+# packages (Dollyfile-libdolly-NAME); the kernel compiles against every header,
+# the seed holds the others.
+packaged_modules=(audio buttons gpu microphone sockets)
+packaged() { [[ " ${packaged_modules[*]} " == *" $1 "* ]]; }
+rm -rf build/seed-include && mkdir -p build/seed-include/dolly
+for header in "${headers[@]}"; do
+  [[ "${header}" =~ ^host/([a-z-]+)/ ]] && packaged "${BASH_REMATCH[1]}" || cp -p -- "${header}" build/seed-include/dolly/
+done
 node scripts/dolly-abi.mjs bind-process-layout \
   build/dolly-process-0.wasm \
   include/dolly/process.h
@@ -233,7 +242,8 @@ build_process build/process-bin/bootstrap src/process/bootstrap.c
 # profile. Publish only that closed runtime set for the compiler running inside
 # Dolly; no Emscripten driver or JavaScript library enters the process sysroot.
 "${container[@]}" bash scripts/build-process-threads.sh
-mapfile -t client_libraries < <(node scripts/host-modules.mjs client | awk '{ print "libdolly-" $1 ".a" }' | uniq)
+mapfile -t client_libraries < <(node scripts/host-modules.mjs client | while read -r module _; do
+  packaged "${module}" || echo "libdolly-${module}.a"; done | uniq)
 process_sysroot_container_dir="$("${container[@]}" ./scripts/prepare-process-sysroot.sh "${client_libraries[@]}")"
 
 node scripts/dolly-abi.mjs stamp-process \

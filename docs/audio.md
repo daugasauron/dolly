@@ -25,8 +25,8 @@ flowchart LR
   Nonfinite samples fail with `EINVAL`; others are clamped to [-1, 1].
 - Exit, abort and forced termination revoke the stream. Playback may need a user
   interaction to start; the guest cannot supply one.
-- C SDK: [`host/audio/audio.h`](../host/audio/audio.h) and `libdolly-audio.a` in the
-  seed, which `cc` links by default. Calling it stamps `audio@0` into the
+- C SDK: [`host/audio/audio.h`](../host/audio/audio.h) and `libdolly-audio.a`, from the
+  `libdolly-audio` package, which `cc` links by default. Calling it stamps `audio@0` into the
   executable. Calls return 0 or a frame count, or -1 with `errno`; after
   `EOVERFLOW`, close and reopen.
 
@@ -55,6 +55,7 @@ default input, through process operation 130.
   the device and ends the browser's recording mark.
 - No list of devices, labels or choice of device, and no video.
 - C SDK: [`host/microphone/microphone.h`](../host/microphone/microphone.h) and
-  `libdolly-microphone.a`, as for playback; calling it stamps `microphone@0`
+  `libdolly-microphone.a`, from the `libdolly-microphone` package, as for
+  playback; calling it stamps `microphone@0`
   into the executable. No core image declares it: a session of `default`
   enables it with `nena enable microphone`.

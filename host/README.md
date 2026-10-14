@@ -59,7 +59,10 @@ digest differs from the provider's, as it refuses a wrong `dolly.process` stamp
 Adding a module takes its directory, one name in `manifests.mjs`, its imports
 in `abi/dolly-browser-0.wat` and its row in
 [browser boundary](../docs/browser-boundary.md); the last two are where a human
-reviews the authority it adds. A module without imports may instead own a
+reviews the authority it adds. Its header and client reach programs through a
+package, `Dollyfile-libdolly-NAME`, which `scripts/build.sh` then leaves out of
+the seed, as for gpu, audio, microphone, buttons and sockets; a module that a
+core source includes stays in the seed. A module without imports may instead own a
 reserved origin of the HTTP broker ([`http/local-services.mjs`](http/local-services.mjs)),
 as `build` and `packages` do: its service admits each request itself.
 

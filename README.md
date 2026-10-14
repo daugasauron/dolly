@@ -37,6 +37,11 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `make`: GNU `make` alone, for rules that compile nothing; `cc` brings it too.
 - `zig`: `zig` with its standard library, and the `cc` package: it emits C (`-ofmt=c`) that `cc` compiles.
 - `transfer`: `download` and `upload`, the page's file exchange.
+- `libdolly-gpu`: the `gpu@0` module's header and client library, for programs the `cc` package builds.
+- `libdolly-audio`: the `audio@0` module's header and client library, for programs the `cc` package builds.
+- `libdolly-microphone`: the `microphone@0` module's header and client library, for programs the `cc` package builds.
+- `libdolly-buttons`: the `buttons@0` module's header and client library, for programs the `cc` package builds.
+- `libdolly-sockets`: the `sockets@0` module's header and client library, for programs the `cc` package builds.
 - `ps`: `ps`, which lists the processes: PID, parent, state and command line.
 - `session-recover`: `session-recover`, which copies the files of a saved session file into a new directory.
 - `display`: the terminal: the Ghostty display plugin, its font and the termcap entry.

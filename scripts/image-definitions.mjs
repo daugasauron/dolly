@@ -8,7 +8,7 @@ import {
   recipeRecords,
 } from "./dollyfile-graph.mjs";
 import { recipeFiles } from "./recipe-files.mjs";
-import { publishedHeaders, publishedDocument } from "./host-modules.mjs";
+import { publishedHostFiles, publishedDocument } from "./host-modules.mjs";
 import { siteReference, sitePath } from "../src/static-asset.mjs";
 
 // `filename` is the recipe's checkout path, which is also its published path.
@@ -90,7 +90,7 @@ export async function inspectStaticSources(projectDir, definitions) {
     for (const record of graph.records) for (const source of record.sources) {
       const path = sitePath(source.location);
       if (path === null) continue;
-      if (!(path.startsWith("/dist/static/") || publishedHeaders.has(path) || publishedDocument(path)) || path.includes("..")) {
+      if (!(path.startsWith("/dist/static/") || publishedHostFiles.has(path) || publishedDocument(path)) || path.includes("..")) {
         throw new Error(
           `${record.location}:${source.line}: ${source.location} is outside trusted build inputs`,
         );

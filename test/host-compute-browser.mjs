@@ -42,9 +42,10 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
         return await running(host.kernel, exited);
       } finally { host.dispose(); worker?.terminate(); }
     };
-    // Builds APPLICATION name FROM system-build (leading REQUIRES HOST rows go
-    // after the role line) and resolves to its artifact and configuration.
-    globalThis.buildCustom = async (name, rows) => {
+    // Builds APPLICATION name FROM system-build with the packages installed
+    // (leading REQUIRES HOST rows go after the role line) and resolves to its
+    // artifact and configuration.
+    globalThis.buildCustom = async (name, rows, packages = []) => {
       const { DOLLY_IMAGES } = await import("/dist/dolly-images.mjs");
       const { buildImage } = await import("/src/image-builder.mjs");
       const { prepareImageArtifacts } = await import("/src/image-build.mjs");
@@ -53,7 +54,9 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       const builders = { http: { network: await headlessNetwork() } };
       const base = DOLLY_IMAGES.find(d => d.image === "system-build");
       const hosts = rows.match(/^(?:REQUIRES HOST [^\n]*\n)*/)[0];
-      const recipe = `DOLLY 7\nAPPLICATION ${name}\n${hosts}FROM ${siteReference(base.dollyfile)} ${base.sha256}\n${rows.slice(hosts.length)}`;
+      const installs = packages.map(image => DOLLY_IMAGES.find(d => d.image === image))
+        .map(d => `INSTALL ${siteReference(d.dollyfile)} ${d.sha256}\n`).join("");
+      const recipe = `DOLLY 7\nAPPLICATION ${name}\n${hosts}FROM ${siteReference(base.dollyfile)} ${base.sha256}\n${installs}${rows.slice(hosts.length)}`;
       const report = () => {};
       const artifacts = await prepareImageArtifacts("custom", recipe, (name, inputs) => buildImage(name, inputs, builders, report), report);
       const built = await buildImage("custom", artifacts, builders, report, { customSource: recipe });
@@ -67,7 +70,7 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
   const compute = page.evaluate(async code => {
     const { artifact, configuration } = await buildCustom("compute", "REQUIRES HOST runtime@0\nREQUIRES HOST gpu@0\nREQUIRES HOST http@0\n" +
       `FILE /tmp/probe.c\n${code.trimEnd().split("\n").map(line => "    " + line).join("\n")}\n` +
-      "SLOP cc -O1 /tmp/probe.c -ldolly-gpu -o /usr/bin/probe\nEXPORTS TOOL probe\nENTRY /usr/bin/probe\n");
+      "SLOP cc -O1 /tmp/probe.c -ldolly-gpu -o /usr/bin/probe\nEXPORTS TOOL probe\nENTRY /usr/bin/probe\n", ["libdolly-gpu"]);
     const status = await runHeadless(["runtime@0", "gpu@0", "http@0"], configuration, [artifact.bytes], (_runtime, exited) => exited);
     return { status, requirements: artifact.hostRequirements, canvases: document.querySelectorAll("canvas").length };
   }, code);

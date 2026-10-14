@@ -113,7 +113,7 @@ await browserTest("nena", { image: "default", timeout: 300_000, server: { fixtur
   }
   await run("man nena > /dev/null && ! nena frobnicate 2> /dev/null");
 
-  await run("amy install cc > /dev/null");
+  await run("amy install cc > /dev/null && amy install libdolly-audio > /dev/null && amy install libdolly-microphone > /dev/null");
   for (const [name, [, flags]] of Object.entries(programs)) {
     await run(`curl -fsS ${server.origin}/fixture/${name}.c -o /tmp/${name}.c && cc ${flags} /tmp/${name}.c -o $HOME/${name}`);
   }

@@ -1,0 +1,23 @@
+DOLLY 7
+PACKAGE libdolly-sockets
+REQUIRES HOST runtime@0
+
+# The sockets@0 module's header and client (local sockets between processes),
+# for programs the cc package builds: cc links it when a program asks with
+# -ldolly-sockets, since it defines libc's socket functions.
+FROM /v0.1.3/Dollyfile-system-build db420dd3f49939f655e592a18eb4ddfbd93e25c3b733a8c8d8f3a5eed5d0ea90
+REQUIRES HEADER libc
+REQUIRES TOOL ar
+REQUIRES TOOL cc
+REQUIRES TOOL rm
+
+SOURCE /v0.1.3/host/sockets/sockets.h 8abea9ccf861677d4dec5a222d048a6be691e8c7f6596d604dd601d44cb65eb3 /usr/include/dolly/sockets.h
+SOURCE /v0.1.3/host/sockets/sockets-abi.h d707a200164602165663283a79c2cd43d3932a330dac2dbeddd1e0ef87d7b158 /usr/include/dolly/sockets-abi.h
+SOURCE /v0.1.3/host/sockets/client.c e29d44bec8bab6f155446084096c2b79a34d5e61308e49a3a4587b5806b3f7aa /tmp/libdolly-sockets/client.c
+SLOP cc -O1 -c /tmp/libdolly-sockets/client.c -o /tmp/libdolly-sockets/client.o
+SLOP ar rcs /usr/lib/dolly/process/libdolly-sockets.a /tmp/libdolly-sockets/client.o
+
+EXPORTS HEADER sockets     /usr/include/dolly/sockets.h
+EXPORTS HEADER sockets-abi /usr/include/dolly/sockets-abi.h
+EXPORTS LIB    dolly-sockets /usr/lib/dolly/process/libdolly-sockets.a
+SLOP rm -rf /tmp/libdolly-sockets
