@@ -10,14 +10,13 @@ REQUIRES HOST http@0
 FROM /v0.1.3/Dollyfile-system-build db420dd3f49939f655e592a18eb4ddfbd93e25c3b733a8c8d8f3a5eed5d0ea90
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
-REQUIRES TOOL   gzip
 REQUIRES TOOL   tar
 REQUIRES TOOL   cp
 REQUIRES TOOL   rm
 
-SOURCE /v0.1.3/dist/static/zig-llvm/zig.tar.gz 55e3b3232d32c84b591a84f01d7b4897387e9b12d485f294b9d423b65877274c /tmp/zig.tar.gz
+SOURCE /v0.1.3/dist/static/zig-llvm/zig.tar baab557044cc6d54c2191abfc7ee74f6c38c206c9c2eec68ea22c5d96bbc71ee /tmp/zig.tar
 SOURCE /v0.1.3/dist/static/zig-llvm/wamr.tar d5d0e05cf074e3f4167bc0430342a39f69666d3e27ee09c748f2a2a22299dfea /tmp/wamr.tar
-SLOP gzip -dc /tmp/zig.tar.gz | tar -xf - -C /
+SLOP tar -xf /tmp/zig.tar -C /
 SLOP tar -xf /tmp/wamr.tar -C /
 
 # WAMR requires a BUILD_TARGET; zig1 binds only raw natives, so the target
@@ -133,7 +132,7 @@ SLOP CWD /tmp/zig cc -c -O2 -std=c99 -fno-strict-aliasing -Wno-incompatible-poin
 # What zig-llvm compiles and links: zigcpp's sources and the two objects.
 SLOP mkdir -p /usr/lib/zig-llvm-build
 SLOP CWD /tmp/zig cp zig2.o compiler_rt.o src/zig_llvm.cpp src/zig_llvm.h src/zig_llvm-ar.cpp src/zig_clang_driver.cpp src/zig_clang_cc1_main.cpp src/zig_clang_cc1as_main.cpp /usr/lib/zig-llvm-build
-SLOP rm -rf /tmp/zig /tmp/wamr /tmp/zig.tar.gz /tmp/wamr.tar
+SLOP rm -rf /tmp/zig /tmp/wamr /tmp/zig.tar /tmp/wamr.tar
 FOLDER /usr/lib/zig-llvm-build
 FOLDER /usr/lib/zig
 FILE /usr/share/licenses/zig/LICENSE

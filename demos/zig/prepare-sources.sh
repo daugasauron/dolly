@@ -2,7 +2,7 @@
 if has_image zig-llvm-build; then
   zig_llvm_dir="$("${project_dir}/scripts/prepare-zig-native.sh")"
   zig_llvm_wamr="$("${project_dir}/scripts/fetch-pinned-checkout.sh" wamr)"
-  node scripts/build-source-tar.mjs "${static_dir}/zig-llvm/zig.tar.gz" \
+  node scripts/build-source-tar.mjs "${static_dir}/zig-llvm/zig.tar" \
     "${zig_llvm_dir}/src" /tmp/zig/src \
     "${zig_llvm_dir}/lib" /usr/lib/zig \
     "${zig_llvm_dir}/stage1/zig1.wasm" /tmp/zig/stage1/zig1.wasm \
