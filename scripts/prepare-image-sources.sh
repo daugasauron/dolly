@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# Staged sources must not depend on who runs this: generators sort, and the
+# locale decides the order (Git's config-list.h).
+export LC_ALL=C.UTF-8
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${project_dir}"

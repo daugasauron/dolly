@@ -1,12 +1,9 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_image llvm-tablegen; then
-  # The seed's checkout (scripts/build-toolchain.sh): pinned commit plus the LLD patch.
-  llvm_dir="${project_dir}/.cache/llvm-project"
-  bash scripts/verify-git-source.sh "${llvm_dir}" "$(source config/source-pins.sh && echo "${DOLLY_LLVM_COMMIT}")" \
-    "${project_dir}/config/lld-dolly.patch"
-  # Everything CMake configures and the compiler closure compiles; no tests,
-  # docs, examples or benchmarks. LLD always adds docs; mlgo-utils links three
-  # scripts to their real copies under mlgo/.
+# Stages an LLVM tree to OUTPUT: everything CMake configures and the libraries
+# compile; no tests, docs, examples or benchmarks. LLD always adds docs;
+# mlgo-utils links three scripts to their real copies under mlgo/.
+stage_llvm() {
+  local llvm_dir="$1" output="$2" path
   llvm_inputs=()
   stage_tree() {
     local tree="$1" entry
@@ -26,8 +23,23 @@ if has_image llvm-tablegen; then
   for path in libc/shared libc/src/__support libc/hdr libc/include libc/LICENSE.TXT; do
     llvm_inputs+=("${llvm_dir}/${path}" "/tmp/llvm-project/${path}")
   done
-  node scripts/build-source-tar.mjs "${static_dir}/llvm/llvm-project.tar.gz" "${llvm_inputs[@]}"
+  node scripts/build-source-tar.mjs "${output}" "${llvm_inputs[@]}"
+}
+if has_image llvm-tablegen; then
+  # The seed's checkout (scripts/build-toolchain.sh): pinned commit plus the LLD patch.
+  llvm_dir="${project_dir}/.cache/llvm-project"
+  bash scripts/verify-git-source.sh "${llvm_dir}" "$(source config/source-pins.sh && echo "${DOLLY_LLVM_COMMIT}")" \
+    "${project_dir}/config/lld-dolly.patch"
+  stage_llvm "${llvm_dir}" "${static_dir}/llvm/llvm-project.tar.gz"
   copy_static demos/llvm/llvm-host-triple.patch llvm/llvm-host-triple.patch
+fi
+if has_image llvm21-tablegen; then
+  llvm21_archive="$(bash scripts/fetch-pinned-archive.sh llvm21)"
+  llvm21_dir="build/generated/llvm-project-$(source config/source-pins.sh && echo "${DOLLY_LLVM21_VERSION}").src"
+  if [[ ! -d "${llvm21_dir}" ]]; then mkdir -p build/generated && tar -xJf "${llvm21_archive}" -C build/generated; fi
+  stage_llvm "${llvm21_dir}" "${static_dir}/llvm21/llvm-project.tar.gz"
+  copy_static demos/llvm/llvm-host-triple.patch llvm21/llvm-host-triple.patch
+  for project in llvm clang lld; do copy_static "${llvm21_dir}/${project}/LICENSE.TXT" "llvm21/licenses/${project}"; done
 fi
 if has_image llvm-cc; then
   # The seed's driver and the contract digests npm run build:runtime generates.

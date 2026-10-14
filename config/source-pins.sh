@@ -7,6 +7,10 @@ DOLLY_EMSCRIPTEN_COMMIT=aeb67926e7de656da38bc807d83050af93578758
 DOLLY_EMSCRIPTEN_URL='https://github.com/emscripten-core/emscripten.git'
 
 DOLLY_LLVM_COMMIT=4bfd08c2d769736841ae4f5705d76fa6daa39027
+# LLVM 21, the version Zig 0.16 links (the llvm21 package), from its release archive.
+DOLLY_LLVM21_VERSION=21.1.8
+DOLLY_LLVM21_URL='https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.8/llvm-project-21.1.8.src.tar.xz'
+DOLLY_LLVM21_SHA256=4633a23617fa31a3ea51242586ea7fb1da7140e426bd62fc164261fe036aa142
 DOLLY_LLVM_URL='https://github.com/llvm/llvm-project.git'
 
 DOLLY_SBASE_COMMIT=c546c3a5724c81cee9a11d816a38ccdf17472129

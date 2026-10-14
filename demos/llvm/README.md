@@ -22,6 +22,8 @@ seed, built again by Dolly's own `cc`. The seed stays the bootstrap.
   `c++`, `ld` and `ar`.
 - `llvm`: `llvm-cc` and `llvm-c++`, Clang and LLD as built inside Dolly, beside the `cc` package.
 - `llvm-runtimes`: libc++, libc++abi, libunwind and the compiler-rt builtins as compiled in Dolly, in `/usr/lib/llvm-runtimes`; a link takes them with `-L`.
+- `llvm21-tablegen`: a build stage: LLVM 21 with every default target, configured by CMake inside Dolly, and its TableGen tools.
+- `llvm21`: LLVM 21 with every default target, Clang and LLD as libraries and headers, and `llvm-config`, in `/usr/lib/llvm21`: what Zig 0.16 links.
 
   libc++, libc++abi, libunwind and the compiler-rt builtins from the pinned
   Emscripten sources, as Emscripten's container builds them, DWARF included.
