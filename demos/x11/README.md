@@ -56,9 +56,6 @@ is back.
   (`-S`): [`xterm-pty.c`](xterm-pty.c), installed as `xterm`, opens the
   pseudo-terminal, starts upstream's program (`/usr/libexec/xterm`) on the
   master and the shell, or the command after `-e`, on the slave.
-  `select` is pselect's wait without a mask (Dolly's libc refuses `select`),
-  and [`xterm-dolly.patch`](xterm-dolly.patch) (5 lines) skips the reset of
-  ids xterm already has: Dolly refuses `setuid` and `setgid` even to them.
 
 ## Limits
 

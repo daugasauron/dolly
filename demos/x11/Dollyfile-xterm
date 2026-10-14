@@ -15,11 +15,9 @@ INSTALL /v0.1.3/demos/tmux/Dollyfile-libterminfo fcbaef8c33c1e4a96bc5239954032ea
 REQUIRES HEADER term
 REQUIRES LIB terminfo
 REQUIRES TOOL awk
-REQUIRES TOOL patch
 
-SOURCE /v0.1.3/dist/static/x11/xterm.tar e5698816b2a2ca78db02dd0ef7743a2da3179e9fe5bb27ebee27efd2ab29233d /tmp/xterm.tar
+SOURCE /v0.1.3/dist/static/x11/xterm.tar 53f82219a5e642fca0247b3d05efc7f11e0aac6af59238acb60442916cb40807 /tmp/xterm.tar
 SLOP tar -xf /tmp/xterm.tar -C /
-SLOP patch -p1 -d /tmp/xterm -i /tmp/xterm/xterm-dolly.patch
 
 # Slop does not run the configure script, so this says what it would find
 # here, with the features left out named. setsid, setpgid and utmp are not
@@ -93,22 +91,6 @@ FILE /tmp/xterm/xtermcfg.h
 FILE /tmp/xterm/curses.h
     /* No curses library: see the recipe. */
 
-# Dolly's libc has pselect and refuses select: xterm's waits, without a mask.
-FILE /tmp/xterm/dolly-select.h
-    #include <stddef.h>
-    #include <sys/select.h>
-    #include <sys/time.h>
-    static inline int dolly_select(int count, fd_set *readers, fd_set *writers, fd_set *errors,
-                                   struct timeval *timeout) {
-      struct timespec wait;
-      if (timeout) {
-        wait.tv_sec = timeout->tv_sec;
-        wait.tv_nsec = timeout->tv_usec * 1000;
-      }
-      return pselect(count, readers, writers, errors, timeout ? &wait : NULL, NULL);
-    }
-    #define select dolly_select
-
 FILE /tmp/xterm/xterm.mk
     .RECIPEPREFIX := >
     .DELETE_ON_ERROR:
@@ -117,7 +99,7 @@ FILE /tmp/xterm/xterm.mk
     SOURCES := button cachedGCs charproc charsets cursor data doublechr fontutils input \
       keysym2ucs linedata main menu misc print ptydata scrollback screen scrollbar tabs util \
       version xstrings xtermcap VTPrsTbl charclass precompose wcwidth
-    CFLAGS := -O2 -D_GNU_SOURCE -DHAVE_CONFIG_H -DDEFCLASS='"XTerm"' -include $(X)/dolly-select.h -I$(X)
+    CFLAGS := -O2 -D_GNU_SOURCE -DHAVE_CONFIG_H -DDEFCLASS='"XTerm"' -I$(X)
     all: /usr/libexec/xterm /usr/bin/xterm
     # As upstream's Makefile writes them: the parser's state numbers, and the
     # icon xterm sets.

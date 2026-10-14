@@ -3,7 +3,6 @@
  * the command after -e, on its slave. Usage: xterm [xterm option...] [-e
  * command [argument...]]. SPDX-License-Identifier: MIT */
 #include <pty.h>
-#include <signal.h>
 #include <spawn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,9 +71,7 @@ int main(int argc, char *argv[]) {
   close(slave);
   int status = 1;
   if (program > 0) waitpid(program, &status, 0);
-  /* Linux's master reads EIO once the slave is gone, and xterm exits; Dolly's
-   * reads end of file, which xterm takes for a fault and carries on. */
-  kill(emulator, SIGTERM);
+  /* The master reads EIO once the slave is gone, and xterm exits. */
   waitpid(emulator, NULL, 0);
   return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
 }
