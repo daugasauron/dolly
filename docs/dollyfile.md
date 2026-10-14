@@ -58,7 +58,7 @@ mounted, and reads no other version's.
 | --- | --- | --- | --- | --- |
 | `APPLICATION name` | people, at `/name/` | `FROM` | required, last | its base and everything it declares |
 | `TOOLCHAIN name` | people, when it has ENTRY | `FROM` | optional, last | its base and everything it declares |
-| `PACKAGE name` | nobody | `INSTALL` | none | only what it declares |
+| `PACKAGE name` | nobody | `INSTALL`, `USE` | none | only what it declares |
 
 - `COPY` takes files out of an image of any role.
 - Names match `[a-z][a-z0-9]*(-[a-z0-9]+|\.[0-9]+)*` and are at most 32 bytes: a
@@ -86,6 +86,7 @@ mounted, and reads no other version's.
 | `REQUIRES HOST name@abi` | The image uses this host module when it runs. |
 | `FROM RECIPE SHA256` | First operation: start from a completed application or toolchain. |
 | `INSTALL RECIPE SHA256` | Import a completed package, after the packages its recipe installs: files, exports and environment. |
+| `USE RECIPE SHA256` | In a package: `INSTALL` for this build alone. |
 | `COPY RECIPE SHA256 SOURCE DESTINATION` | Copy a retained file or tree out of a completed image. |
 | `SOURCE LOCATION SHA256 DESTINATION` | Download a file. |
 | `RUN [CWD /directory] /program [word…]` | Run a program; failure stops the build. |
@@ -156,6 +157,13 @@ mounted, and reads no other version's.
   image or session holds. It holds a recipe at one pin: an `INSTALL` of a
   recipe it holds at another pin fails, naming the recipe, in a session as
   in a build.
+- `USE` is a package recipe's `INSTALL` of what only its build needs, such as
+  a library its program links statically or the tools that build it: the
+  package and the ones its record names are installed as by `INSTALL`, and
+  nothing of them is recorded, so whoever installs this package does not get
+  them. `INSTALL` skips a row this build used. A build holds a recipe at one
+  pin, whichever rows name it. The used package's `REQUIRES HOST`
+  lines are its own: the build may use them, the image does not declare them.
 - `COPY` merges directories, replaces files and fails on a missing source; it
   imports no environment, exports or host requirements. Imported images are
   earlier builds of at most 2 GiB; an image cannot share a name with one it
@@ -209,7 +217,7 @@ mounted, and reads no other version's.
   most 31 bytes (`[a-z][a-z0-9-]*`) and a revision 0–65535, at most 64 per
   image, one revision each. They follow the role line, before every other
   declaration, as the image's manifest.
-- They are never inherited: `FROM`, `INSTALL` and `COPY` carry none into the
+- They are never inherited: `FROM`, `INSTALL`, `USE` and `COPY` carry none into the
   consumer and nothing is derived. The image's own recipe is the complete list.
   Every image and package declares the runtime it is built on (`runtime@0`:
   the kernel, the process ABI and the image format,
@@ -219,9 +227,9 @@ mounted, and reads no other version's.
   `INSTALL` checks that the installing recipe declares them too.
 - Sealing checks every retained executable: a `dolly.host` record naming a
   module the recipe does not declare fails the build, naming the file and the
-  `REQUIRES HOST` line to add. Build steps may use the build host's modules
-  and the recipe's declared ones; calls to a declared module the build host
-  does not enable return `ENOSYS`.
+  `REQUIRES HOST` line to add. Build steps may use the build host's modules,
+  the recipe's declared ones and those of the images the build reads; calls
+  to one the build host does not enable return `ENOSYS`.
 - At run time the image may use only its declared modules: boot fails if the
   embedding lacks one, and the loader refuses an executable whose stamped
   module is not declared. Requirements grant nothing: the embedding enables
@@ -346,7 +354,7 @@ EXPORTS TOOL rg
 ```mermaid
 flowchart TD
   recipe["Dollyfile, pinned"] --> exec
-  bases["FROM / INSTALL / COPY images: cached, published or built first"] --> exec
+  bases["FROM / INSTALL / USE / COPY images: cached, published or built first"] --> exec
   inputs["SOURCE files via the HTTP broker"] --> exec
   exec["/bin/dollyfile in a fresh runtime"] --> snap["Sealed snapshot: retained files, env, ENTRY"]
   snap -- "npm run image: headless Chrome on /IMAGE/rebuild/" --> packs["dist/ snapshot, packaged as shared packs"]
@@ -360,7 +368,7 @@ flowchart TD
   base image.
 - Every image is cached. A cache identity is the image build ID, the recipe
   hash and the snapshot digests of the images its build reads: its `FROM`,
-  `INSTALL` and `COPY` rows and the packages those packages install. The browser uses a verified local artifact, then a published one,
+  `INSTALL`, `USE` and `COPY` rows and the packages those packages install. The browser uses a verified local artifact, then a published one,
   and otherwise builds the missing dependency in a disposable runtime first.
   Unpinned downloads inside a `SLOP` command are not made reproducible by the
   cache.

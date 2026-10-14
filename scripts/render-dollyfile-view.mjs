@@ -103,7 +103,7 @@ function renderSource(record, graph) {
       const match = /^(\s*)([A-Z][A-Z-]*)(\s+|$)(.*)$/.exec(value);
       if (match) {
         const [, prefix, directive, spacing, rest] = match;
-        if (["FROM", "INSTALL", "COPY"].includes(directive)) body = renderArtifact(record, row, prefix, spacing, rest);
+        if (["FROM", "INSTALL", "USE", "COPY"].includes(directive)) body = renderArtifact(record, row, prefix, spacing, rest);
         else if (directive === "REQUIRES") body = renderRequirement(record, row, prefix, spacing, rest);
         else if (directive === "EXPORTS") body = renderExport(record, row, prefix, spacing, rest);
         else if (directive === "SOURCE") body = renderSourceReference(record, row, prefix, spacing, rest);

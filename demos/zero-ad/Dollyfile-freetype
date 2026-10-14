@@ -4,8 +4,8 @@ REQUIRES HOST runtime@0
 
 # FreeType as zero-ad-deps builds it with upstream's CMake, for programs the
 # cc package builds, with the libpng and zlib it reads fonts with.
-FROM /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps 9594b47ace70f3994271fb4d68d63184d40a792bfb1c7b2093a79c762da98ed5
-INSTALL /v0.1.3/demos/zero-ad/Dollyfile-libpng da1f3a61d28bb74e7be44f1cd1e4f58544d86a091bd8e6fd8d55752eed50ce09
+FROM /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps 8723323ff4a37dd3647003653c118baf21662f01bb66dad0f37fe60f7fb43570
+INSTALL /v0.1.3/demos/zero-ad/Dollyfile-libpng db0d4373c35f0b3999ab1d50b6f6e53d17fab9d3a69d7e3f32e6724d6da36958
 
 EXPORTS LIB    freetype  /usr/lib/libfreetype.a
 EXPORTS HEADER freetype2 /usr/include/freetype2

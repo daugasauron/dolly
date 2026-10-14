@@ -5,9 +5,9 @@ const key = object => `${object.type}:${object.name}`;
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
 // The recipe graph of one image, as /bin/dollyfile reads it: the root and the
-// FROM/INSTALL/COPY images it imports, each with its own imports. `read(url)`
+// FROM/INSTALL/USE/COPY images it imports, each with its own imports. `read(url)`
 // returns a recipe's bytes; this checks every pin. `artifacts` are the images
-// a build of the root reads: its own rows and, before each INSTALL, the rows
+// a build of the root reads: its own rows and, before each INSTALL or USE, the rows
 // that package's recipe installs, which the package names and does not hold. It is an inspection graph,
 // not a dependency solver: runtime assertions may resolve against files and
 // environment that recipes do not declare. Pass the same `recipes` cache to
@@ -51,12 +51,12 @@ export async function loadRecipeGraph(read, rootLocation, recipes = new Map()) {
       ...record.exports.map(value => ({ ...value, operation: "export" })),
     ].sort((a, b) => a.line - b.line);
     for (const operation of operations) {
-      if (["from", "install", "copy"].includes(operation.operation)) {
+      if (["from", "install", "use", "copy"].includes(operation.operation)) {
         const target = await load(operation.location, operation.sha256, false);
-        if (operation.operation === "from" ? target.role === "package"
-            : operation.operation === "install" && target.role !== "package") {
+        const installs = ["install", "use"].includes(operation.operation);
+        if (operation.operation === "from" ? target.role === "package" : installs && target.role !== "package") {
           throw new Error(`${location}:${operation.line}: ${target.name} is a ${target.role}: ` +
-            "FROM takes an application or toolchain, INSTALL a package");
+            "FROM takes an application or toolchain, INSTALL and USE a package");
         }
         // Host requirements are never inherited: a package's must be declared here.
         if (operation.operation === "install") {
@@ -66,14 +66,16 @@ export async function loadRecipeGraph(read, rootLocation, recipes = new Map()) {
           }
         }
         record.artifactTargets.push({ reference: operation, target });
+        if (root && installs) {
+          for (const needed of target.installs) {
+            if (!artifacts.some(held => held.sha256 === needed.sha256)) artifacts.push({ ...needed, line: operation.line });
+          }
+        }
+        // What a package uses is the build's alone: it is not among what arrives with it.
         if (operation.operation === "install") {
           const row = { operation: "install", location: operation.location, sha256: operation.sha256, line: operation.line, image: target.image };
           for (const needed of [...target.installs, row]) {
-            if (record.installs.some(held => held.sha256 === needed.sha256)) continue;
-            record.installs.push({ ...needed, line: operation.line });
-            if (root && needed !== row && !artifacts.some(held => held.sha256 === needed.sha256)) {
-              artifacts.push({ ...needed, line: operation.line });
-            }
+            if (!record.installs.some(held => held.sha256 === needed.sha256)) record.installs.push({ ...needed, line: operation.line });
           }
           for (const needed of [...target.installTargets, target]) {
             if (!record.installTargets.includes(needed)) record.installTargets.push(needed);
@@ -82,7 +84,7 @@ export async function loadRecipeGraph(read, rootLocation, recipes = new Map()) {
         if (root) artifacts.push({ ...operation, image: target.image });
         // A package keeps nothing of its base nor of what it installs; COPY takes files only.
         const imports = operation.operation !== "copy" && record.role !== "package";
-        const imported = operation.operation === "install" ? [...target.installTargets, target]
+        const imported = installs ? [...target.installTargets, target]
           : operation.operation === "from" ? [target] : [];
         for (const source of imported) {
           for (const [name, provider] of source.scopeExporters) {

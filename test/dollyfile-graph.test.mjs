@@ -198,15 +198,18 @@ test("demo recipes are published at their checkout paths and names stay unique",
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test("roles decide what FROM, INSTALL and COPY import; host requirements are never inherited", async () => {
+test("roles decide what FROM, INSTALL, USE and COPY import; host requirements are never inherited", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-roles-"));
   try {
     const base = "DOLLY 7\nTOOLCHAIN base\nREQUIRES HOST display@0\nEXPORTS ENV DISPLAY /usr/lib/libdisplay.so\nEXPORTS TOOL cc\nENTRY /bin/slop\n";
     const pkg = `DOLLY 7\nPACKAGE pkg\nREQUIRES HOST threads@0\nFROM ${siteReference("Dollyfile-base")} ${digest(base)}\nEXPORTS TOOL rg\nEXPORTS ENV RG 1\n`;
     // addon's own declaration precedes the install and still wins.
     const addon = `DOLLY 7\nPACKAGE addon\nREQUIRES HOST threads@0\nEXPORTS TOOL rg\nINSTALL ${siteReference("Dollyfile-pkg")} ${digest(pkg)}\n`;
+    // user builds with addon and pkg and names neither; its threads@0 are the build's.
+    const user = `DOLLY 7\nPACKAGE user\nUSE ${siteReference("Dollyfile-addon")} ${digest(addon)}\nREQUIRES TOOL rg\nEXPORTS TOOL own\n`;
     const files = {
-      "Dollyfile-base": base, "Dollyfile-pkg": pkg, "Dollyfile-addon": addon,
+      "Dollyfile-base": base, "Dollyfile-pkg": pkg, "Dollyfile-addon": addon, "Dollyfile-user": user,
+      "Dollyfile-on-user": `DOLLY 7\nAPPLICATION on-user\nINSTALL ${siteReference("Dollyfile-user")} ${digest(user)}\nENTRY /bin/slop\n`,
       "Dollyfile": `DOLLY 7\nAPPLICATION default\nREQUIRES HOST display@0\nREQUIRES HOST threads@0\nFROM ${siteReference("Dollyfile-base")} ${digest(base)}\nINSTALL ${siteReference("Dollyfile-addon")} ${digest(addon)}\nENTRY /bin/slop\n`,
       "Dollyfile-copier": `DOLLY 7\nTOOLCHAIN copier\nCOPY ${siteReference("Dollyfile-pkg")} ${digest(pkg)} /usr/bin/rg /usr/bin/rg\n`,
       "Dollyfile-on-pkg": `DOLLY 7\nAPPLICATION on-pkg\nFROM ${siteReference("Dollyfile-pkg")} ${digest(pkg)}\nENTRY /bin/slop\n`,
@@ -229,6 +232,15 @@ test("roles decide what FROM, INSTALL and COPY import; host requirements are nev
     assert.deepEqual(copier.root.hostRequirements, []);
     // The base's display@0 is not inherited: silent declares nothing.
     assert.deepEqual((await loadDollyfileGraph(directory, "Dollyfile-silent")).root.hostRequirements, []);
+    const used = await loadDollyfileGraph(directory, "Dollyfile-user");
+    assert.deepEqual([...used.exporters.keys()], ["TOOL:own"]);
+    assert.equal(used.root.imports.get("TOOL:rg").module.name, "addon");
+    assert.deepEqual(used.artifacts.map(({ operation, image }) => `${operation} ${image}`), ["install pkg", "use addon"]);
+    assert.deepEqual([used.root.installs, used.root.installTargets, used.root.hostRequirements], [[], [], []]);
+    assert.deepEqual(recipeRecords(used).map(record => record.name), ["base", "pkg", "addon", "user"]);
+    const onUser = await loadDollyfileGraph(directory, "Dollyfile-on-user");
+    assert.deepEqual(onUser.artifacts.map(({ operation, image }) => `${operation} ${image}`), ["install user"]);
+    assert.deepEqual([...onUser.exporters.keys()], ["TOOL:own"]);
     await assert.rejects(loadDollyfileGraph(directory, "Dollyfile-on-pkg"), /pkg is a package/);
     await assert.rejects(loadDollyfileGraph(directory, "Dollyfile-installs-base"), /base is a toolchain/);
     await assert.rejects(loadDollyfileGraph(directory, "Dollyfile-undeclared"), /pkg needs REQUIRES HOST threads@0/);

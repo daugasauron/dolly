@@ -13,10 +13,9 @@ REQUIRES HOST runtime@0
 #   is a mapping shared between processes, and a mapping here is a private
 #   copy. PRAGMA locking_mode = NORMAL is still there for rollback journals;
 # - zlib, for the shell's archives (.archive, sqlite3 -A, zip files as tables);
-# - linenoise (--with-linenoise): the terminal has no line discipline, so the
-#   shell edits its own lines.
-FROM /v0.1.3/demos/tools/Dollyfile-tools-build 27bd2c0fc77f1062da61587edad2e42305febd42f9605dfd7e2c9f5874bc8834
-INSTALL /v0.1.3/Dollyfile-zlib 9eb4ca9b77b03b75376dfafbc9fcc8a18968228664f70cb6d1dfa9be50220853
+# - linenoise (--with-linenoise): the shell edits its own lines, with history.
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 9850648c2874d3c986e2ef70f371106631b18def7b4ffa01ab56d9689c985dce
+USE /v0.1.3/Dollyfile-zlib 9eb4ca9b77b03b75376dfafbc9fcc8a18968228664f70cb6d1dfa9be50220853
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib

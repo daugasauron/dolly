@@ -43,14 +43,18 @@ await writeFile(join(scratch, "threaded.snapshot"), snapshot);
 const fixtures = { "threaded.snapshot": join(scratch, "threaded.snapshot") };
 // Sealed packages of one file, /usr/share/NAME, as the engine would build
 // them. `needed` are the packages the recipe installs: its INSTALL rows, which
-// the snapshot records and does not hold. `hosts` are its host modules.
-async function sealed(name, body, needed = [], hosts = []) {
+// the snapshot records and does not hold. `hosts` are its host modules,
+// `environment` the variables it exports.
+async function sealed(name, body, needed = [], hosts = [], environment = {}) {
   const url = siteReference(`Dollyfile-${name}`), rows = needed.map(({ url, sha256 }) => `INSTALL ${url} ${sha256}\n`).join("");
-  const source = `DOLLY 7\nPACKAGE ${name}\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}${rows}FILE /usr/share/${name}\n    ${body}\n`;
+  const variables = Object.entries(environment);
+  const source = `DOLLY 7\nPACKAGE ${name}\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}${rows}FILE /usr/share/${name}\n    ${body}\n` +
+    variables.map(([variable, value]) => `EXPORTS ENV ${variable} ${value}\n`).join("");
   const pin = sha256(source), chain = [...needed, { name, url, sha256: pin, source }];
   const receipt = [encoder.encode("DOLLYART"), u32(5), u32(chain.length),
     ...chain.flatMap(recipe => ["PACKAGE", recipe.name, recipe.url, recipe.sha256, recipe.source].flatMap(text)),
-    u32(hosts.length), ...hosts.flatMap(text), u32(1), ...text("FILE"), ...text(name), ...text(`/usr/share/${name}`), u32(1), ...text(`/usr/share/${name}`)];
+    u32(hosts.length), ...hosts.flatMap(text), u32(1 + variables.length), ...text("FILE"), ...text(name), ...text(`/usr/share/${name}`), u32(1),
+    ...text(`/usr/share/${name}`), ...variables.flatMap(([variable, value]) => [...text("ENV"), ...text(variable), ...text(value), u32(0)])];
   const records = new Map([["/etc/dolly/Dollyfile", file(source)], ["/etc/dolly/artifact", { kind: 2, data: bytes(receipt) }],
     ...rows ? [["/etc/dolly/installed", file(rows)]] : [], [`/usr/share/${name}`, file(`${body}\n`)]]);
   await writeFile(join(scratch, `${pin}.snapshot`), encodeSnapshotRecords(new Map([...records].sort(([left], [right]) => left < right ? -1 : 1))));
@@ -61,6 +65,11 @@ async function sealed(name, body, needed = [], hosts = []) {
 // one that also needs a host module default does not declare.
 const [older, newer] = [await sealed("needed", "one"), await sealed("needed", "two")];
 const needs = await sealed("needs", "top", [newer]), listens = await sealed("listens", "ears", [newer], ["microphone@0"]);
+// What a package uses to build: a library that needs `newer` and a module the
+// building recipe does not declare, and a package that needs `newer` too.
+const library = await sealed("library", "lib", [newer], ["microphone@0"], { LIBRARY_BUILT: "used" });
+const shared = await sealed("shared", "also", [newer]);
+for (const name of ["dollyfile.c", "sha256.h", "fs-record.h"]) fixtures[name] = `src/${name}`;
 const artifact = `/etc/dolly/artifacts/${threaded.sha256}.snapshot`;
 const row = `INSTALL ${threaded.url} ${threaded.sha256}`;
 const check = ({ submit, text }) => async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
@@ -495,6 +504,35 @@ await browserTest("amy refusal", { image: "system", server: { fixtures } }, asyn
   assert.notEqual(await system.submit("amy install python 2> /tmp/refused"), 0);
   await refuse("grep -q 'REQUIRES HOST packages@0' /tmp/refused");
   assert.notEqual(await system.submit(`curl -fsS https://packages.dolly.invalid/v1/packages/${indexed("zlib")[2]} -o /dev/null`), 0);
+});
+
+// USE, by the engine built from this checkout: the library and the row it
+// needs are restored for the build and kept by nothing; an INSTALL after it
+// skips the used row, whose snapshot has gone, and records it.
+await browserTest("USE", { image: "system", server: { fixtures } }, async ({ server, open }) => {
+  const system = await open({ policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
+  const run = check(system);
+  const fetch = names => names.map(name => `curl -fsS ${server.origin}/fixture/${name} -o ${name}`).join(" && ");
+  await run(`mkdir /tmp/use && cd /tmp/use && ${fetch(["dollyfile.c", "sha256.h", "fs-record.h"])} && cc -O0 dollyfile.c -o dollyfile`);
+  await run("touch /etc/dolly/installed && cp /etc/dolly/installed record && mkdir -p /etc/dolly/artifacts");
+  const row = ({ url, sha256 }) => `${url} ${sha256}`;
+  const build = async (rows, fails = false) => {
+    await run(`cp record /etc/dolly/installed && cd /etc/dolly/artifacts && ${fetch([library, shared, newer,
+      ...rows.some(item => item.includes(older.sha256)) ? [older] : []].map(({ sha256 }) => `${sha256}.snapshot`))} && cd /tmp/use`);
+    await run(`printf '%s\\n' 'DOLLY 7' 'PACKAGE uses' 'REQUIRES HOST runtime@0' ${rows.map(item => `'${item}'`).join(" ")} > Dollyfile-uses`);
+    assert.equal(await system.submit("./dollyfile FILE:/tmp/use/Dollyfile-uses > log 2>&1") !== 0, fails, await system.text());
+  };
+  const used = `USE ${row(library)}`, installed = `INSTALL ${row(shared)}`;
+  const recorded = "grep '^INSTALL ' /etc/dolly/installed | grep -v -x -f record | sed 's/ [0-9a-f]*$//' | tr '\\n' ' '";
+  const kept = `test "$(${recorded})" = 'INSTALL ${newer.url} INSTALL ${shared.url} ' && ! grep -q /usr/share/library /etc/dolly/image.manifest && ` +
+    "! grep -q LIBRARY_BUILT /etc/dolly/environment && test -z \"$(ls /etc/dolly/artifacts)\"";
+  await build([used, "REQUIRES FILE library", 'SLOP test "$LIBRARY_BUILT" = used && test "$(cat /usr/share/needed)" = two', installed]);
+  await run(kept);
+  await build([installed, used]);
+  await run(kept);
+  // A build holds a recipe at one pin: a row used at one and installed at another fails, naming it.
+  await build([used, `INSTALL ${row(older)}`], true);
+  await run(`grep -q '${older.url} is in this build at another pin' log`);
 });
 } finally {
   await rm(scratch, { recursive: true, force: true });

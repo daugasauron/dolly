@@ -82,6 +82,11 @@ typedef struct {
   char **environment_names;
   size_t environment_name_count;
   size_t environment_name_capacity;
+  // The rows a package recipe used, as "INSTALL PATH SHA256\n": restored and
+  // their snapshots freed, recorded nowhere.
+  char **used;
+  size_t used_count;
+  size_t used_capacity;
   char **host_requirements;
   size_t host_requirement_count;
   size_t host_requirement_capacity;
@@ -1181,6 +1186,14 @@ static int installed_holds(const unsigned char *row, size_t length) {
   return held;
 }
 
+// Whether this build used the row `row`, "INSTALL PATH SHA256\n" of `length` bytes.
+static int used_holds(const Engine *engine, const unsigned char *row, size_t length) {
+  for (size_t index = 0; index < engine->used_count; ++index) {
+    if (strncmp(engine->used[index], (const char *)row, length) == 0) return 1;
+  }
+  return 0;
+}
+
 // /etc/dolly/installed lists the packages a filesystem holds, whether a
 // recipe or a session installed them. Appends the rows of `text` it lacks.
 static int record_installed(Engine *engine, const unsigned char *text, size_t size) {
@@ -1301,7 +1314,7 @@ static int artifact_has_path(const Artifact *artifact, const char *path) {
   return 0;
 }
 
-typedef enum { IMPORT_FROM, IMPORT_INSTALL, IMPORT_COPY } ImportMode;
+typedef enum { IMPORT_FROM, IMPORT_INSTALL, IMPORT_USE, IMPORT_COPY } ImportMode;
 
 // The files that describe an image rather than hold its contents; a package's
 // are not its payload, so INSTALL leaves the installing image's in place.
@@ -1328,13 +1341,17 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
 // asks again.
 enum { ROW_FIRST = 3 };
 static int install_rows(Engine *engine, const char *locator, const unsigned char *rows, size_t size,
-                        int package_recipe, Scope *visible, Scope *exports, const Scope *own, const char *rest) {
+                        ImportMode mode, int package_recipe, Scope *visible, Scope *exports, const Scope *own,
+                        const char *rest) {
   char *text = strndup((const char *)rows, size);
   int result = text == NULL ? -ENOMEM : 0;
   for (char *row = text, *next; result == 0 && row != NULL && *row != '\0'; row = next) {
     next = strchr(row, '\n');
     const size_t length = (size_t)(next - row) + 1;
-    if (installed_holds((const unsigned char *)row, length)) { ++next; continue; }
+    if (installed_holds((const unsigned char *)row, length) || used_holds(engine, (const unsigned char *)row, length)) {
+      ++next;
+      continue;
+    }
     *next++ = '\0';
     char *sha256 = strrchr(row, ' ');
     *sha256++ = '\0';
@@ -1343,7 +1360,7 @@ static int install_rows(Engine *engine, const char *locator, const unsigned char
     if (access(artifact_path, F_OK) != 0) {
       fprintf(stderr, "dollyfile: %s installs %s first\n", locator, row + 8);
       result = ROW_FIRST;
-    } else result = load_artifact(engine, row + 8, sha256, IMPORT_INSTALL, package_recipe, NULL, NULL, visible, exports, own, rest);
+    } else result = load_artifact(engine, row + 8, sha256, mode, package_recipe, NULL, NULL, visible, exports, own, rest);
   }
   free(text);
   return result;
@@ -1352,7 +1369,9 @@ static int install_rows(Engine *engine, const char *locator, const unsigned char
 // FROM restores an application or toolchain as the base, INSTALL merges a
 // package, COPY takes files. A package recipe keeps nothing of its base nor
 // of the packages it installs: their files, environment and exports serve
-// the build, and its record names the packages for whoever installs it.
+// the build, and its record names the packages for whoever installs it. USE
+// installs a package for a package recipe's build alone: nothing of it is
+// kept or recorded, and the build admits its host modules.
 // `rest` is the recipe after this line, or NULL when the caller reads the
 // snapshot afterwards.
 static int load_artifact(Engine *engine, const char *locator, const char *expected,
@@ -1370,8 +1389,9 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   if (result == 0) result = read_artifact_receipt(engine, receipt->data, receipt->size, locator, expected,
                                                  mode == IMPORT_COPY ? NULL : &imported, &kind,
                                                  mode == IMPORT_INSTALL);
-  if (result == 0 && mode != IMPORT_COPY && (strcmp(kind, "PACKAGE") == 0) != (mode == IMPORT_INSTALL)) {
-    fprintf(stderr, "dollyfile: %s is a %s: FROM takes an application or toolchain, INSTALL a package\n",
+  const int installs = mode == IMPORT_INSTALL || mode == IMPORT_USE;
+  if (result == 0 && mode != IMPORT_COPY && (strcmp(kind, "PACKAGE") == 0) != installs) {
+    fprintf(stderr, "dollyfile: %s is a %s: FROM takes an application or toolchain, INSTALL and USE a package\n",
             locator, kind);
     result = 2;
   }
@@ -1379,7 +1399,7 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
     result = -ENOENT;
   }
   // An image holds one pin of a recipe. A build's recipe chain says so; a session has its record.
-  if (result == 0 && mode == IMPORT_INSTALL) {
+  if (result == 0 && installs) {
     const size_t path = strlen(locator) + 9;
     char *row = malloc(path + 66);
     if (row == NULL) result = -ENOMEM;
@@ -1388,17 +1408,19 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
       if (installed_holds((const unsigned char *)row, path) && !installed_holds((const unsigned char *)row, path + 65)) {
         fprintf(stderr, "dollyfile: %s is installed at another pin\n", locator);
         result = 2;
+      } else if (mode == IMPORT_USE) {
+        result = append_string(&engine->used, &engine->used_count, &engine->used_capacity, row);
       }
       free(row);
     }
   }
-  const dolly_fs_record *needs = result == 0 && mode == IMPORT_INSTALL ? artifact_file(artifact, installed_path) : NULL;
+  const dolly_fs_record *needs = result == 0 && installs ? artifact_file(artifact, installed_path) : NULL;
   if (needs != NULL) {
     // Installing a row reads another artifact; this one is read again after.
-    result = install_rows(engine, locator, needs->data, needs->size, package_recipe, visible, exports, own, rest);
+    result = install_rows(engine, locator, needs->data, needs->size, mode, package_recipe, visible, exports, own, rest);
     if (result == 0) result = read_artifact(artifact, artifact_path, expected);
   }
-  const int keep = !(package_recipe && mode != IMPORT_COPY);
+  const int keep = mode != IMPORT_USE && !(package_recipe && mode != IMPORT_COPY);
   size_t count = 0;
   dolly_fs_record *selected = result == 0 ? calloc(artifact->count, sizeof(*selected)) : NULL;
   uint32_t *indices = result == 0 ? calloc(artifact->count, sizeof(*indices)) : NULL;
@@ -1406,7 +1428,7 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   for (uint32_t index = 0; result == 0 && index < artifact->count; ++index) {
     const dolly_fs_record *record = &artifact->records[index];
     const char *suffix = record->path;
-    if (mode == IMPORT_INSTALL && image_control_file(record->path)) continue;
+    if (installs && image_control_file(record->path)) continue;
     if (mode != IMPORT_FROM && strcmp(record->path, installed_path) == 0) continue;
     if (source != NULL && strcmp(source, "/") != 0) {
       const size_t length = strlen(source);
@@ -1458,7 +1480,8 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   }
   if (result == 0) {
     printf("dollyfile: %s %s (%zu paths)\n",
-           mode == IMPORT_FROM ? "FROM" : mode == IMPORT_INSTALL ? "INSTALL" : "COPY", locator, count);
+           mode == IMPORT_FROM ? "FROM" : mode == IMPORT_INSTALL ? "INSTALL" : mode == IMPORT_USE ? "USE" : "COPY",
+           locator, count);
   } else if (result < 0) {
     fprintf(stderr, "dollyfile: artifact %s: %s\n", locator, strerror(-result));
   }
@@ -1550,11 +1573,16 @@ static int process_line(Engine *engine, const char *locator,
   size_t count = 0;
   const int package = strcmp(*kind, "PACKAGE") == 0;
   if (engine->entry_count != 0) result = 2;
-  else if (strcmp(text, "FROM") == 0 || strcmp(text, "INSTALL") == 0) {
-    const ImportMode mode = strcmp(text, "FROM") == 0 ? IMPORT_FROM : IMPORT_INSTALL;
+  else if (strcmp(text, "FROM") == 0 || strcmp(text, "INSTALL") == 0 || strcmp(text, "USE") == 0) {
+    const ImportMode mode = strcmp(text, "FROM") == 0 ? IMPORT_FROM : strcmp(text, "USE") == 0 ? IMPORT_USE : IMPORT_INSTALL;
     result = split_words(arguments, &words, &count);
     if (result == 0 && (count != 2 || (mode == IMPORT_FROM && *operations != 0) ||
         !valid_image_reference(words[0]) || !valid_sha256(words[1]))) result = 2;
+    if (result == 0 && mode == IMPORT_USE && !package) {
+      fprintf(stderr, "dollyfile: %s:%zu: USE is for a PACKAGE recipe, which keeps nothing it installs\n",
+              locator, line_number);
+      result = 2;
+    }
     if (result == 0 && execute) result = load_artifact(engine, words[0], words[1], mode, package,
                                                        NULL, NULL, visible, exports, own, rest);
   } else if (strcmp(text, "COPY") == 0) {
@@ -1682,7 +1710,9 @@ static int append_recipe(Engine *engine, const char *kind, const char *name,
   for (size_t index = 0; index < engine->recipe_count; ++index) {
     const RecipeRecord *record = &engine->recipes[index];
     if (strcmp(record->locator, locator) == 0) {
-      return strcmp(record->digest, digest) == 0 ? 0 : -EBADMSG;
+      if (strcmp(record->digest, digest) == 0) return 0;
+      fprintf(stderr, "dollyfile: %s is in this build at another pin\n", locator);
+      return 2;
     }
     // Recipes are retained by file name under /etc/dolly/recipes.
     if (strcmp(record->name, name) == 0) {
@@ -2240,6 +2270,8 @@ static void dispose_engine(Engine *engine) {
   }
   free(engine->recipes);
   dispose_environment_names(engine);
+  for (size_t index = 0; index < engine->used_count; ++index) free(engine->used[index]);
+  free(engine->used);
   for (size_t index = 0; index < engine->host_requirement_count; ++index) {
     free(engine->host_requirements[index]);
   }

@@ -200,6 +200,7 @@ function inspectRecipe(source, label, rows) {
         break;
       case "FROM":
       case "INSTALL":
+      case "USE":
       case "COPY": {
         const operation = item.directive.toLowerCase();
         if (tokens.length !== (operation === "copy" ? 4 : 2) ||
@@ -209,6 +210,9 @@ function inspectRecipe(source, label, rows) {
         }
         if (operation === "from" && operations !== 0) {
           fail(label, item.line, "FROM must be the first operation");
+        }
+        if (operation === "use" && role !== "package") {
+          fail(label, item.line, "USE is for a PACKAGE recipe, which keeps nothing it installs");
         }
         operations += 1;
         const artifact = { location: tokens[0], sha256: tokens[1], line: item.line,

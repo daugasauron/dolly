@@ -111,8 +111,6 @@ try {
   const declared = bootMode === "snapshot" ? snapshotMetadata.hostRequirements ?? definition?.hostRequirements ?? []
     : configuredImage === "custom" ? inspectDollyfile(bootConfig.customSource).hostRequirements : definition.hostRequirements;
   if (!bootConfig.buildOnly && bootMode === "snapshot") host.require(declared);
-  // A build runs the engine and its tools with the build host's modules too.
-  host.admit(bootMode === "rebuild" ? [...declared, ...host.enabled] : declared);
   const recipeSha256 = configuredImage === "custom"
     ? await sha256(encoder.encode(bootConfig.customSource)) : definition.sha256;
   const baseReference = configuredImage === "custom"
@@ -129,6 +127,11 @@ try {
     artifacts.set(candidate.recipeSha256, await describeImageArtifact(candidate.bytes, candidate.recipeSha256));
   }
   bootConfig.artifacts = undefined;
+  // A build runs the engine and its tools with the build host's modules, and
+  // the programs of the images it reads with their modules: one the build host
+  // does not enable answers ENOSYS.
+  host.admit(bootMode === "rebuild" ? [...declared, ...host.enabled,
+    ...[...artifacts.values()].flatMap(artifact => artifact.hostRequirements)] : declared);
   const inputs = imageInputs([...artifacts.values()]);
   const baseArtifact = baseReference ? artifacts.get(baseReference.sha256) : null;
   if (bootMode === "rebuild" && baseReference && !baseArtifact) throw new Error("base image artifact was not provided");
