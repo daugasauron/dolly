@@ -72,6 +72,11 @@ measured. Not kept: the recipe is as it was and the images were built back.
 - The loss is not. The demo's test, pinned to one processor in Chromium,
   lost the name after `/t` in 4 of 30 runs with the section (0 of 12 on
   today's image the same morning; 6 of 37 in the night). No run crashed.
+- Every process on the large stack does not end it either: with the
+  supervisor entering every process that way (one line, put back), the
+  demo's test pinned to one processor lost the name after `/t` in 2 of 30
+  runs in Chromium. The night's 0 of 70 counted the probe's first steps, not
+  the test's runs.
 - So the two are not one cause in Emacs's own stack. What made the loss
   go in the night's measurement (0 of 70 first steps) was every process
   entered on the large stack, not Emacs alone: another process of the
