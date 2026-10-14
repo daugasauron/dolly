@@ -32,8 +32,11 @@ Each step needs the one before it; details from memory are marked.
    libffi: 3.5.2 (2025) added an Emscripten wasm64 target, and its
    `src/wasm/ffi.c` makes calls and closures in JavaScript (`EM_JS`; a
    closure is a Wasm function made at run time, `convertJsFunctionToWasm`),
-   which Dolly's processes have not (read 2026-10-15). GLib uses it for
-   generic signal marshalling. Precedent: QEMU's Emscripten port (2025) builds GLib for wasm64 and
+   which Dolly's processes have not (read 2026-10-15). GObject needs less:
+   only `ffi_call`, in its two generic marshallers (`gobject/gclosure.c`,
+   GLib 2.86.0), and no closure (`girepository` uses those). So a libffi for
+   Dolly could be `ffi_call` over the signatures signals use, dispatched in
+   C to calls of known types (not tried). Precedent: QEMU's Emscripten port (2025) builds GLib for wasm64 and
    replaced GLib calls that cast function pointers (`g_list_sort` and
    others); GLib's issue is #3596, and wasm-vips keeps a fork (searched
    2026-10-15).
