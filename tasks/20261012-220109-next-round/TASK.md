@@ -40,7 +40,37 @@ Tried and not kept:
 crash under Chromium's baseline compiler and not its lost bytes (4 of 30
 pinned runs).
 
-## His call, each in a few lines (2026-10-14)
+## Decided (2026-10-14, 18:30)
+
+The owner, on the short questions below: "Regarding next round,
+yes/signoff to everything except: I don't want ot add any permission
+stuff, better to use workarounds than adding permission bits." So each
+recommendation stands, file modes excepted, and the work goes in this order,
+since the moves of builds into packages need the first:
+
+1. A word for what a package uses only to build
+   ([build needs](../20261013-144754-build-needs/TASK.md)): installed for the
+   build, kept by nothing and recorded nowhere, its modules the build's.
+   Then the six packages that bring a library their program linked
+   statically stop bringing it (`gzip`, `mandoc`, `pigz`, `sqlite`: `zlib`;
+   `tmux`: `libevent`, `libterminfo`).
+2. `amy`, Git, `download` and `upload` as packages that hold their builds,
+   out of `system-tools` ([base images](../20261013-145359-builds-root/TASK.md)).
+3. The modules' headers and clients out of the seed into packages
+   ([module SDKs](../20261013-144241-module-sdks/TASK.md)).
+4. SpiderMonkey, FreeType, libpng and libjpeg as packages with their builds
+   ([builds become generic](../20261013-142800-generic-builds/TASK.md)).
+5. `__dolly` documented as the page's API, no code change
+   ([test surface](../20261013-144241-test-surface/TASK.md)).
+6. The 17 manual pages ([man and --help](../20261005-220754-man-help/TASK.md)).
+
+Decided against: [file modes](../20261006-120641-umask/TASK.md) (no
+permission bits; workarounds stay) and
+[a check of the engine's module list](../20261013-170737-receipt-hosts/TASK.md).
+Not now, by the recommendation: the terminal's mouse and CJK glyphs.
+Done the same day: [the line discipline](../20261013-144241-line-discipline/TASK.md).
+
+The questions as they were put:
 
 1. [What a package needs only to build](../20261013-144754-build-needs/TASK.md).
    Six packages bring along libraries their program already linked
