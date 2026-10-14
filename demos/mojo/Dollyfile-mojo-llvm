@@ -12,7 +12,7 @@ REQUIRES HOST sockets@0
 # its own cc and c++.
 FROM /v0.1.3/demos/cmake/Dollyfile-cmake-build 6b88386a24540a021ef375f8626f27f5778bd692d094d9ffde231b905c0279ae
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL /v0.1.3/demos/python/Dollyfile-python c7fc8386cc27d9da435ffeed4c4ace5b1cfdd64a4abc027ed36f2a276639a8e9
+INSTALL /v0.1.3/demos/python/Dollyfile-python f34c9254bb45890a846b1fd774880ba9e7dd3577c1602404da6b20449a6176af
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python

@@ -13,3 +13,14 @@ SOURCE /v0.1.3/dist/static/speech/silero-vad.gguf 0d871a800c420fdd5d1b17a3aea429
 EXPORTS TOOL   speech-to-text
 EXPORTS FILE   silero-vad          /usr/share/dolly/speech/silero-vad.gguf
 EXPORTS FOLDER transcribe-licenses /usr/share/licenses/transcribe.cpp
+FILE /usr/share/man/cat1/speech-to-text.1
+    speech-to-text: writes what the microphone hears as text, in English:
+    transcribe.cpp with NVIDIA's Parakeet model and Silero's voice detector.
+    
+      speech-to-text [MODEL.gguf [DETECTOR.gguf]]
+    
+    Words appear while they are spoken: the line is shown dim and revised until
+    1.5 s without speech end it; after 15 s a breath ends it, at 30 s it ends
+    anyway. Ctrl+C leaves. It needs microphone@0, and the browser asks for the
+    microphone, which is open only while it listens. Nothing that is said leaves
+    the page: the model runs in the session.

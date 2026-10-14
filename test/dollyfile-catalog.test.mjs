@@ -54,3 +54,13 @@ test("a recipe that offers Slop names it as SHELL", async () => {
       `${image} exports the tool slop without EXPORTS ENV SHELL /bin/slop`);
   }
 });
+
+test("a package that brings a command brings its manual page", async () => {
+  const under = (root, path) => path === root || path.startsWith(`${root}/`);
+  for (const definition of await discoverImageDefinitions(projectDir)) {
+    const recipe = (await loadProjectGraph(definition.filename)).root;
+    if (recipe.role !== "package" || !recipe.exports.some(({ type }) => type === "TOOL")) continue;
+    const retained = [...recipe.files, ...recipe.folders].map(({ path }) => path);
+    assert.ok(retained.some(path => under("/usr/share/man", path)), `${definition.image}: no page under /usr/share/man`);
+  }
+});

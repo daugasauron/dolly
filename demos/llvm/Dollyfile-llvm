@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # The compiler llvm-cc built inside Dolly, beside the seed's: llvm-cc and
 # llvm-c++ run it as cc and c++ run the seed compiler, on the same headers
 # and libraries.
-COPY /v0.1.3/demos/llvm/Dollyfile-llvm-cc c936018bf4c38e8fef81d9f9167d50997e785c610790214ac0b3fd907cb0e702 /usr/libexec/dolly/process-bin/compiler /usr/lib/llvm/compiler
+COPY /v0.1.3/demos/llvm/Dollyfile-llvm-cc 8f8227ce30827c5ca6873e213da9bd010b95fdf8311f94cef4c00574a2bd9679 /usr/libexec/dolly/process-bin/compiler /usr/lib/llvm/compiler
 INSTALL /v0.1.3/Dollyfile-cc 9b2ee0e1f23927fb8f8837a7523e077dfb21e33a8b686d7e9379df05ca00387a
 FILE /usr/bin/llvm-cc
     #!/bin/slop
@@ -22,3 +22,13 @@ SOURCE /v0.1.3/dist/static/llvm/licenses/lld f7891568956e34643eb6a0db1462db30820
 FILE /usr/share/licenses/llvm/LICENSE.TXT
 FILE /usr/share/licenses/clang/LICENSE.TXT
 FILE /usr/share/licenses/lld/LICENSE.TXT
+FILE /usr/share/man/cat1/llvm-cc.1
+    llvm-cc, llvm-c++: Clang and LLD of LLVM 24 as built inside Dolly by its
+    own cc, from the seed compiler's pinned sources, beside the cc package.
+    
+      llvm-cc main.c -o main        as cc main.c -o main
+      llvm-c++ main.cpp -o main     as c++
+    
+    They take the options cc and c++ take. The image that links them checks
+    that they give the seed compiler's bytes for two programs and a sample of
+    LLVM's own sources. cc stays the seed's.

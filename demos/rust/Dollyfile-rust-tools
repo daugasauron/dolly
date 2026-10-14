@@ -12,7 +12,7 @@ REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM /v0.1.3/Dollyfile-system d86b976cfb9b016015a63fd70d21f46c5bba492c5b58cc779968bb77dff21726
-INSTALL /v0.1.3/demos/rust/Dollyfile-rust 89d9118880e13e4acd6f0218636d0716e8f22898b8f4a4135fc94b4ca5562c80
-INSTALL /v0.1.3/demos/rust/Dollyfile-cargo 216a316a54754a21c54a7cc8b745bd9774e2955778ffdd0a4a34de34085227ff
+INSTALL /v0.1.3/demos/rust/Dollyfile-rust 31826682782922e533fe442dbd423228dc4cfab28063ae26c4399ccb44126062
+INSTALL /v0.1.3/demos/rust/Dollyfile-cargo 826ee1101be29724551d5950d72664c1a19bd2993808ea69da91e6e4e9584c22
 
 ENTRY /bin/foreground -i /bin/slop

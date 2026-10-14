@@ -12,3 +12,13 @@ EXPORTS TOOL   cmake
 EXPORTS FOLDER cmake-data /usr/share/cmake-4.4
 FILE /usr/share/licenses/cmake/LICENSE.rst
 FILE /usr/share/licenses/libuv/LICENSE
+FILE /usr/share/man/cat1/cmake.1
+    cmake: CMake bootstrapped from upstream's source inside Dolly, with the cc
+    package it configures and builds with.
+    
+      cmake -S . -B build           configures, for Unix Makefiles
+      cmake --build build           builds through make
+      cmake --help                  every option
+    
+    The platform is Dolly's (Platform/Dolly.cmake): CMAKE_SYSTEM_NAME is Dolly.
+    Upstream's documentation: https://cmake.org/cmake/help/latest/

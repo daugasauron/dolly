@@ -56,3 +56,14 @@ EXPORTS TOOL vi
 EXPORTS TOOL ex
 FILE /usr/share/licenses/vi/LICENSE
 FILE /usr/share/doc/vi/README
+FILE /usr/share/man/cat1/vi.1
+    vi, ex: Neatvi, a small vi with an ex mode, from upstream's files unchanged.
+    
+      vi FILE...        edits the files
+      ex FILE...        edits them in ex mode
+      :wq writes and leaves; :q! leaves without writing.
+    
+    It draws with escape sequences of its own and needs no terminal database.
+    What starts another program (:!, a filter through a command, a language
+    server) needs fork, which Dolly does not have: it fails and says so.
+    Upstream's README lists the commands and options: /usr/share/doc/vi/README.

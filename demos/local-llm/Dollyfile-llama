@@ -10,3 +10,16 @@ FROM /v0.1.3/demos/local-llm/Dollyfile-local-llm-build 928e18a0f4fbfe7b33c3dd250
 
 EXPORTS TOOL   dolly-llama
 EXPORTS FOLDER llama-licenses /usr/share/licenses/dolly-llm
+FILE /usr/share/man/cat1/dolly-llama.1
+    dolly-llama: llama.cpp on WebGPU, serving a GGUF model to Pi (provider webgpu).
+    
+      dolly-llama MODEL.gguf    serves the model
+      dolly-llama --check       prints the shader kind this adapter gets
+    
+    Each line of standard input is a request as llama-server takes it at
+    /v1/chat/completions; standard output is the event stream it would answer
+    with, and a field it does not implement is an error naming it. It uses the
+    adapter gpu@0 grants: with shader-f16 llama.cpp's WGSL as upstream wrote it,
+    without it the f16 shader code widened to f32. The chat template, tool
+    calls, stop tokens and sampling defaults are the GGUF's own. Pi's /model,
+    /thinking and /local choose and tune the model.

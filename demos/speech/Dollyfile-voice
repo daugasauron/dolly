@@ -12,3 +12,16 @@ INSTALL /v0.1.3/demos/speech/Dollyfile-parakeet b1282269b272cf0786f7150935adcb63
 
 EXPORTS TOOL   voice
 EXPORTS FOLDER transcribe-licenses /usr/share/licenses/transcribe.cpp
+FILE /usr/share/man/cat1/voice.1
+    voice: types what is said into the terminal program beside it, from a strip
+    of buttons: transcribe.cpp with NVIDIA's Parakeet model.
+    
+      voice MENU [MODEL.gguf]
+    
+    In MENU, "[NAME] caption" begins a page of buttons and "LABEL = TEXT" is a
+    button that types TEXT (\r Enter, \e Escape, \t Tab, \xHH a byte, \w a wait
+    of 0.4 s). After the text, :speak listens and types what was said, :word
+    types it as a search word, :paste types the clipboard and :page NAME shows
+    another page. pi-phone's /etc/dolly/pi.menu is one. It needs buttons@0 and
+    microphone@0; the microphone is open only while it listens, and nothing that
+    is said leaves the page.

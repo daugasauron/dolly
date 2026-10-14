@@ -100,3 +100,14 @@ FILE /tmp/emacs-check.el
     (garbage-collect)
     (princ (format "%s %s\n" emacs-version system-type))
 SLOP timeout 120 emacs --batch -l /tmp/emacs-check.el
+FILE /usr/share/man/cat1/emacs.1
+    emacs: GNU Emacs 31.1 for the terminal, with etags.
+    
+      emacs FILE           edits FILE; C-x C-s saves, C-x C-c leaves
+      emacs --batch ...    runs Lisp without a terminal
+    
+    M-! and M-x compile run Slop commands; M-x shell does not: Slop has no -i.
+    C-g stops Lisp only when it makes a system call. There are no
+    pseudo-terminals, network processes, emacsclient or Lisp threads here, and
+    no Lisp packages are installed from the network. Its manual is inside it:
+    C-h r, and C-h t for the tutorial.

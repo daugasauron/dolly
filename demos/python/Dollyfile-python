@@ -422,3 +422,15 @@ SLOP python \
   -c 'import urllib.request; assert urllib.request.HTTPHandler.__module__ == "_dolly_transport"'
 SLOP pip \
   --version
+FILE /usr/share/man/cat1/python3.1
+    python3, python, pip: CPython and pip, with the cc package pip builds native
+    packages with.
+    
+      python3 SCRIPT          runs a script; python3 alone, the prompt
+      pip install PACKAGE     installs a wheel or builds an sdist
+    
+    An sdist with C code is compiled by cc. One built with Meson (NumPy,
+    Pandas) needs Ninja too: amy install ninja. Its settings for every sdist are
+    in /etc/pip.conf. urllib.request and requests send through the page's HTTP
+    broker and its policy. sys.platform is "dolly"; Emscripten and Pyodide
+    wheels do not fit it. Upstream's documentation: https://docs.python.org/3/

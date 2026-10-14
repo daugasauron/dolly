@@ -6,11 +6,11 @@ REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
 # Cargo as rust-build built it.
-COPY /v0.1.3/demos/rust/Dollyfile-rust-build b81ca9313b5633dc070fb7813594cdbd58c86a418072ca7256c5e5969148305b /usr/bin/cargo /usr/bin/cargo
-COPY /v0.1.3/demos/rust/Dollyfile-rust-build b81ca9313b5633dc070fb7813594cdbd58c86a418072ca7256c5e5969148305b /usr/share/licenses/cargo /usr/share/licenses/cargo
-COPY /v0.1.3/demos/rust/Dollyfile-rust-build b81ca9313b5633dc070fb7813594cdbd58c86a418072ca7256c5e5969148305b /usr/share/dolly/builds/cargo.lock /usr/share/dolly/builds/cargo.lock
+COPY /v0.1.3/demos/rust/Dollyfile-rust-build bf0b52ff81b60d8c90ba9d29ac4a3a310dac24b888b9d6448cb218e0f60d5039 /usr/bin/cargo /usr/bin/cargo
+COPY /v0.1.3/demos/rust/Dollyfile-rust-build bf0b52ff81b60d8c90ba9d29ac4a3a310dac24b888b9d6448cb218e0f60d5039 /usr/share/licenses/cargo /usr/share/licenses/cargo
+COPY /v0.1.3/demos/rust/Dollyfile-rust-build bf0b52ff81b60d8c90ba9d29ac4a3a310dac24b888b9d6448cb218e0f60d5039 /usr/share/dolly/builds/cargo.lock /usr/share/dolly/builds/cargo.lock
 # Cargo runs rustc: the package brings the compiler it was built with.
-INSTALL /v0.1.3/demos/rust/Dollyfile-rust 89d9118880e13e4acd6f0218636d0716e8f22898b8f4a4135fc94b4ca5562c80
+INSTALL /v0.1.3/demos/rust/Dollyfile-rust 31826682782922e533fe442dbd423228dc4cfab28063ae26c4399ccb44126062
 # Until Dolly has file locks: rustc's incremental sessions need them.
 EXPORTS ENV CARGO_INCREMENTAL 0
 # The cc crate's default flags name a target; Dolly's cc has one.
@@ -19,3 +19,17 @@ EXPORTS TOOL cargo
 EXPORTS FOLDER cargo-licenses /usr/share/licenses/cargo
 FILE /usr/share/dolly/builds/cargo.lock
 
+FILE /usr/share/man/cat1/cargo.1
+    cargo: Cargo 1.98.1, built inside Dolly; the rust package is its compiler.
+    
+      cargo build          builds a crate: path and vendored dependencies,
+                           build scripts and procedural macros
+      target/debug/NAME    runs what it built
+    
+    cargo run builds and then fails: Cargo replaces itself with the program
+    (exec), which Dolly does not have. Crate archives come through the page's
+    HTTP broker; crates.io's index needs a relay or a vendored directory. A
+    crate that uses libc needs the SDK's copy, in .cargo/config.toml:
+      [patch.crates-io] libc = { path = "/opt/rust-sdk/src/libc" }
+    Incremental builds are off (CARGO_INCREMENTAL=0). There is no cargo search,
+    publish or login. Upstream's book: https://doc.rust-lang.org/cargo/

@@ -6,8 +6,8 @@ REQUIRES HOST threads@0
 
 # The Rust SDK as rust-build built it. Its rustc finds its sysroot beside
 # itself, so /usr/bin/rustc starts it by its own path.
-COPY /v0.1.3/demos/rust/Dollyfile-rust-build b81ca9313b5633dc070fb7813594cdbd58c86a418072ca7256c5e5969148305b /opt/rust-sdk /opt/rust-sdk
-COPY /v0.1.3/demos/rust/Dollyfile-rust-build b81ca9313b5633dc070fb7813594cdbd58c86a418072ca7256c5e5969148305b /usr/share/licenses/rust /usr/share/licenses/rust
+COPY /v0.1.3/demos/rust/Dollyfile-rust-build bf0b52ff81b60d8c90ba9d29ac4a3a310dac24b888b9d6448cb218e0f60d5039 /opt/rust-sdk /opt/rust-sdk
+COPY /v0.1.3/demos/rust/Dollyfile-rust-build bf0b52ff81b60d8c90ba9d29ac4a3a310dac24b888b9d6448cb218e0f60d5039 /usr/share/licenses/rust /usr/share/licenses/rust
 # rustc links what it compiles with the C toolchain.
 INSTALL /v0.1.3/Dollyfile-cc 9b2ee0e1f23927fb8f8837a7523e077dfb21e33a8b686d7e9379df05ca00387a
 FILE /usr/bin/rustc
@@ -16,3 +16,14 @@ FILE /usr/bin/rustc
 EXPORTS TOOL rustc
 EXPORTS FOLDER rust-sdk /opt/rust-sdk
 EXPORTS FOLDER rust-licenses /usr/share/licenses/rust
+FILE /usr/share/man/cat1/rustc.1
+    rustc: the Rust compiler and standard library, built inside Dolly from their
+    pinned sources (Rust 1.98.1, its LLVM 22.1.8).
+    
+      rustc main.rs -o main     compiles a program; cc links it
+      cargo build               builds a crate (the cargo package)
+    
+    Programs are compiled with panics that abort, and there are no dynamic Rust
+    libraries. Executables link threaded and need threads@0 in the image that
+    runs them. The compiler loads procedural macros, so an image that keeps
+    rustc declares dso@0. Upstream's documentation: https://doc.rust-lang.org/

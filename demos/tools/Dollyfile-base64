@@ -51,3 +51,14 @@ EXPORTS TOOL   base64
 EXPORTS LIB    base64    /usr/lib/libbase64.a
 EXPORTS HEADER libbase64 /usr/include/libbase64.h
 FILE /usr/share/licenses/base64/LICENSE
+FILE /usr/share/man/cat1/base64.1
+    base64: encode a file as Base64 on standard output, or decode one
+    (Alfred Klomp's base64, with the plain C codec only).
+    
+      base64 [-w COLS] [FILE]   encodes, wrapping lines at COLS (76; 0: none)
+      base64 -d [FILE]          decodes
+      base64 --help             prints the options
+    
+    Without FILE, or with -, it reads standard input. The library it is built
+    on is installed too: /usr/lib/libbase64.a and /usr/include/libbase64.h, for
+    programs the cc package builds.

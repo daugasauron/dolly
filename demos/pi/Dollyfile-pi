@@ -8,8 +8,8 @@ REQUIRES HOST threads@0
 FROM /v0.1.3/Dollyfile-system d86b976cfb9b016015a63fd70d21f46c5bba492c5b58cc779968bb77dff21726
 INSTALL /v0.1.3/demos/javascript/Dollyfile-janis 1dbab2958b7e0d08836fa88cd4c7a724ca4a26a5d797cc0e90ccf8fc8a75ace9
 
-INSTALL /v0.1.3/demos/rust/Dollyfile-ripgrep 5849e04a06f55e7939e448b494df4434ae4f997f3275a163bd4f8174ebaa089e
-INSTALL /v0.1.3/demos/rust/Dollyfile-fd b8450f10cdd56ebdfa28cf8ceb70485929b960344ef1ca82a8dfa7d907716677
+INSTALL /v0.1.3/demos/rust/Dollyfile-ripgrep 7423d844399073c99690d4b09a3d5ec0d65e8f257944fa836658caca118a7976
+INSTALL /v0.1.3/demos/rust/Dollyfile-fd a62b4633893dabab29317f1ee02ceb6758630cd898d2b6cd4a23097aef06336c
 COPY /v0.1.3/demos/pi/Dollyfile-pi-build 5227bbed616d8c98976f0fe795aa0dcdecde74f18e4bf8e2d87ba88f9bda5b4b /usr/bin/pi /usr/bin/pi
 COPY /v0.1.3/demos/pi/Dollyfile-pi-build 5227bbed616d8c98976f0fe795aa0dcdecde74f18e4bf8e2d87ba88f9bda5b4b /usr/lib/node_modules /usr/lib/node_modules
 COPY /v0.1.3/demos/pi/Dollyfile-pi-build 5227bbed616d8c98976f0fe795aa0dcdecde74f18e4bf8e2d87ba88f9bda5b4b /usr/src/pi-source /usr/src/pi-source
@@ -31,3 +31,17 @@ FILE /home/dolly/.pi/agent/themes/dolly.json
 FILE /home/dolly/.pi/agent/skills/dolly/SKILL.md
 
 SLOP pi --version
+FILE /usr/share/man/cat1/pi.1
+    pi: the Pi coding agent, unforked, running under QuickJS-ng and Janis, with
+    the janis, ripgrep and fd packages.
+    
+      pi                 starts the agent; /exit or Ctrl+D leaves it
+      pi --offline       no network at startup; model requests still go out
+    
+    Its bash tool and ! run Slop, and a download tool hands a file to the page.
+    Requests go through the page's HTTP broker and its policy; OAuth logins
+    depend on the provider's CORS, and there is no callback listener.
+    Conversations are in ~/.pi/agent/sessions (pi --resume), credentials in
+    ~/.pi/agent/auth.json: a saved session keeps them. There is no npm client:
+    Pi packages that need npm or native addons fail to install;
+    dependency-free JavaScript extensions go in ~/.pi/agent/extensions/.
