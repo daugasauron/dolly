@@ -7,6 +7,8 @@ if has_image zig-llvm-build; then
     "${zig_llvm_dir}/lib" /usr/lib/zig \
     "${zig_llvm_dir}/stage1/zig1.wasm" /tmp/zig/stage1/zig1.wasm \
     "${zig_llvm_dir}/stage1/config.zig.in" /tmp/zig/stage1/config.zig.in \
+    "${zig_llvm_dir}/stage1/wasi.c" /tmp/zig/stage1/wasi.c \
+    "${zig_llvm_dir}/stage1/panic.h" /tmp/zig/stage1/panic.h \
     "${zig_llvm_dir}/LICENSE" /usr/share/licenses/zig/LICENSE
   node scripts/build-source-tar.mjs "${static_dir}/zig-llvm/wamr.tar" \
     "${zig_llvm_wamr}/core" /tmp/wamr/core \
