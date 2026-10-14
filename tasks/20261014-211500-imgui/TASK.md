@@ -17,7 +17,7 @@ timer thread there unless it is Emscripten's threadless build; Dolly's
 programs see `__dolly__`, so the init failed for want of threads. Fixed in
 `sdl2-dolly.patch`: without threads the subsystem starts without one and
 `SDL_AddTimer` says it needs one. `imgui-browser.mjs` passed in Chromium
-(02:00, 3.6 s); both browsers are in the round's demo suite.
+(02:00, 3.6 s); it now runs Firefox too, in the round's demo suite.
 
 `imgui-x11` (`demos/sdl2`) builds SDL2 again where X's libraries are, so it
 has upstream's X11 video driver, and links the same example: in
