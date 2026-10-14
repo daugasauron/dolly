@@ -1,15 +1,47 @@
 # Dolly
 
-Dolly is a minimal POSIX-like userspace for coding agents inside a browser's
-wasm64 sandbox. A Wasm kernel owns the filesystem, descriptors and processes;
-shells, compilers, Git and agents run as ordinary private Wasm processes. The
-browser supplies no host files or native subprocesses. The experiment is the
-compile target, not Linux emulation: see [AGENTS.md](AGENTS.md) and the
-[architecture](docs/architecture.md).
+> "So here's the GIMP running inside Chrome with Chrome inside Firefox."
+>
+> Gary Bernhardt, [The Birth & Death of JavaScript](https://www.destroyallsoftware.com/talks/the-birth-and-death-of-javascript), PyCon 2014
 
-The product is the modular runtime (kernel, host modules, process model, ABI,
-trusted browser code) plus a minimal POSIX userspace. Everything else is a
-[demo](demos/README.md) in `demos/DEMO/`; the core never depends on a demo.
+Dolly is a tribute to that talk. Progress on his timeline, as of 2026:
+
+- **2013, asm.js:** done, then quietly replaced by WebAssembly.
+- **The late teens, the dev tools move in:** a shell, CPython, Git, a C
+  compiler, Emacs, Neovim.
+- **The war:** we don't talk about the war.
+- **2025, "thick, extremely large applications":** 0 A.D., Xonotic, and GIMP
+  inside Wine inside Dolly inside Chrome. One layer deeper, one year late.
+- **METAL:** in progress. Kernel inside the VM: done. VM inside the kernel:
+  next.
+- **The death of JavaScript:** the page that boots Dolly is written in it.
+  Don't tell anyone.
+
+Dolly is a modular POSIX-ish userspace that runs in a browser tab. It builds
+itself: you only need a compiler. From a wasm64 kernel and a C/C++ compiler,
+the recipes build everything else in the tab from upstream source: the shell,
+Make, Git, CPython, Zig, and the terminal, a framebuffer drawn by Ghostty's VT
+library built with that Zig. The [LLVM demo](demos/llvm/README.md) rebuilds
+the compiler and gets the same bytes back.
+
+The exception is Rust. Rust is written in Rust, so its first compiler comes
+from outside. After an LLVM, two rustc generations and fifty minutes of
+building, you get a better grep.
+
+What it can do is shown by what has been ported ([demos](demos/README.md)):
+CPython, Git, Emacs, Neovim, tmux, Rust and Cargo, CMake, LLVM, Codex, Pi,
+Claude Code, Wine with Paint, NetSurf and GIMP, 0 A.D. and Xonotic.
+
+It is one sandbox. Programs reach the browser only through a fixed set of
+host modules, and the network only through one HTTP(S) broker, managed on the
+browser side ([boundary](#boundary)).
+
+The core is the modular runtime (kernel, host modules, process model, ABI,
+trusted browser code) and a small POSIX-ish userspace that packages extend.
+Everything else is a demo in `demos/`; the core never depends on one. See
+[AGENTS.md](AGENTS.md) and the [architecture](docs/architecture.md).
+
+Maybe everything was already written once to run anywhere.
 
 ## Core images
 

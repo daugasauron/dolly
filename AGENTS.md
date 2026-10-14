@@ -1,18 +1,22 @@
 # Goal
 
-Define a minimal but useful POSIX-like agent userspace interface for WebAssembly.
-The final goal is to run agents such as pi agent as natively as possible in a
-browser with the tools that coding agents actually need to be useful.
+Define a minimal but useful POSIX-like interface for WebAssembly and a modular
+userspace on it, and run real programs in a browser tab as natively as
+possible, built from their upstream sources inside the sandbox itself: from
+a compiler seed, Dolly builds the rest, its terminal included. The ported
+programs (shells, compilers, editors, coding agents, Wine, games) are the
+evidence: each one exercises the interface.
 
-A secondary goal is to define the API an agent operates against, so it can be
+A secondary goal is to define the API programs operate against, so it can be
 specialized independently of the backend (currently the browser).
 
 # Thesis
 
-Agents are effective through shells and conventional command-line tools, but
-they may not need a complete operating system. Dolly should provide the useful
-parts: programs, arguments, environment, files, clocks, entropy, networking,
-and lifecycle operations.
+Programs, agents among them, are effective through a shell, files and
+conventional tools, but they may not need a complete operating system. Dolly
+should provide the useful parts: programs, arguments, environment, files,
+clocks, entropy, networking, and lifecycle operations, in one sandbox whose
+only network edge is a broker the browser side controls.
 
 The compile target for programs and runtimes inside the WebAssembly sandbox is
 the interface. Its Wasm imports, exports, data layout, pointer width, filesystem
