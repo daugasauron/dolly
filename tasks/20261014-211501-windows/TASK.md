@@ -31,6 +31,11 @@ reads end-of-file when the slave side closes (Linux: EIO); children die with
 their parent, so twm's menu cannot start programs; Python has no
 `os.geteuid` (`meson install` needs it).
 
+Then (2026-10-15, 02:30, merged into `integrate/round-1014b`): Dear ImGui's
+example as an X client in a window of its own (`imgui-x11`, SDL2's own X11
+driver; `x11-browser.mjs` in both browsers, 56 frames a second), and the
+screen grew to 1600x900 for its 1280x800 window.
+
 Next on this path is GTK ([Ghostty in X11](../20261014-232500-ghostty-x11/TASK.md)).
 
 ## State (2026-10-14, 21:15): measured, the owner's to choose
