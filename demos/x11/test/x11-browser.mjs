@@ -130,10 +130,10 @@ for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", ti
   await page.screenshot({ path: `${evidence}${browser}-xterm.png` });
 
   // ImGui's example, centred, 1280x800: its clear colour (0.45, 0.55, 0.60)
-  // fills the corner its own windows leave.
+  // fills what its own windows leave, below the first of them.
   await type(page, "imgui-x11 &\n");
   await page.waitForFunction(() => {
-    const data = document.querySelector("#display").getContext("2d").getImageData(1100, 650, 300, 150).data;
+    const data = document.querySelector("#display").getContext("2d").getImageData(300, 500, 300, 150).data;
     let clear = 0;
     for (let i = 0; i < data.length; i += 4) {
       clear += Math.abs(data[i] - 115) < 3 && Math.abs(data[i + 1] - 140) < 3 && Math.abs(data[i + 2] - 153) < 3;
