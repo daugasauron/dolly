@@ -34,6 +34,12 @@ EXPORTS LIB    z     /usr/lib/libz.a
 EXPORTS HEADER zlib  /usr/include/zlib.h
 EXPORTS HEADER zconf /usr/include/zconf.h
 FILE /usr/share/licenses/zlib/LICENSE
+# What pkg-config tells a build that asks for zlib.
+FILE /usr/lib/pkgconfig/zlib.pc
+    Name: zlib
+    Description: zlib compression library
+    Version: 1.3.2
+    Libs: -lz
 
 SLOP rm \
   -rf \

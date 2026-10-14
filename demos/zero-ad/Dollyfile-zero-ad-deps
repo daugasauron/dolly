@@ -8,11 +8,14 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-# Build-only: the libraries the 0 A.D. engine links, and pkgconf for its premake
-# scripts, built from the pinned upstream sources of build-sources.tsv.
-FROM /v0.1.3/demos/zero-ad/Dollyfile-openal-build 1aadcac5b3dc773358a4730429aa53758a3cd28cddf2229dc42ce038175c083c
-COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 f06a9acdb133932a8b6df5f490b2ff48b98fdb95b064bdcab1fa4a80d3c13fd7 /usr/include/SDL2 /usr/include/SDL2
-COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 f06a9acdb133932a8b6df5f490b2ff48b98fdb95b064bdcab1fa4a80d3c13fd7 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+# Build-only: the libraries the 0 A.D. engine links, built from the pinned
+# upstream sources of build-sources.tsv, with FreeType and libpng installed and
+# pkgconf for its premake scripts.
+FROM /v0.1.3/demos/zero-ad/Dollyfile-openal-build b5c71acd248b7458d1f54e12bf22938e78b53a70ddc3199796b40ff090d5c82b
+INSTALL /v0.1.3/demos/zero-ad/Dollyfile-pkgconf 4f1b0eac9b4ed21db4472fc506a9a0fe11f90e1145f6b609137d98b3cd86e325
+INSTALL /v0.1.3/demos/zero-ad/Dollyfile-freetype 92185d687caed9c250af6a68f251ce52835ff057e828db1a6c51766d7eb63e0f
+COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 c1c29c0f5f32fb4773f20cb80c394c41b9f5edf789bec380e64953e93c711fd8 /usr/include/SDL2 /usr/include/SDL2
+COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 c1c29c0f5f32fb4773f20cb80c394c41b9f5edf789bec380e64953e93c711fd8 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES HEADER zlib
@@ -33,28 +36,8 @@ REQUIRES TOOL mkdir
 SOURCE /v0.1.3/dist/static/zero-ad-build/deps.tar.gz 70cd7adb14d05e83a61b096a3515cf11b93dd95b2d31ef705896998d8712ac77 /tmp/zad/deps.tar.gz
 SLOP gzip -dc /tmp/zad/deps.tar.gz | tar -xf - -C /
 # Licences of the libraries the engine links; zero-ad copies them.
-COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 f06a9acdb133932a8b6df5f490b2ff48b98fdb95b064bdcab1fa4a80d3c13fd7 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 c1c29c0f5f32fb4773f20cb80c394c41b9f5edf789bec380e64953e93c711fd8 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 FOLDER /usr/share/licenses
-
-# Upstream builds pkgconf with Meson; these are the values its configure step finds here.
-FILE /tmp/zad/pkgconf/libpkgconf/config.h
-    #define HAVE_STRLCAT 1
-    #define HAVE_STRLCPY 1
-    #define HAVE_STRNDUP 1
-    #define HAVE_REALLOCARRAY 1
-    #define HAVE_DECL_STRLCAT 1
-    #define HAVE_DECL_STRLCPY 1
-    #define HAVE_DECL_STRNDUP 1
-    #define HAVE_DECL_REALLOCARRAY 1
-    #define HAVE_DECL_PLEDGE 0
-    #define HAVE_DECL_UNVEIL 0
-    #define PACKAGE_NAME "pkgconf"
-    #define PACKAGE_VERSION "2.5.1"
-    #define PACKAGE_BUGREPORT "https://todo.sr.ht/~kaniini/pkgconf"
-    #define PKG_DEFAULT_PATH "/usr/lib/pkgconfig:/usr/share/pkgconfig"
-    #define SYSTEM_INCLUDEDIR "/usr/include"
-    #define SYSTEM_LIBDIR "/usr/lib"
-    #define PERSONALITY_PATH "/usr/lib/pkgconfig/personality.d:/usr/share/pkgconfig/personality.d"
 
 # Libraries without a build system usable here (autotools; ICU's port list) compile
 # every source of their directories, as Emscripten's ports and libsodium's build.zig do.
@@ -72,9 +55,6 @@ FILE /tmp/zad/objects.mk
 
 FILE /tmp/zad/build.slop
     set -ex
-    cd /tmp/zad/pkgconf
-    cc -O2 -std=gnu99 -D_BSD_SOURCE -D_DEFAULT_SOURCE -DPKGCONFIG_IS_STATIC -I. libpkgconf/*.c cli/main.c cli/getopt_long.c cli/renderer-msvc.c -o /usr/bin/pkgconf
-    ln -s pkgconf /usr/bin/pkg-config
     cmake_build() {
       name=$1
       shift
@@ -84,8 +64,6 @@ FILE /tmp/zad/build.slop
       cmake --build /tmp/zad/build/$name -j4
       cmake --install /tmp/zad/build/$name
     }
-    cmake_build png -DPNG_SHARED=OFF -DPNG_TESTS=OFF -DPNG_TOOLS=OFF -DPNG_EXECUTABLES=OFF
-    cmake_build freetype -DFT_DISABLE_BZIP2=ON -DFT_DISABLE_HARFBUZZ=ON -DFT_DISABLE_BROTLI=ON -DFT_REQUIRE_ZLIB=ON -DFT_REQUIRE_PNG=ON
     cmake_build ogg -DINSTALL_DOCS=OFF -DBUILD_TESTING=OFF
     cmake_build vorbis
     cmake_build fmt -DFMT_TEST=OFF -DFMT_DOC=OFF
@@ -124,11 +102,6 @@ FILE /usr/lib/pkgconfig/sdl2.pc
     Version: 2.32.10
     Cflags: -I/usr/include/SDL2
     Libs: -lSDL2 -lm
-FILE /usr/lib/pkgconfig/zlib.pc
-    Name: zlib
-    Description: zlib compression library
-    Version: 1.3.2
-    Libs: -lz
 FILE /usr/lib/pkgconfig/libcurl.pc
     Name: libcurl
     Description: Dolly's libcurl over the HTTP broker
@@ -164,14 +137,7 @@ SLOP cc -O1 /tmp/zad/enet-check.c -lenet -o /usr/libexec/zero-ad/enet-check
 SLOP c++ -O1 /tmp/zad/openal-check.cpp -lopenal -lm -o /usr/libexec/zero-ad/openal-check
 FOLDER /usr/libexec/zero-ad
 
-EXPORTS TOOL pkgconf
-EXPORTS TOOL pkg-config
 EXPORTS FOLDER zero-ad-pkgconfig /usr/lib/pkgconfig
-EXPORTS HEADER png /usr/include/png.h
-EXPORTS HEADER pngconf /usr/include/pngconf.h
-EXPORTS HEADER pnglibconf /usr/include/pnglibconf.h
-EXPORTS HEADER libpng16 /usr/include/libpng16
-EXPORTS HEADER freetype2 /usr/include/freetype2
 EXPORTS HEADER ogg /usr/include/ogg
 EXPORTS HEADER vorbis /usr/include/vorbis
 EXPORTS HEADER fmt /usr/include/fmt
@@ -181,8 +147,6 @@ EXPORTS HEADER sodium /usr/include/sodium
 EXPORTS HEADER sodium.h /usr/include/sodium.h
 EXPORTS HEADER enet /usr/include/enet
 EXPORTS HEADER boost /usr/include/boost
-EXPORTS LIB png16 /usr/lib/libpng16.a
-EXPORTS LIB freetype /usr/lib/libfreetype.a
 EXPORTS LIB ogg /usr/lib/libogg.a
 EXPORTS LIB vorbis /usr/lib/libvorbis.a
 EXPORTS LIB vorbisfile /usr/lib/libvorbisfile.a

@@ -8,7 +8,7 @@ REQUIRES HOST runtime@0
 # with its own escape sequences and reads no terminal database. Its makefile
 # asks the compiler ten questions through a shell that Slop is not;
 # feature.h holds the answers.
-FROM /v0.1.3/demos/tools/Dollyfile-tools-build 9850648c2874d3c986e2ef70f371106631b18def7b4ffa01ab56d9689c985dce
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 59140f9e5f99f0cf28716e23e7ccffd1fd33b7cf65188bd6ffbc4ba7b0a6eadc
 
 REQUIRES HEADER libc
 REQUIRES TOOL   awk

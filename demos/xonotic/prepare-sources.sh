@@ -1,14 +1,17 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_image xonotic-build; then
-  xonotic_dir="$(bash demos/xonotic/prepare-xonotic.sh)"
+if has_image libjpeg; then
   jpeg_archive="$(bash scripts/fetch-pinned-archive.sh jpeg)"
   jpeg_dir="build/generated/jpeg-$(source config/source-pins.sh && echo "${DOLLY_JPEG_VERSION}")"
   if [[ ! -d "${jpeg_dir}" ]]; then mkdir -p build/generated && tar -xzf "${jpeg_archive}" -C build/generated; fi
+  node scripts/build-source-tar.mjs "${static_dir}/libjpeg/source.tar.gz" \
+    "${jpeg_dir}" /tmp/libjpeg/source \
+    "${jpeg_dir}/README" /usr/share/licenses/libjpeg/README
+fi
+if has_image xonotic-build; then
+  xonotic_dir="$(bash demos/xonotic/prepare-xonotic.sh)"
   # The MIT notice of qcsrc/lib/csqcmodel is the header of each of its files.
   sed -n '1,/^ \*\/$/p' "${xonotic_dir}/qcsrc/lib/csqcmodel/cl_model.qc" > build/generated/xonotic-csqcmodel-COPYING
   node scripts/build-source-tar.mjs "${static_dir}/xonotic/source.tar.gz" \
-    "${jpeg_dir}" /usr/src/xonotic/jpeg \
-    "${jpeg_dir}/README" /usr/share/licenses/libjpeg/README \
     "${xonotic_dir}/darkplaces" /usr/src/xonotic/darkplaces \
     "${xonotic_dir}/d0_blind_id" /usr/src/xonotic/d0_blind_id \
     "${xonotic_dir}/gmqcc" /usr/src/xonotic/gmqcc \

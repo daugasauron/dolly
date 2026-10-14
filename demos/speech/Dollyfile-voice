@@ -7,7 +7,7 @@ REQUIRES HOST threads@0
 
 # voice as speech-build links it against transcribe.cpp, with the model it
 # reads: buttons and speech in the place of a keyboard, beside a terminal program.
-FROM /v0.1.3/demos/speech/Dollyfile-speech-build c586b37ba0d1cac0d2e0f43cdb3ddb64eda276d88be3c0c721850c2eb8e76d14
+FROM /v0.1.3/demos/speech/Dollyfile-speech-build cd0e747b55b1ff7e173b077815e8a6e90bfe3d56644731a975837a2f8c50026e
 INSTALL /v0.1.3/demos/speech/Dollyfile-parakeet b1282269b272cf0786f7150935adcb63a4b250892429350ea3b6878f192ade81
 
 EXPORTS TOOL   voice

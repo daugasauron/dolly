@@ -2,12 +2,44 @@ DOLLY 7
 PACKAGE pkgconf
 REQUIRES HOST runtime@0
 
-# pkgconf as zero-ad-deps compiles it, and pkg-config, its other name: it
-# reads the .pc files that libraries install into /usr/lib/pkgconfig.
-FROM /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps 8723323ff4a37dd3647003653c118baf21662f01bb66dad0f37fe60f7fb43570
+# pkgconf from upstream's release archive, unchanged, and pkg-config, its other
+# name: it reads the .pc files that libraries install into /usr/lib/pkgconfig.
+# Upstream builds it with Meson; config.h holds the values its configure step
+# finds here.
+FROM /v0.1.3/Dollyfile-system-tools eb44474251734b63b78902cc2d565ccdfdf3b7f8f6ad1dadb8d2c5400363cce9
+REQUIRES HEADER libc
+REQUIRES TOOL cc
+REQUIRES TOOL ln
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /v0.1.3/dist/static/pkgconf/source.tar 0000000000000000000000000000000000000000000000000000000000000000 /tmp/pkgconf.tar
+SLOP tar -xf /tmp/pkgconf.tar -C /
+FILE /tmp/pkgconf/libpkgconf/config.h
+    #define HAVE_STRLCAT 1
+    #define HAVE_STRLCPY 1
+    #define HAVE_STRNDUP 1
+    #define HAVE_REALLOCARRAY 1
+    #define HAVE_DECL_STRLCAT 1
+    #define HAVE_DECL_STRLCPY 1
+    #define HAVE_DECL_STRNDUP 1
+    #define HAVE_DECL_REALLOCARRAY 1
+    #define HAVE_DECL_PLEDGE 0
+    #define HAVE_DECL_UNVEIL 0
+    #define PACKAGE_NAME "pkgconf"
+    #define PACKAGE_VERSION "2.5.1"
+    #define PACKAGE_BUGREPORT "https://todo.sr.ht/~kaniini/pkgconf"
+    #define PKG_DEFAULT_PATH "/usr/lib/pkgconfig:/usr/share/pkgconfig"
+    #define SYSTEM_INCLUDEDIR "/usr/include"
+    #define SYSTEM_LIBDIR "/usr/lib"
+    #define PERSONALITY_PATH "/usr/lib/pkgconfig/personality.d:/usr/share/pkgconfig/personality.d"
+SLOP CWD /tmp/pkgconf cc -O2 -std=gnu99 -D_BSD_SOURCE -D_DEFAULT_SOURCE -DPKGCONFIG_IS_STATIC -I. \
+  libpkgconf/*.c cli/main.c cli/getopt_long.c cli/renderer-msvc.c -o /usr/bin/pkgconf
+SLOP ln -s pkgconf /usr/bin/pkg-config
 
 EXPORTS TOOL pkgconf
 EXPORTS TOOL pkg-config
 SLOP pkgconf --help > /usr/share/man/cat1/pkgconf.1
 FILE /usr/share/man/cat1/pkgconf.1
 FILE /usr/share/licenses/pkgconf/COPYING
+SLOP rm -rf /tmp/pkgconf /tmp/pkgconf.tar

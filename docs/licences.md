@@ -130,19 +130,20 @@ compiled into its `libjsrust.a` (Mozilla's own crates are MPL-2.0).
 ## Xonotic
 
 Xonotic 0.8.6 is built in Dolly: `xonotic-build` compiles DarkPlaces
-(GPL-2.0-or-later), gmqcc (MIT), IJG libjpeg 9f (its own licence, the
-`README` kept as `/usr/share/licenses/libjpeg/README`) and Dolly's files for
-the port from `xonotic/source.tar.gz`, the release's source zip plus
-libjpeg's tarball, which the site serves as a recipe input together with the
+(GPL-2.0-or-later), gmqcc (MIT) and Dolly's files for the port from
+`xonotic/source.tar.gz`, the release's source zip, and links IJG libjpeg 9f
+(its own licence, the `README` kept as `/usr/share/licenses/libjpeg/README`),
+which the `libjpeg` package builds from `libjpeg/source.tar.gz`; the site
+serves both as recipe inputs, together with the
 QuakeC game logic (`qcsrc`, GPL-3.0-or-later; `lib/warpzone` MIT or
 GPL-2.0-or-later, `lib/csqcmodel` MIT) that gmqcc compiles there.
 Dolly's own files compiled into the engine, `demos/xonotic/Makefile` and
 `simd-unit.c`, carry `SPDX-License-Identifier: GPL-2.0-or-later`; the six
 hunks of `darkplaces-dolly.patch` change engine files and take the engine's
-licence. FreeType and libpng come as static libraries copied from
-`zero-ad-deps` with their licence files; FreeType is used under its GPL
-option, as in 0 A.D., and its source, `zero-ad-build/deps.tar.gz`, is in the
-`xonotic` closure the site serves. The `xonotic` image takes the release's
+licence. FreeType and libpng come as static libraries from their packages,
+with their licence files; FreeType is used under its GPL option, as in 0 A.D.,
+and its source, `freetype/source.tar.gz`, is in the `xonotic` closure the
+site serves. The `xonotic` image takes the release's
 `data`, `maps` and font archives unmodified as prebuilt files
 (`xonotic/data/`, GPL-3.0-or-later by Xonotic's `COPYING`; the compiled
 `progs.dat`, `csprogs.dat` and `menu.dat` inside `data.pk3` are the

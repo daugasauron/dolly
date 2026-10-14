@@ -16,6 +16,8 @@ in the task). No sound yet. The task is `tasks/20261006-122433-xonotic/TASK.md`.
   package; the engine, gmqcc and `qcsrc` stay under `/usr/src/xonotic`, and
   `make -f /usr/src/dolly/xonotic/Makefile qc` compiles `progs.dat`,
   `csprogs.dat` and `menu.dat` into `/tmp/xonotic/build/qc`.
+- `libjpeg`: IJG libjpeg 9f, a library for programs the `cc` package builds;
+  it brings no compiler.
 - `xonotic`: the client with the release's data, maps and font archives
   (946 MB) under `/usr/share/xonotic/data`; `/xonotic/` starts `xonotic`,
   the client in software at 1024×768, and leaves the shell when it quits.
@@ -65,9 +67,9 @@ the task records the measurements).
   Everything else is unchanged upstream; the engine sees `__dolly__`, never
   `__linux__`.
 - Without `dlopen`, the libraries the engine would load at run time are
-  linked as upstream's Android build links them: IJG libjpeg 9f, built in
-  the image from its pinned source (`LINK_TO_LIBJPEG`), and FreeType with its
-  libpng copied from the `zero-ad-deps` build (`DP_FREETYPE_STATIC`). PNG
+  linked as upstream's Android build links them: IJG libjpeg 9f
+  (`LINK_TO_LIBJPEG`) and FreeType with its libpng (`DP_FREETYPE_STATIC`),
+  installed from their packages. PNG
   textures, Vorbis, curl, ODE and d0_blind_id stay unavailable.
 - Dolly's libc answers the engine's socket calls with failures, so the INET
   ports are reported unavailable; only the loopback address type carries

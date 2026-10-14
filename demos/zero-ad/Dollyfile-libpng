@@ -2,11 +2,26 @@ DOLLY 7
 PACKAGE libpng
 REQUIRES HOST runtime@0
 
-# libpng as zero-ad-deps builds it with upstream's CMake, for programs the cc
-# package builds, with the zlib it needs. zlib installs no .pc file of its
-# own; libpng's names it, so the one zero-ad-deps writes comes along.
-FROM /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps 8723323ff4a37dd3647003653c118baf21662f01bb66dad0f37fe60f7fb43570
-INSTALL /v0.1.3/Dollyfile-zlib 9eb4ca9b77b03b75376dfafbc9fcc8a18968228664f70cb6d1dfa9be50220853
+# libpng from upstream's release archive, unchanged, built by its CMake
+# project, for programs the cc package builds, with the zlib it needs.
+FROM /v0.1.3/demos/cmake/Dollyfile-cmake-build 741955f74fa7d56efbe26d1f658218334f293816636e24c1a70f1ea4307ab3db
+INSTALL /v0.1.3/Dollyfile-zlib 2a8437e931bfa20d88b7021838d2a35683ebac394328bf8a1b3914f3487b2754
+REQUIRES HEADER libc
+REQUIRES HEADER zlib
+REQUIRES LIB z
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /v0.1.3/dist/static/libpng/source.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/libpng.tar.gz
+SLOP gzip -dc /tmp/libpng.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/libpng -B /tmp/libpng-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+  -DPNG_SHARED=OFF -DPNG_TESTS=OFF -DPNG_TOOLS=OFF -DPNG_EXECUTABLES=OFF
+SLOP cmake --build /tmp/libpng-build -j4
+SLOP cmake --install /tmp/libpng-build
 
 EXPORTS LIB    png16      /usr/lib/libpng16.a
 EXPORTS HEADER png        /usr/include/png.h
@@ -15,5 +30,5 @@ EXPORTS HEADER pnglibconf /usr/include/pnglibconf.h
 EXPORTS HEADER libpng16   /usr/include/libpng16
 FILE /usr/lib/pkgconfig/libpng16.pc
 FILE /usr/lib/pkgconfig/libpng.pc
-FILE /usr/lib/pkgconfig/zlib.pc
 FILE /usr/share/licenses/libpng/LICENSE
+SLOP rm -rf /tmp/libpng /tmp/libpng-build /tmp/libpng.tar.gz

@@ -12,17 +12,29 @@ if has_image openal-build; then
     "${openal_dir}/LICENSE-pffft" /usr/share/licenses/OpenAL/LICENSE-pffft \
     "${openal_dir}/fmt-11.1.1/LICENSE" /usr/share/licenses/OpenAL/fmt
 fi
-if has_image zero-ad-deps || has_image zero-ad-engine || has_image zero-ad-spidermonkey; then
+if has_image zero-ad-deps || has_image zero-ad-engine || has_image zero-ad-spidermonkey ||
+   has_image pkgconf || has_image libpng || has_image freetype; then
   zad_dir="$(bash demos/zero-ad/prepare-build-sources.sh)"
+fi
+if has_image pkgconf; then
+  node scripts/build-source-tar.mjs "${static_dir}/pkgconf/source.tar" \
+    "${zad_dir}/pkgconf-2.5.1/libpkgconf" /tmp/pkgconf/libpkgconf \
+    "${zad_dir}/pkgconf-2.5.1/cli" /tmp/pkgconf/cli \
+    "${zad_dir}/pkgconf-2.5.1/COPYING" /usr/share/licenses/pkgconf/COPYING
+fi
+if has_image libpng; then
+  node scripts/build-source-tar.mjs "${static_dir}/libpng/source.tar.gz" \
+    "${zad_dir}/libpng-1.6.58" /tmp/libpng \
+    "${zad_dir}/libpng-1.6.58/LICENSE" /usr/share/licenses/libpng/LICENSE
+fi
+if has_image freetype; then
+  node scripts/build-source-tar.mjs "${static_dir}/freetype/source.tar.gz" \
+    "${zad_dir}/freetype-VER-2-14-3" /tmp/freetype \
+    "${zad_dir}/freetype-VER-2-14-3/LICENSE.TXT" /usr/share/licenses/freetype/LICENSE.TXT \
+    "${zad_dir}/freetype-VER-2-14-3/docs/FTL.TXT" /usr/share/licenses/freetype/FTL.TXT
 fi
 if has_image zero-ad-deps; then
   node scripts/build-source-tar.mjs "${static_dir}/zero-ad-build/deps.tar.gz" \
-    "${zad_dir}/pkgconf-2.5.1/libpkgconf" /tmp/zad/pkgconf/libpkgconf \
-    "${zad_dir}/pkgconf-2.5.1/cli" /tmp/zad/pkgconf/cli \
-    "${zad_dir}/pkgconf-2.5.1/COPYING" /usr/share/licenses/pkgconf/COPYING \
-    "${zad_dir}/libpng-1.6.58/LICENSE" /usr/share/licenses/libpng/LICENSE \
-    "${zad_dir}/freetype-VER-2-14-3/LICENSE.TXT" /usr/share/licenses/freetype/LICENSE.TXT \
-    "${zad_dir}/freetype-VER-2-14-3/docs/FTL.TXT" /usr/share/licenses/freetype/FTL.TXT \
     "${zad_dir}/libogg-1.3.5/COPYING" /usr/share/licenses/libogg/COPYING \
     "${zad_dir}/libvorbis-1.3.7/COPYING" /usr/share/licenses/libvorbis/COPYING \
     "${zad_dir}/fmt-7.1.3/LICENSE.rst" /usr/share/licenses/fmt/LICENSE.rst \
@@ -30,8 +42,6 @@ if has_image zero-ad-deps; then
     "${zad_dir}/icu/LICENSE" /usr/share/licenses/icu/LICENSE \
     "${zad_dir}/libsodium-1.0.20/LICENSE" /usr/share/licenses/libsodium/LICENSE \
     "${zad_dir}/enet-1.3.18/LICENSE" /usr/share/licenses/enet/LICENSE \
-    "${zad_dir}/libpng-1.6.58" /tmp/zad/png \
-    "${zad_dir}/freetype-VER-2-14-3" /tmp/zad/freetype \
     "${zad_dir}/libogg-1.3.5" /tmp/zad/ogg \
     "${zad_dir}/libvorbis-1.3.7" /tmp/zad/vorbis \
     "${zad_dir}/fmt-7.1.3" /tmp/zad/fmt \

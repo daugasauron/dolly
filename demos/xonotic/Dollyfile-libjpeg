@@ -1,0 +1,44 @@
+DOLLY 7
+PACKAGE libjpeg
+REQUIRES HOST runtime@0
+
+# IJG's libjpeg 9f from its release archive, unchanged, for programs the cc
+# package builds: the units of its generic makefile (makefile.ansi), with
+# jconfig.txt as the configuration and jmemnobs.c as the memory manager.
+FROM /v0.1.3/Dollyfile-system-tools eb44474251734b63b78902cc2d565ccdfdf3b7f8f6ad1dadb8d2c5400363cce9
+REQUIRES HEADER libc
+REQUIRES TOOL ar
+REQUIRES TOOL cc
+REQUIRES TOOL cp
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /v0.1.3/dist/static/libjpeg/source.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/libjpeg.tar.gz
+SLOP gzip -dc /tmp/libjpeg.tar.gz | tar -xf - -C /
+FILE /tmp/libjpeg/Makefile
+    .RECIPEPREFIX := >
+    J := /tmp/libjpeg/source
+    UNITS := jaricom jcapimin jcapistd jcarith jccoefct jccolor jcdctmgr jchuff jcinit jcmainct jcmarker jcmaster \
+      jcomapi jcparam jcprepct jcsample jctrans jdapimin jdapistd jdarith jdatadst jdatasrc jdcoefct jdcolor jddctmgr \
+      jdhuff jdinput jdmainct jdmarker jdmaster jdmerge jdpostct jdsample jdtrans jerror jfdctflt jfdctfst jfdctint \
+      jidctflt jidctfst jidctint jquant1 jquant2 jutils jmemmgr jmemnobs
+    all: /usr/lib/libjpeg.a
+    $J/jconfig.h: $J/jconfig.txt
+    >cp $< $@
+    /tmp/libjpeg/%.o: $J/%.c $J/jconfig.h
+    >cc -O1 -I$J -c $< -o $@
+    /usr/lib/libjpeg.a: $(UNITS:%=/tmp/libjpeg/%.o)
+    >ar rcs $@ $^
+SLOP make -j4 -f /tmp/libjpeg/Makefile
+SLOP cp /tmp/libjpeg/source/jpeglib.h /tmp/libjpeg/source/jconfig.h /tmp/libjpeg/source/jmorecfg.h \
+  /tmp/libjpeg/source/jerror.h /usr/include/
+
+EXPORTS LIB    jpeg     /usr/lib/libjpeg.a
+EXPORTS HEADER jpeglib  /usr/include/jpeglib.h
+EXPORTS HEADER jconfig  /usr/include/jconfig.h
+EXPORTS HEADER jmorecfg /usr/include/jmorecfg.h
+EXPORTS HEADER jerror   /usr/include/jerror.h
+FILE /usr/share/licenses/libjpeg/README
+SLOP rm -rf /tmp/libjpeg /tmp/libjpeg.tar.gz
