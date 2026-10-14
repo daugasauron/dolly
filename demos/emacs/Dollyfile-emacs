@@ -66,8 +66,8 @@ SLOP find /usr/share/emacs/31.1/lisp -name '*.elc' | sed 's/c$//' | xargs rm -f
 SLOP find /usr/share/emacs/31.1 -name 'Makefile*' -exec rm -f {} +
 SLOP cp /tmp/emacs/COPYING /usr/share/licenses/emacs/COPYING
 
-# Dolly's terminal reports the mouse. Turning it on also skips Emacs's
-# XTVERSION probe, whose 0.1 s wait is shorter than the terminal's reply.
+# The mode is on for what it skips: Emacs's XTVERSION probe, whose 0.1 s wait
+# is shorter than the terminal's reply. Dolly's terminal reports no mouse.
 FILE /usr/share/emacs/site-lisp/site-start.el
     ;;; -*- lexical-binding: t -*-
     (xterm-mouse-mode 1)
