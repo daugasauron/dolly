@@ -4,9 +4,9 @@ REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 
 # CMake as cmake-build bootstraps it; the package keeps only the exports below.
-FROM /v0.1.3/demos/cmake/Dollyfile-cmake-build 181addf84cf4a67a51858fe92f6738924560fc96dd64e563a60aef1f08605758
+FROM /v0.1.3/demos/cmake/Dollyfile-cmake-build 01a5ed697e936f974da81732e71bb5bd673f7d883befcb695c7d0738bccfee33
 # Configuring runs the C compiler and building runs make.
-INSTALL /v0.1.3/Dollyfile-cc 496482dedb8df6eda0014425cc726c9f1dafd1225a2af952f0b8e147efeaf295
+INSTALL /v0.1.3/Dollyfile-cc 9b2ee0e1f23927fb8f8837a7523e077dfb21e33a8b686d7e9379df05ca00387a
 
 EXPORTS TOOL   cmake
 EXPORTS FOLDER cmake-data /usr/share/cmake-4.4

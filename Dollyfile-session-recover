@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # session-recover as system builds it: it copies the files a saved session
 # holds under /home and /workspace into a new directory.
-FROM /v0.1.3/Dollyfile-system c2d3a3a3923270d9c691146a5a3fbf4893266ab543350acb2c26f8cb115b92b4
+FROM /v0.1.3/Dollyfile-system 6537319cb5da6fdf6da34117e1b97113b8bc0d788d1f5c9453f05ff7207828df
 
 EXPORTS TOOL session-recover
 FILE /usr/share/man/cat1/session-recover.1
