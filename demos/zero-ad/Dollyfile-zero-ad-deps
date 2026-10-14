@@ -10,8 +10,8 @@ REQUIRES HOST http@0
 # upstream sources of build-sources.tsv, with FreeType and libpng installed and
 # pkgconf for its premake scripts.
 FROM /v0.1.3/demos/zero-ad/Dollyfile-openal-build fb16a9bf66246708ab35f609edb2d319bb2a6b351496c8175af40815c041d041
-INSTALL /v0.1.3/demos/zero-ad/Dollyfile-pkgconf b9228b4c20506ac6c313e15f1839cd519ab7da3a7a92e1cd2a88ab1c7ee9b6fa
-INSTALL /v0.1.3/demos/zero-ad/Dollyfile-freetype adb4aaf6723ea6f9b0cdace06a5898efb9d2187d13aa2b01da16ce7e1a6df3b2
+INSTALL /v0.1.3/demos/zero-ad/Dollyfile-pkgconf 8e7825d1009a2fff6dba7ff4458734a622ffcaf65e4627e6576c2a512d9dccab
+INSTALL /v0.1.3/demos/zero-ad/Dollyfile-freetype 96fd7e5f3d4b71b7aad694e939e539e5f63b4b6f3f205bf471d360645c34551d
 COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 aa2ce0fb3ef22657f2d5c455dbeb5088fbb1e9e246c44e2cd64b3bbbefbdd8fe /usr/include/SDL2 /usr/include/SDL2
 COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 aa2ce0fb3ef22657f2d5c455dbeb5088fbb1e9e246c44e2cd64b3bbbefbdd8fe /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 REQUIRES HEADER libc
@@ -31,7 +31,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL ln
 REQUIRES TOOL mkdir
 
-SOURCE /v0.1.3/dist/static/zero-ad-build/deps.tar.gz 70cd7adb14d05e83a61b096a3515cf11b93dd95b2d31ef705896998d8712ac77 /tmp/zad/deps.tar.gz
+SOURCE /v0.1.3/dist/static/zero-ad-build/deps.tar.gz 725e009d9819b42b32d685ef6f7cd51ece8f34031fdb94c9bd00cacef9da1579 /tmp/zad/deps.tar.gz
 SLOP gzip -dc /tmp/zad/deps.tar.gz | tar -xf - -C /
 # Licences of the libraries the engine links; zero-ad copies them.
 COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 aa2ce0fb3ef22657f2d5c455dbeb5088fbb1e9e246c44e2cd64b3bbbefbdd8fe /usr/share/licenses/SDL2 /usr/share/licenses/SDL2

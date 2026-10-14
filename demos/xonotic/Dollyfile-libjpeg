@@ -15,7 +15,7 @@ REQUIRES TOOL make
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.3/dist/static/libjpeg/source.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/libjpeg.tar.gz
+SOURCE /v0.1.3/dist/static/libjpeg/source.tar.gz d7aa969f16bcb1a5faf174fc7f4457eb326594bb2c64f9894dd598ef5476f4fe /tmp/libjpeg.tar.gz
 SLOP gzip -dc /tmp/libjpeg.tar.gz | tar -xf - -C /
 FILE /tmp/libjpeg/Makefile
     .RECIPEPREFIX := >

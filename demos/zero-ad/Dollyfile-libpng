@@ -14,7 +14,7 @@ REQUIRES TOOL gzip
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.3/dist/static/libpng/source.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/libpng.tar.gz
+SOURCE /v0.1.3/dist/static/libpng/source.tar.gz 5a53d9b0aeeea4bb3a17fbf071089afe98c8e3e00a3edc9bb8ac516c163ed351 /tmp/libpng.tar.gz
 SLOP gzip -dc /tmp/libpng.tar.gz | tar -xf - -C /
 SLOP cmake -S /tmp/libpng -B /tmp/libpng-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \
