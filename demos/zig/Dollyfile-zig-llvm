@@ -16,9 +16,10 @@ REQUIRES TOOL   c++
 REQUIRES TOOL   ar
 
 # zigcpp, with upstream's flags (CMakeLists.txt, "zigcpp target").
-SLOP CWD /usr/lib/zig-llvm-build c++ -c -O2 -std=c++17 -fno-exceptions -fno-rtti -fvisibility-inlines-hidden \
+SLOP CWD /usr/lib/zig-llvm-build slop -c 'for unit in zig_llvm zig_llvm-ar zig_clang_driver zig_clang_cc1_main zig_clang_cc1as_main; do \
+  c++ -c -O2 -std=c++17 -fno-exceptions -fno-rtti -fvisibility-inlines-hidden \
   -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -D_GNU_SOURCE \
-  -DLLVM_BUILD_STATIC -DCLANG_BUILD_STATIC -I /usr/lib/llvm21/include zig_llvm.cpp zig_llvm-ar.cpp zig_clang_driver.cpp zig_clang_cc1_main.cpp zig_clang_cc1as_main.cpp
+  -DLLVM_BUILD_STATIC -DCLANG_BUILD_STATIC -I /usr/lib/llvm21/include $unit.cpp -o $unit.o; done'
 SLOP CWD /usr/lib/zig-llvm-build ar rcs libzigcpp.a zig_llvm.o zig_llvm-ar.o zig_clang_driver.o zig_clang_cc1_main.o zig_clang_cc1as_main.o
 SLOP CWD /usr/lib/zig-llvm-build slop -c 'c++ -o /usr/bin/zig zig2.o compiler_rt.o libzigcpp.a -L /usr/lib/llvm21/lib \
   -lclangFrontendTool -lclangCodeGen -lclangFrontend -lclangDriver -lclangSerialization -lclangSema -lclangStaticAnalyzerFrontend -lclangStaticAnalyzerCheckers -lclangStaticAnalyzerCore -lclangAnalysis -lclangASTMatchers -lclangAST -lclangParse -lclangAPINotes -lclangBasic -lclangEdit -lclangLex -lclangRewriteFrontend -lclangRewrite -lclangCrossTU -lclangIndex -lclangToolingCore -lclangExtractAPI -lclangSupport -lclangInstallAPI -llldMinGW -llldELF -llldCOFF -llldWasm -llldMachO -llldCommon $(/usr/lib/llvm21/bin/llvm-config --libs --link-static) $(/usr/lib/llvm21/bin/llvm-config --system-libs --link-static)'
