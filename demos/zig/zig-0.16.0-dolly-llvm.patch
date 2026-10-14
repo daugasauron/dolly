@@ -1,3 +1,15 @@
+diff --git a/lib/std/Io/Dir.zig b/lib/std/Io/Dir.zig
+index 68b432c..ff2b68f 100644
+--- a/lib/std/Io/Dir.zig
++++ b/lib/std/Io/Dir.zig
+@@ -63,6 +63,7 @@ pub const max_name_bytes = switch (native_os) {
+     // as large as the largest max_name_bytes (Windows) in order to work on any host OS.
+     // TODO determine if this is a reasonable approach
+     .wasi => std.os.windows.NAME_MAX * 3,
++    .emscripten => std.os.emscripten.NAME_MAX,
+     else => if (@hasDecl(root, "os") and @hasDecl(root.os, "NAME_MAX"))
+         root.os.NAME_MAX
+     else
 diff --git a/lib/std/Io/Threaded.zig b/lib/std/Io/Threaded.zig
 index b7c40ce..cc2a2e1 100644
 --- a/lib/std/Io/Threaded.zig

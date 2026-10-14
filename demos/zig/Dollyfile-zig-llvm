@@ -8,7 +8,7 @@ REQUIRES HOST threads@0
 # Zig 0.16 with its LLVM backend: zig-llvm-build's objects linked, as
 # upstream's CMake build links zig2, with Zig's C++ glue (zigcpp) and LLVM,
 # Clang and LLD 21, which the build uses and installers do not get.
-FROM /v0.1.3/demos/zig/Dollyfile-zig-llvm-build 34cc5899e78f17ba43634123f93c5f399191e8edb4b9c07b8f95346f7f842400
+FROM /v0.1.3/demos/zig/Dollyfile-zig-llvm-build 5036fac03420a934fa4fcb45f93141f167c456bd0701872c77933c1728f656e1
 USE /v0.1.3/demos/llvm/Dollyfile-llvm21 7263d803f159f2aa9f83fd1bd1c17567b4a5758065632c9aa069abee43f5e3bc
 # Zig links a program for this target with cc (config/zig-0.16.0-dolly-native.patch).
 INSTALL /v0.1.3/Dollyfile-cc bef760134ee54c42302c92bb889429944ffe4c04a4a31271d2c5cdf5c2de1027
@@ -23,9 +23,10 @@ SLOP CWD /usr/lib/zig-llvm-build slop -c 'for unit in zig_llvm zig_llvm-ar zig_c
   -DLLVM_BUILD_STATIC -DCLANG_BUILD_STATIC -include endian.h -I /usr/lib/llvm21/include $unit.cpp -o $unit.o; done'
 SLOP CWD /usr/lib/zig-llvm-build ar rcs libzigcpp.a zig_llvm.o zig_llvm-ar.o zig_clang_driver.o zig_clang_cc1_main.o zig_clang_cc1as_main.o
 # Every LLVM library: wasm-ld takes archives in any order, and llvm-config
-# here finds no prefix of its own (it looks in /usr/lib). Its data and stack take 64 MB, as
-# mojo-build's compiler does: the initial memory is 128 MB.
-SLOP CWD /usr/lib/zig-llvm-build slop -c 'c++ -o /usr/bin/zig -Wl,--initial-memory=134217728 zig2.o compiler_rt.o libzigcpp.a -L /usr/lib/llvm21/lib \
+# here finds no prefix of its own (it looks in /usr/lib). The stack is what
+# upstream gives the compiler it ships (46 MB, build.zig) rounded up; with
+# 58 MB of data that is 128 MB of initial memory.
+SLOP CWD /usr/lib/zig-llvm-build slop -c 'c++ -o /usr/bin/zig -Wl,-z,stack-size=50331648 -Wl,--initial-memory=134217728 zig2.o compiler_rt.o libzigcpp.a -L /usr/lib/llvm21/lib \
   -lclangFrontendTool -lclangCodeGen -lclangFrontend -lclangDriver -lclangSerialization -lclangSema -lclangStaticAnalyzerFrontend -lclangStaticAnalyzerCheckers -lclangStaticAnalyzerCore -lclangAnalysis -lclangASTMatchers -lclangAST -lclangParse -lclangAPINotes -lclangBasic -lclangEdit -lclangLex -lclangRewriteFrontend -lclangRewrite -lclangCrossTU -lclangIndex -lclangToolingCore -lclangExtractAPI -lclangSupport -lclangInstallAPI -llldMinGW -llldELF -llldCOFF -llldWasm -llldMachO -llldCommon /usr/lib/llvm21/lib/libLLVM*.a'
 SLOP zig version
 
