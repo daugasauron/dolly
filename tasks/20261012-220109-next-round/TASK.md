@@ -88,6 +88,19 @@ browser files pass in both browsers. Merged into the round branch
 (`a4c15668`) with ImGui and the description; its 16 stale images rebuild,
 then the suites and the GPU stage run again.
 
+The second pass (2026-10-15 02:42 to 03:36, with `demo/x11` and
+`demo/zig-llvm` merged): source 431/0, artifacts 25/0. The core browser
+suite failed `amy-browser.mjs` (imgui unnamed in its coverage list) and
+`site-browser.mjs` (the greeting now has two links); the demos failed
+`wine-browser.mjs` (its click on "Licences and sources" landed where the
+shorter greeting had put it) and `classicube-browser.mjs` (its pixel check
+beside three other tests, as recorded in `demos/run-browser-tests.mjs`). The
+three were fixed and each file passed alone in both of its browsers;
+ClassiCube passed alone. On the way: SDL's timer subsystem needed a thread,
+so ImGui's example never drew (fixed in `sdl2-dolly.patch`), and the X
+clients lost `-ldolly-sockets` to the module packages (`x11-build` installs
+`libdolly-sockets`).
+
 Decided against: [file modes](../20261006-120641-umask/TASK.md) (no
 permission bits; workarounds stay) and
 [a check of the engine's module list](../20261013-170737-receipt-hosts/TASK.md).
