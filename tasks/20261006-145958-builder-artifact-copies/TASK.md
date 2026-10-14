@@ -1,8 +1,24 @@
 # Image builds keep every dependency snapshot twice more than they need
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 180
 - TAGS: core,builder,memory
+
+## Closed (2026-10-14)
+
+Both copies have been gone since 2026-10-13 (the page's in `39615bcc`, the
+kernel's in `b1e07029`), each with its check in the image suite, which has
+passed in every round since. The measurement the done-when names cannot be
+made any more: the `cargo` image no longer builds Cargo. Since `2370dc85`
+(2026-10-09) Cargo is built inside `rust-build`, and `cargo` copies it out:
+rebuilt alone on its cached dependencies on 2026-10-14 it took 12.2 s and
+its scope peaked at 3.19 GB, to the same bytes as before (`01100b2d…`).
+(`npm run image -- cargo --reproducible` is no measurement of it: it builds
+the whole chain cold, `rust-build` included, and its scope passed 10 GB.)
+
+What stays, recorded above and not a task of its own: the base is in kernel
+memory twice until `FROM` has read it, and `amy install` reads a package's
+file twice.
 
 ## State (2026-10-13)
 
