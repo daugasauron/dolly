@@ -162,6 +162,14 @@ Measured and open: [what a round costs and what an unchanged run costs](../20260
 [the two terminal flakes](../20261001-095000-terminal-text-flake/TASK.md),
 not reproduced in 160 drags and about 9,000 screen reads.
 
+## Ready for the next round
+
+- `core/x11-fixes` (worktree `work/x11fix`, 2026-10-15): `select`, `set*id`
+  to the ids a process has, and a pty master that reads EIO once its slave
+  is gone, as on Linux; what the X11 port worked around. A seed change.
+  `pty-browser.mjs` and `process-browser.mjs` passed in both browsers on the
+  rebuilt seed; the branch also drops xterm's three workarounds.
+
 ## Left for a later round, none started
 
 - `pty@0`: a spawn that is not the caller's child (tmux starting its own
