@@ -1,0 +1,22 @@
+DOLLY 7
+PACKAGE twm
+REQUIRES HOST runtime@0
+REQUIRES HOST sockets@0
+
+# twm, the Tab Window Manager, from X.Org's release archive, unchanged: its
+# parser and default configuration come generated in the archive.
+FROM /v0.1.3/demos/x11/Dollyfile-x11-build 66994b78d4cade51c9b0ea985d9a87add1584c15c568cffbea18bdf279ffc029
+
+SOURCE /v0.1.3/dist/static/x11/twm-1.0.13.1.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/twm.tar.gz
+SLOP CWD /tmp gzip -dc twm.tar.gz | tar -xf -
+SLOP CWD /tmp/twm-1.0.13.1/src cc -O2 -DHAVE_MKSTEMP -DAPP_VERSION='"1.0.13.1"' -DDATADIR='"/usr/share"' \
+  *.c -o /usr/bin/twm -lXmu -lXt -lSM -lICE -lXext -lX11 -lxcb -lXau -ldolly-sockets
+SLOP mkdir -p /usr/share/X11/twm /usr/share/licenses/twm
+SLOP cp /tmp/twm-1.0.13.1/src/system.twmrc /usr/share/X11/twm/
+SLOP cp /tmp/twm-1.0.13.1/COPYING /usr/share/licenses/twm/
+SLOP text-page /tmp/twm-1.0.13.1/man/twm.man && mv /usr/share/man/cat1/twm.man /usr/share/man/cat1/twm.1
+
+EXPORTS TOOL twm
+FILE /usr/share/X11/twm/system.twmrc
+FILE /usr/share/licenses/twm/COPYING
+FILE /usr/share/man/cat1/twm.1

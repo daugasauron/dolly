@@ -1,0 +1,24 @@
+DOLLY 7
+PACKAGE xclock
+REQUIRES HOST runtime@0
+REQUIRES HOST sockets@0
+
+# xclock from X.Org's release archive, unchanged: the Athena clock, drawn
+# with the core protocol (no Xft), and its resource files.
+FROM /v0.1.3/demos/x11/Dollyfile-x11-build 66994b78d4cade51c9b0ea985d9a87add1584c15c568cffbea18bdf279ffc029
+
+SOURCE /v0.1.3/dist/static/x11/xclock-1.2.1.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/xclock.tar.gz
+SLOP CWD /tmp gzip -dc xclock.tar.gz | tar -xf -
+SLOP CWD /tmp/xclock-1.2.1 cc -O2 -D_CONST_X_STRING -DHAVE_STRLCPY -DHAVE_GETPID -DHAVE_NL_LANGINFO \
+  -DHAVE_ICONV -DUSE_XAW xclock.c Clock.c -o /usr/bin/xclock \
+  -lXaw7 -lXmu -lXpm -lXt -lSM -lICE -lXext -lX11 -lxcb -lXau -ldolly-sockets -lm
+SLOP mkdir -p /usr/share/X11/app-defaults /usr/share/licenses/xclock
+SLOP cp /tmp/xclock-1.2.1/app-defaults/XClock /tmp/xclock-1.2.1/app-defaults/XClock-color /usr/share/X11/app-defaults/
+SLOP cp /tmp/xclock-1.2.1/COPYING /usr/share/licenses/xclock/
+SLOP text-page /tmp/xclock-1.2.1/man/xclock.man && mv /usr/share/man/cat1/xclock.man /usr/share/man/cat1/xclock.1
+
+EXPORTS TOOL xclock
+FILE /usr/share/X11/app-defaults/XClock
+FILE /usr/share/X11/app-defaults/XClock-color
+FILE /usr/share/licenses/xclock/COPYING
+FILE /usr/share/man/cat1/xclock.1

@@ -1,0 +1,20 @@
+DOLLY 7
+PACKAGE xorg-server
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST sockets@0
+
+# Xsdl, the X server on Dolly's display, with xkbcomp, which it runs for its
+# keymap, and the keyboard descriptions xkbcomp reads.
+FROM /v0.1.3/demos/x11/Dollyfile-xorg-server-build 12dd006583193d4f404b785075395322cd441caacd2abce7884b13449ebbc4c6
+
+SLOP mkdir -p /usr/share/licenses/xorg-server /usr/share/licenses/xkeyboard-config
+SLOP cp /tmp/xorg/xorg-server-21.1.25/COPYING /usr/share/licenses/xorg-server/
+SLOP cp /tmp/xorg/xkeyboard-config-2.48/COPYING /usr/share/licenses/xkeyboard-config/
+
+EXPORTS TOOL Xsdl
+EXPORTS TOOL xkbcomp
+FOLDER /usr/share/X11/xkb
+FOLDER /usr/share/licenses/xorg-server
+FOLDER /usr/share/licenses/xkeyboard-config
