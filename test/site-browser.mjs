@@ -73,8 +73,8 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   for (const { heading, images } of menu.groups) inOrder(images, heading);
   inOrder(menu.pages, "the menu's pages");
   inOrder(menu.shortcuts, "the shortcuts");
-  // The lead's link opens the image a newcomer starts with.
-  assert.equal(new URL(await page.locator(".lead a").getAttribute("href"), page.url()).pathname, `${prefix}/default/`);
+  // The lead links default, the image a newcomer starts with.
+  assert.equal(new URL(await page.locator('.lead a[href$="default/"]').getAttribute("href"), page.url()).pathname, `${prefix}/default/`);
   // The menu links the package index, a plain file with a row per package.
   const index = await fetch(await page.locator('a[href="./amy-index.txt"]').evaluate(link => link.href));
   assert.match(index.headers.get("content-type"), /^text\/plain/);
