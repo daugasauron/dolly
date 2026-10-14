@@ -47,7 +47,7 @@ if has_image system-tools; then
 fi
 has_image curl && curl_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" curl)"
 has_image zlib && zlib_dir="$("${project_dir}/scripts/prepare-zlib.sh")"
-has_image system-tools && git_dir="$("${project_dir}/scripts/prepare-git.sh")"
+has_image git && git_dir="$("${project_dir}/scripts/prepare-git.sh")"
 has_image system-build && make_dir="$("${project_dir}/scripts/prepare-make.sh")"
 has_image system-tools && samurai_dir="$("${project_dir}/scripts/prepare-samurai.sh")"
 has_image system-build && emscripten_system_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" emscripten)"
@@ -114,10 +114,18 @@ if has_image nena; then
   copy_static src/commands/nena.c default/commands/nena.c
 fi
 if has_image system-tools; then
-  for source in run-program.h install.c du.c rev.c command.c xargs.c amy.c \
-      find.c env.c time.c timeout.c realpath.c diff.c patch.c hostname.c tty.c nproc.c; do
+  for source in run-program.h install.c du.c rev.c command.c xargs.c \
+      find.c env.c time.c timeout.c realpath.c hostname.c tty.c nproc.c; do
     copy_static "${project_dir}/src/commands/${source}" "default/commands/${source}"
   done
+fi
+if has_image git; then
+  for source in run-program.h diff.c patch.c; do
+    copy_static "${project_dir}/src/commands/${source}" "default/commands/${source}"
+  done
+fi
+if has_image amy; then
+  copy_static src/commands/amy.c default/commands/amy.c
   # amy asks the site for the package index of the version it was built for.
   node -p '`#define DOLLY_VERSION "${require("./package.json").version}"`' > "${staging}/version.h"
   copy_static "${staging}/version.h" default/commands/version.h
@@ -145,7 +153,7 @@ if has_image zlib; then
     "${zlib_dir}/zconf.h" /usr/include/zconf.h \
     "${zlib_dir}/LICENSE" /usr/share/licenses/zlib/LICENSE
 fi
-if has_image system-tools; then
+if has_image git; then
   node scripts/build-source-tar.mjs "${static_dir}/default/git.tar" \
     "${git_dir}" /usr/src/git \
     "${git_dir}/templates" /usr/share/git-core/templates \

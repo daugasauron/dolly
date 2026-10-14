@@ -3,12 +3,10 @@ TOOLCHAIN classicube-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
-REQUIRES HOST download@0
 REQUIRES HOST http@0
-REQUIRES HOST upload@0
 
-FROM /v0.1.3/Dollyfile-system-tools eb44474251734b63b78902cc2d565ccdfdf3b7f8f6ad1dadb8d2c5400363cce9
-INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 c1c29c0f5f32fb4773f20cb80c394c41b9f5edf789bec380e64953e93c711fd8
+FROM /v0.1.3/Dollyfile-system-tools a8abe64f9456e3aa4515dd870ae5aadd8e382bb397e70920b6c3c03cdcecd2b0
+INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 c4a332c1c6bd61f1a9e758e2942e5cf39ea61c56abbbc6adf6e73539d3813c07
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2
 REQUIRES TOOL cc

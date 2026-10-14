@@ -177,7 +177,7 @@ globalThis.DOLLY_HTTP_RELAYS = [{
   URL without `http(s)://` with `CURLE_UNSUPPORTED_PROTOCOL` and a disallowed
   redirect with `CURLE_COULDNT_CONNECT`.
 - Git: upstream `git` and `git-remote-http(s)` link that libcurl
-  ([`Dollyfile-system-tools`](../Dollyfile-system-tools)): clone, fetch and push over HTTP, from
+  ([`Dollyfile-git`](../Dollyfile-git)): clone, fetch and push over HTTP, from
   hosts that send CORS headers or through a relay (see [CORS and relays](#cors-and-relays)).
   `github.com` sends none on its Git endpoints, so cloning from it fails with
   the `EIO` message unless the embedding maps it to a relay. There is no

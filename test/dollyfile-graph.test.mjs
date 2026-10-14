@@ -138,7 +138,8 @@ test("images separate reusable toolchains and packages from applications", async
   const core = {
     "system-build": [], zlib: ["system-build"], curl: ["system-build"], gzip: ["system-build", "zlib"],
     "zig-build": ["system-build"], "ghostty-build": ["zig-build"], display: ["ghostty-build"],
-    "system-tools": ["system-build", "zlib", "gzip", "curl", "display"], system: ["system-tools"],
+    git: ["system-build", "zlib", "curl"], "system-tools": ["system-build", "zlib", "gzip", "curl", "git", "display"],
+    system: ["system-tools", "transfer"],
     default: ["core", "posix", "display", "curl", "amy", "nena", "transfer", "ps"],
   };
   const files = await recipeFiles(project);

@@ -4,11 +4,68 @@ REQUIRES HOST runtime@0
 REQUIRES HOST download@0
 REQUIRES HOST upload@0
 
-# The page's file exchange as system-tools builds it: download offers a file
-# of the session to the browser, upload takes one the user chooses.
-FROM /v0.1.3/Dollyfile-system-tools eb44474251734b63b78902cc2d565ccdfdf3b7f8f6ad1dadb8d2c5400363cce9
+# The page's file exchange: download offers a file of the session to the
+# browser, upload takes one the user chooses.
+FROM /v0.1.3/Dollyfile-system-build a87d7831c4a424bac97bfda6e61c5bb5dd80b825e6ffd85971f5e6c3faafb149
+REQUIRES HEADER libc
+REQUIRES HEADER download
+REQUIRES HEADER upload
+REQUIRES TOOL cc
+REQUIRES TOOL rm
+
+FILE /tmp/download/download.c
+    #include <stdio.h>
+    #include <string.h>
+    
+    #include <dolly/download.h>
+    
+    int main(int argc, char **argv) {
+      if (argc == 2 && strcmp(argv[1], "--help") == 0) {
+        fputs("usage: download FILE\n", stdout);
+        return 0;
+      }
+      if (argc != 2) {
+        fputs("download: expected one file\n", stderr);
+        return 2;
+      }
+      const int status = dolly_download_file(argv[1]);
+      if (status != 0) {
+        fprintf(stderr, "download: %s failed (%d)\n", argv[1], status);
+        return 1;
+      }
+      printf("download: requested %s\n", argv[1]);
+      return 0;
+    }
+
+SLOP cc \
+  /tmp/download/download.c \
+  -o /bin/download
 
 EXPORTS TOOL download
+SLOP download --help > /usr/share/man/cat1/download.1
+
+FILE /tmp/upload/upload.c
+    #include <dolly/upload.h>
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+    int main(int argc, char **argv) {
+      if (argc != 2 || strcmp(argv[1], "--help") == 0) {
+        fprintf(argc == 2 ? stdout : stderr, "usage: upload DESTINATION\nChoose a file in the browser (up to %u MiB). Existing files are never replaced.\n",
+                DOLLY_UPLOAD_MAX_SIZE >> 20);
+        return argc == 2 ? 0 : 2;
+      }
+      puts("upload: choose a file in the browser, or cancel");
+      fflush(stdout);
+      const int result = dolly_upload_file(argv[1]);
+      if (result < 0) { fprintf(stderr, "upload: %s\n", strerror((int)-result)); return 1; }
+      printf("upload: saved %s\n", argv[1]);
+      return 0;
+    }
+SLOP cc -O1 /tmp/upload/upload.c -o /bin/upload
 EXPORTS TOOL upload
+SLOP upload --help > /usr/share/man/cat1/upload.1
+
 FILE /usr/share/man/cat1/download.1
 FILE /usr/share/man/cat1/upload.1
+SLOP rm -rf /tmp/download /tmp/upload

@@ -3,18 +3,170 @@ PACKAGE git
 REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 
-# Git with its HTTP helpers, and diff and patch, which run it.
-FROM /v0.1.3/Dollyfile-system-tools eb44474251734b63b78902cc2d565ccdfdf3b7f8f6ad1dadb8d2c5400363cce9
+# Git with its HTTP helpers, and Dolly's diff and patch, which run it. Git
+# links zlib and its helpers libcurl too; both serve the build and are not
+# installed with it.
+FROM /v0.1.3/Dollyfile-system-build a87d7831c4a424bac97bfda6e61c5bb5dd80b825e6ffd85971f5e6c3faafb149
+USE /v0.1.3/Dollyfile-zlib 2a8437e931bfa20d88b7021838d2a35683ebac394328bf8a1b3914f3487b2754
+USE /v0.1.3/Dollyfile-curl a73e86cd3b6102d2ff1662ded50d8edd26278516f0ffb9439821a68ed936366d
+REQUIRES HEADER libc
+REQUIRES HEADER runtime
+REQUIRES HEADER curl
+REQUIRES HEADER zlib
+REQUIRES LIB    curl
+REQUIRES LIB    z
+REQUIRES TOOL   ar
+REQUIRES TOOL   cc
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   rm
+REQUIRES TOOL   tar
 
-EXPORTS TOOL git
-EXPORTS TOOL diff
-EXPORTS TOOL patch
+SOURCE /v0.1.3/dist/static/default/git.tar c4c2f0e7c0fe241b81331b9fd8e10d9847e996c82a0c7249844b692023295648 /tmp/git.tar
+SLOP tar \
+  -xf /tmp/git.tar \
+  -C /
+
 # Automatic maintenance forks; the system configuration turns it off.
 FILE /etc/gitconfig
+    [maintenance]
+        auto = false
+FILE /home/dolly/.gitconfig
+    [user]
+        name = Dolly
+        email = dolly@example.invalid
+FILE /tmp/git/Makefile
+    .RECIPEPREFIX := >
+    SOURCES := $(file </usr/src/git/dolly-sources.txt)
+    OBJECTS := $(addprefix /tmp/git/objects/,$(SOURCES:.c=.o))
+    # Keep the bootstrap build unoptimized: Git has hundreds of translation
+    # units and this layer is optimized for deterministic browser cold-build
+    # latency rather than execution throughput.
+    # Git ends with status 128 when its pager cannot start, so the default one
+    # is a command for Slop: less when it is installed, cat otherwise.
+    CPPFLAGS := \
+      -O0 \
+      -std=gnu99 \
+      -Wno-ignored-attributes \
+      -D_DEFAULT_SOURCE \
+      -DNO_GETTEXT \
+      -DNO_ICONV \
+      -DNO_EXPAT \
+      -DNO_PTHREADS \
+      -DNO_UNIX_SOCKETS \
+      -DNO_OPENSSL \
+      -DNO_PERL \
+      -DNO_PYTHON \
+      -DNO_IPV6 \
+      -DNO_MMAP \
+      -DNO_REGEX \
+      -DGAWK \
+      -DNO_MBSUPPORT \
+      -DNO_MEMMEM \
+      -DNO_PREAD \
+      -DNO_SETENV \
+      -DNO_STRCASESTR \
+      -DNO_STRLCPY \
+      -DNO_STRTOUMAX \
+      -Dprintf=iprintf \
+      -Dfprintf=fiprintf \
+      -DSHA1_BLK \
+      -DSHA256_BLK \
+      -DHAVE_ALLOCA_H \
+      -DHAVE_STRINGS_H \
+      -DHAVE_CLOCK_GETTIME \
+      -DHAVE_GETRANDOM \
+      '-DGIT_VERSION_H="version-def.h"' \
+      '-DBINDIR="/usr/bin"' \
+      '-DGIT_EXEC_PATH="/usr/libexec/dolly"' \
+      '-DDEFAULT_GIT_TEMPLATE_DIR="/usr/share/git-core/templates"' \
+      '-DFALLBACK_RUNTIME_PREFIX="/usr"' \
+      '-DGIT_HOST_CPU="wasm64"' \
+      '-DGIT_LOCALE_PATH="/usr/share/locale"' \
+      '-DSHELL_PATH="/bin/slop"' \
+      '-DDEFAULT_PAGER="$$(command -v less || command -v cat)"' \
+      '-DPAGER_ENV="LESS=FRX LV=-c"' \
+      '-DETC_GITCONFIG="/etc/gitconfig"' \
+      '-DETC_GITATTRIBUTES="/etc/gitattributes"' \
+      '-DGIT_HTML_PATH="/usr/share/doc/git/html"' \
+      '-DGIT_MAN_PATH="/usr/share/man"' \
+      '-DGIT_INFO_PATH="/usr/share/info"' \
+      -I /usr/src/git/compat/regex \
+      -I /usr/src/git \
+      -include dolly/runtime.h
+    all: /usr/bin/git /usr/libexec/dolly/git-remote-http /usr/libexec/dolly/git-remote-https
+    /tmp/git/objects/%.o: /usr/src/git/%.c
+    >mkdir -p $(dir $@)
+    >cc \
+    >  $(CPPFLAGS) \
+    >  -c $< \
+    >  -o $@
+    /usr/lib/libgit.a: $(OBJECTS)
+    >ar rcs $@ $^
+    /usr/bin/git: /usr/src/git/common-main.c /usr/src/git/git.c /usr/lib/libgit.a
+    >cc \
+    >  $(CPPFLAGS) \
+    >  /usr/src/git/common-main.c \
+    >  /usr/src/git/git.c \
+    >  -lgit \
+    >  -lz \
+    >  -o $@
+    /usr/libexec/dolly:
+    >mkdir -p $@
+    /usr/libexec/dolly/git-remote-http: /usr/src/git/common-main.c /usr/src/git/remote-curl.c /usr/src/git/http.c /usr/src/git/http-walker.c /usr/lib/libgit.a | /usr/libexec/dolly
+    >cc \
+    >  $(CPPFLAGS) \
+    >  /usr/src/git/common-main.c \
+    >  /usr/src/git/remote-curl.c \
+    >  /usr/src/git/http.c \
+    >  /usr/src/git/http-walker.c \
+    >  -lgit \
+    >  -lcurl \
+    >  -lz \
+    >  -o $@
+    /usr/libexec/dolly/git-remote-https: /usr/libexec/dolly/git-remote-http
+    >cc \
+    >  $(CPPFLAGS) \
+    >  /usr/src/git/common-main.c \
+    >  /usr/src/git/remote-curl.c \
+    >  /usr/src/git/http.c \
+    >  /usr/src/git/http-walker.c \
+    >  -lgit \
+    >  -lcurl \
+    >  -lz \
+    >  -o $@
+SLOP CWD /usr/src/git make \
+  -f /tmp/git/Makefile
+
+EXPORTS TOOL git
+
+SLOP git \
+  --version
+SLOP git --help > /usr/share/man/cat1/git.1
+
 FILE /usr/libexec/dolly/git-remote-http
 FILE /usr/libexec/dolly/git-remote-https
 FOLDER /usr/share/git-core/templates
 FILE /usr/share/licenses/git/COPYING
 FILE /usr/share/man/cat1/git.1
+
+# Dolly's diff and patch: git diff --no-index and git apply, for programs and
+# build systems that run them.
+SOURCE /v0.1.3/dist/static/default/commands/run-program.h 8434bb55978a286e546878170e882010e63c1901402156bb8b8b8a96adc37f73 /tmp/git-tools/run-program.h
+SOURCE /v0.1.3/dist/static/default/commands/diff.c e1e71b3947fac230f221715577fbbfbd6ba3cf82c6c3cd027905f10ace8cf11e /tmp/git-tools/diff.c
+SOURCE /v0.1.3/dist/static/default/commands/patch.c 01a81c0b50df26223772e568bdc951db73d0be59b71251a1b023234c10a1b63e /tmp/git-tools/patch.c
+SLOP cc -O2 /tmp/git-tools/diff.c -o /bin/diff
+SLOP cc -O2 /tmp/git-tools/patch.c -o /bin/patch
+EXPORTS TOOL diff
+EXPORTS TOOL patch
+SLOP diff --help > /usr/share/man/cat1/diff.1
+SLOP patch --help > /usr/share/man/cat1/patch.1
 FILE /usr/share/man/cat1/diff.1
 FILE /usr/share/man/cat1/patch.1
+
+SLOP rm \
+  -rf \
+  /tmp/git \
+  /tmp/git.tar \
+  /tmp/git-tools \
+  /usr/src/git

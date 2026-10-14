@@ -491,7 +491,7 @@ await browserTest("amy cc", { image: "default", timeout: 300_000 }, async ({ ope
 });
 
 // An image that does not declare a package's host module refuses it, naming
-// the module, before any file changes; without packages@0 amy has no service.
+// the module, before any file changes; without packages@0 there is no service.
 await browserTest("amy refusal", { image: "system", server: { fixtures } }, async ({ server, open }) => {
   const policy = { maxRequests: 256, rules: [indexRule(server.origin),
     { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
@@ -501,8 +501,6 @@ await browserTest("amy refusal", { image: "system", server: { fixtures } }, asyn
   assert.equal(await system.submit(`dollyfile install ${threaded.url} ${threaded.sha256} 2> /tmp/refused`), 2);
   await refuse("grep -q 'Dollyfile-threaded needs threads@0: add REQUIRES HOST threads@0' /tmp/refused");
   await refuse("test ! -e /usr/share/threaded && ! grep -q threaded /etc/dolly/installed");
-  assert.notEqual(await system.submit("amy install python 2> /tmp/refused"), 0);
-  await refuse("grep -q 'REQUIRES HOST packages@0' /tmp/refused");
   assert.notEqual(await system.submit(`curl -fsS https://packages.dolly.invalid/v1/packages/${indexed("zlib")[2]} -o /dev/null`), 0);
 });
 

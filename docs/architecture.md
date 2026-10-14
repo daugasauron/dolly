@@ -103,11 +103,13 @@ flowchart TD
   sb --> zb["zig-build<br/>Zig"]
   zb --> gb["ghostty-build<br/>Ghostty"]
   gb -. "COPY plugin + font" .-> disp["display<br/>package"]
-  sb --> st["system-tools<br/>sbase, git, awk, /bin/sh"]
+  sb --> st["system-tools<br/>sbase, awk, /bin/sh"]
+  sb -. "packages: zlib, curl, git" .-> st
   disp -. "INSTALL" .-> st
   st --> sys["system<br/>sessions"]
-  sb -. "packages: core, curl, nena" .-> def["default<br/>packages only"]
-  st -. "packages: posix, amy, transfer" .-> def
+  sb -. "packages: transfer" .-> sys
+  sb -. "packages: core, curl, nena, amy, transfer" .-> def["default<br/>packages only"]
+  st -. "packages: posix" .-> def
   disp -. "INSTALL" .-> def
   demos["demos/*"]
   sb -.-> demos
@@ -125,8 +127,10 @@ flowchart TD
   image with its tools. `default` has no base: it installs packages, each
   built in `system-build` or `system-tools`. `system-tools` installs the
   `display` package, so Zig and Ghostty are inputs to everything built from
-  it (CMake, Neovim, SDL); `rust-sdk` starts from `system-build` and installs
-  `display` as well.
+  it (CMake, Neovim, SDL), and the `git` package, since builds patch with it;
+  `rust-sdk` starts from `system-build` and installs `display` as well.
+  `amy` and `transfer` are built on `system-build` and reach the images that
+  install them: `default`, `system` (`transfer`) and the agents (`amy`).
 - Toolchains stay in images that are only built; applications and packages keep
   exact outputs, as the `display` package copies Ghostty's plugin and font
   without the Zig SDK and `pi-runtime` installs the `janis` package

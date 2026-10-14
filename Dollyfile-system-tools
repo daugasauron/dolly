@@ -3,9 +3,7 @@ TOOLCHAIN system-tools
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
-REQUIRES HOST download@0
 REQUIRES HOST http@0
-REQUIRES HOST upload@0
 
 FROM /v0.1.3/Dollyfile-system-build a87d7831c4a424bac97bfda6e61c5bb5dd80b825e6ffd85971f5e6c3faafb149
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
@@ -93,67 +91,6 @@ SLOP rm \
   /tmp/sbase \
   /tmp/sbase.tar
 # Shared C/C++ build and system utilities, without a display or Rust tools.
-REQUIRES HEADER download
-
-# This command is Dolly-specific rather than part of the POSIX-like core set.
-FILE /tmp/download/download.c
-    #include <stdio.h>
-    #include <string.h>
-    
-    #include <dolly/download.h>
-    
-    int main(int argc, char **argv) {
-      if (argc == 2 && strcmp(argv[1], "--help") == 0) {
-        fputs("usage: download FILE\n", stdout);
-        return 0;
-      }
-      if (argc != 2) {
-        fputs("download: expected one file\n", stderr);
-        return 2;
-      }
-      const int status = dolly_download_file(argv[1]);
-      if (status != 0) {
-        fprintf(stderr, "download: %s failed (%d)\n", argv[1], status);
-        return 1;
-      }
-      printf("download: requested %s\n", argv[1]);
-      return 0;
-    }
-
-SLOP cc \
-  /tmp/download/download.c \
-  -o /bin/download
-
-EXPORTS TOOL download
-SLOP download --help > /usr/share/man/cat1/download.1
-
-SLOP rm \
-  -rf \
-  /tmp/download
-REQUIRES HEADER upload
-
-FILE /tmp/upload/upload.c
-    #include <dolly/upload.h>
-    #include <stdio.h>
-    #include <stdlib.h>
-    #include <string.h>
-    int main(int argc, char **argv) {
-      if (argc != 2 || strcmp(argv[1], "--help") == 0) {
-        fprintf(argc == 2 ? stdout : stderr, "usage: upload DESTINATION\nChoose a file in the browser (up to %u MiB). Existing files are never replaced.\n",
-                DOLLY_UPLOAD_MAX_SIZE >> 20);
-        return argc == 2 ? 0 : 2;
-      }
-      puts("upload: choose a file in the browser, or cancel");
-      fflush(stdout);
-      const int result = dolly_upload_file(argv[1]);
-      if (result < 0) { fprintf(stderr, "upload: %s\n", strerror((int)-result)); return 1; }
-      printf("upload: saved %s\n", argv[1]);
-      return 0;
-    }
-SLOP cc -O1 /tmp/upload/upload.c -o /bin/upload
-EXPORTS TOOL upload
-SLOP upload --help > /usr/share/man/cat1/upload.1
-SLOP rm -rf /tmp/upload
 # Samurai is a compact Ninja-compatible executor. Its upstream parser, graph,
 # depfile handling, and build log stay as separate ordinary C translation
 # units. The Dolly patch replaces only native process scheduling with the
@@ -212,146 +149,11 @@ FILE /usr/share/licenses/samurai/LICENSE
 SLOP rm \
   -rf \
   /tmp/ninja
+# zlib, gzip and curl for builds, and Git, which Dolly's patch and diff run.
 INSTALL /v0.1.3/Dollyfile-zlib 2a8437e931bfa20d88b7021838d2a35683ebac394328bf8a1b3914f3487b2754
 INSTALL /v0.1.3/Dollyfile-gzip 3ad4c620288cac66552a48dfed4857a6e353a514d4fe828367f0ccc3cb22c857
 INSTALL /v0.1.3/Dollyfile-curl a73e86cd3b6102d2ff1662ded50d8edd26278516f0ffb9439821a68ed936366d
-REQUIRES TOOL   mkdir
-REQUIRES LIB    curl
-REQUIRES LIB    z
-REQUIRES HEADER curl
-REQUIRES HEADER zlib
-
-SOURCE /v0.1.3/dist/static/default/git.tar c4c2f0e7c0fe241b81331b9fd8e10d9847e996c82a0c7249844b692023295648 /tmp/git.tar
-SLOP tar \
-  -xf /tmp/git.tar \
-  -C /
-
-FILE /etc/gitconfig
-    [maintenance]
-        auto = false
-FILE /home/dolly/.gitconfig
-    [user]
-        name = Dolly
-        email = dolly@example.invalid
-FILE /tmp/git/Makefile
-    .RECIPEPREFIX := >
-    SOURCES := $(file </usr/src/git/dolly-sources.txt)
-    OBJECTS := $(addprefix /tmp/git/objects/,$(SOURCES:.c=.o))
-    # Keep the bootstrap build unoptimized: Git has hundreds of translation
-    # units and this layer is optimized for deterministic browser cold-build
-    # latency rather than execution throughput.
-    # Git ends with status 128 when its pager cannot start, so the default one
-    # is a command for Slop: less when it is installed, cat otherwise.
-    CPPFLAGS := \
-      -O0 \
-      -std=gnu99 \
-      -Wno-ignored-attributes \
-      -D_DEFAULT_SOURCE \
-      -DNO_GETTEXT \
-      -DNO_ICONV \
-      -DNO_EXPAT \
-      -DNO_PTHREADS \
-      -DNO_UNIX_SOCKETS \
-      -DNO_OPENSSL \
-      -DNO_PERL \
-      -DNO_PYTHON \
-      -DNO_IPV6 \
-      -DNO_MMAP \
-      -DNO_REGEX \
-      -DGAWK \
-      -DNO_MBSUPPORT \
-      -DNO_MEMMEM \
-      -DNO_PREAD \
-      -DNO_SETENV \
-      -DNO_STRCASESTR \
-      -DNO_STRLCPY \
-      -DNO_STRTOUMAX \
-      -Dprintf=iprintf \
-      -Dfprintf=fiprintf \
-      -DSHA1_BLK \
-      -DSHA256_BLK \
-      -DHAVE_ALLOCA_H \
-      -DHAVE_STRINGS_H \
-      -DHAVE_CLOCK_GETTIME \
-      -DHAVE_GETRANDOM \
-      '-DGIT_VERSION_H="version-def.h"' \
-      '-DBINDIR="/usr/bin"' \
-      '-DGIT_EXEC_PATH="/usr/libexec/dolly"' \
-      '-DDEFAULT_GIT_TEMPLATE_DIR="/usr/share/git-core/templates"' \
-      '-DFALLBACK_RUNTIME_PREFIX="/usr"' \
-      '-DGIT_HOST_CPU="wasm64"' \
-      '-DGIT_LOCALE_PATH="/usr/share/locale"' \
-      '-DSHELL_PATH="/bin/slop"' \
-      '-DDEFAULT_PAGER="$$(command -v less || command -v cat)"' \
-      '-DPAGER_ENV="LESS=FRX LV=-c"' \
-      '-DETC_GITCONFIG="/etc/gitconfig"' \
-      '-DETC_GITATTRIBUTES="/etc/gitattributes"' \
-      '-DGIT_HTML_PATH="/usr/share/doc/git/html"' \
-      '-DGIT_MAN_PATH="/usr/share/man"' \
-      '-DGIT_INFO_PATH="/usr/share/info"' \
-      -I /usr/src/git/compat/regex \
-      -I /usr/src/git \
-      -include dolly/runtime.h
-    all: /usr/bin/git /usr/libexec/dolly/git-remote-http /usr/libexec/dolly/git-remote-https
-    /tmp/git/objects/%.o: /usr/src/git/%.c
-    >mkdir -p $(dir $@)
-    >cc \
-    >  $(CPPFLAGS) \
-    >  -c $< \
-    >  -o $@
-    /usr/lib/libgit.a: $(OBJECTS)
-    >ar rcs $@ $^
-    /usr/bin/git: /usr/src/git/common-main.c /usr/src/git/git.c /usr/lib/libgit.a
-    >cc \
-    >  $(CPPFLAGS) \
-    >  /usr/src/git/common-main.c \
-    >  /usr/src/git/git.c \
-    >  -lgit \
-    >  -lz \
-    >  -o $@
-    /usr/libexec/dolly:
-    >mkdir -p $@
-    /usr/libexec/dolly/git-remote-http: /usr/src/git/common-main.c /usr/src/git/remote-curl.c /usr/src/git/http.c /usr/src/git/http-walker.c /usr/lib/libgit.a | /usr/libexec/dolly
-    >cc \
-    >  $(CPPFLAGS) \
-    >  /usr/src/git/common-main.c \
-    >  /usr/src/git/remote-curl.c \
-    >  /usr/src/git/http.c \
-    >  /usr/src/git/http-walker.c \
-    >  -lgit \
-    >  -lcurl \
-    >  -lz \
-    >  -o $@
-    /usr/libexec/dolly/git-remote-https: /usr/libexec/dolly/git-remote-http
-    >cc \
-    >  $(CPPFLAGS) \
-    >  /usr/src/git/common-main.c \
-    >  /usr/src/git/remote-curl.c \
-    >  /usr/src/git/http.c \
-    >  /usr/src/git/http-walker.c \
-    >  -lgit \
-    >  -lcurl \
-    >  -lz \
-    >  -o $@
-SLOP CWD /usr/src/git make \
-  -f /tmp/git/Makefile
-
-EXPORTS TOOL git
-
-SLOP git \
-  --version
-SLOP git --help > /usr/share/man/cat1/git.1
-
-FILE /usr/libexec/dolly/git-remote-http
-FILE /usr/libexec/dolly/git-remote-https
-FOLDER /usr/share/git-core/templates
-FILE /usr/share/licenses/git/COPYING
-
-SLOP rm \
-  -rf \
-  /tmp/git \
-  /tmp/git.tar \
-  /usr/src/git
+INSTALL /v0.1.3/Dollyfile-git 20a5f7feb78a8197fbc3bf553e2469e15ea6de84de3503f92ddeb55b1c2e6371
 SOURCE /v0.1.3/dist/static/default/awk.tar f28cae177fa60793a70066d10667e8d06775d979f2262be1c48f8eb941090015 /tmp/awk.tar
 SLOP tar \
   -xf /tmp/awk.tar \
@@ -385,8 +187,6 @@ SLOP rm \
 # Focused compatibility commands used by build systems and coding agents.
 # Each remains a separate Wasm executable; wrappers which launch another tool
 # do so through Dolly's in-userspace spawn/wait contract.
-REQUIRES TOOL   git
-
 SOURCE /v0.1.3/dist/static/default/commands/run-program.h 8434bb55978a286e546878170e882010e63c1901402156bb8b8b8a96adc37f73 /tmp/agent-tools/run-program.h
 SOURCE /v0.1.3/dist/static/default/commands/install.c     0aa8729ff8f6d8ecc454757226275b946b28c2e6783afd571f4c33a616cb4ba3 /tmp/agent-tools/install.c
 SOURCE /v0.1.3/dist/static/default/commands/du.c          55b6a61ea8dc2a4355aaafc9a80d2218f397fa4d1e170b78462863fc9cb2ed63 /tmp/agent-tools/du.c
@@ -398,17 +198,13 @@ SOURCE /v0.1.3/dist/static/default/commands/env.c         9a04ef03ad00956c2a27b3
 SOURCE /v0.1.3/dist/static/default/commands/time.c        bb49a29e708e9e32716e2d5bf4b4b4e662b07093d0e3731588ef7d41a53ad733 /tmp/agent-tools/time.c
 SOURCE /v0.1.3/dist/static/default/commands/timeout.c     4864285ae0b36f853376e6e77855f4d1f8159b96d716bd9466606b9bef1c5f16 /tmp/agent-tools/timeout.c
 SOURCE /v0.1.3/dist/static/default/commands/realpath.c    6ec82439ecf3ab1d21a40293ab7e585972c523d8c8e4573a60a7cef86af08250 /tmp/agent-tools/realpath.c
-SOURCE /v0.1.3/dist/static/default/commands/diff.c        e1e71b3947fac230f221715577fbbfbd6ba3cf82c6c3cd027905f10ace8cf11e /tmp/agent-tools/diff.c
-SOURCE /v0.1.3/dist/static/default/commands/patch.c       01a81c0b50df26223772e568bdc951db73d0be59b71251a1b023234c10a1b63e /tmp/agent-tools/patch.c
 SOURCE /v0.1.3/dist/static/default/commands/hostname.c    14a20a493c8559d8b28f221a6edd9b6f89f893f3e3067093b44d7235b4ae060f /tmp/agent-tools/hostname.c
 SOURCE /v0.1.3/dist/static/default/commands/tty.c         c51c9598e8245d5f651ade70995f2b03fb936c42a0e99c4c81c83749c5714c7e /tmp/agent-tools/tty.c
 SOURCE /v0.1.3/dist/static/default/commands/nproc.c       96ce7b8d1b1cee59d12193c2fa6fab5210bb7f0c9a0d0cc9bde7e0fd8d87c7ac /tmp/agent-tools/nproc.c
-SOURCE /v0.1.3/dist/static/default/commands/amy.c         7bb0b4b59750320c339e7455eede09a0144b76c90e71887c739c99fdf14d56da /tmp/agent-tools/amy.c
-SOURCE /v0.1.3/dist/static/default/commands/version.h   b5258bb195b5058ae99d9d1592decdb4d7013ed377f0eddfb27fa3a696aa1afb /tmp/agent-tools/version.h
 
 FILE /tmp/agent-tools/Makefile
     .RECIPEPREFIX := >
-    NAMES := install du rev command xargs find env time timeout realpath diff patch hostname tty nproc amy
+    NAMES := install du rev command xargs find env time timeout realpath hostname tty nproc
     TOOLS := $(addprefix /bin/,$(NAMES))
     all: $(TOOLS) $(NAMES:%=/usr/share/man/cat1/%.1)
     /bin/%: /tmp/agent-tools/%.c /tmp/agent-tools/run-program.h
@@ -428,12 +224,9 @@ EXPORTS TOOL env
 EXPORTS TOOL time
 EXPORTS TOOL timeout
 EXPORTS TOOL realpath
-EXPORTS TOOL diff
-EXPORTS TOOL patch
 EXPORTS TOOL hostname
 EXPORTS TOOL tty
 EXPORTS TOOL nproc
-EXPORTS TOOL amy
 
 SLOP rm \
   -rf \

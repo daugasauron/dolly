@@ -10,8 +10,8 @@ const loadProjectGraph = createDollyfileGraphLoader(projectDir);
 test("redistributed upstream programs retain their licenses", async () => {
   const expected = new Map([
     ["system-build", ["/usr/share/licenses/make/COPYING", "/usr/share/licenses/libcxx/LICENSE", "/usr/share/licenses/libcxxabi/LICENSE"]],
-    ["system-tools", ["/usr/share/licenses/samurai/LICENSE", "/usr/share/licenses/git/COPYING",
-      "/usr/share/licenses/awk/LICENSE", "/usr/share/licenses/sbase/LICENSE"]],
+    ["system-tools", ["/usr/share/licenses/samurai/LICENSE", "/usr/share/licenses/awk/LICENSE",
+      "/usr/share/licenses/sbase/LICENSE"]], ["git", ["/usr/share/licenses/git/COPYING"]],
     ["zlib", ["/usr/share/licenses/zlib/LICENSE"]], ["curl", ["/usr/share/licenses/curl/COPYING"]],
     ["zig-build", ["/usr/share/licenses/zig/LICENSE"]],
     ["less", ["/usr/share/licenses/less/LICENSE", "/usr/share/licenses/termcap/COPYING"]],
