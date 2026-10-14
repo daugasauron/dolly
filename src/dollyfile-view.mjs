@@ -302,7 +302,7 @@ function inspectRecipe(source, label, rows) {
   try { required = hostRequirements(requirements.filter(item => item.type === "HOST").map(item => item.name)); }
   catch (error) { throw new Error(`${label}: ${error.message}`); }
   return {
-    hostRequirements: required, role, kind: "image", name, image: name, entry,
+    hostRequirements: required, role, name, image: name, entry,
     requirements, exports, artifacts, from, sources, slops, files, folders, rows, source,
   };
 }

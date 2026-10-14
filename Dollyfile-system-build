@@ -80,7 +80,7 @@ FILE /usr/share/licenses/musl/COPYRIGHT
 FILE /usr/share/licenses/emscripten/LICENSE
 
 # cc, c++, ld and ar forward to the seed compiler. Only that compiler exists at
-# this point, so COMPILEC builds them; every later recipe step uses SLOP.
+# this point, so RUN starts it for them; every later recipe step uses SLOP.
 SOURCE /v0.1.3/dist/static/default/commands/cc.c b8e86a460434a6b60538229120365909697393d2c11bc3f18357be2c8d13c7f5 /tmp/process-tools/cc.c
 SOURCE /v0.1.3/dist/static/default/commands/cxx.c a19b6b99a9a4f6c3473bb673c4e86c4857563839586e6e7c939c397585b281f3 /tmp/process-tools/cxx.c
 SOURCE /v0.1.3/dist/static/default/commands/ld.c d12309353aeb2a80e3766e87c3e9936ac9fb434114e36287a1acbf3339bf104b /tmp/process-tools/ld.c
@@ -103,8 +103,8 @@ EXPORTS TOOL c++
 EXPORTS TOOL ld
 EXPORTS TOOL ar
 EXPORTS TOOL dollyfile
-# Slop runs every SLOP step, so it is built before any shell exists: COMPILEC
-# runs the seed compiler alone.
+# Slop runs every SLOP step, so it is built before any shell exists: RUN
+# starts the seed compiler alone.
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 

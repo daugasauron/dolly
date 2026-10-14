@@ -39,7 +39,7 @@ fileInput.addEventListener("change", async () => {
 form.addEventListener("submit", event => {
   event.preventDefault();
   try {
-    if (inspectDollyfile(source.value).kind !== "image") throw new Error("Upload an IMAGE recipe, not a MODULE");
+    inspectDollyfile(source.value);
     sessionStorage.setItem(storageKey, source.value);
     location.assign(publicURL("custom/rebuild/"));
   } catch (error) { status.textContent = error.message; }

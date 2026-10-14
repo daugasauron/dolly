@@ -69,7 +69,6 @@ export class ImageBuildService extends EventTarget {
       source = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(init.body);
       if (source.includes("\0")) throw new Error("Dollyfile contains NUL bytes");
       recipe = inspectDollyfile(source);
-      if (recipe.kind !== "image") throw new Error("Submit an IMAGE recipe, not a MODULE");
     } catch (error) { return response(JSON.stringify({ type: "error", message: error.message }) + "\n", 400, url); }
     init.signal?.throwIfAborted();
     const job = { source, name: recipe.image,

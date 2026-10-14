@@ -33,7 +33,7 @@ static int run_child(const char *path, int argc, char **argv) {
 }
 
 // The engine is the only program compiled before the root recipe runs; the
-// recipe builds everything else, with COMPILEC until Slop exists.
+// recipe builds everything else, with RUN until Slop exists.
 static int compile_engine(void) {
   static const char source[] = "/usr/src/dolly/dollyfile.c";
   static const char output[] = "/bin/dollyfile";

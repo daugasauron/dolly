@@ -30,7 +30,7 @@ export function recipeRecords(graph) {
     seen.add(record.location);
     for (const { target } of record.artifactTargets) visit(target);
     records.push({
-      kind: record.kind, name: record.name, locator: record.location,
+      name: record.name, locator: record.location,
       sourcePath: record.location,
       retainedPath: `/etc/dolly/recipes/${recipeFileName(record.location)}`,
       sha256: record.sha256, byteLength: Buffer.byteLength(record.source),

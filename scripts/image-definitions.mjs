@@ -17,7 +17,7 @@ export async function discoverImageDefinitions(projectDir) {
   for (const filename of (await recipeFiles(projectDir)).values()) {
     const source = await readFile(resolve(projectDir, filename), "utf8");
     const parsed = inspectDollyfile(source, filename);
-    if (parsed.kind !== "image" || imageFileName(basename(filename)) !== parsed.image) {
+    if (imageFileName(basename(filename)) !== parsed.image) {
       throw new Error(`${filename}: must declare the image ${imageFileName(basename(filename))}`);
     }
     definitions.push({

@@ -34,10 +34,10 @@ export function customSessionIdentity(custom) {
       !Number.isSafeInteger(artifact.byteLength) || artifact.byteLength <= 0 ||
       artifact.byteLength > DOLLY_SESSION_MAX_BYTES ||
       (policies !== undefined && (!Array.isArray(policies) || policies.length === 0 || policies.length > 16 ||
-        new TextEncoder().encode(JSON.stringify(policies)).byteLength > 65536)) ||
-      inspectDollyfile(custom.source).kind !== "image") {
+        new TextEncoder().encode(JSON.stringify(policies)).byteLength > 65536))) {
     throw new TypeError("invalid custom session base");
   }
+  inspectDollyfile(custom.source);
   imageInputs(artifact.inputs);
   return `custom:${artifact.recipeSha256}:${artifact.sha256}`;
 }
