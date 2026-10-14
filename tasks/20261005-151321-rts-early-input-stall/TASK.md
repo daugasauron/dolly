@@ -1,8 +1,33 @@
 # RTS match freezes when player input arrives in its first frames
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 190
 - TAGS: demo,rts,tests,flaky,bug
+
+## Fixed (2026-10-14)
+
+The cause is upstream's frame timer, and the fix is in the port's own
+`demos/rts/arena.cpp`: the match begins once the game's clock has passed
+1000 ms.
+
+- The game's clock is `SDL_GetTicks()` (`Misc::get_time`), milliseconds since
+  the engine started. `Sys::should_next_frame` (upstream `src/OSYS.cpp:1492`)
+  reads a next frame due before 1000 ms as a 32-bit clock that wrapped, and
+  then lets the frame run only while the clock is still under 1000. A frame
+  due at 998 or 999 ms that the loop does not reach before 1000 ms is never
+  run: that player's simulation stops for good while it keeps drawing, and
+  the other waits for it in lockstep. The arena starts a match within the
+  engine's first second; a game started from the menus never does.
+- Seen in a transport log of both engines (temporary, kept in
+  `work/evidence-2026-10-14/rts/arena-trace.diff` with the logs): in one stall
+  player 1 sent its frame-16 message at 949 ms (next due 999), next looked
+  at 1030 ms and sent nothing more, while player 2 had sent through frame 18
+  and waited; in another player 2's last frame went at 948 ms (due 998). An
+  input or a screenshot at that moment is what makes the loop late, hence
+  "early input".
+- With the fix, pinned to two processors, the loop passed 24 rounds of 24
+  (`rts-loop-fixed.log`), against 14 stalls in 52 rounds before it the same
+  afternoon; the demo's test passed (261 s); source tests 430/0.
 
 ## State (2026-10-13)
 

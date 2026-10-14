@@ -253,6 +253,12 @@ void dolly_rts_run()
     remote.handle_vga_lock = 0;
     remote.init_replay_save(nations, 2);
     sys.signal_exit_flag = 0;
+    // The game's clock is SDL_GetTicks(). Sys::should_next_frame reads a next
+    // frame due before 1000 ms as a clock that wrapped and waits for it to wrap
+    // again, so a frame due then that the loop does not reach before 1000 ms
+    // stops the match for good. The arena starts a match within that first
+    // second, which a game started from the menus never does.
+    while (SDL_GetTicks() < 1000) SDL_Delay(10);
     battle.run(nations, 2);
     dolly_rts_input_close(sys.frame_count);
     remote.deinit();
