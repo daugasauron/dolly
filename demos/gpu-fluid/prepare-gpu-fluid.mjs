@@ -25,6 +25,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
 FROM ${siteReference("Dollyfile-system")} ${parent}
+INSTALL ${siteReference("Dollyfile-libdolly-gpu")} ${hash(await readFile(new URL("Dollyfile-libdolly-gpu",root)))}
 REQUIRES TOOL cc
 REQUIRES HEADER gpu
 REQUIRES LIB dolly-gpu

@@ -25,6 +25,7 @@ REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM ${await pin("demos/slopyard/Dollyfile-gamedev-sdk")}
+INSTALL ${await pin("Dollyfile-libdolly-gpu")}
 INSTALL ${await pin("demos/javascript/Dollyfile-janis")}
 INSTALL ${await pin("demos/pi/Dollyfile-pi")}
 REQUIRES TOOL cc
