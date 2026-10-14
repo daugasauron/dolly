@@ -108,3 +108,27 @@ stall either player", frames 17 and 18 before the input and after it
 (`build/round-1014-evidence/demos.log` in `work/rust`). The same test passed
 alone right after, at load 0.7, in 258 s. 26 other demo suites passed.
 
+## A reproducer, and the relay ruled out (2026-10-14)
+
+Pinned to two processors the loop stalls often:
+`RTS_FIXTURE=build/polish-evidence/rts-match-probe.mjs taskset -c 4,5 work/slot.sh browser node build/polish-evidence/rts-loop.mjs 20`
+stalled 8 of 20 rounds, then 3 of 8; with a probe that also counts the
+fixture's relay, 0 of 8 and 3 of 16. In all, 14 of 52. The loop, both probes
+and the logs are in `work/evidence-2026-10-14/rts/`.
+
+- The stalled player's frame counter stops at an input. In one stall player
+  1 took the first click at (755, 25) on frame 17, the second click and the
+  one-second wait on frame 17 too, and stayed there; player 2 stayed on 18.
+  Another stall came at frames 8 and 9, during the first cursor moves,
+  before any click. So it is an early input, not the menu click.
+- The relay between the two engines is idle at a stall: neither stdout was
+  paused, no write waited (`writableLength` 0), and every byte an engine
+  wrote was passed on (at frames 8/9: 13 chunks, 403 bytes from player 1;
+  11 chunks, 490 bytes from player 2). Janis's child pump and back-pressure
+  are not the cause.
+- So the engines deadlock in their own synchronization after the bytes have
+  reached them. Next, which needs `rts-build` and `rts-arena` rebuilt with
+  a log: what each engine's `dolly_rts_receive` took (frame, size) and why
+  `Sys::is_mp_sync` keeps waiting (`remote_send_success_flag`, the other
+  nation's `next_frame_ready`, `ec_remote`'s state).
+
