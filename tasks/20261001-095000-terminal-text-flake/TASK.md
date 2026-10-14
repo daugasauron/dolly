@@ -1,8 +1,18 @@
 # Terminal input and screen reading: the losses and flakes still open
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: tests,flaky,display,firefox
+
+## Closed (2026-10-14)
+
+The done-when's first half holds: the drag after zoom and paste did not fail
+in 160 runs (55 in Chromium, 105 in Firefox) and no screen read failed in
+about 9,000 timed ones, on a processor shared with busy loops. Its second
+half, Emacs's first "Find file", is a task of its own,
+[Emacs's stack](../20261013-202443-emacs-stack/TASK.md), where it stands
+better understood than here: the large stack for Emacs alone ends its crash
+and not its lost bytes (4 of 30 pinned runs, 2026-10-14).
 
 ## State (2026-10-14)
 
