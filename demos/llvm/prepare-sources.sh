@@ -1,10 +1,12 @@
 # Sourced by scripts/prepare-image-sources.sh.
-# Stages an LLVM tree to OUTPUT: everything CMake configures and the libraries
-# compile; no tests, docs, examples or benchmarks. LLD always adds docs;
-# mlgo-utils links three scripts to their real copies under mlgo/.
+# Stages an LLVM tree to OUTPUT, with any further INPUT ARCHIVE-PATH pairs:
+# everything CMake configures and the libraries compile; no tests, docs,
+# examples or benchmarks. LLD always adds docs; mlgo-utils links three scripts
+# to their real copies under mlgo/.
 stage_llvm() {
   local llvm_dir="$1" output="$2" path
-  llvm_inputs=()
+  shift 2
+  llvm_inputs=("$@")
   stage_tree() {
     local tree="$1" entry
     shift
@@ -37,7 +39,9 @@ if has_image llvm21-tablegen; then
   llvm21_archive="$(bash scripts/fetch-pinned-archive.sh llvm21)"
   llvm21_dir="build/generated/llvm-project-$(source config/source-pins.sh && echo "${DOLLY_LLVM21_VERSION}").src"
   if [[ ! -d "${llvm21_dir}" ]]; then mkdir -p build/generated && tar -xJf "${llvm21_archive}" -C build/generated; fi
-  stage_llvm "${llvm21_dir}" "${static_dir}/llvm21/llvm-project.tar.gz"
+  # Clang 21 always configures its examples directory.
+  stage_llvm "${llvm21_dir}" "${static_dir}/llvm21/llvm-project.tar.gz" \
+    "${llvm21_dir}/clang/examples" /tmp/llvm-project/clang/examples
   copy_static demos/llvm/llvm-host-triple.patch llvm21/llvm-host-triple.patch
   for project in llvm clang lld; do copy_static "${llvm21_dir}/${project}/LICENSE.TXT" "llvm21/licenses/${project}"; done
 fi
