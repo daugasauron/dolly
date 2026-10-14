@@ -29,7 +29,7 @@ the script would find here, in the comments beside its flags.
 - `toybox`: toybox's `grep` and `sed`, which have `grep -r` and `sed -i`, in place of the image's.
 - `dte`: dte, a small full-screen editor with the keys of a desktop one.
 - `mandoc`: mandoc, which formats a manual page of man or mdoc macros as text.
-- `tools-build`: Build-only: `cmake-build` with mandoc, what these packages are built on.
+- `tools-build`: A build stage: `cmake-build` with mandoc, what these packages are built on.
 - `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks.
 - `sbase`: the sbase commands the image leaves out: `yes`, `cal`, `sha1sum`, `sha512sum`, `sponge`, `cols`, `uuencode` and `uudecode`.
 

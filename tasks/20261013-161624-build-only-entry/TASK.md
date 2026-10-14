@@ -1,6 +1,6 @@
 # Eight toolchains that their READMEs call build-only have an ENTRY, so each has a page that opens
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 140
 - TAGS: catalog,dollyfile,owner
 
@@ -11,6 +11,24 @@ Done when: the owner has said which of the two is meant, and the recipe and
 the README of each say the same: either the `ENTRY` goes (the image then
 only builds, as `system-build` and `zig-build` do since Dollyfile 6), or the
 README stops saying "build-only".
+
+## Closed (2026-10-14)
+
+Owner (2026-10-14), on the tasks that waited for him: "I'm not gonna go
+through 35 tasks, I'm sure some are not relevant anymore and some are
+confirmed actual good fixes. If your investigation confirms they are fixes
+that improve things and aligh with the main goal of the project go ahead. If
+you're uncertain, give me a short description".
+
+The `ENTRY` rows stay and the READMEs stop saying "build-only": they call the
+eight "a build stage". Two things the task did not know decide it. Tests
+open one of them: `demos/zero-ad/test/0ad-engine-browser.mjs:26` goes to
+`/zero-ad-engine/`, and the multiplayer test starts the engine there. And a
+shell in a build stage is how its result is looked at, as `rust-tools` and
+`typescript-build` were kept "inspectable" by Dollyfile 6. Taking the row
+out would rebuild LLVM, Mojo, 0 A.D. and the 22 packages on `tools-build`
+to remove eight pages no visitor meets. READMEs are no image input: the
+plan builds nothing.
 
 ## As filed (2026-10-14, `integrate/round-1013` `6d659acf`)
 

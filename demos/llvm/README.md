@@ -6,11 +6,11 @@ seed, built again by Dolly's own `cc`. The seed stays the bootstrap.
 
 ## Images
 
-- `llvm-tablegen`: build-only. CMake configures the tree inside Dolly; Make
+- `llvm-tablegen`: a build stage. CMake configures the tree inside Dolly; Make
   builds `llvm-min-tblgen`, `llvm-tblgen` and `clang-tblgen` and runs the
   TableGen targets the seed compiler's libraries need. It keeps the three tools
   and `/usr/share/llvm-tablegen` (configured headers and TableGen outputs).
-- `llvm-build`: build-only: the seed compiler's libraries, compiled in Dolly.
+- `llvm-build`: a build stage: the seed compiler's libraries, compiled in Dolly.
   It configures the tree again with those tools and compiles the closure
   (Clang, LLD, the WebAssembly backend: 2,559 units) at four jobs. It keeps
   `/usr/lib/llvm-build`: the archives, Clang's resource directory and the
