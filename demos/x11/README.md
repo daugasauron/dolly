@@ -6,7 +6,7 @@ own under a stock window manager.
 
 ## Images
 
-- `x11-desktop`: an X session: the X server, twm, xclock, xeyes and xterm, with `imgui-x11` ([the SDL2 demo](../sdl2/README.md)) for xterm to start.
+- `x11-desktop`: an X session: the X server, twm, xclock, xeyes and xterm, with `imgui-x11` ([the SDL2 demo](../sdl2/README.md)) for xterm to start and amy to install packages.
 - `xorg-server`: Xsdl, the X server in Dolly's display, with xkbcomp and the keyboard descriptions.
 - `twm`: twm, the Tab Window Manager.
 - `xclock`: xclock, the Athena clock.
@@ -18,7 +18,9 @@ own under a stock window manager.
 Open `/x11-desktop/`; build with `npm run image -- x11-desktop`. The session
 starts the server, twm, xclock, xeyes and xterm. Windows move by their title
 bars; the keyboard goes to the window under the pointer. `imgui-x11 &` in
-xterm opens Dear ImGui's example, SDL2 drawing through its X11 driver.
+xterm opens Dear ImGui's example, SDL2 drawing through its X11 driver, and
+amy installs packages there (`amy install tmux nvim`; tmux's server is started
+with `tmux -D &`).
 `kill $(cat /tmp/.X0-pid)` in xterm ends the server, and the terminal's shell
 is back.
 

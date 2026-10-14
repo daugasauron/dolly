@@ -5,9 +5,13 @@ REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST pty@0
 REQUIRES HOST download@0
+REQUIRES HOST dso@0
 REQUIRES HOST http@0
+REQUIRES HOST nena@0
+REQUIRES HOST packages@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 # An X session on Dolly's display: the Xsdl server, twm managing the
@@ -20,6 +24,10 @@ INSTALL /v0.1.3/demos/x11/Dollyfile-twm 9f3e9cd4ae83b64b240317ce35b8dae0db012304
 INSTALL /v0.1.3/demos/x11/Dollyfile-xclock 69cb85659968d41cf224464411a4badb09d774a42506914cbb30b6da85d8e5cd
 INSTALL /v0.1.3/demos/x11/Dollyfile-xeyes cd14e3d6e962ed3fec7e7f11c714e81e972f9e5b87cb3314691e1afa020920ae
 INSTALL /v0.1.3/demos/x11/Dollyfile-xterm 9458d8d240725bc5076eb21e0690d0de81a98c73062cdae7e64f07809a434fd7
+# amy installs packages into the session (tmux, nvim and the rest), with the
+# modules default declares for them; nena enables another.
+INSTALL /v0.1.3/Dollyfile-amy a9e0c7a808cfae5c9b4ebd7e22668ed1eaa66dce1bbc2e337e064d5bf0e6bb67
+INSTALL /v0.1.3/Dollyfile-nena 7ecabfc08c0c7d7e7cf13ec5a5ea7cf260ae816e2d2ef83ad6e2d861719e34b0
 INSTALL /v0.1.3/demos/sdl2/Dollyfile-imgui-x11 3540eec6d78c2444e27bfeb25ed77b280bd3ede4b3fcd9c02a89b7cc7011e49b
 
 # The server takes the display, the keyboard and the pointer until it ends
