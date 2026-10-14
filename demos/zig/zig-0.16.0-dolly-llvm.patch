@@ -1,0 +1,191 @@
+diff --git a/lib/std/Io/Threaded.zig b/lib/std/Io/Threaded.zig
+index b7c40ce..04b604b 100644
+--- a/lib/std/Io/Threaded.zig
++++ b/lib/std/Io/Threaded.zig
+@@ -14851,7 +14851,7 @@ fn processSpawnPath(userdata: ?*anyopaque, dir: Dir, options: process.SpawnOptio
+ }
+ 
+ const processSpawn = switch (native_os) {
+-    .wasi, .emscripten, .ios, .tvos, .visionos, .watchos => processSpawnUnsupported,
++    .wasi, .ios, .tvos, .visionos, .watchos => processSpawnUnsupported,
+     .windows => processSpawnWindows,
+     else => processSpawnPosix,
+ };
+@@ -14949,7 +14949,15 @@ fn spawnPosix(t: *Threaded, options: process.SpawnOptions) process.SpawnError!Sp
+     t.scanEnviron(); // for PATH
+     const PATH = t.environ.string.PATH orelse default_PATH;
+ 
+-    const pid_result: posix.pid_t = fork: {
++    const pid_result: posix.pid_t = if (native_os == .emscripten) try spawnEmscripten(
++        arena,
++        options,
++        argv_buf,
++        env_block,
++        .{ stdin_pipe[0], stdout_pipe[1], stderr_pipe[1] },
++        dev_null_fd,
++        prog_pipe[1],
++    ) else fork: {
+         const rc = posix.system.fork();
+         switch (posix.errno(rc)) {
+             .SUCCESS => break :fork @intCast(rc),
+@@ -14960,7 +14968,7 @@ fn spawnPosix(t: *Threaded, options: process.SpawnOptions) process.SpawnError!Sp
+         }
+     };
+ 
+-    if (pid_result == 0) {
++    if (native_os != .emscripten and pid_result == 0) {
+         defer comptime unreachable; // We are the child.
+         if (Thread.current) |current_thread| current_thread.cancel_protection = .blocked;
+         const ep1 = err_pipe[1];
+@@ -15055,6 +15063,83 @@ fn spawnPosix(t: *Threaded, options: process.SpawnOptions) process.SpawnError!Sp
+     };
+ }
+ 
++/// Emscripten's libc, as Dolly runs it, starts a process with posix_spawn and
++/// has no fork; its file actions are dup2 and chdir.
++const emscripten_spawn = struct {
++    /// musl's posix_spawn_file_actions_t.
++    const FileActions = extern struct { pad0: [2]c_int, actions: ?*anyopaque, pad: [16]c_int };
++    const Argv = [*:null]const ?[*:0]const u8;
++    extern "c" fn posix_spawn_file_actions_init(actions: *FileActions) c_int;
++    extern "c" fn posix_spawn_file_actions_destroy(actions: *FileActions) c_int;
++    extern "c" fn posix_spawn_file_actions_adddup2(actions: *FileActions, source: posix.fd_t, target: posix.fd_t) c_int;
++    extern "c" fn posix_spawn_file_actions_addclose(actions: *FileActions, fd: posix.fd_t) c_int;
++    extern "c" fn posix_spawn_file_actions_addchdir_np(actions: *FileActions, path: [*:0]const u8) c_int;
++    extern "c" fn posix_spawn_file_actions_addfchdir_np(actions: *FileActions, fd: posix.fd_t) c_int;
++    extern "c" fn posix_spawn(pid: *posix.pid_t, path: [*:0]const u8, actions: *const FileActions, attributes: ?*const anyopaque, argv: Argv, envp: Argv) c_int;
++    extern "c" fn posix_spawnp(pid: *posix.pid_t, file: [*:0]const u8, actions: *const FileActions, attributes: ?*const anyopaque, argv: Argv, envp: Argv) c_int;
++};
++
++fn spawnEmscripten(
++    arena: Allocator,
++    options: process.SpawnOptions,
++    argv: [:null]?[*:0]const u8,
++    env_block: process.Environ.PosixBlock,
++    std_pipe_fds: [3]posix.fd_t,
++    dev_null_fd: posix.fd_t,
++    prog_fd: posix.fd_t,
++) process.SpawnError!posix.pid_t {
++    const spawn = emscripten_spawn;
++    if (options.uid != null or options.gid != null or options.pgid != null or options.start_suspended)
++        return error.OperationUnsupported;
++    var actions: spawn.FileActions = undefined;
++    try spawnEmscriptenResult(spawn.posix_spawn_file_actions_init(&actions));
++    defer _ = spawn.posix_spawn_file_actions_destroy(&actions);
++    for ([_]process.SpawnOptions.StdIo{ options.stdin, options.stdout, options.stderr }, std_pipe_fds, 0..) |stdio, pipe_fd, std_fileno| {
++        const target: posix.fd_t = @intCast(std_fileno);
++        try spawnEmscriptenResult(switch (stdio) {
++            .pipe => spawn.posix_spawn_file_actions_adddup2(&actions, pipe_fd, target),
++            .close => spawn.posix_spawn_file_actions_addclose(&actions, target),
++            .inherit => 0,
++            .ignore => spawn.posix_spawn_file_actions_adddup2(&actions, dev_null_fd, target),
++            .file => |file| spawn.posix_spawn_file_actions_adddup2(&actions, file.handle, target),
++        });
++    }
++    try spawnEmscriptenResult(switch (options.cwd) {
++        .inherit => 0,
++        .dir => |cwd| spawn.posix_spawn_file_actions_addfchdir_np(&actions, cwd.handle),
++        .path => |cwd| spawn.posix_spawn_file_actions_addchdir_np(&actions, try arena.dupeZ(u8, cwd)),
++    });
++    // After the directory, as spawnPosix orders its dup2 after fchdir.
++    if (prog_fd != -1) try spawnEmscriptenResult(spawn.posix_spawn_file_actions_adddup2(&actions, prog_fd, 3));
++    const file = argv[0].?;
++    var pid: posix.pid_t = undefined;
++    try spawnEmscriptenResult(if (std.mem.findScalar(u8, std.mem.sliceTo(file, 0), '/') == null)
++        spawn.posix_spawnp(&pid, file, &actions, null, argv.ptr, env_block.slice.ptr)
++    else
++        spawn.posix_spawn(&pid, file, &actions, null, argv.ptr, env_block.slice.ptr));
++    return pid;
++}
++
++/// posix_spawn and its file actions return an errno value.
++fn spawnEmscriptenResult(rc: c_int) process.SpawnError!void {
++    return switch (@as(posix.E, @enumFromInt(rc))) {
++        .SUCCESS => {},
++        .AGAIN, .NOMEM => error.SystemResources,
++        .OPNOTSUPP => error.OperationUnsupported,
++        .ACCES => error.AccessDenied,
++        .PERM => error.PermissionDenied,
++        .NOENT => error.FileNotFound,
++        .NOTDIR => error.NotDir,
++        .ISDIR => error.IsDir,
++        .NOEXEC => error.InvalidExe,
++        .LOOP => error.SymLinkLoop,
++        .NAMETOOLONG => error.NameTooLong,
++        .MFILE => error.ProcessFdQuotaExceeded,
++        .NFILE => error.SystemFdQuotaExceeded,
++        else => |err| posix.unexpectedErrno(err),
++    };
++}
++
+ fn getDevNullFd(t: *Threaded) !posix.fd_t {
+     {
+         mutexLock(&t.mutex);
+diff --git a/lib/std/zig/system.zig b/lib/std/zig/system.zig
+index 61f7809..fdce982 100644
+--- a/lib/std/zig/system.zig
++++ b/lib/std/zig/system.zig
+@@ -546,6 +546,9 @@ fn detectNativeCpuAndFeatures(io: Io, cpu_arch: Target.Cpu.Arch, os: Target.Os,
+     switch (builtin.cpu.arch) {
+         .loongarch32, .loongarch64 => return @import("system/loongarch.zig").detectNativeCpuAndFeatures(cpu_arch, os, query),
+         .x86_64, .x86 => return @import("system/x86.zig").detectNativeCpuAndFeatures(cpu_arch, os, query),
++        // A WebAssembly host cannot be asked; it runs this compiler, so it
++        // has the features the compiler was built with.
++        .wasm32, .wasm64 => return builtin.cpu,
+         else => {},
+     }
+ 
+diff --git a/src/link/Lld.zig b/src/link/Lld.zig
+index ffb9020..5a36f7a 100644
+--- a/src/link/Lld.zig
++++ b/src/link/Lld.zig
+@@ -1414,6 +1414,9 @@ fn wasmLink(lld: *Lld, arena: Allocator) !void {
+         // Create an LLD command line and invoke it.
+         var argv = std.array_list.Managed([]const u8).init(gpa);
+         defer argv.deinit();
++        if (target.os.tag == .emscripten) {
++            return emscriptenLink(lld, arena, full_out_path, zcu_obj_path, compiler_rt_path, ubsan_rt_path);
++        }
+         // We will invoke ourselves as a child process to gain access to LLD.
+         // This is necessary because LLD does not behave properly as a library -
+         // it calls exit() and does not reset all global data between invocations.
+@@ -1609,6 +1612,39 @@ fn wasmLink(lld: *Lld, arena: Allocator) !void {
+     }
+ }
+ 
++/// Emscripten's libc is the system's, and so is its link: the system's cc
++/// adds the libc, its start file and what the system records in a program.
++fn emscriptenLink(
++    lld: *Lld,
++    arena: Allocator,
++    full_out_path: []const u8,
++    zcu_obj_path: ?Cache.Path,
++    compiler_rt_path: ?Cache.Path,
++    ubsan_rt_path: ?Cache.Path,
++) !void {
++    const comp = lld.base.comp;
++    var argv: std.ArrayList([]const u8) = .empty;
++    try argv.appendSlice(arena, &.{ "cc", "-o", full_out_path });
++    if (comp.config.output_mode == .Lib) try argv.append(arena, "-shared");
++    if (comp.config.rdynamic) try argv.append(arena, "-rdynamic");
++    if (comp.config.any_non_single_threaded) try argv.append(arena, "-pthread");
++    for (comp.link_inputs) |link_input| switch (link_input) {
++        .object, .archive => |obj| {
++            const path = try obj.path.toString(arena);
++            try argv.appendSlice(arena, if (obj.must_link) &.{ "-Wl,--whole-archive", path, "-Wl,--no-whole-archive" } else &.{path});
++        },
++        .dso => |dso| try argv.append(arena, try dso.path.toString(arena)),
++        .dso_exact, .res => unreachable,
++    };
++    for (comp.c_object_table.keys()) |key| {
++        try argv.append(arena, try key.status.success.object_path.toString(arena));
++    }
++    for ([_]?Cache.Path{ zcu_obj_path, compiler_rt_path, ubsan_rt_path }) |optional| {
++        if (optional) |p| try argv.append(arena, try p.toString(arena));
++    }
++    try spawnLld(comp, arena, argv.items);
++}
++
+ fn spawnLld(comp: *Compilation, arena: Allocator, argv: []const []const u8) !void {
+     const io = comp.io;
+     const gpa = comp.gpa;
