@@ -77,10 +77,15 @@ measured. Not kept: the recipe is as it was and the images were built back.
   entered on the large stack, not Emacs alone: another process of the
   entry (`foreground`, Slop, `foreground`, Emacs), or what that entry
   changes in timing. Not followed.
-- A reading that fits "bytes lost, process alive", not tested: a stack that
-  runs out raises a JavaScript `RangeError`, and a Wasm `catch_all` (which
-  `longjmp` is built on here) may catch it, so that Emacs lands in its own
-  error handling, which discards pending input.
+- The reading that a Wasm `catch_all` swallows a full stack does not hold
+  for C. A program at `-O0` that recurses inside a `setjmp` region, with and
+  without a `longjmp` armed, ends with status 126 in Chromium ("Maximum call
+  stack size exceeded") and Firefox ("too much recursion"), the line it
+  prints after the call never shown (2026-10-14, `system`; the program and
+  its probe are in the evidence below). C's `longjmp` handler catches its
+  own tag only. So how the name is lost while Emacs lives is still open, and
+  a full stack ending the process is not where to look.
 - Evidence: `work/evidence-2026-10-14/emacs-stack/` (the two baseline
-  compiler logs, the four failing runs, the probe).
+  compiler logs, the four failing runs, the probe, `overflow.c` and its
+  probe).
 
