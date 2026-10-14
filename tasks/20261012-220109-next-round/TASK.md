@@ -74,6 +74,20 @@ installed by `system-tools`, because Dolly's `patch` and `diff` run Git and
 inside a Wine module), 6 (`38099083`, checked against each program's
 `--help` in a session). 3 is in review.
 
+The round (branch `integrate/round-1014b`, worktree `work/rust`, evidence in
+`build/round-1014b-evidence/`, 2026-10-14 22:37 to 2026-10-15 00:55): every
+image built, source 431/0. It stopped on its suites, each failure from this
+branch and none a flake: the five module packages missing from the sealed
+image list (artifacts); the GPU indicator's image without the gpu client,
+a `system` rebuild that now fetches `transfer`, the new packages unnamed in
+amy's coverage list (core browser suite); the studio's Neovim not
+highlighting `USE`; and `zero-ad-engine`, which descends from
+`system-tools` and lost `download`, used by the engine and multiplayer
+tests to take logs out (demos). Each fixed on `core/use-row`; the three
+browser files pass in both browsers. Merged into the round branch
+(`a4c15668`) with ImGui and the description; its 16 stale images rebuild,
+then the suites and the GPU stage run again.
+
 Decided against: [file modes](../20261006-120641-umask/TASK.md) (no
 permission bits; workarounds stay) and
 [a check of the engine's module list](../20261013-170737-receipt-hosts/TASK.md).
