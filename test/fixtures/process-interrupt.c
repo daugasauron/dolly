@@ -1,7 +1,6 @@
 // Handles SIGINT as event loops do: the handler only notes the signal in a
 // pipe, and the program shuts down after its blocking call returns.
-// Usage: process-interrupt poll|read|wait|sleep|linger MARKER
-// linger takes longer to shut down than a signalled child is given.
+// Usage: process-interrupt poll|read|wait|sleep MARKER
 #define _GNU_SOURCE
 #include <dolly/runtime.h>
 #include <errno.h>
@@ -51,7 +50,7 @@ int main(int argc, char **argv) {
   if (!byte && read(notes[0], &byte, 1) != 1) return 6;
   if (byte != SIGINT) return 6;
   /* Shutdown work between the handler and the exit. */
-  usleep(!strcmp(blocked, "linger") ? 2000000 : 50000);
+  usleep(50000);
   const int marker = open(argv[2], O_WRONLY | O_CREAT | O_EXCL, 0600);
   return marker < 0 || close(marker) ? 7 : 0;
 }

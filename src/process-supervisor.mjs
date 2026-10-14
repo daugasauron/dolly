@@ -291,8 +291,7 @@ export class DollyProcessSupervisor {
     const receiver = process.threaded
       ? [...process.threads.values()].sort((a, b) => a.tid - b.tid)[0] : process;
     const deferred = this.deferred.get(receiver);
-    // A deferred EXIT is past signal handling; the kernel completes it.
-    if (deferred && deferred.message.operation !== DOLLY_PROCESS_EXIT) {
+    if (deferred) {
       this.#clearDeferred(receiver);
       this.#signal(receiver, deferred.message.sequence, interruptedSystemCall);
     }
@@ -483,7 +482,7 @@ export class DollyProcessSupervisor {
   #armDeadline(process) {
     const remaining = this.dolly._dolly_process_deadline_remaining(process.pid);
     if (remaining >= 0) {
-      process.deadlineTimer = setTimeout(() => this.#forceExit(process.pid, 124), Math.ceil(remaining));
+      process.deadlineTimer = setTimeout(() => this.#endTree(process.pid, 124), Math.ceil(remaining));
     }
   }
 
@@ -550,12 +549,6 @@ export class DollyProcessSupervisor {
           deferred.timer = setTimeout(() => {
             if (this.deferred.get(thread) === deferred) this.#syscall(process, message, true, thread);
           }, Math.ceil(remaining));
-        }
-        if (message.operation === DOLLY_PROCESS_EXIT && process.interruptTimer !== null) {
-          // The parent has finished cleanup; signalled children retain their
-          // own deadlines while the kernel waits for them to finish theirs.
-          clearTimeout(process.interruptTimer);
-          process.interruptTimer = null;
         }
         return;
       }
@@ -674,10 +667,9 @@ export class DollyProcessSupervisor {
 
   #retire(process) {
     process.retiring = true;
-    const { descendants, reclamationDeadline } = this.#terminateDescendantWorkers(process.pid);
-    process.reclamationDeadline = Math.max(
-      this.#reclamationDeadline(process), reclamationDeadline,
-    );
+    // Its children live on: the kernel has given them parent 0.
+    for (const child of this.processes.values()) if (child.parent === process.pid) child.parent = 0;
+    process.reclamationDeadline = this.#reclamationDeadline(process);
     this.#stop(process);
     // The kernel has closed the process's descriptors: a reader of its pipe or
     // a waiter for its lock proceeds now, not at the next tick.
@@ -686,13 +678,14 @@ export class DollyProcessSupervisor {
     const retired = () => {
       process.retirementTimer = null;
       if (this.processes.get(process.pid) !== process) return;
-      for (const descendant of descendants) {
-        this.#acknowledgeRetirement(descendant);
-        this.dolly._dolly_process_collect(descendant.pid);
-      }
       this.#acknowledgeRetirement(process);
-      if (process.parent === 0) this.#finish(process);
-      else this.serviceDeferred();
+      if (process.resolve) this.#finish(process);
+      else {
+        // An orphan, whose parent may have ended after this one did: nobody
+        // waits for it, so it is reaped, as init would.
+        if (this.dolly._dolly_process_parent(process.pid) === 0) this.dolly._dolly_process_collect(process.pid);
+        this.serviceDeferred();
+      }
     };
     // Worker.terminate() has no completion event. Drop all references, then allow
     // one bounded reclamation window for large interactive memories before WAIT
@@ -754,18 +747,18 @@ export class DollyProcessSupervisor {
     return true;
   }
 
-  #terminateDescendantWorkers(parentPid) {
+  // A timed command's deadline ends its tree, deepest first, as timeout(1)
+  // signals the command's process group.
+  #endTree(pid, status) {
     const descendants = [...this.processes.values()]
-      .map((process) => ({ process, depth: this.#descendantDepth(process, parentPid) }))
+      .map((process) => ({ process, depth: this.#descendantDepth(process, pid) }))
       .filter(({ depth }) => depth !== 0)
       .sort((left, right) => right.depth - left.depth)
       .map(({ process }) => process);
-    let reclamationDeadline = 0;
-    for (const process of descendants) {
-      reclamationDeadline = Math.max(reclamationDeadline, this.#reclamationDeadline(process));
-      this.#stop(process);
+    for (const descendant of descendants) {
+      this.#forceExit(descendant.pid, 128 + DOLLY_PROCESS_SIGKILL, DOLLY_PROCESS_SIGKILL);
     }
-    return { descendants, reclamationDeadline };
+    this.#forceExit(pid, status);
   }
 
   #disposeThread(process, thread) {
