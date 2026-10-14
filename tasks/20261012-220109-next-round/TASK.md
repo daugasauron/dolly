@@ -64,6 +64,16 @@ since the moves of builds into packages need the first:
    ([test surface](../20261013-144241-test-surface/TASK.md)).
 6. The 17 manual pages ([man and --help](../20261005-220754-man-help/TASK.md)).
 
+Written on branch `core/use-row` (2026-10-14), each design reviewed by a
+Fable agent first, source tests passing; none built yet, since the engine
+is in the seed and every image rebuilds in the round: 1 (`37a3b94b`, with
+a browser test of the engine built from source), 2 (`5caa5e81`; Git stays
+installed by `system-tools`, because Dolly's `patch` and `diff` run Git and
+11 builds run them, which the question above missed), 4 (`3377665e`,
+`c01e6852`; NetSurf in the Wine port keeps its own IJG decoder, compiled
+inside a Wine module), 6 (`38099083`, checked against each program's
+`--help` in a session). 3 is in review.
+
 Decided against: [file modes](../20261006-120641-umask/TASK.md) (no
 permission bits; workarounds stay) and
 [a check of the engine's module list](../20261013-170737-receipt-hosts/TASK.md).
