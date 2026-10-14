@@ -25,9 +25,9 @@ puts an editor beside a shell.
   with its own size and mode, `/dev/tty` is its pane, and Ctrl+C interrupts
   the programs in the pane, not its shell; one that does not answer is
   ended, as at the display's terminal.
-- Dolly has no `fork`, so tmux does not start its own server and says so. A
-  shell starts it, `tmux -D &`, and it lives as long as that shell;
-  `tmux-panes` starts it from the image's entry.
+- tmux starts its own server, as upstream: Dolly has no `fork`, so the client
+  spawns `tmux -D` and serves it its first command over a socket pair. The
+  server outlives the client and ends with its last session.
 - `INSTALL` the package into an image that declares `pty@0` and `sockets@0`.
   `default` does not declare `pty@0`, so `amy install tmux` is refused there.
 - `/etc/tmux.conf` sets `default-terminal` to `xterm-256color`: Dolly's
@@ -50,30 +50,31 @@ puts an editor beside a shell.
   `configure` script would find and builds tmux, linked with
   `-ldolly-sockets` and `-ldolly-pty`; then runs a server, a pane and a
   command typed into it.
-- [`tmux-dolly.patch`](tmux-dolly.patch), nine hunks:
+- [`tmux-dolly.patch`](tmux-dolly.patch), ten hunks:
   - `client.c`: the client names its terminal `/dev/tty`, since `ttyname`
     has no name for one, and sends no descriptors, since `sockets@0` passes
     none.
   - `server-client.c`: the server opens the client's terminal by the name
     the client gives, `/dev/tty`, on upstream's Cygwin path, and does not
     refuse that name as its own: Dolly has one terminal and no sessions.
-  - `server.c`: without a server tmux says how to start one, instead of
-    forking.
+  - `server.c`: the client starts its server with `osdep_start_server` in
+    place of `proc_fork_and_daemon`, and a server serves the client on its
+    standard input from the start, as the forked one serves its end of the
+    pair.
   - `spawn.c`, `job.c`, `tmux.h`: a pane's program and a job's command are
     started by `osdep_spawn` and `osdep_job` in place of `forkpty` and `fork`.
 - [`osdep-dolly.c`](osdep-dolly.c): tmux's operating system file for Dolly.
   `osdep_spawn` opens a pseudo-terminal and spawns the pane's program on its
   slave, with the pane's environment and no other descriptor of the server;
-  `osdep_job` spawns a job's command on the socket tmux reads it from.
+  `osdep_job` spawns a job's command on the socket tmux reads it from;
+  `osdep_start_server` spawns the server with the client's socket and
+  configuration.
 
 ## Limits
 
 - `pipe-pane` forks by itself and fails saying so ("fork error"). Jobs are
   spawned: `run-shell`, `if-shell` and `#()` in a status line are tested;
   `copy-pipe` and popups take the same way and are not.
-- A server started with `tmux -D &` is a job of that shell: Ctrl+C for another
-  command of the shell reaches the server too, and it exits. Dolly has no
-  sessions to put it in. `tmux-panes` starts it beside the shell instead.
 - One client at a time: the server opens the client's terminal by name, and
   Dolly has one.
 - The mouse does nothing: tmux asks the terminal for mouse reports and the

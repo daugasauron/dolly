@@ -1,10 +1,13 @@
 /* tmux's operating system file for Dolly, beside upstream's osdep-*.c. */
 #include <sys/types.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
 
 #include <dolly/runtime.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <pty.h>
 #include <stdlib.h>
 #include <string.h>
@@ -191,4 +194,57 @@ osdep_job(int flags, int *master, char *tty, struct winsize *ws, int out,
 		close(*master);
 	errno = error;
 	return (pid);
+}
+
+/*
+ * fork and daemon for the server, as proc_fork_and_daemon: the client starts
+ * this program again as `tmux -D`, with the socket and configuration it was
+ * given, on one end of a pair, and keeps the other. Returns the client's end.
+ */
+int
+osdep_start_server(void)
+{
+	char	 path[PATH_MAX], **args;
+	int	 pair[2], null, argc = 0, level = log_get_level(), pid;
+	ssize_t	 size;
+	u_int	 i;
+
+	if ((size = readlink("/proc/self/exe", path, sizeof path - 1)) == -1)
+		fatal("readlink failed");
+	path[size] = '\0';
+	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, pair) != 0)
+		fatal("socketpair failed");
+	if ((null = open(_PATH_DEVNULL, O_WRONLY)) == -1)
+		fatal("open failed");
+	args = xcalloc(4 + 2 * cfg_nfiles + level, sizeof *args);
+	args[argc++] = path;
+	args[argc++] = (char *)"-D";
+	args[argc++] = (char *)"-S";
+	args[argc++] = (char *)socket_path;
+	for (i = 0; !cfg_quiet && i < cfg_nfiles; i++) {
+		args[argc++] = (char *)"-f";
+		args[argc++] = cfg_files[i];
+	}
+	while (level-- > 0)
+		args[argc++] = (char *)"-v";
+	pid = dolly_spawn(path, argc, args, pair[1], null, null);
+	free(args);
+	close(null);
+	close(pair[1]);
+	if (pid < 0) {
+		errno = -pid;
+		fatal("spawn failed");
+	}
+	return (pair[0]);
+}
+
+/* The client a server serves from the start: its standard input, if a socket. */
+int
+osdep_client_fd(void)
+{
+	struct stat	sb;
+
+	if (fstat(STDIN_FILENO, &sb) != 0 || !S_ISSOCK(sb.st_mode))
+		return (-1);
+	return (STDIN_FILENO);
 }
