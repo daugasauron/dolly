@@ -99,7 +99,9 @@ beside three other tests, as recorded in `demos/run-browser-tests.mjs`). The
 three were fixed and each file passed alone in both of its browsers;
 ClassiCube passed alone. The GPU stage passed (local-llm, SpiderMonkey, the
 0 A.D. engine and graphics, Slopyard), and `zig-llvm-browser.mjs` in both
-browsers; local `main` was fast-forwarded to the branch (`00caf5ec`). On the way: SDL's timer subsystem needed a thread,
+browsers; local `main` was fast-forwarded to the branch (`00caf5ec`). On
+`main` as it stood at 06:30 (`ac833366`), the whole core browser suite passed
+in both browsers (`browser-final.log`). On the way: SDL's timer subsystem needed a thread,
 so ImGui's example never drew (fixed in `sdl2-dolly.patch`), and the X
 clients lost `-ldolly-sockets` to the module packages (`x11-build` installs
 `libdolly-sockets`).
