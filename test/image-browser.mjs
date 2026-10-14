@@ -6,11 +6,12 @@ import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { siteReference } from "../src/static-asset.mjs";
 import { DOLLY_SYSTEM_SNAPSHOT as systemMetadata } from "../dist/dolly-system-system-snapshot.mjs";
 import { DOLLY_SYSTEM_SNAPSHOT as toolsMetadata } from "../dist/dolly-system-tools-system-snapshot.mjs";
+import { DOLLY_SYSTEM_SNAPSHOT as transferMetadata } from "../dist/dolly-transfer-system-snapshot.mjs";
 
-// system is built FROM system-tools: the base and child of the cache checks.
+// system is built FROM system-tools and installs transfer: the base and child of the cache checks.
 const [system, tools] = ["system", "system-tools"].map(name => DOLLY_IMAGES.find(({ image }) => image === name));
 const packs = metadata => metadata.packs.map(({ sha256 }) => `/dist/packs/${sha256}.snapshot.gz`).sort();
-const systemPacks = packs(systemMetadata), toolsPacks = packs(toolsMetadata);
+const systemPacks = packs(systemMetadata), buildPacks = packs({ packs: [...toolsMetadata.packs, ...transferMetadata.packs] });
 const sources = { "fs-record.h": "src/fs-record.h", "fs-record.c": "test/fixtures/fs-record.c",
   "image-roundtrip.c": "test/fixtures/image-roundtrip.c", "system-snapshot.c": "src/system-snapshot.c",
   "system-snapshot.h": "src/system-snapshot.h", "dollyfile.c": "src/dollyfile.c", "sha256.h": "src/sha256.h" };
@@ -267,8 +268,8 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
   await page.close();
 
   // Without published system metadata, a fresh tab builds system from the
-  // published system-tools instead of downloading system; that build fetches
-  // only the sources system's own recipe names.
+  // published system-tools and transfer instead of downloading system; that
+  // build fetches only the sources system's own recipe names.
   hideSystemMetadata = true;
   const missing = await browser.newPage();
   missing.setDefaultTimeout(120_000);
@@ -277,6 +278,6 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
     const built = await boot(missing, "iteration-one", "/dist/static/session-recovery/");
     assert.ok(server.requests.has("/dist/dolly-system-system-snapshot.mjs"));
     assert.equal(server.requests.has("/dist/dolly-system-system.snapshot"), false);
-    assert.deepEqual([built.payloadReads, built.downloads], [[], toolsPacks]);
+    assert.deepEqual([built.payloadReads, built.downloads], [[], buildPacks]);
   } finally { hideSystemMetadata = false; }
 });
