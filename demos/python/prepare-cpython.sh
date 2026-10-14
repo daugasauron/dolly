@@ -20,6 +20,7 @@ recipe_hash="$({
   sha256sum \
     "${BASH_SOURCE[0]}" \
     "${project_dir}/demos/python/cpython-Setup.local" \
+    "${project_dir}/demos/python/config.site-dolly" \
     "${project_dir}/demos/python/cpython-dolly.patch" \
     "${project_dir}/demos/python/cpython-process.c" \
     "${project_dir}/demos/python/cpython-http.c" | awk '{print $1}'
@@ -77,7 +78,7 @@ else
 fi
 
 "${container[@]}" /usr/bin/env \
-  CONFIG_SITE=Platforms/emscripten/config.site-wasm32-emscripten \
+  CONFIG_SITE=/src/demos/python/config.site-dolly \
   HOSTRUNNER=/emsdk/node/24.19.0_64bit/bin/node \
   ac_cv_type___uint128_t=no \
   ac_cv_func_getpgrp=no ac_cv_func_getlogin_r=no ac_cv_func_killpg=no \
@@ -91,7 +92,7 @@ fi
   ac_cv_func_rewinddir=no ac_cv_func_getpriority=no ac_cv_func_times=no \
   ac_cv_func_execv=no ac_cv_func_fexecve=no ac_cv_func_posix_openpt=no \
   ac_cv_func_grantpt=no ac_cv_func_unlockpt=no ac_cv_func_ptsname_r=no \
-  ac_cv_func_login_tty=no ac_cv_func_getgid=no ac_cv_func_getegid=no \
+  ac_cv_func_login_tty=no \
   ac_cv_func_setrlimit=no ac_cv_func_pthread_sigmask=no \
   ac_cv_func_pthread_condattr_setclock=no \
   ac_cv_func_ptsname=no \

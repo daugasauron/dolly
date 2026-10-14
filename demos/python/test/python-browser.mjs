@@ -100,6 +100,8 @@ await demoTest("python", { image: "python", timeout: packages ? 7_200_000 : 600_
   assert.equal(await streaming.done, 0);
   // A process-local DSO lookup, an FFI call and a closure.
   await run("python -c 'import ctypes; libc = ctypes.CDLL(None); libc.strlen.argtypes = [ctypes.c_char_p]; libc.strlen.restype = ctypes.c_size_t; assert libc.strlen(b\"dolly\") == 5; callback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int)(lambda value: value + 1); assert callback(41) == 42'");
+  // Every id is 0: a program sees root, as Dolly's libc says.
+  await run("python -c 'import os; assert (os.getuid(), os.geteuid(), os.getgid(), os.getegid()) == (0, 0, 0, 0)'");
   await run("python -c 'import socket; socket.socket()'", 1);
   await run("python python-sockets.py");
 

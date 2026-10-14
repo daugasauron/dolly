@@ -118,7 +118,7 @@ EXPORTS ENV PYTHONDONTWRITEBYTECODE 1
 # The target is configured outside the browser, but every target object and
 # executable is compiled here. Dolly-owned adapters remain independent pinned
 # inputs instead of being hidden inside the upstream archive.
-SOURCE /v0.1.3/dist/static/python/cpython.tar.gz d379c7b2c1687130126c2da3b3b8de372ee34c8689ff214d42339f0c23a332bf /tmp/cpython.tar.gz
+SOURCE /v0.1.3/dist/static/python/cpython.tar.gz 99aaf6916de34f03bd27023164594f952092b55e0722d4e13d5fbd5c72dfa467 /tmp/cpython.tar.gz
 
 SLOP gzip -dc /tmp/cpython.tar.gz | tar -xf - -C /
 
