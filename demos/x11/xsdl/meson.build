@@ -4,7 +4,6 @@ xsdl_server = executable(
     include_directories: [inc, include_directories('../src')],
     dependencies: [common_dep, dependency('sdl2')],
     link_with: [
-        libxserver_main,
         kdrive,
         libxserver_fb,
         libxserver,

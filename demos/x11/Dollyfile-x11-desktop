@@ -12,10 +12,10 @@ REQUIRES HOST upload@0
 # An X session on Dolly's display: the Xsdl server, twm managing the
 # windows, and two of X's own clients in theirs.
 FROM /v0.1.3/Dollyfile-system 6537319cb5da6fdf6da34117e1b97113b8bc0d788d1f5c9453f05ff7207828df
-INSTALL /v0.1.3/demos/x11/Dollyfile-xorg-server 7722b9739f41bd73adeeb7776f9dad3a4b33ddf849742ce61c134bec263d546a
-INSTALL /v0.1.3/demos/x11/Dollyfile-twm 34fba55feebc1a98ef018f9d953acdc992ff74a4f695cf08c583efe77a21333b
-INSTALL /v0.1.3/demos/x11/Dollyfile-xclock 7e1e47cb4c10ddea8a30e3743ebcfc8c8fcdd17074c5f26f17846a585c2774d7
-INSTALL /v0.1.3/demos/x11/Dollyfile-xeyes 52099710764f1d3045168de111e3dc6cae0e8a929313b965ad8e127edea6557d
+INSTALL /v0.1.3/demos/x11/Dollyfile-xorg-server 15adcc5aa9fd35565ccc7598a1554ba65c3c31103356b37ea12b8ab249e73d8e
+INSTALL /v0.1.3/demos/x11/Dollyfile-twm f51ed22e249a02015b0c51fb43209d2243855601bd77cb826d65fe6dad4f8c78
+INSTALL /v0.1.3/demos/x11/Dollyfile-xclock 7c08dacb445a1459c9baad779c838943b511bf79a442025562775b8113156b7a
+INSTALL /v0.1.3/demos/x11/Dollyfile-xeyes b7764893c0ffe96937bfc7083eef5393e0580fae79505fca744829dc331abbe7
 
 # The server takes the display and the keyboard and pointer; the shell that
 # started it waits for it and is the recovery shell once it has ended.

@@ -57,8 +57,9 @@ FILE /tmp/x11/libs.mk
     
     # Slop does not run the configure scripts, so these say what they would
     # find here: libc's pthread functions, which serve Xlib's locks without
-    # threads, as XTHREADS. Not claimed: shared memory, descriptor passing
-    # (xcb sends none) and loadable modules.
+    # threads, as XTHREADS. Not claimed: TCP (sockets@0 is local, and xtrans's
+    # TCP code needs gethostbyaddr, which libc lacks), shared memory,
+    # descriptor passing (xcb sends none) and loadable modules.
     # malloc(0) is taken to return NULL, configure's answer when it cannot run
     # a test program.
     HAVE := -D_GNU_SOURCE -DHAVE_UNISTD_H -DHAVE_STDINT_H -DHAVE_INTTYPES_H \
@@ -68,7 +69,7 @@ FILE /tmp/x11/libs.mk
       -DHAVE_ASPRINTF -DHAVE_GETPAGESIZE -DHAVE_ISWALNUM -DHAVE_SOCKLEN_T -DHAVE_UNAME \
       -DHAVE_STRUCT_SOCKADDR_STORAGE -DHAVE_GETADDRINFO -DHAVE_INET_NTOP -DHAVE_GETENTROPY \
       -DHAVE_EXPLICIT_BZERO -DHAVE_PATHCONF -DUSE_POLL -DMALLOC_0_RETURNS_NULL \
-      -DUNIXCONN -DTCPCONN -D_CONST_X_STRING -DXTHREADS -DXUSE_MTSAFE_API
+      -DUNIXCONN -D_CONST_X_STRING -DXTHREADS -DXUSE_MTSAFE_API
     CC := cc -O2 $(HAVE)
     
     all: $(addprefix /usr/lib/lib,$(addsuffix .a,Xau xcb X11 X11-xcb \
@@ -92,12 +93,13 @@ FILE /tmp/x11/libs.mk
          $$pc > /usr/share/pkgconfig/$$(basename $$pc .in); done
     >touch $@
     
+    # xtrans's configure finds fchown, and no sticky bit: Dolly has no modes.
     $(B)/xtrans: $(B)/xorgproto
     >mkdir -p $(I)/Xtrans
     >cp $(S)/xtrans-1.6.0/*.c $(S)/xtrans-1.6.0/*.h $(I)/Xtrans/
     >sed -e 's,@prefix@,/usr,' -e 's,@includedir@,/usr/include,' -e 's,@PACKAGE_VERSION@,1.6.0,' \
-       -e 's,@datarootdir@,/usr/share,' -e 's,@datadir@,/usr/share,' \
-       $(S)/xtrans-1.6.0/xtrans.pc.in > /usr/share/pkgconfig/xtrans.pc
+       -e 's,@datarootdir@,/usr/share,' -e 's,@datadir@,/usr/share,' -e 's,@fchown_define@,-DHAS_FCHOWN,' \
+       -e 's,@sticky_bit_define@,,' $(S)/xtrans-1.6.0/xtrans.pc.in > /usr/share/pkgconfig/xtrans.pc
     >touch $@
     
     # xcbgen, the Python module, and the protocol descriptions it reads.
@@ -293,5 +295,34 @@ SLOP make -j4 -f /tmp/x11/libs.mk /tmp/x11/build/xorgproto /tmp/x11/build/xtrans
 SLOP make -j4 -f /tmp/x11/libs.mk /usr/lib/libXau.a /usr/lib/libxcb.a
 SLOP make -j4 -f /tmp/x11/libs.mk /usr/lib/libX11.a /usr/lib/libX11-xcb.a
 SLOP make -j4 -f /tmp/x11/libs.mk
+SLOP CWD /tmp/x11 for source in */COPYING; do mkdir -p /usr/share/licenses/${source%%-[0-9]*} && cp $source /usr/share/licenses/${source%%-[0-9]*}/; done
+SLOP mkdir -p /usr/share/licenses/xorgproto && cp /tmp/x11/xorgproto-2026.1/COPYING-* /usr/share/licenses/xorgproto/
+
+EXPORTS HEADER x11 /usr/include/X11
+EXPORTS HEADER xcb /usr/include/xcb
+EXPORTS LIB Xau /usr/lib/libXau.a
+EXPORTS LIB xcb /usr/lib/libxcb.a
+EXPORTS LIB X11 /usr/lib/libX11.a
+EXPORTS LIB X11-xcb /usr/lib/libX11-xcb.a
+EXPORTS LIB Xext /usr/lib/libXext.a
+EXPORTS LIB Xrender /usr/lib/libXrender.a
+EXPORTS LIB Xfixes /usr/lib/libXfixes.a
+EXPORTS LIB Xi /usr/lib/libXi.a
+EXPORTS LIB ICE /usr/lib/libICE.a
+EXPORTS LIB SM /usr/lib/libSM.a
+EXPORTS LIB Xt /usr/lib/libXt.a
+EXPORTS LIB Xmu /usr/lib/libXmu.a
+EXPORTS LIB Xmuu /usr/lib/libXmuu.a
+EXPORTS LIB Xpm /usr/lib/libXpm.a
+EXPORTS LIB Xaw7 /usr/lib/libXaw7.a
+EXPORTS LIB Xaw /usr/lib/libXaw.a
+# pkg-config's files, the protocol descriptions and xcb's generator, for
+# libraries and programs built on this stage.
+FOLDER /usr/lib/pkgconfig
+FOLDER /usr/share/pkgconfig
+FOLDER /usr/share/xcb
+FOLDER /usr/lib/python3.14/site-packages/xcbgen
+FILE /usr/share/X11/XErrorDB
+FOLDER /usr/share/licenses
 
 ENTRY /bin/foreground -i /bin/slop

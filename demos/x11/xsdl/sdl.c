@@ -31,6 +31,9 @@
 #include "kdrive.h"
 #include "damage.h"
 #include <SDL.h>
+#include <unistd.h>
+
+int dix_main(int argc, char *argv[], char *envp[]);
 
 /* How often an idle server looks for SDL events, and the least time between
  * two copies to the window, in milliseconds. */
@@ -314,6 +317,14 @@ static KdPointerDriver sdlMouseDriver = {
     .Init = sdlMouseInit,
     .Fini = sdlMouseFini,
 };
+
+/* The server's own main takes envp, which WebAssembly's C has no entry for:
+ * main(argc, argv) is the one it calls. */
+int
+main(int argc, char *argv[])
+{
+    return dix_main(argc, argv, environ);
+}
 
 void
 InitCard(char *name)
