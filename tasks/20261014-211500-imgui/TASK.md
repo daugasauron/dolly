@@ -9,6 +9,24 @@ Owner (2026-10-14): "One thing I really want is imgui".
 Done when: the `imgui` package builds and `demos/sdl2/test/imgui-browser.mjs`
 passes in Chromium and Firefox.
 
+## State (2026-10-15, 02:30): built; on Dolly's display and in X
+
+Built in the round tree (`work/rust`, branch `integrate/round-1014b`). The
+example still did not draw: it asks for `SDL_INIT_TIMER`, and SDL starts a
+timer thread there unless it is Emscripten's threadless build; Dolly's
+programs see `__dolly__`, so the init failed for want of threads. Fixed in
+`sdl2-dolly.patch`: without threads the subsystem starts without one and
+`SDL_AddTimer` says it needs one. `imgui-browser.mjs` passed in Chromium
+(02:00, 3.6 s); both browsers are in the round's demo suite.
+
+`imgui-x11` (`demos/sdl2`) builds SDL2 again where X's libraries are, so it
+has upstream's X11 video driver, and links the same example: in
+`x11-desktop`, `imgui-x11 &` in xterm opens it in a twm window of its own.
+`x11-browser.mjs` passed in both browsers (02:30): 56 frames a second on
+the page; ImGui itself reports 7.3 ms a frame. SDL's XFixes support is off:
+SDL declares `XFixesSelectSelectionInput` to return `Status`, libXfixes
+declares `void`, and the call through SDL's pointer trapped in WebAssembly.
+
 ## State (2026-10-14, 21:15): written, not built
 
 `demos/sdl2/Dollyfile-imgui`: Dear ImGui v1.92.9b from upstream's release
