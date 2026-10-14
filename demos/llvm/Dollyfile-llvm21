@@ -38,9 +38,11 @@ FILE /usr/lib/llvm21-build/tools.cmake
     include(/usr/lib/llvm21-build/Dolly.cmake)
     set(LLVM_TABLEGEN /usr/bin/llvm-tblgen CACHE STRING "")
     set(CLANG_TABLEGEN /usr/bin/clang-tblgen CACHE STRING "")
-    # No shared libraries (libRemarks, libLTO, libclang): their links take
-    # version scripts, which Dolly's wasm-ld has not.
-    set(LLVM_ENABLE_PIC OFF CACHE BOOL "")
+    # No shared libraries: they link with version scripts, which Dolly's
+    # wasm-ld has not. (Without PIC, LLVM links its programs with -fno-pie.)
+    foreach(tool LLVM_TOOL_LTO LLVM_TOOL_REMARKS_SHLIB CLANG_TOOL_LIBCLANG CLANG_TOOL_CLANG_SHLIB)
+      set(${tool}_BUILD OFF CACHE BOOL "")
+    endforeach()
 SLOP time cmake -C /usr/lib/llvm21-build/tools.cmake -S /tmp/llvm-project/llvm -B /tmp/llvm-build
 # -k reports every failing unit of a long build, not only the first.
 SLOP CWD /tmp/llvm-build time make -k -j4 install-llvm-libraries install-llvm-headers install-llvm-config \

@@ -8,8 +8,11 @@ if has_image zig-llvm-build; then
   patch --batch --forward --no-backup-if-mismatch --directory="${zig_llvm_dir}" --strip=1 \
     --input="${project_dir}/demos/zig/zig-0.16.0-dolly-llvm.patch" >&2
   zig_llvm_wamr="$("${project_dir}/scripts/fetch-pinned-checkout.sh" wamr)"
-  # Upstream's configuration of zig2 for an LLVM build, at this version, as its CMake writes it.
-  sed "s/@RESOLVED_ZIG_VERSION@/$(source config/source-pins.sh && echo "${DOLLY_ZIG_VERSION}")/" "${zig_llvm_dir}/stage1/config.zig.in" > "${staging}/zig-llvm-config.zig"
+  # Upstream's configuration of zig2 for an LLVM build, at this version, as its
+  # CMake writes it, with every command: upstream builds the full compiler
+  # with zig2 (dev .core), and here zig2 is the compiler.
+  sed -e "s/@RESOLVED_ZIG_VERSION@/$(source config/source-pins.sh && echo "${DOLLY_ZIG_VERSION}")/" \
+    -e 's/^pub const dev = \.core;$/pub const dev = .full;/' "${zig_llvm_dir}/stage1/config.zig.in" > "${staging}/zig-llvm-config.zig"
   # The prepared tree keeps the core patch's backups (.orig).
   node scripts/build-source-tar.mjs "${static_dir}/zig-llvm/zig.tar" --exclude-suffix=.orig \
     "${zig_llvm_dir}/src" /tmp/zig/src \

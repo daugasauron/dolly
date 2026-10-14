@@ -8,20 +8,25 @@ REQUIRES HOST threads@0
 # Zig 0.16 with its LLVM backend: zig-llvm-build's objects linked, as
 # upstream's CMake build links zig2, with Zig's C++ glue (zigcpp) and LLVM,
 # Clang and LLD 21, which the build uses and installers do not get.
-FROM /v0.1.3/demos/zig/Dollyfile-zig-llvm-build 7282aa28bcc056b40e2f0a9f0721903bd0d94b0901946499fb1d6911265c48bc
-USE /v0.1.3/demos/llvm/Dollyfile-llvm21 e784d302959c2d41d750a51033703a33ceb0da5529832ae1b1e2254be0272235
+FROM /v0.1.3/demos/zig/Dollyfile-zig-llvm-build f418fdd6446e444d70472ef606432ee572a24634a5b3db2f8c5522db0c9802b2
+USE /v0.1.3/demos/llvm/Dollyfile-llvm21 7263d803f159f2aa9f83fd1bd1c17567b4a5758065632c9aa069abee43f5e3bc
 # Zig links a program for this target with cc (config/zig-0.16.0-dolly-native.patch).
 INSTALL /v0.1.3/Dollyfile-cc bef760134ee54c42302c92bb889429944ffe4c04a4a31271d2c5cdf5c2de1027
 REQUIRES TOOL   c++
 REQUIRES TOOL   ar
 
-# zigcpp, with upstream's flags (CMakeLists.txt, "zigcpp target").
-SLOP CWD /usr/lib/zig-llvm-build c++ -c -O2 -std=c++17 -fno-exceptions -fno-rtti -fvisibility-inlines-hidden \
+# zigcpp, with upstream's flags (CMakeLists.txt, "zigcpp target") and the
+# endian.h that llvm21's build includes for LLVM's headers.
+SLOP CWD /usr/lib/zig-llvm-build slop -c 'for unit in zig_llvm zig_llvm-ar zig_clang_driver zig_clang_cc1_main zig_clang_cc1as_main; do \
+  c++ -c -O2 -std=c++17 -fno-exceptions -fno-rtti -fvisibility-inlines-hidden \
   -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -D_GNU_SOURCE \
-  -DLLVM_BUILD_STATIC -DCLANG_BUILD_STATIC -I /usr/lib/llvm21/include zig_llvm.cpp zig_llvm-ar.cpp zig_clang_driver.cpp zig_clang_cc1_main.cpp zig_clang_cc1as_main.cpp
+  -DLLVM_BUILD_STATIC -DCLANG_BUILD_STATIC -include endian.h -I /usr/lib/llvm21/include $unit.cpp -o $unit.o; done'
 SLOP CWD /usr/lib/zig-llvm-build ar rcs libzigcpp.a zig_llvm.o zig_llvm-ar.o zig_clang_driver.o zig_clang_cc1_main.o zig_clang_cc1as_main.o
-SLOP CWD /usr/lib/zig-llvm-build slop -c 'c++ -o /usr/bin/zig zig2.o compiler_rt.o libzigcpp.a -L /usr/lib/llvm21/lib \
-  -lclangFrontendTool -lclangCodeGen -lclangFrontend -lclangDriver -lclangSerialization -lclangSema -lclangStaticAnalyzerFrontend -lclangStaticAnalyzerCheckers -lclangStaticAnalyzerCore -lclangAnalysis -lclangASTMatchers -lclangAST -lclangParse -lclangAPINotes -lclangBasic -lclangEdit -lclangLex -lclangRewriteFrontend -lclangRewrite -lclangCrossTU -lclangIndex -lclangToolingCore -lclangExtractAPI -lclangSupport -lclangInstallAPI -llldMinGW -llldELF -llldCOFF -llldWasm -llldMachO -llldCommon $(/usr/lib/llvm21/bin/llvm-config --libs --link-static) $(/usr/lib/llvm21/bin/llvm-config --system-libs --link-static)'
+# Every LLVM library: wasm-ld takes archives in any order, and llvm-config
+# here finds no prefix of its own (it looks in /usr/lib). Its data and stack take 64 MB, as
+# mojo-build's compiler does: the initial memory is 128 MB.
+SLOP CWD /usr/lib/zig-llvm-build slop -c 'c++ -o /usr/bin/zig -Wl,--initial-memory=134217728 zig2.o compiler_rt.o libzigcpp.a -L /usr/lib/llvm21/lib \
+  -lclangFrontendTool -lclangCodeGen -lclangFrontend -lclangDriver -lclangSerialization -lclangSema -lclangStaticAnalyzerFrontend -lclangStaticAnalyzerCheckers -lclangStaticAnalyzerCore -lclangAnalysis -lclangASTMatchers -lclangAST -lclangParse -lclangAPINotes -lclangBasic -lclangEdit -lclangLex -lclangRewriteFrontend -lclangRewrite -lclangCrossTU -lclangIndex -lclangToolingCore -lclangExtractAPI -lclangSupport -lclangInstallAPI -llldMinGW -llldELF -llldCOFF -llldWasm -llldMachO -llldCommon /usr/lib/llvm21/lib/libLLVM*.a'
 SLOP zig version
 
 EXPORTS TOOL   zig
