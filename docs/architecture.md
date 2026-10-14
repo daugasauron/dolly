@@ -1,6 +1,6 @@
 # Architecture
 
-Dolly is a POSIX-like userspace inside one browser tab. A Wasm kernel owns all
+Dolly is a modular POSIX-ish userspace inside one browser tab. A Wasm kernel owns all
 mutable state, ordinary commands run as private wasm64 processes, and trusted
 browser code supplies a fixed set of host modules. Design rules are in
 [AGENTS.md](../AGENTS.md); exact Wasm contracts are in [abi/](../abi/README.md).

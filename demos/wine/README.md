@@ -146,8 +146,8 @@ with a Windows path, which the Unix file operations do not take.
 `programs/gimp` builds GIMP 2.2.17, the last release of the series that needs
 no cairo, GEGL or babl, as one program of this Wine: its toolbox, docks and
 image windows, the paint and selection tools, layers, text, and XCF files.
-It is here because an old GIMP is what runs compiled to asm.js in Gary
-Bernhardt's talk "The Birth and Death of JavaScript". Under it, from their
+It is here because Gary Bernhardt's talk "The Birth & Death of JavaScript"
+shows the Windows GIMP running in Chrome inside Firefox. Under it, from their
 pinned releases, are GLib 2.12.13, ATK 1.9.1, Pango 1.14.10, GTK+ 2.6.10 (the
 last that draws without cairo), libart 2.3.17, fontconfig 2.3.2 and Expat
 2.7.1: about 1,170 files, compiled as released but for five

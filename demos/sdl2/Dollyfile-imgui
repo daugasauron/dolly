@@ -1,0 +1,61 @@
+DOLLY 7
+PACKAGE imgui
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+
+# Dear ImGui from upstream's release archive, unchanged, with its SDL2 platform
+# backend and its SDL_Renderer backend, which draws with SDL's software
+# renderer: libimgui.a and its headers for programs the cc package builds,
+# which link -limgui -lSDL2 -lm, and imgui-demo, upstream's
+# example_sdl2_sdlrenderer2.
+FROM /v0.1.3/Dollyfile-system-tools b8dfc75b8a479542d0651732894a05f8c83fae3f8a86266efc1638e432e1a053
+INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 b4a13d5e0c5e68063169307d9b55365ef282729acb53ff1683f3a4ba0be091ac
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES HEADER sdl2
+REQUIRES LIB SDL2
+REQUIRES TOOL ar
+REQUIRES TOOL c++
+REQUIRES TOOL cp
+REQUIRES TOOL make
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /v0.1.3/dist/static/imgui/source.tar b2e714273ba9e28e383dcfcde11630181c5aff0dbd196c4efe4d99b0b71186f2 /tmp/imgui.tar
+SLOP tar -xf /tmp/imgui.tar -C /
+FILE /tmp/imgui/Makefile
+    .RECIPEPREFIX := >
+    S := /tmp/imgui/source
+    UNITS := imgui imgui_draw imgui_tables imgui_widgets imgui_demo backends/imgui_impl_sdl2 backends/imgui_impl_sdlrenderer2
+    FLAGS := -O2 -I$S -I$S/backends -I/usr/include/SDL2
+    all: /usr/bin/imgui-demo
+    /tmp/imgui/objects/%.o: $S/%.cpp
+    >mkdir -p $(dir $@)
+    >c++ $(FLAGS) -c $< -o $@
+    /usr/lib/libimgui.a: $(UNITS:%=/tmp/imgui/objects/%.o)
+    >ar rcs $@ $^
+    /usr/bin/imgui-demo: $S/examples/example_sdl2_sdlrenderer2/main.cpp /usr/lib/libimgui.a
+    >c++ $(FLAGS) $< -limgui -lSDL2 -lm -o $@
+SLOP make -j4 -f /tmp/imgui/Makefile
+SLOP mkdir -p /usr/include/imgui
+SLOP cp /tmp/imgui/source/imgui.h /tmp/imgui/source/imgui_internal.h /tmp/imgui/source/imconfig.h \
+  /tmp/imgui/source/imstb_rectpack.h /tmp/imgui/source/imstb_textedit.h /tmp/imgui/source/imstb_truetype.h \
+  /tmp/imgui/source/backends/imgui_impl_sdl2.h /tmp/imgui/source/backends/imgui_impl_sdlrenderer2.h /usr/include/imgui/
+
+EXPORTS LIB    imgui /usr/lib/libimgui.a
+EXPORTS HEADER imgui /usr/include/imgui
+EXPORTS TOOL   imgui-demo
+FILE /usr/share/licenses/imgui/LICENSE.txt
+FILE /usr/share/man/cat1/imgui-demo.1
+    imgui-demo: Dear ImGui's SDL2 and SDL_Renderer example, upstream's
+    example_sdl2_sdlrenderer2: ImGui's demo window and two of its own.
+    
+      imgui-demo         draws on the terminal's canvas; Ctrl+C ends it
+    
+    A program of its own compiles against the package's headers and library:
+      c++ -I/usr/include/imgui -I/usr/include/SDL2 app.cpp -limgui -lSDL2 -lm
+    SDL renders in software here (SDL_RENDER_DRIVER=software), and one program
+    holds the canvas at a time.
+SLOP rm -rf /tmp/imgui /tmp/imgui.tar

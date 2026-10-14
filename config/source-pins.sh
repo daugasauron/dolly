@@ -201,6 +201,11 @@ DOLLY_XONOTIC_SHA256=50850f8d800e7499722f6ea61e478e96464a375494b5a24da93aa0598cb
 DOLLY_XONOTIC_SOURCE_URL='https://dl.xonotic.org/xonotic-0.8.6-source.zip'
 DOLLY_XONOTIC_SOURCE_SHA256=8b92ac781cff4ae89c121a23eacd7dec05a2aabedaccc23a19d1a0958b4012a8
 
+# Dear ImGui, with its SDL2 and SDL_Renderer backends, for the imgui package.
+DOLLY_IMGUI_VERSION=1.92.9b
+DOLLY_IMGUI_URL='https://github.com/ocornut/imgui/archive/refs/tags/v1.92.9b.tar.gz'
+DOLLY_IMGUI_SHA256=21d8a0a565e85dce943e375db00812c2f3f0ab21f3f0f7964e364a63422d7f99
+
 # IJG libjpeg, linked into Xonotic's client for its JPEG textures.
 DOLLY_JPEG_VERSION=9f
 DOLLY_JPEG_URL='https://www.ijg.org/files/jpegsrc.v9f.tar.gz'

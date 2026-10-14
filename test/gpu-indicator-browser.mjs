@@ -30,8 +30,8 @@ const program = "printf '%s\\n' '#include <dolly/gpu.h>' " +
 const provider = await readFile(new URL("../host/gpu/worker.mjs", import.meta.url), "utf8");
 const sourceOverrides = new Map();
 const server = await startBrowserServer(new URL("..", import.meta.url).pathname, "system", { sourceOverrides });
-// system with gpu@0: an image that declares the module.
-const image = await composed(["runtime", "display", "input", "http", "download", "upload", "snapshot", "gpu"], [], { base: "system" });
+// system with gpu@0 and its client: an image that declares the module.
+const image = await composed(["runtime", "display", "input", "http", "download", "upload", "snapshot", "gpu"], ["libdolly-gpu"], { base: "system" });
 try {
   for (const [state, launch, { workerAdapter = true } = {}] of names.flatMap(name => cases[name])) {
     if (workerAdapter) sourceOverrides.delete("/host/gpu/worker.mjs");

@@ -21,13 +21,17 @@ SLOP cmake -S /tmp/sdl2/source -B /tmp/sdl2/build \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE=-O1 \
   -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST=OFF -DSDL_TESTS=OFF \
-  -DSDL_AUDIO=OFF -DSDL_JOYSTICK=OFF -DSDL_HAPTIC=OFF -DSDL_SENSOR=OFF \
+  -DSDL_AUDIO=OFF -DSDL_HAPTIC=OFF -DSDL_SENSOR=OFF \
   -DSDL_THREADS=OFF -DSDL_LOADSO=OFF -DSDL_POWER=OFF -DSDL_HIDAPI=OFF \
   -DSDL_ASSEMBLY=OFF -DSDL_GCC_ATOMICS=ON -DSDL_SYSTEM_ICONV=OFF \
   -DSDL_OPENGL=OFF -DSDL_OPENGLES=OFF -DSDL_VULKAN=OFF -DSDL_RENDER_METAL=OFF
 SLOP cmake --build /tmp/sdl2/build
 SLOP cmake --install /tmp/sdl2/build
 
+# SDL's one renderer here is its software renderer, so a program that asks for
+# an accelerated one, as upstream's examples do, gets that. The joystick
+# subsystem is SDL's dummy driver, which finds no game controllers.
+EXPORTS ENV SDL_RENDER_DRIVER software
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
 # SDL2Config.cmake names both libraries.

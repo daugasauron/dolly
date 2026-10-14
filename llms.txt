@@ -1,8 +1,9 @@
 # Dolly
 
-> A POSIX-like userspace that runs in a browser tab as one WebAssembly
-> machine: a shell, files, processes, a compiler and git, with no server
-> behind it.
+> A modular POSIX-ish userspace that runs in a browser tab as one WebAssembly
+> sandbox and builds itself from a C compiler: a shell, files, processes,
+> compilers and programs compiled there from their upstream sources, with no
+> server behind it.
 
 You are welcome to use it, by hand or as an agent: open an image's page and
 type commands at its shell. There is no account, and the site receives
