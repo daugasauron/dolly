@@ -338,6 +338,12 @@ nothing and declares nothing: any program built for Dolly runs on one.
     Worker; libffi supports CPython `_ctypes`. In a program using `threads@0`
     each thread's Worker serves its calls, and loading or a closure, which
     would add a table entry to one Worker only, is refused with `ENOTSUP`.
+  - A program passed through Binaryen's cast emulation (`wasm-opt
+    --fpcast-emu`), whose table holds nothing but thunks of sixteen `i64`
+    parameters and an `i64` result, is called in that signature; loading and
+    closures, which would add an entry of another signature, are refused.
+    GObject programs need it: they call functions through casts to types of
+    other parameters.
   - Without the record a program loads nothing: `dlopen` returns `NULL` with
     `ENOSYS` and a `dlerror()` naming `-rdynamic` and `dso@0`, and the raw
     operations are unknown ones. With it, the image must declare

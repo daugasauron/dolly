@@ -53,6 +53,39 @@ function uleb(value) {
   return bytes;
 }
 
+// Binaryen's cast emulation (--fpcast-emu) calls every table entry with
+// sixteen i64 arguments and takes an i64 result: an i32 or the bits of an f32
+// zero-extended, the bits of an f64, unused arguments zero.
+const castEmulationArguments = 16;
+const castEmulationBits = new DataView(new ArrayBuffer(8));
+
+function toCastEmulation(values, types) {
+  if (values.length > castEmulationArguments) {
+    throw new TypeError(`a cast-emulated call takes at most ${castEmulationArguments} arguments`);
+  }
+  const converted = values.map((value, index) => {
+    switch (types[index]) {
+      case "i32": return BigInt(value >>> 0);
+      case "f32": castEmulationBits.setFloat32(0, value, true); return BigInt(castEmulationBits.getUint32(0, true));
+      case "f64": castEmulationBits.setFloat64(0, value, true); return castEmulationBits.getBigUint64(0, true);
+      default: return BigInt.asUintN(64, value);
+    }
+  });
+  while (converted.length < castEmulationArguments) converted.push(0n);
+  return converted;
+}
+
+function fromCastEmulation(result, type) {
+  castEmulationBits.setBigUint64(0, BigInt.asUintN(64, result), true);
+  switch (type) {
+    case "i32": return castEmulationBits.getInt32(0, true);
+    case "f32": return castEmulationBits.getFloat32(0, true);
+    case "f64": return castEmulationBits.getFloat64(0, true);
+    case "i64": return result;
+    default: return undefined;
+  }
+}
+
 function section(id, body) {
   return [id, ...uleb(body.length), ...body];
 }
@@ -115,6 +148,7 @@ export function createProcessFfi({
   getTable,
   growTable,
   setTable,
+  castEmulated = false,
 }) {
   if (!(memory instanceof WebAssembly.Memory) ||
       typeof getInstance !== "function" || typeof getTable !== "function" ||
@@ -353,10 +387,15 @@ export function createProcessFfi({
     const argumentValues = packet.getBigUint64(24, true);
     const frame = stack();
     const arguments_ = [];
+    // The Wasm type of each argument, which a cast-emulated call converts.
+    const types = [];
+    const push = (type, ...values) => {
+      for (const value of values) { arguments_.push(value); types.push(type); }
+    };
     const returnByArgument =
       cif.returnType.id === FFI_TYPE_STRUCT ||
       cif.returnType.id === FFI_TYPE_LONGDOUBLE;
-    if (returnByArgument) arguments_.push(returnValue);
+    if (returnByArgument) push("i64", returnValue);
 
     for (let index = 0; index < cif.fixed; ++index) {
       const argumentPointer = readPointer(argumentValues, index * 8);
@@ -364,9 +403,9 @@ export function createProcessFfi({
       if (type.id === FFI_TYPE_STRUCT) {
         const temporary = frame.allocate(type.size, type.alignment);
         copy(temporary, argumentPointer, type.size);
-        arguments_.push(temporary);
+        push("i64", temporary);
       } else {
-        arguments_.push(...readArgument(argumentPointer, type));
+        push(argumentWasmType(type), ...readArgument(argumentPointer, type));
       }
     }
 
@@ -420,7 +459,7 @@ export function createProcessFfi({
         }
       }
       const variadicArguments = frame.allocate(0, 1);
-      arguments_.push(variadicArguments);
+      push("i64", variadicArguments);
       for (const structure of structures) {
         const temporary = frame.allocate(
           structure.type.size, structure.type.alignment,
@@ -437,11 +476,26 @@ export function createProcessFfi({
     try {
       const target = tableFunction(functionIndex, "FFI target");
       entered();
-      result = target(...arguments_);
+      result = castEmulated
+        ? fromCastEmulation(target(...toCastEmulation(arguments_, types)), resultWasmType(cif.returnType))
+        : target(...arguments_);
     } finally {
       frame.restore();
     }
     if (!returnByArgument) storeResult(returnValue, cif.returnType, result);
+  }
+
+  function argumentWasmType(type) {
+    switch (type.id) {
+      case FFI_TYPE_FLOAT: return "f32";
+      case FFI_TYPE_DOUBLE: return "f64";
+      case FFI_TYPE_UINT64:
+      case FFI_TYPE_SINT64:
+      case FFI_TYPE_POINTER:
+      case FFI_TYPE_LONGDOUBLE:
+        return "i64";
+      default: return "i32";
+    }
   }
 
   function resultWasmType(type) {

@@ -377,16 +377,21 @@ export function serve(context) {
     getTable: () => processTable,
     growTable,
     setTable,
+    castEmulated: context.processInterface.castEmulated,
   });
   // In a program using threads@0 every thread's Worker has a table of its
   // own: a call reads the same entry in each, but an entry a library or a
-  // closure added in one would be missing in the others.
-  const threadedRefusal = (operation, response) => ffi.handles(operation) ? -BigInt(DOLLY_ERRNO.ENOTSUP)
-    : writeDsoResponse(response, 0n, DOLLY_ERRNO.ENOTSUP, "not in a program using threads@0");
+  // closure added in one would be missing in the others. In a cast-emulated
+  // program every table entry is a thunk of one signature, which neither a
+  // library nor a closure made here has.
+  const callsOnly = context.threaded || context.processInterface.castEmulated;
+  const refusal = (operation, response) => ffi.handles(operation) ? -BigInt(DOLLY_ERRNO.ENOTSUP)
+    : writeDsoResponse(response, 0n, DOLLY_ERRNO.ENOTSUP,
+      context.threaded ? "not in a program using threads@0" : "not in a cast-emulated program");
   return {
     handles: operation => (operation >= DOLLY_DSO_OPEN && operation <= DOLLY_DSO_CLOSE) || ffi.handles(operation),
-    call: (operation, request, response) => context.threaded && operation !== DOLLY_FFI_CALL
-      ? threadedRefusal(operation, response)
+    call: (operation, request, response) => callsOnly && operation !== DOLLY_FFI_CALL
+      ? refusal(operation, response)
       : ffi.handles(operation) ? ffi.call(operation, request, response) : processDsoCall(operation, request, response),
   };
 }

@@ -34,6 +34,22 @@ test("Wasm import, export and custom-section names match the engine's literal UT
   assert.equal(WebAssembly.Module.customSections(module, parsed.customSections[0]).length, 1);
 });
 
+test("a table of nothing but Binaryen's cast-emulation thunks marks a cast-emulated program", () => {
+  const section = (id, bytes) => [id, bytes.length, ...bytes];
+  // Types: the thunk, (i64 x 16) -> i64, and an ordinary (i32, i32) -> i32.
+  const types = section(1, [2, 0x60, 16, ...Array(16).fill(0x7e), 1, 0x7e, 0x60, 2, 0x7f, 0x7f, 1, 0x7f]);
+  const program = tableFunctions => new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, ...types,
+    ...section(3, [2, 0, 1]),
+    ...section(4, [1, 0x70, 0, 2]),
+    ...tableFunctions.length ? section(9, [1, 0, 0x41, 0, 0x0b, tableFunctions.length, ...tableFunctions]) : [],
+    ...section(10, [2, 4, 0, 0x42, 0, 0x0b, 4, 0, 0x41, 0, 0x0b])]);
+  for (const [functions, emulated] of [[[0], true], [[0, 1], false], [[1], false], [[], false]]) {
+    const bytes = program(functions);
+    new WebAssembly.Module(bytes);
+    assert.equal(parseWasmInterface(bytes).castEmulated, emulated, `table of functions ${functions}`);
+  }
+});
+
 test("a useful freestanding executable needs only the canonical process imports and _start", async () => {
   const bytes = await readFile(fixture("minimal"));
   assert.deepEqual(validate(bytes), { initial: 1n, maximum: 131072n });

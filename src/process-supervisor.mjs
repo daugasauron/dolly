@@ -348,7 +348,7 @@ export class DollyProcessSupervisor {
       threaded = validateThreadProfile(parsed, requirements, this.threadContract);
       largeStack = parsed.customSections.includes("dolly.process.stack");
       module = await WebAssembly.compile(bytes);
-      processInterface = { imports: parsed.imports, exports: parsed.exports };
+      processInterface = { imports: parsed.imports, exports: parsed.exports, castEmulated: parsed.castEmulated };
       prepared = true;
     } finally {
       clearTimeout(notice);
