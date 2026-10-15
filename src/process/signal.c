@@ -229,6 +229,12 @@ int pause(void) {
   return poll(NULL, 0, -1);
 }
 
+/* pselect's wait without descriptors: it returns once a handler has run. */
+int sigsuspend(const sigset_t *mask) {
+  pselect(0, NULL, NULL, NULL, NULL, mask);
+  return -1;
+}
+
 int sigpending(sigset_t *set) {
   if (!set) { errno = EFAULT; return -1; }
   *set = pending;

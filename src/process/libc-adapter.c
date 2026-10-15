@@ -7,10 +7,12 @@
 #include <errno.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <ftw.h>
 #include <limits.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <resolv.h>
 #include <sched.h>
 #include <semaphore.h>
 #include <signal.h>
@@ -22,6 +24,7 @@
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
+#include <sys/shm.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
 #include <sys/utsname.h>
@@ -794,7 +797,7 @@ int __syscall_prlimit64(pid_t pid, int resource, const struct rlimit *new_limit,
   (void)pid;
   if (new_limit) return -EPERM;
   if (old_limit) {
-    const rlim_t limit = resource == RLIMIT_NOFILE ? 256 : resource == RLIMIT_NPROC ? 32
+    const rlim_t limit = resource == RLIMIT_NOFILE ? 1024 : resource == RLIMIT_NPROC ? 32
         : resource == RLIMIT_AS || resource == RLIMIT_DATA ? (rlim_t)8 << 30
         : resource == RLIMIT_STACK ? (rlim_t)8 << 20 : RLIM_INFINITY;
     *old_limit = (struct rlimit){limit, limit};
@@ -836,6 +839,24 @@ struct protoent *getprotobynumber(int number) {
   (void)number; errno = ENOSYS; return NULL;
 }
 const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
+const struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
+/* System V shared memory is unsupported: Dolly's processes share no pages. */
+int shmget(key_t key, size_t size, int flags) {
+  (void)key; (void)size; (void)flags; errno = ENOSYS; return -1;
+}
+void *shmat(int id, const void *address, int flags) {
+  (void)id; (void)address; (void)flags; errno = ENOSYS; return (void *)-1;
+}
+int shmdt(const void *address) { (void)address; errno = ENOSYS; return -1; }
+int shmctl(int id, int command, struct shmid_ds *buffer) {
+  (void)id; (void)command; (void)buffer; errno = ENOSYS; return -1;
+}
+/* Dolly has no name server: a query fails as one nobody can answer. */
+int res_query(const char *name, int class, int type, unsigned char *answer, int length) {
+  (void)name; (void)class; (void)type; (void)answer; (void)length;
+  h_errno = NO_RECOVERY;
+  return -1;
+}
 
 /*
  * This is the process target's serialized libc fallback.  Runtimes such as
@@ -843,6 +864,36 @@ const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
  * their own; normal static-link symbol ownership must let that definition
  * replace the generic one without a runtime-specific linker exception.
  */
+/* Dolly keeps no thread names; the threaded libc declares this and has none. */
+__attribute__((weak)) int pthread_getname_np(pthread_t thread, char *name, size_t size) {
+  (void)thread; (void)name; (void)size; return ENOSYS;
+}
+/* A thread runs wherever the browser puts its Worker: no affinity to read. */
+__attribute__((weak)) int pthread_getaffinity_np(pthread_t thread, size_t size, cpu_set_t *set) {
+  (void)thread; (void)size; (void)set; return ENOSYS;
+}
+/* CPU_COUNT's helper, which the threaded libc lacks. */
+__attribute__((weak)) int __sched_cpucount(size_t size, const cpu_set_t *set) {
+  const unsigned char *bytes = (const unsigned char *)set;
+  int count = 0;
+  for (size_t index = 0; index < size; ++index) count += __builtin_popcount(bytes[index]);
+  return count;
+}
+/* ftw is nftw with the callback's fourth argument dropped. musl casts the
+ * callback to nftw's type, a call WebAssembly traps on: this adapter calls it
+ * with the three arguments it takes. */
+static _Thread_local int (*ftw_callback)(const char *, const struct stat *, int);
+static int ftw_adapter(const char *path, const struct stat *status, int type, struct FTW *position) {
+  (void)position;
+  return ftw_callback(path, status, type);
+}
+int ftw(const char *path, int (*callback)(const char *, const struct stat *, int), int descriptors) {
+  int (*const outer)(const char *, const struct stat *, int) = ftw_callback;
+  ftw_callback = callback;
+  const int result = nftw(path, ftw_adapter, descriptors, FTW_PHYS);
+  ftw_callback = outer;
+  return result;
+}
 #ifndef __EMSCRIPTEN_PTHREADS__
 __attribute__((weak)) pthread_t pthread_self(void) { return (pthread_t)(uintptr_t)1; }
 
@@ -855,9 +906,6 @@ __attribute__((weak)) int pthread_condattr_destroy(pthread_condattr_t *attribute
 __attribute__((weak)) int pthread_condattr_setclock(pthread_condattr_t *attribute,
                                                   clockid_t clock) {
   (void)attribute; (void)clock; return ENOSYS;
-}
-__attribute__((weak)) int pthread_getname_np(pthread_t thread, char *name, size_t size) {
-  (void)thread; (void)name; (void)size; return ENOSYS;
 }
 __attribute__((weak)) int pthread_setname_np(pthread_t thread, const char *name) {
   (void)thread; (void)name; return ENOSYS;
@@ -1217,8 +1265,7 @@ static uintptr_t variadic_argument(uintptr_t arguments) {
  * without a line, such as speeds, parity and break handling.
  */
 static int terminal_mode_from_attributes(const struct termios *attributes) {
-  const tcflag_t unsupported_input =
-      ICRNL | INLCR | IGNCR | IUCLC | IXON | IXOFF | IXANY | ISTRIP;
+  const tcflag_t unsupported_input = IGNCR | IUCLC | IXON | IXOFF | IXANY | ISTRIP;
   const cc_t *keys = attributes->c_cc;
   if ((attributes->c_iflag & unsupported_input) != 0 ||
       (attributes->c_oflag & ~(tcflag_t)(OPOST | ONLCR)) != 0 ||
@@ -1232,6 +1279,8 @@ static int terminal_mode_from_attributes(const struct termios *attributes) {
   if ((attributes->c_lflag & ISIG) != 0) mode |= DOLLY_TERMINAL_ISIG;
   if ((attributes->c_oflag & OPOST) != 0) mode |= DOLLY_TERMINAL_OPOST;
   if ((attributes->c_oflag & ONLCR) != 0) mode |= DOLLY_TERMINAL_ONLCR;
+  if ((attributes->c_iflag & ICRNL) != 0) mode |= DOLLY_TERMINAL_ICRNL;
+  if ((attributes->c_iflag & INLCR) != 0) mode |= DOLLY_TERMINAL_INLCR;
   return (int)mode;
 }
 
@@ -1273,6 +1322,8 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
       memset(&attributes, 0, sizeof(attributes));
       if (mode & DOLLY_TERMINAL_OPOST) attributes.c_oflag |= OPOST;
       if (mode & DOLLY_TERMINAL_ONLCR) attributes.c_oflag |= ONLCR;
+      if (mode & DOLLY_TERMINAL_ICRNL) attributes.c_iflag |= ICRNL;
+      if (mode & DOLLY_TERMINAL_INLCR) attributes.c_iflag |= INLCR;
       attributes.c_cflag = CS8 | CREAD;
       if ((mode & DOLLY_TERMINAL_ISIG) != 0) attributes.c_lflag |= ISIG;
       if ((mode & DOLLY_TERMINAL_CANONICAL) != 0) {

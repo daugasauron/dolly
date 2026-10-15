@@ -121,6 +121,14 @@ static int pair(void) {
   unedited(ends[1]);
   CHECK(write(ends[0], "in", 2) == 2);
   expect(ends[1], "heldin");
+  /* Input read as a line editor asks: CR as LF and LF as CR (zsh's). */
+  CHECK(tcgetattr(ends[1], &mode) == 0);
+  mode.c_iflag |= ICRNL | INLCR;
+  CHECK(tcsetattr(ends[1], TCSANOW, &mode) == 0);
+  CHECK(write(ends[0], "a\rb\n", 4) == 4);
+  expect(ends[1], "a\nb\r");
+  mode.c_iflag &= ~(tcflag_t)(ICRNL | INLCR);
+  CHECK(tcsetattr(ends[1], TCSANOW, &mode) == 0);
   CHECK(write(ends[1], "out\n", 4) == 4);
   expect(ends[0], "out\r\n");
   CHECK(tcgetattr(ends[1], &mode) == 0 && (mode.c_oflag & OPOST) && (mode.c_lflag & ISIG));

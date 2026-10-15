@@ -89,9 +89,10 @@ sequenceDiagram
 
 ## Descriptors and files
 
-- 256 descriptors per process. Descriptor flags are per handle; offsets and status
+- 1024 descriptors per process, Linux's default soft limit: Zig compiling
+  Ghostty holds more than 256. Descriptor flags are per handle; offsets and status
   flags belong to the shared open description. `FD_CLOEXEC` works everywhere.
-  `getrlimit` reports the fixed limits (`RLIMIT_NOFILE` 256, `RLIMIT_NPROC` 32,
+  `getrlimit` reports the fixed limits (`RLIMIT_NOFILE` 1024, `RLIMIT_NPROC` 32,
   `RLIMIT_AS` 8 GiB, `RLIMIT_STACK` 8 MiB); `sysconf(_SC_OPEN_MAX)` is still
   libc's constant 1024.
 - Pipes hold 64 KiB. Empty reads and full writes return `EAGAIN` when
@@ -116,8 +117,10 @@ sequenceDiagram
   Janis's, takes one byte unedited in either mode. `OPOST`/`ONLCR` map LF to
   CRLF on output. While `ISIG` is set (the default), Ctrl+C sends SIGINT to the
   foreground; a program that clears it (raw mode) reads Ctrl+C as the byte 0x03.
-  termios reports no input mapping, flow control or other signal keys, and
-  `VMIN` 1, `VTIME` 0; `tcsetattr` rejects anything else with `EINVAL`.
+  `ICRNL` reads an input CR as LF and `INLCR` an LF as CR, when a program sets
+  them (a line editor such as zsh's does). termios reports no other input
+  mapping, no flow control or other signal keys, and `VMIN` 1, `VTIME` 0;
+  `tcsetattr` rejects anything else with `EINVAL`.
   `TCSAFLUSH` and `tcflush` discard unread input; break and flow control fail
   with `ENOTSUP`.
 - There is one user and no permission bits: `chmod`, `chown` and `access` only
@@ -217,7 +220,7 @@ nothing and declares nothing: any program built for Dolly runs on one.
 - The slave is a terminal to the program that holds it, with a mode and a
   size of its own: `isatty`, termios and `TIOCGWINSZ` answer as for the
   display's terminal, with the same discipline (`ICANON`, `ECHO` to the
-  master, `OPOST` with `ONLCR`, `ISIG`). A process whose descriptor 0, 1 or 2 is a
+  master, `OPOST` with `ONLCR`, `ISIG`, `ICRNL` and `INLCR`). A process whose descriptor 0, 1 or 2 is a
   slave opens it as `/dev/tty`: the same open file again, so `O_NONBLOCK` set
   there is set for every process that holds the slave. The master is not a
   terminal, but termios and `TIOCGWINSZ` on it reach the slave's mode and
@@ -254,8 +257,8 @@ nothing and declares nothing: any program built for Dolly runs on one.
   A child starts with default dispositions and an empty signal mask; other file
   actions, a session, process group or scheduler, and a non-empty mask return
   `ENOTSUP`. There is no `fork` or `exec`.
-- `waitpid` accepts a child PID, `-1` or `0`, with `WNOHANG` and `WUNTRACED`:
-  no child ever stops. Wait records distinguish signal termination from exit:
+- `waitpid` accepts a child PID, `-1` or `0`, with `WNOHANG`, `WUNTRACED` and
+  `WCONTINUED`: no child ever stops or continues. Wait records distinguish signal termination from exit:
   `exit(130)` is not SIGINT.
 - Timed spawns carry an absolute monotonic deadline at most one day away; the
   supervisor ends the child with status 124 even inside a pure CPU loop.
@@ -309,7 +312,8 @@ nothing and declares nothing: any program built for Dolly runs on one.
   read, write and wait. Ignored or blocked signals do not shorten sleeps.
 - Because handlers run only when a syscall starts, `pselect` is the race-free
   way to wait for a descriptor or a blocked signal: a pending signal its mask
-  unblocks interrupts it before the wait. `select` is unsupported.
+  unblocks interrupts it before the wait; `sigsuspend` is that wait without
+  descriptors, and `select` the wait without a mask.
 - `SIGCHLD` is queued once a child is waitable. `SIGWINCH` follows terminal
   resizes and never forces termination.
 - `alarm`, `setitimer` and `getitimer` support only `ITIMER_REAL` (others fail

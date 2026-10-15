@@ -50,8 +50,9 @@ def terminal_modes():
     try:
         assert len(termios.tcgetwinsize(0)) == 2
         assert before[0] & (termios.ICRNL | termios.IXON) == 0, "reported input mapping"
-        for index, flag in ((1, termios.OPOST), (1, termios.ONLCR), (3, termios.ICANON),
-                            (3, termios.ECHO), (3, termios.ISIG)):
+        for index, flag in ((0, termios.ICRNL), (0, termios.INLCR), (1, termios.OPOST),
+                            (1, termios.ONLCR), (3, termios.ICANON), (3, termios.ECHO),
+                            (3, termios.ISIG)):
             mode = termios.tcgetattr(0)
             mode[index] ^= flag
             termios.tcsetattr(0, termios.TCSANOW, mode)
@@ -60,7 +61,7 @@ def terminal_modes():
         tty.setraw(0)
         raw = termios.tcgetattr(0)
         assert raw[3] & termios.ICANON == 0
-        for flag in (termios.IXON, termios.ICRNL):
+        for flag in (termios.IXON, termios.IGNCR):
             mode = list(raw)
             mode[0] |= flag
             rejected(lambda: termios.tcsetattr(0, termios.TCSANOW, mode), errno.EINVAL)

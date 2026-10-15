@@ -1,8 +1,10 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <poll.h>
+#include <resolv.h>
 #include <signal.h>
 #include <spawn.h>
 #include <stddef.h>
@@ -10,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/shm.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
@@ -351,11 +354,16 @@ int main(int argc, char **argv) {
     if (write(3, "s", 1) != 1) return 6;
     for (;;) {}
   }
-  /* Linked without -ldolly-sockets, the calls are libc's refusals. */
+  /* Linked without -ldolly-sockets, the calls are libc's refusals; and there
+   * is no name server for a query, nor shared memory, either way. */
   if (strcmp(mode, "unlinked") == 0) {
     int ends[2];
+    unsigned char answer[512];
     return socketpair(AF_UNIX, SOCK_STREAM, 0, ends) == -1 && errno == ENOSYS &&
-        socket(AF_INET, SOCK_STREAM, 0) == -1 && errno == ENOSYS ? 0 : 9;
+        socket(AF_INET, SOCK_STREAM, 0) == -1 && errno == ENOSYS &&
+        res_query("example.org", C_IN, T_A, answer, sizeof(answer)) == -1 && h_errno == NO_RECOVERY &&
+        IN6_IS_ADDR_LOOPBACK(&in6addr_loopback) &&
+        shmget(IPC_PRIVATE, 4096, IPC_CREAT | 0600) == -1 && errno == ENOSYS ? 0 : 9;
   }
   if (strcmp(mode, "pair") == 0) pair();
   else if (strcmp(mode, "refuse") == 0) refuse();

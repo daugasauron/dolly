@@ -95,7 +95,8 @@ uint32_t dolly_kernel_terminal_mode(void) {
 
 int dolly_kernel_terminal_set_mode(uint32_t flags) {
   const uint32_t valid = DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO |
-      DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG;
+      DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG |
+      DOLLY_TERMINAL_ICRNL | DOLLY_TERMINAL_INLCR;
   if ((flags & ~valid) != 0) return -EINVAL;
   terminal_mode_flags = flags;
   return 0;
@@ -142,6 +143,12 @@ void dolly_kernel_line_type(dolly_kernel_line *line, unsigned char byte,
   }
 }
 
+unsigned char dolly_kernel_terminal_input(uint32_t mode, unsigned char byte) {
+  if (byte == '\r' && (mode & DOLLY_TERMINAL_ICRNL) != 0) return '\n';
+  if (byte == '\n' && (mode & DOLLY_TERMINAL_INLCR) != 0) return '\r';
+  return byte;
+}
+
 size_t dolly_kernel_line_take(dolly_kernel_line *line, unsigned char *bytes, size_t size, int raw) {
   size_t count = raw ? line->size : line->ready;
   const unsigned char *newline = raw ? NULL : memchr(line->bytes, '\n', count);
@@ -170,7 +177,7 @@ int dolly_kernel_terminal_readable(void) {
   }
   for (int byte; terminal_line.ready == 0 && !terminal_line.end &&
        (byte = dolly_kernel_terminal_read()) >= 0;) {
-    dolly_kernel_line_type(&terminal_line, (unsigned char)byte,
+    dolly_kernel_line_type(&terminal_line, dolly_kernel_terminal_input(terminal_mode_flags, (unsigned char)byte),
         (terminal_mode_flags & DOLLY_TERMINAL_ECHO) != 0 ? terminal_echo : NULL, NULL);
   }
   return terminal_line.ready != 0 || terminal_line.end;
@@ -182,14 +189,16 @@ int64_t dolly_kernel_terminal_receive(unsigned char *bytes, size_t size) {
   size_t count = dolly_kernel_line_take(&terminal_line, bytes, size, raw);
   if (!raw && count == 0) terminal_line.end = 0;
   for (int byte; raw && count < size && (byte = dolly_kernel_terminal_read()) >= 0;) {
-    bytes[count++] = (unsigned char)byte;
+    bytes[count++] = dolly_kernel_terminal_input(terminal_mode_flags, (unsigned char)byte);
   }
   return (int64_t)count;
 }
 
 int dolly_kernel_terminal_key(void) {
   unsigned char byte;
-  return dolly_kernel_line_take(&terminal_line, &byte, 1, 1) == 1 ? byte : dolly_kernel_terminal_read();
+  if (dolly_kernel_line_take(&terminal_line, &byte, 1, 1) == 1) return byte;
+  const int read = dolly_kernel_terminal_read();
+  return read < 0 ? read : dolly_kernel_terminal_input(terminal_mode_flags, (unsigned char)read);
 }
 
 void dolly_kernel_terminal_discard(void) {

@@ -5,6 +5,8 @@
 #include <cstring>
 #include <dirent.h>
 #include <limits.h>
+#include <spawn.h>
+#include <sys/wait.h>
 #include <map>
 #include <memory>
 #include <string>
@@ -46,6 +48,8 @@
 #include "dolly-kernel-plugin-abi-digest.h"
 #include "dolly-process-abi-digest.h"
 
+extern char **environ;
+
 LLD_HAS_DRIVER(wasm)
 
 namespace {
@@ -85,6 +89,7 @@ struct DriverOptions {
   bool standard_selected = false;
   bool unsigned_char = false;
   bool pthread = false;
+  bool cast_emulation = false;
   std::string thread_model;
   DebugInfoKind debug_info = DebugInfoKind::None;
   bool limited_debug_info = false;
@@ -212,6 +217,10 @@ void print_help(const char *program, int driver_mode) {
       "                     <dolly/NAME.h> host clients (libdolly-NAME.a in\n"
       "                     /usr/lib/dolly/process) and libc are linked without -l\n"
       "  -pthread           link the thread runtime (pthreads, C++ threads)\n"
+      "  --dolly-cast-emulation\n"
+      "                     after the link, make calls through pointers cast to\n"
+      "                     other function types work (wasm-opt --fpcast-emu, of\n"
+      "                     the binaryen package): GObject programs make them\n"
       "  -x c|c++           override source language\n"
       "  -std=STANDARD      select a C or C++ language standard\n"
       "  -O0|-O1|-O2|-O3|-Os|-Oz\n"
@@ -284,6 +293,8 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
       options.shared_library = true;
     } else if (argument == "--dolly-kernel-plugin") {
       options.kernel_plugin = true;
+    } else if (argument == "--dolly-cast-emulation") {
+      options.cast_emulation = true;
     } else if (argument == "-rdynamic") {
       options.export_dynamic = true;
     } else if (argument == "-o") {
@@ -364,8 +375,11 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
     } else if (argument == "-fno-math-errno") {
       // Clang's WebAssembly driver compiles without math errno by default,
       // so the flag states the default and cc1 gets nothing.
-    } else if (argument == "-fomit-frame-pointer") {
-      // cc1 already gets -mframe-pointer=none: WebAssembly has no frame pointer.
+    } else if (argument == "-fomit-frame-pointer" || argument == "-fno-omit-frame-pointer") {
+      // cc1 already gets -mframe-pointer=none: WebAssembly has no frame pointer
+      // to omit or keep, since the engine walks its own stack.
+    } else if (argument == "-fuse-ld=lld") {
+      // cc links with lld already, the one linker it has.
     } else if (starts_with(argument, "-ffp-contract=")) {
       // Follows the default -ffp-contract=on in cc1's arguments, so it wins.
       options.frontend_options.push_back(argument);
@@ -847,7 +861,9 @@ bool link_process_executable(const std::string &output,
       // historical 64 KiB default on the stack.
       "-z", "stack-size=8388608",
       "--max-memory=8589934592",
-      "--initial-memory=16777216",
+      // At least 16 MiB, which a DSO's memory import expects, and room for
+      // the program's data: an 8 MiB heap above its data and stack.
+      "--initial-heap=8388608",
       "--no-stack-first",
       "--table-base=1",
       "--global-base=1024",
@@ -936,6 +952,28 @@ bool link_process_executable(const std::string &output,
   const lld::Result result =
       lld::lldMain(pointers, llvm::outs(), llvm::errs(), {driver});
   return result.retCode == 0 && result.canRunAgain;
+}
+
+// Binaryen's cast emulation: every indirect call of the program goes through
+// one signature, 32 i64 parameters (GTK makes a call of 17), and every table
+// entry through a thunk of it, so a call through a pointer cast to a function
+// type of other parameters works.
+bool emulate_casts(const std::string &path) {
+  const std::string emulated = path + ".emulated";
+  const char *arguments[] = {"wasm-opt", "--fpcast-emu", "--pass-arg=max-func-params@32", path.c_str(),
+                             "-o", emulated.c_str(), nullptr};
+  pid_t pid = 0;
+  if (posix_spawnp(&pid, "wasm-opt", nullptr, nullptr, const_cast<char *const *>(arguments), environ) != 0) {
+    std::fputs("dolly-cc: --dolly-cast-emulation runs wasm-opt, of the binaryen package\n", stderr);
+    return false;
+  }
+  int status = 0;
+  if (waitpid(pid, &status, 0) != pid || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+    std::fprintf(stderr, "dolly-cc: wasm-opt --fpcast-emu failed: %s\n", path.c_str());
+    std::remove(emulated.c_str());
+    return false;
+  }
+  return std::rename(emulated.c_str(), path.c_str()) == 0;
 }
 
 bool link_process_shared_object(const std::string &output,
@@ -1580,9 +1618,11 @@ std::string single_source_language(const DriverOptions &options,
              : "";
 }
 
+// Like Clang, -E stops after preprocessing whether or not -c is given too, as
+// Meson gives it.
 int preprocess(const DriverOptions &options, int default_language) {
   const std::string language = single_source_language(options, default_language);
-  if (options.compile_only || language.empty()) {
+  if (language.empty()) {
     std::fputs("dolly-cc: -E requires exactly one source input\n", stderr);
     return 64;
   }
@@ -1688,6 +1728,11 @@ int compile_and_link(const DriverOptions &options, int default_language) {
     return 1;
   }
   cleanup(temporary_objects);
+  if (options.cast_emulation && !options.kernel_plugin && !options.shared_library &&
+      !emulate_casts(linked)) {
+    std::remove(linked.c_str());
+    return 1;
+  }
   const bool valid = options.kernel_plugin
       ? validate_kernel_plugin(linked)
       : (options.shared_library

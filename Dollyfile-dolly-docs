@@ -5,10 +5,10 @@ REQUIRES HOST runtime@0
 # The platform as a program sees it: the documents and machine contracts of
 # this release at their repository paths, so their links to each other work.
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
-SOURCE /v0.1.3/docs/process-model.md 64e256cd12214cdf5a602317856c3fbf24420b6ce4dac26c3b3dcc223486e8e6 /usr/share/doc/dolly/docs/process-model.md
+SOURCE /v0.1.3/docs/process-model.md ca3d358735dbea556b239f46831b1884a886924903328638c2e14946c4dc8187 /usr/share/doc/dolly/docs/process-model.md
 SOURCE /v0.1.3/docs/browser-stack.md 6afa6298a0e03ff3af86cf3b5ff102c23508afd542d921a537c8eae7bfc48370 /usr/share/doc/dolly/docs/browser-stack.md
 SOURCE /v0.1.3/docs/slop.md a28c7ab502fb246537fa27f3a98b0fceab4a6762e90f55454fd1c1b4ae2d50e4 /usr/share/doc/dolly/docs/slop.md
-SOURCE /v0.1.3/docs/display.md 8abf9c743969060d9488822d78d34f1ed79aa764eb8fa925f4554163e0418130 /usr/share/doc/dolly/docs/display.md
+SOURCE /v0.1.3/docs/display.md 541c42f9c51d67e8560b91cd485c236e6c488fa58385098122c4d81b646f6980 /usr/share/doc/dolly/docs/display.md
 SOURCE /v0.1.3/docs/gpu.md dffb2841e2c92626af12a921bbfb45c6f44fe7ecc29ff39fd96f5930d4ce3c67 /usr/share/doc/dolly/docs/gpu.md
 SOURCE /v0.1.3/docs/audio.md d877621b99ae4e1ad48989449b39beec0002558301e1ce6f0e99722e4c8e6d2c /usr/share/doc/dolly/docs/audio.md
 SOURCE /v0.1.3/docs/http.md eb91bb3da5a11c2baee85f85d045a403e70e3b5263dcb330ec87a7ecb179e536 /usr/share/doc/dolly/docs/http.md
@@ -26,7 +26,7 @@ SOURCE /v0.1.3/abi/dolly-kernel-plugin-0.wat 8ed18bd8b9221ac11e077bba609db2e161b
 SOURCE /v0.1.3/docs/input.md d0bcfa4bbf6c843da925c37c2a509f20f577dcce2df2f270a7edb59e75a14e87 /usr/share/doc/dolly/docs/input.md
 SOURCE /v0.1.3/abi/dolly-process-0.wat ecbeb8baf2f2ead274da643bde8bd325e250b9a46549ad4155f4451b06d1657d /usr/share/doc/dolly/abi/dolly-process-0.wat
 SOURCE /v0.1.3/abi/dolly-process-gate-0.wat 04763b281b286061ccae2c91cb18207fc5e820e9368ea004306047561e3cf269 /usr/share/doc/dolly/abi/dolly-process-gate-0.wat
-SOURCE /v0.1.3/abi/dolly-supervisor-0.wat 135b82d56f2f6844b1098eb7e862a0bdbe7c5c30ff9c340dc7585cbc544a6e79 /usr/share/doc/dolly/abi/dolly-supervisor-0.wat
+SOURCE /v0.1.3/abi/dolly-supervisor-0.wat fbd2a33fb428d69fc36a7b77fbdd4d28b85b266d18fa9d3dac21ccd3667a3cc9 /usr/share/doc/dolly/abi/dolly-supervisor-0.wat
 SOURCE /v0.1.3/host/audio/dolly-audio-0.wat f216dedd6a02c35f51e5b6222cadf9af584f41cdd3d9587c42ebba586ea8e778 /usr/share/doc/dolly/host/audio/dolly-audio-0.wat
 SOURCE /v0.1.3/host/microphone/dolly-microphone-0.wat 76694b97ce96556e72f8e0c5a64a3649405e4b967c2e34a020ef776489abe6ba /usr/share/doc/dolly/host/microphone/dolly-microphone-0.wat
 SOURCE /v0.1.3/host/buttons/dolly-buttons-0.wat 07974ea1a33d75064f84ebb5794b5bb7971de8bac235f240c0cea069f3bbbc11 /usr/share/doc/dolly/host/buttons/dolly-buttons-0.wat

@@ -1,5 +1,7 @@
 #define _GNU_SOURCE
 #include <pthread.h>
+#include <sys/stat.h>
+#include <ftw.h>
 #include <semaphore.h>
 #include <stdatomic.h>
 #include <assert.h>
@@ -122,6 +124,12 @@ static void *work(void *argument) {
   return (void *)(id + 30);
 }
 
+static int walked;
+static int count_walked(const char *path, const struct stat *status, int type) {
+  (void)path; (void)status; (void)type;
+  return ++walked > 2;
+}
+
 int main(int argc, char **argv) {
   main_tid = gettid(); main_pid = getpid();
   assert(sched_yield() == 0);
@@ -206,6 +214,18 @@ int main(int argc, char **argv) {
   assert((finished.tv_sec - started.tv_sec) * 1000 + (finished.tv_nsec - started.tv_nsec) / 1000000 < 500);
   errno = 0;
   assert(dlopen(NULL, RTLD_NOW) == NULL && errno == ENOSYS);
+  /* Dolly keeps no thread names, and a thread has no affinity to read. */
+  char name[16];
+  assert(pthread_getname_np(pthread_self(), name, sizeof(name)) == ENOSYS);
+  cpu_set_t cpus;
+  CPU_ZERO(&cpus);
+  CPU_SET(1, &cpus);
+  CPU_SET(3, &cpus);
+  assert(CPU_COUNT(&cpus) == 2 && pthread_getaffinity_np(pthread_self(), sizeof(cpus), &cpus) == ENOSYS);
+  /* ftw calls its three-argument callback for the directory and its entry. */
+  assert(mkdir("/tmp/threads-ftw", 0700) == 0 || errno == EEXIST);
+  FILE *entry = fopen("/tmp/threads-ftw/entry", "w");
+  assert(entry && fclose(entry) == 0 && ftw("/tmp/threads-ftw", count_walked, 4) == 0 && walked == 2);
   puts("PTHREAD-OK mutex barrier semaphore once TLS errno TSD allocator detach C11");
   return 0;
 }
