@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <ftw.h>
 #include <limits.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -848,6 +849,32 @@ int res_query(const char *name, int class, int type, unsigned char *answer, int 
 /* Dolly keeps no thread names; the threaded libc declares this and has none. */
 __attribute__((weak)) int pthread_getname_np(pthread_t thread, char *name, size_t size) {
   (void)thread; (void)name; (void)size; return ENOSYS;
+}
+/* A thread runs wherever the browser puts its Worker: no affinity to read. */
+__attribute__((weak)) int pthread_getaffinity_np(pthread_t thread, size_t size, cpu_set_t *set) {
+  (void)thread; (void)size; (void)set; return ENOSYS;
+}
+/* CPU_COUNT's helper, which the threaded libc lacks. */
+__attribute__((weak)) int __sched_cpucount(size_t size, const cpu_set_t *set) {
+  const unsigned char *bytes = (const unsigned char *)set;
+  int count = 0;
+  for (size_t index = 0; index < size; ++index) count += __builtin_popcount(bytes[index]);
+  return count;
+}
+/* ftw is nftw with the callback's fourth argument dropped. musl casts the
+ * callback to nftw's type, a call WebAssembly traps on: this adapter calls it
+ * with the three arguments it takes. */
+static _Thread_local int (*ftw_callback)(const char *, const struct stat *, int);
+static int ftw_adapter(const char *path, const struct stat *status, int type, struct FTW *position) {
+  (void)position;
+  return ftw_callback(path, status, type);
+}
+int ftw(const char *path, int (*callback)(const char *, const struct stat *, int), int descriptors) {
+  int (*const outer)(const char *, const struct stat *, int) = ftw_callback;
+  ftw_callback = callback;
+  const int result = nftw(path, ftw_adapter, descriptors, FTW_PHYS);
+  ftw_callback = outer;
+  return result;
 }
 #ifndef __EMSCRIPTEN_PTHREADS__
 __attribute__((weak)) pthread_t pthread_self(void) { return (pthread_t)(uintptr_t)1; }
