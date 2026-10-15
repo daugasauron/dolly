@@ -302,9 +302,10 @@ int getnameinfo(const struct sockaddr *address, socklen_t address_length,
 
 /* -1 and 0 wait for any child; Dolly has no other process groups. No child
  * stops, so one that asks for stopped children too (WUNTRACED) is told of
- * every change there is. */
+ * every change there is, and one that asks for continued children
+ * (WCONTINUED) of none more. */
 pid_t dolly_waitpid(pid_t pid, int *status, int options) {
-  if ((options & ~(WNOHANG | WUNTRACED)) != 0 || pid < -1) {
+  if ((options & ~(WNOHANG | WUNTRACED | WCONTINUED)) != 0 || pid < -1) {
     errno = pid < -1 ? ECHILD : ENOTSUP;
     return -1;
   }

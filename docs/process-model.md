@@ -254,8 +254,8 @@ nothing and declares nothing: any program built for Dolly runs on one.
   A child starts with default dispositions and an empty signal mask; other file
   actions, a session, process group or scheduler, and a non-empty mask return
   `ENOTSUP`. There is no `fork` or `exec`.
-- `waitpid` accepts a child PID, `-1` or `0`, with `WNOHANG` and `WUNTRACED`:
-  no child ever stops. Wait records distinguish signal termination from exit:
+- `waitpid` accepts a child PID, `-1` or `0`, with `WNOHANG`, `WUNTRACED` and
+  `WCONTINUED`: no child ever stops or continues. Wait records distinguish signal termination from exit:
   `exit(130)` is not SIGINT.
 - Timed spawns carry an absolute monotonic deadline at most one day away; the
   supervisor ends the child with status 124 even inside a pure CPU loop.
@@ -305,7 +305,8 @@ nothing and declares nothing: any program built for Dolly runs on one.
   read, write and wait. Ignored or blocked signals do not shorten sleeps.
 - Because handlers run only when a syscall starts, `pselect` is the race-free
   way to wait for a descriptor or a blocked signal: a pending signal its mask
-  unblocks interrupts it before the wait. `select` is unsupported.
+  unblocks interrupts it before the wait; `sigsuspend` is that wait without
+  descriptors. `select` is unsupported.
 - `SIGCHLD` is queued once a child is waitable. `SIGWINCH` follows terminal
   resizes and never forces termination.
 - `alarm`, `setitimer` and `getitimer` support only `ITIMER_REAL` (others fail

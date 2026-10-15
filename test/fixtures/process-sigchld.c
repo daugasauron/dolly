@@ -99,7 +99,14 @@ int main(int argc, char **argv) {
   CHECK(write(idle[1], "x", 1) == 1);
   FD_SET(idle[0], &readers);
   CHECK(pselect(idle[0] + 1, &readers, NULL, NULL, NULL, &empty) == 1 && FD_ISSET(idle[0], &readers));
-  CHECK(sigprocmask(SIG_SETMASK, &old_mask, NULL) == 0 && received == 3);
+
+  /* sigsuspend waits as pselect does, as a shell waits for its children; no
+   * child stops, so none continues for WCONTINUED. */
+  pid = spawn_child(argv[0], "quiet");
+  CHECK(sigsuspend(&empty) == -1 && errno == EINTR && received == 4);
+  CHECK(sigprocmask(SIG_BLOCK, NULL, &current) == 0 && sigismember(&current, SIGCHLD) == 1);
+  CHECK(waitpid(pid, &status, WCONTINUED) == pid && WIFEXITED(status) && WEXITSTATUS(status) == 7);
+  CHECK(sigprocmask(SIG_SETMASK, &old_mask, NULL) == 0 && received == 4);
   CHECK(sigaction(SIGCHLD, &previous, NULL) == 0);
   puts("PROCESS-SIGCHLD-OK");
   return 0;
