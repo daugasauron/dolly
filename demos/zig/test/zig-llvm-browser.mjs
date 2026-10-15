@@ -1,6 +1,6 @@
 // Zig with LLVM installed into a default session: build-exe links through cc,
-// the program starts a child, and zig build runs a project's build.zig. Zig
-// names a WebAssembly program NAME.wasm.
+// the program starts a child, a threaded program starts a thread, and zig
+// build runs a project's build.zig. Zig names a WebAssembly program NAME.wasm.
 // Usage: node demos/zig/test/zig-llvm-browser.mjs
 import { demoTest, writeCommand } from "../../browser.mjs";
 
@@ -13,6 +13,22 @@ pub fn main(init: std.process.Init) !void {
     const line = try reader.interface.takeDelimiterExclusive('\\n');
     _ = try child.wait(init.io);
     std.debug.print("hello {s}\\n", .{line});
+}
+`;
+// Its Io starts with signal handlers and a processor count; its allocator is libc's.
+const threaded = `const std = @import("std");
+
+fn work(answer: *u32) void {
+    answer.* = 42;
+}
+
+pub fn main(init: std.process.Init) !void {
+    var answer: u32 = 0;
+    const thread = try std.Thread.spawn(.{}, work, .{&answer});
+    thread.join();
+    const text = try std.fmt.allocPrint(init.gpa, "thread {d}", .{answer});
+    defer init.gpa.free(text);
+    std.debug.print("{s}\\n", .{text});
 }
 `;
 const build = `const std = @import("std");
@@ -33,6 +49,8 @@ for (const browser of ["chromium", "firefox"]) {
     await run("test \"$(zig version)\" = 0.16.0 && mkdir /tmp/zig-test && cd /tmp/zig-test");
     await run(writeCommand("hello.zig", hello));
     await run('zig build-exe hello.zig && test "$(./hello.wasm 2>&1)" = "hello child"');
+    await run(writeCommand("threaded.zig", threaded));
+    await run('zig build-exe -fno-single-threaded threaded.zig && test "$(./threaded.wasm 2>&1)" = "thread 42"');
     await run(writeCommand("build.zig", build));
     await run('zig build && test "$(zig-out/bin/hello.wasm 2>&1)" = "hello child"');
     await run("cd / && rm -r /tmp/zig-test");

@@ -1,5 +1,93 @@
+diff --git a/lib/std/Io/Threaded.zig b/lib/std/Io/Threaded.zig
+index f004a56..15874ee 100644
+--- a/lib/std/Io/Threaded.zig
++++ b/lib/std/Io/Threaded.zig
+@@ -956,7 +956,7 @@ const Thread = struct {
+             comptime assert(builtin.cpu.has(.wasm, .atomics));
+             // TODO implement cancelation for WASM futex waits by signaling the futex
+             if (!uncancelable) try Thread.checkCancel();
+-            const to: i64 = if (timeout_ns) |ns| ns else -1;
++            const to: i64 = if (timeout_ns) |ns| std.math.lossyCast(i64, ns) else -1;
+             const signed_expect: i32 = @bitCast(expect);
+             const result = asm volatile (
+                 \\local.get %[ptr]
+@@ -5265,7 +5265,9 @@ fn dirOpenDirPosix(
+         },
+     };
+ 
+-    if (@hasField(posix.O, "PATH") and !options.iterate)
++    // Emscripten declares O_PATH for source compatibility, but WasmFS does
++    // not implement it and rejects directory opens with EINVAL.
++    if (native_os != .emscripten and @hasField(posix.O, "PATH") and !options.iterate)
+         flags.PATH = true;
+ 
+     const mode: posix.mode_t = 0;
+diff --git a/lib/std/Thread.zig b/lib/std/Thread.zig
+index 6e9f7fb..25e770b 100644
+--- a/lib/std/Thread.zig
++++ b/lib/std/Thread.zig
+@@ -705,7 +705,7 @@ const PosixThreadImpl = struct {
+                 };
+                 return @as(usize, @intCast(count));
+             },
+-            .illumos, .serenity => {
++            .illumos, .serenity, .emscripten => {
+                 // The "proper" way to get the cpu count would be to query
+                 // /dev/kstat via ioctls, and traverse a linked list for each
+                 // cpu. (illumos)
+@@ -764,7 +764,8 @@ const PosixThreadImpl = struct {
+         // Use the same set of parameters used by the libc-less impl.
+         const stack_size = @max(config.stack_size, 16 * 1024);
+         assert(c.pthread_attr_setstacksize(&attr, stack_size) == .SUCCESS);
+-        assert(c.pthread_attr_setguardsize(&attr, std.heap.pageSize()) == .SUCCESS);
++        // WebAssembly's linear memory has no page protection for a guard.
++        if (!builtin.cpu.arch.isWasm()) assert(c.pthread_attr_setguardsize(&attr, std.heap.pageSize()) == .SUCCESS);
+ 
+         var handle: c.pthread_t = undefined;
+         switch (c.pthread_create(
+@@ -1727,7 +1728,8 @@ pub fn maybeAttachSignalStack() void {
+         // TODO: Windows vectored exception handlers always run on the main stack, but we could use
+         // some target-specific inline assembly to swap the stack pointer.
+         .windows => return,
+-        .wasi => return,
++        // A WebAssembly program's handler runs on the stack it interrupts.
++        .wasi, .emscripten => return,
+         else => {},
+     }
+     const global = struct {
+diff --git a/lib/std/c.zig b/lib/std/c.zig
+index f0b0391..112b2da 100644
+--- a/lib/std/c.zig
++++ b/lib/std/c.zig
+@@ -2541,6 +2541,11 @@ pub const _SC = if (builtin.abi.isAndroid()) enum(c_int) {
+     .linux => enum(c_int) {
+         PAGESIZE = 30,
+     },
++    // musl's numbers.
++    .emscripten => enum(c_int) {
++        PAGESIZE = 30,
++        NPROCESSORS_ONLN = 84,
++    },
+     .netbsd => enum(c_int) {
+         PAGESIZE = 28,
+     },
+diff --git a/lib/std/heap.zig b/lib/std/heap.zig
+index 9bf1aef..4378403 100644
+--- a/lib/std/heap.zig
++++ b/lib/std/heap.zig
+@@ -342,6 +342,10 @@ pub const page_allocator: Allocator = if (@hasDecl(root, "os") and
+     @hasDecl(root.os, "heap") and
+     @hasDecl(root.os.heap, "page_allocator"))
+     root.os.heap.page_allocator
++else if (builtin.target.cpu.arch.isWasm() and builtin.link_libc and !builtin.single_threaded)
++    // WasmAllocator is single-threaded; a threaded program with libc has
++    // libc's allocator, which is thread-safe.
++    c_allocator
+ else if (builtin.target.cpu.arch.isWasm()) .{
+     .ptr = undefined,
+     .vtable = &WasmAllocator.vtable,
 diff --git a/lib/std/os/emscripten.zig b/lib/std/os/emscripten.zig
-index d452ae475..3917d30ee 100644
+index d8ed588..8847395 100644
 --- a/lib/std/os/emscripten.zig
 +++ b/lib/std/os/emscripten.zig
 @@ -211,7 +211,7 @@ pub const W = struct {
@@ -11,10 +99,35 @@ index d452ae475..3917d30ee 100644
          return @enumFromInt(EXITSTATUS(s));
      }
      pub fn IFEXITED(s: u32) bool {
-@@ -711,8 +711,10 @@ pub const sa_family_t = c.sa_family_t;
- pub const socklen_t = c.socklen_t;
+@@ -467,8 +467,9 @@ pub const SHUT = struct {
+ pub const SIG = linux.SIG;
+ 
+ pub const Sigaction = extern struct {
+-    pub const handler_fn = *align(1) const fn (i32) callconv(.c) void;
+-    pub const sigaction_fn = *const fn (i32, *const siginfo_t, ?*anyopaque) callconv(.c) void;
++    // A signal number, as Linux's: Emscripten's libc passes an int.
++    pub const handler_fn = *align(1) const fn (SIG) callconv(.c) void;
++    pub const sigaction_fn = *const fn (SIG, *const siginfo_t, ?*anyopaque) callconv(.c) void;
+ 
+     handler: extern union {
+         handler: ?handler_fn,
+@@ -479,9 +480,11 @@ pub const Sigaction = extern struct {
+     restorer: ?*const fn () callconv(.c) void = null,
+ };
+ 
+-pub const sigset_t = [1024 / 32]u32;
++// Emscripten's libc has 65 signals in two longs, not musl's 128 bytes
++// (bits/alltypes.h).
++pub const sigset_t = [2]c_ulong;
+ pub fn sigemptyset() sigset_t {
+-    return [_]u32{0} ** @typeInfo(sigset_t).array.len;
++    return [_]c_ulong{0} ** @typeInfo(sigset_t).array.len;
+ }
+ pub const siginfo_t = extern struct {
+     signo: i32,
+@@ -712,7 +715,9 @@ pub const socklen_t = c.socklen_t;
  pub const sockaddr = c.sockaddr;
-
+ 
  pub const blksize_t = i32;
 -pub const nlink_t = u32;
 +// Emscripten defines nlink_t as unsigned _Reg, which follows pointer width.
@@ -23,9 +136,10 @@ index d452ae475..3917d30ee 100644
  // https://github.com/emscripten-core/emscripten/blob/946ab574ae39401b51e75cd5257d894ae732ab54/system/lib/libc/musl/arch/emscripten/bits/alltypes.h#L140
  pub const time_t = c_longlong;
  pub const mode_t = u32;
-@@ -737,6 +739,8 @@ pub const msghdr = std.c.msghdr;
+@@ -737,7 +742,9 @@ pub const dl_phdr_info = extern struct {
+ pub const msghdr = std.c.msghdr;
  pub const msghdr_const = std.c.msghdr;
-
+ 
 -pub const nfds_t = usize;
 +// Emscripten defines nfds_t as unsigned int under MEMORY64. Using usize here
 +// produces a wasm64 function type that does not match libc's poll().
@@ -33,30 +147,15 @@ index d452ae475..3917d30ee 100644
  pub const pollfd = extern struct {
      fd: fd_t,
      events: i16,
-diff --git a/lib/std/Io/Threaded.zig b/lib/std/Io/Threaded.zig
-index 36d640da6..9bd5d2771 100644
---- a/lib/std/Io/Threaded.zig
-+++ b/lib/std/Io/Threaded.zig
-@@ -5264,7 +5264,9 @@ fn dirOpenDirPosix(
-         },
-     };
-
--    if (@hasField(posix.O, "PATH") and !options.iterate)
-+    // Emscripten declares O_PATH for source compatibility, but WasmFS does
-+    // not implement it and rejects directory opens with EINVAL.
-+    if (native_os != .emscripten and @hasField(posix.O, "PATH") and !options.iterate)
-         flags.PATH = true;
-
-     const mode: posix.mode_t = 0;
 diff --git a/src/main.zig b/src/main.zig
-index ab27b616e..1996f48f3 100644
+index 0395a21..fa4a53d 100644
 --- a/src/main.zig
 +++ b/src/main.zig
 @@ -3177,6 +3177,7 @@ fn buildOutputType(
-
+ 
      const self_exe_path = switch (native_os) {
          .wasi => {},
 +        .emscripten => "/usr/bin/zig",
          else => process.executablePathAlloc(io, arena) catch |err| fatal("unable to find zig self exe path: {t}", .{err}),
      };
-
+ 
