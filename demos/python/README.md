@@ -6,6 +6,7 @@ builds, plus stock pip over Dolly's HTTP broker.
 ## Images
 
 - `python`: `python3` and `pip` (CPython), with the `cc` package pip builds native packages with.
+- `libffi`: libffi with Dolly's target: calls and closures of signatures known at run time, through `dso@0`.
 
 Install it with `INSTALL` or `amy install python`; build with
 `npm run image -- python`.
@@ -26,7 +27,7 @@ Install it with `INSTALL` or `amy install python`; build with
 - [`Dollyfile-python`](Dollyfile-python), [`cpython-dolly.patch`](cpython-dolly.patch),
   [`prepare-cpython.sh`](prepare-cpython.sh): the interpreter; preparation only
   configures the pinned tree.
-- [`Dollyfile-python`](Dollyfile-python), [`libffi-dolly.c`](libffi-dolly.c): FFI over process-local calls.
+- [`Dollyfile-libffi`](Dollyfile-libffi), [`libffi-dolly.c`](libffi-dolly.c): FFI over process-local calls.
 - [`cpython-http.c`](cpython-http.c), [`cpython-transport.py`](cpython-transport.py):
   the built-in `_dolly_http` (start, poll, cancel of
   [`http.h`](../../host/http/http.h)) and `_dolly_transport`, which `site.py`

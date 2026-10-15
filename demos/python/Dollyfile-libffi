@@ -1,0 +1,106 @@
+DOLLY 7
+PACKAGE libffi
+REQUIRES HOST runtime@0
+REQUIRES HOST dso@0
+
+# libffi from upstream's release with Dolly's target (libffi-dolly.c): calls
+# and closures go through dso@0's FFI in the process's own Worker, so a
+# program that links it records dso@0. CPython's ctypes and GObject use it.
+FROM /v0.1.3/Dollyfile-system b33663b148885d0a8f2ef14025a1b3a4e5f6da23f38959d0e25fba61281e0c87
+REQUIRES HEADER dso
+REQUIRES HEADER libc
+REQUIRES TOOL   ar
+REQUIRES TOOL   cc
+REQUIRES TOOL   make
+REQUIRES TOOL   rm
+REQUIRES TOOL   tar
+
+SOURCE /v0.1.3/dist/static/python/libffi.tar f1edc3a00490ab6d673adb1202b0d779fdbff33bd28ab8382e39847e64109bce /tmp/libffi.tar
+SLOP tar \
+  -xf /tmp/libffi.tar \
+  -C /
+
+SOURCE /v0.1.3/dist/static/python/runtimes/libffi-dolly.c d5a180a210d829268b9686620fbfa2e5a5e439a2b0fe46ca55b12555f4b6f0d8 /usr/src/libffi/src/dolly.c
+
+FILE /tmp/libffi/Makefile
+    .RECIPEPREFIX := >
+    CC := cc
+    AR := ar
+    ROOT := /usr/src/libffi
+    CFLAGS := -O1 -std=c17 -DHAVE_CONFIG_H -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/src
+    NAMES := prep_cif types raw_api java_raw_api tramp dolly
+    OBJECTS := $(addprefix /tmp/libffi/,$(addsuffix .o,$(NAMES)))
+    all: /usr/lib/libffi.a
+    /tmp/libffi/%.o: $(ROOT)/src/%.c
+    >$(CC) $(CFLAGS) -c $< -o $@
+    /usr/lib/libffi.a: $(OBJECTS)
+    >$(AR) rcs $@ $^
+SLOP make \
+  -f /tmp/libffi/Makefile
+
+FILE /tmp/libffi-check.c
+    #include <ffi.h>
+    #include <stdio.h>
+    static int add(int left, int right) { return left + right; }
+    static void add_closure(ffi_cif *cif, void *result, void **arguments,
+                            void *context) {
+      (void)cif;
+      *(int *)result = *(int *)arguments[0] + *(int *)context;
+    }
+    int main(void) {
+      ffi_cif cif;
+      ffi_type *types[] = {&ffi_type_sint32, &ffi_type_sint32};
+      int left = 19, right = 23, answer = 0;
+      void *values[] = {&left, &right};
+      if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, 2,
+                       &ffi_type_sint32, types) != FFI_OK) return 10;
+      ffi_call(&cif, FFI_FN(add), &answer, values);
+      if (answer != 42) return 11;
+      void *code = 0;
+      ffi_closure *closure = ffi_closure_alloc(sizeof(*closure), &code);
+      ffi_type *one_type[] = {&ffi_type_sint32};
+      if (closure == 0 ||
+          ffi_prep_cif(&cif, FFI_DEFAULT_ABI, 1,
+                       &ffi_type_sint32, one_type) != FFI_OK ||
+          ffi_prep_closure_loc(closure, &cif, add_closure, &right, code) != FFI_OK) {
+        return 12;
+      }
+      int (*callback)(int) = code;
+      answer = callback(19);
+      ffi_closure_free(closure);
+      if (answer != 42) return 13;
+      return puts("LIBFFI-WASM64-OK") < 0 ? 14 : 0;
+    }
+SLOP cc \
+  -O1 \
+  -std=c17 \
+  /tmp/libffi-check.c \
+  -o /tmp/libffi-check \
+  -lffi
+SLOP slop \
+  -c \
+  /tmp/libffi-check
+
+EXPORTS LIB    ffi       /usr/lib/libffi.a
+EXPORTS HEADER ffi       /usr/include/ffi.h
+EXPORTS HEADER ffitarget /usr/include/ffitarget.h
+FILE /usr/lib/pkgconfig/libffi.pc
+    prefix=/usr
+    libdir=/usr/lib
+    includedir=/usr/include
+    
+    Name: libffi
+    Description: Library supporting Foreign Function Interfaces
+    Version: 3.5.2
+    Libs: -L${libdir} -lffi
+    Cflags: -I${includedir}
+EXPORTS FILE   libffi-pkgconfig /usr/lib/pkgconfig/libffi.pc
+FILE /usr/share/licenses/libffi/LICENSE
+
+SLOP rm \
+  -rf \
+  /tmp/libffi \
+  /tmp/libffi-check \
+  /tmp/libffi-check.c \
+  /tmp/libffi.tar \
+  /usr/src/libffi

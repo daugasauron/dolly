@@ -1,0 +1,13 @@
+--- a/glib/glib-unix.c
++++ b/glib/glib-unix.c
+@@ -996,6 +996,10 @@
+     }
+ 
+   return g_strdup (file_path);
++#elif defined (__dolly__)
++  g_set_error (error, G_FILE_ERROR, G_FILE_ERROR_NOSYS,
++               "g_unix_fd_query_path() not supported on Dolly");
++  return NULL;
+ #elif defined (__GNU__)
+   /*
+    * Hurd allows to open("/dev/fd/%u") to open the very same fd, but it's not

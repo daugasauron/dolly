@@ -1,5 +1,5 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_image python; then
+if has_image libffi; then
   libffi_dir="$(demos/python/prepare-libffi.sh)"
   copy_static demos/python/libffi-dolly.c python/runtimes/libffi-dolly.c
   node scripts/build-source-tar.mjs "${static_dir}/python/libffi.tar" \

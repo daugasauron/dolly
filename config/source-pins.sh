@@ -386,6 +386,15 @@ DOLLY_MESON_SHA256=930bc7542cbd9f57009e182fd014eba48cf1a0180a7b9006d2d32d8f168d8
 DOLLY_WABT_VERSION=1.0.42
 DOLLY_WABT_URL='https://github.com/WebAssembly/wabt/releases/download/1.0.42/wabt-1.0.42.tar.xz'
 DOLLY_WABT_SHA256=a76cda3c174a43097863a07fc0b0c202f770f53e21806ea2636f167d1ffb1e30
+DOLLY_PCRE2_VERSION=10.49
+DOLLY_PCRE2_URL='https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.49/pcre2-10.49.tar.gz'
+DOLLY_PCRE2_SHA256=929f0b20e62879252a15886b06c89f1edef61a363cbd5826fb041080a5e557ae
+DOLLY_GLIB_VERSION=2.90.1
+DOLLY_GLIB_URL='https://download.gnome.org/sources/glib/2.90/glib-2.90.1.tar.xz'
+DOLLY_GLIB_SHA256=93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396
+DOLLY_BINARYEN_VERSION=133
+DOLLY_BINARYEN_URL='https://github.com/WebAssembly/binaryen/archive/refs/tags/version_133.tar.gz'
+DOLLY_BINARYEN_SHA256=2f3e3d9edc56751499571da073a8a81943ca3fcbc08a945d2c619a7a1d4eb88b
 # Thomas Dickey's Berkeley Yacc and reflex: the yacc and flex packages.
 DOLLY_BYACC_VERSION=20260126
 DOLLY_BYACC_URL='https://invisible-island.net/archives/byacc/byacc-20260126.tgz'

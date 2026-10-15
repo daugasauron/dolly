@@ -1,0 +1,58 @@
+DOLLY 7
+PACKAGE binaryen
+REQUIRES HOST runtime@0
+
+# Binaryen's wasm-opt from upstream's release, unchanged, configured by its
+# own CMake. Dolly uses one pass of it, --fpcast-emu: every indirect call of
+# the program goes through one signature, so a call through a pointer cast to
+# a function type of other parameters works (GObject programs make them). It
+# runs on one thread, as BINARYEN_CORES says: the package is not threaded.
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 9ba7f8fbe7c465254861c1f2356bd1e7357599bf0e1f9e1089fc2a7958c241a3
+
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES LIB    c++
+REQUIRES LIB    c++abi
+REQUIRES TOOL   c++
+REQUIRES TOOL   cc
+REQUIRES TOOL   cmake
+REQUIRES TOOL   cp
+REQUIRES TOOL   grep
+REQUIRES TOOL   make
+REQUIRES TOOL   tar
+
+SOURCE /v0.1.3/dist/static/tools/binaryen.tar 0000000000000000000000000000000000000000000000000000000000000000 /tmp/binaryen.tar
+SLOP tar -xf /tmp/binaryen.tar -C /
+SLOP cmake -S /tmp/binaryen -B /tmp/binaryen/build \
+  -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF -DENABLE_WERROR=OFF -DBYN_ENABLE_LTO=OFF \
+  -DBUILD_EMSCRIPTEN_TOOLS_ONLY=ON -DINSTALL_LIBS=OFF
+SLOP cmake --build /tmp/binaryen/build -j4 --target wasm-opt
+SLOP cp /tmp/binaryen/build/bin/wasm-opt /usr/bin/wasm-opt
+EXPORTS ENV BINARYEN_CORES 1
+
+# A call through a pointer cast to a type of more parameters traps in
+# WebAssembly; the same program passed through the pass makes it.
+FILE /tmp/binaryen/cast.c
+    #include <stdio.h>
+    static int one(int value) { return value + 1; }
+    int main(void) {
+      int (*two)(int, int) = (int (*)(int, int))one;
+      return two(41, 0) == 42 && puts("CAST-EMULATED") >= 0 ? 0 : 1;
+    }
+SLOP cc -O0 /tmp/binaryen/cast.c -o /tmp/binaryen/cast && ! /tmp/binaryen/cast 2> /dev/null
+SLOP wasm-opt --fpcast-emu /tmp/binaryen/cast -o /tmp/binaryen/emulated && /tmp/binaryen/emulated | grep -qx CAST-EMULATED
+
+EXPORTS TOOL wasm-opt
+FILE /usr/share/licenses/binaryen/LICENSE
+FILE /usr/share/licenses/binaryen/FP16-LICENSE
+FILE /usr/share/man/cat1/wasm-opt.1
+    wasm-opt: Binaryen's optimizer of WebAssembly modules, built inside Dolly
+    from upstream's release. Dolly's programs are such modules.
+    
+      wasm-opt --fpcast-emu IN -o OUT   calls through casts to other types work
+      wasm-opt -O2 IN -o OUT            optimizes
+      wasm-opt --help                   every pass and option
+    
+    It runs on one thread (BINARYEN_CORES=1).
+    Upstream's documentation: https://github.com/WebAssembly/binaryen

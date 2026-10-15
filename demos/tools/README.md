@@ -2,7 +2,7 @@
 
 Everyday command-line programs as packages: `amy install NAME` in a running
 session. Each is built inside Dolly from a pinned upstream release, unchanged:
-by `cc` and a Makefile in the recipe, wabt by its own CMake, Meson from its
+by `cc` and a Makefile in the recipe, wabt and Binaryen by their own CMake, Meson from its
 wheel by pip. Slop does not run a configure script, so a recipe states what
 the script would find here, in the comments beside its flags.
 
@@ -25,6 +25,7 @@ the script would find here, in the comments beside its flags.
 - `yacc`: Berkeley Yacc, as `yacc` and `byacc`.
 - `flex`: flex 2.5.4 as Thomas Dickey maintains it (reflex), which starts no m4, also as `lex`, with libfl and the `yacc` package.
 - `wabt`: the WebAssembly Binary Toolkit: `wat2wasm`, `wasm2wat`, `wasm-objdump`, `wasm-strip` and `wasm-validate`.
+- `binaryen`: Binaryen's `wasm-opt`, for its function-pointer cast emulation (`--fpcast-emu`).
 - `meson`: Meson, with the `python`, `cc` and `ninja` packages it runs on.
 - `toybox`: toybox's `grep` and `sed`, which have `grep -r` and `sed -i`, in place of the image's.
 - `dte`: dte, a small full-screen editor with the keys of a desktop one.
