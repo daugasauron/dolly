@@ -11,10 +11,10 @@ index 68b432c..ff2b68f 100644
          root.os.NAME_MAX
      else
 diff --git a/lib/std/Io/Threaded.zig b/lib/std/Io/Threaded.zig
-index b7c40ce..cc2a2e1 100644
+index 71728c5..4618bf6 100644
 --- a/lib/std/Io/Threaded.zig
 +++ b/lib/std/Io/Threaded.zig
-@@ -7377,6 +7377,14 @@ fn dirRenamePreserve(
+@@ -7381,6 +7381,14 @@ fn dirRenamePreserve(
      const t: *Threaded = @ptrCast(@alignCast(userdata));
      if (is_windows) return dirRenameWindowsInner(old_dir, old_sub_path, new_dir, new_sub_path, false);
      if (native_os == .linux) return dirRenamePreserveLinux(old_dir, old_sub_path, new_dir, new_sub_path);
@@ -29,7 +29,7 @@ index b7c40ce..cc2a2e1 100644
      // Make a hard link then delete the original.
      try dirHardLink(t, old_dir, old_sub_path, new_dir, new_sub_path, .{ .follow_symlinks = false });
      const prev = swapCancelProtection(t, .blocked);
-@@ -10267,7 +10275,7 @@ fn processExecutablePath(userdata: ?*anyopaque, out_buffer: []u8) process.Execut
+@@ -10271,7 +10279,7 @@ fn processExecutablePath(userdata: ?*anyopaque, out_buffer: []u8) process.Execut
                  else => |e| return e,
              };
          },
@@ -38,7 +38,7 @@ index b7c40ce..cc2a2e1 100644
              error.UnsupportedReparsePointType => unreachable, // Windows-only
              error.NetworkNotFound => unreachable, // Windows-only
              error.FileBusy => unreachable, // Windows-only
-@@ -14851,7 +14859,7 @@ fn processSpawnPath(userdata: ?*anyopaque, dir: Dir, options: process.SpawnOptio
+@@ -14855,7 +14863,7 @@ fn processSpawnPath(userdata: ?*anyopaque, dir: Dir, options: process.SpawnOptio
  }
  
  const processSpawn = switch (native_os) {
@@ -47,7 +47,7 @@ index b7c40ce..cc2a2e1 100644
      .windows => processSpawnWindows,
      else => processSpawnPosix,
  };
-@@ -14949,7 +14957,15 @@ fn spawnPosix(t: *Threaded, options: process.SpawnOptions) process.SpawnError!Sp
+@@ -14953,7 +14961,15 @@ fn spawnPosix(t: *Threaded, options: process.SpawnOptions) process.SpawnError!Sp
      t.scanEnviron(); // for PATH
      const PATH = t.environ.string.PATH orelse default_PATH;
  
@@ -64,7 +64,7 @@ index b7c40ce..cc2a2e1 100644
          const rc = posix.system.fork();
          switch (posix.errno(rc)) {
              .SUCCESS => break :fork @intCast(rc),
-@@ -14960,7 +14976,7 @@ fn spawnPosix(t: *Threaded, options: process.SpawnOptions) process.SpawnError!Sp
+@@ -14964,7 +14980,7 @@ fn spawnPosix(t: *Threaded, options: process.SpawnOptions) process.SpawnError!Sp
          }
      };
  
@@ -73,7 +73,7 @@ index b7c40ce..cc2a2e1 100644
          defer comptime unreachable; // We are the child.
          if (Thread.current) |current_thread| current_thread.cancel_protection = .blocked;
          const ep1 = err_pipe[1];
-@@ -15055,6 +15071,83 @@ fn spawnPosix(t: *Threaded, options: process.SpawnOptions) process.SpawnError!Sp
+@@ -15059,6 +15075,83 @@ fn spawnPosix(t: *Threaded, options: process.SpawnOptions) process.SpawnError!Sp
      };
  }
  
@@ -171,6 +171,25 @@ index 61f7809..fdce982 100644
          else => {},
      }
  
+diff --git a/src/Compilation.zig b/src/Compilation.zig
+index 695dd89..b00f45b 100644
+--- a/src/Compilation.zig
++++ b/src/Compilation.zig
+@@ -2631,10 +2631,12 @@ pub fn create(gpa: Allocator, arena: Allocator, io: Io, diag: *CreateDiagnostic,
+                 }
+             }
+ 
+-            if (comp.wantBuildLibUnwindFromSource()) {
++            // Emscripten's libc is the system's, whose cc links the C++ runtime.
++            const system_cxx_runtime = target.os.tag == .emscripten;
++            if (!system_cxx_runtime and comp.wantBuildLibUnwindFromSource()) {
+                 comp.queued_jobs.libunwind = true;
+             }
+-            if (build_options.have_llvm and is_exe_or_dyn_lib and comp.config.link_libcpp) {
++            if (!system_cxx_runtime and build_options.have_llvm and is_exe_or_dyn_lib and comp.config.link_libcpp) {
+                 comp.queued_jobs.libcxx = true;
+                 comp.queued_jobs.libcxxabi = true;
+             }
 diff --git a/src/Compilation/Config.zig b/src/Compilation/Config.zig
 index 3687db7..59d788d 100644
 --- a/src/Compilation/Config.zig
@@ -184,7 +203,7 @@ index 3687db7..59d788d 100644
              else => {},
          }
 diff --git a/src/link/Lld.zig b/src/link/Lld.zig
-index ffb9020..5a36f7a 100644
+index ffb9020..073efe4 100644
 --- a/src/link/Lld.zig
 +++ b/src/link/Lld.zig
 @@ -1414,6 +1414,9 @@ fn wasmLink(lld: *Lld, arena: Allocator) !void {
@@ -197,7 +216,7 @@ index ffb9020..5a36f7a 100644
          // We will invoke ourselves as a child process to gain access to LLD.
          // This is necessary because LLD does not behave properly as a library -
          // it calls exit() and does not reset all global data between invocations.
-@@ -1609,6 +1612,39 @@ fn wasmLink(lld: *Lld, arena: Allocator) !void {
+@@ -1609,6 +1612,56 @@ fn wasmLink(lld: *Lld, arena: Allocator) !void {
      }
  }
  
@@ -217,6 +236,7 @@ index ffb9020..5a36f7a 100644
 +    if (comp.config.output_mode == .Lib) try argv.append(arena, "-shared");
 +    if (comp.config.rdynamic) try argv.append(arena, "-rdynamic");
 +    if (comp.config.any_non_single_threaded) try argv.append(arena, "-pthread");
++    if (comp.config.link_libcpp) try argv.append(arena, "-lc++");
 +    for (comp.link_inputs) |link_input| switch (link_input) {
 +        .object, .archive => |obj| {
 +            const path = try obj.path.toString(arena);
@@ -231,14 +251,30 @@ index ffb9020..5a36f7a 100644
 +    for ([_]?Cache.Path{ zcu_obj_path, compiler_rt_path, ubsan_rt_path }) |optional| {
 +        if (optional) |p| try argv.append(arena, try p.toString(arena));
 +    }
-+    try spawnLld(comp, arena, argv.items);
++    if (comp.verbose_link) try Compilation.dumpArgv(comp.io, argv.items);
++
++    // cc speaks for itself and for the linker it runs, so its whole stderr is
++    // the error; spawnLld's parser keeps only lines that begin with LLD's name.
++    const io = comp.io;
++    const diags = &comp.link_diags;
++    var child = std.process.spawn(io, .{ .argv = argv.items, .stdin = .ignore, .stdout = .ignore, .stderr = .pipe }) catch |err|
++        return diags.fail("unable to spawn cc: {t}", .{err});
++    var stderr_reader = child.stderr.?.readerStreaming(io, &.{});
++    const stderr = stderr_reader.interface.allocRemaining(arena, .unlimited) catch |err|
++        return diags.fail("unable to read cc's stderr: {t}", .{err});
++    const term = child.wait(io) catch |err| return diags.fail("unable to wait for cc: {t}", .{err});
++    switch (term) {
++        .exited => |code| if (code == 0) return,
++        else => {},
++    }
++    return diags.fail("cc failed ({any}):\n{s}", .{ term, stderr });
 +}
 +
  fn spawnLld(comp: *Compilation, arena: Allocator, argv: []const []const u8) !void {
      const io = comp.io;
      const gpa = comp.gpa;
 diff --git a/src/main.zig b/src/main.zig
-index fa4a53d..cc58b2e 100644
+index fa4a53d..f6974dc 100644
 --- a/src/main.zig
 +++ b/src/main.zig
 @@ -5211,9 +5211,13 @@ fn cmdBuild(gpa: Allocator, arena: Allocator, io: Io, args: []const []const u8,
@@ -257,3 +293,43 @@ index fa4a53d..cc58b2e 100644
          const lci = try arena.create(LibCInstallation);
          lci.* = try .parse(arena, io, paths_file, &resolved_target.result);
          break :lci lci;
+@@ -5842,6 +5846,14 @@ fn jitCmdInner(
+             try root_mod.deps.put(arena, "aro", aro_mod);
+         }
+ 
++        // As for the build runner: Emscripten's libc is the system's, which ZIG_LIBC names.
++        const libc_installation: ?*const LibCInstallation = if (native_os == .emscripten) lci: {
++            const paths_file = EnvVar.ZIG_LIBC.get(environ_map) orelse break :lci null;
++            const lci = try arena.create(LibCInstallation);
++            lci.* = try .parse(arena, io, paths_file, &resolved_target.result);
++            break :lci lci;
++        } else null;
++
+         var create_diag: Compilation.CreateDiagnostic = undefined;
+         const comp = Compilation.create(gpa, arena, io, &create_diag, .{
+             .dirs = dirs,
+@@ -5854,6 +5866,7 @@ fn jitCmdInner(
+             .thread_limit = thread_limit,
+             .cache_mode = .whole,
+             .environ_map = environ_map,
++            .libc_installation = libc_installation,
+         }) catch |err| switch (err) {
+             error.CreateFail => fatal("failed to create compilation: {f}", .{create_diag}),
+             else => fatal("failed to create compilation: {s}", .{@errorName(err)}),
+diff --git a/src/zig_clang_driver.cpp b/src/zig_clang_driver.cpp
+index 7f4c603..0987b6c 100644
+--- a/src/zig_clang_driver.cpp
++++ b/src/zig_clang_driver.cpp
+@@ -73,7 +73,11 @@ std::string GetExecutablePath(const char *Argv0, bool CanonicalPrefixes) {
+   // This just needs to be some symbol in the binary; C++ doesn't
+   // allow taking the address of ::main however.
+   void *P = (void*) (intptr_t) GetExecutablePath;
+-  return llvm::sys::fs::getMainExecutable(Argv0, P);
++  std::string Path = llvm::sys::fs::getMainExecutable(Argv0, P);
++  // Where LLVM finds no path of its own (Dolly: Emscripten's libc has no
++  // dladdr), the program is the one it was started as, which runs the
++  // assembler (-cc1as) as a process of its own.
++  return Path.empty() ? GetExecutablePath(Argv0, false) : Path;
+ }
+ 
+ static const char *GetStableCStr(llvm::StringSet<> &SavedStrings, StringRef S) {
