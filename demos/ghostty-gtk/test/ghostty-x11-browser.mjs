@@ -25,6 +25,7 @@ const shifted = { ">": "Period", "$": "Digit4", "(": "Digit9", ")": "Digit0", "*
 async function type(page, text) {
   for (const character of text) {
     if (shifted[character]) await page.keyboard.press(`Shift+${shifted[character]}`);
+    else if (/[A-Z]/.test(character)) await page.keyboard.press(`Shift+Key${character}`);
     else await page.keyboard.press(character === " " ? "Space" : character === "\n" ? "Enter" : character);
   }
 }
@@ -38,7 +39,8 @@ for (const browser of browsers) await demoTest("ghostty-x11", { image: "ghostty-
     document.querySelector("#display").width === width && document.querySelector("#display").height === height,
   [width, height], { timeout: 120_000, polling: 100 });
   // Ghostty's window at the top left, then Slop's prompt in its first row,
-  // below the header bar and the debug build's banner.
+  // below the header bar and the debug build's banner: the frame's rows 96-112,
+  // and the second row 117-133.
   await page.waitForFunction(() => {
     const data = document.querySelector("#display").getContext("2d").getImageData(400, 300, 200, 100).data;
     let lit = 0;
@@ -46,7 +48,7 @@ for (const browser of browsers) await demoTest("ghostty-x11", { image: "ghostty-
     return lit > 15000;
   }, null, { timeout: 600_000, polling: 500 });
   const windowShown = performance.now();
-  for (let tries = 0; await bright(page, 8, 106, 400, 28) < 100; tries++) {
+  for (let tries = 0; await bright(page, 8, 94, 400, 20) < 100; tries++) {
     if (tries > 600) throw new Error("no prompt in Ghostty's terminal");
     await delay(500);
   }
@@ -57,7 +59,8 @@ for (const browser of browsers) await demoTest("ghostty-x11", { image: "ghostty-
   await page.mouse.click(...await at(page, 500, 400));
   await delay(500);
   await type(page, "echo ghostty-$((6 * 7)) > /tmp/ghostty-typed\n");
-  for (let tries = 0; await bright(page, 8, 138, 400, 22) < 100; tries++) {
+  // The command prints nothing: the next prompt is on the second row.
+  for (let tries = 0; await bright(page, 8, 115, 400, 20) < 100; tries++) {
     if (tries > 120) throw new Error("no answer in Ghostty's terminal");
     await delay(500);
   }
