@@ -953,11 +953,13 @@ bool link_process_executable(const std::string &output,
 }
 
 // Binaryen's cast emulation: every indirect call of the program goes through
-// one signature and every table entry through a thunk of it, so a call
-// through a pointer cast to a function type of other parameters works.
+// one signature, 32 i64 parameters (GTK makes a call of 17), and every table
+// entry through a thunk of it, so a call through a pointer cast to a function
+// type of other parameters works.
 bool emulate_casts(const std::string &path) {
   const std::string emulated = path + ".emulated";
-  const char *arguments[] = {"wasm-opt", "--fpcast-emu", path.c_str(), "-o", emulated.c_str(), nullptr};
+  const char *arguments[] = {"wasm-opt", "--fpcast-emu", "--pass-arg=max-func-params@32", path.c_str(),
+                             "-o", emulated.c_str(), nullptr};
   pid_t pid = 0;
   if (posix_spawnp(&pid, "wasm-opt", nullptr, nullptr, const_cast<char *const *>(arguments), environ) != 0) {
     std::fputs("dolly-cc: --dolly-cast-emulation runs wasm-opt, of the binaryen package\n", stderr);
