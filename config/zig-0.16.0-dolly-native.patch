@@ -1,5 +1,5 @@
 diff --git a/lib/std/Io/Threaded.zig b/lib/std/Io/Threaded.zig
-index f004a56..15874ee 100644
+index f004a56..71728c5 100644
 --- a/lib/std/Io/Threaded.zig
 +++ b/lib/std/Io/Threaded.zig
 @@ -956,7 +956,7 @@ const Thread = struct {
@@ -22,6 +22,36 @@ index f004a56..15874ee 100644
          flags.PATH = true;
  
      const mode: posix.mode_t = 0;
+@@ -5433,7 +5435,7 @@ fn dirClose(userdata: ?*anyopaque, dirs: []const Dir) void {
+ }
+ 
+ const dirRead = switch (native_os) {
+-    .linux => dirReadLinux,
++    .linux, .emscripten => dirReadLinux,
+     .driverkit, .ios, .maccatalyst, .macos, .tvos, .visionos, .watchos => dirReadDarwin,
+     .freebsd, .netbsd, .dragonfly, .openbsd => dirReadBsd,
+     .illumos => dirReadIllumos,
+@@ -5461,12 +5463,16 @@ fn dirReadLinux(userdata: ?*anyopaque, dr: *Dir.Reader, buffer: []Dir.Entry) Dir
+                 dr.state = .reading;
+             }
+             const syscall: Syscall = try .start();
+-            const n = while (true) {
+-                const rc = linux.getdents64(dr.dir.handle, dr.buffer.ptr, dr.buffer.len);
+-                switch (linux.errno(rc)) {
++            const n: usize = while (true) {
++                // Emscripten's libc, musl, has Linux's getdents and entries.
++                const rc = if (native_os == .emscripten)
++                    posix.system.getdents(dr.dir.handle, dr.buffer.ptr, dr.buffer.len)
++                else
++                    linux.getdents64(dr.dir.handle, dr.buffer.ptr, dr.buffer.len);
++                switch (if (native_os == .emscripten) posix.errno(rc) else linux.errno(rc)) {
+                     .SUCCESS => {
+                         syscall.finish();
+-                        break rc;
++                        break @intCast(rc);
+                     },
+                     .INTR => {
+                         try syscall.checkCancel();
 diff --git a/lib/std/Thread.zig b/lib/std/Thread.zig
 index 6e9f7fb..25e770b 100644
 --- a/lib/std/Thread.zig

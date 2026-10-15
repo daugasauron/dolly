@@ -238,7 +238,7 @@ index ffb9020..5a36f7a 100644
      const io = comp.io;
      const gpa = comp.gpa;
 diff --git a/src/main.zig b/src/main.zig
-index fa4a53d..cc58b2e 100644
+index fa4a53d..f6974dc 100644
 --- a/src/main.zig
 +++ b/src/main.zig
 @@ -5211,9 +5211,13 @@ fn cmdBuild(gpa: Allocator, arena: Allocator, io: Io, args: []const []const u8,
@@ -257,3 +257,26 @@ index fa4a53d..cc58b2e 100644
          const lci = try arena.create(LibCInstallation);
          lci.* = try .parse(arena, io, paths_file, &resolved_target.result);
          break :lci lci;
+@@ -5842,6 +5846,14 @@ fn jitCmdInner(
+             try root_mod.deps.put(arena, "aro", aro_mod);
+         }
+ 
++        // As for the build runner: Emscripten's libc is the system's, which ZIG_LIBC names.
++        const libc_installation: ?*const LibCInstallation = if (native_os == .emscripten) lci: {
++            const paths_file = EnvVar.ZIG_LIBC.get(environ_map) orelse break :lci null;
++            const lci = try arena.create(LibCInstallation);
++            lci.* = try .parse(arena, io, paths_file, &resolved_target.result);
++            break :lci lci;
++        } else null;
++
+         var create_diag: Compilation.CreateDiagnostic = undefined;
+         const comp = Compilation.create(gpa, arena, io, &create_diag, .{
+             .dirs = dirs,
+@@ -5854,6 +5866,7 @@ fn jitCmdInner(
+             .thread_limit = thread_limit,
+             .cache_mode = .whole,
+             .environ_map = environ_map,
++            .libc_installation = libc_installation,
+         }) catch |err| switch (err) {
+             error.CreateFail => fatal("failed to create compilation: {f}", .{create_diag}),
+             else => fatal("failed to create compilation: {s}", .{@errorName(err)}),
