@@ -90,6 +90,9 @@ await browserTest("cpp", { image: "system" }, async ({ name, open }) => {
     "echo 'int main(void) { return 0; }' > moz-flags.c && cc -fno-math-errno -fomit-frame-pointer " +
       "-ffp-contract=off -mthread-model single -fno-lto -fstandalone-debug -ferror-limit=0 " +
       "moz-flags.c -o moz-flags && ./moz-flags",
+    // Flags Binaryen's CMake adds: Wasm has no frame pointer, and lld is the linker.
+    "echo 'int main(void) { return 0; }' > byn-flags.c && cc -fno-omit-frame-pointer -fuse-ld=lld " +
+      "byn-flags.c -o byn-flags && ./byn-flags",
     // -msimd128 turns the unit's Wasm SIMD on; the intrinsics header needs it.
     "printf '%s\\n' '#include <wasm_simd128.h>' 'int main(void) { v128_t v = wasm_i32x4_splat(3);' " +
       "'return wasm_i32x4_extract_lane(wasm_i32x4_add(v, v), 2) == 6 ? 0 : 1; }' > simd.c && " +

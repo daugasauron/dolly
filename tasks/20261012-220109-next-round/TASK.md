@@ -185,6 +185,23 @@ not reproduced in 160 drags and about 9,000 screen reads.
   `main`'s amy in the X desktop. The full round runs from 09:02 in
   `work/x11fix` (user unit `round-1015`, evidence `build/round-1015/`).
 
+## Seed gaps found porting GLib and Binaryen (2026-10-15, for the next seed round)
+
+Each was stubbed or stripped in a probe in `work/gtk`
+([Ghostty](../20261014-232500-ghostty-x11/TASK.md)); none is built yet.
+
+- libc: `res_query` (GIO's configure requires it; no name server, so it
+  fails with `h_errno = NO_RECOVERY`), `pthread_getname_np` in the threaded
+  libc (declared, not defined: GLib's `gthread.c` links it),
+  `in6addr_loopback` (`in6addr_any` is defined, `src/process/libc-adapter.c`).
+- `cc` (`src/compiler.cpp`): `-fno-omit-frame-pointer` (its opposite is
+  accepted; Binaryen passes it always) and `-fuse-ld=lld` (Dolly links with
+  lld; Binaryen passes it with Clang) are refused as unsupported.
+- `core/ffi-threads` (`work/gtk`, `b0ed0ecc`): dso@0 serves FFI calls in
+  every thread of a threaded program; `dso-browser.mjs` passed in both
+  browsers. It edits `docs/process-model.md` and `docs/browser-boundary.md`,
+  so `Dollyfile-dolly-docs` needs repinning when it merges.
+
 ## Left for a later round, none started
 
 - `pty@0`: a spawn that is not the caller's child (tmux starting its own

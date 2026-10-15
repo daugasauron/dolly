@@ -206,6 +206,9 @@ int main(int argc, char **argv) {
   assert((finished.tv_sec - started.tv_sec) * 1000 + (finished.tv_nsec - started.tv_nsec) / 1000000 < 500);
   errno = 0;
   assert(dlopen(NULL, RTLD_NOW) == NULL && errno == ENOSYS);
+  /* Dolly keeps no thread names. */
+  char name[16];
+  assert(pthread_getname_np(pthread_self(), name, sizeof(name)) == ENOSYS);
   puts("PTHREAD-OK mutex barrier semaphore once TLS errno TSD allocator detach C11");
   return 0;
 }

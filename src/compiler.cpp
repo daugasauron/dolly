@@ -364,8 +364,11 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
     } else if (argument == "-fno-math-errno") {
       // Clang's WebAssembly driver compiles without math errno by default,
       // so the flag states the default and cc1 gets nothing.
-    } else if (argument == "-fomit-frame-pointer") {
-      // cc1 already gets -mframe-pointer=none: WebAssembly has no frame pointer.
+    } else if (argument == "-fomit-frame-pointer" || argument == "-fno-omit-frame-pointer") {
+      // cc1 already gets -mframe-pointer=none: WebAssembly has no frame pointer
+      // to omit or keep, since the engine walks its own stack.
+    } else if (argument == "-fuse-ld=lld") {
+      // cc links with lld already, the one linker it has.
     } else if (starts_with(argument, "-ffp-contract=")) {
       // Follows the default -ffp-contract=on in cc1's arguments, so it wins.
       options.frontend_options.push_back(argument);
