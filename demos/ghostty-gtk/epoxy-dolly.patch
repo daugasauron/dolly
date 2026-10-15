@@ -1,0 +1,40 @@
+--- a/src/dispatch_common.c
++++ b/src/dispatch_common.c
+@@ -289,6 +289,16 @@
+     library_initialized = true;
+ }
+ 
++#ifndef _WIN32
++/* A GLX linked into the program, as on a system without shared libraries
++ * (Dolly): its glXGetProcAddressARB answers for GL and GLX in place of
++ * dlopen and dlsym. It is named by its symbol, since epoxy's headers
++ * rename the function to epoxy's own. */
++extern void *linked_glx_get_proc_address(const char *name)
++    __asm__("glXGetProcAddressARB") __attribute__((weak));
++static char linked_glx;
++#endif
++
+ static bool
+ get_dlopen_handle(void **handle, const char *lib_name, bool exit_on_fail, bool load)
+ {
+@@ -310,6 +320,8 @@
+             flags |= RTLD_NOLOAD;
+ 
+         *handle = dlopen(lib_name, flags);
++        if (!*handle && linked_glx_get_proc_address && !strcmp(lib_name, GLX_LIB))
++            *handle = &linked_glx;
+         if (!*handle) {
+             if (exit_on_fail) {
+                 fprintf(stderr, "Couldn't open %s: %s\n", lib_name, dlerror());
+@@ -334,8 +346,9 @@
+ #ifdef _WIN32
+     result = GetProcAddress(*handle, name);
+ #else
+-    result = dlsym(*handle, name);
+-    if (!result)
++    if (*handle == &linked_glx)
++        result = linked_glx_get_proc_address(name);
++    else if (!(result = dlsym(*handle, name)))
+         error = dlerror();
+ #endif
+     if (!result && exit_on_fail) {

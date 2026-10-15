@@ -1,0 +1,55 @@
+--- a/blueprintcompiler/gir.py
++++ b/blueprintcompiler/gir.py
+@@ -22,22 +22,39 @@
+ import typing as T
+ from functools import cached_property
+ 
+-import gi  # type: ignore
+-
+ try:
+-    gi.require_version("GIRepository", "3.0")
+-    from gi.repository import GIRepository  # type: ignore
++    import gi  # type: ignore
++except ImportError:
++    # The compiler reads typelibs itself; PyGObject only names where they
++    # are. Without it, they are where GObject Introspection looks.
++    gi = None
++
++if gi is None:
++    _search_path = [
++        *filter(None, os.environ.get("GI_TYPELIB_PATH", "").split(os.pathsep)),
++        "/usr/lib/girepository-1.0",
++    ]
++
++    class _repo:
++        @staticmethod
++        def get_search_path():
++            return _search_path
++
++else:
++    try:
++        gi.require_version("GIRepository", "3.0")
++        from gi.repository import GIRepository  # type: ignore
+ 
+-    _repo = GIRepository.Repository()
+-except ValueError:
+-    # We can remove this once we can bump the minimum dependencies
+-    # to glib 2.80 and pygobject 3.52
+-    # dependency('glib-2.0', version: '>= 2.80.0')
+-    # dependency('girepository-2.0', version: '>= 2.80.0')
+-    gi.require_version("GIRepository", "2.0")
+-    from gi.repository import GIRepository  # type: ignore
++        _repo = GIRepository.Repository()
++    except ValueError:
++        # We can remove this once we can bump the minimum dependencies
++        # to glib 2.80 and pygobject 3.52
++        # dependency('glib-2.0', version: '>= 2.80.0')
++        # dependency('girepository-2.0', version: '>= 2.80.0')
++        gi.require_version("GIRepository", "2.0")
++        from gi.repository import GIRepository  # type: ignore
+ 
+-    _repo = GIRepository.Repository
++        _repo = GIRepository.Repository
+ 
+ from . import typelib, xml_reader
+ from .errors import CompileError, CompilerBugError
