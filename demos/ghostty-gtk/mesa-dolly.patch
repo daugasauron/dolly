@@ -1,0 +1,144 @@
+--- a/meson.build
++++ b/meson.build
+@@ -2186,7 +2186,8 @@
+ endif
+ 
+ yacc_is_bison = true
+-needs_flex_bison = with_any_opengl or with_freedreno_vk or with_intel_tools or with_gallium
++# Dolly: host preparation writes the parsers and scanners the build uses.
++needs_flex_bison = false
+ 
+ if build_machine.system() == 'windows'
+   # Prefer the winflexbison versions, they're much easier to install and have
+@@ -2508,7 +2509,7 @@
+     symbols_check_args = ['--gendef', prog_gendef.full_path()]
+   endif
+ else
+-  prog_nm = find_program('nm')
++  prog_nm = find_program('nm', required : with_tests)
+   with_symbols_check = prog_nm.found() and with_tests
+   if with_symbols_check
+     symbols_check_args = ['--nm', prog_nm.full_path()]
+--- a/src/compiler/glsl/glcpp/meson.build
++++ b/src/compiler/glsl/glcpp/meson.build
+@@ -14,19 +14,11 @@
+   ]
+ endif
+ 
+-glcpp_parse = custom_target(
+-  'glcpp-parse.[ch]',
+-  input : 'glcpp-parse.y',
+-  output : ['glcpp-parse.c', 'glcpp-parse.h'],
+-  command : bison_command
+-)
++# Dolly has neither GNU Bison nor a current flex: host preparation writes
++# the parser and the scanner beside their sources.
++glcpp_parse = files('glcpp-parse.c', 'glcpp-parse.h')
+ 
+-glcpp_lex = custom_target(
+-  'glcpp-lex.c',
+-  input : 'glcpp-lex.l',
+-  output : 'glcpp-lex.c',
+-  command : [prog_flex, '-o', '@OUTPUT@', '@INPUT@'],
+-)
++glcpp_lex = files('glcpp-lex.c')
+ 
+ glcpp_header_gen_deps = declare_dependency(
+   sources : [
+--- a/src/compiler/glsl/meson.build
++++ b/src/compiler/glsl/meson.build
+@@ -25,19 +25,11 @@
+   ]
+ endif
+ 
+-glsl_parser = custom_target(
+-  'glsl_parser',
+-  input : 'glsl_parser.yy',
+-  output : ['glsl_parser.cpp', 'glsl_parser.h'],
+-  command : bison_command
+-)
++# Dolly has neither GNU Bison nor a current flex: host preparation writes
++# the parser and the scanner beside their sources.
++glsl_parser = files('glsl_parser.cpp', 'glsl_parser.h')
+ 
+-glsl_lexer_cpp = custom_target(
+-  'glsl_lexer_cpp',
+-  input : 'glsl_lexer.ll',
+-  output : 'glsl_lexer.cpp',
+-  command : [prog_flex_cpp, '-o', '@OUTPUT@', '@INPUT@'],
+-)
++glsl_lexer_cpp = files('glsl_lexer.cpp')
+ 
+ ir_expression_operation_constant_h = custom_target(
+   'ir_expression_operation_constant.h',
+--- a/src/gallium/targets/libgl-xlib/meson.build
++++ b/src/gallium/targets/libgl-xlib/meson.build
+@@ -13,7 +13,7 @@
+   gallium_xlib_link_depends += files('libgl-xlib.sym')
+ endif
+ 
+-libgl = shared_library(
++libgl = library(
+   'GL',
+   files('xlib.c'),
+   include_directories : [
+--- a/src/mesa/program/meson.build
++++ b/src/mesa/program/meson.build
+@@ -8,16 +8,7 @@
+   bison_command = [prog_bison, '-o', '@OUTPUT0@', '-H', '@OUTPUT1@', '@INPUT@']
+ endif
+ 
+-mesa_lex = custom_target(
+-  'mesa_lex',
+-  input : 'program_lexer.l',
+-  output : 'lex.yy.c',
+-  command : [prog_flex, '-o', '@OUTPUT@', '@INPUT@'],
+-)
+-
+-program_parse_tab = custom_target(
+-  'program_parse_tab.[ch]',
+-  input : 'program_parse.y',
+-  output : ['program_parse.tab.c', 'program_parse.tab.h'],
+-  command : bison_command,
+-)
++# Dolly has neither GNU Bison nor a current flex: host preparation writes
++# the parser and the scanner beside their sources.
++mesa_lex = files('lex.yy.c')
++program_parse_tab = files('program_parse.tab.c', 'program_parse.tab.h')
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -161,7 +161,8 @@
+   subdir('egl')
+ endif
+ if with_gallium
+-  if with_glx == 'dri' or with_platform_x11
++  # dril loads drivers through DRM, which only a system with KMS has.
++  if (with_glx == 'dri' or with_platform_x11) and system_has_kms_drm
+     subdir('gallium/targets/dril')
+   endif
+ endif
+--- a/src/util/detect_os.h
++++ b/src/util/detect_os.h
+@@ -91,6 +91,11 @@
+ #define DETECT_OS_POSIX 1
+ #endif
+ 
++/* Any other Unix, such as Dolly. */
++#if defined(__unix__) && !defined(DETECT_OS_POSIX)
++#define DETECT_OS_POSIX 1
++#endif
++
+ 
+ /*
+  * Make sure DETECT_OS_* are always defined, so that they can be used with #if
+--- a/src/util/os_misc.c
++++ b/src/util/os_misc.c
+@@ -81,6 +81,8 @@
+ #elif DETECT_OS_FUCHSIA
+ #include <unistd.h>
+ #include <zircon/syscalls.h>
++#elif DETECT_OS_POSIX
++#  include <unistd.h>
+ #else
+ #error unexpected platform in os_sysinfo.c
+ #endif

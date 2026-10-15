@@ -1,0 +1,224 @@
+--- a/build.zig
++++ b/build.zig
+@@ -138,7 +138,8 @@
+             &mod,
+         );
+     };
+-    libghostty_vt_shared.install(b.getInstallStep());
++    // Dolly (Emscripten) links no shared library, and the wasm one is the browser's.
++    if (config.target.result.os.tag != .emscripten) libghostty_vt_shared.install(b.getInstallStep());
+ 
+     const type_schema_test = b.addSystemCommand(&.{"python3"});
+     type_schema_test.addFileArg(b.path("src/terminal/c/types-schema-verify.py"));
+--- a/pkg/glslang/build.zig
++++ b/pkg/glslang/build.zig
+@@ -54,6 +54,8 @@
+             // headers. The MSVC SDK include directories (added via linkLibC)
+             // contain both C and C++ headers, so linkLibCpp is not needed.
+             .link_libcpp = target.result.abi != .msvc,
++            // It locks a std::mutex; Zig makes a wasm library single-threaded by default.
++            .single_threaded = false,
+         }),
+         .linkage = .static,
+     });
+--- a/src/App.zig
++++ b/src/App.zig
+@@ -625,7 +625,7 @@
+ };
+ 
+ // Wasm API.
+-pub const Wasm = if (!builtin.target.isWasm()) struct {} else struct {
++pub const Wasm = if (!builtin.target.isWasm() or builtin.link_libc) struct {} else struct {
+     const wasm = @import("os/wasm.zig");
+     const alloc = wasm.alloc;
+ 
+--- a/src/Command.zig
++++ b/src/Command.zig
+@@ -171,10 +171,54 @@
+ 
+     switch (builtin.os.tag) {
+         .windows => try self.startWindows(arena),
++        .emscripten => try self.startSpawn(arena),
+         else => try self.startPosix(arena),
+     }
+ }
+ 
++/// musl's posix_spawn, for Emscripten's libc (Dolly's), which has no fork.
++const spawn = struct {
++    const FileActions = extern struct { pad0: [2]c_int, actions: ?*anyopaque, pad: [16]c_int };
++    const Argv = [*:null]const ?[*:0]const u8;
++    extern "c" fn posix_spawn_file_actions_init(actions: *FileActions) c_int;
++    extern "c" fn posix_spawn_file_actions_destroy(actions: *FileActions) c_int;
++    extern "c" fn posix_spawn_file_actions_adddup2(actions: *FileActions, source: posix.fd_t, target: posix.fd_t) c_int;
++    extern "c" fn posix_spawn_file_actions_addchdir_np(actions: *FileActions, path: [*:0]const u8) c_int;
++    extern "c" fn posix_spawnp(pid: *posix.pid_t, file: [*:0]const u8, actions: *const FileActions, attributes: ?*const anyopaque, argv: Argv, envp: Argv) c_int;
++};
++
++/// Starts the command by posix_spawn: its streams and directory are file
++/// actions. A program whose streams are a pseudo-terminal's slave has it as
++/// its terminal, so the pre-exec callbacks, which make it one after fork,
++/// have nothing to do.
++fn startSpawn(self: *Command, arena: Allocator) !void {
++    const argsZ = try arena.allocSentinel(?[*:0]const u8, self.args.len, null);
++    for (self.args, 0..) |arg, i| argsZ[i] = arg.ptr;
++    const envp: spawn.Argv = if (self.env) |env_map|
++        @ptrCast((try createNullDelimitedEnvMap(arena, env_map)).ptr)
++    else
++        @ptrCast(std.c.environ);
++
++    var actions: spawn.FileActions = undefined;
++    if (spawn.posix_spawn_file_actions_init(&actions) != 0) return error.SystemResources;
++    defer _ = spawn.posix_spawn_file_actions_destroy(&actions);
++    for ([_]?File{ self.stdin, self.stdout, self.stderr }, 0..) |file, target| if (file) |f| {
++        if (spawn.posix_spawn_file_actions_adddup2(&actions, f.handle, @intCast(target)) != 0)
++            return error.SystemResources;
++    };
++    if (self.cwd) |cwd| if (spawn.posix_spawn_file_actions_addchdir_np(&actions, cwd) != 0)
++        return error.SystemResources;
++
++    var pid: posix.pid_t = undefined;
++    switch (@as(posix.E, @enumFromInt(spawn.posix_spawnp(&pid, self.path, &actions, null, argsZ.ptr, envp)))) {
++        .SUCCESS => {},
++        .NOENT => return error.FileNotFound,
++        else => |err| return posix.unexpectedErrno(err),
++    }
++    self.pid = pid;
++    if (self.rt_post_fork) |f| try f(self);
++}
++
+ fn startPosix(self: *Command, arena: Allocator) !void {
+     // Null-terminate all our arguments
+     const argsZ = try arena.allocSentinel(?[*:0]const u8, self.args.len, null);
+--- a/src/build/GhosttyExe.zig
++++ b/src/build/GhosttyExe.zig
+@@ -20,6 +20,8 @@
+             .strip = cfg.strip,
+             .omit_frame_pointer = cfg.omitFramePointer(),
+             .unwind_tables = if (cfg.strip) .none else .sync,
++            // Ghostty starts threads; Zig makes a wasm program single-threaded by default.
++            .single_threaded = false,
+         }),
+         // Crashes on x86_64 self-hosted on 0.15.1
+         .use_llvm = true,
+--- a/src/build/GhosttyResources.zig
++++ b/src/build/GhosttyResources.zig
+@@ -53,8 +53,8 @@
+             try steps.append(b.allocator, &source_install.step);
+         }
+ 
+-        // Windows doesn't have the binaries below.
+-        if (os_tag == .windows) break :terminfo;
++        // Windows and Dolly (Emscripten) don't have the binaries below.
++        if (os_tag == .windows or os_tag == .emscripten) break :terminfo;
+ 
+         // Convert to termcap source format if thats helpful to people and
+         // install it. The resulting value here is the termcap source in case
+--- a/src/build/SharedDeps.zig
++++ b/src/build/SharedDeps.zig
+@@ -211,6 +211,7 @@
+         .freebsd,
+         .linux,
+         .macos,
++        .emscripten,
+         => {
+             const c = b.addTranslateC(.{
+                 .root_source_file = b.path("src/pty.c"),
+@@ -233,6 +234,8 @@
+                 else => {},
+             }
+             step.root_module.addImport("pty-c", c.createModule());
++            // Dolly's openpty is pty@0's client.
++            if (target.result.os.tag == .emscripten) step.root_module.linkSystemLibrary("dolly-pty", .{});
+         },
+         else => {},
+     }
+--- a/src/build_config.zig
++++ b/src/build_config.zig
+@@ -81,7 +81,8 @@
+     wasm_module,
+ 
+     pub fn detect() Artifact {
+-        if (builtin.target.cpu.arch.isWasm()) {
++        // The browser's module; a wasm program with libc (Dolly's) is an exe.
++        if (builtin.target.cpu.arch.isWasm() and !builtin.link_libc) {
+             assert(builtin.output_mode == .Obj);
+             assert(builtin.link_mode == .Static);
+             return .wasm_module;
+--- a/src/config/Config.zig
++++ b/src/config/Config.zig
+@@ -4725,7 +4725,7 @@
+     // If we are missing either a command or home directory, we need
+     // to look up defaults which is kind of expensive. We only do this
+     // on desktop.
+-    if ((comptime !builtin.target.cpu.arch.isWasm()) and
++    if ((comptime !builtin.target.cpu.arch.isWasm() or builtin.link_libc) and
+         (comptime !builtin.is_test))
+     {
+         if (self.command == null or wd == .home) command: {
+--- a/src/config.zig
++++ b/src/config.zig
+@@ -50,7 +50,7 @@
+ 
+ // Alternate APIs
+ pub const CApi = @import("config/CApi.zig");
+-pub const Wasm = if (!builtin.target.cpu.arch.isWasm()) struct {} else @import("config/Wasm.zig");
++pub const Wasm = if (!builtin.target.cpu.arch.isWasm() or builtin.link_libc) struct {} else @import("config/Wasm.zig");
+ 
+ test {
+     @import("std").testing.refAllDecls(@This());
+--- a/src/font/main.zig
++++ b/src/font/main.zig
+@@ -30,9 +30,9 @@
+ pub const Discover = discovery.Discover;
+ pub const Library = library.Library;
+ 
+-// If we're targeting wasm then we export some wasm APIs.
++// If we're targeting the browser's wasm then we export some wasm APIs.
+ comptime {
+-    if (builtin.target.cpu.arch.isWasm()) {
++    if (builtin.target.cpu.arch.isWasm() and !builtin.link_libc) {
+         _ = Atlas.Wasm;
+         _ = DeferredFace.Wasm;
+         _ = face.web_canvas.Wasm;
+@@ -47,7 +47,7 @@
+     // TODO: we need to modify the build config for wasm builds. the issue
+     // is we're sharing the build config options between all exes in build.zig.
+     // We need to construct it per target.
+-    .backend = if (builtin.target.cpu.arch.isWasm()) .web_canvas else build_config.font_backend,
++    .backend = if (builtin.target.cpu.arch.isWasm() and !builtin.link_libc) .web_canvas else build_config.font_backend,
+ };
+ 
+ /// The styles that a family can take.
+--- a/src/os/passwd.zig
++++ b/src/os/passwd.zig
+@@ -11,7 +11,7 @@
+ 
+ // We want to be extra sure since this will force bad symbols into our import table
+ comptime {
+-    if (builtin.target.cpu.arch.isWasm()) {
++    if (builtin.target.cpu.arch.isWasm() and !builtin.link_libc) {
+         @compileError("passwd is not available for wasm");
+     }
+ }
+--- a/src/os/wasm/target.zig
++++ b/src/os/wasm/target.zig
+@@ -10,7 +10,7 @@
+ };
+ 
+ /// Our specific target platform.
+-pub const target: ?Target = if (!builtin.target.cpu.arch.isWasm()) null else target: {
++pub const target: ?Target = if (!builtin.target.cpu.arch.isWasm() or builtin.link_libc) null else target: {
+     const result = @as(Target, @enumFromInt(@intFromEnum(options.wasm_target)));
+     // This maybe isn't necessary but I don't know if enums without a specific
+     // tag type and value are guaranteed to be the same between build.zig
+--- a/src/pty.c
++++ b/src/pty.c
+@@ -5,7 +5,7 @@
+   #include <stdlib.h> // ptsname_r
+   #include <unistd.h> // tcgetpgrp
+ 
+-#elif defined(__linux__)
++#elif defined(__linux__) || defined(__EMSCRIPTEN__) // Emscripten's libc is musl
+ 
+   #define _GNU_SOURCE // ptsname_r
+   #include <pty.h> // openpty

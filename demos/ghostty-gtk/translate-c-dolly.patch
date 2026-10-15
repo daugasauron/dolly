@@ -1,0 +1,12 @@
+--- a/src/main.zig
++++ b/src/main.zig
+@@ -314,7 +314,8 @@
+ 
+     const is_native_os = target_query.isNativeOs();
+     const is_native_abi = target_query.isNativeAbi();
+-    const libc_installation = if (libc_paths_file) |libc_file|
++    // As zig does, ZIG_LIBC names the libc when no --libc is given.
++    const libc_installation = if (libc_paths_file orelse environ_map.get("ZIG_LIBC")) |libc_file|
+         std.zig.LibCInstallation.parse(arena, io, libc_file, &target) catch |err| fatal("failed to parse '{s}': {t}", .{ libc_file, err })
+     else
+         null;
