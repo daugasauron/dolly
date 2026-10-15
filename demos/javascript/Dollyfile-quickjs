@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # qjs, the engine with its own std, os and bjson modules and nothing of Node.
 # EMSCRIPTEN is upstream's switch for a target without threads: there is no
 # os.Worker, and os.exec fails because nothing here forks.
-FROM /v0.1.3/Dollyfile-system-tools c51684f4829da244f898cb289ca53d58cf837968860f1196fd4aee2de7e0fa06
+FROM /v0.1.3/Dollyfile-system-tools d8d3d5adf5e725a34172a2b17721ecf7e0396f2a1dc0a5f4c2e7d90ab16b7941
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar

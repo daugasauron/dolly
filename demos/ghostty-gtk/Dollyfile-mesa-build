@@ -1,0 +1,106 @@
+DOLLY 7
+TOOLCHAIN mesa-build
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST upload@0
+REQUIRES HOST dso@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+
+# A build stage over gtk-build: Mesa's OpenGL, its GLX over Xlib drawing with
+# softpipe in the program itself (mesa-dolly.patch; its parsers are made on the
+# host, prepare-mesa.sh), and libepoxy taking that GLX from the program
+# (epoxy-dolly.patch). Static libraries in /usr/lib.
+FROM /v0.1.3/demos/gtk/Dollyfile-gtk-build 4a74f3a8603a0eab1c42d8dbbb1850f26d567144e7391eaa43f32fe7d9e8467c
+
+REQUIRES TOOL   ar
+REQUIRES TOOL   cc
+REQUIRES TOOL   cp
+REQUIRES TOOL   gzip
+REQUIRES TOOL   meson
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   patch
+REQUIRES TOOL   pkg-config
+REQUIRES TOOL   python3
+REQUIRES TOOL   tar
+REQUIRES TOOL   xz
+
+# The Python modules Mesa's build runs, pure Python as published.
+SOURCE /v0.1.3/dist/static/ghostty-gtk/mako-1.4.3-py3-none-any.whl 723296007c870bfd6b3f0c3230dba7198096e5269297ebf5e4eff9e7ffa39d4f /tmp/mesa/mako.whl
+SOURCE /v0.1.3/dist/static/ghostty-gtk/packaging-26.3-py3-none-any.whl d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c /tmp/mesa/packaging.whl
+SOURCE /v0.1.3/dist/static/ghostty-gtk/markupsafe-3.0.3.tar.gz 722695808f4b6457b320fdc131280796bdceb04ab50fe1795cd540799ebe1698 /tmp/mesa/markupsafe.tar.gz
+SOURCE /v0.1.3/dist/static/ghostty-gtk/pyyaml-6.0.3.tar.gz d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f /tmp/mesa/pyyaml.tar.gz
+SLOP CWD /tmp/mesa gzip -dc markupsafe.tar.gz | tar -xf -
+SLOP CWD /tmp/mesa gzip -dc pyyaml.tar.gz | tar -xf -
+SLOP CWD /tmp/mesa python3 -c "import shutil, sysconfig, zipfile; site = sysconfig.get_paths()['purelib']; [zipfile.ZipFile(wheel).extractall(site) for wheel in ('mako.whl', 'packaging.whl')]; shutil.copytree('markupsafe-3.0.3/src/markupsafe', site + '/markupsafe'); shutil.copytree('pyyaml-6.0.3/lib/yaml', site + '/yaml')"
+SLOP python3 -c 'import mako, markupsafe, packaging, yaml'
+
+# libxcb's render and randr bindings, which Mesa's GLX links, generated from
+# xcbproto's descriptions as libxcb's own build does: x11-build builds the core.
+SOURCE /v0.1.3/dist/static/x11/libxcb-1.17.0.tar.gz 2c69287424c9e2128cb47ffe92171e10417041ec2963bceafb65cb3fcf8f0b85 /tmp/mesa/libxcb.tar.gz
+SLOP CWD /tmp/mesa gzip -dc libxcb.tar.gz | tar -xf -
+SLOP mkdir -p /tmp/mesa/xcb
+SLOP CWD /tmp/mesa/xcb for x in render randr; do python3 ../libxcb-1.17.0/src/c_client.py -c 'libxcb 1.17.0' -l 'X Version 11' -s 3 -p /usr/lib/python3.14/site-packages /usr/share/xcb/$x.xml && cc -O2 -I/usr/include/xcb -I. -c $x.c -o $x.o && ar rcs /usr/lib/libxcb-$x.a $x.o && cp $x.h /usr/include/xcb/; done
+FILE /usr/lib/pkgconfig/xcb-render.pc
+    prefix=/usr
+    Name: xcb-render
+    Description: XCB Render Extension
+    Version: 1.17.0
+    Requires: xcb
+    Libs: -L/usr/lib -lxcb-render
+    Cflags: -I/usr/include
+FILE /usr/lib/pkgconfig/xcb-randr.pc
+    prefix=/usr
+    Name: xcb-randr
+    Description: XCB RandR Extension
+    Version: 1.17.0
+    Requires: xcb xcb-render
+    Libs: -L/usr/lib -lxcb-randr
+    Cflags: -I/usr/include
+
+# xorgproto's GLX protocol headers, which Mesa's GLX includes.
+SOURCE /v0.1.3/dist/static/x11/xorgproto-2026.1.tar.gz 7fa90e48cbaca6bc4c99d176e88c5c147ab0ed42358e14a0869ee9c8a610ae7e /tmp/mesa/xorgproto.tar.gz
+SLOP CWD /tmp/mesa gzip -dc xorgproto.tar.gz | tar -xf -
+SLOP mkdir -p /usr/include/GL/internal
+SLOP CWD /tmp/mesa/xorgproto-2026.1/include/GL cp glxint.h glxmd.h glxproto.h glxtokens.h /usr/include/GL/
+SLOP cp /tmp/mesa/xorgproto-2026.1/include/GL/internal/glcore.h /usr/include/GL/internal/
+
+SOURCE /v0.1.3/dist/static/ghostty-gtk/mesa.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/mesa/mesa.tar.gz
+SLOP CWD /tmp/mesa gzip -dc mesa.tar.gz | tar -xf - -C /
+SLOP CWD /tmp/mesa meson setup build mesa --wrap-mode=nodownload --prefix=/usr --libdir=lib --buildtype=release \
+  -Ddefault_library=static -Dplatforms=x11 -Dglx=xlib -Dgallium-drivers=softpipe -Dvulkan-drivers= \
+  -Degl=disabled -Dgbm=disabled -Dgles1=disabled -Dgles2=disabled -Dopengl=true -Dllvm=disabled \
+  -Dshared-glapi=disabled -Dzstd=disabled -Dexpat=disabled -Dvalgrind=disabled -Dlibunwind=disabled \
+  -Dlmsensors=disabled -Dbuild-tests=false -Dtools= -Dxlib-lease=disabled -Dglvnd=disabled \
+  -Dmicrosoft-clc=disabled -Dgallium-rusticl=false -Dvideo-codecs= -Dshader-cache=disabled \
+  -Dxmlconfig=disabled -Dperfetto=false -Dsysprof=false -Dgallium-va=disabled -Ddraw-use-llvm=false \
+  -Dglx-direct=false -Dsse2=false -Dspirv-tools=disabled -Dteflon=false \
+  -Dc_args=-D_GNU_SOURCE -Dcpp_args=-D_GNU_SOURCE
+SLOP meson compile -C /tmp/mesa/build && meson install --no-rebuild -C /tmp/mesa/build
+
+# libepoxy again, as gtk-build built it but taking GLX from the program when
+# no libGL opens, with EGL too (GTK refers to it; libepoxy only probes for it).
+SOURCE /v0.1.3/dist/static/gtk/libepoxy-1.5.10.tar.xz 072cda4b59dd098bba8c2363a6247299db1fa89411dc221c8b81b8ee8192e623 /tmp/mesa/libepoxy.tar.xz
+SOURCE /v0.1.3/dist/static/ghostty-gtk/epoxy-dolly.patch 0000000000000000000000000000000000000000000000000000000000000000 /tmp/mesa/epoxy-dolly.patch
+SLOP CWD /tmp/mesa xz -dc libepoxy.tar.xz | tar -xf -
+SLOP patch -p1 -d /tmp/mesa/libepoxy-1.5.10 -i /tmp/mesa/epoxy-dolly.patch
+SLOP CWD /tmp/mesa meson setup build-epoxy libepoxy-1.5.10 --wrap-mode=nodownload --prefix=/usr --libdir=lib \
+  --buildtype=release -Ddefault_library=static -Ddocs=false -Dtests=false -Dglx=yes -Degl=yes
+SLOP meson compile -C /tmp/mesa/build-epoxy && meson install --no-rebuild -C /tmp/mesa/build-epoxy
+
+# A program finds Mesa's functions through GLX without a display.
+FILE /tmp/mesa/glx-check.c
+    #include <GL/glx.h>
+    int main(void) { return glXGetProcAddressARB((const GLubyte *)"glClear") ? 0 : 1; }
+SLOP cc -O1 -pthread /tmp/mesa/glx-check.c -o /tmp/mesa/glx-check $(pkg-config --cflags --libs gl x11) && /tmp/mesa/glx-check
+
+SLOP mkdir -p /usr/share/licenses/mesa
+SLOP cp /tmp/mesa/mesa/docs/license.rst /usr/share/licenses/mesa/license.rst
+FOLDER /usr/lib/pkgconfig
+FOLDER /usr/include
+FOLDER /usr/lib
+FOLDER /usr/share/licenses
+ENTRY /bin/foreground -i /bin/slop

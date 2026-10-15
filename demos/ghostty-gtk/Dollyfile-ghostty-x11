@@ -1,0 +1,42 @@
+DOLLY 7
+APPLICATION ghostty-x11
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST dso@0
+REQUIRES HOST pty@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+
+# Ghostty's GTK window on Dolly's X server, with Slop in it: the Xsdl server
+# takes the display, and Ghostty draws its terminal with Mesa's OpenGL
+# (softpipe, GLX over Xlib, OpenGL 4.3 as Ghostty asks) and its window's
+# widgets with cairo. GTK's text is fontconfig's, from the terminal's font.
+FROM /v0.1.3/Dollyfile-system fa618e171300d079868dfcf6a88bd064bb27e2a1f0fc7935bc925c21ce35746c
+INSTALL /v0.1.3/demos/x11/Dollyfile-xorg-server 091b0fc1e694014c6a505cba0bf0ae82dd26eb45816310e9e55a7f7b972da21b
+INSTALL /v0.1.3/demos/ghostty-gtk/Dollyfile-ghostty-gtk 3d2b17106b9a95a1c019297e99db855c43ad9066da1a685e2afa8c1733af6c8c
+COPY /v0.1.3/Dollyfile-ghostty-build 08543c7c04b627a304fb56d05932930bde2d2a7c704552f2c0a7a4de60684bc5 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+FILE /etc/fonts/fonts.conf
+    <?xml version="1.0"?>
+    <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+    <fontconfig>
+      <dir>/usr/share/fonts</dir>
+      <cachedir>/tmp/fontconfig</cachedir>
+    </fontconfig>
+
+# The server takes the display, the keyboard and the pointer until it ends
+# (kill $(cat /tmp/.X0-pid) in Ghostty's shell); Ghostty ends with it, and
+# this shell's terminal is back.
+FILE /etc/dolly/init.slop
+    export DISPLAY=:0
+    Xsdl :0 -screen 1024x700 -nolock -dumbSched -s 0 &
+    server=$!
+    echo $server > /tmp/.X0-pid
+    tries=0
+    until test -e /tmp/.X11-unix/X0 || test $tries = 3000; do tries=$((tries + 1)); done
+    GDK_DEBUG=gl-glx GSK_RENDERER=cairo MESA_GL_VERSION_OVERRIDE=4.3 MESA_GLSL_VERSION_OVERRIDE=430 ghostty --command=direct:/bin/slop --shell-integration=none --gtk-single-instance=false --term=xterm-256color &
+    wait $server
+    printf 'The X server has ended.\n'
+    /bin/foreground -i /bin/slop
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

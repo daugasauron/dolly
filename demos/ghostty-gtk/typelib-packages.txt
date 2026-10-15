@@ -1,0 +1,8 @@
+https://archive.archlinux.org/packages/g/gdk-pixbuf2/gdk-pixbuf2-2.44.8-1-x86_64.pkg.tar.zst 48de0aa8c384d6cc4092851c462bbf17cb3275967f112f7b31e19443ff86b78f
+https://archive.archlinux.org/packages/g/glib2/glib2-2.90.1-1-x86_64.pkg.tar.zst b7d930dae1b926dd8dfa9375183182ebc7a26689428fd109feaeace3aecf99a0
+https://archive.archlinux.org/packages/g/gobject-introspection-runtime/gobject-introspection-runtime-1.86.0-2-x86_64.pkg.tar.zst 68495be23fc8b012e67f6107b415e73b383a99d715d38ab192620a2e380af307
+https://archive.archlinux.org/packages/g/graphene/graphene-1.10.8-2-x86_64.pkg.tar.zst 6965123514a90c62c2ff20077c80000075b4f42f69759a2d84fcf0981b540a21
+https://archive.archlinux.org/packages/g/gtk4/gtk4-1%3A4.24.1-1-x86_64.pkg.tar.zst 5e87795451f883bc76720d2c7eb08ca306308095590872709967eb383f400f33
+https://archive.archlinux.org/packages/h/harfbuzz/harfbuzz-14.6.0-1-x86_64.pkg.tar.zst b24ae38babb699f2abb8b0503803621905606f586c86623cb431d452567281d6
+https://archive.archlinux.org/packages/l/libadwaita/libadwaita-1%3A1.10.0-1-x86_64.pkg.tar.zst 9db0082481173f109dbe4af6a52fc3ca1d983b240ea67a5ab71a894f4db164cf
+https://archive.archlinux.org/packages/p/pango/pango-1%3A1.58.2-1-x86_64.pkg.tar.zst 9b74c73056ce6b2aca83bf1647f79f0a6bf53f204c5273b03530e034472db13c

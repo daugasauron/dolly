@@ -1,0 +1,135 @@
+DOLLY 7
+PACKAGE ghostty-gtk
+REQUIRES HOST runtime@0
+REQUIRES HOST dso@0
+REQUIRES HOST pty@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+
+# Ghostty's GTK application at the pinned commit, built by Zig in Dolly over
+# mesa-build: libadwaita, GLib's resource compiler with libxml2's xmllint,
+# blueprint-compiler for its interface files, and Ghostty's own build.zig
+# (ghostty-dolly.patch; its packages fetched on the host, prepare-ghostty.sh).
+FROM /v0.1.3/demos/ghostty-gtk/Dollyfile-mesa-build 0a9a1a237b14c85a4f76e9f62d7591e1cde4530629cbb7580e5f86ccf285df7e
+USE /v0.1.3/demos/zig/Dollyfile-zig-llvm cccd8b46b1ded6e00279b23fd1ab83a3dfbf42245755187741299d9af5c50d5a
+
+REQUIRES TOOL   c++
+REQUIRES TOOL   cc
+REQUIRES TOOL   cp
+REQUIRES TOOL   gzip
+REQUIRES TOOL   ln
+REQUIRES TOOL   meson
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   patch
+REQUIRES TOOL   python3
+REQUIRES TOOL   sed
+REQUIRES TOOL   tar
+REQUIRES TOOL   xz
+REQUIRES TOOL   zig
+
+# libxml2's xmllint: GLib's resource compiler strips the blanks of Ghostty's
+# interface files with it.
+SOURCE /v0.1.3/dist/static/ghostty-gtk/libxml2-2.13.5.tar.xz 74fc163217a3964257d3be39af943e08861263c4231f9ef5b496b6f6d4c7b2b6 /tmp/ghostty-gtk/libxml2.tar.xz
+SLOP CWD /tmp/ghostty-gtk xz -dc libxml2.tar.xz | tar -xf -
+SLOP CWD /tmp/ghostty-gtk meson setup build-xml2 libxml2-2.13.5 --wrap-mode=nodownload --prefix=/usr --libdir=lib \
+  --buildtype=release -Ddefault_library=static -Dpython=false -Dzlib=disabled -Dlzma=disabled -Dicu=disabled \
+  -Dthreads=disabled -Dmodules=disabled -Dreadline=false -Dhistory=false -Dhttp=false
+SLOP meson compile -C /tmp/ghostty-gtk/build-xml2 xmllint && cp /tmp/ghostty-gtk/build-xml2/xmllint /usr/bin/xmllint
+
+# libadwaita, static. It carries its own copies of five of GTK's builder
+# helpers under GTK's names, which a static link of both would hold twice:
+# its build names its copies its own.
+SOURCE /v0.1.3/dist/static/ghostty-gtk/libadwaita-1.10.0.tar.xz b1bf56239269d101a6391ad4553c910eff9cc6170b803916405477ef60a66c84 /tmp/ghostty-gtk/libadwaita.tar.xz
+SLOP CWD /tmp/ghostty-gtk xz -dc libadwaita.tar.xz | tar -xf -
+SLOP CWD /tmp/ghostty-gtk meson setup build-adw libadwaita-1.10.0 --wrap-mode=nodownload --prefix=/usr --libdir=lib \
+  --buildtype=release -Ddefault_library=static -Dintrospection=disabled -Dvapi=false -Dtests=false \
+  -Dexamples=false -Ddocumentation=false "-Dc_args=-D_gtk_builder_check_parent=adw_gtk_builder_check_parent -D_gtk_builder_prefix_error=adw_gtk_builder_prefix_error -D_gtk_builder_error_unhandled_tag=adw_gtk_builder_error_unhandled_tag -D_gtk_builder_parser_translate=adw_gtk_builder_parser_translate -Dgtk_buildable_child_deprecation_warning=adwgtk_buildable_child_deprecation_warning"
+SLOP meson compile -C /tmp/ghostty-gtk/build-adw && meson install --no-rebuild -C /tmp/ghostty-gtk/build-adw
+
+# blueprint-compiler, which reads the typelibs itself
+# (blueprint-compiler-dolly.patch: without PyGObject, where GObject
+# Introspection keeps them); the typelibs are made outside (prepare-typelibs.sh).
+SOURCE /v0.1.3/dist/static/ghostty-gtk/blueprint-compiler-0.18.0.tar.gz 703c7ccd23cb6f77a8fe9c8cae0f91de9274910ca953de77135b6e79dbff1fc3 /tmp/ghostty-gtk/blueprint-compiler.tar.gz
+SOURCE /v0.1.3/dist/static/ghostty-gtk/blueprint-compiler-dolly.patch 0000000000000000000000000000000000000000000000000000000000000000 /tmp/ghostty-gtk/blueprint-compiler-dolly.patch
+SOURCE /v0.1.3/dist/static/ghostty-gtk/typelibs.tar 0000000000000000000000000000000000000000000000000000000000000000 /tmp/ghostty-gtk/typelibs.tar
+SLOP CWD /tmp/ghostty-gtk gzip -dc blueprint-compiler.tar.gz | tar -xf -
+SLOP patch -p1 -d /tmp/ghostty-gtk/blueprint-compiler-v0.18.0 -i /tmp/ghostty-gtk/blueprint-compiler-dolly.patch
+SLOP CWD /tmp/ghostty-gtk/blueprint-compiler-v0.18.0 python3 -c "import shutil, sysconfig; shutil.copytree('blueprintcompiler', sysconfig.get_paths()['purelib'] + '/blueprintcompiler')"
+SLOP CWD /tmp/ghostty-gtk/blueprint-compiler-v0.18.0 sed -e 's/@VERSION@/0.18.0/' -e 's|@LIBDIR@|/usr/lib|' \
+  -e 's|^#!/usr/bin/env python3|#!/usr/bin/python3|' -e 's|@MODULE_PATH@|/usr/lib/python3.14/site-packages|' \
+  blueprint-compiler.py > /usr/bin/blueprint-compiler
+SLOP tar -xf /tmp/ghostty-gtk/typelibs.tar -C /
+SLOP blueprint-compiler --version
+
+# Zig hands a link to cc without the program's own flags, and asks cc for
+# libc's headers with -Wp,-v, which Dolly's cc answers to -v. This cc passes
+# all of it to Dolly's and gives Ghostty's link the rest: Binaryen's cast
+# emulation (GObject calls through pointers of other types), the X libraries
+# and Mesa's GLX, which libepoxy takes by a weak symbol, and libadwaita's
+# resources, registered by constructors that wasm-ld keeps only for objects
+# something keeps (an export does).
+FILE /tmp/ghostty-cc/cc.c
+    #include <spawn.h>
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+    #include <sys/wait.h>
+    extern char **environ;
+    static const char *const ghostty[] = {"--dolly-cast-emulation", "-Wl,--initial-memory=268435456",
+      "-Wl,--undefined=glXGetProcAddressARB", "-Wl,--export=adw_get_resource",
+      "-Wl,--export=adw_stylesheet_get_resource", "-L/usr/lib", "-lGL", "-lXext", "-lX11", "-lxcb",
+      "-lXau", "-lz", "-ldolly-sockets", "-lm"};
+    int main(int argc, char **argv) {
+      int link = 1, program = 0;
+      for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "-E") || !strcmp(argv[i], "-S")) link = 0;
+        if (!strcmp(argv[i], "-o") && i + 1 < argc) {
+          const char *slash = strrchr(argv[i + 1], '/');
+          program = !strcmp(slash ? slash + 1 : argv[i + 1], "ghostty.wasm");
+        }
+      }
+      char **args = calloc((size_t)argc + sizeof(ghostty) / sizeof(*ghostty) + 1, sizeof(char *));
+      size_t n = 0;
+      args[n++] = link && program ? "/bin/c++" : "/bin/cc";
+      for (int i = 1; i < argc; i++) args[n++] = strcmp(argv[i], "-Wp,-v") ? argv[i] : "-v";
+      if (link && program) for (size_t i = 0; i < sizeof(ghostty) / sizeof(*ghostty); i++) args[n++] = (char *)ghostty[i];
+      pid_t pid;
+      int status;
+      if (posix_spawn(&pid, args[0], NULL, NULL, args, environ) != 0) return perror(args[0]), 127;
+      if (waitpid(pid, &status, 0) != pid) return 127;
+      return WIFEXITED(status) ? WEXITSTATUS(status) : 128 + WTERMSIG(status);
+    }
+SLOP cc -O1 /tmp/ghostty-cc/cc.c -o /tmp/ghostty-cc/cc
+# Ghostty's build finds libdolly-sockets and libdolly-pty under a prefix's lib.
+SLOP mkdir -p /tmp/ghostty-prefix && ln -s /usr/lib/dolly/process /tmp/ghostty-prefix/lib
+
+SOURCE /v0.1.3/dist/static/ghostty-gtk/ghostty.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/ghostty.tar.gz
+SLOP gzip -dc /tmp/ghostty.tar.gz | tar -xf - -C /
+SLOP CWD /tmp/ghostty PATH=/tmp/ghostty-cc:$PATH ZIG_LIBC=/usr/lib/zig/libc.txt zig build -Dapp-runtime=gtk \
+  -Dgtk-wayland=false -Dsentry=false -Di18n=false -Demit-docs=false -Demit-terminfo=false -Demit-termcap=false \
+  -Dversion-string=1.3.2-dev -fsys=freetype -fsys=harfbuzz -fsys=fontconfig -fsys=libpng -fsys=zlib \
+  --search-prefix /tmp/ghostty-prefix --summary none
+SLOP cp /tmp/ghostty/zig-out/bin/ghostty.wasm /usr/bin/ghostty
+SLOP ghostty +version | grep -q 'Ghostty 1.3.2-dev'
+
+SLOP mkdir -p /usr/share/licenses/ghostty-gtk
+SLOP cp /tmp/ghostty/LICENSE /usr/share/licenses/ghostty-gtk/ghostty-LICENSE
+SLOP cp /tmp/ghostty-gtk/libadwaita-1.10.0/COPYING /usr/share/licenses/ghostty-gtk/libadwaita-COPYING
+SLOP cp /usr/share/licenses/mesa/license.rst /usr/share/licenses/ghostty-gtk/mesa-license.rst
+EXPORTS TOOL ghostty
+FILE /usr/share/licenses/ghostty-gtk/ghostty-LICENSE
+FILE /usr/share/licenses/ghostty-gtk/libadwaita-COPYING
+FILE /usr/share/licenses/ghostty-gtk/mesa-license.rst
+FILE /usr/share/man/cat1/ghostty.1
+    ghostty: Ghostty's GTK application, built inside Dolly from the pinned
+    commit, for an X server (the ghostty-x11 application starts one).
+    
+      ghostty                           a window with $SHELL in it
+      ghostty --command=direct:/bin/slop --gtk-single-instance=false
+      ghostty +version                  its version
+      ghostty +help                     the actions and options
+    
+    It draws with Mesa's OpenGL in the program (softpipe, GLX over Xlib): set
+    GDK_DEBUG=gl-glx GSK_RENDERER=cairo MESA_GL_VERSION_OVERRIDE=4.3
+    MESA_GLSL_VERSION_OVERRIDE=430, as ghostty-x11 does.
+    Upstream's documentation: https://ghostty.org/docs

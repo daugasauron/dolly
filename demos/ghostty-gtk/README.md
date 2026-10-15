@@ -1,13 +1,22 @@
 # Ghostty's GTK application on X11
 
-In progress ([task](../../tasks/20261014-232500-ghostty-x11/TASK.md)):
-Ghostty's own window, renderer and shell on Dolly's X server, over the GTK 4
-stack of [the GTK demo](../gtk/README.md).
+Ghostty's own window, renderer and shell on Dolly's X server
+([task](../../tasks/20261014-232500-ghostty-x11/TASK.md)), over the GTK 4
+stack of [the GTK demo](../gtk/README.md), every part built inside Dolly by
+its own build: Mesa with Meson, libadwaita, and Ghostty by its `build.zig`
+with Zig and LLVM built in Dolly ([zig](../zig/README.md)).
 
-It ran in a session (2026-10-15), built there by hand: Ghostty's `zig build`
-with `-Dapp-runtime=gtk`, its window with libadwaita's header bar, its OpenGL
-renderer on Mesa's softpipe through GLX, and `/bin/slop` on a pseudo-terminal
-answering a command typed into the window. The recipes are not written yet.
+## Images
+
+- `mesa-build`: A build stage: Mesa's OpenGL with GLX over Xlib, drawing with softpipe, and libepoxy taking it from the program, over `gtk-build`.
+- `ghostty-gtk`: Ghostty's GTK application, a package; it needs an X server.
+- `ghostty-x11`: An application: Ghostty's window on Dolly's X server, with Slop in its terminal.
+
+Open `/ghostty-x11/`. The window takes a minute or more to come up: Ghostty
+is a debug build, drawn by softpipe. `kill $(cat /tmp/.X0-pid)` in its shell
+ends the server and returns to the terminal's.
+
+## Key files
 
 - [`libxev-dolly.patch`](libxev-dolly.patch): libxev, Ghostty's event loop at
   the commit Ghostty pins, has no backend for Emscripten. The patch adds
@@ -32,11 +41,16 @@ answering a command typed into the window. The recipes are not written yet.
   [`blueprint-compiler-dolly.patch`](blueprint-compiler-dolly.patch): the
   build's tools.
 
-For the recipes, from the session: libadwaita built static needs
-`-D_gtk_builder_*=adw_gtk_builder_*` for the five GTK helpers it copies, and
-a program keeps its resources only if it exports `adw_get_resource` and
-`adw_stylesheet_get_resource` (wasm-ld keeps a constructor only in an object
-something keeps); GLib's resource compiler needs `xmllint` (libxml2); the
-GObject cast emulation runs after Zig's link. Bootstrap exceptions: Bison and
-flex outputs for Mesa's parsers made on the host, and the Gtk and Adw
-typelibs blueprint-compiler reads.
+- [`Dollyfile-mesa-build`](Dollyfile-mesa-build), [`Dollyfile-ghostty-gtk`](Dollyfile-ghostty-gtk),
+  [`Dollyfile-ghostty-x11`](Dollyfile-ghostty-x11): the build. libadwaita
+  built static names its copies of five GTK builder helpers its own, and the
+  program exports `adw_get_resource` and `adw_stylesheet_get_resource`, without
+  which wasm-ld drops the constructors that register its resources. Zig hands
+  its link to `cc` without the program's flags: the recipe's `cc` adds them
+  (cast emulation, Mesa's GLX, the X libraries).
+- Made outside Dolly, as bootstrap exceptions: Mesa's parsers and scanners by
+  the host's Bison and flex ([`prepare-mesa.sh`](prepare-mesa.sh)); Ghostty's
+  Zig packages, fetched by the host's Zig
+  ([`prepare-ghostty.sh`](prepare-ghostty.sh), [`zig-packages.txt`](zig-packages.txt));
+  the typelibs blueprint-compiler reads, from Arch Linux's packages
+  ([`prepare-typelibs.sh`](prepare-typelibs.sh), [`typelib-packages.txt`](typelib-packages.txt)).
