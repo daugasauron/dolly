@@ -11,6 +11,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <resolv.h>
 #include <sched.h>
 #include <semaphore.h>
 #include <signal.h>
@@ -818,6 +819,13 @@ struct protoent *getprotobynumber(int number) {
   (void)number; errno = ENOSYS; return NULL;
 }
 const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
+const struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
+/* Dolly has no name server: a query fails as one nobody can answer. */
+int res_query(const char *name, int class, int type, unsigned char *answer, int length) {
+  (void)name; (void)class; (void)type; (void)answer; (void)length;
+  h_errno = NO_RECOVERY;
+  return -1;
+}
 
 /*
  * This is the process target's serialized libc fallback.  Runtimes such as
@@ -825,6 +833,10 @@ const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
  * their own; normal static-link symbol ownership must let that definition
  * replace the generic one without a runtime-specific linker exception.
  */
+/* Dolly keeps no thread names; the threaded libc declares this and has none. */
+__attribute__((weak)) int pthread_getname_np(pthread_t thread, char *name, size_t size) {
+  (void)thread; (void)name; (void)size; return ENOSYS;
+}
 #ifndef __EMSCRIPTEN_PTHREADS__
 __attribute__((weak)) pthread_t pthread_self(void) { return (pthread_t)(uintptr_t)1; }
 
@@ -837,9 +849,6 @@ __attribute__((weak)) int pthread_condattr_destroy(pthread_condattr_t *attribute
 __attribute__((weak)) int pthread_condattr_setclock(pthread_condattr_t *attribute,
                                                   clockid_t clock) {
   (void)attribute; (void)clock; return ENOSYS;
-}
-__attribute__((weak)) int pthread_getname_np(pthread_t thread, char *name, size_t size) {
-  (void)thread; (void)name; (void)size; return ENOSYS;
 }
 __attribute__((weak)) int pthread_setname_np(pthread_t thread, const char *name) {
   (void)thread; (void)name; return ENOSYS;
