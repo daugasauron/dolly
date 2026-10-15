@@ -2,7 +2,7 @@ DOLLY 7
 PACKAGE libterminfo
 REQUIRES HOST runtime@0
 
-# NetBSD's terminfo library from the netbsd-curses release, one line fixed, for
+# NetBSD's terminfo library from the netbsd-curses release, two lines fixed, for
 # programs the cc package builds (-lterminfo): <term.h> and <termcap.h> over
 # the terminal descriptions the library holds.
 FROM /v0.1.3/Dollyfile-system-tools b8dfc75b8a479542d0651732894a05f8c83fae3f8a86266efc1638e432e1a053
@@ -29,6 +29,13 @@ SLOP tar -xf /tmp/terminfo.tar -C /
 SLOP sed -e 's/const char \*fmt, int num, size_t len/const char *fmt, long num, size_t len/' -e 's/onum(term, fmt, (int)val, olen)/onum(term, fmt, val, olen)/' /tmp/terminfo/libterminfo/tparm.c > /tmp/terminfo/tparm.c
 SLOP cp /tmp/terminfo/tparm.c /tmp/terminfo/libterminfo/tparm.c
 SLOP grep -q 'const char \*fmt, long num, size_t len' /tmp/terminfo/libterminfo/tparm.c && grep -q 'onum(term, fmt, val, olen)' /tmp/terminfo/libterminfo/tparm.c
+
+# tputs hands its int (*)(int) to a writer that calls it as int (*)(int, void *):
+# a call through a pointer of another type, which a Wasm call traps on (zsh's
+# prompt). An adapter, beside ospeed, calls it as what it is.
+SLOP sed -e 's/^short ospeed;$/short ospeed; static int _ti_putc_one(int c, void *outc) { return ((int (*)(int))outc)(c); }/' -e 's/(int (\*)(int, void \*))(void \*)outc, NULL/_ti_putc_one, (void *)outc/' -e 's/(int (\*)(int, void \*))(void \*)putchar, NULL/_ti_putc_one, (void *)putchar/' /tmp/terminfo/libterminfo/tputs.c > /tmp/terminfo/tputs.c
+SLOP cp /tmp/terminfo/tputs.c /tmp/terminfo/libterminfo/tputs.c
+SLOP grep -q '_ti_putc_one, (void \*)outc' /tmp/terminfo/libterminfo/tputs.c && grep -q '_ti_putc_one, (void \*)putchar' /tmp/terminfo/libterminfo/tputs.c
 
 FILE /tmp/terminfo.mk
     .RECIPEPREFIX := >

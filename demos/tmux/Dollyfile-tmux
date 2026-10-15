@@ -10,7 +10,7 @@ REQUIRES HOST sockets@0
 FROM /v0.1.3/demos/tools/Dollyfile-tools-build 9ba7f8fbe7c465254861c1f2356bd1e7357599bf0e1f9e1089fc2a7958c241a3
 USE /v0.1.3/Dollyfile-libdolly-sockets 05e1d0bbae9526c7463e3f80a5e2a4e14407437bf16257cfce91c143c9919ce3
 USE /v0.1.3/demos/tmux/Dollyfile-libevent 78884fc694d4820e9bb33fb862e03a02462d880691a0f7de08aa547e78b5387b
-USE /v0.1.3/demos/tmux/Dollyfile-libterminfo fcbaef8c33c1e4a96bc5239954032ea0f9b790ca1e128d74affe0b0f37d5e908
+USE /v0.1.3/demos/tmux/Dollyfile-libterminfo b92de542ded15fdfb04363bfb748485acb3f50672c7f4a8c4f07cd13fb315963
 
 REQUIRES HEADER libc
 REQUIRES HEADER event
