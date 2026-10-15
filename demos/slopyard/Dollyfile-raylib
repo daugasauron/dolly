@@ -7,7 +7,7 @@ REQUIRES HOST input@0
 # raylib as gamedev-sdk compiles it: the software renderer, and Dolly's
 # adapter (dolly/raylib.h), which shows its frames and reads the keys and the
 # mouse. For programs the cc package builds.
-FROM /v0.1.3/demos/slopyard/Dollyfile-gamedev-sdk 3bfdd41c6048da13fe8682f7708274768b7f8be2a725dc1d708beed814df0db2
+FROM /v0.1.3/demos/slopyard/Dollyfile-gamedev-sdk 32835a0b38872fd11b358a6b96b8241c380fe0f42360ca571efdf0a8d1928086
 
 EXPORTS LIB    raylib       /usr/lib/libraylib.a
 EXPORTS LIB    dolly-raylib /usr/lib/libdolly-raylib.a

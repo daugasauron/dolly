@@ -5,9 +5,9 @@ REQUIRES HOST runtime@0
 # The platform as a program sees it: the documents and machine contracts of
 # this release at their repository paths, so their links to each other work.
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
-SOURCE /v0.1.3/docs/process-model.md 27dd79063177407cc353c9437c18ddfb8868751308f4a6058ac2120c3f1022d5 /usr/share/doc/dolly/docs/process-model.md
+SOURCE /v0.1.3/docs/process-model.md 8c15ea02d84dd00d3c7ea92a6630c623c5b9f5a3906d25dccbf7076dd70fd043 /usr/share/doc/dolly/docs/process-model.md
 SOURCE /v0.1.3/docs/browser-stack.md 6afa6298a0e03ff3af86cf3b5ff102c23508afd542d921a537c8eae7bfc48370 /usr/share/doc/dolly/docs/browser-stack.md
-SOURCE /v0.1.3/docs/slop.md a4ec4a8aec3b34b1d1fc9c49915cb9e18f00f4a8c64d85b2e9d9100a4ebddf5e /usr/share/doc/dolly/docs/slop.md
+SOURCE /v0.1.3/docs/slop.md a28c7ab502fb246537fa27f3a98b0fceab4a6762e90f55454fd1c1b4ae2d50e4 /usr/share/doc/dolly/docs/slop.md
 SOURCE /v0.1.3/docs/display.md 8abf9c743969060d9488822d78d34f1ed79aa764eb8fa925f4554163e0418130 /usr/share/doc/dolly/docs/display.md
 SOURCE /v0.1.3/docs/gpu.md dffb2841e2c92626af12a921bbfb45c6f44fe7ecc29ff39fd96f5930d4ce3c67 /usr/share/doc/dolly/docs/gpu.md
 SOURCE /v0.1.3/docs/audio.md d877621b99ae4e1ad48989449b39beec0002558301e1ce6f0e99722e4c8e6d2c /usr/share/doc/dolly/docs/audio.md
