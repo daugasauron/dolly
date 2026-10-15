@@ -26,7 +26,8 @@ ends the server and returns to the terminal's.
   uses them as Ghostty does; it printed `XEV-POLL-OK` in a session
   (2026-10-15), built with `zig build-exe -fno-single-threaded`, which needs
   the core Zig patch's thread fixes.
-- [`ghostty-dolly.patch`](ghostty-dolly.patch): Emscripten next to Linux
+- [`ghostty-dolly.patch`](ghostty-dolly.patch), over the core's
+  [`ghostty-dolly.patch`](../../config/ghostty-dolly.patch): Emscripten next to Linux
   where Ghostty's code names platforms (home directory, keycodes, links);
   the shell started by `posix_spawn`, Dolly having no fork, with the signal
   reset Ghostty's post-fork hook does as spawn attributes; GTK's GL context

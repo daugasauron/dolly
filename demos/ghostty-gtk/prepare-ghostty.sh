@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Ghostty at the pinned commit with Dolly's patch, and the packages its
-# build.zig.zon names, fetched into zig-pkg by the host's Zig 0.16 (a session
-# reaches no network but the broker); libxev and translate-c are patched
-# there. Prints the tree.
+# Ghostty at the pinned commit with the core's patch and the application's
+# (ghostty-dolly.patch here), and the packages its build.zig.zon names,
+# fetched into zig-pkg by the host's Zig 0.16 (a session reaches no network
+# but the broker); libxev and translate-c are patched there. Prints the tree.
 set -euo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 demo_dir="${project_dir}/demos/ghostty-gtk"
 source "${project_dir}/config/source-pins.sh"
 checkout="$(bash "${project_dir}/scripts/fetch-pinned-checkout.sh" ghostty)"
-recipe_hash="$(cd "${project_dir}" && sha256sum demos/ghostty-gtk/prepare-ghostty.sh \
+recipe_hash="$(cd "${project_dir}" && sha256sum demos/ghostty-gtk/prepare-ghostty.sh config/ghostty-dolly.patch \
   demos/ghostty-gtk/ghostty-dolly.patch demos/ghostty-gtk/libxev-dolly.patch \
   demos/ghostty-gtk/translate-c-dolly.patch demos/ghostty-gtk/zig-packages.txt | sha256sum | cut -c1-16)"
 output="${project_dir}/build/generated/ghostty-gtk-${DOLLY_GHOSTTY_COMMIT:0:16}-${recipe_hash}"
@@ -28,6 +28,9 @@ tar -xJf "${zig_archive}" --strip-components=1 -C "${temporary}/zig"
 cp -a "${checkout}/." "${temporary}/tree/"
 rm -rf "${temporary}/tree/.git"
 tree="${temporary}/tree"
+# The core's patch first, applied as for Dolly's terminal
+# (scripts/prepare-ghostty-source.sh), then the application's.
+patch --silent --no-backup-if-mismatch -d "${tree}" -p1 < "${project_dir}/config/ghostty-dolly.patch"
 patch --silent --fuzz=0 --no-backup-if-mismatch -d "${tree}" -p1 < "${demo_dir}/ghostty-dolly.patch"
 # Zig's resolver fails a lookup now and then (NameServerFailure); a fetch keeps
 # what it has, so another attempt takes up the rest.
