@@ -86,9 +86,18 @@ index 6e9f7fb..25e770b 100644
      }
      const global = struct {
 diff --git a/lib/std/c.zig b/lib/std/c.zig
-index f0b0391..112b2da 100644
+index f0b0391..ac4d552 100644
 --- a/lib/std/c.zig
 +++ b/lib/std/c.zig
+@@ -1314,7 +1314,7 @@ pub const Flock = switch (native_os) {
+ pub const HOST_NAME_MAX = switch (native_os) {
+     .linux => linux.HOST_NAME_MAX,
+     .driverkit, .ios, .maccatalyst, .macos, .tvos, .visionos, .watchos => 72,
+-    .openbsd, .haiku, .dragonfly, .netbsd, .illumos, .freebsd => 255,
++    .openbsd, .haiku, .dragonfly, .netbsd, .illumos, .freebsd, .emscripten => 255,
+     // https://github.com/SerenityOS/serenity/blob/c87557e9c1865fa1a6440de34ff6ce6fc858a2b7/Kernel/API/POSIX/sys/limits.h#L22
+     .serenity => 64,
+     else => {},
 @@ -2541,6 +2541,11 @@ pub const _SC = if (builtin.abi.isAndroid()) enum(c_int) {
      .linux => enum(c_int) {
          PAGESIZE = 30,
@@ -101,6 +110,16 @@ index f0b0391..112b2da 100644
      .netbsd => enum(c_int) {
          PAGESIZE = 28,
      },
+@@ -3302,7 +3307,8 @@ pub const Sigaction = switch (native_os) {
+     else => void,
+ };
+ pub const T = switch (native_os) {
+-    .linux => linux.T,
++    // Emscripten's libc has Linux's ioctl numbers.
++    .linux, .emscripten => linux.T,
+     .driverkit, .ios, .maccatalyst, .macos, .tvos, .visionos, .watchos => struct {
+         pub const IOCGWINSZ = ior(0x40000000, 't', 104, @sizeOf(winsize));
+ 
 diff --git a/lib/std/heap.zig b/lib/std/heap.zig
 index 9bf1aef..4378403 100644
 --- a/lib/std/heap.zig
