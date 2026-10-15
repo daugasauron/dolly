@@ -1,7 +1,8 @@
 // The x11-desktop image: Xsdl takes Dolly's display and twm frames xclock,
 // xeyes and xterm in windows of their own. The page's pointer reaches them
-// (xeyes' pupils follow it, a drag of a title bar moves the clock's window)
-// and its keyboard reaches the shell in xterm, which starts Dear ImGui's
+// (xeyes' pupils follow it, a drag of a title bar moves the clock's window,
+// twm's menu starts another xterm) and its keyboard reaches the shell in
+// xterm, which starts Dear ImGui's
 // example in a window of its own (SDL2's X11 driver), installs tmux with amy
 // and runs a command in its pane, writes a file and ends the server; the
 // terminal's shell then reads them and finds tmux's server. Prints the time to
@@ -131,6 +132,33 @@ for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", ti
   await type(page, "cho typed in xterm > /tmp/xterm-typed\n");
   await page.screenshot({ path: `${evidence}${browser}-xterm.png` });
 
+  // twm's root menu starts another xterm (upstream's "exec xterm &"), which
+  // outlives the shell that started it; twm places it where the pointer clicks.
+  await page.mouse.move(...await at(page, 1200, 100));
+  await page.mouse.down();
+  await delay(1000);
+  await page.mouse.move(...await at(page, 1200, 290), { steps: 10 });
+  await delay(300);
+  await page.mouse.up();
+  await page.mouse.move(...await at(page, 900, 450), { steps: 10 });
+  await page.waitForFunction(() => {
+    const data = document.querySelector("#display").getContext("2d").getImageData(895, 500, 10, 240).data;
+    for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] > 0) return true;
+    return false;
+  }, null, { timeout: 60_000, polling: 50 });
+  await page.mouse.down();
+  await page.mouse.up();
+  await page.waitForFunction(() => {
+    const data = document.querySelector("#display").getContext("2d").getImageData(950, 520, 300, 200).data;
+    let white = 0;
+    for (let i = 0; i < data.length; i += 4) white += data[i] + data[i + 1] + data[i + 2] === 765;
+    return white > 50000;
+  }, null, { timeout: 30_000, polling: 50 });
+  await page.mouse.move(...await at(page, 1100, 650));
+  await delay(300);
+  await type(page, "echo from the menu > /tmp/menu-xterm\n");
+  await page.screenshot({ path: `${evidence}${browser}-menu-xterm.png` });
+
   // ImGui's example, centred, 1280x800: its clear colour (0.45, 0.55, 0.60)
   // fills what its own windows leave, below the first of them.
   await type(page, "imgui-x11 &\n");
@@ -166,5 +194,5 @@ for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", ti
   await type(page, "kill $(cat /tmp/.X0-pid)\n");
   await prompt(shellPrompt);
   await run("grep -qx 'typed in xterm' /tmp/xterm-typed && grep -q 'tmux installed' /tmp/amy-tmux && tail -n 1 /tmp/amy-tmux | grep -qx 0");
-  await run("grep -qx 'in tmux' /tmp/in-tmux && tmux has-session");
+  await run("grep -qx 'in tmux' /tmp/in-tmux && tmux has-session && grep -qx 'from the menu' /tmp/menu-xterm");
 });
