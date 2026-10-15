@@ -13,8 +13,8 @@ terminal.
 
 Dolly has no `fork` or `exec`: a program starts by `posix_spawn`
 ([process model](../../docs/process-model.md#spawn-and-wait)).
-[`zsh-dolly.patch`](zsh-dolly.patch) changes `Src/exec.c` alone, where zsh
-forks:
+[`zsh-dolly.patch`](zsh-dolly.patch) changes `Src/exec.c`, where zsh forks,
+and `Src/init.c`:
 
 - A program is spawned from the shell itself. Its redirections, pipe ends
   and assignments are made in the shell and undone after the spawn, as zsh
@@ -26,8 +26,11 @@ forks:
 - Shell code that needs a process of its own runs in a new zsh: a builtin or
   function in a pipeline before its end or in the background (its words
   expanded, a function with its definition), a `( ... )` subshell, `$(...)`.
-  The new zsh has the environment and the positional parameters, not the
-  shell's other parameters, aliases or functions.
+  It is given what a forked child has of the shell: the shell writes its
+  parameters, functions, aliases and options to a file, as `typeset -p`,
+  `functions`, `alias -L` and `setopt` print them, and the new zsh sources
+  and removes it before the code. With `compinit`'s state (80 KB), a
+  `$(...)` took 14 ms in Chromium, against 10 ms without it (2026-10-16).
 - Not available: `<(...)`, `>(...)` and `=(...)`, multios (`> a > b`), and
   job control (Dolly has no process groups). `time` reports elapsed time
   only: Dolly's `wait` reports no resource usage.
