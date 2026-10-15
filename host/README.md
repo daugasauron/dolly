@@ -95,7 +95,10 @@ none of it, in an image that declares the module too, so declaring it costs a
 program that does not record it nothing. An executable records `dso@0` when it
 links a member of `libdolly-dso.a`: `cc -rdynamic` selects the loader's client,
 a call to `dolly_ffi_*` the FFI client. A program that only calls `dlopen`
-gets the process libc's refusal and records nothing.
+gets the process libc's refusal and records nothing. In a program using
+`threads@0` it serves every thread's Worker, each with a function table of its
+own: a call works in any thread, and loading a library or preparing a closure,
+which would add an entry to one Worker's table only, is refused (`ENOTSUP`).
 
 ## Local sockets
 

@@ -9,7 +9,7 @@ import { DOLLY_ERRNO } from "../../src/process-constants.mjs";
 import { parseWasmInterface, Reader } from "../../src/wasm-interface.mjs";
 import { executableHostRequirements, checkHostAbi } from "../requirements.mjs";
 import { DOLLY_DSO_CLOSE, DOLLY_DSO_ERROR_CAPACITY, DOLLY_DSO_GLOBAL, DOLLY_DSO_LIMIT, DOLLY_DSO_OPEN,
-  DOLLY_DSO_SYMBOL } from "./abi.mjs";
+  DOLLY_DSO_SYMBOL, DOLLY_FFI_CALL } from "./abi.mjs";
 import { createProcessFfi } from "./ffi.mjs";
 import { requireDsoType, validateDsoHost, validateDsoInterface } from "./interface.mjs";
 
@@ -378,9 +378,15 @@ export function serve(context) {
     growTable,
     setTable,
   });
+  // In a program using threads@0 every thread's Worker has a table of its
+  // own: a call reads the same entry in each, but an entry a library or a
+  // closure added in one would be missing in the others.
+  const threadedRefusal = (operation, response) => ffi.handles(operation) ? -BigInt(DOLLY_ERRNO.ENOTSUP)
+    : writeDsoResponse(response, 0n, DOLLY_ERRNO.ENOTSUP, "not in a program using threads@0");
   return {
     handles: operation => (operation >= DOLLY_DSO_OPEN && operation <= DOLLY_DSO_CLOSE) || ffi.handles(operation),
-    call: (operation, request, response) => ffi.handles(operation)
-      ? ffi.call(operation, request, response) : processDsoCall(operation, request, response),
+    call: (operation, request, response) => context.threaded && operation !== DOLLY_FFI_CALL
+      ? threadedRefusal(operation, response)
+      : ffi.handles(operation) ? ffi.call(operation, request, response) : processDsoCall(operation, request, response),
   };
 }

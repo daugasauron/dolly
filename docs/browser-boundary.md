@@ -74,7 +74,7 @@ Worker URL.
 | `threads@0` | supervisor | Worker per thread of an admitted executable: 16 per process, 64 total | [`host/threads/`](../host/threads/module.json) |
 | `sockets@0` | none | Local stream sockets between processes of the kernel, in its memory: 128 sockets, 16 unaccepted connections a listener, 64 KiB a direction. No network family and nothing outside Wasm | [`host/sockets/`](../host/sockets/module.json) |
 | `pty@0` | supervisor | Pseudo-terminals between processes of the kernel, in its memory: 32 of them, 4 KiB of input and 64 KiB of output each. The supervisor delivers the signals one raises. Nothing outside Wasm | [`host/pty/`](../host/pty/module.json) |
-| `dso@0` | process Worker of an executable that records it | Instantiate Wasm the process supplies into its own memory and function table, and call its table entries with signatures chosen at run time; no import, no kernel entry, nothing outside that process | [`host/dso/`](../host/dso/module.json) ([`process.mjs`](../host/dso/process.mjs)) |
+| `dso@0` | process Worker of an executable that records it, each thread's in a program using `threads@0` | Instantiate Wasm the process supplies into its own memory and function table, and call its table entries with signatures chosen at run time; no import, no kernel entry, nothing outside that process | [`host/dso/`](../host/dso/module.json) ([`process.mjs`](../host/dso/process.mjs)) |
 | `build@0` | reserved URL via `http@0` | Start a disposable image build that writes the image cache | [`host/build/`](../host/build/module.json) |
 | `packages@0` | reserved URL via `http@0` | Serve the verified snapshot of a published package, one at a time, 64 per page | [`host/packages/`](../host/packages/module.json) |
 
