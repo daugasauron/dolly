@@ -90,6 +90,8 @@ await browserTest("cpp", { image: "system" }, async ({ name, open }) => {
     "echo 'int main(void) { return 0; }' > moz-flags.c && cc -fno-math-errno -fomit-frame-pointer " +
       "-ffp-contract=off -mthread-model single -fno-lto -fstandalone-debug -ferror-limit=0 " +
       "moz-flags.c -o moz-flags && ./moz-flags",
+    // Meson preprocesses with -E and -c together; -E stops after preprocessing.
+    "printf '%s\\n' '#define TWICE(x) x x' 'TWICE(ok)' > pp.h && cc -E -P -xc pp.h -o pp.i -c && grep -qx 'ok ok' pp.i",
     // Flags Binaryen's CMake adds: Wasm has no frame pointer, and lld is the linker.
     "echo 'int main(void) { return 0; }' > byn-flags.c && cc -fno-omit-frame-pointer -fuse-ld=lld " +
       "byn-flags.c -o byn-flags && ./byn-flags",
