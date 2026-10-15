@@ -280,3 +280,20 @@ index fa4a53d..f6974dc 100644
          }) catch |err| switch (err) {
              error.CreateFail => fatal("failed to create compilation: {f}", .{create_diag}),
              else => fatal("failed to create compilation: {s}", .{@errorName(err)}),
+diff --git a/src/zig_clang_driver.cpp b/src/zig_clang_driver.cpp
+index 7f4c603..0987b6c 100644
+--- a/src/zig_clang_driver.cpp
++++ b/src/zig_clang_driver.cpp
+@@ -73,7 +73,11 @@ std::string GetExecutablePath(const char *Argv0, bool CanonicalPrefixes) {
+   // This just needs to be some symbol in the binary; C++ doesn't
+   // allow taking the address of ::main however.
+   void *P = (void*) (intptr_t) GetExecutablePath;
+-  return llvm::sys::fs::getMainExecutable(Argv0, P);
++  std::string Path = llvm::sys::fs::getMainExecutable(Argv0, P);
++  // Where LLVM finds no path of its own (Dolly: Emscripten's libc has no
++  // dladdr), the program is the one it was started as, which runs the
++  // assembler (-cc1as) as a process of its own.
++  return Path.empty() ? GetExecutablePath(Argv0, false) : Path;
+ }
+ 
+ static const char *GetStableCStr(llvm::StringSet<> &SavedStrings, StringRef S) {
