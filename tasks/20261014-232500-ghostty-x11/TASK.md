@@ -12,7 +12,7 @@ with its own renderer, running on Dolly's X server.
 Done when `ghostty` opens a window on Dolly's X server and a shell runs in it,
 with a browser test.
 
-## State (2026-10-15, 05:30): X11 runs; Ghostty's build.zig builds libghostty-vt; GTK is next
+## State (2026-10-15, 09:10): X11 runs; Ghostty's build.zig builds libghostty-vt; GTK is next
 
 Each step needs the one before it; details from memory are marked.
 
@@ -29,19 +29,17 @@ Each step needs the one before it; details from memory are marked.
    handlers, and SDL's own `XFixesSelectSelectionInput` already did
    (`imgui-x11` builds SDL without XFixes). That needs patches or a
    cast-emulating option in Dolly's toolchain, a core decision. GLib needs
-   libffi: 3.5.2 (2025) added an Emscripten wasm64 target, and its
-   `src/wasm/ffi.c` makes calls and closures in JavaScript (`EM_JS`; a
-   closure is a Wasm function made at run time, `convertJsFunctionToWasm`),
-   which Dolly's processes have not (read 2026-10-15). GObject needs less:
-   only `ffi_call`, in its two generic marshallers (`gobject/gclosure.c`,
-   GLib 2.86.0), and no closure (`girepository` uses those). So a libffi for
-   Dolly could be `ffi_call` over the signatures signals use, dispatched in
-   C to calls of known types (not tried). Precedent: QEMU's Emscripten port (2025) builds GLib for wasm64 and
+   libffi: Dolly has one already (corrected 2026-10-15): CPython's
+   `demos/python/libffi-dolly.c` makes calls and closures through dso@0's
+   FFI operations, and ctypes callbacks pass in the Python test. GObject
+   needs only `ffi_call` (`gobject/gclosure.c`, GLib 2.86.0), so the step
+   is to make that libffi a package of its own. Precedent: QEMU's Emscripten port (2025) builds GLib for wasm64 and
    replaced GLib calls that cast function pointers (`g_list_sort` and
    others); GLib's issue is #3596, and wasm-vips keeps a fork (searched
    2026-10-15).
-3. OpenGL without a GPU: Ghostty's Linux renderer needs OpenGL 3.3 (from
-   memory). Mesa's software "xlib" driver does GL in the client and sends
+3. OpenGL without a GPU: Ghostty's renderer needs OpenGL 4.3
+   (`MIN_VERSION_*` in `src/renderer/OpenGL.zig` at the pinned commit; read
+   2026-10-15), drawn in GTK's `GtkGLArea`. Mesa's software "xlib" driver does GL in the client and sends
    finished frames as images, so the X server needs no GL (from memory,
    unchecked), with softpipe as the rasterizer: llvmpipe generates machine
    code at run time, which a Wasm process cannot run.
@@ -61,3 +59,14 @@ Each step needs the one before it; details from memory are marked.
    upstream), Emscripten's `NAME_MAX`. Next: the GTK application, with its
    C dependencies compiled by Zig.
    Threads exist (`threads@0`) for its renderer and IO threads.
+5. What Ghostty's GTK front end needs at the pinned commit (read
+   2026-10-15): GTK4 and libadwaita, both linked unconditionally; from a
+   git checkout, `blueprint-compiler` 0.16 or newer for its `.ui` files
+   (release tarballs ship them generated), which reads the Gtk and Adw
+   typelibs; `src/Command.zig` starts the shell with `fork`, which Dolly
+   has not, so it needs a spawn path; its event loop is libxev (which
+   backend serves Emscripten is not checked). Size: GLib, the X11 client
+   libraries GTK4 uses, cairo, pango, harfbuzz, fribidi, fontconfig,
+   freetype, pixman, graphene, libepoxy, gdk-pixbuf, GTK4, libadwaita, Mesa
+   and Ghostty's patches. This is the largest port Dolly has taken on;
+   each library is a step that can be verified on its own.

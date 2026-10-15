@@ -178,16 +178,14 @@ not reproduced in 160 drags and about 9,000 screen reads.
   the man, indicators, upload, threads, terminal, display, image, ending,
   both session tests and nena (06:55). Only the images these need were rebuilt there;
   the branch needs a full round.
+  On the owner's word (2026-10-15) it also has: a child outlives its parent,
+  as on POSIX (parent 0, reaped when it ends; the terminal goes back up the
+  tree), Python's `os.geteuid`/`getegid` reporting root, tmux starting its
+  own server, Slop running `exec PROGRAM &` (twm's menu starts xterm), and
+  `main`'s amy in the X desktop. The full round runs from 09:02 in
+  `work/x11fix` (user unit `round-1015`, evidence `build/round-1015/`).
 
 ## Left for a later round, none started
-
-- Python's `os.geteuid` (the X11 port's `meson install --no-rebuild`):
-  upstream's `Platforms/emscripten/config.site-wasm32-emscripten` turns it
-  off, since the stub always says root and code that trusts root misbehaves;
-  Dolly's ids are all 0 too, so turning it on would report root (pip warns,
-  `meson install` works). `demos/python/prepare-cpython.sh` also turns off
-  `setuid`, `setreuid`, `setgid` and `setregid`, which `core/x11-fixes`
-  makes work. A judgment call, and a Python rebuild.
 
 - `pty@0`: a spawn that is not the caller's child (tmux starting its own
   server, which the owner called fine as it is), a terminal recorded per
