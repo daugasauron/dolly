@@ -1,6 +1,6 @@
 # Ghostty, the whole application, in an X11 window in Dolly
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: graphics,demo,owner
 
@@ -12,19 +12,35 @@ with its own renderer, running on Dolly's X server.
 Done when `ghostty` opens a window on Dolly's X server and a shell runs in it,
 with a browser test.
 
-## State (2026-10-15, 23:50)
+## Closed (2026-10-16, 05:30)
 
-Ghostty's GTK application ran on Dolly's X server in a session: libadwaita's
-window, the OpenGL renderer on Mesa, `/bin/slop` on a pseudo-terminal, and a
-command typed through the X server answered in the window
-(`work/evidence-2026-10-15/ghostty-x11/ghostty-typed.png`). Everything under
-it was built by hand in that session; the sections below say how, in order.
+Built in a round and tested: `mesa-build`, `ghostty-gtk` (a package) and
+`ghostty-x11` (an application) in `demos/ghostty-gtk/`, on branch
+`integrate/ghostty` with `core/gtk-seed`, `core/zig-threads`,
+`core/pty-master`, `demo/gtk`, `demo/zsh`. `ghostty-x11` opens Ghostty's
+window on Xsdl in 4 s; `demos/ghostty-gtk/test/ghostty-x11-browser.mjs`
+types a command through the X server into Ghostty's shell, ends the server
+and reads the file it wrote: passed twice in Chromium and in Firefox (7 s
+each, the tab's peak 2.2 GB). Evidence: `work/evidence-2026-10-16/ghostty-x11/`.
 
-Left: recipes (libadwaita, Mesa, libxml2, blueprint-compiler, Ghostty over
-`gtk-build`), built in a round on a seed with `core/gtk-seed`,
-`core/zig-threads` and `core/pty-master`, and a browser test that types into
-Ghostty. Branches: `demo/ghostty-gtk` (`ed98efd1`, patches and README),
-`core/zig-threads` (`0027eddf`), `core/pty-master` (`952a09de`).
+What the round found, beyond the session:
+
+- Source archives hold files only: Mesa's and Ghostty's links, Ghostty's
+  fuzzing corpus and SPIRV-Cross's test shaders (names too long for ustar)
+  are left out in staging.
+- GLib's recipe: its check lacked `<stdio.h>`; `COPYING` is a link to the
+  licence. Mesa's check links by `c++` (libGL is partly C++). gtk-build's
+  HarfBuzz builds its GObject library, which Ghostty's bindings link.
+- Ghostty's tree takes the core's `config/ghostty-dolly.patch` first, then
+  the application's, as the session's tree had.
+- xmllint is not built: GLib's resource compiler would run it by fork. As
+  root it finds no program on PATH without an execute bit, which Dolly's
+  files do not carry; without it, it keeps the blanks of Ghostty's interface
+  files and says so (as in the session).
+- `threads@0` allows 32 Workers a process (64 in all, unchanged): GLib's task
+  pool holds about 11 threads at startup, and in Firefox Ghostty's renderer
+  and IO threads came at that peak, past 16, and its terminal failed with
+  `EAGAIN` (`error.SystemResources`).
 
 ## GLib in Dolly (2026-10-15, 09:00-10:30, probe in `work/gtk`)
 

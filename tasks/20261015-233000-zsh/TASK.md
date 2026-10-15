@@ -1,6 +1,6 @@
 # zsh, ported to spawn
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 75
 - TAGS: demo
 
@@ -10,18 +10,25 @@ want you to start porting zsh. Patch it to use spawn instead of fork."
 Done when the `zsh` package builds in a round and
 `demos/zsh/test/zsh-browser.mjs` passes in Chrome and Firefox.
 
-## State (2026-10-15, 23:50)
+## Closed (2026-10-16, 05:30)
 
-Ported and run in sessions; committed unbuilt. `demo/zsh` (`1c868cb3`, on
-`demo/gtk`): the package, `zsh-dolly.patch` (spawn, `Src/exec.c` only), the
-outside configure, the test; `4180251c`: libterminfo's `tputs`. Core, on
-`core/gtk-seed`: `7e895970` (`sigsuspend`, `waitpid` with `WCONTINUED`),
-`e4c637b8` (`ICRNL`/`INLCR` at the terminal and on ptys).
+The `zsh` package builds in a round (`demos/zsh/`, on `integrate/ghostty`)
+and `demos/zsh/test/zsh-browser.mjs` passes in Chromium and Firefox. Evidence:
+`work/evidence-2026-10-16/zsh/`.
 
-Left: a round on a seed with `core/gtk-seed` and `demo/gtk` (the binaryen
-package, `cc --dolly-cast-emulation`) builds the package and runs its test.
-Seen once, unexplained: after an ambiguous Tab zsh completed the common
-prefix but showed no list of candidates within twelve seconds.
+- A spawned zsh (a function or builtin in a pipeline, `( ... )`, `$(...)`) is
+  given what a forked child has: the shell writes its parameters, functions,
+  aliases and options to a file, as `typeset -p`, `functions`, `alias -L`
+  and `setopt` print them, and the new zsh sources and removes it before its
+  code (`Src/init.c`). Before, `$(func)` found no function and `$(... $var)`
+  no unexported variable. With `compinit` loaded (80 KB of state) a `$(...)`
+  took 14 ms in Chromium, 10 ms without.
+- zsh asks for `_GNU_SOURCE` only on Linux and musl; Dolly's libc now has
+  `setresuid` and `setresgid` (declared under it): configure and Dolly's
+  build define it, and zsh uses them.
+- The Tab seen once: zsh's `LIST_AMBIGUOUS` (on by default) inserts the
+  common prefix at the first Tab and lists at the second, with and without
+  `compinit`. Not a defect.
 
 ## What the sessions showed (2026-10-15, 21:30-23:45)
 
