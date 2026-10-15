@@ -12,7 +12,7 @@ with its own renderer, running on Dolly's X server.
 Done when `ghostty` opens a window on Dolly's X server and a shell runs in it,
 with a browser test.
 
-## State (2026-10-15, 09:10): X11 runs; Ghostty's build.zig builds libghostty-vt; GTK is next
+## State (2026-10-15, 22:00): Ghostty's window runs a shell in a session; recipes and the browser test are next
 
 Each step needs the one before it; details from memory are marked.
 
@@ -225,3 +225,45 @@ Each step needs the one before it; details from memory are marked.
   (`-lGL`, `--undefined=glXGetProcAddressARB`) are added there. Owed: a way
   for the link to know (an object in GObject that records the need, as
   host-module clients record theirs, is the candidate).
+
+## Ghostty runs (2026-10-15, 18:00-22:00)
+
+Ghostty's GTK application ran on Xsdl in a session: libadwaita's window,
+the OpenGL renderer on Mesa (GL 4.3 core by `MESA_GL_VERSION_OVERRIDE`,
+shaders compiled by softpipe), `/bin/slop` on a pseudo-terminal, and a
+command typed through the X server (an XTEST client in the session) answered
+in the window. Screenshots and the session's scripts:
+`work/evidence-2026-10-15/ghostty-x11/` (`ghostty-typed.png`).
+
+What it took after the build, in order met:
+- Zig: no libc++/libunwind of its own for Emscripten (cc links Dolly's),
+  `std.c.T` and `HOST_NAME_MAX` for Emscripten, and link errors reported
+  (a failed `cc` link had counted as success) (`core/zig-threads`
+  `0027eddf`; the link-error part type-checked on the host only).
+- Ghostty (`demo/ghostty-gtk` `ed98efd1`): Emscripten in its platform
+  switches; no GTK pre-exec hook (no fork); Dear ImGui's GL backend for
+  desktop GL; GTK's GL context through `glXGetProcAddressARB` (glad opens
+  `libGL.so.1` otherwise); the shell's signals reset by spawn attributes,
+  without which Dolly's `posix_spawn` refuses (`ENOTSUP`) because Ghostty
+  ignores `SIGPIPE`.
+- libadwaita static: five GTK builder helpers it copies renamed at its
+  build (`-D_gtk_builder_check_parent=adw_gtk_builder_check_parent` and the
+  rest); its UI and stylesheet resources kept by exporting
+  `adw_get_resource` and `adw_stylesheet_get_resource` (wasm-ld runs a
+  constructor only of an object something keeps; `--undefined` extracts but
+  does not keep).
+- libepoxy with EGL as well as GLX (GTK refers to EGL; at run time it only
+  probes for libEGL). `xmllint` (libxml2 2.13.5, static) for GLib's
+  resource compiler.
+- pty: termios on a master reaches the pair's mode, as on Linux; Ghostty
+  sets `IUTF8` through the master (`core/pty-master` `952a09de`, pty and
+  tmux tests pass in both browsers). The session ran on the older kernel
+  with that step made non-fatal in Ghostty.
+- A long session runs out of memory: the filesystem is in Wasm memory, and
+  this one held 5 GB of build trees; Ghostty's 16 MiB thread stacks and
+  `zig` itself then failed to start (`EAGAIN`, "Out of memory"). Removing
+  the build trees fixed it. Recipes should delete their build trees.
+
+Next: recipes (libadwaita, Mesa, libxml2, blueprint-compiler, Ghostty over
+`gtk-build`), a seed round with `core/gtk-seed`, `core/zig-threads` and
+`core/pty-master`, and a browser test that types into Ghostty.
