@@ -100,3 +100,16 @@ Each step needs the one before it; details from memory are marked.
   wasm64 program and keeps its `dolly.process` sections. Owed: Binaryen
   built in Dolly, the step in the toolchain, and dso@0's FFI calling such a
   program in the canonical signature.
+- Binaryen 133 builds in Dolly with its own CMake (`cmake` package in a
+  `xorg-server-build` session, `--target wasm-opt` in 461 s at `-j4`, 24 MB),
+  after removing two flags Dolly's `cc` refuses (`-fno-omit-frame-pointer`,
+  `-fuse-ld=lld`: the next round's seed gaps). It runs single-threaded
+  (`BINARYEN_CORES=1`).
+- Measured in one session (11:00): GLib's check program, linked as usual,
+  traps; passed through `wasm-opt --fpcast-emu` it runs: a `G_DEFINE_TYPE`
+  class, a signal to a handler of fewer parameters than the signal passes,
+  `g_list_sort` through its cast, a GThread, a main loop with an idle and a
+  timeout, and GIO reading a file ("GLIB-CHECK-OK"). Next: dso@0's FFI must
+  call a cast-emulated program's table entries in its signature (every
+  argument an i64: i32 and f32 bits zero-extended, f64 bits; 16 of them; an
+  i64 result), which GObject's generic marshaller needs.
