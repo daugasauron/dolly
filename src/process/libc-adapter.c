@@ -865,15 +865,15 @@ int res_query(const char *name, int class, int type, unsigned char *answer, int 
  * replace the generic one without a runtime-specific linker exception.
  */
 /* Dolly keeps no thread names; the threaded libc declares this and has none. */
-__attribute__((weak)) int pthread_getname_np(pthread_t thread, char *name, size_t size) {
+__attribute__((__weak__)) int pthread_getname_np(pthread_t thread, char *name, size_t size) {
   (void)thread; (void)name; (void)size; return ENOSYS;
 }
 /* A thread runs wherever the browser puts its Worker: no affinity to read. */
-__attribute__((weak)) int pthread_getaffinity_np(pthread_t thread, size_t size, cpu_set_t *set) {
+__attribute__((__weak__)) int pthread_getaffinity_np(pthread_t thread, size_t size, cpu_set_t *set) {
   (void)thread; (void)size; (void)set; return ENOSYS;
 }
 /* CPU_COUNT's helper, which the threaded libc lacks. */
-__attribute__((weak)) int __sched_cpucount(size_t size, const cpu_set_t *set) {
+__attribute__((__weak__)) int __sched_cpucount(size_t size, const cpu_set_t *set) {
   const unsigned char *bytes = (const unsigned char *)set;
   int count = 0;
   for (size_t index = 0; index < size; ++index) count += __builtin_popcount(bytes[index]);
@@ -897,33 +897,33 @@ int ftw(const char *path, int (*callback)(const char *, const struct stat *, int
 #ifndef __EMSCRIPTEN_PTHREADS__
 __attribute__((weak)) pthread_t pthread_self(void) { return (pthread_t)(uintptr_t)1; }
 
-__attribute__((weak)) int pthread_condattr_init(pthread_condattr_t *attribute) {
+__attribute__((__weak__)) int pthread_condattr_init(pthread_condattr_t *attribute) {
   (void)attribute; return ENOSYS;
 }
-__attribute__((weak)) int pthread_condattr_destroy(pthread_condattr_t *attribute) {
+__attribute__((__weak__)) int pthread_condattr_destroy(pthread_condattr_t *attribute) {
   (void)attribute; return ENOSYS;
 }
-__attribute__((weak)) int pthread_condattr_setclock(pthread_condattr_t *attribute,
+__attribute__((__weak__)) int pthread_condattr_setclock(pthread_condattr_t *attribute,
                                                   clockid_t clock) {
   (void)attribute; (void)clock; return ENOSYS;
 }
-__attribute__((weak)) int pthread_setname_np(pthread_t thread, const char *name) {
+__attribute__((__weak__)) int pthread_setname_np(pthread_t thread, const char *name) {
   (void)thread; (void)name; return ENOSYS;
 }
-__attribute__((weak)) int pthread_getschedparam(pthread_t thread, int *policy,
+__attribute__((__weak__)) int pthread_getschedparam(pthread_t thread, int *policy,
                                                struct sched_param *parameter) {
   (void)thread; (void)policy; (void)parameter; return ENOSYS;
 }
-__attribute__((weak)) int pthread_setschedparam(pthread_t thread, int policy,
+__attribute__((__weak__)) int pthread_setschedparam(pthread_t thread, int policy,
                                                const struct sched_param *parameter) {
   (void)thread; (void)policy; (void)parameter; return ENOSYS;
 }
 int sched_get_priority_max(int policy) { (void)policy; errno = ENOSYS; return -1; }
 int sched_get_priority_min(int policy) { (void)policy; errno = ENOSYS; return -1; }
-__attribute__((weak)) int sem_init(sem_t *semaphore, int shared, unsigned value) {
+__attribute__((__weak__)) int sem_init(sem_t *semaphore, int shared, unsigned value) {
   (void)semaphore; (void)shared; (void)value; errno = ENOSYS; return -1;
 }
-__attribute__((weak)) int sem_destroy(sem_t *semaphore) {
+__attribute__((__weak__)) int sem_destroy(sem_t *semaphore) {
   (void)semaphore; errno = ENOSYS; return -1;
 }
 /* A serial process has one thread, so a cleanup handler runs only when popped. */
