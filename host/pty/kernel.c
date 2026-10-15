@@ -186,19 +186,20 @@ static uint16_t pty_poll(const dolly_kernel_socket *shared, uint16_t requested) 
   return (events & requested) | (!reader->open ? DOLLY_PROCESS_POLL_HANGUP : 0);
 }
 
-/* The slave is a terminal; the master is not one. */
+/* The slave is a terminal; the master is not one. The pair has one mode and
+ * one size, which termios on the master reaches, as on Linux: a terminal
+ * emulator sets its slave's mode that way. */
 static int64_t pty_terminal(dolly_kernel_socket *shared, const dolly_process_terminal_request *request,
                             dolly_process_terminal_response *response) {
   pty_end *end = (pty_end *)shared;
   dolly_pty *pty = end->pty;
   const int slave = end == &pty->slave;
-  if (request->operation == DOLLY_PROCESS_TERMINAL_ISATTY) {
-    response->value = slave;
-    return 0;
-  }
-  if (!slave) return -ENOTTY;
   switch (request->operation) {
+    case DOLLY_PROCESS_TERMINAL_ISATTY:
+      response->value = slave;
+      return 0;
     case DOLLY_PROCESS_TERMINAL_READ: {
+      if (!slave) return -ENOTTY;
       unsigned char byte;
       if (dolly_kernel_line_take(&pty->line, &byte, 1, 1) == 1 || take(end, &byte, 1) == 1) {
         response->value = byte;
