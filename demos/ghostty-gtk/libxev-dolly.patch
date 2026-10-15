@@ -1,0 +1,1412 @@
+--- a/src/backend/poll.zig
++++ b/src/backend/poll.zig
+@@ -0,0 +1,997 @@
++//! The poll(2) backend, for systems with POSIX poll and neither epoll nor
++//! kqueue, such as Dolly (wasm64-emscripten). It is the epoll backend's
++//! loop with the epoll set replaced by the loop's own registry of armed
++//! completions, which each tick hands to poll(2). A completion, not a file
++//! descriptor, is the registry's key, so several may wait on one descriptor
++//! and nothing is dup'ed. There is no thread pool.
++const std = @import("std");
++const builtin = @import("builtin");
++const assert = std.debug.assert;
++const posix = std.posix;
++const xev_posix = @import("../posix.zig");
++const net = xev_posix.net;
++const queue = @import("../queue.zig");
++const heap = @import("../heap.zig");
++
++const looppkg = @import("../loop.zig");
++const Options = looppkg.Options;
++const RunMode = looppkg.RunMode;
++const Callback = looppkg.Callback(@This());
++const CallbackAction = looppkg.CallbackAction;
++const CompletionState = looppkg.CompletionState;
++const noopCallback = looppkg.NoopCallback(@This());
++
++pub fn available() bool {
++    return true;
++}
++
++pub const Loop = struct {
++    const TimerHeap = heap.Intrusive(Operation.Timer, void, Operation.Timer.less);
++
++    /// The completions waiting for their descriptor, what epoll keeps in
++    /// the kernel.
++    armed: Registry = .{},
++
++    /// The number of active completions. This DOES NOT include completions that
++    /// are queued in the submissions queue.
++    active: usize = 0,
++
++    /// Our queue of submissions that we want to enqueue on the next tick.
++    submissions: queue.Intrusive(Completion) = .{},
++
++    /// The queue for completions to delete from the registry.
++    deletions: queue.Intrusive(Completion) = .{},
++
++    /// Heap of timers.
++    timers: TimerHeap = .{ .context = {} },
++
++    /// Cached time
++    cached_now: posix.timespec,
++
++    flags: packed struct {
++        /// Whether we're in a run or not (to prevent nested runs).
++        in_run: bool = false,
++
++        /// Whether our loop is in a stopped state or not.
++        stopped: bool = false,
++    } = .{},
++
++    pub fn init(options: Options) !Loop {
++        if (options.thread_pool != null) return error.ThreadPoolUnsupported;
++        var res: Loop = .{ .cached_now = undefined };
++        res.update_now();
++        return res;
++    }
++
++    pub fn deinit(self: *Loop) void {
++        _ = self;
++    }
++
++    /// Run the event loop. See RunMode documentation for details on modes.
++    /// Once the loop is run, the pointer MUST remain stable.
++    pub fn run(self: *Loop, mode: RunMode) !void {
++        switch (mode) {
++            .no_wait => try self.tick(0),
++            .once => try self.tick(1),
++            .until_done => while (!self.done()) try self.tick(1),
++        }
++    }
++
++    fn done(self: *Loop) bool {
++        return self.flags.stopped or (self.active == 0 and
++            self.submissions.empty());
++    }
++
++    /// Stop the loop. This can only be called from the main thread.
++    /// This will stop the loop forever. Future ticks will do nothing.
++    pub fn stop(self: *Loop) void {
++        self.flags.stopped = true;
++    }
++
++    /// Returns true if the loop is stopped. This may mean there
++    /// are still pending completions to be processed.
++    pub fn stopped(self: *Loop) bool {
++        return self.flags.stopped;
++    }
++
++    /// Add a completion to the loop.
++    pub fn add(self: *Loop, completion: *Completion) void {
++        switch (completion.flags.state) {
++            // Already adding, forget about it.
++            .adding => return,
++
++            // If it is dead we're good. If we're deleting we'll ignore it
++            // while we're processing.
++            .dead,
++            .deleting,
++            => {},
++
++            .active => unreachable,
++        }
++        completion.flags.state = .adding;
++
++        // We just add the completion to the queue. Failures can happen
++        // at tick time...
++        self.submissions.push(completion);
++    }
++
++    /// Delete a completion from the loop.
++    pub fn delete(self: *Loop, completion: *Completion) void {
++        switch (completion.flags.state) {
++            // Already deleted
++            .deleting => return,
++
++            // If we're active then we will stop it and remove from the registry.
++            // If we're adding then we'll ignore it when adding.
++            .dead, .active, .adding => {},
++        }
++        completion.flags.state = .deleting;
++
++        self.deletions.push(completion);
++    }
++
++    /// Returns the "loop" time in milliseconds, as epoll's.
++    pub fn now(self: *Loop) i64 {
++        // If anything overflows we just return the max value.
++        const max = std.math.maxInt(i64);
++
++        // Calculate all the values, being careful about overflows in order
++        // to just return the maximum value.
++        const sec = std.math.mul(isize, self.cached_now.sec, std.time.ms_per_s) catch return max;
++        const nsec = @divFloor(self.cached_now.nsec, std.time.ns_per_ms);
++        return std.math.lossyCast(i64, sec +| nsec);
++    }
++
++    /// Update the cached time.
++    pub fn update_now(self: *Loop) void {
++        var ts: posix.timespec = undefined;
++        if (posix.errno(posix.system.clock_gettime(.MONOTONIC, &ts)) == .SUCCESS) {
++            self.cached_now = ts;
++        }
++    }
++
++    /// Add a timer to the loop. The timer will execute in "next_ms". This
++    /// is oneshot: the timer will not repeat. To repeat a timer, either
++    /// schedule another in your callback or return rearm from the callback.
++    pub fn timer(
++        self: *Loop,
++        c: *Completion,
++        next_ms: u64,
++        userdata: ?*anyopaque,
++        comptime cb: Callback,
++    ) void {
++        c.* = .{
++            .op = .{
++                .timer = .{
++                    .next = self.timer_next(next_ms),
++                },
++            },
++            .userdata = userdata,
++            .callback = cb,
++        };
++
++        self.add(c);
++    }
++
++    /// See io_uring.timer_reset for docs.
++    pub fn timer_reset(
++        self: *Loop,
++        c: *Completion,
++        c_cancel: *Completion,
++        next_ms: u64,
++        userdata: ?*anyopaque,
++        comptime cb: Callback,
++    ) void {
++        switch (c.flags.state) {
++            .dead, .deleting => {
++                self.timer(c, next_ms, userdata, cb);
++                return;
++            },
++
++            // Adding state we can just modify the metadata and return
++            // since the timer isn't in the heap yet.
++            .adding => {
++                c.op.timer.next = self.timer_next(next_ms);
++                c.userdata = userdata;
++                c.callback = cb;
++                return;
++            },
++
++            .active => {
++                // Update the reset time for the timer to the desired time
++                // along with all the callbacks.
++                c.op.timer.reset = self.timer_next(next_ms);
++                c.userdata = userdata;
++                c.callback = cb;
++
++                // If the cancellation is active, we assume its for this timer
++                // and do nothing.
++                if (c_cancel.state() == .active) return;
++                assert(c_cancel.state() == .dead and c.state() == .active);
++                c_cancel.* = .{ .op = .{ .cancel = .{ .c = c } } };
++                self.add(c_cancel);
++            },
++        }
++    }
++
++    fn timer_next(self: *Loop, next_ms: u64) posix.timespec {
++        // Get the timestamp of the absolute time that we'll execute this timer.
++        // There are lots of failure scenarios here in math. If we see any
++        // of them we just use the maximum value.
++        const max: posix.timespec = .{
++            .sec = std.math.maxInt(isize),
++            .nsec = std.math.maxInt(isize),
++        };
++
++        const next_s = std.math.cast(isize, next_ms / std.time.ms_per_s) orelse
++            return max;
++        const next_ns = std.math.cast(
++            isize,
++            (next_ms % std.time.ms_per_s) * std.time.ns_per_ms,
++        ) orelse return max;
++
++        return .{
++            .sec = std.math.add(isize, self.cached_now.sec, next_s) catch
++                return max,
++            .nsec = std.math.add(isize, self.cached_now.nsec, next_ns) catch
++                return max,
++        };
++    }
++
++    /// Tick through the event loop once, waiting for at least "wait" completions
++    /// to be processed by the loop itself.
++    pub fn tick(self: *Loop, wait: u32) !void {
++        // If we're stopped then the loop is fully over.
++        if (self.flags.stopped) return;
++
++        // We can't nest runs.
++        if (self.flags.in_run) return error.NestedRunsNotAllowed;
++        self.flags.in_run = true;
++        defer self.flags.in_run = false;
++
++        // Submit all the submissions. We copy the submission queue so that
++        // any resubmits don't cause an infinite loop.
++        var wait_rem: usize = @intCast(wait);
++        var queued = self.submissions;
++        self.submissions = .{};
++        while (queued.pop()) |c| {
++            // We ignore any completions that aren't in the adding state.
++            // This usually means that we switched them to be deleted or
++            // something.
++            if (c.flags.state != .adding) continue;
++
++            // These operations happen synchronously. Ensure they are
++            // decremented from wait_rem.
++            switch (c.op) {
++                .cancel,
++                .shutdown,
++                .timer,
++                => wait_rem -|= 1,
++                else => {},
++            }
++
++            self.start(c);
++        }
++
++        // Handle all deletions so we don't wait for them.
++        while (self.deletions.pop()) |c| {
++            if (c.flags.state != .deleting) continue;
++            self.stop_completion(c);
++        }
++
++        // If we have no active handles then we return no matter what.
++        if (self.active == 0) {
++            // We still have to update our concept of "now".
++            self.update_now();
++            return;
++        }
++
++        // Wait and process events. We only do this if we have any active.
++        var fds: [Registry.capacity]posix.pollfd = undefined;
++        var waiting: [Registry.capacity]*Completion = undefined;
++        while (self.active > 0 and (wait == 0 or wait_rem > 0)) {
++            self.update_now();
++            const now_timer: Operation.Timer = .{ .next = self.cached_now };
++
++            // Run our expired timers
++            while (self.timers.peek()) |t| {
++                if (!Operation.Timer.less({}, t, &now_timer)) break;
++
++                // Remove the timer
++                assert(self.timers.deleteMin().? == t);
++
++                // Mark completion as done
++                const c = t.c;
++                c.flags.state = .dead;
++                self.active -= 1;
++
++                // Lower our remaining count
++                wait_rem -|= 1;
++
++                // Invoke
++                const action = c.callback(c.userdata, self, c, .{
++                    .timer = .expiration,
++                });
++                switch (action) {
++                    .disarm => {},
++                    .rearm => self.start(c),
++                }
++            }
++
++            // Determine our next timeout based on the timers
++            const timeout: i32 = if (wait_rem == 0) 0 else timeout: {
++                // If we have a timer, we want to set the timeout to our next
++                // timer value. If we have no timer, we wait forever.
++                const t = self.timers.peek() orelse break :timeout -1;
++
++                // Determine the time in milliseconds.
++                const ms_now = @as(u64, @intCast(self.cached_now.sec)) * std.time.ms_per_s +
++                    @as(u64, @intCast(self.cached_now.nsec)) / std.time.ns_per_ms;
++                const ms_next = @as(u64, @intCast(t.next.sec)) * std.time.ms_per_s +
++                    @as(u64, @intCast(t.next.nsec)) / std.time.ns_per_ms;
++                break :timeout std.math.lossyCast(i32, ms_next -| ms_now);
++            };
++
++            // The registry as poll(2) takes it, in the same order.
++            var count: usize = 0;
++            var next = self.armed.head;
++            while (next) |c| : (next = c.armed_next) {
++                fds[count] = .{ .fd = c.fd().?, .events = c.events(), .revents = 0 };
++                waiting[count] = c;
++                count += 1;
++            }
++
++            const ready = try posix.poll(fds[0..count], timeout);
++
++            // Process all our events and invoke their completion handlers.
++            // A callback may delete other completions, which stay armed
++            // until the next tick's deletions; or close their descriptor,
++            // so a completion that is no longer active is skipped.
++            for (fds[0..count], waiting[0..count]) |pfd, c| {
++                if (pfd.revents == 0 or c.flags.state != .active) continue;
++
++                // Disarmed before the callback, which may reuse c.
++                self.armed.remove(c);
++                c.flags.state = .dead;
++
++                const res = c.perform();
++                switch (c.callback(c.userdata, self, c, res)) {
++                    .disarm => self.active -= 1,
++                    .rearm => {
++                        c.flags.state = .active;
++                        self.armed.insert(c);
++                    },
++                }
++            }
++
++            if (wait == 0) break;
++            wait_rem -|= ready;
++        }
++    }
++
++    fn start(self: *Loop, completion: *Completion) void {
++        const res_: ?Result = switch (completion.op) {
++            .noop => {
++                completion.flags.state = .dead;
++                return;
++            },
++
++            .cancel => |v| res: {
++                // We stop immediately. We only stop if we are in the
++                // "adding" state because cancellation or any other action
++                // means we're complete already.
++                if (completion.flags.state == .adding) {
++                    if (v.c.op == .cancel) @panic("cannot cancel a cancellation");
++                    self.stop_completion(v.c);
++                }
++
++                // We always run timers
++                break :res .{ .cancel = {} };
++            },
++
++            .connect => |*v| res: {
++                if (xev_posix.connect(v.socket, &v.addr.any, v.addr.getOsSockLen())) {
++                    break :res .{ .connect = {} };
++                } else |err| switch (err) {
++                    // If we would block then we wait for the socket to be writable.
++                    error.WouldBlock => {},
++
++                    // Any other error we just return immediately
++                    else => break :res .{ .connect = err },
++                }
++
++                break :res if (self.arm(completion)) null else |err| .{ .connect = err };
++            },
++
++            .accept => res: {
++                break :res if (self.arm(completion)) null else |err| .{ .accept = err };
++            },
++
++            .read => res: {
++                break :res if (self.arm(completion)) null else |err| .{ .read = err };
++            },
++
++            .pread => res: {
++                break :res if (self.arm(completion)) null else |err| .{ .pread = err };
++            },
++
++            .write => res: {
++                break :res if (self.arm(completion)) null else |err| .{ .write = err };
++            },
++
++            .pwrite => res: {
++                break :res if (self.arm(completion)) null else |err| .{ .pwrite = err };
++            },
++
++            .send => res: {
++                break :res if (self.arm(completion)) null else |err| .{ .send = err };
++            },
++
++            .recv => res: {
++                break :res if (self.arm(completion)) null else |err| .{ .recv = err };
++            },
++
++            .poll => res: {
++                break :res if (self.arm(completion)) null else |err| .{ .poll = err };
++            },
++
++            .close => |v| res: {
++                xev_posix.close(v.fd);
++                break :res .{ .close = {} };
++            },
++
++            .shutdown => |v| res: {
++                const how: i32 = switch (v.how) {
++                    .recv => posix.SHUT.RD,
++                    .send => posix.SHUT.WR,
++                    .both => posix.SHUT.RDWR,
++                };
++                break :res .{ .shutdown = switch (posix.errno(posix.system.shutdown(v.socket, how))) {
++                    .SUCCESS => {},
++                    .NOTCONN => error.SocketNotConnected,
++                    .NOBUFS => error.SystemResources,
++                    else => |err| posix.unexpectedErrno(err),
++                } };
++            },
++
++            .timer => |*v| res: {
++                // Point back to completion since we need this. In the future
++                // we want to use @fieldParentPtr but https://github.com/ziglang/zig/issues/6611
++                v.c = completion;
++
++                // Insert the timer into our heap.
++                self.timers.insert(v);
++
++                // We always run timers
++                break :res null;
++            },
++        };
++
++        // If we failed to add the completion then we call the callback
++        // immediately and mark the error.
++        if (res_) |res| {
++            completion.flags.state = .dead;
++
++            switch (completion.callback(
++                completion.userdata,
++                self,
++                completion,
++                res,
++            )) {
++                .disarm => {},
++
++                // If we rearm then we requeue this. Due to the way that tick works,
++                // this won't try to re-add immediately it won't happen until the
++                // next tick.
++                .rearm => self.add(completion),
++            }
++
++            return;
++        }
++
++        // Mark the completion as active if we reached this point
++        completion.flags.state = .active;
++
++        // Increase our active count
++        self.active += 1;
++    }
++
++    /// Registers a completion to wait for its descriptor.
++    fn arm(self: *Loop, completion: *Completion) RegistryError!void {
++        if (self.armed.len == Registry.capacity) return error.UserResourceLimitReached;
++        self.armed.insert(completion);
++    }
++
++    fn stop_completion(self: *Loop, completion: *Completion) void {
++        // A deleted completion is in the deleting state, armed or not.
++        if (completion.fd() != null) {
++            if (self.armed.contains(completion)) {
++                self.armed.remove(completion);
++                self.active -= 1;
++            }
++            completion.flags.state = .dead;
++            return;
++        }
++
++        switch (completion.op) {
++            .timer => |*v| {
++                const c = v.c;
++
++                if (c.flags.state == .active) {
++                    // Timers needs to be removed from the timer heap.
++                    self.timers.remove(v);
++                }
++
++                // If the timer was never fired, we need to fire it with
++                // the cancellation notice.
++                if (c.flags.state != .dead) {
++                    // If we have reset set AND we got a cancellation result,
++                    // that means that we were canceled so that we can update
++                    // our expiration time.
++                    if (v.reset) |r| {
++                        v.next = r;
++                        v.reset = null;
++                        self.active -= 1;
++                        self.start(c);
++                        return;
++                    }
++
++                    const action = c.callback(c.userdata, self, c, .{ .timer = .cancel });
++                    switch (action) {
++                        .disarm => {},
++                        .rearm => {
++                            self.active -= 1;
++                            self.start(c);
++                            return;
++                        },
++                    }
++                }
++            },
++
++            else => {},
++        }
++
++        // Decrement the active count so we know how many are running for
++        // .until_done run semantics.
++        if (completion.flags.state == .active) self.active -= 1;
++
++        // Mark the completion as done
++        completion.flags.state = .dead;
++    }
++};
++
++/// An intrusive doubly linked list through the completions' armed fields.
++const Registry = struct {
++    /// poll(2) is given at most this many descriptors.
++    const capacity = 1024;
++
++    head: ?*Completion = null,
++    len: usize = 0,
++
++    fn insert(self: *Registry, c: *Completion) void {
++        c.armed_prev = null;
++        c.armed_next = self.head;
++        if (self.head) |head| head.armed_prev = c;
++        self.head = c;
++        self.len += 1;
++    }
++
++    fn contains(self: *const Registry, c: *const Completion) bool {
++        return c.armed_prev != null or self.head == c;
++    }
++
++    fn remove(self: *Registry, c: *Completion) void {
++        if (c.armed_prev) |prev| prev.armed_next = c.armed_next else self.head = c.armed_next;
++        if (c.armed_next) |next| next.armed_prev = c.armed_prev;
++        c.armed_prev = null;
++        c.armed_next = null;
++        self.len -= 1;
++    }
++};
++
++pub const Completion = struct {
++    /// Operation to execute. This is only safe to read BEFORE the completion
++    /// is queued. After being queued (with "add"), the operation may change.
++    op: Operation = .{ .noop = {} },
++
++    /// Userdata and callback for when the completion is finished.
++    userdata: ?*anyopaque = null,
++    callback: Callback = noopCallback,
++
++    //---------------------------------------------------------------
++    // Internal fields
++
++    flags: packed struct {
++        /// Watch state of this completion. We use this to determine whether
++        /// we're active, adding, deleting, etc. This lets us add and delete
++        /// multiple times before a loop tick and handle the state properly.
++        state: State = .dead,
++    } = .{},
++
++    /// Intrusive queue field
++    next: ?*Completion = null,
++
++    /// The registry's links, while the completion waits for its descriptor.
++    armed_prev: ?*Completion = null,
++    armed_next: ?*Completion = null,
++
++    const State = enum(u3) {
++        /// completion is not part of any loop
++        dead = 0,
++
++        /// completion is in the submission queue
++        adding = 1,
++
++        /// completion is in the deletion queue
++        deleting = 2,
++
++        /// completion is in the registry or the timer heap
++        active = 3,
++    };
++
++    /// Returns the state of this completion, as epoll's.
++    pub fn state(self: Completion) CompletionState {
++        return switch (self.flags.state) {
++            .dead => .dead,
++            .adding, .deleting, .active => .active,
++        };
++    }
++
++    /// Perform the operation associated with this completion. This will
++    /// perform the full blocking operation for the completion.
++    fn perform(self: *Completion) Result {
++        return switch (self.op) {
++            // This should never happen because we always do these synchronously
++            // or in another location.
++            .cancel,
++            .noop,
++            .shutdown,
++            .timer,
++            .close,
++            => unreachable,
++
++            .accept => |*op| .{
++                .accept = if (xev_posix.accept(
++                    op.socket,
++                    &op.addr,
++                    &op.addr_size,
++                    op.flags,
++                )) |v|
++                    v
++                else |_|
++                    error.Unknown,
++            },
++
++            .connect => |*op| .{
++                .connect = if (xev_posix.getsockoptError(op.socket)) {} else |err| err,
++            },
++
++            .poll => .{ .poll = {} },
++
++            .read => |*op| res: {
++                const n_ = switch (op.buffer) {
++                    .slice => |v| xev_posix.read(op.fd, v),
++                    .array => |*v| xev_posix.read(op.fd, v),
++                };
++
++                break :res .{
++                    .read = if (n_) |n|
++                        if (n == 0) error.EOF else n
++                    else |err|
++                        err,
++                };
++            },
++
++            .pread => |*op| res: {
++                const n_ = switch (op.buffer) {
++                    .slice => |v| xev_posix.pread(op.fd, v, op.offset),
++                    .array => |*v| xev_posix.pread(op.fd, v, op.offset),
++                };
++
++                break :res .{
++                    .pread = if (n_) |n|
++                        if (n == 0) error.EOF else n
++                    else |err|
++                        err,
++                };
++            },
++
++            .write => |*op| .{
++                .write = switch (op.buffer) {
++                    .slice => |v| xev_posix.write(op.fd, v),
++                    .array => |*v| xev_posix.write(op.fd, v.array[0..v.len]),
++                },
++            },
++
++            .pwrite => |*op| .{
++                .pwrite = switch (op.buffer) {
++                    .slice => |v| xev_posix.pwrite(op.fd, v, op.offset),
++                    .array => |*v| xev_posix.pwrite(op.fd, v.array[0..v.len], op.offset),
++                },
++            },
++
++            .send => |*op| .{
++                .send = switch (op.buffer) {
++                    .slice => |v| xev_posix.send(op.fd, v, 0),
++                    .array => |*v| xev_posix.send(op.fd, v.array[0..v.len], 0),
++                },
++            },
++
++            .recv => |*op| res: {
++                const n_ = switch (op.buffer) {
++                    .slice => |v| xev_posix.recv(op.fd, v, 0),
++                    .array => |*v| xev_posix.recv(op.fd, v, 0),
++                };
++
++                break :res .{
++                    .recv = if (n_) |n|
++                        if (n == 0) error.EOF else n
++                    else |err|
++                        err,
++                };
++            },
++        };
++    }
++
++    /// Returns the fd the completion waits on (if any).
++    fn fd(self: *Completion) ?posix.fd_t {
++        return switch (self.op) {
++            .accept => |v| v.socket,
++            .connect => |v| v.socket,
++            .poll => |v| v.fd,
++            .read => |v| v.fd,
++            .pread => |v| v.fd,
++            .recv => |v| v.fd,
++            .write => |v| v.fd,
++            .pwrite => |v| v.fd,
++            .send => |v| v.fd,
++
++            .noop,
++            .cancel,
++            .close,
++            .shutdown,
++            .timer,
++            => null,
++        };
++    }
++
++    /// The poll(2) events the completion waits for.
++    fn events(self: *Completion) i16 {
++        return switch (self.op) {
++            .accept, .read, .pread, .recv => posix.POLL.IN,
++            .connect, .write, .pwrite, .send => posix.POLL.OUT,
++            .poll => |v| @intCast(v.events),
++            else => unreachable,
++        };
++    }
++};
++
++pub const OperationType = enum {
++    noop,
++    cancel,
++    accept,
++    connect,
++    poll,
++    read,
++    pread,
++    write,
++    pwrite,
++    send,
++    recv,
++    close,
++    shutdown,
++    timer,
++};
++
++/// The result type based on the operation type. For a callback, the
++/// result tag will ALWAYS match the operation tag.
++pub const Result = union(OperationType) {
++    noop: void,
++    cancel: CancelError!void,
++    accept: AcceptError!posix.socket_t,
++    connect: ConnectError!void,
++    poll: PollError!void,
++    read: ReadError!usize,
++    pread: ReadError!usize,
++    write: WriteError!usize,
++    pwrite: WriteError!usize,
++    send: WriteError!usize,
++    recv: ReadError!usize,
++    close: CloseError!void,
++    shutdown: ShutdownError!void,
++    timer: TimerError!TimerTrigger,
++};
++
++/// All the supported operations of this event loop, as epoll's but for
++/// sendmsg and recvmsg.
++pub const Operation = union(OperationType) {
++    noop: void,
++
++    cancel: struct {
++        c: *Completion,
++    },
++
++    accept: struct {
++        socket: posix.socket_t,
++        addr: posix.sockaddr = undefined,
++        addr_size: posix.socklen_t = @sizeOf(posix.sockaddr),
++        flags: u32 = posix.SOCK.CLOEXEC,
++    },
++
++    connect: struct {
++        socket: posix.socket_t,
++        addr: net.Address,
++    },
++
++    /// Poll for events but do not perform any operations on them being
++    /// ready. The "events" field are a OR-ed list of POLL events.
++    poll: struct {
++        fd: posix.fd_t,
++        events: u32,
++    },
++
++    read: struct {
++        fd: posix.fd_t,
++        buffer: ReadBuffer,
++    },
++
++    pread: struct {
++        fd: posix.fd_t,
++        buffer: ReadBuffer,
++        offset: u64,
++    },
++
++    write: struct {
++        fd: posix.fd_t,
++        buffer: WriteBuffer,
++    },
++
++    pwrite: struct {
++        fd: posix.fd_t,
++        buffer: WriteBuffer,
++        offset: u64,
++    },
++
++    send: struct {
++        fd: posix.fd_t,
++        buffer: WriteBuffer,
++    },
++
++    recv: struct {
++        fd: posix.fd_t,
++        buffer: ReadBuffer,
++    },
++
++    close: struct {
++        fd: posix.fd_t,
++    },
++
++    shutdown: struct {
++        socket: posix.socket_t,
++        how: ShutdownHow = .both,
++    },
++
++    timer: Timer,
++
++    const Timer = struct {
++        /// The absolute time to fire this timer next.
++        next: posix.timespec,
++
++        /// Only used internally. If this is non-null and timer is
++        /// CANCELLED, then the timer is rearmed automatically with this
++        /// as the next time. The callback will not be called on the
++        /// cancellation.
++        reset: ?posix.timespec = null,
++
++        /// Internal heap fields.
++        heap: heap.IntrusiveField(Timer) = .{},
++
++        /// We point back to completion for now. When issue[1] is fixed,
++        /// we can juse use that from our heap fields.
++        /// [1]: https://github.com/ziglang/zig/issues/6611
++        c: *Completion = undefined,
++
++        fn less(_: void, a: *const Timer, b: *const Timer) bool {
++            return a.ns() < b.ns();
++        }
++
++        /// Returns the nanoseconds of this timer, maxInt(u64) on overflow.
++        fn ns(self: *const Timer) u64 {
++            assert(self.next.sec >= 0);
++            assert(self.next.nsec >= 0);
++
++            const max = std.math.maxInt(u64);
++            const s_ns = std.math.mul(
++                u64,
++                @as(u64, @intCast(self.next.sec)),
++                std.time.ns_per_s,
++            ) catch return max;
++            return std.math.add(u64, s_ns, @as(u64, @intCast(self.next.nsec))) catch
++                return max;
++        }
++    };
++};
++
++/// ReadBuffer are the various options for reading, as epoll's.
++pub const ReadBuffer = union(enum) {
++    slice: []u8,
++    array: [32]u8,
++};
++
++/// WriteBuffer are the various options for writing, as epoll's.
++pub const WriteBuffer = union(enum) {
++    slice: []const u8,
++    array: struct {
++        array: [32]u8,
++        len: usize,
++    },
++};
++
++pub const ShutdownHow = std.Io.net.ShutdownHow;
++
++pub const RegistryError = error{UserResourceLimitReached};
++
++pub const CancelError = error{
++    NotFound,
++};
++
++pub const PosixShutdownError = error{
++    ConnectionAborted,
++    ConnectionResetByPeer,
++    BlockingOperationInProgress,
++    NetworkSubsystemFailed,
++    SocketNotConnected,
++    SystemResources,
++} || posix.UnexpectedError;
++
++pub const AcceptError = RegistryError || error{
++    Unknown,
++};
++
++pub const CloseError = error{
++    Unknown,
++};
++
++pub const PollError = RegistryError || error{
++    Unknown,
++};
++
++pub const ShutdownError = PosixShutdownError || error{
++    Unknown,
++};
++
++pub const ConnectError = RegistryError || std.Io.net.IpAddress.ConnectError || xev_posix.ConnectError || error{
++    Unknown,
++};
++
++pub const ReadError = RegistryError ||
++    xev_posix.ReadError ||
++    xev_posix.PReadError ||
++    xev_posix.RecvFromError ||
++    error{
++        EOF,
++        Unknown,
++    };
++
++pub const WriteError = RegistryError ||
++    xev_posix.WriteError ||
++    xev_posix.PWriteError ||
++    xev_posix.SendError ||
++    error{
++        Unknown,
++    };
++
++pub const TimerError = error{
++    Unexpected,
++};
++
++pub const TimerTrigger = enum {
++    /// Unused with poll
++    request,
++
++    /// Timer expired.
++    expiration,
++
++    /// Timer was canceled.
++    cancel,
++};
+--- a/src/backend.zig
++++ b/src/backend.zig
+@@ -8,6 +8,7 @@
+     kqueue,
+     wasi_poll,
+     iocp,
++    poll,
+ 
+     /// Returns a recommend default backend from inspecting the system.
+     pub fn default() Backend {
+@@ -20,6 +21,7 @@
+             .freebsd => .kqueue,
+             .wasi => .wasi_poll,
+             .windows => .iocp,
++            .emscripten => .poll,
+             else => {
+                 @compileLog(builtin.os);
+                 @compileError("no default backend for this target");
+@@ -38,6 +40,7 @@
+             .freebsd => &.{.kqueue},
+             .wasi => &.{.wasi_poll},
+             .windows => &.{.iocp},
++            .emscripten => &.{.poll},
+             else => {
+                 @compileLog(builtin.os);
+                 @compileError("no candidate backends for this target");
+@@ -53,6 +56,7 @@
+             .kqueue => @import("main.zig").Kqueue,
+             .wasi_poll => @import("main.zig").WasiPoll,
+             .iocp => @import("main.zig").IOCP,
++            .poll => @import("main.zig").Poll,
+         };
+     }
+ };
+--- a/src/main.zig
++++ b/src/main.zig
+@@ -81,6 +81,7 @@
+ pub const Kqueue = Xev(.kqueue, @import("backend/kqueue.zig"));
+ pub const WasiPoll = Xev(.wasi_poll, @import("backend/wasi_poll.zig"));
+ pub const IOCP = Xev(.iocp, @import("backend/iocp.zig"));
++pub const Poll = Xev(.poll, @import("backend/poll.zig"));
+ 
+ /// Generic thread pool implementation.
+ pub const ThreadPool = @import("ThreadPool.zig");
+--- a/src/watcher/async.zig
++++ b/src/watcher/async.zig
+@@ -26,6 +26,97 @@
+             AsyncEventFd(xev),
+ 
+         .iocp => AsyncIOCP(xev),
++
++        // Supported, uses a pipe
++        .poll => AsyncPipe(xev),
++    };
++}
++
++/// Async implementation using a pipe, for the poll backend: notify writes
++/// a byte, which makes the read end readable, and the wait drains it.
++fn AsyncPipe(comptime xev: type) type {
++    return struct {
++        const Self = @This();
++
++        /// The error that can come in the wait callback.
++        pub const WaitError = xev.ReadError;
++
++        /// The read end, which the wait reads.
++        fd: posix.fd_t,
++
++        /// The write end, to which notify writes.
++        write_fd: posix.fd_t,
++
++        pub fn init() !Self {
++            const fds = try xev_posix.pipe2(.{ .CLOEXEC = true, .NONBLOCK = true });
++            return .{ .fd = fds[0], .write_fd = fds[1] };
++        }
++
++        pub fn deinit(self: *Self) void {
++            xev_posix.close(self.fd);
++            xev_posix.close(self.write_fd);
++        }
++
++        /// Wait for a notification, as AsyncEventFd's.
++        pub fn wait(
++            self: Self,
++            loop: *xev.Loop,
++            c: *xev.Completion,
++            comptime Userdata: type,
++            userdata: ?*Userdata,
++            comptime cb: *const fn (
++                ud: ?*Userdata,
++                l: *xev.Loop,
++                c: *xev.Completion,
++                r: WaitError!void,
++            ) xev.CallbackAction,
++        ) void {
++            c.* = .{
++                .op = .{
++                    .read = .{
++                        .fd = self.fd,
++                        .buffer = .{ .array = undefined },
++                    },
++                },
++
++                .userdata = userdata,
++                .callback = (struct {
++                    fn callback(
++                        ud: ?*anyopaque,
++                        l_inner: *xev.Loop,
++                        c_inner: *xev.Completion,
++                        r: xev.Result,
++                    ) xev.CallbackAction {
++                        // The notifications coalesced into this one.
++                        if (r.read) |n| {
++                            var buf: [64]u8 = undefined;
++                            var full = n == c_inner.op.read.buffer.array.len;
++                            while (full) full = (xev_posix.read(c_inner.op.read.fd, &buf) catch 0) == buf.len;
++                        } else |_| {}
++
++                        return @call(.always_inline, cb, .{
++                            common.userdataValue(Userdata, ud),
++                            l_inner,
++                            c_inner,
++                            if (r.read) |_| {} else |err| err,
++                        });
++                    }
++                }).callback,
++            };
++            loop.add(c);
++        }
++
++        /// Notify the loop. A full pipe already wakes it.
++        pub fn notify(self: Self) !void {
++            _ = xev_posix.write(self.write_fd, &.{1}) catch |err| switch (err) {
++                error.WouldBlock => return,
++                else => return err,
++            };
++        }
++
++        test {
++            _ = AsyncTests(xev, Self);
++        }
+     };
+ }
+ 
+--- a/src/watcher/file.zig
++++ b/src/watcher/file.zig
+@@ -126,6 +126,7 @@
+                         .io_uring,
+                         .wasi_poll,
+                         .iocp,
++                        .poll,
+                         => {},
+ 
+                         .epoll => {
+@@ -297,6 +298,7 @@
+                         .io_uring,
+                         .wasi_poll,
+                         .iocp,
++                        .poll,
+                         => {},
+ 
+                         .epoll => {
+--- a/src/watcher/process.zig
++++ b/src/watcher/process.zig
+@@ -22,6 +22,9 @@
+ 
+         // Unsupported
+         .wasi_poll => struct {},
++
++        // Supported, waits in a thread
++        .poll => ProcessThread(xev),
+     };
+ }
+ 
+@@ -123,6 +126,113 @@
+                         };
+ 
+                         return @call(.always_inline, cb, .{
++                            common.userdataValue(Userdata, ud),
++                            l_inner,
++                            c_inner,
++                            arg,
++                        });
++                    }
++                }).callback,
++            };
++            loop.add(c);
++        }
++
++        test {
++            _ = ProcessTests(
++                xev,
++                Self,
++            );
++        }
++    };
++}
++
++/// Process implementation for the poll backend, which has neither pidfd
++/// nor kqueue's process filter: a thread waits in waitpid and writes the
++/// exit code to a pipe the loop reads, or closes it if the process is
++/// not its child. As with pidfd, the wait reaps the process. Ending the
++/// watch before the process ends leaves the thread to write to a closed
++/// pipe, so the program must ignore SIGPIPE, as Ghostty does.
++fn ProcessThread(comptime xev: type) type {
++    return struct {
++        const Self = @This();
++
++        /// The error that can come in the wait callback.
++        pub const WaitError = xev.ReadError || error{
++            InvalidChild,
++        };
++
++        /// The pipe's read end.
++        fd: posix.fd_t,
++
++        /// Create a new process watcher for the given pid.
++        pub fn init(pid: posix.pid_t) !Self {
++            const fds = try xev_posix.pipe2(.{ .CLOEXEC = true });
++            errdefer for (fds) |fd| xev_posix.close(fd);
++            const thread = try std.Thread.spawn(.{}, waitThread, .{ pid, fds[1] });
++            thread.detach();
++            return .{ .fd = fds[0] };
++        }
++
++        fn waitThread(pid: posix.pid_t, fd: posix.fd_t) void {
++            defer xev_posix.close(fd);
++            var status: c_int = 0;
++            while (true) switch (posix.errno(posix.system.waitpid(pid, &status, 0))) {
++                .SUCCESS => break,
++                .INTR => continue,
++                else => return,
++            };
++            const s: u32 = @bitCast(status);
++            const code: u32 = if (posix.W.IFEXITED(s)) posix.W.EXITSTATUS(s) else @intFromEnum(posix.W.TERMSIG(s));
++            _ = xev_posix.write(fd, std.mem.asBytes(&code)) catch {};
++        }
++
++        /// Clean up the process watcher.
++        pub fn deinit(self: *Self) void {
++            xev_posix.close(self.fd);
++        }
++
++        /// Wait for the process to exit and report its exit code, or the
++        /// signal that ended it, as pidfd's.
++        pub fn wait(
++            self: Self,
++            loop: *xev.Loop,
++            c: *xev.Completion,
++            comptime Userdata: type,
++            userdata: ?*Userdata,
++            comptime cb: *const fn (
++                ud: ?*Userdata,
++                l: *xev.Loop,
++                c: *xev.Completion,
++                r: WaitError!u32,
++            ) xev.CallbackAction,
++        ) void {
++            c.* = .{
++                .op = .{
++                    .read = .{
++                        .fd = self.fd,
++                        .buffer = .{ .array = undefined },
++                    },
++                },
++
++                .userdata = userdata,
++                .callback = (struct {
++                    fn callback(
++                        ud: ?*anyopaque,
++                        l_inner: *xev.Loop,
++                        c_inner: *xev.Completion,
++                        r: xev.Result,
++                    ) xev.CallbackAction {
++                        const arg: WaitError!u32 = if (r.read) |n|
++                            if (n == @sizeOf(u32))
++                                std.mem.bytesToValue(u32, c_inner.op.read.buffer.array[0..@sizeOf(u32)])
++                            else
++                                error.InvalidChild
++                        else |err| switch (err) {
++                            error.EOF => error.InvalidChild,
++                            else => err,
++                        };
++
++                        return @call(.always_inline, cb, .{
+                             common.userdataValue(Userdata, ud),
+                             l_inner,
+                             c_inner,
+--- a/src/watcher/stream.zig
++++ b/src/watcher/stream.zig
+@@ -60,6 +60,7 @@
+         pub const PollError = switch (xev.backend) {
+             .io_uring,
+             .epoll,
++            .poll,
+             => xev.Sys.PollError,
+ 
+             .kqueue,
+@@ -73,7 +74,7 @@
+         /// Events that can be polled for using the high level streams.
+         pub const PollEvent = enum(u32) {
+             read = switch (xev.backend) {
+-                .io_uring => std.posix.POLL.IN,
++                .io_uring, .poll => std.posix.POLL.IN,
+                 .epoll => std.os.linux.EPOLL.IN,
+                 .kqueue => 0, // doesn't matter
+                 .iocp, .wasi_poll => 0, // invalid
+@@ -86,6 +87,7 @@
+                 return switch (xev.backend) {
+                     .io_uring,
+                     .epoll,
++                    .poll,
+                     => if (result.poll) |_|
+                         @enumFromInt(c.op.poll.events)
+                     else |err|
+@@ -221,7 +223,7 @@
+ 
+     // Do not add the methods for poll if the backend doesn't support it.
+     switch (xev.backend) {
+-        .io_uring, .epoll, .kqueue => {},
++        .io_uring, .epoll, .kqueue, .poll => {},
+         .iocp, .wasi_poll => return struct {},
+     }
+ 
+@@ -249,7 +251,7 @@
+         ) void {
+             c.* = .{
+                 .op = switch (xev.backend) {
+-                    .io_uring => .{ .poll = .{
++                    .io_uring, .poll => .{ .poll = .{
+                         .fd = self.fd,
+                         .events = switch (event) {
+                             .read => std.posix.POLL.IN,
+@@ -292,6 +294,7 @@
+                         const fd: Self = switch (xev.backend) {
+                             .io_uring,
+                             .epoll,
++                            .poll,
+                             => T.initFd(c_inner.op.poll.fd),
+ 
+                             .kqueue => T.initFd(c_inner.op.read.fd),
+@@ -425,6 +428,7 @@
+                 .io_uring,
+                 .wasi_poll,
+                 .iocp,
++                .poll,
+                 => {},
+ 
+                 .epoll => {
+@@ -590,6 +594,7 @@
+                         .io_uring,
+                         .wasi_poll,
+                         .iocp,
++                        .poll,
+                         => {},
+ 
+                         .epoll => {
+@@ -985,6 +990,7 @@
+                         .io_uring,
+                         .wasi_poll,
+                         .iocp,
++                        .poll,
+                         => {},
+ 
+                         .epoll => {
+--- a/src/watcher/tcp.zig
++++ b/src/watcher/tcp.zig
+@@ -148,6 +148,7 @@
+                 .kqueue,
+                 .wasi_poll,
+                 .iocp,
++                .poll,
+                 => {},
+ 
+                 .epoll => c.flags.dup = true,
+--- a/src/watcher/timer.zig
++++ b/src/watcher/timer.zig
+@@ -179,6 +179,7 @@
+                 .epoll,
+                 .kqueue,
+                 .wasi_poll,
++                .poll,
+                 .iocp,
+                 => .{
+                     .op = .{
+--- a/src/watcher/udp.zig
++++ b/src/watcher/udp.zig
+@@ -32,7 +32,7 @@
+         .iocp => UDPSendtoIOCP(xev),
+ 
+         // Noop
+-        .wasi_poll => struct {},
++        .wasi_poll, .poll => struct {},
+     };
+ }
+ 
+@@ -567,6 +567,7 @@
+                 .kqueue,
+                 .wasi_poll,
+                 .iocp,
++                .poll,
+                 => {},
+ 
+                 .epoll => c.flags.dup = true,
+@@ -678,6 +679,7 @@
+                 .kqueue,
+                 .wasi_poll,
+                 .iocp,
++                .poll,
+                 => {},
+ 
+                 .epoll => c.flags.dup = true,
