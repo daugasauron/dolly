@@ -33,3 +33,4 @@ README. Demos may use each other; the core never uses a demo.
 - [xonotic](xonotic/README.md): Xonotic 0.8.6 on the DarkPlaces engine, built inside Dolly and drawn by its software rasterizer.
 - [zero-ad](zero-ad/README.md): 0 A.D. Release 28 and its OpenAL build.
 - [zig](zig/README.md): Zig 0.16 with its LLVM backend, built inside Dolly against LLVM 21.
+- [zsh](zsh/README.md): zsh ported to spawn, its line editor and completion at the terminal, as a package.

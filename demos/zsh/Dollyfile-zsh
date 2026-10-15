@@ -1,0 +1,109 @@
+DOLLY 7
+PACKAGE zsh
+REQUIRES HOST runtime@0
+
+# zsh from upstream's release, ported to spawn: Dolly has no fork or exec
+# (README.md, zsh-dolly.patch). It is configured outside, as Emacs is
+# (prepare-zsh.sh); Dolly compiles every object and links in the modules
+# zsh links statically, through Binaryen's cast emulation: zsh calls its
+# hooks, builtins and callbacks through pointers of a common type.
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 3a0e43018c5bd008e95ec045c48789603dc61a1ae993fa144633649be6d2e335
+USE /v0.1.3/demos/tmux/Dollyfile-libterminfo ca4277ff06e5887039faba439c3c939d166b4362d506f9544c068e6f0de91fed
+USE /v0.1.3/demos/tools/Dollyfile-binaryen bbe369e92dc93978c3fcb397f79bf673266776d72ad05000d873df5ab4144777
+
+REQUIRES HEADER libc
+REQUIRES HEADER termcap
+REQUIRES LIB    terminfo
+REQUIRES TOOL   cat
+REQUIRES TOOL   cc
+REQUIRES TOOL   cmp
+REQUIRES TOOL   cp
+REQUIRES TOOL   gzip
+REQUIRES TOOL   head
+REQUIRES TOOL   ls
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   printenv
+REQUIRES TOOL   sleep
+REQUIRES TOOL   sort
+REQUIRES TOOL   tail
+REQUIRES TOOL   tar
+REQUIRES TOOL   text-page
+REQUIRES TOOL   tr
+REQUIRES TOOL   wasm-opt
+
+SOURCE /v0.1.3/dist/static/zsh/zsh.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/zsh.tar.gz
+SLOP gzip -dc /tmp/zsh.tar.gz | tar -xf - -C /
+
+FILE /tmp/zsh.mk
+    .RECIPEPREFIX := >
+    .DELETE_ON_ERROR:
+    MAKEFLAGS += -r
+    S := /tmp/zsh/Src
+    # zsh's objects and the modules configure links in (Src/Makemod and the
+    # modules' Makefiles), compiled as its COMPILE rule does.
+    MAIN := main builtin compat cond context exec glob hashtable hashnameddir hist init input \
+      jobs lex linklist loop math mem module options params parse pattern prompt signals \
+      signames sort string subst text utils openssh_bsd_setres_id
+    MODULES := Builtins/rlimits Builtins/sched Modules/datetime Modules/langinfo \
+      Modules/parameter Modules/termcap Modules/zutil Zle/compctl Zle/complete Zle/compcore \
+      Zle/compmatch Zle/compresult Zle/complist Zle/computil Zle/zleparameter \
+      $(addprefix Zle/,zle_bindings zle_hist zle_keymap zle_main zle_misc zle_move zle_params \
+        zle_refresh zle_thingy zle_tricky zle_utils zle_vi zle_word textobjects)
+    all: /usr/bin/zsh
+    $(S)/%.o: $(S)/%.c
+    >cc -c -I$(dir $<) -I$(S) -I$(S)/Zle -DHAVE_CONFIG_H -O2 -o $@ $<
+    /usr/bin/zsh: $(addprefix $(S)/,$(addsuffix .o,$(MAIN) $(MODULES)))
+    >cc --dolly-cast-emulation $^ -lterminfo -lm -o $@
+SLOP make -j4 -f /tmp/zsh.mk
+
+# What a fork did, by spawn: programs, pipelines through builtins and
+# programs, command substitution, a function in a pipeline, a subshell that
+# keeps its directory, a background job, exec; assignments for one command
+# stay out of the shell, and a missing command is a status.
+FILE /tmp/zsh-check.zsh
+    ls -d /tmp /usr; print "after ls $?"
+    print -l c a b | sort | head -n 2
+    x=$(print inside); print "subst $x"
+    FOO=bar printenv FOO; print "FOO here [$FOO]"
+    nosuchcommand 2> /dev/null; print "status $?"
+    print to-file > /tmp/zsh-check.txt; cat /tmp/zsh-check.txt
+    f() { print "in f $1" }; f arg | tr a-z A-Z
+    (cd /usr && pwd); [[ $PWD != /usr ]] && print "outer stays"
+    for i in 1 2 3; do print $i; done | tail -n 1
+    ls /usr | while read d; do n=$((n + 1)); done; (( n > 0 )) && print "read in the shell"
+    sleep 1 & wait; print waited
+    zsh -fc 'exec print exec-done'
+FILE /tmp/zsh-check.expected
+    /tmp
+    /usr
+    after ls 0
+    a
+    b
+    subst inside
+    bar
+    FOO here []
+    status 127
+    to-file
+    IN F ARG
+    /usr
+    outer stays
+    3
+    read in the shell
+    waited
+    exec-done
+SLOP zsh -f /tmp/zsh-check.zsh > /tmp/zsh-check.out 2>&1 && cmp /tmp/zsh-check.out /tmp/zsh-check.expected
+
+# The functions zsh looks for in its FPATH: completion, prompts, line editing.
+SLOP mkdir -p /usr/share/zsh/5.9.2/functions
+SLOP cp /tmp/zsh/Completion/compinit /tmp/zsh/Completion/compaudit /tmp/zsh/Completion/compdump /tmp/zsh/Completion/compinstall /usr/share/zsh/5.9.2/functions/
+SLOP for f in /tmp/zsh/Completion/Base/*/* /tmp/zsh/Completion/Unix/*/* /tmp/zsh/Completion/Zsh/*/* /tmp/zsh/Functions/Misc/* /tmp/zsh/Functions/Prompts/* /tmp/zsh/Functions/Zle/*; do cp $f /usr/share/zsh/5.9.2/functions/; done
+SLOP zsh -fc 'autoload -Uz compinit && compinit -D && (( ${#_comps} > 1000 ))'
+
+SLOP mkdir -p /usr/share/licenses/zsh
+SLOP cp /tmp/zsh/LICENCE /usr/share/licenses/zsh/LICENCE
+SLOP text-page /tmp/zsh/Doc/zsh.1
+EXPORTS TOOL zsh
+EXPORTS FOLDER zsh-functions /usr/share/zsh/5.9.2/functions
+FILE /usr/share/licenses/zsh/LICENCE
+FILE /usr/share/man/cat1/zsh.1

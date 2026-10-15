@@ -1,0 +1,488 @@
+--- a/Src/exec.c
++++ b/Src/exec.c
+@@ -30,6 +30,114 @@
+ #include "zsh.mdh"
+ #include "exec.pro"
+ 
++#ifdef __dolly__
++/*
++ * Dolly has no fork or exec: every program starts by posix_spawn from the
++ * shell itself. execute() runs in the shell, its exec
++ * a spawn whose pid is left in spawned and its exits the command's status.
++ * The redirections of a command that would have had a process of its own
++ * are made and undone around the spawn, as for a builtin; shell code that
++ * needs a process of its own runs in a new zsh, which has the environment
++ * and the positional parameters but not the shell's other parameters,
++ * aliases or functions.
++ */
++#include <spawn.h>
++
++static pid_t spawned;
++
++static int
++spawn_program(const char *path, char *const *argv, char *const *envp,
++	      int input, int output)
++{
++    posix_spawn_file_actions_t actions;
++    posix_spawnattr_t attributes;
++    sigset_t every, none;
++    pid_t pid;
++    int error, fd;
++
++    /* What a forked child closes before exec is not inherited. */
++    for (fd = 10; fd <= max_zsh_fd; fd++) {
++	int type = fdtable[fd] & FDT_TYPE_MASK;
++	if (fdtable[fd] != FDT_UNUSED &&
++	    (type == FDT_INTERNAL || type == FDT_XTRACE))
++	    fcntl(fd, F_SETFD, FD_CLOEXEC);
++    }
++    posix_spawn_file_actions_init(&actions);
++    if (input != -1)
++	posix_spawn_file_actions_adddup2(&actions, input, 0);
++    if (output != -1)
++	posix_spawn_file_actions_adddup2(&actions, output, 1);
++    /* The child's signals start as entersubsh() leaves them for exec. */
++    sigfillset(&every);
++    sigemptyset(&none);
++    posix_spawnattr_init(&attributes);
++    posix_spawnattr_setflags(&attributes,
++			     POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK);
++    posix_spawnattr_setsigdefault(&attributes, &every);
++    posix_spawnattr_setsigmask(&attributes, &none);
++    error = posix_spawn(&pid, path, &actions, &attributes, argv, envp);
++    posix_spawnattr_destroy(&attributes);
++    posix_spawn_file_actions_destroy(&actions);
++    if (error) {
++	errno = error;
++	return -1;
++    }
++    spawned = pid;
++    return 0;
++}
++
++/* zexecve()'s exec: one that started returns from it at once. */
++#define execve(path, argv, envp) \
++    do { if (spawn_program(path, argv, envp, -1, -1) == 0) return 0; } while (0)
++
++/*
++ * A new zsh for shell code: `script' run with -c, its $0 and positional
++ * parameters the shell's and then `args', `input' and `output' its standard
++ * input and output where not -1. Returns its pid, or -1.
++ */
++
++static pid_t
++spawn_shell(char *script, LinkList args, int input, int output)
++{
++    char *self = findcmd("zsh", 1, 0), **argv, **pp;
++    LinkNode node;
++    /* zsh -f -c script $0, then args or the positional parameters, NULL. */
++    int count = 6 + (args ? countlinknodes(args) : arrlen(pparams));
++
++    argv = pp = (char **) zhalloc(count * sizeof(char *));
++    *pp++ = self ? dupstring(unmeta(self)) : "/usr/bin/zsh";
++    *pp++ = "-f";
++    *pp++ = "-c";
++    *pp++ = dupstring(unmeta(script));
++    *pp++ = dupstring(unmeta(argzero));
++    if (args)
++	for (node = firstnode(args); node; incnode(node))
++	    *pp++ = dupstring(unmeta((char *) getdata(node)));
++    else {
++	char **p;
++	for (p = pparams; *p; p++)
++	    *pp++ = dupstring(unmeta(*p));
++    }
++    *pp = NULL;
++    spawned = 0;
++    if (spawn_program(argv[0], argv, environ, input, output) == -1) {
++	zerr("cannot start %s: %e", argv[0], errno);
++	return -1;
++    }
++    return spawned;
++}
++
++/* The parent's part of execcmd_fork(): the job has the process. */
++static void
++spawn_record(pid_t pid, char *text, int how, struct timeval *bgtime)
++{
++    if (how & Z_ASYNC)
++	lastpid = (zlong) pid;
++    addproc(pid, text, 0, bgtime, -1, -1);
++    pipecleanfilelist(jobtab[thisjob].filelist, 1);
++}
++#endif
++
+ /* Flags for last argument of addvars */
+ 
+ enum {
+@@ -679,6 +787,15 @@
+ 
+ /* execute an external command */
+ 
++#ifdef __dolly__
++/* execute() runs in the shell: a spawn ends it, and so does an exit. */
++# define execute_spawned() do { if (spawned) return; } while (0)
++# define execute_exit(status) do { lastval = (status); return; } while (0)
++#else
++# define execute_spawned() ((void) 0)
++# define execute_exit(status) _exit(status)
++#endif
++
+ /**/
+ static void
+ execute(LinkList args, int flags, int defpath)
+@@ -690,9 +807,12 @@
+     int eno = 0, ee;
+ 
+     arg0 = (char *) peekfirst(args);
++#ifdef __dolly__
++    spawned = 0;
++#endif
+     if (isset(RESTRICTED) && (strchr(arg0, '/') || defpath)) {
+ 	zerr("%s: restricted", arg0);
+-	_exit(1);
++	execute_exit(1);
+     }
+ 
+     /* If the parameter STTY is set in the command's environment, *
+@@ -741,6 +861,7 @@
+      * Note that we don't close fd's attached to process substitution
+      * here, which should be visible to external processes.
+      */
++#ifndef __dolly__
+     closem(FDT_XTRACE, 0);
+ #ifndef FD_CLOEXEC
+     if (SHTTY != -1) {
+@@ -749,18 +870,20 @@
+     }
+ #endif
+     child_unblock();
++#endif
+     if ((int) ztrlen(arg0) >= PATH_MAX) {
+ 	zerr("command too long: %s", arg0);
+-	_exit(127);
++	execute_exit(127);
+     }
+     for (s = arg0; *s; s++)
+ 	if (*s == '/') {
+ 	    int lerrno = zexecve(arg0, argv, newenvp);
++	    execute_spawned();
+ 	    if (arg0 == s || unset(PATHDIRS) ||
+ 		(arg0[0] == '.' && (arg0 + 1 == s ||
+ 				    (arg0[1] == '.' && arg0 + 2 == s)))) {
+ 		zerr("%e: %s", lerrno, arg0);
+-		_exit((lerrno == EACCES || lerrno == ENOEXEC) ? 126 : 127);
++		execute_exit((lerrno == EACCES || lerrno == ENOEXEC) ? 126 : 127);
+ 	    }
+ 	    break;
+ 	}
+@@ -772,12 +895,13 @@
+ 
+ 	if (!search_defpath(arg0, pbuf, MAXCMDLEN)) {
+ 	    if (commandnotfound(arg0, args) == 0)
+-		_realexit();
++		execute_exit(lastval);
+ 	    zerr("command not found: %s", arg0);
+-	    _exit(127);
++	    execute_exit(127);
+ 	}
+ 
+ 	ee = zexecve(pbuf, argv, newenvp);
++	execute_spawned();
+ 
+ 	if ((dptr = strrchr(pbuf, '/')))
+ 	    *dptr = '\0';
+@@ -794,12 +918,13 @@
+ 		    ztrlen(nn) >= PATH_MAX)
+ 		{
+ 		    zerr("command too long: %s", arg0);
+-		    _exit(127);
++		    execute_exit(127);
+ 		}
+ 	    } else {
+ 		for (pp = path; pp < cn->u.name; pp++) {
+ 		    if (!**pp || (**pp == '.' && (*pp)[1] == '\0')) {
+ 			ee = zexecve(arg0, argv, newenvp);
++			execute_spawned();
+ 			if (isgooderr(ee, *pp))
+ 			    eno = ee;
+ 		    } else if (**pp != '/') {
+@@ -812,6 +937,7 @@
+ 			if (ztrlen(buf) >= PATH_MAX)
+ 			    continue;
+ 			ee = zexecve(buf, argv, newenvp);
++			execute_spawned();
+ 			if (isgooderr(ee, *pp))
+ 			    eno = ee;
+ 		    }
+@@ -826,6 +952,7 @@
+ 		}
+ 	    }
+ 	    ee = zexecve(nn, argv, newenvp);
++	    execute_spawned();
+ 
+ 	    if ((dptr = strrchr(nn, '/')))
+ 		*dptr = '\0';
+@@ -836,6 +963,7 @@
+ 	for (pp = path; *pp; pp++)
+ 	    if (!(*pp)[0] || ((*pp)[0] == '.' && !(*pp)[1])) {
+ 		ee = zexecve(arg0, argv, newenvp);
++		execute_spawned();
+ 		if (isgooderr(ee, *pp))
+ 		    eno = ee;
+ 	    } else {
+@@ -848,6 +976,7 @@
+ 		if (ztrlen(buf) >= PATH_MAX)
+ 		    continue;
+ 		ee = zexecve(buf, argv, newenvp);
++		execute_spawned();
+ 		if (isgooderr(ee, *pp))
+ 		    eno = ee;
+ 	    }
+@@ -856,10 +985,10 @@
+     if (eno)
+ 	zerr("%e: %s", eno, arg0);
+     else if (commandnotfound(arg0, args) == 0)
+-	_realexit();
++	execute_exit(lastval);
+     else
+ 	zerr("command not found: %s", arg0);
+-    _exit((eno == EACCES || eno == ENOEXEC) ? 126 : 127);
++    execute_exit((eno == EACCES || eno == ENOEXEC) ? 126 : 127);
+ }
+ 
+ #define RET_IF_COM(X) { if (iscom(X)) return docopy ? dupstring(X) : arg0; }
+@@ -2892,6 +3021,11 @@
+     int save[10];
+     int fil, dfil, is_cursh = 0, do_exec = 0, redir_err = 0, i;
+     int nullexec = 0, magic_assign = 0, forked = 0, old_lastval;
++#ifdef __dolly__
++    /* Run by a spawn instead of a fork: a program, or a new zsh. */
++    int own_process = 0, spawning = 0;
++    struct timeval bgtime;
++#endif
+     int is_shfunc = 0, is_builtin = 0, is_exec = 0, use_defpath = 0;
+     /* Various flags to the command. */
+     int cflags = 0, orig_cflags = 0, checked = 0, oautocont = -1;
+@@ -2970,6 +3104,11 @@
+ 	 * In other cases we may need to process the command line
+ 	 * a bit further before we make the decision.
+ 	 */
++#ifdef __dolly__
++	/* Spawned below, once the command is known. */
++	text = dupstring(getjobtext(state->prog, eparams->beg));
++	own_process = 1;
++#else
+ 	text = getjobtext(state->prog, eparams->beg);
+ 	switch (execcmd_fork(state, how, type, varspc, &filelist,
+ 			     text, oautocont, close_if_forked)) {
+@@ -2981,6 +3120,7 @@
+ 	    return;
+ 	}
+ 	last1 = forked = 1;
++#endif
+     } else
+ 	text = NULL;
+ 
+@@ -3620,6 +3760,33 @@
+      **************************************************************************/
+ 
+     if (!forked) {
++#ifdef __dolly__
++	if (!do_exec &&
++	    (((is_builtin || is_shfunc) && output) ||
++	     (!is_cursh && (last1 != 1 || nsigtrapped || havefiles() ||
++			    fdtable_flocks))))
++	    own_process = 1;
++	if (own_process) {
++	    child_block();
++	    gettimeofday(&bgtime, NULL);
++	    if (type != WC_SIMPLE && type != WC_TYPESET) {
++		/* Shell code: its text, redirections and all, in a new zsh. */
++		char *script = getpermtext(state->prog, eparams->beg, 0);
++		pid_t pid = spawn_shell(script, NULL, input ? input : -1,
++					output ? output : -1);
++		zsfree(script);
++		if (pid == -1) {
++		    lastval = 1;
++		    errflag |= ERRFLAG_ERROR;
++		    goto fatal;
++		}
++		spawn_record(pid, text, how, &bgtime);
++		return;
++	    }
++	    /* Spawned once its redirections are made, as a builtin's. */
++	    spawning = 1;
++	} else
++#else
+ 	if (!do_exec &&
+ 	    (((is_builtin || is_shfunc) && output) ||
+ 	     (!is_cursh && (last1 != 1 || nsigtrapped || havefiles() ||
+@@ -3634,7 +3801,9 @@
+ 		return;
+ 	    }
+ 	    forked = 1;
+-	} else if (is_cursh) {
++	} else
++#endif
++	if (is_cursh) {
+ 	    /* This is a current shell procedure that didn't need to fork.    *
+ 	     * This includes current shell procedures that are being exec'ed, *
+ 	     * as well as null execs.                                         */
+@@ -3680,6 +3849,15 @@
+ 	}
+     }
+ 
++#ifdef __dolly__
++    /* The pipeline keeps its ends, as it does after a fork. */
++    if (spawning) {
++	if (input)
++	    input = movefd(dup(input));
++	if (output)
++	    output = movefd(dup(output));
++    }
++#endif
+     /* Add pipeline input/output to mnodes */
+     if (input)
+ 	addfd(forked, save, mfds, 0, input, 0, NULL);
+@@ -3967,7 +4145,12 @@
+ 	 * the current shell (including a fake exec to run a builtin then
+ 	 * exit) in case there is an error return.
+ 	 */
++#ifdef __dolly__
++	/* A program exec'd is spawned and waited for: the shell stays. */
++	if (is_exec && type != WC_SIMPLE && type != WC_TYPESET) {
++#else
+ 	if (is_exec) {
++#endif
+ 	    int flags = ((how & Z_ASYNC) ? ESUB_ASYNC : 0) |
+ 		ESUB_PGRP | ESUB_FAKE;
+ 	    if (type != WC_SUBSH)
+@@ -4043,6 +4226,10 @@
+ 		    if ((cflags & (BINF_COMMAND|BINF_ASSIGN)) || !magic_assign)
+ 			do_save = 1;
+ 		}
++#ifdef __dolly__
++		if (spawning)
++		    do_save = 1;
++#endif
+ 		if (do_save && varspc)
+ 		    save_params(state, varspc, &restorelist, &removelist);
+ 	    }
+@@ -4053,6 +4240,10 @@
+ 		int flags = 0;
+ 		if (is_shfunc)
+ 		    flags |= ADDVAR_EXPORT;
++#ifdef __dolly__
++		if (spawning)
++		    flags |= ADDVAR_EXPORT;
++#endif
+ 		if (restorelist)
+ 		    flags |= ADDVAR_RESTORE;
+ 
+@@ -4066,6 +4257,27 @@
+ 		}
+ 	    }
+ 
++#ifdef __dolly__
++	    if (spawning) {
++		/* A new zsh runs it, with the words expanded here. */
++		char *script = "\"$@\"";
++		pid_t pid;
++
++		if (is_shfunc && !(hn->flags & PM_UNDEFINED)) {
++		    char *body = getpermtext(((Shfunc) hn)->funcdef, NULL, 1);
++		    script = zhtricat(hn->nam, " () {\n", body);
++		    script = zhtricat(script, "\n}\n", "\"$@\"");
++		    zsfree(body);
++		}
++		if ((pid = spawn_shell(script, args, -1, -1)) == -1)
++		    lastval = 1;
++		else
++		    spawn_record(pid, text, how, &bgtime);
++		if (restorelist)
++		    restore_params(restorelist, removelist);
++		goto err;
++	    }
++#endif
+ 	    if (is_shfunc) {
+ 		/* It's a shell function */
+ 		execshfunc((Shfunc) hn, args);
+@@ -4244,7 +4456,11 @@
+ 	    if (!subsh) {
+ 	        /* for either implicit or explicit "exec", decrease $SHLVL
+ 		 * as we're now done as a shell */
++#ifdef __dolly__
++		if (!forked && !spawning)
++#else
+ 		if (!forked)
++#endif
+ 		    setiparam("SHLVL", --shlvl);
+ 
+ 		/* If we are exec'ing a command, and we are not *
+@@ -4253,6 +4469,45 @@
+ 		    savehistfile(NULL, 1, HFILE_USE_OPTIONS);
+ 	    }
+ 	    if (type == WC_SIMPLE || type == WC_TYPESET) {
++#ifdef __dolly__
++		/*
++		 * The shell spawns the program and stays: the assignments
++		 * are undone after it, and the shell keeps its descriptors.
++		 */
++		LinkList restorelist = 0, removelist = 0;
++
++		if (varspc) {
++		    save_params(state, varspc, &restorelist, &removelist);
++		    addvars(state, varspc,
++			    ADDVAR_EXPORT|ADDVAR_RESTRICT|ADDVAR_RESTORE);
++		}
++		if (errflag)
++		    lastval = 1;
++		else {
++		    if (how & Z_ASYNC) {
++			zsfree(STTYval);
++			STTYval = 0;
++		    }
++		    if (!spawning) {
++			child_block();
++			gettimeofday(&bgtime, NULL);
++		    }
++		    execute(args, cflags, use_defpath);
++		    if (spawned)
++			spawn_record(spawned, text, how, &bgtime);
++		    else
++			/* Its error was the child's to exit with. */
++			errflag &= ~ERRFLAG_ERROR;
++		    if (is_exec) {
++			/* exec: the shell ends with the program. */
++			if (spawned)
++			    waitjobs();
++			_realexit();
++		    }
++		}
++		if (restorelist)
++		    restore_params(restorelist, removelist);
++#else
+ 		if (varspc) {
+ 		    int addflags = ADDVAR_EXPORT|ADDVAR_RESTRICT;
+ 		    if (forked)
+@@ -4279,6 +4534,7 @@
+ 		    STTYval = 0;
+ 		}
+ 		execute(args, cflags, use_defpath);
++#endif
+ 	    } else {		/* ( ... ) */
+ 		DPUTS(varspc,
+ 		      "BUG: assignment before complex command");
+@@ -4721,7 +4977,11 @@
+     }
+     child_block();
+     cmdoutval = 0;
++#ifdef __dolly__
++    if ((cmdoutpid = pid = spawn_shell(cmd, NULL, -1, pipes[1])) == -1) {
++#else
+     if ((cmdoutpid = pid = zfork(NULL)) == -1) {
++#endif
+ 	/* fork error */
+ 	zclose(pipes[0]);
+ 	zclose(pipes[1]);

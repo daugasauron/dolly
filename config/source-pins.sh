@@ -294,6 +294,11 @@ DOLLY_EXPAT_VERSION=2.7.1
 DOLLY_EXPAT_URL='https://github.com/libexpat/libexpat/releases/download/R_2_7_1/expat-2.7.1.tar.xz'
 DOLLY_EXPAT_SHA256=354552544b8f99012e5062f7d570ec77f14b412a3ff5c7d8d0dae62c0d217c30
 
+# zsh from upstream's release, ported to spawn (demos/zsh).
+DOLLY_ZSH_VERSION=5.9.2
+DOLLY_ZSH_URL='https://www.zsh.org/pub/zsh-5.9.2.tar.xz'
+DOLLY_ZSH_SHA256=36fa734374b44783582cec09bcd67822e2f992c779ec1624ab5596df078d2f81
+
 DOLLY_TMUX_VERSION=3.8
 DOLLY_TMUX_URL='https://github.com/tmux/tmux/releases/download/3.8/tmux-3.8.tar.gz'
 DOLLY_TMUX_SHA256=e79c699c7e949dccd0a4a125e17b8d1261e311b16979dbc8eb34542f3966d82e
