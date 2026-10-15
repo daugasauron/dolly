@@ -18,7 +18,7 @@ export function worker({ get }) {
   const workers = new Map();
   const provider = {
     available(pid) {
-      return workers.size < 64 && [...workers.values()].filter(owner => owner === pid).length < 16;
+      return workers.size < 64 && [...workers.values()].filter(owner => owner === pid).length < 32;
     },
     create(pid, url, name) {
       if (!provider.available(pid)) return null;

@@ -29,9 +29,9 @@ int main(int argc, char **argv) {
   if (argc == 2) {
     char entered[128];snprintf(entered, sizeof(entered), "%s.entered", argv[1]);publish(entered, 1);
     wait_file("/tmp/quota-start");
-    pthread_t threads[16];int count = 0, error;
-    while (count < 16 && !(error = pthread_create(threads + count, NULL, hold, NULL))) ++count;
-    assert(count < 16 && error == EAGAIN);
+    pthread_t threads[32];int count = 0, error;
+    while (count < 32 && !(error = pthread_create(threads + count, NULL, hold, NULL))) ++count;
+    assert(count < 32 && error == EAGAIN);
     publish(argv[1], count);
     wait_file("/tmp/quota-release");
     assert(pthread_mutex_lock(&lock) == 0);released = 1;
