@@ -26,7 +26,7 @@ INSTALL /v0.1.3/demos/tools/Dollyfile-tar 19ff541ea7f9f8f5a7f7e57c4fcea0a21fc1d0
 INSTALL /v0.1.3/demos/tools/Dollyfile-binaryen 01484e6a07fc25764d78eebfbff8202a0448e0cb4c97ffe2428e3e998b66285f
 INSTALL /v0.1.3/demos/python/Dollyfile-libffi 590c20eaa0349e9db9ce7cf13fab932f21caa3b174ed964eab34bdf7154942d1
 INSTALL /v0.1.3/demos/gtk/Dollyfile-pcre2 43222ca151908f084e6b7329fd1843645a36f5f1887ad066bc0ffa82db9496a7
-INSTALL /v0.1.3/demos/gtk/Dollyfile-glib dbdacd4f6c3994f41aadeb274a6385689af7f99d3f115ae56551a49b870df0d8
+INSTALL /v0.1.3/demos/gtk/Dollyfile-glib 273ae20c1474d75d2597f2a74b3e0a584d5b7c21f6b195d9785f8e62aee9c2b8
 INSTALL /v0.1.3/Dollyfile-zlib 23810cd1df1be957c51fed8cbd91b83c695dc49d7291609de654f0e4ecdf3609
 
 REQUIRES HEADER glib

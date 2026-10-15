@@ -40,15 +40,14 @@ container=(podman run --rm --userns=keep-id -v "${tree}:/tmp/zsh" -v "${temporar
 # Where Dolly and Emscripten's libc differ, the result is stated. The terminal
 # library is NetBSD's libterminfo (the libterminfo package), which Dolly's
 # link adds: zsh uses it through <termcap.h>, there being no curses header
-# for <term.h>. Dolly changes no user or group identity, and its wait reports
-# no resource usage (wait3). Modules are linked in: Dolly loads no shared
-# objects into zsh.
+# for <term.h>. Dolly's wait reports no resource usage (wait3). Modules are
+# linked in: Dolly loads no shared objects into zsh.
 "${container[@]}" CONFIG_SHELL=/bin/sh \
   ac_cv_search_tigetstr='none required' ac_cv_search_tigetflag='none required' \
   ac_cv_search_tigetnum='none required' ac_cv_search_tgetent='none required' \
   ac_cv_func_tgetent=yes ac_cv_header_termcap_h=yes ac_cv_header_term_h=no \
   ac_cv_func_tigetflag=no ac_cv_func_tigetnum=no ac_cv_func_tigetstr=no ac_cv_func_setupterm=no \
-  ac_cv_func_setresuid=no ac_cv_func_setresgid=no ac_cv_func_wait3=no \
+  ac_cv_func_wait3=no \
   /bin/sh ./configure \
     --host=wasm64-unknown-emscripten --build=x86_64-pc-linux-gnu --prefix=/usr \
     --disable-dynamic --disable-gdbm --disable-pcre --disable-cap --enable-etcdir=/etc \

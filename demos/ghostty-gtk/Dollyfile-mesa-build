@@ -14,7 +14,7 @@ REQUIRES HOST threads@0
 # softpipe in the program itself (mesa-dolly.patch; its parsers are made on the
 # host, prepare-mesa.sh), and libepoxy taking that GLX from the program
 # (epoxy-dolly.patch). Static libraries in /usr/lib.
-FROM /v0.1.3/demos/gtk/Dollyfile-gtk-build 4a74f3a8603a0eab1c42d8dbbb1850f26d567144e7391eaa43f32fe7d9e8467c
+FROM /v0.1.3/demos/gtk/Dollyfile-gtk-build 24a964690f3ea8de60e5dd164a32737b4f78a9819d216216e2a7c0e115428cdd
 
 REQUIRES TOOL   ar
 REQUIRES TOOL   cc
@@ -68,7 +68,7 @@ SLOP mkdir -p /usr/include/GL/internal
 SLOP CWD /tmp/mesa/xorgproto-2026.1/include/GL cp glxint.h glxmd.h glxproto.h glxtokens.h /usr/include/GL/
 SLOP cp /tmp/mesa/xorgproto-2026.1/include/GL/internal/glcore.h /usr/include/GL/internal/
 
-SOURCE /v0.1.3/dist/static/ghostty-gtk/mesa.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/mesa/mesa.tar.gz
+SOURCE /v0.1.3/dist/static/ghostty-gtk/mesa.tar.gz d4c6dc6eba2d6a71ab533f8df4f89925520c63c8718381b764f04e8b9dbb543e /tmp/mesa/mesa.tar.gz
 SLOP CWD /tmp/mesa gzip -dc mesa.tar.gz | tar -xf - -C /
 SLOP CWD /tmp/mesa meson setup build mesa --wrap-mode=nodownload --prefix=/usr --libdir=lib --buildtype=release \
   -Ddefault_library=static -Dplatforms=x11 -Dglx=xlib -Dgallium-drivers=softpipe -Dvulkan-drivers= \
@@ -84,7 +84,7 @@ SLOP meson compile -C /tmp/mesa/build && meson install --no-rebuild -C /tmp/mesa
 # libepoxy again, as gtk-build built it but taking GLX from the program when
 # no libGL opens, with EGL too (GTK refers to it; libepoxy only probes for it).
 SOURCE /v0.1.3/dist/static/gtk/libepoxy-1.5.10.tar.xz 072cda4b59dd098bba8c2363a6247299db1fa89411dc221c8b81b8ee8192e623 /tmp/mesa/libepoxy.tar.xz
-SOURCE /v0.1.3/dist/static/ghostty-gtk/epoxy-dolly.patch 0000000000000000000000000000000000000000000000000000000000000000 /tmp/mesa/epoxy-dolly.patch
+SOURCE /v0.1.3/dist/static/ghostty-gtk/epoxy-dolly.patch bcdbef0fefe76bf29d852070c054f790b444f4a0b350dba4a3451e35742653ab /tmp/mesa/epoxy-dolly.patch
 SLOP CWD /tmp/mesa xz -dc libepoxy.tar.xz | tar -xf -
 SLOP patch -p1 -d /tmp/mesa/libepoxy-1.5.10 -i /tmp/mesa/epoxy-dolly.patch
 SLOP CWD /tmp/mesa meson setup build-epoxy libepoxy-1.5.10 --wrap-mode=nodownload --prefix=/usr --libdir=lib \

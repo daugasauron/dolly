@@ -10,7 +10,7 @@ REQUIRES HOST threads@0
 # mesa-build: libadwaita, GLib's resource compiler with libxml2's xmllint,
 # blueprint-compiler for its interface files, and Ghostty's own build.zig
 # (ghostty-dolly.patch; its packages fetched on the host, prepare-ghostty.sh).
-FROM /v0.1.3/demos/ghostty-gtk/Dollyfile-mesa-build 0a9a1a237b14c85a4f76e9f62d7591e1cde4530629cbb7580e5f86ccf285df7e
+FROM /v0.1.3/demos/ghostty-gtk/Dollyfile-mesa-build 376e12a9a740d4158a9b1eda917ea3dae46cd1516f7530787256819dbeef8c19
 USE /v0.1.3/demos/zig/Dollyfile-zig-llvm cccd8b46b1ded6e00279b23fd1ab83a3dfbf42245755187741299d9af5c50d5a
 
 REQUIRES TOOL   c++
@@ -50,8 +50,8 @@ SLOP meson compile -C /tmp/ghostty-gtk/build-adw && meson install --no-rebuild -
 # (blueprint-compiler-dolly.patch: without PyGObject, where GObject
 # Introspection keeps them); the typelibs are made outside (prepare-typelibs.sh).
 SOURCE /v0.1.3/dist/static/ghostty-gtk/blueprint-compiler-0.18.0.tar.gz 703c7ccd23cb6f77a8fe9c8cae0f91de9274910ca953de77135b6e79dbff1fc3 /tmp/ghostty-gtk/blueprint-compiler.tar.gz
-SOURCE /v0.1.3/dist/static/ghostty-gtk/blueprint-compiler-dolly.patch 0000000000000000000000000000000000000000000000000000000000000000 /tmp/ghostty-gtk/blueprint-compiler-dolly.patch
-SOURCE /v0.1.3/dist/static/ghostty-gtk/typelibs.tar 0000000000000000000000000000000000000000000000000000000000000000 /tmp/ghostty-gtk/typelibs.tar
+SOURCE /v0.1.3/dist/static/ghostty-gtk/blueprint-compiler-dolly.patch 1bc55ea4514276dbdef796a0b09ec68bb0a5654ddc3f5e380046c7042027dbec /tmp/ghostty-gtk/blueprint-compiler-dolly.patch
+SOURCE /v0.1.3/dist/static/ghostty-gtk/typelibs.tar 8b2f355675773235ea066e1f769de01481974d8a9846c0c49ad72b3c40f3358a /tmp/ghostty-gtk/typelibs.tar
 SLOP CWD /tmp/ghostty-gtk gzip -dc blueprint-compiler.tar.gz | tar -xf -
 SLOP patch -p1 -d /tmp/ghostty-gtk/blueprint-compiler-v0.18.0 -i /tmp/ghostty-gtk/blueprint-compiler-dolly.patch
 SLOP CWD /tmp/ghostty-gtk/blueprint-compiler-v0.18.0 python3 -c "import shutil, sysconfig; shutil.copytree('blueprintcompiler', sysconfig.get_paths()['purelib'] + '/blueprintcompiler')"
@@ -103,7 +103,7 @@ SLOP cc -O1 /tmp/ghostty-cc/cc.c -o /tmp/ghostty-cc/cc
 # Ghostty's build finds libdolly-sockets and libdolly-pty under a prefix's lib.
 SLOP mkdir -p /tmp/ghostty-prefix && ln -s /usr/lib/dolly/process /tmp/ghostty-prefix/lib
 
-SOURCE /v0.1.3/dist/static/ghostty-gtk/ghostty.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/ghostty.tar.gz
+SOURCE /v0.1.3/dist/static/ghostty-gtk/ghostty.tar.gz 131295312d2fe3b8053458e8338b163e94fa9d97eba771f0c4f51abf5f98f679 /tmp/ghostty.tar.gz
 SLOP gzip -dc /tmp/ghostty.tar.gz | tar -xf - -C /
 SLOP CWD /tmp/ghostty PATH=/tmp/ghostty-cc:$PATH ZIG_LIBC=/usr/lib/zig/libc.txt zig build -Dapp-runtime=gtk \
   -Dgtk-wayland=false -Dsentry=false -Di18n=false -Demit-docs=false -Demit-terminfo=false -Demit-termcap=false \

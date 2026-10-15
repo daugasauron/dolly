@@ -64,6 +64,7 @@ SLOP CWD /usr/bin for program in glib-compile-resources glib-compile-schemas gio
 # loop and GIO reading a file.
 FILE /tmp/glib-check.c
     #include <gio/gio.h>
+    #include <stdio.h>
     #include <string.h>
     #define PROBE_TYPE (probe_get_type())
     G_DECLARE_FINAL_TYPE(Probe, probe, PROBE, OBJECT, GObject)
