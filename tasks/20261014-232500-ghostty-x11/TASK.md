@@ -70,3 +70,33 @@ Each step needs the one before it; details from memory are marked.
    freetype, pixman, graphene, libepoxy, gdk-pixbuf, GTK4, libadwaita, Mesa
    and Ghostty's patches. This is the largest port Dolly has taken on;
    each library is a step that can be verified on its own.
+
+## GLib in Dolly (2026-10-15, 09:00-10:30, probe in `work/gtk`)
+
+- GLib 2.90.1 with PCRE2 10.49 (a Makefile over its generic config)
+  configures, compiles and installs in a session of `xorg-server-build`
+  (`meson compile` 151-190 s, 494 steps). It needed one GLib patch
+  (`g_unix_fd_query_path` has an `#error` for platforms it does not know;
+  Dolly's answer is "not supported", as Hurd's) and three things libc lacks,
+  stubbed in the probe and owed to the next seed round: `res_query` (no name
+  server: fails with `NO_RECOVERY`), `pthread_getname_np` in the threaded
+  libc (declared, not defined), `in6addr_loopback` (`in6addr_any` is
+  defined).
+- A GLib program is threaded and GObject's generic marshaller calls through
+  libffi, which is dso@0's: "a program using threads@0 cannot use dso@0".
+  Decided and done on `core/ffi-threads`: dso@0 serves each thread's Worker
+  of a threaded program; a call works in any thread (it reads the same table
+  entry in every Worker), loading and closures are refused there (`ENOTSUP`),
+  since a table entry added in one Worker is missing in the others.
+- Then every GObject program traps with "function signature mismatch":
+  `G_DEFINE_TYPE` registers `class_intern_init (gpointer)` and `init (Self *)`
+  as `GClassInitFunc`/`GInstanceInitFunc`, which take two arguments, and C
+  code throughout GLib, GTK and libadwaita calls handlers and callbacks of
+  fewer parameters through casts (`G_CALLBACK`, `(GFunc) g_object_unref`,
+  `g_list_sort`). Decided: GObject programs are linked with Binaryen's
+  function-pointer cast emulation (`wasm-opt --fpcast-emu`: every indirect
+  call goes through one canonical signature and every table entry through a
+  thunk), not patched cast by cast. Measured: wasm-opt 132 rewrites a Dolly
+  wasm64 program and keeps its `dolly.process` sections. Owed: Binaryen
+  built in Dolly, the step in the toolchain, and dso@0's FFI calling such a
+  program in the canonical signature.
