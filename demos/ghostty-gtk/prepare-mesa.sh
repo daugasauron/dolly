@@ -24,6 +24,9 @@ tree="${temporary}/mesa-${DOLLY_MESA_VERSION}"
 mkdir "${tree}"
 tar -xJf "${archive}" --strip-components=1 -C "${tree}"
 patch --silent --fuzz=0 --no-backup-if-mismatch -d "${tree}" -p1 < "${demo_dir}/mesa-dolly.patch"
+# Source archives hold files only; Mesa's links are CI, documentation,
+# formatting and Android's, none of which this build reads.
+find "${tree}" -type l -delete
 (cd "${tree}/src/compiler/glsl" &&
   "${bison}" -o glsl_parser.cpp -p _mesa_glsl_ --defines=glsl_parser.h glsl_parser.yy &&
   "${flex}" -o glsl_lexer.cpp glsl_lexer.ll)

@@ -42,6 +42,8 @@ for package in "${tree}"/zig-pkg/*; do
 done
 while read -r package; do test -d "${tree}/zig-pkg/${package}"; done < "${demo_dir}/zig-packages.txt"
 rm -rf "${tree}/macos" "${tree}/flatpak" "${tree}/snap" "${tree}/nix"
+# Source archives hold files only (the checkout links CLAUDE.md to AGENTS.md).
+find "${tree}" -type l -delete
 patch --silent --fuzz=0 --no-backup-if-mismatch -d "${tree}"/zig-pkg/libxev-* -p1 < "${demo_dir}/libxev-dolly.patch"
 patch --silent --fuzz=0 --no-backup-if-mismatch -d "${tree}"/zig-pkg/translate_c-* -p1 < "${demo_dir}/translate-c-dolly.patch"
 
