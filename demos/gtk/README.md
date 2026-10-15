@@ -11,11 +11,11 @@ upstream release.
 
 ## Use
 
-A GObject program is linked as usual and then passed through Binaryen's cast
-emulation (the `binaryen` package of [`tools`](../tools/README.md)):
+A GObject program is linked as usual; GObject's `pkg-config` file adds
+`--dolly-cast-emulation`, with which `cc` passes the program through Binaryen's
+cast emulation (the `binaryen` package of [`tools`](../tools/README.md)):
 
     cc -pthread prog.c -o prog $(pkg-config --cflags --libs gio-2.0)
-    wasm-opt --fpcast-emu prog -o prog
 
 GObject calls functions through pointers cast to types of other parameters
 (a `G_DEFINE_TYPE` class's init functions, a handler of fewer parameters than
