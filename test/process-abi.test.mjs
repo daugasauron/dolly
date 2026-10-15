@@ -36,17 +36,19 @@ test("Wasm import, export and custom-section names match the engine's literal UT
 
 test("a table of nothing but Binaryen's cast-emulation thunks marks a cast-emulated program", () => {
   const section = (id, bytes) => [id, bytes.length, ...bytes];
-  // Types: the thunk, (i64 x 16) -> i64, and an ordinary (i32, i32) -> i32.
-  const types = section(1, [2, 0x60, 16, ...Array(16).fill(0x7e), 1, 0x7e, 0x60, 2, 0x7f, 0x7f, 1, 0x7f]);
-  const program = tableFunctions => new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, ...types,
+  // Types: a thunk of N i64 parameters and an i64 result, and an ordinary
+  // (i32, i32) -> i32.
+  const program = (parameters, tableFunctions) => new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0,
+    ...section(1, [2, 0x60, parameters, ...Array(parameters).fill(0x7e), 1, 0x7e, 0x60, 2, 0x7f, 0x7f, 1, 0x7f]),
     ...section(3, [2, 0, 1]),
     ...section(4, [1, 0x70, 0, 2]),
     ...tableFunctions.length ? section(9, [1, 0, 0x41, 0, 0x0b, tableFunctions.length, ...tableFunctions]) : [],
     ...section(10, [2, 4, 0, 0x42, 0, 0x0b, 4, 0, 0x41, 0, 0x0b])]);
-  for (const [functions, emulated] of [[[0], true], [[0, 1], false], [[1], false], [[], false]]) {
-    const bytes = program(functions);
+  for (const [parameters, functions, emulated] of [[16, [0], 16], [24, [0], 24], [16, [0, 1], 0], [16, [1], 0],
+    [16, [], 0], [8, [0], 0]]) {
+    const bytes = program(parameters, functions);
     new WebAssembly.Module(bytes);
-    assert.equal(parseWasmInterface(bytes).castEmulated, emulated, `table of functions ${functions}`);
+    assert.equal(parseWasmInterface(bytes).castEmulationParameters, emulated, `${parameters} parameters, table ${functions}`);
   }
 });
 

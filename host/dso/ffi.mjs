@@ -53,15 +53,14 @@ function uleb(value) {
   return bytes;
 }
 
-// Binaryen's cast emulation (--fpcast-emu) calls every table entry with
-// sixteen i64 arguments and takes an i64 result: an i32 or the bits of an f32
-// zero-extended, the bits of an f64, unused arguments zero.
-const castEmulationArguments = 16;
+// Binaryen's cast emulation (--fpcast-emu) calls every table entry with the
+// same number of i64 arguments and takes an i64 result: an i32 or the bits of
+// an f32 zero-extended, the bits of an f64, unused arguments zero.
 const castEmulationBits = new DataView(new ArrayBuffer(8));
 
-function toCastEmulation(values, types) {
-  if (values.length > castEmulationArguments) {
-    throw new TypeError(`a cast-emulated call takes at most ${castEmulationArguments} arguments`);
+function toCastEmulation(values, types, parameters) {
+  if (values.length > parameters) {
+    throw new TypeError(`a cast-emulated call takes at most ${parameters} arguments`);
   }
   const converted = values.map((value, index) => {
     switch (types[index]) {
@@ -71,7 +70,7 @@ function toCastEmulation(values, types) {
       default: return BigInt.asUintN(64, value);
     }
   });
-  while (converted.length < castEmulationArguments) converted.push(0n);
+  while (converted.length < parameters) converted.push(0n);
   return converted;
 }
 
@@ -148,7 +147,7 @@ export function createProcessFfi({
   getTable,
   growTable,
   setTable,
-  castEmulated = false,
+  castEmulationParameters = 0,
 }) {
   if (!(memory instanceof WebAssembly.Memory) ||
       typeof getInstance !== "function" || typeof getTable !== "function" ||
@@ -476,8 +475,9 @@ export function createProcessFfi({
     try {
       const target = tableFunction(functionIndex, "FFI target");
       entered();
-      result = castEmulated
-        ? fromCastEmulation(target(...toCastEmulation(arguments_, types)), resultWasmType(cif.returnType))
+      result = castEmulationParameters
+        ? fromCastEmulation(target(...toCastEmulation(arguments_, types, castEmulationParameters)),
+          resultWasmType(cif.returnType))
         : target(...arguments_);
     } finally {
       frame.restore();
