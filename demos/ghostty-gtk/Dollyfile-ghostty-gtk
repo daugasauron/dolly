@@ -10,7 +10,7 @@ REQUIRES HOST threads@0
 # mesa-build: libadwaita, GLib's resource compiler with libxml2's xmllint,
 # blueprint-compiler for its interface files, and Ghostty's own build.zig
 # (ghostty-dolly.patch; its packages fetched on the host, prepare-ghostty.sh).
-FROM /v0.1.3/demos/ghostty-gtk/Dollyfile-mesa-build 5da50c6f9896a848d44574edfe50d6ae0ce6c145bbf7a62c0ae0092c23a46b0c
+FROM /v0.1.3/demos/ghostty-gtk/Dollyfile-mesa-build 24181f8288d0a00b40b530d463adb1b6f7fce1c9574e4a5cc666784ae183b81b
 USE /v0.1.3/demos/zig/Dollyfile-zig-llvm cccd8b46b1ded6e00279b23fd1ab83a3dfbf42245755187741299d9af5c50d5a
 
 REQUIRES TOOL   c++
@@ -28,7 +28,8 @@ REQUIRES TOOL   xz
 REQUIRES TOOL   zig
 
 # libxml2's xmllint: GLib's resource compiler strips the blanks of Ghostty's
-# interface files with it.
+# interface files with it. It is named in XMLLINT: GLib finds a program on
+# PATH for root only by an execute bit, which Dolly's files do not carry.
 SOURCE /v0.1.3/dist/static/ghostty-gtk/libxml2-2.13.5.tar.xz 74fc163217a3964257d3be39af943e08861263c4231f9ef5b496b6f6d4c7b2b6 /tmp/ghostty-gtk/libxml2.tar.xz
 SLOP CWD /tmp/ghostty-gtk xz -dc libxml2.tar.xz | tar -xf -
 SLOP CWD /tmp/ghostty-gtk meson setup build-xml2 libxml2-2.13.5 --wrap-mode=nodownload --prefix=/usr --libdir=lib \
@@ -105,7 +106,8 @@ SLOP mkdir -p /tmp/ghostty-prefix && ln -s /usr/lib/dolly/process /tmp/ghostty-p
 
 SOURCE /v0.1.3/dist/static/ghostty-gtk/ghostty.tar.gz 131295312d2fe3b8053458e8338b163e94fa9d97eba771f0c4f51abf5f98f679 /tmp/ghostty.tar.gz
 SLOP gzip -dc /tmp/ghostty.tar.gz | tar -xf - -C /
-SLOP CWD /tmp/ghostty PATH=/tmp/ghostty-cc:$PATH ZIG_LIBC=/usr/lib/zig/libc.txt zig build -Dapp-runtime=gtk \
+SLOP CWD /tmp/ghostty PATH=/tmp/ghostty-cc:$PATH ZIG_LIBC=/usr/lib/zig/libc.txt XMLLINT=/usr/bin/xmllint \
+  zig build -Dapp-runtime=gtk \
   -Dgtk-wayland=false -Dsentry=false -Di18n=false -Demit-docs=false -Demit-terminfo=false -Demit-termcap=false \
   -Dversion-string=1.3.2-dev -fsys=freetype -fsys=harfbuzz -fsys=fontconfig -fsys=libpng -fsys=zlib \
   --search-prefix /tmp/ghostty-prefix --summary none

@@ -93,7 +93,7 @@ SLOP CWD /tmp/gtk meson setup build-fribidi fribidi-1.0.17 --wrap-mode=nodownloa
   -Dc_link_args=-Wl,--initial-memory=67108864
 SLOP meson compile -C /tmp/gtk/build-fribidi && meson install --no-rebuild -C /tmp/gtk/build-fribidi
 SLOP CWD /tmp/gtk meson setup build-harfbuzz harfbuzz-14.6.0 --wrap-mode=nodownload --prefix=/usr --libdir=lib --buildtype=release -Ddefault_library=static -Dtests=disabled -Ddocs=disabled \
-  -Dintrospection=disabled -Dcairo=disabled -Dicu=disabled -Dglib=enabled -Dgobject=disabled \
+  -Dintrospection=disabled -Dcairo=disabled -Dicu=disabled -Dglib=enabled -Dgobject=enabled \
   -Dutilities=disabled -Dbenchmark=disabled -Dfreetype=enabled
 SLOP meson compile -C /tmp/gtk/build-harfbuzz && meson install --no-rebuild -C /tmp/gtk/build-harfbuzz
 SLOP cmake -S /tmp/gtk/expat-2.8.5 -B /tmp/gtk/build-expat -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_SHARED_LIBS=OFF -DEXPAT_BUILD_TOOLS=OFF \

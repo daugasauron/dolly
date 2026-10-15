@@ -14,7 +14,7 @@ REQUIRES HOST threads@0
 # widgets with cairo. GTK's text is fontconfig's, from the terminal's font.
 FROM /v0.1.3/Dollyfile-system fa618e171300d079868dfcf6a88bd064bb27e2a1f0fc7935bc925c21ce35746c
 INSTALL /v0.1.3/demos/x11/Dollyfile-xorg-server 091b0fc1e694014c6a505cba0bf0ae82dd26eb45816310e9e55a7f7b972da21b
-INSTALL /v0.1.3/demos/ghostty-gtk/Dollyfile-ghostty-gtk df7e32a5e2acc8612211682c1fc207ce1b9b1b8308b677da02a58ddfa840167b
+INSTALL /v0.1.3/demos/ghostty-gtk/Dollyfile-ghostty-gtk 622a9bd8548fa9c4b80b3bd970ac17b8ba0e64a3c18fb2c422c497f0f47d6ce3
 COPY /v0.1.3/Dollyfile-ghostty-build 08543c7c04b627a304fb56d05932930bde2d2a7c704552f2c0a7a4de60684bc5 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 FILE /etc/fonts/fonts.conf
     <?xml version="1.0"?>
