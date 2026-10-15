@@ -228,7 +228,7 @@ export class DollyProcessSupervisor {
       memory: null, messageHandler: null, errorHandler: null,
       messageErrorHandler: null, started: false,
       failure: null, interactive: (flags & DOLLY_PROCESS_SPAWN_INTERACTIVE) !== 0, retiring: false,
-      interruptTimer: null, deadlineTimer: null, retirementTimer: null,
+      interruptTimer: null, deadlineTimer: null, retirementTimer: null, lastSignal: 0,
       reclamationDeadline: 0, tid: 0, threads: new Map(), threaded: false,
     };
     this.processes.set(pid, process);
@@ -282,6 +282,7 @@ export class DollyProcessSupervisor {
   #deliverSignal(process, signalNumber = DOLLY_PROCESS_SIGINT) {
     if (!process || process.retiring || this.processes.get(process.pid) !== process) return false;
     const result = this.dolly._dolly_process_signal(process.pid, signalNumber);
+    process.lastSignal = signalNumber;
     // Resize notification is not an interrupt request and must never acquire
     // a forced-termination deadline, including before program entry.
     if (signalNumber === DOLLY_PROCESS_SIGWINCH && (result !== 0 || !process.started)) return result === 0;
@@ -667,6 +668,19 @@ export class DollyProcessSupervisor {
 
   #retire(process) {
     process.retiring = true;
+    // A process a signal ends passes it to its descendants, as a signal to its
+    // process group would: Dolly has neither groups nor exec, so the command
+    // of slop -c is the shell's child. Each answers it as it handles it.
+    // A descendant that has it already, as Ctrl-C gives it to the whole
+    // foreground tree, is not given it twice.
+    const signal = this.dolly._dolly_process_exit_signal(process.pid);
+    if (signal !== 0) {
+      for (const descendant of [...this.processes.values()]) {
+        if (descendant.lastSignal !== signal && this.#descendantDepth(descendant, process.pid) !== 0) {
+          this.#deliverSignal(descendant, signal);
+        }
+      }
+    }
     // Its children live on: the kernel has given them parent 0.
     for (const child of this.processes.values()) if (child.parent === process.pid) child.parent = 0;
     process.reclamationDeadline = this.#reclamationDeadline(process);

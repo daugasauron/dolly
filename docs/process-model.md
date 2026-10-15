@@ -266,12 +266,15 @@ nothing and declares nothing: any program built for Dolly runs on one.
   foreground tree can pass the role on; retirement returns it to the nearest
   foreground ancestor.
 - Retirement drops the Worker, memory and gate before the child is waitable.
-- A child outlives its parent, as on POSIX: when the parent ends, a child
-  still running loses it (its parent is 0) and is reaped when it ends, as
-  init reaps orphans. The terminal goes back to the parent's foreground
-  ancestor, as a shell takes it back when a job ends. A timed command's
-  deadline ends its whole tree, as `timeout` signals the command's process
-  group.
+- A child outlives a parent that exits, as on POSIX: a child still running
+  loses it (its parent is 0) and is reaped when it ends, as init reaps
+  orphans. The terminal goes back to the parent's foreground ancestor, as a
+  shell takes it back when a job ends. A parent a signal ends takes its
+  descendants with it, by that signal, as a signal to its process group
+  would: Dolly has no groups and no exec, so the command of `slop -c` is the
+  shell's child, and a closed terminal's `SIGHUP` ends its jobs. A timed
+  command's deadline ends its whole tree, as `timeout` signals the command's
+  process group.
 - Worker termination has no completion event, so a large interactive process
   gets 500 ms of reclamation before its exit is acknowledged, sparing the
   recovery shell. Nothing guarantees against browser memory pressure; this is

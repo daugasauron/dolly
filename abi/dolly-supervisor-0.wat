@@ -53,6 +53,9 @@
   (func $take_alarm (result i32) i32.const 0)
   (func $collect (param i32) (result i32) i32.const 0)
   (func $parent (param i32) (result i32) i32.const 0)
+  ;; The signal that ended an exited process; zero when it exited, runs or is
+  ;; unknown.
+  (func $exit_signal (param i32) (result i32) i32.const 0)
   ;; The terminal mailbox, display or not: six atomic little-endian u32 words
   ;; (src/dolly.c mirrors them). Wasm writes result_sequence (incremented and
   ;; notified after each shell result), result_status, foreground_pid and
@@ -97,6 +100,7 @@
   (export "dolly_process_take_alarm" (func $take_alarm))
   (export "dolly_process_collect" (func $collect))
   (export "dolly_process_parent" (func $parent))
+  (export "dolly_process_exit_signal" (func $exit_signal))
   (export "dolly_terminal_mailbox_address" (func $terminal_mailbox_address))
   (export "dolly_process_take_interrupt" (func $take_interrupt))
 )

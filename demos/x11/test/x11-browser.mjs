@@ -137,7 +137,7 @@ for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", ti
   await page.mouse.move(...await at(page, 1200, 100));
   await page.mouse.down();
   await delay(1000);
-  await page.mouse.move(...await at(page, 1200, 290), { steps: 10 });
+  await page.mouse.move(...await at(page, 1200, 306), { steps: 10 });
   await delay(300);
   await page.mouse.up();
   await page.mouse.move(...await at(page, 900, 450), { steps: 10 });

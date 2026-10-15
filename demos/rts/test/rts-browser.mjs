@@ -262,7 +262,8 @@ try {
     await delay(1500);
     await page.keyboard.press("Control+c");
     assert.equal(await game.done, 130);
-    assert.equal(await page.evaluate(() => __dolly.graphicsActive), false);
+    // The viewer takes the same Ctrl-C, which SDL makes its quit event.
+    await page.waitForFunction(() => !__dolly.graphicsActive, null, { timeout: 10_000 });
 
     // Offscreen player input is ordered and never acquires the browser display.
     await run("mkdir -p /tmp/dolly-sdl2/player && c++ -O0 -I/usr/include/SDL2 -I/usr/src/dolly/rts /usr/src/dolly/rts/input.cpp /tmp/rts-input-probe.cpp -o /tmp/rts-input-probe -lSDL2 -lz -lm && /tmp/rts-input-probe");

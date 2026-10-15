@@ -2577,3 +2577,8 @@ int dolly_process_parent(int pid) {
   dolly_kernel_process *process = find_process(pid);
   return process == NULL ? -ESRCH : process->parent_pid;
 }
+
+int dolly_process_exit_signal(int pid) {
+  const dolly_kernel_process *process = find_process(pid);
+  return process != NULL && process->state == DOLLY_KERNEL_PROCESS_EXITED ? process->exit_signal : 0;
+}
