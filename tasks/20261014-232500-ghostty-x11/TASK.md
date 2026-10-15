@@ -113,3 +113,45 @@ Each step needs the one before it; details from memory are marked.
   call a cast-emulated program's table entries in its signature (every
   argument an i64: i32 and f32 bits zero-extended, f64 bits; 16 of them; an
   i64 result), which GObject's generic marshaller needs.
+
+## GTK 4 in Dolly (2026-10-15, 11:00-13:20, session probes in `work/gtk`)
+
+- Every library under GTK builds in a session of `xorg-server-build` with
+  the `cmake` package: FreeType, FriBidi, HarfBuzz, expat, gperf 3.1,
+  fontconfig 2.18.3, libpng, libjpeg-turbo, libtiff, pixman, cairo (Xlib),
+  five X extension libraries, graphene, libepoxy, gdk-pixbuf (PNG and JPEG
+  built in) and pango 1.58; then GTK 4.24.1 with its X11 backend alone
+  (1062 build steps). A GTK hello (window, label, button), cast-emulated,
+  ran on Xsdl in the session: "GTK-HELLO-PRESENTED", alive until killed 25 s
+  later, with GModule's and D-Bus's expected warnings. A screenshot is owed
+  (a fresh session rebuilding everything runs from 13:05).
+- Found on the way, each fixed or decided:
+  - seed (`core/gtk-seed`, unbuilt): libc `res_query`, `in6addr_loopback`,
+    threaded `pthread_getname_np`, SysV shm refusals, and (still to commit)
+    `pthread_getaffinity_np`, `__sched_cpucount` and `ftw` (musl's casts its
+    callback to nftw's type, which traps: Dolly's calls through an adapter);
+    `cc` takes `-fno-omit-frame-pointer` and `-fuse-ld=lld`, preprocesses
+    `-E -c` as Clang does, and links with `--dolly-cast-emulation` (wasm-opt
+    `--fpcast-emu`, 32 parameters: GTK has an indirect call of 17); GLib's
+    `gobject-2.0.pc` asks for it, so every GObject program a build runs
+    (gdk-pixbuf's loader query) is emulated. Still open: `cc`'s fixed 16 MiB
+    `--initial-memory` (FriBidi's table generator needs 37 MB; its recipe
+    passes a larger one), `/usr/bin/env` (GLib's scripts are rewritten to
+    `/usr/bin/python3`), and Slop's `test -shared = -o` ("unsupported
+    expression"; POSIX makes three arguments with `=` a comparison).
+  - FFI (`core/ffi-threads`): a cast-emulated program's thunk width comes
+    from its table (16 or more), and the FFI pads each call to it.
+  - patches: fontconfig's `fcstat.c` names `__dolly__` beside Linux and
+    Emscripten; GTK's library follows `default_library` (upstream always
+    builds it shared; a threaded program loads no library).
+  - Dolly's own `EGL/eglplatform.h` (an `int` window type) conflicts with
+    GTK's X11 EGL code: `gtk-build` installs Khronos's headers from Mesa.
+- Recipes on `demo/gtk` (`work/gtk-code`, `f404cbea`): `pcre2`, `glib`,
+  `libffi` (out of Python's recipe), `binaryen` (tools) and the toolchain
+  `gtk-build`; they build in the next seed round.
+- Next: Mesa with `glx=xlib` and softpipe for Ghostty's GL. softpipe offers
+  GLSL 4.00 and Ghostty asks for 4.3 (Mesa's version overrides, if the
+  features it uses are there); llvmpipe generates machine code at run time,
+  which a Wasm process cannot run. Mesa's GLSL grammars need GNU bison and
+  flex, which need configure scripts: generated on the host while staging,
+  as Wine's parsers are. Then libadwaita 1.10 and Ghostty's own GTK build.
