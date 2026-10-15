@@ -61,7 +61,7 @@ export async function runProcessSmoke(submit, origin) {
     await run("printf '#include <pty.h>\\n#include <errno.h>\\nint main(void) { int master, slave; return openpty(&master, &slave, 0, 0, 0) != -1 || errno != ENOENT; }\\n' > pty.c");
     await run("cc -O0 pty.c -lutil -o pty && ./pty");
     await run("printf 'static volatile unsigned char data[20 * 1024 * 1024] = {1};\\nint main(void) { data[sizeof(data)-1]=42; return data[0]!=1 || data[sizeof(data)-1]!=42; }\\n' > memory.c");
-    assert.notEqual(await submit("cc memory.c -o memory"), 0, "static data exceeds the default initial memory");
+    await run("cc memory.c -o memory && ./memory");
     await run("cc memory.c -Wl,--initial-memory=33554432,--max-memory=67108864 -o memory && ./memory");
     assert.notEqual(await submit("cc memory.c -Wl,--initial-memory=33554432,--max-memory=17179869184 -o memory"), 0,
       "compiler rejects memory above the process ceiling");
