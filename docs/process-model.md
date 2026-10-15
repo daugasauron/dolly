@@ -220,7 +220,8 @@ nothing and declares nothing: any program built for Dolly runs on one.
   master, `OPOST` with `ONLCR`, `ISIG`). A process whose descriptor 0, 1 or 2 is a
   slave opens it as `/dev/tty`: the same open file again, so `O_NONBLOCK` set
   there is set for every process that holds the slave. The master is not a
-  terminal.
+  terminal, but termios and `TIOCGWINSZ` on it reach the slave's mode and
+  size, as on Linux, where a terminal emulator sets its slave's mode that way.
 - `ioctl(TIOCSWINSZ)` on the master sets the size, and the processes that
   hold the slave get `SIGWINCH`.
 - While `ISIG` is set, byte 3 written to the master is `SIGINT` for the

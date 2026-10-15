@@ -80,8 +80,8 @@ static void unedited(int slave) {
   CHECK(tcsetattr(slave, TCSANOW, &mode) == 0);
 }
 
-/* One process holding both ends: bytes cross, the slave is a terminal with a
- * mode and a size of its own, and the master is neither. */
+/* One process holding both ends: bytes cross, the slave is a terminal and the
+ * master is not, and termios on either end is the pair's mode and size. */
 static int pair(void) {
   int ends[2];
   struct stat status;
@@ -93,7 +93,16 @@ static int pair(void) {
   CHECK(fstat(ends[0], &status) == 0 && S_ISCHR(status.st_mode));
   CHECK(fstat(ends[1], &status) == 0 && S_ISCHR(status.st_mode));
   CHECK(ioctl(ends[1], TIOCGWINSZ, &size) == 0 && size.ws_row == 24 && size.ws_col == 80);
-  CHECK(ioctl(ends[0], TIOCGWINSZ, &size) == -1 && errno == ENOTTY);
+  CHECK(ioctl(ends[0], TIOCGWINSZ, &size) == 0 && size.ws_row == 24 && size.ws_col == 80);
+  /* A terminal emulator sets the slave's mode through the master (Ghostty's
+   * IUTF8, which Dolly's discipline has without asking). */
+  CHECK(tcgetattr(ends[0], &mode) == 0 && (mode.c_lflag & ECHO));
+  mode.c_iflag |= IUTF8;
+  mode.c_lflag &= ~(tcflag_t)ECHO;
+  CHECK(tcsetattr(ends[0], TCSANOW, &mode) == 0);
+  CHECK(tcgetattr(ends[1], &mode) == 0 && !(mode.c_lflag & ECHO));
+  mode.c_lflag |= ECHO;
+  CHECK(tcsetattr(ends[1], TCSANOW, &mode) == 0);
   CHECK(read(ends[0], &byte, 1) == -1 && errno == EAGAIN);
   /* The slave's input is a line it edits when it reads, echoing to the master:
    * Enter ends it with a newline, Backspace erases a character and Ctrl+U the
