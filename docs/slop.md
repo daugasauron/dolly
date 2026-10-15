@@ -126,12 +126,13 @@ that run inside the shell stay serial.
 - `PROGRAM &` and `a | b &` start programs and continue with status 0; standard
   input is `/dev/null` unless redirected. `$!` is the PID of the last one,
   `wait` collects all of them and `wait PID...` returns the status of the last
-  PID named. At most 32 processes exist, and a background program ends when
-  its shell exits. `ps` lists the ones that run. There is no job control: `jobs`, `fg` and `bg` are refused,
+  PID named. At most 32 processes exist, and a background program outlives
+  its shell. `ps` lists the ones that run. There is no job control: `jobs`, `fg` and `bg` are refused,
   and so is `&` after anything the shell would run itself (a compound
   command, a builtin, a function, a `!`, `&&` or `||` list): use
   `slop -c '...' &`. `( PROGRAM ARG... ) &` is the one compound form that
-  runs, as `PROGRAM ARG... &`.
+  runs, as `PROGRAM ARG... &`, and `exec PROGRAM ARG... &` runs the same way:
+  it replaces the job, not the shell.
 - Ctrl+C interrupts the foreground command (status 130) and stops the rest of the
   list, pipeline or substitution; an ordinary `exit 130` does not. A loop of
   builtins stops too: the shell asks the kernel for SIGINT every 64 commands.
