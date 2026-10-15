@@ -184,6 +184,14 @@ not reproduced in 160 drags and about 9,000 screen reads.
   own server, Slop running `exec PROGRAM &` (twm's menu starts xterm), and
   `main`'s amy in the X desktop. The full round runs from 09:02 in
   `work/x11fix` (user unit `round-1015`, evidence `build/round-1015/`).
+  The round (to 15:54) passed the source (432), artifact (25) and browser
+  suites; four demos failed. Three because a process killed by a signal
+  left its children running: `slop -c CMD` holds its command as a child
+  (no exec), so `kill` stopped the shell and not the command (JavaScript's
+  child kill and abort, Pi's tool cancel, rts's Ctrl-C to its viewer). A
+  process a signal ends now passes the signal to its descendants, as a
+  process group's signal would (supervisor, `dolly_process_exit_signal`);
+  retesting. The fourth is the new twm-menu step of the X11 test.
 
 ## Seed gaps found porting GLib and Binaryen (2026-10-15, for the next seed round)
 
@@ -201,6 +209,18 @@ Each was stubbed or stripped in a probe in `work/gtk`
   every thread of a threaded program; `dso-browser.mjs` passed in both
   browsers. It edits `docs/process-model.md` and `docs/browser-boundary.md`,
   so `Dollyfile-dolly-docs` needs repinning when it merges.
+- `core/gtk-seed` (`work/gtk-seed`, 2026-10-15) has the libc and `cc` items
+  above, and `cc` sizing a program's initial memory from its data
+  (`13f04de2`: an 8 MiB heap above data and stack, at least 16 MiB);
+  `cpp-browser.mjs` checks each. Unbuilt.
+- `core/zig-threads` (`work/zig-threads`, 2026-10-15): Zig's std for
+  threaded Emscripten programs (signal set size, guard page, signal stack,
+  allocator, processor count, futex), directory reading on Emscripten, and
+  `zig translate-c` reading `ZIG_LIBC`; the zig-llvm test checks each.
+  Rebuilds the core Zig and zig-llvm. Unbuilt.
+- `x11-build`: libxcb's render and randr extensions (Mesa requires
+  `xcb-randr`), and xorgproto's GL headers kept in the images built on it
+  (`xorg-server-build` has none; Mesa's GLX needs `GL/glxproto.h`).
 
 ## Left for a later round, none started
 
