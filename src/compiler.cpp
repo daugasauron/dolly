@@ -861,7 +861,9 @@ bool link_process_executable(const std::string &output,
       // historical 64 KiB default on the stack.
       "-z", "stack-size=8388608",
       "--max-memory=8589934592",
-      "--initial-memory=16777216",
+      // At least 16 MiB, which a DSO's memory import expects, and room for
+      // the program's data: an 8 MiB heap above its data and stack.
+      "--initial-heap=8388608",
       "--no-stack-first",
       "--table-base=1",
       "--global-base=1024",
