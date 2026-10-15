@@ -190,8 +190,11 @@ not reproduced in 160 drags and about 9,000 screen reads.
   (no exec), so `kill` stopped the shell and not the command (JavaScript's
   child kill and abort, Pi's tool cancel, rts's Ctrl-C to its viewer). A
   process a signal ends now passes the signal to its descendants, as a
-  process group's signal would (supervisor, `dolly_process_exit_signal`);
-  retesting. The fourth is the new twm-menu step of the X11 test.
+  process group's signal would (supervisor, `dolly_process_exit_signal`).
+  The fourth was the new twm-menu step pointing above "Xterm". Rerun
+  (18:05-18:44): demos 24 passed and 0 failed, the GPU stage passed, the
+  browser suite but `terminal-browser.mjs` once (a typing race; it passed
+  twice alone). Merged into `main` (`fd99f112`, 2026-10-15).
 
 ## Seed gaps found porting GLib and Binaryen (2026-10-15, for the next seed round)
 
