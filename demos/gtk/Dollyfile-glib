@@ -133,7 +133,8 @@ EXPORTS TOOL   gio
 EXPORTS TOOL   gresource
 EXPORTS TOOL   gsettings
 EXPORTS FOLDER glib-data   /usr/share/glib-2.0
-SLOP mkdir -p /usr/share/licenses/glib && cp /tmp/glib-2.90.1/COPYING /usr/share/licenses/glib/
+# COPYING is a link to the licence.
+SLOP mkdir -p /usr/share/licenses/glib && cp /tmp/glib-2.90.1/LICENSES/LGPL-2.1-or-later.txt /usr/share/licenses/glib/COPYING
 FILE /usr/share/licenses/glib/COPYING
 FILE /usr/share/man/cat1/glib.1
     GLib 2.90 inside Dolly: GLib, GObject and GIO for programs the cc package

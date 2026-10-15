@@ -41,7 +41,9 @@ container=(podman run --rm --userns=keep-id -v "${tree}:/tmp/zsh" -v "${temporar
 # library is NetBSD's libterminfo (the libterminfo package), which Dolly's
 # link adds: zsh uses it through <termcap.h>, there being no curses header
 # for <term.h>. Dolly's wait reports no resource usage (wait3). Modules are
-# linked in: Dolly loads no shared objects into zsh.
+# linked in: Dolly loads no shared objects into zsh. zsh asks for the GNU
+# extensions on Linux and musl, setresuid and setresgid among them; Dolly's
+# build compiles it so too.
 "${container[@]}" CONFIG_SHELL=/bin/sh \
   ac_cv_search_tigetstr='none required' ac_cv_search_tigetflag='none required' \
   ac_cv_search_tigetnum='none required' ac_cv_search_tgetent='none required' \
@@ -51,7 +53,7 @@ container=(podman run --rm --userns=keep-id -v "${tree}:/tmp/zsh" -v "${temporar
   /bin/sh ./configure \
     --host=wasm64-unknown-emscripten --build=x86_64-pc-linux-gnu --prefix=/usr \
     --disable-dynamic --disable-gdbm --disable-pcre --disable-cap --enable-etcdir=/etc \
-    CC=cc >/dev/null
+    CC=cc CPPFLAGS=-D_GNU_SOURCE >/dev/null
 # zsh's build generates headers and sources with awk and sh as it compiles:
 # the whole build runs here, and only its objects and programs are dropped.
 "${container[@]}" make -k >/dev/null 2>&1 || true
