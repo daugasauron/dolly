@@ -98,7 +98,7 @@
 {"name": "Ogg and Vorbis", "use": "Audio decoding in 0 A.D.", "licence": "BSD-3-Clause", "repository": "https://gitlab.xiph.org/xiph/vorbis", "sources": ["dist/static/zero-ad-build/deps.tar.gz"]},
 {"name": "Boost (headers)", "use": "C++ utilities in 0 A.D.", "licence": "BSL-1.0", "repository": "https://github.com/boostorg/boost", "sources": ["dist/static/zero-ad-build/deps.tar.gz"]},
 {"name": "{fmt}", "use": "Formatting in 0 A.D.", "licence": "MIT", "repository": "https://github.com/fmtlib/fmt", "sources": ["dist/static/zero-ad-build/deps.tar.gz"]},
-{"name": "libxml2", "use": "XML parsing in 0 A.D., and xmllint for GLib's resource compiler", "licence": "MIT", "repository": "https://gitlab.gnome.org/GNOME/libxml2", "pins": ["LIBXML2"], "sources": ["dist/static/zero-ad-build/deps.tar.gz", "dist/static/ghostty-gtk/libxml2-*.tar.xz"]},
+{"name": "libxml2", "use": "XML parsing in 0 A.D.", "licence": "MIT", "repository": "https://gitlab.gnome.org/GNOME/libxml2", "sources": ["dist/static/zero-ad-build/deps.tar.gz"]},
 {"name": "ENet", "use": "0 A.D. multiplayer transport", "licence": "MIT", "repository": "https://github.com/lsalzman/enet", "sources": ["dist/static/zero-ad-build/deps.tar.gz"]},
 {"name": "libsodium", "use": "Cryptography in 0 A.D.", "licence": "ISC", "repository": "https://github.com/jedisct1/libsodium", "sources": ["dist/static/zero-ad-build/deps.tar.gz"]},
 {"name": "pkgconf", "use": "pkg-config for the 0 A.D. build and for sessions", "licence": "ISC", "repository": "https://github.com/pkgconf/pkgconf", "sources": ["dist/static/pkgconf/source.tar"]},

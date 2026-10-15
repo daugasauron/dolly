@@ -462,8 +462,8 @@ DOLLY_MESA_URL='https://archive.mesa3d.org/mesa-26.2.5.tar.xz'
 DOLLY_MESA_SHA256=794b3d1729075dae7ebd47c7283b7ca0cdb5dec668f7f11cc0a5d82f6138a0a5
 
 # Ghostty's GTK application (demos/ghostty-gtk): Mesa's Python modules,
-# libadwaita, libxml2's xmllint for GLib's resource compiler,
-# blueprint-compiler, and the host's Zig, which fetches Ghostty's packages.
+# libadwaita, blueprint-compiler, and the host's Zig, which fetches Ghostty's
+# packages.
 DOLLY_MAKO_URL='https://files.pythonhosted.org/packages/6d/a0/053d6af3e8f871e0073b4a36732d9e65be77a72e5434c31b94f6af78a6bb/mako-1.4.3-py3-none-any.whl'
 DOLLY_MAKO_SHA256=723296007c870bfd6b3f0c3230dba7198096e5269297ebf5e4eff9e7ffa39d4f
 DOLLY_MARKUPSAFE_URL='https://files.pythonhosted.org/packages/7e/99/7690b6d4034fffd95959cbe0c02de8deb3098cc577c67bb6a24fe5d7caa7/markupsafe-3.0.3.tar.gz'
@@ -475,9 +475,6 @@ DOLLY_PACKAGING_SHA256=d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339
 DOLLY_LIBADWAITA_VERSION=1.10.0
 DOLLY_LIBADWAITA_URL='https://download.gnome.org/sources/libadwaita/1.10/libadwaita-1.10.0.tar.xz'
 DOLLY_LIBADWAITA_SHA256=b1bf56239269d101a6391ad4553c910eff9cc6170b803916405477ef60a66c84
-DOLLY_LIBXML2_VERSION=2.13.5
-DOLLY_LIBXML2_URL='https://download.gnome.org/sources/libxml2/2.13/libxml2-2.13.5.tar.xz'
-DOLLY_LIBXML2_SHA256=74fc163217a3964257d3be39af943e08861263c4231f9ef5b496b6f6d4c7b2b6
 DOLLY_BLUEPRINT_COMPILER_VERSION=0.18.0
 DOLLY_BLUEPRINT_COMPILER_URL='https://gitlab.gnome.org/GNOME/blueprint-compiler/-/archive/v0.18.0/blueprint-compiler-v0.18.0.tar.gz'
 DOLLY_BLUEPRINT_COMPILER_SHA256=703c7ccd23cb6f77a8fe9c8cae0f91de9274910ca953de77135b6e79dbff1fc3

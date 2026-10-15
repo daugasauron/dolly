@@ -10,7 +10,6 @@ if has_image mesa-build; then
   copy_static demos/ghostty-gtk/epoxy-dolly.patch ghostty-gtk/epoxy-dolly.patch
 fi
 if has_image ghostty-gtk; then
-  copy_static "$(bash scripts/fetch-pinned-archive.sh libxml2)" ghostty-gtk/libxml2-2.13.5.tar.xz
   copy_static "$(bash scripts/fetch-pinned-archive.sh libadwaita)" ghostty-gtk/libadwaita-1.10.0.tar.xz
   copy_static "$(bash scripts/fetch-pinned-archive.sh blueprint_compiler)" ghostty-gtk/blueprint-compiler-0.18.0.tar.gz
   copy_static demos/ghostty-gtk/blueprint-compiler-dolly.patch ghostty-gtk/blueprint-compiler-dolly.patch
