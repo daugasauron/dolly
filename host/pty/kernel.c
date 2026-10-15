@@ -165,7 +165,7 @@ static int64_t pty_send(dolly_kernel_socket *shared, const unsigned char *bytes,
       dolly_kernel_socket_holders(&pty->slave.shared, 1, raise_signal, DOLLY_PROCESS_SIGINT);
     } else if (input) {
       if (reader->size == reader->capacity) break;
-      put(reader, byte);
+      put(reader, dolly_kernel_terminal_input(pty->mode, byte));
     } else if (!show(pty, byte)) {
       break;
     }
@@ -212,7 +212,8 @@ static int64_t pty_terminal(dolly_kernel_socket *shared, const dolly_process_ter
       return 0;
     case DOLLY_PROCESS_TERMINAL_MODE_SET:
       if ((request->flags & ~(DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO | DOLLY_TERMINAL_OPOST |
-                              DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG)) != 0) return -EINVAL;
+                              DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG | DOLLY_TERMINAL_ICRNL |
+                              DOLLY_TERMINAL_INLCR)) != 0) return -EINVAL;
       pty->mode = request->flags;
       return 0;
     case DOLLY_PROCESS_TERMINAL_SIZE:

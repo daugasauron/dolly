@@ -1247,8 +1247,7 @@ static uintptr_t variadic_argument(uintptr_t arguments) {
  * without a line, such as speeds, parity and break handling.
  */
 static int terminal_mode_from_attributes(const struct termios *attributes) {
-  const tcflag_t unsupported_input =
-      ICRNL | INLCR | IGNCR | IUCLC | IXON | IXOFF | IXANY | ISTRIP;
+  const tcflag_t unsupported_input = IGNCR | IUCLC | IXON | IXOFF | IXANY | ISTRIP;
   const cc_t *keys = attributes->c_cc;
   if ((attributes->c_iflag & unsupported_input) != 0 ||
       (attributes->c_oflag & ~(tcflag_t)(OPOST | ONLCR)) != 0 ||
@@ -1262,6 +1261,8 @@ static int terminal_mode_from_attributes(const struct termios *attributes) {
   if ((attributes->c_lflag & ISIG) != 0) mode |= DOLLY_TERMINAL_ISIG;
   if ((attributes->c_oflag & OPOST) != 0) mode |= DOLLY_TERMINAL_OPOST;
   if ((attributes->c_oflag & ONLCR) != 0) mode |= DOLLY_TERMINAL_ONLCR;
+  if ((attributes->c_iflag & ICRNL) != 0) mode |= DOLLY_TERMINAL_ICRNL;
+  if ((attributes->c_iflag & INLCR) != 0) mode |= DOLLY_TERMINAL_INLCR;
   return (int)mode;
 }
 
@@ -1303,6 +1304,8 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
       memset(&attributes, 0, sizeof(attributes));
       if (mode & DOLLY_TERMINAL_OPOST) attributes.c_oflag |= OPOST;
       if (mode & DOLLY_TERMINAL_ONLCR) attributes.c_oflag |= ONLCR;
+      if (mode & DOLLY_TERMINAL_ICRNL) attributes.c_iflag |= ICRNL;
+      if (mode & DOLLY_TERMINAL_INLCR) attributes.c_iflag |= INLCR;
       attributes.c_cflag = CS8 | CREAD;
       if ((mode & DOLLY_TERMINAL_ISIG) != 0) attributes.c_lflag |= ISIG;
       if ((mode & DOLLY_TERMINAL_CANONICAL) != 0) {

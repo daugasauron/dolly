@@ -129,6 +129,8 @@ void dolly_kernel_line_type(dolly_kernel_line *line, unsigned char byte,
 /* Moves bytes out and returns their count: one line at most, or with `raw`
  * whatever is held. */
 size_t dolly_kernel_line_take(dolly_kernel_line *line, unsigned char *bytes, size_t size, int raw);
+/* An input byte as a terminal of `mode` reads it (ICRNL, INLCR). */
+unsigned char dolly_kernel_terminal_input(uint32_t mode, unsigned char byte);
 /* The display's terminal for its readers. receive() is a read: a line under
  * the canonical mode (zero at its end of input), the typed bytes otherwise,
  * -EAGAIN while there is none. key() is the raw read, which no mode edits:

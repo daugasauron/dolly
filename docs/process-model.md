@@ -117,8 +117,10 @@ sequenceDiagram
   Janis's, takes one byte unedited in either mode. `OPOST`/`ONLCR` map LF to
   CRLF on output. While `ISIG` is set (the default), Ctrl+C sends SIGINT to the
   foreground; a program that clears it (raw mode) reads Ctrl+C as the byte 0x03.
-  termios reports no input mapping, flow control or other signal keys, and
-  `VMIN` 1, `VTIME` 0; `tcsetattr` rejects anything else with `EINVAL`.
+  `ICRNL` reads an input CR as LF and `INLCR` an LF as CR, when a program sets
+  them (a line editor such as zsh's does). termios reports no other input
+  mapping, no flow control or other signal keys, and `VMIN` 1, `VTIME` 0;
+  `tcsetattr` rejects anything else with `EINVAL`.
   `TCSAFLUSH` and `tcflush` discard unread input; break and flow control fail
   with `ENOTSUP`.
 - There is one user and no permission bits: `chmod`, `chown` and `access` only
@@ -218,7 +220,7 @@ nothing and declares nothing: any program built for Dolly runs on one.
 - The slave is a terminal to the program that holds it, with a mode and a
   size of its own: `isatty`, termios and `TIOCGWINSZ` answer as for the
   display's terminal, with the same discipline (`ICANON`, `ECHO` to the
-  master, `OPOST` with `ONLCR`, `ISIG`). A process whose descriptor 0, 1 or 2 is a
+  master, `OPOST` with `ONLCR`, `ISIG`, `ICRNL` and `INLCR`). A process whose descriptor 0, 1 or 2 is a
   slave opens it as `/dev/tty`: the same open file again, so `O_NONBLOCK` set
   there is set for every process that holds the slave. The master is not a
   terminal.
