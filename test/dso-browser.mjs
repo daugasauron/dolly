@@ -71,7 +71,33 @@ int main(void) {
   return dolly_process_call(DOLLY_DSO_OPEN, packet, sizeof(packet), reply, sizeof(reply)) != -ENOSYS;
 }
 `,
-  "threaded.c": "int main(void) { return 0; }\n",
+  // In a program using threads@0 each thread's Worker has a table of its own:
+  // a call works from any thread, and a closure, which would add an entry to
+  // one Worker's table only, is refused.
+  "threaded.c": `#include <errno.h>
+#include <pthread.h>
+#include <stdint.h>
+#include <dolly/dso.h>
+static int sum(int left, int right) { return left + right; }
+static void *call_sum(void *argument) {
+  struct { uint64_t size; uint16_t alignment, type; uint64_t elements; } ffi_int = {4, 4, 1, 0};
+  uint64_t argument_types[2] = {(uint64_t)&ffi_int, (uint64_t)&ffi_int};
+  struct { uint32_t abi, nargs; uint64_t argument_types, return_type; uint32_t bytes, flags, fixed; } cif =
+      {2, 2, (uint64_t)argument_types, (uint64_t)&ffi_int, 0, 0, 2};
+  int left = 30, right = 12;
+  uint64_t values[2] = {(uint64_t)&left, (uint64_t)&right}, result = 0;
+  const dolly_ffi_call_request call = {(uint64_t)&cif, (uint64_t)(uintptr_t)sum, (uint64_t)&result, (uint64_t)values};
+  (void)argument;
+  return (void *)(intptr_t)(dolly_ffi_call(&call) == 0 && (int)result == 42);
+}
+int main(void) {
+  pthread_t thread;
+  void *called = 0;
+  if (!call_sum(0) || pthread_create(&thread, 0, call_sum, 0) || pthread_join(thread, &called) || !called) return 1;
+  uint64_t closure[4] = {0}, code = 0;
+  return dolly_ffi_closure_alloc((uint64_t)closure, &code) != -ENOTSUP;
+}
+`,
 };
 function handle(request, response, path, headers) {
   const body = path.startsWith("/fixture/") ? sources[path.slice("/fixture/".length)] : undefined;
@@ -106,9 +132,6 @@ await browserTest("dso", { image: "system", timeout: 300_000, server: { fixtures
   await run("cc -O0 -rdynamic process-signals.c -o signals && timeout 30 /tmp/dso/signals /tmp/dso");
   // A program that records nothing is served nothing, in this image too.
   await run("cc -O1 caller.c -o caller && ./caller");
-  // The loader holds one Worker's function table: no program has it and threads.
-  await run("cc -O1 -pthread -Wl,--export=__dolly_dso_allocate threaded.c -o threaded");
-  assert.equal(await submit("./threaded 2> refused"), 126);
-  await run("test $(wc -l < refused) -eq 1 && grep -q 'dso@0' refused");
+  await run("cc -O1 -pthread threaded.c -o threaded && ./threaded");
   assert.equal(loaderFetches(), fetched, "a program fetched the loader");
 });

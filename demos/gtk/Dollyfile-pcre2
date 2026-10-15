@@ -1,0 +1,84 @@
+DOLLY 7
+PACKAGE pcre2
+REQUIRES HOST runtime@0
+
+# PCRE2's 8-bit library from upstream's release, unchanged, built by the
+# Makefile below from its generic configuration, as projects that vendor it
+# do: Unicode properties, no JIT (a Dolly program generates no code). GLib's
+# regular expressions are PCRE2's.
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 3a0e43018c5bd008e95ec045c48789603dc61a1ae993fa144633649be6d2e335
+
+REQUIRES HEADER libc
+REQUIRES TOOL   ar
+REQUIRES TOOL   cat
+REQUIRES TOOL   cc
+REQUIRES TOOL   cp
+REQUIRES TOOL   gzip
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   tar
+
+SOURCE /v0.1.3/dist/static/gtk/pcre2-10.49.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/pcre2.tar.gz
+SLOP CWD /tmp gzip -dc pcre2.tar.gz | tar -xf -
+FILE /tmp/pcre2.mk
+    .RECIPEPREFIX := >
+    .DELETE_ON_ERROR:
+    MAKEFLAGS += -r
+    P := /tmp/pcre2-10.49
+    B := /tmp/pcre2-build
+    NAMES := auto_possess chartables chkdint compile compile_cgroup compile_class config context \
+      convert dfa_match error extuni find_bracket jit_compile maketables match match_data \
+      match_next newline ord2utf pattern_info script_run serialize string_utils study substitute \
+      substring tables ucd valid_utf xclass
+    OBJECTS := $(addprefix $(B)/,$(addsuffix .o,$(NAMES)))
+    CFLAGS := -O2 -DHAVE_CONFIG_H -DPCRE2_CODE_UNIT_WIDTH=8 -I$(B) -I$(P)/src
+    all: /usr/lib/libpcre2-8.a /usr/include/pcre2.h
+    $(B)/config.h: $(P)/src/config.h.generic
+    >mkdir -p $(B)
+    >printf '#define HAVE_STDINT_H 1\n#define HAVE_INTTYPES_H 1\n#define HAVE_LIMITS_H 1\n#define HAVE_UNISTD_H 1\n#define HAVE_MEMMOVE 1\n#define HAVE_STRERROR 1\n#define SUPPORT_PCRE2_8 1\n#define SUPPORT_UNICODE 1\n#define PCRE2_STATIC 1\n' > $@
+    >cat $< >> $@
+    $(B)/pcre2.h: $(P)/src/pcre2.h.generic
+    >mkdir -p $(B)
+    >cp $< $@
+    $(B)/chartables.o: $(P)/src/pcre2_chartables.c.dist $(B)/config.h $(B)/pcre2.h
+    >cp $< $(B)/pcre2_chartables.c
+    >cc $(CFLAGS) -c $(B)/pcre2_chartables.c -o $@
+    $(B)/%.o: $(P)/src/pcre2_%.c $(B)/config.h $(B)/pcre2.h
+    >cc $(CFLAGS) -c $< -o $@
+    /usr/lib/libpcre2-8.a: $(OBJECTS)
+    >ar rcs $@ $^
+    /usr/include/pcre2.h: $(B)/pcre2.h
+    >cp $< $@
+SLOP make -j4 -f /tmp/pcre2.mk
+FILE /usr/lib/pkgconfig/libpcre2-8.pc
+    prefix=/usr
+    libdir=/usr/lib
+    includedir=/usr/include
+    
+    Name: libpcre2-8
+    Description: PCRE2 with 8-bit character support
+    Version: 10.49
+    Libs: -L${libdir} -lpcre2-8
+    Cflags: -I${includedir} -DPCRE2_STATIC
+
+# A pattern compiled and matched.
+FILE /tmp/pcre2-check.c
+    #define PCRE2_CODE_UNIT_WIDTH 8
+    #define PCRE2_STATIC
+    #include <pcre2.h>
+    #include <stdio.h>
+    int main(void) {
+      int error;
+      PCRE2_SIZE offset;
+      pcre2_code *code = pcre2_compile((PCRE2_SPTR)"(\\p{L}+)-(\\d+)", PCRE2_ZERO_TERMINATED, PCRE2_UTF, &error, &offset, NULL);
+      pcre2_match_data *data = code ? pcre2_match_data_create_from_pattern(code, NULL) : NULL;
+      if (!data || pcre2_match(code, (PCRE2_SPTR)"café-42", PCRE2_ZERO_TERMINATED, 0, 0, data, NULL) != 3) return 1;
+      return puts("PCRE2-OK") < 0;
+    }
+SLOP cc -O1 /tmp/pcre2-check.c -lpcre2-8 -o /tmp/pcre2-check && /tmp/pcre2-check | grep -qx PCRE2-OK
+
+EXPORTS LIB    pcre2-8 /usr/lib/libpcre2-8.a
+EXPORTS HEADER pcre2   /usr/include/pcre2.h
+EXPORTS FILE   pcre2-pkgconfig /usr/lib/pkgconfig/libpcre2-8.pc
+SLOP mkdir -p /usr/share/licenses/pcre2 && cp /tmp/pcre2-10.49/LICENCE.md /usr/share/licenses/pcre2/
+FILE /usr/share/licenses/pcre2/LICENCE.md

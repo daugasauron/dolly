@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # The platform as a program sees it: the documents and machine contracts of
 # this release at their repository paths, so their links to each other work.
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
-SOURCE /v0.1.3/docs/process-model.md ca3d358735dbea556b239f46831b1884a886924903328638c2e14946c4dc8187 /usr/share/doc/dolly/docs/process-model.md
+SOURCE /v0.1.3/docs/process-model.md 7c1ccb71f4f8fdd49a248683a2e6152bc1ee76dd74f2424f5308404dfac0c620 /usr/share/doc/dolly/docs/process-model.md
 SOURCE /v0.1.3/docs/browser-stack.md 6afa6298a0e03ff3af86cf3b5ff102c23508afd542d921a537c8eae7bfc48370 /usr/share/doc/dolly/docs/browser-stack.md
 SOURCE /v0.1.3/docs/slop.md a28c7ab502fb246537fa27f3a98b0fceab4a6762e90f55454fd1c1b4ae2d50e4 /usr/share/doc/dolly/docs/slop.md
 SOURCE /v0.1.3/docs/display.md 541c42f9c51d67e8560b91cd485c236e6c488fa58385098122c4d81b646f6980 /usr/share/doc/dolly/docs/display.md
@@ -15,10 +15,10 @@ SOURCE /v0.1.3/docs/http.md eb91bb3da5a11c2baee85f85d045a403e70e3b5263dcb330ec87
 SOURCE /v0.1.3/docs/sessions.md 9f4f32a5e6d7b12b9d3a93214de71171c5bb7e46e14eac2509704b5c62c6af6d /usr/share/doc/dolly/docs/sessions.md
 SOURCE /v0.1.3/docs/dollyfile.md d6b9cbd273b770563daa4439cde649dd795f4050bc3ea855041ff053b420689f /usr/share/doc/dolly/docs/dollyfile.md
 SOURCE /v0.1.3/docs/architecture.md 1ca94b2feee85abf199ec116b512285b1c246b13ae65c3ba211df16240a0dddd /usr/share/doc/dolly/docs/architecture.md
-SOURCE /v0.1.3/docs/browser-boundary.md 91720b53c5ef927aaf1f5ab22eb07f685a820306446b3995c6cd539a63d08803 /usr/share/doc/dolly/docs/browser-boundary.md
+SOURCE /v0.1.3/docs/browser-boundary.md 6999f8661c93cd93ab7a76465ad99db0819a0d7a69e86d35e643bd0669fa7aa8 /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE /v0.1.3/docs/image-build-service.md 43bbcfcf7c5e7c8ce83f91c55b3c4bc0682651b2905ba35089b2b85b3b13efa9 /usr/share/doc/dolly/docs/image-build-service.md
 SOURCE /v0.1.3/abi/README.md b6e5db49cc47e401ad34bc9587725affd47050d2f2c322457129649f62274cb0 /usr/share/doc/dolly/abi/README.md
-SOURCE /v0.1.3/host/README.md b02dca897e2363bf870563804fc1c4e234cd0bf827fbe10d3e91783991704d4f /usr/share/doc/dolly/host/README.md
+SOURCE /v0.1.3/host/README.md 7a165d7ed1f6b7ce773edec12e74e482c1b1c6d982b662aa29ad95653059a9d2 /usr/share/doc/dolly/host/README.md
 SOURCE /v0.1.3/abi/dolly-browser-0.wat 6d77eb50ec406c144ccd37325749c1e018df683d072b91744a1f136771dcd0c3 /usr/share/doc/dolly/abi/dolly-browser-0.wat
 SOURCE /v0.1.3/abi/dolly-host-0.wat 7d1a02e3317086c06ca022e917d6d8537d9a005e9804e5ffdf256dc7d70c8671 /usr/share/doc/dolly/abi/dolly-host-0.wat
 SOURCE /v0.1.3/abi/dolly-image-0.wat 9a16a6472d26ee6ca5d7a67a474a1723745b3eefaf585bd292d115725bf44d6a /usr/share/doc/dolly/abi/dolly-image-0.wat

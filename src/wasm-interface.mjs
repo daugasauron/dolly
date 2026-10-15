@@ -173,6 +173,46 @@ function skipConstantExpression(reader) {
   }
 }
 
+// An element of an expression segment: the function a ref.func names, or
+// null for ref.null.
+function readElementExpression(reader) {
+  const opcode = reader.u8();
+  let index = null;
+  if (opcode === 0xd2) index = reader.u32();
+  else if (opcode === 0xd0) readValueType(reader);
+  else reader.fail(`unsupported element expression opcode 0x${opcode.toString(16)}`);
+  if (reader.u8() !== 0x0b) reader.fail("element expression has more than one instruction");
+  return index;
+}
+
+// The functions an element segment puts into a table: an active segment's,
+// none for a passive or declarative one (flag bit 0).
+function readElementSegment(reader) {
+  const flags = reader.u32();
+  if (flags > 7) reader.fail(`unsupported element segment flags ${flags}`);
+  const active = (flags & 0x1) === 0;
+  if (flags === 2 || flags === 6) reader.u32();
+  if (active) skipConstantExpression(reader);
+  if (flags & 0x4) {
+    if (flags !== 4) readValueType(reader);
+    const indices = readVector(reader, readElementExpression);
+    return active ? indices.filter(index => index !== null) : [];
+  }
+  if (flags !== 0 && reader.u8() !== 0x00) reader.fail("unsupported element kind");
+  const indices = readVector(reader, item => item.u32());
+  return active ? indices : [];
+}
+
+// Binaryen's --fpcast-emu leaves one signature in the table, which every
+// indirect call uses: thunks of i64 parameters, sixteen or more
+// (max-func-params), and an i64 result. Their parameter count, or 0.
+function castEmulationParameters(tableFunctions) {
+  const [type] = tableFunctions;
+  const thunk = type && type.params.length >= 16 && type.params.every(param => param === "i64") &&
+    type.results.length === 1 && type.results[0] === "i64";
+  return thunk && tableFunctions.every(other => other === type) ? type.params.length : 0;
+}
+
 function functionType(types, index, reader) {
   const type = types[index];
   if (!type) reader.fail(`function references missing type ${index}`);
@@ -199,6 +239,7 @@ export function parseWasmInterface(input, label = "WebAssembly binary") {
   const importedTags = [];
   const definedTags = [];
   const rawExports = [];
+  const tableFunctionIndices = [];
   const customSections = [];
   const customSectionData = [];
 
@@ -264,6 +305,8 @@ export function parseWasmInterface(input, label = "WebAssembly binary") {
         externalKind: item.u8(),
         index: item.u32(),
       }), rawExports);
+    } else if (id === 9) {
+      for (const indices of readVector(section, readElementSegment)) tableFunctionIndices.push(...indices);
     } else if (id === 13) {
       readVector(section, item => readTagType(item, types), definedTags);
     } else {
@@ -290,10 +333,14 @@ export function parseWasmInterface(input, label = "WebAssembly binary") {
     return { name, type };
   });
 
+  const tableFunctions = tableFunctionIndices.map(index =>
+    functions[index] ?? reader.fail(`element segment references unknown function ${index}`));
+
   return {
     label,
     imports,
     exports,
+    castEmulationParameters: castEmulationParameters(tableFunctions),
     customSections,
     customSectionData,
   };

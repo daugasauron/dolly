@@ -1,0 +1,147 @@
+DOLLY 7
+PACKAGE glib
+REQUIRES HOST runtime@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+
+# GLib from upstream's release, built by its own Meson with one patch
+# (glib-dolly.patch: g_unix_fd_query_path is not supported here, as on Hurd).
+# A program that links GLib is threaded, calls through libffi (dso@0's FFI)
+# and calls functions through pointers cast to types of other parameters,
+# which traps in WebAssembly: GObject's pkg-config file asks cc for
+# --dolly-cast-emulation (Binaryen's wasm-opt --fpcast-emu after the link),
+# and this package's own programs are passed through it here.
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 3a0e43018c5bd008e95ec045c48789603dc61a1ae993fa144633649be6d2e335
+INSTALL /v0.1.3/demos/tools/Dollyfile-meson 4d0c0afc2d3f21450a1954d9d906397f7b46a3034e69efdfdba55d34048d0894
+INSTALL /v0.1.3/demos/zero-ad/Dollyfile-pkgconf f4e24e77e655f5e669e5f0ec41f462a3e3a850039f3bccecf41702fa9d9ed366
+INSTALL /v0.1.3/demos/tools/Dollyfile-xz b30e93c96da486f2d18af35c5ebec874d3981150d5c01e149e39d65ff7f35612
+INSTALL /v0.1.3/demos/tools/Dollyfile-tar 6548dec0620c36a1eb12e53375f9870c052d37d7bf7d4d1ffae347f0547c63ce
+INSTALL /v0.1.3/demos/tools/Dollyfile-binaryen bbe369e92dc93978c3fcb397f79bf673266776d72ad05000d873df5ab4144777
+INSTALL /v0.1.3/demos/python/Dollyfile-libffi 315a79d7d7d96139320262278e575dd8e26a74880baf8d0f3effe81d42086b73
+INSTALL /v0.1.3/demos/gtk/Dollyfile-pcre2 fb7566213751b7b7a1f59a1a4bde58a30cd169ca8a89a167533433335a9636e9
+INSTALL /v0.1.3/Dollyfile-zlib ff54d121b9e1e904ead5f8a3c105ae641b7c4aebf9328fe6a5b9193ab562dc1b
+
+REQUIRES HEADER ffi
+REQUIRES HEADER pcre2
+REQUIRES HEADER zlib
+REQUIRES LIB    ffi
+REQUIRES LIB    pcre2-8
+REQUIRES LIB    z
+REQUIRES TOOL   cc
+REQUIRES TOOL   grep
+REQUIRES TOOL   meson
+REQUIRES TOOL   mv
+REQUIRES TOOL   patch
+REQUIRES TOOL   pkg-config
+REQUIRES TOOL   sed
+REQUIRES TOOL   tar
+REQUIRES TOOL   wasm-opt
+REQUIRES TOOL   xz
+
+SOURCE /v0.1.3/dist/static/gtk/glib-2.90.1.tar.xz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/glib.tar.xz
+SOURCE /v0.1.3/dist/static/gtk/glib-dolly.patch 0000000000000000000000000000000000000000000000000000000000000000 /tmp/glib-dolly.patch
+SLOP CWD /tmp xz -dc glib.tar.xz | tar -xf -
+SLOP patch -p1 -d /tmp/glib-2.90.1 -i /tmp/glib-dolly.patch
+# No tests, translations, introspection data or kernel facilities Dolly has
+# not; the wraps would download, so Meson finds the packages above.
+SLOP meson setup /tmp/glib-build /tmp/glib-2.90.1 --wrap-mode=nodownload --prefix=/usr --libdir=lib \
+  --buildtype=release -Ddefault_library=static -Dtests=false -Dintrospection=disabled -Dnls=disabled \
+  -Dselinux=disabled -Dxattr=false -Dlibmount=disabled -Dman-pages=disabled -Ddtrace=disabled \
+  -Dsystemtap=disabled -Dsysprof=disabled -Dlibelf=disabled -Dglib_debug=disabled
+SLOP meson compile -C /tmp/glib-build && meson install --no-rebuild -C /tmp/glib-build
+SLOP sed 's/^Libs: \(.*\)$/Libs: \1 --dolly-cast-emulation/' /usr/lib/pkgconfig/gobject-2.0.pc > /tmp/gobject.pc && \
+  mv /tmp/gobject.pc /usr/lib/pkgconfig/gobject-2.0.pc
+# Upstream's Python tools start with #!/usr/bin/env; Dolly's env is /bin/env.
+SLOP CWD /usr/bin for script in glib-mkenums glib-genmarshal gdbus-codegen gtester-report; do \
+  sed '1s|.*|#!/usr/bin/python3|' $script > /tmp/$script && mv /tmp/$script $script; done
+SLOP CWD /usr/bin for program in glib-compile-resources glib-compile-schemas gio gresource gsettings; do \
+  wasm-opt --fpcast-emu $program -o $program.emulated && mv $program.emulated $program; done
+
+# A GObject type, a signal its handler takes fewer parameters of, one through
+# the generic marshaller (libffi), a sort through a cast, a thread, a main
+# loop and GIO reading a file.
+FILE /tmp/glib-check.c
+    #include <gio/gio.h>
+    #include <string.h>
+    #define PROBE_TYPE (probe_get_type())
+    G_DECLARE_FINAL_TYPE(Probe, probe, PROBE, OBJECT, GObject)
+    struct _Probe { GObject parent; int seen; };
+    G_DEFINE_FINAL_TYPE(Probe, probe, G_TYPE_OBJECT)
+    static guint touched, weighed;
+    static void probe_class_init(ProbeClass *klass) {
+      (void)klass;
+      touched = g_signal_new("touched", PROBE_TYPE, G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_INT);
+      weighed = g_signal_new("weighed", PROBE_TYPE, G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
+                             G_TYPE_INT, 3, G_TYPE_INT, G_TYPE_DOUBLE, G_TYPE_STRING);
+    }
+    static void probe_init(Probe *self) { self->seen = 0; }
+    static void on_touched(Probe *self) { self->seen = 1; }
+    static int on_weighed(Probe *self, int number, double scale, const char *word, gpointer data) {
+      (void)self;
+      return number * (int)scale + (int)strlen(word) + GPOINTER_TO_INT(data);
+    }
+    static gint by_number(gconstpointer left, gconstpointer right) { return GPOINTER_TO_INT(left) - GPOINTER_TO_INT(right); }
+    static gpointer twice(gpointer data) { return GINT_TO_POINTER(GPOINTER_TO_INT(data) * 2); }
+    static gboolean quit(gpointer loop) { g_main_loop_quit(loop); return G_SOURCE_REMOVE; }
+    int main(void) {
+      Probe *probe = g_object_new(PROBE_TYPE, NULL);
+      int weight = 0;
+      g_signal_connect(probe, "touched", G_CALLBACK(on_touched), NULL);
+      g_signal_connect(probe, "weighed", G_CALLBACK(on_weighed), GINT_TO_POINTER(1));
+      g_signal_emit(probe, touched, 0, 7);
+      g_signal_emit(probe, weighed, 0, 20, 2.0, "go", &weight);
+      GList *list = g_list_sort(g_list_prepend(g_list_prepend(NULL, GINT_TO_POINTER(2)), GINT_TO_POINTER(1)), by_number);
+      list = g_list_sort(list, by_number);
+      GThread *thread = g_thread_new("twice", twice, GINT_TO_POINTER(21));
+      GMainLoop *loop = g_main_loop_new(NULL, FALSE);
+      g_timeout_add(10, quit, loop);
+      g_main_loop_run(loop);
+      char *contents = NULL;
+      gboolean read = g_file_load_contents(g_file_new_for_path("/tmp/glib-check.c"), NULL, &contents, NULL, NULL, NULL);
+      if (probe->seen != 1 || weight != 43 || GPOINTER_TO_INT(list->data) != 1 ||
+          GPOINTER_TO_INT(g_thread_join(thread)) != 42 || !read || !strstr(contents, "GLIB-OK")) return 1;
+      return puts("GLIB-OK") < 0;
+    }
+SLOP cc -O1 -pthread /tmp/glib-check.c -o /tmp/glib-check $(pkg-config --cflags --libs gio-2.0) && \
+  /tmp/glib-check | grep -qx GLIB-OK
+
+EXPORTS LIB    glib-2.0    /usr/lib/libglib-2.0.a
+EXPORTS LIB    gobject-2.0 /usr/lib/libgobject-2.0.a
+EXPORTS LIB    gio-2.0     /usr/lib/libgio-2.0.a
+EXPORTS LIB    gmodule-2.0 /usr/lib/libgmodule-2.0.a
+EXPORTS LIB    gthread-2.0 /usr/lib/libgthread-2.0.a
+EXPORTS HEADER glib        /usr/include/glib-2.0
+EXPORTS HEADER glibconfig  /usr/lib/glib-2.0/include
+EXPORTS HEADER gio-unix    /usr/include/gio-unix-2.0
+EXPORTS FILE   glib-pkgconfig          /usr/lib/pkgconfig/glib-2.0.pc
+EXPORTS FILE   gobject-pkgconfig       /usr/lib/pkgconfig/gobject-2.0.pc
+EXPORTS FILE   gio-pkgconfig           /usr/lib/pkgconfig/gio-2.0.pc
+EXPORTS FILE   gio-unix-pkgconfig      /usr/lib/pkgconfig/gio-unix-2.0.pc
+EXPORTS FILE   gmodule-pkgconfig       /usr/lib/pkgconfig/gmodule-2.0.pc
+EXPORTS FILE   gmodule-export-pkgconfig /usr/lib/pkgconfig/gmodule-export-2.0.pc
+EXPORTS FILE   gmodule-no-export-pkgconfig /usr/lib/pkgconfig/gmodule-no-export-2.0.pc
+EXPORTS FILE   gthread-pkgconfig       /usr/lib/pkgconfig/gthread-2.0.pc
+EXPORTS TOOL   glib-compile-resources
+EXPORTS TOOL   glib-compile-schemas
+EXPORTS TOOL   glib-mkenums
+EXPORTS TOOL   glib-genmarshal
+EXPORTS TOOL   gdbus-codegen
+EXPORTS TOOL   gio
+EXPORTS TOOL   gresource
+EXPORTS TOOL   gsettings
+EXPORTS FOLDER glib-data   /usr/share/glib-2.0
+SLOP mkdir -p /usr/share/licenses/glib && cp /tmp/glib-2.90.1/COPYING /usr/share/licenses/glib/
+FILE /usr/share/licenses/glib/COPYING
+FILE /usr/share/man/cat1/glib.1
+    GLib 2.90 inside Dolly: GLib, GObject and GIO for programs the cc package
+    builds, and their tools.
+    
+      cc -pthread prog.c -o prog $(pkg-config --cflags --libs gio-2.0)
+                       GObject's pkg-config file adds --dolly-cast-emulation:
+                       GObject calls functions through casts
+      glib-compile-resources, glib-compile-schemas, glib-mkenums,
+      glib-genmarshal, gdbus-codegen        as upstream's
+    
+    Upstream's documentation: https://docs.gtk.org/glib/

@@ -150,7 +150,7 @@ try {
     const url = URL.createObjectURL(bundle);
     try {
       return (await import(url)).serve({ ...options, instance, memory: configuration.memory,
-        processInterface: configuration.processInterface });
+        processInterface: configuration.processInterface, threaded: configuration.threaded });
     } finally { URL.revokeObjectURL(url); }
   }));
   self.postMessage({ type: "started", pid: configuration.pid, tid: configuration.tid });

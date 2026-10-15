@@ -348,7 +348,8 @@ export class DollyProcessSupervisor {
       threaded = validateThreadProfile(parsed, requirements, this.threadContract);
       largeStack = parsed.customSections.includes("dolly.process.stack");
       module = await WebAssembly.compile(bytes);
-      processInterface = { imports: parsed.imports, exports: parsed.exports };
+      processInterface = { imports: parsed.imports, exports: parsed.exports,
+        castEmulationParameters: parsed.castEmulationParameters };
       prepared = true;
     } finally {
       clearTimeout(notice);
@@ -412,10 +413,11 @@ export class DollyProcessSupervisor {
         // Checked at every launch, not only when compiled: nena@0 may have
         // disabled a module since. The modules served in this executable's
         // own Worker each hold one Worker's state, such as its function
-        // table, so none goes with threads.
+        // table: one goes with threads only where it serves every thread.
         checkHostAbi(requirements, this.hostAbi);
         const local = [...requirements.keys()].filter(requirement => this.processModules.has(requirement));
-        if (threaded && local.length) throw new TypeError(`a program using threads@0 cannot use ${local.join(", ")}`);
+        const unthreaded = local.filter(requirement => !this.processModules.get(requirement).threads);
+        if (threaded && unthreaded.length) throw new TypeError(`a program using threads@0 cannot use ${unthreaded.join(", ")}`);
         const memory = createProcessMemory(memoryRequirements);
         process.memory = memory;
         const gate = new WebAssembly.Instance(this.gateModule, {

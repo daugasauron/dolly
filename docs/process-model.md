@@ -64,7 +64,7 @@ sequenceDiagram
 - A refusal is reported to the program that asked, not to the person at the
   page. An executable the loader refuses (a wrong stamp or import, a host module
   the session does not have or whose layout differs, a thread client without
-  `dolly_thread_start` or with `dso@0`) and a Worker that fails while running exit with status
+  `dolly_thread_start`) and a Worker that fails while running exit with status
   126 after one line on the process's own descriptor 2 that names the cause
   ([`process-supervisor.mjs`](../src/process-supervisor.mjs)); unrelated
   processes are unaffected. `cc` refuses to link a thread client without
@@ -333,8 +333,8 @@ nothing and declares nothing: any program built for Dolly runs on one.
   [`host/threads/threads.mjs`](../host/threads/threads.mjs)): statically linked `-pthread`
   programs, one Worker per thread sharing the process memory, at most 16 per
   process and 64 in total; `sysconf` reports 4 processors. Handlers run on the
-  main thread, also while it waits in `pthread_join`. No DSOs, FFI,
-  cancellation or directed signals.
+  main thread, also while it waits in `pthread_join`. FFI calls work in every
+  thread; no DSOs, FFI closures, cancellation or directed signals.
 - `dso@0` ([`host/dso/dolly-dso-0.wat`](../host/dso/dolly-dso-0.wat),
   [`host/dso/process.mjs`](../host/dso/process.mjs)): process-local DSOs and
   FFI, served in the Worker of an executable that records the module
@@ -344,7 +344,15 @@ nothing and declares nothing: any program built for Dolly runs on one.
     memory, table and allocator; the loader checks exact import types before
     instantiation.
   - FFI calls and closures (`dolly_ffi_*`, `<dolly/dso.h>`) stay in the process
-    Worker; libffi supports CPython `_ctypes`.
+    Worker; libffi supports CPython `_ctypes`. In a program using `threads@0`
+    each thread's Worker serves its calls, and loading or a closure, which
+    would add a table entry to one Worker only, is refused with `ENOTSUP`.
+  - A program passed through Binaryen's cast emulation (`wasm-opt
+    --fpcast-emu`), whose table holds nothing but thunks of one signature,
+    sixteen or more `i64` parameters and an `i64` result, is called in it; loading and
+    closures, which would add an entry of another signature, are refused.
+    GObject programs need it: they call functions through casts to types of
+    other parameters.
   - Without the record a program loads nothing: `dlopen` returns `NULL` with
     `ENOSYS` and a `dlerror()` naming `-rdynamic` and `dso@0`, and the raw
     operations are unknown ones. With it, the image must declare
