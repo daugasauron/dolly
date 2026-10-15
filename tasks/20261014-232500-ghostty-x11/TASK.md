@@ -155,3 +155,42 @@ Each step needs the one before it; details from memory are marked.
   which a Wasm process cannot run. Mesa's GLSL grammars need GNU bison and
   flex, which need configure scripts: generated on the host while staging,
   as Wine's parsers are. Then libadwaita 1.10 and Ghostty's own GTK build.
+
+## Event loop, threads, Mesa, blueprints (2026-10-15, 13:50-15:00)
+
+- libxev (Ghostty's event loop) has no backend for Emscripten. Added `poll`
+  (`demo/ghostty-gtk` `18d9a63f`, `demos/ghostty-gtk/libxev-dolly.patch`):
+  epoll's loop with its own registry of armed completions handed to poll(2);
+  Async through a pipe; Process through a thread waiting in waitpid. Its
+  check printed `XEV-POLL-OK` in a zig-llvm session.
+- A threaded Zig program (`-fno-single-threaded`) did not start in Dolly:
+  seven std bugs for Emscripten (`core/zig-threads` `aba5524d`, in the core
+  Zig patch): musl's 128-byte sigset_t where Emscripten has two longs (so
+  sigaction read the mask as flags), handlers typed int, the processor
+  count through sysctlbyname, a guard page and an alternate signal stack per
+  thread (Dolly refuses both: linear memory has neither), WasmAllocator as
+  the page allocator (single-threaded only), a futex timeout that does not
+  compile. Unbuilt: the next seed round rebuilds Zig and zig-llvm.
+- Ghostty: `.single_threaded = false` on its executable (Zig makes wasm
+  single-threaded by default; `demos/ghostty-gtk/ghostty-dolly.patch`), the
+  core's Ghostty patch, `-Dapp-runtime=gtk` and Dolly's own FreeType,
+  HarfBuzz, fontconfig, libpng and zlib (`-fsys=`), else GTK's static copies
+  and Ghostty's collide. Its 38 Zig packages were fetched on the host (Zig's
+  git fetch fails here with NameServerFailure; zigimg came as GitHub's
+  tarball, whose hash matches).
+- Mesa (`glx=xlib`, softpipe) configures in a session: Dolly's libxcb lacks
+  the render and randr extensions Mesa requires (generated in the session;
+  owed to `x11-build`), and Mesa requires `nm` even without tests (patched
+  to `required : with_tests`). Its three grammars use Bison 3 directives
+  byacc lacks, and its scanners flex 2.6 options reflex 2.5.4 lacks: host
+  preparation runs the pinned Bison and flex, as Wine's does, and a patch
+  points Meson at the outputs. Bison and m4 in Dolly would remove this.
+- The `.ui` files: blueprint-compiler reads typelibs itself; PyGObject
+  only names the search path (a 30-line patch: `GI_TYPELIB_PATH` and
+  `/usr/lib/girepository-1.0`). Nothing in Dolly writes typelibs
+  (gobject-introspection's scanner runs a dumper program and a Python C
+  extension), so 15 come from Arch's packages of the same versions (gtk4
+  4.24.1, libadwaita 1.10.0, glib2 2.90.1, pango 1.58.2, gdk-pixbuf2 2.44.8,
+  graphene 1.10.8, harfbuzz 14.6.0, gobject-introspection-runtime 1.86.0): a
+  bootstrap exception, data read at build time. On the host the patched
+  compiler turned Ghostty's command palette into builder XML.
