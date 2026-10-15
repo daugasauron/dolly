@@ -23,6 +23,7 @@
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
+#include <sys/shm.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
 #include <sys/utsname.h>
@@ -820,6 +821,17 @@ struct protoent *getprotobynumber(int number) {
 }
 const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
 const struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
+/* System V shared memory is unsupported: Dolly's processes share no pages. */
+int shmget(key_t key, size_t size, int flags) {
+  (void)key; (void)size; (void)flags; errno = ENOSYS; return -1;
+}
+void *shmat(int id, const void *address, int flags) {
+  (void)id; (void)address; (void)flags; errno = ENOSYS; return (void *)-1;
+}
+int shmdt(const void *address) { (void)address; errno = ENOSYS; return -1; }
+int shmctl(int id, int command, struct shmid_ds *buffer) {
+  (void)id; (void)command; (void)buffer; errno = ENOSYS; return -1;
+}
 /* Dolly has no name server: a query fails as one nobody can answer. */
 int res_query(const char *name, int class, int type, unsigned char *answer, int length) {
   (void)name; (void)class; (void)type; (void)answer; (void)length;
