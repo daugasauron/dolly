@@ -131,3 +131,10 @@ int poll(struct pollfd *descriptors, nfds_t count, int timeout) {
   }
   return (int)ready;
 }
+
+/* Emscripten's select waits through this syscall, which its libc leaves
+ * failing with ENOSYS. */
+int __syscall_poll(struct pollfd *descriptors, nfds_t count, int timeout) {
+  const int ready = poll(descriptors, count, timeout);
+  return ready < 0 ? -errno : ready;
+}

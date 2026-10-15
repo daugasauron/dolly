@@ -228,7 +228,7 @@ export class DollyProcessSupervisor {
       memory: null, messageHandler: null, errorHandler: null,
       messageErrorHandler: null, started: false,
       failure: null, interactive: (flags & DOLLY_PROCESS_SPAWN_INTERACTIVE) !== 0, retiring: false,
-      interruptTimer: null, deadlineTimer: null, retirementTimer: null,
+      interruptTimer: null, deadlineTimer: null, retirementTimer: null, lastSignal: 0,
       reclamationDeadline: 0, tid: 0, threads: new Map(), threaded: false,
     };
     this.processes.set(pid, process);
@@ -282,6 +282,7 @@ export class DollyProcessSupervisor {
   #deliverSignal(process, signalNumber = DOLLY_PROCESS_SIGINT) {
     if (!process || process.retiring || this.processes.get(process.pid) !== process) return false;
     const result = this.dolly._dolly_process_signal(process.pid, signalNumber);
+    process.lastSignal = signalNumber;
     // Resize notification is not an interrupt request and must never acquire
     // a forced-termination deadline, including before program entry.
     if (signalNumber === DOLLY_PROCESS_SIGWINCH && (result !== 0 || !process.started)) return result === 0;
@@ -291,8 +292,7 @@ export class DollyProcessSupervisor {
     const receiver = process.threaded
       ? [...process.threads.values()].sort((a, b) => a.tid - b.tid)[0] : process;
     const deferred = this.deferred.get(receiver);
-    // A deferred EXIT is past signal handling; the kernel completes it.
-    if (deferred && deferred.message.operation !== DOLLY_PROCESS_EXIT) {
+    if (deferred) {
       this.#clearDeferred(receiver);
       this.#signal(receiver, deferred.message.sequence, interruptedSystemCall);
     }
@@ -483,7 +483,7 @@ export class DollyProcessSupervisor {
   #armDeadline(process) {
     const remaining = this.dolly._dolly_process_deadline_remaining(process.pid);
     if (remaining >= 0) {
-      process.deadlineTimer = setTimeout(() => this.#forceExit(process.pid, 124), Math.ceil(remaining));
+      process.deadlineTimer = setTimeout(() => this.#endTree(process.pid, 124), Math.ceil(remaining));
     }
   }
 
@@ -550,12 +550,6 @@ export class DollyProcessSupervisor {
           deferred.timer = setTimeout(() => {
             if (this.deferred.get(thread) === deferred) this.#syscall(process, message, true, thread);
           }, Math.ceil(remaining));
-        }
-        if (message.operation === DOLLY_PROCESS_EXIT && process.interruptTimer !== null) {
-          // The parent has finished cleanup; signalled children retain their
-          // own deadlines while the kernel waits for them to finish theirs.
-          clearTimeout(process.interruptTimer);
-          process.interruptTimer = null;
         }
         return;
       }
@@ -674,10 +668,22 @@ export class DollyProcessSupervisor {
 
   #retire(process) {
     process.retiring = true;
-    const { descendants, reclamationDeadline } = this.#terminateDescendantWorkers(process.pid);
-    process.reclamationDeadline = Math.max(
-      this.#reclamationDeadline(process), reclamationDeadline,
-    );
+    // A process a signal ends passes it to its descendants, as a signal to its
+    // process group would: Dolly has neither groups nor exec, so the command
+    // of slop -c is the shell's child. Each answers it as it handles it.
+    // A descendant that has it already, as Ctrl-C gives it to the whole
+    // foreground tree, is not given it twice.
+    const signal = this.dolly._dolly_process_exit_signal(process.pid);
+    if (signal !== 0) {
+      for (const descendant of [...this.processes.values()]) {
+        if (descendant.lastSignal !== signal && this.#descendantDepth(descendant, process.pid) !== 0) {
+          this.#deliverSignal(descendant, signal);
+        }
+      }
+    }
+    // Its children live on: the kernel has given them parent 0.
+    for (const child of this.processes.values()) if (child.parent === process.pid) child.parent = 0;
+    process.reclamationDeadline = this.#reclamationDeadline(process);
     this.#stop(process);
     // The kernel has closed the process's descriptors: a reader of its pipe or
     // a waiter for its lock proceeds now, not at the next tick.
@@ -686,13 +692,14 @@ export class DollyProcessSupervisor {
     const retired = () => {
       process.retirementTimer = null;
       if (this.processes.get(process.pid) !== process) return;
-      for (const descendant of descendants) {
-        this.#acknowledgeRetirement(descendant);
-        this.dolly._dolly_process_collect(descendant.pid);
-      }
       this.#acknowledgeRetirement(process);
-      if (process.parent === 0) this.#finish(process);
-      else this.serviceDeferred();
+      if (process.resolve) this.#finish(process);
+      else {
+        // An orphan, whose parent may have ended after this one did: nobody
+        // waits for it, so it is reaped, as init would.
+        if (this.dolly._dolly_process_parent(process.pid) === 0) this.dolly._dolly_process_collect(process.pid);
+        this.serviceDeferred();
+      }
     };
     // Worker.terminate() has no completion event. Drop all references, then allow
     // one bounded reclamation window for large interactive memories before WAIT
@@ -754,18 +761,18 @@ export class DollyProcessSupervisor {
     return true;
   }
 
-  #terminateDescendantWorkers(parentPid) {
+  // A timed command's deadline ends its tree, deepest first, as timeout(1)
+  // signals the command's process group.
+  #endTree(pid, status) {
     const descendants = [...this.processes.values()]
-      .map((process) => ({ process, depth: this.#descendantDepth(process, parentPid) }))
+      .map((process) => ({ process, depth: this.#descendantDepth(process, pid) }))
       .filter(({ depth }) => depth !== 0)
       .sort((left, right) => right.depth - left.depth)
       .map(({ process }) => process);
-    let reclamationDeadline = 0;
-    for (const process of descendants) {
-      reclamationDeadline = Math.max(reclamationDeadline, this.#reclamationDeadline(process));
-      this.#stop(process);
+    for (const descendant of descendants) {
+      this.#forceExit(descendant.pid, 128 + DOLLY_PROCESS_SIGKILL, DOLLY_PROCESS_SIGKILL);
     }
-    return { descendants, reclamationDeadline };
+    this.#forceExit(pid, status);
   }
 
   #disposeThread(process, thread) {

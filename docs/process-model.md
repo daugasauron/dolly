@@ -266,11 +266,20 @@ nothing and declares nothing: any program built for Dolly runs on one.
   foreground tree can pass the role on; retirement returns it to the nearest
   foreground ancestor.
 - Retirement drops the Worker, memory and gate before the child is waitable.
-  Parent exit retires descendants first. Worker termination has no completion
-  event, so a large interactive process gets 500 ms of reclamation before its
-  exit is acknowledged, sparing the recovery shell. Nothing guarantees against
-  browser memory pressure; this is one reason Slop itself is
-  [serial](architecture.md#decisions) and parallel builds need a modest `-jN`.
+- A child outlives a parent that exits, as on POSIX: a child still running
+  loses it (its parent is 0) and is reaped when it ends, as init reaps
+  orphans. The terminal goes back to the parent's foreground ancestor, as a
+  shell takes it back when a job ends. A parent a signal ends takes its
+  descendants with it, by that signal, as a signal to its process group
+  would: Dolly has no groups and no exec, so the command of `slop -c` is the
+  shell's child, and a closed terminal's `SIGHUP` ends its jobs. A timed
+  command's deadline ends its whole tree, as `timeout` signals the command's
+  process group.
+- Worker termination has no completion event, so a large interactive process
+  gets 500 ms of reclamation before its exit is acknowledged, sparing the
+  recovery shell. Nothing guarantees against browser memory pressure; this is
+  one reason Slop itself is [serial](architecture.md#decisions) and parallel
+  builds need a modest `-jN`.
 
 ## Signals
 
@@ -293,11 +302,6 @@ nothing and declares nothing: any program built for Dolly runs on one.
   declares these as its own functions: a program that declares `longjmp`
   itself is not seen leaving, and its handler stays unfinished. A jump made
   and caught inside a handler counts as leaving it.
-- Exit reclaims the subtree, so an exiting parent first leaves a signalled child
-  running until it exits, at most 500 ms after its signal. An event loop whose
-  handler only notes Ctrl+C (libuv's self-pipe, a flag) still shuts down when
-  the same Ctrl+C ends its parent by default, as under `timeout`; a child that
-  keeps running ends with the parent.
 - Normal exit runs `atexit` handlers; default signal termination and forced
   termination do not, so named temporary files may remain.
 - Delivered handlers interrupt sleep, `poll` and `pause`; `SA_RESTART` restarts

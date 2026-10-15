@@ -1,0 +1,5 @@
+# Upstream's answers for Emscripten, then Dolly's: every id is 0, so os.geteuid
+# and os.getegid report root, as Dolly's libc does.
+. Platforms/emscripten/config.site-wasm32-emscripten
+ac_cv_func_geteuid=yes
+ac_cv_func_getegid=yes

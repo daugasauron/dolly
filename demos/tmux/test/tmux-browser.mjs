@@ -108,8 +108,8 @@ for (const browser of browsers) {
     await run("test \"$(tmux list-panes -F '#{pane_tty}:#{pane_dead}' | tr '\\n' ' ')\" = '/dev/pts/0:0 /dev/pts/1:0 '");
     await run("until test -s /tmp/tmux-kept; do sleep 1; done; grep -qx KEPT /tmp/tmux-kept");
 
-    // The entry started the server beside this shell, not under it: Ctrl+C
-    // for a command of the shell does not reach the server or its panes.
+    // The server outlived the client that started it, beside this shell:
+    // Ctrl+C for a command of the shell does not reach it or its panes.
     const sleeping = start("sleep 50");
     await waitText(/\$ sleep 50\s*$/);
     await page.keyboard.press("Control+c");
@@ -159,27 +159,26 @@ if (browsers.includes("chromium")) {
     assert.notEqual(await session.submit("amy install tmux 2> /tmp/refused"), 0, await session.text());
     await session.run("grep -q 'needs pty@0' /tmp/refused && ! command -v tmux");
 
-    const { run, submit, text } = await open({ path: "/custom/rebuild/", prompt: shellPrompt,
+    const { run } = await open({ path: "/custom/rebuild/", prompt: shellPrompt,
       setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) });
-    // No fork: tmux says how its server is started, and the shell starts it.
-    assert.equal(await submit("tmux new-session -d 2> /tmp/refused"), 1, await text());
-    await run("grep -q 'tmux -D &' /tmp/refused");
-    await run("tmux -D & until test -e /tmp/tmux-0/default; do sleep 1; done; tmux new-session -d");
+    await run("tmux new-session -d");
     await run("tmux send-keys 'echo PACKAGE-$((6 * 7)) > /tmp/tmux-package' Enter");
     await run("until test -s /tmp/tmux-package; do sleep 1; done; grep -qx PACKAGE-42 /tmp/tmux-package");
-    await run("tmux kill-server; wait");
+    await run("tmux kill-server");
     // Its manual page was formatted when the package was built: text, no macros.
     await run("man tmux > /tmp/page && grep -q 'terminal multiplexer' /tmp/page && ! grep -Eq '^[.](Dd|Sh) ' /tmp/page");
   });
 }
 
 // In default, as a person installs it: nena gives the session pty@0, and ps
-// lists the server the shell starts until tmux has ended it.
+// lists the server tmux starts, with no parent once its client has ended,
+// until tmux has ended it.
 for (const browser of browsers) {
   await demoTest("tmux in ps", { image: "default", timeout: 300_000, browser }, async ({ open }) => {
     const { run } = await open();
     await run("nena enable pty && amy install tmux");
-    await run("tmux -D & until test -e /tmp/tmux-0/default; do sleep 1; done; ps | grep -qx \"$! $$ running tmux -D\"");
-    await run("tmux kill-server; while ps | grep -q \"^$! \"; do sleep 1; done; wait");
+    const server = "'^[0-9]* 0 running [^ ]*tmux -D -S /tmp/tmux-0/default$'";
+    await run(`tmux new-session -d && ps | grep -q ${server}`);
+    await run(`tmux kill-server; while ps | grep -q ${server}; do sleep 1; done`);
   });
 }

@@ -3704,6 +3704,12 @@ static int run_simple_mutable(Shell *shell, Token *tokens, size_t start,
       goto memory_error;
     changed++;
   }
+  // `exec` replaces a background job, not this shell: its program is the job.
+  if (stage != NULL && stage->background && arguments.count > 1 &&
+      strcmp(arguments.items[0], "exec") == 0) {
+    free(arguments.items[0]);
+    memmove(arguments.items, arguments.items + 1, arguments.count-- * sizeof(*arguments.items));
+  }
   trace_simple(shell, &assignments, &arguments, tokens, start, end);
   if (stage != NULL && !stage_open(shell, stage, &descriptors,
                                    arguments.count == 0 ? NULL : arguments.items[0])) {

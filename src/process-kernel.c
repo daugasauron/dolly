@@ -348,14 +348,21 @@ static int next_signal(const dolly_kernel_process *process) {
   return process->pending_signals ? __builtin_ctz(process->pending_signals) : 0;
 }
 
+/* Children outlive their parent, as on POSIX: one whose Worker has not
+ * retired loses its parent and is reaped when it ends, as init reaps
+ * orphans; one that has retired is waiting to be waited for, and goes with
+ * the parent. */
 static void mark_process_exited(dolly_kernel_process *process, int status,
                                 int signal_number) {
   if (process->state == DOLLY_KERNEL_PROCESS_EXITED) return;
   const int pid = process->pid;
+  /* The terminal goes back up the tree, as a shell takes it back when a job
+   * ends: an orphan that held it is in the background. */
+  if (dolly_process_descends_from(foreground_pid, pid)) foreground_pid = pid;
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
     dolly_kernel_process *child = &process_table[index];
-    if (child->state == DOLLY_KERNEL_PROCESS_FREE || child->parent_pid != pid) continue;
-    mark_process_exited(child, status, signal_number);
+    if (child->state != DOLLY_KERNEL_PROCESS_FREE && child->parent_pid == pid &&
+        !child->worker_retired) child->parent_pid = 0;
   }
   release_process_resources(process);
   process->status = status >= 0 && status <= 255 ? status : 126;
@@ -2323,15 +2330,6 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       const int signal_number = request.signal_number != 0
           ? (int)request.signal_number : (terminating ? __builtin_ctz(terminating) : 0);
       const int status = signal_number != 0 ? 128 + signal_number : (int)request.status;
-      /* Exit reclaims the subtree, so a signalled child gets its grace to shut
-       * down first: an event loop only notes the signal in its handler and
-       * acts on it after the handler has returned. */
-      for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
-        const dolly_kernel_process *child = &process_table[index];
-        if (child->parent_pid == process->pid && child->state == DOLLY_KERNEL_PROCESS_RUNNING &&
-            dolly_kernel_deadline_pending(child->interrupt_deadline))
-          return DOLLY_PROCESS_DISPATCH_DEFERRED;
-      }
       mark_process_exited(process, status, signal_number);
       return 0;
     }
@@ -2578,4 +2576,9 @@ int dolly_process_collect(int pid) {
 int dolly_process_parent(int pid) {
   dolly_kernel_process *process = find_process(pid);
   return process == NULL ? -ESRCH : process->parent_pid;
+}
+
+int dolly_process_exit_signal(int pid) {
+  const dolly_kernel_process *process = find_process(pid);
+  return process != NULL && process->state == DOLLY_KERNEL_PROCESS_EXITED ? process->exit_signal : 0;
 }

@@ -45,6 +45,16 @@ static int child(const char *path, const char *mode) {
   return pid;
 }
 
+/* The lines of /proc/processes that contain `text`, every line for "". */
+static int listed(const char *text) {
+  FILE *list = fopen("/proc/processes", "r");
+  if (list == NULL) return -1;
+  int count = 0;
+  for (char line[4096]; fgets(line, sizeof(line), list) != NULL;) count += strstr(line, text) != NULL;
+  fclose(list);
+  return count;
+}
+
 static int read_byte(int descriptor, char expected) {
   struct pollfd ready = {descriptor, POLLIN, 0};
   if (poll(&ready, 1, 5000) != 1) return 0;
@@ -182,6 +192,10 @@ int main(int argc, char **argv) {
     return 42;
   }
   CHECK(gettid() == getpid());
+  /* One user, id 0: a process sets the ids it has, and no other. */
+  CHECK(setuid(0) == 0 && setgid(0) == 0 && seteuid(0) == 0 && setegid(0) == 0);
+  CHECK(setresuid(-1, 0, -1) == 0 && setreuid(0, 0) == 0);
+  CHECK(setuid(1) == -1 && errno == EPERM);
   FILE *file = tmpfile();
   CHECK(file != NULL);
   if (file == NULL) return 1;
@@ -266,18 +280,16 @@ int main(int argc, char **argv) {
     CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 0);
     if (failures) return 1;
   }
+  // The children they abandoned live on, and are reaped when they end.
+  for (int tenth = 0; tenth < 100 && listed(" foreground-exit") != 0; ++tenth) usleep(100000);
+  CHECK(listed(" foreground-exit") == 0);
   // No more than RLIMIT_NPROC processes exist: the ones /proc/processes lists
   // and the exited ones nobody has waited for. A spawn past them is EAGAIN,
   // from the kernel's table when the others have exited unwaited and from the
   // supervisor while they run; waiting for them makes the room again.
   struct rlimit limit;
   CHECK(getrlimit(RLIMIT_NPROC, &limit) == 0);
-  int room = (int)limit.rlim_cur;
-  FILE *listed = fopen("/proc/processes", "r");
-  CHECK(listed != NULL);
-  if (listed == NULL) return 1;
-  for (int byte; (byte = fgetc(listed)) != EOF;) room -= byte == '\n';
-  fclose(listed);
+  const int room = (int)limit.rlim_cur - listed("");
   const int quiet = open("/dev/null", O_WRONLY);
   char *sleep_arguments[] = {argv[0], "sleep", NULL}, *exit_arguments[] = {argv[0], "exit130", NULL};
   CHECK(signal(SIGCHLD, child_retired) != SIG_ERR);

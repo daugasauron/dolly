@@ -144,7 +144,9 @@ static int64_t pty_receive(dolly_kernel_socket *shared, unsigned char *bytes, si
     }
   }
   if (canonical || end->size == 0) {
-    if (!other_end(end)->open) return 0;
+    /* As on Linux, the master reads EIO once the slave is gone (xterm takes
+     * end of file for a fault and carries on); the slave reads end of file. */
+    if (!other_end(end)->open) return end == &end->pty->master ? -EIO : 0;
     return wait && !shared->nonblocking ? DOLLY_PROCESS_DISPATCH_DEFERRED : -EAGAIN;
   }
   return (int64_t)take(end, bytes, size);

@@ -761,6 +761,24 @@ int __syscall_geteuid32(void) { return 0; }
 int __syscall_getgid32(void) { return 0; }
 int __syscall_getegid32(void) { return 0; }
 
+/* Every id is 0. A process may set the ids it has, as POSIX allows, and no
+ * other; Emscripten's libc refuses every call (-1 leaves an id as it is). */
+static int set_ids(unsigned real, unsigned effective, unsigned saved) {
+  const unsigned unchanged = (unsigned)-1;
+  if ((real == 0 || real == unchanged) && (effective == 0 || effective == unchanged) &&
+      (saved == 0 || saved == unchanged)) return 0;
+  errno = EPERM;
+  return -1;
+}
+int setuid(uid_t uid) { return set_ids(uid, uid, uid); }
+int setgid(gid_t gid) { return set_ids(gid, gid, gid); }
+int seteuid(uid_t uid) { return set_ids(-1, uid, -1); }
+int setegid(gid_t gid) { return set_ids(-1, gid, -1); }
+int setreuid(uid_t real, uid_t effective) { return set_ids(real, effective, -1); }
+int setregid(gid_t real, gid_t effective) { return set_ids(real, effective, -1); }
+int setresuid(uid_t real, uid_t effective, uid_t saved) { return set_ids(real, effective, saved); }
+int setresgid(gid_t real, gid_t effective, gid_t saved) { return set_ids(real, effective, saved); }
+
 /* Dolly has no permission boundary inside its shared userspace. Keep umask as
  * process-local libc compatibility state without turning it into a kernel or
  * browser capability. */

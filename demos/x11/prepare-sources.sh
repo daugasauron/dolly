@@ -54,10 +54,9 @@ xeyes xeyes-1.3.1.tar.gz
 ARCHIVES
 if has_image xterm; then
   # GitHub's archive of the release holds a pax header: its files are staged
-  # as a plain tar, with Dolly's patch and xterm-pty.c beside them.
+  # as a plain tar, with xterm-pty.c beside them.
   xterm_dir="$(bash scripts/fetch-pinned-source.sh xterm)"
   node scripts/build-source-tar.mjs "${static_dir}/x11/xterm.tar" \
     "${xterm_dir}" /tmp/xterm \
-    demos/x11/xterm-dolly.patch /tmp/xterm/xterm-dolly.patch \
     demos/x11/xterm-pty.c /tmp/xterm/xterm-pty.c
 fi

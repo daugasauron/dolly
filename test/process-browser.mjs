@@ -72,6 +72,12 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   // The page's Workers while the shell waits for a line: the runtime's and one per process.
   const idleWorkers = page.workers().length;
   const run = async command => assert.equal(await submit(command), 0, command);
+  // An orphan ends in its own time.
+  const eventually = async command => {
+    for (const deadline = Date.now() + 10000; await submit(command) !== 0; await settle()) {
+      assert.ok(Date.now() < deadline, command);
+    }
+  };
   const fetchFixture = name => run(`curl -fsS ${server.origin}/fixture/${name} -o ${scratch}/${name}`);
   const interrupt = () => page.keyboard.press("Control+c");
   // Admission rejects malformed processes and DSOs before they run; an
@@ -98,20 +104,25 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   assert.equal(await cancelled, 0, "an interrupted process sleep returns EINTR after the handler runs");
 
   for (const name of ["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c", "input.tgz"]) await fetchFixture(name);
-  // A parent that ends without a say takes its running child and grandchild
-  // with it: on a trap, on a call through a null pointer, and when Ctrl-C,
+  // A parent that ends without a say leaves its running child and grandchild,
+  // as on POSIX: on a trap, on a call through a null pointer, and when Ctrl-C,
   // which they ignore, ends its Worker in a loop that never enters the kernel.
-  // The shell reads its next line and the kernel lists neither of them; the
+  // The shell reads its next line; the child has lost its parent (0) and the
+  // grandchild keeps its own. Released, both end and are reaped; the
   // lifecycle test below counts the room they left in the table.
   await run(`cc -O0 ${scratch}/process-tree.c -o ${scratch}/tree`);
   for (const [ending, status] of [["trap", 126], ["null", 126], ["spin", 130]]) {
+    await run("rm -f /tmp/process-tree-release");
     const ended = submit(`${scratch}/tree ${ending}`);
     if (ending === "spin") {
       await waitForText(/TREE-READY\s*$/);
       await interrupt();
     }
     assert.equal(await ended, status, ending);
-    await run(`! grep -q "^[0-9]* [0-9]* [a-z]* ${scratch}/tree " /proc/processes`);
+    await run(`grep -q "^[0-9]* 0 running ${scratch}/tree child" /proc/processes && ` +
+      `grep -q "^[0-9]* [1-9][0-9]* running ${scratch}/tree grandchild" /proc/processes`);
+    await run("touch /tmp/process-tree-release");
+    await eventually(`! grep -q "^[0-9]* [0-9]* [a-z]* ${scratch}/tree " /proc/processes`);
   }
   // Their Workers are gone too. Chrome keeps one that was spinning for two
   // seconds after it is terminated.
@@ -139,7 +150,8 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   await run(`git config --file ${scratch}/config user.email before && timeout 5 git config --file ${scratch}/config user.email after`);
 
   // Ctrl-C wakes each blocking call, and a program that only notes the signal
-  // in its handler still shuts down when the same Ctrl-C ends its parent.
+  // in its handler shuts down after it, an orphan when the same Ctrl-C ends
+  // its parent.
   await run(`cc -O0 ${scratch}/process-interrupt.c -o ${scratch}/interrupt`);
   const interrupted = async command => {
     const stopped = submit(command);
@@ -152,11 +164,10 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
     for (const blocked of ["poll", "read", "wait", "sleep"]) {
       const command = `${wrapper}${scratch}/interrupt ${blocked} ${scratch}/shut-down`;
       assert.equal(await interrupted(command), wrapper ? 130 : 0, command);
+      await eventually(`test -f ${scratch}/shut-down`);
       await run(`rm ${scratch}/shut-down`);
     }
   }
-  assert.equal(await interrupted(`timeout 15 ${scratch}/interrupt linger ${scratch}/shut-down`), 130);
-  assert.equal(await submit(`test -f ${scratch}/shut-down`), 1, "a child still running after its grace ends with its parent");
 
   // At the terminal every resize and every Ctrl+C reaches a handler that
   // jumps out of a blocked read; the program's status is the jumps it made.

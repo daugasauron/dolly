@@ -17,10 +17,10 @@ own under a stock window manager.
 
 Open `/x11-desktop/`; build with `npm run image -- x11-desktop`. The session
 starts the server, twm, xclock, xeyes and xterm. Windows move by their title
-bars; the keyboard goes to the window under the pointer. `imgui-x11 &` in
-xterm opens Dear ImGui's example, SDL2 drawing through its X11 driver, and
-amy installs packages there (`amy install tmux nvim`; tmux's server is started
-with `tmux -D &`).
+bars; the keyboard goes to the window under the pointer; twm's menu, on a
+press on the root window, starts another xterm, placed where you click.
+`imgui-x11 &` in xterm opens Dear ImGui's example, SDL2 drawing through its
+X11 driver, and amy installs packages there (`amy install tmux nvim`).
 `kill $(cat /tmp/.X0-pid)` in xterm ends the server, and the terminal's shell
 is back.
 
@@ -58,9 +58,6 @@ is back.
   (`-S`): [`xterm-pty.c`](xterm-pty.c), installed as `xterm`, opens the
   pseudo-terminal, starts upstream's program (`/usr/libexec/xterm`) on the
   master and the shell, or the command after `-e`, on the slave.
-  `select` is pselect's wait without a mask (Dolly's libc refuses `select`),
-  and [`xterm-dolly.patch`](xterm-dolly.patch) (5 lines) skips the reset of
-  ids xterm already has: Dolly refuses `setuid` and `setgid` even to them.
 
 ## Limits
 
@@ -70,9 +67,6 @@ is back.
   layout types.
 - Fonts are the server's built-in `fixed` and `cursor`; twm's Helvetica falls
   back to `fixed`.
-- A program lives as long as the process that started it, so the session
-  starts the clients: what twm's menu starts (`f.exec`) ends with the shell
-  twm runs it in.
 - Xlib has no locale data: clients say the locale is not supported and run in
   C, and xterm opens no input method.
 

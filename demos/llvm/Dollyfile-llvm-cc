@@ -9,7 +9,7 @@ REQUIRES HOST sockets@0
 
 # Clang and LLD linked inside Dolly from llvm-build's archives, checked against
 # the seed compiler and installed in its place: this image's cc is built by Dolly.
-FROM /v0.1.3/demos/llvm/Dollyfile-llvm-build 78bd492acecf33f7b12cc0527d1c602e00eabfa183a2a36e9b967689a3c5e304
+FROM /v0.1.3/demos/llvm/Dollyfile-llvm-build 2805547c17ade839a294793002f4261e29ff2c11934f6628efab84576cada6fb
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL gzip

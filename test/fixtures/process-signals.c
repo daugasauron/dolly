@@ -257,8 +257,10 @@ int main(int argc, char **argv) {
   CHECK(fclose(stream) == 0);
   CHECK(kill(leaf, SIGINT) == 0 && kill(parent, SIGINT) == 0);
   CHECK(waitpid(parent, &tree_status, 0) == parent && WIFSIGNALED(tree_status) && WTERMSIG(tree_status) == SIGINT);
+  // The leaf outlives its parent and ends once its handler is done.
   char leaf_lock[4096];
   snprintf(leaf_lock, sizeof(leaf_lock), "%s/leaf.lock", argv[1]);
+  for (int tenth = 0; tenth < 30 && access(leaf_lock, F_OK) == 0; ++tenth) usleep(100000);
   CHECK(access(lock_path, F_OK) == -1 && access(leaf_lock, F_OK) == -1);
 
   mode = "return";

@@ -131,12 +131,12 @@ static int pair(void) {
   CHECK(pty_call(DOLLY_PTY_OPEN, 0, 4, 24, 80, &opened) == -EINVAL);
   CHECK(pty_call(DOLLY_PTY_OPEN, 0, 0, 0, 80, &opened) == -EINVAL);
 
-  /* The slave closed: what it wrote is read, then end of file; a write fails. */
+  /* The slave closed: what it wrote is read, then EIO, as on Linux; a write fails. */
   CHECK(write(ends[1], "last", 4) == 4 && close(ends[1]) == 0);
   expect(ends[0], "last");
   struct pollfd query = {ends[0], POLLIN | POLLOUT, 0};
   CHECK(poll(&query, 1, 0) == 1 && (query.revents & POLLHUP));
-  CHECK(read(ends[0], &byte, 1) == 0);
+  CHECK(read(ends[0], &byte, 1) == -1 && errno == EIO);
   CHECK(write(ends[0], "x", 1) == -1 && errno == EIO);
   return 0;
 }
@@ -190,8 +190,8 @@ static int terminal(void) {
 
 /* A program on the slave reads what the master writes, opens the slave as
  * /dev/tty, hears a resize as SIGWINCH and byte 3 as SIGINT until it clears
- * ISIG, and ends with SIGHUP when the master closes. One that exits is end
- * of file to the master. */
+ * ISIG, and ends with SIGHUP when the master closes. One that exits is EIO
+ * to the master, as on Linux. */
 static int program(void) {
   int ends[2], status;
   char byte;
@@ -220,7 +220,7 @@ static int program(void) {
   expect(ends[0], "ready\r\n");
   CHECK(write(ends[0], "q", 1) == 1);
   CHECK(waitpid(child, &status, 0) == child && WIFEXITED(status) && WEXITSTATUS(status) == 0);
-  CHECK(read(ends[0], &byte, 1) == 0);
+  CHECK(read(ends[0], &byte, 1) == -1 && errno == EIO);
   return 0;
 }
 
@@ -344,8 +344,8 @@ static int flow(void) {
     query = (struct pollfd){ends[0], POLLIN, 0};
     CHECK(poll(&query, 1, 5000) == 1);
     const ssize_t count = read(ends[0], block, sizeof(block));
-    CHECK(count >= 0);
-    if (count == 0) break;
+    if (count == -1 && errno == EIO) break; /* the slave is gone */
+    CHECK(count > 0);
     for (ssize_t index = 0; index < count; ++index) CHECK(block[index] == (char)('a' + (size + (size_t)index) % 26));
     size += (size_t)count;
   }

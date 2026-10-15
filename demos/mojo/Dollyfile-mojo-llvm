@@ -10,9 +10,9 @@ REQUIRES HOST sockets@0
 # Build-only: the LLVM, MLIR and Clang Basic libraries the Mojo compiler
 # links, at the revision Mojo pins, and Zstandard, compiled inside Dolly by
 # its own cc and c++.
-FROM /v0.1.3/demos/cmake/Dollyfile-cmake-build 9691549d669694d85fc514c6bedf209b2fc8a8c625b5aab23d8f90436de881d7
+FROM /v0.1.3/demos/cmake/Dollyfile-cmake-build c43e59dd4faa6a379f3e27fbee3f3e9305a836bc58966607fab161de73ef3ff3
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL /v0.1.3/demos/python/Dollyfile-python 142c3db77d820bcf8a73fa1ab2ffc79b869a1723fdb611a8601bb65ee9c70ae2
+INSTALL /v0.1.3/demos/python/Dollyfile-python 74a7a1a8b4bfff41781c34fe7ebf12d446832426af8cca50618b571324bff179
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python

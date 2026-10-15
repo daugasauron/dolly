@@ -99,6 +99,9 @@ int main(int argc, char **argv) {
   CHECK(write(idle[1], "x", 1) == 1);
   FD_SET(idle[0], &readers);
   CHECK(pselect(idle[0] + 1, &readers, NULL, NULL, NULL, &empty) == 1 && FD_ISSET(idle[0], &readers));
+  /* select is the same wait without a mask. */
+  struct timeval none = {0, 0};
+  CHECK(select(idle[0] + 1, &readers, NULL, NULL, &none) == 1 && FD_ISSET(idle[0], &readers));
   CHECK(sigprocmask(SIG_SETMASK, &old_mask, NULL) == 0 && received == 3);
   CHECK(sigaction(SIGCHLD, &previous, NULL) == 0);
   puts("PROCESS-SIGCHLD-OK");

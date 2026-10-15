@@ -18,23 +18,21 @@ REQUIRES HOST upload@0
 # windows, and three of X's own clients in theirs: a clock, eyes that follow
 # the pointer and a terminal with a shell, where imgui-x11 starts Dear ImGui's
 # example in a window of its own.
-FROM /v0.1.3/Dollyfile-system b33663b148885d0a8f2ef14025a1b3a4e5f6da23f38959d0e25fba61281e0c87
-INSTALL /v0.1.3/demos/x11/Dollyfile-xorg-server b26bdd3087ae0bcecd582ba565707041a8acbd9c704eb864ebc09fc641df1bee
-INSTALL /v0.1.3/demos/x11/Dollyfile-twm 9f3e9cd4ae83b64b240317ce35b8dae0db012304456b51767b0d83134a8d0099
-INSTALL /v0.1.3/demos/x11/Dollyfile-xclock 69cb85659968d41cf224464411a4badb09d774a42506914cbb30b6da85d8e5cd
-INSTALL /v0.1.3/demos/x11/Dollyfile-xeyes cd14e3d6e962ed3fec7e7f11c714e81e972f9e5b87cb3314691e1afa020920ae
-INSTALL /v0.1.3/demos/x11/Dollyfile-xterm 9458d8d240725bc5076eb21e0690d0de81a98c73062cdae7e64f07809a434fd7
+FROM /v0.1.3/Dollyfile-system e39fd47a34303c190e010322b408d6b7bc75414aee1ba8934e1beff1f24ddd6f
+INSTALL /v0.1.3/demos/x11/Dollyfile-xorg-server 1243776cdd2bb13f53f718979b35f97f6e7acd06eca2cfcc0bf208271fa1ecbd
+INSTALL /v0.1.3/demos/x11/Dollyfile-twm a0b4f3c955b9ef12d09301d67ce19f16153288c88ea30f50ff9a64e9cfaebb02
+INSTALL /v0.1.3/demos/x11/Dollyfile-xclock 7459adad0164f3c041b0c397e84e81972da605324b88f6022bae6bdaa4b36818
+INSTALL /v0.1.3/demos/x11/Dollyfile-xeyes 2444133071a7ca65e957a6bed73a9f12685ff7e72978aa2aaa7f1b07c004c111
+INSTALL /v0.1.3/demos/x11/Dollyfile-xterm 2a2d9d938cfd9d2682de5cb6cafdf1bd4bcd31c6b58cbad22d2a2dec50976aff
 # amy installs packages into the session (tmux, nvim and the rest), with the
 # modules default declares for them; nena enables another.
-INSTALL /v0.1.3/Dollyfile-amy a9e0c7a808cfae5c9b4ebd7e22668ed1eaa66dce1bbc2e337e064d5bf0e6bb67
-INSTALL /v0.1.3/Dollyfile-nena 7ecabfc08c0c7d7e7cf13ec5a5ea7cf260ae816e2d2ef83ad6e2d861719e34b0
-INSTALL /v0.1.3/demos/sdl2/Dollyfile-imgui-x11 3540eec6d78c2444e27bfeb25ed77b280bd3ede4b3fcd9c02a89b7cc7011e49b
+INSTALL /v0.1.3/Dollyfile-amy f7bb9aa0a5fb9bd4c0a85fdeccdf17acdf3ec9d4628b2ee4d0eab0bef0c39df0
+INSTALL /v0.1.3/Dollyfile-nena 8c20f367c23766726d1d203b9fc3e48355af5abb2cfab30c8b186ba097d0ba55
+INSTALL /v0.1.3/demos/sdl2/Dollyfile-imgui-x11 04c8fe8529ed4ea58df6db0ba79c0b571d89407e683eda246e06a89971a851fc
 
 # The server takes the display, the keyboard and the pointer until it ends
 # (kill $(cat /tmp/.X0-pid) in the terminal); its clients end with it, and
-# this shell's terminal is back. A program lives as long as the process that
-# started it, so the clients are started here: what twm's menu starts would
-# end with the shell twm runs it in.
+# this shell's terminal is back.
 FILE /etc/dolly/init.slop
     export DISPLAY=:0
     Xsdl :0 -screen 1600x900 -nolock -dumbSched -s 0 &
