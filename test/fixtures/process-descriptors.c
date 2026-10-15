@@ -290,8 +290,8 @@ static void rejected_packets(const char *path, int writer) {
     dolly_process_fd_mapping mappings[] = {{(uint32_t)writer, 22}, {20, 23}};
     if (variant == 1) request.descriptor_inheritance = UINT32_MAX;
     if (variant == 2) request.reserved = 1;
-    if (variant == 3) request.mapping_count = 257;
-    if (variant == 4) mappings[1].target_descriptor = 256;
+    if (variant == 3) request.mapping_count = 1025;
+    if (variant == 4) mappings[1].target_descriptor = 1024;
     if (variant == 5) mappings[1].target_descriptor = 22;
     memcpy(packet, &request, sizeof(request));
     memcpy(packet + size - sizeof(mappings), mappings, sizeof(mappings));

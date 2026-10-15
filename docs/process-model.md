@@ -89,9 +89,10 @@ sequenceDiagram
 
 ## Descriptors and files
 
-- 256 descriptors per process. Descriptor flags are per handle; offsets and status
+- 1024 descriptors per process, Linux's default soft limit: Zig compiling
+  Ghostty holds more than 256. Descriptor flags are per handle; offsets and status
   flags belong to the shared open description. `FD_CLOEXEC` works everywhere.
-  `getrlimit` reports the fixed limits (`RLIMIT_NOFILE` 256, `RLIMIT_NPROC` 32,
+  `getrlimit` reports the fixed limits (`RLIMIT_NOFILE` 1024, `RLIMIT_NPROC` 32,
   `RLIMIT_AS` 8 GiB, `RLIMIT_STACK` 8 MiB); `sysconf(_SC_OPEN_MAX)` is still
   libc's constant 1024.
 - Pipes hold 64 KiB. Empty reads and full writes return `EAGAIN` when

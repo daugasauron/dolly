@@ -779,7 +779,7 @@ int __syscall_prlimit64(pid_t pid, int resource, const struct rlimit *new_limit,
   (void)pid;
   if (new_limit) return -EPERM;
   if (old_limit) {
-    const rlim_t limit = resource == RLIMIT_NOFILE ? 256 : resource == RLIMIT_NPROC ? 32
+    const rlim_t limit = resource == RLIMIT_NOFILE ? 1024 : resource == RLIMIT_NPROC ? 32
         : resource == RLIMIT_AS || resource == RLIMIT_DATA ? (rlim_t)8 << 30
         : resource == RLIMIT_STACK ? (rlim_t)8 << 20 : RLIM_INFINITY;
     *old_limit = (struct rlimit){limit, limit};
