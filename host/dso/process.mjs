@@ -377,14 +377,14 @@ export function serve(context) {
     getTable: () => processTable,
     growTable,
     setTable,
-    castEmulated: context.processInterface.castEmulated,
+    castEmulationParameters: context.processInterface.castEmulationParameters,
   });
   // In a program using threads@0 every thread's Worker has a table of its
   // own: a call reads the same entry in each, but an entry a library or a
   // closure added in one would be missing in the others. In a cast-emulated
   // program every table entry is a thunk of one signature, which neither a
   // library nor a closure made here has.
-  const callsOnly = context.threaded || context.processInterface.castEmulated;
+  const callsOnly = context.threaded || context.processInterface.castEmulationParameters > 0;
   const refusal = (operation, response) => ffi.handles(operation) ? -BigInt(DOLLY_ERRNO.ENOTSUP)
     : writeDsoResponse(response, 0n, DOLLY_ERRNO.ENOTSUP,
       context.threaded ? "not in a program using threads@0" : "not in a cast-emulated program");

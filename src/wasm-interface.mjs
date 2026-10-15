@@ -203,11 +203,14 @@ function readElementSegment(reader) {
   return active ? indices : [];
 }
 
-// Binaryen's --fpcast-emu leaves one signature in the table, a thunk of
-// sixteen i64 parameters and an i64 result, which every indirect call uses.
-function castEmulationThunk(type) {
-  return type.params.length === 16 && type.params.every(param => param === "i64") &&
+// Binaryen's --fpcast-emu leaves one signature in the table, which every
+// indirect call uses: thunks of i64 parameters, sixteen or more
+// (max-func-params), and an i64 result. Their parameter count, or 0.
+function castEmulationParameters(tableFunctions) {
+  const [type] = tableFunctions;
+  const thunk = type && type.params.length >= 16 && type.params.every(param => param === "i64") &&
     type.results.length === 1 && type.results[0] === "i64";
+  return thunk && tableFunctions.every(other => other === type) ? type.params.length : 0;
 }
 
 function functionType(types, index, reader) {
@@ -337,7 +340,7 @@ export function parseWasmInterface(input, label = "WebAssembly binary") {
     label,
     imports,
     exports,
-    castEmulated: tableFunctions.length > 0 && tableFunctions.every(castEmulationThunk),
+    castEmulationParameters: castEmulationParameters(tableFunctions),
     customSections,
     customSectionData,
   };
