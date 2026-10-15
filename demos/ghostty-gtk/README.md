@@ -10,11 +10,12 @@ with Zig and LLVM built in Dolly ([zig](../zig/README.md)).
 
 - `mesa-build`: A build stage: Mesa's OpenGL with GLX over Xlib, drawing with softpipe, and libepoxy taking it from the program, over `gtk-build`.
 - `ghostty-gtk`: Ghostty's GTK application, a package; it needs an X server.
-- `ghostty-x11`: An application: Ghostty's window on Dolly's X server, with Slop in its terminal.
+- `ghostty-x11`: An application: Ghostty's window on Dolly's X server, with Slop and amy in its terminal.
 
-Open `/ghostty-x11/`. The window takes a minute or more to come up: Ghostty
-is a debug build, drawn by softpipe. `kill $(cat /tmp/.X0-pid)` in its shell
-ends the server and returns to the terminal's.
+Open `/ghostty-x11/`: Ghostty's window, drawn by softpipe, with Slop in its
+terminal and amy to install packages into the session (`amy install tmux`).
+`kill $(cat /tmp/.X0-pid)` in its shell ends the server and returns to the
+terminal's.
 
 ## Key files
 

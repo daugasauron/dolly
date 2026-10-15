@@ -98,7 +98,7 @@ SOURCE /v0.1.3/dist/static/ghostty-gtk/ghostty.tar.gz 7132802719761143a2b056fe3e
 SLOP gzip -dc /tmp/ghostty.tar.gz | tar -xf - -C /
 # Without xmllint, GLib's resource compiler keeps the blanks of the interface
 # files (it says so): it would run xmllint by fork.
-SLOP CWD /tmp/ghostty PATH=/tmp/ghostty-cc:$PATH ZIG_LIBC=/usr/lib/zig/libc.txt zig build -Dapp-runtime=gtk \
+SLOP CWD /tmp/ghostty PATH=/tmp/ghostty-cc:$PATH ZIG_LIBC=/usr/lib/zig/libc.txt zig build -Dapp-runtime=gtk -Doptimize=ReleaseFast \
   -Dgtk-wayland=false -Dsentry=false -Di18n=false -Demit-docs=false -Demit-terminfo=false -Demit-termcap=false \
   -Dversion-string=1.3.2-dev -fsys=freetype -fsys=harfbuzz -fsys=fontconfig -fsys=libpng -fsys=zlib \
   --search-prefix /tmp/ghostty-prefix --summary none
