@@ -306,7 +306,9 @@ export function parseWasmInterface(input, label = "WebAssembly binary") {
         index: item.u32(),
       }), rawExports);
     } else if (id === 9) {
-      for (const indices of readVector(section, readElementSegment)) tableFunctionIndices.push(...indices);
+      // One by one: a large program's table (Mojo's, Codex's) exceeds the
+      // arguments a spread may pass.
+      for (const indices of readVector(section, readElementSegment)) for (const index of indices) tableFunctionIndices.push(index);
     } else if (id === 13) {
       readVector(section, item => readTagType(item, types), definedTags);
     } else {

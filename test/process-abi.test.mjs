@@ -50,6 +50,15 @@ test("a table of nothing but Binaryen's cast-emulation thunks marks a cast-emula
     new WebAssembly.Module(bytes);
     assert.equal(parseWasmInterface(bytes).castEmulationParameters, emulated, `${parameters} parameters, table ${functions}`);
   }
+  // A table as large as Mojo's compiler has (a quarter million entries).
+  const leb = value => { const bytes = []; do { bytes.push((value & 0x7f) | (value > 0x7f ? 0x80 : 0)); value >>>= 7; } while (value); return bytes; };
+  const large = 250_000, elements = [1, 0, 0x41, 0, 0x0b, ...leb(large), ...new Array(large).fill(0)];
+  const bytes = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0,
+    ...section(1, [1, 0x60, 16, ...Array(16).fill(0x7e), 1, 0x7e]), ...section(3, [1, 0]),
+    ...section(4, [1, 0x70, 0, ...leb(large)]), 9, ...leb(elements.length), ...elements,
+    ...section(10, [1, 4, 0, 0x42, 0, 0x0b])]);
+  new WebAssembly.Module(bytes);
+  assert.equal(parseWasmInterface(bytes).castEmulationParameters, 16);
 });
 
 test("a useful freestanding executable needs only the canonical process imports and _start", async () => {
