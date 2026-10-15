@@ -194,3 +194,34 @@ Each step needs the one before it; details from memory are marked.
   graphene 1.10.8, harfbuzz 14.6.0, gobject-introspection-runtime 1.86.0): a
   bootstrap exception, data read at build time. On the host the patched
   compiler turned Ghostty's command palette into builder XML.
+
+## Building Ghostty in a session (2026-10-15, 15:00-17:45)
+
+- Mesa builds in a session in 8 minutes (`libGL.a`, 26.8 MB) with
+  `demos/ghostty-gtk/mesa-dolly.patch` (`demo/ghostty-gtk` `53a3d777`): the
+  parsers and scanners from host Bison and flex, `nm` and `dril` only where
+  used (`dril` needs DRM), and `detect_os.h`/`os_misc.c` treating any other
+  `__unix__` as POSIX. Meson gets `-D_GNU_SOURCE` (Mesa defines it only for
+  systems it names). GLX works: `GL_VERSION 3.3 (Compatibility Profile) Mesa
+  26.2.5`, softpipe, GLSL 3.30, `glXGetProcAddressARB` resolves.
+- libepoxy finds GL by `dlopen`, which a threaded program cannot: patched to
+  take the program's own `glXGetProcAddressARB` (weak) when the library does
+  not open. Unrun until Ghostty's window.
+- Ghostty's build in Dolly needed, beyond the patches above:
+  `translate_c` reading `ZIG_LIBC` (`translate-c-dolly.patch`); Ghostty's
+  wasm code paths that mean the browser's module taken only without libc,
+  glslang multi-threaded (it locks a `std::mutex`), no `ghostty-vt` shared
+  library and no `tic` on Emscripten, `pty.c` taking musl's headers,
+  `Command.zig` starting the shell by `posix_spawn`, `-ldolly-pty`, and no
+  `bzip2` (`ghostty-dolly.patch`); `-fsys=` for FreeType, HarfBuzz,
+  fontconfig, libpng and zlib, HarfBuzz built with its GObject library;
+  Zig std fixes (`core/zig-threads`: directory listing on Emscripten and
+  `jitCmd` reading `ZIG_LIBC`); and 1024 descriptors a process
+  (`core/gtk-seed` `e9d7abe8`: Zig holds a directory per module and failed
+  with EMFILE at 256).
+- The probe links Ghostty through a `cc` wrapper: Zig hands a link to `cc`
+  without the program's flags, so GObject's cast emulation (`wasm-opt
+  --fpcast-emu` after the link), the initial memory and Mesa's GLX
+  (`-lGL`, `--undefined=glXGetProcAddressARB`) are added there. Owed: a way
+  for the link to know (an object in GObject that records the need, as
+  host-module clients record theirs, is the candidate).
