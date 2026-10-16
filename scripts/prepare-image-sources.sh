@@ -63,6 +63,15 @@ if has_image ghostty-build; then
   ghostty_dir="$("${project_dir}/scripts/prepare-ghostty-source.sh" "${ghostty_checkout}")"
   uucode_dir="$("${project_dir}/scripts/fetch-uucode.sh")"
   stb_header="$("${project_dir}/scripts/fetch-stb.sh")"
+  # Kitty graphics take Wuffs, and translate-c's support files for its
+  # bindings (src/ghostty/generated/wuffs-c.zig), at Ghostty's pins.
+  vendor_dir="${staging}/ghostty-vendor"
+  mkdir -p "${vendor_dir}/wuffs" "${vendor_dir}/translate_c"
+  tar -xzf "$(bash "${project_dir}/scripts/fetch-pinned-archive.sh" wuffs)" -C "${vendor_dir}/wuffs" \
+    --strip-components=1 --wildcards '*/release/c/wuffs-v0.4.c' '*/LICENSE-APACHE' '*/LICENSE-MIT'
+  tar -xzf "$(bash "${project_dir}/scripts/fetch-pinned-archive.sh" translate_c)" -C "${vendor_dir}/translate_c" \
+    --strip-components=1 --wildcards '*/lib/c_builtins.zig' '*/lib/helpers.zig' '*/LICENSE'
+  stb_image_header="$("${project_dir}/scripts/fetch-stb.sh" stb_image.h)"
   mapfile -t font_paths < <(bash "${project_dir}/scripts/fetch-iosevka.sh")
   runtime_font="${font_paths[1]}"
 fi
@@ -136,6 +145,7 @@ fi
 if has_image ghostty-build; then
   copy_static "${project_dir}/src/ghostty/display.c" default/ghostty/display.c
   copy_static "${stb_header}" default/stb_truetype.h
+  copy_static "${stb_image_header}" default/stb_image.h
   copy_static "${runtime_font}" default/IosevkaTerm-SemiBold.ttf
 fi
 
@@ -223,7 +233,13 @@ node scripts/build-source-tar.mjs "${static_dir}/default/ghostty.tar" \
   "${ghostty_dir}/include/ghostty" /usr/include/ghostty \
   "${ghostty_dir}/include/ghostty.h" /usr/include/ghostty.h \
   "${ghostty_dir}/LICENSE" /usr/share/licenses/ghostty/LICENSE \
-  "${project_dir}/src/ghostty/generated" /usr/src/ghostty/generated
+  "${project_dir}/src/ghostty/generated" /usr/src/ghostty/generated \
+  "${ghostty_dir}/pkg/wuffs/src" /usr/src/ghostty/pkg/wuffs/src \
+  "${vendor_dir}/wuffs/release/c/wuffs-v0.4.c" /usr/src/wuffs/wuffs-v0.4.c \
+  "${vendor_dir}/wuffs/LICENSE-APACHE" /usr/share/licenses/wuffs/LICENSE-APACHE \
+  "${vendor_dir}/wuffs/LICENSE-MIT" /usr/share/licenses/wuffs/LICENSE-MIT \
+  "${vendor_dir}/translate_c/lib" /usr/src/translate_c/lib \
+  "${vendor_dir}/translate_c/LICENSE" /usr/share/licenses/translate-c/LICENSE
 node scripts/build-source-tar.mjs "${static_dir}/default/uucode.tar" \
   "${uucode_dir}/src" /usr/src/uucode/src \
   "${uucode_dir}/LICENSE.md" /usr/share/licenses/uucode/LICENSE.md

@@ -48,13 +48,18 @@ flowchart LR
   supervisor coalesces redraws on a 16 ms tick.
 - Ghostty owns selection and copy text; Ctrl+Shift+C writes the clipboard only
   after that user gesture. Scrollback stays in Wasm.
+- Images by the kitty graphics protocol, sent in the escape sequences (`t=d`,
+  as pi sends them); PNG is decoded by stb_image, and the images are kept in
+  Wasm (64 MiB). Files and shared memory (`t=f`, `t=s`) are refused.
 - The plugin is also the terminal's input decoder: it registers with the
   input kernel how a record becomes the bytes a program reads
   ([`input.h`](../host/input/input.h)). Without `input@0` no record arrives.
 - Before the plugin loads, and in images without a display, output goes to a
   plain-text bootstrap log.
-- Programs see `TERM=xterm-256color`. The display package holds the
-  terminal's `/etc/termcap` entry, for programs that link a termcap library.
+- Programs see `TERM=xterm-256color` and `TERM_PROGRAM=ghostty`, by which
+  programs that show images (pi) recognize the terminal. The display package
+  holds the terminal's `/etc/termcap` entry, for programs that link a termcap
+  library.
 
 ## Graphics processes
 

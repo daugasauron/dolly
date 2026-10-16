@@ -1,7 +1,6 @@
-diff --git a/src/lib_vt.zig b/src/lib_vt.zig
 --- a/src/lib_vt.zig
 +++ b/src/lib_vt.zig
-@@ -410,7 +410,7 @@ comptime {
+@@ -410,7 +410,7 @@
          @export(&c.alloc_free, .{ .name = "ghostty_free" });
  
          // On Wasm we need to export our allocator convenience functions.
@@ -10,10 +9,9 @@ diff --git a/src/lib_vt.zig b/src/lib_vt.zig
              const alloc = @import("lib/allocator/wasm.zig");
              @export(&alloc.allocBytes, .{ .name = "ghostty_wasm_alloc" });
              @export(&alloc.freeBytes, .{ .name = "ghostty_wasm_free" });
-diff --git a/src/os/wasm.zig b/src/os/wasm.zig
 --- a/src/os/wasm.zig
 +++ b/src/os/wasm.zig
-@@ -21,5 +21,7 @@ pub const shared_mem = options.wasm_shared;
+@@ -21,5 +21,7 @@
  /// expected to call the normal alloc.free/destroy functions.
  pub const alloc = if (builtin.is_test)
      std.testing.allocator
@@ -21,10 +19,9 @@ diff --git a/src/os/wasm.zig b/src/os/wasm.zig
 +    std.heap.c_allocator
  else
      std.heap.wasm_allocator;
-diff --git a/src/terminal/PageList.zig b/src/terminal/PageList.zig
 --- a/src/terminal/PageList.zig
 +++ b/src/terminal/PageList.zig
-@@ -313,7 +313,9 @@ const std_size = Page.layout(std_capacity).total_size;
+@@ -313,7 +313,9 @@
  ///
  /// Test builds use the std pool even on wasm so that pool memory goes
  /// through the testing allocator and participates in leak detection.
@@ -35,7 +32,7 @@ diff --git a/src/terminal/PageList.zig b/src/terminal/PageList.zig
  
  /// The memory pool we use for page memory buffers. We use a separate pool
  /// so we can allocate these with a page allocator. We have to use a page
-@@ -544,6 +546,10 @@ inline fn pageAllocator() Allocator {
+@@ -544,6 +546,10 @@
      // In tests we use our testing allocator so we can detect leaks.
      if (builtin.is_test) return std.testing.allocator;
  
@@ -46,17 +43,40 @@ diff --git a/src/terminal/PageList.zig b/src/terminal/PageList.zig
      // On non-macOS we use our standard Zig page allocator.
      if (!builtin.target.os.tag.isDarwin()) return std.heap.page_allocator;
  
-@@ -731,4 +737,5 @@ fn initPages(
+@@ -730,7 +736,8 @@
+         // (WASM), the WasmAllocator reuses freed slots without zeroing since
          // only fresh memory.grow pages are guaranteed zero by the WASM spec.
          // On native, the OS page allocator (mmap) returns zeroed pages.
 -        if (comptime std.debug.runtime_safety or builtin.os.tag == .freestanding)
 +        if (comptime std.debug.runtime_safety or builtin.os.tag == .freestanding or
 +            (builtin.target.cpu.arch.isWasm() and builtin.link_libc))
              @memset(page_buf, 0);
-@@ -4584,4 +4591,5 @@ fn createPage(
+ 
+         // Initialize the first set of pages to contain our viewport so that
+@@ -4583,7 +4590,8 @@
+     // free list node while a buffer is in the free list; initBuf below
      // always overwrites those since the page rows start at offset 0
      // (comptime-asserted in Page).
 -    if (comptime std.debug.runtime_safety or builtin.os.tag == .freestanding)
 +    if (comptime std.debug.runtime_safety or builtin.os.tag == .freestanding or
 +        (builtin.target.cpu.arch.isWasm() and builtin.link_libc))
          @memset(page_buf, 0);
+ 
+     page.* = .{
+--- a/src/terminal/kitty/graphics_image.zig
++++ b/src/terminal/kitty/graphics_image.zig
+@@ -199,9 +199,12 @@
+         t: command.Transmission,
+         path: []const u8,
+     ) !void {
+-        // android does not support POSIX shared memory.
++        // android does not support POSIX shared memory, nor does Dolly
++        // (emscripten), whose processes share no memory.
+         // windows is currently unsupported, does it support shm?
+-        if (comptime builtin.abi.isAndroid() or builtin.target.os.tag == .windows) {
++        if (comptime builtin.abi.isAndroid() or builtin.target.os.tag == .windows or
++            builtin.target.os.tag == .emscripten)
++        {
+             return error.UnsupportedMedium;
+         }
+ 

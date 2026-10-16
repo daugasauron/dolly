@@ -12,6 +12,13 @@
 #define STBTT_STATIC
 #include <stb_truetype.h>
 
+// Kitty graphics' PNG payloads; the terminal stores the decoded pixels.
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_STATIC
+#define STBI_ONLY_PNG
+#define STBI_NO_STDIO
+#include <stb_image.h>
+
 #include <dolly/display.h>
 #include <dolly/input.h>
 
@@ -27,6 +34,9 @@ enum {
   PTY_RESPONSE_CAPACITY = 512 * 1024,
   MAX_GRAPHEME_CODEPOINTS = 16,
 };
+
+// Kitty graphics images the terminal keeps, in bytes of decoded pixels.
+static const uint64_t kitty_image_storage_limit = 64u << 20;
 
 typedef struct {
   const char *code;
@@ -173,6 +183,7 @@ static GhosttySelectionGestureEvent selection_release;
 static int32_t scroll_remainder_milli;
 static bool suspended;
 static bool frame_dirty;
+static GhosttyKittyGraphicsPlacementIterator placements;
 
 static const GhosttyColorRgb background = {0x26, 0x26, 0x26};
 static const GhosttyColorRgb foreground = {0xe8, 0xe3, 0xd7};
@@ -304,6 +315,89 @@ static void fill_rect(unsigned char *frame, int x, int y, int width, int height,
       pixel[2] = color.b;
       pixel[3] = 255;
       pixel += 4;
+    }
+  }
+}
+
+static bool decode_png(void *userdata, const GhosttyAllocator *allocator,
+                       const uint8_t *data, size_t length, GhosttySysImage *out) {
+  (void)userdata;
+  int width = 0;
+  int height = 0;
+  if (length > INT32_MAX) return false;
+  stbi_uc *pixels = stbi_load_from_memory(data, (int)length, &width, &height, NULL, 4);
+  if (pixels == NULL) return false;
+  const size_t size = (size_t)width * (size_t)height * 4;
+  uint8_t *copy = ghostty_alloc(allocator, size);
+  if (copy != NULL) memcpy(copy, pixels, size);
+  stbi_image_free(pixels);
+  if (copy == NULL) return false;
+  *out = (GhosttySysImage){.width = (uint32_t)width, .height = (uint32_t)height,
+                           .data = copy, .data_len = size};
+  return true;
+}
+
+// The kitty graphics placements of one layer, each scaled to its cells by
+// the nearest source pixel and blended over the frame.
+static void draw_images(unsigned char *frame, GhosttyKittyPlacementLayer layer) {
+  GhosttyKittyGraphics graphics = NULL;
+  if (ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_KITTY_GRAPHICS,
+                           &graphics) != GHOSTTY_SUCCESS || graphics == NULL ||
+      ghostty_kitty_graphics_placement_iterator_set(
+          placements, GHOSTTY_KITTY_GRAPHICS_PLACEMENT_ITERATOR_OPTION_LAYER,
+          &layer) != GHOSTTY_SUCCESS ||
+      ghostty_kitty_graphics_get(graphics, GHOSTTY_KITTY_GRAPHICS_DATA_PLACEMENT_ITERATOR,
+                                 &placements) != GHOSTTY_SUCCESS) return;
+  while (ghostty_kitty_graphics_placement_next(placements)) {
+    uint32_t id = 0, x_offset = 0, y_offset = 0, width = 0, height = 0;
+    GhosttyKittyImageFormat format = GHOSTTY_KITTY_IMAGE_FORMAT_RGBA;
+    const uint8_t *pixels = NULL;
+    GhosttyKittyGraphicsPlacementRenderInfo info =
+        GHOSTTY_INIT_SIZED(GhosttyKittyGraphicsPlacementRenderInfo);
+    if (ghostty_kitty_graphics_placement_get_multi(placements, 3,
+            (GhosttyKittyGraphicsPlacementData[]){
+                GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_IMAGE_ID,
+                GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_X_OFFSET,
+                GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_Y_OFFSET},
+            (void *[]){&id, &x_offset, &y_offset}, NULL) != GHOSTTY_SUCCESS) continue;
+    GhosttyKittyGraphicsImage image = ghostty_kitty_graphics_image(graphics, id);
+    if (image == NULL ||
+        ghostty_kitty_graphics_image_get_multi(image, 4,
+            (GhosttyKittyGraphicsImageData[]){
+                GHOSTTY_KITTY_IMAGE_DATA_WIDTH, GHOSTTY_KITTY_IMAGE_DATA_HEIGHT,
+                GHOSTTY_KITTY_IMAGE_DATA_FORMAT, GHOSTTY_KITTY_IMAGE_DATA_DATA_PTR},
+            (void *[]){&width, &height, &format, &pixels}, NULL) != GHOSTTY_SUCCESS ||
+        ghostty_kitty_graphics_placement_render_info(placements, image, terminal,
+                                                     &info) != GHOSTTY_SUCCESS ||
+        !info.viewport_visible || pixels == NULL || info.pixel_width == 0 ||
+        info.pixel_height == 0) continue;
+    // Stored pixels are decoded and decompressed: one of four layouts.
+    const size_t channels = format == GHOSTTY_KITTY_IMAGE_FORMAT_RGBA ? 4
+        : format == GHOSTTY_KITTY_IMAGE_FORMAT_RGB ? 3
+        : format == GHOSTTY_KITTY_IMAGE_FORMAT_GRAY_ALPHA ? 2
+        : format == GHOSTTY_KITTY_IMAGE_FORMAT_GRAY ? 1 : 0;
+    if (channels == 0) continue;
+    const int64_t left = (int64_t)padding_x + (int64_t)info.viewport_col * cell_width + x_offset;
+    const int64_t top = (int64_t)padding_y + (int64_t)info.viewport_row * cell_height + y_offset;
+    for (uint32_t dy = 0; dy < info.pixel_height; ++dy) {
+      const int64_t y = top + dy;
+      const uint64_t sy = info.source_y + (uint64_t)dy * info.source_height / info.pixel_height;
+      if (y < 0 || y >= framebuffer_height || sy >= height) continue;
+      unsigned char *row = frame + (size_t)y * framebuffer_stride;
+      for (uint32_t dx = 0; dx < info.pixel_width; ++dx) {
+        const int64_t x = left + dx;
+        const uint64_t sx = info.source_x + (uint64_t)dx * info.source_width / info.pixel_width;
+        if (x < 0 || x >= framebuffer_width || sx >= width) continue;
+        const uint8_t *source = pixels + ((size_t)sy * width + sx) * channels;
+        const unsigned red = source[0];
+        const unsigned green = channels >= 3 ? source[1] : red;
+        const unsigned blue = channels >= 3 ? source[2] : red;
+        const unsigned alpha = channels == 4 ? source[3] : channels == 2 ? source[1] : 255;
+        unsigned char *pixel = row + (size_t)x * 4;
+        pixel[0] = (unsigned char)((red * alpha + pixel[0] * (255 - alpha)) / 255);
+        pixel[1] = (unsigned char)((green * alpha + pixel[1] * (255 - alpha)) / 255);
+        pixel[2] = (unsigned char)((blue * alpha + pixel[2] * (255 - alpha)) / 255);
+      }
     }
   }
 }
@@ -503,6 +597,10 @@ static void render_frame(void) {
   unsigned char *frame = frames[next];
   fill_rect(frame, 0, 0, (int)framebuffer_width, (int)framebuffer_height,
             background);
+  // Images below the text lie under the cells' own backgrounds too (kitty
+  // keeps those of z below -1073741824 only beneath them).
+  draw_images(frame, GHOSTTY_KITTY_PLACEMENT_LAYER_BELOW_BG);
+  draw_images(frame, GHOSTTY_KITTY_PLACEMENT_LAYER_BELOW_TEXT);
 
   for (uint16_t row = 0; row < rows; ++row) {
     for (uint16_t column = 0; column < cols; ++column) {
@@ -540,7 +638,9 @@ static void render_frame(void) {
       }
       const int x = (int)padding_x + (int)column * (int)cell_width;
       const int y = (int)padding_y + (int)row * (int)cell_height;
-      fill_rect(frame, x, y, (int)cell_width, (int)cell_height, bg);
+      if (bg.r != background.r || bg.g != background.g || bg.b != background.b) {
+        fill_rect(frame, x, y, (int)cell_width, (int)cell_height, bg);
+      }
       bool selected = false;
       if (has_selection) {
         (void)ghostty_terminal_selection_contains(
@@ -587,6 +687,8 @@ static void render_frame(void) {
     }
   }
 
+  draw_images(frame, GHOSTTY_KITTY_PLACEMENT_LAYER_ABOVE_TEXT);
+
   __c11_atomic_store(&mailbox->frame_width, framebuffer_width, __ATOMIC_RELAXED);
   __c11_atomic_store(&mailbox->frame_height, framebuffer_height, __ATOMIC_RELAXED);
   __c11_atomic_store(&mailbox->frame_stride, framebuffer_stride, __ATOMIC_RELAXED);
@@ -619,8 +721,10 @@ static int initialize(dolly_display_mailbox *shared_mailbox,
   frame_capacity = capacity;
   copy_buffer = shared_copy_buffer;
   copy_capacity = shared_copy_capacity;
+  ghostty_sys_set(GHOSTTY_SYS_OPT_DECODE_PNG, (const void *)decode_png);
   if (load_font(font_path) != 0 ||
       ghostty_terminal_new(NULL, &terminal, 100, 30) != GHOSTTY_SUCCESS ||
+      ghostty_kitty_graphics_placement_iterator_new(NULL, &placements) != GHOSTTY_SUCCESS ||
       ghostty_key_encoder_new(NULL, &key_encoder) != GHOSTTY_SUCCESS ||
       ghostty_key_event_new(NULL, &key_event) != GHOSTTY_SUCCESS ||
       ghostty_selection_gesture_new(NULL, &selection_gesture) !=
@@ -637,6 +741,8 @@ static int initialize(dolly_display_mailbox *shared_mailbox,
     return -1;
   }
   configure_theme();
+  ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_KITTY_IMAGE_STORAGE_LIMIT,
+                       &kitty_image_storage_limit);
   ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_USERDATA, NULL);
   ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_WRITE_PTY,
                        terminal_write_pty);

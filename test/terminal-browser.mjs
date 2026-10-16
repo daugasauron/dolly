@@ -137,6 +137,19 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
   });
   assert.equal(await submit("printf '\\033[0m\\033[2J\\033[H'"), 0);
 
+  // Kitty graphics: a PNG of 2x2 red pixels shown over 4x2 cells at the
+  // cursor, without a reply (q=2), then deleted.
+  const red = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGP4z8AARAwQCgAf7gP9i18U1AAAAABJRU5ErkJggg==";
+  assert.equal(await submit(`printf '\\033[2J\\033[H\\033_Ga=T,f=100,c=4,r=2,q=2;${red}\\033\\\\'`), 0);
+  await page.waitForFunction(() => {
+    const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry();
+    const context = document.querySelector("#display").getContext("2d");
+    const pixel = (x, y) => [...context.getImageData(paddingX + x * cellWidth + 2, paddingY + y * cellHeight + 2, 1, 1).data];
+    return [[0, 0], [3, 0], [0, 1], [3, 1]].every(([x, y]) => pixel(x, y).join() === "255,0,0,255") &&
+      pixel(5, 0).join() !== "255,0,0,255";
+  });
+  assert.equal(await submit("printf '\\033_Ga=d,q=2\\033\\\\\\033[2J\\033[H'"), 0);
+
   const probe = "/tmp/terminal-ui";
   assert.equal(await submit(`curl -fsS ${server.origin}/fixture/terminal-ui.c -o ${probe}.c && cc ${probe}.c -o ${probe}`), 0);
   // Shifted text and Escape arrive as kitty keyboard protocol sequences.

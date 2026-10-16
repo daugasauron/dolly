@@ -305,10 +305,13 @@ static int initialize_boot_environment(void) {
   // What every process starts from, before the image's own environment
   // (load_image_environment). The browser supplies none of it: LANG is the
   // value every image was built with, whatever language the browser reports.
+  // The terminal is Ghostty's emulator (libghostty-vt), kitty graphics
+  // included; programs that look for it by name find it in TERM_PROGRAM.
   static const char *const environment[][2] = {
       {"PATH", "/bin:/usr/bin"}, {"PWD", "/"}, {"HOME", "/home/dolly"},
       {"LANG", "en_US.UTF-8"},
-      {"TERM", "xterm-256color"}, {"COLORTERM", "truecolor"}};
+      {"TERM", "xterm-256color"}, {"COLORTERM", "truecolor"},
+      {"TERM_PROGRAM", "ghostty"}};
   for (size_t index = 0; index < sizeof(environment) / sizeof(*environment); ++index) {
     if (setenv(environment[index][0], environment[index][1], 1) != 0) {
       fprintf(stderr, "dolly: %s initialization failed: %s\n", environment[index][0], strerror(errno));

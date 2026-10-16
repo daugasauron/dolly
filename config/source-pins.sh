@@ -44,6 +44,13 @@ DOLLY_WAMR_URL='https://github.com/bytecodealliance/wasm-micro-runtime.git'
 
 DOLLY_GHOSTTY_COMMIT=4540d499ae463ad7b90f28f6f852f64f844c160f
 DOLLY_GHOSTTY_URL='https://github.com/ghostty-org/ghostty.git'
+# Wuffs, which Ghostty's terminal library takes for kitty graphics, and the
+# support files of translate-c's output: Ghostty's own pins of them
+# (pkg/wuffs/build.zig.zon, build.zig.zon).
+DOLLY_WUFFS_URL='https://deps.files.ghostty.org/wuffs-7411f488fe2e2c205c3d3b3d28638b7356522930.tar.gz'
+DOLLY_WUFFS_SHA256=17877d346f7988651d6c62e45b2e3b05c86809a6442c5e34612374b2a9719a1c
+DOLLY_TRANSLATE_C_URL='https://deps.files.ghostty.org/translate_c-80f8b6e4f45a303268717d8e5f4f91d7837138bb.tar.gz'
+DOLLY_TRANSLATE_C_SHA256=38c9e59d58f36e3481f6fa38f11fe59c63c12492fccf399ca56f3dfcce17b53e
 
 DOLLY_UUCODE_VERSION=0.2.0
 DOLLY_UUCODE_COMMIT=2826a37a4562284fdacd8fa029d49509cc9bffcd
@@ -167,6 +174,8 @@ DOLLY_IOSEVKA_TTF_SHA256=754545a4f6250efdd3d2cc916bb344c59f0c59830405307dfd44d18
 DOLLY_STB_COMMIT=2c980bb59875b0d32144a71867fbdebb2f77cd20
 DOLLY_STB_TRUETYPE_URL='https://raw.githubusercontent.com/nothings/stb/2c980bb59875b0d32144a71867fbdebb2f77cd20/stb_truetype.h'
 DOLLY_STB_TRUETYPE_SHA256=ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab
+DOLLY_STB_IMAGE_URL='https://raw.githubusercontent.com/nothings/stb/2c980bb59875b0d32144a71867fbdebb2f77cd20/stb_image.h'
+DOLLY_STB_IMAGE_SHA256=594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3
 
 DOLLY_RAYLIB_VERSION=6.0
 DOLLY_RAYLIB_COMMIT=dbc56a87da87d973a9c5baa4e7438a9d20121d28

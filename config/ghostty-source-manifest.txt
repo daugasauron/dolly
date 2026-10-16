@@ -1,3 +1,8 @@
+pkg/wuffs/src/error.zig
+pkg/wuffs/src/jpeg.zig
+pkg/wuffs/src/main.zig
+pkg/wuffs/src/png.zig
+pkg/wuffs/src/swizzle.zig
 src/App.zig
 src/Command.zig
 src/Surface.zig

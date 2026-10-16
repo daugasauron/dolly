@@ -8,10 +8,10 @@ REQUIRES HOST sockets@0
 # Meson from the wheel PyPI publishes, installed by pip. Python runs it, meson
 # setup starts the C compiler and meson compile starts Ninja, so those three
 # packages come with it; the host modules are the ones Python declares.
-FROM /v0.1.3/demos/tools/Dollyfile-tools-build e5e4d532ae9702b56bc9b760f36d51aa3b6243bd622073b74bfba8d2394938b9
-INSTALL /v0.1.3/demos/python/Dollyfile-python 71f1ca1a4c7677c46230d370f4a5a09deb8d2ba0a975c2facac80df5075eb8dc
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 5da77d5197726f454cfb161eb1d73a4f7f62970355b03e603de8156fdd4cdf2e
+INSTALL /v0.1.3/demos/python/Dollyfile-python e9343a3a8c0478a6065c800824fb46f3a06e2a3e34d72ff41a46d0a72cdacb7d
 INSTALL /v0.1.3/Dollyfile-cc b1c93c1f822c3a40ec1d148600e46301af3cf081295d7c278d3361c52c11d1c0
-INSTALL /v0.1.3/Dollyfile-ninja 6f919b0273984249d4d283d9d926197dc031054e549b673d3516aabf46024c62
+INSTALL /v0.1.3/Dollyfile-ninja 002568e420075947d2bed1f0e03b1a0140bdb8819b8f33a23f2fbd95286c2e39
 
 REQUIRES TOOL cc
 REQUIRES TOOL cp

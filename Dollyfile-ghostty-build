@@ -17,10 +17,11 @@ REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 REQUIRES TOOL   zig
 
-SOURCE /v0.1.3/dist/static/default/ghostty.tar              945865657d183d1b97124e383af4c455da577f42215d58cdd29ee4a942136664 /tmp/ghostty.tar
+SOURCE /v0.1.3/dist/static/default/ghostty.tar              3add3703b5d426311460df7b0474595549b9791af2855082d01ab26571232ba6 /tmp/ghostty.tar
 SOURCE /v0.1.3/dist/static/default/uucode.tar               27d4103c73b68b20c21adaee05c4cd2c01fc418e083f5961148e1f872951453e /tmp/uucode.tar
-SOURCE /v0.1.3/dist/static/default/ghostty/display.c        9f3ccec3ff957681e80a05da47dc545026dfac505da5875918bcab6be744e028 /usr/src/dolly/ghostty/display.c
+SOURCE /v0.1.3/dist/static/default/ghostty/display.c        4faf5fc5d931ce5c679d3aa69f87ccfb6aae2d57b4212819f9cb7da08771151b /usr/src/dolly/ghostty/display.c
 SOURCE /v0.1.3/dist/static/default/stb_truetype.h           ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/ghostty/stb_truetype.h
+SOURCE /v0.1.3/dist/static/default/stb_image.h              594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3 /tmp/ghostty/stb_image.h
 SOURCE /v0.1.3/dist/static/default/IosevkaTerm-SemiBold.ttf 754545a4f6250efdd3d2cc916bb344c59f0c59830405307dfd44d183f919a654 /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 SLOP tar \
   -xf /tmp/ghostty.tar \
@@ -43,6 +44,7 @@ FILE /tmp/ghostty/Makefile
     >  --name ghostty-vt \
     >  --dep build_options \
     >  --dep terminal_options \
+    >  --dep wuffs \
     >  --dep unicode_tables \
     >  --dep symbols_tables \
     >  --dep uucode \
@@ -73,6 +75,14 @@ FILE /tmp/ghostty/Makefile
     >  --dep config.zig \
     >  --dep storage.zig \
     >  -Mbuild_config=/usr/src/ghostty/src/build/uucode_config.zig \
+    >  -OReleaseSmall \
+    >  --dep wuffs_c \
+    >  -Mwuffs=/usr/src/ghostty/pkg/wuffs/src/main.zig \
+    >  --dep c_builtins \
+    >  --dep helpers \
+    >  -Mwuffs_c=/usr/src/ghostty/generated/wuffs-c.zig \
+    >  -Mc_builtins=/usr/src/translate_c/lib/c_builtins.zig \
+    >  -Mhelpers=/usr/src/translate_c/lib/helpers.zig \
     >  -femit-bin=$@
     /tmp/ghostty/compiler_rt.c:
     >zig build-obj $(ZIGFLAGS) --name compiler_rt -Mroot=/usr/lib/zig/compiler_rt.zig -femit-bin=$@
@@ -80,7 +90,14 @@ FILE /tmp/ghostty/Makefile
     >cc -c $(CFLAGS) '-D__builtin_return_address(level)=0' -o $@ $<
     /tmp/ghostty/compiler_rt.o: /tmp/ghostty/compiler_rt.c
     >cc -c $(CFLAGS) -o $@ $<
-    /usr/lib/libghostty-vt.a: /tmp/ghostty/ghostty-vt.o /tmp/ghostty/compiler_rt.o
+    # Wuffs as Ghostty's pkg/wuffs/build.zig builds it, for kitty graphics;
+    # hidden, as the plugin's own code: its vtables name its functions.
+    /tmp/ghostty/wuffs.o: /usr/src/wuffs/wuffs-v0.4.c
+    >cc -c -O2 -fvisibility=hidden -DWUFFS_IMPLEMENTATION -DWUFFS_CONFIG__MODULES -DWUFFS_CONFIG__MODULE__AUX__BASE \
+    >  -DWUFFS_CONFIG__MODULE__AUX__IMAGE -DWUFFS_CONFIG__MODULE__BASE -DWUFFS_CONFIG__MODULE__ADLER32 \
+    >  -DWUFFS_CONFIG__MODULE__CRC32 -DWUFFS_CONFIG__MODULE__DEFLATE -DWUFFS_CONFIG__MODULE__JPEG \
+    >  -DWUFFS_CONFIG__MODULE__PNG -DWUFFS_CONFIG__MODULE__ZLIB -o $@ $<
+    /usr/lib/libghostty-vt.a: /tmp/ghostty/ghostty-vt.o /tmp/ghostty/compiler_rt.o /tmp/ghostty/wuffs.o
     >ar rcs $@ $^
     /usr/lib/libdisplay.so: /usr/src/dolly/ghostty/display.c /usr/lib/libghostty-vt.a
     >cc \
@@ -98,6 +115,9 @@ SLOP CWD /usr/src/ghostty make \
 FILE /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 FILE /usr/share/licenses/ghostty/LICENSE
 FILE /usr/share/licenses/uucode/LICENSE.md
+FILE /usr/share/licenses/wuffs/LICENSE-APACHE
+FILE /usr/share/licenses/wuffs/LICENSE-MIT
+FILE /usr/share/licenses/translate-c/LICENSE
 
 EXPORTS LIB    ghostty-vt /usr/lib/libghostty-vt.a
 EXPORTS LIB    display    /usr/lib/libdisplay.so
