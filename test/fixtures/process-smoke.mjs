@@ -62,7 +62,8 @@ export async function runProcessSmoke(submit, origin) {
     await run("cc -O0 pty.c -lutil -o pty && ./pty");
     await run("printf 'static volatile unsigned char data[20 * 1024 * 1024] = {1};\\nint main(void) { data[sizeof(data)-1]=42; return data[0]!=1 || data[sizeof(data)-1]!=42; }\\n' > memory.c");
     await run("cc memory.c -o memory && ./memory");
-    await run("cc memory.c -Wl,--initial-memory=33554432,--max-memory=67108864 -o memory && ./memory");
+    // An explicit initial memory covers the data, the stack and cc's 8 MiB heap.
+    await run("cc memory.c -Wl,--initial-memory=41943040,--max-memory=67108864 -o memory && ./memory");
     assert.notEqual(await submit("cc memory.c -Wl,--initial-memory=33554432,--max-memory=17179869184 -o memory"), 0,
       "compiler rejects memory above the process ceiling");
     await run("cp self-exe-check identity-one && cp self-exe-check identity-two && ln -s self-exe-check identity-alias");
