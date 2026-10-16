@@ -9,7 +9,7 @@ REQUIRES HOST sockets@0
 
 # Clang and LLD linked inside Dolly from llvm-build's archives, checked against
 # the seed compiler and installed in its place: this image's cc is built by Dolly.
-FROM /v0.1.3/demos/llvm/Dollyfile-llvm-build 8c51892e1163c44d01b29c48612a0b2dfe22c26508eda8b46e621f187341e32b
+FROM /v0.1.3/demos/llvm/Dollyfile-llvm-build 3ca3538bf454455b27785538b512fc530e512b7de1ab1ab9a0192330aa5f1083
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL gzip
@@ -29,7 +29,7 @@ SLOP slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
 # The driver the seed compiler is (src/compiler.cpp), with the two contract
 # digests the runtime build generates.
-SOURCE /v0.1.3/dist/static/llvm/compiler.cpp d9d0ba5ead06d795502d84baf213984275de04dcce8b4c9385ae089ca048c941 /tmp/dolly-compiler/compiler.cpp
+SOURCE /v0.1.3/dist/static/llvm/compiler.cpp 5b2e8f7039f1403295dd2f7e4beaf7662af466d70214ea251216ba6e065e0a29 /tmp/dolly-compiler/compiler.cpp
 SOURCE /v0.1.3/dist/static/llvm/compiler-main.c 104ebf5d2862d51f9a67d4e7dd6a71e0f5beb1898310f74d6b331e9f154a2f8c /tmp/dolly-compiler/compiler-main.c
 SOURCE /v0.1.3/dist/static/llvm/dolly-process-abi-digest.h a9086eddb238582885298ab36c68c8eb7a58c5133e59d1c277f46417205b3720 /tmp/dolly-compiler/dolly-process-abi-digest.h
 SOURCE /v0.1.3/dist/static/llvm/dolly-kernel-plugin-abi-digest.h a680157985ef34465efdfce079749799bb3cc7e1c119867c34730d8669bc669e /tmp/dolly-compiler/dolly-kernel-plugin-abi-digest.h

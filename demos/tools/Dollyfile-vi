@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # unchanged, by the rules of its Makefile. It draws with escape sequences of
 # its own and reads no terminal database. Its ! commands and language servers
 # start by fork, which fails here, and it says so.
-FROM /v0.1.3/Dollyfile-system-tools 3b97c49c96f23560d018cfc27939cbde27e4666ac013f188ba1f91791951ea68
+FROM /v0.1.3/Dollyfile-system-tools 13ba21000aa665d6729f8e00cb795c4871f3bfaa72a4e18a7197d536b84a5826
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc

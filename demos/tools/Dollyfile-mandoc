@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # run its configure, so config.h says what that script would find here. The
 # man, apropos and makewhatis the same program can be are not installed: man
 # is the core's.
-FROM /v0.1.3/Dollyfile-system-tools 3b97c49c96f23560d018cfc27939cbde27e4666ac013f188ba1f91791951ea68
+FROM /v0.1.3/Dollyfile-system-tools 13ba21000aa665d6729f8e00cb795c4871f3bfaa72a4e18a7197d536b84a5826
 USE /v0.1.3/Dollyfile-zlib 23810cd1df1be957c51fed8cbd91b83c695dc49d7291609de654f0e4ecdf3609
 
 REQUIRES HEADER libc

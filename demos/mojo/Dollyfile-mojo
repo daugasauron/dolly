@@ -5,11 +5,11 @@ REQUIRES HOST runtime@0
 # The Mojo compiler as mojo-build built it in Dolly, with the standard library
 # and the package gpu it precompiled, and what a program links against, as
 # mojo-runtime built it: mojo build NAME.mojo makes a Dolly executable.
-COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build a0d6a8af49e2c8db52582cc0672f65344dab545927e9118484904c5361834145 /opt/mojo/bin/mojo /usr/bin/mojo
-COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build a0d6a8af49e2c8db52582cc0672f65344dab545927e9118484904c5361834145 /opt/mojo/lib/mojo /usr/lib/mojo
-COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build a0d6a8af49e2c8db52582cc0672f65344dab545927e9118484904c5361834145 /usr/share/licenses/mojo /usr/share/licenses/mojo
-COPY /v0.1.3/demos/mojo/Dollyfile-mojo-runtime 6bae0a46c97ffbae70bc05dc09811e1b8b0ba5b2f7164178708e5ff7122e0a58 /usr/lib/libmojo-rt.a /usr/lib/libmojo-rt.a
-COPY /v0.1.3/demos/mojo/Dollyfile-mojo-runtime 6bae0a46c97ffbae70bc05dc09811e1b8b0ba5b2f7164178708e5ff7122e0a58 /usr/lib/libmojo-gpu.a /usr/lib/libmojo-gpu.a
+COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build ea2db386250359cf2af6897db4933983d1cfbd3a02a2f4ad50585a721f90b0db /opt/mojo/bin/mojo /usr/bin/mojo
+COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build ea2db386250359cf2af6897db4933983d1cfbd3a02a2f4ad50585a721f90b0db /opt/mojo/lib/mojo /usr/lib/mojo
+COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build ea2db386250359cf2af6897db4933983d1cfbd3a02a2f4ad50585a721f90b0db /usr/share/licenses/mojo /usr/share/licenses/mojo
+COPY /v0.1.3/demos/mojo/Dollyfile-mojo-runtime e80e6a00bb2d98f094f15ce356ece01c7735a9a264d77b5ea9f44471c2f5edc7 /usr/lib/libmojo-rt.a /usr/lib/libmojo-rt.a
+COPY /v0.1.3/demos/mojo/Dollyfile-mojo-runtime e80e6a00bb2d98f094f15ce356ece01c7735a9a264d77b5ea9f44471c2f5edc7 /usr/lib/libmojo-gpu.a /usr/lib/libmojo-gpu.a
 # mojo build links what it compiles with the C toolchain.
 INSTALL /v0.1.3/Dollyfile-libdolly-gpu d6c736fc4049bbfd7c58cca367c20f8697e197073c3091ea98852089b84aa3c4
 INSTALL /v0.1.3/Dollyfile-cc b1c93c1f822c3a40ec1d148600e46301af3cf081295d7c278d3361c52c11d1c0

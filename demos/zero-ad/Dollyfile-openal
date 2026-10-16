@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # backend: a program renders through a loopback device and plays the samples
 # itself (<dolly/audio.h>, audio@0), as 0 A.D. does, so the library asks for
 # no host module.
-FROM /v0.1.3/demos/zero-ad/Dollyfile-openal-build a91ba4261a56f5f03f3e553192843f5748d8b7f4ec0187f0f3cd00846171ba46
+FROM /v0.1.3/demos/zero-ad/Dollyfile-openal-build e652c73cfca0a9dfd722acd70dd646968c20f2f37a315f82884c337afc0265bf
 
 EXPORTS LIB    openal          /usr/lib/libopenal.a
 EXPORTS HEADER openal          /usr/include/AL

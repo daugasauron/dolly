@@ -10,8 +10,8 @@ REQUIRES HOST threads@0
 # mesa-build: libadwaita, blueprint-compiler for its interface files, and
 # Ghostty's own build.zig
 # (ghostty-dolly.patch; its packages fetched on the host, prepare-ghostty.sh).
-FROM /v0.1.3/demos/ghostty-gtk/Dollyfile-mesa-build 0c569d861c5b3c693f718ff7cf35616d1b85f1a303e8e0da706aeef979415a7a
-USE /v0.1.3/demos/zig/Dollyfile-zig-llvm 4017f9d796f43ebb648ea77412d12a6ede357385b694b42e23aa86d33a125f82
+FROM /v0.1.3/demos/ghostty-gtk/Dollyfile-mesa-build c8594b7e1f09030174337480342dfa5fb8cc69ac6cf593714a0199cc90135f53
+USE /v0.1.3/demos/zig/Dollyfile-zig-llvm dafca7abda7d731c2d477980cc98d1720ee7132abea786e9b2e5c70c779d8114
 
 REQUIRES TOOL   c++
 REQUIRES TOOL   cc
@@ -94,7 +94,7 @@ SLOP cc -O1 /tmp/ghostty-cc/cc.c -o /tmp/ghostty-cc/cc
 # Ghostty's build finds libdolly-sockets and libdolly-pty under a prefix's lib.
 SLOP mkdir -p /tmp/ghostty-prefix && ln -s /usr/lib/dolly/process /tmp/ghostty-prefix/lib
 
-SOURCE /v0.1.3/dist/static/ghostty-gtk/ghostty.tar.gz 4bcb34fad04929dc9ab72b52c429b5e36ff96d4788e5d6b3ad7a7381d7aca1f2 /tmp/ghostty.tar.gz
+SOURCE /v0.1.3/dist/static/ghostty-gtk/ghostty.tar.gz b3bd58bf3734ae0d7b5c509082f2a00f99658d292bbfeb0a2f5a8daf474adb22 /tmp/ghostty.tar.gz
 SLOP gzip -dc /tmp/ghostty.tar.gz | tar -xf - -C /
 # Without xmllint, GLib's resource compiler keeps the blanks of the interface
 # files (it says so): it would run xmllint by fork.
