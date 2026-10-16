@@ -1,7 +1,8 @@
 // The ghostty-x11 image: Xsdl takes Dolly's display and Ghostty's GTK window
 // opens on it with Slop in its terminal, drawn by Mesa. The page's keyboard
 // reaches that shell through the X server, GTK and Ghostty's pseudo-terminal:
-// it writes a file and ends the server, and the terminal's shell reads it.
+// it writes a file and ends the server, and the terminal's shell reads it
+// and finds amy, which installs packages into the session.
 // Usage: node demos/ghostty-gtk/test/ghostty-x11-browser.mjs [chromium|firefox ...]
 import { mkdir } from "node:fs/promises";
 import { delay, demoTest, shellPrompt } from "../../browser.mjs";
@@ -39,8 +40,7 @@ for (const browser of browsers) await demoTest("ghostty-x11", { image: "ghostty-
     document.querySelector("#display").width === width && document.querySelector("#display").height === height,
   [width, height], { timeout: 120_000, polling: 100 });
   // Ghostty's window at the top left, then Slop's prompt in its first row,
-  // below the header bar and the debug build's banner: the frame's rows 96-112,
-  // and the second row 117-133.
+  // below the header bar: the frame's rows 53-73, and the second row 74-94.
   await page.waitForFunction(() => {
     const data = document.querySelector("#display").getContext("2d").getImageData(400, 300, 200, 100).data;
     let lit = 0;
@@ -48,7 +48,7 @@ for (const browser of browsers) await demoTest("ghostty-x11", { image: "ghostty-
     return lit > 15000;
   }, null, { timeout: 600_000, polling: 500 });
   const windowShown = performance.now();
-  for (let tries = 0; await bright(page, 8, 94, 400, 20) < 100; tries++) {
+  for (let tries = 0; await bright(page, 8, 52, 400, 22) < 100; tries++) {
     if (tries > 600) throw new Error("no prompt in Ghostty's terminal");
     await delay(500);
   }
@@ -60,12 +60,12 @@ for (const browser of browsers) await demoTest("ghostty-x11", { image: "ghostty-
   await delay(500);
   await type(page, "echo ghostty-$((6 * 7)) > /tmp/ghostty-typed\n");
   // The command prints nothing: the next prompt is on the second row.
-  for (let tries = 0; await bright(page, 8, 115, 400, 20) < 100; tries++) {
+  for (let tries = 0; await bright(page, 8, 73, 400, 22) < 100; tries++) {
     if (tries > 120) throw new Error("no answer in Ghostty's terminal");
     await delay(500);
   }
   await page.screenshot({ path: `${evidence}${browser}-typed.png` });
   await type(page, "kill $(cat /tmp/.X0-pid)\n");
   await prompt(shellPrompt);
-  await run("grep -qx ghostty-42 /tmp/ghostty-typed");
+  await run("grep -qx ghostty-42 /tmp/ghostty-typed && command -v amy");
 });

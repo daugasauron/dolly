@@ -34,7 +34,11 @@ terminal's.
   reset Ghostty's post-fork hook does as spawn attributes; GTK's GL context
   loaded through the linked `glXGetProcAddressARB`, there being no libGL to
   open; Dear ImGui's GL backend built for desktop GL, which it assumes is
-  WebGL on Emscripten.
+  WebGL on Emscripten. Softpipe runs a shader per pixel in its interpreter,
+  so the renderer clears to the background color instead of shading it and
+  shades cell backgrounds only over the rows that have one: a frame of a
+  shell took 410 ms, now 51 ms, and a key's echo appears 65 ms after the key
+  instead of 0.7 s (Chromium, 2026-10-16).
 - [`mesa-dolly.patch`](mesa-dolly.patch), [`epoxy-dolly.patch`](epoxy-dolly.patch):
   Mesa's GLX over Xlib with softpipe, linked into the program, and libepoxy
   finding it by a weak symbol. libepoxy keeps EGL too (GTK refers to it; it
