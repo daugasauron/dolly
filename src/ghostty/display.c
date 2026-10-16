@@ -244,6 +244,22 @@ static void configure_theme(void) {
                        &scrollback_bytes);
 }
 
+// XTWINOPS size queries (CSI 14/16/18 t) and in-band size reports: the grid
+// and its cells in the frame's pixels, by which programs (pi) size images.
+static bool terminal_size(GhosttyTerminal reporting, void *userdata,
+                          GhosttySizeReportSize *size) {
+  (void)userdata;
+  uint16_t cols = 0;
+  uint16_t rows = 0;
+  if (ghostty_terminal_get(reporting, GHOSTTY_TERMINAL_DATA_COLS, &cols) != GHOSTTY_SUCCESS ||
+      ghostty_terminal_get(reporting, GHOSTTY_TERMINAL_DATA_ROWS, &rows) != GHOSTTY_SUCCESS) {
+    return false;
+  }
+  *size = (GhosttySizeReportSize){.rows = rows, .columns = cols,
+                                  .cell_width = cell_width, .cell_height = cell_height};
+  return true;
+}
+
 static void terminal_write_pty(GhosttyTerminal ignored,
                                void *userdata,
                                const uint8_t *bytes,
@@ -746,6 +762,7 @@ static int initialize(dolly_display_mailbox *shared_mailbox,
   ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_USERDATA, NULL);
   ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_WRITE_PTY,
                        terminal_write_pty);
+  ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_SIZE, terminal_size);
   if (set_layout(viewport_width_css, viewport_height_css,
                  device_scale_milli) != 0) return -1;
   render_frame();
