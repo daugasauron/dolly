@@ -26,7 +26,8 @@ tagged="$(git rev-parse -q --verify "refs/tags/${version}^{commit}" || true)"
 [[ ! -e "${archive}/${version}" ]] || stop "${version} is already published; a fix is a new version"
 
 step "2 no token-shaped string in the unpushed commits or the image snapshots"
-tokens='sk-ant-[A-Za-z0-9_-]{20,}|sk-or-v1-[0-9a-f]{32,}|sk-proj-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----'
+tokens='sk-ant-[A-Za-z0-9_-]{20,}|sk-or-v1-[0-9a-f]{32,}|sk-proj-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----[[:cntrl:]]?$'
+# A key's PEM header ends its line; GLib's parser keeps one as a string that ends in NUL.
 git rev-parse -q --verify origin/main > /dev/null || stop "origin/main is unknown, so nothing says which commits a push would publish"
 compgen -G "dist/dolly-*-system.snapshot" > /dev/null || stop "dist/ holds no image snapshot"
 # Test fixtures say what they are: not-a-real-key.
