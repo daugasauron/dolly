@@ -76,3 +76,9 @@ tmux-panes
 mandoc
 toybox
 dte
+ghostty-x11
+x11-desktop
+zsh
+imgui
+imgui-x11
+zig-llvm
