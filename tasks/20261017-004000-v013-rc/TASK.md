@@ -1,8 +1,8 @@
-# v0.1.3 release candidate
+# v0.1.3 release candidate, then released
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 60
-- TAGS: release,owner
+- TAGS: release
 
 Owner (2026-10-16): "Merge all of this and create a release candidate". A candidate is
 local: nothing is pushed, published or deployed until the owner says so.
@@ -38,3 +38,30 @@ http://127.0.0.1:9014/ leads to `/v0.1.3/`; unversioned paths are 404. Evidence:
 Not done, because a candidate is local: tag `v0.1.3`, push, GitHub release, deployment.
 The deployment's assembly (checklist step 6) was not run: with the published archive it
 needs more disk than the 35 GB free.
+
+## Released (2026-10-17, 11:30)
+
+Owner: "Tag, push & deploy." `origin/main` = tag `v0.1.3` = `9bd249d1`; the record commits
+after it stay local, as after v0.1.2.
+
+- `scripts/release-checklist.sh` passed on `9bd249d1`: no token-shaped string in the 633
+  commits or the snapshots, both sites sealed from the commit, GitHub Pages export
+  812,568,675 bytes, the deployment assembled with v0.1.0 (2,277 files), v0.1.1 (2,370),
+  v0.1.2 (2,460) and v0.1.3 (3,149): 10,260 files, 74 header rules.
+- GitHub release https://github.com/daugasauron/dolly/releases/tag/v0.1.3 with the Pages
+  tarball (536,655,418 bytes, SHA-256 `2dd1b502...cddbc`); workflow run 38992222468
+  succeeded; `boot https://daugasauron.github.io/dolly v0.1.3` passed in Chromium and Firefox.
+- Cloudflare: deployment `75b8a853` (1,675 files uploaded, 8,583 already there, 473 s).
+  `boot https://slopshare.dev v0.1.0 v0.1.1 v0.1.2 v0.1.3` passed in Chromium and Firefox.
+  `verify` on slopshare.dev stops at `view/git/` because the zone's Email Address
+  Obfuscation rewrites it (`view/xz/` and `view/xonotic/` too); on the deployment's own
+  address `verify https://75b8a853.dolly-9dk.pages.dev` serves every file of v0.1.3 and the
+  lists of all four versions.
+- On slopshare.dev, in Chromium and Firefox: `default` draws a kitty image; `ghostty-x11`
+  shows its prompt after 49 s and 27 s on a first visit (its 225 MB image downloads) and
+  answers a typed line in 0.3 s.
+- The archive `work/locks/published/` holds v0.1.0 to v0.1.3; v0.1.3's list has SHA-256
+  `7acdb79e...5526`, the one in the release notes.
+- `package.json` and `src/version.mjs` stay at 0.1.3 until the next round is assembled.
+
+Evidence: `work/x11fix/build/rc-1016-evidence/` (`live-*.log`, `live/`).

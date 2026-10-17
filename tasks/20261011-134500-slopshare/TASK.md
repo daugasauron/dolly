@@ -4,20 +4,20 @@
 - PRIORITY: 60
 - TAGS: release,site,owner
 
-## State (2026-10-13)
+## State (2026-10-17)
 
 Waits for the owner: every item left is his switch or his decision, and nothing here is for an
 agent until one of them is made. Lowered from 170 for that reason.
 
-slopshare.dev serves v0.1.0, v0.1.1 and v0.1.2 and the repository names it (`dbdf87f8`); `boot`
-passed for every version in Chromium and Firefox on 2026-10-12 (below). Left:
+slopshare.dev serves v0.1.0 to v0.1.3 (v0.1.3, released 2026-10-17, is the first built from the
+renamed tree); `boot` passed for every version in Chromium and Firefox on 2026-10-17. Left:
 
 - **Email Address Obfuscation is still on for the zone.** A plain
   `curl -sL https://slopshare.dev/v0.1.2/view/system-tools/` on 2026-10-13 08:18 JST answers 200
   with 47,389 bytes, and line 235 of the recipe (`email = dolly@example.invalid`) comes as a
   `/cdn-cgi/l/email-protection` link with Cloudflare's decoding script, as on 2026-10-12. So
   `published-version.mjs verify https://slopshare.dev …` still stops there
-  (`view/xonotic/` is the other page). The owner switches it off in the dashboard (the token
+  (`view/xonotic/` is the other page; in v0.1.3 `view/git/`, `view/xz/` and `view/xonotic/`). The owner switches it off in the dashboard (the token
   cannot); then `verify` is run again. If the setting is to stay on, Cloudflare documents
   `<!--email_off-->` around such text: `scripts/render-dollyfile-view.mjs` does not write it,
   it would help only versions published after it, and only a deployment could show it works.
@@ -26,7 +26,6 @@ passed for every version in Chromium and Firefox on 2026-10-12 (below). Left:
 - **daugasauron.com** serves the same deployment with no redirect until the owner says to take
   it off. Its stale `/default/` is 404 now (`tasks/20261010-112540-stale-default`, closed); if
   the domain stays, one run of `boot https://daugasauron.com v0.1.0 v0.1.1 v0.1.2` is owed.
-- The renamed tree reaches the sites with the next version.
 
 ## The request, and what was done on 2026-10-11
 
