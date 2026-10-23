@@ -477,13 +477,28 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
     transport?.pushText(event.data);
     keyboard.value = "";
   });
+  const deliverPaste = text => {
+    if (text && !transport?.pushPaste(text)) showStatus("Paste not delivered: the program's input buffer is full or too small");
+  };
   window.addEventListener("paste", (event) => {
     if (event.target !== keyboard && (!transport?.leased() ||
         (event.target !== document.body && event.target !== canvas))) return;
     event.preventDefault();
-    const text = event.clipboardData?.getData("text/plain") ?? "";
-    if (text && !transport?.pushPaste(text)) showStatus("Paste not delivered: the program's input buffer is full or too small");
+    deliverPaste(event.clipboardData?.getData("text/plain") ?? "");
   });
+  // A touchscreen has no paste chord: there the page shows its own Paste
+  // button and reads the clipboard only inside the user's press of it.
+  const pasteButton = document.body.appendChild(document.createElement("button"));
+  pasteButton.id = "paste";
+  pasteButton.type = "button";
+  pasteButton.textContent = "Paste";
+  pasteButton.style.cssText = "position:fixed;right:0.4rem;top:0.4rem;z-index:6;padding:0.35rem 0.6rem;color:inherit;" +
+    "background:#333;border:1px solid #f2d45c;border-radius:6px;font:inherit;font-size:15px;touch-action:none";
+  const touchscreen = matchMedia("(pointer: coarse)"), placePaste = () => { pasteButton.hidden = !touchscreen.matches; };
+  placePaste();
+  touchscreen.addEventListener("change", placePaste);
+  pasteButton.addEventListener("click", () => navigator.clipboard.readText()
+    .then(deliverPaste, () => showStatus("Paste refused: the browser did not let the page read the clipboard")));
 
   return {
     page: {
@@ -517,6 +532,8 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
       transport?.enable(false);
       transport = undefined;
       endStaleCapture();
+      touchscreen.removeEventListener("change", placePaste);
+      pasteButton.remove();
     },
   };
 }
@@ -527,10 +544,7 @@ export function worker({ get }) {
       const address = Number(dolly._dolly_input_mailbox_address());
       // The page notifies the write word for a record a reader waits on: a
       // program waiting for input resumes then, not at the next service tick.
-      const words = new Int32Array(memory.buffer), index = address / 4 + A.DOLLY_INPUT_WORD_EVENT_WRITE;
-      const wait = () => Promise.resolve(Atomics.waitAsync(words, index, Atomics.load(words, index)).value)
-        .then(() => { get("runtime").serviceDeferred(); wait(); });
-      wait();
+      get("runtime").serviceOnNotify(new Int32Array(memory.buffer), address / 4 + A.DOLLY_INPUT_WORD_EVENT_WRITE);
       return { memory: memory.buffer, address, pasteAddress: Number(dolly._dolly_input_paste_buffer_address()) };
     },
   };

@@ -1,7 +1,10 @@
 # SDL2
 
-SDL2 2.32.10 with a Dolly video backend over the display lease and input records;
-ClassiCube, Seven Kingdoms and Airtime build on it.
+SDL2 2.32.10 with a Dolly video backend over the display lease, input records
+and touch records; ClassiCube, Seven Kingdoms and Airtime build on it. Each
+finger on the page's canvas is one of SDL's finger events, and SDL makes its
+mouse of the first one, so every program built on the package declares
+`touch@0` ([input](../../docs/input.md#touch)).
 
 ## Images
 

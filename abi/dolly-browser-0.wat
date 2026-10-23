@@ -13,10 +13,6 @@
   ;; Mono PCM of the browser's default input, behind the browser's own
   ;; permission prompt; no device list, playback, URL or browser object access.
   (import "env" "dolly_microphone_dispatch" (func (param i64 i64) (result i32)))
-  ;; A caption and labelled buttons the page draws, their presses, and the
-  ;; clipboard's text on a press of the page's own Paste button; no markup,
-  ;; no key or pointer of the page, no URL or browser object access.
-  (import "env" "dolly_buttons_dispatch" (func (param i64 i64) (result i32)))
 
   ;; The session's request to enable or disable a host module, for an image
   ;; that declares nena@0; the page makes every switch. A packet names a module

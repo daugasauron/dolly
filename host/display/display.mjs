@@ -351,10 +351,7 @@ export function worker({ get }) {
       kernel = dolly;
       // The page notifies the animation frame: a program waiting for it
       // resumes then, not at the next service tick.
-      const index = word + A.DOLLY_DISPLAY_WORD_ANIMATION_FRAME_SEQUENCE;
-      const wait = () => Promise.resolve(Atomics.waitAsync(words, index, Atomics.load(words, index)).value)
-        .then(() => { get("runtime").serviceDeferred(); wait(); });
-      wait();
+      get("runtime").serviceOnNotify(words, word + A.DOLLY_DISPLAY_WORD_ANIMATION_FRAME_SEQUENCE);
       return { memory: memory.buffer, address: mailbox,
         frameAddresses: [0, 1].map(index => Number(dolly._dolly_display_framebuffer_address(index))),
         copyAddress: Number(dolly._dolly_display_copy_buffer_address()) };

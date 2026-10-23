@@ -68,6 +68,140 @@ sixteen questions recorded as his; the integrator answers them below, from his w
   the phone first; otherwise it moves into `input@0`.
 - Cost (15): the seed changes, so every image rebuilds; it rides the v0.1.4 catalog round.
 
+## Built (2026-10-23, `core/touch-module`)
+
+Step 1, the module (`host/touch/`), decided and measured:
+
+- A mailbox and no import, as `input@0`: `abi/dolly-browser-0.wat` is unchanged (it lists
+  imports only); the review point is the `touch@0` row of `docs/browser-boundary.md`.
+  Process operations 92 ACQUIRE, 93 READ, 94 RELEASE, beside input's 88-91.
+- Record, 32 bytes: `id, phase, x, y, pressure, dropped, time, lease`. The page numbers
+  fingers itself from 1, never giving one id to two fingers, rather than passing the
+  browser's `pointerId`. `pressure` is the browser's in thousandths: the Pointer Events
+  spec makes a browser without a sensor report 0.5 for a finger that is down, so "0 where
+  the browser reports none" is 500 there; Chromium's CDP touches report 1000. `time` is
+  `event.timeStamp` in milliseconds, wrapping (only differences mean anything). `lease`
+  is the lease word the page read when it wrote the record: READ returns only the
+  holder's, so a record written as one lease ends cannot reach the next holder.
+- READ returns up to 64 records a call, not one as input's NEXT_EVENT does: a phone
+  reports moves of every finger at the digitizer's rate.
+- Ring of 512. Moves are written while more than 20 records are free; a down only while
+  the ring keeps room for it and the end of every finger down; an end always fits. So a
+  delivered finger's up or cancel is never dropped; a finger whose down finds no room (a
+  holder that has not read through 240 taps) or an eleventh finger is not delivered at
+  all. Everything not written is counted in the next record's `dropped`.
+- While held, the page's capture listener on `window` takes every finger that goes down
+  on the canvas and stops it before `input@0`'s canvas listeners; a finger already down
+  when the hold began stays input's until it lifts, and a finger of an earlier lease is
+  nobody's until it lifts. The page neither focuses nor blurs the keyboard for a finger
+  under the hold, and a long press opens no context menu.
+- Packaged (`Dollyfile-libdolly-touch`, `scripts/build.sh` `packaged_modules`) as no core
+  source includes it. Measured: adding the module leaves the seed alone, `npm run
+  build:runtime` prints the same image inputs `sha256:a24f5a0f…` as before; no image is
+  stale by it. The integration tree's images are therefore reused here (hard links).
+- The foreground rule is input's: the foreground program or a descendant. Found while
+  testing: the shell runs commands without `DOLLY_PROCESS_SPAWN_FOREGROUND`, so a
+  background job of the shell at its prompt passes it, for input as for touch; only a
+  program started with `foreground` makes its siblings fail with EPERM.
+- Tests: `test/touch-ring.test.mjs` (the page's ring rules), `test/touch-browser.mjs`
+  (refusals; two fingers by CDP `Input.dispatchTouchEvent` in Chromium and by dispatched
+  touch `PointerEvent`s in Firefox, each with its own id, in frame pixels, every move;
+  no finger is the pointer for a program holding both leases while a mouse click is;
+  without a holder a finger scrolls the terminal). Passed in Chromium (8.3 s) and
+  Firefox (9.6 s).
+
+Step 2, SDL2 (`demos/sdl2/SDL_dollyvideo.c`): the driver takes the touch lease beside display
+and input when the page has one (and goes on without it otherwise), adds one touch device of
+`SDL_TOUCH_DEVICE_DIRECT` and turns each record into `SDL_SendTouch` or `SDL_SendTouchMotion`
+with the position as a fraction of the window and the pressure as 0..1. SDL's own code then
+makes the first finger its mouse (`SYNTHESIZE_TOUCH_TO_MOUSE` is 1 in `SDL_touch.c`,
+`SDL_HINT_TOUCH_MOUSE_EVENTS` on by default), so mouse-only SDL programs keep working with a
+finger now that no finger is the pointer, and SDL's gestures come from its own code.
+Consequence, decided: every SDL2 program records `touch@0`, so `sdl2` declares it and installs
+`libdolly-touch`, and every recipe that installs `sdl2` or retains a program linked with it
+declares `touch@0` (the lint named the INSTALL ones; xorg-server, x11-desktop, ghostty-x11,
+xonotic, zero-ad, zero-ad-engine and imgui-x11 by reading which retain one; zero-ad-engine
+installs and imgui-x11 uses `libdolly-touch` to link). Not rebuilt here: bhop, classicube,
+classicube-build, imgui, imgui-x11, rts-build, rts-arena, xorg-server-build, xorg-server,
+x11-desktop, ghostty-x11, xonotic-build, xonotic, zero-ad-deps, zero-ad-engine, zero-ad. The
+sdl2 demo test passes on the rebuilt `sdl2` (Chromium).
+
+Step 3, `demos/fingers/`: `fingers.c` is a plain SDL2 program of SDL's finger events. It draws at
+the terminal's size in pixels (CSI 14 t, which the terminal answers), a checked square that one
+finger moves and the first two fingers zoom about their midpoint, which it follows; each finger
+is a disc in its id's colour with the id drawn above it. Images: `fingers-build` (the program,
+SDL2 linked in) and the application `fingers` (core, posix, display, fingers-build).
+`demos/fingers/test/fingers-browser.mjs` reads the canvas: two fingers 120 px apart moved to 240
+double the figure about their midpoint, each marked with its colour and digit, one finger moves
+it 100 by 50, and the program's own report after Escape says so. Passed in Chromium (CDP
+touches) and Firefox (touch PointerEvents), twice each. Found on the way: Chromium delivers a
+CDP touch move with its next frame and may end a touch without its last move, so a program must
+take an up's position as the finger's last; `fingers.c` does.
+
+Step 4, `buttons@0` removed and `pi-phone` ported:
+
+- Gone: `host/buttons/`, `Dollyfile-libdolly-buttons`, its import in `abi/dolly-browser-0.wat`,
+  its row, edge and handle member in `docs/browser-boundary.md`, its section in `docs/input.md`,
+  its constraint paragraph in `AGENTS.md`, the strip's CSS in `terminal.html`, its tests, and
+  operation 132 with the kernel's typed queue (`host/input/kernel.c`, the foreground interrupt
+  of `src/dolly.c`, both declarations in `src/process-kernel.h`; the input ring test is as before
+  `7a6daada`). Measured: `npm run build:runtime` still prints image inputs
+  `sha256:a24f5a0f…`; the seed does not change by the removal either.
+- `voice MENU [MODEL] -- PROGRAM` is the foreground program: it opens a pseudo-terminal, gives
+  PROGRAM (Pi) all rows but its own (the size set on the master, so Pi gets SIGWINCH), forwards
+  Pi's output to the terminal and the keyboard's input to Pi, and keeps Pi above its rows with a
+  scroll region. Its rows (a caption and the buttons, three terminal rows a row of buttons, about
+  48 CSS px on a phone) are drawn after Pi's output wherever the output can be cut: outside an
+  escape sequence, a UTF-8 character and a synchronized update (DEC 2026, which Pi's TUI uses);
+  the draw saves and restores the cursor (Pi's TUI uses no DECSC of its own: `packages/tui/src`
+  has none). A tap is a finger's down and up on one button; voice holds `touch@0`. The speech
+  model loads on a thread while Pi starts.
+- Mapping a finger to a cell: the terminal answers CSI 16 t (cell size in frame pixels), asked
+  before Pi starts and again after a resize. Its padding (12 by 10 CSS px times the device scale,
+  `src/ghostty/display.c`) is reported by no sequence (Ghostty's size reports are the text area
+  only), so a cell found by division is the finger's or one right of or below it; voice keeps a
+  column between buttons and gives it to the left one. Recorded as a gap in `docs/input.md`.
+- The page's Paste button: no phone was connected (`adb devices` empty, 13:5x), so the phone's own
+  paste into the page's keyboard was not measured, and Paste moved into `input@0` as the contract
+  says: on a touchscreen (`(pointer: coarse)`) the page shows a Paste button at the top right; it
+  reads the clipboard only inside the user's press and delivers it as an ordinary paste, to the
+  terminal or a lessee. pi.menu's Paste key became Enter, after the page's Paste.
+- Lost, by design: while voice has the fingers a drag over Pi's rows scrolls nothing (the page's
+  drag-to-scroll and pinch are input@0's only without a holder).
+- Measured, Chromium: `demos/speech/test/speech-browser.mjs` passes all four parts; in `pi-phone`
+  on the Pixel 7 emulation Pi has the rows above voice's eight, the key goes in
+  by the page's Paste and Enter, a model is chosen by a spoken word, the thinking level by taps, a
+  spoken prompt is sent and answered, and the microphone is closed after. Typing a button's text
+  must be one write: written a byte at a time, Pi's autocompletion took Enter before the filter
+  ("/login openrouter" became "/login openrouteramazon-bedrock").
+  `test/touch-browser.mjs` (with the Pixel 7 part: 48 columns at 412 and 360 wide, CDP finger
+  drag, the Paste button granted and refused) passes in Chromium and Firefox; `fingers` and `sdl2`
+  pass again; source 434/0. `nena enable touch`, `disable`, `enable` in `default` work in both
+  browsers (checked by hand, not a committed test).
+- Not attributed: an early voice called a null function pointer in `lay_out` and hung, with no
+  "process failed" line and no shell prompt after it; a small `-pthread` program making the same
+  call ends with status 126 as it should. Not reproduced beyond voice.
+
+Also run after step 4, in Chromium and Firefox: `imgui` (rebuilt on the new `sdl2`; it seals with touch@0), `sockets`, `boundary`, `host-modules`, `nena`,
+`terminal`, `indicators` and `default` (its last part needs `zig` in this tree's narrowed image
+list, which was not built here). The core suite as a whole was not run (the integrator's).
+
+Left (2026-10-23, 14:40):
+
+- The done-when's phone: no phone was connected all day (`adb devices` empty at 13:5x and 14:33),
+  so `fingers` and `pi-phone` were not opened on the owner's phone, and the phone's own paste into
+  the page's keyboard was not measured. With a phone: open `/fingers/` and `/pi-phone/`, try two
+  fingers and the button rows, and try the keyboard's own paste (Gboard's clipboard chip) at the
+  `default` prompt; if it reaches the terminal, the Paste button can go from `input@0`.
+- Not rebuilt here, their recipes changed (touch@0, pins): bhop, classicube-build, classicube,
+  imgui-x11, rts-build, rts-arena, xorg-server-build, xorg-server, x11-desktop,
+  ghostty-x11, xonotic-build, xonotic, zero-ad-deps, zero-ad-engine, zero-ad, and the docs chain
+  dolly-docs, pi-agent, pi-local, dollyfile-studio. Their sealing is the proof that the touch@0
+  lines are where a retained executable needs them.
+- raylib: Dolly's raylib adapter (`demos/slopyard/Dollyfile-gamedev-sdk`) hands its programs
+  input@0's records and fills none of raylib's own input state, so raylib's touch functions see
+  nothing; giving them fingers changes that adapter's interface, not this module's.
+
 ## Groundwork (2026-10-14, 04:05): the groundwork is gathered; the contract is still the owner's
 
 [The groundwork](groundwork.md), by a Fable agent that read `main`, the

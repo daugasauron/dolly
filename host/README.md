@@ -41,8 +41,9 @@ indicators)), `send` to the other side, `get(dependency)` and its
 `configuration`; `check()` receives the page's resources too, and on a switch
 after boot the `signal` that is aborted once the registry stops waiting.
 `get("runtime")` on the Worker side gives the kernel's `memory`,
-`leaseBridge(lease, mailbox, send)` for a device leased per process
-([`runtime/lease-bridge.mjs`](runtime/lease-bridge.mjs)) and
+`serviceOnNotify(words, index)`, which resumes waiting programs each time the
+page notifies a mailbox word, `leaseBridge(lease, mailbox, send)` for a device
+leased per process ([`runtime/lease-bridge.mjs`](runtime/lease-bridge.mjs)) and
 `kernelPlugin(bytes, kernelExports)` for a resident library linked into the
 kernel. A device module imports only its own files, so it can be delivered on
 its own: its generated `abi.mjs` carries its contracts' constants and the
@@ -75,7 +76,7 @@ in `abi/dolly-browser-0.wat` and its row in
 [browser boundary](../docs/browser-boundary.md); the last two are where a human
 reviews the authority it adds. Its header and client reach programs through a
 package, `Dollyfile-libdolly-NAME`, which `scripts/build.sh` then leaves out of
-the seed, as for gpu, audio, microphone, buttons and sockets; a module that a
+the seed, as for gpu, audio, microphone, sockets and touch; a module that a
 core source includes stays in the seed. A module without imports may instead own a
 reserved origin of the HTTP broker ([`http/local-services.mjs`](http/local-services.mjs)),
 as `build` and `packages` do: its service admits each request itself.

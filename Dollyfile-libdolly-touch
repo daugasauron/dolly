@@ -1,0 +1,24 @@
+DOLLY 7
+PACKAGE libdolly-touch
+REQUIRES HOST runtime@0
+
+# The touch@0 module's header and client (fingers on a touchscreen), for
+# programs the cc package builds: cc links every client archive in
+# /usr/lib/dolly/process, and a program records touch@0 only when it calls the
+# client.
+FROM /v0.1.3/Dollyfile-system-build 3af2d3e4f928032f0bdadc67a1d78b79a6378ca501db35ec13b3f97eb85a96a3
+REQUIRES HEADER libc
+REQUIRES TOOL ar
+REQUIRES TOOL cc
+REQUIRES TOOL rm
+
+SOURCE /v0.1.3/host/touch/touch.h 4f1f7c9929144a28a4cee0bdbc3c96109c8bf7e28137ac03e96de6301c88d153 /usr/include/dolly/touch.h
+SOURCE /v0.1.3/host/touch/touch-abi.h 0e1dbc12764fcc1d9a8f3dfc1181cb70d5b63c1a364c59df7205f0876b991db0 /usr/include/dolly/touch-abi.h
+SOURCE /v0.1.3/host/touch/client.c e39f327f709c37b7158fd45bc0afebb0af686d0d187dd3658cb545d8b58fe17f /tmp/libdolly-touch/client.c
+SLOP cc -O1 -c /tmp/libdolly-touch/client.c -o /tmp/libdolly-touch/client.o
+SLOP ar rcs /usr/lib/dolly/process/libdolly-touch.a /tmp/libdolly-touch/client.o
+
+EXPORTS HEADER touch     /usr/include/dolly/touch.h
+EXPORTS HEADER touch-abi /usr/include/dolly/touch-abi.h
+EXPORTS LIB    dolly-touch /usr/lib/dolly/process/libdolly-touch.a
+SLOP rm -rf /tmp/libdolly-touch

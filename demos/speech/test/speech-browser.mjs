@@ -1,7 +1,8 @@
 // The speech-to-text-mic image writes what the microphone hears while it is being
 // said; refused the microphone, the program says so and leaves a shell. The
-// pi-phone image is Pi worked by touch on a phone's screen: an OpenRouter key
-// pasted, a model and a thinking level chosen, a prompt spoken and sent, with
+// pi-phone image is Pi worked by touch on a phone's screen, by voice's buttons
+// in the terminal's last rows: an OpenRouter key pasted with the page's Paste,
+// a model and a thinking level chosen, a prompt spoken and sent, with
 // openrouter.ai answered here. The microphone is the engine's sample recording
 // played over and over through Web Audio (test/microphone-browser.mjs proves
 // the device itself).
@@ -93,20 +94,37 @@ if (browser === "chromium") await demoTest("pi-phone", { image: "pi-phone", laun
         body: answer.map(([event, data]) => `${event}data: ${JSON.stringify(data)}\n\n`).join("") + "data: [DONE]\n\n" });
     });
   } });
-  const tap = label => page.locator("#buttons button", { hasText: new RegExp(`^${label}$`) }).tap();
-  const caption = pattern => page.waitForFunction(([source, flags]) =>
-    new RegExp(source, flags).test(document.querySelector("#buttons p").textContent), [pattern.source, pattern.flags], { timeout: 90_000 });
+  // voice's buttons are the terminal's last rows: a label's cells, tapped by a finger.
+  const tap = async label => {
+    // A row's trailing blanks are not in the text; a page of buttons is drawn after the tap that shows it.
+    const button = new RegExp(`  ${label}(  |$)`);
+    let rows, row;
+    for (const deadline = Date.now() + 30_000; (row = (rows = (await text()).split("\n")).findLastIndex(line => button.test(line))) < 0;) {
+      assert.ok(Date.now() < deadline, `no button ${label}:\n${rows.join("\n")}`);
+      await delay(100);
+    }
+    const column = rows[row].search(button) + 2 + label.length / 2;
+    const [x, y] = await page.evaluate(([column, row]) => {
+      const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry(), canvas = document.querySelector("#display");
+      const scale = canvas.clientWidth / canvas.width, box = canvas.getBoundingClientRect();
+      return [box.left + (paddingX + column * cellWidth) * scale, box.top + (paddingY + (row + 0.5) * cellHeight) * scale];
+    }, [column, row]);
+    await page.touchscreen.tap(x, y);
+  };
+  const caption = pattern => waitText(pattern, 90_000);
   await caption(/Tap Speak/);
   await waitText(/No models available/);
-  assert.equal(await page.locator("#keyboard").getAttribute("inputmode"), "none", "a tap on the terminal must not raise the phone's keyboard");
+  assert.notEqual(await page.evaluate(() => __dolly.touchTransport.lease()), 0, "voice holds the fingers");
 
-  await page.evaluate(key => navigator.clipboard.writeText(`${key}\n`), key);
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.evaluate(key => navigator.clipboard.writeText(key), key);
   await tap("Menu");
   await tap("OpenRouter key");
   await waitText(/Select authentication method/);
   await tap("API key");
   await waitText(/Enter OpenRouter API key/);
-  await tap("Paste");
+  await page.locator("#paste").tap();
+  await tap("Enter");
   await waitText(/Saved API key for OpenRouter/);
   assert.doesNotMatch(await text(), /DOLLYPHONETESTKEY/, "Pi shows the key it was given");
 
