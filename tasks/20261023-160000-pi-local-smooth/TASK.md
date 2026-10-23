@@ -245,3 +245,8 @@ So the process line now reaches Qwen, but Qwen then answers a Python request by 
 JavaScript under Python's name (QuickJS has a `print`), and MiniCPM still answers the
 arithmetic instead of saying that Python is not here. Fourth (`cand5/`): the third plus "When
 a task needs a program that is not installed, say so and offer what is installed."
+
+Fourth (`cand5/`), three rounds: Qwen processes 3 of 3, Python 0 of 3 (writes `run.py` and
+runs it with `janis`, "the Python one-liner outputs 4"), languages 0 of 3 ("Python: the
+default interpreter"); MiniCPM processes 3 of 3, Python 1 of 3 ("Python isn't installed"),
+languages 1 of 3. The other prompts as before; greetings 9 of 9 each.
