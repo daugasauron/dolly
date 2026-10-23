@@ -57,7 +57,7 @@ steps of `test/terminal-browser.mjs` are unchanged and pass).
   - ~~Only the primary button reaches the terminal (the page would
     otherwise have to know when to keep the browser's context menu), so
     tmux's menus and middle-button paste are keys.~~ Done (2026-10-23,
-    COMMIT_PLACEHOLDER): the terminal shows the arrow while a program asks
+    `09b50fa6`): the terminal shows the arrow while a program asks
     for the mouse, as terminals do, and the page then sends it the middle
     and secondary buttons too, and holds back the browser's context menu
     and the middle button's autoscroll and X11 paste; with Shift, and when
