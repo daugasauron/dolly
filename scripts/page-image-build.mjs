@@ -14,7 +14,7 @@ export async function buildImageInPage(base, image, custom) {
     ...registry.DOLLY_IMAGES.map(definition => ({ path: `/${definition.dollyfile}`, byteLength: definition.byteLength })),
     ...registry.DOLLY_STATIC_SOURCES,
   ];
-  const network = { ...transport.localServicesTransport(policy.consumeDollyHttpPolicy(globalThis, sources, new URL(base))),
+  const network = { ...transport.localServicesTransport(new policy.DollyHttpPolicy(globalThis.DOLLY_HTTP_POLICY, sources, new URL(base))),
     site: base };
   const build = (name, artifacts, consume) => builder.buildImage(name, artifacts, { http: { network } }, log,
     { customSource: name === "custom" ? custom : undefined, consume });

@@ -12,10 +12,11 @@
 // A consumer serves the installed packages as they lie, side by side under
 // node_modules/@daugasauron/, with cross-origin isolation (README.md, "Embed").
 import { execFileSync } from "node:child_process";
-import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { discoverImageDefinitions, imageRegistrySource, selectImageDefinitions } from "./image-definitions.mjs";
 import { sitePath } from "../src/static-asset.mjs";
+import { hostManifests } from "../host/manifests.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const out = resolve(process.argv[2] ?? "");
@@ -23,9 +24,10 @@ if (!process.argv[2]) throw new Error("usage: package-npm.mjs OUT");
 const { version } = JSON.parse(await readFile(resolve(projectDir, "package.json"), "utf8"));
 const scope = "@daugasauron";
 // The modules that are the runtime's own machinery, and the device modules each
-// published on its own. build@0 is the site's image builder and is not published.
+// published on its own: the rest of host/manifests.mjs but build@0, the site's
+// image builder, which is not published.
 const runtimeModules = ["runtime", "http", "threads", "dso", "nena", "snapshot", "packages"];
-const deviceModules = ["display", "input", "gpu", "audio", "microphone", "buttons", "download", "upload", "sockets", "pty"];
+const deviceModules = hostManifests.map(({ name }) => name).filter(name => ![...runtimeModules, "build"].includes(name));
 
 // The files a module graph reaches by relative specifiers: static and literal dynamic
 // imports, and the Workers and worklets it starts from new URL("…", import.meta.url).
@@ -63,9 +65,11 @@ for (const name of runtimeModules) {
   const { host } = await manifest(name);
   runtimeEntries.push(`host/${name}/module.json`, `host/${name}/${host}`);
 }
+// The contracts the runtime reads (process-supervisor.mjs, host/dso/dso.mjs); a
+// device module's travel in its own package.
 const runtimeFiles = [...await closure(runtimeEntries), "dist/dolly.wasm", "dist/dolly-process-worker.mjs",
   "dist/dolly-process-dso.mjs", "LICENSE",
-  ...(await readdir(resolve(projectDir, "dist"))).filter(name => /^dolly-[a-z-]+-0\.wasm$/.test(name)).map(name => `dist/${name}`)];
+  ...["process-gate", "process", "threads", "dso"].map(name => `dist/dolly-${name}-0.wasm`)];
 const tarballs = [await writePackage(join(out, "dolly"), runtimeFiles.map(file => [file, file]), {
   name: `${scope}/dolly`, license: "MIT", exports: { ".": "./src/browser.mjs" },
   description: "Dolly's runtime: a POSIX-like userspace for wasm64 in a browser tab. Run images with boot().",

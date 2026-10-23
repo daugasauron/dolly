@@ -83,8 +83,8 @@ Worker URL.
   grants; a missing provider fails before ENTRY. An image's own recipe is its
   complete list: nothing is inherited from `FROM`, `INSTALL`, `USE` or `COPY` images,
   sealing refuses a retained executable stamped with an undeclared module, and
-  the loader refuses one at run time. An embedding can restrict the set with
-  `globalThis.DOLLY_HOST_MODULES`.
+  the loader refuses one at run time. A module the embedding does not name
+  (`boot()`'s `modules`) exists neither on the page nor in the Worker.
 - `nena@0` is the one way a session's set changes after boot, and only an
   image that declares it has it (`default` does). Such a session enables and
   disables modules freely, by design: assume it can use every module of this
@@ -108,8 +108,7 @@ Worker URL.
     `http@0` (its policy is consumed once, at load), `build@0`, and
     `display@0`, `input@0` and `snapshot@0`, which the terminal and the
     session's baseline are built on before ENTRY; the modules others depend
-    on are among them. A module an
-    embedding's `DOLLY_HOST_MODULES` leaves out is not enabled.
+    on are among them.
   - `nena disable nena` disposes the provider itself: nothing switches a
     module again until the page is reloaded.
   - The provider writes the modules a session enabled beyond its image's to

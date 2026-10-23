@@ -1,4 +1,4 @@
-// What tests and recordings read a terminal page with, over the page APIs of
+// How the page's handle (docs/embedding.md) reads the terminal, over the page APIs of
 // display@0, input@0 and the runtime: the screen's text is the terminal's own
 // selection of every cell, made with pointer records.
 export function terminalText(page) {

@@ -8,7 +8,7 @@ the browser. These npm packages put it in a page of your own.
 | --- | --- |
 | `@daugasauron/dolly` | The runtime: `boot()`, the kernel, the process runtime, and the host modules that are its own machinery (`runtime`, `http`, `threads`, `dso`, `nena`, `snapshot`, `packages`) |
 | `@daugasauron/dolly-host-NAME` | One device host module each: `display` (Ghostty's terminal and programs' frames), `input`, `gpu`, `audio`, `microphone`, `buttons`, `download`, `upload`, `sockets`, `pty` |
-| `@daugasauron/dolly-image-default` | The `default` image: a shell, its text tools, the terminal, curl, `amy`, `nena`, `ps` |
+| `@daugasauron/dolly-image-default` | The `default` image alone: a shell, its text tools, the terminal, curl, `amy`, `nena`, `ps`. `amy` lists what is installed and has nothing more to install |
 
 ```sh
 npm install @daugasauron/dolly @daugasauron/dolly-image-default @daugasauron/dolly-host-display \
@@ -36,10 +36,10 @@ shows its own failure in the element.
 
 | Option | Meaning |
 | --- | --- |
-| `images` | URL of an image directory: `dist/dolly-images.mjs`, the images' metadata and packs, their recipes. `@daugasauron/dolly-image-default`'s `index.mjs` exports its own |
+| `images` | URL of an image directory: `dist/dolly-images.mjs`, the images' metadata and packs, their recipes. `@daugasauron/dolly-image-default`'s `index.mjs` exports its own. A page has one image directory |
 | `image` | The image to run, by name |
 | `modules` | URLs of the `module.json` of each host module the page has. The registry loads these and no other; an image's `REQUIRES HOST` must be among them |
-| `hostModules` | Optional: the `name@version` set the image may use. Given, `nena@0` enables nothing outside it |
+| `site` | Optional: the URL of a site that serves Dolly's own pages (`session/`, `sessions/`, `docs/`), as Dolly's site does. Given, a saved session names itself in the tab's URL and modules link to those pages |
 | `http` | Optional `{ policy, relays }` for the HTTP broker, the page's one network edge (docs/http.md). Without a policy a program may fetch any HTTPS URL |
 
 The page, not the image, chooses the modules and the policy, before anything of

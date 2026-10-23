@@ -1,13 +1,14 @@
 import { createHttpAdmission, NetworkTransport } from "./broker.mjs";
-import { consumeDollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "./policy.mjs";
+import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "./policy.mjs";
 import { localServicesTransport } from "./local-services.mjs";
 import { publicURL } from "../../src/static-asset.mjs";
 export { DOLLY_HTTP_ABI_DIGEST as digest } from "./abi.mjs";
 
-// The page consumes the embedding's policy once; a builder or headless host is
-// given its network in configuration. Modules depending on http@0 add their
-// local services to `services`.
-export function browser({ applicationBase, bootstrapSources, inherited, configuration }) {
+// The page takes the embedding's policy once, with the image directory's
+// trusted sources and, in a custom tab, the policies it inherited; a builder or
+// headless host is given its network instead. Modules depending on http@0 add
+// their local services to `services`.
+export function browser({ applicationBase, configuration }) {
   let transport, admission, network = configuration.network;
   const services = {};
   const instance = {
@@ -40,9 +41,9 @@ export function browser({ applicationBase, bootstrapSources, inherited, configur
   if (!network) {
     // A custom tab intersects the policy of the page that built it with its
     // own; a missing inheritance fails closed.
-    let policy = consumeDollyHttpPolicy({ DOLLY_HTTP_POLICY: configuration.embedding?.policy,
-      DOLLY_HTTP_RELAYS: configuration.embedding?.relays }, bootstrapSources, applicationBase);
-    if (inherited) policy = restrictDollyHttpPolicy(policy, inherited.policies, bootstrapSources, applicationBase);
+    const { embedding, sources, inherited } = configuration;
+    let policy = new DollyHttpPolicy(embedding?.policy, sources, applicationBase, embedding?.relays);
+    if (inherited) policy = restrictDollyHttpPolicy(policy, inherited.policies, sources, applicationBase);
     // A site path names a file of this page's site.
     const site = publicURL("", applicationBase).href;
     network = { ...localServicesTransport(policy, services), site };

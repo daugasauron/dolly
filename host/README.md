@@ -34,10 +34,10 @@ the site's pages name them all.
 | `client` | Process C linked as `libdolly-NAME.a`; it records `DOLLY_HOST_REQUIRE(NAME, VERSION, DOLLY_NAME_ABI_DIGEST)` |
 
 A provider's `browser()` and `worker()` receive the page's shared resources
-(`mount`, `canvas`, `keyboard`, `applicationBase`, `showStatus`, `fatal`,
-`bootstrapSources`, `indicators` (`hold(holder, held)` and `show()`, the page's
-corner indicators), and `inherited`: the custom image record a result tab was
-opened with), `send` to the other side, `get(dependency)` and its
+(`mount`, `canvas`, `keyboard`, `applicationBase` (the image directory), `site`
+(the root of the site's routes, when the embedding has one), `showStatus`,
+`fatal` and `indicators` (`hold(holder, held)` and `show()`, the page's corner
+indicators)), `send` to the other side, `get(dependency)` and its
 `configuration`; `check()` receives the page's resources too, and on a switch
 after boot the `signal` that is aborted once the registry stops waiting.
 `get("runtime")` on the Worker side gives the kernel's `memory`,

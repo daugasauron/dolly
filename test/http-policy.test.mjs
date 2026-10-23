@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { consumeDollyHttpPolicy, DollyHttpPolicy, isDollyCredentialHeader, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
+import { DollyHttpPolicy, isDollyCredentialHeader, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
 import { DOLLY_ERRNO } from "../src/process-constants.mjs";
 
 test("response quotas are optional and finite inherited quotas cannot be widened", () => {
@@ -88,21 +88,6 @@ test("the no-configuration HTTP policy permits destinations and credentials with
   for (let index = 0; index < 300; index++) {
     assert.equal(policy.authorize(new URL("https://models.example/v1/models"), "GET", headers, 0).followRedirects, true);
   }
-});
-
-test("the browser consumes credential policy without exposing it as page state", () => {
-  const page = {
-    DOLLY_HTTP_POLICY: {
-      rules: [{
-        origin: "https://models.example",
-        pathPrefix: "/v1/",
-        methods: ["POST"],
-      }],
-    },
-  };
-  const policy = consumeDollyHttpPolicy(page);
-  assert.equal("DOLLY_HTTP_POLICY" in page, false);
-  assert.equal(policy.hardened, true);
 });
 
 test("exact HTTP policy paths cannot be widened by a matching prefix", () => {
@@ -223,9 +208,6 @@ test("a relay is transport for a destination the policy admits, with no credenti
     { origin: "https://forge.example", through: "https://page.example/relay/", credentialHeaders: ["x-custom"] }]) {
     assert.throws(() => new DollyHttpPolicy(undefined, [], "https://page.example/", [invalid]), TypeError);
   }
-  const page = { DOLLY_HTTP_RELAYS: relays, location: { href: "https://page.example/" } };
-  assert.equal(consumeDollyHttpPolicy(page).relays.size, 1);
-  assert.equal("DOLLY_HTTP_RELAYS" in page, false, "the page must not keep the relay configuration");
 });
 
 test("a hardened rule lets through only the credential headers it names", () => {

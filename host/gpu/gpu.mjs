@@ -44,10 +44,14 @@ function indicate(page, info, unavailable) {
       "padding:0.15rem 0.45rem;background:#262626;border:1px solid;font-size:13px;pointer-events:none";
   }
   if (unavailable) {
-    const link = Object.assign(document.createElement("a"), { textContent: "How to enable WebGPU ↗",
-      href: new URL("docs/gpu.md#enabling-webgpu", page.applicationBase).href, target: "_blank", rel: "noopener" });
-    link.style.cssText = "color:#f2d45c;pointer-events:auto";
-    element.replaceChildren(`No GPU: ${unavailable} · `, link);
+    element.replaceChildren(`No GPU: ${unavailable}`);
+    // The site's docs say how to enable WebGPU; another embedding has none.
+    if (page.site) {
+      const link = Object.assign(document.createElement("a"), { textContent: "How to enable WebGPU ↗",
+        href: new URL("docs/gpu.md#enabling-webgpu", page.site).href, target: "_blank", rel: "noopener" });
+      link.style.cssText = "color:#f2d45c;pointer-events:auto";
+      element.append(" · ", link);
+    }
     announce(page, element, "unavailable", "#e98773");
     return {};
   }

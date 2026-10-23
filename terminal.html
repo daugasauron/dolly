@@ -50,18 +50,21 @@
       if (crossOriginIsolated) {
         sessionStorage.removeItem("dolly-isolation-retry");
         // The site is an embedding: it offers every host module this repository
-        // builds, and takes once what a test set before the page loaded.
-        const { DOLLY_BOOT: route, DOLLY_HOST_MODULES: hostModules, DOLLY_HTTP_POLICY: policy, DOLLY_HTTP_RELAYS: relays } = globalThis;
+        // builds, or those of them a test named before the page loaded, and
+        // takes the test's settings once.
+        const { DOLLY_BOOT: route, DOLLY_HOST_MODULES: named, DOLLY_HTTP_POLICY: policy, DOLLY_HTTP_RELAYS: relays } = globalThis;
         for (const name of ["DOLLY_HOST_MODULES", "DOLLY_HTTP_POLICY", "DOLLY_HTTP_RELAYS"]) delete globalThis[name];
-        let boot, hostModuleUrls;
+        let boot, hostManifests;
         try {
-          [{ boot }, { hostModuleUrls }] = await Promise.all(["src/browser.mjs", "host/manifests.mjs"]
+          [{ boot }, { hostManifests }] = await Promise.all(["src/browser.mjs", "host/manifests.mjs"]
             .map(path => import(new URL(path, assets).href)));
         } catch (error) {
           failed(`Dolly failed to load.\n${error instanceof Error ? error.stack ?? error.message : String(error)}`);
         }
+        const modules = hostManifests?.filter(({ name, version }) => !named || named.includes(`${name}@${version}`))
+          .map(({ url }) => url);
         // boot() shows its own failure in the terminal.
-        if (boot) window.__dolly = await boot(terminal, { ...route, images: assets.href, modules: hostModuleUrls, hostModules,
+        if (boot) window.__dolly = await boot(terminal, { ...route, images: assets.href, site: assets.href, modules,
           http: { policy, relays } }).catch(error => console.error(error));
       } else if ("serviceWorker" in navigator) {
         await navigator.serviceWorker.register(new URL("coi-serviceworker.js", assets), { scope: assets.pathname });
