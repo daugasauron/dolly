@@ -66,6 +66,31 @@ Decisions, each the one way it is done:
   bytes); its test no longer requires the two executables to differ. Whether it stays is a
   catalog question for the owner.
 
+Verified, as the trial was (commit `d027a1cb`):
+
+- **The seed.** `npm run build:runtime` takes 12 s and prints image inputs `0dfde372…` (was
+  `a24f5a0f…`, the integration tree's); `validate-process` accepts the compiler. Decoded on the
+  host, the new `dist/dolly.data` holds the same 822 records in the same order as the old, every
+  one the same bytes except `/usr/libexec/dolly/process-bin/compiler`; 125,659,940 bytes (was
+  107,907,302). A second `build:runtime` gives the same hashes.
+- **The chain**, `system-build`, `system`, `default`, `cc`, `git` and their dependencies: 18
+  images, one builder in Chrome under the 6 GB slot, 749 s (`zig-build` 437 s,
+  `system-build` 54 s, `git` 83 s). Each snapshot decoded and compared, entry by entry, with
+  `work/x11fix`'s (`scripts/system-snapshot-format.mjs`): in all 18 every entry is the same but
+  the compiler in the six that carry it (`system-build`, `zig-build`, `ghostty-build`,
+  `system-tools`, `cc`, `system`); none missing, none new, the same order. The other twelve
+  (`core`, `zlib`, `gzip`, `curl`, `git`, `display`, `posix`, `amy`, `nena`, `transfer`, `ps`,
+  `default`) are the same bytes whole, and so is `libdolly-gpu`, built for the DSO test.
+  `system-build`'s libc++, libc++abi, libunwind, `cc` and Slop are among the equal files.
+- **Browsers** (Chromium and Firefox, browser slot): `test/core-browser.mjs` (25.3 s, 34.7 s),
+  `cpp`, `dso`, `threads` and `process` pass in both.
+- Source suite (`npm run test:source`, 433 tests) passes.
+- Not exercised: a fresh clone of LLVM by `demos/llvm/prepare-sources.sh` (the lines are
+  `build-toolchain.sh`'s; a fetch from a local shallow clone hung and was stopped), and the
+  download of the archive, whose release asset does not exist before 0.1.4 is published.
+- **Stale**: every image, since the seed changed (image inputs `0dfde372…`). This tree's
+  `dist/dolly-images.mjs` is narrowed to the chain.
+
 ## State (2026-10-13)
 
 Left is one thing, and it waits for the owner: **the seed's compiler still comes from the host**
