@@ -17,3 +17,14 @@ compiler built in Dolly (`core/seed-compiler`); the environment audit's fixes
 
 Done when: the findings are in `audit.md` here, each fixed before the 0.1.4 round where the
 fix is clear, or one line for the owner where it is a decision.
+
+## Progress
+
+- 3, 4, 5, 7, 8, 9, 10, 12 (the image directory line, `terminal-text.mjs`): fixed in 96b61bed,
+  verified in Chromium and Firefox (commit message lists the suites). Found on the way: the
+  custom session suite failed in today's Chromium writing a 151 MB legacy ArrayBuffer record
+  into IndexedDB; that record format can no longer be read (its key's image build ID is gone),
+  so the fallback and its test step went.
+- 1, 2, 6, 11 (the wake loop): at the merges of `core/seed-compiler`, `core/touch-module`,
+  `core/amy-environment` and `core/audit-fixes`, in that order.
+- Owner: the three lines at the end of `audit.md`.
