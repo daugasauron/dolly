@@ -441,7 +441,7 @@ const elsewhere = {
   parakeet: "demos/speech", "speech-to-text": "demos/speech: default refuses it", voice: "demos/speech, in pi-phone",
   tmux: "demos/tmux: default refuses it",
   "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm",
-  "libdolly-audio": "audio-browser.mjs", "libdolly-buttons": "buttons-browser.mjs", "libdolly-gpu": "gpu-render-browser.mjs",
+  "libdolly-audio": "audio-browser.mjs", "libdolly-gpu": "gpu-render-browser.mjs",
   "libdolly-microphone": "microphone-browser.mjs", "libdolly-sockets": "sockets-browser.mjs",
   "libdolly-touch": "touch-browser.mjs",
   libjpeg: "demos/xonotic", spidermonkey: "demos/zero-ad",

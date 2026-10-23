@@ -56,10 +56,6 @@ semantics, and lifecycle rules matter more than a high-level wrapper API.
   or replaces them (an embedding's list). Only an image that declares
   `nena@0` may enable and disable modules while it runs; the page makes each
   switch, and without that module nothing in Wasm changes the set.
-- The button strip is its own explicit external resource, `buttons@0`: a
-  caption and labelled buttons the page draws as text for one process, and
-  the clipboard's text only by the user's press of the page's own Paste
-  button. What that process types into the terminal stays in Wasm.
 - The browser host is not Dolly's filesystem and cannot provide native
   subprocesses.
 - Network access crosses one explicit, restrictable browser broker. Programs do

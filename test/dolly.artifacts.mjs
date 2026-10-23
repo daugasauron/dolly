@@ -239,7 +239,6 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["gzip", "/bin/gzip"],
     ["less", "/usr/bin/less"],
     ["libdolly-audio", "/usr/lib/dolly/process/libdolly-audio.a"],
-    ["libdolly-buttons", "/usr/lib/dolly/process/libdolly-buttons.a"],
     ["libdolly-gpu", "/usr/lib/dolly/process/libdolly-gpu.a"],
     ["libdolly-microphone", "/usr/lib/dolly/process/libdolly-microphone.a"],
     ["libdolly-sockets", "/usr/lib/dolly/process/libdolly-sockets.a"],
@@ -393,7 +392,6 @@ test("the main Wasm has an explicit, minimal browser boundary", async () => {
   assert.deepEqual(policy.gpu, ["env.dolly_gpu_dispatch"]);
   assert.deepEqual(policy.audio, ["env.dolly_audio_dispatch"]);
   assert.deepEqual(policy.microphone, ["env.dolly_microphone_dispatch"]);
-  assert.deepEqual(policy.buttons, ["env.dolly_buttons_dispatch"]);
   assert.equal(
     actual.some((name) => /nodefs|opfs|fetch|socket|spawn|process|pthread|thread_/.test(name)),
     false,

@@ -138,6 +138,50 @@ touches) and Firefox (touch PointerEvents), twice each. Found on the way: Chromi
 CDP touch move with its next frame and may end a touch without its last move, so a program must
 take an up's position as the finger's last; `fingers.c` does.
 
+Step 4, `buttons@0` removed and `pi-phone` ported:
+
+- Gone: `host/buttons/`, `Dollyfile-libdolly-buttons`, its import in `abi/dolly-browser-0.wat`,
+  its row, edge and handle member in `docs/browser-boundary.md`, its section in `docs/input.md`,
+  its constraint paragraph in `AGENTS.md`, the strip's CSS in `terminal.html`, its tests, and
+  operation 132 with the kernel's typed queue (`host/input/kernel.c`, the foreground interrupt
+  of `src/dolly.c`, both declarations in `src/process-kernel.h`; the input ring test is as before
+  `7a6daada`). Measured: `npm run build:runtime` still prints image inputs
+  `sha256:a24f5a0f…`; the seed does not change by the removal either.
+- `voice MENU [MODEL] -- PROGRAM` is the foreground program: it opens a pseudo-terminal, gives
+  PROGRAM (Pi) all rows but its own (the size set on the master, so Pi gets SIGWINCH), forwards
+  Pi's output to the terminal and the keyboard's input to Pi, and keeps Pi above its rows with a
+  scroll region. Its rows (a caption and the buttons, three terminal rows a row of buttons, about
+  48 CSS px on a phone) are drawn after Pi's output wherever the output can be cut: outside an
+  escape sequence, a UTF-8 character and a synchronized update (DEC 2026, which Pi's TUI uses);
+  the draw saves and restores the cursor (Pi's TUI uses no DECSC of its own: `packages/tui/src`
+  has none). A tap is a finger's down and up on one button; voice holds `touch@0`. The speech
+  model loads on a thread while Pi starts.
+- Mapping a finger to a cell: the terminal answers CSI 16 t (cell size in frame pixels), asked
+  before Pi starts and again after a resize. Its padding (12 by 10 CSS px times the device scale,
+  `src/ghostty/display.c`) is reported by no sequence (Ghostty's size reports are the text area
+  only), so a cell found by division is the finger's or one right of or below it; voice keeps a
+  column between buttons and gives it to the left one. Recorded as a gap in `docs/input.md`.
+- The page's Paste button: no phone was connected (`adb devices` empty, 13:5x), so the phone's own
+  paste into the page's keyboard was not measured, and Paste moved into `input@0` as the contract
+  says: on a touchscreen (`(pointer: coarse)`) the page shows a Paste button at the top right; it
+  reads the clipboard only inside the user's press and delivers it as an ordinary paste, to the
+  terminal or a lessee. pi.menu's Paste key became Enter, after the page's Paste.
+- Lost, by design: while voice has the fingers a drag over Pi's rows scrolls nothing (the page's
+  drag-to-scroll and pinch are input@0's only without a holder).
+- Measured, Chromium: `demos/speech/test/speech-browser.mjs` passes all four parts; in `pi-phone`
+  on the Pixel 7 emulation Pi has the rows above voice's (48 by 32 cells, Pi 25), the key goes in
+  by the page's Paste and Enter, a model is chosen by a spoken word, the thinking level by taps, a
+  spoken prompt is sent and answered, and the microphone is closed after. Typing a button's text
+  must be one write: written a byte at a time, Pi's autocompletion took Enter before the filter
+  ("/login openrouter" became "/login openrouteramazon-bedrock").
+  `test/touch-browser.mjs` (with the Pixel 7 part: 48 columns at 412 and 360 wide, CDP finger
+  drag, the Paste button granted and refused) passes in Chromium and Firefox; `fingers` and `sdl2`
+  pass again; source 434/0. `nena enable touch`, `disable`, `enable` in `default` work in both
+  browsers (checked by hand, not a committed test).
+- Not attributed: an early voice called a null function pointer in `lay_out` and hung, with no
+  "process failed" line and no shell prompt after it; a small `-pthread` program making the same
+  call ends with status 126 as it should. Not reproduced beyond voice.
+
 ## Groundwork (2026-10-14, 04:05): the groundwork is gathered; the contract is still the owner's
 
 [The groundwork](groundwork.md), by a Fable agent that read `main`, the

@@ -72,7 +72,6 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `libdolly-gpu`: the `gpu@0` module's header and client library, for programs the `cc` package builds.
 - `libdolly-audio`: the `audio@0` module's header and client library, for programs the `cc` package builds.
 - `libdolly-microphone`: the `microphone@0` module's header and client library, for programs the `cc` package builds.
-- `libdolly-buttons`: the `buttons@0` module's header and client library, for programs the `cc` package builds.
 - `libdolly-sockets`: the `sockets@0` module's header and client library, for programs the `cc` package builds.
 - `libdolly-touch`: the `touch@0` module's header and client library, for programs the `cc` package builds.
 - `ps`: `ps`, which lists the processes: PID, parent, state and command line.

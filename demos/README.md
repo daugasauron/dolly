@@ -26,7 +26,7 @@ README. Demos may use each other; the core never uses a demo.
 - [rust](rust/README.md): rustc and Cargo built inside Dolly, ripgrep and fd.
 - [sdl2](sdl2/README.md): SDL2 over the Dolly framebuffer.
 - [slopyard](slopyard/README.md): Slopyard and the raylib/Box3D gamedev SDK.
-- [speech](speech/README.md): speech to text from the microphone, and Pi on a phone with speech and buttons in place of a keyboard.
+- [speech](speech/README.md): speech to text from the microphone, and Pi on a phone with speech and buttons a finger taps in place of a keyboard.
 - [studio](studio/README.md): Dollyfile Studio.
 - [tmux](tmux/README.md): tmux on pseudo-terminals, as a package and an application with two panes; libevent and NetBSD's terminfo library as packages.
 - [tools](tools/README.md): SQLite, jq, the xz, zstd, bzip2, lz4 and pigz compressors, zip and unzip, tree, bc, xxd, base64, Meson, yacc and flex, wabt, mandoc, toybox's grep and sed, a tar that writes archives, a small vi and the dte editor, as packages built from their release archives.

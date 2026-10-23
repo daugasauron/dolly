@@ -477,13 +477,26 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
     transport?.pushText(event.data);
     keyboard.value = "";
   });
+  const deliverPaste = text => {
+    if (text && !transport?.pushPaste(text)) showStatus("Paste not delivered: the program's input buffer is full or too small");
+  };
   window.addEventListener("paste", (event) => {
     if (event.target !== keyboard && (!transport?.leased() ||
         (event.target !== document.body && event.target !== canvas))) return;
     event.preventDefault();
-    const text = event.clipboardData?.getData("text/plain") ?? "";
-    if (text && !transport?.pushPaste(text)) showStatus("Paste not delivered: the program's input buffer is full or too small");
+    deliverPaste(event.clipboardData?.getData("text/plain") ?? "");
   });
+  // A touchscreen has no paste chord: there the page shows its own Paste
+  // button and reads the clipboard only inside the user's press of it.
+  const pasteButton = document.body.appendChild(document.createElement("button"));
+  pasteButton.id = "paste";
+  pasteButton.type = "button";
+  pasteButton.textContent = "Paste";
+  const touchscreen = matchMedia("(pointer: coarse)"), placePaste = () => { pasteButton.hidden = !touchscreen.matches; };
+  placePaste();
+  touchscreen.addEventListener("change", placePaste);
+  pasteButton.addEventListener("click", () => navigator.clipboard.readText()
+    .then(deliverPaste, () => showStatus("Paste refused: the browser did not let the page read the clipboard")));
 
   return {
     page: {
@@ -517,6 +530,8 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
       transport?.enable(false);
       transport = undefined;
       endStaleCapture();
+      touchscreen.removeEventListener("change", placePaste);
+      pasteButton.remove();
     },
   };
 }

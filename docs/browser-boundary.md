@@ -20,7 +20,6 @@ flowchart TB
     gpu["gpu@0"]
     au["audio@0"]
     mic["microphone@0"]
-    btn["buttons@0"]
     nena["nena@0"]
   end
   subgraph mailboxes["Mailboxes"]
@@ -43,7 +42,7 @@ flowchart TB
   dl --> save["user clicks Save"]
   up --> picker["user picks a file"]
   mic --> prompt["browser's own permission prompt"]
-  btn --> paste["user presses the page's Paste button"]
+  inp --> paste["user presses the page's Paste button"]
   nena --> set["the page's set of modules for this session"]
 ```
 
@@ -66,12 +65,11 @@ Worker URL.
 | `upload@0` | mailbox | Ask for a file; the user picks it; 1 GiB of bytes in 1 MiB chunks, no name or path; refused for 2 s after a cancel | [`host/upload/`](../host/upload/module.json) |
 | `snapshot@0` | mailbox | Save and restore opaque session deltas (512 MiB) on user action | [`host/snapshot/`](../host/snapshot/module.json) |
 | `display@0` | mailbox | Publish checked RGBA frames and a closed cursor value; read the surface's size; load the display plugin from WasmFS; the terminal's selection reaches the clipboard on the user's Ctrl+Shift+C | [`host/display/`](../host/display/module.json) ([`kernel-plugin.mjs`](../src/kernel-plugin.mjs)) |
-| `input@0` | mailbox | Receive bounded records of keys, IME text, paste, window focus, pointer buttons and positions on the canvas, wheel; ask for pointer lock, granted only on a user's press on the canvas | [`host/input/`](../host/input/module.json) |
+| `input@0` | mailbox | Receive bounded records of keys, IME text, paste, window focus, pointer buttons and positions on the canvas, wheel; ask for pointer lock, granted only on a user's press on the canvas. On a touchscreen the page's Paste button reads the clipboard's text inside the user's press of it | [`host/input/`](../host/input/module.json) |
 | `touch@0` | mailbox | Receive bounded records of fingers on the canvas (an id from down to up, position, pressure, time), ten at once and 512 queued, while the foreground program or a descendant holds the lease; then no finger is a pointer record of `input@0` | [`host/touch/`](../host/touch/module.json) |
 | `gpu@0` | `env.dolly_gpu_dispatch` | Bounded WebGPU packets on the browser's `high-performance` adapter, 8 scopes, 4,096 objects each, 4 GiB total, one canvas | [`host/gpu/`](../host/gpu/module.json) |
 | `audio@0` | `env.dolly_audio_dispatch` | Stereo PCM output, 4 streams of 1 s; no capture | [`host/audio/`](../host/audio/module.json) |
 | `microphone@0` | `env.dolly_microphone_dispatch` | Mono PCM of the browser's default input: one capture, 2 s queued. The browser is asked only when a program opens it and grants it only through its own prompt; the page shows it while held; tracks stop on close and exit. No device list, labels or choice, no video | [`host/microphone/`](../host/microphone/module.json) |
-| `buttons@0` | `env.dolly_buttons_dispatch` | A strip of page DOM below the terminal, for one process: a caption (480 bytes) and 12 buttons (24-byte labels) set as text, 16 queued presses. The clipboard's text (4,096 bytes) is read only inside the user's press of the page's own Paste button, which the guest cannot name. What the process types into the terminal stays in Wasm | [`host/buttons/`](../host/buttons/module.json) |
 | `nena@0` | `env.dolly_nena_dispatch` | List the page's modules and ask the page to enable or disable one for this session. A packet names a module of the fixed registry, never a URL, file or provider; a switch grants what the switched module's row says, and nothing of the page's policy or the browser's prompts changes | [`host/nena/`](../host/nena/module.json) |
 | `threads@0` | supervisor | Worker per thread of an admitted executable: 32 per process, 64 total | [`host/threads/`](../host/threads/module.json) |
 | `sockets@0` | none | Local stream sockets between processes of the kernel, in its memory: 128 sockets, 16 unaccepted connections a listener, 64 KiB a direction. No network family and nothing outside Wasm | [`host/sockets/`](../host/sockets/module.json) |
@@ -206,7 +204,7 @@ Worker URL.
 
 | Channel | Bound |
 | --- | --- |
-| Keyboard, pointer, wheel, focus, paste (`input@0`) | Bounded records, one motion sample per animation frame; a record the ring has no room for is counted, shown and marked in the ring, never queued on the page ([input](input.md#the-ring)). Interpretation stays in Wasm. Nothing is read from the clipboard but a paste the user makes: the browser's own, or a press of the page's Paste button (`buttons@0`). Pointer lock only after a trusted canvas press while the program holding the lease asks; Escape ends it. Without `input@0` no listener writes a record |
+| Keyboard, pointer, wheel, focus, paste (`input@0`) | Bounded records, one motion sample per animation frame; a record the ring has no room for is counted, shown and marked in the ring, never queued on the page ([input](input.md#the-ring)). Interpretation stays in Wasm. Nothing is read from the clipboard but a paste the user makes: the browser's own, or, on a touchscreen, a press of the page's Paste button. Pointer lock only after a trusted canvas press while the program holding the lease asks; Escape ends it. Without `input@0` no listener writes a record |
 | Surface size (`display@0`) | Three numbers the page writes: width, height, device scale |
 | Clipboard copy (`display@0`) | Bounded selection text after a user Ctrl+Shift+C |
 | Page keys | F11 (fullscreen) and Ctrl+Shift+F (indicators) are the page's own and are taken before any module or the guest reads them ([`page-chords.mjs`](../src/page-chords.mjs)); the guest cannot request fullscreen |
@@ -239,8 +237,8 @@ acceptance and the checks of a deployed site use it.
 - An enabled module adds its own and takes them away when `nena` disables it:
   `transport`, `fontSize`, `graphicsActive`, `copySelection()` (`display@0`),
   `inputTransport` (`input@0`), `touchTransport` (`touch@0`), the broker's request counters (`http@0`),
-  `sessionName` and `saveSession(name)` (`snapshot@0`), `gpu`, `audio`,
-  `microphone` and `buttons`.
+  `sessionName` and `saveSession(name)` (`snapshot@0`), `gpu`, `audio` and
+  `microphone`.
 
 None gives authority a user of the page lacks: each write is what a key, a
 paste, a click or Save does, through the same functions, without the gesture.
