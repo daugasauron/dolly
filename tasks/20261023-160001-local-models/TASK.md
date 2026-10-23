@@ -16,3 +16,11 @@ Done when: candidates are measured against what Dolly's llama.cpp and a browser'
 take (architecture support at the pinned llama.cpp, file size and parts, memory, tokens per
 second in Chromium and Firefox, quality on Pi's tool calls), and the ones worth it are amy
 packages with a test each, chosen with `/local` in `pi-local`.
+
+## Decided (2026-10-23)
+
+LFM2.5-2.6B's licence, the LFM Open License v1.0 (investigation, section 3): owner, "This is
+not commercial use, so it should be okay for now?" Yes: Dolly is free and earns nothing, and
+the licence allows reproduction and redistribution with its text shipped and Liquid AI
+attributed; it limits commercial use by revenue. The package ships the licence text, and
+`docs/licences.md` gets its row with those conditions.
