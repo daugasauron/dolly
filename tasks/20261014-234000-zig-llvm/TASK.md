@@ -15,6 +15,16 @@ Done when a Zig 0.16 built inside Dolly against LLVM runs `zig build` on a
 project of its own and `zig build-exe hello.zig` gives a program that runs
 in a session, with a browser test.
 
+## State (2026-10-24): LLVM through its llvm-config
+
+With `dladdr` naming the program (`9b8626d0`), llvm21's `llvm-config` knows its
+prefix, and the recipe takes LLVM's headers, library directory and libraries
+from it (`--includedir`, `--libdir`, `--link-static --libs --system-libs`), as
+upstream's Findllvm does, in place of the archive glob. In `work/runtime`
+(`bigbuild`, Chrome): `llvm21-tablegen` and `llvm21` 98 min, `zig-llvm-build`
+and `zig-llvm` 27 min; `zig-llvm-browser.mjs` passed in Chromium (103 s) and
+Firefox (119 s).
+
 ## State (2026-10-15, 04:05): zig build runs in Dolly
 
 `node demos/zig/test/zig-llvm-browser.mjs` passed in Chromium (34.6 s) and
