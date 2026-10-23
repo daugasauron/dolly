@@ -45,19 +45,20 @@ export async function upstreamRows(projectDir, definitions) {
   return rows;
 }
 
-// The packages a published npm tree ships, from their own package.json.
+// The packages a copy of npm registry files holds, from each name's metadata.json.
 function* npmPackages(tar) {
   const text = (at, length) => tar.subarray(at, at + length).toString("utf8").replace(/\0.*$/s, "");
   for (let at = 0; at + 512 <= tar.length && tar[at]; ) {
     const size = Number.parseInt(text(at + 124, 12), 8);
     const path = [text(at + 345, 155), text(at, 100)].filter(Boolean).join("/");
-    const manifest = /^usr\/lib\/node_modules\/((?:@[^/]+\/)?[^/@]+)\/package\.json$/.exec(path);
-    if (manifest) {
-      const { name, version, license, repository } = JSON.parse(text(at + 512, size));
-      if (name !== manifest[1] || typeof license !== "string") throw new Error(`${path}: no name or licence`);
-      const url = (repository?.url ?? repository ?? "").replace(/^git\+/, "").replace(/\.git$/, "");
-      yield { name, version, licence: license,
-        repository: url.startsWith("https://") ? url : `https://www.npmjs.com/package/${name}` };
+    const metadata = /\/((?:@[^/]+\/)?[^/@]+)\/metadata\.json$/.exec(path);
+    if (metadata) {
+      for (const { name, version, license, repository } of Object.values(JSON.parse(text(at + 512, size)).versions)) {
+        if (name !== metadata[1] || typeof license !== "string") throw new Error(`${path}: no name or licence`);
+        const url = (repository?.url ?? repository ?? "").replace(/^git\+/, "").replace(/\.git$/, "");
+        yield { name, version, licence: license,
+          repository: url.startsWith("https://") ? url : `https://www.npmjs.com/package/${name}` };
+      }
     }
     at += 512 + Math.ceil(size / 512) * 512;
   }

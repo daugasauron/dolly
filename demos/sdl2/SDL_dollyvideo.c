@@ -50,6 +50,10 @@ static int DollyVideoInit(_THIS)
         return error ? DollyError("input", error) : -1;
     }
     SDL_AddDisplayMode(&_this->displays[0], &mode);
+    // SDL's one renderer here is its software renderer: a program that asks
+    // for an accelerated one, as upstream's examples do, gets that. A default,
+    // so the variable or a program's own hint still choose.
+    SDL_SetHintWithPriority(SDL_HINT_RENDER_DRIVER, "software", SDL_HINT_DEFAULT);
     // Fingers where the page has a touchscreen for the program; without one
     // the program goes on with the mouse and keys.
     if (dolly_touch_acquire(&video->touch) != 0) video->touch = 0;

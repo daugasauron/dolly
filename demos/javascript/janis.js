@@ -1450,9 +1450,22 @@ const janisFs = {
   unwatchFile: janisUnwatchFile,
 };
 
+// Node takes a file: URL object wherever it takes a path: the first operand,
+// and the second where an operation names two files.
+for (const [name, paths] of Object.entries({
+  existsSync: 1, statSync: 1, lstatSync: 1, readFileSync: 1, writeFileSync: 1, appendFileSync: 1,
+  mkdirSync: 1, readdirSync: 1, unlinkSync: 1, rmdirSync: 1, rmSync: 1, renameSync: 2, copyFileSync: 2,
+  realpathSync: 1, accessSync: 1, utimesSync: 1, chmodSync: 1, symlinkSync: 2, linkSync: 2, readlinkSync: 1,
+  truncateSync: 1, openSync: 1, createReadStream: 1, createWriteStream: 1, mkdtempSync: 1, watch: 1,
+  watchFile: 1, unwatchFile: 1 })) {
+  const operation = janisFs[name];
+  janisFs[name] = (...operands) => operation(...operands.map((operand, index) =>
+    index < paths && operand instanceof URL ? fileURLToPath(operand) : operand));
+}
+
 const janisFsPromises = {
   open: async (path, flags) => {
-    let fd = openSync(path, flags);
+    let fd = janisFs.openSync(path, flags);
     const current = () => fsDescriptor(fd);
     return {
       get fd() { return fd; },
@@ -2736,6 +2749,16 @@ function janisResolveModule(specifier, baseName, forRequire = false) {
 }
 globalThis.__janisResolveModule = janisResolveModule;
 
+// Node's LOAD_AS_DIRECTORY: the directory's package.json "main" comes before its index.js.
+function janisDirectoryMain(directory) {
+  const manifest = `${directory}/package.json`;
+  if (!isFile(manifest)) return undefined;
+  const { main } = JSON.parse(fsRead(manifest, "utf8"));
+  if (typeof main !== "string" || !main) return undefined;
+  const target = resolvePath(directory, main);
+  return [target, `${target}.js`, `${target}.json`, `${target}/index.js`].find(isFile);
+}
+
 const janisRequireCache = Object.create(null);
 let janisMainModule;
 function janisRunCommonJs(module, compiled, filename) {
@@ -2775,7 +2798,8 @@ function createJanisRequire(filename = "/usr/lib/janis/index.js") {
     if (!value.startsWith("/") && !value.startsWith("./") && !value.startsWith("../"))
       return janisResolveModule(value, filename, true);
     const candidate = value.startsWith("/") ? normalizePath(value) : resolvePath(base, value);
-    const resolved = [candidate, `${candidate}.js`, `${candidate}.cjs`, `${candidate}.json`, `${candidate}/index.js`].find(isFile);
+    const resolved = [candidate, `${candidate}.js`, `${candidate}.cjs`, `${candidate}.json`].find(isFile) ??
+      janisDirectoryMain(candidate) ?? [`${candidate}/index.js`].find(isFile);
     if (resolved) return resolved;
     throw Object.assign(new Error(`Cannot find module '${specifier}'`), {
       code: "MODULE_NOT_FOUND",
@@ -2857,6 +2881,7 @@ function janisIPv6(value) {
     (halves.length === 2 ? parts.length < 8 : parts.length === 8);
 }
 
+const janisCompileCacheStatus = { FAILED: 0, ENABLED: 1, ALREADY_ENABLED: 2, DISABLED: 3 };
 const janisBuiltinModules = {
   "assert/strict": undefined,
   async_hooks: janisAsyncHooks,
@@ -2879,6 +2904,9 @@ const janisBuiltinModules = {
     ),
     builtinModules: [...janisBuiltinModuleNames, ...janisBuiltinModuleNames.map((name) => `node:${name}`)],
     isBuiltin: (name) => Boolean(janisBuiltinModules[String(name).replace(/^node:/, "")]),
+    // Janis compiles a module each time it loads one: there is no cache to enable.
+    enableCompileCache: () => ({ status: janisCompileCacheStatus.FAILED, message: "Janis has no compile cache" }),
+    constants: { compileCacheStatus: janisCompileCacheStatus },
   },
   os: janisOs,
   path: janisPath,

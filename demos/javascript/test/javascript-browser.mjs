@@ -63,7 +63,7 @@ const overlapping = new Map();
 
 const fixtures = Object.fromEntries(["janis-files.mjs", "janis-process.mjs", "janis-terminal.mjs", "node-oracle.mjs", "utf8-browser.mjs", "utf8-cases.mjs", "utf8-writer.c"]
   .map(name => [name, `demos/javascript/test/fixtures/${name}`]));
-await demoTest("javascript", { image: "typescript", timeout: 600_000, server: { handle, fixtures } }, async ({ server, open }) => {
+await demoTest("javascript", { image: "typescript", timeout: 600_000, browser: process.env.DOLLY_BROWSER ?? "chromium", server: { handle, fixtures } }, async ({ server, open }) => {
   const { page, submit, run, start, waitText } = await open({ ...await installProbe("typescript"), policy: { maxRequests: 256,
     rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"] }] } });
   const scratch = "/tmp/dolly-javascript-test";

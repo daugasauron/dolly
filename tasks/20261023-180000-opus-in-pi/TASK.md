@@ -57,6 +57,20 @@ the catalog round. Left, one line each:
   (its legacy-store step puts the 151 MB image as one ArrayBuffer); not caused here, not fixed.
 - `amy-browser.mjs` (tar `-j`/`-z` cases added) runs only after the catalog round builds every package.
 
+## State (2026-10-23 23:00 JST, branch `demo/opus-audit-2`): rounds 2 and 3 done
+
+Twenty more sessions (rounds 2 to 4, at the end), $10.381; with round 1, **$11.143 of the
+$20** (Pi's footer and the session files agree). Before the guidance change Opus wrote every
+game from scratch on the raw display and never looked at `amy`; after it, every session
+installed and reused a library (raylib, SDL2, FreeType, libpng, SQLite) in its first
+commands, with fewer failed calls and a third less time and money for the same prompt.
+Fixed here, each with a test that failed before: SDL2's accelerated renderer in the session
+that installed it, Pi running a response's shell command and edit at once; and the guidance
+checks display programs under `timeout`. The branch has `core/npm-packages` (`f2677945`)
+merged in and Pi from npm (janis-install, step 5); this tree's images are on the `1ee15fc6`
+seed, built as the janis-install task says; Pi's chain waits for `rust-build` on the new seed.
+Lines for the packages workstream are in round 2 (forwarded by the integrator).
+
 ## Method
 
 `build/opus-evidence/drive.mjs` (not committed): `pi-agent` of this branch's `dist/` served by
@@ -291,3 +305,246 @@ saved it; it lists `hello/hello.c` and `hello/run`). After Ctrl+D, `pi -c` showe
 conversation again with its footer, as the guidance tells the user.
 
 Spend, all sessions: $0.093 + $0.079 + $0.212 + $0.254 + $0.086 + $0.038 = $0.762.
+
+## Round 2: a bigger game, and the packages it should reuse (branch `demo/opus-audit-2`)
+
+Kept here: the platformer's source as Opus downloaded it with a screenshot
+([`platformer/`](platformer/)), and pictures of four other results ([`round2/`](round2/):
+the raylib Galaga after the guidance change, the raylib 3D corridor, SDL2 with FreeType,
+the chart from SQLite through FreeType and libpng). Checked with `check.mjs`: no key material.
+
+Method as above (`drive.mjs`, pi-agent of this branch's `dist/`, headless Chrome), plus
+[`trace.mjs`](trace.mjs): from Pi's session JSONL, model seconds per response (entry
+time minus request start), seconds per tool call, the calls that failed, the `amy` commands
+and the libraries named. One prompt, the same before and after (`prompts-r2-game.txt`):
+"Build me a real game, more than a simple Asteroids clone: real-time, drawn on Dolly's
+display, played with the keyboard, with text on screen (a title screen, score, lives and
+level), several levels that get harder, enemies that move on their own, and a game-over
+screen with a restart. Your choice of game. [...]" After Pi, the driver runs
+`/workspace/play` from Slop and presses keys for screenshots.
+
+### Before (the guidance of `777af11b`; `r2-before-game/`, `r2-before-game2/`, $0.880)
+
+| session | game | lines | tool calls (failed) | wall / model s | amy | libraries | cost |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Galaga-like "Star Hive", boss every 4th wave | 546 | 9 (0) | 142 / 138 | none | none | $0.495 |
+| 2 | Galaga-like "Star Warden" | 389 + font.h | 9 (1) | 309 / 129 | none | none | $0.385 |
+
+Both read the skill, listed `/usr/include/dolly/`, read `display.h` and `input.h`, and
+wrote everything on the raw display, a 5x7 bitmap font included; neither ran `amy list` or
+named a library. Both games run and draw (screenshots `game-*.png` there). Why: `SYSTEM.md`
+introduced amy with commands only (`ps`, `python`, `nvim`...), and the skill's C section
+named `display.h`, `input.h`, `-lm`, `-lz` and `-lcurl`: nothing said that SDL2, raylib,
+ImGui or Box3D are packages. Session 2 also ran the game from the `bash` tool (`./starwarden`
+after its self-test): the program took the canvas and waited for keys until the tool's
+180 s timeout, 58% of the session's wall time.
+
+What the libraries do in pi-agent, measured without a model (`r2/probe/probe1.out`,
+`probe2.out`, Chromium): `amy list` shows `sdl2`, `raylib`, `imgui`, `box3d`, `freetype`,
+`libpng`... as not installed; `amy install sdl2 raylib` takes them; an SDL2 program and a
+raylib program through `<dolly/raylib.h>` compile and draw. Two traps:
+- **SDL2**: `SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED)`, as upstream's
+  examples ask, failed with "Couldn't find matching render driver" in the session that
+  installed `sdl2`: the package chose the software renderer by `EXPORTS ENV
+  SDL_RENDER_DRIVER software`, which reaches a session only at its next load (with the
+  variable set by hand it worked).
+- **raylib**: the package is upstream's `PLATFORM_MEMORY` with `SUPPORT_CUSTOM_FRAME_CONTROL`
+  and Dolly's adapter. A program written as raylib's examples are (`InitWindow`,
+  `WindowShouldClose`, `IsKeyDown`, `SetTargetFPS`, `GetFrameTime`) links and runs but
+  shows nothing; through the adapter it draws, but `GetTime()` and `GetFrameTime()` are
+  0.000 after 60 frames (0.98 s by `clock_gettime`), `GetFPS()` 0, and raylib's own key
+  state never changes: rcore_memory.c reads the clock only `#if defined(__linux__) ||
+  ... || defined(__EMSCRIPTEN__)` (Dolly's `cc` defines `__dolly__` and `__unix__`), and
+  custom frame control never sets the frame time or polls input.
+
+### After (`0c1321bd`; `r2-after-game/`, `r2-after-game2/`, $0.675)
+
+| session | game | lines | tool calls (failed) | wall / model s | amy | libraries | cost |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Galaga-like "Star Hive" | 334 | 10 (0) | 107 / 97 | `amy install raylib`, `amy files raylib` | raylib through `<dolly/raylib.h>` | $0.341 |
+| 2 | Galaga-like "Star Hive", boss levels | 370 | 9 (0) | 118 / 115 | `amy install raylib`, `amy files raylib` | raylib through `<dolly/raylib.h>` | $0.334 |
+
+Both read the skill, installed raylib in their first command, read the adapter's header and
+`input.h`, drew with raylib (its font for the text, no hand-made font) and read keys from
+the adapter's events with a fixed 1/60 step, not `GetFrameTime`: the guidance's traps were
+avoided. No failed call; a third less time and money than before. Both games build, start
+from `/workspace/play` and play (`game-*.png`; a shot enemy is missing from the formation).
+Neither ran `amy list`: the skill named the library. Both were unsure what
+`dolly_raylib_open` and `dolly_raylib_next_event` return (the header says nothing; session 2
+searched `/usr/share/doc/dolly` for it), so the skill now says (0 or a negative errno; 1
+with a record, 0 when none).
+
+### A 3D game (`r2-3d/`, $0.367)
+
+Prompt: "Build me a 3D game this time: real-time, drawn on Dolly's display and played with
+the keyboard. You move through a 3D world [...], with enemies or obstacles that move on
+their own, a score or timer on screen, rounds that get harder, and a game-over screen with
+a restart." Opus installed raylib at once and wrote "Asteroid Run" (270 lines: a ship in a
+corridor of spinning rocks, raylib's 3D in software), 120 s, 16 calls. Two failed: its own
+self-test, and a compile of a file that a `sed > m2 && mv m2 main.c` in the `bash` tool and
+an `edit` of the same file, sent in one response, had mangled ("The file got mangled by a
+concurrent edit race"): Pi runs one response's calls at once unless one of them is
+sequential. It rewrote the function and finished; the game runs (`game-*.png`).
+
+Fixed: Dolly's `bash` and `edit` tools are `executionMode: "sequential"`, as `download` is,
+so a batch with either runs in the order the model wrote it. `demos/pi/test/pi-browser.mjs`'s
+scripted model now sends a command that writes a file and an edit of it in one response:
+on the old extension the edit ran first ("Could not edit file: /workspace/pi-order.txt.
+Error code: ENOENT.", Chromium, `r2-pi-browser-before.log`).
+
+### SDL2 with a smooth font, and a bigger platformer (`r2-sdl/`, `r2-platformer/`, $1.207)
+
+- "A falling-blocks puzzle game (like Tetris) with SDL2 [...] All text on screen in a proper
+  smooth font, not blocky pixel letters": Opus ran `amy list | grep -i -E
+  'sdl|ttf|font|freetype'` and `ls /usr/share/fonts`, installed `sdl2` and `freetype`, read
+  `freetype2.pc` and linked `-I/usr/include/freetype2 -lSDL2 -lfreetype -lpng16 -lz -lm`
+  with the terminal's Iosevka TTF: 348 lines, 111 s, 13 calls, $0.344, glyphs cached per
+  size, a ghost piece (`game-3.png`). Its one failed call was this tree's: `amy files imgui`
+  answered "HTTP 502" because `imgui`, repinned for SDL2, is not rebuilt here.
+- "A side-scrolling platformer [...] three levels stored as text files [...] coyote time,
+  variable jump height [...] split the code into a few source files with a Makefile": SDL2
+  again (it weighed raylib), six files and three levels (about 1,000 lines), its own
+  `--check` mode found unreachable gaps in its levels and it fixed them; 293 s, 27 calls,
+  $0.863; `git archive` for the download; it plays (`game-3.png`).
+- Neither SDL2 session asked for an accelerated renderer this time (flags 0); text with
+  SDL2 means FreeType or a hand-made font, as SDL_ttf is not a package ("I'll skip SDL_ttf
+  and use freetype directly").
+
+### On the final image (`b43f9d80`; `r2-final-game/`, `r2-data/`, $0.534)
+
+- The first prompt again: raylib at once, "Star Siege" (435 lines, a self-test mode), 105 s,
+  10 calls, none failed, $0.361; it plays (`game-2.png`).
+- "Fetch the 30 most-starred GitHub repositories about WebAssembly from api.github.com, store
+  them [...] in an SQLite database [...] make a horizontal bar chart of their stars as a PNG
+  image with the names as labels": `amy list | grep -iE 'sqlite|python|png|matplot|pillow'`,
+  then `amy install sqlite`, `freetype` and `libpng`, curl to the API, `sqlite3`, and a
+  50-line C program with FreeType and libpng drawing the chart in Iosevka
+  (`downloads/02-webassembly_stars.png`); 65 s, 13 calls, $0.173. Its failures: `-lpng`
+  ("unable to find library -lpng": the package keeps `libpng16.a` and the `libpng.pc` link,
+  not upstream's `libpng.a` link), then a guess at the flags; it read `amy files libpng` and
+  linked `-lpng16`.
+
+- "A real-time Snake game for the terminal in JavaScript, run with janis (no C)": Opus
+  read the skill, probed `setRawMode`, `isTTY` and `columns` under Janis, and wrote 99 lines
+  on raw stdin and ANSI colours (not readline's unsupported cursor functions); 39 s, 7 calls,
+  none failed, $0.123 (`r2-js/`); the driver's screen shows it running.
+
+### Where the time goes
+
+Across the ten sessions of this round, model time is 91 to 97% of the wall time when
+nothing hangs: tools return in under a second except builds (2 to 3 s) and the `timeout 3`
+starts of the game, which the models use to check that the program opens the display. The
+one long tool wait was before the guidance change: a game started from the `bash` tool
+without a timeout held the canvas until the tool's 180 s limit.
+
+### The changes
+
+- **SDL2 renders in software in every session.** The driver (`SDL_dollyvideo.c`) sets
+  `SDL_HINT_RENDER_DRIVER` to `software` at `SDL_HINT_DEFAULT` when video starts, so the
+  variable or a program's own hint still choose; the package exports no variable. Measured in
+  pi-agent (`r2/probe/probe3.out`, Chromium): after `amy install sdl2`, with no
+  `SDL_RENDER_DRIVER`, an accelerated request gets a renderer (it failed before, above).
+  `test/amy-browser.mjs`'s `sdl2` row, which installs into a running `default`, asks for
+  an accelerated renderer (it runs whole only after the catalog round builds every package).
+  `demos/sdl2/test/sdl2-browser.mjs` passes in Chromium on the rebuilt `sdl2`. `imgui`,
+  `imgui-x11` (same source archive) and the games on SDL2 are repinned and stale here.
+- **Guidance**: `SYSTEM.md` says amy's list holds libraries too (`sdl2`, `raylib`, `imgui`,
+  `box3d`, `freetype`, `libpng`, `sqlite`...) and to read it before writing from scratch
+  what a package does; the skill has "Games and graphics": how SDL2 and raylib link and
+  behave here (the software renderer, no vsync wait, no audio or threads; raylib through
+  the adapter, with what of raylib gets no input or clock), the other libraries' `.pc`
+  files, and sound needing `audio@0`.
+- Pi's `bash` and `edit` tools keep a response's order (above).
+
+For the workstream that makes packages, one line each:
+- `raylib` stands on `gamedev-sdk` (Slopyard's build): its `GetTime`, `GetFrameTime`, FPS
+  and key state are dead here (a guard for `__dolly__` or `__unix__` in rcore_memory.c, and
+  an adapter that feeds raylib's input and frame time), and `<dolly/raylib.h>` says nothing
+  of what its functions return.
+- `libpng` keeps `libpng16.a` but not upstream's `libpng.a`, so `-lpng` fails.
+- SDL2's companions (SDL_ttf, SDL_image, SDL_mixer) are not packages: text with SDL2 is
+  FreeType by hand or a hand-made font.
+
+## Round 3: display checks under a time limit, and Pi from npm (2026-10-23 night)
+
+The integrator's decision on the 180 s hang: no core change; the guidance says to check a
+display program with `timeout 5 ./game`. Measured first in `default`
+(`build/opus-evidence/r3/probe-timeout.out`): a program that holds the display and never
+returns ends at the limit with status 124, and the next one acquires the display. `SYSTEM.md`
+and the skill say so (`a69e27fc`).
+
+Session on the trial pi-agent of Pi from npm (janis-install, step 5; the key typed at
+`pi-key`'s hidden prompt; `r3-npm-game/`, same game prompt as round 2, $1.170): Opus checked
+`amy list`, installed raylib, wrote "Nova Guard" (1,065 lines: formations, dives, bosses,
+power-ups, pause), and checked it three ways: a `--selftest` autopilot, PNG screenshots it
+had the game write (`--shots`) and then read with Pi's read tool, and `timeout 5 ./play`
+("it ran until timeout as expected"). 35 calls, none failed, 347 s; it plays (`game-3.png`).
+It worried that its screenshots were upside down (raylib's screen capture flips the
+software framebuffer); the game on the display is upright.
+
+Newcomer tasks the first rounds did not touch (the integrator's list and two more), on the
+same trial pi-agent (no `rg`/`fd`; `tar`, `pigz` and `unzip` packages not built in this tree,
+so their 502s are this tree's):
+
+| task | result | calls (failed) | wall s | cost |
+| --- | --- | --- | --- | --- |
+| a C project with a Makefile and git: commit, branch, diff, merge, log (`r3-git/`) | works; Git's identity is set; for a download with history it made a git bundle inside the zip | 23 (2: tar 502, no `unzip`) | 112 | $0.335 |
+| a Python script that reads and writes files (`r3-python/`) | `amy install python`, refused for `dso@0`, `nena enable dso`, refused again for `sockets@0`, `nena enable sockets`, then it worked | 9 (2: the refusals) | 31 | $0.072 |
+| a backup shell script with dated, pruned archives (`r3-shell/`) | `git archive --format=tar.gz` instead of the tar package; core `tar -xf` on a .tar.gz said "read header at <header> (errno 29)" | 8 (1) | 58 | $0.111 |
+| cJSON from GitHub, built and tested (`r3-fetch/`) | the skill's jsDelivr listing and `make -j8 -f fetch.mk`: 216 files in 71 s (jsDelivr cold; 5.9 s warm, measured after, `r3/probe-fetch.out`), upstream Makefile; 20 of 21 test suites, `misc_tests` hit the browser's stack ("Maximum call stack size exceeded") and Opus found the cause | 25 (4) | 206 | $0.371 |
+
+Fixed here: the skill names the browser's stack limit among the failures (`2e996fb1`).
+Filed for the core, with reproductions: [amy names one missing host module at a
+time](../20261023-132201-missing-modules/TASK.md) and [tar's message for a file that is not
+an archive](../20261023-132201-tar-not-archive/TASK.md). Measured, no change: `make -j32`
+fails with "Resource temporarily unavailable" where `-j8` (the skill's) does not; one Janis
+process fetching 16 at a time took 2.2 s for the 216 files.
+
+After merging `core/process-exec` (`65736016`): `exec` works, measured in `default` on
+`559ad049` (`r3/probe-exec.out`: a script's `exec echo` replaces it, a C program's
+`execvp` runs `echo`), so `SYSTEM.md` and the skill no longer say it fails (`96794f48`).
+
+Spend, all sessions: **$6.607 of the $20** (round 3: $2.059).
+
+## Round 4: harder work on the final pi-agent (2026-10-24, `b675b30f` and after; $4.536 of its $5)
+
+pi-agent as `janis-install` step 5 left it: Pi from npm, the key at `pi-key`'s hidden prompt.
+Built here for it on `54c70100`: `go`, `go-tools` (`go-sdk` hard-linked from `work/go`),
+`rust`, `cargo`, `raylib`, `sdl2`, `freetype`, `libpng`, `sqlite`, `tar`, `pigz`, `zip`,
+`unzip`, `jq`. The driver's policy admits `static.crates.io`, `index.crates.io`, `crates.io`,
+`proxy.golang.org` and `sum.golang.org` (GET) besides round 1's hosts.
+
+| task | libraries | calls (failed) | wall / model s | cost |
+| --- | --- | --- | --- | --- |
+| a tile game, levels and sprites from PNG files, a real font, a menu, saved scores, no library named (`r4-tiles/`) | `amy list`, then FreeType and libpng on its own framebuffer: `sdl2` was refused for `touch@0` | 31 (2) | 366 / 350 | $1.167 |
+| the same after the skill change (`r4-tiles2/`) | raylib (its PNG and TTF loading), a font fetched from GitHub | 64 (5) | 825 / 771 | $2.657 |
+| a Go CLI that fetches api.github.com and parses JSON (`r4-go/`) | `amy install go`, standard library only | 10 (0) | 145 / 42 | $0.126 |
+| a Cargo crate with `clap` and `serde_json` (`r4-rust/`) | vendored by hand from static.crates.io | 21 (3) | 147 / 104 | $0.323 |
+| the same after the skill change (`r4-rust2/`) | vendored with its own resolver over the index's GitHub mirror | 21 (4) | 162 / 92 | $0.263 |
+
+Findings:
+- Packages: both game runs read `amy list` first and reused libraries (FreeType, libpng;
+  raylib in the second); both checked the display with `timeout` (`timeout 5 ./tiles`,
+  `timeout 3 ./play`) and rendered their own PNG screenshots to read with Pi's read tool.
+  The first run's choice was forced: **`sdl2` needs `touch@0`**, which pi-agent does not
+  declare ([sdl2-touch](../20261023-161303-sdl2-touch/TASK.md), filed). The second run's
+  extra cost is its own design (a Sokoban solver to verify its five levels: calls 21 to 39 of 64), not
+  the environment. It fetched a TTF from GitHub because Pi cut its `find` output, which
+  followed 80 lines of `amy list`; Iosevka is in `/usr/share/fonts`. The known package gaps
+  (raylib's clock and keys, `-lpng`, no SDL_ttf) cost nothing here: both runs read
+  `libpng16.pc`, and the raylib run read keys through the adapter as the skill says.
+- Go works as a newcomer expects: `amy install go`, `net/http` through the broker, 0 failed
+  calls. Its time went to the first `go vet`, 95 s, which compiles the standard library's
+  export data into an empty cache; `go build` then took 1.3 s.
+- Rust: **Cargo cannot use crates.io from the browser** (the index's cached files carry no
+  CORS header; its GitHub mirror refuses Cargo's preflights), so the crates are vendored by
+  hand ([cargo-crates-io](../20261023-161303-cargo-crates-io/TASK.md), filed with the
+  measurements). `cargo run` works now that `exec` does.
+- The skill (`d2457991`, measured in `r4-rust2/` and `r4-tiles2/`): a "Rust and Go" section
+  (vendoring from the GitHub mirror and static.crates.io, the `libc` patch, Go's broker) and
+  SDL2's `nena enable touch`. Rust run 2 went to vendoring at once and wrote a resolver; its
+  calls stayed at 21 and two were lost to the core `tar` on `.crate` files
+  ([tar-not-archive](../20261023-132201-tar-not-archive/TASK.md), more evidence there).
+  Game run 2 did not try SDL2 again; it took raylib for its built-in PNG and TTF loading.
+
+Spend, all sessions: **$11.143 of the $20** (round 4: $4.536).

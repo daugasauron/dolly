@@ -5,40 +5,49 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
+# Pi as npm publishes it. janis-install installs @earendil-works/pi-coding-agent
+# and the packages it depends on, as package-lock.json pins them, from a copy of
+# their registry files the site serves (prepare-pi-npm.mjs). The pi command runs
+# dist/cli.js in its own process; npm's bin, dist/bundle/cli.js, would need
+# Node's require of ES modules and runs the undici it bundles.
 FROM /v0.1.4/Dollyfile-system f0041963ae2bfb938246a3892954d4eb3bf85f2902ed53eed7aa544ecb4f9839
-INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 569fbe30c536ebf9b6c39d4b6b0e5995b07e110346c9a3f49bb25970e47ba591
-
+INSTALL /v0.1.4/demos/javascript/Dollyfile-janis-install aa634c9c3091d8a2c2591d1eb5a06085b5c7d274402a86599896e3f97c2be547
 INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 54faf377e8c5d998c0a238d5e5bf49d33b88605b59182c641bf99dee7ee6be03
 INSTALL /v0.1.4/demos/rust/Dollyfile-fd 875257f652c745752bd28144bd0bded521fdca7d4cdde369612c9c4b8b9b50d8
-COPY /v0.1.4/demos/pi/Dollyfile-pi-build b9d4ff38c78451e669417b49637ff4cd089da24f30978f327bfbb3c15298dba3 /usr/bin/pi /usr/bin/pi
-COPY /v0.1.4/demos/pi/Dollyfile-pi-build b9d4ff38c78451e669417b49637ff4cd089da24f30978f327bfbb3c15298dba3 /usr/lib/node_modules /usr/lib/node_modules
-COPY /v0.1.4/demos/pi/Dollyfile-pi-build b9d4ff38c78451e669417b49637ff4cd089da24f30978f327bfbb3c15298dba3 /usr/src/pi-source /usr/src/pi-source
-COPY /v0.1.4/demos/pi/Dollyfile-pi-build b9d4ff38c78451e669417b49637ff4cd089da24f30978f327bfbb3c15298dba3 /usr/share/licenses/pi-source /usr/share/licenses/pi-source
+REQUIRES HEADER quickjs-runner
+REQUIRES LIB    dolly-js
+REQUIRES LIB    quickjs
+REQUIRES TOOL   cc
+REQUIRES TOOL   find
+REQUIRES TOOL   janis-install
+REQUIRES TOOL   rm
+REQUIRES TOOL   tar
 
-SOURCE /v0.1.4/dist/static/default/pi/dolly-tools.js                    0be3d1abeb05aff3ae05b7309863fd9ce9b5c58d27742947f471c81d6bfcba84 /home/dolly/.pi/agent/extensions/dolly-tools.js
-SOURCE /v0.1.4/dist/static/default/pi/SYSTEM.md                         4aa373245b96c2b01eb544974dfb4140c2ec9e7cbf9e21cd56f5ad8498f992a2 /home/dolly/.pi/agent/SYSTEM.md
-SOURCE /v0.1.4/dist/static/default/pi/settings.json                     852b78af9b490d627858723c8b67f24e55e58d9f621ce4afbc7424b872917c1f /home/dolly/.pi/agent/settings.json
-SOURCE /v0.1.4/dist/static/default/pi/dolly-theme.json                  ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297 /home/dolly/.pi/agent/themes/dolly.json
-SOURCE /v0.1.4/dist/static/default/pi/dolly-skill.md                    2d4ca11822f0d06c190c64e147da0e845ce46aa1de5bf6e9a498502256d0dd4c /home/dolly/.pi/agent/skills/dolly/SKILL.md
+SOURCE /v0.1.4/dist/static/default/pi-npm.tar     6ebb57dbb6755bce129249e8e3c5cad349139979a4a8aff6c9520a8e16650c1f /tmp/pi-npm.tar
+SOURCE /v0.1.4/dist/static/default/commands/pi.c  2296ec09e6b95b0d0dd065f806138e48eaad855d77d6366adfdfc33d720da98e /tmp/pi.c
+SLOP tar -xf /tmp/pi-npm.tar -C /
+SLOP janis-install --registry /tmp/pi-npm @earendil-works/pi-coding-agent@1.0.3
+# Pi is an application nothing compiles against: its tree's source maps and
+# type declarations, 50 MB of its 111, go.
+SLOP find /usr/lib/node_modules -type f \( -name '*.map' -o -name '*.d.ts' -o -name '*.d.mts' -o -name '*.d.cts' \) -exec rm {} +
+SLOP cc -I /usr/include/dolly /tmp/pi.c -ldolly-js -lquickjs -o /usr/bin/pi
+SLOP rm -rf /tmp/pi-npm /tmp/pi-npm.tar /tmp/pi.c
+FOLDER /usr/lib/node_modules
 
 EXPORTS ENV PI_PACKAGE_DIR /usr/lib/node_modules/@earendil-works/pi-coding-agent
 EXPORTS ENV PI_SKIP_VERSION_CHECK 1
 EXPORTS TOOL pi
-FILE /home/dolly/.pi/agent/extensions/dolly-tools.js
-FILE /home/dolly/.pi/agent/SYSTEM.md
-FILE /home/dolly/.pi/agent/settings.json
-FILE /home/dolly/.pi/agent/themes/dolly.json
-FILE /home/dolly/.pi/agent/skills/dolly/SKILL.md
 
 SLOP pi --version
 FILE /usr/share/man/cat1/pi.1
-    pi: the Pi coding agent, unforked, running under QuickJS-ng and Janis, with
-    the janis, ripgrep and fd packages.
+    pi: the Pi coding agent as npm publishes it, running under QuickJS-ng and
+    Janis, with the janis-install, ripgrep and fd packages.
     
       pi                 starts the agent; /exit or Ctrl+D leaves it
       pi --offline       no network at startup; model requests still go out
     
-    Its bash tool and ! run Slop, and a download tool hands a file to the page.
+    The pi-dolly package adds Dolly's prompt, skill, settings and theme; with
+    it the bash tool and ! run Slop, and a download tool hands a file to the page.
     Requests go through the page's HTTP broker and its policy; OAuth logins
     depend on the provider's CORS, and there is no callback listener.
     Conversations are in ~/.pi/agent/sessions (pi --resume), credentials in

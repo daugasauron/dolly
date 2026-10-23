@@ -105,8 +105,8 @@ entry.
   into the binary: mostly MIT OR Apache-2.0; no crate is GPL-only (`self_cell`
   offers Apache-2.0, `r-efi` MIT). The compiled MPL-2.0 crates (`symphonia*`,
   `option-ext`) stay file-level copyleft; their source is served.
-- Pi runs in QuickJS with npm packages under MIT, ISC, BSD-3-Clause,
-  Apache-2.0, BlueOak-1.0.0 and Unlicense.
+- Pi and the npm packages it depends on, run in QuickJS, are under MIT,
+  Apache-2.0, BSD-3-Clause, ISC, BlueOak-1.0.0, Unlicense and 0BSD.
 
 ## GitHub Pages and Cloudflare
 

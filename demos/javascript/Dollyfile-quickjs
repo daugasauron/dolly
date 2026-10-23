@@ -17,7 +17,7 @@ REQUIRES TOOL   make
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.4/dist/static/default/quickjs.tar 5a655b692590572de7e60ddede058464ec5febb4ede9096e54b455d38e9b7fe9 /tmp/quickjs.tar
+SOURCE /v0.1.4/dist/static/default/quickjs.tar 9fd1cf2a32d292362acf460b48b2332e1e4a8dd49e603b62ad9ba87bc1205af8 /tmp/quickjs.tar
 SLOP tar -xf /tmp/quickjs.tar -C /
 
 FILE /tmp/quickjs.mk

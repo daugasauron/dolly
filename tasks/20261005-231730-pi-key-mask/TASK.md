@@ -85,3 +85,10 @@ In Chrome:
 
 The game images that install Pi (`bhop`, `classicube`, `rts-arena`,
 `slopyard`) are repinned only; the integrator rebuilds them.
+
+## Since (2026-10-23, branch `demo/opus-audit-2`)
+
+Pi now comes from npm unpatched, so `pi-secret-input.patch` is gone and Pi's `/login` shows a
+key as it is typed again. Keys go in through `pi-key VARIABLE` (pi-dolly), which reads one
+with `secretenv` and starts Pi with it in that environment variable, checked by
+`demos/pi/test/pi-browser.mjs` ([janis-install](../20261023-114225-janis-install/TASK.md), step 5).

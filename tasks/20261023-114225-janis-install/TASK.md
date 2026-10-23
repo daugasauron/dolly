@@ -1,6 +1,6 @@
 # One npm installer in Janis for pi, Claude Code and other packages; Pi's Dolly extension as its own package
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 190
 - TAGS: javascript,packages,0.1.4
 
@@ -17,6 +17,8 @@ Code is fetched from npm by its own launcher (`demos/closed-source-agent`).
 Done when the investigation is in `investigation.md` here, read by the owner, and what he
 accepts is tasks of its own.
 
+## State (2026-10-24): steps 1 to 5 done (step 5 on branch `demo/opus-audit-2`, below); `pi-dolly` done
+
 ## State (2026-10-23, 15:00): steps 1 to 3 done; Pi from npm and `pi-dolly` wait, branch `demo/janis-install`
 
 Integrator's brief: the command is `janis-install NAME[@VERSION]`, a package of its own (one
@@ -26,6 +28,130 @@ called `npm`. Done: 1 measured; 2 the package and its fixture-registry browser t
 (the same Pi files): Pi from pinned npm tarballs (section 5, step 5 of the investigation),
 with what step 2 found below (`enableCompileCache`, the `/v` regexes, the key mask), and
 `pi-dolly`. Janis's two path gaps are [their own task](../20261023-145214-janis-node-paths/TASK.md).
+
+## Step 5, Pi from npm (2026-10-23 night, branch `demo/opus-audit-2`)
+
+Done and measured on the merged tree (`core/npm-packages` at `f2677945` merged in), all but
+the final build, which needs `rust-build` on the new seed (the integrator's hugebuild):
+- `janis-install --registry COPY` reads a copy of the registry's files instead of fetching:
+  `COPY/NAME/metadata.json` and the tarballs where their URLs put them; a name the copy lacks
+  is refused, so an optional one is skipped. A case of `janis-install-browser.mjs` installs
+  from a copy written in the session with no request (Chromium 5.2 s, Firefox 5.8 s).
+- `demos/pi/prepare-pi-npm.mjs` makes that copy from `package-lock.json`, which already pins
+  Pi 1.0.3's tree with its integrity: 120 tarballs (checked with sha512, cached in
+  `.cache/npm`) and 116 `metadata.json` written from the tarballs' own `package.json`, so
+  nothing but the lock decides it; staged as `dist/static/default/pi-npm.tar` (24.4 MB).
+- `Dollyfile-pi`: `FROM system`, `INSTALL janis-install`, `ripgrep`, `fd`; `janis-install
+  --registry /tmp/pi-npm @earendil-works/pi-coding-agent@1.0.3`, then `pi.c` linked as
+  before runs `dist/cli.js`. Gone: `pi-build` and its compile, `pi-tsconfig.dolly.json`,
+  `pi-secret-input.patch`, `pi-runtime-packages.txt`, `build-pi-runtime-packages.mjs`,
+  `pi-runtime-census.mjs`, the `PI_SOURCE` pin; the licences page reads the copy's metadata
+  (the `npm packages` row now holds Pi itself too); `docs/licences.md` adds 0BSD.
+- The key: Pi's own key prompt at `/login` is upstream's and is not used for keys: it shows
+  what is typed. `pi-key VARIABLE` (pi-dolly) reads a key with `secretenv`, now a package of
+  its own (`demos/closed-source-agent/Dollyfile-secretenv`, which Claude Code's launcher
+  installs), and starts Pi with it in that one environment variable, as the Claude Code
+  launcher does; Pi's notice says so. `pi-browser.mjs` checks that Pi lists no OpenRouter
+  model without a key, that `pi-key OPENROUTER_API_KEY --list-models openrouter` lists them
+  after a typed and a pasted half of a key, and that no screen and no file under
+  `~/.pi` holds any 4 characters of it.
+
+Measured:
+- In `default` with `janis-install` and `cc` (`build/opus-evidence/r3/probe-npm.*.out`,
+  Chromium and Firefox): 120 packages from the copy, 0 bytes fetched, 2.6 s / 3.3 s; esbuild's,
+  `@google/genai`'s and protobufjs's scripts named and not run; 26 optional esbuild binaries
+  skipped; `pi --version` 1.0.3; `--list-models openrouter` empty without a key and full with
+  `OPENROUTER_API_KEY` set; `@earendil-works/pi-telemetry` imports.
+- A trial pi-agent (this recipe without its two Rust rows, not committed, since `ripgrep`
+  and `fd` need `rust-build` on the new seed) passes `pi-browser.mjs` with its ripgrep and fd
+  steps left out: Chromium 47.4 s, Firefox 49.3 s. An Opus 5.5 session on it
+  (`r3-npm-game/`, the key typed at `pi-key`'s prompt, never on screen) built a 1,065-line
+  raylib game with no failed call, $1.170.
+- Size: `pi` 113,970,985 bytes (62,357,079 compiled from source), `pi-agent` 294,103,107
+  (229,729,700). The npm tree is 111 MB unpacked: 30.4 MB of source maps and 20.3 MB of
+  TypeScript declarations ship as npm installs them (the old build left them out), 9.0 MB is
+  Pi's own `dist/bundle`.
+
+Decided by the integrator: janis-install keeps every file npm installs (a model compiling
+TypeScript against a library needs its `.d.ts`); `pi`, an application nothing compiles
+against, deletes `*.map`, `*.d.ts`, `*.d.mts` and `*.d.cts` from its tree after the install
+(`52a0d425`). On the trial: `pi` 62,515,625 bytes (113,970,985 before, 62,357,079 compiled
+from source), `pi-agent` without `rg` and `fd` 242,647,477 (294,103,107 before);
+`pi-browser.mjs` passes on it (Chromium 57.2 s).
+
+On the `559ad049` seed (after the `65736016` merge; `quickjs`, `janis`, `sbase`,
+`janis-install`, `secretenv`, `typescript` rebuilt here, the base hard-linked from
+`work/x11fix`): `janis-install-browser.mjs` passes in Chromium (5.5 s) and Firefox (10.6 s),
+`javascript-browser.mjs` in Chromium (29.4 s) and Firefox (36.9 s).
+
+Final (2026-10-24, `b675b30f`: `core/npm-packages` at `748eed22` merged, image inputs
+`54c70100`): the base, `rust-sdk`, `rust-llvm`, `rust-build`, `ripgrep` and `fd` are
+`work/x11fix`'s builds, hard-linked (every one plans as reuse); built here: `quickjs`,
+`janis`, `tools-build`, `sbase`, `janis-install`, `secretenv`, `dolly-docs`,
+`libdolly-gpu`, `closed-source-agent`, `pi`, `pi-dolly`, `pi-runtime`, `pi-agent`.
+`demos/pi/test/pi-browser.mjs`, whole (ripgrep and fd included), passes in Chromium
+(51.8 s) and Firefox (52.8 s); `closed-source-agent-browser.mjs` (its launcher on the
+`secretenv` package) in Chromium (41.3 s) and Firefox (45.5 s). Sizes: `pi` 62,587,581
+bytes, `pi-runtime` 253,993,877, `pi-agent` 254,111,272 (`system` is 173,462,872 on this
+seed; the source-built `pi` was 62,357,079 and `pi-agent` 229,729,700 on the old seed).
+Not rebuilt here: the images that install `pi` or `pi-dolly` besides these (`bhop`,
+`slopyard`, `classicube`, `rts-arena`, `pi-phone`, `pi-local`, `dollyfile-studio`), for
+the round.
+
+Earlier plan, done above: build `rust-build`, `ripgrep` and `fd` on the integration branch's newest seed (the
+integrator's, in `work/x11fix`: the Rust compiler seed is stamped with the process
+contract, which execve changed), merge that seed here, then `pi` to `pi-agent`, run `pi-browser.mjs` whole in both
+browsers, measure `pi-agent` with `rg` and `fd`, and the images on `pi`.
+
+Build note: `f2677945` changed `host/input/input.h` and `input-abi.h` without repinning
+`system-build`; these measurements ran with the two headers and `abi.mjs` of `f2677945~1` in
+the working tree (not committed), on the `1ee15fc6` snapshots of `work/terminal`,
+hard-linked. Since then the branch has `65736016` merged (seed `559ad049`) and repins
+`Dollyfile-system-build`'s lines 16-17 (the two headers) as `work/x11fix` does (`d8a61e72`);
+its base images are `work/x11fix`'s, hard-linked.
+
+## Step 5's blockers (2026-10-23 evening, branch `demo/opus-audit-2`)
+
+- **`enableCompileCache`**: Janis's `node:module` has it and `constants.compileCacheStatus`
+  (Node's four values); it returns `{ status: FAILED, message: "Janis has no compile cache" }`,
+  since Janis compiles each module as it loads it: an unimplemented operation does not report
+  success. Pi 1.0.3's `dist/bundle/cli.js` imports it by name and calls it on its second
+  line. A `node-oracle.mjs` case imports it (the whole oracle failed to link before) and a
+  source test checks the status. Verified with the Janis chain rebuilt: the javascript test
+  in Chromium and Firefox, `pi-browser.mjs` in both.
+- **The `/v` regexes**: the published bundle builds six with `new RegExp(..., "v")`, not the
+  literals `pi-quickjs-compat.mjs` lowers (`\p{Default_Ignorable_Code_Point}`, set
+  subtraction, `\p{RGI_Emoji}`). Measured natively (`build/opus-evidence/qjs/`, `qjs`
+  built with upstream's CMake; every code point and seven sequences against Node 22):
+  QuickJS-ng 0.15.0, the pinned one, refuses one ("invalid class range") and matches nothing
+  or almost nothing with the other five; **0.17.0 gives Node's answer for all six**.
+  Done here: the `quickjs` pin is 0.17.0 (`6d46d07d`, same files as upstream's CMake
+  builds), and `pi-build` no longer lowers Pi's TUI regexes (`pi-quickjs-compat.mjs` is
+  gone), so Pi runs its six `/v` expressions as written. A `node-oracle.mjs` case builds
+  six Unicode-set expressions (`\p{Mark}`, set subtraction, `\p{Default_Ignorable_Code_Point}`,
+  `\p{RGI_Emoji}`): native 0.15.0 answers `[false, "invalid class range", "invalid class
+  range", false, false, false]`, Node and 0.17.0 `[true, true, false, true, true, false]`.
+  Rebuilt `quickjs`, `janis`, `typescript`, `pi-build`, `pi`, `pi-runtime`, `pi-agent` and
+  `closed-source-agent`; passed: the javascript test (Chromium 30.1 s, Firefox 35.2 s),
+  `pi-browser.mjs` (Chromium 60.3 s, Firefox 63.6 s) and `closed-source-agent-browser.mjs`
+  (Chromium 44.7 s: Claude Code under Janis on 0.17). Stale until the round: `slopyard`,
+  `bhop` and the other images on the Janis chain.
+- **The key mask**: Pi 1.4.0 (npm `latest`, 2026-10-23) still has no `mask` or `secret` in
+  `pi-tui`'s `input.js` or the login dialog, so with Pi as published a key typed at
+  `/login` shows in clear. Decided by the integrator: no patch of published files; keys go in
+  as `closed-source-agent` reads them (step 5, `pi-key`).
+- **The entry to run is `dist/cli.js`, not the bundle.** Measured on this branch's Janis
+  (QuickJS-ng 0.17, `enableCompileCache`) in pi-agent, Pi 1.0.3's tarball from the registry
+  (`build/opus-evidence/r2/probe/probe5*.out`, Chromium): `janis package/dist/cli.js
+  --version` prints `1.0.3` (it failed on the `/v` regexes before); `dist/bundle/cli.js`
+  (`bin`) passes `enableCompileCache` and then needs Node 22's `require` of an ES module
+  (`createRequire(import.meta.url)("./cli-runtime.js")`), and, tried with a trial
+  implementation of that, stops at `Blob is not defined` inside the undici it bundles: the
+  bundle carries the real undici, whose sockets cannot work here, where Janis's built-in
+  `undici` stands in for `dist/cli.js`'s import. So the launcher runs `dist/cli.js` with the
+  tree `janis-install` writes; the trial `require(esm)` was not kept (no other consumer).
+- `janis-install` is on `core/npm-packages`, not on this branch (cut before the merge, on
+  the old seed), so Pi from pinned tarballs is built after the round, on the merged tree.
 
 ## Step 1, measured (2026-10-23)
 

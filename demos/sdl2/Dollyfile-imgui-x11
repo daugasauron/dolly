@@ -22,7 +22,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.4/dist/static/sdl2/source.tar 75fcb994c31a2c75d33370b7f2ecb15090006d5f135683ac592b7ee8c1844f58 /tmp/sdl2/source.tar
+SOURCE /v0.1.4/dist/static/sdl2/source.tar de38b3e659d91bbbd7f15faba9efdc08e9657bcfe1483226de22880b79818b81 /tmp/sdl2/source.tar
 SLOP tar -xf /tmp/sdl2/source.tar -C /
 # As the sdl2 package configures it, with X's libraries. They are static, so
 # CMake's link probes name what libX11 links (pkg-config --static --libs x11).

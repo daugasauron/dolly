@@ -13,7 +13,7 @@ SOURCE /v0.1.4/docs/gpu.md dffb2841e2c92626af12a921bbfb45c6f44fe7ecc29ff39fd96f5
 SOURCE /v0.1.4/docs/audio.md 2380b483c106b884e3e97ed3de8eaac9467e8e2a0307b878bddf620401d43e9f /usr/share/doc/dolly/docs/audio.md
 SOURCE /v0.1.4/docs/http.md de50df79d12ddf7cc5335c1061e0f33c5dcaa2228970754ff844f211ed2a40af /usr/share/doc/dolly/docs/http.md
 SOURCE /v0.1.4/docs/sessions.md 9f4f32a5e6d7b12b9d3a93214de71171c5bb7e46e14eac2509704b5c62c6af6d /usr/share/doc/dolly/docs/sessions.md
-SOURCE /v0.1.4/docs/dollyfile.md d6b9cbd273b770563daa4439cde649dd795f4050bc3ea855041ff053b420689f /usr/share/doc/dolly/docs/dollyfile.md
+SOURCE /v0.1.4/docs/dollyfile.md b32165be155c86e67e03a56515d1f3bff3788341f355a2504c30319935334ed1 /usr/share/doc/dolly/docs/dollyfile.md
 SOURCE /v0.1.4/docs/architecture.md ecf36a3c4539c124b12ac57e04571aedac00db258de3eb00fa16e3a905604028 /usr/share/doc/dolly/docs/architecture.md
 SOURCE /v0.1.4/docs/browser-boundary.md 7df7e0c06adf378a75a719b4fd2e6c7a3ca94460153d3c4bddbd929c1451c0a4 /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE /v0.1.4/docs/image-build-service.md 43bbcfcf7c5e7c8ce83f91c55b3c4bc0682651b2905ba35089b2b85b3b13efa9 /usr/share/doc/dolly/docs/image-build-service.md

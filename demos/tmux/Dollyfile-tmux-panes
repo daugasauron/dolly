@@ -11,6 +11,7 @@ REQUIRES HOST pty@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
+REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
 # packages, threads and dso are for what amy installs into a pane, as in default.

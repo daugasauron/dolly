@@ -9,9 +9,10 @@ REQUIRES HOST nena@0
 REQUIRES HOST packages@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
+REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 0590a48bda0d06231806dc04c82f9a79aec7feed9eeb7f4d344db7eab690b350
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 8998378e36fc887b294f391ce4163a4ce719df42f8f548332ab5c4a62edab794
 INSTALL /v0.1.4/Dollyfile-amy a71c461d0ec2a8be4f3cdf85f17ced7334a175de5a42c5fa8521b0a28268e397
 # nena enables the host modules a package needs beyond these, as in default.
 INSTALL /v0.1.4/Dollyfile-nena af6011f6b2da19616bd61fd049540295623fc32a2d787d00d8e0c88b727a6ff6
@@ -19,8 +20,6 @@ REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL printf
 REQUIRES TOOL pi
-# The platform's documents, for the agent: /usr/share/doc/dolly.
-INSTALL /v0.1.4/Dollyfile-dolly-docs 568c2e48235bf66a68bae0850016a27b15bcb0a10e32f272b0118d3682c8ee40
 
 FILE /etc/dolly/init.slop
     cd /workspace

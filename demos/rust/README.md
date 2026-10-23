@@ -79,8 +79,7 @@ with the compiler.
 
 - `cargo build`, `cargo rustc` and `cargo metadata` work with path and
   vendored dependencies, build scripts and procedural macros.
-- `cargo run` builds and then fails: Cargo replaces itself with the program
-  (`exec`), which Dolly does not have. Run `target/debug/NAME`.
+- `cargo run` builds the program and replaces Cargo with it (`exec`).
 - crates.io: crate archives come through the HTTP broker. Its index sends CORS
   headers only for files its cache does not hold, so a page needs a relay for
   `index.crates.io` ([HTTP](../../docs/http.md#cors-and-relays)) or the

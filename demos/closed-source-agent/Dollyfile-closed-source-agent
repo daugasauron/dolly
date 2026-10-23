@@ -8,13 +8,15 @@ REQUIRES HOST input@0
 REQUIRES HOST packages@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
+REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
 # Runs Claude Code, which the launcher downloads from the npm registry into
 # the session after the notice: the image holds nothing of it.
 FROM /v0.1.4/Dollyfile-system f0041963ae2bfb938246a3892954d4eb3bf85f2902ed53eed7aa544ecb4f9839
 INSTALL /v0.1.4/Dollyfile-amy a71c461d0ec2a8be4f3cdf85f17ced7334a175de5a42c5fa8521b0a28268e397
-INSTALL /v0.1.4/demos/javascript/Dollyfile-janis-install a84c08d80136b9236b1c27c3d35202d8a9efdf1ecc7a5c572563d7b4ecbc3c26
+INSTALL /v0.1.4/demos/javascript/Dollyfile-janis-install aa634c9c3091d8a2c2591d1eb5a06085b5c7d274402a86599896e3f97c2be547
+INSTALL /v0.1.4/demos/closed-source-agent/Dollyfile-secretenv feca7a63668806fcf57970bdca4677afa02e85a2b104a5dfdef2ea00e721dbea
 INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 54faf377e8c5d998c0a238d5e5bf49d33b88605b59182c641bf99dee7ee6be03
 REQUIRES TOOL cc
 REQUIRES TOOL foreground
@@ -46,47 +48,6 @@ FILE /tmp/anykey.c
     }
 SLOP cc -O1 /tmp/anykey.c -o /usr/bin/anykey
 EXPORTS TOOL anykey
-
-# secretenv NAME PROMPT COMMAND [ARG...] discards earlier input, shows PROMPT,
-# reads a line from the terminal without showing it and runs COMMAND with NAME
-# set to it, in that environment only; an empty line leaves NAME unset, Ctrl+C
-# is status 130.
-FILE /tmp/secretenv.c
-    #include <spawn.h>
-    #include <stdlib.h>
-    #include <string.h>
-    #include <sys/wait.h>
-    #include <termios.h>
-    #include <unistd.h>
-    extern char **environ;
-    int main(int argc, char **argv) {
-      struct termios cooked, raw;
-      if (argc < 4 || tcgetattr(0, &cooked) != 0) return 2;
-      raw = cooked;
-      raw.c_lflag &= ~(ICANON | ECHO | ISIG);
-      raw.c_cc[VMIN] = 1;
-      raw.c_cc[VTIME] = 0;
-      if (tcsetattr(0, TCSAFLUSH, &raw) != 0) return 1;
-      write(2, argv[2], strlen(argv[2]));
-      char secret[512], byte = 0;
-      size_t length = 0;
-      while (read(0, &byte, 1) == 1 && byte != '\r' && byte != '\n' && byte != 3) {
-        if (byte == 127 || byte == '\b') length -= length > 0;
-        else if (byte > ' ' && length + 1 < sizeof(secret)) secret[length++] = byte;
-      }
-      secret[length] = '\0';
-      tcsetattr(0, TCSANOW, &cooked);
-      write(2, "\n", 1);
-      if (byte == 3) return 130;
-      if (length > 0 && setenv(argv[1], secret, 1) != 0) return 1;
-      pid_t child;
-      int status;
-      if (posix_spawnp(&child, argv[3], NULL, NULL, argv + 3, environ) != 0) return 127;
-      if (waitpid(child, &status, 0) != child) return 1;
-      return WIFEXITED(status) ? WEXITSTATUS(status) : 128 + WTERMSIG(status);
-    }
-SLOP cc -O1 /tmp/secretenv.c -o /usr/bin/secretenv
-EXPORTS TOOL secretenv
 
 FILE /usr/share/doc/closed-source-agent/NOTICE
     THIS IMAGE RUNS CLAUDE CODE

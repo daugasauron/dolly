@@ -11,6 +11,7 @@ REQUIRES HOST packages@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
+REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
 # The image people open: a shell, its text tools, the terminal, curl, amy, ps

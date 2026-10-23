@@ -1,0 +1,47 @@
+DOLLY 7
+PACKAGE pi-dolly
+REQUIRES HOST runtime@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
+
+# Pi's Dolly extension, where Pi reads it: the system prompt, the dolly skill,
+# dolly-tools.js (Slop for the shell tool and !, edits that keep bytes, a
+# download tool), the settings and the theme; with Pi, and the platform's
+# documents that the prompt and the skill name. pi-key starts Pi with an API
+# key it reads without showing it: Pi's own /login shows a key as it is typed.
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi af9c592d5cff0d18620cc11903fcc6659017e93799b90e3a56bd0dcf744c76fc
+INSTALL /v0.1.4/demos/closed-source-agent/Dollyfile-secretenv feca7a63668806fcf57970bdca4677afa02e85a2b104a5dfdef2ea00e721dbea
+INSTALL /v0.1.4/Dollyfile-dolly-docs 4ff95f69f47a4858f7253561caf691ae59b7c6798fe08a51a446943f85d9667e
+
+SOURCE /v0.1.4/dist/static/default/pi/dolly-tools.js                    b2d5ecb9788c9f701d4892a23d0c0b8b17adb6309278de9876aefc8d8ca4b6a8 /home/dolly/.pi/agent/extensions/dolly-tools.js
+SOURCE /v0.1.4/dist/static/default/pi/SYSTEM.md                         1bb5c684e163c05692d5212f051d7b4489b3e2d97714fd4384b0910f2a1ad1b1 /home/dolly/.pi/agent/SYSTEM.md
+SOURCE /v0.1.4/dist/static/default/pi/settings.json                     852b78af9b490d627858723c8b67f24e55e58d9f621ce4afbc7424b872917c1f /home/dolly/.pi/agent/settings.json
+SOURCE /v0.1.4/dist/static/default/pi/dolly-theme.json                  ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297 /home/dolly/.pi/agent/themes/dolly.json
+SOURCE /v0.1.4/dist/static/default/pi/dolly-skill.md                    e179b5f2ca861e7d1d6a7635c38b6793c950e772353a83e0f512cf675f4ccf59 /home/dolly/.pi/agent/skills/dolly/SKILL.md
+
+FILE /home/dolly/.pi/agent/extensions/dolly-tools.js
+FILE /home/dolly/.pi/agent/SYSTEM.md
+FILE /home/dolly/.pi/agent/settings.json
+FILE /home/dolly/.pi/agent/themes/dolly.json
+FILE /home/dolly/.pi/agent/skills/dolly/SKILL.md
+
+FILE /usr/bin/pi-key
+    #!/bin/slop
+    # pi-key VARIABLE [ARGUMENT...]: starts pi with an API key in VARIABLE, the
+    # environment variable Pi reads for a provider, read without showing it.
+    case "$1" in
+      [A-Z]*_KEY|[A-Z]*_TOKEN) ;;
+      *) printf 'usage: pi-key VARIABLE [ARGUMENT...], such as pi-key ANTHROPIC_API_KEY\n' >&2; exit 2 ;;
+    esac
+    name=$1
+    shift
+    secretenv "$name" "$name (not shown): " pi "$@"
+EXPORTS TOOL pi-key
+FILE /usr/share/man/cat1/pi-key.1
+    pi-key VARIABLE [ARGUMENT...]: reads an API key without showing it and starts
+    pi with the arguments and the key in VARIABLE, the environment variable Pi
+    reads for the provider, in that one process: ANTHROPIC_API_KEY,
+    OPENROUTER_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, the list in
+    $PI_PACKAGE_DIR/docs/providers.md. Pi's own /login shows a key as it is typed.
+      pi-key OPENROUTER_API_KEY

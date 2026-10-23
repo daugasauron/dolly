@@ -9,13 +9,15 @@ import { runFd, runRipgrep } from "../../rust/test/fixtures/rust-tools.mjs";
 
 const credential = "Bearer sandbox-placeholder";
 // The fixture model calls these tools, a response each, then answers. The last
-// response writes a file and downloads it at once, as models do.
+// two responses act on a file twice at once, as models do: a command writes it
+// and an edit changes it; a write and a download of it.
 const tools = [
   [["write", { path: "/workspace/pi-http-test.txt", content: "pi crossed Dolly's HTTP broker\n日本語😀\n" }]],
   [["edit", { path: "/workspace/pi-http-test.txt", edits: [{ oldText: "HTTP broker", newText: "HTTP broker via edit" }] }]],
   [["bash", { command: "seq 1 3000 | tee /workspace/pi-lines.txt; printf 'old\\377\\n' > /workspace/pi-latin1.txt" }]],
   [["read", { path: "/workspace/pi-lines.txt" }]],
   [["edit", { path: "/workspace/pi-latin1.txt", edits: [{ oldText: "old", newText: "new" }] }]],
+  [["bash", { command: "printf 'one\\n' > /workspace/pi-order.txt" }], ["edit", { path: "/workspace/pi-order.txt", edits: [{ oldText: "one", newText: "two" }] }]],
   [["write", { path: "/workspace/pi-download.txt", content: "DOLLY-PI-DOWNLOAD\n" }], ["download", { path: "pi-download.txt" }]],
 ];
 const finalRequest = tools.length + 1;
@@ -90,7 +92,7 @@ await demoTest("pi", { image: "pi-agent", timeout: 900_000, browser: process.env
   for (const command of [
     "janis --version && pi --version",
     "janis -m -e \"import { defineTelemetrySchema } from '@earendil-works/pi-telemetry'; if (defineTelemetrySchema('BROWSER') !== 'BROWSER') throw new Error('bad target workspace package')\"",
-    "test -s /usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js && test ! -e /usr/src/pi-source/packages/coding-agent/dist-dolly",
+    "test -s /usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js && test ! -e /usr/src/pi-source",
     `printf %s ${shellQuote(JSON.stringify({ openrouter: { type: "api_key", key: "sandbox-placeholder" },
       "openai-codex": { type: "oauth", access: "sandbox-placeholder", refresh: "sandbox-placeholder", expires: 4102444800000 } }))} > /home/dolly/.pi/agent/auth.json`,
     "pi --list-models openrouter | grep -q openrouter && pi --list-models openai-codex | grep -q openai-codex",
@@ -122,7 +124,7 @@ await demoTest("pi", { image: "pi-agent", timeout: 900_000, browser: process.env
   await run(`mkdir ${scratch} && cd ${scratch} && for name in pi-tools.mjs pi-sessions.mjs utf8-writer.c; do curl -fsS ${server.origin}/fixture/$name -o $name || exit 1; done`);
   await run(`cc utf8-writer.c -o writer && janis -m pi-tools.mjs ${scratch}`);
 
-  // OpenRouter API-key login, then Codex OAuth with a local token endpoint.
+  // An OpenRouter API key through pi-key, then Codex OAuth with a local token endpoint.
   const tokenRequests = [];
   const accountId = "acct_dolly_browser_fixture";
   const accessToken = [{ alg: "none", typ: "JWT" }, { "https://api.openai.com/auth": { chatgpt_account_id: accountId } }]
@@ -133,14 +135,12 @@ await demoTest("pi", { image: "pi-agent", timeout: 900_000, browser: process.env
       json: { access_token: accessToken, refresh_token: "dolly-browser-refresh-token", expires_in: 3600 } });
   });
   await run("clear");
-  let pi = start("pi --offline --no-session");
-  await waitText(/No models available/);
-  await input("/login openrouter\r");
-  await waitText(/Select authentication method for OpenRouter/);
-  await input("\x1b[B\r");
-  await waitText(/Enter OpenRouter API key/);
-  // A typed and a bracketed-pasted part of the key; no screen may show either.
+  // pi-key reads the key at a hidden prompt into the variable Pi reads for the provider; Pi's own /login would show it.
   const loginKey = "sk-or-v1-QZXJ7KWV2PLM9RTB4HNC";
+  await run("! pi --offline --list-models openrouter | grep -q openrouter && clear");
+  let pi = start("pi-key OPENROUTER_API_KEY --offline --list-models openrouter");
+  await waitText(/OPENROUTER_API_KEY \(not shown\):/);
+  // A typed and a pasted part of the key; no screen may show either.
   const screens = [];
   const watch = async pattern => {
     for (const deadline = Date.now() + 60_000; !pattern.test(screens.at(-1) ?? ""); screens.push(await text())) {
@@ -148,18 +148,14 @@ await demoTest("pi", { image: "pi-agent", timeout: 900_000, browser: process.env
     }
   };
   await input(loginKey.slice(0, 13));
-  await watch(/> \*{13}\s/);
   assert.equal(await page.evaluate(key => __dolly.paste(key), loginKey.slice(13)), true);
-  await watch(new RegExp(`> \\*{${loginKey.length}}\\s`));
   await input("\r");
-  await watch(/Saved API key for OpenRouter/);
-  await waitText(/Saved API key for OpenRouter/);
-  const secret = loginKey.slice(9), fragments = Array.from({ length: secret.length - 3 }, (_, index) => secret.slice(index, index + 4));
-  const leaked = screens.find(screen => fragments.some(fragment => screen.includes(fragment)));
-  assert.equal(leaked, undefined, `Pi showed the API key:\n${leaked}`);
-  await input("\x04");
+  await watch(/openrouter\s/);
   assert.equal(await pi.done, 0);
-  await run(`grep -q ${loginKey} /home/dolly/.pi/agent/auth.json && pi --list-models openrouter | grep -q openrouter && clear`);
+  const secret = loginKey.slice(9), fragments = Array.from({ length: secret.length - 3 }, (_, index) => secret.slice(index, index + 4));
+  const leaked = [...screens, await text()].find(screen => fragments.some(fragment => screen.includes(fragment)));
+  assert.equal(leaked, undefined, `the key was shown:\n${leaked}`);
+  await run(`! grep -rq ${secret} /home/dolly/.pi && clear`);
   pi = start("pi --offline --no-session");
   await waitText(piStarted);
   await input("/login openai-codex\r");
@@ -263,6 +259,7 @@ await demoTest("pi", { image: "pi-agent", timeout: 900_000, browser: process.env
     /Showing lines 1001-3000 of 3000\. Full output: \/tmp\/pi-bash-[0-9a-f]+\.log/,
     /Showing lines 1-2000 of 3001\. Use offset=2001 to continue/,
     /Successfully replaced 1 block\(s\) in \/workspace\/pi-latin1\.txt/,
+    /Successfully replaced 1 block\(s\) in \/workspace\/pi-order\.txt/,
   ].entries()) assert.match(results[index], expected, `Pi ${tools[index][0][0]} tool result`);
   const fullOutput = results[2].match(/\/tmp\/pi-bash-[0-9a-f]+\.log/)[0];
   const saved = page.waitForEvent("download");
@@ -276,5 +273,6 @@ await demoTest("pi", { image: "pi-agent", timeout: 900_000, browser: process.env
     "grep -q '日本語😀' /workspace/pi-http-test.txt",
     `cmp ${fullOutput} /workspace/pi-lines.txt`,
     "printf 'new\\377\\n' | cmp - /workspace/pi-latin1.txt",
+    "test \"$(cat /workspace/pi-order.txt)\" = two",
   ]) await run(command);
 });

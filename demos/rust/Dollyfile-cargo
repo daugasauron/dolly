@@ -26,10 +26,10 @@ FILE /usr/share/man/cat1/cargo.1
                            build scripts and procedural macros
       target/debug/NAME    runs what it built
     
-    cargo run builds and then fails: Cargo replaces itself with the program
-    (exec), which Dolly does not have. Crate archives come through the page's
-    HTTP broker; crates.io's index needs a relay or a vendored directory. A
-    crate that uses libc needs the SDK's copy, in .cargo/config.toml:
+    cargo run builds and replaces Cargo with the program (exec). Crate archives
+    come through the page's HTTP broker; crates.io's index needs a relay or a
+    vendored directory. A crate that uses libc needs the SDK's copy, in
+    .cargo/config.toml:
       [patch.crates-io] libc = { path = "/opt/rust-sdk/src/libc" }
     Incremental builds are off (CARGO_INCREMENTAL=0). There is no cargo search,
     publish or login. Upstream's book: https://doc.rust-lang.org/cargo/

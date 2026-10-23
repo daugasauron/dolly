@@ -1,0 +1,19 @@
+; Level 3 - the climb
+name: CASTLE RUN
+.
+.
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+.
+.
+.                                                   ooo                    ooo
+.                                       E          #####         E        #####           o o o
+.                                    #######                  #######                    #######     F
+.                          ooo                                                     E                 F
+.                         #####                 ^^^^^                           #######         ######
+.               ooo                       ###########                    ^^                     ######
+.              #####       E                                    ooo    #######           ooo    ######
+.                       #######      ooo                       #####                    #####   ######
+.  P                                #####          E                                            ######
+.          E      ^^^                             ######                ^^^                     ######
+####################################   ###################   ###########################   ############
+####################################   ###################   ###########################   ############
