@@ -1,5 +1,4 @@
 import { hostRegistry } from "../host/modules.mjs";
-import { hostModuleUrls } from "../host/manifests.mjs";
 import { DOLLY_IMAGES, imageBase } from "./images.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
@@ -16,6 +15,9 @@ export async function buildImage(image, artifacts, configuration, report, { cust
   const declared = image === "custom" ? inspectDollyfile(customSource).hostRequirements
     : DOLLY_IMAGES.find(candidate => candidate.image === image).hostRequirements;
   let worker;
+  // A build runs where the site is, which offers every module this repository
+  // builds; a page that only runs images never loads that list.
+  const { hostModuleUrls } = await import("../host/manifests.mjs");
   const registry = await hostRegistry(hostModuleUrls);
   const host = await registry.createHost("browser", registry.buildHostFor(declared),
     { send: message => worker.postMessage(message), configuration });

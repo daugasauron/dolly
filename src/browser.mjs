@@ -14,10 +14,9 @@ import * as processConstants from "./process-constants.mjs";
 const encoder = new TextEncoder();
 
 // The terminal's own look: its canvas, the hidden keyboard, the boot log and
-// the status line. A host module brings the look of what it adds.
+// the status line. A host module brings the look of what it adds; the page, the
+// boot log's font (the site's is Iosevka, dist/IosevkaTerm-SemiBold.woff2).
 const style = `
-  @font-face { font-family: "Dolly IosevkaTerm SemiBold"; font-style: normal; font-weight: 600; font-display: block;
-    src: url("${new URL("../dist/IosevkaTerm-SemiBold.woff2", import.meta.url)}") format("woff2"); }
   .dolly-terminal { position: relative; overflow: hidden; outline: none; caret-color: transparent; }
   #display { display: block; width: 100%; height: 100%; cursor: text; touch-action: none; }
   #display[hidden] { display: none; }
