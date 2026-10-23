@@ -22,5 +22,10 @@ In short: `@slopshare/dolly` (kernel, process runtime, all host-module providers
 no image, about 266 KB compressed) and `@slopshare/dolly-default` (the `default` image's
 packs, metadata and recipes, 4.9 MB compressed, Ghostty's plugin and font 59% of it), cut
 from a sealed release at checkout paths; `boot(element, { image, hostModules, http })`; the
-consumer serves both directories with COOP/COEP. Seven steps, none rebuilds an image. The
-npm scope `slopshare` is the owner's to create.
+consumer serves both directories with COOP/COEP. Seven steps, none rebuilds an image.
+
+Owner (2026-10-23): "use daugasauron org", so the names are `@daugasauron/dolly` and
+`@daugasauron/dolly-default` in place of the plan's `@slopshare/`. Whether `daugasauron`
+exists on npm could not be seen from here (npmjs.com answers 403 to scripts; no package is
+published under that maintainer or scope; this machine has no npm login). The plan's day
+counts are its own guesses, not measured.
