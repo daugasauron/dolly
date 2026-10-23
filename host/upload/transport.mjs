@@ -119,7 +119,10 @@ export function chooseUploadFile(controller) {
     if (signal.aborted) { resolve(null); return; }
     const dialog = document.createElement("dialog");
     dialog.id = "file-upload";
-    dialog.innerHTML = `<form method="dialog"><p>Upload one file into Dolly</p>
+    dialog.innerHTML = `<style>#file-upload { color: #e8e3d7; background: #262626; border: 1px solid #77736c;
+        max-width: calc(100vw - 2rem); font: inherit; } #file-upload::backdrop { background: #0008; }
+      #file-upload input, #file-upload button { font: inherit; }</style>
+      <form method="dialog"><p>Upload one file into Dolly</p>
       <p>Up to ${DOLLY_UPLOAD_MAX_SIZE / 1073741824} GiB. Only the file you choose enters the sandbox.</p>
       <input type="file" aria-label="Choose file to upload"><progress hidden></progress>
       <output></output><button>Cancel</button></form>`;

@@ -23,7 +23,14 @@ export function mountImageBuild(http, keyboard) {
   const panel = document.createElement("section");
   panel.id = "image-build";
   panel.hidden = true;
-  panel.innerHTML = `<p role="status"></p>
+  panel.innerHTML = `<style>#image-build { position: fixed; right: 0.6rem; bottom: 0.6rem; z-index: 7;
+      width: min(520px, calc(100vw - 1.2rem)); max-height: calc(100vh - 1.2rem); overflow: auto; color: #e8e3d7;
+      background: #262626; border: 1px solid #f2d45c; padding: 0.75rem; font-size: 15px; }
+    #image-build[hidden], #image-build [hidden] { display: none; } #image-build p { margin: 0 0 0.6rem; }
+    #image-build details { margin-bottom: 0.6rem; }
+    #image-build pre { max-height: 40vh; overflow: auto; white-space: pre-wrap; font: inherit; }
+    #image-build button { color: inherit; background: inherit; border: 1px solid #77736c; font: inherit; cursor: pointer; }</style>
+    <p role="status"></p>
     <details><summary>Review Dollyfile</summary><pre data-recipe></pre></details>
     <pre data-output aria-label="Build output" tabindex="0"></pre>
     <p>One build · 45 minute limit · existing HTTP policy</p>

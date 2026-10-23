@@ -25,6 +25,12 @@ export function browser({ keyboard, indicators }) {
   panel.setAttribute("aria-label", "Files Dolly offers to save");
   panel.hidden = true;
   document.body.append(panel);
+  const look = document.head.appendChild(Object.assign(document.createElement("style"), { textContent: `
+    #downloads { position: fixed; left: 0.6rem; bottom: 0.6rem; z-index: 7; margin: 0; padding: 0.5rem; list-style: none;
+      max-width: calc(100vw - 1.2rem); color: #e8e3d7; background: #262626; border: 1px solid #f2d45c; font-size: 14px; }
+    #downloads[hidden] { display: none; } #downloads li + li { margin-top: 0.4rem; }
+    #downloads button { margin-right: 0.4rem; color: inherit; background: #333; border: 1px solid #77736c;
+      font: inherit; cursor: pointer; }` }));
   const urls = [];
   // The item of the stream the Worker is still receiving.
   let preparing = null;
@@ -95,7 +101,7 @@ export function browser({ keyboard, indicators }) {
       },
     },
     claimsKey: event => panel.contains(event.target),
-    dispose() { panel.remove(); for (const url of [...urls]) revoke(url); },
+    dispose() { panel.remove(); look.remove(); for (const url of [...urls]) revoke(url); },
   };
 }
 

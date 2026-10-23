@@ -40,7 +40,8 @@ export function browser({ applicationBase, bootstrapSources, inherited, configur
   if (!network) {
     // A custom tab intersects the policy of the page that built it with its
     // own; a missing inheritance fails closed.
-    let policy = consumeDollyHttpPolicy(window, bootstrapSources, applicationBase);
+    let policy = consumeDollyHttpPolicy({ DOLLY_HTTP_POLICY: configuration.embedding?.policy,
+      DOLLY_HTTP_RELAYS: configuration.embedding?.relays }, bootstrapSources, applicationBase);
     if (inherited) policy = restrictDollyHttpPolicy(policy, inherited.policies, bootstrapSources, applicationBase);
     // A site path names a file of this page's site.
     const site = publicURL("", applicationBase).href;

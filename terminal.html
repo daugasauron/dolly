@@ -6,14 +6,6 @@
     <meta name="color-scheme" content="dark">
     <title>Dolly</title>
     <style>
-      @font-face {
-        font-family: "Dolly IosevkaTerm SemiBold";
-        src: url("{{DOLLY_BASE}}dist/IosevkaTerm-SemiBold.woff2") format("woff2");
-        font-style: normal;
-        font-weight: 600;
-        font-display: block;
-      }
-
       * { box-sizing: border-box; }
       html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
       body {
@@ -21,70 +13,8 @@
         color: #e8e3d7;
         font-family: "Dolly IosevkaTerm SemiBold", monospace;
       }
-      #terminal {
-        position: relative;
-        width: 100%;
-        height: calc(100% - var(--buttons-height, 0px));
-        outline: none;
-        overflow: hidden;
-        caret-color: transparent;
-      }
-      #display {
-        display: block;
-        width: 100%;
-        height: 100%;
-        cursor: text;
-        touch-action: none;
-      }
-      #display[hidden] { display: none; }
-      #keyboard {
-        position: fixed;
-        left: -10000px;
-        top: 0;
-        width: 1px;
-        height: 1px;
-        opacity: 0;
-        caret-color: transparent;
-      }
-      #bootstrap-log {
-        position: absolute;
-        inset: 0;
-        z-index: 1;
-        margin: 0;
-        padding: 1rem 1.15rem;
-        overflow: auto;
-        white-space: pre-wrap;
-        color: #e8e3d7;
-        background: #262626;
-        font: 600 20px/1.35 "Dolly IosevkaTerm SemiBold", monospace;
-        scrollbar-width: thin;
-        scrollbar-color: #f2d45c #262626;
-      }
-      #bootstrap-log[hidden] { display: none; }
-      #session-status {
-        position: fixed; right: 1rem; top: 1rem; z-index: 5;
-        max-width: calc(100vw - 2rem); padding: 0.5rem 0.75rem;
-        background: #262626; border: 1px solid #77736c; font-size: 14px;
-      }
-      #file-upload { background: #262626; color: #e8e3d7; border: 1px solid #77736c;
-        max-width: calc(100vw - 2rem); font: inherit; }
-      #file-upload::backdrop { background: #0008; }
-      #file-upload input, #file-upload button { font: inherit; }
-      #image-build { position: fixed; right: 0.6rem; bottom: 0.6rem; z-index: 7;
-        width: min(520px, calc(100vw - 1.2rem)); max-height: calc(100vh - 1.2rem); overflow: auto;
-        background: #262626; border: 1px solid #f2d45c; padding: 0.75rem; font-size: 15px; }
-      #image-build[hidden], #image-build [hidden] { display: none; }
-      #image-build p { margin: 0 0 0.6rem; }
-      #image-build details { margin-bottom: 0.6rem; }
-      #image-build pre { max-height: 40vh; overflow: auto; white-space: pre-wrap; font: inherit; }
-      #image-build button { color: inherit; background: inherit; border: 1px solid #77736c; font: inherit; cursor: pointer; }
-      #downloads { position: fixed; left: 0.6rem; bottom: 0.6rem; z-index: 7; margin: 0; padding: 0.5rem;
-        max-width: calc(100vw - 1.2rem); list-style: none; background: #262626; border: 1px solid #f2d45c; font-size: 14px; }
-      #downloads[hidden] { display: none; }
-      html[data-indicators="hidden"] .page-indicator { display: none; }
-      #downloads li + li { margin-top: 0.4rem; }
-      #downloads button { margin-right: 0.4rem; color: inherit; background: #333; border: 1px solid #77736c;
-        font: inherit; cursor: pointer; }
+      #terminal { width: 100%; height: calc(100% - var(--buttons-height, 0px)); }
+      #terminal > pre { margin: 1rem; white-space: pre-wrap; font: 600 20px/1.35 monospace; }
       /* The strip of buttons@0 lies below the terminal and the page's indicators. */
       .page-indicator { translate: 0 calc(0px - var(--buttons-height, 0px)); }
       #buttons { position: fixed; left: 0; right: 0; bottom: 0; z-index: 4;
@@ -98,34 +28,34 @@
       #buttons button { min-height: 48px; padding: 2px; color: inherit; background: #333; border: 1px solid #77736c;
         border-radius: 6px; font: inherit; overflow-wrap: anywhere; }
       #buttons button[data-paste] { border-color: #f2d45c; }
-      @media (max-width: 640px) {
-        #bootstrap-log { padding: 0.65rem 0.75rem; }
-      }
     </style>
   </head>
   <body>
-    <main id="terminal" aria-label="Dolly shell terminal">
-      <canvas id="display" hidden aria-label="Dolly sandbox framebuffer"></canvas>
-      <textarea id="keyboard" aria-label="Dolly keyboard input"
-        autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
-      <pre id="bootstrap-log" aria-live="polite"></pre>
-    </main>
-    <div id="session-status" role="status" hidden></div>
+    <main id="terminal" aria-label="Dolly shell terminal"><pre id="bootstrap-log"></pre></main>
     <script>globalThis.DOLLY_BOOT = Object.freeze({ image: "{{DOLLY_IMAGE}}", mode: "{{DOLLY_MODE}}", loadSession: {{DOLLY_LOAD_SESSION}} });</script>
     <script type="module">
       const assets = new URL("{{DOLLY_BASE}}", document.baseURI);
+      const terminal = document.querySelector("#terminal");
+      const failed = text => {
+        terminal.firstElementChild.textContent = `FATAL\n${text}\n`;
+        document.documentElement.dataset.dollyStatus = "failed";
+      };
       if (crossOriginIsolated) {
         sessionStorage.removeItem("dolly-isolation-retry");
+        // The site is an embedding: it offers every host module this repository
+        // builds, and takes once what a test set before the page loaded.
+        const { DOLLY_BOOT: route, DOLLY_HOST_MODULES: hostModules, DOLLY_HTTP_POLICY: policy, DOLLY_HTTP_RELAYS: relays } = globalThis;
+        for (const name of ["DOLLY_HOST_MODULES", "DOLLY_HTTP_POLICY", "DOLLY_HTTP_RELAYS"]) delete globalThis[name];
+        let boot, hostModuleUrls;
         try {
-          await import(new URL("src/browser.mjs", assets).href);
+          [{ boot }, { hostModuleUrls }] = await Promise.all(["src/browser.mjs", "host/manifests.mjs"]
+            .map(path => import(new URL(path, assets).href)));
         } catch (error) {
-          const detail = error instanceof Error
-            ? error.stack ?? error.message
-            : String(error);
-          document.querySelector("#bootstrap-log").textContent =
-            `FATAL\nDolly failed to load.\n${detail}\n`;
-          document.documentElement.dataset.dollyStatus = "failed";
+          failed(`Dolly failed to load.\n${error instanceof Error ? error.stack ?? error.message : String(error)}`);
         }
+        // boot() shows its own failure in the terminal.
+        if (boot) window.__dolly = await boot(terminal, { ...route, modules: hostModuleUrls, hostModules,
+          http: { policy, relays } }).catch(error => console.error(error));
       } else if ("serviceWorker" in navigator) {
         await navigator.serviceWorker.register(new URL("coi-serviceworker.js", assets), { scope: assets.pathname });
         if (!navigator.serviceWorker.controller) {
@@ -135,14 +65,10 @@
           sessionStorage.setItem("dolly-isolation-retry", "1");
           location.reload();
         } else {
-          document.querySelector("#bootstrap-log").textContent =
-            "FATAL\nDolly could not establish cross-origin isolation.\n";
-          document.documentElement.dataset.dollyStatus = "failed";
+          failed("Dolly could not establish cross-origin isolation.");
         }
       } else {
-        document.querySelector("#bootstrap-log").textContent =
-          "FATAL\nDolly requires cross-origin isolation and service workers are unavailable.\n";
-        document.documentElement.dataset.dollyStatus = "failed";
+        failed("Dolly requires cross-origin isolation and service workers are unavailable.");
       }
     </script>
   </body>
