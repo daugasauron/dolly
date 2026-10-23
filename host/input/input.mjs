@@ -272,7 +272,7 @@ const pointerEvent = event => ({ shiftKey: event.shiftKey, ctrlKey: event.ctrlKe
 // decides which keys the guest reads: the page's own chords are taken before
 // it (src/page-chords.mjs) and module UIs claim theirs through it. Records
 // flow once the Worker's side has started.
-export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, send, ask }) {
+export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, send, ask, get }) {
   let started = false, selecting = false, flags = 0;
   // Every message that may write records is counted: input is idle once the
   // Worker reports its ring empty after the last of them.
@@ -354,7 +354,7 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
       releaseHeldKeys();
       if (claim === "interrupt" && interruptChord(event)) {
         event.preventDefault();
-        post({ type: "input-interrupt" });
+        void get("runtime").terminal.interruptForeground();
       }
       return;
     }
@@ -595,7 +595,6 @@ export function worker({ get, send }) {
       // and reads the key otherwise.
       "input-interrupt-key": record(({ key, code, modifiers, action, flags }) =>
         get("runtime").terminal.interruptForeground() || transport.pushSyntheticKey(key, code, modifiers, action, flags)),
-      "input-interrupt": record(() => get("runtime").terminal.interruptForeground()),
       "input-text": record(({ text }) => transport.pushText(text)),
       "input-paste": record(({ text }) => transport.pushPaste(text)),
       "input-pointer": record(({ x, y, action, event }) => transport.pushPointer(x, y, action, event)),
@@ -610,10 +609,13 @@ export function worker({ get, send }) {
       "input-capture": record(({ captured }) => transport.pushPointerCapture(captured)),
       "input-presence": record(({ inside }) => transport.pushPointerPresence(inside)),
       // A command typed at the shell, resolving to the shell's status for it.
+      // The page hears of the foreground the shell left before it hears the status.
       async "input-submit"(message) {
-        const terminal = get("runtime").terminal, sequence = terminal.currentResultSequence();
+        const runtime = get("runtime"), sequence = runtime.terminal.currentResultSequence();
         if (!record(({ text }) => transport.pushText(text))(message)) throw new Error("Dolly input mailbox is full");
-        return terminal.waitForResult(sequence);
+        const status = await runtime.terminal.waitForResult(sequence);
+        runtime.reportForeground();
+        return status;
       },
     },
     // Motion the ring had no room for, and whether the ring is empty after
