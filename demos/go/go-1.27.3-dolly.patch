@@ -1066,7 +1066,7 @@ index 6ae11060..29ead6ca 100644
  
  	case objabi.Hlinux,
 diff --git a/src/cmd/link/internal/wasm/asm.go b/src/cmd/link/internal/wasm/asm.go
-index d8f4a3cd..75aa4e47 100644
+index d8f4a3cd..ce0bc0d7 100644
 --- a/src/cmd/link/internal/wasm/asm.go
 +++ b/src/cmd/link/internal/wasm/asm.go
 @@ -9,6 +9,7 @@ import (
@@ -1171,7 +1171,7 @@ index d8f4a3cd..75aa4e47 100644
  	for _, fn := range hostImports {
  		if fn.Module != "" {
  			writeName(ctxt.Out, fn.Module)
-@@ -367,24 +393,31 @@ func writeTableSec(ctxt *ld.Link, fns []*wasmFunc) {
+@@ -367,18 +393,25 @@ func writeTableSec(ctxt *ld.Link, fns []*wasmFunc) {
  func writeMemorySec(ctxt *ld.Link, ldr *loader.Loader) {
  	sizeOffset := writeSecHeader(ctxt, sectionMemory)
  
@@ -1205,14 +1205,15 @@ index d8f4a3cd..75aa4e47 100644
  // writeGlobalSec writes the section that declares global variables.
  func writeGlobalSec(ctxt *ld.Link) {
  	sizeOffset := writeSecHeader(ctxt, sectionGlobal)
+@@ -393,6 +426,7 @@ func writeGlobalSec(ctxt *ld.Link) {
+ 		I64, // 6: RET3
+ 		I32, // 7: PAUSE
+ 	}
++	globalRegs[0] = addressType(ctxt) // SP is an address
  
- 	globalRegs := []byte{
--		I32, // 0: SP
-+		addressType(ctxt), // 0: SP
- 		I64, // 1: CTXT
- 		I64, // 2: g
- 		I64, // 3: RET0
-@@ -446,6 +479,22 @@ func writeExportSec(ctxt *ld.Link, ldr *loader.Loader, lenHostImports int) {
+ 	writeUleb128(ctxt.Out, uint64(len(globalRegs))) // number of globals
+ 
+@@ -446,6 +480,22 @@ func writeExportSec(ctxt *ld.Link, ldr *loader.Loader, lenHostImports int) {
  		writeName(ctxt.Out, "memory") // memory in wasi
  		ctxt.Out.WriteByte(0x02)      // mem export
  		writeUleb128(ctxt.Out, 0)     // memidx
@@ -1235,7 +1236,7 @@ index d8f4a3cd..75aa4e47 100644
  	case "js":
  		writeUleb128(ctxt.Out, uint64(4+len(ldr.WasmExports))) // number of exports
  		for _, name := range []string{"run", "resume", "getsp"} {
-@@ -513,7 +562,7 @@ func writeDataSec(ctxt *ld.Link) {
+@@ -513,7 +563,7 @@ func writeDataSec(ctxt *ld.Link) {
  	sizeOffset := writeSecHeader(ctxt, sectionData)
  
  	type dataSegment struct {
@@ -1244,7 +1245,7 @@ index d8f4a3cd..75aa4e47 100644
  		data   []byte
  	}
  
-@@ -528,7 +577,7 @@ func writeDataSec(ctxt *ld.Link) {
+@@ -528,7 +578,7 @@ func writeDataSec(ctxt *ld.Link) {
  	var segments []*dataSegment
  	for secIndex, ds := range dataSects {
  		data := ds.data
@@ -1253,7 +1254,7 @@ index d8f4a3cd..75aa4e47 100644
  
  		// skip leading zeroes
  		for len(data) > 0 && data[0] == 0 {
-@@ -566,14 +615,18 @@ func writeDataSec(ctxt *ld.Link) {
+@@ -566,14 +616,18 @@ func writeDataSec(ctxt *ld.Link) {
  				data:   data[:segmentEnd],
  			})
  			data = data[zeroEnd:]
@@ -1274,7 +1275,7 @@ index d8f4a3cd..75aa4e47 100644
  		ctxt.Out.WriteByte(0x0b) // end
  		writeUleb128(ctxt.Out, uint64(len(seg.data)))
  		ctxt.Out.Write(seg.data)
-@@ -687,11 +740,13 @@ func writeSleb128(w io.ByteWriter, v int64) {
+@@ -687,11 +741,13 @@ func writeSleb128(w io.ByteWriter, v int64) {
  	}
  }
  
@@ -2284,6 +2285,22 @@ index 2c5da7d3..2c5c381e 100644
 +//go:build aix || darwin || (js && wasm) || wasip1 || dolly
  
  package poll
+ 
+diff --git a/src/internal/runtime/maps/map.go b/src/internal/runtime/maps/map.go
+index 0ee5e09b..a8a2d55c 100644
+--- a/src/internal/runtime/maps/map.go
++++ b/src/internal/runtime/maps/map.go
+@@ -358,6 +358,11 @@ func (m *Map) directoryIndex(hash uintptr) uintptr {
+ 	if m.dirLen == 1 {
+ 		return 0
+ 	}
++	if !Use64BitHash {
++		// The upper half is not the hash's: a hasher may return its
++		// 64-bit seed, as interhash does for a nil interface.
++		hash = uintptr(uint32(hash))
++	}
+ 	return hash >> (m.globalShift & 63)
+ }
  
 diff --git a/src/internal/syscall/unix/at_dolly.go b/src/internal/syscall/unix/at_dolly.go
 new file mode 100644
@@ -3684,29 +3701,123 @@ index 56b766f1..dd6cf3ac 100644
  		n = 1 // WebAssembly has no threads yet, so only one CPU is possible.
  	}
  
-diff --git a/src/runtime/lock_wasip1.go b/src/runtime/lock_nothreads.go
-similarity index 95%
-rename from src/runtime/lock_wasip1.go
-rename to src/runtime/lock_nothreads.go
-index 9bf5a4bc..9e3d56a9 100644
---- a/src/runtime/lock_wasip1.go
-+++ b/src/runtime/lock_nothreads.go
-@@ -2,7 +2,7 @@
- // Use of this source code is governed by a BSD-style
- // license that can be found in the LICENSE file.
- 
--//go:build wasip1
-+//go:build wasip1 || dolly
- 
- package runtime
- 
-@@ -112,6 +112,3 @@ func beforeIdle(int64, int64) (*g, bool) {
- }
- 
- func checkTimeouts() {}
--
--//go:wasmimport wasi_snapshot_preview1 sched_yield
--func sched_yield() errno
+diff --git a/src/runtime/lock_dolly.go b/src/runtime/lock_dolly.go
+new file mode 100644
+index 00000000..da340d8e
+--- /dev/null
++++ b/src/runtime/lock_dolly.go
+@@ -0,0 +1,111 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build dolly
++
++package runtime
++
++// wasm has no support for threads yet. There is no preemption.
++// See proposal: https://github.com/WebAssembly/threads
++// Waiting for a mutex or timeout is implemented as a busy loop
++// while allowing other goroutines to run.
++
++const (
++	mutex_unlocked = 0
++	mutex_locked   = 1
++
++	active_spin     = 4
++	active_spin_cnt = 30
++
++	mutexMLocksDelta = 16
++)
++
++type mWaitList struct{}
++
++func lockVerifyMSize() {}
++
++func mutexContended(l *mutex) bool {
++	return false
++}
++
++func lock(l *mutex) {
++	lockWithRank(l, getLockRank(l))
++}
++
++func lock2(l *mutex) {
++	if l.key == mutex_locked {
++		// wasm is single-threaded so we should never
++		// observe this.
++		throw("self deadlock")
++	}
++	gp := getg()
++	if gp.m.locks < 0 {
++		throw("lock count")
++	}
++	gp.m.locks += mutexMLocksDelta
++	l.key = mutex_locked
++}
++
++func unlock(l *mutex) {
++	unlockWithRank(l)
++}
++
++func unlock2(l *mutex) {
++	if l.key == mutex_unlocked {
++		throw("unlock of unlocked lock")
++	}
++	gp := getg()
++	gp.m.locks -= mutexMLocksDelta
++	if gp.m.locks < 0 {
++		throw("lock count")
++	}
++	l.key = mutex_unlocked
++}
++
++// One-time notifications.
++func noteclear(n *note) {
++	n.key = 0
++}
++
++func notewakeup(n *note) {
++	if n.key != 0 {
++		print("notewakeup - double wakeup (", n.key, ")\n")
++		throw("notewakeup - double wakeup")
++	}
++	n.key = 1
++}
++
++func notesleep(n *note) {
++	throw("notesleep not supported by dolly")
++}
++
++func notetsleep(n *note, ns int64) bool {
++	throw("notetsleep not supported by dolly")
++	return false
++}
++
++// same as runtime·notetsleep, but called on user g (not g0)
++func notetsleepg(n *note, ns int64) bool {
++	gp := getg()
++	if gp == gp.m.g0 {
++		throw("notetsleepg on g0")
++	}
++
++	deadline := nanotime() + ns
++	for {
++		if n.key != 0 {
++			return true
++		}
++		Gosched()
++		if ns >= 0 && nanotime() >= deadline {
++			return false
++		}
++	}
++}
++
++func beforeIdle(int64, int64) (*g, bool) {
++	return nil, false
++}
++
++func checkTimeouts() {}
 diff --git a/src/runtime/malloc.go b/src/runtime/malloc.go
 index 8c5ec383..fd463fb5 100644
 --- a/src/runtime/malloc.go
@@ -3947,10 +4058,10 @@ index 00000000..930c134d
 +}
 diff --git a/src/runtime/os_dolly.go b/src/runtime/os_dolly.go
 new file mode 100644
-index 00000000..b450589e
+index 00000000..e825ae04
 --- /dev/null
 +++ b/src/runtime/os_dolly.go
-@@ -0,0 +1,204 @@
+@@ -0,0 +1,201 @@
 +// Copyright 2026 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -4143,9 +4254,6 @@ index 00000000..b450589e
 +
 +func resetMemoryDataView() {}
 +
-+// sched_yield is wasip1's hint to the host, which Dolly does not need.
-+func sched_yield() int32 { return 0 }
-+
 +//go:nowritebarrierrec
 +//go:nosplit
 +func libpreinit() {}
@@ -4155,20 +4263,6 @@ index 00000000..b450589e
 +func newosproc0(stacksize uintptr, fn unsafe.Pointer) {
 +	throw("bad newosproc0")
 +}
-diff --git a/src/runtime/os_wasip1.go b/src/runtime/os_wasip1.go
-index 34f1dd6d..01a78073 100644
---- a/src/runtime/os_wasip1.go
-+++ b/src/runtime/os_wasip1.go
-@@ -49,6 +49,9 @@ type iovec struct {
- //go:wasmimport wasi_snapshot_preview1 proc_exit
- func exit(code int32)
- 
-+//go:wasmimport wasi_snapshot_preview1 sched_yield
-+func sched_yield() errno
-+
- //go:wasmimport wasi_snapshot_preview1 args_get
- //go:noescape
- func args_get(argv *uintptr32, argvBuf *byte) errno
 diff --git a/src/runtime/proc.go b/src/runtime/proc.go
 index b8d4d150..c458e8d4 100644
 --- a/src/runtime/proc.go
@@ -4415,7 +4509,7 @@ index e1d7e213..69c37e8c 100644
  
 diff --git a/src/syscall/exec_dolly.go b/src/syscall/exec_dolly.go
 new file mode 100644
-index 00000000..749973ef
+index 00000000..37322cbb
 --- /dev/null
 +++ b/src/syscall/exec_dolly.go
 @@ -0,0 +1,178 @@
@@ -4546,7 +4640,7 @@ index 00000000..749973ef
 +	signal uint32
 +}
 +
-+func (w WaitStatus) Exited() bool       { return w.signal == 0 }
++func (w WaitStatus) Exited() bool { return w.signal == 0 }
 +func (w WaitStatus) ExitStatus() int {
 +	if w.Signaled() {
 +		return -1
@@ -4599,7 +4693,7 @@ index 00000000..749973ef
 +}
 diff --git a/src/syscall/fs_dolly.go b/src/syscall/fs_dolly.go
 new file mode 100644
-index 00000000..83691038
+index 00000000..9cb4835e
 --- /dev/null
 +++ b/src/syscall/fs_dolly.go
 @@ -0,0 +1,727 @@
@@ -5012,11 +5106,11 @@ index 00000000..83691038
 +
 +// statResponse is dolly_process_stat_response.
 +type statResponse struct {
-+	device, inode, size              uint64
-+	access, modification, change     uint64 // nanoseconds
-+	blocks                           uint64
-+	mode, linkCount, user, group     uint32
-+	blockSize, fileType, _, _        uint32
++	device, inode, size          uint64
++	access, modification, change uint64 // nanoseconds
++	blocks                       uint64
++	mode, linkCount, user, group uint32
++	blockSize, fileType, _, _    uint32
 +}
 +
 +var fileTypeModes = [...]uint32{

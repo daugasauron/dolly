@@ -121,3 +121,20 @@ The patched toolchain builds on the host in 50 s (`make.bash`). A program built
   description locks), polling like `Wait4` when it must wait.
 - A probe of `os/exec` (captured output, 1 MiB through `cat` both ways, exit status,
   `LookPath`), `os.Pipe` between goroutines, timers and `os.Executable` passes in both browsers.
+
+## Step 4, first runs: an upstream map bug (2026-10-23, measured)
+
+- The seed's `go install -a` of the toolchain in a session (Chrome, `-p 4`) failed after 190 s:
+  `compile` of `cmd/compile/internal/ssagen` trapped (memory access out of bounds) in
+  `runtime.mapaccess2` from `ssa.cse`; browser peak 4.4 GB of the 6 GB slot.
+- Reproduced on the host in 6 s by running the dolly `compile` under Node with a 120-line stand-in
+  for the contract's file operations (`build/go-evidence/tools/dolly-host.mjs`, a debugging aid
+  outside the repository), then in 13 lines: a `map[any]int` of 2,000 entries and `m[nil]`.
+  **Upstream Go 1.27.3 crashes the same way on GOARCH=wasm** (js/wasm and wasip1/wasm, measured):
+  wasm hashes are 32-bit, but `interhash` returns the map's 64-bit seed for a nil interface,
+  and `directoryIndex` shifts it by `32 - depth`, indexing far past the directory once a map
+  has more than one table. wasm32 wraps the address, wasm64 does not; both trap. Fixed in the
+  patch where the index is taken (`internal/runtime/maps/map.go`); worth reporting upstream.
+  So `GOARCH=wasm` builds upstream's code except `directoryIndex`.
+- With the fix, the dolly `compile` (wasm64, in Node) compiles ssagen in 17 s, byte for byte
+  the archive the linux/amd64 `compile` of the same source writes with the same arguments.
