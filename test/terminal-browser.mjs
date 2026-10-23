@@ -1,24 +1,24 @@
 import assert from "node:assert/strict";
-import { browserTest } from "./browser.mjs";
+import { browserTest, snapshotDisplay, waitForDisplay } from "./browser.mjs";
 
 // The in-Wasm Ghostty terminal: keyboard, clipboard, selection, scrollback,
 // zoom, fullscreen, rendering, termios and the display and input leases.
 const server = { fixtures: { "terminal-ui.c": "test/fixtures/terminal-ui.c" } };
 await browserTest("terminal", { image: "system", server }, async ({ name, server, open }) => {
-  const { page, submit, text, result, waitForText } = await open({ policy: {
+  const { page, submit, text, result, waitForText, waitForSelection } = await open({ policy: {
     rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
     setup: page => name === "chromium" && page.context().grantPermissions(["clipboard-read", "clipboard-write"]) });
   const keyboard = page.locator("#keyboard");
   const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
   // Reading the visible text selects it; a click on the first cell clears that.
   const clearSelection = async () => {
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry();
       const x = paddingX + Math.floor(cellWidth / 2), y = paddingY + Math.floor(cellHeight / 2);
-      __dolly.inputTransport.pushPointer(x, y, 1, {});
-      __dolly.inputTransport.pushPointer(x, y, 0, {});
+      await __dolly.inputTransport.pushPointer(x, y, 1, {});
+      await __dolly.inputTransport.pushPointer(x, y, 0, {});
     });
-    await page.waitForFunction(() => __dolly.copySelection() === null);
+    await waitForSelection(null);
     await page.evaluate(() => new Promise(painted => requestAnimationFrame(() => requestAnimationFrame(painted))));
   };
   // Starts a command and resolves to its status; settled says whether it ended.
@@ -70,7 +70,7 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
   await page.mouse.down();
   await page.mouse.move(row.end, row.y);
   await page.mouse.up();
-  await page.waitForFunction(() => __dolly.copySelection() === "COPY-BRIDGE-TEXT");
+  await waitForSelection("COPY-BRIDGE-TEXT");
   await page.keyboard.press("Control+Shift+C");
   await page.waitForFunction(() => document.documentElement.dataset.clipboard === "copied");
   assert.equal(await clipboard(), "COPY-BRIDGE-TEXT");
@@ -85,8 +85,9 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
   await page.evaluate(() => __dolly.inputTransport.pushScroll(100000, 1));
   await clearSelection();
 
+  await snapshotDisplay(page);
   const evidence = await page.evaluate(() => {
-    const canvas = document.querySelector("#display");
+    const canvas = displaySnapshot;
     const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
     const transport = __dolly.transport, geometry = transport.geometry();
     const count = (color, left = 0, top = 0, width = canvas.width, height = canvas.height) => {
@@ -108,7 +109,8 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
       cols: Number(dataset.terminalCols), rows: Number(dataset.terminalRows),
       expectedCols: Math.floor((canvas.width - 2 * geometry.paddingX) / geometry.cellWidth),
       expectedRows: Math.floor((canvas.height - 2 * geometry.paddingY) / geometry.cellHeight),
-      terminal: dataset.terminal, canvasVisible: !canvas.hidden, logHidden: document.querySelector("#bootstrap-log").hidden,
+      terminal: dataset.terminal, canvasVisible: !document.querySelector("#display").hidden,
+      logHidden: document.querySelector("#bootstrap-log").hidden,
     };
   });
   assert.equal(evidence.opaque, evidence.pixels);
@@ -128,9 +130,9 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
 
   // Text, spaces and erased cells share their RGB or palette background.
   assert.equal(await submit("printf '\\033[48;2;20;22;27m\\033[2J\\033[HXX  XX\\033[K\\033[3;1H\\033[48;5;24mXX  XX\\033[K\\033[0m\\033[5;1H'"), 0);
-  await page.waitForFunction(() => {
+  await waitForDisplay(page, () => {
     const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry();
-    const context = document.querySelector("#display").getContext("2d");
+    const context = displaySnapshot.getContext("2d");
     return JSON.stringify([[0, 0], [2, 0], [10, 0], [10, 1], [0, 2], [2, 2], [10, 2]].map(([x, y]) =>
       [...context.getImageData(paddingX + x * cellWidth, paddingY + y * cellHeight, 1, 1).data])) ===
       JSON.stringify([...Array(4).fill([20, 22, 27, 255]), ...Array(3).fill([0, 95, 135, 255])]);
@@ -143,9 +145,10 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
     "\\360\\237\\231\\202\\360\\237\\230\\200\\360\\240\\200\\200\\n'"), 0);
   await waitForText(/^日本가あ🙂😀𠀀$/m);
   await clearSelection();
+  await snapshotDisplay(page);
   assert.equal(await page.evaluate(() => {
     const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry();
-    const context = document.querySelector("#display").getContext("2d");
+    const context = displaySnapshot.getContext("2d");
     return new Set([0, 2, 4, 6, 8, 10, 12].map(column => [...context.getImageData(paddingX + column * cellWidth,
       paddingY, 2 * cellWidth, cellHeight).data].join())).size;
   }), 7);
@@ -155,9 +158,9 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
   // cursor, without a reply (q=2), then deleted.
   const red = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGP4z8AARAwQCgAf7gP9i18U1AAAAABJRU5ErkJggg==";
   assert.equal(await submit(`printf '\\033[2J\\033[H\\033_Ga=T,f=100,c=4,r=2,q=2;${red}\\033\\\\'`), 0);
-  await page.waitForFunction(() => {
+  await waitForDisplay(page, () => {
     const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry();
-    const context = document.querySelector("#display").getContext("2d");
+    const context = displaySnapshot.getContext("2d");
     const pixel = (x, y) => [...context.getImageData(paddingX + x * cellWidth + 2, paddingY + y * cellHeight + 2, 1, 1).data];
     return [[0, 0], [3, 0], [0, 1], [3, 1]].every(([x, y]) => pixel(x, y).join() === "255,0,0,255") &&
       pixel(5, 0).join() !== "255,0,0,255";
@@ -304,20 +307,22 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
     return await transport.pushPointer(20, 20, 1, {}) && await transport.pushPointer(40, 20, 2, {}) &&
       await transport.pushPointer(40, 20, 0, {}) && await transport.pushScroll(1, 1);
   }), true);
+  // The page learns of a lease's end by message, after the shell's result.
+  const released = () => page.waitForFunction(() => !__dolly.graphicsActive && !__dolly.inputTransport.leased());
   assert.equal(await lease, 0);
-  assert.deepEqual(await leased(), [false, false]);
+  await released();
   // Exit ends the leases their owner never released.
   assert.equal(await submit(`${probe} lease-exit`), 0);
-  assert.deepEqual(await leased(), [false, false]);
+  await released();
   // A program that only draws reads its keys from the terminal, whose
   // selection the pointer cannot change under the program's frame.
   const drawing = start(`${probe} draw`);
   await page.waitForFunction(() => __dolly.graphicsActive);
   assert.deepEqual(await leased(), [true, false]);
-  await page.evaluate(() => {
-    __dolly.inputTransport.pushPointer(20, 20, 1, {});
-    __dolly.inputTransport.pushPointer(400, 200, 2, {});
-    __dolly.inputTransport.pushPointer(400, 200, 0, {});
+  await page.evaluate(async () => {
+    await __dolly.inputTransport.pushPointer(20, 20, 1, {});
+    await __dolly.inputTransport.pushPointer(400, 200, 2, {});
+    await __dolly.inputTransport.pushPointer(400, 200, 0, {});
   });
   await page.waitForFunction(() => __dolly.inputTransport.inputIdle());
   assert.equal(await page.evaluate(() => __dolly.copySelection()), null);

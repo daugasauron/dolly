@@ -45,6 +45,13 @@ async function openImage(browser, origin, image, { policy, prompt = shellPrompt,
       return page.evaluate(sequence => __dolly.terminal.waitForResult(sequence), sequence);
     },
     // waitForFunction does not await an async predicate, so poll in the page.
+    waitForSelection: expected => page.evaluate(async expected => {
+      const deadline = Date.now() + 30000;
+      while (await __dolly.copySelection() !== expected) {
+        if (Date.now() > deadline) throw new Error(`the terminal's selection never became ${JSON.stringify(expected)}`);
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+    }, expected),
     waitForText: ({ source, flags }) => page.evaluate(async ({ source, flags }) => {
       const pattern = new RegExp(source, flags), deadline = Date.now() + 30000;
       while (!pattern.test(await __dolly.visibleTerminalText())) {
@@ -53,6 +60,30 @@ async function openImage(browser, origin, image, { policy, prompt = shellPrompt,
       }
     }, { source, flags }),
   };
+}
+
+// What the display shows, as pixels: the canvas is painted from a Worker, so
+// the page reads none of it. A screenshot of #display, decoded in the page into
+// globalThis.displaySnapshot, a canvas of its size.
+export async function snapshotDisplay(page) {
+  const png = (await page.locator("#display").screenshot({ scale: "css" })).toString("base64");
+  await page.evaluate(async png => {
+    const bytes = Uint8Array.from(atob(png), character => character.charCodeAt(0));
+    const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }), { colorSpaceConversion: "none" });
+    const canvas = globalThis.displaySnapshot = Object.assign(document.createElement("canvas"),
+      { width: bitmap.width, height: bitmap.height });
+    canvas.getContext("2d", { willReadFrequently: true }).drawImage(bitmap, 0, 0);
+  }, png);
+}
+
+// Resolves once predicate(arg), run in the page, holds of a new snapshot.
+export async function waitForDisplay(page, predicate, arg) {
+  for (const deadline = Date.now() + 30000; ;) {
+    await snapshotDisplay(page);
+    if (await page.evaluate(predicate, arg)) return;
+    if (Date.now() > deadline) throw new Error("the display never showed what was awaited");
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
 }
 
 // open() options for an image the page builds with the named host modules:
