@@ -89,8 +89,9 @@ Bash features. The programs of a pipeline run at the same time
 function as a stage finishes before the next stage reads its output.
 Put longer scripts in a file with the write tool and run `slop FILE`. Nobody
 is at the keyboard of the tool's commands: never start interactive programs
-(nvim, pi, games, python without arguments) there, and bound anything that
-might wait or hang with `timeout 60 COMMAND`.
+(nvim, pi, python without arguments) there, check a game or other display
+program with `timeout 5 ./game` (status 124: it ran until the limit), and bound
+anything else that might wait or hang with `timeout 60 COMMAND`.
 
 `PROGRAM &` starts a program, `$!` is its PID and `wait` collects it; there is
 no job control, and `&` takes only programs (`slop -c '...' &` for the rest).

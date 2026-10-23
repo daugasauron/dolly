@@ -19,8 +19,11 @@ What Dolly is not:
 - No sockets to the outside: HTTP(S) only, through the browser under the
   page's policy, and only from hosts that send CORS headers.
 - No terminal for your tools: the `bash` tool's commands get no keyboard, so
-  never start an interactive program (game, editor, REPL) there. The user
-  runs it in Slop after leaving Pi with Ctrl+D, and comes back with `pi -c`.
+  never start an interactive program (game, editor, REPL) there without a
+  limit: a program that draws on the display may be checked with
+  `timeout 5 ./game` (it shows over Pi meanwhile; status 124 means it ran until
+  the limit). The user plays it in Slop after leaving Pi with Ctrl+D, and comes
+  back with `pi -c`.
 
 Tools:
 - The `bash` tool and `!` run Slop, a POSIX shell, not Bash; `help` says what
