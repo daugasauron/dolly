@@ -1,6 +1,6 @@
 # More local models that run in Dolly and install with amy
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: local-llm,packages,0.1.4
 
@@ -201,3 +201,26 @@ installs in one page would not fit the browser's memory. Run with
 
 Also passed on the rebuilt images, headless: the test's two start screens (`/local`
 opens through the new provider) and `npm run test:demos -- studio` (47 s).
+
+## Closed 2026-10-23
+
+Done-when against the evidence above: four candidates measured in Dolly on the RTX 5070
+(all four architectures load at the pinned llama.cpp; sizes and parts; GPU memory with
+f32 and f16 shaders; tokens per second in Chrome and Firefox; Pi's tool calls against the
+bundled 2B). The two worth it are one package each, `qwen3.5-4b` (Q3_K_S, 2.11 GB) and
+`lfm2.5` (LFM2.5-2.6B, 1.67 GB), and the GPU test installed and chose each with `/local`
+in `pi-local` (the 4B also in Firefox and in the Studio). Qwen3.8-2B-Distill is not a
+package and should not replace the bundled model. Commits on `demo/local-models`:
+`a79ccf35` (the builder), `2e75b609` and `eafa3034` (the packages), notes in between.
+
+For the integrator:
+
+- `scripts/build-snapshot-browser.mjs` changed (core build tooling, no image input): it
+  is what lets a model package or `pi-local` build in the 9 GB slot at all. The builds
+  still peak at 8.6-8.8 GB.
+- Not run here: the core suite (`test/amy-browser.mjs` gains `qwen3.5-4b` and `lfm2.5` in
+  its list of packages tested elsewhere). The plain `npm run image` stops in this tree in
+  another demo's staging after `tools` (an input this worktree lacks); the registry was
+  restored with `node scripts/generate-routes.mjs` (161 images, all cache hits in the plan).
+- Rebuilt here and to rebuild in the round: `qwen3.5-4b`, `lfm2.5`, `pi-local`,
+  `dollyfile-studio`.
