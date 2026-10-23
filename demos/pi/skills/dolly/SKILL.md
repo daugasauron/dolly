@@ -134,10 +134,11 @@ to the running session, and `cc` links them at once.
   `SDL_AddTimer`, and no game controller. `imgui` adds Dear ImGui on it.
 - `raylib`: raylib 6's drawing (shapes, text in its own font, textures,
   `raymath.h`) in software, through Dolly's adapter `<dolly/raylib.h>`:
-  `dolly_raylib_open` instead of `InitWindow`, `dolly_raylib_end_frame` then
-  `dolly_raylib_wait_frame` (about 60 per second) instead of `EndDrawing`,
-  keys from `dolly_raylib_next_event` (`<dolly/input.h>` records, compared
-  with `dolly_raylib_code_is(&event, "ArrowLeft")`). raylib's own
+  `dolly_raylib_open` (0, or a negative errno) instead of `InitWindow`,
+  `dolly_raylib_end_frame` then `dolly_raylib_wait_frame` (about 60 per
+  second) instead of `EndDrawing`, keys from `dolly_raylib_next_event(&d,
+  &event, 0)` (1 with a record of `<dolly/input.h>`, 0 when none is waiting;
+  `dolly_raylib_code_is(&event, "ArrowLeft")` names its key). raylib's own
   `IsKeyDown`, `WindowShouldClose`, `GetTime`, `GetFrameTime` and
   `SetTargetFPS` get no input and no clock here. Link
   `-lraylib -ldolly-raylib -lm`.

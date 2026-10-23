@@ -112,18 +112,21 @@ export default function dollyTools(pi) {
     );
   });
 
+  // Pi runs one response's tool calls at once unless one of them is sequential.
+  // Models write a batch in the order it must happen, such as a command that
+  // writes a file and then an edit of it: the shell and edit tools keep it.
   // Pi's bash tool tells the model it runs Bash; here it runs Slop without a terminal.
   pi.registerTool(sessionTool((cwd) => {
     const tool = createBashToolDefinition(cwd, { operations: slop });
-    return { ...tool, description: tool.description.replace("Execute a bash command",
+    return { ...tool, executionMode: "sequential", description: tool.description.replace("Execute a bash command",
       "Run a command in Slop, Dolly's POSIX shell (not Bash), with no terminal or keyboard,") };
   }));
-  pi.registerTool(sessionTool((cwd) => createEditToolDefinition(cwd, { operations: byteEdits })));
+  pi.registerTool(sessionTool((cwd) => ({
+    ...createEditToolDefinition(cwd, { operations: byteEdits }), executionMode: "sequential" })));
 
   pi.registerTool({
     name: "download",
     label: "download",
-    // Pi runs one response's tool calls at once; a write of the same file must finish first.
     executionMode: "sequential",
     description:
       "Offer one file of Dolly's in-memory filesystem to the user's browser, which saves it " +

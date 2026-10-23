@@ -338,6 +338,41 @@ raylib program through `<dolly/raylib.h>` compile and draw. Two traps:
   ... || defined(__EMSCRIPTEN__)` (Dolly's `cc` defines `__dolly__` and `__unix__`), and
   custom frame control never sets the frame time or polls input.
 
+### After (`0c1321bd`; `r2-after-game/`, `r2-after-game2/`, $0.675)
+
+| session | game | lines | tool calls (failed) | wall / model s | amy | libraries | cost |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Galaga-like "Star Hive" | 334 | 10 (0) | 107 / 97 | `amy install raylib`, `amy files raylib` | raylib through `<dolly/raylib.h>` | $0.341 |
+| 2 | Galaga-like "Star Hive", boss levels | 370 | 9 (0) | 118 / 115 | `amy install raylib`, `amy files raylib` | raylib through `<dolly/raylib.h>` | $0.334 |
+
+Both read the skill, installed raylib in their first command, read the adapter's header and
+`input.h`, drew with raylib (its font for the text, no hand-made font) and read keys from
+the adapter's events with a fixed 1/60 step, not `GetFrameTime`: the guidance's traps were
+avoided. No failed call; a third less time and money than before. Both games build, start
+from `/workspace/play` and play (`game-*.png`; a shot enemy is missing from the formation).
+Neither ran `amy list`: the skill named the library. Both were unsure what
+`dolly_raylib_open` and `dolly_raylib_next_event` return (the header says nothing; session 2
+searched `/usr/share/doc/dolly` for it), so the skill now says (0 or a negative errno; 1
+with a record, 0 when none).
+
+### A 3D game (`r2-3d/`, $0.367)
+
+Prompt: "Build me a 3D game this time: real-time, drawn on Dolly's display and played with
+the keyboard. You move through a 3D world [...], with enemies or obstacles that move on
+their own, a score or timer on screen, rounds that get harder, and a game-over screen with
+a restart." Opus installed raylib at once and wrote "Asteroid Run" (270 lines: a ship in a
+corridor of spinning rocks, raylib's 3D in software), 120 s, 16 calls. Two failed: its own
+self-test, and a compile of a file that a `sed > m2 && mv m2 main.c` in the `bash` tool and
+an `edit` of the same file, sent in one response, had mangled ("The file got mangled by a
+concurrent edit race"): Pi runs one response's calls at once unless one of them is
+sequential. It rewrote the function and finished; the game runs (`game-*.png`).
+
+Fixed: Dolly's `bash` and `edit` tools are `executionMode: "sequential"`, as `download` is,
+so a batch with either runs in the order the model wrote it. `demos/pi/test/pi-browser.mjs`'s
+scripted model now sends a command that writes a file and an edit of it in one response:
+on the old extension the edit ran first ("Could not edit file: /workspace/pi-order.txt.
+Error code: ENOENT.", Chromium, `r2-pi-browser-before.log`).
+
 ### The changes
 
 - **SDL2 renders in software in every session.** The driver (`SDL_dollyvideo.c`) sets

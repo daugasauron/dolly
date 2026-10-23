@@ -22,6 +22,11 @@ test("Janis IP classification matches Node for literals, compression, mapped add
     assert.equal(actual[name](value), net[name](value), `${name}(${JSON.stringify(value)})`);
 });
 
+test("enabling the compile cache reports that Janis has none", () => {
+  const module = janisContext().__janisBuiltin("module");
+  assert.equal(module.enableCompileCache().status, module.constants.compileCacheStatus.FAILED);
+});
+
 test("unsupported readline terminal operations fail explicitly", () => {
   const readline = janisContext().__janisBuiltin("readline");
   for (const name of ["emitKeypressEvents", "clearLine", "cursorTo", "moveCursor"])

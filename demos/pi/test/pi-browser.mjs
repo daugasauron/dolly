@@ -9,13 +9,15 @@ import { runFd, runRipgrep } from "../../rust/test/fixtures/rust-tools.mjs";
 
 const credential = "Bearer sandbox-placeholder";
 // The fixture model calls these tools, a response each, then answers. The last
-// response writes a file and downloads it at once, as models do.
+// two responses act on a file twice at once, as models do: a command writes it
+// and an edit changes it; a write and a download of it.
 const tools = [
   [["write", { path: "/workspace/pi-http-test.txt", content: "pi crossed Dolly's HTTP broker\n日本語😀\n" }]],
   [["edit", { path: "/workspace/pi-http-test.txt", edits: [{ oldText: "HTTP broker", newText: "HTTP broker via edit" }] }]],
   [["bash", { command: "seq 1 3000 | tee /workspace/pi-lines.txt; printf 'old\\377\\n' > /workspace/pi-latin1.txt" }]],
   [["read", { path: "/workspace/pi-lines.txt" }]],
   [["edit", { path: "/workspace/pi-latin1.txt", edits: [{ oldText: "old", newText: "new" }] }]],
+  [["bash", { command: "printf 'one\\n' > /workspace/pi-order.txt" }], ["edit", { path: "/workspace/pi-order.txt", edits: [{ oldText: "one", newText: "two" }] }]],
   [["write", { path: "/workspace/pi-download.txt", content: "DOLLY-PI-DOWNLOAD\n" }], ["download", { path: "pi-download.txt" }]],
 ];
 const finalRequest = tools.length + 1;
@@ -263,6 +265,7 @@ await demoTest("pi", { image: "pi-agent", timeout: 900_000, browser: process.env
     /Showing lines 1001-3000 of 3000\. Full output: \/tmp\/pi-bash-[0-9a-f]+\.log/,
     /Showing lines 1-2000 of 3001\. Use offset=2001 to continue/,
     /Successfully replaced 1 block\(s\) in \/workspace\/pi-latin1\.txt/,
+    /Successfully replaced 1 block\(s\) in \/workspace\/pi-order\.txt/,
   ].entries()) assert.match(results[index], expected, `Pi ${tools[index][0][0]} tool result`);
   const fullOutput = results[2].match(/\/tmp\/pi-bash-[0-9a-f]+\.log/)[0];
   const saved = page.waitForEvent("download");
@@ -276,5 +279,6 @@ await demoTest("pi", { image: "pi-agent", timeout: 900_000, browser: process.env
     "grep -q '日本語😀' /workspace/pi-http-test.txt",
     `cmp ${fullOutput} /workspace/pi-lines.txt`,
     "printf 'new\\377\\n' | cmp - /workspace/pi-latin1.txt",
+    "test \"$(cat /workspace/pi-order.txt)\" = two",
   ]) await run(command);
 });

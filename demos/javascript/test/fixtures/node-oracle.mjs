@@ -6,10 +6,11 @@ import crypto from "node:crypto";
 import EventEmitter from "node:events";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
-import { createRequire } from "node:module";
+import { constants as moduleConstants, createRequire, enableCompileCache } from "node:module";
 import { BlockList } from "node:net";
 import stream from "node:stream";
 import { text } from "node:stream/consumers";
+import { pathToFileURL } from "node:url";
 import streamPromises from "node:stream/promises";
 import util from "node:util";
 
@@ -62,8 +63,19 @@ export async function observe(root) {
   for (const name of ["node", "default"]) fs.writeFileSync(`${conditions}/${name}.cjs`, `module.exports = ${JSON.stringify(name)};`);
   fs.writeFileSync(`${conditions}/package.json`, JSON.stringify({ exports: {
     ".": { node: "./node.cjs", default: "./default.cjs" }, "./default-first": { default: "./default.cjs", node: "./node.cjs" } } }));
+  fs.mkdirSync(`${root}/require/main/lib`, { recursive: true });
+  fs.writeFileSync(`${root}/require/main/package.json`, JSON.stringify({ main: "lib/entry" }));
+  fs.writeFileSync(`${root}/require/main/lib/entry.js`, "module.exports = 'main';");
+  fs.writeFileSync(`${root}/require/main/index.js`, "module.exports = 'index';");
   const require = createRequire(`${root}/require/entry.cjs`);
-  cases.require = [require("./helper"), require("condition-order"), require("condition-order/default-first")];
+  cases.require = [require("./helper"), require("condition-order"), require("condition-order/default-first"),
+    require("./main"), require(`${root}/require/main`)];
+  // Bundles call it first thing (Pi's dist/bundle/cli.js); Janis has no cache to enable.
+  cases.compileCache = [typeof enableCompileCache, Object.entries(moduleConstants.compileCacheStatus)];
+  const url = pathToFileURL(file);
+  cases.fileUrl = [await outcome(() => fs.readFileSync(url, "utf8")), fs.existsSync(url), await outcome(() => fs.statSync(url).size),
+    await outcome(() => fsp.readFile(url, "utf8")),
+    await new Promise(resolve => fs.readFile(url, "utf8", (error, value) => resolve(error?.code ?? value)))];
 
   const elapsed = process.hrtime(process.hrtime());
   cases.clocks = [performance.now() >= 0 && performance.now() < 3600e3, elapsed[0] === 0 && elapsed[1] >= 0];

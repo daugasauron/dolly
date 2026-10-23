@@ -1,6 +1,6 @@
 # Janis: fs given a file URL object, and require of a directory, differ from Node
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: bug,javascript,0.1.4
 
@@ -23,3 +23,23 @@ janis -e 'console.log(require("/tmp/p"))'
   reads the directory's `package.json` `main` first. Bare specifiers already honour `main`.
 
 Done when both behave as in Node, with `node-oracle.mjs` cases that fail before the fix.
+
+## Fixed (2026-10-23, branch `demo/opus-audit-2`)
+
+- `fs`: the operations that take a path convert a `file:` URL object with
+  `fileURLToPath` (the first operand, and the second of `rename`, `copyFile`, `symlink` and
+  `link`), in one table over `janisFs`'s synchronous functions, which the callback and
+  promise forms call; `fs.promises.open` goes through it too.
+- `require` of a relative or absolute path tries the file and its extensions, then the
+  directory's `package.json` `main` (as a file, with `.js` or `.json`, or its `index.js`),
+  then the directory's `index.js`, as Node's LOAD_AS_DIRECTORY does.
+- `node-oracle.mjs`: `require("./main")` and `require(ROOT/require/main)` of a directory
+  whose `main` is `lib/entry` beside an `index.js`, and `readFileSync`, `existsSync`,
+  `statSync`, `fs.promises.readFile` and the callback `readFile` of a URL object. On the old
+  Janis (`build/opus-evidence/r2-janis-before.log`, Chromium): `require` gave
+  `["...","index","index"]` for Node's `"main","main"`, and every URL case `ENOENT` (`false`
+  for `existsSync`). After: `demos/javascript/test/javascript-browser.mjs` passes in
+  Chromium (29.9 s) and Firefox (48.9 s; a first Firefox launch died with SIGSEGV before
+  any page, `r2-janis-after-firefox.log`). It repins the Janis chain; rebuilt here:
+  `janis`, `typescript`, `pi-build`, `pi`, `pi-runtime`, `pi-agent`, whose
+  `demos/pi/test/pi-browser.mjs` passes in both browsers on the new Janis.

@@ -27,6 +27,30 @@ called `npm`. Done: 1 measured; 2 the package and its fixture-registry browser t
 with what step 2 found below (`enableCompileCache`, the `/v` regexes, the key mask), and
 `pi-dolly`. Janis's two path gaps are [their own task](../20261023-145214-janis-node-paths/TASK.md).
 
+## Step 5's blockers (2026-10-23 evening, branch `demo/opus-audit-2`)
+
+- **`enableCompileCache`**: Janis's `node:module` has it and `constants.compileCacheStatus`
+  (Node's four values); it returns `{ status: FAILED, message: "Janis has no compile cache" }`,
+  since Janis compiles each module as it loads it: an unimplemented operation does not report
+  success. Pi 1.0.3's `dist/bundle/cli.js` imports it by name and calls it on its second
+  line. A `node-oracle.mjs` case imports it (the whole oracle failed to link before) and a
+  source test checks the status. Verified with the Janis chain rebuilt: the javascript test
+  in Chromium and Firefox, `pi-browser.mjs` in both.
+- **The `/v` regexes**: the published bundle builds six with `new RegExp(..., "v")`, not the
+  literals `pi-quickjs-compat.mjs` lowers (`\p{Default_Ignorable_Code_Point}`, set
+  subtraction, `\p{RGI_Emoji}`). Measured natively (`build/opus-evidence/qjs/`, `qjs`
+  built with upstream's CMake; every code point and seven sequences against Node 22):
+  QuickJS-ng 0.15.0, the pinned one, refuses one ("invalid class range") and matches nothing
+  or almost nothing with the other five; **0.17.0 gives Node's answer for all six**. So the
+  fix is the upgrade of the `quickjs` pin to 0.17.0, which also retires
+  `pi-quickjs-compat.mjs`; it rebuilds the QuickJS and Janis chains.
+- **The key mask**: Pi 1.4.0 (npm `latest`, 2026-10-23) still has no `mask` or `secret` in
+  `pi-tui`'s `input.js` or the login dialog, so with Pi as published a key typed at
+  `/login` shows in clear. For the owner: patch the published files at install, or read keys
+  as `closed-source-agent` does (`secretenv`, then `ANTHROPIC_API_KEY` and the like).
+- `janis-install` is on `core/npm-packages`, not on this branch (cut before the merge, on
+  the old seed), so Pi from pinned tarballs is built after the round, on the merged tree.
+
 ## Step 1, measured (2026-10-23)
 
 In a `default` session after `amy install janis sbase gzip`, tarballs fetched with `curl`
