@@ -1,6 +1,6 @@
 # CJK text and emoji are boxes in the terminal: its font has no glyphs for them
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 90
 - TAGS: core,display,terminal,0.1.4
 
@@ -10,11 +10,12 @@ Done when: it is measured what a font with those glyphs costs (bytes in every
 image that draws a terminal, or a file fetched once) and the owner has said
 whether the terminal gets one; or the limit is in `docs/display.md`.
 
-## State (2026-10-23): fallback fonts on `core/terminal`, the owner's to accept
+## Closed (2026-10-23, `da393e43`)
 
-Built and measured in `da393e43`; what is left is the owner's yes to the
-budget below, or a no, which reverts the two fonts and their rows. Then
-close.
+Integrator's decision 2026-10-23: the fallback fonts stay. "4.35 MB in
+memory, 2.2 MB compressed, downloaded once, is a fair price for a terminal
+that agents fill with emoji and CJK." The done-when holds: the cost is
+measured below and the decision is made.
 
 - What draws: the display library tries IosevkaTerm first, then Droid Sans
   Fallback (CJK unified ideographs 20,902 of the basic block's 20,992, kana
