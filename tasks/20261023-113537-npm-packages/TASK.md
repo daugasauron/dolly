@@ -11,7 +11,16 @@ on the minimal default image and ghostty etc to get the terminal."
 Done when the plan is in `plan.md` here, read by the owner, and the steps he accepts are
 tasks of their own.
 
-## State (2026-10-23): a Fable agent writes the plan
+## State (2026-10-23, 12:00): planned, the owner's to read
 
-Read-only planning on `main` `0f9fff84` (v0.1.3 released); measurements on the fully built
-tree `work/x11fix`.
+[plan.md](plan.md), by a read-only Fable agent (the owner then dropped versioning and
+bundlers from its brief). Spot-checked: `dolly` on npm is taken (0.0.3, 2022), the kernel
+is 216,588 B and the seed 107,907,302 B, and the cited lines of `src/static-asset.mjs`,
+`host/display/kernel.c`, `src/dolly.c` and `src/image-artifact.mjs` say what the plan says.
+
+In short: `@slopshare/dolly` (kernel, process runtime, all host-module providers, page code,
+no image, about 266 KB compressed) and `@slopshare/dolly-default` (the `default` image's
+packs, metadata and recipes, 4.9 MB compressed, Ghostty's plugin and font 59% of it), cut
+from a sealed release at checkout paths; `boot(element, { image, hostModules, http })`; the
+consumer serves both directories with COOP/COEP. Seven steps, none rebuilds an image. The
+npm scope `slopshare` is the owner's to create.
