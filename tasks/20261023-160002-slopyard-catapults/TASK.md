@@ -1,6 +1,6 @@
 # Slopyard: the slingshot catapults do not work as they should
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 170
 - TAGS: game,combat,slopyard,0.1.4
 
@@ -302,11 +302,24 @@ a machine is in contact with).
 In `t13` the Red round held Kurogane West down at 2.9 m and let go at 174 s; the Blue round
 brought Kurogane East onto the ground (its underside at -0.3 m) at 217 s.
 
-These sources (`t13` and the tug's 2.5 m fold) are the commit after `a2b8fb60`. Their 17 fixtures
+These sources (`t13` and the tug's 2.5 m fold) are `d6c8062c`. Their 17 fixtures
 pass headless, and `slopyard-browser.mjs` passes on the GPU display (Chromium, `:152`). A
 screenshot of a capture on the GPU display, the world saved at 214 s (evidence
 `shot/out-final/capture-1.png`): the Blue tug's fork holds the handle, and Kurogane East sits on
 the ground under the Blue round.
+
+### Closed 2026-10-24 (`d6c8062c`)
+
+The fresh catalog for 2,400 s on `d6c8062c` (headless; `audit-final2`, `sling-final2` in the
+evidence): both tether rounds thrown (82.7 s and 84.6 s), both hit their target, both brought
+it down (Red held Kurogane West down and let go at 174 s, Blue landed Kurogane East at 217 s):
+hits 2 of 2 shots, brought down 2 of 2 hits, against no tether round thrown before
+(`e936ac95`). 30 shots from all guns (23 at `c962100e`, 15 before), no misload by a Tengu and
+no round off an arm; 40 deliveries (East 23, West 24) against 45 at `c962100e` and 36 before:
+the two runs agree to 1,500 s (29 and 28) and part after; no removals or controller errors,
+one fall (Komame, the roaming lookout, 422 s; at `c962100e` Kitsune the dock raider). Neither
+round was thrown a second time: reusing a returned round, the open point of the history,
+stays with the living-world task.
 
 The final sources (`c962100e`, pinned `94960664`) were measured in `sling-t3`/`audit-t3`
 (headless, 2,400 s): 45 deliveries (East 25, West 27), 23 shots, every gun fired at least

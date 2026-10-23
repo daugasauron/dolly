@@ -2,7 +2,27 @@
 
 - STATUS: OPEN
 - PRIORITY: 50
-- TAGS: game,controllers,cargo,combat
+- TAGS: game,controllers,cargo,combat,0.1.4
+
+## State (2026-10-24, the games-and-packages workstream)
+
+Measured again on `d6c8062c` (the catapult and tether work of
+[the catapult task](../20261023-160002-slopyard-catapults/TASK.md)), fresh catalog, 2,400 s,
+headless (the same Wasm simulation as on a GPU display, which the catapult task checked line for
+line): 40 deliveries (East 23, West 24), 183 actors, no removals or controller errors, one fall
+(Komame, the roaming lookout, 422 s). The catapult work's own audit at `c962100e` counted 45, the
+fresh catalog before it 36; Box3D and the guns changed since the table below.
+
+Against the open problems below, on this run:
+
+- Foundry freight chain: unchanged. The tandem-mast hauler took one pallet and stands in `clear`
+  at (-41.2, 57.9) for 2,023 s, the ore lift waits in `unload`, the quay crane in `seek`.
+- Oreki: four handoffs, no loaded wait longer than 353 s; no deadlock with Tonbi West.
+- Guns: all eight fire (30 shots); both tether rounds are thrown, hit and bring their machine
+  down; neither is thrown a second time. Reusing a returned round stays open here.
+- Idle capacity: the Kanagu tugs each haul once (the tether rounds); both Tsuru rescuers and both
+  Kurogane collectors still never grip. Akane, the East crane boat, grips once.
+- Benkei West moves 374 m (58 m on 2026-10-06); Kitsune West 125 m (38 m).
 
 ## State (2026-10-13)
 
