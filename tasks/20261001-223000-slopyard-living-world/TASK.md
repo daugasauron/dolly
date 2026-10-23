@@ -19,7 +19,12 @@ Against the open problems below, on this run:
   at (-41.2, 57.9) for 2,023 s, the ore lift waits in `unload`, the quay crane in `seek`.
 - Oreki: four handoffs, no loaded wait longer than 353 s; no deadlock with Tonbi West.
 - Guns: all eight fire (30 shots); both tether rounds are thrown, hit and bring their machine
-  down; neither is thrown a second time. Reusing a returned round stays open here.
+  down; neither is thrown a second time. Why, traced on the same sources: the Red tug carries its
+  spent round to its own drop-off by its home and leaves it at (35.2, -50.0) at 250 s, out of
+  the Koban loader's reach (x 47 to 56, z -26 to -23). Its bay in the stock row, (55, -25), is
+  dropped by `kanagu-cable-tug.lua`'s returning step because it lies within 2.5 m of anchored
+  machines (the loader, the gun). Next: a drop point the tug can reach and the loader's head can
+  take from, then measure a second throw.
 - Idle capacity: the Kanagu tugs each haul once (the tether rounds); both Tsuru rescuers and both
   Kurogane collectors still never grip. Akane, the East crane boat, grips once.
 - Benkei West moves 374 m (58 m on 2026-10-06); Kitsune West 125 m (38 m).
