@@ -53,7 +53,9 @@ return function(t,s,m)
         local recovery=s.combat and math.abs(c.x-s.combat.x)<s.combat.halfX+4 and math.abs(c.z-s.combat.z)<s.combat.halfZ and hypot(c.vx,c.vy,c.vz)<1.5
         local score=d<8 and d or 1000+hypot(c.x-s.x,c.z-s.z)
         if c.cargo and c.team==s.team and c.supply==0 and c.mass<capacity and c.carriedBy==0 and not claims[c.id]
-          and (d<8 or recovery or m.failed[c.id]) and score<distance and (m.failed[c.id] or 0)<t then box=c;distance=score end
+          and (d<8 or recovery or m.failed[c.id]) and score<distance and (m.failed[c.id] or 0)<t
+          -- A tether round belongs to the ground batteries, whose cable tugs fetch it back.
+          and #s.parts(c.id)==1 then box=c;distance=score end
       end
       if box then m.job=box.id;m.bay=bay;phase('approach') end
     end

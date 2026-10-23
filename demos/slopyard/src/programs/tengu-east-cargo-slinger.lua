@@ -282,7 +282,9 @@ return function(t, s, m)
         local radius = (hypot(((head).x - (arm).x), ((head).y - (arm).y), ((head).z - (arm).z)) + 1);
         local range = hypot(((target).x - (s).x), ((target).z - (s).z));
         local height = ((target).y - at(at((s).positions, (arm).i), 1));
-        rate = math.min(((arm).speed * 0.7), math.sqrt(math.max(0, (((((head).force / (box).mass) - G) * 0.8) / radius))), math.max(2, ((1.8 * math.sqrt((G * (height + hypot(height, range))))) / radius)));
+        -- A round of several parts swings on its joints: it spins with a wider margin under the magnet's hold.
+        local margin = #s.parts(box.id) > 1 and 0.5 or 0.8;
+        rate = math.min(((arm).speed * 0.7), math.sqrt(math.max(0, (((((head).force / (box).mass) - G) * margin) / radius))), math.max(2, ((1.8 * math.sqrt((G * (height + hypot(height, range))))) / radius)));
         yaw = (math.atan((((target).x + ((target).vx * 2)) - at(at((s).positions, (arm).i), 0)), (((target).z + ((target).vz * 2)) - at(at((s).positions, (arm).i), 2))) + (function() local value = (m).bias; if active(value) then return value else return 0 end end)());
         if math.abs(wrap(yaw-s.angles[bearing.i+1]))>.2 or math.abs(s.rates[bearing.i+1])>.2 then rate=0 end
         local best = math.huge;

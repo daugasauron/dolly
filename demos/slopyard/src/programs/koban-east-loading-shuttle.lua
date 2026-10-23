@@ -72,7 +72,9 @@ return function(t, s, m)
       do return {} end
     end
     (m).station = (station).id;
-    (m).dock = {((station).x - (3 * sx)), ((station).y + 2), (station).z};
+    -- The round is handed over 2 m above the gun's loading pedestal (a vertical piston) at rest.
+    local pedestal = find(s.parts(station.id), function(p) return p.joint == 2 and math.abs(p.axisY) > .8 end);
+    (m).dock = {((station).x - (3 * sx)), (pedestal and pedestal.y - pedestal.angle or station.y) + 2, (station).z};
     (m).jobs = 0;
     (m).readyAt = (-1);
     phase("idle");

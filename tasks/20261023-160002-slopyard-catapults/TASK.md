@@ -251,9 +251,62 @@ arm and the Red Tengu threw 9 boxes, but no tether round was thrown: the standin
 were knocked off their places in the stock row (found 4 to 7 m from it) and the Blue
 Tengu misloaded a box that lay beside the raised pedestal. 34 deliveries.
 
-Left for the tether round, in this order: keep the raised Tengus; make the standing round
-stay put in its row (or stock it lying down and stand it up on the pedestal); then measure
-launches, captures and grounded releases again. The catapults themselves work.
+### 2026-10-24: launched, held and brought down
+
+Each step measured headless on the fresh catalog for 900 s with the sling audit, and with three
+probes in the evidence (`stock/stock-watch.c`: who moves a tether round that nobody holds;
+`haul.c`: the line, its pull, the magnets' load and the held machine's height; `touch.c`: what
+a machine is in contact with).
+
+- The stock. With the raised Tengus (`t5`) the standing rounds were pushed out of the stock row
+  by the Koban loader within 23 s: its head grips a box by the face away from the gun, 1.06 m
+  beyond the box's centre, and the round stood 2 m from the box, so the head came down on it.
+  Lying rounds (`t6`) were pushed the same way, and the head then landed on the winch block;
+  spacing the two rounds 2.5 m apart (`t7`) still had the lifted round swing into the other.
+  Now one tether round per ground battery, as before the catapult work, at the far end of the
+  row (x = ±55, ammunition at ±50 and ±52.5), where nothing lies beyond it in the head's path:
+  both rounds are loaded at 27 s (`t8`).
+- Flying off. On the raised Tengus no round struck the base; one tore off without a contact
+  (`t7`): the arm's magnet (100 N) holds the round by its root while the winch block swings
+  out on its line. A round of several parts now spins with a margin of 0.5 under the magnet's
+  hold instead of 0.8 (`tengu-east-cargo-slinger.lua`). No round has flown off since.
+- The haul. The winch reeled in with at most 15 N: its speed servo reckoned with the two light
+  bodies it joins, not with what pulls on them, and the collector pulled up with 40 N on the
+  round's magnet, so the line shortened only when the machine dipped (`t8`: from 14.5 m to
+  9.6 m in 180 s). A winch now reels in with Box3D's distance-joint motor at its speed and with
+  up to its force (`character.c`), keeping what it took in. At the full 100 N and 6 m/s the Red
+  round tore off its collector (`t9`); the round's winch force is now 60 N, under its magnets'
+  100 N, and it hauls at a third of its speed (`t10`: down from 14.5 m to 2.0 m in 15 s).
+- Held down. With the handle in the tug's fork and the line all in, the machine's underside
+  comes no lower than about 2 m, so the old test (resting on the ground) was never met. The
+  round counts it brought down when the tug has the handle, the line is in and the underside is
+  within 3.5 m of the ground, holds it there 20 s and lets go; a machine that rests on the
+  ground is let go after 2 s, as before.
+- The tug. Its fork turned toward a handle the machine dragged and never settled within
+  0.08 rad: it takes it within 0.4 rad after 8 s and drives up again after 20 s. A fork that
+  comes no closer to the handle in 15 s backs off and tries again: the Blue tug sat on an air
+  parcel against the Red tug for the rest of the haul (`t10` to `t12`). It takes a round whose
+  line is folded to 2.5 m: the motor folds the line against the fork at 2.19 m, which left the
+  tug waiting for 2 m (`slopyard-tether-lifecycle.c` failed with the motor, passes).
+- Rejected (`t11`): counting slow machines among a tug's obstacles. The Blue tug circled its
+  handle beside the Red tug instead.
+
+| 900 s, fresh catalog | Tether shots | Hits | Brought down | Let go aloft | Off the arm | Shots, all guns | Deliveries |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `c962100e` (`sling-t3`) | 0 | 0 | 0 | 0 | 2 | 9 | 17 |
+| one round per battery, gentler spin (`t8`) | 2 | 2 | 0 | 2 | 0 | 15 | 16 |
+| the winch motor at 100 N (`t9`) | 2 | 2 | 1 | 0, one torn off | 0 | 12 | 19 |
+| the haul at 60 N (`t10`) | 2 | 2 | 0, Red held at 2.0 m | 2 | 0 | 17 | 17 |
+| held down counts, the tug backs off (`t13`) | 2 | 2 | 2 | 0 | 0 | 20 | 17 |
+
+In `t13` the Red round held Kurogane West down at 2.9 m and let go at 174 s; the Blue round
+brought Kurogane East onto the ground (its underside at -0.3 m) at 217 s.
+
+These sources (`t13` and the tug's 2.5 m fold) are the commit after `a2b8fb60`. Their 17 fixtures
+pass headless, and `slopyard-browser.mjs` passes on the GPU display (Chromium, `:152`). A
+screenshot of a capture on the GPU display, the world saved at 214 s (evidence
+`shot/out-final/capture-1.png`): the Blue tug's fork holds the handle, and Kurogane East sits on
+the ground under the Blue round.
 
 The final sources (`c962100e`, pinned `94960664`) were measured in `sling-t3`/`audit-t3`
 (headless, 2,400 s): 45 deliveries (East 25, West 27), 23 shots, every gun fired at least

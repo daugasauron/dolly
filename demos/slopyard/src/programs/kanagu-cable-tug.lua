@@ -130,7 +130,8 @@ return function(t,s,m)
         if m.phase~='haul' then m.heading=yaw;m.begin={s.x,s.z};phase('haul') end
         throttle=-.3;turn=clamp(1.2*wrap(m.heading-yaw)-.5*s.gyroscope[2],.6)
         if hypot(s.x-m.begin[1],s.z-m.begin[2])>10 then throttle=0 end
-      elseif cable.angle>2 then phase('recover')
+      -- The round folds its line as far as the fork lets it: up to 2.5 m.
+      elseif cable.angle>2.5 then phase('recover')
       else
         if m.phase~='returning' then m.returnHome=m.stock[job.id]~=nil;phase('returning') end
         local bay=m.stock[job.id]
@@ -155,6 +156,11 @@ return function(t,s,m)
     else
       local reach=hypot(tip[1]-s.x,tip[3]-s.z)+1.05
       if m.phase~='approach' and m.phase~='align' and m.phase~='pickup' then phase('approach') end
+      -- A fork that comes no closer to the handle in 15 s is wedged on cargo or against another
+      -- machine, or chasing a handle that drags away: back off and try again.
+      local gap=hypot(handle.x-tip[1],handle.z-tip[3])
+      if not m.closest or gap<m.closest[1]-.5 then m.closest={gap,t} end
+      if t-m.closest[2]>15 then m.closest=nil;phase('clear') end
       if m.phase=='approach' then
         if drive(handle.x,handle.z,reach,.9)<reach+4 then phase(math.abs(wrap(math.atan(handle.x-s.x,handle.z-s.z)-yaw))>.25 and 'align' or 'pickup') end
       elseif m.phase=='align' then
@@ -162,7 +168,9 @@ return function(t,s,m)
         m.alignGear=m.alignGear or (math.abs(error)>math.pi/2 and 1 or -1)
         local want=math.abs(error)>.08 and .35*m.alignGear or 0
         throttle=clamp(.35*want+.7*(want-s.localVelocity[3]),.4);turn=clamp(1.5*error-.5*s.gyroscope[2],.6)
-        if math.abs(error)<.08 and math.abs(s.gyroscope[2])<.12 then phase('pickup') end
+        -- A handle a flying machine drags keeps moving: after 8 s the fork takes it within 0.4 rad, and after 20 s the tug drives up to it again.
+        if math.abs(error)<.08 and math.abs(s.gyroscope[2])<.12 or t-m.at>8 and math.abs(error)<.4 then phase('pickup')
+        elseif t-m.at>20 then phase('approach') end
       else
         local dx,dz=handle.x-tip[1],handle.z-tip[3];local forward=dx*math.sin(yaw)+dz*math.cos(yaw)
         local error=math.atan(dx*math.cos(yaw)-dz*math.sin(yaw),math.max(1,forward))

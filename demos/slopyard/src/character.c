@@ -340,19 +340,14 @@ void physics_motor(Physics *p,const Character *c,const unsigned char keys[128]) 
 }
 static void winch_drive(PhysicsPart *part,Block block,float control){
     part->winch_pull=0;if(!b3Joint_IsValid(part->joint))return;
-    b3BodyId a=b3Joint_GetBodyA(part->joint),b=b3Joint_GetBodyB(part->joint);
-    b3Pos from=b3Body_GetWorldPoint(a,b3Joint_GetLocalFrameA(part->joint).p),to=b3Body_GetWorldPoint(b,b3Joint_GetLocalFrameB(part->joint).p);
-    b3Vec3 delta=b3SubPos(to,from);float distance=b3Length(delta),length=part->winch_length;
+    float distance=b3DistanceJoint_GetCurrentLength(part->joint),length=part->winch_length;
     if(control>0)length=fminf(block.travel,length+control*block.speed/60);
-    if(control<0){
-        length=fminf(length,fmaxf(1,fmaxf(distance,length+control*block.speed/60)));
-        if(distance>length-.02f&&distance>.001f){
-            b3Vec3 axis=b3MulSV(1/distance,delta),velocity=b3Sub(b3Body_GetWorldPointVelocity(b,to),b3Body_GetWorldPointVelocity(a,from));
-            float ma=b3Body_GetMass(a),mb=b3Body_GetMass(b),mass=ma>0&&mb>0?ma*mb/(ma+mb):fmaxf(ma,mb);
-            part->winch_pull=fminf(block.force,fmaxf(0,mass*(b3Dot(velocity,axis)-control*block.speed)/(.05f+1.f/60)));
-            b3Vec3 force=b3MulSV(part->winch_pull,axis);b3Body_ApplyForce(a,force,from,true);b3Body_ApplyForce(b,b3Neg(force),to,true);
-        }
-    }
+    // Reeling in, the motor shortens the line at the winch's speed with up to its force, and
+    // the line keeps every metre it took in: whatever pulls on its end meets the motor.
+    int reeling=control<0&&distance>1;
+    if(control<0)length=fminf(length,fmaxf(1,distance));
+    b3DistanceJoint_EnableMotor(part->joint,reeling);
+    if(reeling){b3DistanceJoint_SetMotorSpeed(part->joint,control*block.speed);b3DistanceJoint_SetMaxMotorForce(part->joint,block.force);}
     if(length!=part->winch_length){part->winch_length=length;b3DistanceJoint_SetLengthRange(part->joint,.005f,length);}
 }
 void physics_drive(Physics *p,const Character *c,const float controls[128]) {
