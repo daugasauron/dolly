@@ -96,3 +96,44 @@ the only LFM2.5 in the catalog.
 Builds with the fixed builder (`DOLLY_IMAGE_JOBS=1`, one image each, 9 GB slot), all with
 provisional `gpu` figures until the measurements below: `qwen3.8-2b` 1,312,291,228 B
 (6.3 GB peak), `lfm2.5` 1,674,580,645 B (8.6 GB), `qwen3.5-4b` both quants (above).
+
+### Measured in Dolly: Chrome 151, f32 shaders, RTX 5070 (15:03-16:30)
+
+`build/models-evidence/measure.mjs` in `pi-local` on a private Xvfb display, under the GPU
+lock: the GGUF and a description are fetched into `/usr/share/dolly/llm` with `curl` from
+the test server (a model not bundled), then `perf.mjs` (Janis: `dolly-llama` at 16,384
+tokens, a 3,593-token prompt, 384 generated tokens, a next turn that reuses it) and the
+tasks in `tasks.mjs`, each a fresh `pi --provider webgpu --model ID --mode json -p` with
+`pi-local`'s settings (thinking off). GPU MiB is the browser's processes in `nvidia-smi`,
+sampled every 0.5 s. The tasks: the loop task of the GPU test (list, write `hello.c`,
+compile, run, report), and the four of `20261005-215557-local-models`, rewritten
+(that harness is gone): fix a division by zero in C and rebuild, give a definition as
+`path:line`, write and build FizzBuzz, edit two fields of a JSON file. Each check runs
+in Dolly on the files and the answer.
+
+| Model | GPU MiB | Prefill tokens/s | Tokens/s | Next turn | Tasks | Loop | Four tasks | Tool errors |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Qwen3.5-2B Q4_K_M (bundled) | 2,239 | 690 | 76 | 0.69 s | 9 of 13 | 5/5 | 4/8 | 6 |
+| Qwen3.5-4B Q3_K_S | 3,744 | 292 | 32.7 | 1.69 s | 10 of 12 | 4/4 | 6/8 | 15 |
+| Qwen3.8-2B-Distill Q4_K_M | 2,175 | 728 | 75 | 0.69 s | 0 of 12 | 0/4 | 0/8 | 0 |
+| LFM2.5-2.6B Q4_K_M | 3,338 | 442 | 69.5 | 0.28 s | 9 of 12 | 1/4 | 8/8 | 23 |
+| Qwen3.5-4B UD-IQ3_XXS | – | – | – | – | 0 of 12 | – | – | – |
+
+- **Qwen3.5-4B UD-IQ3_XXS does not run with f32 shaders**: "this shader stores f16 in a
+  buffer and needs shader-f16, which the adapter lacks" at its first token (its 48 F16
+  tensors). So the package is **Q3_K_S**, which runs on both kinds; the 4B solves more
+  (fails: an answer of the literal `path:line`, a FizzBuzz printing 15) at less than
+  half the 2B's speed.
+- **Qwen3.8-2B-Distill calls no tool** with thinking off: it writes the whole session as
+  prose, a listing, the program and its "output" (`runs/chromium-qwen3.8-2b-*`). Worse
+  than the 2B on every task: not packaged (thinking on: below).
+- **LFM2.5-2.6B runs on WebGPU with its ops on the GPU**: 31 of 31 layers offloaded, the
+  KV cache of its 8 attention layers (512 MiB at f32) and the 30 short-convolution
+  states (0.34 MiB) in WebGPU buffers, `graph splits = 2` as for the Qwen models (the
+  token embedding is on the CPU for all of them). Its tool calls parse (Pythonic calls,
+  llama.cpp's LFM2.5 parser); it always reasons, 100-1,450 tokens a turn. It failed the
+  loop task three times out of four the same way: `hello.c` begins with
+  `# Include standard I/O`, and it blames the compiler. Its GPU memory once read 4,931 MiB
+  inside a task (an engine restarted while the previous one's memory was still held).
+- The 2B's misses: `src:parse` and "line 14" for `path:line`, a FizzBuzz printing the
+  numbers too, `server.debug` set instead of `debug`.
