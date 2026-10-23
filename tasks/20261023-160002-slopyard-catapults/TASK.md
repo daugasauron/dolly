@@ -149,6 +149,35 @@ arm loads upside down (13 misloads in 600 s, pole 11 m above the round). Ground 
 at x = ±40 or ±46 without their trucks and tugs: the trucks' bays stay where they were and
 the tugs park in the arm's sweep or push against the gun (134 s at 413 N).
 
+## After: the fresh catalog at `4987c4a6`, 2,400 s
+
+On the GPU display (`audit-gpu-final`, `sling-gpu-final`) and headless (`audit-final`): the
+two audits print the same lines, so the simulation does not depend on the display and the
+shorter probes since were run headless.
+
+| Gun | Shots before | Shots after | Held a round unfired, after | Enemy aircraft in sight, after |
+| --- | ---: | ---: | ---: | ---: |
+| Tengu / Red (44, -24) | 3 | 4 | 1,599 s | 286 s |
+| Tengu / Blue (-44, -24) | 3 | 6 | 92 s | 1,458 s |
+| Hosen / Red (44, 24) | 5 | 3 | 426 s | 135 s |
+| Hosen / Blue (-44, 24) | 0 | 0 | 1,479 s | 25 s |
+| Hayate roof sling / Red (47, 16.5, -72) | 1 | 2 | 1,359 s | 66 s |
+| Hayate roof sling / Blue (-40, 16.5, -72) | 3 | 7 | 65 s | 93 s, and 1,661 s below the old floor rule |
+| Yagura roof battery / Red (47, 16.5, 72) | 0 | 0 | 2,367 s | 0 s |
+| Yagura roof battery / Blue (-40, 16.5, 72) | 0 | 2 | 254 s | 41 s |
+
+- 24 shots instead of 15; five rounds touched their target (before: two), one touched a
+  teammate (6 N). No misloads; one round flew off a spinning arm per Tengu side at most.
+  Loader contact at most 6.6 s per gun (before: 36 s at the Red Tengu).
+- The guns that still hold rounds see no enemy: the Red Yagura battery none in 2,400 s, the
+  Blue Hosen 25 s. Blue's aircraft rarely come to Red's northern flank, and Red's to Blue's
+  Hosen. The Red decks end at x = 44: the Red roof guns sit 7 m further back than Blue's.
+- Deliveries fell to 25 (East 8, West 24): from 520 s the three Red couriers stacked over
+  the East island goal. One had lowered its core onto the courier departing below it, which
+  then hovered 0.2 m short of cruise height in 'depart' for good while the other two waited
+  above it. `6075f560` lets a departing courier leave after 10 s; the same fresh world then
+  scores East 13, West 17 by 1,200 s, as before the stations moved.
+
 ## The tether round (Kusari)
 
 The four-part round: a root block, two magnets either side of it and a winch block on a
