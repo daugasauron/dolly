@@ -12,6 +12,18 @@ with its own renderer, running on Dolly's X server.
 Done when `ghostty` opens a window on Dolly's X server and a shell runs in it,
 with a browser test.
 
+## Rebuilt (2026-10-24): ghostty-gtk takes hugebuild
+
+`ghostty-gtk` needs more than 9 GB: in `slot.sh build` (6G) and once in
+`bigbuild` (9G) Ghostty's `zig build` was OOM-killed; another 9G run
+reached the link. In `hugebuild` the scope's `memory.peak` was 14,233,214,976 B
+(page cache included), 571 s; `ghostty-x11` 6,348,460,032 B. At the link
+cc's spawn of `wasm-opt` came with 5,039,915,008 B of Wasm committed, over
+the 4 GiB spawn budget, which refused it before `4615f478` (cc had no live
+child, so it is admitted now). `ghostty-x11-browser.mjs` passed in Chromium
+(5.8 s) and Firefox (16.5 s) in `work/runtime`, Zig linked through
+llvm-config (`ca617745`).
+
 ## Closed (2026-10-16, 05:30)
 
 Built in a round and tested: `mesa-build`, `ghostty-gtk` (a package) and
