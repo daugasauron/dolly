@@ -52,3 +52,8 @@ Done when: both messages say what the file is, with cases that fail on the old t
 Again in round 4 (`r4-rust2/`): unpacking crates, `tar -xzf X.crate` printed the usage line
 (no `-z`), then `tar -xf X.crate` (gzip data) printed "tar: parse header at <header> (errno
 28)" and "Invalid argument": two of the session's four failed calls.
+`9486fbb0` fixed the second; `38035ba1` (2026-10-24) the first: core tar still has no
+`-z`, and given one it prints `tar: -z is not supported here: gzip -dc FILE | tar -xf - (amy
+install gzip, where gzip is missing; amy install tar gives a tar with -z)` and exits 1;
+`test/core-browser.mjs` checks four forms, which the old tar answered with its usage line,
+in Chromium and Firefox.
