@@ -7,7 +7,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const quote = text => "'" + text.replace(/\n/g, " ").replace(/'/g, "'\\''") + "'";
 
 // With relayFile the agent runs live through a local Codex relay instead of the fixture.
-export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input, download, projectDir, relayFile, selectFile, fixture }) {
+export async function runClassiCubeAgentProof({ send, evaluate, wait, key, snapshot: snapshotDisplay, input, download, projectDir, relayFile, selectFile, fixture }) {
   const live = !!relayFile;
   await wait("document.documentElement?.dataset.dollyStatus", value => value === "ready", "world boot");
   await wait("__dolly.graphicsActive", Boolean, "world display before sign-in");
@@ -108,7 +108,8 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
     // The game and viewer are separate workers; a filesystem snapshot can lead the painted frame.
     for(let n=0;n<12;n++) {
       const s=await state(s=>s.frame>0,'world framebuffer'); expected=s.pixels;
-      actual=await evaluate(`(() => {const c=document.querySelector('#display'),g=c.getContext('2d');
+      await snapshotDisplay();
+      actual=await evaluate(`(() => {const g=displaySnapshot.getContext('2d');
         return [[600,20],[600,460],[20,460],[320,438]].map(([x,y])=>Array.from(g.getImageData(Math.floor((x+.5)*${docked?880:1280}/640),${docked?150:0}+Math.floor((y+.5)*${docked?660:960}/480),1,1).data).slice(0,3));})()`);
       if(JSON.stringify(actual)===JSON.stringify(expected)) break;
       await delay(200);
@@ -180,7 +181,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   assert.equal((await probe()).config.model,'','empty search cannot select an invisible model');
   await click(1035,248); await delay(150);
   if(models.length>10) {
-  const region=()=>evaluate(`(() => {const c=document.querySelector('#display'),d=c.getContext('2d').getImageData(190,292,892,480).data;let h=2166136261;for(const b of d)h=Math.imul(h^b,16777619);return h>>>0;})()`);
+  const region=async()=>(await snapshotDisplay(),evaluate(`(() => {const d=displaySnapshot.getContext('2d').getImageData(190,292,892,480).data;let h=2166136261;for(const b of d)h=Math.imul(h^b,16777619);return h>>>0;})()`));
   const initial=await region();
   const wheel=await evaluate("(() => {const r=document.querySelector('#display').getBoundingClientRect();return {x:r.x+r.width*600/1280,y:r.y+r.height*500/960};})()");
   await send('Input.dispatchMouseEvent',{type:'mouseWheel',...wheel,deltaX:0,deltaY:180}); await delay(200);
