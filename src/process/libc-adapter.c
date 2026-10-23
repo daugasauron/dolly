@@ -27,7 +27,6 @@
 #include <sys/shm.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
-#include <sys/times.h>
 #include <sys/utsname.h>
 #include <termios.h>
 #include <time.h>
@@ -393,10 +392,10 @@ __wasi_errno_t __wasi_fd_write(__wasi_fd_t descriptor,
   return 0;
 }
 
-/* Dolly does not account CPU time. clock(), CLOCK_PROCESS_CPUTIME_ID,
- * getrusage and times report the monotonic time since the process started as
- * its user time: an upper bound of its CPU time, exact while it computes
- * without blocking. Its system time and its children's times are zero. */
+/* Dolly does not account CPU time. clock(), CLOCK_PROCESS_CPUTIME_ID and
+ * getrusage report the monotonic time since the process started as its user
+ * time: an upper bound of its CPU time, exact while it computes without
+ * blocking. Its system time and its children's times are zero. */
 static __wasi_timestamp_t process_started;
 
 __wasi_errno_t __wasi_clock_time_get(__wasi_clockid_t clock_id,
@@ -430,16 +429,6 @@ int getrusage(int who, struct rusage *usage) {
   if (who != RUSAGE_CHILDREN && clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &used) != 0) return -1;
   *usage = (struct rusage){.ru_utime = {used.tv_sec, used.tv_nsec / 1000}};
   return 0;
-}
-
-clock_t times(struct tms *used) {
-  struct timespec process, now;
-  if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &process) != 0 || clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
-    return (clock_t)-1;
-  }
-  const long ticks = sysconf(_SC_CLK_TCK), tick_nanoseconds = 1000000000L / ticks;
-  *used = (struct tms){.tms_utime = process.tv_sec * ticks + process.tv_nsec / tick_nanoseconds};
-  return (clock_t)(now.tv_sec * ticks + now.tv_nsec / tick_nanoseconds);
 }
 
 __wasi_errno_t __wasi_clock_res_get(__wasi_clockid_t clock_id,
