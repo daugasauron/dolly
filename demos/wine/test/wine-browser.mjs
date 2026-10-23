@@ -511,7 +511,7 @@ async function site(page, prompt, start, waitText, server) {
   await startMenu("s");
   await until(async () => (await coloured(page, dark)).count > 200_000, "the site's landing page as the home page");
   await page.screenshot({ path: `${evidence}netsurf-home.png` });
-  await click(page, 95, 548);                 // "Licences and sources", the first of the row of links under IMAGES
+  await click(page, 95, 459);                 // "Licences and sources", the first of the row of links under IMAGES
   await delay(2500);
   await click(page, 18, 58);                  // Back
   await delay(2000);
@@ -608,6 +608,8 @@ async function run(page, prompt, start, waitText) {
     return count;
   }, [75 * index, counted ?? desktop, counted !== undefined]));
   const selected = async () => { const cells = []; for (let index = 0; index < 9; index++) cells.push(await inCell(index, highlight) > 30); return cells.map(Number).join(""); };
+  // The desktop paints its icons after its colour.
+  await until(async () => (await inCell(8)) > 300, "the desktop's icons");
   for (let index = 0; index < 9; index++) assert.ok(await inCell(index) > 300, `icon ${index} is drawn`);
   await page.screenshot({ path: `${evidence}shortcuts.png` });
   await click(page, 36, 20);                  // a click selects one
