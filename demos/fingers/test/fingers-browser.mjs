@@ -12,14 +12,17 @@ const marker = { 1: [120, 230, 120], 2: [250, 120, 200] };
 for (const browser of ["chromium", "firefox"]) {
   await demoTest("fingers", { image: "fingers", browser }, async ({ open }) => {
     const { page, text, prompt } = await open({ prompt: null, device: { hasTouch: true } });
-    await page.waitForFunction(() => __dolly.transport.graphicsActive());
-    // The frame is the terminal's text area; positions below are its pixels.
-    const { left, top, scaleX, scaleY, width, height } = await page.evaluate(() => {
+    // The frame is the terminal's text area, once fingers has drawn it: the
+    // figure's centre is the frame's. Positions below are its pixels.
+    const { left, top, scaleX, scaleY, width, height } = await (await page.waitForFunction(() => {
       const canvas = document.querySelector("#display"), box = canvas.getBoundingClientRect();
-      return { left: box.left, top: box.top, scaleX: box.width / canvas.width, scaleY: box.height / canvas.height,
-        width: canvas.width, height: canvas.height };
-    });
-    const centre = [Math.round(width / 2), Math.round(height / 2)];
+      const colour = (x, y) => [...canvas.getContext("2d").getImageData(x, y, 1, 1).data].slice(0, 3).join();
+      const x = Math.floor(canvas.width / 2), y = Math.floor(canvas.height / 2);
+      return __dolly.transport.graphicsActive() && colour(x, y) === "214,92,52" && colour(x - 1, y) === "240,196,72" &&
+        { left: box.left, top: box.top, scaleX: box.width / canvas.width, scaleY: box.height / canvas.height,
+          width: canvas.width, height: canvas.height };
+    })).jsonValue();
+    const centre = [Math.floor(width / 2), Math.floor(height / 2)];
     const at = ([x, y], dx = 0, dy = 0) => [x + dx, y + dy];
     const css = ([x, y]) => [left + x * scaleX, top + y * scaleY];
     const pixel = async point => page.evaluate(([x, y]) =>
@@ -51,7 +54,6 @@ for (const browser of ["chromium", "firefox"]) {
     }
 
     // The figure is 160 pixels square about the centre, a corner of its checks there.
-    await shown(centre, [214, 92, 52]);
     assert.ok(await figure(at(centre, 70)) && !await figure(at(centre, 120)), "the figure as drawn");
 
     // Two fingers 120 pixels apart move to 240: twice the size, about their midpoint.
@@ -60,13 +62,14 @@ for (const browser of ["chromium", "firefox"]) {
     for (let step = 1; step <= 6; ++step) await fingers("touchMove", [at(centre, -60 - 10 * step), at(centre, 60 + 10 * step)]);
     const held = [at(centre, -120), at(centre, 120)];
     // Each finger is marked in its id's colour, and its id is drawn above it:
-    // the middle row of "1" has its middle column, that of "2" has not.
+    // the middle row of "1" has its middle column, that of "2" has not. A
+    // browser may deliver the last move with its next frame.
+    const digit = (point, column, row) => at(point, -6 + column * 8 + 4, -36 - 50 + row * 8 + 4);
     await shown(held[0], marker[1]);
     await shown(held[1], marker[2]);
-    const digit = (point, column, row) => at(point, -6 + column * 8 + 4, -36 - 50 + row * 8 + 4);
-    assert.deepEqual(await pixel(digit(held[0], 1, 1)), marker[1]);
+    await shown(digit(held[0], 1, 1), marker[1]);
+    await shown(digit(held[1], 2, 1), marker[2]);
     assert.notDeepEqual(await pixel(digit(held[1], 1, 1)), marker[2]);
-    assert.deepEqual(await pixel(digit(held[1], 2, 1)), marker[2]);
     await lift(held);
     await page.waitForFunction(([x, y]) => [...document.querySelector("#display").getContext("2d")
       .getImageData(x, y, 1, 1).data].slice(0, 3).join() !== "120,230,120", held[0]);
@@ -76,9 +79,10 @@ for (const browser of ["chromium", "firefox"]) {
     await fingers("touchStart", [centre]);
     for (let step = 1; step <= 5; ++step) await fingers("touchMove", [at(centre, 20 * step, 10 * step)]);
     await lift([at(centre, 100, 50)]);
-    await page.waitForFunction(([x, y]) => [...document.querySelector("#display").getContext("2d")
-      .getImageData(x, y, 1, 1).data].slice(0, 3).join() === "18,18,26", at(centre, -120));
-    assert.ok(await figure(at(centre, 250, 50)), "moved");
+    await page.waitForFunction(([[x, y], [right, below]]) => {
+      const colour = (x, y) => [...document.querySelector("#display").getContext("2d").getImageData(x, y, 1, 1).data].slice(0, 3).join();
+      return colour(x, y) === "18,18,26" && colour(right, below) !== "18,18,26";
+    }, [at(centre, -120), at(centre, 250, 50)]);
 
     await page.keyboard.press("Escape");
     await prompt(/fingers has ended/);

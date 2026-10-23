@@ -15,7 +15,17 @@ REQUIRES LIB SDL2
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.3/dist/static/fingers/fingers.c f1dc8ac3e293ff2017a6761efe8e5261c20025c87006bee0e0d5fa391a9b9c74 /tmp/fingers/fingers.c
+SOURCE /v0.1.3/dist/static/fingers/fingers.c b5e8e9665911c1563d61d15c7d6231547af4930f599e2d32ff527241164b8ae2 /tmp/fingers/fingers.c
 SLOP cc -O1 -I/usr/include/SDL2 /tmp/fingers/fingers.c -o /usr/bin/fingers -lSDL2 -lm
 EXPORTS TOOL fingers
+FILE /usr/share/man/cat1/fingers.1
+    fingers: a figure that one finger moves and two fingers zoom and move, on
+    a touchscreen; each finger is marked with its id while it is down. Escape
+    ends it.
+    
+      fingers [WIDTH HEIGHT]
+    
+    It draws at the terminal's size in pixels, or WIDTH by HEIGHT, and reads
+    SDL2's finger events, which Dolly's SDL2 makes of touch@0's records.
+COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 752f37ebc794b9d00d3bc5b37c1deac53241e60519954d9216599f21a948938e /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 SLOP rm -rf /tmp/fingers

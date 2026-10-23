@@ -36,7 +36,7 @@ static int terminal_pixels(int *width, int *height) {
   char reply[32];
   size_t length = 0;
   struct pollfd input = {0, POLLIN, 0};
-  while (length + 1 < sizeof(reply) && poll(&input, 1, 500) == 1 && read(0, reply + length, 1) == 1)
+  while (length + 1 < sizeof(reply) && poll(&input, 1, 2000) == 1 && read(0, reply + length, 1) == 1)
     if (reply[length++] == 't') break;
   reply[length] = 0;
   tcsetattr(0, TCSANOW, &saved);
@@ -76,11 +76,12 @@ static void touched(const SDL_TouchFingerEvent *event, int width, int height) {
   if (event->type == SDL_FINGERDOWN && index == count && count < MAX_FINGERS) {
     fingers[count++] = (finger){event->fingerId, x, y};
     reanchor();
-  } else if (event->type == SDL_FINGERMOTION && index < count) {
+  } else if (index < count) {
+    // An up is where the finger was last.
     fingers[index].x = x;
     fingers[index].y = y;
     follow();
-  } else if (event->type == SDL_FINGERUP && index < count) {
+    if (event->type != SDL_FINGERUP) return;
     memmove(&fingers[index], &fingers[index + 1], (size_t)(count - index - 1) * sizeof(finger));
     --count;
     reanchor();
@@ -137,8 +138,8 @@ int main(int argc, char **argv) {
     fprintf(stderr, "fingers: %s\n", SDL_GetError());
     return 1;
   }
-  offset_x = width / 2.0f;
-  offset_y = height / 2.0f;
+  offset_x = (float)(width / 2);
+  offset_y = (float)(height / 2);
   unsigned seen = 0;
   for (int running = 1; running;) {
     draw(renderer);

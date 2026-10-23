@@ -110,6 +110,34 @@ Step 1, the module (`host/touch/`), decided and measured:
   without a holder a finger scrolls the terminal). Passed in Chromium (8.3 s) and
   Firefox (9.6 s).
 
+Step 2, SDL2 (`demos/sdl2/SDL_dollyvideo.c`): the driver takes the touch lease beside display
+and input when the page has one (and goes on without it otherwise), adds one touch device of
+`SDL_TOUCH_DEVICE_DIRECT` and turns each record into `SDL_SendTouch` or `SDL_SendTouchMotion`
+with the position as a fraction of the window and the pressure as 0..1. SDL's own code then
+makes the first finger its mouse (`SYNTHESIZE_TOUCH_TO_MOUSE` is 1 in `SDL_touch.c`,
+`SDL_HINT_TOUCH_MOUSE_EVENTS` on by default), so mouse-only SDL programs keep working with a
+finger now that no finger is the pointer, and SDL's gestures come from its own code.
+Consequence, decided: every SDL2 program records `touch@0`, so `sdl2` declares it and installs
+`libdolly-touch`, and every recipe that installs `sdl2` or retains a program linked with it
+declares `touch@0` (the lint named the INSTALL ones; xorg-server, x11-desktop, ghostty-x11,
+xonotic, zero-ad, zero-ad-engine and imgui-x11 by reading which retain one; zero-ad-engine
+installs and imgui-x11 uses `libdolly-touch` to link). Not rebuilt here: bhop, classicube,
+classicube-build, imgui, imgui-x11, rts-build, rts-arena, xorg-server-build, xorg-server,
+x11-desktop, ghostty-x11, xonotic-build, xonotic, zero-ad-deps, zero-ad-engine, zero-ad. The
+sdl2 demo test passes on the rebuilt `sdl2` (Chromium).
+
+Step 3, `demos/fingers/`: `fingers.c` is a plain SDL2 program of SDL's finger events. It draws at
+the terminal's size in pixels (CSI 14 t, which the terminal answers), a checked square that one
+finger moves and the first two fingers zoom about their midpoint, which it follows; each finger
+is a disc in its id's colour with the id drawn above it. Images: `fingers-build` (the program,
+SDL2 linked in) and the application `fingers` (core, posix, display, fingers-build).
+`demos/fingers/test/fingers-browser.mjs` reads the canvas: two fingers 120 px apart moved to 240
+double the figure about their midpoint, each marked with its colour and digit, one finger moves
+it 100 by 50, and the program's own report after Escape says so. Passed in Chromium (CDP
+touches) and Firefox (touch PointerEvents), twice each. Found on the way: Chromium delivers a
+CDP touch move with its next frame and may end a touch without its last move, so a program must
+take an up's position as the finger's last; `fingers.c` does.
+
 ## Groundwork (2026-10-14, 04:05): the groundwork is gathered; the contract is still the owner's
 
 [The groundwork](groundwork.md), by a Fable agent that read `main`, the

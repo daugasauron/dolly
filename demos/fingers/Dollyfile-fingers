@@ -5,20 +5,11 @@ REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST touch@0
 
-# The shell and the terminal, and fingers in front of them.
+# The shell, its tools and the terminal, and fingers in front of them.
 INSTALL /v0.1.3/Dollyfile-core 2ebac67093e644506f5040cc843508909550aaa19f8f53df960135a3bf39efac
+INSTALL /v0.1.3/Dollyfile-posix 10886b7c9553487611eb85e5bad0379f051aa90f330753edfe6e3394381ecf0d
 INSTALL /v0.1.3/Dollyfile-display a800a6ede26485fcc448b79373c16acb498f587b5f4c098a0fed34be2a6f91b8
-COPY /v0.1.3/demos/fingers/Dollyfile-fingers-build 927890f0b2d5c8840815f0957e90de55cf65acd337dab236c5db1c772cb422e2 /usr/bin/fingers /usr/bin/fingers
-COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 752f37ebc794b9d00d3bc5b37c1deac53241e60519954d9216599f21a948938e /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
-FILE /usr/share/man/cat1/fingers.1
-    fingers: a figure that one finger moves and two fingers zoom and move, on
-    a touchscreen; each finger is marked with its id while it is down. Escape
-    ends it.
-    
-      fingers [WIDTH HEIGHT]
-    
-    It draws at the terminal's size in pixels, or WIDTH by HEIGHT, and reads
-    SDL2's finger events, which Dolly's SDL2 makes of touch@0's records.
+INSTALL /v0.1.3/demos/fingers/Dollyfile-fingers-build f184f6ff85774d8c3bdaa90d591f3589c60770dfbdd8271e10205bd5e31357b6
 FILE /etc/dolly/init.slop
     /usr/bin/fingers
     printf '\nDolly: fingers has ended; this is the recovery Slop shell.\n'
