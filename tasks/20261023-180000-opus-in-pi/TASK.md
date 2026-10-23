@@ -163,3 +163,19 @@ Not defects (by design or the network): no `df`; each `cc` shows as two processe
 compiler is a private process behind it); github.com and example.com send no CORS headers.
 
 Spend so far: $0.384.
+
+## Session 4, the game (2026-10-23 16:18, `build/opus-evidence/game/`, $0.254)
+
+Asked for "a small game that is fun to play here... real-time, with graphics on Dolly's
+display or a lively terminal screen". Opus read the skill, `display.h` and `input.h`, and
+wrote [`game/rocks.c`](game/rocks.c), an Asteroids in 233 lines of C on Dolly's display
+(vector rocks that split, bullets, lives, waves, score; arrows or WASD, Space, R, Q/Esc).
+It built it without warnings, checked it with a headless `--test` mode (two minutes of
+simulated play), wrote `/workspace/play` and downloaded the source in the same response
+as a `bash` call (the sequential download, working). Its first `play` used `exec`, which
+Slop refuses; it rewrote it. `SYSTEM.md` now says a script's `exec PROGRAM` fails (both
+sessions 3 and 4 tried it). [`game/rocks.png`](game/rocks.png): the game built in a fresh
+pi-agent from the downloaded source and played with held keys (`play-game.mjs`; score 30, a
+rock split); the session's own run of `/workspace/play` drew the same field.
+
+Spend so far: $0.638.
