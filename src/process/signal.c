@@ -339,8 +339,9 @@ int64_t __dolly_process_exec(dolly_process_exec_request *request, uint64_t size)
     exec_signals(&request->signals);
     const int64_t result = kernel_call(DOLLY_PROCESS_EXEC, request, size, NULL, 0);
     if (result != -EINTR) return result < 0 ? result : -EIO;
+    /* EINTR with no signal to take, as inside a handler: call again. */
     const int64_t ended = interrupted(DOLLY_PROCESS_EXEC);
-    if (ended != 0) return ended;
+    if (ended != 0 && ended != -EINTR) return ended;
   }
 }
 
