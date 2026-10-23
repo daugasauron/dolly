@@ -43,8 +43,9 @@ await browserTest("microphone", { image: "system", server: { fixtures }, launch:
   const { page, submit, text, run, errors } = await compiled(open, server);
   // A host without microphone@0 refuses its images and requests.
   const selection = await page.evaluate(async () => {
-    const { createHost } = await import("/host/modules.mjs");
-    const host = await createHost("browser", ["runtime@0"], { send() {} });
+    const { hostRegistry } = await import("/host/modules.mjs");
+    const { hostModuleUrls } = await import("/host/manifests.mjs");
+    const host = await (await hostRegistry(hostModuleUrls)).createHost("browser", ["runtime@0"], { send() {} });
     try {
       let refused;
       try { host.require(["microphone@0"]); } catch (error) { refused = error.message; }

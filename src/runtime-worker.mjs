@@ -28,8 +28,10 @@ const configured = new Promise((resolve, reject) => {
     resolve(event.data);
   });
 });
-const { createHost } = await import("../host/modules.mjs");
+const { hostRegistry } = await import("../host/modules.mjs");
 const bootConfig = await configured;
+if (!Array.isArray(bootConfig.modules) || bootConfig.modules.length > 64 ||
+    !bootConfig.modules.every(url => typeof url === "string")) throw new Error("invalid host module list");
 
 const bootMode = bootConfig.mode === "rebuild" ? "rebuild" : "snapshot";
 const configuredImage = bootConfig.image;
@@ -98,7 +100,7 @@ self.addEventListener("message", event => { void host?.handle(event.data).catch(
 }); });
 async function boot() {
 try {
-  host = await createHost("worker", bootConfig.hostModules, {
+  host = await (await hostRegistry(bootConfig.modules)).createHost("worker", bootConfig.hostModules, {
     send: (message, transfers = []) => self.postMessage(message, transfers),
     configuration: bootConfig.hostConfiguration,
     resources: { applicationBase },

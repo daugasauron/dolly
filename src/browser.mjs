@@ -1,6 +1,7 @@
 import { buildLog } from "./build-log.mjs";
 import { showIndicators } from "./page-indicators.mjs";
-import { createHost, buildHost, buildHostFor, selectBoot } from "../host/modules.mjs";
+import { hostRegistry, buildHost } from "../host/modules.mjs";
+import { hostModuleUrls } from "../host/manifests.mjs";
 import { prepareImageArtifacts, loadImageHostRequirements } from "./image-build.mjs";
 import { buildImage } from "./image-builder.mjs";
 import { loadCustomImage, storedCustomImage } from "./custom-image.mjs";
@@ -90,7 +91,8 @@ async function boot() {
   const bootMode = configured.mode;
   // A module may select what boots: a saved session names its image, its
   // module and the custom image record it was saved from.
-  const selected = await selectBoot(configured);
+  const registry = await hostRegistry(hostModuleUrls);
+  const selected = await registry.selectBoot(configured);
   const image = selected?.image ?? configured.image;
   // The custom image this tab runs: its Dollyfile and, in snapshot mode, the
   // completed artifact and what the tab inherits from the page that built it.
@@ -113,7 +115,7 @@ async function boot() {
   const recipe = customSource === undefined ? DOLLY_IMAGES.find(definition => definition.image === image)
     : inspectDollyfile(customSource);
   const runnable = recipe.entry !== null;
-  host = await createHost("browser", !runnable ? buildHostFor(requiredHost) : globalThis.DOLLY_HOST_MODULES ??
+  host = await registry.createHost("browser", !runnable ? registry.buildHostFor(requiredHost) : globalThis.DOLLY_HOST_MODULES ??
     [...requiredHost, ...(bootMode === "rebuild" ? buildHost : [])], {
     send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),
     resources: { mount, canvas, keyboard, applicationBase, showStatus, fatal, bootstrapSources,
@@ -172,6 +174,7 @@ async function boot() {
     type: "configure",
     image,
     mode: bootMode,
+    modules: registry.urls,
     hostModules: host.enabled,
     hostConfiguration: host.configuration,
     artifacts,

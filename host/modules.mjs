@@ -1,23 +1,47 @@
-import { hostManifests, runtimes } from "./manifests.mjs";
 import { hostRequirement, hostRequirements } from "./requirements.mjs";
 import { DOLLY_ERRNO as E } from "../src/process-constants.mjs";
 
-// This fixed registry is trusted embedding code. Images select no JS or Worker URLs:
-// each module's provider is the file its manifest names.
-const definitions = await Promise.all(hostManifests.map(async manifest =>
-  ({ ...await import(new URL(manifest.host, manifest.url).href), contract: manifest })));
-export const hostContracts = Object.freeze(definitions.map(module => module.contract));
 // What a build enables beside the runtime its image declares: the broker the
 // engine fetches sources through, the threads its toolchain uses and the
 // modules its compilers and interpreters load.
 export const buildHost = Object.freeze(["http@0", "threads@0", "dso@0"]);
-export const buildHostFor = declared => [...declared.filter(value => runtimes.includes(value)), ...buildHost];
+
+// A page's host modules, from the URLs of their manifests. The embedding, trusted
+// code, names them; images select no JS or Worker URLs, and each module's provider
+// is the file its manifest names. A runtime is a module that provides the kernel
+// (README.md); an image declares exactly one, by the same line as any module.
+export async function hostRegistry(urls) {
+  const definitions = await Promise.all(urls.map(async url => {
+    const { default: manifest } = await import(url, { with: { type: "json" } });
+    const contract = Object.freeze({ ...manifest, url });
+    return { ...await import(new URL(contract.host, url).href), contract };
+  }));
+  const byName = new Map(), owners = new Map();
+  for (const module of definitions) {
+    if (byName.has(module.contract.name)) throw new Error(`duplicate host module: ${module.contract.name}`);
+    byName.set(module.contract.name, module);
+    for (const name of module.contract.imports) {
+      if (owners.has(name)) throw new Error(`duplicate host import owner: ${name}`);
+      owners.set(name, module.contract.name);
+    }
+  }
+  const contracts = Object.freeze(definitions.map(module => module.contract));
+  const runtimes = Object.freeze(contracts.filter(contract => contract.provides === "kernel")
+    .map(({ name, version }) => `${name}@${version}`));
+  const registry = { byName, owners, contracts, runtimes };
+  return Object.freeze({
+    urls: Object.freeze([...urls]), contracts, runtimes,
+    buildHostFor: declared => [...declared.filter(value => runtimes.includes(value)), ...buildHost],
+    selectBoot: route => selectBoot(definitions, route),
+    createHost: (...values) => createHost(registry, ...values),
+  });
+}
 
 // A module may select what a route boots, as a saved session names its image:
 // at most one does, and the page then requires it. The selection carries the
 // image, a bootstrap label, the custom image record it restores and the
 // module's configuration, keyed for createHost.
-export async function selectBoot(route) {
+async function selectBoot(definitions, route) {
   let selection = null;
   for (const module of definitions) {
     const selected = await module.boot?.(route);
@@ -28,15 +52,10 @@ export async function selectBoot(route) {
   }
   return selection;
 }
-const byName = new Map(definitions.map(module => [module.contract.name, module]));
-const owners = new Map();
-for (const module of definitions) for (const name of module.contract.imports) {
-  if (owners.has(name)) throw new Error(`duplicate host import owner: ${name}`);
-  owners.set(name, module.contract.name);
-}
 
 // `closed`: the embedding named the modules itself, so nena@0 enables no other.
-export async function createHost(side, enabled, { send, resources = {}, configuration = {}, closed = false } = {}) {
+async function createHost({ byName, owners, contracts, runtimes }, side, enabled,
+  { send, resources = {}, configuration = {}, closed = false } = {}) {
   if (!["browser", "worker"].includes(side)) throw new TypeError("invalid host side");
   const selected = hostRequirements(enabled), instances = new Map(), reasons = new Map(), messages = new Map();
   // The kernel is the one requested module that provides it; a module others
@@ -158,7 +177,7 @@ export async function createHost(side, enabled, { send, resources = {}, configur
   // saying why not. A module whose manifest says `fixed` is never switched;
   // the modules others depend on (runtime@0, http@0) are among them.
   const requirementOf = ({ name, version }) => `${name}@${version}`;
-  const list = () => hostContracts.map(contract => ({ name: contract.name, version: contract.version,
+  const list = () => contracts.map(contract => ({ name: contract.name, version: contract.version,
     gives: contract.gives ?? "", fixed: contract.fixed ?? "", enabled: instances.has(contract.name),
     declared: selected.includes(requirementOf(contract)) }));
   // Enabling hands the Worker's side what boot would have: the page side's
@@ -260,7 +279,8 @@ export async function createHost(side, enabled, { send, resources = {}, configur
       const imports = {};
       for (const entry of WebAssembly.Module.imports(module)) {
         const name = `${entry.module}.${entry.name}`, owner = owners.get(name);
-        if (!owner) throw new Error(`unowned browser import: ${name}`);
+        // The import of a module this page does not have answers as a disabled one does.
+        if (!owner) { (imports[entry.module] ??= {})[entry.name] = () => -E.ENOSYS; continue; }
         const binding = instances.has(owner) ? instances.get(owner).bindings?.[name] : () => -E.ENOSYS;
         if (binding === undefined) throw new Error(`missing host binding: ${name}`);
         // The kernel is instantiated once. An import of a module that can be

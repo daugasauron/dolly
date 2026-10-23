@@ -1,5 +1,5 @@
 import { basename } from "node:path";
-import { hostContracts } from "../host/modules.mjs";
+import { hostManifests } from "../host/manifests.mjs";
 import { hostFiles } from "../scripts/host-modules.mjs";
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
@@ -195,7 +195,7 @@ test("the runtime implements every host module contract its manifest names", asy
   const runtime = await readWasmInterface(artifact("dolly.wasm"));
   for (const { name, file } of hostFiles("contracts")) {
     const contract = await readWasmInterface(contractArtifact(file));
-    const owned = hostContracts.find(manifest => manifest.name === name).imports;
+    const owned = hostManifests.find(manifest => manifest.name === name).imports;
     for (const required of contract.imports.filter(entry => `${entry.module}.${entry.name}` !== "env.memory")) {
       assert.ok(owned.includes(`${required.module}.${required.name}`), `${name} does not own ${required.name}`);
       const actual = runtime.imports.find(entry => entry.module === required.module && entry.name === required.name);
@@ -378,7 +378,7 @@ test("the main Wasm has an explicit, minimal browser boundary", async () => {
   const runtime = await readWasmInterface(artifact("dolly.wasm"));
   const contract = await readWasmInterface(artifact("dolly-browser-0.wasm"));
   validateBrowserImports(contract.imports, runtime.imports);
-  const policy = Object.fromEntries(hostContracts.map(contract => [contract.name, contract.imports]));
+  const policy = Object.fromEntries(hostManifests.map(contract => [contract.name, contract.imports]));
   const actual = runtime.imports
     .map((entry) => `${entry.module}.${entry.name}`)
     .sort();

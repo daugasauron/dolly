@@ -79,8 +79,9 @@ await browserTest("audio", { image: "system", server: { fixtures } }, async ({ b
   await page.mouse.click(10, 10);
   // A host without audio@0 refuses audio images and requests.
   const selection = await page.evaluate(async () => {
-    const { createHost } = await import("/host/modules.mjs");
-    const host = await createHost("browser", ["runtime@0"], { send() {} });
+    const { hostRegistry } = await import("/host/modules.mjs");
+    const { hostModuleUrls } = await import("/host/manifests.mjs");
+    const host = await (await hostRegistry(hostModuleUrls)).createHost("browser", ["runtime@0"], { send() {} });
     try {
       let denied;
       try { host.require(["audio@0"]); } catch (error) { denied = error.message; }

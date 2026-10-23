@@ -178,10 +178,12 @@ export async function runBrowserBoundaryChecks(assetRoot) {
 // A kernel of its own, instantiated as the Worker does it: every import is a
 // host module's binding. Trusted code copies no more than its bounds from it.
 async function checkKernelBounds(asset, module, errno) {
-  const { createHost } = await import(asset("host/modules.mjs"));
+  const { hostRegistry } = await import(asset("host/modules.mjs"));
   const { bootFiles } = await import(asset("host/runtime/boot-files.mjs"));
   const sent = [];
-  const host = await createHost("worker", ["runtime@0"], { send: message => sent.push(message) });
+  // The runtime alone: every other module's import answers ENOSYS.
+  const registry = await hostRegistry([asset("host/runtime/module.json")]);
+  const host = await registry.createHost("worker", ["runtime@0"], { send: message => sent.push(message) });
   try {
     const kernel = (await WebAssembly.instantiate(module, host.imports(module))).exports;
     kernel._initialize();

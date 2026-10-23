@@ -1,4 +1,5 @@
-import { createHost, buildHostFor } from "../host/modules.mjs";
+import { hostRegistry } from "../host/modules.mjs";
+import { hostModuleUrls } from "../host/manifests.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
@@ -15,7 +16,9 @@ export async function buildImage(image, artifacts, configuration, report, { cust
   const declared = image === "custom" ? inspectDollyfile(customSource).hostRequirements
     : DOLLY_IMAGES.find(candidate => candidate.image === image).hostRequirements;
   let worker;
-  const host = await createHost("browser", buildHostFor(declared), { send: message => worker.postMessage(message), configuration });
+  const registry = await hostRegistry(hostModuleUrls);
+  const host = await registry.createHost("browser", registry.buildHostFor(declared),
+    { send: message => worker.postMessage(message), configuration });
   let abort, result;
   const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
   try {
@@ -47,7 +50,7 @@ export async function buildImage(image, artifacts, configuration, report, { cust
       // Unless consumed, the Worker returns each buffer after importing it into
       // Wasm, so shared dependencies remain reusable without cloning gigabytes of inputs.
       worker.postMessage({ type: "configure", mode: "rebuild", image, buildOnly: true, returnInputs: !consume, artifacts,
-        hostModules: host.enabled, hostConfiguration: host.configuration,
+        modules: registry.urls, hostModules: host.enabled, hostConfiguration: host.configuration,
         ...(customSource === undefined ? {} : { customSource }) }, [...new Set(artifacts.map(artifact => artifact.bytes))]);
     });
   } finally {

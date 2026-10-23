@@ -1,13 +1,15 @@
-// The one list of trusted host modules. Each host/<name>/module.json names the
-// module's files; the registry, build, packaging and tests read only these.
+// The host modules this repository builds. Each host/<name>/module.json names the
+// module's files; the build, packaging and tests read only these, and the site's
+// pages give the registry (modules.mjs) all of them.
 const hostModuleNames = Object.freeze(["runtime", "display", "input", "http", "gpu", "audio", "microphone",
   "buttons", "download", "upload", "snapshot", "threads", "dso", "sockets", "pty", "build", "packages", "nena"]);
 
-export const hostManifests = Object.freeze(await Promise.all(hostModuleNames.map(async name => {
-  const url = new URL(`./${name}/module.json`, import.meta.url);
-  const { default: manifest } = await import(url.href, { with: { type: "json" } });
-  if (manifest.name !== name) throw new Error(`host/${name}/module.json names ${manifest.name}`);
-  return Object.freeze({ ...manifest, url: url.href });
+export const hostModuleUrls = Object.freeze(hostModuleNames.map(name => new URL(`./${name}/module.json`, import.meta.url).href));
+
+export const hostManifests = Object.freeze(await Promise.all(hostModuleUrls.map(async (url, index) => {
+  const { default: manifest } = await import(url, { with: { type: "json" } });
+  if (manifest.name !== hostModuleNames[index]) throw new Error(`host/${hostModuleNames[index]}/module.json names ${manifest.name}`);
+  return Object.freeze({ ...manifest, url });
 })));
 
 // A runtime is a module that provides the kernel (README.md); an image

@@ -22,9 +22,12 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       return { ...localServicesTransport(consumeDollyHttpPolicy(globalThis, sources, site)), site: site.href };
     };
     globalThis.runHeadless = async (modules, configuration, transfers, running) => {
-      const { createHost } = await import("/host/modules.mjs");
+      // Only the modules it enables: the registry loads what the page names.
+      const { hostRegistry } = await import("/host/modules.mjs");
+      const registry = await hostRegistry(modules.map(value =>
+        new URL(`/host/${value.split("@")[0]}/module.json`, location.href).href));
       let worker;
-      const host = await createHost("browser", modules, { send: message => worker.postMessage(message),
+      const host = await registry.createHost("browser", modules, { send: message => worker.postMessage(message),
         configuration: { http: { network: await headlessNetwork() } } });
       try {
         worker = new Worker("/src/runtime-worker.mjs", { type: "module" });
@@ -37,7 +40,7 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
             if (message.type === "error") reject(Error(message.message));
           };
         });
-        worker.postMessage({ type: "configure", mode: "snapshot", ...configuration,
+        worker.postMessage({ type: "configure", mode: "snapshot", ...configuration, modules: registry.urls,
           hostModules: host.enabled, hostConfiguration: host.configuration }, transfers);
         return await running(host.kernel, exited);
       } finally { host.dispose(); worker?.terminate(); }
