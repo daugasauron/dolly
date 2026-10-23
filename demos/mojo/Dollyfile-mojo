@@ -5,11 +5,11 @@ REQUIRES HOST runtime@0
 # The Mojo compiler as mojo-build built it in Dolly, with the standard library
 # and the package gpu it precompiled, and what a program links against, as
 # mojo-runtime built it: mojo build NAME.mojo makes a Dolly executable.
-COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build 354bd6080ef71f0851403de2548bc9b253d0819a91586624171df5e6e606188b /opt/mojo/bin/mojo /usr/bin/mojo
-COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build 354bd6080ef71f0851403de2548bc9b253d0819a91586624171df5e6e606188b /opt/mojo/lib/mojo /usr/lib/mojo
-COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build 354bd6080ef71f0851403de2548bc9b253d0819a91586624171df5e6e606188b /usr/share/licenses/mojo /usr/share/licenses/mojo
-COPY /v0.1.3/demos/mojo/Dollyfile-mojo-runtime d587c587c588b35fc88afaf5220efca591efe6467b0d97ef6114776772b7a159 /usr/lib/libmojo-rt.a /usr/lib/libmojo-rt.a
-COPY /v0.1.3/demos/mojo/Dollyfile-mojo-runtime d587c587c588b35fc88afaf5220efca591efe6467b0d97ef6114776772b7a159 /usr/lib/libmojo-gpu.a /usr/lib/libmojo-gpu.a
+COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build 7b0134dedd2f154abc04cc8665f7cd8999a17bab8e65c9d91f387c61d2a2678c /opt/mojo/bin/mojo /usr/bin/mojo
+COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build 7b0134dedd2f154abc04cc8665f7cd8999a17bab8e65c9d91f387c61d2a2678c /opt/mojo/lib/mojo /usr/lib/mojo
+COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build 7b0134dedd2f154abc04cc8665f7cd8999a17bab8e65c9d91f387c61d2a2678c /usr/share/licenses/mojo /usr/share/licenses/mojo
+COPY /v0.1.3/demos/mojo/Dollyfile-mojo-runtime 1238fca2e58d621e40168df7e4009e7533a365cf1e3d1a32f388c9d13fb9557a /usr/lib/libmojo-rt.a /usr/lib/libmojo-rt.a
+COPY /v0.1.3/demos/mojo/Dollyfile-mojo-runtime 1238fca2e58d621e40168df7e4009e7533a365cf1e3d1a32f388c9d13fb9557a /usr/lib/libmojo-gpu.a /usr/lib/libmojo-gpu.a
 # mojo build links what it compiles with the C toolchain.
 INSTALL /v0.1.3/Dollyfile-libdolly-gpu 579145bf09dca4828577d6496cec00e677b1f5b8bb34cce38477e718a594dd41
 INSTALL /v0.1.3/Dollyfile-cc 6547a88f76f69bafb1fee2605c8f3bf02becc8e3e9e4d97f2d352635f72e44de
