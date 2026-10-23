@@ -208,3 +208,15 @@ Tool calls per session, Qwen: processes 19, 2, 4; Python 1, 3, 2 (before 6, 30, 
 engine loaded the model once per run (27 sessions) in place of once per session. The first
 request is 1,768 tokens (1,592 before: the list of 101 commands adds about 180); the longest
 prompt was 4,493 (Qwen) and 2,551 (MiniCPM) tokens, against 7,991 and 11,769 before.
+
+Greetings before (`build/pilocal-evidence/before-greet/`, the provider of `e936ac95` over
+the new image, so the general guidance): no tool call in 9 of 9 per model, as
+`pi-greeting-explores` left it; but "what can you do here?" got "I'm Dolly", "Install
+software (pip packages)" (Qwen) and "I'm `dolly`", "Install software via `pi install
+npm:...`", "You're a coding agent inside Dolly" (MiniCPM, the prompt's own lines). After:
+no tool call in 9 of 9 per model, no `pip` or `npm`; one Qwen "hi" still said "I'm Dolly".
+
+Sampling (`build/pilocal-evidence/after-sampling/qwen3.5-2b/`, two rounds, Qwen at
+temperature 0.6, top-p 0.95, presence penalty 0 through `models.json`): processes 0 of 2,
+both C programs off by one, languages 0 of 2 (Python "available"), Python 1 of 2. Not
+better than the publisher's values, so they stay.
