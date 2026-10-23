@@ -3,12 +3,18 @@
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
-from rust_sources import cargo_config, crate_licences, vendor
+from rust_sources import cargo_config, crate_licences, inputs_key, keep, kept, vendor
 
 project = Path(__file__).resolve().parents[2]
-# demos/rust/toolchain/prepare.sh and build-llvm.sh: pinned, verified, patched.
+# demos/rust/toolchain/prepare.sh and build-llvm.sh: pinned, verified, patched;
+# prepare.inputs keys the tree that prepare.sh unpacks.
 port = project / "build/rustc-port"
+outputs = [project / "build/rust-sources/rustc.tar.gz", project / "build/rust-sources/rust-llvm.tar.gz"]
+key = inputs_key(Path(__file__), port / "prepare.inputs")
+if all([kept(output, key) for output in outputs]):
+    sys.exit()
 stage = project / "build/rust-sources/rustc"
 shutil.rmtree(stage, ignore_errors=True)
 stage.mkdir(parents=True)
@@ -34,9 +40,8 @@ for name in ["libc", "libc-186", "jobserver"]:
     mappings += [port / name, f"/tmp/rustc/{name}"]
 mappings += [entry for path in sorted(library.iterdir()) if path.name not in {"vendor", ".cargo"}
              for entry in (path, f"/tmp/rustc/source/library/{path.name}")]
-output = project / "build/rust-sources/rustc.tar.gz"
-subprocess.run(["node", str(project / "scripts/build-source-tar.mjs"), str(output), *map(str, mappings)], check=True)
-print(output)
+subprocess.run(["node", str(project / "scripts/build-source-tar.mjs"), str(outputs[0]), *map(str, mappings)], check=True)
+print(outputs[0])
 
 
 def tree(name, *skipped):
@@ -46,10 +51,11 @@ def tree(name, *skipped):
 
 # What CMake configures and rustc's LLVM libraries compile; mlgo-utils links
 # three scripts to their real copies.
-output = project / "build/rust-sources/rust-llvm.tar.gz"
-subprocess.run(["node", str(project / "scripts/build-source-tar.mjs"), str(output), *map(str, [
+subprocess.run(["node", str(project / "scripts/build-source-tar.mjs"), str(outputs[1]), *map(str, [
     *tree("llvm", "test", "unittests", "docs", "examples", "benchmarks", "utils"),
     *tree("llvm/utils", "mlgo-utils", "gn"),
     *tree("llvm/utils/mlgo-utils", "combine_training_corpus.py", "extract_ir.py", "make_corpus.py"),
     *tree("cmake"), *tree("third-party", "benchmark", "unittest")])], check=True)
-print(output)
+print(outputs[1])
+for output in outputs:
+    keep(output, key)

@@ -6,7 +6,7 @@ REQUIRES HOST http@0
 
 # The Go toolchain as go-build built it, in its GOROOT. The commands start it
 # by its own path, from which it finds its GOROOT.
-FROM /v0.1.4/demos/go/Dollyfile-go-build f7f447b2cc2d22bd7cdb740f712d683b77500b28f467e11b10ffd93bb7984606
+FROM /v0.1.4/demos/go/Dollyfile-go-build 0d9effe6d6b18794575250fb87a7cf9f732e9d91df88fba2632336cf158a5fb9
 FILE /usr/bin/go
     #!/bin/slop
     /usr/lib/go/bin/go "$@"

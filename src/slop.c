@@ -162,8 +162,7 @@ typedef struct {
 
 extern char **environ;
 
-// Programs started with `&` that `wait` has not collected. The kernel runs
-// at most 32 processes.
+// Programs started with `&` that `wait` has not collected, at most 32.
 static pid_t background_programs[32];
 static size_t background_count;
 

@@ -10,9 +10,12 @@ import tarfile
 project = Path(__file__).resolve().parents[2]
 name, = sys.argv[1:]
 pin = json.loads((project / "demos/rust/config/sources.json").read_text())[name]
-from rust_sources import cargo_config, crate_licences, download, lock_sdk_libc, vendor
+from rust_sources import cargo_config, crate_licences, download, inputs_key, keep, kept, lock_sdk_libc, vendor
 
-
+output = project / "build/rust-sources" / f"{name}.tar.gz"
+key = inputs_key(Path(__file__), name)
+if kept(output, key):
+    sys.exit()
 stage = project / "build/rust-sources" / name
 shutil.rmtree(stage, ignore_errors=True)
 stage.mkdir(parents=True)
@@ -60,8 +63,8 @@ for crate, patch in [libc, *adapted.get(name, [])]:
 extra = project / "demos/rust/config" / f"{name}.toml"
 cargo_config(source, f"/tmp/{name}/vendor", extra.read_text() if extra.exists() else "")
 
-output = project / "build/rust-sources" / f"{name}.tar.gz"
 subprocess.run(["node", str(project / "scripts/build-source-tar.mjs"), str(output),
                 str(source), f"/tmp/{name}/source", str(stage / "vendor"), f"/tmp/{name}/vendor",
                 *map(str, crate_licences(archives, stage, f"/usr/share/licenses/{name}/crates"))], check=True)
+keep(output, key)
 print(output)

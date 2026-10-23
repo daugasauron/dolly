@@ -44,7 +44,7 @@ sequenceDiagram
   exited, a line each in PID order, `PID PARENT STATE ARGUMENTS`: the state is
   `starting` until the program runs and `running` from then, the arguments
   are joined by spaces with each control character as `?`, and a line ends
-  after 2047 bytes. It is the kernel's answer: the file is empty, so that
+  after 1023 bytes. It is the kernel's answer: the file is empty, so that
   `ls /proc` lists it and `stat` finds it, as on Linux, and each open of it,
   by any path, is its own copy of the table in a pipe; neither the file nor
   its descriptor takes a write, and sessions do not save `/proc`.
@@ -62,7 +62,8 @@ sequenceDiagram
   `--as-needed` are accepted and ignored: Dolly links no ELF shared libraries,
   and the exact typed import validation after linking decides.
 - The supervisor caches compiled modules by SHA-256 (64 entries, 256 MiB), never
-  instances; at most 32 processes exist at once and further spawns fail `EAGAIN`.
+  instances. It admits a spawn while the processes' committed Wasm memory is
+  under 4 GiB and fewer than 56 exist; a further spawn fails `EAGAIN`.
   A start does not read an executable whose module is cached: the kernel opens the
   file and gives its version (`dolly_process_image_version`, a number every write and
   size change of the file renews), and only a version the supervisor has not compiled
@@ -98,7 +99,7 @@ sequenceDiagram
 - 1024 descriptors per process, Linux's default soft limit: Zig compiling
   Ghostty holds more than 256. Descriptor flags are per handle; offsets and status
   flags belong to the shared open description. `FD_CLOEXEC` works everywhere.
-  `getrlimit` reports the fixed limits (`RLIMIT_NOFILE` 1024, `RLIMIT_NPROC` 32,
+  `getrlimit` reports the fixed limits (`RLIMIT_NOFILE` 1024, `RLIMIT_NPROC` 56,
   `RLIMIT_AS` 8 GiB, `RLIMIT_STACK` 8 MiB); `sysconf(_SC_OPEN_MAX)` is still
   libc's constant 1024.
 - Pipes hold 64 KiB. Empty reads and full writes return `EAGAIN` when

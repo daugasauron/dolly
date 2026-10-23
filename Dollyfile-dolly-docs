@@ -5,16 +5,16 @@ REQUIRES HOST runtime@0
 # The platform as a program sees it: the documents and machine contracts of
 # this release at their repository paths, so their links to each other work.
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
-SOURCE /v0.1.4/docs/process-model.md 543cb436c492a756eaa60160c02ef26eb8ce0392d37d40119a74ca1e0660ab76 /usr/share/doc/dolly/docs/process-model.md
+SOURCE /v0.1.4/docs/process-model.md 6ce963bd4069cc9df26e428209ce9833020de96788260229a6536af4707dae62 /usr/share/doc/dolly/docs/process-model.md
 SOURCE /v0.1.4/docs/browser-stack.md 6afa6298a0e03ff3af86cf3b5ff102c23508afd542d921a537c8eae7bfc48370 /usr/share/doc/dolly/docs/browser-stack.md
-SOURCE /v0.1.4/docs/slop.md 9b90fe706e21aab016b80e424a6cd6695ac9d2e7448765f6c996022f3ef0e078 /usr/share/doc/dolly/docs/slop.md
+SOURCE /v0.1.4/docs/slop.md 2b703a1aef25d1fce5c253467784b2837cfca1f416308a34513be08b9c638acb /usr/share/doc/dolly/docs/slop.md
 SOURCE /v0.1.4/docs/display.md 9c6d12ad69a68712880816d36e9fd9993ebccc38851cbdec2a2987a78f00966e /usr/share/doc/dolly/docs/display.md
 SOURCE /v0.1.4/docs/gpu.md dffb2841e2c92626af12a921bbfb45c6f44fe7ecc29ff39fd96f5930d4ce3c67 /usr/share/doc/dolly/docs/gpu.md
 SOURCE /v0.1.4/docs/audio.md 2380b483c106b884e3e97ed3de8eaac9467e8e2a0307b878bddf620401d43e9f /usr/share/doc/dolly/docs/audio.md
 SOURCE /v0.1.4/docs/http.md de50df79d12ddf7cc5335c1061e0f33c5dcaa2228970754ff844f211ed2a40af /usr/share/doc/dolly/docs/http.md
 SOURCE /v0.1.4/docs/sessions.md 9f4f32a5e6d7b12b9d3a93214de71171c5bb7e46e14eac2509704b5c62c6af6d /usr/share/doc/dolly/docs/sessions.md
 SOURCE /v0.1.4/docs/dollyfile.md d6b9cbd273b770563daa4439cde649dd795f4050bc3ea855041ff053b420689f /usr/share/doc/dolly/docs/dollyfile.md
-SOURCE /v0.1.4/docs/architecture.md 1ca94b2feee85abf199ec116b512285b1c246b13ae65c3ba211df16240a0dddd /usr/share/doc/dolly/docs/architecture.md
+SOURCE /v0.1.4/docs/architecture.md be36f157306320c2c8edd781e48163bf0ca315960fd8a6368c6001ac1cf5e974 /usr/share/doc/dolly/docs/architecture.md
 SOURCE /v0.1.4/docs/browser-boundary.md 8e7ff1e1759fa8c17f4284da4667ee9b4c94e3467fda1965a6d6c33cca672874 /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE /v0.1.4/docs/image-build-service.md 43bbcfcf7c5e7c8ce83f91c55b3c4bc0682651b2905ba35089b2b85b3b13efa9 /usr/share/doc/dolly/docs/image-build-service.md
 SOURCE /v0.1.4/abi/README.md 45b4b76478b39b9ef2c0f45ce6636072dae0b128f2f3fc26c9c27de832b69e29 /usr/share/doc/dolly/abi/README.md

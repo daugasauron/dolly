@@ -6,11 +6,11 @@ REQUIRES HOST http@0
 REQUIRES HOST input@0
 REQUIRES HOST touch@0
 
-FROM /v0.1.4/Dollyfile-system-tools a1a370fed791694ab5358765053f84fb99f30c4106b2befc56ebb937cd02bf48
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 cc61c737c3a717ea8f2a5cc7e69e1efa7e14ccf0035888fb885fae5e976ccb97
+FROM /v0.1.4/Dollyfile-system-tools 43085dfb056c365b8ed19f4939577bb175601e5aebadf41bd9c3b1364d2df763
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 6c1adbd82791ce840a0155d9e16e185f7ec520bdbf08e34d0a0e4af8cad6571c
 # FreeType (with its libpng) for the client's fonts, libjpeg for its textures.
-INSTALL /v0.1.4/demos/xonotic/Dollyfile-libjpeg bc183d65c6f23d280eaf94b54d22f755c2ea52770cb9b17a19d065c0e9144be8
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype 1b2e1ec5858bcf4ddccc78ff13192e3429c41803cc76bb99d3e080665b0d1d24
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-libjpeg 4620a90297019b19757a855593492b70555db56838d2ee7b2707e30977c2ec0b
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype 1d410ac8881176875d9d7021f3236b551149396448b5ce0530c77b56c5ad0b94
 REQUIRES HEADER cpp
 REQUIRES HEADER sdl2
 REQUIRES HEADER zlib
