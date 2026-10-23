@@ -224,6 +224,21 @@ const programs = {
   freetype: "printf '%s\\n' '#include <ft2build.h>' '#include FT_FREETYPE_H' 'int main(void) { FT_Library library; FT_Face face; " +
     "if (FT_Init_FreeType(&library) || FT_New_Face(library, \"/usr/share/fonts/IosevkaTerm-SemiBold.ttf\", 0, &face)) return 1; return face->num_glyphs < 100; }' " +
     "> /tmp/amy-freetype.c && cc $(pkg-config --cflags freetype2) /tmp/amy-freetype.c $(pkg-config --static --libs freetype2) -o /tmp/amy-freetype && /tmp/amy-freetype",
+  // SDL_ttf renders a word in the terminal's font: the surface has ink.
+  "sdl2-ttf": "printf '%s\\n' '#include <SDL_ttf.h>' 'int main(void) { SDL_Color white = { 255, 255, 255, 255 }; if (TTF_Init() != 0) return 2; " +
+    "TTF_Font *font = TTF_OpenFont(\"/usr/share/fonts/IosevkaTerm-SemiBold.ttf\", 24); if (font == NULL) return 3; " +
+    "SDL_Surface *text = TTF_RenderUTF8_Blended(font, \"Dolly\", white); if (text == NULL || text->w < 40) return 4; " +
+    "Uint32 *pixel = text->pixels; int inked = 0; for (int i = 0; i < text->pitch / 4 * text->h; i++) inked += pixel[i] >> 24 > 128; return inked < 50; }' " +
+    "> /tmp/amy-ttf.c && cc $(pkg-config --cflags SDL2_ttf) /tmp/amy-ttf.c $(pkg-config --static --libs SDL2_ttf) -o /tmp/amy-ttf && /tmp/amy-ttf",
+  // SDL_image writes a PNG and reads it back, its CMake package found beside SDL2's.
+  "sdl2-image": "mkdir /tmp/amy-image && cd /tmp/amy-image && printf '%s\\n' '#include <SDL_image.h>' " +
+    "'int main(void) { SDL_Surface *made = SDL_CreateRGBSurfaceWithFormat(0, 8, 8, 32, SDL_PIXELFORMAT_RGBA32); " +
+    "SDL_FillRect(made, NULL, SDL_MapRGBA(made->format, 200, 100, 50, 255)); if (IMG_SavePNG(made, \"made.png\") != 0) return 2; " +
+    "SDL_Surface *read = SDL_ConvertSurfaceFormat(IMG_Load(\"made.png\"), SDL_PIXELFORMAT_RGBA32, 0); " +
+    "return read == NULL || read->w != 8 || ((Uint8 *)read->pixels)[0] != 200 || ((Uint8 *)read->pixels)[2] != 50; }' > image.c && " +
+    "printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(image C)' 'find_package(SDL2 REQUIRED)' 'find_package(SDL2_image REQUIRED)' " +
+    "'add_executable(image image.c)' 'target_link_libraries(image PRIVATE SDL2_image::SDL2_image-static SDL2::SDL2-static)' > CMakeLists.txt && " +
+    "cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/image",
   // One frame drawn by raylib's software renderer and shown through Dolly's adapter.
   raylib: "printf '%s\\n' '#include <dolly/raylib.h>' 'int main(void) { dolly_raylib window; if (dolly_raylib_open(&window, \"amy\") != 0) return 2; " +
     "BeginDrawing(); ClearBackground(RAYWHITE); DrawCircle(64, 64, 32, RED); int shown = dolly_raylib_end_frame(&window); " +

@@ -9,11 +9,12 @@ REQUIRES HOST http@0
 # Build-only: the libraries the 0 A.D. engine links, built from the pinned
 # upstream sources of build-sources.tsv, with FreeType and libpng installed and
 # pkgconf for its premake scripts.
-FROM /v0.1.3/demos/zero-ad/Dollyfile-openal-build e652c73cfca0a9dfd722acd70dd646968c20f2f37a315f82884c337afc0265bf
+FROM /v0.1.3/demos/cmake/Dollyfile-cmake-build e4665d6326518383a5957d86523e14c36c3d74c6c09d6d7acea1c9691ac4b72d
+INSTALL /v0.1.3/demos/zero-ad/Dollyfile-openal 25049c300fde1f1ebbc5e39ff1d58ac14ffea40dd69f1bf942a8a8644f0bb120
 INSTALL /v0.1.3/demos/zero-ad/Dollyfile-pkgconf a3f26688786591215b6ac7a4de7ae841762429cb3a34573c370016ca9fbc8bef
 INSTALL /v0.1.3/demos/zero-ad/Dollyfile-freetype 323584950d5fd44e8f16d8148390d2105d055084739c3f2dfd5ad2594e367c25
-COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 d101b845e64ff55be49f015c50c34b0ba126f251dde9503d0a3990af647aced8 /usr/include/SDL2 /usr/include/SDL2
-COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 d101b845e64ff55be49f015c50c34b0ba126f251dde9503d0a3990af647aced8 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 5ce0bef27563ef467a5cc652da92fba2072177b05bfbf1f1b0c0f509f5665d41 /usr/include/SDL2 /usr/include/SDL2
+COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 5ce0bef27563ef467a5cc652da92fba2072177b05bfbf1f1b0c0f509f5665d41 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES HEADER zlib
@@ -34,7 +35,7 @@ REQUIRES TOOL mkdir
 SOURCE /v0.1.3/dist/static/zero-ad-build/deps.tar.gz 725e009d9819b42b32d685ef6f7cd51ece8f34031fdb94c9bd00cacef9da1579 /tmp/zad/deps.tar.gz
 SLOP gzip -dc /tmp/zad/deps.tar.gz | tar -xf - -C /
 # Licences of the libraries the engine links; zero-ad copies them.
-COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 d101b845e64ff55be49f015c50c34b0ba126f251dde9503d0a3990af647aced8 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 5ce0bef27563ef467a5cc652da92fba2072177b05bfbf1f1b0c0f509f5665d41 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 FOLDER /usr/share/licenses
 
 # Libraries without a build system usable here (autotools; ICU's port list) compile

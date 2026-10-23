@@ -6,6 +6,8 @@ ClassiCube, Seven Kingdoms and Airtime build on it.
 ## Images
 
 - `sdl2`: libSDL2, which draws in software into Dolly's display, for programs the `cc` and `cmake` packages build; it brings neither.
+- `sdl2-ttf`: SDL_ttf, TrueType text into SDL surfaces through the `freetype` package, which it brings with `sdl2`.
+- `sdl2-image`: SDL_image, which loads PNG, JPEG, GIF, BMP, SVG, QOI and more into SDL surfaces and saves PNG and JPEG, with `sdl2`.
 - `imgui`: Dear ImGui with its SDL2 and SDL_Renderer backends, a library for programs the `cc` package builds, and `imgui-demo`, upstream's example.
 - `imgui-x11`: upstream's ImGui example as an X client: SDL2 with its X11 video driver, which it takes where `DISPLAY` names a server ([the X11 demo](../x11/README.md)).
 

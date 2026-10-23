@@ -37,5 +37,7 @@ EXPORTS LIB SDL2 /usr/lib/libSDL2.a
 # SDL2Config.cmake names both libraries.
 EXPORTS LIB SDL2main /usr/lib/libSDL2main.a
 EXPORTS FOLDER sdl2-cmake /usr/lib/cmake/SDL2
+# SDL_ttf's and SDL_image's pkg-config files require it.
+FILE /usr/lib/pkgconfig/sdl2.pc
 FILE /usr/share/licenses/SDL2/LICENSE.txt
 SLOP rm -rf /tmp/sdl2

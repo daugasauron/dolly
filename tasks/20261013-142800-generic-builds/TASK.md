@@ -55,7 +55,56 @@ Done (`ad98e33c`):
   display, the images' own checks, the source suite. Not run: the whole `test/amy-browser.mjs`
   (it needs every package built in this tree).
 
-Next: SDL_ttf and SDL_image as packages, then libuv, openal and a llama.cpp library.
+Done (2026-10-24, the commit after `eefb3555`):
+
+- `sdl2-ttf` (SDL_ttf 2.24.0) and `sdl2-image` (SDL_image 2.8.8), upstream's release archives
+  built unchanged by their CMake projects in `demos/sdl2/`: static libraries, headers,
+  pkg-config files and CMake packages. `sdl2-ttf` installs `sdl2` and `freetype` (with libpng
+  and zlib). `sdl2-image` takes upstream's default backend, stb_image, which decodes PNG and
+  JPEG itself, so it needs no libpng or libjpeg and installs only `sdl2`; the formats that
+  need a library of their own (AVIF, JPEG XL, TIFF, WebP) are off. It is configured with
+  `SDL2IMAGE_VENDORED=ON`, which builds nothing extra here: with it off, SDL_image's CMake
+  package (`SDL2_imageConfig.cmake.in`, the same on upstream's SDL2 branch today) runs
+  `find_dependency(JPEG)` and `find_dependency(PNG)` for the stb build too, which fails where
+  no libjpeg is installed (read in the file; that build was not made). `sdl2` now keeps SDL's own `sdl2.pc`, which the two `.pc`
+  files require (`xorg-server-build` wrote its own copy; that copy is gone).
+- `openal` holds its build: `openal-build` (a toolchain only `openal` and `zero-ad-deps` stood on)
+  is folded into `Dollyfile-openal`, and `zero-ad-deps` is `FROM cmake-build` with `INSTALL openal`.
+- Measured in the `default` image (Chromium, `amy install` into a running session, the rows of
+  `test/amy-browser.mjs` in order): `cc`, `cmake`, `sdl2`, `pkgconf`, `libpng`, `freetype`,
+  `sdl2-ttf` (a word rendered in the terminal's font has ink; linked with
+  `pkg-config --static --libs SDL2_ttf`: `-lSDL2_ttf -lfreetype -lpng16 -lz -lSDL2 -lm`),
+  `sdl2-image` (a PNG written and read back, built by CMake from `find_package(SDL2_image)`),
+  `openal` (the loopback square wave). `demos/sdl2/test/sdl2-browser.mjs` passes (Chromium).
+  Not rebuilt here: `zero-ad-deps` and the 0 A.D. chain, `xorg-server-build` and the X11 chain,
+  the images that only changed pins.
+- A CMake program linking the static FreeType through `find_package(Freetype)` (CMake's
+  module) must add libpng and zlib itself; `pkg-config --static` gives them. Upstream's
+  behaviour, unchanged.
+
+libuv (built here, not on the branch): `Dollyfile-libuv` holding the build that
+`cmake-build` does today (`FROM system-tools`, the same Makefile and source archive, 11 s,
+617 kB) and `cmake-build` installing it (bootstrapped in 1,492 s). Every image on
+`cmake-build` rebuilds then, the Rust chain among them (`rust-llvm`, `rust-build`, which needs
+the integrator's `hugebuild`), and Pi, Slopyard and Airtime install ripgrep and fd from it,
+so this tree could not rebuild its own images after it. The change is the diff below; it
+belongs to the catalog round.
+
+    demos/cmake/Dollyfile-libuv: FROM system-tools; the SOURCE, make, cp, check and EXPORTS
+      rows of Dollyfile-cmake-build:19-46 moved here unchanged.
+    demos/cmake/Dollyfile-cmake-build: those rows become
+      INSTALL /vX.Y.Z/demos/cmake/Dollyfile-libuv PIN, after its FROM.
+    demos/cmake/prepare-sources.sh: libuv.tar is staged for has_image libuv.
+
+SDL_mixer: not added. Its mixer plays through SDL's audio subsystem, and the `sdl2` package
+has no audio driver. A driver over `audio@0` (as Xonotic's sound needs) links the module's
+client into every SDL program, so every image and session that runs one would declare
+`audio@0`, `default` among them, as `touch@0` went for SDL's touch input on
+`core/npm-packages`. Which images declare `audio@0` is the owner's call; the line is in
+[Xonotic](../20261006-122433-xonotic/TASK.md).
+
+Next: a llama.cpp library package (`llama-cpp`) holding `llama-build`'s build, with
+`dolly-llama` (`llama`) linked on it and `pi-local` installing `llama`.
 
 ## State (2026-10-23)
 

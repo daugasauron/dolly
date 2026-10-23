@@ -7,8 +7,7 @@ libraries and SpiderMonkey are built inside Dolly from pinned sources.
 ## Images
 
 - `zero-ad`: 0 A.D. Release 28: Athens economy and combat scenarios, audio and replay. Requires WebGPU.
-- `openal-build`: OpenAL Soft built for the 0 A.D. audio path.
-- `openal`: OpenAL Soft's mixer through its loopback device, a library for programs the `cc` package builds; it brings no compiler.
+- `openal`: OpenAL Soft's mixer through its loopback device, built for the 0 A.D. audio path, a library for programs the `cc` package builds; it brings no compiler.
 - `zero-ad-deps`: A build stage: the engine's libraries built from pinned sources, with FreeType, pkgconf and SDL2.
 - `spidermonkey`: SpiderMonkey 128.13.0, a library for programs the `cc` package builds, built inside Dolly with mozbuild, Python, Cargo and cbindgen, which it does not bring.
 - `zero-ad-engine`: A build stage: the 0 A.D. engine built inside Dolly with premake and Make.

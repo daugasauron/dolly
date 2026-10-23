@@ -25,3 +25,23 @@ if has_image imgui || has_image imgui-x11; then
     "${imgui_inputs[@]}" \
     "${imgui_dir}/LICENSE.txt" /usr/share/licenses/imgui/LICENSE.txt
 fi
+# SDL_ttf and SDL_image: what their CMake projects read to build on the
+# installed SDL2, without the vendored libraries.
+if has_image sdl2-ttf; then
+  ttf_dir="build/generated/SDL2_ttf-$(source config/source-pins.sh && echo "${DOLLY_SDL2_TTF_VERSION}")"
+  if [[ ! -d "${ttf_dir}" ]]; then mkdir -p build/generated && tar -xzf "$(bash scripts/fetch-pinned-archive.sh sdl2_ttf)" -C build/generated; fi
+  ttf_inputs=()
+  for entry in CMakeLists.txt cmake SDL_ttf.c SDL_ttf.h SDL2_ttf.pc.in SDL2_ttfConfig.cmake.in LICENSE.txt; do
+    ttf_inputs+=("${ttf_dir}/${entry}" "/tmp/sdl2-ttf/source/${entry}")
+  done
+  node scripts/build-source-tar.mjs "${static_dir}/sdl2-ttf/source.tar" "${ttf_inputs[@]}"
+fi
+if has_image sdl2-image; then
+  image_dir="build/generated/SDL2_image-$(source config/source-pins.sh && echo "${DOLLY_SDL2_IMAGE_VERSION}")"
+  if [[ ! -d "${image_dir}" ]]; then mkdir -p build/generated && tar -xzf "$(bash scripts/fetch-pinned-archive.sh sdl2_image)" -C build/generated; fi
+  image_inputs=()
+  for entry in CMakeLists.txt cmake include src SDL2_image.pc.in SDL2_imageConfig.cmake.in LICENSE.txt; do
+    image_inputs+=("${image_dir}/${entry}" "/tmp/sdl2-image/source/${entry}")
+  done
+  node scripts/build-source-tar.mjs "${static_dir}/sdl2-image/source.tar" "${image_inputs[@]}"
+fi

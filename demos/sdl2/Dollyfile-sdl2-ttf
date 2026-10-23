@@ -1,0 +1,39 @@
+DOLLY 7
+PACKAGE sdl2-ttf
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+
+# SDL_ttf from upstream's release archive, unchanged, built by its CMake
+# project on the FreeType package: libSDL2_ttf.a with its header, pkg-config
+# file and CMake package, for programs the cc package builds with SDL2.
+FROM /v0.1.3/demos/cmake/Dollyfile-cmake-build e4665d6326518383a5957d86523e14c36c3d74c6c09d6d7acea1c9691ac4b72d
+INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 5ce0bef27563ef467a5cc652da92fba2072177b05bfbf1f1b0c0f509f5665d41
+INSTALL /v0.1.3/demos/zero-ad/Dollyfile-freetype 323584950d5fd44e8f16d8148390d2105d055084739c3f2dfd5ad2594e367c25
+REQUIRES HEADER libc
+REQUIRES HEADER sdl2
+REQUIRES HEADER freetype2
+REQUIRES LIB SDL2
+REQUIRES LIB freetype
+REQUIRES TOOL cc
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /v0.1.3/dist/static/sdl2-ttf/source.tar fabf62d25952254ad037106549e3ae0f74c941cd2ca586e9f185caf501641a71 /tmp/sdl2-ttf/source.tar
+SLOP tar -xf /tmp/sdl2-ttf/source.tar -C /
+SLOP cmake -S /tmp/sdl2-ttf/source -B /tmp/sdl2-ttf/build \
+  -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=OFF \
+  -DSDL2TTF_VENDORED=OFF -DSDL2TTF_SAMPLES=OFF
+SLOP cmake --build /tmp/sdl2-ttf/build
+SLOP cmake --install /tmp/sdl2-ttf/build
+
+EXPORTS LIB SDL2_ttf /usr/lib/libSDL2_ttf.a
+EXPORTS HEADER sdl2-ttf /usr/include/SDL2/SDL_ttf.h
+EXPORTS FOLDER sdl2-ttf-cmake /usr/lib/cmake/SDL2_ttf
+FILE /usr/lib/pkgconfig/SDL2_ttf.pc
+FILE /usr/share/licenses/SDL2_ttf/LICENSE.txt
+SLOP rm -rf /tmp/sdl2-ttf
