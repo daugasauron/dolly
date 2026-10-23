@@ -46,6 +46,17 @@ images rebuilt here are `pi`, `pi-runtime` and `pi-agent`; `bhop`, `classicube`,
 stale until the integrator's rebuild. `demos/pi/test/pi-browser.mjs` passes on the final
 image in Chromium (49 s) and Firefox (53 s).
 
+Branch `core/audit-fixes` (2026-10-23 18:05): the five findings under "Findings to fix outside
+Pi" and the integrator's `/proc` decision are fixed and measured in Chromium and Firefox, each
+under its entry (`which` through the guidance); the seed changed, so every image is stale until
+the catalog round. Left, one line each:
+- pi-agent's `REQUIRES HOST nena@0` (the integrator's, at the merge); the `exec` line is the owner's.
+- pi-agent was not rebuilt here (`rust-build` is a hugebuild): amy's record there is checked by
+  the catalog test and on `system`, not on pi-agent itself.
+- `custom-session-browser.mjs` fails in Chromium on Chrome 156's 127 MiB IndexedDB value limit
+  (its legacy-store step puts the 151 MB image as one ArrayBuffer); not caused here, not fixed.
+- `amy-browser.mjs` (tar `-j`/`-z` cases added) runs only after the catalog round builds every package.
+
 ## Method
 
 `build/opus-evidence/drive.mjs` (not committed): `pi-agent` of this branch's `dist/` served by
@@ -149,16 +160,86 @@ Each reproduced in pi-agent (`build/opus-evidence/probe5.out`, `probe6.out`):
 - **`kill %1`**: `sleep 30 & kill %1` prints "kill: strtonum %1: invalid", status 1. Slop
   refuses `jobs`, `fg` and `bg` by name; a job spec to `kill` gets sbase's parse error. A
   refusal that says there is no job control and names `$!` would match the others.
+  Fixed (`core/audit-fixes`): Slop refuses `kill` with an operand that starts with `%`
+  before it starts sbase's kill: "slop: kill: %1: there is no job control; kill $! or a PID",
+  status 2, as for `jobs`; `help` and `docs/slop.md` list it. A case of
+  `test/fixtures/slop-cases.mjs` (`jobs; fg; bg; kill -TERM %1`: 8 here, 3 in Bash) fails
+  on the old shell (7: sbase's kill ends with 1). Measured in `build/auditfix-evidence/core.out.*` (probe.mjs in the rebuilt `system`; `default.out.*` in `default`), Chromium and Firefox: `sleep 30 & kill %1` prints that line, status 2, and `kill $!` ends the sleep; `help` lists `kill %N`.
 - **amy says the compiler is not installed**: in pi-agent `amy list` shows `cc` and `make`
   as `-` and `amy info cc` says "not installed", while `command -v cc make` finds `/bin/cc`
   and `/usr/bin/make` and `cc --version` works. Opus noted it; a model may reinstall 125 MB.
+  Why: amy reads `/etc/dolly/installed`, which only `INSTALL` writes. `cc`, `make` and `core`
+  are packages that keep files of `system-build`, `posix` and `ninja` of `system-tools`, and
+  `session-recover` of `system`; every image built `FROM` those holds their files without a
+  row (pi-agent's record had 13 rows, none of them). Fixed (`core/audit-fixes`): `system`, the
+  base of every image with amy but `default`, installs the six, so its record names what it
+  holds; `session-recover` is now built in its own recipe (`FROM system-tools`) instead of
+  in `system`, which only installs it. `test/dollyfile-catalog.test.mjs` checks that an image
+  with amy installs every package its bases hold (it fails on the old `system`: "closed-source-agent
+  holds cc but does not install it"). Measured on the rebuilt `system` with amy (probe.mjs
+  `system+amy`, `build/auditfix-evidence/amy.out.*`), Chromium and Firefox: `amy list` shows
+  cc, core, make, ninja, posix and session-recover installed, `amy info cc` says installed,
+  `amy install cc make` says each is already installed. pi-agent inherits the record from
+  `system`; it was not rebuilt here (its closure rebuilds rust-llvm and rust-build).
 - **`test -nt`, `-ot`, `-ef`**: `touch a; sleep 1; touch b; [ b -nt a ]` prints
   "[: unsupported expression", status 2 (all three are POSIX.1-2024). Opus's play script used
   `[ guess.c -nt guess ]`.
+  Fixed (`core/audit-fixes`): Dolly's `test` (`src/commands/test.c`, also `[`) compares two
+  paths as POSIX.1-2024 says: `-nt` and `-ot` by modification time, a path that resolves to
+  no file being older, `-ef` by device and inode; its manual page and `docs/slop.md` list
+  them. A Slop command case checks them against Bash. Measured in `build/auditfix-evidence/core.out.*` (probe.mjs in the rebuilt `system`; `default.out.*` in `default`), Chromium and Firefox: `[ b -nt a ]` 0, `[ a -nt b ]` 1, `[ a -ot b ]` 0, `[ a -ef a ]` and a link `[ l -ef a ]` 0, `[ a -ef b ]` 1, `a -nt missing` and `missing -ot a` 0, `missing -nt a` 1; `man test` lists them.
 - **`which NAME` for a missing command**: `which python3` prints "which: python3: not an
   external command", status 2 (sbase's wording), which reads as if it were a builtin.
+  Fixed in the guidance instead (`core/audit-fixes`): a Dolly `which` (`13afd506`, measured
+  in both browsers: nothing and status 1 for `which python3`) was reverted (`950e7ef1`) on the
+  integrator's word: the core audit (`tasks/20261023-200000-core-audit`, finding 2) decided
+  against a second command for a message. sbase's `which` stays; `docs/slop.md`, Pi's
+  `SYSTEM.md` and the `dolly` skill say that `command -v NAME` ends with 1 for a missing
+  command (measured with the native Slop, whose `command` the browser's Slop cases also run)
+  and that `which` ends with 2 and "not an external command". Not rebuilt after the revert.
 - **`tar -czf`** (the `tar` package): `tar -czf x.tgz d` prints "tar: fork: Function not
   implemented", status 1. Explicit, but it could say that `-z` is unsupported here.
+  Fixed (`core/audit-fixes`): decided to port rather than refuse, since the change is small and
+  portable POSIX (`demos/tools/sbase-tar-spawn.patch`, 40 lines, zsh's precedent): sbase's
+  `comp`/`decomp` start the filter with `posix_spawnp` (dup2 actions, the kept pipe end
+  `FD_CLOEXEC`) instead of fork and exec, and tar waits for it before it exits, so the archive is
+  whole when the shell goes on (upstream does not wait: a race on any system, wide here, where a
+  process starts in tens of milliseconds). `-j` and `-J` now work both ways with the bzip2 and xz
+  packages; `-z` runs `gzip` from PATH: none in `default` ("tar: posix_spawnp gzip: No such
+  file or directory", status 1), and the core's gzip only decompresses and took only `-dc`:
+  it now also takes the `-cdf` that `tar -xzf` passes, and its refusal to compress names
+  pigz ("this gzip only decompresses to stdout; pigz compresses (amy install pigz)"), so
+  `tar -xzf` works wherever the gzip package is and `tar -czf` fails with that line;
+  `tar -cf - DIR | pigz > OUT.tgz` writes one. Measured in `build/auditfix-evidence/core.out.*` (probe.mjs in the rebuilt `system`; `default.out.*` in `default`), Chromium and Firefox: `gzip -cdf a.tar.gz` gives the same 10240 bytes as `gzip -dc`, `gzip -cf` prints that line, status 2. In `default` with tar, gzip, pigz and bzip2 installed (`tarz.out.*`, both browsers): `tar -czf x.tgz d` prints gzip's line, status 1; `tar -cf - d | pigz > y.tgz`, then `tar -xzf y.tgz` and `tar -tzf y.tgz` unpack and list the tree; `tar -cjf`/`-tjf` round trip.
+  Measured in `default` with tar, bzip2, xz and pigz installed by amy (`build/auditfix-evidence/tar.out.*`,
+  probe.mjs), Chromium and Firefox: `tar -cjf x.tbz d` 183 bytes at once, `-xjf`, `-cJf`/`-xJf`
+  round trips, `tar -cjf - d | bzip2 -dc | tar -tf -` lists the tree. `test/amy-browser.mjs`'s
+  tar case adds the `-j` round trip (not run whole here: it installs every package).
+
+Verification on `core/audit-fixes` (2026-10-23 18:00, the seed changed: rebuilt `system-build`
+to `system` and `default` with their packages and `dolly-docs`, last with `help.c`'s
+corrections (`0bcbd132`: `$'...'` is supported, 1024 descriptors, `ps` and
+`/proc/processes`); `cmake-build` to `tar`, `pigz`, `gzip`, `bzip2` on the seed before that;
+not rebuilt: everything else, pi-agent among them, and nothing after the `which` revert, for
+the integrator's catalog round): `node --test 'test/*.test.mjs'` passes (356); in Chromium and
+Firefox `core`, `slop`, `shell`, `process`, `session-offline` and `man` browser tests pass on
+the final images (`build/auditfix-evidence/tests-final.log`).
+`default-browser.mjs` stops at its first check because a narrowed build's `amy-index.txt`
+lists no python (it passes with the full index, below); `custom-session-browser.mjs` passes in
+Firefox (82 s: sessions saved and loaded, `/proc` not among their files) and fails in Chromium where it stores the 151 MB custom image as one ArrayBuffer: Chrome 156 refuses any
+IndexedDB value over 127 MiB, measured alone (`build/auditfix-evidence/idb-limit.mjs`: 130 MB
+stored, 140 MB "The serialized keys and/or value are too large"), and `system` was 151.2 MB
+before these changes too.
+With a python row added to the generated `amy-index.txt` for the run, `default` and
+`composed toolchain` pass in both browsers; `composed dependency` needs the `zig` package,
+not built here.
+
+## Next audits (owner, 2026-10-23, 19:00)
+
+"I want to keep that one going - run more audits using API key from inside the environment to
+improve the user experience. Make it build some more complicated game and investigate the
+traces (it should realize what prebuilt packages are available, raylib sdl etc) and be able
+to reuse them." Budget as before: at most $20 for the task.
 
 ## For the owner
 
@@ -168,6 +249,13 @@ Each reproduced in pi-agent (`build/opus-evidence/probe5.out`, `probe6.out`):
   unsupported"); Opus's first `play` used it. Run it as a child and exit with its status?
 - `ls /proc` finds nothing while `cat /proc/processes` works (documented); models read the
   first as "no process list". Should `/proc` list `processes`?
+  Decided by the integrator (2026-10-23): yes. Fixed (`core/audit-fixes`): the kernel makes
+  `/proc` at boot with `processes` in it, an empty file, as Linux's are, so `ls /proc` lists
+  it and `stat` finds it; an open of that file by any path (`cd /proc && cat processes`)
+  gets the list, found by its device and inode instead of the literal path, and a write to
+  it is still refused. Boot's pruning keeps `/proc` as it keeps `/dev`, and sessions do not
+  save it. `test/process-browser.mjs` checks `ls /proc`, the empty file and relative
+  paths (it asserted `! test -e /proc` before). Measured in `build/auditfix-evidence/core.out.*` (probe.mjs in the rebuilt `system`; `default.out.*` in `default`), Chromium and Firefox: `ls /proc` prints `processes`, `ls -l /proc` an empty file, `ls /` lists `proc`, `head -2 /proc/processes` and `cd /proc && head -1 processes` print the list, `echo x > /proc/processes` is refused ("Permission denied", status 1).
 
 Not defects (by design or the network): no `df`; each `cc` shows as two processes (the
 compiler is a private process behind it); github.com and example.com send no CORS headers.
