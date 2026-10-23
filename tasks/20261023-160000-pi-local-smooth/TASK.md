@@ -220,3 +220,25 @@ Sampling (`build/pilocal-evidence/after-sampling/qwen3.5-2b/`, two rounds, Qwen 
 temperature 0.6, top-p 0.95, presence penalty 0 through `models.json`): processes 0 of 2,
 both C programs off by one, languages 0 of 2 (Python "available"), Python 1 of 2. Not
 better than the publisher's values, so they stay.
+
+## Third and fourth candidates (uploaded over the image of `ef147433`)
+
+Third (`build/pilocal-evidence/cand4/`): each line of "On this machine" begins with the task
+("To list the running processes: `cat /proc/processes`"), `amy list` "shows the packages and
+which are installed", and the `command not found` line says "If amy list shows a package of
+that name, amy install NAME adds it".
+
+| Prompt | Qwen | MiniCPM |
+| --- | --- | --- |
+| what is in this directory? | 3 of 3 | 3 of 3 |
+| edit notes.txt | 3 of 3 | 3 of 3 |
+| which processes | **3 of 3** (`cat /proc/processes`, two at once) | 3 of 3 |
+| C program, built and run | 3 of 3 | 3 of 3 |
+| which languages | 1 of 3 (one read `amy list` and named python3) | 0 of 3 (each names Python or bash as available) |
+| Python one-liner | **0 of 3**: `janis -e 'print(2+2)'` reported as "the Python one-liner outputs 4" | 0 of 3 (no call: "2+2 = 4") |
+| greetings, no tool call | 9 of 9 | 9 of 9 |
+
+So the process line now reaches Qwen, but Qwen then answers a Python request by running
+JavaScript under Python's name (QuickJS has a `print`), and MiniCPM still answers the
+arithmetic instead of saying that Python is not here. Fourth (`cand5/`): the third plus "When
+a task needs a program that is not installed, say so and offer what is installed."
