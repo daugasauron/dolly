@@ -14,6 +14,7 @@ cancellation tests.
 - `quickjs`: `qjs` and the QuickJS-ng engine as a library (`-lquickjs`, `quickjs.h`): upstream's own command with its `std` and `os` modules, and nothing of Node.
 - `janis`: `janis`, QuickJS with a Node-compatible surface: `janis FILE.js` runs Node-style programs, and there is no `node`.
 - `typescript`: TypeScript's `tsc`, run by Janis.
+- `janis-install`: installs npm packages and what they depend on from the npm registry, with a command for each program they name, run by Janis.
 
 Each package holds its own build on `system-tools`, and each is built on the
 one before: `quickjs` compiles upstream's engine and `qjs` from the pinned
@@ -51,13 +52,40 @@ reads Janis's two scripts when it starts.
   WHATWG streams with `pipeTo`, `pipeThrough` and transformers. One
   cooperative event pump serves promises, timers, HTTP and child pipes.
 
+## janis-install
+
+`janis-install [--prefix DIR] [--integrity SRI] NAME[@VERSION]...` does with
+the npm registry what `npm install --global --ignore-scripts` does
+([`janis-install.mjs`](janis-install.mjs)):
+
+- It reads the registry's abbreviated metadata through the HTTP broker,
+  chooses versions as npm does (a tag; for a range, the `latest` tag when it
+  satisfies it, else the highest version that does) and places the tree in
+  one `node_modules` directory (`/usr/lib/node_modules`), nesting a version
+  beside the package that needs it when another is at the top.
+- Each tarball is checked against the metadata's `integrity` with sbase's
+  `sha512sum`, decompressed with `gzip` and unpacked as npm unpacks it.
+  `--integrity` pins one `NAME@VERSION`, which is then fetched from the
+  registry's tarball path without metadata, as a recipe does.
+- Each command a named package declares becomes `/usr/bin/COMMAND`, a Slop
+  launcher that runs `janis FILE "$@"`; a command another package installed
+  is not replaced.
+- An optional package for another `os` or `cpu` (Janis's are `wasm` and
+  `wasm64`) is skipped and a required one refused. Lifecycle scripts are
+  named and not run. A package with `binding.gyp`, a native addon to compile,
+  is refused, or skipped when optional. Git, file, URL, alias and workspace
+  specs are refused.
+- It requests `https://registry.npmjs.org` without credentials, so private
+  packages and other registries are out of reach; an embedding with an HTTP
+  policy needs a rule for that origin.
+
 ## Key files
 
 - [`quickjs-main.c`](quickjs-main.c), [`janis.c`](janis.c),
   [`janis.js`](janis.js), [`dolly-node.js`](dolly-node.js): the runtime.
 - [`Dollyfile-quickjs`](Dollyfile-quickjs), [`Dollyfile-janis`](Dollyfile-janis),
-  [`Dollyfile-typescript`](Dollyfile-typescript), [`tsc-dolly.mjs`](tsc-dolly.mjs):
-  builds. Upstream's `quickjs-libc.c` (`std`, `os`) is in `qjs` and not in Janis.
+  [`Dollyfile-typescript`](Dollyfile-typescript), [`tsc-dolly.mjs`](tsc-dolly.mjs),
+  [`Dollyfile-janis-install`](Dollyfile-janis-install): builds. Upstream's `quickjs-libc.c` (`std`, `os`) is in `qjs` and not in Janis.
 - Tests: [`test/`](test/).
 
 ## Limits
@@ -66,7 +94,7 @@ reads Janis's two scripts when it starts.
   modules are upstream's `std`, `os` and `bjson` (`--std`). Built with
   upstream's switch for a target without threads, it has no `os.Worker`,
   `os.exec` fails (nothing forks) and `os.platform` is `js`.
-- No npm client, native addons, worker threads (constructing a `Worker` fails
+- No npm client (`janis-install` installs from the registry), native addons, worker threads (constructing a `Worker` fails
   with `ENOSYS`) or nested WebAssembly. Requiring an ES module fails with
   `ERR_REQUIRE_ESM`.
 - Only three stdio descriptors; detached processes and IPC fail.

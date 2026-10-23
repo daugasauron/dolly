@@ -374,6 +374,8 @@ const tools = {
     "printf abc | sha512sum | grep -q '^ddaf35a193617aba' && cal 10 2026 | grep -q 2026 && echo sponged > /tmp/amy-sponge && " +
     "tr a-z A-Z < /tmp/amy-sponge | sponge /tmp/amy-sponge && grep -qx SPONGED /tmp/amy-sponge && " +
     "uuencode /tmp/amy-sponge sponge | uudecode -o /tmp/amy-uu && cmp /tmp/amy-uu /tmp/amy-sponge"],
+  // janis-install comes after janis, gzip and sbase, whose commands it brings; without the registry it refuses a git spec by name.
+  "janis-install": ["janis-install", "man janis-install > /dev/null && command -v sha512sum > /dev/null && ! janis-install user/repo 2> /dev/null"],
   // ex edits by commands; vi at the terminal is the step after this table.
   vi: ["vi", "printf 'one\\ntwo\\n' > /tmp/amy-ex && printf '%s\\n' '%s/two/2/' w q | ex -s /tmp/amy-ex > /dev/null && test \"$(tr '\\n' ' ' < /tmp/amy-ex)\" = 'one 2 '"],
   // A syntax file dte holds is written out and loads; dte at the terminal is
