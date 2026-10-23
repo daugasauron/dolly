@@ -46,11 +46,16 @@ images rebuilt here are `pi`, `pi-runtime` and `pi-agent`; `bhop`, `classicube`,
 stale until the integrator's rebuild. `demos/pi/test/pi-browser.mjs` passes on the final
 image in Chromium (49 s) and Firefox (53 s).
 
-Branch `core/audit-fixes` (2026-10-23 17:45): the five findings under "Findings to fix outside
+Branch `core/audit-fixes` (2026-10-23 18:05): the five findings under "Findings to fix outside
 Pi" and the integrator's `/proc` decision are fixed and measured in Chromium and Firefox, each
-under its entry; the seed changed, so every image is stale until the catalog round. Left:
-pi-agent's `REQUIRES HOST nena@0` (the integrator's, at the merge) and the `exec` line for the
-owner.
+under its entry (`which` through the guidance); the seed changed, so every image is stale until
+the catalog round. Left, one line each:
+- pi-agent's `REQUIRES HOST nena@0` (the integrator's, at the merge); the `exec` line is the owner's.
+- pi-agent was not rebuilt here (`rust-build` is a hugebuild): amy's record there is checked by
+  the catalog test and on `system`, not on pi-agent itself.
+- `custom-session-browser.mjs` fails in Chromium on Chrome 156's 127 MiB IndexedDB value limit
+  (its legacy-store step puts the 151 MB image as one ArrayBuffer); not caused here, not fixed.
+- `amy-browser.mjs` (tar `-j`/`-z` cases added) runs only after the catalog round builds every package.
 
 ## Method
 
@@ -185,12 +190,13 @@ Each reproduced in pi-agent (`build/opus-evidence/probe5.out`, `probe6.out`):
   them. A Slop command case checks them against Bash. Measured in `build/auditfix-evidence/core.out.*` (probe.mjs in the rebuilt `system`; `default.out.*` in `default`), Chromium and Firefox: `[ b -nt a ]` 0, `[ a -nt b ]` 1, `[ a -ot b ]` 0, `[ a -ef a ]` and a link `[ l -ef a ]` 0, `[ a -ef b ]` 1, `a -nt missing` and `missing -ot a` 0, `missing -nt a` 1; `man test` lists them.
 - **`which NAME` for a missing command**: `which python3` prints "which: python3: not an
   external command", status 2 (sbase's wording), which reads as if it were a builtin.
-  Fixed (`core/audit-fixes`): sbase's `which` has no option for it, so `which` is now
-  Dolly's own (`src/commands/which.c`, 50 lines, built with the other compatibility
-  commands of `system-tools`): it prints the program PATH runs for each name (`-a`: every
-  match), finding regular files as Slop does, and prints nothing and ends with 1 for a name
-  it does not find, as Debian's, BusyBox's and the BSDs' do; 2 is left for usage errors.
-  `test/commands.test.mjs` checks it natively. Measured in `build/auditfix-evidence/core.out.*` (probe.mjs in the rebuilt `system`; `default.out.*` in `default`), Chromium and Firefox: `which python3` prints nothing, status 1; `which ls sh nope` prints `/bin/ls` and `/bin/sh`, status 1; `man which` is its usage.
+  Fixed in the guidance instead (`core/audit-fixes`): a Dolly `which` (`13afd506`, measured
+  in both browsers: nothing and status 1 for `which python3`) was reverted (`950e7ef1`) on the
+  integrator's word: the core audit (`tasks/20261023-200000-core-audit`, finding 2) decided
+  against a second command for a message. sbase's `which` stays; `docs/slop.md`, Pi's
+  `SYSTEM.md` and the `dolly` skill say that `command -v NAME` ends with 1 for a missing
+  command (measured with the native Slop, whose `command` the browser's Slop cases also run)
+  and that `which` ends with 2 and "not an external command". Not rebuilt after the revert.
 - **`tar -czf`** (the `tar` package): `tar -czf x.tgz d` prints "tar: fork: Function not
   implemented", status 1. Explicit, but it could say that `-z` is unsupported here.
   Fixed (`core/audit-fixes`): decided to port rather than refuse, since the change is small and
@@ -210,11 +216,14 @@ Each reproduced in pi-agent (`build/opus-evidence/probe5.out`, `probe6.out`):
   round trips, `tar -cjf - d | bzip2 -dc | tar -tf -` lists the tree. `test/amy-browser.mjs`'s
   tar case adds the `-j` round trip (not run whole here: it installs every package).
 
-Verification on `core/audit-fixes` (2026-10-23 17:20, the seed changed: rebuilt `system-build`
-to `system` and `default` with their packages, `dolly-docs`, and `cmake-build` to `tar`,
-`pigz`, `gzip`, `bzip2`; not rebuilt: everything else, pi-agent among them, for the
-integrator's catalog round): `node --test 'test/*.test.mjs'` passes (357); in Chromium and
-Firefox `core`, `slop`, `shell`, `process`, `session-offline` and `man` browser tests pass.
+Verification on `core/audit-fixes` (2026-10-23 18:00, the seed changed: rebuilt `system-build`
+to `system` and `default` with their packages and `dolly-docs`, last with `help.c`'s
+corrections (`0bcbd132`: `$'...'` is supported, 1024 descriptors, `ps` and
+`/proc/processes`); `cmake-build` to `tar`, `pigz`, `gzip`, `bzip2` on the seed before that;
+not rebuilt: everything else, pi-agent among them, and nothing after the `which` revert, for
+the integrator's catalog round): `node --test 'test/*.test.mjs'` passes (356); in Chromium and
+Firefox `core`, `slop`, `shell`, `process`, `session-offline` and `man` browser tests pass on
+the final images (`build/auditfix-evidence/tests-final.log`).
 `default-browser.mjs` stops at its first check because a narrowed build's `amy-index.txt`
 lists no python (it passes with the full index, below); `custom-session-browser.mjs` passes in
 Firefox (82 s: sessions saved and loaded, `/proc` not among their files) and fails in Chromium where it stores the 151 MB custom image as one ArrayBuffer: Chrome 156 refuses any
