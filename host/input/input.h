@@ -166,8 +166,9 @@ DOLLY_INPUT_LAYOUT(sizeof(dolly_input_pointer_request) == 16, "dolly_input_point
 // terminal reads no key. Both write at most capacity bytes and their count,
 // and return zero or a negative value.
 typedef struct {
-  // A key, text, pointer or scroll record. Pointer and scroll are the
-  // terminal's own (selection, scrollback) and yield no bytes.
+  // A key, text, pointer or scroll record. Pointer and scroll records yield
+  // no bytes: they are the terminal's selection and scrollback, or reports
+  // for a program that asked for the mouse, read as the terminal's replies.
   int (*record)(const dolly_input_event *event, unsigned char *output,
                 size_t capacity, size_t *length);
   // One user paste.
