@@ -6,8 +6,7 @@ source "${project_dir}/config/source-pins.sh"
 source_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" samurai)"
 recipe_hash="$(
   cd -- "${project_dir}"
-  sha256sum scripts/prepare-samurai.sh config/samurai-dolly.patch |
-    sha256sum | cut -d' ' -f1
+  sha256sum scripts/prepare-samurai.sh | sha256sum | cut -d' ' -f1
 )"
 output_dir="${project_dir}/build/generated/samurai-source-${DOLLY_SAMURAI_COMMIT}-${recipe_hash:0:16}"
 temporary=""
@@ -37,14 +36,8 @@ git -C "${source_dir}" archive --format=tar "${DOLLY_SAMURAI_COMMIT}" |
 rm -rf -- "${temporary}/.builds" "${temporary}/.github"
 rm -f -- "${temporary}/.clang-format" "${temporary}/.gitignore"
 
-# Keep Samurai's Ninja parser, graph, depfile handling, and build log intact.
-# The only target-specific change replaces its POSIX process scheduler with
-# Dolly's deliberately serial /bin/slop lifecycle adapter.
-patch --silent --no-backup-if-mismatch -d "${temporary}" -p1 \
-  < "${project_dir}/config/samurai-dolly.patch"
-
 # The input-addressed destination never replaces a previous result. Renaming
-# the fully patched sibling publishes it as one filesystem operation.
+# the prepared sibling publishes it as one filesystem operation.
 mv -T -- "${temporary}" "${output_dir}"
 temporary=""
 printf '%s\n' "${output_dir}"

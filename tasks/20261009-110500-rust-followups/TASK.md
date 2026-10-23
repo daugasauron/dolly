@@ -35,11 +35,12 @@ into Cargo and needs a `cargo` build to try.
   `demos/llvm/test/stage2-browser.mjs` needs LLVM in the image: the recipe
   drops `/opt/rust-llvm` once the second rustc is linked.
 - **`pthread_attr_init`, `_setstacksize`, `_destroy` in the single-threaded
-  libc.** Rust's std references them; the seed links musl's from host
-  objects (`demos/rust/toolchain/link.sh`) and Dolly links a stand-in
-  (`demos/rust/pthread-attr.c`). Adding musl's to the process libc changes
-  the image inputs, so it goes with the next seed change; both copies then
-  go.
+  libc.** Done on `core/process-exec` with the exec seed change: musl's three
+  are in `libdolly-runtime.a` (`scripts/build.sh`), and both copies are gone
+  (`demos/rust/pthread-attr.c` and its recipe rows, the host objects in
+  `demos/rust/toolchain/link.sh`). Checked in `test/fixtures/process-lifecycle.c`;
+  the Rust seed relink and the `rust` images of the reconciliation round are
+  what prove the Rust side.
 - **The seed's bytes depend on its build tree** (recorded in the closed
   task): a tree that imports another's images must take its seed too.
 - **Cargo's environment is one for all build scripts.** Oniguruma's two C
@@ -48,8 +49,11 @@ into Cargo and needs a `cargo` build to try.
 
 ## From Cargo (`tasks/20260930-231102-cargo-native`, closed 2026-10-12)
 
-- **`cargo run`** builds and then fails: Cargo `exec`s the program, and Dolly has no `exec`
-  (`tasks/20261006-214244-process-exec`).
+- **`cargo run`** builds and then fails: Cargo `exec`s the program. The process contract has
+  `exec` on `core/process-exec` (`tasks/20261006-214244-process-exec`): Cargo's
+  `exec_replace` reaches libc's `execvp` through std's `Command::exec`, which this target
+  builds from `unix.rs`. Not measured: it needs Cargo relinked on the new seed, which the
+  reconciliation round does (`cargo`, bigbuild).
 - **`cargo test`** needs the `test` crate in the SDK, and tests on a panic-abort target need
   `-Zpanic-abort-tests`.
 - **A git dependency over HTTPS** needs a relay and libgit2's curl transport, which Cargo

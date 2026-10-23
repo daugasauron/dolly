@@ -289,22 +289,72 @@ _Noreturn void siglongjmp(sigjmp_buf environment, int value) {
   jump(environment, value);
 }
 
+/* After a call returned EINTR: delivers the signal the kernel hands over.
+ * Zero when the call is to be made again, otherwise what it returns. */
+static int64_t interrupted(uint32_t operation) {
+  int32_t number = 0;
+  if (kernel_call(DOLLY_PROCESS_INTERRUPT_POLL, NULL, 0, &number, sizeof(number)) != sizeof(number) || !number)
+    return -EINTR;
+  sigaddset(&pending, number);
+  const int restart = deliver_pending();
+  if (finished() != sizeof(number)) return -EIO;
+  if (restart < 0) return -ENOTSUP;
+  if (!restart && (operation == DOLLY_PROCESS_FD_READ || operation == DOLLY_PROCESS_FD_WRITE ||
+      operation == DOLLY_PROCESS_WAIT || operation == DOLLY_PROCESS_FD_POLL ||
+      operation == DOLLY_PROCESS_CLOCK_SLEEP || operation == DOLLY_PROCESS_FD_LOCK)) return -EINTR;
+  if (restart == 1 && (operation == DOLLY_PROCESS_FD_POLL ||
+      operation == DOLLY_PROCESS_CLOCK_SLEEP)) return -EINTR;
+  return 0;
+}
+
 int64_t dolly_process_call(uint32_t operation, const void *request,
                            uint64_t request_size, void *response, uint64_t capacity) {
   for (;;) {
     const int64_t result = kernel_call(operation, request, request_size, response, capacity);
     if (result != -EINTR) return result;
-    int32_t number = 0;
-    if (kernel_call(DOLLY_PROCESS_INTERRUPT_POLL, NULL, 0, &number, sizeof(number)) != sizeof(number) || !number)
-      return result;
-    sigaddset(&pending, number);
-    const int restart = deliver_pending();
-    if (finished() != sizeof(number)) return -EIO;
-    if (restart < 0) return -ENOTSUP;
-    if (!restart && (operation == DOLLY_PROCESS_FD_READ || operation == DOLLY_PROCESS_FD_WRITE ||
-        operation == DOLLY_PROCESS_WAIT || operation == DOLLY_PROCESS_FD_POLL ||
-        operation == DOLLY_PROCESS_CLOCK_SLEEP || operation == DOLLY_PROCESS_FD_LOCK)) return -EINTR;
-    if (restart == 1 && (operation == DOLLY_PROCESS_FD_POLL ||
-        operation == DOLLY_PROCESS_CLOCK_SLEEP)) return -EINTR;
+    const int64_t ended = interrupted(operation);
+    if (ended != 0) return ended;
+  }
+}
+
+/* What exec passes on: the mask, the ignored signals and those taken from the
+ * kernel but not delivered, of the signals the kernel numbers. */
+static void exec_signals(dolly_process_exec_state *state) {
+  *state = (dolly_process_exec_state){0};
+  dolly_lock_acquire(&action_lock);
+  for (int number = 1; number < 32; ++number) {
+    const uint32_t bit = 1u << number;
+    if (sigismember(&blocked, number) == 1) state->blocked_signals |= bit;
+    if (sigismember(&pending, number) == 1) state->pending_signals |= bit;
+    if (actions[number].sa_handler == SIG_IGN) state->ignored_signals |= bit;
+  }
+  dolly_lock_release(&action_lock);
+}
+
+/* EXEC, carrying the signal state the program has when the kernel takes the
+ * call: a handler that a pending signal runs first may change it. Returns only
+ * on failure. */
+int64_t __dolly_process_exec(dolly_process_exec_request *request, uint64_t size) {
+  for (;;) {
+    exec_signals(&request->signals);
+    const int64_t result = kernel_call(DOLLY_PROCESS_EXEC, request, size, NULL, 0);
+    if (result != -EINTR) return result < 0 ? result : -EIO;
+    /* EINTR with no signal to take, as inside a handler: call again. */
+    const int64_t ended = interrupted(DOLLY_PROCESS_EXEC);
+    if (ended != 0 && ended != -EINTR) return ended;
+  }
+}
+
+/* The signal state the program that exec replaced left this one, read before
+ * any call a pending signal could interrupt: crt1.c's first. */
+void __dolly_signal_start(void) {
+  dolly_process_exec_state state;
+  if (raw_process_call(DOLLY_PROCESS_EXEC, NULL, 0, &state, sizeof(state)) != sizeof(state)) return;
+  for (int number = 1; number < 32; ++number) {
+    const uint32_t bit = 1u << number;
+    if (number == SIGKILL || number == SIGSTOP) continue;
+    if (state.blocked_signals & bit) sigaddset(&blocked, number);
+    if (state.pending_signals & bit) sigaddset(&pending, number);
+    if (state.ignored_signals & bit) actions[number].sa_handler = SIG_IGN;
   }
 }

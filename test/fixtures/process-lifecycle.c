@@ -8,7 +8,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <grp.h>
+#include <pthread.h>
+#include <pwd.h>
 #include <sys/resource.h>
+#include <sys/times.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -317,6 +321,30 @@ int main(int argc, char **argv) {
   CHECK(clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpu) == 0 && getrusage(RUSAGE_SELF, &usage) == 0);
   CHECK(usage.ru_stime.tv_sec == 0 && usage.ru_stime.tv_usec == 0 &&
         usage.ru_utime.tv_sec * 1000000LL + usage.ru_utime.tv_usec >= cpu.tv_sec * 1000000LL + cpu.tv_nsec / 1000);
+  // times counts in clock ticks what getrusage reports.
+  struct tms ticks;
+  const clock_t elapsed = times(&ticks);
+  const long tick = sysconf(_SC_CLK_TCK);
+  CHECK(elapsed > 0 && ticks.tms_stime == 0 && ticks.tms_cutime == 0 && ticks.tms_cstime == 0 &&
+        ticks.tms_utime >= cpu.tv_sec * tick && ticks.tms_utime <= elapsed);
+  // waitid reports a child's exit, and nothing of one that never stops.
+  const int waited = child(argv[0], "exit130");
+  siginfo_t information;
+  CHECK(waited > 0 && waitid(P_PID, waited, &information, WEXITED) == 0 &&
+        information.si_pid == waited && information.si_code == CLD_EXITED && information.si_status == 130);
+  CHECK(waitid(P_ALL, 0, &information, WSTOPPED) == -1 && errno == EINVAL);
+  // No load average, no user database, no root or groups to change.
+  double load[3];
+  errno = 0;
+  CHECK(getloadavg(load, 3) == -1 && getpwent() == NULL && getgrent() == NULL && errno == 0);
+  CHECK(chroot("/") == -1 && errno == EPERM);
+  // getdate reads the templates DATEMSK names, and there are none.
+  CHECK(getdate("2026-10-23") == NULL && getdate_err == 1);
+  // Thread attributes exist for a program that prepares them before
+  // pthread_create, which refuses it without -pthread.
+  pthread_attr_t attributes;
+  CHECK(pthread_attr_init(&attributes) == 0 && pthread_attr_setstacksize(&attributes, 1 << 20) == 0 &&
+        pthread_attr_destroy(&attributes) == 0);
   // The kernel refuses a spawn deadline more than a day away.
   CHECK(dolly_spawn_timeout(argv[0], 2, sleep_arguments, 0, 1, 2, 2 * 86400e3) == -EINVAL);
   if (failures) return 1;
