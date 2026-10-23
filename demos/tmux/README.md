@@ -25,6 +25,13 @@ puts an editor beside a shell.
   with its own size and mode, `/dev/tty` is its pane, and Ctrl+C interrupts
   the programs in the pane, not its shell; one that does not answer is
   ended, as at the display's terminal.
+- The mouse is tmux's (`mouse` is on): a click chooses a pane, a drag on a
+  border resizes, the wheel scrolls the pane under the pointer back. Shift
+  and a drag select for Ctrl+Shift+C, as at the display's terminal
+  ([display](../../docs/display.md#terminal)).
+- A window is named after the program in the foreground of its active pane,
+  and `#{pane_current_path}` is where that program stands:
+  `split-window -c '#{pane_current_path}'` starts a pane there.
 - tmux starts its own server, as upstream: Dolly has no `fork`, so the client
   spawns `tmux -D` and serves it its first command over a socket pair. The
   server outlives the client and ends with its last session.
@@ -68,7 +75,10 @@ puts an editor beside a shell.
   slave, with the pane's environment and no other descriptor of the server;
   `osdep_job` spawns a job's command on the socket tmux reads it from;
   `osdep_start_server` spawns the server with the client's socket and
-  configuration, on the client's terminal.
+  configuration, on the client's terminal. Dolly has no process groups for
+  `tcgetpgrp` to name, so a pane's foreground is the newest child of its
+  program, the command its shell runs, or the program itself, found in
+  `/proc/processes`; `/proc/PID/cwd` says where it stands.
 
 ## Limits
 
@@ -77,13 +87,8 @@ puts an editor beside a shell.
   `copy-pipe` and popups take the same way and are not.
 - One client at a time, on one terminal: the server opens a client's terminal
   as `/dev/tty`, which names the terminal of the client that started it.
-- The mouse does nothing: tmux asks the terminal for mouse reports and the
-  display's terminal gives none ([input](../../docs/input.md)). Keys choose a
-  pane (`Ctrl+B o`, `Ctrl+B` and an arrow) and scroll one back (`Ctrl+B [`).
-- A window keeps its shell's name whatever that shell runs (a pane started
-  with a command is named after it), and a new pane starts in the session's
-  directory, not the pane's: nothing tells tmux which program holds a pane
-  or where it stands.
+- The terminal sends tmux the primary button only: its menus and paste,
+  on the other buttons, are keys only.
 
 Test: `npm run test:demos -- tmux` ([`test/`](test/)); the module's own is
 `test/pty-browser.mjs`.

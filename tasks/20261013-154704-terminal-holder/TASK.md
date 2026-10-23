@@ -1,6 +1,6 @@
 # Nothing can ask which program holds a terminal or where it stands: tmux's window names and new panes' directories
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS: core,kernel,terminal,tmux,0.1.4
 
@@ -13,6 +13,46 @@ and through what, a file under `/proc` or an operation; and tmux's
 limit stays.
 
 Waits for the owner to read the investigation; lowered from 180 on 2026-10-23 for that reason.
+
+## Closed (2026-10-23, `core/terminal`, `da393e43` and the tmux commit after it)
+
+Decided as below and used by tmux's `osdep_get_name` and `osdep_get_cwd`.
+Measured in Chromium and Firefox: `test/process-browser.mjs` reads
+`/proc/PID/cwd` of a shell and of its job (failed on the previous kernel:
+`readlink: /proc/161/cwd: No such file or directory`, Chromium);
+`demos/tmux/test/tmux-browser.mjs` opens a window with
+`-c '#{pane_current_path}'` from a pane standing in `/tmp`, where it
+writes `pwd`'s answer, and sees the window named `vi` while vi runs in the
+active pane (it was `slop` whatever ran). The README's limit is gone.
+
+## Decision
+
+The kernel answers through `/proc`, beside what it already answers there;
+no operation, no change of the process contract or of `pty@0`, no image
+input (`npm run build:runtime` prints the same image inputs, `1ee15fc6`).
+
+- **Where a process stands**: `readlink("/proc/PID/cwd")` names the
+  directory of a process that has not exited, as `readlink` of
+  `/proc/self/exe` names the caller's executable: one `kernel_link` in
+  `PATH_READLINK` of `src/process-kernel.c`, `ENOENT` for a PID that is not
+  live. It is Linux's interface for the same question, readlink only (no
+  `stat`, no `/proc/PID` directory). Every process may ask about every
+  other, as `/proc/processes` already lists every process's arguments: the
+  userspace is one trust domain.
+- **Which program holds a terminal**: no new interface. Dolly has no process
+  groups, so `tcgetpgrp` keeps failing (`ENOTTY`) rather than inventing a
+  group; the one program that asks, tmux, spawned the pane's program and
+  knows its PID. Its `osdep_get_name` and `osdep_get_cwd` take the newest
+  child of that program in `/proc/processes`, the command a pane's shell
+  runs (what a shell's job control would put in the foreground), or the
+  program itself, then its arguments and `/proc/PID/cwd`. A background job
+  of the pane's shell counts as its newest child too; Slop has no job
+  control to tell them apart.
+- Not taken: a `TIOCGPGRP` answer (it needs the libc adapter, so the seed,
+  and a sub-operation of the process contract's `TERMINAL` that the
+  process agent is changing now, for a group Dolly does not have); a
+  `pty@0` operation (seed and every image); the shell printing OSC 7 and
+  titles (Slop, the seed, and it names no program another shell runs).
 
 ## State (2026-10-14, 04:00): investigated, the owner's to read
 
