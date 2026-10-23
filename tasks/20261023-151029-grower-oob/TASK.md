@@ -1,6 +1,6 @@
 # A boot fails with memory access out of bounds in Chromium since kernel memory grows in its own Worker
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: core,runtime,bug,0.1.4
 
@@ -20,3 +20,7 @@ takes that interrupt. If so, the runtime Worker must see the new size itself bef
 (without growing the memory there, which is what kboundary-01 moved away).
 
 Done when: the boot loop above boots 72 of 72 with the growth Worker.
+
+Fixed by `c5cc2a1e` (the runtime Worker waits for its own view of the new size before the kernel
+goes on), cherry-picked onto `core/page-no-view` as `41aa755d`: the boot loop above booted 72 of 72
+in Chromium (2026-10-24, three pages at a time).
