@@ -91,6 +91,17 @@ Verified, as the trial was (commit `d027a1cb`):
 - **Stale**: every image, since the seed changed (image inputs `0dfde372…`). This tree's
   `dist/dolly-images.mjs` is narrowed to the chain.
 
+- **The fixed point, measured.** With the new seed, `cmake-build` (1,294 s), `python`,
+  `libffi`, `libdolly-sockets` and `llvm-tablegen` (404 s) under the 6 GB slot, then
+  `llvm-build` (2,922 s, its make 2,825 s) and `llvm-cc` (221 s) under the 9 GB one (scope peak
+  7.91 GB, file cache included). Compared with `work/x11fix`'s: `cmake-build` differs in the
+  compiler alone; `python`, `libffi`, `libdolly-sockets` are the same bytes; `llvm-tablegen` and
+  `llvm-build` differ in the compiler and the recipe files whose comments this branch changed
+  (`/etc/dolly/Dollyfile`, `artifact`, `recipes.lock`, `recipes/…`), so the 103 archives and
+  every TableGen output that the seed's compiler built are the bytes the host-built compiler
+  built. `pin-seed-compiler.mjs` on the new `llvm-cc` gives archive `9c4ba53a…` again: the
+  compiler linked by the compiler it pins is that compiler, byte for byte. One round suffices.
+
 Left for the round (integrator):
 
 - Merge `core/seed-compiler`, and give the integration tree the archive:
@@ -99,7 +110,7 @@ Left for the round (integrator):
   asset does not exist until 0.1.4 is released, and stops.
 - After the version moves to 0.1.4 and the round has built `llvm-cc`, run
   `node demos/llvm/pin-seed-compiler.mjs`: the URL then names v0.1.4 (it names v0.1.3 now,
-  `src/version.mjs`), and an unchanged digest confirms the fixed point. A changed digest means
+  `src/version.mjs`), and the digest stays, as measured here. A changed digest would mean
   another round. Commit `config/source-pins.sh`; release step 5 uploads the archive.
 - Every image is stale (the seed's image inputs change). Combined with `core/touch-module`'s
   seed change the compiler is unaffected: that branch leaves `abi/dolly-process-0.wat` and
