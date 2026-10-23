@@ -30,3 +30,8 @@ Done when:
 3. Opus 5.5 in Pi in Dolly writes a small game that runs in Dolly; its source and a screenshot
    are in the task directory.
 4. The spend is recorded and under $20.
+5. Owner (2026-10-23): "After the audit is complete, the issues should be fixed." Every
+   finding of the audit is fixed and verified, each with a reproduction first: those in Pi's
+   guidance, tools and extension by the agent of this task, the rest (shell, commands, kernel,
+   page) listed here with their reproduction and fixed by the integrator or another agent before
+   the 0.1.4 round; one that needs a design decision goes to the owner as one line.
