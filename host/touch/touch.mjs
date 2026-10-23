@@ -149,8 +149,8 @@ export function worker({ get, send }) {
       const lease = transport?.lease() ?? 0;
       if (transport && lease !== reported) send({ type: "touch-lease", lease: reported = lease });
     },
-    start({ dolly, memory }) {
-      const address = Number(dolly._dolly_touch_mailbox_address());
+    start({ kernel, memory }) {
+      const address = Number(kernel.dolly_touch_mailbox_address());
       transport = new TouchTransport(memory.buffer, address);
       transport.enable(true);
       // The finger's records notify the write word: a program waiting for a finger resumes then.

@@ -66,8 +66,8 @@ export function worker({ send, get }) {
       body, bodySize, flags, sequence) => admission.dispatch(mailbox.admission(get("runtime").memory.buffer,
         { method, methodSize, url, urlSize, headers, headersSize, body, bodySize, flags, sequence })) },
     messages: { "http-publish": record => mailbox.publish(record), "http-fail": ending => mailbox.fail(ending) },
-    start({ dolly, memory }) {
-      mailbox = new HttpMailbox(memory.buffer, Number(dolly._dolly_http_mailbox_address()));
+    start({ kernel, memory }) {
+      mailbox = new HttpMailbox(memory.buffer, Number(kernel.dolly_http_mailbox_address()));
       return { admission: admission.control.buffer };
     },
   };

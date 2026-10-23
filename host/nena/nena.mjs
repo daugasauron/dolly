@@ -113,9 +113,9 @@ export function worker({ send, get }) {
     // After the image and a saved session are restored: the record names what
     // the page enables again. The file is the session's own, so it is bounded
     // and parsed as requirements; a malformed one enables nothing.
-    start({ dolly, memory, kernelExports }) {
-      bridge = get("runtime").leaseBridge(lease, Number(dolly._dolly_nena_mailbox_address()), send);
-      files = bootFiles(kernelExports, memory);
+    start({ kernel, memory }) {
+      bridge = get("runtime").leaseBridge(lease, Number(kernel.dolly_nena_mailbox_address()), send);
+      files = bootFiles(kernel, memory);
       let enabled = [];
       try { enabled = hostRequirements(decoder.decode(files.read(record, 4096)).split("\n").filter(Boolean)); } catch {}
       return { enabled };

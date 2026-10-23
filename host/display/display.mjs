@@ -353,7 +353,7 @@ export function worker({ get, send, configuration }) {
   return {
     service() {
       if (!kernel) return;
-      const status = kernel._dolly_terminal_present_pending();
+      const status = kernel.dolly_terminal_present_pending();
       if (status !== 0) throw new Error(`Dolly terminal presentation failed with status ${status}`);
       report();
       // Wakes the presenter, which waits on the frame sequence while idle.
@@ -368,25 +368,25 @@ export function worker({ get, send, configuration }) {
       "display-surface"({ width, height, devicePixelRatio }) { transport?.publishSurface(width, height, devicePixelRatio); },
       "display-copy"() { return transport.copySelection(); },
     },
-    start({ dolly, memory, kernelExports }) {
-      if (dolly._dolly_display_prepare() !== 0) throw new Error("Dolly display preparation failed");
-      const address = Number(dolly._dolly_display_module_address()), size = Number(dolly._dolly_display_module_size());
+    start({ kernel: exports, memory }) {
+      kernel = exports;
+      if (kernel.dolly_display_prepare() !== 0) throw new Error("Dolly display preparation failed");
+      const address = Number(kernel.dolly_display_module_address()), size = Number(kernel.dolly_display_module_size());
       if (!Number.isSafeInteger(address) || !Number.isSafeInteger(size) || address <= 0 ||
           size <= 0 || size > 64 * 1024 * 1024 || address > memory.buffer.byteLength - size) {
         throw new Error("invalid resident display plugin range");
       }
-      const display = get("runtime").kernelPlugin(new Uint8Array(memory.buffer, address, size).slice(), kernelExports);
+      const display = get("runtime").kernelPlugin(new Uint8Array(memory.buffer, address, size).slice(), kernel);
       const getDriver = display.exports.dolly_display_driver_get_v5;
-      if (typeof getDriver !== "function" || dolly._dolly_display_install(getDriver()) !== 0) {
+      if (typeof getDriver !== "function" || kernel.dolly_display_install(getDriver()) !== 0) {
         throw new Error("Dolly display installation failed");
       }
-      const mailbox = Number(dolly._dolly_display_mailbox_address());
-      transport = new DisplayTransport(memory.buffer, mailbox, Number(dolly._dolly_display_copy_buffer_address()));
+      const mailbox = Number(kernel.dolly_display_mailbox_address());
+      transport = new DisplayTransport(memory.buffer, mailbox, Number(kernel.dolly_display_copy_buffer_address()));
       words = transport.words;
       word = transport.word;
-      kernel = dolly;
       const capacity = A.DOLLY_DISPLAY_MAX_WIDTH * A.DOLLY_DISPLAY_MAX_HEIGHT * 4, limit = memory.buffer.byteLength;
-      const frameAddresses = [0, 1].map(index => Number(dolly._dolly_display_framebuffer_address(index)));
+      const frameAddresses = [0, 1].map(index => Number(kernel.dolly_display_framebuffer_address(index)));
       if (frameAddresses.some(address => !Number.isSafeInteger(address) || address <= 0 || address > limit - capacity)) {
         throw new Error("invalid display framebuffer range");
       }

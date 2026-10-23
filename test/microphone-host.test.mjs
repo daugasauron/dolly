@@ -13,7 +13,7 @@ test("microphone module binds the bridge, publishes a reply of samples and revok
     get: () => ({ leaseBridge: (lease, address, send) => createLeaseBridge(lease, memory, address, send, () => {}) }) });
   const dispatch = module.bindings["env.dolly_microphone_dispatch"];
   assert.equal(dispatch(BigInt(address), 32n), -E.ENOSYS);
-  module.start({ dolly: { _dolly_microphone_mailbox_address: () => BigInt(mailbox) }, memory });
+  module.start({ kernel: { dolly_microphone_mailbox_address: () => BigInt(mailbox) }, memory });
   const view = new DataView(memory.buffer, address, 40);
   view.setUint32(4, 1, true); view.setUint32(8, 1, true); view.setUint32(16, 1, true);
   assert.equal(dispatch(BigInt(address), 41n), -E.EINVAL, "a packet longer than a READ");

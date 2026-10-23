@@ -47,7 +47,7 @@ page side keeps its DOM work and sends what the user does.
 `serviceOnNotify(words, index)`, which resumes waiting programs each time a
 mailbox word is notified, `leaseBridge(lease, mailbox, send)` for a device
 leased per process ([`runtime/lease-bridge.mjs`](runtime/lease-bridge.mjs)) and
-`kernelPlugin(bytes, kernelExports)` for a resident library linked into the
+`kernelPlugin(bytes, kernel)` for a resident library linked into the
 kernel. A device module imports only its own files, so it can be delivered on
 its own: its generated `abi.mjs` carries its contracts' constants and the
 process contract's errno numbers, as its C includes `<dolly/process.h>`. The

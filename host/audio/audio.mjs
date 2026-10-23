@@ -43,8 +43,8 @@ export function worker({ send, get }) {
   return {
     bindings: { "env.dolly_audio_dispatch": (address, bytes) =>
       bridge ? bridge.dispatch({ address, bytes }) : -E.ENOSYS },
-    start({ dolly }) {
-      bridge = get("runtime").leaseBridge(lease, Number(dolly._dolly_audio_mailbox_address()), send);
+    start({ kernel }) {
+      bridge = get("runtime").leaseBridge(lease, Number(kernel.dolly_audio_mailbox_address()), send);
     },
     messages: { "audio-complete": message => bridge?.acknowledge(message) },
     dispose() { bridge?.dispose(); bridge = undefined; },

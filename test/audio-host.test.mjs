@@ -13,7 +13,7 @@ test("audio module binds the bridge, acknowledges replies, revokes and disposes"
       return { leaseBridge: (lease, address, send) => createLeaseBridge(lease, memory, address, send, () => ++serviced) }; } });
   const dispatch = module.bindings["env.dolly_audio_dispatch"];
   assert.equal(dispatch(BigInt(address), 32n), -E.ENOSYS);
-  module.start({ dolly: { _dolly_audio_mailbox_address: () => BigInt(mailbox) }, memory });
+  module.start({ kernel: { dolly_audio_mailbox_address: () => BigInt(mailbox) }, memory });
   const packet = new Uint8Array(memory.buffer, address, 32), view = new DataView(packet.buffer, address, 32);
   view.setUint32(4, 1, true); view.setUint32(8, 1, true); view.setUint32(16, 1, true);
   assert.equal(dispatch(BigInt(address), 32n), 0);

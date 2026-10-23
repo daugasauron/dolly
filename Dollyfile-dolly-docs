@@ -18,7 +18,7 @@ SOURCE /v0.1.4/docs/architecture.md ecf36a3c4539c124b12ac57e04571aedac00db258de3
 SOURCE /v0.1.4/docs/browser-boundary.md 7df7e0c06adf378a75a719b4fd2e6c7a3ca94460153d3c4bddbd929c1451c0a4 /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE /v0.1.4/docs/image-build-service.md 43bbcfcf7c5e7c8ce83f91c55b3c4bc0682651b2905ba35089b2b85b3b13efa9 /usr/share/doc/dolly/docs/image-build-service.md
 SOURCE /v0.1.4/abi/README.md 45b4b76478b39b9ef2c0f45ce6636072dae0b128f2f3fc26c9c27de832b69e29 /usr/share/doc/dolly/abi/README.md
-SOURCE /v0.1.4/host/README.md 31909a3eac81bf8c56675fe2d2e5a2a6afdb03ab2b5e6126d3fea8532d01b5e8 /usr/share/doc/dolly/host/README.md
+SOURCE /v0.1.4/host/README.md 4f420312cf657225b07cd58241a02cf3b72ade5c1b49a9babab6269232e0bafc /usr/share/doc/dolly/host/README.md
 SOURCE /v0.1.4/abi/dolly-browser-0.wat 637be871fef39b87556a1e3513fbb4e428a14d6b563add9aa1606687bc91b4bb /usr/share/doc/dolly/abi/dolly-browser-0.wat
 SOURCE /v0.1.4/abi/dolly-host-0.wat 7d1a02e3317086c06ca022e917d6d8537d9a005e9804e5ffdf256dc7d70c8671 /usr/share/doc/dolly/abi/dolly-host-0.wat
 SOURCE /v0.1.4/abi/dolly-image-0.wat 9a16a6472d26ee6ca5d7a67a474a1723745b3eefaf585bd292d115725bf44d6a /usr/share/doc/dolly/abi/dolly-image-0.wat

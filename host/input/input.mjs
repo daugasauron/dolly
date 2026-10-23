@@ -646,9 +646,9 @@ export function worker({ get, send }) {
         send({ type: "input-idle", through: handled });
       }
     },
-    start({ dolly, memory }) {
-      const address = Number(dolly._dolly_input_mailbox_address());
-      const started = transport = new InputTransport(memory.buffer, address, Number(dolly._dolly_input_paste_buffer_address()),
+    start({ kernel, memory }) {
+      const address = Number(kernel.dolly_input_mailbox_address());
+      const started = transport = new InputTransport(memory.buffer, address, Number(kernel.dolly_input_paste_buffer_address()),
         { dropped: count => send({ type: "input-dropped", count }) });
       started.enable(true);
       // The page notifies the write word for a record a reader waits on: a

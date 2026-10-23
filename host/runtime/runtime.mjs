@@ -171,11 +171,11 @@ export function worker({ send, runtimeBase, abi, service }) {
     serveInProcess(requirement, module) {
       if (module) processModules.set(requirement, module); else processModules.delete(requirement);
     },
-    async supervisor(dolly) {
-      return supervisor ??= await DollyProcessSupervisor.create(dolly, memory, runtimeBase, abi, service, threadProvider, processModules);
+    async supervisor(kernel) {
+      return supervisor ??= await DollyProcessSupervisor.create(kernel, memory, runtimeBase, abi, service, threadProvider, processModules);
     },
-    start({ dolly }) {
-      terminal = new TerminalMailbox(memory.buffer, Number(dolly._dolly_terminal_mailbox_address()));
+    start({ kernel }) {
+      terminal = new TerminalMailbox(memory.buffer, Number(kernel.dolly_terminal_mailbox_address()));
       reportForeground();
     },
     serviceDeferred() { supervisor?.serviceDeferred(); },
@@ -189,7 +189,7 @@ export function worker({ send, runtimeBase, abi, service }) {
       return () => { stopped = true; };
     },
     // A resident library linked into the kernel (--dolly-kernel-plugin), such as the display's.
-    kernelPlugin(bytes, kernelExports) { return instantiateKernelPlugin(bytes, kernelExports, memory); },
+    kernelPlugin(bytes, kernel) { return instantiateKernelPlugin(bytes, kernel, memory); },
     // The Worker side of a device a module leases per process (src/device-lease.c).
     leaseBridge(lease, mailbox, send) {
       return createLeaseBridge(lease, memory, mailbox, send, () => supervisor?.serviceDeferred());
