@@ -139,7 +139,7 @@ await demoTest("pi", { image: "pi-agent", timeout: 900_000, browser: process.env
   const loginKey = "sk-or-v1-QZXJ7KWV2PLM9RTB4HNC";
   await run("! pi --offline --list-models openrouter | grep -q openrouter && clear");
   let pi = start("pi-key OPENROUTER_API_KEY --offline --list-models openrouter");
-  await waitText(/OPENROUTER_API_KEY \(not shown\): /);
+  await waitText(/OPENROUTER_API_KEY \(not shown\):/);
   // A typed and a pasted part of the key; no screen may show either.
   const screens = [];
   const watch = async pattern => {
