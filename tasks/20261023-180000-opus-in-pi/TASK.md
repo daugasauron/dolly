@@ -528,7 +528,7 @@ Findings:
   `timeout 3 ./play`) and rendered their own PNG screenshots to read with Pi's read tool.
   The first run's choice was forced: **`sdl2` needs `touch@0`**, which pi-agent does not
   declare ([sdl2-touch](../20261023-161303-sdl2-touch/TASK.md), filed). The second run's
-  extra cost is its own design (a Sokoban solver to verify five levels: 28 of 64 calls), not
+  extra cost is its own design (a Sokoban solver to verify its five levels: calls 21 to 39 of 64), not
   the environment. It fetched a TTF from GitHub because Pi cut its `find` output, which
   followed 80 lines of `amy list`; Iosevka is in `/usr/share/fonts`. The known package gaps
   (raylib's clock and keys, `-lpng`, no SDL_ttf) cost nothing here: both runs read
