@@ -19,8 +19,8 @@ DOLLY_SBASE_URL='https://git.suckless.org/sbase'
 DOLLY_AWK_COMMIT=5739fd79bcfc75ba7526773d0cf634521f8aca3c
 DOLLY_AWK_URL='https://github.com/onetrueawk/awk.git'
 
-DOLLY_QUICKJS_VERSION=0.15.0
-DOLLY_QUICKJS_COMMIT=433941b99fb3c5e7f98b7ebd78727972bcf467ee
+DOLLY_QUICKJS_VERSION=0.17.0
+DOLLY_QUICKJS_COMMIT=6d46d07d04041b40f4f49eaa7fdebe44c314c699
 DOLLY_QUICKJS_URL='https://github.com/quickjs-ng/quickjs.git'
 
 # Pi v1.0.3; package-lock.json pins the matching published npm packages.

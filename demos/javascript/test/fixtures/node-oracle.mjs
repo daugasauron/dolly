@@ -70,6 +70,10 @@ export async function observe(root) {
   const require = createRequire(`${root}/require/entry.cjs`);
   cases.require = [require("./helper"), require("condition-order"), require("condition-order/default-first"),
     require("./main"), require(`${root}/require/main`)];
+  // Unicode-set expressions as Pi's TUI builds them: properties, set subtraction, emoji strings.
+  cases.unicodeSets = await Promise.all([["^\\p{Mark}$", "\u0301"], ["^[\\p{Spacing_Mark}--[\\u1734]]$", "\u0903"],
+    ["^[\\p{Spacing_Mark}--[\\u1734]]$", "\u1734"], ["^\\p{Default_Ignorable_Code_Point}+$", "\u200b\u2060"],
+    ["^\\p{RGI_Emoji}$", "👍🏽"], ["^\\p{RGI_Emoji}$", "x"]].map(([pattern, text]) => outcome(() => new RegExp(pattern, "v").test(text))));
   // Bundles call it first thing (Pi's dist/bundle/cli.js); Janis has no cache to enable.
   cases.compileCache = [typeof enableCompileCache, Object.entries(moduleConstants.compileCacheStatus)];
   const url = pathToFileURL(file);

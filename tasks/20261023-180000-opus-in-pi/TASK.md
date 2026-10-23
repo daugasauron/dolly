@@ -373,6 +373,32 @@ scripted model now sends a command that writes a file and an edit of it in one r
 on the old extension the edit ran first ("Could not edit file: /workspace/pi-order.txt.
 Error code: ENOENT.", Chromium, `r2-pi-browser-before.log`).
 
+### SDL2 with a smooth font, and a bigger platformer (`r2-sdl/`, `r2-platformer/`, $1.207)
+
+- "A falling-blocks puzzle game (like Tetris) with SDL2 [...] All text on screen in a proper
+  smooth font, not blocky pixel letters": Opus ran `amy list | grep -i -E
+  'sdl|ttf|font|freetype'` and `ls /usr/share/fonts`, installed `sdl2` and `freetype`, read
+  `freetype2.pc` and linked `-I/usr/include/freetype2 -lSDL2 -lfreetype -lpng16 -lz -lm`
+  with the terminal's Iosevka TTF: 348 lines, 111 s, 13 calls, $0.344, glyphs cached per
+  size, a ghost piece (`game-3.png`). Its one failed call was this tree's: `amy files imgui`
+  answered "HTTP 502" because `imgui`, repinned for SDL2, is not rebuilt here.
+- "A side-scrolling platformer [...] three levels stored as text files [...] coyote time,
+  variable jump height [...] split the code into a few source files with a Makefile": SDL2
+  again (it weighed raylib), six files and three levels (about 1,000 lines), its own
+  `--check` mode found unreachable gaps in its levels and it fixed them; 293 s, 27 calls,
+  $0.863; `git archive` for the download; it plays (`game-3.png`).
+- Neither SDL2 session asked for an accelerated renderer this time (flags 0); text with
+  SDL2 means FreeType or a hand-made font, as SDL_ttf is not a package ("I'll skip SDL_ttf
+  and use freetype directly").
+
+### Where the time goes
+
+Across the seven sessions of this round, model time is 91 to 97% of the wall time when
+nothing hangs: tools return in under a second except builds (2 to 3 s) and the `timeout 3`
+starts of the game, which the models use to check that the program opens the display. The
+one long tool wait was before the guidance change: a game started from the `bash` tool
+without a timeout held the canvas until the tool's 180 s limit.
+
 ### The changes
 
 - **SDL2 renders in software in every session.** The driver (`SDL_dollyvideo.c`) sets

@@ -9,7 +9,7 @@ REQUIRES HOST http@0
 # is a library too: a program that is one script (tsc, pi, a game's agent)
 # links -ldolly-js -lquickjs and reads the two scripts kept here when it starts.
 FROM /v0.1.3/Dollyfile-system-tools 13ba21000aa665d6729f8e00cb795c4871f3bfaa72a4e18a7197d536b84a5826
-INSTALL /v0.1.3/demos/javascript/Dollyfile-quickjs 612835bf92e5138d0888d5167a8955c28058c870da1e165118bd4fc278544b3b
+INSTALL /v0.1.3/demos/javascript/Dollyfile-quickjs 047d13ab7e7db074df20f4ab375416e20fc85b41e8edfed8a56d918ee059b68c
 
 REQUIRES HEADER libc
 REQUIRES HEADER runtime

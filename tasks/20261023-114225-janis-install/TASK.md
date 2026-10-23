@@ -41,9 +41,18 @@ with what step 2 found below (`enableCompileCache`, the `/v` regexes, the key ma
   subtraction, `\p{RGI_Emoji}`). Measured natively (`build/opus-evidence/qjs/`, `qjs`
   built with upstream's CMake; every code point and seven sequences against Node 22):
   QuickJS-ng 0.15.0, the pinned one, refuses one ("invalid class range") and matches nothing
-  or almost nothing with the other five; **0.17.0 gives Node's answer for all six**. So the
-  fix is the upgrade of the `quickjs` pin to 0.17.0, which also retires
-  `pi-quickjs-compat.mjs`; it rebuilds the QuickJS and Janis chains.
+  or almost nothing with the other five; **0.17.0 gives Node's answer for all six**.
+  Done here: the `quickjs` pin is 0.17.0 (`6d46d07d`, same files as upstream's CMake
+  builds), and `pi-build` no longer lowers Pi's TUI regexes (`pi-quickjs-compat.mjs` is
+  gone), so Pi runs its six `/v` expressions as written. A `node-oracle.mjs` case builds
+  six Unicode-set expressions (`\p{Mark}`, set subtraction, `\p{Default_Ignorable_Code_Point}`,
+  `\p{RGI_Emoji}`): native 0.15.0 answers `[false, "invalid class range", "invalid class
+  range", false, false, false]`, Node and 0.17.0 `[true, true, false, true, true, false]`.
+  Rebuilt `quickjs`, `janis`, `typescript`, `pi-build`, `pi`, `pi-runtime`, `pi-agent` and
+  `closed-source-agent`; passed: the javascript test (Chromium 30.1 s, Firefox 35.2 s),
+  `pi-browser.mjs` (Chromium 60.3 s, Firefox 63.6 s) and `closed-source-agent-browser.mjs`
+  (Chromium 44.7 s: Claude Code under Janis on 0.17). Stale until the round: `slopyard`,
+  `bhop` and the other images on the Janis chain.
 - **The key mask**: Pi 1.4.0 (npm `latest`, 2026-10-23) still has no `mask` or `secret` in
   `pi-tui`'s `input.js` or the login dialog, so with Pi as published a key typed at
   `/login` shows in clear. For the owner: patch the published files at install, or read keys
