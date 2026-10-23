@@ -387,6 +387,19 @@ index 78d55bec..f149c073 100644
  	"netbsd/386":      true,
  	"netbsd/amd64":    true,
  	"netbsd/arm":      true,
+diff --git a/src/cmd/go/internal/base/signal_unix.go b/src/cmd/go/internal/base/signal_unix.go
+index 09059719..ce1d73f2 100644
+--- a/src/cmd/go/internal/base/signal_unix.go
++++ b/src/cmd/go/internal/base/signal_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || js || wasip1
++//go:build unix || js || wasip1 || dolly
+ 
+ package base
+ 
 diff --git a/src/cmd/go/internal/cfg/cfg.go b/src/cmd/go/internal/cfg/cfg.go
 index 78cbbb94..408b2e0b 100644
 --- a/src/cmd/go/internal/cfg/cfg.go
@@ -400,6 +413,19 @@ index 78cbbb94..408b2e0b 100644
  		return "GOWASM", GOWASM, goWASMChanged
  	}
  	return "", "", false
+diff --git a/src/cmd/go/internal/doc/signal_unix.go b/src/cmd/go/internal/doc/signal_unix.go
+index f30612ce..59bd2628 100644
+--- a/src/cmd/go/internal/doc/signal_unix.go
++++ b/src/cmd/go/internal/doc/signal_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || js || wasip1
++//go:build unix || js || wasip1 || dolly
+ 
+ package doc
+ 
 diff --git a/src/cmd/go/internal/imports/build.go b/src/cmd/go/internal/imports/build.go
 index 6a8b7a84..3d37056b 100644
 --- a/src/cmd/go/internal/imports/build.go
@@ -443,6 +469,32 @@ index 2985cff6..6f2b46e1 100644
  			break
  		}
  		fallthrough
+diff --git a/src/cmd/go/internal/mmap/mmap_other.go b/src/cmd/go/internal/mmap/mmap_other.go
+index 4d2844fc..3284f680 100644
+--- a/src/cmd/go/internal/mmap/mmap_other.go
++++ b/src/cmd/go/internal/mmap/mmap_other.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build (js && wasm) || wasip1 || plan9
++//go:build (js && wasm) || wasip1 || dolly || plan9
+ 
+ package mmap
+ 
+diff --git a/src/cmd/go/internal/modfetch/cache.go b/src/cmd/go/internal/modfetch/cache.go
+index 7b728906..658d2e0d 100644
+--- a/src/cmd/go/internal/modfetch/cache.go
++++ b/src/cmd/go/internal/modfetch/cache.go
+@@ -696,7 +696,7 @@ func isErrReadOnlyFS(err error) bool {
+ 	case "windows":
+ 		const ERROR_NOT_SUPPORTED = 50
+ 		return errors.Is(err, syscall.Errno(ERROR_NOT_SUPPORTED))
+-	case "wasip1":
++	case "wasip1", "dolly":
+ 		const EROFS = 69
+ 		return errors.Is(err, syscall.Errno(EROFS))
+ 	default: // unix and js
 diff --git a/src/cmd/go/internal/modindex/build.go b/src/cmd/go/internal/modindex/build.go
 index c0acb8ff..31b57313 100644
 --- a/src/cmd/go/internal/modindex/build.go
@@ -457,6 +509,32 @@ index c0acb8ff..31b57313 100644
  	if name == "unix" && syslist.UnixOS[ctxt.GOOS] {
  		return true
  	}
+diff --git a/src/cmd/go/internal/toolchain/exec.go b/src/cmd/go/internal/toolchain/exec.go
+index df385e7b..36020dd3 100644
+--- a/src/cmd/go/internal/toolchain/exec.go
++++ b/src/cmd/go/internal/toolchain/exec.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build !js && !wasip1
++//go:build !js && !wasip1 && !dolly
+ 
+ package toolchain
+ 
+diff --git a/src/cmd/go/internal/toolchain/exec_stub.go b/src/cmd/go/internal/toolchain/exec_stub.go
+index e2123790..950b186b 100644
+--- a/src/cmd/go/internal/toolchain/exec_stub.go
++++ b/src/cmd/go/internal/toolchain/exec_stub.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build js || wasip1
++//go:build js || wasip1 || dolly
+ 
+ package toolchain
+ 
 diff --git a/src/cmd/go/internal/work/gc.go b/src/cmd/go/internal/work/gc.go
 index 49b26e15..bccd10ef 100644
 --- a/src/cmd/go/internal/work/gc.go
@@ -1269,6 +1347,43 @@ index 16e5a011..b15ad649 100644
  		arch, theArch = wasm.Init()
  	}
  	ld.Main(arch, theArch)
+diff --git a/src/cmd/test2json/signal_unix.go b/src/cmd/test2json/signal_unix.go
+index 2b4e44cb..7111dad2 100644
+--- a/src/cmd/test2json/signal_unix.go
++++ b/src/cmd/test2json/signal_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || js || wasip1
++//go:build unix || js || wasip1 || dolly
+ 
+ package main
+ 
+diff --git a/src/cmd/vendor/golang.org/x/telemetry/internal/mmap/mmap_other.go b/src/cmd/vendor/golang.org/x/telemetry/internal/mmap/mmap_other.go
+index 610ab1a1..a8c32a41 100644
+--- a/src/cmd/vendor/golang.org/x/telemetry/internal/mmap/mmap_other.go
++++ b/src/cmd/vendor/golang.org/x/telemetry/internal/mmap/mmap_other.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build (js && wasm) || wasip1 || plan9
++//go:build (js && wasm) || wasip1 || dolly || plan9
+ 
+ package mmap
+ 
+diff --git a/src/cmd/vendor/golang.org/x/telemetry/internal/telemetry/dir.go b/src/cmd/vendor/golang.org/x/telemetry/internal/telemetry/dir.go
+index 0673be56..f95f1c6f 100644
+--- a/src/cmd/vendor/golang.org/x/telemetry/internal/telemetry/dir.go
++++ b/src/cmd/vendor/golang.org/x/telemetry/internal/telemetry/dir.go
+@@ -159,5 +159,6 @@ const DisabledOnPlatform = false ||
+ 	// These platforms fundamentally can't be supported:
+ 	runtime.GOOS == "js" || // #60971
+ 	runtime.GOOS == "wasip1" || // #60971
++	runtime.GOOS == "dolly" || // no shared memory between processes
+ 	runtime.GOOS == "plan9" || // https://github.com/golang/go/issues/57540#issuecomment-1470766639
+ 	runtime.GOARCH == "mips" || runtime.GOARCH == "mipsle" // mips lacks cross-process 64-bit atomics
 diff --git a/src/crypto/internal/fips140/fips140.go b/src/crypto/internal/fips140/fips140.go
 index 76054b00..97edf0d4 100644
 --- a/src/crypto/internal/fips140/fips140.go
@@ -1282,6 +1397,37 @@ index 76054b00..97edf0d4 100644
  		runtime.GOOS == "windows" && runtime.GOARCH == "386",
  		runtime.GOOS == "openbsd", // due to -fexecute-only, see #70880
  		runtime.GOOS == "aix":
+diff --git a/src/crypto/internal/sysrand/rand_dolly.go b/src/crypto/internal/sysrand/rand_dolly.go
+new file mode 100644
+index 00000000..f7a55d3c
+--- /dev/null
++++ b/src/crypto/internal/sysrand/rand_dolly.go
+@@ -0,0 +1,12 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++package sysrand
++
++import "syscall"
++
++// read fills b from Dolly's RANDOM operation, which fills all of it.
++func read(b []byte) error {
++	return syscall.RandomGet(b)
++}
+diff --git a/src/crypto/x509/root_unix.go b/src/crypto/x509/root_unix.go
+index 3f84b55f..13d54746 100644
+--- a/src/crypto/x509/root_unix.go
++++ b/src/crypto/x509/root_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build aix || dragonfly || freebsd || (js && wasm) || linux || netbsd || openbsd || solaris || wasip1
++//go:build aix || dragonfly || freebsd || (js && wasm) || linux || netbsd || openbsd || solaris || wasip1 || dolly
+ 
+ package x509
+ 
 diff --git a/src/go/build/build.go b/src/go/build/build.go
 index 4c6be413..c788ca6f 100644
 --- a/src/go/build/build.go
@@ -1448,6 +1594,19 @@ index d22e9044..dee5ba9a 100644
 +
  #include "go_asm.h"
  #include "textflag.h"
+ 
+diff --git a/src/internal/filepathlite/path_unix.go b/src/internal/filepathlite/path_unix.go
+index e31f1ae7..e92c40a8 100644
+--- a/src/internal/filepathlite/path_unix.go
++++ b/src/internal/filepathlite/path_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1
++//go:build unix || (js && wasm) || wasip1 || dolly
+ 
+ package filepathlite
  
 diff --git a/src/internal/goarch/gengoarch.go b/src/internal/goarch/gengoarch.go
 index a52936ef..f17dd536 100644
@@ -1983,6 +2142,302 @@ index ec6368e8..b857768a 100644
  	{"dragonfly", "amd64"}: {CgoSupported: true},
  	{"freebsd", "386"}:     {CgoSupported: true},
  	{"freebsd", "amd64"}:   {CgoSupported: true},
+diff --git a/src/internal/poll/errno_unix.go b/src/internal/poll/errno_unix.go
+index d1a18abd..7ba86e3f 100644
+--- a/src/internal/poll/errno_unix.go
++++ b/src/internal/poll/errno_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || wasip1
++//go:build unix || wasip1 || dolly
+ 
+ package poll
+ 
+diff --git a/src/internal/poll/fd_fsync_posix.go b/src/internal/poll/fd_fsync_posix.go
+index 469ca75b..0a281cf9 100644
+--- a/src/internal/poll/fd_fsync_posix.go
++++ b/src/internal/poll/fd_fsync_posix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build aix || dragonfly || freebsd || (js && wasm) || linux || netbsd || openbsd || solaris || wasip1
++//go:build aix || dragonfly || freebsd || (js && wasm) || linux || netbsd || openbsd || solaris || wasip1 || dolly
+ 
+ package poll
+ 
+diff --git a/src/internal/poll/fd_poll_runtime.go b/src/internal/poll/fd_poll_runtime.go
+index 2aef1124..80c30d33 100644
+--- a/src/internal/poll/fd_poll_runtime.go
++++ b/src/internal/poll/fd_poll_runtime.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || windows || wasip1
++//go:build unix || windows || wasip1 || dolly
+ 
+ package poll
+ 
+diff --git a/src/internal/poll/fd_posix.go b/src/internal/poll/fd_posix.go
+index 12f13864..3e2a0cda 100644
+--- a/src/internal/poll/fd_posix.go
++++ b/src/internal/poll/fd_posix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1 || windows
++//go:build unix || (js && wasm) || wasip1 || dolly || windows
+ 
+ package poll
+ 
+diff --git a/src/internal/poll/fd_unix.go b/src/internal/poll/fd_unix.go
+index bebf01a8..9f65332f 100644
+--- a/src/internal/poll/fd_unix.go
++++ b/src/internal/poll/fd_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1
++//go:build unix || (js && wasm) || wasip1 || dolly
+ 
+ package poll
+ 
+diff --git a/src/internal/poll/fd_unixjs.go b/src/internal/poll/fd_unixjs.go
+index 090974d2..dedf14be 100644
+--- a/src/internal/poll/fd_unixjs.go
++++ b/src/internal/poll/fd_unixjs.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm)
++//go:build unix || (js && wasm) || dolly
+ 
+ package poll
+ 
+diff --git a/src/internal/poll/fstatat_unix.go b/src/internal/poll/fstatat_unix.go
+index cde8551a..21905df6 100644
+--- a/src/internal/poll/fstatat_unix.go
++++ b/src/internal/poll/fstatat_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || wasip1
++//go:build unix || wasip1 || dolly
+ 
+ package poll
+ 
+diff --git a/src/internal/poll/hook_unix.go b/src/internal/poll/hook_unix.go
+index b3f4f9eb..3864663a 100644
+--- a/src/internal/poll/hook_unix.go
++++ b/src/internal/poll/hook_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1
++//go:build unix || (js && wasm) || wasip1 || dolly
+ 
+ package poll
+ 
+diff --git a/src/internal/poll/sys_cloexec.go b/src/internal/poll/sys_cloexec.go
+index 2c5da7d3..2c5c381e 100644
+--- a/src/internal/poll/sys_cloexec.go
++++ b/src/internal/poll/sys_cloexec.go
+@@ -5,7 +5,7 @@
+ // This file implements accept for platforms that do not provide a fast path for
+ // setting SetNonblock and CloseOnExec.
+ 
+-//go:build aix || darwin || (js && wasm) || wasip1
++//go:build aix || darwin || (js && wasm) || wasip1 || dolly
+ 
+ package poll
+ 
+diff --git a/src/internal/syscall/unix/at_dolly.go b/src/internal/syscall/unix/at_dolly.go
+new file mode 100644
+index 00000000..54ff2684
+--- /dev/null
++++ b/src/internal/syscall/unix/at_dolly.go
+@@ -0,0 +1,84 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build dolly
++
++package unix
++
++import (
++	"syscall"
++	_ "unsafe" // for go:linkname
++)
++
++// The *at operations of Dolly's process contract, which package syscall makes.
++
++const (
++	AT_FDCWD            = syscall.AT_FDCWD
++	AT_REMOVEDIR        = syscall.AT_REMOVEDIR
++	AT_SYMLINK_NOFOLLOW = syscall.AT_SYMLINK_NOFOLLOW
++	UTIME_OMIT          = syscall.UTIME_OMIT
++)
++
++func Unlinkat(dirfd int, path string, flags int) error {
++	return syscall.Unlinkat(dirfd, path, flags)
++}
++
++func Openat(dirfd int, path string, flags int, perm uint32) (int, error) {
++	return syscall.Openat(dirfd, path, flags, perm)
++}
++
++func Fstatat(dirfd int, path string, stat *syscall.Stat_t, flags int) error {
++	return syscall.Fstatat(dirfd, path, stat, flags)
++}
++
++func Readlinkat(dirfd int, path string, buf []byte) (int, error) {
++	return syscall.Readlinkat(dirfd, path, buf)
++}
++
++func Mkdirat(dirfd int, path string, mode uint32) error {
++	return syscall.Mkdirat(dirfd, path, mode)
++}
++
++func Fchmodat(dirfd int, path string, mode uint32, flags int) error {
++	return syscall.Fchmodat(dirfd, path, mode, flags)
++}
++
++func Fchownat(dirfd int, path string, uid, gid int, flags int) error {
++	return syscall.Fchownat(dirfd, path, uid, gid, flags)
++}
++
++func Renameat(olddirfd int, oldpath string, newdirfd int, newpath string) error {
++	return syscall.Renameat(olddirfd, oldpath, newdirfd, newpath)
++}
++
++func Linkat(olddirfd int, oldpath string, newdirfd int, newpath string, flag int) error {
++	return syscall.Linkat(olddirfd, oldpath, newdirfd, newpath)
++}
++
++func Symlinkat(oldpath string, newdirfd int, newpath string) error {
++	return syscall.Symlinkat(oldpath, newdirfd, newpath)
++}
++
++func Utimensat(dirfd int, path string, times *[2]syscall.Timespec, flag int) error {
++	return syscall.UtimesNanoAt(dirfd, path, times[:], flag)
++}
++
++//go:linkname Fcntl syscall.fcntl
++func Fcntl(fd int, cmd int, arg int) (int, error)
++
++func IsNonblock(fd int) (nonblocking bool, err error) {
++	flags, err := Fcntl(fd, syscall.F_GETFL, 0)
++	return flags&syscall.O_NONBLOCK != 0, err
++}
++
++func HasNonblockFlag(flag int) bool {
++	return flag&syscall.O_NONBLOCK != 0
++}
++
++// Eaccess reports whether path exists: Dolly has no permission model, so a
++// file that exists may be read, written and run.
++func Eaccess(path string, mode uint32) error {
++	var st syscall.Stat_t
++	return syscall.Stat(path, &st)
++}
+diff --git a/src/internal/syscall/unix/constants.go b/src/internal/syscall/unix/constants.go
+index 6a78dda7..647effe9 100644
+--- a/src/internal/syscall/unix/constants.go
++++ b/src/internal/syscall/unix/constants.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || wasip1
++//go:build unix || wasip1 || dolly
+ 
+ package unix
+ 
+diff --git a/src/internal/syscall/unix/net_dolly.go b/src/internal/syscall/unix/net_dolly.go
+new file mode 100644
+index 00000000..5df0f242
+--- /dev/null
++++ b/src/internal/syscall/unix/net_dolly.go
+@@ -0,0 +1,44 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build dolly
++
++package unix
++
++import (
++	"syscall"
++	_ "unsafe"
++)
++
++func RecvfromInet4(fd int, p []byte, flags int, from *syscall.SockaddrInet4) (int, error) {
++	return 0, syscall.ENOSYS
++}
++
++func RecvfromInet6(fd int, p []byte, flags int, from *syscall.SockaddrInet6) (n int, err error) {
++	return 0, syscall.ENOSYS
++}
++
++func SendtoInet4(fd int, p []byte, flags int, to *syscall.SockaddrInet4) (err error) {
++	return syscall.ENOSYS
++}
++
++func SendtoInet6(fd int, p []byte, flags int, to *syscall.SockaddrInet6) (err error) {
++	return syscall.ENOSYS
++}
++
++func SendmsgNInet4(fd int, p, oob []byte, to *syscall.SockaddrInet4, flags int) (n int, err error) {
++	return 0, syscall.ENOSYS
++}
++
++func SendmsgNInet6(fd int, p, oob []byte, to *syscall.SockaddrInet6, flags int) (n int, err error) {
++	return 0, syscall.ENOSYS
++}
++
++func RecvmsgInet4(fd int, p, oob []byte, flags int, from *syscall.SockaddrInet4) (n, oobn int, recvflags int, err error) {
++	return 0, 0, 0, syscall.ENOSYS
++}
++
++func RecvmsgInet6(fd int, p, oob []byte, flags int, from *syscall.SockaddrInet6) (n, oobn int, recvflags int, err error) {
++	return 0, 0, 0, syscall.ENOSYS
++}
+diff --git a/src/internal/syscall/unix/nofollow_posix.go b/src/internal/syscall/unix/nofollow_posix.go
+index 3a5e0af0..90df62e0 100644
+--- a/src/internal/syscall/unix/nofollow_posix.go
++++ b/src/internal/syscall/unix/nofollow_posix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build (unix && !dragonfly && !freebsd && !netbsd) || wasip1
++//go:build (unix && !dragonfly && !freebsd && !netbsd) || wasip1 || dolly
+ 
+ package unix
+ 
+diff --git a/src/internal/syscall/unix/utimes.go b/src/internal/syscall/unix/utimes.go
+index 332a4b69..58049d62 100644
+--- a/src/internal/syscall/unix/utimes.go
++++ b/src/internal/syscall/unix/utimes.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix && !wasip1
++//go:build unix && !wasip1 && !dolly
+ 
+ package unix
+ 
 diff --git a/src/internal/syslist/syslist.go b/src/internal/syslist/syslist.go
 index 2349b6ea..19d1e260 100644
 --- a/src/internal/syslist/syslist.go
@@ -2001,6 +2456,950 @@ index 2349b6ea..19d1e260 100644
  	"wasm":        true,
 +	"wasm64":      true,
  }
+diff --git a/src/internal/testenv/testenv_notunix.go b/src/internal/testenv/testenv_notunix.go
+index a7df5f5d..ad74a31c 100644
+--- a/src/internal/testenv/testenv_notunix.go
++++ b/src/internal/testenv/testenv_notunix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build windows || plan9 || (js && wasm) || wasip1
++//go:build windows || plan9 || (js && wasm) || wasip1 || dolly
+ 
+ package testenv
+ 
+diff --git a/src/mime/type_unix.go b/src/mime/type_unix.go
+index 90414c1a..5aad611c 100644
+--- a/src/mime/type_unix.go
++++ b/src/mime/type_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1
++//go:build unix || (js && wasm) || wasip1 || dolly
+ 
+ package mime
+ 
+diff --git a/src/net/cgo_stub.go b/src/net/cgo_stub.go
+index 640f5a4f..28956f74 100644
+--- a/src/net/cgo_stub.go
++++ b/src/net/cgo_stub.go
+@@ -9,7 +9,7 @@
+ //   (Darwin always provides the cgo functions, in cgo_unix_syscall.go)
+ // - on wasip1, where cgo is never available
+ 
+-//go:build (netgo && unix) || (unix && !cgo && !darwin) || js || wasip1
++//go:build (netgo && unix) || (unix && !cgo && !darwin) || js || wasip1 || dolly
+ 
+ package net
+ 
+diff --git a/src/net/conf.go b/src/net/conf.go
+index 92c5618d..cb21bddd 100644
+--- a/src/net/conf.go
++++ b/src/net/conf.go
+@@ -140,7 +140,7 @@ func initConfVal() {
+ 
+ 	// The remaining checks are specific to Unix systems.
+ 	switch runtime.GOOS {
+-	case "plan9", "windows", "js", "wasip1":
++	case "plan9", "windows", "js", "wasip1", "dolly":
+ 		return
+ 	}
+ 
+diff --git a/src/net/error_posix.go b/src/net/error_posix.go
+index 84f80440..72e46c61 100644
+--- a/src/net/error_posix.go
++++ b/src/net/error_posix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || js || wasip1 || windows
++//go:build unix || js || wasip1 || dolly || windows
+ 
+ package net
+ 
+diff --git a/src/net/error_unix.go b/src/net/error_unix.go
+index d6948670..7eda6987 100644
+--- a/src/net/error_unix.go
++++ b/src/net/error_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || js || wasip1
++//go:build unix || js || wasip1 || dolly
+ 
+ package net
+ 
+diff --git a/src/net/fd_fake.go b/src/net/fd_fake.go
+index 946805ab..eb6a6798 100644
+--- a/src/net/fd_fake.go
++++ b/src/net/fd_fake.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build js || wasip1
++//go:build js || wasip1 || dolly
+ 
+ package net
+ 
+diff --git a/src/net/fd_js.go b/src/net/fd_js.go
+index 0fce036e..96f15647 100644
+--- a/src/net/fd_js.go
++++ b/src/net/fd_js.go
+@@ -4,7 +4,7 @@
+ 
+ // Fake networking for js/wasm. It is intended to allow tests of other package to pass.
+ 
+-//go:build js
++//go:build js || dolly
+ 
+ package net
+ 
+diff --git a/src/net/file_stub.go b/src/net/file_stub.go
+index 6fd3eec4..0dbdd08d 100644
+--- a/src/net/file_stub.go
++++ b/src/net/file_stub.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build js
++//go:build js || dolly
+ 
+ package net
+ 
+diff --git a/src/net/hook_unix.go b/src/net/hook_unix.go
+index 69b37559..3b672b7b 100644
+--- a/src/net/hook_unix.go
++++ b/src/net/hook_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || js || wasip1
++//go:build unix || js || wasip1 || dolly
+ 
+ package net
+ 
+diff --git a/src/net/http/transport_default_wasm.go b/src/net/http/transport_default_wasm.go
+index 3946812d..9e912d46 100644
+--- a/src/net/http/transport_default_wasm.go
++++ b/src/net/http/transport_default_wasm.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build (js && wasm) || wasip1
++//go:build (js && wasm) || wasip1 || dolly
+ 
+ package http
+ 
+diff --git a/src/net/interface_stub.go b/src/net/interface_stub.go
+index 4c280c6f..0c4fe950 100644
+--- a/src/net/interface_stub.go
++++ b/src/net/interface_stub.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build js || wasip1
++//go:build js || wasip1 || dolly
+ 
+ package net
+ 
+diff --git a/src/net/internal/socktest/switch_unix.go b/src/net/internal/socktest/switch_unix.go
+index ff928776..43c74ee9 100644
+--- a/src/net/internal/socktest/switch_unix.go
++++ b/src/net/internal/socktest/switch_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1
++//go:build unix || (js && wasm) || wasip1 || dolly
+ 
+ package socktest
+ 
+diff --git a/src/net/internal/socktest/sys_unix.go b/src/net/internal/socktest/sys_unix.go
+index 3eef26c7..5580ce9b 100644
+--- a/src/net/internal/socktest/sys_unix.go
++++ b/src/net/internal/socktest/sys_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1
++//go:build unix || (js && wasm) || wasip1 || dolly
+ 
+ package socktest
+ 
+diff --git a/src/net/iprawsock_posix.go b/src/net/iprawsock_posix.go
+index b25cb648..ebeabf88 100644
+--- a/src/net/iprawsock_posix.go
++++ b/src/net/iprawsock_posix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || js || wasip1 || windows
++//go:build unix || js || wasip1 || dolly || windows
+ 
+ package net
+ 
+diff --git a/src/net/ipsock_posix.go b/src/net/ipsock_posix.go
+index 1d5e8ef2..07a29600 100644
+--- a/src/net/ipsock_posix.go
++++ b/src/net/ipsock_posix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || js || wasip1 || windows
++//go:build unix || js || wasip1 || dolly || windows
+ 
+ package net
+ 
+@@ -27,7 +27,7 @@ import (
+ // IPv6 support too. So probe the kernel to figure it out.
+ func (p *ipStackCapabilities) probe() {
+ 	switch runtime.GOOS {
+-	case "js", "wasip1":
++	case "js", "wasip1", "dolly":
+ 		// Both ipv4 and ipv6 are faked; see net_fake.go.
+ 		p.ipv4Enabled = true
+ 		p.ipv6Enabled = true
+@@ -164,7 +164,7 @@ func favoriteAddrFamily(network string, laddr, raddr sockaddr, mode string) (fam
+ 
+ func internetSocket(ctx context.Context, net string, laddr, raddr sockaddr, sotype, proto int, mode string, ctrlCtxFn func(context.Context, string, string, syscall.RawConn) error) (fd *netFD, err error) {
+ 	switch runtime.GOOS {
+-	case "aix", "freebsd", "windows", "openbsd", "js", "wasip1":
++	case "aix", "freebsd", "windows", "openbsd", "js", "wasip1", "dolly":
+ 		if mode == "dial" && raddr.isWildcard() {
+ 			raddr = raddr.toLocal(net)
+ 		}
+diff --git a/src/net/lookup_unix.go b/src/net/lookup_unix.go
+index 86108939..200d8614 100644
+--- a/src/net/lookup_unix.go
++++ b/src/net/lookup_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || js || wasip1
++//go:build unix || js || wasip1 || dolly
+ 
+ package net
+ 
+diff --git a/src/net/net_fake.go b/src/net/net_fake.go
+index cc35d90a..45938635 100644
+--- a/src/net/net_fake.go
++++ b/src/net/net_fake.go
+@@ -5,7 +5,7 @@
+ // Fake networking for js/wasm and wasip1/wasm.
+ // It is intended to allow tests of other package to pass.
+ 
+-//go:build js || wasip1
++//go:build js || wasip1 || dolly
+ 
+ package net
+ 
+diff --git a/src/net/port_unix.go b/src/net/port_unix.go
+index df73dbab..34010ef1 100644
+--- a/src/net/port_unix.go
++++ b/src/net/port_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || js || wasip1
++//go:build unix || js || wasip1 || dolly
+ 
+ // Read system port mappings from /etc/services
+ 
+diff --git a/src/net/rlimit_unix.go b/src/net/rlimit_unix.go
+index 0094756e..950f2857 100644
+--- a/src/net/rlimit_unix.go
++++ b/src/net/rlimit_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || wasip1
++//go:build unix || wasip1 || dolly
+ 
+ package net
+ 
+diff --git a/src/net/sock_stub.go b/src/net/sock_stub.go
+index fd86fa92..dfcf1d7c 100644
+--- a/src/net/sock_stub.go
++++ b/src/net/sock_stub.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build aix || js || solaris || wasip1
++//go:build aix || js || solaris || wasip1 || dolly
+ 
+ package net
+ 
+diff --git a/src/net/sockaddr_posix.go b/src/net/sockaddr_posix.go
+index c5604fca..bbae16bf 100644
+--- a/src/net/sockaddr_posix.go
++++ b/src/net/sockaddr_posix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || js || wasip1 || windows
++//go:build unix || js || wasip1 || dolly || windows
+ 
+ package net
+ 
+diff --git a/src/net/sockopt_fake.go b/src/net/sockopt_fake.go
+index 9d9f7ea9..d06d2d64 100644
+--- a/src/net/sockopt_fake.go
++++ b/src/net/sockopt_fake.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build js || wasip1
++//go:build js || wasip1 || dolly
+ 
+ package net
+ 
+diff --git a/src/net/sockoptip_stub.go b/src/net/sockoptip_stub.go
+index 23891a86..709244b1 100644
+--- a/src/net/sockoptip_stub.go
++++ b/src/net/sockoptip_stub.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build js || wasip1
++//go:build js || wasip1 || dolly
+ 
+ package net
+ 
+diff --git a/src/net/tcpsock_posix.go b/src/net/tcpsock_posix.go
+index 7bca8dca..b4579da9 100644
+--- a/src/net/tcpsock_posix.go
++++ b/src/net/tcpsock_posix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || js || wasip1 || windows
++//go:build unix || js || wasip1 || dolly || windows
+ 
+ package net
+ 
+diff --git a/src/net/tcpsockopt_stub.go b/src/net/tcpsockopt_stub.go
+index b789e0ae..0d8b2c5a 100644
+--- a/src/net/tcpsockopt_stub.go
++++ b/src/net/tcpsockopt_stub.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build js || wasip1
++//go:build js || wasip1 || dolly
+ 
+ package net
+ 
+diff --git a/src/net/udpsock_posix.go b/src/net/udpsock_posix.go
+index 99e4359e..31b65c5f 100644
+--- a/src/net/udpsock_posix.go
++++ b/src/net/udpsock_posix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || js || wasip1 || windows
++//go:build unix || js || wasip1 || dolly || windows
+ 
+ package net
+ 
+diff --git a/src/net/unixsock_posix.go b/src/net/unixsock_posix.go
+index dc01b387..e2511718 100644
+--- a/src/net/unixsock_posix.go
++++ b/src/net/unixsock_posix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || js || wasip1 || windows
++//go:build unix || js || wasip1 || dolly || windows
+ 
+ package net
+ 
+diff --git a/src/net/unixsock_readmsg_other.go b/src/net/unixsock_readmsg_other.go
+index 4bef3ee7..d3f7e7b8 100644
+--- a/src/net/unixsock_readmsg_other.go
++++ b/src/net/unixsock_readmsg_other.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build js || wasip1 || windows
++//go:build js || wasip1 || dolly || windows
+ 
+ package net
+ 
+diff --git a/src/os/dir_unix.go b/src/os/dir_unix.go
+index 8f1aabec..6f4f5ddb 100644
+--- a/src/os/dir_unix.go
++++ b/src/os/dir_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build aix || dragonfly || freebsd || (js && wasm) || wasip1 || linux || netbsd || openbsd || solaris
++//go:build aix || dragonfly || freebsd || (js && wasm) || wasip1 || dolly || linux || netbsd || openbsd || solaris
+ 
+ package os
+ 
+@@ -113,7 +113,7 @@ func (f *File) readdir(n int, mode readdirMode) (names []string, dirents []DirEn
+ 		// of inodes. Therefore, we cannot make the assumption that it is safe
+ 		// to skip entries with zero inodes.
+ 		// Some Linux filesystems (old XFS, FUSE) can return valid files with zero inodes.
+-		if ino == 0 && runtime.GOOS != "linux" && runtime.GOOS != "wasip1" {
++		if ino == 0 && runtime.GOOS != "linux" && runtime.GOOS != "wasip1" && runtime.GOOS != "dolly" {
+ 			continue
+ 		}
+ 		const namoff = uint64(unsafe.Offsetof(syscall.Dirent{}.Name))
+diff --git a/src/os/dirent_dolly.go b/src/os/dirent_dolly.go
+new file mode 100644
+index 00000000..b449c7fc
+--- /dev/null
++++ b/src/os/dirent_dolly.go
+@@ -0,0 +1,52 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build dolly
++
++package os
++
++import (
++	"syscall"
++	"unsafe"
++)
++
++// A directory entry of Dolly's: a 24-byte header, then the name.
++const direntHeader = unsafe.Offsetof(syscall.Dirent{}.Name)
++
++func direntIno(buf []byte) (uint64, bool) {
++	return readInt(buf, unsafe.Offsetof(syscall.Dirent{}.Ino), unsafe.Sizeof(syscall.Dirent{}.Ino))
++}
++
++func direntNamlen(buf []byte) (uint64, bool) {
++	return readInt(buf, unsafe.Offsetof(syscall.Dirent{}.Namelen), unsafe.Sizeof(syscall.Dirent{}.Namelen))
++}
++
++func direntReclen(buf []byte) (uint64, bool) {
++	namelen, ok := direntNamlen(buf)
++	return uint64(direntHeader) + namelen, ok
++}
++
++func direntType(buf []byte) FileMode {
++	off := unsafe.Offsetof(syscall.Dirent{}.Type)
++	if off >= uintptr(len(buf)) {
++		return ^FileMode(0) // unknown
++	}
++	switch buf[off] {
++	case 1: // regular
++		return 0
++	case 2:
++		return ModeDir
++	case 3:
++		return ModeSymlink
++	case 4:
++		return ModeDevice | ModeCharDevice
++	case 5:
++		return ModeDevice
++	case 6:
++		return ModeNamedPipe
++	case 7:
++		return ModeSocket
++	}
++	return ^FileMode(0) // unknown
++}
+diff --git a/src/os/eloop_other.go b/src/os/eloop_other.go
+index aace57bd..d9c2469c 100644
+--- a/src/os/eloop_other.go
++++ b/src/os/eloop_other.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build aix || darwin || dragonfly || freebsd || linux || openbsd || solaris || wasip1
++//go:build aix || darwin || dragonfly || freebsd || linux || openbsd || solaris || wasip1 || dolly
+ 
+ package os
+ 
+diff --git a/src/os/exec/lp_unix.go b/src/os/exec/lp_unix.go
+index d3b10cc4..469e7ab9 100644
+--- a/src/os/exec/lp_unix.go
++++ b/src/os/exec/lp_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix
++//go:build unix || dolly
+ 
+ package exec
+ 
+diff --git a/src/os/exec/lp_wasm.go b/src/os/exec/lp_wasm.go
+index 1de9076e..0b12d036 100644
+--- a/src/os/exec/lp_wasm.go
++++ b/src/os/exec/lp_wasm.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build wasm
++//go:build wasm && !dolly
+ 
+ package exec
+ 
+diff --git a/src/os/exec_posix.go b/src/os/exec_posix.go
+index 9f83db15..46826b66 100644
+--- a/src/os/exec_posix.go
++++ b/src/os/exec_posix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1 || windows
++//go:build unix || (js && wasm) || wasip1 || dolly || windows
+ 
+ package os
+ 
+diff --git a/src/os/exec_unix.go b/src/os/exec_unix.go
+index d2ceb0ce..8b3e73bf 100644
+--- a/src/os/exec_unix.go
++++ b/src/os/exec_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1
++//go:build unix || (js && wasm) || wasip1 || dolly
+ 
+ package os
+ 
+diff --git a/src/os/executable_procfs.go b/src/os/executable_procfs.go
+index a52631c0..7a212677 100644
+--- a/src/os/executable_procfs.go
++++ b/src/os/executable_procfs.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build linux
++//go:build linux || dolly
+ 
+ package os
+ 
+@@ -17,7 +17,7 @@ func executable() (string, error) {
+ 	switch runtime.GOOS {
+ 	default:
+ 		return "", errors.New("Executable not implemented for " + runtime.GOOS)
+-	case "linux", "android":
++	case "linux", "android", "dolly":
+ 		procfn = "/proc/self/exe"
+ 	}
+ 	path, err := Readlink(procfn)
+diff --git a/src/os/executable_wasm.go b/src/os/executable_wasm.go
+index a88360c1..83c03958 100644
+--- a/src/os/executable_wasm.go
++++ b/src/os/executable_wasm.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build wasm
++//go:build wasm && !dolly
+ 
+ package os
+ 
+diff --git a/src/os/file_open_unix.go b/src/os/file_open_unix.go
+index a3336eac..21573b62 100644
+--- a/src/os/file_open_unix.go
++++ b/src/os/file_open_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm)
++//go:build unix || (js && wasm) || dolly
+ 
+ package os
+ 
+diff --git a/src/os/file_posix.go b/src/os/file_posix.go
+index 12fc523f..ea5e3d29 100644
+--- a/src/os/file_posix.go
++++ b/src/os/file_posix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1 || windows
++//go:build unix || (js && wasm) || wasip1 || dolly || windows
+ 
+ package os
+ 
+diff --git a/src/os/file_unix.go b/src/os/file_unix.go
+index 6f9cab78..1fe26494 100644
+--- a/src/os/file_unix.go
++++ b/src/os/file_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1
++//go:build unix || (js && wasm) || wasip1 || dolly
+ 
+ package os
+ 
+@@ -432,7 +432,7 @@ func readlink(name string) (string, error) {
+ 			return fixCount(syscall.Readlink(name, b))
+ 		})
+ 		// buffer too small
+-		if (runtime.GOOS == "aix" || runtime.GOOS == "wasip1") && err == syscall.ERANGE {
++		if (runtime.GOOS == "aix" || runtime.GOOS == "wasip1" || runtime.GOOS == "dolly") && err == syscall.ERANGE {
+ 			continue
+ 		}
+ 		if err != nil {
+diff --git a/src/os/path_unix.go b/src/os/path_unix.go
+index 0189bcd2..c3b3f646 100644
+--- a/src/os/path_unix.go
++++ b/src/os/path_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1
++//go:build unix || (js && wasm) || wasip1 || dolly
+ 
+ package os
+ 
+diff --git a/src/os/pidfd_other.go b/src/os/pidfd_other.go
+index 7a282307..492e9fb4 100644
+--- a/src/os/pidfd_other.go
++++ b/src/os/pidfd_other.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build (unix && !linux) || (js && wasm) || wasip1 || windows
++//go:build (unix && !linux) || (js && wasm) || wasip1 || dolly || windows
+ 
+ package os
+ 
+diff --git a/src/os/pipe2_unix.go b/src/os/pipe2_unix.go
+index dca83a52..637a67e3 100644
+--- a/src/os/pipe2_unix.go
++++ b/src/os/pipe2_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build dragonfly || freebsd || linux || netbsd || openbsd || solaris
++//go:build dragonfly || freebsd || linux || netbsd || openbsd || solaris || dolly
+ 
+ package os
+ 
+diff --git a/src/os/pipe_wasm.go b/src/os/pipe_wasm.go
+index 87a29b1f..065ca138 100644
+--- a/src/os/pipe_wasm.go
++++ b/src/os/pipe_wasm.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build wasm
++//go:build wasm && !dolly
+ 
+ package os
+ 
+diff --git a/src/os/removeall_at.go b/src/os/removeall_at.go
+index 9a7cea61..d154e3cb 100644
+--- a/src/os/removeall_at.go
++++ b/src/os/removeall_at.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || wasip1 || windows
++//go:build unix || wasip1 || dolly || windows
+ 
+ package os
+ 
+diff --git a/src/os/removeall_unix.go b/src/os/removeall_unix.go
+index 61e848d5..112311fd 100644
+--- a/src/os/removeall_unix.go
++++ b/src/os/removeall_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || wasip1
++//go:build unix || wasip1 || dolly
+ 
+ package os
+ 
+diff --git a/src/os/root_openat.go b/src/os/root_openat.go
+index ee786176..735c8ddf 100644
+--- a/src/os/root_openat.go
++++ b/src/os/root_openat.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || windows || wasip1
++//go:build unix || windows || wasip1 || dolly
+ 
+ package os
+ 
+diff --git a/src/os/root_unix.go b/src/os/root_unix.go
+index 36db082e..863366ff 100644
+--- a/src/os/root_unix.go
++++ b/src/os/root_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || wasip1
++//go:build unix || wasip1 || dolly
+ 
+ package os
+ 
+diff --git a/src/os/signal/signal_unix.go b/src/os/signal/signal_unix.go
+index 21dfa416..f0702f18 100644
+--- a/src/os/signal/signal_unix.go
++++ b/src/os/signal/signal_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1 || windows
++//go:build unix || (js && wasm) || wasip1 || dolly || windows
+ 
+ package signal
+ 
+diff --git a/src/os/stat_dolly.go b/src/os/stat_dolly.go
+new file mode 100644
+index 00000000..a5228a6b
+--- /dev/null
++++ b/src/os/stat_dolly.go
+@@ -0,0 +1,51 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build dolly
++
++package os
++
++import (
++	"internal/filepathlite"
++	"syscall"
++	"time"
++)
++
++func fillFileStatFromSys(fs *fileStat, name string) {
++	fs.name = filepathlite.Base(name)
++	fs.size = fs.sys.Size
++	fs.modTime = time.Unix(fs.sys.Mtime, fs.sys.MtimeNsec)
++	fs.mode = FileMode(fs.sys.Mode & 0777)
++	switch fs.sys.Mode & syscall.S_IFMT {
++	case syscall.S_IFBLK:
++		fs.mode |= ModeDevice
++	case syscall.S_IFCHR:
++		fs.mode |= ModeDevice | ModeCharDevice
++	case syscall.S_IFDIR:
++		fs.mode |= ModeDir
++	case syscall.S_IFIFO:
++		fs.mode |= ModeNamedPipe
++	case syscall.S_IFLNK:
++		fs.mode |= ModeSymlink
++	case syscall.S_IFREG:
++		// nothing to do
++	case syscall.S_IFSOCK:
++		fs.mode |= ModeSocket
++	}
++	if fs.sys.Mode&syscall.S_ISGID != 0 {
++		fs.mode |= ModeSetgid
++	}
++	if fs.sys.Mode&syscall.S_ISUID != 0 {
++		fs.mode |= ModeSetuid
++	}
++	if fs.sys.Mode&syscall.S_ISVTX != 0 {
++		fs.mode |= ModeSticky
++	}
++}
++
++// For testing.
++func atime(fi FileInfo) time.Time {
++	st := fi.Sys().(*syscall.Stat_t)
++	return time.Unix(st.Atime, st.AtimeNsec)
++}
+diff --git a/src/os/stat_unix.go b/src/os/stat_unix.go
+index 9a1f2121..f9bd23db 100644
+--- a/src/os/stat_unix.go
++++ b/src/os/stat_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1
++//go:build unix || (js && wasm) || wasip1 || dolly
+ 
+ package os
+ 
+diff --git a/src/os/statat_unix.go b/src/os/statat_unix.go
+index 8552e490..0ce8a4d8 100644
+--- a/src/os/statat_unix.go
++++ b/src/os/statat_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build aix || darwin || dragonfly || freebsd || wasip1 || linux || netbsd || openbsd || solaris
++//go:build aix || darwin || dragonfly || freebsd || wasip1 || dolly || linux || netbsd || openbsd || solaris
+ 
+ package os
+ 
+diff --git a/src/os/sticky_bsd.go b/src/os/sticky_bsd.go
+index a6d93395..6b462913 100644
+--- a/src/os/sticky_bsd.go
++++ b/src/os/sticky_bsd.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build aix || darwin || dragonfly || freebsd || (js && wasm) || netbsd || openbsd || solaris || wasip1
++//go:build aix || darwin || dragonfly || freebsd || (js && wasm) || netbsd || openbsd || solaris || wasip1 || dolly
+ 
+ package os
+ 
+diff --git a/src/os/sticky_notbsd.go b/src/os/sticky_notbsd.go
+index 1d289b0f..533c9d7c 100644
+--- a/src/os/sticky_notbsd.go
++++ b/src/os/sticky_notbsd.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build !aix && !darwin && !dragonfly && !freebsd && !js && !netbsd && !openbsd && !solaris && !wasip1
++//go:build !aix && !darwin && !dragonfly && !freebsd && !js && !netbsd && !openbsd && !solaris && !wasip1 && !dolly
+ 
+ package os
+ 
+diff --git a/src/os/sys_bsd.go b/src/os/sys_bsd.go
+index 63120fb9..48862648 100644
+--- a/src/os/sys_bsd.go
++++ b/src/os/sys_bsd.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build darwin || dragonfly || freebsd || (js && wasm) || netbsd || openbsd || wasip1
++//go:build darwin || dragonfly || freebsd || (js && wasm) || netbsd || openbsd || wasip1 || dolly
+ 
+ package os
+ 
+diff --git a/src/os/sys_dolly.go b/src/os/sys_dolly.go
+new file mode 100644
+index 00000000..c14a3ad2
+--- /dev/null
++++ b/src/os/sys_dolly.go
+@@ -0,0 +1,11 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build dolly
++
++package os
++
++// supportsCloseOnExec reports whether the platform supports the
++// O_CLOEXEC flag.
++const supportsCloseOnExec = true
+diff --git a/src/os/user/listgroups_unix.go b/src/os/user/listgroups_unix.go
+index f370ec19..be990735 100644
+--- a/src/os/user/listgroups_unix.go
++++ b/src/os/user/listgroups_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build (((unix && !android) || (js && wasm) || wasip1) && ((!cgo && !darwin) || osusergo)) || aix
++//go:build (((unix && !android) || (js && wasm) || wasip1 || dolly) && ((!cgo && !darwin) || osusergo)) || aix
+ 
+ package user
+ 
+diff --git a/src/os/user/lookup_unix.go b/src/os/user/lookup_unix.go
+index a4308269..86779ff4 100644
+--- a/src/os/user/lookup_unix.go
++++ b/src/os/user/lookup_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build ((unix && !android) || (js && wasm) || wasip1) && ((!cgo && !darwin) || osusergo)
++//go:build ((unix && !android) || (js && wasm) || wasip1 || dolly) && ((!cgo && !darwin) || osusergo)
+ 
+ package user
+ 
+diff --git a/src/os/wait_unimp.go b/src/os/wait_unimp.go
+index 810e35da..9d9c85ec 100644
+--- a/src/os/wait_unimp.go
++++ b/src/os/wait_unimp.go
+@@ -5,7 +5,7 @@
+ // aix, darwin, js/wasm, openbsd, solaris and wasip1/wasm don't implement
+ // waitid/wait6.
+ 
+-//go:build aix || darwin || (js && wasm) || openbsd || solaris || wasip1
++//go:build aix || darwin || (js && wasm) || openbsd || solaris || wasip1 || dolly
+ 
+ package os
+ 
+diff --git a/src/os/zero_copy_posix.go b/src/os/zero_copy_posix.go
+index 161144fe..25da9050 100644
+--- a/src/os/zero_copy_posix.go
++++ b/src/os/zero_copy_posix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || js || wasip1 || windows
++//go:build unix || js || wasip1 || dolly || windows
+ 
+ package os
+ 
+diff --git a/src/path/filepath/path_unix.go b/src/path/filepath/path_unix.go
+index 6bc974db..f41fcea4 100644
+--- a/src/path/filepath/path_unix.go
++++ b/src/path/filepath/path_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1
++//go:build unix || (js && wasm) || wasip1 || dolly
+ 
+ package filepath
+ 
 diff --git a/src/reflect/asm_wasm.s b/src/reflect/asm_wasm.s
 index 71abe670..f27b1d6e 100644
 --- a/src/reflect/asm_wasm.s
@@ -2031,6 +3430,22 @@ index 71abe670..f27b1d6e 100644
  	I64Const $argframe+0(FP)
  	I64Add
  	I64Store $8
+diff --git a/src/reflect/type.go b/src/reflect/type.go
+index 67eaefa0..b5e655aa 100644
+--- a/src/reflect/type.go
++++ b/src/reflect/type.go
+@@ -1180,9 +1180,9 @@ func (t *structType) Field(i int) (f StructField) {
+ 	}
+ 	f.Offset = p.Offset
+ 
+-	// We can't safely use this optimization on js or wasi,
++	// We can't safely use this optimization on js, wasi or dolly,
+ 	// which do not appear to support read-only data.
+-	if i < 256 && runtime.GOOS != "js" && runtime.GOOS != "wasip1" {
++	if i < 256 && runtime.GOOS != "js" && runtime.GOOS != "wasip1" && runtime.GOOS != "dolly" {
+ 		staticuint64s := getStaticuint64s()
+ 		p := unsafe.Pointer(&(*staticuint64s)[i])
+ 		if unsafe.Sizeof(int(0)) == 4 && goarch.BigEndian {
 diff --git a/src/runtime/asm_wasm.h b/src/runtime/asm_wasm.h
 new file mode 100644
 index 00000000..15dbacc9
@@ -2243,6 +3658,29 @@ index 56b766f1..dd6cf3ac 100644
  		n = 1 // WebAssembly has no threads yet, so only one CPU is possible.
  	}
  
+diff --git a/src/runtime/lock_wasip1.go b/src/runtime/lock_nothreads.go
+similarity index 95%
+rename from src/runtime/lock_wasip1.go
+rename to src/runtime/lock_nothreads.go
+index 9bf5a4bc..9e3d56a9 100644
+--- a/src/runtime/lock_wasip1.go
++++ b/src/runtime/lock_nothreads.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build wasip1
++//go:build wasip1 || dolly
+ 
+ package runtime
+ 
+@@ -112,6 +112,3 @@ func beforeIdle(int64, int64) (*g, bool) {
+ }
+ 
+ func checkTimeouts() {}
+-
+-//go:wasmimport wasi_snapshot_preview1 sched_yield
+-func sched_yield() errno
 diff --git a/src/runtime/malloc.go b/src/runtime/malloc.go
 index 8c5ec383..fd463fb5 100644
 --- a/src/runtime/malloc.go
@@ -2309,6 +3747,402 @@ index 1be8487a..18879fc2 100644
 +	WrapAddress
  	MemoryCopy
  	RET
+diff --git a/src/runtime/netpoll.go b/src/runtime/netpoll.go
+index fab921e2..2839a4db 100644
+--- a/src/runtime/netpoll.go
++++ b/src/runtime/netpoll.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1 || windows
++//go:build unix || (js && wasm) || wasip1 || dolly || windows
+ 
+ package runtime
+ 
+@@ -344,8 +344,8 @@ func poll_runtime_pollWait(pd *pollDesc, mode int) int {
+ 	if errcode != pollNoError {
+ 		return errcode
+ 	}
+-	// As for now only Solaris, illumos, AIX and wasip1 use level-triggered IO.
+-	if GOOS == "solaris" || GOOS == "illumos" || GOOS == "aix" || GOOS == "wasip1" {
++	// As for now only Solaris, illumos, AIX, wasip1 and dolly use level-triggered IO.
++	if GOOS == "solaris" || GOOS == "illumos" || GOOS == "aix" || GOOS == "wasip1" || GOOS == "dolly" {
+ 		netpollarm(pd, mode)
+ 	}
+ 	for !netpollblock(pd, int32(mode), false) {
+diff --git a/src/runtime/netpoll_dolly.go b/src/runtime/netpoll_dolly.go
+new file mode 100644
+index 00000000..930c134d
+--- /dev/null
++++ b/src/runtime/netpoll_dolly.go
+@@ -0,0 +1,142 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build dolly
++
++package runtime
++
++import "unsafe"
++
++// Dolly's network poller. FD_POLL is level triggered, like poll(2): every
++// armed descriptor is a query, and a ready one is disarmed and its goroutine
++// readied. Its deadline is absolute monotonic time; zero does not block and
++// all ones waits without a limit.
++
++const (
++	_DOLLY_POLL_READ    = 1 << 0
++	_DOLLY_POLL_WRITE   = 1 << 1
++	_DOLLY_POLL_ERROR   = 1 << 3
++	_DOLLY_POLL_HANGUP  = 1 << 4
++	_DOLLY_POLL_INVALID = 1 << 5
++)
++
++var (
++	pollMutex mutex
++	// The registered descriptors, and the armed ones of the current poll
++	// (pollDescs live outside the heap: netpoll may not write pointers).
++	pollRegistered []*pollDesc
++	pollArmed      []uintptr
++	// FD_POLL's packets: a 16-byte header, then 8 bytes per armed descriptor.
++	pollRequest, pollResponse []byte
++)
++
++func netpollinit() {
++	pollRequest = make([]byte, 16+8*16)
++	pollResponse = make([]byte, 16+8*16)
++}
++
++func netpollIsPollDescriptor(fd uintptr) bool {
++	return false
++}
++
++func netpollopen(fd uintptr, pd *pollDesc) int32 {
++	lock(&pollMutex)
++	pd.user = 0
++	pollRegistered = append(pollRegistered, pd)
++	if size := 16 + 8*len(pollRegistered); size > len(pollRequest) {
++		pollRequest = make([]byte, 2*size)
++		pollResponse = make([]byte, 2*size)
++	}
++	if len(pollRegistered) > len(pollArmed) {
++		pollArmed = make([]uintptr, 2*len(pollRegistered))
++	}
++	unlock(&pollMutex)
++	return 0
++}
++
++func netpollarm(pd *pollDesc, mode int) {
++	lock(&pollMutex)
++	if mode == 'r' {
++		pd.user |= _DOLLY_POLL_READ
++	} else {
++		pd.user |= _DOLLY_POLL_WRITE
++	}
++	unlock(&pollMutex)
++}
++
++func netpollclose(fd uintptr) int32 {
++	lock(&pollMutex)
++	for i, pd := range pollRegistered {
++		if pd.fd == fd {
++			last := len(pollRegistered) - 1
++			pollRegistered[i] = pollRegistered[last]
++			pollRegistered[last] = nil
++			pollRegistered = pollRegistered[:last]
++			break
++		}
++	}
++	unlock(&pollMutex)
++	return 0
++}
++
++func netpollBreak() {}
++
++func netpoll(delay int64) (gList, int32) {
++	lock(&pollMutex)
++	armed := 0
++	for _, pd := range pollRegistered {
++		if pd.user != 0 {
++			query := unsafe.Pointer(&pollRequest[16+8*armed])
++			*(*uint32)(query) = uint32(pd.fd)
++			*(*uint32)(unsafe.Add(query, 4)) = pd.user // events, then a zero reserved field
++			pollArmed[armed] = uintptr(unsafe.Pointer(pd))
++			armed++
++		}
++	}
++	if armed == 0 && delay < 0 {
++		unlock(&pollMutex)
++		return gList{}, 0
++	}
++	deadline := uint64(0)
++	if delay < 0 {
++		deadline = ^uint64(0)
++	} else if delay > 0 {
++		deadline = uint64(nanotime() + delay)
++	}
++	*(*uint64)(unsafe.Pointer(&pollRequest[0])) = deadline
++	*(*uint64)(unsafe.Pointer(&pollRequest[8])) = uint64(armed) // count, then a zero reserved field
++	size := uint64(16 + 8*armed)
++	result := dollySyscall(_DOLLY_FD_POLL, unsafe.Pointer(&pollRequest[0]), size, unsafe.Pointer(&pollResponse[0]), size)
++	if result == -_EINTR {
++		// A signal ended the wait: the scheduler recomputes it.
++		unlock(&pollMutex)
++		return gList{}, 0
++	}
++	if result != int64(size) {
++		println("runtime: FD_POLL of", armed, "descriptors returned", result)
++		throw("netpoll failed")
++	}
++	var toRun gList
++	delta := int32(0)
++	for i, address := range pollArmed[:armed] {
++		pd := (*pollDesc)(unsafe.Pointer(address))
++		events := uint32(*(*uint16)(unsafe.Pointer(&pollResponse[16+8*i])))
++		failed := events&(_DOLLY_POLL_ERROR|_DOLLY_POLL_HANGUP|_DOLLY_POLL_INVALID) != 0
++		var mode int32
++		if pd.user&_DOLLY_POLL_READ != 0 && (events&_DOLLY_POLL_READ != 0 || failed) {
++			mode += 'r'
++			pd.user &^= _DOLLY_POLL_READ
++		}
++		if pd.user&_DOLLY_POLL_WRITE != 0 && (events&_DOLLY_POLL_WRITE != 0 || failed) {
++			mode += 'w'
++			pd.user &^= _DOLLY_POLL_WRITE
++		}
++		if mode != 0 {
++			pd.setEventErr(events&(_DOLLY_POLL_ERROR|_DOLLY_POLL_INVALID) != 0, 0)
++			delta += netpollready(&toRun, pd, mode)
++		}
++	}
++	unlock(&pollMutex)
++	return toRun, delta
++}
+diff --git a/src/runtime/os_dolly.go b/src/runtime/os_dolly.go
+new file mode 100644
+index 00000000..b450589e
+--- /dev/null
++++ b/src/runtime/os_dolly.go
+@@ -0,0 +1,204 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build dolly
++
++package runtime
++
++import "unsafe"
++
++// A Dolly process has one import: dolly_process_0.call, which makes an
++// operation of Dolly's process contract (include/dolly/process.h) with a
++// request and a response packet. A non-negative result is the size of the
++// response; a negative one is a negated Dolly error number.
++//
++//go:wasmimport dolly_process_0 call
++//go:noescape
++func dollyCall(operation uint32, request unsafe.Pointer, requestSize uint64, response unsafe.Pointer, responseCapacity uint64) int64
++
++// Operations, errors and signals of include/dolly/process.h.
++const (
++	_DOLLY_ARGUMENT_SIZES     = 1
++	_DOLLY_ARGUMENTS          = 2
++	_DOLLY_ENVIRONMENT_SIZES  = 3
++	_DOLLY_ENVIRONMENT        = 4
++	_DOLLY_EXIT               = 5
++	_DOLLY_FD_WRITE           = 17
++	_DOLLY_CLOCK_TIME         = 48
++	_DOLLY_RANDOM             = 49
++	_DOLLY_CLOCK_SLEEP        = 53
++	_DOLLY_FD_POLL            = 54
++	_DOLLY_INTERRUPT_POLL     = 66
++	_DOLLY_SIGNAL_ACKNOWLEDGE = 69
++
++	_EINTR = 27
++
++	_DOLLY_CLOCK_REALTIME  = 0
++	_DOLLY_CLOCK_MONOTONIC = 1
++
++	_DOLLY_SIGCHLD  = 17
++	_DOLLY_SIGWINCH = 28
++)
++
++// dollySyscall is dollyCall for operations that the kernel may interrupt with
++// a signal (all but EXIT and the signal operations). The signal is taken,
++// then the operation is made again; a sleep or a poll instead returns EINTR to
++// its caller, which recomputes its deadline. Go handles no signal on Dolly:
++// SIGCHLD and SIGWINCH are ignored and any other takes its default action,
++// ending the process.
++//
++//go:nosplit
++func dollySyscall(operation uint32, request unsafe.Pointer, requestSize uint64, response unsafe.Pointer, responseCapacity uint64) int64 {
++	for {
++		result := dollyCall(operation, request, requestSize, response, responseCapacity)
++		if result != -_EINTR || !dollyTakeSignal() ||
++			operation == _DOLLY_CLOCK_SLEEP || operation == _DOLLY_FD_POLL {
++			return result
++		}
++	}
++}
++
++// dollyTakeSignal takes the signal that interrupted a call, if any, and
++// reports whether there was one.
++//
++//go:nosplit
++func dollyTakeSignal() bool {
++	var number, remaining int32
++	if dollyCall(_DOLLY_INTERRUPT_POLL, nil, 0, unsafe.Pointer(&number), 4) != 4 || number == 0 {
++		return false
++	}
++	if number != _DOLLY_SIGCHLD && number != _DOLLY_SIGWINCH {
++		dollyExit(128+uint32(number), uint32(number))
++	}
++	dollyCall(_DOLLY_SIGNAL_ACKNOWLEDGE, unsafe.Pointer(&number), 4, unsafe.Pointer(&remaining), 4)
++	return true
++}
++
++//go:linkname syscall_dollyCall syscall.dollyCall
++//go:nosplit
++func syscall_dollyCall(operation uint32, request unsafe.Pointer, requestSize uint64, response unsafe.Pointer, responseCapacity uint64) int64 {
++	return dollySyscall(operation, request, requestSize, response, responseCapacity)
++}
++
++//go:linkname syscall_dollySleep syscall.dollySleep
++func syscall_dollySleep(ns int64) {
++	timeSleep(ns)
++}
++
++//go:nosplit
++func dollyExit(status, signal uint32) {
++	request := [2]uint32{status, signal}
++	dollyCall(_DOLLY_EXIT, unsafe.Pointer(&request), 8, nil, 0)
++	throw("dolly: exit returned")
++}
++
++//go:nosplit
++func exit(code int32) {
++	dollyExit(uint32(code)&0xff, 0)
++}
++
++// writeBuffer holds one FD_WRITE packet of write1: its header and the bytes.
++var writeBuffer [16 + 4096]byte
++
++func write1(fd uintptr, p unsafe.Pointer, n int32) int32 {
++	if n > int32(len(writeBuffer)-16) {
++		n = int32(len(writeBuffer) - 16)
++	}
++	*(*uint32)(unsafe.Pointer(&writeBuffer[0])) = uint32(fd)
++	*(*uint32)(unsafe.Pointer(&writeBuffer[4])) = 0
++	*(*uint64)(unsafe.Pointer(&writeBuffer[8])) = uint64(n)
++	memmove(unsafe.Pointer(&writeBuffer[16]), p, uintptr(n))
++	var written uint64
++	if dollySyscall(_DOLLY_FD_WRITE, unsafe.Pointer(&writeBuffer[0]), 16+uint64(n), unsafe.Pointer(&written), 8) < 0 {
++		return -1
++	}
++	return int32(written)
++}
++
++func usleep(usec uint32) {
++	request := struct {
++		clock, flags uint32
++		deadline     uint64
++	}{_DOLLY_CLOCK_MONOTONIC, 0, uint64(nanotime1()) + uint64(usec)*1000}
++	dollySyscall(_DOLLY_CLOCK_SLEEP, unsafe.Pointer(&request), 16, nil, 0)
++}
++
++func readRandom(r []byte) int {
++	if len(r) == 0 || dollySyscall(_DOLLY_RANDOM, nil, 0, unsafe.Pointer(&r[0]), uint64(len(r))) != int64(len(r)) {
++		return 0
++	}
++	return len(r)
++}
++
++// dollyStrings reads the process's arguments or environment: NUL-terminated
++// strings, as many as the sizes operation reports.
++func dollyStrings(sizesOperation, bytesOperation uint32) []string {
++	var sizes struct {
++		count, reserved uint32
++		bytes           uint64
++	}
++	if dollySyscall(sizesOperation, nil, 0, unsafe.Pointer(&sizes), 16) != 16 {
++		throw("dolly: cannot read the process's vector sizes")
++	}
++	list := make([]string, sizes.count)
++	if sizes.count == 0 {
++		return list
++	}
++	buf := make([]byte, sizes.bytes)
++	if dollySyscall(bytesOperation, nil, 0, unsafe.Pointer(&buf[0]), sizes.bytes) != int64(sizes.bytes) {
++		throw("dolly: cannot read the process's vector")
++	}
++	start := 0
++	for i := range list {
++		end := start
++		for buf[end] != 0 {
++			end++
++		}
++		list[i] = string(buf[start:end])
++		start = end + 1
++	}
++	return list
++}
++
++func goenvs() {
++	argslice = dollyStrings(_DOLLY_ARGUMENT_SIZES, _DOLLY_ARGUMENTS)
++	envs = dollyStrings(_DOLLY_ENVIRONMENT_SIZES, _DOLLY_ENVIRONMENT)
++}
++
++//go:nosplit
++func dollyClock(clock uint32) uint64 {
++	request := struct {
++		clock, reserved uint32
++		precision       uint64
++	}{clock, 0, 0}
++	var nanoseconds uint64
++	if dollySyscall(_DOLLY_CLOCK_TIME, unsafe.Pointer(&request), 16, unsafe.Pointer(&nanoseconds), 8) != 8 {
++		throw("dolly: clock failed")
++	}
++	return nanoseconds
++}
++
++func walltime() (sec int64, nsec int32) {
++	t := dollyClock(_DOLLY_CLOCK_REALTIME)
++	return int64(t / 1e9), int32(t % 1e9)
++}
++
++func nanotime1() int64 {
++	return int64(dollyClock(_DOLLY_CLOCK_MONOTONIC))
++}
++
++func resetMemoryDataView() {}
++
++// sched_yield is wasip1's hint to the host, which Dolly does not need.
++func sched_yield() int32 { return 0 }
++
++//go:nowritebarrierrec
++//go:nosplit
++func libpreinit() {}
++
++//go:nowritebarrierrec
++//go:nosplit
++func newosproc0(stacksize uintptr, fn unsafe.Pointer) {
++	throw("bad newosproc0")
++}
+diff --git a/src/runtime/os_wasip1.go b/src/runtime/os_wasip1.go
+index 34f1dd6d..01a78073 100644
+--- a/src/runtime/os_wasip1.go
++++ b/src/runtime/os_wasip1.go
+@@ -49,6 +49,9 @@ type iovec struct {
+ //go:wasmimport wasi_snapshot_preview1 proc_exit
+ func exit(code int32)
+ 
++//go:wasmimport wasi_snapshot_preview1 sched_yield
++func sched_yield() errno
++
+ //go:wasmimport wasi_snapshot_preview1 args_get
+ //go:noescape
+ func args_get(argv *uintptr32, argvBuf *byte) errno
 diff --git a/src/runtime/proc.go b/src/runtime/proc.go
 index b8d4d150..c458e8d4 100644
 --- a/src/runtime/proc.go
@@ -2376,6 +4210,55 @@ index b8d4d150..c458e8d4 100644
  
  // Always runs without a P, so write barriers are not allowed.
  //
+diff --git a/src/runtime/rt0_dolly_wasm64.s b/src/runtime/rt0_dolly_wasm64.s
+new file mode 100644
+index 00000000..d422f6fd
+--- /dev/null
++++ b/src/runtime/rt0_dolly_wasm64.s
+@@ -0,0 +1,17 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++#include "go_asm.h"
++#include "textflag.h"
++
++// The process entry, exported as _start (Dolly's abi/dolly-process-0.wat).
++TEXT _rt0_wasm64_dolly(SB),NOSPLIT,$0
++	MOVD $runtime·wasmStack+(m0Stack__size-16)(SB), SP
++
++	I32Const $0 // entry PC_B
++	Call runtime·rt0_go(SB)
++	Drop
++	Call wasm_pc_f_loop(SB)
++
++	Return
+diff --git a/src/runtime/stubs2.go b/src/runtime/stubs2.go
+index 39bde15b..012f3405 100644
+--- a/src/runtime/stubs2.go
++++ b/src/runtime/stubs2.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build !aix && !darwin && !js && !openbsd && !plan9 && !solaris && !wasip1 && !windows
++//go:build !aix && !darwin && !js && !openbsd && !plan9 && !solaris && !wasip1 && !dolly && !windows
+ 
+ package runtime
+ 
+diff --git a/src/runtime/stubs3.go b/src/runtime/stubs3.go
+index c3749f34..b97e7b0c 100644
+--- a/src/runtime/stubs3.go
++++ b/src/runtime/stubs3.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build !aix && !darwin && !freebsd && !openbsd && !plan9 && !solaris && !wasip1
++//go:build !aix && !darwin && !freebsd && !openbsd && !plan9 && !solaris && !wasip1 && !dolly
+ 
+ package runtime
+ 
 diff --git a/src/runtime/symtab.go b/src/runtime/symtab.go
 index aa84a6f9..8d4ec026 100644
 --- a/src/runtime/symtab.go
@@ -2456,3 +4339,1675 @@ index 95c162eb..6156f9a9 100644
 +#endif
  	I32Store ret+8(FP)
  	RET
+diff --git a/src/runtime/timestub2.go b/src/runtime/timestub2.go
+index 336bac4b..8a2f3a9a 100644
+--- a/src/runtime/timestub2.go
++++ b/src/runtime/timestub2.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build !aix && !darwin && !freebsd && !openbsd && !solaris && !wasip1 && !windows && !(linux && amd64) && !plan9
++//go:build !aix && !darwin && !freebsd && !openbsd && !solaris && !wasip1 && !dolly && !windows && !(linux && amd64) && !plan9
+ 
+ package runtime
+ 
+diff --git a/src/syscall/dirent.go b/src/syscall/dirent.go
+index 00946412..a4fde237 100644
+--- a/src/syscall/dirent.go
++++ b/src/syscall/dirent.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1
++//go:build unix || (js && wasm) || wasip1 || dolly
+ 
+ package syscall
+ 
+@@ -74,7 +74,7 @@ func ParseDirent(buf []byte, max int, names []string) (consumed int, count int,
+ 		}
+ 		// See src/os/dir_unix.go for the reason why this condition is
+ 		// excluded on wasip1 and linux.
+-		if ino == 0 && runtime.GOOS != "linux" && runtime.GOOS != "wasip1" { // File absent in directory.
++		if ino == 0 && runtime.GOOS != "linux" && runtime.GOOS != "wasip1" && runtime.GOOS != "dolly" { // File absent in directory.
+ 			continue
+ 		}
+ 		const namoff = uint64(unsafe.Offsetof(Dirent{}.Name))
+diff --git a/src/syscall/env_unix.go b/src/syscall/env_unix.go
+index e1d7e213..69c37e8c 100644
+--- a/src/syscall/env_unix.go
++++ b/src/syscall/env_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || plan9 || wasip1
++//go:build unix || (js && wasm) || plan9 || wasip1 || dolly
+ 
+ // Unix environment variables.
+ 
+diff --git a/src/syscall/exec_dolly.go b/src/syscall/exec_dolly.go
+new file mode 100644
+index 00000000..749973ef
+--- /dev/null
++++ b/src/syscall/exec_dolly.go
+@@ -0,0 +1,178 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build dolly
++
++package syscall
++
++import (
++	"internal/bytealg"
++	"sync"
++	"unsafe"
++)
++
++// Processes on Dolly are spawned, not forked: SPAWN starts a program with
++// its arguments, environment, working directory and descriptors in one
++// operation, and WAIT reaps it.
++
++// ForkLock is not needed by StartProcess, which forks nothing; os and
++// net still take it around descriptor creation.
++var ForkLock sync.RWMutex
++
++type ProcAttr struct {
++	Dir   string    // Current working directory.
++	Env   []string  // Environment.
++	Files []uintptr // File descriptors.
++	Sys   *SysProcAttr
++}
++
++// SysProcAttr has no Dolly attributes.
++type SysProcAttr struct{}
++
++type spawnRequest struct {
++	flags                 uint32
++	argumentCount         uint32
++	environmentCount      uint32
++	cwdSize               uint32
++	mappingCount          uint32
++	descriptorInheritance uint32
++	reserved              uint32
++	pathSize              uint32
++	argumentBytes         uint64
++	environmentBytes      uint64
++	deadline              uint64
++}
++
++// StartProcess starts argv0, relative to attr.Dir when it is relative, with
++// attr.Files as its descriptors 0, 1, 2 and up (a negative one stays closed),
++// and attr.Env as its whole environment.
++func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle uintptr, err error) {
++	if attr == nil {
++		attr = &ProcAttr{}
++	}
++	if len(argv) == 0 || len(argv0) == 0 {
++		return 0, 0, EINVAL
++	}
++	dir := attr.Dir
++	if dir == "" || dir[0] != '/' {
++		wd, err := Getwd()
++		if err != nil {
++			return 0, 0, err
++		}
++		if dir != "" {
++			dir = wd + "/" + dir
++		} else {
++			dir = wd
++		}
++	}
++	path := argv0
++	if path[0] != '/' {
++		path = dir + "/" + path
++	}
++	for _, s := range append(append([]string{path, dir}, argv...), attr.Env...) {
++		if bytealg.IndexByteString(s, 0) >= 0 {
++			return 0, 0, EINVAL
++		}
++	}
++	request := spawnRequest{
++		argumentCount:    uint32(len(argv)),
++		environmentCount: uint32(len(attr.Env)),
++		cwdSize:          uint32(len(dir)),
++		pathSize:         uint32(len(path)),
++		deadline:         ^uint64(0),
++	}
++	var mappings []byte
++	for target, source := range attr.Files {
++		if int(source) >= 0 {
++			mappings = append(mappings, unsafe.Slice((*byte)(unsafe.Pointer(&[2]uint32{uint32(source), uint32(target)})), 8)...)
++			request.mappingCount++
++		}
++	}
++	strings := func(list []string) (b []byte) {
++		for _, s := range list {
++			b = append(append(b, s...), 0)
++		}
++		return b
++	}
++	arguments, environment := strings(argv), strings(attr.Env)
++	request.argumentBytes, request.environmentBytes = uint64(len(arguments)), uint64(len(environment))
++	packet := unsafe.Slice((*byte)(unsafe.Pointer(&request)), unsafe.Sizeof(request))
++	packet = append(append(append(append(append(packet[:len(packet):len(packet)], path...), arguments...), environment...), dir...), mappings...)
++	if len(packet) > dollyPacketLimit {
++		return 0, 0, E2BIG
++	}
++	var response [2]uint32
++	if _, err := call(opSpawn, unsafe.Pointer(&packet[0]), uintptr(len(packet)), unsafe.Pointer(&response), 8); err != nil {
++		return 0, 0, err
++	}
++	return int(response[0]), 0, nil
++}
++
++// Exec is not available: Dolly spawns.
++func Exec(argv0 string, argv []string, envv []string) error {
++	return ENOSYS
++}
++
++const (
++	WNOHANG = 1
++)
++
++// A WaitStatus is a child's exit status, and 128 plus the signal that
++// ended it in its upper bits.
++type WaitStatus struct {
++	status uint32
++	signal uint32
++}
++
++func (w WaitStatus) Exited() bool       { return w.signal == 0 }
++func (w WaitStatus) ExitStatus() int {
++	if w.Signaled() {
++		return -1
++	}
++	return int(w.status)
++}
++func (w WaitStatus) Signaled() bool     { return w.signal != 0 }
++func (w WaitStatus) Signal() Signal     { return Signal(w.signal) }
++func (w WaitStatus) CoreDump() bool     { return false }
++func (w WaitStatus) Stopped() bool      { return false }
++func (w WaitStatus) Continued() bool    { return false }
++func (w WaitStatus) StopSignal() Signal { return 0 }
++func (w WaitStatus) TrapCause() int     { return 0 }
++
++// Rusage is empty: Dolly does not account a child's time.
++type Rusage struct {
++	Utime Timeval
++	Stime Timeval
++}
++
++// Wait4 waits for the child pid, or any child when pid is -1 or 0. A wait
++// that would block polls instead, so that the program's other goroutines,
++// which may be reading the child's output, keep running.
++func Wait4(pid int, wstatus *WaitStatus, options int, rusage *Rusage) (wpid int, err error) {
++	if pid < -1 {
++		return 0, ENOSYS // Dolly has no process groups.
++	}
++	request := [2]uint32{uint32(max(pid, 0)), dollyWaitNonblock}
++	var response [4]uint32
++	for delay := int64(100e3); ; delay = min(2*delay, 10e6) {
++		_, err := call(opWait, unsafe.Pointer(&request), 8, unsafe.Pointer(&response), 16)
++		if err == nil {
++			break
++		}
++		if err != EAGAIN {
++			return 0, err
++		}
++		if options&WNOHANG != 0 {
++			return 0, nil
++		}
++		dollySleep(delay)
++	}
++	if wstatus != nil {
++		*wstatus = WaitStatus{response[1], response[2]}
++	}
++	if rusage != nil {
++		*rusage = Rusage{}
++	}
++	return int(response[0]), nil
++}
+diff --git a/src/syscall/fs_dolly.go b/src/syscall/fs_dolly.go
+new file mode 100644
+index 00000000..ac104cbb
+--- /dev/null
++++ b/src/syscall/fs_dolly.go
+@@ -0,0 +1,691 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build dolly
++
++package syscall
++
++import (
++	"runtime"
++	"unsafe"
++)
++
++// Files and paths over Dolly's descriptors. A path request names a directory
++// descriptor, dollyCurrentDirectory for the working directory, and the path's
++// bytes follow its header.
++
++const (
++	openRead      = 1 << 0
++	openWrite     = 1 << 1
++	openCreate    = 1 << 2
++	openExclusive = 1 << 3
++	openTruncate  = 1 << 4
++	openAppend    = 1 << 5
++	openDirectory = 1 << 6
++	openNofollow  = 1 << 7
++	openCloexec   = 1 << 8
++
++	pathDirectory = 1 << 0
++	pathNofollow  = 1 << 1
++
++	fileRegular         = 1
++	fileDirectory       = 2
++	fileSymbolicLink    = 3
++	fileCharacterDevice = 4
++	fileBlockDevice     = 5
++	fileFifo            = 6
++	fileSocket          = 7
++
++	timeNow  = 1 << 0
++	timeOmit = 1 << 1
++)
++
++// packet holds a request header followed by the bytes of up to two strings.
++func packet(header unsafe.Pointer, headerSize uintptr, first, second string) []byte {
++	b := make([]byte, headerSize, headerSize+uintptr(len(first)+len(second)))
++	copy(b, unsafe.Slice((*byte)(header), headerSize))
++	return append(append(b, first...), second...)
++}
++
++type pathRequest struct {
++	directory uint32
++	flags     uint32
++	reserved  uint32
++	pathSize  uint32
++}
++
++// pathCall makes a path operation on path relative to directory.
++func pathCall(operation uint32, directory int, path string, flags uint32, response unsafe.Pointer, responseCapacity uintptr) (int, error) {
++	if path == "" {
++		return 0, ENOENT
++	}
++	header := pathRequest{uint32(directory), flags, 0, uint32(len(path))}
++	request := packet(unsafe.Pointer(&header), unsafe.Sizeof(header), path, "")
++	return call(operation, unsafe.Pointer(&request[0]), uintptr(len(request)), response, responseCapacity)
++}
++
++type twoPathRequest struct {
++	oldDirectory uint32
++	newDirectory uint32
++	oldPathSize  uint32
++	newPathSize  uint32
++}
++
++func twoPathCall(operation uint32, oldDirectory int, oldPath string, newDirectory int, newPath string) error {
++	if oldPath == "" || newPath == "" {
++		return ENOENT
++	}
++	header := twoPathRequest{uint32(oldDirectory), uint32(newDirectory), uint32(len(oldPath)), uint32(len(newPath))}
++	request := packet(unsafe.Pointer(&header), unsafe.Sizeof(header), oldPath, newPath)
++	_, err := call(operation, unsafe.Pointer(&request[0]), uintptr(len(request)), nil, 0)
++	return err
++}
++
++type fdRequest struct {
++	descriptor uint32
++	reserved   uint32
++}
++
++func fdCall(operation uint32, fd int, response unsafe.Pointer, responseCapacity uintptr) (int, error) {
++	request := fdRequest{uint32(fd), 0}
++	return call(operation, unsafe.Pointer(&request), unsafe.Sizeof(request), response, responseCapacity)
++}
++
++func Open(path string, mode int, perm uint32) (int, error) {
++	return Openat(int(dollyCurrentDirectory), path, mode, perm)
++}
++
++// Openat opens path relative to the directory dirfd. Dolly has no
++// permission model, so perm is not stored.
++func Openat(dirfd int, path string, mode int, perm uint32) (int, error) {
++	var flags uint32
++	switch mode & O_ACCMODE {
++	case O_RDONLY:
++		flags = openRead
++	case O_WRONLY:
++		flags = openWrite
++	default:
++		flags = openRead | openWrite
++	}
++	for _, f := range [...]struct {
++		mode  int
++		flags uint32
++	}{
++		{O_CREAT, openCreate}, {O_EXCL, openExclusive}, {O_TRUNC, openTruncate},
++		{O_APPEND, openAppend}, {O_DIRECTORY, openDirectory},
++		{O_NOFOLLOW, openNofollow}, {O_CLOEXEC, openCloexec},
++	} {
++		if mode&f.mode != 0 {
++			flags |= f.flags
++		}
++	}
++	var response fdRequest
++	if _, err := pathCall(opPathOpen, dirfd, path, flags, unsafe.Pointer(&response), unsafe.Sizeof(response)); err != nil {
++		return -1, err
++	}
++	fd := int(response.descriptor)
++	if mode&O_NONBLOCK != 0 {
++		if err := SetNonblock(fd, true); err != nil {
++			Close(fd)
++			return -1, err
++		}
++	}
++	return fd, nil
++}
++
++func Close(fd int) error {
++	_, err := fdCall(opFdClose, fd, nil, 0)
++	return err
++}
++
++func CloseOnExec(fd int) {
++	setDescriptorFlags(fd, dollyFdCloexec)
++}
++
++func setDescriptorFlags(fd int, flags uint32) error {
++	request := [2]uint32{uint32(fd), flags}
++	_, err := call(opFdSetDescriptorFlags, unsafe.Pointer(&request), 8, nil, 0)
++	return err
++}
++
++func descriptorFlags(fd int) (uint32, error) {
++	var response [2]uint32
++	_, err := fdCall(opFdGetDescriptorFlags, fd, unsafe.Pointer(&response), 8)
++	return response[1], err
++}
++
++func statusFlags(fd int) (uint32, error) {
++	var response [2]uint32
++	_, err := fdCall(opFdGetFlags, fd, unsafe.Pointer(&response), 8)
++	return response[1], err
++}
++
++func SetNonblock(fd int, nonblocking bool) error {
++	flags, err := statusFlags(fd)
++	if err != nil {
++		return err
++	}
++	flags &= dollyFdStatusAppend
++	if nonblocking {
++		flags |= dollyFdStatusNonblock
++	}
++	request := [2]uint32{uint32(fd), flags}
++	_, err = call(opFdSetFlags, unsafe.Pointer(&request), 8, nil, 0)
++	return err
++}
++
++// fcntl is the fcntl(2) of internal/syscall/unix: descriptor and status
++// flags, and duplicating with F_DUPFD and F_DUPFD_CLOEXEC.
++//
++//go:linkname fcntl
++func fcntl(fd int, cmd int, arg int) (int, error) {
++	switch cmd {
++	case F_GETFD:
++		flags, err := descriptorFlags(fd)
++		return int(flags & dollyFdCloexec), err
++	case F_SETFD:
++		return 0, setDescriptorFlags(fd, uint32(arg)&FD_CLOEXEC)
++	case F_GETFL:
++		flags, err := statusFlags(fd)
++		mode := 0
++		switch flags & 3 {
++		case 1:
++			mode = O_RDONLY
++		case 2:
++			mode = O_WRONLY
++		case 3:
++			mode = O_RDWR
++		}
++		if flags&dollyFdStatusAppend != 0 {
++			mode |= O_APPEND
++		}
++		if flags&dollyFdStatusNonblock != 0 {
++			mode |= O_NONBLOCK
++		}
++		return mode, err
++	case F_SETFL:
++		var flags uint32
++		if arg&O_APPEND != 0 {
++			flags |= dollyFdStatusAppend
++		}
++		if arg&O_NONBLOCK != 0 {
++			flags |= dollyFdStatusNonblock
++		}
++		request := [2]uint32{uint32(fd), flags}
++		_, err := call(opFdSetFlags, unsafe.Pointer(&request), 8, nil, 0)
++		return 0, err
++	case F_DUPFD, F_DUPFD_CLOEXEC:
++		flags := uint32(dupMinimum)
++		if cmd == F_DUPFD_CLOEXEC {
++			flags |= dupCloexec
++		}
++		return dup(fd, uint32(arg), flags)
++	}
++	return 0, ENOSYS
++}
++
++const (
++	dupMinimum = 1 << 0
++	dupCloexec = 1 << 1
++)
++
++func dup(fd int, target uint32, flags uint32) (int, error) {
++	request := [4]uint32{uint32(fd), target, flags, 0}
++	var response [2]uint32
++	if _, err := call(opFdDup, unsafe.Pointer(&request), 16, unsafe.Pointer(&response), 8); err != nil {
++		return -1, err
++	}
++	return int(response[0]), nil
++}
++
++func Dup(fd int) (int, error) {
++	return dup(fd, 0, dupMinimum)
++}
++
++func Dup2(fd, newfd int) error {
++	_, err := dup(fd, uint32(newfd), 0)
++	return err
++}
++
++func Dup3(fd, newfd, flags int) error {
++	if fd == newfd {
++		return EINVAL
++	}
++	var dupFlags uint32
++	if flags&O_CLOEXEC != 0 {
++		dupFlags = dupCloexec
++	}
++	_, err := dup(fd, uint32(newfd), dupFlags)
++	return err
++}
++
++func Pipe(fd []int) error {
++	return Pipe2(fd, 0)
++}
++
++func Pipe2(fd []int, flags int) error {
++	if len(fd) != 2 {
++		return EINVAL
++	}
++	request := [2]uint32{0, 0}
++	if flags&O_CLOEXEC != 0 {
++		request[0] = dollyFdCloexec
++	}
++	var response [2]uint32
++	if _, err := call(opFdPipe, unsafe.Pointer(&request), 8, unsafe.Pointer(&response), 8); err != nil {
++		return err
++	}
++	fd[0], fd[1] = int(response[0]), int(response[1])
++	if flags&O_NONBLOCK != 0 {
++		SetNonblock(fd[0], true)
++		SetNonblock(fd[1], true)
++	}
++	return nil
++}
++
++type ioRequest struct {
++	descriptor uint32
++	reserved   uint32
++	size       uint64
++}
++
++type positionalRequest struct {
++	descriptor uint32
++	reserved   uint32
++	offset     uint64
++	size       uint64
++}
++
++// The largest buffer one packet carries.
++const ioLimit = dollyPacketLimit - unsafe.Sizeof(positionalRequest{})
++
++func Read(fd int, b []byte) (int, error) {
++	if len(b) > int(ioLimit) {
++		b = b[:ioLimit]
++	}
++	request := ioRequest{uint32(fd), 0, uint64(len(b))}
++	n, err := call(opFdRead, unsafe.Pointer(&request), unsafe.Sizeof(request), unsafe.Pointer(unsafe.SliceData(b)), uintptr(len(b)))
++	runtime.KeepAlive(b)
++	return n, err
++}
++
++func Pread(fd int, b []byte, offset int64) (int, error) {
++	if len(b) > int(ioLimit) {
++		b = b[:ioLimit]
++	}
++	request := positionalRequest{uint32(fd), 0, uint64(offset), uint64(len(b))}
++	n, err := call(opFdPread, unsafe.Pointer(&request), unsafe.Sizeof(request), unsafe.Pointer(unsafe.SliceData(b)), uintptr(len(b)))
++	runtime.KeepAlive(b)
++	return n, err
++}
++
++// writeBuffer holds the packets of Write and Pwrite: a header, then the bytes.
++var writeBuffer []byte
++
++func writePacket(header unsafe.Pointer, headerSize uintptr, b []byte) []byte {
++	if len(b) > int(ioLimit) {
++		b = b[:ioLimit]
++	}
++	if size := int(headerSize) + len(b); cap(writeBuffer) < size {
++		writeBuffer = make([]byte, size, max(size, 64<<10))
++	}
++	packet := writeBuffer[:int(headerSize)+len(b)]
++	copy(packet, unsafe.Slice((*byte)(header), headerSize))
++	copy(packet[headerSize:], b)
++	return packet
++}
++
++func Write(fd int, b []byte) (int, error) {
++	request := ioRequest{uint32(fd), 0, uint64(min(len(b), int(ioLimit)))}
++	packet := writePacket(unsafe.Pointer(&request), unsafe.Sizeof(request), b)
++	var written uint64
++	_, err := call(opFdWrite, unsafe.Pointer(&packet[0]), uintptr(len(packet)), unsafe.Pointer(&written), 8)
++	return int(written), err
++}
++
++func Pwrite(fd int, b []byte, offset int64) (int, error) {
++	request := positionalRequest{uint32(fd), 0, uint64(offset), uint64(min(len(b), int(ioLimit)))}
++	packet := writePacket(unsafe.Pointer(&request), unsafe.Sizeof(request), b)
++	var written uint64
++	_, err := call(opFdPwrite, unsafe.Pointer(&packet[0]), uintptr(len(packet)), unsafe.Pointer(&written), 8)
++	return int(written), err
++}
++
++func Seek(fd int, offset int64, whence int) (int64, error) {
++	request := struct {
++		descriptor uint32
++		whence     uint32
++		offset     int64
++	}{uint32(fd), uint32(whence), offset}
++	var position int64
++	_, err := call(opFdSeek, unsafe.Pointer(&request), unsafe.Sizeof(request), unsafe.Pointer(&position), 8)
++	return position, err
++}
++
++func Fsync(fd int) error {
++	_, err := fdCall(opFdSync, fd, nil, 0)
++	return err
++}
++
++func Ftruncate(fd int, length int64) error {
++	if length < 0 {
++		return EINVAL
++	}
++	request := ioRequest{uint32(fd), 0, uint64(length)}
++	_, err := call(opFdTruncate, unsafe.Pointer(&request), unsafe.Sizeof(request), nil, 0)
++	return err
++}
++
++func Truncate(path string, length int64) error {
++	fd, err := Open(path, O_WRONLY, 0)
++	if err != nil {
++		return err
++	}
++	defer Close(fd)
++	return Ftruncate(fd, length)
++}
++
++type Stat_t struct {
++	Dev       int64
++	Ino       uint64
++	Mode      uint32
++	Nlink     uint32
++	Uid       uint32
++	Gid       uint32
++	Rdev      int64
++	Size      int64
++	Blksize   int32
++	Blocks    int32
++	Atime     int64
++	AtimeNsec int64
++	Mtime     int64
++	MtimeNsec int64
++	Ctime     int64
++	CtimeNsec int64
++}
++
++// statResponse is dolly_process_stat_response.
++type statResponse struct {
++	device, inode, size              uint64
++	access, modification, change     uint64 // nanoseconds
++	blocks                           uint64
++	mode, linkCount, user, group     uint32
++	blockSize, fileType, _, _        uint32
++}
++
++var fileTypeModes = [...]uint32{
++	fileRegular:         S_IFREG,
++	fileDirectory:       S_IFDIR,
++	fileSymbolicLink:    S_IFLNK,
++	fileCharacterDevice: S_IFCHR,
++	fileBlockDevice:     S_IFBLK,
++	fileFifo:            S_IFIFO,
++	fileSocket:          S_IFSOCK,
++}
++
++func (st *Stat_t) set(r *statResponse) {
++	*st = Stat_t{
++		Dev:   int64(r.device),
++		Ino:   r.inode,
++		Mode:  r.mode & 07777,
++		Nlink: r.linkCount,
++		Uid:   r.user, Gid: r.group,
++		Size:    int64(r.size),
++		Blksize: int32(r.blockSize), Blocks: int32(r.blocks),
++		Atime: int64(r.access / 1e9), AtimeNsec: int64(r.access % 1e9),
++		Mtime: int64(r.modification / 1e9), MtimeNsec: int64(r.modification % 1e9),
++		Ctime: int64(r.change / 1e9), CtimeNsec: int64(r.change % 1e9),
++	}
++	if r.fileType < uint32(len(fileTypeModes)) {
++		st.Mode |= fileTypeModes[r.fileType]
++	}
++}
++
++func Fstat(fd int, st *Stat_t) error {
++	var response statResponse
++	if _, err := fdCall(opFdStat, fd, unsafe.Pointer(&response), unsafe.Sizeof(response)); err != nil {
++		return err
++	}
++	st.set(&response)
++	return nil
++}
++
++// Fstatat stats path relative to dirfd; flags is pathNofollow or zero.
++func Fstatat(dirfd int, path string, st *Stat_t, flags int) error {
++	var response statResponse
++	if _, err := pathCall(opPathStat, dirfd, path, uint32(flags)&pathNofollow, unsafe.Pointer(&response), unsafe.Sizeof(response)); err != nil {
++		return err
++	}
++	st.set(&response)
++	return nil
++}
++
++// The flags of Fstatat and Unlinkat, as internal/syscall/unix names them.
++const (
++	AT_FDCWD            = int(dollyCurrentDirectory)
++	AT_REMOVEDIR        = pathDirectory
++	AT_SYMLINK_NOFOLLOW = pathNofollow
++)
++
++func Stat(path string, st *Stat_t) error {
++	return Fstatat(AT_FDCWD, path, st, 0)
++}
++
++func Lstat(path string, st *Stat_t) error {
++	return Fstatat(AT_FDCWD, path, st, AT_SYMLINK_NOFOLLOW)
++}
++
++func Mkdirat(dirfd int, path string, mode uint32) error {
++	_, err := pathCall(opPathCreateDirectory, dirfd, path, 0, nil, 0)
++	return err
++}
++
++func Mkdir(path string, mode uint32) error {
++	return Mkdirat(AT_FDCWD, path, mode)
++}
++
++func Unlinkat(dirfd int, path string, flags int) error {
++	_, err := pathCall(opPathRemove, dirfd, path, uint32(flags)&pathDirectory, nil, 0)
++	return err
++}
++
++func Unlink(path string) error {
++	return Unlinkat(AT_FDCWD, path, 0)
++}
++
++func Rmdir(path string) error {
++	return Unlinkat(AT_FDCWD, path, AT_REMOVEDIR)
++}
++
++func Renameat(olddirfd int, oldpath string, newdirfd int, newpath string) error {
++	return twoPathCall(opPathRename, olddirfd, oldpath, newdirfd, newpath)
++}
++
++func Rename(from, to string) error {
++	return Renameat(AT_FDCWD, from, AT_FDCWD, to)
++}
++
++func Linkat(olddirfd int, oldpath string, newdirfd int, newpath string) error {
++	return twoPathCall(opPathLink, olddirfd, oldpath, newdirfd, newpath)
++}
++
++func Link(path, link string) error {
++	return Linkat(AT_FDCWD, path, AT_FDCWD, link)
++}
++
++func Symlinkat(target string, dirfd int, link string) error {
++	return twoPathCall(opPathSymlink, AT_FDCWD, target, dirfd, link)
++}
++
++func Symlink(target, link string) error {
++	return Symlinkat(target, AT_FDCWD, link)
++}
++
++func Readlinkat(dirfd int, path string, buf []byte) (int, error) {
++	if len(buf) == 0 {
++		return 0, EINVAL
++	}
++	n, err := pathCall(opPathReadlink, dirfd, path, 0, unsafe.Pointer(&buf[0]), uintptr(len(buf)))
++	runtime.KeepAlive(buf)
++	return n, err
++}
++
++func Readlink(path string, buf []byte) (int, error) {
++	return Readlinkat(AT_FDCWD, path, buf)
++}
++
++// Dolly stores no permission bits and no owners: changing them succeeds on
++// a file that exists and changes nothing.
++func Fchmodat(dirfd int, path string, mode uint32, flags int) error {
++	var st Stat_t
++	return Fstatat(dirfd, path, &st, flags)
++}
++
++func Chmod(path string, mode uint32) error {
++	return Fchmodat(AT_FDCWD, path, mode, 0)
++}
++
++func Fchmod(fd int, mode uint32) error {
++	var st Stat_t
++	return Fstat(fd, &st)
++}
++
++func Fchownat(dirfd int, path string, uid, gid int, flags int) error {
++	var st Stat_t
++	return Fstatat(dirfd, path, &st, flags)
++}
++
++func Chown(path string, uid, gid int) error {
++	return Fchownat(AT_FDCWD, path, uid, gid, 0)
++}
++
++func Lchown(path string, uid, gid int) error {
++	return Fchownat(AT_FDCWD, path, uid, gid, AT_SYMLINK_NOFOLLOW)
++}
++
++func Fchown(fd int, uid, gid int) error {
++	var st Stat_t
++	return Fstat(fd, &st)
++}
++
++// UTIME_OMIT in a Timespec leaves that time as it is.
++const UTIME_OMIT = (1 << 30) - 2
++
++type timestamp struct {
++	seconds     int64
++	nanoseconds uint32
++	flags       uint32
++}
++
++func timestampOf(ts Timespec) timestamp {
++	if ts.Nsec == UTIME_OMIT {
++		return timestamp{flags: timeOmit}
++	}
++	return timestamp{ts.Sec, uint32(ts.Nsec), 0}
++}
++
++func UtimesNanoAt(dirfd int, path string, ts []Timespec, flags int) error {
++	if len(ts) != 2 {
++		return EINVAL
++	}
++	if path == "" {
++		return ENOENT
++	}
++	header := struct {
++		directory, flags, reserved, pathSize uint32
++		access, modification                 timestamp
++	}{uint32(dirfd), uint32(flags) & pathNofollow, 0, uint32(len(path)), timestampOf(ts[0]), timestampOf(ts[1])}
++	request := packet(unsafe.Pointer(&header), unsafe.Sizeof(header), path, "")
++	_, err := call(opPathSetTimes, unsafe.Pointer(&request[0]), uintptr(len(request)), nil, 0)
++	return err
++}
++
++func UtimesNano(path string, ts []Timespec) error {
++	return UtimesNanoAt(AT_FDCWD, path, ts, 0)
++}
++
++func Futimes(fd int, tv []Timeval) error {
++	if len(tv) != 2 {
++		return EINVAL
++	}
++	request := struct {
++		descriptor, reserved uint32
++		access, modification timestamp
++	}{uint32(fd), 0, timestampOf(NsecToTimespec(TimevalToNsec(tv[0]))), timestampOf(NsecToTimespec(TimevalToNsec(tv[1])))}
++	_, err := call(opFdSetTimes, unsafe.Pointer(&request), unsafe.Sizeof(request), nil, 0)
++	return err
++}
++
++const ImplementsGetwd = true
++
++func Getwd() (string, error) {
++	buf := make([]byte, 4096)
++	n, err := call(opPathGetCurrentDirectory, nil, 0, unsafe.Pointer(&buf[0]), uintptr(len(buf)))
++	if err != nil {
++		return "", err
++	}
++	return string(buf[:n-1]), nil // without its NUL
++}
++
++func Chdir(path string) error {
++	_, err := pathCall(opPathSetCurrentDirectory, AT_FDCWD, path, 0, nil, 0)
++	return err
++}
++
++func Fchdir(fd int) error {
++	_, err := pathCall(opPathSetCurrentDirectory, fd, ".", 0, nil, 0)
++	return err
++}
++
++// Dirent is the record of ReadDirent: Dolly's directory entry, a 24-byte
++// header and the name's bytes, which are not NUL terminated.
++type Dirent struct {
++	Ino     uint64
++	Next    uint64
++	Type    uint32
++	Namelen uint32
++	Name    [256]byte
++}
++
++const direntHeader = unsafe.Offsetof(Dirent{}.Name)
++
++func direntIno(buf []byte) (uint64, bool) {
++	return readInt(buf, unsafe.Offsetof(Dirent{}.Ino), unsafe.Sizeof(Dirent{}.Ino))
++}
++
++func direntNamlen(buf []byte) (uint64, bool) {
++	return readInt(buf, unsafe.Offsetof(Dirent{}.Namelen), unsafe.Sizeof(Dirent{}.Namelen))
++}
++
++func direntReclen(buf []byte) (uint64, bool) {
++	namelen, ok := direntNamlen(buf)
++	return uint64(direntHeader) + namelen, ok
++}
++
++// ReadDirent reads entries of the directory fd from where the last read
++// stopped.
++func ReadDirent(fd int, buf []byte) (int, error) {
++	const readOn = ^uint64(0) // the cookie that continues the descriptor's listing
++	request := struct {
++		descriptor, maximumEntries uint32
++		cookie, reserved           uint64
++	}{uint32(fd), uint32(len(buf) / int(direntHeader)), readOn, 0}
++	if request.maximumEntries == 0 {
++		return 0, EINVAL
++	}
++	n, err := call(opFdReadDirectory, unsafe.Pointer(&request), unsafe.Sizeof(request), unsafe.Pointer(&buf[0]), uintptr(len(buf)))
++	runtime.KeepAlive(buf)
++	return n, err
++}
++
++func RandomGet(b []byte) error {
++	for len(b) > 0 {
++		chunk := b[:min(len(b), dollyPacketLimit)]
++		if _, err := call(opRandom, nil, 0, unsafe.Pointer(&chunk[0]), uintptr(len(chunk))); err != nil {
++			return err
++		}
++		b = b[len(chunk):]
++	}
++	return nil
++}
+diff --git a/src/syscall/net_dolly.go b/src/syscall/net_dolly.go
+new file mode 100644
+index 00000000..5d2454c7
+--- /dev/null
++++ b/src/syscall/net_dolly.go
+@@ -0,0 +1,76 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build dolly
++
++package syscall
++
++// Go's net reaches no network on Dolly: Dolly's one network edge is its HTTP
++// broker, and its local sockets are a host module Go does not use.
++
++const (
++	SHUT_RD   = 0x1
++	SHUT_WR   = 0x2
++	SHUT_RDWR = SHUT_RD | SHUT_WR
++)
++
++func Socket(proto, sotype, unused int) (fd int, err error) {
++	return 0, ENOSYS
++}
++
++func Bind(fd int, sa Sockaddr) error {
++	return ENOSYS
++}
++
++func StopIO(fd int) error {
++	return ENOSYS
++}
++
++func Listen(fd int, backlog int) error {
++	return ENOSYS
++}
++
++func Accept(fd int) (int, Sockaddr, error) {
++	return 0, nil, ENOSYS
++}
++
++func Connect(fd int, sa Sockaddr) error {
++	return ENOSYS
++}
++
++func Recvfrom(fd int, p []byte, flags int) (n int, from Sockaddr, err error) {
++	return 0, nil, ENOSYS
++}
++
++func Sendto(fd int, p []byte, flags int, to Sockaddr) error {
++	return ENOSYS
++}
++
++func Recvmsg(fd int, p, oob []byte, flags int) (n, oobn, recvflags int, from Sockaddr, err error) {
++	return 0, 0, 0, nil, ENOSYS
++}
++
++func SendmsgN(fd int, p, oob []byte, to Sockaddr, flags int) (n int, err error) {
++	return 0, ENOSYS
++}
++
++func GetsockoptInt(fd, level, opt int) (value int, err error) {
++	return 0, ENOSYS
++}
++
++func SetsockoptInt(fd, level, opt int, value int) error {
++	return ENOSYS
++}
++
++func SetReadDeadline(fd int, t int64) error {
++	return ENOSYS
++}
++
++func SetWriteDeadline(fd int, t int64) error {
++	return ENOSYS
++}
++
++func Shutdown(fd int, how int) error {
++	return ENOSYS
++}
+diff --git a/src/syscall/net_fake.go b/src/syscall/net_fake.go
+index 549f2bec..53125aa9 100644
+--- a/src/syscall/net_fake.go
++++ b/src/syscall/net_fake.go
+@@ -4,7 +4,7 @@
+ 
+ // Fake networking for js/wasm and wasip1/wasm.
+ 
+-//go:build js || wasip1
++//go:build js || wasip1 || dolly
+ 
+ package syscall
+ 
+diff --git a/src/syscall/syscall_dolly.go b/src/syscall/syscall_dolly.go
+new file mode 100644
+index 00000000..82b43701
+--- /dev/null
++++ b/src/syscall/syscall_dolly.go
+@@ -0,0 +1,368 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build dolly
++
++package syscall
++
++import (
++	"errors"
++	"internal/oserror"
++	"internal/strconv"
++	"unsafe"
++)
++
++// dollyCall makes an operation of Dolly's process contract
++// (include/dolly/process.h). It is runtime/os_dolly.go's dollySyscall, which
++// takes the signals that interrupt a call. A non-negative result is the size
++// of the response, a negative one a negated Errno.
++func dollyCall(operation uint32, request unsafe.Pointer, requestSize uint64, response unsafe.Pointer, responseCapacity uint64) int64
++
++// dollySleep is time.Sleep.
++func dollySleep(ns int64)
++
++// The operations of include/dolly/process.h.
++const (
++	opExit                     = 5
++	opFdRead                   = 16
++	opFdWrite                  = 17
++	opFdClose                  = 18
++	opFdSeek                   = 19
++	opFdStat                   = 20
++	opFdSync                   = 21
++	opFdDup                    = 22
++	opFdPipe                   = 23
++	opFdReadDirectory          = 24
++	opFdPread                  = 25
++	opFdTruncate               = 26
++	opFdSetTimes               = 28
++	opFdPwrite                 = 29
++	opFdGetFlags               = 30
++	opFdSetFlags               = 31
++	opPathOpen                 = 32
++	opPathStat                 = 33
++	opPathCreateDirectory      = 34
++	opPathRemove               = 35
++	opPathRename               = 36
++	opPathLink                 = 37
++	opPathSymlink              = 38
++	opPathReadlink             = 39
++	opPathGetCurrentDirectory  = 40
++	opPathSetCurrentDirectory  = 41
++	opPathSetTimes             = 43
++	opClockTime                = 48
++	opRandom                   = 49
++	opFdGetDescriptorFlags     = 55
++	opFdSetDescriptorFlags     = 56
++	opSpawn                    = 64
++	opWait                     = 65
++	opInfo                     = 67
++	opSignal                   = 68
++	dollyPacketLimit           = 1 << 20
++	dollyCurrentDirectory      = ^uint32(0) // a path request's directory: the working directory
++	dollyFdCloexec             = 1 << 0
++	dollyFdStatusAppend        = 1 << 2
++	dollyFdStatusNonblock      = 1 << 3
++	dollyClockRealtime         = 0
++	dollyClockMonotonic        = 1
++	dollyDescriptorLimit       = 1024
++	dollyWaitNonblock          = 1 << 0
++	dollySpawnInheritEnvirons  = 1 << 0
++	dollyInheritDescriptorsAll = 2
++)
++
++// call makes an operation and converts its result.
++func call(operation uint32, request unsafe.Pointer, requestSize uintptr, response unsafe.Pointer, responseCapacity uintptr) (int, error) {
++	r := dollyCall(operation, request, uint64(requestSize), response, uint64(responseCapacity))
++	if r < 0 {
++		return 0, errnoErr(Errno(-r))
++	}
++	return int(r), nil
++}
++
++const (
++	Stdin  = 0
++	Stdout = 1
++	Stderr = 2
++)
++
++// An Errno is an unsigned number describing an error condition: one of
++// Dolly's error numbers (include/dolly/process.h).
++// It implements the error interface. The zero Errno is by convention
++// a non-error, so code to convert from Errno to error should use:
++//
++//	var err = nil
++//	if errno != 0 {
++//		err = errno
++//	}
++type Errno uint32
++
++func (e Errno) Error() string {
++	if 0 <= int(e) && int(e) < len(errorstr) {
++		s := errorstr[e]
++		if s != "" {
++			return s
++		}
++	}
++	return "errno " + strconv.Itoa(int(e))
++}
++
++func (e Errno) Is(target error) bool {
++	switch target {
++	case oserror.ErrPermission:
++		return e == EACCES || e == EPERM
++	case oserror.ErrExist:
++		return e == EEXIST || e == ENOTEMPTY
++	case oserror.ErrNotExist:
++		return e == ENOENT
++	case errors.ErrUnsupported:
++		return e == ENOSYS || e == ENOTSUP
++	}
++	return false
++}
++
++func (e Errno) Temporary() bool {
++	return e == EINTR || e == EMFILE || e.Timeout()
++}
++
++func (e Errno) Timeout() bool {
++	return e == EAGAIN || e == ETIMEDOUT
++}
++
++// A Signal is a number describing a process signal.
++// It implements the [os.Signal] interface.
++// Dolly delivers ten of them (include/dolly/process.h); the numbers are Linux's.
++type Signal int
++
++const (
++	SIGHUP    Signal = 1
++	SIGINT    Signal = 2
++	SIGQUIT   Signal = 3
++	SIGILL    Signal = 4
++	SIGTRAP   Signal = 5
++	SIGABRT   Signal = 6
++	SIGBUS    Signal = 7
++	SIGFPE    Signal = 8
++	SIGKILL   Signal = 9
++	SIGUSR1   Signal = 10
++	SIGSEGV   Signal = 11
++	SIGUSR2   Signal = 12
++	SIGPIPE   Signal = 13
++	SIGALRM   Signal = 14
++	SIGTERM   Signal = 15
++	SIGCHLD   Signal = 17
++	SIGCONT   Signal = 18
++	SIGSTOP   Signal = 19
++	SIGTSTP   Signal = 20
++	SIGTTIN   Signal = 21
++	SIGTTOU   Signal = 22
++	SIGURG    Signal = 23
++	SIGXCPU   Signal = 24
++	SIGXFSZ   Signal = 25
++	SIGVTALRM Signal = 26
++	SIGPROF   Signal = 27
++	SIGWINCH  Signal = 28
++	SIGIO     Signal = 29
++	SIGPWR    Signal = 30
++	SIGSYS    Signal = 31
++)
++
++var signals = [...]string{
++	SIGHUP:    "hangup",
++	SIGINT:    "interrupt",
++	SIGQUIT:   "quit",
++	SIGILL:    "illegal instruction",
++	SIGTRAP:   "trace/breakpoint trap",
++	SIGABRT:   "aborted",
++	SIGBUS:    "bus error",
++	SIGFPE:    "floating point exception",
++	SIGKILL:   "killed",
++	SIGUSR1:   "user defined signal 1",
++	SIGSEGV:   "segmentation fault",
++	SIGUSR2:   "user defined signal 2",
++	SIGPIPE:   "broken pipe",
++	SIGALRM:   "alarm clock",
++	SIGTERM:   "terminated",
++	SIGCHLD:   "child exited",
++	SIGCONT:   "continued",
++	SIGSTOP:   "stopped (signal)",
++	SIGTSTP:   "stopped",
++	SIGTTIN:   "stopped (tty input)",
++	SIGTTOU:   "stopped (tty output)",
++	SIGURG:    "urgent I/O condition",
++	SIGXCPU:   "CPU time limit exceeded",
++	SIGXFSZ:   "file size limit exceeded",
++	SIGVTALRM: "virtual timer expired",
++	SIGPROF:   "profiling timer expired",
++	SIGWINCH:  "window changed",
++	SIGIO:     "I/O possible",
++	SIGPWR:    "power failure",
++	SIGSYS:    "bad system call",
++}
++
++func (s Signal) Signal() {}
++
++func (s Signal) String() string {
++	if 0 <= s && int(s) < len(signals) && signals[s] != "" {
++		return signals[s]
++	}
++	return "signal " + strconv.Itoa(int(s))
++}
++
++// The open flags os uses; Openat maps them to Dolly's.
++const (
++	O_RDONLY    = 0x0
++	O_WRONLY    = 0x1
++	O_RDWR      = 0x2
++	O_ACCMODE   = 0x3
++	O_CREAT     = 0x40
++	O_CREATE    = O_CREAT
++	O_EXCL      = 0x80
++	O_NOCTTY    = 0x100
++	O_TRUNC     = 0x200
++	O_APPEND    = 0x400
++	O_NONBLOCK  = 0x800
++	O_SYNC      = 0x101000
++	O_DIRECTORY = 0x10000
++	O_NOFOLLOW  = 0x20000
++	O_CLOEXEC   = 0x80000
++)
++
++// The commands of fcntl (internal/syscall/unix), with net_fake.go's
++// F_DUPFD_CLOEXEC.
++const (
++	F_DUPFD    = 0
++	F_GETFD    = 2
++	F_SETFD    = 3
++	F_GETFL    = 4
++	F_SETFL    = 5
++	FD_CLOEXEC = 1
++)
++
++const (
++	S_IFMT   = 0170000
++	S_IFSOCK = 0140000
++	S_IFLNK  = 0120000
++	S_IFREG  = 0100000
++	S_IFBLK  = 060000
++	S_IFDIR  = 040000
++	S_IFCHR  = 020000
++	S_IFIFO  = 010000
++
++	S_ISUID = 04000
++	S_ISGID = 02000
++	S_ISVTX = 01000
++
++	S_IRUSR = 0400
++	S_IWUSR = 0200
++	S_IXUSR = 0100
++)
++
++type Timespec struct {
++	Sec  int64
++	Nsec int64
++}
++
++type Timeval struct {
++	Sec  int64
++	Usec int64
++}
++
++func setTimespec(sec, nsec int64) Timespec {
++	return Timespec{Sec: sec, Nsec: nsec}
++}
++
++func setTimeval(sec, usec int64) Timeval {
++	return Timeval{Sec: sec, Usec: usec}
++}
++
++func Gettimeofday(tv *Timeval) error {
++	request := struct {
++		clock, reserved uint32
++		precision       uint64
++	}{dollyClockRealtime, 0, 0}
++	var nanoseconds int64
++	if _, err := call(opClockTime, unsafe.Pointer(&request), 16, unsafe.Pointer(&nanoseconds), 8); err != nil {
++		return err
++	}
++	*tv = NsecToTimeval(nanoseconds)
++	return nil
++}
++
++// Dolly has one user and no permission model; files report the user and
++// group zero.
++func Getuid() int                  { return 0 }
++func Getgid() int                  { return 0 }
++func Geteuid() int                 { return 0 }
++func Getegid() int                 { return 0 }
++func Getgroups() ([]int, error)    { return []int{0}, nil }
++func Umask(mask int) (oldmask int) { return 0 }
++
++// info is the process's id and its parent's.
++func info() (pids [2]uint32) {
++	call(opInfo, nil, 0, unsafe.Pointer(&pids), 8)
++	return pids
++}
++
++func Getpid() int  { return int(info()[0]) }
++func Getppid() int { return int(info()[1]) }
++
++func Kill(pid int, signum Signal) error {
++	if pid <= 0 {
++		return ENOSYS // Dolly signals one process.
++	}
++	request := [2]uint32{uint32(pid), uint32(signum)}
++	_, err := call(opSignal, unsafe.Pointer(&request), 8, unsafe.Pointer(&request), 8)
++	return err
++}
++
++func Sysctl(key string) (string, error) {
++	if key == "kern.hostname" {
++		return "dolly", nil
++	}
++	return "", ENOSYS
++}
++
++type Rlimit struct {
++	Cur uint64
++	Max uint64
++}
++
++const RLIMIT_NOFILE = 7
++
++func Getrlimit(which int, lim *Rlimit) error {
++	if which != RLIMIT_NOFILE {
++		return EINVAL
++	}
++	*lim = Rlimit{dollyDescriptorLimit, dollyDescriptorLimit}
++	return nil
++}
++
++func Setrlimit(which int, lim *Rlimit) error {
++	return ENOSYS
++}
++
++// Syscall and its relatives exist for portable code: Dolly has no numbered
++// system calls.
++func Syscall(trap, a1, a2, a3 uintptr) (r1, r2 uintptr, err Errno) {
++	return 0, 0, ENOSYS
++}
++
++func Syscall6(trap, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err Errno) {
++	return 0, 0, ENOSYS
++}
++
++func RawSyscall(trap, a1, a2, a3 uintptr) (r1, r2 uintptr, err Errno) {
++	return 0, 0, ENOSYS
++}
++
++func RawSyscall6(trap, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err Errno) {
++	return 0, 0, ENOSYS
++}
++
++// Iovec is for portable code: Dolly has no vectored I/O.
++type Iovec struct {
++	Base *byte
++	Len  uint64
++}
+diff --git a/src/syscall/tables_dolly.go b/src/syscall/tables_dolly.go
+new file mode 100644
+index 00000000..01f656a7
+--- /dev/null
++++ b/src/syscall/tables_dolly.go
+@@ -0,0 +1,203 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build dolly
++
++package syscall
++
++import "runtime"
++
++// Dolly's error numbers, as include/dolly/process.h numbers them.
++const (
++	E2BIG           Errno = 1
++	EACCES          Errno = 2
++	EADDRINUSE      Errno = 3
++	EADDRNOTAVAIL   Errno = 4
++	EAFNOSUPPORT    Errno = 5
++	EAGAIN          Errno = 6
++	EALREADY        Errno = 7
++	EBADF           Errno = 8
++	EBADMSG         Errno = 9
++	EBUSY           Errno = 10
++	ECANCELED       Errno = 11
++	ECHILD          Errno = 12
++	ECONNABORTED    Errno = 13
++	ECONNREFUSED    Errno = 14
++	ECONNRESET      Errno = 15
++	EDEADLK         Errno = 16
++	EDESTADDRREQ    Errno = 17
++	EDOM            Errno = 18
++	EDQUOT          Errno = 19
++	EEXIST          Errno = 20
++	EFAULT          Errno = 21
++	EFBIG           Errno = 22
++	EHOSTUNREACH    Errno = 23
++	EIDRM           Errno = 24
++	EILSEQ          Errno = 25
++	EINPROGRESS     Errno = 26
++	EINTR           Errno = 27
++	EINVAL          Errno = 28
++	EIO             Errno = 29
++	EISCONN         Errno = 30
++	EISDIR          Errno = 31
++	ELOOP           Errno = 32
++	EMFILE          Errno = 33
++	EMLINK          Errno = 34
++	EMSGSIZE        Errno = 35
++	EMULTIHOP       Errno = 36
++	ENAMETOOLONG    Errno = 37
++	ENETDOWN        Errno = 38
++	ENETRESET       Errno = 39
++	ENETUNREACH     Errno = 40
++	ENFILE          Errno = 41
++	ENOBUFS         Errno = 42
++	ENODEV          Errno = 43
++	ENOENT          Errno = 44
++	ENOEXEC         Errno = 45
++	ENOLCK          Errno = 46
++	ENOLINK         Errno = 47
++	ENOMEM          Errno = 48
++	ENOMSG          Errno = 49
++	ENOPROTOOPT     Errno = 50
++	ENOSPC          Errno = 51
++	ENOSYS          Errno = 52
++	ENOTCONN        Errno = 53
++	ENOTDIR         Errno = 54
++	ENOTEMPTY       Errno = 55
++	ENOTRECOVERABLE Errno = 56
++	ENOTSOCK        Errno = 57
++	ENOTTY          Errno = 59
++	ENXIO           Errno = 60
++	EOVERFLOW       Errno = 61
++	EOWNERDEAD      Errno = 62
++	EPERM           Errno = 63
++	EPIPE           Errno = 64
++	EPROTO          Errno = 65
++	EPROTONOSUPPORT Errno = 66
++	EPROTOTYPE      Errno = 67
++	ERANGE          Errno = 68
++	EROFS           Errno = 69
++	ESPIPE          Errno = 70
++	ESRCH           Errno = 71
++	ESTALE          Errno = 72
++	ETIMEDOUT       Errno = 73
++	ETXTBSY         Errno = 74
++	EXDEV           Errno = 75
++	ENODATA         Errno = 116
++	ENOTSUP         Errno = 138
++	// needed by src/net/error_unix_test.go
++	EOPNOTSUPP = ENOTSUP
++)
++
++var errorstr = [...]string{
++	E2BIG:           "Argument list too long",
++	EACCES:          "Permission denied",
++	EADDRINUSE:      "Address already in use",
++	EADDRNOTAVAIL:   "Address not available",
++	EAFNOSUPPORT:    "Address family not supported by protocol family",
++	EAGAIN:          "Try again",
++	EALREADY:        "Socket already connected",
++	EBADF:           "Bad file number",
++	EBADMSG:         "Trying to read unreadable message",
++	EBUSY:           "Device or resource busy",
++	ECANCELED:       "Operation canceled.",
++	ECHILD:          "No child processes",
++	ECONNABORTED:    "Connection aborted",
++	ECONNREFUSED:    "Connection refused",
++	ECONNRESET:      "Connection reset by peer",
++	EDEADLK:         "Deadlock condition",
++	EDESTADDRREQ:    "Destination address required",
++	EDOM:            "Math arg out of domain of func",
++	EDQUOT:          "Quota exceeded",
++	EEXIST:          "File exists",
++	EFAULT:          "Bad address",
++	EFBIG:           "File too large",
++	EHOSTUNREACH:    "Host is unreachable",
++	EIDRM:           "Identifier removed",
++	EILSEQ:          "EILSEQ",
++	EINPROGRESS:     "Connection already in progress",
++	EINTR:           "Interrupted system call",
++	EINVAL:          "Invalid argument",
++	EIO:             "I/O error",
++	EISCONN:         "Socket is already connected",
++	EISDIR:          "Is a directory",
++	ELOOP:           "Too many symbolic links",
++	EMFILE:          "Too many open files",
++	EMLINK:          "Too many links",
++	EMSGSIZE:        "Message too long",
++	EMULTIHOP:       "Multihop attempted",
++	ENAMETOOLONG:    "File name too long",
++	ENETDOWN:        "Network interface is not configured",
++	ENETRESET:       "Network dropped connection on reset",
++	ENETUNREACH:     "Network is unreachable",
++	ENFILE:          "File table overflow",
++	ENOBUFS:         "No buffer space available",
++	ENODEV:          "No such device",
++	ENOENT:          "No such file or directory",
++	ENOEXEC:         "Exec format error",
++	ENOLCK:          "No record locks available",
++	ENOLINK:         "The link has been severed",
++	ENOMEM:          "Out of memory",
++	ENOMSG:          "No message of desired type",
++	ENOPROTOOPT:     "Protocol not available",
++	ENOSPC:          "No space left on device",
++	ENOSYS:          "Not implemented on " + runtime.GOOS,
++	ENOTCONN:        "Socket is not connected",
++	ENOTDIR:         "Not a directory",
++	ENOTEMPTY:       "Directory not empty",
++	ENOTRECOVERABLE: "State not recoverable",
++	ENOTSOCK:        "Socket operation on non-socket",
++	ENOTSUP:         "Not supported",
++	ENOTTY:          "Not a typewriter",
++	ENXIO:           "No such device or address",
++	EOVERFLOW:       "Value too large for defined data type",
++	EOWNERDEAD:      "Owner died",
++	EPERM:           "Operation not permitted",
++	EPIPE:           "Broken pipe",
++	EPROTO:          "Protocol error",
++	EPROTONOSUPPORT: "Unknown protocol",
++	EPROTOTYPE:      "Protocol wrong type for socket",
++	ERANGE:          "Math result not representable",
++	EROFS:           "Read-only file system",
++	ESPIPE:          "Illegal seek",
++	ESRCH:           "No such process",
++	ESTALE:          "Stale file handle",
++	ETIMEDOUT:       "Connection timed out",
++	ETXTBSY:         "Text file busy",
++	EXDEV:           "Cross-device link",
++	ENODATA:         "No data available",
++}
++
++// Do the interface allocations only once for common
++// Errno values.
++var (
++	errEAGAIN error = EAGAIN
++	errEINVAL error = EINVAL
++	errENOENT error = ENOENT
++)
++
++// errnoErr returns common boxed Errno values, to prevent
++// allocations at runtime.
++//
++// We set both noinline and nosplit to reduce code size, this function has many
++// call sites in the syscall package, inlining it causes a significant increase
++// of the compiled code; the function call ultimately does not make a difference
++// in the performance of syscall functions since the time is dominated by calls
++// to the imports and path resolution.
++//
++//go:noinline
++//go:nosplit
++func errnoErr(e Errno) error {
++	switch e {
++	case 0:
++		return nil
++	case EAGAIN:
++		return errEAGAIN
++	case EINVAL:
++		return errEINVAL
++	case ENOENT:
++		return errENOENT
++	}
++	return e
++}
+diff --git a/src/syscall/timestruct.go b/src/syscall/timestruct.go
+index b1d03ef2..4ac30caf 100644
+--- a/src/syscall/timestruct.go
++++ b/src/syscall/timestruct.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1
++//go:build unix || (js && wasm) || wasip1 || dolly
+ 
+ package syscall
+ 
+diff --git a/src/testing/run_example.go b/src/testing/run_example.go
+index b2c5c3d1..0df70fa2 100644
+--- a/src/testing/run_example.go
++++ b/src/testing/run_example.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build !js && !wasip1
++//go:build !js && !wasip1 && !dolly
+ 
+ // TODO(@musiol, @odeke-em): re-unify this entire file back into
+ // example.go when js/wasm gets an os.Pipe implementation
+diff --git a/src/testing/run_example_wasm.go b/src/testing/run_example_wasm.go
+index b815fcdb..42c380ff 100644
+--- a/src/testing/run_example_wasm.go
++++ b/src/testing/run_example_wasm.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build js || wasip1
++//go:build js || wasip1 || dolly
+ 
+ package testing
+ 
+diff --git a/src/time/sys_unix.go b/src/time/sys_unix.go
+index 63634ace..ac5e7a67 100644
+--- a/src/time/sys_unix.go
++++ b/src/time/sys_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || (js && wasm) || wasip1
++//go:build unix || (js && wasm) || wasip1 || dolly
+ 
+ package time
+ 
+diff --git a/src/time/zoneinfo_unix.go b/src/time/zoneinfo_unix.go
+index b52c67d0..6280af80 100644
+--- a/src/time/zoneinfo_unix.go
++++ b/src/time/zoneinfo_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix && !ios && !android
++//go:build (unix && !ios && !android) || dolly
+ 
+ // Parse "zoneinfo" time zone file.
+ // This is a fairly standard file format used on OS X, Linux, BSD, Sun, and others.

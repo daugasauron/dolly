@@ -27,8 +27,9 @@ Each step's measurements are recorded here as they are made.
 
 ## State (2026-10-23)
 
-Step 1 done: memory64 in Go's wasm backend and linker as `GOARCH=wasm64`, proven on the host
-(below). Next: the `dolly` GOOS on the process contract. The fork is one patch,
+Steps 1 and 2 done: memory64 as `GOARCH=wasm64`, proven on the host, and `GOOS=dolly` on the
+process contract: all of std and cmd cross-build, and Go programs run in a Dolly session in
+Chrome (below). Next: the seed archive and the go-sdk/go-build images. The fork is one patch,
 [`demos/go/go-1.27.3-dolly.patch`](../../demos/go/go-1.27.3-dolly.patch), against Go 1.27.3.
 
 ## Decisions
@@ -77,3 +78,28 @@ The patched toolchain builds on the host in 50 s (`make.bash`). A program built
   wrap to drop `stackRetOffset` (reflect calls failed out of bounds).
 - `GOARCH=wasm` is unchanged: the same program's code section is byte-identical between the
   patched and the upstream toolchain (data differ in 6 bytes: line tables of the edited files).
+
+## Step 2: GOOS=dolly (2026-10-23, measured)
+
+- `GOOS=dolly GOARCH=wasm64 go build std` and `go build cmd` succeed. Every toolchain binary passes
+  Dolly's own admission check (`src/process-abi.mjs`): exactly `env.memory` (shared, i64,
+  maximum 131072 pages) and `dolly_process_0.call` imported, `_start` exported, `dolly.process`
+  and `dolly.process.memory` sections. Sizes: compile 57.7 MB, go 33.7 MB, link 13.5 MB,
+  asm 10.1 MB, cgo 7.8 MB, gofmt 5.5 MB; initial memory 310 pages (compile) down to 35 (hello).
+- In a `system` session in Chrome: a program printing, filling a 100,000-key map and passing a
+  value between goroutines, and one using `fmt` and `os` (arguments, `Getwd`, `WriteFile`,
+  `ReadFile`, `ReadDir` with modes and sizes, environment, pid) print what they print on Linux.
+- Design: dolly is not `unix` (no `unix` build tag), like js and wasip1, so packages with
+  `//go:build unix` (golang.org/x/sys/unix, x/term) take their portable fallbacks. In std it
+  follows wasip1 where wasip1 is generic (80 build constraints say `wasip1 || dolly`; the
+  network is wasip1's fake one), and the unix code of js where Dolly has the real operation:
+  descriptors with dup and close-on-exec, a working directory and `*at` paths, pipes,
+  `os/exec` with `LookPath`, `os.Executable` through `/proc/self/exe`. The syscall package is
+  unix-shaped (`Stat_t` with `S_IF*` modes, `ReadDirent`, `Dup2`, `Pipe2`, `StartProcess`,
+  `Wait4`) over packets of the contract (`syscall/*_dolly.go`); `runtime/os_dolly.go` holds the
+  one `go:wasmimport` and pushes it to syscall. Signals: a call interrupted by one takes it
+  (INTERRUPT_POLL), ignores SIGCHLD and SIGWINCH and otherwise exits with the signal; Go's
+  `os/signal` delivers nothing (as on wasip1, `_NSIG` is 0 for all wasm).
+- `Wait4` polls (WAIT with NONBLOCK, sleeping 0.1 to 10 ms) instead of blocking the process,
+  so that goroutines copying a child's output keep running: a blocking WAIT would stop the
+  whole single-threaded runtime while the child waits on a full pipe.
