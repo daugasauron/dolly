@@ -449,7 +449,7 @@ const elsewhere = {
   git: "man-browser.mjs, pager-browser.mjs", less: "pager-browser.mjs", llvm: "demos/llvm",
   parakeet: "demos/speech", "speech-to-text": "demos/speech: default refuses it", voice: "demos/speech, in pi-phone",
   tmux: "demos/tmux: default refuses it",
-  pi: "the pi-dolly row installs it",
+  pi: "the pi-dolly row installs it", secretenv: "demos/closed-source-agent and demos/pi: their key prompts",
   "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm", "qwen3.5-4b": "demos/local-llm",
   "lfm2.5": "demos/local-llm",
   "libdolly-audio": "audio-browser.mjs", "libdolly-gpu": "gpu-render-browser.mjs",

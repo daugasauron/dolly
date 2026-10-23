@@ -1,16 +1,15 @@
 # Pi
 
-The Pi coding agent, unforked, running under QuickJS-ng and Janis
+The Pi coding agent as npm publishes it, running under QuickJS-ng and Janis
 ([JavaScript](../javascript/README.md)) as an ordinary private process over
 Dolly's files, processes and HTTP broker.
 
 ## Images
 
-- `pi`: `pi`, the Pi coding agent, with the `janis`, `ripgrep` and `fd` packages.
-- `pi-dolly`: Pi's Dolly extension: the prompt, the `dolly` skill, Slop for its shell tool, a download tool, settings and theme, with the `pi` and `dolly-docs` packages.
+- `pi`: `pi`, the Pi coding agent as npm publishes it, with the `janis-install`, `ripgrep` and `fd` packages.
+- `pi-dolly`: Pi's Dolly extension: the prompt, the `dolly` skill, Slop for its shell tool, a download tool, settings, theme and `pi-key`, with the `pi`, `secretenv` and `dolly-docs` packages.
 - `pi-agent`: Pi coding agent with JavaScript, shell tools, ripgrep and fd.
 - `pi-runtime`: Reusable Pi and Janis runtime.
-- `pi-build`: Pi packages compiled from pinned TypeScript sources.
 
 Open `/pi-agent/`; build with `npm run image -- pi-agent`. Leave Pi with
 `/exit` or Ctrl+D. In another image, `amy install pi-dolly` brings the agent
@@ -18,17 +17,15 @@ as pi-agent has it, `amy install pi` Pi alone.
 
 ## How it works
 
-- `pi-build` installs the `typescript` package, runs its compiler inside Dolly and emits Pi's
-  workspace packages to `/usr/lib/node_modules` (`noCheck` emit, no type
-  checking). The `pi-dolly` package adds the prompt, skill, settings, theme and
-  extension, and `pi-runtime` installs it.
-- Bootstrap exception: [`pi-secret-input.patch`](pi-secret-input.patch) makes
-  the login dialog show `*` for prompts pi-ai marks `secret` (API keys);
-  upstream 1.0.4 shows them in clear. Drop it when upstream masks them
-  ([task](../../tasks/20261005-231730-pi-key-mask/TASK.md)).
-- External packages are listed in [`pi-runtime-packages.txt`](pi-runtime-packages.txt)
-  and verified against `package-lock.json`; `node demos/pi/pi-runtime-census.mjs` reports pins and
-  licenses. They load from WasmFS, never from the network.
+- `pi` installs `@earendil-works/pi-coding-agent` with `janis-install` from a
+  copy of the registry files of the tree `package-lock.json` pins
+  ([`prepare-pi-npm.mjs`](prepare-pi-npm.mjs)), so images open offline; the
+  `pi` command ([`pi.c`](pi.c)) runs its `dist/cli.js`. The `pi-dolly` package
+  adds the prompt, skill, settings, theme and extension, and `pi-runtime`
+  installs it.
+- API keys: Pi's `/login` shows a key as it is typed. `pi-key VARIABLE`
+  (`pi-key OPENROUTER_API_KEY`) reads one without showing it and starts Pi with
+  it in that environment variable only, as the Claude Code launcher does.
 - [`dolly-tools.js`](dolly-tools.js) plugs Slop into Pi's `bash` tool and `!`,
   keeps bytes that are not UTF-8 intact in edits and adds a `download` tool.
 - Conversations live in `~/.pi/agent/sessions` (`/resume`); credentials in
@@ -40,14 +37,15 @@ as pi-agent has it, `amy install pi` Pi alone.
 
 ## Key files
 
-- [`Dollyfile-pi-build`](Dollyfile-pi-build), [`Dollyfile-pi`](Dollyfile-pi), [`pi.c`](pi.c): build and launcher.
+- [`Dollyfile-pi`](Dollyfile-pi), [`prepare-pi-npm.mjs`](prepare-pi-npm.mjs), [`pi.c`](pi.c): install and launcher.
 - [`SYSTEM.md`](SYSTEM.md), [`settings.json`](settings.json),
   [`skills/dolly/SKILL.md`](skills/dolly/SKILL.md): the agent's Dolly guidance.
 - Tests: [`test/`](test/).
 
 ## Limits
 
-- No npm client or native addons; installing Pi packages that need npm fails.
+- Pi's `pi install npm:...` needs npm, which is not here, and native addons
+  do not load; `janis-install` installs npm packages.
   Dependency-free JavaScript extensions work via `~/.pi/agent/extensions/`.
 - Image resizing is off: Photon needs nested WebAssembly. Another agent
   directory needs `"images": {"autoResize": false}` in its `settings.json`, or

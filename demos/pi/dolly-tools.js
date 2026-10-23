@@ -107,7 +107,8 @@ export default function dollyTools(pi) {
     }
     context.ui.notify(
       "Dolly runs entirely in a browser Wasm sandbox. ! and Pi's shell tool execute Slop; " +
-      "Bash is not installed. Ctrl+C cancels.",
+      "Bash is not installed. Ctrl+C cancels. /login shows an API key as it is typed: " +
+      "to keep one off the screen, leave with Ctrl+D and run pi-key ANTHROPIC_API_KEY (or your provider's variable).",
       "info",
     );
   });

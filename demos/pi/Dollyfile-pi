@@ -5,15 +5,30 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
+# Pi as npm publishes it. janis-install installs @earendil-works/pi-coding-agent
+# and the packages it depends on, as package-lock.json pins them, from a copy of
+# their registry files the site serves (prepare-pi-npm.mjs). The pi command runs
+# dist/cli.js in its own process; npm's bin, dist/bundle/cli.js, would need
+# Node's require of ES modules and runs the undici it bundles.
 FROM /v0.1.4/Dollyfile-system 5c4eebc6d67c71b0ea6fb89d5b6ec4d6327668262dde58d3b736d19077ef8735
-INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 46772f895e3072f13b2af6c08d6bd6c86f4cc5dca3b92989293cebe6b697d608
-
+INSTALL /v0.1.4/demos/javascript/Dollyfile-janis-install f5192a2992317dc2fea730839f477991c62a0ed26b8cb547779d447c86763174
 INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 23a5e852c30a6c0138bd3dcfa9b8cee7cbdd08e15d047c117d3e82535498bab9
 INSTALL /v0.1.4/demos/rust/Dollyfile-fd 665b1606e63df21683f31bdae0da4697a1a87e52cc451bc34efd5cb7a7f54f96
-COPY /v0.1.4/demos/pi/Dollyfile-pi-build eb6e4346d7f07763d9dfc5942bdce48efbe95e180c77afda537b1cb4fbff20f9 /usr/bin/pi /usr/bin/pi
-COPY /v0.1.4/demos/pi/Dollyfile-pi-build eb6e4346d7f07763d9dfc5942bdce48efbe95e180c77afda537b1cb4fbff20f9 /usr/lib/node_modules /usr/lib/node_modules
-COPY /v0.1.4/demos/pi/Dollyfile-pi-build eb6e4346d7f07763d9dfc5942bdce48efbe95e180c77afda537b1cb4fbff20f9 /usr/src/pi-source /usr/src/pi-source
-COPY /v0.1.4/demos/pi/Dollyfile-pi-build eb6e4346d7f07763d9dfc5942bdce48efbe95e180c77afda537b1cb4fbff20f9 /usr/share/licenses/pi-source /usr/share/licenses/pi-source
+REQUIRES HEADER quickjs-runner
+REQUIRES LIB    dolly-js
+REQUIRES LIB    quickjs
+REQUIRES TOOL   cc
+REQUIRES TOOL   janis-install
+REQUIRES TOOL   rm
+REQUIRES TOOL   tar
+
+SOURCE /v0.1.4/dist/static/default/pi-npm.tar     6ebb57dbb6755bce129249e8e3c5cad349139979a4a8aff6c9520a8e16650c1f /tmp/pi-npm.tar
+SOURCE /v0.1.4/dist/static/default/commands/pi.c  2296ec09e6b95b0d0dd065f806138e48eaad855d77d6366adfdfc33d720da98e /tmp/pi.c
+SLOP tar -xf /tmp/pi-npm.tar -C /
+SLOP janis-install --registry /tmp/pi-npm @earendil-works/pi-coding-agent@1.0.3
+SLOP cc -I /usr/include/dolly /tmp/pi.c -ldolly-js -lquickjs -o /usr/bin/pi
+SLOP rm -rf /tmp/pi-npm /tmp/pi-npm.tar /tmp/pi.c
+FOLDER /usr/lib/node_modules
 
 EXPORTS ENV PI_PACKAGE_DIR /usr/lib/node_modules/@earendil-works/pi-coding-agent
 EXPORTS ENV PI_SKIP_VERSION_CHECK 1
@@ -21,8 +36,8 @@ EXPORTS TOOL pi
 
 SLOP pi --version
 FILE /usr/share/man/cat1/pi.1
-    pi: the Pi coding agent, unforked, running under QuickJS-ng and Janis, with
-    the janis, ripgrep and fd packages.
+    pi: the Pi coding agent as npm publishes it, running under QuickJS-ng and
+    Janis, with the janis-install, ripgrep and fd packages.
     
       pi                 starts the agent; /exit or Ctrl+D leaves it
       pi --offline       no network at startup; model requests still go out

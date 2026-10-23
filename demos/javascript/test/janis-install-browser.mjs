@@ -1,7 +1,7 @@
 // janis-install in a default session that amy installs it into, against a
 // fixture registry the test origin serves in the registry's place: ranges,
 // nesting, integrity, optional and platform packages, scripts that are not
-// run, launchers, --prefix and --integrity, and what it refuses.
+// run, launchers, --prefix, --registry and --integrity, and what it refuses.
 // Usage: node demos/javascript/test/janis-install-browser.mjs (DOLLY_BROWSER=firefox runs it in Firefox).
 import assert from "node:assert/strict";
 import { demoTest, redirectFetch } from "../../browser.mjs";
@@ -39,6 +39,14 @@ await demoTest("janis-install", { image: "default", timeout: 300_000, browser: p
   // Another node_modules directory.
   await run("janis-install --prefix /tmp/other/node_modules dolly-left && test -f /tmp/other/node_modules/@dolly/shared/index.js");
   await run(`cd /tmp/other && test "$(janis -e 'console.log(require("dolly-left"))')" = 'left shared 1.0.0' && cd /workspace`);
+
+  // A copy of the registry's files, as a recipe stages them: nothing is fetched.
+  await run(["dolly-left", "@dolly/shared"].map(name => `mkdir -p /tmp/copy/${name}/- && curl -fsS ${registry}/${name} -o /tmp/copy/${name}/metadata.json`)
+    .concat(["dolly-left/-/dolly-left-1.0.0.tgz", "@dolly/shared/-/shared-1.0.0.tgz"].map(path => `curl -fsS ${registry}/${path} -o /tmp/copy/${path}`)).join(" && "));
+  const copied = fixture.requests.length;
+  await run("janis-install --registry /tmp/copy --prefix /tmp/copied/node_modules dolly-left && " +
+    `cd /tmp/copied && test "$(janis -e 'console.log(require("dolly-left"))')" = 'left shared 1.0.0' && cd /workspace`);
+  assert.equal(fixture.requests.length, copied);
 
   // A pinned tarball is fetched without metadata, which this registry does not have for it, and checked against the pin.
   await fails(`janis-install --integrity ${integrities["dolly-left@1.0.0"]} dolly-pinned@1.0.0`);

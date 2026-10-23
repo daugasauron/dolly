@@ -22,7 +22,7 @@ REQUIRES TOOL   gzip
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   sha512sum
 
-SOURCE /v0.1.4/dist/static/default/runtimes/janis-install.mjs 0f65122856fd657d6d0e8f984c7268715e5af2eea0e61ec282d79d37f72c5747 /usr/lib/janis-install/janis-install.mjs
+SOURCE /v0.1.4/dist/static/default/runtimes/janis-install.mjs bd49ed1516ea935601a6ab9b4fc0d03e386524a39a7ee13e5bddc66d2e6c0722 /usr/lib/janis-install/janis-install.mjs
 SOURCE /v0.1.4/dist/static/default/commands/janis-install.c   3a9eeafa19aea3b722e725072b5296d63511a1e0a4859b057e1b6cb03befedb6 /tmp/janis-install/janis-install.c
 SLOP cc -I /usr/include/dolly /tmp/janis-install/janis-install.c -ldolly-js -lquickjs -o /usr/bin/janis-install
 

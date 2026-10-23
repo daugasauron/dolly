@@ -7,13 +7,16 @@ import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, 
 import { basename, dirname, resolve } from "node:path";
 
 const registry = "https://registry.npmjs.org";
-const usage = `usage: janis-install [--prefix DIR] [--integrity SRI] NAME[@VERSION]...
+const usage = `usage: janis-install [--prefix DIR] [--integrity SRI] [--registry COPY] NAME[@VERSION]...
 Installs each npm package and the packages it depends on into DIR, a
 node_modules directory (default /usr/lib/node_modules), and writes
 /usr/bin/COMMAND, which runs janis on the file, for each command a named
 package declares. VERSION is a version, a range or a tag (default latest).
 --integrity pins the tarball of the one NAME@VERSION given (sha512-...),
 which is then fetched without the registry's metadata.
+--registry COPY reads a copy of the registry's files instead of fetching:
+COPY/NAME/metadata.json, the abbreviated metadata of the versions copied, and
+the tarballs at COPY/NAME/-/FILE, where their URLs put them.
 Lifecycle scripts are not run; packages that compile a native addon, and
 git, file, URL and alias specs, are refused.`;
 
@@ -137,6 +140,10 @@ function platformMismatch(manifest) {
 const packuments = new Map();
 function packument(name) {
   if (!packuments.has(name)) packuments.set(name, (async () => {
+    if (copy !== null) {
+      const path = `${copy}/${name}/metadata.json`;
+      return existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : refuse(`${name}: not in ${copy}`);
+    }
     // The registry also answers a scope's unencoded slash, which a policy's path prefix admits.
     const response = await fetch(`${registry}/${name}`, { headers: { accept: "application/vnd.npm.install-v1+json" } })
       .catch(error => refuse(`${name}: the registry could not be reached: ${error.message}`));
@@ -206,14 +213,18 @@ function extract(tar, destination, label) {
     if (type !== 0x35) writeFileSync(path, data);
   }
 }
+async function fetchTarball(url, label) {
+  const response = await fetch(url).catch(error => refuse(`${label}: ${url} could not be fetched: ${error.message}`));
+  if (!response.ok) refuse(`${label}: ${url} answered ${response.status}`);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  fetched += bytes.length;
+  return bytes;
+}
 // Fetches, checks and unpacks one tarball into the staging directory.
 async function stage(node, staging) {
   const label = `${node.name}@${node.version}`, unpacked = `${staging}/${placed.indexOf(node)}`, archive = `${unpacked}.tgz`;
-  const response = await fetch(node.tarball).catch(error => refuse(`${label}: ${node.tarball} could not be fetched: ${error.message}`));
-  if (!response.ok) refuse(`${label}: ${node.tarball} answered ${response.status}`);
-  const bytes = new Uint8Array(await response.arrayBuffer());
+  const bytes = copy !== null ? readFileSync(`${copy}${new URL(node.tarball).pathname}`) : await fetchTarball(node.tarball, label);
   writeFileSync(archive, bytes);
-  fetched += bytes.length;
   await verify(archive, node.integrity, label);
   const tar = `${unpacked}.tar`, descriptor = openSync(tar, "w");
   try { await run("gzip", ["-dc", archive], descriptor); } finally { closeSync(descriptor); }
@@ -229,7 +240,7 @@ async function stage(node, staging) {
 }
 
 // The tree: the prefix holds the top-level packages, each package's node_modules its nested ones.
-let prefix = "/usr/lib/node_modules", fetched = 0;
+let prefix = "/usr/lib/node_modules", copy = null, fetched = 0;
 const root = { children: new Map(), parent: null, depth: 0 };
 const placed = [], notes = [];
 const directory = node => node === root ? prefix : `${node.path}/node_modules`;
@@ -329,9 +340,10 @@ async function main(args) {
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
     if (arg === "--help") { console.log(usage); return 0; }
-    if (arg === "--prefix" || arg === "--integrity") {
+    if (arg === "--prefix" || arg === "--integrity" || arg === "--registry") {
       if (index + 1 === args.length) refuse(`${arg} needs a value`, 2);
       if (arg === "--prefix") prefix = resolve(args[++index]);
+      else if (arg === "--registry") copy = resolve(args[++index]);
       else integrity = args[++index];
     } else if (arg.startsWith("-")) refuse(`unknown option ${arg}`, 2);
     else requests.push(parseSpec(arg));

@@ -10,6 +10,7 @@ this repository, in the image or on the sites ([licences](../../docs/licences.md
 ## Images
 
 - `closed-source-agent`: runs Claude Code, downloaded from npm into the session after a notice of its terms.
+- `secretenv`: `secretenv NAME PROMPT COMMAND`, which reads a secret without showing it into one command's environment.
 
 Open `/closed-source-agent/`; build with `npm run image -- closed-source-agent`.
 Leave Claude Code's REPL with `/exit` (Ctrl+C and Ctrl+D do not end it here).
