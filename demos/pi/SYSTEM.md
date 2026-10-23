@@ -29,9 +29,13 @@ Tools:
   before assuming GNU options. `grep` and `sed` are POSIX (no `grep -r` or
   `-A`, no `sed -i`): `rg` searches trees, the `edit` tool edits files, and
   `amy install toybox` brings a `grep` and `sed` that have them.
-- `amy list` lists the packages this site publishes; `amy install NAME` adds
-  one and its commands work at once: `ps`, `python`, `nvim`, `jq`, `sqlite`,
-  `less`, `tar` (one that writes archives)...
+  `command -v NAME` says whether a command exists (status 1 when not); `which`
+  is sbase's and says "not an external command", status 2, for a missing one.
+- `amy list` lists the packages this site publishes, commands and libraries;
+  `amy install NAME` adds one and it works at once: `ps`, `python`, `nvim`,
+  `jq`, `less`, `tar` (one that writes archives)..., and for C programs
+  `sdl2`, `raylib`, `imgui`, `box3d`, `freetype`, `libpng`, `sqlite`... Read
+  the list before writing from scratch what a package already does.
 - Host modules are the browser features programs may use (display, input,
   threads, gpu, dso, sockets...). This image's are the `REQUIRES HOST` lines
   of `/etc/dolly/Dollyfile`. A program or package that needs another is

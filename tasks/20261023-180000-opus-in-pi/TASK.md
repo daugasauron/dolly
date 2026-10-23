@@ -291,3 +291,71 @@ saved it; it lists `hello/hello.c` and `hello/run`). After Ctrl+D, `pi -c` showe
 conversation again with its footer, as the guidance tells the user.
 
 Spend, all sessions: $0.093 + $0.079 + $0.212 + $0.254 + $0.086 + $0.038 = $0.762.
+
+## Round 2: a bigger game, and the packages it should reuse (branch `demo/opus-audit-2`)
+
+Method as above (`drive.mjs`, pi-agent of this branch's `dist/`, headless Chrome), plus
+`build/opus-evidence/trace.mjs`: from Pi's session JSONL, model seconds per response (entry
+time minus request start), seconds per tool call, the calls that failed, the `amy` commands
+and the libraries named. One prompt, the same before and after (`prompts-r2-game.txt`):
+"Build me a real game, more than a simple Asteroids clone: real-time, drawn on Dolly's
+display, played with the keyboard, with text on screen (a title screen, score, lives and
+level), several levels that get harder, enemies that move on their own, and a game-over
+screen with a restart. Your choice of game. [...]" After Pi, the driver runs
+`/workspace/play` from Slop and presses keys for screenshots.
+
+### Before (the guidance of `777af11b`; `r2-before-game/`, `r2-before-game2/`, $0.880)
+
+| session | game | lines | tool calls (failed) | wall / model s | amy | libraries | cost |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Galaga-like "Star Hive", boss every 4th wave | 546 | 9 (0) | 142 / 138 | none | none | $0.495 |
+| 2 | Galaga-like "Star Warden" | 389 + font.h | 9 (1) | 309 / 129 | none | none | $0.385 |
+
+Both read the skill, listed `/usr/include/dolly/`, read `display.h` and `input.h`, and
+wrote everything on the raw display, a 5x7 bitmap font included; neither ran `amy list` or
+named a library. Both games run and draw (screenshots `game-*.png` there). Why: `SYSTEM.md`
+introduced amy with commands only (`ps`, `python`, `nvim`...), and the skill's C section
+named `display.h`, `input.h`, `-lm`, `-lz` and `-lcurl`: nothing said that SDL2, raylib,
+ImGui or Box3D are packages. Session 2 also ran the game from the `bash` tool (`./starwarden`
+after its self-test): the program took the canvas and waited for keys until the tool's
+180 s timeout, 58% of the session's wall time.
+
+What the libraries do in pi-agent, measured without a model (`r2/probe/probe1.out`,
+`probe2.out`, Chromium): `amy list` shows `sdl2`, `raylib`, `imgui`, `box3d`, `freetype`,
+`libpng`... as not installed; `amy install sdl2 raylib` takes them; an SDL2 program and a
+raylib program through `<dolly/raylib.h>` compile and draw. Two traps:
+- **SDL2**: `SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED)`, as upstream's
+  examples ask, failed with "Couldn't find matching render driver" in the session that
+  installed `sdl2`: the package chose the software renderer by `EXPORTS ENV
+  SDL_RENDER_DRIVER software`, which reaches a session only at its next load (with the
+  variable set by hand it worked).
+- **raylib**: the package is upstream's `PLATFORM_MEMORY` with `SUPPORT_CUSTOM_FRAME_CONTROL`
+  and Dolly's adapter. A program written as raylib's examples are (`InitWindow`,
+  `WindowShouldClose`, `IsKeyDown`, `SetTargetFPS`, `GetFrameTime`) links and runs but
+  shows nothing; through the adapter it draws, but `GetTime()` and `GetFrameTime()` are
+  0.000 after 60 frames (0.98 s by `clock_gettime`), `GetFPS()` 0, and raylib's own key
+  state never changes: rcore_memory.c reads the clock only `#if defined(__linux__) ||
+  ... || defined(__EMSCRIPTEN__)` (Dolly's `cc` defines `__dolly__` and `__unix__`), and
+  custom frame control never sets the frame time or polls input.
+
+### The changes
+
+- **SDL2 renders in software in every session.** The driver (`SDL_dollyvideo.c`) sets
+  `SDL_HINT_RENDER_DRIVER` to `software` at `SDL_HINT_DEFAULT` when video starts, so the
+  variable or a program's own hint still choose; the package exports no variable. Measured in
+  pi-agent (`r2/probe/probe3.out`, Chromium): after `amy install sdl2`, with no
+  `SDL_RENDER_DRIVER`, an accelerated request gets a renderer (it failed before, above).
+  `test/amy-browser.mjs`'s `sdl2` row, which installs into a running `default`, asks for
+  an accelerated renderer (it runs whole only after the catalog round builds every package).
+  `demos/sdl2/test/sdl2-browser.mjs` passes in Chromium on the rebuilt `sdl2`. `imgui`,
+  `imgui-x11` (same source archive) and the games on SDL2 are repinned and stale here.
+- **Guidance**: `SYSTEM.md` says amy's list holds libraries too (`sdl2`, `raylib`, `imgui`,
+  `box3d`, `freetype`, `libpng`, `sqlite`...) and to read it before writing from scratch
+  what a package does; the skill has "Games and graphics": how SDL2 and raylib link and
+  behave here (the software renderer, no vsync wait, no audio or threads; raylib through
+  the adapter, with what of raylib gets no input or clock), the other libraries' `.pc`
+  files, and sound needing `audio@0`.
+- raylib's clock and input are the package's, which stands on `gamedev-sdk` (Slopyard's
+  build); another workstream makes such packages: its `GetTime`, `GetFrameTime` and key
+  state should work (a guard for `__dolly__` or `__unix__`, and an adapter that feeds
+  raylib's input and frame time).

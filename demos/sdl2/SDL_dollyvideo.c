@@ -42,6 +42,10 @@ static int DollyVideoInit(_THIS)
         return error ? DollyError("input", error) : -1;
     }
     SDL_AddDisplayMode(&_this->displays[0], &mode);
+    // SDL's one renderer here is its software renderer: a program that asks
+    // for an accelerated one, as upstream's examples do, gets that. A default,
+    // so the variable or a program's own hint still choose.
+    SDL_SetHintWithPriority(SDL_HINT_RENDER_DRIVER, "software", SDL_HINT_DEFAULT);
     // SDL_SetCursor returns at once when the cursor equals the current one,
     // and SDL_ShowCursor hides through SDL_SetCursor(NULL): without a cursor
     // object the current one is NULL too and a hide request never reaches

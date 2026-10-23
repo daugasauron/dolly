@@ -10,7 +10,7 @@ REQUIRES HOST input@0
 # which link -limgui -lSDL2 -lm, and imgui-demo, upstream's
 # example_sdl2_sdlrenderer2.
 FROM /v0.1.3/Dollyfile-system-tools 13ba21000aa665d6729f8e00cb795c4871f3bfaa72a4e18a7197d536b84a5826
-INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 d101b845e64ff55be49f015c50c34b0ba126f251dde9503d0a3990af647aced8
+INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 4c3388aed0796e79846bc5b4c2cd3f53f115b1d9d117ef2833100679ace1564d
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES HEADER sdl2
@@ -56,6 +56,6 @@ FILE /usr/share/man/cat1/imgui-demo.1
     
     A program of its own compiles against the package's headers and library:
       c++ -I/usr/include/imgui -I/usr/include/SDL2 app.cpp -limgui -lSDL2 -lm
-    SDL renders in software here (SDL_RENDER_DRIVER=software), and one program
+    SDL renders in software here, and one program
     holds the canvas at a time.
 SLOP rm -rf /tmp/imgui /tmp/imgui.tar

@@ -14,7 +14,7 @@ REQUIRES TOOL make
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE /v0.1.3/dist/static/sdl2/source.tar e711d89e99da77d61cf2a14861083c1fa3a2d56ae1b75937a44eda685e16e49a /tmp/sdl2/source.tar
+SOURCE /v0.1.3/dist/static/sdl2/source.tar f27f2111d8460982df56047f357d8271e2f02282e66c77ad13559cfacd309404 /tmp/sdl2/source.tar
 SLOP tar -xf /tmp/sdl2/source.tar -C /
 SLOP cmake -S /tmp/sdl2/source -B /tmp/sdl2/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
@@ -28,10 +28,7 @@ SLOP cmake -S /tmp/sdl2/source -B /tmp/sdl2/build \
 SLOP cmake --build /tmp/sdl2/build
 SLOP cmake --install /tmp/sdl2/build
 
-# SDL's one renderer here is its software renderer, so a program that asks for
-# an accelerated one, as upstream's examples do, gets that. The joystick
-# subsystem is SDL's dummy driver, which finds no game controllers.
-EXPORTS ENV SDL_RENDER_DRIVER software
+# The joystick subsystem is SDL's dummy driver, which finds no game controllers.
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
 # SDL2Config.cmake names both libraries.

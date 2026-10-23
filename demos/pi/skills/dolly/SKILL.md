@@ -1,6 +1,6 @@
 ---
 name: dolly
-description: How to do things on this Dolly machine (a POSIX-like wasm64 userspace in a browser tab) - packages with amy, host modules with nena, fetching source without git clone, Slop shell idioms, parallel make, C with Dolly's headers (display, input), Janis JavaScript, moving files with download and upload, and why a command failed (status 126, 127, curl 7 and 9). Read it before such a task.
+description: How to do things on this Dolly machine (a POSIX-like wasm64 userspace in a browser tab) - packages with amy, host modules with nena, fetching source without git clone, Slop shell idioms, parallel make, C with Dolly's headers (display, input), games with the sdl2 and raylib packages, Janis JavaScript, moving files with download and upload, and why a command failed (status 126, 127, curl 7 and 9). Read it before such a task.
 ---
 
 # Dolly
@@ -121,10 +121,38 @@ module, and `-pthread` needs `threads@0`. A program that draws or reads keys
 needs the terminal: build it with the tool, and the user runs it from Slop.
 Time code with `clock_gettime(CLOCK_MONOTONIC)`.
 
+## Games and graphics
+
+Libraries are packages too: `amy list` names them, `amy install` adds them
+to the running session, and `cc` links them at once.
+
+- `sdl2`: SDL 2 drawing in software on the terminal's canvas, with keyboard
+  and mouse events, `SDL_GetTicks` and `SDL_Delay`: `#include <SDL2/SDL.h>`,
+  link `-lSDL2 -lm`. Every renderer is the software one, whatever the flags
+  ask, and `SDL_RenderPresent` does not wait for the display: pace the loop
+  with `SDL_Delay` or the frame time. There is no audio, no threads or
+  `SDL_AddTimer`, and no game controller. `imgui` adds Dear ImGui on it.
+- `raylib`: raylib 6's drawing (shapes, text in its own font, textures,
+  `raymath.h`) in software, through Dolly's adapter `<dolly/raylib.h>`:
+  `dolly_raylib_open` instead of `InitWindow`, `dolly_raylib_end_frame` then
+  `dolly_raylib_wait_frame` (about 60 per second) instead of `EndDrawing`,
+  keys from `dolly_raylib_next_event` (`<dolly/input.h>` records, compared
+  with `dolly_raylib_code_is(&event, "ArrowLeft")`). raylib's own
+  `IsKeyDown`, `WindowShouldClose`, `GetTime`, `GetFrameTime` and
+  `SetTargetFPS` get no input and no clock here. Link
+  `-lraylib -ldolly-raylib -lm`.
+- Others, such as `box3d` (3D physics), `freetype`, `libpng`, `libjpeg` and
+  `sqlite`: `amy files NAME` lists their headers, archives and any `.pc`
+  file, which names the flags (`pkg-config` comes with `amy install pkgconf`).
+- Sound needs the `audio@0` host module (`<dolly/audio.h>` from
+  `libdolly-audio`; `openal` mixes for it); without it, a game is silent.
+
 ## When a command fails
 
 - Status 127, "command not found": not installed. `amy list` may have it;
-  there is no `apt`, `pip` or `npm` to fall back on.
+  there is no `apt`, `pip` or `npm` to fall back on. Ask with `command -v NAME`
+  (status 1 when missing); `which NAME` ends with 2 and "not an external
+  command", which means the same.
 - Status 126: the program was refused or crashed, and one line on its stderr
   says why, usually a host module this image does not declare (above).
 - "Function not implemented" (`ENOSYS`) or "Not supported": an operation Dolly

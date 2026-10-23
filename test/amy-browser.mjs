@@ -180,7 +180,9 @@ const programs = {
     "printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(probe C)' 'add_executable(probe main.c)' > CMakeLists.txt && " +
     "cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/probe",
   sdl2: "mkdir /tmp/amy-sdl2 && cd /tmp/amy-sdl2 && " +
-    "printf '#include <SDL.h>\\nint main(void) { int failed = SDL_Init(SDL_INIT_VIDEO) || !SDL_CreateWindow(\"\", 0, 0, 64, 48, 0); SDL_Quit(); return failed; }\\n' > window.c && " +
+    // An accelerated renderer, as upstream's examples ask for, in the session that installed SDL.
+    "printf '#include <SDL.h>\\nint main(void) { SDL_Window *window; int failed = SDL_Init(SDL_INIT_VIDEO) || !(window = SDL_CreateWindow(\"\", 0, 0, 64, 48, 0)) || " +
+    "!SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED); SDL_Quit(); return failed; }\\n' > window.c && " +
     "printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(window C)' 'find_package(SDL2 REQUIRED)' 'add_executable(window window.c)' " +
     "'target_link_libraries(window PRIVATE SDL2::SDL2-static)' > CMakeLists.txt && cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/window",
   rust: "printf 'fn main() { println!(\"{}\", 6 * 7); }\\n' > /tmp/amy.rs && rustc /tmp/amy.rs -o /tmp/amy-rust && test \"$(/tmp/amy-rust)\" = 42",
