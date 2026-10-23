@@ -312,6 +312,11 @@ DOLLY_ZSH_VERSION=5.9.2
 DOLLY_ZSH_URL='https://www.zsh.org/pub/zsh-5.9.2.tar.xz'
 DOLLY_ZSH_SHA256=36fa734374b44783582cec09bcd67822e2f992c779ec1624ab5596df078d2f81
 
+# OCaml's release, with the bytecode boot/ocamlc it bootstraps from (demos/ocaml).
+DOLLY_OCAML_VERSION=5.5.0
+DOLLY_OCAML_URL='https://github.com/ocaml/ocaml/releases/download/5.5.0/ocaml-5.5.0.tar.gz'
+DOLLY_OCAML_SHA256=c018052c8264a3791a8f54f84179e6bcc78ed82eb889bacc2773df445259aed3
+
 DOLLY_TMUX_VERSION=3.8
 DOLLY_TMUX_URL='https://github.com/tmux/tmux/releases/download/3.8/tmux-3.8.tar.gz'
 DOLLY_TMUX_SHA256=e79c699c7e949dccd0a4a125e17b8d1261e311b16979dbc8eb34542f3966d82e

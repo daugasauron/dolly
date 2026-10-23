@@ -13,7 +13,7 @@ REQUIRES TOOL cc
 REQUIRES TOOL rm
 
 SOURCE /v0.1.4/dist/static/default/commands/amy.c 70a78108faec623f28e65bf7a7dc399d599c10544dd2048c6c7d8ae8bf461f8c /tmp/amy/amy.c
-SOURCE /v0.1.4/dist/static/default/commands/version.h b5258bb195b5058ae99d9d1592decdb4d7013ed377f0eddfb27fa3a696aa1afb /tmp/amy/version.h
+SOURCE /v0.1.4/dist/static/default/commands/version.h 26530b4c4fe62f84d3a4e133a3ac1363c4b3d26673c67b0ba0c5944aa870bc18 /tmp/amy/version.h
 SLOP cc -O2 /tmp/amy/amy.c -o /bin/amy
 
 EXPORTS TOOL amy
