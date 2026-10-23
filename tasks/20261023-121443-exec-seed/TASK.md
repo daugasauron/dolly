@@ -28,3 +28,16 @@ To do in the round, after every `process.h` change is merged:
 
 Done when: the pinned seed compiler was linked by Dolly under the current process contract,
 and `node demos/llvm/test/stage2-browser.mjs` or a second `llvm-cc` gives its bytes again.
+
+## Step 3's check, on `core/runtime-cleanup` (2026-10-24)
+
+On the seed with `dladdr` (image inputs `a848735b`; its compiler the restamped one, `8b5ddca4…`
+in `dist/dolly.data`), `llvm-tablegen`, `llvm-build` and `llvm-cc` were built in Chrome. The
+compiler `llvm-cc` linked under the exec contract, with this libc, is `ebceea0b…`, 96,096,455
+bytes. `node demos/llvm/test/stage2-browser.mjs` (run in the 9 GB slot, since the test needs
+about 7 GB) passed in 4,045 s: `llvm-build`'s rows again in `llvm-cc`, so compiled by that
+compiler, give every archive, the compiler and the TableGen tools in the first stage's bytes. So
+`ebceea0b…` is a fixed point: `pin-seed-compiler.mjs` on this `llvm-cc` gives the seed the round
+needs, and the done-when holds for it once it is pinned. Not pinned here: it is the round's seed
+change (`config/source-pins.sh`, the release asset).
+
