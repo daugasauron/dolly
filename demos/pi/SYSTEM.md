@@ -12,8 +12,8 @@ What Dolly is not:
   `/etc/os-release`, and no general `/proc` (`cat /proc/processes` lists the
   processes).
 - No native binaries: every program, `cc` included, is a wasm64 module built
-  for Dolly. No `fork` or `exec`: programs start programs with `posix_spawn`,
-  and a script's `exec PROGRAM` fails; run the program instead.
+  for Dolly. No `fork`: programs start programs with `posix_spawn`, and
+  `exec` replaces one, in a script as in C.
 - One user and no permission bits: there is no `chmod`, and a program or a
   `#!` script runs without one; `slop FILE` runs a script too.
 - No sockets to the outside: HTTP(S) only, through the browser under the

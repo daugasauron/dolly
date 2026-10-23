@@ -158,7 +158,7 @@ to the running session, and `cc` links them at once.
 - Status 126: the program was refused or crashed, and one line on its stderr
   says why, usually a host module this image does not declare (above).
 - "Function not implemented" (`ENOSYS`) or "Not supported": an operation Dolly
-  does not have, such as `fork`, `exec`, signals to process groups or network
+  does not have, such as `fork`, signals to process groups or network
   sockets; `docs/process-model.md` lists them. Another option of the same
   program rarely helps; another way of doing the task usually does.
 - "Maximum call stack size exceeded" (Chrome) or "too much recursion"
