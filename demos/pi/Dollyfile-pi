@@ -15,11 +15,11 @@ COPY /v0.1.3/demos/pi/Dollyfile-pi-build ec4276524d1cb8676fdaa9ac23830a951871b4c
 COPY /v0.1.3/demos/pi/Dollyfile-pi-build ec4276524d1cb8676fdaa9ac23830a951871b4c6fc8bbaf28783b8397e81c2ae /usr/src/pi-source /usr/src/pi-source
 COPY /v0.1.3/demos/pi/Dollyfile-pi-build ec4276524d1cb8676fdaa9ac23830a951871b4c6fc8bbaf28783b8397e81c2ae /usr/share/licenses/pi-source /usr/share/licenses/pi-source
 
-SOURCE /v0.1.3/dist/static/default/pi/dolly-tools.js                    326e7ecdbd9f8a86576229d9fa873a4989be3b59c8698093a8c21634f27e41b2 /home/dolly/.pi/agent/extensions/dolly-tools.js
-SOURCE /v0.1.3/dist/static/default/pi/SYSTEM.md                         edfd0f622a1bc68d19a4e4c54e6438d06e404333f2b7be41fb34162f60dad1d4 /home/dolly/.pi/agent/SYSTEM.md
+SOURCE /v0.1.3/dist/static/default/pi/dolly-tools.js                    4085afe793a77ca45eba8c7aa8ea81354cd5ba557834f976f24e364498fbe137 /home/dolly/.pi/agent/extensions/dolly-tools.js
+SOURCE /v0.1.3/dist/static/default/pi/SYSTEM.md                         75def1c6af269d300cb6e159d34471119eb3794c2172ac10af615d32ae072acf /home/dolly/.pi/agent/SYSTEM.md
 SOURCE /v0.1.3/dist/static/default/pi/settings.json                     852b78af9b490d627858723c8b67f24e55e58d9f621ce4afbc7424b872917c1f /home/dolly/.pi/agent/settings.json
 SOURCE /v0.1.3/dist/static/default/pi/dolly-theme.json                  ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297 /home/dolly/.pi/agent/themes/dolly.json
-SOURCE /v0.1.3/dist/static/default/pi/dolly-skill.md                    d571b850d67420ceab0554cd9f9bca9aef9e92655a97d303d9528341f42fdb64 /home/dolly/.pi/agent/skills/dolly/SKILL.md
+SOURCE /v0.1.3/dist/static/default/pi/dolly-skill.md                    02ab0d8b3d4634268628a742297eb2075def4ee401fa0c7e07703a05ffd06905 /home/dolly/.pi/agent/skills/dolly/SKILL.md
 
 EXPORTS ENV PI_PACKAGE_DIR /usr/lib/node_modules/@earendil-works/pi-coding-agent
 EXPORTS ENV PI_SKIP_VERSION_CHECK 1
