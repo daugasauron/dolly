@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 330
-- TAGS: packages,catalog,owner
+- TAGS: packages,catalog,owner,0.1.4
 
 Owner (2026-10-13): "Last night when I said "break out more things as
 packages" I mean that to simplify and make the current builds more generic.

@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 110
-- TAGS: toolchain,packages
+- TAGS: toolchain,packages,0.1.4
 
 Owner (2026-10-23): "OCaml would also be cool." Route and costs:
 `tasks/20261023-200001-languages/investigation.md`, section 3.

@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 90
-- TAGS: core,display,terminal
+- TAGS: core,display,terminal,0.1.4
 
 Found by [tmux in use](../20261013-133111-tmux-use/TASK.md) (2026-10-14), not fixed there.
 

@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 120
-- TAGS: bug,javascript
+- TAGS: bug,javascript,0.1.4
 
 Found by `janis-install`'s browser test with ordinary npm packages
 ([janis-install](../20261023-114225-janis-install/TASK.md), step 2). Not fixed there: a

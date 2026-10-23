@@ -234,6 +234,13 @@ With a python row added to the generated `amy-index.txt` for the run, `default` 
 `composed toolchain` pass in both browsers; `composed dependency` needs the `zig` package,
 not built here.
 
+## Next audits (owner, 2026-10-23, 19:00)
+
+"I want to keep that one going - run more audits using API key from inside the environment to
+improve the user experience. Make it build some more complicated game and investigate the
+traces (it should realize what prebuilt packages are available, raylib sdl etc) and be able
+to reuse them." Budget as before: at most $20 for the task.
+
 ## For the owner
 
 - pi-agent and pi-local declare neither `dso@0` and `sockets@0` nor `nena@0`, so

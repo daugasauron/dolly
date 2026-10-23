@@ -28,4 +28,6 @@ inferred). In short:
 - Perl ranks first by value per day (3-7 days): three host-side generation steps and `ne`
   wait on it.
 
-Decision: OCaml now (task 20261023-210000-ocaml), Perl after it, Go not now.
+Decision: OCaml now (task 20261023-210000-ocaml). Owner, later the same day: Go is to be
+bootstrapped properly, as Rust is ([its task](../20261023-230000-go/TASK.md)), and "I dont
+care about perl... discard that completely unless necessary by something else".

@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 100
-- TAGS: runtime,persistence,memory
+- TAGS: runtime,persistence,memory,0.1.4
 
 ## State (2026-10-13)
 

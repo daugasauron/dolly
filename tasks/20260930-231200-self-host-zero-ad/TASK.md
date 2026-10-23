@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 90
-- TAGS: demo,0ad,bootstrap,performance
+- TAGS: demo,0ad,bootstrap,performance,0.1.4
 
 ## State (2026-10-13)
 

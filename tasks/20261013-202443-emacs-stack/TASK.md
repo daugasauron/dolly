@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 40
-- TAGS: core,process,emacs,chromium
+- TAGS: core,process,emacs,chromium,0.1.4
 
 Found in the night of 2026-10-14 by reproducing an old flake on a starved
 browser ([terminal input and screen reading](../20261001-095000-terminal-text-flake/TASK.md),
