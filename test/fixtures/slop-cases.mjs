@@ -159,6 +159,7 @@ export const shellCases = [
   ["& does not take a && list", ": && : & exit 7", 2, 7],
   ["a path that names nothing is not a missing command", "./no-such-program; a=$?; no-such-program; b=$?; ./; c=$?; exit $((a + b + c))", 380 & 255],
   ["aliases, umask and ulimit are refused", "alias x=y; a=$?; umask 022; b=$?; ulimit -n > /dev/null; exit $((a + b + $?))", 6, 0],
+  ["jobs, fg, bg and a job spec to kill are refused", "jobs; a=$?; fg; b=$?; bg; c=$?; kill -TERM %1; exit $((a + b + c + $?))", 8, 3],
 ];
 
 // These run external commands, so they need Dolly (or Bash) to spawn them.

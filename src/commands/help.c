@@ -13,7 +13,7 @@ int main(int argc, char **argv) {
   fputs("the platform is described in /usr/share/doc/dolly/docs: slop.md is the shell\n", stdout);
   fputs("  language, process-model.md processes and their limits;\n", stdout);
   fputs("  amy install dolly-docs brings the directory to an image without it\n", stdout);
-  fputs("not supported: job control (jobs, fg, bg), aliases, umask, ulimit,\n", stdout);
+  fputs("not supported: job control (jobs, fg, bg, kill %N), aliases, umask, ulimit,\n", stdout);
   fputs("  brace expansion {a,b}, ${VAR/a/b}, ${VAR:1:2}, $'...';\n", stdout);
   fputs("  a glob that matches nothing stays as typed\n", stdout);
   fputs("pipelines: programs run at the same time, so seq 1 999999999 | head -n1 ends\n", stdout);
