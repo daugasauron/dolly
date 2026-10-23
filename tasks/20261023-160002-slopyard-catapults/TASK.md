@@ -12,6 +12,14 @@ the slings and catapults load, aim and fire in the living world as he described,
 with the audit (`audit.c`, `run.mjs` beside the living-world task) before and after, and
 `demos/slopyard/test/slopyard-browser.mjs` passes on the GPU.
 
+Owner (2026-10-23, later the same day): "For slopyard, the "3 block magnet thing with a line"
+projectile never worked. Fix that. When it hits something in the air I want it to be able to
+pull it down to the ground, I gave this input a while ago so see history for more details."
+That is the Kusari tether round. Done when, in addition: a tether round fired by a slingshot
+at an airborne machine hits it, holds on with its line, and brings it down to the ground,
+measured in the living world (how often it hits, how often a hit ends on the ground) before
+and after, with a screenshot of one capture.
+
 ## What the owner asked for, and what was built (September 2026)
 
 The September task files hold the owner's words only as the agents paraphrased them;
@@ -45,7 +53,11 @@ each line below quotes the task file and names the version that holds it
    and pull to drag down an enemy aircraft. The overnight hovering tower is the wrong
    interaction and reportedly caught a friendly aircraft." Built (`d7dbeb45`, `4961bf0c`):
    the four-part Kusari tether round and Kanagu cable tugs; left open: "reliable
-   rotated-round reload and repeated interception".
+   rotated-round reload and repeated interception". The task's own brief at `d7dbeb45`:
+   "physically attach its magnet to an enemy, let a ground machine acquire/pull the trailing
+   end, and show the aircraft being restrained or pulled down. No hidden forces, target-ID
+   exceptions, teleports or weakened enemies." Its closing note (`9a6d4445`): the lifecycle
+   fixture passes; "Reuse of a returned round was never established".
 6. `20260927-133500-codex-combat-map`: "The user requested distinct bases and a central
    combat/drop zone [...] put team machinery on its own side, launch compact independent
    ammunition". `20260927-145000-codex-base-zones`: "slingshots stood in the combat area
