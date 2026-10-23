@@ -6,8 +6,8 @@ REQUIRES HOST input@0
 REQUIRES HOST gpu@0
 REQUIRES HOST http@0
 
-FROM /v0.1.4/demos/local-llm/Dollyfile-llama-build 394f070003106508059fcb73c53e31624bca0b9a5013ac4413c8ec5f424cd61d
-INSTALL /v0.1.4/Dollyfile-libdolly-gpu f4b5492c484afbd88dccd2066bacf7a581789cdae22f73bd93b22bd57db6d4a7
+FROM /v0.1.4/demos/local-llm/Dollyfile-llama-build 68bcae42a3fa16fc8d72b5dfec30be3ae7d43517e1c5ecb2dad8531496c3f86a
+INSTALL /v0.1.4/Dollyfile-libdolly-gpu f73cf73d6e271517756bf005d1a374a4958fbdf7fa1f656e8d0aff2684ea754b
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL tar
