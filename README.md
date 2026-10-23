@@ -111,8 +111,7 @@ C/C++ compiler and GNU Make. None of them is a sandbox capability.
 ```sh
 npm ci
 npx playwright-core install firefox
-./scripts/build-toolchain.sh          # compiler seed, slow, once
-npm run build:runtime                 # kernel and seed; checks the exact ABI
+npm run build:runtime                 # kernel and seed, with the pinned compiler; checks the exact ABI
 npm run image -- default --plan       # show what would rebuild
 npm run image -- default              # build an image and what it needs
 npm run dev -- default                # serve this checkout and dist/ (DOLLY_PORT)

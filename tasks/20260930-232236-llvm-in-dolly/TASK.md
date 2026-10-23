@@ -1,4 +1,4 @@
-# LLVM is built inside Dolly; the seed's compiler still comes from the host
+# LLVM is built inside Dolly, and the seed's compiler is that build
 
 - STATUS: OPEN
 - PRIORITY: 80
@@ -12,6 +12,59 @@ compiler `llvm-cc` links, stripped (`-Wl,--strip-all`, 96 MB), as `scripts/build
 `core/llvm-seed-trial`; `docs/sources.md` names it as the seed's compiler and the order to
 bootstrap it (the published `llvm-cc`, built by the previous seed); the host-built compiler's
 script leaves the build. A seed change: it rides the v0.1.4 catalog round.
+
+## The seed takes the compiler built inside Dolly (2026-10-23, `core/seed-compiler`, worktree `work/seedcc`)
+
+Decisions, each the one way it is done:
+
+- **The stripped link comes from `llvm-cc`.** Its recipe links the compiler once, with
+  `-Wl,--strip-all`, and installs that one for its own `cc`; no second link. One link, the image's
+  compiler is the seed's bytes at the fixed point, and the host-built compiler never had names
+  either. Measured on the link of today's driver: 96,094,219 bytes against 127,142,204; the
+  sections dropped are `name` (31,047,610), `producers` and `target_features`, and every other
+  section is the unstripped compiler's bytes (compared on the host). The `llvm-cc` snapshot is
+  612,199,959 bytes (was 643,247,823); the image built in 431 s, `check.slop` 215 s.
+- **`build.sh` takes a pinned archive, not a snapshot.** `config/source-pins.sh` pins
+  `DOLLY_SEED_COMPILER_URL` and `_SHA256`; `fetch-verified-file.sh` keeps it as
+  `.cache/dolly-seed-compiler-SHA256.tar`, `build.sh` extracts it to `build/seed-compiler` and
+  `validate-process` checks the compiler. Not read from `dist/`'s `llvm-cc` snapshot, because a
+  checkout without that image must start from a published file anyway (a snapshot path would be a
+  second way), and because a round rewrites that snapshot: the seed would follow the last build
+  without anyone pinning it, and a compiler that is not yet a fixed point would make every round
+  invalidate itself. The pin changes only when pinned. `npm run build:runtime` stays 12 s.
+- **The archive holds the compiler and Clang's resource headers** (299 files, 104,231,424
+  bytes), at their seed paths, both as built inside Dolly: the headers are `llvm-build`'s
+  `lib/clang`, which `llvm-cc` already requires to equal the seed's. `clang/lib/Headers` of the
+  checkout cannot stand in: Clang's install adds two generated `hlsl/*_gen.inc` and leaves out
+  two `openmp_wrappers` headers. The 298 headers are the host build's bytes (`diff -r`).
+- **`demos/llvm/pin-seed-compiler.mjs` writes the pin** (decodes the `llvm-cc` snapshot with
+  `system-snapshot-format.mjs`, writes the archive with `build-source-tar.mjs`, rewrites both
+  lines). The demo that builds the compiler owns its pinning; the core reads only the pin. Run
+  after building `llvm-cc`: an unchanged digest is the fixed point.
+- **Bootstrap order.** A checkout without the archive downloads it: the URL is an asset of the
+  GitHub release being developed (`src/version.mjs`), and every release uploads the seed compiler
+  it was built with (`release-checklist.sh` stops unless the pin names this release's asset and
+  the file is there; step 5 uploads it). A GitHub asset, not a site file, because the site's
+  exporter Brotli-encodes or splits a file over 25 MiB, which a plain verified download does not
+  fetch. For 0.1.4 the stage 0 is the compiler this tree's `llvm-cc` linked with the 0.1.3 seed
+  (whose compiler was the host build): archive `9c4ba53a…`, compiler `9c747cff…`.
+- **`scripts/build-toolchain.sh` goes**, with `toolchain-cache-key.sh`, CMake's
+  `dolly-process-compiler` target and its `find_package(LLVM|LLD|Clang)`. No checkout needs it
+  once releases carry the compiler; it was the second copy of LLVM's configuration
+  (`llvm-tablegen`, `llvm-build` being the first); git keeps it (last in `3fc9d5da`) for a
+  bootstrap from nothing, as `docs/sources.md` says. Its other duties move: the LLVM checkout
+  and `lld-dolly.patch` to `demos/llvm/prepare-sources.sh` (their only user), and
+  `prepare-process-sysroot.sh` takes the container's `emnm` instead of the host-built `llvm-nm`
+  (the seed's 821 other files, `dynamic-provider.symbols` among them, are unchanged).
+- **Known gap, for the owner**: the compiler writes the process contract's digest into what it
+  links. A new `abi/dolly-process-0.wat` needs a compiler built for it, which `llvm-cc` cannot
+  make under the old runtime: its check links and runs programs with both compilers. It would
+  take a compiler that links itself once more, or a driver that takes the digest from the
+  runtime it runs on. A new kernel plugin contract is an ordinary round. Recorded in
+  `docs/sources.md`.
+- **The `llvm` package** now installs the seed's own compiler again (at the fixed point the same
+  bytes); its test no longer requires the two executables to differ. Whether it stays is a
+  catalog question for the owner.
 
 ## State (2026-10-13)
 

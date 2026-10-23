@@ -5,7 +5,6 @@ project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 emscripten_lib="${project_dir}/.cache/emscripten/sysroot/lib/wasm64-emscripten"
 process_runtime="${project_dir}/build/libdolly-process.a"
 cache_root="${project_dir}/.cache"
-llvm_nm="${project_dir}/.cache/llvm-native/bin/llvm-nm"
 reserved_libc_symbols="${project_dir}/config/process-libc-provider.symbols"
 
 libraries=(
@@ -28,10 +27,6 @@ for library in "${libraries[@]}" "${cxx_runtime[@]}"; do
 done
 if [[ ! -f "${process_runtime}" ]]; then
   echo "dolly: missing Dolly process adapter: ${process_runtime}" >&2
-  exit 1
-fi
-if [[ ! -x "${llvm_nm}" ]]; then
-  echo "dolly: missing seed toolchain llvm-nm: ${llvm_nm}" >&2
   exit 1
 fi
 if [[ ! -f "${reserved_libc_symbols}" ]]; then
@@ -69,7 +64,7 @@ done
 emar d "${staging}/libc-ww.a" \
   raise.o sigaction.o pthread_sigmask.o sigtimedwait.o setitimer.o getitimer.o
 
-"${llvm_nm}" -j --defined-only --extern-only \
+emnm -j --defined-only --extern-only \
   "${staging}/libc-ww.a" \
   "${staging}/libstubs.a" \
   "${staging}/libdlmalloc-ww.a" \
@@ -104,7 +99,7 @@ done <"${staging}/libc-provider.symbols"
 # the final executable link fail; the process verifier then independently
 # proves that the finished module imports only memory and dolly_process_0.call.
 {
-  "${llvm_nm}" -j --defined-only --extern-only \
+  emnm -j --defined-only --extern-only \
     "${staging}/libc-ww.a" \
     "${staging}/libstandalonewasm-ww-memgrow.a" \
     "${staging}/libdolly-process.a" \
@@ -113,7 +108,7 @@ done <"${staging}/libc-provider.symbols"
     2>/dev/null | awk \
       'NF && $0 !~ /:$/ && $0 !~ /^_/ && $0 !~ /^emscripten_/ { print }'
   awk 'NF && $0 !~ /^#/ { print }' "${staging}/libc-provider.symbols"
-  "${llvm_nm}" -j --defined-only --extern-only \
+  emnm -j --defined-only --extern-only \
     "${cxx_runtime[@]/#/${emscripten_lib}/}" \
     2>/dev/null | awk 'NF && $0 !~ /:$/ { print }'
 } | LC_ALL=C sort -u >"${staging}/dynamic-provider.symbols"

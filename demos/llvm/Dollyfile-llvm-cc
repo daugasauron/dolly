@@ -9,7 +9,7 @@ REQUIRES HOST sockets@0
 
 # Clang and LLD linked inside Dolly from llvm-build's archives, checked against
 # the seed compiler and installed in its place: this image's cc is built by Dolly.
-FROM /v0.1.3/demos/llvm/Dollyfile-llvm-build 3ca3538bf454455b27785538b512fc530e512b7de1ab1ab9a0192330aa5f1083
+FROM /v0.1.3/demos/llvm/Dollyfile-llvm-build 3c85ef9718e57ee1a90c023b701cbc9094390e8cd4597cc79fbe6eda1159e825
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL gzip
@@ -34,16 +34,17 @@ SOURCE /v0.1.3/dist/static/llvm/compiler-main.c 104ebf5d2862d51f9a67d4e7dd6a71e0
 SOURCE /v0.1.3/dist/static/llvm/dolly-process-abi-digest.h a9086eddb238582885298ab36c68c8eb7a58c5133e59d1c277f46417205b3720 /tmp/dolly-compiler/dolly-process-abi-digest.h
 SOURCE /v0.1.3/dist/static/llvm/dolly-kernel-plugin-abi-digest.h a680157985ef34465efdfce079749799bb3cc7e1c119867c34730d8669bc669e /tmp/dolly-compiler/dolly-kernel-plugin-abi-digest.h
 
-# Compiles the driver as toolchain/CMakeLists.txt does and links ./compiler.
-# ROOT holds lib/*.a and the generated headers by build-tree path. The seed's
-# link needs 32 MiB at start: its 8 MiB stack and its data pass cc's 16 MiB.
+# Compiles the driver and links ./compiler without its names: the seed's
+# compiler (docs/sources.md). ROOT holds lib/*.a and the generated headers by
+# build-tree path. The link needs 32 MiB at start: its 8 MiB stack and its data
+# pass cc's 16 MiB.
 FILE /usr/lib/llvm-build/link-compiler.slop
     # usage, in the driver's directory: slop -e link-compiler.slop ROOT
     llvm=/tmp/llvm-project
     include="-I. -I$llvm/llvm/include -I$1/include -I$llvm/clang/include -I$1/tools/clang/include -I$llvm/lld/include -I$1/tools/lld/include"
     c++ -O2 -DNDEBUG -std=gnu++17 -fno-exceptions -fno-rtti -include endian.h -DCLANG_BUILD_STATIC $include -c compiler.cpp -o compiler.o
     cc -O2 -DNDEBUG -c compiler-main.c -o compiler-main.o
-    c++ compiler.o compiler-main.o -o compiler -Wl,--initial-memory=33554432 $1/lib/*.a
+    c++ compiler.o compiler-main.o -o compiler -Wl,--initial-memory=33554432 -Wl,--strip-all $1/lib/*.a
 SLOP CWD /tmp/dolly-compiler time slop -e /usr/lib/llvm-build/link-compiler.slop /usr/lib/llvm-build
 
 # The resource headers generated here are the seed's.

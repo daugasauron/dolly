@@ -1,8 +1,8 @@
 # LLVM
 
 LLVM 24, Clang and LLD built inside Dolly from the seed's pinned sources
-(`tasks/20260930-232236-llvm-in-dolly`): the compiler the host builds as the
-seed, built again by Dolly's own `cc`. The seed stays the bootstrap.
+(`tasks/20260930-232236-llvm-in-dolly`): the seed's compiler, built by the
+seed's own `cc`.
 
 ## Images
 
@@ -17,9 +17,9 @@ seed, built again by Dolly's own `cc`. The seed stays the bootstrap.
   configured and generated headers.
 - `llvm-cc`: a shell whose `cc` and `c++` are the compiler built in Dolly.
   It compiles the seed's driver (`src/compiler.cpp`), links the compiler from
-  those archives, requires the same bytes from it as from the seed compiler
-  for two programs and a sample of LLVM's sources, and installs it for `cc`,
-  `c++`, `ld` and `ar`.
+  those archives without its names (`-Wl,--strip-all`), requires the same
+  bytes from it as from the seed compiler for two programs and a sample of
+  LLVM's sources, and installs it for `cc`, `c++`, `ld` and `ar`.
 - `llvm`: `llvm-cc` and `llvm-c++`, Clang and LLD as built inside Dolly, beside the `cc` package.
 - `llvm-runtimes`: libc++, libc++abi, libunwind and the compiler-rt builtins as compiled in Dolly, in `/usr/lib/llvm-runtimes`; a link takes them with `-L`.
 - `llvm21-tablegen`: a build stage: LLVM 21 with every default target, configured by CMake inside Dolly, and its TableGen tools.
@@ -32,16 +32,25 @@ seed, built again by Dolly's own `cc`. The seed stays the bootstrap.
   `test/llvm-browser.mjs` compares both links.
 
 Key files: [`Dollyfile-llvm-tablegen`](Dollyfile-llvm-tablegen),
-[`prepare-sources.sh`](prepare-sources.sh) (stages the seed's verified checkout
-without tests or docs) and [`llvm-host-triple.patch`](llvm-host-triple.patch)
-(LLVM runs `config.guess` even when given `LLVM_HOST_TRIPLE`). CMake comes from
+[`prepare-sources.sh`](prepare-sources.sh) (checks out the pinned commit, applies
+[`lld-dolly.patch`](lld-dolly.patch), with which a link without `-mllvm` leaves
+LLVM's options as the compile set them, and stages the tree without tests or docs) and
+[`llvm-host-triple.patch`](llvm-host-triple.patch) (LLVM runs `config.guess`
+even when given `LLVM_HOST_TRIPLE`). CMake comes from
 [`cmake`](../cmake/README.md) and the Python 3 its configure requires from
 [`python`](../python/README.md).
 
-## Using the compiler
+## The seed's compiler
 
-The compiler built here is a second compiler beside the seed's. It replaces
-nothing: every other image still starts from the host-built seed.
+[`pin-seed-compiler.mjs`](pin-seed-compiler.mjs) makes the compiler `llvm-cc`
+linked the seed's: it puts it and Clang's resource headers, as `llvm-build`
+generated them, into the archive `npm run build:runtime` takes, and pins it in
+`config/source-pins.sh` ([sources](../../docs/sources.md#the-seeds-compiler)).
+Run it after building `llvm-cc`. A digest it leaves unchanged is the fixed
+point, a compiler that rebuilt itself; a new one is a new seed, and every image
+rebuilds.
+
+## Using the compiler
 
 - In a session, `amy install llvm` adds `llvm-cc` and `llvm-c++`. They take
   the arguments of `cc` and `c++` and use the same headers and libraries (the

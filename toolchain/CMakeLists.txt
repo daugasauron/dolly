@@ -1,10 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 project(dolly-runtime LANGUAGES C CXX)
 
-find_package(LLVM REQUIRED CONFIG)
-find_package(LLD REQUIRED CONFIG)
-find_package(Clang REQUIRED CONFIG)
-
 if(NOT DOLLY_PROCESS_SYSROOT_DIR OR
    NOT EXISTS "${DOLLY_PROCESS_SYSROOT_DIR}/SHA256SUMS" OR
    NOT EXISTS "${DOLLY_PROCESS_SYSROOT_DIR}/libdolly-process.a")
@@ -40,18 +36,6 @@ target_compile_options(dolly PRIVATE
   # Like WasmFS itself; a throw would import __cxa_throw from JavaScript.
   $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>
 )
-set(DOLLY_LLVM_LIBRARIES
-  lldWasm
-  lldCommon
-  LLVMWebAssemblyCodeGen
-  LLVMWebAssemblyAsmParser
-  LLVMBitReader
-  LLVMBitWriter
-  LLVMIRReader
-  LLVMPasses
-  LLVMObject
-)
-
 target_link_options(dolly PRIVATE
   -m64
   -O2
@@ -85,7 +69,7 @@ target_link_options(dolly PRIVATE
 add_custom_target(dolly-seed
   COMMAND bash /src/scripts/prepare-kernel-seed.sh
     /src/build/generated/libclang_rt.dolly.a@/usr/lib/libclang_rt.builtins.a
-    /src/.cache/llvm-wasm/lib/clang/24/include@/usr/lib/clang/24/include
+    /src/build/seed-compiler/usr/lib/clang@/usr/lib/clang
     /src/build/seed-include/dolly@/usr/include/dolly
     /src/src/dollyfile.c@/usr/src/dolly/dollyfile.c
     /src/src/sha256.h@/usr/src/dolly/sha256.h
@@ -93,7 +77,7 @@ add_custom_target(dolly-seed
     /src/build/dolly-kernel-plugin-0.wasm@/usr/lib/dolly/dolly-kernel-plugin-0.wasm
     ${DOLLY_PROCESS_SYSROOT_DIR}@/usr/lib/dolly/process
     /src/build/process-bin/bootstrap@/usr/libexec/dolly/process-bin/bootstrap
-    /src/build/process-bin/compiler@/usr/libexec/dolly/process-bin/compiler
+    /src/build/seed-compiler/usr/libexec/dolly/process-bin/compiler@/usr/libexec/dolly/process-bin/compiler
   VERBATIM
 )
 add_dependencies(dolly dolly-seed)
@@ -102,70 +86,4 @@ set_target_properties(dolly PROPERTIES
   OUTPUT_NAME dolly
   SUFFIX .wasm
   RUNTIME_OUTPUT_DIRECTORY /src/dist
-)
-
-# The compiler is an ordinary Dolly process, not a callable kernel service.
-# Keeping it in its own address space lets the supervisor reclaim every LLVM
-# allocation after a compile and terminate a pathological frontend without
-# losing the shell or filesystem.
-add_executable(dolly-process-compiler
-  ../src/compiler.cpp
-  ../src/process/compiler-main.c
-)
-target_link_libraries(dolly-process-compiler PRIVATE
-  clangFrontendTool clangCodeGen clangFrontend clangBasic
-)
-# A new process contract restamps the tool, so relink it to drop the old stamp.
-set_property(TARGET dolly-process-compiler APPEND PROPERTY
-  LINK_DEPENDS /src/build/generated/dolly-process-abi-digest.h)
-target_include_directories(dolly-process-compiler PRIVATE
-  ../build/include
-  ../build/generated
-  ${LLVM_INCLUDE_DIRS}
-  ${CLANG_INCLUDE_DIRS}
-  ${LLD_INCLUDE_DIRS}
-)
-target_compile_options(dolly-process-compiler PRIVATE
-  -m64
-  -O2
-  -fno-exceptions
-  -fno-rtti
-  -fwasm-exceptions
-  -matomics
-  -mbulk-memory
-  -sSUPPORT_LONGJMP=wasm
-  -sWASM_LEGACY_EXCEPTIONS=0
-)
-target_compile_features(dolly-process-compiler PRIVATE cxx_std_17)
-target_link_libraries(dolly-process-compiler PRIVATE
-  /src/build/process-crt1.o
-  "-Wl,--whole-archive"
-  /src/build/libdolly-process.a
-  "-Wl,--no-whole-archive"
-  ${DOLLY_CLIENT_LIBRARIES}
-  ${DOLLY_LLVM_LIBRARIES}
-)
-target_link_options(dolly-process-compiler PRIVATE
-  -nostartfiles
-  -m64
-  -O2
-  -fwasm-exceptions
-  -matomics
-  -mbulk-memory
-  "SHELL:-Wl,--shared-memory,--no-check-features"
-  "SHELL:-Wl,--export=__stack_pointer,--export-table,--growable-table"
-  -sSTANDALONE_WASM=1
-  -sIMPORTED_MEMORY=1
-  -sSHARED_MEMORY=1
-  -sSUPPORT_LONGJMP=wasm
-  -sWASM_LEGACY_EXCEPTIONS=0
-  -sALLOW_MEMORY_GROWTH=1
-  -sINITIAL_MEMORY=33554432
-  -sMAXIMUM_MEMORY=8589934592
-  -sSTACK_SIZE=8388608
-)
-set_target_properties(dolly-process-compiler PROPERTIES
-  OUTPUT_NAME compiler
-  SUFFIX .wasm
-  RUNTIME_OUTPUT_DIRECTORY /src/build/process-tools
 )

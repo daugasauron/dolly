@@ -37,7 +37,7 @@ for (const browser of ["chromium", "firefox"]) {
     await run(writeCommand("main.cpp", cxx.replace('extern "C" int twice(int);', "static int twice(int value) { return 2 * value; }")));
     await run('llvm-c++ main.cpp -o main && test "$(./main)" = "CXX-OK 12 thrown" && mv main built && c++ main.cpp -o main && cmp main built');
     await run("echo 'int main(void) { return 0; }' > main.c && llvm-cc -c main.c -o main.o && mv main.o built.o && cc -c main.c -o main.o && cmp main.o built.o");
-    await run("! cmp -s /usr/lib/llvm/compiler /usr/libexec/dolly/process-bin/compiler && cd / && rm -r /tmp/llvm-test");
+    await run("cd / && rm -r /tmp/llvm-test");
   });
 }
 

@@ -1,9 +1,9 @@
 # Sources and bootstrap
 
 Outside the browser, an external toolchain builds only the kernel and the
-compiler seed. Every ordinary program is then compiled inside Dolly from pinned
-source during an image build. This page lists the bootstrap exceptions, how inputs
-are pinned, and what the core ports support.
+seed's libc. Every ordinary program, the seed's compiler among them, is compiled
+inside Dolly from pinned source during an image build. This page lists the
+bootstrap exceptions, how inputs are pinned, and what the core ports support.
 
 ```mermaid
 flowchart TD
@@ -19,13 +19,39 @@ flowchart TD
 | Component | Built outside Dolly | Result |
 | --- | --- | --- |
 | Emscripten 6.0.8 | Digest-pinned container links the kernel, process sysroot, gate and seed ([`CMakeLists.txt`](../toolchain/CMakeLists.txt), [`build.sh`](../scripts/build.sh)) | Kernel plus process libc with its compiler-rt builtins, which the first link needs; the seed holds headers and the Dollyfile engine source, which [`bootstrap.c`](../src/process/bootstrap.c) compiles before the first recipe |
-| LLVM/Clang/LLD 24 | Wasm64 libraries linked into one stamped compiler executable ([`build-toolchain.sh`](../scripts/build-toolchain.sh)) | `cc`, `c++`, `ld`, `ar` spawn it as a private process |
 
 libc++, libc++abi and libunwind are not among them: [`Dollyfile-system-build`](../Dollyfile-system-build)
 compiles Emscripten's pinned copy with the flags of Emscripten's own build,
-before the first C++ program. The container's build of them remains inside the
-seed compiler and names what an `-rdynamic` host exports
-([`prepare-process-sysroot.sh`](../scripts/prepare-process-sysroot.sh)).
+before the first C++ program. The container's build of them names what an
+`-rdynamic` host exports ([`prepare-process-sysroot.sh`](../scripts/prepare-process-sysroot.sh)).
+
+## The seed's compiler
+
+`cc`, `c++`, `ld` and `ar` spawn one executable, Clang and LLD of LLVM 24 with
+Dolly's driver ([`compiler.cpp`](../src/compiler.cpp)), as a private process.
+It is built inside Dolly by the previous seed's compiler: the `llvm` demo's
+images compile LLVM from `DOLLY_LLVM_COMMIT` (`llvm-tablegen`, `llvm-build`)
+and link the compiler without its names (`llvm-cc`).
+`demos/llvm/pin-seed-compiler.mjs` puts that compiler and Clang's resource
+headers, as `llvm-build` generated them, at their seed paths in one archive,
+pinned in [`source-pins.sh`](../config/source-pins.sh) (`DOLLY_SEED_COMPILER_*`).
+[`build.sh`](../scripts/build.sh) takes the archive by that SHA-256 alone and
+checks the compiler against `dolly-process-0`.
+
+- A checkout without the archive downloads it from the GitHub release that
+  carries it: every release uploads the seed compiler it was built with.
+- Changing the compiler (its driver, the LLVM pin, the libc it links) takes a
+  round: build `llvm-cc` with the current seed, pin it, rebuild the runtime and
+  the catalog. `llvm-cc` built by the new seed gives the pinned bytes again, or
+  is pinned for another round.
+- The compiler writes the digests of `dolly-process-0` and
+  `dolly-kernel-plugin-0` into what it links. A new kernel plugin contract is
+  such a round. A new process contract is not yet: the compiler for it, built
+  under the old runtime, would have to link itself once more to run under the
+  new one, and no recipe does that.
+- The first compiler built inside Dolly was linked by a seed whose compiler
+  was a host build of the same sources and driver (`scripts/build-toolchain.sh`,
+  last in commit `3fc9d5da`); a bootstrap from nothing starts there.
 
 The libc's and libc++'s headers, and libc++'s sources, are staged with their
 `__EMSCRIPTEN__` tests renamed to `__dolly__`, and LLVM generates code under the
@@ -33,10 +59,7 @@ libc's triple, `wasm64-unknown-emscripten`; a program sees neither name
 ([process model](process-model.md#executables)).
 
 Demo exceptions (the Rust compiler seed) are recorded in their demo READMEs.
-The `llvm` demo (`demos/llvm/README.md`) builds the compiler of the second row
-again inside Dolly and gets the seed compiler's output bytes from it; the
-host-built seed is still what every image starts from.
-Every externally built program (compiler, Rust seed)
+Every program in a seed (the compiler, the Rust seed)
 validates against `dolly-process-0` exactly and ships without an Emscripten
 JavaScript loader. Host preparation may
 configure and patch pinned trees deterministically and reviewably, but must not

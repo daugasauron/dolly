@@ -13,7 +13,7 @@ const selected = new Set(DOLLY_IMAGES.map(({ image }) => image));
 test("the compiler executable obeys the process ABI", async () => {
   const contract = await readWasmInterface(new URL("../dist/dolly-process-0.wasm", import.meta.url));
   validateProcessInterface(contract, await readWasmInterface(
-    new URL("../build/process-tools/compiler.wasm", import.meta.url)), DOLLY_PROCESS_ABI_DIGEST);
+    new URL("../build/seed-compiler/usr/libexec/dolly/process-bin/compiler", import.meta.url)), DOLLY_PROCESS_ABI_DIGEST);
 });
 
 test("default copies Ghostty runtime bytes without its compiler or development files", { skip: !selected.has("default") }, async () => {

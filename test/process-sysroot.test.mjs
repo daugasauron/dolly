@@ -11,11 +11,11 @@ test("sysroot publication keys startup code and preserves previous versions", as
   t.after(() => rm(root, { recursive: true, force: true }));
   const run = promisify(execFile);
   const libraries = join(root, ".cache/emscripten/sysroot/lib/wasm64-emscripten");
-  for (const path of [libraries, "scripts", "config", "build/process-threads", "bin", ".cache/llvm-native/bin"])
+  for (const path of [libraries, "scripts", "config", "build/process-threads", "bin"])
     await mkdir(path.startsWith(root) ? path : join(root, path), { recursive: true });
   await copyFile(new URL("../scripts/prepare-process-sysroot.sh", import.meta.url),
     join(root, "scripts/prepare-process-sysroot.sh"));
-  for (const [name, tool] of [["bin/emar", "ar"], [".cache/llvm-native/bin/llvm-nm", "nm"]]) {
+  for (const [name, tool] of [["bin/emar", "ar"], ["bin/emnm", "nm"]]) {
     const { stdout } = await run("sh", ["-c", `command -v ${tool}`]);
     await symlink(stdout.trim(), join(root, name));
   }
