@@ -13,7 +13,7 @@ with the reduced page below in `work/process/build/process-evidence/{session,was
 | --- | --- | --- |
 | is refreshed (`page.reload`) | 3.00 GiB 10 s after the save | renderer killed |
 | goes to a page of its own origin, 10 s | 2.29 GiB (its Workers gone) | |
-| then its isolate is collected (`HeapProfiler.collectGarbage`) | 0.33 GiB | restored and verified, 2.21 GiB |
+| then its isolate is collected (`HeapProfiler.collectGarbage`) | 0.33 GiB | restored and verified |
 | goes to `about:blank` (Playwright: a new renderer), 10 s | 0.28 GiB | restored and verified |
 
 So the old kernel memory outlives the navigation only as garbage in the page's isolate: its
