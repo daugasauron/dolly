@@ -9,7 +9,6 @@ quickjs
 janis
 typescript
 neovim
-openal-build
 pi-agent
 pi-local
 minicpm5-2b
@@ -63,6 +62,7 @@ vi
 xxd
 base64
 llama
+llama-cpp
 openal
 tar
 sbase
@@ -82,5 +82,7 @@ ghostty-x11
 x11-desktop
 zsh
 imgui
+sdl2-ttf
+sdl2-image
 imgui-x11
 zig-llvm

@@ -18,6 +18,104 @@ only a view of a demo's build image; each has its check in
 `test/amy-browser.mjs` or its consumer's test; the list of what was not
 broken out says why for each.
 
+## 2026-10-24: the games-and-packages workstream, `demo/slopyard-catapults`
+
+The integrator's brief (2026-10-23): the "Left" list below, raylib, box3d, libuv, a llama.cpp
+library and openal as packages that hold their own builds, and three bugs the Opus audits
+found in pi-agent sessions, where every game session now installs raylib or SDL2 first
+(`tasks/20261023-180000-opus-in-pi/TASK.md`, round 2, on `demo/opus-audit-2`):
+
+1. raylib: `GetTime`, `GetFrameTime` and the key state are dead. Reproduced in the `slopyard`
+   image (`raylib/clock.c` in the evidence): 30 frames 16 ms apart, `GetTime 0.000
+   GetFrameTime 0.0000 GetFPS 0`, 0.52 s by `clock_gettime`. raylib's `PLATFORM_MEMORY` reads
+   the clock only on Windows, Linux, the BSDs and Emscripten, and `SUPPORT_CUSTOM_FRAME_CONTROL`
+   leaves frame time and input to the program.
+2. libpng: `-lpng` fails; the package ships `libpng16.a` and the `libpng.pc` link, not upstream's
+   `libpng.a` link.
+3. SDL_ttf and SDL_image as packages (on FreeType and libpng); SDL_mixer only if it fits the
+   sound module without new browser authority.
+
+Done (`ad98e33c`):
+
+- raylib holds its build (`demos/slopyard/Dollyfile-raylib`, from the pinned source) with a
+  Dolly platform backend compiled into raylib's `rcore.c` as its custom platform: display@0
+  for frames (paced by the page's animation frames), input@0 for keys, text, pointer and wheel,
+  `CLOCK_MONOTONIC` for `GetTime`; a tap inside one frame still reads as pressed for a frame.
+  A hidden window (`FLAG_WINDOW_HIDDEN`), or a program that holds the display (Slopyard,
+  `<dolly/raylib.h>`), renders to memory; the adapter hands raylib its key events. Airtime's
+  agent mode asks for a hidden window (its viewer shows the frames). Measured in the `default`
+  image after `amy install raylib`: 30 frames 16 ms apart read `GetTime 0.516`,
+  `GetFrameTime 0.0167` (before 0.000 and 0.0000); Space pressed on the page reaches
+  `IsKeyPressed` (before: never). `test/amy-browser.mjs` checks both in its raylib row.
+- Box3D holds its build (`Dollyfile-box3d`); `gamedev-sdk` installs both packages and keeps
+  Box3D's sources for Slopyard's threaded SIMD build.
+- libpng ships upstream's `libpng.a` link: `cc x.c -lpng -lz` links (checked in the default
+  image; `test/amy-browser.mjs` too).
+- Checked: `bhop` (Chromium, `npm run test:demos -- bhop`), `slopyard-browser.mjs` on the GPU
+  display, the images' own checks, the source suite. Not run: the whole `test/amy-browser.mjs`
+  (it needs every package built in this tree).
+
+Done (2026-10-24, `2d23f716`):
+
+- `sdl2-ttf` (SDL_ttf 2.24.0) and `sdl2-image` (SDL_image 2.8.8), upstream's release archives
+  built unchanged by their CMake projects in `demos/sdl2/`: static libraries, headers,
+  pkg-config files and CMake packages. `sdl2-ttf` installs `sdl2` and `freetype` (with libpng
+  and zlib). `sdl2-image` takes upstream's default backend, stb_image, which decodes PNG and
+  JPEG itself, so it needs no libpng or libjpeg and installs only `sdl2`; the formats that
+  need a library of their own (AVIF, JPEG XL, TIFF, WebP) are off. It is configured with
+  `SDL2IMAGE_VENDORED=ON`, which builds nothing extra here: with it off, SDL_image's CMake
+  package (`SDL2_imageConfig.cmake.in`, the same on upstream's SDL2 branch today) runs
+  `find_dependency(JPEG)` and `find_dependency(PNG)` for the stb build too, which fails where
+  no libjpeg is installed (read in the file; that build was not made). `sdl2` now keeps SDL's own `sdl2.pc`, which the two `.pc`
+  files require (`xorg-server-build` wrote its own copy; that copy is gone).
+- `openal` holds its build: `openal-build` (a toolchain only `openal` and `zero-ad-deps` stood on)
+  is folded into `Dollyfile-openal`, and `zero-ad-deps` is `FROM cmake-build` with `INSTALL openal`
+  (rebuilt here in 299 s; `demos/zero-ad/test/0ad-openal-browser.mjs` passes on its probe).
+- Measured in the `default` image (Chromium, `amy install` into a running session, the rows of
+  `test/amy-browser.mjs` in order): `cc`, `cmake`, `sdl2`, `pkgconf`, `libpng`, `freetype`,
+  `sdl2-ttf` (a word rendered in the terminal's font has ink; linked with
+  `pkg-config --static --libs SDL2_ttf`: `-lSDL2_ttf -lfreetype -lpng16 -lz -lSDL2 -lm`),
+  `sdl2-image` (a PNG written and read back, built by CMake from `find_package(SDL2_image)`),
+  `openal` (the loopback square wave). `demos/sdl2/test/sdl2-browser.mjs` passes (Chromium).
+  Not rebuilt here: the 0 A.D. chain after `zero-ad-deps`, `xorg-server-build` and the X11 chain,
+  the images that only changed pins.
+- A CMake program linking the static FreeType through `find_package(Freetype)` (CMake's
+  module) must add libpng and zlib itself; `pkg-config --static` gives them. Upstream's
+  behaviour, unchanged.
+
+libuv holds its build (the last commit of the workstream): `Dollyfile-libuv` is `FROM
+system-tools` with the rows `cmake-build` had (the same Makefile and source archive), and
+`cmake-build` installs it. Built here: `libuv` 8 s (617 kB, the same snapshot both times it was
+built), `cmake-build` bootstrapped on it in 1,492 s, then `cmake`, `sdl2`, `libpng`,
+`freetype`, `openal`, `sdl2-ttf`, `sdl2-image` on that. Measured in `default` (Chromium): the
+`cc`, `cmake`, `libuv`, `sdl2`, `pkgconf`, `libpng`, `freetype`, `sdl2-ttf`, `sdl2-image` and
+`openal` rows; `npm run test:demos -- cmake` passes (its libuv probes on `cmake-build`). Every
+image on `cmake-build` rebuilds with it, the Rust chain among them (`rust-llvm`, `rust-build`,
+the integrator's `hugebuild`), and Pi, Slopyard and Airtime stand on ripgrep and fd from it:
+those were not rebuilt in this tree, which is why this change is the branch's last.
+
+SDL_mixer: not added. Its mixer plays through SDL's audio subsystem, and the `sdl2` package
+has no audio driver. A driver over `audio@0` (as Xonotic's sound needs) links the module's
+client into every SDL program, so every image and session that runs one would declare
+`audio@0`, `default` among them, as `touch@0` went for SDL's touch input on
+`core/npm-packages`. Which images declare `audio@0` is the owner's call; the line is in
+[Xonotic](../20261006-122433-xonotic/TASK.md).
+
+Done (2026-10-24, `578edd0c`): `llama-cpp` holds `llama-build`'s build
+(llama.cpp, its common library, ggml with the CPU and WebGPU backends) and `webgpu.cpp`, the
+WebGPU C API that backend calls, as `libdolly-webgpu.a`, so a program links the package and
+`-ldolly-gpu` (which it installs) and nothing else; it declares `gpu@0`, as its programs do.
+`llama` holds the `dolly-llama` build (`FROM system-tools`, `USE llama-cpp`, its licences
+copied beside it). `llama-build` and `local-llm-build` are gone; `pi-local` installs `llama`.
+Measured in `default` (Chromium, SwiftShader's WebGPU adapter): `nena enable gpu`, then
+`amy install llama` and `dolly-llama --check` prints `{"ready":true,"shaders":"f32"}`; and
+`amy install cc llama-cpp` and a C++ program linked on the archives lists the WebGPU and CPU
+devices. Built: `llama-cpp` 276 s (22.7 MB), `llama` 9 s (11.0 MB). Not rebuilt here:
+`pi-local` and `dollyfile-studio`, whose 1.6 GB snapshot needs the integrator's `hugebuild`
+(the `pi-local` build crashed its page under this tree's 6 GB cap).
+
+Nothing of the list is left.
+
 ## State (2026-10-23)
 
 The question was answered and the step after it built: a package's build-only installs

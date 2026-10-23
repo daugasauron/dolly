@@ -221,16 +221,40 @@ const programs = {
   // pkg-config knows a library once its package is there, and gives cc its flags.
   pkgconf: "man pkgconf > /dev/null && ! pkg-config --exists libpng",
   libpng: "printf '#include <png.h>\\nint main(void) { return png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL) == NULL; }\\n' > /tmp/amy-png.c && " +
-    "cc $(pkg-config --cflags libpng) /tmp/amy-png.c $(pkg-config --static --libs libpng) -o /tmp/amy-png && /tmp/amy-png",
+    "cc $(pkg-config --cflags libpng) /tmp/amy-png.c $(pkg-config --static --libs libpng) -o /tmp/amy-png && /tmp/amy-png && " +
+    // As upstream installs it, -lpng links too.
+    "cc /tmp/amy-png.c -lpng -lz -o /tmp/amy-png && /tmp/amy-png",
   // FreeType reads the terminal's font.
   freetype: "printf '%s\\n' '#include <ft2build.h>' '#include FT_FREETYPE_H' 'int main(void) { FT_Library library; FT_Face face; " +
     "if (FT_Init_FreeType(&library) || FT_New_Face(library, \"/usr/share/fonts/IosevkaTerm-SemiBold.ttf\", 0, &face)) return 1; return face->num_glyphs < 100; }' " +
     "> /tmp/amy-freetype.c && cc $(pkg-config --cflags freetype2) /tmp/amy-freetype.c $(pkg-config --static --libs freetype2) -o /tmp/amy-freetype && /tmp/amy-freetype",
+  // SDL_ttf renders a word in the terminal's font: the surface has ink.
+  "sdl2-ttf": "printf '%s\\n' '#include <SDL_ttf.h>' 'int main(void) { SDL_Color white = { 255, 255, 255, 255 }; if (TTF_Init() != 0) return 2; " +
+    "TTF_Font *font = TTF_OpenFont(\"/usr/share/fonts/IosevkaTerm-SemiBold.ttf\", 24); if (font == NULL) return 3; " +
+    "SDL_Surface *text = TTF_RenderUTF8_Blended(font, \"Dolly\", white); if (text == NULL || text->w < 40) return 4; " +
+    "Uint32 *pixel = text->pixels; int inked = 0; for (int i = 0; i < text->pitch / 4 * text->h; i++) inked += pixel[i] >> 24 > 128; return inked < 50; }' " +
+    "> /tmp/amy-ttf.c && cc $(pkg-config --cflags SDL2_ttf) /tmp/amy-ttf.c $(pkg-config --static --libs SDL2_ttf) -o /tmp/amy-ttf && /tmp/amy-ttf",
+  // SDL_image writes a PNG and reads it back, its CMake package found beside SDL2's.
+  "sdl2-image": "mkdir /tmp/amy-image && cd /tmp/amy-image && printf '%s\\n' '#include <SDL_image.h>' " +
+    "'int main(void) { SDL_Surface *made = SDL_CreateRGBSurfaceWithFormat(0, 8, 8, 32, SDL_PIXELFORMAT_RGBA32); " +
+    "SDL_FillRect(made, NULL, SDL_MapRGBA(made->format, 200, 100, 50, 255)); if (IMG_SavePNG(made, \"made.png\") != 0) return 2; " +
+    "SDL_Surface *read = SDL_ConvertSurfaceFormat(IMG_Load(\"made.png\"), SDL_PIXELFORMAT_RGBA32, 0); " +
+    "return read == NULL || read->w != 8 || ((Uint8 *)read->pixels)[0] != 200 || ((Uint8 *)read->pixels)[2] != 50; }' > image.c && " +
+    "printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(image C)' 'find_package(SDL2 REQUIRED)' 'find_package(SDL2_image REQUIRED)' " +
+    "'add_executable(image image.c)' 'target_link_libraries(image PRIVATE SDL2_image::SDL2_image-static SDL2::SDL2-static)' > CMakeLists.txt && " +
+    "cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/image",
   // One frame drawn by raylib's software renderer and shown through Dolly's adapter.
   raylib: "printf '%s\\n' '#include <dolly/raylib.h>' 'int main(void) { dolly_raylib window; if (dolly_raylib_open(&window, \"amy\") != 0) return 2; " +
     "BeginDrawing(); ClearBackground(RAYWHITE); DrawCircle(64, 64, 32, RED); int shown = dolly_raylib_end_frame(&window); " +
     "return dolly_raylib_close(&window) != 0 || shown != 0; }' > /tmp/amy-raylib.c && " +
-    "cc -O0 /tmp/amy-raylib.c -ldolly-raylib -lraylib -lm -o /tmp/amy-raylib && /tmp/amy-raylib > /dev/null",
+    "cc -O0 /tmp/amy-raylib.c -ldolly-raylib -lraylib -lm -o /tmp/amy-raylib && /tmp/amy-raylib > /dev/null && " +
+    // As raylib's examples are written: InitWindow holds the display and the keys, and
+    // the clock and the frame time run (the page presses Space, below).
+    "printf '%s\\n' '#include <raylib.h>' '#include <stdio.h>' 'int main(void) { InitWindow(320, 180, \"keys\"); SetTargetFPS(60); " +
+    "int frames = 0, pressed = 0; " +
+    "while (!WindowShouldClose() && !pressed && frames < 3600) { BeginDrawing(); ClearBackground(RAYWHITE); EndDrawing(); frames++; pressed = IsKeyPressed(KEY_SPACE); } " +
+    "printf(\"after %d frames %.3f s, frame %.4f s\\n\", frames, GetTime(), GetFrameTime()); CloseWindow(); " +
+    "return !(pressed && GetTime() > 0.1 && GetFrameTime() > 0); }' > /tmp/amy-raylib-keys.c && cc -O0 /tmp/amy-raylib-keys.c -lraylib -lm -o /tmp/amy-raylib-keys",
   // A square wave played from a buffer is in the samples the loopback device renders.
   openal: "printf '%s\\n' '#define AL_ALEXT_PROTOTYPES' '#include <AL/al.h>' '#include <AL/alc.h>' '#include <AL/alext.h>' " +
     "'int main() { ALCdevice *device = alcLoopbackOpenDeviceSOFT(0); " +
@@ -248,11 +272,17 @@ const programs = {
     "> /tmp/amy-box3d.c && cc -O0 -U__SIZEOF_INT128__ /tmp/amy-box3d.c -lbox3d -o /tmp/amy-box3d && /tmp/amy-box3d",
 };
 await browserTest("amy programs", { image: "default", timeout: 600_000 }, async ({ open }) => {
-  const run = check(await open());
+  const session = await open(), run = check(session);
   for (const [name, program] of Object.entries(programs)) {
     console.log(`amy install ${name}: ${await timed(run, `amy install ${name}`)} ms`);
     await run(program);
   }
+  // The program holds the display, so its line does not show: press Space once it runs.
+  const keys = session.submit("/tmp/amy-raylib-keys");
+  await session.page.locator("#keyboard").focus();
+  await session.page.waitForTimeout(3000);
+  await session.page.keyboard.press("Space");
+  assert.equal(await keys, 0, await session.text());
 });
 
 // Checks of the demos/tools packages. A file that NAME packs is smaller and
@@ -452,7 +482,7 @@ const elsewhere = {
   parakeet: "demos/speech", "speech-to-text": "demos/speech: default refuses it", voice: "demos/speech, in pi-phone",
   tmux: "demos/tmux: default refuses it",
   pi: "the pi-dolly row installs it", secretenv: "demos/closed-source-agent and demos/pi: their key prompts",
-  "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm", "qwen3.5-4b": "demos/local-llm",
+  "llvm-runtimes": "a build stage", "llama-cpp": "a build stage: llama links it", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm", "qwen3.5-4b": "demos/local-llm",
   "lfm2.5": "demos/local-llm",
   "libdolly-audio": "audio-browser.mjs", "libdolly-gpu": "gpu-render-browser.mjs",
   "libdolly-microphone": "microphone-browser.mjs", "libdolly-sockets": "sockets-browser.mjs",

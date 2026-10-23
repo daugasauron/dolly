@@ -2,7 +2,34 @@
 
 - STATUS: OPEN
 - PRIORITY: 50
-- TAGS: game,controllers,cargo,combat
+- TAGS: game,controllers,cargo,combat,0.1.4
+
+## State (2026-10-24, the games-and-packages workstream)
+
+Measured again on `d6c8062c` (the catapult and tether work of
+[the catapult task](../20261023-160002-slopyard-catapults/TASK.md)), fresh catalog, 2,400 s,
+headless (the same Wasm simulation as on a GPU display, which the catapult task checked line for
+line): 40 deliveries (East 23, West 24), 183 actors, no removals or controller errors, one fall
+(Komame, the roaming lookout, 422 s). The catapult work's own audit at `c962100e` counted 45, the
+fresh catalog before it 36; Box3D and the guns changed since the table below.
+
+Against the open problems below, on this run:
+
+- Foundry freight chain: unchanged. The tandem-mast hauler took one pallet and stands in `clear`
+  at (-41.2, 57.9) for 2,023 s, the ore lift waits in `unload`, the quay crane in `seek`.
+- Oreki: four handoffs, no loaded wait longer than 353 s; no deadlock with Tonbi West.
+- Guns: all eight fire (30 shots); both tether rounds are thrown, hit and bring their machine
+  down; neither is thrown a second time. Why, traced on the same sources: the Red tug carries its
+  spent round to its own drop-off by its home and leaves it at (35.2, -50.0) at 250 s, out of
+  the Koban loader's reach (x 47 to 56, z -26 to -23). Its bay in the stock row, (55, -25), is
+  dropped by `kanagu-cable-tug.lua`'s returning step because it lies within 2.5 m of anchored
+  machines (the loader, the gun). Next: a drop point the tug can reach and the loader's head can
+  take from, then measure a second throw. Rejected (`sling-t14`, 2,400 s): letting the Tonbi
+  recovery truck carry standing rounds as it carries boxes. It takes them out of the stock row
+  before they are loaded, and no tether round was thrown at all (39 deliveries).
+- Idle capacity: the Kanagu tugs each haul once (the tether rounds); both Tsuru rescuers and both
+  Kurogane collectors still never grip. Akane, the East crane boat, grips once.
+- Benkei West moves 374 m (58 m on 2026-10-06); Kitsune West 125 m (38 m).
 
 ## State (2026-10-13)
 

@@ -2,11 +2,43 @@ DOLLY 7
 PACKAGE libuv
 REQUIRES HOST runtime@0
 
-# The libuv port cmake-build compiles for CMake and Neovim, for programs the
-# cc package builds.
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build f7eaec42e81633b1c941848b5828e29008d12469a62f163e0603ff93e125ff70
+# libuv's sources from upstream's release with Dolly's port (libuv/, see
+# README.md), built by libuv-dolly.mk: CMake and Neovim are built on it, and
+# programs the cc package builds link it.
+FROM /v0.1.4/Dollyfile-system-tools 21a96b461ac377817727376c75fddc3cf7f1bbc5f48d222456d8e6846cc8e138
+REQUIRES HEADER libc
+REQUIRES TOOL cc
+REQUIRES TOOL ar
+REQUIRES TOOL make
+REQUIRES TOOL cp
+REQUIRES TOOL tar
+REQUIRES TOOL rm
 
-EXPORTS LIB    uv          /usr/lib/libuv.a
-EXPORTS HEADER uv          /usr/include/uv.h
+SOURCE /v0.1.4/dist/static/cmake/libuv.tar 066c5934e185978c680d03a8fbb42b9241f47fe8dc4b923abe84ee9896f0b86b /tmp/libuv/source.tar
+SLOP tar -xf /tmp/libuv/source.tar -C /
+SLOP make -C /tmp/libuv
+SLOP cp /tmp/libuv/libuv.a /usr/lib/libuv.a
+SLOP cp -R /tmp/libuv/source/include/. /usr/include
+
+FILE /tmp/libuv/check.c
+    #include <uv.h>
+    #include <assert.h>
+    static int completed;
+    static void done(uv_timer_t* timer) { completed = 1; uv_close((uv_handle_t*)timer, 0); }
+    int main(void) {
+      uv_loop_t loop; uv_timer_t timer;
+      assert(uv_get_total_memory() == 0);
+      assert(uv_loop_init(&loop) == 0 && uv_timer_init(&loop, &timer) == 0);
+      assert(uv_timer_start(&timer, done, 1, 0) == 0);
+      assert(uv_run(&loop, UV_RUN_DEFAULT) == 0 && completed);
+      return uv_loop_close(&loop);
+    }
+SLOP cc -O0 /tmp/libuv/check.c -luv -o /tmp/libuv/check
+SLOP /tmp/libuv/check
+
+EXPORTS LIB uv /usr/lib/libuv.a
+EXPORTS HEADER uv /usr/include/uv.h
 EXPORTS HEADER uv-platform /usr/include/uv
 FILE /usr/share/licenses/libuv/LICENSE
+
+SLOP rm -rf /tmp/libuv

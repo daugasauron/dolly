@@ -48,10 +48,18 @@ return function(t, s, m)
     local zone = s.combat
     return not zone or math.abs(b.x-zone.x) <= zone.halfX and math.abs(b.z-zone.z) <= zone.halfZ
   end
+  -- Airborne means 5 m above the terrain under the machine, not above the gun's own floor (a roof).
+  local function floor_under(b)
+    local floor = 0
+    for _, box in ipairs(s.terrain) do
+      if math.abs(b.x-box.x) <= box.halfX and math.abs(b.z-box.z) <= box.halfZ and box.high <= b.low+.5 then floor = math.max(floor, box.high) end
+    end
+    return floor
+  end
   local target, priority
   for _, b in ipairs(s.nearby) do
     if b.team ~= 0 and b.team ~= s.team and not b.anchored and not b.cargo and not b.controllerStopped and b.visible ~= false
-      and b.low > s.ground+5 and b.up > .25 and b.carriedBy == 0 and in_combat(b) then
+      and b.up > .25 and b.carriedBy == 0 and in_combat(b) and b.low > floor_under(b)+5 then
       local score = -hypot(b.x-s.x, b.z-s.z)
       for _, cargo in ipairs(s.nearby) do
         if cargo.cargo and cargo.team == 0 and not cargo.delivered and cargo.carriedBy == b.id then score = score+120; break end
@@ -154,10 +162,17 @@ return function(t, s, m)
     return ((b).id == (m).loader)
   end);
   local pivotY=s.positions[arm.i+1][2]
-  local clear = every(filter(s.nearby, function(b)
-    return b.team==s.team and not b.cargo and b.low<pivotY+reach and b.high>pivotY-reach
-  end), function(b)
-    return ((hypot(((b).x - (s).x), ((b).z - (s).z)) - (b).radius) > (hypot((arm).x, reach) + 0.5))
+  -- The loaded head sweeps a disc of radius reach in the vertical plane head.x from the bearing's
+  -- axis, at the bearing angle it aims at the target with: a teammate is clear when it is beside that
+  -- plane, or when the disc passes above or below its nearest point.
+  local offset=head.x-bearing.x
+  local aim=target and math.atan(target.x-s.x,target.z-s.z) or s.angles[bearing.i+1]
+  local clear = every(filter(s.nearby, function(b) return b.team==s.team and not b.cargo end), function(b)
+    local dx,dz=b.x-s.x,b.z-s.z
+    local beside=dx*math.cos(aim)-dz*math.sin(aim)-offset
+    if math.abs(beside)>b.radius+1.2 then return true end
+    local along=math.max(0,math.abs(dx*math.sin(aim)+dz*math.cos(aim))-b.radius)
+    return hypot(along,math.max(0,b.low-pivotY,pivotY-b.high))>reach+.5
   end);
   if box and (not box.cargo or box.supply > 0 or box.mass >= 1.5 or box.team ~= 0 and box.team ~= s.team) then
     phase("return")
@@ -216,9 +231,14 @@ return function(t, s, m)
         local dz=math.max(shape.z-shape.halfZ,math.min(shape.z+shape.halfZ,pz))-pz
         return dx*pole.axisX+dy*pole.axisY+dz*pole.axisZ>-.06 and hypot(dx,dy,dz) or math.huge
       end
-      local nearest=math.huge
-      for _,shape in ipairs(s.bounds(ammo.id)) do if shape.body==0 then nearest=math.min(nearest,distance(shape)) end end
-      power=nearest<.6
+      -- Grip a round by its root block: held by an outer block, a round of several parts (a
+      -- tether round) hangs a metre farther out and strikes the gun as the arm turns.
+      local nearest,outer=math.huge,math.huge
+      for _,shape in ipairs(s.bounds(ammo.id)) do
+        local root=shape.body==0 and math.abs(shape.x-ammo.x)<shape.halfX and math.abs(shape.z-ammo.z)<shape.halfZ and ammo.y>shape.low and ammo.y<shape.high
+        if root then nearest=math.min(nearest,distance(shape)) else outer=math.min(outer,distance(shape)) end
+      end
+      power=nearest<.6 and nearest<=outer
       if power then for _,other in ipairs(s.nearby) do
         if other.id~=ammo.id and other.low<py+1 and other.high>py-1 and hypot(other.x-px,other.z-pz)<other.radius+2 then
           for _,shape in ipairs(s.bounds(other.id)) do
@@ -262,7 +282,9 @@ return function(t, s, m)
         local radius = (hypot(((head).x - (arm).x), ((head).y - (arm).y), ((head).z - (arm).z)) + 1);
         local range = hypot(((target).x - (s).x), ((target).z - (s).z));
         local height = ((target).y - at(at((s).positions, (arm).i), 1));
-        rate = math.min(((arm).speed * 0.7), math.sqrt(math.max(0, (((((head).force / (box).mass) - G) * 0.8) / radius))), math.max(2, ((1.8 * math.sqrt((G * (height + hypot(height, range))))) / radius)));
+        -- A round of several parts swings on its joints: it spins with a wider margin under the magnet's hold.
+        local margin = #s.parts(box.id) > 1 and 0.5 or 0.8;
+        rate = math.min(((arm).speed * 0.7), math.sqrt(math.max(0, (((((head).force / (box).mass) - G) * margin) / radius))), math.max(2, ((1.8 * math.sqrt((G * (height + hypot(height, range))))) / radius)));
         yaw = (math.atan((((target).x + ((target).vx * 2)) - at(at((s).positions, (arm).i), 0)), (((target).z + ((target).vz * 2)) - at(at((s).positions, (arm).i), 2))) + (function() local value = (m).bias; if active(value) then return value else return 0 end end)());
         if math.abs(wrap(yaw-s.angles[bearing.i+1]))>.2 or math.abs(s.rates[bearing.i+1])>.2 then rate=0 end
         local best = math.huge;
@@ -286,6 +308,8 @@ return function(t, s, m)
             tau = (tau + 0.1);
           end
         end
+        -- A tether round catches only with a magnet that touches: release it on a closer prediction.
+        local tolerance = #s.parts(box.id) > 1 and math.min(1.15, target.radius*.8) or math.min(2.5, target.radius*.95);
         (m).aimError = best;
         (m).flight = flight;
         local projected = {((box).x + ((box).vx * flight)), (((box).y + ((box).vy * flight)) - (((G * flight) * flight) / 2)), ((box).z + ((box).vz * flight))};
@@ -298,7 +322,7 @@ return function(t, s, m)
           local correction = wrap((math.atan((at(future, 0) - at(pivot, 0)), (at(future, 2) - at(pivot, 2))) - math.atan((at(projected, 0) - at(pivot, 0)), (at(projected, 2) - at(pivot, 2)))));
           (m).bias = clamp(((function() local value = (m).bias; if active(value) then return value else return 0 end end)() + ((clamp(correction, 0.2) * (s).dt) * 0.8)), 0.6);
         end
-        if ((((box).vy > 2) and (best < math.min(2.5, ((target).radius * 0.95)))) and ((t - (m).at) > 2)) then
+        if ((((box).vy > 2) and (best < tolerance)) and ((t - (m).at) > 2)) then
           if safe_shot(box, flight, G) then
           power = false;
           (m).shots = (m).shots + 1;
@@ -332,7 +356,10 @@ return function(t, s, m)
   local acceleration = clamp(((4 * wrap((park - at((s).angles, (arm).i)))) - (4 * at((s).rates, (arm).i))), 2);
   local velocity = (((m).phase == "spin") and (at((s).rates, (arm).i) + clamp((rate - at((s).rates, (arm).i)), (1.2 * (s).dt))) or (at((s).rates, (arm).i) + (acceleration * (s).dt)));
   set(arm, clamp((velocity / (arm).speed)));
-  set(dockLift, ((((m).phase == "wait") or (((m).phase == "load") and (not active(box)))) and 1 or (-1)));
+  -- A round with a part below it, the tether round's line block, rests on the lowered pedestal.
+  local incoming = find(s.nearby, function(b) return b.cargo and (b.carriedBy == m.loader or b.id == m.ammo) and hypot(b.x-dock[1], b.z-dock[2]) < 4 end)
+  local tall = incoming and some(s.parts(incoming.id), function(part) return part.y < incoming.y-.7 end)
+  set(dockLift, ((((m).phase == "wait") or (((m).phase == "load") and (not active(box)))) and not tall and 1 or (-1)));
   if box and box.cargo and power then out.radio = {kind="claim",cargo=box.id} end
   m.status = m.blockedBy > 0 and "Holding fire: friendly in trajectory"
     or m.blockedBy == -1 and "Holding fire: terrain in trajectory"

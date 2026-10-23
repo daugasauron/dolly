@@ -15,14 +15,14 @@ REQUIRES HOST sockets@0
 # builds it and pixman, libxkbfile and xkbcomp; libXfont2, its built-in and
 # bitmap fonts, and the SHA-1 of libmd are built by the Makefile below, and
 # xkeyboard-config's rules by its own generator.
-FROM /v0.1.4/demos/x11/Dollyfile-x11-build 5b04bd79a352fa0b606a92594f3c73d0adc137c616e15ff8d60ed5575d29bbc1
-INSTALL /v0.1.4/demos/tools/Dollyfile-meson 979553a1d60ea5cbbf082f5194befa219b26964a2f924cc5db488c409caff79a
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build ed54cad69e9b5bac6d0cfdf35082757c251107460209d2744d92a0c79babd0e6
+INSTALL /v0.1.4/demos/tools/Dollyfile-meson 75980a281f20111a16e01ed13873c67f707f60b28efbb7bf6822ea2e375ebecd
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 3adde155d5fd4f29a459f53f4a45873d18645ea86b7f36c0ab99f25a417f2207
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 490a7215892803a1c5a53c6fef090e09bf4ef3e2aad08c97f1c5660c17cdfc93
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 7548b1b0622d956ef3c2ac8a9fcbf7eaa9a0d4b0678c6b05cbae5d4cf50ac398
 INSTALL /v0.1.4/Dollyfile-zlib 9df90c7cb69efb0c503332233ac35280942f88f10c250de5bd33b8e7a2f2da90
-INSTALL /v0.1.4/demos/tools/Dollyfile-tar fffc725c65ccf5f8d2bb7a056953e5fb19a66ba69c5c86b90c1f9c898e4496ff
-INSTALL /v0.1.4/demos/tools/Dollyfile-xz d7991772948f649687e1cfa4fd4e32a31c182ff95b5a0262f10604d75a863162
-INSTALL /v0.1.4/demos/tools/Dollyfile-yacc 3c449324c2201a87c477953a9e2e0c8035d263bb89b757e9f91b80da6911d7f6
+INSTALL /v0.1.4/demos/tools/Dollyfile-tar cfae391cc4903088c3e5c862c090c573bf53df590137f66f6986150a7022790c
+INSTALL /v0.1.4/demos/tools/Dollyfile-xz a8796ad1164b46ae0d4d5f19b5edd18f254d354f596e0c29aa601e5def1547fe
+INSTALL /v0.1.4/demos/tools/Dollyfile-yacc 7c78631378564ce717537750a674c6e961bb38cf993e07b488b31b3bdd50a96a
 
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2
@@ -92,16 +92,6 @@ FILE /tmp/xorg/libs.mk
     >printf '%s\n' 'prefix=/usr' 'Name: Xfont2' 'Description: X font Library version 2' 'Version: 2.0.9' \
        'Requires: xproto fontsproto' 'Libs: -L/usr/lib -lXfont2 -lz -lm' 'Cflags: -I/usr/include' > $@
 SLOP make -j4 -f /tmp/xorg/libs.mk
-
-# The sdl2 package keeps no pkg-config file; this is what SDL's own writes
-# for its static library.
-FILE /usr/lib/pkgconfig/sdl2.pc
-    prefix=/usr
-    Name: sdl2
-    Description: Simple DirectMedia Layer
-    Version: 2.32.10
-    Libs: -L/usr/lib -lSDL2 -lm
-    Cflags: -I/usr/include/SDL2 -D_REENTRANT
 
 # pixman without the SIMD of other machines; Dolly runs no OpenMP. Meson's
 # install would rebuild first as another user: Dolly's Python has no

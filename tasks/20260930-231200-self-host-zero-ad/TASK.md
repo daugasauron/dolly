@@ -4,6 +4,16 @@
 - PRIORITY: 90
 - TAGS: demo,0ad,bootstrap,performance,0.1.4
 
+## 2026-10-24 (the games-and-packages workstream)
+
+OpenAL Soft is now the `openal` package with its own build, and `zero-ad-deps` installs it on
+`cmake-build` instead of standing on `openal-build` (`2d23f716`, the generic-builds task):
+`zero-ad-deps` rebuilt in 299 s and `0ad-openal-browser.mjs` passes on its probe. The rest of the
+chain (`zero-ad-spidermonkey`, `zero-ad-engine`, `zero-ad`) is not rebuilt in that tree. Neither
+item below was started: the soak harness `.cache/0ad/large-economies-soak.mjs` and its
+`large-state-*` evidence are no longer on this machine, so item 2 needs a harness written
+again before anything can be compared.
+
 ## State (2026-10-13)
 
 Two things are left of the 0 A.D. port, and nobody is on either. Neither blocks a user: the

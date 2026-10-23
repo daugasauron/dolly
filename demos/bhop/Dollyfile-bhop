@@ -10,10 +10,10 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/slopyard/Dollyfile-gamedev-sdk 92bec1d4eedb37778cca6b5e5205412a71942bd75026f8038e7c851e972a3f50
+FROM /v0.1.4/demos/slopyard/Dollyfile-gamedev-sdk bf0680d7c0f402ca45095204bae009450a9506db721910b1af87336ad1107151
 INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 0a217ec5cbbe44c1861bcb0eb0d3647db2ef544cff5ec73a6b59828b5f54640c
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 60d8a22a57a704f7d0ba3cb0b0c08b3c2e6f23bf952d2f9291d39b758560c89c
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 490a7215892803a1c5a53c6fef090e09bf4ef3e2aad08c97f1c5660c17cdfc93
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 39ed5abe281f8f86cdef072b1c3beeaf8281f86e8849d0c5b2ba36403615fdc4
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 7548b1b0622d956ef3c2ac8a9fcbf7eaa9a0d4b0678c6b05cbae5d4cf50ac398
 REQUIRES TOOL cc
 REQUIRES TOOL make
 REQUIRES TOOL c++
@@ -666,6 +666,8 @@ FILE /usr/src/dolly/bhop/bhop.c
       dolly_raylib graphics = {0};
       if (agent) {
         graphics.surface.width = 960; graphics.surface.height = 540;
+        // The agent's viewer shows the frames: raylib renders to memory.
+        SetConfigFlags(FLAG_WINDOW_HIDDEN);
         InitWindow(960, 540, "Dolly Airtime");
         if (!IsWindowReady()) return 1;
         SetTraceLogLevel(LOG_WARNING);

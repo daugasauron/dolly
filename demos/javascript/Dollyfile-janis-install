@@ -11,7 +11,7 @@ REQUIRES HOST http@0
 FROM /v0.1.4/Dollyfile-system-tools 21a96b461ac377817727376c75fddc3cf7f1bbc5f48d222456d8e6846cc8e138
 INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 0a217ec5cbbe44c1861bcb0eb0d3647db2ef544cff5ec73a6b59828b5f54640c
 INSTALL /v0.1.4/Dollyfile-gzip 950d7a8140edec95e9f1b4a250d6a420e05a61a85b15fa544f890ce68d5e9d86
-INSTALL /v0.1.4/demos/tools/Dollyfile-sbase 4a25e1495d70358c9f1447d49d8f66dc9077cbe2d1ba1899a3b6ca08b318c133
+INSTALL /v0.1.4/demos/tools/Dollyfile-sbase d0c96b755dc04a162e2d00e1d042d0e882aa90fc7e6ca8d028e0b8d5104f450d
 
 REQUIRES HEADER libc
 REQUIRES HEADER quickjs-runner

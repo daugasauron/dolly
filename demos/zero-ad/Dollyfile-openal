@@ -2,12 +2,45 @@ DOLLY 7
 PACKAGE openal
 REQUIRES HOST runtime@0
 
-# OpenAL Soft as openal-build builds it with upstream's CMake, for programs
-# the cc and cmake packages build; it installs neither. It has no playback
-# backend: a program renders through a loopback device and plays the samples
-# itself (<dolly/audio.h>, audio@0), as 0 A.D. does, so the library asks for
-# no host module.
-FROM /v0.1.4/demos/zero-ad/Dollyfile-openal-build 27c2ddbce9abff264616d8f729ff65e0e4f2b6df17338fe293d36c7a807a4c28
+# OpenAL Soft from upstream's release with openal-dolly.patch (a serial mixer),
+# built by its CMake project, for programs the cc and cmake packages build; it
+# installs neither. It has no playback backend: a program renders through a
+# loopback device and plays the samples itself (<dolly/audio.h>, audio@0), as
+# 0 A.D. does, so the library asks for no host module.
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build c05c2a5b06cd079eef923fcc4af0d2d6b6999f2c6a44326ae8e59fa3a5ffbf5e
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES LIB c++
+REQUIRES LIB c++abi
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL ar
+REQUIRES TOOL tar
+REQUIRES TOOL rm
+
+SOURCE /v0.1.4/dist/static/openal/source.tar e11cc1b7572297fa95d400c886831cf88740f2fb934edd16f1d2572d5974bba6 /tmp/openal/source.tar
+SLOP tar -xf /tmp/openal/source.tar -C /
+# HAVE_PTHREAD=OFF: the mixer is serial (openal-dolly.patch) and 0 A.D. is not a threaded process.
+SLOP cmake -S /tmp/openal/source -B /tmp/openal/build \
+  -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_FLAGS_RELEASE=-O1 '-DCMAKE_CXX_FLAGS_RELEASE=-O1 -D__STDC_NO_THREADS__=1 -include cstdlib' \
+  -DLIBTYPE=STATIC -DALSOFT_UTILS=OFF -DALSOFT_EXAMPLES=OFF -DALSOFT_TESTS=OFF \
+  -DALSOFT_DLOPEN=OFF -DALSOFT_EAX=OFF -DALSOFT_BACKEND_PIPEWIRE=OFF \
+  -DALSOFT_BACKEND_PULSEAUDIO=OFF -DALSOFT_BACKEND_ALSA=OFF -DALSOFT_BACKEND_OSS=OFF \
+  -DALSOFT_BACKEND_SOLARIS=OFF -DALSOFT_BACKEND_SNDIO=OFF -DALSOFT_BACKEND_JACK=OFF \
+  -DALSOFT_BACKEND_PORTAUDIO=OFF -DALSOFT_BACKEND_SDL2=OFF -DALSOFT_BACKEND_SDL3=OFF \
+  -DALSOFT_BACKEND_WAVE=OFF -DALSOFT_INSTALL_HRTF_DATA=OFF -DALSOFT_INSTALL_AMBDEC_PRESETS=OFF \
+  -DALSOFT_INSTALL_CONFIG=OFF -DALSOFT_UPDATE_BUILD_VERSION=OFF -DHAVE_PTHREAD=OFF
+SLOP cmake --build /tmp/openal/build
+# Replace bootstrap headers even when normalized source timestamps match.
+SLOP rm -rf /usr/include/AL
+SLOP cmake --install /tmp/openal/build
+SLOP c++ -std=c++17 -O1 /tmp/openal/check.cpp -lopenal -lm -o /tmp/openal/check
+SLOP /tmp/openal/check
+SLOP rm -rf /tmp/openal
 
 EXPORTS LIB    openal          /usr/lib/libopenal.a
 EXPORTS HEADER openal          /usr/include/AL

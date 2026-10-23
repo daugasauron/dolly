@@ -5,9 +5,9 @@ REQUIRES HOST runtime@0
 # The Mojo compiler as mojo-build built it in Dolly, with the standard library
 # and the package gpu it precompiled, and what a program links against, as
 # mojo-runtime built it: mojo build NAME.mojo makes a Dolly executable.
-COPY /v0.1.4/demos/mojo/Dollyfile-mojo-build 8267763d8e94be94a950a0313e74411a9a24245be6536004fb776f52ad10ba2b /opt/mojo/bin/mojo /usr/bin/mojo
-COPY /v0.1.4/demos/mojo/Dollyfile-mojo-build 8267763d8e94be94a950a0313e74411a9a24245be6536004fb776f52ad10ba2b /opt/mojo/lib/mojo /usr/lib/mojo
-COPY /v0.1.4/demos/mojo/Dollyfile-mojo-build 8267763d8e94be94a950a0313e74411a9a24245be6536004fb776f52ad10ba2b /usr/share/licenses/mojo /usr/share/licenses/mojo
+COPY /v0.1.4/demos/mojo/Dollyfile-mojo-build 7455eee593079226a8887a46c95136afd7e46e9b51e7770d10d453dbec47bdac /opt/mojo/bin/mojo /usr/bin/mojo
+COPY /v0.1.4/demos/mojo/Dollyfile-mojo-build 7455eee593079226a8887a46c95136afd7e46e9b51e7770d10d453dbec47bdac /opt/mojo/lib/mojo /usr/lib/mojo
+COPY /v0.1.4/demos/mojo/Dollyfile-mojo-build 7455eee593079226a8887a46c95136afd7e46e9b51e7770d10d453dbec47bdac /usr/share/licenses/mojo /usr/share/licenses/mojo
 COPY /v0.1.4/demos/mojo/Dollyfile-mojo-runtime 6f22aa7dba4b2885e9cc4115f5c38755589cbbd3fe476bee83b1790acd78102c /usr/lib/libmojo-rt.a /usr/lib/libmojo-rt.a
 COPY /v0.1.4/demos/mojo/Dollyfile-mojo-runtime 6f22aa7dba4b2885e9cc4115f5c38755589cbbd3fe476bee83b1790acd78102c /usr/lib/libmojo-gpu.a /usr/lib/libmojo-gpu.a
 # mojo build links what it compiles with the C toolchain.

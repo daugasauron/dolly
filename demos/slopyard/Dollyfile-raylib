@@ -4,10 +4,572 @@ REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
 
-# raylib as gamedev-sdk compiles it: the software renderer, and Dolly's
-# adapter (dolly/raylib.h), which shows its frames and reads the keys and the
-# mouse. For programs the cc package builds.
-FROM /v0.1.4/demos/slopyard/Dollyfile-gamedev-sdk 92bec1d4eedb37778cca6b5e5205412a71942bd75026f8038e7c851e972a3f50
+# raylib 6.0 from upstream's source, unchanged, with its software renderer and
+# Dolly's platform backend (rcore_dolly.c, compiled into raylib's rcore.c as
+# its custom platform): InitWindow shows the frames through display@0, keys,
+# text, the pointer and the wheel come from input@0, and GetTime reads the
+# monotonic clock. <dolly/raylib.h> serves a program that holds the display
+# itself. For programs the cc package builds.
+FROM /v0.1.4/Dollyfile-system 2e3401741eb6ab77220db31920f18139f45fde19409fba765608929658524258
+REQUIRES HEADER libc
+REQUIRES HEADER display
+REQUIRES HEADER input
+REQUIRES TOOL   ar
+REQUIRES TOOL   cc
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   rm
+REQUIRES TOOL   tar
+
+SOURCE /v0.1.4/dist/static/gamedev/raylib.tar b16dd083b9205e14f8b79a1d91c934b579c9a92bcb4e3af0e374f3e71dcf82d3 /tmp/raylib.tar
+FILE /usr/src/dolly/raylib/raylib.mk
+    CC := cc
+    AR := ar
+    SOURCE := /usr/src/raylib/src
+    BUILD := /usr/src/dolly/raylib/build
+    FLAGS := -std=gnu99 -O2 -D_GNU_SOURCE -DGRAPHICS_API_OPENGL_SOFTWARE -DSW_FRAMEBUFFER_OUTPUT_BGRA=0 -fno-strict-aliasing -fno-builtin -I $(SOURCE)
+    OBJECTS := $(patsubst %,$(BUILD)/%.o,rcore rshapes rtextures rtext rmodels)
+    
+    .PHONY: all
+    
+    all: /usr/lib/libraylib.a /usr/lib/libdolly-raylib.a
+    
+    $(BUILD)/%.o: $(SOURCE)/%.c
+    	mkdir -p $(BUILD)
+    	$(CC) $(FLAGS) -c $< -o $@
+    
+    # rtext.c triggers the embedded LLVM backend's current high-optimization
+    # memory/trap limit. Text layout is not the software 3D render hot path, so
+    # keep this one upstream translation unit at the reliable bootstrap level.
+    $(BUILD)/rtext.o: $(SOURCE)/rtext.c
+    	mkdir -p $(BUILD)
+    	$(CC) $(subst -O2,-O0,$(FLAGS)) -c $< -o $@
+    
+    # raylib's core with Dolly's platform backend in the same unit.
+    $(BUILD)/rcore.o: /usr/src/dolly/raylib/rcore-dolly.c /usr/src/dolly/raylib/rcore_dolly.c $(SOURCE)/rcore.c
+    	mkdir -p $(BUILD)
+    	$(CC) $(FLAGS) -I /usr/src/dolly/raylib -c $< -o $@
+    
+    /usr/lib/libraylib.a: $(OBJECTS)
+    	$(AR) rcs $@ $(OBJECTS)
+    	cp $(SOURCE)/raylib.h $(SOURCE)/raymath.h $(SOURCE)/rlgl.h /usr/include/
+    
+    /usr/lib/libdolly-raylib.a: /usr/src/dolly/raylib/dolly-raylib.c /usr/src/dolly/raylib/dolly-raylib.h /usr/lib/libraylib.a
+    	mkdir -p /usr/include/dolly
+    	cp /usr/src/dolly/raylib/dolly-raylib.h /usr/include/dolly/raylib.h
+    	$(CC) -std=c17 -O2 -fno-builtin -I /usr/src/dolly/raylib -c /usr/src/dolly/raylib/dolly-raylib.c -o $(BUILD)/dolly-raylib.o
+    	$(AR) rcs $@ $(BUILD)/dolly-raylib.o
+FILE /usr/src/dolly/raylib/rcore-dolly.c
+    // raylib's core with Dolly's platform backend: built with no PLATFORM_* defined,
+    // rcore.c includes no backend of its own, and Dolly's follows it in this unit.
+    #include "rcore.c"
+    #include "rcore_dolly.c"
+FILE /usr/src/dolly/raylib/rcore_dolly.c
+    // raylib's platform backend for Dolly, built into raylib's own rcore.c as its
+    // custom platform (rcore-dolly.c includes rcore.c, then this file):
+    //   - the window is display@0's surface, sized as InitWindow asks; a frame is
+    //     presented in SwapScreenBuffer and paced by the page's animation frames;
+    //   - keys, text, the pointer and the wheel come from input@0 in PollInputEvents;
+    //   - the clock is CLOCK_MONOTONIC.
+    // A hidden window (FLAG_WINDOW_HIDDEN), or a program that already holds the
+    // display (it composes raylib's frame into its own, or opened it through
+    // <dolly/raylib.h>), has raylib render to memory only: the program presents
+    // the frame and hands raylib its key events through DollyRaylibInputEvent.
+    #include <dolly/display.h>
+    #include <dolly/input.h>
+    #include <time.h>
+    
+    typedef struct {
+        int window;                         // raylib holds the display and the input
+        dolly_display_surface surface;
+        uint64_t input;
+        uint32_t animationFrame;
+        double start;
+    } PlatformData;
+    
+    static PlatformData platform = { 0 };
+    
+    // A key or button pressed and released between two frames still reads as
+    // pressed for one frame: its release waits for the next PollInputEvents.
+    static char keyReleaseNext[MAX_KEYBOARD_KEYS] = { 0 };
+    static char buttonReleaseNext[MAX_MOUSE_BUTTONS] = { 0 };
+    
+    static double MonotonicSeconds(void)
+    {
+        struct timespec now = { 0 };
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        return (double)now.tv_sec + (double)now.tv_nsec*1e-9;
+    }
+    
+    // KeyboardEvent.code of a key record, as raylib's KeyboardKey.
+    static int KeyFromCode(const char *code, int length)
+    {
+        static const struct { const char *code; int key; } keys[] = {
+            { "Space", KEY_SPACE }, { "Quote", KEY_APOSTROPHE }, { "Comma", KEY_COMMA }, { "Minus", KEY_MINUS },
+            { "Period", KEY_PERIOD }, { "Slash", KEY_SLASH }, { "Semicolon", KEY_SEMICOLON }, { "Equal", KEY_EQUAL },
+            { "BracketLeft", KEY_LEFT_BRACKET }, { "Backslash", KEY_BACKSLASH }, { "BracketRight", KEY_RIGHT_BRACKET },
+            { "Backquote", KEY_GRAVE }, { "Escape", KEY_ESCAPE }, { "Enter", KEY_ENTER }, { "Tab", KEY_TAB },
+            { "Backspace", KEY_BACKSPACE }, { "Insert", KEY_INSERT }, { "Delete", KEY_DELETE },
+            { "ArrowRight", KEY_RIGHT }, { "ArrowLeft", KEY_LEFT }, { "ArrowDown", KEY_DOWN }, { "ArrowUp", KEY_UP },
+            { "PageUp", KEY_PAGE_UP }, { "PageDown", KEY_PAGE_DOWN }, { "Home", KEY_HOME }, { "End", KEY_END },
+            { "CapsLock", KEY_CAPS_LOCK }, { "ScrollLock", KEY_SCROLL_LOCK }, { "NumLock", KEY_NUM_LOCK },
+            { "PrintScreen", KEY_PRINT_SCREEN }, { "Pause", KEY_PAUSE },
+            { "ShiftLeft", KEY_LEFT_SHIFT }, { "ControlLeft", KEY_LEFT_CONTROL }, { "AltLeft", KEY_LEFT_ALT },
+            { "MetaLeft", KEY_LEFT_SUPER }, { "ShiftRight", KEY_RIGHT_SHIFT }, { "ControlRight", KEY_RIGHT_CONTROL },
+            { "AltRight", KEY_RIGHT_ALT }, { "MetaRight", KEY_RIGHT_SUPER }, { "ContextMenu", KEY_KB_MENU },
+            { "NumpadDecimal", KEY_KP_DECIMAL }, { "NumpadDivide", KEY_KP_DIVIDE }, { "NumpadMultiply", KEY_KP_MULTIPLY },
+            { "NumpadSubtract", KEY_KP_SUBTRACT }, { "NumpadAdd", KEY_KP_ADD }, { "NumpadEnter", KEY_KP_ENTER },
+            { "NumpadEqual", KEY_KP_EQUAL },
+        };
+        if ((length == 4) && (strncmp(code, "Key", 3) == 0) && (code[3] >= 'A') && (code[3] <= 'Z')) return KEY_A + (code[3] - 'A');
+        if ((length == 6) && (strncmp(code, "Digit", 5) == 0) && (code[5] >= '0') && (code[5] <= '9')) return KEY_ZERO + (code[5] - '0');
+        if ((length == 7) && (strncmp(code, "Numpad", 6) == 0) && (code[6] >= '0') && (code[6] <= '9')) return KEY_KP_0 + (code[6] - '0');
+        if ((length >= 2) && (length <= 3) && (code[0] == 'F'))
+        {
+            int number = atoi(code + 1);
+            if ((number >= 1) && (number <= 12)) return KEY_F1 + number - 1;
+        }
+        for (size_t i = 0; i < sizeof(keys)/sizeof(keys[0]); i++)
+        {
+            if (((int)strlen(keys[i].code) == length) && (strncmp(keys[i].code, code, length) == 0)) return keys[i].key;
+        }
+        return KEY_NULL;
+    }
+    
+    static void QueueCharacter(int codepoint)
+    {
+        if (CORE.Input.Keyboard.charPressedQueueCount < MAX_CHAR_PRESSED_QUEUE)
+        {
+            CORE.Input.Keyboard.charPressedQueue[CORE.Input.Keyboard.charPressedQueueCount] = codepoint;
+            CORE.Input.Keyboard.charPressedQueueCount++;
+        }
+    }
+    
+    // One input@0 record into raylib's keyboard, character and mouse state.
+    void DollyRaylibInputEvent(const dolly_input_event *event)
+    {
+        if (event->type == DOLLY_INPUT_EVENT_KEY)
+        {
+            int key = KeyFromCode((const char *)event->data + event->key_length, event->code_length);
+            if ((key <= KEY_NULL) || (key >= MAX_KEYBOARD_KEYS)) return;
+            if (event->action == DOLLY_KEY_ACTION_RELEASE)
+            {
+                if (CORE.Input.Keyboard.previousKeyState[key] == 0) keyReleaseNext[key] = 1;
+                else CORE.Input.Keyboard.currentKeyState[key] = 0;
+            }
+            else
+            {
+                if (event->action == DOLLY_KEY_ACTION_REPEAT) CORE.Input.Keyboard.keyRepeatInFrame[key] = 1;
+                else
+                {
+                    CORE.Input.Keyboard.currentKeyState[key] = 1;
+                    if (CORE.Input.Keyboard.keyPressedQueueCount < MAX_KEY_PRESSED_QUEUE)
+                    {
+                        CORE.Input.Keyboard.keyPressedQueue[CORE.Input.Keyboard.keyPressedQueueCount] = key;
+                        CORE.Input.Keyboard.keyPressedQueueCount++;
+                    }
+                }
+                if (key == CORE.Input.Keyboard.exitKey) CORE.Window.shouldClose = true;
+            }
+        }
+        else if (event->type == DOLLY_INPUT_EVENT_TEXT)
+        {
+            const unsigned char *text = event->data + event->key_length + event->code_length;
+            for (int offset = 0; offset < event->text_length;)
+            {
+                int size = 0;
+                int codepoint = GetCodepointNext((const char *)text + offset, &size);
+                if (size <= 0) break;
+                QueueCharacter(codepoint);
+                offset += size;
+            }
+        }
+        else if (event->type == DOLLY_INPUT_EVENT_POINTER)
+        {
+            // A browser numbers left, middle, right, back, forward; raylib left, right, middle, side, extra, forward, back.
+            static const int buttons[] = { MOUSE_BUTTON_LEFT, MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_BACK, MOUSE_BUTTON_FORWARD };
+            unsigned int button = event->flags >> 8;
+            CORE.Input.Mouse.currentPosition = (Vector2){ (float)event->x, (float)event->y };
+            CORE.Input.Touch.position[0] = CORE.Input.Mouse.currentPosition;
+            if ((button < 5) && (event->action != DOLLY_POINTER_ACTION_DRAG))
+            {
+                int mouse = buttons[button];
+                if (event->action == DOLLY_POINTER_ACTION_PRESS) CORE.Input.Mouse.currentButtonState[mouse] = 1;
+                else if (CORE.Input.Mouse.previousButtonState[mouse] == 0) buttonReleaseNext[mouse] = 1;
+                else CORE.Input.Mouse.currentButtonState[mouse] = 0;
+                CORE.Input.Touch.currentTouchState[0] = CORE.Input.Mouse.currentButtonState[MOUSE_BUTTON_LEFT];
+            }
+        }
+        else if (event->type == DOLLY_INPUT_EVENT_SCROLL)
+        {
+            // Thousandths of a pixel, line or page toward later content; raylib counts lines up.
+            float lines = (float)event->y/1000.0f;
+            if (event->action == DOLLY_SCROLL_UNIT_PIXEL) lines /= 100.0f;
+            else if (event->action == DOLLY_SCROLL_UNIT_PAGE) lines *= 3.0f;
+            CORE.Input.Mouse.currentWheelMove.y -= lines;
+        }
+        else if (event->type == DOLLY_INPUT_EVENT_FOCUS)
+        {
+            if (event->action) CORE.Window.flags &= ~FLAG_WINDOW_UNFOCUSED;
+            else CORE.Window.flags |= FLAG_WINDOW_UNFOCUSED;
+        }
+    }
+    
+    bool WindowShouldClose(void)
+    {
+        if (CORE.Window.ready) return CORE.Window.shouldClose;
+        else return true;
+    }
+    
+    void ToggleFullscreen(void) { TRACELOG(LOG_WARNING, "ToggleFullscreen() not available on target platform"); }
+    void ToggleBorderlessWindowed(void) { TRACELOG(LOG_WARNING, "ToggleBorderlessWindowed() not available on target platform"); }
+    void MaximizeWindow(void) { TRACELOG(LOG_WARNING, "MaximizeWindow() not available on target platform"); }
+    void MinimizeWindow(void) { TRACELOG(LOG_WARNING, "MinimizeWindow() not available on target platform"); }
+    void RestoreWindow(void) { TRACELOG(LOG_WARNING, "RestoreWindow() not available on target platform"); }
+    void SetWindowState(unsigned int flags) { TRACELOG(LOG_WARNING, "SetWindowState() not available on target platform"); }
+    void ClearWindowState(unsigned int flags) { TRACELOG(LOG_WARNING, "ClearWindowState() not available on target platform"); }
+    void SetWindowIcon(Image image) { TRACELOG(LOG_WARNING, "SetWindowIcon() not available on target platform"); }
+    void SetWindowIcons(Image *images, int count) { TRACELOG(LOG_WARNING, "SetWindowIcons() not available on target platform"); }
+    void SetWindowTitle(const char *title) { CORE.Window.title = title; }
+    void SetWindowPosition(int x, int y) { TRACELOG(LOG_WARNING, "SetWindowPosition() not available on target platform"); }
+    void SetWindowMonitor(int monitor) { TRACELOG(LOG_WARNING, "SetWindowMonitor() not available on target platform"); }
+    void SetWindowMinSize(int width, int height) { CORE.Window.screenMin.width = width; CORE.Window.screenMin.height = height; }
+    void SetWindowMaxSize(int width, int height) { CORE.Window.screenMax.width = width; CORE.Window.screenMax.height = height; }
+    void SetWindowSize(int width, int height) { TRACELOG(LOG_WARNING, "SetWindowSize() not available on target platform"); }
+    void SetWindowOpacity(float opacity) { TRACELOG(LOG_WARNING, "SetWindowOpacity() not available on target platform"); }
+    void SetWindowFocused(void) { TRACELOG(LOG_WARNING, "SetWindowFocused() not available on target platform"); }
+    void *GetWindowHandle(void) { return NULL; }
+    int GetMonitorCount(void) { return 1; }
+    int GetCurrentMonitor(void) { return 0; }
+    Vector2 GetMonitorPosition(int monitor) { return (Vector2){ 0, 0 }; }
+    int GetMonitorWidth(int monitor) { return CORE.Window.display.width; }
+    int GetMonitorHeight(int monitor) { return CORE.Window.display.height; }
+    int GetMonitorPhysicalWidth(int monitor) { return 0; }
+    int GetMonitorPhysicalHeight(int monitor) { return 0; }
+    int GetMonitorRefreshRate(int monitor) { return 60; }
+    const char *GetMonitorName(int monitor) { return "Dolly"; }
+    Vector2 GetWindowPosition(void) { return (Vector2){ 0, 0 }; }
+    Vector2 GetWindowScaleDPI(void) { return (Vector2){ 1.0f, 1.0f }; }
+    void SetClipboardText(const char *text) { TRACELOG(LOG_WARNING, "SetClipboardText() not available on target platform"); }
+    const char *GetClipboardText(void) { return NULL; }
+    Image GetClipboardImage(void) { Image image = { 0 }; return image; }
+    
+    void ShowCursor(void)
+    {
+        if (platform.window) dolly_display_set_cursor(platform.surface.generation, DOLLY_DISPLAY_CURSOR_DEFAULT);
+        CORE.Input.Mouse.cursorHidden = false;
+    }
+    
+    void HideCursor(void)
+    {
+        if (platform.window) dolly_display_set_cursor(platform.surface.generation, DOLLY_DISPLAY_CURSOR_HIDDEN);
+        CORE.Input.Mouse.cursorHidden = true;
+    }
+    
+    void EnableCursor(void)
+    {
+        if (platform.window) dolly_input_set_pointer_relative(platform.input, 0);
+        ShowCursor();
+        CORE.Input.Mouse.cursorLocked = false;
+    }
+    
+    void DisableCursor(void)
+    {
+        if (platform.window) dolly_input_set_pointer_relative(platform.input, 1);
+        HideCursor();
+        CORE.Input.Mouse.cursorLocked = true;
+    }
+    
+    // Presents raylib's frame and waits for the page's next animation frame.
+    void SwapScreenBuffer(void)
+    {
+        if (!platform.window) return;
+        dolly_display_frame frame = { 0 };
+        if ((dolly_display_begin_frame(platform.surface.generation, &frame) == 0) &&
+            (frame.pixel_format == DOLLY_DISPLAY_PIXEL_RGBA8) && ((int)frame.width == CORE.Window.render.width) &&
+            ((int)frame.height == CORE.Window.render.height) && ((size_t)frame.stride*frame.height <= frame.capacity))
+        {
+            rlCopyFramebuffer(0, 0, CORE.Window.render.width, CORE.Window.render.height, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8, frame.pixels);
+            dolly_display_present(platform.surface.generation, frame.buffer_index);
+        }
+        dolly_display_wait_frame(platform.surface.generation, &platform.animationFrame, 100.0);
+    }
+    
+    double GetTime(void)
+    {
+        return MonotonicSeconds() - platform.start;
+    }
+    
+    void OpenURL(const char *url) { TRACELOG(LOG_WARNING, "OpenURL() not available on target platform"); }
+    int SetGamepadMappings(const char *mappings) { return 0; }
+    void SetGamepadVibration(int gamepad, float leftMotor, float rightMotor, float duration) { }
+    
+    void SetMousePosition(int x, int y)
+    {
+        CORE.Input.Mouse.currentPosition = (Vector2){ (float)x, (float)y };
+        CORE.Input.Mouse.previousPosition = CORE.Input.Mouse.currentPosition;
+    }
+    
+    void SetMouseCursor(int cursor)
+    {
+        static const uint32_t cursors[] = { DOLLY_DISPLAY_CURSOR_DEFAULT, DOLLY_DISPLAY_CURSOR_DEFAULT, DOLLY_DISPLAY_CURSOR_TEXT,
+            DOLLY_DISPLAY_CURSOR_CROSSHAIR, DOLLY_DISPLAY_CURSOR_POINTER, DOLLY_DISPLAY_CURSOR_EW_RESIZE, DOLLY_DISPLAY_CURSOR_NS_RESIZE,
+            DOLLY_DISPLAY_CURSOR_NWSE_RESIZE, DOLLY_DISPLAY_CURSOR_NESW_RESIZE, DOLLY_DISPLAY_CURSOR_MOVE, DOLLY_DISPLAY_CURSOR_NOT_ALLOWED };
+        if (platform.window && (cursor >= 0) && (cursor < (int)(sizeof(cursors)/sizeof(cursors[0]))))
+        {
+            dolly_display_set_cursor(platform.surface.generation, cursors[cursor]);
+            CORE.Input.Mouse.cursor = cursor;
+        }
+    }
+    
+    const char *GetKeyName(int key) { return ""; }
+    
+    void PollInputEvents(void)
+    {
+    #if SUPPORT_GESTURES_SYSTEM
+        UpdateGestures();
+    #endif
+        CORE.Input.Keyboard.keyPressedQueueCount = 0;
+        CORE.Input.Keyboard.charPressedQueueCount = 0;
+        for (int i = 0; i < MAX_KEYBOARD_KEYS; i++)
+        {
+            CORE.Input.Keyboard.previousKeyState[i] = CORE.Input.Keyboard.currentKeyState[i];
+            CORE.Input.Keyboard.keyRepeatInFrame[i] = 0;
+            if (keyReleaseNext[i]) CORE.Input.Keyboard.currentKeyState[i] = keyReleaseNext[i] = 0;
+        }
+        for (int i = 0; i < MAX_MOUSE_BUTTONS; i++)
+        {
+            CORE.Input.Mouse.previousButtonState[i] = CORE.Input.Mouse.currentButtonState[i];
+            if (buttonReleaseNext[i]) CORE.Input.Mouse.currentButtonState[i] = buttonReleaseNext[i] = 0;
+        }
+        CORE.Input.Mouse.previousPosition = CORE.Input.Mouse.currentPosition;
+        CORE.Input.Mouse.previousWheelMove = CORE.Input.Mouse.currentWheelMove;
+        CORE.Input.Mouse.currentWheelMove = (Vector2){ 0.0f, 0.0f };
+        for (int i = 0; i < MAX_TOUCH_POINTS; i++) CORE.Input.Touch.previousTouchState[i] = CORE.Input.Touch.currentTouchState[i];
+    
+        if (!platform.window) return;
+        dolly_input_event event;
+        while (dolly_input_next_event(platform.input, &event, 0.0) > 0) DollyRaylibInputEvent(&event);
+    }
+    
+    int InitPlatform(void)
+    {
+        if (rlGetVersion() != RL_OPENGL_SOFTWARE)
+        {
+            TRACELOG(LOG_FATAL, "PLATFORM: DOLLY: raylib must be built with its software renderer (GRAPHICS_API_OPENGL_SOFTWARE)");
+            return -1;
+        }
+        platform.start = MonotonicSeconds();
+    
+        // A hidden window (FLAG_WINDOW_HIDDEN), or a program that holds the display
+        // already, presents raylib's frames itself.
+        if (!(CORE.Window.flags & FLAG_WINDOW_HIDDEN) && (dolly_display_acquire(&platform.surface) == 0))
+        {
+            if (dolly_input_acquire(&platform.input) != 0)
+            {
+                dolly_display_release(platform.surface.generation);
+                TRACELOG(LOG_WARNING, "PLATFORM: DOLLY: no input: raylib renders to memory");
+            }
+            else
+            {
+                platform.window = 1;
+                CORE.Window.display.width = (int)platform.surface.width;
+                CORE.Window.display.height = (int)platform.surface.height;
+                if (CORE.Window.screen.width == 0) CORE.Window.screen.width = (int)platform.surface.width;
+                if (CORE.Window.screen.height == 0) CORE.Window.screen.height = (int)platform.surface.height;
+                if (((int)platform.surface.width != CORE.Window.screen.width) || ((int)platform.surface.height != CORE.Window.screen.height))
+                {
+                    if (dolly_display_set_size(platform.surface.generation, (uint32_t)CORE.Window.screen.width,
+                        (uint32_t)CORE.Window.screen.height, &platform.surface) != 0)
+                    {
+                        TRACELOG(LOG_FATAL, "PLATFORM: DOLLY: the display cannot show %i x %i", CORE.Window.screen.width, CORE.Window.screen.height);
+                        dolly_input_release(platform.input);
+                        dolly_display_release(platform.surface.generation);
+                        platform.window = 0;
+                        return -1;
+                    }
+                }
+            }
+        }
+    
+        CORE.Window.render.width = CORE.Window.screen.width;
+        CORE.Window.render.height = CORE.Window.screen.height;
+        CORE.Window.currentFbo.width = CORE.Window.render.width;
+        CORE.Window.currentFbo.height = CORE.Window.render.height;
+        CORE.Window.ready = true;
+        CORE.Storage.basePath = GetWorkingDirectory();
+        InitTimer();
+        TRACELOG(LOG_INFO, "PLATFORM: DOLLY: %s, %i x %i", platform.window ? "display and input" : "memory only",
+            CORE.Window.screen.width, CORE.Window.screen.height);
+        return 0;
+    }
+    
+    void ClosePlatform(void)
+    {
+        if (platform.window)
+        {
+            dolly_input_release(platform.input);
+            dolly_display_release(platform.surface.generation);
+        }
+        platform.window = 0;
+    }
+FILE /usr/src/dolly/raylib/dolly-raylib.c
+    #include "dolly-raylib.h"
+    
+    #include <rlgl.h>
+    
+    #include <errno.h>
+    #include <stddef.h>
+    #include <string.h>
+    
+    // raylib's Dolly backend (rcore_dolly.c) keeps raylib's key, character and
+    // mouse state from the records it is handed.
+    void DollyRaylibInputEvent(const dolly_input_event *event);
+    
+    int dolly_raylib_open_sized(dolly_raylib *context, const char *title,
+                                uint32_t max_width, uint32_t max_height) {
+      if (context == NULL || max_width == 0 || max_height == 0) return -EINVAL;
+      memset(context, 0, sizeof(*context));
+      int status = dolly_display_acquire(&context->surface);
+      if (status != 0) return status;
+      status = dolly_input_acquire(&context->input);
+      if (status != 0) {
+        dolly_display_release(context->surface.generation);
+        memset(context, 0, sizeof(*context));
+        return status;
+      }
+    
+      uint32_t width = context->surface.width;
+      uint32_t height = context->surface.height;
+      if (width > max_width || height > max_height) {
+        if ((uint64_t)width * max_height > (uint64_t)height * max_width) {
+          height = (uint32_t)((uint64_t)height * max_width / width);
+          width = max_width;
+        } else {
+          width = (uint32_t)((uint64_t)width * max_height / height);
+          height = max_height;
+        }
+        if (width == 0) width = 1;
+        if (height == 0) height = 1;
+        status = dolly_display_set_size(context->surface.generation, width, height,
+                                        &context->surface);
+        if (status != 0) {
+          dolly_input_release(context->input);
+          dolly_display_release(context->surface.generation);
+          memset(context, 0, sizeof(*context));
+          return status;
+        }
+      }
+    
+      InitWindow((int)context->surface.width, (int)context->surface.height, title);
+      if (!IsWindowReady()) {
+        dolly_input_release(context->input);
+        dolly_display_release(context->surface.generation);
+        memset(context, 0, sizeof(*context));
+        return -EIO;
+      }
+      SetTraceLogLevel(LOG_WARNING);
+      context->open = 1;
+      return 0;
+    }
+    
+    int dolly_raylib_open(dolly_raylib *context, const char *title) {
+      return dolly_raylib_open_sized(context, title, 800, 450);
+    }
+    
+    int dolly_raylib_end_frame(dolly_raylib *context) {
+      if (context == NULL || !context->open) return -EINVAL;
+      // The program holds the display, so raylib's EndDrawing only flushes its
+      // render batch and times the frame; the frame is presented here.
+      EndDrawing();
+    
+      dolly_display_frame frame;
+      int status = dolly_display_begin_frame(context->surface.generation, &frame);
+      if (status == 0 && frame.pixel_format == DOLLY_DISPLAY_PIXEL_RGBA8 &&
+          frame.width == context->surface.width &&
+          frame.height == context->surface.height &&
+          (size_t)frame.stride * frame.height <= frame.capacity) {
+        rlCopyFramebuffer(0, 0, (int)frame.width, (int)frame.height,
+                          PIXELFORMAT_UNCOMPRESSED_R8G8B8A8, frame.pixels);
+        status = dolly_display_present(context->surface.generation,
+                                       frame.buffer_index);
+      } else if (status == 0) {
+        status = -EIO;
+      }
+      return status;
+    }
+    
+    int dolly_raylib_wait_frame(dolly_raylib *context,
+                                double timeout_milliseconds) {
+      if (context == NULL || !context->open) return -EINVAL;
+      return dolly_display_wait_frame(context->surface.generation,
+                                      &context->animation_frame_sequence,
+                                      timeout_milliseconds);
+    }
+    
+    int dolly_raylib_set_cursor(dolly_raylib *context, uint32_t cursor) {
+      if (context == NULL || !context->open) return -EINVAL;
+      return dolly_display_set_cursor(context->surface.generation, cursor);
+    }
+    
+    int dolly_raylib_next_event(dolly_raylib *context, dolly_input_event *event,
+                                double timeout_milliseconds) {
+      if (context == NULL || !context->open) return -EINVAL;
+      int status = dolly_input_next_event(context->input, event, timeout_milliseconds);
+      if (status > 0) DollyRaylibInputEvent(event);
+      return status;
+    }
+    
+    int dolly_raylib_close(dolly_raylib *context) {
+      if (context == NULL || !context->open) return -EINVAL;
+      CloseWindow();
+      dolly_input_release(context->input);
+      int status = dolly_display_release(context->surface.generation);
+      memset(context, 0, sizeof(*context));
+      return status;
+    }
+    
+    int dolly_raylib_code_is(const dolly_input_event *event, const char *code) {
+      if (event == NULL || code == NULL || event->type != DOLLY_INPUT_EVENT_KEY)
+        return 0;
+      size_t length = strlen(code);
+      return event->code_length == length &&
+             memcmp(event->data + event->key_length, code, length) == 0;
+    }
+FILE /usr/src/dolly/raylib/dolly-raylib.h
+    #ifndef DOLLY_RAYLIB_H
+    #define DOLLY_RAYLIB_H
+    
+    #include <dolly/display.h>
+    #include <dolly/input.h>
+    #include <raylib.h>
+    
+    typedef struct {
+      dolly_display_surface surface;
+      uint64_t input;
+      uint32_t animation_frame_sequence;
+      int open;
+    } dolly_raylib;
+    
+    // For a program that holds the display itself: open acquires the display and
+    // input before InitWindow, so raylib renders to memory; end_frame presents its
+    // frame and next_event hands each record to raylib's key and mouse state too.
+    // The default open caps software rendering at 800x450; callers can choose
+    // another upper bound while retaining the browser viewport ratio.
+    int dolly_raylib_open(dolly_raylib *context, const char *title);
+    int dolly_raylib_open_sized(dolly_raylib *context, const char *title,
+                                uint32_t max_width, uint32_t max_height);
+    int dolly_raylib_end_frame(dolly_raylib *context);
+    int dolly_raylib_wait_frame(dolly_raylib *context, double timeout_milliseconds);
+    int dolly_raylib_set_cursor(dolly_raylib *context, uint32_t cursor);
+    int dolly_raylib_next_event(dolly_raylib *context, dolly_input_event *event,
+                                double timeout_milliseconds);
+    int dolly_raylib_close(dolly_raylib *context);
+    int dolly_raylib_code_is(const dolly_input_event *event, const char *code);
+    
+    #endif
+SLOP tar -xf /tmp/raylib.tar -C /
+SLOP CWD /usr/src/dolly/raylib make -f /usr/src/dolly/raylib/raylib.mk
 
 EXPORTS LIB    raylib       /usr/lib/libraylib.a
 EXPORTS LIB    dolly-raylib /usr/lib/libdolly-raylib.a
@@ -16,3 +578,4 @@ EXPORTS HEADER dolly-raylib /usr/include/dolly/raylib.h
 FILE /usr/include/raymath.h
 FILE /usr/include/rlgl.h
 FILE /usr/share/licenses/raylib/LICENSE
+SLOP rm -rf /tmp/raylib.tar /usr/src/raylib /usr/src/dolly/raylib

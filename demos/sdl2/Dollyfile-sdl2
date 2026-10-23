@@ -5,7 +5,7 @@ REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST touch@0
 
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build f7eaec42e81633b1c941848b5828e29008d12469a62f163e0603ff93e125ff70
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build c05c2a5b06cd079eef923fcc4af0d2d6b6999f2c6a44326ae8e59fa3a5ffbf5e
 INSTALL /v0.1.4/Dollyfile-libdolly-touch 1881657a3b0726f71ba1ab6bb832d84745638391d4631a2432c4c16d9d0b53bb
 REQUIRES HEADER libc
 REQUIRES HEADER display
@@ -37,5 +37,7 @@ EXPORTS LIB SDL2 /usr/lib/libSDL2.a
 # SDL2Config.cmake names both libraries.
 EXPORTS LIB SDL2main /usr/lib/libSDL2main.a
 EXPORTS FOLDER sdl2-cmake /usr/lib/cmake/SDL2
+# SDL_ttf's and SDL_image's pkg-config files require it.
+FILE /usr/lib/pkgconfig/sdl2.pc
 FILE /usr/share/licenses/SDL2/LICENSE.txt
 SLOP rm -rf /tmp/sdl2

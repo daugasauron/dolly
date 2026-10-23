@@ -1,0 +1,44 @@
+DOLLY 7
+PACKAGE sdl2-image
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST touch@0
+
+# SDL_image from upstream's release archive, unchanged, built by its CMake
+# project with upstream's default backend, stb_image, which decodes PNG and
+# JPEG itself: libSDL2_image.a with its header, pkg-config file and CMake
+# package, for programs the cc package builds with SDL2. The formats that need
+# a library of their own (AVIF, JPEG XL, TIFF, WebP) are off; BMP, GIF, LBM,
+# PCX, PNM, QOI, SVG, TGA, XCF, XPM and XV are built in, and IMG_SavePNG and
+# IMG_SaveJPG write. SDL2IMAGE_VENDORED: nothing vendored is built with these
+# options, and the CMake package then does not look for a libjpeg and libpng
+# the library does not link.
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build c05c2a5b06cd079eef923fcc4af0d2d6b6999f2c6a44326ae8e59fa3a5ffbf5e
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 7548b1b0622d956ef3c2ac8a9fcbf7eaa9a0d4b0678c6b05cbae5d4cf50ac398
+REQUIRES HEADER libc
+REQUIRES HEADER sdl2
+REQUIRES LIB SDL2
+REQUIRES TOOL cc
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /v0.1.4/dist/static/sdl2-image/source.tar 38a61add1bc1554cac86cf72214081e1ad079fc546b180a79b7f000dec032117 /tmp/sdl2-image/source.tar
+SLOP tar -xf /tmp/sdl2-image/source.tar -C /
+SLOP cmake -S /tmp/sdl2-image/source -B /tmp/sdl2-image/build \
+  -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=OFF \
+  -DSDL2IMAGE_VENDORED=ON -DSDL2IMAGE_DEPS_SHARED=OFF -DSDL2IMAGE_SAMPLES=OFF -DSDL2IMAGE_TESTS=OFF \
+  -DSDL2IMAGE_AVIF=OFF -DSDL2IMAGE_JXL=OFF -DSDL2IMAGE_TIF=OFF -DSDL2IMAGE_WEBP=OFF
+SLOP cmake --build /tmp/sdl2-image/build
+SLOP cmake --install /tmp/sdl2-image/build
+
+EXPORTS LIB SDL2_image /usr/lib/libSDL2_image.a
+EXPORTS HEADER sdl2-image /usr/include/SDL2/SDL_image.h
+EXPORTS FOLDER sdl2-image-cmake /usr/lib/cmake/SDL2_image
+FILE /usr/lib/pkgconfig/SDL2_image.pc
+FILE /usr/share/licenses/SDL2_image/LICENSE.txt
+SLOP rm -rf /tmp/sdl2-image

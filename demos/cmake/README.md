@@ -5,12 +5,12 @@ llama.cpp and OpenAL builds start from this image.
 
 ## Images
 
-- `cmake-build`: CMake bootstrap and libuv.
+- `cmake-build`: CMake bootstrapped on the `libuv` package.
 - `cmake`: `cmake`, with the `cc` package it configures and builds with.
-- `libuv`: the libuv port CMake and Neovim are built on, a library for programs the `cc` package builds; it brings no compiler.
+- `libuv`: the libuv port, built by [`libuv-dolly.mk`](libuv-dolly.mk), that CMake and Neovim are built on, a library for programs the `cc` package builds; it brings no compiler.
 
 Key files: [`Dollyfile-cmake-build`](Dollyfile-cmake-build), [`Dolly.cmake`](Dolly.cmake) (platform file),
-[`Dollyfile-cmake-build`](Dollyfile-cmake-build) and [`libuv-dolly.patch`](libuv-dolly.patch). The libuv
+[`Dollyfile-libuv`](Dollyfile-libuv) and [`libuv-dolly.patch`](libuv-dolly.patch). The libuv
 port polls and runs deferred work serially over Dolly's files, processes and
 signals; it adds no browser import. A child's stdio pipe is a kernel pipe in
 one direction and, in a program linked with `-ldolly-sockets`, a local

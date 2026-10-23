@@ -3,13 +3,37 @@ PACKAGE llama
 REQUIRES HOST runtime@0
 REQUIRES HOST gpu@0
 
-# dolly-llama as local-llm-build links it: llama.cpp with its WebGPU backend,
-# serving the model it is given over stdin and stdout. A model package brings
-# the GGUF.
-FROM /v0.1.4/demos/local-llm/Dollyfile-local-llm-build ddb0c0049e53e177a8188b1f813b546b201bda090ab3dd1d92d646f69662d6a2
+# dolly-llama, linked on the llama-cpp package: llama.cpp with its WebGPU
+# backend, serving the model it is given over stdin and stdout. A model package
+# brings the GGUF.
+FROM /v0.1.4/Dollyfile-system-tools 21a96b461ac377817727376c75fddc3cf7f1bbc5f48d222456d8e6846cc8e138
+USE /v0.1.4/demos/local-llm/Dollyfile-llama-cpp 2d0c69400c0b771af07f9bb1caeb28e136f076edb5b5ba6dac8a72bb4a510fe1
+REQUIRES HEADER llama
+REQUIRES LIB llama
+REQUIRES LIB llama-common
+REQUIRES LIB ggml
+REQUIRES LIB ggml-base
+REQUIRES LIB ggml-cpu
+REQUIRES LIB ggml-webgpu
+REQUIRES LIB dolly-webgpu
+REQUIRES LIB dolly-gpu
+REQUIRES TOOL c++
+REQUIRES TOOL cp
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+REQUIRES TOOL tar
 
-EXPORTS TOOL   dolly-llama
-EXPORTS FOLDER llama-licenses /usr/share/licenses/dolly-llm
+SOURCE /v0.1.4/dist/static/llama/engine.tar 320eac803d1b96305f6422c9d2257e60ea539e27aec0c7ce670721d77c705ed1 /tmp/llm-engine.tar
+SLOP tar -xf /tmp/llm-engine.tar -C /
+SLOP c++ -std=c++20 -O1 -I/usr/include/dolly-llm /tmp/dolly-llama/main.cpp \
+  -L/usr/lib/dolly-llm -lllama-common -lllama -lggml -lggml-webgpu -ldolly-webgpu -lggml-cpu -lggml-base -ldolly-gpu -lm -o /usr/bin/dolly-llama
+# The program carries llama.cpp's and Dawn's headers' licences.
+SLOP mkdir -p /usr/share/licenses/dolly-llama
+SLOP cp -R /usr/share/licenses/dolly-llm/. /usr/share/licenses/dolly-llama
+SLOP rm -rf /tmp/dolly-llama /tmp/llm-engine.tar
+
+EXPORTS TOOL dolly-llama
+FOLDER /usr/share/licenses/dolly-llama
 FILE /usr/share/man/cat1/dolly-llama.1
     dolly-llama: llama.cpp on WebGPU, serving a GGUF model to Pi (provider webgpu).
     

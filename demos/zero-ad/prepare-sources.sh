@@ -2,7 +2,7 @@
 if has_image zero-ad; then
   node demos/zero-ad/toolchain/prepare-distribution.mjs "${static_dir}/zero-ad"
 fi
-if has_image openal-build; then
+if has_image openal; then
   openal_dir="$(bash demos/zero-ad/prepare-openal.sh)"
   node scripts/build-source-tar.mjs "${static_dir}/openal/source.tar" \
     "${openal_dir}" /tmp/openal/source \

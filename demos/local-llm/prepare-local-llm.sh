@@ -26,6 +26,7 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
 PY
 printf '#pragma once\n' > "$temporary/headers/emscripten/emscripten.h"
 inputs=("${project_dir}/demos/local-llm/CMakeLists.txt" /tmp/llama/CMakeLists.txt
+ "${project_dir}/demos/local-llm/webgpu.cpp" /tmp/llama/webgpu.cpp
  "$temporary/headers" /tmp/llama/headers
  "$temporary/DAWN-LICENSE" /usr/share/licenses/dolly-llm/dawn-LICENSE
  "$temporary/upstream/LICENSE" /usr/share/licenses/dolly-llm/llama-LICENSE)

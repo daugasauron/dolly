@@ -4,6 +4,17 @@
 - PRIORITY: 200
 - TAGS: demo,gpu,audio,port,0.1.4
 
+## For the owner (2026-10-24, the games-and-packages workstream)
+
+Sound waits on one decision. An SDL2 audio driver over `audio@0` in `demos/sdl2` (route 5
+below, and what SDL_mixer as a package needs) links the module's client into every program
+that links SDL2, since `SDL_Init` reaches the audio subsystem's driver table. Each such program
+then carries the `audio@0` stamp and is refused (status 126) in a session without the module:
+`sdl2` and every image that runs an SDL program would declare `audio@0`, `default` among
+them, as `touch@0` went for SDL's touch input on `core/npm-packages` (`de5a46de`). The other
+form, `snd_dolly.c` beside DarkPlaces' `snd_sdl.c`, keeps the module to `xonotic` alone and
+gives SDL_mixer nothing.
+
 ## State (2026-10-13)
 
 A large item that stays open: it plays, and what is left is the larger half, which nobody is on.

@@ -65,7 +65,33 @@ return function(t,s,m)
       for _,b in ipairs(s.bounds(c.id)) do if b.high>s.ground+.3 and b.low<s.ground+4 then walls[#walls+1]=b end end
     end
   end
+  local function blocked(px,pz)
+    if floor(px,pz)<s.ground-.7 then return true end
+    for _,b in ipairs(walls) do if math.abs(px-b.x)<b.halfX+2.5 and math.abs(pz-b.z)<b.halfZ+2.5 then return true end end
+    return false
+  end
+  -- A tug that stays within 3 m for 10 s short of a distant goal is caught behind an obstacle:
+  -- it first drives to the clear point 12 m away that lies nearest the goal.
+  local function detour(x,z,reach)
+    if m.detour and t<m.detour[3] and hypot(m.detour[1]-s.x,m.detour[2]-s.z)>2 then return m.detour[1],m.detour[2] end
+    m.detour=nil
+    if hypot(x-s.x,z-s.z)<reach+4 or not m.stall or hypot(s.x-m.stall[1],s.z-m.stall[2])>3 then m.stall={s.x,s.z,t};return x,z end
+    if t-m.stall[3]<10 then return x,z end
+    local best
+    for k=0,15 do
+      local nx,nz=math.sin(k*math.pi/8),math.cos(k*math.pi/8);local clear=true
+      for _,d in ipairs({3,6,9,12}) do clear=clear and not blocked(s.x+nx*d,s.z+nz*d) end
+      local score=hypot(x-s.x-nx*12,z-s.z-nz*12)
+      if clear and (not best or score<best[3]) then best={s.x+nx*12,s.z+nz*12,score} end
+    end
+    m.stall={s.x,s.z,t}
+    if not best then return x,z end
+    m.detour={best[1],best[2],t+10};m.detours=(m.detours or 0)+1
+    return best[1],best[2]
+  end
   local function drive(x,z,reach,speed)
+    local goal=hypot(x-s.x,z-s.z);local px,pz=detour(x,z,reach)
+    if px~=x or pz~=z then x,z,reach=px,pz,0 end
     local aim=math.atan(x-s.x,z-s.z);local length=hypot(x-s.x,z-s.z)
     if length>reach+2 then
       local best=math.huge;local desired=aim;local look=math.min(7,length)
@@ -87,7 +113,7 @@ return function(t,s,m)
     if math.abs(bearing)>1.7 then want=-math.min(.35,speed);bearing=wrap(bearing+math.pi) end
     if math.abs(bearing)>.1 and math.abs(want)<.2 and length>reach+.2 then want=.2 end
     throttle=clamp(.35*want+.7*(want-s.localVelocity[3]),.7);turn=clamp(1.5*bearing-.5*s.gyroscope[2],.6)
-    return length
+    return goal
   end
   if m.phase=='unload' then
     out.radio={kind='ready',cargo=m.job}
@@ -104,7 +130,8 @@ return function(t,s,m)
         if m.phase~='haul' then m.heading=yaw;m.begin={s.x,s.z};phase('haul') end
         throttle=-.3;turn=clamp(1.2*wrap(m.heading-yaw)-.5*s.gyroscope[2],.6)
         if hypot(s.x-m.begin[1],s.z-m.begin[2])>10 then throttle=0 end
-      elseif cable.angle>2 then phase('recover')
+      -- The round folds its line as far as the fork lets it: up to 2.5 m.
+      elseif cable.angle>2.5 then phase('recover')
       else
         if m.phase~='returning' then m.returnHome=m.stock[job.id]~=nil;phase('returning') end
         local bay=m.stock[job.id]
@@ -121,13 +148,19 @@ return function(t,s,m)
           drive(m.home[1],m.home[2],2,.7)
           if hypot(s.x-m.home[1],s.z-m.home[2])<3 then m.returnHome=false end
         else drive(s.x+dx,s.z+dz,0,.6) end
-        if hypot(dx,dz)<1.1 then throttle=clamp(-s.localVelocity[3],.7);turn=0 end
-        m.returned=hypot(dx,dz)<1.1 and hypot(s.vx,s.vz)<.5
+        -- A standing tether round comes to rest within 2 m of its bay.
+        if hypot(dx,dz)<2 then throttle=clamp(-s.localVelocity[3],.7);turn=0 end
+        m.returned=hypot(dx,dz)<2 and hypot(s.vx,s.vz)<.5
         if m.returned or t-m.at>180 then phase('unload');power=false;throttle=0;turn=0 end
       end
     else
       local reach=hypot(tip[1]-s.x,tip[3]-s.z)+1.05
       if m.phase~='approach' and m.phase~='align' and m.phase~='pickup' then phase('approach') end
+      -- A fork that comes no closer to the handle in 15 s is wedged on cargo or against another
+      -- machine, or chasing a handle that drags away: back off and try again.
+      local gap=hypot(handle.x-tip[1],handle.z-tip[3])
+      if not m.closest or gap<m.closest[1]-.5 then m.closest={gap,t} end
+      if t-m.closest[2]>15 then m.closest=nil;phase('clear') end
       if m.phase=='approach' then
         if drive(handle.x,handle.z,reach,.9)<reach+4 then phase(math.abs(wrap(math.atan(handle.x-s.x,handle.z-s.z)-yaw))>.25 and 'align' or 'pickup') end
       elseif m.phase=='align' then
@@ -135,7 +168,9 @@ return function(t,s,m)
         m.alignGear=m.alignGear or (math.abs(error)>math.pi/2 and 1 or -1)
         local want=math.abs(error)>.08 and .35*m.alignGear or 0
         throttle=clamp(.35*want+.7*(want-s.localVelocity[3]),.4);turn=clamp(1.5*error-.5*s.gyroscope[2],.6)
-        if math.abs(error)<.08 and math.abs(s.gyroscope[2])<.12 then phase('pickup') end
+        -- A handle a flying machine drags keeps moving: after 8 s the fork takes it within 0.4 rad, and after 20 s the tug drives up to it again.
+        if math.abs(error)<.08 and math.abs(s.gyroscope[2])<.12 or t-m.at>8 and math.abs(error)<.4 then phase('pickup')
+        elseif t-m.at>20 then phase('approach') end
       else
         local dx,dz=handle.x-tip[1],handle.z-tip[3];local forward=dx*math.sin(yaw)+dz*math.cos(yaw)
         local error=math.atan(dx*math.cos(yaw)-dz*math.sin(yaw),math.max(1,forward))

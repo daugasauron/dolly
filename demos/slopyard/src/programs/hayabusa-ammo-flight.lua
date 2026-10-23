@@ -1,4 +1,4 @@
-local status={seek='Waiting for an empty rooftop magazine slot',approach='Fetching reserve or recovered ammunition',lower='Grasping ammunition',lift='Climbing with ammunition',carry='Supplying the rooftop battery',deposit='Landing ammunition in the magazine',release='Releasing supported ammunition',abort='Clearing the failed transfer'}
+local status={seek='Waiting for an empty magazine slot',approach='Fetching reserve or recovered ammunition',lower='Grasping ammunition',lift='Climbing with ammunition',carry='Supplying a battery',deposit='Landing ammunition in the magazine',release='Releasing supported ammunition',abort='Clearing the failed transfer'}
 return function(t,s,m)
   local function clamp(x,n) return math.max(-n,math.min(n,x)) end
   local out={};local function set(b,u) u=clamp(u,1);if b.negative~=0 then out[string.char(b.negative)]=math.max(0,-u) end;if b.positive~=0 then out[string.char(b.positive)]=math.max(0,u) end end
@@ -12,31 +12,38 @@ return function(t,s,m)
   if not head or n<3 then return out end
   if not m.home then m.home={s.x,s.z};m.failed={};m.jobs=0;phase('seek') end
   local gravity=hypot(table.unpack(s.gravity));local tip=s.positions[head];local grip=s.magnets[head]
-  if not m.bays then
-    local nearest=math.huge
+  -- Every loader in sight at the start is a station to supply: three bays beside its retracted magnet.
+  if not m.stations then
+    m.stations={}
     for _,c in ipairs(s.nearby) do if c.team==s.team and c.anchored then
-      local axes,magnet={},nil;local hx,hz,tx,tz=0,0,0,0
+      local axes,magnet={},nil;local hx,hz,tx,tz,sx,sz=0,0,0,0,-1,-1
       for _,p in ipairs(s.parts(c.id)) do
         if p.joint==2 then
-          if math.abs(p.axisX)>.8 then axes.x=true;hx=hx+p.angle*p.axisX;tx=tx+p.travel end
-          if math.abs(p.axisZ)>.8 then axes.z=true;hz=hz+p.angle*p.axisZ;tz=tz+p.travel end
+          if math.abs(p.axisX)>.8 then axes.x=true;hx=hx+p.angle*p.axisX;tx=tx+p.travel;sx=p.axisX>0 and 1 or -1 end
+          if math.abs(p.axisZ)>.8 then axes.z=true;hz=hz+p.angle*p.axisZ;tz=tz+p.travel;sz=p.axisZ>0 and 1 or -1 end
         elseif p.joint==5 then magnet=p end
       end
-      local d=hypot(c.x-m.home[1],c.z-m.home[2])
-      if axes.x and axes.z and magnet and d<nearest then
-        nearest=d;m.station=c.id;m.bays={}
-        for _,offset in ipairs({-2,0,2}) do m.bays[#m.bays+1]={magnet.x-hx-tx/3+offset,c.y,magnet.z-hz-tz*2/3} end
+      if axes.x and axes.z and magnet then
+        local bays={}
+        for _,offset in ipairs({-2,0,2}) do bays[#bays+1]={magnet.x-hx+sx*tx/3+offset,c.y,magnet.z-hz+sz*tz*2/3} end
+        m.stations[#m.stations+1]={id=c.id,bays=bays}
       end
     end end
   end
   local box;for _,c in ipairs(s.nearby) do if c.id==m.job then box=c end end
   local claims={};for _,v in ipairs(s.radio) do if v.kind=='claim' and v.from~=s.id and s.worldTime-v.time<10 then claims[v.cargo]=true end end
-  if m.phase=='seek' and m.bays then
-    local bay
-    for _,p in ipairs(m.bays) do
-      local occupied=false
-      for _,c in ipairs(s.nearby) do if c.cargo and math.abs(c.y-p[2])<2 and hypot(c.x-p[1],c.z-p[3])<1.6 then occupied=true end end
-      if not occupied then bay=p;break end
+  if m.phase=='seek' then
+    -- The neediest station, the one with the most empty bays, gets the next round.
+    local bay,empty,distance
+    for _,station in ipairs(m.stations) do
+      local free,first=0,nil
+      for _,p in ipairs(station.bays) do
+        local occupied=false
+        for _,c in ipairs(s.nearby) do if c.cargo and math.abs(c.y-p[2])<2 and hypot(c.x-p[1],c.z-p[3])<1.6 then occupied=true end end
+        if not occupied then free=free+1;first=first or p end
+      end
+      local d=first and hypot(first[1]-s.x,first[3]-s.z)
+      if first and (not empty or free>empty or free==empty and d<distance) then bay,empty,distance=first,free,d end
     end
     m.needsAmmo=bay~=nil
     if bay then
@@ -46,7 +53,9 @@ return function(t,s,m)
         local recovery=s.combat and math.abs(c.x-s.combat.x)<s.combat.halfX+4 and math.abs(c.z-s.combat.z)<s.combat.halfZ and hypot(c.vx,c.vy,c.vz)<1.5
         local score=d<8 and d or 1000+hypot(c.x-s.x,c.z-s.z)
         if c.cargo and c.team==s.team and c.supply==0 and c.mass<capacity and c.carriedBy==0 and not claims[c.id]
-          and (d<8 or recovery or m.failed[c.id]) and score<distance and (m.failed[c.id] or 0)<t then box=c;distance=score end
+          and (d<8 or recovery or m.failed[c.id]) and score<distance and (m.failed[c.id] or 0)<t
+          -- A tether round belongs to the ground batteries, whose cable tugs fetch it back.
+          and #s.parts(c.id)==1 then box=c;distance=score end
       end
       if box then m.job=box.id;m.bay=bay;phase('approach') end
     end

@@ -20,16 +20,16 @@ REQUIRES HOST upload@0
 # the pointer and a terminal with a shell, where imgui-x11 starts Dear ImGui's
 # example in a window of its own.
 FROM /v0.1.4/Dollyfile-system 2e3401741eb6ab77220db31920f18139f45fde19409fba765608929658524258
-INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server 1fabc3c5e4ca191729061a0b88b63f855bded3e4c3abbfb129f0074acd404456
-INSTALL /v0.1.4/demos/x11/Dollyfile-twm bb00ee294b2c74c6ecbccec5e2d09e34a2179841934c60235c58d49f9d0e0a22
-INSTALL /v0.1.4/demos/x11/Dollyfile-xclock 953be5eeb17afbae540879fab172f6b4d531f6b1c20c413c0cce1b14c9ad217d
-INSTALL /v0.1.4/demos/x11/Dollyfile-xeyes 0966d16e71cf601c14cde0a56df64ee905b475199d48c3056282e63908eb7d34
-INSTALL /v0.1.4/demos/x11/Dollyfile-xterm bf21e558671a3e49dea383554a4b8f2736952d57de2fbc3623abd11e7ee5728c
+INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server a28bb0b00bc21d89153271ca227434c6f8996762a6728a0c818d058d3b46efc2
+INSTALL /v0.1.4/demos/x11/Dollyfile-twm 79244b0d3f1bb5e0a58a0335034e9a63166708c040470db4204d826679db2fec
+INSTALL /v0.1.4/demos/x11/Dollyfile-xclock a95873b7fd91b7b34ad0ecb09b1ea322ba6b61751ec1f2de928ed4470bba26f6
+INSTALL /v0.1.4/demos/x11/Dollyfile-xeyes 443dd69caf90fc989fce11cad506f144dddfdc0e85ceccd93bc8ea9bfc9a901f
+INSTALL /v0.1.4/demos/x11/Dollyfile-xterm c3baf8967ac4362122df8d51252f07d436d0a82c0e7158618ad245404a8eb2bc
 # amy installs packages into the session (tmux, nvim and the rest), with the
 # modules default declares for them; nena enables another.
 INSTALL /v0.1.4/Dollyfile-amy 2747c8d4e0823eb5d4a8b4057e55780b9abe8cbb850f47c4d72c77821eadf972
 INSTALL /v0.1.4/Dollyfile-nena 1dd9dcd473e683c599e4a4be019416a1eb3070e644e540bb3a054590cae611de
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-imgui-x11 d0ddbde9e849721cd469022fc72570a35702cc80e6872cd080fd24fd2b4cf180
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-imgui-x11 1e83cdbfa4e96480921c0a3b2571f824d2ec6da1a61532cf395e7af5cb121638
 
 # The server takes the display, the keyboard and the pointer until it ends
 # (kill $(cat /tmp/.X0-pid) in the terminal); its clients end with it, and

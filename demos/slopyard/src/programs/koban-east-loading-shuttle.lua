@@ -37,20 +37,22 @@ return function(t, s, m)
   local extension = reduce(rails, function(v, b)
     return (v + at((s).angles, (b).i))
   end, 0);
-  local home = {(at(tip, 0) + extension), (at(tip, 1) - at((s).angles, (lift).i)), (at(tip, 2) + at((s).angles, (cross).i))};
+  -- The rails extend along -x, or along +x on a mirrored shuttle; the cross slide along its own direction.
+  local sx, sz = (rails[1]).direction, (cross).direction;
+  local home = {(at(tip, 0) - (sx * extension)), (at(tip, 1) - at((s).angles, (lift).i)), (at(tip, 2) - (sz * at((s).angles, (cross).i)))};
   local travel = reduce(rails, function(v, b)
     return (v + (b).travel)
   end, 0);
   local function pickup(box)
     local point,edge=nil,-math.huge
     if box then for _,shape in ipairs(s.bounds(box.id)) do
-      local x=shape.x+shape.halfX+.555
-      if shape.body==0 and x<=home[1]+.2 and x>=home[1]-travel
-        and shape.z<=home[3]+.2 and shape.z>=home[3]-cross.travel-.2 and x>edge then
-        edge=x
-        point={math.max(home[1]-travel,math.min(home[1],x)),
+      local reach,side=sx*(shape.x-sx*(shape.halfX+.555)-home[1]),sz*(shape.z-home[3])
+      if shape.body==0 and reach>=-.2 and reach<=travel
+        and side>=-.2 and side<=cross.travel+.2 and -reach>edge then
+        edge=-reach
+        point={home[1]+sx*math.max(0,math.min(travel,reach)),
           math.max(home[2],math.min(home[2]+lift.travel,(shape.low+shape.high)/2+.7)),
-          math.max(home[3]-cross.travel,math.min(home[3],shape.z))}
+          home[3]+sz*math.max(0,math.min(cross.travel,side))}
       end
     end end
     return point
@@ -70,7 +72,9 @@ return function(t, s, m)
       do return {} end
     end
     (m).station = (station).id;
-    (m).dock = {((station).x + 3), ((station).y + 2), (station).z};
+    -- The round is handed over 2 m above the gun's loading pedestal (a vertical piston) at rest.
+    local pedestal = find(s.parts(station.id), function(p) return p.joint == 2 and math.abs(p.axisY) > .8 end);
+    (m).dock = {((station).x - (3 * sx)), (pedestal and pedestal.y - pedestal.angle or station.y) + 2, (station).z};
     (m).jobs = 0;
     (m).readyAt = (-1);
     phase("idle");
@@ -152,7 +156,7 @@ return function(t, s, m)
   end
   if active(includes({"deliver", "handoff"}, (m).phase)) then
     power = true;
-    target = {(at((m).dock, 0) + 1), (at(home, 1) + (lift).travel), at((m).dock, 2)};
+    target = {(at((m).dock, 0) - sx), (at(home, 1) + (lift).travel), at((m).dock, 2)};
     if active(box) then
       (target)[index(0)] = (at(tip, 0) + clamp((at((m).dock, 0) - (box).x), 0.8));
       (target)[index(2)] = (at(tip, 2) + clamp((at((m).dock, 2) - (box).z), 0.8));
@@ -194,11 +198,11 @@ return function(t, s, m)
     local raised = at(s.angles, lift.i) > lift.travel-.05
     target = {raised and at(s.angles,cross.i)<.05 and at(home,0) or at(tip,0), at(home,1)+lift.travel, raised and at(home,2) or at(tip,2)};
     if box and box.carriedBy==m.station then
-      local edge=box.x
+      local edge=sx*(box.x-home[1])
       for _,shape in ipairs(s.bounds(box.id)) do
-        if shape.body==0 then edge=math.max(edge,shape.x+shape.halfX) end
+        if shape.body==0 then edge=math.min(edge,sx*(shape.x-sx*shape.halfX-home[1])) end
       end
-      if tip[1]<edge+1.4 then target={math.min(home[1],edge+1.5),tip[2],tip[3]} end
+      if sx*(tip[1]-home[1])>edge-1.4 then target={home[1]+sx*math.max(0,edge-1.5),tip[2],tip[3]} end
     end
     if ((extension < 0.05) and (at((s).angles, (cross).i) < 0.05)) then
       (m).readyAt = (s).worldTime;
@@ -214,7 +218,7 @@ return function(t, s, m)
   if includes({"align","pickup","raise","aisle","deliver","handoff"},m.phase) and m.job then
     out.radio = {kind=m.phase=="handoff" and m.offered and "ready" or "claim",cargo=m.job}
   end
-  local reach = math.max(0, (at(home, 0) - at(target, 0)));
+  local reach = math.max(0, (sx * (at(target, 0) - at(home, 0))));
   for _, b in ipairs(rails) do
     do
       do
@@ -225,7 +229,7 @@ return function(t, s, m)
     end
     ::continue_1::
   end
-  set(cross, clamp((((1.5 * (math.max(0, math.min((cross).travel, (at(home, 2) - at(target, 2)))) - at((s).angles, (cross).i))) - (0.3 * at((s).rates, (cross).i))) / (cross).speed)));
+  set(cross, clamp((((1.5 * (math.max(0, math.min((cross).travel, (sz * (at(target, 2) - at(home, 2))))) - at((s).angles, (cross).i))) - (0.3 * at((s).rates, (cross).i))) / (cross).speed)));
   set(lift, clamp((((1.5 * (math.max(0, math.min((lift).travel, (at(target, 1) - at(home, 1)))) - at((s).angles, (lift).i))) - (0.3 * at((s).rates, (lift).i))) / (lift).speed)));
   m.status = m.phase == "idle" and "Waiting for launcher request" or "Reload: "..m.phase
   set(head, (active(power) and 1 or (-1)));

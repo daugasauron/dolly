@@ -30,7 +30,7 @@ return function(t,s,m)
     end end
     set(s.blueprint[i],-1)
   end
-  if captured and m.phase=='ready' then m.compactLength=nil;m.target=captured.id;m.captureAt=t;m.captures=(m.captures or 0)+1;phase('deploy') end
+  if captured and m.phase=='ready' then m.compactLength=nil;m.target=captured.id;m.captureAt=t;m.haulAt=nil;m.captures=(m.captures or 0)+1;phase('deploy') end
   if captured and (m.phase=='deploy' or m.phase=='caught' or m.phase=='haul') then
     local tug
     for _,c in ipairs(s.nearby) do
@@ -42,9 +42,15 @@ return function(t,s,m)
     end
     local support=0
     for _,p in ipairs(s.parts(captured.id)) do support=support+p.supportForce end
-    local grounded=captured.low<ground(captured.x,captured.z,captured.y)+1.5 and support>captured.mass*hypot(table.unpack(s.gravity))*.35 and math.abs(captured.vy)<.5
-    m.supported=grounded and m.supported+s.dt or 0
-    if m.supported>2 or t-(m.captureAt or m.at)>180 then
+    local floor=ground(captured.x,captured.z,captured.y)
+    local standing=captured.low<floor+1.5 and support>captured.mass*hypot(table.unpack(s.gravity))*.35 and math.abs(captured.vy)<.5
+    -- Held down: the tug has the handle in its fork and the line is all in, so the machine is
+    -- as low as the line brings it, its underside 2 to 3 m over the ground. It is held there 20 s.
+    local heldDown=tug and cable.paidOut<1.6 and captured.low<floor+3.5
+    m.supported=(standing or heldDown) and m.supported+s.dt or 0
+    -- A round nobody tows lets go after 180 s; a tug's haul gets its own 180 s.
+    if tug and not m.haulAt then m.haulAt=t end
+    if m.supported>(standing and 2 or 20) or t-(m.haulAt or m.captureAt or m.at)>180 then
       local grounded=m.supported>2
       m.releases=(m.releases or 0)+(grounded and 1 or 0);m.aborts=(m.aborts or 0)+(grounded and 0 or 1)
       m.lastRelease={time=t,target=captured.id,grounded=grounded};phase('release')
@@ -55,7 +61,9 @@ return function(t,s,m)
         local grip=s.magnets[i]
         set(s.blueprint[i],grip.attached and grip.creature==captured.id and 1 or -1)
       end
-      local reel=tug and -1 or m.phase=='deploy' and 1 or 0
+      -- Hauling, the winch takes the line in at a third of its speed, and its force (60 N) stays
+      -- under the magnets' hold (100 N): the round brings the machine down instead of tearing off it.
+      local reel=tug and -1/3 or m.phase=='deploy' and 1 or 0
       if m.phase=='deploy' then
         local anchor=s.positions[s.blueprint[rope].parent+1]
         local span=s.angles[rope]

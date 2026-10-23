@@ -10,10 +10,10 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/slopyard/Dollyfile-gamedev-sdk 92bec1d4eedb37778cca6b5e5205412a71942bd75026f8038e7c851e972a3f50
+FROM /v0.1.4/demos/slopyard/Dollyfile-gamedev-sdk bf0680d7c0f402ca45095204bae009450a9506db721910b1af87336ad1107151
 INSTALL /v0.1.4/Dollyfile-libdolly-gpu d94853ef546b4af6b94b41bede0b3a21c7bf84dbb3f5bb3e186cb5720f45dff8
 INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 0a217ec5cbbe44c1861bcb0eb0d3647db2ef544cff5ec73a6b59828b5f54640c
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 60d8a22a57a704f7d0ba3cb0b0c08b3c2e6f23bf952d2f9291d39b758560c89c
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 39ed5abe281f8f86cdef072b1c3beeaf8281f86e8849d0c5b2ba36403615fdc4
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make
@@ -54,7 +54,7 @@ REQUIRES HEADER gpu
 REQUIRES HEADER quickjs
 REQUIRES HEADER quickjs-runner
 
-SOURCE /v0.1.4/dist/static/slopyard/source.tar 2167fc5bfdf9bc2647b22ad940665f2629a4305e4f48de00e91653fca55acd50 /tmp/slopyard.tar
+SOURCE /v0.1.4/dist/static/slopyard/source.tar 078245523c1f1cf58c3e7aa4b141e0fff3658b80cb18d574e1b3615a2ee18d64 /tmp/slopyard.tar
 SLOP tar -xf /tmp/slopyard.tar -C / && rm /tmp/slopyard.tar
 SLOP make -f /usr/src/dolly/slopyard/box3d.mk
 SLOP cc -std=c17 -O2 -pthread -U__SIZEOF_INT128__ -I/usr/include/lua5.5 /usr/src/dolly/slopyard/main.c /usr/src/dolly/slopyard/data.c /usr/src/dolly/slopyard/pi.c /usr/src/dolly/slopyard/character.c /usr/src/dolly/slopyard/render.c /usr/src/dolly/slopyard/world.c /usr/src/dolly/slopyard/terrain.c /usr/src/dolly/slopyard/magnet.c -ldolly-gpu -llua5.5 -ldolly-js -lquickjs -ldolly-raylib -lraylib -lslopyard-box3d -lm -o /usr/bin/slopyard

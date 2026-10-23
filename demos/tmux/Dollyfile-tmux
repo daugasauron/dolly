@@ -7,7 +7,7 @@ REQUIRES HOST sockets@0
 # tmux from upstream's release archive over the libevent and libterminfo
 # packages. tmux takes Dolly's port (README.md): a patch and its operating
 # system file.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 9d7229ab77f72fe696a39d7b900829f0fdc1aab9446e2a61dadfb01ab1a83171
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 762a50206297e14a04a0b85218f5a971026d417f22c0f8b06edcde77e839bfe9
 USE /v0.1.4/Dollyfile-libdolly-sockets 24deef586b20b61734ee0f5bb3f6c62a83d6f2d7e0b97eee9887f63779c970f7
 USE /v0.1.4/demos/tmux/Dollyfile-libevent 373aac44ba8e0b2234d8a8c30bc52c6ea2483531e6bbc0a8fc3778a3148d4c6c
 USE /v0.1.4/demos/tmux/Dollyfile-libterminfo 96b21a70ad016e18c7b8aa8c4df0bca6ad8fef4d1448afc885d1dd8bb457c565
