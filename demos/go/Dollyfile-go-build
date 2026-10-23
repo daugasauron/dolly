@@ -13,10 +13,11 @@ REQUIRES TOOL go
 SLOP mkdir -p /tmp/seed
 SLOP cp -R /usr/lib/go/pkg/tool/dolly_wasm64 /tmp/seed/tool
 SLOP cp -R /usr/lib/go/bin /tmp/seed/bin
-# One compile at a time, each held near 2 GiB: compiling cmd/compile/internal/ssa
-# grows a process to 3.9 GiB with the default collector (1.8 GB natively), and
-# the build has 6 GB.
-SLOP CWD /usr/lib/go/src CGO_ENABLED=0 GOCACHE=/tmp/go-cache GOMEMLIMIT=2GiB GOFLAGS='-trimpath -ldflags=-w -gcflags=cmd/...=-dwarf=false' go install -a -p 1 cmd/go cmd/gofmt cmd/asm cmd/cgo cmd/compile cmd/cover cmd/fix cmd/link cmd/preprofile cmd/vet
+# Two compiles at a time, each held near 2 GiB: compiling cmd/compile/internal/ssa
+# can grow a process to 3.9 GiB with the default collector (1.8 GB natively).
+# A spawn waits for a slot beside at most one compile, so the processes stay
+# under the 4 GiB a spawn is admitted below, and the build in its 6 GB.
+SLOP CWD /usr/lib/go/src CGO_ENABLED=0 GOCACHE=/tmp/go-cache GOMEMLIMIT=2GiB GOFLAGS='-trimpath -ldflags=-w -gcflags=cmd/...=-dwarf=false' go install -a -p 2 cmd/go cmd/gofmt cmd/asm cmd/cgo cmd/compile cmd/cover cmd/fix cmd/link cmd/preprofile cmd/vet
 # The rebuilt toolchain compares itself with the seed.
 FILE /tmp/same/main.go
     // Fails unless each file of the first directory is, byte for byte, the

@@ -70,9 +70,11 @@ source by itself.
 ## Limits
 
 - Programs are pure Go: no cgo.
-- A program is one thread: `runtime.NumCPU` is 1, so `go build` compiles one
-  package at a time unless told `-p N`. One compile of the toolchain's own
-  `cmd/compile/internal/ssa` grows to 3.9 GiB, so go-build compiles serially
-  under `GOMEMLIMIT`.
+- A program is one thread and `runtime.NumCPU` is 1, so the go package sets
+  `GOFLAGS=-p=4`, which halves a small module's first build. One compile of
+  the toolchain's own `cmd/compile/internal/ssa` can grow to 3.9 GiB, so
+  go-build compiles two at a time under `GOMEMLIMIT`.
+- A spawn is refused, not delayed, while the processes hold 4 GiB: `go build`
+  beside a program holding 3.9 GiB fails with `fork/exec …: Try again`.
 
 Test: `npm run test:demos -- go` ([`test/`](test/)).
