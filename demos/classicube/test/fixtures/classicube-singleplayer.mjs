@@ -5,7 +5,7 @@ import { gunzipSync } from "node:zlib";
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-export async function runClassiCubeProof({ send, evaluate, wait, key, projectDir }) {
+export async function runClassiCubeProof({ send, evaluate, wait, key, snapshot, projectDir }) {
   assert.equal(await wait("document.documentElement?.dataset.dollyStatus",
     value => value === "ready" || value === "failed", "ClassiCube boot"), "ready");
   await wait("__dolly.graphicsActive", Boolean, "ClassiCube framebuffer");
@@ -22,13 +22,12 @@ export async function runClassiCubeProof({ send, evaluate, wait, key, projectDir
     await send("Input.dispatchMouseEvent", {type: "mousePressed", ...point, button, buttons: button === "right" ? 2 : 1, clickCount: 1});
     await send("Input.dispatchMouseEvent", {type: "mouseReleased", ...point, button, buttons: 0, clickCount: 1});
   };
-  const view = () => evaluate(`(() => {
-    const c = document.querySelector('#display');
-    const data = c.getContext('2d').getImageData(80, 80, 480, 280).data;
+  const view = async () => (await snapshot(), evaluate(`(() => {
+    const data = displaySnapshot.getContext('2d').getImageData(80, 80, 480, 280).data;
     let hash = 2166136261;
     for (const b of data) hash = Math.imul(hash ^ b, 16777619);
     return hash >>> 0;
-  })()`);
+  })()`));
   assert.equal(await evaluate("document.pointerLockElement"), null);
   await evaluate("document.querySelector('#display').dispatchEvent(new PointerEvent('pointerdown', {button:0}))");
   assert.equal(await evaluate("document.pointerLockElement"), null, "synthetic input cannot grant capture");
@@ -36,8 +35,9 @@ export async function runClassiCubeProof({ send, evaluate, wait, key, projectDir
   await wait("document.pointerLockElement?.id", value => value === "display", "user click captures mouse");
   await delay(1500);
   await screenshot("world");
+  await snapshot();
   const colors = await evaluate(`(() => {
-    const c = document.querySelector('#display'), colors = new Set();
+    const c = displaySnapshot, colors = new Set();
     const p = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
     for (let i = 0; i < p.length; i += 4) colors.add((p[i] << 16) | (p[i+1] << 8) | p[i+2]);
     return colors.size;

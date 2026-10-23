@@ -1,4 +1,4 @@
-import { createHttpAdmission, NetworkTransport } from "./broker.mjs";
+import { createHttpAdmission, HttpMailbox, NetworkTransport } from "./broker.mjs";
 import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "./policy.mjs";
 import { localServicesTransport } from "./local-services.mjs";
 import { publicURL } from "../../src/static-asset.mjs";
@@ -8,7 +8,7 @@ export { DOLLY_HTTP_ABI_DIGEST as digest } from "./abi.mjs";
 // trusted sources and, in a custom tab, the policies it inherited; a builder or
 // headless host is given its network instead. Modules depending on http@0 add
 // their local services to `services`.
-export function browser({ applicationBase, configuration }) {
+export function browser({ applicationBase, configuration, send, ask }) {
   let transport, admission, network = configuration.network;
   const services = {};
   const instance = {
@@ -24,8 +24,10 @@ export function browser({ applicationBase, configuration }) {
         throw new Error("invalid HTTP provider handshake");
       }
       admission = new Int32Array(message.admission);
-      transport = new NetworkTransport(message.memory, message.address, network.policy,
-        { fetchRequest: network.fetchRequest, site: network.site });
+      // The Worker writes the records into the guest's slots.
+      const mailbox = { publish: record => ask({ type: "http-publish", ...record }, [record.bytes.buffer]),
+        fail: ending => send({ type: "http-fail", ...ending }) };
+      transport = new NetworkTransport(mailbox, network.policy, { fetchRequest: network.fetchRequest, site: network.site });
     },
     messages: {
       async "http-request"(message) {
@@ -55,15 +57,19 @@ export function browser({ applicationBase, configuration }) {
   return instance;
 }
 
+// The Worker copies each request out of kernel memory for the page to judge,
+// and writes the page's records into the slots.
 export function worker({ send, get }) {
   const admission = createHttpAdmission(request => send({ type: "http-request", ...request }));
+  let mailbox;
   return {
     bindings: { "env.dolly_http_dispatch": (method, methodSize, url, urlSize, headers, headersSize,
-      body, bodySize, flags, sequence) => admission.dispatch({ memory: get("runtime").memory.buffer,
-        method, methodSize, url, urlSize, headers, headersSize, body, bodySize, flags, sequence }) },
+      body, bodySize, flags, sequence) => admission.dispatch(mailbox.admission(get("runtime").memory.buffer,
+        { method, methodSize, url, urlSize, headers, headersSize, body, bodySize, flags, sequence })) },
+    messages: { "http-publish": record => mailbox.publish(record), "http-fail": ending => mailbox.fail(ending) },
     start({ dolly, memory }) {
-      return { admission: admission.control.buffer, memory: memory.buffer,
-        address: Number(dolly._dolly_http_mailbox_address()) };
+      mailbox = new HttpMailbox(memory.buffer, Number(dolly._dolly_http_mailbox_address()));
+      return { admission: admission.control.buffer };
     },
   };
 }

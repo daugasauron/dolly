@@ -322,6 +322,8 @@ try {
     console.error(error);
     return { status: 126, signal: 0, failure: error.reason ?? terminalFailureReason(error) };
   });
+  // The modules' Worker sides let go first: display@0 gives the page its last frame.
+  host.dispose();
   self.postMessage({ type: "exited", ...ending });
 } catch (error) {
   self.postMessage({

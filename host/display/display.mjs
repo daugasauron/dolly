@@ -9,7 +9,7 @@ const cursorStyles = ["text", "default", "crosshair", "pointer", "none", "ns-res
 // frame, so the next one is painted on the frame after it is published.
 const lingerMilliseconds = 250;
 
-// The page's end of the display mailbox: it reads frames, the terminal's
+// The Worker's end of the display mailbox: it reads frames, the terminal's
 // geometry and its selection, and writes the surface and the animation frame.
 export class DisplayTransport {
   static flags = A.DOLLY_DISPLAY_WORD_FLAGS;
@@ -139,24 +139,30 @@ export class DisplayTransport {
   }
 }
 
+// Paints the published frames on the page's canvas, from the Worker (an
+// OffscreenCanvas). painted(sequence) follows each frame painted, cursor(style)
+// each change of the pointer's cursor.
 export class FramebufferPresenter {
-  constructor(canvasElement, buffer, frameAddresses, capacity, displayTransport, fatal) {
-    this.canvas = canvasElement;
-    this.context = canvasElement.getContext("2d", { alpha: false });
+  constructor(surface, buffer, frameAddresses, capacity, displayTransport, { fatal, painted, cursor }) {
+    this.context = surface.getContext("2d", { alpha: false });
     if (!this.context) throw new Error("Dolly requires a 2D canvas context");
+    this.surface = surface;
     this.buffer = buffer;
     this.frameAddresses = frameAddresses;
     this.capacity = capacity;
     this.transport = displayTransport;
     this.fatal = fatal;
+    this.painted = painted;
+    this.cursor = cursor;
+    this.cursorStyle = undefined;
     this.sequence = -1;
     this.running = true;
   }
 
   // Paints once per animation frame while frames arrive or a program owns the
   // display. After lingerMilliseconds without either it requests no frames
-  // and waits on the frame sequence: the Worker notifies it of a new frame,
-  // lease or cursor (worker().service).
+  // and waits on the frame sequence: worker().service notifies it of a new
+  // frame, lease or cursor.
   start() {
     const { words, word } = this.transport;
     let requested = false, waiting = false, activeUntil = 0;
@@ -181,7 +187,7 @@ export class FramebufferPresenter {
         else this.wake();
       }
       // A lease or cursor set before the wait began was notified to nobody.
-      if (this.transport.graphicsActive() || this.transport.cursorStyle() !== this.cursor) this.wake();
+      if (this.transport.graphicsActive() || this.transport.cursorStyle() !== this.cursorStyle) this.wake();
     };
     const request = () => {
       if (requested || !this.running) return;
@@ -201,9 +207,8 @@ export class FramebufferPresenter {
 
   updateCursor() {
     const cursor = this.transport.cursorStyle();
-    if (cursor === this.cursor) return;
-    this.cursor = cursor;
-    this.canvas.style.cursor = cursorStyles[cursor] ?? "default";
+    if (cursor === this.cursorStyle) return;
+    this.cursor(this.cursorStyle = cursor);
   }
 
   // Copies a newly published frame to the canvas; returns whether it painted one.
@@ -232,37 +237,38 @@ export class FramebufferPresenter {
       this.image.data.set(this.frames[index] ??= new Uint8ClampedArray(this.buffer, address, length));
       const after = Atomics.load(words, word + DisplayTransport.frameSequence) >>> 0;
       if (before !== after) continue;
-      if (this.canvas.width !== width || this.canvas.height !== height) {
-        this.canvas.width = width;
-        this.canvas.height = height;
+      if (this.surface.width !== width || this.surface.height !== height) {
+        this.surface.width = width;
+        this.surface.height = height;
       }
       this.context.putImageData(this.image, 0, 0);
       this.sequence = after;
-      const dataset = document.documentElement.dataset;
-      dataset.frameSequence = after;
-      const cols = Atomics.load(words, word + DisplayTransport.terminalCols);
-      const rows = Atomics.load(words, word + DisplayTransport.terminalRows);
-      if (cols !== this.cols) dataset.terminalCols = this.cols = cols;
-      if (rows !== this.rows) dataset.terminalRows = this.rows = rows;
+      this.painted(after);
       return true;
     }
     return false;
   }
 }
 
-export function browser({ mount, canvas, keyboard, fatal, showStatus }) {
-  let transport, presenter, resizeObserver;
-  const publishSurface = () => transport.publishSurface(mount.clientWidth, mount.clientHeight, devicePixelRatio);
+// The page's display: the canvas, handed to the Worker that paints it, the
+// surface it measures, and the copy chord. What the terminal publishes (its
+// grid, geometry, cursor, the lease) the Worker reports by message.
+export function browser({ mount, canvas, keyboard, fatal, showStatus, send, ask }) {
+  const surface = canvas.transferControlToOffscreen();
+  let state, resizeObserver;
+  const publishSurface = () => send({ type: "display-surface", width: mount.clientWidth, height: mount.clientHeight,
+    devicePixelRatio });
+  const copySelection = () => ask({ type: "display-copy" });
 
   // Ctrl+Shift+C writes the terminal's selection to the clipboard.
-  function copySelection() {
+  async function copyToClipboard() {
     try {
-      const text = transport.copySelection();
+      const text = await copySelection();
       if (text === null) {
         document.documentElement.dataset.clipboard = "empty";
         return;
       }
-      void navigator.clipboard.writeText(text).then(
+      await navigator.clipboard.writeText(text).then(
         () => { document.documentElement.dataset.clipboard = "copied"; },
         () => { document.documentElement.dataset.clipboard = "denied"; },
       );
@@ -272,34 +278,51 @@ export function browser({ mount, canvas, keyboard, fatal, showStatus }) {
     }
   }
 
+  const transport = {
+    graphicsActive: () => state.graphicsActive,
+    cursorStyle: () => state.cursor,
+    fontSize: () => state.fontSize,
+    dimensions: () => ({ cols: state.cols, rows: state.rows }),
+    geometry: () => state.geometry,
+    copySelection,
+  };
   return {
-    get transport() { return transport; },
+    configuration: { canvas: surface }, transfers: [surface],
     page: {
-      get transport() { return transport; },
-      get graphicsActive() { return transport.graphicsActive(); },
-      get fontSize() { return transport.fontSize(); },
-      copySelection: () => transport.copySelection(),
+      get transport() { return state && transport; },
+      get graphicsActive() { return state.graphicsActive; },
+      get fontSize() { return state.fontSize; },
+      copySelection,
     },
     // The copy chord is the page's: the guest reads neither its press nor its
     // release. A key typed into a module's own UI is that module's to claim.
     claimsKey(event) {
-      if (!transport || !event.ctrlKey || !event.shiftKey || event.altKey || event.metaKey ||
+      if (!state || !event.ctrlKey || !event.shiftKey || event.altKey || event.metaKey ||
           event.code !== "KeyC" || ![keyboard, document.body].includes(event.target)) return false;
       event.preventDefault();
       event.stopImmediatePropagation();
-      if (event.type === "keydown") copySelection();
+      if (event.type === "keydown") void copyToClipboard();
       return "key";
     },
-    start(message) {
-      transport = new DisplayTransport(message.memory, message.address, message.copyAddress);
-      const capacity = A.DOLLY_DISPLAY_MAX_WIDTH * A.DOLLY_DISPLAY_MAX_HEIGHT * 4, limit = message.memory.byteLength;
-      if (!Array.isArray(message.frameAddresses) || message.frameAddresses.length !== A.DOLLY_DISPLAY_FRAME_COUNT ||
-          message.frameAddresses.some(address => !Number.isSafeInteger(address) || address <= 0 || address > limit - capacity)) {
-        throw new Error("invalid display provider handshake");
-      }
-      presenter = new FramebufferPresenter(canvas, message.memory, message.frameAddresses,
-        capacity, transport, fatal);
-      presenter.start();
+    messages: {
+      "display-state"(message) {
+        const dataset = document.documentElement.dataset;
+        if (message.cursor !== state?.cursor) canvas.style.cursor = cursorStyles[message.cursor] ?? "default";
+        if (message.frame !== state?.frame) dataset.frameSequence = message.frame;
+        if (message.cols !== state?.cols) dataset.terminalCols = message.cols;
+        if (message.rows !== state?.rows) dataset.terminalRows = message.rows;
+        state = message;
+      },
+      "display-failed"({ message }) { fatal(message); },
+      // The last frame stays on screen once the image has ended, behind the
+      // canvas whose Worker is gone.
+      "display-ended"({ image }) {
+        const kept = Object.assign(document.createElement("canvas"), { width: image.width, height: image.height });
+        kept.getContext("2d").putImageData(image, 0, 0);
+        kept.toBlob(blob => {
+          if (blob) canvas.style.background = `url(${URL.createObjectURL(blob)}) left top / contain no-repeat`;
+        });
+      },
     },
     // The initial surface, then every change of the terminal area.
     entryStarted() {
@@ -309,29 +332,41 @@ export function browser({ mount, canvas, keyboard, fatal, showStatus }) {
       canvas.hidden = false;
       document.documentElement.dataset.terminal = "ghostty-rgba-wasm";
     },
-    dispose() {
-      // What the image published last stays on screen once it has ended.
-      try { presenter?.paint(); } catch {}
-      presenter?.stop();
-      resizeObserver?.disconnect();
-    },
+    dispose() { resizeObserver?.disconnect(); },
   };
 }
 
-export function worker({ get }) {
-  let kernel, words, word, seen = {};
+export function worker({ get, send, configuration }) {
+  let kernel, transport, presenter, words, word, seen = {}, reported = "";
+  // What the page reads of the terminal, sent when it changes.
+  function report() {
+    if (!transport) return;
+    const { cols, rows } = transport.dimensions();
+    const state = { graphicsActive: transport.graphicsActive(), cursor: transport.cursorStyle(),
+      fontSize: transport.fontSize(), cols, rows, geometry: transport.geometry(),
+      frame: Atomics.load(words, word + DisplayTransport.frameSequence) >>> 0 };
+    const text = JSON.stringify(state);
+    if (text === reported) return;
+    reported = text;
+    send({ type: "display-state", ...state });
+  }
   return {
     service() {
       if (!kernel) return;
       const status = kernel._dolly_terminal_present_pending();
       if (status !== 0) throw new Error(`Dolly terminal presentation failed with status ${status}`);
-      // Wakes the page's presenter, which waits on the frame sequence while idle.
+      report();
+      // Wakes the presenter, which waits on the frame sequence while idle.
       const frame = Atomics.load(words, word + A.DOLLY_DISPLAY_WORD_FRAME_SEQUENCE);
       const flags = Atomics.load(words, word + A.DOLLY_DISPLAY_WORD_FLAGS);
       const cursor = Atomics.load(words, word + A.DOLLY_DISPLAY_WORD_CURSOR_STYLE);
       if (frame === seen.frame && flags === seen.flags && cursor === seen.cursor) return;
       seen = { frame, flags, cursor };
       Atomics.notify(words, word + A.DOLLY_DISPLAY_WORD_FRAME_SEQUENCE);
+    },
+    messages: {
+      "display-surface"({ width, height, devicePixelRatio }) { transport?.publishSurface(width, height, devicePixelRatio); },
+      "display-copy"() { return transport.copySelection(); },
     },
     start({ dolly, memory, kernelExports }) {
       if (dolly._dolly_display_prepare() !== 0) throw new Error("Dolly display preparation failed");
@@ -346,15 +381,31 @@ export function worker({ get }) {
         throw new Error("Dolly display installation failed");
       }
       const mailbox = Number(dolly._dolly_display_mailbox_address());
-      words = new Int32Array(memory.buffer);
-      word = mailbox / 4;
+      transport = new DisplayTransport(memory.buffer, mailbox, Number(dolly._dolly_display_copy_buffer_address()));
+      words = transport.words;
+      word = transport.word;
       kernel = dolly;
+      const capacity = A.DOLLY_DISPLAY_MAX_WIDTH * A.DOLLY_DISPLAY_MAX_HEIGHT * 4, limit = memory.buffer.byteLength;
+      const frameAddresses = [0, 1].map(index => Number(dolly._dolly_display_framebuffer_address(index)));
+      if (frameAddresses.some(address => !Number.isSafeInteger(address) || address <= 0 || address > limit - capacity)) {
+        throw new Error("invalid display framebuffer range");
+      }
+      presenter = new FramebufferPresenter(configuration.canvas, memory.buffer, frameAddresses, capacity, transport, {
+          fatal: message => send({ type: "display-failed", message }),
+          painted: report,
+          cursor: report,
+        });
+      presenter.start();
       // The page notifies the animation frame: a program waiting for it
       // resumes then, not at the next service tick.
       get("runtime").serviceOnNotify(words, word + A.DOLLY_DISPLAY_WORD_ANIMATION_FRAME_SEQUENCE);
-      return { memory: memory.buffer, address: mailbox,
-        frameAddresses: [0, 1].map(index => Number(dolly._dolly_display_framebuffer_address(index))),
-        copyAddress: Number(dolly._dolly_display_copy_buffer_address()) };
+      report();
+    },
+    // The image has ended: the page keeps the last frame it published.
+    dispose() {
+      try { presenter?.paint(); } catch {}
+      presenter?.stop();
+      if (presenter?.image) send({ type: "display-ended", image: presenter.image });
     },
   };
 }

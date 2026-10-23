@@ -93,7 +93,7 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       "REQUIRES HOST runtime@0\nREQUIRES HOST http@0\nFILE /etc/loop.slop\n    while :; do :; done\nENTRY /bin/slop /etc/loop.slop\n");
     return runHeadless(["runtime@0", "http@0"], configuration, [artifact.bytes], async (runtime, exited) => {
       while (!runtime.terminal?.foregroundInterruptible()) await new Promise(resolve => setTimeout(resolve, 10));
-      return [runtime.terminal.interruptForeground(), await exited];
+      return [await runtime.terminal.interruptForeground(), await exited];
     });
   }), [true, 130]);
 });

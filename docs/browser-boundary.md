@@ -10,6 +10,14 @@ implementations. Outside the model: engine bugs, XSS, compromised application
 JavaScript, and hosts that rewrite delivered HTML ([deployment](deployment.md)).
 Private processes help recovery, not containment.
 
+The page holds no view of kernel memory; only Workers do. A module's Worker
+side reads and writes its mailboxes and sends the page copies of what it shows;
+the page side keeps its DOM work and sends what the user does, and the display
+paints from the runtime Worker into the page's canvas (an `OffscreenCanvas`).
+So the page's code never reads memory the guest can change under it, and the
+kernel's memory goes when its Workers end, not when the page's heap is next
+collected ([`boundary-browser.mjs`](../test/boundary-browser.mjs) checks the heap).
+
 ```mermaid
 flowchart TB
   guest["Kernel + processes: assume compromised"]
@@ -204,11 +212,11 @@ Worker URL.
 | Channel | Bound |
 | --- | --- |
 | Keyboard, pointer, wheel, focus, paste (`input@0`) | Bounded records, one motion sample per animation frame; a record the ring has no room for is counted, shown and marked in the ring, never queued on the page ([input](input.md#the-ring)). Interpretation stays in Wasm. Nothing is read from the clipboard but a paste the user makes: the browser's own, or, on a touchscreen, a press of the page's Paste button. Pointer lock only after a trusted canvas press while the program holding the lease asks; Escape ends it. Without `input@0` no listener writes a record |
-| Surface size (`display@0`) | Three numbers the page writes: width, height, device scale |
+| Surface size (`display@0`) | Three numbers the page sends: width, height, device scale |
 | Clipboard copy (`display@0`) | Bounded selection text after a user Ctrl+Shift+C |
 | Page keys | F11 (fullscreen) and Ctrl+Shift+F (indicators) are the page's own and are taken before any module or the guest reads them ([`page-chords.mjs`](../src/page-chords.mjs)); the guest cannot request fullscreen |
 | RGBA frames, bootstrap text | Visible output only; the browser parses no terminal or HTML content |
-| Mailbox wake-ups | The page and the Worker notify each other on display, input and touch mailbox words (new frame, animation frame, input or touch record, lease); a notify carries no data, and a forged one only costs the guest's own time |
+| Mailbox wake-ups | The kernel and the Worker's module sides notify each other on display, input and touch mailbox words (new frame, animation frame, input or touch record, lease); a notify carries no data, and a forged one only costs the guest's own time |
 | GPU indicator | While the session has `gpu@0`, page text over the display naming the browser's adapter and whether it has `shader-f16`, or why there is none; no guest input ([`gpu.mjs`](../host/gpu/gpu.mjs)) |
 | Indicator visibility | The GPU indicator, Save button and download offers hide ten seconds after the page is ready and on the user's `Ctrl+Shift+F`, which is not delivered as input. Page state shows them again (a new adapter state, a save, an offer); the one guest request among these is the bounded download offer, which shows them and can hide nothing ([`page-indicators.mjs`](../src/page-indicators.mjs)) |
 | Image ending | Once the ENTRY process is gone, page text below the last frame says how it ended: its exit status or signal number, or one line of its failure (printable ASCII, 512 bytes; the stack goes to the console). The page sets it as text and parses none of it; a running program can draw a lookalike but cannot cover, change or remove the notice. A module may add a link it builds itself, as `snapshot@0` does for the session the tab saved ([`browser.mjs`](../src/browser.mjs)) |
@@ -232,7 +240,9 @@ acceptance and the checks of a deployed site use it.
   a program in raw mode whose screen matches.
 - `terminal` (the result's sequence, the foreground, `interruptForeground()`,
   which is Ctrl+C), `foregroundPid`, `hostModules` (the session's modules) and
-  `systemSnapshot` (the bytes a rebuild built).
+  `systemSnapshot` (the bytes a rebuild built). What the handle reads of the
+  terminal (its foreground, grid, geometry, the leases) is what the Worker last
+  reported; what it asks (a result, the selection) resolves later.
 - An enabled module adds its own and takes them away when `nena` disables it:
   `transport`, `fontSize`, `graphicsActive`, `copySelection()` (`display@0`),
   `inputTransport` (`input@0`), `touchTransport` (`touch@0`), the broker's request counters (`http@0`),

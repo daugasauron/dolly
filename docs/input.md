@@ -3,8 +3,8 @@
 Keys, the pointer, the wheel, window focus, IME text and paste reach Wasm as
 bounded records in one ring ([`host/input/dolly-input-0.wat`](../host/input/dolly-input-0.wat),
 [`input.h`](../host/input/input.h), [`input.mjs`](../host/input/input.mjs)).
-The page copies ordinary DOM event data; what a record means is decided in
-Wasm. An image gets records only if it declares `REQUIRES HOST input@0`.
+The page copies ordinary DOM event data and sends it to the runtime Worker,
+which writes the records; what a record means is decided in Wasm. An image gets records only if it declares `REQUIRES HOST input@0`.
 
 ```mermaid
 flowchart LR
@@ -49,19 +49,20 @@ flowchart LR
 
 ## The ring
 
-- The ring in Wasm memory is the only queue of input; the page holds no
-  record back. Pointer motion is a sample: relative deltas add up and the
-  newest position wins. It is sent once per animation frame while half the ring
-  is free, so it never takes a key's slot and a program that does not read
-  delays it without losing it.
-- Any other record needs a free slot. One that finds none is lost: the page
-  counts it in `data-input-dropped` on `<html>`, says so in its status line
-  and writes one `DROPPED` record into the slot it keeps for that, where the
-  first lost record would have been. A program that reads it lets go of the
-  keys and buttons it holds: a release may be among the lost.
-- The page notifies the Worker of each record a reader waits on (all under a
-  lease; keys, text, paste and focus for the terminal), so the reader resumes
-  then, not at the next 16 ms tick.
+- The ring in Wasm memory is the only queue of input; neither the page nor
+  the Worker holds a record back. Pointer motion is a sample: relative deltas
+  add up and the newest position wins. The page sends it once per animation
+  frame, and the Worker writes it while half the ring is free, so it never
+  takes a key's slot and a program that does not read delays it without
+  losing it.
+- Any other record needs a free slot. One that finds none is lost: the Worker
+  counts it and writes one `DROPPED` record into the slot it keeps for that,
+  where the first lost record would have been, and the page shows the count in
+  `data-input-dropped` on `<html>` and in its status line. A program that reads
+  it lets go of the keys and buttons it holds: a release may be among the lost.
+- The Worker notifies the kernel's readers of each record one waits on (all
+  under a lease; keys, text, paste and focus for the terminal), so the reader
+  resumes then, not at the next 16 ms tick.
 
 ## Touch
 
@@ -83,7 +84,7 @@ program's to decide.
   also for a program holding the input lease; a finger already down stays the
   pointer's until it lifts. Without a holder a finger scrolls the terminal and
   two change its font, as above.
-- The ring holds 512 records and is the only queue. The page writes every
+- The ring holds 512 records and is the only queue. The Worker writes every
   move the browser reports, coalesced ones included, while more than 20
   records are free, and a down only while the ring keeps room for it and the
   end of every finger that is down: a delivered finger's up or cancel is never

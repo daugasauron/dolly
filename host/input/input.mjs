@@ -21,7 +21,8 @@ function modifiers(event) {
   return (event.shiftKey ? 1 : 0) | (event.ctrlKey ? 2 : 0) | (event.altKey ? 4 : 0) | (event.metaKey ? 8 : 0);
 }
 
-// The page's end of the input mailbox: the one producer of its records.
+// The Worker's end of the input mailbox, the one producer of its records:
+// the page sends it what it sees.
 export class InputTransport {
   static headerSize = A.DOLLY_INPUT_HEADER_SIZE;
   static eventRead = A.DOLLY_INPUT_WORD_EVENT_READ;
@@ -67,7 +68,6 @@ export class InputTransport {
     this.movementX = 0;
     this.movementY = 0;
     this.position = null;
-    this.motionScheduled = false;
     this.address = address;
     this.word = address / 4;
     this.eventCapacity = eventCapacity;
@@ -134,10 +134,11 @@ export class InputTransport {
   }
 
   // Pointer motion is a sample, not an event: relative deltas add up and the
-  // newest position replaces an unsent one. The sample is sent once per
-  // animation frame while more than half the ring is free, and ahead of any
-  // other record that leaves room for both. So motion never takes a key's
-  // slot, and a program that does not read delays it but never loses it.
+  // newest position replaces an unsent one. The sample is sent at each service
+  // tick while more than half the ring is free (flushMotion(eventCapacity / 2)),
+  // and ahead of any other record that leaves room for both. So motion never
+  // takes a key's slot, and a program that does not read delays it but never
+  // loses it.
   flushMotion(reserve) {
     if ((this.movementX || this.movementY) && this.freeRecords() > reserve) {
       const x = clampMotion(this.movementX), y = clampMotion(this.movementY);
@@ -151,20 +152,8 @@ export class InputTransport {
     }
   }
 
-  scheduleMotion() {
-    if (this.motionScheduled) return;
-    this.motionScheduled = true;
-    requestAnimationFrame(() => {
-      this.motionScheduled = false;
-      this.flushMotion(this.eventCapacity / 2);
-      if (this.movementX || this.movementY || this.position) this.scheduleMotion();
-    });
-  }
-
-  pushKey(event) {
-    return this.pushSyntheticKey(event.key, event.code, modifiers(event) |
-      (event.getModifierState?.("CapsLock") ? 16 : 0) | (event.getModifierState?.("NumLock") ? 32 : 0),
-      event.type === "keyup" ? 0 : event.repeat ? 2 : 1, event.isComposing ? 1 : 0);
+  motionPending() {
+    return this.movementX !== 0 || this.movementY !== 0 || this.position !== null;
   }
 
   pushSyntheticKey(key, code, modifiers = 0, action = 1, flags = 0) {
@@ -218,7 +207,6 @@ export class InputTransport {
     };
     if (action !== 2) return this.pushRecord(record);
     this.position = record;
-    this.scheduleMotion();
     return true;
   }
 
@@ -233,7 +221,6 @@ export class InputTransport {
   pushPointerMotion(event) {
     this.movementX += Math.round(event.movementX * 1000);
     this.movementY += Math.round(event.movementY * 1000);
-    this.scheduleMotion();
   }
 
   pushFocus(focused) {
@@ -268,32 +255,90 @@ export class InputTransport {
   }
 }
 
+// The record of a key event, as pushSyntheticKey takes it.
+function keyRecord(event) {
+  return { key: event.key, code: event.code, modifiers: modifiers(event) |
+    (event.getModifierState?.("CapsLock") ? 16 : 0) | (event.getModifierState?.("NumLock") ? 32 : 0),
+    action: event.type === "keyup" ? 0 : event.repeat ? 2 : 1, flags: event.isComposing ? 1 : 0 };
+}
+
+// What a pointer record keeps of its event.
+const pointerEvent = event => ({ shiftKey: event.shiftKey, ctrlKey: event.ctrlKey, altKey: event.altKey,
+  metaKey: event.metaKey, button: event.button });
+
 // The page's input: keys, pointer, wheel, focus, IME text and paste become
-// bounded mailbox records; interpretation stays in Wasm. This is the one
-// listener that decides which keys the guest reads: the page's own chords
-// are taken before it (src/page-chords.mjs) and module UIs claim theirs
-// through it. Records flow once the transport starts.
-export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, get }) {
+// messages to the Worker, which writes them into the mailbox as bounded
+// records; interpretation stays in Wasm. This is the one listener that
+// decides which keys the guest reads: the page's own chords are taken before
+// it (src/page-chords.mjs) and module UIs claim theirs through it. Records
+// flow once the Worker's side has started.
+export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, send, ask, get }) {
   // selecting: the primary button's press went to the terminal; held: the
   // middle or secondary button's.
-  let transport, selecting = false, held = -1;
+  let started = false, selecting = false, held = -1, flags = 0;
+  // Every message that may write records is counted: input is idle once the
+  // Worker reports its ring empty after the last of them.
+  let sent = 0, idleThrough = 0;
   const heldKeys = new Map();
-  const terminal = () => get("runtime").terminal;
-  const interruptForeground = () => terminal()?.interruptForeground() ?? false;
-  // Submitted commands awaiting their shell result; disposal ends the wait.
-  const waiting = new Set();
-
-  async function submit(command, text = `${command}\r`) {
-    const sequence = terminal().currentResultSequence();
-    if (!transport.pushText(text)) throw new Error("Dolly input mailbox is full");
-    let stop;
-    const stopped = new Promise((_resolve, reject) => { stop = reject; waiting.add(stop); });
-    return Promise.race([terminal().waitForResult(sequence), stopped]).finally(() => waiting.delete(stop));
+  const leased = () => (flags & 1) !== 0;
+  const relativePointerRequested = () => (flags & 3) === 3;
+  // Pointer motion and the newest position wait for the next animation frame,
+  // and go ahead of any other record.
+  let movementX = 0, movementY = 0, position = null, motionScheduled = false;
+  function flushMotion() {
+    if (!movementX && !movementY && !position) return;
+    send({ type: "input-motion", movementX, movementY, position, sequence: ++sent });
+    movementX = movementY = 0;
+    position = null;
   }
+  // Sends a record; tell() resolves to whether the Worker wrote it.
+  const post = message => {
+    if (!started) return;
+    flushMotion();
+    send({ ...message, sequence: ++sent });
+  };
+  const tell = message => {
+    if (!started) return Promise.resolve(false);
+    flushMotion();
+    return ask({ ...message, sequence: ++sent });
+  };
+  function scheduleMotion() {
+    if (motionScheduled) return;
+    motionScheduled = true;
+    requestAnimationFrame(() => { motionScheduled = false; if (started) flushMotion(); });
+  }
+  const client = {
+    pushKey: event => tell({ type: "input-key", ...keyRecord(event) }),
+    pushSyntheticKey: (key, code, modifiers = 0, action = 1, flags = 0) =>
+      tell({ type: "input-key", key, code, modifiers, action, flags }),
+    pushText: text => tell({ type: "input-text", text }),
+    pushPaste: text => tell({ type: "input-paste", text }),
+    pushPointer(x, y, action, event) {
+      if (action !== 2) return tell({ type: "input-pointer", x, y, action, event: pointerEvent(event) });
+      if (started) {
+        position = { x, y, event: pointerEvent(event) };
+        scheduleMotion();
+      }
+      return Promise.resolve(started);
+    },
+    pushPointerMotion(event) {
+      if (!started) return;
+      movementX += event.movementX;
+      movementY += event.movementY;
+      scheduleMotion();
+    },
+    pushScroll: (delta, unit) => tell({ type: "input-scroll", delta, unit }),
+    leased, relativePointerRequested,
+    inputIdle: () => idleThrough === sent && !movementX && !movementY && !position,
+  };
+
+  // Resolves to the shell's status for the command typed.
+  const submit = (command, text = `${command}\r`) => started ? ask({ type: "input-submit", text, sequence: ++sent })
+    : Promise.reject(new Error("Dolly input is not started"));
 
   function releaseHeldKeys() {
-    for (const key of heldKeys.values()) transport?.pushKey({ ...key, type: "keyup",
-      ctrlKey: false, shiftKey: false, altKey: false, metaKey: false });
+    for (const key of heldKeys.values()) post({ type: "input-key", ...keyRecord({ ...key, type: "keyup",
+      ctrlKey: false, shiftKey: false, altKey: false, metaKey: false }) });
     heldKeys.clear();
   }
 
@@ -311,18 +356,18 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
       releaseHeldKeys();
       if (claim === "interrupt" && interruptChord(event)) {
         event.preventDefault();
-        interruptForeground();
+        void get("runtime").terminal.interruptForeground();
       }
       return;
     }
-    if (!transport) return;
+    if (!started) return;
     if (event.type === "keydown" && event.key === "Escape" && document.pointerLockElement === canvas) {
       document.exitPointerLock();
       event.preventDefault();
       return;
     }
     const terminalPaste = event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey && event.code === "KeyV";
-    const programPaste = transport.leased() && !event.altKey && (
+    const programPaste = leased() && !event.altKey && (
       (event.code === "KeyV" && (event.ctrlKey || event.metaKey)) ||
       (event.code === "Insert" && event.shiftKey && !event.ctrlKey && !event.metaKey));
     if (programPaste || terminalPaste) {
@@ -332,12 +377,9 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
       if (event.type === "keydown") keyboard.focus({ preventScroll: true });
       return;
     }
-    if (interruptChord(event) && interruptForeground()) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      return;
-    }
-    transport.pushKey(event);
+    // Ctrl+C interrupts the foreground program where the terminal lets it;
+    // the Worker decides, and otherwise writes the key.
+    post({ type: interruptChord(event) ? "input-interrupt-key" : "input-key", ...keyRecord(event) });
     if (event.type === "keyup") heldKeys.delete(event.code);
     else heldKeys.set(event.code, {key:event.key,code:event.code,type:"keydown",repeat:false,
       ctrlKey:event.ctrlKey,shiftKey:event.shiftKey,altKey:event.altKey,metaKey:event.metaKey});
@@ -354,21 +396,21 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
   function pushPointer(event, action) {
     const bounds = canvas.getBoundingClientRect();
     const {width,height} = surfaceSize() ?? canvas;
-    transport?.pushPointer(bounds.width === 0 ? 0 : (event.clientX - bounds.left) * width / bounds.width,
+    void client.pushPointer(bounds.width === 0 ? 0 : (event.clientX - bounds.left) * width / bounds.width,
       bounds.height === 0 ? 0 : (event.clientY - bounds.top) * height / bounds.height, action, event);
   }
 
   function pushPointerPresence(inside) {
-    if (transport?.leased()) transport.pushPointerPresence(inside);
+    if (leased()) post({ type: "input-presence", inside });
   }
   canvas.addEventListener("pointerenter", () => pushPointerPresence(true));
   canvas.addEventListener("pointerleave", () => pushPointerPresence(false));
   window.addEventListener("blur", () => {
     pushPointerPresence(false);
-    transport?.pushFocus(false);
+    post({ type: "input-focus", focused: false });
   });
   window.addEventListener("focus", () => {
-    transport?.pushFocus(true);
+    post({ type: "input-focus", focused: true });
     pushPointerPresence(canvas.matches(":hover"));
   });
 
@@ -393,10 +435,10 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
   // terminal for the mouse, which the terminal shows by the arrow
   // (src/ghostty/display.c), the middle and secondary too. The browser's
   // menu and middle-button actions then give way; Shift keeps them.
-  const programHasMouse = event => transport?.leased() || (!event.shiftKey && canvas.style.cursor === "default");
+  const programHasMouse = event => leased() || (!event.shiftKey && canvas.style.cursor === "default");
   canvas.addEventListener("pointerdown", (event) => {
-    if (!transport || (event.button !== 0 && !transport.leased() && !(event.button <= 2 && programHasMouse(event)))) return;
-    if (event.pointerType === "touch" && !transport.leased()) {
+    if (!started || (event.button !== 0 && !leased() && !(event.button <= 2 && programHasMouse(event)))) return;
+    if (event.pointerType === "touch" && !leased()) {
       fingers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       touch ??= { id: event.pointerId, y: event.clientY };
       if (fingers.size === 2) span = spread();
@@ -404,7 +446,7 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
       event.preventDefault();
       return;
     }
-    if (transport.relativePointerRequested()) {
+    if (relativePointerRequested()) {
       keyboard.blur();
       event.preventDefault();
       if (!event.isTrusted) return;
@@ -417,7 +459,7 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
       return;
     }
     canvas.setPointerCapture(event.pointerId);
-    if (transport.leased()) keyboard.blur();
+    if (leased()) keyboard.blur();
     else keyboard.focus({ preventScroll: true });
     if (event.button === 0) selecting = true;
     else held = event.button;
@@ -426,7 +468,7 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
   });
   canvas.addEventListener("pointermove", (event) => {
     if (document.pointerLockElement === canvas) {
-      if (transport?.relativePointerRequested()) transport.pushPointerMotion(event);
+      if (relativePointerRequested()) client.pushPointerMotion(event);
       event.preventDefault();
       return;
     }
@@ -434,29 +476,29 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
       fingers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (fingers.size === 2) {
         for (const now = spread(); Math.abs(now - span) >= 20; span += now > span ? 20 : -20) {
-          transport?.pushSyntheticKey(now > span ? "=" : "-", now > span ? "Equal" : "Minus", 2);
+          void client.pushSyntheticKey(now > span ? "=" : "-", now > span ? "Equal" : "Minus", 2);
         }
       } else if (touch?.id === event.pointerId) {
         // The wheel is reported where the finger is, as where the mouse is.
         pushPointer(event, 2);
-        transport?.pushScroll((touch.y - event.clientY) * canvas.height / canvas.clientHeight, 0);
+        post({ type: "input-scroll", delta: (touch.y - event.clientY) * canvas.height / canvas.clientHeight, unit: 0 });
         touch.y = event.clientY;
       }
       event.preventDefault();
       return;
     }
-    if (!transport) return;
+    if (!started) return;
     // A release the page did not see, outside the window, comes before the move.
-    if (selecting && !transport.leased() && (event.buttons & 1) === 0) {
+    if (selecting && !leased() && (event.buttons & 1) === 0) {
       selecting = false;
       pushPointer(event, 0);
     }
     pushPointer(event, 2);
-    if (selecting || transport.leased()) event.preventDefault();
+    if (selecting || leased()) event.preventDefault();
   });
   canvas.addEventListener("pointerup", (event) => {
     if (fingers.has(event.pointerId)) lifted(event);
-    if (!transport?.leased() && !(event.button === 0 ? selecting : event.button === held)) return;
+    if (!started || (!leased() && !(event.button === 0 ? selecting : event.button === held))) return;
     if (event.button === 0) selecting = false;
     else held = -1;
     pushPointer(event, 0);
@@ -485,31 +527,31 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
   });
   // A capture ends when its program stops asking, also one granted late.
   function endStaleCapture() {
-    if (document.pointerLockElement === canvas && !transport?.relativePointerRequested()) document.exitPointerLock();
+    if (document.pointerLockElement === canvas && !relativePointerRequested()) document.exitPointerLock();
   }
   document.addEventListener("pointerlockchange", () => {
     selecting = false;
-    transport?.pushPointerCapture(document.pointerLockElement === canvas);
+    post({ type: "input-capture", captured: document.pointerLockElement === canvas });
     endStaleCapture();
   });
   canvas.addEventListener("wheel", (event) => {
-    if (!transport) return;
-    transport.pushScroll(event.deltaY, event.deltaMode);
+    if (!started) return;
+    post({ type: "input-scroll", delta: event.deltaY, unit: event.deltaMode });
     event.preventDefault();
   }, { passive: false });
 
   keyboard.addEventListener("compositionend", (event) => {
-    transport?.pushText(event.data);
+    post({ type: "input-text", text: event.data });
     keyboard.value = "";
   });
-  const deliverPaste = text => {
-    if (text && !transport?.pushPaste(text)) showStatus("Paste not delivered: the program's input buffer is full or too small");
+  const deliverPaste = async text => {
+    if (text && !await client.pushPaste(text)) showStatus("Paste not delivered: the program's input buffer is full or too small");
   };
   window.addEventListener("paste", (event) => {
-    if (event.target !== keyboard && (!transport?.leased() ||
+    if (event.target !== keyboard && (!leased() ||
         (event.target !== document.body && event.target !== canvas))) return;
     event.preventDefault();
-    deliverPaste(event.clipboardData?.getData("text/plain") ?? "");
+    void deliverPaste(event.clipboardData?.getData("text/plain") ?? "");
   });
   // A touchscreen has no paste chord: there the page shows its own Paste
   // button and reads the clipboard only inside the user's press of it.
@@ -527,35 +569,27 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
 
   return {
     page: {
-      get inputTransport() { return transport; },
+      get inputTransport() { return started ? client : undefined; },
       submit,
-      input: data => transport.pushText(data),
-      paste: data => transport.pushPaste(data),
-      key: (key, code, modifiers = 0) => transport.pushSyntheticKey(key, code, modifiers),
+      input: data => client.pushText(data),
+      paste: data => client.pushPaste(data),
+      key: (key, code, modifiers = 0) => client.pushSyntheticKey(key, code, modifiers),
     },
-    start(message) {
-      const started = transport = new InputTransport(message.memory, message.address, message.pasteAddress, {
-        dropped(count) {
-          document.documentElement.dataset.inputDropped = count;
-          showStatus("Input dropped: the program is not reading it");
-        },
-      });
-      started.enable(true);
-      // The kernel notifies the flags word when the lease or its pointer request changes.
-      const index = started.word + InputTransport.flags;
-      const follow = () => {
-        if (transport !== started) return;
-        const seen = Atomics.load(started.words, index);
+    messages: {
+      // The kernel's lease and pointer request, as the Worker saw them change.
+      "input-flags"(message) {
+        flags = message.flags;
         endStaleCapture();
-        void Promise.resolve(Atomics.waitAsync(started.words, index, seen).value).then(follow);
-      };
-      follow();
+      },
+      "input-idle"(message) { idleThrough = message.through; },
+      "input-dropped"(message) {
+        document.documentElement.dataset.inputDropped = message.count;
+        showStatus("Input dropped: the program is not reading it");
+      },
     },
+    start() { started = true; },
     dispose() {
-      for (const stop of waiting) stop(new Error("Dolly stopped"));
-      waiting.clear();
-      transport?.enable(false);
-      transport = undefined;
+      started = false;
       endStaleCapture();
       touchscreen.removeEventListener("change", placePaste);
       pasteButton.remove();
@@ -563,14 +597,79 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
   };
 }
 
-export function worker({ get }) {
+export function worker({ get, send }) {
+  let transport, stop, handled = 0, reported = 0;
+  // Each record the page sends, in its order; `sequence` counts them.
+  const record = write => message => {
+    if (!transport) return false;
+    const written = write(message);
+    handled = message.sequence;
+    return written;
+  };
   return {
+    messages: {
+      "input-key": record(({ key, code, modifiers, action, flags }) => transport.pushSyntheticKey(key, code, modifiers, action, flags)),
+      // Ctrl+C: the foreground program is interrupted if the terminal lets it,
+      // and reads the key otherwise.
+      "input-interrupt-key": record(({ key, code, modifiers, action, flags }) =>
+        get("runtime").terminal.interruptForeground() || transport.pushSyntheticKey(key, code, modifiers, action, flags)),
+      "input-text": record(({ text }) => transport.pushText(text)),
+      "input-paste": record(({ text }) => transport.pushPaste(text)),
+      "input-pointer": record(({ x, y, action, event }) => transport.pushPointer(x, y, action, event)),
+      "input-scroll": record(({ delta, unit }) => transport.pushScroll(delta, unit)),
+      "input-motion": record(({ movementX, movementY, position }) => {
+        transport.pushPointerMotion({ movementX, movementY });
+        if (position) transport.pushPointer(position.x, position.y, 2, position.event);
+        transport.flushMotion(transport.eventCapacity / 2);
+        return true;
+      }),
+      "input-focus": record(({ focused }) => transport.pushFocus(focused)),
+      "input-capture": record(({ captured }) => transport.pushPointerCapture(captured)),
+      "input-presence": record(({ inside }) => transport.pushPointerPresence(inside)),
+      // A command typed at the shell, resolving to the shell's status for it.
+      // The page hears of the foreground the shell left before it hears the status.
+      async "input-submit"(message) {
+        const runtime = get("runtime"), sequence = runtime.terminal.currentResultSequence();
+        if (!record(({ text }) => transport.pushText(text))(message)) throw new Error("Dolly input mailbox is full");
+        const status = await runtime.terminal.waitForResult(sequence);
+        runtime.reportForeground();
+        return status;
+      },
+    },
+    // Motion the ring had no room for, and whether the ring is empty after
+    // the last record the page sent.
+    service() {
+      if (!transport) return;
+      transport.flushMotion(transport.eventCapacity / 2);
+      if (handled !== reported && transport.inputIdle() && !transport.motionPending()) {
+        reported = handled;
+        send({ type: "input-idle", through: handled });
+      }
+    },
     start({ dolly, memory }) {
       const address = Number(dolly._dolly_input_mailbox_address());
+      const started = transport = new InputTransport(memory.buffer, address, Number(dolly._dolly_input_paste_buffer_address()),
+        { dropped: count => send({ type: "input-dropped", count }) });
+      started.enable(true);
       // The page notifies the write word for a record a reader waits on: a
       // program waiting for input resumes then, not at the next service tick.
-      get("runtime").serviceOnNotify(new Int32Array(memory.buffer), address / 4 + A.DOLLY_INPUT_WORD_EVENT_WRITE);
-      return { memory: memory.buffer, address, pasteAddress: Number(dolly._dolly_input_paste_buffer_address()) };
+      stop = get("runtime").serviceOnNotify(started.words, started.word + InputTransport.eventWrite);
+      // The kernel notifies the flags word when the lease or its pointer
+      // request changes; the page decides with what it was last told.
+      const index = started.word + InputTransport.flags;
+      const follow = () => {
+        if (transport !== started) return;
+        const seen = Atomics.load(started.words, index);
+        send({ type: "input-flags", flags: seen });
+        void Promise.resolve(Atomics.waitAsync(started.words, index, seen).value).then(follow);
+      };
+      follow();
+      return {};
+    },
+    dispose() {
+      transport?.enable(false);
+      transport = undefined;
+      stop?.();
     },
   };
 }

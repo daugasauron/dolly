@@ -3,7 +3,7 @@
 // finger moves it. Chromium's own touch events (CDP) and touch PointerEvents
 // dispatched in Firefox. Usage: node demos/fingers/test/fingers-browser.mjs
 import assert from "node:assert/strict";
-import { demoTest } from "../../browser.mjs";
+import { demoTest, snapshotDisplay, waitForDisplay } from "../../browser.mjs";
 
 const background = [18, 18, 26];
 // The markers' colours for ids 1 and 2, as fingers.c draws them.
@@ -14,22 +14,22 @@ for (const browser of ["chromium", "firefox"]) {
     const { page, text, prompt } = await open({ prompt: null, device: { hasTouch: true } });
     // The frame is the terminal's text area, once fingers has drawn it: the
     // figure's centre is the frame's. Positions below are its pixels.
-    const { left, top, scaleX, scaleY, width, height } = await (await page.waitForFunction(() => {
+    const { left, top, scaleX, scaleY, width, height } = await waitForDisplay(page, () => {
       const canvas = document.querySelector("#display"), box = canvas.getBoundingClientRect();
-      const colour = (x, y) => [...canvas.getContext("2d").getImageData(x, y, 1, 1).data].slice(0, 3).join();
+      const colour = (x, y) => [...displaySnapshot.getContext("2d").getImageData(x, y, 1, 1).data].slice(0, 3).join();
       const x = Math.floor(canvas.width / 2), y = Math.floor(canvas.height / 2);
       return __dolly.transport.graphicsActive() && colour(x, y) === "214,92,52" && colour(x - 1, y) === "240,196,72" &&
         { left: box.left, top: box.top, scaleX: box.width / canvas.width, scaleY: box.height / canvas.height,
           width: canvas.width, height: canvas.height };
-    })).jsonValue();
+    });
     const centre = [Math.floor(width / 2), Math.floor(height / 2)];
     const at = ([x, y], dx = 0, dy = 0) => [x + dx, y + dy];
     const css = ([x, y]) => [left + x * scaleX, top + y * scaleY];
-    const pixel = async point => page.evaluate(([x, y]) =>
-      [...document.querySelector("#display").getContext("2d").getImageData(x, y, 1, 1).data].slice(0, 3), point);
+    const pixel = async point => (await snapshotDisplay(page), page.evaluate(([x, y]) =>
+      [...displaySnapshot.getContext("2d").getImageData(x, y, 1, 1).data].slice(0, 3), point));
     const figure = async point => JSON.stringify(await pixel(point)) !== JSON.stringify(background);
-    const shown = (point, expected) => page.waitForFunction(([x, y, expected]) => JSON.stringify(
-      [...document.querySelector("#display").getContext("2d").getImageData(x, y, 1, 1).data].slice(0, 3)) === expected,
+    const shown = (point, expected) => waitForDisplay(page, ([x, y, expected]) => JSON.stringify(
+      [...displaySnapshot.getContext("2d").getImageData(x, y, 1, 1).data].slice(0, 3)) === expected,
     [...point, JSON.stringify(expected)]);
 
     const cdp = browser === "chromium" && await page.context().newCDPSession(page);
@@ -71,7 +71,7 @@ for (const browser of ["chromium", "firefox"]) {
     await shown(digit(held[1], 2, 1), marker[2]);
     assert.notDeepEqual(await pixel(digit(held[1], 1, 1)), marker[2]);
     await lift(held);
-    await page.waitForFunction(([x, y]) => [...document.querySelector("#display").getContext("2d")
+    await waitForDisplay(page, ([x, y]) => [...displaySnapshot.getContext("2d")
       .getImageData(x, y, 1, 1).data].slice(0, 3).join() !== "120,230,120", held[0]);
     assert.ok(await figure(at(centre, 120)) && await figure(at(centre, -150)) && !await figure(at(centre, 170)), "zoomed twice");
 
@@ -79,8 +79,8 @@ for (const browser of ["chromium", "firefox"]) {
     await fingers("touchStart", [centre]);
     for (let step = 1; step <= 5; ++step) await fingers("touchMove", [at(centre, 20 * step, 10 * step)]);
     await lift([at(centre, 100, 50)]);
-    await page.waitForFunction(([[x, y], [right, below]]) => {
-      const colour = (x, y) => [...document.querySelector("#display").getContext("2d").getImageData(x, y, 1, 1).data].slice(0, 3).join();
+    await waitForDisplay(page, ([[x, y], [right, below]]) => {
+      const colour = (x, y) => [...displaySnapshot.getContext("2d").getImageData(x, y, 1, 1).data].slice(0, 3).join();
       return colour(x, y) === "18,18,26" && colour(right, below) !== "18,18,26";
     }, [at(centre, -120), at(centre, 250, 50)]);
 

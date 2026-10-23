@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { acceptDownload, delay, demoTest, shellPrompt, shellQuote } from "../../browser.mjs";
+import { acceptDownload, delay, demoTest, shellPrompt, shellQuote, snapshotDisplay } from "../../browser.mjs";
 import { rtsProvider } from "./fixtures/rts-provider.mjs";
 
 const provider = rtsProvider();
@@ -183,12 +183,12 @@ try {
     await graphics(true);
     await page.waitForFunction(() => { const canvas = document.querySelector("canvas"); return canvas.width === 1600 && canvas.height === 972; });
     assert.equal(await match.done, 0);
-    const replayMarker = () => page.evaluate(() => {
-      const pixels = document.querySelector("canvas").getContext("2d").getImageData(5, 5, 100, 50).data;
+    const replayMarker = () => snapshotDisplay(page).then(() => page.evaluate(() => {
+      const pixels = displaySnapshot.getContext("2d").getImageData(5, 5, 100, 50).data;
       let hash = 2166136261;
       for (const byte of pixels) hash = Math.imul(hash ^ byte, 16777619);
       return hash >>> 0;
-    });
+    }));
     for (const player of [1, 2]) {
       game = start(`SKCONFIG=${test}/player${player} seven-kingdoms -noaudio -win`);
       await graphics(true);

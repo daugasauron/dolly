@@ -2,10 +2,10 @@ import { DOLLY_SESSION_MAX_BYTES, validSessionName } from "../../src/session-sto
 import { DOLLY_ERRNO } from "./abi.mjs";
 import * as A from "./abi.mjs";
 
-// The mailbox words as dolly-snapshot-0.wat names them. No filesystem paths
-// cross here. wake asks the kernel to serve the mailbox: on a request, after
-// each consumed chunk and on cancellation; the kernel thread never waits for
-// this page.
+// The mailbox words as dolly-snapshot-0.wat names them, the Worker's end. No
+// filesystem paths cross here. wake asks the kernel to serve the mailbox: on a
+// request, after each consumed chunk and on cancellation; the kernel never
+// waits for the page.
 export class SessionTransport {
   static requestSequence = A.DOLLY_SESSION_WORD_REQUEST_SEQUENCE;
   static completedSequence = A.DOLLY_SESSION_WORD_COMPLETED_SEQUENCE;

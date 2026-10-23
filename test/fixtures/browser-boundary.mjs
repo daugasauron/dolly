@@ -17,7 +17,7 @@ function uleb(value) {
 export async function runBrowserBoundaryChecks(assetRoot) {
   const asset = path => new URL(path, assetRoot).href;
   const { instantiateKernelPlugin } = await import(asset("src/kernel-plugin.mjs"));
-  const { NetworkTransport } = await import(asset("host/http/broker.mjs"));
+  const { HttpMailbox, NetworkTransport } = await import(asset("host/http/broker.mjs"));
   const { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_WORD_ERROR, DOLLY_HTTP_WORD_KIND, DOLLY_HTTP_WORD_LENGTH, DOLLY_HTTP_WORD_SEQUENCE } =
     await import(asset("host/http/abi.mjs"));
   const { DollyHttpPolicy, restrictDollyHttpPolicy, httpPolicyConfigurations } = await import(asset("host/http/policy.mjs"));
@@ -29,7 +29,7 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   const names = module => WebAssembly.Module.imports(module).map(x => `${x.module}.${x.name}`).sort();
   check(JSON.stringify(names(kernel)) === JSON.stringify(names(contract)), "outer import set changed");
   check(!names(kernel).some(x => /dlopen|dlsym/.test(x)), "kernel exposes a general loader");
-  await checkKernelBounds(asset, kernel, errno);
+  await inWorker("checkKernelBounds", assetRoot);
 
   // A normal Dolly process is not a resident plugin. Adding the expected
   // compatibility tag must not grant its syscall import to a kernel plugin.
@@ -45,9 +45,10 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   const policy = new DollyHttpPolicy({ rules: [{ origin: fixtureOrigin,
     path: "/fixture/http.txt", methods: ["GET"], timeoutMilliseconds: 1000 }] });
   let calls = 0, signal, received = false;
-  const broker = new NetworkTransport(new SharedArrayBuffer(64 + DOLLY_HTTP_SLOT_COUNT * (65536 + 64)), 64, policy);
-  const word = broker.address / 4;
-  const words = broker.words;
+  const mailbox = new HttpMailbox(new SharedArrayBuffer(64 + DOLLY_HTTP_SLOT_COUNT * (65536 + 64)), 64);
+  const broker = new NetworkTransport(mailbox, policy);
+  const word = mailbox.address / 4;
+  const words = mailbox.words;
   const handle = generation => (generation - 1) * DOLLY_HTTP_SLOT_COUNT + 1;
   const settled = async () => {
     while (broker.active) await new Promise(resolve => setTimeout(resolve, 1));
@@ -93,8 +94,8 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   check(Atomics.load(words, word + DOLLY_HTTP_WORD_ERROR) === errno.EIO,
     "native Fetch failure lost its transport errno");
   const cancelled = begin(5, "/fixture/http.txt");
-  await broker.dispatch({ sequence: handle(5), method: 0n, methodSize: 0n, url: 0n, urlSize: 0n,
-    headers: 0n, headersSize: 0n, body: 0n, bodySize: 0n, flags: 0 });
+  await broker.dispatch(mailbox.admission(undefined, { sequence: handle(5), method: 0n, methodSize: 0n, url: 0n, urlSize: 0n,
+    headers: 0n, headersSize: 0n, body: 0n, bodySize: 0n, flags: 0 }));
   await cancelled;
   check(Atomics.load(words, word + DOLLY_HTTP_WORD_ERROR) === errno.ECANCELED,
     "interruption lost its cancellation errno");
@@ -123,7 +124,7 @@ export async function runBrowserBoundaryChecks(assetRoot) {
     }
     Atomics.store(words, word + DOLLY_HTTP_WORD_SEQUENCE, handle(6));
     Atomics.store(words, word, 1);
-    check(await broker.dispatch(request) === 0, "literal metadata admission failed");
+    check(await broker.dispatch(mailbox.admission(memory, request)) === 0, "literal metadata admission failed");
     await settled();
     check(observations.length === (valid ? 1 : 0), `metadata was rewritten before Fetch: ${JSON.stringify(fields)}`);
     check(Atomics.load(words, word + DOLLY_HTTP_WORD_ERROR) ===
@@ -154,7 +155,7 @@ export async function runBrowserBoundaryChecks(assetRoot) {
       if (Atomics.load(words, word) !== 2) return;
       const length = Atomics.load(words, word + DOLLY_HTTP_WORD_LENGTH);
       if (Atomics.load(words, word + DOLLY_HTTP_WORD_KIND) === 3) {
-        chunks.push(new TextDecoder().decode(broker.bytes.slice(broker.address + 64, broker.address + 64 + length)));
+        chunks.push(new TextDecoder().decode(mailbox.bytes.slice(mailbox.address + 64, mailbox.address + 64 + length)));
       }
       Atomics.compareExchange(words, word, 2, 1);
       Atomics.notify(words, word);
@@ -175,16 +176,34 @@ export async function runBrowserBoundaryChecks(assetRoot) {
     nonConsumingDeadline: true, boundedAdmission: true, typedErrors: true, literalMetadata: true, defaultRedirects: true };
 }
 
+// Runs a check of this file in a dedicated Worker: the runtime's Worker side
+// waits there for the Worker that grows kernel memory, as the page cannot.
+function inWorker(name, assetRoot) {
+  const source = URL.createObjectURL(new Blob([`import { ${name} } from ${JSON.stringify(import.meta.url)};
+    onmessage = ({ data }) => ${name}(data).then(() => postMessage(null), error => postMessage(String(error)));`],
+    { type: "text/javascript" }));
+  const worker = new Worker(source, { type: "module" });
+  return new Promise((resolve, reject) => {
+    worker.onerror = event => reject(new Error(event.message));
+    worker.onmessage = ({ data }) => data === null ? resolve() : reject(new Error(data));
+    worker.postMessage(assetRoot);
+  }).finally(() => { worker.terminate(); URL.revokeObjectURL(source); });
+}
+
 // A kernel of its own, instantiated as the Worker does it: every import is a
 // host module's binding. Trusted code copies no more than its bounds from it.
-async function checkKernelBounds(asset, module, errno) {
+export async function checkKernelBounds(assetRoot) {
+  const asset = path => new URL(path, assetRoot).href;
   const { hostRegistry } = await import(asset("host/modules.mjs"));
   const { bootFiles } = await import(asset("host/runtime/boot-files.mjs"));
+  const { DOLLY_ERRNO: errno } = await import(asset("src/process-constants.mjs"));
+  const module = await WebAssembly.compileStreaming(fetch(asset("dist/dolly.wasm")));
   const sent = [];
   // The runtime alone: every other module's import answers ENOSYS.
   const registry = await hostRegistry([asset("host/runtime/module.json")]);
   const host = await registry.createHost("worker", ["runtime@0"], { send: message => sent.push(message) });
   try {
+    await host.kernel.growing;
     const kernel = (await WebAssembly.instantiate(module, host.imports(module))).exports;
     kernel._initialize();
     const files = bootFiles(kernel, host.kernel.memory), entryLimit = 64 * 1024;

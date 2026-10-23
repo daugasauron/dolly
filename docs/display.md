@@ -20,14 +20,17 @@ flowchart LR
 
 ## Page
 
-- The presenter ([`display.mjs`](../host/display/display.mjs)) copies a
-  published frame once, into an image it keeps per frame size, and paints only
-  when the frame sequence changes. An idle terminal requests no animation
-  frames: the Worker notifies the page of a new frame, lease or cursor.
-- The page notifies the Worker of each animation frame, so a program waiting
-  for one resumes then, not at the next 16 ms tick.
-- The page writes the terminal area's size in CSS pixels and the device scale
-  into the mailbox whenever they change. The kernel hands them to the driver
+- The presenter ([`display.mjs`](../host/display/display.mjs)) runs in the
+  runtime Worker and paints the page's canvas, handed to it as an
+  `OffscreenCanvas`. It copies a published frame once, into an image it keeps
+  per frame size, and paints only when the frame sequence changes. An idle
+  terminal requests no animation frames: the service tick wakes the presenter
+  for a new frame, lease or cursor. The page learns the grid, geometry, cursor
+  and lease by message; when the image ends it keeps the last frame.
+- The presenter notifies the kernel of each animation frame, so a program
+  waiting for one resumes then, not at the next 16 ms tick.
+- The page sends the terminal area's size in CSS pixels and the device scale,
+  which the Worker writes into the mailbox, whenever they change. The kernel hands them to the driver
   on its tick, lease or not, and sends SIGWINCH when the grid changes, also
   when Ctrl+= or Ctrl+- changed the font size.
 

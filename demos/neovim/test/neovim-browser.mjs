@@ -2,7 +2,7 @@
 // then a Unicode paste, resize, terminal modes after exit and Ctrl-C as input.
 // Usage: node demos/neovim/test/neovim-browser.mjs
 import assert from "node:assert/strict";
-import { delay, demoTest, recoveryPrompt, writeCommand } from "../../browser.mjs";
+import { delay, demoTest, recoveryPrompt, snapshotDisplay, writeCommand } from "../../browser.mjs";
 
 await demoTest("neovim", { image: "neovim", timeout: 600_000 }, async ({ open }) => {
   const { page, submit, run, start, prompt, waitText, input } = await open({ prompt: null });
@@ -45,14 +45,14 @@ await demoTest("neovim", { image: "neovim", timeout: 600_000 }, async ({ open })
   assert.equal(await page.evaluate(() => __dolly.paste("Dolly 日本語\n")), true);
   await waitText(/Dolly 日本語/);
   // The mode line shows Insert mode until Escape, without another key or resize.
-  const modeLine = () => page.evaluate(() => {
+  const modeLine = async () => (await snapshotDisplay(page), page.evaluate(() => {
     const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry();
-    const pixels = document.querySelector("#display").getContext("2d").getImageData(
+    const pixels = displaySnapshot.getContext("2d").getImageData(
       paddingX, paddingY + (__dolly.transport.dimensions().rows - 1) * cellHeight, cellWidth * 12, cellHeight).data;
     let lit = 0;
     for (let i = 0; i < pixels.length; i += 4) if (pixels[i] > 100 && pixels[i + 1] > 100 && pixels[i + 2] > 100) lit++;
     return lit;
-  });
+  }));
   const modeShown = async (shown, label) => {
     for (const deadline = Date.now() + 4000; (await modeLine() > 0) !== shown; await delay(100)) assert.ok(Date.now() < deadline, label);
   };

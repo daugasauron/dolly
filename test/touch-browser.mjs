@@ -35,7 +35,7 @@ const line = number => new RegExp(`DOLLY-SCROLL-${String(number).padStart(3, "0"
 
 await browserTest("touch", { image: "system", server: { fixtures }, timeout: 300_000 }, async ({ name, server, open }) => {
   const session = await opened(open, server, { hasTouch: true });
-  const { page, submit, text, waitForText, run, errors } = session;
+  const { page, submit, text, waitForText, waitForSelection, run, errors } = session;
   await run(`curl -fsS ${server.origin}/fixture/touch.c -o /tmp/touch.c && cc /tmp/touch.c -o /tmp/touch`);
   await run("/tmp/touch refuse");
   assert.match(await text(), /TOUCH_REFUSALS_OK/);
@@ -111,12 +111,12 @@ await browserTest("touch", { image: "system", server: { fixtures }, timeout: 300
   const cell = await page.evaluate(() => __dolly.transport.geometry().cellHeight) / canvas.scale;
   const drag = [[canvas.left + 150, canvas.top + 100]];
   // Reading the screen selected it; a click clears that.
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
     const { paddingX, paddingY } = __dolly.transport.geometry();
-    __dolly.inputTransport.pushPointer(paddingX, paddingY, 1, {});
-    __dolly.inputTransport.pushPointer(paddingX, paddingY, 0, {});
+    await __dolly.inputTransport.pushPointer(paddingX, paddingY, 1, {});
+    await __dolly.inputTransport.pushPointer(paddingX, paddingY, 0, {});
   });
-  await page.waitForFunction(() => __dolly.copySelection() === null);
+  await waitForSelection(null);
   await fingers("touchStart", drag, [0]);
   for (let n = 1; n <= 11; ++n) await fingers("touchMove", [[drag[0][0], drag[0][1] + n * cell / 2]], [0]);
   await fingers("touchEnd", cdp ? [] : [[drag[0][0], drag[0][1] + 5.5 * cell]], cdp ? [] : [0]);

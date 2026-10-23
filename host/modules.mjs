@@ -75,6 +75,15 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
   // those its session enabled since (nena@0).
   const admittedAbi = new Map();
   let disposed = false;
+  // ask(message) sends a message to the other side and resolves to what its
+  // handler returns there (or rejects with what it throws).
+  const answers = new Map();
+  let asked = 0;
+  const ask = (message, transfers = []) => new Promise((resolve, reject) => {
+    if (disposed) return reject(new Error("host providers closed"));
+    answers.set(++asked, { resolve, reject });
+    send({ ...message, answer: asked }, transfers);
+  });
   function requireModules(requirements) {
     for (const value of hostRequirements(requirements)) {
       const { name, version } = hostRequirement(value), module = byName.get(name);
@@ -117,7 +126,7 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
       }
       return get(name);
     };
-    const instance = module[side]?.({ ...resources, send, get: dependency,
+    const instance = module[side]?.({ ...resources, send, ask, get: dependency,
       service: () => { for (const instance of instances.values()) instance.service?.(); },
       claimsKey, surfaceSize,
       abi: admittedAbi, modules: module.contract.switches && side === "browser" ? { list, enable, disable } : undefined,
@@ -228,8 +237,9 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
   function dispose() {
     if (disposed) return;
     disposed = true;
-    for (const wait of pending.values()) wait.reject(new Error("host providers closed"));
+    for (const wait of [...pending.values(), ...answers.values()]) wait.reject(new Error("host providers closed"));
     pending.clear();
+    answers.clear();
     for (const instance of [...instances.values()].reverse()) instance.dispose?.();
   }
   try {
@@ -336,9 +346,20 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
         switched.delete(message.module);
         return true;
       }
+      if (message.type === "host-answer") {
+        const waiting = answers.get(message.answer);
+        answers.delete(message.answer);
+        if (message.error === undefined) waiting?.resolve(message.result); else waiting?.reject(new Error(message.error));
+        return true;
+      }
       const handler = messages.get(message.type);
       if (!handler) return false;
-      await handler(message);
+      if (message.answer === undefined) {
+        await handler(message);
+        return true;
+      }
+      try { send({ type: "host-answer", answer: message.answer, result: await handler(message) }); }
+      catch (error) { send({ type: "host-answer", answer: message.answer, error: error.message }); }
       return true;
     },
     async start(phase, context) {

@@ -9,9 +9,10 @@ import { DOLLY_UPLOAD_CHUNK_CAPACITY as chunkCapacity, DOLLY_UPLOAD_MAX_SIZE, DO
 export const UPLOAD_CANCEL_QUIET_MILLISECONDS = 2000;
 const mebibytes = bytes => (bytes / 1048576).toFixed(1);
 
-// Mailbox words as dolly-upload-0.wat names them: user-selected bytes only,
-// one chunk at a time. The browser never receives a path. chooseFile(controller) resolves to the file or null; the
-// user's Cancel aborts the controller, before or during the transfer.
+// Mailbox words as dolly-upload-0.wat names them, the Worker's end: user-selected
+// bytes only, one chunk at a time. The browser never receives a path.
+// chooseFile(controller) resolves to the file or null; the user's Cancel aborts
+// the controller, before or during the transfer.
 export class UploadTransport {
   constructor(buffer, address, chooseFile, showProgress = () => {}) {
     if (!(buffer instanceof SharedArrayBuffer) || !Number.isSafeInteger(address) ||

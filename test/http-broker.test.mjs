@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
-import { NetworkTransport, DOLLY_HTTP_LIMITS } from "../host/http/broker.mjs";
+import { HttpMailbox, NetworkTransport, DOLLY_HTTP_LIMITS } from "../host/http/broker.mjs";
 import { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_HEADER_SIZE, DOLLY_HTTP_WORD_EOF, DOLLY_HTTP_WORD_ERROR, DOLLY_HTTP_WORD_KIND, DOLLY_HTTP_WORD_LENGTH, DOLLY_HTTP_WORD_SEQUENCE, DOLLY_HTTP_WORD_STATE } from "../host/http/abi.mjs";
 import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
 import { localServicesTransport } from "../host/http/local-services.mjs";
@@ -14,12 +14,12 @@ function fixture(configuration = {}, fetchRequest) {
     rules: [{ origin: new URL(target).origin, path: "/allowed", methods: ["GET", "POST"],
       timeoutMilliseconds: 1000, ...configuration }],
   });
-  const broker = new NetworkTransport(new SharedArrayBuffer(64 + DOLLY_HTTP_SLOT_COUNT * (65536 + 64)), 64,
-    policy, { fetchRequest });
+  const mailbox = new HttpMailbox(new SharedArrayBuffer(64 + DOLLY_HTTP_SLOT_COUNT * (65536 + 64)), 64);
+  const broker = new NetworkTransport(mailbox, policy, { fetchRequest });
   let currentSequence = 1;
-  const address = () => broker.address + ((currentSequence - 1) % DOLLY_HTTP_SLOT_COUNT) * (65536 + 64);
-  const store = (field, value) => Atomics.store(broker.words, address() / 4 + field, value);
-  const load = field => Atomics.load(broker.words, address() / 4 + field);
+  const address = () => mailbox.address + ((currentSequence - 1) % DOLLY_HTTP_SLOT_COUNT) * (65536 + 64);
+  const store = (field, value) => Atomics.store(mailbox.words, address() / 4 + field, value);
+  const load = field => Atomics.load(mailbox.words, address() / 4 + field);
   const request = (overrides = {}, sequence = 1) => {
     currentSequence = sequence;
     store(DOLLY_HTTP_WORD_SEQUENCE, sequence);
@@ -27,7 +27,9 @@ function fixture(configuration = {}, fetchRequest) {
     return broker.request({ method: "GET", url: target, headers: "", body: null,
       flags: 0, sequence, ...overrides });
   };
-  return { broker, store, load, request, get word() { return address() / 4; }, get address() { return address(); } };
+  // A descriptor as the kernel import passes it, admitted as the Worker does.
+  const dispatch = message => broker.dispatch(mailbox.admission(message.memory, message));
+  return { broker, mailbox, dispatch, store, load, request, get word() { return address() / 4; }, get address() { return address(); } };
 }
 
 async function bounded(promise) {
@@ -50,9 +52,9 @@ async function consume(f, request) {
     const length = f.load(DOLLY_HTTP_WORD_LENGTH);
     const eof = f.load(DOLLY_HTTP_WORD_EOF);
     records.push({ kind: f.load(DOLLY_HTTP_WORD_KIND), eof,
-      bytes: f.broker.bytes.slice(f.address + 64, f.address + 64 + length) });
-    Atomics.compareExchange(f.broker.words, f.word, 2, eof ? 0 : 1);
-    Atomics.notify(f.broker.words, f.word);
+      bytes: f.mailbox.bytes.slice(f.address + 64, f.address + 64 + length) });
+    Atomics.compareExchange(f.mailbox.words, f.word, 2, eof ? 0 : 1);
+    Atomics.notify(f.mailbox.words, f.word);
   };
   const interval = setInterval(drain, 1);
   try { await bounded(request); drain(); return records; }
@@ -193,7 +195,7 @@ test("a non-consuming mailbox cannot retain HTTP resources past the host deadlin
   assert.equal(f.load(DOLLY_HTTP_WORD_STATE), 3);
   assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.ETIMEDOUT);
   // A late acknowledgement of the old chunk must not erase terminal failure.
-  assert.equal(Atomics.compareExchange(f.broker.words, f.word, 2, 1), 3);
+  assert.equal(Atomics.compareExchange(f.mailbox.words, f.word, 2, 1), 3);
   assert.equal(f.load(DOLLY_HTTP_WORD_STATE), 3);
 });
 
@@ -220,7 +222,7 @@ test("interrupting an old HTTP request does not abort or overwrite its successor
     signals.push(options.signal); return new Response("ok");
   });
   const old = f.request();
-  await f.broker.dispatch(cancelMessage(1));
+  await f.dispatch(cancelMessage(1));
   const next = f.request({}, 2);
   await bounded(old);
   assert.equal(signals[0].aborted, true);
@@ -233,13 +235,13 @@ test("interrupting an old HTTP request does not abort or overwrite its successor
 test("a queued publication cannot write after interruption", async () => {
   const f = fixture({}, async () => new Response("old"));
   const pending = f.request();
-  await f.broker.dispatch(cancelMessage(1));
+  await f.dispatch(cancelMessage(1));
   f.store(DOLLY_HTTP_WORD_SEQUENCE, 17);
   f.store(DOLLY_HTTP_WORD_STATE, 1);
   await bounded(pending);
   assert.equal(f.load(DOLLY_HTTP_WORD_STATE), 1);
   assert.equal(f.load(DOLLY_HTTP_WORD_LENGTH), 0);
-  assert.equal(f.broker.bytes[f.address + DOLLY_HTTP_HEADER_SIZE], 0);
+  assert.equal(f.mailbox.bytes[f.address + DOLLY_HTTP_HEADER_SIZE], 0);
 });
 
 function admission(f, overrides = {}, sequence = 1) {
@@ -267,7 +269,7 @@ test("HTTP metadata is not repaired by stripping Unicode before validation", asy
   ]) {
     let calls = 0;
     const f = fixture({}, async () => { calls++; return new Response("ok"); });
-    assert.equal(await f.broker.dispatch(admission(f, fields)), 0);
+    assert.equal(await f.dispatch(admission(f, fields)), 0);
     await consume(f, settled(f));
     assert.equal(calls, 0, JSON.stringify(fields));
     assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.EINVAL);
@@ -280,7 +282,7 @@ test("HTTP header values use Fetch whitespace normalization, not Unicode trim", 
     const f = fixture({}, async (_url, options) => {
       observed = options.headers.get("x-value"); return new Response("ok");
     });
-    assert.equal(await f.broker.dispatch(admission(f, { headers: `X-Value:${value}\r\n` })), 0);
+    assert.equal(await f.dispatch(admission(f, { headers: `X-Value:${value}\r\n` })), 0);
     await consume(f, settled(f));
     assert.equal(observed, new Headers({ "X-Value": value }).get("x-value"));
   }
@@ -292,9 +294,9 @@ test("HTTP validates every span before decoding or copying any guest data", asyn
   const decode = t.mock.method(TextDecoder.prototype, "decode");
   const copy = t.mock.method(Uint8Array.prototype, "slice");
   for (const [name, maximum] of Object.entries(DOLLY_HTTP_LIMITS)) {
-    assert.equal(await f.broker.dispatch({ ...message, [`${name}Size`]: BigInt(maximum) + 1n }), -errno.E2BIG);
+    assert.equal(await f.dispatch({ ...message, [`${name}Size`]: BigInt(maximum) + 1n }), -errno.E2BIG);
     for (const pointer of [-1n, 1n << 60n, 1025n]) {
-      assert.equal(await f.broker.dispatch({ ...message, [name]: pointer }), -errno.EFAULT);
+      assert.equal(await f.dispatch({ ...message, [name]: pointer }), -errno.EFAULT);
     }
   }
   assert.equal(decode.mock.callCount(), 0);
@@ -309,21 +311,21 @@ test("HTTP admission rejects occupied slots and cancels the exact handle", async
     return new Promise((_, reject) => options.signal.addEventListener("abort", () => reject(options.signal.reason)));
   });
   const message = admission(f);
-  assert.equal(await f.broker.dispatch(message), 0);
+  assert.equal(await f.dispatch(message), 0);
   assert.equal(calls, 1);
-  assert.equal(await f.broker.dispatch(message), -errno.EBUSY);
+  assert.equal(await f.dispatch(message), -errno.EBUSY);
   const cancel = { ...message };
   for (const name of Object.keys(DOLLY_HTTP_LIMITS)) { cancel[name] = 0n; cancel[`${name}Size`] = 0n; }
-  assert.equal(await bounded(f.broker.dispatch(cancel)), 0);
+  assert.equal(await bounded(f.dispatch(cancel)), 0);
   await bounded(settled(f));
   assert.equal(f.broker.active, false);
   assert.equal(calls, 1);
-  assert.equal(await f.broker.dispatch({ ...cancel, urlSize: 1n }), -errno.EINVAL);
+  assert.equal(await f.dispatch({ ...cancel, urlSize: 1n }), -errno.EINVAL);
   const bytes = new Uint8Array(message.memory);
   bytes[Number(message.method)] = 0;
-  assert.equal(await f.broker.dispatch(message), -errno.EINVAL);
+  assert.equal(await f.dispatch(message), -errno.EINVAL);
   bytes[Number(message.method)] = 0xff;
-  assert.equal(await f.broker.dispatch(message), -errno.EINVAL);
+  assert.equal(await f.dispatch(message), -errno.EINVAL);
 });
 
 test("HTTP terminal errors distinguish quota, timeout, cancellation, and opaque transport failures", async () => {
@@ -336,18 +338,18 @@ test("HTTP terminal errors distinguish quota, timeout, cancellation, and opaque 
   f.broker.policy.maxRequests = 100;
   f.broker.fetchRequest = async () => new Response("cancel me");
   const cancelled = f.request({}, 3);
-  await f.broker.dispatch(cancelMessage(3));
+  await f.dispatch(cancelMessage(3));
   await bounded(cancelled);
   assert.equal(f.load(DOLLY_HTTP_WORD_STATE), 3);
   assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.ECANCELED);
 });
 
-function channel(broker, sequence) {
-  const address = broker.address + ((sequence - 1) % DOLLY_HTTP_SLOT_COUNT) * (65536 + 64);
+function channel({ broker, mailbox }, sequence) {
+  const address = mailbox.address + ((sequence - 1) % DOLLY_HTTP_SLOT_COUNT) * (65536 + 64);
   const word = address / 4;
-  return { broker, address, word,
-    store: (field, value) => Atomics.store(broker.words, word + field, value),
-    load: field => Atomics.load(broker.words, word + field) };
+  return { broker, mailbox, address, word,
+    store: (field, value) => Atomics.store(mailbox.words, word + field, value),
+    load: field => Atomics.load(mailbox.words, word + field) };
 }
 
 function cancelMessage(sequence) {
@@ -359,10 +361,10 @@ test("HTTP handles preserve their high bit across the Wasm i32 import", async ()
   const f = fixture({}, async (_url, { signal }) => new Promise((_, reject) =>
     signal.addEventListener("abort", () => reject(signal.reason))));
   for (const sequence of [0x80000000, 0xffffffff]) {
-    const view = channel(f.broker, sequence);
+    const view = channel(f, sequence);
     const message = admission(view, {}, sequence);
-    assert.equal(await f.broker.dispatch({ ...message, sequence: sequence | 0 }), 0);
-    assert.equal(await f.broker.dispatch(cancelMessage(sequence | 0)), 0);
+    assert.equal(await f.dispatch({ ...message, sequence: sequence | 0 }), 0);
+    assert.equal(await f.dispatch(cancelMessage(sequence | 0)), 0);
     await bounded(settled(f));
     assert.equal(view.load(DOLLY_HTTP_WORD_STATE), 3);
     assert.equal(view.load(DOLLY_HTTP_WORD_ERROR), errno.ECANCELED);
@@ -372,9 +374,9 @@ test("HTTP handles preserve their high bit across the Wasm i32 import", async ()
 test("independent HTTP streams reach the provider before either response completes", async () => {
   const responses = [];
   const f = fixture({}, async () => new Promise(resolve => responses.push(resolve)));
-  const channels = [channel(f.broker, 1), channel(f.broker, 2)];
+  const channels = [channel(f, 1), channel(f, 2)];
   for (let index = 0; index < channels.length; index++)
-    assert.equal(await f.broker.dispatch(admission(channels[index], {}, index + 1)), 0);
+    assert.equal(await f.dispatch(admission(channels[index], {}, index + 1)), 0);
   assert.equal(responses.length, 2, "requests must overlap at the actual provider call");
   const consumers = channels.map(view => consume(view, settled(f)));
   responses.forEach((resolve, index) => resolve(new Response(`player-${index + 1}`)));
@@ -387,24 +389,24 @@ test("independent HTTP streams reach the provider before either response complet
 test("cancelled providers retain bounded host slots without blocking peers or admission", async () => {
   const providers = [];
   const f = fixture({}, async (_url, { signal }) => new Promise(resolve => providers.push({ signal, resolve })));
-  const channels = Array.from({ length: DOLLY_HTTP_SLOT_COUNT }, (_, i) => channel(f.broker, i + 1));
+  const channels = Array.from({ length: DOLLY_HTTP_SLOT_COUNT }, (_, i) => channel(f, i + 1));
   for (let index = 0; index < channels.length; index++) {
-    assert.equal(await f.broker.dispatch(admission(channels[index], {}, index + 1)), 0);
-    assert.equal(await bounded(f.broker.dispatch(cancelMessage(index + 1))), 0);
+    assert.equal(await f.dispatch(admission(channels[index], {}, index + 1)), 0);
+    assert.equal(await bounded(f.dispatch(cancelMessage(index + 1))), 0);
   }
   assert.equal(providers.length, DOLLY_HTTP_SLOT_COUNT);
   assert(providers.every(provider => provider.signal.aborted));
-  assert.equal(await f.broker.dispatch(admission(channels[0], {}, 17)), -errno.EBUSY,
+  assert.equal(await f.dispatch(admission(channels[0], {}, 17)), -errno.EBUSY,
     "forging a free guest slot must not start a seventeenth provider");
   assert.equal(providers.length, DOLLY_HTTP_SLOT_COUNT);
   providers.forEach(provider => provider.resolve(new Response("late")));
   await bounded(settled(f));
   assert.equal(channels[0].load(DOLLY_HTTP_WORD_STATE), 1, "old completions must not overwrite generation 17");
   assert.equal(channels[0].load(DOLLY_HTTP_WORD_LENGTH), 0);
-  const survivor = channel(f.broker, 17);
+  const survivor = channel(f, 17);
   f.broker.fetchRequest = async () => new Response("survivor");
-  assert.equal(await f.broker.dispatch(admission(survivor, {}, 17)), 0);
-  assert.equal(await f.broker.dispatch(cancelMessage(1)), -errno.ESTALE);
+  assert.equal(await f.dispatch(admission(survivor, {}, 17)), 0);
+  assert.equal(await f.dispatch(cancelMessage(1)), -errno.ESTALE);
   const records = await consume(survivor, settled(f));
   assert.equal(records.at(-1).eof, 1);
 });
@@ -414,10 +416,10 @@ test("cancelling one request leaves the other stream and its deadline independen
   const f = fixture({}, async (_url, { signal }) => {
     signals.push(signal); return new Response("peer response");
   });
-  const first = channel(f.broker, 1), second = channel(f.broker, 2);
-  assert.equal(await f.broker.dispatch(admission(first, {}, 1)), 0);
-  assert.equal(await f.broker.dispatch(admission(second, {}, 2)), 0);
-  assert.equal(await f.broker.dispatch(cancelMessage(1)), 0);
+  const first = channel(f, 1), second = channel(f, 2);
+  assert.equal(await f.dispatch(admission(first, {}, 1)), 0);
+  assert.equal(await f.dispatch(admission(second, {}, 2)), 0);
+  assert.equal(await f.dispatch(cancelMessage(1)), 0);
   assert(signals[0].aborted);
   assert.equal(signals[1].aborted, false);
   assert.equal(first.load(DOLLY_HTTP_WORD_ERROR), errno.ECANCELED);
@@ -429,9 +431,9 @@ test("concurrent requests share quota and each stalled reader has a deadline", a
   let calls = 0;
   const f = fixture({ timeoutMilliseconds: 25 }, async () => { calls++; return new Response("body"); });
   f.broker.policy.maxRequests = 1;
-  const first = channel(f.broker, 1), second = channel(f.broker, 2);
-  assert.equal(await f.broker.dispatch(admission(first, {}, 1)), 0);
-  assert.equal(await f.broker.dispatch(admission(second, {}, 2)), 0);
+  const first = channel(f, 1), second = channel(f, 2);
+  assert.equal(await f.dispatch(admission(first, {}, 1)), 0);
+  assert.equal(await f.dispatch(admission(second, {}, 2)), 0);
   await bounded(settled(f));
   assert.equal(calls, 1);
   assert.equal(second.load(DOLLY_HTTP_WORD_ERROR), errno.EDQUOT);
@@ -442,11 +444,11 @@ test("concurrent requests share quota and each stalled reader has a deadline", a
 test("runtime teardown aborts every provider and refuses already-queued admissions", async () => {
   let calls = 0;
   const f = fixture({}, async () => { calls++; return new Response("body"); });
-  const first = channel(f.broker, 1), second = channel(f.broker, 2);
-  assert.equal(await f.broker.dispatch(admission(first, {}, 1)), 0);
-  assert.equal(await f.broker.dispatch(admission(second, {}, 2)), 0);
+  const first = channel(f, 1), second = channel(f, 2);
+  assert.equal(await f.dispatch(admission(first, {}, 1)), 0);
+  assert.equal(await f.dispatch(admission(second, {}, 2)), 0);
   f.broker.close();
-  assert.equal(await f.broker.dispatch(admission(channel(f.broker, 3), {}, 3)), -errno.ECANCELED);
+  assert.equal(await f.dispatch(admission(channel(f, 3), {}, 3)), -errno.ECANCELED);
   await bounded(settled(f));
   assert.equal(first.load(DOLLY_HTTP_WORD_ERROR), errno.ECANCELED);
   assert.equal(second.load(DOLLY_HTTP_WORD_ERROR), errno.ECANCELED);
@@ -485,12 +487,13 @@ test("a relayed request is fetched from the relay, without redirects, and answer
   const policy = new DollyHttpPolicy(undefined, [], "https://page.example/",
     [{ origin: new URL(target).origin, through: "https://page.example/relay/" }]);
   let fetched, options;
-  const broker = new NetworkTransport(new SharedArrayBuffer(64 + DOLLY_HTTP_SLOT_COUNT * (65536 + 64)), 64, policy, {
+  const mailbox = new HttpMailbox(new SharedArrayBuffer(64 + DOLLY_HTTP_SLOT_COUNT * (65536 + 64)), 64);
+  const broker = new NetworkTransport(mailbox, policy, {
     fetchRequest: async (url, supplied) => { fetched = url.href; options = supplied; return new Response("relayed"); },
   });
-  const f = { broker, load: field => Atomics.load(broker.words, broker.address / 4 + field), address: broker.address, word: broker.address / 4 };
-  Atomics.store(broker.words, broker.address / 4 + DOLLY_HTTP_WORD_SEQUENCE, 1);
-  Atomics.store(broker.words, broker.address / 4 + DOLLY_HTTP_WORD_STATE, 1);
+  const f = { broker, mailbox, load: field => Atomics.load(mailbox.words, mailbox.address / 4 + field), address: mailbox.address, word: mailbox.address / 4 };
+  Atomics.store(mailbox.words, mailbox.address / 4 + DOLLY_HTTP_WORD_SEQUENCE, 1);
+  Atomics.store(mailbox.words, mailbox.address / 4 + DOLLY_HTTP_WORD_STATE, 1);
   const records = await consume(f, broker.request({ method: "GET", url: `${target}?q=1`, body: null, flags: 2, sequence: 1,
     headers: "Authorization: Bearer sandbox-key\r\nGit-Protocol: version=2\r\n" }));
   assert.equal(fetched, "https://page.example/relay/fixture.example/allowed?q=1");

@@ -10,22 +10,22 @@
 // Usage: node demos/x11/test/x11-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-import { delay, demoTest, shellPrompt } from "../../browser.mjs";
+import { delay, demoTest, shellPrompt, snapshotDisplay, waitForDisplay } from "../../browser.mjs";
 
 const evidence = new URL("../../../build/x11-evidence/", import.meta.url).pathname;
 const width = 1600, height = 900;
 
 // The frame's pixels in a box: how many are not the root window's black, and
 // a digest that changes with any of them.
-const region = (page, x, y, w, h) => page.evaluate(([x, y, w, h]) => {
-  const data = document.querySelector("#display").getContext("2d").getImageData(x, y, w, h).data;
+const region = async (page, x, y, w, h) => { await snapshotDisplay(page); return page.evaluate(([x, y, w, h]) => {
+  const data = displaySnapshot.getContext("2d").getImageData(x, y, w, h).data;
   let lit = 0, digest = 0;
   for (let i = 0; i < data.length; i += 4) {
     if (data[i] + data[i + 1] + data[i + 2] > 0) lit++;
     digest = (digest * 31 + data[i] + 7 * data[i + 1] + 13 * data[i + 2]) >>> 0;
   }
   return { lit, digest };
-}, [x, y, w, h]);
+}, [x, y, w, h]); };
 // Page coordinates of a frame pixel: the canvas is scaled to the page.
 async function at(page, x, y) {
   const box = await page.locator("#display").boundingBox();
@@ -56,16 +56,16 @@ for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", ti
   [width, height], { timeout: 120_000, polling: 50 });
   const server = performance.now();
   // xclock's window, framed by twm at +40+40: its face is drawn inside.
-  await page.waitForFunction(() => {
-    const data = document.querySelector("#display").getContext("2d").getImageData(60, 80, 140, 140).data;
+  await waitForDisplay(page, () => {
+    const data = displaySnapshot.getContext("2d").getImageData(60, 80, 140, 140).data;
     let lit = 0;
     for (let i = 0; i < data.length; i += 4) lit += data[i] + data[i + 1] + data[i + 2] > 0;
     return lit > 1000;
   }, null, { timeout: 120_000, polling: 50 });
   const firstWindow = performance.now();
   // Both windows are up: xeyes' at +260+40 has its eyes drawn too.
-  await page.waitForFunction(() => {
-    const data = document.querySelector("#display").getContext("2d").getImageData(270, 70, 220, 120).data;
+  await waitForDisplay(page, () => {
+    const data = displaySnapshot.getContext("2d").getImageData(270, 70, 220, 120).data;
     let lit = 0;
     for (let i = 0; i < data.length; i += 4) lit += data[i] + data[i + 1] + data[i + 2] > 0;
     return lit > 4000;
@@ -78,8 +78,8 @@ for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", ti
   const eyes = await region(page, 270, 70, 220, 120);
   const moved = performance.now();
   await page.mouse.move(...await at(page, 900, 600), { steps: 4 });
-  await page.waitForFunction(([before]) => {
-    const data = document.querySelector("#display").getContext("2d").getImageData(270, 70, 220, 120).data;
+  await waitForDisplay(page, ([before]) => {
+    const data = displaySnapshot.getContext("2d").getImageData(270, 70, 220, 120).data;
     let digest = 0;
     for (let i = 0; i < data.length; i += 4) digest = (digest * 31 + data[i] + 7 * data[i + 1] + 13 * data[i + 2]) >>> 0;
     return digest !== before;
@@ -102,8 +102,8 @@ for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", ti
   await page.screenshot({ path: `${evidence}${browser}-drag.png` });
   const released = performance.now();
   await page.mouse.up();
-  await page.waitForFunction(() => {
-    const data = document.querySelector("#display").getContext("2d").getImageData(660, 80, 140, 140).data;
+  await waitForDisplay(page, () => {
+    const data = displaySnapshot.getContext("2d").getImageData(660, 80, 140, 140).data;
     let lit = 0;
     for (let i = 0; i < data.length; i += 4) lit += data[i] + data[i + 1] + data[i + 2] > 0;
     return lit > 1000;
@@ -122,8 +122,8 @@ for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", ti
   const line = await region(page, 40, 320, 500, 20);
   const pressed = performance.now();
   await page.keyboard.press("e");
-  await page.waitForFunction(([before]) => {
-    const data = document.querySelector("#display").getContext("2d").getImageData(40, 320, 500, 20).data;
+  await waitForDisplay(page, ([before]) => {
+    const data = displaySnapshot.getContext("2d").getImageData(40, 320, 500, 20).data;
     let digest = 0;
     for (let i = 0; i < data.length; i += 4) digest = (digest * 31 + data[i] + 7 * data[i + 1] + 13 * data[i + 2]) >>> 0;
     return digest !== before;
@@ -141,15 +141,15 @@ for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", ti
   await delay(300);
   await page.mouse.up();
   await page.mouse.move(...await at(page, 900, 450), { steps: 10 });
-  await page.waitForFunction(() => {
-    const data = document.querySelector("#display").getContext("2d").getImageData(895, 500, 10, 240).data;
+  await waitForDisplay(page, () => {
+    const data = displaySnapshot.getContext("2d").getImageData(895, 500, 10, 240).data;
     for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] > 0) return true;
     return false;
   }, null, { timeout: 60_000, polling: 50 });
   await page.mouse.down();
   await page.mouse.up();
-  await page.waitForFunction(() => {
-    const data = document.querySelector("#display").getContext("2d").getImageData(950, 520, 300, 200).data;
+  await waitForDisplay(page, () => {
+    const data = displaySnapshot.getContext("2d").getImageData(950, 520, 300, 200).data;
     let white = 0;
     for (let i = 0; i < data.length; i += 4) white += data[i] + data[i + 1] + data[i + 2] === 765;
     return white > 50000;
@@ -162,8 +162,8 @@ for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", ti
   // ImGui's example, centred, 1280x800: its clear colour (0.45, 0.55, 0.60)
   // fills what its own windows leave, below the first of them.
   await type(page, "imgui-x11 &\n");
-  await page.waitForFunction(() => {
-    const data = document.querySelector("#display").getContext("2d").getImageData(300, 500, 300, 150).data;
+  await waitForDisplay(page, () => {
+    const data = displaySnapshot.getContext("2d").getImageData(300, 500, 300, 150).data;
     let clear = 0;
     for (let i = 0; i < data.length; i += 4) {
       clear += Math.abs(data[i] - 115) < 3 && Math.abs(data[i + 1] - 140) < 3 && Math.abs(data[i + 2] - 153) < 3;
