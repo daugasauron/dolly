@@ -42,7 +42,10 @@ source by itself.
   addresses, the stack pointer and pointers passed to the host are i64. It is a
   member of the wasm family: the `wasm` build constraint and file suffix match it,
   as `linux` matches `android`, so every wasm file of the runtime and standard
-  library applies. `GOARCH=wasm` builds the same code as upstream's.
+  library applies. `GOARCH=wasm` builds the same code as upstream's, but for a
+  fix of upstream's: a nil interface key in a map of more than one table read
+  past the map's directory on wasm, which the rebuild here met
+  ([task](../../tasks/20261023-230000-go/TASK.md)).
 - `GOOS=dolly` calls the process contract
   ([`process.h`](../../include/dolly/process.h)) through its one import, and the
   linker writes the Dolly executable itself: the shared memory64 imported as

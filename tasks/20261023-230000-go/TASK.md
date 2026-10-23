@@ -1,6 +1,6 @@
 # Go built inside Dolly, bootstrapped as Rust is
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: toolchain,go,bootstrap,0.1.4
 
@@ -27,7 +27,7 @@ Each step's measurements are recorded here as they are made.
 
 ## State (2026-10-23)
 
-Done when is met (below); kept open only until the owner has seen it. The fork is one patch,
+Closed 2026-10-23: every point of done-when is met and measured (below). The fork is one patch,
 [`demos/go/go-1.27.3-dolly.patch`](../../demos/go/go-1.27.3-dolly.patch), against Go 1.27.3; the
 demo is [`demos/go`](../../demos/go/README.md): go-sdk (the seed), go-build (the toolchain rebuilt
 inside Dolly, equal to the seed), the go and esbuild packages, go-tools (a shell with both), and
@@ -185,3 +185,12 @@ The patched toolchain builds on the host in 50 s (`make.bash`). A program built
   the program run with arguments; `go run`; `gofmt -l`/`-w` on a misformatted file; esbuild
   bundling TypeScript. **Chromium passed in 43.0 s, Firefox in 44.4 s**
   (`npm run test:demos -- go`).
+
+## Closed (2026-10-23)
+
+Done-when, with its evidence: `go build` in a session makes a program that runs as a command
+(step 3; the browser test); the toolchain rebuilt inside Dolly is byte for byte the seed, which
+go-build enforces (step 4, step 5); gofmt and esbuild run (step 5); the browser test passes in
+Chromium and Firefox (step 5); [`demos/go/README.md`](../../demos/go/README.md) names the
+bootstrap exception and the patch. Commits ae4c8ca8 (wasm64), 2abb47db (dolly), 227f40d6 (the
+seed builds programs), 0490c868 (the map fix), 99f4097d (the images and the test).
