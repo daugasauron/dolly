@@ -1,6 +1,6 @@
 # One npm installer in Janis for pi, Claude Code and other packages; Pi's Dolly extension as its own package
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 190
 - TAGS: javascript,packages,0.1.4
 
