@@ -318,7 +318,7 @@ the raylib Galaga after the guidance change, the raylib 3D corridor, SDL2 with F
 the chart from SQLite through FreeType and libpng). Checked with `check.mjs`: no key material.
 
 Method as above (`drive.mjs`, pi-agent of this branch's `dist/`, headless Chrome), plus
-`build/opus-evidence/trace.mjs`: from Pi's session JSONL, model seconds per response (entry
+[`trace.mjs`](trace.mjs): from Pi's session JSONL, model seconds per response (entry
 time minus request start), seconds per tool call, the calls that failed, the `amy` commands
 and the libraries named. One prompt, the same before and after (`prompts-r2-game.txt`):
 "Build me a real game, more than a simple Asteroids clone: real-time, drawn on Dolly's
