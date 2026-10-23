@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # The libuv port cmake-build compiles for CMake and Neovim, for programs the
 # cc package builds.
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build c52c506adc6a378af961ce6a5b121a9f7d13dfca8e4df92b2d4b663d6c9cabf6
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 27e2129fc083ddde5091d95cc0a1d26f7d40cceb258a5e2609aa46c85411fd65
 
 EXPORTS LIB    uv          /usr/lib/libuv.a
 EXPORTS HEADER uv          /usr/include/uv.h

@@ -158,6 +158,19 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   await interrupt();
   assert.equal(await execInterrupted, 0, "Ctrl+C reaches the program exec started");
 
+  // A program rewritten in place runs as it now is: the supervisor reuses a
+  // compiled module only for the version of the file's bytes it came from.
+  await run(`cd ${scratch} && echo 'int main(void) { return 41; }' > again.c && cc again.c -o again && cp again again-41 && ` +
+    "(./again; test $? = 41) && echo 'int main(void) { return 42; }' > again.c && cc again.c -o again && (./again; test $? = 42) && " +
+    "cat again-41 > again && (./again; test $? = 41)");
+  // Ninja runs its jobs at once: each of the two waits for the other to start.
+  const ninja = ["rule a", "  command = touch a-started; until test -e b-started; do sleep 1; done; touch $out",
+    "rule b", "  command = touch b-started; until test -e a-started; do sleep 1; done; touch $out",
+    "rule fail", "  command = exit 3", "build a: a", "build b: b", "build failed: fail"];
+  await run(`mkdir -p ${scratch}/ninja && cd ${scratch}/ninja && printf '%s\\n' ${ninja.map(shellQuote).join(" ")} > build.ninja && ` +
+    "timeout 60 ninja -j2 a b > /dev/null && test -e a && test -e b");
+  assert.equal(await submit(`cd ${scratch}/ninja && ninja failed > /dev/null`), 1, "a failed job fails Ninja");
+
   const ignored = submit(`${scratch}/signals ${scratch} ignore-loop`);
   await waitForText(/SIGNAL-IGNORE-READY\s*$/);
   await interrupt();

@@ -457,7 +457,7 @@ struct fdop {
   mode_t mode;
   char path[];
 };
-enum { FDOP_CLOSE = 1, FDOP_DUP2 = 2, FDOP_CHDIR = 4 };
+enum { FDOP_CLOSE = 1, FDOP_DUP2 = 2, FDOP_OPEN = 3, FDOP_CHDIR = 4 };
 
 /* A child starts with default dispositions and an empty mask, so a signal the
  * caller blocks or ignores without resetting it cannot be honoured. */
@@ -477,8 +477,9 @@ static int spawn_signals_supported(short flags, const posix_spawnattr_t *attribu
 }
 
 /* Dup2 and close actions replay as parent-to-child descriptor mappings over
- * the inherited non-CLOEXEC set and chdir actions choose the child's
- * directory; other actions and attributes fail with ENOTSUP. */
+ * the inherited non-CLOEXEC set, chdir actions choose the child's directory,
+ * and an open action opens its file here, from that directory, for the child
+ * to take at its descriptor; other actions and attributes fail with ENOTSUP. */
 static int spawn(pid_t *pid, const char *program, const posix_spawn_file_actions_t *actions,
                  const posix_spawnattr_t *attributes, char *const argv[], char *const envp[],
                  int search) {
@@ -491,13 +492,18 @@ static int spawn(pid_t *pid, const char *program, const posix_spawn_file_actions
   const struct fdop *oldest = NULL;
   size_t count = 0;
   for (const struct fdop *op = actions ? actions->__actions : NULL; op; op = op->next) {
-    if (op->cmd != FDOP_CLOSE && op->cmd != FDOP_DUP2 && op->cmd != FDOP_CHDIR) return ENOTSUP;
+    if (op->cmd < FDOP_CLOSE || op->cmd > FDOP_CHDIR) return ENOTSUP;
     oldest = op;
     ++count;
   }
   dolly_process_fd_mapping *mappings = calloc(count + 1, sizeof(*mappings));
-  if (mappings == NULL) return ENOMEM;
-  uint32_t mapped = 0;
+  int *opened = calloc(count + 1, sizeof(*opened));
+  if (mappings == NULL || opened == NULL) {
+    free(mappings);
+    free(opened);
+    return ENOMEM;
+  }
+  uint32_t mapped = 0, open_count = 0;
   char cwd[PATH_MAX], path[PATH_MAX];
   int error = getcwd(cwd, sizeof(cwd)) ? 0 : errno;
   for (const struct fdop *op = oldest; op && error == 0; op = op->prev) {
@@ -511,6 +517,19 @@ static int spawn(pid_t *pid, const char *program, const posix_spawn_file_actions
       continue;
     }
     uint32_t source = op->cmd == FDOP_CLOSE ? DOLLY_PROCESS_FD_MAPPING_CLOSED : (uint32_t)op->srcfd;
+    if (op->cmd == FDOP_OPEN) {
+      const int size = op->path[0] == '/' ? snprintf(path, sizeof(path), "%s", op->path)
+          : snprintf(path, sizeof(path), "%s/%s", cwd, op->path);
+      int descriptor = -1;
+      if (size >= (int)sizeof(path)) errno = ENAMETOOLONG;
+      else descriptor = open(path, op->oflag | O_CLOEXEC, op->mode);
+      if (descriptor < 0) {
+        error = errno;
+        break;
+      }
+      opened[open_count++] = descriptor;
+      source = (uint32_t)descriptor;
+    }
     uint32_t slot = mapped;
     for (uint32_t index = 0; index < mapped; ++index) {
       if (op->cmd == FDOP_DUP2 && mappings[index].target_descriptor == (uint32_t)op->srcfd)
@@ -549,6 +568,8 @@ static int spawn(pid_t *pid, const char *program, const posix_spawn_file_actions
     entry = end + 1;
     error = 0;
   }
+  while (open_count != 0) close(opened[--open_count]);
+  free(opened);
   free(mappings);
   return error;
 }

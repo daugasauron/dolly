@@ -90,6 +90,10 @@ int main(int argc, char **argv) {
     return failures ? 1 : 42;
   }
   if (strcmp(mode, "closed") == 0) return fcntl(7, F_GETFD) == -1 && errno == EBADF ? 0 : 1;
+  if (strcmp(mode, "opened") == 0) {
+    char bytes[6];
+    return read(8, bytes, sizeof(bytes)) == 6 && memcmp(bytes, "hello\n", 6) == 0 ? 0 : 1;
+  }
   if (strcmp(mode, "moved") == 0) return fcntl(7, F_GETFD) == -1 && fcntl(9, F_GETFD) == 0 ? 0 : 1;
   // Built with -pthread: a thread other than the first execs.
   if (strcmp(mode, "thread") == 0) {
@@ -179,6 +183,14 @@ int main(int argc, char **argv) {
         posix_spawn_file_actions_addclose(&actions, 7) == 0);
   CHECK(run(&actions, "moved", NULL) == 0);
   CHECK(posix_spawn_file_actions_destroy(&actions) == 0 && close(7) == 0);
+  // An open action opens its file for the child, from the directory a chdir
+  // action gave it; a file it cannot open fails the spawn.
+  CHECK(posix_spawn_file_actions_init(&actions) == 0 && posix_spawn_file_actions_addchdir_np(&actions, scratch) == 0 &&
+        posix_spawn_file_actions_addopen(&actions, 8, "not-a-program", O_RDONLY, 0) == 0);
+  CHECK(run(&actions, "opened", NULL) == 0);
+  CHECK(posix_spawn_file_actions_addopen(&actions, 9, "no-such-file", O_RDONLY, 0) == 0);
+  CHECK(run(&actions, "opened", NULL) == -ENOENT);
+  CHECK(posix_spawn_file_actions_destroy(&actions) == 0);
 
   CHECK(run(NULL, "environment", NULL) == 45 << 8);
   status = run(NULL, "alarm", NULL);

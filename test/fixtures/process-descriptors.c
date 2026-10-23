@@ -250,11 +250,11 @@ static void posix_spawning(char *self) {
   CHECK(posix_spawn(&pid, "/no-such-spawn-fixture", NULL, NULL, arguments, environ) == ENOENT);
   CHECK(posix_spawn_file_actions_destroy(&actions) == 0);
 #ifdef __dolly__
-  /* A fresh Dolly process cannot honor open actions, sessions or a blocked mask. */
+  /* A fresh Dolly process cannot honor fchdir actions, sessions or a blocked mask. */
   posix_spawnattr_t attributes;
   sigset_t mask;
   CHECK(posix_spawn_file_actions_init(&actions) == 0);
-  CHECK(posix_spawn_file_actions_addopen(&actions, 21, "/dev/null", O_RDONLY, 0) == 0);
+  CHECK(posix_spawn_file_actions_addfchdir_np(&actions, 21) == 0);
   CHECK(posix_spawn(&pid, self, &actions, NULL, arguments, environ) == ENOTSUP);
   CHECK(posix_spawnattr_init(&attributes) == 0);
   CHECK(posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSID) == 0);

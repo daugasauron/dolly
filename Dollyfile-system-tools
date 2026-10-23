@@ -93,13 +93,12 @@ SLOP rm \
 # Shared C/C++ build and system utilities, without a display or Rust tools.
 # Samurai is a compact Ninja-compatible executor. Its upstream parser, graph,
 # depfile handling, and build log stay as separate ordinary C translation
-# units. The Dolly patch replaces only native process scheduling with the
-# in-Wasm command lifecycle. `util.c` has two explicit loop checkpoints and is
-# compiled without generic edge coverage, which otherwise causes a severe
-# bootstrap-compiler blowup for that one file.
+# units, and its jobs start through posix_spawn, unchanged. `util.c` has two
+# explicit loop checkpoints and is compiled without generic edge coverage,
+# which otherwise causes a severe bootstrap-compiler blowup for that one file.
 REQUIRES HEADER runtime
 
-SOURCE /v0.1.4/dist/static/default/samurai.tar                   3edf36a672e9c70962e0f1fb6fdf92bbfd96d759fff162b821ee5947536f6899 /tmp/ninja/samurai.tar
+SOURCE /v0.1.4/dist/static/default/samurai.tar                   df4d14af0e48a206d1ccc175f134c3c81b6601b3d243b24561b1927ecd0afc45 /tmp/ninja/samurai.tar
 SOURCE /v0.1.4/dist/static/default/runtimes/samurai-unit-dolly.c 4412175ad18939c580d6a31ca89a1284d313026674d5ac4faa0841aab379a4f7 /tmp/ninja/samurai-unit-dolly.c
 
 FILE /tmp/ninja/Makefile

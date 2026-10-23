@@ -27,7 +27,14 @@
   ;; 1 when a pipe changed since the last call, so deferred calls may now
   ;; complete: retry them instead of waiting for the next service tick.
   (func $take_wakeup (result i32) i32.const 0)
+  ;; The kernel opens the executable of a process to launch and reads its
+  ;; bytes only when asked. image_version is the version of those bytes as
+  ;; they are now, which every write of the file renews, or zero: a module
+  ;; compiled from that version runs without them. image_read reads them for
+  ;; image_address and image_size; image_consumed closes the executable.
   (func $next_launch (result i32) i32.const 0)
+  (func $image_version (param i32) (result i64) i64.const 0)
+  (func $image_read (param i32) (result i32) i32.const 0)
   (func $image_address (param i32) (result i64) i64.const 0)
   (func $image_size (param i32) (result i64) i64.const 0)
   (func $image_consumed (param i32) (result i32) i32.const 0)
@@ -96,6 +103,8 @@
   (export "dolly_process_deferred_milliseconds" (func $deferred_milliseconds))
   (export "dolly_process_take_wakeup" (func $take_wakeup))
   (export "dolly_process_next_launch" (func $next_launch))
+  (export "dolly_process_image_version" (func $image_version))
+  (export "dolly_process_image_read" (func $image_read))
   (export "dolly_process_image_address" (func $image_address))
   (export "dolly_process_image_size" (func $image_size))
   (export "dolly_process_image_consumed" (func $image_consumed))

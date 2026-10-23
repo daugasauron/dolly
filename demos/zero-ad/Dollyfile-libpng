@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # libpng from upstream's release archive, unchanged, built by its CMake
 # project, for programs the cc package builds, with the zlib it needs.
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build c52c506adc6a378af961ce6a5b121a9f7d13dfca8e4df92b2d4b663d6c9cabf6
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 27e2129fc083ddde5091d95cc0a1d26f7d40cceb258a5e2609aa46c85411fd65
 INSTALL /v0.1.4/Dollyfile-zlib 4429efcc8c4684b4d9a6101873dab9e3f1b1a51956cc71c5aa1edd931dd35ab0
 REQUIRES HEADER libc
 REQUIRES HEADER zlib

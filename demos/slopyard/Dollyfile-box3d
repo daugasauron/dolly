@@ -3,7 +3,7 @@ PACKAGE box3d
 REQUIRES HOST runtime@0
 
 # Box3D as gamedev-sdk compiles it, for programs the cc package builds.
-FROM /v0.1.4/demos/slopyard/Dollyfile-gamedev-sdk e5fcceba6f861bfcb9254f34b2c3033797b718e1a84d03e538a253c693d2ec63
+FROM /v0.1.4/demos/slopyard/Dollyfile-gamedev-sdk 803dfae06ec206bf2c56753df9de3885383f2f2716440083f6d99e7289bb3c1f
 
 EXPORTS LIB    box3d /usr/lib/libbox3d.a
 EXPORTS HEADER box3d /usr/include/box3d

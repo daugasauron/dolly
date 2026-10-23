@@ -24,6 +24,8 @@ const processWorkerLimit = 32;
 const interruptGraceMilliseconds = 500;
 const compiledModuleCacheEntries = 64;
 const compiledModuleCacheBytes = 256 * 1024 * 1024;
+// File versions known to hold a cached module's bytes (dolly_process_image_version).
+const compiledVersionEntries = 1024;
 const compilationNoticeMilliseconds = 250;
 const largeInteractiveProcessBytes = 128 * 1024 * 1024;
 const workerReclamationMilliseconds = 500;
@@ -137,6 +139,7 @@ export class DollyProcessSupervisor {
     this.deferred = new Map();
     this.compiledModules = new Map();
     this.compiledModuleBytes = 0;
+    this.compiledVersions = new Map();
     this.launchChain = Promise.resolve();
     this.mailboxAddress = Number(dolly._dolly_process_mailbox_address());
     this.mailboxCapacity = packetLimit;
@@ -327,15 +330,41 @@ export class DollyProcessSupervisor {
       });
   }
 
+  // The module for the executable the kernel opened for a process: the one
+  // compiled from the same version of its file's bytes, which takes no read,
+  // or one compiled from the bytes, found by their SHA-256 or compiled now.
+  async #compiledImage(pid) {
+    const version = BigInt(this.dolly._dolly_process_image_version(pid));
+    const key = this.compiledVersions.get(version);
+    if (version !== 0n && this.compiledModules.has(key)) {
+      if (this.dolly._dolly_process_image_consumed(pid) !== 0) {
+        throw new Error(`kernel did not release executable ${pid}`);
+      }
+      return this.#cachedModule(key);
+    }
+    const compiled = await this.#compileProcess(this.#takeImage(pid));
+    if (version !== 0n) {
+      this.compiledVersions.delete(version);
+      this.compiledVersions.set(version, compiled.key);
+      if (this.compiledVersions.size > compiledVersionEntries) {
+        this.compiledVersions.delete(this.compiledVersions.keys().next().value);
+      }
+    }
+    return compiled;
+  }
+
+  // A cached module, made the most recently used.
+  #cachedModule(key) {
+    const cached = this.compiledModules.get(key);
+    this.compiledModules.delete(key);
+    this.compiledModules.set(key, cached);
+    return cached;
+  }
+
   async #compileProcess(bytes) {
     const digest = hex(await crypto.subtle.digest("SHA-256", bytes));
     const key = `${bytes.byteLength}:${digest}`;
-    const cached = this.compiledModules.get(key);
-    if (cached) {
-      this.compiledModules.delete(key);
-      this.compiledModules.set(key, cached);
-      return cached;
-    }
+    if (this.compiledModules.has(key)) return this.#cachedModule(key);
 
     const started = performance.now();
     let noticeShown = false;
@@ -374,7 +403,7 @@ export class DollyProcessSupervisor {
         );
       }
     }
-    const compiled = { module, memoryRequirements, processInterface, threaded, largeStack, requirements, byteLength: bytes.byteLength };
+    const compiled = { key, module, memoryRequirements, processInterface, threaded, largeStack, requirements, byteLength: bytes.byteLength };
     if (bytes.byteLength <= compiledModuleCacheBytes) {
       this.compiledModules.set(key, compiled);
       this.compiledModuleBytes += bytes.byteLength;
@@ -410,7 +439,7 @@ export class DollyProcessSupervisor {
       const process = this.processes.get(pid);
       try {
         if (!process) throw new Error(`kernel supplied unregistered process ${pid}`);
-        const compiled = await this.#compileProcess(this.#takeImage(pid));
+        const compiled = await this.#compiledImage(pid);
         if (!this.#canLaunch(process)) continue;
         this.#start(process, compiled, this.#admit(compiled));
       } catch (error) {
@@ -422,8 +451,10 @@ export class DollyProcessSupervisor {
     }
   }
 
-  // The executable the kernel read for a process, which it then forgets.
+  // The bytes of the executable the kernel opened for a process, which it then closes.
   #takeImage(pid) {
+    const read = this.dolly._dolly_process_image_read(pid);
+    if (read !== 0) throw new Error(`cannot read the executable of process ${pid}: ${read}`);
     const address = Number(this.dolly._dolly_process_image_address(pid));
     const size = Number(this.dolly._dolly_process_image_size(pid));
     if (!Number.isSafeInteger(address) || !Number.isSafeInteger(size) ||
@@ -478,7 +509,7 @@ export class DollyProcessSupervisor {
     process.execution = execution;
     let compiled, local;
     try {
-      compiled = await this.#compileProcess(this.#takeImage(process.pid));
+      compiled = await this.#compiledImage(process.pid);
       if (process.execution === execution) local = this.#admit(compiled);
     } catch (error) {
       if (process.execution !== execution) return;
@@ -914,6 +945,7 @@ export class DollyProcessSupervisor {
     this.deferred.clear();
     this.compiledModules.clear();
     this.compiledModuleBytes = 0;
+    this.compiledVersions.clear();
     this.releaseWorkerSource?.();
     this.releaseWorkerSource = undefined;
   }

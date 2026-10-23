@@ -5,11 +5,11 @@ REQUIRES HOST runtime@0
 # The Mojo compiler as mojo-build built it in Dolly, with the standard library
 # and the package gpu it precompiled, and what a program links against, as
 # mojo-runtime built it: mojo build NAME.mojo makes a Dolly executable.
-COPY /v0.1.4/demos/mojo/Dollyfile-mojo-build f41f106ceba707c3d72c9053c50f40b855e18b178cc4ade86fe7b47bfabcadb9 /opt/mojo/bin/mojo /usr/bin/mojo
-COPY /v0.1.4/demos/mojo/Dollyfile-mojo-build f41f106ceba707c3d72c9053c50f40b855e18b178cc4ade86fe7b47bfabcadb9 /opt/mojo/lib/mojo /usr/lib/mojo
-COPY /v0.1.4/demos/mojo/Dollyfile-mojo-build f41f106ceba707c3d72c9053c50f40b855e18b178cc4ade86fe7b47bfabcadb9 /usr/share/licenses/mojo /usr/share/licenses/mojo
-COPY /v0.1.4/demos/mojo/Dollyfile-mojo-runtime 3baa2602d6695d94888e9255f2d4fec0dd9305dd2588779f19c564cdb4d7dc7b /usr/lib/libmojo-rt.a /usr/lib/libmojo-rt.a
-COPY /v0.1.4/demos/mojo/Dollyfile-mojo-runtime 3baa2602d6695d94888e9255f2d4fec0dd9305dd2588779f19c564cdb4d7dc7b /usr/lib/libmojo-gpu.a /usr/lib/libmojo-gpu.a
+COPY /v0.1.4/demos/mojo/Dollyfile-mojo-build 8dc3276a1ac8dc8d38f2b807d15d16d15c6fd6a98b9d94356dba8a8b7886ca79 /opt/mojo/bin/mojo /usr/bin/mojo
+COPY /v0.1.4/demos/mojo/Dollyfile-mojo-build 8dc3276a1ac8dc8d38f2b807d15d16d15c6fd6a98b9d94356dba8a8b7886ca79 /opt/mojo/lib/mojo /usr/lib/mojo
+COPY /v0.1.4/demos/mojo/Dollyfile-mojo-build 8dc3276a1ac8dc8d38f2b807d15d16d15c6fd6a98b9d94356dba8a8b7886ca79 /usr/share/licenses/mojo /usr/share/licenses/mojo
+COPY /v0.1.4/demos/mojo/Dollyfile-mojo-runtime 5c0c41d1d7cc27e8c5b8fbbebfb736de3fcbf4defeac38868e3e7e80be4d5289 /usr/lib/libmojo-rt.a /usr/lib/libmojo-rt.a
+COPY /v0.1.4/demos/mojo/Dollyfile-mojo-runtime 5c0c41d1d7cc27e8c5b8fbbebfb736de3fcbf4defeac38868e3e7e80be4d5289 /usr/lib/libmojo-gpu.a /usr/lib/libmojo-gpu.a
 # mojo build links what it compiles with the C toolchain.
 INSTALL /v0.1.4/Dollyfile-libdolly-gpu 87e92a4828e21e0ff89f263805b8d8e44d8d477199ba25a3a702af16801d5b3e
 INSTALL /v0.1.4/Dollyfile-cc 3837a9d4d25c6dfde4db56398749ef3b1df109ce2eb08e4d44c197f89741e51e

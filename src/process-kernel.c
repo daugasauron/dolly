@@ -50,16 +50,19 @@ typedef struct {
 } dolly_kernel_pipe;
 
 /* What a process runs: the executable, its arguments and its environment.
- * The image is the executable's bytes until the supervisor takes them. */
+ * The executable stays open until the supervisor takes it (-1 then); the image
+ * is its bytes, read only when the supervisor asks for them. */
 typedef struct {
   char *path;
   char **arguments;
   uint32_t argument_count;
   char **environment;
   uint32_t environment_count;
+  int image_descriptor;
   unsigned char *image;
   size_t image_size;
 } dolly_kernel_program;
+static const dolly_kernel_program no_program = {.image_descriptor = -1};
 
 typedef struct {
   int pid;
@@ -227,7 +230,8 @@ static void dispose_program(dolly_kernel_program *program) {
   dispose_vector(&program->environment, &program->environment_count);
   free(program->path);
   free(program->image);
-  memset(program, 0, sizeof(*program));
+  if (program->image_descriptor >= 0) close(program->image_descriptor);
+  *program = no_program;
 }
 
 static int descriptor_is_open(const dolly_kernel_process *process,
@@ -399,6 +403,7 @@ static dolly_kernel_process *allocate_process(void) {
          ++descriptor) {
       process->descriptors[descriptor] = -1;
     }
+    process->program = process->staged = no_program;
     process->pid = next_process_pid++;
     if (next_process_pid <= 0) next_process_pid = 100;
     process->state = DOLLY_KERNEL_PROCESS_PENDING;
@@ -407,14 +412,23 @@ static dolly_kernel_process *allocate_process(void) {
   return NULL;
 }
 
-static int read_image_bytes(dolly_kernel_program *program) {
-  uintptr_t size;
-  if (dolly_fs_read_file(program->path, DOLLY_KERNEL_EXECUTABLE_LIMIT,
-                         &program->image, &size) != 0) {
-    return errno == EINVAL || errno == EFBIG ? -ENOEXEC : -errno;
-  }
-  program->image_size = size;
-  return size < 8 ? -ENOEXEC : 0;
+/* Opens the program's file and reads its first bytes, enough for a Wasm
+ * header or a #! line, as its image. */
+static int open_image(dolly_kernel_program *program) {
+  const int descriptor = open(program->path, O_RDONLY);
+  if (descriptor < 0) return -errno;
+  program->image_descriptor = descriptor;
+  struct stat metadata;
+  if (fstat(descriptor, &metadata) != 0) return -errno;
+  if (!S_ISREG(metadata.st_mode) || metadata.st_size < 8 ||
+      metadata.st_size > DOLLY_KERNEL_EXECUTABLE_LIMIT) return -ENOEXEC;
+  const size_t head = metadata.st_size < DOLLY_KERNEL_SHEBANG_LIMIT
+      ? (size_t)metadata.st_size : DOLLY_KERNEL_SHEBANG_LIMIT;
+  program->image = malloc(head);
+  if (program->image == NULL) return -ENOMEM;
+  if (dolly_fs_read_exact(descriptor, program->image, head) != 0) return -errno;
+  program->image_size = head;
+  return 0;
 }
 
 static int redirect_shebang(dolly_kernel_program *program) {
@@ -493,17 +507,21 @@ static int read_image(dolly_kernel_program *program) {
       0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
   };
   for (unsigned depth = 0; depth <= DOLLY_KERNEL_SHEBANG_DEPTH; ++depth) {
-    const int loaded = read_image_bytes(program);
+    const int loaded = open_image(program);
     if (loaded != 0) return loaded;
-    if (program->image_size >= sizeof(wasm_header) &&
-        memcmp(program->image, wasm_header, sizeof(wasm_header)) == 0) {
+    if (memcmp(program->image, wasm_header, sizeof(wasm_header)) == 0) {
       char *canonical = realpath(program->path, NULL);
       if (canonical == NULL) return -errno;
       free(program->path);
       program->path = canonical;
+      free(program->image);
+      program->image = NULL;
+      program->image_size = 0;
       return 0;
     }
     if (depth == DOLLY_KERNEL_SHEBANG_DEPTH) return -ELOOP;
+    close(program->image_descriptor);
+    program->image_descriptor = -1;
     const int redirected = redirect_shebang(program);
     if (redirected != 0) return redirected;
   }
@@ -865,7 +883,8 @@ static int64_t exec_packet(dolly_kernel_process *process, size_t size, uintptr_t
   const unsigned char *arguments = path + request.path_size;
   if (memchr(path, 0, request.path_size) != NULL || path[0] != '/') return -EINVAL;
   if (process->staged.path != NULL) return -EBUSY;
-  dolly_kernel_program program = {.path = copy_bytes_string(path, request.path_size)};
+  dolly_kernel_program program = no_program;
+  program.path = copy_bytes_string(path, request.path_size);
   int result = program.path == NULL ? -ENOMEM
       : copy_string_vector(arguments, (size_t)request.argument_bytes,
                            request.argument_count, &program.arguments);
@@ -2509,7 +2528,7 @@ void dolly_kernel_socket_holders(const dolly_kernel_socket *socket, int foregrou
 int dolly_process_next_launch(void) {
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
     if (process_table[index].state == DOLLY_KERNEL_PROCESS_PENDING &&
-        process_table[index].program.image != NULL) return process_table[index].pid;
+        process_table[index].program.image_descriptor >= 0) return process_table[index].pid;
   }
   return 0;
 }
@@ -2524,12 +2543,44 @@ uintptr_t dolly_process_image_size(int pid) {
   return program != NULL ? program->image_size : 0;
 }
 
+/* The version of the executable's bytes as they are now (dolly_fs_version):
+ * the supervisor runs a module it compiled from that version before without
+ * asking for the bytes. Zero when unknown. */
+uint64_t dolly_process_image_version(int pid) {
+  const dolly_kernel_program *program = program_to_launch(find_process(pid));
+  return program != NULL && program->image_descriptor >= 0
+      ? dolly_fs_version(program->image_descriptor) : 0;
+}
+
+/* Reads the executable's bytes as the image, for image_address and image_size. */
+int dolly_process_image_read(int pid) {
+  dolly_kernel_program *program = program_to_launch(find_process(pid));
+  if (program == NULL || program->image_descriptor < 0) return -EINVAL;
+  if (program->image != NULL) return 0;
+  struct stat metadata;
+  if (fstat(program->image_descriptor, &metadata) != 0) return -errno;
+  if (metadata.st_size > DOLLY_KERNEL_EXECUTABLE_LIMIT) return -EFBIG;
+  unsigned char *bytes = malloc((size_t)metadata.st_size + 1);
+  if (bytes == NULL) return -ENOMEM;
+  if (lseek(program->image_descriptor, 0, SEEK_SET) != 0 ||
+      dolly_fs_read_exact(program->image_descriptor, bytes, (uintptr_t)metadata.st_size) != 0) {
+    const int error = errno;
+    free(bytes);
+    return -error;
+  }
+  program->image = bytes;
+  program->image_size = (size_t)metadata.st_size;
+  return 0;
+}
+
 int dolly_process_image_consumed(int pid) {
   dolly_kernel_program *program = program_to_launch(find_process(pid));
-  if (program == NULL || program->image == NULL) return -EINVAL;
+  if (program == NULL || program->image_descriptor < 0) return -EINVAL;
   free(program->image);
   program->image = NULL;
   program->image_size = 0;
+  close(program->image_descriptor);
+  program->image_descriptor = -1;
   launching_pid = pid;
   return 0;
 }
@@ -2552,7 +2603,7 @@ static int write_diagnostic(dolly_kernel_process *process, uintptr_t size) {
 int dolly_process_exec_commit(int pid) {
   dolly_kernel_process *process = find_process(pid);
   if (process == NULL || process->state != DOLLY_KERNEL_PROCESS_RUNNING ||
-      process->staged.path == NULL || process->staged.image != NULL) return -EINVAL;
+      process->staged.path == NULL || process->staged.image_descriptor >= 0) return -EINVAL;
   release_modules(pid, 0);
   for (uint32_t descriptor = 0; descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT; ++descriptor) {
     if (process->descriptor_flags[descriptor] & DOLLY_PROCESS_FD_CLOEXEC)
@@ -2560,7 +2611,7 @@ int dolly_process_exec_commit(int pid) {
   }
   dispose_program(&process->program);
   process->program = process->staged;
-  memset(&process->staged, 0, sizeof(process->staged));
+  process->staged = no_program;
   process->start_signals = process->staged_signals;
   memset(&process->staged_signals, 0, sizeof(process->staged_signals));
   process->handling_signal = 0;
@@ -2587,7 +2638,7 @@ int dolly_process_exec_refused(int pid, uintptr_t size) {
 int dolly_process_worker_started(int pid) {
   dolly_kernel_process *process = find_process(pid);
   if (process == NULL || process->state != DOLLY_KERNEL_PROCESS_PENDING ||
-      process->program.image != NULL) return -EINVAL;
+      process->program.image_descriptor >= 0) return -EINVAL;
   process->state = DOLLY_KERNEL_PROCESS_RUNNING;
   return 0;
 }
