@@ -7,7 +7,7 @@ REQUIRES HOST touch@0
 
 # The shell, its tools and the terminal, and fingers in front of them.
 INSTALL /v0.1.4/Dollyfile-core b14cda845cbbb13a915c198053e526fd2ab50c7afb933eec3ff274438f40c430
-INSTALL /v0.1.4/Dollyfile-posix 9b947f1f16b4d0c23b4be6cb0a3dc9eeb5b54d51b6b2365e07d11d287e159367
+INSTALL /v0.1.4/Dollyfile-posix a5145252ecbe2073c82f74f7a276f4e6f65d3cc51db49fee21d4693e4045b6f7
 INSTALL /v0.1.4/Dollyfile-display b2ae95b5756ffead8d29661e52510e5a334921657239a9dc5648ca92a57e9fab
 INSTALL /v0.1.4/demos/fingers/Dollyfile-fingers-build 686baff2ca3e67311c54c928cb236cc59585c696f867e8adf63aa863248e8e4b
 FILE /etc/dolly/init.slop

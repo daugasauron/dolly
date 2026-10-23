@@ -11,11 +11,11 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-agent f240db50d9e4d840bea343ab327b217a15259b00a32a71e60bcae0beca6bf466
+FROM /v0.1.4/demos/pi/Dollyfile-pi-agent 019618e0ec5f3fe6881a791735961c97529cb4d3f6228d5829b364322f5fbc42
 COPY /v0.1.4/demos/local-llm/Dollyfile-local-llm-build 6605823dcb15c4755cbd46d32d77a5efff3fd7bce70aae84408c1fedb832b871 /usr/bin/dolly-llama /usr/bin/dolly-llama
 COPY /v0.1.4/demos/local-llm/Dollyfile-llama-build e7b254793cf290e8b20fb97c12441c0c685132f9470172b1f460bc1ec2382a6e /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
-INSTALL /v0.1.4/demos/local-llm/Dollyfile-qwen3.5-2b 456148735ea8c6b4a06be356db7cb067e890a427438b23840dcbdaae8e81a85b
+INSTALL /v0.1.4/demos/local-llm/Dollyfile-qwen3.5-2b 358c8ff07aa25c1b3e651ae4ec20860c6bd8e185f95f4a530f30415cdc5bfa5b
 
 REQUIRES TOOL janis
 REQUIRES TOOL tar

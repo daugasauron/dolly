@@ -7,7 +7,7 @@ REQUIRES HOST dso@0
 # library and headers, and the LPeg and luv modules built for it. Its manual
 # page is formatted here as text, which man prints: tools-build has mandoc,
 # and a package keeps nothing of the base it is built on.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 501a2e15ed3fd5bd746c632b4bdabed493813d4daef6ba163f68bc7216018943
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 5cbafbfc94689d41b3c5488864227a8d31955d1e35c082b63df90b7d56bb20be
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
 REQUIRES TOOL text-page

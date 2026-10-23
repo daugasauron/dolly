@@ -9,7 +9,7 @@ REQUIRES HOST touch@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/Dollyfile-system 83b9958652eba57bc2ccedf1bebe57284402ace7af9c128a3839dd446e7e05ce
+FROM /v0.1.4/Dollyfile-system 5c4eebc6d67c71b0ea6fb89d5b6ec4d6327668262dde58d3b736d19077ef8735
 COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build a158431147ad0da805188b76bfb3020d01322b2cae7f5ac89fb25a98becd9ee9 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
 COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build a158431147ad0da805188b76bfb3020d01322b2cae7f5ac89fb25a98becd9ee9 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
 COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 faaaa06dea5cacda4c47359b50cf0e4177954efe0195cd22512a166ae483067e /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
