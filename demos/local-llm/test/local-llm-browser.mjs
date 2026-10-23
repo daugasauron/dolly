@@ -184,6 +184,8 @@ for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local,dollyfile-studio').s
         await page.screenshot({path:new URL(`${name}-${image}-refused-context.png`,output).pathname});
         await parameter('contextWindow','12288');await key('Escape');await page.waitForTimeout(500);
         await until(/\/12k/,'context in the footer');
+        // The model chosen with /local is Pi's default: a new session still runs on it.
+        await type('/new');await page.waitForTimeout(2500);
         await task('second.txt');
         await until(new RegExp(`${second} · [\\d.]+ tokens/s`),'rate of the second model');
         await page.screenshot({path:new URL(`${name}-${image}-second.png`,output).pathname});

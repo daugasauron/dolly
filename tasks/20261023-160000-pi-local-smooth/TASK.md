@@ -49,6 +49,97 @@ every distinct screen per session, screenshots, `requests.jsonl`, `engine.log`.
 | which languages | 0 of 3 | 7, 15, 0 | two runs answered from memory: Python, "Assembly (x86/x86_64)", Rust; one read the skill after 14 calls and still said "No Git" |
 | Python one-liner | 0 of 3 | 6, 30, 28 | `python3`, `pip3 install`, `apt-get install`, `/etc/os-release`; one wrote `print_2plus2.py` and said it would print 4 |
 
-`amy` was used in none of the 18 sessions; the `dolly` skill was read in one, after a first
-try at a path it made up (`~/.pi/agent/extensions/dolly/SKILL.md`, from the prompt's
-`~/.pi/agent/extensions/`). The longest prompt was 7,991 tokens of 16,384.
+The `dolly` skill was read in two sessions, once after a path it made up
+(`~/.pi/agent/extensions/dolly/SKILL.md`, from the prompt's `~/.pi/agent/extensions/`);
+`amy` came up only in the third Python run, after the skill, between `pip3` scripts that Pi's
+repeat guard stopped. The longest prompt was 7,991 tokens of 16,384.
+
+## Before, MiniCPM5-2B (`build/pilocal-evidence/before/minicpm5-2b/`)
+
+Installed with `amy` and made Pi's default before Pi starts: a model chosen with `/local`
+lasts one Pi session (below), so the first attempt at this run measured Qwen after `/new`.
+
+| Prompt | Right | Tool calls (3 runs) | What happened |
+| --- | --- | --- | --- |
+| what is in this directory? | 3 of 3 | 2, 6, 2 | one run also ran `find / -name "*.txt"` and read the skill |
+| edit notes.txt | 3 of 3 | 2, 3, 3 | one run rewrote the file with a here-document |
+| which processes | 0 of 3 | 5, 1, 0 | `ps -ef 2>/dev/null`, `/proc/1/cmdline`; "there are currently no processes running" from an empty `ps … 2>/dev/null \| head`; "I don't have access to your host system's process list" |
+| C program | 3 of 3 | 1, 9, 7 | two runs left out `#include <stdio.h>` and fixed it after `cc`'s error |
+| which languages | 0 of 3 | 0, 0, 0 | from the prompt's words: "use the `pi` skill… use `am`", "`slop python3 --version`", "`npm`, `cargo`", "Python" |
+| Python one-liner | 0 of 3 | 0, 2, 27 | no call ("Python can print 2+2 by evaluating the expression"); "Python isn't installed", `echo $((2+2))`; 27 calls through `/usr/bin`, `slop --version` and the provider's source until Pi compacted at 75 % of 16k |
+
+The skill was read in two sessions; `amy` came up only in the third Python run.
+
+## Causes, from these transcripts
+
+1. **What the machine has is only in the skill, and a 2B model does not read the skill.**
+   `SYSTEM.md` says the `dolly` skill explains "how to find out what it has; read it when a
+   task involves one of those". Both models read it in 2 of 36 sessions, one after making up
+   its path. Without it they fall back on Linux: `ps aux`, `pgrep`, `/proc/1/cmdline`,
+   `python3`, `pip3 install`, `apt-get`, `/etc/os-release`, `which`. Nothing in the prompt
+   names `amy`, the installed commands or `/proc/processes`. `amy` came up in 2 of 36
+   sessions, each late in a run of 27 or more calls, and there `amy install python` fails: the
+   package needs `dso@0` and `sockets@0`, which `pi-local` does not declare, as amy said.
+2. **The conversation rule sends questions about the machine to the model's memory.** "When
+   the user greets you, thanks you or asks a general question, just reply in plain text"
+   (written after `pi-greeting-explores`) makes "which programming languages can I use
+   here?" a general question: 4 of 6 answers had no tool call and named Python, x86
+   assembly, Rust, `npm`, `cargo`, none installed.
+3. **Prose written for a large model is repeated back as facts.** MiniCPM turns the skill's
+   description and the prompt's Pi lines into answers ("use the `pi` skill… use `am` for
+   fetching source", "`slop python3 --version`"); Qwen looked for the skill under
+   `~/.pi/agent/extensions/` and for the languages in `/usr/src/pi-source`, both named in
+   `SYSTEM.md` only for Pi's own extensions and documentation.
+4. **Errors are hidden by the model's own habits.** `ps -e … 2>/dev/null | head -50` printed
+   nothing and the answer was "no processes are running"; Slop's `command not found` (status
+   127) is the only sign, and `2>/dev/null` and `| head` remove it.
+5. **Not causes here:** the context (the longest prompt 11,769 of 16,384 tokens, only in a
+   27-call Python search that ended in Pi's auto-compaction), the tool results' form (Pi's
+   plain output and `Command exited with code N`), and C: both models wrote, built and ran
+   the program in 6 of 6 runs. The sampling (Qwen 0.7 / top-p 0.8 / presence 1.5, the
+   publisher's; MiniCPM the GGUF's temperature 1.0) did not show as a cause: the same
+   wrong commands come at every round.
+6. **The tools say Bash.** Pi's `bash` tool tells the model "Execute a bash command"
+   (`createBashToolDefinition`), beside `SYSTEM.md`'s "runs Slop, not Bash". No transcript
+   shows a Bash-only construct, so this is a proposal, not a measured cause.
+
+Found on the way, both in `pi-local`'s provider:
+
+- **A model chosen with `/local` lasts one Pi session.** An extension's `pi.setModel` is
+  session-only (Pi's `/model` persists with `persist: true`), so after `/local` → MiniCPM,
+  `/new` or the next Pi is on Qwen again, and the engine swaps the model back.
+- **Every `/new` reloads the model.** Pi loads its extensions again for each session; the
+  provider stopped its engine on every `session_shutdown`, so each new session waited 3 to 5 s
+  for the weights and evaluated its 1,600-token prompt from nothing (18 loads in 18
+  sessions in `engine.log`).
+
+## Fixes, in `pi-local`'s own files
+
+- `demos/local-llm/SYSTEM.md`, installed as `/usr/lib/dolly-llm/SYSTEM.md`: guidance for a
+  small model. It states the facts the transcripts lacked (not Linux, no apt, pip or npm,
+  `/proc/processes`, every bash call in Slop from `/workspace`, `amy list` and
+  `amy install`, `cc -o NAME FILE.c && ./NAME`, `janis`), and that questions about the
+  machine are answered from the prompt, tasks with tools. Nothing about Pi's own
+  documentation, extensions or npm.
+- `local-model-provider.js`: a session whose first prompt goes to a local model gets that
+  guidance in place of `SYSTEM.md`'s preamble (Pi's `before_agent_start`,
+  `systemPromptOptions.customPrompt`) and a `commands` section with the commands on `PATH`,
+  read once per session. The choice and the list hold for the session: a changed prompt
+  would reach the model as a later system message, which Qwen3.5's template refuses
+  ("System message must be at the beginning"). Hosted models chosen with `/model` keep the
+  general guidance. The skill stays listed.
+- `/local` saves the model it switches to as Pi's `defaultProvider`/`defaultModel` in
+  `~/.pi/agent/settings.json`, as Pi's `/model` does; Pi's settings writes merge only the
+  fields Pi changed, so the value stays.
+- One engine per Pi process (`globalThis`), stopped on `session_shutdown` only when Pi
+  quits: `/new` and `/resume` keep the model loaded.
+
+## Proposals for the shared guidance (`demos/pi/`, with `pi-dolly`)
+
+Not changed here: each rebuilds `pi` and every image on it.
+
+- `dolly-tools.js`: give the shell tool a description that says Slop, not Pi's "Execute a
+  bash command"; the tool's name stays `bash`.
+- The `dolly` skill, "What this machine has": name `/proc/processes` for the process list,
+  and that `amy install` names the host module an image lacks (`python` needs `dso@0` and
+  `sockets@0`, which `pi-agent` and `pi-local` do not declare).
