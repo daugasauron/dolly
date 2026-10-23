@@ -2,7 +2,16 @@
 
 - STATUS: OPEN
 - PRIORITY: 80
-- TAGS: toolchain,bootstrap,llvm,core,owner
+- TAGS: toolchain,bootstrap,llvm,core,0.1.4
+
+## Decided (2026-10-23): the seed's compiler is the one built inside Dolly, for v0.1.4
+
+Owner: "Yes use the seed compiler as the one built inside dolly." The trial below showed
+it on 18 images (every file the same but the compiler). To build: the seed takes the
+compiler `llvm-cc` links, stripped (`-Wl,--strip-all`, 96 MB), as `scripts/build.sh` did on
+`core/llvm-seed-trial`; `docs/sources.md` names it as the seed's compiler and the order to
+bootstrap it (the published `llvm-cc`, built by the previous seed); the host-built compiler's
+script leaves the build. A seed change: it rides the v0.1.4 catalog round.
 
 ## State (2026-10-13)
 

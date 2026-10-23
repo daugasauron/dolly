@@ -1,13 +1,15 @@
 # Emacs runs out of stack in a fresh Chromium: its first prompt loses typed bytes, or the process dies
 
 - STATUS: OPEN
-- PRIORITY: 185
-- TAGS: core,process,emacs,chromium,owner
+- PRIORITY: 40
+- TAGS: core,process,emacs,chromium
 
 Found in the night of 2026-10-14 by reproducing an old flake on a starved
 browser ([terminal input and screen reading](../20261001-095000-terminal-text-flake/TASK.md),
 "Pinned to one processor": every count below is there, with its logs in
 `work/evidence-2026-10-14/flake/`). Nothing is changed.
+
+Owner (2026-10-23): "Emacs is low prio."
 
 Done when: the owner has decided how a program that needs more stack than
 a Worker gives gets it (or that Emacs is built to need less), it is built,

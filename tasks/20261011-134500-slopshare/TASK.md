@@ -4,6 +4,8 @@
 - PRIORITY: 60
 - TAGS: release,site,owner
 
+Owner (2026-10-23): "Keep daugasauron.com for now."
+
 ## State (2026-10-17)
 
 Waits for the owner: every item left is his switch or his decision, and nothing here is for an

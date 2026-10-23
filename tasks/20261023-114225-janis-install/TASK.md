@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 190
-- TAGS: javascript,packages,owner
+- TAGS: javascript,packages,0.1.4
 
 Owner (2026-10-23): "I want to investigate breaking up pi-agent, claude etc into one
 "generic" package handler in janis that then does "janis install pi/claude" (or
@@ -16,6 +16,19 @@ Code is fetched from npm by its own launcher (`demos/closed-source-agent`).
 
 Done when the investigation is in `investigation.md` here, read by the owner, and what he
 accepts is tasks of its own.
+
+## Decided (2026-10-23, 13:10): Pi comes from npm, for v0.1.4
+
+Owner: "Can you make pi come from npm?" Option 4 of [the investigation](investigation.md),
+section 3: one installer, a package of its own that runs under Janis (shape B), used by
+recipes and sessions alike. Images install Pi at build time from pinned npm tarballs staged
+by the site, as `typescript` is, so they open offline; a session installs any npm package
+with it. `pi-build` and Pi's compile from TypeScript go. Claude Code's launcher uses the
+installer. Measured first (step 1): Dolly's `tar` on Pi's tarball, Pi's six Unicode-set
+regexes under QuickJS-ng, and the login dialog showing a key. The key mask is a Dolly patch
+today; with Pi as published it must come back by another way (upstream, or keys read as
+`closed-source-agent` reads them), not be dropped silently. [pi-dolly](../20261023-122320-pi-dolly/TASK.md)
+is the extension's half.
 
 ## State (2026-10-23, 12:40): investigated, the owner's to read
 
