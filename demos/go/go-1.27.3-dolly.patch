@@ -469,6 +469,32 @@ index 2985cff6..6f2b46e1 100644
  			break
  		}
  		fallthrough
+diff --git a/src/cmd/go/internal/lockedfile/internal/filelock/filelock_other.go b/src/cmd/go/internal/lockedfile/internal/filelock/filelock_other.go
+index b16709ed..86b7d9f6 100644
+--- a/src/cmd/go/internal/lockedfile/internal/filelock/filelock_other.go
++++ b/src/cmd/go/internal/lockedfile/internal/filelock/filelock_other.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build !unix && !windows
++//go:build !unix && !windows && !dolly
+ 
+ package filelock
+ 
+diff --git a/src/cmd/go/internal/lockedfile/internal/filelock/filelock_unix.go b/src/cmd/go/internal/lockedfile/internal/filelock/filelock_unix.go
+index 6f73b1bf..e2864b5d 100644
+--- a/src/cmd/go/internal/lockedfile/internal/filelock/filelock_unix.go
++++ b/src/cmd/go/internal/lockedfile/internal/filelock/filelock_unix.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build darwin || dragonfly || freebsd || illumos || linux || netbsd || openbsd
++//go:build darwin || dragonfly || freebsd || illumos || linux || netbsd || openbsd || dolly
+ 
+ package filelock
+ 
 diff --git a/src/cmd/go/internal/mmap/mmap_other.go b/src/cmd/go/internal/mmap/mmap_other.go
 index 4d2844fc..3284f680 100644
 --- a/src/cmd/go/internal/mmap/mmap_other.go
@@ -4573,10 +4599,10 @@ index 00000000..749973ef
 +}
 diff --git a/src/syscall/fs_dolly.go b/src/syscall/fs_dolly.go
 new file mode 100644
-index 00000000..ac104cbb
+index 00000000..83691038
 --- /dev/null
 +++ b/src/syscall/fs_dolly.go
-@@ -0,0 +1,691 @@
+@@ -0,0 +1,727 @@
 +// Copyright 2026 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -5267,6 +5293,42 @@ index 00000000..ac104cbb
 +		b = b[len(chunk):]
 +	}
 +	return nil
++}
++
++const (
++	LOCK_SH = 0x1
++	LOCK_EX = 0x2
++	LOCK_NB = 0x4
++	LOCK_UN = 0x8
++)
++
++const opFdLock = 59
++
++// Flock locks the whole file fd is open on, as flock(2): the lock belongs to
++// the open file description. A lock that must wait polls, as Wait4 does, so
++// that a goroutine of this process holding the lock can release it.
++func Flock(fd int, how int) error {
++	request := struct {
++		descriptor, flags, kind, whence uint32
++		start, length                   int64
++	}{descriptor: uint32(fd), flags: 1} // DOLLY_PROCESS_LOCK_DESCRIPTION
++	switch {
++	case how&LOCK_UN != 0:
++		request.kind = 2
++	case how&LOCK_EX != 0:
++		request.kind = 1
++	case how&LOCK_SH != 0:
++		request.kind = 0
++	default:
++		return EINVAL
++	}
++	for delay := int64(100e3); ; delay = min(2*delay, 10e6) {
++		_, err := call(opFdLock, unsafe.Pointer(&request), unsafe.Sizeof(request), nil, 0)
++		if err != EAGAIN || how&LOCK_NB != 0 {
++			return err
++		}
++		dollySleep(delay)
++	}
 +}
 diff --git a/src/syscall/net_dolly.go b/src/syscall/net_dolly.go
 new file mode 100644

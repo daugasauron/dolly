@@ -27,9 +27,10 @@ Each step's measurements are recorded here as they are made.
 
 ## State (2026-10-23)
 
-Steps 1 and 2 done: memory64 as `GOARCH=wasm64`, proven on the host, and `GOOS=dolly` on the
-process contract: all of std and cmd cross-build, and Go programs run in a Dolly session in
-Chrome (below). Next: the seed archive and the go-sdk/go-build images. The fork is one patch,
+Steps 1 to 3 done: memory64 as `GOARCH=wasm64`, proven on the host; `GOOS=dolly` on the
+process contract; the seed (`demos/go/build-go-toolchain.sh`) runs in a Dolly session, where
+`go build` makes a program that runs, in Chrome and Firefox (below). Next: the go-sdk and
+go-build recipes, the toolchain rebuilt inside Dolly and compared with the seed. The fork is one patch,
 [`demos/go/go-1.27.3-dolly.patch`](../../demos/go/go-1.27.3-dolly.patch), against Go 1.27.3.
 
 ## Decisions
@@ -103,3 +104,20 @@ The patched toolchain builds on the host in 50 s (`make.bash`). A program built
 - `Wait4` polls (WAIT with NONBLOCK, sleeping 0.1 to 10 ms) instead of blocking the process,
   so that goroutines copying a child's output keep running: a blocking WAIT would stop the
   whole single-threaded runtime while the child waits on a full pipe.
+
+## Step 3: the seed in a session (2026-10-23, measured)
+
+- `demos/go/build-go-toolchain.sh`: the pinned source with the patch, `GOOS=dolly GOARCH=wasm64
+  ./make.bash` with upstream's linux/amd64 go1.27.3 as `GOROOT_BOOTSTRAP` (1 min 42 s, 7 min
+  CPU), packaged as `go/` (sources, `lib`, `pkg/include`, `pkg/tool/dolly_wasm64`, and the
+  dolly `go` and `gofmt` in `bin`): 74.6 MB gzipped, 332 MB unpacked (src 163 MB of which
+  testdata 33 MB, tools 131 MB, bin 38 MB). ustar, because Dolly's `tar` reads no GNU long
+  names.
+- In a `system` session, extracted to `/usr/lib/go` (13.7 s Chrome, 26.0 s Firefox):
+  `go version` says `go1.27.3 dolly/wasm64`; `go env` finds GOROOT through `/proc/self/exe`;
+  `gofmt -d` works; `go build` of a fmt hello world compiles runtime, fmt and their imports from
+  source and links a program that runs: 33.0 s in Chrome, 29.7 s in Firefox; the second build,
+  from the cache, 0.71 s. `go build` locks its cache: `syscall.Flock` over FD_LOCK (whole-file
+  description locks), polling like `Wait4` when it must wait.
+- A probe of `os/exec` (captured output, 1 MiB through `cat` both ways, exit status,
+  `LookPath`), `os.Pipe` between goroutines, timers and `os.Executable` passes in both browsers.
