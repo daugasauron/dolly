@@ -1,6 +1,6 @@
 ---
 name: dolly
-description: How to do things on this Dolly machine (a POSIX-like wasm64 userspace in a browser tab) - packages with amy, host modules with nena, fetching source without git clone, Slop shell idioms, parallel make, C with Dolly's headers (display, input), games with the sdl2 and raylib packages, Janis JavaScript, moving files with download and upload, and why a command failed (status 126, 127, curl 7 and 9). Read it before such a task.
+description: How to do things on this Dolly machine (a POSIX-like wasm64 userspace in a browser tab) - packages with amy, host modules with nena, fetching source without git clone, Slop shell idioms, parallel make, C with Dolly's headers (display, input), games with the sdl2 and raylib packages, Rust crates without the index, Go, Janis JavaScript, moving files with download and upload, and why a command failed (status 126, 127, curl 7 and 9). Read it before such a task.
 ---
 
 # Dolly
@@ -132,7 +132,9 @@ to the running session, and `cc` links them at once.
   link `-lSDL2 -lm`. Every renderer is the software one, whatever the flags
   ask, and `SDL_RenderPresent` does not wait for the display: pace the loop
   with `SDL_Delay` or the frame time. There is no audio, no threads or
-  `SDL_AddTimer`, and no game controller. `imgui` adds Dear ImGui on it.
+  `SDL_AddTimer`, and no game controller. It needs the `touch@0` module:
+  `nena enable touch` where the image does not declare it, before the install
+  and before its programs run. `imgui` adds Dear ImGui on it.
 - `raylib`: raylib 6's drawing (shapes, text in its own font, textures,
   `raymath.h`) in software, through Dolly's adapter `<dolly/raylib.h>`:
   `dolly_raylib_open` (0, or a negative errno) instead of `InitWindow`,
@@ -169,6 +171,31 @@ to the running session, and `cc` links them at once.
   that says why; read it. A pipeline's status is its last stage's:
   `amy install NAME 2>&1 | tail -3` is 0 when amy fails, unless
   `set -o pipefail` came first.
+
+## Rust and Go
+
+`amy install cargo` brings Rust and Cargo (they need `dso@0`: `nena enable
+dso` where the image lacks it); `amy install go` brings Go, whose `net/http`
+goes through the page's broker. Cargo cannot read crates.io's index from the
+browser (its cached files carry no CORS headers), but it builds vendored
+crates, and both the index's entries and the crates can be fetched:
+`https://raw.githubusercontent.com/rust-lang/crates.io-index/master/se/rd/serde`
+lists every version of `serde` with its dependencies (`1/x`, `2/xy`, `3/x/xyz`
+for shorter names), and `https://static.crates.io/crates/NAME/NAME-VERSION.crate`
+is the crate. Unpack each into `vendor/`, write
+`vendor/NAME-VERSION/.cargo-checksum.json` as
+`{"files":{},"package":"SHA256 of the .crate"}`, and put in
+`.cargo/config.toml`:
+
+```toml
+[source.crates-io]
+replace-with = "vendored-sources"
+[source.vendored-sources]
+directory = "vendor"
+```
+
+A crate that uses `libc` takes the SDK's copy, `[patch.crates-io] libc = {
+path = "/opt/rust-sdk/src/libc" }` in `Cargo.toml`.
 
 ## JavaScript
 
