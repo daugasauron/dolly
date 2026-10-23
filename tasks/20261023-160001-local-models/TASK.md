@@ -72,7 +72,27 @@ UD-IQ3_XXS at 8.0 GB.
 
 What is left is the capture: the kernel's capture buffer and the page's copy of it come
 on top of the image's files, so the build holds the model about four times at once. The
-4B at 2.1 GB (Q3_K_S) does not fit 9 GB then: it was killed at the capture with and
-without the upload. The 1.95 GB UD-IQ3_XXS fits when the recipe removes the two parts
-before the capture (killed at the capture once without that line, at 8.4 GB).
-`pi-local` (8.9 GB, killed at the upload before the fix) was not tried again.
+1.95 GB UD-IQ3_XXS fits when the recipe removes the two parts before the capture (with
+the fix: killed at the capture at 8.4 GB without that line, built at 8.0 GB with it).
+The 2.1 GB Q3_K_S, with that line and the fix, builds at 8.6 GB peak: a snapshot of
+2,105,918,730 B, 41.6 MB under the 2 GiB limit (14:42).
+`pi-local`, repinned for the new descriptions, builds at 8.4 GB (killed at the upload
+at 8.9 GB before the fix).
+
+### LFM2.5 (owner's decision above)
+
+`LiquidAI/LFM2.5-2.6B-GGUF` at `e7caca5d…`, `LFM2.5-2.6B-Q4_K_M.gguf`, 1,674,455,040 B
+(2 parts), `02a8b7e1…`; its `LICENSE` (10,574 B, `30adf9d6…`) is
+`demos/local-llm/LFM-LICENSE`. The GGUF is `lfm2` (30 blocks, `head_count_kv` per layer),
+carries `general.sampling.temp` 0.1 and `top_k` 50, so the description adds only
+Liquid's `repetition_penalty` 1.1; the pinned llama.cpp has its own LFM2.5 template and
+tool-call parser (`common/chat.cpp:1150`). The card: "a pure reasoning model that always
+thinks", with no switch, so `pi.reasoning` is false.
+
+The package is `lfm2.5`, not `lfm2.5-2.6b`: an image name's segments after a dot are
+digits only (`validName`, `src/dollyfile-view.mjs:140`), so `2.6b` cannot be one. It is
+the only LFM2.5 in the catalog.
+
+Builds with the fixed builder (`DOLLY_IMAGE_JOBS=1`, one image each, 9 GB slot), all with
+provisional `gpu` figures until the measurements below: `qwen3.8-2b` 1,312,291,228 B
+(6.3 GB peak), `lfm2.5` 1,674,580,645 B (8.6 GB), `qwen3.5-4b` both quants (above).
