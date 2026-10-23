@@ -1,7 +1,6 @@
 import { createHttpAdmission, HttpMailbox, NetworkTransport } from "./broker.mjs";
 import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "./policy.mjs";
 import { localServicesTransport } from "./local-services.mjs";
-import { publicURL } from "../../src/static-asset.mjs";
 export { DOLLY_HTTP_ABI_DIGEST as digest } from "./abi.mjs";
 
 // The page takes the embedding's policy once, with the image directory's
@@ -47,7 +46,7 @@ export function browser({ applicationBase, configuration, send, ask }) {
     let policy = new DollyHttpPolicy(embedding?.policy, sources, applicationBase, embedding?.relays);
     if (inherited) policy = restrictDollyHttpPolicy(policy, inherited.policies, sources, applicationBase);
     // A site path names a file of this page's site.
-    const site = publicURL("", applicationBase).href;
+    const site = new URL(applicationBase).href;
     network = { ...localServicesTransport(policy, services), site };
     // Builders inherit the policy and no local service; an opened result tab
     // or restored session inherits the policy configurations.
@@ -67,8 +66,8 @@ export function worker({ send, get }) {
       body, bodySize, flags, sequence) => admission.dispatch(mailbox.admission(get("runtime").memory.buffer,
         { method, methodSize, url, urlSize, headers, headersSize, body, bodySize, flags, sequence })) },
     messages: { "http-publish": record => mailbox.publish(record), "http-fail": ending => mailbox.fail(ending) },
-    start({ dolly, memory }) {
-      mailbox = new HttpMailbox(memory.buffer, Number(dolly._dolly_http_mailbox_address()));
+    start({ kernel, memory }) {
+      mailbox = new HttpMailbox(memory.buffer, Number(kernel.dolly_http_mailbox_address()));
       return { admission: admission.control.buffer };
     },
   };

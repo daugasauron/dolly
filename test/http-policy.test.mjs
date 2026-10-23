@@ -110,12 +110,11 @@ test("exact HTTP policy paths cannot be widened by a matching prefix", () => {
 });
 
 test("bootstrap sources are exact read-only broker capabilities", () => {
-  // The site at /app/ names the file /static/tool.tar; its release holds the copy.
-  const release = `https://dolly.example/app/_dolly/${"a".repeat(64)}/`;
+  // The site at /app/ names the file /static/tool.tar.
   const policy = new DollyHttpPolicy(
     { maxRequests: 8, rules: [] },
     [{ path: "/static/tool.tar", byteLength: 1234 }],
-    release,
+    "https://dolly.example/app/",
   );
   const headers = new Headers({ authorization: "Bearer sandbox-secret" });
   const rule = policy.authorize(
@@ -124,14 +123,13 @@ test("bootstrap sources are exact read-only broker capabilities", () => {
     headers,
     0,
   );
-  assert.equal(rule.mirror, `${release}static/tool.tar`, "fetched from this release");
+  assert.equal(rule.bootstrap, true);
   assert.equal(rule.maxResponseBytes, 1234);
   assert.equal(headers.has("authorization"), false);
   assert.equal(policy.requests, 0, "trusted build inputs do not spend agent quota");
   for (const target of [
     "https://dolly.example/app/static/tool.tar?copy=1",
     "https://dolly.example/app/static/tool.tar/child",
-    `${release}static/tool.tar`,
     "https://dolly.example/static/tool.tar",
   ]) {
     assert.throws(

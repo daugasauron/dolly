@@ -54,8 +54,8 @@ export function worker({ send, ask }) {
         transport.retire();
       }
     },
-    start({ dolly, memory }) {
-      transport = new UploadTransport(memory.buffer, Number(dolly._dolly_upload_mailbox_address()), choose,
+    start({ kernel, memory }) {
+      transport = new UploadTransport(memory.buffer, Number(kernel.dolly_upload_mailbox_address()), choose,
         (sent, size) => send({ type: "upload-progress", sent, size }));
       reported = Atomics.load(transport.words, DOLLY_UPLOAD_WORD_REQUEST);
       retired = Atomics.load(transport.words, DOLLY_UPLOAD_WORD_CANCELLED);

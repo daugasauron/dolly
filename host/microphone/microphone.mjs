@@ -54,8 +54,8 @@ export function worker({ send, get }) {
   return {
     bindings: { "env.dolly_microphone_dispatch": (address, bytes) =>
       bridge ? bridge.dispatch({ address, bytes }) : -E.ENOSYS },
-    start({ dolly }) {
-      bridge = get("runtime").leaseBridge(lease, Number(dolly._dolly_microphone_mailbox_address()), send);
+    start({ kernel }) {
+      bridge = get("runtime").leaseBridge(lease, Number(kernel.dolly_microphone_mailbox_address()), send);
     },
     messages: { "microphone-complete": message => bridge?.acknowledge(message) },
     dispose() { bridge?.dispose(); bridge = undefined; },

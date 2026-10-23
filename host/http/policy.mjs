@@ -1,5 +1,4 @@
 import { DOLLY_ERRNO } from "./abi.mjs";
-import { publicURL } from "../../src/static-asset.mjs";
 
 export class HttpError extends Error {
   constructor(errno, message) { super(message); this.errno = errno; }
@@ -126,13 +125,12 @@ function normalizeTrustedSource(source, applicationBase) {
       !Number.isSafeInteger(source.byteLength) || source.byteLength <= 0) {
     throw new TypeError("invalid trusted Dolly bootstrap source");
   }
-  const mirror = new URL(source.path.slice(1), applicationBase);
-  if (!/^https?:$/.test(mirror.protocol) || mirror.search || mirror.hash) {
+  const url = new URL(source.path.slice(1), applicationBase);
+  if (!/^https?:$/.test(url.protocol) || url.search || url.hash) {
     throw new TypeError("invalid trusted Dolly bootstrap source URL");
   }
   return Object.freeze({
-    href: publicURL(source.path.slice(1), applicationBase).href,
-    mirror: mirror.href,
+    href: url.href,
     bootstrap: true,
     maxRequestBytes: 1,
     maxResponseBytes: source.byteLength,
@@ -280,12 +278,10 @@ export function restrictDollyHttpPolicy(policy, inherited, trustedSources, appli
       // Every policy must allow it. Sequential header stripping intersects
       // credentials too; neither the parent nor the new embedding can widen it.
       const rules = policies.map(policy => policy.authorize(target, method, headers, bytes));
-      // Every policy maps the same trusted sources to the same mirror.
       const bootstrap = rules.every(rule => rule.bootstrap === true);
       const relay = bootstrap ? undefined : relayUrl(policy.relays, target, headers);
       return {
         bootstrap,
-        ...(bootstrap && { mirror: rules[0].mirror }),
         ...(relay && { relay }),
         followRedirects: !relay && rules.every(rule => rule.followRedirects === true),
         maxRequestBytes: Math.min(...rules.map(rule => rule.maxRequestBytes)),

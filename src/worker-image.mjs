@@ -61,7 +61,7 @@ function acknowledged(type, failure) {
 
 // `image(config, host)` checks what the page asked for and returns its steps:
 // prepare({ kernel, memory, files, stage }) before the kernel's modules start,
-// restore({ kernel, memory, files, dolly, stage }) to { status, supervisor? },
+// restore({ kernel, memory, files, stage }) to { status, supervisor? },
 // and an optional finish({ kernel, stage }) once the supervisor runs; `name` is
 // the image the route asked for ("custom" names none).
 export async function runImage(image) {
@@ -89,24 +89,22 @@ export async function runImage(image) {
     const kernelModule = await WebAssembly.compileStreaming(fetch(kernelArtifact("dolly.wasm")));
     const kernel = new WebAssembly.Instance(kernelModule, host.imports(kernelModule)).exports;
     kernel._initialize();
-    // Host modules and the supervisor name kernel exports as Emscripten's glue did.
-    const dolly = Object.fromEntries(Object.entries(kernel).map(([name, value]) => [`_${name}`, value]));
     const files = bootFiles(kernel, memory);
     await steps.prepare({ kernel, memory, files, stage });
     stage("Dolly runtime loaded");
-    await host.start("kernel", { dolly, memory, kernelExports: kernel });
-    const restored = await steps.restore({ kernel, memory, files, dolly, stage });
+    await host.start("kernel", { kernel, memory });
+    const restored = await steps.restore({ kernel, memory, files, stage });
     if (restored.status !== 0) throw new Error(`Dolly bootstrap failed with status ${restored.status}`);
     if (config.buildOnly) {
       self.close();
       return;
     }
-    const supervisor = restored.supervisor ?? await host.kernel.supervisor(dolly);
+    const supervisor = restored.supervisor ?? await host.kernel.supervisor(kernel);
     await steps.finish?.({ kernel, stage });
 
-    await host.imageRestored({ dolly, supervisor, stage, files, image: steps.name });
+    await host.imageRestored({ kernel, supervisor, stage, files, image: steps.name });
     if (kernel.dolly_bootstrap_environment() !== 0) throw new Error("Dolly image environment is invalid");
-    await host.start("image", { dolly, memory, kernelExports: kernel });
+    await host.start("image", { kernel, memory });
     const runtimeImage = decoder.decode(files.read("/etc/dolly/image", 256));
     if (steps.name !== "custom" && runtimeImage !== steps.name) {
       throw new Error(`Dollyfile selected image ${runtimeImage}, expected ${steps.name}`);

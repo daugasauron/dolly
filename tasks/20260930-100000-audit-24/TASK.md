@@ -4,6 +4,28 @@
 - PRIORITY: 150
 - TAGS: core,boundary,cleanup,0.1.4
 
+## State (2026-10-24, later): steps 2, 7 and 8 done after the no-view merge
+
+- Step 7 (`ad0d7876`): `publicURL` and the policy's `mirror` are gone, with the `_dolly/RELEASE/`
+  layout they translated: a trusted source's address is the file in the image directory, which the
+  broker fetches. The two unit tests build no release under `_dolly/` any more. No authority
+  changes: the address the policy admits is the one it admitted, now written once.
+- Step 8 (`6ebefdea`): trusted code calls the kernel by its exports' names (`kernel.dolly_X`); the
+  object of Emscripten's `_NAME` spellings is gone, and modules' start contexts take `kernel`.
+  Measured: the terminal suite 20 of 20 in Firefox, and 23 module suites in both browsers. The one
+  failure met on the way was deterministic and explained: the supervisor's terminal note for a slow
+  compile still called `_malloc`, and only Firefox compiles slowly enough to print it. Why
+  `core/kernel-boundary-rename` failed 2 of 8 is not known: it spelled `malloc` right, and its base
+  is long gone; the failure did not come back here.
+- Step 2: the test logic it names left the display provider before (`src/terminal-text.mjs`, and
+  `submit` in `input@0`), and the owner decided on 2026-10-14 that the page's handle is the
+  embedding's documented API (`docs/embedding.md`, "The page's handle" in
+  `docs/browser-boundary.md`). Nothing of it is left to move.
+- Left: step 4 (the site's pages name all 18 modules; an embedding names its own) and step 6 (two
+  demo tests rewrite the GPU worker's source; it needs the GPU runs of those demos).
+- Count, as below: `89fc25ba` (the integration branch with no-view) 11,329; this branch's head
+  11,382 (+53: the npm split's seam, less what steps 7 and 8 removed). Count again at the release.
+
 ## State (2026-10-24, `core/runtime-cleanup`): the count after the npm split, the map complete
 
 Counted as `wc -l` of the tracked `src/*.mjs` and `host/**/*.mjs` (the generated `abi.mjs` of each

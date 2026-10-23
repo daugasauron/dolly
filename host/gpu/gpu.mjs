@@ -104,8 +104,8 @@ export function worker({ send, configuration, get }) {
       if (!bridge) return -E.ENOSYS;
       return bridge.dispatch({ address, bytes });
     } },
-    async start({ dolly, memory }) {
-      bridge = await createGpuBridge(memory, Number(dolly._dolly_gpu_mailbox_address()), configuration.canvas,
+    async start({ kernel, memory }) {
+      bridge = await createGpuBridge(memory, Number(kernel.dolly_gpu_mailbox_address()), configuration.canvas,
         () => get("runtime").serviceDeferred(), status => send({ ...status, type: "gpu-status" }));
     },
     dispose() { bridge?.dispose(); bridge = null; },

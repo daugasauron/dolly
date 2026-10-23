@@ -78,14 +78,14 @@ export function worker({ get, ask, configuration: { bytes, recover } }) {
   if (recover !== undefined && (!validSessionName(recover) || bytes === undefined)) {
     throw new Error("invalid Dolly file recovery request");
   }
-  function restore(dolly) {
+  function restore(kernel) {
     const memory = get("runtime").memory;
-    const address = Number(dolly._dolly_session_restore_address(BigInt(bytes.byteLength)));
+    const address = Number(kernel.dolly_session_restore_address(BigInt(bytes.byteLength)));
     if (!Number.isSafeInteger(address) || address <= 0 || address > memory.buffer.byteLength - bytes.byteLength) {
       throw new Error("invalid session restore memory range");
     }
     new Uint8Array(memory.buffer, address, bytes.byteLength).set(new Uint8Array(bytes));
-    if (dolly._dolly_session_restore(BigInt(bytes.byteLength)) !== 0) {
+    if (kernel.dolly_session_restore(BigInt(bytes.byteLength)) !== 0) {
       throw new Error("Dolly session filesystem restore failed; the saved copy is unchanged");
     }
   }
@@ -102,21 +102,21 @@ export function worker({ get, ask, configuration: { bytes, recover } }) {
   }
   return {
     async imageRestored(context) {
-      const { dolly, image, stage } = context;
-      if (dolly._dolly_session_base_capture() !== 0) throw new Error("Dolly could not index the session baseline");
+      const { kernel, image, stage } = context;
+      if (kernel.dolly_session_base_capture() !== 0) throw new Error("Dolly could not index the session baseline");
       if (bytes === undefined) return;
       if (recover !== undefined) {
         if (image !== "system") throw new Error("invalid Dolly file recovery request");
         await recoverFiles(context);
       } else {
         stage("restoring named session filesystem...");
-        restore(dolly);
+        restore(kernel);
         stage("named session filesystem restored");
       }
       bytes.transfer(0);
       bytes = undefined;
     },
-    service() { kernel?._dolly_session_service(); },
+    service() { kernel?.dolly_session_service(); },
     messages: {
       "snapshot-capture"({ name }) {
         const controller = cancelled = new AbortController();
@@ -125,13 +125,13 @@ export function worker({ get, ask, configuration: { bytes, recover } }) {
       },
       "snapshot-cancel"() { cancelled?.abort(); },
     },
-    start({ dolly, memory }) {
-      kernel = dolly;
+    start({ kernel: exports, memory }) {
+      kernel = exports;
       // The kernel serves the mailbox on a request, after each consumed chunk
       // and on cancellation, in a task of its own.
-      transport = new SessionTransport(memory.buffer, Number(dolly._dolly_session_mailbox_address()),
-        Number(dolly._dolly_session_name_address()), Number(dolly._dolly_session_transfer_address()),
-        () => setTimeout(() => kernel?._dolly_session_service()));
+      transport = new SessionTransport(memory.buffer, Number(kernel.dolly_session_mailbox_address()),
+        Number(kernel.dolly_session_name_address()), Number(kernel.dolly_session_transfer_address()),
+        () => setTimeout(() => kernel?.dolly_session_service()));
     },
     dispose() { transport?.close(); },
   };

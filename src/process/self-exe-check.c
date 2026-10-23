@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <assert.h>
+#include <dlfcn.h>
 #include <dolly/runtime.h>
 #include <limits.h>
 #include <stdio.h>
@@ -7,11 +8,20 @@
 #include <string.h>
 #include <unistd.h>
 
+static int datum;
+
 static void check_path(const char *expected) {
   char actual[PATH_MAX];
   ssize_t size = readlink("/proc/self/exe", actual, sizeof(actual));
   assert(size == (ssize_t)strlen(expected));
   assert(!memcmp(actual, expected, (size_t)size));
+  // dladdr names this program for its functions and data, and nothing for the heap.
+  Dl_info info;
+  assert(dladdr((void *)check_path, &info) && !strcmp(info.dli_fname, expected));
+  assert(dladdr(&datum, &info) && !strcmp(info.dli_fname, expected));
+  void *heap = malloc(16);
+  assert(!dladdr(heap, &info));
+  free(heap);
 }
 
 static int child(const char *path, const char *expected, int remove) {

@@ -59,10 +59,10 @@ for library in libstandalonewasm-mt-memgrow.a libdlmalloc-mt.a \
   cp -- "${emscripten_lib}/${library}" "${staging}/threads/"
 done
 
-# Dolly owns signal and timer state. Keeping the replaced objects lets -rdynamic
-# root Emscripten's action_abort/action_terminate helpers and pull in a second owner.
+# Dolly owns signal and timer state, and dladdr. Keeping the replaced objects lets
+# -rdynamic root Emscripten's action_abort/action_terminate helpers and pull in a second owner.
 emar d "${staging}/libc-ww.a" \
-  raise.o sigaction.o pthread_sigmask.o sigtimedwait.o setitimer.o getitimer.o
+  raise.o sigaction.o pthread_sigmask.o sigtimedwait.o setitimer.o getitimer.o dladdr.o
 # Its stubs claimed times and others that did not happen, and times is strong:
 # Dolly's libc-stubs.c defines what it held.
 emar d "${staging}/libstubs.a" emscripten_libc_stubs.o

@@ -104,7 +104,7 @@ await runImage(async (config, host) => {
       // The kernel restores a snapshot against the list of its paths.
       files.write("/etc/dolly/image.manifest", `${(base?.manifest ?? [...decodeSnapshotRecords(seed).keys()]).join("\n")}\n`);
     },
-    async restore({ kernel, memory, files, dolly, stage }) {
+    async restore({ kernel, memory, files, stage }) {
       stage("building userspace from the Dollyfile...");
       let status;
       if (base) {
@@ -117,7 +117,7 @@ await runImage(async (config, host) => {
       }
       let supervisor;
       if (status === 0) {
-        supervisor = await host.kernel.supervisor(dolly);
+        supervisor = await host.kernel.supervisor(kernel);
         status = (await supervisor.spawn(base ? ["/bin/dollyfile", locator] : ["/usr/libexec/dolly/process-bin/bootstrap"])).status;
       }
       for (const artifact of artifacts.values()) files.remove(`/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`);

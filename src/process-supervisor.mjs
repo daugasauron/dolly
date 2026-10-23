@@ -132,12 +132,12 @@ function createProcessMemory({ initial, maximum }) {
 }
 
 export class DollyProcessSupervisor {
-  constructor(dolly, kernelMemory, gateModule, workerUrl, processContract, hostAbi, serviceHost, threadContract, threadHost, processModules) {
+  constructor(kernel, kernelMemory, gateModule, workerUrl, processContract, hostAbi, serviceHost, threadContract, threadHost, processModules) {
     if (!(kernelMemory instanceof WebAssembly.Memory) ||
         !(gateModule instanceof WebAssembly.Module) || !(workerUrl instanceof URL)) {
       throw new TypeError("invalid Dolly process supervisor configuration");
     }
-    this.dolly = dolly;
+    this.kernel = kernel;
     this.kernelMemory = kernelMemory;
     this.gateModule = gateModule;
     this.workerUrl = workerUrl;
@@ -153,7 +153,7 @@ export class DollyProcessSupervisor {
     this.compiledModuleBytes = 0;
     this.compiledVersions = new Map();
     this.launchChain = Promise.resolve();
-    this.mailboxAddress = Number(dolly._dolly_process_mailbox_address());
+    this.mailboxAddress = Number(kernel.dolly_process_mailbox_address());
     this.mailboxCapacity = packetLimit;
     if (!Number.isSafeInteger(this.mailboxAddress) || this.mailboxAddress <= 0 ||
         this.mailboxAddress > kernelMemory.buffer.byteLength - this.mailboxCapacity) {
@@ -162,7 +162,7 @@ export class DollyProcessSupervisor {
     this.serviceTimer = setInterval(() => this.#serviceTick(), 16);
   }
 
-  static async create(dolly, kernelMemory, runtimeBase, hostAbi, serviceHost, threadHost, processModules) {
+  static async create(kernel, kernelMemory, runtimeBase, hostAbi, serviceHost, threadHost, processModules) {
     const [gateBytes, contractBytes, threadBytes, workerBytes] = await Promise.all([
       "dolly-process-gate-0.wasm", "dolly-process-0.wasm", "dolly-threads-0.wasm",
       "dolly-process-worker.mjs",
@@ -178,7 +178,7 @@ export class DollyProcessSupervisor {
     const workerUrl = new URL(URL.createObjectURL(new Blob([workerBytes], { type: "text/javascript" })));
     try {
       const supervisor = new DollyProcessSupervisor(
-        dolly, kernelMemory, gateModule, workerUrl,
+        kernel, kernelMemory, gateModule, workerUrl,
         parseWasmInterface(contractBytes, "dolly-process-0"),
         hostAbi, serviceHost, parseWasmInterface(threadBytes, "dolly-threads-0"), threadHost, processModules,
       );
@@ -226,7 +226,7 @@ export class DollyProcessSupervisor {
       this.mailboxAddress,
       packet.length,
     ).set(packet);
-    const pid = this.dolly._dolly_process_spawn_serialized(BigInt(packet.length));
+    const pid = this.kernel.dolly_process_spawn_serialized(BigInt(packet.length));
     if (pid < 0) {
       const errno = Object.keys(DOLLY_ERRNO).find(name => DOLLY_ERRNO[name] === -pid) ?? `errno ${-pid}`;
       throw new Error(`cannot start ${arguments_[0]}: ${errno}`);
@@ -239,9 +239,9 @@ export class DollyProcessSupervisor {
   }
 
   #registerProcess(pid, parent, resolve = null, reject = null) {
-    const flags = this.dolly._dolly_process_spawn_flags(pid);
+    const flags = this.kernel.dolly_process_spawn_flags(pid);
     if (pid <= 0 || this.processes.has(pid) || flags < 0 ||
-        this.dolly._dolly_process_parent(pid) !== parent) {
+        this.kernel.dolly_process_parent(pid) !== parent) {
       throw new Error(`kernel supplied invalid process ${pid}`);
     }
     const process = {
@@ -270,9 +270,9 @@ export class DollyProcessSupervisor {
 
   #serviceTick() {
     this.serviceHost();
-    const interrupted = this.dolly._dolly_process_take_interrupt();
+    const interrupted = this.kernel.dolly_process_take_interrupt();
     if (interrupted > 0) this.#interruptForeground(interrupted);
-    for (let pid; (pid = this.dolly._dolly_process_take_alarm()) > 0;) {
+    for (let pid; (pid = this.kernel.dolly_process_take_alarm()) > 0;) {
       this.#deliverSignal(this.processes.get(pid), DOLLY_PROCESS_SIGALRM);
     }
     this.#deliverRaised();
@@ -282,8 +282,8 @@ export class DollyProcessSupervisor {
   // What a pseudo-terminal raised for the programs on its slave
   // (host/pty/dolly-pty-supervisor-0.wat): its interrupt key, resize or hang-up.
   #deliverRaised() {
-    for (let pid; (pid = this.dolly._dolly_pty_take_signal()) > 0;) {
-      this.#deliverSignal(this.processes.get(pid), this.dolly._dolly_pty_taken_signal());
+    for (let pid; (pid = this.kernel.dolly_pty_take_signal()) > 0;) {
+      this.#deliverSignal(this.processes.get(pid), this.kernel.dolly_pty_taken_signal());
     }
   }
 
@@ -303,7 +303,7 @@ export class DollyProcessSupervisor {
 
   #deliverSignal(process, signalNumber = DOLLY_PROCESS_SIGINT) {
     if (!process || process.retiring || this.processes.get(process.pid) !== process) return false;
-    const result = this.dolly._dolly_process_signal(process.pid, signalNumber);
+    const result = this.kernel.dolly_process_signal(process.pid, signalNumber);
     process.lastSignal = signalNumber;
     // Resize notification is not an interrupt request and must never acquire
     // a forced-termination deadline, including before program entry.
@@ -323,7 +323,7 @@ export class DollyProcessSupervisor {
     if (process.execution?.thread === receiver && signalNumber !== DOLLY_PROCESS_SIGWINCH) {
       const { message } = process.execution;
       process.execution = null;
-      this.dolly._dolly_process_exec_refused(process.pid, 0n);
+      this.kernel.dolly_process_exec_refused(process.pid, 0n);
       this.#signal(receiver, message.sequence, interruptedSystemCall);
     }
     if (signalNumber !== DOLLY_PROCESS_SIGWINCH) this.#armInterrupt(process, signalNumber);
@@ -352,10 +352,10 @@ export class DollyProcessSupervisor {
   // compiled from the same version of its file's bytes, which takes no read,
   // or one compiled from the bytes, found by their SHA-256 or compiled now.
   async #compiledImage(pid) {
-    const version = BigInt(this.dolly._dolly_process_image_version(pid));
+    const version = BigInt(this.kernel.dolly_process_image_version(pid));
     const key = this.compiledVersions.get(version);
     if (version !== 0n && this.compiledModules.has(key)) {
-      if (this.dolly._dolly_process_image_consumed(pid) !== 0) {
+      if (this.kernel.dolly_process_image_consumed(pid) !== 0) {
         throw new Error(`kernel did not release executable ${pid}`);
       }
       return this.#cachedModule(key);
@@ -438,22 +438,22 @@ export class DollyProcessSupervisor {
 
   #writeTerminal(text) {
     const bytes = encoder.encode(text);
-    const address = this.dolly._malloc(BigInt(Math.max(1, bytes.byteLength)));
+    const address = this.kernel.malloc(BigInt(Math.max(1, bytes.byteLength)));
     if (address === 0 || address === 0n) return;
     try {
       new Uint8Array(
         this.kernelMemory.buffer, Number(address), bytes.byteLength,
       ).set(bytes);
-      this.dolly._dolly_terminal_write_bytes(
+      this.kernel.dolly_terminal_write_bytes(
         BigInt(address), BigInt(bytes.byteLength),
       );
     } finally {
-      this.dolly._free(BigInt(address));
+      this.kernel.free(BigInt(address));
     }
   }
 
   async #launchPending() {
-    for (let pid; (pid = this.dolly._dolly_process_next_launch()) !== 0;) {
+    for (let pid; (pid = this.kernel.dolly_process_next_launch()) !== 0;) {
       const process = this.processes.get(pid);
       try {
         if (!process) throw new Error(`kernel supplied unregistered process ${pid}`);
@@ -474,24 +474,24 @@ export class DollyProcessSupervisor {
         // A failed launch ends only its own process; exiting it in the kernel
         // also stops next_launch from naming it again.
         if (process) this.#fail(process, error);
-        else this.dolly._dolly_process_worker_exited(pid, 126, 0);
+        else this.kernel.dolly_process_worker_exited(pid, 126, 0);
       }
     }
   }
 
   // The bytes of the executable the kernel opened for a process, which it then closes.
   #takeImage(pid) {
-    const read = this.dolly._dolly_process_image_read(pid);
+    const read = this.kernel.dolly_process_image_read(pid);
     if (read !== 0) throw new Error(`cannot read the executable of process ${pid}: ${read}`);
-    const address = Number(this.dolly._dolly_process_image_address(pid));
-    const size = Number(this.dolly._dolly_process_image_size(pid));
+    const address = Number(this.kernel.dolly_process_image_address(pid));
+    const size = Number(this.kernel.dolly_process_image_size(pid));
     if (!Number.isSafeInteger(address) || !Number.isSafeInteger(size) ||
         address <= 0 || size < 8 || address > this.kernelMemory.buffer.byteLength - size) {
       throw new Error(`kernel supplied an invalid executable for process ${pid}`);
     }
     const bytes = new Uint8Array(size);
     bytes.set(new Uint8Array(this.kernelMemory.buffer, address, size));
-    if (this.dolly._dolly_process_image_consumed(pid) !== 0) {
+    if (this.kernel.dolly_process_image_consumed(pid) !== 0) {
       throw new Error(`kernel did not release executable ${pid}`);
     }
     return bytes;
@@ -519,7 +519,7 @@ export class DollyProcessSupervisor {
     });
     Object.assign(process, { gate, module, processInterface, threaded, largeStack, local });
     if (threaded) {
-      const tid = this.dolly._dolly_threads_attach(process.pid);
+      const tid = this.kernel.dolly_threads_attach(process.pid);
       if (tid <= 0) throw new Error(`kernel could not reserve main thread: ${tid}`);
       process.tid = tid;
       process.threads.set(tid, process);
@@ -545,13 +545,13 @@ export class DollyProcessSupervisor {
       const line = encoder.encode(`dolly: process ${process.pid} cannot run its new program: ` +
         `${terminalFailureReason(error)}\n`);
       new Uint8Array(this.kernelMemory.buffer, this.mailboxAddress, line.length).set(line);
-      this.dolly._dolly_process_exec_refused(process.pid, BigInt(line.length));
+      this.kernel.dolly_process_exec_refused(process.pid, BigInt(line.length));
       this.#signal(thread, message.sequence, -BigInt(DOLLY_ERRNO.ENOEXEC));
       return;
     }
     if (process.execution !== execution) return;
     process.execution = null;
-    const signalAtStart = this.dolly._dolly_process_exec_commit(process.pid);
+    const signalAtStart = this.kernel.dolly_process_exec_commit(process.pid);
     if (signalAtStart < 0) {
       this.#fail(process, new Error(`kernel rejected process ${process.pid} exec: ${signalAtStart}`));
       return;
@@ -566,7 +566,7 @@ export class DollyProcessSupervisor {
     Object.assign(process, { started: false, threaded: false, tid: 0, threads: new Map(), signalAtStart });
     // Its descriptors with CLOEXEC are closed: a reader of their pipes goes on now.
     this.#deliverRaised();
-    if (this.dolly._dolly_process_take_wakeup()) this.serviceDeferred();
+    if (this.kernel.dolly_process_take_wakeup()) this.serviceDeferred();
     const start = () => {
       if (!this.#canLaunch(process)) return;
       try { this.#start(process, compiled, local); } catch (error) { this.#fail(process, error); }
@@ -600,7 +600,7 @@ export class DollyProcessSupervisor {
   #canLaunch(process) {
     if (this.processes.get(process.pid) !== process || process.retiring) return false;
     // An ancestor's EXIT can reach the kernel before its Worker posts finished.
-    if (this.dolly._dolly_process_exited(process.pid) !== 0) {
+    if (this.kernel.dolly_process_exited(process.pid) !== 0) {
       this.#retire(process);
       return false;
     }
@@ -616,7 +616,7 @@ export class DollyProcessSupervisor {
   }
 
   #armDeadline(process) {
-    const remaining = this.dolly._dolly_process_deadline_remaining(process.pid);
+    const remaining = this.kernel.dolly_process_deadline_remaining(process.pid);
     if (remaining >= 0) {
       process.deadlineTimer = setTimeout(() => this.#endTree(process.pid, 124), Math.ceil(remaining));
     }
@@ -681,12 +681,12 @@ export class DollyProcessSupervisor {
       // Firefox can enter a direct Wasm call twice. Use the generic call path
       // so a completed syscall is never replayed against its response packet.
       result = exhausted ? -BigInt(DOLLY_ERRNO.EAGAIN)
-        : Reflect.apply(process.threaded ? this.dolly._dolly_threads_dispatch : this.dolly._dolly_process_dispatch,
-          this.dolly, args);
+        : Reflect.apply(process.threaded ? this.kernel.dolly_threads_dispatch : this.kernel.dolly_process_dispatch,
+          this.kernel, args);
       if (result === deferredResult) {
         const deferred = { process, thread, message, timer: null };
         this.deferred.set(thread, deferred);
-        const remaining = this.dolly._dolly_process_deferred_milliseconds();
+        const remaining = this.kernel.dolly_process_deferred_milliseconds();
         if (remaining >= 0 && remaining <= 16) {
           deferred.timer = setTimeout(() => {
             if (this.deferred.get(thread) === deferred) this.#syscall(process, message, true, thread);
@@ -724,7 +724,7 @@ export class DollyProcessSupervisor {
           try { this.#launchWorker(process, child, threadArgument); }
           catch (error) {
             this.#disposeThread(process, child);
-            this.dolly._dolly_threads_unstarted(process.pid, tid);
+            this.kernel.dolly_threads_unstarted(process.pid, tid);
             result = -BigInt(DOLLY_ERRNO.EAGAIN);
           }
         }
@@ -766,7 +766,7 @@ export class DollyProcessSupervisor {
     if (retry) return;
     // A pipe write or close can complete another thread's blocked read or poll,
     // such as an async runtime's waker: retry now, not at the next tick.
-    if (this.dolly._dolly_process_take_wakeup()) this.serviceDeferred();
+    if (this.kernel.dolly_process_take_wakeup()) this.serviceDeferred();
   }
 
   #message(process, message, thread = process) {
@@ -776,7 +776,7 @@ export class DollyProcessSupervisor {
       this.#fail(process, new Error(`process ${process.pid} sent a mismatched identity`));
     } else if (message.type === "started") {
       if (thread !== process) return;
-      if (this.dolly._dolly_process_worker_started(process.pid) !== 0) {
+      if (this.kernel.dolly_process_worker_started(process.pid) !== 0) {
         this.#fail(process, new Error(`kernel rejected process ${process.pid} start`));
       } else {
         process.started = true;
@@ -793,13 +793,13 @@ export class DollyProcessSupervisor {
       // The trusted Worker wrapper has unwound Wasm and will never re-enter it.
       // Remove its event handlers/resources before making its stack joinable.
       this.#disposeThread(process, thread);
-      const last = this.dolly._dolly_threads_retired(process.pid, thread.tid, message.result);
+      const last = this.kernel.dolly_threads_retired(process.pid, thread.tid, message.result);
       if (last < 0) this.#fail(process, new Error("kernel rejected thread retirement"));
       else if (last) this.#forceExit(process.pid, 0);
       else this.serviceDeferred();
     } else if (message.type === "finished") {
       // _start returned (status zero), or EXIT has already recorded the status.
-      this.dolly._dolly_process_worker_exited(process.pid, 0, 0);
+      this.kernel.dolly_process_worker_exited(process.pid, 0, 0);
       this.#retire(process);
     } else if (message.type === "failed") {
       const detail = message.stack ? `${message.message}\n${message.stack}` : message.message;
@@ -822,7 +822,7 @@ export class DollyProcessSupervisor {
     // the shell's child unless it is exec'd. Each answers it as it handles it.
     // A descendant that has it already, as Ctrl-C gives it to the whole
     // foreground tree, is not given it twice.
-    const signal = this.dolly._dolly_process_exit_signal(process.pid);
+    const signal = this.kernel.dolly_process_exit_signal(process.pid);
     if (signal !== 0) {
       for (const descendant of [...this.processes.values()]) {
         if (descendant.lastSignal !== signal && this.#descendantDepth(descendant, process.pid) !== 0) {
@@ -837,7 +837,7 @@ export class DollyProcessSupervisor {
     // The kernel has closed the process's descriptors: a reader of its pipe or
     // a waiter for its lock proceeds now, not at the next tick.
     this.#deliverRaised();
-    if (this.dolly._dolly_process_take_wakeup()) this.serviceDeferred();
+    if (this.kernel.dolly_process_take_wakeup()) this.serviceDeferred();
     const retired = () => {
       process.retirementTimer = null;
       if (this.processes.get(process.pid) !== process) return;
@@ -846,7 +846,7 @@ export class DollyProcessSupervisor {
       else {
         // An orphan, whose parent may have ended after this one did: nobody
         // waits for it, so it is reaped, as init would.
-        if (this.dolly._dolly_process_parent(process.pid) === 0) this.dolly._dolly_process_collect(process.pid);
+        if (this.kernel.dolly_process_parent(process.pid) === 0) this.kernel.dolly_process_collect(process.pid);
         this.serviceDeferred();
       }
     };
@@ -859,7 +859,7 @@ export class DollyProcessSupervisor {
   }
 
   #acknowledgeRetirement(process) {
-    const result = this.dolly._dolly_process_worker_retired(process.pid);
+    const result = this.kernel.dolly_process_worker_retired(process.pid);
     if (result !== 0) {
       throw new Error(`kernel rejected process ${process.pid} retirement: ${result}`);
     }
@@ -870,7 +870,7 @@ export class DollyProcessSupervisor {
   // it (the program, the supervisor or the kernel itself), the wait record and
   // this are one fact.
   #finish(process) {
-    const ending = this.dolly._dolly_process_collect(process.pid);
+    const ending = this.kernel.dolly_process_collect(process.pid);
     const status = ending < 0 ? ending : ending & 255;
     // The modules see what the process left, such as its last terminal
     // output, before anyone learns that it ended.
@@ -894,7 +894,7 @@ export class DollyProcessSupervisor {
     const line = encoder.encode(`dolly: process ${process.pid} ` +
       `${process.started ? "failed" : "was refused"}: ${reason}\n`);
     new Uint8Array(this.kernelMemory.buffer, this.mailboxAddress, line.length).set(line);
-    this.dolly._dolly_process_worker_failed(process.pid, BigInt(line.length));
+    this.kernel.dolly_process_worker_failed(process.pid, BigInt(line.length));
     detail.message = `Dolly process ${process.pid} failed: ${detail.message}`;
     process.failure = Object.assign(detail, { reason });
     if (!process.reject) console.error(detail.stack ?? detail.message);
@@ -905,7 +905,7 @@ export class DollyProcessSupervisor {
     const process = this.processes.get(pid);
     if (!process) return false;
     if (process.retiring) return true;
-    this.dolly._dolly_process_worker_exited(pid, status, signalNumber);
+    this.kernel.dolly_process_worker_exited(pid, status, signalNumber);
     this.#retire(process);
     return true;
   }

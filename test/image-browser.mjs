@@ -5,13 +5,14 @@ import { buildBufferReuse, buildLogProof } from "./fixtures/image-build-browser.
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { siteReference } from "../src/static-asset.mjs";
 import { DOLLY_SYSTEM_SNAPSHOT as systemMetadata } from "../dist/dolly-system-system-snapshot.mjs";
-import { DOLLY_SYSTEM_SNAPSHOT as toolsMetadata } from "../dist/dolly-system-tools-system-snapshot.mjs";
-import { DOLLY_SYSTEM_SNAPSHOT as transferMetadata } from "../dist/dolly-transfer-system-snapshot.mjs";
 
-// system is built FROM system-tools and installs transfer: the base and child of the cache checks.
+// system is built FROM system-tools and installs packages: the base and child of the cache checks.
 const [system, tools] = ["system", "system-tools"].map(name => DOLLY_IMAGES.find(({ image }) => image === name));
 const packs = metadata => metadata.packs.map(({ sha256 }) => `/dist/packs/${sha256}.snapshot.gz`).sort();
-const systemPacks = packs(systemMetadata), buildPacks = packs({ packs: [...toolsMetadata.packs, ...transferMetadata.packs] });
+// Building system reads each image its recipe names, every one's packs.
+const inputMetadata = await Promise.all(system.artifacts.map(async ({ image }) =>
+  (await import(`../dist/dolly-${image}-system-snapshot.mjs`)).DOLLY_SYSTEM_SNAPSHOT));
+const systemPacks = packs(systemMetadata), buildPacks = packs({ packs: inputMetadata.flatMap(metadata => metadata.packs) });
 const sources = { "fs-record.h": "src/fs-record.h", "fs-record.c": "test/fixtures/fs-record.c",
   "image-roundtrip.c": "test/fixtures/image-roundtrip.c", "system-snapshot.c": "src/system-snapshot.c",
   "system-snapshot.h": "src/system-snapshot.h", "dollyfile.c": "src/dollyfile.c", "sha256.h": "src/sha256.h" };
@@ -269,7 +270,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
   await page.close();
 
   // Without published system metadata, a fresh tab builds system from the
-  // published system-tools and transfer instead of downloading system; that
+  // published system-tools and packages instead of downloading system; that
   // build fetches only the sources system's own recipe names.
   hideSystemMetadata = true;
   const missing = await browser.newPage();

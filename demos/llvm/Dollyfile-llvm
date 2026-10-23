@@ -12,7 +12,7 @@ FROM /v0.1.4/demos/llvm/Dollyfile-llvm-build 373b0fe77664108a1ddaa6656b45f425098
 INSTALL /v0.1.4/Dollyfile-cc 106380f3bc697b56a23cbbf9290de059a8e76d15da8615b65c8398dfd3c7872d
 SLOP slop -c 'for tool in llvm-ar llvm-ranlib llvm-nm llvm-objdump llvm-readobj llvm-readelf llvm-objcopy llvm-strip \
   llvm-size llvm-strings llvm-symbolizer llvm-addr2line llvm-dwarfdump llvm-cxxfilt llvm-mc llvm-as llvm-dis llvm-link \
-  opt llc; do ln -s ../lib/llvm/bin/$tool /usr/bin/$tool; done'
+  opt llc llvm-config; do ln -s ../lib/llvm/bin/$tool /usr/bin/$tool; done'
 EXPORTS FOLDER llvm /usr/lib/llvm
 EXPORTS TOOL llvm-ar
 EXPORTS TOOL llvm-ranlib
@@ -34,12 +34,6 @@ EXPORTS TOOL llvm-dis
 EXPORTS TOOL llvm-link
 EXPORTS TOOL opt
 EXPORTS TOOL llc
-# llvm-config takes its prefix from its own path, which LLVM asks dladdr for;
-# this libc's dladdr knows no file, so llvm-config takes its working directory
-# for its own directory, and runs in it.
-FILE /usr/bin/llvm-config
-    #!/bin/slop
-    cd /usr/lib/llvm/bin && ./llvm-config "$@"
 EXPORTS TOOL llvm-config
 SOURCE /v0.1.4/dist/static/llvm/licenses/llvm 8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee /usr/share/licenses/llvm/LICENSE.TXT
 FILE /usr/share/licenses/llvm/LICENSE.TXT

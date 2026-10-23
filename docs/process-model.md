@@ -39,7 +39,9 @@ sequenceDiagram
 - Found through `PATH`; `#!` lines name an absolute in-Wasm interpreter, nested at most 4 deep.
 - `readlink("/proc/self/exe")` returns the loaded image's canonical path, and
   `readlink("/proc/PID/cwd")` the directory a process that has not exited
-  stands in; there is no general `/proc`.
+  stands in; there is no general `/proc`. `dladdr` names that path for the
+  program's own functions and static data, and nothing for the heap, the stack
+  or a module `dlopen` loaded.
 - Opening `/proc/processes` for reading gives the processes that have not
   exited, a line each in PID order, `PID PARENT STATE ARGUMENTS`: the state is
   `starting` until the program runs and `running` from then, the arguments
