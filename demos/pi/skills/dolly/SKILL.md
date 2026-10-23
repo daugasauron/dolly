@@ -8,7 +8,7 @@ description: How to do things on this Dolly machine (a POSIX-like wasm64 userspa
 Everything here (shell, processes, files) runs in WebAssembly inside one
 browser tab. Files live in memory: reloading the tab loses them unless the user
 saves the session (Ctrl+Shift+S) or downloads them. There is no host
-filesystem, no sockets to the outside, no root, no PTY and no `apt`, `npm` or
+filesystem, no sockets to the outside, no root and no `apt`, `npm` or
 `pip install` before `amy install python`.
 
 ## What this machine has

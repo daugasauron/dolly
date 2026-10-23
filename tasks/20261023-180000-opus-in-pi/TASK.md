@@ -44,7 +44,7 @@ in Pi in pi-agent cost $0.762 of the $20 (Pi's footer and the session files agre
 images rebuilt here are `pi`, `pi-runtime` and `pi-agent`; `bhop`, `classicube`,
 `dollyfile-studio`, `pi-local`, `pi-phone`, `rts-arena` and `slopyard` install `pi` and are
 stale until the integrator's rebuild. `demos/pi/test/pi-browser.mjs` passes on the final
-image in Chromium (47 s) and Firefox (55 s).
+image in Chromium (49 s) and Firefox (53 s).
 
 ## Method
 
