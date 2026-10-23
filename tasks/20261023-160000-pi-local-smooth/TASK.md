@@ -1,6 +1,6 @@
 # pi-local: Pi on a local model, smooth in use; the model is confused about the environment
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 180
 - TAGS: pi,local-llm,agent-experience,0.1.4
 
@@ -19,12 +19,24 @@ causes of the confusion are named from those transcripts, the fixes are in and m
 the same way, and `demos/local-llm/test/local-llm-browser.mjs` passes on the GPU in Chromium
 and Firefox.
 
-## State (2026-10-23 16:05 JST, branch `demo/pi-local-smooth`)
+## Closed (2026-10-23)
 
-Before measured with both models; the first candidate measured with Qwen; the second
-candidate (`ef147433`) is built into `pi-local` and `dollyfile-studio` in this tree and
-waits for the shared GPU lock with its measurement and `local-llm-browser.mjs`
-(`build/pilocal-evidence/batch1.sh`, unit `dolly-pilocal-batch1`).
+Done when is met with `ef147433` (branch `demo/pi-local-smooth`): sessions before and after
+with both models below, the causes named, the fixes in `pi-local`'s own files, and
+`local-llm-browser.mjs` passing on the GPU in Chrome and Firefox. With the general guidance
+both 2B models answered 0 of 18 of the machine questions (processes, languages, Python);
+with `pi-local`'s guidance 5 of 9 (Qwen) and 4 of 9 (MiniCPM), the plain tasks (list, edit,
+C) stay at 9 of 9, greetings call no tool, a model chosen with `/local` stays chosen, and
+the model stays loaded across `/new`. Three further wordings were measured and none did
+better (below); the run-to-run spread with three rounds is as large as their differences.
+
+Left, not in this task: `amy install python` cannot work in `pi-local` or `pi-agent` (the
+package needs `dso@0` and `sockets@0`); about half the answers to "which languages" still
+name Python, often from `amy list`'s descriptions of packages that are not installed; Qwen
+sometimes runs `print(2+2)` with `janis` and calls it Python; MiniCPM reaches for `sed -i`,
+which sbase lacks. The proposals for `demos/pi/` are below. A prompt that changes inside a
+session (a `/reload` after installing a package) would reach Qwen as a later system
+message, which its template refuses: read in the template and Pi's adapter, not measured.
 
 Building in this slim tree: `npm run image` stages the whole closure of `pi-local`, and
 that needs Rust's port sources (`build/rustc-port`), which the tree lacks. Only
@@ -33,7 +45,7 @@ that needs Rust's port sources (`build/rustc-port`), which the tree lacks. Only
 update-recipe-pins.mjs --sources`, `generate-routes.mjs` and `build-system-snapshot.mjs`
 (`DOLLY_BUILD_IMAGES=default,pi-local,minicpm5-2b,dollyfile-studio`, hugebuild slot): the
 same steps as `build-image.mjs` without restaging the unchanged sources. `pi-local` and
-`dollyfile-studio` were rebuilt, nothing else.
+`dollyfile-studio` (built `FROM` it) were rebuilt, nothing else.
 
 ## Method
 
@@ -124,26 +136,29 @@ Found on the way, both in `pi-local`'s provider:
   for the weights and evaluated its 1,600-token prompt from nothing (18 loads in 18
   sessions in `engine.log`).
 
-## Fixes, in `pi-local`'s own files
+## Fixes, in `pi-local`'s own files (as shipped in `ef147433`)
 
 - `demos/local-llm/SYSTEM.md`, installed as `/usr/lib/dolly-llm/SYSTEM.md`: guidance for a
-  small model. It states the facts the transcripts lacked (not Linux, no apt, pip or npm,
-  `/proc/processes`, every bash call in Slop from `/workspace`, `amy list` and
-  `amy install`, `cc -o NAME FILE.c && ./NAME`, `janis`), and that questions about the
-  machine are answered from the prompt, tasks with tools. Nothing about Pi's own
+  small model, a short list: "You are a coding assistant. The machine you work on is
+  Dolly…, not Linux"; greetings in plain text, questions about the machine from the prompt,
+  tasks with tools; the tools; the installed commands inline ("Any other command, such as
+  ps, python or apt, is not installed"), `cat /proc/processes`, `amy list` and
+  `amy install`, `cc -o NAME FILE.c && ./NAME`, `janis`. Nothing about Pi's own
   documentation, extensions or npm.
 - `local-model-provider.js`: a session whose first prompt goes to a local model gets that
-  guidance in place of `SYSTEM.md`'s preamble (Pi's `before_agent_start`,
-  `systemPromptOptions.customPrompt`) and a `commands` section with the commands on `PATH`,
-  read once per session. The choice and the list hold for the session: a changed prompt
-  would reach the model as a later system message, which Qwen3.5's template refuses
-  ("System message must be at the beginning"). Hosted models chosen with `/model` keep the
-  general guidance. The skill stays listed.
+  guidance, with the commands on `PATH` read once, in place of `SYSTEM.md`'s preamble (Pi's
+  `before_agent_start`, `systemPromptOptions.customPrompt`). Both hold for the session: a
+  changed prompt would reach the model as a later system message, which Qwen3.5's template
+  refuses ("System message must be at the beginning"). Hosted models keep the general
+  guidance; the skill stays listed. In such a session a bash result with Slop's
+  `NAME: command not found` gets a line: not installed here, the prompt lists the installed
+  commands, `amy list` shows the packages.
 - `/local` saves the model it switches to as Pi's `defaultProvider`/`defaultModel` in
   `~/.pi/agent/settings.json`, as Pi's `/model` does; Pi's settings writes merge only the
   fields Pi changed, so the value stays.
 - One engine per Pi process (`globalThis`), stopped on `session_shutdown` only when Pi
   quits: `/new` and `/resume` keep the model loaded.
+- `test/local-llm-browser.mjs` types `/new` before the second model's task.
 
 ## Proposals for the shared guidance (`demos/pi/`, with `pi-dolly`)
 
@@ -250,3 +265,12 @@ Fourth (`cand5/`), three rounds: Qwen processes 3 of 3, Python 0 of 3 (writes `r
 runs it with `janis`, "the Python one-liner outputs 4"), languages 0 of 3 ("Python: the
 default interpreter"); MiniCPM processes 3 of 3, Python 1 of 3 ("Python isn't installed"),
 languages 1 of 3. The other prompts as before; greetings 9 of 9 each.
+
+Fifth (`cand6/`, the shipped wording with the process line of the third), three rounds: Qwen
+processes 1 of 3, languages 1 of 3, Python 1 of 3; MiniCPM processes 3 of 3, Python 0 of 3
+(no call: "2+2 = 4."), languages at most 1 of 3. One line apart from the shipped wording,
+Qwen's Python went from 3 of 3 to 1 of 3: three rounds do not separate these wordings.
+
+Decision: ship the second candidate (`ef147433`), which is built, passed
+`local-llm-browser.mjs` and scored highest on the machine questions summed over both models
+(9 of 18; the third 7, the fourth 8, the fifth 6 or 7).
