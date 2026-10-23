@@ -1,7 +1,7 @@
 # Nothing can ask which program holds a terminal or where it stands: tmux's window names and new panes' directories
 
 - STATUS: OPEN
-- PRIORITY: 180
+- PRIORITY: 100
 - TAGS: core,kernel,terminal,tmux
 
 Found by [tmux in use](../20261013-133111-tmux-use/TASK.md) (2026-10-14), not fixed there.
@@ -11,6 +11,8 @@ name of the program in the foreground of a terminal, its working directory)
 and through what, a file under `/proc` or an operation; and tmux's
 `osdep_get_name` and `osdep_get_cwd` use it, or the demo's README says the
 limit stays.
+
+Waits for the owner to read the investigation; lowered from 180 on 2026-10-23 for that reason.
 
 ## State (2026-10-14, 04:00): investigated, the owner's to read
 

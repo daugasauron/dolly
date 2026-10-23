@@ -2,7 +2,12 @@
 
 - STATUS: OPEN
 - PRIORITY: 150
-- TAGS: core,boundary,cleanup
+- TAGS: core,boundary,cleanup,0.1.4
+
+## State (2026-10-23)
+
+For v0.1.4: the count at the release, after the npm packages' work, which moves trusted
+code between `src/` and `host/` ([npm packages](../20261023-113537-npm-packages/TASK.md)).
 
 ## State (2026-10-13)
 

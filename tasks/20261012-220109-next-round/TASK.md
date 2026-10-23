@@ -1,6 +1,6 @@
 # What waits for the owner and the next catalog round
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: catalog,owner,packages,host-modules
 
@@ -252,3 +252,11 @@ Each was stubbed or stripped in a probe in `work/gtk`
   ([iteration cost](../20260930-100000-audit-53/TASK.md), item 2).
 - The threaded build of the process side under `-Wall`
   ([task](../20261013-212251-core-warnings/TASK.md)).
+
+## Closed (2026-10-23)
+
+Every decided item passed a round (2026-10-14/15) and shipped in v0.1.3 (`9bd249d1`). What
+was the owner's has its own task: the touch module's contract is decided and tagged for
+v0.1.4 ([touch](../20261013-144001-touch-module/TASK.md)); [three answers](../20261012-232215-owner-answers/TASK.md)
+and [slopshare.dev](../20261011-134500-slopshare/TASK.md) stay open. A release's scope is now
+its tag (`tatr ls :0.1.4`, AGENTS.md), so this list is not kept for the next round.

@@ -18,6 +18,14 @@ only a view of a demo's build image; each has its check in
 `test/amy-browser.mjs` or its consumer's test; the list of what was not
 broken out says why for each.
 
+## State (2026-10-23)
+
+The question was answered and the step after it built: a package's build-only installs
+(`USE`), and SpiderMonkey, FreeType, libpng and libjpeg as packages that hold their builds,
+passed the round of 2026-10-14/15 and shipped in v0.1.3 ([next round](../20261012-220109-next-round/TASK.md)).
+Left, from the candidates below: `openal`, `libuv`, `raylib`, `box3d` and a llama.cpp library
+still stand on demo images' builds. Not tagged for v0.1.4.
+
 ## State (2026-10-14, 10:10): investigated; one step done, the rest waits on one question
 
 The five groups of [the inventory](inventory.md) were each investigated

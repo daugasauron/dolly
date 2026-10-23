@@ -1,7 +1,7 @@
 # The display's terminal reports the mouse to no program: tmux's mouse does nothing
 
 - STATUS: OPEN
-- PRIORITY: 230
+- PRIORITY: 120
 - TAGS: core,display,terminal,tmux
 
 Found by [tmux in use](../20261013-133111-tmux-use/TASK.md) (2026-10-14), not fixed there.
@@ -11,6 +11,9 @@ and the modes beside it, SGR encoding) gets them from the display's terminal
 while it asks, and the terminal's own selection and scrollback are as before
 whenever no program asks; shown by tmux (a click selects a pane, the wheel
 scrolls one) in both browsers, with a test that fails before.
+
+Not now: the owner signed off the recommendation of 2026-10-14 to leave the terminal's mouse
+for later ([next round](../20261012-220109-next-round/TASK.md)); lowered from 230 on 2026-10-23.
 
 ## State (2026-10-14, 04:00): investigated, the owner's to read
 

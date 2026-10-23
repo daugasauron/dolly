@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 310
-- TAGS: host-modules,input,phone,owner
+- TAGS: host-modules,input,phone,0.1.4
 
 Owner (2026-10-13): "create a task to rework the "buttons module"
 completely. What I wanted from that is something generic to capture
@@ -33,7 +33,42 @@ buttons, captions or any program; a small program proves it (two fingers
 zoom something it draws), in Chromium with touch emulation and on a phone;
 `buttons@0` is replaced by it.
 
-## State (2026-10-14, 04:05): the groundwork is gathered; the contract is still the owner's
+## State (2026-10-23): the contract is decided; goes with v0.1.4
+
+Owner (2026-10-23): "I thought the buttons module got reworked? That should be included in the
+next release for sure, it should be some phone/touch input module thing?" It had waited on
+sixteen questions recorded as his; the integrator answers them below, from his words and
+[the groundwork](groundwork.md), and builds it. The numbers are the groundwork's questions.
+
+- `touch@0`, a module of its own beside `input@0` (1). A record is one finger: an `id` that
+  lasts from its down to its up or cancel, the `phase` (down, move, up, cancel), `x` and `y` in
+  the display frame's pixels as pointer records are (7), `pressure` (0 where the browser
+  reports none) and a millisecond `time` from the browser's event. At most ten fingers at once
+  (12).
+- One holder, the foreground process or a descendant, as for `input@0` and `display@0` (5).
+  While it is held a finger is a touch record only, never also the pointer (2); with no holder
+  the page keeps the terminal's drag-to-scroll and pinch for the font (3). `touch-action: none`
+  stays on the canvas (4). A program at the terminal gets the terminal surface's pixels and
+  maps them to cells with the sizes the terminal reports (CSI 14/16 t) (8).
+- A ring in the module's mailbox (13), every move the browser reports, coalesced moves
+  included, so a drawn path has no gaps (6). A full ring drops moves and counts them; a down,
+  up or cancel is never dropped. `nena` may switch it; no indicator (14).
+- Dolly's SDL2 driver turns records into SDL's finger events, so SDL and raylib programs get
+  touch with no change of theirs (`demos/sdl2/SDL_dollyvideo.c`). A desktop mouse is not a
+  finger (10).
+- Proof: a small SDL2 program in an application image that draws a figure two fingers zoom and
+  move and marks each finger with its id (16). Tests: CDP `Input.dispatchTouchEvent` with two
+  points in Chromium, dispatched touch `PointerEvent`s in Firefox, and the owner's phone over
+  USB (11).
+- `buttons@0` is removed (9). `pi-phone` keeps its use: a program in the foreground runs Pi on
+  a pseudo-terminal (`pty@0`), draws its button row in the terminal's last rows and takes
+  their taps from `touch@0`, and writes what `voice` hears into Pi's terminal itself, so the
+  kernel's operation that types into the terminal (132) goes too. The page's Paste button goes
+  if the phone's own paste into the page's keyboard reaches the terminal, which is measured on
+  the phone first; otherwise it moves into `input@0`.
+- Cost (15): the seed changes, so every image rebuilds; it rides the v0.1.4 catalog round.
+
+## Groundwork (2026-10-14, 04:05): the groundwork is gathered; the contract is still the owner's
 
 [The groundwork](groundwork.md), by a Fable agent that read `main`, the
 pinned SDL2 and raylib sources and the tasks, and changed nothing. It holds

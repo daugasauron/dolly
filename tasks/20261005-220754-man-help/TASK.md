@@ -2,7 +2,14 @@
 
 - STATUS: OPEN
 - PRIORITY: 100
-- TAGS: core,commands,docs,agent-experience
+- TAGS: core,commands,docs,agent-experience,0.1.4
+
+## State (2026-10-23)
+
+For v0.1.4: item 3, `amy`'s message about the environment only after a package that
+exports one. Item 2 is done (`38099083`, the 17 pages). Item 1 stays: formatting upstream's
+pages needs `mandoc` where `system-tools` is built, and `mandoc` is built on `tools-build`,
+which stands on `system-tools`.
 
 ## State (2026-10-13)
 

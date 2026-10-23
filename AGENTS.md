@@ -160,3 +160,5 @@ browser network broker small and well defined is the central design priority.
 Project issues live in `tasks/<id>/TASK.md`; see [tasks/README.md](tasks/README.md).
 Keep reproduction steps, findings, and completion criteria with the issue.
 Close it only after verifying the result, recording the evidence or commit.
+A task that goes with a release is tagged with its version (`0.1.4`); `tatr ls :0.1.4`
+lists that release's scope.

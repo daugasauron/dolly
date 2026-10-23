@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 200
-- TAGS: core,packaging,owner
+- TAGS: core,packaging,0.1.4
 
 Owner (2026-10-23): "I want to use fable to plan how to make this project into npm
 packages. There should be one minimal core package, and then a "default" package to add
