@@ -143,3 +143,27 @@ Not changed here: each rebuilds `pi` and every image on it.
 - The `dolly` skill, "What this machine has": name `/proc/processes` for the process list,
   and that `amy install` names the host module an image lacks (`python` needs `dso@0` and
   `sockets@0`, which `pi-agent` and `pi-local` do not declare).
+
+## First candidate, Qwen3.5-2B (`build/pilocal-evidence/after1/qwen3.5-2b/`, the image of `83fd8918`)
+
+Guidance in prose ("You are a coding agent in Dolly…", copy at
+`build/pilocal-evidence/SYSTEM-after1.md`) and the commands as a section after the working
+directory. Three rounds, the six prompts and three greetings:
+
+- Better: the languages, 3 of 3 from the prompt (C, C++, JavaScript; one added "a Python
+  environment"); greetings without tool calls, 9 of 9; the engine loaded once for 27
+  sessions (18 loads for 18 before).
+- Not better: processes 0 of 3 (`ps aux` first every time, then `/proc/1/cmdline`,
+  `janis -c`); Python 0 of 3 (ran `print(2 + 2)` as JavaScript with `janis` and reported
+  "the Python one-liner prints 4"; wrote a `.py` file and said what it would print); one
+  C run called `gcc`, `janis fib.c` and `python3`; one edit spent 45 calls on `date -d
+  "Thursday, October 24"`.
+- New confusion: "I am Dolly, a Unix-like system…" in 4 of 6 greetings, from "You are a
+  coding agent in Dolly" and "questions about yourself or this machine".
+
+So the facts must be where the model looks at the moment it fails, and the prompt must not
+blur the assistant with the machine. Second candidate: a short list of how things are done
+here with the command list inline, "You are a coding assistant. The machine you work on is
+Dolly", and a line appended to a bash result that says `NAME: command not found`: the name
+is not installed, the prompt lists what is, `amy list` shows the packages. Measured with
+the shipped sampling and with temperature 0.6, top-p 0.95 and (Qwen) presence penalty 0.
