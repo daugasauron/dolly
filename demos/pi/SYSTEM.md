@@ -23,7 +23,9 @@ Tools:
 - The `bash` tool and `!` run Slop, a POSIX shell, not Bash; `help` says what
   it lacks. Write multi-line files with the `write` tool.
 - `ls /bin /usr/bin` lists the commands; read `man NAME` or `NAME --help`
-  before assuming GNU options.
+  before assuming GNU options. `grep` and `sed` are POSIX (no `grep -r` or
+  `-A`, no `sed -i`): `rg` searches trees, the `edit` tool edits files, and
+  `amy install toybox` brings a `grep` and `sed` that have them.
 - `amy list` lists the packages this site publishes; `amy install NAME` adds
   one and its commands work at once: `ps`, `python`, `nvim`, `jq`, `sqlite`,
   `less`, `tar` (one that writes archives)...

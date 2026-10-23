@@ -75,3 +75,36 @@ Confused:
 - Persistence: "work can disappear when the tab closes unless you download it or push it
   somewhere"; saving the session (Ctrl+Shift+S) was not mentioned, and pushing needs a relay.
 - Nothing about `nena`, `man`, `help` or `amy list` came up before it hit a wall.
+
+## The guidance change (`6f480f9a`, then the grep line)
+
+Checked first without a model (`probe.mjs` in `pi-agent` and `default`): `amy install
+python` in pi-agent "needs dso@0: add REQUIRES HOST dso@0" (python needs `dso@0` and
+`sockets@0`; `default` declares both and installs it); `nena` is not in pi-agent and `amy
+install nena` "needs nena@0"; `ps` is the `ps` package, `/proc/processes` is there, `ls
+/proc` finds nothing; `tar` only extracts and `gzip` only decompresses, `amy install tar`
+writes `.tar` but `tar -czf` fails with "tar: fork: Function not implemented", `git archive
+-o out.tar.gz` works; `grep -r`, `grep -A` and `sed -i` print usage, `rg -A1` works and
+`amy install toybox` brings a grep and sed with them; curl to github.com is status 7, to
+raw.githubusercontent.com 200; no `bash`, `node`, `npm`, `pip`, `sudo`, `/etc/os-release`.
+
+- `SYSTEM.md` (always in the prompt; the skill is read late or not at all) now says what Dolly
+  is and is not (not Linux, no native binaries, no fork/exec, HTTP only, no terminal for the
+  bash tool, and how the user runs a game: Ctrl+D, Slop, `pi -c`), the tools and how to get
+  more (`amy list`/`install`, host modules in `/etc/dolly/Dollyfile`, `nena` where the image
+  declares `nena@0`, POSIX grep and sed, cc, janis, git, download/upload, Ctrl+Shift+S).
+- The skill: python's two modules and `nena enable`, processes, files in and out (git archive,
+  what tar and gzip do), and "When a command fails" (127, 126, ENOSYS, hidden stderr).
+- `dolly-tools.js`: the bash tool's description says Slop without a terminal, not "Execute a
+  bash command" (the pi-local proposal); the download tool says the user clicks Save.
+
+## Session 2, after (2026-10-23 16:02, `build/opus-evidence/after/`, $0.079)
+
+The same three prompts on the rebuilt pi-agent. Read the module list itself, answered python
+right ("needs the dso@0 host module... `nena` isn't available here, I can't turn that module
+on"; offered `janis -e`), used `/proc/processes`, knew that a game is played in Slop after
+Ctrl+D and `pi -c`, `git archive` for the source and Ctrl+Shift+S. One new stumble:
+`grep -A3` (POSIX grep has no `-A`), so the prompt now names POSIX grep and sed, `rg` and
+`toybox` (pi-agent rebuilt again).
+
+Spend so far: $0.172.
