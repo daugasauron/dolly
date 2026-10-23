@@ -28,8 +28,8 @@ any provider's models, and reasoning on or off. Build with
 | --- | --- | ---: | ---: | ---: | ---: |
 | Qwen3.5-2B | `qwen3.5-2b` (bundled) | 1.40 GB | 2.1 / 2.3 GB | 8 of 8 / 4 of 4 | 63 / 5 |
 | MiniCPM5-2B (2.6B parameters) | `minicpm5-2b` | 1.56 GB | 2.4 / 3.4 GB | 8 of 8 / 4 of 4 | 61 / 5 |
-| Qwen3.5-4B, 3-bit (Q3_K_S) | `qwen3.5-4b` | 2.11 GB | 3.2 / 3.8 GB | 4 of 4 / FF4B | 33 / 5 |
-| LFM2.5-2.6B | `lfm2.5` | 1.67 GB | 2.3 / 3.4 GB | 1 of 4 / FFLFM | 70 / 5 |
+| Qwen3.5-4B, 3-bit (Q3_K_S) | `qwen3.5-4b` | 2.11 GB | 3.2 / 3.8 GB | 4 of 4 / 2 of 2 | 33 / 5 |
+| LFM2.5-2.6B | `lfm2.5` | 1.67 GB | 2.3 / 3.4 GB | 1 of 4 / 0 of 1 | 70 / 5 |
 
 Q4_K_M weights unless named, 16,384 tokens of context, thinking off, on an
 NVIDIA RTX 5070. GPU memory is Chrome's peak in `nvidia-smi` with one model
