@@ -3,13 +3,14 @@ APPLICATION fingers
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
+REQUIRES HOST audio@0
 REQUIRES HOST touch@0
 
 # The shell, its tools and the terminal, and fingers in front of them.
 INSTALL /v0.1.4/Dollyfile-core 3ca7c237b80a32b3add5efae5934a27fbaf8104b3a4abcb8d3e88349359de411
 INSTALL /v0.1.4/Dollyfile-posix 2b8f4b528d298ba0d3a4641dcf752eed88a8bcff546aa51592a37eed4a4b7bcb
 INSTALL /v0.1.4/Dollyfile-display 2bcc49eeb3b86bb66fc916ea990a9e51a0f2b8f3cfd094e23d77fd7e2eea8b87
-INSTALL /v0.1.4/demos/fingers/Dollyfile-fingers-build c0cb0f1275db45d3853cee817b9185d0e9f2a65c7bef812de9c880ed94494e63
+INSTALL /v0.1.4/demos/fingers/Dollyfile-fingers-build 6a8ea62ba36d262d7d11d13215ae0c33edd3110a9069ce9fcefe7df16a2e025d
 FILE /etc/dolly/init.slop
     /usr/bin/fingers
     printf '\nDolly: fingers has ended; this is the recovery Slop shell.\n'

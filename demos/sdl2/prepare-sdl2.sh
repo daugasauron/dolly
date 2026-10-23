@@ -4,7 +4,7 @@ project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "${project_dir}/config/source-pins.sh"
 archive="$(bash "${project_dir}/scripts/fetch-pinned-archive.sh" sdl2)"
 recipe_hash="$(cd "${project_dir}"; sha256sum demos/sdl2/prepare-sdl2.sh \
-  demos/sdl2/sdl2-dolly.patch demos/sdl2/SDL_dollyvideo.c | sha256sum | cut -d' ' -f1)"
+  demos/sdl2/sdl2-dolly.patch demos/sdl2/SDL_dollyvideo.c demos/sdl2/SDL_dollyaudio.c | sha256sum | cut -d' ' -f1)"
 output="${project_dir}/build/generated/sdl2-${DOLLY_SDL2_SHA256}-${recipe_hash}"
 temporary=""
 cleanup() {
@@ -19,6 +19,8 @@ if [[ ! -d "${output}" ]]; then
     < "${project_dir}/demos/sdl2/sdl2-dolly.patch"
   mkdir -p "${temporary}/src/video/dolly"
   cp "${project_dir}/demos/sdl2/SDL_dollyvideo.c" "${temporary}/src/video/dolly/"
+  mkdir -p "${temporary}/src/audio/dolly"
+  cp "${project_dir}/demos/sdl2/SDL_dollyaudio.c" "${temporary}/src/audio/dolly/"
   mv -T "${temporary}" "${output}"
   temporary=""
 fi

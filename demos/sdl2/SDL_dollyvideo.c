@@ -215,9 +215,16 @@ static void DollyPumpTouch(DollyVideo *video)
     } while (count == DOLLY_TOUCH_READ_RECORDS);
 }
 
+#ifdef SDL_AUDIO_DRIVER_DOLLY
+void DOLLYAUDIO_Pump(void);
+#endif
+
 static void DollyPumpEvents(_THIS)
 {
     DollyVideo *video = _this->driverdata;
+#ifdef SDL_AUDIO_DRIVER_DOLLY
+    DOLLYAUDIO_Pump();
+#endif
     if (!video->window) return;
     if (video->touch) DollyPumpTouch(video);
     dolly_input_event event;

@@ -16,6 +16,6 @@ mouse of the first one, so every program built on the package declares
 
 `sdl2` compiles the pinned release inside Dolly ([`Dollyfile-sdl2`](Dollyfile-sdl2)) with
 the backend in [`SDL_dollyvideo.c`](SDL_dollyvideo.c) and
-[`sdl2-dolly.patch`](sdl2-dolly.patch). Audio and thread creation are unavailable, and so are timers (`SDL_AddTimer`), which need a thread; the timer subsystem starts without one.
+[`sdl2-dolly.patch`](sdl2-dolly.patch). Sound plays through `audio@0` ([`SDL_dollyaudio.c`](SDL_dollyaudio.c)), so every SDL2 program and every image that runs one declares it. Thread creation is unavailable, so SDL's audio callback runs from the event pump (`SDL_PollEvent`, `SDL_PumpEvents` with a window open) and keeps 100 ms queued; timers (`SDL_AddTimer`) need a thread too, and the timer subsystem starts without one.
 
 Test: `npm run test:demos -- sdl2` ([`test/`](test/)).

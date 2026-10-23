@@ -1,6 +1,6 @@
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -2968,6 +2968,23 @@
+@@ -2968,6 +2968,27 @@
    set(SDL_VIDEO_VULKAN 0)
  endif()
  
@@ -8,6 +8,10 @@
 +  set(SDL_VIDEO_DRIVER_DOLLY 1)
 +  set(HAVE_SDL_VIDEO TRUE)
 +  list(APPEND SOURCE_FILES ${SDL2_SOURCE_DIR}/src/video/dolly/SDL_dollyvideo.c)
++  if(SDL_AUDIO)
++    set(SDL_AUDIO_DRIVER_DOLLY 1)
++    list(APPEND SOURCE_FILES ${SDL2_SOURCE_DIR}/src/audio/dolly/SDL_dollyaudio.c)
++  endif()
 +  set(SDL_TIMER_UNIX 1)
 +  set(HAVE_SDL_TIMERS TRUE)
 +  list(APPEND SOURCE_FILES ${SDL2_SOURCE_DIR}/src/timer/unix/SDL_systimer.c)
@@ -26,9 +30,25 @@
  
 --- a/include/SDL_config.h.cmake
 +++ b/include/SDL_config.h.cmake
-@@ -414,1 +414,2 @@
+@@ -302,1 +302,2 @@
++#cmakedefine SDL_AUDIO_DRIVER_DOLLY @SDL_AUDIO_DRIVER_DOLLY@
+ #cmakedefine SDL_AUDIO_DRIVER_DISK @SDL_AUDIO_DRIVER_DISK@
+@@ -414,1 +415,2 @@
 +#cmakedefine SDL_VIDEO_DRIVER_DOLLY @SDL_VIDEO_DRIVER_DOLLY@
  #cmakedefine SDL_VIDEO_DRIVER_DUMMY @SDL_VIDEO_DRIVER_DUMMY@
+--- a/src/audio/SDL_sysaudio.h
++++ b/src/audio/SDL_sysaudio.h
+@@ -200,1 +200,2 @@
++extern AudioBootStrap DOLLYAUDIO_bootstrap;
+ extern AudioBootStrap DISKAUDIO_bootstrap;
+--- a/src/audio/SDL_audio.c
++++ b/src/audio/SDL_audio.c
+@@ -44,2 +44,5 @@
+ static const AudioBootStrap *const bootstrap[] = {
++#ifdef SDL_AUDIO_DRIVER_DOLLY
++    &DOLLYAUDIO_bootstrap,
++#endif
+ #ifdef SDL_AUDIO_DRIVER_PULSEAUDIO
 --- a/src/video/SDL_sysvideo.h
 +++ b/src/video/SDL_sysvideo.h
 @@ -476,1 +476,2 @@

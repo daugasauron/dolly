@@ -4,16 +4,19 @@
 - PRIORITY: 200
 - TAGS: demo,gpu,audio,port,0.1.4
 
-## For the owner (2026-10-24, the games-and-packages workstream)
+## SDL2 plays sound (2026-10-24, the games-and-packages workstream)
 
-Sound waits on one decision. An SDL2 audio driver over `audio@0` in `demos/sdl2` (route 5
-below, and what SDL_mixer as a package needs) links the module's client into every program
-that links SDL2, since `SDL_Init` reaches the audio subsystem's driver table. Each such program
-then carries the `audio@0` stamp and is refused (status 126) in a session without the module:
-`sdl2` and every image that runs an SDL program would declare `audio@0`, `default` among
-them, as `touch@0` went for SDL's touch input on `core/npm-packages` (`de5a46de`). The other
-form, `snd_dolly.c` beside DarkPlaces' `snd_sdl.c`, keeps the module to `xonotic` alone and
-gives SDL_mixer nothing.
+The integrator's decision on the line that stood here: SDL2 gets a Dolly audio driver on
+`audio@0`, and every SDL program and every image that runs one declares the module, `default`
+among them, as with `touch@0`. Done: `demos/sdl2/SDL_dollyaudio.c`, registered the way SDL
+registers its other drivers (`sdl2-dolly.patch`: the CMake block, `SDL_config.h.cmake`,
+`SDL_sysaudio.h`, the bootstrap list), is SDL's only audio driver here besides the dummy and
+disk ones. SDL starts no threads, so the driver provides the callback "thread" itself: the
+Dolly video driver's event pump runs the application's callback (through SDL's conversion
+stream) until 100 ms is queued. `demos/sdl2/test/sdl2-audio-browser.mjs`: an SDL program's
+44.1 kHz 16-bit tone, right channel only, is metered on the right only in Chromium and Firefox
+(the driver reports itself as `dolly`). `test/nena-browser.mjs` now uses `microphone@0` as the
+module `default` does not declare (both browsers pass).
 
 ## State (2026-10-13)
 

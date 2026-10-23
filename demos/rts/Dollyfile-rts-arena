@@ -3,6 +3,7 @@ APPLICATION rts-arena
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
+REQUIRES HOST audio@0
 REQUIRES HOST touch@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
@@ -10,13 +11,13 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 2fa3b0f18ffa8cba0b4ad1e222f79d927b14dbaef3b744526b244ad72134bfbc
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 7548b1b0622d956ef3c2ac8a9fcbf7eaa9a0d4b0678c6b05cbae5d4cf50ac398
-COPY /v0.1.4/demos/rts/Dollyfile-rts-build bdc1a7a021c61d92cbce5142113f1b3d762d1c75cb75e57260b427742aee278c /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
-COPY /v0.1.4/demos/rts/Dollyfile-rts-build bdc1a7a021c61d92cbce5142113f1b3d762d1c75cb75e57260b427742aee278c /usr/share/7kaa /usr/share/7kaa
-COPY /v0.1.4/demos/rts/Dollyfile-rts-build bdc1a7a021c61d92cbce5142113f1b3d762d1c75cb75e57260b427742aee278c /usr/src/7kaa /usr/src/7kaa
-COPY /v0.1.4/demos/rts/Dollyfile-rts-build bdc1a7a021c61d92cbce5142113f1b3d762d1c75cb75e57260b427742aee278c /usr/src/dolly/rts /usr/src/dolly/rts
-COPY /v0.1.4/demos/rts/Dollyfile-rts-build bdc1a7a021c61d92cbce5142113f1b3d762d1c75cb75e57260b427742aee278c /usr/share/licenses/7kaa /usr/share/licenses/7kaa
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime b956a7b989c6db37c19d29d4d53ba45b11cff584ad5be2cdd7fb49cf33e2f2a6
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 5caffe43d783ed4b72f8b5adb8cb79d54518c456dcb6ddf178e7fc23b8666670
+COPY /v0.1.4/demos/rts/Dollyfile-rts-build 307db6af4708b7383c0825e34c729ae8fb6ec0f10d343710891fb37bf5a65b57 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
+COPY /v0.1.4/demos/rts/Dollyfile-rts-build 307db6af4708b7383c0825e34c729ae8fb6ec0f10d343710891fb37bf5a65b57 /usr/share/7kaa /usr/share/7kaa
+COPY /v0.1.4/demos/rts/Dollyfile-rts-build 307db6af4708b7383c0825e34c729ae8fb6ec0f10d343710891fb37bf5a65b57 /usr/src/7kaa /usr/src/7kaa
+COPY /v0.1.4/demos/rts/Dollyfile-rts-build 307db6af4708b7383c0825e34c729ae8fb6ec0f10d343710891fb37bf5a65b57 /usr/src/dolly/rts /usr/src/dolly/rts
+COPY /v0.1.4/demos/rts/Dollyfile-rts-build 307db6af4708b7383c0825e34c729ae8fb6ec0f10d343710891fb37bf5a65b57 /usr/share/licenses/7kaa /usr/share/licenses/7kaa
 EXPORTS TOOL seven-kingdoms
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner
