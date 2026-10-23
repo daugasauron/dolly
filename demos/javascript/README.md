@@ -24,9 +24,9 @@ Microsoft's npm archive. A recipe or `amy install` that names one gets the
 ones below it.
 
 A C program that is one script links the runner, `-ldolly-js -lquickjs` with
-[`quickjs-runner.h`](quickjs-runner.h): `tsc`, `pi` and the games' agents are
-such programs. The archive is in `janis` because every program linked with it
-reads Janis's two scripts when it starts.
+[`quickjs-runner.h`](quickjs-runner.h): `tsc`, `janis-install`, `pi` and the
+games' agents are such programs. The archive is in `janis` because every
+program linked with it reads Janis's two scripts when it starts.
 
 ## Supported
 
