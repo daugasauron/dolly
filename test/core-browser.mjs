@@ -59,6 +59,12 @@ await browserTest("core", { image }, async ({ server, open }) => {
     "test \"$(cat err)\" = 'tar: junk.tar: not a tar archive' && said=yes; for name in short long; do ! tar -xf $name.tgz 2> err && " +
     "test \"$(cat err)\" = \"tar: $name.tgz: gzip data, not a tar archive: gzip -dc $name.tgz | tar -xf - (amy install gzip, where gzip is missing)\" " +
     "|| said=no; done; rm junk.tar short.tgz long.tgz err; test $said = yes"), 0);
+  // It has no -z: given one, it says how gzip data is read here, naming the archive where there is one.
+  const noGzip = file => `tar: -z is not supported here: gzip -dc ${file} | tar -xf - ` +
+    "(amy install gzip, where gzip is missing; amy install tar gives a tar with -z)";
+  for (const [options, file] of [["-xzf x.crate", "x.crate"], ["-zxf x.crate -C /tmp", "x.crate"], ["xzf x.crate", "x.crate"], ["-z", "FILE"]]) {
+    assert.equal(await submit(`tar ${options} 2> /tmp/err; test $? = 1 && test "$(cat /tmp/err)" = '${noGzip(file)}' && rm /tmp/err`), 0, options);
+  }
   assert.equal(await submit("printf 'needle\\n' > /tmp/core-search; grep -q needle /tmp/core-search && test \"$(find /tmp -maxdepth 1 -name core-search)\" = /tmp/core-search && rm /tmp/core-search"), 0);
   assert.equal(await submit([
     "mkdir -p /tmp/core-commands/a /tmp/core-commands/b /tmp/core-commands/many && cd /tmp/core-commands",

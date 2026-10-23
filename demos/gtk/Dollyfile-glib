@@ -13,15 +13,15 @@ REQUIRES HOST threads@0
 # which traps in WebAssembly: GObject's pkg-config file asks cc for
 # --dolly-cast-emulation (Binaryen's wasm-opt --fpcast-emu after the link),
 # and this package's own programs are passed through it here.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 660391387c20bd0f0ac7574e5406bc559b5aaf4761de4f5d29137999fd421f8a
-INSTALL /v0.1.4/demos/tools/Dollyfile-meson 3bb305ae5644192d65395b3b1b18529ff0e40c221dc2b67ed15fe96575ce7de0
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 4a52da17ba4e8dee2b3e4e24374ed560e6cb3b28a8cd056a3ef8885209ca740a
-INSTALL /v0.1.4/demos/tools/Dollyfile-xz 5c38b4899e4ccd73cf7ee3fbb082e730bcc89ee55cc3ae9e85c22bcb4ea86b80
-INSTALL /v0.1.4/demos/tools/Dollyfile-tar c0b3689082aa978183cc7987893499fbe35d3ac14db999b4ad0cb8b60742f697
-INSTALL /v0.1.4/demos/tools/Dollyfile-binaryen cc1e02665a423fb4a642e280eb326280e3c50b13a28f5c5b396a537adb520d39
-INSTALL /v0.1.4/demos/python/Dollyfile-libffi 1478daf507e144d5165afcf9c93687c37cf32054c0e9eed5f31eb8e75835addf
-INSTALL /v0.1.4/demos/gtk/Dollyfile-pcre2 61e3d1ce6c6c7e9838228d0e64c5bb49452d7097198d77c3b8bae078a2a01951
-INSTALL /v0.1.4/Dollyfile-zlib ef183657ffd20fd5efc4c7470c0b4ae04be26ad6f6eabd7c569158c1f000c734
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 9d7229ab77f72fe696a39d7b900829f0fdc1aab9446e2a61dadfb01ab1a83171
+INSTALL /v0.1.4/demos/tools/Dollyfile-meson 979553a1d60ea5cbbf082f5194befa219b26964a2f924cc5db488c409caff79a
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 3adde155d5fd4f29a459f53f4a45873d18645ea86b7f36c0ab99f25a417f2207
+INSTALL /v0.1.4/demos/tools/Dollyfile-xz d7991772948f649687e1cfa4fd4e32a31c182ff95b5a0262f10604d75a863162
+INSTALL /v0.1.4/demos/tools/Dollyfile-tar fffc725c65ccf5f8d2bb7a056953e5fb19a66ba69c5c86b90c1f9c898e4496ff
+INSTALL /v0.1.4/demos/tools/Dollyfile-binaryen 149cb132dd54435d0e915e40fa66691e6020109280eabe1bedfdc421b3fb8257
+INSTALL /v0.1.4/demos/python/Dollyfile-libffi 2b1d4d38bffcddc4a4991e08eee462c8182ff5f41b246ef75140ce88207f4063
+INSTALL /v0.1.4/demos/gtk/Dollyfile-pcre2 c1206c0feac19ddc36d0a38d0dcdb79ac7b08e20bf2bee55ab7b638e46166103
+INSTALL /v0.1.4/Dollyfile-zlib 9df90c7cb69efb0c503332233ac35280942f88f10c250de5bd33b8e7a2f2da90
 
 REQUIRES HEADER ffi
 REQUIRES HEADER pcre2

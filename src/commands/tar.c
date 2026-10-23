@@ -257,11 +257,31 @@ static void usage(FILE *stream) {
   fputs("usage: tar -xf ARCHIVE [-C DIRECTORY]\nUse - as ARCHIVE to read stdin. This tar extracts only; git archive creates archives.\n", stream);
 }
 
+// -z, in any cluster of options (tar xzf as well), is refused with the way
+// gzip data is read here; FILE is the archive f names, where there is one.
+static int refuses_gzip(int argc, char **argv) {
+  const char *archive = "FILE";
+  int gzip = 0;
+  for (int index = 1; index < argc; ++index) {
+    const char *word = argv[index];
+    const int cluster = word[0] == '-' ? word[1] != '-' && word[1] != '\0'
+        : index == 1 && strspn(word, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ") == strlen(word);
+    if (strcmp(word, "--gzip") == 0 || strcmp(word, "--gunzip") == 0 || (cluster && strchr(word, 'z'))) gzip = 1;
+    if (cluster && strchr(word, 'f') && index + 1 < argc) archive = argv[++index];
+  }
+  if (gzip) {
+    fprintf(stderr, "tar: -z is not supported here: gzip -dc %s | tar -xf - (amy install gzip, where gzip is missing; "
+            "amy install tar gives a tar with -z)\n", archive);
+  }
+  return gzip;
+}
+
 int main(int argc, char **argv) {
   if (argc == 2 && strcmp(argv[1], "--help") == 0) {
     usage(stdout);
     return 0;
   }
+  if (refuses_gzip(argc, argv)) return 1;
   if ((argc != 3 && argc != 5) || strcmp(argv[1], "-xf") != 0 ||
       (argc == 5 && strcmp(argv[3], "-C") != 0)) {
     usage(stderr);

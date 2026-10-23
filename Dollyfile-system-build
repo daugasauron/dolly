@@ -249,7 +249,7 @@ SLOP rm \
 REQUIRES TOOL   rm
 
 # Dolly's deliberately small ustar extractor.
-SOURCE /v0.1.4/dist/static/default/commands/tar.c 4a3fab2c7b1fe562e95dc2cdb04f4c82cac4de6544c32092b289e635844712e4 /tmp/bootstrap/tar.c
+SOURCE /v0.1.4/dist/static/default/commands/tar.c 18adec6edc7ae34a305f31890f671cb69ae6ec3979df4d34e2d759295a410890 /tmp/bootstrap/tar.c
 SLOP cc \
   /tmp/bootstrap/tar.c \
   -o /bin/tar
