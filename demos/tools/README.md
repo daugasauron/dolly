@@ -58,9 +58,7 @@ What the platform decides ([process model](../../docs/process-model.md)):
   build reads ([`prepare-sources.sh`](prepare-sources.sh)); `sqlite`, `xz`,
   `bzip2`, `pigz`, `zip`, `unzip`, `yacc` and `flex` build from the archive
   as published.
-- `fork` fails: `vi`'s `!` commands and language servers, and `tar`'s `-z`,
-  `-j` and `-J`, which start the compressor that way, say so. Pipe an
-  archive through `pigz`, `bzip2`, `xz` or `zstd`.
+- `fork` fails: `vi`'s `!` commands and language servers say so.
 - `/bin` comes before `/usr/bin`, so `tar` installs over the core's
   `/bin/tar`, and `toybox` over `/bin/grep` and `/bin/sed` of `posix` with
   links to its one program; no other package here replaces a command.

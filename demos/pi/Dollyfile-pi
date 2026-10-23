@@ -5,15 +5,15 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/Dollyfile-system e230626fba103ae294848cab90774de5650147e06c5e76d02382ca0aeb453ad5
-INSTALL /v0.1.4/demos/javascript/Dollyfile-janis f624339b0dde9d2ffa422b7269799f63c86968b6d86fd53b89d73af2a62c6bf8
+FROM /v0.1.4/Dollyfile-system f0041963ae2bfb938246a3892954d4eb3bf85f2902ed53eed7aa544ecb4f9839
+INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 569fbe30c536ebf9b6c39d4b6b0e5995b07e110346c9a3f49bb25970e47ba591
 
-INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 279ca5c84b794eb672be6b41a19479f99dc4e9a6a15be86024a8ec9ede0258f1
-INSTALL /v0.1.4/demos/rust/Dollyfile-fd 6d4e02adb9e1ce445b960d161bf1da180a0c1a9908ca4ffbe910e353cf825c64
-COPY /v0.1.4/demos/pi/Dollyfile-pi-build ec7d2d2ab2d2007efe24a13b7df8b20855d7182ed8907bfc210c302e9d58ece7 /usr/bin/pi /usr/bin/pi
-COPY /v0.1.4/demos/pi/Dollyfile-pi-build ec7d2d2ab2d2007efe24a13b7df8b20855d7182ed8907bfc210c302e9d58ece7 /usr/lib/node_modules /usr/lib/node_modules
-COPY /v0.1.4/demos/pi/Dollyfile-pi-build ec7d2d2ab2d2007efe24a13b7df8b20855d7182ed8907bfc210c302e9d58ece7 /usr/src/pi-source /usr/src/pi-source
-COPY /v0.1.4/demos/pi/Dollyfile-pi-build ec7d2d2ab2d2007efe24a13b7df8b20855d7182ed8907bfc210c302e9d58ece7 /usr/share/licenses/pi-source /usr/share/licenses/pi-source
+INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 93049e6b7b7f3bf10e3396ea3aee7e8263c12c0ff35a9511f2a1f53e5cbf7e3f
+INSTALL /v0.1.4/demos/rust/Dollyfile-fd e45b29b03907e772919632b413a171ee88d08ddc4a55c0750b844b955a2e8abc
+COPY /v0.1.4/demos/pi/Dollyfile-pi-build b9d4ff38c78451e669417b49637ff4cd089da24f30978f327bfbb3c15298dba3 /usr/bin/pi /usr/bin/pi
+COPY /v0.1.4/demos/pi/Dollyfile-pi-build b9d4ff38c78451e669417b49637ff4cd089da24f30978f327bfbb3c15298dba3 /usr/lib/node_modules /usr/lib/node_modules
+COPY /v0.1.4/demos/pi/Dollyfile-pi-build b9d4ff38c78451e669417b49637ff4cd089da24f30978f327bfbb3c15298dba3 /usr/src/pi-source /usr/src/pi-source
+COPY /v0.1.4/demos/pi/Dollyfile-pi-build b9d4ff38c78451e669417b49637ff4cd089da24f30978f327bfbb3c15298dba3 /usr/share/licenses/pi-source /usr/share/licenses/pi-source
 
 SOURCE /v0.1.4/dist/static/default/pi/dolly-tools.js                    0be3d1abeb05aff3ae05b7309863fd9ce9b5c58d27742947f471c81d6bfcba84 /home/dolly/.pi/agent/extensions/dolly-tools.js
 SOURCE /v0.1.4/dist/static/default/pi/SYSTEM.md                         4aa373245b96c2b01eb544974dfb4140c2ec9e7cbf9e21cd56f5ad8498f992a2 /home/dolly/.pi/agent/SYSTEM.md

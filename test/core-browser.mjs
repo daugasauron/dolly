@@ -53,6 +53,12 @@ await browserTest("core", { image }, async ({ server, open }) => {
   await page.waitForFunction(() => !__dolly.httpActive);
   assert.equal(server.cancelledRequests, cancelledBefore + 1, "cancelled HTTP response stayed open");
   assert.equal(await submit(`mkdir /tmp/core-tar; curl -fsS ${server.origin}/fixture/root.tar -o /tmp/core.tar && tar -xf /tmp/core.tar -C /tmp/core-tar && test "$(cat /tmp/core-tar/file)" = 'root preserved' && rm -rf /tmp/core-tar /tmp/core.tar`), 0);
+  // A file that is no tar archive says so; gzip data, short or not, says how to read it.
+  assert.equal(await submit("cd /tmp && printf 'not an archive at all\\n' > junk.tar && printf '\\037\\213\\010' > short.tgz && " +
+    "{ printf '\\037\\213\\010\\000'; cat /bin/slop; } > long.tgz && said=no && ! tar -xf junk.tar 2> err && " +
+    "test \"$(cat err)\" = 'tar: junk.tar: not a tar archive' && said=yes; for name in short long; do ! tar -xf $name.tgz 2> err && " +
+    "test \"$(cat err)\" = \"tar: $name.tgz: gzip data, not a tar archive: gzip -dc $name.tgz | tar -xf - (amy install gzip, where gzip is missing)\" " +
+    "|| said=no; done; rm junk.tar short.tgz long.tgz err; test $said = yes"), 0);
   assert.equal(await submit("printf 'needle\\n' > /tmp/core-search; grep -q needle /tmp/core-search && test \"$(find /tmp -maxdepth 1 -name core-search)\" = /tmp/core-search && rm /tmp/core-search"), 0);
   assert.equal(await submit([
     "mkdir -p /tmp/core-commands/a /tmp/core-commands/b /tmp/core-commands/many && cd /tmp/core-commands",

@@ -1107,17 +1107,25 @@ static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
     free(kind); free(name); free(location); free(digest); free(source);
   }
   if (result == 0 && (take_layer_u32(&cursor, end, &count) != 0 || count > DOLLY_HOST_MAX_RECORDS)) result = -EINVAL;
+  // Every module the package needs and the image lacks, named in one refusal
+  // with the one step that gives them all.
+  char missing[1024] = "", enable[512] = "", declare[1024] = "";
   for (uint32_t index = 0; result == 0 && index < count; ++index) {
     char *host = NULL;
     result = take_text(&cursor, end, &host);
     if (result == 0 && !valid_host_requirement(host)) result = -EINVAL;
     if (result == 0 && install && !host_declared(engine, host) && !host_enabled(engine, host)) {
-      if (engine->enabled != NULL) {
-        fprintf(stderr, "dollyfile: %s needs %s: nena enable %.*s\n", locator, host, (int)strcspn(host, "@"), host);
-      } else fprintf(stderr, "dollyfile: %s needs %s: add REQUIRES HOST %s\n", locator, host, host);
-      result = 2;
+      const char *joint = *missing != '\0' ? " and " : "";
+      snprintf(missing + strlen(missing), sizeof(missing) - strlen(missing), "%s%s", joint, host);
+      snprintf(enable + strlen(enable), sizeof(enable) - strlen(enable), " %.*s", (int)strcspn(host, "@"), host);
+      snprintf(declare + strlen(declare), sizeof(declare) - strlen(declare), "%sREQUIRES HOST %s", joint, host);
     }
     free(host);
+  }
+  if (result == 0 && *missing != '\0') {
+    if (engine->enabled != NULL) fprintf(stderr, "dollyfile: %s needs %s: nena enable%s\n", locator, missing, enable);
+    else fprintf(stderr, "dollyfile: %s needs %s: add %s\n", locator, missing, declare);
+    result = 2;
   }
   if (result == 0 && (take_layer_u32(&cursor, end, &count) != 0 || count > 10000)) result = -EINVAL;
   for (uint32_t index = 0; result == 0 && index < count; ++index) {

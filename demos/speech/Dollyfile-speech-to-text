@@ -6,7 +6,7 @@ REQUIRES HOST threads@0
 
 # speech-to-text as speech-build links it against transcribe.cpp, with the
 # model it reads. Silero VAD tells speech from other sound.
-FROM /v0.1.4/demos/speech/Dollyfile-speech-build 6fbf7cd697a6723c00b8aab560c075e065e66f30b07fecc7d479cfa3b65e3c35
+FROM /v0.1.4/demos/speech/Dollyfile-speech-build 1f107a227fdcff4adc8b95fba914d27933cf1cf4ee80af8b53670d1497acc703
 INSTALL /v0.1.4/demos/speech/Dollyfile-parakeet 45ac10e361a0746ba603aef41eedb00a06bd70c2a1cc76894e4dbda68995e7f5
 
 SOURCE /v0.1.4/dist/static/speech/silero-vad.gguf 0d871a800c420fdd5d1b17a3aea4296d1c39608f0ff4a9295eb76457eb1c88e6 /usr/share/dolly/speech/silero-vad.gguf
