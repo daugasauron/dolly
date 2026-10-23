@@ -21,9 +21,9 @@ const parameters=['temperature','top_p','top_k','min_p','repeat_penalty','presen
 const limits=new Set(['contextWindow','maxTokens']);
 // A small model answers from its prompt and seldom reads a skill: a session that starts on a
 // local model is told this machine's facts and the commands on PATH in place of the general
-// guidance. The choice holds for the session: Qwen's template refuses a later system message.
+// guidance. Both hold for the session: Qwen's template refuses a later system message.
 const guidance=readFileSync('/usr/lib/dolly-llm/SYSTEM.md','utf8');
-const commands=()=>[...new Set(process.env.PATH.split(':').flatMap(directory=>{try{return readdirSync(directory);}catch{return [];}}))].sort().join(' ');
+const commands=()=>[...new Set(process.env.PATH.split(':').flatMap(directory=>{try{return readdirSync(directory);}catch{return [];}}))].sort().join(', ');
 
 export default function(pi) {
   let ui;
@@ -40,8 +40,15 @@ export default function(pi) {
   pi.on('before_agent_start',(event,ctx)=>{
     localCommands??=ctx.model?.provider===provider && commands();
     if(!localCommands)return;
-    event.systemPromptOptions.customPrompt=guidance;
-    event.systemPromptOptions.sections.commands=localCommands;
+    event.systemPromptOptions.customPrompt=guidance.replace('{commands}',localCommands);
+  });
+  // Slop's "command not found" is all a small model learns when it reaches for Linux's
+  // tools (ps, python3, pip3, apt-get); the result says where the installed ones are listed.
+  pi.on('tool_result',event=>{
+    if(!localCommands || event.toolName!=='bash')return;
+    const output=event.content.map(part=>part.text??'').join('');
+    const missing=[...new Set([...output.matchAll(/slop: (\S+): command not found/g)].map(match=>match[1]))];
+    if(missing.length)return {content:[...event.content,{type:'text',text:`\n${missing.join(', ')}: not installed here. Your prompt lists the installed commands; amy list shows the packages.`}]};
   });
   pi.on('session_shutdown',event=>{if(event.reason==='quit')engine.stop();});
   pi.on('provider_stream_event',event=>{

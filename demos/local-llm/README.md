@@ -95,9 +95,11 @@ which saves memory.
   stops and Pi says so
   ([the loop](../../tasks/20261005-215204-pi-local-loop/TASK.md)).
 - [`SYSTEM.md`](SYSTEM.md): the guidance for a session that starts on a local
-  model, in place of Pi's Dolly guidance written for large models, followed by
-  the commands on `PATH`. A 2B model answers from its prompt and seldom reads
-  the `dolly` skill ([measurements](../../tasks/20261023-160000-pi-local-smooth/TASK.md)).
+  model, with the commands on `PATH`, in place of Pi's Dolly guidance written
+  for large models; a bash result that says `command not found` adds that the
+  prompt lists the installed commands. A 2B model answers from its prompt and
+  seldom reads the `dolly` skill
+  ([measurements](../../tasks/20261023-160000-pi-local-smooth/TASK.md)).
 - [`prepare-local-llm.sh`](prepare-local-llm.sh) fetches sources and Dawn
   headers; [`prepare-local-llm-weights.mjs`](prepare-local-llm-weights.mjs)
   stages weights from their descriptions;
