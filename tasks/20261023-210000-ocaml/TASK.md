@@ -1,6 +1,6 @@
 # OCaml in Dolly, built from upstream inside Dolly
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 110
 - TAGS: toolchain,packages
 
@@ -16,6 +16,25 @@ exception. No native compiler exists for Wasm: say so in the README.
 Done when: an `ocaml` package installs from `amy`; in a browser session `ocaml` evaluates an
 expression, `ocamlc` compiles a program with `unix` that runs as a command, and the fixpoint
 holds; a browser test proves it in Chromium and Firefox.
+
+## Closed (2026-10-23, 18:30)
+
+`amy install ocaml` installs the package (with `cc`) in default; the toplevel evaluates a
+phrase typed at the terminal; `ocamlc` compiles a program with `unix` and `str` that runs
+as a command and spawns another through a pipe, and one with a domain and a thread; and
+upstream's `make bootstrap` reaches its fixpoint, in the recipe and in a session.
+`demos/ocaml/test/ocaml-browser.mjs` and `fixpoint-browser.mjs` pass in Chromium and
+Firefox (logs: `build/ocaml-evidence/` of the agent's tree). Measured in the fixpoint test,
+`-j4`: `make world` 70 s and `make bootstrap` 84 s in Chromium, 71 s and 99 s in Firefox;
+the image build (headless Chrome) 177 s with packaging, an 89 MB snapshot.
+
+For the core (not changed here; each is a hunk or a stated result in this demo):
+- Dolly's libc has `gethostbyname` (failing with `NO_RECOVERY`) but no `gethostbyaddr`.
+- `posix_spawn` refuses `posix_spawn_file_actions_addclose` with `ENOTSUP`.
+- `getrusage` succeeds with a user time of 1.000002 s whatever the process did: a
+  success that measures nothing (`times` reports 0).
+- Slop's `test` has no `-nt`: OCaml's Makefile prints "test: unsupported expression" at
+  every make and takes the branch it wants anyway.
 
 ## Findings (2026-10-23, agent; probes in `tools-build` with `threads@0`, Chromium)
 
@@ -63,3 +82,12 @@ holds; a browser test proves it in Chromium and Firefox.
   a systhread prints both results (`recommended_domain_count` 4); `#load "unix.cma"`
   fails ("dynamic loading not supported on this platform"); `ocamlmktop` with `unix`
   works.
+- The installed package needs `cc` to link a custom runtime (the first browser test run
+  failed with `cc: command not found`): the recipe installs the `cc` package, as `rust`
+  and `cmake` do.
+- Measured in a session (default with the package): `Unix.gethostbyaddr` and
+  `gethostbyname` raise `Not_found`; `Unix.fork` and `Unix.socket` fail with "Function
+  not implemented"; `Sys.command` and `Unix.open_process_in` run through Slop. `Sys.time`
+  did not advance: Dolly's `getrusage` returns success with a user time of 1.000002 s
+  whatever the process did, and `times` 0, while `clock` counts the process's time
+  since it started. configure now states neither exists, so `Sys.time` reads `clock`.

@@ -48,6 +48,8 @@ of the compiler is built on the host.
   `gethostbyaddr`.
 
 The runtime is linked with `-pthread`: `Domain.spawn` and `Thread.create`
-run on Dolly's threads (`threads@0`). The toplevel loads no library with C
+run on Dolly's threads (`threads@0`). Dolly accounts no CPU time, so
+`Sys.time` counts from the start of the process, as Dolly's `clock` does,
+and `Unix.times` reports zeros. The toplevel loads no library with C
 stubs (`#load "unix.cma"` needs shared libraries); `ocamlmktop` makes a
 toplevel with them.

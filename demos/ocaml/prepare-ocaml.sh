@@ -37,12 +37,15 @@ container=(podman run --rm --userns=keep-id -v "${tree}:/tmp/ocaml" -v "${tempor
   PATH="/dolly-bin:/emsdk:/emsdk/upstream/emscripten:/emsdk/node/24.19.0_64bit/bin:/usr/bin:/bin")
 # Where Dolly and Emscripten's libc differ, the result is stated: Dolly's
 # libc spawns with posix_spawnp, which Unix.create_process then uses instead
-# of fork and exec, and has no gethostbyname_r or gethostbyaddr_r. Dolly's
+# of fork and exec, and has no gethostbyname_r or gethostbyaddr_r. Dolly
+# accounts no CPU time: its getrusage reports 1 s and times 0, while clock
+# counts since the process started, which Sys.time then reads. Dolly's
 # threads are linked with -pthread. Dolly has no strip. Bytecode only: there
 # is no native code generator for WebAssembly, and no shared stub libraries,
 # since Dolly's -rdynamic excludes the threads OCaml 5's runtime is built with.
 "${container[@]}" ac_cv_func_posix_spawnp=yes \
   ac_cv_func_which_gethostbyname_r=no ac_cv_func_which_gethostbyaddr_r=no \
+  ac_cv_func_getrusage=no ac_cv_func_times=no \
   ./configure \
     --host=wasm64-unknown-emscripten --build=x86_64-pc-linux-gnu --prefix=/usr \
     --mandir=/usr/share/man --disable-native-compiler --disable-shared --disable-suffixing \
