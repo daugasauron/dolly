@@ -8,6 +8,7 @@ REQUIRES HOST input@0
 REQUIRES HOST packages@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
+REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
 # Runs Claude Code, which the launcher downloads from the npm registry into

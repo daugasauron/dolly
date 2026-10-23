@@ -1,6 +1,6 @@
 # sdl2 needs touch@0, which neither default nor pi-agent declares
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 130
 - TAGS: sdl2,touch,packages,agent-experience,0.1.4
 
@@ -27,3 +27,21 @@ there (`SDL_dollyvideo.c`: `if (dolly_touch_acquire(...) != 0) video->touch = 0;
 SDL program needs a module neither general image declares. For the owner or the integrator,
 one of: `default` and `pi-agent` declare `touch@0`; or SDL's touch is linked so that a
 program runs without the module. Pi's skill says `nena enable touch` until then (`d2457991`).
+
+## Done (2026-10-24, branch `demo/opus-audit-2`)
+
+Decided by the integrator: the images declare `touch@0`; SDL and its requirement record stay
+as they are (every SDL2 program records `touch@0`, which grants only finger positions to the
+lease holder, as `input@0` does). `REQUIRES HOST touch@0` is added to `default` and to every
+image that declares `packages@0` with `display@0` and `input@0` and lacked it: pi-agent,
+pi-local, closed-source-agent, dollyfile-studio and tmux-panes (`codex-agent` declares no
+`packages@0`, so nothing is installed there at run time). `test/host-modules.test.mjs`
+expects it in `default`'s set; `test/nena-browser.mjs` reads each module's state from the
+page and needs no change; `docs/dollyfile.md` names default's modules.
+
+Measured on the rebuilt `default` and `pi-agent` (`build/opus-evidence/r7/probe-sdl.*.out`,
+probe.mjs, Chromium and Firefox): `nena` lists `touch@0 declared`; `amy install sdl2`
+installs (89 files); a program that opens a 320x240 window with an accelerated renderer and
+draws until stopped prints "window open" and ends at `timeout 5` with status 124.
+`demos/pi/test/pi-browser.mjs` passes on the rebuilt pi-agent (Chromium 49.6 s). Not rebuilt
+here: pi-local, closed-source-agent, dollyfile-studio, tmux-panes (repinned).

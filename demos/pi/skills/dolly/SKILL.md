@@ -132,9 +132,9 @@ to the running session, and `cc` links them at once.
   link `-lSDL2 -lm`. Every renderer is the software one, whatever the flags
   ask, and `SDL_RenderPresent` does not wait for the display: pace the loop
   with `SDL_Delay` or the frame time. There is no audio, no threads or
-  `SDL_AddTimer`, and no game controller. It needs the `touch@0` module:
-  `nena enable touch` where the image does not declare it, before the install
-  and before its programs run. `imgui` adds Dear ImGui on it.
+  `SDL_AddTimer`, and no game controller. Its programs need the `touch@0`
+  module (finger positions); where an image does not declare it, `nena enable
+  touch` first. `imgui` adds Dear ImGui on it.
 - `raylib`: raylib 6's drawing (shapes, text in its own font, textures,
   `raymath.h`) in software, through Dolly's adapter `<dolly/raylib.h>`:
   `dolly_raylib_open` (0, or a negative errno) instead of `InitWindow`,
@@ -148,6 +148,9 @@ to the running session, and `cc` links them at once.
 - Others, such as `box3d` (3D physics), `freetype`, `libpng`, `libjpeg` and
   `sqlite`: `amy files NAME` lists their headers, archives and any `.pc`
   file, which names the flags (`pkg-config` comes with `amy install pkgconf`).
+- Fonts for a program's text are in `/usr/share/fonts`: `IosevkaTerm-SemiBold.ttf`
+  (the terminal's, monospace), `DroidSansFallback.ttf` (CJK) and
+  `NotoEmoji-Regular.ttf`; FreeType and raylib's `LoadFontEx` read them.
 - Sound needs the `audio@0` host module (`<dolly/audio.h>` from
   `libdolly-audio`; `openal` mixes for it); without it, a game is silent.
 

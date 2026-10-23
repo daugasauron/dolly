@@ -236,8 +236,9 @@ mounted, and reads no other version's.
   modules and the HTTP broker decides network access
   ([browser boundary](browser-boundary.md)). `system` declares the runtime,
   display, input, http, download, upload and snapshot; `default` adds packages,
-  threads and dso, because the packages people install into it need them
-  (`python` and `nvim` load modules); a declared module costs a program that
+  nena, threads, dso, sockets and touch, because the packages people install
+  into it need them (`python` and `nvim` load modules, every SDL2 program
+  records `touch@0`); a declared module costs a program that
   does not record it nothing. A terminal draws with `display@0` and reads keys
   with `input@0`; the `display` package asks only for the first, so an image
   may show one without reading.

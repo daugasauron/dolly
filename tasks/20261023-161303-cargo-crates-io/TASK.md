@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 120
-- TAGS: rust,cargo,packages,agent-experience,0.1.4
+- TAGS: rust,cargo,packages,agent-experience,owner,0.1.4
 
 
 Found by Opus 5.5 in Pi (`tasks/20261023-180000-opus-in-pi`, round 4, `r4-rust/`): asked for a
@@ -28,6 +28,14 @@ Measured (curl from this machine, and in pi-agent through the broker):
 - `cargo run` works now that `exec` does (`r4/probe-cargo2.out`); the Rust demo's README
   still says it fails.
 
-For the Rust workstream: a vendoring tool (resolve over the GitHub mirror, fetch from
-static.crates.io, write `vendor/` and the config), as `janis-install` does for npm, or a relay
-for `index.crates.io`; and the README's `cargo run` line.
+Decided by the integrator (2026-10-24): no relay; vendoring as Pi's skill describes it is the
+answer for 0.1.4. The README's `cargo run` line now says it works.
+
+## For the owner
+
+A hosted CORS relay for `index.crates.io` is outward-facing infrastructure: should Dolly run
+one so that Cargo reads crates.io as it does natively? Without it, a project's crates are
+vendored: by hand as above, or by a vendoring tool (resolve over the index's GitHub mirror,
+fetch from static.crates.io, write `vendor/` and the config), as `janis-install` does for npm.
+Measured: the index's cached files carry no CORS header; the GitHub mirror answers CORS GETs
+but refuses Cargo's preflights (403); static.crates.io answers both.
