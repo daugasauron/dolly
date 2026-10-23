@@ -194,6 +194,17 @@ for client in "${clients[@]}"; do
   echo "${checked} -c ${source} -o ${object}"
   echo "/emsdk/upstream/emscripten/emar rcsD build/libdolly-${module}.a.new ${object}"
 done | in_container
+# musl's getdate, which Emscripten's libc leaves out for a stub (libc-stubs.c),
+# and the thread attributes its single-threaded libc leaves out, which Rust's
+# std prepares before pthread_create refuses.
+in_container <<EOF
+${emcc} -c ${emscripten_libc}/libc/musl/src/time/getdate.c -o build/process-getdate.o
+${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/pthread_attr_init.c -o build/process-pthread_attr_init.o
+${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/pthread_attr_setstacksize.c -o build/process-pthread_attr_setstacksize.o
+${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/pthread_attr_destroy.c -o build/process-pthread_attr_destroy.o
+/emsdk/upstream/emscripten/emar rcsD build/libdolly-runtime.a.new build/process-getdate.o \
+  build/process-pthread_attr_init.o build/process-pthread_attr_setstacksize.o build/process-pthread_attr_destroy.o
+EOF
 for module in $(printf '%s\n' "${clients[@]%% *}" | uniq); do
   replace_if_changed "build/libdolly-${module}.a.new" "build/libdolly-${module}.a"
 done
@@ -287,9 +298,13 @@ node scripts/dolly-abi.mjs emit-digest-header \
   -DDOLLY_PROCESS_SYSROOT_DIR="${process_sysroot_container_dir}" \
   -DDOLLY_KERNEL_SOURCES="$(node scripts/host-modules.mjs kernel | sed 's#^#/src/#' | paste -sd ';')" \
   -DDOLLY_CLIENT_LIBRARIES="$(printf '/src/build/lib%s.a\n' "${client_links[@]#-l}" | paste -sd ';')"
-node scripts/dolly-abi.mjs validate-process \
+if ! node scripts/dolly-abi.mjs validate-process \
   build/dolly-process-0.wasm \
-  build/seed-compiler/usr/libexec/dolly/process-bin/compiler
+  build/seed-compiler/usr/libexec/dolly/process-bin/compiler; then
+  echo "dolly: the seed compiler is for another process contract; for one that only adds," \
+    "node scripts/restamp-seed-compiler.mjs (docs/sources.md)" >&2
+  exit 1
+fi
 "${container[@]}" cmake --build build/runtime --target dolly --parallel
 
 node scripts/dolly-abi.mjs stamp \

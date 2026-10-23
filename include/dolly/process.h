@@ -157,6 +157,11 @@ enum dolly_process_operation {
   /* dolly_process_fd_lock_request -> nothing, or with LOCK_TEST a
    * dolly_process_fd_lock_response. */
   DOLLY_PROCESS_FD_LOCK = 59,
+  /* dolly_process_exec_request -> nothing, and on success the call does not
+   * return: the process runs the new program from its start. An empty request
+   * -> the dolly_process_exec_state the program started with; it is never
+   * interrupted, so a libc reads it before its first other call. */
+  DOLLY_PROCESS_EXEC = 61,
 
   DOLLY_PROCESS_SPAWN = 64,
   DOLLY_PROCESS_WAIT = 65,
@@ -498,6 +503,10 @@ typedef struct {
   uint64_t deadline_nanoseconds;
 } dolly_process_clock_sleep_request;
 
+/* A mapping source: the child does not have the target descriptor, whatever
+ * it would inherit. */
+#define DOLLY_PROCESS_FD_MAPPING_CLOSED UINT32_MAX
+
 /*
  * The header is followed by path_size raw path bytes, argument_bytes bytes
  * containing exactly argument_count NUL-terminated strings, then
@@ -535,6 +544,36 @@ typedef struct {
   uint32_t pid;
   uint32_t reserved;
 } dolly_process_spawn_response;
+
+/* Signals, a bit each (1u << DOLLY_PROCESS_SIG*): those a program leaves
+ * blocked, ignored and pending to the program EXEC runs, which starts with
+ * them; every other signal starts at its default action. Zero after SPAWN. */
+typedef struct {
+  uint32_t blocked_signals;
+  uint32_t ignored_signals;
+  uint32_t pending_signals;
+  uint32_t reserved;
+} dolly_process_exec_state;
+
+/*
+ * The header is followed by path_size raw bytes of an absolute path,
+ * argument_bytes bytes containing exactly argument_count NUL-terminated
+ * strings, then environment_bytes bytes containing environment_count
+ * NUL-terminated NAME=value strings. The process keeps its pid, parent and
+ * children, cwd, locks, alarm, pending signals, terminal roles and spawn
+ * deadline, and its descriptors without CLOEXEC; it loses its threads and what
+ * its host modules hold for it. A program that cannot be read or run fails the
+ * call, and the old program goes on.
+ */
+typedef struct {
+  dolly_process_exec_state signals;
+  uint32_t argument_count;
+  uint32_t environment_count;
+  uint32_t path_size;
+  uint32_t reserved;
+  uint64_t argument_bytes;
+  uint64_t environment_bytes;
+} dolly_process_exec_request;
 
 /* A positive child PID, or zero for any child. */
 typedef struct {
@@ -679,6 +718,8 @@ DOLLY_PROCESS_LAYOUT(dolly_process_stat_response, 88);
 DOLLY_PROCESS_LAYOUT(dolly_process_filesystem_stat_response, 96);
 DOLLY_PROCESS_LAYOUT(dolly_process_spawn_request, 56);
 DOLLY_PROCESS_LAYOUT(dolly_process_fd_mapping, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_exec_state, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_exec_request, 48);
 DOLLY_PROCESS_LAYOUT(dolly_process_pipe_request, 8);
 DOLLY_PROCESS_LAYOUT(dolly_process_two_path_request, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_path_times_request, 48);

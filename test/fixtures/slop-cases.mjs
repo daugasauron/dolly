@@ -225,4 +225,18 @@ x5"`, 0],
   ["& ends a word and follows redirections", 'slop -c "echo o; echo e >&2" > both 2>&1& wait; test "$(wc -l < both)" -eq 2', 0],
 ];
 
+// exec, as libtool's wrappers, config.status, automake's compile and
+// install-sh use it. Natively the host's execve replaces the process.
+export const execCases = [
+  ["exec runs its program in the shell's place", "exec slop -c 'exit 7'; exit 91", 7],
+  ["exec keeps the process", String.raw`slop -c 'echo $$ > before; exec slop -c "echo \$\$ > after"'; test "$(cat before)" = "$(cat after)"`, 0],
+  ["exec gives its program the exported variables and prefix assignments", String.raw`export E=1; V=2 exec slop -c 'test "$E$V" = 12 && exit 5'`, 5],
+  ["exec keeps descriptors and takes its redirections", String.raw`slop -c 'exec 6> six; exec slop -c "echo kept >&6" > out'; test "$(cat six):$(cat out)" = kept: && test "$(echo piped | slop -c 'exec cat')" = piped`, 0],
+  ["exec in a function ends the shell, as in a libtool wrapper", "f() { exec slop -c 'exit $#' x ${1+\"$@\"}; echo unreachable; exit 1; }; f a b c", 3],
+  ["a failed exec ends a script with 127", "slop -c 'exec ./no-such-program; exit 3' 2> /dev/null; a=$?; slop -c 'exec no-such-command; exit 3' 2> /dev/null; test \"$a:$?\" = 127:127", 0],
+  ["exec in a subshell ends the subshell with the program's status", String.raw`(exec slop -c 'exit 4'; exit 9); test $? = 4 && ( : && exec slop -c 'exit 6' ) > /dev/null 2>&1; test $? = 6 && x=$(exec slop -c 'echo sub') && test "$x" = sub`, 0],
+  ["exec in a pipeline stage is the stage's program", String.raw`test "$(exec slop -c 'echo a' | cat):$(echo b | exec cat)" = a:b`, 0],
+  ["exec resets a trap to the default action", String.raw`slop -c 'trap "exit 9" TERM; exec slop -c "kill -TERM \$\$; sleep 5; exit 3"'; exit $?`, 143],
+];
+
 export function shellQuote(value) { return `'${value.replaceAll("'", "'\\''")}'`; }

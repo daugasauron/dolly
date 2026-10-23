@@ -1,0 +1,52 @@
+DOLLY 7
+TOOLCHAIN go-build
+REQUIRES HOST runtime@0
+REQUIRES HOST http@0
+
+# Go as Dolly builds it: the seed's go command compiles the toolchain and the
+# standard library from the seed's sources again, every package (-a), with
+# the flags of upstream's release build (cmd/dist's toolenv), and installs it
+# over the seed's. The build fails unless every command is, byte for byte, the
+# seed's.
+FROM /v0.1.4/demos/go/Dollyfile-go-sdk dbd9759b655ab2596b7552f778f88a4116090db6c7bdb1cc6ba0f104bd318871
+REQUIRES TOOL go
+SLOP mkdir -p /tmp/seed
+SLOP cp -R /usr/lib/go/pkg/tool/dolly_wasm64 /tmp/seed/tool
+SLOP cp -R /usr/lib/go/bin /tmp/seed/bin
+# One compile at a time, each held near 2 GiB: compiling cmd/compile/internal/ssa
+# grows a process to 3.9 GiB with the default collector (1.8 GB natively), and
+# the build has 6 GB.
+SLOP CWD /usr/lib/go/src CGO_ENABLED=0 GOCACHE=/tmp/go-cache GOMEMLIMIT=2GiB GOFLAGS='-trimpath -ldflags=-w -gcflags=cmd/...=-dwarf=false' go install -a -p 1 cmd/go cmd/gofmt cmd/asm cmd/cgo cmd/compile cmd/cover cmd/fix cmd/link cmd/preprofile cmd/vet
+# The rebuilt toolchain compares itself with the seed.
+FILE /tmp/same/main.go
+    // Fails unless each file of the first directory is, byte for byte, the
+    // file of its name in the second.
+    package main
+    
+    import (
+    	"bytes"
+    	"fmt"
+    	"os"
+    	"path/filepath"
+    )
+    
+    func main() {
+    	entries, err := os.ReadDir(os.Args[1])
+    	if err != nil {
+    		panic(err)
+    	}
+    	for _, entry := range entries {
+    		seed, seedErr := os.ReadFile(filepath.Join(os.Args[1], entry.Name()))
+    		built, builtErr := os.ReadFile(filepath.Join(os.Args[2], entry.Name()))
+    		if seedErr != nil || builtErr != nil || !bytes.Equal(seed, built) {
+    			fmt.Fprintf(os.Stderr, "%s is not the seed's\n", entry.Name())
+    			os.Exit(1)
+    		}
+    	}
+    	fmt.Printf("%d programs equal the seed's\n", len(entries))
+    }
+SLOP GOCACHE=/tmp/go-cache go run /tmp/same/main.go /tmp/seed/tool /usr/lib/go/pkg/tool/dolly_wasm64
+SLOP GOCACHE=/tmp/go-cache go run /tmp/same/main.go /tmp/seed/bin /usr/lib/go/bin
+SLOP go version
+
+EXPORTS FOLDER go-root /usr/lib/go

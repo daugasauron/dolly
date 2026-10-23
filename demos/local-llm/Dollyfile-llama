@@ -6,7 +6,7 @@ REQUIRES HOST gpu@0
 # dolly-llama as local-llm-build links it: llama.cpp with its WebGPU backend,
 # serving the model it is given over stdin and stdout. A model package brings
 # the GGUF.
-FROM /v0.1.4/demos/local-llm/Dollyfile-local-llm-build 6605823dcb15c4755cbd46d32d77a5efff3fd7bce70aae84408c1fedb832b871
+FROM /v0.1.4/demos/local-llm/Dollyfile-local-llm-build 4f6ed759e41e6d727e01c145503d4dddfe062bd0620d9df558cb31e99cad9af0
 
 EXPORTS TOOL   dolly-llama
 EXPORTS FOLDER llama-licenses /usr/share/licenses/dolly-llm

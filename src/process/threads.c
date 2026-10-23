@@ -59,6 +59,8 @@ static void initialize_thread(dolly_pthread *item, int tid, int main) {
 
 void __dolly_pthread_init(void) {
   __wasm_init_tls(__builtin_wasm_tls_base());
+  void __dolly_signal_start(void);
+  __dolly_signal_start();
   int tid = dolly_thread_self();
   if (tid <= 0) __builtin_trap();
   main_thread.host_tid = tid;

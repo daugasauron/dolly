@@ -457,7 +457,7 @@ struct fdop {
   mode_t mode;
   char path[];
 };
-enum { FDOP_DUP2 = 2, FDOP_CHDIR = 4 };
+enum { FDOP_CLOSE = 1, FDOP_DUP2 = 2, FDOP_OPEN = 3, FDOP_CHDIR = 4 };
 
 /* A child starts with default dispositions and an empty mask, so a signal the
  * caller blocks or ignores without resetting it cannot be honoured. */
@@ -476,9 +476,10 @@ static int spawn_signals_supported(short flags, const posix_spawnattr_t *attribu
   return 1;
 }
 
-/* Dup2 actions replay as parent-to-child descriptor mappings over the
- * inherited non-CLOEXEC set and chdir actions choose the child's directory;
- * other actions and attributes fail with ENOTSUP. */
+/* Dup2 and close actions replay as parent-to-child descriptor mappings over
+ * the inherited non-CLOEXEC set, chdir actions choose the child's directory,
+ * and an open action opens its file here, from that directory, for the child
+ * to take at its descriptor; other actions and attributes fail with ENOTSUP. */
 static int spawn(pid_t *pid, const char *program, const posix_spawn_file_actions_t *actions,
                  const posix_spawnattr_t *attributes, char *const argv[], char *const envp[],
                  int search) {
@@ -491,13 +492,18 @@ static int spawn(pid_t *pid, const char *program, const posix_spawn_file_actions
   const struct fdop *oldest = NULL;
   size_t count = 0;
   for (const struct fdop *op = actions ? actions->__actions : NULL; op; op = op->next) {
-    if (op->cmd != FDOP_DUP2 && op->cmd != FDOP_CHDIR) return ENOTSUP;
+    if (op->cmd < FDOP_CLOSE || op->cmd > FDOP_CHDIR) return ENOTSUP;
     oldest = op;
     ++count;
   }
   dolly_process_fd_mapping *mappings = calloc(count + 1, sizeof(*mappings));
-  if (mappings == NULL) return ENOMEM;
-  uint32_t mapped = 0;
+  int *opened = calloc(count + 1, sizeof(*opened));
+  if (mappings == NULL || opened == NULL) {
+    free(mappings);
+    free(opened);
+    return ENOMEM;
+  }
+  uint32_t mapped = 0, open_count = 0;
   char cwd[PATH_MAX], path[PATH_MAX];
   int error = getcwd(cwd, sizeof(cwd)) ? 0 : errno;
   for (const struct fdop *op = oldest; op && error == 0; op = op->prev) {
@@ -510,12 +516,28 @@ static int spawn(pid_t *pid, const char *program, const posix_spawn_file_actions
       else if (!S_ISDIR(metadata.st_mode)) error = ENOTDIR;
       continue;
     }
-    uint32_t source = (uint32_t)op->srcfd, slot = mapped;
+    uint32_t source = op->cmd == FDOP_CLOSE ? DOLLY_PROCESS_FD_MAPPING_CLOSED : (uint32_t)op->srcfd;
+    if (op->cmd == FDOP_OPEN) {
+      const int size = op->path[0] == '/' ? snprintf(path, sizeof(path), "%s", op->path)
+          : snprintf(path, sizeof(path), "%s/%s", cwd, op->path);
+      int descriptor = -1;
+      if (size >= (int)sizeof(path)) errno = ENAMETOOLONG;
+      else descriptor = open(path, op->oflag | O_CLOEXEC, op->mode);
+      if (descriptor < 0) {
+        error = errno;
+        break;
+      }
+      opened[open_count++] = descriptor;
+      source = (uint32_t)descriptor;
+    }
+    uint32_t slot = mapped;
     for (uint32_t index = 0; index < mapped; ++index) {
-      if (mappings[index].target_descriptor == (uint32_t)op->srcfd)
+      if (op->cmd == FDOP_DUP2 && mappings[index].target_descriptor == (uint32_t)op->srcfd)
         source = mappings[index].source_descriptor;
       if (mappings[index].target_descriptor == (uint32_t)op->fd) slot = index;
     }
+    /* The child would duplicate a descriptor an earlier action closed. */
+    if (op->cmd == FDOP_DUP2 && source == DOLLY_PROCESS_FD_MAPPING_CLOSED) error = EBADF;
     mappings[slot] = (dolly_process_fd_mapping){source, (uint32_t)op->fd};
     if (slot == mapped) ++mapped;
   }
@@ -546,9 +568,74 @@ static int spawn(pid_t *pid, const char *program, const posix_spawn_file_actions
     entry = end + 1;
     error = 0;
   }
+  while (open_count != 0) close(opened[--open_count]);
+  free(opened);
   free(mappings);
   return error;
 }
+
+int64_t __dolly_process_exec(dolly_process_exec_request *request, uint64_t size); /* signal.c */
+
+/* execv, execvp, execl and the rest of musl's family call this. A relative
+ * path names a file from the working directory, as for posix_spawn. */
+int execve(const char *path, char *const argv[], char *const envp[]) {
+  static char *const no_environment[] = {NULL};
+  if (envp == NULL) envp = no_environment;
+  if (path == NULL || argv == NULL) {
+    errno = EFAULT;
+    return -1;
+  }
+  if (path[0] == '\0' || argv[0] == NULL) {
+    errno = path[0] == '\0' ? ENOENT : EINVAL;
+    return -1;
+  }
+  char cwd[PATH_MAX], absolute[PATH_MAX];
+  if (path[0] != '/') {
+    if (getcwd(cwd, sizeof(cwd)) == NULL) return -1;
+    if (snprintf(absolute, sizeof(absolute), "%s/%s", cwd, path) >= (int)sizeof(absolute)) {
+      errno = ENAMETOOLONG;
+      return -1;
+    }
+    path = absolute;
+  }
+  size_t argument_bytes = 0, environment_bytes = 0;
+  uint32_t argument_count = 0, environment_count = 0;
+  for (; argv[argument_count] != NULL; ++argument_count)
+    argument_bytes += strlen(argv[argument_count]) + 1;
+  for (; envp[environment_count] != NULL; ++environment_count)
+    environment_bytes += strlen(envp[environment_count]) + 1;
+  const size_t path_size = strlen(path);
+  const size_t size = sizeof(dolly_process_exec_request) + path_size + argument_bytes + environment_bytes;
+  if (size > DOLLY_PROCESS_PACKET_LIMIT) {
+    errno = E2BIG;
+    return -1;
+  }
+  unsigned char *packet = malloc(size);
+  if (packet == NULL) return -1;
+  dolly_process_exec_request *request = (dolly_process_exec_request *)packet;
+  *request = (dolly_process_exec_request){
+      .argument_count = argument_count, .environment_count = environment_count,
+      .path_size = (uint32_t)path_size, .argument_bytes = argument_bytes,
+      .environment_bytes = environment_bytes,
+  };
+  char *cursor = (char *)packet + sizeof(*request);
+  memcpy(cursor, path, path_size);
+  cursor += path_size;
+  for (uint32_t index = 0; index < argument_count; ++index) cursor = stpcpy(cursor, argv[index]) + 1;
+  for (uint32_t index = 0; index < environment_count; ++index) cursor = stpcpy(cursor, envp[index]) + 1;
+  const int error = (int)-__dolly_process_exec(request, size);
+  free(packet);
+  errno = error;
+  return -1;
+}
+
+/* Dolly has one way to start a program, spawn, and no copy of a process. */
+pid_t fork(void) {
+  errno = ENOSYS;
+  return -1;
+}
+
+pid_t vfork(void) { return fork(); }
 
 int posix_spawn(pid_t *restrict pid, const char *restrict path,
                 const posix_spawn_file_actions_t *actions,
