@@ -54,7 +54,7 @@
           failed(`Dolly failed to load.\n${error instanceof Error ? error.stack ?? error.message : String(error)}`);
         }
         // boot() shows its own failure in the terminal.
-        if (boot) window.__dolly = await boot(terminal, { ...route, modules: hostModuleUrls, hostModules,
+        if (boot) window.__dolly = await boot(terminal, { ...route, images: assets.href, modules: hostModuleUrls, hostModules,
           http: { policy, relays } }).catch(error => console.error(error));
       } else if ("serviceWorker" in navigator) {
         await navigator.serviceWorker.register(new URL("coi-serviceworker.js", assets), { scope: assets.pathname });

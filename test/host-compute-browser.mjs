@@ -14,7 +14,10 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
   await page.evaluate(() => {
     // The page's own published files through the HTTP broker, as builds use them.
     globalThis.headlessNetwork = async () => {
-      const { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } = await import("/dist/dolly-images.mjs");
+      // This page is an embedding of its own: its images are the site's.
+      const images = await import("/src/images.mjs");
+      await images.loadImages(new URL("/", location.href));
+      const { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } = images;
       const { consumeDollyHttpPolicy } = await import("/host/http/policy.mjs");
       const { localServicesTransport } = await import("/host/http/local-services.mjs");
       const sources = [...DOLLY_IMAGES.map(d => ({ path: `/${d.dollyfile}`, byteLength: d.byteLength })), ...DOLLY_STATIC_SOURCES];
@@ -42,7 +45,8 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
             if (message.type === "error") reject(Error(message.message));
           };
         });
-        worker.postMessage({ type: "configure", mode: "snapshot", ...configuration, modules: registry.urls,
+        worker.postMessage({ type: "configure", mode: "snapshot", ...configuration, images: new URL("/", location.href).href,
+          modules: registry.urls,
           hostModules: host.enabled, hostConfiguration: host.configuration }, transfers);
         return await running(host.kernel, exited);
       } finally { host.dispose(); worker?.terminate(); }

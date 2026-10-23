@@ -1,4 +1,4 @@
-import { DOLLY_IMAGES } from "../../dist/dolly-images.mjs";
+import { DOLLY_IMAGES } from "../../src/images.mjs";
 import { loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } from "../../src/image-artifact.mjs";
 import { MAX_SNAPSHOT_BYTES } from "../../src/snapshot-records.mjs";
 

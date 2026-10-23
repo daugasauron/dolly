@@ -1,7 +1,7 @@
 import { decodeSnapshotRecords, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
-import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import { DOLLY_IMAGES, loadImages } from "./images.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256,
   loadPackagedSnapshotMetadata, streamPackagedSystemSnapshot } from "./image-artifact.mjs";
 import { imageInputs } from "./image-inputs.mjs";
@@ -32,6 +32,8 @@ const { hostRegistry } = await import("../host/modules.mjs");
 const bootConfig = await configured;
 if (!Array.isArray(bootConfig.modules) || bootConfig.modules.length > 64 ||
     !bootConfig.modules.every(url => typeof url === "string")) throw new Error("invalid host module list");
+if (typeof bootConfig.images !== "string") throw new Error("invalid image directory");
+await loadImages(bootConfig.images);
 
 const bootMode = bootConfig.mode === "rebuild" ? "rebuild" : "snapshot";
 const configuredImage = bootConfig.image;
@@ -48,12 +50,13 @@ if ((configuredImage === "custom" || bootConfig.customSource !== undefined) &&
   throw new Error("invalid uploaded Dollyfile");
 }
 
-const applicationBase = new URL("../", import.meta.url);
+// The runtime's own files: the kernel and the contracts beside this module.
+const runtimeBase = new URL("../", import.meta.url);
 function locateArtifact(path) {
   if (path !== "dolly.wasm" && path !== "dolly.data") {
     throw new Error("unknown fixed kernel artifact");
   }
-  return new URL(`dist/${path}`, applicationBase).href;
+  return new URL(`dist/${path}`, runtimeBase).href;
 }
 
 // A rejected promise, not a throw, when the entry cannot be read or decoded.
@@ -103,7 +106,7 @@ try {
   host = await (await hostRegistry(bootConfig.modules)).createHost("worker", bootConfig.hostModules, {
     send: (message, transfers = []) => self.postMessage(message, transfers),
     configuration: bootConfig.hostConfiguration,
-    resources: { applicationBase },
+    resources: { runtimeBase },
   });
   const snapshotMetadata = bootMode === "snapshot"
     ? configuredImage === "custom" ? await checkedCustomArtifact(bootConfig.customSource, bootConfig.customArtifact)

@@ -1,6 +1,6 @@
 import { DOLLY_BUILD_ID } from "../../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../../dist/dolly-image-build-id.mjs";
-import { DOLLY_IMAGES } from "../../dist/dolly-images.mjs";
+import { DOLLY_IMAGES, imageBase } from "../../src/images.mjs";
 import { loadCustomImage } from "../../src/custom-image.mjs";
 import { sha256 } from "../../src/image-artifact.mjs";
 import {
@@ -107,7 +107,7 @@ export function mountSessionSave({ keyboard, showStatus, applicationBase, indica
       if (base.custom) await loadCustomImage(base.custom.source, base.custom.artifact);
       if (!base.custom && base.systemSnapshot !== null && !rebuiltBaseVerified) {
         const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(
-          `../../dist/dolly-${base.image}-system-snapshot.mjs`);
+          new URL(`dist/dolly-${base.image}-system-snapshot.mjs`, imageBase).href);
         if (metadata.image !== base.image || metadata.buildId !== DOLLY_IMAGE_BUILD_ID ||
             metadata.byteLength !== base.systemSnapshot.byteLength || metadata.sha256 !== await sha256(base.systemSnapshot)) {
           throw new Error("Rebuilt filesystem differs from the prebuilt session base; no session was saved");

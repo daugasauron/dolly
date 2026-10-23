@@ -76,7 +76,7 @@ export function browser() {
   };
 }
 
-export function worker({ send, applicationBase, abi, service }) {
+export function worker({ send, runtimeBase, abi, service }) {
   const memory = new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" });
   let supervisor, threadProvider;
   // Modules served inside the process Worker of the executables that record
@@ -120,7 +120,7 @@ export function worker({ send, applicationBase, abi, service }) {
       if (module) processModules.set(requirement, module); else processModules.delete(requirement);
     },
     async supervisor(dolly) {
-      return supervisor ??= await DollyProcessSupervisor.create(dolly, memory, applicationBase, abi, service, threadProvider, processModules);
+      return supervisor ??= await DollyProcessSupervisor.create(dolly, memory, runtimeBase, abi, service, threadProvider, processModules);
     },
     start({ dolly }) {
       return { memory: memory.buffer, address: Number(dolly._dolly_terminal_mailbox_address()) };

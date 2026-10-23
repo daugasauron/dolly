@@ -1,6 +1,6 @@
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
-import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import { DOLLY_IMAGES, loadImages } from "./images.mjs";
 import { loadImageArtifactDescriptor } from "./image-artifact.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION, listStoredSessions, sessionCompatible,
@@ -8,6 +8,9 @@ import {
   loadStoredSession, saveStoredSession, deleteStoredSession,
 } from "./session-store.mjs";
 import { exportSessionFile, importSessionFile } from "./session-file.mjs";
+
+// The sessions page is the site's own: its images are the site's.
+await loadImages(new URL("../", import.meta.url));
 
 const status = document.querySelector("#status");
 const input = document.querySelector("#import-session");

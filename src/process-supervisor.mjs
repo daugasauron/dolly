@@ -147,12 +147,12 @@ export class DollyProcessSupervisor {
     this.serviceTimer = setInterval(() => this.#serviceTick(), 16);
   }
 
-  static async create(dolly, kernelMemory, applicationBase, hostAbi, serviceHost, threadHost, processModules) {
+  static async create(dolly, kernelMemory, runtimeBase, hostAbi, serviceHost, threadHost, processModules) {
     const [gateBytes, contractBytes, threadBytes, workerBytes] = await Promise.all([
       "dolly-process-gate-0.wasm", "dolly-process-0.wasm", "dolly-threads-0.wasm",
       "dolly-process-worker.mjs",
     ].map(async name => {
-      const response = await fetch(new URL(`dist/${name}`, applicationBase), {
+      const response = await fetch(new URL(`dist/${name}`, runtimeBase), {
         cache: "no-store", credentials: "same-origin", redirect: "error",
       });
       if (!response.ok) throw new Error(`Dolly ${name} returned HTTP ${response.status}`);

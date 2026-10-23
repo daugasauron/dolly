@@ -1,15 +1,14 @@
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
-import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import { DOLLY_IMAGES, imageBase } from "./images.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
 import { loadRecipeGraph } from "./dollyfile-graph.mjs";
 import { recipeFileName, unretainedPath } from "./dollyfile-view.mjs";
 import { hostRequirements } from "../host/requirements.mjs";
-import { siteReference, sitePath, decodeStaticAsset, publicURL, sha256 } from "./static-asset.mjs";
+import { siteReference, sitePath, decodeStaticAsset, sha256 } from "./static-asset.mjs";
 import { decodeSnapshotRecords, mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
-const applicationBase = new URL("../", import.meta.url);
-const imageDefinitions = new Map(DOLLY_IMAGES.map(definition => [definition.image, definition]));
+const definitionOf = image => DOLLY_IMAGES.find(definition => definition.image === image);
 const encoder = new TextEncoder();
-const expectedRecipes = image => imageDefinitions.get(image).recipes;
+const expectedRecipes = image => definitionOf(image).recipes;
 export { sha256 };
 
 function validSnapshotPath(path) {
@@ -22,7 +21,7 @@ function validSnapshotPath(path) {
 
 async function verifyVisibleRecipes(recipes) {
   for (const recipe of recipes) {
-    const response = await fetch(new URL(sitePath(recipe.sourcePath).slice(1), applicationBase), {
+    const response = await fetch(new URL(sitePath(recipe.sourcePath).slice(1), imageBase), {
       cache: "no-store", credentials: "same-origin", redirect: "error",
     });
     if (!response.ok) throw new Error(`${recipe.sourcePath} returned HTTP ${response.status}`);
@@ -38,7 +37,7 @@ export async function loadPackagedSnapshotMetadata(image, checked = new Map(), a
   if (active.has(image)) throw new Error("packaged image cycle");
   active.add(image);
   const metadataUrl = new URL(
-    `dist/dolly-${image}-system-snapshot.mjs`, applicationBase,
+    `dist/dolly-${image}-system-snapshot.mjs`, imageBase,
   );
   let metadata;
   try {
@@ -51,7 +50,7 @@ export async function loadPackagedSnapshotMetadata(image, checked = new Map(), a
       metadata.image !== image || metadata.buildId !== DOLLY_IMAGE_BUILD_ID ||
       metadata.formatVersion !== 2 || metadata.identityVersion !== 2 ||
       JSON.stringify(metadata.recipes) !== JSON.stringify(recipes) ||
-      JSON.stringify(hostRequirements(metadata.hostRequirements)) !== JSON.stringify(imageDefinitions.get(image).hostRequirements ?? []) ||
+      JSON.stringify(hostRequirements(metadata.hostRequirements)) !== JSON.stringify(definitionOf(image).hostRequirements ?? []) ||
       !Number.isSafeInteger(metadata.byteLength) || metadata.byteLength <= 0 ||
       metadata.byteLength > snapshotSizeLimit ||
       (![undefined, "gzip", "packs"].includes(metadata.encoding)) ||
@@ -65,7 +64,7 @@ export async function loadPackagedSnapshotMetadata(image, checked = new Map(), a
   }
   if (metadata.encoding === "packs") validateSnapshotPacks(metadata);
   const inputs = imageInputs(metadata.inputs);
-  const references = [...new Set(imageDefinitions.get(image).artifacts.map(reference => reference.sha256))].sort();
+  const references = [...new Set(definitionOf(image).artifacts.map(reference => reference.sha256))].sort();
   if (JSON.stringify(inputs.map(input => input.recipeSha256)) !== JSON.stringify(references)) {
     throw new Error("The packaged system snapshot has stale image inputs");
   }
@@ -91,7 +90,7 @@ export async function loadPackagedSnapshotMetadata(image, checked = new Map(), a
     }
   }
   const expectedInputs = [];
-  for (const reference of imageDefinitions.get(image).artifacts) {
+  for (const reference of definitionOf(image).artifacts) {
     const dependency = DOLLY_IMAGES.find(candidate =>
       siteReference(candidate.dollyfile) === reference.location && candidate.sha256 === reference.sha256);
     if (!dependency) throw new Error("packaged image input is missing");
@@ -112,8 +111,8 @@ async function* packagedSnapshotParts(image, metadata, signal) {
     signal?.throwIfAborted();
     const compressed = packed || metadata.encoding === "gzip";
     const url = packed
-      ? publicURL(`dist/packs/${part.sha256}.snapshot.gz`)
-      : new URL(`dist/dolly-${image}-system.snapshot${compressed ? ".gz" : ""}`, applicationBase);
+      ? new URL(`dist/packs/${part.sha256}.snapshot.gz`, imageBase)
+      : new URL(`dist/dolly-${image}-system.snapshot${compressed ? ".gz" : ""}`, imageBase);
     const init = { cache: packed ? "force-cache" : "no-store", credentials: "same-origin", redirect: "error", signal };
     const expected = compressed ? part.encodedByteLength : part.byteLength;
     const response = await decodeStaticAsset(await fetch(url, init), url, init, expected);

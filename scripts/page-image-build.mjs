@@ -6,9 +6,10 @@
 export async function buildImageInPage(base, image, custom) {
   const log = text => void globalThis.dollyBuildLog(text);
   const [registry, policy, transport, builder, graph] = await Promise.all([
-    "dist/dolly-images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
+    "src/images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
     "src/image-builder.mjs", "src/image-build.mjs",
   ].map(path => import(new URL(path, base).href)));
+  await registry.loadImages(base);
   const sources = [
     ...registry.DOLLY_IMAGES.map(definition => ({ path: `/${definition.dollyfile}`, byteLength: definition.byteLength })),
     ...registry.DOLLY_STATIC_SOURCES,

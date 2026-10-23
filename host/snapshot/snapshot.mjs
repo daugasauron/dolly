@@ -2,7 +2,7 @@ import { SessionTransport } from "./transport.mjs";
 import { mountSessionSave } from "./ui.mjs";
 import { DOLLY_BUILD_ID } from "../../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../../dist/dolly-image-build-id.mjs";
-import { DOLLY_IMAGES } from "../../dist/dolly-images.mjs";
+import { DOLLY_IMAGES } from "../../src/images.mjs";
 import { DOLLY_SESSION_FORMAT_VERSION, decodeSessionSnapshot, loadStoredSession, sessionCompatible,
   sessionLoadUrl, validSessionName, DOLLY_SESSION_MAX_BYTES } from "../../src/session-store.mjs";
 

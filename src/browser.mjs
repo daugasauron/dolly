@@ -8,7 +8,7 @@ import { describeImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
 import { pageChords } from "./page-chords.mjs";
 import { terminalText } from "./terminal-text.mjs";
-import { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } from "../dist/dolly-images.mjs";
+import { DOLLY_IMAGES, DOLLY_STATIC_SOURCES, imageBase, loadImages } from "./images.mjs";
 import * as processConstants from "./process-constants.mjs";
 
 const encoder = new TextEncoder();
@@ -39,7 +39,8 @@ function element(tag, properties, attributes = {}) {
   return node;
 }
 
-// Runs an image in `mount`, an element the embedding sizes. The embedding,
+// Runs an image in `mount`, an element the embedding sizes, from the image
+// directory `images` (images.mjs). The embedding,
 // trusted page code, names the host modules the page has (`modules`, the URLs
 // of their manifests), may close the set an image can use (`hostModules`) and
 // sets the HTTP broker's policy (`http`: { policy, relays }), all before
@@ -47,7 +48,7 @@ function element(tag, properties, attributes = {}) {
 // "snapshot" or "rebuild", and `loadSession` asks the snapshot module for the
 // session the route names. It resolves to the page's API (window.__dolly on the
 // site) once the image's ENTRY runs, or to null when it only built an image.
-export async function boot(mount, { image: route, mode = "snapshot", loadSession = false, modules, hostModules, http = {} } = {}) {
+export async function boot(mount, { images, image: route, mode = "snapshot", loadSession = false, modules, hostModules, http = {} } = {}) {
   if (!document.querySelector("style[data-dolly]")) {
     document.head.append(element("style", { textContent: style }, { "data-dolly": "" }));
   }
@@ -118,6 +119,7 @@ export async function boot(mount, { image: route, mode = "snapshot", loadSession
   addEventListener("pagehide", () => { host?.dispose(); runtimeWorker?.terminate(); });
   try {
     document.documentElement.dataset.dollyStatus = "loading";
+    await loadImages(images);
     const packagedImages = new Set(DOLLY_IMAGES.map(({ image }) => image));
     if (!(packagedImages.has(route) || route === "custom") || !["snapshot", "rebuild"].includes(mode) ||
         typeof loadSession !== "boolean" || !Array.isArray(modules) || !modules.length ||
@@ -137,7 +139,7 @@ export async function boot(mount, { image: route, mode = "snapshot", loadSession
       throw new Error("No uploaded Dollyfile is available in this tab. Return to the Dolly menu.");
     }
     const customSource = custom?.source;
-    const applicationBase = new URL("../", import.meta.url);
+    const applicationBase = imageBase;
     const bootstrapSources = [
       ...DOLLY_IMAGES.map((definition) => ({
         path: `/${definition.dollyfile}`,
@@ -210,6 +212,7 @@ export async function boot(mount, { image: route, mode = "snapshot", loadSession
       type: "configure",
       image,
       mode: bootMode,
+      images: imageBase.href,
       modules: registry.urls,
       hostModules: host.enabled,
       hostConfiguration: host.configuration,

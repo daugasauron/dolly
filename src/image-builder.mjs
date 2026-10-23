@@ -1,6 +1,6 @@
 import { hostRegistry } from "../host/modules.mjs";
 import { hostModuleUrls } from "../host/manifests.mjs";
-import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import { DOLLY_IMAGES, imageBase } from "./images.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
 
@@ -50,7 +50,7 @@ export async function buildImage(image, artifacts, configuration, report, { cust
       // Unless consumed, the Worker returns each buffer after importing it into
       // Wasm, so shared dependencies remain reusable without cloning gigabytes of inputs.
       worker.postMessage({ type: "configure", mode: "rebuild", image, buildOnly: true, returnInputs: !consume, artifacts,
-        modules: registry.urls, hostModules: host.enabled, hostConfiguration: host.configuration,
+        images: imageBase.href, modules: registry.urls, hostModules: host.enabled, hostConfiguration: host.configuration,
         ...(customSource === undefined ? {} : { customSource }) }, [...new Set(artifacts.map(artifact => artifact.bytes))]);
     });
   } finally {
