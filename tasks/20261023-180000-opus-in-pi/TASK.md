@@ -59,7 +59,7 @@ the catalog round. Left, one line each:
 
 ## State (2026-10-23 23:00 JST, branch `demo/opus-audit-2`): rounds 2 and 3 done
 
-Fifteen more sessions (rounds 2 and 3, at the end), $5.845; with round 1, **$6.607 of the
+Twenty more sessions (rounds 2 to 4, at the end), $10.381; with round 1, **$11.143 of the
 $20** (Pi's footer and the session files agree). Before the guidance change Opus wrote every
 game from scratch on the raw display and never looked at `amy`; after it, every session
 installed and reused a library (raylib, SDL2, FreeType, libpng, SQLite) in its first
@@ -505,3 +505,46 @@ After merging `core/process-exec` (`65736016`): `exec` works, measured in `defau
 `execvp` runs `echo`), so `SYSTEM.md` and the skill no longer say it fails (`96794f48`).
 
 Spend, all sessions: **$6.607 of the $20** (round 3: $2.059).
+
+## Round 4: harder work on the final pi-agent (2026-10-24, `b675b30f` and after; $4.536 of its $5)
+
+pi-agent as `janis-install` step 5 left it: Pi from npm, the key at `pi-key`'s hidden prompt.
+Built here for it on `54c70100`: `go`, `go-tools` (`go-sdk` hard-linked from `work/go`),
+`rust`, `cargo`, `raylib`, `sdl2`, `freetype`, `libpng`, `sqlite`, `tar`, `pigz`, `zip`,
+`unzip`, `jq`. The driver's policy admits `static.crates.io`, `index.crates.io`, `crates.io`,
+`proxy.golang.org` and `sum.golang.org` (GET) besides round 1's hosts.
+
+| task | libraries | calls (failed) | wall / model s | cost |
+| --- | --- | --- | --- | --- |
+| a tile game, levels and sprites from PNG files, a real font, a menu, saved scores, no library named (`r4-tiles/`) | `amy list`, then FreeType and libpng on its own framebuffer: `sdl2` was refused for `touch@0` | 31 (2) | 366 / 350 | $1.167 |
+| the same after the skill change (`r4-tiles2/`) | raylib (its PNG and TTF loading), a font fetched from GitHub | 64 (5) | 825 / 771 | $2.657 |
+| a Go CLI that fetches api.github.com and parses JSON (`r4-go/`) | `amy install go`, standard library only | 10 (0) | 145 / 42 | $0.126 |
+| a Cargo crate with `clap` and `serde_json` (`r4-rust/`) | vendored by hand from static.crates.io | 21 (3) | 147 / 104 | $0.323 |
+| the same after the skill change (`r4-rust2/`) | vendored with its own resolver over the index's GitHub mirror | 21 (4) | 162 / 92 | $0.263 |
+
+Findings:
+- Packages: both game runs read `amy list` first and reused libraries (FreeType, libpng;
+  raylib in the second); both checked the display with `timeout` (`timeout 5 ./tiles`,
+  `timeout 3 ./play`) and rendered their own PNG screenshots to read with Pi's read tool.
+  The first run's choice was forced: **`sdl2` needs `touch@0`**, which pi-agent does not
+  declare ([sdl2-touch](../20261023-161303-sdl2-touch/TASK.md), filed). The second run's
+  extra cost is its own design (a Sokoban solver to verify five levels: 28 of 64 calls), not
+  the environment. It fetched a TTF from GitHub because Pi cut its `find` output, which
+  followed 80 lines of `amy list`; Iosevka is in `/usr/share/fonts`. The known package gaps
+  (raylib's clock and keys, `-lpng`, no SDL_ttf) cost nothing here: both runs read
+  `libpng16.pc`, and the raylib run read keys through the adapter as the skill says.
+- Go works as a newcomer expects: `amy install go`, `net/http` through the broker, 0 failed
+  calls. Its time went to the first `go vet`, 95 s, which compiles the standard library's
+  export data into an empty cache; `go build` then took 1.3 s.
+- Rust: **Cargo cannot use crates.io from the browser** (the index's cached files carry no
+  CORS header; its GitHub mirror refuses Cargo's preflights), so the crates are vendored by
+  hand ([cargo-crates-io](../20261023-161303-cargo-crates-io/TASK.md), filed with the
+  measurements). `cargo run` works now that `exec` does.
+- The skill (`d2457991`, measured in `r4-rust2/` and `r4-tiles2/`): a "Rust and Go" section
+  (vendoring from the GitHub mirror and static.crates.io, the `libc` patch, Go's broker) and
+  SDL2's `nena enable touch`. Rust run 2 went to vendoring at once and wrote a resolver; its
+  calls stayed at 21 and two were lost to the core `tar` on `.crate` files
+  ([tar-not-archive](../20261023-132201-tar-not-archive/TASK.md), more evidence there).
+  Game run 2 did not try SDL2 again; it took raylib for its built-in PNG and TTF loading.
+
+Spend, all sessions: **$11.143 of the $20** (round 4: $4.536).
