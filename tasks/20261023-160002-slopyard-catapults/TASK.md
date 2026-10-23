@@ -77,3 +77,58 @@ other friendly machines; each shot, and what each round touches in the 10 s afte
 
     DISPLAY=:N node tasks/20261001-223000-slopyard-living-world/run.mjs OUT \
       tasks/20261023-160002-slopyard-catapults/sling-audit.c 2400
+
+`build/slopyard-evidence/` (not committed) holds every run below: `audit-*` and `sling-*` on
+the GPU display (`run.mjs` with `DISPLAY=:152`, under the shared GPU lock), the shorter
+probes with a headless copy of `run.mjs` (SwiftShader page, the same Wasm simulation).
+
+## Before: the fresh catalog at `e936ac95`, 2,400 s
+
+The living-world audit: 36 deliveries (East 21, West 22 points), 178 actors, no removals or
+controller errors, the same totals as on 2026-10-02. The sling audit of the same run:
+
+| Gun | Shots | Loads | Held a round unfired | Enemy aircraft in sight | Only excluded by the gun's floor |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Tengu / Red (52, -24) | 3 | 4 | 697 s | 215 s | 0 s |
+| Tengu / Blue (-52, -24) | 3 | 5 | 823 s | 348 s | 0 s |
+| Hosen / Red (52, 24) | 5 | 5 | 463 s | 322 s | 0 s |
+| Hosen / Blue (-52, 24) | 0 | 1 | 2,040 s | 0 s | 0 s |
+| Hayate roof sling / Red (52, 16.5, -72) | 1 | 2 | 1,972 s | 19 s | 144 s |
+| Hayate roof sling / Blue (-52, 16.5, -72) | 3 | 4 | 1,312 s | 55 s | 508 s |
+| Yagura roof battery / Red (52, 16.5, 72) | 0 | 1 | 2,367 s | 6 s | 10 s |
+| Yagura roof battery / Blue (-52, 16.5, 72) | 0 | 1 | 2,367 s | 0 s | 0 s |
+
+- 15 shots; three rounds touched an enemy aircraft (two of them the target). Neither Kusari
+  tether round was ever fired.
+- Two rounds flew off the arm while spinning (both Tengus, 74 s and 82 s). The Red roof
+  sling misloaded twice (46 s, 70 s): its loader left the round at (55.2, 16.5, -74.9),
+  2.9 m off the dock and out of its own reach.
+- Every unfired wait is "Watching combat zone": no enemy in range. A gun only targets enemy
+  machines in the combat zone (|x| <= 32) within its 48 m sight, so at x = ±52 it sees the
+  zone's edge. A roof gun also requires its target to fly 5 m above the gun's own floor,
+  the 16 m roof: the roof slings saw qualifying aircraft for 19 s and 55 s, and aircraft
+  excluded only by that rule for 144 s and 508 s.
+- The Tsuru rescuers bump into the roof slings (25 s at up to 599 N, 5 s at 675 N).
+
+## What changed (`demos/slopyard/src`)
+
+- Every gun station moves toward the middle, inside its team's territory: the ground
+  batteries from x = ±52 to ±44 with their loaders, magazines, Kusari round, recovery truck
+  (whose bays are fixed relative to its start) and cable tug as one group; the Red roof
+  stations to x = 47 (the front edge of the Red decks, x 44..72) and the Blue roof stations
+  to x = -40. Blue's stations were translated copies of Red's, with the loader on the side
+  toward the middle; they are now mirror images (blueprints mirrored across x), loader
+  behind the gun. The Red roof decks reach no further forward; moving them is a terrain
+  version of its own and was not done.
+- The Koban loader works in either facing (`koban-east-loading-shuttle.lua`), and the roof
+  supply flight and hoist find the magazine bay on the gun's side of a mirrored loader.
+- A gun's arm clearance follows the arm's actual sweep: a teammate is in the way when the
+  loaded head, swinging in its vertical plane, passes through it at its nearest distance,
+  instead of any teammate within 7.4 m at any height overlapping the arm.
+- Airborne means 5 m above the terrain under the target, not above the gun's own floor.
+
+Rejected on the way: turning Blue's stations half a turn instead of mirroring them. A
+turntable's angle is about its axis regardless of its mounting direction, so the turned
+arm loads upside down (13 misloads in 600 s, pole 11 m above the round). Ground batteries
+at x = ±40 or ±46 without their trucks and tugs: the trucks' bays stay where they were and
+the tugs park in the arm's sweep or push against the gun (134 s at 413 N).

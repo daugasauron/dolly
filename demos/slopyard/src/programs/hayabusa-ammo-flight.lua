@@ -15,17 +15,17 @@ return function(t,s,m)
   if not m.bays then
     local nearest=math.huge
     for _,c in ipairs(s.nearby) do if c.team==s.team and c.anchored then
-      local axes,magnet={},nil;local hx,hz,tx,tz=0,0,0,0
+      local axes,magnet={},nil;local hx,hz,tx,tz,sx,sz=0,0,0,0,-1,-1
       for _,p in ipairs(s.parts(c.id)) do
         if p.joint==2 then
-          if math.abs(p.axisX)>.8 then axes.x=true;hx=hx+p.angle*p.axisX;tx=tx+p.travel end
-          if math.abs(p.axisZ)>.8 then axes.z=true;hz=hz+p.angle*p.axisZ;tz=tz+p.travel end
+          if math.abs(p.axisX)>.8 then axes.x=true;hx=hx+p.angle*p.axisX;tx=tx+p.travel;sx=p.axisX>0 and 1 or -1 end
+          if math.abs(p.axisZ)>.8 then axes.z=true;hz=hz+p.angle*p.axisZ;tz=tz+p.travel;sz=p.axisZ>0 and 1 or -1 end
         elseif p.joint==5 then magnet=p end
       end
       local d=hypot(c.x-m.home[1],c.z-m.home[2])
       if axes.x and axes.z and magnet and d<nearest then
         nearest=d;m.station=c.id;m.bays={}
-        for _,offset in ipairs({-2,0,2}) do m.bays[#m.bays+1]={magnet.x-hx-tx/3+offset,c.y,magnet.z-hz-tz*2/3} end
+        for _,offset in ipairs({-2,0,2}) do m.bays[#m.bays+1]={magnet.x-hx+sx*tx/3+offset,c.y,magnet.z-hz+sz*tz*2/3} end
       end
     end end
   end

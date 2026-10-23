@@ -48,10 +48,18 @@ return function(t, s, m)
     local zone = s.combat
     return not zone or math.abs(b.x-zone.x) <= zone.halfX and math.abs(b.z-zone.z) <= zone.halfZ
   end
+  -- Airborne means 5 m above the terrain under the machine, not above the gun's own floor (a roof).
+  local function floor_under(b)
+    local floor = 0
+    for _, box in ipairs(s.terrain) do
+      if math.abs(b.x-box.x) <= box.halfX and math.abs(b.z-box.z) <= box.halfZ and box.high <= b.low+.5 then floor = math.max(floor, box.high) end
+    end
+    return floor
+  end
   local target, priority
   for _, b in ipairs(s.nearby) do
     if b.team ~= 0 and b.team ~= s.team and not b.anchored and not b.cargo and not b.controllerStopped and b.visible ~= false
-      and b.low > s.ground+5 and b.up > .25 and b.carriedBy == 0 and in_combat(b) then
+      and b.up > .25 and b.carriedBy == 0 and in_combat(b) and b.low > floor_under(b)+5 then
       local score = -hypot(b.x-s.x, b.z-s.z)
       for _, cargo in ipairs(s.nearby) do
         if cargo.cargo and cargo.team == 0 and not cargo.delivered and cargo.carriedBy == b.id then score = score+120; break end
@@ -154,10 +162,14 @@ return function(t, s, m)
     return ((b).id == (m).loader)
   end);
   local pivotY=s.positions[arm.i+1][2]
-  local clear = every(filter(s.nearby, function(b)
-    return b.team==s.team and not b.cargo and b.low<pivotY+reach and b.high>pivotY-reach
-  end), function(b)
-    return ((hypot(((b).x - (s).x), ((b).z - (s).z)) - (b).radius) > (hypot((arm).x, reach) + 0.5))
+  -- The loaded head sweeps a circle of radius reach in a vertical plane |head.x| from the bearing's
+  -- axis: a teammate is clear when that sweep, at the teammate's nearest distance, passes above or below it.
+  local lateral=math.abs(head.x-bearing.x)
+  local clear = every(filter(s.nearby, function(b) return b.team==s.team and not b.cargo end), function(b)
+    local gap=hypot(b.x-s.x,b.z-s.z)-b.radius
+    if gap>hypot(lateral,reach)+.5 then return true end
+    local depth=gap<=lateral and reach or math.sqrt(math.max(0,reach*reach-(gap*gap-lateral*lateral)))
+    return b.high<pivotY-depth-.5 or b.low>pivotY+depth+.5
   end);
   if box and (not box.cargo or box.supply > 0 or box.mass >= 1.5 or box.team ~= 0 and box.team ~= s.team) then
     phase("return")
