@@ -10,14 +10,14 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.3/demos/pi/Dollyfile-pi-runtime 5067b5024c61ab098532930c94753de9f59639f007bf12b9b03b3c4bd8e9c3f4
-INSTALL /v0.1.3/Dollyfile-amy 013a5d4c170962e4cd4f8c339da4a6a8988cb8d5a290ac1a777486e7cb902500
+FROM /v0.1.3/demos/pi/Dollyfile-pi-runtime 4e0495a90fbcd8875e17fb4b867b943cc9b96614abdcbc7cd0a0b98922dc7159
+INSTALL /v0.1.3/Dollyfile-amy 5e3bfe8e0cd64c701960c4e116c0511ffcca03195059407c59533543c92a3a27
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL printf
 REQUIRES TOOL pi
 # The platform's documents, for the agent: /usr/share/doc/dolly.
-INSTALL /v0.1.3/Dollyfile-dolly-docs 71dd5284eab84c59b69035eade12455743d88925f2669fadae3ea88c6efde6c5
+INSTALL /v0.1.3/Dollyfile-dolly-docs ad812046a8135469429142f6d28ff872df884291c2ffd89c53aee3150dc1ab6f
 
 FILE /etc/dolly/init.slop
     cd /workspace
