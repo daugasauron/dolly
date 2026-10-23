@@ -9,7 +9,7 @@ REQUIRES HOST sockets@0
 
 # Build-only: the libraries of Clang, LLD and the WebAssembly backend that the
 # seed compiler links, compiled inside Dolly by its own c++.
-FROM /v0.1.3/demos/llvm/Dollyfile-llvm-tablegen 58b44b689a5adcfb5d79a3e493ed5e1d8ddf5cbc3c8953919545b79b395d390d
+FROM /v0.1.3/demos/llvm/Dollyfile-llvm-tablegen 28f6dc30445014451728e540ccfdf2cd41e2fb4d5051752bac10ce12d0d6c47b
 REQUIRES TOOL llvm-tblgen
 REQUIRES TOOL clang-tblgen
 REQUIRES TOOL cmake

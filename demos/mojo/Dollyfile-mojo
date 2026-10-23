@@ -5,14 +5,14 @@ REQUIRES HOST runtime@0
 # The Mojo compiler as mojo-build built it in Dolly, with the standard library
 # and the package gpu it precompiled, and what a program links against, as
 # mojo-runtime built it: mojo build NAME.mojo makes a Dolly executable.
-COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build 10b9bd6727367368d2904e1eaadaab687a31ab7db00486514990e6dc035065bd /opt/mojo/bin/mojo /usr/bin/mojo
-COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build 10b9bd6727367368d2904e1eaadaab687a31ab7db00486514990e6dc035065bd /opt/mojo/lib/mojo /usr/lib/mojo
-COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build 10b9bd6727367368d2904e1eaadaab687a31ab7db00486514990e6dc035065bd /usr/share/licenses/mojo /usr/share/licenses/mojo
-COPY /v0.1.3/demos/mojo/Dollyfile-mojo-runtime e169cb814063cc44f15daae03d9527d7d518103fdd3662074299a07e16dc48dd /usr/lib/libmojo-rt.a /usr/lib/libmojo-rt.a
-COPY /v0.1.3/demos/mojo/Dollyfile-mojo-runtime e169cb814063cc44f15daae03d9527d7d518103fdd3662074299a07e16dc48dd /usr/lib/libmojo-gpu.a /usr/lib/libmojo-gpu.a
+COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build 354bd6080ef71f0851403de2548bc9b253d0819a91586624171df5e6e606188b /opt/mojo/bin/mojo /usr/bin/mojo
+COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build 354bd6080ef71f0851403de2548bc9b253d0819a91586624171df5e6e606188b /opt/mojo/lib/mojo /usr/lib/mojo
+COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build 354bd6080ef71f0851403de2548bc9b253d0819a91586624171df5e6e606188b /usr/share/licenses/mojo /usr/share/licenses/mojo
+COPY /v0.1.3/demos/mojo/Dollyfile-mojo-runtime d587c587c588b35fc88afaf5220efca591efe6467b0d97ef6114776772b7a159 /usr/lib/libmojo-rt.a /usr/lib/libmojo-rt.a
+COPY /v0.1.3/demos/mojo/Dollyfile-mojo-runtime d587c587c588b35fc88afaf5220efca591efe6467b0d97ef6114776772b7a159 /usr/lib/libmojo-gpu.a /usr/lib/libmojo-gpu.a
 # mojo build links what it compiles with the C toolchain.
-INSTALL /v0.1.3/Dollyfile-libdolly-gpu 3742f4474bbb4c20aad088b730e952cbd822f59bc8cee668d15e035023df695d
-INSTALL /v0.1.3/Dollyfile-cc e609f28f82210a20ce3b046d90cad0cd22062d010d4d86e973488abc6657adb1
+INSTALL /v0.1.3/Dollyfile-libdolly-gpu 579145bf09dca4828577d6496cec00e677b1f5b8bb34cce38477e718a594dd41
+INSTALL /v0.1.3/Dollyfile-cc 6547a88f76f69bafb1fee2605c8f3bf02becc8e3e9e4d97f2d352635f72e44de
 # Where the compiler looks for packages, and what it hands cc to link a
 # program: the runtime in place of upstream's shared CompilerRT, and the
 # libraries of the package gpu, of which a link takes what the program uses.

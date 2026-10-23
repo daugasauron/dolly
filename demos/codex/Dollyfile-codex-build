@@ -7,9 +7,9 @@ REQUIRES HOST http@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.3/demos/rust/Dollyfile-rust-build bacec5049d17819253be7252b056096aae62a95afa98dceecac5093315d15d50
-INSTALL /v0.1.3/Dollyfile-libdolly-sockets d27d8ec7341d7e029f31c8f37aeae03352379d2fbe025a0834aa0f6677d91fc3
-INSTALL /v0.1.3/demos/rust/Dollyfile-protox dd8de14b1e55aefc295835ffe6ffb346e8393ad6eddce07ad07e51b3bab50df3
+FROM /v0.1.3/demos/rust/Dollyfile-rust-build 5c68c57da23fd3b2696ec4d96dcae7c34f1258234e4cb55408c8b0678da4345a
+INSTALL /v0.1.3/Dollyfile-libdolly-sockets 21a5f43ce417599b7d22f66bbf47a7249bd435c5f7bb096a0de5fc8afc9da45b
+INSTALL /v0.1.3/demos/rust/Dollyfile-protox 4201b81056c262b15326907d1c335f9c8d03ea8cc18eda7a6dbecf3b44c6fe4a
 REQUIRES TOOL cargo
 REQUIRES TOOL cc
 REQUIRES TOOL cp
