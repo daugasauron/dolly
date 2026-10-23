@@ -87,6 +87,12 @@ entry.
   terminal descriptions compiled into libterminfo are from ncurses's
   `terminfo.src`, which carries no copyright notice of its own. The three
   licence files are in the package.
+- OCaml (LGPL-2.1 with its linking exception) is modified for Dolly: the
+  patched files are those of the demo's patch, which is applied in the source
+  archive served beside the image (`ocaml/ocaml.tar.gz`), so clause 2 is met.
+  A program `ocamlc` builds contains its runtime and libraries, which the
+  exception lets its author distribute under any terms. The licence is in the
+  package.
 - The 0 A.D. engine (GPL-2.0-or-later) links SpiderMonkey (MPL-2.0, whose
   secondary-licence clause allows the GPL combination), OpenAL Soft (LGPL),
   SDL2, FreeType, libpng, Ogg/Vorbis, ICU, Boost, {fmt}, libxml2, ENet and

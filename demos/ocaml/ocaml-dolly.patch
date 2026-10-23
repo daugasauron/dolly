@@ -1,0 +1,106 @@
+--- a/bytecomp/bytelink.ml
++++ b/bytecomp/bytelink.ml
+@@ -894,9 +894,23 @@
+   remove_file prims_obj;
+   result
+ 
++(* A WebAssembly module ends at its last section: there the bytecode follows
++   as a custom section, so that the module stays valid, its trailer last. *)
+ let append_bytecode bytecode_name exec_name =
++  let wasm =
++    In_channel.with_open_bin exec_name (fun ic ->
++      In_channel.really_input_string ic 4 = Some "\000asm") in
+   let oc = open_out_gen [Open_wronly; Open_append; Open_binary] 0 exec_name in
+   let ic = open_in_bin bytecode_name in
++  if wasm then begin
++    let rec output_leb128 n =
++      if n < 0x80 then output_byte oc n
++      else (output_byte oc (n land 0x7f lor 0x80); output_leb128 (n lsr 7)) in
++    output_byte oc 0;
++    output_leb128 (1 + String.length "ocaml" + in_channel_length ic);
++    output_byte oc (String.length "ocaml");
++    output_string oc "ocaml"
++  end;
+   copy_file ic oc;
+   close_in ic;
+   close_out oc
+--- a/otherlibs/unix/spawn.c
++++ b/otherlibs/unix/spawn.c
+@@ -61,8 +61,11 @@
+       for (int i = dst + 1; i <= 2; i++) {
+         if (src == Int_val(Field(redirect, i))) goto dontclose;
+       }
++#ifndef __dolly__
++      /* Dolly's spawn takes no close action: the child keeps [src] too. */
+       r = posix_spawn_file_actions_addclose(&act, src);
+       if (r != 0) goto error;
++#endif
+     dontclose:
+       /*skip*/;
+     }
+--- a/runtime/caml/domain.h
++++ b/runtime/caml/domain.h
+@@ -30,7 +30,9 @@
+ CAMLextern bool caml_thread_running_on_expected_domain(uintnat);
+ CAMLextern void caml_thread_record_domain_id(uintnat);
+ 
+-#ifdef ARCH_SIXTYFOUR
++/* Dolly commits the minor heaps reserved for every domain, and runs at
++   most 16 threads in a process. */
++#if defined(ARCH_SIXTYFOUR) && !defined(__dolly__)
+ #define Max_domains_def 128
+ #else
+ #define Max_domains_def 16
+--- a/otherlibs/unix/gethost.c
++++ b/otherlibs/unix/gethost.c
+@@ -98,7 +98,10 @@
+ #if HAS_IPV6
+   }
+ #endif
+-#if !defined(HAS_GETHOSTBYADDR_R)
++#if defined(__dolly__)
++  /* Dolly's libc has no gethostbyaddr: no name service answers. */
++  hp = NULL;
++#elif !defined(HAS_GETHOSTBYADDR_R)
+ #ifdef _WIN32
+   caml_enter_blocking_section();
+ #endif
+--- a/runtime/unix.c
++++ b/runtime/unix.c
+@@ -468,7 +468,9 @@
+   return;
+ }
+ 
+-#ifndef __CYGWIN__
++/* Dolly refuses MAP_FIXED, and its mapping is committed: as on Cygwin,
++   a commit is an mprotect. */
++#if !defined(__CYGWIN__) && !defined(__dolly__)
+ 
+ void *caml_plat_mem_map(uintnat size, int reserve_only)
+ {
+--- a/runtime/signals.c
++++ b/runtime/signals.c
+@@ -569,7 +569,8 @@
+   stk.ss_sp = malloc(stk.ss_size);
+   if (stk.ss_sp == NULL)
+     return NULL;
+-  if (sigaltstack(&stk, NULL) < 0) {
++  /* Without alternate stacks (ENOSYS), handlers run on the thread's stack. */
++  if (sigaltstack(&stk, NULL) < 0 && errno != ENOSYS) {
+     free(stk.ss_sp);
+     return NULL;
+   }
+@@ -588,10 +589,11 @@
+   disable.ss_sp = NULL;  /* not required but avoids a valgrind false alarm */
+   disable.ss_size = SIGSTKSZ; /* macOS wants a valid size here */
+   if (sigaltstack(&disable, &stk) < 0) {
+-    caml_fatal_error("Failed to reset signal stack (err %d)", errno);
++    if (errno != ENOSYS)
++      caml_fatal_error("Failed to reset signal stack (err %d)", errno);
+   }
+   /* Check whether someone else installed their own signal stack */
+-  if (!(stk.ss_flags & SS_DISABLE) && stk.ss_sp != signal_stack) {
++  else if (!(stk.ss_flags & SS_DISABLE) && stk.ss_sp != signal_stack) {
+     /* Re-activate their signal stack. */
+     sigaltstack(&stk, NULL);
+   }

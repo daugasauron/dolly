@@ -19,6 +19,7 @@ README. Demos may use each other; the core never uses a demo.
 - [local-llm](local-llm/README.md): llama.cpp and model packages for Pi.
 - [mojo](mojo/README.md): the Mojo compiler built inside Dolly, as the package `mojo`; its programs run there, and in `mojo-gpu` with kernels on WebGPU.
 - [neovim](neovim/README.md): Neovim with Lua and Tree-sitter parsers.
+- [ocaml](ocaml/README.md): OCaml 5.5, bytecode, built inside Dolly from upstream's bootstrap compiler, as a package.
 - [pi](pi/README.md): the Pi coding agent.
 - [python](python/README.md): CPython and stock pip over the HTTP broker.
 - [rts](rts/README.md): Seven Kingdoms matches between two Pi players.
