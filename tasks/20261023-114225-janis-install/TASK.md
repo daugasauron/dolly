@@ -17,13 +17,15 @@ Code is fetched from npm by its own launcher (`demos/closed-source-agent`).
 Done when the investigation is in `investigation.md` here, read by the owner, and what he
 accepts is tasks of its own.
 
-## State (2026-10-23, 14:50): `janis-install` built and tested; step 3 next, branch `demo/janis-install`
+## State (2026-10-23, 15:00): steps 1 to 3 done; Pi from npm and `pi-dolly` wait, branch `demo/janis-install`
 
 Integrator's brief: the command is `janis-install NAME[@VERSION]`, a package of its own (one
 Janis script linked with the QuickJS runner as `tsc` is), not a `janis` subcommand and never
-called `npm`. Steps: 1 measure (done); 2 the package with a fixture-registry browser test
-(done, below); 3 `closed-source-agent` installs Claude Code with it; then stop: Pi from npm
-and `pi-dolly` wait for the `pi-local` agent, because they touch the same Pi files.
+called `npm`. Done: 1 measured; 2 the package and its fixture-registry browser test; 3
+`closed-source-agent` installs Claude Code with it. Left, after the `pi-local` agent reports
+(the same Pi files): Pi from pinned npm tarballs (section 5, step 5 of the investigation),
+with what step 2 found below (`enableCompileCache`, the `/v` regexes, the key mask), and
+`pi-dolly`. Janis's two path gaps are [their own task](../20261023-145214-janis-node-paths/TASK.md).
 
 ## Step 1, measured (2026-10-23)
 
@@ -101,7 +103,7 @@ Decisions:
   files and directories only, links skipped, pax `path` and GNU long names, `..` refused.
   `gzip -dc` still decompresses (Janis's `zlib` is a stub).
 - Pi 1.0.3 from the registry in a `default` session (Chromium, default policy): 120
-  packages, 24,664,071 bytes fetched, 15.2 s; 110 MB in `/usr/lib/node_modules`. For the Pi
+  packages, 24,664,071 bytes fetched, 15.2 s (Firefox 18.1 s); 110 MB in `/usr/lib/node_modules`. For the Pi
   step: `pi` (`dist/bundle/cli.js`) then fails `SyntaxError: Could not find export
   'enableCompileCache' in module 'node:module'` and `dist/cli.js` `SyntaxError: invalid class
   range` (the `/v` regexes); `build/janis-evidence/probe-install-pi-chromium.log`.
@@ -110,10 +112,32 @@ Decisions:
   `/npm/` by the test origin, the page's registry fetches redirected there after the broker
   admits them (policy: `registry.npmjs.org`, GET). Passed in Chromium (10.5 s) and Firefox
   (7.0 s). `test/amy-browser.mjs` has its `tools` row (after `sbase`, whose commands it
-  brings), not run yet. Commit `d01154f6`.
-- Janis gaps it met, not fixed here (each repins the Janis chain): `fs` takes a `URL` object
-  as the string `file:///…` (Node: its path), and `require` of a directory path ignores its
-  `package.json` `main` (`janis.js:2778`; Node's LOAD_AS_DIRECTORY reads it).
+  brings); the whole of `test/amy-browser.mjs` passed in Chromium and Firefox with it
+  (`amy install janis-install` 143 ms, its dependencies already there). Commit `d01154f6`.
+- Janis gaps it met, not fixed here (each repins the Janis chain), filed as
+  [their own task](../20261023-145214-janis-node-paths/TASK.md): `fs` takes a `URL` object
+  as the string `file:///…`, and `require` of a directory ignores its `package.json` `main`.
+
+## Step 3, `closed-source-agent` (2026-10-23)
+
+The launcher's download, `sha256sum`, `gzip` and `tar` lines are one row, `janis-install
+--integrity sha512-9FUg… @anthropic-ai/claude-code@2.1.112`; the recipe `INSTALL`s
+`janis-install` (which brings `janis`) instead of `janis` and drops `REQUIRES TOOL curl cut
+gzip sha256sum tar`. The package is now `/usr/lib/node_modules/@anthropic-ai/claude-code`,
+and the session gets `/usr/bin/claude`. The pinned tarball is fetched without metadata; its
+nine optional `@img/sharp-*` are skipped (for other platforms against the registry; refused
+by the test's policy, which admits only the tarball). The notice, `anykey`, `secretenv` and
+the flows are unchanged. Commit `bcbdf36b`.
+
+- `closed-source-agent-browser.mjs` passes in Chromium (43.8 s) and Firefox (49.2 s); the
+  only test edits are the package path and `/opt` leaving the key search.
+  `closed-source-agent.artifacts.mjs` passes (no file of the package in the image).
+- In a `default` session against the registry (Chromium): 4.6 s for the 18.7 MB install,
+  nine metadata requests included, 20 files (`build/janis-evidence/probe-claude-chromium.log`).
+- Building it here needed the source staging of `ripgrep`'s Rust chain, which this tree
+  lacks (`build/rustc-port` is 16 GB in the integration tree): the images were built with
+  `update-recipe-pins`, `generate-routes` and `build-system-snapshot.mjs`, all other images
+  cache hits, `dist/static` unchanged.
 
 ## Decided (2026-10-23, 13:10): Pi comes from npm, for v0.1.4
 
@@ -128,7 +152,7 @@ today; with Pi as published it must come back by another way (upstream, or keys 
 `closed-source-agent` reads them), not be dropped silently. [pi-dolly](../20261023-122320-pi-dolly/TASK.md)
 is the extension's half.
 
-## State (2026-10-23, 12:40): investigated, the owner's to read
+## Investigation (2026-10-23, 12:40)
 
 [investigation.md](investigation.md), by a read-only Fable agent. Spot-checked: Janis's
 `zlib` is a stub (`janis.js:3039`), its `createHash` has sha256, sha1 and md5 only
