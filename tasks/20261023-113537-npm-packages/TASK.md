@@ -91,3 +91,9 @@ release's commit into `build/npm-vX.Y.Z`, runs `test/npm-browser.mjs`, and print
 `npm publish … --access public` loop for the owner to run. Left: `docs/deployment.md`'s
 release list (a pinned document, repinned in the 0.1.4 round with the other documents), and
 the owner's npm account or organization `daugasauron`.
+
+Owner (2026-10-23): "include in the name whether it's a host module or an image,
+dolly-NAME and dolly-default has too similar names for something thats very different". The
+packages are `@daugasauron/dolly` (the runtime), `@daugasauron/dolly-host-NAME` (one host
+module each) and `@daugasauron/dolly-image-NAME` (`dolly-image-default`), as the repository
+lays them out (`host/NAME`, images).
