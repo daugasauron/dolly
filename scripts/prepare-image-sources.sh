@@ -74,8 +74,11 @@ if has_image ghostty-build; then
   stb_image_header="$("${project_dir}/scripts/fetch-stb.sh" stb_image.h)"
   mapfile -t font_paths < <(bash "${project_dir}/scripts/fetch-iosevka.sh")
   runtime_font="${font_paths[1]}"
+  droid_font="$(bash "${project_dir}/scripts/fetch-pinned-archive.sh" droid)"
+  droid_notice="$(bash "${project_dir}/scripts/fetch-pinned-archive.sh" droid_notice)"
 fi
 has_image system-build && copy_static src/slop.c default/slop.c
+has_image mandoc && copy_static "$(bash scripts/fetch-pinned-archive.sh mandoc)" default/mandoc-1.14.6.tar.gz
 if has_image system-build; then
   # The tools the root recipe compiles before it has tar: one SOURCE row each.
   for source in ar.c bracket.c cat.c cc.c cd.c clear.c cp.c cxx.c echo.c file.c foreground.c help.c ld.c \
@@ -147,6 +150,11 @@ if has_image ghostty-build; then
   copy_static "${stb_header}" default/stb_truetype.h
   copy_static "${stb_image_header}" default/stb_image.h
   copy_static "${runtime_font}" default/IosevkaTerm-SemiBold.ttf
+  # The terminal's fallback fonts; Noto Emoji as Ghostty's tree holds it.
+  copy_static "${droid_font}" default/DroidSansFallback.ttf
+  copy_static "${droid_notice}" default/droid-fonts-NOTICE
+  copy_static "${ghostty_checkout}/src/font/res/NotoEmoji-Regular.ttf" default/NotoEmoji-Regular.ttf
+  copy_static "${ghostty_checkout}/src/font/res/OFL.txt" default/noto-emoji-OFL.txt
 fi
 
 if has_image system-build; then

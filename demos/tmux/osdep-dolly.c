@@ -9,23 +9,75 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <pty.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "tmux.h"
 
-/* Dolly names no process a terminal's foreground and no process's directory. */
-char *
-osdep_get_name(__unused int fd, __unused char *tty)
+/*
+ * The process in the foreground of the pane on master `fd`, as
+ * /proc/processes lists them: the newest child of the program the pane
+ * started, the command its shell runs, or that program itself. Dolly has no
+ * process groups for tcgetpgrp to name. Its arguments go to `command`.
+ */
+static pid_t
+osdep_foreground(int fd, char **command)
 {
-	return (NULL);
+	struct window_pane	*wp;
+	FILE			*list;
+	char			 line[2048];
+	long			 pid, parent;
+	pid_t			 pane = -1, found = -1;
+	int			 offset;
+
+	RB_FOREACH(wp, window_pane_tree, &all_window_panes) {
+		if (wp->fd == fd)
+			pane = wp->pid;
+	}
+	if (pane == -1 || (list = fopen("/proc/processes", "r")) == NULL)
+		return (-1);
+	while (fgets(line, sizeof line, list) != NULL) {
+		offset = 0;
+		if (sscanf(line, "%ld %ld %*s %n", &pid, &parent, &offset) < 2 ||
+		    (pid != pane && parent != pane))
+			continue;
+		found = pid;
+		if (command != NULL) {
+			free(*command);
+			line[strcspn(line, "\n")] = '\0';
+			*command = xstrdup(line + offset);
+		}
+	}
+	fclose(list);
+	return (found);
 }
 
 char *
-osdep_get_cwd(__unused int fd)
+osdep_get_name(int fd, __unused char *tty)
 {
-	return (NULL);
+	char	*command = NULL;
+
+	osdep_foreground(fd, &command);
+	return (command);
+}
+
+char *
+osdep_get_cwd(int fd)
+{
+	static char	 target[PATH_MAX];
+	char		 path[64];
+	ssize_t		 n;
+	pid_t		 pid;
+
+	if ((pid = osdep_foreground(fd, NULL)) == -1)
+		return (NULL);
+	snprintf(path, sizeof path, "/proc/%ld/cwd", (long)pid);
+	if ((n = readlink(path, target, sizeof target - 1)) <= 0)
+		return (NULL);
+	target[n] = '\0';
+	return (target);
 }
 
 struct event_base *

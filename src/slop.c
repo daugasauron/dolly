@@ -94,6 +94,8 @@ typedef struct {
 
 typedef struct {
   int interactive;
+  // A subshell, which is no process of its own: `exec` cannot replace it.
+  int subshell;
   int active;
   int last_status;
   int substitution_status;
@@ -160,8 +162,7 @@ typedef struct {
 
 extern char **environ;
 
-// Programs started with `&` that `wait` has not collected. The kernel runs
-// at most 32 processes.
+// Programs started with `&` that `wait` has not collected, at most 32.
 static pid_t background_programs[32];
 static size_t background_count;
 
@@ -901,6 +902,7 @@ static int subshell_enter(Shell *shell, Subshell *subshell) {
   nested->argv = NULL;
   nested->argv_array_owned = 0;
   nested->argv_strings_owned = 0;
+  nested->subshell = 1;
   nested->active = 1;
   nested->exit_status = 0;
   nested->loop_depth = 0;
@@ -2529,6 +2531,9 @@ static int special_builtin_name(const char *name) {
 }
 
 static int command_builtin(Shell *shell, int argc, char **argv);
+static int spawn_command(Shell *shell, int argc, char **argv, const char *search);
+static int find_program(const char *word, const char *search, char *path, size_t capacity);
+static int interrupted_preparing(Shell *shell);
 
 static const char *const trap_names[] = {
     [0] = "EXIT", [SIGHUP] = "HUP", [SIGINT] = "INT", [SIGQUIT] = "QUIT",
@@ -2632,16 +2637,54 @@ static int builtin_wait(int argc, char **argv) {
   return status;
 }
 
+// exec PROGRAM ARG... replaces the shell with the program, which keeps its
+// process, descriptors and exported variables. A subshell is no process here:
+// there it runs the program and ends the subshell with its status. When exec
+// fails, a shell that is not interactive ends, as POSIX says. Redirections
+// without a program stay (run_simple_mutable).
+static int builtin_exec(Shell *shell, int argc, char **argv) {
+  int first = 1;
+  if (first < argc && strcmp(argv[first], "--") == 0) first++;
+  if (first < argc && argv[first][0] == '-') {
+    fprintf(stderr, "slop: exec: unsupported option: %s\n", argv[first]);
+    return 2;
+  }
+  if (first == argc) return 0;
+  int status;
+  if (shell->subshell) {
+    status = spawn_command(shell, argc - first, argv + first, path_variable());
+    // The program replaced the subshell, so its EXIT action does not run.
+    free(shell->traps[0]);
+    shell->traps[0] = NULL;
+  } else {
+    char path[PATH_MAX];
+    status = find_program(argv[first], path_variable(), path, sizeof(path));
+    if (status == 0 && interrupted_preparing(shell)) return 128 + SIGINT;
+    char **environment = status == 0 ? exported_environment() : NULL;
+    if (status == 0 && environment == NULL) {
+      fputs("slop: out of memory\n", stderr);
+      status = 126;
+    } else if (status == 0) {
+      fflush(NULL);
+      execve(path, argv + first, environment);
+      const int error = errno;
+      free(environment);
+      fprintf(stderr, "slop: exec: %s: %s\n", argv[first], strerror(error));
+      status = error == ENOENT ? 127 : 126;
+    }
+    if (shell->interactive) return status;
+  }
+  shell->active = 0;
+  shell->exit_status = status;
+  return status;
+}
+
 static int builtin(Shell *shell, int argc, char **argv) {
   if (strcmp(argv[0], ":") == 0) return 0;
   if (strcmp(argv[0], "trap") == 0) return builtin_trap(shell, argc, argv);
   if (strcmp(argv[0], "wait") == 0) return builtin_wait(argc, argv);
   if (strcmp(argv[0], "command") == 0) return command_builtin(shell, argc, argv);
-  if (strcmp(argv[0], "exec") == 0) {
-    fputs("slop: exec: replacing the shell with a command is unsupported\n",
-          stderr);
-    return 2;
-  }
+  if (strcmp(argv[0], "exec") == 0) return builtin_exec(shell, argc, argv);
   if (strcmp(argv[0], ".") == 0 || strcmp(argv[0], "source") == 0) {
     if (argc < 2) {
       fprintf(stderr, "slop: %s: a script path is required\n", argv[0]);
@@ -3034,27 +3077,36 @@ static int wait_command(Shell *shell, pid_t pid) {
   return status;
 }
 
+// The program a command word names in `path`, and 0; otherwise says why not
+// and returns the status: 127 for nothing there, 126 for what cannot run.
+static int find_program(const char *word, const char *search, char *path, size_t capacity) {
+  const enum command_resolution resolution = resolve_command(word, search, path, capacity);
+  if (resolution == COMMAND_FOUND) return 0;
+  if (resolution == COMMAND_PATH_TOO_LONG) { fprintf(stderr, "slop: %s: path is too long\n", word); return 126; }
+  // A word with a slash is a path: say what is wrong with it, as sh does.
+  struct stat metadata;
+  if (strchr(word, '/') == NULL) { fprintf(stderr, "slop: %s: command not found\n", word); return 127; }
+  if (stat(word, &metadata) != 0) { fprintf(stderr, "slop: %s: %s\n", word, strerror(errno)); return 127; }
+  fprintf(stderr, "slop: %s: %s\n", word, S_ISDIR(metadata.st_mode) ? strerror(EISDIR) : "not a regular file");
+  return 126;
+}
+
+// Ctrl+C that reached the shell while it prepared a command cancels it.
+static int interrupted_preparing(Shell *shell) {
+  if (!interrupt_requested) return 0;
+  interrupt_requested = 0;
+  interrupt_shell(shell, SIGINT);
+  return 1;
+}
+
 // The child inherits the shell's descriptors 0-9 and its exported variables.
 static int spawn_command(Shell *shell, int argc, char **argv, const char *search) {
   Stage *stage = shell->stage;
   shell->stage = NULL;
   char path[PATH_MAX];
-  enum command_resolution resolution = resolve_command(argv[0], search, path, sizeof(path));
-  if (resolution == COMMAND_PATH_TOO_LONG) { fprintf(stderr, "slop: %s: path is too long\n", argv[0]); return 126; }
-  if (resolution != COMMAND_FOUND) {
-    // A word with a slash is a path: say what is wrong with it, as sh does.
-    struct stat metadata;
-    if (strchr(argv[0], '/') == NULL) { fprintf(stderr, "slop: %s: command not found\n", argv[0]); return 127; }
-    if (stat(argv[0], &metadata) != 0) { fprintf(stderr, "slop: %s: %s\n", argv[0], strerror(errno)); return 127; }
-    fprintf(stderr, "slop: %s: %s\n", argv[0], S_ISDIR(metadata.st_mode) ? strerror(EISDIR) : "not a regular file");
-    return 126;
-  }
-  // Ctrl+C that reached the shell while it prepared this command cancels it.
-  if (interrupt_requested) {
-    interrupt_requested = 0;
-    interrupt_shell(shell, SIGINT);
-    return 128 + SIGINT;
-  }
+  const int missing = find_program(argv[0], search, path, sizeof(path));
+  if (missing) return missing;
+  if (interrupted_preparing(shell)) return 128 + SIGINT;
   char **environment = exported_environment();
   if (environment == NULL) { fputs("slop: out of memory\n", stderr); return 126; }
   fflush(NULL);
@@ -3710,9 +3762,9 @@ static int run_simple_mutable(Shell *shell, Token *tokens, size_t start,
       goto memory_error;
     changed++;
   }
-  // `exec` replaces a background job, not this shell: its program is the job.
-  if (stage != NULL && stage->background && arguments.count > 1 &&
-      strcmp(arguments.items[0], "exec") == 0) {
+  // A stage's `exec PROGRAM` is the stage's program: the stage is a subshell,
+  // which ends with it, and a job of this shell, which it does not replace.
+  if (stage != NULL && arguments.count > 1 && strcmp(arguments.items[0], "exec") == 0) {
     free(arguments.items[0]);
     memmove(arguments.items, arguments.items + 1, arguments.count-- * sizeof(*arguments.items));
   }

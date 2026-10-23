@@ -60,6 +60,35 @@ for (const browser of browsers) {
     await input("echo SEES-$only-\r");
     await waitText(right("SEES--"));
 
+    // The mouse: a click makes the pane under it the active one, and the
+    // wheel scrolls the pane under the pointer, active or not, back in copy
+    // mode, which shows how far, and forward out of it again.
+    const cell = (column, row) => page.evaluate(([column, row]) => {
+      const canvas = document.querySelector("#display"), bounds = canvas.getBoundingClientRect();
+      const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry();
+      return [bounds.left + (paddingX + cellWidth * (column + 0.5)) * bounds.width / canvas.width,
+        bounds.top + (paddingY + cellHeight * (row + 0.5)) * bounds.height / canvas.height];
+    }, [column, row]);
+    const { cols } = await page.evaluate(() => __dolly.transport.dimensions());
+    await input("awk 'BEGIN { for (i = 0; i < 80; i++) print \"SCROLLED-\" i }'\r");
+    await waitText(right("SCROLLED-79"));
+    await page.mouse.click(...await cell(2, 1));
+    await input("echo CLICKED-$only-\r");
+    await waitText(left("CLICKED-left-"));
+    // Reading the screen moves the pointer to the first cell: it comes back.
+    await page.mouse.move(...await cell(cols - 3, 1));
+    await page.mouse.wheel(0, -300);
+    await waitText(/│[^\n]*\[[1-9]\d*\/\d+\]/);
+    await page.mouse.move(...await cell(cols - 3, 2));
+    await page.mouse.wheel(0, 30000);
+    await waitText(/^(?![\s\S]*\[\d+\/\d+\])[\s\S]*SCROLLED-79/);
+    // The secondary button opens tmux's menu of the pane, and Escape closes it.
+    await page.mouse.click(...await cell(cols - 3, 3), { button: "right" });
+    await waitText(/Horizontal Split/);
+    await page.keyboard.press("Escape");
+    await waitText(/^(?![\s\S]*Horizontal Split)[\s\S]*SCROLLED-79/);
+    await page.mouse.click(...await cell(cols - 3, 1));
+
     // Ctrl+C is for the program in the pane; its shell reads the next line.
     await input("sleep 100\r");
     await waitText(right("[^\\n]*\\$ sleep 100"));
@@ -74,15 +103,23 @@ for (const browser of browsers) {
     assert.match(built, right("dolly: preparing [^\\n]* executable"), built);
     assert.doesNotMatch(built, /^[^│\n]*dolly: [^\n]*│/m, built);
 
-    // An editor in the other pane draws in its pane: its text on the pane's
-    // first row, and the status line still the screen's last.
+    // A new window can start where the program in a pane stands: here in
+    // /tmp, where it writes what pwd says.
     await prefix("o");
+    await input("cd /tmp && tmux new-window -d -c '#{pane_current_path}' 'pwd > where'; " +
+      "until test -s /tmp/where; do sleep 1; done; echo WHERE-$(cat /tmp/where)-; cd /\r");
+    await waitText(left("WHERE-/tmp-"));
+
+    // An editor in the other pane draws in its pane: its text on the pane's
+    // first row, and the status line still the screen's last, where the
+    // window is named after it while it runs.
     await input("amy install vi > /dev/null 2>&1; vi /tmp/edited\r");
     await waitText(left("~"));
     await page.keyboard.type("ihello from the left pane");
     const edited = (await waitText(left("hello from the left pane"))).trimEnd().split("\n");
     assert.match(edited[0], /^hello from the left pane\s*│/, edited.join("\n"));
     assert.match(edited.at(-1), /^\[0\] 0:/, edited.join("\n"));
+    await waitText(/\n\[0\] 0:vi\*/);
     await page.keyboard.press("Escape");
     await input(":q!\r");
     await waitText(/^dolly:[^│\n]*\$\s*│[^\n]*\n\[0\] 0:/m);

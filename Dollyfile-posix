@@ -4,7 +4,13 @@ REQUIRES HOST runtime@0
 
 # The text and file tools a shell session works with, kept from the toolchain
 # that builds them: sbase, awk, Dolly's find, xargs and the like, and sh.
-FROM /v0.1.4/Dollyfile-system-tools 562372bb20b5f113fdfe9ddd30f8bc33f00a593165ab49484ea31774f1eb9c0f
+# Upstream's pages, of mdoc and man macros, are kept as the text mandoc
+# formats, which man prints as it is.
+FROM /v0.1.4/Dollyfile-system-tools ba9244b66dbd17131c0f29bfe26b911a3e4b2db22822bd9a7c6e229a126707eb
+USE /v0.1.4/Dollyfile-mandoc cf1c10ae4c6361d6a7e6d21b654184bb763d40c7f65796b2b81e91ac8af8108d
+
+REQUIRES TOOL text-page
+SLOP text-page /usr/share/man/man1/*.1
 
 EXPORTS TOOL basename
 EXPORTS TOOL cksum
@@ -67,51 +73,51 @@ EXPORTS TOOL hostname
 EXPORTS TOOL tty
 EXPORTS TOOL nproc
 EXPORTS TOOL sh
-FILE /usr/share/man/man1/basename.1
-FILE /usr/share/man/man1/cksum.1
-FILE /usr/share/man/man1/cmp.1
-FILE /usr/share/man/man1/comm.1
-FILE /usr/share/man/man1/cut.1
-FILE /usr/share/man/man1/date.1
-FILE /usr/share/man/man1/dd.1
-FILE /usr/share/man/man1/dirname.1
-FILE /usr/share/man/man1/expand.1
-FILE /usr/share/man/man1/expr.1
-FILE /usr/share/man/man1/false.1
-FILE /usr/share/man/man1/fold.1
-FILE /usr/share/man/man1/grep.1
-FILE /usr/share/man/man1/head.1
-FILE /usr/share/man/man1/join.1
-FILE /usr/share/man/man1/kill.1
-FILE /usr/share/man/man1/ln.1
-FILE /usr/share/man/man1/md5sum.1
-FILE /usr/share/man/man1/mktemp.1
-FILE /usr/share/man/man1/nl.1
-FILE /usr/share/man/man1/od.1
-FILE /usr/share/man/man1/paste.1
-FILE /usr/share/man/man1/pathchk.1
-FILE /usr/share/man/man1/printenv.1
-FILE /usr/share/man/man1/printf.1
-FILE /usr/share/man/man1/readlink.1
-FILE /usr/share/man/man1/rmdir.1
-FILE /usr/share/man/man1/sed.1
-FILE /usr/share/man/man1/seq.1
-FILE /usr/share/man/man1/sha256sum.1
-FILE /usr/share/man/man1/sleep.1
-FILE /usr/share/man/man1/sort.1
-FILE /usr/share/man/man1/split.1
-FILE /usr/share/man/man1/strings.1
-FILE /usr/share/man/man1/tail.1
-FILE /usr/share/man/man1/tee.1
-FILE /usr/share/man/man1/tr.1
-FILE /usr/share/man/man1/true.1
-FILE /usr/share/man/man1/tsort.1
-FILE /usr/share/man/man1/uname.1
-FILE /usr/share/man/man1/unexpand.1
-FILE /usr/share/man/man1/uniq.1
-FILE /usr/share/man/man1/wc.1
-FILE /usr/share/man/man1/which.1
-FILE /usr/share/man/man1/awk.1
+FILE /usr/share/man/cat1/basename.1
+FILE /usr/share/man/cat1/cksum.1
+FILE /usr/share/man/cat1/cmp.1
+FILE /usr/share/man/cat1/comm.1
+FILE /usr/share/man/cat1/cut.1
+FILE /usr/share/man/cat1/date.1
+FILE /usr/share/man/cat1/dd.1
+FILE /usr/share/man/cat1/dirname.1
+FILE /usr/share/man/cat1/expand.1
+FILE /usr/share/man/cat1/expr.1
+FILE /usr/share/man/cat1/false.1
+FILE /usr/share/man/cat1/fold.1
+FILE /usr/share/man/cat1/grep.1
+FILE /usr/share/man/cat1/head.1
+FILE /usr/share/man/cat1/join.1
+FILE /usr/share/man/cat1/kill.1
+FILE /usr/share/man/cat1/ln.1
+FILE /usr/share/man/cat1/md5sum.1
+FILE /usr/share/man/cat1/mktemp.1
+FILE /usr/share/man/cat1/nl.1
+FILE /usr/share/man/cat1/od.1
+FILE /usr/share/man/cat1/paste.1
+FILE /usr/share/man/cat1/pathchk.1
+FILE /usr/share/man/cat1/printenv.1
+FILE /usr/share/man/cat1/printf.1
+FILE /usr/share/man/cat1/readlink.1
+FILE /usr/share/man/cat1/rmdir.1
+FILE /usr/share/man/cat1/sed.1
+FILE /usr/share/man/cat1/seq.1
+FILE /usr/share/man/cat1/sha256sum.1
+FILE /usr/share/man/cat1/sleep.1
+FILE /usr/share/man/cat1/sort.1
+FILE /usr/share/man/cat1/split.1
+FILE /usr/share/man/cat1/strings.1
+FILE /usr/share/man/cat1/tail.1
+FILE /usr/share/man/cat1/tee.1
+FILE /usr/share/man/cat1/tr.1
+FILE /usr/share/man/cat1/true.1
+FILE /usr/share/man/cat1/tsort.1
+FILE /usr/share/man/cat1/uname.1
+FILE /usr/share/man/cat1/unexpand.1
+FILE /usr/share/man/cat1/uniq.1
+FILE /usr/share/man/cat1/wc.1
+FILE /usr/share/man/cat1/which.1
+FILE /usr/share/man/cat1/awk.1
 FILE /usr/share/man/cat1/install.1
 FILE /usr/share/man/cat1/du.1
 FILE /usr/share/man/cat1/rev.1

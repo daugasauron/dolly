@@ -123,14 +123,18 @@ static int mkdir_parents(const char *path, int include_last) {
   return 0;
 }
 
+// Prints why it failed, once.
 static int extract(const char *archive_path, const char *directory) {
   int archive = strcmp(archive_path, "-") == 0 ? dup(STDIN_FILENO) : open(archive_path, O_RDONLY);
-  if (archive < 0) return -1;
-  unsigned char header[BLOCK_SIZE];
+  if (archive < 0) {
+    fprintf(stderr, "tar: %s: %s\n", archive_path, strerror(errno));
+    return -1;
+  }
+  unsigned char header[BLOCK_SIZE] = {0};
   unsigned char data[BLOCK_SIZE];
   int status = 0;
   const char *stage = "read header";
-  char active_member[257] = "<header>";
+  char active_member[257] = "";
   for (;;) {
     stage = "read header";
     if (read_exact(archive, header, sizeof(header)) != 0) {
@@ -230,10 +234,22 @@ static int extract(const char *archive_path, const char *directory) {
     free(output);
     if (status != 0) break;
   }
-  if (status != 0) {
-    fprintf(stderr, "tar: %s at %s (errno %d)\n", stage, active_member, errno);
+  // A first block that is no header is no tar archive; gzip's starts 1f 8b.
+  if (status != 0 && *active_member == '\0' && (strcmp(stage, "read header") == 0 ||
+                                                strcmp(stage, "parse header") == 0)) {
+    if (header[0] == 0x1f && header[1] == 0x8b) {
+      fprintf(stderr, "tar: %s: gzip data, not a tar archive: gzip -dc %s | tar -xf - "
+              "(amy install gzip, where gzip is missing)\n", archive_path, archive_path);
+    } else {
+      fprintf(stderr, "tar: %s: not a tar archive\n", archive_path);
+    }
+  } else if (status != 0) {
+    fprintf(stderr, "tar: %s: %s%s%s: %s\n", archive_path, stage, *active_member ? " " : "", active_member, strerror(errno));
   }
-  if (close(archive) != 0 && status == 0) status = -1;
+  if (close(archive) != 0 && status == 0) {
+    fprintf(stderr, "tar: %s: %s\n", archive_path, strerror(errno));
+    status = -1;
+  }
   return status;
 }
 
@@ -257,9 +273,5 @@ int main(int argc, char **argv) {
     fprintf(stderr, "tar: %s: %s\n", directory, strerror(errno));
     return 1;
   }
-  if (extract(argv[2], directory) != 0) {
-    fprintf(stderr, "tar: %s: %s\n", argv[2], strerror(errno));
-    return 1;
-  }
-  return 0;
+  return extract(argv[2], directory) != 0;
 }

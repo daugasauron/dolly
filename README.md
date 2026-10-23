@@ -66,6 +66,7 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `gzip`: `gzip -dc`, which unpacks a `.gz` file to standard output; the `pigz` package writes them.
 - `less`: `less`, the pager; Git and `man` page through it once it is installed.
 - `ninja`: `ninja` (Samurai), which Meson and CMake's Ninja generator build with.
+- `mandoc`: `mandoc`, which formats a manual page of man or mdoc macros as text, and `text-page`, with which a package formats upstream's pages when it is built.
 - `make`: GNU `make` alone, for rules that compile nothing; `cc` brings it too.
 - `zig`: `zig` with its standard library, and the `cc` package: it emits C (`-ofmt=c`) that `cc` compiles.
 - `transfer`: `download` and `upload`, the page's file exchange.

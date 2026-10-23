@@ -7,7 +7,7 @@ import { shellQuote } from "./fixtures/slop-cases.mjs";
 import { DOLLY_ERRNO } from "../src/process-constants.mjs";
 
 const scratch = "/tmp/dolly-process-test";
-const fixtures = Object.fromEntries(["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c"]
+const fixtures = Object.fromEntries(["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c", "process-exec.c"]
   .map(name => [name, `test/fixtures/${name}`]));
 for (const name of await readdir(new URL("../build", import.meta.url))) {
   if (/^(?:process|dso)-.+\.wasm$/.test(name)) fixtures[name] = `build/${name}`;
@@ -103,7 +103,7 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   await interrupt();
   assert.equal(await cancelled, 0, "an interrupted process sleep returns EINTR after the handler runs");
 
-  for (const name of ["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c", "input.tgz"]) await fetchFixture(name);
+  for (const name of ["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c", "process-exec.c", "input.tgz"]) await fetchFixture(name);
   // A parent that ends without a say leaves its running child and grandchild,
   // as on POSIX: on a trap, on a call through a null pointer, and when Ctrl-C,
   // which they ignore, ends its Worker in a loop that never enters the kernel.
@@ -141,6 +141,35 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   await run(`cc -O0 ${scratch}/process-jump.c -o ${scratch}/jump && timeout 30 ${scratch}/jump`);
   await run(`cc -O0 ${scratch}/process-sigchld.c -o ${scratch}/sigchld && timeout 5 ${scratch}/sigchld`);
   await run(`gzip -dc ${scratch}/input.tgz | tar -xf - -C ${scratch} && test "$(cat ${scratch}/nested/message)" = TAR-STDIN-OK`);
+
+  // exec replaces a process's program and keeps the process. What cannot run
+  // fails the call, the refused executable after one line on stderr.
+  const exec = `${scratch}/exec`;
+  await run(`cc -O0 ${scratch}/process-exec.c -o ${exec}`);
+  await run(`timeout 60 ${exec} check ${scratch} ${scratch}/process-wrong-import.wasm 2> ${scratch}/exec-refused`);
+  await run(`test $(wc -l < ${scratch}/exec-refused) -eq 1 && grep -qF env.fetch ${scratch}/exec-refused`);
+  await run(`test "$(${exec} pipe | cat)" = "$(printf 'BEFORE\\nAFTER')"`);
+  const timed = Date.now();
+  assert.equal(await submit(`timeout 2 ${exec} deadline`), 124, "a timed spawn's deadline ends the program exec started");
+  assert.ok(Date.now() - timed < 15000);
+  const execInterrupted = submit(`${exec} interrupt`);
+  await waitForText(/EXEC-INTERRUPT-READY\s*$/);
+  await settle();
+  await interrupt();
+  assert.equal(await execInterrupted, 0, "Ctrl+C reaches the program exec started");
+
+  // A program rewritten in place runs as it now is: the supervisor reuses a
+  // compiled module only for the version of the file's bytes it came from.
+  await run(`cd ${scratch} && echo 'int main(void) { return 41; }' > again.c && cc again.c -o again && cp again again-41 && ` +
+    "(./again; test $? = 41) && echo 'int main(void) { return 42; }' > again.c && cc again.c -o again && (./again; test $? = 42) && " +
+    "cat again-41 > again && (./again; test $? = 41)");
+  // Ninja runs its jobs at once: each of the two waits for the other to start.
+  const ninja = ["rule a", "  command = touch a-started; until test -e b-started; do sleep 1; done; touch $out",
+    "rule b", "  command = touch b-started; until test -e a-started; do sleep 1; done; touch $out",
+    "rule fail", "  command = exit 3", "build a: a", "build b: b", "build failed: fail"];
+  await run(`mkdir -p ${scratch}/ninja && cd ${scratch}/ninja && printf '%s\\n' ${ninja.map(shellQuote).join(" ")} > build.ninja && ` +
+    "timeout 60 ninja -j2 a b > /dev/null && test -e a && test -e b");
+  assert.equal(await submit(`cd ${scratch}/ninja && ninja failed > /dev/null`), 1, "a failed job fails Ninja");
 
   const ignored = submit(`${scratch}/signals ${scratch} ignore-loop`);
   await waitForText(/SIGNAL-IGNORE-READY\s*$/);
@@ -258,11 +287,55 @@ await browserTest("process list", {}, async ({ open }) => {
   await run("! echo x > /proc/processes 2> /dev/null && ! echo x >> /proc/processes 2> /dev/null");
   await run("exec 3< /proc/processes; echo x >&3 2> /dev/null; grep -q \"^$$ \" <&3; listed=$?; exec 3>&-; test $listed = 0 && ! grep -qx x /proc/processes");
   await run("test \"$(ls /proc)\" = processes && test -f /proc/processes && ! test -s /proc/processes && (cd /proc && grep -q \"^$$ \" processes && grep -q \"^$$ \" ../proc/./processes)");
-  // One process a line whatever its arguments hold: a control character is ?, and a line ends after 2047 bytes.
+  // One process a line whatever its arguments hold: a control character is ?, and a line ends after 1023 bytes.
   await run("slop -c 'sleep 100' \"$(printf 'two\\nlines\\033c')\" & until grep -qx \"$! $$ running slop -c sleep 100 two?lines?c\" /proc/processes; do :; done; kill $!; wait");
   await run("slop -c 'sleep 100' $(printf %03000d 0) & until grep -q \"^$! $$ running \" /proc/processes; do :; done; " +
-    "test \"$(grep \"^$! \" /proc/processes | wc -c)\" -eq 2048; cut=$?; kill $!; wait; test $cut = 0");
+    "test \"$(grep \"^$! \" /proc/processes | wc -c)\" -eq 1024; cut=$?; kill $!; wait; test $cut = 0");
+  // readlink of /proc/PID/cwd is where a process that has not exited stands.
+  await run("cd /tmp; sleep 100 & cd /usr; test \"$(readlink /proc/$!/cwd)\" = /tmp && test \"$(readlink /proc/$$/cwd)\" = /usr; " +
+    "found=$?; kill $!; wait; cd /; test $found = 0 && ! readlink /proc/$!/cwd");
   // ps takes no options.
   assert.equal(await submit("ps -e > /tmp/out 2> /tmp/err"), 2);
   await run("test -s /tmp/err && test ! -s /tmp/out");
+});
+
+// A spawn the memory budget refuses waits for a process to end, then fails:
+// beside a sibling holding the budget that exits, it starts; beside one that
+// stays, it fails EAGAIN after the 5 s the supervisor waits.
+await browserTest("process budget", { image: "system" }, async ({ open }) => {
+  const { page, submit, text, waitForText } = await open();
+  const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
+  await run("printf '%s\\n' '#include <signal.h>' '#include <stdio.h>' '#include <stdlib.h>' '#include <unistd.h>' " +
+    "'int main(int argc, char **argv) { signal(SIGINT, SIG_IGN); if (!malloc((size_t)atoi(argv[1]) << 20)) return 1; " +
+    "puts(\"held\"); fflush(stdout); sleep(atoi(argv[2])); return 0; }' > /tmp/hold.c && cc -O0 /tmp/hold.c -o /tmp/hold");
+  const spawnBeside = async seconds => {
+    await run(`/tmp/hold 4200 ${seconds} > /tmp/held &`);
+    // read is the shell's own: it spawns nothing.
+    for (const deadline = Date.now() + 30_000; await submit("read line < /tmp/held") !== 0;) {
+      assert.ok(Date.now() < deadline, await text());
+    }
+    const started = performance.now();
+    const status = await submit("true");
+    const elapsed = Math.round(performance.now() - started);
+    await run("wait");
+    return { status, elapsed };
+  };
+  const exits = await spawnBeside(2), stays = await spawnBeside(9);
+  // A signal ends the wait as it ends any blocking call: a shell with no
+  // handler for SIGINT ends at Ctrl+C, beside a holder that ignores it.
+  const ended = submit("slop -c '/tmp/hold 4200 9 > /tmp/held & until read line < /tmp/held; do :; done; type :; true'");
+  await waitForText(/: is a shell builtin/);
+  await page.locator("#keyboard").focus();
+  const pressed = performance.now();
+  await page.keyboard.press("Control+c");
+  const interrupted = { status: await ended, elapsed: Math.round(performance.now() - pressed) };
+  console.log(`process budget: beside an exiting sibling ${JSON.stringify(exits)}, beside a staying one ` +
+    `${JSON.stringify(stays)}, after Ctrl+C ${JSON.stringify(interrupted)}`);
+  assert.equal(exits.status, 0, await text());
+  assert.ok(exits.elapsed > 500, `${exits.elapsed} ms: the sibling had ended`);
+  assert.equal(stays.status, 126);
+  assert.ok(stays.elapsed >= 5000 && stays.elapsed < 9000, `refused after ${stays.elapsed} ms`);
+  assert.match(await text(), /true: spawn failed: Resource temporarily unavailable/);
+  assert.equal(interrupted.status, 130, await text());
+  assert.ok(interrupted.elapsed < 2500, `ended ${interrupted.elapsed} ms after Ctrl+C`);
 });

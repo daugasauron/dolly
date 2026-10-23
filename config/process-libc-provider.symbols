@@ -19,5 +19,3 @@ __signbitf
 __signbitl
 __stack_chk_fail
 __stack_chk_guard
-getgrgid_r
-getpwuid_r

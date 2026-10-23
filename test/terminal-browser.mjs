@@ -137,6 +137,20 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
   });
   assert.equal(await submit("printf '\\033[0m\\033[2J\\033[H'"), 0);
 
+  // Chinese, Korean, Japanese and emoji are glyphs of the fallback fonts, each
+  // its own over two cells; a character no font has is the box (U+20000).
+  assert.equal(await submit("printf '\\033[2J\\033[H\\346\\227\\245\\346\\234\\254\\352\\260\\200\\343\\201\\202" +
+    "\\360\\237\\231\\202\\360\\237\\230\\200\\360\\240\\200\\200\\n'"), 0);
+  await waitForText(/^日本가あ🙂😀𠀀$/m);
+  await clearSelection();
+  assert.equal(await page.evaluate(() => {
+    const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry();
+    const context = document.querySelector("#display").getContext("2d");
+    return new Set([0, 2, 4, 6, 8, 10, 12].map(column => [...context.getImageData(paddingX + column * cellWidth,
+      paddingY, 2 * cellWidth, cellHeight).data].join())).size;
+  }), 7);
+  assert.equal(await submit("printf '\\033[2J\\033[H'"), 0);
+
   // Kitty graphics: a PNG of 2x2 red pixels shown over 4x2 cells at the
   // cursor, without a reply (q=2), then deleted.
   const red = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGP4z8AARAwQCgAf7gP9i18U1AAAAABJRU5ErkJggg==";
@@ -165,6 +179,46 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
   await keyboard.focus();
   await page.keyboard.press("Control+c");
   assert.equal(await raw, 0);
+
+  // A program that asks for the mouse reads the pointer's motion, its
+  // buttons and the wheel where the pointer is, while Shift and a drag still
+  // select: the screen is read so while it asks. The browser's menu and the
+  // middle button's actions give way to it, and are the browser's with Shift
+  // and when no program asks.
+  await page.evaluate(() => {
+    window.menus = [];
+    for (const type of ["contextmenu", "auxclick"]) {
+      addEventListener(type, event => menus.push(`${type} ${event.button} ${event.shiftKey ? "shift " : ""}${event.defaultPrevented}`));
+    }
+  });
+  const shiftedMenu = () => page.evaluate(() => document.querySelector("#display").dispatchEvent(
+    new MouseEvent("contextmenu", { button: 2, shiftKey: true, bubbles: true, cancelable: true })));
+  const mouse = start(`${probe} mouse`);
+  await waitForText(/DOLLY-MOUSE-READY/);
+  await page.waitForFunction(() => document.querySelector("#display").style.cursor === "default");
+  await shiftedMenu();
+  const [x, y] = await page.evaluate(() => {
+    const canvas = document.querySelector("#display"), bounds = canvas.getBoundingClientRect();
+    const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry();
+    return [bounds.left + (paddingX + cellWidth * 4.5) * bounds.width / canvas.width,
+      bounds.top + (paddingY + cellHeight * 2.5) * bounds.height / canvas.height];
+  });
+  await page.mouse.move(x, y);
+  for (const button of ["left", "right", "middle"]) {
+    await page.mouse.down({ button });
+    await page.mouse.up({ button });
+  }
+  await page.mouse.wheel(0, (await page.evaluate(() => __dolly.transport.geometry())).cellHeight);
+  assert.equal(await mouse, 0);
+  assert.match(await text(), /DOLLY-MOUSE 5;3/);
+  const asked = await page.evaluate(() => menus.splice(0));
+  assert.ok(["contextmenu 2 shift false", "contextmenu 2 true", "auxclick 1 true"].every(entry => asked.includes(entry)), asked.join("; "));
+  await page.waitForFunction(() => document.querySelector("#display").style.cursor === "text");
+  await page.mouse.click(x, y, { button: "right" });
+  await shiftedMenu();
+  const unasked = await page.evaluate(() => menus);
+  assert.ok(unasked.includes("contextmenu 2 false") && unasked.includes("contextmenu 2 shift false") &&
+    !unasked.some(entry => entry.endsWith("true")), unasked.join("; "));
 
   // A program that reads a line gets it as typed: echoed, Backspace and Ctrl+U
   // erase, Enter ends it, Ctrl+D on an empty line ends the input. Slop's own

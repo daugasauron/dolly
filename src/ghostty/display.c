@@ -143,9 +143,19 @@ static unsigned char *frames[DOLLY_DISPLAY_FRAME_COUNT];
 static size_t frame_capacity;
 static unsigned char *copy_buffer;
 static size_t copy_capacity;
-static unsigned char *font_bytes;
-static size_t font_bytes_length;
 static stbtt_fontinfo font;
+// Fonts for what the terminal's font has no glyph for, tried in order and
+// read when first needed: Chinese, Japanese and Korean, then emoji, drawn in
+// the text's colour.
+typedef struct {
+  const char *path;
+  stbtt_fontinfo info;
+  int loaded;  // 1 once read, -1 when it could not be
+} fallback_font;
+static fallback_font fallback_fonts[] = {
+    {"/usr/share/fonts/DroidSansFallback.ttf"},
+    {"/usr/share/fonts/NotoEmoji-Regular.ttf"},
+};
 static unsigned char *glyph_bitmap;
 static size_t glyph_bitmap_capacity;
 typedef struct {
@@ -181,6 +191,16 @@ static GhosttySelectionGestureEvent selection_press;
 static GhosttySelectionGestureEvent selection_drag;
 static GhosttySelectionGestureEvent selection_release;
 static int32_t scroll_remainder_milli;
+// The button held as the records tell it, whether its press was reported to
+// the program, and where the pointer last was: a wheel step is reported
+// there. Motion is reported once per cell.
+static GhosttyMouseEncoder mouse_encoder;
+static GhosttyMouseEvent mouse_event;
+static GhosttyMouseButton held_button = GHOSTTY_MOUSE_BUTTON_UNKNOWN;
+static bool held_reported;
+static GhosttyMousePosition pointer_position;
+static uint32_t reported_column = UINT32_MAX;
+static uint32_t reported_row = UINT32_MAX;
 static bool suspended;
 static bool frame_dirty;
 static GhosttyKittyGraphicsPlacementIterator placements;
@@ -197,30 +217,21 @@ static uint32_t clamp_u32(uint32_t value, uint32_t low, uint32_t high) {
   return value;
 }
 
-static int load_font(const char *path) {
+// The font's bytes stay for as long as the terminal draws.
+static int load_font(const char *path, stbtt_fontinfo *info) {
   FILE *file = fopen(path, "rb");
   if (file == NULL) return -1;
-  if (fseek(file, 0, SEEK_END) != 0) {
-    fclose(file);
-    return -1;
-  }
-  long length = ftell(file);
-  if (length <= 0 || fseek(file, 0, SEEK_SET) != 0) {
-    fclose(file);
-    return -1;
-  }
-  font_bytes = malloc((size_t)length);
-  if (font_bytes == NULL ||
-      fread(font_bytes, 1, (size_t)length, file) != (size_t)length) {
-    free(font_bytes);
-    font_bytes = NULL;
-    fclose(file);
-    return -1;
-  }
+  long length = -1;
+  if (fseek(file, 0, SEEK_END) == 0) length = ftell(file);
+  unsigned char *bytes = length > 0 && fseek(file, 0, SEEK_SET) == 0
+      ? malloc((size_t)length) : NULL;
+  const bool read = bytes != NULL &&
+      fread(bytes, 1, (size_t)length, file) == (size_t)length;
   fclose(file);
-  font_bytes_length = (size_t)length;
-  const int offset = stbtt_GetFontOffsetForIndex(font_bytes, 0);
-  return offset >= 0 && stbtt_InitFont(&font, font_bytes, offset) ? 0 : -1;
+  const int offset = read ? stbtt_GetFontOffsetForIndex(bytes, 0) : -1;
+  if (offset >= 0 && stbtt_InitFont(info, bytes, offset)) return 0;
+  free(bytes);
+  return -1;
 }
 
 static void configure_theme(void) {
@@ -434,10 +445,37 @@ static void clear_glyph_cache(void) {
   }
 }
 
-static void draw_codepoint(unsigned char *frame, uint32_t codepoint,
-                           int cell_x, int cell_y, GhosttyColorRgb color) {
+// The first fallback font with a glyph for codepoint, its glyph and its
+// scale: the terminal font's em, and at most the width of the cells the
+// character takes. The terminal's font and glyph 0 when none has one.
+static const stbtt_fontinfo *fallback_glyph(uint32_t codepoint, int span_pixels,
+                                            int *glyph, float *scale) {
+  for (size_t index = 0; index < sizeof(fallback_fonts) / sizeof(fallback_fonts[0]); ++index) {
+    fallback_font *fallback = &fallback_fonts[index];
+    if (fallback->loaded == 0) {
+      fallback->loaded = load_font(fallback->path, &fallback->info) == 0 ? 1 : -1;
+    }
+    if (fallback->loaded < 0 ||
+        (*glyph = stbtt_FindGlyphIndex(&fallback->info, (int)codepoint)) == 0) continue;
+    const float em_pixels = font_scale / stbtt_ScaleForMappingEmToPixels(&font, 1.0f);
+    *scale = stbtt_ScaleForMappingEmToPixels(&fallback->info, em_pixels);
+    int advance = 0, bearing = 0;
+    stbtt_GetGlyphHMetrics(&fallback->info, *glyph, &advance, &bearing);
+    if (advance * *scale > span_pixels) *scale = (float)span_pixels / (float)advance;
+    return &fallback->info;
+  }
+  return &font;
+}
+
+// Draws one codepoint of a cell span cells wide. A grapheme's later
+// codepoints (combining marks, variation selectors, joined emoji) are drawn
+// over its first only from the terminal's font.
+static void draw_codepoint(unsigned char *frame, uint32_t codepoint, bool first,
+                           int cell_x, int cell_y, int span, GhosttyColorRgb color) {
   int x0, y0, width, height, advance;
   const unsigned char *bitmap;
+  const int span_pixels = span * (int)cell_width;
+  float scale = font_scale;
   cached_glyph *cached = codepoint < 128 ? &ascii_glyphs[codepoint] : NULL;
   if (cached != NULL && cached->ready) {
     x0 = cached->x0;
@@ -447,20 +485,29 @@ static void draw_codepoint(unsigned char *frame, uint32_t codepoint,
     advance = cached->advance;
     bitmap = cached->bitmap;
   } else {
+    // A character two cells wide comes from a fallback font that has it:
+    // the terminal's font draws in one cell.
+    int glyph = 0;
+    const stbtt_fontinfo *face = first && span == 2
+        ? fallback_glyph(codepoint, span_pixels, &glyph, &scale) : &font;
+    if (glyph == 0) glyph = stbtt_FindGlyphIndex(&font, (int)codepoint);
+    if (glyph == 0 && first && span == 1) {
+      face = fallback_glyph(codepoint, span_pixels, &glyph, &scale);
+    }
+    if (glyph == 0 && !first) return;
     int x1, y1, left_bearing = 0;
-    stbtt_GetCodepointBitmapBox(&font, (int)codepoint, font_scale, font_scale,
-                                &x0, &y0, &x1, &y1);
+    stbtt_GetGlyphBitmapBox(face, glyph, scale, scale, &x0, &y0, &x1, &y1);
     width = x1 - x0;
     height = y1 - y0;
-    stbtt_GetCodepointHMetrics(&font, (int)codepoint, &advance, &left_bearing);
+    stbtt_GetGlyphHMetrics(face, glyph, &advance, &left_bearing);
     (void)left_bearing;
     if (width <= 0 || height <= 0) return;
     const size_t bitmap_size = (size_t)width * (size_t)height;
     if (cached != NULL) {
       cached->bitmap = malloc(bitmap_size);
       if (cached->bitmap == NULL) return;
-      stbtt_MakeCodepointBitmap(&font, cached->bitmap, width, height, width,
-                                font_scale, font_scale, (int)codepoint);
+      stbtt_MakeGlyphBitmap(face, cached->bitmap, width, height, width,
+                            scale, scale, glyph);
       cached->width = width;
       cached->height = height;
       cached->x0 = x0;
@@ -470,13 +517,13 @@ static void draw_codepoint(unsigned char *frame, uint32_t codepoint,
       bitmap = cached->bitmap;
     } else {
       if (ensure_glyph_bitmap(bitmap_size) != 0) return;
-      stbtt_MakeCodepointBitmap(&font, glyph_bitmap, width, height, width,
-                                font_scale, font_scale, (int)codepoint);
+      stbtt_MakeGlyphBitmap(face, glyph_bitmap, width, height, width,
+                            scale, scale, glyph);
       bitmap = glyph_bitmap;
     }
   }
-  const int drawn_advance = (int)(advance * font_scale + 0.5f);
-  const int origin_x = cell_x + ((int)cell_width - drawn_advance) / 2 + x0;
+  const int drawn_advance = (int)(advance * scale + 0.5f);
+  const int origin_x = cell_x + (span_pixels - drawn_advance) / 2 + x0;
   const int baseline = cell_y + ((int)cell_height +
       (int)(font_ascent * font_scale + 0.5f)) / 2;
   const int origin_y = baseline + y0;
@@ -581,9 +628,21 @@ static int set_layout(uint32_t width_css, uint32_t height_css,
   return 0;
 }
 
+// Whether the program asked for mouse reports (CSI ? 1000 h and the modes
+// beside it).
+static bool mouse_reporting(void) {
+  bool tracking = false;
+  return ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_MOUSE_TRACKING,
+                              &tracking) == GHOSTTY_SUCCESS && tracking;
+}
+
 static void render_frame(void) {
   if (suspended || terminal == NULL || frames[0] == NULL ||
       frames[1] == NULL) return;
+  // The arrow, as terminals show it, while a program asks for the mouse: the
+  // page then gives the program every button (host/input/input.mjs).
+  __c11_atomic_store(&mailbox->cursor_style, mouse_reporting()
+      ? DOLLY_DISPLAY_CURSOR_DEFAULT : DOLLY_DISPLAY_CURSOR_TEXT, __ATOMIC_RELAXED);
   uint16_t cols = 0;
   uint16_t rows = 0;
   uint16_t cursor_x = 0;
@@ -676,19 +735,20 @@ static void render_frame(void) {
       }
       if (has_text && !style.invisible &&
           wide != GHOSTTY_CELL_WIDE_SPACER_TAIL) {
+        const int span = wide == GHOSTTY_CELL_WIDE_WIDE ? 2 : 1;
         uint32_t codepoints[MAX_GRAPHEME_CODEPOINTS];
         size_t count = 0;
         GhosttyResult result = ghostty_grid_ref_graphemes(
             &ref, codepoints, MAX_GRAPHEME_CODEPOINTS, &count);
         if (result == GHOSTTY_SUCCESS) {
           for (size_t index = 0; index < count; ++index) {
-            draw_codepoint(frame, codepoints[index], x, y, fg);
+            draw_codepoint(frame, codepoints[index], index == 0, x, y, span, fg);
           }
         } else {
           uint32_t codepoint = 0;
           if (ghostty_cell_get(cell, GHOSTTY_CELL_DATA_CODEPOINT,
                                &codepoint) == GHOSTTY_SUCCESS) {
-            draw_codepoint(frame, codepoint, x, y, fg);
+            draw_codepoint(frame, codepoint, true, x, y, span, fg);
           }
         }
       }
@@ -738,11 +798,13 @@ static int initialize(dolly_display_mailbox *shared_mailbox,
   copy_buffer = shared_copy_buffer;
   copy_capacity = shared_copy_capacity;
   ghostty_sys_set(GHOSTTY_SYS_OPT_DECODE_PNG, (const void *)decode_png);
-  if (load_font(font_path) != 0 ||
+  if (load_font(font_path, &font) != 0 ||
       ghostty_terminal_new(NULL, &terminal, 100, 30) != GHOSTTY_SUCCESS ||
       ghostty_kitty_graphics_placement_iterator_new(NULL, &placements) != GHOSTTY_SUCCESS ||
       ghostty_key_encoder_new(NULL, &key_encoder) != GHOSTTY_SUCCESS ||
       ghostty_key_event_new(NULL, &key_event) != GHOSTTY_SUCCESS ||
+      ghostty_mouse_encoder_new(NULL, &mouse_encoder) != GHOSTTY_SUCCESS ||
+      ghostty_mouse_event_new(NULL, &mouse_event) != GHOSTTY_SUCCESS ||
       ghostty_selection_gesture_new(NULL, &selection_gesture) !=
           GHOSTTY_SUCCESS ||
       ghostty_selection_gesture_event_new(
@@ -848,6 +910,17 @@ static bool printable_key(const char *key, size_t length) {
   return true;
 }
 
+static GhosttyMods ghostty_mods(uint32_t modifiers) {
+  GhosttyMods mods = 0;
+  if ((modifiers & DOLLY_INPUT_MOD_SHIFT) != 0) mods |= GHOSTTY_MODS_SHIFT;
+  if ((modifiers & DOLLY_INPUT_MOD_CONTROL) != 0) mods |= GHOSTTY_MODS_CTRL;
+  if ((modifiers & DOLLY_INPUT_MOD_ALT) != 0) mods |= GHOSTTY_MODS_ALT;
+  if ((modifiers & DOLLY_INPUT_MOD_META) != 0) mods |= GHOSTTY_MODS_SUPER;
+  if ((modifiers & DOLLY_INPUT_MOD_CAPS_LOCK) != 0) mods |= GHOSTTY_MODS_CAPS_LOCK;
+  if ((modifiers & DOLLY_INPUT_MOD_NUM_LOCK) != 0) mods |= GHOSTTY_MODS_NUM_LOCK;
+  return mods;
+}
+
 typedef struct {
   const unsigned char *bytes;
   size_t length;
@@ -889,6 +962,48 @@ static int decode_paste(const unsigned char *bytes, size_t size,
   return 0;
 }
 
+// Writes the report of one press, release or motion at the pointer, in the
+// form the program asked for, where the terminal's replies go. The encoder
+// leaves out what the program's mode does not report.
+static void report_mouse(GhosttyMouseAction action, GhosttyMouseButton button,
+                         uint32_t modifiers, uint32_t column, uint32_t row) {
+  if (action == GHOSTTY_MOUSE_ACTION_MOTION && column == reported_column &&
+      row == reported_row) return;
+  const GhosttyMouseEncoderSize size = {
+      .size = sizeof(GhosttyMouseEncoderSize),
+      .screen_width = framebuffer_width,
+      .screen_height = framebuffer_height,
+      .cell_width = cell_width,
+      .cell_height = cell_height,
+      .padding_top = padding_y,
+      .padding_bottom = padding_y,
+      .padding_right = padding_x,
+      .padding_left = padding_x,
+  };
+  const bool pressed = held_button != GHOSTTY_MOUSE_BUTTON_UNKNOWN || action == GHOSTTY_MOUSE_ACTION_PRESS;
+  ghostty_mouse_encoder_setopt_from_terminal(mouse_encoder, terminal);
+  ghostty_mouse_encoder_setopt(mouse_encoder, GHOSTTY_MOUSE_ENCODER_OPT_SIZE, &size);
+  ghostty_mouse_encoder_setopt(mouse_encoder,
+                               GHOSTTY_MOUSE_ENCODER_OPT_ANY_BUTTON_PRESSED, &pressed);
+  ghostty_mouse_event_set_action(mouse_event, action);
+  if (button == GHOSTTY_MOUSE_BUTTON_UNKNOWN) ghostty_mouse_event_clear_button(mouse_event);
+  else ghostty_mouse_event_set_button(mouse_event, button);
+  ghostty_mouse_event_set_mods(mouse_event, ghostty_mods(modifiers));
+  ghostty_mouse_event_set_position(mouse_event, pointer_position);
+  char report[64];
+  size_t length = 0;
+  if (ghostty_mouse_encoder_encode(mouse_encoder, mouse_event, report,
+                                   sizeof(report), &length) != GHOSTTY_SUCCESS ||
+      length == 0) return;
+  terminal_write_pty(terminal, NULL, (const uint8_t *)report, length);
+  reported_column = column;
+  reported_row = row;
+}
+
+// A press and what follows up to its release go to a program that asked for
+// the mouse, unless Shift is held: then, and while no program asks, the
+// primary button's are the terminal's selection. Motion without a button is
+// the program's alone.
 static int handle_pointer(const dolly_input_event *event) {
   const uint32_t x = event->x > 0 ? (uint32_t)event->x : 0;
   const uint32_t y = event->y > 0 ? (uint32_t)event->y : 0;
@@ -904,6 +1019,44 @@ static int handle_pointer(const dolly_input_event *event) {
   uint32_t row = y > padding_y ? (y - padding_y) / cell_height : 0;
   if (column >= cols) column = cols - 1;
   if (row >= rows) row = rows - 1;
+  pointer_position = (GhosttyMousePosition){.x = (float)x, .y = (float)y};
+  const bool shifted = (event->modifiers & DOLLY_INPUT_MOD_SHIFT) != 0;
+  if (event->action == DOLLY_POINTER_ACTION_PRESS) {
+    // The record's button as a browser numbers them: primary, middle, secondary.
+    const uint32_t number = event->flags >> 8;
+    held_button = number == 1 ? GHOSTTY_MOUSE_BUTTON_MIDDLE
+        : number == 2 ? GHOSTTY_MOUSE_BUTTON_RIGHT : GHOSTTY_MOUSE_BUTTON_LEFT;
+    held_reported = !shifted && mouse_reporting();
+    if (held_reported) {
+      ghostty_selection_gesture_reset(selection_gesture, terminal);
+      (void)ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_SELECTION, NULL);
+      frame_dirty = true;
+      report_mouse(GHOSTTY_MOUSE_ACTION_PRESS, held_button, event->modifiers, column, row);
+      return 0;
+    }
+    // Only the primary button selects.
+    if (held_button != GHOSTTY_MOUSE_BUTTON_LEFT) {
+      held_button = GHOSTTY_MOUSE_BUTTON_UNKNOWN;
+      return 0;
+    }
+  } else if (event->action == DOLLY_POINTER_ACTION_RELEASE) {
+    const GhosttyMouseButton released = held_button;
+    const bool reported = held_reported;
+    held_button = GHOSTTY_MOUSE_BUTTON_UNKNOWN;
+    held_reported = false;
+    if (reported) {
+      report_mouse(GHOSTTY_MOUSE_ACTION_RELEASE, released, event->modifiers, column, row);
+      return 0;
+    }
+  } else if (event->action != DOLLY_POINTER_ACTION_DRAG) {
+    return -1;
+  } else if (held_reported || held_button == GHOSTTY_MOUSE_BUTTON_UNKNOWN) {
+    if (held_reported || (!shifted && mouse_reporting())) {
+      report_mouse(GHOSTTY_MOUSE_ACTION_MOTION, held_button, event->modifiers, column, row);
+    }
+    return 0;
+  }
+
   const GhosttyPoint point = {
       .tag = GHOSTTY_POINT_TAG_VIEWPORT,
       .value = {.coordinate = {.x = (uint16_t)column, .y = row}},
@@ -919,10 +1072,8 @@ static int handle_pointer(const dolly_input_event *event) {
     gesture_event = selection_press;
   } else if (event->action == DOLLY_POINTER_ACTION_DRAG) {
     gesture_event = selection_drag;
-  } else if (event->action == DOLLY_POINTER_ACTION_RELEASE) {
-    gesture_event = selection_release;
   } else {
-    return -1;
+    gesture_event = selection_release;
   }
   if (ghostty_selection_gesture_event_set(
           gesture_event, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_REF, &ref) !=
@@ -963,7 +1114,9 @@ static int handle_pointer(const dolly_input_event *event) {
 }
 
 // A wheel delta in thousandths of its unit becomes thousandths of a row:
-// negative toward older output, positive toward the active screen.
+// negative toward older output, positive toward the active screen. A program
+// that asked for the mouse reads a wheel step for each row, at most a page,
+// where the pointer is; otherwise the rows scroll the terminal's viewport.
 static int handle_scroll(const dolly_input_event *event) {
   uint16_t page_rows = 1;
   (void)ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_ROWS, &page_rows);
@@ -983,6 +1136,19 @@ static int handle_scroll(const dolly_input_event *event) {
   const intptr_t rows = scroll_remainder_milli / 1000;
   scroll_remainder_milli %= 1000;
   if (rows == 0) return 0;
+  if (mouse_reporting()) {
+    const uint32_t column = pointer_position.x > padding_x
+        ? ((uint32_t)pointer_position.x - padding_x) / cell_width : 0;
+    const uint32_t row = pointer_position.y > padding_y
+        ? ((uint32_t)pointer_position.y - padding_y) / cell_height : 0;
+    const intptr_t steps = rows < 0 ? -rows : rows;
+    for (intptr_t step = 0; step < steps && step < page_rows; ++step) {
+      report_mouse(GHOSTTY_MOUSE_ACTION_PRESS,
+                   rows < 0 ? GHOSTTY_MOUSE_BUTTON_FOUR : GHOSTTY_MOUSE_BUTTON_FIVE,
+                   event->modifiers, column, row);
+    }
+    return 0;
+  }
   const GhosttyTerminalScrollViewport viewport = {
       .tag = GHOSTTY_SCROLL_VIEWPORT_DELTA,
       .value = {.delta = rows},
@@ -1039,13 +1205,7 @@ static int decode_record(const dolly_input_event *event,
 
   ghostty_key_event_set_action(key_event, (GhosttyKeyAction)event->action);
   ghostty_key_event_set_key(key_event, map_key(code));
-  GhosttyMods mods = 0;
-  if ((event->modifiers & DOLLY_INPUT_MOD_SHIFT) != 0) mods |= GHOSTTY_MODS_SHIFT;
-  if ((event->modifiers & DOLLY_INPUT_MOD_CONTROL) != 0) mods |= GHOSTTY_MODS_CTRL;
-  if ((event->modifiers & DOLLY_INPUT_MOD_ALT) != 0) mods |= GHOSTTY_MODS_ALT;
-  if ((event->modifiers & DOLLY_INPUT_MOD_META) != 0) mods |= GHOSTTY_MODS_SUPER;
-  if ((event->modifiers & DOLLY_INPUT_MOD_CAPS_LOCK) != 0) mods |= GHOSTTY_MODS_CAPS_LOCK;
-  if ((event->modifiers & DOLLY_INPUT_MOD_NUM_LOCK) != 0) mods |= GHOSTTY_MODS_NUM_LOCK;
+  const GhosttyMods mods = ghostty_mods(event->modifiers);
   ghostty_key_event_set_mods(key_event, mods);
   const bool printable = printable_key(key, event->key_length);
   // KeyboardEvent.key already contains the text produced by Shift (e.g. ':').

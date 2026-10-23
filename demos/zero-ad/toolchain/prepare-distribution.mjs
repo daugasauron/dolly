@@ -1,6 +1,6 @@
 import {createHash} from "node:crypto";
 import {createReadStream} from "node:fs";
-import {copyFile, mkdir, readFile, readdir, rm, writeFile} from "node:fs/promises";
+import {link, mkdir, readFile, readdir, rm, writeFile} from "node:fs/promises";
 import {dirname, resolve} from "node:path";
 import {siteReference} from "../../../src/static-asset.mjs";
 
@@ -18,8 +18,11 @@ const content = resolve(root, "build/0ad/graphics");
 const files = (await readdir(content, { recursive: true, withFileTypes: true }))
   .filter(entry => entry.isFile()).map(entry => resolve(entry.parentPath, entry.name).slice(content.length + 1)).sort();
 for (const [input, name, destination] of files.map(path => [resolve(content, path), path, `/opt/0ad/${path}`])) {
+  // A link, not a copy of 1.8 GB: the staged file may be a link of the
+  // published one, which a copy over it would rewrite in place.
   await mkdir(dirname(resolve(output, name)), { recursive: true });
-  await copyFile(input, resolve(output, name));
+  await rm(resolve(output, name), { force: true });
+  await link(input, resolve(output, name));
   sources.push(`SOURCE ${siteReference(`dist/static/zero-ad/${name}`)} ${await digest(resolve(output, name))} ${destination}`);
 }
 await rm(resolve(output, "data.tar"), { force: true });

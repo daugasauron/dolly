@@ -1,0 +1,37 @@
+DOLLY 7
+PACKAGE go
+REQUIRES HOST runtime@0
+# go downloads modules with net/http, which records http@0.
+REQUIRES HOST http@0
+
+# The Go toolchain as go-build built it, in its GOROOT. The commands start it
+# by its own path, from which it finds its GOROOT.
+FROM /v0.1.4/demos/go/Dollyfile-go-build e906975af66daf13b9a19718a3870373b97a29dceb706717d31cefbfec6b1d0a
+FILE /usr/bin/go
+    #!/bin/slop
+    /usr/lib/go/bin/go "$@"
+FILE /usr/bin/gofmt
+    #!/bin/slop
+    /usr/lib/go/bin/gofmt "$@"
+EXPORTS TOOL go
+EXPORTS TOOL gofmt
+# go.env's GOTOOLCHAIN=auto would fetch newer toolchains, which do not run here.
+EXPORTS ENV GOTOOLCHAIN local
+# runtime.NumCPU is 1, so go would compile one package at a time; four halve
+# the time of a small module's first build.
+EXPORTS ENV GOFLAGS -p=4
+EXPORTS FOLDER go-root /usr/lib/go
+FILE /usr/share/man/cat1/go.1
+    go: the Go toolchain (Go 1.27.3) for GOOS=dolly GOARCH=wasm64, built inside
+    Dolly from its pinned sources.
+    
+      go build              compiles a package and its dependencies
+      go run main.go        compiles and runs a program
+      gofmt -l .            lists files whose formatting differs
+    
+    Programs are pure Go: there is no cgo, and they run single-threaded.
+    go builds four packages at a time (GOFLAGS=-p=4).
+    net/http goes through the page's HTTP broker (its policy, and CORS), so
+    go get works with proxy.golang.org; net's sockets reach nothing.
+    signal.Notify receives the kernel's signals; syscall.Exec replaces the
+    program. Upstream's documentation: https://go.dev/doc/

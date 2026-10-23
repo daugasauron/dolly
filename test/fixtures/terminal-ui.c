@@ -121,6 +121,43 @@ int main(int argc, char **argv) {
     const int status = read(0, &byte, 1) == 1 && byte == 3 ? 0 : 20;
     return tcsetattr(0, TCSANOW, &saved) != 0 ? 21 : status;
   }
+  if (argc > 1 && strcmp(argv[1], "mouse") == 0) {
+    // Asks for every motion in SGR form and reads, in this order and in one
+    // cell, the pointer's motion, a press and a release of the primary, the
+    // secondary and the middle button and a wheel step down; then prints the
+    // cell.
+    const int saved = dolly_terminal_mode_get(0);
+    if (saved < 0 || dolly_terminal_mode_set(0, 0) != 0) return 1;
+    fputs("\033[?1003h\033[?1006hDOLLY-MOUSE-READY\r\n", stdout);
+    fflush(stdout);
+    const unsigned buttons[] = {35, 0, 0, 2, 2, 1, 1, 65};
+    const char finals[] = "MMmMmMmM";
+    unsigned column = 0, row = 0;
+    int status = 0;
+    for (size_t i = 0; i < sizeof(buttons) / sizeof(buttons[0]) && status == 0; ++i) {
+      char report[32];
+      size_t length = 0;
+      int byte;
+      do {
+        byte = dolly_terminal_read_raw_timeout(20000);
+        if (byte < 0 || length == sizeof(report) - 1) { status = 30; break; }
+        report[length++] = (char)byte;
+      } while (byte != 'M' && byte != 'm');
+      report[length] = 0;
+      unsigned button, x, y;
+      char final;
+      if (status == 0 && (sscanf(report, "\033[<%u;%u;%u%c", &button, &x, &y, &final) != 4 ||
+          button != buttons[i] || final != finals[i] || (i != 0 && (x != column || y != row)))) status = 31;
+      column = x;
+      row = y;
+    }
+    fputs("\033[?1006l\033[?1003l", stdout);
+    printf("DOLLY-MOUSE %u;%u\r\n", column, row);
+    fflush(stdout);
+    // Further wheel steps of the same scroll are not the shell's input.
+    if (tcflush(0, TCIFLUSH) != 0) status = 32;
+    return dolly_terminal_mode_set(0, (unsigned)saved) != 0 ? 33 : status;
+  }
   if (argc > 1 && strcmp(argv[1], "alternate") == 0) {
     // A full-screen program: at its first key it leaves the alternate screen and exits.
     const int saved = dolly_terminal_mode_get(0);

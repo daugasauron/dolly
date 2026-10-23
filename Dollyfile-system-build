@@ -8,13 +8,13 @@ REQUIRES HOST http@0
 # eventually map to the lower-level machine contract is deliberately open.
 SOURCE /v0.1.4/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415 /usr/include/dolly/toolchain.h
 SOURCE /v0.1.4/include/dolly/runtime.h   e05d391cf65da6094c469455aebbf8a1496a53960c7b7876b998fa48deeb2c13 /usr/include/dolly/runtime.h
-SOURCE /v0.1.4/include/dolly/process.h   5f20c11c294311d68d931a198a0e82de5022f7e080f39611aa59c48334065818 /usr/include/dolly/process.h
+SOURCE /v0.1.4/include/dolly/process.h   6919b5de21efa877d73ea8d004d88b66ec00b5a883bdbeece12e2ed14dc370b5 /usr/include/dolly/process.h
 SOURCE /v0.1.4/host/http/http.h      d09f57cda4a6cde89106653f12366ac95554c21d37d05a69c15764d4254b70a5 /usr/include/dolly/http.h
 SOURCE /v0.1.4/host/http/http-abi.h 2f4e1e5c7145730babc91a0ff0a38db8b5e100ae1fab0b722b38ecbd53ad64a0 /usr/include/dolly/http-abi.h
 SOURCE /v0.1.4/host/display/display.h   31054ebb6af133ea0a5de7e01730475a536a362261b1c24569a67d0749969633 /usr/include/dolly/display.h
 SOURCE /v0.1.4/host/display/display-abi.h 89e4ac84fb4b807ed1aa5e47c28eb402746a1596d7949fa373ea45878782c05f /usr/include/dolly/display-abi.h
-SOURCE /v0.1.4/host/input/input.h   50e20fdc6e9949559f2d174f4c4e3708fd5dcc5de8a96af2f06df1c3e405f8f3 /usr/include/dolly/input.h
-SOURCE /v0.1.4/host/input/input-abi.h 6d3506ba8384546888499fb3bf9a108096efb3518c0857255607ac707aa15d58 /usr/include/dolly/input-abi.h
+SOURCE /v0.1.4/host/input/input.h   c380e2c168061ebd22785cbbcd6f7c7e05be2df187115ae1054c24cf39042a41 /usr/include/dolly/input.h
+SOURCE /v0.1.4/host/input/input-abi.h f84f9ab4008108895a3e853fbb41b2194cd0cd41265cc9e14eae1c3b5a75220b /usr/include/dolly/input-abi.h
 SOURCE /v0.1.4/host/download/download.h  666bca4fba5da7bf1e998c6486f56dce24cdbc82f1126f9be59067eb03b03bfa /usr/include/dolly/download.h
 SOURCE /v0.1.4/host/download/download-abi.h 45cfbbc85fd2ea3846db581cc3129ef1ae1304a3f9ede06d5dae3b544bd6c0e0 /usr/include/dolly/download-abi.h
 
@@ -94,7 +94,7 @@ EXPORTS TOOL dollyfile
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 
-SOURCE /v0.1.4/dist/static/default/slop.c 456bb261c2cc17199de17f492930c587b312761faf581bd73223602b9cac3789 /tmp/slop/slop.c
+SOURCE /v0.1.4/dist/static/default/slop.c 44ed93bd97c101396895c9351c42f572d17d33b4c843a17aa8074c34c2889bc4 /tmp/slop/slop.c
 RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/slop/slop.c -o /bin/slop
 
 EXPORTS TOOL slop
@@ -106,7 +106,7 @@ REQUIRES TOOL   cc
 SOURCE /v0.1.4/dist/static/default/commands/mkdir.c 318f11bbf81beea92df1e4a2cb8dc02787c5eea4cffe62a8be9893503a8e572e /tmp/core-tools/mkdir.c
 SOURCE /v0.1.4/dist/static/default/commands/rm.c 1213c22dc41e247f5fa072aad0431cdc54193dcf9091c8c749ea7880bef30af2 /tmp/core-tools/rm.c
 SOURCE /v0.1.4/dist/static/default/commands/foreground.c e926c3c87764e44064744fc1d3cba008c46666ed7a06d351824ce67792bcdd76 /tmp/core-tools/foreground.c
-SOURCE /v0.1.4/dist/static/default/commands/help.c c331003d058d70f5ba8a1c484eb35952f2e9ce46f127318686a047ab905a9dfd /tmp/core-tools/help.c
+SOURCE /v0.1.4/dist/static/default/commands/help.c 64333d311ff4521e7d81cc1691a0b5b75f10648a443603167bcd3cd5c8e0acf1 /tmp/core-tools/help.c
 SOURCE /v0.1.4/dist/static/default/commands/man.c 03df8950d27ccd413c9da9cac1641d582f720d483e58e1e6f8e4b90e61e15fa0 /tmp/core-tools/man.c
 SOURCE /v0.1.4/dist/static/default/commands/pwd.c 87886a74d8626d0bdbc2b364fe6ed8882522512d9f595709152dda298ef5c03f /tmp/core-tools/pwd.c
 SOURCE /v0.1.4/dist/static/default/commands/cd.c 36d4c7708b332be6df90105bbc61cf8eb70556e3ed0f9f24756016eebec3d622 /tmp/core-tools/cd.c
@@ -249,7 +249,7 @@ SLOP rm \
 REQUIRES TOOL   rm
 
 # Dolly's deliberately small ustar extractor.
-SOURCE /v0.1.4/dist/static/default/commands/tar.c 41551f4b69b5c79873e7d3128a1b005a0c8fb92a211e9ef447f28bf798354988 /tmp/bootstrap/tar.c
+SOURCE /v0.1.4/dist/static/default/commands/tar.c 4a3fab2c7b1fe562e95dc2cdb04f4c82cac4de6544c32092b289e635844712e4 /tmp/bootstrap/tar.c
 SLOP cc \
   /tmp/bootstrap/tar.c \
   -o /bin/tar

@@ -18,10 +18,15 @@ flowchart LR
 - Without a lease the terminal does. Keys, text and paste go through the
   decoder that the display library registered
   ([display](display.md#terminal)) and become the bytes the foreground program
-  reads from its terminal. Pointer and scroll records are the terminal's own:
-  selection and scrollback, handled ahead of unread keys on the display's tick.
-  A finger's drag is sent as scroll records, so it scrolls where a mouse's
-  drag selects.
+  reads from its terminal. Pointer and scroll records are the terminal's,
+  handled ahead of unread keys on the display's tick: reports for a program
+  that asked for the mouse, else selection and scrollback
+  ([display](display.md#terminal)). The page sends the primary button, every
+  move of the pointer and the wheel, and while the terminal shows the arrow,
+  a program asking for the mouse, the middle and secondary buttons too: the
+  browser's menu and the middle button's actions then give way, unless
+  Shift is held. Other buttons reach only a program holding the lease. A finger's drag is sent as scroll records at the
+  finger's position, so it scrolls where a mouse's drag selects.
   Two fingers moving apart or together are sent as the keys Ctrl+= and
   Ctrl+-, a font size for each 20 CSS px.
 - A touchscreen has no paste chord. There the page shows its own Paste

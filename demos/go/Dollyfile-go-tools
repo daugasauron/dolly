@@ -1,0 +1,16 @@
+DOLLY 7
+TOOLCHAIN go-tools
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST upload@0
+
+# An interactive shell: system with the go and esbuild packages.
+FROM /v0.1.4/Dollyfile-system f0041963ae2bfb938246a3892954d4eb3bf85f2902ed53eed7aa544ecb4f9839
+INSTALL /v0.1.4/demos/go/Dollyfile-go 19998de57ea8c605373e5d7e5b4751949e358f6d66f01714cd6d8ea7d728d3b0
+INSTALL /v0.1.4/demos/go/Dollyfile-esbuild e041b9ae419b928b5ef0070c3f357bf35a33ce40b8f52260701942582841eed8
+
+ENTRY /bin/foreground -i /bin/slop
