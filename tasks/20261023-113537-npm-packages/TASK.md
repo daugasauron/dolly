@@ -57,3 +57,35 @@ Decided, on branch `core/npm-packages` (tree `work/x11fix`):
 - Then `boot(element, options)`, images found under their own base URL, the build path out
   of the runtime's static imports, the packaging script and a browser test of the packed
   tarballs. No step changes an image input.
+
+## State (2026-10-23, 14:45): built and tested; release step left
+
+On `core/npm-packages`, each step verified by the core browser suite in Chromium and
+Firefox, local `main` fast-forwarded:
+
+1. `234331ba`: the page names its host modules (their `module.json` URLs); the registry
+   (`hostRegistry`) loads only those, on the page and in the Worker.
+2. `e936ac95`: device modules (display, input, gpu, audio, microphone, buttons, download,
+   upload, sockets, pty) import only their own files: errno in each generated `abi.mjs`,
+   leases and the kernel-plugin loader through `get("runtime")`, indicators and the site
+   base in the provider context (`host/README.md`).
+3. `d65a97cd`: `boot(element, options)`; `terminal.html` is the site's embedding and the
+   only reader of the test globals; modules bring their own CSS.
+4. `c8ee1f83`: images are found under their own base (`src/images.mjs`, boot's `images`);
+   the runtime's own files stay beside it (`runtimeBase`).
+5. `cdd4e238`: `scripts/package-npm.mjs OUT` and `test/npm-browser.mjs` (packs, installs
+   the tarballs offline into an empty app, boots `docs/embedding.md`'s page in Chromium
+   and Firefox; without isolation headers the page says so).
+
+Measured (compressed tarballs, v0.1.3 tree): `@daugasauron/dolly` 188,336 B (the runtime,
+92 files; the boot log's font stays with the site), device modules 1,464 to 16,967 B,
+`@daugasauron/dolly-default` 4,805,926 B.
+
+Not done, decided against for now: loading the image-building code only when building
+(about 13 KB of the runtime; the loader itself parses recipes). Found: a `submit()` sent
+before the shell's prompt is lost, so the guide waits with `waitForInteractiveTerminal`;
+whether `submit` should wait by itself is a question about the page API.
+
+Left: the release step (package with the release, run `test/npm-browser.mjs`, print the
+`npm publish` commands for the owner) in `scripts/release-checklist.sh` and
+`docs/deployment.md`; the owner's npm account or organization `daugasauron`.
