@@ -25,3 +25,7 @@ if has_image typescript; then
   typescript_archive="$(demos/javascript/fetch-typescript.sh)"
   copy_static "${typescript_archive}" default/typescript-5.9.3.tgz
 fi
+if has_image janis-install; then
+  copy_static demos/javascript/janis-install.c default/commands/janis-install.c
+  copy_static demos/javascript/janis-install.mjs default/runtimes/janis-install.mjs
+fi
