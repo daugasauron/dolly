@@ -8,10 +8,10 @@ REQUIRES HOST http@0
 # the packages it depends on into /usr/lib/node_modules, with a /usr/bin
 # launcher for each command it names. It is one Janis script linked with the
 # runner, as tsc is, and checks and decompresses tarballs with sha512sum and gzip.
-FROM /v0.1.3/Dollyfile-system-tools dd0411061a1e74754077a99f0e7f6913b3fc4153e336bfcdcebbe0d9016e49ee
-INSTALL /v0.1.3/demos/javascript/Dollyfile-janis b5c552a226570acf32c83084ad16293f4a5d764c7aff6fe7fd969259c8478878
-INSTALL /v0.1.3/Dollyfile-gzip 0155314f70a10b164e542e7b4875b370a3b835fce544ffdafe4890745e557013
-INSTALL /v0.1.3/demos/tools/Dollyfile-sbase d5138c48a8c82d0112058f84cb04b05ca04ba4ed52870f1a0a136218eeab7293
+FROM /v0.1.4/Dollyfile-system-tools 562372bb20b5f113fdfe9ddd30f8bc33f00a593165ab49484ea31774f1eb9c0f
+INSTALL /v0.1.4/demos/javascript/Dollyfile-janis afddc43eb293eaf9edb31741f2ff94430ee0cdf194a87621f1bb53925d37eddc
+INSTALL /v0.1.4/Dollyfile-gzip 42bf0e843aaba5c2276def215e037a7151a490391b6a0fa83bc3ca3c56319cbe
+INSTALL /v0.1.4/demos/tools/Dollyfile-sbase 6cf2a6413d65982387241027b3a6d86edda4f17189a4af5881ba63ae312da086
 
 REQUIRES HEADER libc
 REQUIRES HEADER quickjs-runner
@@ -22,8 +22,8 @@ REQUIRES TOOL   gzip
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   sha512sum
 
-SOURCE /v0.1.3/dist/static/default/runtimes/janis-install.mjs 0f65122856fd657d6d0e8f984c7268715e5af2eea0e61ec282d79d37f72c5747 /usr/lib/janis-install/janis-install.mjs
-SOURCE /v0.1.3/dist/static/default/commands/janis-install.c   3a9eeafa19aea3b722e725072b5296d63511a1e0a4859b057e1b6cb03befedb6 /tmp/janis-install/janis-install.c
+SOURCE /v0.1.4/dist/static/default/runtimes/janis-install.mjs 0f65122856fd657d6d0e8f984c7268715e5af2eea0e61ec282d79d37f72c5747 /usr/lib/janis-install/janis-install.mjs
+SOURCE /v0.1.4/dist/static/default/commands/janis-install.c   3a9eeafa19aea3b722e725072b5296d63511a1e0a4859b057e1b6cb03befedb6 /tmp/janis-install/janis-install.c
 SLOP cc -I /usr/include/dolly /tmp/janis-install/janis-install.c -ldolly-js -lquickjs -o /usr/bin/janis-install
 
 SLOP mkdir -p /usr/share/man/cat1

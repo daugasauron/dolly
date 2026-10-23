@@ -4,8 +4,8 @@ REQUIRES HOST runtime@0
 
 # libpng from upstream's release archive, unchanged, built by its CMake
 # project, for programs the cc package builds, with the zlib it needs.
-FROM /v0.1.3/demos/cmake/Dollyfile-cmake-build 892d58dc3c49d0d5fc433f3b818721c05fbc2ce752e6581ee586849659ba021c
-INSTALL /v0.1.3/Dollyfile-zlib 76a9a86e82b6de19255e8d66466556a9018a5ff24714f9560d72d71e268c29bc
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 4f0f3f2efeb3c50399bc05a2132de5ae014b94be7421604c8358b2a45d8b9beb
+INSTALL /v0.1.4/Dollyfile-zlib ff3c0365dd79ecb98c6f091460fb85790f674d13cf3d038ee4875ef9ff76c43a
 REQUIRES HEADER libc
 REQUIRES HEADER zlib
 REQUIRES LIB z
@@ -14,7 +14,7 @@ REQUIRES TOOL gzip
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.3/dist/static/libpng/source.tar.gz 5a53d9b0aeeea4bb3a17fbf071089afe98c8e3e00a3edc9bb8ac516c163ed351 /tmp/libpng.tar.gz
+SOURCE /v0.1.4/dist/static/libpng/source.tar.gz 5a53d9b0aeeea4bb3a17fbf071089afe98c8e3e00a3edc9bb8ac516c163ed351 /tmp/libpng.tar.gz
 SLOP gzip -dc /tmp/libpng.tar.gz | tar -xf - -C /
 SLOP cmake -S /tmp/libpng -B /tmp/libpng-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \

@@ -18,16 +18,16 @@ REQUIRES HOST threads@0
 # extension libraries GTK's X11 backend links. Static libraries in /usr/lib,
 # as a GTK program links them; GLib's pkg-config file has cc cast-emulate
 # every GObject program, those these builds run among them.
-FROM /v0.1.3/demos/x11/Dollyfile-x11-build 9fe93153112aeec390007c352410223e2eace0dbff3f2666ffcb2c10c53f4b40
-INSTALL /v0.1.3/demos/tools/Dollyfile-meson 7ce90f4d02158bd89a87db26e36bba9949f15a914ec1a04d494179f5f5dfce3f
-INSTALL /v0.1.3/demos/zero-ad/Dollyfile-pkgconf d09e26900cd1c24fd77b641ea6ff5c0416e7c791aaf66a8734bfae05fc885695
-INSTALL /v0.1.3/demos/tools/Dollyfile-xz f72b789e01306bc36da1f804584f6534c5a0aa40885717b9e5bfebca480c2f9c
-INSTALL /v0.1.3/demos/tools/Dollyfile-tar d5fb61502e546bea052b3e976a772a4b3a2282392deb0bc5d5d7ba3751c7c8cb
-INSTALL /v0.1.3/demos/tools/Dollyfile-binaryen e1e03b95a0906e42856bdc137631b80abac3adea68ad696ffd88fd72f3ad7655
-INSTALL /v0.1.3/demos/python/Dollyfile-libffi 046c25bb52a46fceb0c5c57f7f280dc494cca280929ecabda442aeadde690928
-INSTALL /v0.1.3/demos/gtk/Dollyfile-pcre2 22d3ffb52829ba893c8e1a31a7faf544e40f4c6f3dda20c8d0e6d8e6462fadb0
-INSTALL /v0.1.3/demos/gtk/Dollyfile-glib 0a64acf28b1960159ff2dcfcd9da3e3fa3879a9f13e10abc99cda4d817eed0b8
-INSTALL /v0.1.3/Dollyfile-zlib 76a9a86e82b6de19255e8d66466556a9018a5ff24714f9560d72d71e268c29bc
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build 974308cc3fab5d843028907739aa7c6242eee69327d5194b104f19b6a315b6a0
+INSTALL /v0.1.4/demos/tools/Dollyfile-meson 3af9822dc3381b2c9a6df88538a2e4f0e94de6b82eb5f9d14c6df86f227952e0
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 1e995437a2c43cef6fd3cb693b79cc4768bfd1f266e0b2f64a0f428c96bbc83c
+INSTALL /v0.1.4/demos/tools/Dollyfile-xz 7f9e3bf0fd37d8e947d767d80e12947d38fe3de4a9d3d4a10ed991ab2f455dd8
+INSTALL /v0.1.4/demos/tools/Dollyfile-tar dd37576ab9671f71f036baa2bd650927f7717cd8613aaa828651759c160d89d2
+INSTALL /v0.1.4/demos/tools/Dollyfile-binaryen 24f2f7c9f4366526ae5d0a804ae1cbee3cb5771ecabdbbb7a0d685aef125c1f2
+INSTALL /v0.1.4/demos/python/Dollyfile-libffi 50a41a01673f333a62eaf4ddf74f845a412be1a8964a798cd377f93598c68ff6
+INSTALL /v0.1.4/demos/gtk/Dollyfile-pcre2 78f7aa7d50017fcd008b9494aba29a80953eab9692ad5cc73bca0e5cd6fb188f
+INSTALL /v0.1.4/demos/gtk/Dollyfile-glib da2792c70c4acd2f711726ddbdfed0cf2ee5bb88d6fdb96431cba944bb2e89c1
+INSTALL /v0.1.4/Dollyfile-zlib ff3c0365dd79ecb98c6f091460fb85790f674d13cf3d038ee4875ef9ff76c43a
 
 REQUIRES HEADER glib
 REQUIRES HEADER zlib
@@ -52,32 +52,32 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   wasm-opt
 REQUIRES TOOL   xz
 
-SOURCE /v0.1.3/dist/static/gtk/freetype-2.14.3.tar.xz 36bc4f1cc413335368ee656c42afca65c5a3987e8768cc28cf11ba775e785a5f /tmp/gtk/freetype.tar.xz
-SOURCE /v0.1.3/dist/static/gtk/fribidi-1.0.17.tar.xz 6949dcde27d41cebad1fd741fcafc36d55a1020d2d872d4a6eb3914caabbada2 /tmp/gtk/fribidi.tar.xz
-SOURCE /v0.1.3/dist/static/gtk/harfbuzz-14.6.0.tar.xz d07a007327277708a2a73ae437887cdbaf282937f6d03ca5467723e9099af586 /tmp/gtk/harfbuzz.tar.xz
-SOURCE /v0.1.3/dist/static/gtk/expat-2.8.5.tar.xz 1e727b8933ec51a77a9a9d9afcf8e688bce45d907c13e36ab7393fe36e703182 /tmp/gtk/expat.tar.xz
-SOURCE /v0.1.3/dist/static/gtk/gperf-3.1.tar.gz 588546b945bba4b70b6a3a616e80b4ab466e3f33024a352fc2198112cdbb3ae2 /tmp/gtk/gperf.tar.gz
-SOURCE /v0.1.3/dist/static/gtk/fontconfig-2.18.3.tar.xz 4f7b554a38cdf78c033f666c8871f3749e14a094f65a07f630c91ed0b43d35e3 /tmp/gtk/fontconfig.tar.xz
-SOURCE /v0.1.3/dist/static/gtk/fontconfig-dolly.patch af0db174251c4d6b1be7800c7c802dac3f52ec1e01e542596f39d392204eb100 /tmp/gtk/fontconfig-dolly.patch
-SOURCE /v0.1.3/dist/static/gtk/libpng-1.6.59.tar.xz d80dd2a38a37f803cb9b6ac7b14bd6e74ddc3b654780a8380bdf93523fdb4389 /tmp/gtk/libpng.tar.xz
-SOURCE /v0.1.3/dist/static/gtk/libjpeg-turbo-3.2.0.tar.gz 6f30092cef9fb839779646608f4ee14ae3cbac989c47fa05e841b0841f09878e /tmp/gtk/libjpeg-turbo.tar.gz
-SOURCE /v0.1.3/dist/static/gtk/tiff-4.7.2.tar.xz 4996f0c4f93094719b1ca5c6279b20e588773ba8a247533e486416fb662ddb88 /tmp/gtk/tiff.tar.xz
-SOURCE /v0.1.3/dist/static/gtk/pixman-0.46.4.tar.gz d09c44ebc3bd5bee7021c79f922fe8fb2fb57f7320f55e97ff9914d2346a591c /tmp/gtk/pixman.tar.gz
-SOURCE /v0.1.3/dist/static/gtk/cairo-1.18.6.tar.xz 1c767308174337a74694da0f3ec069c271452163a1ef4540964c50c301f157d4 /tmp/gtk/cairo.tar.xz
-SOURCE /v0.1.3/dist/static/gtk/graphene-1.10.8.tar.xz a37bb0e78a419dcbeaa9c7027bcff52f5ec2367c25ec859da31dfde2928f279a /tmp/gtk/graphene.tar.xz
-SOURCE /v0.1.3/dist/static/gtk/libepoxy-1.5.10.tar.xz 072cda4b59dd098bba8c2363a6247299db1fa89411dc221c8b81b8ee8192e623 /tmp/gtk/libepoxy.tar.xz
-SOURCE /v0.1.3/dist/static/gtk/gdk-pixbuf-2.44.8.tar.xz 919f529512961a12e81cd4b4b466a48c3933469e7f9a310c6513cd4fb252ba3c /tmp/gtk/gdk-pixbuf.tar.xz
-SOURCE /v0.1.3/dist/static/gtk/pango-1.58.2.tar.xz 342385b6ca3b7c73455d7c80a13b7dbe4489e00bc3bd4c5bd6ed4dce421e374a /tmp/gtk/pango.tar.xz
-SOURCE /v0.1.3/dist/static/gtk/gtk-4.24.1.tar.xz e98abe720e16129c8c0f50761dee0a2e9ae2478055e31018f6cf977fcf6513e9 /tmp/gtk/gtk.tar.xz
-SOURCE /v0.1.3/dist/static/gtk/gtk-dolly.patch 7fbb4f8428b26569454e2958144447a294c29c15545362c69c178e7baec1d71b /tmp/gtk/gtk-dolly.patch
-SOURCE /v0.1.3/dist/static/gtk/libXrandr-1.5.5.tar.xz 72b922c2e765434e9e9f0960148070bd4504b288263e2868a4ccce1b7cf2767a /tmp/gtk/libXrandr.tar.xz
-SOURCE /v0.1.3/dist/static/gtk/libXcursor-1.2.3.tar.xz fde9402dd4cfe79da71e2d96bb980afc5e6ff4f8a7d74c159e1966afb2b2c2c0 /tmp/gtk/libXcursor.tar.xz
-SOURCE /v0.1.3/dist/static/gtk/libXdamage-1.1.7.tar.xz 127067f521d3ee467b97bcb145aeba1078e2454d448e8748eb984d5b397bde24 /tmp/gtk/libXdamage.tar.xz
-SOURCE /v0.1.3/dist/static/gtk/libXcomposite-0.4.7.tar.xz 8bdf310967f484503fa51714cf97bff0723d9b673e0eecbf92b3f97c060c8ccb /tmp/gtk/libXcomposite.tar.xz
-SOURCE /v0.1.3/dist/static/gtk/libXinerama-1.1.6.tar.xz d00fc1599c303dc5cbc122b8068bdc7405d6fcb19060f4597fc51bd3a8be51d7 /tmp/gtk/libXinerama.tar.xz
+SOURCE /v0.1.4/dist/static/gtk/freetype-2.14.3.tar.xz 36bc4f1cc413335368ee656c42afca65c5a3987e8768cc28cf11ba775e785a5f /tmp/gtk/freetype.tar.xz
+SOURCE /v0.1.4/dist/static/gtk/fribidi-1.0.17.tar.xz 6949dcde27d41cebad1fd741fcafc36d55a1020d2d872d4a6eb3914caabbada2 /tmp/gtk/fribidi.tar.xz
+SOURCE /v0.1.4/dist/static/gtk/harfbuzz-14.6.0.tar.xz d07a007327277708a2a73ae437887cdbaf282937f6d03ca5467723e9099af586 /tmp/gtk/harfbuzz.tar.xz
+SOURCE /v0.1.4/dist/static/gtk/expat-2.8.5.tar.xz 1e727b8933ec51a77a9a9d9afcf8e688bce45d907c13e36ab7393fe36e703182 /tmp/gtk/expat.tar.xz
+SOURCE /v0.1.4/dist/static/gtk/gperf-3.1.tar.gz 588546b945bba4b70b6a3a616e80b4ab466e3f33024a352fc2198112cdbb3ae2 /tmp/gtk/gperf.tar.gz
+SOURCE /v0.1.4/dist/static/gtk/fontconfig-2.18.3.tar.xz 4f7b554a38cdf78c033f666c8871f3749e14a094f65a07f630c91ed0b43d35e3 /tmp/gtk/fontconfig.tar.xz
+SOURCE /v0.1.4/dist/static/gtk/fontconfig-dolly.patch af0db174251c4d6b1be7800c7c802dac3f52ec1e01e542596f39d392204eb100 /tmp/gtk/fontconfig-dolly.patch
+SOURCE /v0.1.4/dist/static/gtk/libpng-1.6.59.tar.xz d80dd2a38a37f803cb9b6ac7b14bd6e74ddc3b654780a8380bdf93523fdb4389 /tmp/gtk/libpng.tar.xz
+SOURCE /v0.1.4/dist/static/gtk/libjpeg-turbo-3.2.0.tar.gz 6f30092cef9fb839779646608f4ee14ae3cbac989c47fa05e841b0841f09878e /tmp/gtk/libjpeg-turbo.tar.gz
+SOURCE /v0.1.4/dist/static/gtk/tiff-4.7.2.tar.xz 4996f0c4f93094719b1ca5c6279b20e588773ba8a247533e486416fb662ddb88 /tmp/gtk/tiff.tar.xz
+SOURCE /v0.1.4/dist/static/gtk/pixman-0.46.4.tar.gz d09c44ebc3bd5bee7021c79f922fe8fb2fb57f7320f55e97ff9914d2346a591c /tmp/gtk/pixman.tar.gz
+SOURCE /v0.1.4/dist/static/gtk/cairo-1.18.6.tar.xz 1c767308174337a74694da0f3ec069c271452163a1ef4540964c50c301f157d4 /tmp/gtk/cairo.tar.xz
+SOURCE /v0.1.4/dist/static/gtk/graphene-1.10.8.tar.xz a37bb0e78a419dcbeaa9c7027bcff52f5ec2367c25ec859da31dfde2928f279a /tmp/gtk/graphene.tar.xz
+SOURCE /v0.1.4/dist/static/gtk/libepoxy-1.5.10.tar.xz 072cda4b59dd098bba8c2363a6247299db1fa89411dc221c8b81b8ee8192e623 /tmp/gtk/libepoxy.tar.xz
+SOURCE /v0.1.4/dist/static/gtk/gdk-pixbuf-2.44.8.tar.xz 919f529512961a12e81cd4b4b466a48c3933469e7f9a310c6513cd4fb252ba3c /tmp/gtk/gdk-pixbuf.tar.xz
+SOURCE /v0.1.4/dist/static/gtk/pango-1.58.2.tar.xz 342385b6ca3b7c73455d7c80a13b7dbe4489e00bc3bd4c5bd6ed4dce421e374a /tmp/gtk/pango.tar.xz
+SOURCE /v0.1.4/dist/static/gtk/gtk-4.24.1.tar.xz e98abe720e16129c8c0f50761dee0a2e9ae2478055e31018f6cf977fcf6513e9 /tmp/gtk/gtk.tar.xz
+SOURCE /v0.1.4/dist/static/gtk/gtk-dolly.patch 7fbb4f8428b26569454e2958144447a294c29c15545362c69c178e7baec1d71b /tmp/gtk/gtk-dolly.patch
+SOURCE /v0.1.4/dist/static/gtk/libXrandr-1.5.5.tar.xz 72b922c2e765434e9e9f0960148070bd4504b288263e2868a4ccce1b7cf2767a /tmp/gtk/libXrandr.tar.xz
+SOURCE /v0.1.4/dist/static/gtk/libXcursor-1.2.3.tar.xz fde9402dd4cfe79da71e2d96bb980afc5e6ff4f8a7d74c159e1966afb2b2c2c0 /tmp/gtk/libXcursor.tar.xz
+SOURCE /v0.1.4/dist/static/gtk/libXdamage-1.1.7.tar.xz 127067f521d3ee467b97bcb145aeba1078e2454d448e8748eb984d5b397bde24 /tmp/gtk/libXdamage.tar.xz
+SOURCE /v0.1.4/dist/static/gtk/libXcomposite-0.4.7.tar.xz 8bdf310967f484503fa51714cf97bff0723d9b673e0eecbf92b3f97c060c8ccb /tmp/gtk/libXcomposite.tar.xz
+SOURCE /v0.1.4/dist/static/gtk/libXinerama-1.1.6.tar.xz d00fc1599c303dc5cbc122b8068bdc7405d6fcb19060f4597fc51bd3a8be51d7 /tmp/gtk/libXinerama.tar.xz
 # Khronos's EGL and KHR headers, as Mesa's release carries them: libepoxy's
 # EGL dispatch includes them, and GTK's X11 backend has EGL code.
-SOURCE /v0.1.3/dist/static/gtk/khronos-headers.tar 0873dc0d3a69057385df77ef9a1433cbc91f00acfb56de2509362af2e46397b8 /tmp/gtk/khronos-headers.tar
+SOURCE /v0.1.4/dist/static/gtk/khronos-headers.tar 0873dc0d3a69057385df77ef9a1433cbc91f00acfb56de2509362af2e46397b8 /tmp/gtk/khronos-headers.tar
 SLOP CWD /tmp/gtk for archive in *.tar.xz; do xz -dc $archive | tar -xf -; done
 SLOP CWD /tmp/gtk for archive in *.tar.gz; do gzip -dc $archive | tar -xf -; done
 SLOP tar -xf /tmp/gtk/khronos-headers.tar -C /

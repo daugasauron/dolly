@@ -13,12 +13,12 @@ REQUIRES HOST threads@0
 REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.3/demos/pi/Dollyfile-pi-runtime 972c46aea9f2834e9debab334c1ef2eb83e4a618d45fb5018c11dbba4265ee46
-INSTALL /v0.1.3/Dollyfile-amy b5e357f37c9728964bb1967ff83e5646c2c6e6988bec48ae5e587d88bd2aa840
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 392c31b82fff368cb7832e81808e52f6e958168bc3dc2f498a5cc8ef50556ae6
+INSTALL /v0.1.4/Dollyfile-amy 536f1750c9f78e5c00f042251e88eb356b61861fc9f53df5c7a661aadba9b2c3
 REQUIRES TOOL foreground
 REQUIRES TOOL pi
-INSTALL /v0.1.3/demos/speech/Dollyfile-voice e8287af91f4db25c9559a4cbb3b58022570acde37b82b5d5f3d251f478d67ad3
-SOURCE /v0.1.3/dist/static/speech/pi.menu 10c28421825610d22e8766be6138ba45b0b38f5e8600b6d109bd915a3e9d0161 /etc/dolly/pi.menu
+INSTALL /v0.1.4/demos/speech/Dollyfile-voice 877ebcca31adf8fdb4ef182d2fe914ac8f23820f86cb569582a79ed6c75f1af1
+SOURCE /v0.1.4/dist/static/speech/pi.menu 10c28421825610d22e8766be6138ba45b0b38f5e8600b6d109bd915a3e9d0161 /etc/dolly/pi.menu
 EXPORTS FILE pi-menu /etc/dolly/pi.menu
 
 # voice runs Pi above its buttons and types into Pi's terminal.

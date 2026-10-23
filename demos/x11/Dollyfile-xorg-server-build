@@ -15,14 +15,14 @@ REQUIRES HOST sockets@0
 # builds it and pixman, libxkbfile and xkbcomp; libXfont2, its built-in and
 # bitmap fonts, and the SHA-1 of libmd are built by the Makefile below, and
 # xkeyboard-config's rules by its own generator.
-FROM /v0.1.3/demos/x11/Dollyfile-x11-build 9fe93153112aeec390007c352410223e2eace0dbff3f2666ffcb2c10c53f4b40
-INSTALL /v0.1.3/demos/tools/Dollyfile-meson 7ce90f4d02158bd89a87db26e36bba9949f15a914ec1a04d494179f5f5dfce3f
-INSTALL /v0.1.3/demos/zero-ad/Dollyfile-pkgconf d09e26900cd1c24fd77b641ea6ff5c0416e7c791aaf66a8734bfae05fc885695
-INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 1e18b1a60771006ffad5e31b2e4b13a7e51db3d1cd2117cedd03603237ae8ff9
-INSTALL /v0.1.3/Dollyfile-zlib 76a9a86e82b6de19255e8d66466556a9018a5ff24714f9560d72d71e268c29bc
-INSTALL /v0.1.3/demos/tools/Dollyfile-tar d5fb61502e546bea052b3e976a772a4b3a2282392deb0bc5d5d7ba3751c7c8cb
-INSTALL /v0.1.3/demos/tools/Dollyfile-xz f72b789e01306bc36da1f804584f6534c5a0aa40885717b9e5bfebca480c2f9c
-INSTALL /v0.1.3/demos/tools/Dollyfile-yacc 1008e430f43f634c2e803c9005d9780f4811148f0c0de38b9a9c4920ec3193a8
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build 974308cc3fab5d843028907739aa7c6242eee69327d5194b104f19b6a315b6a0
+INSTALL /v0.1.4/demos/tools/Dollyfile-meson 3af9822dc3381b2c9a6df88538a2e4f0e94de6b82eb5f9d14c6df86f227952e0
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 1e995437a2c43cef6fd3cb693b79cc4768bfd1f266e0b2f64a0f428c96bbc83c
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 2c66d0c9a368d8bace8bb7d9217dcf06223a37bf87a8ddc93fd4f1ff0bcd5a99
+INSTALL /v0.1.4/Dollyfile-zlib ff3c0365dd79ecb98c6f091460fb85790f674d13cf3d038ee4875ef9ff76c43a
+INSTALL /v0.1.4/demos/tools/Dollyfile-tar dd37576ab9671f71f036baa2bd650927f7717cd8613aaa828651759c160d89d2
+INSTALL /v0.1.4/demos/tools/Dollyfile-xz 7f9e3bf0fd37d8e947d767d80e12947d38fe3de4a9d3d4a10ed991ab2f455dd8
+INSTALL /v0.1.4/demos/tools/Dollyfile-yacc f0389230a6d4a28b81bdec9a52b2813d35895dbba663ea27d47552eeabe3f7f9
 
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2
@@ -35,14 +35,14 @@ REQUIRES TOOL pkg-config
 REQUIRES TOOL python3
 REQUIRES TOOL xz
 
-SOURCE /v0.1.3/dist/static/x11/libmd-1.3.0.tar.xz fc0f1eb6b6766470326f2c014693809190e67dba84274a6fbae9d4912d066706 /tmp/xorg/libmd.tar.xz
-SOURCE /v0.1.3/dist/static/x11/pixman-0.46.4.tar.gz d09c44ebc3bd5bee7021c79f922fe8fb2fb57f7320f55e97ff9914d2346a591c /tmp/xorg/pixman.tar.gz
-SOURCE /v0.1.3/dist/static/x11/libXfont2-2.0.9.tar.gz 8564b4df365bc5a6cb0c15900dc688f6e8f47b00a8571c6708c916dfb85066ba /tmp/xorg/libXfont2.tar.gz
-SOURCE /v0.1.3/dist/static/x11/libxkbfile-1.2.0.tar.xz 7f71884e5faf56fb0e823f3848599cf9b5a9afce51c90982baeb64f635233ebf /tmp/xorg/libxkbfile.tar.xz
-SOURCE /v0.1.3/dist/static/x11/xkbcomp-1.5.0.tar.gz d070694dd8d94714aa1da3e3590b75084a4b183da3980866aedd68835954b97c /tmp/xorg/xkbcomp.tar.gz
-SOURCE /v0.1.3/dist/static/x11/xkeyboard-config-2.48.tar.xz b77041324f0109f77161ee43743fe04baa485866af8460d31e476ad3f7648fd5 /tmp/xorg/xkeyboard-config.tar.xz
-SOURCE /v0.1.3/dist/static/x11/xorg-server-21.1.25.tar.gz fdb5ec9b4ab7371745b182b68c7054ed72fc4d13e185fc369cfc45e0c3a174e7 /tmp/xorg/xorg-server.tar.gz
-SOURCE /v0.1.3/dist/static/x11/xsdl.tar f0933a4d8392135d00fafd6fb1739494e077db5d3f3b58a28e5adb8f99ca1e6f /tmp/xorg/xsdl.tar
+SOURCE /v0.1.4/dist/static/x11/libmd-1.3.0.tar.xz fc0f1eb6b6766470326f2c014693809190e67dba84274a6fbae9d4912d066706 /tmp/xorg/libmd.tar.xz
+SOURCE /v0.1.4/dist/static/x11/pixman-0.46.4.tar.gz d09c44ebc3bd5bee7021c79f922fe8fb2fb57f7320f55e97ff9914d2346a591c /tmp/xorg/pixman.tar.gz
+SOURCE /v0.1.4/dist/static/x11/libXfont2-2.0.9.tar.gz 8564b4df365bc5a6cb0c15900dc688f6e8f47b00a8571c6708c916dfb85066ba /tmp/xorg/libXfont2.tar.gz
+SOURCE /v0.1.4/dist/static/x11/libxkbfile-1.2.0.tar.xz 7f71884e5faf56fb0e823f3848599cf9b5a9afce51c90982baeb64f635233ebf /tmp/xorg/libxkbfile.tar.xz
+SOURCE /v0.1.4/dist/static/x11/xkbcomp-1.5.0.tar.gz d070694dd8d94714aa1da3e3590b75084a4b183da3980866aedd68835954b97c /tmp/xorg/xkbcomp.tar.gz
+SOURCE /v0.1.4/dist/static/x11/xkeyboard-config-2.48.tar.xz b77041324f0109f77161ee43743fe04baa485866af8460d31e476ad3f7648fd5 /tmp/xorg/xkeyboard-config.tar.xz
+SOURCE /v0.1.4/dist/static/x11/xorg-server-21.1.25.tar.gz fdb5ec9b4ab7371745b182b68c7054ed72fc4d13e185fc369cfc45e0c3a174e7 /tmp/xorg/xorg-server.tar.gz
+SOURCE /v0.1.4/dist/static/x11/xsdl.tar f0933a4d8392135d00fafd6fb1739494e077db5d3f3b58a28e5adb8f99ca1e6f /tmp/xorg/xsdl.tar
 # The tar package reads the pax headers of Meson's archives; it starts no
 # decompressor itself.
 SLOP CWD /tmp/xorg for archive in *.tar.gz; do gzip -dc "$archive" | tar -xf -; done

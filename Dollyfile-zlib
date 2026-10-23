@@ -2,7 +2,7 @@ DOLLY 7
 PACKAGE zlib
 REQUIRES HOST runtime@0
 
-FROM /v0.1.3/Dollyfile-system-build 20c5289827fb196dc6efc7b19e988662d2f18ea81f3e9b22e1805e2179546f4e
+FROM /v0.1.4/Dollyfile-system-build a54f5be3439aa25af4f06b21257a58e71bd4f52e5e2a99ae85e6f9051a2f43a1
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -11,7 +11,7 @@ REQUIRES TOOL   make
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.3/dist/static/default/zlib.tar 3ff2e65dc35be0baa91250384dbe2b0d7c16aa73496dc20eeca86221588ead73 /tmp/zlib.tar
+SOURCE /v0.1.4/dist/static/default/zlib.tar 3ff2e65dc35be0baa91250384dbe2b0d7c16aa73496dc20eeca86221588ead73 /tmp/zlib.tar
 SLOP tar \
   -xf /tmp/zlib.tar \
   -C /

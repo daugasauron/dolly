@@ -10,11 +10,11 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.3/demos/pi/Dollyfile-pi-runtime 972c46aea9f2834e9debab334c1ef2eb83e4a618d45fb5018c11dbba4265ee46
-COPY /v0.1.3/demos/classicube/Dollyfile-classicube-build ca9994125c5d2a67ef111df15b07d7a1b6a6370267d1793cff81163ec85be8d7 /usr/bin/classicube /usr/bin/classicube
-COPY /v0.1.3/demos/classicube/Dollyfile-classicube-build ca9994125c5d2a67ef111df15b07d7a1b6a6370267d1793cff81163ec85be8d7 /usr/share/classicube /home/dolly/classicube
-COPY /v0.1.3/demos/classicube/Dollyfile-classicube-build ca9994125c5d2a67ef111df15b07d7a1b6a6370267d1793cff81163ec85be8d7 /usr/share/licenses/classicube /usr/share/licenses/classicube
-INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 1e18b1a60771006ffad5e31b2e4b13a7e51db3d1cd2117cedd03603237ae8ff9
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 392c31b82fff368cb7832e81808e52f6e958168bc3dc2f498a5cc8ef50556ae6
+COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build e35c5ff8f3e5a237751d1055f3899a04d417b959c8092624c61d5b6a9af84b01 /usr/bin/classicube /usr/bin/classicube
+COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build e35c5ff8f3e5a237751d1055f3899a04d417b959c8092624c61d5b6a9af84b01 /usr/share/classicube /home/dolly/classicube
+COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build e35c5ff8f3e5a237751d1055f3899a04d417b959c8092624c61d5b6a9af84b01 /usr/share/licenses/classicube /usr/share/licenses/classicube
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 2c66d0c9a368d8bace8bb7d9217dcf06223a37bf87a8ddc93fd4f1ff0bcd5a99
 EXPORTS TOOL classicube
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner
@@ -31,8 +31,8 @@ REQUIRES TOOL classicube
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE /v0.1.3/dist/static/classicube/agent.tar 098a3cba98a7188bb513273e6a1530f609c026f48075f6d5f43c9649e25b407f /tmp/classicube-agent/source.tar
-SOURCE /v0.1.3/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/classicube-agent/stb_truetype.h
+SOURCE /v0.1.4/dist/static/classicube/agent.tar 098a3cba98a7188bb513273e6a1530f609c026f48075f6d5f43c9649e25b407f /tmp/classicube-agent/source.tar
+SOURCE /v0.1.4/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/classicube-agent/stb_truetype.h
 SLOP tar -xf /tmp/classicube-agent/source.tar -C /
 SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/classicube-agent \
   /usr/src/dolly/classicube/agent/viewer.cpp -o /usr/bin/classicube-viewer -lSDL2 -lm

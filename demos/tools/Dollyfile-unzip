@@ -8,7 +8,7 @@ REQUIRES HOST runtime@0
 # lchmod. The sources are C of 1990, which -std=gnu89 compiles; they call
 # read, write and lseek without their header unless the system says it is
 # BSD 4.4 or System V, and a call through the wrong type traps in Wasm.
-FROM /v0.1.3/demos/tools/Dollyfile-tools-build e2e7ac903f7d8a19cca611f9b11d952dbd6ec902f2fe8d6c1c7119efe42c5d77
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 42d1491aeaba0ed4a09b6dd4034225e90a035d800f32be0e4e8c2b334837ffee
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
@@ -21,7 +21,7 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.3/dist/static/tools/unzip60.tar.gz 036d96991646d0449ed0aa952e4fbe21b476ce994abc276e49d30e686708bd37 /tmp/unzip.tar.gz
+SOURCE /v0.1.4/dist/static/tools/unzip60.tar.gz 036d96991646d0449ed0aa952e4fbe21b476ce994abc276e49d30e686708bd37 /tmp/unzip.tar.gz
 SLOP gzip -dc /tmp/unzip.tar.gz | tar -xf - -C /tmp
 
 FILE /tmp/unzip.mk

@@ -13,8 +13,8 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.3/demos/local-llm/Dollyfile-pi-local 734e0a6af665932215532aebf9d0dd709ea54d5a36627d983b77e7b4922b3a5e
-INSTALL /v0.1.3/demos/neovim/Dollyfile-nvim cc75a9179505142b1ce1318ec61f9eaef0e237a68fcaa231cdbb453aa086ef8b
+FROM /v0.1.4/demos/local-llm/Dollyfile-pi-local d8c2a1871c7002160ac9d022844f9e4dad6d14a0af07c209d8769bec073e2ff8
+INSTALL /v0.1.4/demos/neovim/Dollyfile-nvim bb290312dedcb9be8e96b59adceccf83026bfc4bd495ca98b10cafafcf11718d
 REQUIRES TOOL pi
 REQUIRES TOOL nvim
 REQUIRES TOOL janis
@@ -23,7 +23,7 @@ REQUIRES TOOL sha256sum
 REQUIRES TOOL sed
 # dollyfile-build starts disposable image builds through the page.
 
-SOURCE /v0.1.3/dist/static/studio/studio.tar 6112fa3f06660ec279008b84b04944258f086bed76ab1325d98ebf4f72548cc9 /tmp/dollyfile-studio/source.tar
+SOURCE /v0.1.4/dist/static/studio/studio.tar 6112fa3f06660ec279008b84b04944258f086bed76ab1325d98ebf4f72548cc9 /tmp/dollyfile-studio/source.tar
 SLOP tar -xf /tmp/dollyfile-studio/source.tar -C /
 SLOP slop -e /usr/share/dollyfile-studio/install.slop
 SLOP dollyfile-lint /usr/share/dollyfile-studio/examples/Dollyfile-hello

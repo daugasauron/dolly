@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # unchanged, by the rules of its Makefile. It draws with escape sequences of
 # its own and reads no terminal database. Its ! commands and language servers
 # start by fork, which fails here, and it says so.
-FROM /v0.1.3/Dollyfile-system-tools dd0411061a1e74754077a99f0e7f6913b3fc4153e336bfcdcebbe0d9016e49ee
+FROM /v0.1.4/Dollyfile-system-tools 562372bb20b5f113fdfe9ddd30f8bc33f00a593165ab49484ea31774f1eb9c0f
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
@@ -18,7 +18,7 @@ REQUIRES TOOL   sed
 REQUIRES TOOL   tar
 REQUIRES TOOL   test
 
-SOURCE /v0.1.3/dist/static/tools/neatvi.tar 46da6486814546d4b020784571bb1a750d279dc3a128fdd4d5e99a66454cfca3 /tmp/neatvi.tar
+SOURCE /v0.1.4/dist/static/tools/neatvi.tar 46da6486814546d4b020784571bb1a750d279dc3a128fdd4d5e99a66454cfca3 /tmp/neatvi.tar
 SLOP tar -xf /tmp/neatvi.tar -C /
 
 # Neatvi leaves it to the terminal to turn Enter, a carriage return, into a

@@ -5,8 +5,8 @@ REQUIRES HOST runtime@0
 # FreeType from upstream's release archive, unchanged, built by its CMake
 # project, for programs the cc package builds, with the libpng and zlib it
 # reads fonts with.
-FROM /v0.1.3/demos/cmake/Dollyfile-cmake-build 892d58dc3c49d0d5fc433f3b818721c05fbc2ce752e6581ee586849659ba021c
-INSTALL /v0.1.3/demos/zero-ad/Dollyfile-libpng ff0a846986d34e3998c2669bcc6dc486f4fa779090668b9f6d47d2fab33870f2
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 4f0f3f2efeb3c50399bc05a2132de5ae014b94be7421604c8358b2a45d8b9beb
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-libpng 2d643c582d13907556263d7d514d40a332b91ecbc30a1a33536cee03c9b96f56
 REQUIRES HEADER libc
 REQUIRES HEADER png
 REQUIRES HEADER zlib
@@ -17,7 +17,7 @@ REQUIRES TOOL gzip
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.3/dist/static/freetype/source.tar.gz 045b71defb2d966dd1452aca8425a50842772ec28961b74804640cd638cca984 /tmp/freetype.tar.gz
+SOURCE /v0.1.4/dist/static/freetype/source.tar.gz 045b71defb2d966dd1452aca8425a50842772ec28961b74804640cd638cca984 /tmp/freetype.tar.gz
 SLOP gzip -dc /tmp/freetype.tar.gz | tar -xf - -C /
 SLOP cmake -S /tmp/freetype -B /tmp/freetype-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \

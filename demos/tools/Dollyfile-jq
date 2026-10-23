@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # jq from the files of upstream's release archive, unchanged, with the
 # Oniguruma and decNumber it vendors and the parser it ships generated.
-FROM /v0.1.3/demos/tools/Dollyfile-tools-build e2e7ac903f7d8a19cca611f9b11d952dbd6ec902f2fe8d6c1c7119efe42c5d77
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 42d1491aeaba0ed4a09b6dd4034225e90a035d800f32be0e4e8c2b334837ffee
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
@@ -14,7 +14,7 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.3/dist/static/tools/jq.tar 691ae56938eaee12dd4ef955033579c456f4d5327423bf06f2f0f43e2d18a2e6 /tmp/jq.tar
+SOURCE /v0.1.4/dist/static/tools/jq.tar 691ae56938eaee12dd4ef955033579c456f4d5327423bf06f2f0f43e2d18a2e6 /tmp/jq.tar
 SLOP tar -xf /tmp/jq.tar -C /
 
 # Slop does not run the two configure scripts, so these say what they would

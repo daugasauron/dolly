@@ -7,8 +7,8 @@ REQUIRES HOST runtime@0
 # run its configure, so config.h says what that script would find here. The
 # man, apropos and makewhatis the same program can be are not installed: man
 # is the core's.
-FROM /v0.1.3/Dollyfile-system-tools dd0411061a1e74754077a99f0e7f6913b3fc4153e336bfcdcebbe0d9016e49ee
-USE /v0.1.3/Dollyfile-zlib 76a9a86e82b6de19255e8d66466556a9018a5ff24714f9560d72d71e268c29bc
+FROM /v0.1.4/Dollyfile-system-tools 562372bb20b5f113fdfe9ddd30f8bc33f00a593165ab49484ea31774f1eb9c0f
+USE /v0.1.4/Dollyfile-zlib ff3c0365dd79ecb98c6f091460fb85790f674d13cf3d038ee4875ef9ff76c43a
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib
@@ -22,7 +22,7 @@ REQUIRES TOOL   make
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.3/dist/static/tools/mandoc-1.14.6.tar.gz 8bf0d570f01e70a6e124884088870cbed7537f36328d512909eb10cd53179d9c /tmp/mandoc.tar.gz
+SOURCE /v0.1.4/dist/static/tools/mandoc-1.14.6.tar.gz 8bf0d570f01e70a6e124884088870cbed7537f36328d512909eb10cd53179d9c /tmp/mandoc.tar.gz
 SLOP gzip -dc /tmp/mandoc.tar.gz | tar -xf - -C /tmp
 
 # Not found here: fts, getprogname, recallocarray, strtonum, ohash, BSD's
