@@ -1,6 +1,6 @@
 # Audit of the core after the 0.1.4 work: small and well thought out
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 280
 - TAGS: core,audit,architecture,0.1.4
 
@@ -62,3 +62,12 @@ fix is clear, or one line for the owner where it is a decision.
   2. **The compiler's recipes stay in `demos/llvm`**: the bootstrap exception, in `AGENTS.md`'s
      bootstrapping section (and the core rule beside it) and `docs/sources.md` (`88407c1c`).
   3. **The site's code left `@daugasauron/dolly`**: see `tasks/20261023-113537-npm-packages`.
+
+## Closed (2026-10-24)
+
+Every finding of `audit.md` is fixed or decided: 1 to 12 at the merges and in `96b61bed`, the
+owner's three lines in `88407c1c` (the bootstrap exception), `ade2f49a` (the site's code out of
+the runtime package, `tasks/20261023-113537-npm-packages`) and `75e8de84` (`llvm` is LLVM
+itself), each verified in Chromium and Firefox as its commit says. What item 11 left, whether
+Gboard's paste reaches the terminal on a phone, is in `tasks/20261013-144001-touch-module`.
+
