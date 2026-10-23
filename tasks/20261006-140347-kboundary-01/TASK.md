@@ -1,8 +1,27 @@
 # Chrome makes every system call 15 times slower once kernel memory passes twice V8's heap limit
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 130
 - TAGS: bug,filesystem,performance,kernel,0.1.4
+
+## Closed (2026-10-23): the kernel's memory grows in a Worker of runtime@0's own
+
+The fix the measurements below point to. `src/libc-host.c` wraps `emscripten_resize_heap`
+(`-Wl,--wrap`, `toolchain/CMakeLists.txt`), the one place the kernel's allocator grows memory, to
+call `env.dolly_memory_grow(pages)`, a new `runtime@0` import (`abi/dolly-browser-0.wat`, the
+manifest, the review row in `docs/browser-boundary.md`). `host/runtime/runtime.mjs` hands it to
+`host/runtime/grower.mjs`, a Worker that only waits on a shared word and calls `memory.grow`, and
+waits with `Atomics.wait` until it is done; the runtime Worker waits for that Worker to be ready
+(`host.kernel.growing`) before it instantiates the kernel. No new authority: the kernel's own
+memory, up to its declared maximum, which `memory.grow` gave it before. Image inputs unchanged
+(`1ee15fc6…`); the kernel's build checks its exact imports against the contract.
+
+`test/memory-growth-browser.mjs` (Chrome with `--max-old-space-size=1024`, `system`): 256 MiB of
+writes, kernel memory grown to 2.5 GiB, the same writes again. With the binding growing memory in
+the runtime Worker as before: 207 ms, then 2,161 ms, and the test fails. With the Worker: 202 ms,
+then 148 ms; Firefox 249 ms, then 212 ms. Also passed in Chromium and Firefox with it: `core`,
+`npm`, `custom-session`, `host-compute` (a runtime Worker started without the page), `threads`,
+`process`, `host-modules`.
 
 ## The trigger, measured (2026-10-23, Chrome 156.0.8078.47, `core/runtime-cleanup`)
 
