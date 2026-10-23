@@ -57,23 +57,19 @@ the catalog round. Left, one line each:
   (its legacy-store step puts the 151 MB image as one ArrayBuffer); not caused here, not fixed.
 - `amy-browser.mjs` (tar `-j`/`-z` cases added) runs only after the catalog round builds every package.
 
-## State (2026-10-23 21:15 JST, branch `demo/opus-audit-2`): round 2 done
+## State (2026-10-23 23:00 JST, branch `demo/opus-audit-2`): rounds 2 and 3 done
 
-Ten more sessions ("Round 2", at the end), $3.786; with round 1, **$4.548 of the $20**
-(Pi's footer and the session files agree). Before the guidance change Opus wrote every game
-from scratch on the raw display and never looked at `amy`; after it, every session installed
-and reused a library (raylib, SDL2, FreeType, libpng, SQLite) in its first commands, with
-fewer failed calls and a third less time and money for the same prompt. Fixed here, each with
-a test that failed before: SDL2's accelerated renderer in the session that installed it, and
-Pi running a response's shell command and edit at once. Lines for the packages workstream and
-the owner are in round 2. Rebuilt in this tree: `sdl2`, `quickjs`, `janis`, `typescript`,
-`pi-build`, `pi`, `pi-dolly`, `pi-runtime`, `pi-agent`, `closed-source-agent`; stale until the
-round: `imgui`, `imgui-x11`, the SDL2 games, and the images on Pi and Janis.
-
-For the owner, one line each:
-- A display program started from Pi's `bash` tool takes the canvas over Pi until it exits
-  (one session lost 180 s so); should the display lease go only to the terminal's foreground
-  process, so that it fails at once instead?
+Eleven more sessions (rounds 2 and 3, at the end), $4.956; with round 1, **$5.718 of the
+$20** (Pi's footer and the session files agree). Before the guidance change Opus wrote every
+game from scratch on the raw display and never looked at `amy`; after it, every session
+installed and reused a library (raylib, SDL2, FreeType, libpng, SQLite) in its first
+commands, with fewer failed calls and a third less time and money for the same prompt.
+Fixed here, each with a test that failed before: SDL2's accelerated renderer in the session
+that installed it, Pi running a response's shell command and edit at once; and the guidance
+checks display programs under `timeout`. The branch has `core/npm-packages` (`f2677945`)
+merged in and Pi from npm (janis-install, step 5); this tree's images are on the `1ee15fc6`
+seed, built as the janis-install task says; Pi's chain waits for `rust-build` on the new seed.
+Lines for the packages workstream are in round 2 (forwarded by the integrator).
 
 ## Method
 
