@@ -27,6 +27,9 @@ Against the open problems below, on this run:
   take from, then measure a second throw. Rejected (`sling-t14`, 2,400 s): letting the Tonbi
   recovery truck carry standing rounds as it carries boxes. It takes them out of the stock row
   before they are loaded, and no tether round was thrown at all (39 deliveries).
+  Not tried further on 2026-10-24: on the seed of `a848735b` the `slopyard` image rebuilds
+  through `rust-build` (Pi's ripgrep and fd), which needs the integrator's 24 GB build slot,
+  and every probe here runs in that image.
 - Idle capacity: the Kanagu tugs each haul once (the tether rounds); both Tsuru rescuers and both
   Kurogane collectors still never grip. Akane, the East crane boat, grips once.
 - Benkei West moves 374 m (58 m on 2026-10-06); Kitsune West 125 m (38 m).
