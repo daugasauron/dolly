@@ -63,7 +63,9 @@ sequenceDiagram
   and the exact typed import validation after linking decides.
 - The supervisor caches compiled modules by SHA-256 (64 entries, 256 MiB), never
   instances. It admits a spawn while the processes' committed Wasm memory is
-  under 4 GiB and fewer than 56 exist; a further spawn fails `EAGAIN`.
+  under 4 GiB and fewer than 56 exist; a further spawn waits for a process to
+  end, as a blocking call does (a signal interrupts it), and fails `EAGAIN`
+  after 5 s.
   A start does not read an executable whose module is cached: the kernel opens the
   file and gives its version (`dolly_process_image_version`, a number every write and
   size change of the file renews), and only a version the supervisor has not compiled

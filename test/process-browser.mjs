@@ -298,3 +298,44 @@ await browserTest("process list", {}, async ({ open }) => {
   assert.equal(await submit("ps -e > /tmp/out 2> /tmp/err"), 2);
   await run("test -s /tmp/err && test ! -s /tmp/out");
 });
+
+// A spawn the memory budget refuses waits for a process to end, then fails:
+// beside a sibling holding the budget that exits, it starts; beside one that
+// stays, it fails EAGAIN after the 5 s the supervisor waits.
+await browserTest("process budget", { image: "system" }, async ({ open }) => {
+  const { page, submit, text, waitForText } = await open();
+  const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
+  await run("printf '%s\\n' '#include <signal.h>' '#include <stdio.h>' '#include <stdlib.h>' '#include <unistd.h>' " +
+    "'int main(int argc, char **argv) { signal(SIGINT, SIG_IGN); if (!malloc((size_t)atoi(argv[1]) << 20)) return 1; " +
+    "puts(\"held\"); fflush(stdout); sleep(atoi(argv[2])); return 0; }' > /tmp/hold.c && cc -O0 /tmp/hold.c -o /tmp/hold");
+  const spawnBeside = async seconds => {
+    await run(`/tmp/hold 4200 ${seconds} > /tmp/held &`);
+    // read is the shell's own: it spawns nothing.
+    for (const deadline = Date.now() + 30_000; await submit("read line < /tmp/held") !== 0;) {
+      assert.ok(Date.now() < deadline, await text());
+    }
+    const started = performance.now();
+    const status = await submit("true");
+    const elapsed = Math.round(performance.now() - started);
+    await run("wait");
+    return { status, elapsed };
+  };
+  const exits = await spawnBeside(2), stays = await spawnBeside(9);
+  // A signal ends the wait as it ends any blocking call: a shell with no
+  // handler for SIGINT ends at Ctrl+C, beside a holder that ignores it.
+  const ended = submit("slop -c '/tmp/hold 4200 9 > /tmp/held & until read line < /tmp/held; do :; done; type :; true'");
+  await waitForText(/: is a shell builtin/);
+  await page.locator("#keyboard").focus();
+  const pressed = performance.now();
+  await page.keyboard.press("Control+c");
+  const interrupted = { status: await ended, elapsed: Math.round(performance.now() - pressed) };
+  console.log(`process budget: beside an exiting sibling ${JSON.stringify(exits)}, beside a staying one ` +
+    `${JSON.stringify(stays)}, after Ctrl+C ${JSON.stringify(interrupted)}`);
+  assert.equal(exits.status, 0, await text());
+  assert.ok(exits.elapsed > 500, `${exits.elapsed} ms: the sibling had ended`);
+  assert.equal(stays.status, 126);
+  assert.ok(stays.elapsed >= 5000 && stays.elapsed < 9000, `refused after ${stays.elapsed} ms`);
+  assert.match(await text(), /true: spawn failed: Resource temporarily unavailable/);
+  assert.equal(interrupted.status, 130, await text());
+  assert.ok(interrupted.elapsed < 2500, `ended ${interrupted.elapsed} ms after Ctrl+C`);
+});
