@@ -148,3 +148,33 @@ turntable's angle is about its axis regardless of its mounting direction, so the
 arm loads upside down (13 misloads in 600 s, pole 11 m above the round). Ground batteries
 at x = ±40 or ±46 without their trucks and tugs: the trucks' bays stay where they were and
 the tugs park in the arm's sweep or push against the gun (134 s at 413 N).
+
+## The tether round (Kusari)
+
+The four-part round: a root block, two magnets either side of it and a winch block on a
+line. Fired at an airborne enemy, a magnet that touches it holds on, the line pays out until
+the winch block (the handle) lies on the ground, and the team's Kanagu cable tug is to grip
+the handle and haul the machine down; the round lets go once the machine stands on the
+ground (`m.releases`) or after 180 s (`m.aborts`). The sling audit prints each round's
+phases, captures, grounded and aloft releases, and how low the held machine came.
+
+- Before (`e936ac95`, 2,400 s): neither round was ever fired; no capture.
+- After the catapult work (`9faf2c17`, 2,400 s): both fired (72 s, 89 s); the Red one caught
+  the Kurogane West scrap collector at 20 m at 77 s and laid its handle on the ground. The
+  Red tug followed the round's radio report but sat behind the shed at (15, -20) for 120 s
+  while the collector dragged the handle 40 m around it; the round let go aloft at 257 s.
+- In the next runs both rounds flew off the arm while it spun (83 s, 166 s). The guns held
+  them 1.4 to 2.1 m from the root, by an outer magnet, and the winch block, beside the root
+  on the side of the gun, sat 3 cm from the gun's rotor: the round touched the gun (17 to
+  153 N) just before each drop.
+
+Changes (`f14c9351`): the round stands on its winch block, under the root (a single block
+below the arm's path instead of one toward the gun); a gun grips a round only by its root
+block and lowers its pedestal for a round with a part below it; a tug that stays within 3 m
+for 10 s short of a distant goal first drives to the clear point 12 m away nearest the goal;
+a haul gets its own 180 s; the tug accepts a standing round within 2 m of its bay
+(`slopyard-tether-lifecycle.c` failed at 1.1 m with the standing round, and passes).
+
+A replay of the `9faf2c17` capture (its world saved at 82 s, only the programs replaced):
+the tug drives round the shed, grips the handle at 222 s and hauls; the collector is held
+down at 16.7 m over the shed roof (its lowest part at 14.6 m, the roof at 14.1 m).
