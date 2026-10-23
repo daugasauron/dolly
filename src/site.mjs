@@ -4,8 +4,9 @@
 // here and in the site's runtime Worker (build-worker.mjs), never in a page
 // that only runs images.
 import { buildHost } from "../host/modules.mjs";
+import { hostManifests } from "../host/manifests.mjs";
 import { run } from "./browser.mjs";
-import { DOLLY_IMAGES, imageBase } from "./images.mjs";
+import { DOLLY_IMAGES, imageBase, loadImages } from "./images.mjs";
 import { prepareImageArtifacts, loadImageHostRequirements } from "./image-build.mjs";
 import { buildImage } from "./image-builder.mjs";
 import { loadCustomImage, storedCustomImage } from "./custom-image.mjs";
@@ -13,8 +14,27 @@ import { describeImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 
-export function bootRoute(mount, { image: route, mode = "snapshot", loadSession = false, ...options }) {
-  return run(mount, options, async registry => {
+// The modules a route's page has (the registry loads those alone): an image of
+// the directory run from its packs has its own and what they depend on; a route
+// that builds, one that learns its image later (a custom image, a saved
+// session) and an image that enables modules itself (nena@0) have every module
+// this repository builds. A test may name fewer (named).
+async function pageModules({ image, mode, loadSession, images, named }) {
+  await loadImages(images);
+  const declared = DOLLY_IMAGES.find(definition => definition.image === image)?.hostRequirements;
+  const own = mode === "snapshot" && !loadSession && declared && !declared.includes("nena@0") ? new Set(declared) : null;
+  for (const value of own ?? []) {
+    for (const dependency of hostManifests.find(({ name, version }) => `${name}@${version}` === value)?.dependencies ?? []) own.add(dependency);
+  }
+  return hostManifests.filter(({ name, version }) => (!own || own.has(`${name}@${version}`)) && (!named || named.includes(`${name}@${version}`)))
+    .map(({ url }) => url);
+}
+
+export async function bootRoute(mount, { image: route, mode = "snapshot", loadSession = false, named, ...options }) {
+  // A directory that does not load names every module; run() then says why it failed.
+  const modules = await pageModules({ image: route, mode, loadSession, images: options.images, named })
+    .catch(() => hostManifests.map(({ url }) => url));
+  return run(mount, { ...options, modules }, async registry => {
     if (!["snapshot", "rebuild"].includes(mode) || typeof loadSession !== "boolean") {
       throw new Error("invalid Dolly boot options");
     }

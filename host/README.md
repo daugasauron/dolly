@@ -6,7 +6,7 @@ the modules its embedding names, by the URLs of their manifests: the registry
 ([`modules.mjs`](modules.mjs), `hostRegistry`) loads those and no other, on the
 page and in the Worker. [`manifests.mjs`](manifests.mjs) lists the modules this
 repository builds; the build, packaging and ABI tests read those manifests, and
-the site's pages name them all.
+a page of the site names those its route uses ([`site.mjs`](../src/site.mjs)).
 
 ```json
 { "name": "http", "version": 0, "dependencies": ["runtime@0"], "phase": "kernel",
