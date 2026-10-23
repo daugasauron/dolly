@@ -4,6 +4,59 @@
 - PRIORITY: 170
 - TAGS: core,iteration,build,owner,0.1.4
 
+## Item 4 done (2026-10-23, `core/terminal`)
+
+Measured first, with a timed trace of `scripts/prepare-image-sources.sh`
+(`PS4` with `EPOCHREALTIME`, nothing built; load 6 to 7 from other agents),
+in `work/terminal` with the Rust port's sources linked from `work/x11fix`:
+
+| Unchanged preparation | Before | After |
+| --- | --- | --- |
+| `codex` | 68.8 and 77.0 s | 3.5 and 3.6 s |
+| `zero-ad` | 45.6 and 52.4 s | 7.1 and 8.6 s |
+| `pi-local` | 23.1 and 22.1 s | 9.0 and 9.7 s |
+| `default` | | 1.6 s |
+
+Where the seconds were, before: `demos/codex/prepare-codex-sources.py` 59 s
+(extract, patch and vendor Codex, tar 905 MB, gzip it in Python, split it);
+`demos/rust/prepare-rust-sources.py` `cargo` 6.4 s, `fd` 2.2, `protox` 1.4,
+`ripgrep` 0.9, `cbindgen` 1.3, and `prepare-rustc-sources.py` 3.6, in every
+closure that holds `rust-build`; `demos/zero-ad/toolchain/prepare-distribution.mjs`
+25 s (it copied 1.8 GB of game content); SpiderMonkey's re-extraction and
+archive 7.3 s; the model weights' content comparison 3 s.
+
+Done, as the coordinator asked (keyed on inputs, which reverses the
+decision of 2026-10-06 for these preparers only):
+
+- The Rust and Codex preparers record a key beside what they stage
+  (`build/rust-sources/NAME.tar.gz.inputs`, `build/codex-source-parts.inputs`)
+  and stage nothing when it matches: SHA-256 over every file, by name and
+  content, of the preparer, `demos/rust/rust_sources.py`,
+  `scripts/build-source-tar.mjs`, `demos/rust/config` and
+  `demos/rust/toolchain`, and for Codex `demos/codex/config`, for rustc
+  `build/rustc-port/prepare.inputs`, the key of the port tree it reads. The
+  downloads are pinned by checksums inside those files and the pinned
+  archives. Whole directories are keyed, so a change anywhere in them
+  restages, which costs time and never keeps a stale source. Not keyed: the
+  host's `patch`, Python and Node.
+- SpiderMonkey's archive is kept in its keyed `build/generated/zero-ad-build-*`
+  directory with a key of the staging script (its exclude list), Dolly's
+  patch and the archive writer, and copied into the staging.
+- `prepare-distribution.mjs` links the game content into the staging
+  instead of copying it; a copy over the staged link of a published file
+  rewrote that file in place.
+- Checked: unchanged runs print "kept, its inputs are unchanged"; a probe
+  `demos/rust/config/fd.toml` restaged the Rust sources (18 s), wrote a new
+  `fd.tar.gz` and repinned `Dollyfile-fd` (`37475fdb`); removed, the next run
+  wrote the original bytes and pin (`93f527ed`).
+- Whole unchanged runs, by phase (pins, preparation, routes, plan): `codex`
+  0.1 + 3.8 + 0.7 + 0.1 s, `zero-ad` 0.1 + 8.7 + 2.1 + 0.2, `pi-local`
+  0.1 + 8.9 + 1.7 + 0.2, `default` 0.1 + 1.8 + 0.2 + 0.1. The images here
+  were stale (a seed change), so the plan hashed no snapshot; with built
+  images it adds the 1.7 to 5.1 s measured on 2026-10-06. What stays in
+  `zero-ad` and `pi-local` is hashing: the pins and routes of 1.8 GB of game
+  content and 1.4 GB of model, and the model's content comparison (3 s).
+
 ## What a catalog round costs (2026-10-14, 06:00): gathered from the logs, the owner's to read
 
 Owner (2026-10-13): "Recently we're rebuilding from the core all the time
@@ -92,7 +145,7 @@ Left:
 3. **Ninja spawns serially.** Samurai runs one `dolly_spawn` at a time
    (`config/samurai-dolly.patch`): its upstream `jobstart` needs `posix_spawn`'s `addclose` of
    an inherited pipe end, which spawn mappings cannot express, and `addopen`.
-4. **Three demo images prepare for half a minute or more with nothing changed.** Measured on
+4. **Done (2026-10-23), above.** **Three demo images prepare for half a minute or more with nothing changed.** Measured on
    2026-10-14 (load 1 to 3, twice each, nothing built): `npm run image -- codex` 80 and 87 s,
    `zero-ad` 51 and 52 s, `pi-local` 33 and 33 s; all but 3 to 7 s of each is
    `scripts/prepare-image-sources.sh`. On 2026-10-06 they took 15, 14 and 16 s (the last

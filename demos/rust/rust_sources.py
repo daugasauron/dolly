@@ -29,6 +29,38 @@ def download(url, checksum):
     return path
 
 
+def inputs_key(*inputs):
+    """SHA-256 of what a staging reads: every file under each path, by name and
+    content, and each other input as text. The scripts that stage Rust
+    sources and their configuration are always among them."""
+    digest = hashlib.sha256()
+    common = [Path(__file__), project / "scripts/build-source-tar.mjs",
+              project / "demos/rust/config", project / "demos/rust/toolchain"]
+    for item in [*common, *inputs]:
+        if not isinstance(item, Path):
+            digest.update(f"{item}\0".encode())
+            continue
+        item = item.resolve()
+        for path in sorted([item] if item.is_file() else (p for p in item.rglob("*") if p.is_file())):
+            digest.update(f"{path.relative_to(project)}\0".encode() + hashlib.sha256(path.read_bytes()).digest())
+    return digest.hexdigest()
+
+
+def kept(output, key):
+    """Whether OUTPUT was staged from the inputs KEY names, as OUTPUT.inputs
+    records once it is complete. An unchanged run stages nothing again."""
+    record = output.with_name(output.name + ".inputs")
+    if output.exists() and record.exists() and record.read_text() == key:
+        print(f"{output}: kept, its inputs are unchanged")
+        return True
+    record.unlink(missing_ok=True)
+    return False
+
+
+def keep(output, key):
+    output.with_name(output.name + ".inputs").write_text(key)
+
+
 # Every project compiles the libc source the wasm64 standard library uses.
 LIBC = ("0.2.186", "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66")
 
