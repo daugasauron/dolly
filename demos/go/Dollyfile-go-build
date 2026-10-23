@@ -8,7 +8,7 @@ REQUIRES HOST http@0
 # the flags of upstream's release build (cmd/dist's toolenv), and installs it
 # over the seed's. The build fails unless every command is, byte for byte, the
 # seed's.
-FROM /v0.1.4/demos/go/Dollyfile-go-sdk 0c740276cc87893c48fec5d64d5e172c51e62fd89e881cf6c420553267349d50
+FROM /v0.1.4/demos/go/Dollyfile-go-sdk 6de6ffcaf8098344784fa3c9e1889b4a20f81ac43e40cdf7c05021c41f84cf04
 REQUIRES TOOL go
 SLOP mkdir -p /tmp/seed
 SLOP cp -R /usr/lib/go/pkg/tool/dolly_wasm64 /tmp/seed/tool

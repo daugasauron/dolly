@@ -18,7 +18,7 @@
 #include <unistd.h>
 
 enum {
-  DOLLY_KERNEL_PROCESS_LIMIT = 32,
+  DOLLY_KERNEL_PROCESS_LIMIT = 56,
   DOLLY_KERNEL_DESCRIPTOR_LIMIT = 1024,
   DOLLY_KERNEL_PROCESS_FREE = 0,
   DOLLY_KERNEL_PROCESS_PENDING = 1,
@@ -993,7 +993,9 @@ static int process_list_file(int kernel_fd) {
 }
 
 static int64_t open_process_list(dolly_kernel_process *reader, uint32_t flags) {
-  enum { line_limit = DOLLY_KERNEL_PIPE_CAPACITY / DOLLY_KERNEL_PROCESS_LIMIT };
+  enum { line_limit = 1024 };
+  _Static_assert(line_limit * DOLLY_KERNEL_PROCESS_LIMIT <= DOLLY_KERNEL_PIPE_CAPACITY,
+                 "every process's line fits the pipe");
   if ((flags & ~(DOLLY_PROCESS_OPEN_READ | DOLLY_PROCESS_OPEN_NOFOLLOW |
                  DOLLY_PROCESS_OPEN_CLOEXEC)) != 0) return -EACCES;
   if (live_pipe_count >= DOLLY_KERNEL_PIPE_LIMIT) return -ENFILE;

@@ -1,8 +1,73 @@
 # Iteration cost left: serial Ninja, a 32-process cap, slow unchanged demo builds, demo tests in Chrome only
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 170
 - TAGS: core,iteration,build,owner,0.1.4
+
+## Closed (2026-10-23)
+
+Every item of "Left" is done: 1 and 3 by the process workstream (`84bb1d10`),
+2, 4 and 6 on `core/terminal`, 5 on 2026-10-14. The done-when holds: one
+command serves the tree (`npm run dev`), `test:full` is gone, the
+turnaround table is in `README.md`, and an unchanged `npm run image -- IMAGE`
+takes 2.2 s for `default` and 4.7 s for `codex`. `zero-ad` and `pi-local`
+take 11 s at load 7, all of it hashing their 1.8 GB and 1.4 GB of content
+(item 4); with built images their plan adds the snapshots' hashing.
+
+## Items 1 and 3 done (2026-10-23, by the process workstream, `84bb1d10`)
+
+Recorded from `tasks/20261006-214244-process-exec` ("The start of a cached
+program; Ninja's jobs"), on `core/npm-packages` since `65736016`:
+
+- Item 1: a start reads no executable whose module is cached; the kernel
+  gives the file's version (`dolly_process_image_version`) and only a new
+  version is read and hashed. 40 runs of `cc --version` under Make at `-j8`:
+  3.85 to 4.02 s before, 0.24 to 0.29 s after (Chromium), 3.98 and 4.39 s
+  against 0.27 to 0.32 s (Firefox).
+- Item 3: Ninja is upstream Samurai, unchanged, with its jobs at once
+  (`posix_spawn_file_actions_addopen` and `addclose`): eight small C files in
+  about 1.0 to 1.3 s serial, 0.13 to 0.17 s at `-j4`.
+
+## Item 2 done (2026-10-23, `core/terminal`)
+
+The decision of 2026-10-01, built: `src/process-supervisor.mjs` admits a
+spawn while the processes' committed Wasm memory (the sum of their memories'
+`byteLength`) is under 4 GiB and fewer than 56 processes exist; past either
+the spawn is `EAGAIN`, as past the count before. The count is the backstop
+and the kernel's table, so it rose with it: `DOLLY_KERNEL_PROCESS_LIMIT` 56
+in `src/process-kernel.c`, `RLIMIT_NPROC` 56 in the libc adapter (a seed
+change), `help`'s limits line, and the documents. A line of
+`/proc/processes` now ends after 1023 bytes (it was the pipe's 64 KiB over
+the 32 slots, 2047), so that the lines of every slot fit the pipe.
+
+- Why 56, measured: what an engine runs out of first is not committed memory
+  but address space, since a process's memory is reserved at its maximum,
+  8 GiB for a program `cc` builds. With a count of 64, Chromium refused
+  the memory of the 61st process ("WebAssembly.Memory(): could not
+  allocate memory", the process refused with 126), 60 processes of 8 GiB
+  standing; Firefox held 64 and refused only past the count. 56 stays
+  below Chromium's ceiling. 46 small processes committed 975 MB at the
+  peak, so the 4 GiB budget binds only for programs that grow, which is
+  what it is for; no heavy build tuned it.
+- Reproduction, 40 runs of `cc --version` in one Makefile, `system`: on the
+  previous admission `make -j16` and `-j32` ended in 0.5 to 1.2 s with
+  `Error 126` (Chromium and Firefox; Firefox printed "compiler process
+  failed; retrying" and "spawn failed: Resource temporarily unavailable").
+  After the change, merged with the process workstream's faster starts
+  (`65736016`, image inputs `54c70100` with this change's seed): `-j1` 1.16
+  and 1.75 s, `-j8` 0.30 and 0.36 s, `-j16` 0.30 and 0.32 s, status 0
+  (Chromium, Firefox). `-j32` is 64 processes and more: `EAGAIN` and
+  `Error 126` in Chromium, and passes in Firefox, whose jobs end before the
+  count is reached.
+- Thirty `sh -c 'sleep 8'` at once through `xargs -P 30` (sixty processes):
+  46 and 52 run, the rest `EAGAIN`, none refused for memory.
+- A memory Chromium cannot reserve is asked for again every 50 ms for up to
+  5 s before the process is refused (`#launchPending`): it releases a
+  terminated Worker's memory some time after `terminate()`, and
+  `test/process-browser.mjs`, which fills the table with processes that
+  exit and then with ones that sleep, had 15 sleepers refused in Chromium
+  without it. With it the test passes in both browsers. This is a change of
+  the launch path beside the admission check.
 
 ## Item 6 done (2026-10-23, `core/terminal`)
 
@@ -142,7 +207,7 @@ it; nothing under `scripts/` imports from `test/`; `npm run build` and `test:ful
 
 Left:
 
-1. **Every program start copies and hashes the whole executable, one start at a time**
+1. **Done (2026-10-23, `84bb1d10`), above.** **Every program start copies and hashes the whole executable, one start at a time**
    (measured 2026-10-13, `system`, Chromium, load 9): 40 runs of `cc --version` under Make take
    4.0 to 4.2 s at `-j1` and 3.2 to 3.7 s at `-j8`, 100 ms a start. By reading: the kernel reads
    the 78 MB compiler into its memory, the supervisor copies it out, hashes it with SHA-256 to
@@ -151,12 +216,12 @@ Left:
    can give without reading the file (the file and a count of its writes) would let a cached
    module skip all three. Not built: it is a new kernel export and a change to the start
    protocol.
-2. **The supervisor admits 32 processes** (`processWorkerLimit`, `src/process-supervisor.mjs`),
+2. **Done (2026-10-23), above.** **The supervisor admits 32 processes** (`processWorkerLimit`, `src/process-supervisor.mjs`),
    and a spawn past them fails: the same Makefile at `make -j16` ends in a second with "compiler
    process failed" and `Error 126` for five targets. It holds CMake builds and LLVM at `-j4`. Decided on 2026-10-01 and not built: a memory budget (admit
    a spawn while committed Wasm memory stays under a page budget), the count kept as a
    backstop.
-3. **Ninja spawns serially.** Samurai runs one `dolly_spawn` at a time
+3. **Done (2026-10-23, `84bb1d10`), above.** **Ninja spawns serially.** Samurai runs one `dolly_spawn` at a time
    (`config/samurai-dolly.patch`): its upstream `jobstart` needs `posix_spawn`'s `addclose` of
    an inherited pipe end, which spawn mappings cannot express, and `addopen`.
 4. **Done (2026-10-23), above.** **Three demo images prepare for half a minute or more with nothing changed.** Measured on

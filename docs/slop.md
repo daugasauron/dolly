@@ -126,7 +126,7 @@ that run inside the shell stay serial.
 - `PROGRAM &` and `a | b &` start programs and continue with status 0; standard
   input is `/dev/null` unless redirected. `$!` is the PID of the last one,
   `wait` collects all of them and `wait PID...` returns the status of the last
-  PID named. At most 32 processes exist, and a background program outlives
+  PID named. At most 56 processes exist, 32 of them a shell's background programs, and a background program outlives
   its shell. `ps` lists the ones that run. There is no job control: `jobs`, `fg`, `bg` and `kill %N` are refused,
   and so is `&` after anything the shell would run itself (a compound
   command, a builtin, a function, a `!`, `&&` or `||` list): use
