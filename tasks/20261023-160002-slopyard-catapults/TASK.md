@@ -228,3 +228,26 @@ In the living world (fresh catalog, 2,400 s, headless):
   and swings out a metre beyond the round as the arm turns; at the bottom of the turn it
   strikes the gun's base (gun part 0, up to 204 N) or tears the round off without a contact.
   Standing the round on its winch block moved the strike from the rotor to the base.
+
+Why the round flies off, measured and worked out: the winch line is a distance joint of at
+least 1 m, so the winch block can stand a metre from the root in any direction, and a fast
+turn holds it radially outward. At the bottom of the turn the root is 6.45 m from the arm's
+pivot (8.5 m up) and the winch block's underside 7.9 m: 0.55 m above the ground, under the
+top of the gun's base (0.97 m) where the swing passes over it. In the dock direction that is
+the pedestal; aiming toward the middle (90° from the dock) the swing passes 1.5 cm beside the
+base's arm. A single box reaches 1.55 m and clears both.
+
+Rejected (`sling-t4`, 2,400 s): hold a long round at the bottom and throw it on the first
+upswing, accelerating at 8 rad/s², letting it down again past three quarters of a turn. No
+round dropped, but no tether round was thrown either (the Blue Tengu held its round 1,978 s,
+spinning 10 s in all): one upswing never met the 1.15 m prediction. Deliveries 44 (East 23,
+West 28).
+
+Left: lift the Tengu's bearing and arm a block above its base and pedestal (a spacer, the
+pedestal one block higher), and let the Koban loader take the dock height from the gun's
+pedestal instead of `station.y + 2`. Then the tether round clears the base in every
+direction; measure its launches, captures and grounded releases again.
+
+The final sources (`c962100e`, pinned `94960664`) were measured in `sling-t3`/`audit-t3`
+(headless, 2,400 s): 45 deliveries (East 25, West 27), 23 shots, every gun fired at least
+once, four rounds touched their target, none a teammate, no removals or controller errors.
