@@ -470,7 +470,7 @@ const elsewhere = {
   git: "man-browser.mjs, pager-browser.mjs", less: "pager-browser.mjs", llvm: "demos/llvm",
   parakeet: "demos/speech", "speech-to-text": "demos/speech: default refuses it", voice: "demos/speech, in pi-phone",
   tmux: "demos/tmux: default refuses it",
-  "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm",
+  "llvm-runtimes": "a build stage", "llama-cpp": "a build stage: llama links it", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm",
   "libdolly-audio": "audio-browser.mjs", "libdolly-buttons": "buttons-browser.mjs", "libdolly-gpu": "gpu-render-browser.mjs",
   "libdolly-microphone": "microphone-browser.mjs", "libdolly-sockets": "sockets-browser.mjs",
   libjpeg: "demos/xonotic", spidermonkey: "demos/zero-ad",

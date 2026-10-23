@@ -7,9 +7,8 @@ or remote fallback.
 ## Images
 
 - `pi-local`: Pi with the bundled Qwen3.5-2B; `/local` installs and switches models. Requires WebGPU.
-- `llama-build`: llama.cpp libraries built for the GPU interface.
-- `local-llm-build`: The dolly-llama command built from those libraries.
-- `llama`: `dolly-llama`, llama.cpp on WebGPU serving a GGUF over stdin and stdout; it needs `gpu@0`.
+- `llama-cpp`: llama.cpp's libraries with ggml's WebGPU backend over the GPU interface, for programs the `cc` package builds; they need `gpu@0`.
+- `llama`: `dolly-llama`, linked on `llama-cpp`, serving a GGUF over stdin and stdout; it needs `gpu@0`.
 - `qwen3.5-2b`: Model package: Qwen3.5-2B weights, description and license.
 - `minicpm5-2b`: Model package: MiniCPM5-2B weights, description and license.
 
@@ -76,7 +75,7 @@ which saves memory.
 
 ## Key files
 
-- [`Dollyfile-llama-build`](Dollyfile-llama-build), [`CMakeLists.txt`](CMakeLists.txt):
+- [`Dollyfile-llama-cpp`](Dollyfile-llama-cpp), [`CMakeLists.txt`](CMakeLists.txt):
   unchanged llama.cpp, its WGSL and the chat and sampling sources of its
   `common` library, built in Dolly with CMake.
 - [`webgpu.cpp`](webgpu.cpp), [`main.cpp`](main.cpp): the WebGPU C adapter for

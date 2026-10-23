@@ -55,7 +55,7 @@ Done (`ad98e33c`):
   display, the images' own checks, the source suite. Not run: the whole `test/amy-browser.mjs`
   (it needs every package built in this tree).
 
-Done (2026-10-24, the commit after `eefb3555`):
+Done (2026-10-24, `2d23f716`):
 
 - `sdl2-ttf` (SDL_ttf 2.24.0) and `sdl2-image` (SDL_image 2.8.8), upstream's release archives
   built unchanged by their CMake projects in `demos/sdl2/`: static libraries, headers,
@@ -103,8 +103,20 @@ client into every SDL program, so every image and session that runs one would de
 `core/npm-packages`. Which images declare `audio@0` is the owner's call; the line is in
 [Xonotic](../20261006-122433-xonotic/TASK.md).
 
-Next: a llama.cpp library package (`llama-cpp`) holding `llama-build`'s build, with
-`dolly-llama` (`llama`) linked on it and `pi-local` installing `llama`.
+Done (2026-10-24, the llama commit after `2d23f716`): `llama-cpp` holds `llama-build`'s build
+(llama.cpp, its common library, ggml with the CPU and WebGPU backends) and `webgpu.cpp`, the
+WebGPU C API that backend calls, as `libdolly-webgpu.a`, so a program links the package and
+`-ldolly-gpu` (which it installs) and nothing else; it declares `gpu@0`, as its programs do.
+`llama` holds the `dolly-llama` build (`FROM system-tools`, `USE llama-cpp`, its licences
+copied beside it). `llama-build` and `local-llm-build` are gone; `pi-local` installs `llama`.
+Measured in `default` (Chromium, SwiftShader's WebGPU adapter): `nena enable gpu`, then
+`amy install llama` and `dolly-llama --check` prints `{"ready":true,"shaders":"f32"}`; and
+`amy install cc llama-cpp` and a C++ program linked on the archives lists the WebGPU and CPU
+devices. Built: `llama-cpp` 276 s (22.7 MB), `llama` 9 s (11.0 MB). Not rebuilt here:
+`pi-local` and `dollyfile-studio`, whose 1.6 GB snapshot needs the integrator's `hugebuild`
+(the `pi-local` build crashed its page under this tree's 6 GB cap).
+
+Left of the list: libuv (above), for the catalog round.
 
 ## State (2026-10-23)
 
