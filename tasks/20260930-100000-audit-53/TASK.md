@@ -4,6 +4,20 @@
 - PRIORITY: 170
 - TAGS: core,iteration,build,owner,0.1.4
 
+## Item 6 done (2026-10-23, `core/terminal`)
+
+The narrowing stays (a registry of the whole catalog needs every image's
+sources staged, which a single-image run does not do) and is no longer
+silent: `test/dolly.artifacts.mjs` has "dist registers every image of the
+catalog", which fails naming how many images are missing ("dist registers
+17 images, 148 fewer than the catalog: a single-image run narrowed it, and
+a plain npm run image registers them all", measured here), and
+`generate-routes.mjs` says so when it writes a narrowed registry. The
+`default` check that skipped on a narrowed registry stays as it is: the
+suite no longer passes then. Not run: the passing case, a plain
+`npm run image` here, whose staging fetches Zig packages for `ghostty-gtk`
+and failed in this sandbox (NameServerFailure).
+
 ## Item 4 done (2026-10-23, `core/terminal`)
 
 Measured first, with a timed trace of `scripts/prepare-image-sources.sh`
@@ -167,7 +181,7 @@ Left:
    `sdl2` and `classicube` type through Chrome DevTools ("CDP session is only available in
    Chromium"), and `pi-local` and `dollyfile-studio` declare `gpu@0`, which headless Firefox
    does not have ("WebGPU is unavailable in this browser").
-6. **A single-image run narrows what the suites check, and they do not say so.**
+6. **Done (2026-10-23), above.** **A single-image run narrows what the suites check, and they do not say so.**
    `npm run image -- NAME` writes `dist/dolly-images.mjs` and the routes for NAME's closure,
    also when nothing is built: 31 images after `-- pi-local`. The artifact tests then read 31
    images and pass, and one skips (`test/zig-sdk.artifacts.mjs:19`, `skip:
