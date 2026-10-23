@@ -1,8 +1,31 @@
 # A refresh of the same tab after saving a large session exceeds 4 GiB in Chrome
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS: runtime,persistence,memory,0.1.4
+
+## Fixed (2026-10-24, `core/page-no-view`): the page holds no view of kernel memory
+
+Built as proposed below, decided by the integrator: every host module's page part keeps its DOM
+work and exchanges messages with its Worker side, which holds the mailboxes; the display paints
+from the runtime Worker into the page's canvas (`OffscreenCanvas`). Commits `30dc877d` (input,
+and `ask` in the registry), `66bd42d9` (touch, upload, HTTP, session saves), `7fbd5ea7`
+(display), `c7077683` (runtime@0, and the check below), `5b9ec6a9`, `20bf5311` (docs).
+
+- The probe, as above (Chrome 156, `KEEP_MIB=388`, 4 GiB, no swap): the refresh of the same tab
+  restores the session and verifies the file, 2 of 2: peak 3.91 and 3.79 GiB, 2.45 and 2.36 GiB
+  after. Leaving for a page of the same origin frees the old kernel memory without any
+  collection: 0.34 GiB ten seconds later (2.29 GiB before the change). It goes 2.2 s after the
+  page leaves, when Chrome has ended its Workers; that overlap with the new page's boot is the
+  refresh's peak, so a larger session can still pass 4 GiB.
+- The rule's check: `test/boundary-browser.mjs` reads the page's heap (a snapshot with V8's
+  internals, in Chromium) and finds no shared buffer of kernel memory's size; with one view of it
+  planted on the page it fails.
+- Keypress to frame at the shell prompt (60 keys, the first frame painted after each): before,
+  median 18.3 ms and 90th percentile 27.5 ms in Chromium, 18.7 and 27.9 ms in Firefox; after,
+  17.1 and 24.4 ms, 16.4 and 28.3 ms. The message more costs nothing measurable.
+- Firefox clears a canvas whose Worker is gone, so the Worker sends its last frame when the
+  image ends and the page keeps it behind the canvas.
 
 ## The cause, measured (2026-10-23, Chrome 156.0.8078.47, `core/process-exec` at `2035083c`)
 
