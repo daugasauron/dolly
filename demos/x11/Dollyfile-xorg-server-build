@@ -15,14 +15,14 @@ REQUIRES HOST sockets@0
 # builds it and pixman, libxkbfile and xkbcomp; libXfont2, its built-in and
 # bitmap fonts, and the SHA-1 of libmd are built by the Makefile below, and
 # xkeyboard-config's rules by its own generator.
-FROM /v0.1.4/demos/x11/Dollyfile-x11-build ef7319a0d696b01792193359c1f0e9772cbf72502751c5313d5fdcf968998cb4
-INSTALL /v0.1.4/demos/tools/Dollyfile-meson 1551251a726755657f731fbe3c09b25fed81c16b6366da721698ab2a71127363
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 7135481853e06749f8cd75ecf2804d341805a47d825c5552636490eea7898661
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 6c1adbd82791ce840a0155d9e16e185f7ec520bdbf08e34d0a0e4af8cad6571c
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build db104d1b55d512dc65df1086b4e6626036e6f41c1938be877ea9229302d41664
+INSTALL /v0.1.4/demos/tools/Dollyfile-meson 58c32200701a8f595ad45a081c10178643c0f3cae4afd63a6ac0ee74da14077e
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 375abf22164c1d0de1bf7f183e5da5f149ef5e0556e109111f8a011403913460
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 fa9b88a812f0ba181e694f73ea60f789a9bb050b7c42f854200a151f297ef856
 INSTALL /v0.1.4/Dollyfile-zlib 2b00bbe6b1bf2eb22f6916e1faf4fb5f18588390d8df6950bb3d7a95731489a0
-INSTALL /v0.1.4/demos/tools/Dollyfile-tar 857d0c2625beeb4b65d35c4bc17d537903d019f8b467ef656897fc2b66b21ee4
-INSTALL /v0.1.4/demos/tools/Dollyfile-xz 2ad0fe547d9ed230b9e23a42ed448379960a728c414fb0598e5a5ac28159164a
-INSTALL /v0.1.4/demos/tools/Dollyfile-yacc f917fdac4569bdaefb424e9cf5a56ecb8af4494f28e4d79a4e699db308c0a9ae
+INSTALL /v0.1.4/demos/tools/Dollyfile-tar ccdbfdc7fa51256f8bf8a709cc0d77d47115036425763dc984eeffe9be833d96
+INSTALL /v0.1.4/demos/tools/Dollyfile-xz 896a59e3b1db30d31571b66963237184ee251b0570940873c1e3fb76697183b8
+INSTALL /v0.1.4/demos/tools/Dollyfile-yacc 6593b40db907f3e1e50ffa9d953833d5bf1f01b380e446b467f8c0e3edf0e86a
 
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2

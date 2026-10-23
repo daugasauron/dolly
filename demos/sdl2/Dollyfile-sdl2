@@ -5,7 +5,7 @@ REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST touch@0
 
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build a5963c01f3c8d4bcad0cc3f607afe228351757d9d3b87c966ba38f15ee900826
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build faa8cc8626bf79a74cdf06afec7a8788b8caba872528b808dbb9f8254290db26
 INSTALL /v0.1.4/Dollyfile-libdolly-touch b07fef7f74d4278d9f8ef3d4c2a6455f7f7d13fcfa455e8e9a89e6fee841bb44
 REQUIRES HEADER libc
 REQUIRES HEADER display

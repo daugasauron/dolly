@@ -53,9 +53,24 @@ steps of `test/terminal-browser.mjs` are unchanged and pass).
   yield no bytes from the decoder; the reports leave as replies. The
   parenthesis is incomplete; correcting it changes the seed, so it waits
   for the next seed change.
-- Left, as limits: only the primary button reaches the terminal (the page
-  would otherwise have to know when to keep the browser's context menu),
-  so tmux's menus and middle-button paste are keys; a program ended by
+- Left, as limits:
+  - ~~Only the primary button reaches the terminal (the page would
+    otherwise have to know when to keep the browser's context menu), so
+    tmux's menus and middle-button paste are keys.~~ Done (2026-10-23,
+    COMMIT_PLACEHOLDER): the terminal shows the arrow while a program asks
+    for the mouse, as terminals do, and the page then sends it the middle
+    and secondary buttons too, and holds back the browser's context menu
+    and the middle button's autoscroll and X11 paste; with Shift, and when
+    no program asks, they stay the browser's. The page learns it from the
+    canvas's cursor, which the display module sets from the terminal's
+    `cursor_style` word: no new word, contract or authority. Tests, failing
+    before (the probe's arrow never came) and passing in Chromium and
+    Firefox: the probe of `test/terminal-browser.mjs` also reads a press and
+    release of the secondary and the middle button, and the page's
+    `contextmenu` and middle `auxclick` are prevented while it asks and not
+    with Shift or after; the tmux test opens the pane menu with the
+    secondary button and closes it with Escape.
+  - A program ended by
   force leaves its mouse mode set, as it leaves its other modes, and a
   click then types a report at the shell (Shift still selects; `printf
   '\033[?1000l'` resets); reports are handled on the display's tick ahead

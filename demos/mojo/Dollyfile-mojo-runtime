@@ -11,7 +11,7 @@ REQUIRES HOST upload@0
 
 # What a Mojo object links against in Dolly: cc NAME.o -lmojo-rt, and
 # -lmojo-gpu -ldolly-gpu for a program that uses the package gpu.
-FROM /v0.1.4/Dollyfile-system 3c0b5edb907bf4f0deabbff0809d27dab1abfa9e2b36c866d75c4047254a2db4
+FROM /v0.1.4/Dollyfile-system e230626fba103ae294848cab90774de5650147e06c5e76d02382ca0aeb453ad5
 INSTALL /v0.1.4/Dollyfile-libdolly-gpu f73cf73d6e271517756bf005d1a374a4958fbdf7fa1f656e8d0aff2684ea754b
 REQUIRES TOOL   cc
 REQUIRES TOOL   ar

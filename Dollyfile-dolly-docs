@@ -8,7 +8,7 @@ REQUIRES HOST runtime@0
 SOURCE /v0.1.4/docs/process-model.md 6ce963bd4069cc9df26e428209ce9833020de96788260229a6536af4707dae62 /usr/share/doc/dolly/docs/process-model.md
 SOURCE /v0.1.4/docs/browser-stack.md 6afa6298a0e03ff3af86cf3b5ff102c23508afd542d921a537c8eae7bfc48370 /usr/share/doc/dolly/docs/browser-stack.md
 SOURCE /v0.1.4/docs/slop.md 2b703a1aef25d1fce5c253467784b2837cfca1f416308a34513be08b9c638acb /usr/share/doc/dolly/docs/slop.md
-SOURCE /v0.1.4/docs/display.md 9c6d12ad69a68712880816d36e9fd9993ebccc38851cbdec2a2987a78f00966e /usr/share/doc/dolly/docs/display.md
+SOURCE /v0.1.4/docs/display.md 03b4926300edd37b63386178d995381c59a162d95ce3525fe0cdded33ef32b88 /usr/share/doc/dolly/docs/display.md
 SOURCE /v0.1.4/docs/gpu.md dffb2841e2c92626af12a921bbfb45c6f44fe7ecc29ff39fd96f5930d4ce3c67 /usr/share/doc/dolly/docs/gpu.md
 SOURCE /v0.1.4/docs/audio.md 2380b483c106b884e3e97ed3de8eaac9467e8e2a0307b878bddf620401d43e9f /usr/share/doc/dolly/docs/audio.md
 SOURCE /v0.1.4/docs/http.md de50df79d12ddf7cc5335c1061e0f33c5dcaa2228970754ff844f211ed2a40af /usr/share/doc/dolly/docs/http.md
@@ -23,7 +23,7 @@ SOURCE /v0.1.4/abi/dolly-browser-0.wat 8ca7d634363b4dbe205030dca9f510ddf46485727
 SOURCE /v0.1.4/abi/dolly-host-0.wat 7d1a02e3317086c06ca022e917d6d8537d9a005e9804e5ffdf256dc7d70c8671 /usr/share/doc/dolly/abi/dolly-host-0.wat
 SOURCE /v0.1.4/abi/dolly-image-0.wat 9a16a6472d26ee6ca5d7a67a474a1723745b3eefaf585bd292d115725bf44d6a /usr/share/doc/dolly/abi/dolly-image-0.wat
 SOURCE /v0.1.4/abi/dolly-kernel-plugin-0.wat 8ed18bd8b9221ac11e077bba609db2e161b34f90f3ab1adc088a5597bb409d36 /usr/share/doc/dolly/abi/dolly-kernel-plugin-0.wat
-SOURCE /v0.1.4/docs/input.md 2ff80fa39390e06c142c16369dbc66f82223cca777c5698de4d7bcea229a1228 /usr/share/doc/dolly/docs/input.md
+SOURCE /v0.1.4/docs/input.md 6a179fe5ad931632900cc1c25ca5478e186733c9e5c217157c082b3f333ad2f4 /usr/share/doc/dolly/docs/input.md
 SOURCE /v0.1.4/abi/dolly-process-0.wat ecbeb8baf2f2ead274da643bde8bd325e250b9a46549ad4155f4451b06d1657d /usr/share/doc/dolly/abi/dolly-process-0.wat
 SOURCE /v0.1.4/abi/dolly-process-gate-0.wat 04763b281b286061ccae2c91cb18207fc5e820e9368ea004306047561e3cf269 /usr/share/doc/dolly/abi/dolly-process-gate-0.wat
 SOURCE /v0.1.4/abi/dolly-supervisor-0.wat ce5c8818c92e7f856745ae087213592dca97f5c6421888f0e0f3c99f072642a4 /usr/share/doc/dolly/abi/dolly-supervisor-0.wat
