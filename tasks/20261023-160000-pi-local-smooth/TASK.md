@@ -38,7 +38,7 @@ same steps as `build-image.mjs` without restaging the unchanged sources. `pi-loc
 ## Method
 
 `build/pilocal-evidence/drive.mjs` (not committed): `pi-local` of `e936ac95` served by the
-checkout server, Chrome 151 on the RTX 5070 under Xvfb :151, a person's prompts typed into
+checkout server, Chrome 156 on the RTX 5070 under Xvfb :151, a person's prompts typed into
 Pi, each in a new session (`/new`), the workspace reset to one `notes.txt` before each with
 `!!` (not in the model's context). Three rounds of six prompts per model: "what is in this
 directory?", "Read notes.txt and move the next meeting to Thursday.", "which processes are
@@ -178,3 +178,13 @@ here with the command list inline, "You are a coding assistant. The machine you 
 Dolly", and a line appended to a bash result that says `NAME: command not found`: the name
 is not installed, the prompt lists what is, `amy list` shows the packages. Measured with
 the shipped sampling and with temperature 0.6, top-p 0.95 and (Qwen) presence penalty 0.
+
+## `local-llm-browser.mjs` on the GPU (2026-10-23 16:05-16:21 JST, `ef147433`)
+
+Xvfb :151, RTX 5070, Chrome 156.0.8078.47 and Firefox 157.0.1 (as the test records them), `pi-local` and `dollyfile-studio` built
+from `ef147433` in this tree: passed, exit 0 (`build/pilocal-evidence/test-gpu.log`,
+screenshots in `build/pilocal-evidence/test-gpu-proof/`). The agent proof ran with the new
+guidance: 4 tool calls in 15.6 s in Chrome, 4 in 106 s in Firefox, first attempt each. The
+test now types `/new` after choosing MiniCPM with `/local` and changing its parameters, and
+the next task must run on MiniCPM (its tokens/s line): passed in both browsers and both
+images. Without the saved default that session would start on Qwen.
