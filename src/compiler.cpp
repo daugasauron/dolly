@@ -963,8 +963,9 @@ bool emulate_casts(const std::string &path) {
   const char *arguments[] = {"wasm-opt", "--fpcast-emu", "--pass-arg=max-func-params@32", path.c_str(),
                              "-o", emulated.c_str(), nullptr};
   pid_t pid = 0;
-  if (posix_spawnp(&pid, "wasm-opt", nullptr, nullptr, const_cast<char *const *>(arguments), environ) != 0) {
-    std::fputs("dolly-cc: --dolly-cast-emulation runs wasm-opt, of the binaryen package\n", stderr);
+  if (const int error = posix_spawnp(&pid, "wasm-opt", nullptr, nullptr, const_cast<char *const *>(arguments), environ)) {
+    std::fprintf(stderr, "dolly-cc: --dolly-cast-emulation runs wasm-opt, of the binaryen package: %s\n",
+                 std::strerror(error));
     return false;
   }
   int status = 0;

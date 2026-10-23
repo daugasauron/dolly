@@ -21,9 +21,9 @@ const deferredResult = -(1n << 63n);
 const interruptedSystemCall = -BigInt(DOLLY_ERRNO.EINTR);
 // Trusted bounds on concurrent process Workers, independent of kernel
 // records: a spawn is admitted while the processes' committed Wasm memory is
-// under the budget, and the count, the kernel's table, is the backstop. It
-// stays below what Chromium reserves: the memory of a 61st process of 8 GiB
-// was refused.
+// under the budget or the spawning process has no live child, and the count,
+// the kernel's table, is the backstop. It stays below what Chromium reserves:
+// the memory of a 61st process of 8 GiB was refused.
 const processWorkerLimit = 56;
 const processMemoryBudgetBytes = 4 * 1024 * 1024 * 1024;
 // Chromium releases the address space of a terminated Worker's memory some
@@ -212,14 +212,22 @@ export class DollyProcessSupervisor {
     }
   }
 
-  #admitsProcess() {
-    let committed = 0;
-    for (const process of this.processes.values()) committed += process.memory?.buffer.byteLength ?? 0;
-    return this.processes.size < processWorkerLimit && committed < processMemoryBudgetBytes;
+  // The budget bounds fan-out (make -j, xargs -P), not a chain: refusing the
+  // one child a process waits for (zig build-exe's cc, cc's wasm-opt) would
+  // stop a build the machine can hold, so a parent with no live child is
+  // admitted under the count alone. The page's own spawns have parent 0.
+  #admitsProcess(parent) {
+    if (this.processes.size >= processWorkerLimit) return false;
+    let committed = 0, fanning = false;
+    for (const process of this.processes.values()) {
+      committed += process.memory?.buffer.byteLength ?? 0;
+      fanning ||= process.parent === parent && !process.retiring;
+    }
+    return committed < processMemoryBudgetBytes || !fanning;
   }
 
   spawn(arguments_, { foreground = false } = {}) {
-    if (!this.#admitsProcess()) throw new Error("Dolly process limit reached");
+    if (!this.#admitsProcess(0)) throw new Error("Dolly process limit reached");
     const packet = encodeSpawn(arguments_, foreground ? DOLLY_PROCESS_SPAWN_FOREGROUND : 0);
     new Uint8Array(
       this.kernelMemory.buffer,
@@ -670,7 +678,7 @@ export class DollyProcessSupervisor {
         threadArgument = new DataView(this.kernelMemory.buffer, this.mailboxAddress, 8).getBigUint64(0, true);
       const args = [process.pid, message.operation, BigInt(message.requestSize), BigInt(message.responseCapacity)];
       if (process.threaded) args.splice(1, 0, thread.tid);
-      const refused = message.operation === DOLLY_PROCESS_SPAWN && !this.#admitsProcess();
+      const refused = message.operation === DOLLY_PROCESS_SPAWN && !this.#admitsProcess(process.pid);
       const now = performance.now();
       if (refused && now - (refusedSince ?? now) < reservationPatienceMilliseconds) {
         this.deferred.set(thread, { process, thread, message, timer: null, refusedSince: refusedSince ?? now });

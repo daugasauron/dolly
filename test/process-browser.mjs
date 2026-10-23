@@ -299,15 +299,23 @@ await browserTest("process list", {}, async ({ open }) => {
   await run("test -s /tmp/err && test ! -s /tmp/out");
 });
 
-// A spawn the memory budget refuses waits for a process to end, then fails:
-// beside a sibling holding the budget that exits, it starts; beside one that
-// stays, it fails EAGAIN after the 5 s the supervisor waits.
+// The memory budget bounds fan-out: a process holding it with no live child
+// starts the one it waits for. A spawn beside a live child waits for a
+// process to end, then fails: beside a sibling holding the budget that
+// exits, it starts; beside one that stays, it fails EAGAIN after the 5 s the
+// supervisor waits.
 await browserTest("process budget", { image: "system" }, async ({ open }) => {
   const { page, submit, text, waitForText } = await open();
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
   await run("printf '%s\\n' '#include <signal.h>' '#include <stdio.h>' '#include <stdlib.h>' '#include <unistd.h>' " +
     "'int main(int argc, char **argv) { signal(SIGINT, SIG_IGN); if (!malloc((size_t)atoi(argv[1]) << 20)) return 1; " +
     "puts(\"held\"); fflush(stdout); sleep(atoi(argv[2])); return 0; }' > /tmp/hold.c && cc -O0 /tmp/hold.c -o /tmp/hold");
+  await run("printf '%s\\n' '#include <spawn.h>' '#include <stdlib.h>' '#include <sys/wait.h>' 'extern char **environ;' " +
+    "'int main(void) { pid_t pid; int status; char *argv[] = {\"true\", 0}; if (!malloc((size_t)4200 << 20) || " +
+    "posix_spawnp(&pid, \"true\", 0, 0, argv, environ)) return 1; return waitpid(pid, &status, 0) != pid || status; }' " +
+    "> /tmp/chain.c && cc -O0 /tmp/chain.c -o /tmp/chain");
+  const chainStarted = performance.now();
+  const chained = { status: await submit("/tmp/chain"), elapsed: Math.round(performance.now() - chainStarted) };
   const spawnBeside = async seconds => {
     await run(`/tmp/hold 4200 ${seconds} > /tmp/held &`);
     // read is the shell's own: it spawns nothing.
@@ -329,8 +337,9 @@ await browserTest("process budget", { image: "system" }, async ({ open }) => {
   const pressed = performance.now();
   await page.keyboard.press("Control+c");
   const interrupted = { status: await ended, elapsed: Math.round(performance.now() - pressed) };
-  console.log(`process budget: beside an exiting sibling ${JSON.stringify(exits)}, beside a staying one ` +
-    `${JSON.stringify(stays)}, after Ctrl+C ${JSON.stringify(interrupted)}`);
+  console.log(`process budget: holding it alone ${JSON.stringify(chained)}, beside an exiting sibling ` +
+    `${JSON.stringify(exits)}, beside a staying one ${JSON.stringify(stays)}, after Ctrl+C ${JSON.stringify(interrupted)}`);
+  assert.equal(chained.status, 0, await text());
   assert.equal(exits.status, 0, await text());
   assert.ok(exits.elapsed > 500, `${exits.elapsed} ms: the sibling had ended`);
   assert.equal(stays.status, 126);

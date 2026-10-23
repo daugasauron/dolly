@@ -15,18 +15,21 @@ INSTALL /v0.1.4/Dollyfile-cc 106380f3bc697b56a23cbbf9290de059a8e76d15da8615b65c8
 REQUIRES TOOL   c++
 REQUIRES TOOL   ar
 
-# zigcpp, with upstream's flags (CMakeLists.txt, "zigcpp target") and the
-# endian.h that llvm21's build includes for LLVM's headers.
+# zigcpp, with upstream's flags (CMakeLists.txt, "zigcpp target"), LLVM's
+# headers where its llvm-config says (cmake/Findllvm.cmake), and the endian.h
+# that llvm21's build includes for them.
 SLOP CWD /usr/lib/zig-llvm-build slop -c 'for unit in zig_llvm zig_llvm-ar zig_clang_driver zig_clang_cc1_main zig_clang_cc1as_main; do \
   c++ -c -O2 -std=c++17 -fno-exceptions -fno-rtti -fvisibility-inlines-hidden \
   -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -D_GNU_SOURCE \
-  -DLLVM_BUILD_STATIC -DCLANG_BUILD_STATIC -include endian.h -I /usr/lib/llvm21/include $unit.cpp -o $unit.o; done'
+  -DLLVM_BUILD_STATIC -DCLANG_BUILD_STATIC -include endian.h -I $(/usr/lib/llvm21/bin/llvm-config --includedir) $unit.cpp -o $unit.o; done'
 SLOP CWD /usr/lib/zig-llvm-build ar rcs libzigcpp.a zig_llvm.o zig_llvm-ar.o zig_clang_driver.o zig_clang_cc1_main.o zig_clang_cc1as_main.o
-# Every LLVM library: wasm-ld takes archives in any order. The stack is what
-# upstream gives the compiler it ships (46 MB, build.zig) rounded up; with
-# 58 MB of data that is 128 MB of initial memory.
-SLOP CWD /usr/lib/zig-llvm-build slop -c 'c++ -o /usr/bin/zig -Wl,-z,stack-size=50331648 -Wl,--initial-memory=134217728 zig2.o compiler_rt.o libzigcpp.a -L /usr/lib/llvm21/lib \
-  -lclangFrontendTool -lclangCodeGen -lclangFrontend -lclangDriver -lclangSerialization -lclangSema -lclangStaticAnalyzerFrontend -lclangStaticAnalyzerCheckers -lclangStaticAnalyzerCore -lclangAnalysis -lclangASTMatchers -lclangAST -lclangParse -lclangAPINotes -lclangBasic -lclangEdit -lclangLex -lclangRewriteFrontend -lclangRewrite -lclangCrossTU -lclangIndex -lclangToolingCore -lclangExtractAPI -lclangSupport -lclangInstallAPI -llldMinGW -llldELF -llldCOFF -llldWasm -llldMachO -llldCommon /usr/lib/llvm21/lib/libLLVM*.a'
+# Clang's and LLD's libraries by name and LLVM's as its llvm-config lists them,
+# as upstream's Findclang, Findlld and Findllvm do. The stack is what upstream
+# gives the compiler it ships (46 MB, build.zig) rounded up; with 58 MB of data
+# that is 128 MB of initial memory.
+SLOP CWD /usr/lib/zig-llvm-build slop -c 'c++ -o /usr/bin/zig -Wl,-z,stack-size=50331648 -Wl,--initial-memory=134217728 zig2.o compiler_rt.o libzigcpp.a -L $(/usr/lib/llvm21/bin/llvm-config --libdir) \
+  -lclangFrontendTool -lclangCodeGen -lclangFrontend -lclangDriver -lclangSerialization -lclangSema -lclangStaticAnalyzerFrontend -lclangStaticAnalyzerCheckers -lclangStaticAnalyzerCore -lclangAnalysis -lclangASTMatchers -lclangAST -lclangParse -lclangAPINotes -lclangBasic -lclangEdit -lclangLex -lclangRewriteFrontend -lclangRewrite -lclangCrossTU -lclangIndex -lclangToolingCore -lclangExtractAPI -lclangSupport -lclangInstallAPI -llldMinGW -llldELF -llldCOFF -llldWasm -llldMachO -llldCommon \
+  $(/usr/lib/llvm21/bin/llvm-config --link-static --libs) $(/usr/lib/llvm21/bin/llvm-config --link-static --system-libs)'
 SLOP zig version
 
 EXPORTS TOOL   zig
