@@ -18,7 +18,7 @@ entry.
   and musl, LLVM's compiler, compiler-rt and headers, the Ghostty kernel plugin,
   and the Iosevka font.
 - **Images**: snapshots of programs compiled in Dolly from pinned sources, plus
-  files built outside Dolly: the Rust seed, model weights, fonts and game data.
+  files built outside Dolly: the Rust and Go seeds, model weights, fonts and game data.
 - **Sources**: every site-path `SOURCE` of the catalog under `dist/static/`,
   the recipes and headers, at the same release path as the images. The gpu-fluid
   sources come from raw.githubusercontent.com instead.
