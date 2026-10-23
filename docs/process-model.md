@@ -37,16 +37,18 @@ sequenceDiagram
   ([`dolly-host-0.wat`](../abi/dolly-host-0.wat)). Memory is at most 8 GiB.
 - A start section may initialize memory/TLS but must not call the kernel.
 - Found through `PATH`; `#!` lines name an absolute in-Wasm interpreter, nested at most 4 deep.
-- `readlink("/proc/self/exe")` returns the loaded image's canonical path; there is
-  no general `/proc`.
+- `readlink("/proc/self/exe")` returns the loaded image's canonical path, and
+  `readlink("/proc/PID/cwd")` the directory a process that has not exited
+  stands in; there is no general `/proc`.
 - Opening `/proc/processes` for reading gives the processes that have not
   exited, a line each in PID order, `PID PARENT STATE ARGUMENTS`: the state is
   `starting` until the program runs and `running` from then, the arguments
   are joined by spaces with each control character as `?`, and a line ends
-  after 2047 bytes. It is the kernel's answer and no file: each open is its
-  own copy of the table in a pipe, `stat` and `ls /proc` find nothing, and
-  neither the path nor its descriptor takes a write; [`ps`](../Dollyfile-ps)
-  prints it under a heading.
+  after 2047 bytes. It is the kernel's answer: the file is empty, so that
+  `ls /proc` lists it and `stat` finds it, as on Linux, and each open of it,
+  by any path, is its own copy of the table in a pipe; neither the file nor
+  its descriptor takes a write, and sessions do not save `/proc`.
+  [`ps`](../Dollyfile-ps) prints it under a heading.
 - The target's identity: a program sees `__dolly__`, `__unix__` and
   `__wasm64__`, and no macro of Emscripten, Linux or WASI; `cc -dumpmachine`
   prints `wasm64-unknown-dolly` and `uname` `Dolly wasm64`. The libc is a
@@ -323,9 +325,10 @@ nothing and declares nothing: any program built for Dolly runs on one.
   pending and never forces termination.
 - Clock reads use the Worker's clock aligned to the kernel's origin, but enter the
   kernel at least once per millisecond so signals arrive in clock-only loops.
-- CPU time is not accounted: `clock()` and `CLOCK_PROCESS_CPUTIME_ID` report the
-  monotonic time since the process started, an upper bound that is exact while
-  it computes without blocking ([`libc-adapter.c`](../src/process/libc-adapter.c)).
+- CPU time is not accounted: `clock()`, `CLOCK_PROCESS_CPUTIME_ID` and
+  `getrusage` report the monotonic time since the process started as its user
+  time, an upper bound that is exact while it computes without blocking; system
+  time and children's times are zero ([`libc-adapter.c`](../src/process/libc-adapter.c)).
 
 ## Threads, DSOs and FFI
 

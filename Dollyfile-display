@@ -3,10 +3,14 @@ PACKAGE display
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 
-COPY /v0.1.3/Dollyfile-ghostty-build 955c2be6f80593bc6ca3e0665c18b73330a61ae6eb4b5f7d56c3241bbefedb3a /usr/lib/libdisplay.so /usr/lib/libdisplay.so
-COPY /v0.1.3/Dollyfile-ghostty-build 955c2be6f80593bc6ca3e0665c18b73330a61ae6eb4b5f7d56c3241bbefedb3a /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
-COPY /v0.1.3/Dollyfile-ghostty-build 955c2be6f80593bc6ca3e0665c18b73330a61ae6eb4b5f7d56c3241bbefedb3a /usr/share/licenses/ghostty /usr/share/licenses/ghostty
-COPY /v0.1.3/Dollyfile-ghostty-build 955c2be6f80593bc6ca3e0665c18b73330a61ae6eb4b5f7d56c3241bbefedb3a /usr/share/licenses/uucode /usr/share/licenses/uucode
+COPY /v0.1.4/Dollyfile-ghostty-build eb6f1b1b61ce0e71de005f5e5322e7d43810ad96b22a23f9338627d04cc89d75 /usr/lib/libdisplay.so /usr/lib/libdisplay.so
+COPY /v0.1.4/Dollyfile-ghostty-build eb6f1b1b61ce0e71de005f5e5322e7d43810ad96b22a23f9338627d04cc89d75 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+COPY /v0.1.4/Dollyfile-ghostty-build eb6f1b1b61ce0e71de005f5e5322e7d43810ad96b22a23f9338627d04cc89d75 /usr/share/licenses/ghostty /usr/share/licenses/ghostty
+COPY /v0.1.4/Dollyfile-ghostty-build eb6f1b1b61ce0e71de005f5e5322e7d43810ad96b22a23f9338627d04cc89d75 /usr/share/licenses/uucode /usr/share/licenses/uucode
+COPY /v0.1.4/Dollyfile-ghostty-build eb6f1b1b61ce0e71de005f5e5322e7d43810ad96b22a23f9338627d04cc89d75 /usr/share/fonts/DroidSansFallback.ttf /usr/share/fonts/DroidSansFallback.ttf
+COPY /v0.1.4/Dollyfile-ghostty-build eb6f1b1b61ce0e71de005f5e5322e7d43810ad96b22a23f9338627d04cc89d75 /usr/share/fonts/NotoEmoji-Regular.ttf /usr/share/fonts/NotoEmoji-Regular.ttf
+COPY /v0.1.4/Dollyfile-ghostty-build eb6f1b1b61ce0e71de005f5e5322e7d43810ad96b22a23f9338627d04cc89d75 /usr/share/licenses/droid-fonts /usr/share/licenses/droid-fonts
+COPY /v0.1.4/Dollyfile-ghostty-build eb6f1b1b61ce0e71de005f5e5322e7d43810ad96b22a23f9338627d04cc89d75 /usr/share/licenses/noto-emoji /usr/share/licenses/noto-emoji
 # The terminal as termcap describes it, for programs that link a termcap
 # library (less, Emacs): TERM is xterm-256color.
 FILE /etc/termcap

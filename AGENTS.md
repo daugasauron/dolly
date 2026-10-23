@@ -56,10 +56,6 @@ semantics, and lifecycle rules matter more than a high-level wrapper API.
   or replaces them (an embedding's list). Only an image that declares
   `nena@0` may enable and disable modules while it runs; the page makes each
   switch, and without that module nothing in Wasm changes the set.
-- The button strip is its own explicit external resource, `buttons@0`: a
-  caption and labelled buttons the page draws as text for one process, and
-  the clipboard's text only by the user's press of the page's own Paste
-  button. What that process types into the terminal stays in Wasm.
 - The browser host is not Dolly's filesystem and cannot provide native
   subprocesses.
 - Network access crosses one explicit, restrictable browser broker. Programs do
@@ -148,7 +144,8 @@ Prefer simple serial semantics over multiprocessing or performance machinery.
 
 # Bootstrapping direction
 
-An external toolchain builds the kernel and compiler seed. The resulting
+An external toolchain builds the kernel and the seed's libc; the seed's compiler
+is the one the previous seed built inside Dolly (`docs/sources.md`). That
 in-sandbox C/C++ compiler builds ordinary programs into the shared filesystem.
 Keep bootstrap exceptions explicit in `docs/sources.md` or the owning demo's README.
 

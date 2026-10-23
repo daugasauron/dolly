@@ -3072,7 +3072,7 @@ static const char *unsupported_builtin(const char *name) {
   static const char *const reasons[][2] = {
       {"alias", "aliases are unsupported; define a function"},
       {"unalias", "aliases are unsupported"},
-        {"bg", "there is no job control; `wait` collects programs started with &"},
+      {"bg", "there is no job control; `wait` collects programs started with &"},
       {"fg", "there is no job control; `wait` collects programs started with &"},
       {"jobs", "there is no job control; `wait` collects programs started with &"},
       {"umask", "Dolly has no permission bits"},
@@ -3094,6 +3094,12 @@ static int run_command_words(Shell *shell, int argc, char **argv) {
   const char *unsupported = unsupported_builtin(argv[0]);
   if (unsupported != NULL) {
     fprintf(stderr, "slop: %s: %s\n", argv[0], unsupported);
+    return 2;
+  }
+  // A job spec names a job, and there are none: kill takes PIDs.
+  for (int index = 1; strcmp(argv[0], "kill") == 0 && index < argc; index++) {
+    if (argv[index][0] != '%') continue;
+    fprintf(stderr, "slop: kill: %s: there is no job control; kill $! or a PID\n", argv[index]);
     return 2;
   }
   return spawn_command(shell, argc, argv, path_variable());

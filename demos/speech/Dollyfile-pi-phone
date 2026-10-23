@@ -1,31 +1,31 @@
 DOLLY 7
 APPLICATION pi-phone
 REQUIRES HOST runtime@0
-REQUIRES HOST buttons@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST input@0
 REQUIRES HOST microphone@0
 REQUIRES HOST packages@0
+REQUIRES HOST pty@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
+REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.3/demos/pi/Dollyfile-pi-runtime cec1f217de951843df6e6eb4ccfd3b5f3b49ac193cf625747563d6471a2c126f
-INSTALL /v0.1.3/Dollyfile-amy 013a5d4c170962e4cd4f8c339da4a6a8988cb8d5a290ac1a777486e7cb902500
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 00783410297d3f9729ce984744df90bba1e4531cd9f93133eefc9a9f95d47045
+INSTALL /v0.1.4/Dollyfile-amy df0015b3e7d8094c7df3e23d09f6e9ae363383d836e1b99ae8cecd7281c35d9c
 REQUIRES TOOL foreground
 REQUIRES TOOL pi
-INSTALL /v0.1.3/demos/speech/Dollyfile-voice 648c79be0fe829240160df7c1e0aef7234a179f070ab59de1c64446200bad1cf
-SOURCE /v0.1.3/dist/static/speech/pi.menu 1ed86c976443a7ae51821afba49e1b7a17cdf07bb40bb68c186a37a28f75349b /etc/dolly/pi.menu
+INSTALL /v0.1.4/demos/speech/Dollyfile-voice 9bdaef9cb0149b55e07b66d0f984e2b3aa73bcbba984256fc0b32a83b53be609
+SOURCE /v0.1.4/dist/static/speech/pi.menu 10c28421825610d22e8766be6138ba45b0b38f5e8600b6d109bd915a3e9d0161 /etc/dolly/pi.menu
 EXPORTS FILE pi-menu /etc/dolly/pi.menu
 
-# voice has the buttons and types; Pi has the terminal.
+# voice runs Pi above its buttons and types into Pi's terminal.
 FILE /etc/dolly/init.slop
     cd /workspace
-    /usr/bin/voice /etc/dolly/pi.menu &
     for attempt in 1 2 3; do
-      /bin/foreground -i /usr/bin/pi
+      /bin/foreground -i /usr/bin/voice /etc/dolly/pi.menu -- /usr/bin/pi
       status=$?
       case "$status" in 0|130) break ;; esac
     done

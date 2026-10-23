@@ -28,10 +28,19 @@ stage_llvm() {
   node scripts/build-source-tar.mjs "${output}" "${llvm_inputs[@]}"
 }
 if has_image llvm-tablegen; then
-  # The seed's checkout (scripts/build-toolchain.sh): pinned commit plus the LLD patch.
+  # The seed compiler's source: the pinned commit plus the LLD patch.
   llvm_dir="${project_dir}/.cache/llvm-project"
-  bash scripts/verify-git-source.sh "${llvm_dir}" "$(source config/source-pins.sh && echo "${DOLLY_LLVM_COMMIT}")" \
-    "${project_dir}/config/lld-dolly.patch"
+  llvm_commit="$(source config/source-pins.sh && echo "${DOLLY_LLVM_COMMIT}")"
+  if [[ ! -d "${llvm_dir}/.git" ]]; then
+    git init --quiet "${llvm_dir}"
+    git -C "${llvm_dir}" remote add origin "$(source config/source-pins.sh && echo "${DOLLY_LLVM_URL}")"
+    git -C "${llvm_dir}" sparse-checkout init --cone
+    git -C "${llvm_dir}" sparse-checkout set llvm clang lld libc cmake third-party
+    git -C "${llvm_dir}" fetch --depth=1 origin "${llvm_commit}"
+    git -C "${llvm_dir}" checkout --detach FETCH_HEAD
+    patch --batch --forward --fuzz=0 -d "${llvm_dir}" -p1 < demos/llvm/lld-dolly.patch > /dev/null
+  fi
+  bash scripts/verify-git-source.sh "${llvm_dir}" "${llvm_commit}" "${project_dir}/demos/llvm/lld-dolly.patch"
   stage_llvm "${llvm_dir}" "${static_dir}/llvm/llvm-project.tar.gz"
   copy_static demos/llvm/llvm-host-triple.patch llvm/llvm-host-triple.patch
 fi

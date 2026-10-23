@@ -1,0 +1,34 @@
+DOLLY 7
+PACKAGE janis-install
+REQUIRES HOST runtime@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+
+# janis-install NAME[@VERSION] installs a package from the npm registry and
+# the packages it depends on into /usr/lib/node_modules, with a /usr/bin
+# launcher for each command it names. It is one Janis script linked with the
+# runner, as tsc is, and checks and decompresses tarballs with sha512sum and gzip.
+FROM /v0.1.4/Dollyfile-system-tools 6895ef5069ae2dd33df453507496408567406e529ff79041b20f2419b93b861a
+INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 46772f895e3072f13b2af6c08d6bd6c86f4cc5dca3b92989293cebe6b697d608
+INSTALL /v0.1.4/Dollyfile-gzip 42bf0e843aaba5c2276def215e037a7151a490391b6a0fa83bc3ca3c56319cbe
+INSTALL /v0.1.4/demos/tools/Dollyfile-sbase a2ca66f6856ff7cef0ff0ea289fba3f5253576a98fb018fde4e1a52e63cf6328
+
+REQUIRES HEADER libc
+REQUIRES HEADER quickjs-runner
+REQUIRES LIB    dolly-js
+REQUIRES LIB    quickjs
+REQUIRES TOOL   cc
+REQUIRES TOOL   gzip
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   sha512sum
+
+SOURCE /v0.1.4/dist/static/default/runtimes/janis-install.mjs 0f65122856fd657d6d0e8f984c7268715e5af2eea0e61ec282d79d37f72c5747 /usr/lib/janis-install/janis-install.mjs
+SOURCE /v0.1.4/dist/static/default/commands/janis-install.c   3a9eeafa19aea3b722e725072b5296d63511a1e0a4859b057e1b6cb03befedb6 /tmp/janis-install/janis-install.c
+SLOP cc -I /usr/include/dolly /tmp/janis-install/janis-install.c -ldolly-js -lquickjs -o /usr/bin/janis-install
+
+SLOP mkdir -p /usr/share/man/cat1
+SLOP janis-install --help > /usr/share/man/cat1/janis-install.1
+
+EXPORTS TOOL janis-install
+FILE /usr/lib/janis-install/janis-install.mjs
+FILE /usr/share/man/cat1/janis-install.1

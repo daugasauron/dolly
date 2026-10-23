@@ -4,12 +4,13 @@ REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST http@0
 REQUIRES HOST input@0
+REQUIRES HOST touch@0
 
-FROM /v0.1.3/Dollyfile-system-tools 13ba21000aa665d6729f8e00cb795c4871f3bfaa72a4e18a7197d536b84a5826
-INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 4c3388aed0796e79846bc5b4c2cd3f53f115b1d9d117ef2833100679ace1564d
+FROM /v0.1.4/Dollyfile-system-tools 6895ef5069ae2dd33df453507496408567406e529ff79041b20f2419b93b861a
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 4d78ceeba01ed46946195018e037370fb583034dddb3481fe1613be43d591dda
 # FreeType (with its libpng) for the client's fonts, libjpeg for its textures.
-INSTALL /v0.1.3/demos/xonotic/Dollyfile-libjpeg def8c74350598cc5bc87cb1e6f2be818cda793bfe1db9fbbcc18430fe7c669a2
-INSTALL /v0.1.3/demos/zero-ad/Dollyfile-freetype c7179376cb23b5643d546d6076e32aa89664cfc08e264aae9f97cfff06df4aff
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-libjpeg 8b27522e82a69ef55ac416c072d5065873cc0940a405bf017b9a2cfcfe990bb9
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype 64f6c45595025aed69d0976500b9210cbcbd459ad2d811233e6b7fb2b14a97f1
 REQUIRES HEADER cpp
 REQUIRES HEADER sdl2
 REQUIRES HEADER zlib
@@ -25,7 +26,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL gzip
 REQUIRES TOOL rm
 
-SOURCE /v0.1.3/dist/static/xonotic/source.tar.gz 63ebe61b259763af1ee00ffe3dd1f72a1739a0c20781525b2e80db7e70b82f8c /tmp/xonotic/source.tar.gz
+SOURCE /v0.1.4/dist/static/xonotic/source.tar.gz 63ebe61b259763af1ee00ffe3dd1f72a1739a0c20781525b2e80db7e70b82f8c /tmp/xonotic/source.tar.gz
 SLOP gzip -dc /tmp/xonotic/source.tar.gz | tar -xf - -C /
 SLOP make -f /usr/src/dolly/xonotic/Makefile
 

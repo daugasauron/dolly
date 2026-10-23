@@ -8,10 +8,8 @@ import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 const modules = ["runtime@0", "display@0", "input@0", "http@0", "download@0", "upload@0", "snapshot@0"];
 // system holds the compiler and download and declares no threads@0: the
 // suite's image is system with that one line more, built by the page.
-const enable = modules => page => page.addInitScript(modules => { globalThis.DOLLY_HOST_MODULES = modules; }, modules);
 const system = DOLLY_IMAGES.find(({ image }) => image === "system");
 const threadsImage = { path: "/custom/rebuild/", setup: async page => {
-  await enable([...modules, "threads@0"])(page);
   await page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), ["DOLLY 7", "APPLICATION threads",
     ...[...modules, "threads@0"].map(module => `REQUIRES HOST ${module}`),
     `FROM ${siteReference(system.dollyfile)} ${system.sha256}`, "ENTRY /bin/foreground -i /bin/slop", ""].join("\n"));
@@ -120,7 +118,7 @@ await browserTest("threads", { image: "system", server: { fixtures, sourceOverri
 // An image that does not declare threads@0 refuses a thread executable.
 await browserTest("threads refusal", { image: "system", server: { fixtures, sourceOverrides } }, async ({ server, open }) => {
   const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
-  const denied = await open({ policy, setup: enable(modules) });
+  const denied = await open({ policy });
   sourceOverrides.set(probe, valid);
   assert.equal(await denied.submit(`curl -fsS ${server.origin}${probe} -o /tmp/threads-denied`), 0);
   assert.equal(await denied.submit("/tmp/threads-denied 2> /tmp/refused"), 126);

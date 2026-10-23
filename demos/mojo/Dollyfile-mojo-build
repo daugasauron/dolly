@@ -9,7 +9,7 @@ REQUIRES HOST sockets@0
 
 # Build-only: the Mojo compiler, compiled and linked inside Dolly from the
 # sources upstream builds with Bazel, and the standard library it precompiles.
-FROM /v0.1.3/demos/mojo/Dollyfile-mojo-llvm 4858a58494fef405e824eb48f6a8e617acc0e761118780c8b39e0148d6e6ba3d
+FROM /v0.1.4/demos/mojo/Dollyfile-mojo-llvm 3cb1fd465e1f1ead4fb33aca1fdd9380f1bb1b85246a39b12a89ff41805cd18b
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python
@@ -26,7 +26,7 @@ REQUIRES TOOL rm
 REQUIRES TOOL sha256sum
 REQUIRES TOOL cut
 
-SOURCE /v0.1.3/dist/static/mojo/mojo.tar.gz 85c382a809ee195c5d153de052aef38618ef1466d9f54a603a2e486445fda9fd /tmp/mojo.tar.gz
+SOURCE /v0.1.4/dist/static/mojo/mojo.tar.gz 85c382a809ee195c5d153de052aef38618ef1466d9f54a603a2e486445fda9fd /tmp/mojo.tar.gz
 SLOP slop -c 'gzip -dc /tmp/mojo.tar.gz | tar -xf - -C /'
 # Where the sources name Linux, macOS and Windows, and Dolly is none of them.
 SLOP patch -p1 -d /tmp/mojo/modular -i /tmp/mojo/mojo-dolly.patch

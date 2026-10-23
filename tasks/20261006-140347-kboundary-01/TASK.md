@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 130
-- TAGS: bug,filesystem,performance,kernel
+- TAGS: bug,filesystem,performance,kernel,0.1.4
 
 ## State (2026-10-13)
 

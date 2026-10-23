@@ -30,7 +30,7 @@ export async function hostRegistry(urls) {
     .map(({ name, version }) => `${name}@${version}`));
   const registry = { byName, owners, contracts, runtimes };
   return Object.freeze({
-    urls: Object.freeze([...urls]), contracts, runtimes,
+    urls: Object.freeze([...urls]),
     buildHostFor: declared => [...declared.filter(value => runtimes.includes(value)), ...buildHost],
     selectBoot: route => selectBoot(definitions, route),
     createHost: (...values) => createHost(registry, ...values),
@@ -53,9 +53,8 @@ async function selectBoot(definitions, route) {
   return selection;
 }
 
-// `closed`: the embedding named the modules itself, so nena@0 enables no other.
 async function createHost({ byName, owners, contracts, runtimes }, side, enabled,
-  { send, resources = {}, configuration = {}, closed = false } = {}) {
+  { send, resources = {}, configuration = {} } = {}) {
   if (!["browser", "worker"].includes(side)) throw new TypeError("invalid host side");
   const selected = hostRequirements(enabled), instances = new Map(), reasons = new Map(), messages = new Map();
   // The kernel is the one requested module that provides it; a module others
@@ -193,7 +192,6 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
     if (!module || module.contract.version !== version) return "this page has no such host module";
     if (instances.has(name)) return null;
     if (module.contract.fixed) return `fixed: ${module.contract.fixed}`;
-    if (closed && !selected.includes(value)) return "the embedding of this page does not offer it";
     const missing = module.contract.dependencies.find(dependency => !instances.has(hostRequirement(dependency).name));
     if (missing) return `it needs ${missing}`;
     reasons.delete(name);
@@ -246,7 +244,7 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
   } catch (error) { dispose(); throw error; }
   const kernel = hostRequirement(kernels[0]).name;
   return {
-    get, transfers, configuration: config, page, builder, inherited,
+    transfers, configuration: config, page, builder, inherited,
     kernel: instances.get(kernel),
     get enabled() { return [...instances.keys()].map(name => requirementOf(byName.get(name).contract)); },
     require: requireModules, dispose,

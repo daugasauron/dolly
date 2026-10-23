@@ -378,6 +378,8 @@ const tools = {
     "printf abc | sha512sum | grep -q '^ddaf35a193617aba' && cal 10 2026 | grep -q 2026 && echo sponged > /tmp/amy-sponge && " +
     "tr a-z A-Z < /tmp/amy-sponge | sponge /tmp/amy-sponge && grep -qx SPONGED /tmp/amy-sponge && " +
     "uuencode /tmp/amy-sponge sponge | uudecode -o /tmp/amy-uu && cmp /tmp/amy-uu /tmp/amy-sponge"],
+  // janis-install comes after janis, gzip and sbase, whose commands it brings; without the registry it refuses a git spec by name.
+  "janis-install": ["janis-install", "man janis-install > /dev/null && command -v sha512sum > /dev/null && ! janis-install user/repo 2> /dev/null"],
   // ex edits by commands; vi at the terminal is the step after this table.
   vi: ["vi", "printf 'one\\ntwo\\n' > /tmp/amy-ex && printf '%s\\n' '%s/two/2/' w q | ex -s /tmp/amy-ex > /dev/null && test \"$(tr '\\n' ' ' < /tmp/amy-ex)\" = 'one 2 '"],
   // A syntax file dte holds is written out and loads; dte at the terminal is
@@ -430,7 +432,10 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
   // sbase's in its place: a tree with a link archived, listed and unpacked.
   await run("mkdir -p /tmp/amy-tar/in/deep /tmp/amy-tar/out && cd /tmp/amy-tar && seq 1 2000 > in/deep/numbers && ln -s deep/numbers in/link && ! tar -cf in.tar in 2> /dev/null");
   await run("amy install tar && cd /tmp/amy-tar && tar -cf in.tar in && tar -xf in.tar -C out && cmp out/in/deep/numbers in/deep/numbers && " +
-    "test \"$(readlink out/in/link)\" = deep/numbers && tar -cf - in | pigz | gzip -dc | tar -tf - | grep -qx in/link");
+    "test \"$(readlink out/in/link)\" = deep/numbers && tar -cf - in | pigz | gzip -dc | tar -tf - | grep -qx in/link && " +
+    // -j starts bzip2 and waits for it: the archive is whole when tar ends;
+    // -z reads with the gzip package.
+    "tar -cjf in.tbz in && tar -tjf in.tbz | grep -qx in/link && tar -cf - in | pigz > in.tgz && tar -tzf in.tgz | grep -qx in/link");
   for (const read of reads("tar")) await run(read);
   // dolly-llama computes on the GPU, a host module default does not declare:
   // the package is refused by the module's name and nothing of it is installed.
@@ -444,13 +449,16 @@ const elsewhere = {
   git: "man-browser.mjs, pager-browser.mjs", less: "pager-browser.mjs", llvm: "demos/llvm",
   parakeet: "demos/speech", "speech-to-text": "demos/speech: default refuses it", voice: "demos/speech, in pi-phone",
   tmux: "demos/tmux: default refuses it",
-  pi: "the pi-dolly row installs it", "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm",
-  "libdolly-audio": "audio-browser.mjs", "libdolly-buttons": "buttons-browser.mjs", "libdolly-gpu": "gpu-render-browser.mjs",
+  pi: "the pi-dolly row installs it",
+  "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm", "qwen3.5-4b": "demos/local-llm",
+  "lfm2.5": "demos/local-llm",
+  "libdolly-audio": "audio-browser.mjs", "libdolly-gpu": "gpu-render-browser.mjs",
   "libdolly-microphone": "microphone-browser.mjs", "libdolly-sockets": "sockets-browser.mjs",
+  "libdolly-touch": "touch-browser.mjs",
   libjpeg: "demos/xonotic", spidermonkey: "demos/zero-ad",
   "xorg-server": "demos/x11", twm: "demos/x11", xclock: "demos/x11", xeyes: "demos/x11", xterm: "demos/x11",
   imgui: "demos/sdl2", "imgui-x11": "demos/x11", llvm21: "demos/zig: zig-llvm uses it", "zig-llvm": "demos/zig",
-  zsh: "demos/zsh", binaryen: "demos/zsh: zsh's build uses it", "ghostty-gtk": "demos/ghostty-gtk",
+  zsh: "demos/zsh", binaryen: "demos/zsh: zsh's build uses it", "ghostty-gtk": "demos/ghostty-gtk", ocaml: "demos/ocaml",
   glib: "demos/ghostty-gtk: gtk-build installs it", pcre2: "demos/ghostty-gtk: glib uses it", libffi: "demos/ghostty-gtk: glib uses it",
 };
 const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "llama", "tar", "meson", "typescript", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);

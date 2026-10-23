@@ -233,12 +233,9 @@ export async function loadImageArtifact(descriptor) {
   try {
     const id = `${DOLLY_IMAGE_BUILD_ID}:${descriptor.recipeSha256}`;
     const payload = await databaseOperation("readonly", (_store, payloads) => payloads.get(id));
-    const size = payload instanceof Blob ? payload.size : payload?.byteLength;
-    if (size !== descriptor.byteLength || size <= 0 || size > snapshotSizeLimit) return null;
-    const bytes = payload instanceof Blob ? await payload.arrayBuffer() : payload;
-    if (!(bytes instanceof ArrayBuffer) || bytes.byteLength !== descriptor.byteLength ||
-        bytes.byteLength > snapshotSizeLimit) return null;
-    const artifact = await describeImageArtifact(bytes, descriptor.recipeSha256, descriptor.inputs);
+    if (!(payload instanceof Blob) || payload.size !== descriptor.byteLength || payload.size <= 0 ||
+        payload.size > snapshotSizeLimit) return null;
+    const artifact = await describeImageArtifact(await payload.arrayBuffer(), descriptor.recipeSha256, descriptor.inputs);
     return artifact.sha256 === descriptor.sha256 ? artifact : null;
   } catch { return null; }
 }

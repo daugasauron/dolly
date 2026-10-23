@@ -253,17 +253,6 @@ export class DollyHttpPolicy {
   }
 }
 
-export function consumeDollyHttpPolicy(
-  globalObject = globalThis,
-  trustedSources = [],
-  applicationBase = globalObject.location?.href,
-) {
-  const configuration = globalObject.DOLLY_HTTP_POLICY, relays = globalObject.DOLLY_HTTP_RELAYS;
-  Reflect.deleteProperty(globalObject, "DOLLY_HTTP_POLICY");
-  Reflect.deleteProperty(globalObject, "DOLLY_HTTP_RELAYS");
-  return new DollyHttpPolicy(configuration, trustedSources, applicationBase, relays);
-}
-
 // Trusted browser state for an explicitly opened result tab, never Wasm data.
 export function httpPolicyConfigurations(policy) {
   if (policy.configurations) return policy.configurations;

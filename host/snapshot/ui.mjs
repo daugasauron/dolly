@@ -54,8 +54,9 @@ const markup = `<style>
 // The Save button, its dialog and Ctrl+Shift+S. A save captures the session
 // delta through the snapshot mailbox and keeps it in this browser. The page
 // describes the running image once its ENTRY starts; restored names the
-// session this page booted from, if any.
-export function mountSessionSave({ keyboard, showStatus, applicationBase, indicators }, transport, restored) {
+// session this page booted from, if any. On a page with a site, a save names
+// itself in the tab's URL and the dialog links the site's list of saves.
+export function mountSessionSave({ keyboard, showStatus, site, indicators }, transport, restored) {
   document.body.insertAdjacentHTML("beforeend", markup);
   const button = document.querySelector("#session-open");
   const dialog = document.querySelector("#session-dialog");
@@ -94,7 +95,8 @@ export function mountSessionSave({ keyboard, showStatus, applicationBase, indica
   button.addEventListener("click", open);
   document.querySelector("#session-close").addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => keyboard.focus({ preventScroll: true }));
-  document.querySelector("#session-list").href = new URL("sessions/", applicationBase).href;
+  const list = document.querySelector("#session-list");
+  if (site) list.href = new URL("sessions/", site).href; else list.remove();
   document.querySelector("#session-form").addEventListener("submit", event => {
     event.preventDefault();
     void save(nameField.value.trim()).catch(() => {});
@@ -158,8 +160,8 @@ export function mountSessionSave({ keyboard, showStatus, applicationBase, indica
       dataset.session = name;
       dataset.sessionBytes = String(encodedSize);
       dataset.sessionStatus = "saved";
-      history.replaceState(null, "", sessionLoadUrl(name, applicationBase));
-      showStatus(`Saved ${name} locally · /sessions lists your saves`);
+      if (site) history.replaceState(null, "", sessionLoadUrl(name, site));
+      showStatus(`Saved ${name} locally${site ? " · /sessions lists your saves" : ""}`);
       indicators.hold("session", false);
       update();
       return name;

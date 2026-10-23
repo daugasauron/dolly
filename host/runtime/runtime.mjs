@@ -126,6 +126,15 @@ export function worker({ send, runtimeBase, abi, service }) {
       return { memory: memory.buffer, address: Number(dolly._dolly_terminal_mailbox_address()) };
     },
     serviceDeferred() { supervisor?.serviceDeferred(); },
+    // Services deferred work each time the page notifies words[index], a
+    // module's mailbox word, until the returned function is called.
+    serviceOnNotify(words, index) {
+      let stopped = false;
+      const wait = () => void Promise.resolve(Atomics.waitAsync(words, index, Atomics.load(words, index)).value)
+        .then(() => { if (stopped) return; supervisor?.serviceDeferred(); wait(); });
+      wait();
+      return () => { stopped = true; };
+    },
     // A resident library linked into the kernel (--dolly-kernel-plugin), such as the display's.
     kernelPlugin(bytes, kernelExports) { return instantiateKernelPlugin(bytes, kernelExports, memory); },
     // The Worker side of a device a module leases per process (src/device-lease.c).

@@ -62,21 +62,6 @@ int dolly_kernel_foreground(void) {
                                    memory_order_acquire);
 }
 
-// Ctrl+C typed inside Wasm (dolly_kernel_terminal_type) asks as the page does
-// for its key; the supervisor's next tick takes the request.
-int dolly_kernel_foreground_interruptible(void) {
-  return dolly_kernel_foreground() != 0 &&
-      atomic_load_explicit(&terminal_mailbox.foreground_interruptible,
-                           memory_order_acquire);
-}
-
-void dolly_kernel_foreground_interrupt(void) {
-  atomic_store_explicit(&terminal_mailbox.interrupt_target_pid,
-                        (uint32_t)dolly_kernel_foreground(), memory_order_relaxed);
-  atomic_fetch_add_explicit(&terminal_mailbox.interrupt_sequence, 1,
-                            memory_order_acq_rel);
-}
-
 int dolly_process_take_interrupt(void) {
   const uint32_t sequence = atomic_load_explicit(
       &terminal_mailbox.interrupt_sequence, memory_order_acquire);
@@ -295,12 +280,18 @@ static int initialize_boot_environment(void) {
   close(output);
   close(error);
 
-  static const char *const directories[] = {"/bin", "/tmp", "/workspace", "/home", "/home/dolly"};
+  static const char *const directories[] = {"/bin", "/tmp", "/workspace", "/home", "/home/dolly", "/proc"};
   for (size_t index = 0; index < sizeof(directories) / sizeof(*directories); ++index) {
     if (mkdir(directories[index], 0755) != 0 && errno != EEXIST) {
       fprintf(stderr, "dolly: mkdir %s failed: %s\n", directories[index], strerror(errno));
       return 1;
     }
+  }
+  // The kernel answers an open of this empty file with its process list.
+  const int processes = open("/proc/processes", O_WRONLY | O_CREAT, 0444);
+  if (processes < 0 || close(processes) != 0) {
+    fprintf(stderr, "dolly: /proc/processes: %s\n", strerror(errno));
+    return 1;
   }
   // What every process starts from, before the image's own environment
   // (load_image_environment). The browser supplies none of it: LANG is the

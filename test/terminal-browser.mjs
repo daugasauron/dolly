@@ -137,6 +137,20 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
   });
   assert.equal(await submit("printf '\\033[0m\\033[2J\\033[H'"), 0);
 
+  // Chinese, Korean, Japanese and emoji are glyphs of the fallback fonts, each
+  // its own over two cells; a character no font has is the box (U+20000).
+  assert.equal(await submit("printf '\\033[2J\\033[H\\346\\227\\245\\346\\234\\254\\352\\260\\200\\343\\201\\202" +
+    "\\360\\237\\231\\202\\360\\237\\230\\200\\360\\240\\200\\200\\n'"), 0);
+  await waitForText(/^日本가あ🙂😀𠀀$/m);
+  await clearSelection();
+  assert.equal(await page.evaluate(() => {
+    const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry();
+    const context = document.querySelector("#display").getContext("2d");
+    return new Set([0, 2, 4, 6, 8, 10, 12].map(column => [...context.getImageData(paddingX + column * cellWidth,
+      paddingY, 2 * cellWidth, cellHeight).data].join())).size;
+  }), 7);
+  assert.equal(await submit("printf '\\033[2J\\033[H'"), 0);
+
   // Kitty graphics: a PNG of 2x2 red pixels shown over 4x2 cells at the
   // cursor, without a reply (q=2), then deleted.
   const red = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGP4z8AARAwQCgAf7gP9i18U1AAAAABJRU5ErkJggg==";
@@ -165,6 +179,24 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
   await keyboard.focus();
   await page.keyboard.press("Control+c");
   assert.equal(await raw, 0);
+
+  // A program that asks for the mouse reads the pointer's motion, the
+  // button and the wheel where the pointer is, while Shift and a drag still
+  // select: the screen is read so while it asks.
+  const mouse = start(`${probe} mouse`);
+  await waitForText(/DOLLY-MOUSE-READY/);
+  const [x, y] = await page.evaluate(() => {
+    const canvas = document.querySelector("#display"), bounds = canvas.getBoundingClientRect();
+    const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry();
+    return [bounds.left + (paddingX + cellWidth * 4.5) * bounds.width / canvas.width,
+      bounds.top + (paddingY + cellHeight * 2.5) * bounds.height / canvas.height];
+  });
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.up();
+  await page.mouse.wheel(0, (await page.evaluate(() => __dolly.transport.geometry())).cellHeight);
+  assert.equal(await mouse, 0);
+  assert.match(await text(), /DOLLY-MOUSE 5;3/);
 
   // A program that reads a line gets it as typed: echoed, Backspace and Ctrl+U
   // erase, Enter ends it, Ctrl+D on an empty line ends the input. Slop's own

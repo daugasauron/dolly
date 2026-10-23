@@ -1,0 +1,17 @@
+{
+  "name": "LFM2.5-2.6B",
+  "source": {
+    "url": "https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF/resolve/e7caca5d835a3901a8e0d63e94009429bafafdfc/LFM2.5-2.6B-Q4_K_M.gguf",
+    "sha256": "02a8b7e17487d326e46d68ce0ba24211e1b80a14c4cd0597fa73c1cd697f52ed",
+    "license": "LFM-LICENSE"
+  },
+  "packages": ["lfm2.5"],
+  "files": {"lfm2.5.gguf": 1674455040},
+  "gpu": {"f16": 2.3, "f32": 3.4},
+  "pi": {
+    "contextWindow": 16384,
+    "maxTokens": 2048,
+    "reasoning": false,
+    "samplingParams": {"repeat_penalty": 1.1}
+  }
+}

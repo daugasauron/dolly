@@ -5,6 +5,7 @@ import { parseWasmInterface } from "../src/wasm-interface.mjs";
 import { executableHostRequirements } from "../host/requirements.mjs";
 import { DOLLY_HTTP_ABI_DIGEST } from "../host/http/abi.mjs";
 
+// The site's page offers only the modules a test names before it loads.
 const hostModules = modules => page => page.addInitScript(modules => { globalThis.DOLLY_HOST_MODULES = modules; }, modules);
 const sourceOverrides = new Map();
 // A probe in an image without input cannot be typed to: it reports by request path.
@@ -22,7 +23,6 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides, 
   const loaderFetchesBefore = loaderFetches();
   const { page, submit, text } = await open({
     policy: { maxRequests: 200, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
-    setup: hostModules(["runtime@0", "display@0", "input@0", "http@0", "download@0", "upload@0", "snapshot@0"]),
   });
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));

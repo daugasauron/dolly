@@ -4,13 +4,19 @@
 #include "../../events/SDL_events_c.h"
 #include "../../events/SDL_keyboard_c.h"
 #include "../../events/SDL_mouse_c.h"
+#include "../../events/SDL_touch_c.h"
 #include "SDL_hints.h"
 #include <dolly/display.h>
 #include <dolly/input.h>
+#include <dolly/touch.h>
+
+/* The one touch device: the page's fingers on the canvas. */
+#define DOLLY_TOUCH_ID 1
 
 typedef struct {
     dolly_display_surface display;
     uint64_t input;
+    uint64_t touch;
     SDL_Window *window;
     SDL_Surface *pixels;
     SDL_bool relative;
@@ -24,9 +30,11 @@ static int DollyError(const char *operation, int error)
 static void DollyVideoQuit(_THIS)
 {
     DollyVideo *video = _this->driverdata;
+    if (video->touch) dolly_touch_release(video->touch);
     if (video->input) dolly_input_release(video->input);
     if (video->display.generation) dolly_display_release(video->display.generation);
     video->input = 0;
+    video->touch = 0;
     SDL_zero(video->display);
 }
 
@@ -46,6 +54,13 @@ static int DollyVideoInit(_THIS)
     // for an accelerated one, as upstream's examples do, gets that. A default,
     // so the variable or a program's own hint still choose.
     SDL_SetHintWithPriority(SDL_HINT_RENDER_DRIVER, "software", SDL_HINT_DEFAULT);
+    // Fingers where the page has a touchscreen for the program; without one
+    // the program goes on with the mouse and keys.
+    if (dolly_touch_acquire(&video->touch) != 0) video->touch = 0;
+    else if (SDL_AddTouch(DOLLY_TOUCH_ID, SDL_TOUCH_DEVICE_DIRECT, "Dolly touchscreen") < 0) {
+        dolly_touch_release(video->touch);
+        video->touch = 0;
+    }
     // SDL_SetCursor returns at once when the cursor equals the current one,
     // and SDL_ShowCursor hides through SDL_SetCursor(NULL): without a cursor
     // object the current one is NULL too and a hide request never reaches
@@ -168,10 +183,43 @@ static void DollyReleaseHeld(DollyVideo *video)
         SDL_SendMouseButton(video->window, 0, SDL_RELEASED, button);
 }
 
+/* A finger's position as SDL has it, a fraction of the window. */
+static float DollyTouchFraction(int32_t value, int size)
+{
+    return size <= 0 ? 0.0f : SDL_clamp(value / (float)size, 0.0f, 1.0f);
+}
+
+/* Each touch record is one of SDL's finger events; SDL makes its mouse and
+   gestures of them itself. */
+static void DollyPumpTouch(DollyVideo *video)
+{
+    SDL_Window *window = video->window;
+    dolly_touch_record records[DOLLY_TOUCH_READ_RECORDS];
+    int count;
+    do {
+        count = dolly_touch_read(video->touch, records, DOLLY_TOUCH_READ_RECORDS, 0);
+        if (count < 0) {
+            dolly_touch_release(video->touch);
+            video->touch = 0;
+            return;
+        }
+        for (int i = 0; i < count; ++i) {
+            const dolly_touch_record *record = &records[i];
+            const float x = DollyTouchFraction(record->x, window->w), y = DollyTouchFraction(record->y, window->h);
+            const float pressure = SDL_min(record->pressure / 1000.0f, 1.0f);
+            if (record->phase == DOLLY_TOUCH_MOVE)
+                SDL_SendTouchMotion(DOLLY_TOUCH_ID, record->id, window, x, y, pressure);
+            else
+                SDL_SendTouch(DOLLY_TOUCH_ID, record->id, window, record->phase == DOLLY_TOUCH_DOWN, x, y, pressure);
+        }
+    } while (count == DOLLY_TOUCH_READ_RECORDS);
+}
+
 static void DollyPumpEvents(_THIS)
 {
     DollyVideo *video = _this->driverdata;
     if (!video->window) return;
+    if (video->touch) DollyPumpTouch(video);
     dolly_input_event event;
     for (int n = 0; n < DOLLY_INPUT_EVENT_CAPACITY; ++n) {
         int result = dolly_input_next_event(video->input, &event, 0);

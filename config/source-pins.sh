@@ -12,6 +12,10 @@ DOLLY_LLVM21_VERSION=21.1.8
 DOLLY_LLVM21_URL='https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.8/llvm-project-21.1.8.src.tar.xz'
 DOLLY_LLVM21_SHA256=4633a23617fa31a3ea51242586ea7fb1da7140e426bd62fc164261fe036aa142
 DOLLY_LLVM_URL='https://github.com/llvm/llvm-project.git'
+# The seed's compiler and Clang's resource headers, as the llvm-cc image built
+# them from DOLLY_LLVM_COMMIT (demos/llvm/pin-seed-compiler.mjs writes both lines).
+DOLLY_SEED_COMPILER_URL='https://github.com/daugasauron/dolly/releases/download/v0.1.3/dolly-seed-compiler-9c4ba53ae495d3a2c3adc97bd89d9b76d005a0ce0e70dfc6837ebd1bcacf2565.tar'
+DOLLY_SEED_COMPILER_SHA256=9c4ba53ae495d3a2c3adc97bd89d9b76d005a0ce0e70dfc6837ebd1bcacf2565
 
 DOLLY_SBASE_COMMIT=c546c3a5724c81cee9a11d816a38ccdf17472129
 DOLLY_SBASE_URL='https://git.suckless.org/sbase'
@@ -171,6 +175,12 @@ DOLLY_IOSEVKA_SHA256=8642ab1546b24042d75500d34dbf2cba323bae4424ed41aa3005122b807
 DOLLY_IOSEVKA_TTF_URL='https://raw.githubusercontent.com/iosevka-webfonts/unhinted-iosevkaterm/dc5f458fa3918d909f0f78313b09b4887f3131d8/TTF-Unhinted/IosevkaTerm-SemiBold.ttf'
 DOLLY_IOSEVKA_TTF_SHA256=754545a4f6250efdd3d2cc916bb344c59f0c59830405307dfd44d183f919a654
 
+DOLLY_DROID_COMMIT=28c94330a909a10a5ab452538c2c97e247c48a13
+DOLLY_DROID_URL='https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/28c94330a909a10a5ab452538c2c97e247c48a13/data/fonts/DroidSansFallback.ttf'
+DOLLY_DROID_SHA256=56d3edfb377a8bc3c4b77f4476405c770173c0e31221ad7c77d0a8e1f3039a3e
+DOLLY_DROID_NOTICE_URL='https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/28c94330a909a10a5ab452538c2c97e247c48a13/data/fonts/NOTICE'
+DOLLY_DROID_NOTICE_SHA256=38751245389e1e23f73e6f5384b5cbe7fa972cc4410c5adc9c04b082a0b9561a
+
 DOLLY_STB_COMMIT=2c980bb59875b0d32144a71867fbdebb2f77cd20
 DOLLY_STB_TRUETYPE_URL='https://raw.githubusercontent.com/nothings/stb/2c980bb59875b0d32144a71867fbdebb2f77cd20/stb_truetype.h'
 DOLLY_STB_TRUETYPE_SHA256=ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab
@@ -307,6 +317,11 @@ DOLLY_EXPAT_SHA256=354552544b8f99012e5062f7d570ec77f14b412a3ff5c7d8d0dae62c0d217
 DOLLY_ZSH_VERSION=5.9.2
 DOLLY_ZSH_URL='https://www.zsh.org/pub/zsh-5.9.2.tar.xz'
 DOLLY_ZSH_SHA256=36fa734374b44783582cec09bcd67822e2f992c779ec1624ab5596df078d2f81
+
+# OCaml's release, with the bytecode boot/ocamlc it bootstraps from (demos/ocaml).
+DOLLY_OCAML_VERSION=5.5.0
+DOLLY_OCAML_URL='https://github.com/ocaml/ocaml/releases/download/5.5.0/ocaml-5.5.0.tar.gz'
+DOLLY_OCAML_SHA256=c018052c8264a3791a8f54f84179e6bcc78ed82eb889bacc2773df445259aed3
 
 DOLLY_TMUX_VERSION=3.8
 DOLLY_TMUX_URL='https://github.com/tmux/tmux/releases/download/3.8/tmux-3.8.tar.gz'

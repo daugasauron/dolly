@@ -392,9 +392,10 @@ __wasi_errno_t __wasi_fd_write(__wasi_fd_t descriptor,
   return 0;
 }
 
-/* Dolly does not account CPU time. clock() and CLOCK_PROCESS_CPUTIME_ID report
- * the monotonic time since the process started: an upper bound of its CPU
- * time, exact while it computes without blocking. */
+/* Dolly does not account CPU time. clock(), CLOCK_PROCESS_CPUTIME_ID and
+ * getrusage report the monotonic time since the process started as its user
+ * time: an upper bound of its CPU time, exact while it computes without
+ * blocking. Its system time and its children's times are zero. */
 static __wasi_timestamp_t process_started;
 
 __wasi_errno_t __wasi_clock_time_get(__wasi_clockid_t clock_id,
@@ -417,6 +418,17 @@ __wasi_errno_t __wasi_clock_time_get(__wasi_clockid_t clock_id,
 
 __attribute__((constructor)) static void record_process_start(void) {
   (void)__wasi_clock_time_get(__WASI_CLOCKID_MONOTONIC, 1, &process_started);
+}
+
+int getrusage(int who, struct rusage *usage) {
+  if (who != RUSAGE_SELF && who != RUSAGE_THREAD && who != RUSAGE_CHILDREN) {
+    errno = EINVAL;
+    return -1;
+  }
+  struct timespec used = {0};
+  if (who != RUSAGE_CHILDREN && clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &used) != 0) return -1;
+  *usage = (struct rusage){.ru_utime = {used.tv_sec, used.tv_nsec / 1000}};
+  return 0;
 }
 
 __wasi_errno_t __wasi_clock_res_get(__wasi_clockid_t clock_id,

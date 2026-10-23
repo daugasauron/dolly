@@ -57,11 +57,13 @@ Without a policy object (the public demo) the broker permits any HTTP(S) URL,
 the app's own origin included, keeps caller credential headers, follows redirects
 on request, and applies a 10-minute deadline (so reasoning and conversation
 summaries can finish), no request quota and no response cap. **This does not
-prevent exfiltration.** Restricted embeddings set a policy
-before `browser.mjs` loads; the broker consumes and deletes the global:
+prevent exfiltration.** A restricted embedding gives `boot()` a policy
+(`http: { policy }`); the site's own page reads
+it from `globalThis.DOLLY_HTTP_POLICY`, set before the page loads, and deletes
+the global:
 
 ```js
-globalThis.DOLLY_HTTP_POLICY = {
+const policy = {
   maxRequests: 64,                       // default 256
   rules: [{
     origin: "https://openrouter.ai",     // exact origin
@@ -109,11 +111,11 @@ CORS details from Fetch, so a generic transport failure alone does not
 identify its cause.
 
 An embedding that wants such a host maps its origin to a relay it trusts,
-next to the policy and before `browser.mjs` loads; the broker consumes and
-deletes the global:
+next to the policy (`http: { policy, relays }`; the site's page reads
+`globalThis.DOLLY_HTTP_RELAYS`):
 
 ```js
-globalThis.DOLLY_HTTP_RELAYS = [{
+const relays = [{
   origin: "https://github.com",            // exact origin programs ask for
   through: "https://example.org/relay/",   // URL prefix ending in /
   credentialHeaders: [],                   // default: the relay sees none

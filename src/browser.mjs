@@ -9,6 +9,7 @@ import { inspectDollyfile } from "./dollyfile-view.mjs";
 import { pageChords } from "./page-chords.mjs";
 import { terminalText } from "./terminal-text.mjs";
 import { DOLLY_IMAGES, DOLLY_STATIC_SOURCES, imageBase, loadImages } from "./images.mjs";
+import { publicURL } from "./static-asset.mjs";
 import * as processConstants from "./process-constants.mjs";
 
 const encoder = new TextEncoder();
@@ -41,13 +42,14 @@ function element(tag, properties, attributes = {}) {
 // Runs an image in `mount`, an element the embedding sizes, from the image
 // directory `images` (images.mjs). The embedding,
 // trusted page code, names the host modules the page has (`modules`, the URLs
-// of their manifests), may close the set an image can use (`hostModules`) and
-// sets the HTTP broker's policy (`http`: { policy, relays }), all before
-// anything of the guest runs. `image` is a packaged image or "custom", `mode`
-// "snapshot" or "rebuild", and `loadSession` asks the snapshot module for the
-// session the route names. It resolves to the page's API (window.__dolly on the
-// site) once the image's ENTRY runs, or to null when it only built an image.
-export async function boot(mount, { images, image: route, mode = "snapshot", loadSession = false, modules, hostModules, http = {} } = {}) {
+// of their manifests) and sets the HTTP broker's policy (`http`: { policy,
+// relays }), both before anything of the guest runs. `image` is a packaged
+// image or "custom", `mode` "snapshot" or "rebuild", and `loadSession` asks the
+// snapshot module for the session the route names. `site`, given, is the root
+// of the routes a module may link to (session/, sessions/, docs/). It resolves
+// to the page's API (window.__dolly on the site) once the image's ENTRY runs,
+// or to null when it only built an image.
+export async function boot(mount, { images, image: route, mode = "snapshot", loadSession = false, modules, site, http = {} } = {}) {
   if (!document.querySelector("style[data-dolly]")) {
     document.head.append(element("style", { textContent: style }, { "data-dolly": "" }));
   }
@@ -122,7 +124,7 @@ export async function boot(mount, { images, image: route, mode = "snapshot", loa
     const packagedImages = new Set(DOLLY_IMAGES.map(({ image }) => image));
     if (!(packagedImages.has(route) || route === "custom") || !["snapshot", "rebuild"].includes(mode) ||
         typeof loadSession !== "boolean" || !Array.isArray(modules) || !modules.length ||
-        (hostModules !== undefined && !Array.isArray(hostModules))) {
+        !(site === undefined || typeof site === "string")) {
       throw new Error("invalid Dolly boot options");
     }
     const bootMode = mode;
@@ -152,14 +154,13 @@ export async function boot(mount, { images, image: route, mode = "snapshot", loa
     const recipe = customSource === undefined ? DOLLY_IMAGES.find(definition => definition.image === image)
       : inspectDollyfile(customSource);
     const runnable = recipe.entry !== null;
-    host = await registry.createHost("browser", !runnable ? registry.buildHostFor(requiredHost) : hostModules ??
-      [...requiredHost, ...(bootMode === "rebuild" ? buildHost : [])], {
+    host = await registry.createHost("browser", !runnable ? registry.buildHostFor(requiredHost)
+      : [...requiredHost, ...(bootMode === "rebuild" ? buildHost : [])], {
       send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),
-      resources: { mount, canvas, keyboard, applicationBase, showStatus, fatal, bootstrapSources,
-        indicators: { hold: holdIndicators, show: showIndicators },
-        inherited: bootMode === "snapshot" ? custom : undefined },
-      configuration: { ...selected?.configuration, http: { ...selected?.configuration?.http, embedding: http } },
-      closed: hostModules !== undefined,
+      resources: { mount, canvas, keyboard, applicationBase, site: site && publicURL("", site), showStatus, fatal,
+        indicators: { hold: holdIndicators, show: showIndicators } },
+      configuration: { ...selected?.configuration, http: { ...selected?.configuration?.http, embedding: http,
+        sources: bootstrapSources, inherited: bootMode === "snapshot" ? custom : undefined } },
     });
     const buildDependency = (name, inputs) => buildImage(name, inputs, host.builder, appendBootstrap);
     const prepareArtifacts = () => prepareImageArtifacts(image, customSource, buildDependency,

@@ -158,7 +158,7 @@ static uint64_t little_endian(const unsigned char *bytes, size_t width) {
   return value;
 }
 
-typedef struct { unsigned long long files, bytes; char commands[1024]; } Summary;
+typedef struct { unsigned long long files, bytes; char commands[1024]; int environment; } Summary;
 
 // Writes the files a snapshot installs outside /etc/dolly, Dolly's own record
 // of an image, as "SIZE PATH" lines, and counts them and the commands in them.
@@ -176,6 +176,8 @@ static int list_files(const char *snapshot, FILE *list, Summary *summary) {
         fseeko(stream, (off_t)size, SEEK_CUR) == 0;
     if (!valid) break;
     path[length] = '\0';
+    // An environment record without names is its 16-byte header (src/dollyfile.c).
+    if (strcmp(path, "/etc/dolly/environment") == 0) summary->environment = size > 16;
     if (kind == 1 /* a directory */ || strncmp(path, "/etc/dolly/", 11) == 0) continue;
     fprintf(list, "%llu %s\n", (unsigned long long)size, path);
     summary->files++;
@@ -287,9 +289,9 @@ static int install_row(const char *name, const char *recipe, const char *sha256)
   unlink(path);
   rmdir(artifacts_dir);
   if (status != 0) return -1;
-  printf("amy: %s installed: %llu files, %llu bytes%s%s; amy files %s lists them\n"
-         "amy: its environment applies when the session is next loaded\n",
-         name, summary.files, summary.bytes, summary.commands[0] != '\0' ? ", commands:" : "", summary.commands, name);
+  printf("amy: %s installed: %llu files, %llu bytes%s%s; amy files %s lists them\n%s",
+         name, summary.files, summary.bytes, summary.commands[0] != '\0' ? ", commands:" : "", summary.commands, name,
+         summary.environment ? "amy: its environment applies when the session is next loaded\n" : "");
   return 0;
 }
 

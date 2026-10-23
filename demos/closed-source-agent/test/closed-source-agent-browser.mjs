@@ -14,6 +14,7 @@ import { claudeCodeTarball, registry, tarballPath } from "./fixtures/tarball.mjs
 const tarball = await claudeCodeTarball();
 const anthropic = "https://api.anthropic.com", platform = "https://platform.claude.com";
 const key = "sk-ant-api03-dolly-fixture-not-a-real-key";
+const claudeCode = "/usr/lib/node_modules/@anthropic-ai/claude-code";
 const content = "DOLLY-FIXTURE-CONTENT";
 const requests = []; // every request the fixture answered: path, method, headers, payload
 const tarballRequests = () => requests.filter(({ path }) => path === `/npm${tarballPath}`);
@@ -102,7 +103,7 @@ await demoTest("closed-source-agent", { image: "closed-source-agent", timeout: 6
   await page.keyboard.press("Control+c");
   await terminal.prompt(recoveryPrompt);
   assert.equal(await sent(), 0, "Ctrl+C at the notice sent a request");
-  await run("test ! -e /opt/claude-code && test ! -e /home/dolly/.claude.json && test ! -e /home/dolly/.claude");
+  await run(`test ! -e ${claudeCode} && test ! -e /home/dolly/.claude.json && test ! -e /home/dolly/.claude`);
   await run(`printf '${content}\\n' > /workspace/hello.txt`);
 
   // The first run downloads, and its own arguments still reach Claude Code;
@@ -161,8 +162,8 @@ await demoTest("closed-source-agent", { image: "closed-source-agent", timeout: 6
   // The session, not the image, now holds the package and Claude Code's own
   // configuration; outside the latter no file holds the key (rg: 1 is no match).
   // The bracket keeps this command, which the shell's history records, from matching itself.
-  await run("test -s /opt/claude-code/package/cli.js && test -s /home/dolly/.claude.json");
-  assert.equal(await submit(`rg -uuu -l ${key.replace("-fixture-", "-fixture[-]")} /tmp /opt /usr /etc /workspace /home/dolly/.slop_history`), 1,
+  await run(`test -s ${claudeCode}/cli.js && test -s /home/dolly/.claude.json`);
+  assert.equal(await submit(`rg -uuu -l ${key.replace("-fixture-", "-fixture[-]")} /tmp /usr /etc /workspace /home/dolly/.slop_history`), 1,
     `a file outside Claude Code's own holds the key:\n${await text()}`);
   assert.equal(tarballRequests().length, 1, "the tarball was requested more than once");
   assert.ok(requests.every(({ path }) => path.startsWith("/npm/") || path.startsWith("/fixture/")));

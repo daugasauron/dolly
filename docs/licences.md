@@ -40,16 +40,17 @@ entry.
 | IJG | libjpeg in Xonotic | Source: the unaltered `README` with it; binaries: the documentation states that the software is based in part on the work of the Independent JPEG Group | `README` kept as `/usr/share/licenses/libjpeg/README`; the statement is in the Xonotic section below and on `/licences/` |
 | LGPL-2.0+ | OpenAL Soft, static in the 0 A.D. engine | Source, and the means to relink | Source served (`openal/source.tar`), and the engine's (below), so it can be relinked |
 | MPL-2.0 | SpiderMonkey in 0 A.D.; MPL crates vendored by Codex | Source of the MPL files available; tell recipients where | Codex sources served; SpiderMonkey's pinned tarball is served (below); its MPL text is in `zero-ad` |
-| Apache-2.0 | LLVM (with exception), Mojo (with exception), TypeScript, Neovim, luv, Codex, WAMR, Meson, WABT, crates, npm packages | Licence copy, NOTICE files, modified files marked | Codex `NOTICE`, crates' notices and TypeScript notices shipped. LLVM's text is in every compiler image as `/usr/share/licenses/libcxx`; its exception covers runtime code compiled into programs. The Mojo compiler's patched files are those of `mojo-dolly.patch` and the target's patches, served with its source |
+| Apache-2.0 | LLVM (with exception), Mojo (with exception), TypeScript, Neovim, luv, Codex, WAMR, Meson, WABT, Droid Sans Fallback, crates, npm packages | Licence copy, NOTICE files, modified files marked | Codex `NOTICE`, crates' notices and TypeScript notices shipped; the Android fonts' `NOTICE`, the licence's text, is in `display`. LLVM's text is in every compiler image as `/usr/share/licenses/libcxx`; its exception covers runtime code compiled into programs. The Mojo compiler's patched files are those of `mojo-dolly.patch` and the target's patches, served with its source |
 | MIT, BSD, ISC, curl, Zlib, BSL, bzip2, ICU | Most of the catalog | Copyright and permission notice with copies, binaries included (not for Zlib or BSL binaries) | Shipped in `/usr/share/licenses`, including musl, Emscripten and every vendored crate's own licence files |
 | Info-ZIP | zip, unzip | The licence with copies, binaries included; an altered version may not be called Zip or UnZip | Built from the release archives unchanged; `LICENSE` is in each package |
 | Public domain, 0BSD | SQLite, XZ Utils, Berkeley Yacc, toybox | None | SQLite's dedication, xz's `COPYING`, and yacc's and toybox's `LICENSE` are in the packages |
 | flex 2.5.4's licence (BSD, with an acknowledgement) | flex (reflex) | Documentation with binaries displays: this product includes software developed by the University of California, Berkeley and its contributors | The sentence is in this row and in the package's `COPYING`; scanners that it writes carry no such term (flex's own notice) |
 | PSF-2.0 | CPython | Licence, and a brief summary of changes in a derivative | Both shipped (`DOLLY-CHANGES`) |
 | CC-BY-SA-3.0 | 0 A.D. art and audio | Attribution and licence; share-alike for adaptations | The repacked mod archives keep `art/`, `audio/` and font licence files; repacking adapts nothing |
-| OFL-1.1 | Iosevka; 0 A.D. fonts | Licence with the font; no sale of the font alone | Iosevka's name table carries the notice; fonts are unmodified |
+| OFL-1.1 | Iosevka, Noto Emoji; 0 A.D. fonts | Licence with the font; no sale of the font alone | The name tables of Iosevka and Noto Emoji carry their notices, and Noto Emoji's licence is in `display`; fonts are unmodified |
 | GPL-2.0-or-later with the font embedding exception | Xolonium and GNU Unifont 7.0.06 in Xonotic | Licence text with the font | `GPL-2` in the image; the fonts are unmodified inside the release's archives |
-| Apache-2.0 weights | Qwen3.5-2B (GGUF by bartowski), MiniCPM5-2B | Licence copy; no use restrictions | Each model package keeps the licence copied into the demo; nothing checks it against the pinned Hugging Face revision |
+| Apache-2.0 weights | Qwen3.5-2B (GGUF by bartowski), Qwen3.5-4B (GGUF by unsloth), MiniCPM5-2B | Licence copy; no use restrictions | Each model package keeps the licence copied into the demo; nothing checks it against the pinned Hugging Face revision |
+| LFM Open License v1.0 weights | LFM2.5-2.6B by Liquid AI | Redistribution with the licence text and Liquid AI's notices; commercial use is licensed only below 10 million US dollars of annual revenue | `lfm2.5` keeps the licence's text; Dolly is free and earns nothing (owner, 2026-10-23); nothing checks it against the pinned Hugging Face revision |
 | CC-BY-4.0 weights | Parakeet TDT-CTC 110M by NVIDIA (GGUF by transcribe.cpp's authors) | Credit, the licence, and a note of changes | `speech-to-text` and `pi-phone` keep the licence's text and a `NOTICE` naming NVIDIA and the conversion; nothing checks the conversion against the pinned Hugging Face revision |
 | Anthropic Commercial Terms | Claude Code: nothing. The `closed-source-agent` image downloads 2.1.112 from the npm registry into the user's session after a notice; no file of it is in the repository, an image or a site | Unmodified binary, every built-in sign-in method kept, no paid or intermediated usage, no use of the names as a product name | Met by construction ([task](../tasks/20261007-085236-claude-code-image/TASK.md)); **Owner**: acceptance of the Commercial Terms |
 
@@ -87,6 +88,12 @@ entry.
   terminal descriptions compiled into libterminfo are from ncurses's
   `terminfo.src`, which carries no copyright notice of its own. The three
   licence files are in the package.
+- OCaml (LGPL-2.1 with its linking exception) is modified for Dolly: the
+  patched files are those of the demo's patch, which is applied in the source
+  archive served beside the image (`ocaml/ocaml.tar.gz`), so clause 2 is met.
+  A program `ocamlc` builds contains its runtime and libraries, which the
+  exception lets its author distribute under any terms. The licence is in the
+  package.
 - The 0 A.D. engine (GPL-2.0-or-later) links SpiderMonkey (MPL-2.0, whose
   secondary-licence clause allows the GPL combination), OpenAL Soft (LGPL),
   SDL2, FreeType, libpng, Ogg/Vorbis, ICU, Boost, {fmt}, libxml2, ENet and

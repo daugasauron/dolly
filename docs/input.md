@@ -18,12 +18,19 @@ flowchart LR
 - Without a lease the terminal does. Keys, text and paste go through the
   decoder that the display library registered
   ([display](display.md#terminal)) and become the bytes the foreground program
-  reads from its terminal. Pointer and scroll records are the terminal's own:
-  selection and scrollback, handled ahead of unread keys on the display's tick.
-  A finger's drag is sent as scroll records, so it scrolls where a mouse's
-  drag selects.
+  reads from its terminal. Pointer and scroll records are the terminal's,
+  handled ahead of unread keys on the display's tick: reports for a program
+  that asked for the mouse, else selection and scrollback
+  ([display](display.md#terminal)). The page sends the primary button, every
+  move of the pointer and the wheel; other buttons reach only a program
+  holding the lease. A finger's drag is sent as scroll records, so it scrolls
+  where a mouse's drag selects.
   Two fingers moving apart or together are sent as the keys Ctrl+= and
   Ctrl+-, a font size for each 20 CSS px.
+- A touchscreen has no paste chord. There the page shows its own Paste
+  button: it reads the clipboard only inside the user's press of it and
+  delivers the text as a paste, to the terminal or to a program holding the
+  lease.
 - `dolly_input_acquire` gives the foreground process or a descendant the
   lease, one at a time. It then reads every record with
   `dolly_input_next_event`, and the terminal reads none. The page sends it
@@ -54,34 +61,41 @@ flowchart LR
   lease; keys, text, paste and focus for the terminal), so the reader resumes
   then, not at the next 16 ms tick.
 
-## Buttons
+## Touch
 
-`buttons@0` stands in for a keyboard on a touch screen. One program shows a
-caption and up to 12 buttons in a strip of the page below the terminal, reads
-their presses and types into the terminal
-([`host/buttons/dolly-buttons-0.wat`](../host/buttons/dolly-buttons-0.wat),
-[`buttons.h`](../host/buttons/buttons.h), [`buttons.mjs`](../host/buttons/buttons.mjs)).
+`touch@0` gives a program the fingers on a touchscreen: every finger that is
+down, each with an id from its down to its up or cancel
+([`host/touch/dolly-touch-0.wat`](../host/touch/dolly-touch-0.wat),
+[`touch.h`](../host/touch/touch.h), [`touch.mjs`](../host/touch/touch.mjs)).
+What fingers mean, a tap, a drag or two of them moving apart, is the
+program's to decide.
 
-- One process holds the buttons; a second OPEN fails with `EBUSY`. CLOSE,
-  exit and forced termination remove the strip.
-- SHOW replaces the caption (480 bytes) and the buttons (24-byte labels) and
-  returns the layout's number, which changes with the buttons and not with
-  the caption. READ never blocks: it returns one press, with the layout and
-  the index it was made on. The page queues 16 and drops a press that finds
-  the queue full.
-- The page sets caption and labels as text and lays the buttons out itself.
-  While the strip is shown the terminal's grid ends above it and a tap on the
-  terminal raises no on-screen keyboard; a hardware keyboard still types.
-- A button of kind PASTE is the page's own. It says "Paste", and the page
-  reads the clipboard only inside the user's press of it: the text (4,096
-  bytes) arrives with the press, a refusal as `EACCES`.
-- Typing stays in Wasm. Process operation 132 appends up to 4,096 bytes to
-  the terminal's input in the kernel, in order with the keyboard's records,
-  and the foreground program reads them as keys. Byte 3 interrupts it while
-  `ISIG` is set, as Ctrl+C does.
-- C SDK: `<dolly/buttons.h>` and `libdolly-buttons.a`, from the
-  `libdolly-buttons` package, which `cc` links by default; calling it stamps
-  `buttons@0` into the executable.
+- A record is one finger at one moment: its id, its phase (down, move, up,
+  cancel), its position in the frame's pixels as a pointer record's, the
+  browser's pressure in thousandths and the event's time in milliseconds. At
+  most ten fingers are down at once.
+- `dolly_touch_acquire` gives the foreground process or a descendant the
+  lease, one at a time, as for input. `dolly_touch_read` returns up to 64
+  records and waits for the first. While a program holds the lease every
+  finger that goes down on the canvas is its record and none is the pointer,
+  also for a program holding the input lease; a finger already down stays the
+  pointer's until it lifts. Without a holder a finger scrolls the terminal and
+  two change its font, as above.
+- The ring holds 512 records and is the only queue. The page writes every
+  move the browser reports, coalesced ones included, while more than 20
+  records are free, and a down only while the ring keeps room for it and the
+  end of every finger that is down: a delivered finger's up or cancel is never
+  lost. What is not written, a move without room, an eleventh finger or one
+  whose down found no room, is counted in the next record's `dropped`.
+- A program at the terminal gets the terminal's frame and finds a cell by
+  the cell size the terminal reports (`CSI 16 t`). The terminal's padding,
+  12 by 10 CSS pixels, is not reported: a cell found so is the finger's or
+  the one right of or below it.
+- Release, exit or forced termination ends the lease; unread records are
+  dropped. `nena` may switch the module; a holder's read then returns
+  `ENOSYS`.
+- C SDK: `<dolly/touch.h>` and `libdolly-touch.a`, from the `libdolly-touch`
+  package; calling it stamps `touch@0` into the executable.
 
 ## Images without one of the two
 

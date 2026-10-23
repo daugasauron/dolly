@@ -1,0 +1,14 @@
+{
+  "name": "touch",
+  "version": 0,
+  "gives": "fingers on a touchscreen: every one that is down, each with its id",
+  "dependencies": ["runtime@0"],
+  "phase": "image",
+  "imports": [],
+  "host": "touch.mjs",
+  "contracts": ["dolly-touch-0.wat"],
+  "process": [],
+  "headers": ["touch.h", "touch-abi.h"],
+  "kernel": ["kernel.c"],
+  "client": ["client.c"]
+}

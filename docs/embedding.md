@@ -7,12 +7,12 @@ the browser. These npm packages put it in a page of your own.
 | Package | What it holds |
 | --- | --- |
 | `@daugasauron/dolly` | The runtime: `boot()`, the kernel, the process runtime, and the host modules that are its own machinery (`runtime`, `http`, `threads`, `dso`, `nena`, `snapshot`, `packages`) |
-| `@daugasauron/dolly-NAME` | One device host module each: `display` (Ghostty's terminal and programs' frames), `input`, `gpu`, `audio`, `microphone`, `buttons`, `download`, `upload`, `sockets`, `pty` |
-| `@daugasauron/dolly-default` | The `default` image: a shell, its text tools, the terminal, curl, `amy`, `nena`, `ps` |
+| `@daugasauron/dolly-host-NAME` | One device host module each: `display` (Ghostty's terminal and programs' frames), `input`, `gpu`, `audio`, `microphone`, `touch`, `download`, `upload`, `sockets`, `pty` |
+| `@daugasauron/dolly-image-default` | The `default` image alone: a shell, its text tools, the terminal, curl, `amy`, `nena`, `ps`. `amy` lists what is installed and has nothing more to install |
 
 ```sh
-npm install @daugasauron/dolly @daugasauron/dolly-default @daugasauron/dolly-display \
-  @daugasauron/dolly-input @daugasauron/dolly-download @daugasauron/dolly-upload @daugasauron/dolly-sockets
+npm install @daugasauron/dolly @daugasauron/dolly-image-default @daugasauron/dolly-host-display \
+  @daugasauron/dolly-host-input @daugasauron/dolly-host-download @daugasauron/dolly-host-upload @daugasauron/dolly-host-sockets
 ```
 
 ## A page
@@ -23,7 +23,7 @@ npm install @daugasauron/dolly @daugasauron/dolly-default @daugasauron/dolly-dis
 <main id="dolly" style="position:fixed;inset:0"></main>
 <script type="module">
   import { boot } from "./node_modules/@daugasauron/dolly/src/browser.mjs";
-  import { images, image, modules } from "./node_modules/@daugasauron/dolly-default/index.mjs";
+  import { images, image, modules } from "./node_modules/@daugasauron/dolly-image-default/index.mjs";
   const dolly = await boot(document.querySelector("#dolly"), { images, image, modules });
 </script>
 ```
@@ -36,10 +36,10 @@ shows its own failure in the element.
 
 | Option | Meaning |
 | --- | --- |
-| `images` | URL of an image directory: `dist/dolly-images.mjs`, the images' metadata and packs, their recipes. `@daugasauron/dolly-default`'s `index.mjs` exports its own |
+| `images` | URL of an image directory: `dist/dolly-images.mjs`, the images' metadata and packs, their recipes. `@daugasauron/dolly-image-default`'s `index.mjs` exports its own. A page has one image directory |
 | `image` | The image to run, by name |
 | `modules` | URLs of the `module.json` of each host module the page has. The registry loads these and no other; an image's `REQUIRES HOST` must be among them |
-| `hostModules` | Optional: the `name@version` set the image may use. Given, `nena@0` enables nothing outside it |
+| `site` | Optional: the URL of a site that serves Dolly's own pages (`session/`, `sessions/`, `docs/`), as Dolly's site does. Given, a saved session names itself in the tab's URL and modules link to those pages |
 | `http` | Optional `{ policy, relays }` for the HTTP broker, the page's one network edge (docs/http.md). Without a policy a program may fetch any HTTPS URL |
 
 The page, not the image, chooses the modules and the policy, before anything of
@@ -48,7 +48,7 @@ the image runs. A program reaches nothing of the browser but through them.
 ## Serving
 
 - Serve the installed packages as they lie: the runtime finds its own files
-  beside itself, and `dolly-default`'s `index.mjs` finds the modules in the
+  beside itself, and `dolly-image-default`'s `index.mjs` finds the modules in the
   packages installed beside it under `node_modules/@daugasauron/`.
 - Send `Cross-Origin-Opener-Policy: same-origin` and
   `Cross-Origin-Embedder-Policy: require-corp` with the page: Dolly needs shared

@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # NetBSD's terminfo library from the netbsd-curses release, two lines fixed, for
 # programs the cc package builds (-lterminfo): <term.h> and <termcap.h> over
 # the terminal descriptions the library holds.
-FROM /v0.1.3/Dollyfile-system-tools 13ba21000aa665d6729f8e00cb795c4871f3bfaa72a4e18a7197d536b84a5826
+FROM /v0.1.4/Dollyfile-system-tools 6895ef5069ae2dd33df453507496408567406e529ff79041b20f2419b93b861a
 
 REQUIRES HEADER libc
 REQUIRES TOOL ar
@@ -19,7 +19,7 @@ REQUIRES TOOL sed
 REQUIRES TOOL sh
 REQUIRES TOOL tar
 
-SOURCE /v0.1.3/dist/static/tmux/terminfo.tar 02f16349f246ae130a95a41ef88a78aabf7d5374d6e962ce0520dd216274edbe /tmp/terminfo.tar
+SOURCE /v0.1.4/dist/static/tmux/terminfo.tar 02f16349f246ae130a95a41ef88a78aabf7d5374d6e962ce0520dd216274edbe /tmp/terminfo.tar
 SLOP tar -xf /tmp/terminfo.tar -C /
 
 # tparm formats each number with %ld and hands it over as an int: undefined,

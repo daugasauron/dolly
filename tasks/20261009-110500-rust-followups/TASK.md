@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 90
-- TAGS: toolchain,rust,zig,bootstrap
+- TAGS: toolchain,rust,zig,bootstrap,0.1.4
 
 ## State (2026-10-13)
 

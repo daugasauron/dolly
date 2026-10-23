@@ -1,9 +1,8 @@
-# The buttons voice shows beside Pi. "[NAME] caption" begins a page and
+# The buttons voice shows below Pi. "[NAME] caption" begins a page and
 # "LABEL = TEXT" is a button that types TEXT: \r Enter, \e Escape, \t Tab,
 # \xHH a byte, \w a wait of 0.4 s. After the text, one of
 #   :speak       listen, then type what was said
 #   :word        listen, then type it as a search word
-#   :paste       a Paste button: type the clipboard, then TEXT; ":paste NAME" then shows a page
 #   :page NAME   show another page
 
 # A command begins with \x15, which empties Pi's prompt. No button types into
@@ -33,7 +32,7 @@ Choose = \r :page main
 Erase = \x15
 Back = \e :page main
 
-[key] When Pi asks how to sign in, tap API key. Then copy your key at openrouter.ai/keys and tap Paste.
+[key] Tap API key when Pi asks. Copy the key at openrouter.ai/keys, tap Paste (top right), Enter.
 API key = \e[B\r
-Paste = \r :paste main
+Enter = \r :page main
 Back = \e :page main

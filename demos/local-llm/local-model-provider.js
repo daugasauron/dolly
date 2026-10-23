@@ -2,7 +2,7 @@
 // /usr/share/dolly/llm; requests go through Pi's own OpenAI chat-completions adapter to
 // dolly-llama, which answers in llama-server's dialect over its pipes. A user's changes
 // are Pi's modelOverrides in ~/.pi/agent/models.json.
-import {readFileSync,writeFileSync} from 'node:fs';
+import {readdirSync,readFileSync,writeFileSync} from 'node:fs';
 import {streamSimple} from '@earendil-works/pi-ai';
 import {getAgentDir} from '@earendil-works/pi-coding-agent';
 import {LocalLlama,checkGpu} from '/usr/lib/dolly-llm/client.mjs';
@@ -19,15 +19,38 @@ const piModels=()=>models().filter(model=>model.installed).map(model=>({id:model
 // What /local can change: the request fields dolly-llama implements, and Pi's two limits.
 const parameters=['temperature','top_p','top_k','min_p','repeat_penalty','presence_penalty','frequency_penalty','seed','contextWindow','maxTokens'];
 const limits=new Set(['contextWindow','maxTokens']);
+// A small model answers from its prompt and seldom reads a skill: a session that starts on a
+// local model is told this machine's facts and the commands on PATH in place of the general
+// guidance. Both hold for the session: Qwen's template refuses a later system message.
+const guidance=readFileSync('/usr/lib/dolly-llm/SYSTEM.md','utf8');
+const commands=()=>[...new Set(process.env.PATH.split(':').flatMap(directory=>{try{return readdirSync(directory);}catch{return [];}}))].sort().join(', ');
 
 export default function(pi) {
   let ui;
-  const engine=new LocalLlama(text=>ui?.setStatus('local-model',text));
+  // Pi loads its extensions again for each new or resumed session; the engine stays, with
+  // the model on the GPU and the prompt it has evaluated, until Pi quits.
+  const engine=globalThis.dollyLocalEngine??=new LocalLlama();
+  engine.progress=text=>ui?.setStatus('local-model',text);
   // Above the editor until the first prompt or /local: a notification would replace
   // dolly-tools' sandbox note, which Pi shows one at a time.
   const hint=show=>ui?.setWidget('local-model',show?['/local chooses and configures the local model: install, switch, context size, sampling, unload.']:undefined);
-  pi.on('session_start',(_event,ctx)=>{ui=ctx.ui;hint(true);});
-  pi.on('session_shutdown',()=>engine.stop());
+  // The commands named to this session's local model; false when it started on another model.
+  let localCommands;
+  pi.on('session_start',(_event,ctx)=>{ui=ctx.ui;hint(true);localCommands=undefined;});
+  pi.on('before_agent_start',(event,ctx)=>{
+    localCommands??=ctx.model?.provider===provider && commands();
+    if(!localCommands)return;
+    event.systemPromptOptions.customPrompt=guidance.replace('{commands}',localCommands);
+  });
+  // Slop's "command not found" is all a small model learns when it reaches for Linux's
+  // tools (ps, python3, pip3, apt-get); the result says where the installed ones are listed.
+  pi.on('tool_result',event=>{
+    if(!localCommands || event.toolName!=='bash')return;
+    const output=event.content.map(part=>part.text??'').join('');
+    const missing=[...new Set([...output.matchAll(/slop: (\S+): command not found/g)].map(match=>match[1]))];
+    if(missing.length)return {content:[...event.content,{type:'text',text:`\n${missing.join(', ')}: not installed here. Your prompt lists the installed commands; amy list shows the packages.`}]};
+  });
+  pi.on('session_shutdown',event=>{if(event.reason==='quit')engine.stop();});
   pi.on('provider_stream_event',event=>{
     const timings=event.provider===provider && event.data?.timings;
     if(timings)ui?.setStatus('local-model',`${event.model} · ${timings.predicted_per_second.toFixed(1)} tokens/s · ${timings.cache_n} of ${timings.cache_n+timings.prompt_n} prompt tokens reused`);
@@ -61,8 +84,11 @@ export default function(pi) {
       fetch:(_url,request)=>engine.respond(models().find(entry=>entry.id===model.id),model.contextWindow,request)}),
   });
 
-  const overridesPath=`${getAgentDir()}/models.json`;
-  const readOverrides=()=>{try{return JSON.parse(readFileSync(overridesPath,'utf8'));}catch{return {};}};
+  const overridesPath=`${getAgentDir()}/models.json`,settingsPath=`${getAgentDir()}/settings.json`;
+  const readJson=path=>{try{return JSON.parse(readFileSync(path,'utf8'));}catch{return {};}};
+  // Pi's /model saves the choice as its default; an extension's setModel lasts one session.
+  // /local saves it the same way, so a new session and the next Pi start on that model.
+  const saveDefault=id=>writeFileSync(settingsPath,JSON.stringify({...readJson(settingsPath),defaultProvider:provider,defaultModel:id},null,2)+'\n');
   // The registry rereads the descriptions and models.json; the session takes the changed model.
   async function reload(ctx,id) {
     await ctx.modelRegistry.refresh({providers:[provider],allowNetwork:false});
@@ -88,7 +114,7 @@ export default function(pi) {
       if(text.trim() && !(Number.isFinite(number) && number>=0 && (!limits.has(name) || Number.isInteger(number) && number>=1024))) {
         ctx.ui.notify(`${name} takes a number${limits.has(name)?' of tokens, at least 1024':', zero or more'}; "${text}" is not one`,'error');continue;
       }
-      const file=readOverrides();
+      const file=readJson(overridesPath);
       const override=((file.providers??={})[provider]??={modelOverrides:{}}).modelOverrides[id]??={};
       const perLevel=!limits.has(name) && shipped.samplingParamsByThinkingLevel?.[level]?.[name]!==undefined;
       const target=limits.has(name)?override:perLevel?((override.samplingParamsByThinkingLevel??={})[level]??={}):(override.samplingParams??={});
@@ -126,6 +152,8 @@ export default function(pi) {
       ctx.ui.setStatus('local-model',undefined);
     }
     engine.stop();
-    ctx.ui.notify(await reload(ctx,model.id)?`Using ${model.name}; the first prompt loads it on the GPU`:`${model.id} did not register; see /model`,'info');
+    if(!await reload(ctx,model.id))return ctx.ui.notify(`${model.id} did not register; see /model`,'info');
+    saveDefault(model.id);
+    ctx.ui.notify(`Using ${model.name}; the first prompt loads it on the GPU`,'info');
   }});
 }

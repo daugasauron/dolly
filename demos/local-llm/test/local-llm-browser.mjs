@@ -31,8 +31,8 @@ for(const image of ['pi-local','dollyfile-studio']) {
 if(!process.env.DISPLAY){console.log('local-llm: the model steps are skipped, they need a GPU window on DISPLAY');process.exit(0);}
 
 const root=new URL('../../../',import.meta.url).pathname;
-// The model both images bundle, and the one the user installs next.
-const model='qwen3.5-2b',weights=`/usr/share/dolly/llm/${model}.gguf`,second='minicpm5-2b';
+// The model both images bundle, and the one the user installs next (DOLLY_LLM_SECOND names another package).
+const model='qwen3.5-2b',weights=`/usr/share/dolly/llm/${model}.gguf`,second=process.env.DOLLY_LLM_SECOND??'minicpm5-2b';
 // Playwright drives the installed Firefox, which on Ubuntu is a snap with a
 // private /tmp: its profile and downloads must live under $HOME.
 process.env.TMPDIR=new URL('tmp/',output).pathname;await mkdir(process.env.TMPDIR,{recursive:true});
@@ -184,6 +184,8 @@ for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local,dollyfile-studio').s
         await page.screenshot({path:new URL(`${name}-${image}-refused-context.png`,output).pathname});
         await parameter('contextWindow','12288');await key('Escape');await page.waitForTimeout(500);
         await until(/\/12k/,'context in the footer');
+        // The model chosen with /local is Pi's default: a new session still runs on it.
+        await type('/new');await page.waitForTimeout(2500);
         await task('second.txt');
         await until(new RegExp(`${second} · [\\d.]+ tokens/s`),'rate of the second model');
         await page.screenshot({path:new URL(`${name}-${image}-second.png`,output).pathname});

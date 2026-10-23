@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # the program goes through one signature, so a call through a pointer cast to
 # a function type of other parameters works (GObject programs make them). It
 # runs on one thread, as BINARYEN_CORES says: the package is not threaded.
-FROM /v0.1.3/demos/tools/Dollyfile-tools-build abd2c362440a6b2f66378514838d3c5b47dd729196304016fe49ce7d626db475
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 501a2e15ed3fd5bd746c632b4bdabed493813d4daef6ba163f68bc7216018943
 
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
@@ -21,7 +21,7 @@ REQUIRES TOOL   grep
 REQUIRES TOOL   make
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.3/dist/static/tools/binaryen.tar ce5873bc7df45ebf45b5b3230c79c359d34c7269cac9a6c3395641329f7fa98d /tmp/binaryen.tar
+SOURCE /v0.1.4/dist/static/tools/binaryen.tar ce5873bc7df45ebf45b5b3230c79c359d34c7269cac9a6c3395641329f7fa98d /tmp/binaryen.tar
 SLOP tar -xf /tmp/binaryen.tar -C /
 SLOP cmake -S /tmp/binaryen -B /tmp/binaryen/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_BUILD_TYPE=Release \

@@ -3,11 +3,12 @@ PACKAGE xorg-server
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
+REQUIRES HOST touch@0
 REQUIRES HOST sockets@0
 
 # Xsdl, the X server on Dolly's display, with xkbcomp, which it runs for its
 # keymap, and the keyboard descriptions xkbcomp reads.
-FROM /v0.1.3/demos/x11/Dollyfile-xorg-server-build cd2223b0507bdfbd84b44884f687e743b45956bfa776a0e7193b3eaf75d35a0d
+FROM /v0.1.4/demos/x11/Dollyfile-xorg-server-build c0022157c9c7546cd2e539078213ca11af4d68fae1064e0d1861d6136aeb6139
 
 EXPORTS TOOL Xsdl
 EXPORTS TOOL xkbcomp

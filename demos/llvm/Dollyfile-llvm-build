@@ -9,7 +9,7 @@ REQUIRES HOST sockets@0
 
 # Build-only: the libraries of Clang, LLD and the WebAssembly backend that the
 # seed compiler links, compiled inside Dolly by its own c++.
-FROM /v0.1.3/demos/llvm/Dollyfile-llvm-tablegen 3a1b7ed8209a1a5ec0da541e7d3b2c0c8d38ea94bbed9d4302f14064f72ac564
+FROM /v0.1.4/demos/llvm/Dollyfile-llvm-tablegen d965e53348cc4ab460bdab9b2a0b6a70c049d6354d871135e61a337b3938db75
 REQUIRES TOOL llvm-tblgen
 REQUIRES TOOL clang-tblgen
 REQUIRES TOOL cmake
@@ -27,10 +27,10 @@ REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
-SOURCE /v0.1.3/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
+SOURCE /v0.1.4/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
 SLOP time slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
-SOURCE /v0.1.3/dist/static/llvm/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
+SOURCE /v0.1.4/dist/static/llvm/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/llvm-project -i /tmp/llvm-host-triple.patch
 
 # Configured as llvm-tablegen is, and further:
@@ -67,7 +67,7 @@ FILE /usr/lib/llvm-build/Dolly.cmake
     set(LLVM_LINK_LLVM_DYLIB OFF CACHE BOOL "")
 SLOP time cmake -C /usr/lib/llvm-build/Dolly.cmake -S /tmp/llvm-project/llvm -B /tmp/llvm-build
 
-# The seed's targets (scripts/build-toolchain.sh). Four jobs fit the 32-process
+# The seed compiler's libraries. Four jobs fit the 32-process
 # cap; -k reports every failing unit of an hour's build, not only the first.
 SLOP CWD /tmp/llvm-build time make -k -j4 clangFrontendTool clangCodeGen clang-resource-headers lldWasm LLVMWebAssemblyCodeGen
 # The archives, Clang's resource directory, and the configured and generated

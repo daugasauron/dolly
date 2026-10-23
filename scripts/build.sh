@@ -39,18 +39,12 @@ mkdir -p \
   "${project_dir}/dist" \
   "${project_dir}/.cache/emscripten"
 
-toolchain_key="$("${project_dir}/scripts/toolchain-cache-key.sh")"
-toolchain_stamp="${project_dir}/.cache/llvm-wasm/.dolly-toolchain-key"
-installed_toolchain_key="$(cat "${toolchain_stamp}" 2>/dev/null || true)"
-if [[ ! -f "${project_dir}/.cache/llvm-wasm/lib/libclangFrontend.a" ||
-      ! -f "${project_dir}/.cache/llvm-wasm/lib/liblldWasm.a" ||
-      "${installed_toolchain_key}" != "${toolchain_key}" ]]; then
-  echo "dolly: run ./scripts/build-toolchain.sh before building" >&2
-  if [[ -n "${installed_toolchain_key}" ]]; then
-    echo "dolly: cached wasm64 Clang/LLD provider is stale" >&2
-  fi
-  exit 1
-fi
+# The seed's compiler, built inside Dolly (docs/sources.md): the pinned archive
+# holds it and Clang's resource headers at their seed paths.
+seed_compiler="$(bash "${project_dir}/scripts/fetch-verified-file.sh" "${DOLLY_SEED_COMPILER_URL}" \
+  "${DOLLY_SEED_COMPILER_SHA256}" "${project_dir}/.cache/dolly-seed-compiler-${DOLLY_SEED_COMPILER_SHA256}.tar")"
+rm -rf "${project_dir}/build/seed-compiler" && mkdir -p "${project_dir}/build/seed-compiler"
+tar -xf "${seed_compiler}" -C "${project_dir}/build/seed-compiler"
 
 mapfile -t font_paths < <(bash "${project_dir}/scripts/fetch-iosevka.sh")
 web_font="${font_paths[0]}"
@@ -96,7 +90,7 @@ rm -rf build/include && mkdir -p build/include/dolly && cp -p -- "${headers[@]}"
 # The modules no core source includes ship their headers and clients as
 # packages (Dollyfile-libdolly-NAME); the kernel compiles against every header,
 # the seed holds the others.
-packaged_modules=(audio buttons gpu microphone sockets)
+packaged_modules=(audio gpu microphone sockets touch)
 packaged() { [[ " ${packaged_modules[*]} " == *" $1 "* ]]; }
 rm -rf build/seed-include && mkdir -p build/seed-include/dolly
 for header in "${headers[@]}"; do
@@ -290,20 +284,12 @@ node scripts/dolly-abi.mjs emit-digest-header \
   -S toolchain \
   -B build/runtime \
   -DCMAKE_BUILD_TYPE=Release \
-  -DLLVM_DIR=/src/.cache/llvm-wasm/lib/cmake/llvm \
-  -DClang_DIR=/src/.cache/llvm-wasm/lib/cmake/clang \
-  -DLLD_DIR=/src/.cache/llvm-wasm/lib/cmake/lld \
   -DDOLLY_PROCESS_SYSROOT_DIR="${process_sysroot_container_dir}" \
   -DDOLLY_KERNEL_SOURCES="$(node scripts/host-modules.mjs kernel | sed 's#^#/src/#' | paste -sd ';')" \
   -DDOLLY_CLIENT_LIBRARIES="$(printf '/src/build/lib%s.a\n' "${client_links[@]#-l}" | paste -sd ';')"
-"${container[@]}" cmake --build build/runtime --target dolly-process-compiler --parallel
-node scripts/dolly-abi.mjs stamp-process \
-  build/dolly-process-0.wasm \
-  build/process-tools/compiler.wasm
 node scripts/dolly-abi.mjs validate-process \
   build/dolly-process-0.wasm \
-  build/process-tools/compiler.wasm
-cp build/process-tools/compiler.wasm build/process-bin/compiler
+  build/seed-compiler/usr/libexec/dolly/process-bin/compiler
 "${container[@]}" cmake --build build/runtime --target dolly --parallel
 
 node scripts/dolly-abi.mjs stamp \

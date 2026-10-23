@@ -29,7 +29,7 @@ export async function buildBufferReuse() {
   const source = `DOLLY 7\nAPPLICATION buffer-proof\nREQUIRES HOST runtime@0\nREQUIRES HOST display@0\nREQUIRES HOST input@0\nREQUIRES HOST download@0\nREQUIRES HOST http@0\nREQUIRES HOST snapshot@0\nREQUIRES HOST upload@0\nFROM ${siteReference(definition.dollyfile)} ${definition.sha256}\nENTRY /bin/slop\n`;
   const sources = [...registry.DOLLY_IMAGES.map(image => ({ path: `/${image.dollyfile}`, byteLength: image.byteLength })),
     ...registry.DOLLY_STATIC_SOURCES];
-  const network = { ...transport.localServicesTransport(policy.consumeDollyHttpPolicy({}, sources, base)), site: base.href };
+  const network = { ...transport.localServicesTransport(new policy.DollyHttpPolicy(undefined, sources, base)), site: base.href };
   const build = (image, inputs, customSource) => builder.buildImage(image, inputs, { http: { network } }, () => {}, { customSource });
   const inputs = await graph.prepareImageArtifacts("custom", source, build, () => {});
   let digest;

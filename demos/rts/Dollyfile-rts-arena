@@ -3,19 +3,20 @@ APPLICATION rts-arena
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
+REQUIRES HOST touch@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.3/demos/pi/Dollyfile-pi-runtime cec1f217de951843df6e6eb4ccfd3b5f3b49ac193cf625747563d6471a2c126f
-INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 4c3388aed0796e79846bc5b4c2cd3f53f115b1d9d117ef2833100679ace1564d
-COPY /v0.1.3/demos/rts/Dollyfile-rts-build d7cd2dc6b3dec37380784dfb69e8e885bfe96146046a78fd686586b457049158 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
-COPY /v0.1.3/demos/rts/Dollyfile-rts-build d7cd2dc6b3dec37380784dfb69e8e885bfe96146046a78fd686586b457049158 /usr/share/7kaa /usr/share/7kaa
-COPY /v0.1.3/demos/rts/Dollyfile-rts-build d7cd2dc6b3dec37380784dfb69e8e885bfe96146046a78fd686586b457049158 /usr/src/7kaa /usr/src/7kaa
-COPY /v0.1.3/demos/rts/Dollyfile-rts-build d7cd2dc6b3dec37380784dfb69e8e885bfe96146046a78fd686586b457049158 /usr/src/dolly/rts /usr/src/dolly/rts
-COPY /v0.1.3/demos/rts/Dollyfile-rts-build d7cd2dc6b3dec37380784dfb69e8e885bfe96146046a78fd686586b457049158 /usr/share/licenses/7kaa /usr/share/licenses/7kaa
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 00783410297d3f9729ce984744df90bba1e4531cd9f93133eefc9a9f95d47045
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 4d78ceeba01ed46946195018e037370fb583034dddb3481fe1613be43d591dda
+COPY /v0.1.4/demos/rts/Dollyfile-rts-build 51ce5a170157e2466012bc27e1ad382352b6a34aba371e9b152edd8aea526772 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
+COPY /v0.1.4/demos/rts/Dollyfile-rts-build 51ce5a170157e2466012bc27e1ad382352b6a34aba371e9b152edd8aea526772 /usr/share/7kaa /usr/share/7kaa
+COPY /v0.1.4/demos/rts/Dollyfile-rts-build 51ce5a170157e2466012bc27e1ad382352b6a34aba371e9b152edd8aea526772 /usr/src/7kaa /usr/src/7kaa
+COPY /v0.1.4/demos/rts/Dollyfile-rts-build 51ce5a170157e2466012bc27e1ad382352b6a34aba371e9b152edd8aea526772 /usr/src/dolly/rts /usr/src/dolly/rts
+COPY /v0.1.4/demos/rts/Dollyfile-rts-build 51ce5a170157e2466012bc27e1ad382352b6a34aba371e9b152edd8aea526772 /usr/share/licenses/7kaa /usr/share/licenses/7kaa
 EXPORTS TOOL seven-kingdoms
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner
@@ -36,8 +37,8 @@ REQUIRES TOOL gzip
 REQUIRES TOOL upload
 REQUIRES TOOL mkdir
 
-SOURCE /v0.1.3/dist/static/rts/arena.tar bd3280adb8788e685566750ef755cdb9adbbada49c4a5b42f6bf42c05e2aa84d /tmp/rts-arena/source.tar
-SOURCE /v0.1.3/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/rts-arena/stb_truetype.h
+SOURCE /v0.1.4/dist/static/rts/arena.tar bd3280adb8788e685566750ef755cdb9adbbada49c4a5b42f6bf42c05e2aa84d /tmp/rts-arena/source.tar
+SOURCE /v0.1.4/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/rts-arena/stb_truetype.h
 SLOP tar -xf /tmp/rts-arena/source.tar -C /
 SLOP mkdir -p /usr/share/dolly/rts
 SLOP gzip -dc /tmp/rts-arena/demo.tar.gz | tar -xf - -C /usr/share/dolly/rts

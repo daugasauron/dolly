@@ -92,7 +92,7 @@ slop [-enux] script [arg ...]
   without traps. `trap '' SIGNAL` is rejected: commands always start with
   default signal actions, so an ignored signal could not be inherited.
 - Not implemented, and rejected by name: `alias`, `unalias`, `jobs`, `fg`,
-  `bg` (no job control), `umask` (there are no permission bits), `ulimit` (limits are fixed),
+  `bg` and a job spec to `kill` (no job control: `kill $!`), `umask` (there are no permission bits), `ulimit` (limits are fixed),
   `${VAR:off:len}`, `${VAR/pat/rep}`.
   As in POSIX `sh`, braces do not expand (`echo {1..3}` prints `{1..3}`) and
   a glob that matches nothing stays as typed. `help` lists the same limits
@@ -127,7 +127,7 @@ that run inside the shell stay serial.
   input is `/dev/null` unless redirected. `$!` is the PID of the last one,
   `wait` collects all of them and `wait PID...` returns the status of the last
   PID named. At most 32 processes exist, and a background program outlives
-  its shell. `ps` lists the ones that run. There is no job control: `jobs`, `fg` and `bg` are refused,
+  its shell. `ps` lists the ones that run. There is no job control: `jobs`, `fg`, `bg` and `kill %N` are refused,
   and so is `&` after anything the shell would run itself (a compound
   command, a builtin, a function, a `!`, `&&` or `||` list): use
   `slop -c '...' &`. `( PROGRAM ARG... ) &` is the one compound form that
@@ -144,7 +144,7 @@ that run inside the shell stay serial.
 - Core tools are Dolly's own ([`Dollyfile-system-build`](../Dollyfile-system-build)),
   compiled with plain `cc` in `system-build` before Make, whose recipes need `cp`:
   `cat [-n]`, `cp`, `mv`, `ls [--color]`, `echo`, `touch`, `pwd`, `mkdir`, `rm`,
-  `test`/`[` with `!`, `-a`, `-o` and parentheses, `foreground`, `help`, `clear`,
+  `test`/`[` with `!`, `-a`, `-o`, parentheses and `-nt`, `-ot`, `-ef`, `foreground`, `help`, `clear`,
   `stat`, `file`.
   There are no permission bits: `test -x` means a regular file or a directory,
   `-r`/`-w` that the path exists. `ls -l` is the POSIX long format: the fixed modes `stat`
@@ -164,9 +164,11 @@ that run inside the shell stay serial.
 - The other file and text utilities are unchanged upstream sbase, built by its
   own Makefile in `system-tools` ([`Dollyfile-system-tools`](../Dollyfile-system-tools)). They follow
   POSIX, not GNU: `dd bs=1024k`, not `bs=1M`. `ln -s` works; hard links fail in
-  WasmFS. `kill` signals any process by PID. There is no `/dev/zero`, and no
-  `chmod`, `chown`, `id`, `whoami`, `ps` or `df`: one user without modes to
-  change or a name database, and no process or mount list to read. `tar` only extracts and `gzip` only
+  WasmFS. `command -v NAME` says what runs for a name and ends with 1 when
+  nothing does; sbase's `which` ends with 2 then ("not an external command"). `kill` signals any process by PID. There is no `/dev/zero`, and no
+  `chmod`, `chown`, `id`, `whoami` or `df`: one user without modes to
+  change or a name database, and no mount list to read; the `ps` package
+  prints `/proc/processes`. `tar` only extracts and `gzip` only
   decompresses (`gzip -dc`); Git creates archives of any directory:
   `git init -q . && git add -A && git archive -o out.tar.gz $(git write-tree)`
   (`.tar`, `.tar.gz` and `.zip`).

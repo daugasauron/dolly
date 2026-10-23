@@ -118,7 +118,7 @@ static int compare_paths(const void *left, const void *right) {
 // entry or saved session starts. Runtime devices and immutable seed mounts are
 // not image contents; everything else must be retained or contain a kept path.
 static int prune_path(const dolly_snapshot_manifest *manifest, const char *path) {
-  if (strcmp(path, "/dev") == 0 || strcmp(path, "/seed") == 0) return 1;
+  if (strcmp(path, "/dev") == 0 || strcmp(path, "/proc") == 0 || strcmp(path, "/seed") == 0) return 1;
   struct stat metadata;
   if (lstat(path, &metadata) != 0) return -1;
   int keep = bsearch(&path, manifest->paths, manifest->count,

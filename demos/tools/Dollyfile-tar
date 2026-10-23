@@ -2,12 +2,13 @@ DOLLY 7
 PACKAGE tar
 REQUIRES HOST runtime@0
 
-# sbase's tar, unchanged, built by sbase's own Makefile from the archive
-# system-tools builds its commands from. It writes archives and reads links
-# and pax headers, which the tar of the core package does not, and it takes
-# that one's place: /bin comes first on PATH. Its -z, -j and -J start the
-# compressor by fork, which fails here; pipe through pigz, bzip2 or xz.
-FROM /v0.1.3/demos/tools/Dollyfile-tools-build abd2c362440a6b2f66378514838d3c5b47dd729196304016fe49ce7d626db475
+# sbase's tar, built by sbase's own Makefile from the archive system-tools
+# builds its commands from. It writes archives and reads links and pax
+# headers, which the tar of the core package does not, and it takes that
+# one's place: /bin comes first on PATH. Its -z, -j and -J start gzip, bzip2
+# or xz from PATH, by posix_spawn instead of fork (sbase-tar-spawn.patch),
+# and tar waits for it. The gzip of the core reads .gz; pigz writes it.
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 501a2e15ed3fd5bd746c632b4bdabed493813d4daef6ba163f68bc7216018943
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -17,12 +18,15 @@ REQUIRES TOOL   ln
 REQUIRES TOOL   make
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   mv
+REQUIRES TOOL   patch
 REQUIRES TOOL   readlink
 REQUIRES TOOL   test
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.3/dist/static/default/sbase.tar c05c64631cbc8441a50785da447c129c0a4f07fa3c3a10a5355c0f1102d3b1cd /tmp/sbase.tar
+SOURCE /v0.1.4/dist/static/default/sbase.tar c05c64631cbc8441a50785da447c129c0a4f07fa3c3a10a5355c0f1102d3b1cd /tmp/sbase.tar
+SOURCE /v0.1.4/dist/static/tools/sbase-tar-spawn.patch 3c7c19e521a33229eb18435f81af7f47160a03c97f61e3e6c508b41648487463 /tmp/sbase-tar-spawn.patch
 SLOP tar -xf /tmp/sbase.tar -C /
+SLOP patch -p1 -d /tmp/sbase -i /tmp/sbase-tar-spawn.patch
 
 FILE /tmp/sbase/dolly.mk
     .RECIPEPREFIX := >

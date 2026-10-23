@@ -72,8 +72,8 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `libdolly-gpu`: the `gpu@0` module's header and client library, for programs the `cc` package builds.
 - `libdolly-audio`: the `audio@0` module's header and client library, for programs the `cc` package builds.
 - `libdolly-microphone`: the `microphone@0` module's header and client library, for programs the `cc` package builds.
-- `libdolly-buttons`: the `buttons@0` module's header and client library, for programs the `cc` package builds.
 - `libdolly-sockets`: the `sockets@0` module's header and client library, for programs the `cc` package builds.
+- `libdolly-touch`: the `touch@0` module's header and client library, for programs the `cc` package builds.
 - `ps`: `ps`, which lists the processes: PID, parent, state and command line.
 - `session-recover`: `session-recover`, which copies the files of a saved session file into a new directory.
 - `display`: the terminal: the Ghostty display plugin, its font and the termcap entry.
@@ -111,8 +111,7 @@ C/C++ compiler and GNU Make. None of them is a sandbox capability.
 ```sh
 npm ci
 npx playwright-core install firefox
-./scripts/build-toolchain.sh          # compiler seed, slow, once
-npm run build:runtime                 # kernel and seed; checks the exact ABI
+npm run build:runtime                 # kernel and seed, with the pinned compiler; checks the exact ABI
 npm run image -- default --plan       # show what would rebuild
 npm run image -- default              # build an image and what it needs
 npm run dev -- default                # serve this checkout and dist/ (DOLLY_PORT)

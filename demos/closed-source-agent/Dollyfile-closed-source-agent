@@ -12,19 +12,15 @@ REQUIRES HOST upload@0
 
 # Runs Claude Code, which the launcher downloads from the npm registry into
 # the session after the notice: the image holds nothing of it.
-FROM /v0.1.3/Dollyfile-system 9d8d9a1ff16f52e368e695af7b5a788aefba814913bf9e4d3f49ee8dc374bfd2
-INSTALL /v0.1.3/Dollyfile-amy 013a5d4c170962e4cd4f8c339da4a6a8988cb8d5a290ac1a777486e7cb902500
-INSTALL /v0.1.3/demos/javascript/Dollyfile-janis de8e88d530522ac19e918ce9a82642eb93f1d606fbf130165a5dbc4657f498be
-INSTALL /v0.1.3/demos/rust/Dollyfile-ripgrep 886183e420332ba8d9c8f7b3d0eafdbc8296a4b6eaa9154562e9d3c691aadf27
+FROM /v0.1.4/Dollyfile-system 83b9958652eba57bc2ccedf1bebe57284402ace7af9c128a3839dd446e7e05ce
+INSTALL /v0.1.4/Dollyfile-amy df0015b3e7d8094c7df3e23d09f6e9ae363383d836e1b99ae8cecd7281c35d9c
+INSTALL /v0.1.4/demos/javascript/Dollyfile-janis-install aff8b99b25b5e1b879537187421c60a18835253da5f1f535c2e23d50fe163a22
+INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 73c70c2d73a370cee37f4ba4105d99d6f51e039fbcfa94ee23b8b71965aa7bba
 REQUIRES TOOL cc
-REQUIRES TOOL curl
-REQUIRES TOOL cut
 REQUIRES TOOL foreground
-REQUIRES TOOL gzip
 REQUIRES TOOL janis
+REQUIRES TOOL janis-install
 REQUIRES TOOL rg
-REQUIRES TOOL sha256sum
-REQUIRES TOOL tar
 
 # anykey PROMPT discards earlier input, shows PROMPT and prints the one key it
 # then reads from the terminal; Ctrl+C is status 130.
@@ -121,12 +117,12 @@ FILE /usr/share/doc/closed-source-agent/NOTICE
       instead of Node; its Bash tool finds no shell here; a wrong key shows
       the API's error only after about three minutes of its own retries.
 
-# Shows the notice, downloads Claude Code into the session (once), checks the
-# pinned digest of the tarball and runs it unchanged: with the arguments given,
-# or without any as the notice's key chose.
+# Shows the notice, installs Claude Code into the session (once) from its
+# tarball at the pinned integrity and runs it unchanged: with the arguments
+# given, or without any as the notice's key chose.
 FILE /usr/bin/closed-source-agent
     #!/bin/slop
-    package=/opt/claude-code/package
+    package=/usr/lib/node_modules/@anthropic-ai/claude-code
     start=
     if test $# -eq 0 || ! test -s $package/cli.js; then
       clear
@@ -137,14 +133,7 @@ FILE /usr/bin/closed-source-agent
     fi
     if ! test -s $package/cli.js; then
       printf '\nDownloading Claude Code 2.1.112 from registry.npmjs.org ...\n'
-      curl -fsS https://registry.npmjs.org/@anthropic-ai/claude-code/-/claude-code-2.1.112.tgz -o /tmp/claude-code.tgz || exit 1
-      if test "$(sha256sum /tmp/claude-code.tgz | cut -d ' ' -f 1)" != 84379969ea53a0e5fd231a8f77debe4c7cb17dd971f4809d10d33f9aeca5de09; then
-        printf 'closed-source-agent: the download does not match the pinned SHA-256; nothing was unpacked.\n' >&2
-        rm -f /tmp/claude-code.tgz
-        exit 1
-      fi
-      mkdir -p /opt/claude-code && gzip -dc /tmp/claude-code.tgz > /tmp/claude-code.tar && tar -xf /tmp/claude-code.tar -C /opt/claude-code || exit 1
-      rm -f /tmp/claude-code.tgz /tmp/claude-code.tar
+      janis-install --integrity sha512-9FUgJ0EOvILyhIqxFKNVliebiUjL68dwpEW3eGSSe0vkVDJ1c5qMDNWc22gW3zkD7zRAqtfQPSGv0t4vMM2DPA== @anthropic-ai/claude-code@2.1.112 || exit 1
     fi
     export USE_BUILTIN_RIPGREP=0
     if test $# -gt 0 || test "$start" = p; then

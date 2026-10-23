@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 170
-- TAGS: core,iteration,build,owner
+- TAGS: core,iteration,build,owner,0.1.4
 
 ## What a catalog round costs (2026-10-14, 06:00): gathered from the logs, the owner's to read
 

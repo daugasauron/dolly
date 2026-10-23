@@ -14,8 +14,8 @@ REQUIRES HOST runtime@0
 #   copy. PRAGMA locking_mode = NORMAL is still there for rollback journals;
 # - zlib, for the shell's archives (.archive, sqlite3 -A, zip files as tables);
 # - linenoise (--with-linenoise): the shell edits its own lines, with history.
-FROM /v0.1.3/demos/tools/Dollyfile-tools-build abd2c362440a6b2f66378514838d3c5b47dd729196304016fe49ce7d626db475
-USE /v0.1.3/Dollyfile-zlib 23810cd1df1be957c51fed8cbd91b83c695dc49d7291609de654f0e4ecdf3609
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 501a2e15ed3fd5bd746c632b4bdabed493813d4daef6ba163f68bc7216018943
+USE /v0.1.4/Dollyfile-zlib ff3c0365dd79ecb98c6f091460fb85790f674d13cf3d038ee4875ef9ff76c43a
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib
@@ -31,9 +31,9 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.3/dist/static/tools/sqlite-autoconf-3540000.tar.gz 134ec0802dda5795816e25d25872d20b312cb3973438c49b30bc40b7705ea9ed /tmp/sqlite.tar.gz
+SOURCE /v0.1.4/dist/static/tools/sqlite-autoconf-3540000.tar.gz 134ec0802dda5795816e25d25872d20b312cb3973438c49b30bc40b7705ea9ed /tmp/sqlite.tar.gz
 SLOP gzip -dc /tmp/sqlite.tar.gz | tar -xf - -C /tmp
-SOURCE /v0.1.3/dist/static/tools/linenoise.tar af43b5f86a81c4ae570a49520451f08756ae72b57e05328951cc18fbcb01973a /tmp/linenoise.tar
+SOURCE /v0.1.4/dist/static/tools/linenoise.tar af43b5f86a81c4ae570a49520451f08756ae72b57e05328951cc18fbcb01973a /tmp/linenoise.tar
 SLOP tar -xf /tmp/linenoise.tar -C /
 
 FILE /tmp/sqlite.mk

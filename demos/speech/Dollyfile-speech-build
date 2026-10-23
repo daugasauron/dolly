@@ -3,21 +3,22 @@ TOOLCHAIN speech-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
-REQUIRES HOST buttons@0
+REQUIRES HOST touch@0
 REQUIRES HOST http@0
 REQUIRES HOST microphone@0
+REQUIRES HOST pty@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.3/demos/cmake/Dollyfile-cmake-build e4665d6326518383a5957d86523e14c36c3d74c6c09d6d7acea1c9691ac4b72d
-INSTALL /v0.1.3/Dollyfile-libdolly-microphone e81b2a1a0745973831a6782ff433b32d1e009d208824f2d1603e48432aa739f3
-INSTALL /v0.1.3/Dollyfile-libdolly-buttons 5695e3fefb808956950a0854609869b0b73ec622d4897c01b7a129a117040371
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 3bc62225f869fbf3b931c74e6c13e448100ddff6fb50a1cf7875b869dbcbf89d
+INSTALL /v0.1.4/Dollyfile-libdolly-microphone 5429d95b6c680bfc7cbfe923eb4c797f0d1d229ee66ec6e76cc92572e74700da
+INSTALL /v0.1.4/Dollyfile-libdolly-touch 64a80053660c3fcb84ecc668e8e24d51041653b44bdecc98de0f2c072321865f
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL tar
 
-SOURCE /v0.1.3/dist/static/speech/source.tar 86b4305fdfe2ae10aafba4691f1b111a8544a632d381e051b8b8799b16df41d4 /tmp/speech-source.tar
+SOURCE /v0.1.4/dist/static/speech/source.tar 496216001a05e132d79b35fbde6f81c1d3e308fa59f9a7c1283b85a9c61cbde1 /tmp/speech-source.tar
 SLOP tar -xf /tmp/speech-source.tar -C /
 # Threads and SIMD are what let the model keep up with speech; ggml's precompiled header is not built by cc.
 SLOP cmake -S /tmp/transcribe -B /tmp/transcribe/build \
@@ -36,7 +37,7 @@ SLOP cc -pthread -msimd128 -O2 -Wall -Werror -I/tmp/transcribe/include \
   -c /tmp/transcribe/voice.c -o /tmp/transcribe/voice.o
 SLOP c++ -pthread -msimd128 -O2 /tmp/transcribe/voice.o /tmp/transcribe/build/src/libtranscribe.a \
   /tmp/transcribe/build/ggml/src/libggml.a /tmp/transcribe/build/ggml/src/libggml-cpu.a \
-  /tmp/transcribe/build/ggml/src/libggml-base.a -lm -o /usr/bin/voice
+  /tmp/transcribe/build/ggml/src/libggml-base.a -ldolly-pty -lm -o /usr/bin/voice
 EXPORTS TOOL speech-to-text
 EXPORTS TOOL voice
 EXPORTS FOLDER transcribe-licenses /usr/share/licenses/transcribe.cpp

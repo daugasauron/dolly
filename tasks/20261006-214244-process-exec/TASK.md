@@ -1,8 +1,17 @@
 # exec: replace a process's program in the process contract
 
 - STATUS: OPEN
-- PRIORITY: 40
-- TAGS: core,process,abi,slop,design
+- PRIORITY: 260
+- TAGS: core,process,abi,slop,design,0.1.4
+
+## State (2026-10-23): build it now
+
+Owner (2026-10-23), after Opus in Pi met Slop's refusal of a script's `exec PROGRAM`: "I want
+exec to be done properly". The real `execve` path described below, in the process contract,
+for v0.1.4, whose catalog round rebuilds every image anyway. The shell-level imitation stays
+rejected (the reasons are under "The request"). Also in this contract change:
+`posix_spawn_file_actions_addclose`, which the spawn packet cannot carry today (the OCaml
+port met it, `tasks/20261023-210000-ocaml/TASK.md`).
 
 ## State (2026-10-13)
 

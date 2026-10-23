@@ -44,8 +44,8 @@ export function browser(page) {
     claimsKey: session.claimsKey,
     entryStarted: session.entryStarted,
     // An ended image leaves the session this tab saved or restored to open again.
-    ended: () => session.name ? [{ text: `Open saved session ${session.name}`,
-      href: sessionLoadUrl(session.name, page.applicationBase).href }] : [],
+    ended: () => session.name && page.site ? [{ text: `Open saved session ${session.name}`,
+      href: sessionLoadUrl(session.name, page.site).href }] : [],
     dispose() { session.abort(); transport?.close(); },
     start(message) {
       transport = new SessionTransport(message.memory, message.address, message.nameAddress, message.transferAddress,

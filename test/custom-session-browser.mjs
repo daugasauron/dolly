@@ -92,24 +92,6 @@ ENTRY /bin/foreground -i /bin/slop
   const saved = await stored(page, "custom-proof");
   assert.equal(saved.image, "custom");
   assert.equal(saved.customImage.source, source);
-  // Existing cached images stored ArrayBuffers directly.
-  await page.evaluate(async () => {
-    const record = await (await import("/src/session-store.mjs")).loadStoredSession("custom-proof");
-    const artifact = await (await import("/src/image-artifact.mjs")).loadImageArtifact(record.customImage.artifact);
-    const db = await new Promise((resolve, reject) => {
-      const request = indexedDB.open("dolly-image-artifacts-v3", 3);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    try {
-      await new Promise((resolve, reject) => {
-        const tx = db.transaction("payloads", "readwrite");
-        tx.objectStore("payloads").put(artifact.bytes, artifact.buildId + ":" + artifact.recipeSha256);
-        tx.oncomplete = resolve;
-        tx.onabort = () => reject(tx.error);
-      });
-    } finally { db.close(); }
-  });
   const rebuildPage = page;
   const popupPromise = page.waitForEvent("popup");
   await page.evaluate(async (custom) => {
