@@ -1,4 +1,4 @@
-const { createHttpAdmission, DOLLY_HTTP_LIMITS } = await import(new URL(import.meta.url).searchParams.get("broker"));
+const { createHttpAdmission, HttpMailbox, DOLLY_HTTP_LIMITS } = await import(new URL(import.meta.url).searchParams.get("broker"));
 
 const admission = createHttpAdmission(request => self.postMessage({ type: "request", request }));
 self.postMessage({ type: "ready", control: admission.control.buffer });
@@ -8,8 +8,10 @@ const memory = new SharedArrayBuffer(1024);
 const request = { memory, method: 1n, methodSize: 3n, url: 8n, urlSize: 1n,
   headers: 0n, headersSize: 0n, body: 0n,
   bodySize: BigInt(DOLLY_HTTP_LIMITS.body) + 1n, flags: 0, sequence: 1 };
+// The runtime Worker's binding copies the descriptor out first, as here.
+const mailbox = new HttpMailbox(new SharedArrayBuffer(64 + 16 * (65536 + 64)), 64);
 for (let i = 0; i < 100; i++) {
-  const result = admission.dispatch(request);
+  const result = admission.dispatch(mailbox.admission(memory, request));
   self.postMessage({ type: "result", result });
 }
 self.postMessage({ type: "done" });

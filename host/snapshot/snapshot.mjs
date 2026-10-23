@@ -33,10 +33,30 @@ export async function boot(route) {
     custom: image === "custom" ? record.customImage : undefined, configuration: { bytes, name, recovering } };
 }
 
+// The page's capture: the Worker reads the session's chunks out of the mailbox
+// and hands each one to onChunk here, waiting until it is consumed.
+function sessionCapture({ send, ask }) {
+  let consume = null;
+  return {
+    async capture(name, { signal, onChunk }) {
+      signal?.throwIfAborted();
+      if (consume) throw new Error("A Dolly session save is already active");
+      const cancel = () => send({ type: "snapshot-cancel" });
+      consume = onChunk;
+      signal?.addEventListener("abort", cancel, { once: true });
+      try { return await ask({ type: "snapshot-capture", name }); }
+      finally {
+        consume = null;
+        signal?.removeEventListener("abort", cancel);
+      }
+    },
+    chunk: ({ bytes }) => consume?.(bytes),
+  };
+}
+
 export function browser(page) {
-  let transport;
-  const { bytes, name, recovering } = page.configuration;
-  const session = mountSessionSave(page, () => transport, name === undefined ? null : { name, recovering });
+  const { bytes, name, recovering } = page.configuration, capture = sessionCapture(page);
+  const session = mountSessionSave(page, () => capture, name === undefined ? null : { name, recovering });
   return {
     configuration: bytes === undefined ? {} : { bytes, ...(recovering ? { recover: name } : {}) },
     transfers: bytes ? [bytes] : [],
@@ -46,16 +66,13 @@ export function browser(page) {
     // An ended image leaves the session this tab saved or restored to open again.
     ended: () => session.name && page.site ? [{ text: `Open saved session ${session.name}`,
       href: sessionLoadUrl(session.name, page.site).href }] : [],
-    dispose() { session.abort(); transport?.close(); },
-    start(message) {
-      transport = new SessionTransport(message.memory, message.address, message.nameAddress, message.transferAddress,
-        () => page.send({ type: "snapshot-request" }));
-    },
+    messages: { "snapshot-chunk": capture.chunk },
+    dispose() { session.abort(); },
   };
 }
 
-export function worker({ get, configuration: { bytes, recover } }) {
-  let kernel;
+export function worker({ get, ask, configuration: { bytes, recover } }) {
+  let kernel, transport, cancelled;
   if (bytes !== undefined && (!(bytes instanceof ArrayBuffer) || bytes.byteLength < 16 ||
       bytes.byteLength > DOLLY_SESSION_MAX_BYTES)) throw new Error("invalid Dolly session snapshot");
   if (recover !== undefined && (!validSessionName(recover) || bytes === undefined)) {
@@ -100,12 +117,22 @@ export function worker({ get, configuration: { bytes, recover } }) {
       bytes = undefined;
     },
     service() { kernel?._dolly_session_service(); },
-    messages: { "snapshot-request"() { kernel?._dolly_session_service(); } },
+    messages: {
+      "snapshot-capture"({ name }) {
+        const controller = cancelled = new AbortController();
+        return transport.capture(name, { signal: controller.signal,
+          onChunk: chunk => ask({ type: "snapshot-chunk", bytes: chunk }, [chunk.buffer]) });
+      },
+      "snapshot-cancel"() { cancelled?.abort(); },
+    },
     start({ dolly, memory }) {
       kernel = dolly;
-      return { memory: memory.buffer, address: Number(dolly._dolly_session_mailbox_address()),
-        nameAddress: Number(dolly._dolly_session_name_address()),
-        transferAddress: Number(dolly._dolly_session_transfer_address()) };
+      // The kernel serves the mailbox on a request, after each consumed chunk
+      // and on cancellation, in a task of its own.
+      transport = new SessionTransport(memory.buffer, Number(dolly._dolly_session_mailbox_address()),
+        Number(dolly._dolly_session_name_address()), Number(dolly._dolly_session_transfer_address()),
+        () => setTimeout(() => kernel?._dolly_session_service()));
     },
+    dispose() { transport?.close(); },
   };
 }
