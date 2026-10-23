@@ -19,10 +19,21 @@ causes of the confusion are named from those transcripts, the fixes are in and m
 the same way, and `demos/local-llm/test/local-llm-browser.mjs` passes on the GPU in Chromium
 and Firefox.
 
-## State (2026-10-23 13:45 JST, branch `demo/pi-local-smooth`)
+## State (2026-10-23 16:05 JST, branch `demo/pi-local-smooth`)
 
-Before measured with Qwen3.5-2B; MiniCPM5-2B running. A candidate fix (guidance for local
-models in `demos/local-llm/`) is written and not measured yet.
+Before measured with both models; the first candidate measured with Qwen; the second
+candidate (`ef147433`) is built into `pi-local` and `dollyfile-studio` in this tree and
+waits for the shared GPU lock with its measurement and `local-llm-browser.mjs`
+(`build/pilocal-evidence/batch1.sh`, unit `dolly-pilocal-batch1`).
+
+Building in this slim tree: `npm run image` stages the whole closure of `pi-local`, and
+that needs Rust's port sources (`build/rustc-port`), which the tree lacks. Only
+`provider.tar` changes, so it is staged with the command of
+`demos/local-llm/prepare-sources.sh`, then `DOLLY_BUILD_IMAGES=pi-local
+update-recipe-pins.mjs --sources`, `generate-routes.mjs` and `build-system-snapshot.mjs`
+(`DOLLY_BUILD_IMAGES=default,pi-local,minicpm5-2b,dollyfile-studio`, hugebuild slot): the
+same steps as `build-image.mjs` without restaging the unchanged sources. `pi-local` and
+`dollyfile-studio` were rebuilt, nothing else.
 
 ## Method
 
