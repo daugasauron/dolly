@@ -42,7 +42,8 @@ Tools:
 - `cc` and `c++` (Clang), `make`; `janis`, JavaScript with Node's modules and
   `fetch`; `git` for local repositories. `amy install` brings what is missing.
 - `download FILE`, or the `download` tool, offers a file to the user's browser;
-  `upload PATH` asks the user for one. Files are lost on reload unless the
+  `upload PATH` asks the user for one. Several files go as one archive from
+  `git archive` (`tar` here only extracts). Files are lost on reload unless the
   user saves the session (Ctrl+Shift+S) or downloads them.
 
 Read the `dolly` skill before fetching source, compiling, drawing on the

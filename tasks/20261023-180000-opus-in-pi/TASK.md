@@ -36,6 +36,16 @@ Done when:
    page) listed here with their reproduction and fixed by the integrator or another agent before
    the 0.1.4 round; one that needs a design decision goes to the owner as one line.
 
+## State (2026-10-23 16:35 JST, branch `demo/opus-in-pi`)
+
+Done-when 1 to 4 are met; 5 is met for Pi (fixed here) and open for the five findings under
+"Findings to fix outside Pi" and the three lines "For the owner". Five sessions of Opus 5.5
+in Pi in pi-agent cost $0.762 of the $20 (Pi's footer and the session files agree). The
+images rebuilt here are `pi`, `pi-runtime` and `pi-agent`; `bhop`, `classicube`,
+`dollyfile-studio`, `pi-local`, `pi-phone`, `rts-arena` and `slopyard` install `pi` and are
+stale until the integrator's rebuild. `demos/pi/test/pi-browser.mjs` passes on the final
+image in Chromium (47 s) and Firefox (55 s).
+
 ## Method
 
 `build/opus-evidence/drive.mjs` (not committed): `pi-agent` of this branch's `dist/` served by
@@ -179,3 +189,17 @@ pi-agent from the downloaded source and played with held keys (`play-game.mjs`; 
 rock split); the session's own run of `/workspace/play` drew the same field.
 
 Spend so far: $0.638.
+
+## Session 5, the final guidance (2026-10-23 16:23 and 16:26, `build/opus-evidence/final/`, `final2/`, $0.124)
+
+The three prompts of sessions 1 and 2, the third replaced by "Make /workspace/hello: a C
+hello-world program and a script `run` that builds and starts it. Then save both to my
+computer as one archive." Python: "needs dso@0... no way to turn it on from inside... a
+different Dolly image", with `janis -e` instead; processes from `/proc/processes`; no
+`chmod`, no `exec`. For the archive it tried `tar -czf` first and used `git archive` after
+tar's own message, so the download line of `SYSTEM.md` now names `git archive`; on that
+image (`final2`) it went to `git archive` at once and downloaded `hello.tar.gz` (Playwright
+saved it; it lists `hello/hello.c` and `hello/run`). After Ctrl+D, `pi -c` showed that
+conversation again with its footer, as the guidance tells the user.
+
+Spend, all sessions: $0.093 + $0.079 + $0.212 + $0.254 + $0.086 + $0.038 = $0.762.
