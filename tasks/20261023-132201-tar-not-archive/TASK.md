@@ -4,7 +4,6 @@
 - PRIORITY: 110
 - TAGS: core,commands,agent-experience,0.1.4
 
-No description.
 
 Found by Opus 5.5 in Pi (`tasks/20261023-180000-opus-in-pi`, round 3, `r3-shell/`): it ran
 the core `tar -xf` on a `.tar.gz` that `git archive` wrote and read

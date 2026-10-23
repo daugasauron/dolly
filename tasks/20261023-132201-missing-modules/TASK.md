@@ -4,7 +4,6 @@
 - PRIORITY: 140
 - TAGS: amy,core,agent-experience,0.1.4
 
-No description.
 
 Found by Opus 5.5 in Pi (`tasks/20261023-180000-opus-in-pi`, round 3, `r3-python/`): asked
 for a small Python script in pi-agent, which declares `nena@0` but neither `dso@0` nor

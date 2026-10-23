@@ -59,7 +59,7 @@ the catalog round. Left, one line each:
 
 ## State (2026-10-23 23:00 JST, branch `demo/opus-audit-2`): rounds 2 and 3 done
 
-Eleven more sessions (rounds 2 and 3, at the end), $4.956; with round 1, **$5.718 of the
+Fifteen more sessions (rounds 2 and 3, at the end), $5.845; with round 1, **$6.607 of the
 $20** (Pi's footer and the session files agree). Before the guidance change Opus wrote every
 game from scratch on the raw display and never looked at `amy`; after it, every session
 installed and reused a library (raylib, SDL2, FreeType, libpng, SQLite) in its first
@@ -482,4 +482,22 @@ had the game write (`--shots`) and then read with Pi's read tool, and `timeout 5
 It worried that its screenshots were upside down (raylib's screen capture flips the
 software framebuffer); the game on the display is upright.
 
-Spend, all sessions: **$5.718 of the $20**.
+Newcomer tasks the first rounds did not touch (the integrator's list and two more), on the
+same trial pi-agent (no `rg`/`fd`; `tar`, `pigz` and `unzip` packages not built in this tree,
+so their 502s are this tree's):
+
+| task | result | calls (failed) | wall s | cost |
+| --- | --- | --- | --- | --- |
+| a C project with a Makefile and git: commit, branch, diff, merge, log (`r3-git/`) | works; Git's identity is set; for a download with history it made a git bundle inside the zip | 23 (2: tar 502, no `unzip`) | 112 | $0.335 |
+| a Python script that reads and writes files (`r3-python/`) | `amy install python`, refused for `dso@0`, `nena enable dso`, refused again for `sockets@0`, `nena enable sockets`, then it worked | 9 (2: the refusals) | 31 | $0.072 |
+| a backup shell script with dated, pruned archives (`r3-shell/`) | `git archive --format=tar.gz` instead of the tar package; core `tar -xf` on a .tar.gz said "read header at <header> (errno 29)" | 8 (1) | 58 | $0.111 |
+| cJSON from GitHub, built and tested (`r3-fetch/`) | the skill's jsDelivr listing and `make -j8 -f fetch.mk`: 216 files in 71 s (jsDelivr cold; 5.9 s warm, measured after, `r3/probe-fetch.out`), upstream Makefile; 20 of 21 test suites, `misc_tests` hit the browser's stack ("Maximum call stack size exceeded") and Opus found the cause | 25 (4) | 206 | $0.371 |
+
+Fixed here: the skill names the browser's stack limit among the failures (`2e996fb1`).
+Filed for the core, with reproductions: [amy names one missing host module at a
+time](../20261023-132201-missing-modules/TASK.md) and [tar's message for a file that is not
+an archive](../20261023-132201-tar-not-archive/TASK.md). Measured, no change: `make -j32`
+fails with "Resource temporarily unavailable" where `-j8` (the skill's) does not; one Janis
+process fetching 16 at a time took 2.2 s for the 216 files.
+
+Spend, all sessions: **$6.607 of the $20** (round 3: $2.059).
