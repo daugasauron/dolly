@@ -1,4 +1,4 @@
-import { unretainedPath } from "./dollyfile-view.mjs";
+import { unretainedPath } from "./image-names.mjs";
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 export const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024 * 1024;
 

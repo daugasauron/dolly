@@ -1,8 +1,8 @@
 import { DOLLY_IMAGES, imageBase } from "./images.mjs";
 import { loadRecipeGraph } from "./dollyfile-graph.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
-import { describeImageArtifact, loadImageArtifactDescriptor, loadImageArtifact, saveImageArtifact,
-  loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } from "./image-artifact.mjs";
+import { describeImageArtifact, loadImageArtifactDescriptor, loadImageArtifact, saveImageArtifact } from "./image-artifact.mjs";
+import { loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } from "./packaged-snapshot.mjs";
 import { siteReference, sitePath } from "./static-asset.mjs";
 
 

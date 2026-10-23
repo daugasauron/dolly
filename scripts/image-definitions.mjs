@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 
-import { inspectDollyfile, imageFileName, validName } from "../src/dollyfile-view.mjs";
+import { inspectDollyfile, imageFileName } from "../src/dollyfile-view.mjs";
+import { validName } from "../src/image-names.mjs";
 import {
   createDollyfileGraphLoader,
   recipeRecords,

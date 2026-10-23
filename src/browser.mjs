@@ -1,18 +1,11 @@
 import { buildLog } from "./build-log.mjs";
 import { holdIndicators, showIndicators } from "./page-indicators.mjs";
-import { hostRegistry, buildHost } from "../host/modules.mjs";
-import { prepareImageArtifacts, loadImageHostRequirements } from "./image-build.mjs";
-import { buildImage } from "./image-builder.mjs";
-import { loadCustomImage, storedCustomImage } from "./custom-image.mjs";
-import { describeImageArtifact, sha256 } from "./image-artifact.mjs";
-import { inspectDollyfile } from "./dollyfile-view.mjs";
+import { hostRegistry } from "../host/modules.mjs";
 import { pageChords } from "./page-chords.mjs";
 import { terminalText } from "./terminal-text.mjs";
 import { DOLLY_IMAGES, DOLLY_STATIC_SOURCES, imageBase, loadImages } from "./images.mjs";
 import { publicURL } from "./static-asset.mjs";
 import * as processConstants from "./process-constants.mjs";
-
-const encoder = new TextEncoder();
 
 // The terminal's own look: its canvas, the hidden keyboard, the boot log and
 // the status line. A host module brings the look of what it adds; the page, the
@@ -40,16 +33,36 @@ function element(tag, properties, attributes = {}) {
 }
 
 // Runs an image in `mount`, an element the embedding sizes, from the image
-// directory `images` (images.mjs). The embedding,
-// trusted page code, names the host modules the page has (`modules`, the URLs
-// of their manifests) and sets the HTTP broker's policy (`http`: { policy,
-// relays }), both before anything of the guest runs. `image` is a packaged
-// image or "custom", `mode` "snapshot" or "rebuild", and `loadSession` asks the
-// snapshot module for the session the route names. `site`, given, is the root
-// of the routes a module may link to (session/, sessions/, docs/). It resolves
-// to the page's API (window.__dolly on the site) once the image's ENTRY runs,
-// or to null when it only built an image.
-export async function boot(mount, { images, image: route, mode = "snapshot", loadSession = false, modules, site, http = {} } = {}) {
+// directory `images` (images.mjs). The embedding, trusted page code, names the
+// host modules the page has (`modules`, the URLs of their manifests) and sets
+// the HTTP broker's policy (`http`: { policy, relays }), both before anything
+// of the guest runs. `site`, given, is the root of the routes a module may link
+// to (session/, sessions/, docs/). It resolves to the page's API (window.__dolly
+// on the site) once the image's ENTRY runs.
+export function boot(mount, { images, image, modules, site, http = {} } = {}) {
+  return run(mount, { images, modules, site, http }, async () => {
+    const definition = DOLLY_IMAGES.find(candidate => candidate.image === image);
+    if (!definition) throw new Error("invalid Dolly boot options");
+    if (definition.entry === null) throw new Error(`${image} has no ENTRY; it only builds`);
+    return { image, label: "PRECOMPILED SYSTEM", required: definition.hostRequirements ?? [] };
+  });
+}
+
+// What boot() does, for the routes of the site too (site.mjs), which build and
+// restore images of their own. `route(registry)` selects what runs:
+// - image, label: the route's image ("custom" for none) and its boot log line;
+// - required, enabled: the host modules the image requires, and those the page
+//   enables (by default the required ones), which a build alone may set;
+// - configuration, inherited: the modules' configuration, and what http@0
+//   inherits from the tab that opened this one;
+// - worker: the runtime Worker's URL, by default runtime-worker.mjs;
+// - start(host, report): before the Worker starts, the fields it adds to the
+//   configure message ({ message, transfers }), or null once an image without
+//   ENTRY is built;
+// - message(message): each message of the Worker;
+// - running(ready, host): the context host modules' entryStarted is given
+//   beside `image`, and members of the page's handle.
+export async function run(mount, { images, modules, site, http }, route) {
   if (!document.querySelector("style[data-dolly]")) {
     document.head.append(element("style", { textContent: style }, { "data-dolly": "" }));
   }
@@ -70,8 +83,6 @@ export async function boot(mount, { images, image: route, mode = "snapshot", loa
   let host;
   let rejectReady = null;
   let runtimeReady = false;
-  let builtSystemSnapshot = null;
-  let builtSystemInputs = null;
   let statusTimer;
 
   // The runtime stopped: its host modules let go of the page, and the bootstrap
@@ -121,26 +132,12 @@ export async function boot(mount, { images, image: route, mode = "snapshot", loa
   try {
     document.documentElement.dataset.dollyStatus = "loading";
     await loadImages(images);
-    const packagedImages = new Set(DOLLY_IMAGES.map(({ image }) => image));
-    if (!(packagedImages.has(route) || route === "custom") || !["snapshot", "rebuild"].includes(mode) ||
-        typeof loadSession !== "boolean" || !Array.isArray(modules) || !modules.length ||
-        !(site === undefined || typeof site === "string")) {
+    if (!Array.isArray(modules) || !modules.length || !(site === undefined || typeof site === "string")) {
       throw new Error("invalid Dolly boot options");
     }
-    const bootMode = mode;
-    // A module may select what boots: a saved session names its image, its
-    // module and the custom image record it was saved from.
     const registry = await hostRegistry(modules);
-    const selected = await registry.selectBoot({ image: route, mode, loadSession });
-    const image = selected?.image ?? route;
-    // The custom image this tab runs: its Dollyfile and, in snapshot mode, the
-    // completed artifact and what the tab inherits from the page that built it.
-    const custom = image === "custom" ? selected?.custom ?? storedCustomImage() : undefined;
-    if (image === "custom" && !custom) {
-      throw new Error("No uploaded Dollyfile is available in this tab. Return to the Dolly menu.");
-    }
-    const customSource = custom?.source;
-    const applicationBase = imageBase;
+    const selected = await route(registry);
+    const { image } = selected;
     const bootstrapSources = [
       ...DOLLY_IMAGES.map((definition) => ({
         path: `/${definition.dollyfile}`,
@@ -148,41 +145,23 @@ export async function boot(mount, { images, image: route, mode = "snapshot", loa
       })),
       ...DOLLY_STATIC_SOURCES,
     ];
-    const requiredHost = [...await loadImageHostRequirements(image, customSource), ...selected ? [selected.module] : []];
-    appendBootstrap(`DOLLY / ${image.toUpperCase()} / ${selected?.label ?? (bootMode === "rebuild"
-      ? "REBUILD FROM SOURCE" : "PRECOMPILED SYSTEM")}\n\n`);
-    const recipe = customSource === undefined ? DOLLY_IMAGES.find(definition => definition.image === image)
-      : inspectDollyfile(customSource);
-    const runnable = recipe.entry !== null;
-    host = await registry.createHost("browser", !runnable ? registry.buildHostFor(requiredHost)
-      : [...requiredHost, ...(bootMode === "rebuild" ? buildHost : [])], {
+    appendBootstrap(`DOLLY / ${image.toUpperCase()} / ${selected.label}\n\n`);
+    host = await registry.createHost("browser", selected.enabled ?? selected.required, {
       send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),
-      resources: { mount, canvas, keyboard, applicationBase, site: site && publicURL("", site), showStatus, fatal,
+      resources: { mount, canvas, keyboard, applicationBase: imageBase, site: site && publicURL("", site), showStatus, fatal,
         indicators: { hold: holdIndicators, show: showIndicators } },
-      configuration: { ...selected?.configuration, http: { ...selected?.configuration?.http, embedding: http,
-        sources: bootstrapSources, inherited: bootMode === "snapshot" ? custom : undefined } },
+      configuration: { ...selected.configuration, http: { ...selected.configuration?.http, embedding: http,
+        sources: bootstrapSources, inherited: selected.inherited } },
     });
-    const buildDependency = (name, inputs) => buildImage(name, inputs, host.builder, appendBootstrap);
-    const prepareArtifacts = () => prepareImageArtifacts(image, customSource, buildDependency,
-      text => appendBootstrap(`${text}\n`));
-    if (bootMode === "rebuild" && !runnable) {
-      // An image without ENTRY has no program to run: keep the complete log and report the result.
-      const artifacts = await prepareArtifacts();
-      const built = await buildImage(image, artifacts, host.builder, appendBootstrap, { customSource, consume: true });
-      const name = customSource === undefined ? image : recipe.image;
-      appendBootstrap(`\nBUILT ${name} · ${(built.byteLength / 1024 / 1024).toFixed(1)} MiB · sha256 ${built.sha256}\n`);
+    host.require(selected.required);
+    const started = selected.start ? await selected.start(host, appendBootstrap) : { message: {}, transfers: [] };
+    if (started === null) {
       document.documentElement.dataset.dollyStatus = "built";
       host.dispose();
       return null;
     }
-    if (!runnable) throw new Error(`${image} has no ENTRY; it only builds`);
-    host.require(requiredHost);
-    const customArtifact = image === "custom" && bootMode === "snapshot"
-      ? await loadCustomImage(customSource, custom.artifact) : undefined;
-    const artifacts = bootMode === "rebuild" ? await prepareArtifacts() : [];
 
-    const workerUrl = new URL("./runtime-worker.mjs", import.meta.url);
-    runtimeWorker = new Worker(workerUrl, {
+    runtimeWorker = new Worker(selected.worker ?? new URL("./runtime-worker.mjs", import.meta.url), {
       type: "module",
       name: "dolly-runtime",
     });
@@ -195,36 +174,27 @@ export async function boot(mount, { images, image: route, mode = "snapshot", loa
     runtimeWorker.addEventListener("message", (event) => {
       const message = event.data;
       void host.handle(message).catch(error => fatal(error.message));
+      selected.message?.(message);
       if (message.type === "bootstrap") {
         appendBootstrap(message.text);
       } else if (message.type === "bootstrap-bytes") {
         appendBootstrap(bootstrapDecoder.decode(message.bytes, { stream: true }));
-      } else if (message.type === "system-snapshot") {
-        builtSystemSnapshot = message.bytes;
-        builtSystemInputs = message.inputs;
       } else if (message.type === "exited") {
         ended(message);
       } else if (message.type === "error" && runtimeReady) {
         fatal(message.stack ? `${message.message}\n${message.stack}` : message.message);
       }
     });
-    const workerConfiguration = {
+    runtimeWorker.postMessage({
       type: "configure",
       image,
-      mode: bootMode,
+      mode: "snapshot",
       images: imageBase.href,
       modules: registry.urls,
       hostModules: host.enabled,
       hostConfiguration: host.configuration,
-      artifacts,
-      ...(customSource === undefined ? {} : { customSource }),
-      ...(customArtifact === undefined ? {} : { customArtifact }),
-    };
-    runtimeWorker.postMessage(
-      workerConfiguration,
-      [...host.transfers, ...artifacts.map(artifact => artifact.bytes),
-        ...(customArtifact === undefined ? [] : [customArtifact.bytes])],
-    );
+      ...started.message,
+    }, [...host.transfers, ...started.transfers]);
 
     const ready = await new Promise((resolve, reject) => {
       rejectReady = reject;
@@ -242,20 +212,12 @@ export async function boot(mount, { images, image: route, mode = "snapshot", loa
     }).finally(() => { rejectReady = null; });
     appendBootstrap(bootstrapDecoder.decode());
     runtimeReady = true;
-    if (ready.bootMode !== bootMode) throw new Error("runtime boot mode mismatch");
     if (ready.routeImage !== image || (image !== "custom" && ready.image !== image)) {
       throw new Error("runtime image mismatch");
     }
     document.documentElement.dataset.image = ready.image;
-    let running;
-    if (image === "custom") {
-      const artifact = customArtifact ?? await describeImageArtifact(builtSystemSnapshot,
-        await sha256(encoder.encode(customSource)), builtSystemInputs);
-      const { buildId, recipeSha256, sha256: digest, byteLength, inputs } = artifact;
-      running = { source: customSource, artifact: { buildId, recipeSha256, sha256: digest, byteLength, inputs },
-        ...host.inherited };
-    }
-    await host.entryStarted({ image, custom: running, systemSnapshot: builtSystemSnapshot });
+    const { context, page } = await selected.running?.(ready, host) ?? {};
+    await host.entryStarted({ image, ...context });
     runtimeWorker.postMessage({ type: "entry-ready-ack" });
     // A module that shows the canvas replaces the bootstrap log.
     bootstrapLog.hidden = !canvas.hidden;
@@ -264,11 +226,10 @@ export async function boot(mount, { images, image: route, mode = "snapshot", loa
     document.documentElement.dataset.dollyStatus = "ready";
     showIndicators();
 
-    return Object.create(host.page, Object.getOwnPropertyDescriptors({
-      ...terminalText(host.page),
-      get hostModules() { return host.enabled; },
-      get systemSnapshot() { return builtSystemSnapshot; },
-    }));
+    return Object.create(host.page, {
+      ...Object.getOwnPropertyDescriptors({ ...terminalText(host.page), get hostModules() { return host.enabled; } }),
+      ...Object.getOwnPropertyDescriptors(page ?? {}),
+    });
   } catch (error) {
     runtimeReady = false;
     fatal(error instanceof Error ? error.message : String(error));

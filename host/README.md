@@ -177,6 +177,6 @@ a libc ([machine contracts](../abi/README.md)). An executable built for a
 runtime with another process contract is refused by that check; runtimes that
 implement the same contract run the same executables.
 
-[`runtime-worker.mjs`](../src/runtime-worker.mjs) and the process loader still
+[`worker-image.mjs`](../src/worker-image.mjs) and the process loader still
 load this runtime's kernel, seed and process contract by fixed path; a second
 runtime needs its provider to name them.

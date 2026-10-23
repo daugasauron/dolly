@@ -1,5 +1,5 @@
 import { alphabetical } from "./alphabetical.mjs";
-import { inspectDollyfile, validName } from "./dollyfile-view.mjs";
+import { validName } from "./image-names.mjs";
 import { imageInputs } from "./image-inputs.mjs";
 import { publicURL } from "./static-asset.mjs";
 import { DOLLY_VERSION } from "./version.mjs";
@@ -37,7 +37,8 @@ export function customSessionIdentity(custom) {
         new TextEncoder().encode(JSON.stringify(policies)).byteLength > 65536))) {
     throw new TypeError("invalid custom session base");
   }
-  inspectDollyfile(custom.source);
+  // The site parses the Dollyfile where it imports a session file or runs the image.
+  if (typeof custom.source !== "string") throw new TypeError("invalid custom session base");
   imageInputs(artifact.inputs);
   return `custom:${artifact.recipeSha256}:${artifact.sha256}`;
 }

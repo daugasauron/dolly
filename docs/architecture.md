@@ -29,9 +29,9 @@ flowchart LR
 
 | Part | Code | Role |
 | --- | --- | --- |
-| Page | [`browser.mjs`](../src/browser.mjs), [`terminal.html`](../terminal.html) | Boots one route; gives host modules its canvas, keyboard and status line |
+| Page | [`browser.mjs`](../src/browser.mjs), [`site.mjs`](../src/site.mjs), [`terminal.html`](../terminal.html) | Boots an image (`boot()`, the embedding's) or a route of the site, which may build one; gives host modules its canvas, keyboard and status line |
 | Host modules | [`host/`](../host/README.md) | One directory and manifest per bridge: JavaScript provider, WAT contract, C header, kernel C, process client; see [browser boundary](browser-boundary.md) |
-| Runtime Worker | [`runtime-worker.mjs`](../src/runtime-worker.mjs) | Instantiates the kernel with the host modules' imports, restores or builds the image, runs its ENTRY |
+| Runtime Worker | [`worker-image.mjs`](../src/worker-image.mjs), [`runtime-worker.mjs`](../src/runtime-worker.mjs), [`build-worker.mjs`](../src/build-worker.mjs) | Instantiates the kernel with the host modules' imports, restores the image from its packs, or, for the site, builds it or restores a custom one, and runs its ENTRY |
 | Kernel | [`dolly.c`](../src/dolly.c), [`process-kernel.c`](../src/process-kernel.c), [`system-snapshot.c`](../src/system-snapshot.c), [`file-blocks.cpp`](../src/file-blocks.cpp) | WasmFS, open files, pipes, processes, signals, terminal modes, image snapshots; module operations go to each module's `kernel.c` ([build](../toolchain/CMakeLists.txt)) |
 | Supervisor | [`process-supervisor.mjs`](../src/process-supervisor.mjs) | Compiles executables, gives each process a fresh memory, gate and Worker (one per thread), forwards syscalls, enforces deadlines |
 | Process Worker | [`process-worker.mjs`](../src/process-worker.mjs) | Instantiates the executable and enters the kernel for it; for an executable that records `dso@0`, imports the loader and FFI ([`host/dso/process.mjs`](../host/dso/process.mjs)) |

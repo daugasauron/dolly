@@ -6,7 +6,7 @@ the browser. These npm packages put it in a page of your own.
 
 | Package | What it holds |
 | --- | --- |
-| `@daugasauron/dolly` | The runtime: `boot()`, the kernel, the process runtime, and the host modules that are its own machinery (`runtime`, `http`, `threads`, `dso`, `nena`, `snapshot`, `packages`) |
+| `@daugasauron/dolly` | The runtime: `boot()`, the kernel, the process runtime, and the host modules that are its own machinery (`runtime`, `http`, `threads`, `dso`, `nena`, `snapshot`, `packages`). Building images stays with Dolly's site |
 | `@daugasauron/dolly-host-NAME` | One device host module each: `display` (Ghostty's terminal and programs' frames), `input`, `gpu`, `audio`, `microphone`, `touch`, `download`, `upload`, `sockets`, `pty` |
 | `@daugasauron/dolly-image-default` | The `default` image alone: a shell, its text tools, the terminal, curl, `amy`, `nena`, `ps`. `amy` lists what is installed and has nothing more to install |
 
