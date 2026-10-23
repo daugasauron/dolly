@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # The Go toolchain as go-build built it, in its GOROOT. The commands start it
 # by its own path, from which it finds its GOROOT.
-FROM /v0.1.4/demos/go/Dollyfile-go-build fa33d0138227834b036324995552ee92b9dfe95d1c80226de0b49ea112f91b14
+FROM /v0.1.4/demos/go/Dollyfile-go-build cde41f1d187f14b6949a9c09c50839b3f03d33716d4775cfed648808becb5255
 FILE /usr/bin/go
     #!/bin/slop
     /usr/lib/go/bin/go "$@"

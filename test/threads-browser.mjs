@@ -14,7 +14,7 @@ const threadsImage = { path: "/custom/rebuild/", setup: async page => {
     ...[...modules, "threads@0"].map(module => `REQUIRES HOST ${module}`),
     `FROM ${siteReference(system.dollyfile)} ${system.sha256}`, "ENTRY /bin/foreground -i /bin/slop", ""].join("\n"));
 } };
-const fixtures = Object.fromEntries(["threads-pthread.c", "threads-cpp.cpp", "threads-quota.c"]
+const fixtures = Object.fromEntries(["threads-pthread.c", "threads-cpp.cpp", "threads-quota.c", "process-exec.c"]
   .map(name => [name, `test/fixtures/${name}`]));
 const sourceOverrides = new Map();
 const probe = "/fixture/process-wrong-call.wasm";
@@ -55,6 +55,10 @@ await browserTest("threads", { image: "system", server: { fixtures, sourceOverri
   await page.keyboard.press("Control+c");
   assert.equal(await busy, 130);
   await run(threaded);
+  // A thread other than the first execs: the process, its other thread gone,
+  // runs the new program.
+  await run(`curl -fsS ${server.origin}/fixture/process-exec.c -o /tmp/process-exec.c && cc -O0 -pthread /tmp/process-exec.c -o /tmp/exec`);
+  assert.equal(await submit("/tmp/exec thread"), 43);
   assert.notEqual(await submit("cc -pthread -shared /tmp/threads-pthread.c -o /tmp/unsupported.so"), 0);
   assert.notEqual(await submit("cc -pthread -rdynamic /tmp/threads-pthread.c -o /tmp/unsupported"), 0);
 

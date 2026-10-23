@@ -3,6 +3,9 @@
 // into a buffer twice its size, and an allocation failure aborts the kernel.
 // Here growth allocates only the new blocks, and growth that memory cannot
 // hold fails with ENOSPC. The root also holds the terminal's output devices.
+// Each version of a file's bytes has a number of its own, which every write
+// and size change renews: the kernel names an executable by it without
+// reading it (dolly_fs_version).
 #include <algorithm>
 #include <cerrno>
 #include <cstdlib>
@@ -20,9 +23,13 @@ namespace {
 using namespace wasmfs;
 
 constexpr size_t kBlockSize = size_t{1} << 20;
-// File bytes never take the kernel's last memory: starting a command reads its
-// executable into kernel memory, and the compiler is 78 MB.
+// File bytes never take the kernel's last memory: starting a command the
+// supervisor has not compiled reads its executable into kernel memory, and the
+// compiler is 78 MB.
 constexpr size_t kKernelReserve = size_t{128} << 20;
+
+// The last version number given, of any file; none is given twice.
+uint64_t lastVersion;
 
 void *reallocateLeavingReserve(void *bytes, size_t size) {
   void *reserve = malloc(kKernelReserve);
@@ -115,6 +122,7 @@ class BlockFile : public DataFile {
   off_t getSize() override { return size; }
 
   int setSize(off_t newSize) override {
+    version = ++lastVersion;
     if (size_t(newSize) > size) return grow(newSize, newSize);
     release(newSize);
     size = newSize;
@@ -122,6 +130,7 @@ class BlockFile : public DataFile {
   }
 
   ssize_t write(const uint8_t *buf, size_t len, off_t offset) override {
+    version = ++lastVersion;
     const size_t end = offset + len;
     if (end > size) {
       if (int error = grow(end, std::max(size, size_t(offset)))) return error;
@@ -144,6 +153,7 @@ class BlockFile : public DataFile {
   }
 
 public:
+  uint64_t version = ++lastVersion;
   BlockFile(mode_t mode, backend_t backend) : DataFile(mode, backend) {}
   ~BlockFile() override { release(0); }
 };
@@ -191,6 +201,15 @@ public:
 };
 
 } // namespace
+
+// The version of the bytes a kernel descriptor reads, or 0 when it reads no
+// regular file.
+extern "C" uint64_t dolly_fs_version(int descriptor) {
+  auto open = wasmFS.getFileTable().locked().getEntry(descriptor);
+  if (open == nullptr) return 0;
+  auto file = std::dynamic_pointer_cast<BlockFile>(open->locked().getFile());
+  return file == nullptr ? 0 : file->version;
+}
 
 // Replaces WasmFS's weak default root, its memory backend.
 extern "C" backend_t wasmfs_create_root_dir(void) {

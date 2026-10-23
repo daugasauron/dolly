@@ -17,6 +17,29 @@ and the Emacs demo's test passes 30 of 30 runs pinned to one processor in
 Chromium; and it is known how a stack that runs out can lose bytes without
 ending the process, or that question has a task of its own.
 
+## Where the bytes go (2026-10-23, from the 2026-10-14 evidence)
+
+Emacs's own record of its input (`C-h l` in the failing runs of
+`work/evidence-2026-10-14/flake/emacsfirst-plain-pair-c5-1.log` and the liftoff
+ones) holds `C-x C-f`, `/`, `t` and then the test's `C-g`: the other 24 bytes,
+which the kernel handed over in the same read, never became commands. The one
+place Emacs drops typed input it has read is `command-error-default-function`
+(Emacs 31.1 `src/keyboard.c`, `Fdiscard_input ()` before `bitch_at_user`): a
+command that signals an error discards what is typed after it, and its message
+shows in the echo area for a moment, gone when the test reads the screen. So
+the loss is an error in a command, not input the kernel or the terminal lost.
+Not known: which error. The probe's `C-h e` (`*Messages*`), which would print
+it, was never run.
+
+On 2026-10-23 the probe, now printing `*Messages*` after a loss
+(`core/process-exec`'s `build/process-evidence/probe/emacs-first.mjs`), ran on a
+`gnu-emacs` built on the exec seed, pinned to one processor in Chromium with the
+machine's load at 17.9 of 16 cores: 0 of 20 first steps lost the name, so no
+message was caught. Held in its baseline compiler
+(`--js-flags=--liftoff-only`), Chromium still ends Emacs at that prompt, 3 of 3
+("Maximum call stack size exceeded"): the stack Emacs needs is unchanged. The
+owner's decision of how it gets one is what this task waits for.
+
 ## As filed (2026-10-14, `main` `85a8bdc2`)
 
 - What a person sees: in a Chromium that has just started, the first "Find

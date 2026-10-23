@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
-import { commandCases, pipelineCases, shellCases, sourceFiles } from "./fixtures/slop-cases.mjs";
+import { commandCases, execCases, pipelineCases, shellCases, sourceFiles } from "./fixtures/slop-cases.mjs";
 import { stagedIncludeDirectory } from "../scripts/host-modules.mjs";
 const includeDirectory = await stagedIncludeDirectory();
 
@@ -34,7 +34,7 @@ test("Slop semantics under sanitizers against Bash", async t => {
     await mkdir(reference);
     await symlink(execFileSync("bash", ["-c", "command -v bash"], { encoding: "utf8" }).trim(),
       resolve(reference, "slop"));
-    for (const [native, cases] of [["native-slop", shellCases], [null, commandCases], ["spawning/slop", pipelineCases]]) {
+    for (const [native, cases] of [["native-slop", shellCases], [null, commandCases], ["spawning/slop", pipelineCases], ["spawning/slop", execCases]]) {
     for (const [name, source, expected, referenceStatus = expected] of cases) await t.test(name, () => {
       const bash = spawnSync("bash", ["--noprofile", "--norc", "-c", source, "fixture-zero"], {
         cwd: scratch, encoding: "utf8", timeout: 5000,
