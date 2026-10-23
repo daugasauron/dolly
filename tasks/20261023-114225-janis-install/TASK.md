@@ -17,13 +17,13 @@ Code is fetched from npm by its own launcher (`demos/closed-source-agent`).
 Done when the investigation is in `investigation.md` here, read by the owner, and what he
 accepts is tasks of its own.
 
-## State (2026-10-23, 14:30): building `janis-install`, branch `demo/janis-install`
+## State (2026-10-23, 14:50): `janis-install` built and tested; step 3 next, branch `demo/janis-install`
 
 Integrator's brief: the command is `janis-install NAME[@VERSION]`, a package of its own (one
 Janis script linked with the QuickJS runner as `tsc` is), not a `janis` subcommand and never
-called `npm`. Steps: 1 measure (done, below); 2 the package with a fixture-registry browser
-test; 3 `closed-source-agent` installs Claude Code with it; then stop: Pi from npm and
-`pi-dolly` wait for the `pi-local` agent, because they touch the same Pi files.
+called `npm`. Steps: 1 measure (done); 2 the package with a fixture-registry browser test
+(done, below); 3 `closed-source-agent` installs Claude Code with it; then stop: Pi from npm
+and `pi-dolly` wait for the `pi-local` agent, because they touch the same Pi files.
 
 ## Step 1, measured (2026-10-23)
 
@@ -75,6 +75,47 @@ Decisions:
   refuse Pi (its two scripts are a no-op echo and a version notice). `.node` files are not
   refused at install time: Pi's own `pi-tui` carries them for other platforms; Janis fails
   by name when one is loaded.
+
+## Step 2, the `janis-install` package (2026-10-23)
+
+`demos/javascript/janis-install.mjs` (about 370 lines) linked as `/usr/bin/janis-install` by
+`janis-install.c`; `Dollyfile-janis-install` is `FROM system-tools` and `INSTALL`s `janis`,
+`gzip` and `sbase` (for `sha512sum`), so `amy install janis-install` brings all four
+(measured in `default`, 550 to 760 ms). README section "janis-install" says what it does.
+
+- Versions: node-semver's grammar and npm-pick-manifest's choice (a tag; for a range the
+  `latest` tag when it satisfies, else the highest). Checked natively against node-semver on
+  22,532 range/version pairs (every range in Pi's tree among them): 0 differ.
+- Tree: breadth first; a version goes to the top unless another version of the name is on
+  the dependent's path, then beside the dependent. Pi 1.0.3's tree natively: the same 120
+  packages at the same versions and the same 15,140 files as `npm install`, two placed
+  differently (`retry` 0.12/0.13 swapped between top and nested; `agent-base` nested one
+  level deeper), and every one of 251 dependencies resolves, as Node resolves, to a version
+  that satisfies it.
+- **Unpacking is JavaScript in janis-install, not the session's `tar`.** Measured on Pi's
+  120 tarballs: Dolly's `tar` refuses three (`buffer-equal-constant-time` has pax headers,
+  `agent-base` and `https-proxy-agent` name `package/./dist/index.js`); sbase's (the `tar`
+  package) refuses every npm tarball ("invalid checksum": node-tar writes the field as
+  `NNNNNN \0`, sbase's `chktar` trims only trailing spaces). The reader does what pacote asks
+  of node-tar: strip the first component (`@types/node`'s is `node/`, `retry`'s `retry/`),
+  files and directories only, links skipped, pax `path` and GNU long names, `..` refused.
+  `gzip -dc` still decompresses (Janis's `zlib` is a stub).
+- Pi 1.0.3 from the registry in a `default` session (Chromium, default policy): 120
+  packages, 24,664,071 bytes fetched, 15.2 s; 110 MB in `/usr/lib/node_modules`. For the Pi
+  step: `pi` (`dist/bundle/cli.js`) then fails `SyntaxError: Could not find export
+  'enableCompileCache' in module 'node:module'` and `dist/cli.js` `SyntaxError: invalid class
+  range` (the `/v` regexes); `build/janis-evidence/probe-install-pi-chromium.log`.
+- Test: `demos/javascript/test/janis-install-browser.mjs` with
+  `test/fixtures/npm-registry.mjs`, made-up packages in npm's tarball shapes served under
+  `/npm/` by the test origin, the page's registry fetches redirected there after the broker
+  admits them (policy: `registry.npmjs.org`, GET). Passed in Chromium (10.5 s) and Firefox
+  (7.0 s). `test/amy-browser.mjs` has its `tools` row (after `sbase`, whose commands it
+  brings), not run yet. Commit `d01154f6`.
+- Janis gaps it met, not fixed here (each repins the Janis chain): `fs` takes a `URL` object
+  as the string `file:///…` (Node: its path), and `require` of a directory path ignores its
+  `package.json` `main` (`janis.js:2778`; Node's LOAD_AS_DIRECTORY reads it).
+
+## Decided (2026-10-23, 13:10): Pi comes from npm, for v0.1.4
 
 Owner: "Can you make pi come from npm?" Option 4 of [the investigation](investigation.md),
 section 3: one installer, a package of its own that runs under Janis (shape B), used by
