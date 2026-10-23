@@ -1,0 +1,43 @@
+DOLLY 7
+PACKAGE sdl2-mixer
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST audio@0
+REQUIRES HOST touch@0
+
+# SDL_mixer from upstream's release archive, unchanged, built by its CMake
+# project with the decoders it carries: WAV, AIFF and VOC, Ogg Vorbis
+# (stb_vorbis), MP3 (minimp3), FLAC (dr_flac) and MIDI (Timidity, given
+# instrument patches). MOD, Opus, WavPack, GME, FluidSynth and the external
+# music command need more than it carries and are off. It plays through the
+# sdl2 package's audio@0 driver: libSDL2_mixer.a with its header, pkg-config
+# file and CMake package, for programs the cc package builds with SDL2.
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build c05c2a5b06cd079eef923fcc4af0d2d6b6999f2c6a44326ae8e59fa3a5ffbf5e
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 5caffe43d783ed4b72f8b5adb8cb79d54518c456dcb6ddf178e7fc23b8666670
+REQUIRES HEADER libc
+REQUIRES HEADER sdl2
+REQUIRES LIB SDL2
+REQUIRES TOOL cc
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /v0.1.4/dist/static/sdl2-mixer/source.tar 1fe1f322d9579a1395fe80732380b691dec80bb060b6ce5481db59ac1b1e57b8 /tmp/sdl2-mixer/source.tar
+SLOP tar -xf /tmp/sdl2-mixer/source.tar -C /
+SLOP cmake -S /tmp/sdl2-mixer/source -B /tmp/sdl2-mixer/build \
+  -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=OFF \
+  -DSDL2MIXER_VENDORED=OFF -DSDL2MIXER_DEPS_SHARED=OFF -DSDL2MIXER_SAMPLES=OFF -DSDL2MIXER_CMD=OFF \
+  -DSDL2MIXER_MOD=OFF -DSDL2MIXER_OPUS=OFF -DSDL2MIXER_WAVPACK=OFF -DSDL2MIXER_MIDI_FLUIDSYNTH=OFF
+SLOP cmake --build /tmp/sdl2-mixer/build
+SLOP cmake --install /tmp/sdl2-mixer/build
+
+EXPORTS LIB SDL2_mixer /usr/lib/libSDL2_mixer.a
+EXPORTS HEADER sdl2-mixer /usr/include/SDL2/SDL_mixer.h
+EXPORTS FOLDER sdl2-mixer-cmake /usr/lib/cmake/SDL2_mixer
+FILE /usr/lib/pkgconfig/SDL2_mixer.pc
+FILE /usr/share/licenses/SDL2_mixer/LICENSE.txt
+SLOP rm -rf /tmp/sdl2-mixer

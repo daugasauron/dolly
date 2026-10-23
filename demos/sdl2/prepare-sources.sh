@@ -45,3 +45,12 @@ if has_image sdl2-image; then
   done
   node scripts/build-source-tar.mjs "${static_dir}/sdl2-image/source.tar" "${image_inputs[@]}"
 fi
+if has_image sdl2-mixer; then
+  mixer_dir="build/generated/SDL2_mixer-$(source config/source-pins.sh && echo "${DOLLY_SDL2_MIXER_VERSION}")"
+  if [[ ! -d "${mixer_dir}" ]]; then mkdir -p build/generated && tar -xzf "$(bash scripts/fetch-pinned-archive.sh sdl2_mixer)" -C build/generated; fi
+  mixer_inputs=()
+  for entry in CMakeLists.txt cmake include src SDL2_mixer.pc.in SDL2_mixerConfig.cmake.in LICENSE.txt; do
+    mixer_inputs+=("${mixer_dir}/${entry}" "/tmp/sdl2-mixer/source/${entry}")
+  done
+  node scripts/build-source-tar.mjs "${static_dir}/sdl2-mixer/source.tar" "${mixer_inputs[@]}"
+fi

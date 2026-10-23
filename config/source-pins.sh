@@ -124,6 +124,9 @@ DOLLY_SDL2_TTF_SHA256=0b2bf1e7b6568adbdbc9bb924643f79d9dedafe061fa1ed687d1d9ac4e
 DOLLY_SDL2_IMAGE_VERSION=2.8.8
 DOLLY_SDL2_IMAGE_URL='https://github.com/libsdl-org/SDL_image/releases/download/release-2.8.8/SDL2_image-2.8.8.tar.gz'
 DOLLY_SDL2_IMAGE_SHA256=2213b56fdaff2220d0e38c8e420cbe1a83c87374190cba8c70af2156097ce30a
+DOLLY_SDL2_MIXER_VERSION=2.8.1
+DOLLY_SDL2_MIXER_URL='https://github.com/libsdl-org/SDL_mixer/releases/download/release-2.8.1/SDL2_mixer-2.8.1.tar.gz'
+DOLLY_SDL2_MIXER_SHA256=cb760211b056bfe44f4a1e180cc7cb201137e4d1572f2002cc1be728efd22660
 
 DOLLY_OPENAL_VERSION=1.24.3
 DOLLY_OPENAL_URL='https://openal-soft.org/openal-releases/openal-soft-1.24.3.tar.bz2'

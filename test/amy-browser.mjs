@@ -228,6 +228,13 @@ const programs = {
   freetype: "printf '%s\\n' '#include <ft2build.h>' '#include FT_FREETYPE_H' 'int main(void) { FT_Library library; FT_Face face; " +
     "if (FT_Init_FreeType(&library) || FT_New_Face(library, \"/usr/share/fonts/IosevkaTerm-SemiBold.ttf\", 0, &face)) return 1; return face->num_glyphs < 100; }' " +
     "> /tmp/amy-freetype.c && cc $(pkg-config --cflags freetype2) /tmp/amy-freetype.c $(pkg-config --static --libs freetype2) -o /tmp/amy-freetype && /tmp/amy-freetype",
+  // SDL_mixer plays a short silent clip on a channel until it ends: SDL's audio driver pulls it.
+  "sdl2-mixer": "printf '%s\\n' '#include <SDL.h>' '#include <SDL_mixer.h>' 'int main(void) { static Uint8 silence[48000 * 4 / 4]; " +
+    "if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0 || !SDL_CreateWindow(\"\", 0, 0, 64, 48, 0) || Mix_OpenAudio(48000, AUDIO_S16SYS, 2, 1024) != 0) return 2; " +
+    "Mix_Chunk *chunk = Mix_QuickLoad_RAW(silence, sizeof silence); if (!chunk || Mix_PlayChannel(-1, chunk, 0) < 0) return 3; " +
+    "for (Uint32 start = SDL_GetTicks(); Mix_Playing(-1) && SDL_GetTicks() - start < 5000; SDL_Delay(10)) SDL_PumpEvents(); " +
+    "int ended = !Mix_Playing(-1); Mix_CloseAudio(); SDL_Quit(); return !ended; }' > /tmp/amy-mixer.c && " +
+    "cc $(pkg-config --cflags SDL2_mixer) /tmp/amy-mixer.c $(pkg-config --static --libs SDL2_mixer) -o /tmp/amy-mixer && /tmp/amy-mixer",
   // An Ogg stream is set up and cleared; Vorbis's encoder takes a stereo 48 kHz setup.
   libogg: "printf '%s\\n' '#include <ogg/ogg.h>' 'int main(void) { ogg_stream_state stream; return ogg_stream_init(&stream, 7) != 0 || ogg_stream_clear(&stream) != 0; }' " +
     "> /tmp/amy-ogg.c && cc -O0 /tmp/amy-ogg.c -logg -o /tmp/amy-ogg && /tmp/amy-ogg",
