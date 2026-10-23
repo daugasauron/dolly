@@ -6,9 +6,9 @@ REQUIRES HOST http@0
 # Git with its HTTP helpers, and Dolly's diff and patch, which run it. Git
 # links zlib and its helpers libcurl too; both serve the build and are not
 # installed with it.
-FROM /v0.1.4/Dollyfile-system-build a54f5be3439aa25af4f06b21257a58e71bd4f52e5e2a99ae85e6f9051a2f43a1
-USE /v0.1.4/Dollyfile-zlib ff3c0365dd79ecb98c6f091460fb85790f674d13cf3d038ee4875ef9ff76c43a
-USE /v0.1.4/Dollyfile-curl 3ca3ed88b52ced74d44a3817eb90860005da7e8e3f72a9c9f21ec2c9d37ff030
+FROM /v0.1.4/Dollyfile-system-build 34afba3e3defe17ec9c311db3e7e79a0c923d48d43979b69614e828c6545a953
+USE /v0.1.4/Dollyfile-zlib 4429efcc8c4684b4d9a6101873dab9e3f1b1a51956cc71c5aa1edd931dd35ab0
+USE /v0.1.4/Dollyfile-curl 465499dc7e963a09af25c3d2873ce0463929728630c09175021bcff252f188c6
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES HEADER curl

@@ -854,6 +854,7 @@ static int64_t exec_packet(dolly_kernel_process *process, size_t size, uintptr_t
   memcpy(&request, process_mailbox, sizeof(request));
   const uint32_t no_signal = 1u;
   if (request.argument_count == 0 || request.path_size == 0 || request.path_size > PATH_MAX ||
+      request.path_size > size - sizeof(request) ||
       request.reserved != 0 || request.signals.reserved != 0 ||
       ((request.signals.blocked_signals | request.signals.ignored_signals |
         request.signals.pending_signals) & no_signal) != 0 ||

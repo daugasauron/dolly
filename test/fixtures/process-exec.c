@@ -2,7 +2,9 @@
 // FD_CLOEXEC, the signal mask, ignored and pending signals and the alarm stay;
 // handlers go. Each mode but check is run by another, mostly through exec.
 #define _GNU_SOURCE
+#include <dolly/process.h>
 #include <errno.h>
+#include <stdint.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
@@ -150,6 +152,12 @@ int main(int argc, char **argv) {
   CHECK(execl(argv[3], argv[3], (char *)NULL) == -1 && errno == ENOEXEC);
   char *no_arguments[] = {NULL};
   CHECK(execv(self, no_arguments) == -1 && errno == EINVAL);
+  // A path longer than the packet is a malformed request.
+  struct { dolly_process_exec_request header; char path[8]; } packet = {
+      .header = {.argument_count = 1, .path_size = 4096, .argument_bytes = UINT64_MAX / 2,
+                 .environment_bytes = UINT64_MAX / 2 - 4086},
+      .path = "/aaaaaaa"};
+  CHECK(dolly_process_call(DOLLY_PROCESS_EXEC, &packet, sizeof(packet), NULL, 0) == -EINVAL);
 
   // The process keeps its pid: the parent waits for the spawned one and gets
   // the status of the program exec started in it.
