@@ -12,6 +12,11 @@ day is named with it. An answer reopens the work as a task of its own; an item t
 strikes is done. Ranked low because it waits for him.
 
 1. **Claude Code: one real-model turn with your key**
+   2026-10-23: run with the owner's API key (given in `~/.claude-api`) on the v0.1.3 release (`:9014`): Claude
+   Code 2.1.112 started with `--bare`, its first `POST https://api.anthropic.com/v1/messages` went from the
+   browser and the API answered "Credit balance too low · Add funds". The path works; the key's organization
+   has no balance the API spends (the owner's "Promotional credits" did not cover it). Left: one turn with a
+   funded organization.
    (`tasks/20261007-085236-claude-code-image`). To do, by the owner: open
    `closed-source-agent` on the domain, press Enter at the notice, paste a funded Anthropic API
    key, send one prompt, and say whether it answered. Nothing else is owed: the image fetches
