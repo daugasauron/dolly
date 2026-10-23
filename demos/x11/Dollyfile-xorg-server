@@ -8,7 +8,7 @@ REQUIRES HOST sockets@0
 
 # Xsdl, the X server on Dolly's display, with xkbcomp, which it runs for its
 # keymap, and the keyboard descriptions xkbcomp reads.
-FROM /v0.1.4/demos/x11/Dollyfile-xorg-server-build 26f216a648ec0de6ee573b543edf89e2e35af51edb0b2305a54226ea12c3bfb4
+FROM /v0.1.4/demos/x11/Dollyfile-xorg-server-build 9048382f3a0cf5e861ee10b511c91d2a88aa97021e4e9324691d836a1066ad5f
 
 EXPORTS TOOL Xsdl
 EXPORTS TOOL xkbcomp

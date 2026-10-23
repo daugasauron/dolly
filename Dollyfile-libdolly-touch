@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # programs the cc package builds: cc links every client archive in
 # /usr/lib/dolly/process, and a program records touch@0 only when it calls the
 # client.
-FROM /v0.1.4/Dollyfile-system-build 34afba3e3defe17ec9c311db3e7e79a0c923d48d43979b69614e828c6545a953
+FROM /v0.1.4/Dollyfile-system-build fc38e92559e9641715a0310cd147ddcda93fde7b66b6dae2d3df9e595f6383f3
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
