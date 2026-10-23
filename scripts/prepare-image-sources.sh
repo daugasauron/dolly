@@ -127,7 +127,7 @@ if has_image nena; then
 fi
 if has_image system-tools; then
   for source in run-program.h install.c du.c rev.c command.c xargs.c \
-      find.c env.c time.c timeout.c realpath.c hostname.c tty.c nproc.c which.c; do
+      find.c env.c time.c timeout.c realpath.c hostname.c tty.c nproc.c; do
     copy_static "${project_dir}/src/commands/${source}" "default/commands/${source}"
   done
 fi

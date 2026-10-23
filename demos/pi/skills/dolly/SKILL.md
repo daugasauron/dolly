@@ -124,7 +124,9 @@ Time code with `clock_gettime(CLOCK_MONOTONIC)`.
 ## When a command fails
 
 - Status 127, "command not found": not installed. `amy list` may have it;
-  there is no `apt`, `pip` or `npm` to fall back on.
+  there is no `apt`, `pip` or `npm` to fall back on. Ask with `command -v NAME`
+  (status 1 when missing); `which NAME` ends with 2 and "not an external
+  command", which means the same.
 - Status 126: the program was refused or crashed, and one line on its stderr
   says why, usually a host module this image does not declare (above).
 - "Function not implemented" (`ENOSYS`) or "Not supported": an operation Dolly

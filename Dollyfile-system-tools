@@ -25,7 +25,7 @@ FILE /tmp/sbase/dolly.mk
             grep head join kill ln md5sum mktemp nl od paste pathchk \
             printenv printf readlink rmdir sed seq sha256sum sleep sort split \
             strings tail tee tr true \
-            tsort uname unexpand uniq wc
+            tsort uname unexpand uniq wc which
     .RECIPEPREFIX := >
     dolly-bin: $(TOOLS)
     >mv $(TOOLS) /bin
@@ -82,6 +82,7 @@ EXPORTS TOOL uname
 EXPORTS TOOL unexpand
 EXPORTS TOOL uniq
 EXPORTS TOOL wc
+EXPORTS TOOL which
 
 FILE /usr/share/licenses/sbase/LICENSE
 
@@ -200,11 +201,10 @@ SOURCE /v0.1.3/dist/static/default/commands/realpath.c    6ec82439ecf3ab1d21a402
 SOURCE /v0.1.3/dist/static/default/commands/hostname.c    14a20a493c8559d8b28f221a6edd9b6f89f893f3e3067093b44d7235b4ae060f /tmp/agent-tools/hostname.c
 SOURCE /v0.1.3/dist/static/default/commands/tty.c         c51c9598e8245d5f651ade70995f2b03fb936c42a0e99c4c81c83749c5714c7e /tmp/agent-tools/tty.c
 SOURCE /v0.1.3/dist/static/default/commands/nproc.c       96ce7b8d1b1cee59d12193c2fa6fab5210bb7f0c9a0d0cc9bde7e0fd8d87c7ac /tmp/agent-tools/nproc.c
-SOURCE /v0.1.3/dist/static/default/commands/which.c       5f73e5ef754264bc8090473fb0be50dd1f3e118fa995854c19ca692904fd9beb /tmp/agent-tools/which.c
 
 FILE /tmp/agent-tools/Makefile
     .RECIPEPREFIX := >
-    NAMES := install du rev command xargs find env time timeout realpath hostname tty nproc which
+    NAMES := install du rev command xargs find env time timeout realpath hostname tty nproc
     TOOLS := $(addprefix /bin/,$(NAMES))
     all: $(TOOLS) $(NAMES:%=/usr/share/man/cat1/%.1)
     /bin/%: /tmp/agent-tools/%.c /tmp/agent-tools/run-program.h
@@ -227,7 +227,6 @@ EXPORTS TOOL realpath
 EXPORTS TOOL hostname
 EXPORTS TOOL tty
 EXPORTS TOOL nproc
-EXPORTS TOOL which
 
 SLOP rm \
   -rf \

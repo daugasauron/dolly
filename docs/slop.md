@@ -158,15 +158,14 @@ that run inside the shell stay serial.
   `FILE` operand is rejected); `nproc`, which prints 4, the number of jobs Dolly's own recipes give Make (libc's
   `sysconf` counts threads: 1 without `-pthread`); `install`, whose mode, owner
   and group options are syntax only and create no metadata; `du`, which counts
-  logical in-memory bytes; UTF-8 `rev`; `which`, which finds programs on
-  `PATH` as Slop does and ends with 1 for a name it does not find;
-  `realpath`, `hostname`, `tty`. Each
+  logical in-memory bytes; UTF-8 `rev`; `realpath`, `hostname`, `tty`. Each
   prints its supported subset with `--help`;
   other options fail.
 - The other file and text utilities are unchanged upstream sbase, built by its
   own Makefile in `system-tools` ([`Dollyfile-system-tools`](../Dollyfile-system-tools)). They follow
   POSIX, not GNU: `dd bs=1024k`, not `bs=1M`. `ln -s` works; hard links fail in
-  WasmFS. `kill` signals any process by PID. There is no `/dev/zero`, and no
+  WasmFS. `command -v NAME` says what runs for a name and ends with 1 when
+  nothing does; sbase's `which` ends with 2 then ("not an external command"). `kill` signals any process by PID. There is no `/dev/zero`, and no
   `chmod`, `chown`, `id`, `whoami` or `df`: one user without modes to
   change or a name database, and no mount list to read; the `ps` package
   prints `/proc/processes`. `tar` only extracts and `gzip` only

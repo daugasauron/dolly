@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # The text and file tools a shell session works with, kept from the toolchain
 # that builds them: sbase, awk, Dolly's find, xargs and the like, and sh.
-FROM /v0.1.3/Dollyfile-system-tools a97843065f005d6cfd59987b4e663907917f64a9dae7d8e54beca30af9ffe288
+FROM /v0.1.3/Dollyfile-system-tools dd0411061a1e74754077a99f0e7f6913b3fc4153e336bfcdcebbe0d9016e49ee
 
 EXPORTS TOOL basename
 EXPORTS TOOL cksum
@@ -110,6 +110,7 @@ FILE /usr/share/man/man1/uname.1
 FILE /usr/share/man/man1/unexpand.1
 FILE /usr/share/man/man1/uniq.1
 FILE /usr/share/man/man1/wc.1
+FILE /usr/share/man/man1/which.1
 FILE /usr/share/man/man1/awk.1
 FILE /usr/share/man/cat1/install.1
 FILE /usr/share/man/cat1/du.1
@@ -124,5 +125,4 @@ FILE /usr/share/man/cat1/realpath.1
 FILE /usr/share/man/cat1/hostname.1
 FILE /usr/share/man/cat1/tty.1
 FILE /usr/share/man/cat1/nproc.1
-FILE /usr/share/man/cat1/which.1
 FILE /usr/share/man/cat1/sh.1
