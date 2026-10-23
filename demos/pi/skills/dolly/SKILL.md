@@ -161,6 +161,10 @@ to the running session, and `cc` links them at once.
   does not have, such as `fork`, `exec`, signals to process groups or network
   sockets; `docs/process-model.md` lists them. Another option of the same
   program rarely helps; another way of doing the task usually does.
+- "Maximum call stack size exceeded" (Chrome) or "too much recursion"
+  (Firefox), status 126: the browser's stack holds a few thousand nested
+  calls, far fewer than a native one (`docs/browser-stack.md`); a deeply
+  recursive program or test meets it first.
 - Hiding stderr (`2>/dev/null`) or piping into `head` can hide the one line
   that says why; read it. A pipeline's status is its last stage's:
   `amy install NAME 2>&1 | tail -3` is 0 when amy fails, unless
