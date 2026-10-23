@@ -28,6 +28,8 @@ cc
 git
 less
 xonotic
+libogg
+libvorbis
 closed-source-agent
 llvm-cc
 llvm
@@ -84,5 +86,6 @@ zsh
 imgui
 sdl2-ttf
 sdl2-image
+sdl2-mixer
 imgui-x11
 zig-llvm

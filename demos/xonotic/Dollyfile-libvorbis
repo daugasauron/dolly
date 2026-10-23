@@ -1,0 +1,36 @@
+DOLLY 7
+PACKAGE libvorbis
+REQUIRES HOST runtime@0
+
+# libvorbis from upstream's release archive, unchanged, built by its CMake
+# project on the libogg package: the Vorbis decoder, encoder and vorbisfile,
+# for programs the cc package builds.
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build c05c2a5b06cd079eef923fcc4af0d2d6b6999f2c6a44326ae8e59fa3a5ffbf5e
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-libogg d8e6812d8227ad55dc481b690ed871c690041e8318b3666505f9092c7e03ecac
+REQUIRES HEADER libc
+REQUIRES HEADER ogg
+REQUIRES LIB ogg
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /v0.1.4/dist/static/libvorbis/source.tar.gz 63c09d65f5bdeb84bedda099ccbd93f999f560229174b3f49d9b4aea07f2e1dd /tmp/libvorbis.tar.gz
+SLOP gzip -dc /tmp/libvorbis.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/libvorbis -B /tmp/libvorbis-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+SLOP cmake --build /tmp/libvorbis-build
+SLOP cmake --install /tmp/libvorbis-build
+
+EXPORTS LIB    vorbis       /usr/lib/libvorbis.a
+EXPORTS LIB    vorbisenc    /usr/lib/libvorbisenc.a
+EXPORTS LIB    vorbisfile   /usr/lib/libvorbisfile.a
+EXPORTS HEADER vorbis       /usr/include/vorbis
+EXPORTS FOLDER vorbis-cmake /usr/lib/cmake/Vorbis
+FILE /usr/lib/pkgconfig/vorbis.pc
+FILE /usr/lib/pkgconfig/vorbisenc.pc
+FILE /usr/lib/pkgconfig/vorbisfile.pc
+FILE /usr/share/licenses/libvorbis/COPYING
+SLOP rm -rf /tmp/libvorbis /tmp/libvorbis-build /tmp/libvorbis.tar.gz

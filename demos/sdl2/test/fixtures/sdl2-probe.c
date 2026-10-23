@@ -15,7 +15,7 @@ int main(int argc, char **argv)
     SDL_AtomicUnlock(&lock);
     assert(SDL_Init(SDL_INIT_VIDEO) == 0);
     assert(strcmp(SDL_GetCurrentVideoDriver(), "dolly") == 0);
-    assert(SDL_InitSubSystem(SDL_INIT_AUDIO) != 0);
+    assert(SDL_InitSubSystem(SDL_INIT_AUDIO) == 0 && strcmp(SDL_GetCurrentAudioDriver(), "dolly") == 0);
     assert(SDL_CreateThread(unused_thread, "unsupported", NULL) == NULL);
     SDL_Window *window = SDL_CreateWindow("SDL2 Dolly probe", 0, 0, 320, 240, 0);
     assert(window);

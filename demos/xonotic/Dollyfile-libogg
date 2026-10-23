@@ -1,0 +1,28 @@
+DOLLY 7
+PACKAGE libogg
+REQUIRES HOST runtime@0
+
+# libogg from upstream's release archive, unchanged, built by its CMake project:
+# the Ogg container under Vorbis, for programs the cc package builds.
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build c05c2a5b06cd079eef923fcc4af0d2d6b6999f2c6a44326ae8e59fa3a5ffbf5e
+REQUIRES HEADER libc
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /v0.1.4/dist/static/libogg/source.tar.gz c3004045b65a78d52081c127251b94034d43b6755ffaf31d4a892a4344d4e2ad /tmp/libogg.tar.gz
+SLOP gzip -dc /tmp/libogg.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/libogg -B /tmp/libogg-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DINSTALL_DOCS=OFF -DBUILD_TESTING=OFF
+SLOP cmake --build /tmp/libogg-build
+SLOP cmake --install /tmp/libogg-build
+
+EXPORTS LIB    ogg       /usr/lib/libogg.a
+EXPORTS HEADER ogg       /usr/include/ogg
+EXPORTS FOLDER ogg-cmake /usr/lib/cmake/Ogg
+FILE /usr/lib/pkgconfig/ogg.pc
+FILE /usr/share/licenses/libogg/COPYING
+SLOP rm -rf /tmp/libogg /tmp/libogg-build /tmp/libogg.tar.gz

@@ -94,12 +94,18 @@ image on `cmake-build` rebuilds with it, the Rust chain among them (`rust-llvm`,
 the integrator's `hugebuild`), and Pi, Slopyard and Airtime stand on ripgrep and fd from it:
 those were not rebuilt in this tree, which is why this change is the branch's last.
 
-SDL_mixer: not added. Its mixer plays through SDL's audio subsystem, and the `sdl2` package
-has no audio driver. A driver over `audio@0` (as Xonotic's sound needs) links the module's
-client into every SDL program, so every image and session that runs one would declare
-`audio@0`, `default` among them, as `touch@0` went for SDL's touch input on
-`core/npm-packages`. Which images declare `audio@0` is the owner's call; the line is in
-[Xonotic](../20261006-122433-xonotic/TASK.md).
+SDL_mixer (2026-10-24, after the integrator's decision that SDL2 plays through `audio@0`):
+`sdl2-mixer` holds SDL_mixer 2.8.1's build, upstream's release archive unchanged by its CMake
+project with the decoders it carries (WAV, AIFF, VOC, Ogg Vorbis by stb_vorbis, MP3 by
+minimp3, FLAC by dr_flac, MIDI by Timidity given patches); MOD, Opus, WavPack, GME,
+FluidSynth and the external music command need more and are off. Its CMake package looks
+for no library it does not link. Measured: `demos/sdl2/test/sdl2-audio-browser.mjs` has a
+WAV SDL_mixer decodes and plays on its left channel heard on the left only (Chromium and
+Firefox); its amy row (a clip played on a channel until it ends, linked through
+`pkg-config --static --libs SDL2_mixer`) passes in `default`. Also new and holding their
+builds, for Xonotic's sound: `libogg` and `libvorbis` (the Xonotic task). `zero-ad-deps`
+still builds its own Ogg and Vorbis beside them: moving it onto the packages rebuilds the
+0 A.D. chain, left for a round that builds it.
 
 Done (2026-10-24, `578edd0c`): `llama-cpp` holds `llama-build`'s build
 (llama.cpp, its common library, ggml with the CPU and WebGPU backends) and `webgpu.cpp`, the

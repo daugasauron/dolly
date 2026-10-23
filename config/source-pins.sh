@@ -124,6 +124,9 @@ DOLLY_SDL2_TTF_SHA256=0b2bf1e7b6568adbdbc9bb924643f79d9dedafe061fa1ed687d1d9ac4e
 DOLLY_SDL2_IMAGE_VERSION=2.8.8
 DOLLY_SDL2_IMAGE_URL='https://github.com/libsdl-org/SDL_image/releases/download/release-2.8.8/SDL2_image-2.8.8.tar.gz'
 DOLLY_SDL2_IMAGE_SHA256=2213b56fdaff2220d0e38c8e420cbe1a83c87374190cba8c70af2156097ce30a
+DOLLY_SDL2_MIXER_VERSION=2.8.1
+DOLLY_SDL2_MIXER_URL='https://github.com/libsdl-org/SDL_mixer/releases/download/release-2.8.1/SDL2_mixer-2.8.1.tar.gz'
+DOLLY_SDL2_MIXER_SHA256=cb760211b056bfe44f4a1e180cc7cb201137e4d1572f2002cc1be728efd22660
 
 DOLLY_OPENAL_VERSION=1.24.3
 DOLLY_OPENAL_URL='https://openal-soft.org/openal-releases/openal-soft-1.24.3.tar.bz2'
@@ -235,6 +238,14 @@ DOLLY_IMGUI_SHA256=21d8a0a565e85dce943e375db00812c2f3f0ab21f3f0f7964e364a63422d7
 DOLLY_JPEG_VERSION=9f
 DOLLY_JPEG_URL='https://www.ijg.org/files/jpegsrc.v9f.tar.gz'
 DOLLY_JPEG_SHA256=04705c110cb2469caa79fb71fba3d7bf834914706e9641a4589485c1f832565b
+
+# Ogg and Vorbis, linked into Xonotic's client for its Ogg Vorbis sounds.
+DOLLY_LIBOGG_VERSION=1.3.5
+DOLLY_LIBOGG_URL='https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.gz'
+DOLLY_LIBOGG_SHA256=0eb4b4b9420a0f51db142ba3f9c64b333f826532dc0f48c6410ae51f4799b664
+DOLLY_LIBVORBIS_VERSION=1.3.7
+DOLLY_LIBVORBIS_URL='https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.gz'
+DOLLY_LIBVORBIS_SHA256=0e982409a9c3fc82ee06e08205b1355e5c6aa4c36bca58146ef399621b0ce5ab
 
 # GNU Unifont's source (.hex files and build scripts) for the fonts/unifont.ttf
 # Xonotic ships: its precompiled unifont-7.0.06.ttf is byte-identical to it.

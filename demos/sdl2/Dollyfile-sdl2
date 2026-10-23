@@ -3,11 +3,14 @@ PACKAGE sdl2
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
+REQUIRES HOST audio@0
 REQUIRES HOST touch@0
 
 FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build c05c2a5b06cd079eef923fcc4af0d2d6b6999f2c6a44326ae8e59fa3a5ffbf5e
+INSTALL /v0.1.4/Dollyfile-libdolly-audio eff30d2e6a82ddedcb78c676aa8482bb00c0e7f23986b6672d8301d099911d2b
 INSTALL /v0.1.4/Dollyfile-libdolly-touch 1881657a3b0726f71ba1ab6bb832d84745638391d4631a2432c4c16d9d0b53bb
 REQUIRES HEADER libc
+REQUIRES HEADER audio
 REQUIRES HEADER display
 REQUIRES HEADER input
 REQUIRES HEADER touch
@@ -17,14 +20,16 @@ REQUIRES TOOL make
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE /v0.1.4/dist/static/sdl2/source.tar de38b3e659d91bbbd7f15faba9efdc08e9657bcfe1483226de22880b79818b81 /tmp/sdl2/source.tar
+SOURCE /v0.1.4/dist/static/sdl2/source.tar 81ab161e6576dbd50f6da44b74abc9780ef27c8e671e70256464b790d191b5d4 /tmp/sdl2/source.tar
 SLOP tar -xf /tmp/sdl2/source.tar -C /
 SLOP cmake -S /tmp/sdl2/source -B /tmp/sdl2/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE=-O1 \
   -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST=OFF -DSDL_TESTS=OFF \
-  -DSDL_AUDIO=OFF -DSDL_HAPTIC=OFF -DSDL_SENSOR=OFF \
+  -DSDL_HAPTIC=OFF -DSDL_SENSOR=OFF \
+  -DSDL_OSS=OFF -DSDL_ALSA=OFF -DSDL_JACK=OFF -DSDL_ESD=OFF -DSDL_PIPEWIRE=OFF -DSDL_PULSEAUDIO=OFF \
+  -DSDL_ARTS=OFF -DSDL_NAS=OFF -DSDL_SNDIO=OFF -DSDL_LIBSAMPLERATE=OFF \
   -DSDL_THREADS=OFF -DSDL_LOADSO=OFF -DSDL_POWER=OFF -DSDL_HIDAPI=OFF \
   -DSDL_ASSEMBLY=OFF -DSDL_GCC_ATOMICS=ON -DSDL_SYSTEM_ICONV=OFF \
   -DSDL_OPENGL=OFF -DSDL_OPENGLES=OFF -DSDL_VULKAN=OFF -DSDL_RENDER_METAL=OFF
@@ -32,6 +37,8 @@ SLOP cmake --build /tmp/sdl2/build
 SLOP cmake --install /tmp/sdl2/build
 
 # The joystick subsystem is SDL's dummy driver, which finds no game controllers.
+# Audio plays through audio@0 (SDL_dollyaudio.c): SDL starts no threads here,
+# so the video driver's event pump runs the application's callback.
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
 # SDL2Config.cmake names both libraries.

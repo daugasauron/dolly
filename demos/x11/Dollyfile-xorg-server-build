@@ -3,6 +3,7 @@ TOOLCHAIN xorg-server-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
+REQUIRES HOST audio@0
 REQUIRES HOST touch@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
@@ -18,7 +19,7 @@ REQUIRES HOST sockets@0
 FROM /v0.1.4/demos/x11/Dollyfile-x11-build ed54cad69e9b5bac6d0cfdf35082757c251107460209d2744d92a0c79babd0e6
 INSTALL /v0.1.4/demos/tools/Dollyfile-meson 75980a281f20111a16e01ed13873c67f707f60b28efbb7bf6822ea2e375ebecd
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 3adde155d5fd4f29a459f53f4a45873d18645ea86b7f36c0ab99f25a417f2207
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 7548b1b0622d956ef3c2ac8a9fcbf7eaa9a0d4b0678c6b05cbae5d4cf50ac398
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 5caffe43d783ed4b72f8b5adb8cb79d54518c456dcb6ddf178e7fc23b8666670
 INSTALL /v0.1.4/Dollyfile-zlib 9df90c7cb69efb0c503332233ac35280942f88f10c250de5bd33b8e7a2f2da90
 INSTALL /v0.1.4/demos/tools/Dollyfile-tar cfae391cc4903088c3e5c862c090c573bf53df590137f66f6986150a7022790c
 INSTALL /v0.1.4/demos/tools/Dollyfile-xz a8796ad1164b46ae0d4d5f19b5edd18f254d354f596e0c29aa601e5def1547fe

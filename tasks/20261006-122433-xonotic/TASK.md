@@ -1,19 +1,41 @@
-# Xonotic runs in software; the gpu@0 renderer and sound are not started
+# Xonotic runs in software with sound; the gpu@0 renderer is not started
 
 - STATUS: OPEN
 - PRIORITY: 200
 - TAGS: demo,gpu,audio,port,0.1.4
 
-## For the owner (2026-10-24, the games-and-packages workstream)
+## SDL2 plays sound (2026-10-24, the games-and-packages workstream)
 
-Sound waits on one decision. An SDL2 audio driver over `audio@0` in `demos/sdl2` (route 5
-below, and what SDL_mixer as a package needs) links the module's client into every program
-that links SDL2, since `SDL_Init` reaches the audio subsystem's driver table. Each such program
-then carries the `audio@0` stamp and is refused (status 126) in a session without the module:
-`sdl2` and every image that runs an SDL program would declare `audio@0`, `default` among
-them, as `touch@0` went for SDL's touch input on `core/npm-packages` (`de5a46de`). The other
-form, `snd_dolly.c` beside DarkPlaces' `snd_sdl.c`, keeps the module to `xonotic` alone and
-gives SDL_mixer nothing.
+The integrator's decision on the line that stood here: SDL2 gets a Dolly audio driver on
+`audio@0`, and every SDL program and every image that runs one declares the module, `default`
+among them, as with `touch@0`. Done: `demos/sdl2/SDL_dollyaudio.c`, registered the way SDL
+registers its other drivers (`sdl2-dolly.patch`: the CMake block, `SDL_config.h.cmake`,
+`SDL_sysaudio.h`, the bootstrap list), is SDL's only audio driver here besides the dummy and
+disk ones. SDL starts no threads, so the driver provides the callback "thread" itself: the
+Dolly video driver's event pump runs the application's callback (through SDL's conversion
+stream) until 100 ms is queued. `demos/sdl2/test/sdl2-audio-browser.mjs`: an SDL program's
+44.1 kHz 16-bit tone, right channel only, is metered on the right only in Chromium and Firefox
+(the driver reports itself as `dolly`). `test/nena-browser.mjs` now uses `microphone@0` as the
+module `default` does not declare (both browsers pass).
+
+## Xonotic plays sound (2026-10-24)
+
+The client's sound is DarkPlaces' own SDL unit over the `sdl2` package's driver: `Makefile`
+builds `snd_main snd_mem snd_mix snd_ogg snd_wav snd_sdl` in place of `snd_null` and links
+Vorbis statically (`LINK_TO_LIBVORBIS`, as upstream's Android build does), from two new
+packages that hold their builds, `libogg` (1.3.5) and `libvorbis` (1.3.7), upstream's CMake
+projects unchanged (`demos/xonotic/`, with their amy rows, both passing in `default`).
+DarkPlaces asks for 48 kHz 16-bit stereo and SDL hands it what it asked for (`Obtained audio
+specification: 2 channels, 0x8010, 48000 Hz, 2048 samples`); its mixing runs in the callback,
+which the event pump calls.
+
+Measured, `xonotic-browser.mjs` (now also the sound): the menu's `play
+sound/menu/winner.ogg` reaches the page at RMS 0.138 on both channels, and the live bot match
+on stormkeep at 0.186/0.121 (Chromium) and 0.171/0.106 (Firefox); every other step passes as
+before in both browsers. The timedemo is 12.7 fps in Chromium (13.0 to 14.3 before) and 16.3
+in Firefox. Two things the engine does on its own: it mutes a window without input focus
+(`snd_mutewhenidle 1`, the test sets 0 for the untouched menu run), and `-benchmark` mixes in
+demo time, which leaves the timedemo silent. Not rebuilt here: the `xonotic` data image.
 
 ## State (2026-10-13)
 
@@ -36,9 +58,7 @@ Left, against the done-when:
 - **The `gpu@0` renderer**: `vid_dolly.c`, `dpgpurast.c` and the `normal` preset's shaders as
   WGSL (route (a), "Decisions for the owner" 1 and 2). Not started; the software path is the
   interim one. The done-when's "on a hardware adapter" waits for it.
-- **Sound**: the client has the null sound unit (`demos/xonotic/Makefile`), and the `sdl2`
-  package is built with `-DSDL_AUDIO=OFF`. Recommended and not started: an SDL2 audio backend
-  over `audio@0` in `demos/sdl2`, which every SDL port would share (decision 3).
+- **Sound**: done (above).
 - **Speed**, the owner's remark ("needs better performance tuning"): 31 fps at the low preset
   and 13 to 14 at normal in Chromium, on one rasterizer thread; a map takes about two minutes
   to load.

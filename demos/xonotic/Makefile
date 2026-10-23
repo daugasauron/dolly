@@ -17,9 +17,11 @@ SERVER_UNITS := sys_linux vid_null thread_null snd_null \
   portals protocol prvm_cmds prvm_edict prvm_exec r_explosion r_lerpanim r_lightning r_modules r_shadow r_sky \
   r_sprites sbar sv_demo sv_main sv_move sv_phys sv_user svbsp svvm_cmds sys_shared vid_shared view wad world zone
 SERVER_OBJECTS := $(patsubst %,$(BUILD)/engine/%.o,$(SERVER_UNITS))
-# OBJ_SDL with the null thread, sound and CD units: the sdl2 package has no
-# audio or threads. The software rasterizer draws until RENDERPATH_DOLLY exists.
-CLIENT_UNITS := sys_sdl vid_sdl menu mvm_cmds cd_shared cd_null $(filter-out sys_linux vid_null,$(SERVER_UNITS))
+# OBJ_SDL with the null thread and CD units (the sdl2 package starts no threads)
+# and its sound units over SDL's audio. The software rasterizer draws until
+# RENDERPATH_DOLLY exists.
+CLIENT_UNITS := sys_sdl vid_sdl menu mvm_cmds cd_shared cd_null snd_main snd_mem snd_mix snd_ogg snd_wav snd_sdl \
+  $(filter-out sys_linux vid_null snd_null,$(SERVER_UNITS))
 CLIENT_OBJECTS := $(patsubst %,$(BUILD)/client/%.o,$(CLIENT_UNITS))
 # makefile.inc's CFLAGS_COMMON at -O1 (Dolly's cc takes no -fno-math-errno or
 # -fno-trapping-math), zlib linked statically since there is no dlopen.
@@ -27,10 +29,10 @@ CFLAGS := -O1 -fno-strict-aliasing -D_FILE_OFFSET_BITS=64 -D__KERNEL_STRICT_NAME
 # SSE_PRESENT and SSE2_PRESENT make quakedef.h take the x86 SSE2 paths
 # (Sys_HaveSSE2 answers yes without cpuid, vid_soft is registered); the two
 # units with intrinsics compile as Wasm SIMD through simd-unit.c.
-# No dlopen: libjpeg and FreeType, from their packages, are linked, as
+# No dlopen: libjpeg, FreeType and Vorbis, from their packages, are linked, as
 # upstream's Android build links them.
 CLIENT_CFLAGS := $(CFLAGS) -DCONFIG_MENU -DCONFIG_CD -DSSE_PRESENT -DSSE2_PRESENT -I/usr/include/SDL2 \
-  -DLINK_TO_LIBJPEG -DDP_FREETYPE_STATIC -I/usr/include/freetype2
+  -DLINK_TO_LIBJPEG -DDP_FREETYPE_STATIC -I/usr/include/freetype2 -DLINK_TO_LIBVORBIS
 SIMD_UNITS := dpsoftrast mod_skeletal_animatevertices_sse
 
 GMQCC_UNITS := ast code conout fold ftepp intrin ir lexer main opts parser stat utf8 util
@@ -45,7 +47,7 @@ all: /usr/bin/xonotic-dedicated /usr/bin/xonotic-sdl /usr/bin/gmqcc
 
 /usr/bin/xonotic-sdl: $(CLIENT_OBJECTS) $(ENGINE)/builddate.c
 	$(CC) $(CLIENT_CFLAGS) -DSVNREVISION=xonotic-v0.8.6 -DBUILDTYPE=release $(CLIENT_OBJECTS) $(ENGINE)/builddate.c -o $@ \
-	  -ljpeg -lfreetype -lpng16 -lSDL2 -lz -lm -Wl,--initial-memory=134217728
+	  -ljpeg -lfreetype -lpng16 -lvorbisfile -lvorbis -logg -lSDL2 -lz -lm -Wl,--initial-memory=134217728
 
 $(BUILD)/engine/%.o: $(ENGINE)/%.c
 	mkdir -p $(@D)
