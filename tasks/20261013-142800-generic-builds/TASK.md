@@ -83,19 +83,16 @@ Done (2026-10-24, `2d23f716`):
   module) must add libpng and zlib itself; `pkg-config --static` gives them. Upstream's
   behaviour, unchanged.
 
-libuv (built here, not on the branch): `Dollyfile-libuv` holding the build that
-`cmake-build` does today (`FROM system-tools`, the same Makefile and source archive, 11 s,
-617 kB) and `cmake-build` installing it (bootstrapped in 1,492 s). Every image on
-`cmake-build` rebuilds then, the Rust chain among them (`rust-llvm`, `rust-build`, which needs
-the integrator's `hugebuild`), and Pi, Slopyard and Airtime install ripgrep and fd from it,
-so this tree could not rebuild its own images after it. The change is the diff below; it
-belongs to the catalog round.
-
-    demos/cmake/Dollyfile-libuv: FROM system-tools; the SOURCE, make, cp, check and EXPORTS
-      rows of Dollyfile-cmake-build:19-46 moved here unchanged.
-    demos/cmake/Dollyfile-cmake-build: those rows become
-      INSTALL /vX.Y.Z/demos/cmake/Dollyfile-libuv PIN, after its FROM.
-    demos/cmake/prepare-sources.sh: libuv.tar is staged for has_image libuv.
+libuv holds its build (the last commit of the workstream): `Dollyfile-libuv` is `FROM
+system-tools` with the rows `cmake-build` had (the same Makefile and source archive), and
+`cmake-build` installs it. Built here: `libuv` 8 s (617 kB, the same snapshot both times it was
+built), `cmake-build` bootstrapped on it in 1,492 s, then `cmake`, `sdl2`, `libpng`,
+`freetype`, `openal`, `sdl2-ttf`, `sdl2-image` on that. Measured in `default` (Chromium): the
+`cc`, `cmake`, `libuv`, `sdl2`, `pkgconf`, `libpng`, `freetype`, `sdl2-ttf`, `sdl2-image` and
+`openal` rows; `npm run test:demos -- cmake` passes (its libuv probes on `cmake-build`). Every
+image on `cmake-build` rebuilds with it, the Rust chain among them (`rust-llvm`, `rust-build`,
+the integrator's `hugebuild`), and Pi, Slopyard and Airtime stand on ripgrep and fd from it:
+those were not rebuilt in this tree, which is why this change is the branch's last.
 
 SDL_mixer: not added. Its mixer plays through SDL's audio subsystem, and the `sdl2` package
 has no audio driver. A driver over `audio@0` (as Xonotic's sound needs) links the module's
@@ -117,7 +114,7 @@ devices. Built: `llama-cpp` 276 s (22.7 MB), `llama` 9 s (11.0 MB). Not rebuilt 
 `pi-local` and `dollyfile-studio`, whose 1.6 GB snapshot needs the integrator's `hugebuild`
 (the `pi-local` build crashed its page under this tree's 6 GB cap).
 
-Left of the list: libuv (above), for the catalog round.
+Nothing of the list is left.
 
 ## State (2026-10-23)
 

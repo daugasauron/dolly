@@ -15,7 +15,7 @@ REQUIRES HOST upload@0
 FROM /v0.1.3/Dollyfile-system 9d8d9a1ff16f52e368e695af7b5a788aefba814913bf9e4d3f49ee8dc374bfd2
 INSTALL /v0.1.3/Dollyfile-amy 013a5d4c170962e4cd4f8c339da4a6a8988cb8d5a290ac1a777486e7cb902500
 INSTALL /v0.1.3/demos/javascript/Dollyfile-janis 93c552ad1f37b8cd86880806d76f06732dab9753e4f5172df5d2d0cd044b7517
-INSTALL /v0.1.3/demos/rust/Dollyfile-ripgrep 886183e420332ba8d9c8f7b3d0eafdbc8296a4b6eaa9154562e9d3c691aadf27
+INSTALL /v0.1.3/demos/rust/Dollyfile-ripgrep d8725720bcc002c32952d308f151a781b77b4b9afcaf8328dc6774e73d90d8f1
 REQUIRES TOOL cc
 REQUIRES TOOL curl
 REQUIRES TOOL cut

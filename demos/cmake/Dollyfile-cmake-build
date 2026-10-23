@@ -7,6 +7,7 @@ REQUIRES HOST http@0
 
 # Keep the expensive bootstrap reusable across source-build workspaces.
 FROM /v0.1.3/Dollyfile-system-tools 13ba21000aa665d6729f8e00cb795c4871f3bfaa72a4e18a7197d536b84a5826
+INSTALL /v0.1.3/demos/cmake/Dollyfile-libuv 51339e327498fb440fb5244705be4783c1fe04486cfe4cd98bcf843838d5a740
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL cc
@@ -15,36 +16,7 @@ REQUIRES TOOL make
 REQUIRES TOOL cp
 REQUIRES TOOL tar
 REQUIRES TOOL rm
-
-SOURCE /v0.1.3/dist/static/cmake/libuv.tar 066c5934e185978c680d03a8fbb42b9241f47fe8dc4b923abe84ee9896f0b86b /tmp/libuv/source.tar
-SLOP tar -xf /tmp/libuv/source.tar -C /
-SLOP make -C /tmp/libuv
-SLOP cp /tmp/libuv/libuv.a /usr/lib/libuv.a
-SLOP cp -R /tmp/libuv/source/include/. /usr/include
-
-FILE /tmp/libuv/check.c
-    #include <uv.h>
-    #include <assert.h>
-    static int completed;
-    static void done(uv_timer_t* timer) { completed = 1; uv_close((uv_handle_t*)timer, 0); }
-    int main(void) {
-      uv_loop_t loop; uv_timer_t timer;
-      assert(uv_get_total_memory() == 0);
-      assert(uv_loop_init(&loop) == 0 && uv_timer_init(&loop, &timer) == 0);
-      assert(uv_timer_start(&timer, done, 1, 0) == 0);
-      assert(uv_run(&loop, UV_RUN_DEFAULT) == 0 && completed);
-      return uv_loop_close(&loop);
-    }
-SLOP cc -O0 /tmp/libuv/check.c -luv -o /tmp/libuv/check
-SLOP /tmp/libuv/check
-
-EXPORTS LIB uv /usr/lib/libuv.a
-EXPORTS HEADER uv /usr/include/uv.h
-EXPORTS HEADER uv-platform /usr/include/uv
-FILE /usr/share/licenses/libuv/LICENSE
-
-SLOP rm -rf /tmp/libuv
-# Bootstrap CMake from upstream source using the already source-built libuv.
+# Bootstrap CMake from upstream source on the libuv package.
 REQUIRES HEADER cpp
 REQUIRES LIB c++
 REQUIRES LIB c++abi

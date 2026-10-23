@@ -1,5 +1,5 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_image cmake-build; then
+if has_image libuv; then
   libuv_dir="$(bash demos/cmake/prepare-libuv.sh)"
   node scripts/build-source-tar.mjs "${static_dir}/cmake/libuv.tar" \
     "${libuv_dir}/include" /tmp/libuv/source/include \

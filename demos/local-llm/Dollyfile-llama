@@ -7,7 +7,7 @@ REQUIRES HOST gpu@0
 # backend, serving the model it is given over stdin and stdout. A model package
 # brings the GGUF.
 FROM /v0.1.3/Dollyfile-system-tools 13ba21000aa665d6729f8e00cb795c4871f3bfaa72a4e18a7197d536b84a5826
-USE /v0.1.3/demos/local-llm/Dollyfile-llama-cpp e7548ce0c2cbff7dbc69532ab0a13e96358dd7ce2bedd5f61ba07b355c353533
+USE /v0.1.3/demos/local-llm/Dollyfile-llama-cpp 1443838379a680732812cc6acdfce9f598ead02530d60d75fe317ea883741238
 REQUIRES HEADER llama
 REQUIRES LIB llama
 REQUIRES LIB llama-common
