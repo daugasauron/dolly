@@ -27,11 +27,27 @@ Each step's measurements are recorded here as they are made.
 
 ## State (2026-10-23)
 
-Steps 1 to 3 done: memory64 as `GOARCH=wasm64`, proven on the host; `GOOS=dolly` on the
-process contract; the seed (`demos/go/build-go-toolchain.sh`) runs in a Dolly session, where
-`go build` makes a program that runs, in Chrome and Firefox (below). Next: the go-sdk and
-go-build recipes, the toolchain rebuilt inside Dolly and compared with the seed. The fork is one patch,
-[`demos/go/go-1.27.3-dolly.patch`](../../demos/go/go-1.27.3-dolly.patch), against Go 1.27.3.
+Done when is met (below); kept open only until the owner has seen it. The fork is one patch,
+[`demos/go/go-1.27.3-dolly.patch`](../../demos/go/go-1.27.3-dolly.patch), against Go 1.27.3; the
+demo is [`demos/go`](../../demos/go/README.md): go-sdk (the seed), go-build (the toolchain rebuilt
+inside Dolly, equal to the seed), the go and esbuild packages, go-tools (a shell with both), and
+a browser test that passes in Chromium and Firefox.
+
+Follow-ups, one line each (none blocks the goal):
+
+- Upstream bug: a nil interface key in a map of more than one table traps on GOARCH=wasm
+  (js and wasip1) in Go 1.27.3 and on master; the patch fixes `directoryIndex`. Worth an issue
+  at golang/go.
+- Go's `os/signal` delivers nothing on dolly (as on js and wasip1, `_NSIG` is 0 for all wasm);
+  the runtime could hand INTERRUPT_POLL's signals to `sigsend`. Go-side work.
+- `runtime.NumCPU` is 1, so `go build` compiles serially unless told `-p N`, although Dolly runs
+  processes in parallel. Core question: should INFO report how many processes may run at once?
+- `syscall.Exec` returns ENOSYS; once the contract has execve, `go run` and toolchain switching
+  could use it.
+- No network for Go programs (wasip1's fake `net`): an `http.RoundTripper` over the broker
+  (as CPython's `_dolly_http`) would let `go get` and Go clients reach the network.
+- A compile of `cmd/compile/internal/ssa` grows a process to 3.9 GiB (2.4 GiB with
+  `GOMEMLIMIT=1GiB`; 1.8 GB natively): go-build compiles serially to stay in the 6 GB build slot.
 
 ## Decisions
 
@@ -138,3 +154,34 @@ The patched toolchain builds on the host in 50 s (`make.bash`). A program built
   So `GOARCH=wasm` builds upstream's code except `directoryIndex`.
 - With the fix, the dolly `compile` (wasm64, in Node) compiles ssagen in 17 s, byte for byte
   the archive the linux/amd64 `compile` of the same source writes with the same arguments.
+
+## Step 4: the toolchain rebuilt inside Dolly equals the seed (2026-10-23, measured)
+
+- In a `system` session in Chrome, the seed's `go install -a -p 4` of the ten commands upstream
+  ships (go, gofmt, asm, cgo, compile, cover, fix, link, preprofile, vet), with the flags of
+  upstream's release build (cmd/dist's toolenv: `-trimpath -ldflags=-w
+  -gcflags=cmd/...=-dwarf=false`, `CGO_ENABLED=0`), compiled the standard library and every
+  package of those commands in **248.7 s**, and every one of the ten programs it installed is
+  **byte for byte the seed's** (`cmp`). Go's release toolchain keys its build IDs on the version,
+  not on the compiler binary, so the compiler built on Linux and the one built here write the
+  same bytes; the seed is the toolchain reproduced from source by itself, and no second
+  generation is needed to show it.
+- [`Dollyfile-go-build`](../../demos/go/Dollyfile-go-build) makes that the build: it fails unless
+  the rebuilt programs equal the seed's, compared by a Go program the rebuilt toolchain compiles
+  (system-build has no `cmp`; posix would pull the terminal's build chain into a toolchain that
+  has no display).
+
+## Step 5: the images and the browser test (2026-10-23, measured)
+
+- `DOLLY_BUILD_IMAGES=go-tools,default npm run image` in the 6 GB build slot: go-sdk; go-build
+  (the rebuild above, here serial with `GOMEMLIMIT=2GiB`: "8 programs equal the seed's", "2
+  programs equal the seed's"; 511 s with its snapshot, 456 MB; peak 5.5 GB); go (311 MB);
+  esbuild 0.28.2, compiled in Dolly by go-build from its release with `golang.org/x/sys` vendored
+  at staging (`go build -mod=vendor`, unchanged upstream source; package 22.6 MB, 114 s), which
+  bundles a TypeScript file in the build; go-tools (503 MB). `-p 4` and then `-p 2` crashed the
+  build's renderer at the 6 GB cap: one compile of `cmd/compile/internal/ssa` takes 3.9 GiB.
+- [`demos/go/test/go-browser.mjs`](../../demos/go/test/go-browser.mjs) in go-tools: `go build` of
+  a program that runs a child with captured output, sleeps on a goroutine and reads an `os.Pipe`;
+  the program run with arguments; `go run`; `gofmt -l`/`-w` on a misformatted file; esbuild
+  bundling TypeScript. **Chromium passed in 43.0 s, Firefox in 44.4 s**
+  (`npm run test:demos -- go`).

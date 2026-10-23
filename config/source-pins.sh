@@ -610,3 +610,8 @@ DOLLY_GO_URL='https://go.dev/dl/go1.27.3.src.tar.gz'
 DOLLY_GO_SHA256=6e7749035cf360f06b2575d162ea79df9fda8ef671889e5c375f8e50777f26bb
 DOLLY_GO_HOST_URL='https://go.dev/dl/go1.27.3.linux-amd64.tar.gz'
 DOLLY_GO_HOST_SHA256=65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40
+# esbuild, the JavaScript and TypeScript bundler, built by the go package; its one module
+# dependency (golang.org/x/sys) is vendored at staging and checked against its go.sum.
+DOLLY_ESBUILD_VERSION=0.28.2
+DOLLY_ESBUILD_URL='https://github.com/evanw/esbuild/archive/refs/tags/v0.28.2.tar.gz'
+DOLLY_ESBUILD_SHA256=300162f899361d9f0263065f8728ef9086dcfc1a3d36bcbc4e0abe5de9c58bf8

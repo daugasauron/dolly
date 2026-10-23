@@ -1,0 +1,29 @@
+DOLLY 7
+PACKAGE esbuild
+REQUIRES HOST runtime@0
+
+# esbuild, built by go-build's toolchain from its release and the module it
+# vendors.
+FROM /v0.1.4/demos/go/Dollyfile-go-build fa33d0138227834b036324995552ee92b9dfe95d1c80226de0b49ea112f91b14
+REQUIRES TOOL go
+SOURCE /v0.1.4/dist/static/go/esbuild.tar fd6632585faaac4195cd5ba9ac53f50c71c5714087c9e93ad427955854f97591 /tmp/esbuild.tar
+SLOP tar -xf /tmp/esbuild.tar -C /
+SLOP CWD /tmp/esbuild GOCACHE=/tmp/go-cache GOFLAGS=-mod=vendor go build -trimpath -o /usr/bin/esbuild ./cmd/esbuild
+SLOP mkdir -p /usr/share/licenses/esbuild
+SLOP cp /tmp/esbuild/LICENSE.md /usr/share/licenses/esbuild/LICENSE.md
+SLOP cp /tmp/esbuild/vendor/golang.org/x/sys/LICENSE /usr/share/licenses/esbuild/x-sys-LICENSE
+FOLDER /usr/share/licenses/esbuild
+EXPORTS TOOL esbuild
+FILE /tmp/check.ts
+    const answer: number = 6 * 7;
+    console.log(`answer ${answer}`);
+SLOP esbuild /tmp/check.ts --outfile=/tmp/check.js && cat /tmp/check.js
+FILE /usr/share/man/cat1/esbuild.1
+    esbuild: the JavaScript and TypeScript bundler (esbuild 0.28.2), built inside
+    Dolly by the go package.
+    
+      esbuild app.ts --bundle --outfile=app.js
+      esbuild app.ts --minify
+    
+    It serves nothing: Go programs on Dolly reach no network. Upstream's
+    documentation: https://esbuild.github.io/
