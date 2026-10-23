@@ -8,6 +8,7 @@ import { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_CHUNK_CAPACITY, DOLLY_HTTP_MAX_METHOD
   DOLLY_HTTP_KIND_URL, DOLLY_HTTP_KIND_HEADER, DOLLY_HTTP_KIND_BODY } from "./abi.mjs";
 
 const encoder = new TextEncoder();
+const now = () => performance.timeOrigin + performance.now();
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 export const DOLLY_HTTP_LIMITS = Object.freeze({ method: DOLLY_HTTP_MAX_METHOD, url: DOLLY_HTTP_MAX_URL,
   headers: DOLLY_HTTP_MAX_HEADERS, body: DOLLY_HTTP_MAX_BODY });
@@ -24,9 +25,10 @@ export function createHttpAdmission(postRequest) {
   } };
 }
 
-export class NetworkTransport {
-  // `site` is the URL of the root of the site serving this release, if any.
-  constructor(buffer, address, policy, { fetchRequest = globalThis.fetch.bind(globalThis), site } = {}) {
+// The Worker's end of the mailbox pool: it copies what a request descriptor
+// names out of kernel memory and writes the page's records into the slots.
+export class HttpMailbox {
+  constructor(buffer, address) {
     if (!(buffer instanceof SharedArrayBuffer) || !Number.isSafeInteger(address) ||
         address <= 0 || address % 64 !== 0 ||
         address > buffer.byteLength - DOLLY_HTTP_SLOT_COUNT * (DOLLY_HTTP_HEADER_SIZE + DOLLY_HTTP_CHUNK_CAPACITY)) {
@@ -35,6 +37,99 @@ export class NetworkTransport {
     this.bytes = new Uint8Array(buffer);
     this.words = new Int32Array(buffer);
     this.address = address;
+    // The transfer (the page's number for it) that last ended in each slot, and its error.
+    this.ended = Array(DOLLY_HTTP_SLOT_COUNT).fill(null);
+  }
+
+  word(index) { return (this.address + index * (DOLLY_HTTP_HEADER_SIZE + DOLLY_HTTP_CHUNK_CAPACITY)) / 4; }
+
+  // The page's admission message for a descriptor: a cancellation, a request
+  // copied out of `memory`, or the errno it fails with once the page has
+  // judged the slot. All spans are checked before any guest byte is decoded.
+  admission(memory, message) {
+    const sequence = message.sequence >>> 0;
+    if (message.method === 0n) {
+      return { sequence, cancel: message.methodSize === 0n && message.url === 0n && message.urlSize === 0n &&
+        message.headers === 0n && message.headersSize === 0n && message.body === 0n && message.bodySize === 0n &&
+        message.flags === 0 };
+    }
+    try {
+      if (!(memory instanceof SharedArrayBuffer) || (message.flags & ~3) !== 0)
+        throw new HttpError(errno.EINVAL, "invalid HTTP admission");
+      const spans = {};
+      for (const [name, maximum] of Object.entries(DOLLY_HTTP_LIMITS)) {
+        const start = Number(message[name]), size = Number(message[`${name}Size`]);
+        if (!Number.isSafeInteger(size) || size < 0 || size > maximum)
+          throw new HttpError(errno.E2BIG, "HTTP argument exceeds its byte limit");
+        if (!Number.isSafeInteger(start) || start < 0 || (size !== 0 && start === 0) ||
+            start > memory.byteLength - size)
+          throw new HttpError(errno.EFAULT, "HTTP argument is outside Wasm memory");
+        spans[name] = [start, start + size];
+      }
+      if (message.methodSize === 0n || message.urlSize === 0n)
+        throw new HttpError(errno.EINVAL, "HTTP method and URL must not be empty");
+      const bytes = new Uint8Array(memory);
+      const text = name => {
+        const value = decoder.decode(bytes.slice(...spans[name]));
+        if (value.includes("\0")) throw new HttpError(errno.EINVAL, "NUL in HTTP metadata");
+        return value;
+      };
+      return { sequence, request: { method: text("method"), url: text("url"), headers: text("headers"),
+        body: message.bodySize === 0n ? null : bytes.slice(...spans.body), flags: message.flags } };
+    } catch (error) {
+      return { sequence, error: error instanceof HttpError ? error.errno : errno.EINVAL };
+    }
+  }
+
+  current(word, sequence) {
+    return (Atomics.load(this.words, word + DOLLY_HTTP_WORD_SEQUENCE) >>> 0) === sequence;
+  }
+
+  // Writes one record once the slot is writable: 0, or the errno that ended
+  // the transfer (the guest's cancellation, the page's failure, the deadline,
+  // in milliseconds of the epoch: page and Worker count from different origins).
+  async publish({ index, transfer, sequence, bytes, status, eof, kind, deadline }) {
+    const { words } = this, word = this.word(index);
+    for (;;) {
+      const ended = this.ended[index];
+      if (ended?.transfer === transfer) return ended.error;
+      if (!this.current(word, sequence)) return errno.ECANCELED;
+      if (now() >= deadline) return errno.ETIMEDOUT;
+      const state = Atomics.load(words, word);
+      if (state === DOLLY_HTTP_STATE_WRITABLE) break;
+      const waiting = Atomics.waitAsync(words, word, state, deadline - now());
+      if (waiting.async) await waiting.value;
+    }
+    if (bytes.length > DOLLY_HTTP_CHUNK_CAPACITY) return errno.E2BIG;
+    this.bytes.set(bytes, word * 4 + DOLLY_HTTP_HEADER_SIZE);
+    Atomics.store(words, word + DOLLY_HTTP_WORD_STATUS, status);
+    Atomics.store(words, word + DOLLY_HTTP_WORD_LENGTH, bytes.length);
+    Atomics.store(words, word + DOLLY_HTTP_WORD_EOF, eof ? 1 : 0);
+    Atomics.store(words, word + DOLLY_HTTP_WORD_ERROR, 0);
+    Atomics.store(words, word + DOLLY_HTTP_WORD_KIND, kind);
+    Atomics.store(words, word, DOLLY_HTTP_STATE_READABLE);
+    Atomics.notify(words, word);
+    return 0;
+  }
+
+  // A transfer's end, once: a late result must not republish an error Wasm
+  // already consumed, nor reach a slot the guest has reused.
+  fail({ index, transfer, sequence, error }) {
+    const word = this.word(index);
+    if (this.ended[index]?.transfer === transfer || !this.current(word, sequence)) return;
+    this.ended[index] = { transfer, error };
+    Atomics.store(this.words, word + DOLLY_HTTP_WORD_ERROR, error);
+    Atomics.store(this.words, word, DOLLY_HTTP_STATE_FAILED);
+    Atomics.notify(this.words, word);
+  }
+}
+
+// The page's broker: policy, Fetch and the slots' bookkeeping. It never reads
+// kernel memory: `mailbox` (HttpMailbox, or messages to it) writes the slots.
+export class NetworkTransport {
+  // `site` is the URL of the root of the site serving this release, if any.
+  constructor(mailbox, policy, { fetchRequest = globalThis.fetch.bind(globalThis), site } = {}) {
+    this.mailbox = mailbox;
     this.capacity = DOLLY_HTTP_CHUNK_CAPACITY;
     this.policy = policy;
     this.fetchRequest = fetchRequest;
@@ -64,46 +159,21 @@ export class NetworkTransport {
     return (sequence - 1) % DOLLY_HTTP_SLOT_COUNT;
   }
 
-  // All spans are checked before decoding/copying ANY guest bytes.
-  async dispatch(message) {
+  // An admission message (HttpMailbox.admission): 0 or a negative errno.
+  async dispatch({ sequence, cancel, request, error }) {
     try {
       if (this.closed) return -errno.ECANCELED;
-      const sequence = message.sequence >>> 0;
       const index = this.slotIndex(sequence);
-      if (message.method === 0n) {
-        if (message.methodSize !== 0n || message.url !== 0n || message.urlSize !== 0n ||
-            message.headers !== 0n || message.headersSize !== 0n ||
-            message.body !== 0n || message.bodySize !== 0n || message.flags !== 0)
-          throw new HttpError(errno.EINVAL, "invalid HTTP cancellation");
+      if (cancel !== undefined) {
+        if (!cancel) throw new HttpError(errno.EINVAL, "invalid HTTP cancellation");
         const transfer = this.slots[index];
         if (transfer && transfer.sequence !== sequence) return -errno.ESTALE;
         transfer?.cancel();
         return 0;
       }
       if (this.slots[index]) return -errno.EBUSY;
-      if (!(message.memory instanceof SharedArrayBuffer) || (message.flags & ~3) !== 0)
-        throw new HttpError(errno.EINVAL, "invalid HTTP admission");
-      const spans = {};
-      for (const [name, maximum] of Object.entries(DOLLY_HTTP_LIMITS)) {
-        const start = Number(message[name]), size = Number(message[`${name}Size`]);
-        if (!Number.isSafeInteger(size) || size < 0 || size > maximum)
-          throw new HttpError(errno.E2BIG, "HTTP argument exceeds its byte limit");
-        if (!Number.isSafeInteger(start) || start < 0 || (size !== 0 && start === 0) ||
-            start > message.memory.byteLength - size)
-          throw new HttpError(errno.EFAULT, "HTTP argument is outside Wasm memory");
-        spans[name] = [start, start + size];
-      }
-      if (message.methodSize === 0n || message.urlSize === 0n)
-        throw new HttpError(errno.EINVAL, "HTTP method and URL must not be empty");
-      const bytes = new Uint8Array(message.memory);
-      const text = name => {
-        const value = decoder.decode(bytes.slice(...spans[name]));
-        if (value.includes("\0")) throw new HttpError(errno.EINVAL, "NUL in HTTP metadata");
-        return value;
-      };
-      this.request({ method: text("method"), url: text("url"), headers: text("headers"),
-        body: message.bodySize === 0n ? null : bytes.slice(...spans.body),
-        flags: message.flags, sequence });
+      if (error) return -error;
+      this.request({ ...request, sequence });
       return 0;
     } catch (error) {
       return -(error instanceof HttpError ? error.errno : errno.EINVAL);
@@ -116,7 +186,7 @@ export class NetworkTransport {
     if (this.slots[index]) throw new HttpError(errno.EBUSY, "HTTP slot is settling");
     const transfer = new HttpTransfer(this, index, request.sequence);
     this.slots[index] = transfer;
-    this.requestCount++;
+    transfer.id = ++this.requestCount;
     transfer.pending = transfer.run(request).finally(() => {
       this.completedRequestCount++;
       this.slots[index] = null;
@@ -134,37 +204,29 @@ export class NetworkTransport {
 class HttpTransfer {
   constructor(broker, index, sequence) {
     this.broker = broker;
+    this.index = index;
     this.sequence = sequence;
-    this.address = broker.address + index * (DOLLY_HTTP_HEADER_SIZE + broker.capacity);
-    this.word = this.address / 4;
     this.controller = new AbortController();
     this.deadline = Infinity;
     this.terminalError = 0;
     this.reader = null;
     this.controller.signal.addEventListener("abort", () => {
-      Atomics.notify(broker.words, this.word);
       void this.reader?.cancel().catch(() => {});
     }, { once: true });
   }
 
-  current() {
-    return (Atomics.load(this.broker.words, this.word + DOLLY_HTTP_WORD_SEQUENCE) >>> 0) === this.sequence;
-  }
-
   check() {
     if (this.terminalError) throw new HttpError(this.terminalError, "HTTP transfer ended");
-    if (!this.current()) throw new HttpError(errno.ECANCELED, "HTTP cancelled");
     if (this.controller.signal.aborted || performance.now() >= this.deadline)
       throw new HttpError(errno.ETIMEDOUT, "HTTP deadline exceeded");
   }
 
+  // The mailbox ends the slot's transfer once, and only while the guest's
+  // slot still holds this sequence; a waiting record then gives up.
   fail(error) {
-    // A late provider result must not republish an error Wasm already consumed.
-    if (this.terminalError || !this.current()) return;
+    if (this.terminalError) return;
     this.terminalError = error;
-    Atomics.store(this.broker.words, this.word + DOLLY_HTTP_WORD_ERROR, error);
-    Atomics.store(this.broker.words, this.word, DOLLY_HTTP_STATE_FAILED);
-    Atomics.notify(this.broker.words, this.word);
+    this.broker.mailbox.fail({ index: this.index, transfer: this.id, sequence: this.sequence, error });
   }
 
   cancel() {
@@ -175,23 +237,11 @@ class HttpTransfer {
   }
 
   async publish(bytes, status, eof, kind) {
-    const { words, bytes: memory, capacity } = this.broker;
-    for (;;) {
-      this.check();
-      const state = Atomics.load(words, this.word);
-      if (state === DOLLY_HTTP_STATE_WRITABLE) break;
-      const waiting = Atomics.waitAsync(words, this.word, state, this.deadline - performance.now());
-      if (waiting.async) await waiting.value;
-    }
-    if (bytes.length > capacity) throw new HttpError(errno.E2BIG, "HTTP record exceeds slot capacity");
-    memory.set(bytes, this.address + DOLLY_HTTP_HEADER_SIZE);
-    Atomics.store(words, this.word + DOLLY_HTTP_WORD_STATUS, status);
-    Atomics.store(words, this.word + DOLLY_HTTP_WORD_LENGTH, bytes.length);
-    Atomics.store(words, this.word + DOLLY_HTTP_WORD_EOF, eof ? 1 : 0);
-    Atomics.store(words, this.word + DOLLY_HTTP_WORD_ERROR, 0);
-    Atomics.store(words, this.word + DOLLY_HTTP_WORD_KIND, kind);
-    Atomics.store(words, this.word, DOLLY_HTTP_STATE_READABLE);
-    Atomics.notify(words, this.word);
+    this.check();
+    if (bytes.length > this.broker.capacity) throw new HttpError(errno.E2BIG, "HTTP record exceeds slot capacity");
+    const error = await this.broker.mailbox.publish({ index: this.index, transfer: this.id, sequence: this.sequence,
+      bytes: bytes.slice(), status, eof, kind, deadline: now() + this.deadline - performance.now() });
+    if (error) throw new HttpError(error, "HTTP transfer ended");
   }
 
   async run({ method, url, headers: headerBlock, body, flags }) {

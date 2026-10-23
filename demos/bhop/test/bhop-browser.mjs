@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { delay, demoTest, leaveGame, redirectFetch } from "../../browser.mjs";
+import { delay, demoTest, leaveGame, redirectFetch, snapshotDisplay } from "../../browser.mjs";
 import { relayProvider } from "../../rts/spectator/relay.mjs";
 import { runBhopAgentProof } from "./fixtures/bhop-agent-browser.mjs";
 import { bhopProvider } from "./fixtures/bhop-provider.mjs";
@@ -85,8 +85,9 @@ try {
       await page.mouse.wheel(0, deltaY);
       await delay(900);
     }
+    await snapshotDisplay(page);
     const floor = await page.evaluate(() => {
-      const canvas = document.querySelector("#display");
+      const canvas = displaySnapshot;
       const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
       let count = 0;
       for (let y = Math.ceil(canvas.height * 0.55); y < canvas.height * 0.8; y++) for (let x = 0; x < canvas.width; x++) {

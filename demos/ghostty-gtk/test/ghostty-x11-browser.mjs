@@ -5,18 +5,18 @@
 // and finds amy, which installs packages into the session.
 // Usage: node demos/ghostty-gtk/test/ghostty-x11-browser.mjs [chromium|firefox ...]
 import { mkdir } from "node:fs/promises";
-import { delay, demoTest, shellPrompt } from "../../browser.mjs";
+import { delay, demoTest, shellPrompt, snapshotDisplay, waitForDisplay } from "../../browser.mjs";
 
 const evidence = new URL("../../../build/ghostty-evidence/", import.meta.url).pathname;
 const width = 1024, height = 700;
 
 // Pixels of the frame's box brighter than Ghostty's dark background: text.
-const bright = (page, x, y, w, h) => page.evaluate(([x, y, w, h]) => {
-  const data = document.querySelector("#display").getContext("2d").getImageData(x, y, w, h).data;
+const bright = async (page, x, y, w, h) => { await snapshotDisplay(page); return page.evaluate(([x, y, w, h]) => {
+  const data = displaySnapshot.getContext("2d").getImageData(x, y, w, h).data;
   let count = 0;
   for (let i = 0; i < data.length; i += 4) count += data[i] + data[i + 1] + data[i + 2] > 450;
   return count;
-}, [x, y, w, h]);
+}, [x, y, w, h]); };
 async function at(page, x, y) {
   const box = await page.locator("#display").boundingBox();
   return [box.x + (x + 0.5) * box.width / width, box.y + (y + 0.5) * box.height / height];
@@ -41,8 +41,8 @@ for (const browser of browsers) await demoTest("ghostty-x11", { image: "ghostty-
   [width, height], { timeout: 120_000, polling: 100 });
   // Ghostty's window at the top left, then Slop's prompt in its first row,
   // below the header bar: the frame's rows 53-73, and the second row 74-94.
-  await page.waitForFunction(() => {
-    const data = document.querySelector("#display").getContext("2d").getImageData(400, 300, 200, 100).data;
+  await waitForDisplay(page, () => {
+    const data = displaySnapshot.getContext("2d").getImageData(400, 300, 200, 100).data;
     let lit = 0;
     for (let i = 0; i < data.length; i += 4) lit += data[i] + data[i + 1] + data[i + 2] > 0;
     return lit > 15000;

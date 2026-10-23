@@ -31,7 +31,34 @@ async function handle(request, response, path, headers) {
   return true;
 }
 
-await browserTest("boundary", { server: { handle } }, async ({ server, open }) => {
+// The sizes of the shared buffers of 64 MiB or more (the kernel's smallest
+// memory, and a Wasm memory's buffer is one) in the page's heap: a heap
+// snapshot with V8's internals names each buffer's backing store and its size.
+async function largeSharedBuffersInHeap(page) {
+  const devtools = await page.context().newCDPSession(page);
+  let chunks = "";
+  devtools.on("HeapProfiler.addHeapSnapshotChunk", ({ chunk }) => { chunks += chunk; });
+  await devtools.send("HeapProfiler.takeHeapSnapshot", { exposeInternals: true });
+  await devtools.detach();
+  const { snapshot: { meta }, nodes, edges, strings } = JSON.parse(chunks);
+  const field = name => meta.node_fields.indexOf(name), nodeWidth = meta.node_fields.length, edgeWidth = meta.edge_fields.length;
+  const sizes = [];
+  for (let node = 0, edge = 0; node < nodes.length; node += nodeWidth) {
+    const end = edge + nodes[node + field("edge_count")] * edgeWidth;
+    if (strings[nodes[node + field("name")]] === "SharedArrayBuffer") {
+      for (; edge < end; edge += edgeWidth) {
+        const target = edges[edge + meta.edge_fields.indexOf("to_node")], size = nodes[target + field("self_size")];
+        if (strings[edges[edge + meta.edge_fields.indexOf("name_or_index")]] === "backing_store" && size >= 64 * 1024 * 1024) {
+          sizes.push(size);
+        }
+      }
+    }
+    edge = end;
+  }
+  return sizes;
+}
+
+await browserTest("boundary", { server: { handle } }, async ({ name, server, open }) => {
   const { page, submit } = await open({ policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   // Outer imports equal the contract, plugin ABI rejections, policy before
   // Fetch, deadlines, quotas, typed errors, literal metadata and redirects.
@@ -52,6 +79,11 @@ await browserTest("boundary", { server: { handle } }, async ({ server, open }) =
   corrupt = true;
   assert.notEqual(await submit(`curl -fsS ${reference} -o /tmp/boundary-corrupt`), 0);
   assert.equal(await submit("rm -f /tmp/boundary-source.c /tmp/boundary-corrupt"), 0);
+  // The page holds no view of kernel memory, only Workers do: after typing,
+  // HTTP and the display, the page's heap has no shared buffer of its size.
+  // In Chromium, whose DevTools protocol lists them.
+  if (name === "chromium") assert.deepEqual(await largeSharedBuffersInHeap(page), [], "the page holds a view of kernel memory");
+
   // An uncaught failure in the runtime Worker, as a kernel trap outside a
   // system call would be, ends the runtime: the page must not stay "ready".
   await page.workers().find(worker => worker.url().endsWith("/src/runtime-worker.mjs"))

@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { decodeWorld } from "../../agent/room.mjs";
+import { snapshotDisplay, waitForDisplay } from "../../../browser.mjs";
 
 export async function runClassiCubeMultiplayer({page, modelsFile, projectDir}) {
   page.setDefaultTimeout(45000);
@@ -108,9 +109,10 @@ export async function runClassiCubeMultiplayer({page, modelsFile, projectDir}) {
     } else await prompt(`You are Player ${id}. Survey the world from here. Turn right in four short look batches, inspecting each screenshot, then describe what you saw and stop. Use at most four game_input calls.`);
   }
   const four=await measure('four players while agents work');
-  const titleHash=()=>{const data=document.querySelector('#display').getContext('2d').getImageData(900,20,180,30).data;let h=0;for(let n=0;n<data.length;n+=4)h=(Math.imul(h,31)+data[n])|0;return h;};
+  const titleHash=()=>{const data=displaySnapshot.getContext('2d').getImageData(900,20,180,30).data;let h=0;for(let n=0;n<data.length;n+=4)h=(Math.imul(h,31)+data[n])|0;return h;};
+  await snapshotDisplay(page);
   const titleBefore=await page.evaluate(titleHash),switchStarted=Date.now();await key('[');
-  await page.waitForFunction(({source,before})=>(0,eval)(`(${source})`)()!==before,{source:titleHash.toString(),before:titleBefore});
+  await waitForDisplay(page,({source,before})=>(0,eval)(`(${source})`)()!==before,{source:titleHash.toString(),before:titleBefore});
   four.switchMilliseconds=Date.now()-switchStarted;assert.ok(four.switchMilliseconds<500,'first-person/log switch paints within 500 ms');
   await key(']');
   await click(770,66);assert.equal(Object.keys((await probe()).players).length,4,'capacity enforced');

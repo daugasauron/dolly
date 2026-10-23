@@ -18,8 +18,9 @@ const maxBootstrapMessage = 1024 * 1024;
 // What crypto.getRandomValues fills in one call.
 const maxEntropy = 65536;
 
-// The terminal mailbox (abi/dolly-supervisor-0.wat): the foreground command,
-// shell results and the page's interrupt request, with or without a display.
+// The terminal mailbox (abi/dolly-supervisor-0.wat), the Worker's end: the
+// foreground command, shell results and the page's interrupt request, with or
+// without a display.
 class TerminalMailbox {
   static resultSequence = DOLLY_TERMINAL_WORD_RESULT_SEQUENCE;
   static resultStatus = DOLLY_TERMINAL_WORD_RESULT_STATUS;
@@ -67,12 +68,21 @@ class TerminalMailbox {
   }
 }
 
-export function browser() {
-  let terminal;
+// The page's terminal: the foreground program as the Worker last reported
+// it; the shell's results and Ctrl+C, asked of the Worker.
+export function browser({ ask }) {
+  let foreground = { pid: 0, interruptible: false };
+  const terminal = {
+    foregroundPid: () => foreground.pid,
+    foregroundInterruptible: () => foreground.interruptible,
+    currentResultSequence: () => ask({ type: "terminal-result-sequence" }),
+    waitForResult: sequence => ask({ type: "terminal-result", sequence }),
+    interruptForeground: () => ask({ type: "terminal-interrupt" }),
+  };
   return {
-    get terminal() { return terminal; },
-    page: { get terminal() { return terminal; }, get foregroundPid() { return terminal.foregroundPid(); } },
-    start(message) { terminal = new TerminalMailbox(message.memory, message.address); },
+    terminal,
+    page: { terminal, get foregroundPid() { return foreground.pid; } },
+    messages: { "terminal-foreground"({ pid, interruptible }) { foreground = { pid, interruptible }; } },
   };
 }
 
@@ -89,7 +99,16 @@ export function worker({ send, runtimeBase, abi, service }) {
     grower.onerror = event => reject(new Error(event.message || "the kernel memory Worker failed"));
   });
   grower.postMessage({ memory, control: growth.buffer });
-  let supervisor, threadProvider;
+  let supervisor, threadProvider, terminal, reported = "";
+  // The foreground program, sent to the page when it changes.
+  function reportForeground() {
+    if (!terminal) return;
+    const foreground = { pid: terminal.foregroundPid(), interruptible: terminal.foregroundInterruptible() };
+    const text = JSON.stringify(foreground);
+    if (text === reported) return;
+    reported = text;
+    send({ type: "terminal-foreground", ...foreground });
+  }
   // Modules served inside the process Worker of the executables that record
   // them, by requirement: the bundle (a Blob) that Worker imports and the
   // configuration its serve() receives.
@@ -104,6 +123,14 @@ export function worker({ send, runtimeBase, abi, service }) {
     memory,
     // Before the kernel runs: it must not ask for memory before the Worker that grows it waits.
     growing,
+    get terminal() { return terminal; },
+    reportForeground,
+    service: reportForeground,
+    messages: {
+      "terminal-result-sequence": () => terminal.currentResultSequence(),
+      "terminal-result": ({ sequence }) => terminal.waitForResult(sequence),
+      "terminal-interrupt": () => terminal.interruptForeground(),
+    },
     bindings: {
       "env.memory": memory,
       "env.dolly_bootstrap_write_bytes": (address, length) => {
@@ -148,7 +175,8 @@ export function worker({ send, runtimeBase, abi, service }) {
       return supervisor ??= await DollyProcessSupervisor.create(dolly, memory, runtimeBase, abi, service, threadProvider, processModules);
     },
     start({ dolly }) {
-      return { memory: memory.buffer, address: Number(dolly._dolly_terminal_mailbox_address()) };
+      terminal = new TerminalMailbox(memory.buffer, Number(dolly._dolly_terminal_mailbox_address()));
+      reportForeground();
     },
     serviceDeferred() { supervisor?.serviceDeferred(); },
     // Services deferred work each time the page notifies words[index], a

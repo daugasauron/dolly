@@ -5,7 +5,7 @@
 // runs the agent and multiplayer clients against that live relay instead; allow
 // the test origin on the relay and pick it with DOLLY_BROWSER_PORT.
 import { readFile } from "node:fs/promises";
-import { acceptDownload, delay, demoTest, leaveGame, redirectFetch } from "../../browser.mjs";
+import { acceptDownload, delay, demoTest, leaveGame, redirectFetch, snapshotDisplay } from "../../browser.mjs";
 import { relayProvider } from "../../rts/spectator/relay.mjs";
 import { runClassiCubeAgentProof } from "./fixtures/classicube-agent-browser.mjs";
 import { runClassiCubeMultiplayer } from "./fixtures/classicube-multiplayer-playwright.mjs";
@@ -22,7 +22,8 @@ const handle = async (request, response, path, headers) => {
   return true;
 };
 
-// The DevTools input these fixtures drive: exact keys, modifiers and mouse events.
+// The DevTools input these fixtures drive: exact keys, modifiers and mouse
+// events; snapshot() takes what the display shows for their pixel reads.
 async function devtools(page) {
   const cdp = await page.context().newCDPSession(page);
   const send = (method, params) => cdp.send(method, params);
@@ -40,7 +41,7 @@ async function devtools(page) {
     await send("Input.dispatchKeyEvent", { type: "keyDown", modifiers, ...event, ...text ? { text } : {} });
     await send("Input.dispatchKeyEvent", { type: "keyUp", modifiers, ...event });
   };
-  return { send, evaluate, wait, key };
+  return { send, evaluate, wait, key, snapshot: () => snapshotDisplay(page) };
 }
 
 await demoTest("classicube", { image: "classicube", timeout: 1_800_000,

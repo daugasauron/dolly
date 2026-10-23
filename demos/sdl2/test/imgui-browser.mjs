@@ -2,7 +2,7 @@
 // ImGui's windows over its clear colour and ends at Ctrl+C.
 // Usage: node demos/sdl2/test/imgui-browser.mjs
 import assert from "node:assert/strict";
-import { demoTest, installProbe } from "../../browser.mjs";
+import { demoTest, installProbe, waitForDisplay } from "../../browser.mjs";
 
 for (const browser of ["chromium", "firefox"]) {
   await demoTest("imgui", { image: "imgui", browser, timeout: 600_000 }, async ({ open }) => {
@@ -10,8 +10,8 @@ for (const browser of ["chromium", "firefox"]) {
     const demo = start("imgui-demo");
     await page.waitForFunction(() => __dolly.transport.graphicsActive());
     // The example clears to (0.45, 0.55, 0.60); its windows draw over part of it.
-    await page.waitForFunction(() => {
-      const canvas = document.querySelector("canvas");
+    await waitForDisplay(page, () => {
+      const canvas = displaySnapshot;
       const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
       let clear = 0, other = 0;
       for (let index = 0; index < pixels.length; index += 4 * 97) {

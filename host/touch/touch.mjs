@@ -6,9 +6,10 @@ const word = { read: T.DOLLY_TOUCH_WORD_READ, write: T.DOLLY_TOUCH_WORD_WRITE,
 // Moves leave room for every finger's down and its end.
 const moveReserve = 2 * T.DOLLY_TOUCH_FINGERS;
 
-// The page's end of the touch mailbox: the one producer of its records. A
-// finger is delivered under the lease its down was written for; the fingers
-// of an earlier lease, and those refused, are nobody's until they end.
+// The Worker's end of the touch mailbox, the one producer of its records: the
+// page sends it the fingers it took. A finger is delivered under the lease its
+// down was written for; the fingers of an earlier lease, and those refused,
+// are nobody's until they end.
 export class TouchTransport {
   // The ring's size is the contract's; a test may shrink it.
   constructor(buffer, address, { capacity = T.DOLLY_TOUCH_CAPACITY } = {}) {
@@ -95,10 +96,12 @@ const phases = { pointerdown: T.DOLLY_TOUCH_DOWN, pointermove: T.DOLLY_TOUCH_MOV
   pointerup: T.DOLLY_TOUCH_UP, pointercancel: T.DOLLY_TOUCH_CANCEL };
 
 // The page's fingers on the canvas. They are taken before input@0's listeners
-// on the canvas see them, and only while a program holds the lease: without
-// one the terminal's scroll and pinch are input@0's.
-export function browser({ canvas, surfaceSize }) {
-  let transport;
+// on the canvas see them, and only while a program holds the lease, as the
+// Worker last reported it: without one the terminal's scroll and pinch are
+// input@0's. A finger taken stays this module's until it ends.
+export function browser({ canvas, surfaceSize, send }) {
+  let started = false, lease = 0;
+  const taken = new Set();
   // Positions are pixels of the frame the canvas shows, as input@0's pointer records are.
   function sample(event) {
     const bounds = canvas.getBoundingClientRect(), { width, height } = surfaceSize() ?? canvas;
@@ -107,42 +110,57 @@ export function browser({ canvas, surfaceSize }) {
       pressure: Math.round(event.pressure * 1000), time: Math.floor(event.timeStamp) };
   }
   function listen(event) {
-    if (!transport || event.pointerType !== "touch" || event.target !== canvas) return;
-    const phase = phases[event.type], coalesced = phase === T.DOLLY_TOUCH_MOVE ? event.getCoalescedEvents?.() ?? [] : [];
-    if (!transport.finger(phase, event.pointerId, (coalesced.length ? coalesced : [event]).map(sample))) return;
+    if (!started || event.pointerType !== "touch" || event.target !== canvas) return;
+    const phase = phases[event.type], { pointerId } = event;
+    if (phase === T.DOLLY_TOUCH_DOWN) {
+      if (!lease) return;
+      taken.add(pointerId);
+    } else if (!taken.has(pointerId)) return;
+    else if (phase !== T.DOLLY_TOUCH_MOVE) taken.delete(pointerId);
+    const coalesced = phase === T.DOLLY_TOUCH_MOVE ? event.getCoalescedEvents?.() ?? [] : [];
+    send({ type: "touch-finger", phase, pointerId, samples: (coalesced.length ? coalesced : [event]).map(sample) });
     event.preventDefault();
     event.stopPropagation();
   }
   // A finger held still is a long press, the program's to read, not the page's menu.
   function menu(event) {
-    if (transport?.lease()) event.preventDefault();
+    if (lease) event.preventDefault();
   }
   for (const type of Object.keys(phases)) window.addEventListener(type, listen, { capture: true });
   canvas.addEventListener("contextmenu", menu);
   return {
-    page: { get touchTransport() { return transport; } },
-    start(message) {
-      transport = new TouchTransport(message.memory, message.address);
-      transport.enable(true);
-    },
+    page: { get touchTransport() { return started ? { lease: () => lease } : undefined; } },
+    messages: { "touch-lease"(message) { lease = message.lease; } },
+    start() { started = true; },
     dispose() {
       for (const type of Object.keys(phases)) window.removeEventListener(type, listen, { capture: true });
       canvas.removeEventListener("contextmenu", menu);
-      transport?.enable(false);
-      transport = undefined;
+      started = false;
     },
   };
 }
 
-export function worker({ get }) {
-  let stop;
+// The holder's lease is read at each service tick and reported when it changes.
+export function worker({ get, send }) {
+  let transport, stop, reported = 0;
   return {
+    messages: { "touch-finger"({ phase, pointerId, samples }) { transport?.finger(phase, pointerId, samples); } },
+    service() {
+      const lease = transport?.lease() ?? 0;
+      if (transport && lease !== reported) send({ type: "touch-lease", lease: reported = lease });
+    },
     start({ dolly, memory }) {
       const address = Number(dolly._dolly_touch_mailbox_address());
-      // The page notifies the write word: a program waiting for a finger resumes then.
-      stop = get("runtime").serviceOnNotify(new Int32Array(memory.buffer), address / 4 + word.write);
-      return { memory: memory.buffer, address };
+      transport = new TouchTransport(memory.buffer, address);
+      transport.enable(true);
+      // The finger's records notify the write word: a program waiting for a finger resumes then.
+      stop = get("runtime").serviceOnNotify(transport.words, address / 4 + word.write);
+      return {};
     },
-    dispose() { stop?.(); },
+    dispose() {
+      transport?.enable(false);
+      transport = undefined;
+      stop?.();
+    },
   };
 }

@@ -14,6 +14,7 @@
 import assert from "node:assert/strict";
 import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "../test/browser-server.mjs";
+export { snapshotDisplay, waitForDisplay } from "../test/browser.mjs";
 import { siteReference } from "../src/static-asset.mjs";
 
 const projectDir = new URL("..", import.meta.url).pathname;

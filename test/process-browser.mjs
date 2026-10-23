@@ -231,7 +231,7 @@ await browserTest("startup script", {}, async ({ open }) => {
   const outer = await page.evaluate(() => __dolly.foregroundPid);
   const nextShell = previous => page.evaluate(({ source, previous }) =>
     __dolly.waitForInteractiveTerminal(new RegExp(source), "nested shell", previous), { source: prompt.source, previous });
-  const type = text => page.evaluate(line => { if (!__dolly.input(line)) throw new Error("input mailbox full"); }, `${text}\r`);
+  const type = text => page.evaluate(async line => { if (!await __dolly.input(line)) throw new Error("input mailbox full"); }, `${text}\r`);
   for (const [name, rc] of [
     ["failed", "exit 7"],
     ["missing", null],

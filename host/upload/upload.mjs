@@ -2,42 +2,64 @@ import { UploadTransport, chooseUploadFile, showUploadProgress } from "./transpo
 import { DOLLY_UPLOAD_WORD_REQUEST, DOLLY_UPLOAD_WORD_CANCELLED } from "./abi.mjs";
 export { DOLLY_UPLOAD_ABI_DIGEST as digest } from "./abi.mjs";
 
-// The kernel worker reports each new request and each retired one (its
-// process ended or cancelled); the page never polls the mailbox.
-export function browser() {
-  let transport;
+// The page shows the picker and the progress; the Worker asks for a file,
+// reads it and writes it into the mailbox. The user's Cancel reaches the
+// Worker, and the Worker's end of a transfer closes the dialog.
+export function browser({ send }) {
+  let controller = null;
   return {
-    start(message) {
-      transport = new UploadTransport(message.memory, message.address, chooseUploadFile, showUploadProgress);
+    messages: {
+      "upload-choose"() {
+        const current = controller = new AbortController();
+        current.signal.addEventListener("abort", () => {
+          if (controller !== current) return;
+          controller = null;
+          send({ type: "upload-cancel" });
+        }, { once: true });
+        return chooseUploadFile(current);
+      },
+      "upload-progress"({ sent, size }) { showUploadProgress(sent, size); },
+      "upload-close"() {
+        const current = controller;
+        controller = null;
+        current?.abort();
+      },
     },
-    messages: { "upload-request"() { void transport?.poll(); }, "upload-retired"() { transport?.retire(); } },
     // The open dialog takes every key; Ctrl+C still interrupts the program that asked.
     claimsKey: () => document.querySelector("#file-upload[open]") ? "interrupt" : false,
-    dispose() { transport?.close(); },
+    dispose() { controller?.abort(); },
   };
 }
 
-export function worker({ send }) {
-  let words, reported, retired;
+// The kernel's mailbox reports each new request and each retired one (its
+// process ended or cancelled) at the service tick.
+export function worker({ send, ask }) {
+  let transport, reported, retired;
+  function choose(controller) {
+    controller.signal.addEventListener("abort", () => send({ type: "upload-close" }), { once: true });
+    return ask({ type: "upload-choose" });
+  }
   return {
+    messages: { "upload-cancel"() { transport?.active?.controller.abort(); } },
     service() {
-      if (!words) return;
+      if (!transport) return;
+      const { words } = transport;
       const request = Atomics.load(words, DOLLY_UPLOAD_WORD_REQUEST), cancelled = Atomics.load(words, DOLLY_UPLOAD_WORD_CANCELLED);
       if (request !== reported) {
         reported = request;
-        send({ type: "upload-request" });
+        void transport.poll();
       }
       if (cancelled !== retired) {
         retired = cancelled;
-        send({ type: "upload-retired" });
+        transport.retire();
       }
     },
     start({ dolly, memory }) {
-      const address = Number(dolly._dolly_upload_mailbox_address());
-      words = new Int32Array(memory.buffer, address, 2);
-      reported = Atomics.load(words, DOLLY_UPLOAD_WORD_REQUEST);
-      retired = Atomics.load(words, DOLLY_UPLOAD_WORD_CANCELLED);
-      return { memory: memory.buffer, address };
+      transport = new UploadTransport(memory.buffer, Number(dolly._dolly_upload_mailbox_address()), choose,
+        (sent, size) => send({ type: "upload-progress", sent, size }));
+      reported = Atomics.load(transport.words, DOLLY_UPLOAD_WORD_REQUEST);
+      retired = Atomics.load(transport.words, DOLLY_UPLOAD_WORD_CANCELLED);
     },
+    dispose() { transport?.close(); },
   };
 }

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { browserTest } from "./browser.mjs";
 
-// The page's presenter and input ring: an idle terminal requests no animation
-// frames and output wakes it; a burst of typed keys costs a frame a tick, not
+// The presenter and the input ring: an idle terminal requests no animation
+// frames (the presenter's, in the runtime Worker) and output wakes it; a burst of typed keys costs a frame a tick, not
 // one a key; pointer motion is one record per frame, waits
 // for a program that does not read and never takes a key's slot; a record the
 // ring has no room for is counted, shown and marked in the ring where it was
@@ -10,16 +10,16 @@ import { browserTest } from "./browser.mjs";
 // and the keys typed while that program's Worker retires reach the shell.
 const server = { fixtures: { "terminal-ui.c": "test/fixtures/terminal-ui.c" } };
 await browserTest("display", { image: "system", server }, async ({ server, open }) => {
-  const { page, submit, text, waitForText } = await open({
-    policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
-    setup: page => page.addInitScript(() => {
-      const request = requestAnimationFrame.bind(window);
-      globalThis.animationFrameRequests = 0;
-      globalThis.requestAnimationFrame = callback => { animationFrameRequests++; return request(callback); };
-    }) });
+  const { page, submit, text, waitForText, waitForSelection } = await open({
+    policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   const dataset = () => page.evaluate(() => ({ ...document.documentElement.dataset }));
-
-  const requests = () => page.evaluate(() => animationFrameRequests);
+  const runtime = page.workers().find(worker => worker.url().endsWith("/src/runtime-worker.mjs"));
+  await runtime.evaluate(() => {
+    const request = requestAnimationFrame.bind(self);
+    self.animationFrameRequests = 0;
+    self.requestAnimationFrame = callback => { animationFrameRequests++; return request(callback); };
+  });
+  const requests = () => runtime.evaluate(() => animationFrameRequests);
   const sleeping = submit("sleep 2; echo DISPLAY-WOKEN");
   await page.waitForTimeout(1000);
   const [idle, { frameSequence }] = [await requests(), await dataset()];
@@ -33,8 +33,8 @@ await browserTest("display", { image: "system", server }, async ({ server, open 
   // not once a key: a frame a key kept Slop slower than a script types and
   // overran the ring. Ctrl+U drops the line.
   const burst = await page.evaluate(async () => {
-    const { transport, inputTransport } = __dolly, started = performance.now();
-    const published = () => Atomics.load(transport.words, transport.word + transport.constructor.frameSequence);
+    const { inputTransport } = __dolly, started = performance.now();
+    const published = () => Number(document.documentElement.dataset.frameSequence);
     const before = published();
     for (let key = 0; key < 100; key++) for (const action of [1, 0]) inputTransport.pushSyntheticKey("x", "KeyX", 0, action);
     while (!inputTransport.inputIdle()) await new Promise(resolve => setTimeout(resolve, 1));
@@ -62,8 +62,8 @@ await browserTest("display", { image: "system", server }, async ({ server, open 
     for (let sample = 0; sample < count; sample++) __dolly.inputTransport.pushPointerMotion({ movementX: 1.5, movementY: 0 });
     await new Promise(painted => requestAnimationFrame(() => requestAnimationFrame(painted)));
   }, count);
-  const scrolls = count => page.evaluate(count => {
-    for (let record = 0; record < count; record++) if (!__dolly.inputTransport.pushScroll(1, 1)) return false;
+  const scrolls = count => page.evaluate(async count => {
+    for (let record = 0; record < count; record++) if (!await __dolly.inputTransport.pushScroll(1, 1)) return false;
     return true;
   }, count);
   const press = async count => { for (let key = 0; key < count; key++) await page.keyboard.press("k"); };
@@ -104,15 +104,14 @@ await browserTest("display", { image: "system", server }, async ({ server, open 
     let column = 0;
     do {
       column = column % 100 + 1;
-      inputTransport.writeRecord({ type: inputTransport.constructor.pointerEvent, action: 2,
-        x: Math.round(paddingX + (column + 0.75) * cellWidth), y });
+      inputTransport.pushPointer(Math.round(paddingX + (column + 0.75) * cellWidth), y, 2, {});
       await turn();
     } while (terminal.foregroundPid() === 0);
     return column;
   });
   assert.equal(await retiring, 0);
   const ruler = "abcdefghijklmnopqrstuvwxyz".repeat(5).slice(0, dragged + 1);
-  await page.waitForFunction(ruler => __dolly.copySelection() === ruler, ruler);
+  await waitForSelection(ruler);
   // Keys typed in that half second are the next reader's, not the unread
   // input of the program that exited: the shell runs the command.
   const retired = submit(`foreground -i ${probe} retire`);

@@ -37,12 +37,15 @@ A provider's `browser()` and `worker()` receive the page's shared resources
 (`mount`, `canvas`, `keyboard`, `applicationBase` (the image directory), `site`
 (the root of the site's routes, when the embedding has one), `showStatus`,
 `fatal` and `indicators` (`hold(holder, held)` and `show()`, the page's corner
-indicators)), `send` to the other side, `get(dependency)` and its
-`configuration`; `check()` receives the page's resources too, and on a switch
+indicators)), `send` to the other side, `ask` (a message whose handler's
+result, or error, comes back), `get(dependency)` and its `configuration`; `check()` receives the page's resources too, and on a switch
 after boot the `signal` that is aborted once the registry stops waiting.
+The page side holds no view of kernel memory ([browser boundary](../docs/browser-boundary.md)):
+the Worker side owns the module's mailboxes and sends the page copies, and the
+page side keeps its DOM work and sends what the user does.
 `get("runtime")` on the Worker side gives the kernel's `memory`,
-`serviceOnNotify(words, index)`, which resumes waiting programs each time the
-page notifies a mailbox word, `leaseBridge(lease, mailbox, send)` for a device
+`serviceOnNotify(words, index)`, which resumes waiting programs each time a
+mailbox word is notified, `leaseBridge(lease, mailbox, send)` for a device
 leased per process ([`runtime/lease-bridge.mjs`](runtime/lease-bridge.mjs)) and
 `kernelPlugin(bytes, kernelExports)` for a resident library linked into the
 kernel. A device module imports only its own files, so it can be delivered on
