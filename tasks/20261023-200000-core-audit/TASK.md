@@ -25,6 +25,9 @@ fix is clear, or one line for the owner where it is a decision.
   custom session suite failed in today's Chromium writing a 151 MB legacy ArrayBuffer record
   into IndexedDB; that record format can no longer be read (its key's image build ID is gone),
   so the fallback and its test step went.
-- 1, 2, 6, 11 (the wake loop): at the merges of `core/seed-compiler`, `core/touch-module`,
-  `core/amy-environment` and `core/audit-fixes`, in that order.
+- 1, 2, 6, 11 (the wake loop): done at the merges, in the audit's order (`a588d3d4`,
+  `3c5b78b0`, `b0f65b9c`, `842b78ed`): input@0's Paste styles itself, `serviceOnNotify` in
+  the runtime, AGENTS.md's seed sentence, sbase's `which` kept with `command -v` in the
+  guidance. Version 0.1.4 in `2ee36c90`; the catalog round started 18:09 on that commit and
+  verifies them in a browser.
 - Owner: the three lines at the end of `audit.md`.
