@@ -10,8 +10,8 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/Dollyfile-system 5c4eebc6d67c71b0ea6fb89d5b6ec4d6327668262dde58d3b736d19077ef8735
-INSTALL /v0.1.4/demos/codex/Dollyfile-codex eed5b5ff2b390f637ae9b0948539d70e0510e8612f591c20040fea60d0a4976b
+FROM /v0.1.4/Dollyfile-system f1ef795570a5e7e8e78e82603d06ee9fdfcdc4f7551a802674f7166e3e97814f
+INSTALL /v0.1.4/demos/codex/Dollyfile-codex 97cb173a14b6552498f1e2335c01a3c5b6d08fec6cff90c7fbc6f35d4d353fbe
 REQUIRES TOOL codex
 REQUIRES TOOL sh
 

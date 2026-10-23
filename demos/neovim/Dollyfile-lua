@@ -7,21 +7,21 @@ REQUIRES HOST dso@0
 # library and headers, and the LPeg and luv modules built for it. Its manual
 # page is formatted here as text, which man prints: tools-build has mandoc,
 # and a package keeps nothing of the base it is built on.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 5cbafbfc94689d41b3c5488864227a8d31955d1e35c082b63df90b7d56bb20be
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build ff9a6510d5b1cbbb09d9f94691067c2f84182e1d6f7e8954cd36be307f43c916
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
 REQUIRES TOOL text-page
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 22ced8690ee66d59ab196f1544290440052fa2fecf45234934964b1677817d9e /usr/bin/lua /usr/bin/lua
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 22ced8690ee66d59ab196f1544290440052fa2fecf45234934964b1677817d9e /usr/include/lua5.1 /usr/include/lua5.1
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 22ced8690ee66d59ab196f1544290440052fa2fecf45234934964b1677817d9e /usr/lib/liblua.a /usr/lib/liblua.a
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 22ced8690ee66d59ab196f1544290440052fa2fecf45234934964b1677817d9e /usr/lib/lua/5.1/lpeg.so /usr/lib/lua/5.1/lpeg.so
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 22ced8690ee66d59ab196f1544290440052fa2fecf45234934964b1677817d9e /usr/lib/lua/5.1/luv.so /usr/lib/lua/5.1/luv.so
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 22ced8690ee66d59ab196f1544290440052fa2fecf45234934964b1677817d9e /usr/share/lua/5.1 /usr/share/lua/5.1
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 22ced8690ee66d59ab196f1544290440052fa2fecf45234934964b1677817d9e /usr/share/licenses/lua/COPYRIGHT /usr/share/licenses/lua/COPYRIGHT
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 22ced8690ee66d59ab196f1544290440052fa2fecf45234934964b1677817d9e /usr/share/licenses/lpeg/lpeg.html /usr/share/licenses/lpeg/lpeg.html
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 22ced8690ee66d59ab196f1544290440052fa2fecf45234934964b1677817d9e /usr/share/licenses/luv/LICENSE.txt /usr/share/licenses/luv/LICENSE.txt
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 22ced8690ee66d59ab196f1544290440052fa2fecf45234934964b1677817d9e /usr/share/licenses/lua-compat53/LICENSE /usr/share/licenses/lua-compat53/LICENSE
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 22ced8690ee66d59ab196f1544290440052fa2fecf45234934964b1677817d9e /usr/share/licenses/libuv/LICENSE /usr/share/licenses/libuv/LICENSE
+COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 54543bb3569c264bbb0f84f9020b046f1dd9a50f74ad4a657b4bb84df3f2acba /usr/bin/lua /usr/bin/lua
+COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 54543bb3569c264bbb0f84f9020b046f1dd9a50f74ad4a657b4bb84df3f2acba /usr/include/lua5.1 /usr/include/lua5.1
+COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 54543bb3569c264bbb0f84f9020b046f1dd9a50f74ad4a657b4bb84df3f2acba /usr/lib/liblua.a /usr/lib/liblua.a
+COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 54543bb3569c264bbb0f84f9020b046f1dd9a50f74ad4a657b4bb84df3f2acba /usr/lib/lua/5.1/lpeg.so /usr/lib/lua/5.1/lpeg.so
+COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 54543bb3569c264bbb0f84f9020b046f1dd9a50f74ad4a657b4bb84df3f2acba /usr/lib/lua/5.1/luv.so /usr/lib/lua/5.1/luv.so
+COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 54543bb3569c264bbb0f84f9020b046f1dd9a50f74ad4a657b4bb84df3f2acba /usr/share/lua/5.1 /usr/share/lua/5.1
+COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 54543bb3569c264bbb0f84f9020b046f1dd9a50f74ad4a657b4bb84df3f2acba /usr/share/licenses/lua/COPYRIGHT /usr/share/licenses/lua/COPYRIGHT
+COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 54543bb3569c264bbb0f84f9020b046f1dd9a50f74ad4a657b4bb84df3f2acba /usr/share/licenses/lpeg/lpeg.html /usr/share/licenses/lpeg/lpeg.html
+COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 54543bb3569c264bbb0f84f9020b046f1dd9a50f74ad4a657b4bb84df3f2acba /usr/share/licenses/luv/LICENSE.txt /usr/share/licenses/luv/LICENSE.txt
+COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 54543bb3569c264bbb0f84f9020b046f1dd9a50f74ad4a657b4bb84df3f2acba /usr/share/licenses/lua-compat53/LICENSE /usr/share/licenses/lua-compat53/LICENSE
+COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 54543bb3569c264bbb0f84f9020b046f1dd9a50f74ad4a657b4bb84df3f2acba /usr/share/licenses/libuv/LICENSE /usr/share/licenses/libuv/LICENSE
 SOURCE /v0.1.4/dist/static/neovim/lua-5.1.5.tar.gz 2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333 /tmp/lua.tar.gz
 SLOP gzip -dc /tmp/lua.tar.gz | tar -xf - -C /tmp
 SLOP text-page /tmp/lua-5.1.5/doc/lua.1
