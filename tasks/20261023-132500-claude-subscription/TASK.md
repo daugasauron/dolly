@@ -4,11 +4,33 @@
 - PRIORITY: 60
 - TAGS: agent,owner
 
+Paused by the owner (2026-10-23): "pause this investigation for now."
+
 Owner (2026-10-23): "I think claude updated their policy agreement so now it should be ok to
 build a local proxy similar to codex so I can run claude sub from inside the environment
 against a local proxy?"
 
-## State (2026-10-23): read and measured; nothing built
+## State (2026-10-23, 15:00): tried with the owner's token; Anthropic refuses it from a browser
+
+The owner made a token with `claude setup-token` (`~/.claude-oauth`) and asked for a try in
+Dolly. Run on the v0.1.3 release (`:9014`, `closed-source-agent`), the token typed at
+`secretenv CLAUDE_CODE_OAUTH_TOKEN ... closed-source-agent` and Claude Code 2.1.112 started as
+published (`p`; `--bare` ignores the token); the token appears in no log (checked).
+
+- As published, Claude Code stops at "Unable to connect to Anthropic services": its first-run
+  checks (`HEAD https://api.anthropic.com/`, `/api/hello`,
+  `https://platform.claude.com/v1/oauth/hello`) send no CORS header.
+- With `{"hasCompletedOnboarding":true}` in `/home/dolly/.claude.json` (the user's own
+  setting) it skips them and opens its REPL; the first turn's `POST /v1/messages` reaches the
+  API and is refused: `401 authentication_error`, "CORS requests are not allowed for this
+  Organization because of its settings. If you believe this in error, contact support".
+
+So a subscription token works only from outside a browser: the one way is a relay that sends
+the token for the page, which is the intermediation the legal page forbids and a way around a
+refusal Anthropic sets on purpose. Not built. What is left is Anthropic's: the error itself
+names support. An API key works (`closed-source-agent`, Enter).
+
+## Read and measured first
 
 https://code.claude.com/docs/en/legal-and-compliance, read on 2026-10-23 (no date on the page):
 
