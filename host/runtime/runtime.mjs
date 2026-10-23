@@ -146,7 +146,12 @@ export function worker({ send, runtimeBase, abi, service }) {
         Atomics.store(growthWord, 0, 1);
         Atomics.notify(growthWord, 0);
         Atomics.wait(growthWord, 0, 1);
-        return growth[1];
+        const old = growth[1];
+        // This thread learns of the growth by an interrupt, which a wait that
+        // found it done already does not take: take it before the kernel
+        // touches the new pages, as a loop does at each turn.
+        if (old >= 0n) while (BigInt(memory.buffer.byteLength) < (old + pages) * 65536n);
+        return old;
       },
       // Web Crypto rejects views of shared memory: fill a private buffer, then copy.
       "env.dolly_entropy": (address, length) => {
