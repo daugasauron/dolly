@@ -2,7 +2,7 @@
 
 Runs Claude Code, Anthropic's command-line coding agent, unchanged under
 Janis ([JavaScript](../javascript/README.md)) in a session of `system`,
-`janis` and `ripgrep`. Claude Code is Anthropic's software under its
+`janis-install` and `ripgrep`. Claude Code is Anthropic's software under its
 [Commercial Terms](https://code.claude.com/docs/en/legal-and-compliance), not
 part of Dolly, which is not affiliated with Anthropic: nothing of it is in
 this repository, in the image or on the sites ([licences](../../docs/licences.md)).
@@ -26,13 +26,15 @@ Leave Claude Code's REPL with `/exit` (Ctrl+C and Ctrl+D do not end it here).
     log or shell variable. Enter alone starts `--bare` without a key.
   - `p` starts Claude Code as published, without any flag.
   - Ctrl+C, here or at the key prompt, leaves without starting Claude Code.
-- `/usr/bin/closed-source-agent` fetches `@anthropic-ai/claude-code` 2.1.112
+- `/usr/bin/closed-source-agent` installs `@anthropic-ai/claude-code` 2.1.112
   (18.7 MB, the last release that is JavaScript; later ones are native
-  executables) from `registry.npmjs.org` through the HTTP broker, checks the
-  tarball's SHA-256 with `sha256sum`, unpacks it to `/opt/claude-code` and
-  runs `cli.js` as published with `USE_BUILTIN_RIPGREP=0`, so its Grep and
-  Glob tools use the session's `rg`. A session that already holds the package
-  starts it without a download.
+  executables) with `janis-install` at its pinned `sha512` integrity: the
+  tarball from `registry.npmjs.org` through the HTTP broker, unpacked to
+  `/usr/lib/node_modules/@anthropic-ai/claude-code`, its nine optional
+  `@img/sharp-*` packages skipped as packages for other platforms, and
+  `/usr/bin/claude` written. It runs `cli.js` as published with
+  `USE_BUILTIN_RIPGREP=0`, so its Grep and Glob tools use the session's `rg`.
+  A session that already holds the package starts it without a download.
 - Arguments pass through unchanged: `closed-source-agent -p 'request'` with
   `ANTHROPIC_API_KEY` exported is print mode. With arguments the notice shows
   only while the package must still be downloaded.
