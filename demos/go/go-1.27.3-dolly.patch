@@ -1293,10 +1293,10 @@ index d8f4a3cd..ce0bc0d7 100644
  			b[i] = I64
 diff --git a/src/cmd/link/internal/wasm/dolly.go b/src/cmd/link/internal/wasm/dolly.go
 new file mode 100644
-index 00000000..f34317a8
+index 00000000..efd78be7
 --- /dev/null
 +++ b/src/cmd/link/internal/wasm/dolly.go
-@@ -0,0 +1,42 @@
+@@ -0,0 +1,55 @@
 +// Copyright 2026 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -1338,6 +1338,19 @@ index 00000000..f34317a8
 +	writeName(ctxt.Out, "dolly.process.memory")
 +	ctxt.Out.Write(limits[:])
 +	writeSecSize(ctxt, sizeOffset)
++
++	// A program that can make HTTP requests (net/http's transport) needs
++	// the http@0 host module: a dolly.host record (abi/dolly-host-0.wat)
++	// names it, its revision and its ABI digest, as its C client's does.
++	if s := ldr.Lookup("net/http.dollyCall", 0); s != 0 && ldr.AttrReachable(s) {
++		var record [72]byte
++		copy(record[:32], "http")
++		copy(record[40:], dollyHTTPABIDigest[:])
++		sizeOffset = writeSecHeader(ctxt, sectionCustom)
++		writeName(ctxt.Out, "dolly.host")
++		ctxt.Out.Write(record[:])
++		writeSecSize(ctxt, sizeOffset)
++	}
 +}
 diff --git a/src/cmd/link/internal/wasm/obj.go b/src/cmd/link/internal/wasm/obj.go
 index f8090a35..6b274abf 100644
@@ -2629,6 +2642,356 @@ index 69b37559..3b672b7b 100644
  
  package net
  
+diff --git a/src/net/http/roundtrip.go b/src/net/http/roundtrip.go
+index d2e29a33..48e4fe5b 100644
+--- a/src/net/http/roundtrip.go
++++ b/src/net/http/roundtrip.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build !js
++//go:build !js && !dolly
+ 
+ package http
+ 
+diff --git a/src/net/http/roundtrip_dolly.go b/src/net/http/roundtrip_dolly.go
+new file mode 100644
+index 00000000..2bec0efb
+--- /dev/null
++++ b/src/net/http/roundtrip_dolly.go
+@@ -0,0 +1,331 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build dolly
++
++package http
++
++import (
++	"bufio"
++	"bytes"
++	"context"
++	"errors"
++	"internal/byteorder"
++	"io"
++	"net/http/internal/ascii"
++	"net/textproto"
++	"net/url"
++	"strconv"
++	"syscall"
++	"time"
++	"unsafe"
++
++	"golang.org/x/net/http/httpguts"
++)
++
++// dollyCall makes an operation of Dolly's process contract; the runtime
++// provides it (runtime/os_dolly.go).
++//
++//go:linkname dollyCall
++func dollyCall(operation uint32, request unsafe.Pointer, requestSize uint64, response unsafe.Pointer, responseCapacity uint64) int64
++
++// The operations and limits of Dolly's http@0 host module (host/http/http.h).
++const (
++	dollyHTTPStart     = 80
++	dollyHTTPPoll      = 81
++	dollyHTTPCancel    = 82
++	dollyHTTPBodyWrite = 83
++
++	dollyHTTPFollowRedirects = 1 << 1
++
++	dollyHTTPKindURL    = 1
++	dollyHTTPKindHeader = 2
++	dollyHTTPKindBody   = 3
++
++	dollyHTTPMaxBody    = 8 << 20
++	dollyHTTPChunk      = 64 << 10
++	dollyPacketLimit    = 1 << 20
++	dollyHTTPStartBytes = 24
++	dollyHTTPPollBytes  = 32
++)
++
++// RoundTrip implements the [RoundTripper] interface with Dolly's HTTP broker,
++// the one network edge of a Dolly process: the page fetches the request under
++// its policy and streams the response back through the kernel. The browser
++// owns TLS, connections, compression and redirects, which it follows when its
++// policy allows. A Transport with a Dial function set uses the fake network
++// of js and wasip1 instead.
++func (t *Transport) RoundTrip(req *Request) (*Response, error) {
++	if t.Dial != nil || t.DialContext != nil || t.DialTLS != nil || t.DialTLSContext != nil {
++		return t.roundTrip(req)
++	}
++	if req.URL == nil {
++		req.closeBody()
++		return nil, errors.New("http: nil Request.URL")
++	}
++	var body []byte
++	if req.Body != nil && req.Body != NoBody {
++		var err error
++		body, err = io.ReadAll(io.LimitReader(req.Body, dollyHTTPMaxBody+1))
++		req.Body.Close()
++		if err != nil {
++			return nil, err
++		}
++		if len(body) > dollyHTTPMaxBody {
++			return nil, errors.New("net/http: request body exceeds the broker's 8 MiB")
++		}
++	}
++	var header bytes.Buffer
++	for name, values := range req.Header {
++		for _, value := range values {
++			if !httpguts.ValidHeaderFieldName(name) || !httpguts.ValidHeaderFieldValue(value) {
++				return nil, errors.New("net/http: invalid header field " + strconv.Quote(name))
++			}
++			header.WriteString(name + ": " + value + "\r\n")
++		}
++	}
++	method := req.Method
++	if method == "" {
++		method = "GET"
++	}
++	target := *req.URL
++	target.User = nil // Client sends the credentials as an Authorization header.
++	sequence, err := dollyHTTPStartRequest(req.Context(), method, target.String(), header.Bytes(), body)
++	if err != nil {
++		return nil, err
++	}
++	stream := &dollyHTTPStream{sequence: sequence, ctx: req.Context(), packet: make([]byte, dollyHTTPPollBytes+dollyHTTPChunk)}
++	resp, err := stream.response(req)
++	if err != nil {
++		stream.Close()
++		return nil, err
++	}
++	return resp, nil
++}
++
++// dollyHTTPError is a failure the broker reports: a Dolly error number,
++// never a URL or header.
++type dollyHTTPError syscall.Errno
++
++func (e dollyHTTPError) Error() string {
++	switch syscall.Errno(e) {
++	case syscall.EACCES:
++		return "net/http: the page's HTTP policy denied the request"
++	case syscall.EDQUOT:
++		return "net/http: the page's HTTP request quota is exceeded"
++	case syscall.E2BIG:
++		return "net/http: the page's HTTP byte limit is exceeded"
++	case syscall.ETIMEDOUT:
++		return "net/http: the page's HTTP deadline is exceeded"
++	case syscall.ECANCELED:
++		return "net/http: the request was cancelled"
++	case syscall.EPROTONOSUPPORT:
++		return "net/http: Dolly's broker requires HTTP(S)"
++	case syscall.EINVAL:
++		return "net/http: invalid request for Dolly's broker"
++	}
++	return "net/http: the browser could not fetch the URL: blocked (no CORS headers, or a redirect) " +
++		"or unreachable (DNS, TLS, offline)"
++}
++
++func (e dollyHTTPError) Unwrap() error { return syscall.Errno(e) }
++
++func dollyHTTPCall(operation uint32, request []byte, response []byte) (int, error) {
++	var requestPointer, responsePointer unsafe.Pointer
++	if len(request) != 0 {
++		requestPointer = unsafe.Pointer(&request[0])
++	}
++	if len(response) != 0 {
++		responsePointer = unsafe.Pointer(&response[0])
++	}
++	r := dollyCall(operation, requestPointer, uint64(len(request)), responsePointer, uint64(len(response)))
++	if r < 0 {
++		return 0, dollyHTTPError(-r)
++	}
++	return int(r), nil
++}
++
++// dollyHTTPWait sleeps between polls of a pending request, a little longer
++// each time, unless ctx ends first.
++func dollyHTTPWait(ctx context.Context, delay *time.Duration) error {
++	*delay = min(2**delay+100*time.Microsecond, 10*time.Millisecond)
++	timer := time.NewTimer(*delay)
++	defer timer.Stop()
++	select {
++	case <-ctx.Done():
++		return ctx.Err()
++	case <-timer.C:
++		return nil
++	}
++}
++
++// dollyHTTPStartRequest admits a request: its strings, and its body in the
++// packet or staged in the kernel before it. A full slot pool is waited out.
++func dollyHTTPStartRequest(ctx context.Context, method, target string, header, body []byte) (uint32, error) {
++	metadata := dollyHTTPStartBytes + len(method) + len(target) + len(header)
++	if metadata > dollyPacketLimit {
++		return 0, dollyHTTPError(syscall.E2BIG)
++	}
++	staged := len(body) > dollyPacketLimit-metadata
++	for offset := 0; staged && offset < len(body); {
++		chunk := body[offset:min(len(body), offset+dollyPacketLimit-16)]
++		packet := make([]byte, 16, 16+len(chunk))
++		byteorder.LEPutUint64(packet[0:], uint64(offset))
++		byteorder.LEPutUint64(packet[8:], uint64(len(body)))
++		if _, err := dollyHTTPCall(dollyHTTPBodyWrite, append(packet, chunk...), nil); err != nil {
++			dollyHTTPCall(dollyHTTPBodyWrite, nil, nil)
++			return 0, err
++		}
++		offset += len(chunk)
++	}
++	packet := make([]byte, dollyHTTPStartBytes, metadata+len(body))
++	byteorder.LEPutUint32(packet[0:], dollyHTTPFollowRedirects)
++	byteorder.LEPutUint32(packet[4:], uint32(len(method)))
++	byteorder.LEPutUint32(packet[8:], uint32(len(target)))
++	byteorder.LEPutUint32(packet[12:], uint32(len(header)))
++	byteorder.LEPutUint64(packet[16:], uint64(len(body)))
++	packet = append(append(append(packet, method...), target...), header...)
++	if !staged {
++		packet = append(packet, body...)
++	}
++	response := make([]byte, 8)
++	for delay := time.Duration(0); ; {
++		_, err := dollyHTTPCall(dollyHTTPStart, packet, response)
++		if err == nil {
++			return byteorder.LEUint32(response), nil
++		}
++		if !errors.Is(err, syscall.EBUSY) {
++			return 0, err
++		}
++		if err := dollyHTTPWait(ctx, &delay); err != nil {
++			return 0, err
++		}
++	}
++}
++
++// A dollyHTTPStream reads one request's records: its effective URL, its
++// response header lines, then its body.
++type dollyHTTPStream struct {
++	sequence uint32
++	ctx      context.Context
++	packet   []byte
++	pending  []byte // body bytes not yet read
++	eof      bool
++	err      error // sticky
++}
++
++// next waits for the next record.
++func (s *dollyHTTPStream) next() (kind, status uint32, data []byte, err error) {
++	request := make([]byte, 8)
++	byteorder.LEPutUint32(request, s.sequence)
++	for delay := time.Duration(0); ; {
++		n, err := dollyHTTPCall(dollyHTTPPoll, request, s.packet)
++		if err != nil {
++			return 0, 0, nil, err
++		}
++		if n >= dollyHTTPPollBytes && byteorder.LEUint32(s.packet) == 1 {
++			if code := byteorder.LEUint32(s.packet[12:]); code != 0 {
++				return 0, 0, nil, dollyHTTPError(code)
++			}
++			s.eof = byteorder.LEUint32(s.packet[16:]) != 0
++			return byteorder.LEUint32(s.packet[8:]), byteorder.LEUint32(s.packet[4:]), s.packet[dollyHTTPPollBytes:n], nil
++		}
++		if err := dollyHTTPWait(s.ctx, &delay); err != nil {
++			return 0, 0, nil, err
++		}
++	}
++}
++
++// response reads the records up to the body.
++func (s *dollyHTTPStream) response(req *Request) (*Response, error) {
++	var lines bytes.Buffer
++	code := uint32(0)
++	for !s.eof {
++		kind, status, data, err := s.next()
++		if err != nil {
++			return nil, err
++		}
++		code = max(code, status)
++		if kind == dollyHTTPKindURL {
++			if effective, err := url.Parse(string(data)); err == nil && effective.String() != req.URL.String() {
++				req = req.Clone(req.ctx)
++				req.URL = effective
++			}
++		} else if kind == dollyHTTPKindHeader {
++			lines.Write(data)
++		} else if kind == dollyHTTPKindBody {
++			s.pending = data
++			break
++		}
++	}
++	reader := textproto.NewReader(bufio.NewReader(&lines))
++	reader.ReadLine() // the status line: the records carry the status
++	mime, err := reader.ReadMIMEHeader()
++	if err != nil && err != io.EOF {
++		return nil, err
++	}
++	header := Header(mime)
++	contentLength := int64(-1)
++	if value := header.Get("Content-Length"); value != "" {
++		if n, err := strconv.ParseInt(value, 10, 64); err == nil && n >= 0 {
++			contentLength = n
++		}
++	}
++	// The browser hands over the decoded body.
++	uncompressed := false
++	if encoding := header.Get("Content-Encoding"); encoding != "" && !ascii.EqualFold(encoding, "identity") {
++		header.Del("Content-Encoding")
++		header.Del("Content-Length")
++		contentLength = -1
++		uncompressed = true
++	}
++	status := int(code)
++	return &Response{
++		Status:        strconv.Itoa(status) + " " + StatusText(status),
++		StatusCode:    status,
++		Proto:         "HTTP/1.1",
++		ProtoMajor:    1,
++		ProtoMinor:    1,
++		Header:        header,
++		ContentLength: contentLength,
++		Uncompressed:  uncompressed,
++		Body:          s,
++		Request:       req,
++	}, nil
++}
++
++func (s *dollyHTTPStream) Read(p []byte) (int, error) {
++	for len(s.pending) == 0 {
++		if s.err != nil {
++			return 0, s.err
++		}
++		if s.eof {
++			return 0, io.EOF
++		}
++		kind, _, data, err := s.next()
++		if err != nil {
++			s.err = err
++			return 0, err
++		}
++		if kind == dollyHTTPKindBody {
++			s.pending = data
++		}
++	}
++	n := copy(p, s.pending)
++	s.pending = s.pending[n:]
++	return n, nil
++}
++
++func (s *dollyHTTPStream) Close() error {
++	if !s.eof && s.err == nil {
++		request := make([]byte, 8)
++		byteorder.LEPutUint32(request, s.sequence)
++		dollyHTTPCall(dollyHTTPCancel, request, nil)
++	}
++	if s.err == nil {
++		s.err = errors.New("net/http: read on closed response body")
++	}
++	s.pending = nil
++	return nil
++}
 diff --git a/src/net/http/transport_default_wasm.go b/src/net/http/transport_default_wasm.go
 index 3946812d..9e912d46 100644
 --- a/src/net/http/transport_default_wasm.go
@@ -3703,10 +4066,10 @@ index 56b766f1..dd6cf3ac 100644
  
 diff --git a/src/runtime/lock_dolly.go b/src/runtime/lock_dolly.go
 new file mode 100644
-index 00000000..da340d8e
+index 00000000..1365a201
 --- /dev/null
 +++ b/src/runtime/lock_dolly.go
-@@ -0,0 +1,111 @@
+@@ -0,0 +1,113 @@
 +// Copyright 2026 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -3794,7 +4157,9 @@ index 00000000..da340d8e
 +	return false
 +}
 +
-+// same as runtime·notetsleep, but called on user g (not g0)
++// same as runtime·notetsleep, but called on user g (not g0). It checks the
++// note every few milliseconds on a timer, so that an idle process sleeps in
++// the kernel: os/signal waits here for the next signal.
 +func notetsleepg(n *note, ns int64) bool {
 +	gp := getg()
 +	if gp == gp.m.g0 {
@@ -3806,10 +4171,10 @@ index 00000000..da340d8e
 +		if n.key != 0 {
 +			return true
 +		}
-+		Gosched()
 +		if ns >= 0 && nanotime() >= deadline {
 +			return false
 +		}
++		timeSleep(5e6)
 +	}
 +}
 +
@@ -4058,10 +4423,10 @@ index 00000000..930c134d
 +}
 diff --git a/src/runtime/os_dolly.go b/src/runtime/os_dolly.go
 new file mode 100644
-index 00000000..e825ae04
+index 00000000..6fc99abf
 --- /dev/null
 +++ b/src/runtime/os_dolly.go
-@@ -0,0 +1,201 @@
+@@ -0,0 +1,209 @@
 +// Copyright 2026 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -4108,9 +4473,9 @@ index 00000000..e825ae04
 +// dollySyscall is dollyCall for operations that the kernel may interrupt with
 +// a signal (all but EXIT and the signal operations). The signal is taken,
 +// then the operation is made again; a sleep or a poll instead returns EINTR to
-+// its caller, which recomputes its deadline. Go handles no signal on Dolly:
-+// SIGCHLD and SIGWINCH are ignored and any other takes its default action,
-+// ending the process.
++// its caller, which recomputes its deadline. A signal os/signal asked for is
++// queued for it; one it ignores, SIGCHLD and SIGWINCH are dropped; any other
++// takes its default action, ending the process.
 +//
 +//go:nosplit
 +func dollySyscall(operation uint32, request unsafe.Pointer, requestSize uint64, response unsafe.Pointer, responseCapacity uint64) int64 {
@@ -4132,7 +4497,9 @@ index 00000000..e825ae04
 +	if dollyCall(_DOLLY_INTERRUPT_POLL, nil, 0, unsafe.Pointer(&number), 4) != 4 || number == 0 {
 +		return false
 +	}
-+	if number != _DOLLY_SIGCHLD && number != _DOLLY_SIGWINCH {
++	// os/signal's, if it asked for it; else ignored or its default action.
++	if !sigsend(uint32(number)) && !signal_ignored(uint32(number)) &&
++		number != _DOLLY_SIGCHLD && number != _DOLLY_SIGWINCH {
 +		dollyExit(128+uint32(number), uint32(number))
 +	}
 +	dollyCall(_DOLLY_SIGNAL_ACKNOWLEDGE, unsafe.Pointer(&number), 4, unsafe.Pointer(&remaining), 4)
@@ -4142,6 +4509,12 @@ index 00000000..e825ae04
 +//go:linkname syscall_dollyCall syscall.dollyCall
 +//go:nosplit
 +func syscall_dollyCall(operation uint32, request unsafe.Pointer, requestSize uint64, response unsafe.Pointer, responseCapacity uint64) int64 {
++	return dollySyscall(operation, request, requestSize, response, responseCapacity)
++}
++
++//go:linkname http_dollyCall net/http.dollyCall
++//go:nosplit
++func http_dollyCall(operation uint32, request unsafe.Pointer, requestSize uint64, response unsafe.Pointer, responseCapacity uint64) int64 {
 +	return dollySyscall(operation, request, requestSize, response, responseCapacity)
 +}
 +
@@ -4263,6 +4636,29 @@ index 00000000..e825ae04
 +func newosproc0(stacksize uintptr, fn unsafe.Pointer) {
 +	throw("bad newosproc0")
 +}
+diff --git a/src/runtime/os_wasm.go b/src/runtime/os_wasm.go
+index e7a9a13d..0bcfb06e 100644
+--- a/src/runtime/os_wasm.go
++++ b/src/runtime/os_wasm.go
+@@ -5,6 +5,7 @@
+ package runtime
+ 
+ import (
++	"internal/goos"
+ 	"internal/runtime/atomic"
+ 	"unsafe"
+ )
+@@ -93,8 +94,8 @@ func unminit() {
+ func mdestroy(mp *m) {
+ }
+ 
+-// wasm has no signals
+-const _NSIG = 0
++// wasm has no signals, but for those Dolly's kernel delivers (os_dolly.go).
++const _NSIG = 32 * goos.IsDolly
+ 
+ func signame(sig uint32) string {
+ 	return ""
 diff --git a/src/runtime/proc.go b/src/runtime/proc.go
 index b8d4d150..c458e8d4 100644
 --- a/src/runtime/proc.go
