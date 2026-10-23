@@ -11,7 +11,9 @@ or remote fallback.
 - `local-llm-build`: The dolly-llama command built from those libraries.
 - `llama`: `dolly-llama`, llama.cpp on WebGPU serving a GGUF over stdin and stdout; it needs `gpu@0`.
 - `qwen3.5-2b`: Model package: Qwen3.5-2B weights, description and license.
+- `qwen3.5-4b`: Model package: Qwen3.5-4B weights, description and license.
 - `minicpm5-2b`: Model package: MiniCPM5-2B weights, description and license.
+- `lfm2.5`: Model package: LFM2.5-2.6B weights, description and license.
 
 Open `/pi-local/` (or Dollyfile Studio) and ask; the first prompt loads the
 bundled model. In Pi, `/local` lists every model of the release with the GPU
@@ -26,12 +28,19 @@ any provider's models, and reasoning on or off. Build with
 | --- | --- | ---: | ---: | ---: | ---: |
 | Qwen3.5-2B | `qwen3.5-2b` (bundled) | 1.40 GB | 2.1 / 2.3 GB | 8 of 8 / 4 of 4 | 63 / 5 |
 | MiniCPM5-2B (2.6B parameters) | `minicpm5-2b` | 1.56 GB | 2.4 / 3.4 GB | 8 of 8 / 4 of 4 | 61 / 5 |
+| Qwen3.5-4B, 3-bit (Q3_K_S) | `qwen3.5-4b` | 2.11 GB | 3.2 / 3.8 GB | 4 of 4 / 2 of 2 | 33 / 5 |
+| LFM2.5-2.6B | `lfm2.5` | 1.67 GB | 2.3 / 3.4 GB | 1 of 4 / 0 of 1 | 70 / 5 |
 
-Q4_K_M weights, 16,384 tokens of context, thinking off, on an NVIDIA RTX 5070.
-GPU memory is Chrome's peak in `nvidia-smi` with one model loaded; an
-integrated GPU shares system memory. The task: list a directory, write a C
-program, compile it, run it and report its output
-([measurements](../../tasks/20261005-215557-local-models/TASK.md)).
+Q4_K_M weights unless named, 16,384 tokens of context, thinking off, on an
+NVIDIA RTX 5070. GPU memory is Chrome's peak in `nvidia-smi` with one model
+loaded; an integrated GPU shares system memory. The task: list a directory,
+write a C program, compile it, run it and report its output
+([measurements](../../tasks/20261005-215557-local-models/TASK.md), and for the
+4B and LFM2.5 [these](../../tasks/20261023-160001-local-models/TASK.md)). The
+4B completes more of the longer tasks there than the 2B, at less than half its speed.
+LFM2.5 always reasons before it answers, whatever `/thinking` says; it is under
+the LFM Open License v1.0, whose text the package installs: commercial use is
+licensed below 10 million US dollars of annual revenue.
 
 ## A model is a package
 

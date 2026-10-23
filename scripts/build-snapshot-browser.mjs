@@ -38,42 +38,32 @@ const graph = await createDollyfileGraphLoader(projectDir)(definition.dollyfile)
 const rules = graph.records.flatMap(record => record.sources.filter(source => sitePath(source.location) === null))
   .map(source => ({ origin: new URL(source.location).origin, path: new URL(source.location).pathname, methods: ["GET"] }));
 
-let uploaded = 0, file;
 async function handle(request, response, path, headers) {
-  if (unpackaged && /^\/dist\/(?:packs\/|dolly-.+-system(?:\.snapshot|-snapshot\.mjs)$)/.test(path)) {
-    response.writeHead(404, headers).end();
-  } else if (path === "/__dolly_build_snapshot" && request.method === "POST") {
-    const query = new URL(request.url, "http://upload").searchParams;
-    const offset = Number(query.get("offset")), length = Number(query.get("length"));
-    try {
-      if (!Number.isSafeInteger(length) || length <= 0 || length > MAX_SNAPSHOT_BYTES) throw new Error("invalid snapshot size");
-      if (offset !== uploaded) throw new Error("snapshot chunk out of order");
-      if (offset === 0) file = await open(output, "wx");
-      for await (const chunk of request) {
-        if (uploaded + chunk.length > length) throw new Error("snapshot exceeds its declared size");
-        await file.write(chunk, 0, chunk.length, uploaded);
-        uploaded += chunk.length;
-      }
-      if (uploaded === length) await file.close();
-      response.writeHead(204, headers).end();
-    } catch (error) {
-      await file?.close().catch(() => {});
-      await rm(output, { force: true });
-      response.writeHead(500, headers).end(error.message);
-    }
-  } else return false;
+  if (!unpackaged || !/^\/dist\/(?:packs\/|dolly-.+-system(?:\.snapshot|-snapshot\.mjs)$)/.test(path)) return false;
+  response.writeHead(404, headers).end();
   return true;
 }
 
-// Runs in the page after buildImageInPage: sends the snapshot in order, in
-// chunks small enough for Chrome's blob storage.
-async function uploadSnapshot() {
-  const snapshot = globalThis.dollySnapshot, chunk = 64 * 1024 * 1024;
-  for (let offset = 0; offset < snapshot.length; offset += chunk) {
-    const response = await fetch(`/__dolly_build_snapshot?offset=${offset}&length=${snapshot.length}`,
-      { method: "POST", body: snapshot.subarray(offset, offset + chunk) });
-    if (response.status !== 204) throw new Error(`snapshot upload failed: ${await response.text()}`);
+// Copies the page's snapshot to OUTPUT in pieces. Not by the page's fetch:
+// Playwright keeps the body of every request a page sends, so an upload held
+// the whole snapshot a second time.
+async function saveSnapshot(page) {
+  const length = await page.evaluate(() => globalThis.dollySnapshot.length), piece = 16 * 1024 * 1024;
+  if (length <= 0 || length > MAX_SNAPSHOT_BYTES) throw new Error("invalid snapshot size");
+  const file = await open(output, "wx");
+  try {
+    for (let offset = 0; offset < length; offset += piece) {
+      const bytes = Buffer.from(await page.evaluate(([offset, piece]) =>
+        globalThis.dollySnapshot.subarray(offset, offset + piece).toBase64(), [offset, piece]), "base64");
+      await file.write(bytes, 0, bytes.length, offset);
+    }
+  } catch (error) {
+    await rm(output, { force: true });
+    throw error;
+  } finally {
+    await file.close();
   }
+  return length;
 }
 
 const server = await startCheckoutServer(projectDir, null, { port, handle });
@@ -89,13 +79,13 @@ try {
   await page.goto(`${server.origin}/__dolly_build_page`);
   const { inputs, dependenciesBuilt } = await page.evaluate(
     `(${buildImageInPage})(location.origin + "/", ${JSON.stringify(image)})`);
-  await page.evaluate(uploadSnapshot);
+  const saved = await saveSnapshot(page);
   const dependencies = (await selectImageDefinitions(await discoverImageDefinitions(projectDir), image)).length - 1;
   if (unpackaged && dependenciesBuilt !== (unpackaged === "cold" ? dependencies : 0)) {
     throw new Error(`${image} did not exercise the ${unpackaged} image cache`);
   }
   await writeFile(`${output}.inputs.json`, JSON.stringify(inputs), { flag: "wx" });
-  console.log(`dolly: exported ${uploaded} byte ${image} snapshot`);
+  console.log(`dolly: exported ${saved} byte ${image} snapshot`);
 } finally {
   await context?.close();
   await server.close();

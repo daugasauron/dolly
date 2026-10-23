@@ -13,6 +13,8 @@ openal-build
 pi-agent
 pi-local
 minicpm5-2b
+qwen3.5-4b
+lfm2.5
 python
 rts-arena
 rust-tools
