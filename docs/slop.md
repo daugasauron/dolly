@@ -167,8 +167,9 @@ that run inside the shell stay serial.
   own Makefile in `system-tools` ([`Dollyfile-system-tools`](../Dollyfile-system-tools)). They follow
   POSIX, not GNU: `dd bs=1024k`, not `bs=1M`. `ln -s` works; hard links fail in
   WasmFS. `kill` signals any process by PID. There is no `/dev/zero`, and no
-  `chmod`, `chown`, `id`, `whoami`, `ps` or `df`: one user without modes to
-  change or a name database, and no process or mount list to read. `tar` only extracts and `gzip` only
+  `chmod`, `chown`, `id`, `whoami` or `df`: one user without modes to
+  change or a name database, and no mount list to read; the `ps` package
+  prints `/proc/processes`. `tar` only extracts and `gzip` only
   decompresses (`gzip -dc`); Git creates archives of any directory:
   `git init -q . && git add -A && git archive -o out.tar.gz $(git write-tree)`
   (`.tar`, `.tar.gz` and `.zip`).

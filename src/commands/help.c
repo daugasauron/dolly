@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
   fputs("  language, process-model.md processes and their limits;\n", stdout);
   fputs("  amy install dolly-docs brings the directory to an image without it\n", stdout);
   fputs("not supported: job control (jobs, fg, bg, kill %N), aliases, umask, ulimit,\n", stdout);
-  fputs("  brace expansion {a,b}, ${VAR/a/b}, ${VAR:1:2}, $'...';\n", stdout);
+  fputs("  brace expansion {a,b}, ${VAR/a/b}, ${VAR:1:2};\n", stdout);
   fputs("  a glob that matches nothing stays as typed\n", stdout);
   fputs("pipelines: programs run at the same time, so seq 1 999999999 | head -n1 ends\n", stdout);
   fputs("  at once; a builtin, function or compound stage finishes before the next\n", stdout);
@@ -22,9 +22,10 @@ int main(int argc, char **argv) {
   fputs("background: PROGRAM & and a | b & start programs; $! is the last PID;\n", stdout);
   fputs("  wait [PID...] collects them; wrap anything else as slop -c '...' &\n", stdout);
   fputs("one user and no permission bits: the modes ls -l prints are fixed and nothing\n", stdout);
-  fputs("  checks them; there is no chmod, chown, id, whoami, ps or df, and\n", stdout);
+  fputs("  checks them; there is no chmod, chown, id, whoami or df, and\n", stdout);
   fputs("  install -m changes nothing\n", stdout);
-  fputs("limits: 256 descriptors and 8 GiB of memory per process, 32 processes,\n", stdout);
+  fputs("processes: cat /proc/processes lists them, as ps (amy install ps) does\n", stdout);
+  fputs("limits: 1024 descriptors and 8 GiB of memory per process, 32 processes,\n", stdout);
   fputs("  16 threads per process (64 in all), 64 KiB pipes; getrlimit reports them\n", stdout);
   fputs("a program that exits 126 was refused or failed: its stderr says why\n", stdout);
   return 0;
