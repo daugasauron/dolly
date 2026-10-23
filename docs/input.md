@@ -54,6 +54,38 @@ flowchart LR
   lease; keys, text, paste and focus for the terminal), so the reader resumes
   then, not at the next 16 ms tick.
 
+## Touch
+
+`touch@0` gives a program the fingers on a touchscreen: every finger that is
+down, each with an id from its down to its up or cancel
+([`host/touch/dolly-touch-0.wat`](../host/touch/dolly-touch-0.wat),
+[`touch.h`](../host/touch/touch.h), [`touch.mjs`](../host/touch/touch.mjs)).
+What fingers mean, a tap, a drag or two of them moving apart, is the
+program's to decide.
+
+- A record is one finger at one moment: its id, its phase (down, move, up,
+  cancel), its position in the frame's pixels as a pointer record's, the
+  browser's pressure in thousandths and the event's time in milliseconds. At
+  most ten fingers are down at once.
+- `dolly_touch_acquire` gives the foreground process or a descendant the
+  lease, one at a time, as for input. `dolly_touch_read` returns up to 64
+  records and waits for the first. While a program holds the lease every
+  finger that goes down on the canvas is its record and none is the pointer,
+  also for a program holding the input lease; a finger already down stays the
+  pointer's until it lifts. Without a holder a finger scrolls the terminal and
+  two change its font, as above.
+- The ring holds 512 records and is the only queue. The page writes every
+  move the browser reports, coalesced ones included, while more than 20
+  records are free, and a down only while the ring keeps room for it and the
+  end of every finger that is down: a delivered finger's up or cancel is never
+  lost. What is not written, a move without room, an eleventh finger or one
+  whose down found no room, is counted in the next record's `dropped`.
+- Release, exit or forced termination ends the lease; unread records are
+  dropped. `nena` may switch the module; a holder's read then returns
+  `ENOSYS`.
+- C SDK: `<dolly/touch.h>` and `libdolly-touch.a`, from the `libdolly-touch`
+  package; calling it stamps `touch@0` into the executable.
+
 ## Buttons
 
 `buttons@0` stands in for a keyboard on a touch screen. One program shows a

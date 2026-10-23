@@ -26,6 +26,7 @@ flowchart TB
   subgraph mailboxes["Mailboxes"]
     disp["display@0"]
     inp["input@0"]
+    tch["touch@0"]
     up["upload@0"]
     snap["snapshot@0"]
   end
@@ -66,6 +67,7 @@ Worker URL.
 | `snapshot@0` | mailbox | Save and restore opaque session deltas (512 MiB) on user action | [`host/snapshot/`](../host/snapshot/module.json) |
 | `display@0` | mailbox | Publish checked RGBA frames and a closed cursor value; read the surface's size; load the display plugin from WasmFS; the terminal's selection reaches the clipboard on the user's Ctrl+Shift+C | [`host/display/`](../host/display/module.json) ([`kernel-plugin.mjs`](../src/kernel-plugin.mjs)) |
 | `input@0` | mailbox | Receive bounded records of keys, IME text, paste, window focus, pointer buttons and positions on the canvas, wheel; ask for pointer lock, granted only on a user's press on the canvas | [`host/input/`](../host/input/module.json) |
+| `touch@0` | mailbox | Receive bounded records of fingers on the canvas (an id from down to up, position, pressure, time), ten at once and 512 queued, while the foreground program or a descendant holds the lease; then no finger is a pointer record of `input@0` | [`host/touch/`](../host/touch/module.json) |
 | `gpu@0` | `env.dolly_gpu_dispatch` | Bounded WebGPU packets on the browser's `high-performance` adapter, 8 scopes, 4,096 objects each, 4 GiB total, one canvas | [`host/gpu/`](../host/gpu/module.json) |
 | `audio@0` | `env.dolly_audio_dispatch` | Stereo PCM output, 4 streams of 1 s; no capture | [`host/audio/`](../host/audio/module.json) |
 | `microphone@0` | `env.dolly_microphone_dispatch` | Mono PCM of the browser's default input: one capture, 2 s queued. The browser is asked only when a program opens it and grants it only through its own prompt; the page shows it while held; tracks stop on close and exit. No device list, labels or choice, no video | [`host/microphone/`](../host/microphone/module.json) |
@@ -209,7 +211,7 @@ Worker URL.
 | Clipboard copy (`display@0`) | Bounded selection text after a user Ctrl+Shift+C |
 | Page keys | F11 (fullscreen) and Ctrl+Shift+F (indicators) are the page's own and are taken before any module or the guest reads them ([`page-chords.mjs`](../src/page-chords.mjs)); the guest cannot request fullscreen |
 | RGBA frames, bootstrap text | Visible output only; the browser parses no terminal or HTML content |
-| Mailbox wake-ups | The page and the Worker notify each other on display and input mailbox words (new frame, animation frame, input record, lease); a notify carries no data, and a forged one only costs the guest's own time |
+| Mailbox wake-ups | The page and the Worker notify each other on display, input and touch mailbox words (new frame, animation frame, input or touch record, lease); a notify carries no data, and a forged one only costs the guest's own time |
 | GPU indicator | While the session has `gpu@0`, page text over the display naming the browser's adapter and whether it has `shader-f16`, or why there is none; no guest input ([`gpu.mjs`](../host/gpu/gpu.mjs)) |
 | Indicator visibility | The GPU indicator, Save button and download offers hide ten seconds after the page is ready and on the user's `Ctrl+Shift+F`, which is not delivered as input. Page state shows them again (a new adapter state, a save, an offer); the one guest request among these is the bounded download offer, which shows them and can hide nothing ([`page-indicators.mjs`](../src/page-indicators.mjs)) |
 | Image ending | Once the ENTRY process is gone, page text below the last frame says how it ended: its exit status or signal number, or one line of its failure (printable ASCII, 512 bytes; the stack goes to the console). The page sets it as text and parses none of it; a running program can draw a lookalike but cannot cover, change or remove the notice. A module may add a link it builds itself, as `snapshot@0` does for the session the tab saved ([`browser.mjs`](../src/browser.mjs)) |
@@ -236,7 +238,7 @@ acceptance and the checks of a deployed site use it.
   `systemSnapshot` (the bytes a rebuild built).
 - An enabled module adds its own and takes them away when `nena` disables it:
   `transport`, `fontSize`, `graphicsActive`, `copySelection()` (`display@0`),
-  `inputTransport` (`input@0`), the broker's request counters (`http@0`),
+  `inputTransport` (`input@0`), `touchTransport` (`touch@0`), the broker's request counters (`http@0`),
   `sessionName` and `saveSession(name)` (`snapshot@0`), `gpu`, `audio`,
   `microphone` and `buttons`.
 

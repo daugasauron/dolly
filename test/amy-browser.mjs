@@ -443,6 +443,7 @@ const elsewhere = {
   "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm",
   "libdolly-audio": "audio-browser.mjs", "libdolly-buttons": "buttons-browser.mjs", "libdolly-gpu": "gpu-render-browser.mjs",
   "libdolly-microphone": "microphone-browser.mjs", "libdolly-sockets": "sockets-browser.mjs",
+  "libdolly-touch": "touch-browser.mjs",
   libjpeg: "demos/xonotic", spidermonkey: "demos/zero-ad",
   "xorg-server": "demos/x11", twm: "demos/x11", xclock: "demos/x11", xeyes: "demos/x11", xterm: "demos/x11",
   imgui: "demos/sdl2", "imgui-x11": "demos/x11", llvm21: "demos/zig: zig-llvm uses it", "zig-llvm": "demos/zig",

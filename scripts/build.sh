@@ -96,7 +96,7 @@ rm -rf build/include && mkdir -p build/include/dolly && cp -p -- "${headers[@]}"
 # The modules no core source includes ship their headers and clients as
 # packages (Dollyfile-libdolly-NAME); the kernel compiles against every header,
 # the seed holds the others.
-packaged_modules=(audio buttons gpu microphone sockets)
+packaged_modules=(audio buttons gpu microphone sockets touch)
 packaged() { [[ " ${packaged_modules[*]} " == *" $1 "* ]]; }
 rm -rf build/seed-include && mkdir -p build/seed-include/dolly
 for header in "${headers[@]}"; do

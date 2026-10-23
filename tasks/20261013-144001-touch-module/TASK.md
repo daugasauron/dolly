@@ -68,6 +68,48 @@ sixteen questions recorded as his; the integrator answers them below, from his w
   the phone first; otherwise it moves into `input@0`.
 - Cost (15): the seed changes, so every image rebuilds; it rides the v0.1.4 catalog round.
 
+## Built (2026-10-23, `core/touch-module`)
+
+Step 1, the module (`host/touch/`), decided and measured:
+
+- A mailbox and no import, as `input@0`: `abi/dolly-browser-0.wat` is unchanged (it lists
+  imports only); the review point is the `touch@0` row of `docs/browser-boundary.md`.
+  Process operations 92 ACQUIRE, 93 READ, 94 RELEASE, beside input's 88-91.
+- Record, 32 bytes: `id, phase, x, y, pressure, dropped, time, lease`. The page numbers
+  fingers itself from 1, never giving one id to two fingers, rather than passing the
+  browser's `pointerId`. `pressure` is the browser's in thousandths: the Pointer Events
+  spec makes a browser without a sensor report 0.5 for a finger that is down, so "0 where
+  the browser reports none" is 500 there; Chromium's CDP touches report 1000. `time` is
+  `event.timeStamp` in milliseconds, wrapping (only differences mean anything). `lease`
+  is the lease word the page read when it wrote the record: READ returns only the
+  holder's, so a record written as one lease ends cannot reach the next holder.
+- READ returns up to 64 records a call, not one as input's NEXT_EVENT does: a phone
+  reports moves of every finger at the digitizer's rate.
+- Ring of 512. Moves are written while more than 20 records are free; a down only while
+  the ring keeps room for it and the end of every finger down; an end always fits. So a
+  delivered finger's up or cancel is never dropped; a finger whose down finds no room (a
+  holder that has not read through 240 taps) or an eleventh finger is not delivered at
+  all. Everything not written is counted in the next record's `dropped`.
+- While held, the page's capture listener on `window` takes every finger that goes down
+  on the canvas and stops it before `input@0`'s canvas listeners; a finger already down
+  when the hold began stays input's until it lifts, and a finger of an earlier lease is
+  nobody's until it lifts. The page neither focuses nor blurs the keyboard for a finger
+  under the hold, and a long press opens no context menu.
+- Packaged (`Dollyfile-libdolly-touch`, `scripts/build.sh` `packaged_modules`) as no core
+  source includes it. Measured: adding the module leaves the seed alone, `npm run
+  build:runtime` prints the same image inputs `sha256:a24f5a0f…` as before; no image is
+  stale by it. The integration tree's images are therefore reused here (hard links).
+- The foreground rule is input's: the foreground program or a descendant. Found while
+  testing: the shell runs commands without `DOLLY_PROCESS_SPAWN_FOREGROUND`, so a
+  background job of the shell at its prompt passes it, for input as for touch; only a
+  program started with `foreground` makes its siblings fail with EPERM.
+- Tests: `test/touch-ring.test.mjs` (the page's ring rules), `test/touch-browser.mjs`
+  (refusals; two fingers by CDP `Input.dispatchTouchEvent` in Chromium and by dispatched
+  touch `PointerEvent`s in Firefox, each with its own id, in frame pixels, every move;
+  no finger is the pointer for a program holding both leases while a mouse click is;
+  without a holder a finger scrolls the terminal). Passed in Chromium (8.3 s) and
+  Firefox (9.6 s).
+
 ## Groundwork (2026-10-14, 04:05): the groundwork is gathered; the contract is still the owner's
 
 [The groundwork](groundwork.md), by a Fable agent that read `main`, the

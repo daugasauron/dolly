@@ -243,6 +243,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["libdolly-gpu", "/usr/lib/dolly/process/libdolly-gpu.a"],
     ["libdolly-microphone", "/usr/lib/dolly/process/libdolly-microphone.a"],
     ["libdolly-sockets", "/usr/lib/dolly/process/libdolly-sockets.a"],
+    ["libdolly-touch", "/usr/lib/dolly/process/libdolly-touch.a"],
     ["make", "/usr/bin/make"],
     ["nena", "/bin/nena"],
     ["ninja", "/usr/bin/ninja"],
