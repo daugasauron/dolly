@@ -219,7 +219,10 @@ no tool call in 9 of 9 per model, no `pip` or `npm`; one Qwen "hi" still said "I
 Sampling (`build/pilocal-evidence/after-sampling/qwen3.5-2b/`, two rounds, Qwen at
 temperature 0.6, top-p 0.95, presence penalty 0 through `models.json`): processes 0 of 2,
 both C programs off by one, languages 0 of 2 (Python "available"), Python 1 of 2. Not
-better than the publisher's values, so they stay.
+better than the publisher's values, so they stay. MiniCPM at temperature 0.6 and top-p 0.95
+with the third candidate (`cand4-sampling/`, two rounds): Python 0 of 2 ("2+2 = 4.",
+"`python -c …` prints 4"), languages naming `gcc` and `g++`, one C program wrong. Not
+better than the GGUF's temperature 1.0 either.
 
 ## Third and fourth candidates (uploaded over the image of `ef147433`)
 
