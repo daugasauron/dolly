@@ -10,7 +10,7 @@
 
 enum {PHASES=5,ROUNDS=64};
 static const char *phases[PHASES]={"wait","load","spin","hold","return"};
-typedef struct {int id,shots,misloads,loads,drops,was_loaded,friendly,round,touched;double touch_force,touch_time;double reported,in_sight,in_sight_low,seconds[PHASES],held,longest_held,loader_contact,loader_force,friendly_contact,friendly_force;char phase[16],held_status[64];} Gun;
+typedef struct {int id,shots,misloads,loads,drops,was_loaded,friendly,round,touched,touched_part;double touch_force,touch_time;double reported,in_sight,in_sight_low,seconds[PHASES],held,longest_held,loader_contact,loader_force,friendly_contact,friendly_force;char phase[16],held_status[64];} Gun;
 typedef struct {int round,gun,target,team,touched[8],touches;double until;} Round;
 static Gun guns[16];static int gun_count;
 static Round rounds[ROUNDS];static int round_count;
@@ -67,9 +67,11 @@ static int held_round(const Creature *c){
     for(int k=0;k<c->design.count;k++)if(c->design.blocks[k].joint==BLOCK_MAGNET&&b3Body_IsValid(c->physics.parts[k].magnet_target)){Creature *o=body_owner(c->physics.parts[k].magnet_target);return o?o->id:0;}
     return 0;
 }
-typedef struct {int gun,id;double force;b3BodyId head;} RoundTouch;
+typedef struct {int gun,id,part;double force;b3BodyId head;} RoundTouch;
+static b3BodyId touched_body;
 // The strongest contact of a spinning round with anything but its own gun.
-static void round_contact(void *context,const Creature *other,double force){RoundTouch *t=context;if(force>t->force){t->id=other?other->id:-1;t->force=force;}}
+static void round_contact(void *context,const Creature *other,double force){RoundTouch *t=context;if(force>t->force){t->id=other?other->id:-1;t->force=force;t->part=-1;
+    for(int k=0;other&&k<other->design.count;k++)if(B3_ID_EQUALS(other->physics.parts[k].body,touched_body)){t->part=k;break;}}}
 // Calls touch(other, force) for every creature in contact with c's bodies.
 static void contacts(const Creature *c,void (*touch)(void *,const Creature *,double),void *context){
     b3ContactData list[256];
@@ -79,7 +81,7 @@ static void contacts(const Creature *c,void (*touch)(void *,const Creature *,dou
             b3BodyId a=b3Shape_GetBody(list[j].shapeIdA),b=b3Shape_GetBody(list[j].shapeIdB),peer=B3_ID_EQUALS(a,body)?b:a;Creature *other=body_owner(peer);
             if(other==c||touch==round_contact&&B3_ID_EQUALS(peer,((RoundTouch *)context)->head))continue;double force=0;
             for(int k=0;k<list[j].manifoldCount;k++)for(int n=0;n<list[j].manifolds[k].pointCount;n++)force+=480*list[j].manifolds[k].points[n].normalImpulse;
-            if(force>0&&(other||touch==round_contact))touch(context,other,force);
+            touched_body=peer;if(force>0&&(other||touch==round_contact))touch(context,other,force);
         }
     }
 }
@@ -107,10 +109,10 @@ static void step(void){
         int round=held_round(c),shots=memory_number(c,"shots"),misloads=memory_number(c,"misloads"),loaded=round&&(!strcmp(phase,"spin")||!strcmp(phase,"hold"));
         if(loaded&&!g->was_loaded)g->loads++;
         if(g->was_loaded&&!round&&!strcmp(g->phase,"spin")&&shots==g->shots){g->drops++;Creature *a=world_find(g->round),*o=g->touched>0?world_find(g->touched):NULL;
-            printf("SLING t %.2f %s drops round %d %s while spinning; last contact %s %.0f N %.2f s before\n",world.age,c->name,g->round,a?a->name:"?",o?o->name:g->touched<0?"terrain":"none",g->touch_force,world.age-g->touch_time);}
+            printf("SLING t %.2f %s drops round %d %s while spinning; last contact %s part %d %.0f N %.2f s before\n",world.age,c->name,g->round,a?a->name:"?",o?o->name:g->touched<0?"terrain":"none",g->touched_part,g->touch_force,world.age-g->touch_time);}
         if(round&&round!=g->round){g->round=round;g->touched=0;g->touch_force=0;Creature *a=world_find(round);
             if(a&&a->design.count>1){b3Pos r=b3Body_GetPosition(a->physics.parts[0].body),pole=magnet_pole(c);printf("SLING t %.2f %s grips round %d %s %.2f m from its magnet\n",world.age,c->name,round,a->name,hypotf(hypotf(r.x-pole.x,r.y-pole.y),r.z-pole.z));}}
-        if(round&&!strcmp(phase,"spin")){Creature *a=world_find(round);RoundTouch touch={c->id};for(int k=0;k<c->design.count;k++)if(c->design.blocks[k].joint==BLOCK_MAGNET)touch.head=c->physics.parts[k].body;if(a)contacts(a,round_contact,&touch);if(touch.id){g->touched=touch.id;g->touch_force=touch.force;g->touch_time=world.age;}}
+        if(round&&!strcmp(phase,"spin")){Creature *a=world_find(round);RoundTouch touch={c->id};for(int k=0;k<c->design.count;k++)if(c->design.blocks[k].joint==BLOCK_MAGNET)touch.head=c->physics.parts[k].body;if(a)contacts(a,round_contact,&touch);if(touch.id){g->touched=touch.id;g->touched_part=touch.part;g->touch_force=touch.force;g->touch_time=world.age;}}
         g->was_loaded=loaded;
         if(misloads>g->misloads){
             Creature *a=world_find(memory_number(c,"ammo"));b3Pos pole=magnet_pole(c),at=a?b3Body_GetPosition(a->physics.parts[0].body):(b3Pos){0};

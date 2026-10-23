@@ -207,3 +207,24 @@ a haul gets its own 180 s; the tug accepts a standing round within 2 m of its ba
 A replay of the `9faf2c17` capture (its world saved at 82 s, only the programs replaced):
 the tug drives round the shed, grips the handle at 222 s and hauls; the collector is held
 down at 16.7 m over the shed roof (its lowest part at 14.6 m, the roof at 14.1 m).
+
+In the living world (fresh catalog, 2,400 s, headless):
+
+| Sources | Tether shots | Hits (captures) | Brought to the ground | Let go aloft | Dropped from the arm |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `e936ac95` (before) | 0 | 0 | 0 | 0 | 0 |
+| `9faf2c17` (stations moved) | 2 | 1 | 0 | 1 | 0 |
+| `f14c9351` + `6075f560` | 1 | 0 | 0 | 0 | 1 |
+| `c962100e` without the plane clearance (`sling-t2`) | 2 | 2 | 1 | 1 | 1 |
+| `c962100e` (`sling-t3`) | 0 | 0 | 0 | 0 | 5 |
+
+- `sling-t2`: the Blue Tengu's round caught the Kurogane East collector at 571 s, the Blue tug
+  gripped the handle at 592 s and hauled; the collector came down from 18 m to 3.4 m and the
+  round let go of it standing on the ground at 701 s. The Red round caught Kurogane West at
+  394 s; no Red tug reached it and it let go aloft at 574 s, the collector's bottom at 13 m.
+- A screenshot of a capture (`shot/out-gpu/capture-1.png`, GPU display): the replayed
+  Kurogane East held by Blue's round 4.6 m above the ground, the Blue tug behind it hauling.
+- What still fails: the round flies off a spinning arm. Its winch block hangs on a 1 m line
+  and swings out a metre beyond the round as the arm turns; at the bottom of the turn it
+  strikes the gun's base (gun part 0, up to 204 N) or tears the round off without a contact.
+  Standing the round on its winch block moved the strike from the rotor to the base.
