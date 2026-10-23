@@ -62,11 +62,11 @@ Everything else is the GGUF's, read by llama.cpp's own code in `dolly-llama`:
 the chat template and its special tokens, the tool-call syntax, grammar and
 parser, stop tokens, the thinking switch and `general.sampling.*` defaults.
 
-A user's changes are Pi's files: `/model` and `/thinking` save their choice in
-`~/.pi/agent/settings.json`, and `/local` writes `modelOverrides` for provider
-`webgpu` in `~/.pi/agent/models.json` (`samplingParams`: `temperature`, `top_p`,
-`top_k`, `min_p`, `repeat_penalty`, `presence_penalty`, `frequency_penalty`,
-`seed`; `contextWindow`; `maxTokens`). Each request draws a fresh seed unless
+A user's changes are Pi's files: `/model`, `/thinking` and the model chosen in
+`/local` are saved in `~/.pi/agent/settings.json`, and `/local` writes
+`modelOverrides` for provider `webgpu` in `~/.pi/agent/models.json`
+(`samplingParams`: `temperature`, `top_p`, `top_k`, `min_p`, `repeat_penalty`,
+`presence_penalty`, `frequency_penalty`, `seed`; `contextWindow`; `maxTokens`). Each request draws a fresh seed unless
 `seed` pins one, and a changed `contextWindow` reloads the model at the next
 prompt. Nothing is stored per machine: `dolly-llama --check` prints the shader
 kind each time.
@@ -98,10 +98,17 @@ which saves memory.
 - [`local-model-provider.js`](local-model-provider.js), [`client.mjs`](client.mjs),
   [`model.mjs`](model.mjs): the Pi extension. Pi's own OpenAI chat-completions
   adapter talks to the engine through a `fetch` bound to its pipes; the
-  extension adds `/local`. A small model can repeat itself: a third identical
-  tool call after two identical results is not run and the model reads why;
-  if it insists, the run stops and Pi says so
+  extension adds `/local`. One engine serves every session of a Pi process.
+  A small model can repeat itself: a third identical tool call after two
+  identical results is not run and the model reads why; if it insists, the run
+  stops and Pi says so
   ([the loop](../../tasks/20261005-215204-pi-local-loop/TASK.md)).
+- [`SYSTEM.md`](SYSTEM.md): the guidance for a session that starts on a local
+  model, with the commands on `PATH`, in place of Pi's Dolly guidance written
+  for large models; a bash result that says `command not found` adds that the
+  prompt lists the installed commands. A 2B model answers from its prompt and
+  seldom reads the `dolly` skill
+  ([measurements](../../tasks/20261023-160000-pi-local-smooth/TASK.md)).
 - [`prepare-local-llm.sh`](prepare-local-llm.sh) fetches sources and Dawn
   headers; [`prepare-local-llm-weights.mjs`](prepare-local-llm-weights.mjs)
   stages weights from their descriptions;
