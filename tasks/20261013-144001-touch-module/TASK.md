@@ -169,7 +169,7 @@ Step 4, `buttons@0` removed and `pi-phone` ported:
 - Lost, by design: while voice has the fingers a drag over Pi's rows scrolls nothing (the page's
   drag-to-scroll and pinch are input@0's only without a holder).
 - Measured, Chromium: `demos/speech/test/speech-browser.mjs` passes all four parts; in `pi-phone`
-  on the Pixel 7 emulation Pi has the rows above voice's (48 by 32 cells, Pi 25), the key goes in
+  on the Pixel 7 emulation Pi has the rows above voice's eight, the key goes in
   by the page's Paste and Enter, a model is chosen by a spoken word, the thinking level by taps, a
   spoken prompt is sent and answered, and the microphone is closed after. Typing a button's text
   must be one write: written a byte at a time, Pi's autocompletion took Enter before the filter
@@ -181,6 +181,26 @@ Step 4, `buttons@0` removed and `pi-phone` ported:
 - Not attributed: an early voice called a null function pointer in `lay_out` and hung, with no
   "process failed" line and no shell prompt after it; a small `-pthread` program making the same
   call ends with status 126 as it should. Not reproduced beyond voice.
+
+Also run after step 4, in Chromium and Firefox: `sockets`, `boundary`, `host-modules`, `nena`,
+`terminal`, `indicators` and `default` (its last part needs `zig` in this tree's narrowed image
+list, which was not built here). The core suite as a whole was not run (the integrator's).
+
+Left (2026-10-23, 14:40):
+
+- The done-when's phone: no phone was connected all day (`adb devices` empty at 13:5x and 14:33),
+  so `fingers` and `pi-phone` were not opened on the owner's phone, and the phone's own paste into
+  the page's keyboard was not measured. With a phone: open `/fingers/` and `/pi-phone/`, try two
+  fingers and the button rows, and try the keyboard's own paste (Gboard's clipboard chip) at the
+  `default` prompt; if it reaches the terminal, the Paste button can go from `input@0`.
+- Not rebuilt here, their recipes changed (touch@0, pins): bhop, classicube-build, classicube,
+  imgui, imgui-x11, rts-build, rts-arena, xorg-server-build, xorg-server, x11-desktop,
+  ghostty-x11, xonotic-build, xonotic, zero-ad-deps, zero-ad-engine, zero-ad, and the docs chain
+  dolly-docs, pi-agent, pi-local, dollyfile-studio. Their sealing is the proof that the touch@0
+  lines are where a retained executable needs them.
+- raylib: Dolly's raylib adapter (`demos/slopyard/Dollyfile-gamedev-sdk`) hands its programs
+  input@0's records and fills none of raylib's own input state, so raylib's touch functions see
+  nothing; giving them fingers changes that adapter's interface, not this module's.
 
 ## Groundwork (2026-10-14, 04:05): the groundwork is gathered; the contract is still the owner's
 
