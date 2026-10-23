@@ -162,14 +162,17 @@ return function(t, s, m)
     return ((b).id == (m).loader)
   end);
   local pivotY=s.positions[arm.i+1][2]
-  -- The loaded head sweeps a circle of radius reach in a vertical plane |head.x| from the bearing's
-  -- axis: a teammate is clear when that sweep, at the teammate's nearest distance, passes above or below it.
-  local lateral=math.abs(head.x-bearing.x)
+  -- The loaded head sweeps a disc of radius reach in the vertical plane head.x from the bearing's
+  -- axis, at the bearing angle it aims at the target with: a teammate is clear when it is beside that
+  -- plane, or when the disc passes above or below its nearest point.
+  local offset=head.x-bearing.x
+  local aim=target and math.atan(target.x-s.x,target.z-s.z) or s.angles[bearing.i+1]
   local clear = every(filter(s.nearby, function(b) return b.team==s.team and not b.cargo end), function(b)
-    local gap=hypot(b.x-s.x,b.z-s.z)-b.radius
-    if gap>hypot(lateral,reach)+.5 then return true end
-    local depth=gap<=lateral and reach or math.sqrt(math.max(0,reach*reach-(gap*gap-lateral*lateral)))
-    return b.high<pivotY-depth-.5 or b.low>pivotY+depth+.5
+    local dx,dz=b.x-s.x,b.z-s.z
+    local beside=dx*math.cos(aim)-dz*math.sin(aim)-offset
+    if math.abs(beside)>b.radius+1.2 then return true end
+    local along=math.max(0,math.abs(dx*math.sin(aim)+dz*math.cos(aim))-b.radius)
+    return hypot(along,math.max(0,b.low-pivotY,pivotY-b.high))>reach+.5
   end);
   if box and (not box.cargo or box.supply > 0 or box.mass >= 1.5 or box.team ~= 0 and box.team ~= s.team) then
     phase("return")
