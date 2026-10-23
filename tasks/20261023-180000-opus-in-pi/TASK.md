@@ -152,6 +152,19 @@ Each reproduced in pi-agent (`build/opus-evidence/probe5.out`, `probe6.out`):
 - **amy says the compiler is not installed**: in pi-agent `amy list` shows `cc` and `make`
   as `-` and `amy info cc` says "not installed", while `command -v cc make` finds `/bin/cc`
   and `/usr/bin/make` and `cc --version` works. Opus noted it; a model may reinstall 125 MB.
+  Why: amy reads `/etc/dolly/installed`, which only `INSTALL` writes. `cc`, `make` and `core`
+  are packages that keep files of `system-build`, `posix` and `ninja` of `system-tools`, and
+  `session-recover` of `system`; every image built `FROM` those holds their files without a
+  row (pi-agent's record had 13 rows, none of them). Fixed (`core/audit-fixes`): `system`, the
+  base of every image with amy but `default`, installs the six, so its record names what it
+  holds; `session-recover` is now built in its own recipe (`FROM system-tools`) instead of
+  in `system`, which only installs it. `test/dollyfile-catalog.test.mjs` checks that an image
+  with amy installs every package its bases hold (it fails on the old `system`: "closed-source-agent
+  holds cc but does not install it"). Measured on the rebuilt `system` with amy (probe.mjs
+  `system+amy`, `build/auditfix-evidence/amy.out.*`), Chromium and Firefox: `amy list` shows
+  cc, core, make, ninja, posix and session-recover installed, `amy info cc` says installed,
+  `amy install cc make` says each is already installed. pi-agent inherits the record from
+  `system`; it was not rebuilt here (its closure rebuilds rust-llvm and rust-build).
 - **`test -nt`, `-ot`, `-ef`**: `touch a; sleep 1; touch b; [ b -nt a ]` prints
   "[: unsupported expression", status 2 (all three are POSIX.1-2024). Opus's play script used
   `[ guess.c -nt guess ]`.

@@ -48,7 +48,7 @@ FILE /tmp/premake.slop
 SLOP slop -e /tmp/premake.slop
 
 # SpiderMonkey: its headers, the two archives, its pkg-config file and licences.
-INSTALL /v0.1.3/demos/zero-ad/Dollyfile-spidermonkey 6cb4b9292cad5583090cc13ba02c0f83d557af684d64ba23980d8acfc8d78c2c
+INSTALL /v0.1.3/demos/zero-ad/Dollyfile-spidermonkey de249cf4ae4f10f710a321df396d82d813f2245035b5be7f39a7078ce61806e2
 
 # Probe for test/0ad-spidermonkey-browser.mjs.
 SLOP mkdir -p /usr/libexec/zero-ad

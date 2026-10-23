@@ -83,7 +83,7 @@ if has_image system-build; then
     copy_static "src/commands/${source}" "default/commands/${source}"
   done
 fi
-if has_image system; then
+if has_image session-recover; then
   copy_static src/commands/session-recover.c session-recovery/session-recover.c
   for header in session-records.h fs-record.h; do
     copy_static "src/${header}" "session-recovery/${header}"

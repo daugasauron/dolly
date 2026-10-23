@@ -2,9 +2,20 @@ DOLLY 7
 PACKAGE session-recover
 REQUIRES HOST runtime@0
 
-# session-recover as system builds it: it copies the files a saved session
-# holds under /home and /workspace into a new directory.
-FROM /v0.1.3/Dollyfile-system 9d8d9a1ff16f52e368e695af7b5a788aefba814913bf9e4d3f49ee8dc374bfd2
+# session-recover copies the files a saved session holds under /home and
+# /workspace into a new directory.
+FROM /v0.1.3/Dollyfile-system-tools 13ba21000aa665d6729f8e00cb795c4871f3bfaa72a4e18a7197d536b84a5826
 
+REQUIRES HEADER libc
+REQUIRES TOOL cc
+REQUIRES TOOL rm
+
+SOURCE /v0.1.3/dist/static/session-recovery/session-recover.c 5f1c6511cc7e23b6714da04b5e52734460a584d530df4585ee0625ecf07c0ffb /tmp/session-recovery/session-recover.c
+SOURCE /v0.1.3/dist/static/session-recovery/session-records.h 8542c23bb84e8e89b3f995c7d446c7a68dd2d10de7054d44266ef2f78c78434a /tmp/session-recovery/session-records.h
+SOURCE /v0.1.3/dist/static/session-recovery/fs-record.h 585989ac06fab7f4ba0325aa1faefa414b45f96d72b3525838cea7cdffe80e3c /tmp/session-recovery/fs-record.h
+
+SLOP cc -O1 -I/tmp/session-recovery /tmp/session-recovery/session-recover.c -o /usr/bin/session-recover
 EXPORTS TOOL session-recover
+SLOP session-recover --help > /usr/share/man/cat1/session-recover.1
 FILE /usr/share/man/cat1/session-recover.1
+SLOP rm -rf /tmp/session-recovery

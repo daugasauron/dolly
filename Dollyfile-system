@@ -11,19 +11,13 @@ REQUIRES HOST upload@0
 FROM /v0.1.3/Dollyfile-system-tools 13ba21000aa665d6729f8e00cb795c4871f3bfaa72a4e18a7197d536b84a5826
 # The page's file exchange, here and in the images built on this one.
 INSTALL /v0.1.3/Dollyfile-transfer 51f202bc3437e52024fdad9d2fb8f5f4bf2f4a0cb74d4a41939755ca384d39ba
-
-REQUIRES HEADER libc
-REQUIRES TOOL cc
-REQUIRES TOOL rm
-
-SOURCE /v0.1.3/dist/static/session-recovery/session-recover.c 5f1c6511cc7e23b6714da04b5e52734460a584d530df4585ee0625ecf07c0ffb /tmp/session-recovery/session-recover.c
-SOURCE /v0.1.3/dist/static/session-recovery/session-records.h 8542c23bb84e8e89b3f995c7d446c7a68dd2d10de7054d44266ef2f78c78434a /tmp/session-recovery/session-records.h
-SOURCE /v0.1.3/dist/static/session-recovery/fs-record.h 585989ac06fab7f4ba0325aa1faefa414b45f96d72b3525838cea7cdffe80e3c /tmp/session-recovery/fs-record.h
-
-SLOP cc -O1 -I/tmp/session-recovery /tmp/session-recovery/session-recover.c -o /usr/bin/session-recover
-EXPORTS TOOL session-recover
-SLOP session-recover --help > /usr/share/man/cat1/session-recover.1
-FILE /usr/share/man/cat1/session-recover.1
-SLOP rm -rf /tmp/session-recovery
+INSTALL /v0.1.3/Dollyfile-session-recover 85d247be0dd614cb1244b20007bec1280daf0e51deb30e3faf4b01f6df5090a6
+# The packages made of what system-build and system-tools built: this image
+# holds their files, and its record says so, as it does for every INSTALL.
+INSTALL /v0.1.3/Dollyfile-core 2ebac67093e644506f5040cc843508909550aaa19f8f53df960135a3bf39efac
+INSTALL /v0.1.3/Dollyfile-cc b1c93c1f822c3a40ec1d148600e46301af3cf081295d7c278d3361c52c11d1c0
+INSTALL /v0.1.3/Dollyfile-make 842055eb122fd173a00ab3cc4af5e5d52e1d3cf44597867dc3e192faf5b5ef88
+INSTALL /v0.1.3/Dollyfile-posix 10886b7c9553487611eb85e5bad0379f051aa90f330753edfe6e3394381ecf0d
+INSTALL /v0.1.3/Dollyfile-ninja 7b256f116d140f64452f1d2e9e557555725a84c7718f385c7fe6535078f22b0f
 
 ENTRY /bin/foreground -i /bin/slop
