@@ -188,3 +188,23 @@ guidance: 4 tool calls in 15.6 s in Chrome, 4 in 106 s in Firefox, first attempt
 test now types `/new` after choosing MiniCPM with `/local` and changing its parameters, and
 the next task must run on MiniCPM (its tokens/s line): passed in both browsers and both
 images. Without the saved default that session would start on Qwen.
+
+## After, the image of `ef147433` (`build/pilocal-evidence/after/MODEL/`)
+
+Second candidate built into `pi-local`, no files uploaded; same prompts and three rounds,
+plus "hi", "thanks!" and "what can you do here?".
+
+| Prompt | Qwen before | Qwen after | MiniCPM before | MiniCPM after |
+| --- | --- | --- | --- | --- |
+| what is in this directory? | 3 of 3 | 3 of 3 | 3 of 3 | 3 of 3 |
+| edit notes.txt | 3 of 3 | 3 of 3 | 3 of 3 | 3 of 3 (one after `sed -i`, `perl`, `awk` failed; one then asked what else to change) |
+| which processes | 0 of 3 | 0 of 3 (`ps aux`, then `amy list`, never `/proc/processes`) | 0 of 3 | **3 of 3** (`cat /proc/processes`, a table of PIDs) |
+| C program, built and run | 3 of 3 | 3 of 3 | 3 of 3 | 3 of 3 |
+| which languages | 0 of 3 | 2 of 3 (C, C++, JavaScript, shell; one read `amy list` and named python3 and tsc) | 0 of 3 | 1 of 3 (one ran into "tar, tar, tar…" until the output limit; one named wget, GCC, CMake) |
+| Python one-liner | 0 of 3 | **3 of 3** ("Python is not installed") | 0 of 3 | 0 of 3 (no call: "2+2 = 4.", "`python3 -c …` prints 4") |
+| greetings, no tool call | (below) | 9 of 9 | (below) | 9 of 9 |
+
+Tool calls per session, Qwen: processes 19, 2, 4; Python 1, 3, 2 (before 6, 30, 28). The
+engine loaded the model once per run (27 sessions) in place of once per session. The first
+request is 1,768 tokens (1,592 before: the list of 101 commands adds about 180); the longest
+prompt was 4,493 (Qwen) and 2,551 (MiniCPM) tokens, against 7,991 and 11,769 before.
