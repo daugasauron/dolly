@@ -29,8 +29,16 @@ command that signals an error discards what is typed after it, and its message
 shows in the echo area for a moment, gone when the test reads the screen. So
 the loss is an error in a command, not input the kernel or the terminal lost.
 Not known: which error. The probe's `C-h e` (`*Messages*`), which would print
-it, was never run; that is the next measurement, on a `gnu-emacs` built on the
-new seed.
+it, was never run.
+
+On 2026-10-23 the probe, now printing `*Messages*` after a loss
+(`core/process-exec`'s `build/process-evidence/probe/emacs-first.mjs`), ran on a
+`gnu-emacs` built on the exec seed, pinned to one processor in Chromium with the
+machine's load at 17.9 of 16 cores: 0 of 20 first steps lost the name, so no
+message was caught. Held in its baseline compiler
+(`--js-flags=--liftoff-only`), Chromium still ends Emacs at that prompt, 3 of 3
+("Maximum call stack size exceeded"): the stack Emacs needs is unchanged. The
+owner's decision of how it gets one is what this task waits for.
 
 ## As filed (2026-10-14, `main` `85a8bdc2`)
 
