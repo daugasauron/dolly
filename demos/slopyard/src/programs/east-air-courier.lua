@@ -235,7 +235,8 @@ return function(t, s, m, r)
       next("depart");
     end
   end
-  if ((phase == "depart") and ((s).y > (height - 0.3))) then
+  -- Cargo dropped on its back by a courier above can hold it just under cruise height: depart anyway after 10 s.
+  if ((phase == "depart") and (((s).y > (height - 0.3)) or ((t - (m).ts) > 10))) then
     (m).job = 0;
     (m).goal = (m).home;
     next("return");
