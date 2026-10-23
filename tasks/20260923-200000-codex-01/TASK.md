@@ -4,6 +4,64 @@
 - PRIORITY: 100
 - TAGS: runtime,persistence,memory,0.1.4
 
+## The cause, measured (2026-10-23, Chrome 156.0.8078.47, `core/process-exec` at `2035083c`)
+
+The 2026-10-13 probe (`system`, `KEEP_MIB=388`, a scope with `MemoryMax=4G` and no swap), kept
+with the reduced page below in `work/process/build/process-evidence/{session,wasm-refresh}/`:
+
+| After the save, the tab | Memory then | The page again |
+| --- | --- | --- |
+| is refreshed (`page.reload`) | 3.00 GiB 10 s after the save | renderer killed |
+| goes to a page of its own origin, 10 s | 2.29 GiB (its Workers gone) | |
+| then its isolate is collected (`HeapProfiler.collectGarbage`) | 0.33 GiB | restored and verified, 2.21 GiB |
+| goes to `about:blank` (Playwright: a new renderer), 10 s | 0.28 GiB | restored and verified |
+
+So the old kernel memory outlives the navigation only as garbage in the page's isolate: its
+Workers are gone, `pagehide` already drops the page's views (`host.dispose()`,
+`src/browser.mjs`), and nothing makes that isolate collect them. A person's refresh keeps the
+renderer, so `about:blank` is no fix.
+
+A page of its own, no Dolly (`wasm-refresh/`): a Worker grows a shared Wasm memory to 2,400 MiB,
+gives the page what the mode says, and the page keeps it until `pagehide`; then the same tab
+loads a page whose Worker commits 1,800 MiB. Each twice:
+
+| The page holds | Refresh |
+| --- | --- |
+| nothing, or a separate 64 KiB `SharedArrayBuffer` | passes, peak 2.59 GiB: the old memory is freed when its Worker ends |
+| the memory's buffer, given after the growth or before it | renderer killed |
+| the `WebAssembly.Memory`, given after the growth | renderer killed |
+| the `WebAssembly.Memory`, given before the growth | passes |
+
+The last row is V8 accounting a growth to every isolate that holds the memory object when it
+grows. In Dolly it does not help: the page kept the kernel's `WebAssembly.Memory` from its
+creation (64 MiB, before any growth; two lines, not kept) and the refresh was killed 2 of 2,
+as the September experiments with memory objects were.
+
+## The proposal (not built): the page holds no view of kernel memory
+
+Any one view in the page's isolate keeps the whole memory until a collection there, so the fix
+is all of them or none: only Workers hold kernel memory, and the old memory goes when they end.
+Today eight modules give their page part `memory.buffer` (`start()` returns it): `runtime`
+(terminal mailbox), `display` (frames, cursor), `input` and `touch` (event rings, paste),
+`upload`, `download`, `http` (bodies) and `snapshot` (session mailbox). Each page part would
+keep its DOM work and exchange messages with its worker part, which already holds the memory:
+
+- input and touch post events, paste text and Ctrl+C to the worker part, which writes the ring
+  and decides the interrupt where the foreground word is (today the page reads it);
+- display hands its canvas over (`transferControlToOffscreen`) and presents in the runtime
+  Worker, where it already copies each frame once; cursor changes come back as messages;
+- upload posts the `File`, download and snapshot receive copied bytes, the HTTP broker stays
+  on the page and gets bodies as copies; `__dolly`'s terminal reads become messages.
+
+No Wasm import, mailbox layout or browser authority changes. What it costs: input takes one
+message more, Firefox must present from a Worker (`OffscreenCanvas` and `requestAnimationFrame`
+in a dedicated Worker: to check), and bodies and files cross as copies, each within its quota.
+A test would hold the rule: after boot the page's isolate holds no buffer of kernel memory. Done
+when the probe above restores at 388 MiB under 4 GiB.
+
+Ruled out: a collection forced at `pagehide` (the record below keeps it out), the memory object
+(above), a smaller restore (old and new together are 4.2 GiB or more).
+
 ## State (2026-10-13)
 
 Still true on today's tree, with the size it begins at. Half was done on 2026-09-24: a save of
