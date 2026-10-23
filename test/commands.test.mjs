@@ -35,6 +35,23 @@ test("find -exec + runs every path even after a failed batch", async () => {
   assert.equal(run(find, [tree, "-name", "file-1[0-9]", "-path", "*/file-*"]).stdout.split("\n").length - 1, 10);
 });
 
+test("which prints the program PATH runs for each name and fails for a name with none", async () => {
+  const which = build("which");
+  const [first, second] = [join(scratch, "which-first"), join(scratch, "which-second")];
+  await mkdir(first);
+  await mkdir(second);
+  for (const directory of [first, second]) await writeFile(join(directory, "tool"), "");
+  const env = { PATH: `${first}:${second}` };
+  const found = run(which, ["tool"], { env });
+  assert.equal(found.status, 0);
+  assert.equal(found.stdout, `${first}/tool\n`);
+  assert.equal(run(which, ["-a", "tool"], { env }).stdout, `${first}/tool\n${second}/tool\n`);
+  const missing = run(which, ["tool", "python3"], { env });
+  assert.equal(missing.status, 1);
+  assert.equal(missing.stdout, `${first}/tool\n`);
+  assert.equal(run(which, ["python3"], { env }).stdout, "");
+});
+
 test("xargs streams large input in size- and count-bounded batches", () => {
   const xargs = build("xargs");
   const words = Array.from({ length: 300000 }, (_, index) => String(index)).join("\n");
@@ -171,7 +188,7 @@ test("file recognizes UTF-8 text and stat reports modes or rejects unknown forma
 test("Dolly's own commands answer --help with their usage and status 0; man reports a missing page", async () => {
   const core = ["cat", "cd", "clear", "cp", "echo", "file", "help", "ls", "man", "mkdir", "mv", "pwd", "rm", "stat", "touch"];
   const sources = ["command", "diff", "du", "env", "find", "hostname", "install", "nproc", "patch", "realpath", "rev",
-    "time", "timeout", "tty", "xargs"];
+    "time", "timeout", "tty", "which", "xargs"];
   const programs = [...core.map(name => build(name)), ...sources.map(name => build(name))];
   for (const program of programs) {
     const help = run(program, ["--help"]);
