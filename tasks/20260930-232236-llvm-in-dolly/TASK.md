@@ -126,7 +126,7 @@ Left for the round (integrator):
   produce the seed's compiler live in `demos/llvm/` while AGENTS.md keeps the core from depending
   on demos (the core reads only the pin); and a new process contract has no procedure yet.
 
-## State (2026-10-13)
+## State (2026-10-13, before the switch above)
 
 Left is one thing, and it waits for the owner: **the seed's compiler still comes from the host**
 (`scripts/build-toolchain.sh`, the second row of `docs/sources.md`; read on 2026-10-13). A trial
