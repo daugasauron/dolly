@@ -17,6 +17,8 @@ Code is fetched from npm by its own launcher (`demos/closed-source-agent`).
 Done when the investigation is in `investigation.md` here, read by the owner, and what he
 accepts is tasks of its own.
 
+## State (2026-10-24): steps 1 to 5 done (step 5 on branch `demo/opus-audit-2`, below); `pi-dolly` done
+
 ## State (2026-10-23, 15:00): steps 1 to 3 done; Pi from npm and `pi-dolly` wait, branch `demo/janis-install`
 
 Integrator's brief: the command is `janis-install NAME[@VERSION]`, a package of its own (one
@@ -82,7 +84,21 @@ On the `559ad049` seed (after the `65736016` merge; `quickjs`, `janis`, `sbase`,
 `work/x11fix`): `janis-install-browser.mjs` passes in Chromium (5.5 s) and Firefox (10.6 s),
 `javascript-browser.mjs` in Chromium (29.4 s) and Firefox (36.9 s).
 
-Left: build `rust-build`, `ripgrep` and `fd` on the integration branch's newest seed (the
+Final (2026-10-24, `b675b30f`: `core/npm-packages` at `748eed22` merged, image inputs
+`54c70100`): the base, `rust-sdk`, `rust-llvm`, `rust-build`, `ripgrep` and `fd` are
+`work/x11fix`'s builds, hard-linked (every one plans as reuse); built here: `quickjs`,
+`janis`, `tools-build`, `sbase`, `janis-install`, `secretenv`, `dolly-docs`,
+`libdolly-gpu`, `closed-source-agent`, `pi`, `pi-dolly`, `pi-runtime`, `pi-agent`.
+`demos/pi/test/pi-browser.mjs`, whole (ripgrep and fd included), passes in Chromium
+(51.8 s) and Firefox (52.8 s); `closed-source-agent-browser.mjs` (its launcher on the
+`secretenv` package) in Chromium (41.3 s) and Firefox (45.5 s). Sizes: `pi` 62,587,581
+bytes, `pi-runtime` 253,993,877, `pi-agent` 254,111,272 (`system` is 173,462,872 on this
+seed; the source-built `pi` was 62,357,079 and `pi-agent` 229,729,700 on the old seed).
+Not rebuilt here: the images that install `pi` or `pi-dolly` besides these (`bhop`,
+`slopyard`, `classicube`, `rts-arena`, `pi-phone`, `pi-local`, `dollyfile-studio`), for
+the round.
+
+Earlier plan, done above: build `rust-build`, `ripgrep` and `fd` on the integration branch's newest seed (the
 integrator's, in `work/x11fix`: the Rust compiler seed is stamped with the process
 contract, which execve changed), merge that seed here, then `pi` to `pi-agent`, run `pi-browser.mjs` whole in both
 browsers, measure `pi-agent` with `rg` and `fd`, and the images on `pi`.
