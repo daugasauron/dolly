@@ -74,7 +74,8 @@ source by itself.
   `GOFLAGS=-p=4`, which halves a small module's first build. One compile of
   the toolchain's own `cmd/compile/internal/ssa` can grow to 3.9 GiB, so
   go-build compiles two at a time under `GOMEMLIMIT`.
-- A spawn is refused, not delayed, while the processes hold 4 GiB: `go build`
-  beside a program holding 3.9 GiB fails with `fork/exec …: Try again`.
+- While the processes hold 4 GiB, a spawn beside a live child waits for a
+  process to end and fails after 5 s, so `go build`'s parallel compiles can
+  end with `fork/exec …: Try again`.
 
 Test: `npm run test:demos -- go` ([`test/`](test/)).
