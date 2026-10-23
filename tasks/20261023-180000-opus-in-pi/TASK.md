@@ -312,6 +312,11 @@ Spend, all sessions: $0.093 + $0.079 + $0.212 + $0.254 + $0.086 + $0.038 = $0.76
 
 ## Round 2: a bigger game, and the packages it should reuse (branch `demo/opus-audit-2`)
 
+Kept here: the platformer's source as Opus downloaded it with a screenshot
+([`platformer/`](platformer/)), and pictures of four other results ([`round2/`](round2/):
+the raylib Galaga after the guidance change, the raylib 3D corridor, SDL2 with FreeType,
+the chart from SQLite through FreeType and libpng). Checked with `check.mjs`: no key material.
+
 Method as above (`drive.mjs`, pi-agent of this branch's `dist/`, headless Chrome), plus
 `build/opus-evidence/trace.mjs`: from Pi's session JSONL, model seconds per response (entry
 time minus request start), seconds per tool call, the calls that failed, the `amy` commands
