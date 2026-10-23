@@ -67,6 +67,39 @@ merged seed (559ad049); go-build still rebuilds the toolchain byte for byte equa
 ## Closed (2026-10-23)
 
 Done-when is met: the browser test above, in Chromium and Firefox. Commits 9e9a7c48 (net/http,
-os/signal) and da78db58 (syscall.Exec, the test, the packages' http@0). Left for when spawn
-admission by a memory budget lands (audit-53 item 2, the terminal workstream): measure whether
-the go package can set `GOFLAGS=-p=N`; until then go-build keeps `-p 1` under `GOMEMLIMIT`.
+os/signal) and da78db58 (syscall.Exec, the test, the packages' http@0).
+
+## Parallel builds under the spawn budget (2026-10-24)
+
+Integrator: with spawns admitted while the processes' committed memory is under 4 GiB
+(core/terminal 2b9fd4a4, image inputs 54c70100), measure `go build` at `-p` 1, 2 and 4 and
+go-build's `go install -a` at `-p 2`; set `GOFLAGS` if it is faster and safe.
+
+Measured in Chrome, go-tools on 54c70100, cold `GOCACHE`; memory is the peak of the browser
+slot's cgroup (Chrome and the harness, 1.1 to 1.5 GiB idle), sampled every 200 ms:
+
+| build | -p 1 | -p 2 | -p 4 | -p 8 |
+| --- | --- | --- | --- | --- |
+| `go build` of the uuid module (two runs) | 43.7, 42.1 s; 2.05, 1.78 GiB | 29.2, 23.6 s; 1.88, 2.11 GiB | 21.3, 17.2 s; 1.83, 2.50 GiB | |
+| `go install github.com/itchyny/gojq/cmd/gojq@v0.12.17` | 40.8, 39.1 s; 2.18, 2.20 GiB | 24.6 s; 2.25 GiB | 22.0, 22.2 s; 2.75, 2.34 GiB | 21.7 s; 2.30 GiB |
+| go-build's `go install -a`, `GOMEMLIMIT=2GiB` | 404.8 s; 5.75 GiB | 201.2 s; 4.63 GiB | 157.8 s; 4.61 GiB | |
+| the same without `GOMEMLIMIT` | | 198.2 s; 3.89 GiB | | |
+
+Every build passed and no spawn was refused. The budget refuses, it does not wait: beside a
+Go program holding 4300 MiB the shell's next spawn fails with EAGAIN ("spawn failed: Resource
+temporarily unavailable"); beside one holding 3980 MiB `go build -p 1` passed and `go build -p 4`
+failed in 0.6 s with `go: error obtaining buildID for go tool asm: fork/exec
+/usr/lib/go/pkg/tool/dolly_wasm64/asm: Try again`, and passed again once the program was killed.
+Reported to the integrator as a core question (refuse or wait), not worked around in Go.
+`goimports@latest` does not build: `golang.org/x/telemetry/internal/mmap` has no file for an
+unknown GOOS (`undefined: mmapFile`).
+
+Decisions:
+
+- The go package exports `GOFLAGS=-p=4`: the first build of a small module halves, `-p 8` adds
+  nothing, and the peak stays under 2.8 GiB. With it `npm run test:demos -- go` passes in
+  Chromium in 61.3 s and Firefox in 69.8 s (104.3 and 105.2 s before).
+- go-build runs `-p 2` under `GOMEMLIMIT=2GiB`: at a spawn at most one compile runs beside the
+  go command, so the processes stay well under the budget even with ssa's compile; `-p 4`
+  passed once but could find three 2 GiB compiles at a spawn. Its image build again reports "8
+  programs equal the seed's", "2 programs equal the seed's", about 5 minutes against 7.
