@@ -31,8 +31,8 @@ for(const image of ['pi-local','dollyfile-studio']) {
 if(!process.env.DISPLAY){console.log('local-llm: the model steps are skipped, they need a GPU window on DISPLAY');process.exit(0);}
 
 const root=new URL('../../../',import.meta.url).pathname;
-// The model both images bundle, and the one the user installs next.
-const model='qwen3.5-2b',weights=`/usr/share/dolly/llm/${model}.gguf`,second='minicpm5-2b';
+// The model both images bundle, and the one the user installs next (DOLLY_LLM_SECOND names another package).
+const model='qwen3.5-2b',weights=`/usr/share/dolly/llm/${model}.gguf`,second=process.env.DOLLY_LLM_SECOND??'minicpm5-2b';
 // Playwright drives the installed Firefox, which on Ubuntu is a snap with a
 // private /tmp: its profile and downloads must live under $HOME.
 process.env.TMPDIR=new URL('tmp/',output).pathname;await mkdir(process.env.TMPDIR,{recursive:true});

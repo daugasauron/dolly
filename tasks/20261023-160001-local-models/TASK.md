@@ -137,3 +137,40 @@ in Dolly on the files and the answer.
   inside a task (an engine restarted while the previous one's memory was still held).
 - The 2B's misses: `src:parse` and "line 14" for `path:line`, a FizzBuzz printing the
   numbers too, `server.debug` set instead of `debug`.
+
+### f16 shaders: Chrome 156 with `--enable-dawn-features=vulkan_enable_f16_on_nvidia`, Firefox 157
+
+(Chrome was updated on the machine to 156 between the two sessions.)
+
+| Model | Browser | GPU MiB | Prefill tokens/s | Tokens/s | Loop task |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Qwen3.5-4B Q3_K_S | Chrome + flag | 3,155 | 254 | 33.1 | |
+| Qwen3.5-4B UD-IQ3_XXS | Chrome + flag | 2,987 | 249 | 23.0 | |
+| LFM2.5-2.6B | Chrome + flag | 2,205 | 417 | 78.8 | |
+| Qwen3.5-4B Q3_K_S | Firefox | 4,059 | 80 | 5.0 | 2 of 2 (66-76 s) |
+| LFM2.5-2.6B | Firefox | 3,060 | 131 | 5.0 | 0 of 1 (1,155 s) |
+
+- The descriptions carry Chrome's peaks, MiB / 1000 rounded up as for the other models:
+  `qwen3.5-4b` 3.2 / 3.8 GB, `lfm2.5` 2.3 / 3.4 GB.
+- IQ3_XXS runs with f16 shaders, a third slower than Q3_K_S: a second reason for Q3_K_S.
+- **Qwen3.8-2B with thinking on** (`pi --thinking medium`, Qwen's thinking sampling):
+  0 of 4 (loop 0/2, fix-c 0/1, json 0/1), one tool call in four runs. **Decided: not
+  packaged**, and it should not replace the model `pi-local` bundles: it is a reasoning
+  distillation that does not use tools here, with or without thinking. Its recipe,
+  description and rows are gone from the tree; the measurements stay here.
+- LFM2.5 in Firefox: its reasoning at 5 tokens/s made the loop task take 19 minutes
+  (and fail as in Chrome). It is a Chrome model.
+
+### The packages as built (15:47-16:00, final descriptions)
+
+| Image | Snapshot | Build peak |
+| --- | ---: | ---: |
+| `qwen3.5-4b` (Q3_K_S) | 2,105,918,730 B | 8.8 GB |
+| `lfm2.5` | 1,674,580,645 B | 8.7 GB |
+| `pi-local` (the two new descriptions in `provider.tar`, still bundling Qwen3.5-2B) | | 8.6 GB |
+| `dollyfile-studio` | | 8.7 GB |
+
+`pi-local` was killed at the capture twice at 9 GB (15:53, 15:54) before it built with an
+emptied builder profile: `.cache/snapshot-browser-profile-0` had grown to 7.3 GB of cached
+artifacts. These builds sit 0.3-0.4 GB under the slot's cap: a model package near 2 GiB
+needs the builder's capture to hold less, or a larger slot.
