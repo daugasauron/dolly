@@ -50,6 +50,12 @@ rm -rf -- "${static}"
 tar -C "${github}" -czf build/dolly-pages.tar.gz .
 tarball_sha256="$(sha256sum build/dolly-pages.tar.gz | cut -d' ' -f1)"
 
+step "3 the npm packages: packed from ${commit:0:8}, installed into an empty app and booted"
+npm_dir="build/npm-${version}"
+rm -rf -- "${npm_dir}"
+node scripts/package-npm.mjs "${npm_dir}" > /dev/null
+node test/npm-browser.mjs > /dev/null || stop "the npm packages do not boot: node test/npm-browser.mjs"
+
 step "6 the deployment: every published version and ${version}"
 deployment="build/pages-${version}"
 rm -rf -- "${deployment}"
@@ -64,6 +70,7 @@ cat <<COMMANDS
    git push origin main ${version}
 5  gh release create ${version} build/dolly-pages.tar.gz --verify-tag --notes-file NOTES
    gh workflow run pages.yml -f release_tag=${version} -f artifact_sha256=${tarball_sha256}
+   for tarball in ${npm_dir}/*.tgz; do npm publish "\${tarball}" --access public; done
 6  systemd-run --user --unit dolly-deploy-${version} bash -c 'npx wrangler@4.129.1 pages deploy ${project_dir}/${deployment} --project-name dolly --branch main > ${project_dir}/build/deploy-${version}.log 2>&1'
    (detached: an interrupted upload keeps nothing, so never restart it)
 7  node scripts/published-version.mjs verify https://slopshare.dev ${deployment} ${version}

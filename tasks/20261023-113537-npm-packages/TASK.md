@@ -86,6 +86,8 @@ Not done, decided against for now: loading the image-building code only when bui
 before the shell's prompt is lost, so the guide waits with `waitForInteractiveTerminal`;
 whether `submit` should wait by itself is a question about the page API.
 
-Left: the release step (package with the release, run `test/npm-browser.mjs`, print the
-`npm publish` commands for the owner) in `scripts/release-checklist.sh` and
-`docs/deployment.md`; the owner's npm account or organization `daugasauron`.
+The release step is in `scripts/release-checklist.sh`: it packs the packages from the
+release's commit into `build/npm-vX.Y.Z`, runs `test/npm-browser.mjs`, and prints the
+`npm publish … --access public` loop for the owner to run. Left: `docs/deployment.md`'s
+release list (a pinned document, repinned in the 0.1.4 round with the other documents), and
+the owner's npm account or organization `daugasauron`.
