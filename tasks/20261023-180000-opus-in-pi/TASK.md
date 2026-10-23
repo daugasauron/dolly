@@ -108,3 +108,58 @@ Ctrl+D and `pi -c`, `git archive` for the source and Ctrl+Shift+S. One new stumb
 `toybox` (pi-agent rebuilt again).
 
 Spend so far: $0.172.
+
+## Session 3, the audit and a first game (2026-10-23 16:05, `build/opus-evidence/audit/`, $0.212)
+
+The guidance of `425f0400`. Opus read the `dolly` skill first, ran 15 tool calls and wrote
+[`audit.md`](audit.md) (116 lines), saved through its `download` tool: the browser
+download Playwright captured, committed unchanged (no key material, `check.mjs`). Then it
+wrote a number-guessing game in C (`game/guess.c`), built it, tested it with piped input and
+a fixed seed, wrote `/workspace/play` and downloaded the source. It works, but it is not the
+"cool game" the owner asked for: a second session asks for a real-time one.
+
+## The audit's findings, reproduced (`probe.mjs` in pi-agent, no model)
+
+Fixed in Pi's guidance and tools (this branch):
+- **The audit's first download failed**: "download failed: No such file or directory". Opus
+  sent `write` and `download` in one response and Pi runs a response's tool calls at once.
+  Reproduced in `demos/pi/test/pi-browser.mjs`, whose scripted model now writes a file and
+  downloads it in one response: no download was offered (Chromium, the tool result was that
+  error). The download tool is now `executionMode: "sequential"`, so the batch runs in
+  order; the test passes in Chromium (55 s) and Firefox (62 s).
+- `chmod +x play` ("command not found"): `SYSTEM.md` says there are no permission bits and a
+  `#!` script runs without one (measured: `/tmp/s2` with `#!/bin/slop` runs).
+- `amy install python 2>&1 | tail -3; echo $?` printed 0 when amy failed (amy's own status
+  is 1, `set -o pipefail` gives 1): the skill says so.
+- Session 2's `grep -A3` (POSIX grep): `SYSTEM.md` names `rg` and `toybox`.
+
+## Findings to fix outside Pi
+
+Each reproduced in pi-agent (`build/opus-evidence/probe5.out`, `probe6.out`):
+- **`kill %1`**: `sleep 30 & kill %1` prints "kill: strtonum %1: invalid", status 1. Slop
+  refuses `jobs`, `fg` and `bg` by name; a job spec to `kill` gets sbase's parse error. A
+  refusal that says there is no job control and names `$!` would match the others.
+- **amy says the compiler is not installed**: in pi-agent `amy list` shows `cc` and `make`
+  as `-` and `amy info cc` says "not installed", while `command -v cc make` finds `/bin/cc`
+  and `/usr/bin/make` and `cc --version` works. Opus noted it; a model may reinstall 125 MB.
+- **`test -nt`, `-ot`, `-ef`**: `touch a; sleep 1; touch b; [ b -nt a ]` prints
+  "[: unsupported expression", status 2 (all three are POSIX.1-2024). Opus's play script used
+  `[ guess.c -nt guess ]`.
+- **`which NAME` for a missing command**: `which python3` prints "which: python3: not an
+  external command", status 2 (sbase's wording), which reads as if it were a builtin.
+- **`tar -czf`** (the `tar` package): `tar -czf x.tgz d` prints "tar: fork: Function not
+  implemented", status 1. Explicit, but it could say that `-z` is unsupported here.
+
+## For the owner
+
+- pi-agent and pi-local declare neither `dso@0` and `sockets@0` nor `nena@0`, so
+  `amy install python` cannot work there (Opus now says so); add `nena@0` as `default` has?
+- `exec PROGRAM` at the end of a wrapper script fails ("replacing the shell with a command is
+  unsupported"); Opus's first `play` used it. Run it as a child and exit with its status?
+- `ls /proc` finds nothing while `cat /proc/processes` works (documented); models read the
+  first as "no process list". Should `/proc` list `processes`?
+
+Not defects (by design or the network): no `df`; each `cc` shows as two processes (the
+compiler is a private process behind it); github.com and example.com send no CORS headers.
+
+Spend so far: $0.384.

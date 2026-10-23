@@ -13,6 +13,8 @@ What Dolly is not:
   processes).
 - No native binaries: every program, `cc` included, is a wasm64 module built
   for Dolly. No `fork` or `exec`: programs start programs with `posix_spawn`.
+- One user and no permission bits: there is no `chmod`, and a program or a
+  `#!` script runs without one; `slop FILE` runs a script too.
 - No sockets to the outside: HTTP(S) only, through the browser under the
   page's policy, and only from hosts that send CORS headers.
 - No terminal for your tools: the `bash` tool's commands get no keyboard, so

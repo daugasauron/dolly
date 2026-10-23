@@ -123,6 +123,8 @@ export default function dollyTools(pi) {
   pi.registerTool({
     name: "download",
     label: "download",
+    // Pi runs one response's tool calls at once; a write of the same file must finish first.
+    executionMode: "sequential",
     description:
       "Offer one file of Dolly's in-memory filesystem to the user's browser, which saves it " +
       "when the user clicks Save. Use only when the user asks to save or download a file to " +
