@@ -24,6 +24,10 @@ tagged="$(git rev-parse -q --verify "refs/tags/${version}^{commit}" || true)"
 [[ -z "${tagged}" || "${tagged}" == "${commit}" ]] || stop "tag ${version} names ${tagged}, not HEAD"
 [[ -d "${archive}" ]] || stop "no archive of published versions at ${archive} (before the first release: an empty directory)"
 [[ ! -e "${archive}/${version}" ]] || stop "${version} is already published; a fix is a new version"
+source config/source-pins.sh
+seed_compiler=".cache/dolly-seed-compiler-${DOLLY_SEED_COMPILER_SHA256}.tar"
+[[ "${DOLLY_SEED_COMPILER_URL}" == "https://github.com/daugasauron/dolly/releases/download/${version}/${seed_compiler#.cache/}" &&
+   -f "${seed_compiler}" ]] || stop "the seed compiler is not pinned to this release's asset (docs/sources.md)"
 
 step "2 no token-shaped string in the unpushed commits or the image snapshots"
 tokens='sk-ant-[A-Za-z0-9_-]{20,}|sk-or-v1-[0-9a-f]{32,}|sk-proj-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----[[:cntrl:]]?$'
@@ -68,7 +72,7 @@ cat <<COMMANDS
    Nothing was tagged, pushed, uploaded or deployed. The owner runs:
 4  git tag -a ${version} -m "Dolly ${version#v}" ${commit}
    git push origin main ${version}
-5  gh release create ${version} build/dolly-pages.tar.gz --verify-tag --notes-file NOTES
+5  gh release create ${version} build/dolly-pages.tar.gz ${seed_compiler} --verify-tag --notes-file NOTES
    gh workflow run pages.yml -f release_tag=${version} -f artifact_sha256=${tarball_sha256}
    for tarball in ${npm_dir}/*.tgz; do npm publish "\${tarball}" --access public; done
 6  systemd-run --user --unit dolly-deploy-${version} bash -c 'npx wrangler@4.129.1 pages deploy ${project_dir}/${deployment} --project-name dolly --branch main > ${project_dir}/build/deploy-${version}.log 2>&1'

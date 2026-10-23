@@ -146,9 +146,10 @@ pushes, uploads or deploys.
 3. Both sites packaged from that commit and accepted; the Pages workflow's
    steps pass locally, under 1 GB.
 4. Tag `vX.Y.Z` on the commit; push `main` and the tag.
-5. GitHub release `vX.Y.Z` with notes and `dolly-pages.tar.gz` (the GitHub
-   Pages release, packed); run `pages.yml` with the tag and the tarball's
-   SHA-256.
+5. GitHub release `vX.Y.Z` with notes, `dolly-pages.tar.gz` (the GitHub
+   Pages release, packed) and the seed's compiler, pinned to that asset
+   ([sources](sources.md#the-seeds-compiler)); run `pages.yml` with the tag
+   and the tarball's SHA-256.
 6. Assemble the deployment from the archive and the new release; upload it
    with `wrangler pages deploy` as a detached job. An interrupted upload keeps
    nothing: never restart it.
