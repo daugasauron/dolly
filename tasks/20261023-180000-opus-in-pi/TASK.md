@@ -35,3 +35,43 @@ Done when:
    guidance, tools and extension by the agent of this task, the rest (shell, commands, kernel,
    page) listed here with their reproduction and fixed by the integrator or another agent before
    the 0.1.4 round; one that needs a design decision goes to the owner as one line.
+
+## Method
+
+`build/opus-evidence/drive.mjs` (not committed): `pi-agent` of this branch's `dist/` served by
+the checkout server, headless Chrome 151 (`--no-sandbox`) under `slot.sh browser`, with a
+hardened HTTP policy: `x-api-key` may leave only for `https://api.anthropic.com/v1/`, GET
+for the page's origin and a dozen public hosts (raw.githubusercontent.com, api.github.com,
+the jsdelivr CDNs, registry.npmjs.org, pypi.org, github.com, example.com...), nothing else.
+The script leaves the entry's Pi, starts `pi` from Slop in `/workspace`, `/login anthropic`
+→ "Sign in with an API key", types the key read from `~/.claude-api` at run time (the prompt
+shows `*`), `/model anthropic/claude-opus-5-5` (in Pi 1.0.3's catalog: $4/$20 per million,
+cache read $0.20; thinking level as Pi defaults), pastes each prompt, waits for the turn,
+reads Pi's footer cost, and stops before a budget. Every text it keeps is redacted against
+the key and each 6-character run of it, and `check.mjs` counts both in every kept file.
+The session file is fetched with `download` and turned into `transcript.md`.
+`probe.mjs` runs shell commands in an image without a model, to check claims.
+
+## Session 1, before (2026-10-23 15:37, `build/opus-evidence/before/`, $0.093)
+
+Three prompts in one session: what is this environment; a Python one-liner and the running
+processes; what would you write a game in, how to run it, how to get its source out.
+
+Right: Dolly, a Unix-like system in a browser tab as wasm64, in-memory files, Slop not Bash,
+cc/make, janis/qjs, amy, upload/download, no host escape, no npm; `amy install ps` then `ps`;
+the game in C with `display.h`/`input.h`, `download` for the source. It did not read the
+`dolly` skill until the third prompt.
+
+Confused:
+- Python: `amy install python` printed "needs dso@0: add REQUIRES HOST dso@0"; the model
+  concluded "this browser host doesn't support loading shared libraries, so CPython can't be
+  installed in this session". It is this image's module list (pi-agent declares neither
+  `dso@0` nor `sockets@0` and has no `nena@0`), not the browser.
+- Bundling the game's files: "`tar czf game.tar.gz ...` and download that one file". This
+  image's `tar` only extracts and `gzip` only decompresses (the skill says so; it was not read).
+- Processes: `ls /proc` says "No such file or directory" and then `ps` reads `/proc/processes`
+  (documented: there is no general `/proc`); it tried `amy search` (no such subcommand) and
+  `which python3` ("not an external command").
+- Persistence: "work can disappear when the tab closes unless you download it or push it
+  somewhere"; saving the session (Ctrl+Shift+S) was not mentioned, and pushing needs a relay.
+- Nothing about `nena`, `man`, `help` or `amy list` came up before it hit a wall.
