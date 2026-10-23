@@ -1,34 +1,59 @@
 DOLLY 7
 PACKAGE llvm
 REQUIRES HOST runtime@0
+# opt and llc load pass plugins (-rdynamic), through the loader of dso@0.
+REQUIRES HOST dso@0
 
-# The compiler llvm-cc built inside Dolly, beside the seed's: llvm-cc and
-# llvm-c++ run it as cc and c++ run the seed compiler, on the same headers
-# and libraries.
-COPY /v0.1.4/demos/llvm/Dollyfile-llvm-cc c2e13e163376532c43986f6643f7c67fc8e59eb3e228019f5d5049a5eef4ccf3 /usr/libexec/dolly/process-bin/compiler /usr/lib/llvm/compiler
+# LLVM 24 from the tree whose archives the seed's compiler links: its tools,
+# every library, the headers and llvm-config, as llvm-build installed them
+# under /usr/lib/llvm. The package keeps only the exports below. Programs that
+# build against LLVM compile with cc and c++.
+FROM /v0.1.4/demos/llvm/Dollyfile-llvm-build 0d6c1ea0a75012a3750321ec49c4f82648cdfbf92bc50efc13084fb8a07c123a
 INSTALL /v0.1.4/Dollyfile-cc 6d24f0c23448e553898c6925e1b8d0f4d85364fb419714c33e47a401f23eb0f8
-FILE /usr/bin/llvm-cc
+SLOP slop -c 'for tool in llvm-ar llvm-ranlib llvm-nm llvm-objdump llvm-readobj llvm-readelf llvm-objcopy llvm-strip \
+  llvm-size llvm-strings llvm-symbolizer llvm-addr2line llvm-dwarfdump llvm-cxxfilt llvm-mc llvm-as llvm-dis llvm-link \
+  opt llc; do ln -s ../lib/llvm/bin/$tool /usr/bin/$tool; done'
+EXPORTS FOLDER llvm /usr/lib/llvm
+EXPORTS TOOL llvm-ar
+EXPORTS TOOL llvm-ranlib
+EXPORTS TOOL llvm-nm
+EXPORTS TOOL llvm-objdump
+EXPORTS TOOL llvm-readobj
+EXPORTS TOOL llvm-readelf
+EXPORTS TOOL llvm-objcopy
+EXPORTS TOOL llvm-strip
+EXPORTS TOOL llvm-size
+EXPORTS TOOL llvm-strings
+EXPORTS TOOL llvm-symbolizer
+EXPORTS TOOL llvm-addr2line
+EXPORTS TOOL llvm-dwarfdump
+EXPORTS TOOL llvm-cxxfilt
+EXPORTS TOOL llvm-mc
+EXPORTS TOOL llvm-as
+EXPORTS TOOL llvm-dis
+EXPORTS TOOL llvm-link
+EXPORTS TOOL opt
+EXPORTS TOOL llc
+# llvm-config takes its prefix from its own path, which LLVM asks dladdr for;
+# this libc's dladdr knows no file, so llvm-config takes its working directory
+# for its own directory, and runs in it.
+FILE /usr/bin/llvm-config
     #!/bin/slop
-    /usr/lib/llvm/compiler --dolly-toolchain-mode=c "$@"
-FILE /usr/bin/llvm-c++
-    #!/bin/slop
-    /usr/lib/llvm/compiler --dolly-toolchain-mode=c++ "$@"
-EXPORTS TOOL llvm-cc
-EXPORTS TOOL llvm-c++
-EXPORTS FILE llvm-compiler /usr/lib/llvm/compiler
+    cd /usr/lib/llvm/bin && ./llvm-config "$@"
+EXPORTS TOOL llvm-config
 SOURCE /v0.1.4/dist/static/llvm/licenses/llvm 8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee /usr/share/licenses/llvm/LICENSE.TXT
-SOURCE /v0.1.4/dist/static/llvm/licenses/clang ebcd9bbf783a73d05c53ba4d586b8d5813dcdf3bbec50265860ccc885e606f47 /usr/share/licenses/clang/LICENSE.TXT
-SOURCE /v0.1.4/dist/static/llvm/licenses/lld f7891568956e34643eb6a0db1462db30820d40d7266e2a78063f2fe233ece5a0 /usr/share/licenses/lld/LICENSE.TXT
 FILE /usr/share/licenses/llvm/LICENSE.TXT
-FILE /usr/share/licenses/clang/LICENSE.TXT
-FILE /usr/share/licenses/lld/LICENSE.TXT
-FILE /usr/share/man/cat1/llvm-cc.1
-    llvm-cc, llvm-c++: Clang and LLD of LLVM 24 as built inside Dolly by its
-    own cc, from the seed compiler's pinned sources, beside the cc package.
+FILE /usr/share/man/cat1/llvm.1
+    llvm: LLVM 24 as built inside Dolly, from the sources and the tree whose
+    archives the seed's compiler (cc) links, for the WebAssembly target.
     
-      llvm-cc main.c -o main        as cc main.c -o main
-      llvm-c++ main.cpp -o main     as c++
+      llvm-objdump -d main.o         disassembles; llvm-nm, llvm-readobj, llvm-ar,
+                                     llvm-objcopy, llvm-dwarfdump and others beside it
+      cc -S -emit-llvm main.c -o main.ll
+      opt -O2 main.ll -o main.bc     the IR optimizer; llc compiles IR to an object
+      c++ $(llvm-config --cxxflags) -include endian.h tool.cpp \
+        $(llvm-config --ldflags --libs core) -o tool
     
-    They take the options cc and c++ take. The image that links them checks
-    that they give the seed compiler's bytes for two programs and a sample of
-    LLVM's own sources. cc stays the seed's.
+    Libraries and headers are in /usr/lib/llvm. LLVM's headers include
+    <endian.h> by platform name, hence -include endian.h.
+    Upstream's documentation: https://llvm.org/docs/

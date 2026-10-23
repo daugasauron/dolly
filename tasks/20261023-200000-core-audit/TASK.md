@@ -30,4 +30,35 @@ fix is clear, or one line for the owner where it is a decision.
   the runtime, AGENTS.md's seed sentence, sbase's `which` kept with `command -v` in the
   guidance. Version 0.1.4 in `2ee36c90`; the catalog round started 18:09 on that commit and
   verifies them in a browser.
-- Owner: the three lines at the end of `audit.md`.
+- Owner's three lines, decided by the integrator (2026-10-23 evening), done on
+  `core/runtime-cleanup` (`work/runtime`):
+  1. **`llvm` is LLVM itself.** `llvm-build`, after it keeps the compiler's archives as before,
+     configures the same tree again for that alone (install prefix `/usr/lib/llvm`, tools linked
+     `-Wl,--strip-all` as the compiler is, no shared libraries) and builds every LLVM library,
+     the headers, `llvm-config` and 16 tools (`llvm-ar`, `-nm`, `-objdump`, `-readobj`,
+     `-objcopy`, `-size`, `-strings`, `-symbolizer`, `-dwarfdump`, `-cxxfilt`, `-mc`, `-as`,
+     `-dis`, `-link`, `opt`, `llc`, and the `ranlib`, `readelf`, `strip`, `addr2line` links).
+     The package is `FROM llvm-build` with only its exports, links in `/usr/bin`, and
+     `REQUIRES HOST dso@0`: `opt` and `llc` link `-rdynamic` for pass plugins.
+     `/usr/bin/llvm-config` is a launcher that runs it in its own directory: LLVM asks
+     `dladdr` for its own path, the libc's `dladdr` knows no file, and llvm-config then takes
+     its working directory for its directory (Zig's recipe met the same, `demos/zig`). A
+     `dladdr` that names the executable for its own addresses would make it unneeded; that is a
+     libc change for the process workstream, not done here.
+     Cost, measured (Chrome, `bigbuild`, machine shared with other builds): `llvm-build` 50 min
+     for the compiler's part as before (make 2,999 s), then 12 min more (configure 24 s, the
+     libraries 315 s, tools and install 354 s); its snapshot 949 MB (was 594 MB). `llvm-cc` is
+     now `FROM llvm-tablegen` and copies `/usr/lib/llvm-build` alone, so it stays 612 MB and its
+     compiler is the same bytes either way (`81a3cdf2…`, built both ways). The package: 322 MiB, 92 MB of packs (was 127 MB, a copy
+     of `cc`'s compiler); `opt` and `llc` are 48 MiB each.
+     The compiler is untouched: every one of the 604 files `llvm-build` keeps under
+     `/usr/lib/llvm-build` (the 103 archives the compiler links, Clang's resource headers, the
+     generated headers) is the bytes `work/x11fix`'s `llvm-build` holds, and `check.slop` in
+     `llvm-cc` passed. The compiler `llvm-cc` linked differs from the seed's `9c747cff…` by 105
+     bytes for another reason: the libc it links changed after the fixed point
+     (`03717431`, `getrusage` and `times`), a seed change that `tasks/20261023-121443-exec-seed`
+     re-pins in the round anyway; the path it takes (`llvm-cc`, then
+     `demos/llvm/pin-seed-compiler.mjs`) reads only `llvm-cc` and `/usr/lib/llvm-build`.
+  2. **The compiler's recipes stay in `demos/llvm`**: the bootstrap exception, in `AGENTS.md`'s
+     bootstrapping section (and the core rule beside it) and `docs/sources.md` (`88407c1c`).
+  3. **The site's code left `@daugasauron/dolly`**: see `tasks/20261023-113537-npm-packages`.

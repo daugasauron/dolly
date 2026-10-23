@@ -64,7 +64,8 @@ Decisions, each the one way it is done:
   `docs/sources.md`.
 - **The `llvm` package** now installs the seed's own compiler again (at the fixed point the same
   bytes); its test no longer requires the two executables to differ. Whether it stays is a
-  catalog question for the owner.
+  catalog question for the owner. (Decided 2026-10-23: it is LLVM itself, built in
+  `llvm-build` beside the compiler's archives; `tasks/20261023-200000-core-audit`.)
 
 Verified, as the trial was (commit `d027a1cb`):
 

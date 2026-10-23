@@ -14,13 +14,16 @@ seed's own `cc`.
   It configures the tree again with those tools and compiles the closure
   (Clang, LLD, the WebAssembly backend: 2,559 units) at four jobs. It keeps
   `/usr/lib/llvm-build`: the archives, Clang's resource directory and the
-  configured and generated headers.
+  configured and generated headers. Then, in the same tree, it builds the rest
+  of LLVM and installs it under `/usr/lib/llvm` for the `llvm` package; the
+  compiler's archives are kept before, so this leaves the compiler as it is.
 - `llvm-cc`: a shell whose `cc` and `c++` are the compiler built in Dolly.
-  It compiles the seed's driver (`src/compiler.cpp`), links the compiler from
+  On `llvm-tablegen`, with `llvm-build`'s `/usr/lib/llvm-build` copied, it
+  compiles the seed's driver (`src/compiler.cpp`), links the compiler from
   those archives without its names (`-Wl,--strip-all`), requires the same
   bytes from it as from the seed compiler for two programs and a sample of
   LLVM's sources, and installs it for `cc`, `c++`, `ld` and `ar`.
-- `llvm`: `llvm-cc` and `llvm-c++`, Clang and LLD as built inside Dolly, beside the `cc` package.
+- `llvm`: LLVM's tools (`llvm-objdump`, `llvm-nm`, `llvm-ar`, `opt`, `llc` and others), its libraries, headers and `llvm-config`, from the tree whose archives the seed's compiler links.
 - `llvm-runtimes`: libc++, libc++abi, libunwind and the compiler-rt builtins as compiled in Dolly, in `/usr/lib/llvm-runtimes`; a link takes them with `-L`.
 - `llvm21-tablegen`: a build stage: LLVM 21 with every default target, configured by CMake inside Dolly, and its TableGen tools.
 - `llvm21`: LLVM 21 with every default target, Clang and LLD as libraries and headers, and `llvm-config`, in `/usr/lib/llvm21`: what Zig 0.16 links.
@@ -50,14 +53,13 @@ Run it after building `llvm-cc`. A digest it leaves unchanged is the fixed
 point, a compiler that rebuilt itself; a new one is a new seed, and every image
 rebuilds.
 
-## Using the compiler
+## Using it
 
-- In a session, `amy install llvm` adds `llvm-cc` and `llvm-c++`. They take
-  the arguments of `cc` and `c++` and use the same headers and libraries (the
-  package installs `cc` for them), and give the seed compiler's bytes for the
-  same arguments and output path.
-- Or open the `llvm-cc` image (`/llvm-cc/`): there `cc`, `c++`, `ld` and `ar`
-  themselves run it.
+- `cc` and `c++` are this compiler in every image (the seed's). The `llvm-cc`
+  image (`/llvm-cc/`) is the one that linked it.
+- In a session, `amy install llvm` adds LLVM itself, with `cc`: the binary
+  tools, `opt` and `llc` for IR, and the libraries, headers and `llvm-config`
+  that a program building against LLVM uses (`man llvm`).
 
 [`test/llvm-browser.mjs`](test/llvm-browser.mjs) checks both in Chrome and
 Firefox.
