@@ -128,7 +128,7 @@ The patched toolchain builds on the host in 50 s (`make.bash`). A program built
   CPU), packaged as `go/` (sources, `lib`, `pkg/include`, `pkg/tool/dolly_wasm64`, and the
   dolly `go` and `gofmt` in `bin`): 74.6 MB gzipped, 332 MB unpacked (src 163 MB of which
   testdata 33 MB, tools 131 MB, bin 38 MB). ustar, because Dolly's `tar` reads no GNU long
-  names.
+  names. Reproducible: built again from nothing, the archive has the same sha256 (b850779…).
 - In a `system` session, extracted to `/usr/lib/go` (13.7 s Chrome, 26.0 s Firefox):
   `go version` says `go1.27.3 dolly/wasm64`; `go env` finds GOROOT through `/proc/self/exe`;
   `gofmt -d` works; `go build` of a fmt hello world compiles runtime, fmt and their imports from
