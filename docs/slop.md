@@ -144,7 +144,7 @@ that run inside the shell stay serial.
 - Core tools are Dolly's own ([`Dollyfile-system-build`](../Dollyfile-system-build)),
   compiled with plain `cc` in `system-build` before Make, whose recipes need `cp`:
   `cat [-n]`, `cp`, `mv`, `ls [--color]`, `echo`, `touch`, `pwd`, `mkdir`, `rm`,
-  `test`/`[` with `!`, `-a`, `-o` and parentheses, `foreground`, `help`, `clear`,
+  `test`/`[` with `!`, `-a`, `-o`, parentheses and `-nt`, `-ot`, `-ef`, `foreground`, `help`, `clear`,
   `stat`, `file`.
   There are no permission bits: `test -x` means a regular file or a directory,
   `-r`/`-w` that the path exists. `ls -l` is the POSIX long format: the fixed modes `stat`

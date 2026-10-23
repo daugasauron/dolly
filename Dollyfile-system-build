@@ -94,7 +94,7 @@ EXPORTS TOOL dollyfile
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 
-SOURCE /v0.1.3/dist/static/default/slop.c 604ecc93d622af57c6e3eba1376a3799b8e8a649550b7797af05a92c02cdcdc0 /tmp/slop/slop.c
+SOURCE /v0.1.3/dist/static/default/slop.c 456bb261c2cc17199de17f492930c587b312761faf581bd73223602b9cac3789 /tmp/slop/slop.c
 RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/slop/slop.c -o /bin/slop
 
 EXPORTS TOOL slop
@@ -106,7 +106,7 @@ REQUIRES TOOL   cc
 SOURCE /v0.1.3/dist/static/default/commands/mkdir.c 318f11bbf81beea92df1e4a2cb8dc02787c5eea4cffe62a8be9893503a8e572e /tmp/core-tools/mkdir.c
 SOURCE /v0.1.3/dist/static/default/commands/rm.c 1213c22dc41e247f5fa072aad0431cdc54193dcf9091c8c749ea7880bef30af2 /tmp/core-tools/rm.c
 SOURCE /v0.1.3/dist/static/default/commands/foreground.c e926c3c87764e44064744fc1d3cba008c46666ed7a06d351824ce67792bcdd76 /tmp/core-tools/foreground.c
-SOURCE /v0.1.3/dist/static/default/commands/help.c 2967fb9e70f0c9afe33375c2f209c088025dffa210d37a6c952a55ec9c68b37a /tmp/core-tools/help.c
+SOURCE /v0.1.3/dist/static/default/commands/help.c 075da09e73ef8796f030cd306b6a912bd2ab8a10d09227fa4af643ef7f906e89 /tmp/core-tools/help.c
 SOURCE /v0.1.3/dist/static/default/commands/man.c 03df8950d27ccd413c9da9cac1641d582f720d483e58e1e6f8e4b90e61e15fa0 /tmp/core-tools/man.c
 SOURCE /v0.1.3/dist/static/default/commands/pwd.c 87886a74d8626d0bdbc2b364fe6ed8882522512d9f595709152dda298ef5c03f /tmp/core-tools/pwd.c
 SOURCE /v0.1.3/dist/static/default/commands/cd.c 36d4c7708b332be6df90105bbc61cf8eb70556e3ed0f9f24756016eebec3d622 /tmp/core-tools/cd.c
@@ -117,7 +117,7 @@ SOURCE /v0.1.3/dist/static/default/commands/clear.c f2e6915b3fe34393087ec7d04e61
 SOURCE /v0.1.3/dist/static/default/commands/ls.c 7c510abd3849e7d7966f5fe59378a096459b5591749ce61ae488b7436a48326e /tmp/core-tools/ls.c
 SOURCE /v0.1.3/dist/static/default/commands/stat.c 1d39b289d8b2b4680e5c8ae8ec63bd183ba62864f5fd9bc0f180d1d97a64ef21 /tmp/core-tools/stat.c
 SOURCE /v0.1.3/dist/static/default/commands/file.c ce908d435b9b29f79085e3fc8ddc36e52a9012e2a5e5da3c707b236d3b85f85e /tmp/core-tools/file.c
-SOURCE /v0.1.3/dist/static/default/commands/test.c 703bbd67c17a043e686f964228f6dfde0763f87101ba7d795195c7de86848218 /tmp/core-tools/test.c
+SOURCE /v0.1.3/dist/static/default/commands/test.c 738c318548c39b9e8e6b2108707c1f3a030fef9fd4ba3d4e6b84fbbb071e1866 /tmp/core-tools/test.c
 SOURCE /v0.1.3/dist/static/default/commands/bracket.c 5dadee574cc128d583fe337e68b271cebbb3220dcd7e307fac08d4b5e9d73e4c /tmp/core-tools/bracket.c
 SOURCE /v0.1.3/dist/static/default/commands/mv.c 326b21d8de8cd70652ec1ae1d42356095ee792c2608dfe362bba7ec05eacc9c3 /tmp/core-tools/mv.c
 SOURCE /v0.1.3/dist/static/default/commands/cp.c 69ba86c9338bd97df04f06ccf84b9acd4e163f26d820efa066b6883152784ff1 /tmp/core-tools/cp.c
@@ -237,6 +237,8 @@ FILE /usr/share/man/cat1/test.1
       -z STRING        STRING is empty
       A = B, A != B    the strings are equal (== is the same), differ
       M -eq N          the integers are equal; also -ne -lt -le -gt -ge
+      F -nt G, F -ot G F was modified after, before G (a missing file is older)
+      F -ef G          F and G are the same file
       ! E, E -a E, E -o E, ( E )   not, and, or, grouping
     example: test -d /tmp && [ "$HOME" != / ]
 SLOP cp /usr/share/man/cat1/test.1 '/usr/share/man/cat1/[.1'
