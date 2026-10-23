@@ -26,3 +26,7 @@ for gzip data (1f 8b) the way that works here, `gzip -dc FILE | tar -xf -`. It i
 not fixed on the opus branch, by the brief.
 
 Done when: both messages say what the file is, with cases that fail on the old tar.
+
+Again in round 4 (`r4-rust2/`): unpacking crates, `tar -xzf X.crate` printed the usage line
+(no `-z`), then `tar -xf X.crate` (gzip data) printed "tar: parse header at <header> (errno
+28)" and "Invalid argument": two of the session's four failed calls.
