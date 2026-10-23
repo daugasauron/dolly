@@ -70,15 +70,23 @@ Measured:
   TypeScript declarations ship as npm installs them (the old build left them out), 9.0 MB is
   Pi's own `dist/bundle`.
 
-Left: build `rust-build`, `ripgrep` and `fd` on the new seed (hugebuild), then `pi` to
-`pi-agent`, run `pi-browser.mjs` whole in both browsers, and the images on `pi`. For the
-owner, one line: janis-install could leave `*.map` and `*.d.ts` out of every package (no
-program here reads them; 50 MB of Pi's 111), which npm does not do.
+Decided by the integrator: janis-install keeps every file npm installs (a model compiling
+TypeScript against a library needs its `.d.ts`); `pi`, an application nothing compiles
+against, deletes `*.map`, `*.d.ts`, `*.d.mts` and `*.d.cts` from its tree after the install
+(`52a0d425`). On the trial: `pi` 62,515,625 bytes (113,970,985 before, 62,357,079 compiled
+from source), `pi-agent` without `rg` and `fd` 242,647,477 (294,103,107 before);
+`pi-browser.mjs` passes on it (Chromium 57.2 s).
 
-Build note: `f2677945` changed `host/input/input.h` and `input-abi.h` (image inputs
-`1ee15fc6` to `a7990a19`) without repinning `system-build`; these measurements ran with the
-two headers and `abi.mjs` of `f2677945~1` in the working tree (not committed), on the
-`1ee15fc6` snapshots of `work/terminal`, hard-linked.
+Left: build `rust-build`, `ripgrep` and `fd` on the new seed (the integrator's hugebuild,
+in `work/x11fix`), then `pi` to `pi-agent` here, run `pi-browser.mjs` whole in both
+browsers, measure `pi-agent` with `rg` and `fd`, and the images on `pi`.
+
+Build note: `f2677945` changed `host/input/input.h` and `input-abi.h` without repinning
+`system-build`; these measurements ran with the two headers and `abi.mjs` of `f2677945~1` in
+the working tree (not committed), on the `1ee15fc6` snapshots of `work/terminal`,
+hard-linked. Since then the branch has `65736016` merged (seed `559ad049`) and repins
+`Dollyfile-system-build`'s lines 16-17 (the two headers) as `work/x11fix` does (`d8a61e72`);
+its base images are `work/x11fix`'s, hard-linked.
 
 ## Step 5's blockers (2026-10-23 evening, branch `demo/opus-audit-2`)
 

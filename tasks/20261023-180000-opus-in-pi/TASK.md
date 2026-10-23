@@ -500,4 +500,8 @@ an archive](../20261023-132201-tar-not-archive/TASK.md). Measured, no change: `m
 fails with "Resource temporarily unavailable" where `-j8` (the skill's) does not; one Janis
 process fetching 16 at a time took 2.2 s for the 216 files.
 
+After merging `core/process-exec` (`65736016`): `exec` works, measured in `default` on
+`559ad049` (`r3/probe-exec.out`: a script's `exec echo` replaces it, a C program's
+`execvp` runs `echo`), so `SYSTEM.md` and the skill no longer say it fails (`96794f48`).
+
 Spend, all sessions: **$6.607 of the $20** (round 3: $2.059).
