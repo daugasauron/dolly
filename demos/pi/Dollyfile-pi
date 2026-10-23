@@ -8,8 +8,8 @@ REQUIRES HOST threads@0
 FROM /v0.1.4/Dollyfile-system 3c0b5edb907bf4f0deabbff0809d27dab1abfa9e2b36c866d75c4047254a2db4
 INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 3c62560ce6a08ab43aab0407ad4528bb7506adb2aafd2a8908c5046ae4aa4f2a
 
-INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 494f00cc42930954d9aba3e6cc506e6edaad718a3070d69e28fba2f8d3526228
-INSTALL /v0.1.4/demos/rust/Dollyfile-fd ac4219a9340a92b7feba24455e9403ae96c40558f8a3d0fc29727b4dbf7cc06b
+INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 19abd695317e1b353b665c7df3908c222d47a2ec0ea6ea5e2b980ec28e13f1c9
+INSTALL /v0.1.4/demos/rust/Dollyfile-fd 3b198923a77ec3012fcf4b500e12e85498b109df67c7cc2d9afbfe449f9980ac
 COPY /v0.1.4/demos/pi/Dollyfile-pi-build eba07d45748af017fe87025348a5429aefa705e598f0b0cbcd875d0abcfb4480 /usr/bin/pi /usr/bin/pi
 COPY /v0.1.4/demos/pi/Dollyfile-pi-build eba07d45748af017fe87025348a5429aefa705e598f0b0cbcd875d0abcfb4480 /usr/lib/node_modules /usr/lib/node_modules
 COPY /v0.1.4/demos/pi/Dollyfile-pi-build eba07d45748af017fe87025348a5429aefa705e598f0b0cbcd875d0abcfb4480 /usr/src/pi-source /usr/src/pi-source

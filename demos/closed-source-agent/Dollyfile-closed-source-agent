@@ -15,7 +15,7 @@ REQUIRES HOST upload@0
 FROM /v0.1.4/Dollyfile-system 3c0b5edb907bf4f0deabbff0809d27dab1abfa9e2b36c866d75c4047254a2db4
 INSTALL /v0.1.4/Dollyfile-amy 55adcc477169d44f231d1d39402ea720944f3a82365388b049f83b2e6f01d849
 INSTALL /v0.1.4/demos/javascript/Dollyfile-janis-install cf65d4d93291be09cba5a92587beb59da2ee758e3eb73ed1a179e1fc5119b043
-INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 494f00cc42930954d9aba3e6cc506e6edaad718a3070d69e28fba2f8d3526228
+INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 19abd695317e1b353b665c7df3908c222d47a2ec0ea6ea5e2b980ec28e13f1c9
 REQUIRES TOOL cc
 REQUIRES TOOL foreground
 REQUIRES TOOL janis
