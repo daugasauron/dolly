@@ -18,6 +18,7 @@ REQUIRES HEADER quickjs-runner
 REQUIRES LIB    dolly-js
 REQUIRES LIB    quickjs
 REQUIRES TOOL   cc
+REQUIRES TOOL   find
 REQUIRES TOOL   janis-install
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
@@ -26,6 +27,9 @@ SOURCE /v0.1.4/dist/static/default/pi-npm.tar     6ebb57dbb6755bce129249e8e3c5ca
 SOURCE /v0.1.4/dist/static/default/commands/pi.c  2296ec09e6b95b0d0dd065f806138e48eaad855d77d6366adfdfc33d720da98e /tmp/pi.c
 SLOP tar -xf /tmp/pi-npm.tar -C /
 SLOP janis-install --registry /tmp/pi-npm @earendil-works/pi-coding-agent@1.0.3
+# Pi is an application nothing compiles against: its tree's source maps and
+# type declarations, 50 MB of its 111, go.
+SLOP find /usr/lib/node_modules -type f \( -name '*.map' -o -name '*.d.ts' -o -name '*.d.mts' -o -name '*.d.cts' \) -exec rm {} +
 SLOP cc -I /usr/include/dolly /tmp/pi.c -ldolly-js -lquickjs -o /usr/bin/pi
 SLOP rm -rf /tmp/pi-npm /tmp/pi-npm.tar /tmp/pi.c
 FOLDER /usr/lib/node_modules
