@@ -58,7 +58,21 @@ Where the memory is, for the 1.31 GB package: the build page's renderer holds 3.
 before the capture (the system image, the two parts and the joined GGUF), 6.5 GB after
 it, and does not fall when the build Worker ends; during the upload of the snapshot in
 64 MB `fetch` bodies (`scripts/build-snapshot-browser.mjs`) Playwright's driver process
-grows by about the bytes uploaded (to 1.5 GB) and the renderer to 6.9 GB. So the
-builder needs about five times a model package, and these images are built where the
-cap is larger (the integrator's `hugebuild`). Nothing in a recipe changes that; the
-builder's memory is the core's (reported, not changed here).
+grows by about the bytes uploaded (to 1.5 GB) and the renderer to 6.9 GB.
+
+The driver's part is a defect, reproduced alone (`build/models-evidence/upload/`): a page
+that POSTs 1 GiB in 64 MiB `fetch` bodies leaves Playwright's client process at
+1,779 MiB RSS (Playwright keeps each request's body); the same bytes as `Blob` bodies
+fail at the eighth chunk (Chrome's blob storage). Reading the snapshot out of the page
+instead, 16 MiB at a time as base64 through `page.evaluate`, moves 1 GiB in 11.4 s with
+the client at 445 MiB. `scripts/build-snapshot-browser.mjs` now does that. Checked: `jq`
+rebuilt by it is byte-identical to the snapshot the old upload wrote (`d5797591…`), and
+after it `qwen3.8-2b` builds at 6.3 GB peak (OOM-killed at 8.9 GB before) and the 4B's
+UD-IQ3_XXS at 8.0 GB.
+
+What is left is the capture: the kernel's capture buffer and the page's copy of it come
+on top of the image's files, so the build holds the model about four times at once. The
+4B at 2.1 GB (Q3_K_S) does not fit 9 GB then: it was killed at the capture with and
+without the upload. The 1.95 GB UD-IQ3_XXS fits when the recipe removes the two parts
+before the capture (killed at the capture once without that line, at 8.4 GB).
+`pi-local` (8.9 GB, killed at the upload before the fix) was not tried again.
