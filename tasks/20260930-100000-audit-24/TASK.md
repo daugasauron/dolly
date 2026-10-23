@@ -4,6 +4,27 @@
 - PRIORITY: 150
 - TAGS: core,boundary,cleanup,0.1.4
 
+## State (2026-10-24, `core/runtime-cleanup`): the count after the npm split, the map complete
+
+Counted as `wc -l` of the tracked `src/*.mjs` and `host/**/*.mjs` (the generated `abi.mjs` of each
+module included, 320 lines): v0.1.3's tag 10,703; `ba0f7f34` (the fleet's base) 10,788; 10,822
+after `e0899966` (+34: `runtime@0`'s Worker that grows kernel memory, no authority added, the
+kernel's own memory up to its maximum, `20261006-140347-kboundary-01`); 10,888 after `ade2f49a`
+(+66: the seam that takes the site's code out of `@daugasauron/dolly`, whose closure went from
+6,177 lines to 5,222; nothing added a browser authority).
+
+- Step 5 done in `ade2f49a`: `docs/browser-boundary.md` names every file a page of the site can
+  load ("Trusted files": the 110 files of the measured module closure of `terminal.html`'s
+  imports, every module's provider and both runtime Workers), by role.
+- Step 4: an embedding's page loads only the modules it names (`234331ba`); the site's pages name
+  all 18. Narrowing the site's pages to an image's modules is open.
+- The integrator's plan of 2026-10-23: the page will hold no view of kernel memory, so the page
+  parts of `runtime`, `display`, `input`, `touch`, `upload`, `download`, `http` and `snapshot`
+  become DOM work and messages (process workstream). Steps 2 (test logic in the display
+  provider), 7 (the `_dolly/RELEASE/` mirror in `host/http`) and 8 (the kernel's `_NAME`
+  spellings) touch those files and wait for it; step 6 is two demo tests with GPU runs.
+- Not recounted at the release: the no-view work changes the total; count again after the round.
+
 ## State (2026-10-23)
 
 For v0.1.4: the count at the release, after the npm packages' work, which moves trusted
