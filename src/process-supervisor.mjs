@@ -19,8 +19,18 @@ const spawnHeaderSize = DOLLY_PROCESS_SIZEOF.dolly_process_spawn_request;
 // The kernel's deferred-call result; processes never observe it.
 const deferredResult = -(1n << 63n);
 const interruptedSystemCall = -BigInt(DOLLY_ERRNO.EINTR);
-// Trusted bound on concurrent process Workers, independent of kernel records.
-const processWorkerLimit = 32;
+// Trusted bounds on concurrent process Workers, independent of kernel
+// records: a spawn is admitted while the processes' committed Wasm memory is
+// under the budget, and the count, the kernel's table, is the backstop. It
+// stays below what Chromium reserves: the memory of a 61st process of 8 GiB
+// was refused.
+const processWorkerLimit = 56;
+const processMemoryBudgetBytes = 4 * 1024 * 1024 * 1024;
+// Chromium releases the address space of a terminated Worker's memory some
+// time after terminate(): a memory it cannot reserve is asked for again for
+// a while before the process is refused.
+const reservationRetryMilliseconds = 50;
+const reservationPatienceMilliseconds = 5000;
 const interruptGraceMilliseconds = 500;
 const compiledModuleCacheEntries = 64;
 const compiledModuleCacheBytes = 256 * 1024 * 1024;
@@ -200,8 +210,14 @@ export class DollyProcessSupervisor {
     }
   }
 
+  #admitsProcess() {
+    let committed = 0;
+    for (const process of this.processes.values()) committed += process.memory?.buffer.byteLength ?? 0;
+    return this.processes.size < processWorkerLimit && committed < processMemoryBudgetBytes;
+  }
+
   spawn(arguments_, { foreground = false } = {}) {
-    if (this.processes.size >= processWorkerLimit) throw new Error("Dolly process limit reached");
+    if (!this.#admitsProcess()) throw new Error("Dolly process limit reached");
     const packet = encodeSpawn(arguments_, foreground ? DOLLY_PROCESS_SPAWN_FOREGROUND : 0);
     new Uint8Array(
       this.kernelMemory.buffer,
@@ -441,7 +457,17 @@ export class DollyProcessSupervisor {
         if (!process) throw new Error(`kernel supplied unregistered process ${pid}`);
         const compiled = await this.#compiledImage(pid);
         if (!this.#canLaunch(process)) continue;
-        this.#start(process, compiled, this.#admit(compiled));
+        const local = this.#admit(compiled);
+        for (let waited = 0; ; waited += reservationRetryMilliseconds) {
+          try {
+            this.#start(process, compiled, local);
+            break;
+          } catch (error) {
+            if (!(error instanceof RangeError) || process.memory || waited >= reservationPatienceMilliseconds) throw error;
+          }
+          await new Promise(resolve => setTimeout(resolve, reservationRetryMilliseconds));
+          if (!this.#canLaunch(process)) break;
+        }
       } catch (error) {
         // A failed launch ends only its own process; exiting it in the kernel
         // also stops next_launch from naming it again.
@@ -642,7 +668,7 @@ export class DollyProcessSupervisor {
       const args = [process.pid, message.operation, BigInt(message.requestSize), BigInt(message.responseCapacity)];
       if (process.threaded) args.splice(1, 0, thread.tid);
       const exhausted = message.operation === DOLLY_PROCESS_SPAWN
-        ? this.processes.size >= processWorkerLimit
+        ? !this.#admitsProcess()
         : process.threaded && message.operation === DOLLY_THREAD_SPAWN && !this.threadHost?.available(process.pid);
       // Firefox can enter a direct Wasm call twice. Use the generic call path
       // so a completed syscall is never replayed against its response packet.

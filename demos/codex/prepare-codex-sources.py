@@ -11,8 +11,12 @@ import tarfile
 import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "rust"))
-from rust_sources import cargo_config, crate_licences, download, lock_sdk_libc, project, vendor  # noqa: E402
+from rust_sources import cargo_config, crate_licences, download, inputs_key, keep, kept, lock_sdk_libc, project, vendor  # noqa: E402
 
+parts = Path("build/codex-source-parts")
+key = inputs_key(Path(__file__), project / "demos/codex/config")
+if kept(parts, key):
+    sys.exit()
 stage = Path("build/codex-sources")
 shutil.rmtree(stage, ignore_errors=True)
 stage.mkdir(parents=True)
@@ -156,7 +160,6 @@ compressed = archive.with_suffix(".tar.gz")
 with archive.open("rb") as source, compressed.open("wb") as file:
     with gzip.GzipFile(filename="", mode="wb", fileobj=file, mtime=0) as output:
         shutil.copyfileobj(source, output)
-parts = Path("build/codex-source-parts")
 shutil.rmtree(parts, ignore_errors=True)
 parts.mkdir()
 with compressed.open("rb") as source:
@@ -164,4 +167,5 @@ with compressed.open("rb") as source:
     while data := source.read(40 * 1024 * 1024):
         (parts / f"sources-{number:02d}.part").write_bytes(data)
         number += 1
+keep(parts, key)
 print(f"Codex sources: {number} parts, {compressed.stat().st_size} bytes")

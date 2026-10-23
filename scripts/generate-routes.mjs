@@ -80,3 +80,7 @@ for (const page of graphPages) {
 }
 
 console.log(`dolly: generated ${routes.length + graphPages.length} static routes`);
+if (process.env.DOLLY_BUILD_IMAGES) {
+  console.log(`dolly: dist registers the ${definitions.length} images of ${process.env.DOLLY_BUILD_IMAGES}'s closure; ` +
+    "the artifact tests fail until a plain npm run image registers the catalog");
+}
