@@ -1,7 +1,7 @@
 # Sources and bootstrap
 
 Outside the browser, an external toolchain builds only the kernel and the
-seed's libc. Every ordinary program, the seed's compiler among them, is compiled
+seed's libc and bootstrap. Every ordinary program, the seed's compiler among them, is compiled
 inside Dolly from pinned source during an image build. This page lists the
 bootstrap exceptions, how inputs are pinned, and what the core ports support.
 
@@ -24,6 +24,18 @@ libc++, libc++abi and libunwind are not among them: [`Dollyfile-system-build`](.
 compiles Emscripten's pinned copy with the flags of Emscripten's own build,
 before the first C++ program. The container's build of them names what an
 `-rdynamic` host exports ([`prepare-process-sysroot.sh`](../scripts/prepare-process-sysroot.sh)).
+
+The libc's and libc++'s headers, and libc++'s sources, are staged with their
+`__EMSCRIPTEN__` tests renamed to `__dolly__`, and LLVM generates code under the
+libc's triple, `wasm64-unknown-emscripten`; a program sees neither name
+([process model](process-model.md#executables)).
+
+Demo exceptions (the Rust compiler seed) are recorded in their demo READMEs.
+Every externally built program (the Rust seed)
+validates against `dolly-process-0` exactly and ships without an Emscripten
+JavaScript loader. Host preparation may
+configure and patch pinned trees deterministically and reviewably, but must not
+compile the programs an image claims to build.
 
 ## The seed's compiler
 
@@ -52,18 +64,6 @@ checks the compiler against `dolly-process-0`.
 - The first compiler built inside Dolly was linked by a seed whose compiler
   was a host build of the same sources and driver (`scripts/build-toolchain.sh`,
   last in commit `3fc9d5da`); a bootstrap from nothing starts there.
-
-The libc's and libc++'s headers, and libc++'s sources, are staged with their
-`__EMSCRIPTEN__` tests renamed to `__dolly__`, and LLVM generates code under the
-libc's triple, `wasm64-unknown-emscripten`; a program sees neither name
-([process model](process-model.md#executables)).
-
-Demo exceptions (the Rust compiler seed) are recorded in their demo READMEs.
-Every program in a seed (the compiler, the Rust seed)
-validates against `dolly-process-0` exactly and ships without an Emscripten
-JavaScript loader. Host preparation may
-configure and patch pinned trees deterministically and reviewably, but must not
-compile the programs an image claims to build.
 
 ## Pins and identity
 
