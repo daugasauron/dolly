@@ -251,3 +251,5 @@ direction; measure its launches, captures and grounded releases again.
 The final sources (`c962100e`, pinned `94960664`) were measured in `sling-t3`/`audit-t3`
 (headless, 2,400 s): 45 deliveries (East 25, West 27), 23 shots, every gun fired at least
 once, four rounds touched their target, none a teammate, no removals or controller errors.
+`demos/slopyard/test/slopyard-browser.mjs` passes on the GPU display (Chromium, `:152`) at
+`4987c4a6` and again at `94960664`: its 17 fixtures and the driven car.
