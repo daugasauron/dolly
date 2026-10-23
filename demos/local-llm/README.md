@@ -37,7 +37,7 @@ loaded; an integrated GPU shares system memory. The task: list a directory,
 write a C program, compile it, run it and report its output
 ([measurements](../../tasks/20261005-215557-local-models/TASK.md), and for the
 4B and LFM2.5 [these](../../tasks/20261023-160001-local-models/TASK.md)). The
-4B completes more of the longer tasks there than the 2B, at half its speed.
+4B completes more of the longer tasks there than the 2B, at less than half its speed.
 LFM2.5 always reasons before it answers, whatever `/thinking` says; it is under
 the LFM Open License v1.0, whose text the package installs: commercial use is
 licensed below 10 million US dollars of annual revenue.
