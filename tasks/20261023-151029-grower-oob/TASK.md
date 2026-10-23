@@ -45,3 +45,7 @@ after the merge: `core`, `npm`, `memory-growth`, `custom-session`, `host-compute
 `shell`, `nena`, `host-modules`, `process`, `display`, `terminal`. The loop is evidence, not a
 suite test: a race of a few per cent a boot needs 72 boots to be seen.
 
+Fixed by `c5cc2a1e` (the runtime Worker waits for its own view of the new size before the kernel
+goes on), cherry-picked onto `core/page-no-view` as `41aa755d`: the boot loop above booted 72 of 72
+in Chromium (2026-10-24, three pages at a time).
+
