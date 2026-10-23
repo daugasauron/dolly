@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 # Ghostty's own build.zig
 # (ghostty-dolly.patch; its packages fetched on the host, prepare-ghostty.sh).
 FROM /v0.1.4/demos/ghostty-gtk/Dollyfile-mesa-build 3813da0636550743a1ce7616d0194eb930c61f2c9b62df84f35b98d9a9053714
-USE /v0.1.4/demos/zig/Dollyfile-zig-llvm 2f319b129f0785fb92326471dbfaac91719baf56f4ee0ba8cc2deba374248368
+USE /v0.1.4/demos/zig/Dollyfile-zig-llvm 67d4158c47cc9eae1044c2928e70cb4c27c46a375b7681f764fc19e8a31e4a96
 
 REQUIRES TOOL   c++
 REQUIRES TOOL   cc

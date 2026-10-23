@@ -6,6 +6,7 @@
 
 #include <errno.h>
 #include <dirent.h>
+#include <dlfcn.h>
 #include <fcntl.h>
 #include <ftw.h>
 #include <limits.h>
@@ -1636,6 +1637,41 @@ __attribute__((__weak__)) char *dolly_dlerror(void) {
   if (!dl_refused) return NULL;
   dl_refused = 0;
   return "dynamic loading needs a program linked with -rdynamic and host module dso@0";
+}
+
+/* dladdr names the running program, as /proc/self/exe does, for an address of
+ * its own: one of its functions, an index below the size its function table
+ * had when it started, or its static data. A module that dlopen loads (dso@0)
+ * adds functions past that size and data in the heap: for those, and for the
+ * heap and the stack, it names nothing. LLVM finds its own path this way. */
+extern char __global_base[], __data_end[];
+static size_t function_table_size(void) {
+  size_t size;
+  __asm__(".tabletype __indirect_function_table, funcref, 1\n"
+          "table.size __indirect_function_table\n"
+          "local.set %0" : "=r"(size));
+  return size;
+}
+static size_t program_functions;
+__attribute__((constructor(101))) static void count_program_functions(void) {
+  program_functions = function_table_size();
+}
+static char program_path[PATH_MAX];
+static void read_program_path(void) {
+  const ssize_t size = readlink("/proc/self/exe", program_path, sizeof(program_path) - 1);
+  program_path[size > 0 ? size : 0] = 0;
+}
+int dladdr(const void *address, Dl_info *info) {
+  const uintptr_t value = (uintptr_t)address;
+  const int function = value != 0 && value < program_functions;
+  const int loaded = value >= program_functions && value < function_table_size();
+  const int data = value >= (uintptr_t)__global_base && value < (uintptr_t)__data_end;
+  if (!function && (loaded || !data)) return 0;
+  static pthread_once_t once = PTHREAD_ONCE_INIT;
+  pthread_once(&once, read_program_path);
+  if (!program_path[0]) return 0;
+  *info = (Dl_info){ .dli_fname = program_path };
+  return 1;
 }
 
 /*

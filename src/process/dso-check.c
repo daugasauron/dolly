@@ -36,6 +36,9 @@ int main(int argc, char **argv) {
   _Static_assert(sizeof(answer) == sizeof(symbol), "function pointer representation");
   memcpy(&answer, &symbol, sizeof(answer));
   if (answer(41) != 42) return 62;
+  // dladdr names nothing for a function of a loaded module, and never this program.
+  Dl_info info;
+  if (dladdr(symbol, &info) != 0) return 72;
   symbol = dolly_dlsym(handle, "\uFEFFdolly_process_dso_answer");
   if (symbol == NULL) return 65;
   memcpy(&answer, &symbol, sizeof(answer));
