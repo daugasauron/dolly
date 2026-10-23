@@ -4,7 +4,6 @@ import { hostRegistry } from "../host/modules.mjs";
 import { pageChords } from "./page-chords.mjs";
 import { terminalText } from "./terminal-text.mjs";
 import { DOLLY_IMAGES, DOLLY_STATIC_SOURCES, imageBase, loadImages } from "./images.mjs";
-import { publicURL } from "./static-asset.mjs";
 import * as processConstants from "./process-constants.mjs";
 
 // The terminal's own look: its canvas, the hidden keyboard, the boot log and
@@ -148,7 +147,7 @@ export async function run(mount, { images, modules, site, http }, route) {
     appendBootstrap(`DOLLY / ${image.toUpperCase()} / ${selected.label}\n\n`);
     host = await registry.createHost("browser", selected.enabled ?? selected.required, {
       send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),
-      resources: { mount, canvas, keyboard, applicationBase: imageBase, site: site && publicURL("", site), showStatus, fatal,
+      resources: { mount, canvas, keyboard, applicationBase: imageBase, site: site && new URL(site), showStatus, fatal,
         indicators: { hold: holdIndicators, show: showIndicators } },
       configuration: { ...selected.configuration, http: { ...selected.configuration?.http, embedding: http,
         sources: bootstrapSources, inherited: selected.inherited } },

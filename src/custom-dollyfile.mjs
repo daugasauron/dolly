@@ -1,6 +1,6 @@
 import { inspectDollyfile, MAX_DOLLYFILE_BYTES } from "./dollyfile-view.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
-import { siteReference, publicURL } from "./static-asset.mjs";
+import { siteReference } from "./static-asset.mjs";
 
 const form = document.querySelector("#custom-dollyfile");
 const source = document.querySelector("#source");
@@ -41,6 +41,6 @@ form.addEventListener("submit", event => {
   try {
     inspectDollyfile(source.value);
     sessionStorage.setItem(storageKey, source.value);
-    location.assign(publicURL("custom/rebuild/"));
+    location.assign(new URL("../custom/rebuild/", import.meta.url));
   } catch (error) { status.textContent = error.message; }
 });

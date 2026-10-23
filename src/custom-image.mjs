@@ -2,7 +2,6 @@ import { MAX_SNAPSHOT_BYTES } from "./snapshot-records.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { describeImageArtifact, loadImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
-import { publicURL } from "./static-asset.mjs";
 
 export async function loadCustomImage(source, descriptor) {
   inspectDollyfile(source);
@@ -38,7 +37,7 @@ export function openCustomImage({ source, ...inherited }) {
     target.sessionStorage.setItem("dolly-custom-source", source);
     target.sessionStorage.setItem("dolly-custom-inherited", JSON.stringify(inherited));
     target.opener = null;
-    target.location.replace(publicURL("custom/run/"));
+    target.location.replace(new URL("../custom/run/", import.meta.url));
   } catch (error) {
     target.close();
     throw error;

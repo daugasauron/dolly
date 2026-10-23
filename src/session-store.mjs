@@ -1,7 +1,6 @@
 import { alphabetical } from "./alphabetical.mjs";
 import { validName } from "./image-names.mjs";
 import { imageInputs } from "./image-inputs.mjs";
-import { publicURL } from "./static-asset.mjs";
 import { DOLLY_VERSION } from "./version.mjs";
 
 export const DOLLY_SESSION_FORMAT_VERSION = 2;
@@ -57,8 +56,7 @@ export function sessionCompatible(record, definitions, buildId, imageBuildId) {
 
 export function sessionLoadUrl(name, applicationBase) {
   if (!validSessionName(name)) throw new TypeError("invalid Dolly session name");
-  // Local releases pin assets by digest; named-session links stay public and stable.
-  return publicURL(`session/?name=${name}`, applicationBase);
+  return new URL(`session/?name=${name}`, applicationBase);
 }
 
 export async function listStoredSessions() {

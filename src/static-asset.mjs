@@ -35,13 +35,6 @@ export function sitePath(reference) {
   return reference.slice(sitePrefix.length);
 }
 
-// Release assets live under _dolly/RELEASE/; user-facing routes do not.
-export function publicURL(path, applicationBase = new URL("../", import.meta.url)) {
-  const root = new URL(applicationBase);
-  root.pathname = root.pathname.replace(/_dolly\/[0-9a-f]{64}\/$/, "");
-  return new URL(path, root);
-}
-
 export async function boundedAssetBody(response, limit, signal) {
   if (!response.ok || !response.body) throw new Error(`asset returned HTTP ${response.status}`);
   const reader = response.body.getReader(), chunks = [];

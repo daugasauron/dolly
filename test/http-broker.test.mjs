@@ -94,10 +94,10 @@ test("multipart delivery is restricted to embedding-selected sources, including 
   const manifest = JSON.stringify({ byteLength: bytes.length, sha256: digest(bytes),
     parts: parts.map(part => ({ byteLength: part.length, sha256: digest(part) })) });
   const sources = [{ path: "/allowed", byteLength: bytes.length }];
-  // The site names the file /allowed; this release's copy is what is fetched.
-  const site = "https://fixture.example/", release = `${site}_dolly/${"a".repeat(64)}/`, copy = `${release}allowed`;
-  const pinned = new DollyHttpPolicy({ rules: [] }, sources, release);
-  for (const policy of [pinned, restrictDollyHttpPolicy(pinned, [null], sources, release)]) {
+  // The site names the file /allowed, and that file is what is fetched.
+  const site = "https://fixture.example/", copy = `${site}allowed`;
+  const pinned = new DollyHttpPolicy({ rules: [] }, sources, site);
+  for (const policy of [pinned, restrictDollyHttpPolicy(pinned, [null], sources, site)]) {
     const calls = [];
     const f = fixture({}, async (url, init) => {
       calls.push(url.href);
@@ -109,7 +109,7 @@ test("multipart delivery is restricted to embedding-selected sources, including 
     });
     Object.assign(f.broker, { policy, site });
     const records = await consume(f, f.request({ url: siteReference("allowed"), headers: "Authorization: Bearer private" }));
-    assert.deepEqual(calls, [copy, copy + ".part-0", copy + ".part-1"], "fetched from this release");
+    assert.deepEqual(calls, [copy, copy + ".part-0", copy + ".part-1"]);
     assert.equal(Buffer.concat(records.filter(record => record.kind === 3).map(record => record.bytes)).toString(), bytes.toString());
     await bounded(f.request({ url: siteReference("allowed.part-0") }, 2));
     assert.equal(calls.length, 3);
