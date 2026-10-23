@@ -125,6 +125,24 @@ await browserTest("touch", { image: "system", server: { fixtures }, timeout: 300
   await waitForText(line(top - 5));
   assert.doesNotMatch(await text(), line(top - 6));
 
+  // Under a program that asked for the mouse, as tmux does, the drag is the
+  // wheel where the finger is: rows down are steps up at the finger's cell,
+  // in one of the rows it passed when a whole row of scroll had added up.
+  await page.evaluate(() => __dolly.inputTransport.pushScroll(100000, 1));
+  const wheel = submit("/tmp/touch wheel");
+  await waitForText(/TOUCH-WHEEL-READY/);
+  const swipe = [1, 2, 3].map(n => [canvas.left + 330, canvas.top + 140 + n * cell]);
+  await fingers("touchStart", [[canvas.left + 330, canvas.top + 140]], [0]);
+  for (const point of swipe) await fingers("touchMove", [point], [0]);
+  await fingers("touchEnd", cdp ? [] : swipe.slice(-1), cdp ? [] : [0]);
+  assert.equal(await wheel, 0, await text());
+  const cells = await page.evaluate(points => {
+    const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry();
+    return points.map(([x, y]) => `${Math.floor((x - paddingX) / cellWidth) + 1};${Math.floor((y - paddingY) / cellHeight) + 1}`);
+  }, swipe.map(frame));
+  const [, reported] = /^TOUCH-WHEEL 64 (\d+;\d+)$/m.exec(await text());
+  assert.ok(cells.includes(reported), `${reported} is not one of ${cells}`);
+
   // Two fingers 45 px further apart are two sizes more, and back together the size it was.
   const size = await page.evaluate(() => __dolly.fontSize);
   const apart = [[canvas.left + 150, canvas.top + 100], [canvas.left + 250, canvas.top + 100]];
