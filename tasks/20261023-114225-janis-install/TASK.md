@@ -27,6 +27,59 @@ called `npm`. Done: 1 measured; 2 the package and its fixture-registry browser t
 with what step 2 found below (`enableCompileCache`, the `/v` regexes, the key mask), and
 `pi-dolly`. Janis's two path gaps are [their own task](../20261023-145214-janis-node-paths/TASK.md).
 
+## Step 5, Pi from npm (2026-10-23 night, branch `demo/opus-audit-2`)
+
+Done and measured on the merged tree (`core/npm-packages` at `f2677945` merged in), all but
+the final build, which needs `rust-build` on the new seed (the integrator's hugebuild):
+- `janis-install --registry COPY` reads a copy of the registry's files instead of fetching:
+  `COPY/NAME/metadata.json` and the tarballs where their URLs put them; a name the copy lacks
+  is refused, so an optional one is skipped. A case of `janis-install-browser.mjs` installs
+  from a copy written in the session with no request (Chromium 5.2 s, Firefox 5.8 s).
+- `demos/pi/prepare-pi-npm.mjs` makes that copy from `package-lock.json`, which already pins
+  Pi 1.0.3's tree with its integrity: 120 tarballs (checked with sha512, cached in
+  `.cache/npm`) and 116 `metadata.json` written from the tarballs' own `package.json`, so
+  nothing but the lock decides it; staged as `dist/static/default/pi-npm.tar` (24.4 MB).
+- `Dollyfile-pi`: `FROM system`, `INSTALL janis-install`, `ripgrep`, `fd`; `janis-install
+  --registry /tmp/pi-npm @earendil-works/pi-coding-agent@1.0.3`, then `pi.c` linked as
+  before runs `dist/cli.js`. Gone: `pi-build` and its compile, `pi-tsconfig.dolly.json`,
+  `pi-secret-input.patch`, `pi-runtime-packages.txt`, `build-pi-runtime-packages.mjs`,
+  `pi-runtime-census.mjs`, the `PI_SOURCE` pin; the licences page reads the copy's metadata
+  (the `npm packages` row now holds Pi itself too); `docs/licences.md` adds 0BSD.
+- The key: Pi's own key prompt at `/login` is upstream's and is not used for keys: it shows
+  what is typed. `pi-key VARIABLE` (pi-dolly) reads a key with `secretenv`, now a package of
+  its own (`demos/closed-source-agent/Dollyfile-secretenv`, which Claude Code's launcher
+  installs), and starts Pi with it in that one environment variable, as the Claude Code
+  launcher does; Pi's notice says so. `pi-browser.mjs` checks that Pi lists no OpenRouter
+  model without a key, that `pi-key OPENROUTER_API_KEY --list-models openrouter` lists them
+  after a typed and a pasted half of a key, and that no screen and no file under
+  `~/.pi` holds any 4 characters of it.
+
+Measured:
+- In `default` with `janis-install` and `cc` (`build/opus-evidence/r3/probe-npm.*.out`,
+  Chromium and Firefox): 120 packages from the copy, 0 bytes fetched, 2.6 s / 3.3 s; esbuild's,
+  `@google/genai`'s and protobufjs's scripts named and not run; 26 optional esbuild binaries
+  skipped; `pi --version` 1.0.3; `--list-models openrouter` empty without a key and full with
+  `OPENROUTER_API_KEY` set; `@earendil-works/pi-telemetry` imports.
+- A trial pi-agent (this recipe without its two Rust rows, not committed, since `ripgrep`
+  and `fd` need `rust-build` on the new seed) passes `pi-browser.mjs` with its ripgrep and fd
+  steps left out: Chromium 47.4 s, Firefox 49.3 s. An Opus 5.5 session on it
+  (`r3-npm-game/`, the key typed at `pi-key`'s prompt, never on screen) built a 1,065-line
+  raylib game with no failed call, $1.170.
+- Size: `pi` 113,970,985 bytes (62,357,079 compiled from source), `pi-agent` 294,103,107
+  (229,729,700). The npm tree is 111 MB unpacked: 30.4 MB of source maps and 20.3 MB of
+  TypeScript declarations ship as npm installs them (the old build left them out), 9.0 MB is
+  Pi's own `dist/bundle`.
+
+Left: build `rust-build`, `ripgrep` and `fd` on the new seed (hugebuild), then `pi` to
+`pi-agent`, run `pi-browser.mjs` whole in both browsers, and the images on `pi`. For the
+owner, one line: janis-install could leave `*.map` and `*.d.ts` out of every package (no
+program here reads them; 50 MB of Pi's 111), which npm does not do.
+
+Build note: `f2677945` changed `host/input/input.h` and `input-abi.h` (image inputs
+`1ee15fc6` to `a7990a19`) without repinning `system-build`; these measurements ran with the
+two headers and `abi.mjs` of `f2677945~1` in the working tree (not committed), on the
+`1ee15fc6` snapshots of `work/terminal`, hard-linked.
+
 ## Step 5's blockers (2026-10-23 evening, branch `demo/opus-audit-2`)
 
 - **`enableCompileCache`**: Janis's `node:module` has it and `constants.compileCacheStatus`
@@ -55,8 +108,8 @@ with what step 2 found below (`enableCompileCache`, the `/v` regexes, the key ma
   `bhop` and the other images on the Janis chain.
 - **The key mask**: Pi 1.4.0 (npm `latest`, 2026-10-23) still has no `mask` or `secret` in
   `pi-tui`'s `input.js` or the login dialog, so with Pi as published a key typed at
-  `/login` shows in clear. For the owner: patch the published files at install, or read keys
-  as `closed-source-agent` does (`secretenv`, then `ANTHROPIC_API_KEY` and the like).
+  `/login` shows in clear. Decided by the integrator: no patch of published files; keys go in
+  as `closed-source-agent` reads them (step 5, `pi-key`).
 - **The entry to run is `dist/cli.js`, not the bundle.** Measured on this branch's Janis
   (QuickJS-ng 0.17, `enableCompileCache`) in pi-agent, Pi 1.0.3's tarball from the registry
   (`build/opus-evidence/r2/probe/probe5*.out`, Chromium): `janis package/dist/cli.js

@@ -468,3 +468,22 @@ For the workstream that makes packages, one line each:
 - `libpng` keeps `libpng16.a` but not upstream's `libpng.a`, so `-lpng` fails.
 - SDL2's companions (SDL_ttf, SDL_image, SDL_mixer) are not packages: text with SDL2 is
   FreeType by hand or a hand-made font.
+
+## Round 3: display checks under a time limit, and Pi from npm (2026-10-23 night)
+
+The integrator's decision on the 180 s hang: no core change; the guidance says to check a
+display program with `timeout 5 ./game`. Measured first in `default`
+(`build/opus-evidence/r3/probe-timeout.out`): a program that holds the display and never
+returns ends at the limit with status 124, and the next one acquires the display. `SYSTEM.md`
+and the skill say so (`a69e27fc`).
+
+Session on the trial pi-agent of Pi from npm (janis-install, step 5; the key typed at
+`pi-key`'s hidden prompt; `r3-npm-game/`, same game prompt as round 2, $1.170): Opus checked
+`amy list`, installed raylib, wrote "Nova Guard" (1,065 lines: formations, dives, bosses,
+power-ups, pause), and checked it three ways: a `--selftest` autopilot, PNG screenshots it
+had the game write (`--shots`) and then read with Pi's read tool, and `timeout 5 ./play`
+("it ran until timeout as expected"). 35 calls, none failed, 347 s; it plays (`game-3.png`).
+It worried that its screenshots were upside down (raylib's screen capture flips the
+software framebuffer); the game on the display is upright.
+
+Spend, all sessions: **$5.718 of the $20**.
