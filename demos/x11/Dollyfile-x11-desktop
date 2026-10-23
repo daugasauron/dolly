@@ -19,7 +19,7 @@ REQUIRES HOST upload@0
 # the pointer and a terminal with a shell, where imgui-x11 starts Dear ImGui's
 # example in a window of its own.
 FROM /v0.1.3/Dollyfile-system 9d8d9a1ff16f52e368e695af7b5a788aefba814913bf9e4d3f49ee8dc374bfd2
-INSTALL /v0.1.3/demos/x11/Dollyfile-xorg-server 2c54a75a00afc904dea87c49f90db02414ff0c8f3222bc52167e228fd5627eca
+INSTALL /v0.1.3/demos/x11/Dollyfile-xorg-server 41342b9401754073bf625e0e2343fc2f3444b4778b2fad032a30b90c0f64c036
 INSTALL /v0.1.3/demos/x11/Dollyfile-twm ed1769c4ae97c3bf94daa43165229ec8e3530ba8e01af2f1db3884fdfc71f3c2
 INSTALL /v0.1.3/demos/x11/Dollyfile-xclock c799c03f8cec3a15f8de296283be344bac937af7461931bfc477c750259e7506
 INSTALL /v0.1.3/demos/x11/Dollyfile-xeyes b4287b2f4099bd2194dd6721f726d04f8e11939c35a24f21067ce26c9c42d25d

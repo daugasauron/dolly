@@ -159,6 +159,18 @@ Each reproduced in pi-agent (`build/opus-evidence/probe5.out`, `probe6.out`):
   external command", status 2 (sbase's wording), which reads as if it were a builtin.
 - **`tar -czf`** (the `tar` package): `tar -czf x.tgz d` prints "tar: fork: Function not
   implemented", status 1. Explicit, but it could say that `-z` is unsupported here.
+  Fixed (`core/audit-fixes`): decided to port rather than refuse, since the change is small and
+  portable POSIX (`demos/tools/sbase-tar-spawn.patch`, 40 lines, zsh's precedent): sbase's
+  `comp`/`decomp` start the filter with `posix_spawnp` (dup2 actions, the kept pipe end
+  `FD_CLOEXEC`) instead of fork and exec, and tar waits for it before it exits, so the archive is
+  whole when the shell goes on (upstream does not wait: a race on any system, wide here, where a
+  process starts in tens of milliseconds). `-j` and `-J` now work both ways with the bzip2 and xz
+  packages; `-z` runs `gzip` from PATH: none in `default` ("tar: posix_spawnp gzip: No such
+  file or directory", status 1), and the core's gzip only decompresses and takes only `-dc`.
+  Measured in `default` with tar, bzip2, xz and pigz installed by amy (`build/auditfix-evidence/tar.out.*`,
+  probe.mjs), Chromium and Firefox: `tar -cjf x.tbz d` 183 bytes at once, `-xjf`, `-cJf`/`-xJf`
+  round trips, `tar -cjf - d | bzip2 -dc | tar -tf -` lists the tree. `test/amy-browser.mjs`'s
+  tar case adds the `-j` round trip (not run whole here: it installs every package).
 
 ## For the owner
 
