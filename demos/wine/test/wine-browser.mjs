@@ -759,7 +759,7 @@ async function run(page, prompt, start, waitText) {
 
   await startMenu("u");
   await prompt(shellPrompt);
-  assert.equal(await page.evaluate(() => __dolly.transport.graphicsActive()), false, "the display is released");
+  await page.waitForFunction(() => !__dolly.transport.graphicsActive()); // the display is released
   const log = await waitText(/the Wine desktop was shut down/);
   for (const pattern of [
     /desktop: started mspaint\.exe/,

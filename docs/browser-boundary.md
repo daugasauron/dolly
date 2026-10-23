@@ -244,7 +244,7 @@ acceptance and the checks of a deployed site use it.
   terminal (its foreground, grid, geometry, the leases) is what the Worker last
   reported; what it asks (a result, the selection) resolves later.
 - An enabled module adds its own and takes them away when `nena` disables it:
-  `transport`, `fontSize`, `graphicsActive`, `copySelection()` (`display@0`),
+  `transport`, `fontSize`, `graphicsActive`, `copySelection()`, `frame()` (`display@0`),
   `inputTransport` (`input@0`), `touchTransport` (`touch@0`), the broker's request counters (`http@0`),
   `sessionName` and `saveSession(name)` (`snapshot@0`), `gpu`, `audio` and
   `microphone`.

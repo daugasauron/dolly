@@ -63,20 +63,14 @@ async function openImage(browser, origin, image, { policy, prompt = shellPrompt,
 }
 
 // What the display shows, as pixels: the canvas is painted from a Worker, so
-// the page reads none of it. A screenshot of #display, decoded in the page into
-// globalThis.displaySnapshot, a canvas of the display's own pixel size (a frame
-// smaller than its box is shown stretched; the snapshot takes it back).
+// the page reads none of it. The last frame painted (__dolly.frame()), in the
+// page as globalThis.displaySnapshot, a canvas of its size.
 export async function snapshotDisplay(page) {
-  const png = (await page.locator("#display").screenshot({ scale: "css" })).toString("base64");
-  await page.evaluate(async png => {
-    const bytes = Uint8Array.from(atob(png), character => character.charCodeAt(0));
-    const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }), { colorSpaceConversion: "none" });
-    const { width, height } = document.querySelector("#display");
+  await page.evaluate(async () => {
+    const image = await __dolly.frame(), { width, height } = image ?? document.querySelector("#display");
     const canvas = globalThis.displaySnapshot = Object.assign(document.createElement("canvas"), { width, height });
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-    context.imageSmoothingEnabled = false;
-    context.drawImage(bitmap, 0, 0, width, height);
-  }, png);
+    if (image) canvas.getContext("2d", { willReadFrequently: true }).putImageData(image, 0, 0);
+  });
 }
 
 // Resolves to what predicate(arg), run in the page, returns once it is truthy of a new snapshot.

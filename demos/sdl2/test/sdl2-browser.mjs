@@ -49,7 +49,7 @@ await demoTest("sdl2", { image: "sdl2", timeout: 600_000,
   assert.equal(await page.evaluate(() => __dolly.input(" ✓")), true);
   await page.keyboard.press("Escape");
   assert.equal(await probe.done, 0);
-  assert.equal(await page.evaluate(() => __dolly.transport.graphicsActive()), false);
+  await page.waitForFunction(() => !__dolly.transport.graphicsActive());
 
   probe = start("./probe presence");
   await displayActive();

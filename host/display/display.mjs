@@ -293,6 +293,8 @@ export function browser({ mount, canvas, keyboard, fatal, showStatus, send, ask 
       get graphicsActive() { return state.graphicsActive; },
       get fontSize() { return state.fontSize; },
       copySelection,
+      // The last frame painted, as ImageData, or null before the first.
+      frame: () => ask({ type: "display-frame" }),
     },
     // The copy chord is the page's: the guest reads neither its press nor its
     // release. A key typed into a module's own UI is that module's to claim.
@@ -367,6 +369,7 @@ export function worker({ get, send, configuration }) {
     messages: {
       "display-surface"({ width, height, devicePixelRatio }) { transport?.publishSurface(width, height, devicePixelRatio); },
       "display-copy"() { return transport.copySelection(); },
+      "display-frame"() { return presenter?.image ?? null; },
     },
     start({ dolly, memory, kernelExports }) {
       if (dolly._dolly_display_prepare() !== 0) throw new Error("Dolly display preparation failed");
