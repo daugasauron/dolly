@@ -47,7 +47,7 @@ filesystem, no sockets to the outside, no root and no `apt`, `npm` or
   writes archives of any directory:
   `git init -q . && git add -A && git archive -o out.tar.gz $(git write-tree)`
   (`.tar`, `.tar.gz` or `.zip`). `amy install tar` brings a `tar` that writes
-  `.tar`; its `-z` fails, as it would need `fork`.
+  `.tar`; its `-z` fails here.
 
 ## Network
 

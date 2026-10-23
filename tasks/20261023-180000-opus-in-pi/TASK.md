@@ -57,6 +57,24 @@ the catalog round. Left, one line each:
   (its legacy-store step puts the 151 MB image as one ArrayBuffer); not caused here, not fixed.
 - `amy-browser.mjs` (tar `-j`/`-z` cases added) runs only after the catalog round builds every package.
 
+## State (2026-10-23 21:15 JST, branch `demo/opus-audit-2`): round 2 done
+
+Nine more sessions ("Round 2", at the end), $3.663; with round 1, **$4.425 of the $20**
+(Pi's footer and the session files agree). Before the guidance change Opus wrote every game
+from scratch on the raw display and never looked at `amy`; after it, every session installed
+and reused a library (raylib, SDL2, FreeType, libpng, SQLite) in its first commands, with
+fewer failed calls and a third less time and money for the same prompt. Fixed here, each with
+a test that failed before: SDL2's accelerated renderer in the session that installed it, and
+Pi running a response's shell command and edit at once. Lines for the packages workstream and
+the owner are in round 2. Rebuilt in this tree: `sdl2`, `quickjs`, `janis`, `typescript`,
+`pi-build`, `pi`, `pi-dolly`, `pi-runtime`, `pi-agent`, `closed-source-agent`; stale until the
+round: `imgui`, `imgui-x11`, the SDL2 games, and the images on Pi and Janis.
+
+For the owner, one line each:
+- A display program started from Pi's `bash` tool takes the canvas over Pi until it exits
+  (one session lost 180 s so); should the display lease go only to the terminal's foreground
+  process, so that it fails at once instead?
+
 ## Method
 
 `build/opus-evidence/drive.mjs` (not committed): `pi-agent` of this branch's `dist/` served by
@@ -391,9 +409,23 @@ Error code: ENOENT.", Chromium, `r2-pi-browser-before.log`).
   SDL2 means FreeType or a hand-made font, as SDL_ttf is not a package ("I'll skip SDL_ttf
   and use freetype directly").
 
+### On the final image (`b43f9d80`; `r2-final-game/`, `r2-data/`, $0.534)
+
+- The first prompt again: raylib at once, "Star Siege" (435 lines, a self-test mode), 105 s,
+  10 calls, none failed, $0.361; it plays (`game-2.png`).
+- "Fetch the 30 most-starred GitHub repositories about WebAssembly from api.github.com, store
+  them [...] in an SQLite database [...] make a horizontal bar chart of their stars as a PNG
+  image with the names as labels": `amy list | grep -iE 'sqlite|python|png|matplot|pillow'`,
+  then `amy install sqlite`, `freetype` and `libpng`, curl to the API, `sqlite3`, and a
+  50-line C program with FreeType and libpng drawing the chart in Iosevka
+  (`downloads/02-webassembly_stars.png`); 65 s, 13 calls, $0.173. Its failures: `-lpng`
+  ("unable to find library -lpng": the package keeps `libpng16.a` and the `libpng.pc` link,
+  not upstream's `libpng.a` link), then a guess at the flags; it read `amy files libpng` and
+  linked `-lpng16`.
+
 ### Where the time goes
 
-Across the seven sessions of this round, model time is 91 to 97% of the wall time when
+Across the nine sessions of this round, model time is 91 to 97% of the wall time when
 nothing hangs: tools return in under a second except builds (2 to 3 s) and the `timeout 3`
 starts of the game, which the models use to check that the program opens the display. The
 one long tool wait was before the guidance change: a game started from the `bash` tool
@@ -416,7 +448,13 @@ without a timeout held the canvas until the tool's 180 s limit.
   behave here (the software renderer, no vsync wait, no audio or threads; raylib through
   the adapter, with what of raylib gets no input or clock), the other libraries' `.pc`
   files, and sound needing `audio@0`.
-- raylib's clock and input are the package's, which stands on `gamedev-sdk` (Slopyard's
-  build); another workstream makes such packages: its `GetTime`, `GetFrameTime` and key
-  state should work (a guard for `__dolly__` or `__unix__`, and an adapter that feeds
-  raylib's input and frame time).
+- Pi's `bash` and `edit` tools keep a response's order (above).
+
+For the workstream that makes packages, one line each:
+- `raylib` stands on `gamedev-sdk` (Slopyard's build): its `GetTime`, `GetFrameTime`, FPS
+  and key state are dead here (a guard for `__dolly__` or `__unix__` in rcore_memory.c, and
+  an adapter that feeds raylib's input and frame time), and `<dolly/raylib.h>` says nothing
+  of what its functions return.
+- `libpng` keeps `libpng16.a` but not upstream's `libpng.a`, so `-lpng` fails.
+- SDL2's companions (SDL_ttf, SDL_image, SDL_mixer) are not packages: text with SDL2 is
+  FreeType by hand or a hand-made font.
