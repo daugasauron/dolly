@@ -24,7 +24,9 @@ Against the open problems below, on this run:
   the Koban loader's reach (x 47 to 56, z -26 to -23). Its bay in the stock row, (55, -25), is
   dropped by `kanagu-cable-tug.lua`'s returning step because it lies within 2.5 m of anchored
   machines (the loader, the gun). Next: a drop point the tug can reach and the loader's head can
-  take from, then measure a second throw.
+  take from, then measure a second throw. Rejected (`sling-t14`, 2,400 s): letting the Tonbi
+  recovery truck carry standing rounds as it carries boxes. It takes them out of the stock row
+  before they are loaded, and no tether round was thrown at all (39 deliveries).
 - Idle capacity: the Kanagu tugs each haul once (the tether rounds); both Tsuru rescuers and both
   Kurogane collectors still never grip. Akane, the East crane boat, grips once.
 - Benkei West moves 374 m (58 m on 2026-10-06); Kitsune West 125 m (38 m).
