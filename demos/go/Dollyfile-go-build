@@ -8,15 +8,16 @@ REQUIRES HOST http@0
 # the flags of upstream's release build (cmd/dist's toolenv), and installs it
 # over the seed's. The build fails unless every command is, byte for byte, the
 # seed's.
-FROM /v0.1.4/demos/go/Dollyfile-go-sdk 0c740276cc87893c48fec5d64d5e172c51e62fd89e881cf6c420553267349d50
+FROM /v0.1.4/demos/go/Dollyfile-go-sdk d0f3a87bb4741827e06c178fbc125040ff1002021834590cae429aed1e0ece8d
 REQUIRES TOOL go
 SLOP mkdir -p /tmp/seed
 SLOP cp -R /usr/lib/go/pkg/tool/dolly_wasm64 /tmp/seed/tool
 SLOP cp -R /usr/lib/go/bin /tmp/seed/bin
-# One compile at a time, each held near 2 GiB: compiling cmd/compile/internal/ssa
-# grows a process to 3.9 GiB with the default collector (1.8 GB natively), and
-# the build has 6 GB.
-SLOP CWD /usr/lib/go/src CGO_ENABLED=0 GOCACHE=/tmp/go-cache GOMEMLIMIT=2GiB GOFLAGS='-trimpath -ldflags=-w -gcflags=cmd/...=-dwarf=false' go install -a -p 1 cmd/go cmd/gofmt cmd/asm cmd/cgo cmd/compile cmd/cover cmd/fix cmd/link cmd/preprofile cmd/vet
+# Two compiles at a time, each held near 2 GiB: compiling cmd/compile/internal/ssa
+# can grow a process to 3.9 GiB with the default collector (1.8 GB natively).
+# A spawn waits for a slot beside at most one compile, so the processes stay
+# under the 4 GiB a spawn is admitted below, and the build in its 6 GB.
+SLOP CWD /usr/lib/go/src CGO_ENABLED=0 GOCACHE=/tmp/go-cache GOMEMLIMIT=2GiB GOFLAGS='-trimpath -ldflags=-w -gcflags=cmd/...=-dwarf=false' go install -a -p 2 cmd/go cmd/gofmt cmd/asm cmd/cgo cmd/compile cmd/cover cmd/fix cmd/link cmd/preprofile cmd/vet
 # The rebuilt toolchain compares itself with the seed.
 FILE /tmp/same/main.go
     // Fails unless each file of the first directory is, byte for byte, the

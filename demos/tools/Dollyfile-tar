@@ -8,7 +8,7 @@ REQUIRES HOST runtime@0
 # one's place: /bin comes first on PATH. Its -z, -j and -J start gzip, bzip2
 # or xz from PATH, by posix_spawn instead of fork (sbase-tar-spawn.patch),
 # and tar waits for it. The gzip of the core reads .gz; pigz writes it.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 302ee6c5b72e411c983c1e9cd34f816be4bd8b7a64da2e81eb9bfd627e02095d
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 660391387c20bd0f0ac7574e5406bc559b5aaf4761de4f5d29137999fd421f8a
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar

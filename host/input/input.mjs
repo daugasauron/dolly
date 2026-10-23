@@ -273,7 +273,9 @@ const pointerEvent = event => ({ shiftKey: event.shiftKey, ctrlKey: event.ctrlKe
 // it (src/page-chords.mjs) and module UIs claim theirs through it. Records
 // flow once the Worker's side has started.
 export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, send, ask, get }) {
-  let started = false, selecting = false, flags = 0;
+  // selecting: the primary button's press went to the terminal; held: the
+  // middle or secondary button's.
+  let started = false, selecting = false, held = -1, flags = 0;
   // Every message that may write records is counted: input is idle once the
   // Worker reports its ring empty after the last of them.
   let sent = 0, idleThrough = 0;
@@ -413,8 +415,9 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
   });
 
   // The terminal takes the primary button and every move, for its selection
-  // or for a program that asked for the mouse; a program holding the lease
-  // reads every button and every move. A finger's drag on the terminal
+  // or for a program that asked for the mouse, which also gets the middle and
+  // secondary buttons; a program holding the lease reads every button and
+  // every move. A finger's drag on the terminal
   // scrolls instead, as a wheel does: its distance in the
   // frame's pixels, so the text follows the finger. Two fingers moving apart
   // or together change the font's size as Ctrl+= and Ctrl+- do, a step for
@@ -428,8 +431,13 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
     const [id, finger] = fingers.entries().next().value ?? [];
     touch = finger ? { id, y: finger.y } : null;
   };
+  // A program holding the lease has every button, and one that asks the
+  // terminal for the mouse, which the terminal shows by the arrow
+  // (src/ghostty/display.c), the middle and secondary too. The browser's
+  // menu and middle-button actions then give way; Shift keeps them.
+  const programHasMouse = event => leased() || (!event.shiftKey && canvas.style.cursor === "default");
   canvas.addEventListener("pointerdown", (event) => {
-    if (!started || (event.button !== 0 && !leased())) return;
+    if (!started || (event.button !== 0 && !leased() && !(event.button <= 2 && programHasMouse(event)))) return;
     if (event.pointerType === "touch" && !leased()) {
       fingers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       touch ??= { id: event.pointerId, y: event.clientY };
@@ -453,7 +461,8 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
     canvas.setPointerCapture(event.pointerId);
     if (leased()) keyboard.blur();
     else keyboard.focus({ preventScroll: true });
-    selecting = true;
+    if (event.button === 0) selecting = true;
+    else held = event.button;
     pushPointer(event, 1);
     event.preventDefault();
   });
@@ -489,8 +498,9 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
   });
   canvas.addEventListener("pointerup", (event) => {
     if (fingers.has(event.pointerId)) lifted(event);
-    if (!started || (!leased() && (!selecting || event.button !== 0))) return;
-    selecting = false;
+    if (!started || (!leased() && !(event.button === 0 ? selecting : event.button === held))) return;
+    if (event.button === 0) selecting = false;
+    else held = -1;
     pushPointer(event, 0);
     if (canvas.hasPointerCapture(event.pointerId)) {
       canvas.releasePointerCapture(event.pointerId);
@@ -498,12 +508,20 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
     event.preventDefault();
   });
   canvas.addEventListener("contextmenu", event => {
-    if (leased()) event.preventDefault();
+    if (programHasMouse(event)) event.preventDefault();
   });
+  // A middle press may start the browser's autoscroll, and its release paste
+  // X11's selection.
+  for (const type of ["mousedown", "mouseup", "auxclick"]) {
+    canvas.addEventListener(type, event => {
+      if (event.button === 1 && programHasMouse(event)) event.preventDefault();
+    });
+  }
   canvas.addEventListener("pointercancel", (event) => {
     if (fingers.has(event.pointerId)) lifted(event);
-    if (selecting) {
+    if (selecting || held >= 0) {
       selecting = false;
+      held = -1;
       pushPointer(event, 0);
     }
   });

@@ -287,10 +287,10 @@ await browserTest("process list", {}, async ({ open }) => {
   await run("! echo x > /proc/processes 2> /dev/null && ! echo x >> /proc/processes 2> /dev/null");
   await run("exec 3< /proc/processes; echo x >&3 2> /dev/null; grep -q \"^$$ \" <&3; listed=$?; exec 3>&-; test $listed = 0 && ! grep -qx x /proc/processes");
   await run("test \"$(ls /proc)\" = processes && test -f /proc/processes && ! test -s /proc/processes && (cd /proc && grep -q \"^$$ \" processes && grep -q \"^$$ \" ../proc/./processes)");
-  // One process a line whatever its arguments hold: a control character is ?, and a line ends after 2047 bytes.
+  // One process a line whatever its arguments hold: a control character is ?, and a line ends after 1023 bytes.
   await run("slop -c 'sleep 100' \"$(printf 'two\\nlines\\033c')\" & until grep -qx \"$! $$ running slop -c sleep 100 two?lines?c\" /proc/processes; do :; done; kill $!; wait");
   await run("slop -c 'sleep 100' $(printf %03000d 0) & until grep -q \"^$! $$ running \" /proc/processes; do :; done; " +
-    "test \"$(grep \"^$! \" /proc/processes | wc -c)\" -eq 2048; cut=$?; kill $!; wait; test $cut = 0");
+    "test \"$(grep \"^$! \" /proc/processes | wc -c)\" -eq 1024; cut=$?; kill $!; wait; test $cut = 0");
   // readlink of /proc/PID/cwd is where a process that has not exited stands.
   await run("cd /tmp; sleep 100 & cd /usr; test \"$(readlink /proc/$!/cwd)\" = /tmp && test \"$(readlink /proc/$$/cwd)\" = /usr; " +
     "found=$?; kill $!; wait; cd /; test $found = 0 && ! readlink /proc/$!/cwd");

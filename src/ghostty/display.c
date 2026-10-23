@@ -191,13 +191,13 @@ static GhosttySelectionGestureEvent selection_press;
 static GhosttySelectionGestureEvent selection_drag;
 static GhosttySelectionGestureEvent selection_release;
 static int32_t scroll_remainder_milli;
-// The primary button as the records tell it, whether its press was reported
-// to the program, and where the pointer last was: a wheel step is reported
+// The button held as the records tell it, whether its press was reported to
+// the program, and where the pointer last was: a wheel step is reported
 // there. Motion is reported once per cell.
 static GhosttyMouseEncoder mouse_encoder;
 static GhosttyMouseEvent mouse_event;
-static bool primary_down;
-static bool primary_reported;
+static GhosttyMouseButton held_button = GHOSTTY_MOUSE_BUTTON_UNKNOWN;
+static bool held_reported;
 static GhosttyMousePosition pointer_position;
 static uint32_t reported_column = UINT32_MAX;
 static uint32_t reported_row = UINT32_MAX;
@@ -628,9 +628,21 @@ static int set_layout(uint32_t width_css, uint32_t height_css,
   return 0;
 }
 
+// Whether the program asked for mouse reports (CSI ? 1000 h and the modes
+// beside it).
+static bool mouse_reporting(void) {
+  bool tracking = false;
+  return ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_MOUSE_TRACKING,
+                              &tracking) == GHOSTTY_SUCCESS && tracking;
+}
+
 static void render_frame(void) {
   if (suspended || terminal == NULL || frames[0] == NULL ||
       frames[1] == NULL) return;
+  // The arrow, as terminals show it, while a program asks for the mouse: the
+  // page then gives the program every button (host/input/input.mjs).
+  __c11_atomic_store(&mailbox->cursor_style, mouse_reporting()
+      ? DOLLY_DISPLAY_CURSOR_DEFAULT : DOLLY_DISPLAY_CURSOR_TEXT, __ATOMIC_RELAXED);
   uint16_t cols = 0;
   uint16_t rows = 0;
   uint16_t cursor_x = 0;
@@ -950,14 +962,6 @@ static int decode_paste(const unsigned char *bytes, size_t size,
   return 0;
 }
 
-// Whether the program asked for mouse reports (CSI ? 1000 h and the modes
-// beside it).
-static bool mouse_reporting(void) {
-  bool tracking = false;
-  return ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_MOUSE_TRACKING,
-                              &tracking) == GHOSTTY_SUCCESS && tracking;
-}
-
 // Writes the report of one press, release or motion at the pointer, in the
 // form the program asked for, where the terminal's replies go. The encoder
 // leaves out what the program's mode does not report.
@@ -976,7 +980,7 @@ static void report_mouse(GhosttyMouseAction action, GhosttyMouseButton button,
       .padding_right = padding_x,
       .padding_left = padding_x,
   };
-  const bool pressed = primary_down || action == GHOSTTY_MOUSE_ACTION_PRESS;
+  const bool pressed = held_button != GHOSTTY_MOUSE_BUTTON_UNKNOWN || action == GHOSTTY_MOUSE_ACTION_PRESS;
   ghostty_mouse_encoder_setopt_from_terminal(mouse_encoder, terminal);
   ghostty_mouse_encoder_setopt(mouse_encoder, GHOSTTY_MOUSE_ENCODER_OPT_SIZE, &size);
   ghostty_mouse_encoder_setopt(mouse_encoder,
@@ -996,10 +1000,10 @@ static void report_mouse(GhosttyMouseAction action, GhosttyMouseButton button,
   reported_row = row;
 }
 
-// A press of the primary button and what follows up to its release go to a
-// program that asked for the mouse, unless Shift is held: then, and while no
-// program asks, they are the terminal's selection. Motion without the button
-// is the program's alone.
+// A press and what follows up to its release go to a program that asked for
+// the mouse, unless Shift is held: then, and while no program asks, the
+// primary button's are the terminal's selection. Motion without a button is
+// the program's alone.
 static int handle_pointer(const dolly_input_event *event) {
   const uint32_t x = event->x > 0 ? (uint32_t)event->x : 0;
   const uint32_t y = event->y > 0 ? (uint32_t)event->y : 0;
@@ -1018,31 +1022,37 @@ static int handle_pointer(const dolly_input_event *event) {
   pointer_position = (GhosttyMousePosition){.x = (float)x, .y = (float)y};
   const bool shifted = (event->modifiers & DOLLY_INPUT_MOD_SHIFT) != 0;
   if (event->action == DOLLY_POINTER_ACTION_PRESS) {
-    primary_down = true;
-    primary_reported = !shifted && mouse_reporting();
-    if (primary_reported) {
+    // The record's button as a browser numbers them: primary, middle, secondary.
+    const uint32_t number = event->flags >> 8;
+    held_button = number == 1 ? GHOSTTY_MOUSE_BUTTON_MIDDLE
+        : number == 2 ? GHOSTTY_MOUSE_BUTTON_RIGHT : GHOSTTY_MOUSE_BUTTON_LEFT;
+    held_reported = !shifted && mouse_reporting();
+    if (held_reported) {
       ghostty_selection_gesture_reset(selection_gesture, terminal);
       (void)ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_SELECTION, NULL);
       frame_dirty = true;
-      report_mouse(GHOSTTY_MOUSE_ACTION_PRESS, GHOSTTY_MOUSE_BUTTON_LEFT,
-                   event->modifiers, column, row);
+      report_mouse(GHOSTTY_MOUSE_ACTION_PRESS, held_button, event->modifiers, column, row);
+      return 0;
+    }
+    // Only the primary button selects.
+    if (held_button != GHOSTTY_MOUSE_BUTTON_LEFT) {
+      held_button = GHOSTTY_MOUSE_BUTTON_UNKNOWN;
       return 0;
     }
   } else if (event->action == DOLLY_POINTER_ACTION_RELEASE) {
-    const bool reported = primary_reported;
-    primary_down = primary_reported = false;
+    const GhosttyMouseButton released = held_button;
+    const bool reported = held_reported;
+    held_button = GHOSTTY_MOUSE_BUTTON_UNKNOWN;
+    held_reported = false;
     if (reported) {
-      report_mouse(GHOSTTY_MOUSE_ACTION_RELEASE, GHOSTTY_MOUSE_BUTTON_LEFT,
-                   event->modifiers, column, row);
+      report_mouse(GHOSTTY_MOUSE_ACTION_RELEASE, released, event->modifiers, column, row);
       return 0;
     }
   } else if (event->action != DOLLY_POINTER_ACTION_DRAG) {
     return -1;
-  } else if (primary_reported || !primary_down) {
-    if (primary_reported || (!shifted && mouse_reporting())) {
-      report_mouse(GHOSTTY_MOUSE_ACTION_MOTION,
-                   primary_down ? GHOSTTY_MOUSE_BUTTON_LEFT : GHOSTTY_MOUSE_BUTTON_UNKNOWN,
-                   event->modifiers, column, row);
+  } else if (held_reported || held_button == GHOSTTY_MOUSE_BUTTON_UNKNOWN) {
+    if (held_reported || (!shifted && mouse_reporting())) {
+      report_mouse(GHOSTTY_MOUSE_ACTION_MOTION, held_button, event->modifiers, column, row);
     }
     return 0;
   }

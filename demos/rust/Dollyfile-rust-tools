@@ -11,9 +11,9 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/Dollyfile-system 6c0c2059228739e65444e1a508cdce9b16b3a0fced5a2c7051351f3ae62cf7da
-INSTALL /v0.1.4/Dollyfile-libdolly-sockets 2d10cb6976fcfa95038cec4bcb35a42ce676a9a172b3ed68be05e8e7bb964c9c
-INSTALL /v0.1.4/demos/rust/Dollyfile-rust fae4118edd6afcb8c7c36bf9084c3c1b1235ce02e922ef2ad25d0e06e0269360
-INSTALL /v0.1.4/demos/rust/Dollyfile-cargo 1167f543077e885769791a4328daebc10506e845e059dbbcf5968b2cea8d2e78
+FROM /v0.1.4/Dollyfile-system f0041963ae2bfb938246a3892954d4eb3bf85f2902ed53eed7aa544ecb4f9839
+INSTALL /v0.1.4/Dollyfile-libdolly-sockets 0013e78ab3e37517307b941d69315ada5e709c7bba60bbf6cf4b920b0f012b13
+INSTALL /v0.1.4/demos/rust/Dollyfile-rust 782dc020a89417ff1d1d63e480d10cb289d71c335f7da07ba1931066acad9225
+INSTALL /v0.1.4/demos/rust/Dollyfile-cargo 43e001159f8e848337806718490cf56c93a7f73edae2e12c5e3ce16443daacbd
 
 ENTRY /bin/foreground -i /bin/slop

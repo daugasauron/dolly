@@ -22,8 +22,10 @@ flowchart LR
   handled ahead of unread keys on the display's tick: reports for a program
   that asked for the mouse, else selection and scrollback
   ([display](display.md#terminal)). The page sends the primary button, every
-  move of the pointer and the wheel; other buttons reach only a program
-  holding the lease. A finger's drag is sent as scroll records at the
+  move of the pointer and the wheel, and while the terminal shows the arrow,
+  a program asking for the mouse, the middle and secondary buttons too: the
+  browser's menu and the middle button's actions then give way, unless
+  Shift is held. Other buttons reach only a program holding the lease. A finger's drag is sent as scroll records at the
   finger's position, so it scrolls where a mouse's drag selects.
   Two fingers moving apart or together are sent as the keys Ctrl+= and
   Ctrl+-, a font size for each 20 CSS px.

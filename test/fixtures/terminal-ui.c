@@ -123,14 +123,15 @@ int main(int argc, char **argv) {
   }
   if (argc > 1 && strcmp(argv[1], "mouse") == 0) {
     // Asks for every motion in SGR form and reads, in this order and in one
-    // cell, the pointer's motion, a press and a release of the primary
-    // button and a wheel step down; then prints the cell.
+    // cell, the pointer's motion, a press and a release of the primary, the
+    // secondary and the middle button and a wheel step down; then prints the
+    // cell.
     const int saved = dolly_terminal_mode_get(0);
     if (saved < 0 || dolly_terminal_mode_set(0, 0) != 0) return 1;
     fputs("\033[?1003h\033[?1006hDOLLY-MOUSE-READY\r\n", stdout);
     fflush(stdout);
-    const unsigned buttons[] = {35, 0, 0, 65};
-    const char finals[] = "MMmM";
+    const unsigned buttons[] = {35, 0, 0, 2, 2, 1, 1, 65};
+    const char finals[] = "MMmMmMmM";
     unsigned column = 0, row = 0;
     int status = 0;
     for (size_t i = 0; i < sizeof(buttons) / sizeof(buttons[0]) && status == 0; ++i) {
