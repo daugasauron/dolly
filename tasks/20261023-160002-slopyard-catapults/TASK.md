@@ -126,6 +126,10 @@ controller errors, the same totals as on 2026-10-02. The sling audit of the same
   loaded head, swinging in its vertical plane, passes through it at its nearest distance,
   instead of any teammate within 7.4 m at any height overlapping the arm.
 - Airborne means 5 m above the terrain under the target, not above the gun's own floor.
+- The Hayabusa ammunition flight supplies every loader it sees from its start, the one with
+  the most empty bays first, instead of only the nearest (its roof sling's): each ground
+  Tengu battery now has air supply besides its recovery truck. In 600 s the Blue Tengu
+  waited 240 s for ammunition instead of 463 s, with enemy aircraft in sight for 378 s.
 
 Rejected on the way: turning Blue's stations half a turn instead of mirroring them. A
 turntable's angle is about its axis regardless of its mounting direction, so the turned
