@@ -55,6 +55,8 @@ target_link_options(dolly PRIVATE
   # export two stack helpers no contract names.
   -sSUPPORT_LONGJMP=0
   -sALLOW_MEMORY_GROWTH=1
+  # Growth asks the runtime (src/libc-host.c).
+  "SHELL:-Wl,--wrap=emscripten_resize_heap"
   -sIMPORTED_MEMORY=1
   -sINITIAL_MEMORY=67108864
   -sMAXIMUM_MEMORY=${DOLLY_KERNEL_MEMORY_MAXIMUM}

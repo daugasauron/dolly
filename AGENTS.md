@@ -125,8 +125,8 @@ Prefer simple serial semantics over multiprocessing or performance machinery.
 - Do not test implementation spelling, user-facing prose or the wording of other
   tests. Keep explicit ABI/capability checks and mocks that exercise real behavior.
 - The core (runtime, host modules and minimal userspace) lives at the top level
-  and never depends on `demos/`. Each demo owns its recipes, sources, staging
-  hook, tests and docs in `demos/DEMO/`.
+  and never depends on `demos/`, the compiler's bootstrap aside (below). Each
+  demo owns its recipes, sources, staging hook, tests and docs in `demos/DEMO/`.
 
 # Porting rules
 
@@ -145,9 +145,12 @@ Prefer simple serial semantics over multiprocessing or performance machinery.
 # Bootstrapping direction
 
 An external toolchain builds the kernel and the seed's libc; the seed's compiler
-is the one the previous seed built inside Dolly (`docs/sources.md`). That
-in-sandbox C/C++ compiler builds ordinary programs into the shared filesystem.
-Keep bootstrap exceptions explicit in `docs/sources.md` or the owning demo's README.
+is the one the previous seed built inside Dolly (`docs/sources.md`). Its recipes
+stay in `demos/llvm`, since building LLVM takes CMake and Python, which are
+demos: the one bootstrap exception to a core that never depends on `demos/`.
+The core reads only the compiler's pin. That in-sandbox C/C++ compiler builds
+ordinary programs into the shared filesystem. Keep bootstrap exceptions explicit
+in `docs/sources.md` or the owning demo's README.
 
 Keeping the Wasm runtime interface, filesystem substrate, lifecycle model, and
 browser network broker small and well defined is the central design priority.

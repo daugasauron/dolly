@@ -78,6 +78,17 @@ export function browser() {
 
 export function worker({ send, runtimeBase, abi, service }) {
   const memory = new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" });
+  // The kernel's memory grows in a Worker of its own (grower.mjs) while this
+  // one waits. Chrome counts a shared memory as external memory of the isolate
+  // that grows it; past twice its heap limit it then collects between every
+  // message of this one, and every system call takes fifteen times as long.
+  const growth = new BigInt64Array(new SharedArrayBuffer(16)), growthWord = new Int32Array(growth.buffer);
+  const grower = new Worker(new URL("./grower.mjs", import.meta.url), { type: "module", name: "dolly-memory" });
+  const growing = new Promise((resolve, reject) => {
+    grower.onmessage = resolve;
+    grower.onerror = event => reject(new Error(event.message || "the kernel memory Worker failed"));
+  });
+  grower.postMessage({ memory, control: growth.buffer });
   let supervisor, threadProvider, terminal;
   // Modules served inside the process Worker of the executables that record
   // them, by requirement: the bundle (a Blob) that Worker imports and the
@@ -91,6 +102,8 @@ export function worker({ send, runtimeBase, abi, service }) {
   };
   return {
     memory,
+    // Before the kernel runs: it must not ask for memory before the Worker that grows it waits.
+    growing,
     get terminal() { return terminal; },
     bindings: {
       "env.memory": memory,
@@ -102,6 +115,13 @@ export function worker({ send, runtimeBase, abi, service }) {
       },
       "env.dolly_clock_realtime": () => Date.now(),
       "env.dolly_clock_monotonic": () => performance.now(),
+      "env.dolly_memory_grow": pages => {
+        growth[1] = pages;
+        Atomics.store(growthWord, 0, 1);
+        Atomics.notify(growthWord, 0);
+        Atomics.wait(growthWord, 0, 1);
+        return growth[1];
+      },
       // Web Crypto rejects views of shared memory: fill a private buffer, then copy.
       "env.dolly_entropy": (address, length) => {
         const bytes = span(address, length, maxEntropy);
@@ -144,6 +164,6 @@ export function worker({ send, runtimeBase, abi, service }) {
     leaseBridge(lease, mailbox, send) {
       return createLeaseBridge(lease, memory, mailbox, send, () => supervisor?.serviceDeferred());
     },
-    dispose() { supervisor?.dispose(); },
+    dispose() { supervisor?.dispose(); grower.terminate(); },
   };
 }

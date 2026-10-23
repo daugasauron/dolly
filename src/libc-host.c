@@ -2,6 +2,7 @@
 // its own state or from a Dolly import (abi/dolly-browser-0.wat), so no WASI
 // or Emscripten name reaches that contract; the build's exact import check
 // fails if a libc update asks for another.
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -48,7 +49,17 @@ __wasi_errno_t __wasi_environ_get(uint8_t **environment, uint8_t *bytes) {
   return __WASI_ERRNO_SUCCESS;
 }
 
-// Memory grows inside Wasm; trusted JavaScript reads memory.buffer at each use.
+// The kernel's memory grows by pages, in a Worker of the runtime's own and never
+// in the one this code runs in (host/runtime/runtime.mjs says why); the old
+// size in pages, or -1. Emscripten's sbrk grows memory only through
+// emscripten_resize_heap, which the link wraps (toolchain/CMakeLists.txt).
+DOLLY_BROWSER_IMPORT(dolly_memory_grow) int64_t dolly_memory_grow(int64_t pages);
+bool __wrap_emscripten_resize_heap(size_t size) {
+  const size_t page = 65536, current = __builtin_wasm_memory_size(0) * page;
+  return size <= current || dolly_memory_grow((int64_t)((size - current + page - 1) / page)) >= 0;
+}
+
+// Trusted JavaScript reads memory.buffer at each use.
 void emscripten_notify_memory_growth(size_t memory) { (void)memory; }
 
 // Emscripten's standalone runtime imports WASI's fd_write and fd_read under
