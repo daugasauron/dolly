@@ -14,7 +14,7 @@ limit stays.
 
 Waits for the owner to read the investigation; lowered from 180 on 2026-10-23 for that reason.
 
-## Closed (2026-10-23, `core/terminal`, `da393e43` and the tmux commit after it)
+## Closed (2026-10-23, `core/terminal`, `da393e43`, `08afdf81`)
 
 Decided as below and used by tmux's `osdep_get_name` and `osdep_get_cwd`.
 Measured in Chromium and Firefox: `test/process-browser.mjs` reads

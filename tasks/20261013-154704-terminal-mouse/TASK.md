@@ -16,7 +16,7 @@ Not now: the owner signed off the recommendation of 2026-10-14 to leave the term
 for later ([next round](../20261012-220109-next-round/TASK.md)); lowered from 230 on 2026-10-23.
 Taken up for 0.1.4 the same evening by the integrator's brief for the terminal.
 
-## Closed (2026-10-23, `core/terminal`, `da393e43` and the tmux commit after it)
+## Closed (2026-10-23, `core/terminal`, `da393e43`, `08afdf81`)
 
 The done-when is met: tmux's click chooses a pane and its wheel scrolls the
 pane under the pointer, in Chromium and Firefox, and the terminal selects
@@ -72,8 +72,10 @@ steps of `test/terminal-browser.mjs` are unchanged and pass).
 - On a phone a finger's drag is a wheel where the mouse last was, and a
   phone has none: under tmux it scrolls the pane at the top left.
 - Also passing after the change, both browsers: `test/display-browser.mjs`,
-  `test/touch-browser.mjs`, `test/process-browser.mjs`. The core suite as a
-  whole was not run (the integrator's).
+  `test/touch-browser.mjs`, `test/process-browser.mjs` and the Emacs demo
+  (its `site-start.el` turns `xterm-mouse-mode` on); the Neovim demo
+  (`mouse=nvi` by upstream's default), which runs in Chromium only. The
+  core suite as a whole was not run (the integrator's).
 
 ## State (2026-10-14, 04:00): investigated, the owner's to read
 
