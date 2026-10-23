@@ -50,6 +50,9 @@ pinned in [`source-pins.sh`](../config/source-pins.sh) (`DOLLY_SEED_COMPILER_*`)
 [`build.sh`](../scripts/build.sh) takes the archive by that SHA-256 alone and
 checks the compiler against `dolly-process-0`.
 
+- The recipes are the one part of the core's bootstrap that lives in a demo:
+  `llvm-tablegen` configures LLVM with CMake and Python, which are demos too.
+  Nothing of the core reads them; it reads the pin alone.
 - A checkout without the archive downloads it from the GitHub release that
   carries it: every release uploads the seed compiler it was built with.
 - Changing the compiler (its driver, the LLVM pin, the libc it links) takes a
