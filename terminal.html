@@ -41,17 +41,17 @@
         // takes the test's settings once.
         const { DOLLY_BOOT: route, DOLLY_HOST_MODULES: named, DOLLY_HTTP_POLICY: policy, DOLLY_HTTP_RELAYS: relays } = globalThis;
         for (const name of ["DOLLY_HOST_MODULES", "DOLLY_HTTP_POLICY", "DOLLY_HTTP_RELAYS"]) delete globalThis[name];
-        let boot, hostManifests;
+        let bootRoute, hostManifests;
         try {
-          [{ boot }, { hostManifests }] = await Promise.all(["src/browser.mjs", "host/manifests.mjs"]
+          [{ bootRoute }, { hostManifests }] = await Promise.all(["src/site.mjs", "host/manifests.mjs"]
             .map(path => import(new URL(path, assets).href)));
         } catch (error) {
           failed(`Dolly failed to load.\n${error instanceof Error ? error.stack ?? error.message : String(error)}`);
         }
         const modules = hostManifests?.filter(({ name, version }) => !named || named.includes(`${name}@${version}`))
           .map(({ url }) => url);
-        // boot() shows its own failure in the terminal.
-        if (boot) window.__dolly = await boot(terminal, { ...route, images: assets.href, site: assets.href, modules,
+        // The route shows its own failure in the terminal.
+        if (bootRoute) window.__dolly = await bootRoute(terminal, { ...route, images: assets.href, site: assets.href, modules,
           http: { policy, relays } }).catch(error => console.error(error));
       } else if ("serviceWorker" in navigator) {
         await navigator.serviceWorker.register(new URL("coi-serviceworker.js", assets), { scope: assets.pathname });

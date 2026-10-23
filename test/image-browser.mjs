@@ -150,8 +150,9 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
 
   // Changing base bytes without changing its recipe invalidates cached and published children.
   assert.deepEqual(await page.evaluate(async ({ system, child }) => {
-    const { loadImageArtifactDescriptor, loadImageArtifact, describeImageArtifact, saveImageArtifact,
-      loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } = await import("/src/image-artifact.mjs");
+    const { loadImageArtifactDescriptor, loadImageArtifact, describeImageArtifact, saveImageArtifact } =
+      await import("/src/image-artifact.mjs");
+    const { loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } = await import("/src/packaged-snapshot.mjs");
     const { decodeSnapshotRecords, encodeSnapshotRecords } = await import("/src/snapshot-records.mjs");
     const { prepareImageArtifacts } = await import("/src/image-build.mjs");
     const { siteReference } = await import("/src/static-asset.mjs");
@@ -181,7 +182,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
     } finally {
       if (!await saveImageArtifact(original, `/${system.dollyfile}`)) throw new Error("cache restoration failed");
     }
-  }, { system: tools, child: system }), { changedBytes: true, staleHit: false, requested: "system", failure: "EXPECTED_REBUILD" });
+  }, { system: tools, child: system }), { changedBytes: true, staleHit: false, requested: "session-recover", failure: "EXPECTED_REBUILD" });
 
   // IndexedDB rollback under an injected quota failure, stale and corrupt
   // payload rejection, atomic concurrent publication, recovery of the exact

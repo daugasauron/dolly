@@ -1,8 +1,5 @@
 import { DOLLY_BUILD_ID } from "../../dist/dolly-build-id.mjs";
-import { DOLLY_IMAGE_BUILD_ID } from "../../dist/dolly-image-build-id.mjs";
-import { DOLLY_IMAGES, imageBase } from "../../src/images.mjs";
-import { loadCustomImage } from "../../src/custom-image.mjs";
-import { sha256 } from "../../src/image-artifact.mjs";
+import { DOLLY_IMAGES } from "../../src/images.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION,
   customSessionIdentity,
@@ -65,7 +62,7 @@ export function mountSessionSave({ keyboard, showStatus, site, indicators }, tra
   const saveButton = document.querySelector("#session-save");
   const dataset = document.documentElement.dataset;
   let base, sessionName = null, lastSave = null, saveError = "";
-  let saving = null, controller = null, rebuiltBaseVerified = false;
+  let saving = null, controller = null;
 
   function update(message) {
     const failed = dataset.sessionStatus === "failed";
@@ -106,16 +103,7 @@ export function mountSessionSave({ keyboard, showStatus, site, indicators }, tra
     if (saving) return saving;
     saving = (async () => {
       if (!base) throw new Error("Dolly is not ready to save a session");
-      if (base.custom) await loadCustomImage(base.custom.source, base.custom.artifact);
-      if (!base.custom && base.systemSnapshot !== null && !rebuiltBaseVerified) {
-        const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(
-          new URL(`dist/dolly-${base.image}-system-snapshot.mjs`, imageBase).href);
-        if (metadata.image !== base.image || metadata.buildId !== DOLLY_IMAGE_BUILD_ID ||
-            metadata.byteLength !== base.systemSnapshot.byteLength || metadata.sha256 !== await sha256(base.systemSnapshot)) {
-          throw new Error("Rebuilt filesystem differs from the prebuilt session base; no session was saved");
-        }
-        rebuiltBaseVerified = true;
-      }
+      await base.verifyBase?.();
       let name = requestedName ?? sessionName;
       if (name === null) {
         name = window.prompt("Save Dolly session as:", "");
@@ -197,10 +185,11 @@ export function mountSessionSave({ keyboard, showStatus, site, indicators }, tra
       return true;
     },
     // custom is the running custom image record (Dollyfile, artifact and
-    // what the tab inherited); systemSnapshot is the rebuilt base, or null
-    // when packaged. The identity names the base a session restores onto.
-    entryStarted({ image, custom, systemSnapshot }) {
-      base = { image, custom, systemSnapshot,
+    // what the tab inherited); verifyBase, given, checks before a save that
+    // the base is still the one the session restores onto (the site's routes,
+    // src/site.mjs). The identity names that base.
+    entryStarted({ image, custom, verifyBase }) {
+      base = { image, custom, verifyBase,
         identity: custom ? customSessionIdentity(custom) : sessionImageIdentity(DOLLY_IMAGES, image) };
       if (restored?.recovering) {
         dataset.sessionStatus = "recovered";

@@ -1,4 +1,5 @@
 import { hostRequirement, hostRequirements } from "../host/requirements.mjs";
+import { unretainedPath, validName } from "./image-names.mjs";
 
 export const MAX_DOLLYFILE_BYTES = 128 * 1024;
 
@@ -134,18 +135,9 @@ function normalizedPath(reference) {
 // The file a recipe's site path names, or "" when the value is not one.
 export const recipeFileName = reference =>
   sitePathSyntax.test(reference) && normalizedPath(reference) ? reference.slice(reference.lastIndexOf("/") + 1) : "";
-// Image names: [a-z][a-z0-9]*(-[a-z0-9]+|\.[0-9]+)*, at most 32 bytes. A dot
-// starts a run of version digits, so a documentation copy such as
-// Dollyfile-example.txt is never a recipe.
-export const validName = name => /^[a-z][a-z0-9]*(?:-[a-z0-9]+|\.[0-9]+)*$/.test(name) && name.length <= 32;
 // The image name a file "Dollyfile" or "Dollyfile-NAME" declares, or "".
 export const imageFileName = file => file === "Dollyfile" ? "default" : file.startsWith("Dollyfile-") ? file.slice(10) : "";
 const roles = { APPLICATION: "application", TOOLCHAIN: "toolchain", PACKAGE: "package" };
-
-// No image retains scratch space.
-export function unretainedPath(value) {
-  return ["/tmp", "/workspace"].some((prefix) => value === prefix || value.startsWith(`${prefix}/`));
-}
 
 function assertObject(tokens, label, item, directive) {
   if (tokens.length < 2 || !objectTypes.has(tokens[0])) {

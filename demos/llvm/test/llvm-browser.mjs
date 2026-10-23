@@ -28,15 +28,43 @@ for (const browser of ["chromium", "firefox"]) {
   });
 }
 
-// The same compiler as the llvm package, installed into a default session
-// beside the seed's: llvm-cc and llvm-c++ give the bytes cc and c++ give.
+// LLVM itself, as the llvm package installs it into a default session: its
+// binary tools read what cc wrote, opt and llc take cc's IR to a program that
+// runs, and a program built against LLVM's libraries with llvm-config runs.
+const builder = `#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Verifier.h"
+#include "llvm/Support/raw_ostream.h"
+int main() {
+  llvm::LLVMContext context;
+  llvm::Module module("built", context);
+  llvm::IRBuilder<> builder(context);
+  auto *answer = llvm::Function::Create(llvm::FunctionType::get(builder.getInt32Ty(), false),
+    llvm::Function::ExternalLinkage, "answer", module);
+  builder.SetInsertPoint(llvm::BasicBlock::Create(context, "entry", answer));
+  builder.CreateRet(builder.getInt32(42));
+  if (llvm::verifyModule(module, &llvm::errs())) return 1;
+  module.print(llvm::outs(), nullptr);
+}
+`;
 for (const browser of ["chromium", "firefox"]) {
-  await demoTest("llvm package", { image: "default", browser, timeout: 600_000 }, async ({ server, open }) => {
+  await demoTest("llvm package", { image: "default", browser, timeout: 900_000 }, async ({ server, open }) => {
     const { run } = await open({ policy: { rules: [{ origin: server.origin, path: "/amy-index.txt", methods: ["GET"] }] } });
     await run("amy install llvm && mkdir /tmp/llvm-test && cd /tmp/llvm-test");
-    await run(writeCommand("main.cpp", cxx.replace('extern "C" int twice(int);', "static int twice(int value) { return 2 * value; }")));
-    await run('llvm-c++ main.cpp -o main && test "$(./main)" = "CXX-OK 12 thrown" && mv main built && c++ main.cpp -o main && cmp main built');
-    await run("echo 'int main(void) { return 0; }' > main.c && llvm-cc -c main.c -o main.o && mv main.o built.o && cc -c main.c -o main.o && cmp main.o built.o");
+    await run("echo 'int twice(int value) { return 2 * value; }' > twice.c && cc -O2 -c twice.c -o twice.o");
+    await run("llvm-nm twice.o | grep -q ' T twice$' && llvm-objdump -d twice.o | grep -q '<twice>:' && " +
+      "llvm-readobj --sections twice.o | grep -q 'Type: CODE'");
+    await run('llvm-ar rc libtwice.a twice.o && llvm-ranlib libtwice.a && test "$(llvm-ar t libtwice.a)" = twice.o');
+    await run(writeCommand("main.c", '#include <stdio.h>\nint twice(int);\nint main(void) { printf("LLC-OK %d\\n", twice(6)); }\n'));
+    // cc writes bitcode when cc1 is asked to (-Xclang); its functions carry cc's target features.
+    await run("cc -O0 -c -Xclang -emit-llvm-bc main.c -o main.bc && opt -O2 main.bc -o main.opt.bc && " +
+      "llvm-dis main.opt.bc -o - | grep -q '@twice' && llc -filetype=obj main.opt.bc -o main.o && " +
+      'cc main.o -L. -ltwice -o main && test "$(./main)" = "LLC-OK 12"');
+    await run('test "$(llvm-config --targets-built)" = WebAssembly && test "$(llvm-config --prefix)" = /usr/lib/llvm');
+    await run(writeCommand("builder.cpp", builder));
+    await run("c++ $(llvm-config --cxxflags) -include endian.h builder.cpp $(llvm-config --ldflags --libs core) -o builder && " +
+      "./builder | grep -q 'ret i32 42'");
     await run("cd / && rm -r /tmp/llvm-test");
   });
 }

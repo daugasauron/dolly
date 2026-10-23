@@ -8,7 +8,8 @@ REQUIRES HOST input@0
 REQUIRES HOST sockets@0
 
 # Build-only: the libraries of Clang, LLD and the WebAssembly backend that the
-# seed compiler links, compiled inside Dolly by its own c++.
+# seed compiler links, compiled inside Dolly by its own c++, then the rest of
+# LLVM in the same tree for the llvm package.
 FROM /v0.1.4/demos/llvm/Dollyfile-llvm-tablegen aa4c88f552d697203fe092bf657b26b66ab345bdaaf995f431ce13805c044f24
 REQUIRES TOOL llvm-tblgen
 REQUIRES TOOL clang-tblgen
@@ -76,5 +77,23 @@ SLOP CWD /tmp/llvm-build slop -c 'mkdir -p /usr/lib/llvm-build/lib && cp lib/*.a
 SLOP CWD /tmp/llvm-build slop -c 'for f in $(find include tools/clang/include tools/lld/include -name CMakeFiles -prune -o -type f \( -name "*.inc" -o -name "*.def" -o -name "*.h" \) -print); do mkdir -p "/usr/lib/llvm-build/${f%/*}"; cp "$f" "/usr/lib/llvm-build/$f"; done'
 
 FOLDER /usr/lib/llvm-build
+
+# LLVM itself, for the llvm package, in the same tree once the compiler's
+# archives above are kept, which this leaves as they are: every library, the
+# headers, llvm-config and the tools, under /usr/lib/llvm. Configured again for
+# that alone: the install prefix, tools linked without their names as the
+# compiler is, and no shared libraries (they link with version scripts, which
+# wasm-ld has not). The objects stay as they are.
+SLOP time cmake -DCMAKE_INSTALL_PREFIX=/usr/lib/llvm -DCMAKE_EXE_LINKER_FLAGS=-Wl,--strip-all \
+  -DLLVM_TOOL_LTO_BUILD=OFF -DLLVM_TOOL_REMARKS_SHLIB_BUILD=OFF /tmp/llvm-build
+SLOP CWD /tmp/llvm-build time make -k -j4 llvm-libraries
+# Two jobs: a tool's link holds most of LLVM at once.
+SLOP CWD /tmp/llvm-build time make -k -j2 install-llvm-libraries install-llvm-headers install-llvm-config \
+  install-llvm-ar install-llvm-ranlib install-llvm-nm install-llvm-objdump install-llvm-readobj install-llvm-readelf \
+  install-llvm-objcopy install-llvm-strip install-llvm-size install-llvm-strings install-llvm-symbolizer \
+  install-llvm-addr2line install-llvm-dwarfdump install-llvm-cxxfilt install-llvm-mc install-llvm-as install-llvm-dis \
+  install-llvm-link install-opt install-llc
+FOLDER /usr/lib/llvm
+SLOP /usr/lib/llvm/bin/llvm-config --version --targets-built
 
 ENTRY /bin/foreground -i /bin/slop

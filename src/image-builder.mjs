@@ -25,7 +25,7 @@ export async function buildImage(image, artifacts, configuration, report, { cust
   const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
   try {
     signal?.throwIfAborted();
-    worker = new Worker(new URL("./runtime-worker.mjs", import.meta.url), {
+    worker = new Worker(new URL("./build-worker.mjs", import.meta.url), {
       type: "module", name: `dolly-build-${image}`,
     });
     result = await new Promise((resolve, reject) => {

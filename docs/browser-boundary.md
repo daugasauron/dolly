@@ -221,9 +221,26 @@ Worker URL.
 | Indicator visibility | The GPU indicator, Save button and download offers hide ten seconds after the page is ready and on the user's `Ctrl+Shift+F`, which is not delivered as input. Page state shows them again (a new adapter state, a save, an offer); the one guest request among these is the bounded download offer, which shows them and can hide nothing ([`page-indicators.mjs`](../src/page-indicators.mjs)) |
 | Image ending | Once the ENTRY process is gone, page text below the last frame says how it ended: its exit status or signal number, or one line of its failure (printable ASCII, 512 bytes; the stack goes to the console). The page sets it as text and parses none of it; a running program can draw a lookalike but cannot cover, change or remove the notice. A module may add a link it builds itself, as `snapshot@0` does for the session the tab saved ([`browser.mjs`](../src/browser.mjs)) |
 | Image cache | Verified artifacts in IndexedDB, 32 images and 8 GiB ([`image-artifact.mjs`](../src/image-artifact.mjs)) |
-| Boot and code loading | Fixed kernel artifacts only ([`runtime-worker.mjs`](../src/runtime-worker.mjs)): the kernel and, for a root build, the compiler seed, a snapshot the kernel restores itself; one bundled process Worker; the plugin loader links an explicit kernel export map and fetches nothing |
+| Boot and code loading | Fixed kernel artifacts only ([`worker-image.mjs`](../src/worker-image.mjs)): the kernel and, for a root build, the compiler seed, a snapshot the kernel restores itself; one bundled process Worker; the plugin loader links an explicit kernel export map and fetches nothing |
 | Process entry | The supervisor measures, with a recursion of its own, whether `WebAssembly.promising` gives a stack half again as deep; where it does, the process Worker calls through it the entry of an executable that carries a `dolly.process.stack` section (the compiler alone), only for that stack ([browser stack](browser-stack.md)). No import is `Suspending`, so the call still runs to completion before the Worker handles anything else ([`process-supervisor.mjs`](../src/process-supervisor.mjs), [`process-worker.mjs`](../src/process-worker.mjs)) |
 | Clocks, entropy, CPU and memory use | Inputs and availability effects only; the kernel grows its own memory up to its declared maximum, and its abort is a Wasm trap |
+
+## Trusted files
+
+Beside the host modules (each one's directory, named by its manifest), these
+are the trusted files a page and its runtime Worker load; a process Worker
+loads the bundle of [`process-worker.mjs`](../src/process-worker.mjs) and the
+modules it serves. The rest of what a page fetches is data: the catalog, image
+metadata and packs, recipes and sources.
+
+| Part | Files |
+| --- | --- |
+| Page | [`browser.mjs`](../src/browser.mjs) (`boot()`), [`site.mjs`](../src/site.mjs) (the site's routes), [`terminal-text.mjs`](../src/terminal-text.mjs), [`build-log.mjs`](../src/build-log.mjs), [`page-chords.mjs`](../src/page-chords.mjs), [`page-indicators.mjs`](../src/page-indicators.mjs), [`coi-serviceworker.js`](../coi-serviceworker.js) (isolation where a host sends no headers) |
+| Registry | [`modules.mjs`](../host/modules.mjs), [`manifests.mjs`](../host/manifests.mjs) (the site's list), [`requirements.mjs`](../host/requirements.mjs), [`abi.mjs`](../host/abi.mjs) |
+| Images | [`images.mjs`](../src/images.mjs), [`packaged-snapshot.mjs`](../src/packaged-snapshot.mjs), [`image-inputs.mjs`](../src/image-inputs.mjs), [`snapshot-records.mjs`](../src/snapshot-records.mjs), [`image-entry.mjs`](../src/image-entry.mjs), [`static-asset.mjs`](../src/static-asset.mjs), [`version.mjs`](../src/version.mjs) |
+| Runtime Worker | [`worker-image.mjs`](../src/worker-image.mjs), [`runtime-worker.mjs`](../src/runtime-worker.mjs) (boot()'s), [`build-worker.mjs`](../src/build-worker.mjs) (the site's), [`process-supervisor.mjs`](../src/process-supervisor.mjs), [`kernel-plugin.mjs`](../src/kernel-plugin.mjs), [`process-abi.mjs`](../src/process-abi.mjs), [`wasm-interface.mjs`](../src/wasm-interface.mjs), [`process-constants.mjs`](../src/process-constants.mjs) |
+| Building and custom images, the site's alone | [`image-build.mjs`](../src/image-build.mjs), [`image-builder.mjs`](../src/image-builder.mjs), [`image-artifact.mjs`](../src/image-artifact.mjs), [`custom-image.mjs`](../src/custom-image.mjs), [`dollyfile-view.mjs`](../src/dollyfile-view.mjs), [`dollyfile-graph.mjs`](../src/dollyfile-graph.mjs) |
+| Sessions | [`session-store.mjs`](../src/session-store.mjs), [`session-file.mjs`](../src/session-file.mjs), [`sessions.mjs`](../src/sessions.mjs) (the site's list), [`alphabetical.mjs`](../src/alphabetical.mjs) |
 
 ## The page's handle
 

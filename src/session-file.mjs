@@ -1,5 +1,6 @@
 import { DOLLY_SESSION_MAX_BYTES, DOLLY_SESSION_METADATA_MAX_BYTES as metadataLimit,
   validateSessionRecord, decodeSessionSnapshot } from "./session-store.mjs";
+import { inspectDollyfile } from "./dollyfile-view.mjs";
 import { sha256 } from "./static-asset.mjs";
 import { DOLLY_VERSION } from "./version.mjs";
 
@@ -45,6 +46,7 @@ export async function importSessionFile(file) {
   const record = { name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding, bytes,
     ...(customImage === undefined ? {} : { customImage }) };
   validateSessionRecord(record);
+  if (record.customImage) inspectDollyfile(record.customImage.source);
   if (await sha256(bytes) !== metadata.sha256) throw new Error("Session file checksum failed; the file is damaged");
   const decoded = await decodeSessionSnapshot(record);
   if (decoded.byteLength < 16) throw new Error("Session file contains an incomplete snapshot");

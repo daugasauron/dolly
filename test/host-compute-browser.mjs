@@ -35,7 +35,7 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
         resources: { applicationBase: new URL("/", location.href), indicators: { hold: holdIndicators, show: showIndicators } },
         configuration: { http: { network: await headlessNetwork() } } });
       try {
-        worker = new Worker("/src/runtime-worker.mjs", { type: "module" });
+        worker = new Worker("/src/build-worker.mjs", { type: "module" });
         const exited = new Promise((resolve, reject) => {
           worker.onerror = event => reject(Error(event.message));
           worker.onmessage = ({ data: message }) => {

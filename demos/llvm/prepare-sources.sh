@@ -63,9 +63,7 @@ if has_image llvm-cc; then
   copy_static build/generated/dolly-kernel-plugin-abi-digest.h llvm/dolly-kernel-plugin-abi-digest.h
 fi
 if has_image llvm; then
-  for project in llvm clang lld; do
-    copy_static "${project_dir}/.cache/llvm-project/${project}/LICENSE.TXT" "llvm/licenses/${project}"
-  done
+  copy_static "${project_dir}/.cache/llvm-project/llvm/LICENSE.TXT" llvm/licenses/llvm
 fi
 if has_image llvm-runtimes; then
   # The runtime sources at the Emscripten pin, read from the checkout's objects

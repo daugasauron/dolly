@@ -2,7 +2,7 @@
 import { spawn } from "node:child_process";
 import { access } from "node:fs/promises";
 import { resolve } from "node:path";
-import { validName } from "../src/dollyfile-view.mjs";
+import { validName } from "../src/image-names.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const arguments_ = process.argv.slice(2);

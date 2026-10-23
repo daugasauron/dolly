@@ -1,6 +1,6 @@
 # Dolly as npm packages: a minimal core, and a default package with the terminal
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: core,packaging,0.1.4
 
@@ -97,3 +97,36 @@ dolly-NAME and dolly-default has too similar names for something thats very diff
 packages are `@daugasauron/dolly` (the runtime), `@daugasauron/dolly-host-NAME` (one host
 module each) and `@daugasauron/dolly-image-NAME` (`dolly-image-default`), as the repository
 lays them out (`host/NAME`, images).
+
+## Closed (2026-10-23, `core/runtime-cleanup`): the site's code is out of the runtime package
+
+The owner's step 3 of the core audit (`tasks/20261023-200000-core-audit`, decided by the
+integrator): `@daugasauron/dolly` holds only what an embedding runs.
+
+- Page: `src/browser.mjs` is `boot(element, { images, image, modules, site, http })` for an image
+  of the image directory, and `run()`, which `src/site.mjs` uses for the site's routes (a rebuild,
+  a custom image, a saved session), with the route's steps as one object (`run()`'s comment).
+  `terminal.html` boots through `site.mjs`. `boot()` has no `mode` or `loadSession` any more.
+- Worker: `src/worker-image.mjs` is what every runtime Worker does around its image (configure,
+  host modules, kernel, ENTRY); `src/runtime-worker.mjs` restores an image from its packs,
+  `src/build-worker.mjs` builds one or restores a custom one, for the site and the image builder.
+- `src/image-artifact.mjs` split: `src/packaged-snapshot.mjs` (an image directory's metadata and
+  packs, which `packages@0` also reads) and the site's image cache. `validName` and
+  `unretainedPath` moved to `src/image-names.mjs` (Studio stages it). `snapshot@0` checks a
+  session's base through `verifyBase`, which the site's route gives `entryStarted`; it no longer
+  imports the custom-image or rebuild code. `session-store.mjs` checks a custom record's shape;
+  `session-file.mjs` (the site's import) and the custom route parse its Dollyfile.
+- Measured: the runtime package's module closure 6,177 lines in 61 files before, 5,222 in 58
+  after (the grower Worker of `e0899966` included); its tarball 172,794 B, 68 files; no file of
+  `dollyfile-view`, `dollyfile-graph`, `image-build`, `image-builder`, `custom-image`, the cache,
+  `site`, `build-worker` or `host/manifests` in it. Trusted JavaScript in total grows by about 70
+  lines for the seam (the route object, the Worker skeleton).
+- Passed in Chromium and Firefox: `test/npm-browser.mjs`, `core`, `custom-session` (custom rebuild,
+  custom run, `/system/rebuild/`, sessions), `threads` (custom rebuild), `host-compute` (the build
+  Worker without a page), `host-modules`, `nena`, `process`. `test/image-browser.mjs` fails, before
+  and after the change alike (run on `ba0f7f34`'s page code): its rebuild expectations predate
+  `system` installing packages (`session-recover`, `core`, `cc`, `make`, `posix`, `ninja`); the
+  first one is updated here, the pack list of a fresh rebuild is not.
+- `docs/deployment.md`'s release list has the npm packages (steps 3 and 5). Publishing waits for
+  the owner's `daugasauron` scope, as `scripts/release-checklist.sh` prints.
+

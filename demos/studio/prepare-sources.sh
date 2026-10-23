@@ -6,6 +6,7 @@ if has_image dollyfile-studio; then
     demos/studio/lint.mjs /usr/share/dollyfile-studio/lint.mjs \
     demos/studio/build.mjs /usr/share/dollyfile-studio/build.mjs \
     src/dollyfile-view.mjs /usr/share/dollyfile-studio/src/dollyfile-view.mjs \
+    src/image-names.mjs /usr/share/dollyfile-studio/src/image-names.mjs \
     host/requirements.mjs /usr/share/dollyfile-studio/host/requirements.mjs \
     host/abi.mjs /usr/share/dollyfile-studio/host/abi.mjs \
     src/static-asset.mjs /usr/share/dollyfile-studio/src/static-asset.mjs \

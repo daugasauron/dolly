@@ -1,5 +1,5 @@
 import { DOLLY_IMAGES } from "../../src/images.mjs";
-import { loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } from "../../src/image-artifact.mjs";
+import { loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } from "../../src/packaged-snapshot.mjs";
 import { MAX_SNAPSHOT_BYTES } from "../../src/snapshot-records.mjs";
 
 const PACKAGES_ORIGIN = "https://packages.dolly.invalid";

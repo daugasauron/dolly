@@ -1,7 +1,8 @@
 import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { siteReference } from "../src/static-asset.mjs";
-import { imageFileName, validName } from "../src/dollyfile-view.mjs";
+import { imageFileName } from "../src/dollyfile-view.mjs";
+import { validName } from "../src/image-names.mjs";
 
 // Recipes are published at their checkout path: core images at the top
 // level, each demo's in demos/DEMO/. Returns site reference ->
