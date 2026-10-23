@@ -4,7 +4,7 @@
 // filesystem. Usage: node demos/xonotic/test/xonotic-browser.mjs
 // DOLLY_BROWSER=firefox runs it in Firefox.
 import assert from "node:assert/strict";
-import { delay, demoTest } from "../../browser.mjs";
+import { delay, demoTest, snapshotDisplay, waitForDisplay } from "../../browser.mjs";
 
 const archives = ["xonotic-20230620-data.pk3", "xonotic-20230620-maps.pk3"];
 const fonts = ["font-xolonium-20230620.pk3", "font-unifont-20230620.pk3"];
@@ -66,8 +66,8 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser:
   const client = start(`cd ${basedir} && xonotic-sdl -xonotic -basedir ${basedir} ` +
     "+vid_soft 1 +vid_soft_threads 1 +vid_fullscreen 0 +vid_width 1024 +vid_height 768 +defer 40 quit");
   await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
-  const painted = await page.waitForFunction(() => {
-    const canvas = document.querySelector("#display");
+  const painted = await waitForDisplay(page, () => {
+    const canvas = displaySnapshot;
     if (canvas.width !== 1024 || canvas.height !== 768) return false;
     const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
     let lit = 0;
@@ -75,7 +75,7 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser:
     const fraction = lit / (canvas.width * canvas.height);
     return fraction > 0.02 && fraction < 0.98 ? { fraction } : false;
   }, null, { timeout: 120_000, polling: 500 });
-  console.log(`xonotic: client frame at 1024x768, lit fraction ${(await painted.jsonValue()).fraction.toFixed(3)}`);
+  console.log(`xonotic: client frame at 1024x768, lit fraction ${painted.fraction.toFixed(3)}`);
   assert.equal(await client.done, 0, "the client must quit back to the shell");
   assert.equal(await page.evaluate(() => __dolly.transport.graphicsActive()), false, "the display is released");
   await run("echo SHELL-BACK");
@@ -132,8 +132,9 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser:
   // noted when it comes (the scripted observer's view can stay still).
   const frames = [];
   for (let attempt = 0; attempt < 20 && frames.length < 2; attempt++, await delay(2000)) {
+    await snapshotDisplay(page);
     const digest = await page.evaluate(() => {
-      const canvas = document.querySelector("#display");
+      const canvas = displaySnapshot;
       if (canvas.width !== 1024 || canvas.height !== 768) return null;
       const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
       let lit = 0, sum = 0;

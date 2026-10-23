@@ -64,23 +64,27 @@ async function openImage(browser, origin, image, { policy, prompt = shellPrompt,
 
 // What the display shows, as pixels: the canvas is painted from a Worker, so
 // the page reads none of it. A screenshot of #display, decoded in the page into
-// globalThis.displaySnapshot, a canvas of its size.
+// globalThis.displaySnapshot, a canvas of the display's own pixel size (a frame
+// smaller than its box is shown stretched; the snapshot takes it back).
 export async function snapshotDisplay(page) {
   const png = (await page.locator("#display").screenshot({ scale: "css" })).toString("base64");
   await page.evaluate(async png => {
     const bytes = Uint8Array.from(atob(png), character => character.charCodeAt(0));
     const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }), { colorSpaceConversion: "none" });
-    const canvas = globalThis.displaySnapshot = Object.assign(document.createElement("canvas"),
-      { width: bitmap.width, height: bitmap.height });
-    canvas.getContext("2d", { willReadFrequently: true }).drawImage(bitmap, 0, 0);
+    const { width, height } = document.querySelector("#display");
+    const canvas = globalThis.displaySnapshot = Object.assign(document.createElement("canvas"), { width, height });
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    context.imageSmoothingEnabled = false;
+    context.drawImage(bitmap, 0, 0, width, height);
   }, png);
 }
 
-// Resolves once predicate(arg), run in the page, holds of a new snapshot.
-export async function waitForDisplay(page, predicate, arg) {
-  for (const deadline = Date.now() + 30000; ;) {
+// Resolves to what predicate(arg), run in the page, returns once it is truthy of a new snapshot.
+export async function waitForDisplay(page, predicate, arg, { timeout = 30000 } = {}) {
+  for (const deadline = Date.now() + timeout; ;) {
     await snapshotDisplay(page);
-    if (await page.evaluate(predicate, arg)) return;
+    const value = await page.evaluate(predicate, arg);
+    if (value) return value;
     if (Date.now() > deadline) throw new Error("the display never showed what was awaited");
     await new Promise(resolve => setTimeout(resolve, 50));
   }

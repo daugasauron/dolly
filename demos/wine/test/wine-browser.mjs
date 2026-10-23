@@ -16,24 +16,24 @@
 import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
 import { createServer } from "node:http";
-import { delay, demoTest, shellPrompt } from "../../browser.mjs";
+import { delay, demoTest, shellPrompt, snapshotDisplay, waitForDisplay } from "../../browser.mjs";
 
 const evidence = new URL("../../../build/wine-evidence/", import.meta.url).pathname;
 const desktop = [58, 110, 165], face = [212, 208, 200], white = [255, 255, 255], black = [0, 0, 0];
 
 const frameSize = page => page.evaluate(() => [document.querySelector("#display").width, document.querySelector("#display").height]);
 // Waits until the frame pixel (x, y) has (or, with `not`, no longer has) a colour.
-const pixelIs = (page, x, y, colour, not = false) => page.waitForFunction(([x, y, colour, not]) => {
+const pixelIs = (page, x, y, colour, not = false) => waitForDisplay(page, ([x, y, colour, not]) => {
   if (!__dolly.transport.graphicsActive()) return false;
-  const data = document.querySelector("#display").getContext("2d").getImageData(x, y, 1, 1).data;
+  const data = displaySnapshot.getContext("2d").getImageData(x, y, 1, 1).data;
   return ([...data].slice(0, 3).join() === colour.join()) !== not;
 }, [x, y, colour, not], { timeout: 60_000, polling: 200 });
-const dark = (page, x, y, width, height) => page.evaluate(([x, y, width, height]) => {
-  const data = document.querySelector("#display").getContext("2d").getImageData(x, y, width, height).data;
+const dark = (page, x, y, width, height) => snapshotDisplay(page).then(() => page.evaluate(([x, y, width, height]) => {
+  const data = displaySnapshot.getContext("2d").getImageData(x, y, width, height).data;
   let count = 0;
   for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] < 200) count++;
   return count;
-}, [x, y, width, height]);
+}, [x, y, width, height]));
 // Page coordinates of a frame pixel: the canvas may be shown at another size than the frame.
 async function at(page, x, y) {
   const box = await page.locator("#display").boundingBox();
@@ -61,8 +61,8 @@ async function serveNetsurfFixtures(request, response, path, headers) {
   return true;
 }
 // The pixels of the frame near a colour: how many, and the box around them.
-const coloured = (page, colour, tolerance = 0) => page.evaluate(([colour, tolerance]) => {
-  const canvas = document.querySelector("#display"), { width, height } = canvas;
+const coloured = (page, colour, tolerance = 0) => snapshotDisplay(page).then(() => page.evaluate(([colour, tolerance]) => {
+  const canvas = displaySnapshot, { width, height } = canvas;
   const data = canvas.getContext("2d").getImageData(0, 0, width, height).data;
   const found = { count: 0, left: width, top: height, right: -1, bottom: -1 };
   for (let y = 0, i = 0; y < height; y++) for (let x = 0; x < width; x++, i += 4) {
@@ -73,10 +73,10 @@ const coloured = (page, colour, tolerance = 0) => page.evaluate(([colour, tolera
     found.top = Math.min(found.top, y); found.bottom = Math.max(found.bottom, y);
   }
   return found;
-}, [colour, tolerance]);
+}, [colour, tolerance]));
 // The rows of text in a strip of the frame: runs of lines with dark pixels.
-const textRows = (page, x, y, width, height) => page.evaluate(([x, y, width, height]) => {
-  const data = document.querySelector("#display").getContext("2d").getImageData(x, y, width, height).data;
+const textRows = (page, x, y, width, height) => snapshotDisplay(page).then(() => page.evaluate(([x, y, width, height]) => {
+  const data = displaySnapshot.getContext("2d").getImageData(x, y, width, height).data;
   let rows = 0, blank = 3;
   for (let line = 0; line < height; line++) {
     let ink = false;
@@ -85,7 +85,7 @@ const textRows = (page, x, y, width, height) => page.evaluate(([x, y, width, hei
     blank = ink ? 0 : blank + 1;
   }
   return rows;
-}, [x, y, width, height]);
+}, [x, y, width, height]));
 async function until(check, what, timeout = 60_000) {
   for (const deadline = Date.now() + timeout; Date.now() < deadline; await delay(200)) {
     const result = await check();
@@ -132,16 +132,16 @@ async function terminal(page, prompt, start, waitText) {
   const [width, height] = await frameSize(page);
   const enter = async (line, wait = 700) => { await page.keyboard.type(line, { delay: 15 }); await page.keyboard.press("Enter"); await delay(wait); };
   // The console's lit pixels: its text.
-  const lit = () => page.evaluate(() => {
-    const data = document.querySelector("#display").getContext("2d").getImageData(4, 23, 560, 446).data;
+  const lit = () => snapshotDisplay(page).then(() => page.evaluate(() => {
+    const data = displaySnapshot.getContext("2d").getImageData(4, 23, 560, 446).data;
     let count = 0;
     for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] > 384) count++;
     return count;
-  });
+  }));
   // The x86-64 sample's window, in the middle of the screen: its yellow text, and a point of it beside the console.
   const sample = [(width - 360) >> 1, (height - 240) >> 1], beside = [sample[0] + 300, sample[1] + 150];
-  const sampleText = () => page.evaluate(([x, y]) => {
-    const data = document.querySelector("#display").getContext("2d").getImageData(x, y, 360, 240).data;
+  const sampleText = () => snapshotDisplay(page).then(() => page.evaluate(([x, y]) => {
+    const data = displaySnapshot.getContext("2d").getImageData(x, y, 360, 240).data;
     let count = 0, left = 360, right = 0;
     for (let i = 0; i < data.length; i += 4) if (data[i] > 200 && data[i + 1] > 200 && data[i + 2] < 150) {
       count++;
@@ -149,7 +149,7 @@ async function terminal(page, prompt, start, waitText) {
       right = Math.max(right, (i >> 2) % 360);
     }
     return { count, width: right - left };
-  }, sample);
+  }, sample));
   // The console takes the keyboard when clicked, once its thread has heard of it: a key sooner than that is nobody's.
   const toConsole = async () => { await click(page, 200, 200); await delay(300); };
   const closeSample = async () => {
@@ -601,12 +601,12 @@ async function run(page, prompt, start, waitText) {
   // pixels apart, by name: shortcuts to Command Prompt, File Manager, GIMP, the x86-64 sample, NetSurf,
   // Notepad and Paint, README.txt, and a shortcut to Winemine.
   const highlight = [10, 36, 106];
-  const inCell = (index, counted) => page.evaluate(([top, colour, same]) => {
-    const data = document.querySelector("#display").getContext("2d").getImageData(0, top, 75, 75).data;
+  const inCell = (index, counted) => snapshotDisplay(page).then(() => page.evaluate(([top, colour, same]) => {
+    const data = displaySnapshot.getContext("2d").getImageData(0, top, 75, 75).data;
     let count = 0;
     for (let i = 0; i < data.length; i += 4) if ((data[i] === colour[0] && data[i + 1] === colour[1] && data[i + 2] === colour[2]) === same) count++;
     return count;
-  }, [75 * index, counted ?? desktop, counted !== undefined]);
+  }, [75 * index, counted ?? desktop, counted !== undefined]));
   const selected = async () => { const cells = []; for (let index = 0; index < 9; index++) cells.push(await inCell(index, highlight) > 30); return cells.map(Number).join(""); };
   for (let index = 0; index < 9; index++) assert.ok(await inCell(index) > 300, `icon ${index} is drawn`);
   await page.screenshot({ path: `${evidence}shortcuts.png` });
@@ -651,8 +651,8 @@ async function run(page, prompt, start, waitText) {
   await page.mouse.down();
   await page.mouse.move(...await at(page, 500, 450), { steps: 15 });
   await page.mouse.up();
-  await page.waitForFunction(() => {
-    const data = document.querySelector("#display").getContext("2d").getImageData(170, 200, 390, 290).data;
+  await waitForDisplay(page, () => {
+    const data = displaySnapshot.getContext("2d").getImageData(170, 200, 390, 290).data;
     let count = 0;
     for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] < 200) count++;
     return count > 150;
@@ -673,8 +673,8 @@ async function run(page, prompt, start, waitText) {
   const left = (width - 360) >> 1, top = (height - 240) >> 1;
   await startMenu("h");
   await pixelIs(page, left + 40, top + 60, black);
-  await page.waitForFunction(([x, y]) => {
-    const data = document.querySelector("#display").getContext("2d").getImageData(x, y, 360, 240).data;
+  await waitForDisplay(page, ([x, y]) => {
+    const data = displaySnapshot.getContext("2d").getImageData(x, y, 360, 240).data;
     let count = 0;
     for (let i = 0; i < data.length; i += 4) if (data[i] > 200 && data[i + 1] > 200 && data[i + 2] < 150) count++;
     return count > 40;
@@ -690,8 +690,8 @@ async function run(page, prompt, start, waitText) {
   await pixelIs(page, 100, 100, white);
   await click(page, 100, 100);
   await page.keyboard.type("Dolly runs Wine: (4.0.4) [wasm64]", { delay: 20 });
-  await page.waitForFunction(() => {
-    const data = document.querySelector("#display").getContext("2d").getImageData(12, 49, 400, 30).data;
+  await waitForDisplay(page, () => {
+    const data = displaySnapshot.getContext("2d").getImageData(12, 49, 400, 30).data;
     let count = 0;
     for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] < 200) count++;
     return count > 300;
@@ -710,15 +710,15 @@ async function run(page, prompt, start, waitText) {
   };
   const along = async points => { const seen = new Set(); for (const [x, y] of points) seen.add(await cursorAt(x, y)); return seen; };
   const steps = [...Array(24).keys()].map(step => step * 2);
-  const [, , right, bottom] = await page.evaluate(() => {
+  const [, , right, bottom] = await snapshotDisplay(page).then(() => page.evaluate(() => {
     // Notepad's window is the face-coloured frame from the top left corner: down its left border, then along its bottom one.
-    const canvas = document.querySelector("#display"), context = canvas.getContext("2d");
+    const canvas = displaySnapshot, context = canvas.getContext("2d");
     const face = (x, y) => context.getImageData(x, y, 1, 1).data.slice(0, 3).join() === "212,208,200";
     let right = 2, bottom = 0;
     for (let y = 0; y < canvas.height - 40; y++) if (face(2, y)) bottom = y; else if (y > bottom + 40) break;
     while (right + 1 < canvas.width && face(right + 1, bottom)) right++;
     return [0, 0, right, bottom];
-  });
+  }));
   assert.ok((await along(steps.map(step => [right - 24 + step, 300]))).has("ew-resize"), "no resize arrow over Notepad's right edge");
   assert.ok((await along(steps.map(step => [300, bottom - 24 + step]))).has("ns-resize"), "no resize arrow over Notepad's bottom edge");
   const corner = await along(steps.map(step => [right - 24 + step, bottom - 24 + step]));

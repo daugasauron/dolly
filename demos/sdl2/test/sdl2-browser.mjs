@@ -1,7 +1,7 @@
 // The sdl2 package installed on `system`: a source build, RGB565 presentation,
 // text and key input, clicks, pointer presence and blur. Usage: node demos/sdl2/test/sdl2-browser.mjs
 import assert from "node:assert/strict";
-import { demoTest, installProbe } from "../../browser.mjs";
+import { demoTest, installProbe, waitForDisplay } from "../../browser.mjs";
 
 await demoTest("sdl2", { image: "sdl2", timeout: 600_000,
   server: { fixtures: { "sdl2-probe.c": "demos/sdl2/test/fixtures/sdl2-probe.c" } } }, async ({ server, open }) => {
@@ -19,10 +19,10 @@ await demoTest("sdl2", { image: "sdl2", timeout: 600_000,
 
   let probe = start("./probe input");
   await displayActive();
-  await page.waitForFunction(() => {
+  await waitForDisplay(page, () => {
     const canvas = document.querySelector("canvas");
     if (canvas.width !== 320 || canvas.height !== 240) return false;
-    const context = canvas.getContext("2d");
+    const context = displaySnapshot.getContext("2d");
     return JSON.stringify([[80, 60], [240, 60], [80, 180], [240, 180]].map(([x, y]) => [...context.getImageData(x, y, 1, 1).data]))
       === "[[255,0,0,255],[0,255,0,255],[0,0,255,255],[255,255,255,255]]";
   });
