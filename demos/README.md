@@ -13,6 +13,7 @@ README. Demos may use each other; the core never uses a demo.
 - [fingers](fingers/README.md): a figure that fingers on a touchscreen move and zoom, through SDL2's finger events.
 - [game-agent](game-agent/README.md): agent code and the Codex relay shared by the games.
 - [ghostty-gtk](ghostty-gtk/README.md): Ghostty's GTK application on Dolly's X server: its window, its OpenGL renderer on Mesa and a shell.
+- [go](go/README.md): the Go toolchain ported to `GOOS=dolly GOARCH=wasm64` (in progress).
 - [gpu-fluid](gpu-fluid/README.md): an upstream WebGPU fluid solver.
 - [gtk](gtk/README.md): the libraries GTK is built on, GLib and PCRE2, as packages; GObject programs pass through Binaryen's cast emulation.
 - [javascript](javascript/README.md): QuickJS-ng, Janis and TypeScript, each a package.

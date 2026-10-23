@@ -24,3 +24,56 @@ toolchain rebuilt inside Dolly equals its seed (or the difference is understood 
 recorded); `gofmt` and one pure-Go tool agents use run; a browser test proves it in
 Chromium and Firefox; `demos/go/README.md` names the bootstrap exception and the patches.
 Each step's measurements are recorded here as they are made.
+
+## State (2026-10-23)
+
+Step 1 done: memory64 in Go's wasm backend and linker as `GOARCH=wasm64`, proven on the host
+(below). Next: the `dolly` GOOS on the process contract. The fork is one patch,
+[`demos/go/go-1.27.3-dolly.patch`](../../demos/go/go-1.27.3-dolly.patch), against Go 1.27.3.
+
+## Decisions
+
+- **Go 1.27.3** (released 2026-10-19), the newest on go.dev on 2026-10-23; the host bootstrap is
+  upstream's go1.27.3 linux/amd64 archive. Both pinned by sha256 in `config/source-pins.sh`.
+- **`GOARCH=wasm64`, a member of the wasm family.** The machine (memory64: i64 addresses, an i64
+  SP, i64 pointers to the host) is the arch; the process contract is the GOOS, as AGENTS.md keeps
+  the machine ABI and the substrate apart. Go's `wasm` already has 8-byte pointers and registers,
+  so nothing else differs. To keep the fork small, wasm64 satisfies the `wasm` build constraint and
+  file suffix, as `android` satisfies `linux` (go/build, cmd/go's imports and modindex, cmd/dist),
+  and `goarch.IsWasm` is 1 on wasm64: every `_wasm.go`/`_wasm.s` file and every wasm decision of
+  the runtime applies unchanged. Only `heapAddrBits` differs (34: the 16 GiB browsers give a
+  memory64).
+- **One switch in each place that addresses memory.** `cmd/internal/obj/wasm` (`addressingOf`) and
+  `cmd/compile/internal/wasm` (`getAddress`, `sizeConst`) drop the `I32WrapI64` before loads,
+  stores and `memory.copy/fill`, use i64 SP arithmetic, and pass `uintptr`/pointers to imports as
+  i64; the linker types SP and `WasmPtr` by the arch and writes `i64.const` segment offsets. The
+  runtime's hand-written assembly says the same through `runtime/asm_wasm.h` (`WrapAddress`,
+  `ExtendSP`, `SPConst`, `SPAdd`, `SPSub`), installed in `pkg/include` like `asm_amd64.h`.
+  `internal/bytealg`'s emscripten-compiled `memchr`/`memcmp` do 32-bit pointer arithmetic; wasm64
+  takes the generic Go `IndexByte` and `Compare` instead of porting them.
+- **No `wasip1/wasm64` port.** WASI preview 1 is 32-bit (Go's wasip1 passes `uintptr32` in its
+  iovecs); it served only as the host proof below and is not in the patch.
+- **The linker writes the Dolly executable itself** (GOOS=dolly): `env.memory` imported shared,
+  memory64, maximum 131072 pages, `_start`, and the `dolly.process` (the ABI digest) and
+  `dolly.process.memory` sections as `cc` stamps them (`cmd/link/internal/wasm/dolly.go`). The
+  digest is `zdolly.go`, written from `DOLLY_PROCESS_ABI_DIGEST` by the seed build, not part of
+  the patch, so a contract change rebuilds the toolchain as it rebuilds `cc`.
+
+## Step 1: memory64 on the host (2026-10-23, measured)
+
+The patched toolchain builds on the host in 50 s (`make.bash`). A program built
+`GOOS=wasip1 GOARCH=wasm64 -ldflags=-E=_rt0_wasm_wasip1` and run in Node 22.22.2
+(`--experimental-wasm-memory64`) under a 90-line JS stand-in for the ten WASI calls (i64 pointers):
+
+- validates in V8 as a memory64 module; hello, 200 binary trees (12 GC cycles), 50 goroutines
+  over a channel, a 1 GiB slice: correct.
+- eleven 512 MiB slices: highest address 0x1609fffff, above 4 GiB; contents correct.
+- `go test -c` of 26 packages (strings, strconv, bytes, sort, math, math/big, unicode/utf8,
+  regexp, encoding/json, reflect, sync, crypto/sha256, hash/crc32, compress/flate, fmt,
+  container/heap, slices, maps, errors, time, runtime/debug, encoding/binary, bufio, unicode,
+  go/parser, go/printer, text/template) with `-test.run=^Test -test.short`: every test passes but
+  those that need files (the stand-in has none: testdata, temp dirs, zoneinfo). One bug found
+  and fixed this way: `CALLFN` loaded the uint32 `stackArgsSize` with `I64Load` and relied on the
+  wrap to drop `stackRetOffset` (reflect calls failed out of bounds).
+- `GOARCH=wasm` is unchanged: the same program's code section is byte-identical between the
+  patched and the upstream toolchain (data differ in 6 bytes: line tables of the edited files).

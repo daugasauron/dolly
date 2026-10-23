@@ -603,3 +603,10 @@ DOLLY_XEYES_SHA256=d223283270488b1a6b408d0e97bd69a7704cf6a9596c0320035d807e63cdc
 DOLLY_XTERM_VERSION=412
 DOLLY_XTERM_URL='https://github.com/ThomasDickey/xterm-snapshots/archive/refs/tags/xterm-412.tar.gz'
 DOLLY_XTERM_SHA256=26b76917f13b56f5bfa69ac1984ef688c1b22cf7100cd4ad02352ba5899c537d
+# Go: the release's source, patched for GOOS=dolly GOARCH=wasm64 (demos/go), and upstream's
+# linux/amd64 toolchain of the same release, which cross-builds the seed on the host.
+DOLLY_GO_VERSION=1.27.3
+DOLLY_GO_URL='https://go.dev/dl/go1.27.3.src.tar.gz'
+DOLLY_GO_SHA256=6e7749035cf360f06b2575d162ea79df9fda8ef671889e5c375f8e50777f26bb
+DOLLY_GO_HOST_URL='https://go.dev/dl/go1.27.3.linux-amd64.tar.gz'
+DOLLY_GO_HOST_SHA256=65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40

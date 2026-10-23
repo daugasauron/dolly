@@ -1,0 +1,2458 @@
+diff --git a/src/cmd/asm/internal/arch/arch.go b/src/cmd/asm/internal/arch/arch.go
+index dd955bd3..deab3623 100644
+--- a/src/cmd/asm/internal/arch/arch.go
++++ b/src/cmd/asm/internal/arch/arch.go
+@@ -80,7 +80,9 @@ func Set(GOARCH string, shared bool) *Arch {
+ 	case "s390x":
+ 		return archS390x()
+ 	case "wasm":
+-		return archWasm()
++		return archWasm(&wasm.Linkwasm)
++	case "wasm64":
++		return archWasm(&wasm.Linkwasm64)
+ 	}
+ 	return nil
+ }
+@@ -769,7 +771,7 @@ func archS390x() *Arch {
+ 	}
+ }
+ 
+-func archWasm() *Arch {
++func archWasm(linkArch *obj.LinkArch) *Arch {
+ 	instructions := make(map[string]obj.As)
+ 	for i, s := range obj.Anames {
+ 		instructions[s] = obj.As(i)
+@@ -781,7 +783,7 @@ func archWasm() *Arch {
+ 	}
+ 
+ 	return &Arch{
+-		LinkArch:       &wasm.Linkwasm,
++		LinkArch:       linkArch,
+ 		Instructions:   instructions,
+ 		Register:       wasm.Register,
+ 		RegisterPrefix: nil,
+diff --git a/src/cmd/compile/internal/base/flag.go b/src/cmd/compile/internal/base/flag.go
+index c8f1b2db..d56c4765 100644
+--- a/src/cmd/compile/internal/base/flag.go
++++ b/src/cmd/compile/internal/base/flag.go
+@@ -163,7 +163,7 @@ func ParseFlags() {
+ 	Flag.LowerP = &Ctxt.Pkgpath
+ 	Flag.LowerV = &Ctxt.Debugvlog
+ 
+-	Flag.Dwarf = buildcfg.GOARCH != "wasm"
++	Flag.Dwarf = buildcfg.GOARCH != "wasm" && buildcfg.GOARCH != "wasm64"
+ 	Flag.DwarfBASEntries = &Ctxt.UseBASEntries
+ 	Flag.DwarfLocationLists = &Ctxt.Flag_locationlists
+ 	*Flag.DwarfLocationLists = true
+diff --git a/src/cmd/compile/internal/midway/midway.go b/src/cmd/compile/internal/midway/midway.go
+index 9adeec80..7bc5302c 100644
+--- a/src/cmd/compile/internal/midway/midway.go
++++ b/src/cmd/compile/internal/midway/midway.go
+@@ -10,7 +10,7 @@ import (
+ 
+ func rewriteSizes() []int {
+ 	switch buildcfg.GOARCH {
+-	case "wasm":
++	case "wasm", "wasm64":
+ 		return []int{0, 128}
+ 	case "amd64":
+ 		return []int{0, 128, 256, 512}
+diff --git a/src/cmd/compile/internal/midway/rewrite.go b/src/cmd/compile/internal/midway/rewrite.go
+index e80930bc..ee805470 100644
+--- a/src/cmd/compile/internal/midway/rewrite.go
++++ b/src/cmd/compile/internal/midway/rewrite.go
+@@ -520,7 +520,7 @@ func RewriteWrapper(pkg *types2.Package, info *types2.Info, files []*syntax.File
+ 	}
+ 
+ 	switch buildcfg.GOARCH {
+-	case "wasm", "amd64", "arm64":
++	case "wasm", "wasm64", "amd64", "arm64":
+ 	default:
+ 		return false
+ 	}
+diff --git a/src/cmd/compile/internal/noder/linker.go b/src/cmd/compile/internal/noder/linker.go
+index df1e2483..958c2f87 100644
+--- a/src/cmd/compile/internal/noder/linker.go
++++ b/src/cmd/compile/internal/noder/linker.go
+@@ -270,7 +270,7 @@ func (l *linker) relocFuncExt(w *pkgbits.Encoder, name *ir.Name) {
+ 	l.pragmaFlag(w, name.Func.Pragma)
+ 	l.linkname(w, name)
+ 
+-	if buildcfg.GOARCH == "wasm" {
++	if buildcfg.GOARCH == "wasm" || buildcfg.GOARCH == "wasm64" {
+ 		if name.Func.WasmImport != nil {
+ 			w.String(name.Func.WasmImport.Module)
+ 			w.String(name.Func.WasmImport.Name)
+diff --git a/src/cmd/compile/internal/noder/noder.go b/src/cmd/compile/internal/noder/noder.go
+index 5d330726..4cec2a16 100644
+--- a/src/cmd/compile/internal/noder/noder.go
++++ b/src/cmd/compile/internal/noder/noder.go
+@@ -253,7 +253,7 @@ func (p *noder) pragma(pos syntax.Pos, blankLine bool, text string, old syntax.P
+ 			break
+ 		}
+ 
+-		if buildcfg.GOARCH == "wasm" {
++		if buildcfg.GOARCH == "wasm" || buildcfg.GOARCH == "wasm64" {
+ 			// Only actually use them if we're compiling to WASM though.
+ 			pragma.WasmImport = &WasmImport{
+ 				Pos:    pos,
+@@ -270,7 +270,7 @@ func (p *noder) pragma(pos syntax.Pos, blankLine bool, text string, old syntax.P
+ 			break
+ 		}
+ 
+-		if buildcfg.GOARCH == "wasm" {
++		if buildcfg.GOARCH == "wasm" || buildcfg.GOARCH == "wasm64" {
+ 			// Only actually use them if we're compiling to WASM though.
+ 			pragma.WasmExport = &WasmExport{
+ 				Pos:  pos,
+diff --git a/src/cmd/compile/internal/noder/reader.go b/src/cmd/compile/internal/noder/reader.go
+index 405f9c44..4601469b 100644
+--- a/src/cmd/compile/internal/noder/reader.go
++++ b/src/cmd/compile/internal/noder/reader.go
+@@ -1225,7 +1225,7 @@ func (r *reader) funcExt(name *ir.Name, method *types.Sym) {
+ 	fn.Pragma = r.pragmaFlag()
+ 	r.linkname(name)
+ 
+-	if buildcfg.GOARCH == "wasm" {
++	if buildcfg.GOARCH == "wasm" || buildcfg.GOARCH == "wasm64" {
+ 		importmod := r.String()
+ 		importname := r.String()
+ 		exportname := r.String()
+@@ -4247,7 +4247,7 @@ func addTailCall(pos src.XPos, fn *ir.Func, recv ir.Node, method *types.Field) {
+ 
+ 	if recv.Type() != nil && recv.Type().IsPtr() && method.Type.Recv().Type.IsPtr() &&
+ 		method.Embedded != 0 &&
+-		(types.IsInterfaceMethod(method.Type) && base.Ctxt.Arch.Name != "wasm" ||
++		(types.IsInterfaceMethod(method.Type) && base.Ctxt.Arch.Name != "wasm" && base.Ctxt.Arch.Name != "wasm64" ||
+ 			!types.IsInterfaceMethod(method.Type) && !unifiedHaveInlineBody(ir.MethodExprName(dot).Func)) &&
+ 		// TODO: implement wasm indirect tail calls
+ 		// TODO: do we need the ppc64le/dynlink restriction for interface tail calls?
+diff --git a/src/cmd/compile/internal/noder/writer.go b/src/cmd/compile/internal/noder/writer.go
+index 8ca91973..c85c4e00 100644
+--- a/src/cmd/compile/internal/noder/writer.go
++++ b/src/cmd/compile/internal/noder/writer.go
+@@ -1203,7 +1203,7 @@ func (w *writer) funcExt(obj *types2.Func) {
+ 	w.pragmaFlag(pragma)
+ 	w.linkname(obj)
+ 
+-	if buildcfg.GOARCH == "wasm" {
++	if buildcfg.GOARCH == "wasm" || buildcfg.GOARCH == "wasm64" {
+ 		if wi != nil {
+ 			w.String(wi.Module)
+ 			w.String(wi.Name)
+diff --git a/src/cmd/compile/internal/ssa/config.go b/src/cmd/compile/internal/ssa/config.go
+index 82244a2c..509355f2 100644
+--- a/src/cmd/compile/internal/ssa/config.go
++++ b/src/cmd/compile/internal/ssa/config.go
+@@ -358,7 +358,7 @@ func NewConfig(arch string, types Types, ctxt *obj.Link, optimize, softfloat boo
+ 		c.floatParamRegs = paramFloatRegRISCV64
+ 		c.FPReg = framepointerRegRISCV64
+ 		c.hasGReg = true
+-	case "wasm":
++	case "wasm", "wasm64":
+ 		c.PtrSize = 8
+ 		c.RegSize = 8
+ 		c.lowerBlock = rewriteBlockWasm
+diff --git a/src/cmd/compile/internal/ssa/rewrite.go b/src/cmd/compile/internal/ssa/rewrite.go
+index 78a576df..3ef0d3e4 100644
+--- a/src/cmd/compile/internal/ssa/rewrite.go
++++ b/src/cmd/compile/internal/ssa/rewrite.go
+@@ -2500,7 +2500,7 @@ func canRotate(c *Config, bits int64) bool {
+ 	switch c.arch {
+ 	case "386", "amd64", "arm64", "loong64", "riscv64":
+ 		return true
+-	case "arm", "s390x", "ppc64", "ppc64le", "wasm":
++	case "arm", "s390x", "ppc64", "ppc64le", "wasm", "wasm64":
+ 		return bits >= 32
+ 	default:
+ 		return false
+diff --git a/src/cmd/compile/internal/ssagen/abi.go b/src/cmd/compile/internal/ssagen/abi.go
+index ba1aba04..fd1e233b 100644
+--- a/src/cmd/compile/internal/ssagen/abi.go
++++ b/src/cmd/compile/internal/ssagen/abi.go
+@@ -363,7 +363,7 @@ func CreateWasmImportWrapper(fn *ir.Func) bool {
+ 	if fn.WasmImport == nil {
+ 		return false
+ 	}
+-	if buildcfg.GOARCH != "wasm" {
++	if buildcfg.GOARCH != "wasm" && buildcfg.GOARCH != "wasm64" {
+ 		base.FatalfAt(fn.Pos(), "CreateWasmImportWrapper call not supported on %s: func was %v", buildcfg.GOARCH, fn)
+ 	}
+ 
+@@ -386,7 +386,7 @@ func GenWasmExportWrapper(wrapped *ir.Func) {
+ 	if wrapped.WasmExport == nil {
+ 		return
+ 	}
+-	if buildcfg.GOARCH != "wasm" {
++	if buildcfg.GOARCH != "wasm" && buildcfg.GOARCH != "wasm64" {
+ 		base.FatalfAt(wrapped.Pos(), "GenWasmExportWrapper call not supported on %s: func was %v", buildcfg.GOARCH, wrapped)
+ 	}
+ 
+diff --git a/src/cmd/compile/internal/types2/sizes.go b/src/cmd/compile/internal/types2/sizes.go
+index 534ecfba..e43d5c3d 100644
+--- a/src/cmd/compile/internal/types2/sizes.go
++++ b/src/cmd/compile/internal/types2/sizes.go
+@@ -244,6 +244,7 @@ var gcArchSizes = map[string]*gcSizes{
+ 	"s390x":    {8, 8},
+ 	"sparc64":  {8, 8},
+ 	"wasm":     {8, 8},
++	"wasm64":   {8, 8},
+ 	// When adding more architectures here,
+ 	// update the doc string of SizesFor below.
+ }
+diff --git a/src/cmd/compile/internal/wasm/ssa.go b/src/cmd/compile/internal/wasm/ssa.go
+index 4aa0a201..7d9b6a46 100644
+--- a/src/cmd/compile/internal/wasm/ssa.go
++++ b/src/cmd/compile/internal/wasm/ssa.go
+@@ -14,6 +14,7 @@ import (
+ 	"cmd/compile/internal/types"
+ 	"cmd/internal/obj"
+ 	"cmd/internal/obj/wasm"
++	"cmd/internal/sys"
+ )
+ 
+ /*
+@@ -131,6 +132,16 @@ import (
+ 
+ func Init(arch *ssagen.ArchInfo) {
+ 	arch.LinkArch = &wasm.Linkwasm
++	initArch(arch)
++}
++
++// Init64 is Init for wasm64, whose linear memory and SP are 64-bit.
++func Init64(arch *ssagen.ArchInfo) {
++	arch.LinkArch = &wasm.Linkwasm64
++	initArch(arch)
++}
++
++func initArch(arch *ssagen.ArchInfo) {
+ 	arch.REGSP = wasm.REG_SP
+ 	arch.MAXWIDTH = 1 << 50
+ 
+@@ -249,15 +260,15 @@ func ssaGenValue(s *ssagen.State, v *ssa.Value) {
+ 		}
+ 
+ 	case ssa.OpWasmLoweredMove:
+-		getValue32(s, v.Args[0])
+-		getValue32(s, v.Args[1])
+-		i32Const(s, int32(v.AuxInt))
++		getAddress(s, v.Args[0])
++		getAddress(s, v.Args[1])
++		sizeConst(s, v.AuxInt)
+ 		s.Prog(wasm.AMemoryCopy)
+ 
+ 	case ssa.OpWasmLoweredZero:
+-		getValue32(s, v.Args[0])
++		getAddress(s, v.Args[0])
+ 		i32Const(s, 0)
+-		i32Const(s, int32(v.AuxInt))
++		sizeConst(s, v.AuxInt)
+ 		s.Prog(wasm.AMemoryFill)
+ 
+ 	case ssa.OpWasmLoweredNilCheck:
+@@ -281,13 +292,13 @@ func ssaGenValue(s *ssagen.State, v *ssa.Value) {
+ 		setReg(s, v.Reg0()) // move result from wasm stack to register local
+ 
+ 	case ssa.OpWasmI64Store8, ssa.OpWasmI64Store16, ssa.OpWasmI64Store32, ssa.OpWasmI64Store, ssa.OpWasmF32Store, ssa.OpWasmF64Store:
+-		getValue32(s, v.Args[0])
++		getAddress(s, v.Args[0])
+ 		getValue64(s, v.Args[1])
+ 		p := s.Prog(v.Op.Asm())
+ 		p.To = obj.Addr{Type: obj.TYPE_CONST, Offset: v.AuxInt}
+ 
+ 	case ssa.OpWasmV128Store:
+-		getValue32(s, v.Args[0])
++		getAddress(s, v.Args[0])
+ 		getValue128(s, v.Args[1])
+ 		p := s.Prog(v.Op.Asm())
+ 		p.To = obj.Addr{Type: obj.TYPE_CONST, Offset: v.AuxInt}
+@@ -397,7 +408,7 @@ func ssaGenValueOnStack(s *ssagen.State, v *ssa.Value, extend bool) {
+ 
+ 	case ssa.OpWasmI64Load8U, ssa.OpWasmI64Load8S, ssa.OpWasmI64Load16U, ssa.OpWasmI64Load16S,
+ 		ssa.OpWasmI64Load32U, ssa.OpWasmI64Load32S, ssa.OpWasmI64Load, ssa.OpWasmF32Load, ssa.OpWasmF64Load, ssa.OpWasmV128Load:
+-		getValue32(s, v.Args[0])
++		getAddress(s, v.Args[0])
+ 		p := s.Prog(v.Op.Asm())
+ 		p.From = obj.Addr{Type: obj.TYPE_CONST, Offset: v.AuxInt}
+ 
+@@ -516,7 +527,7 @@ func getValue32(s *ssagen.State, v *ssa.Value) {
+ 
+ 	reg := v.Reg()
+ 	getReg(s, reg)
+-	if reg != wasm.REG_SP {
++	if reg != wasm.REG_SP || memory64() {
+ 		s.Prog(wasm.AI32WrapI64)
+ 	}
+ }
+@@ -530,11 +541,34 @@ func getValue64(s *ssagen.State, v *ssa.Value) {
+ 
+ 	reg := v.Reg()
+ 	getReg(s, reg)
+-	if reg == wasm.REG_SP {
++	if reg == wasm.REG_SP && !memory64() {
+ 		s.Prog(wasm.AI64ExtendI32U)
+ 	}
+ }
+ 
++// memory64 reports whether addresses are i64, as Go pointers are (GOARCH=wasm64).
++func memory64() bool {
++	return base.Ctxt.Arch.Arch == sys.ArchWasm64
++}
++
++// getAddress pushes the pointer v as a memory address.
++func getAddress(s *ssagen.State, v *ssa.Value) {
++	if memory64() {
++		getValue64(s, v)
++	} else {
++		getValue32(s, v)
++	}
++}
++
++// sizeConst pushes a memory.copy or memory.fill length, of the address type.
++func sizeConst(s *ssagen.State, size int64) {
++	if memory64() {
++		i64Const(s, size)
++	} else {
++		i32Const(s, int32(size))
++	}
++}
++
+ func getValue128(s *ssagen.State, v *ssa.Value) {
+ 	if v.OnWasmStack {
+ 		s.OnWasmStackSkipped--
+diff --git a/src/cmd/compile/main.go b/src/cmd/compile/main.go
+index 7d38bea7..1e627596 100644
+--- a/src/cmd/compile/main.go
++++ b/src/cmd/compile/main.go
+@@ -40,6 +40,7 @@ var archInits = map[string]func(*ssagen.ArchInfo){
+ 	"riscv64":  riscv64.Init,
+ 	"s390x":    s390x.Init,
+ 	"wasm":     wasm.Init,
++	"wasm64":   wasm.Init64,
+ }
+ 
+ func main() {
+diff --git a/src/cmd/dist/build.go b/src/cmd/dist/build.go
+index 78d55bec..f149c073 100644
+--- a/src/cmd/dist/build.go
++++ b/src/cmd/dist/build.go
+@@ -84,6 +84,7 @@ var okgoarch = []string{
+ 	"s390x",
+ 	"sparc64",
+ 	"wasm",
++	"wasm64",
+ }
+ 
+ // The known operating systems.
+@@ -94,6 +95,7 @@ var okgoos = []string{
+ 	"ios",
+ 	"js",
+ 	"wasip1",
++	"dolly",
+ 	"linux",
+ 	"android",
+ 	"solaris",
+@@ -860,6 +862,8 @@ func runInstall(pkg string, ch chan struct{}) {
+ 			pathf("%s/src/runtime/asm_amd64.h", goroot), 0)
+ 		copyfile(pathf("%s/pkg/include/asm_riscv64.h", goroot),
+ 			pathf("%s/src/runtime/asm_riscv64.h", goroot), 0)
++		copyfile(pathf("%s/pkg/include/asm_wasm.h", goroot),
++			pathf("%s/src/runtime/asm_wasm.h", goroot), 0)
+ 	}
+ 
+ 	// Generate any missing files; regenerate existing ones.
+@@ -1104,6 +1108,8 @@ func matchtag(tag string) bool {
+ 		return goos == "solaris" || goos == "illumos"
+ 	case "darwin":
+ 		return goos == "darwin" || goos == "ios"
++	case "wasm":
++		return goarch == "wasm" || goarch == "wasm64"
+ 	case goos, goarch:
+ 		return true
+ 	case "unix":
+@@ -1124,7 +1130,7 @@ func shouldbuild(file, pkg string) bool {
+ 	name := filepath.Base(file)
+ 	excluded := func(list []string, ok string) bool {
+ 		for _, x := range list {
+-			if x == ok || (ok == "android" && x == "linux") || (ok == "illumos" && x == "solaris") || (ok == "ios" && x == "darwin") {
++			if x == ok || (ok == "android" && x == "linux") || (ok == "illumos" && x == "solaris") || (ok == "ios" && x == "darwin") || (ok == "wasm64" && x == "wasm") {
+ 				continue
+ 			}
+ 			i := strings.Index(name, x)
+@@ -1814,6 +1820,7 @@ var cgoEnabled = map[string]bool{
+ 	"ios/amd64":       true,
+ 	"js/wasm":         false,
+ 	"wasip1/wasm":     false,
++	"dolly/wasm64":    false,
+ 	"netbsd/386":      true,
+ 	"netbsd/amd64":    true,
+ 	"netbsd/arm":      true,
+diff --git a/src/cmd/go/internal/cfg/cfg.go b/src/cmd/go/internal/cfg/cfg.go
+index 78cbbb94..408b2e0b 100644
+--- a/src/cmd/go/internal/cfg/cfg.go
++++ b/src/cmd/go/internal/cfg/cfg.go
+@@ -526,7 +526,7 @@ func GetArchEnv() (key, val string, changed bool) {
+ 		return "GOPPC64", GOPPC64, goPPC64Changed
+ 	case "riscv64":
+ 		return "GORISCV64", GORISCV64, goRISCV64Changed
+-	case "wasm":
++	case "wasm", "wasm64":
+ 		return "GOWASM", GOWASM, goWASMChanged
+ 	}
+ 	return "", "", false
+diff --git a/src/cmd/go/internal/imports/build.go b/src/cmd/go/internal/imports/build.go
+index 6a8b7a84..3d37056b 100644
+--- a/src/cmd/go/internal/imports/build.go
++++ b/src/cmd/go/internal/imports/build.go
+@@ -213,6 +213,8 @@ func matchTag(name string, tags map[string]bool, prefer bool) bool {
+ 		return tags["illumos"]
+ 	case "darwin":
+ 		return tags["ios"]
++	case "wasm":
++		return tags["wasm64"]
+ 	case "unix":
+ 		return syslist.UnixOS[cfg.BuildContext.GOOS]
+ 	default:
+@@ -266,6 +268,7 @@ func Eval(x constraint.Expr, tags map[string]bool, prefer bool) bool {
+ //	if GOOS=android, then files with GOOS=linux are also matched.
+ //	if GOOS=illumos, then files with GOOS=solaris are also matched.
+ //	if GOOS=ios, then files with GOOS=darwin are also matched.
++//	if GOARCH=wasm64, then files with GOARCH=wasm are also matched.
+ //
+ // If tags["*"] is true, then MatchFile will consider all possible
+ // GOOS and GOARCH to be available and will consequently
+diff --git a/src/cmd/go/internal/load/pkg.go b/src/cmd/go/internal/load/pkg.go
+index 2985cff6..6f2b46e1 100644
+--- a/src/cmd/go/internal/load/pkg.go
++++ b/src/cmd/go/internal/load/pkg.go
+@@ -1796,7 +1796,7 @@ const SimdBridgePkg = "simd/internal/bridge"
+ // This is used for both build and test (and perhaps in other contexts to
+ // be discovered later).
+ func hasSimd(imports []string) (hasSimd bool) {
+-	if cfg.BuildContext.GOARCH == "wasm" || cfg.BuildContext.GOARCH == "amd64" || cfg.BuildContext.GOARCH == "arm64" {
++	if cfg.BuildContext.GOARCH == "wasm" || cfg.BuildContext.GOARCH == "wasm64" || cfg.BuildContext.GOARCH == "amd64" || cfg.BuildContext.GOARCH == "arm64" {
+ 		for _, imp := range imports {
+ 			if imp == "simd" {
+ 				hasSimd = true
+@@ -2728,7 +2728,7 @@ func externalLinkingReason(s *modload.Loader, p *Package) (what string) {
+ 	// Some build modes always require external linking.
+ 	switch cfg.BuildBuildmode {
+ 	case "c-shared":
+-		if cfg.BuildContext.GOARCH == "wasm" {
++		if cfg.BuildContext.GOARCH == "wasm" || cfg.BuildContext.GOARCH == "wasm64" {
+ 			break
+ 		}
+ 		fallthrough
+diff --git a/src/cmd/go/internal/modindex/build.go b/src/cmd/go/internal/modindex/build.go
+index c0acb8ff..31b57313 100644
+--- a/src/cmd/go/internal/modindex/build.go
++++ b/src/cmd/go/internal/modindex/build.go
+@@ -689,6 +689,9 @@ func (ctxt *Context) matchTag(name string, allTags map[string]bool) bool {
+ 	if ctxt.GOOS == "ios" && name == "darwin" {
+ 		return true
+ 	}
++	if ctxt.GOARCH == "wasm64" && name == "wasm" {
++		return true
++	}
+ 	if name == "unix" && syslist.UnixOS[ctxt.GOOS] {
+ 		return true
+ 	}
+diff --git a/src/cmd/go/internal/work/gc.go b/src/cmd/go/internal/work/gc.go
+index 49b26e15..bccd10ef 100644
+--- a/src/cmd/go/internal/work/gc.go
++++ b/src/cmd/go/internal/work/gc.go
+@@ -106,7 +106,7 @@ func (gcToolchain) gc(b *Builder, a *Action, archive string, importcfg, embedcfg
+ 	if a.buildID != "" {
+ 		defaultGcFlags = append(defaultGcFlags, "-buildid", a.buildID)
+ 	}
+-	if p.Internal.OmitDebug || cfg.Goos == "plan9" || cfg.Goarch == "wasm" {
++	if p.Internal.OmitDebug || cfg.Goos == "plan9" || cfg.Goarch == "wasm" || cfg.Goarch == "wasm64" {
+ 		defaultGcFlags = append(defaultGcFlags, "-dwarf=false")
+ 	}
+ 	if strings.HasPrefix(ToolchainVersion, "go1") && !strings.Contains(os.Args[0], "go_bootstrap") {
+diff --git a/src/cmd/internal/obj/fips140.go b/src/cmd/internal/obj/fips140.go
+index 0e4f2a47..c12845a1 100644
+--- a/src/cmd/internal/obj/fips140.go
++++ b/src/cmd/internal/obj/fips140.go
+@@ -178,7 +178,7 @@ func SetFIPSDebugHash(pattern string) {
+ func EnableFIPS() bool {
+ 	// WASM is out of scope; its binaries are too weird.
+ 	// I'm not even sure it can read its own code.
+-	if buildcfg.GOARCH == "wasm" {
++	if buildcfg.GOARCH == "wasm" || buildcfg.GOARCH == "wasm64" {
+ 		return false
+ 	}
+ 
+diff --git a/src/cmd/internal/obj/wasm/wasmobj.go b/src/cmd/internal/obj/wasm/wasmobj.go
+index 9de841d6..97f21d8d 100644
+--- a/src/cmd/internal/obj/wasm/wasmobj.go
++++ b/src/cmd/internal/obj/wasm/wasmobj.go
+@@ -141,6 +141,32 @@ var Linkwasm = obj.LinkArch{
+ 	UnaryDst:   unaryDst,
+ }
+ 
++var Linkwasm64 = obj.LinkArch{
++	Arch:       sys.ArchWasm64,
++	Init:       instinit,
++	Preprocess: preprocess,
++	Assemble:   assemble,
++	UnaryDst:   unaryDst,
++}
++
++// addressing is how a function addresses memory: on wasm the linear memory
++// and SP are 32-bit and a Go pointer (i64) is wrapped before every access;
++// on wasm64 (memory64) both are i64 and a pointer is an address as it is.
++type addressing struct {
++	memory64 bool
++	Const    obj.As // an SP offset or a size
++	Add, Sub obj.As // SP arithmetic
++	LeU, Eqz obj.As // SP comparisons
++	Load     obj.As // a pointer-sized load into SP's type
++}
++
++func addressingOf(ctxt *obj.Link) addressing {
++	if ctxt.Arch.Arch == sys.ArchWasm64 {
++		return addressing{true, AI64Const, AI64Add, AI64Sub, AI64LeU, AI64Eqz, AI64Load}
++	}
++	return addressing{false, AI32Const, AI32Add, AI32Sub, AI32LeU, AI32Eqz, AI32Load}
++}
++
+ var (
+ 	morestack             *obj.LSym
+ 	morestackNoCtxt       *obj.LSym
+@@ -199,6 +225,22 @@ func preprocess(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ 		return p
+ 	}
+ 
++	a := addressingOf(ctxt)
++	// wrapAddress narrows a Go pointer to a 32-bit address; on wasm64 an i64 is the address.
++	wrapAddress := func(p *obj.Prog) *obj.Prog {
++		if a.memory64 {
++			return p
++		}
++		return appendp(p, AI32WrapI64)
++	}
++	// extendSP widens SP to a Go pointer; on wasm64 SP is one.
++	extendSP := func(p *obj.Prog) *obj.Prog {
++		if a.memory64 {
++			return p
++		}
++		return appendp(p, AI64ExtendI32U)
++	}
++
+ 	framesize := s.Func().Text.To.Offset
+ 	if framesize < 0 {
+ 		panic("bad framesize")
+@@ -210,7 +252,7 @@ func preprocess(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ 	// generate the code to translate from our internal Go-stack
+ 	// based call convention to the native webassembly call convention.
+ 	if s.Func().WasmImport != nil {
+-		genWasmImportWrapper(s, appendp)
++		genWasmImportWrapper(s, appendp, a)
+ 
+ 		// It should be 0 already, but we'll set it to 0 anyway just to be sure
+ 		// that the code below which adds frame expansion code to the function body
+@@ -218,14 +260,14 @@ func preprocess(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ 		// body is just the code to translate and call the imported function.
+ 		framesize = 0
+ 	} else if s.Func().WasmExport != nil {
+-		genWasmExportWrapper(s, appendp)
++		genWasmExportWrapper(s, appendp, a)
+ 	}
+ 
+ 	if framesize > 0 && s.Func().WasmExport == nil { // genWasmExportWrapper has its own prologue generation
+ 		p := s.Func().Text
+ 		p = appendp(p, AGet, regAddr(REG_SP))
+-		p = appendp(p, AI32Const, constAddr(framesize))
+-		p = appendp(p, AI32Sub)
++		p = appendp(p, a.Const, constAddr(framesize))
++		p = appendp(p, a.Sub)
+ 		p = appendp(p, ASet, regAddr(REG_SP))
+ 		p.Spadj = int32(framesize)
+ 	}
+@@ -245,8 +287,8 @@ func preprocess(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ 		// Save REGCTXT on the stack.
+ 		const tempFrame = 8
+ 		p = appendp(p, AGet, regAddr(REG_SP))
+-		p = appendp(p, AI32Const, constAddr(tempFrame))
+-		p = appendp(p, AI32Sub)
++		p = appendp(p, a.Const, constAddr(tempFrame))
++		p = appendp(p, a.Sub)
+ 		p = appendp(p, ASet, regAddr(REG_SP))
+ 		p.Spadj = tempFrame
+ 		ctxtp := obj.Addr{
+@@ -267,8 +309,8 @@ func preprocess(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ 		// Restore REGCTXT.
+ 		p = appendp(p, AMOVD, ctxtp, regAddr(REGCTXT))
+ 		p = appendp(p, AGet, regAddr(REG_SP))
+-		p = appendp(p, AI32Const, constAddr(tempFrame))
+-		p = appendp(p, AI32Add)
++		p = appendp(p, a.Const, constAddr(tempFrame))
++		p = appendp(p, a.Add)
+ 		p = appendp(p, ASet, regAddr(REG_SP))
+ 		p.Spadj = -tempFrame
+ 
+@@ -353,9 +395,9 @@ func preprocess(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ 
+ 			p = appendp(p, AGet, regAddr(REG_SP))
+ 			p = appendp(p, AGet, regAddr(REGG))
+-			p = appendp(p, AI32WrapI64)
+-			p = appendp(p, AI32Load, constAddr(2*int64(ctxt.Arch.PtrSize))) // G.stackguard0
+-			p = appendp(p, AI32LeU)
++			p = wrapAddress(p)
++			p = appendp(p, a.Load, constAddr(2*int64(ctxt.Arch.PtrSize))) // G.stackguard0
++			p = appendp(p, a.LeU)
+ 		} else {
+ 			// large stack: SP-framesize <= stackguard-StackSmall
+ 			//              SP <= stackguard+(framesize-StackSmall)
+@@ -369,11 +411,11 @@ func preprocess(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ 
+ 			p = appendp(p, AGet, regAddr(REG_SP))
+ 			p = appendp(p, AGet, regAddr(REGG))
+-			p = appendp(p, AI32WrapI64)
+-			p = appendp(p, AI32Load, constAddr(2*int64(ctxt.Arch.PtrSize))) // G.stackguard0
+-			p = appendp(p, AI32Const, constAddr(framesize-abi.StackSmall))
+-			p = appendp(p, AI32Add)
+-			p = appendp(p, AI32LeU)
++			p = wrapAddress(p)
++			p = appendp(p, a.Load, constAddr(2*int64(ctxt.Arch.PtrSize))) // G.stackguard0
++			p = appendp(p, a.Const, constAddr(framesize-abi.StackSmall))
++			p = appendp(p, a.Add)
++			p = appendp(p, a.LeU)
+ 		}
+ 		// TODO(neelance): handle wraparound case
+ 
+@@ -463,8 +505,8 @@ func preprocess(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ 
+ 			// SP -= 8
+ 			p = appendp(p, AGet, regAddr(REG_SP))
+-			p = appendp(p, AI32Const, constAddr(8))
+-			p = appendp(p, AI32Sub)
++			p = appendp(p, a.Const, constAddr(8))
++			p = appendp(p, a.Sub)
+ 			p = appendp(p, ASet, regAddr(REG_SP))
+ 
+ 			// write return address to Go stack
+@@ -525,8 +567,8 @@ func preprocess(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ 			if framesize > 0 {
+ 				// SP += framesize
+ 				p = appendp(p, AGet, regAddr(REG_SP))
+-				p = appendp(p, AI32Const, constAddr(framesize))
+-				p = appendp(p, AI32Add)
++				p = appendp(p, a.Const, constAddr(framesize))
++				p = appendp(p, a.Add)
+ 				p = appendp(p, ASet, regAddr(REG_SP))
+ 				// TODO(neelance): This should theoretically set Spadj, but it only works without.
+ 				// p.Spadj = int32(-framesize)
+@@ -544,8 +586,8 @@ func preprocess(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ 
+ 			// SP += 8
+ 			p = appendp(p, AGet, regAddr(REG_SP))
+-			p = appendp(p, AI32Const, constAddr(8))
+-			p = appendp(p, AI32Add)
++			p = appendp(p, a.Const, constAddr(8))
++			p = appendp(p, a.Add)
+ 			p = appendp(p, ASet, regAddr(REG_SP))
+ 
+ 			if ret.As == ARETUNWIND {
+@@ -590,7 +632,7 @@ func preprocess(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ 				case obj.NAME_AUTO, obj.NAME_PARAM:
+ 					p = appendp(p, AGet, regAddr(get.From.Reg))
+ 					if get.From.Reg == REG_SP {
+-						p = appendp(p, AI64ExtendI32U)
++						p = extendSP(p)
+ 					}
+ 					if get.From.Offset != 0 {
+ 						p = appendp(p, AI64Const, constAddr(get.From.Offset))
+@@ -611,7 +653,7 @@ func preprocess(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ 				p.From = regAddr(from.Reg)
+ 
+ 				if from.Reg != REG_SP {
+-					p = appendp(p, AI32WrapI64)
++					p = wrapAddress(p)
+ 				}
+ 
+ 				p = appendp(p, as, constAddr(from.Offset))
+@@ -648,7 +690,7 @@ func preprocess(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ 					case obj.NAME_NONE, obj.NAME_PARAM, obj.NAME_AUTO:
+ 						p = appendp(p, AGet, regAddr(mov.From.Reg))
+ 						if mov.From.Reg == REG_SP {
+-							p = appendp(p, AI64ExtendI32U)
++							p = extendSP(p)
+ 						}
+ 						p = appendp(p, AI64Const, constAddr(mov.From.Offset))
+ 						p = appendp(p, AI64Add)
+@@ -661,13 +703,13 @@ func preprocess(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ 				case obj.TYPE_REG:
+ 					p = appendp(p, AGet, mov.From)
+ 					if mov.From.Reg == REG_SP {
+-						p = appendp(p, AI64ExtendI32U)
++						p = extendSP(p)
+ 					}
+ 
+ 				case obj.TYPE_MEM:
+ 					p = appendp(p, AGet, regAddr(mov.From.Reg))
+ 					if mov.From.Reg != REG_SP {
+-						p = appendp(p, AI32WrapI64)
++						p = wrapAddress(p)
+ 					}
+ 					p = appendp(p, loadAs, constAddr(mov.From.Offset))
+ 
+@@ -680,7 +722,7 @@ func preprocess(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ 			case obj.TYPE_REG:
+ 				appendValue()
+ 				if mov.To.Reg == REG_SP {
+-					p = appendp(p, AI32WrapI64)
++					p = wrapAddress(p)
+ 				}
+ 				p = appendp(p, ASet, mov.To)
+ 
+@@ -689,10 +731,10 @@ func preprocess(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ 				case obj.NAME_NONE, obj.NAME_PARAM:
+ 					p = appendp(p, AGet, regAddr(mov.To.Reg))
+ 					if mov.To.Reg != REG_SP {
+-						p = appendp(p, AI32WrapI64)
++						p = wrapAddress(p)
+ 					}
+ 				case obj.NAME_EXTERN:
+-					p = appendp(p, AI32Const, obj.Addr{Type: obj.TYPE_ADDR, Name: obj.NAME_EXTERN, Sym: mov.To.Sym})
++					p = appendp(p, a.Const, obj.Addr{Type: obj.TYPE_ADDR, Name: obj.NAME_EXTERN, Sym: mov.To.Sym})
+ 				default:
+ 					panic("bad MOV name")
+ 				}
+@@ -766,7 +808,7 @@ func preprocess(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ }
+ 
+ // Generate function body for wasmimport wrapper function.
+-func genWasmImportWrapper(s *obj.LSym, appendp func(p *obj.Prog, as obj.As, args ...obj.Addr) *obj.Prog) {
++func genWasmImportWrapper(s *obj.LSym, appendp func(p *obj.Prog, as obj.As, args ...obj.Addr) *obj.Prog, a addressing) {
+ 	wi := s.Func().WasmImport
+ 	wi.CreateAuxSym()
+ 	p := s.Func().Text
+@@ -825,7 +867,7 @@ func genWasmImportWrapper(s *obj.LSym, appendp func(p *obj.Prog, as obj.As, args
+ 			case obj.WasmV128:
+ 				p = appendp(p, AV128Load, constAddr(loadOffset))
+ 			case obj.WasmPtr:
+-				p = appendp(p, AI32Load, constAddr(loadOffset))
++				p = appendp(p, a.Load, constAddr(loadOffset))
+ 			case obj.WasmBool:
+ 				p = appendp(p, AI32Load8U, constAddr(loadOffset))
+ 			default:
+@@ -879,7 +921,9 @@ func genWasmImportWrapper(s *obj.LSym, appendp func(p *obj.Prog, as obj.As, args
+ 				p = appendp(p, AGet, regAddr(REG_V0))
+ 				p = appendp(p, AV128Store, constAddr(storeOffset))
+ 			case obj.WasmPtr:
+-				p = appendp(p, AI64ExtendI32U)
++				if !a.memory64 {
++					p = appendp(p, AI64ExtendI32U)
++				}
+ 				p = appendp(p, ASet, regAddr(REG_R0))
+ 				p = appendp(p, AGet, regAddr(REG_SP))
+ 				p = appendp(p, AGet, regAddr(REG_R0))
+@@ -900,7 +944,7 @@ func genWasmImportWrapper(s *obj.LSym, appendp func(p *obj.Prog, as obj.As, args
+ }
+ 
+ // Generate function body for wasmexport wrapper function.
+-func genWasmExportWrapper(s *obj.LSym, appendp func(p *obj.Prog, as obj.As, args ...obj.Addr) *obj.Prog) {
++func genWasmExportWrapper(s *obj.LSym, appendp func(p *obj.Prog, as obj.As, args ...obj.Addr) *obj.Prog, a addressing) {
+ 	we := s.Func().WasmExport
+ 	we.CreateAuxSym()
+ 	p := s.Func().Text
+@@ -915,7 +959,7 @@ func genWasmExportWrapper(s *obj.LSym, appendp func(p *obj.Prog, as obj.As, args
+ 	// Detect and error out if called before runtime initialization
+ 	// SP is 0 if not initialized
+ 	p = appendp(p, AGet, regAddr(REG_SP))
+-	p = appendp(p, AI32Eqz)
++	p = appendp(p, a.Eqz)
+ 	p = appendp(p, AIf)
+ 	p = appendp(p, ACall, obj.Addr{Type: obj.TYPE_MEM, Name: obj.NAME_EXTERN, Sym: runtimeNotInitialized})
+ 	p = appendp(p, AEnd)
+@@ -923,8 +967,8 @@ func genWasmExportWrapper(s *obj.LSym, appendp func(p *obj.Prog, as obj.As, args
+ 	// Now that we've checked the SP, generate the prologue
+ 	if framesize > 0 {
+ 		p = appendp(p, AGet, regAddr(REG_SP))
+-		p = appendp(p, AI32Const, constAddr(framesize))
+-		p = appendp(p, AI32Sub)
++		p = appendp(p, a.Const, constAddr(framesize))
++		p = appendp(p, a.Sub)
+ 		p = appendp(p, ASet, regAddr(REG_SP))
+ 		p.Spadj = int32(framesize)
+ 	}
+@@ -945,7 +989,9 @@ func genWasmExportWrapper(s *obj.LSym, appendp func(p *obj.Prog, as obj.As, args
+ 		case obj.WasmV128:
+ 			p = appendp(p, AV128Store, constAddr(f.Offset))
+ 		case obj.WasmPtr:
+-			p = appendp(p, AI64ExtendI32U)
++			if !a.memory64 {
++				p = appendp(p, AI64ExtendI32U)
++			}
+ 			p = appendp(p, AI64Store, constAddr(f.Offset))
+ 		case obj.WasmBool:
+ 			p = appendp(p, AI32Store8, constAddr(f.Offset))
+@@ -959,8 +1005,8 @@ func genWasmExportWrapper(s *obj.LSym, appendp func(p *obj.Prog, as obj.As, args
+ 	// Go calling convention expects we push a return PC before call.
+ 	// SP -= 8
+ 	p = appendp(p, AGet, regAddr(REG_SP))
+-	p = appendp(p, AI32Const, constAddr(8))
+-	p = appendp(p, AI32Sub)
++	p = appendp(p, a.Const, constAddr(8))
++	p = appendp(p, a.Sub)
+ 	p = appendp(p, ASet, regAddr(REG_SP))
+ 	// write return address to Go stack
+ 	p = appendp(p, AGet, regAddr(REG_SP))
+@@ -1008,7 +1054,7 @@ func genWasmExportWrapper(s *obj.LSym, appendp func(p *obj.Prog, as obj.As, args
+ 		case obj.WasmV128:
+ 			p = appendp(p, AV128Load, constAddr(f.Offset))
+ 		case obj.WasmPtr:
+-			p = appendp(p, AI32Load, constAddr(f.Offset))
++			p = appendp(p, a.Load, constAddr(f.Offset))
+ 		case obj.WasmBool:
+ 			p = appendp(p, AI32Load8U, constAddr(f.Offset))
+ 		default:
+@@ -1020,8 +1066,8 @@ func genWasmExportWrapper(s *obj.LSym, appendp func(p *obj.Prog, as obj.As, args
+ 	if framesize > 0 {
+ 		// SP += framesize
+ 		p = appendp(p, AGet, regAddr(REG_SP))
+-		p = appendp(p, AI32Const, constAddr(framesize))
+-		p = appendp(p, AI32Add)
++		p = appendp(p, a.Const, constAddr(framesize))
++		p = appendp(p, a.Add)
+ 		p = appendp(p, ASet, regAddr(REG_SP))
+ 	}
+ 	p = appendp(p, AReturn)
+@@ -1041,6 +1087,7 @@ var notUsePC_B = map[string]bool{
+ 	"_rt0_wasm_js":            true,
+ 	"_rt0_wasm_wasip1":        true,
+ 	"_rt0_wasm_wasip1_lib":    true,
++	"_rt0_wasm64_dolly":       true,
+ 	"wasm_export_run":         true,
+ 	"wasm_export_resume":      true,
+ 	"wasm_export_getsp":       true,
+@@ -1097,7 +1144,7 @@ func assemble(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ 	// Function starts with declaration of locals: numbers and types.
+ 	// Some functions use a special calling convention.
+ 	switch s.Name {
+-	case "_rt0_wasm_js", "_rt0_wasm_wasip1", "_rt0_wasm_wasip1_lib",
++	case "_rt0_wasm_js", "_rt0_wasm_wasip1", "_rt0_wasm_wasip1_lib", "_rt0_wasm64_dolly",
+ 		"wasm_export_run", "wasm_export_resume", "wasm_export_getsp",
+ 		"wasm_pc_f_loop", "runtime.wasmDiv", "runtime.wasmTruncS", "runtime.wasmTruncU", "memeqbody":
+ 		varDecls = []*varDecl{}
+@@ -1154,8 +1201,9 @@ func assemble(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
+ 		}
+ 
+ 		var lastDecl *varDecl
++		memory64 := addressingOf(ctxt).memory64
+ 		for i, reg := range regs {
+-			t := regType(reg)
++			t := regType(reg, memory64)
+ 			if lastDecl == nil || lastDecl.typ != t {
+ 				lastDecl = &varDecl{
+ 					count: 0,
+@@ -1456,8 +1504,10 @@ const (
+ 	v128 valueType = 0x7b
+ )
+ 
+-func regType(reg int16) valueType {
++func regType(reg int16, memory64 bool) valueType {
+ 	switch {
++	case reg == REG_SP && memory64:
++		return i64
+ 	case reg == REG_SP:
+ 		return i32
+ 	case reg >= REG_R0 && reg <= REG_R15:
+diff --git a/src/cmd/internal/objabi/head.go b/src/cmd/internal/objabi/head.go
+index 3109b5cb..c4437f22 100644
+--- a/src/cmd/internal/objabi/head.go
++++ b/src/cmd/internal/objabi/head.go
+@@ -49,6 +49,7 @@ const (
+ 	Hwasip1
+ 	Hwindows
+ 	Haix
++	Hdolly
+ )
+ 
+ func (h *HeadType) Set(s string) error {
+@@ -57,6 +58,8 @@ func (h *HeadType) Set(s string) error {
+ 		*h = Haix
+ 	case "darwin", "ios":
+ 		*h = Hdarwin
++	case "dolly":
++		*h = Hdolly
+ 	case "dragonfly":
+ 		*h = Hdragonfly
+ 	case "freebsd":
+@@ -89,6 +92,8 @@ func (h HeadType) String() string {
+ 		return "aix"
+ 	case Hdarwin:
+ 		return "darwin"
++	case Hdolly:
++		return "dolly"
+ 	case Hdragonfly:
+ 		return "dragonfly"
+ 	case Hfreebsd:
+diff --git a/src/cmd/internal/sys/arch.go b/src/cmd/internal/sys/arch.go
+index 2738fe3b..0b241780 100644
+--- a/src/cmd/internal/sys/arch.go
++++ b/src/cmd/internal/sys/arch.go
+@@ -269,6 +269,21 @@ var ArchWasm = &Arch{
+ 	FixedFrameSize: 0,
+ }
+ 
++// ArchWasm64 is ArchWasm with a 64-bit linear memory (memory64): addresses
++// and the stack pointer are i64 in WebAssembly as they are in Go.
++var ArchWasm64 = &Arch{
++	Name:           "wasm64",
++	Family:         Wasm,
++	ByteOrder:      binary.LittleEndian,
++	PtrSize:        8,
++	RegSize:        8,
++	MinLC:          1,
++	Alignment:      1,
++	CanMergeLoads:  false,
++	HasLR:          false,
++	FixedFrameSize: 0,
++}
++
+ var Archs = [...]*Arch{
+ 	Arch386,
+ 	ArchAMD64,
+@@ -284,4 +299,5 @@ var Archs = [...]*Arch{
+ 	ArchRISCV64,
+ 	ArchS390X,
+ 	ArchWasm,
++	ArchWasm64,
+ }
+diff --git a/src/cmd/link/internal/ld/config.go b/src/cmd/link/internal/ld/config.go
+index acbebf28..24cae87e 100644
+--- a/src/cmd/link/internal/ld/config.go
++++ b/src/cmd/link/internal/ld/config.go
+@@ -145,7 +145,7 @@ func mustLinkExternal(ctxt *Link) (res bool, reason string) {
+ 	case BuildModeCArchive:
+ 		return true, "buildmode=c-archive"
+ 	case BuildModeCShared:
+-		if buildcfg.GOARCH == "wasm" {
++		if buildcfg.GOARCH == "wasm" || buildcfg.GOARCH == "wasm64" {
+ 			break
+ 		}
+ 		return true, "buildmode=c-shared"
+diff --git a/src/cmd/link/internal/ld/dwarf.go b/src/cmd/link/internal/ld/dwarf.go
+index 1c51a736..e1f4fe10 100644
+--- a/src/cmd/link/internal/ld/dwarf.go
++++ b/src/cmd/link/internal/ld/dwarf.go
+@@ -1721,7 +1721,7 @@ func dwarfEnabled(ctxt *Link) bool {
+ 	if *FlagW { // disable dwarf
+ 		return false
+ 	}
+-	if ctxt.HeadType == objabi.Hplan9 || ctxt.HeadType == objabi.Hjs || ctxt.HeadType == objabi.Hwasip1 {
++	if ctxt.HeadType == objabi.Hplan9 || ctxt.HeadType == objabi.Hjs || ctxt.HeadType == objabi.Hwasip1 || ctxt.HeadType == objabi.Hdolly {
+ 		return false
+ 	}
+ 
+diff --git a/src/cmd/link/internal/ld/sym.go b/src/cmd/link/internal/ld/sym.go
+index 6ae11060..29ead6ca 100644
+--- a/src/cmd/link/internal/ld/sym.go
++++ b/src/cmd/link/internal/ld/sym.go
+@@ -75,7 +75,7 @@ func (ctxt *Link) computeTLSOffset() {
+ 	default:
+ 		log.Fatalf("unknown thread-local storage offset for %v", ctxt.HeadType)
+ 
+-	case objabi.Hplan9, objabi.Hwindows, objabi.Hjs, objabi.Hwasip1, objabi.Haix:
++	case objabi.Hplan9, objabi.Hwindows, objabi.Hjs, objabi.Hwasip1, objabi.Hdolly, objabi.Haix:
+ 		break
+ 
+ 	case objabi.Hlinux,
+diff --git a/src/cmd/link/internal/wasm/asm.go b/src/cmd/link/internal/wasm/asm.go
+index d8f4a3cd..75aa4e47 100644
+--- a/src/cmd/link/internal/wasm/asm.go
++++ b/src/cmd/link/internal/wasm/asm.go
+@@ -9,6 +9,7 @@ import (
+ 	"cmd/internal/obj"
+ 	"cmd/internal/obj/wasm"
+ 	"cmd/internal/objabi"
++	"cmd/internal/sys"
+ 	"cmd/link/internal/ld"
+ 	"cmd/link/internal/loader"
+ 	"cmd/link/internal/sym"
+@@ -42,6 +43,20 @@ const (
+ 	sectionData     = 11
+ )
+ 
++// memory64 reports whether the linear memory is 64-bit (GOARCH=wasm64): its
++// addresses, SP and the pointers passed to the host are then i64.
++func memory64(ctxt *ld.Link) bool {
++	return ctxt.Arch == sys.ArchWasm64
++}
++
++// addressType is the WebAssembly type of a linear-memory address.
++func addressType(ctxt *ld.Link) byte {
++	if memory64(ctxt) {
++		return I64
++	}
++	return I32
++}
++
+ // funcValueOffset is the offset between the PC_F value of a function and the index of the function in WebAssembly
+ const funcValueOffset = 0x1000 // TODO(neelance): make function addresses play nice with heap addresses
+ 
+@@ -70,6 +85,7 @@ var wasmFuncTypes = map[string]*wasmFuncType{
+ 	"_rt0_wasm_js":            {Params: []byte{}},                                         //
+ 	"_rt0_wasm_wasip1":        {Params: []byte{}},                                         //
+ 	"_rt0_wasm_wasip1_lib":    {Params: []byte{}},                                         //
++	"_rt0_wasm64_dolly":       {Params: []byte{}},                                         //
+ 	"wasm_export__start":      {},                                                         //
+ 	"wasm_export_run":         {Params: []byte{I32, I32}},                                 // argc, argv
+ 	"wasm_export_resume":      {Params: []byte{}},                                         //
+@@ -170,8 +186,8 @@ func asmb2(ctxt *ld.Link, ldr *loader.Loader) {
+ 						Module: wi.Module,
+ 						Name:   wi.Name,
+ 						Type: lookupType(&wasmFuncType{
+-							Params:  fieldsToTypes(wi.Params),
+-							Results: fieldsToTypes(wi.Results),
++							Params:  fieldsToTypes(ctxt, wi.Params),
++							Results: fieldsToTypes(ctxt, wi.Results),
+ 						}, &types),
+ 					})
+ 				} else {
+@@ -227,8 +243,8 @@ func asmb2(ctxt *ld.Link, ldr *loader.Loader) {
+ 			var o obj.WasmFuncType
+ 			o.Read(ldr.Data(s))
+ 			t := &wasmFuncType{
+-				Params:  fieldsToTypes(o.Params),
+-				Results: fieldsToTypes(o.Results),
++				Params:  fieldsToTypes(ctxt, o.Params),
++				Results: fieldsToTypes(ctxt, o.Results),
+ 			}
+ 			typ = lookupType(t, &types)
+ 		}
+@@ -246,10 +262,12 @@ func asmb2(ctxt *ld.Link, ldr *loader.Loader) {
+ 	}
+ 
+ 	writeTypeSec(ctxt, types)
+-	writeImportSec(ctxt, hostImports)
++	writeImportSec(ctxt, ldr, hostImports)
+ 	writeFunctionSec(ctxt, fns)
+ 	writeTableSec(ctxt, fns)
+-	writeMemorySec(ctxt, ldr)
++	if buildcfg.GOOS != "dolly" {
++		writeMemorySec(ctxt, ldr)
++	}
+ 	writeGlobalSec(ctxt)
+ 	writeExportSec(ctxt, ldr, len(hostImports))
+ 	writeElementSec(ctxt, uint64(len(hostImports)), uint64(len(fns)))
+@@ -259,6 +277,9 @@ func asmb2(ctxt *ld.Link, ldr *loader.Loader) {
+ 	if !*ld.FlagS {
+ 		writeNameSec(ctxt, len(hostImports), fns)
+ 	}
++	if buildcfg.GOOS == "dolly" {
++		writeDollySecs(ctxt, ldr)
++	}
+ }
+ 
+ func lookupType(sig *wasmFuncType, types *[]*wasmFuncType) uint32 {
+@@ -316,10 +337,15 @@ func writeTypeSec(ctxt *ld.Link, types []*wasmFuncType) {
+ 
+ // writeImportSec writes the section that lists the functions that get
+ // imported from the WebAssembly host, usually JavaScript.
+-func writeImportSec(ctxt *ld.Link, hostImports []*wasmFunc) {
++func writeImportSec(ctxt *ld.Link, ldr *loader.Loader, hostImports []*wasmFunc) {
+ 	sizeOffset := writeSecHeader(ctxt, sectionImport)
+ 
+-	writeUleb128(ctxt.Out, uint64(len(hostImports))) // number of imports
++	if buildcfg.GOOS == "dolly" {
++		writeUleb128(ctxt.Out, uint64(1+len(hostImports))) // number of imports
++		writeDollyMemoryImport(ctxt, ldr)
++	} else {
++		writeUleb128(ctxt.Out, uint64(len(hostImports))) // number of imports
++	}
+ 	for _, fn := range hostImports {
+ 		if fn.Module != "" {
+ 			writeName(ctxt.Out, fn.Module)
+@@ -367,24 +393,31 @@ func writeTableSec(ctxt *ld.Link, fns []*wasmFunc) {
+ func writeMemorySec(ctxt *ld.Link, ldr *loader.Loader) {
+ 	sizeOffset := writeSecHeader(ctxt, sectionMemory)
+ 
+-	dataEnd := uint64(ldr.SymValue(ldr.Lookup("runtime.end", 0)))
+-	var initialSize = dataEnd + 1<<20 // 1 MB, for runtime init allocating a few pages
+-
+-	const wasmPageSize = 64 << 10 // 64KB
+-
+-	writeUleb128(ctxt.Out, 1)                        // number of memories
+-	ctxt.Out.WriteByte(0x00)                         // no maximum memory size
+-	writeUleb128(ctxt.Out, initialSize/wasmPageSize) // minimum (initial) memory size
++	writeUleb128(ctxt.Out, 1) // number of memories
++	if memory64(ctxt) {
++		ctxt.Out.WriteByte(0x04) // 64-bit addresses, no maximum memory size
++	} else {
++		ctxt.Out.WriteByte(0x00) // no maximum memory size
++	}
++	writeUleb128(ctxt.Out, initialMemoryPages(ldr)) // minimum (initial) memory size
+ 
+ 	writeSecSize(ctxt, sizeOffset)
+ }
+ 
++// initialMemoryPages is the memory a module starts with: its data and 1 MB,
++// for runtime init allocating a few pages.
++func initialMemoryPages(ldr *loader.Loader) uint64 {
++	const wasmPageSize = 64 << 10 // 64KB
++	dataEnd := uint64(ldr.SymValue(ldr.Lookup("runtime.end", 0)))
++	return (dataEnd + 1<<20) / wasmPageSize
++}
++
+ // writeGlobalSec writes the section that declares global variables.
+ func writeGlobalSec(ctxt *ld.Link) {
+ 	sizeOffset := writeSecHeader(ctxt, sectionGlobal)
+ 
+ 	globalRegs := []byte{
+-		I32, // 0: SP
++		addressType(ctxt), // 0: SP
+ 		I64, // 1: CTXT
+ 		I64, // 2: g
+ 		I64, // 3: RET0
+@@ -446,6 +479,22 @@ func writeExportSec(ctxt *ld.Link, ldr *loader.Loader, lenHostImports int) {
+ 		writeName(ctxt.Out, "memory") // memory in wasi
+ 		ctxt.Out.WriteByte(0x02)      // mem export
+ 		writeUleb128(ctxt.Out, 0)     // memidx
++	case "dolly":
++		writeUleb128(ctxt.Out, uint64(1+len(ldr.WasmExports))) // number of exports
++		s := ldr.Lookup("_rt0_wasm64_dolly", 0)
++		if s == 0 {
++			ld.Errorf("export symbol _rt0_wasm64_dolly not defined")
++		}
++		idx := uint32(lenHostImports) + uint32(ldr.SymValue(s)>>16) - funcValueOffset
++		writeName(ctxt.Out, "_start")       // the process entry, abi/dolly-process-0.wat
++		ctxt.Out.WriteByte(0x00)            // func export
++		writeUleb128(ctxt.Out, uint64(idx)) // funcidx
++		for _, s := range ldr.WasmExports {
++			idx := uint32(lenHostImports) + uint32(ldr.SymValue(s)>>16) - funcValueOffset
++			writeName(ctxt.Out, ldr.SymName(s))
++			ctxt.Out.WriteByte(0x00)            // func export
++			writeUleb128(ctxt.Out, uint64(idx)) // funcidx
++		}
+ 	case "js":
+ 		writeUleb128(ctxt.Out, uint64(4+len(ldr.WasmExports))) // number of exports
+ 		for _, name := range []string{"run", "resume", "getsp"} {
+@@ -513,7 +562,7 @@ func writeDataSec(ctxt *ld.Link) {
+ 	sizeOffset := writeSecHeader(ctxt, sectionData)
+ 
+ 	type dataSegment struct {
+-		offset int32
++		offset int64
+ 		data   []byte
+ 	}
+ 
+@@ -528,7 +577,7 @@ func writeDataSec(ctxt *ld.Link) {
+ 	var segments []*dataSegment
+ 	for secIndex, ds := range dataSects {
+ 		data := ds.data
+-		offset := int32(ds.sect.Vaddr)
++		offset := int64(ds.sect.Vaddr)
+ 
+ 		// skip leading zeroes
+ 		for len(data) > 0 && data[0] == 0 {
+@@ -566,14 +615,18 @@ func writeDataSec(ctxt *ld.Link) {
+ 				data:   data[:segmentEnd],
+ 			})
+ 			data = data[zeroEnd:]
+-			offset += zeroEnd
++			offset += int64(zeroEnd)
+ 		}
+ 	}
+ 
+ 	writeUleb128(ctxt.Out, uint64(len(segments))) // number of data entries
+ 	for _, seg := range segments {
+ 		writeUleb128(ctxt.Out, 0) // memidx
+-		writeI32Const(ctxt.Out, seg.offset)
++		if memory64(ctxt) {
++			writeI64Const(ctxt.Out, seg.offset)
++		} else {
++			writeI32Const(ctxt.Out, int32(seg.offset))
++		}
+ 		ctxt.Out.WriteByte(0x0b) // end
+ 		writeUleb128(ctxt.Out, uint64(len(seg.data)))
+ 		ctxt.Out.Write(seg.data)
+@@ -687,11 +740,13 @@ func writeSleb128(w io.ByteWriter, v int64) {
+ 	}
+ }
+ 
+-func fieldsToTypes(fields []obj.WasmField) []byte {
++func fieldsToTypes(ctxt *ld.Link, fields []obj.WasmField) []byte {
+ 	b := make([]byte, len(fields))
+ 	for i, f := range fields {
+ 		switch f.Type {
+-		case obj.WasmI32, obj.WasmPtr, obj.WasmBool:
++		case obj.WasmPtr:
++			b[i] = addressType(ctxt)
++		case obj.WasmI32, obj.WasmBool:
+ 			b[i] = I32
+ 		case obj.WasmI64:
+ 			b[i] = I64
+diff --git a/src/cmd/link/internal/wasm/dolly.go b/src/cmd/link/internal/wasm/dolly.go
+new file mode 100644
+index 00000000..f34317a8
+--- /dev/null
++++ b/src/cmd/link/internal/wasm/dolly.go
+@@ -0,0 +1,42 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++package wasm
++
++import (
++	"cmd/link/internal/ld"
++	"cmd/link/internal/loader"
++	"encoding/binary"
++)
++
++// A Dolly process (GOOS=dolly) imports a shared memory64 as env.memory, up to
++// the ceiling of Dolly's abi/dolly-process-0.wat, and names the process
++// contract it was linked against and its memory limits in the dolly.process
++// and dolly.process.memory sections, as Dolly's cc stamps them.
++
++const dollyMaximumMemoryPages = 131072 // 8 GiB
++
++func writeDollyMemoryImport(ctxt *ld.Link, ldr *loader.Loader) {
++	writeName(ctxt.Out, "env")
++	writeName(ctxt.Out, "memory")
++	ctxt.Out.WriteByte(0x02) // memory import
++	ctxt.Out.WriteByte(0x07) // a maximum, shared, 64-bit addresses
++	writeUleb128(ctxt.Out, initialMemoryPages(ldr))
++	writeUleb128(ctxt.Out, dollyMaximumMemoryPages)
++}
++
++func writeDollySecs(ctxt *ld.Link, ldr *loader.Loader) {
++	sizeOffset := writeSecHeader(ctxt, sectionCustom)
++	writeName(ctxt.Out, "dolly.process")
++	ctxt.Out.Write(dollyProcessABIDigest[:])
++	writeSecSize(ctxt, sizeOffset)
++
++	var limits [16]byte
++	binary.LittleEndian.PutUint64(limits[:8], initialMemoryPages(ldr))
++	binary.LittleEndian.PutUint64(limits[8:], dollyMaximumMemoryPages)
++	sizeOffset = writeSecHeader(ctxt, sectionCustom)
++	writeName(ctxt.Out, "dolly.process.memory")
++	ctxt.Out.Write(limits[:])
++	writeSecSize(ctxt, sizeOffset)
++}
+diff --git a/src/cmd/link/internal/wasm/obj.go b/src/cmd/link/internal/wasm/obj.go
+index f8090a35..6b274abf 100644
+--- a/src/cmd/link/internal/wasm/obj.go
++++ b/src/cmd/link/internal/wasm/obj.go
+@@ -7,6 +7,7 @@ package wasm
+ import (
+ 	"cmd/internal/sys"
+ 	"cmd/link/internal/ld"
++	"internal/buildcfg"
+ )
+ 
+ func Init() (*sys.Arch, ld.Arch) {
+@@ -22,6 +23,9 @@ func Init() (*sys.Arch, ld.Arch) {
+ 		Gentext:       gentext,
+ 	}
+ 
++	if buildcfg.GOARCH == "wasm64" {
++		return sys.ArchWasm64, theArch
++	}
+ 	return sys.ArchWasm, theArch
+ }
+ 
+diff --git a/src/cmd/link/main.go b/src/cmd/link/main.go
+index 16e5a011..b15ad649 100644
+--- a/src/cmd/link/main.go
++++ b/src/cmd/link/main.go
+@@ -66,7 +66,7 @@ func main() {
+ 		arch, theArch = riscv64.Init()
+ 	case "s390x":
+ 		arch, theArch = s390x.Init()
+-	case "wasm":
++	case "wasm", "wasm64":
+ 		arch, theArch = wasm.Init()
+ 	}
+ 	ld.Main(arch, theArch)
+diff --git a/src/crypto/internal/fips140/fips140.go b/src/crypto/internal/fips140/fips140.go
+index 76054b00..97edf0d4 100644
+--- a/src/crypto/internal/fips140/fips140.go
++++ b/src/crypto/internal/fips140/fips140.go
+@@ -51,7 +51,7 @@ func Supported() error {
+ 	// Also, js/wasm and windows/386 don't have good enough timers
+ 	// for the CPU jitter entropy source.
+ 	switch {
+-	case runtime.GOARCH == "wasm",
++	case runtime.GOARCH == "wasm", runtime.GOARCH == "wasm64",
+ 		runtime.GOOS == "windows" && runtime.GOARCH == "386",
+ 		runtime.GOOS == "openbsd", // due to -fexecute-only, see #70880
+ 		runtime.GOOS == "aix":
+diff --git a/src/go/build/build.go b/src/go/build/build.go
+index 4c6be413..c788ca6f 100644
+--- a/src/go/build/build.go
++++ b/src/go/build/build.go
+@@ -1939,6 +1939,7 @@ func (ctxt *Context) eval(x constraint.Expr, allTags map[string]bool) bool {
+ //	linux (if GOOS = android)
+ //	solaris (if GOOS = illumos)
+ //	darwin (if GOOS = ios)
++//	wasm (if GOARCH = wasm64)
+ //	unix (if this is a Unix GOOS)
+ //	boringcrypto (if GOEXPERIMENT=boringcrypto is enabled)
+ //	tag (if tag is listed in ctxt.BuildTags, ctxt.ToolTags, or ctxt.ReleaseTags)
+@@ -1965,6 +1966,9 @@ func (ctxt *Context) matchTag(name string, allTags map[string]bool) bool {
+ 	if ctxt.GOOS == "ios" && name == "darwin" {
+ 		return true
+ 	}
++	if ctxt.GOARCH == "wasm64" && name == "wasm" {
++		return true
++	}
+ 	if name == "unix" && syslist.UnixOS[ctxt.GOOS] {
+ 		return true
+ 	}
+@@ -1992,6 +1996,7 @@ func (ctxt *Context) matchTag(name string, allTags map[string]bool) bool {
+ // if GOOS=android, then files with GOOS=linux are also matched.
+ // if GOOS=illumos, then files with GOOS=solaris are also matched.
+ // if GOOS=ios, then files with GOOS=darwin are also matched.
++// if GOARCH=wasm64, then files with GOARCH=wasm are also matched.
+ func (ctxt *Context) goodOSArchFile(name string, allTags map[string]bool) bool {
+ 	name, _, _ = strings.Cut(name, ".")
+ 
+diff --git a/src/go/types/sizes.go b/src/go/types/sizes.go
+index e2ff047b..612ea166 100644
+--- a/src/go/types/sizes.go
++++ b/src/go/types/sizes.go
+@@ -247,6 +247,7 @@ var gcArchSizes = map[string]*gcSizes{
+ 	"s390x":    {8, 8},
+ 	"sparc64":  {8, 8},
+ 	"wasm":     {8, 8},
++	"wasm64":   {8, 8},
+ 	// When adding more architectures here,
+ 	// update the doc string of SizesFor below.
+ }
+diff --git a/src/internal/buildcfg/cfg.go b/src/internal/buildcfg/cfg.go
+index 89fd74eb..c94ba6de 100644
+--- a/src/internal/buildcfg/cfg.go
++++ b/src/internal/buildcfg/cfg.go
+@@ -400,7 +400,7 @@ func GOGOARCH() (name, value string) {
+ 		return "GOPPC64", fmt.Sprintf("power%d", GOPPC64)
+ 	case "riscv64":
+ 		return "GORISCV64", fmt.Sprintf("rva%du64", GORISCV64)
+-	case "wasm":
++	case "wasm", "wasm64":
+ 		return "GOWASM", GOWASM.String()
+ 	}
+ 	return "", ""
+@@ -455,7 +455,7 @@ func gogoarchTags() []string {
+ 			list = append(list, GOARCH+"."+"rva23u64")
+ 		}
+ 		return list
+-	case "wasm":
++	case "wasm", "wasm64":
+ 		var list []string
+ 		// SatConv is always enabled
+ 		list = append(list, GOARCH+".satconv")
+diff --git a/src/internal/bytealg/compare_generic.go b/src/internal/bytealg/compare_generic.go
+index 614ae8b8..c05b22d8 100644
+--- a/src/internal/bytealg/compare_generic.go
++++ b/src/internal/bytealg/compare_generic.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build !386 && !amd64 && !s390x && !arm && !arm64 && !loong64 && !ppc64 && !ppc64le && !mips && !mipsle && !wasm && !mips64 && !mips64le && !riscv64
++//go:build !386 && !amd64 && !s390x && !arm && !arm64 && !loong64 && !ppc64 && !ppc64le && !mips && !mipsle && (!wasm || wasm64) && !mips64 && !mips64le && !riscv64
+ 
+ package bytealg
+ 
+diff --git a/src/internal/bytealg/compare_native.go b/src/internal/bytealg/compare_native.go
+index 983ab069..98cc2502 100644
+--- a/src/internal/bytealg/compare_native.go
++++ b/src/internal/bytealg/compare_native.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build 386 || amd64 || s390x || arm || arm64 || loong64 || ppc64 || ppc64le || mips || mipsle || wasm || mips64 || mips64le || riscv64
++//go:build 386 || amd64 || s390x || arm || arm64 || loong64 || ppc64 || ppc64le || mips || mipsle || (wasm && !wasm64) || mips64 || mips64le || riscv64
+ 
+ package bytealg
+ 
+diff --git a/src/internal/bytealg/compare_wasm.s b/src/internal/bytealg/compare_wasm.s
+index dc8fb33c..5d283ac0 100644
+--- a/src/internal/bytealg/compare_wasm.s
++++ b/src/internal/bytealg/compare_wasm.s
+@@ -2,6 +2,8 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
++//go:build !wasm64
++
+ #include "go_asm.h"
+ #include "textflag.h"
+ 
+diff --git a/src/internal/bytealg/equal_wasm.s b/src/internal/bytealg/equal_wasm.s
+index a2b76c13..16a8dd63 100644
+--- a/src/internal/bytealg/equal_wasm.s
++++ b/src/internal/bytealg/equal_wasm.s
+@@ -4,6 +4,7 @@
+ 
+ #include "go_asm.h"
+ #include "textflag.h"
++#include "asm_wasm.h"
+ 
+ // memequal(p, q unsafe.Pointer, size uintptr) bool
+ TEXT runtime·memequal(SB), NOSPLIT, $0-25
+@@ -46,10 +47,10 @@ loop:
+ 		End
+ 
+ 		Get R0
+-		I32WrapI64
++		WrapAddress
+ 		I64Load8U $0
+ 		Get R1
+-		I32WrapI64
++		WrapAddress
+ 		I64Load8U $0
+ 		I64Ne
+ 		If
+diff --git a/src/internal/bytealg/indexbyte_generic.go b/src/internal/bytealg/indexbyte_generic.go
+index b7fffcf4..b7dd2748 100644
+--- a/src/internal/bytealg/indexbyte_generic.go
++++ b/src/internal/bytealg/indexbyte_generic.go
+@@ -6,7 +6,7 @@
+ // SSE instructions on x86 machines, and those are classified as
+ // floating point instructions, which are illegal in a note handler.
+ 
+-//go:build !386 && (!amd64 || plan9) && !s390x && !arm && !arm64 && !loong64 && !ppc64 && !ppc64le && !mips && !mipsle && !mips64 && !mips64le && !riscv64 && !wasm
++//go:build !386 && (!amd64 || plan9) && !s390x && !arm && !arm64 && !loong64 && !ppc64 && !ppc64le && !mips && !mipsle && !mips64 && !mips64le && !riscv64 && (!wasm || wasm64)
+ 
+ package bytealg
+ 
+diff --git a/src/internal/bytealg/indexbyte_native.go b/src/internal/bytealg/indexbyte_native.go
+index 8e46c31f..fa516c12 100644
+--- a/src/internal/bytealg/indexbyte_native.go
++++ b/src/internal/bytealg/indexbyte_native.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build 386 || (amd64 && !plan9) || s390x || arm || arm64 || loong64 || ppc64 || ppc64le || mips || mipsle || mips64 || mips64le || riscv64 || wasm
++//go:build 386 || (amd64 && !plan9) || s390x || arm || arm64 || loong64 || ppc64 || ppc64le || mips || mipsle || mips64 || mips64le || riscv64 || (wasm && !wasm64)
+ 
+ package bytealg
+ 
+diff --git a/src/internal/bytealg/indexbyte_wasm.s b/src/internal/bytealg/indexbyte_wasm.s
+index d22e9044..dee5ba9a 100644
+--- a/src/internal/bytealg/indexbyte_wasm.s
++++ b/src/internal/bytealg/indexbyte_wasm.s
+@@ -2,6 +2,8 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
++//go:build !wasm64
++
+ #include "go_asm.h"
+ #include "textflag.h"
+ 
+diff --git a/src/internal/goarch/gengoarch.go b/src/internal/goarch/gengoarch.go
+index a52936ef..f17dd536 100644
+--- a/src/internal/goarch/gengoarch.go
++++ b/src/internal/goarch/gengoarch.go
+@@ -42,12 +42,16 @@ func main() {
+ 		}
+ 		var buf bytes.Buffer
+ 		fmt.Fprintf(&buf, "// Code generated by gengoarch.go using 'go generate'. DO NOT EDIT.\n\n")
+-		fmt.Fprintf(&buf, "//go:build %s\n\n", target) // must explicitly include target for bootstrapping purposes
++		tags := target // must explicitly include target for bootstrapping purposes
++		if target == "wasm" {
++			tags = "!wasm64 && wasm" // must explicitly exclude wasm64 for wasm
++		}
++		fmt.Fprintf(&buf, "//go:build %s\n\n", tags)
+ 		fmt.Fprintf(&buf, "package goarch\n\n")
+ 		fmt.Fprintf(&buf, "const GOARCH = `%s`\n\n", target)
+ 		for _, goarch := range goarches {
+ 			value := 0
+-			if goarch == target {
++			if goarch == target || goarch == "wasm" && target == "wasm64" { // wasm64 is a wasm
+ 				value = 1
+ 			}
+ 			fmt.Fprintf(&buf, "const Is%s = %d\n", strings.Title(goarch), value)
+diff --git a/src/internal/goarch/zgoarch_386.go b/src/internal/goarch/zgoarch_386.go
+index 4a9b0e67..620631e4 100644
+--- a/src/internal/goarch/zgoarch_386.go
++++ b/src/internal/goarch/zgoarch_386.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_amd64.go b/src/internal/goarch/zgoarch_amd64.go
+index 7926392b..79cf2498 100644
+--- a/src/internal/goarch/zgoarch_amd64.go
++++ b/src/internal/goarch/zgoarch_amd64.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_arm.go b/src/internal/goarch/zgoarch_arm.go
+index 6c03b8b0..eec502d7 100644
+--- a/src/internal/goarch/zgoarch_arm.go
++++ b/src/internal/goarch/zgoarch_arm.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_arm64.go b/src/internal/goarch/zgoarch_arm64.go
+index ad342d79..14332917 100644
+--- a/src/internal/goarch/zgoarch_arm64.go
++++ b/src/internal/goarch/zgoarch_arm64.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_arm64be.go b/src/internal/goarch/zgoarch_arm64be.go
+index 0f260030..d7fcd85e 100644
+--- a/src/internal/goarch/zgoarch_arm64be.go
++++ b/src/internal/goarch/zgoarch_arm64be.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_armbe.go b/src/internal/goarch/zgoarch_armbe.go
+index 6092fee7..0c45d9b2 100644
+--- a/src/internal/goarch/zgoarch_armbe.go
++++ b/src/internal/goarch/zgoarch_armbe.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_loong64.go b/src/internal/goarch/zgoarch_loong64.go
+index 21c67e11..c4e358e1 100644
+--- a/src/internal/goarch/zgoarch_loong64.go
++++ b/src/internal/goarch/zgoarch_loong64.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_mips.go b/src/internal/goarch/zgoarch_mips.go
+index 0db19746..9f33a7e2 100644
+--- a/src/internal/goarch/zgoarch_mips.go
++++ b/src/internal/goarch/zgoarch_mips.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_mips64.go b/src/internal/goarch/zgoarch_mips64.go
+index 738806f0..a6a47c7c 100644
+--- a/src/internal/goarch/zgoarch_mips64.go
++++ b/src/internal/goarch/zgoarch_mips64.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_mips64le.go b/src/internal/goarch/zgoarch_mips64le.go
+index 8de5beb8..e00b28af 100644
+--- a/src/internal/goarch/zgoarch_mips64le.go
++++ b/src/internal/goarch/zgoarch_mips64le.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_mips64p32.go b/src/internal/goarch/zgoarch_mips64p32.go
+index ea461bed..63d2e05b 100644
+--- a/src/internal/goarch/zgoarch_mips64p32.go
++++ b/src/internal/goarch/zgoarch_mips64p32.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_mips64p32le.go b/src/internal/goarch/zgoarch_mips64p32le.go
+index 15473ce6..6ce487d0 100644
+--- a/src/internal/goarch/zgoarch_mips64p32le.go
++++ b/src/internal/goarch/zgoarch_mips64p32le.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_mipsle.go b/src/internal/goarch/zgoarch_mipsle.go
+index 4955142e..2d9d3171 100644
+--- a/src/internal/goarch/zgoarch_mipsle.go
++++ b/src/internal/goarch/zgoarch_mipsle.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_ppc.go b/src/internal/goarch/zgoarch_ppc.go
+index ec01763b..34eafea9 100644
+--- a/src/internal/goarch/zgoarch_ppc.go
++++ b/src/internal/goarch/zgoarch_ppc.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_ppc64.go b/src/internal/goarch/zgoarch_ppc64.go
+index 39be3925..a2b72b62 100644
+--- a/src/internal/goarch/zgoarch_ppc64.go
++++ b/src/internal/goarch/zgoarch_ppc64.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_ppc64le.go b/src/internal/goarch/zgoarch_ppc64le.go
+index 5f959e0e..1b54ae76 100644
+--- a/src/internal/goarch/zgoarch_ppc64le.go
++++ b/src/internal/goarch/zgoarch_ppc64le.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_riscv.go b/src/internal/goarch/zgoarch_riscv.go
+index 8d81a14d..b7284fec 100644
+--- a/src/internal/goarch/zgoarch_riscv.go
++++ b/src/internal/goarch/zgoarch_riscv.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_riscv64.go b/src/internal/goarch/zgoarch_riscv64.go
+index 1df989c2..4edd7d9f 100644
+--- a/src/internal/goarch/zgoarch_riscv64.go
++++ b/src/internal/goarch/zgoarch_riscv64.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_s390.go b/src/internal/goarch/zgoarch_s390.go
+index 56815b9f..1342e9b9 100644
+--- a/src/internal/goarch/zgoarch_s390.go
++++ b/src/internal/goarch/zgoarch_s390.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_s390x.go b/src/internal/goarch/zgoarch_s390x.go
+index e61e9bd5..1e5bc3c0 100644
+--- a/src/internal/goarch/zgoarch_s390x.go
++++ b/src/internal/goarch/zgoarch_s390x.go
+@@ -30,3 +30,4 @@ const IsS390x = 1
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_sparc.go b/src/internal/goarch/zgoarch_sparc.go
+index ee5b7465..ab6f61ee 100644
+--- a/src/internal/goarch/zgoarch_sparc.go
++++ b/src/internal/goarch/zgoarch_sparc.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 1
+ const IsSparc64 = 0
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_sparc64.go b/src/internal/goarch/zgoarch_sparc64.go
+index 519aaa10..d0f12b3b 100644
+--- a/src/internal/goarch/zgoarch_sparc64.go
++++ b/src/internal/goarch/zgoarch_sparc64.go
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 1
+ const IsWasm = 0
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_wasm.go b/src/internal/goarch/zgoarch_wasm.go
+index 25567a1b..5ec1627c 100644
+--- a/src/internal/goarch/zgoarch_wasm.go
++++ b/src/internal/goarch/zgoarch_wasm.go
+@@ -1,6 +1,6 @@
+ // Code generated by gengoarch.go using 'go generate'. DO NOT EDIT.
+ 
+-//go:build wasm
++//go:build !wasm64 && wasm
+ 
+ package goarch
+ 
+@@ -30,3 +30,4 @@ const IsS390x = 0
+ const IsSparc = 0
+ const IsSparc64 = 0
+ const IsWasm = 1
++const IsWasm64 = 0
+diff --git a/src/internal/goarch/zgoarch_wasm64.go b/src/internal/goarch/zgoarch_wasm64.go
+new file mode 100644
+index 00000000..ff33dbd0
+--- /dev/null
++++ b/src/internal/goarch/zgoarch_wasm64.go
+@@ -0,0 +1,33 @@
++// Code generated by gengoarch.go using 'go generate'. DO NOT EDIT.
++
++//go:build wasm64
++
++package goarch
++
++const GOARCH = `wasm64`
++
++const Is386 = 0
++const IsAmd64 = 0
++const IsAmd64p32 = 0
++const IsArm = 0
++const IsArmbe = 0
++const IsArm64 = 0
++const IsArm64be = 0
++const IsLoong64 = 0
++const IsMips = 0
++const IsMipsle = 0
++const IsMips64 = 0
++const IsMips64le = 0
++const IsMips64p32 = 0
++const IsMips64p32le = 0
++const IsPpc = 0
++const IsPpc64 = 0
++const IsPpc64le = 0
++const IsRiscv = 0
++const IsRiscv64 = 0
++const IsS390 = 0
++const IsS390x = 0
++const IsSparc = 0
++const IsSparc64 = 0
++const IsWasm = 1
++const IsWasm64 = 1
+diff --git a/src/internal/goos/zgoos_aix.go b/src/internal/goos/zgoos_aix.go
+index 24e05c93..42cd41dc 100644
+--- a/src/internal/goos/zgoos_aix.go
++++ b/src/internal/goos/zgoos_aix.go
+@@ -9,6 +9,7 @@ const GOOS = `aix`
+ const IsAix = 1
+ const IsAndroid = 0
+ const IsDarwin = 0
++const IsDolly = 0
+ const IsDragonfly = 0
+ const IsFreebsd = 0
+ const IsHurd = 0
+diff --git a/src/internal/goos/zgoos_android.go b/src/internal/goos/zgoos_android.go
+index 3c4a3185..1cc59c80 100644
+--- a/src/internal/goos/zgoos_android.go
++++ b/src/internal/goos/zgoos_android.go
+@@ -9,6 +9,7 @@ const GOOS = `android`
+ const IsAix = 0
+ const IsAndroid = 1
+ const IsDarwin = 0
++const IsDolly = 0
+ const IsDragonfly = 0
+ const IsFreebsd = 0
+ const IsHurd = 0
+diff --git a/src/internal/goos/zgoos_darwin.go b/src/internal/goos/zgoos_darwin.go
+index 10b14998..7b68f4ad 100644
+--- a/src/internal/goos/zgoos_darwin.go
++++ b/src/internal/goos/zgoos_darwin.go
+@@ -9,6 +9,7 @@ const GOOS = `darwin`
+ const IsAix = 0
+ const IsAndroid = 0
+ const IsDarwin = 1
++const IsDolly = 0
+ const IsDragonfly = 0
+ const IsFreebsd = 0
+ const IsHurd = 0
+diff --git a/src/internal/goos/zgoos_dolly.go b/src/internal/goos/zgoos_dolly.go
+new file mode 100644
+index 00000000..8aeb2b67
+--- /dev/null
++++ b/src/internal/goos/zgoos_dolly.go
+@@ -0,0 +1,27 @@
++// Code generated by gengoos.go using 'go generate'. DO NOT EDIT.
++
++//go:build dolly
++
++package goos
++
++const GOOS = `dolly`
++
++const IsAix = 0
++const IsAndroid = 0
++const IsDarwin = 0
++const IsDolly = 1
++const IsDragonfly = 0
++const IsFreebsd = 0
++const IsHurd = 0
++const IsIllumos = 0
++const IsIos = 0
++const IsJs = 0
++const IsLinux = 0
++const IsNacl = 0
++const IsNetbsd = 0
++const IsOpenbsd = 0
++const IsPlan9 = 0
++const IsSolaris = 0
++const IsWasip1 = 0
++const IsWindows = 0
++const IsZos = 0
+diff --git a/src/internal/goos/zgoos_dragonfly.go b/src/internal/goos/zgoos_dragonfly.go
+index b92d1269..ddb02906 100644
+--- a/src/internal/goos/zgoos_dragonfly.go
++++ b/src/internal/goos/zgoos_dragonfly.go
+@@ -9,6 +9,7 @@ const GOOS = `dragonfly`
+ const IsAix = 0
+ const IsAndroid = 0
+ const IsDarwin = 0
++const IsDolly = 0
+ const IsDragonfly = 1
+ const IsFreebsd = 0
+ const IsHurd = 0
+diff --git a/src/internal/goos/zgoos_freebsd.go b/src/internal/goos/zgoos_freebsd.go
+index f547591a..0e41e065 100644
+--- a/src/internal/goos/zgoos_freebsd.go
++++ b/src/internal/goos/zgoos_freebsd.go
+@@ -9,6 +9,7 @@ const GOOS = `freebsd`
+ const IsAix = 0
+ const IsAndroid = 0
+ const IsDarwin = 0
++const IsDolly = 0
+ const IsDragonfly = 0
+ const IsFreebsd = 1
+ const IsHurd = 0
+diff --git a/src/internal/goos/zgoos_hurd.go b/src/internal/goos/zgoos_hurd.go
+index 1189d65d..85b1b96f 100644
+--- a/src/internal/goos/zgoos_hurd.go
++++ b/src/internal/goos/zgoos_hurd.go
+@@ -9,6 +9,7 @@ const GOOS = `hurd`
+ const IsAix = 0
+ const IsAndroid = 0
+ const IsDarwin = 0
++const IsDolly = 0
+ const IsDragonfly = 0
+ const IsFreebsd = 0
+ const IsHurd = 1
+diff --git a/src/internal/goos/zgoos_illumos.go b/src/internal/goos/zgoos_illumos.go
+index 4f025408..c7a21293 100644
+--- a/src/internal/goos/zgoos_illumos.go
++++ b/src/internal/goos/zgoos_illumos.go
+@@ -9,6 +9,7 @@ const GOOS = `illumos`
+ const IsAix = 0
+ const IsAndroid = 0
+ const IsDarwin = 0
++const IsDolly = 0
+ const IsDragonfly = 0
+ const IsFreebsd = 0
+ const IsHurd = 0
+diff --git a/src/internal/goos/zgoos_ios.go b/src/internal/goos/zgoos_ios.go
+index 02f3586f..ecb470e5 100644
+--- a/src/internal/goos/zgoos_ios.go
++++ b/src/internal/goos/zgoos_ios.go
+@@ -9,6 +9,7 @@ const GOOS = `ios`
+ const IsAix = 0
+ const IsAndroid = 0
+ const IsDarwin = 0
++const IsDolly = 0
+ const IsDragonfly = 0
+ const IsFreebsd = 0
+ const IsHurd = 0
+diff --git a/src/internal/goos/zgoos_js.go b/src/internal/goos/zgoos_js.go
+index 48187418..fcdbdb52 100644
+--- a/src/internal/goos/zgoos_js.go
++++ b/src/internal/goos/zgoos_js.go
+@@ -9,6 +9,7 @@ const GOOS = `js`
+ const IsAix = 0
+ const IsAndroid = 0
+ const IsDarwin = 0
++const IsDolly = 0
+ const IsDragonfly = 0
+ const IsFreebsd = 0
+ const IsHurd = 0
+diff --git a/src/internal/goos/zgoos_linux.go b/src/internal/goos/zgoos_linux.go
+index 6f4d4e07..9dc282ad 100644
+--- a/src/internal/goos/zgoos_linux.go
++++ b/src/internal/goos/zgoos_linux.go
+@@ -9,6 +9,7 @@ const GOOS = `linux`
+ const IsAix = 0
+ const IsAndroid = 0
+ const IsDarwin = 0
++const IsDolly = 0
+ const IsDragonfly = 0
+ const IsFreebsd = 0
+ const IsHurd = 0
+diff --git a/src/internal/goos/zgoos_netbsd.go b/src/internal/goos/zgoos_netbsd.go
+index 948603df..b0c73b6a 100644
+--- a/src/internal/goos/zgoos_netbsd.go
++++ b/src/internal/goos/zgoos_netbsd.go
+@@ -9,6 +9,7 @@ const GOOS = `netbsd`
+ const IsAix = 0
+ const IsAndroid = 0
+ const IsDarwin = 0
++const IsDolly = 0
+ const IsDragonfly = 0
+ const IsFreebsd = 0
+ const IsHurd = 0
+diff --git a/src/internal/goos/zgoos_openbsd.go b/src/internal/goos/zgoos_openbsd.go
+index f4b20145..0d444c81 100644
+--- a/src/internal/goos/zgoos_openbsd.go
++++ b/src/internal/goos/zgoos_openbsd.go
+@@ -9,6 +9,7 @@ const GOOS = `openbsd`
+ const IsAix = 0
+ const IsAndroid = 0
+ const IsDarwin = 0
++const IsDolly = 0
+ const IsDragonfly = 0
+ const IsFreebsd = 0
+ const IsHurd = 0
+diff --git a/src/internal/goos/zgoos_plan9.go b/src/internal/goos/zgoos_plan9.go
+index 95572dff..28d73cd3 100644
+--- a/src/internal/goos/zgoos_plan9.go
++++ b/src/internal/goos/zgoos_plan9.go
+@@ -9,6 +9,7 @@ const GOOS = `plan9`
+ const IsAix = 0
+ const IsAndroid = 0
+ const IsDarwin = 0
++const IsDolly = 0
+ const IsDragonfly = 0
+ const IsFreebsd = 0
+ const IsHurd = 0
+diff --git a/src/internal/goos/zgoos_solaris.go b/src/internal/goos/zgoos_solaris.go
+index c7058260..8379089a 100644
+--- a/src/internal/goos/zgoos_solaris.go
++++ b/src/internal/goos/zgoos_solaris.go
+@@ -9,6 +9,7 @@ const GOOS = `solaris`
+ const IsAix = 0
+ const IsAndroid = 0
+ const IsDarwin = 0
++const IsDolly = 0
+ const IsDragonfly = 0
+ const IsFreebsd = 0
+ const IsHurd = 0
+diff --git a/src/internal/goos/zgoos_wasip1.go b/src/internal/goos/zgoos_wasip1.go
+index ae35eeba..34f970d6 100644
+--- a/src/internal/goos/zgoos_wasip1.go
++++ b/src/internal/goos/zgoos_wasip1.go
+@@ -9,6 +9,7 @@ const GOOS = `wasip1`
+ const IsAix = 0
+ const IsAndroid = 0
+ const IsDarwin = 0
++const IsDolly = 0
+ const IsDragonfly = 0
+ const IsFreebsd = 0
+ const IsHurd = 0
+diff --git a/src/internal/goos/zgoos_windows.go b/src/internal/goos/zgoos_windows.go
+index f89f4cf8..53f49d8a 100644
+--- a/src/internal/goos/zgoos_windows.go
++++ b/src/internal/goos/zgoos_windows.go
+@@ -9,6 +9,7 @@ const GOOS = `windows`
+ const IsAix = 0
+ const IsAndroid = 0
+ const IsDarwin = 0
++const IsDolly = 0
+ const IsDragonfly = 0
+ const IsFreebsd = 0
+ const IsHurd = 0
+diff --git a/src/internal/goos/zgoos_zos.go b/src/internal/goos/zgoos_zos.go
+index 29fb0f8b..d7346a01 100644
+--- a/src/internal/goos/zgoos_zos.go
++++ b/src/internal/goos/zgoos_zos.go
+@@ -9,6 +9,7 @@ const GOOS = `zos`
+ const IsAix = 0
+ const IsAndroid = 0
+ const IsDarwin = 0
++const IsDolly = 0
+ const IsDragonfly = 0
+ const IsFreebsd = 0
+ const IsHurd = 0
+diff --git a/src/internal/platform/zosarch.go b/src/internal/platform/zosarch.go
+index ec6368e8..b857768a 100644
+--- a/src/internal/platform/zosarch.go
++++ b/src/internal/platform/zosarch.go
+@@ -15,6 +15,7 @@ var List = []OSArch{
+ 	{"android", "arm64"},
+ 	{"darwin", "amd64"},
+ 	{"darwin", "arm64"},
++	{"dolly", "wasm64"},
+ 	{"dragonfly", "amd64"},
+ 	{"freebsd", "386"},
+ 	{"freebsd", "amd64"},
+@@ -67,6 +68,7 @@ var distInfo = map[OSArch]osArchInfo{
+ 	{"android", "arm64"}:   {CgoSupported: true},
+ 	{"darwin", "amd64"}:    {CgoSupported: true, FirstClass: true},
+ 	{"darwin", "arm64"}:    {CgoSupported: true, FirstClass: true},
++	{"dolly", "wasm64"}:    {},
+ 	{"dragonfly", "amd64"}: {CgoSupported: true},
+ 	{"freebsd", "386"}:     {CgoSupported: true},
+ 	{"freebsd", "amd64"}:   {CgoSupported: true},
+diff --git a/src/internal/syslist/syslist.go b/src/internal/syslist/syslist.go
+index 2349b6ea..19d1e260 100644
+--- a/src/internal/syslist/syslist.go
++++ b/src/internal/syslist/syslist.go
+@@ -18,6 +18,7 @@ var KnownOS = map[string]bool{
+ 	"aix":       true,
+ 	"android":   true,
+ 	"darwin":    true,
++	"dolly":     true,
+ 	"dragonfly": true,
+ 	"freebsd":   true,
+ 	"hurd":      true,
+@@ -80,4 +81,5 @@ var KnownArch = map[string]bool{
+ 	"sparc":       true,
+ 	"sparc64":     true,
+ 	"wasm":        true,
++	"wasm64":      true,
+ }
+diff --git a/src/reflect/asm_wasm.s b/src/reflect/asm_wasm.s
+index 71abe670..f27b1d6e 100644
+--- a/src/reflect/asm_wasm.s
++++ b/src/reflect/asm_wasm.s
+@@ -4,6 +4,7 @@
+ 
+ #include "textflag.h"
+ #include "funcdata.h"
++#include "asm_wasm.h"
+ 
+ // makeFuncStub is the code half of the function returned by MakeFunc.
+ // See the comment on the declaration of makeFuncStub in makefunc.go
+@@ -16,7 +17,7 @@ TEXT ·makeFuncStub(SB),(NOSPLIT|WRAPPER),$40
+ 
+ 	Get SP
+ 	Get SP
+-	I64ExtendI32U
++	ExtendSP
+ 	I64Const $argframe+0(FP)
+ 	I64Add
+ 	I64Store $8
+@@ -39,7 +40,7 @@ TEXT ·methodValueCall(SB),(NOSPLIT|WRAPPER),$40
+ 
+ 	Get SP
+ 	Get SP
+-	I64ExtendI32U
++	ExtendSP
+ 	I64Const $argframe+0(FP)
+ 	I64Add
+ 	I64Store $8
+diff --git a/src/runtime/asm_wasm.h b/src/runtime/asm_wasm.h
+new file mode 100644
+index 00000000..15dbacc9
+--- /dev/null
++++ b/src/runtime/asm_wasm.h
+@@ -0,0 +1,21 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++// Go pointers are i64 in WebAssembly. GOARCH=wasm addresses a 32-bit linear
++// memory and keeps SP in an i32; GOARCH=wasm64 addresses a 64-bit linear
++// memory (memory64), so a pointer is an address and SP is an i64.
++
++#ifdef GOARCH_wasm64
++#define WrapAddress
++#define ExtendSP
++#define SPConst I64Const
++#define SPAdd I64Add
++#define SPSub I64Sub
++#else
++#define WrapAddress I32WrapI64
++#define ExtendSP I64ExtendI32U
++#define SPConst I32Const
++#define SPAdd I32Add
++#define SPSub I32Sub
++#endif
+diff --git a/src/runtime/asm_wasm.s b/src/runtime/asm_wasm.s
+index 0fe91733..967af30f 100644
+--- a/src/runtime/asm_wasm.s
++++ b/src/runtime/asm_wasm.s
+@@ -6,6 +6,7 @@
+ #include "go_tls.h"
+ #include "funcdata.h"
+ #include "textflag.h"
++#include "asm_wasm.h"
+ 
+ TEXT runtime·rt0_go(SB), NOSPLIT|NOFRAME|TOPFRAME, $0
+ 	// save m->g0 = g0
+@@ -41,8 +42,8 @@ TEXT runtime·gogo(SB), NOSPLIT, $0-8
+ 
+ 	// Put target PC at -8(SP), wasm_pc_f_loop will pick it up
+ 	Get SP
+-	I32Const $8
+-	I32Sub
++	SPConst $8
++	SPSub
+ 	I64Load gobuf_pc(R0)
+ 	I64Store $0
+ 
+@@ -82,7 +83,7 @@ TEXT runtime·mcall(SB), NOSPLIT, $0-8
+ 	I64Load (g_sched+gobuf_sp)(R2)
+ 	I64Const $8
+ 	I64Sub
+-	I32WrapI64
++	WrapAddress
+ 	Set SP
+ 
+ 	// set arg to current g
+@@ -93,13 +94,13 @@ TEXT runtime·mcall(SB), NOSPLIT, $0-8
+ 
+ 	// call fn
+ 	Get CTXT
+-	I32WrapI64
++	WrapAddress
+ 	I64Load $0
+ 	CALL
+ 
+ 	Get SP
+-	I32Const $8
+-	I32Add
++	SPConst $8
++	SPAdd
+ 	Set SP
+ 
+ 	JMP runtime·badmcall2(SB)
+@@ -122,7 +123,7 @@ TEXT runtime·systemstack(SB), NOSPLIT, $0-8
+ 		MOVD R0, CTXT
+ 
+ 		Get CTXT
+-		I32WrapI64
++		WrapAddress
+ 		I64Load $0
+ 		JMP
+ 	End
+@@ -160,7 +161,7 @@ TEXT runtime·systemstack(SB), NOSPLIT, $0-8
+ 	MOVD R0, CTXT
+ 
+ 	Get CTXT
+-	I32WrapI64
++	WrapAddress
+ 	I64Load $0
+ 	CALL
+ 
+@@ -205,12 +206,12 @@ TEXT runtime·switchToCrashStack0(SB), NOSPLIT, $0-8
+ 	I64Load (g_stack+stack_hi)(g)
+ 	I64Const $(-4*8)
+ 	I64Add
+-	I32WrapI64
++	WrapAddress
+ 	Set SP
+ 
+ 	// call target function
+ 	Get CTXT
+-	I32WrapI64
++	WrapAddress
+ 	I64Load $0
+ 	CALL
+ 
+@@ -321,6 +322,13 @@ TEXT ·reflectcall(SB), NOSPLIT, $0-48
+ 	DISPATCH(runtime·call1073741824, 1073741824)
+ 	JMP runtime·badreflectcall(SB)
+ 
++// The uint32 stackArgsSize as a memory.copy length.
++#ifdef GOARCH_wasm64
++#define STACK_ARGS_SIZE I64Load32U stackArgsSize+24(FP)
++#else
++#define STACK_ARGS_SIZE I64Load stackArgsSize+24(FP); I32WrapI64
++#endif
++
+ #define CALLFN(NAME, MAXSIZE) \
+ TEXT NAME(SB), WRAPPER, $MAXSIZE-48; \
+ 	NO_LOCAL_POINTERS; \
+@@ -332,15 +340,14 @@ TEXT NAME(SB), WRAPPER, $MAXSIZE-48; \
+ 	If; \
+ 		Get SP; \
+ 		I64Load stackArgs+16(FP); \
+-		I32WrapI64; \
+-		I64Load stackArgsSize+24(FP); \
+-		I32WrapI64; \
++		WrapAddress; \
++		STACK_ARGS_SIZE; \
+ 		MemoryCopy; \
+ 	End; \
+ 	\
+ 	MOVD f+8(FP), CTXT; \
+ 	Get CTXT; \
+-	I32WrapI64; \
++	WrapAddress; \
+ 	I64Load $0; \
+ 	CALL; \
+ 	\
+@@ -355,7 +362,7 @@ TEXT NAME(SB), WRAPPER, $MAXSIZE-48; \
+ 	Set RET1; \
+ 	\
+ 	Get SP; \
+-	I64ExtendI32U; \
++	ExtendSP; \
+ 	Get R0; \
+ 	I64Add; \
+ 	Set RET2; \
+@@ -510,13 +517,13 @@ TEXT wasm_pc_f_loop(SB),NOSPLIT,$0
+ 		Loop
+ 			// Get PC_B & PC_F from -8(SP)
+ 			Get SP
+-			I32Const $8
+-			I32Sub
++			SPConst $8
++			SPSub
+ 			I32Load16U $0 // PC_B
+ 
+ 			Get SP
+-			I32Const $8
+-			I32Sub
++			SPConst $8
++			SPSub
+ 			I32Load $2 // PC_F
+ 
+ 			CallIndirect $0
+@@ -551,8 +558,8 @@ outer:
+ 		Loop
+ 			// Get PC_F & PC_B from -8(SP)
+ 			Get SP
+-			I32Const $8
+-			I32Sub
++			SPConst $8
++			SPSub
+ 			I32Load $2 // PC_F
+ 			Tee R2
+ 
+@@ -566,8 +573,8 @@ outer:
+ 			End
+ 
+ 			Get SP
+-			I32Const $8
+-			I32Sub
++			SPConst $8
++			SPSub
+ 			I32Load16U $0 // PC_B
+ 
+ 			Get R2 // PC_F
+diff --git a/src/runtime/debug.go b/src/runtime/debug.go
+index 56b766f1..dd6cf3ac 100644
+--- a/src/runtime/debug.go
++++ b/src/runtime/debug.go
+@@ -5,6 +5,7 @@
+ package runtime
+ 
+ import (
++	"internal/goarch"
+ 	"internal/runtime/atomic"
+ 	"unsafe"
+ )
+@@ -68,7 +69,7 @@ import (
+ //
+ // [default]: https://go.dev/doc/godebug#default
+ func GOMAXPROCS(n int) int {
+-	if GOARCH == "wasm" && n > 1 {
++	if goarch.IsWasm != 0 && n > 1 {
+ 		n = 1 // WebAssembly has no threads yet, so only one CPU is possible.
+ 	}
+ 
+diff --git a/src/runtime/malloc.go b/src/runtime/malloc.go
+index 8c5ec383..fd463fb5 100644
+--- a/src/runtime/malloc.go
++++ b/src/runtime/malloc.go
+@@ -209,8 +209,9 @@ const (
+ 	// TODO(mknyszek): Once iOS <14 is deprecated, promote ios/arm64
+ 	// to a 48-bit address space like every other arm64 platform.
+ 	//
+-	// WebAssembly currently has a limit of 4GB linear memory.
+-	heapAddrBits = (_64bit*(1-goarch.IsWasm)*(1-goos.IsIos*goarch.IsArm64))*48 + (1-_64bit+goarch.IsWasm)*(32-(goarch.IsMips+goarch.IsMipsle)) + 40*goos.IsIos*goarch.IsArm64
++	// WebAssembly currently has a limit of 4GB linear memory, and
++	// browsers give a 64-bit one (wasm64) at most 16GB.
++	heapAddrBits = (_64bit*(1-goarch.IsWasm)*(1-goos.IsIos*goarch.IsArm64))*48 + (1-_64bit+goarch.IsWasm)*(32-(goarch.IsMips+goarch.IsMipsle)) + 40*goos.IsIos*goarch.IsArm64 + 2*goarch.IsWasm64
+ 
+ 	// maxAlloc is the maximum size of an allocation. On 64-bit,
+ 	// it's theoretically possible to allocate 1<<heapAddrBits bytes. On
+diff --git a/src/runtime/memclr_wasm.s b/src/runtime/memclr_wasm.s
+index 19d08ffb..ad844a62 100644
+--- a/src/runtime/memclr_wasm.s
++++ b/src/runtime/memclr_wasm.s
+@@ -3,6 +3,7 @@
+ // license that can be found in the LICENSE file.
+ 
+ #include "textflag.h"
++#include "asm_wasm.h"
+ 
+ // See memclrNoHeapPointers Go doc for important implementation constraints.
+ 
+@@ -12,9 +13,9 @@ TEXT runtime·memclrNoHeapPointers(SB), NOSPLIT, $0-16
+ 	MOVD n+8(FP), R1
+ 
+ 	Get R0
+-	I32WrapI64
++	WrapAddress
+ 	I32Const $0
+ 	Get R1
+-	I32WrapI64
++	WrapAddress
+ 	MemoryFill
+ 	RET
+diff --git a/src/runtime/memmove_wasm.s b/src/runtime/memmove_wasm.s
+index 1be8487a..18879fc2 100644
+--- a/src/runtime/memmove_wasm.s
++++ b/src/runtime/memmove_wasm.s
+@@ -3,6 +3,7 @@
+ // license that can be found in the LICENSE file.
+ 
+ #include "textflag.h"
++#include "asm_wasm.h"
+ 
+ // See memmove Go doc for important implementation constraints.
+ 
+@@ -13,10 +14,10 @@ TEXT runtime·memmove(SB), NOSPLIT, $0-24
+ 	MOVD n+16(FP), R2
+ 
+ 	Get R0
+-	I32WrapI64
++	WrapAddress
+ 	Get R1
+-	I32WrapI64
++	WrapAddress
+ 	Get R2
+-	I32WrapI64
++	WrapAddress
+ 	MemoryCopy
+ 	RET
+diff --git a/src/runtime/proc.go b/src/runtime/proc.go
+index b8d4d150..c458e8d4 100644
+--- a/src/runtime/proc.go
++++ b/src/runtime/proc.go
+@@ -285,7 +285,7 @@ func main() {
+ 	if isarchive || islibrary {
+ 		// A program compiled with -buildmode=c-archive or c-shared
+ 		// has a main, but it is not executed.
+-		if GOARCH == "wasm" {
++		if goarch.IsWasm != 0 {
+ 			// On Wasm, pause makes it return to the host.
+ 			// Unlike cgo callbacks where Ms are created on demand,
+ 			// on Wasm we have only one M. So we keep this M (and this
+@@ -2948,7 +2948,7 @@ func newm1(mp *m) {
+ //
+ // The calling thread must itself be in a known-good state.
+ func startTemplateThread() {
+-	if GOARCH == "wasm" { // no threads on wasm yet
++	if goarch.IsWasm != 0 { // no threads on wasm yet
+ 		return
+ 	}
+ 
+@@ -4553,7 +4553,7 @@ func gdestroy(gp *g) {
+ 
+ 	dropg()
+ 
+-	if GOARCH == "wasm" { // no threads yet on wasm
++	if goarch.IsWasm != 0 { // no threads yet on wasm
+ 		gfput(pp, gp)
+ 		return
+ 	}
+@@ -5647,7 +5647,7 @@ func Breakpoint() {
+ //
+ //go:nosplit
+ func dolockOSThread() {
+-	if GOARCH == "wasm" {
++	if goarch.IsWasm != 0 {
+ 		return // no threads on wasm yet
+ 	}
+ 	gp := getg()
+@@ -5699,7 +5699,7 @@ func lockOSThread() {
+ //
+ //go:nosplit
+ func dounlockOSThread() {
+-	if GOARCH == "wasm" {
++	if goarch.IsWasm != 0 {
+ 		return // no threads on wasm yet
+ 	}
+ 	gp := getg()
+@@ -6423,7 +6423,7 @@ func checkdead() {
+ 	// assumed to be running.
+ 	// One exception is Wasm, which is single-threaded. If we are
+ 	// in Go and all goroutines are blocked, it deadlocks.
+-	if (islibrary || isarchive) && GOARCH != "wasm" {
++	if (islibrary || isarchive) && goarch.IsWasm == 0 {
+ 		return
+ 	}
+ 
+@@ -6529,7 +6529,7 @@ var forcegcperiod int64 = 2 * 60 * 1e9
+ // haveSysmon indicates whether there is sysmon thread support.
+ //
+ // No threads on wasm yet, so no sysmon.
+-const haveSysmon = GOARCH != "wasm"
++const haveSysmon = goarch.IsWasm == 0
+ 
+ // Always runs without a P, so write barriers are not allowed.
+ //
+diff --git a/src/runtime/symtab.go b/src/runtime/symtab.go
+index aa84a6f9..8d4ec026 100644
+--- a/src/runtime/symtab.go
++++ b/src/runtime/symtab.go
+@@ -656,7 +656,7 @@ func moduledataverify1(datap *moduledata) {
+ 	max := datap.textAddr(datap.ftab[nftab].entryoff)
+ 	minpc := datap.minpc
+ 	maxpc := datap.maxpc
+-	if GOARCH == "wasm" {
++	if goarch.IsWasm != 0 {
+ 		// On Wasm, the func table contains the function index, whereas
+ 		// the "PC" is function index << 16 + block index.
+ 		maxpc = alignUp(maxpc, 1<<16) // round up for end PC
+@@ -703,12 +703,12 @@ func (md *moduledata) textAddr(off32 uint32) uintptr {
+ 				break
+ 			}
+ 		}
+-		if res > md.etext && GOARCH != "wasm" { // on wasm, functions do not live in the same address space as the linear memory
++		if res > md.etext && goarch.IsWasm == 0 { // on wasm, functions do not live in the same address space as the linear memory
+ 			println("runtime: textAddr", hex(res), "out of range", hex(md.text), "-", hex(md.etext))
+ 			throw("runtime: text offset out of range")
+ 		}
+ 	}
+-	if GOARCH == "wasm" {
++	if goarch.IsWasm != 0 {
+ 		// On Wasm, a text offset (e.g. in the method table) is function index, whereas
+ 		// the "PC" is function index << 16 + block index.
+ 		res <<= 16
+@@ -724,14 +724,14 @@ func (md *moduledata) textAddr(off32 uint32) uintptr {
+ //go:nosplit
+ func (md *moduledata) textOff(pc uintptr) (uint32, bool) {
+ 	off := pc - md.text
+-	if GOARCH == "wasm" {
++	if goarch.IsWasm != 0 {
+ 		// On Wasm, the func table contains the function index, whereas
+ 		// the "PC" is function index << 16 + block index.
+ 		off >>= 16
+ 	}
+ 	res := uint32(off)
+ 	if len(md.textsectmap) > 1 {
+-		if GOARCH == "wasm" {
++		if goarch.IsWasm != 0 {
+ 			fatal("unexpected multiple text sections on Wasm")
+ 		}
+ 		for i, sect := range md.textsectmap {
+@@ -932,7 +932,7 @@ func findfunc(pc uintptr) funcInfo {
+ 	}
+ 
+ 	x := uintptr(pcOff) + datap.text - datap.minpc // TODO: are datap.text and datap.minpc always equal?
+-	if GOARCH == "wasm" {
++	if goarch.IsWasm != 0 {
+ 		// On Wasm, pcOff is the function index, whereas
+ 		// the "PC" is function index << 16 + block index.
+ 		x = uintptr(pcOff)<<16 + datap.text - datap.minpc
+diff --git a/src/runtime/sys_wasm.s b/src/runtime/sys_wasm.s
+index 95c162eb..6156f9a9 100644
+--- a/src/runtime/sys_wasm.s
++++ b/src/runtime/sys_wasm.s
+@@ -31,12 +31,21 @@ TEXT runtime·osyield(SB), NOSPLIT, $0-0
+ TEXT runtime·currentMemory(SB), NOSPLIT, $0
+ 	Get SP
+ 	CurrentMemory
++#ifdef GOARCH_wasm64
++	I32WrapI64
++#endif
+ 	I32Store ret+0(FP)
+ 	RET
+ 
+ TEXT runtime·growMemory(SB), NOSPLIT, $0
+ 	Get SP
+ 	I32Load pages+0(FP)
++#ifdef GOARCH_wasm64
++	I64ExtendI32S
++#endif
+ 	GrowMemory
++#ifdef GOARCH_wasm64
++	I32WrapI64
++#endif
+ 	I32Store ret+8(FP)
+ 	RET
