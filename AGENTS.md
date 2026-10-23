@@ -148,7 +148,8 @@ Prefer simple serial semantics over multiprocessing or performance machinery.
 
 # Bootstrapping direction
 
-An external toolchain builds the kernel and compiler seed. The resulting
+An external toolchain builds the kernel and the seed's libc; the seed's compiler
+is the one the previous seed built inside Dolly (`docs/sources.md`). That
 in-sandbox C/C++ compiler builds ordinary programs into the shared filesystem.
 Keep bootstrap exceptions explicit in `docs/sources.md` or the owning demo's README.
 
