@@ -20,7 +20,7 @@ REQUIRES HOST upload@0
 # the pointer and a terminal with a shell, where imgui-x11 starts Dear ImGui's
 # example in a window of its own.
 FROM /v0.1.4/Dollyfile-system 5c4eebc6d67c71b0ea6fb89d5b6ec4d6327668262dde58d3b736d19077ef8735
-INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server 14e7da96f164190b5230eb6287842bbfd276393b891aebfa792afaf080adf8e7
+INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server 99e1782ad4aab81ab963747680c71554aeca5ff6e5888ddae1223cc1fc46156a
 INSTALL /v0.1.4/demos/x11/Dollyfile-twm fec4e187bf46205cde87c9854993ce3334cb1821393021acfab6241e17c75c23
 INSTALL /v0.1.4/demos/x11/Dollyfile-xclock bd913299be80279786cc3e70c52bf8671de47248e7e2dc6d968c8bf446cb37cf
 INSTALL /v0.1.4/demos/x11/Dollyfile-xeyes 71bf5512d806f18e878e3bb12621d08281fd4b8f9c6c2a9ba3c924a45711c5fe
@@ -29,7 +29,7 @@ INSTALL /v0.1.4/demos/x11/Dollyfile-xterm 898fbf42ab799510040d6b51233aa583c6b556
 # modules default declares for them; nena enables another.
 INSTALL /v0.1.4/Dollyfile-amy df0015b3e7d8094c7df3e23d09f6e9ae363383d836e1b99ae8cecd7281c35d9c
 INSTALL /v0.1.4/Dollyfile-nena 7504c507343bb9b8c3033fba9eb3805cf1f996687e5a80d54f56863b89e2567c
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-imgui-x11 bb9cd909231abe6d3711b2913e617ea9aeffe10edae6d66de4f6267a2ba76d8c
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-imgui-x11 de501aa1689d37122c8655c1dae086bc4331b0b6527da9155eda019e0fac5c02
 
 # The server takes the display, the keyboard and the pointer until it ends
 # (kill $(cat /tmp/.X0-pid) in the terminal); its clients end with it, and

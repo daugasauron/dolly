@@ -18,7 +18,7 @@ REQUIRES HOST sockets@0
 FROM /v0.1.4/demos/x11/Dollyfile-x11-build 436e10323d7851a077c115dbbf2580197e7ce1d37a7351c1ed057f9ac0a40552
 INSTALL /v0.1.4/demos/tools/Dollyfile-meson c64e6c515f49ad41140074c0217545df5976cb8475e723fe942c8267fb676acc
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf b6af64b9aea658a4a09d55c891ade2402436744a03abd06c6cf6a01db1539855
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 4d78ceeba01ed46946195018e037370fb583034dddb3481fe1613be43d591dda
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 404c8c7f76e4ce095b0dfe71d14ebaac381f522474bc54d8efbf65c7c717887e
 INSTALL /v0.1.4/Dollyfile-zlib ff3c0365dd79ecb98c6f091460fb85790f674d13cf3d038ee4875ef9ff76c43a
 INSTALL /v0.1.4/demos/tools/Dollyfile-tar a85841e5a3cb341170c5607a4720e0fbda8324c5a5f4f4dbd3ea59752982756a
 INSTALL /v0.1.4/demos/tools/Dollyfile-xz d3457a88f6c38ec3f5ede25422bf6b93834e1d84c3aa794e8a501f00680bddbb
