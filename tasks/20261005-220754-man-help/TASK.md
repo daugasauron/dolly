@@ -7,7 +7,8 @@
 ## State (2026-10-23)
 
 For v0.1.4: item 3, `amy`'s message about the environment only after a package that
-exports one. Item 2 is done (`38099083`, the 17 pages). Item 1 stays: formatting upstream's
+exports one: done on branch `core/amy-environment` (`e922ac36`), held for the 0.1.4 round
+because it repins `amy` and the ten images that install it. Item 2 is done (`38099083`, the 17 pages). Item 1 stays: formatting upstream's
 pages needs `mandoc` where `system-tools` is built, and `mandoc` is built on `tools-build`,
 which stands on `system-tools`.
 
