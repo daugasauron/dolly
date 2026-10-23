@@ -298,9 +298,13 @@ node scripts/dolly-abi.mjs emit-digest-header \
   -DDOLLY_PROCESS_SYSROOT_DIR="${process_sysroot_container_dir}" \
   -DDOLLY_KERNEL_SOURCES="$(node scripts/host-modules.mjs kernel | sed 's#^#/src/#' | paste -sd ';')" \
   -DDOLLY_CLIENT_LIBRARIES="$(printf '/src/build/lib%s.a\n' "${client_links[@]#-l}" | paste -sd ';')"
-node scripts/dolly-abi.mjs validate-process \
+if ! node scripts/dolly-abi.mjs validate-process \
   build/dolly-process-0.wasm \
-  build/seed-compiler/usr/libexec/dolly/process-bin/compiler
+  build/seed-compiler/usr/libexec/dolly/process-bin/compiler; then
+  echo "dolly: the seed compiler is for another process contract; for one that only adds," \
+    "node scripts/restamp-seed-compiler.mjs (docs/sources.md)" >&2
+  exit 1
+fi
 "${container[@]}" cmake --build build/runtime --target dolly --parallel
 
 node scripts/dolly-abi.mjs stamp \

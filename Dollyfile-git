@@ -152,7 +152,7 @@ FILE /usr/share/man/cat1/git.1
 
 # Dolly's diff and patch: git diff --no-index and git apply, for programs and
 # build systems that run them.
-SOURCE /v0.1.4/dist/static/default/commands/run-program.h 8434bb55978a286e546878170e882010e63c1901402156bb8b8b8a96adc37f73 /tmp/git-tools/run-program.h
+SOURCE /v0.1.4/dist/static/default/commands/run-program.h e73415ba149e8dcb9944313c36d8d2319202d699c810e02a26d5a94caa8f3a9f /tmp/git-tools/run-program.h
 SOURCE /v0.1.4/dist/static/default/commands/diff.c e1e71b3947fac230f221715577fbbfbd6ba3cf82c6c3cd027905f10ace8cf11e /tmp/git-tools/diff.c
 SOURCE /v0.1.4/dist/static/default/commands/patch.c 01a81c0b50df26223772e568bdc951db73d0be59b71251a1b023234c10a1b63e /tmp/git-tools/patch.c
 SLOP cc -O2 /tmp/git-tools/diff.c -o /bin/diff

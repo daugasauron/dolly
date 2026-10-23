@@ -160,8 +160,9 @@ that run inside the shell stay serial.
   of the listed sizes in KiB (there are no disk blocks).
   `/bin/cd` is a compatibility command; plain `cd` is the builtin.
 - [`Dollyfile-system-tools`](../Dollyfile-system-tools) (sources in `src/commands/`) adds
-  `command`, `env`, `find`, `time`, `timeout`, `xargs` (`-P N` runs N commands
-  at once), which run programs with Slop's descriptors, as the `git`
+  `command` and `env`, which `exec` the program they name, and `find`, `time`,
+  `timeout`, `xargs` (`-P N` runs N commands at once), which run programs
+  with Slop's descriptors, as the `git`
   package's `diff` and `patch` do (over Git; the patch names its files, a
   `FILE` operand is rejected); `nproc`, which prints 4, the number of jobs Dolly's own recipes give Make (libc's
   `sysconf` counts threads: 1 without `-pthread`); `install`, whose mode, owner

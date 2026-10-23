@@ -8,8 +8,8 @@ REQUIRES HOST runtime@0
 # run its configure, so config.h says what it would find here. Its own
 # grammar is compiled by yacc, and a scanner seldom goes without a grammar,
 # so the yacc package comes with it.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 54e7adcb627d8a60a4f7fa9505e2d027c240188b61442146138da39bf2ab9c5d
-INSTALL /v0.1.4/demos/tools/Dollyfile-yacc 74f42a81c1ac09fa472815b60e8b6d93c4bde62db02108c8836518463eafa6c1
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 3d92a9b8d6a2c1b71b8123f5d3308aa1d9394df6a2100df4cc9ef0b6937d6f72
+INSTALL /v0.1.4/demos/tools/Dollyfile-yacc 28278acc726aa5337f4e2fcabda5e04d11acd8d2bc343e04531df3ef3631adcb
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
