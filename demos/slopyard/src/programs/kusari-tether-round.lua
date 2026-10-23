@@ -30,7 +30,7 @@ return function(t,s,m)
     end end
     set(s.blueprint[i],-1)
   end
-  if captured and m.phase=='ready' then m.compactLength=nil;m.target=captured.id;m.captureAt=t;m.captures=(m.captures or 0)+1;phase('deploy') end
+  if captured and m.phase=='ready' then m.compactLength=nil;m.target=captured.id;m.captureAt=t;m.haulAt=nil;m.captures=(m.captures or 0)+1;phase('deploy') end
   if captured and (m.phase=='deploy' or m.phase=='caught' or m.phase=='haul') then
     local tug
     for _,c in ipairs(s.nearby) do
@@ -44,7 +44,9 @@ return function(t,s,m)
     for _,p in ipairs(s.parts(captured.id)) do support=support+p.supportForce end
     local grounded=captured.low<ground(captured.x,captured.z,captured.y)+1.5 and support>captured.mass*hypot(table.unpack(s.gravity))*.35 and math.abs(captured.vy)<.5
     m.supported=grounded and m.supported+s.dt or 0
-    if m.supported>2 or t-(m.captureAt or m.at)>180 then
+    -- A round nobody tows lets go after 180 s; a tug's haul gets its own 180 s.
+    if tug and not m.haulAt then m.haulAt=t end
+    if m.supported>2 or t-(m.haulAt or m.captureAt or m.at)>180 then
       local grounded=m.supported>2
       m.releases=(m.releases or 0)+(grounded and 1 or 0);m.aborts=(m.aborts or 0)+(grounded and 0 or 1)
       m.lastRelease={time=t,target=captured.id,grounded=grounded};phase('release')

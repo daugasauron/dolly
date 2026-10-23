@@ -228,9 +228,14 @@ return function(t, s, m)
         local dz=math.max(shape.z-shape.halfZ,math.min(shape.z+shape.halfZ,pz))-pz
         return dx*pole.axisX+dy*pole.axisY+dz*pole.axisZ>-.06 and hypot(dx,dy,dz) or math.huge
       end
-      local nearest=math.huge
-      for _,shape in ipairs(s.bounds(ammo.id)) do if shape.body==0 then nearest=math.min(nearest,distance(shape)) end end
-      power=nearest<.6
+      -- Grip a round by its root block: held by an outer block, a round of several parts (a
+      -- tether round) hangs a metre farther out and strikes the gun as the arm turns.
+      local nearest,outer=math.huge,math.huge
+      for _,shape in ipairs(s.bounds(ammo.id)) do
+        local root=shape.body==0 and math.abs(shape.x-ammo.x)<shape.halfX and math.abs(shape.z-ammo.z)<shape.halfZ and ammo.y>shape.low and ammo.y<shape.high
+        if root then nearest=math.min(nearest,distance(shape)) else outer=math.min(outer,distance(shape)) end
+      end
+      power=nearest<.6 and nearest<=outer
       if power then for _,other in ipairs(s.nearby) do
         if other.id~=ammo.id and other.low<py+1 and other.high>py-1 and hypot(other.x-px,other.z-pz)<other.radius+2 then
           for _,shape in ipairs(s.bounds(other.id)) do
@@ -344,7 +349,10 @@ return function(t, s, m)
   local acceleration = clamp(((4 * wrap((park - at((s).angles, (arm).i)))) - (4 * at((s).rates, (arm).i))), 2);
   local velocity = (((m).phase == "spin") and (at((s).rates, (arm).i) + clamp((rate - at((s).rates, (arm).i)), (1.2 * (s).dt))) or (at((s).rates, (arm).i) + (acceleration * (s).dt)));
   set(arm, clamp((velocity / (arm).speed)));
-  set(dockLift, ((((m).phase == "wait") or (((m).phase == "load") and (not active(box)))) and 1 or (-1)));
+  -- A round with a part below it, the tether round's line block, rests on the lowered pedestal.
+  local incoming = find(s.nearby, function(b) return b.cargo and (b.carriedBy == m.loader or b.id == m.ammo) and hypot(b.x-dock[1], b.z-dock[2]) < 4 end)
+  local tall = incoming and some(s.parts(incoming.id), function(part) return part.y < incoming.y-.7 end)
+  set(dockLift, ((((m).phase == "wait") or (((m).phase == "load") and (not active(box)))) and not tall and 1 or (-1)));
   if box and box.cargo and power then out.radio = {kind="claim",cargo=box.id} end
   m.status = m.blockedBy > 0 and "Holding fire: friendly in trajectory"
     or m.blockedBy == -1 and "Holding fire: terrain in trajectory"

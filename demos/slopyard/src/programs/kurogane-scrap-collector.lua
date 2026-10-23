@@ -154,10 +154,13 @@ return function(t,s,m)
   local clearance=math.max(s.ground+6,12)
   local span=3.5
   if payload>0 and target then span=math.max(span,target.radius+1) end
-  for _,p in ipairs(s.terrain) do
-    if p.x+p.halfX>math.min(s.x,tx)-span and p.x-p.halfX<math.max(s.x,tx)+span and p.z+p.halfZ>math.min(s.z,tz)-span and p.z-p.halfZ<math.max(s.z,tz)+span then
-      local drop=payload>0 and target and math.max(6,s.y-target.low+2) or 6
-      clearance=math.max(clearance,p.high+drop)
+  local drop=payload>0 and target and math.max(6,s.y-target.low+2) or 6
+  local function across(p) return p.x+p.halfX>math.min(s.x,tx)-span and p.x-p.halfX<math.max(s.x,tx)+span and p.z+p.halfZ>math.min(s.z,tz)-span and p.z-p.halfZ<math.max(s.z,tz)+span end
+  for _,p in ipairs(s.terrain) do if across(p) then clearance=math.max(clearance,p.high+drop) end end
+  -- Anchored machines, a gun on a roof among them, stand in the way as terrain does.
+  for _,c in ipairs(s.nearby) do
+    if c.anchored and across({x=c.x,z=c.z,halfX=c.radius,halfZ=c.radius}) then
+      for _,p in ipairs(s.bounds(c.id)) do if across(p) then clearance=math.max(clearance,p.high+drop) end end
     end
   end
   if m.phase=='seek' or m.phase=='approach' or m.phase=='lower' or m.phase=='carry' then

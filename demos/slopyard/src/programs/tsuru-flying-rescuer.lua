@@ -140,10 +140,15 @@ return function(t,s,m)
     else m.arrived=nil end
   end
   local clearance=math.max(12,s.ground+5)
-  for _,b in ipairs(s.terrain) do
-    local left,right=math.min(s.x,tx)-3.5,math.max(s.x,tx)+3.5
-    local back,front=math.min(s.z,tz)-3.5,math.max(s.z,tz)+3.5
-    if b.x+b.halfX>left and b.x-b.halfX<right and b.z+b.halfZ>back and b.z-b.halfZ<front then clearance=math.max(clearance,b.high+4) end
+  local left,right=math.min(s.x,tx)-3.5,math.max(s.x,tx)+3.5
+  local back,front=math.min(s.z,tz)-3.5,math.max(s.z,tz)+3.5
+  local function across(b) return b.x+b.halfX>left and b.x-b.halfX<right and b.z+b.halfZ>back and b.z-b.halfZ<front end
+  for _,b in ipairs(s.terrain) do if across(b) then clearance=math.max(clearance,b.high+4) end end
+  -- Anchored machines, a gun on a roof among them, stand in the way as terrain does.
+  for _,c in ipairs(s.nearby) do
+    if c.anchored and across({x=c.x,z=c.z,halfX=c.radius,halfZ=c.radius}) then
+      for _,b in ipairs(s.bounds(c.id)) do if across(b) then clearance=math.max(clearance,b.high+4) end end
+    end
   end
   if m.phase=='seek' or m.phase=='approach' or m.phase=='lower' then height=math.max(height,clearance)
   elseif m.phase=='settle' and height<clearance then

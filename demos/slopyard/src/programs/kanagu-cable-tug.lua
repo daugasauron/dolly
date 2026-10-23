@@ -65,7 +65,33 @@ return function(t,s,m)
       for _,b in ipairs(s.bounds(c.id)) do if b.high>s.ground+.3 and b.low<s.ground+4 then walls[#walls+1]=b end end
     end
   end
+  local function blocked(px,pz)
+    if floor(px,pz)<s.ground-.7 then return true end
+    for _,b in ipairs(walls) do if math.abs(px-b.x)<b.halfX+2.5 and math.abs(pz-b.z)<b.halfZ+2.5 then return true end end
+    return false
+  end
+  -- A tug that stays within 3 m for 10 s short of a distant goal is caught behind an obstacle:
+  -- it first drives to the clear point 12 m away that lies nearest the goal.
+  local function detour(x,z,reach)
+    if m.detour and t<m.detour[3] and hypot(m.detour[1]-s.x,m.detour[2]-s.z)>2 then return m.detour[1],m.detour[2] end
+    m.detour=nil
+    if hypot(x-s.x,z-s.z)<reach+4 or not m.stall or hypot(s.x-m.stall[1],s.z-m.stall[2])>3 then m.stall={s.x,s.z,t};return x,z end
+    if t-m.stall[3]<10 then return x,z end
+    local best
+    for k=0,15 do
+      local nx,nz=math.sin(k*math.pi/8),math.cos(k*math.pi/8);local clear=true
+      for _,d in ipairs({3,6,9,12}) do clear=clear and not blocked(s.x+nx*d,s.z+nz*d) end
+      local score=hypot(x-s.x-nx*12,z-s.z-nz*12)
+      if clear and (not best or score<best[3]) then best={s.x+nx*12,s.z+nz*12,score} end
+    end
+    m.stall={s.x,s.z,t}
+    if not best then return x,z end
+    m.detour={best[1],best[2],t+10};m.detours=(m.detours or 0)+1
+    return best[1],best[2]
+  end
   local function drive(x,z,reach,speed)
+    local goal=hypot(x-s.x,z-s.z);local px,pz=detour(x,z,reach)
+    if px~=x or pz~=z then x,z,reach=px,pz,0 end
     local aim=math.atan(x-s.x,z-s.z);local length=hypot(x-s.x,z-s.z)
     if length>reach+2 then
       local best=math.huge;local desired=aim;local look=math.min(7,length)
@@ -87,7 +113,7 @@ return function(t,s,m)
     if math.abs(bearing)>1.7 then want=-math.min(.35,speed);bearing=wrap(bearing+math.pi) end
     if math.abs(bearing)>.1 and math.abs(want)<.2 and length>reach+.2 then want=.2 end
     throttle=clamp(.35*want+.7*(want-s.localVelocity[3]),.7);turn=clamp(1.5*bearing-.5*s.gyroscope[2],.6)
-    return length
+    return goal
   end
   if m.phase=='unload' then
     out.radio={kind='ready',cargo=m.job}
@@ -121,8 +147,9 @@ return function(t,s,m)
           drive(m.home[1],m.home[2],2,.7)
           if hypot(s.x-m.home[1],s.z-m.home[2])<3 then m.returnHome=false end
         else drive(s.x+dx,s.z+dz,0,.6) end
-        if hypot(dx,dz)<1.1 then throttle=clamp(-s.localVelocity[3],.7);turn=0 end
-        m.returned=hypot(dx,dz)<1.1 and hypot(s.vx,s.vz)<.5
+        -- A standing tether round comes to rest within 2 m of its bay.
+        if hypot(dx,dz)<2 then throttle=clamp(-s.localVelocity[3],.7);turn=0 end
+        m.returned=hypot(dx,dz)<2 and hypot(s.vx,s.vz)<.5
         if m.returned or t-m.at>180 then phase('unload');power=false;throttle=0;turn=0 end
       end
     else

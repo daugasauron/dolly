@@ -10,7 +10,7 @@
 
 enum {PHASES=5,ROUNDS=64};
 static const char *phases[PHASES]={"wait","load","spin","hold","return"};
-typedef struct {int id,shots,misloads,loads,drops,was_loaded,friendly;double reported,in_sight,in_sight_low,seconds[PHASES],held,longest_held,loader_contact,loader_force,friendly_contact,friendly_force;char phase[16],held_status[64];} Gun;
+typedef struct {int id,shots,misloads,loads,drops,was_loaded,friendly,round,touched;double touch_force,touch_time;double reported,in_sight,in_sight_low,seconds[PHASES],held,longest_held,loader_contact,loader_force,friendly_contact,friendly_force;char phase[16],held_status[64];} Gun;
 typedef struct {int round,gun,target,team,touched[8],touches;double until;} Round;
 static Gun guns[16];static int gun_count;
 static Round rounds[ROUNDS];static int round_count;
@@ -47,12 +47,18 @@ static void count_targets(Gun *g,const Creature *gun){
         if(b.low>floor+5)high=1;else if(b.low>5)low=1;}
     g->in_sight+=high/60.;g->in_sight_low+=(low&&!high)/60.;
 }
-typedef struct {int id;char phase[16];} Tether;static Tether tethers[8];static int tether_count;
+typedef struct {int id;char phase[16];double lowest,releases;} Tether;static Tether tethers[8];static int tether_count;
 // Each tether round's lifecycle: ready, deploy (caught an aircraft), caught, haul, release, recover.
 static void track_tether(const Creature *c){
     Tether *t=NULL;for(int i=0;i<tether_count;i++)if(tethers[i].id==c->id)t=&tethers[i];
     if(!t){if(tether_count==8)return;t=&tethers[tether_count++];*t=(Tether){.id=c->id};}
     char phase[16];memory_text(c,"phase",phase,sizeof(phase));
+    // How low the captured machine comes while the round holds it.
+    Creature *held=world_find(memory_number(c,"target"));
+    if(held&&(!strcmp(phase,"deploy")||!strcmp(phase,"caught")||!strcmp(phase,"haul"))){NeighborBounds b=creature_bounds(held,b3Body_GetPosition(held->physics.parts[0].body));if(b.low<t->lowest)t->lowest=b.low;}
+    if(!strcmp(t->phase,"ready")&&!strcmp(phase,"deploy"))t->lowest=1e9;
+    if(strcmp(phase,t->phase)&&!strcmp(phase,"release"))printf("SLING t %.2f tether %d lets go of %d, %s; its bottom came down to %.1f m\n",world.age,c->id,(int)memory_number(c,"target"),memory_number(c,"releases")>t->releases?"on the ground":"still aloft",t->lowest);
+    t->releases=memory_number(c,"releases");
     if(strcmp(phase,t->phase)){b3Pos p=b3Body_GetPosition(c->physics.parts[0].body);
         printf("SLING t %.2f tether %d %s -> %s at (%.1f,%.1f,%.1f), captures %.0f, target %.0f\n",world.age,c->id,t->phase,phase,p.x,p.y,p.z,memory_number(c,"captures"),memory_number(c,"target"));
         snprintf(t->phase,sizeof(t->phase),"%s",phase);}
@@ -61,16 +67,19 @@ static int held_round(const Creature *c){
     for(int k=0;k<c->design.count;k++)if(c->design.blocks[k].joint==BLOCK_MAGNET&&b3Body_IsValid(c->physics.parts[k].magnet_target)){Creature *o=body_owner(c->physics.parts[k].magnet_target);return o?o->id:0;}
     return 0;
 }
+typedef struct {int gun,id;double force;b3BodyId head;} RoundTouch;
+// The strongest contact of a spinning round with anything but its own gun.
+static void round_contact(void *context,const Creature *other,double force){RoundTouch *t=context;if(force>t->force){t->id=other?other->id:-1;t->force=force;}}
 // Calls touch(other, force) for every creature in contact with c's bodies.
 static void contacts(const Creature *c,void (*touch)(void *,const Creature *,double),void *context){
     b3ContactData list[256];
     for(int i=0;i<c->physics.count;i++)if(c->physics.parts[i].owner==i){
         b3BodyId body=c->physics.parts[i].body;int count=b3Body_GetContactData(body,list,256);
         for(int j=0;j<count;j++){
-            b3BodyId a=b3Shape_GetBody(list[j].shapeIdA),b=b3Shape_GetBody(list[j].shapeIdB);Creature *other=body_owner(B3_ID_EQUALS(a,body)?b:a);
-            if(!other||other==c)continue;double force=0;
+            b3BodyId a=b3Shape_GetBody(list[j].shapeIdA),b=b3Shape_GetBody(list[j].shapeIdB),peer=B3_ID_EQUALS(a,body)?b:a;Creature *other=body_owner(peer);
+            if(other==c||touch==round_contact&&B3_ID_EQUALS(peer,((RoundTouch *)context)->head))continue;double force=0;
             for(int k=0;k<list[j].manifoldCount;k++)for(int n=0;n<list[j].manifolds[k].pointCount;n++)force+=480*list[j].manifolds[k].points[n].normalImpulse;
-            if(force>0)touch(context,other,force);
+            if(force>0&&(other||touch==round_contact))touch(context,other,force);
         }
     }
 }
@@ -97,7 +106,11 @@ static void step(void){
         for(int k=0;k<PHASES;k++)if(!strcmp(phase,phases[k]))g->seconds[k]+=1./60;
         int round=held_round(c),shots=memory_number(c,"shots"),misloads=memory_number(c,"misloads"),loaded=round&&(!strcmp(phase,"spin")||!strcmp(phase,"hold"));
         if(loaded&&!g->was_loaded)g->loads++;
-        if(g->was_loaded&&!round&&!strcmp(g->phase,"spin")&&shots==g->shots){g->drops++;printf("SLING t %.2f %s drops its round while spinning\n",world.age,c->name);}
+        if(g->was_loaded&&!round&&!strcmp(g->phase,"spin")&&shots==g->shots){g->drops++;Creature *a=world_find(g->round),*o=g->touched>0?world_find(g->touched):NULL;
+            printf("SLING t %.2f %s drops round %d %s while spinning; last contact %s %.0f N %.2f s before\n",world.age,c->name,g->round,a?a->name:"?",o?o->name:g->touched<0?"terrain":"none",g->touch_force,world.age-g->touch_time);}
+        if(round&&round!=g->round){g->round=round;g->touched=0;g->touch_force=0;Creature *a=world_find(round);
+            if(a&&a->design.count>1){b3Pos r=b3Body_GetPosition(a->physics.parts[0].body),pole=magnet_pole(c);printf("SLING t %.2f %s grips round %d %s %.2f m from its magnet\n",world.age,c->name,round,a->name,hypotf(hypotf(r.x-pole.x,r.y-pole.y),r.z-pole.z));}}
+        if(round&&!strcmp(phase,"spin")){Creature *a=world_find(round);RoundTouch touch={c->id};for(int k=0;k<c->design.count;k++)if(c->design.blocks[k].joint==BLOCK_MAGNET)touch.head=c->physics.parts[k].body;if(a)contacts(a,round_contact,&touch);if(touch.id){g->touched=touch.id;g->touch_force=touch.force;g->touch_time=world.age;}}
         g->was_loaded=loaded;
         if(misloads>g->misloads){
             Creature *a=world_find(memory_number(c,"ammo"));b3Pos pole=magnet_pole(c),at=a?b3Body_GetPosition(a->physics.parts[0].body):(b3Pos){0};
@@ -135,6 +148,7 @@ int main(int argc,char **argv){
     for(int k=0;k<gun_count;k++){Creature *g=world_find(guns[k].id);if(!g)continue;b3Pos at=b3Body_GetPosition(g->physics.parts[0].body);
         for(int i=0;i<world.count;i++){Creature *c=&world.creatures[i];b3Pos p=b3Body_GetPosition(c->physics.parts[0].body);
             if(c->cargo&&hypotf(p.x-at.x,p.z-at.z)<20&&fabsf(p.y-at.y)<6)printf("STOCK %s: %d %s at (%.1f,%.1f,%.1f) held by %d\n",g->name,c->id,c->name,p.x,p.y,p.z,c->held_by);}}
+    for(int i=0;i<tether_count;i++){Creature *c=world_find(tethers[i].id);if(c&&c->controller)printf("TETHER %d captures %.0f grounded releases %.0f released aloft %.0f now '%s'\n",c->id,memory_number(c,"captures"),memory_number(c,"releases"),memory_number(c,"aborts"),tethers[i].phase);}
     for(int i=0;i<world.count;i++){Creature *c=&world.creatures[i];if(strncmp(c->name,"Koban",5)||!c->controller)continue;char status[64];world_creature_status(c->id,status,sizeof(status));
         printf("LOADER %3d %-22s jobs %2.0f failures %2.0f now '%s'\n",c->id,c->name,memory_number(c,"jobs"),memory_number(c,"failures"),status);}
     world_close();data_close(ctx);return 0;
