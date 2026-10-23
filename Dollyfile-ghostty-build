@@ -19,10 +19,15 @@ REQUIRES TOOL   zig
 
 SOURCE /v0.1.4/dist/static/default/ghostty.tar              3add3703b5d426311460df7b0474595549b9791af2855082d01ab26571232ba6 /tmp/ghostty.tar
 SOURCE /v0.1.4/dist/static/default/uucode.tar               27d4103c73b68b20c21adaee05c4cd2c01fc418e083f5961148e1f872951453e /tmp/uucode.tar
-SOURCE /v0.1.4/dist/static/default/ghostty/display.c        029bf5effffdf69141a9fac76691c7a8352c75576926a86fc3c5d775abe87cc7 /usr/src/dolly/ghostty/display.c
+SOURCE /v0.1.4/dist/static/default/ghostty/display.c        a3685f26c2725bc9557ada2081ed5473cdc6ee24a10b5a6effb6f5d886e4fda6 /usr/src/dolly/ghostty/display.c
 SOURCE /v0.1.4/dist/static/default/stb_truetype.h           ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/ghostty/stb_truetype.h
 SOURCE /v0.1.4/dist/static/default/stb_image.h              594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3 /tmp/ghostty/stb_image.h
 SOURCE /v0.1.4/dist/static/default/IosevkaTerm-SemiBold.ttf 754545a4f6250efdd3d2cc916bb344c59f0c59830405307dfd44d183f919a654 /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+# What IosevkaTerm has no glyph for: Chinese, Japanese and Korean, then emoji.
+SOURCE /v0.1.4/dist/static/default/DroidSansFallback.ttf    56d3edfb377a8bc3c4b77f4476405c770173c0e31221ad7c77d0a8e1f3039a3e /usr/share/fonts/DroidSansFallback.ttf
+SOURCE /v0.1.4/dist/static/default/droid-fonts-NOTICE       38751245389e1e23f73e6f5384b5cbe7fa972cc4410c5adc9c04b082a0b9561a /usr/share/licenses/droid-fonts/NOTICE
+SOURCE /v0.1.4/dist/static/default/NotoEmoji-Regular.ttf    cd07743a4c93d8da929afdd28c1d368f11da478a1093146a13610081c2a58440 /usr/share/fonts/NotoEmoji-Regular.ttf
+SOURCE /v0.1.4/dist/static/default/noto-emoji-OFL.txt       fb755fa3280d1d215a20df2e64fe6a0f75f8208439b11671978214aae60d2997 /usr/share/licenses/noto-emoji/OFL.txt
 SLOP tar \
   -xf /tmp/ghostty.tar \
   -C /
@@ -113,6 +118,10 @@ SLOP CWD /usr/src/ghostty make \
   -f /tmp/ghostty/Makefile
 
 FILE /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+FILE /usr/share/fonts/DroidSansFallback.ttf
+FILE /usr/share/fonts/NotoEmoji-Regular.ttf
+FILE /usr/share/licenses/droid-fonts/NOTICE
+FILE /usr/share/licenses/noto-emoji/OFL.txt
 FILE /usr/share/licenses/ghostty/LICENSE
 FILE /usr/share/licenses/uucode/LICENSE.md
 FILE /usr/share/licenses/wuffs/LICENSE-APACHE

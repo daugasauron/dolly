@@ -5,7 +5,7 @@ REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST http@0
 
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 4f0f3f2efeb3c50399bc05a2132de5ae014b94be7421604c8358b2a45d8b9beb
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 3bc62225f869fbf3b931c74e6c13e448100ddff6fb50a1cf7875b869dbcbf89d
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL cmake

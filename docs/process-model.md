@@ -37,8 +37,9 @@ sequenceDiagram
   ([`dolly-host-0.wat`](../abi/dolly-host-0.wat)). Memory is at most 8 GiB.
 - A start section may initialize memory/TLS but must not call the kernel.
 - Found through `PATH`; `#!` lines name an absolute in-Wasm interpreter, nested at most 4 deep.
-- `readlink("/proc/self/exe")` returns the loaded image's canonical path; there is
-  no general `/proc`.
+- `readlink("/proc/self/exe")` returns the loaded image's canonical path, and
+  `readlink("/proc/PID/cwd")` the directory a process that has not exited
+  stands in; there is no general `/proc`.
 - Opening `/proc/processes` for reading gives the processes that have not
   exited, a line each in PID order, `PID PARENT STATE ARGUMENTS`: the state is
   `starting` until the program runs and `running` from then, the arguments

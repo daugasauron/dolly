@@ -46,6 +46,15 @@ flowchart LR
 - The driver ([`ghostty/display.c`](../src/ghostty/display.c)) renders
   libghostty-vt's grid with IosevkaTerm SemiBold through stb_truetype. The
   supervisor coalesces redraws on a 16 ms tick.
+- What IosevkaTerm has no glyph for comes from Droid Sans Fallback (Chinese,
+  Japanese and Korean, 3.4 MB) or Noto Emoji (emoji in the text's colour,
+  0.9 MB), each read when a glyph is first needed and scaled to the cells the
+  character takes. A character none of them has is a box, and joined emoji
+  show their first.
+- A program that asks for the mouse (`CSI ? 1000 h` and the modes beside it,
+  in any of their encodings) reads the primary button, the pointer's motion
+  and the wheel as reports where the pointer is. Otherwise, and for a press
+  with Shift held, the pointer selects and the wheel scrolls back.
 - Ghostty owns selection and copy text; Ctrl+Shift+C writes the clipboard only
   after that user gesture. Scrollback stays in Wasm.
 - Images by the kitty graphics protocol, sent in the escape sequences (`t=d`,

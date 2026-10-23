@@ -262,6 +262,9 @@ await browserTest("process list", {}, async ({ open }) => {
   await run("slop -c 'sleep 100' \"$(printf 'two\\nlines\\033c')\" & until grep -qx \"$! $$ running slop -c sleep 100 two?lines?c\" /proc/processes; do :; done; kill $!; wait");
   await run("slop -c 'sleep 100' $(printf %03000d 0) & until grep -q \"^$! $$ running \" /proc/processes; do :; done; " +
     "test \"$(grep \"^$! \" /proc/processes | wc -c)\" -eq 2048; cut=$?; kill $!; wait; test $cut = 0");
+  // readlink of /proc/PID/cwd is where a process that has not exited stands.
+  await run("cd /tmp; sleep 100 & cd /usr; test \"$(readlink /proc/$!/cwd)\" = /tmp && test \"$(readlink /proc/$$/cwd)\" = /usr; " +
+    "found=$?; kill $!; wait; cd /; test $found = 0 && ! readlink /proc/$!/cwd");
   // ps takes no options.
   assert.equal(await submit("ps -e > /tmp/out 2> /tmp/err"), 2);
   await run("test -s /tmp/err && test ! -s /tmp/out");

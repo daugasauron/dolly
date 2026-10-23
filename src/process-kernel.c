@@ -968,6 +968,24 @@ static int directory_path(int descriptor, char *buffer, size_t capacity) {
   return result;
 }
 
+/* The links the kernel answers readlink of itself: /proc/self/exe, the
+ * caller's executable, and /proc/PID/cwd, the directory a process that has
+ * not exited stands in. 1 for any other path. */
+static int kernel_link(const dolly_kernel_process *caller, const char *path,
+                       char *target, size_t capacity) {
+  if (strcmp(path, "/proc/self/exe") == 0) {
+    snprintf(target, capacity, "%s", caller->path);
+    return 0;
+  }
+  if (strncmp(path, "/proc/", 6) != 0 || path[6] < '1' || path[6] > '9') return 1;
+  char *end = NULL;
+  const long pid = strtol(path + 6, &end, 10);
+  if (strcmp(end, "/cwd") != 0 || pid > INT_MAX) return 1;
+  const dolly_kernel_process *process = find_process((int)pid);
+  if (process == NULL || process->state == DOLLY_KERNEL_PROCESS_EXITED) return -ENOENT;
+  return directory_path(process->current_directory, target, capacity);
+}
+
 static int decode_path_request(dolly_kernel_process *process,
                                uintptr_t request_size, uint32_t allowed_flags,
                                dolly_process_path_request *request,
@@ -2085,20 +2103,21 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       int directory = AT_FDCWD;
       int result = decode_path_request(process, request_size, 0, &request,
                                        &path, &directory);
-      if (result == 0) {
-        if (strcmp(path, "/proc/self/exe") == 0) {
-          if (response_capacity == 0) result = -EINVAL;
-          else {
-            size_t count = strlen(process->path);
-            if (count > response_capacity) count = response_capacity;
-            memcpy(process_mailbox, process->path, count);
-            result = (int)count;
-          }
-        } else {
-          ssize_t count = readlinkat(directory, path, (char *)process_mailbox,
-                                     response_capacity);
-          result = count < 0 ? -errno : (int)count;
+      char target[PATH_MAX];
+      const int link = result == 0 ? kernel_link(process, path, target, sizeof(target)) : 1;
+      if (result == 0 && link <= 0) {
+        if (link < 0) result = link;
+        else if (response_capacity == 0) result = -EINVAL;
+        else {
+          size_t count = strlen(target);
+          if (count > response_capacity) count = response_capacity;
+          memcpy(process_mailbox, target, count);
+          result = (int)count;
         }
+      } else if (result == 0) {
+        ssize_t count = readlinkat(directory, path, (char *)process_mailbox,
+                                   response_capacity);
+        result = count < 0 ? -errno : (int)count;
       }
       free(path);
       return result;

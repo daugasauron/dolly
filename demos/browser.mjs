@@ -51,12 +51,13 @@ async function openImage(browser, origin, image, { policy, prompt = shellPrompt,
 function terminalHelpers(page) {
   const submit = command => page.evaluate(command => __dolly.submit(command), command);
   const text = () => page.evaluate(() => __dolly.visibleTerminalText());
-  // Clicks the first cell, as a user would, to drop the selection text() leaves.
+  // Clicks the first cell with Shift, as a user would, to drop the selection
+  // text() leaves: Shift keeps the click from a program that asked for the mouse.
   const clearSelection = () => page.evaluate(() => {
     const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry();
     const x = paddingX + Math.floor(cellWidth / 2), y = paddingY + Math.floor(cellHeight / 2);
-    __dolly.inputTransport.pushPointer(x, y, 1, {});
-    __dolly.inputTransport.pushPointer(x, y, 0, {});
+    __dolly.inputTransport.pushPointer(x, y, 1, { shiftKey: true });
+    __dolly.inputTransport.pushPointer(x, y, 0, { shiftKey: true });
   });
   return {
     page, submit, text,

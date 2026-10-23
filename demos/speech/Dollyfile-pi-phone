@@ -13,11 +13,11 @@ REQUIRES HOST threads@0
 REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 392c31b82fff368cb7832e81808e52f6e958168bc3dc2f498a5cc8ef50556ae6
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 5aff093f62dad3e1f38e1c38c12d4e41ccf7b619215ad1d53013d6a87a7fa8e2
 INSTALL /v0.1.4/Dollyfile-amy df0015b3e7d8094c7df3e23d09f6e9ae363383d836e1b99ae8cecd7281c35d9c
 REQUIRES TOOL foreground
 REQUIRES TOOL pi
-INSTALL /v0.1.4/demos/speech/Dollyfile-voice 877ebcca31adf8fdb4ef182d2fe914ac8f23820f86cb569582a79ed6c75f1af1
+INSTALL /v0.1.4/demos/speech/Dollyfile-voice 9bdaef9cb0149b55e07b66d0f984e2b3aa73bcbba984256fc0b32a83b53be609
 SOURCE /v0.1.4/dist/static/speech/pi.menu 10c28421825610d22e8766be6138ba45b0b38f5e8600b6d109bd915a3e9d0161 /etc/dolly/pi.menu
 EXPORTS FILE pi-menu /etc/dolly/pi.menu
 
