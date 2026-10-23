@@ -91,6 +91,24 @@ Verified, as the trial was (commit `d027a1cb`):
 - **Stale**: every image, since the seed changed (image inputs `0dfde372…`). This tree's
   `dist/dolly-images.mjs` is narrowed to the chain.
 
+Left for the round (integrator):
+
+- Merge `core/seed-compiler`, and give the integration tree the archive:
+  `ln work/seedcc/.cache/dolly-seed-compiler-9c4ba53ae495d3a2c3adc97bd89d9b76d005a0ce0e70dfc6837ebd1bcacf2565.tar`
+  into its `.cache/`. Without it `npm run build:runtime` downloads from the pinned URL, whose
+  asset does not exist until 0.1.4 is released, and stops.
+- After the version moves to 0.1.4 and the round has built `llvm-cc`, run
+  `node demos/llvm/pin-seed-compiler.mjs`: the URL then names v0.1.4 (it names v0.1.3 now,
+  `src/version.mjs`), and an unchanged digest confirms the fixed point. A changed digest means
+  another round. Commit `config/source-pins.sh`; release step 5 uploads the archive.
+- Every image is stale (the seed's image inputs change). Combined with `core/touch-module`'s
+  seed change the compiler is unaffected: that branch leaves `abi/dolly-process-0.wat` and
+  `abi/dolly-kernel-plugin-0.wat`, the two digests the compiler holds, unchanged.
+- `.cache/llvm-wasm` and `.cache/llvm-native` in the root checkout are no longer read.
+- For the owner: the `llvm` package (now the seed's own compiler again); the recipes that
+  produce the seed's compiler live in `demos/llvm/` while AGENTS.md keeps the core from depending
+  on demos (the core reads only the pin); and a new process contract has no procedure yet.
+
 ## State (2026-10-13)
 
 Left is one thing, and it waits for the owner: **the seed's compiler still comes from the host**
