@@ -217,7 +217,9 @@ const programs = {
   // pkg-config knows a library once its package is there, and gives cc its flags.
   pkgconf: "man pkgconf > /dev/null && ! pkg-config --exists libpng",
   libpng: "printf '#include <png.h>\\nint main(void) { return png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL) == NULL; }\\n' > /tmp/amy-png.c && " +
-    "cc $(pkg-config --cflags libpng) /tmp/amy-png.c $(pkg-config --static --libs libpng) -o /tmp/amy-png && /tmp/amy-png",
+    "cc $(pkg-config --cflags libpng) /tmp/amy-png.c $(pkg-config --static --libs libpng) -o /tmp/amy-png && /tmp/amy-png && " +
+    // As upstream installs it, -lpng links too.
+    "cc /tmp/amy-png.c -lpng -lz -o /tmp/amy-png && /tmp/amy-png",
   // FreeType reads the terminal's font.
   freetype: "printf '%s\\n' '#include <ft2build.h>' '#include FT_FREETYPE_H' 'int main(void) { FT_Library library; FT_Face face; " +
     "if (FT_Init_FreeType(&library) || FT_New_Face(library, \"/usr/share/fonts/IosevkaTerm-SemiBold.ttf\", 0, &face)) return 1; return face->num_glyphs < 100; }' " +
@@ -226,7 +228,14 @@ const programs = {
   raylib: "printf '%s\\n' '#include <dolly/raylib.h>' 'int main(void) { dolly_raylib window; if (dolly_raylib_open(&window, \"amy\") != 0) return 2; " +
     "BeginDrawing(); ClearBackground(RAYWHITE); DrawCircle(64, 64, 32, RED); int shown = dolly_raylib_end_frame(&window); " +
     "return dolly_raylib_close(&window) != 0 || shown != 0; }' > /tmp/amy-raylib.c && " +
-    "cc -O0 /tmp/amy-raylib.c -ldolly-raylib -lraylib -lm -o /tmp/amy-raylib && /tmp/amy-raylib > /dev/null",
+    "cc -O0 /tmp/amy-raylib.c -ldolly-raylib -lraylib -lm -o /tmp/amy-raylib && /tmp/amy-raylib > /dev/null && " +
+    // As raylib's examples are written: InitWindow holds the display and the keys, and
+    // the clock and the frame time run (the page presses Space, below).
+    "printf '%s\\n' '#include <raylib.h>' '#include <stdio.h>' 'int main(void) { InitWindow(320, 180, \"keys\"); SetTargetFPS(60); " +
+    "int frames = 0, pressed = 0; " +
+    "while (!WindowShouldClose() && !pressed && frames < 3600) { BeginDrawing(); ClearBackground(RAYWHITE); EndDrawing(); frames++; pressed = IsKeyPressed(KEY_SPACE); } " +
+    "printf(\"after %d frames %.3f s, frame %.4f s\\n\", frames, GetTime(), GetFrameTime()); CloseWindow(); " +
+    "return !(pressed && GetTime() > 0.1 && GetFrameTime() > 0); }' > /tmp/amy-raylib-keys.c && cc -O0 /tmp/amy-raylib-keys.c -lraylib -lm -o /tmp/amy-raylib-keys",
   // A square wave played from a buffer is in the samples the loopback device renders.
   openal: "printf '%s\\n' '#define AL_ALEXT_PROTOTYPES' '#include <AL/al.h>' '#include <AL/alc.h>' '#include <AL/alext.h>' " +
     "'int main() { ALCdevice *device = alcLoopbackOpenDeviceSOFT(0); " +
@@ -244,11 +253,17 @@ const programs = {
     "> /tmp/amy-box3d.c && cc -O0 -U__SIZEOF_INT128__ /tmp/amy-box3d.c -lbox3d -o /tmp/amy-box3d && /tmp/amy-box3d",
 };
 await browserTest("amy programs", { image: "default", timeout: 600_000 }, async ({ open }) => {
-  const run = check(await open());
+  const session = await open(), run = check(session);
   for (const [name, program] of Object.entries(programs)) {
     console.log(`amy install ${name}: ${await timed(run, `amy install ${name}`)} ms`);
     await run(program);
   }
+  // The program holds the display, so its line does not show: press Space once it runs.
+  const keys = session.submit("/tmp/amy-raylib-keys");
+  await session.page.locator("#keyboard").focus();
+  await session.page.waitForTimeout(3000);
+  await session.page.keyboard.press("Space");
+  assert.equal(await keys, 0, await session.text());
 });
 
 // Checks of the demos/tools packages. A file that NAME packs is smaller and

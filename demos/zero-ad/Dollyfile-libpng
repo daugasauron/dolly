@@ -24,6 +24,7 @@ SLOP cmake --build /tmp/libpng-build -j4
 SLOP cmake --install /tmp/libpng-build
 
 EXPORTS LIB    png16      /usr/lib/libpng16.a
+EXPORTS LIB    png        /usr/lib/libpng.a
 EXPORTS HEADER png        /usr/include/png.h
 EXPORTS HEADER pngconf    /usr/include/pngconf.h
 EXPORTS HEADER pnglibconf /usr/include/pnglibconf.h

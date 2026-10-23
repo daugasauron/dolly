@@ -6,13 +6,15 @@ fi
 if has_image slopyard; then
   node demos/slopyard/prepare-slopyard.mjs "${static_dir}/slopyard/source.tar"
 fi
-if has_image gamedev-sdk; then
+if has_image raylib; then
   raylib_dir="$(scripts/fetch-pinned-checkout.sh raylib)"
-  box3d_dir="$(scripts/fetch-pinned-checkout.sh box3d)"
   node scripts/build-source-tar.mjs "${static_dir}/gamedev/raylib.tar" \
     "${raylib_dir}/src" /usr/src/raylib/src \
     "${raylib_dir}/LICENSE" /usr/share/licenses/raylib/LICENSE \
     "${raylib_dir}/README.md" /usr/src/raylib/README.md
+fi
+if has_image box3d || has_image gamedev-sdk; then
+  box3d_dir="$(scripts/fetch-pinned-checkout.sh box3d)"
   node scripts/build-source-tar.mjs "${static_dir}/gamedev/box3d.tar" \
     "${box3d_dir}/src" /usr/src/box3d/src \
     "${box3d_dir}/include" /usr/src/box3d/include \

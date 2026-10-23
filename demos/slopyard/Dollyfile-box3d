@@ -2,9 +2,159 @@ DOLLY 7
 PACKAGE box3d
 REQUIRES HOST runtime@0
 
-# Box3D as gamedev-sdk compiles it, for programs the cc package builds.
-FROM /v0.1.3/demos/slopyard/Dollyfile-gamedev-sdk d9910d25e9d45fe53f88d15318355189f2aa0553ebc61a2f4eb0ea2ba68c7cfb
+# Box3D 0.1.0 from upstream's source, unchanged, without SIMD, and with
+# Dolly's platform file in place of its timer.c: monotonic ticks, and tasks
+# that run serially in the calling thread. For programs the cc package builds.
+FROM /v0.1.3/Dollyfile-system 9d8d9a1ff16f52e368e695af7b5a788aefba814913bf9e4d3f49ee8dc374bfd2
+REQUIRES HEADER libc
+REQUIRES TOOL   ar
+REQUIRES TOOL   cc
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   rm
+REQUIRES TOOL   tar
+
+SOURCE /v0.1.3/dist/static/gamedev/box3d.tar 5a502138e8f7b47c5994bdd279e9dcddeae0b8e147e3b92ab79b723bd07e4377 /tmp/box3d.tar
+FILE /usr/src/dolly/box3d/box3d.mk
+    CC := cc
+    AR := ar
+    SOURCE := /usr/src/box3d/src
+    BUILD := /usr/src/dolly/box3d/build
+    SOURCES := $(filter-out $(SOURCE)/timer.c,$(wildcard $(SOURCE)/*.c))
+    OBJECTS := $(patsubst $(SOURCE)/%.c,$(BUILD)/%.o,$(SOURCES)) $(BUILD)/platform.o
+    FLAGS := -std=gnu17 -O2 -fno-builtin -U__SIZEOF_INT128__ -DBOX3D_DISABLE_SIMD -I /usr/src/box3d/include -I $(SOURCE)
+    
+    .PHONY: all
+    
+    all: /usr/lib/libbox3d.a
+    
+    $(BUILD)/%.o: $(SOURCE)/%.c
+    	mkdir -p $(BUILD)
+    	$(CC) $(FLAGS) -c $< -o $@
+    
+    $(BUILD)/platform.o: /usr/src/dolly/box3d/box3d-platform.c
+    	mkdir -p $(BUILD)
+    	$(CC) $(FLAGS) -c $< -o $@
+    
+    /usr/lib/libbox3d.a: $(OBJECTS)
+    	$(AR) rcs $@ $^
+    	mkdir -p /usr/include/box3d
+    	cp /usr/src/box3d/include/box3d/*.h /usr/include/box3d
+FILE /usr/src/dolly/box3d/box3d-platform.c
+    #define _POSIX_C_SOURCE 200809L
+    
+    // Dolly's Box3D target adapter replaces upstream timer.c. Box3D's built-in
+    // scheduler links pthread primitives even when the normal one-worker world
+    // never creates a thread. Dolly deliberately executes tasks serially inside
+    // one Wasm userspace, so synchronization objects carry no host capability and
+    // worker handles are inert. The scheduler's calling thread still drains every
+    // queued task in b3SchedulerFinishTask.
+    
+    #include "core.h"
+    
+    #include <stdint.h>
+    #include <string.h>
+    #include <time.h>
+    
+    uint64_t b3GetTicks(void) {
+      struct timespec now = {0};
+      if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) return 0;
+      return (uint64_t)now.tv_sec * UINT64_C(1000000000) +
+             (uint64_t)now.tv_nsec;
+    }
+    
+    float b3GetMilliseconds(uint64_t ticks) {
+      return (float)((double)(b3GetTicks() - ticks) / 1000000.0);
+    }
+    
+    float b3GetMillisecondsAndReset(uint64_t *ticks) {
+      const uint64_t now = b3GetTicks();
+      const float elapsed = (float)((double)(now - *ticks) / 1000000.0);
+      *ticks = now;
+      return elapsed;
+    }
+    
+    void b3Yield(void) {}
+    void b3Sleep(int milliseconds) { (void)milliseconds; }
+    
+    struct b3Mutex { unsigned unused; };
+    struct b3Semaphore { int count; };
+    struct b3Thread { unsigned unused; };
+    
+    b3Mutex *b3CreateMutex(void) {
+      return b3AllocZeroed(sizeof(b3Mutex));
+    }
+    
+    void b3DestroyMutex(b3Mutex *mutex) {
+      b3Free(mutex, sizeof(b3Mutex));
+    }
+    
+    void b3LockMutex(b3Mutex *mutex) { (void)mutex; }
+    void b3UnlockMutex(b3Mutex *mutex) { (void)mutex; }
+    
+    b3Semaphore *b3CreateSemaphore(int initial_count) {
+      b3Semaphore *semaphore = b3Alloc(sizeof(b3Semaphore));
+      semaphore->count = initial_count;
+      return semaphore;
+    }
+    
+    void b3DestroySemaphore(b3Semaphore *semaphore) {
+      b3Free(semaphore, sizeof(b3Semaphore));
+    }
+    
+    void b3WaitSemaphore(b3Semaphore *semaphore) {
+      if (semaphore->count > 0) semaphore->count--;
+    }
+    
+    void b3SignalSemaphore(b3Semaphore *semaphore) {
+      semaphore->count++;
+    }
+    
+    b3Thread *b3CreateThread(b3ThreadFunction *function, void *context,
+                             const char *name) {
+      (void)function;
+      (void)context;
+      (void)name;
+      return b3AllocZeroed(sizeof(b3Thread));
+    }
+    
+    void b3JoinThread(b3Thread *thread) {
+      b3Free(thread, sizeof(b3Thread));
+    }
+    
+    // This deterministic djb2 variant is part of upstream timer.c rather than the
+    // OS-independent core. Keep the exact algorithm when replacing that complete
+    // translation unit so hull and mesh hashes stay compatible with upstream.
+    uint32_t b3Hash(uint32_t hash, const uint8_t *data, int count) {
+      uint32_t result = hash;
+      int index = 0;
+      while (index + 8 <= count) {
+        uint64_t word;
+        memcpy(&word, data + index, sizeof(word));
+    #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+        word = ((word & UINT64_C(0x00000000000000ff)) << 56) |
+               ((word & UINT64_C(0x000000000000ff00)) << 40) |
+               ((word & UINT64_C(0x0000000000ff0000)) << 24) |
+               ((word & UINT64_C(0x00000000ff000000)) << 8) |
+               ((word & UINT64_C(0x000000ff00000000)) >> 8) |
+               ((word & UINT64_C(0x0000ff0000000000)) >> 24) |
+               ((word & UINT64_C(0x00ff000000000000)) >> 40) |
+               ((word & UINT64_C(0xff00000000000000)) >> 56);
+    #endif
+        result = (result << 5) + result + (uint32_t)word;
+        result = (result << 5) + result + (uint32_t)(word >> 32);
+        index += 8;
+      }
+      while (index < count) {
+        result = (result << 5) + result + data[index];
+        index++;
+      }
+      return result;
+    }
+SLOP tar -xf /tmp/box3d.tar -C /
+SLOP CWD /usr/src/dolly/box3d make -f /usr/src/dolly/box3d/box3d.mk
 
 EXPORTS LIB    box3d /usr/lib/libbox3d.a
 EXPORTS HEADER box3d /usr/include/box3d
 FILE /usr/share/licenses/box3d/LICENSE
+SLOP rm -rf /tmp/box3d.tar /usr/src/box3d /usr/src/dolly/box3d

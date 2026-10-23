@@ -9,7 +9,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.3/demos/slopyard/Dollyfile-gamedev-sdk d9910d25e9d45fe53f88d15318355189f2aa0553ebc61a2f4eb0ea2ba68c7cfb
+FROM /v0.1.3/demos/slopyard/Dollyfile-gamedev-sdk 15aa4c87ee61885fcae77a9adf31e328c3097af2fe27c29e12773b96b0c6b72b
 INSTALL /v0.1.3/demos/javascript/Dollyfile-janis 93c552ad1f37b8cd86880806d76f06732dab9753e4f5172df5d2d0cd044b7517
 INSTALL /v0.1.3/demos/pi/Dollyfile-pi 416876aa45844af67a1e6e9ba3f6cb46294ef76407255c45ae96e031b43f6587
 INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 d101b845e64ff55be49f015c50c34b0ba126f251dde9503d0a3990af647aced8
@@ -665,6 +665,8 @@ FILE /usr/src/dolly/bhop/bhop.c
       dolly_raylib graphics = {0};
       if (agent) {
         graphics.surface.width = 960; graphics.surface.height = 540;
+        // The agent's viewer shows the frames: raylib renders to memory.
+        SetConfigFlags(FLAG_WINDOW_HIDDEN);
         InitWindow(960, 540, "Dolly Airtime");
         if (!IsWindowReady()) return 1;
         SetTraceLogLevel(LOG_WARNING);

@@ -7,15 +7,16 @@ const loadProjectGraph = createDollyfileGraphLoader(resolve(import.meta.dirname,
 const requirements = (recipe, type) =>
   recipe.requirements.filter(item => item.type === type).map(({ name }) => name);
 
-test("the gamedev SDK declares its tools, headers and licenses", async () => {
-  const sdk = (await loadProjectGraph("demos/slopyard/Dollyfile-gamedev-sdk")).root;
-  for (const path of ["/usr/share/licenses/raylib/LICENSE", "/usr/share/licenses/box3d/LICENSE", "/usr/include/raymath.h"]) {
-    assert.ok(sdk.files.some(file => file.path === path), path);
+test("raylib and Box3D build their own packages, and the gamedev SDK installs them", async () => {
+  const load = async name => (await loadProjectGraph(`demos/slopyard/Dollyfile-${name}`)).root;
+  const [raylib, box3d, sdk] = await Promise.all(["raylib", "box3d", "gamedev-sdk"].map(load));
+  for (const [recipe, paths] of [[raylib, ["/usr/share/licenses/raylib/LICENSE", "/usr/include/raymath.h"]], [box3d, ["/usr/share/licenses/box3d/LICENSE"]]]) {
+    for (const path of paths) assert.ok(recipe.files.some(file => file.path === path), path);
+    for (const tool of ["ar", "cc", "make"]) assert.ok(requirements(recipe, "TOOL").includes(tool), tool);
   }
-  for (const tool of ["ar", "cc", "mkdir"]) assert.ok(requirements(sdk, "TOOL").includes(tool), tool);
-  assert.deepEqual(requirements(sdk, "HEADER"), ["libc", "display", "input"]);
-  assert.deepEqual(sdk.exports.filter(({ type }) => type === "HEADER").map(({ name }) => name),
-    ["raylib", "box3d", "dolly-raylib"]);
+  assert.deepEqual(raylib.exports.filter(({ type }) => type === "HEADER").map(({ name }) => name), ["raylib", "dolly-raylib"]);
+  assert.deepEqual(box3d.exports.filter(({ type }) => type === "HEADER").map(({ name }) => name), ["box3d"]);
+  assert.deepEqual(sdk.installs.map(({ image }) => image), ["raylib", "box3d"]);
 });
 
 test("Slopyard declares the host modules its game uses", async () => {
