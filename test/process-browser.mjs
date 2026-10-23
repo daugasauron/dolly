@@ -7,7 +7,7 @@ import { shellQuote } from "./fixtures/slop-cases.mjs";
 import { DOLLY_ERRNO } from "../src/process-constants.mjs";
 
 const scratch = "/tmp/dolly-process-test";
-const fixtures = Object.fromEntries(["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c"]
+const fixtures = Object.fromEntries(["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c", "process-exec.c"]
   .map(name => [name, `test/fixtures/${name}`]));
 for (const name of await readdir(new URL("../build", import.meta.url))) {
   if (/^(?:process|dso)-.+\.wasm$/.test(name)) fixtures[name] = `build/${name}`;
@@ -103,7 +103,7 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   await interrupt();
   assert.equal(await cancelled, 0, "an interrupted process sleep returns EINTR after the handler runs");
 
-  for (const name of ["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c", "input.tgz"]) await fetchFixture(name);
+  for (const name of ["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c", "process-exec.c", "input.tgz"]) await fetchFixture(name);
   // A parent that ends without a say leaves its running child and grandchild,
   // as on POSIX: on a trap, on a call through a null pointer, and when Ctrl-C,
   // which they ignore, ends its Worker in a loop that never enters the kernel.
@@ -141,6 +141,35 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   await run(`cc -O0 ${scratch}/process-jump.c -o ${scratch}/jump && timeout 30 ${scratch}/jump`);
   await run(`cc -O0 ${scratch}/process-sigchld.c -o ${scratch}/sigchld && timeout 5 ${scratch}/sigchld`);
   await run(`gzip -dc ${scratch}/input.tgz | tar -xf - -C ${scratch} && test "$(cat ${scratch}/nested/message)" = TAR-STDIN-OK`);
+
+  // exec replaces a process's program and keeps the process. What cannot run
+  // fails the call, the refused executable after one line on stderr.
+  const exec = `${scratch}/exec`;
+  await run(`cc -O0 ${scratch}/process-exec.c -o ${exec}`);
+  await run(`timeout 60 ${exec} check ${scratch} ${scratch}/process-wrong-import.wasm 2> ${scratch}/exec-refused`);
+  await run(`test $(wc -l < ${scratch}/exec-refused) -eq 1 && grep -qF env.fetch ${scratch}/exec-refused`);
+  await run(`test "$(${exec} pipe | cat)" = "$(printf 'BEFORE\\nAFTER')"`);
+  const timed = Date.now();
+  assert.equal(await submit(`timeout 2 ${exec} deadline`), 124, "a timed spawn's deadline ends the program exec started");
+  assert.ok(Date.now() - timed < 15000);
+  const execInterrupted = submit(`${exec} interrupt`);
+  await waitForText(/EXEC-INTERRUPT-READY\s*$/);
+  await settle();
+  await interrupt();
+  assert.equal(await execInterrupted, 0, "Ctrl+C reaches the program exec started");
+
+  // A program rewritten in place runs as it now is: the supervisor reuses a
+  // compiled module only for the version of the file's bytes it came from.
+  await run(`cd ${scratch} && echo 'int main(void) { return 41; }' > again.c && cc again.c -o again && cp again again-41 && ` +
+    "(./again; test $? = 41) && echo 'int main(void) { return 42; }' > again.c && cc again.c -o again && (./again; test $? = 42) && " +
+    "cat again-41 > again && (./again; test $? = 41)");
+  // Ninja runs its jobs at once: each of the two waits for the other to start.
+  const ninja = ["rule a", "  command = touch a-started; until test -e b-started; do sleep 1; done; touch $out",
+    "rule b", "  command = touch b-started; until test -e a-started; do sleep 1; done; touch $out",
+    "rule fail", "  command = exit 3", "build a: a", "build b: b", "build failed: fail"];
+  await run(`mkdir -p ${scratch}/ninja && cd ${scratch}/ninja && printf '%s\\n' ${ninja.map(shellQuote).join(" ")} > build.ninja && ` +
+    "timeout 60 ninja -j2 a b > /dev/null && test -e a && test -e b");
+  assert.equal(await submit(`cd ${scratch}/ninja && ninja failed > /dev/null`), 1, "a failed job fails Ninja");
 
   const ignored = submit(`${scratch}/signals ${scratch} ignore-loop`);
   await waitForText(/SIGNAL-IGNORE-READY\s*$/);

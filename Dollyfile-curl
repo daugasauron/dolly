@@ -3,7 +3,7 @@ PACKAGE curl
 REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 
-FROM /v0.1.4/Dollyfile-system-build af9951e3680c9fca300ccae3602804db8dfc3df087e0df6d9a3a98540f9a20aa
+FROM /v0.1.4/Dollyfile-system-build fc38e92559e9641715a0310cd147ddcda93fde7b66b6dae2d3df9e595f6383f3
 
 REQUIRES HEADER libc
 REQUIRES HEADER http

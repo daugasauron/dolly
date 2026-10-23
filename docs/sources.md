@@ -58,9 +58,14 @@ checks the compiler against `dolly-process-0`.
   is pinned for another round.
 - The compiler writes the digests of `dolly-process-0` and
   `dolly-kernel-plugin-0` into what it links. A new kernel plugin contract is
-  such a round. A new process contract is not yet: the compiler for it, built
-  under the old runtime, would have to link itself once more to run under the
-  new one, and no recipe does that.
+  such a round. A new process contract that only adds operations and layouts
+  starts with a bootstrap exception: after the runtime build has refused the
+  seed compiler's stamp, [`restamp-seed-compiler.mjs`](../scripts/restamp-seed-compiler.mjs)
+  writes the new digest into the two places the pinned compiler holds the
+  old one, its stamp and the copy it writes into what it links, and pins the
+  result. Its own libc stays the old contract's, which is sound only because
+  every operation it calls is unchanged. The round then builds `llvm-cc`
+  under the new contract and pins that, and no restamped compiler is left.
 - The first compiler built inside Dolly was linked by a seed whose compiler
   was a host build of the same sources and driver (`scripts/build-toolchain.sh`,
   last in commit `3fc9d5da`); a bootstrap from nothing starts there.
@@ -93,8 +98,8 @@ checks the compiler against `dolly-process-0`.
 | Family | Support | Limits |
 | --- | --- | --- |
 | Slop, sbase, Dolly commands | Shell scripts and POSIX file/text tools ([Slop](slop.md)) | Not Bash; POSIX flags, not GNU |
-| C/C++ | Clang/LLD, archives, libc++, process-local DSOs with `dso@0`, `-pthread` with `threads@0` | No native target, `fork` or `exec` |
-| Make, Ninja | GNU Make 4.4.1 and Samurai 1.3 | Ninja runs one job |
+| C/C++ | Clang/LLD, archives, libc++, process-local DSOs with `dso@0`, `-pthread` with `threads@0` | No native target or `fork` |
+| Make, Ninja | GNU Make 4.4.1 and Samurai 1.3 | Ninja runs two jobs unless told `-j N`: libc counts one processor without `-pthread` |
 | Git, curl | Local Git 2.55 and HTTP clone/fetch/push over Fetch-backed libcurl ([HTTP](http.md)) | CORS applies; no sockets; clean/smudge filters unported |
 | Awk, zlib, gzip | One True Awk (Bison output prepared outside), zlib 1.3.2, Dolly `gzip` | |
 | less | less 692 over GNU termcap 1.3.1, from upstream's archives; the recipe states what `configure` would find | No later less: from 701 on it asks termcap for a key before `tgetent` when its output is not a terminal, which termcap 1.3.1 does not survive |

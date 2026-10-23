@@ -8,7 +8,7 @@ REQUIRES HOST http@0
 # eventually map to the lower-level machine contract is deliberately open.
 SOURCE /v0.1.4/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415 /usr/include/dolly/toolchain.h
 SOURCE /v0.1.4/include/dolly/runtime.h   e05d391cf65da6094c469455aebbf8a1496a53960c7b7876b998fa48deeb2c13 /usr/include/dolly/runtime.h
-SOURCE /v0.1.4/include/dolly/process.h   5f20c11c294311d68d931a198a0e82de5022f7e080f39611aa59c48334065818 /usr/include/dolly/process.h
+SOURCE /v0.1.4/include/dolly/process.h   6919b5de21efa877d73ea8d004d88b66ec00b5a883bdbeece12e2ed14dc370b5 /usr/include/dolly/process.h
 SOURCE /v0.1.4/host/http/http.h      d09f57cda4a6cde89106653f12366ac95554c21d37d05a69c15764d4254b70a5 /usr/include/dolly/http.h
 SOURCE /v0.1.4/host/http/http-abi.h 2f4e1e5c7145730babc91a0ff0a38db8b5e100ae1fab0b722b38ecbd53ad64a0 /usr/include/dolly/http-abi.h
 SOURCE /v0.1.4/host/display/display.h   31054ebb6af133ea0a5de7e01730475a536a362261b1c24569a67d0749969633 /usr/include/dolly/display.h
@@ -94,7 +94,7 @@ EXPORTS TOOL dollyfile
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 
-SOURCE /v0.1.4/dist/static/default/slop.c 456bb261c2cc17199de17f492930c587b312761faf581bd73223602b9cac3789 /tmp/slop/slop.c
+SOURCE /v0.1.4/dist/static/default/slop.c ccd632ebef4a55cec90015d8582740137e2345216b5c336d77436f5291d7969a /tmp/slop/slop.c
 RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/slop/slop.c -o /bin/slop
 
 EXPORTS TOOL slop

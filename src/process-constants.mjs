@@ -42,6 +42,7 @@ export const DOLLY_PROCESS_FD_POLL = 54;
 export const DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS = 55;
 export const DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS = 56;
 export const DOLLY_PROCESS_FD_LOCK = 59;
+export const DOLLY_PROCESS_EXEC = 61;
 export const DOLLY_PROCESS_SPAWN = 64;
 export const DOLLY_PROCESS_WAIT = 65;
 export const DOLLY_PROCESS_INTERRUPT_POLL = 66;
@@ -121,6 +122,7 @@ export const DOLLY_PROCESS_LOCK_UNLOCK = 2;
 export const DOLLY_PROCESS_LOCK_DESCRIPTION = 1;
 export const DOLLY_PROCESS_LOCK_WAIT = 2;
 export const DOLLY_PROCESS_LOCK_TEST = 4;
+export const DOLLY_PROCESS_FD_MAPPING_CLOSED = 4294967295;
 export const DOLLY_ERRNO = Object.freeze({
   E2BIG: 1,
   EACCES: 2,
@@ -221,6 +223,8 @@ export const DOLLY_PROCESS_SIZEOF = Object.freeze({
   dolly_process_filesystem_stat_response: 96,
   dolly_process_spawn_request: 56,
   dolly_process_fd_mapping: 8,
+  dolly_process_exec_state: 16,
+  dolly_process_exec_request: 48,
   dolly_process_pipe_request: 8,
   dolly_process_two_path_request: 16,
   dolly_process_path_times_request: 48,

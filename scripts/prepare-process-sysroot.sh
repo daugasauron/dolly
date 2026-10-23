@@ -63,6 +63,9 @@ done
 # root Emscripten's action_abort/action_terminate helpers and pull in a second owner.
 emar d "${staging}/libc-ww.a" \
   raise.o sigaction.o pthread_sigmask.o sigtimedwait.o setitimer.o getitimer.o
+# Its stubs claimed times and others that did not happen, and times is strong:
+# Dolly's libc-stubs.c defines what it held.
+emar d "${staging}/libstubs.a" emscripten_libc_stubs.o
 
 emnm -j --defined-only --extern-only \
   "${staging}/libc-ww.a" \

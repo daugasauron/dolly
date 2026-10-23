@@ -12,12 +12,12 @@ REQUIRES HOST upload@0
 
 # Build-only: premake and the 0 A.D. engine (pyrogenesis), built by upstream's
 # premake Makefiles with Dolly's c++.
-FROM /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-deps cbfeae8bbefde1745d745084c2546e03d47ec0ab4fd428455cd03c2e5895c074
-INSTALL /v0.1.4/Dollyfile-libdolly-gpu 7ff4020a4de924192b129ec5534775b59fe574c392445eaf234d2e5acc72137d
-INSTALL /v0.1.4/Dollyfile-libdolly-audio 3187abf138ddb86a08332aa9b146aea84ca45e36e1890fa4ef785c83bf0de25c
-INSTALL /v0.1.4/Dollyfile-libdolly-touch 6826cb4ab86081e28e6a64b55724f95a77c248c7d89e048e32ec67437384ad44
+FROM /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-deps f899e4941e85b59ef1f499bc94d05fb78500ca984f28629b15495a052275dc29
+INSTALL /v0.1.4/Dollyfile-libdolly-gpu f4b5492c484afbd88dccd2066bacf7a581789cdae22f73bd93b22bd57db6d4a7
+INSTALL /v0.1.4/Dollyfile-libdolly-audio 4e8ac07dd72c4cf519f44f34320f0d2aca5bee8e97e4d6d47fdfec188555c6a2
+INSTALL /v0.1.4/Dollyfile-libdolly-touch 379234c6224160b39a4727a8a6624a83830f17afaed3449cbe7b76ce43ac4019
 # download, which the engine's test takes its logs out with.
-INSTALL /v0.1.4/Dollyfile-transfer d719b65ba7372672404792b999ee1f2b16b04b18772738796b8d2ed85fdeba71
+INSTALL /v0.1.4/Dollyfile-transfer 6106b1fdb7ec865043abc6f86478ad769c95ec83ae01ddafc58998a267283467
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL ar
@@ -50,7 +50,7 @@ FILE /tmp/premake.slop
 SLOP slop -e /tmp/premake.slop
 
 # SpiderMonkey: its headers, the two archives, its pkg-config file and licences.
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-spidermonkey 5f1119e9881273afff4b42b51f2174e400702a2b25419b47479e5d76b472ee05
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-spidermonkey dde76d1647345268c0e955332aedb69ec8542210b219873c5164752f21926fe4
 
 # Probe for test/0ad-spidermonkey-browser.mjs.
 SLOP mkdir -p /usr/libexec/zero-ad

@@ -10,7 +10,7 @@ test("preparation keys track their code and survive checkout relocation", async 
   const original = join(scratch, "original");
   const relocated = join(scratch, "relocated");
   const inputs = [
-    "config/source-pins.sh", "config/samurai-dolly.patch",
+    "config/source-pins.sh",
     "scripts/prepare-samurai.sh", "scripts/prepare-zig-native.sh",
     "config/zig-0.16.0-dolly-native.patch",
   ];

@@ -6,8 +6,8 @@ REQUIRES HOST input@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 
-FROM /v0.1.4/Dollyfile-system-tools 3057615074e2c587d03a107b1eac81bb5ddfecb85eebcd875f97e9728d43d07f
-INSTALL /v0.1.4/demos/javascript/Dollyfile-typescript 33ab40e3d8bda9a2cfe4e3d53fcb26b92bcf90aeb3afa3a9fbb1aee8042acef8
+FROM /v0.1.4/Dollyfile-system-tools 987dafe84fb22faef09badafad5c9a280592907f2c6ae447f25be0bc71fa75e9
+INSTALL /v0.1.4/demos/javascript/Dollyfile-typescript cbaa423b4ecd919627f3afbccd46075b32883050fbf70e24671a41f50c455cef
 # Pi 1.0.3 is compiled from its pinned upstream TypeScript workspace inside
 # Dolly. Only generated model data and the finite locked external dependency
 # graph come from the matching published packages.

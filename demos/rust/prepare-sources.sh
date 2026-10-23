@@ -4,7 +4,6 @@ if has_image rust-sdk; then
   copy_static demos/rust/rustc.sh rust/rustc.sh
   copy_static demos/rust/rust-linker.c rust/rust-linker.c
   copy_static demos/rust/toolchain/dlopen.c rust/dlopen.c
-  copy_static demos/rust/pthread-attr.c rust/pthread-attr.c
 fi
 if has_image rust-llvm; then
   python3 demos/rust/prepare-rustc-sources.py

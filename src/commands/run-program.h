@@ -1,5 +1,5 @@
-// Dolly has no fork/exec: commands which start another program resolve it on
-// PATH and run it through the kernel's spawn/wait contract.
+// Commands which start another program resolve it on PATH, and run it through
+// the kernel's spawn/wait contract or, as their last act, exec it.
 #ifndef DOLLY_RUN_PROGRAM_H
 #define DOLLY_RUN_PROGRAM_H
 
@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include <dolly/runtime.h>
 
@@ -68,6 +69,18 @@ static inline int run_program(const char *self, int argc, char **argv,
   const int result = pid < 0 ? pid : dolly_wait(pid, &status);
   if (result < 0) fprintf(stderr, "%s: %s: %s\n", self, argv[0], strerror(-result));
   return result == -ENOENT ? 127 : result < 0 ? 126 : status;
+}
+
+// Replaces this program with argv, which keeps its process and descriptors.
+// Returns only when that fails, after saying why: 127 (not found) or 126.
+static inline int exec_program(const char *self, char **argv, const char *search) {
+  char *path = find_program(argv[0], search);
+  char *empty[] = {NULL};
+  if (path != NULL) execve(path, argv, environ == NULL ? empty : environ);
+  const int error = errno;
+  free(path);
+  fprintf(stderr, "%s: %s: %s\n", self, argv[0], strerror(error));
+  return error == ENOENT ? 127 : 126;
 }
 
 #endif

@@ -5,7 +5,7 @@ REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST http@0
 
-FROM /v0.1.4/Dollyfile-system-build af9951e3680c9fca300ccae3602804db8dfc3df087e0df6d9a3a98540f9a20aa
+FROM /v0.1.4/Dollyfile-system-build fc38e92559e9641715a0310cd147ddcda93fde7b66b6dae2d3df9e595f6383f3
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -93,13 +93,12 @@ SLOP rm \
 # Shared C/C++ build and system utilities, without a display or Rust tools.
 # Samurai is a compact Ninja-compatible executor. Its upstream parser, graph,
 # depfile handling, and build log stay as separate ordinary C translation
-# units. The Dolly patch replaces only native process scheduling with the
-# in-Wasm command lifecycle. `util.c` has two explicit loop checkpoints and is
-# compiled without generic edge coverage, which otherwise causes a severe
-# bootstrap-compiler blowup for that one file.
+# units, and its jobs start through posix_spawn, unchanged. `util.c` has two
+# explicit loop checkpoints and is compiled without generic edge coverage,
+# which otherwise causes a severe bootstrap-compiler blowup for that one file.
 REQUIRES HEADER runtime
 
-SOURCE /v0.1.4/dist/static/default/samurai.tar                   3edf36a672e9c70962e0f1fb6fdf92bbfd96d759fff162b821ee5947536f6899 /tmp/ninja/samurai.tar
+SOURCE /v0.1.4/dist/static/default/samurai.tar                   df4d14af0e48a206d1ccc175f134c3c81b6601b3d243b24561b1927ecd0afc45 /tmp/ninja/samurai.tar
 SOURCE /v0.1.4/dist/static/default/runtimes/samurai-unit-dolly.c 4412175ad18939c580d6a31ca89a1284d313026674d5ac4faa0841aab379a4f7 /tmp/ninja/samurai-unit-dolly.c
 
 FILE /tmp/ninja/Makefile
@@ -150,10 +149,10 @@ SLOP rm \
   -rf \
   /tmp/ninja
 # zlib, gzip and curl for builds, and Git, which Dolly's patch and diff run.
-INSTALL /v0.1.4/Dollyfile-zlib e6f791f1e491df47ea4af134c22ab8dbd88b6eb26159d8271f8ae7e582e7d2c2
-INSTALL /v0.1.4/Dollyfile-gzip 1aaec8769f5668ea05e29584cc464bce9c2419d507d86fdee5f46ee31a053f79
-INSTALL /v0.1.4/Dollyfile-curl 1bae82df57eacda132670b441462af416ba73f9da1ff9e02b209b4faeb4f2921
-INSTALL /v0.1.4/Dollyfile-git 9ed3569633d430467547be7d3b53fe1bdf699f735d53cfb40a7dda2823d3a995
+INSTALL /v0.1.4/Dollyfile-zlib feee152a761268a999d1ab32168e34b978102911a7efa882f4e77e1e274dee71
+INSTALL /v0.1.4/Dollyfile-gzip be591e589ad52bcf031b001fbb9fbd6af0c7ad33d4975fddab523f20254c5978
+INSTALL /v0.1.4/Dollyfile-curl 99868928571de235d1dbaad34e5bce799e89c5abd54583165a2604ed53e67721
+INSTALL /v0.1.4/Dollyfile-git 07385af2a9555e8f1a584209c06df8ae6741f19a937519afdd229103a888e0b0
 SOURCE /v0.1.4/dist/static/default/awk.tar f28cae177fa60793a70066d10667e8d06775d979f2262be1c48f8eb941090015 /tmp/awk.tar
 SLOP tar \
   -xf /tmp/awk.tar \
@@ -187,14 +186,14 @@ SLOP rm \
 # Focused compatibility commands used by build systems and coding agents.
 # Each remains a separate Wasm executable; wrappers which launch another tool
 # do so through Dolly's in-userspace spawn/wait contract.
-SOURCE /v0.1.4/dist/static/default/commands/run-program.h 8434bb55978a286e546878170e882010e63c1901402156bb8b8b8a96adc37f73 /tmp/agent-tools/run-program.h
+SOURCE /v0.1.4/dist/static/default/commands/run-program.h e73415ba149e8dcb9944313c36d8d2319202d699c810e02a26d5a94caa8f3a9f /tmp/agent-tools/run-program.h
 SOURCE /v0.1.4/dist/static/default/commands/install.c     0aa8729ff8f6d8ecc454757226275b946b28c2e6783afd571f4c33a616cb4ba3 /tmp/agent-tools/install.c
 SOURCE /v0.1.4/dist/static/default/commands/du.c          55b6a61ea8dc2a4355aaafc9a80d2218f397fa4d1e170b78462863fc9cb2ed63 /tmp/agent-tools/du.c
 SOURCE /v0.1.4/dist/static/default/commands/rev.c         3539529d49f26629a6518437dc76631f113bcc5822ff5dbc8aa26481933f3d05 /tmp/agent-tools/rev.c
-SOURCE /v0.1.4/dist/static/default/commands/command.c     93610e7ec64b99dd6a128d66e5a49b453464fa317434167251b492d4913e44da /tmp/agent-tools/command.c
+SOURCE /v0.1.4/dist/static/default/commands/command.c     a84673243407a37f42b1a82a47fab4123c165b383761642874ba2ec081938bd3 /tmp/agent-tools/command.c
 SOURCE /v0.1.4/dist/static/default/commands/xargs.c       4b94714fb29a296df4b71d648dbd222763ca11738b7c651d1de3f5ee5c84e9f3 /tmp/agent-tools/xargs.c
 SOURCE /v0.1.4/dist/static/default/commands/find.c        342ba6df849456d47646b7531718ca9682d27b3215c355ebb156eae7e8b16813 /tmp/agent-tools/find.c
-SOURCE /v0.1.4/dist/static/default/commands/env.c         9a04ef03ad00956c2a27b3759b84872f118115ebbe1e399621a5c43a59900228 /tmp/agent-tools/env.c
+SOURCE /v0.1.4/dist/static/default/commands/env.c         62c71b67f4623f7b2f253c5474ff8745ed335325ed0392b992e4adc8653a6902 /tmp/agent-tools/env.c
 SOURCE /v0.1.4/dist/static/default/commands/time.c        bb49a29e708e9e32716e2d5bf4b4b4e662b07093d0e3731588ef7d41a53ad733 /tmp/agent-tools/time.c
 SOURCE /v0.1.4/dist/static/default/commands/timeout.c     4864285ae0b36f853376e6e77855f4d1f8159b96d716bd9466606b9bef1c5f16 /tmp/agent-tools/timeout.c
 SOURCE /v0.1.4/dist/static/default/commands/realpath.c    6ec82439ecf3ab1d21a40293ab7e585972c523d8c8e4573a60a7cef86af08250 /tmp/agent-tools/realpath.c
@@ -237,6 +236,6 @@ SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
 SLOP cp /usr/share/man/cat1/slop.1 /usr/share/man/cat1/sh.1
 FOLDER /usr/share/man
-INSTALL /v0.1.4/Dollyfile-display 7574677d3f59a092a0db30566cb15d7aeebabdd783a5f8f82ee80914d4462aa2
+INSTALL /v0.1.4/Dollyfile-display 4178fcabc4fd8befae9805a15cee0af077e0e045a42a3ffdcedec74ef747050f
 
 ENTRY /bin/foreground -i /bin/slop

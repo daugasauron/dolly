@@ -63,6 +63,10 @@ sequenceDiagram
   and the exact typed import validation after linking decides.
 - The supervisor caches compiled modules by SHA-256 (64 entries, 256 MiB), never
   instances; at most 32 processes exist at once and further spawns fail `EAGAIN`.
+  A start does not read an executable whose module is cached: the kernel opens the
+  file and gives its version (`dolly_process_image_version`, a number every write and
+  size change of the file renews), and only a version the supervisor has not compiled
+  is read (`dolly_process_image_read`) and hashed.
 - A refusal is reported to the program that asked, not to the person at the
   page. An executable the loader refuses (a wrong stamp or import, a host module
   the session does not have or whose layout differs, a thread client without
@@ -255,10 +259,11 @@ nothing and declares nothing: any program built for Dolly runs on one.
   descriptors, then applies explicit parent-to-child mappings, all read from the
   parent at once. A spawn may set the child's cwd.
 - `posix_spawn` inherits all non-CLOEXEC descriptors and replays `adddup2`
-  actions in order as mappings ([`runtime-adapter.c`](../src/process/runtime-adapter.c)).
+  and `addclose` actions in order as mappings, a closed one keeping the child
+  from inheriting the descriptor ([`runtime-adapter.c`](../src/process/runtime-adapter.c)).
   A child starts with default dispositions and an empty signal mask; other file
   actions, a session, process group or scheduler, and a non-empty mask return
-  `ENOTSUP`. There is no `fork` or `exec`.
+  `ENOTSUP`. There is no `fork`: it fails with `ENOSYS`.
 - `waitpid` accepts a child PID, `-1` or `0`, with `WNOHANG`, `WUNTRACED` and
   `WCONTINUED`: no child ever stops or continues. Wait records distinguish signal termination from exit:
   `exit(130)` is not SIGINT.
@@ -277,8 +282,8 @@ nothing and declares nothing: any program built for Dolly runs on one.
   orphans. The terminal goes back to the parent's foreground ancestor, as a
   shell takes it back when a job ends. A parent a signal ends takes its
   descendants with it, by that signal, as a signal to its process group
-  would: Dolly has no groups and no exec, so the command of `slop -c` is the
-  shell's child, and a closed terminal's `SIGHUP` ends its jobs. A timed
+  would: Dolly has no groups, so the command of `slop -c` is the shell's
+  child unless the shell `exec`s it, and a closed terminal's `SIGHUP` ends its jobs. A timed
   command's deadline ends its whole tree, as `timeout` signals the command's
   process group.
 - Worker termination has no completion event, so a large interactive process
@@ -286,6 +291,35 @@ nothing and declares nothing: any program built for Dolly runs on one.
   recovery shell. Nothing guarantees against browser memory pressure; this is
   one reason Slop itself is [serial](architecture.md#decisions) and parallel
   builds need a modest `-jN`.
+
+## Exec
+
+`execve` and its family (`execv`, `execvp`, `execl`, ...) replace the program
+of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/process.h)).
+
+- The process keeps its pid, parent and children (the new program waits for
+  them), cwd, locks, alarm, pending signals, terminal roles (foreground,
+  interactive) and a timed spawn's deadline, and its descriptors without
+  `FD_CLOEXEC`. The new program starts with the old one's signal mask,
+  ignored signals and signals pending in it; every handled signal is back at
+  its default action. A parent's `waitpid` gets the new program's status.
+- What goes: the old program's memory and Workers, its threads (exec from any
+  thread ends the others), mappings, DSOs, `atexit` handlers, and what its
+  host modules held for it. `MAP_SHARED` writes are not written back, as at
+  exit. stdio is not flushed: a program flushes before it calls `exec`.
+- A program that cannot run fails the call and the old one goes on: a missing
+  file is `ENOENT`, a file that is no Wasm and has no `#!` line `ENOEXEC`, and
+  an executable the loader refuses (a stamp, an import, a host module the
+  session has not) `ENOEXEC` after one line on the process's descriptor 2
+  that names the cause. The kernel reads the program and the supervisor
+  compiles and admits it while the old program waits in the call; only then
+  does the old program go ([`process-supervisor.mjs`](../src/process-supervisor.mjs)).
+- A signal delivered while the new program is prepared interrupts the call:
+  the old program handles it, and libc calls `exec` again. Between the old
+  Worker's end and the new one's start the process is `starting`, as a spawned
+  one is, and a signal then ends it.
+- A large interactive program gets the 500 ms of reclamation it gets at exit
+  before its successor's memory is made.
 
 ## Signals
 
@@ -325,10 +359,11 @@ nothing and declares nothing: any program built for Dolly runs on one.
   pending and never forces termination.
 - Clock reads use the Worker's clock aligned to the kernel's origin, but enter the
   kernel at least once per millisecond so signals arrive in clock-only loops.
-- CPU time is not accounted: `clock()`, `CLOCK_PROCESS_CPUTIME_ID` and
-  `getrusage` report the monotonic time since the process started as its user
-  time, an upper bound that is exact while it computes without blocking; system
-  time and children's times are zero ([`libc-adapter.c`](../src/process/libc-adapter.c)).
+- CPU time is not accounted: `clock()`, `CLOCK_PROCESS_CPUTIME_ID`,
+  `getrusage` and `times` report the monotonic time since the program started
+  (since its `exec`, if it was exec'd) as its user time, an upper bound that is
+  exact while it computes without blocking; system time and children's times
+  are zero ([`libc-adapter.c`](../src/process/libc-adapter.c)).
 
 ## Threads, DSOs and FFI
 
@@ -393,5 +428,5 @@ nothing and declares nothing: any program built for Dolly runs on one.
 
 ## Unsupported
 
-`fork`, `exec` replacement, job control and process groups, network sockets,
-and changing user or group identity fail explicitly.
+`fork`, job control and process groups, network sockets, and changing user
+or group identity fail explicitly.

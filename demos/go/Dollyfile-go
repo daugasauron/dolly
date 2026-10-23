@@ -1,0 +1,29 @@
+DOLLY 7
+PACKAGE go
+REQUIRES HOST runtime@0
+
+# The Go toolchain as go-build built it, in its GOROOT. The commands start it
+# by its own path, from which it finds its GOROOT.
+FROM /v0.1.4/demos/go/Dollyfile-go-build 0eb1d612fb604f14c391dec01069181be8c1b8df8d13ebbec1012fd6cc3ae213
+FILE /usr/bin/go
+    #!/bin/slop
+    /usr/lib/go/bin/go "$@"
+FILE /usr/bin/gofmt
+    #!/bin/slop
+    /usr/lib/go/bin/gofmt "$@"
+EXPORTS TOOL go
+EXPORTS TOOL gofmt
+# go.env's GOTOOLCHAIN=auto would fetch newer toolchains, which do not run here.
+EXPORTS ENV GOTOOLCHAIN local
+EXPORTS FOLDER go-root /usr/lib/go
+FILE /usr/share/man/cat1/go.1
+    go: the Go toolchain (Go 1.27.3) for GOOS=dolly GOARCH=wasm64, built inside
+    Dolly from its pinned sources.
+    
+      go build              compiles a package and its dependencies
+      go run main.go        compiles and runs a program
+      gofmt -l .            lists files whose formatting differs
+    
+    Programs are pure Go: there is no cgo. They run single-threaded, reach no
+    network, and take the signals the kernel delivers as their default action.
+    Upstream's documentation: https://go.dev/doc/

@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
     }
   }
   if (argument < argc) {
-    return run_program("env", argc - argument, argv + argument, getenv("PATH"), -1);
+    return exec_program("env", argv + argument, getenv("PATH"));
   }
   for (char **entry = environ; entry != NULL && *entry != NULL; entry++) {
     fputs(*entry, stdout);

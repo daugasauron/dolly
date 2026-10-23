@@ -14,8 +14,8 @@ DOLLY_LLVM21_SHA256=4633a23617fa31a3ea51242586ea7fb1da7140e426bd62fc164261fe036a
 DOLLY_LLVM_URL='https://github.com/llvm/llvm-project.git'
 # The seed's compiler and Clang's resource headers, as the llvm-cc image built
 # them from DOLLY_LLVM_COMMIT (demos/llvm/pin-seed-compiler.mjs writes both lines).
-DOLLY_SEED_COMPILER_URL='https://github.com/daugasauron/dolly/releases/download/v0.1.3/dolly-seed-compiler-9c4ba53ae495d3a2c3adc97bd89d9b76d005a0ce0e70dfc6837ebd1bcacf2565.tar'
-DOLLY_SEED_COMPILER_SHA256=9c4ba53ae495d3a2c3adc97bd89d9b76d005a0ce0e70dfc6837ebd1bcacf2565
+DOLLY_SEED_COMPILER_URL='https://github.com/daugasauron/dolly/releases/download/v0.1.4/dolly-seed-compiler-14571deb664109ea99883a76e721b50555388e9046818d72c9519fc879be7ec2.tar'
+DOLLY_SEED_COMPILER_SHA256=14571deb664109ea99883a76e721b50555388e9046818d72c9519fc879be7ec2
 
 DOLLY_SBASE_COMMIT=c546c3a5724c81cee9a11d816a38ccdf17472129
 DOLLY_SBASE_URL='https://git.suckless.org/sbase'
@@ -614,3 +614,15 @@ DOLLY_XEYES_SHA256=d223283270488b1a6b408d0e97bd69a7704cf6a9596c0320035d807e63cdc
 DOLLY_XTERM_VERSION=412
 DOLLY_XTERM_URL='https://github.com/ThomasDickey/xterm-snapshots/archive/refs/tags/xterm-412.tar.gz'
 DOLLY_XTERM_SHA256=26b76917f13b56f5bfa69ac1984ef688c1b22cf7100cd4ad02352ba5899c537d
+# Go: the release's source, patched for GOOS=dolly GOARCH=wasm64 (demos/go), and upstream's
+# linux/amd64 toolchain of the same release, which cross-builds the seed on the host.
+DOLLY_GO_VERSION=1.27.3
+DOLLY_GO_URL='https://go.dev/dl/go1.27.3.src.tar.gz'
+DOLLY_GO_SHA256=6e7749035cf360f06b2575d162ea79df9fda8ef671889e5c375f8e50777f26bb
+DOLLY_GO_HOST_URL='https://go.dev/dl/go1.27.3.linux-amd64.tar.gz'
+DOLLY_GO_HOST_SHA256=65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40
+# esbuild, the JavaScript and TypeScript bundler, built by the go package; its one module
+# dependency (golang.org/x/sys) is vendored at staging and checked against its go.sum.
+DOLLY_ESBUILD_VERSION=0.28.2
+DOLLY_ESBUILD_URL='https://github.com/evanw/esbuild/archive/refs/tags/v0.28.2.tar.gz'
+DOLLY_ESBUILD_SHA256=300162f899361d9f0263065f8728ef9086dcfc1a3d36bcbc4e0abe5de9c58bf8

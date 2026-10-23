@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
     usage(stderr);
     return 2;
   }
-  if (!describe) return run_program("command", argc - argument, argv + argument, search, -1);
+  if (!describe) return exec_program("command", argv + argument, search);
 
   int status = 0;
   for (; argument < argc; argument++) {
