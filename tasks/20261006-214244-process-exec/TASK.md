@@ -1,6 +1,6 @@
 # exec: replace a process's program in the process contract
 
-- STATUS: IN PROGRESS
+- STATUS: OPEN
 - PRIORITY: 260
 - TAGS: core,process,abi,slop,design,0.1.4
 
