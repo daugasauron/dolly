@@ -182,7 +182,7 @@ Step 4, `buttons@0` removed and `pi-phone` ported:
   "process failed" line and no shell prompt after it; a small `-pthread` program making the same
   call ends with status 126 as it should. Not reproduced beyond voice.
 
-Also run after step 4, in Chromium and Firefox: `sockets`, `boundary`, `host-modules`, `nena`,
+Also run after step 4, in Chromium and Firefox: `imgui` (rebuilt on the new `sdl2`; it seals with touch@0), `sockets`, `boundary`, `host-modules`, `nena`,
 `terminal`, `indicators` and `default` (its last part needs `zig` in this tree's narrowed image
 list, which was not built here). The core suite as a whole was not run (the integrator's).
 
@@ -194,7 +194,7 @@ Left (2026-10-23, 14:40):
   fingers and the button rows, and try the keyboard's own paste (Gboard's clipboard chip) at the
   `default` prompt; if it reaches the terminal, the Paste button can go from `input@0`.
 - Not rebuilt here, their recipes changed (touch@0, pins): bhop, classicube-build, classicube,
-  imgui, imgui-x11, rts-build, rts-arena, xorg-server-build, xorg-server, x11-desktop,
+  imgui-x11, rts-build, rts-arena, xorg-server-build, xorg-server, x11-desktop,
   ghostty-x11, xonotic-build, xonotic, zero-ad-deps, zero-ad-engine, zero-ad, and the docs chain
   dolly-docs, pi-agent, pi-local, dollyfile-studio. Their sealing is the proof that the touch@0
   lines are where a retained executable needs them.
