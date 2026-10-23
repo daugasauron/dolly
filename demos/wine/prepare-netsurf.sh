@@ -3,6 +3,8 @@
 # of its pinned release that the Wine demo builds, with netsurf-dolly.patch applied
 # and the sources its makefiles generate with perl, gperf and a C tool generated here.
 set -euo pipefail
+# Perl walks its hashes in a random order each run; the generated sources must not.
+export PERL_HASH_SEED=0 PERL_PERTURB_KEYS=0
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "${project_dir}/config/source-pins.sh"
 demo_dir="${project_dir}/demos/wine"
@@ -39,7 +41,10 @@ if [[ ! -d "${output}" ]]; then
   (cd "${temporary}/full/netsurf" && for language in de en fr it nl; do
     mkdir -p "frontends/windows/res/${language}"
     perl tools/split-messages.pl -l "${language}" -p win -f messages -z \
-      -o "frontends/windows/res/${language}/Messages" resources/FatMessages
+      -o "frontends/windows/res/${language}/Messages.gz" resources/FatMessages
+    # Compressed again without the time of the run, which its gzip header carries.
+    gzip -dc "frontends/windows/res/${language}/Messages.gz" | gzip -9n > "frontends/windows/res/${language}/Messages"
+    rm "frontends/windows/res/${language}/Messages.gz"
   done)
   # What git-testament.pl writes for a tarball, without this host's user, name and date.
   cat > "${temporary}/full/netsurf/testament.h" <<'TESTAMENT'
