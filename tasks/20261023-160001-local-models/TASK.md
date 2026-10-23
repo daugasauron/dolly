@@ -174,3 +174,19 @@ in Dolly on the files and the answer.
 emptied builder profile: `.cache/snapshot-browser-profile-0` had grown to 7.3 GB of cached
 artifacts. These builds sit 0.3-0.4 GB under the slot's cap: a model package near 2 GiB
 needs the builder's capture to hold less, or a larger slot.
+
+### The GPU test with each package as the model installed with `/local` (16:21-)
+
+`demos/local-llm/test/local-llm-browser.mjs` now takes the model the user installs from
+`DOLLY_LLM_SECOND` (default `minicpm5-2b`, as before): one run per package, since three
+installs in one page would not fit the browser's memory. Run with
+`DOLLY_LLM_IMAGES=pi-local` under the GPU lock, `MemoryMax=12G`, on the rebuilt
+`pi-local` (`build/models-evidence/session-test.sh`, log `session-test.log`):
+
+- `DOLLY_LLM_SECOND=qwen3.5-4b`, Chrome 156: passed (16:21-16:28): the engine proof, the
+  agent task on the first attempt (4 tool calls), session save, restore and fresh boot,
+  then `/local` listing `qwen3.5-4b` as not installed, `amy install qwen3.5-4b` of the
+  2.1 GB package, Pi switched to it, temperature 0.35 and context 12,288 set and seen by
+  the engine, a context too large refused, the task again, no request off the origin.
+- `DOLLY_LLM_SECOND=lfm2.5`, Chrome 156: passed the same way (16:28-16:32); the test's
+  scope peaked at 10.1 GB of anonymous memory.
