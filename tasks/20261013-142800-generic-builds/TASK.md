@@ -35,6 +35,28 @@ found in pi-agent sessions, where every game session now installs raylib or SDL2
 3. SDL_ttf and SDL_image as packages (on FreeType and libpng); SDL_mixer only if it fits the
    sound module without new browser authority.
 
+Done (`ad98e33c`):
+
+- raylib holds its build (`demos/slopyard/Dollyfile-raylib`, from the pinned source) with a
+  Dolly platform backend compiled into raylib's `rcore.c` as its custom platform: display@0
+  for frames (paced by the page's animation frames), input@0 for keys, text, pointer and wheel,
+  `CLOCK_MONOTONIC` for `GetTime`; a tap inside one frame still reads as pressed for a frame.
+  A hidden window (`FLAG_WINDOW_HIDDEN`), or a program that holds the display (Slopyard,
+  `<dolly/raylib.h>`), renders to memory; the adapter hands raylib its key events. Airtime's
+  agent mode asks for a hidden window (its viewer shows the frames). Measured in the `default`
+  image after `amy install raylib`: 30 frames 16 ms apart read `GetTime 0.516`,
+  `GetFrameTime 0.0167` (before 0.000 and 0.0000); Space pressed on the page reaches
+  `IsKeyPressed` (before: never). `test/amy-browser.mjs` checks both in its raylib row.
+- Box3D holds its build (`Dollyfile-box3d`); `gamedev-sdk` installs both packages and keeps
+  Box3D's sources for Slopyard's threaded SIMD build.
+- libpng ships upstream's `libpng.a` link: `cc x.c -lpng -lz` links (checked in the default
+  image; `test/amy-browser.mjs` too).
+- Checked: `bhop` (Chromium, `npm run test:demos -- bhop`), `slopyard-browser.mjs` on the GPU
+  display, the images' own checks, the source suite. Not run: the whole `test/amy-browser.mjs`
+  (it needs every package built in this tree).
+
+Next: SDL_ttf and SDL_image as packages, then libuv, openal and a llama.cpp library.
+
 ## State (2026-10-23)
 
 The question was answered and the step after it built: a package's build-only installs
