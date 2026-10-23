@@ -28,7 +28,9 @@ const processWorkerLimit = 56;
 const processMemoryBudgetBytes = 4 * 1024 * 1024 * 1024;
 // Chromium releases the address space of a terminated Worker's memory some
 // time after terminate(): a memory it cannot reserve is asked for again for
-// a while before the process is refused.
+// a while before the process is refused. A spawn the budget or the count
+// refuses waits as long, like any blocking call, asked again whenever a
+// process ends and at each service tick; then it fails EAGAIN.
 const reservationRetryMilliseconds = 50;
 const reservationPatienceMilliseconds = 5000;
 const interruptGraceMilliseconds = 500;
@@ -637,6 +639,7 @@ export class DollyProcessSupervisor {
   }
 
   #syscall(process, message, retry = false, thread = process) {
+    const refusedSince = this.deferred.get(thread)?.refusedSince;
     this.#clearDeferred(thread);
     const values = [
       message.sequence,
@@ -667,9 +670,14 @@ export class DollyProcessSupervisor {
         threadArgument = new DataView(this.kernelMemory.buffer, this.mailboxAddress, 8).getBigUint64(0, true);
       const args = [process.pid, message.operation, BigInt(message.requestSize), BigInt(message.responseCapacity)];
       if (process.threaded) args.splice(1, 0, thread.tid);
-      const exhausted = message.operation === DOLLY_PROCESS_SPAWN
-        ? !this.#admitsProcess()
-        : process.threaded && message.operation === DOLLY_THREAD_SPAWN && !this.threadHost?.available(process.pid);
+      const refused = message.operation === DOLLY_PROCESS_SPAWN && !this.#admitsProcess();
+      const now = performance.now();
+      if (refused && now - (refusedSince ?? now) < reservationPatienceMilliseconds) {
+        this.deferred.set(thread, { process, thread, message, timer: null, refusedSince: refusedSince ?? now });
+        return;
+      }
+      const exhausted = refused ||
+        process.threaded && message.operation === DOLLY_THREAD_SPAWN && !this.threadHost?.available(process.pid);
       // Firefox can enter a direct Wasm call twice. Use the generic call path
       // so a completed syscall is never replayed against its response packet.
       result = exhausted ? -BigInt(DOLLY_ERRNO.EAGAIN)
@@ -753,8 +761,9 @@ export class DollyProcessSupervisor {
       this.#deliverSignal(this.processes.get(signalDelivery.pid), signalDelivery.signal);
     }
     this.#deliverRaised();
+    // A spawn that waited for admission is launched like any other.
+    if (!retry || message.operation === DOLLY_PROCESS_SPAWN) this.#scheduleLaunches();
     if (retry) return;
-    this.#scheduleLaunches();
     // A pipe write or close can complete another thread's blocked read or poll,
     // such as an async runtime's waker: retry now, not at the next tick.
     if (this.dolly._dolly_process_take_wakeup()) this.serviceDeferred();
