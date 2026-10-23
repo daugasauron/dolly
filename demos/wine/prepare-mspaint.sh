@@ -11,4 +11,5 @@ while read -r hash file; do
   [[ "${file}" != COPYING.LIB ]] || path=reactos/COPYING.LIB
   "${project_dir}/scripts/fetch-verified-file.sh" "${DOLLY_REACTOS_URL}/${DOLLY_REACTOS_COMMIT}/${path}" "${hash}" "${output}/${file}" > /dev/null
 done < "${project_dir}/demos/wine/mspaint.sha256"
-printf '%s\n' "${output}"
+# The directory itself, also where the cache entry is a link to a shared cache.
+printf '%s\n' "$(cd -- "${output}" && pwd -P)"

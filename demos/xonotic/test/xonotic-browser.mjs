@@ -77,7 +77,7 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser:
   }, null, { timeout: 120_000, polling: 500 });
   console.log(`xonotic: client frame at 1024x768, lit fraction ${painted.fraction.toFixed(3)}`);
   assert.equal(await client.done, 0, "the client must quit back to the shell");
-  assert.equal(await page.evaluate(() => __dolly.transport.graphicsActive()), false, "the display is released");
+  await page.waitForFunction(() => !__dolly.transport.graphicsActive()); // the display is released
   await run("echo SHELL-BACK");
   console.log("xonotic: the client drew a frame and quit back to the shell");
 

@@ -214,7 +214,7 @@ try {
     await delay(500);
     await page.keyboard.press("r");
     assert.equal(await game.done, 74);
-    assert.equal(await page.evaluate(() => __dolly.graphicsActive), false);
+    await page.waitForFunction(() => !__dolly.graphicsActive);
     await run(`seven-kingdoms -noaudio -win -speed 99 -replay ${test}/corrupt/NONAME.RPL`, 74);
 
     // Two actual Pi sessions play against the scripted provider, then Escape
@@ -240,7 +240,7 @@ try {
     assert.equal(game.status, null);
     await page.keyboard.press("Escape");
     assert.equal(await game.done, 0);
-    assert.equal(await page.evaluate(() => __dolly.graphicsActive), false);
+    await page.waitForFunction(() => !__dolly.graphicsActive);
     await run("janis -m /tmp/rts-history.mjs 'Viewer exited (0)'");
 
     // The included match replays split-screen with pause, speed and EOF, offline.
@@ -267,7 +267,7 @@ try {
 
     // Offscreen player input is ordered and never acquires the browser display.
     await run("mkdir -p /tmp/dolly-sdl2/player && c++ -O0 -I/usr/include/SDL2 -I/usr/src/dolly/rts /usr/src/dolly/rts/input.cpp /tmp/rts-input-probe.cpp -o /tmp/rts-input-probe -lSDL2 -lz -lm && /tmp/rts-input-probe");
-    assert.equal(await page.evaluate(() => __dolly.graphicsActive), false);
+    await page.waitForFunction(() => !__dolly.graphicsActive);
     await run(`rm -rf ${test} /tmp/rts-pi-agent /tmp/dolly-sdl2 /tmp/rts-input-probe ${Object.keys(fixtures).map(name => `/tmp/${name}`).join(" ")}`);
   });
 } finally {

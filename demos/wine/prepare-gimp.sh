@@ -8,7 +8,7 @@ project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "${project_dir}/config/source-pins.sh"
 demo_dir="${project_dir}/demos/wine"
 # Each release under the name the build knows it by, and what is taken of it.
-releases=(GLIB:glib ATK:atk PANGO:pango GTK:gtk LIBART:libart_lgpl FONTCONFIG:fontconfig EXPAT:expat GIMP:gimp)
+releases=(GIMP_GLIB:glib ATK:atk GIMP_PANGO:pango GIMP_GTK:gtk LIBART:libart_lgpl GIMP_FONTCONFIG:fontconfig GIMP_EXPAT:expat GIMP:gimp)
 paths=(glib/glib glib/gobject glib/gmodule glib/COPYING atk/atk atk/COPYING pango/pango pango/modules/basic pango/COPYING
   gtk/gdk-pixbuf gtk/gdk gtk/gtk gtk/COPYING libart_lgpl fontconfig/src fontconfig/fontconfig fontconfig/fc-lang/fclang.h
   fontconfig/fc-glyphname/fcglyphname.h fontconfig/fc-case/fccase.h fontconfig/fonts.conf.in fontconfig/fonts.dtd
