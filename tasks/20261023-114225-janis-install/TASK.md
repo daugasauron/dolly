@@ -57,6 +57,16 @@ with what step 2 found below (`enableCompileCache`, the `/v` regexes, the key ma
   `pi-tui`'s `input.js` or the login dialog, so with Pi as published a key typed at
   `/login` shows in clear. For the owner: patch the published files at install, or read keys
   as `closed-source-agent` does (`secretenv`, then `ANTHROPIC_API_KEY` and the like).
+- **The entry to run is `dist/cli.js`, not the bundle.** Measured on this branch's Janis
+  (QuickJS-ng 0.17, `enableCompileCache`) in pi-agent, Pi 1.0.3's tarball from the registry
+  (`build/opus-evidence/r2/probe/probe5*.out`, Chromium): `janis package/dist/cli.js
+  --version` prints `1.0.3` (it failed on the `/v` regexes before); `dist/bundle/cli.js`
+  (`bin`) passes `enableCompileCache` and then needs Node 22's `require` of an ES module
+  (`createRequire(import.meta.url)("./cli-runtime.js")`), and, tried with a trial
+  implementation of that, stops at `Blob is not defined` inside the undici it bundles: the
+  bundle carries the real undici, whose sockets cannot work here, where Janis's built-in
+  `undici` stands in for `dist/cli.js`'s import. So the launcher runs `dist/cli.js` with the
+  tree `janis-install` writes; the trial `require(esm)` was not kept (no other consumer).
 - `janis-install` is on `core/npm-packages`, not on this branch (cut before the merge, on
   the old seed), so Pi from pinned tarballs is built after the round, on the merged tree.
 
