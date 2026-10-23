@@ -190,3 +190,14 @@ installs in one page would not fit the browser's memory. Run with
   the engine, a context too large refused, the task again, no request off the origin.
 - `DOLLY_LLM_SECOND=lfm2.5`, Chrome 156: passed the same way (16:28-16:32); the test's
   scope peaked at 10.1 GB of anonymous memory.
+- `DOLLY_LLM_SECOND=qwen3.5-4b`, Firefox 157: passed (16:32-16:40), the agent task on
+  the first attempt (101 s), the install, switch, parameters and the task again.
+- `DOLLY_LLM_SECOND=qwen3.5-4b DOLLY_LLM_IMAGES=dollyfile-studio`, Chrome: passed
+  (16:40-16:43). The scope peaked at 11.8 GB of anonymous memory, 0.2 GB under the
+  12 GB cap the rules give a GPU run: the 2.1 GB package is about the largest a page
+  installs there. (Firefox's processes run in the snap's own cgroup and are not in that
+  figure.)
+- Not run: LFM2.5 in Firefox (its loop task alone took 19 minutes there) and in Studio.
+
+Also passed on the rebuilt images, headless: the test's two start screens (`/local`
+opens through the new provider) and `npm run test:demos -- studio` (47 s).
