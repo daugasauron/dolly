@@ -236,6 +236,14 @@ DOLLY_JPEG_VERSION=9f
 DOLLY_JPEG_URL='https://www.ijg.org/files/jpegsrc.v9f.tar.gz'
 DOLLY_JPEG_SHA256=04705c110cb2469caa79fb71fba3d7bf834914706e9641a4589485c1f832565b
 
+# Ogg and Vorbis, linked into Xonotic's client for its Ogg Vorbis sounds.
+DOLLY_LIBOGG_VERSION=1.3.5
+DOLLY_LIBOGG_URL='https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.gz'
+DOLLY_LIBOGG_SHA256=0eb4b4b9420a0f51db142ba3f9c64b333f826532dc0f48c6410ae51f4799b664
+DOLLY_LIBVORBIS_VERSION=1.3.7
+DOLLY_LIBVORBIS_URL='https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.gz'
+DOLLY_LIBVORBIS_SHA256=0e982409a9c3fc82ee06e08205b1355e5c6aa4c36bca58146ef399621b0ce5ab
+
 # GNU Unifont's source (.hex files and build scripts) for the fonts/unifont.ttf
 # Xonotic ships: its precompiled unifont-7.0.06.ttf is byte-identical to it.
 DOLLY_UNIFONT_VERSION=7.0.06

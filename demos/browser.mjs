@@ -162,6 +162,34 @@ export async function installProbe(...packages) {
     setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) };
 }
 
+// Meters each sound source the page plays, per channel, through a muted gain,
+// as test/audio-browser.mjs does: page.addInitScript(meterAudio) before boot,
+// then heardAudio(page) is the loudest RMS [left, right] any source reached.
+export function meterAudio() {
+  globalThis.audioMeters = [];
+  const nativeSource = AudioContext.prototype.createBufferSource;
+  AudioContext.prototype.createBufferSource = function() {
+    const source = nativeSource.call(this), splitter = this.createChannelSplitter(2);
+    const mute = this.createGain(); mute.gain.value = 0; mute.connect(this.destination);
+    const meters = [this.createAnalyser(), this.createAnalyser()];
+    source.connect(splitter);
+    meters.forEach((meter, channel) => { splitter.connect(meter, channel); meter.connect(mute); });
+    const peak = [0, 0], samples = new Float32Array(2048);
+    const timer = setInterval(() => meters.forEach((meter, channel) => {
+      meter.getFloatTimeDomainData(samples);
+      peak[channel] = Math.max(peak[channel], Math.sqrt(samples.reduce((sum, x) => sum + x * x, 0) / samples.length));
+    }), 10);
+    source.addEventListener("ended", () => clearInterval(timer));
+    audioMeters.push(peak);
+    const connect = source.connect;
+    source.connect = function(target, ...args) {
+      return connect.call(this, target === this.context.destination ? mute : target, ...args);
+    };
+    return source;
+  };
+}
+export const heardAudio = page => page.evaluate(() => audioMeters.reduce((loudest, peak) => peak.map((x, i) => Math.max(x, loudest[i])), [0, 0]));
+
 export async function demoTest(label, { image, server: serverOptions, timeout = 300_000, webgpu = false,
   browser: browserName = "chromium", launch } = {}, test) {
   const server = await startBrowserServer(projectDir, image, serverOptions);

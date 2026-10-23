@@ -4,7 +4,7 @@
 // filesystem. Usage: node demos/xonotic/test/xonotic-browser.mjs
 // DOLLY_BROWSER=firefox runs it in Firefox.
 import assert from "node:assert/strict";
-import { delay, demoTest, snapshotDisplay, waitForDisplay } from "../../browser.mjs";
+import { delay, demoTest, heardAudio, meterAudio, snapshotDisplay, waitForDisplay } from "../../browser.mjs";
 
 const archives = ["xonotic-20230620-data.pk3", "xonotic-20230620-maps.pk3"];
 const fonts = ["font-xolonium-20230620.pk3", "font-unifont-20230620.pk3"];
@@ -15,7 +15,10 @@ const timedemoLog = "/home/dolly/.xonotic/data/timedemo.log";
 await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser: process.env.DOLLY_BROWSER ?? "chromium",
   server: { fixtures } }, async ({ server, open }) => {
   const { page, run, start, text } = await open({ policy: { rules: [
-    { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"], maxResponseBytes: 1024 * 1024 * 1024 }] } });
+    { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"], maxResponseBytes: 1024 * 1024 * 1024 }] },
+    setup: page => page.addInitScript(meterAudio) });
+  // The client's sound plays through audio@0, which may wait for a user interaction.
+  await page.mouse.click(10, 10);
   await run(`mkdir -p ${basedir}/data && cd ${basedir}/data && ` +
     archives.map(name => `curl -fsS ${server.origin}/fixture/${name} -o ${name}`).join(" && "));
   await run(`ls -l ${basedir}/data`);
@@ -63,8 +66,12 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser:
   // neither blank nor flat, then it quits back to the shell.
   await run(`cd ${basedir}/data && ` +
     fonts.map(name => `curl -fsS ${server.origin}/fixture/${name} -o ${name}`).join(" && "));
+  // The menu plays an Ogg Vorbis sound: decoded by Vorbis, mixed by the engine and
+  // played through SDL's audio on audio@0. snd_mutewhenidle 0: the engine mutes a
+  // window without input focus, and nobody types here.
   const client = start(`cd ${basedir} && xonotic-sdl -xonotic -basedir ${basedir} ` +
-    "+vid_soft 1 +vid_soft_threads 1 +vid_fullscreen 0 +vid_width 1024 +vid_height 768 +defer 40 quit");
+    "+vid_soft 1 +vid_soft_threads 1 +vid_fullscreen 0 +vid_width 1024 +vid_height 768 " +
+    "+snd_mutewhenidle 0 +defer 10 \"play sound/menu/winner.ogg\" +defer 40 quit");
   await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
   const painted = await waitForDisplay(page, () => {
     const canvas = displaySnapshot;
@@ -77,6 +84,9 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser:
   }, null, { timeout: 120_000, polling: 500 });
   console.log(`xonotic: client frame at 1024x768, lit fraction ${painted.fraction.toFixed(3)}`);
   assert.equal(await client.done, 0, "the client must quit back to the shell");
+  const heard = await heardAudio(page);
+  assert.ok(heard[0] > .05 && heard[1] > .05, `the menu's sound was not heard: ${heard}`);
+  console.log(`xonotic: the menu's Ogg Vorbis sound reached the page, loudest RMS ${heard.map(x => x.toFixed(3)).join(" and ")}`);
   await page.waitForFunction(() => !__dolly.transport.graphicsActive()); // the display is released
   await run("echo SHELL-BACK");
   console.log("xonotic: the client drew a frame and quit back to the shell");
@@ -89,6 +99,8 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser:
   assert.equal(await timedemo.done, 0, "-benchmark quits when the demo ends");
   await run(`grep ' frames ' ${timedemoLog}`);
   console.log((await text()).split("\n").filter(line => / frames .* fps/.test(line)).map(line => `xonotic: timedemo ${line.replace(/^\^7/, "")}`).join("\n"));
+
+  await page.evaluate(() => { audioMeters.length = 0; });
 
   // A live bot match in the client. A local game pauses while the menu is
   // up, so Escape closes the first-run dialog and the menu as a player would;
@@ -147,5 +159,6 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser:
   assert.equal(await live.done, 0, "the client must quit back to the shell after the match");
   const liveLog = "/home/dolly/.xonotic/data/live.log";
   await run(`grep -q 'SpawnServer: stormkeep' ${liveLog} && grep -q 'CL_SignonReply: 3' ${liveLog} && test "$(grep -c '\\[BOT\\].* connected' ${liveLog})" -ge 4`);
+  console.log(`xonotic: the live match's sound, loudest RMS ${(await heardAudio(page)).map(x => x.toFixed(3)).join(" and ")}`);
   console.log(`xonotic: a bot match on stormkeep spawned 4 bots, the client entered the game and drew it (${frames.length} sampled frame${frames.length > 1 ? "s, different" : ""}, lit ${frames.map(frame => frame.lit.toFixed(2)).join(", ")})`);
 });

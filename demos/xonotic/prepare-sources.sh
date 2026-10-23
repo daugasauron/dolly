@@ -7,6 +7,16 @@ if has_image libjpeg; then
     "${jpeg_dir}" /tmp/libjpeg/source \
     "${jpeg_dir}/README" /usr/share/licenses/libjpeg/README
 fi
+# Ogg and Vorbis, unchanged, with their licences.
+for xiph in libogg libvorbis; do
+  if has_image "${xiph}"; then
+    xiph_dir="build/generated/${xiph}-$(source config/source-pins.sh && eval echo "\${DOLLY_${xiph^^}_VERSION}")"
+    if [[ ! -d "${xiph_dir}" ]]; then mkdir -p build/generated && tar -xzf "$(bash scripts/fetch-pinned-archive.sh "${xiph}")" -C build/generated; fi
+    node scripts/build-source-tar.mjs "${static_dir}/${xiph}/source.tar.gz" \
+      "${xiph_dir}" "/tmp/${xiph}" \
+      "${xiph_dir}/COPYING" "/usr/share/licenses/${xiph}/COPYING"
+  fi
+done
 if has_image xonotic-build; then
   xonotic_dir="$(bash demos/xonotic/prepare-xonotic.sh)"
   # The MIT notice of qcsrc/lib/csqcmodel is the header of each of its files.

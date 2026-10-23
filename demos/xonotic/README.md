@@ -6,7 +6,8 @@ end headless, gmqcc rebuilds the game logic there, and the client draws
 through the engine's own software rasterizer (its SSE2 code compiled as Wasm
 SIMD) into the `sdl2` package's window. That software path is the interim
 renderer; the goal stays a `gpu@0` render path inside the engine (the plan is
-in the task). No sound yet. The task is `tasks/20261006-122433-xonotic/TASK.md`.
+in the task). Sound plays through SDL's audio on `audio@0`. The task is
+`tasks/20261006-122433-xonotic/TASK.md`.
 
 ## Images
 
@@ -18,6 +19,11 @@ in the task). No sound yet. The task is `tasks/20261006-122433-xonotic/TASK.md`.
   `csprogs.dat` and `menu.dat` into `/tmp/xonotic/build/qc`.
 - `libjpeg`: IJG libjpeg 9f, a library for programs the `cc` package builds;
   it brings no compiler.
+- `libogg`: Ogg 1.3.5 from upstream's CMake project, a library for programs
+  the `cc` package builds.
+- `libvorbis`: Vorbis 1.3.7 with vorbisfile and vorbisenc from upstream's
+  CMake project, a library for programs the `cc` package builds; it brings
+  `libogg`.
 - `xonotic`: the client with the release's data, maps and font archives
   (946 MB) under `/usr/share/xonotic/data`; `/xonotic/` starts `xonotic`,
   the client in software at 1024×768, and leaves the shell when it quits.
@@ -44,8 +50,7 @@ the task records the measurements).
   Escape closes them the engine asks for relative motion and the first click
   in the match captures the pointer (the page shows a crosshair until then;
   Escape releases the capture).
-- Not working or not there: sound (the client has the null sound unit),
-  network play (single player with bots only), the music and Nexuiz
+- Not working or not there: network play (single player with bots only), the music and Nexuiz
   compatibility archives, and the `gpu@0` renderer (the software path is the
   interim one; route (a) in the task). Building the data image needs a
   builder scope above 9 GB (7 to 9 GB of renderer memory during its
@@ -68,9 +73,9 @@ the task records the measurements).
   `__linux__`.
 - Without `dlopen`, the libraries the engine would load at run time are
   linked as upstream's Android build links them: IJG libjpeg 9f
-  (`LINK_TO_LIBJPEG`) and FreeType with its libpng (`DP_FREETYPE_STATIC`),
-  installed from their packages. PNG
-  textures, Vorbis, curl, ODE and d0_blind_id stay unavailable.
+  (`LINK_TO_LIBJPEG`), FreeType with its libpng (`DP_FREETYPE_STATIC`) and
+  Vorbis with its Ogg (`LINK_TO_LIBVORBIS`), installed from their packages. PNG
+  textures, curl, ODE and d0_blind_id stay unavailable.
 - Dolly's libc answers the engine's socket calls with failures, so the INET
   ports are reported unavailable; only the loopback address type carries
   packets.
@@ -82,7 +87,7 @@ the task records the measurements).
 - [`Makefile`](Makefile) builds DarkPlaces' `OBJ_SV` unit list (the `*_null.c`
   video, thread and sound units) at `-O1` with 64 MiB of initial memory for
   the engine's static data, the SDL client from `OBJ_SDL` with the null
-  thread, sound and CD units, gmqcc with `-std=c++11`, and the QuakeC programs
+  thread and CD units and its SDL sound, gmqcc with `-std=c++11`, and the QuakeC programs
   the way `qcsrc/Makefile` and `tools/qcc.sh` do: `cc -xc -E`, the line
   markers turned into gmqcc pragmas, then gmqcc. The results differ from the
   release's `.dat` files only in `__LINE__`-derived strings, because clang

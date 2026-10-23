@@ -228,6 +228,12 @@ const programs = {
   freetype: "printf '%s\\n' '#include <ft2build.h>' '#include FT_FREETYPE_H' 'int main(void) { FT_Library library; FT_Face face; " +
     "if (FT_Init_FreeType(&library) || FT_New_Face(library, \"/usr/share/fonts/IosevkaTerm-SemiBold.ttf\", 0, &face)) return 1; return face->num_glyphs < 100; }' " +
     "> /tmp/amy-freetype.c && cc $(pkg-config --cflags freetype2) /tmp/amy-freetype.c $(pkg-config --static --libs freetype2) -o /tmp/amy-freetype && /tmp/amy-freetype",
+  // An Ogg stream is set up and cleared; Vorbis's encoder takes a stereo 48 kHz setup.
+  libogg: "printf '%s\\n' '#include <ogg/ogg.h>' 'int main(void) { ogg_stream_state stream; return ogg_stream_init(&stream, 7) != 0 || ogg_stream_clear(&stream) != 0; }' " +
+    "> /tmp/amy-ogg.c && cc -O0 /tmp/amy-ogg.c -logg -o /tmp/amy-ogg && /tmp/amy-ogg",
+  libvorbis: "printf '%s\\n' '#include <vorbis/vorbisenc.h>' '#include <string.h>' 'int main(void) { vorbis_info info; vorbis_info_init(&info); " +
+    "int failed = vorbis_encode_init_vbr(&info, 2, 48000, .4f) != 0 || strncmp(vorbis_version_string(), \"Xiph\", 4) != 0; vorbis_info_clear(&info); return failed; }' " +
+    "> /tmp/amy-vorbis.c && cc -O0 /tmp/amy-vorbis.c -lvorbisenc -lvorbis -logg -lm -o /tmp/amy-vorbis && /tmp/amy-vorbis",
   // SDL_ttf renders a word in the terminal's font: the surface has ink.
   "sdl2-ttf": "printf '%s\\n' '#include <SDL_ttf.h>' 'int main(void) { SDL_Color white = { 255, 255, 255, 255 }; if (TTF_Init() != 0) return 2; " +
     "TTF_Font *font = TTF_OpenFont(\"/usr/share/fonts/IosevkaTerm-SemiBold.ttf\", 24); if (font == NULL) return 3; " +

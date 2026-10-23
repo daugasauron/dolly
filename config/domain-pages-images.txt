@@ -28,6 +28,8 @@ cc
 git
 less
 xonotic
+libogg
+libvorbis
 closed-source-agent
 llvm-cc
 llvm
