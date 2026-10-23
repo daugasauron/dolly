@@ -59,7 +59,7 @@ the catalog round. Left, one line each:
 
 ## State (2026-10-23 21:15 JST, branch `demo/opus-audit-2`): round 2 done
 
-Nine more sessions ("Round 2", at the end), $3.663; with round 1, **$4.425 of the $20**
+Ten more sessions ("Round 2", at the end), $3.786; with round 1, **$4.548 of the $20**
 (Pi's footer and the session files agree). Before the guidance change Opus wrote every game
 from scratch on the raw display and never looked at `amy`; after it, every session installed
 and reused a library (raylib, SDL2, FreeType, libpng, SQLite) in its first commands, with
@@ -428,9 +428,14 @@ Error code: ENOENT.", Chromium, `r2-pi-browser-before.log`).
   not upstream's `libpng.a` link), then a guess at the flags; it read `amy files libpng` and
   linked `-lpng16`.
 
+- "A real-time Snake game for the terminal in JavaScript, run with janis (no C)": Opus
+  read the skill, probed `setRawMode`, `isTTY` and `columns` under Janis, and wrote 99 lines
+  on raw stdin and ANSI colours (not readline's unsupported cursor functions); 39 s, 7 calls,
+  none failed, $0.123 (`r2-js/`); the driver's screen shows it running.
+
 ### Where the time goes
 
-Across the nine sessions of this round, model time is 91 to 97% of the wall time when
+Across the ten sessions of this round, model time is 91 to 97% of the wall time when
 nothing hangs: tools return in under a second except builds (2 to 3 s) and the `timeout 3`
 starts of the game, which the models use to check that the program opens the display. The
 one long tool wait was before the guidance change: a game started from the `bash` tool
