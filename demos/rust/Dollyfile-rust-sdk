@@ -30,13 +30,10 @@ SOURCE /v0.1.4/dist/static/rust/rustc.sh 966c3a6e1863196ca1d44b47552c46bc0e7caa8
 SOURCE /v0.1.4/dist/static/rust/rust-linker.c 63c7b7fd5b4a73e7227b1e00ca5f878d45ee40d89b939886f433acb4264577f3 /tmp/rust-linker.c
 SLOP cc -O1 /tmp/rust-linker.c -o /opt/rust-sdk/bin/dolly-rust-link
 # What the adapter adds to a program that loads Rust libraries: the dl* names
-# Rust binds, and the thread attributes std prepares, which libc has only for
-# threaded processes.
+# Rust binds.
 SOURCE /v0.1.4/dist/static/rust/dlopen.c cd3f75610360f299acd6ff507900ec2ad0273222465fde4184d59da4b188cc6b /tmp/rust-host/dlopen.c
-SOURCE /v0.1.4/dist/static/rust/pthread-attr.c 37726f5f8169a41fe7baac391fb77beeb551a605e2e9065f6485760f5ce8f476 /tmp/rust-host/pthread-attr.c
 SLOP CWD /tmp/rust-host cc -O2 -fPIC -c dlopen.c
-SLOP CWD /tmp/rust-host cc -O2 -fPIC -c pthread-attr.c
-SLOP CWD /tmp/rust-host ar rcs /opt/rust-sdk/lib/dolly-rust-host.a dlopen.o pthread-attr.o
+SLOP CWD /tmp/rust-host ar rcs /opt/rust-sdk/lib/dolly-rust-host.a dlopen.o
 # Cargo's libc, libcurl and zlib are this image's.
 SLOP cc -pthread /opt/rust-sdk/cargo.o -lcurl -lz -o /usr/bin/cargo
 SLOP rm -rf /opt/rust-sdk/cargo.o /tmp/rust-host

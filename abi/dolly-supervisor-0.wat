@@ -51,6 +51,16 @@
   ;; Raise due SIGALRM timers: a PID whose default action must be delivered
   ;; like a kill, or zero. Handled alarms only become pending.
   (func $take_alarm (result i32) i32.const 0)
+  ;; EXEC read a program for a running process, whose image the image exports
+  ;; then name. Once the supervisor has compiled and admitted it, commit makes
+  ;; the process start it: state starting, the old program's CLOEXEC
+  ;; descriptors and module state gone; the result is the lowest pending signal
+  ;; the new program must answer within the grace of a delivered one, or zero.
+  ;; Refused, or interrupted by a signal, the staged program is dropped and the
+  ;; old one answered; the mailbox holds a diagnostic line of the given size
+  ;; for the process's descriptor 2, or nothing.
+  (func $exec_commit (param i32) (result i32) i32.const 0)
+  (func $exec_refused (param i32 i64) (result i32) i32.const 0)
   (func $collect (param i32) (result i32) i32.const 0)
   (func $parent (param i32) (result i32) i32.const 0)
   ;; The signal that ended an exited process; zero when it exited, runs or is
@@ -98,6 +108,8 @@
   (export "dolly_process_signal" (func $signal))
   (export "dolly_process_deadline_remaining" (func $deadline_remaining))
   (export "dolly_process_take_alarm" (func $take_alarm))
+  (export "dolly_process_exec_commit" (func $exec_commit))
+  (export "dolly_process_exec_refused" (func $exec_refused))
   (export "dolly_process_collect" (func $collect))
   (export "dolly_process_parent" (func $parent))
   (export "dolly_process_exit_signal" (func $exit_signal))

@@ -194,6 +194,17 @@ for client in "${clients[@]}"; do
   echo "${checked} -c ${source} -o ${object}"
   echo "/emsdk/upstream/emscripten/emar rcsD build/libdolly-${module}.a.new ${object}"
 done | in_container
+# musl's getdate, which Emscripten's libc leaves out for a stub (libc-stubs.c),
+# and the thread attributes its single-threaded libc leaves out, which Rust's
+# std prepares before pthread_create refuses.
+in_container <<EOF
+${emcc} -c ${emscripten_libc}/libc/musl/src/time/getdate.c -o build/process-getdate.o
+${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/pthread_attr_init.c -o build/process-pthread_attr_init.o
+${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/pthread_attr_setstacksize.c -o build/process-pthread_attr_setstacksize.o
+${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/pthread_attr_destroy.c -o build/process-pthread_attr_destroy.o
+/emsdk/upstream/emscripten/emar rcsD build/libdolly-runtime.a.new build/process-getdate.o \
+  build/process-pthread_attr_init.o build/process-pthread_attr_setstacksize.o build/process-pthread_attr_destroy.o
+EOF
 for module in $(printf '%s\n' "${clients[@]%% *}" | uniq); do
   replace_if_changed "build/libdolly-${module}.a.new" "build/libdolly-${module}.a"
 done

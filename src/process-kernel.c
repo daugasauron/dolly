@@ -49,6 +49,18 @@ typedef struct {
   unsigned char bytes[DOLLY_KERNEL_PIPE_CAPACITY];
 } dolly_kernel_pipe;
 
+/* What a process runs: the executable, its arguments and its environment.
+ * The image is the executable's bytes until the supervisor takes them. */
+typedef struct {
+  char *path;
+  char **arguments;
+  uint32_t argument_count;
+  char **environment;
+  uint32_t environment_count;
+  unsigned char *image;
+  size_t image_size;
+} dolly_kernel_program;
+
 typedef struct {
   int pid;
   int parent_pid;
@@ -67,14 +79,14 @@ typedef struct {
   dolly_kernel_socket *sockets[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
   unsigned char terminal_descriptors[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
   DIR *directories[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
-  char **arguments;
-  uint32_t argument_count;
-  char **environment;
-  uint32_t environment_count;
+  dolly_kernel_program program;
+  /* The program EXEC has read, until the supervisor starts or refuses it, and
+   * the signal state the old program leaves it. */
+  dolly_kernel_program staged;
+  dolly_process_exec_state staged_signals;
+  /* The signal state the program started with, which EXEC's empty request reads. */
+  dolly_process_exec_state start_signals;
   int current_directory;
-  char *path;
-  unsigned char *image;
-  size_t image_size;
   uint64_t deadline_nanoseconds;
   uint32_t pending_signals;
   int handling_signal;
@@ -210,6 +222,14 @@ static char *copy_bytes_string(const unsigned char *bytes, size_t size) {
   return result;
 }
 
+static void dispose_program(dolly_kernel_program *program) {
+  dispose_vector(&program->arguments, &program->argument_count);
+  dispose_vector(&program->environment, &program->environment_count);
+  free(program->path);
+  free(program->image);
+  memset(program, 0, sizeof(*program));
+}
+
 static int descriptor_is_open(const dolly_kernel_process *process,
                               uint32_t descriptor) {
   return descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT &&
@@ -307,15 +327,10 @@ static void release_process_resources(dolly_kernel_process *process) {
   for (size_t index = 0; index < DOLLY_KERNEL_DESCRIPTOR_LIMIT; ++index) {
     release_descriptor(process, (uint32_t)index);
   }
-  dispose_vector(&process->arguments, &process->argument_count);
-  dispose_vector(&process->environment, &process->environment_count);
+  dispose_program(&process->program);
+  dispose_program(&process->staged);
   if (process->current_directory >= 0) close(process->current_directory);
   process->current_directory = -1;
-  free(process->path);
-  process->path = NULL;
-  free(process->image);
-  process->image = NULL;
-  process->image_size = 0;
 }
 
 static void dispose_process(dolly_kernel_process *process) {
@@ -392,24 +407,24 @@ static dolly_kernel_process *allocate_process(void) {
   return NULL;
 }
 
-static int read_image_bytes(dolly_kernel_process *process) {
+static int read_image_bytes(dolly_kernel_program *program) {
   uintptr_t size;
-  if (dolly_fs_read_file(process->path, DOLLY_KERNEL_EXECUTABLE_LIMIT,
-                         &process->image, &size) != 0) {
+  if (dolly_fs_read_file(program->path, DOLLY_KERNEL_EXECUTABLE_LIMIT,
+                         &program->image, &size) != 0) {
     return errno == EINVAL || errno == EFBIG ? -ENOEXEC : -errno;
   }
-  process->image_size = size;
+  program->image_size = size;
   return size < 8 ? -ENOEXEC : 0;
 }
 
-static int redirect_shebang(dolly_kernel_process *process) {
-  if (process->image_size < 4 || process->image[0] != '#' ||
-      process->image[1] != '!') return -ENOEXEC;
-  const size_t limit = process->image_size < DOLLY_KERNEL_SHEBANG_LIMIT
-      ? process->image_size : DOLLY_KERNEL_SHEBANG_LIMIT;
-  const unsigned char *line_end = memchr(process->image + 2, '\n', limit - 2);
+static int redirect_shebang(dolly_kernel_program *program) {
+  if (program->image_size < 4 || program->image[0] != '#' ||
+      program->image[1] != '!') return -ENOEXEC;
+  const size_t limit = program->image_size < DOLLY_KERNEL_SHEBANG_LIMIT
+      ? program->image_size : DOLLY_KERNEL_SHEBANG_LIMIT;
+  const unsigned char *line_end = memchr(program->image + 2, '\n', limit - 2);
   if (line_end == NULL) return -ENOEXEC;
-  const unsigned char *cursor = process->image + 2;
+  const unsigned char *cursor = program->image + 2;
   while (cursor != line_end && (*cursor == ' ' || *cursor == '\t')) ++cursor;
   const unsigned char *interpreter = cursor;
   while (cursor != line_end && *cursor != ' ' && *cursor != '\t' &&
@@ -426,11 +441,11 @@ static int redirect_shebang(dolly_kernel_process *process) {
     return -ENOEXEC;
   }
   const size_t optional_size = (size_t)(line_end - optional);
-  if (process->argument_count > UINT32_MAX - 1u - (optional_size != 0)) {
+  if (program->argument_count > UINT32_MAX - 1u - (optional_size != 0)) {
     return -E2BIG;
   }
   const uint32_t replacement_count =
-      process->argument_count + 1u + (optional_size != 0);
+      program->argument_count + 1u + (optional_size != 0);
   char **replacement = calloc((size_t)replacement_count + 1,
                               sizeof(*replacement));
   char *replacement_path = copy_bytes_string(interpreter, interpreter_size);
@@ -444,11 +459,11 @@ static int redirect_shebang(dolly_kernel_process *process) {
   if (optional_size != 0) {
     replacement[populated++] = copy_bytes_string(optional, optional_size);
   }
-  replacement[populated++] = strdup(process->path);
+  replacement[populated++] = strdup(program->path);
   for (uint32_t index = 1;
-       index < process->argument_count && populated < replacement_count;
+       index < program->argument_count && populated < replacement_count;
        ++index) {
-    replacement[populated++] = strdup(process->arguments[index]);
+    replacement[populated++] = strdup(program->arguments[index]);
   }
   for (uint32_t index = 0; index < populated; ++index) {
     if (replacement[index] == NULL) {
@@ -462,34 +477,34 @@ static int redirect_shebang(dolly_kernel_process *process) {
     free(replacement_path);
     return -EIO;
   }
-  dispose_vector(&process->arguments, &process->argument_count);
-  process->arguments = replacement;
-  process->argument_count = replacement_count;
-  free(process->path);
-  process->path = replacement_path;
-  free(process->image);
-  process->image = NULL;
-  process->image_size = 0;
+  dispose_vector(&program->arguments, &program->argument_count);
+  program->arguments = replacement;
+  program->argument_count = replacement_count;
+  free(program->path);
+  program->path = replacement_path;
+  free(program->image);
+  program->image = NULL;
+  program->image_size = 0;
   return 0;
 }
 
-static int read_image(dolly_kernel_process *process) {
+static int read_image(dolly_kernel_program *program) {
   static const unsigned char wasm_header[8] = {
       0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
   };
   for (unsigned depth = 0; depth <= DOLLY_KERNEL_SHEBANG_DEPTH; ++depth) {
-    const int loaded = read_image_bytes(process);
+    const int loaded = read_image_bytes(program);
     if (loaded != 0) return loaded;
-    if (process->image_size >= sizeof(wasm_header) &&
-        memcmp(process->image, wasm_header, sizeof(wasm_header)) == 0) {
-      char *canonical = realpath(process->path, NULL);
+    if (program->image_size >= sizeof(wasm_header) &&
+        memcmp(program->image, wasm_header, sizeof(wasm_header)) == 0) {
+      char *canonical = realpath(program->path, NULL);
       if (canonical == NULL) return -errno;
-      free(process->path);
-      process->path = canonical;
+      free(program->path);
+      program->path = canonical;
       return 0;
     }
     if (depth == DOLLY_KERNEL_SHEBANG_DEPTH) return -ELOOP;
-    const int redirected = redirect_shebang(process);
+    const int redirected = redirect_shebang(program);
     if (redirected != 0) return redirected;
   }
   return -ELOOP;
@@ -536,17 +551,17 @@ static int copy_current_environment(dolly_kernel_process *process) {
     if (count == UINT32_MAX) return -E2BIG;
     ++count;
   }
-  process->environment = calloc((size_t)count + 1,
-                                sizeof(*process->environment));
-  if (process->environment == NULL) return -ENOMEM;
+  process->program.environment = calloc((size_t)count + 1,
+                                        sizeof(*process->program.environment));
+  if (process->program.environment == NULL) return -ENOMEM;
   for (uint32_t index = 0; index < count; ++index) {
-    process->environment[index] = strdup(environ[index]);
-    if (process->environment[index] == NULL) {
-      process->environment_count = index;
+    process->program.environment[index] = strdup(environ[index]);
+    if (process->program.environment[index] == NULL) {
+      process->program.environment_count = index;
       return -ENOMEM;
     }
   }
-  process->environment_count = count;
+  process->program.environment_count = count;
   return 0;
 }
 
@@ -608,6 +623,15 @@ static int controlling_terminal(int kernel_fd) {
 /* The process whose executable the supervisor prepares: the last one taken. */
 static int launching_pid;
 
+/* The program the supervisor prepares for a process: the one it was spawned
+ * with until it starts, then the one EXEC read. */
+static dolly_kernel_program *program_to_launch(dolly_kernel_process *process) {
+  if (process == NULL) return NULL;
+  if (process->state == DOLLY_KERNEL_PROCESS_PENDING) return &process->program;
+  return process->state == DOLLY_KERNEL_PROCESS_RUNNING && process->staged.path != NULL
+      ? &process->staged : NULL;
+}
+
 /* What the supervisor says about that executable is for whoever reads the
  * process's complaints: it goes to the process's descriptor 2 where that is
  * a terminal, the display's or a stream, and nowhere otherwise. Never into a
@@ -615,8 +639,8 @@ static int launching_pid;
  * a program that draws the display (tmux) does not know of the lines.
  * 1 when the display's terminal is the one to show it. */
 int dolly_kernel_launch_diagnostic(const unsigned char *bytes, size_t size) {
-  const dolly_kernel_process *process = find_process(launching_pid);
-  if (process == NULL || process->state != DOLLY_KERNEL_PROCESS_PENDING) return 0;
+  dolly_kernel_process *process = find_process(launching_pid);
+  if (program_to_launch(process) == NULL) return 0;
   if (process->terminal_descriptors[STDERR_FILENO]) return 1;
   dolly_kernel_socket *stream = process->sockets[STDERR_FILENO];
   const dolly_process_terminal_request request = {DOLLY_PROCESS_TERMINAL_ISATTY, 0, 0, 0, 0};
@@ -654,10 +678,12 @@ static int configure_descriptors(dolly_kernel_process *process,
   for (uint32_t index = 0; index < request->mapping_count; ++index) {
     dolly_process_fd_mapping mapping;
     memcpy(&mapping, mapping_bytes + index * sizeof(mapping), sizeof(mapping));
+    const int closed = mapping.source_descriptor == DOLLY_PROCESS_FD_MAPPING_CLOSED;
     if (mapping.target_descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT ||
-        mapping.source_descriptor > INT_MAX) return -EBADF;
+        (!closed && mapping.source_descriptor > INT_MAX)) return -EBADF;
     if (mapped[mapping.target_descriptor]) return -EINVAL;
     mapped[mapping.target_descriptor] = 1;
+    if (closed) continue;
     if (parent != NULL) {
       if (!descriptor_is_open(parent, mapping.source_descriptor)) return -EBADF;
     } else {
@@ -668,6 +694,7 @@ static int configure_descriptors(dolly_kernel_process *process,
   for (uint32_t index = 0; index < request->mapping_count; ++index) {
     dolly_process_fd_mapping mapping;
     memcpy(&mapping, mapping_bytes + index * sizeof(mapping), sizeof(mapping));
+    if (mapping.source_descriptor == DOLLY_PROCESS_FD_MAPPING_CLOSED) continue;
     const int result = copy_descriptor(process, parent,
         mapping.source_descriptor, mapping.target_descriptor);
     if (result != 0) return result;
@@ -749,15 +776,15 @@ static int spawn_packet(int parent_pid, size_t size) {
     }
     if (result == 0 && process->current_directory < 0) result = -errno;
   }
-  process->path = malloc(path_size + 1);
-  if (process->path == NULL && result == 0) result = -ENOMEM;
+  process->program.path = malloc(path_size + 1);
+  if (process->program.path == NULL && result == 0) result = -ENOMEM;
   if (result == 0) {
-    memcpy(process->path, cursor, path_size);
-    process->path[path_size] = 0;
+    memcpy(process->program.path, cursor, path_size);
+    process->program.path[path_size] = 0;
     cursor += path_size;
     result = copy_string_vector(cursor, argument_bytes,
-                                request.argument_count, &process->arguments);
-    if (result == 0) process->argument_count = request.argument_count;
+                                request.argument_count, &process->program.arguments);
+    if (result == 0) process->program.argument_count = request.argument_count;
     cursor += argument_bytes;
   }
   if (result == 0 &&
@@ -769,35 +796,35 @@ static int spawn_packet(int parent_pid, size_t size) {
     } else {
       if (parent == NULL) result = -ESRCH;
       else {
-        for (uint32_t index = 0; index < parent->environment_count; ++index) {
-          const size_t length = strlen(parent->environment[index]) + 1;
+        for (uint32_t index = 0; index < parent->program.environment_count; ++index) {
+          const size_t length = strlen(parent->program.environment[index]) + 1;
           if (length > SIZE_MAX - environment_bytes) {
             result = -E2BIG;
             break;
           }
         }
         if (result == 0) {
-          process->environment = calloc((size_t)parent->environment_count + 1,
-                                        sizeof(*process->environment));
-          if (process->environment == NULL) result = -ENOMEM;
+          process->program.environment = calloc((size_t)parent->program.environment_count + 1,
+                                                sizeof(*process->program.environment));
+          if (process->program.environment == NULL) result = -ENOMEM;
         }
         for (uint32_t index = 0;
-             result == 0 && index < parent->environment_count; ++index) {
-          process->environment[index] = strdup(parent->environment[index]);
-          if (process->environment[index] == NULL) result = -ENOMEM;
-          else process->environment_count++;
+             result == 0 && index < parent->program.environment_count; ++index) {
+          process->program.environment[index] = strdup(parent->program.environment[index]);
+          if (process->program.environment[index] == NULL) result = -ENOMEM;
+          else process->program.environment_count++;
         }
       }
     }
   } else if (result == 0) {
     result = copy_string_vector(cursor, environment_bytes,
                                 request.environment_count,
-                                &process->environment);
-    if (result == 0) process->environment_count = request.environment_count;
+                                &process->program.environment);
+    if (result == 0) process->program.environment_count = request.environment_count;
   }
   if (result == 0) result = configure_descriptors(
       process, parent, &request, process_mailbox + size - mapping_bytes);
-  if (result == 0) result = read_image(process);
+  if (result == 0) result = read_image(&process->program);
   if (result != 0) {
     dispose_process(process);
     return result;
@@ -812,6 +839,51 @@ static int spawn_packet(int parent_pid, size_t size) {
 static int64_t respond(const void *response, size_t size) {
   memcpy(process_mailbox, response, size);
   return (int64_t)size;
+}
+
+/* Reads the program EXEC names into the record beside the running one. The
+ * supervisor then compiles and admits it, and the kernel switches to it only
+ * when told (dolly_process_exec_commit): until then the old program runs on. */
+static int64_t exec_packet(dolly_kernel_process *process, size_t size, uintptr_t capacity) {
+  if (size == 0) {
+    if (capacity < sizeof(process->start_signals)) return -EINVAL;
+    return respond(&process->start_signals, sizeof(process->start_signals));
+  }
+  dolly_process_exec_request request;
+  if (size < sizeof(request) || capacity != 0) return -EINVAL;
+  memcpy(&request, process_mailbox, sizeof(request));
+  const uint32_t no_signal = 1u;
+  if (request.argument_count == 0 || request.path_size == 0 || request.path_size > PATH_MAX ||
+      request.reserved != 0 || request.signals.reserved != 0 ||
+      ((request.signals.blocked_signals | request.signals.ignored_signals |
+        request.signals.pending_signals) & no_signal) != 0 ||
+      request.argument_bytes > size - sizeof(request) - request.path_size ||
+      request.environment_bytes != size - sizeof(request) - request.path_size - request.argument_bytes)
+    return -EINVAL;
+  const unsigned char *path = process_mailbox + sizeof(request);
+  const unsigned char *arguments = path + request.path_size;
+  if (memchr(path, 0, request.path_size) != NULL || path[0] != '/') return -EINVAL;
+  if (process->staged.path != NULL) return -EBUSY;
+  dolly_kernel_program program = {.path = copy_bytes_string(path, request.path_size)};
+  int result = program.path == NULL ? -ENOMEM
+      : copy_string_vector(arguments, (size_t)request.argument_bytes,
+                           request.argument_count, &program.arguments);
+  if (result == 0) {
+    program.argument_count = request.argument_count;
+    result = copy_string_vector(arguments + request.argument_bytes, (size_t)request.environment_bytes,
+                                request.environment_count, &program.environment);
+  }
+  if (result == 0) {
+    program.environment_count = request.environment_count;
+    result = read_image(&program);
+  }
+  if (result != 0) {
+    dispose_program(&program);
+    return result;
+  }
+  process->staged = program;
+  process->staged_signals = request.signals;
+  return 0;
 }
 
 static int64_t vector_sizes(char **vector, uint32_t count,
@@ -918,9 +990,9 @@ static int64_t open_process_list(dolly_kernel_process *reader, uint32_t flags) {
     char *line = (char *)list->bytes + list->size;
     size_t length = (size_t)snprintf(line, line_limit, "%d %d %s", process->pid, process->parent_pid,
         process->state == DOLLY_KERNEL_PROCESS_RUNNING ? "running" : "starting");
-    for (uint32_t argument = 0; argument < process->argument_count; ++argument) {
+    for (uint32_t argument = 0; argument < process->program.argument_count; ++argument) {
       if (length < line_limit - 1) line[length++] = ' ';
-      for (const char *byte = process->arguments[argument];
+      for (const char *byte = process->program.arguments[argument];
            *byte != 0 && length < line_limit - 1; ++byte) {
         /* A control byte would end the line or steer the terminal that prints it. */
         line[length++] = (unsigned char)*byte < ' ' || *byte == 0x7f ? '?' : *byte;
@@ -1693,25 +1765,26 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
   if (takes_signals && process->pending_signals && !process->handling_signal &&
       operation != DOLLY_PROCESS_INTERRUPT_POLL &&
       operation != DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE &&
-      operation != DOLLY_PROCESS_EXIT) return -EINTR;
+      operation != DOLLY_PROCESS_EXIT &&
+      !(operation == DOLLY_PROCESS_EXEC && request_size == 0)) return -EINTR;
   const dolly_kernel_module *module = module_for(operation);
   if (module) return module->call(pid, tid, operation, process_mailbox, request_size, response_capacity);
   switch (operation) {
     case DOLLY_PROCESS_ARGUMENT_SIZES:
       if (request_size != 0) return -EINVAL;
-      return vector_sizes(process->arguments, process->argument_count,
+      return vector_sizes(process->program.arguments, process->program.argument_count,
                           response_capacity);
     case DOLLY_PROCESS_ARGUMENTS:
       if (request_size != 0) return -EINVAL;
-      return vector_bytes(process->arguments, process->argument_count,
+      return vector_bytes(process->program.arguments, process->program.argument_count,
                           response_capacity);
     case DOLLY_PROCESS_ENVIRONMENT_SIZES:
       if (request_size != 0) return -EINVAL;
-      return vector_sizes(process->environment, process->environment_count,
+      return vector_sizes(process->program.environment, process->program.environment_count,
                           response_capacity);
     case DOLLY_PROCESS_ENVIRONMENT:
       if (request_size != 0) return -EINVAL;
-      return vector_bytes(process->environment, process->environment_count,
+      return vector_bytes(process->program.environment, process->program.environment_count,
                           response_capacity);
     case DOLLY_PROCESS_FD_READ:
       return fd_read_packet(process, request_size, response_capacity);
@@ -2089,9 +2162,9 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
         if (strcmp(path, "/proc/self/exe") == 0) {
           if (response_capacity == 0) result = -EINVAL;
           else {
-            size_t count = strlen(process->path);
+            size_t count = strlen(process->program.path);
             if (count > response_capacity) count = response_capacity;
-            memcpy(process_mailbox, process->path, count);
+            memcpy(process_mailbox, process->program.path, count);
             result = (int)count;
           }
         } else {
@@ -2177,6 +2250,8 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       dolly_process_spawn_response response = {(uint32_t)child, 0};
       return respond(&response, sizeof(response));
     }
+    case DOLLY_PROCESS_EXEC:
+      return exec_packet(process, (size_t)request_size, response_capacity);
     case DOLLY_PROCESS_WAIT: {
       if (request_size != sizeof(dolly_process_wait_request) ||
           response_capacity < sizeof(dolly_process_wait_response)) return -EINVAL;
@@ -2433,38 +2508,85 @@ void dolly_kernel_socket_holders(const dolly_kernel_socket *socket, int foregrou
 int dolly_process_next_launch(void) {
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
     if (process_table[index].state == DOLLY_KERNEL_PROCESS_PENDING &&
-        process_table[index].image != NULL) return process_table[index].pid;
+        process_table[index].program.image != NULL) return process_table[index].pid;
   }
   return 0;
 }
 
 uintptr_t dolly_process_image_address(int pid) {
-  dolly_kernel_process *process = find_process(pid);
-  return process != NULL && process->state == DOLLY_KERNEL_PROCESS_PENDING
-      ? (uintptr_t)process->image : 0;
+  const dolly_kernel_program *program = program_to_launch(find_process(pid));
+  return program != NULL ? (uintptr_t)program->image : 0;
 }
 
 uintptr_t dolly_process_image_size(int pid) {
-  dolly_kernel_process *process = find_process(pid);
-  return process != NULL && process->state == DOLLY_KERNEL_PROCESS_PENDING
-      ? process->image_size : 0;
+  const dolly_kernel_program *program = program_to_launch(find_process(pid));
+  return program != NULL ? program->image_size : 0;
 }
 
 int dolly_process_image_consumed(int pid) {
-  dolly_kernel_process *process = find_process(pid);
-  if (process == NULL || process->state != DOLLY_KERNEL_PROCESS_PENDING ||
-      process->image == NULL) return -EINVAL;
-  free(process->image);
-  process->image = NULL;
-  process->image_size = 0;
+  dolly_kernel_program *program = program_to_launch(find_process(pid));
+  if (program == NULL || program->image == NULL) return -EINVAL;
+  free(program->image);
+  program->image = NULL;
+  program->image_size = 0;
   launching_pid = pid;
+  return 0;
+}
+
+/* Writes the line of `size` bytes in the mailbox to the process's descriptor 2. */
+static int write_diagnostic(dolly_kernel_process *process, uintptr_t size) {
+  const dolly_process_fd_io_request request = {STDERR_FILENO, 0, size};
+  if (size > sizeof(process_mailbox) - sizeof(request)) return -EINVAL;
+  memmove(process_mailbox + sizeof(request), process_mailbox, size);
+  memcpy(process_mailbox, &request, sizeof(request));
+  /* A closed descriptor or a full pipe loses the line, never the status. */
+  (void)fd_write_packet(process, sizeof(request) + size, sizeof(dolly_process_io_result));
+  return 0;
+}
+
+/* The point of no return of EXEC: the process drops the old program's
+ * descriptors with CLOEXEC, its threads and what host modules hold for it, and
+ * starts again with the staged program. The lowest signal already pending that
+ * the new program must answer, or zero. */
+int dolly_process_exec_commit(int pid) {
+  dolly_kernel_process *process = find_process(pid);
+  if (process == NULL || process->state != DOLLY_KERNEL_PROCESS_RUNNING ||
+      process->staged.path == NULL || process->staged.image != NULL) return -EINVAL;
+  release_modules(pid, 0);
+  for (uint32_t descriptor = 0; descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT; ++descriptor) {
+    if (process->descriptor_flags[descriptor] & DOLLY_PROCESS_FD_CLOEXEC)
+      release_descriptor(process, descriptor);
+  }
+  dispose_program(&process->program);
+  process->program = process->staged;
+  memset(&process->staged, 0, sizeof(process->staged));
+  process->start_signals = process->staged_signals;
+  memset(&process->staged_signals, 0, sizeof(process->staged_signals));
+  process->handling_signal = 0;
+  process->alarm_handled =
+      (process->start_signals.ignored_signals >> DOLLY_PROCESS_SIGALRM) & 1u;
+  process->state = DOLLY_KERNEL_PROCESS_PENDING;
+  const uint32_t answered = process->pending_signals & ~notification_signals(process);
+  return answered ? __builtin_ctz(answered) : 0;
+}
+
+/* The supervisor refused the staged program, or a signal interrupted EXEC: the
+ * old program goes on. A diagnostic line of `size` bytes in the mailbox goes to
+ * the process's descriptor 2. */
+int dolly_process_exec_refused(int pid, uintptr_t size) {
+  dolly_kernel_process *process = find_process(pid);
+  if (process == NULL || process->state != DOLLY_KERNEL_PROCESS_RUNNING ||
+      process->staged.path == NULL) return -EINVAL;
+  if (size != 0 && write_diagnostic(process, size) != 0) return -EINVAL;
+  dispose_program(&process->staged);
+  memset(&process->staged_signals, 0, sizeof(process->staged_signals));
   return 0;
 }
 
 int dolly_process_worker_started(int pid) {
   dolly_kernel_process *process = find_process(pid);
   if (process == NULL || process->state != DOLLY_KERNEL_PROCESS_PENDING ||
-      process->image != NULL) return -EINVAL;
+      process->program.image != NULL) return -EINVAL;
   process->state = DOLLY_KERNEL_PROCESS_RUNNING;
   return 0;
 }
@@ -2480,13 +2602,8 @@ int dolly_process_worker_exited(int pid, int status, int signal_number) {
 
 int dolly_process_worker_failed(int pid, uintptr_t size) {
   dolly_kernel_process *process = find_process(pid);
-  const dolly_process_fd_io_request request = {STDERR_FILENO, 0, size};
   if (process == NULL || process->state == DOLLY_KERNEL_PROCESS_EXITED ||
-      size > sizeof(process_mailbox) - sizeof(request)) return -EINVAL;
-  memmove(process_mailbox + sizeof(request), process_mailbox, size);
-  memcpy(process_mailbox, &request, sizeof(request));
-  /* A closed descriptor or a full pipe loses the line, never the status. */
-  (void)fd_write_packet(process, sizeof(request) + size, sizeof(dolly_process_io_result));
+      write_diagnostic(process, size) != 0) return -EINVAL;
   mark_process_exited(process, 126, 0);
   return 0;
 }
@@ -2515,7 +2632,7 @@ int dolly_process_worker_retired(int pid) {
   process->worker_retired = 1;
   /* WAIT must see the child as waitable before its parent's handler runs. */
   dolly_kernel_process *parent = find_process(process->parent_pid);
-  if (parent != NULL && parent->state == DOLLY_KERNEL_PROCESS_RUNNING)
+  if (parent != NULL && parent->state != DOLLY_KERNEL_PROCESS_EXITED)
     parent->pending_signals |= 1u << DOLLY_PROCESS_SIGCHLD;
   refresh_foreground();
   return 0;

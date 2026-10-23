@@ -1,8 +1,75 @@
 # exec: replace a process's program in the process contract
 
-- STATUS: OPEN
+- STATUS: IN PROGRESS
 - PRIORITY: 260
 - TAGS: core,process,abi,slop,design,0.1.4
+
+## State (2026-10-23, night): built on `core/process-exec`
+
+Operation 61 is `DOLLY_PROCESS_EXEC`; libc's `execve` family, Slop's `exec` and
+`posix_spawn_file_actions_addclose` are over it. Natively the Slop cases pass against
+Bash under ASan (`test/slop.test.mjs`, 197 of 197). The browser tests below are written;
+see "Verification" for what has run.
+
+### Decisions, each with its reason
+
+- **Two phases, the kernel's and the supervisor's.** EXEC reads the program into
+  `staged` beside the running one (path, arguments, environment, `#!` resolved, image),
+  so ENOENT, ENOEXEC and E2BIG fail the call at once. The supervisor then compiles and
+  admits it (stamp, imports, host modules: `#admit`, the same check as a launch) while
+  the old Worker waits in the call; a refusal drops the staged program
+  (`dolly_process_exec_refused`) and answers ENOEXEC after one line on the process's
+  descriptor 2, as a refused spawn's line. Only then `dolly_process_exec_commit`:
+  the point of no return. The loader is the supervisor's, so admission cannot be the
+  kernel's; two edges were needed.
+- **The record keeps** pid, parent, children, cwd, `fcntl` locks, the alarm,
+  kernel-pending signals, spawn flags (foreground and interactive roles: they are the
+  process's, not the program's), the spawn deadline, and descriptors without
+  `FD_CLOEXEC`. **It drops** CLOEXEC descriptors, what every host module holds for the
+  pid (`release_modules(pid, 0)`: threads table, GPU, audio, input and display leases,
+  staged HTTP bodies, downloads), and `handling_signal`. Memory, mappings, DSOs,
+  `atexit` and threads go with the Workers. `MAP_SHARED` is not written back, as at
+  exit today.
+- **Signal state crosses in the request.** Mask, ignored set and the signals libc has
+  taken but not delivered live in the old program's memory, so `execve` sends them
+  (`dolly_process_exec_state`, a bit per signal) and the new program's crt1 reads them
+  back before its first other call: EXEC with an empty request, which the kernel never
+  interrupts. Handled signals start at their default action. The alarm's handled flag
+  follows the ignored set. Not INFO: an old binary asks INFO with an 8-byte capacity,
+  and the restamped seed compiler (below) is such a binary.
+- **A signal during the preparation interrupts EXEC** (the old program's handler
+  runs, libc calls EXEC again, the compile is cached); a resize waits. After the commit
+  and before the new Worker starts the process is `starting`, and a signal ends it, as
+  a spawned process before entry. A terminating signal still pending at the commit
+  gets its 500 ms from the new program's start, not from the commit.
+- **The Worker swap reuses the start and retire edges**: `#disposeWorker`, then the
+  launch path's `#start` (memory, gate, thread attach, Worker). A large interactive
+  program gets the 500 ms of reclamation it gets at exit before the new memory is made.
+  No new browser authority: two kernel exports in `abi/dolly-supervisor-0.wat`.
+- **Exec from a thread** ends the other threads; the new program is single- or
+  multi-threaded by its own stamp.
+- **Slop:** `exec PROGRAM` replaces the shell; a stage's `exec PROGRAM` is the stage's
+  program (as `&` did); in a subshell or substitution it runs the program and ends the
+  subshell with its status without the subshell's EXIT trap; a failed exec ends a
+  script (127 missing, 126 otherwise), as POSIX and Bash do, and not the prompt.
+- **`addclose`** is a mapping whose source is `DOLLY_PROCESS_FD_MAPPING_CLOSED`: the
+  child does not inherit the target. A `dup2` from a descriptor an earlier action
+  closed is EBADF, as the child's dup2 would be.
+- **`fork` and `vfork`** stay ENOSYS, now Dolly's own definitions.
+- **The seed compiler** carries the old contract's digest in its stamp and in the copy
+  it writes into what it links; build.sh refuses it. `scripts/restamp-seed-compiler.mjs`
+  swaps the digest in those two places (exactly two occurrences, checked) and pins the
+  archive; its own libc stays the old one, sound because the contract change only adds.
+  The reconciliation must run it again after merging any other `process.h` change, and
+  should then build `llvm-cc` under the new contract and pin that
+  (`demos/llvm/pin-seed-compiler.mjs`), so no restamped compiler is left.
+
+### Cost
+
+`process.h` changed: digest `8002d2ac9e15e7d366e3eae77fdb1c61ac7650239792dc0c1ca64b7a1c3f4730`
+(was `154f4aec…`). Every image rebuilds, the seed compiler is restamped (above), the Rust
+seed must be relinked (`demos/rust/build-rust-toolchain.sh`), and `llvm-cc` should be
+rebuilt and pinned once in the round.
 
 ## State (2026-10-23): build it now
 

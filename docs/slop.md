@@ -32,9 +32,9 @@ image, and `man NAME` describes a command.
      the first corpus cannot run without it: that source cannot be changed, an
      agent's command can.
   2. POSIX, but Dolly's process model gives it no meaning (`umask`, `ulimit`,
-     an ignored signal, `exec` replacing the shell, a compound command, builtin,
-     function or `&&` list after `&`, which would need a copy of the shell):
-     refused by name with the reason.
+     an ignored signal, a compound command, builtin, function or `&&` list
+     after `&`, which would need a copy of the shell): refused by name with
+     the reason.
   3. POSIX and needed by either corpus: a defect to fix.
   4. POSIX and not yet needed: not implemented ahead of need, and it fails
      explicitly instead of being read as something else.
@@ -133,6 +133,14 @@ that run inside the shell stay serial.
   `slop -c '...' &`. `( PROGRAM ARG... ) &` is the one compound form that
   runs, as `PROGRAM ARG... &`, and `exec PROGRAM ARG... &` runs the same way:
   it replaces the job, not the shell.
+- `exec PROGRAM ARG...` replaces the shell with the program, which keeps the
+  process, the descriptors, the redirections of the command and the exported
+  variables ([exec](process-model.md#exec)); `exec` with only redirections
+  keeps them for the shell. A subshell is no process of its own, so in one,
+  in a substitution and in a pipeline stage, `exec PROGRAM` runs the program
+  and ends the subshell with its status, without the subshell's `EXIT` trap.
+  When `exec` fails, a script ends with 127 for a missing program and 126 for
+  one that cannot run; the prompt reports the status and goes on.
 - Ctrl+C interrupts the foreground command (status 130) and stops the rest of the
   list, pipeline or substitution; an ordinary `exit 130` does not. A loop of
   builtins stops too: the shell asks the kernel for SIGINT every 64 commands.

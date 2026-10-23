@@ -6,7 +6,7 @@ import { validateThreadProfile } from "../host/threads/threads.mjs";
 import { DOLLY_THREAD_SPAWN } from "../host/threads/abi.mjs";
 import { executableHostRequirements, checkHostAbi } from "../host/requirements.mjs";
 import {
-  DOLLY_PROCESS_EXIT, DOLLY_PROCESS_PACKET_LIMIT as packetLimit, DOLLY_PROCESS_SIGALRM, DOLLY_PROCESS_SIGINT,
+  DOLLY_PROCESS_EXEC, DOLLY_PROCESS_EXIT, DOLLY_PROCESS_PACKET_LIMIT as packetLimit, DOLLY_PROCESS_SIGALRM, DOLLY_PROCESS_SIGINT,
   DOLLY_PROCESS_SIGKILL, DOLLY_PROCESS_SIGNAL, DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE,
   DOLLY_PROCESS_SIGWINCH, DOLLY_PROCESS_SIZEOF, DOLLY_PROCESS_SPAWN,
   DOLLY_PROCESS_SPAWN_FOREGROUND, DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT,
@@ -230,6 +230,7 @@ export class DollyProcessSupervisor {
       failure: null, interactive: (flags & DOLLY_PROCESS_SPAWN_INTERACTIVE) !== 0, retiring: false,
       interruptTimer: null, deadlineTimer: null, retirementTimer: null, lastSignal: 0,
       reclamationDeadline: 0, tid: 0, threads: new Map(), threaded: false,
+      execution: null, signalAtStart: 0,
     };
     this.processes.set(pid, process);
     this.#armDeadline(process);
@@ -296,13 +297,25 @@ export class DollyProcessSupervisor {
       this.#clearDeferred(receiver);
       this.#signal(receiver, deferred.message.sequence, interruptedSystemCall);
     }
-    if (signalNumber !== DOLLY_PROCESS_SIGWINCH && process.interruptTimer === null) {
-      process.interruptTimer = setTimeout(() => {
-        process.interruptTimer = null;
-        this.#forceExit(process.pid, 128 + signalNumber, signalNumber);
-      }, interruptGraceMilliseconds);
+    // The old program takes the signal and calls EXEC again, as after any
+    // interrupted call; a resize waits for the new program.
+    if (process.execution?.thread === receiver && signalNumber !== DOLLY_PROCESS_SIGWINCH) {
+      const { message } = process.execution;
+      process.execution = null;
+      this.dolly._dolly_process_exec_refused(process.pid, 0n);
+      this.#signal(receiver, message.sequence, interruptedSystemCall);
     }
+    if (signalNumber !== DOLLY_PROCESS_SIGWINCH) this.#armInterrupt(process, signalNumber);
     return true;
+  }
+
+  // A program that does not finish a delivered signal in time is ended by it.
+  #armInterrupt(process, signalNumber) {
+    if (process.interruptTimer !== null) return;
+    process.interruptTimer = setTimeout(() => {
+      process.interruptTimer = null;
+      this.#forceExit(process.pid, 128 + signalNumber, signalNumber);
+    }, interruptGraceMilliseconds);
   }
 
   #scheduleLaunches() {
@@ -397,42 +410,9 @@ export class DollyProcessSupervisor {
       const process = this.processes.get(pid);
       try {
         if (!process) throw new Error(`kernel supplied unregistered process ${pid}`);
-        const address = Number(this.dolly._dolly_process_image_address(pid));
-        const size = Number(this.dolly._dolly_process_image_size(pid));
-        if (!Number.isSafeInteger(address) || !Number.isSafeInteger(size) ||
-            address <= 0 || size < 8 || address > this.kernelMemory.buffer.byteLength - size) {
-          throw new Error(`kernel supplied an invalid executable for process ${pid}`);
-        }
-        const bytes = new Uint8Array(size);
-        bytes.set(new Uint8Array(this.kernelMemory.buffer, address, size));
-        if (this.dolly._dolly_process_image_consumed(pid) !== 0) {
-          throw new Error(`kernel did not release executable ${pid}`);
-        }
-        const { module, memoryRequirements, processInterface, threaded, largeStack, requirements } = await this.#compileProcess(bytes);
+        const compiled = await this.#compileProcess(this.#takeImage(pid));
         if (!this.#canLaunch(process)) continue;
-        // Checked at every launch, not only when compiled: nena@0 may have
-        // disabled a module since. The modules served in this executable's
-        // own Worker each hold one Worker's state, such as its function
-        // table: one goes with threads only where it serves every thread.
-        checkHostAbi(requirements, this.hostAbi);
-        const local = [...requirements.keys()].filter(requirement => this.processModules.has(requirement));
-        const unthreaded = local.filter(requirement => !this.processModules.get(requirement).threads);
-        if (threaded && unthreaded.length) throw new TypeError(`a program using threads@0 cannot use ${unthreaded.join(", ")}`);
-        const memory = createProcessMemory(memoryRequirements);
-        process.memory = memory;
-        const gate = new WebAssembly.Instance(this.gateModule, {
-          process: { memory },
-          kernel: { memory: this.kernelMemory },
-        });
-        Object.assign(process, { gate, module, processInterface, threaded, largeStack, local });
-        if (threaded) {
-          if (!this.threadHost) throw new Error("threads@0 is unavailable");
-          const tid = this.dolly._dolly_threads_attach(pid);
-          if (tid <= 0) throw new Error(`kernel could not reserve main thread: ${tid}`);
-          process.tid = tid;
-          process.threads.set(tid, process);
-        }
-        this.#launchWorker(process, process);
+        this.#start(process, compiled, this.#admit(compiled));
       } catch (error) {
         // A failed launch ends only its own process; exiting it in the kernel
         // also stops next_launch from naming it again.
@@ -440,6 +420,100 @@ export class DollyProcessSupervisor {
         else this.dolly._dolly_process_worker_exited(pid, 126, 0);
       }
     }
+  }
+
+  // The executable the kernel read for a process, which it then forgets.
+  #takeImage(pid) {
+    const address = Number(this.dolly._dolly_process_image_address(pid));
+    const size = Number(this.dolly._dolly_process_image_size(pid));
+    if (!Number.isSafeInteger(address) || !Number.isSafeInteger(size) ||
+        address <= 0 || size < 8 || address > this.kernelMemory.buffer.byteLength - size) {
+      throw new Error(`kernel supplied an invalid executable for process ${pid}`);
+    }
+    const bytes = new Uint8Array(size);
+    bytes.set(new Uint8Array(this.kernelMemory.buffer, address, size));
+    if (this.dolly._dolly_process_image_consumed(pid) !== 0) {
+      throw new Error(`kernel did not release executable ${pid}`);
+    }
+    return bytes;
+  }
+
+  // Checked at every launch, not only when compiled: nena@0 may have disabled
+  // a module since. The modules served in this executable's own Worker each
+  // hold one Worker's state, such as its function table: one goes with threads
+  // only where it serves every thread. Returns those modules.
+  #admit({ requirements, threaded }) {
+    checkHostAbi(requirements, this.hostAbi);
+    const local = [...requirements.keys()].filter(requirement => this.processModules.has(requirement));
+    const unthreaded = local.filter(requirement => !this.processModules.get(requirement).threads);
+    if (threaded && unthreaded.length) throw new TypeError(`a program using threads@0 cannot use ${unthreaded.join(", ")}`);
+    if (threaded && !this.threadHost) throw new Error("threads@0 is unavailable");
+    return local;
+  }
+
+  #start(process, { module, memoryRequirements, processInterface, threaded, largeStack }, local) {
+    const memory = createProcessMemory(memoryRequirements);
+    process.memory = memory;
+    const gate = new WebAssembly.Instance(this.gateModule, {
+      process: { memory },
+      kernel: { memory: this.kernelMemory },
+    });
+    Object.assign(process, { gate, module, processInterface, threaded, largeStack, local });
+    if (threaded) {
+      const tid = this.dolly._dolly_threads_attach(process.pid);
+      if (tid <= 0) throw new Error(`kernel could not reserve main thread: ${tid}`);
+      process.tid = tid;
+      process.threads.set(tid, process);
+    }
+    this.#launchWorker(process, process);
+  }
+
+  // EXEC: the kernel has read the new program and the old one waits in the
+  // call while it is compiled and admitted. A refusal returns to the old
+  // program with ENOEXEC, after one line on its stderr; past the commit the
+  // old program's Workers go and the process starts again, its pid and
+  // record kept.
+  async #exec(process, thread, message) {
+    const execution = { thread, message };
+    process.execution = execution;
+    let compiled, local;
+    try {
+      compiled = await this.#compileProcess(this.#takeImage(process.pid));
+      if (process.execution === execution) local = this.#admit(compiled);
+    } catch (error) {
+      if (process.execution !== execution) return;
+      process.execution = null;
+      const line = encoder.encode(`dolly: process ${process.pid} cannot run its new program: ` +
+        `${terminalFailureReason(error)}\n`);
+      new Uint8Array(this.kernelMemory.buffer, this.mailboxAddress, line.length).set(line);
+      this.dolly._dolly_process_exec_refused(process.pid, BigInt(line.length));
+      this.#signal(thread, message.sequence, -BigInt(DOLLY_ERRNO.ENOEXEC));
+      return;
+    }
+    if (process.execution !== execution) return;
+    process.execution = null;
+    const signalAtStart = this.dolly._dolly_process_exec_commit(process.pid);
+    if (signalAtStart < 0) {
+      this.#fail(process, new Error(`kernel rejected process ${process.pid} exec: ${signalAtStart}`));
+      return;
+    }
+    // The old program's memory goes with its Workers. Termination has no
+    // completion event: a large interactive one gets the time it gets before
+    // a parent may start its replacement (#reclamationDeadline).
+    const delay = this.#reclamationDeadline(process) - performance.now();
+    if (process.interruptTimer !== null) clearTimeout(process.interruptTimer);
+    process.interruptTimer = null;
+    this.#disposeWorker(process);
+    Object.assign(process, { started: false, threaded: false, tid: 0, threads: new Map(), signalAtStart });
+    // Its descriptors with CLOEXEC are closed: a reader of their pipes goes on now.
+    this.#deliverRaised();
+    if (this.dolly._dolly_process_take_wakeup()) this.serviceDeferred();
+    const start = () => {
+      if (!this.#canLaunch(process)) return;
+      try { this.#start(process, compiled, local); } catch (error) { this.#fail(process, error); }
+    };
+    if (delay > 0) setTimeout(start, delay);
+    else start();
   }
 
   #launchWorker(process, thread, argument = undefined) {
@@ -555,6 +629,10 @@ export class DollyProcessSupervisor {
         }
         return;
       }
+      if (message.operation === DOLLY_PROCESS_EXEC && message.requestSize !== 0 && result === 0n) {
+        this.#exec(process, thread, message).catch(error => this.#fail(process, error));
+        return;
+      }
       if (message.operation === DOLLY_PROCESS_EXIT && result === 0n) {
         // The kernel reclaimed every thread. Stop the others now; the caller
         // unwinds and reports "finished" like a single-threaded process.
@@ -636,6 +714,9 @@ export class DollyProcessSupervisor {
         this.#fail(process, new Error(`kernel rejected process ${process.pid} start`));
       } else {
         process.started = true;
+        // A signal pending across EXEC is the new program's to answer.
+        if (process.signalAtStart) this.#armInterrupt(process, process.signalAtStart);
+        process.signalAtStart = 0;
       }
     } else if (message.type === "syscall") {
       this.#syscall(process, message, false, thread);
@@ -671,8 +752,8 @@ export class DollyProcessSupervisor {
   #retire(process) {
     process.retiring = true;
     // A process a signal ends passes it to its descendants, as a signal to its
-    // process group would: Dolly has neither groups nor exec, so the command
-    // of slop -c is the shell's child. Each answers it as it handles it.
+    // process group would: Dolly has no groups, so the command of slop -c is
+    // the shell's child unless it is exec'd. Each answers it as it handles it.
     // A descendant that has it already, as Ctrl-C gives it to the whole
     // foreground tree, is not given it twice.
     const signal = this.dolly._dolly_process_exit_signal(process.pid);
@@ -800,6 +881,7 @@ export class DollyProcessSupervisor {
   // Ends a process's Workers and timers; the kernel keeps its record until collected.
   #stop(process) {
     process.retiring = true;
+    process.execution = null;
     this.#clearTimers(process);
     this.#disposeWorker(process);
   }

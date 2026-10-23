@@ -7,7 +7,7 @@ import { shellQuote } from "./fixtures/slop-cases.mjs";
 import { DOLLY_ERRNO } from "../src/process-constants.mjs";
 
 const scratch = "/tmp/dolly-process-test";
-const fixtures = Object.fromEntries(["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c"]
+const fixtures = Object.fromEntries(["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c", "process-exec.c"]
   .map(name => [name, `test/fixtures/${name}`]));
 for (const name of await readdir(new URL("../build", import.meta.url))) {
   if (/^(?:process|dso)-.+\.wasm$/.test(name)) fixtures[name] = `build/${name}`;
@@ -103,7 +103,7 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   await interrupt();
   assert.equal(await cancelled, 0, "an interrupted process sleep returns EINTR after the handler runs");
 
-  for (const name of ["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c", "input.tgz"]) await fetchFixture(name);
+  for (const name of ["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c", "process-exec.c", "input.tgz"]) await fetchFixture(name);
   // A parent that ends without a say leaves its running child and grandchild,
   // as on POSIX: on a trap, on a call through a null pointer, and when Ctrl-C,
   // which they ignore, ends its Worker in a loop that never enters the kernel.
@@ -141,6 +141,22 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   await run(`cc -O0 ${scratch}/process-jump.c -o ${scratch}/jump && timeout 30 ${scratch}/jump`);
   await run(`cc -O0 ${scratch}/process-sigchld.c -o ${scratch}/sigchld && timeout 5 ${scratch}/sigchld`);
   await run(`gzip -dc ${scratch}/input.tgz | tar -xf - -C ${scratch} && test "$(cat ${scratch}/nested/message)" = TAR-STDIN-OK`);
+
+  // exec replaces a process's program and keeps the process. What cannot run
+  // fails the call, the refused executable after one line on stderr.
+  const exec = `${scratch}/exec`;
+  await run(`cc -O0 ${scratch}/process-exec.c -o ${exec}`);
+  await run(`timeout 60 ${exec} check ${scratch} ${scratch}/process-wrong-import.wasm 2> ${scratch}/exec-refused`);
+  await run(`test $(wc -l < ${scratch}/exec-refused) -eq 1 && grep -qF env.fetch ${scratch}/exec-refused`);
+  await run(`test "$(${exec} pipe | cat)" = "$(printf 'BEFORE\\nAFTER')"`);
+  const timed = Date.now();
+  assert.equal(await submit(`timeout 2 ${exec} deadline`), 124, "a timed spawn's deadline ends the program exec started");
+  assert.ok(Date.now() - timed < 15000);
+  const execInterrupted = submit(`${exec} interrupt`);
+  await waitForText(/EXEC-INTERRUPT-READY\s*$/);
+  await settle();
+  await interrupt();
+  assert.equal(await execInterrupted, 0, "Ctrl+C reaches the program exec started");
 
   const ignored = submit(`${scratch}/signals ${scratch} ignore-loop`);
   await waitForText(/SIGNAL-IGNORE-READY\s*$/);
