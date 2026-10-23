@@ -8,7 +8,13 @@
 enum { BUFFER_SIZE = 64 * 1024 };
 
 static void usage(FILE *stream) {
-  fputs("usage: gzip -dc [FILE|-]\nWithout FILE, or with -, gzip reads stdin.\n", stream);
+  fputs("usage: gzip -dc [FILE|-]\nWithout FILE, or with -, gzip reads stdin; -cdf, as tar -z passes it, is the same.\n", stream);
+}
+
+// -d and -c in one word, in any order, and -f, which changes nothing when the output is stdout.
+static int decompress_to_stdout(const char *option) {
+  return strcmp(option, "--decompress-stdout") == 0 || (option[0] == '-' &&
+      strspn(option + 1, "cdf") == strlen(option + 1) && strchr(option, 'c') && strchr(option, 'd'));
 }
 
 static int write_all(const unsigned char *bytes, size_t length) {
@@ -27,12 +33,9 @@ int main(int argc, char **argv) {
     usage(stdout);
     return 0;
   }
-  if (argc < 2 || argc > 3 ||
-      (strcmp(argv[1], "-dc") != 0 && strcmp(argv[1], "-cd") != 0 &&
-       strcmp(argv[1], "--decompress-stdout") != 0)) {
+  if (argc < 2 || argc > 3 || !decompress_to_stdout(argv[1])) {
     usage(stderr);
-    fputs("gzip: Dolly version 0 intentionally implements decompression to stdout only\n",
-          stderr);
+    fputs("gzip: this gzip only decompresses to stdout; pigz compresses (amy install pigz)\n", stderr);
     return 2;
   }
 

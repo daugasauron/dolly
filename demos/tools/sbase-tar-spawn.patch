@@ -1,0 +1,114 @@
+--- a/tar.c
++++ b/tar.c
+@@ -2,6 +2,7 @@
+ #include <sys/stat.h>
+ #include <sys/time.h>
+ #include <sys/types.h>
++#include <sys/wait.h>
+ #ifndef major
+ #include <sys/sysmacros.h>
+ #endif
+@@ -12,6 +13,7 @@
+ #include <grp.h>
+ #include <libgen.h>
+ #include <pwd.h>
++#include <spawn.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -68,6 +70,7 @@
+ static int mflag, vflag;
+ static int filtermode;
+ static const char *filtertool;
++static pid_t filterpid;
+ 
+ static const char *filtertools[] = {
+ 	['J'] = "xz",
+@@ -96,6 +99,28 @@
+ 	return NULL;
+ }
+ 
++/* The filter reads in and writes out; the end of the pipe tar keeps is not
++ * inherited. posix_spawn rather than fork, which some systems lack. */
++static void
++spawnfilter(const char *tool, const char *flags, int in, int out, int keep)
++{
++	extern char **environ;
++	char *argv[] = { (char *)tool, (char *)flags, NULL };
++	posix_spawn_file_actions_t fa;
++	int err;
++
++	if (fcntl(keep, F_SETFD, FD_CLOEXEC) < 0)
++		eprintf("fcntl:");
++	if ((err = posix_spawn_file_actions_init(&fa)) ||
++	    (err = posix_spawn_file_actions_adddup2(&fa, in, 0)) ||
++	    (err = posix_spawn_file_actions_adddup2(&fa, out, 1)) ||
++	    (err = posix_spawnp(&filterpid, tool, &fa, NULL, argv, environ))) {
++		errno = err;
++		eprintf("posix_spawnp %s:", tool);
++	}
++	posix_spawn_file_actions_destroy(&fa);
++}
++
+ static int
+ comp(int fd, const char *tool, const char *flags)
+ {
+@@ -104,19 +129,7 @@
+ 	if (pipe(fds) < 0)
+ 		eprintf("pipe:");
+ 
+-	switch (fork()) {
+-	case -1:
+-		eprintf("fork:");
+-	case 0:
+-		dup2(fd, 1);
+-		dup2(fds[0], 0);
+-		close(fds[0]);
+-		close(fds[1]);
+-
+-		execlp(tool, tool, flags, NULL);
+-		weprintf("execlp %s:", tool);
+-		_exit(1);
+-	}
++	spawnfilter(tool, flags, fds[0], fd, fds[1]);
+ 	close(fds[0]);
+ 	return fds[1];
+ }
+@@ -129,19 +142,7 @@
+ 	if (pipe(fds) < 0)
+ 		eprintf("pipe:");
+ 
+-	switch (fork()) {
+-	case -1:
+-		eprintf("fork:");
+-	case 0:
+-		dup2(fd, 0);
+-		dup2(fds[1], 1);
+-		close(fds[0]);
+-		close(fds[1]);
+-
+-		execlp(tool, tool, flags, NULL);
+-		weprintf("execlp %s:", tool);
+-		_exit(1);
+-	}
++	spawnfilter(tool, flags, fd, fds[1], fds[0]);
+ 	close(fds[1]);
+ 	return fds[0];
+ }
+@@ -658,5 +659,16 @@
+ 		usage();
+ 	}
+ 
++	/* The archive is complete once the filter has finished. */
++	if (filterpid) {
++		int status;
++
++		close(tarfd);
++		if (waitpid(filterpid, &status, 0) < 0)
++			eprintf("waitpid:");
++		if (!WIFEXITED(status) || WEXITSTATUS(status))
++			recurse_status = 1;
++	}
++
+ 	return recurse_status;
+ }

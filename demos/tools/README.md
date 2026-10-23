@@ -31,7 +31,7 @@ the script would find here, in the comments beside its flags.
 - `dte`: dte, a small full-screen editor with the keys of a desktop one.
 - `mandoc`: mandoc, which formats a manual page of man or mdoc macros as text.
 - `tools-build`: A build stage: `cmake-build` with mandoc, what these packages are built on.
-- `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks.
+- `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks; `-z`, `-j` and `-J` run gzip, bzip2 and xz (pigz writes `.gz`).
 - `sbase`: the sbase commands the image leaves out: `yes`, `cal`, `sha1sum`, `sha512sum`, `sponge`, `cols`, `uuencode` and `uudecode`.
 
 `man` prints a page of text (`/usr/share/man/cat1`) as it is and has no

@@ -48,6 +48,22 @@ static int integer(const char *left, const char *operation, const char *right, i
   return 0;
 }
 
+static int newer(const struct stat *a, const struct stat *b) {
+  return a->st_mtim.tv_sec != b->st_mtim.tv_sec ? a->st_mtim.tv_sec > b->st_mtim.tv_sec
+                                                : a->st_mtim.tv_nsec > b->st_mtim.tv_nsec;
+}
+
+// POSIX.1-2024: a path that resolves to no file is older than one that does.
+static int files(const char *left, const char *operation, const char *right, int *known) {
+  *known = strcmp(operation, "-ef") == 0 || strcmp(operation, "-nt") == 0 || strcmp(operation, "-ot") == 0;
+  if (!*known) return 0;
+  struct stat a, b;
+  const int has_a = stat(left, &a) == 0, has_b = stat(right, &b) == 0;
+  if (operation[1] == 'e') return has_a && has_b && a.st_dev == b.st_dev && a.st_ino == b.st_ino;
+  if (operation[1] == 'n') return has_a && (!has_b || newer(&a, &b));
+  return has_b && (!has_a || newer(&b, &a));
+}
+
 enum { EXPRESSION_DEPTH_LIMIT = 64 };
 
 static int top_level_operator(int argc, char **argv, const char *operation,
@@ -148,6 +164,8 @@ static int evaluate(int argc, char **argv, int *error, unsigned depth) {
     if (strcmp(argv[1], "=") == 0 || strcmp(argv[1], "==") == 0) return strcmp(argv[0], argv[2]) == 0;
     if (strcmp(argv[1], "!=") == 0) return strcmp(argv[0], argv[2]) != 0;
     int known = 0;
+    const int compared = files(argv[0], argv[1], argv[2], &known);
+    if (known) return compared;
     const int result = integer(argv[0], argv[1], argv[2], &known);
     if (result < 0) { *error = 1; return 0; }
     if (known) return result;

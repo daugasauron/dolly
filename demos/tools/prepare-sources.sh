@@ -167,3 +167,7 @@ if has_image vi; then
     "${tool_dir}" /tmp/neatvi \
     "${tool_dir}/README" /usr/share/doc/vi/README
 fi
+# sbase's tar starts its compressor with posix_spawn instead of fork.
+if has_image tar; then
+  copy_static demos/tools/sbase-tar-spawn.patch tools/sbase-tar-spawn.patch
+fi

@@ -159,6 +159,7 @@ export const shellCases = [
   ["& does not take a && list", ": && : & exit 7", 2, 7],
   ["a path that names nothing is not a missing command", "./no-such-program; a=$?; no-such-program; b=$?; ./; c=$?; exit $((a + b + c))", 380 & 255],
   ["aliases, umask and ulimit are refused", "alias x=y; a=$?; umask 022; b=$?; ulimit -n > /dev/null; exit $((a + b + $?))", 6, 0],
+  ["jobs, fg, bg and a job spec to kill are refused", "jobs; a=$?; fg; b=$?; bg; c=$?; kill -TERM %1; exit $((a + b + c + $?))", 8, 3],
 ];
 
 // These run external commands, so they need Dolly (or Bash) to spawn them.
@@ -190,6 +191,8 @@ if"`, 0],
   ["functions shadow regular builtins but not special ones", 'cd() { return 7; }; cd /; test $? = 7 || exit 91; exit() { return 8; }; exit 9', 9, 8],
   ["cd without HOME is an error", 'unset HOME; cd', 1],
   ["test -x is true of a directory, which can be searched", 'test -x / && [ -x . ] && test ! -x ./no-such-directory', 0],
+  ["test compares files by modification time and identity", ': > older; sleep 1; : > newer; ln -sf older link; [ newer -nt older ] && test older -ot newer && ! test older -nt newer && ' +
+    'test older -nt missing && test missing -ot older && ! test missing -nt older && [ link -ef older ] && ! test older -ef newer', 0],
   ["ls gives configure the directory's serial number and its files in time order", 'test "$(ls -di .)" = "$(cd "$PWD" && ls -di .)" || exit 91; : > older; sleep 1; : > newer; test "$(ls -t older newer | head -n 1)" = newer || exit 92; test "$(ls -Lt newer older | head -n 1)" = newer', 0],
   ["a signal trap runs once the command has finished", 'trap "exit 7" TERM; kill -TERM $$; exit 3', 7],
   ["an INT trap replaces the interrupt", 'trap "n=1" INT; kill -INT $$; test "$n" = 1 || exit 91; exit 3', 3],

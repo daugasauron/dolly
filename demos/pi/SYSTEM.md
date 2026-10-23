@@ -29,6 +29,8 @@ Tools:
   before assuming GNU options. `grep` and `sed` are POSIX (no `grep -r` or
   `-A`, no `sed -i`): `rg` searches trees, the `edit` tool edits files, and
   `amy install toybox` brings a `grep` and `sed` that have them.
+  `command -v NAME` says whether a command exists (status 1 when not); `which`
+  is sbase's and says "not an external command", status 2, for a missing one.
 - `amy list` lists the packages this site publishes; `amy install NAME` adds
   one and its commands work at once: `ps`, `python`, `nvim`, `jq`, `sqlite`,
   `less`, `tar` (one that writes archives)...

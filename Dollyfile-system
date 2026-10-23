@@ -8,22 +8,16 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.3/Dollyfile-system-tools 13ba21000aa665d6729f8e00cb795c4871f3bfaa72a4e18a7197d536b84a5826
+FROM /v0.1.3/Dollyfile-system-tools dd0411061a1e74754077a99f0e7f6913b3fc4153e336bfcdcebbe0d9016e49ee
 # The page's file exchange, here and in the images built on this one.
-INSTALL /v0.1.3/Dollyfile-transfer 51f202bc3437e52024fdad9d2fb8f5f4bf2f4a0cb74d4a41939755ca384d39ba
-
-REQUIRES HEADER libc
-REQUIRES TOOL cc
-REQUIRES TOOL rm
-
-SOURCE /v0.1.3/dist/static/session-recovery/session-recover.c 5f1c6511cc7e23b6714da04b5e52734460a584d530df4585ee0625ecf07c0ffb /tmp/session-recovery/session-recover.c
-SOURCE /v0.1.3/dist/static/session-recovery/session-records.h 8542c23bb84e8e89b3f995c7d446c7a68dd2d10de7054d44266ef2f78c78434a /tmp/session-recovery/session-records.h
-SOURCE /v0.1.3/dist/static/session-recovery/fs-record.h 585989ac06fab7f4ba0325aa1faefa414b45f96d72b3525838cea7cdffe80e3c /tmp/session-recovery/fs-record.h
-
-SLOP cc -O1 -I/tmp/session-recovery /tmp/session-recovery/session-recover.c -o /usr/bin/session-recover
-EXPORTS TOOL session-recover
-SLOP session-recover --help > /usr/share/man/cat1/session-recover.1
-FILE /usr/share/man/cat1/session-recover.1
-SLOP rm -rf /tmp/session-recovery
+INSTALL /v0.1.3/Dollyfile-transfer 29ff862af6c686359c288417cfa7dd7ab79b38f0bd81802ed432aeead47b99b1
+INSTALL /v0.1.3/Dollyfile-session-recover 1f6528c5fbc68139cde70cce65ac7bac39bda9bd0add6639991670353459ee5c
+# The packages made of what system-build and system-tools built: this image
+# holds their files, and its record says so, as it does for every INSTALL.
+INSTALL /v0.1.3/Dollyfile-core d35321befda04f31400edfff1bcd4c087024ac7618daf58c743dcddc5f166462
+INSTALL /v0.1.3/Dollyfile-cc 6547a88f76f69bafb1fee2605c8f3bf02becc8e3e9e4d97f2d352635f72e44de
+INSTALL /v0.1.3/Dollyfile-make 19b55fb180dbe4c57064b7f3dd680ab2dccdb61907f0041ec3e8804b72485329
+INSTALL /v0.1.3/Dollyfile-posix e2440392a9c87714b43111f4c600a7b1480bb6aff31f87963b43b26cf787bd57
+INSTALL /v0.1.3/Dollyfile-ninja 053c48f4d0061e1ab38d2e43981fde821c845131e646a70c530dacdb44e1411d
 
 ENTRY /bin/foreground -i /bin/slop

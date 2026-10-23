@@ -254,9 +254,10 @@ await browserTest("process list", {}, async ({ open }) => {
   await run("exec 3< /proc/processes; sleep 100 & exec 4< /proc/processes; cat <&3 > /tmp/before; cat <&4 > /tmp/after; exec 3>&- 4>&-");
   await run("! grep -q \"^$! \" /tmp/before && grep -qx \"$! $$ [a-z]* sleep 100\" /tmp/after && kill $! && wait");
   await run("grep -q \"^$$ \" /tmp/before && grep -q \"^$$ \" /tmp/after && ! grep -qvE '^[0-9]+ [0-9]+ (starting|running) ' /tmp/before /tmp/after");
-  // It is no file: nothing is written through the path or a descriptor of it, and the filesystem has nothing of it.
+  // Nothing is written through the path or a descriptor of it. /proc lists it, an empty file, and any path to it opens the list.
   await run("! echo x > /proc/processes 2> /dev/null && ! echo x >> /proc/processes 2> /dev/null");
-  await run("exec 3< /proc/processes; echo x >&3 2> /dev/null; grep -q \"^$$ \" <&3; listed=$?; exec 3>&-; test $listed = 0 && ! grep -qx x /proc/processes && ! test -e /proc");
+  await run("exec 3< /proc/processes; echo x >&3 2> /dev/null; grep -q \"^$$ \" <&3; listed=$?; exec 3>&-; test $listed = 0 && ! grep -qx x /proc/processes");
+  await run("test \"$(ls /proc)\" = processes && test -f /proc/processes && ! test -s /proc/processes && (cd /proc && grep -q \"^$$ \" processes && grep -q \"^$$ \" ../proc/./processes)");
   // One process a line whatever its arguments hold: a control character is ?, and a line ends after 2047 bytes.
   await run("slop -c 'sleep 100' \"$(printf 'two\\nlines\\033c')\" & until grep -qx \"$! $$ running slop -c sleep 100 two?lines?c\" /proc/processes; do :; done; kill $!; wait");
   await run("slop -c 'sleep 100' $(printf %03000d 0) & until grep -q \"^$! $$ running \" /proc/processes; do :; done; " +

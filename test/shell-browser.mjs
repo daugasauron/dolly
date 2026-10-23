@@ -86,7 +86,9 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
     [`printf 'list\\n\\n' | /usr/libexec/dolly/git-remote-http origin ${server.origin}/fixture/git`],
     // tar only extracts; Git creates the archive, from an index as well as a commit.
     ["echo loose > loose.txt && git add loose.txt && git archive -o ../repo.tar.gz $(git write-tree) && mkdir ../unpacked && " +
-      "gzip -dc < ../repo.tar.gz | tar -xf - -C ../unpacked && grep -q tracked ../unpacked/tracked.txt && grep -q loose ../unpacked/loose.txt"],
+      "gzip -dc < ../repo.tar.gz | tar -xf - -C ../unpacked && grep -q tracked ../unpacked/tracked.txt && grep -q loose ../unpacked/loose.txt && " +
+      // as tar -z of the tar package starts it
+      "gzip -dc < ../repo.tar.gz > ../repo.tar && gzip -cdf ../repo.tar.gz | cmp - ../repo.tar"],
     ["cd .. && test \"$(pwd)\" = /tmp/shell && test \"$(pwd -P)\" = /tmp/shell"],
     ["mkdir -p flags/deep && mkdir -p flags/deep && touch flags/.hidden && echo visible > flags/visible"],
     ["test \"$(ls flags)\" = \"$(printf 'deep\\nvisible')\" && ls -a flags | grep -q '^.hidden$'"],
