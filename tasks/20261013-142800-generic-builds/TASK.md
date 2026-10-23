@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 330
-- TAGS: packages,catalog,owner
+- TAGS: packages,catalog,owner,0.1.4
 
 Owner (2026-10-13): "Last night when I said "break out more things as
 packages" I mean that to simplify and make the current builds more generic.
@@ -17,6 +17,23 @@ from its pinned source; the images that needed it install it; no package is
 only a view of a demo's build image; each has its check in
 `test/amy-browser.mjs` or its consumer's test; the list of what was not
 broken out says why for each.
+
+## 2026-10-24: the games-and-packages workstream, `demo/slopyard-catapults`
+
+The integrator's brief (2026-10-23): the "Left" list below, raylib, box3d, libuv, a llama.cpp
+library and openal as packages that hold their own builds, and three bugs the Opus audits
+found in pi-agent sessions, where every game session now installs raylib or SDL2 first
+(`tasks/20261023-180000-opus-in-pi/TASK.md`, round 2, on `demo/opus-audit-2`):
+
+1. raylib: `GetTime`, `GetFrameTime` and the key state are dead. Reproduced in the `slopyard`
+   image (`raylib/clock.c` in the evidence): 30 frames 16 ms apart, `GetTime 0.000
+   GetFrameTime 0.0000 GetFPS 0`, 0.52 s by `clock_gettime`. raylib's `PLATFORM_MEMORY` reads
+   the clock only on Windows, Linux, the BSDs and Emscripten, and `SUPPORT_CUSTOM_FRAME_CONTROL`
+   leaves frame time and input to the program.
+2. libpng: `-lpng` fails; the package ships `libpng16.a` and the `libpng.pc` link, not upstream's
+   `libpng.a` link.
+3. SDL_ttf and SDL_image as packages (on FreeType and libpng); SDL_mixer only if it fits the
+   sound module without new browser authority.
 
 ## State (2026-10-23)
 
