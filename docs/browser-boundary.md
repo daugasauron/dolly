@@ -92,7 +92,10 @@ Worker URL.
   complete list: nothing is inherited from `FROM`, `INSTALL`, `USE` or `COPY` images,
   sealing refuses a retained executable stamped with an undeclared module, and
   the loader refuses one at run time. A module the embedding does not name
-  (`boot()`'s `modules`) exists neither on the page nor in the Worker.
+  (`boot()`'s `modules`) exists neither on the page nor in the Worker. A page
+  of the site names its image's modules and what they depend on, and every
+  module for a build, a custom image, a saved session or an image that
+  declares `nena@0` ([`site.mjs`](../src/site.mjs)).
 - `nena@0` is the one way a session's set changes after boot, and only an
   image that declares it has it (`default` does). Such a session enables and
   disables modules freely, by design: assume it can use every module of this

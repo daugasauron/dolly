@@ -21,8 +21,17 @@
   `submit` in `input@0`), and the owner decided on 2026-10-14 that the page's handle is the
   embedding's documented API (`docs/embedding.md`, "The page's handle" in
   `docs/browser-boundary.md`). Nothing of it is left to move.
-- Left: step 4 (the site's pages name all 18 modules; an embedding names its own) and step 6 (two
-  demo tests rewrite the GPU worker's source; it needs the GPU runs of those demos).
+- Step 4 (`8ebf99f5`): a page of the site names its image's modules and what they depend on, and
+  every module only for a build, a custom image, a saved session or an image declaring `nena@0`
+  (`src/site.mjs`). A `system` page loads 58 trusted scripts in place of 80; `default` declares
+  `nena@0` and keeps all 18.
+- Step 6, run on 2026-10-24 (Chrome 156, a private `Xvfb :147`, the GPU lock):
+  `demos/gpu-fluid/test/gpu-fluid-browser.mjs` passes in Chromium (`fluid --check`, the four
+  benches, each replay equal to Dolly's run); Firefox has no WebGPU adapter under Xvfb and waits
+  for frames until its deadline, which is no result. `demos/zero-ad/test/0ad-menu-browser.mjs`
+  did not run: on this seed `zero-ad`'s closure needs `rust-build`, which needs the 24 GB slot.
+  Both still replace text of `host/gpu/worker.mjs` in their test server's copy
+  (`sourceOverrides`); the published worker is never changed. Left open for that.
 - Count, as below: `89fc25ba` (the integration branch with no-view) 11,329; this branch's head
   11,382 (+53: the npm split's seam, less what steps 7 and 8 removed). Count again at the release.
 
