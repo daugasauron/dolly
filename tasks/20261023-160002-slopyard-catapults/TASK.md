@@ -243,10 +243,17 @@ round dropped, but no tether round was thrown either (the Blue Tengu held its ro
 spinning 10 s in all): one upswing never met the 1.15 m prediction. Deliveries 44 (East 23,
 West 28).
 
-Left: lift the Tengu's bearing and arm a block above its base and pedestal (a spacer, the
-pedestal one block higher), and let the Koban loader take the dock height from the gun's
-pedestal instead of `station.y + 2`. Then the tether round clears the base in every
-direction; measure its launches, captures and grounded releases again.
+Tried next (`sling-t5`, 2,400 s, not committed): `raise-tengu.mjs` beside this file lifts
+both Tengus' bearing, mast and arm a block on a 3x3 spacer over the base and the pedestal a
+block on a support box, the Koban takes the dock height from the gun's pedestal at rest,
+and the supply flight leaves tether rounds to the ground batteries. No round flew off an
+arm and the Red Tengu threw 9 boxes, but no tether round was thrown: the standing rounds
+were knocked off their places in the stock row (found 4 to 7 m from it) and the Blue
+Tengu misloaded a box that lay beside the raised pedestal. 34 deliveries.
+
+Left for the tether round, in this order: keep the raised Tengus; make the standing round
+stay put in its row (or stock it lying down and stand it up on the pedestal); then measure
+launches, captures and grounded releases again. The catapults themselves work.
 
 The final sources (`c962100e`, pinned `94960664`) were measured in `sling-t3`/`audit-t3`
 (headless, 2,400 s): 45 deliveries (East 25, West 27), 23 shots, every gun fired at least
