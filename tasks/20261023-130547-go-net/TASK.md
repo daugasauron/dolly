@@ -1,6 +1,6 @@
 # Go: net/http over the broker, os/signal and syscall.Exec
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: toolchain,go,0.1.4
 
@@ -63,3 +63,10 @@ merged seed (559ad049); go-build still rebuilds the toolchain byte for byte equa
   `kill -TERM`; `syscall.Exec` of a missing file (ENOENT, the program goes on) and of
   `/bin/echo` (the echo's output, nothing after). **Chromium passed in 99.2 s, Firefox in
   120.6 s.**
+
+## Closed (2026-10-23)
+
+Done-when is met: the browser test above, in Chromium and Firefox. Commits 9e9a7c48 (net/http,
+os/signal) and da78db58 (syscall.Exec, the test, the packages' http@0). Left for when spawn
+admission by a memory budget lands (audit-53 item 2, the terminal workstream): measure whether
+the go package can set `GOFLAGS=-p=N`; until then go-build keeps `-p 1` under `GOMEMLIMIT`.
