@@ -54,7 +54,7 @@ REQUIRES HEADER gpu
 REQUIRES HEADER quickjs
 REQUIRES HEADER quickjs-runner
 
-SOURCE /v0.1.3/dist/static/slopyard/source.tar 190e5ccd4b9e51961b8ee066419d97f8a3aef5f42c4d0ae2dff6e6d3f57cae14 /tmp/slopyard.tar
+SOURCE /v0.1.3/dist/static/slopyard/source.tar b06393b8dbc9131952c935be25a081c157c394ac7624968a334f2a4c05f8db3b /tmp/slopyard.tar
 SLOP tar -xf /tmp/slopyard.tar -C / && rm /tmp/slopyard.tar
 SLOP make -f /usr/src/dolly/slopyard/box3d.mk
 SLOP cc -std=c17 -O2 -pthread -U__SIZEOF_INT128__ -I/usr/include/lua5.5 /usr/src/dolly/slopyard/main.c /usr/src/dolly/slopyard/data.c /usr/src/dolly/slopyard/pi.c /usr/src/dolly/slopyard/character.c /usr/src/dolly/slopyard/render.c /usr/src/dolly/slopyard/world.c /usr/src/dolly/slopyard/terrain.c /usr/src/dolly/slopyard/magnet.c -ldolly-gpu -llua5.5 -ldolly-js -lquickjs -ldolly-raylib -lraylib -lslopyard-box3d -lm -o /usr/bin/slopyard
