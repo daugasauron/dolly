@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
+#include <sys/times.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -311,6 +312,14 @@ int main(int argc, char **argv) {
   close(quiet);
   const int after_cap = child(argv[0], "exit130");
   CHECK(after_cap > 0 && waitpid(after_cap, &status, 0) == after_cap);
+  // A process's CPU time is its time since it started, all of it user time.
+  struct timespec cpu;
+  struct rusage usage;
+  struct tms used;
+  CHECK(clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpu) == 0 && getrusage(RUSAGE_SELF, &usage) == 0);
+  CHECK(usage.ru_stime.tv_sec == 0 && usage.ru_stime.tv_usec == 0 &&
+        usage.ru_utime.tv_sec * 1000000LL + usage.ru_utime.tv_usec >= cpu.tv_sec * 1000000LL + cpu.tv_nsec / 1000);
+  CHECK(times(&used) != (clock_t)-1 && used.tms_stime == 0 && used.tms_utime >= cpu.tv_sec * sysconf(_SC_CLK_TCK));
   // The kernel refuses a spawn deadline more than a day away.
   CHECK(dolly_spawn_timeout(argv[0], 2, sleep_arguments, 0, 1, 2, 2 * 86400e3) == -EINVAL);
   if (failures) return 1;

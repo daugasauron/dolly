@@ -324,9 +324,10 @@ nothing and declares nothing: any program built for Dolly runs on one.
   pending and never forces termination.
 - Clock reads use the Worker's clock aligned to the kernel's origin, but enter the
   kernel at least once per millisecond so signals arrive in clock-only loops.
-- CPU time is not accounted: `clock()` and `CLOCK_PROCESS_CPUTIME_ID` report the
-  monotonic time since the process started, an upper bound that is exact while
-  it computes without blocking ([`libc-adapter.c`](../src/process/libc-adapter.c)).
+- CPU time is not accounted: `clock()`, `CLOCK_PROCESS_CPUTIME_ID`, `getrusage`
+  and `times` report the monotonic time since the process started as its user
+  time, an upper bound that is exact while it computes without blocking; system
+  time and children's times are zero ([`libc-adapter.c`](../src/process/libc-adapter.c)).
 
 ## Threads, DSOs and FFI
 
