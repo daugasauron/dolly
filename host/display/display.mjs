@@ -401,8 +401,9 @@ export function worker({ get, send, configuration }) {
       get("runtime").serviceOnNotify(words, word + A.DOLLY_DISPLAY_WORD_ANIMATION_FRAME_SEQUENCE);
       report();
     },
-    // The image has ended: the page keeps its last frame.
+    // The image has ended: the page keeps the last frame it published.
     dispose() {
+      try { presenter?.paint(); } catch {}
       presenter?.stop();
       if (presenter?.image) send({ type: "display-ended", image: presenter.image });
     },
