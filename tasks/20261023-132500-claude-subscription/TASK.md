@@ -10,6 +10,18 @@ Owner (2026-10-23): "I think claude updated their policy agreement so now it sho
 build a local proxy similar to codex so I can run claude sub from inside the environment
 against a local proxy?"
 
+## State (2026-10-23, evening): Claude through the API works in Dolly with Pi
+
+The owner's Max plan came with $200 of API credits for "the Claude API, Claude Managed Agents,
+the Claude Agent SDK, and the Playground only. They can't be used for Claude Code sessions"
+(expire 2026-11-02). With a key of that organization (`~/.claude-api`, given for the test; in
+no log):
+- Claude Code 2.1.112 (`closed-source-agent`, `--bare`) reached `POST /v1/messages` and was
+  answered "Credit balance too low": the credits exclude Claude Code, as the email says.
+- Pi (`amy install pi` in the same session, `secretenv ANTHROPIC_API_KEY … pi --provider
+  anthropic --model haiku -p '…'`) answered from Claude: one `POST /v1/messages` from the
+  browser, no proxy. So Claude models run in Dolly through Pi on API credits, within their terms.
+
 ## State (2026-10-23, 15:00): tried with the owner's token; Anthropic refuses it from a browser
 
 The owner made a token with `claude setup-token` (`~/.claude-oauth`) and asked for a try in
