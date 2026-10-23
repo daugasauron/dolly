@@ -33,11 +33,11 @@ export function terminalText(page) {
       const y = geometry.paddingY + Math.floor(geometry.cellHeight / 2);
       const endX = x + (dimensions.cols - 1) * geometry.cellWidth, endY = y + (dimensions.rows - 1) * geometry.cellHeight;
       let selected;
-      inputTransport.pushPointer(x, y, 1, shifted);
-      await waitFor(() => transport.copySelection() === null, "terminal selection reset");
-      inputTransport.pushPointer(endX, endY, 2, shifted);
-      inputTransport.pushPointer(endX, endY, 0, shifted);
-      if (await waitFor(() => (selected = transport.copySelection()) !== null, null, attempts)) return selected;
+      await inputTransport.pushPointer(x, y, 1, shifted);
+      await waitFor(async () => await transport.copySelection() === null, "terminal selection reset");
+      await inputTransport.pushPointer(endX, endY, 2, shifted);
+      await inputTransport.pushPointer(endX, endY, 0, shifted);
+      if (await waitFor(async () => (selected = await transport.copySelection()) !== null, null, attempts)) return selected;
     }
     throw new Error("timed out waiting for terminal selection publication");
   }
@@ -57,8 +57,8 @@ export function terminalText(page) {
     const geometry = transport.geometry();
     const x = geometry.paddingX + Math.floor(geometry.cellWidth / 2);
     const y = geometry.paddingY + Math.floor(geometry.cellHeight / 2);
-    inputTransport.pushPointer(x, y, 1, shifted);
-    inputTransport.pushPointer(x, y, 0, shifted);
+    await inputTransport.pushPointer(x, y, 1, shifted);
+    await inputTransport.pushPointer(x, y, 0, shifted);
     await waitFor(() => inputTransport.inputIdle(), "terminal selection cleanup");
     return pid;
   }

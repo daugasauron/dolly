@@ -239,8 +239,8 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
     if (argument === "") {
       // More than a ring of UI events recycles slots behind unread input.
       for (let batch = 0; batch < 24; batch++) {
-        assert.equal(await page.evaluate(() => {
-          for (let i = 0; i < 32; i++) if (!__dolly.inputTransport.pushScroll(i % 2 ? 0.001 : -0.001, 1)) return false;
+        assert.equal(await page.evaluate(async () => {
+          for (let i = 0; i < 32; i++) if (!await __dolly.inputTransport.pushScroll(i % 2 ? 0.001 : -0.001, 1)) return false;
           return true;
         }), true, "UI events accumulated behind unread input");
         await page.waitForTimeout(30);
@@ -279,13 +279,15 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
   await waitForText(/DOLLY-ALTERNATE-SCREEN/);
   assert.match(await page.evaluate(() => {
     const { inputTransport: transport, terminal } = __dolly, pushPointer = transport.pushPointer, program = terminal.foregroundPid();
-    // The first drag sends the program its key and is held back, while the
-    // Worker runs, until the program has left its screen and exited.
-    transport.pushPointer = function (x, y, action, event) {
+    // The first drag sends the program its key and is held back until the
+    // program has left its screen and exited.
+    transport.pushPointer = async function (x, y, action, event) {
       if (action === 2) {
         transport.pushPointer = pushPointer;
-        transport.pushText("q");
-        for (const deadline = performance.now() + 5000; terminal.foregroundPid() === program && performance.now() < deadline;);
+        await transport.pushText("q");
+        for (const deadline = performance.now() + 5000; terminal.foregroundPid() === program && performance.now() < deadline;) {
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
       }
       return pushPointer.call(this, x, y, action, event);
     };
@@ -297,10 +299,10 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
   const leased = () => page.evaluate(() => [__dolly.graphicsActive, __dolly.inputTransport.leased()]);
   const lease = start(`${probe} lease`);
   await page.waitForFunction(() => __dolly.graphicsActive && __dolly.inputTransport.leased());
-  assert.equal(await page.evaluate(() => {
+  assert.equal(await page.evaluate(async () => {
     const transport = __dolly.inputTransport;
-    return transport.pushPointer(20, 20, 1, {}) && transport.pushPointer(40, 20, 2, {}) &&
-      transport.pushPointer(40, 20, 0, {}) && transport.pushScroll(1, 1);
+    return await transport.pushPointer(20, 20, 1, {}) && await transport.pushPointer(40, 20, 2, {}) &&
+      await transport.pushPointer(40, 20, 0, {}) && await transport.pushScroll(1, 1);
   }), true);
   assert.equal(await lease, 0);
   assert.deepEqual(await leased(), [false, false]);

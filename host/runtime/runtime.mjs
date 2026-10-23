@@ -78,7 +78,7 @@ export function browser() {
 
 export function worker({ send, runtimeBase, abi, service }) {
   const memory = new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" });
-  let supervisor, threadProvider;
+  let supervisor, threadProvider, terminal;
   // Modules served inside the process Worker of the executables that record
   // them, by requirement: the bundle (a Blob) that Worker imports and the
   // configuration its serve() receives.
@@ -91,6 +91,7 @@ export function worker({ send, runtimeBase, abi, service }) {
   };
   return {
     memory,
+    get terminal() { return terminal; },
     bindings: {
       "env.memory": memory,
       "env.dolly_bootstrap_write_bytes": (address, length) => {
@@ -123,7 +124,9 @@ export function worker({ send, runtimeBase, abi, service }) {
       return supervisor ??= await DollyProcessSupervisor.create(dolly, memory, runtimeBase, abi, service, threadProvider, processModules);
     },
     start({ dolly }) {
-      return { memory: memory.buffer, address: Number(dolly._dolly_terminal_mailbox_address()) };
+      const address = Number(dolly._dolly_terminal_mailbox_address());
+      terminal = new TerminalMailbox(memory.buffer, address);
+      return { memory: memory.buffer, address };
     },
     serviceDeferred() { supervisor?.serviceDeferred(); },
     // Services deferred work each time the page notifies words[index], a
