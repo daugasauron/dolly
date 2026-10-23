@@ -77,8 +77,14 @@ against, deletes `*.map`, `*.d.ts`, `*.d.mts` and `*.d.cts` from its tree after 
 from source), `pi-agent` without `rg` and `fd` 242,647,477 (294,103,107 before);
 `pi-browser.mjs` passes on it (Chromium 57.2 s).
 
-Left: build `rust-build`, `ripgrep` and `fd` on the new seed (the integrator's hugebuild,
-in `work/x11fix`), then `pi` to `pi-agent` here, run `pi-browser.mjs` whole in both
+On the `559ad049` seed (after the `65736016` merge; `quickjs`, `janis`, `sbase`,
+`janis-install`, `secretenv`, `typescript` rebuilt here, the base hard-linked from
+`work/x11fix`): `janis-install-browser.mjs` passes in Chromium (5.5 s) and Firefox (10.6 s),
+`javascript-browser.mjs` in Chromium (29.4 s) and Firefox (36.9 s).
+
+Left: build `rust-build`, `ripgrep` and `fd` on the integration branch's newest seed (the
+integrator's, in `work/x11fix`: the Rust compiler seed is stamped with the process
+contract, which execve changed), merge that seed here, then `pi` to `pi-agent`, run `pi-browser.mjs` whole in both
 browsers, measure `pi-agent` with `rg` and `fd`, and the images on `pi`.
 
 Build note: `f2677945` changed `host/input/input.h` and `input-abi.h` without repinning
