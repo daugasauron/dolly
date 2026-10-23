@@ -103,7 +103,7 @@ client into every SDL program, so every image and session that runs one would de
 `core/npm-packages`. Which images declare `audio@0` is the owner's call; the line is in
 [Xonotic](../20261006-122433-xonotic/TASK.md).
 
-Done (2026-10-24, the llama commit after `2d23f716`): `llama-cpp` holds `llama-build`'s build
+Done (2026-10-24, `578edd0c`): `llama-cpp` holds `llama-build`'s build
 (llama.cpp, its common library, ggml with the CPU and WebGPU backends) and `webgpu.cpp`, the
 WebGPU C API that backend calls, as `libdolly-webgpu.a`, so a program links the package and
 `-ldolly-gpu` (which it installs) and nothing else; it declares `gpu@0`, as its programs do.

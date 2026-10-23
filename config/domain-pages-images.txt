@@ -60,6 +60,7 @@ vi
 xxd
 base64
 llama
+llama-cpp
 openal
 tar
 sbase
