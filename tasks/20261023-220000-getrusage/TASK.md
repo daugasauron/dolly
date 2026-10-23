@@ -25,7 +25,9 @@ the libc has no `gethostbyaddr` (OCaml raises `Not_found`).
 
 - `getrusage`: fixed in `03717431` (core/npm-packages): the adapter answers with the rule
   `clock()` already follows, the time since the process started as user time; a check in
-  `test/fixtures/process-lifecycle.c` fails on the old stub. Not yet run in a browser.
+  `test/fixtures/process-lifecycle.c` fails on the old stub. Verified by the integrator
+  (2026-10-23): `test/process-browser.mjs` passed in `work/x11fix` at `ba0f7f34`, the new
+  seed, with that check, in Chromium (27.2 s) and Firefox (27.2 s).
 - `times`: Emscripten's is a strong definition in `emscripten_libc_stubs.o` of `libstubs.a`,
   which a link pulls in for `getpwnam` and others, so the adapter's own collided ("duplicate
   symbol: times", make's link); `llvm-objcopy` cannot weaken a Wasm symbol. Reverted in
