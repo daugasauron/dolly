@@ -427,8 +427,9 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
   await run("mkdir -p /tmp/amy-tar/in/deep /tmp/amy-tar/out && cd /tmp/amy-tar && seq 1 2000 > in/deep/numbers && ln -s deep/numbers in/link && ! tar -cf in.tar in 2> /dev/null");
   await run("amy install tar && cd /tmp/amy-tar && tar -cf in.tar in && tar -xf in.tar -C out && cmp out/in/deep/numbers in/deep/numbers && " +
     "test \"$(readlink out/in/link)\" = deep/numbers && tar -cf - in | pigz | gzip -dc | tar -tf - | grep -qx in/link && " +
-    // -j starts bzip2 and waits for it: the archive is whole when tar ends.
-    "tar -cjf in.tbz in && tar -tjf in.tbz | grep -qx in/link");
+    // -j starts bzip2 and waits for it: the archive is whole when tar ends;
+    // -z reads with the gzip package.
+    "tar -cjf in.tbz in && tar -tjf in.tbz | grep -qx in/link && tar -cf - in | pigz > in.tgz && tar -tzf in.tgz | grep -qx in/link");
   for (const read of reads("tar")) await run(read);
   // dolly-llama computes on the GPU, a host module default does not declare:
   // the package is refused by the module's name and nothing of it is installed.
