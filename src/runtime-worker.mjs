@@ -142,6 +142,7 @@ try {
   if (bootMode === "rebuild" && baseReference && !baseArtifact) throw new Error("base image artifact was not provided");
   bootstrapStage("creating wasm64 userspace kernel...");
   const memory = host.kernel.memory;
+  await host.kernel.growing;
   // Fixed deployment input, never a filename or URL supplied by Wasm.
   const kernelModule = await WebAssembly.compileStreaming(fetch(locateArtifact("dolly.wasm")));
   const kernel = new WebAssembly.Instance(kernelModule, host.imports(kernelModule)).exports;

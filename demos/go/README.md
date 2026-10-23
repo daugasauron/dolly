@@ -54,13 +54,25 @@ source by itself.
   portable fallbacks, as on js and wasip1. Files, directories, the working
   directory, pipes, `dup`, locks and `os/exec` are the contract's own.
 
+## Network, signals and exec
+
+- `net/http`'s default transport makes requests through Dolly's HTTP broker
+  (`http@0`), as `curl` does: the page fetches them under its policy, and the
+  browser owns TLS, compression and redirects. CORS applies: `proxy.golang.org`
+  and `sum.golang.org` send its headers, so `go get` works under the default
+  policy. A program that links `net/http` records `http@0`, so an image that
+  keeps one declares it. `net`'s sockets reach nothing, as on wasip1.
+- `signal.Notify` receives the signals the kernel delivers (Ctrl-C, `kill`);
+  one a program did not ask for takes its default action.
+- `syscall.Exec` replaces the program (the contract's `EXEC`); signals the
+  program ignored stay ignored.
+
 ## Limits
 
 - Programs are pure Go: no cgo.
 - A program is one thread: `runtime.NumCPU` is 1, so `go build` compiles one
-  package at a time unless told `-p N`.
-- No network: `net` reaches nothing, so modules come from a vendor directory.
-- `os/signal` delivers nothing; a signal takes its default action.
-- `syscall.Exec` fails (`ENOSYS`); `go run` starts the program as a child.
+  package at a time unless told `-p N`. One compile of the toolchain's own
+  `cmd/compile/internal/ssa` grows to 3.9 GiB, so go-build compiles serially
+  under `GOMEMLIMIT`.
 
 Test: `npm run test:demos -- go` ([`test/`](test/)).

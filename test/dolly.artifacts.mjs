@@ -322,6 +322,17 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   }
 });
 
+// npm run image -- NAME registers NAME's closure alone, and the checks below
+// then read a part of the catalog: that is no full pass.
+test("dist registers every image of the catalog", async () => {
+  const { DOLLY_IMAGES } = await import(artifact("dolly-images.mjs"));
+  const registered = new Set(DOLLY_IMAGES.map(({ image }) => image));
+  const missing = (await discoverImageDefinitions(new URL("..", import.meta.url).pathname))
+    .map(({ image }) => image).filter(image => !registered.has(image));
+  assert.deepEqual(missing, [], `dist registers ${registered.size} images, ${missing.length} fewer than the catalog: ` +
+    "a single-image run narrowed it, and a plain npm run image registers them all");
+});
+
 test("published inputs are independent exact pinned files", async () => {
   const projectDir = new URL("..", import.meta.url).pathname;
   const { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } = await import(artifact("dolly-images.mjs"));

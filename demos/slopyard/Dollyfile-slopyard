@@ -10,10 +10,10 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/slopyard/Dollyfile-gamedev-sdk 2daf720066f43f9d2853e8acfa1b8e1a8551f6316708dd091c1b6bc7d50ed963
-INSTALL /v0.1.4/Dollyfile-libdolly-gpu f4b5492c484afbd88dccd2066bacf7a581789cdae22f73bd93b22bd57db6d4a7
-INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 6e07a69f1c6837aebcf2b7a7c8e8c204dc3cc47064284fd53a68155a926cdac3
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly e00cd7f7d227d4cc3060d989defbeda0541ba3568461c7f87b8b2b1afd4de4e9
+FROM /v0.1.4/demos/slopyard/Dollyfile-gamedev-sdk 3ed42b44a58333964961dedfcef4972f8d1c4d676b7ef37630a485dec85b7aac
+INSTALL /v0.1.4/Dollyfile-libdolly-gpu f73cf73d6e271517756bf005d1a374a4958fbdf7fa1f656e8d0aff2684ea754b
+INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 55f385084bf191145f97f4ab0d192a7d2b5e4c9d647aa7678bbade5e68df6f17
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 882569139314f942731c961667083aa1de8cb39d22fe13c515f6762a937d873f
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make

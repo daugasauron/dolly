@@ -36,4 +36,7 @@
   (import "env" "dolly_clock_monotonic" (func (result f64)))
   ;; Fills at most 65536 bytes (address, size) from the browser's generator.
   (import "env" "dolly_entropy" (func (param i64 i64) (result i32)))
+  ;; Grows env.memory by a number of 64 KiB pages, up to its maximum: the old
+  ;; size in pages, or -1. The runtime grows it in a Worker of its own.
+  (import "env" "dolly_memory_grow" (func (param i64) (result i64)))
 )

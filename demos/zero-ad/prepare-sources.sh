@@ -74,16 +74,23 @@ if has_image spidermonkey; then
   # SpiderMonkey's pinned tarball without the test suites a --disable-tests build
   # never reads (490 MB), 0 A.D.'s patches and Dolly's.
   spidermonkey="${zad_dir}/0ad-$(source config/source-pins.sh && echo "${DOLLY_0AD_VERSION}")/libraries/source/spidermonkey"
-  # Extracted afresh each time (5 s), so a changed exclude list cannot leave a
-  # stale tree behind. Prune the test suites a --disable-tests build never reads
-  # (490 MB); keep js/src/tests/style, which check_spidermonkey_style.py reads.
+  # Staged again (7 s) only when this script (its exclude list), Dolly's patch
+  # or the archive writer changed; the rest of its inputs key zad_dir. Prune
+  # the test suites a --disable-tests build never reads (490 MB); keep
+  # js/src/tests/style, which check_spidermonkey_style.py reads.
   mozjs_dir="${zad_dir}/mozjs-128.13.0"
-  rm -rf "${mozjs_dir}"
-  tar -xf "${spidermonkey}/mozjs-128.13.0.tar.xz" -C "${zad_dir}" \
-    --exclude='mozjs-128.13.0/js/src/tests/test262' --exclude='mozjs-128.13.0/js/src/tests/non262' \
-    --exclude='mozjs-128.13.0/js/src/jit-test' --exclude='mozjs-128.13.0/testing/web-platform'
-  node scripts/build-source-tar.mjs "${static_dir}/spidermonkey/source.tar.gz" \
-    "${mozjs_dir}" /tmp/mozjs/mozjs-128.13.0 \
-    "${spidermonkey}/patches" /tmp/mozjs/patches \
-    demos/zero-ad/toolchain/spidermonkey.patch /tmp/mozjs/spidermonkey.patch
+  mozjs_source="${zad_dir}/spidermonkey-source.tar.gz"
+  mozjs_key="$(sha256sum demos/zero-ad/prepare-sources.sh demos/zero-ad/toolchain/spidermonkey.patch scripts/build-source-tar.mjs | sha256sum)"
+  if [[ ! -f "${mozjs_source}" || "$(cat "${mozjs_source}.inputs" 2> /dev/null)" != "${mozjs_key}" ]]; then
+    rm -rf "${mozjs_dir}" "${mozjs_source}.inputs"
+    tar -xf "${spidermonkey}/mozjs-128.13.0.tar.xz" -C "${zad_dir}" \
+      --exclude='mozjs-128.13.0/js/src/tests/test262' --exclude='mozjs-128.13.0/js/src/tests/non262' \
+      --exclude='mozjs-128.13.0/js/src/jit-test' --exclude='mozjs-128.13.0/testing/web-platform'
+    node scripts/build-source-tar.mjs "${mozjs_source}" \
+      "${mozjs_dir}" /tmp/mozjs/mozjs-128.13.0 \
+      "${spidermonkey}/patches" /tmp/mozjs/patches \
+      demos/zero-ad/toolchain/spidermonkey.patch /tmp/mozjs/spidermonkey.patch
+    printf '%s\n' "${mozjs_key}" > "${mozjs_source}.inputs"
+  fi
+  copy_static "${mozjs_source}" spidermonkey/source.tar.gz
 fi

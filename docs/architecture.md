@@ -17,7 +17,7 @@ flowchart LR
     supervisor["Process supervisor"]
   end
   subgraph procs["Process Workers"]
-    proc["At most 32 processes<br/>private memory64<br/>one import: dolly_process_0.call"]
+    proc["At most 56 processes<br/>private memory64<br/>one import: dolly_process_0.call"]
   end
   proc -- "syscall packet" --> supervisor
   supervisor -- "gate copy + dispatch" --> kernel

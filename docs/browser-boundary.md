@@ -59,7 +59,7 @@ Worker URL.
 
 | Module | Channel | Authority | Code |
 | --- | --- | --- | --- |
-| `runtime@0` | `env.memory`, `env.dolly_clock_realtime`, `env.dolly_clock_monotonic`, `env.dolly_entropy`, `env.dolly_bootstrap_write_bytes`, terminal mailbox | Kernel memory; the two clocks; 64 KiB of entropy a call; boot text, 1 MiB a write; process Workers; report foreground and results, receive Ctrl+C | [`host/runtime/`](../host/runtime/module.json) ([`process-supervisor.mjs`](../src/process-supervisor.mjs)) |
+| `runtime@0` | `env.memory`, `env.dolly_memory_grow`, `env.dolly_clock_realtime`, `env.dolly_clock_monotonic`, `env.dolly_entropy`, `env.dolly_bootstrap_write_bytes`, terminal mailbox | Kernel memory, grown up to its maximum by a Worker of the module's own; the two clocks; 64 KiB of entropy a call; boot text, 1 MiB a write; process Workers; report foreground and results, receive Ctrl+C | [`host/runtime/`](../host/runtime/module.json) ([`process-supervisor.mjs`](../src/process-supervisor.mjs)) |
 | `http@0` | `env.dolly_http_dispatch`, 16-slot pool | The only agent-selected network edge, under the page's policy | [`host/http/`](../host/http/module.json) |
 | `download@0` | `env.dolly_download_dispatch` | Stream one file (1 MiB chunks, 1 GiB) into a Blob under a checked basename; saved only by a user click; at most 4 waiting | [`host/download/`](../host/download/module.json) |
 | `upload@0` | mailbox | Ask for a file; the user picks it; 1 GiB of bytes in 1 MiB chunks, no name or path; refused for 2 s after a cancel | [`host/upload/`](../host/upload/module.json) |

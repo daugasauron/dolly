@@ -9,11 +9,11 @@ REQUIRES HOST http@0
 # Build-only: the libraries the 0 A.D. engine links, built from the pinned
 # upstream sources of build-sources.tsv, with FreeType and libpng installed and
 # pkgconf for its premake scripts.
-FROM /v0.1.4/demos/zero-ad/Dollyfile-openal-build f7137e50741d3784aa98234007a4c5215ba936ebbd0a3b1083a1b9a17479f86a
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf f49d044129d7a2a5f149ba1c4eab4dfc8a2cc145a7ec2323a723f7172207968f
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype 95f968e8b3d76260e169ad93add1ca5b1d122ae87e07d965a0397ec1021671ea
-COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 0f58b49f6d0c87b6cb715b93099d60de07fbebf5aa4ad4d961bb6eba2c6e0f9d /usr/include/SDL2 /usr/include/SDL2
-COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 0f58b49f6d0c87b6cb715b93099d60de07fbebf5aa4ad4d961bb6eba2c6e0f9d /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+FROM /v0.1.4/demos/zero-ad/Dollyfile-openal-build 9e7cd633e84aeb1182a3894a9322450faa3650cd34d7b929c2bf802a6f7d70b8
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 7135481853e06749f8cd75ecf2804d341805a47d825c5552636490eea7898661
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype 1d410ac8881176875d9d7021f3236b551149396448b5ce0530c77b56c5ad0b94
+COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 de4292d599400f593c409752a0dcbd81a8e54eba5e363628708d1dd07d544e77 /usr/include/SDL2 /usr/include/SDL2
+COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 de4292d599400f593c409752a0dcbd81a8e54eba5e363628708d1dd07d544e77 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES HEADER zlib
@@ -34,7 +34,7 @@ REQUIRES TOOL mkdir
 SOURCE /v0.1.4/dist/static/zero-ad-build/deps.tar.gz 725e009d9819b42b32d685ef6f7cd51ece8f34031fdb94c9bd00cacef9da1579 /tmp/zad/deps.tar.gz
 SLOP gzip -dc /tmp/zad/deps.tar.gz | tar -xf - -C /
 # Licences of the libraries the engine links; zero-ad copies them.
-COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 0f58b49f6d0c87b6cb715b93099d60de07fbebf5aa4ad4d961bb6eba2c6e0f9d /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 de4292d599400f593c409752a0dcbd81a8e54eba5e363628708d1dd07d544e77 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 FOLDER /usr/share/licenses
 
 # Libraries without a build system usable here (autotools; ICU's port list) compile
