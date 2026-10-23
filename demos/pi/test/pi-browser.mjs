@@ -1,18 +1,22 @@
 // Pi in the pi-agent image: package and model commands, rg and fd, its tools over
 // Slop, the OpenRouter and Codex logins, session resume, and the TUI against a
 // scripted streaming provider. Usage: node demos/pi/test/pi-browser.mjs
+// (DOLLY_BROWSER=firefox runs it in Firefox).
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { delay, demoTest, recoveryPrompt, shellQuote } from "../../browser.mjs";
 import { runFd, runRipgrep } from "../../rust/test/fixtures/rust-tools.mjs";
 
 const credential = "Bearer sandbox-placeholder";
-// The fixture model calls these tools in order, then answers.
+// The fixture model calls these tools, a response each, then answers. The last
+// response writes a file and downloads it at once, as models do.
 const tools = [
-  ["write", { path: "/workspace/pi-http-test.txt", content: "pi crossed Dolly's HTTP broker\n日本語😀\n" }],
-  ["edit", { path: "/workspace/pi-http-test.txt", edits: [{ oldText: "HTTP broker", newText: "HTTP broker via edit" }] }],
-  ["bash", { command: "seq 1 3000 | tee /workspace/pi-lines.txt; printf 'old\\377\\n' > /workspace/pi-latin1.txt" }],
-  ["read", { path: "/workspace/pi-lines.txt" }],
-  ["edit", { path: "/workspace/pi-latin1.txt", edits: [{ oldText: "old", newText: "new" }] }],
+  [["write", { path: "/workspace/pi-http-test.txt", content: "pi crossed Dolly's HTTP broker\n日本語😀\n" }]],
+  [["edit", { path: "/workspace/pi-http-test.txt", edits: [{ oldText: "HTTP broker", newText: "HTTP broker via edit" }] }]],
+  [["bash", { command: "seq 1 3000 | tee /workspace/pi-lines.txt; printf 'old\\377\\n' > /workspace/pi-latin1.txt" }]],
+  [["read", { path: "/workspace/pi-lines.txt" }]],
+  [["edit", { path: "/workspace/pi-latin1.txt", edits: [{ oldText: "old", newText: "new" }] }]],
+  [["write", { path: "/workspace/pi-download.txt", content: "DOLLY-PI-DOWNLOAD\n" }], ["download", { path: "pi-download.txt" }]],
 ];
 const finalRequest = tools.length + 1;
 const modelRequests = [];
@@ -24,14 +28,14 @@ async function provider(request, response, path, headers) {
   for await (const chunk of request) chunks.push(chunk);
   const payload = JSON.parse(Buffer.concat(chunks).toString());
   modelRequests.push({ authorization: request.headers.authorization, payload });
-  const ordinal = payload.messages.filter(message => message.role === "tool").length + 1;
-  const tool = tools[ordinal - 1];
+  const ordinal = payload.messages.filter(message => message.role === "assistant" && message.tool_calls).length + 1;
+  const calls = tools[ordinal - 1];
   const chunk = (delta, finish_reason = null) =>
     ({ id: `chatcmpl-dolly-${ordinal}`, object: "chat.completion.chunk", created: 0, model: "dolly-test-model",
       choices: [{ index: 0, delta, finish_reason }] });
-  const events = tool ? [
-    chunk({ role: "assistant", tool_calls: [{ index: 0, id: `call_dolly_${tool[0]}`, type: "function",
-      function: { name: tool[0], arguments: JSON.stringify(tool[1]) } }] }),
+  const events = calls ? [
+    chunk({ role: "assistant", tool_calls: calls.map(([name, input], index) => ({ index, id: `call_dolly_${ordinal}_${index}`,
+      type: "function", function: { name, arguments: JSON.stringify(input) } })) }),
     chunk({}, "tool_calls"),
   ] : [chunk({ content: "日本語😀 DOLLY-PI-HTTP-" }), chunk({ content: "EDIT-OK" }), chunk({}, "stop")];
   response.writeHead(200, { ...headers, "content-type": "text/event-stream; charset=utf-8" });
@@ -49,7 +53,7 @@ async function provider(request, response, path, headers) {
       await delay(25);
     }
     response.write(bytes.subarray(start));
-    if (!tool && index === 0) {
+    if (!calls && index === 0) {
       // The answer's first half must be visible before its second half is sent.
       stream.phase = "prefix";
       await delay(2000);
@@ -60,7 +64,7 @@ async function provider(request, response, path, headers) {
   return true;
 }
 
-await demoTest("pi", { image: "pi-agent", timeout: 900_000, server: { handle: provider, fixtures: {
+await demoTest("pi", { image: "pi-agent", timeout: 900_000, browser: process.env.DOLLY_BROWSER ?? "chromium", server: { handle: provider, fixtures: {
   "pi-tools.mjs": "demos/pi/test/fixtures/pi-tools.mjs",
   "pi-sessions.mjs": "demos/pi/test/fixtures/pi-sessions.mjs",
   "utf8-writer.c": "demos/javascript/test/fixtures/utf8-writer.c",
@@ -259,8 +263,11 @@ await demoTest("pi", { image: "pi-agent", timeout: 900_000, server: { handle: pr
     /Showing lines 1001-3000 of 3000\. Full output: \/tmp\/pi-bash-[0-9a-f]+\.log/,
     /Showing lines 1-2000 of 3001\. Use offset=2001 to continue/,
     /Successfully replaced 1 block\(s\) in \/workspace\/pi-latin1\.txt/,
-  ].entries()) assert.match(results[index], expected, `Pi ${tools[index][0]} tool result`);
+  ].entries()) assert.match(results[index], expected, `Pi ${tools[index][0][0]} tool result`);
   const fullOutput = results[2].match(/\/tmp\/pi-bash-[0-9a-f]+\.log/)[0];
+  const saved = page.waitForEvent("download");
+  await page.locator("#downloads button").first().click();
+  assert.equal(await readFile(await (await saved).path(), "utf8"), "DOLLY-PI-DOWNLOAD\n");
   await input("/quit");
   await page.keyboard.press("Enter");
   assert.equal(await pi.done, 0);

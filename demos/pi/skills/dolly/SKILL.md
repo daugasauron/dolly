@@ -1,32 +1,53 @@
 ---
 name: dolly
-description: Reference for tasks on this Dolly machine (a Unix-like userspace in a browser's WebAssembly sandbox) - installing software with amy, fetching source without git clone, Slop shell idioms, parallel make, compiling with cc and Dolly's headers, Janis JavaScript, exit status 126. Useful only while carrying out such a task or diagnosing a failed command, not for conversation.
+description: How to do things on this Dolly machine (a POSIX-like wasm64 userspace in a browser tab) - packages with amy, host modules with nena, fetching source without git clone, Slop shell idioms, parallel make, C with Dolly's headers (display, input), Janis JavaScript, moving files with download and upload, and why a command failed (status 126, 127, curl 7 and 9). Read it before such a task.
 ---
 
 # Dolly
 
 Everything here (shell, processes, files) runs in WebAssembly inside one
 browser tab. Files live in memory: reloading the tab loses them unless the user
-saves a session (Ctrl+Shift+S). There is no host filesystem, no sockets, no
-root, no PTY and no `apt`, `npm` or `pip install`.
+saves the session (Ctrl+Shift+S) or downloads them. There is no host
+filesystem, no sockets to the outside, no root and no `apt`, `npm` or
+`pip install` before `amy install python`.
 
 ## What this machine has
 
 - `cat /etc/dolly/Dollyfile`: the recipe this image was built from. Its
-  `REQUIRES HOST` lines are the host modules (display, http, threads, gpu...)
-  that programs here may use. `/etc/dolly/recipes/` holds the recipes it came from.
+  `REQUIRES HOST` lines are the host modules (display, input, http, threads,
+  gpu, dso, sockets...) that programs here may use. `/etc/dolly/recipes/`
+  holds the recipes it came from.
 - `ls /bin /usr/bin`: every command. Read its page (`man NAME`) or usage
   (`NAME --help`) before assuming GNU options; options go before operands
-  (`ls -a /etc`).
-- `amy list` shows the packages this release publishes; `amy install NAME`
-  installs one (python, nvim, emacs, ripgrep, local models...) and its commands
-  work at once. If amy says the image must declare `packages@0`, this image
-  cannot install packages.
+  (`ls -a /etc`). `help` is the shell's own summary.
+- `amy list` shows the packages this release publishes, `amy info NAME` one of
+  them, and `amy install NAME` installs it; its commands work at once. If amy
+  says the image must declare `packages@0`, this image cannot install packages.
+- `amy install` refuses a package whose host module this image lacks:
+  "needs dso@0: add REQUIRES HOST dso@0" (`python` needs `dso@0` and
+  `sockets@0`). Where `nena` exists (the image declares `nena@0`, as `default`
+  does), `nena` lists the page's modules and `nena enable dso sockets` adds them
+  for the session. Elsewhere nothing inside the image adds one: say that the
+  task needs an image that declares it.
+- Processes: `cat /proc/processes` (PID, parent, state, command), or `ps` after
+  `amy install ps`; `kill PID`. There is no other `/proc`.
 - Dolly's C interfaces: the headers in `/usr/include/dolly/`, whose comments
   are the documentation. Licences: `/usr/share/licenses/`.
 - The platform's documents and machine contracts are in
   `/usr/share/doc/dolly/` (`docs/`, `abi/`, `host/`); `amy install dolly-docs` adds
   them to an image that lacks them. Dolly's source is not in the image.
+
+## Files in and out
+
+- `download FILE` (or Pi's `download` tool) offers one file to the user's
+  browser, which saves it when the user clicks Save; use it only when asked.
+- `upload PATH` asks the user to pick a file and writes it to `PATH`; an
+  existing file is never replaced.
+- Several files: `tar` here only extracts and `gzip` only decompresses. Git
+  writes archives of any directory:
+  `git init -q . && git add -A && git archive -o out.tar.gz $(git write-tree)`
+  (`.tar`, `.tar.gz` or `.zip`). `amy install tar` brings a `tar` that writes
+  `.tar`; its `-z` fails, as it would need `fork`.
 
 ## Network
 
@@ -68,8 +89,8 @@ Bash features. The programs of a pipeline run at the same time
 function as a stage finishes before the next stage reads its output.
 Put longer scripts in a file with the write tool and run `slop FILE`. Nobody
 is at the keyboard of the tool's commands: never start interactive programs
-(nvim, pi, python without arguments) there, and bound anything that might wait
-or hang with `timeout 60 COMMAND`.
+(nvim, pi, games, python without arguments) there, and bound anything that
+might wait or hang with `timeout 60 COMMAND`.
 
 `PROGRAM &` starts a program, `$!` is its PID and `wait` collects it; there is
 no job control, and `&` takes only programs (`slop -c '...' &` for the rest).
@@ -96,13 +117,24 @@ than Slop has: compile the sources directly or write a small Makefile. `-lm`, `-
 link from `/usr/lib`. To use a Dolly interface (`display.h` draws on the
 terminal's canvas, `input.h` reads keys and the pointer), include its header from `/usr/include/dolly/`: its client
 library links automatically, with no `-l`. The program then runs only in images whose recipe declares that
-module, and `-pthread` needs `threads@0`. Time code with
-`clock_gettime(CLOCK_MONOTONIC)`.
+module, and `-pthread` needs `threads@0`. A program that draws or reads keys
+needs the terminal: build it with the tool, and the user runs it from Slop.
+Time code with `clock_gettime(CLOCK_MONOTONIC)`.
 
-A program that exits 126 was refused or crashed, and one line on its stderr
-says why, usually a host module this image's recipe does not declare
-(`REQUIRES HOST` in `/etc/dolly/Dollyfile`). Nothing inside an image adds a
-module: the program needs an image whose recipe declares it.
+## When a command fails
+
+- Status 127, "command not found": not installed. `amy list` may have it;
+  there is no `apt`, `pip` or `npm` to fall back on.
+- Status 126: the program was refused or crashed, and one line on its stderr
+  says why, usually a host module this image does not declare (above).
+- "Function not implemented" (`ENOSYS`) or "Not supported": an operation Dolly
+  does not have, such as `fork`, `exec`, signals to process groups or network
+  sockets; `docs/process-model.md` lists them. Another option of the same
+  program rarely helps; another way of doing the task usually does.
+- Hiding stderr (`2>/dev/null`) or piping into `head` can hide the one line
+  that says why; read it. A pipeline's status is its last stage's:
+  `amy install NAME 2>&1 | tail -3` is 0 when amy fails, unless
+  `set -o pipefail` came first.
 
 ## JavaScript
 

@@ -112,15 +112,23 @@ export default function dollyTools(pi) {
     );
   });
 
-  pi.registerTool(sessionTool((cwd) => createBashToolDefinition(cwd, { operations: slop })));
+  // Pi's bash tool tells the model it runs Bash; here it runs Slop without a terminal.
+  pi.registerTool(sessionTool((cwd) => {
+    const tool = createBashToolDefinition(cwd, { operations: slop });
+    return { ...tool, description: tool.description.replace("Execute a bash command",
+      "Run a command in Slop, Dolly's POSIX shell (not Bash), with no terminal or keyboard,") };
+  }));
   pi.registerTool(sessionTool((cwd) => createEditToolDefinition(cwd, { operations: byteEdits })));
 
   pi.registerTool({
     name: "download",
     label: "download",
+    // Pi runs one response's tool calls at once; a write of the same file must finish first.
+    executionMode: "sequential",
     description:
-      "Download one file from Dolly's in-memory filesystem through the browser. " +
-      "Use only when the user asks to save or download a file to their device.",
+      "Offer one file of Dolly's in-memory filesystem to the user's browser, which saves it " +
+      "when the user clicks Save. Use only when the user asks to save or download a file to " +
+      "their device; for several files, download one archive (git archive).",
     parameters: {
       type: "object",
       properties: { path: { type: "string", description: "File path, relative to the current workspace or absolute" } },
@@ -130,7 +138,7 @@ export default function dollyTools(pi) {
     async execute(_id, parameters, _signal, _update, context) {
       const target = resolve(context.cwd, String(parameters.path));
       Dolly.download(target);
-      return { content: [{ type: "text", text: `Started browser download: ${basename(target)}` }], details: {} };
+      return { content: [{ type: "text", text: `Offered ${basename(target)} to the browser; the user saves it with the page's Save button.` }], details: {} };
     },
   });
 }
