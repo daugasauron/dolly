@@ -3,6 +3,7 @@ PACKAGE imgui
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
+REQUIRES HOST touch@0
 
 # Dear ImGui from upstream's release archive, unchanged, with its SDL2 platform
 # backend and its SDL_Renderer backend, which draws with SDL's software
@@ -10,7 +11,7 @@ REQUIRES HOST input@0
 # which link -limgui -lSDL2 -lm, and imgui-demo, upstream's
 # example_sdl2_sdlrenderer2.
 FROM /v0.1.3/Dollyfile-system-tools 13ba21000aa665d6729f8e00cb795c4871f3bfaa72a4e18a7197d536b84a5826
-INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 d101b845e64ff55be49f015c50c34b0ba126f251dde9503d0a3990af647aced8
+INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 752f37ebc794b9d00d3bc5b37c1deac53241e60519954d9216599f21a948938e
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES HEADER sdl2

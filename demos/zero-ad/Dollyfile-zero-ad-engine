@@ -4,6 +4,7 @@ REQUIRES HOST runtime@0
 REQUIRES HOST audio@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
+REQUIRES HOST touch@0
 REQUIRES HOST download@0
 REQUIRES HOST gpu@0
 REQUIRES HOST http@0
@@ -11,9 +12,10 @@ REQUIRES HOST upload@0
 
 # Build-only: premake and the 0 A.D. engine (pyrogenesis), built by upstream's
 # premake Makefiles with Dolly's c++.
-FROM /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps 66edddc04dd087b9d1d77e173cbd029dbd54743934dcd18f5b4533dd709c1382
+FROM /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps 381055fa869fb31681f520a5e9e93d27f8a8f2ace8b563ce967cba30a483023e
 INSTALL /v0.1.3/Dollyfile-libdolly-gpu d6c736fc4049bbfd7c58cca367c20f8697e197073c3091ea98852089b84aa3c4
 INSTALL /v0.1.3/Dollyfile-libdolly-audio e0f28a4b97bf6d44758d71ffa9b2b748221538af33f4968f8c329198ba1b7a15
+INSTALL /v0.1.3/Dollyfile-libdolly-touch b726c3f79a5e4ca1b6e1adb8e55e5b15ea2314a934dd8c2745ec8d07e2aed007
 # download, which the engine's test takes its logs out with.
 INSTALL /v0.1.3/Dollyfile-transfer 51f202bc3437e52024fdad9d2fb8f5f4bf2f4a0cb74d4a41939755ca384d39ba
 REQUIRES TOOL cc

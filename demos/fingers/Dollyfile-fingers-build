@@ -1,0 +1,21 @@
+DOLLY 7
+PACKAGE fingers-build
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST touch@0
+
+# fingers, an SDL2 program that reads SDL's finger events and nothing of
+# Dolly's: SDL2 is linked into it and needed by no one who installs it.
+FROM /v0.1.3/Dollyfile-system-tools 13ba21000aa665d6729f8e00cb795c4871f3bfaa72a4e18a7197d536b84a5826
+USE /v0.1.3/demos/sdl2/Dollyfile-sdl2 752f37ebc794b9d00d3bc5b37c1deac53241e60519954d9216599f21a948938e
+REQUIRES HEADER libc
+REQUIRES HEADER sdl2
+REQUIRES LIB SDL2
+REQUIRES TOOL cc
+REQUIRES TOOL rm
+
+SOURCE /v0.1.3/dist/static/fingers/fingers.c f1dc8ac3e293ff2017a6761efe8e5261c20025c87006bee0e0d5fa391a9b9c74 /tmp/fingers/fingers.c
+SLOP cc -O1 -I/usr/include/SDL2 /tmp/fingers/fingers.c -o /usr/bin/fingers -lSDL2 -lm
+EXPORTS TOOL fingers
+SLOP rm -rf /tmp/fingers
