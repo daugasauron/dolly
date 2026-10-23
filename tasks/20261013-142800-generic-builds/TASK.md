@@ -69,14 +69,15 @@ Done (2026-10-24, `2d23f716`):
   no libjpeg is installed (read in the file; that build was not made). `sdl2` now keeps SDL's own `sdl2.pc`, which the two `.pc`
   files require (`xorg-server-build` wrote its own copy; that copy is gone).
 - `openal` holds its build: `openal-build` (a toolchain only `openal` and `zero-ad-deps` stood on)
-  is folded into `Dollyfile-openal`, and `zero-ad-deps` is `FROM cmake-build` with `INSTALL openal`.
+  is folded into `Dollyfile-openal`, and `zero-ad-deps` is `FROM cmake-build` with `INSTALL openal`
+  (rebuilt here in 299 s; `demos/zero-ad/test/0ad-openal-browser.mjs` passes on its probe).
 - Measured in the `default` image (Chromium, `amy install` into a running session, the rows of
   `test/amy-browser.mjs` in order): `cc`, `cmake`, `sdl2`, `pkgconf`, `libpng`, `freetype`,
   `sdl2-ttf` (a word rendered in the terminal's font has ink; linked with
   `pkg-config --static --libs SDL2_ttf`: `-lSDL2_ttf -lfreetype -lpng16 -lz -lSDL2 -lm`),
   `sdl2-image` (a PNG written and read back, built by CMake from `find_package(SDL2_image)`),
   `openal` (the loopback square wave). `demos/sdl2/test/sdl2-browser.mjs` passes (Chromium).
-  Not rebuilt here: `zero-ad-deps` and the 0 A.D. chain, `xorg-server-build` and the X11 chain,
+  Not rebuilt here: the 0 A.D. chain after `zero-ad-deps`, `xorg-server-build` and the X11 chain,
   the images that only changed pins.
 - A CMake program linking the static FreeType through `find_package(Freetype)` (CMake's
   module) must add libpng and zlib itself; `pkg-config --static` gives them. Upstream's
