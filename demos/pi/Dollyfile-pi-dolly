@@ -9,8 +9,8 @@ REQUIRES HOST threads@0
 # dolly-tools.js (Slop for the shell tool and !, edits that keep bytes, a
 # download tool), the settings and the theme; with Pi, and the platform's
 # documents that the prompt and the skill name.
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi cd1a99bb03d1257f2fda737d76f0e47021bf97e56e39c7492fe98cfd88619eb4
-INSTALL /v0.1.4/Dollyfile-dolly-docs 78784b8c11c73da1ec59d39315358df79d8b9d23cb8bd85ed1fd93eddd574e4e
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi 73d529b3663e6befd5413f5c0874c7d3f568ded14ac315bcb9f68093d678c4b4
+INSTALL /v0.1.4/Dollyfile-dolly-docs 28723f4d069745d8e83a1b53370b94f51f585a997dea05ca72a1ecc385a77720
 
 SOURCE /v0.1.4/dist/static/default/pi/dolly-tools.js                    cc39e9df1eda939151e9b2811a6548bc0161cf2db11480dd96c3116e07a6de15 /home/dolly/.pi/agent/extensions/dolly-tools.js
 SOURCE /v0.1.4/dist/static/default/pi/SYSTEM.md                         2dcda0a9efecf923d4fff977ab8d70f758539519afeb96dfe15d97ca93fa4be1 /home/dolly/.pi/agent/SYSTEM.md

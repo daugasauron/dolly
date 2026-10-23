@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <termios.h>
 #include <unistd.h>
 
 static void check(int ok, const char *what) {
@@ -12,7 +13,8 @@ static void check(int ok, const char *what) {
   exit(1);
 }
 
-/* touch refuse | idle | busy | hold [input]. busy is refused beside a
+/* touch wheel | refuse | idle | busy | hold [input]. wheel asks for the
+   mouse, as tmux does, and prints the first report it reads. busy is refused beside a
    foreground program, which idle is for three seconds. hold prints each finger's down and end
    and exits once two went down and every one has ended; with input it also
    holds the input lease, prints the presses and releases it reads, and exits after
@@ -21,6 +23,29 @@ int main(int argc, char **argv) {
   const char *mode = argc > 1 ? argv[1] : "";
   uint64_t touch = 0, input = 0;
   dolly_touch_record records[DOLLY_TOUCH_READ_RECORDS];
+  if (!strcmp(mode, "wheel")) {
+    struct termios saved, raw;
+    check(tcgetattr(0, &saved) == 0, "the terminal's mode");
+    raw = saved;
+    raw.c_lflag &= ~(ICANON | ECHO);
+    check(tcsetattr(0, TCSANOW, &raw) == 0, "raw mode");
+    fputs("\033[?1000h\033[?1006hTOUCH-WHEEL-READY\r\n", stdout);
+    fflush(stdout);
+    char report[32];
+    size_t length = 0;
+    for (char byte = 0; byte != 'M' && byte != 'm'; byte = report[length++]) {
+      check(length < sizeof(report) - 1 && read(0, &report[length], 1) == 1, "a report");
+    }
+    report[length] = 0;
+    unsigned button, column, row;
+    check(sscanf(report, "\033[<%u;%u;%u", &button, &column, &row) == 3, "an SGR report");
+    fputs("\033[?1006l\033[?1000l", stdout);
+    printf("TOUCH-WHEEL %u %u;%u\n", button, column, row);
+    fflush(stdout);
+    /* The rest of the drag is not the shell's input. */
+    tcflush(0, TCIFLUSH);
+    return tcsetattr(0, TCSANOW, &saved) != 0;
+  }
   if (!strcmp(mode, "idle")) {
     sleep(3);
     return 0;

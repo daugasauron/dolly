@@ -1,8 +1,42 @@
 # man and --help: upstream pages print as roff source, and 17 packages have no page
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS: core,commands,docs,agent-experience,0.1.4
+
+## Closed (2026-10-23, `core/terminal`, `87571ab3`)
+
+All three items are done: item 3 with `e922ac36` and item 2 with
+`38099083`, both on `core/npm-packages`, and item 1 with `87571ab3`.
+
+Item 1, upstream's pages as text. Measured in Chromium and Firefox:
+
+- mandoc moved from `demos/tools` to the top level (`Dollyfile-mandoc`,
+  its archive staged by `scripts/prepare-image-sources.sh`), unchanged and
+  still `FROM system-tools`, and brings `text-page`, which moved out of
+  `tools-build`. The packages that carry system-tools' upstream pages,
+  `posix` (sbase's 44 and awk's), `ninja` (Samurai's) and `less`, `USE` it
+  and keep the text in `cat1`; nothing installs mandoc for a page, and
+  `tools-build` installs the core package as before. No seed change: the
+  root recipe and system-tools are unchanged, so is `man`, whose `man1`
+  fallback stays for the toolchains `FROM system-tools` that hold the
+  sources.
+- `default`: 86 pages in `cat1`, 73,936 bytes, none in `man1` (on
+  2026-10-06: 37 plain pages, 10,299 bytes, and 45 sources, 55,441). The
+  `posix` snapshot grew from 3,378,696 to 3,395,505 bytes, `default`'s from
+  18,952,487 to 18,969,028.
+- `man grep` begins `GREP(1)  General Commands Manual  GREP(1)`, `NAME`,
+  `grep – search files for patterns`; `amy install less` then `man less`
+  and `amy install mandoc` then `man mandoc` are text too.
+- `test/man-browser.mjs`: every page's first line is no macro, `man grep`
+  is formatted (the test compared it with the mdoc source before), `man man`
+  is `man --help`; Dolly's own commands are told from upstream's by the
+  page's first line, a title `NAME(1)`. The `mandoc` row of
+  `test/amy-browser.mjs` formats a page with `text-page`; that row and
+  `man mandoc` were run alone in both browsers, not the whole amy test.
+- The coordinator's brief expected a seed change for this item; none was
+  needed. The pointer-record comment of `host/input/input.h` was changed
+  beside it, as asked, and that does change the seed (see the mouse task).
 
 ## State (2026-10-23)
 

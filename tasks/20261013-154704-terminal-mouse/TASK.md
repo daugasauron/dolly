@@ -70,7 +70,14 @@ steps of `test/terminal-browser.mjs` are unchanged and pass).
   screen reader's gestures move the pointer too, so the tmux test moves
   the mouse back over the pane before the wheel, as a user's hand does.
 - On a phone a finger's drag is a wheel where the mouse last was, and a
-  phone has none: under tmux it scrolls the pane at the top left.
+  phone has none: under tmux it scrolls the pane at the top left. (Gone
+  the same day, `4e69d8bc`: the page sends the finger's position before
+  each scroll record; `test/touch-browser.mjs` holds it.)
+- Later the same day `host/input/input.h`'s comment on pointer and scroll
+  records was made true at the integrator's request. A change of that
+  header is a change of the seed (image inputs `1ee15fc6` to `a7990a19`)
+  and of `input@0`'s ABI digest (`88451810` to `bc086c22`): every
+  executable that links the input client is rebuilt with the round.
 - Also passing after the change, both browsers: `test/display-browser.mjs`,
   `test/touch-browser.mjs`, `test/process-browser.mjs` and the Emacs demo
   (its `site-start.el` turns `xterm-mouse-mode` on); the Neovim demo

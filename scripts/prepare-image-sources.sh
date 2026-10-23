@@ -78,6 +78,7 @@ if has_image ghostty-build; then
   droid_notice="$(bash "${project_dir}/scripts/fetch-pinned-archive.sh" droid_notice)"
 fi
 has_image system-build && copy_static src/slop.c default/slop.c
+has_image mandoc && copy_static "$(bash scripts/fetch-pinned-archive.sh mandoc)" default/mandoc-1.14.6.tar.gz
 if has_image system-build; then
   # The tools the root recipe compiles before it has tar: one SOURCE row each.
   for source in ar.c bracket.c cat.c cc.c cd.c clear.c cp.c cxx.c echo.c file.c foreground.c help.c ld.c \

@@ -5,11 +5,11 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/Dollyfile-system 83b9958652eba57bc2ccedf1bebe57284402ace7af9c128a3839dd446e7e05ce
+FROM /v0.1.4/Dollyfile-system 5c4eebc6d67c71b0ea6fb89d5b6ec4d6327668262dde58d3b736d19077ef8735
 INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 46772f895e3072f13b2af6c08d6bd6c86f4cc5dca3b92989293cebe6b697d608
 
-INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 73c70c2d73a370cee37f4ba4105d99d6f51e039fbcfa94ee23b8b71965aa7bba
-INSTALL /v0.1.4/demos/rust/Dollyfile-fd 57ba4597fba9d68f156bfb971768626a72844b7dc6da276959f09e3f9a868581
+INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 23a5e852c30a6c0138bd3dcfa9b8cee7cbdd08e15d047c117d3e82535498bab9
+INSTALL /v0.1.4/demos/rust/Dollyfile-fd 665b1606e63df21683f31bdae0da4697a1a87e52cc451bc34efd5cb7a7f54f96
 COPY /v0.1.4/demos/pi/Dollyfile-pi-build eb6e4346d7f07763d9dfc5942bdce48efbe95e180c77afda537b1cb4fbff20f9 /usr/bin/pi /usr/bin/pi
 COPY /v0.1.4/demos/pi/Dollyfile-pi-build eb6e4346d7f07763d9dfc5942bdce48efbe95e180c77afda537b1cb4fbff20f9 /usr/lib/node_modules /usr/lib/node_modules
 COPY /v0.1.4/demos/pi/Dollyfile-pi-build eb6e4346d7f07763d9dfc5942bdce48efbe95e180c77afda537b1cb4fbff20f9 /usr/src/pi-source /usr/src/pi-source

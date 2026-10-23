@@ -428,6 +428,8 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
           transport?.pushSyntheticKey(now > span ? "=" : "-", now > span ? "Equal" : "Minus", 2);
         }
       } else if (touch?.id === event.pointerId) {
+        // The wheel is reported where the finger is, as where the mouse is.
+        pushPointer(event, 2);
         transport?.pushScroll((touch.y - event.clientY) * canvas.height / canvas.clientHeight, 0);
         touch.y = event.clientY;
       }

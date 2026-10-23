@@ -3,13 +3,17 @@
 import assert from "node:assert/strict";
 import { browserTest } from "./browser.mjs";
 
-// Each loop leaves the names that failed in a file and prints them.
+// Each loop leaves the names that failed in a file and prints them. A page
+// is text: its first line is no macro.
 const everyCommandHasAPage = "rm -f /tmp/pageless; for file in /bin/* /usr/bin/*; do name=${file##*/}; " +
-  "man \"$name\" > /tmp/page && test -s /tmp/page || echo \"$name\" >> /tmp/pageless; done; ! cat /tmp/pageless 2> /dev/null";
-// Dolly's own pages are the plain ones; test and [ take --help as an expression.
-// The program is run by its path: cd, command and time are also Slop's own.
+  "man \"$name\" > /tmp/page && sed 1q /tmp/page | grep -qv '^[.]' || echo \"$name\" >> /tmp/pageless; done; " +
+  "! cat /tmp/pageless 2> /dev/null";
+// Dolly's own pages are their --help, where upstream's begin with their title,
+// NAME(1); test and [ take --help as an expression. The program is run by its
+// path: cd, command and time are also Slop's own.
 const everyOwnCommandAnswersHelp = "rm -f /tmp/helpless; for file in /bin/* /usr/bin/*; do name=${file##*/}; " +
-  "if test -e \"/usr/share/man/cat1/$name.1\" && test \"$name\" != test && test \"$name\" != \"[\"; then " +
+  "if test -e \"/usr/share/man/cat1/$name.1\" && ! sed 1q \"/usr/share/man/cat1/$name.1\" | grep -q '^[A-Z].*([1-9])' && " +
+  "test \"$name\" != test && test \"$name\" != \"[\"; then " +
   "\"$file\" --help > /tmp/help && test -s /tmp/help || echo \"$name\" >> /tmp/helpless; fi; done; " +
   "! cat /tmp/helpless 2> /dev/null";
 
@@ -22,7 +26,10 @@ await browserTest("man and --help", { timeout: 300_000 }, async ({ open }) => {
   await run("man help > /tmp/page && help > /tmp/help && cmp /tmp/page /tmp/help");
   // help is the first thing the greeting names: it fits a terminal of 80 columns.
   await run("test -s /tmp/help && ! grep -q '.\\{81\\}' /tmp/help");
-  await run("man grep > /tmp/page && cmp /tmp/page /usr/share/man/man1/grep.1");
+  // Upstream's pages are formatted when the image is built; man's own is its --help.
+  await run("man grep > /tmp/page && grep -q '^NAME' /tmp/page && grep -q 'search files for patterns' /tmp/page && " +
+    "! grep -Eq '^[.](Dd|Nm|Sh) ' /tmp/page");
+  await run("man man > /tmp/page && man --help > /tmp/help && cmp /tmp/page /tmp/help");
   assert.equal(await submit("man no-such-command > /tmp/out 2> /tmp/err"), 1);
   await run("grep -q no-such-command /tmp/err && test ! -s /tmp/out");
   for (const wrong of ["man", "man grep sed", "help grep", "foreground", "amy", "dollyfile", "xargs --no-such-option"]) {

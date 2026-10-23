@@ -17,7 +17,7 @@ INSTALL /v0.1.4/Dollyfile-session-recover 62cbc44d4aef2aeb9529591b1b32c1c817287c
 INSTALL /v0.1.4/Dollyfile-core b14cda845cbbb13a915c198053e526fd2ab50c7afb933eec3ff274438f40c430
 INSTALL /v0.1.4/Dollyfile-cc 6d24f0c23448e553898c6925e1b8d0f4d85364fb419714c33e47a401f23eb0f8
 INSTALL /v0.1.4/Dollyfile-make 1752d87d03717c3f43a13ff10ec28130e0bdf1b23bb25267907c69e4a6f0e4d5
-INSTALL /v0.1.4/Dollyfile-posix 9b947f1f16b4d0c23b4be6cb0a3dc9eeb5b54d51b6b2365e07d11d287e159367
-INSTALL /v0.1.4/Dollyfile-ninja 4363be24adf1faa25a59896b651ba7390a631d131f20af1f49d23308f31c8ce8
+INSTALL /v0.1.4/Dollyfile-posix a5145252ecbe2073c82f74f7a276f4e6f65d3cc51db49fee21d4693e4045b6f7
+INSTALL /v0.1.4/Dollyfile-ninja f6e56babba2fc5e1627e240fe22d4e62c4c5a695fda9604751336643b60272f2
 
 ENTRY /bin/foreground -i /bin/slop

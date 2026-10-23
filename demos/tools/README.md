@@ -29,16 +29,16 @@ the script would find here, in the comments beside its flags.
 - `meson`: Meson, with the `python`, `cc` and `ninja` packages it runs on.
 - `toybox`: toybox's `grep` and `sed`, which have `grep -r` and `sed -i`, in place of the image's.
 - `dte`: dte, a small full-screen editor with the keys of a desktop one.
-- `mandoc`: mandoc, which formats a manual page of man or mdoc macros as text.
-- `tools-build`: A build stage: `cmake-build` with mandoc, what these packages are built on.
+- `tools-build`: A build stage: `cmake-build` with the core's `mandoc`, what these packages are built on.
 - `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks; `-z`, `-j` and `-J` run gzip, bzip2 and xz (pigz writes `.gz`).
 - `sbase`: the sbase commands the image leaves out: `yes`, `cal`, `sha1sum`, `sha512sum`, `sponge`, `cols`, `uuencode` and `uudecode`.
 
 `man` prints a page of text (`/usr/share/man/cat1`) as it is and has no
 formatter, so a package formats its upstream page when it is built:
-`text-page` in `tools-build` runs mandoc and takes the overstrikes out. A
-package with a page is built `FROM tools-build` and keeps none of it, so
-mandoc is no row of the package and nothing installs it for a page.
+`text-page`, which the core's `mandoc` package brings, runs mandoc and takes
+the overstrikes out. A package with a page is built `FROM tools-build` and
+keeps none of it, so mandoc is no row of the package and nothing installs it
+for a page.
 
 What the platform decides ([process model](../../docs/process-model.md)):
 
@@ -56,8 +56,8 @@ What the platform decides ([process model](../../docs/process-model.md)):
 - Dolly's `tar` reads files and directories. An archive with a pax header
   (every `git archive`) or links is staged as a plain tar of the files a
   build reads ([`prepare-sources.sh`](prepare-sources.sh)); `sqlite`, `xz`,
-  `bzip2`, `pigz`, `zip`, `unzip`, `yacc`, `flex` and `mandoc` build from the
-  archive as published.
+  `bzip2`, `pigz`, `zip`, `unzip`, `yacc` and `flex` build from the archive
+  as published.
 - `fork` fails: `vi`'s `!` commands and language servers, and `tar`'s `-z`,
   `-j` and `-J`, which start the compressor that way, say so. Pipe an
   archive through `pigz`, `bzip2`, `xz` or `zstd`.

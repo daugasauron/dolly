@@ -370,9 +370,9 @@ const tools = {
     "yacc -o amy-y.c amy.y && cc amy-y.c -o amy-y; printf abcdef | ./amy-y; test $? = 6"],
   flex: ["flex", "cd /tmp && printf '%s\\n' '%{' 'static int numbers;' '%}' '%%' '[0-9]+ numbers++;' '.|\\n ;' '%%' 'int main(void) { yylex(); return numbers; }' > amy.l && " +
     "flex -o amy-l.c amy.l && cc amy-l.c -lfl -o amy-l; echo 'a 1 bb 22 c 333' | ./amy-l; test $? = 3 && lex --version > /dev/null"],
-  // A page of macros becomes text; the pages default holds as macros are such pages.
+  // A page of macros becomes text, and text-page puts it where man reads it.
   mandoc: ["mandoc", "printf '%s\\n' '.Dd October 13, 2026' '.Dt PROBE 1' '.Os' '.Sh NAME' '.Nm probe' '.Nd a page of macros' > /tmp/amy.1 && " +
-    "mandoc -T ascii /tmp/amy.1 | grep -q 'a page of macros' && mandoc -T ascii /usr/share/man/man1/grep.1 | grep -q 'search files for patterns'"],
+    "mandoc -T ascii /tmp/amy.1 | grep -q 'a page of macros' && text-page /tmp/amy.1 && grep -qx 'NAME' /usr/share/man/cat1/amy.1"],
   // yes ends when its reader does.
   sbase: ["yes", "test \"$(yes | head -n 3 | tr '\\n' ' ')\" = 'y y y ' && test \"$(printf abc | sha1sum | cut -c 1-40)\" = a9993e364706816aba3e25717850c26c9cd0d89d && " +
     "printf abc | sha512sum | grep -q '^ddaf35a193617aba' && cal 10 2026 | grep -q 2026 && echo sponged > /tmp/amy-sponge && " +

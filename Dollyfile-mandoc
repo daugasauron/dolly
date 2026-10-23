@@ -6,7 +6,8 @@ REQUIRES HOST runtime@0
 # unchanged: it turns a page of man or mdoc macros into text. Slop does not
 # run its configure, so config.h says what that script would find here. The
 # man, apropos and makewhatis the same program can be are not installed: man
-# is the core's.
+# is the core's, and prints a page of text. A package that ships upstream's
+# pages uses this one to format them with text-page when it is built.
 FROM /v0.1.4/Dollyfile-system-tools 6895ef5069ae2dd33df453507496408567406e529ff79041b20f2419b93b861a
 USE /v0.1.4/Dollyfile-zlib ff3c0365dd79ecb98c6f091460fb85790f674d13cf3d038ee4875ef9ff76c43a
 
@@ -14,15 +15,18 @@ REQUIRES HEADER libc
 REQUIRES HEADER zlib
 REQUIRES LIB    z
 REQUIRES TOOL   awk
+REQUIRES TOOL   basename
 REQUIRES TOOL   cc
 REQUIRES TOOL   cp
 REQUIRES TOOL   grep
 REQUIRES TOOL   gzip
 REQUIRES TOOL   make
 REQUIRES TOOL   mkdir
+REQUIRES TOOL   rm
 REQUIRES TOOL   tar
+REQUIRES TOOL   test
 
-SOURCE /v0.1.4/dist/static/tools/mandoc-1.14.6.tar.gz 8bf0d570f01e70a6e124884088870cbed7537f36328d512909eb10cd53179d9c /tmp/mandoc.tar.gz
+SOURCE /v0.1.4/dist/static/default/mandoc-1.14.6.tar.gz 8bf0d570f01e70a6e124884088870cbed7537f36328d512909eb10cd53179d9c /tmp/mandoc.tar.gz
 SLOP gzip -dc /tmp/mandoc.tar.gz | tar -xf - -C /tmp
 
 # Not found here: fts, getprogname, recallocarray, strtonum, ohash, BSD's
@@ -97,11 +101,31 @@ SLOP make -j4 -f /tmp/mandoc.mk
 SLOP mkdir -p /usr/share/licenses/mandoc
 SLOP cp /tmp/mandoc-1.14.6/LICENSE /usr/share/licenses/mandoc/LICENSE
 
-# Its own page, formatted by itself as text, which man prints as it is.
-# mandoc marks bold and underlined words by overstriking; awk takes that out.
-SLOP mandoc -T utf8 /tmp/mandoc-1.14.6/mandoc.1 | LC_ALL=C.UTF-8 awk '{ gsub(/.\b/, ""); print }' > /usr/share/man/cat1/mandoc.1
-SLOP grep -q 'format manual pages' /usr/share/man/cat1/mandoc.1
+# man prints /usr/share/man/cat1/NAME.1 as it is, before the page of macros
+# in man1. mandoc marks bold and underlined words by overstriking; a reader
+# without a pager, an agent among them, wants the words alone, so awk takes
+# the overstrikes out.
+FILE /usr/bin/text-page
+    #!/bin/slop
+    # text-page PAGE...: each manual page as plain text in /usr/share/man/cat1.
+    for page in "$@"; do
+      text="/usr/share/man/cat1/$(basename "$page")"
+      mandoc -T utf8 "$page" | LC_ALL=C.UTF-8 awk '{ gsub(/.\b/, ""); print }' > "$text"
+      test -s "$text" || exit 1
+    done
+
+# A letter outside ASCII loses its overstrike whole.
+FILE /tmp/text-page-check.1
+    .TH CHECK 1
+    .SH NAME
+    check \- caf\['e]
+    .SH DESCRIPTION
+    \fBcaf\['e]\fR
+SLOP text-page /tmp/text-page-check.1 && grep -c 'café' /usr/share/man/cat1/text-page-check.1 | grep -qx 2
+SLOP rm /usr/share/man/cat1/text-page-check.1
+SLOP text-page /tmp/mandoc-1.14.6/mandoc.1 && grep -q 'format manual pages' /usr/share/man/cat1/mandoc.1
 
 EXPORTS TOOL mandoc
+EXPORTS TOOL text-page
 FILE /usr/share/licenses/mandoc/LICENSE
 FILE /usr/share/man/cat1/mandoc.1
