@@ -88,8 +88,8 @@ Verified, as the trial was (commit `d027a1cb`):
 - Not exercised: a fresh clone of LLVM by `demos/llvm/prepare-sources.sh` (the lines are
   `build-toolchain.sh`'s; a fetch from a local shallow clone hung and was stopped), and the
   download of the archive, whose release asset does not exist before 0.1.4 is published.
-- **Stale**: every image, since the seed changed (image inputs `0dfde372…`). This tree's
-  `dist/dolly-images.mjs` is narrowed to the chain.
+- **Stale**: every image, since the seed changed (image inputs `0dfde372…`). Every built
+  image here is under that seed.
 
 - **The fixed point, measured.** With the new seed, `cmake-build` (1,294 s), `python`,
   `libffi`, `libdolly-sockets` and `llvm-tablegen` (404 s) under the 6 GB slot, then
@@ -101,6 +101,12 @@ Verified, as the trial was (commit `d027a1cb`):
   every TableGen output that the seed's compiler built are the bytes the host-built compiler
   built. `pin-seed-compiler.mjs` on the new `llvm-cc` gives archive `9c4ba53a…` again: the
   compiler linked by the compiler it pins is that compiler, byte for byte. One round suffices.
+
+- **The llvm demo on the new seed**: `llvm` (11 s) and `llvm-runtimes` (72 s) rebuilt;
+  `llvm-runtimes` is the same bytes as `work/x11fix`'s, `llvm` differs in its compiler (now the
+  stripped one) and recipe files. `demos/llvm/test/llvm-browser.mjs` passes in Chromium and
+  Firefox: `llvm-cc` (11.9 s, 17.2 s), the package (6.0 s, 7.4 s), `llvm-runtimes` (351 s,
+  427 s). This tree's `dist/dolly-images.mjs` now lists those 28 images.
 
 Left for the round (integrator):
 
