@@ -62,9 +62,9 @@ async function sealed(name, body, needed = [], hosts = [], environment = {}) {
   return { name, url, sha256: pin, source };
 }
 // The same recipe at two pins, a package whose recipe installs the newer, and
-// one that also needs a host module default does not declare.
+// one that also needs two host modules default does not declare.
 const [older, newer] = [await sealed("needed", "one"), await sealed("needed", "two")];
-const needs = await sealed("needs", "top", [newer]), listens = await sealed("listens", "ears", [newer], ["microphone@0"]);
+const needs = await sealed("needs", "top", [newer]), listens = await sealed("listens", "ears", [newer], ["microphone@0", "gpu@0"]);
 // What a package uses to build: a library that needs `newer` and a module the
 // building recipe does not declare, and a package that needs `newer` too.
 const library = await sealed("library", "lib", [newer], ["microphone@0"], { LIBRARY_BUILT: "used" });
@@ -144,9 +144,11 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   await run(`mkdir -p /etc/dolly/artifacts && ${place(needs)}`);
   assert.equal(await session.submit(install(needs)), 3);
   await run("test ! -e /usr/share/needs && ! grep -q Dollyfile-need /etc/dolly/installed");
-  // A package the image may not hold is refused before any of its rows is installed.
+  // A package the image may not hold is refused before any of its rows is
+  // installed, naming every module it lacks and the one command that adds them.
   await run(`${place(newer)} && ${place(listens)}`);
-  assert.equal(await session.submit(install(listens)), 2);
+  assert.equal(await session.submit(`${install(listens)} 2> /tmp/refused`), 2);
+  await run("grep -q 'Dollyfile-listens needs microphone@0 and gpu@0: nena enable microphone gpu$' /tmp/refused");
   await run("test ! -e /usr/share/needed && test ! -e /usr/share/listens && ! grep -q Dollyfile-need /etc/dolly/installed");
   await run(`${install(needs)} && test "$(cat /usr/share/needed)" = two && test "$(cat /usr/share/needs)" = top`);
   await run(`test "$(grep Dollyfile-need /etc/dolly/installed | tr '\\n' ' ')" = 'INSTALL ${newer.url} ${newer.sha256} INSTALL ${needs.url} ${needs.sha256} '`);
@@ -515,6 +517,9 @@ await browserTest("amy refusal", { image: "system", server: { fixtures } }, asyn
   await refuse(`mkdir -p /etc/dolly/artifacts && curl -fsS ${server.origin}/fixture/threaded.snapshot -o ${artifact}`);
   assert.equal(await system.submit(`dollyfile install ${threaded.url} ${threaded.sha256} 2> /tmp/refused`), 2);
   await refuse("grep -q 'Dollyfile-threaded needs threads@0: add REQUIRES HOST threads@0' /tmp/refused");
+  await refuse(`curl -fsS ${server.origin}/fixture/${listens.sha256}.snapshot -o /etc/dolly/artifacts/${listens.sha256}.snapshot`);
+  assert.equal(await system.submit(`dollyfile install ${listens.url} ${listens.sha256} 2> /tmp/refused`), 2);
+  await refuse("grep -q 'Dollyfile-listens needs microphone@0 and gpu@0: add REQUIRES HOST microphone@0 and REQUIRES HOST gpu@0$' /tmp/refused");
   await refuse("test ! -e /usr/share/threaded && ! grep -q threaded /etc/dolly/installed");
   assert.notEqual(await system.submit(`curl -fsS https://packages.dolly.invalid/v1/packages/${indexed("zlib")[2]} -o /dev/null`), 0);
 });

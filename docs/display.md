@@ -52,9 +52,10 @@ flowchart LR
   character takes. A character none of them has is a box, and joined emoji
   show their first.
 - A program that asks for the mouse (`CSI ? 1000 h` and the modes beside it,
-  in any of their encodings) reads the primary button, the pointer's motion
-  and the wheel as reports where the pointer is. Otherwise, and for a press
-  with Shift held, the pointer selects and the wheel scrolls back.
+  in any of their encodings) reads the primary, middle and secondary
+  buttons, the pointer's motion and the wheel as reports where the pointer
+  is, and the terminal shows the arrow. Otherwise, and for a press with
+  Shift held, the pointer selects and the wheel scrolls back.
 - Ghostty owns selection and copy text; Ctrl+Shift+C writes the clipboard only
   after that user gesture. Scrollback stays in Wasm.
 - Images by the kitty graphics protocol, sent in the escape sequences (`t=d`,

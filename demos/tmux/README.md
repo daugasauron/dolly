@@ -26,7 +26,8 @@ puts an editor beside a shell.
   the programs in the pane, not its shell; one that does not answer is
   ended, as at the display's terminal.
 - The mouse is tmux's (`mouse` is on): a click chooses a pane, a drag on a
-  border resizes, the wheel scrolls the pane under the pointer back. Shift
+  border resizes, the wheel scrolls the pane under the pointer back, the
+  secondary button opens its menus and the middle pastes its buffer. Shift
   and a drag select for Ctrl+Shift+C, as at the display's terminal
   ([display](../../docs/display.md#terminal)).
 - A window is named after the program in the foreground of its active pane,
@@ -87,8 +88,6 @@ puts an editor beside a shell.
   `copy-pipe` and popups take the same way and are not.
 - One client at a time, on one terminal: the server opens a client's terminal
   as `/dev/tty`, which names the terminal of the client that started it.
-- The terminal sends tmux the primary button only: its menus and paste,
-  on the other buttons, are keys only.
 
 Test: `npm run test:demos -- tmux` ([`test/`](test/)); the module's own is
 `test/pty-browser.mjs`.

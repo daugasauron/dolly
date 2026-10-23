@@ -9,9 +9,9 @@ REQUIRES HOST sockets@0
 
 # Build-only: the LLVM 22 libraries rustc links, at the revision Rust pins,
 # compiled inside Dolly by its own c++.
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build a5963c01f3c8d4bcad0cc3f607afe228351757d9d3b87c966ba38f15ee900826
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build ef86b4e7172b6804a78363ad2f3801ee7bad8ff3466d4d3e50d1c07e15fd79b2
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL /v0.1.4/demos/python/Dollyfile-python 6ad920c7056fd0230bcf5c932187adaebfae6a940910b636f70e8a8bad5e2b11
+INSTALL /v0.1.4/demos/python/Dollyfile-python ec71e1800658c84701769bb80743c21bbe1cf615ea7e239f49fb40b1974acade
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python
