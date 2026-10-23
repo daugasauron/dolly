@@ -295,12 +295,18 @@ static int initialize_boot_environment(void) {
   close(output);
   close(error);
 
-  static const char *const directories[] = {"/bin", "/tmp", "/workspace", "/home", "/home/dolly"};
+  static const char *const directories[] = {"/bin", "/tmp", "/workspace", "/home", "/home/dolly", "/proc"};
   for (size_t index = 0; index < sizeof(directories) / sizeof(*directories); ++index) {
     if (mkdir(directories[index], 0755) != 0 && errno != EEXIST) {
       fprintf(stderr, "dolly: mkdir %s failed: %s\n", directories[index], strerror(errno));
       return 1;
     }
+  }
+  // The kernel answers an open of this empty file with its process list.
+  const int processes = open("/proc/processes", O_WRONLY | O_CREAT, 0444);
+  if (processes < 0 || close(processes) != 0) {
+    fprintf(stderr, "dolly: /proc/processes: %s\n", strerror(errno));
+    return 1;
   }
   // What every process starts from, before the image's own environment
   // (load_image_environment). The browser supplies none of it: LANG is the

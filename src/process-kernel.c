@@ -890,9 +890,16 @@ static const dolly_kernel_process *next_live_process(int after) {
   return next;
 }
 
-/* /proc/processes is no file: each open gets the table as it is then, in a
- * pipe without a writer. A line is "PID PARENT STATE ARGUMENTS" for a process
- * that has not exited, cut so that the lines of every process fit the pipe. */
+/* /proc/processes is an empty file, so that ls and stat find it; each open of
+ * it, by any path, gets the table as it is then, in a pipe without a writer.
+ * A line is "PID PARENT STATE ARGUMENTS" for a process that has not exited,
+ * cut so that the lines of every process fit the pipe. */
+static int process_list_file(int kernel_fd) {
+  struct stat opened, list;
+  return fstat(kernel_fd, &opened) == 0 && stat("/proc/processes", &list) == 0 &&
+      list.st_dev == opened.st_dev && list.st_ino == opened.st_ino;
+}
+
 static int64_t open_process_list(dolly_kernel_process *reader, uint32_t flags) {
   enum { line_limit = DOLLY_KERNEL_PIPE_CAPACITY / DOLLY_KERNEL_PROCESS_LIMIT };
   if ((flags & ~(DOLLY_PROCESS_OPEN_READ | DOLLY_PROCESS_OPEN_NOFOLLOW |
@@ -1950,10 +1957,6 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
                                        &request, &path, &directory);
       int flags = result == 0 ? open_flags(request.flags) : result;
       if (flags < 0) result = flags;
-      if (result == 0 && strcmp(path, "/proc/processes") == 0) {
-        free(path);
-        return open_process_list(process, request.flags);
-      }
       int guest_fd = result == 0 ? unused_descriptor(process, 0) : -1;
       if (result == 0 && guest_fd < 0) result = guest_fd;
       int kernel_fd = -1;
@@ -1963,6 +1966,10 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       }
       free(path);
       if (result != 0) return result;
+      if (process_list_file(kernel_fd)) {
+        close(kernel_fd);
+        return open_process_list(process, request.flags);
+      }
       int stream = standard_stream(kernel_fd);
       if (stream < 0 && controlling_terminal(kernel_fd)) stream = terminal_stream(process);
       if (stream >= 0) {

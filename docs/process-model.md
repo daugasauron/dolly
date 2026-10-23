@@ -43,10 +43,11 @@ sequenceDiagram
   exited, a line each in PID order, `PID PARENT STATE ARGUMENTS`: the state is
   `starting` until the program runs and `running` from then, the arguments
   are joined by spaces with each control character as `?`, and a line ends
-  after 2047 bytes. It is the kernel's answer and no file: each open is its
-  own copy of the table in a pipe, `stat` and `ls /proc` find nothing, and
-  neither the path nor its descriptor takes a write; [`ps`](../Dollyfile-ps)
-  prints it under a heading.
+  after 2047 bytes. It is the kernel's answer: the file is empty, so that
+  `ls /proc` lists it and `stat` finds it, as on Linux, and each open of it,
+  by any path, is its own copy of the table in a pipe; neither the file nor
+  its descriptor takes a write, and sessions do not save `/proc`.
+  [`ps`](../Dollyfile-ps) prints it under a heading.
 - The target's identity: a program sees `__dolly__`, `__unix__` and
   `__wasm64__`, and no macro of Emscripten, Linux or WASI; `cc -dumpmachine`
   prints `wasm64-unknown-dolly` and `uname` `Dolly wasm64`. The libc is a
