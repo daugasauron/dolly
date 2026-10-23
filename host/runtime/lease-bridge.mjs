@@ -1,4 +1,4 @@
-import { DOLLY_ERRNO as E } from "../src/process-constants.mjs";
+import { DOLLY_ERRNO as E } from "./abi.mjs";
 
 // The Worker side of a device leased per process (src/device-lease.c). Each
 // packet a process submits goes to the page as `TYPE-request`; the page's

@@ -1,5 +1,5 @@
 import * as A from "./abi.mjs";
-import { DOLLY_ERRNO as E } from "../../src/process-constants.mjs";
+import { DOLLY_ERRNO as E } from "./abi.mjs";
 
 const fail = errno => { throw Object.assign(new Error("Audio request failed"), {errno}); };
 const response = size => new Uint8Array(size);

@@ -1,8 +1,7 @@
 import * as N from "./abi.mjs";
-import { createLeaseBridge } from "../lease-bridge.mjs";
 import { bootFiles } from "../runtime/boot-files.mjs";
 import { hostRequirements } from "../requirements.mjs";
-import { DOLLY_ERRNO as E } from "../../src/process-constants.mjs";
+import { DOLLY_ERRNO as E } from "./abi.mjs";
 export { DOLLY_NENA_ABI_DIGEST as digest } from "./abi.mjs";
 
 // The device as the lease bridge sees it.
@@ -115,8 +114,7 @@ export function worker({ send, get }) {
     // the page enables again. The file is the session's own, so it is bounded
     // and parsed as requirements; a malformed one enables nothing.
     start({ dolly, memory, kernelExports }) {
-      bridge = createLeaseBridge(lease, memory, Number(dolly._dolly_nena_mailbox_address()), send,
-        () => get("runtime").serviceDeferred());
+      bridge = get("runtime").leaseBridge(lease, Number(dolly._dolly_nena_mailbox_address()), send);
       files = bootFiles(kernelExports, memory);
       let enabled = [];
       try { enabled = hostRequirements(decoder.decode(files.read(record, 4096)).split("\n").filter(Boolean)); } catch {}

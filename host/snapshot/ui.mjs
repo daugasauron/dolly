@@ -3,8 +3,6 @@ import { DOLLY_IMAGE_BUILD_ID } from "../../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES } from "../../dist/dolly-images.mjs";
 import { loadCustomImage } from "../../src/custom-image.mjs";
 import { sha256 } from "../../src/image-artifact.mjs";
-import { publicURL } from "../../src/static-asset.mjs";
-import { holdIndicators } from "../../src/page-indicators.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION,
   customSessionIdentity,
@@ -57,7 +55,7 @@ const markup = `<style>
 // delta through the snapshot mailbox and keeps it in this browser. The page
 // describes the running image once its ENTRY starts; restored names the
 // session this page booted from, if any.
-export function mountSessionSave({ keyboard, showStatus, applicationBase }, transport, restored) {
+export function mountSessionSave({ keyboard, showStatus, applicationBase, indicators }, transport, restored) {
   document.body.insertAdjacentHTML("beforeend", markup);
   const button = document.querySelector("#session-open");
   const dialog = document.querySelector("#session-dialog");
@@ -96,7 +94,7 @@ export function mountSessionSave({ keyboard, showStatus, applicationBase }, tran
   button.addEventListener("click", open);
   document.querySelector("#session-close").addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => keyboard.focus({ preventScroll: true }));
-  document.querySelector("#session-list").href = publicURL("sessions/", applicationBase).href;
+  document.querySelector("#session-list").href = new URL("sessions/", applicationBase).href;
   document.querySelector("#session-form").addEventListener("submit", event => {
     event.preventDefault();
     void save(nameField.value.trim()).catch(() => {});
@@ -129,7 +127,7 @@ export function mountSessionSave({ keyboard, showStatus, applicationBase }, tran
           !window.confirm(`Replace the saved session '${name}'?`)) return null;
       showStatus(`Saving ${name}…`, true);
       dataset.sessionStatus = "capturing";
-      holdIndicators("session", true);
+      indicators.hold("session", true);
       update(`Saving ${name}…`);
       button.disabled = nameField.disabled = saveButton.disabled = true;
       controller = new AbortController();
@@ -162,14 +160,14 @@ export function mountSessionSave({ keyboard, showStatus, applicationBase }, tran
       dataset.sessionStatus = "saved";
       history.replaceState(null, "", sessionLoadUrl(name, applicationBase));
       showStatus(`Saved ${name} locally · /sessions lists your saves`);
-      holdIndicators("session", false);
+      indicators.hold("session", false);
       update();
       return name;
     })().catch((error) => {
       dataset.sessionStatus = "failed";
       saveError = error instanceof Error ? error.message : String(error);
       showStatus(`Save failed: ${saveError}`, true);
-      holdIndicators("session", true);
+      indicators.hold("session", true);
       update(`Save failed: ${saveError}`);
       throw error;
     }).finally(() => {

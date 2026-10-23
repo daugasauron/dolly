@@ -1,4 +1,3 @@
-import { instantiateKernelPlugin } from "../../src/kernel-plugin.mjs";
 import * as A from "./abi.mjs";
 export { DOLLY_DISPLAY_ABI_DIGEST as digest } from "./abi.mjs";
 
@@ -341,7 +340,7 @@ export function worker({ get }) {
           size <= 0 || size > 64 * 1024 * 1024 || address > memory.buffer.byteLength - size) {
         throw new Error("invalid resident display plugin range");
       }
-      const display = instantiateKernelPlugin(new Uint8Array(memory.buffer, address, size).slice(), kernelExports, memory);
+      const display = get("runtime").kernelPlugin(new Uint8Array(memory.buffer, address, size).slice(), kernelExports);
       const getDriver = display.exports.dolly_display_driver_get_v5;
       if (typeof getDriver !== "function" || dolly._dolly_display_install(getDriver()) !== 0) {
         throw new Error("Dolly display installation failed");

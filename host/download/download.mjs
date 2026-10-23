@@ -1,5 +1,4 @@
-import { DOLLY_ERRNO as E } from "../../src/process-constants.mjs";
-import { holdIndicators } from "../../src/page-indicators.mjs";
+import { DOLLY_ERRNO as E } from "./abi.mjs";
 import { DOLLY_DOWNLOAD_OPEN, DOLLY_DOWNLOAD_WRITE, DOLLY_DOWNLOAD_CLOSE, DOLLY_DOWNLOAD_ABORT,
   DOLLY_DOWNLOAD_CHUNK_CAPACITY, DOLLY_DOWNLOAD_MAX_SIZE } from "./abi.mjs";
 export { DOLLY_DOWNLOAD_ABI_DIGEST as digest } from "./abi.mjs";
@@ -18,7 +17,7 @@ const sizeLabel = bytes => bytes < 1024 * 1024 ? `${Math.ceil(bytes / 1024)} KiB
 
 // Wasm can only ask. Each file reaches the browser's download manager through
 // one user click on its Save button, never automatically.
-export function browser({ keyboard }) {
+export function browser({ keyboard, indicators }) {
   const pending = new Int32Array(new SharedArrayBuffer(4));
   const panel = document.createElement("ul");
   panel.id = "downloads";
@@ -47,12 +46,12 @@ export function browser({ keyboard }) {
   function offer(item) {
     panel.append(item);
     panel.hidden = false;
-    holdIndicators("download", true);
+    indicators.hold("download", true);
   }
   function remove(item) {
     item.remove();
     panel.hidden = panel.childElementCount === 0;
-    holdIndicators("download", !panel.hidden);
+    indicators.hold("download", !panel.hidden);
   }
   return {
     configuration: { pending: pending.buffer },

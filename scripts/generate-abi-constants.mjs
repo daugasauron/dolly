@@ -11,16 +11,27 @@ const write = async (path, text) => {
   if (await read(path).catch(() => null) !== text) await writeFile(new URL(path, root), text);
 };
 
+// The process packet contract is C. Its enumerators and defines are integer
+// expressions over earlier constants; packet sizes come from its layout checks.
+let errorNumbers;
+const header = (await read("include/dolly/process.h"))
+  .replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "").replace(/\\\n/g, " ")
+  .replace(/enum dolly_process_error \{([^}]*)\};/, (_, numbers) => (errorNumbers = numbers, ""));
+const errors = [...errorNumbers.matchAll(/DOLLY_PROCESS_(E[A-Z0-9]+) = (\d+)/g)];
+
 // WAT contracts own their constants as exported i32 globals. A module whose
 // contracts export any gets abi.mjs beside its manifest, and NAME-abi.h when the
 // manifest lists it. The host record header is stringified into assembly and
 // therefore keeps unsuffixed integers.
-async function emitConstants(sources, module, header, suffix, digest) {
+async function emitConstants(sources, module, header, suffix, digest, errno = false) {
   const constants = [];
   for (const source of sources) constants.push(...(await read(source)).matchAll(
     /\(global \(export "(DOLLY_[A-Z0-9_]+)"\) i32 \(i32.const (\d+)\)\)/g));
   const c = constants.map(([, constant, value]) => `#define ${constant} ${value}${suffix}\n`);
   const js = constants.map(([, constant, value]) => `export const ${constant} = ${value};\n`);
+  // A module answers its calls with the process contract's errno numbers, as its C
+  // includes <dolly/process.h>: its JavaScript then imports nothing of the runtime's.
+  if (errno && js.length) js.push(`export const DOLLY_ERRNO = Object.freeze({ ${errors.map(([, name, value]) => `${name}: ${value}`).join(", ")} });\n`);
   if (digest) {
     c.push(`#define ${digest.name} ${[...digest.bytes].map(byte => `0x${byte.toString(16).padStart(2, "0")}`).join(", ")}\n`);
     js.push(`export const ${digest.name} = "${digest.bytes.toString("hex")}";\n`);
@@ -28,7 +39,7 @@ async function emitConstants(sources, module, header, suffix, digest) {
   if (!js.length) return;
   const origin = [...sources, ...digest?.sources ?? []].join(", ");
   if (header) await write(header, `/* Generated from ${origin}. */\n#pragma once\n${c.join("")}`);
-  await write(module, `// Generated from ${origin}.\n${js.join("")}`);
+  await write(module, `// Generated from ${origin}${errno ? ", include/dolly/process.h" : ""}.\n${js.join("")}`);
 }
 await emitConstants(["abi/dolly-host-0.wat"], "host/abi.mjs", "include/dolly/host-abi.h", "");
 // A module with NAME-abi.h also gets DOLLY_NAME_ABI_DIGEST, the SHA-256 of the
@@ -45,16 +56,9 @@ for (const { name } of hostManifests) {
     for (const file of [...contracts, ...sources]) hash.update(await readFile(new URL(file, root)));
     digest = { name: `DOLLY_${name.toUpperCase().replaceAll("-", "_")}_ABI_DIGEST`, sources, bytes: hash.digest() };
   }
-  await emitConstants(contracts, `host/${name}/abi.mjs`, header, "u", digest);
+  await emitConstants(contracts, `host/${name}/abi.mjs`, header, "u", digest, true);
 }
 
-// The process packet contract is C. Its enumerators and defines are integer
-// expressions over earlier constants; packet sizes come from its layout checks.
-let errorNumbers;
-const header = (await read("include/dolly/process.h"))
-  .replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "").replace(/\\\n/g, " ")
-  .replace(/enum dolly_process_error \{([^}]*)\};/, (_, numbers) => (errorNumbers = numbers, ""));
-const errors = [...errorNumbers.matchAll(/DOLLY_PROCESS_(E[A-Z0-9]+) = (\d+)/g)];
 // The kernel and the libc adapter are compiled against the bootstrap libc:
 // scripts/build.sh compiles this proof that its errno numbers are the contract's.
 await write("build/process-errno-check.c", "#include <errno.h>\n#include <dolly/process.h>\n" +

@@ -1,15 +1,13 @@
 import { createGpuBridge } from "./bridge.mjs";
-import { DOLLY_ERRNO as E } from "../../src/process-constants.mjs";
-import { publicURL } from "../../src/static-asset.mjs";
-import { holdIndicators, showIndicators } from "../../src/page-indicators.mjs";
+import { DOLLY_ERRNO as E } from "./abi.mjs";
 export { DOLLY_GPU_ABI_DIGEST as digest } from "./abi.mjs";
 
 // The page names the adapter gpu@0 programs get before any of them runs. A
 // module refused at boot never reaches browser() and its page stops, so
-// check() also shows that refusal. A switch after boot passes `abandoned`,
+// check() also shows that refusal. A switch after boot passes `signal`,
 // aborted once the registry stops waiting: refused or late, it shows nothing,
 // since the session has no gpu@0 and nena says why.
-export async function check(abandoned) {
+export async function check({ signal: abandoned, ...page }) {
   let adapter, reason = null;
   if (!globalThis.navigator?.gpu) reason = "WebGPU is unavailable in this browser";
   else try {
@@ -18,15 +16,15 @@ export async function check(abandoned) {
   } catch (error) { reason = `GPU adapter initialization failed: ${error.message}`; }
   const { vendor, architecture, description, isFallbackAdapter } = adapter?.info ?? {};
   if (abandoned && (reason || abandoned.aborted)) return reason;
-  indicate({ vendor, architecture, description, isFallbackAdapter, f16: adapter?.features.has("shader-f16") }, reason);
+  indicate(page, { vendor, architecture, description, isFallbackAdapter, f16: adapter?.features.has("shader-f16") }, reason);
   return reason;
 }
 
 // A new adapter state shows the indicators again; no adapter holds them shown.
-function announce(element, state, borderColor) {
+function announce({ indicators }, element, state, borderColor) {
   if (element.dataset.gpu !== state) {
-    holdIndicators("gpu", state === "unavailable");
-    showIndicators();
+    indicators.hold("gpu", state === "unavailable");
+    indicators.show();
   }
   element.dataset.gpu = state;
   element.style.borderColor = borderColor;
@@ -35,7 +33,7 @@ function announce(element, state, borderColor) {
 // The page's indicator names the adapter, or says why there is none. Trusted
 // page DOM over the display: guest frames cannot draw, cover or remove it, and
 // only its link takes clicks.
-function indicate(info, unavailable) {
+function indicate(page, info, unavailable) {
   let element = document.querySelector("#gpu-status");
   if (!element) {
     element = document.body.appendChild(document.createElement("div"));
@@ -47,21 +45,22 @@ function indicate(info, unavailable) {
   }
   if (unavailable) {
     const link = Object.assign(document.createElement("a"), { textContent: "How to enable WebGPU ↗",
-      href: publicURL("docs/gpu.md#enabling-webgpu").href, target: "_blank", rel: "noopener" });
+      href: new URL("docs/gpu.md#enabling-webgpu", page.applicationBase).href, target: "_blank", rel: "noopener" });
     link.style.cssText = "color:#f2d45c;pointer-events:auto";
     element.replaceChildren(`No GPU: ${unavailable} · `, link);
-    announce(element, "unavailable", "#e98773");
+    announce(page, element, "unavailable", "#e98773");
     return {};
   }
   const adapter = [info.vendor, info.architecture, info.description].filter(Boolean).join(" ") || "unnamed WebGPU adapter";
   // SwiftShader and llvmpipe are software adapters even where a browser does not flag them.
   const software = info.isFallbackAdapter || /swiftshader|llvmpipe/i.test(adapter);
   element.textContent = `${software ? "Software adapter, not a GPU" : "GPU"}: ${adapter} · ${info.f16 ? "" : "no "}shader-f16`;
-  announce(element, software ? "software" : "hardware", software ? "#f2d45c" : "#77736c");
+  announce(page, element, software ? "software" : "hardware", software ? "#f2d45c" : "#77736c");
   return { adapter, isFallbackAdapter: info.isFallbackAdapter };
 }
 
-export function browser({ mount }) {
+export function browser(page) {
+  const { mount } = page;
   let canvas, surface;
   if (mount) {
     canvas = document.createElement("canvas");
@@ -79,7 +78,7 @@ export function browser({ mount }) {
     get surfaceSize() { return status.active ? { width: status.width, height: status.height } : undefined; },
     // The provider reports the adapter of each device it creates, or why it has none.
     messages: { "gpu-status"({ info, unavailable, ...message }) {
-      if (info || unavailable) Object.assign(message, indicate(info, unavailable));
+      if (info || unavailable) Object.assign(message, indicate(page, info, unavailable));
       status = { ...status, ...message };
       if (message.active) delete status.error;
       if (canvas && message.active !== undefined) canvas.hidden = !message.active;
@@ -89,7 +88,7 @@ export function browser({ mount }) {
     // Disabled while the page goes on: a session without gpu@0 shows no adapter.
     disabled() {
       document.querySelector("#gpu-status")?.remove();
-      holdIndicators("gpu", false);
+      page.indicators.hold("gpu", false);
     },
   };
 }

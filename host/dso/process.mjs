@@ -5,7 +5,7 @@
  * no browser capability or import to the executable.
  */
 import { DOLLY_PROCESS_ABI_DIGEST } from "../../dist/dolly-process-abi.mjs";
-import { DOLLY_ERRNO } from "../../src/process-constants.mjs";
+import { DOLLY_ERRNO } from "./abi.mjs";
 import { parseWasmInterface, Reader } from "../../src/wasm-interface.mjs";
 import { executableHostRequirements, checkHostAbi } from "../requirements.mjs";
 import { DOLLY_DSO_CLOSE, DOLLY_DSO_ERROR_CAPACITY, DOLLY_DSO_GLOBAL, DOLLY_DSO_LIMIT, DOLLY_DSO_OPEN,

@@ -1,8 +1,6 @@
 import { createMicrophoneProvider } from "./provider.mjs";
 import * as M from "./abi.mjs";
-import { createLeaseBridge } from "../lease-bridge.mjs";
-import { holdIndicators } from "../../src/page-indicators.mjs";
-import { DOLLY_ERRNO as E } from "../../src/process-constants.mjs";
+import { DOLLY_ERRNO as E } from "./abi.mjs";
 export { DOLLY_MICROPHONE_ABI_DIGEST as digest } from "./abi.mjs";
 
 // The device as the lease bridge sees it.
@@ -16,7 +14,7 @@ export function check() {
 
 // Trusted page DOM over the display, beside the browser's own recording mark:
 // shown for as long as a program has asked for or holds the microphone.
-function indicate(state) {
+function indicate(indicators, state) {
   let element = document.querySelector("#microphone-status");
   if (!element) {
     element = document.body.appendChild(document.createElement("div"));
@@ -29,11 +27,11 @@ function indicate(state) {
   const text = { waiting: "Microphone: waiting for permission", capturing: "Microphone on" }[state];
   element.hidden = !text;
   element.textContent = text ?? "";
-  holdIndicators(element, Boolean(text));
+  indicators.hold(element, Boolean(text));
 }
 
-export function browser({ send }) {
-  const provider = createMicrophoneProvider(() => indicate(provider.status().state));
+export function browser({ send, indicators }) {
+  const provider = createMicrophoneProvider(() => indicate(indicators, provider.status().state));
   return {
     page: { get microphone() { return provider.status(); } },
     messages: {
@@ -56,9 +54,8 @@ export function worker({ send, get }) {
   return {
     bindings: { "env.dolly_microphone_dispatch": (address, bytes) =>
       bridge ? bridge.dispatch({ address, bytes }) : -E.ENOSYS },
-    start({ dolly, memory }) {
-      bridge = createLeaseBridge(lease, memory, Number(dolly._dolly_microphone_mailbox_address()), send,
-        () => get("runtime").serviceDeferred());
+    start({ dolly }) {
+      bridge = get("runtime").leaseBridge(lease, Number(dolly._dolly_microphone_mailbox_address()), send);
     },
     messages: { "microphone-complete": message => bridge?.acknowledge(message) },
     dispose() { bridge?.dispose(); bridge = undefined; },

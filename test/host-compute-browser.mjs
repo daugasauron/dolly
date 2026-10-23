@@ -27,7 +27,9 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       const registry = await hostRegistry(modules.map(value =>
         new URL(`/host/${value.split("@")[0]}/module.json`, location.href).href));
       let worker;
+      const { holdIndicators, showIndicators } = await import("/src/page-indicators.mjs");
       const host = await registry.createHost("browser", modules, { send: message => worker.postMessage(message),
+        resources: { applicationBase: new URL("/", location.href), indicators: { hold: holdIndicators, show: showIndicators } },
         configuration: { http: { network: await headlessNetwork() } } });
       try {
         worker = new Worker("/src/runtime-worker.mjs", { type: "module" });

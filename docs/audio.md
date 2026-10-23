@@ -15,7 +15,7 @@ flowchart LR
 - Contract: [`host/audio/dolly-audio-0.wat`](../host/audio/dolly-audio-0.wat). Kernel leases and
   revocation: [`host/audio/kernel.c`](../host/audio/kernel.c). Browser side:
   [`host/audio/audio.mjs`](../host/audio/audio.mjs),
-  [`host/lease-bridge.mjs`](../host/lease-bridge.mjs),
+  [`host/runtime/lease-bridge.mjs`](../host/runtime/lease-bridge.mjs),
   [`host/audio/provider.mjs`](../host/audio/provider.mjs).
 - Requests have a 32-byte header (version, operation, scope, sequence, body
   length). Operations: OPEN, WRITE (128–4096 frames), STATUS (queued frames,

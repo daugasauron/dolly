@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { worker } from "../host/microphone/microphone.mjs";
 import { DOLLY_ERRNO as E } from "../src/process-constants.mjs";
+import { createLeaseBridge } from "../host/runtime/lease-bridge.mjs";
 import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 
@@ -9,7 +10,7 @@ test("microphone module binds the bridge, publishes a reply of samples and revok
   const memory = new WebAssembly.Memory({ initial: 1, maximum: 2, shared: true });
   const mailbox = 64, address = 32768, sent = [];
   const module = worker({ send: (message, transfer) => sent.push({ message, transfer }),
-    get: () => ({ serviceDeferred() {} }) });
+    get: () => ({ leaseBridge: (lease, address, send) => createLeaseBridge(lease, memory, address, send, () => {}) }) });
   const dispatch = module.bindings["env.dolly_microphone_dispatch"];
   assert.equal(dispatch(BigInt(address), 32n), -E.ENOSYS);
   module.start({ dolly: { _dolly_microphone_mailbox_address: () => BigInt(mailbox) }, memory });

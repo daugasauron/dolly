@@ -6,7 +6,7 @@
  * adding a browser capability or another import to a process executable.
  */
 
-import { DOLLY_ERRNO } from "../../src/process-constants.mjs";
+import { DOLLY_ERRNO } from "./abi.mjs";
 import {
   DOLLY_FFI_CALL as FFI_CALL, DOLLY_FFI_CLOSURE_ALLOC as FFI_CLOSURE_ALLOC,
   DOLLY_FFI_CLOSURE_FREE as FFI_CLOSURE_FREE, DOLLY_FFI_CLOSURE_PREP as FFI_CLOSURE_PREP,

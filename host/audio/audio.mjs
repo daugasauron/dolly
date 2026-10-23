@@ -1,7 +1,6 @@
 import { createAudioProvider } from "./provider.mjs";
 import * as A from "./abi.mjs";
-import { createLeaseBridge } from "../lease-bridge.mjs";
-import { DOLLY_ERRNO as E } from "../../src/process-constants.mjs";
+import { DOLLY_ERRNO as E } from "./abi.mjs";
 export { DOLLY_AUDIO_ABI_DIGEST as digest } from "./abi.mjs";
 
 // The device as the lease bridge sees it.
@@ -44,9 +43,8 @@ export function worker({ send, get }) {
   return {
     bindings: { "env.dolly_audio_dispatch": (address, bytes) =>
       bridge ? bridge.dispatch({ address, bytes }) : -E.ENOSYS },
-    start({ dolly, memory }) {
-      bridge = createLeaseBridge(lease, memory, Number(dolly._dolly_audio_mailbox_address()), send,
-        () => get("runtime").serviceDeferred());
+    start({ dolly }) {
+      bridge = get("runtime").leaseBridge(lease, Number(dolly._dolly_audio_mailbox_address()), send);
     },
     messages: { "audio-complete": message => bridge?.acknowledge(message) },
     dispose() { bridge?.dispose(); bridge = undefined; },

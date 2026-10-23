@@ -2,13 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { worker } from "../host/audio/audio.mjs";
 import { DOLLY_ERRNO as E } from "../src/process-constants.mjs";
+import { createLeaseBridge } from "../host/runtime/lease-bridge.mjs";
 
 test("audio module binds the bridge, acknowledges replies, revokes and disposes", () => {
   const memory = new WebAssembly.Memory({ initial: 1, maximum: 2, shared: true });
   const mailbox = 64, address = 1024, sent = [];
   let serviced = 0;
   const module = worker({ send: (message, transfer) => sent.push({ message, transfer }),
-    get: name => { assert.equal(name, "runtime"); return { serviceDeferred() { ++serviced; } }; } });
+    get: name => { assert.equal(name, "runtime");
+      return { leaseBridge: (lease, address, send) => createLeaseBridge(lease, memory, address, send, () => ++serviced) }; } });
   const dispatch = module.bindings["env.dolly_audio_dispatch"];
   assert.equal(dispatch(BigInt(address), 32n), -E.ENOSYS);
   module.start({ dolly: { _dolly_audio_mailbox_address: () => BigInt(mailbox) }, memory });

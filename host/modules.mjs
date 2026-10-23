@@ -109,7 +109,7 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
     try { requireModules(module.contract.dependencies); }
     catch (error) { reasons.set(name, error.message); return; }
     if (side === "browser" && !checked) {
-      const reason = await module.check?.();
+      const reason = await module.check?.(resources);
       if (reason) { reasons.set(name, reason); return; }
     }
     const dependency = name => {
@@ -202,7 +202,7 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
       // later switch: after five seconds the switch is refused and the check
       // told so, that an answer coming later shows nothing on the page.
       const abandoned = new AbortController(), timer = setTimeout(() => abandoned.abort(), 5000);
-      const unavailable = await Promise.race([module.check?.(abandoned.signal), new Promise(resolve =>
+      const unavailable = await Promise.race([module.check?.({ ...resources, signal: abandoned.signal }), new Promise(resolve =>
         abandoned.signal.addEventListener("abort", () => resolve("the browser did not answer in time")))]);
       clearTimeout(timer);
       if (unavailable) return unavailable;

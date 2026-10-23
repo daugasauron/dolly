@@ -1,4 +1,4 @@
-import { DOLLY_ERRNO } from "../../src/process-constants.mjs";
+import { DOLLY_ERRNO } from "./abi.mjs";
 
 const encoder = new TextEncoder();
 

@@ -1,5 +1,5 @@
 import { buildLog } from "./build-log.mjs";
-import { showIndicators } from "./page-indicators.mjs";
+import { holdIndicators, showIndicators } from "./page-indicators.mjs";
 import { hostRegistry, buildHost } from "../host/modules.mjs";
 import { hostModuleUrls } from "../host/manifests.mjs";
 import { prepareImageArtifacts, loadImageHostRequirements } from "./image-build.mjs";
@@ -119,6 +119,7 @@ async function boot() {
     [...requiredHost, ...(bootMode === "rebuild" ? buildHost : [])], {
     send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),
     resources: { mount, canvas, keyboard, applicationBase, showStatus, fatal, bootstrapSources,
+      indicators: { hold: holdIndicators, show: showIndicators },
       inherited: bootMode === "snapshot" ? custom : undefined },
     configuration: selected?.configuration ?? {},
     closed: globalThis.DOLLY_HOST_MODULES !== undefined,

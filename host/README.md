@@ -1,9 +1,12 @@
 # Host modules
 
 A host module is one bridge between the Wasm userspace and the browser, in one
-directory. [`manifests.mjs`](manifests.mjs) lists the modules; each
-`NAME/module.json` names every file of its module, and the registry, build,
-packaging and ABI tests read only these manifests.
+directory. Each `NAME/module.json` names every file of its module. A page has
+the modules its embedding names, by the URLs of their manifests: the registry
+([`modules.mjs`](modules.mjs), `hostRegistry`) loads those and no other, on the
+page and in the Worker. [`manifests.mjs`](manifests.mjs) lists the modules this
+repository builds; the build, packaging and ABI tests read those manifests, and
+the site's pages name them all.
 
 ```json
 { "name": "http", "version": 0, "dependencies": ["runtime@0"], "phase": "kernel",
@@ -32,9 +35,20 @@ packaging and ABI tests read only these manifests.
 
 A provider's `browser()` and `worker()` receive the page's shared resources
 (`mount`, `canvas`, `keyboard`, `applicationBase`, `showStatus`, `fatal`,
-`bootstrapSources`, and `inherited`: the custom image record a result tab was
+`bootstrapSources`, `indicators` (`hold(holder, held)` and `show()`, the page's
+corner indicators), and `inherited`: the custom image record a result tab was
 opened with), `send` to the other side, `get(dependency)` and its
-`configuration`. They return an instance whose optional members the registry
+`configuration`; `check()` receives the page's resources too, and on a switch
+after boot the `signal` that is aborted once the registry stops waiting.
+`get("runtime")` on the Worker side gives the kernel's `memory`,
+`leaseBridge(lease, mailbox, send)` for a device leased per process
+([`runtime/lease-bridge.mjs`](runtime/lease-bridge.mjs)) and
+`kernelPlugin(bytes, kernelExports)` for a resident library linked into the
+kernel. A device module imports only its own files, so it can be delivered on
+its own: its generated `abi.mjs` carries its contracts' constants and the
+process contract's errno numbers, as its C includes `<dolly/process.h>`. The
+modules that are the runtime's own machinery (`runtime`, `http`, `threads`,
+`dso`, `nena`, `snapshot`, `packages`, `build`) also use the runtime's files. They return an instance whose optional members the registry
 calls: `start` (Worker/page handshake), `messages`, `bindings` (kernel
 imports), `service` (periodic work), `imageRestored(context)` (after the system
 image is restored, before image-phase starts), `claimsKey(event)` (take a key
