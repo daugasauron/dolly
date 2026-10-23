@@ -22,8 +22,9 @@ commands run Slop through `posix_spawn` over pipes.
   Under `DOLLY` it skips what Dolly lacks: the versioned hard link, a spawn
   session, job-control wait options, `FIONREAD`, the terminal's interrupt key
   (`C-c` is fixed, so Emacs reads `C-g` as input) and process groups.
-- [`Dollyfile-emacs`](Dollyfile-emacs): builds at `-O0`, dumps with pdumper,
-  installs, and checks files, processes, timers and the collector.
+- [`Dollyfile-emacs`](Dollyfile-emacs): builds at `-O0` with the deeper stack
+  (`dolly.process.stack`), dumps with pdumper, installs, and checks files,
+  processes, timers and the collector.
 
 ## Limits
 

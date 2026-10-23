@@ -17,6 +17,24 @@ and the Emacs demo's test passes 30 of 30 runs pinned to one processor in
 Chromium; and it is known how a stack that runs out can lose bytes without
 ending the process, or that question has a task of its own.
 
+## State (2026-10-23, 22:20): the deeper stack is Emacs's; the loss reproduced, 1 of 30
+
+Decided (integrator, 2026-10-23): Emacs's recipe gives it the `dolly.process.stack` section,
+the mechanism a program that needs more stack already has (`demos/emacs/Dollyfile-emacs`
+appends it to `src/emacs.c`). Built on the merged exec seed (`core/process-exec` at
+`65736016`):
+
+- The crash is gone: held in Chromium's baseline compiler (`--js-flags=--liftoff-only`),
+  0 of 3 first steps ended Emacs (3 of 3 without the section the same day).
+- The loss is not: `demos/emacs/test/emacs-browser.mjs` pinned to one processor
+  (`taskset -c 6`) in Chromium passed 29 of 30; run 11 lost the name after `/t`, as filed,
+  with the session probes of `tasks/20260923-200000-codex-01` running beside it
+  (`build/process-evidence/emacs-30/` in `work/process`).
+
+So how bytes are lost while Emacs lives reproduces on the exec seed and stays open here; by
+the owner's word ("Emacs is low prio") nothing more was spent on it. The next step, if it is
+taken: the probe below with `*Messages*` printed after a loss, to name the command's error.
+
 ## Where the bytes go (2026-10-23, from the 2026-10-14 evidence)
 
 Emacs's own record of its input (`C-h l` in the failing runs of
