@@ -4423,10 +4423,10 @@ index 00000000..930c134d
 +}
 diff --git a/src/runtime/os_dolly.go b/src/runtime/os_dolly.go
 new file mode 100644
-index 00000000..6fc99abf
+index 00000000..5264b81f
 --- /dev/null
 +++ b/src/runtime/os_dolly.go
-@@ -0,0 +1,209 @@
+@@ -0,0 +1,227 @@
 +// Copyright 2026 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -4435,7 +4435,10 @@ index 00000000..6fc99abf
 +
 +package runtime
 +
-+import "unsafe"
++import (
++	"internal/runtime/atomic"
++	"unsafe"
++)
 +
 +// A Dolly process has one import: dolly_process_0.call, which makes an
 +// operation of Dolly's process contract (include/dolly/process.h) with a
@@ -4453,6 +4456,7 @@ index 00000000..6fc99abf
 +	_DOLLY_ENVIRONMENT_SIZES  = 3
 +	_DOLLY_ENVIRONMENT        = 4
 +	_DOLLY_EXIT               = 5
++	_DOLLY_EXEC               = 61
 +	_DOLLY_FD_WRITE           = 17
 +	_DOLLY_CLOCK_TIME         = 48
 +	_DOLLY_RANDOM             = 49
@@ -4516,6 +4520,11 @@ index 00000000..6fc99abf
 +//go:nosplit
 +func http_dollyCall(operation uint32, request unsafe.Pointer, requestSize uint64, response unsafe.Pointer, responseCapacity uint64) int64 {
 +	return dollySyscall(operation, request, requestSize, response, responseCapacity)
++}
++
++//go:linkname syscall_dollyIgnoredSignals syscall.dollyIgnoredSignals
++func syscall_dollyIgnoredSignals() uint32 {
++	return atomic.Load(&sig.ignored[0])
 +}
 +
 +//go:linkname syscall_dollySleep syscall.dollySleep
@@ -4599,6 +4608,15 @@ index 00000000..6fc99abf
 +}
 +
 +func goenvs() {
++	// A program EXEC started keeps the signals its predecessor ignored.
++	var state [4]uint32 // blocked, ignored, pending, reserved
++	if dollyCall(_DOLLY_EXEC, nil, 0, unsafe.Pointer(&state), 16) == 16 {
++		for s := uint32(1); s < _NSIG; s++ {
++			if state[1]&(1<<s) != 0 {
++				sigInitIgnored(s)
++			}
++		}
++	}
 +	argslice = dollyStrings(_DOLLY_ARGUMENT_SIZES, _DOLLY_ARGUMENTS)
 +	envs = dollyStrings(_DOLLY_ENVIRONMENT_SIZES, _DOLLY_ENVIRONMENT)
 +}
@@ -4905,10 +4923,10 @@ index e1d7e213..69c37e8c 100644
  
 diff --git a/src/syscall/exec_dolly.go b/src/syscall/exec_dolly.go
 new file mode 100644
-index 00000000..37322cbb
+index 00000000..4c6653d6
 --- /dev/null
 +++ b/src/syscall/exec_dolly.go
-@@ -0,0 +1,178 @@
+@@ -0,0 +1,234 @@
 +// Copyright 2026 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -5020,9 +5038,65 @@ index 00000000..37322cbb
 +	return int(response[0]), 0, nil
 +}
 +
-+// Exec is not available: Dolly spawns.
++// dollyIgnoredSignals is the bit set of the signals os/signal ignores; the
++// runtime provides it.
++func dollyIgnoredSignals() uint32
++
++const opExec = 61
++
++// Exec replaces the program of this process (EXEC): the process keeps its
++// pid, children, working directory and descriptors without close-on-exec,
++// and the program starts with the signals this one ignores ignored. It
++// returns only when the program cannot run.
 +func Exec(argv0 string, argv []string, envv []string) error {
-+	return ENOSYS
++	if len(argv) == 0 || argv0 == "" {
++		return EINVAL
++	}
++	path := argv0
++	if path[0] != '/' {
++		wd, err := Getwd()
++		if err != nil {
++			return err
++		}
++		path = wd + "/" + path
++	}
++	for _, s := range append(append([]string{path}, argv...), envv...) {
++		if bytealg.IndexByteString(s, 0) >= 0 {
++			return EINVAL
++		}
++	}
++	strings := func(list []string) (b []byte) {
++		for _, s := range list {
++			b = append(append(b, s...), 0)
++		}
++		return b
++	}
++	arguments, environment := strings(argv), strings(envv)
++	request := struct {
++		blocked, ignored, pending, reserved uint32
++		argumentCount, environmentCount     uint32
++		pathSize, reserved2                 uint32
++		argumentBytes, environmentBytes     uint64
++	}{
++		ignored:       dollyIgnoredSignals() &^ 1,
++		argumentCount: uint32(len(argv)), environmentCount: uint32(len(envv)),
++		pathSize:      uint32(len(path)),
++		argumentBytes: uint64(len(arguments)), environmentBytes: uint64(len(environment)),
++	}
++	packet := unsafe.Slice((*byte)(unsafe.Pointer(&request)), unsafe.Sizeof(request))
++	packet = append(append(append(packet[:len(packet):len(packet)], path...), arguments...), environment...)
++	if len(packet) > dollyPacketLimit {
++		return E2BIG
++	}
++	for {
++		_, err := call(opExec, unsafe.Pointer(&packet[0]), uintptr(len(packet)), nil, 0)
++		if err == nil {
++			return EIO // EXEC does not return when it succeeds
++		}
++		if err != EINTR {
++			return err
++		}
++	}
 +}
 +
 +const (

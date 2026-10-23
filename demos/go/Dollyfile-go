@@ -1,10 +1,12 @@
 DOLLY 7
 PACKAGE go
 REQUIRES HOST runtime@0
+# go downloads modules with net/http, which records http@0.
+REQUIRES HOST http@0
 
 # The Go toolchain as go-build built it, in its GOROOT. The commands start it
 # by its own path, from which it finds its GOROOT.
-FROM /v0.1.4/demos/go/Dollyfile-go-build cde41f1d187f14b6949a9c09c50839b3f03d33716d4775cfed648808becb5255
+FROM /v0.1.4/demos/go/Dollyfile-go-build f7f447b2cc2d22bd7cdb740f712d683b77500b28f467e11b10ffd93bb7984606
 FILE /usr/bin/go
     #!/bin/slop
     /usr/lib/go/bin/go "$@"
@@ -24,6 +26,8 @@ FILE /usr/share/man/cat1/go.1
       go run main.go        compiles and runs a program
       gofmt -l .            lists files whose formatting differs
     
-    Programs are pure Go: there is no cgo. They run single-threaded, reach no
-    network, and take the signals the kernel delivers as their default action.
-    Upstream's documentation: https://go.dev/doc/
+    Programs are pure Go: there is no cgo, and they run single-threaded.
+    net/http goes through the page's HTTP broker (its policy, and CORS), so
+    go get works with proxy.golang.org; net's sockets reach nothing.
+    signal.Notify receives the kernel's signals; syscall.Exec replaces the
+    program. Upstream's documentation: https://go.dev/doc/
