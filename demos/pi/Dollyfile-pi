@@ -15,20 +15,9 @@ COPY /v0.1.3/demos/pi/Dollyfile-pi-build 437e64fce0caaa251ad35233328f5c8d5a2184c
 COPY /v0.1.3/demos/pi/Dollyfile-pi-build 437e64fce0caaa251ad35233328f5c8d5a2184c711cdf12f82438153bbbc2744 /usr/src/pi-source /usr/src/pi-source
 COPY /v0.1.3/demos/pi/Dollyfile-pi-build 437e64fce0caaa251ad35233328f5c8d5a2184c711cdf12f82438153bbbc2744 /usr/share/licenses/pi-source /usr/share/licenses/pi-source
 
-SOURCE /v0.1.3/dist/static/default/pi/dolly-tools.js                    cc39e9df1eda939151e9b2811a6548bc0161cf2db11480dd96c3116e07a6de15 /home/dolly/.pi/agent/extensions/dolly-tools.js
-SOURCE /v0.1.3/dist/static/default/pi/SYSTEM.md                         2dcda0a9efecf923d4fff977ab8d70f758539519afeb96dfe15d97ca93fa4be1 /home/dolly/.pi/agent/SYSTEM.md
-SOURCE /v0.1.3/dist/static/default/pi/settings.json                     852b78af9b490d627858723c8b67f24e55e58d9f621ce4afbc7424b872917c1f /home/dolly/.pi/agent/settings.json
-SOURCE /v0.1.3/dist/static/default/pi/dolly-theme.json                  ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297 /home/dolly/.pi/agent/themes/dolly.json
-SOURCE /v0.1.3/dist/static/default/pi/dolly-skill.md                    4f79859f9f9b578ec5815c11e54754bce1d4e3a2bdb184028a8cebea7a17b9d9 /home/dolly/.pi/agent/skills/dolly/SKILL.md
-
 EXPORTS ENV PI_PACKAGE_DIR /usr/lib/node_modules/@earendil-works/pi-coding-agent
 EXPORTS ENV PI_SKIP_VERSION_CHECK 1
 EXPORTS TOOL pi
-FILE /home/dolly/.pi/agent/extensions/dolly-tools.js
-FILE /home/dolly/.pi/agent/SYSTEM.md
-FILE /home/dolly/.pi/agent/settings.json
-FILE /home/dolly/.pi/agent/themes/dolly.json
-FILE /home/dolly/.pi/agent/skills/dolly/SKILL.md
 
 SLOP pi --version
 FILE /usr/share/man/cat1/pi.1
@@ -38,7 +27,8 @@ FILE /usr/share/man/cat1/pi.1
       pi                 starts the agent; /exit or Ctrl+D leaves it
       pi --offline       no network at startup; model requests still go out
     
-    Its bash tool and ! run Slop, and a download tool hands a file to the page.
+    The pi-dolly package adds Dolly's prompt, skill, settings and theme; with
+    it the bash tool and ! run Slop, and a download tool hands a file to the page.
     Requests go through the page's HTTP broker and its policy; OAuth logins
     depend on the provider's CORS, and there is no callback listener.
     Conversations are in ~/.pi/agent/sessions (pi --resume), credentials in

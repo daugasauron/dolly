@@ -321,7 +321,9 @@ const tools = {
   fd: ["fd", "test \"$(fd stack /tmp/amy-hay)\" = /tmp/amy-hay/stack"],
   protox: ["protox", "cd /tmp && printf 'syntax = \"proto3\";\\nmessage Probe { string name = 1; }\\n' > amy.proto && protox amy.proto -o amy.pb && test -s amy.pb"],
   cbindgen: ["cbindgen", "printf '#[no_mangle]\\npub extern \"C\" fn answer() -> i32 { 42 }\\n' > /tmp/amy-answer.rs && cbindgen /tmp/amy-answer.rs | grep -q 'int32_t answer'"],
-  pi: ["pi", "pi --version > /dev/null && ! cc --version 2> /dev/null"],
+  // Pi as pi-agent has it: pi-dolly installs pi and the platform's documents beside the files Pi reads.
+  "pi-dolly": ["pi", "pi --version > /dev/null && ! cc --version 2> /dev/null && amy installed | grep -q '^pi ' && " +
+    "test -s /home/dolly/.pi/agent/SYSTEM.md && test -s /home/dolly/.pi/agent/extensions/dolly-tools.js && test -s /usr/share/doc/dolly/docs/slop.md"],
   // The two ways its manual page gives: a function for a C program, and a program with the standard library.
   zig: ["zig", "mkdir /tmp/amy-zig && cd /tmp/amy-zig && printf 'export fn answer() c_int { return 42; }\\n' > answer.zig && " +
     "printf 'int answer(void); int main(void) { return answer(); }\\n' > main.c && zig build-obj -ofmt=c -femit-bin=answer.c answer.zig && " +
@@ -442,7 +444,7 @@ const elsewhere = {
   git: "man-browser.mjs, pager-browser.mjs", less: "pager-browser.mjs", llvm: "demos/llvm",
   parakeet: "demos/speech", "speech-to-text": "demos/speech: default refuses it", voice: "demos/speech, in pi-phone",
   tmux: "demos/tmux: default refuses it",
-  "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm",
+  pi: "the pi-dolly row installs it", "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm",
   "libdolly-audio": "audio-browser.mjs", "libdolly-buttons": "buttons-browser.mjs", "libdolly-gpu": "gpu-render-browser.mjs",
   "libdolly-microphone": "microphone-browser.mjs", "libdolly-sockets": "sockets-browser.mjs",
   libjpeg: "demos/xonotic", spidermonkey: "demos/zero-ad",

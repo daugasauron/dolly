@@ -7,18 +7,21 @@ Dolly's files, processes and HTTP broker.
 ## Images
 
 - `pi`: `pi`, the Pi coding agent, with the `janis`, `ripgrep` and `fd` packages.
+- `pi-dolly`: Pi's Dolly extension: the prompt, the `dolly` skill, Slop for its shell tool, a download tool, settings and theme, with the `pi` and `dolly-docs` packages.
 - `pi-agent`: Pi coding agent with JavaScript, shell tools, ripgrep and fd.
 - `pi-runtime`: Reusable Pi and Janis runtime.
 - `pi-build`: Pi packages compiled from pinned TypeScript sources.
 
 Open `/pi-agent/`; build with `npm run image -- pi-agent`. Leave Pi with
-`/exit` or Ctrl+D. In another image, `amy install pi` brings the agent.
+`/exit` or Ctrl+D. In another image, `amy install pi-dolly` brings the agent
+as pi-agent has it, `amy install pi` Pi alone.
 
 ## How it works
 
 - `pi-build` installs the `typescript` package, runs its compiler inside Dolly and emits Pi's
   workspace packages to `/usr/lib/node_modules` (`noCheck` emit, no type
-  checking). `pi-runtime` adds the prompt, settings, theme and extension.
+  checking). The `pi-dolly` package adds the prompt, skill, settings, theme and
+  extension, and `pi-runtime` installs it.
 - Bootstrap exception: [`pi-secret-input.patch`](pi-secret-input.patch) makes
   the login dialog show `*` for prompts pi-ai marks `secret` (API keys);
   upstream 1.0.4 shows them in clear. Drop it when upstream masks them
