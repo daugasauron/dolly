@@ -82,13 +82,16 @@ with the compiler.
 - `cargo new`, `cargo build`, `cargo rustc` and `cargo metadata` work with path and
   vendored dependencies, build scripts and procedural macros.
 - `cargo run` builds the program and replaces Cargo with it (`exec`).
-- crates.io: crate archives come through the HTTP broker. Its index sends CORS
-  headers only for files its cache does not hold, so a page needs a relay for
-  `index.crates.io` ([HTTP](../../docs/http.md#cors-and-relays)) or the
-  project a vendored directory.
+- crates.io: its index sends CORS headers only for files its cache does not
+  hold, so Cargo cannot resolve there from a page, and Dolly hosts no relay.
+  `vendor-crates` (its own package) resolves a project's dependencies over the
+  index's GitHub mirror, fetches the crates from static.crates.io through the
+  HTTP broker and writes `vendor/` and `.cargo/config.toml`; then
+  `cargo build --offline`.
 - A crate that uses `libc` needs the SDK's copy, because crates.io's has
   wasm32 layouts for this target: `[patch.crates-io] libc = { path =
-  "/opt/rust-sdk/src/libc" }` in the project's `.cargo/config.toml`.
+  "/opt/rust-sdk/src/libc" }` in the project's `.cargo/config.toml`, which
+  `vendor-crates` writes when `libc` is among the crates.
 - A build script that compiles C needs `CRATE_CC_NO_DEFAULTS=1`, which the
   package sets: the `cc` crate's default flags name a target.
 - Incremental builds are off (the package sets `CARGO_INCREMENTAL=0`, from

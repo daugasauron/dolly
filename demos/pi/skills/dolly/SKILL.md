@@ -180,25 +180,12 @@ to the running session, and `cc` links them at once.
 `amy install cargo` brings Rust and Cargo (they need `dso@0`: `nena enable
 dso` where the image lacks it); `amy install go` brings Go, whose `net/http`
 goes through the page's broker. Cargo cannot read crates.io's index from the
-browser (its cached files carry no CORS headers), but it builds vendored
-crates, and both the index's entries and the crates can be fetched:
-`https://raw.githubusercontent.com/rust-lang/crates.io-index/master/se/rd/serde`
-lists every version of `serde` with its dependencies (`1/x`, `2/xy`, `3/x/xyz`
-for shorter names), and `https://static.crates.io/crates/NAME/NAME-VERSION.crate`
-is the crate. Unpack each into `vendor/`, write
-`vendor/NAME-VERSION/.cargo-checksum.json` as
-`{"files":{},"package":"SHA256 of the .crate"}`, and put in
-`.cargo/config.toml`:
-
-```toml
-[source.crates-io]
-replace-with = "vendored-sources"
-[source.vendored-sources]
-directory = "vendor"
-```
-
-A crate that uses `libc` takes the SDK's copy, `[patch.crates-io] libc = {
-path = "/opt/rust-sdk/src/libc" }` in `Cargo.toml`.
+browser (its cached files carry no CORS headers): `amy install vendor-crates`,
+then `vendor-crates` in the project writes every crates.io crate it depends on
+to `vendor/`, checked against the index's checksums, and the
+`.cargo/config.toml` that points Cargo there, with the SDK's copy of `libc`
+when a crate needs it; then `cargo build --offline`. With a `Cargo.lock` it
+vendors the locked versions.
 
 ## JavaScript
 
