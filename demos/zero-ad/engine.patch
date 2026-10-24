@@ -1719,7 +1719,7 @@
 +#endif
 --- /dev/null
 +++ b/source/renderer/backend/dolly/Device.cpp
-@@ -0,0 +1,1076 @@
+@@ -0,0 +1,1078 @@
 +/* 0 A.D. Dolly renderer. SPDX-License-Identifier: GPL-2.0-or-later */
 +#include "precompiled.h"
 +#include "graphics/ShaderDefines.h"
@@ -2219,6 +2219,8 @@
 +    if(auto it=samplers.find(key);it!=samplers.end())return it->second;
 +    Handle handle=queue.New();void* p=queue.Record(DOLLY_GPU_CREATE_SAMPLER,48);U64(p,8,handle);
 +    for(size_t i=0;i<key.size();i++)U32(p,16+4*i,key[i]);
++    // The widest anisotropy the renderer asks for, in the main log.
++    static uint32_t widest=1;if(key[7]>widest){widest=key[7];LOGMESSAGE("Dolly GPU: samplers filter at %ux anisotropy",widest);}
 +    samplers.emplace(key,handle);return handle;
 +}
 +static unsigned VertexFormat(Format format)

@@ -29,7 +29,7 @@ REQUIRES TOOL patch
 REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 
-SOURCE /v0.1.4/dist/static/zero-ad-build/engine.tar.gz 3850376bf2e8258fb32afdd548d0fa55e0b66d16ad5d086ca01a25cde95c4669 /tmp/0ad.tar.gz
+SOURCE /v0.1.4/dist/static/zero-ad-build/engine.tar.gz 26f7289930e8723457ee04321a7723eee1fbb5bf104ec3e8f5e21aa074e62f4f /tmp/0ad.tar.gz
 SLOP gzip -dc /tmp/0ad.tar.gz | tar -xf - -C /
 SLOP patch -p1 -d /tmp/0ad -i /tmp/0ad-patches/engine.patch
 
