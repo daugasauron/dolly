@@ -117,10 +117,11 @@ sequenceDiagram
   process's descriptors close when it exits, before it is waitable.
 - Opening `/dev/stdin`, `/dev/stdout` or `/dev/stderr` duplicates the caller's
   descriptor 0, 1 or 2.
-- `/dev/tty` opens the terminal for reading and writing. There are no sessions,
-  so it is every process's controlling terminal, except a process on a
-  [pseudo-terminal](#pseudo-terminals), which opens that. `ttyname` fails: a
-  terminal has no name of its own.
+- `/dev/tty` opens the terminal for reading and writing, for every process
+  but one on a [pseudo-terminal](#pseudo-terminals), which opens that.
+  `ttyname` fails: a terminal has no name of its own. No process group is a
+  terminal's foreground: `tcgetpgrp` and `tcsetpgrp` fail `ENOTTY`, as for a
+  process without a controlling terminal, so a shell runs without job control.
 - `poll` covers files, pipes, sockets, pseudo-terminals and the terminal; signals wake it with `EINTR`.
 - A terminal edits a line while `ICANON` is set (the default): a read waits for
   Enter, which arrives as LF, and returns one line; Backspace and Ctrl+U erase,
@@ -146,7 +147,10 @@ sequenceDiagram
 - `mmap` makes private copies; `MAP_SHARED` writes back on `msync` and whole
   `munmap` ([`mmap.c`](../src/process/mmap.c)). Mappings are not coherent with
   other writers, do not extend the file past EOF, and cannot trap there: Wasm
-  cannot protect or revoke part of linear memory.
+  cannot protect or revoke part of linear memory. So `mprotect` grants read
+  and write, which memory always is (a shared mapping made without write then
+  writes back, `EACCES` if its descriptor is read-only), and any other
+  protection fails `ENOTSUP`.
 - Advisory locks live in one kernel table of 1024 for all processes; a request
   that needs one more fails with `ENOLCK`. `flock` locks the whole file for an
   open file description: descriptors made by `dup` or inherited by a spawned
@@ -242,8 +246,8 @@ nothing and declares nothing: any program built for Dolly runs on one.
   hold the slave get `SIGWINCH`.
 - While `ISIG` is set, byte 3 written to the master is `SIGINT` for the
   processes that hold the slave. The one the others descend from is spared
-  while it has them: a shell, while its command runs. Dolly has no process
-  groups to name a foreground with.
+  while it has them: a shell, while its command runs. A process group is one
+  process, so none names a foreground.
 - Closing the master is `SIGHUP` to the processes that hold the slave, end of
   file to their reads and `EIO` to their writes. A read of the master returns
   end of file once every descriptor of the slave is closed and its output is
@@ -271,6 +275,12 @@ nothing and declares nothing: any program built for Dolly runs on one.
   A child starts with default dispositions and an empty signal mask; other file
   actions, a session, process group or scheduler, and a non-empty mask return
   `ENOTSUP`. There is no `fork`: it fails with `ENOSYS`.
+- Each process is its own process group and its own session, which it leads:
+  `getpgid`, `getpgrp` and `getsid` give its PID (the caller's for 0, `ESRCH`
+  for none), `setpgid` of a process to itself succeeds and any other fails
+  `EPERM`, as `setsid` does ([`libc-adapter.c`](../src/process/libc-adapter.c)).
+  `kill(0)` signals the caller and `kill(-PID)` that one process, not its
+  descendants; `kill(-1)` fails `ENOTSUP`.
 - `waitpid` accepts a child PID, `-1` or `0`, with `WNOHANG`, `WUNTRACED` and
   `WCONTINUED`: no child ever stops or continues. Wait records distinguish signal termination from exit:
   `exit(130)` is not SIGINT.
@@ -289,7 +299,7 @@ nothing and declares nothing: any program built for Dolly runs on one.
   orphans. The terminal goes back to the parent's foreground ancestor, as a
   shell takes it back when a job ends. A parent a signal ends takes its
   descendants with it, by that signal, as a signal to its process group
-  would: Dolly has no groups, so the command of `slop -c` is the shell's
+  would: a Dolly group is one process, so the command of `slop -c` is the shell's
   child unless the shell `exec`s it, and a closed terminal's `SIGHUP` ends its jobs. A timed
   command's deadline ends its whole tree, as `timeout` signals the command's
   process group.
@@ -435,5 +445,5 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
 
 ## Unsupported
 
-`fork`, job control and process groups, network sockets, and changing user
-or group identity fail explicitly.
+`fork`, job control, joining another process group or session, network
+sockets, and changing user or group identity fail explicitly.

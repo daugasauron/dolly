@@ -18,6 +18,28 @@ Also from the port: `posix_spawn_file_actions_addclose` works since `core/proces
 (`tasks/20261006-214244-process-exec`), and the libc has no `gethostbyaddr` (OCaml raises
 `Not_found`; no change planned).
 
+## State (2026-10-24): groups, sessions and `mprotect` on `core/runtime-cleanup`
+
+Decided by the integrator: each process is its own process group and its own session, and
+`mprotect` grants read and write only (the two rows below). In `029313db`, a seed change (image
+inputs `a3d68c88`); `process-lifecycle.c` checks each answer, and `test/process-browser.mjs`
+passed in Chromium and Firefox on `system` built on it. The ports that call them, on that seed
+with their images rebuilt (`work/runtime`, 2026-10-24):
+
+| Port | Result | What changed |
+| --- | --- | --- |
+| OCaml | `ocaml-browser.mjs` Chromium and Firefox, `fixpoint-browser.mjs` Chromium 142 s, Firefox 167 s | nothing seen: the runtime commits with read and write, and ignores its decommit's (`PROT_NONE`) `ENOTSUP` |
+| zsh | `zsh-browser.mjs` both | nothing seen: `getpgrp` is its pid, so `acquire_pgrp` no longer calls `setpgid`; `monitor` is off at the prompt and after a command, a background job and `wait` work, Ctrl+C gives 130 |
+| tmux | `tmux-browser.mjs` Chromium, Firefox (one flake at the pane menu, then two passes) | none: its port spawns, and its `killpg` follows stopped children, which Dolly has none of |
+| Neovim | `neovim-browser.mjs` Chromium; `neovim-build`'s job checks | none: its patch kills a job by pid; `:suspend`'s `kill(0, SIGSTOP)` is `ENOTSUP` as before (`raise` of SIGSTOP); no pty `:terminal` |
+| CMake | `cmake-browser.mjs` Chromium | none: kwsys's `setsid` and `kill(-pid)` follow its `vfork`; processes go through the libuv port |
+| Rust | `rust-browser.mjs` Chromium: rustc, Cargo and Tokio, with `rust` and `cargo` linked on this seed (`rust-build` in `hugebuild`, 1,771 s, peak 9.7 GB) | none: std's stack guard (`mprotect`) is not built for this target, its `setpgid` and `setsid` follow `fork`, and a process group for a spawn is still `ENOTSUP` |
+| Emacs | `emacs-browser.mjs` Chromium and Firefox | `inherited_pgroup` is 0, so no `setpgid` and `tcsetpgrp` at start and exit; C-g of `M-! sleep 30` still waits for the command (the terminal's interrupt key is C-c, so Emacs reads C-g after it ends) |
+
+libuv's own tests were not run: the staged libuv holds the library, not its tests.
+Every stub of both files now answers honestly or fails explicitly. Left: the catalog round on
+the seed that carries `029313db`.
+
 ## State (2026-10-23, night): the stubs taken over on `core/process-exec`
 
 Done and checked in Chromium and Firefox (`test/process-browser.mjs` runs
@@ -67,10 +89,10 @@ Checks in `test/fixtures/process-lifecycle.c`.
 | `getgroups32`, `getresuid32`, `getresgid32` | group 0, ids 0 | kept | true: one user, id 0, group 0 |
 | `getpriority` / `setpriority`, `setdomainname` | 0 / `EPERM` | kept | every process runs at 0; nothing may change it |
 | `mlock`, `munlock`, `mlockall`, `munlockall` | success | kept | no page of a process's memory is ever written out: locked is how it always is |
-| `mprotect` | success, protects nothing | kept, recorded | granting read and write is true (memory always is); revoking is not done. OCaml's runtime grants with it; refusing revocation would change what Rust's std and JIT-like ports do, which needs the catalog round to measure |
+| `mprotect` | success, protects nothing | read and write: success (a shared file mapping made without write is then written back, `EACCES` if its descriptor is read-only); any other protection: `ENOTSUP` | memory is always readable and writable and never executable; revoking access or granting execution is not done |
 | `mremap` | `ENOMEM` | kept | an explicit failure; realloc copies |
 | `acct`, `mincore`, `socketpair` | `ENOSYS` | kept | explicit; `socketpair` is `sockets@0`'s when linked |
-| `setpgid`, `getpgid`, `getsid`, `setsid` | pretend pid 42 leads its group and session; `setsid` returns 0 | kept, recorded | Dolly has no groups or sessions (`docs/process-model.md`); what a program sees for them is the core's shape, the owner's. Their callers in the catalog's sources run after a `fork` Dolly lacks (libuv, Neovim's pty, CMake's kwsys) |
+| `setpgid`, `getpgid`, `getsid`, `setsid` | pretend pid 42 leads its group and session; `setsid` returns 0 | each process is its own group and its own session: `getpgid`, `getpgrp` and `getsid` give the pid (the caller's for 0), `ESRCH` for none; `setpgid` of itself to itself succeeds, any other `EPERM`; `setsid` `EPERM` | true in Dolly, which has no groups (`docs/process-model.md`); `kill(0)` signals the caller and `kill(-pid)` that one process, `kill(-1)` stays `ENOTSUP`; `tcgetpgrp` and `tcsetpgrp` are `ENOTTY`: no terminal is a session's |
 
 ### Before the takeover (2026-10-23, evening)
 

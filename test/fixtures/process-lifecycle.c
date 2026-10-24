@@ -11,6 +11,7 @@
 #include <grp.h>
 #include <pthread.h>
 #include <pwd.h>
+#include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/times.h>
 #include <sys/wait.h>
@@ -196,6 +197,42 @@ int main(int argc, char **argv) {
     return 42;
   }
   CHECK(gettid() == getpid());
+  /* Each process is its own group and its own session, which it leads, and
+   * no terminal is a session's: there is no other group to join or name. */
+  const pid_t own = getpid();
+  CHECK(getpgrp() == own && getpgid(0) == own && getpgid(own) == own && getsid(0) == own);
+  CHECK(setpgid(0, 0) == 0 && setpgid(own, own) == 0 && kill(0, 0) == 0);
+  errno = 0;
+  CHECK(setpgid(0, own + 1) == -1 && errno == EPERM);
+  errno = 0;
+  CHECK(setsid() == -1 && errno == EPERM);
+  errno = 0;
+  CHECK(getpgid(INT32_MAX) == -1 && errno == ESRCH);
+  errno = 0;
+  CHECK(tcgetpgrp(0) == -1 && errno == ENOTTY);
+  /* Memory is readable and writable and never executable: mprotect grants
+   * that and nothing else, and a shared mapping granted write writes back. */
+  char *page = aligned_alloc(65536, 65536);
+  CHECK(page != NULL && mprotect(page, 65536, PROT_READ | PROT_WRITE) == 0);
+  const int protections[] = {PROT_READ, PROT_NONE, PROT_READ | PROT_WRITE | PROT_EXEC};
+  for (int index = 0; index < 3; ++index) {
+    errno = 0;
+    CHECK(mprotect(page, 65536, protections[index]) == -1 && errno == ENOTSUP);
+  }
+  free(page);
+  const int mapped = open("/tmp/lifecycle-mapped", O_RDWR | O_CREAT | O_TRUNC, 0600);
+  CHECK(mapped >= 0 && write(mapped, "a", 1) == 1);
+  char *shared = mmap(NULL, 1, PROT_READ, MAP_SHARED, mapped, 0);
+  CHECK(shared != MAP_FAILED && mprotect(shared, 1, PROT_READ | PROT_WRITE) == 0);
+  shared[0] = 'b';
+  char written = 0;
+  CHECK(msync(shared, 1, MS_SYNC) == 0 && pread(mapped, &written, 1, 0) == 1 && written == 'b');
+  const int readable = open("/tmp/lifecycle-mapped", O_RDONLY);
+  char *read_only = mmap(NULL, 1, PROT_READ, MAP_SHARED, readable, 0);
+  errno = 0;
+  CHECK(read_only != MAP_FAILED && mprotect(read_only, 1, PROT_READ | PROT_WRITE) == -1 && errno == EACCES);
+  CHECK(munmap(shared, 1) == 0 && munmap(read_only, 1) == 0 && close(mapped) == 0 && close(readable) == 0 &&
+        unlink("/tmp/lifecycle-mapped") == 0);
   /* One user, id 0: a process sets the ids it has, and no other. */
   CHECK(setuid(0) == 0 && setgid(0) == 0 && seteuid(0) == 0 && setegid(0) == 0);
   CHECK(setresuid(-1, 0, -1) == 0 && setreuid(0, 0) == 0);
@@ -231,7 +268,8 @@ int main(int argc, char **argv) {
   CHECK(kill(pid, SIGUSR1) == -1 && errno == ENOTSUP);
   errno = 0;
   CHECK(kill(-1, SIGTERM) == -1 && errno == ENOTSUP);
-  CHECK(kill(pid, SIGTERM) == 0);
+  // The child is its own group: the group's signal is its own.
+  CHECK(getpgid(pid) == pid && getsid(pid) == pid && kill(-pid, SIGTERM) == 0);
   if (failures) return 1; /* The invocation boundary owns any remaining children. */
   CHECK(waitpid(pid, &status, 0) == pid);
   CHECK(WIFSIGNALED(status) && WTERMSIG(status) == SIGTERM);
