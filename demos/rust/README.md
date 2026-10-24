@@ -16,6 +16,7 @@ Rust in the catalog is built by the result with Cargo.
 - `fd`: `fd`, which finds files by name.
 - `protox`: `protox`, a protobuf compiler; Codex is built with it.
 - `cbindgen`: `cbindgen`, which writes C headers for Rust libraries; SpiderMonkey's configure requires it.
+- `naga`: `naga`, the wgpu project's shader translator; 0 A.D.'s shaders are translated to WGSL with it.
 
 Build the seed once with `./demos/rust/build-rust-toolchain.sh` (Linux x86_64, Podman, Python
 3.12+, curl, patch), then `npm run image -- rust-tools`. `rust-sdk` starts from

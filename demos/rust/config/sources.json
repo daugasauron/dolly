@@ -28,5 +28,10 @@
     "url": "https://codeload.github.com/mozilla/cbindgen/tar.gz/refs/tags/0.26.0",
     "sha256": "b45e1a64875b615702a86ac3084ef69ae32926241cd2b687a30c12474be15105",
     "directory": "cbindgen-0.26.0"
+  },
+  "naga": {
+    "url": "https://static.crates.io/crates/naga-cli/naga-cli-30.0.1.crate",
+    "sha256": "45283c11b8b1da1936214eefc9caf9c1bc74ae5c090023eaea84ba317a194c8c",
+    "directory": "naga-cli-30.0.1"
   }
 }
