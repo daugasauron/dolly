@@ -4,6 +4,12 @@
 - PRIORITY: 260
 - TAGS: core,process,abi,slop,libc,0.1.4
 
+## Closed (2026-10-23, `core/process-exec`, merged into the integration branch)
+
+Every test under "Tests that decide it" passes in Chromium and Firefox ("Verification" below).
+The seed the contract needs is [exec-seed](../20261023-121443-exec-seed/TASK.md)'s, in the
+reconciliation round.
+
 ## State (2026-10-23, night): built and verified on `core/process-exec`
 
 Operation 61 is `DOLLY_PROCESS_EXEC`; libc's `execve` family, Slop's `exec`, `env` and
