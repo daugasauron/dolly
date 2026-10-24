@@ -1,10 +1,21 @@
 # slopshare.dev: Cloudflare still rewrites two pages; www and the old domain are undecided
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 60
 - TAGS: release,site,owner
 
 Owner (2026-10-23): "Keep daugasauron.com for now."
+
+## Closed (2026-10-24): the owner's switches are made, and the site checks pass
+
+The owner turned Email Address Obfuscation off. Checked on 2026-10-24: the pages it rewrote
+(`v0.1.2/view/system-tools/`, `v0.1.2/view/xonotic/`, `v0.1.3/view/git/`, `view/xz/`,
+`view/xonotic/`) come with no `/cdn-cgi/l/email-protection` link, and `published-version.mjs
+verify https://slopshare.dev work/locks/published` passed for v0.1.3 (1,917 s) and v0.1.2
+(2,803 s): every file of each, and the lists of v0.1.0 to v0.1.3. `boot https://slopshare.dev
+v0.1.0 v0.1.1 v0.1.2 v0.1.3 chromium firefox` passed (183 s). `www.slopshare.dev` now answers
+301 to `https://slopshare.dev/`. daugasauron.com stays, on the owner's word ("Keep
+daugasauron.com for now"); agents leave it alone.
 
 ## State (2026-10-17)
 
