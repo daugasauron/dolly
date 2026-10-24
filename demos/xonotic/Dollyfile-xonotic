@@ -2,6 +2,7 @@ DOLLY 7
 APPLICATION xonotic
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST gpu@0
 REQUIRES HOST audio@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
@@ -11,11 +12,12 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
 FROM /v0.1.4/Dollyfile-system 2e3401741eb6ab77220db31920f18139f45fde19409fba765608929658524258
-COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build a88af927b5987fef655773629b93f902198530900f3c6ab9693cd844c72738b8 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
-COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build a88af927b5987fef655773629b93f902198530900f3c6ab9693cd844c72738b8 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build b178bdd17561ffe272a51701768c5b0e051330852f7c45c3c41b7a4ad52518eb /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-xonotic-shaders ebcd12ce55822dc48d72a70bf17484d19ec308521e14dafdddb73a3178789820
+COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build b178bdd17561ffe272a51701768c5b0e051330852f7c45c3c41b7a4ad52518eb /usr/share/licenses/xonotic /usr/share/licenses/xonotic
 COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 5caffe43d783ed4b72f8b5adb8cb79d54518c456dcb6ddf178e7fc23b8666670 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
-COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build a88af927b5987fef655773629b93f902198530900f3c6ab9693cd844c72738b8 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
+COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build b178bdd17561ffe272a51701768c5b0e051330852f7c45c3c41b7a4ad52518eb /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
 COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-deps 3b94762c6df9f1a3888fbec9e5cbcd6ea292b7ffb8b62b383428a1bae1d4e392 /usr/share/licenses/freetype /usr/share/licenses/freetype
 COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-deps 3b94762c6df9f1a3888fbec9e5cbcd6ea292b7ffb8b62b383428a1bae1d4e392 /usr/share/licenses/libpng /usr/share/licenses/libpng
 # Dolly's notices for this image: the IJG sentence, the fonts' terms and the

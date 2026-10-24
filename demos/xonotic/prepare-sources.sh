@@ -17,7 +17,7 @@ for xiph in libogg libvorbis; do
       "${xiph_dir}/COPYING" "/usr/share/licenses/${xiph}/COPYING"
   fi
 done
-if has_image xonotic-build; then
+if has_image xonotic-build || has_image xonotic-shaders; then
   xonotic_dir="$(bash demos/xonotic/prepare-xonotic.sh)"
   # The MIT notice of qcsrc/lib/csqcmodel is the header of each of its files.
   sed -n '1,/^ \*\/$/p' "${xonotic_dir}/qcsrc/lib/csqcmodel/cl_model.qc" > build/generated/xonotic-csqcmodel-COPYING
@@ -33,7 +33,9 @@ if has_image xonotic-build; then
     "${xonotic_dir}/qcsrc/lib/warpzone/COPYING" /usr/share/licenses/xonotic/COPYING.warpzone \
     build/generated/xonotic-csqcmodel-COPYING /usr/share/licenses/xonotic/COPYING.csqcmodel \
     demos/xonotic/Makefile /usr/src/dolly/xonotic/Makefile \
-    demos/xonotic/simd-unit.c /usr/src/dolly/xonotic/simd-unit.c
+    demos/xonotic/simd-unit.c /usr/src/dolly/xonotic/simd-unit.c \
+    demos/xonotic/dpgpurast.c /usr/src/dolly/xonotic/dpgpurast.c \
+    demos/xonotic/dpshaders.c /usr/src/dolly/xonotic/dpshaders.c
 fi
 if has_image xonotic; then
   xonotic_data="$(bash demos/xonotic/prepare-xonotic-data.sh)"

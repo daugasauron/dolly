@@ -18,11 +18,18 @@ SERVER_UNITS := sys_linux vid_null thread_null snd_null \
   r_sprites sbar sv_demo sv_main sv_move sv_phys sv_user svbsp svvm_cmds sys_shared vid_shared view wad world zone
 SERVER_OBJECTS := $(patsubst %,$(BUILD)/engine/%.o,$(SERVER_UNITS))
 # OBJ_SDL with the null thread and CD units (the sdl2 package starts no threads)
-# and its sound units over SDL's audio. The software rasterizer draws until
-# RENDERPATH_DOLLY exists.
+# and its sound units over SDL's audio. The engine's software render path draws
+# through dpgpurast.c on gpu@0, or through the software rasterizer, renamed
+# dpsoft_*, where gpu@0 gives no device.
 CLIENT_UNITS := sys_sdl vid_sdl menu mvm_cmds cd_shared cd_null snd_main snd_mem snd_mix snd_ogg snd_wav snd_sdl \
   $(filter-out sys_linux vid_null snd_null,$(SERVER_UNITS))
-CLIENT_OBJECTS := $(patsubst %,$(BUILD)/client/%.o,$(CLIENT_UNITS))
+CLIENT_OBJECTS := $(patsubst %,$(BUILD)/client/%.o,$(CLIENT_UNITS)) $(BUILD)/client/dpgpurast.o
+DPSOFTRAST_CALLS := Init Shutdown Flush Finish Texture_New Texture_Free Texture_UpdatePartial Texture_UpdateFull \
+  Texture_GetWidth Texture_GetHeight Texture_GetDepth Texture_GetPixelPointer Texture_Filter SetRenderTargets Viewport \
+  ClearColor ClearDepth ColorMask DepthTest ScissorTest Scissor ClipPlane BlendFunc BlendSubtract DepthMask DepthFunc \
+  DepthRange PolygonOffset CullFace Color4f GetPixelsBGRA CopyRectangleToTexture SetTexture SetVertexPointer \
+  SetColorPointer SetColorPointer4ub SetTexCoordPointer SetShader Uniform4f Uniform4fv UniformMatrix4fv Uniform1i \
+  DrawTriangles
 # makefile.inc's CFLAGS_COMMON at -O1 (Dolly's cc takes no -fno-math-errno or
 # -fno-trapping-math), zlib linked statically since there is no dlopen.
 CFLAGS := -O1 -fno-strict-aliasing -D_FILE_OFFSET_BITS=64 -D__KERNEL_STRICT_NAMES -DLINK_TO_ZLIB -I$(SOURCE)
@@ -57,9 +64,51 @@ $(patsubst %,$(BUILD)/client/%.o,$(SIMD_UNITS)): $(BUILD)/client/%.o: $(ENGINE)/
 	mkdir -p $(@D)
 	$(CC) $(CLIENT_CFLAGS) -D__SSE__ -D__SSE2__ -DDOLLY_XONOTIC_TRANSLATION_UNIT='"$<"' -c $(PORT)/simd-unit.c -o $@
 
+$(BUILD)/client/dpsoftrast.o: CLIENT_CFLAGS += $(foreach call,$(DPSOFTRAST_CALLS),-DDPSOFTRAST_$(call)=dpsoft_$(call))
+
 $(BUILD)/client/%.o: $(ENGINE)/%.c
 	mkdir -p $(@D)
 	$(CC) $(CLIENT_CFLAGS) -c $< -o $@
+
+$(BUILD)/client/dpgpurast.o: $(PORT)/dpgpurast.c
+	mkdir -p $(@D)
+	$(CC) $(CLIENT_CFLAGS) -I$(ENGINE) -c $< -o $@
+
+# The shader permutations the normal preset draws with (MODE:PERMUTATION, as
+# dpgpurast.c logs each with developer 1), rewritten by dpshaders, translated
+# by naga. Measured on stormkeep (the timedemo and a match), afterslime and
+# glowplant: for the lit modes 7, 11 and 12, every combination of the bits
+# they used there (diffuse 1, colormapping 8, glow 2048, specular 8192,
+# alpha kill 4194304, reflectcube 8388608).
+LIGHTING_PERMUTATIONS := $(shell awk 'BEGIN { split("1 8 2048 8192 4194304 8388608", bit, " "); \
+  for (set = 0; set < 64; set++) { p = 0; for (i = 0; i < 6; i++) if (int(set / 2 ^ i) % 2) p += bit[i + 1]; printf "%d ", p } }')
+SHADER_PAIRS := 0:0 0:1 0:4 0:12 0:13 1:16384 2:0 4:0 4:2048 4:4194304 13:0 \
+  $(foreach mode,7 11 12,$(foreach permutation,$(LIGHTING_PERMUTATIONS),$(mode):$(permutation)))
+SHADERS := /usr/share/xonotic/shaders
+GLSL := $(BUILD)/glsl
+SHADER_NAMES := $(subst :,-,$(SHADER_PAIRS))
+
+shaders: $(foreach name,$(SHADER_NAMES),$(SHADERS)/$(name).vert.wgsl $(SHADERS)/$(name).frag.wgsl $(SHADERS)/$(name).uniforms)
+
+$(BUILD)/dpshaders: $(PORT)/dpshaders.c
+	mkdir -p $(@D)
+	$(CC) -O1 -I$(ENGINE) $< -o $@
+
+$(GLSL)/%.vert $(GLSL)/%.frag $(GLSL)/%.uniforms: $(BUILD)/dpshaders
+	mkdir -p $(GLSL)
+	$(BUILD)/dpshaders $(ENGINE) $(GLSL) $(subst -,:,$*)
+
+$(SHADERS)/%.vert.wgsl: $(GLSL)/%.vert
+	mkdir -p $(@D)
+	naga --input-kind glsl --shader-stage vert --compact $< $@
+
+$(SHADERS)/%.frag.wgsl: $(GLSL)/%.frag
+	mkdir -p $(@D)
+	naga --input-kind glsl --shader-stage frag --compact $< $@
+
+$(SHADERS)/%.uniforms: $(GLSL)/%.uniforms
+	mkdir -p $(@D)
+	cp $< $@
 
 /usr/bin/gmqcc: $(GMQCC_OBJECTS)
 	$(CXX) $(GMQCC_OBJECTS) -o $@

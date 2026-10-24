@@ -1,8 +1,53 @@
-# Xonotic runs in software with sound; the gpu@0 renderer is not started
+# Xonotic draws on gpu@0 at the normal preset, in software without an adapter, with sound
 
 - STATUS: OPEN
 - PRIORITY: 200
 - TAGS: demo,gpu,audio,port,0.1.4
+
+## The gpu@0 render path (2026-10-24, the games-and-packages workstream)
+
+Route (a), done for the `normal` preset with no contract change and no engine hunk:
+
+- `demos/xonotic/dpgpurast.c` implements `dpsoftrast.h`'s 41 calls on `gpu@0`, so the engine's
+  `RENDERPATH_SOFT` sites draw on the GPU unchanged; `vid_sdl.c` stays, since `gpu@0` draws on
+  its own canvas over `#display` (the plan's `vid_dolly.c` was not needed). Where
+  `dolly_gpu_open` fails it forwards every call to `dpsoftrast.c`, compiled with its names
+  prefixed `dpsoft_` (`DPSOFTRAST_CALLS` in the Makefile): one binary, both rasterizers.
+- Shaders: `dpshaders.c` writes each permutation as the engine does (its prelude over
+  `shader_glsl.h`, `cc -E`) and rewrites it mechanically for naga's GLSL front end; no glslang.
+  `PACKAGE xonotic-shaders` (FROM system-tools, USE naga) runs it and naga in Dolly for 203
+  permutations: generic, depth, vertexcolor, refraction and postprocess as measured, and for the
+  lit modes 7, 11 and 12 every combination of the six bits the census used (diffuse,
+  colormapping, glow, specular, alpha kill, reflectcube). Census: the timedemo, and 150 s
+  matches with 6 bots on stormkeep, afterslime and glowplant (`developer 1` logs each
+  permutation); the final stormkeep match asked for 30, all present. A permutation outside the
+  list draws nothing and is printed once. `xonotic-build` INSTALLs the package.
+- The frame draws into a colour and a depth texture, copied onto the surface once per frame;
+  consecutive draws with the same pipeline, textures and uniforms merge (the timedemo's 950
+  engine draws a frame became 99, before the geometry cache); uniforms go into per-draw slots of one storage buffer indexed by the
+  instance index; a static model's arrays and indices go into a geometry buffer once a draw has
+  read the same bytes twice.
+- Decided with the integrator: `gpu@0` is admitted without an adapter (`07c6b08a`): OPEN fails
+  with ENODEV and the page says so, so the image boots and falls back in Firefox under Xvfb.
+
+Measured, `short.dem` timedemo at 1024×768, normal preset (Chrome on my Xvfb :152, nvidia
+adapter; the machine also ran the integrator's catalog build): `gpu@0` 83.8 fps in an 800×450
+window and 25.9 fps in a 1280×720 one; the software fallback in headless Chromium 11.6 fps,
+13.7 fps in Firefox. Under Xvfb a presented frame waits until the X server has the window,
+growing with its area (`tasks/20261024-025944-gpu-scopes`), so the GPU numbers go with the
+window. The geometry cache: 83.9 and 82.3 fps against 64.5 and 64.9 without it at 800×450,
+23.5 and 23.9 against 26.4 and 24.4 at 1280×720 (within the noise there). The software path's
+per-frame window present that `vid_sdl.c` still does on the GPU path (blit and
+`SDL_UpdateWindowSurface` of 1024×768) costs 2.2 ms of the engine's frame (`blit.c` timed in
+`xonotic-build`): about a sixth of a frame at 84 fps; no engine hunk added for it.
+`xonotic-browser.mjs` covers both paths: with DISPLAY, Chrome in a window on `gpu@0` (menu
+frame, sound, timedemo at 23.2 fps in its window, live match with capture, 426.9 s); Firefox
+headless falls back to software (427.4 s); its live stage now waits for the menu's hidden
+cursor instead of a fixed 20 s, which a loaded machine overran.
+
+Not done: the `xonotic` data image (its builder needs more than 9 GB); the effects beyond
+`normal` (the README's table); drawing into textures, so the loading screen's backdrop and
+screenshots are missing on the GPU path.
 
 ## SDL2 plays sound (2026-10-24, the games-and-packages workstream)
 
@@ -55,15 +100,14 @@ recorded below; the owner accepted the pass's two open points on 2026-10-07
 
 Left, against the done-when:
 
-- **The `gpu@0` renderer**: `vid_dolly.c`, `dpgpurast.c` and the `normal` preset's shaders as
-  WGSL (route (a), "Decisions for the owner" 1 and 2). Not started; the software path is the
-  interim one. The done-when's "on a hardware adapter" waits for it.
+- **The `gpu@0` renderer**: done for `normal` (above); the `xonotic` data image is not
+  rebuilt with it.
 - **Sound**: done (above).
-- **Speed**, the owner's remark ("needs better performance tuning"): 31 fps at the low preset
-  and 13 to 14 at normal in Chromium, on one rasterizer thread; a map takes about two minutes
-  to load.
-- With the `gpu@0` path: the README's list of effects that are off, each with the `gpu@0`
-  limit it waits for. Today it lists what the low preset turns off.
+- **Speed**, the owner's remark ("needs better performance tuning"): on `gpu@0` 84 fps at
+  normal in a small window (above); in software 31 fps at the low preset and 13 to 14 at
+  normal in Chromium, on one rasterizer thread; a map takes about two minutes to load in
+  software.
+- The README's list of effects that are off on `gpu@0`, each with what it waits for: done.
 
 ## The request
 

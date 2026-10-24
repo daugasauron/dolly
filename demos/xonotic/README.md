@@ -2,12 +2,11 @@
 
 Xonotic 0.8.6 (DarkPlaces engine), being ported to Dolly. State: the dedicated
 server, the SDL client and gmqcc build inside Dolly, a bot match runs to its
-end headless, gmqcc rebuilds the game logic there, and the client draws
-through the engine's own software rasterizer (its SSE2 code compiled as Wasm
-SIMD) into the `sdl2` package's window. That software path is the interim
-renderer; the goal stays a `gpu@0` render path inside the engine (the plan is
-in the task). Sound plays through SDL's audio on `audio@0`. The task is
-`tasks/20261006-122433-xonotic/TASK.md`.
+end headless, gmqcc rebuilds the game logic there, and the client draws on
+`gpu@0` at the engine's normal preset, or, where the browser gives no WebGPU
+adapter, through the engine's own software rasterizer (its SSE2 code compiled
+as Wasm SIMD) into the `sdl2` package's window. Sound plays through SDL's
+audio on `audio@0`. The task is `tasks/20261006-122433-xonotic/TASK.md`.
 
 ## Images
 
@@ -17,6 +16,10 @@ in the task). Sound plays through SDL's audio on `audio@0`. The task is
   package; the engine, gmqcc and `qcsrc` stay under `/usr/src/xonotic`, and
   `make -f /usr/src/dolly/xonotic/Makefile qc` compiles `progs.dat`,
   `csprogs.dat` and `menu.dat` into `/tmp/xonotic/build/qc`.
+- `xonotic-shaders`: the engine's shader permutations of the normal preset
+  as WGSL in `/usr/share/xonotic/shaders`, for the client's `gpu@0` path:
+  `dpshaders.c` rewrites the engine's GLSL as naga's GLSL front end reads it
+  and the `naga` package translates it, in the build.
 - `libjpeg`: IJG libjpeg 9f, a library for programs the `cc` package builds;
   it brings no compiler.
 - `libogg`: Ogg 1.3.5 from upstream's CMake project, a library for programs
@@ -34,15 +37,16 @@ the task records the measurements).
 
 ## What works in `/xonotic/` today
 
-- The menu and a bot match on the stock maps, drawn by the software path at
-  1024×768; `xonotic` takes the engine's command line
-  (`xonotic +map stormkeep +bot_number 4`). The image starts with the low
+- The menu and a bot match on the stock maps at 1024×768; `xonotic` takes
+  the engine's command line (`xonotic +map stormkeep +bot_number 4`). With a
+  WebGPU adapter the client draws on `gpu@0`; without one, `gpu@0` gives it no
+  device and the software rasterizer draws. The image starts with the low
   effects preset (`/home/dolly/.xonotic/data/config.cfg`, overwritten with
-  the player's own settings on exit): 31 fps in Chromium on the test's
-  bot-match demo against 13 for the normal preset, at the cost of
-  deluxemapping, gloss and normal maps, realtime dynamic lights, most
-  particles and one texture mip level; the settings menu raises them again.
-  Loading a map takes about two minutes in the software client; the
+  the player's own settings on exit), chosen for the software path: 31 fps in
+  Chromium on the test's bot-match demo against 13 for the normal preset, at
+  the cost of deluxemapping, gloss and normal maps, realtime dynamic lights,
+  most particles and one texture mip level; the settings menu raises them
+  again. Loading a map takes about two minutes in the software client; the
   loading plaque stays up meanwhile.
 - Keyboard and mouse reach the engine through the sdl2 package's video
   backend: in the menu, in the game's own dialogs and in the game menu a map
@@ -51,10 +55,27 @@ the task records the measurements).
   in the match captures the pointer (the page shows a crosshair until then;
   Escape releases the capture).
 - Not working or not there: network play (single player with bots only), the music and Nexuiz
-  compatibility archives, and the `gpu@0` renderer (the software path is the
-  interim one; route (a) in the task). Building the data image needs a
-  builder scope above 9 GB (7 to 9 GB of renderer memory during its
-  snapshot upload; the task records the runs).
+  compatibility archives, and on `gpu@0` the effects below. Building the data
+  image needs a builder scope above 9 GB (7 to 9 GB of renderer memory during
+  its snapshot upload; the task records the runs).
+
+## Effects that are off on `gpu@0`
+
+The `normal` preset draws in full. What the engine asks for beyond it, or in
+passing, and what each waits for:
+
+| Effect | Preset | Waits for |
+| --- | --- | --- |
+| Bloom, motion blur, the HUD's blur | `high` and up | a copy of the frame into a texture: `gpu@0` copies only buffers; drawing the frame into a texture would do, and `dpgpurast.c` does not yet draw into textures |
+| Water reflection and refraction (`r_water`) | `high` and up | clip planes (WebGPU's `clip-distances` feature, which `gpu@0` does not ask for) and drawing into textures |
+| Corona occlusion queries | `high` and up | occlusion queries, which `gpu@0` lacks; the engine traces instead |
+| Realtime world lights and shadow maps | `ultra` and up | drawing into depth textures in `dpgpurast.c` (`gpu@0` has depth targets and compare samplers) |
+| Offset and relief mapping | `ultra` and up | nothing in `gpu@0`: their permutations are not in `xonotic-shaders`' list |
+| The loading screen's backdrop of the last frame | all | the copy of the frame into a texture, as above |
+| Screenshots | all | reading the frame back; `gpu@0` captures the presented frame into a buffer, which `dpgpurast.c` does not use |
+
+A shader permutation outside the list in [`Makefile`](Makefile) draws nothing
+and is printed once (`dpgpurast: no WGSL for shader mode M permutation P`).
 
 ## How it works
 
@@ -79,6 +100,20 @@ the task records the measurements).
 - Dolly's libc answers the engine's socket calls with failures, so the INET
   ports are reported unavailable; only the loopback address type carries
   packets.
+- The engine's software render path (`vid_soft 1`) calls the 41 functions of
+  `dpsoftrast.h`; [`dpgpurast.c`](dpgpurast.c) implements them on `gpu@0`,
+  with no change to the engine. It draws each frame into a colour and a depth
+  texture and copies that onto the surface once, merges consecutive draws
+  with the same pipeline, textures and uniforms, keeps a static model's
+  arrays in a geometry buffer once a draw has read the same bytes twice, and
+  sends one command packet per frame where they fit. Where `dolly_gpu_open`
+  fails it forwards every call to `dpsoftrast.c`, compiled with its names
+  prefixed `dpsoft_` (the Makefile's `DPSOFTRAST_CALLS`). `vid_sdl.c` keeps
+  the window, input and cursor; `gpu@0` draws on its own canvas over it.
+- [`dpshaders.c`](dpshaders.c), built in `xonotic-shaders`, writes each shader
+  permutation the engine's own way (its prelude over `shader_glsl.h`, through
+  `cc -E`) and rewrites the result mechanically for naga's GLSL front end
+  (the rules are in the file); naga translates it to WGSL there.
 - [`simd-unit.c`](simd-unit.c) compiles the two SSE2 units (`dpsoftrast.c`,
   `mod_skeletal_animatevertices_sse.c`) as Wasm SIMD through a per-function
   target pragma over Emscripten's compat `<emmintrin.h>`, until `cc` accepts
@@ -108,8 +143,12 @@ the test runs its second match on the `progs.dat` built in Dolly. The test's
 `short.dem`, a 22 s bot match on stormkeep recorded with the native build, is
 a measurement fixture and not in any image: the software path plays it at
 1024×768 on one thread at 13.7 fps in Chromium and 16.1 fps in Firefox
-(native llvmpipe: 76 fps). An earlier 30 and 43 fps was measured before
-libjpeg was linked, when the surfaces drew untextured; numbers in the task.
+(native llvmpipe: 76 fps), the `gpu@0` path at 84 fps in Chrome in an
+800×450 window and 26 fps in a 1280×720 one: under Xvfb each presented frame
+waits until the X server has the window, which grows with its area, so the
+window size goes with every GPU number. An earlier 30 and 43 fps was
+measured before libjpeg was linked, when the surfaces drew untextured;
+numbers in the task.
 
 ## Licences
 
@@ -123,10 +162,8 @@ obligations.
 
 ## Bootstrap exceptions
 
-None today: everything in the images is built in Dolly from the pinned
-sources, and the data archives are the release's. Planned: the GLSL shader
-permutations translated to WGSL on the host at preparation time, as 0 A.D.'s
-`toolchain/prepare-shaders.sh` does.
+None: everything in the images is built in Dolly from the pinned sources,
+the WGSL shaders by naga, and the data archives are the release's.
 
 ## Native baseline
 
