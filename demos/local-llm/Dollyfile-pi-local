@@ -7,6 +7,7 @@ REQUIRES HOST audio@0
 REQUIRES HOST download@0
 REQUIRES HOST gpu@0
 REQUIRES HOST http@0
+REQUIRES HOST nena@0
 REQUIRES HOST packages@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
@@ -21,7 +22,7 @@ REQUIRES TOOL janis
 REQUIRES TOOL tar
 REQUIRES TOOL dolly-llama
 
-SOURCE /v0.1.4/dist/static/llama/provider.tar 9317ad717da393426ef13c2498ea9896580d9d40b1873fe38655ae9aa506534b /tmp/llm-provider.tar
+SOURCE /v0.1.4/dist/static/llama/provider.tar 68b75b1b327c2c3000ef964e4a1f00ec7fb4536abae00baa7622d6734aaecce2 /tmp/llm-provider.tar
 SLOP tar -xf /tmp/llm-provider.tar -C /
 
 FILE /home/dolly/.pi/agent/settings.json
