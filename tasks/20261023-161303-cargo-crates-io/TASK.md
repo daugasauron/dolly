@@ -1,8 +1,34 @@
 # Cargo cannot use crates.io from the browser; a model vendors crates by hand
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: rust,cargo,packages,agent-experience,0.1.4
+
+## Closed (2026-10-24): `vendor-crates`
+
+`vendor-crates` (`7ca708a1`, `demos/rust`), a Janis script in `janis-install`'s pattern and its
+own package (it installs Janis, which needs `download@0`, so `cargo` does not install it: every
+image that installs `cargo`, `spidermonkey` among them, would have to declare that module). In a
+Cargo project it resolves the dependencies (`cargo metadata --no-deps`; the newest version each
+requirement admits, every target, the features that enable optional dependencies; a
+`Cargo.lock`'s versions when there is one) with plain GETs of the index's GitHub mirror, fetches
+each crate from static.crates.io through the broker, checks it with `sha256sum` against the
+index's checksum, unpacks it into `vendor/` with its `.cargo-checksum.json`, and writes the
+`vendored-sources` replacement (and the SDK's `libc` patch when `libc` is among the crates) to
+`.cargo/config.toml`. Its manual page says it exists because the index sends no CORS headers.
+
+Measured on the seed `a3d68c88`, in `default` after `amy install cargo vendor-crates`, a project
+using `clap` (derive) and `serde_json` with the real services: 28 crates (3.9 MB) vendored in
+11.0 s and built by `cargo build --offline` in 40.9 s in Chromium; in Firefox vendored in 6.3 s
+and built with `-j 1` in 92.1 s (with every job, Firefox's tab outgrew the test's 6 GB cap).
+`demos/rust/test/vendor-crates-browser.mjs` (the mirror and static.crates.io stood in for by the
+test server) passed in Chromium (16.0 s) and Firefox (22.9 s). Cargo's own sparse client cannot
+use the mirror: its `Cargo-Protocol` header needs a preflight the mirror refuses (measured with
+`curl -H` in a session), while plain GETs pass.
+
+Pi's skill and the Rust README point at the tool. Cargo's manual page (in `Dollyfile-cargo`)
+still says the index "needs a relay or a vendored directory": editing that recipe rebuilds every
+image with `cargo`, so it changes with the next rebuild of them.
 
 
 Found by Opus 5.5 in Pi (`tasks/20261023-180000-opus-in-pi`, round 4, `r4-rust/`): asked for a

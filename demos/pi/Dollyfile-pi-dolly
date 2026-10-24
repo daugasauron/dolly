@@ -18,7 +18,7 @@ SOURCE /v0.1.4/dist/static/default/pi/dolly-tools.js                    b2d5ecb9
 SOURCE /v0.1.4/dist/static/default/pi/SYSTEM.md                         1bb5c684e163c05692d5212f051d7b4489b3e2d97714fd4384b0910f2a1ad1b1 /home/dolly/.pi/agent/SYSTEM.md
 SOURCE /v0.1.4/dist/static/default/pi/settings.json                     852b78af9b490d627858723c8b67f24e55e58d9f621ce4afbc7424b872917c1f /home/dolly/.pi/agent/settings.json
 SOURCE /v0.1.4/dist/static/default/pi/dolly-theme.json                  ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297 /home/dolly/.pi/agent/themes/dolly.json
-SOURCE /v0.1.4/dist/static/default/pi/dolly-skill.md                    e179b5f2ca861e7d1d6a7635c38b6793c950e772353a83e0f512cf675f4ccf59 /home/dolly/.pi/agent/skills/dolly/SKILL.md
+SOURCE /v0.1.4/dist/static/default/pi/dolly-skill.md                    3e63172fc8a2fc41974b8110a97bd8aa42452a2ec6b8a933c84b9c7c8e38d23d /home/dolly/.pi/agent/skills/dolly/SKILL.md
 
 FILE /home/dolly/.pi/agent/extensions/dolly-tools.js
 FILE /home/dolly/.pi/agent/SYSTEM.md
