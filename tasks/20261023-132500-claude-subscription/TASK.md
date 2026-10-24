@@ -1,6 +1,6 @@
 # Claude Code with the owner's own subscription inside Dolly: what the terms allow
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 60
 - TAGS: agent,owner
 
@@ -9,6 +9,13 @@ Paused by the owner (2026-10-23): "pause this investigation for now."
 Owner (2026-10-23): "I think claude updated their policy agreement so now it should be ok to
 build a local proxy similar to codex so I can run claude sub from inside the environment
 against a local proxy?"
+
+## Closed (2026-10-24): nothing left to do, on the owner's word
+
+The owner agreed to close it (2026-10-24). Anthropic refuses the subscription's setup-token
+from a browser (the State of 2026-10-23, 15:00, below), and a relay that intermediates the
+subscription's sign-in is what the terms forbid, so Dolly builds none. Claude reaches Dolly
+through the API: Pi with an API key works (the State of 2026-10-23, evening, below).
 
 ## State (2026-10-23, evening): Claude through the API works in Dolly with Pi
 

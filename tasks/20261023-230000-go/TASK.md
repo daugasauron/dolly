@@ -36,8 +36,8 @@ a browser test that passes in Chromium and Firefox.
 Follow-ups, one line each (none blocks the goal):
 
 - Upstream bug: a nil interface key in a map of more than one table traps on GOARCH=wasm
-  (js and wasip1) in Go 1.27.3 and on master; the patch fixes `directoryIndex`. Worth an issue
-  at golang/go.
+  (js and wasip1) in Go 1.27.3 and on master; the patch fixes `directoryIndex`. Not filed:
+  the owner files no upstream bugs (2026-10-24).
 - Go's `os/signal` delivers nothing on dolly (as on js and wasip1, `_NSIG` is 0 for all wasm);
   the runtime could hand INTERRUPT_POLL's signals to `sigsend`. Go-side work.
 - `runtime.NumCPU` is 1, so `go build` compiles serially unless told `-p N`, although Dolly runs

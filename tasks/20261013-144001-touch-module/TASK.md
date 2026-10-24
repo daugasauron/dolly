@@ -188,7 +188,9 @@ list, which was not built here). The core suite as a whole was not run (the inte
 
 Left (2026-10-23, 14:40):
 
-- The done-when's phone: no phone was connected all day (`adb devices` empty at 13:5x and 14:33),
+- The done-when's phone waits for the owner's call (2026-10-24: "phone stuff - wait for my
+  calls later"); no agent connects a phone before then. On 2026-10-23 no phone was
+  connected all day (`adb devices` empty at 13:5x and 14:33),
   so `fingers` and `pi-phone` were not opened on the owner's phone, and the phone's own paste into
   the page's keyboard was not measured. With a phone: open `/fingers/` and `/pi-phone/`, try two
   fingers and the button rows, and try the keyboard's own paste (Gboard's clipboard chip) at the

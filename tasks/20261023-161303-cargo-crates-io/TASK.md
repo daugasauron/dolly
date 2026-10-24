@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 120
-- TAGS: rust,cargo,packages,agent-experience,owner,0.1.4
+- TAGS: rust,cargo,packages,agent-experience,0.1.4
 
 
 Found by Opus 5.5 in Pi (`tasks/20261023-180000-opus-in-pi`, round 4, `r4-rust/`): asked for a
@@ -31,11 +31,16 @@ Measured (curl from this machine, and in pi-agent through the broker):
 Decided by the integrator (2026-10-24): no relay; vendoring as Pi's skill describes it is the
 answer for 0.1.4. The README's `cargo run` line now says it works.
 
-## For the owner
+## Decided (2026-10-24): no relay
 
-A hosted CORS relay for `index.crates.io` is outward-facing infrastructure: should Dolly run
-one so that Cargo reads crates.io as it does natively? Without it, a project's crates are
-vendored: by hand as above, or by a vendoring tool (resolve over the index's GitHub mirror,
-fetch from static.crates.io, write `vendor/` and the config), as `janis-install` does for npm.
-Measured: the index's cached files carry no CORS header; the GitHub mirror answers CORS GETs
-but refuses Cargo's preflights (403); static.crates.io answers both.
+Owner (2026-10-24): "crates - no relay." Dolly hosts no CORS relay for `index.crates.io`; its
+one network edge stays the browser's broker, and crates.io is reached as the browser can.
+
+To do: a vendoring tool in Dolly, as `janis-install` is for npm. It resolves a project's
+dependencies over the index's GitHub mirror (CORS GETs work there), fetches each `.crate` from
+static.crates.io, and writes `vendor/` with its `.cargo-checksum.json` files and the
+`vendored-sources` replacement, so that `cargo build --offline` builds. Then Pi's skill points
+at the tool instead of the hand steps, and the Rust demo's README drops "`cargo run` fails".
+
+Done when: in `default` after `amy install cargo`, a project using `clap` and `serde_json`
+builds with the tool and `cargo build --offline` in Chromium and Firefox.
