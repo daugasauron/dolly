@@ -33,7 +33,12 @@ Against the open problems below, on this run:
   not 2.5 m. The tug brings the Blue round back to its stock row, but the Tonbi West recovery
   truck takes it and holds it at its bay for the last 992 s, so neither round is thrown again
   (39 deliveries, East 19, West 27; a fall, Mochi at 1,315 s). Next: the loader, not the
-  recovery truck, takes a returned round from the stock row.
+  recovery truck, takes a returned round from the stock row. Started and stopped for the
+  checkpoint, nothing committed: with that bay change plus the Tonbi trucks leaving any round
+  with a rope part alone (`sling-reuse2`, 2,400 s, beside `sling-base2` on the same image),
+  still no second throw: each round thrown once, neither ends within 20 m of its gun; 33 shots
+  and 41 deliveries against 30 and 40. Not traced where the rounds stop; the living-world
+  audits of the pair did not run.
 - Idle capacity: the Kanagu tugs each haul once (the tether rounds); both Tsuru rescuers and both
   Kurogane collectors still never grip. Akane, the East crane boat, grips once.
 - Benkei West moves 374 m (58 m on 2026-10-06); Kitsune West 125 m (38 m).
