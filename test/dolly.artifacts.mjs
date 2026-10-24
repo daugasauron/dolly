@@ -91,9 +91,10 @@ test("the production seed contains only bootstrap and compiler executables, not 
   const prefix = "/usr/libexec/dolly/process-bin/";
   assert.deepEqual([...files.keys()].filter(path => path.startsWith(prefix))
     .map(path => path.slice(prefix.length)), ["bootstrap", "compiler"]);
-  for (const name of ["bootstrap", "compiler"]) {
-    assert.deepEqual(Buffer.from(files.get(prefix + name).data),
-      await readFile(new URL(`../build/process-bin/${name}`, import.meta.url)));
+  // build.sh links the bootstrap and seeds the pinned compiler from its archive.
+  for (const [name, built] of [["bootstrap", "build/process-bin/bootstrap"],
+    ["compiler", "build/seed-compiler/usr/libexec/dolly/process-bin/compiler"]]) {
+    assert.deepEqual(Buffer.from(files.get(prefix + name).data), await readFile(new URL(`../${built}`, import.meta.url)));
   }
   assert.ok(files.has("/usr/include/stdio.h"));
   assert.ok(![...files.keys()].some(path => path.includes("/c++/v1/")));
@@ -244,6 +245,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["libdolly-sockets", "/usr/lib/dolly/process/libdolly-sockets.a"],
     ["libdolly-touch", "/usr/lib/dolly/process/libdolly-touch.a"],
     ["make", "/usr/bin/make"],
+    ["mandoc", "/usr/bin/mandoc"],
     ["nena", "/bin/nena"],
     ["ninja", "/usr/bin/ninja"],
     ["posix", "/bin/grep"],

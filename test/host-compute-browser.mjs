@@ -73,8 +73,8 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       return { artifact, configuration: { image: "custom", customSource: recipe, customArtifact: artifact } };
     };
   });
-  // Firefox's test build offers no adapter without a desktop: the page then
-  // refuses gpu@0 before ENTRY instead of running the program.
+  // Firefox's test build offers no adapter without a desktop: gpu@0 is there
+  // all the same, and the program's first OPEN fails (it exits 1).
   const adapter = await page.evaluate(async () => Boolean(await navigator.gpu?.requestAdapter({ powerPreference: "high-performance" })));
   const compute = page.evaluate(async code => {
     const { artifact, configuration } = await buildCustom("compute", "REQUIRES HOST runtime@0\nREQUIRES HOST gpu@0\nREQUIRES HOST http@0\n" +
@@ -83,11 +83,7 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
     const status = await runHeadless(["runtime@0", "gpu@0", "http@0"], configuration, [artifact.bytes], (_runtime, exited) => exited);
     return { status, requirements: artifact.hostRequirements, canvases: document.querySelectorAll("canvas").length };
   }, code);
-  if (adapter) {
-    assert.deepEqual(await compute, { status: 0, requirements: ["gpu@0", "http@0", "runtime@0"], canvases: 0 });
-  } else {
-    await assert.rejects(compute, /gpu@0/);
-  }
+  assert.deepEqual(await compute, { status: adapter ? 0 : 1, requirements: ["gpu@0", "http@0", "runtime@0"], canvases: 0 });
   assert.deepEqual(await page.evaluate(async () => {
     const { artifact, configuration } = await buildCustom("loop",
       "REQUIRES HOST runtime@0\nREQUIRES HOST http@0\nFILE /etc/loop.slop\n    while :; do :; done\nENTRY /bin/slop /etc/loop.slop\n");

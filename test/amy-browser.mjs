@@ -366,6 +366,14 @@ const tools = {
   fd: ["fd", "test \"$(fd stack /tmp/amy-hay)\" = /tmp/amy-hay/stack"],
   protox: ["protox", "cd /tmp && printf 'syntax = \"proto3\";\\nmessage Probe { string name = 1; }\\n' > amy.proto && protox amy.proto -o amy.pb && test -s amy.pb"],
   cbindgen: ["cbindgen", "printf '#[no_mangle]\\npub extern \"C\" fn answer() -> i32 { 42 }\\n' > /tmp/amy-answer.rs && cbindgen /tmp/amy-answer.rs | grep -q 'int32_t answer'"],
+  // yes ends when its reader does.
+  sbase: ["yes", "test \"$(yes | head -n 3 | tr '\\n' ' ')\" = 'y y y ' && test \"$(printf abc | sha1sum | cut -c 1-40)\" = a9993e364706816aba3e25717850c26c9cd0d89d && " +
+    "printf abc | sha512sum | grep -q '^ddaf35a193617aba' && cal 10 2026 | grep -q 2026 && echo sponged > /tmp/amy-sponge && " +
+    "tr a-z A-Z < /tmp/amy-sponge | sponge /tmp/amy-sponge && grep -qx SPONGED /tmp/amy-sponge && " +
+    "uuencode /tmp/amy-sponge sponge | uudecode -o /tmp/amy-uu && cmp /tmp/amy-uu /tmp/amy-sponge"],
+  // janis-install comes after janis, gzip and sbase, whose commands it brings, and both before pi-dolly,
+  // whose pi installs them; without the registry it refuses a git spec by name.
+  "janis-install": ["janis-install", "man janis-install > /dev/null && command -v sha512sum > /dev/null && ! janis-install user/repo 2> /dev/null"],
   // Pi as pi-agent has it: pi-dolly installs pi and the platform's documents beside the files Pi reads.
   "pi-dolly": ["pi", "pi --version > /dev/null && ! cc --version 2> /dev/null && amy installed | grep -q '^pi ' && " +
     "test -s /home/dolly/.pi/agent/SYSTEM.md && test -s /home/dolly/.pi/agent/extensions/dolly-tools.js && test -s /usr/share/doc/dolly/docs/slop.md"],
@@ -418,13 +426,6 @@ const tools = {
   // A page of macros becomes text, and text-page puts it where man reads it.
   mandoc: ["mandoc", "printf '%s\\n' '.Dd October 13, 2026' '.Dt PROBE 1' '.Os' '.Sh NAME' '.Nm probe' '.Nd a page of macros' > /tmp/amy.1 && " +
     "mandoc -T ascii /tmp/amy.1 | grep -q 'a page of macros' && text-page /tmp/amy.1 && grep -qx 'NAME' /usr/share/man/cat1/amy.1"],
-  // yes ends when its reader does.
-  sbase: ["yes", "test \"$(yes | head -n 3 | tr '\\n' ' ')\" = 'y y y ' && test \"$(printf abc | sha1sum | cut -c 1-40)\" = a9993e364706816aba3e25717850c26c9cd0d89d && " +
-    "printf abc | sha512sum | grep -q '^ddaf35a193617aba' && cal 10 2026 | grep -q 2026 && echo sponged > /tmp/amy-sponge && " +
-    "tr a-z A-Z < /tmp/amy-sponge | sponge /tmp/amy-sponge && grep -qx SPONGED /tmp/amy-sponge && " +
-    "uuencode /tmp/amy-sponge sponge | uudecode -o /tmp/amy-uu && cmp /tmp/amy-uu /tmp/amy-sponge"],
-  // janis-install comes after janis, gzip and sbase, whose commands it brings; without the registry it refuses a git spec by name.
-  "janis-install": ["janis-install", "man janis-install > /dev/null && command -v sha512sum > /dev/null && ! janis-install user/repo 2> /dev/null"],
   // ex edits by commands; vi at the terminal is the step after this table.
   vi: ["vi", "printf 'one\\ntwo\\n' > /tmp/amy-ex && printf '%s\\n' '%s/two/2/' w q | ex -s /tmp/amy-ex > /dev/null && test \"$(tr '\\n' ' ' < /tmp/amy-ex)\" = 'one 2 '"],
   // A syntax file dte holds is written out and loads; dte at the terminal is
