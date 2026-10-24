@@ -79,7 +79,7 @@ profile the seed is built with. A recipe then runs `cargo build --offline`.
 Upstream Cargo 0.99.0, the Cargo of Rust 1.98.1. `amy install cargo` brings it
 with the compiler.
 
-- `cargo build`, `cargo rustc` and `cargo metadata` work with path and
+- `cargo new`, `cargo build`, `cargo rustc` and `cargo metadata` work with path and
   vendored dependencies, build scripts and procedural macros.
 - `cargo run` builds the program and replaces Cargo with it (`exec`).
 - crates.io: crate archives come through the HTTP broker. Its index sends CORS
