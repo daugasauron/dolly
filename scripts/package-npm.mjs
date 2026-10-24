@@ -56,7 +56,8 @@ async function writePackage(directory, files, packageJson, readme) {
     await mkdir(dirname(join(directory, to)), { recursive: true });
     await copyFile(resolve(projectDir, from), join(directory, to));
   }
-  await writeFile(join(directory, "package.json"), `${JSON.stringify({ version, type: "module", ...packageJson }, null, 2)}\n`);
+  await writeFile(join(directory, "package.json"), `${JSON.stringify({ version, type: "module", ...packageJson,
+    repository: { type: "git", url: "git+https://github.com/daugasauron/dolly.git" } }, null, 2)}\n`);
   return execFileSync("npm", ["pack", "--silent", "--pack-destination", out], { cwd: directory, encoding: "utf8" }).trim();
 }
 

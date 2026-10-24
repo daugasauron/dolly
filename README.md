@@ -85,6 +85,9 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 Open [slopshare.dev](https://slopshare.dev/) or
 [GitHub Pages](https://daugasauron.github.io/dolly/). The menu lists every image.
 
+In a page of your own: `npm install @daugasauron/dolly @daugasauron/dolly-image-default`
+and [Embedding](docs/embedding.md).
+
 - `/IMAGE/` boots the prebuilt image; `/IMAGE/rebuild/` builds it from its
   Dollyfile in your browser; `/view/IMAGE/` shows the recipe.
 - `/custom/` builds your own [Dollyfile](docs/dollyfile.md); `/sessions/` lists
@@ -134,6 +137,7 @@ Image builds rewrite SHA-256 pins in `Dollyfile*`. Check by what you changed
 ## Docs
 
 - [Architecture](docs/architecture.md): components, system calls, core images.
+- [Embedding](docs/embedding.md): the npm packages, `boot()`, serving a page.
 - [Process model](docs/process-model.md): spawn, descriptors, pipes, signals.
 - [Browser stack](docs/browser-stack.md): what bounds recursion, how a process is entered, Firefox, LLVM.
 - [Machine contracts](abi/README.md): exact Wasm imports, exports and layouts.

@@ -11,9 +11,13 @@ the browser. These npm packages put it in a page of your own.
 | `@daugasauron/dolly-image-default` | The `default` image alone: a shell, its text tools, the terminal, curl, `amy`, `nena`, `ps`. `amy` lists what is installed and has nothing more to install |
 
 ```sh
-npm install @daugasauron/dolly @daugasauron/dolly-image-default @daugasauron/dolly-host-display \
-  @daugasauron/dolly-host-input @daugasauron/dolly-host-download @daugasauron/dolly-host-upload @daugasauron/dolly-host-sockets
+npm install @daugasauron/dolly @daugasauron/dolly-image-default
 ```
+
+The image names the runtime and the host modules it declares as peer
+dependencies, at its own version, and npm installs them beside it. Another
+package manager may need them named: they must all lie side by side under
+`node_modules/@daugasauron/`.
 
 ## A page
 
@@ -44,6 +48,23 @@ shows its own failure in the element.
 
 The page, not the image, chooses the modules and the policy, before anything of
 the image runs. A program reaches nothing of the browser but through them.
+
+## More host modules
+
+`default` declares `nena@0`, so a session can enable a module the page has and
+the image does not declare. Install its package and add its `module.json`:
+
+```sh
+npm install @daugasauron/dolly-host-gpu @daugasauron/dolly-host-microphone @daugasauron/dolly-host-pty
+```
+
+```js
+const gpu = new URL("./node_modules/@daugasauron/dolly-host-gpu/module.json", location.href).href;
+const dolly = await boot(element, { images, image, modules: [...modules, gpu] });
+```
+
+`nena enable gpu` then gives a program the GPU, or, where the browser has no
+WebGPU adapter, a device that fails to open with `ENODEV`.
 
 ## Serving
 
