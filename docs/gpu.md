@@ -49,10 +49,11 @@ indicators ([`page-indicators.mjs`](../src/page-indicators.mjs)) it shows for
 ten seconds once the page is ready and again when the adapter state changes,
 `No GPU` stays, and `Ctrl+Shift+F` shows or hides it; no program can. A
 session without the module has no such indicator: `nena disable gpu` removes
-it, and a refused `nena enable gpu` prints its reason and shows none. An image
-that requires `gpu@0` stops before ENTRY when the page gets no adapter; when the
-GPU Worker gets none, `OPEN` fails with `ENODEV` (`ENOSYS` without
-`navigator.gpu`); in a session without `gpu@0`, calls fail with `ENOSYS`.
+it, and a refused `nena enable gpu` prints its reason and shows none. Without
+`navigator.gpu` or an adapter, `gpu@0` is still admitted and grants nothing:
+the page says so once in its status line, the indicator stays on `No GPU`, and
+`OPEN` fails with `ENODEV`, so a program can fall back (Xonotic draws with its
+software rasterizer). In a session without `gpu@0`, calls fail with `ENOSYS`.
 
 The page and the GPU Worker ask for one adapter with
 `powerPreference: "high-performance"`, which selects the discrete GPU of a

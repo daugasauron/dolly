@@ -7,9 +7,11 @@ import { startBrowserServer } from "./browser-server.mjs";
 // The page names the adapter gpu@0 programs get, or why they have none.
 //   chromium  headless Chrome as the core tests run it (SwiftShader): software;
 //             the GPU Worker given no adapter: unavailable once a program opens;
-//             Chrome without WebGPU flags: unavailable before ENTRY
-//   firefox   Firefox as it ships, without navigator.gpu: unavailable before ENTRY
+//             Chrome without WebGPU flags: unavailable from boot
+//   firefox   Firefox as it ships, without navigator.gpu: unavailable from boot
 //   hardware  Chrome with Vulkan WebGPU, needs a display and a GPU: hardware
+// Unavailable, the image boots all the same, the status line says why, and a
+// program's OPEN fails.
 const names = process.argv.slice(2);
 if (!names.length) names.push("chromium", "firefox");
 assert.ok(names.every(name => ["chromium", "firefox", "hardware"].includes(name)),
@@ -48,24 +50,20 @@ try {
       });
       const enableSteps = `${server.origin}/docs/gpu.md#enabling-webgpu`;
       const label = `${browser.version()} ${state}${workerAdapter ? "" : " without a Worker adapter"}`;
-      if (state === "unavailable") {
-        // A required provider without an adapter fails before ENTRY.
-        assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "failed");
-        assert.deepEqual(await indicator(), { gpu: "unavailable", link: enableSteps });
-        console.log(`gpu indicator: ${label} passed`);
-        continue;
-      }
       assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",
         await page.locator("#bootstrap-log").textContent());
-      assert.deepEqual(await indicator(), { gpu: state, link: null });
+      const unavailable = state === "unavailable";
+      assert.deepEqual(await indicator(), unavailable ? { gpu: state, link: enableSteps } : { gpu: state, link: null });
+      if (unavailable) assert.match(await page.locator("#session-status").textContent(), /No WebGPU adapter/);
       await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
       const submit = command => page.evaluate(command => __dolly.submit(command), command);
       assert.equal(await submit(program), 0);
       assert.equal(await submit("cc /tmp/open.c -ldolly-gpu -o /tmp/open"), 0, await page.evaluate(() => __dolly.visibleTerminalText()));
       // The provider reports the adapter of the device it opens, or why it has none.
-      assert.equal(await submit("/tmp/open"), workerAdapter ? 0 : 1);
-      assert.deepEqual(await indicator(), workerAdapter ? { gpu: state, link: null } : { gpu: "unavailable", link: enableSteps });
-      if (workerAdapter) assert.equal(await page.evaluate(() => __dolly.gpu.isFallbackAdapter), state === "software");
+      const opens = workerAdapter && !unavailable;
+      assert.equal(await submit("/tmp/open"), opens ? 0 : 1);
+      assert.deepEqual(await indicator(), opens ? { gpu: state, link: null } : { gpu: "unavailable", link: enableSteps });
+      if (opens) assert.equal(await page.evaluate(() => __dolly.gpu.isFallbackAdapter), state === "software");
       console.log(`gpu indicator: ${label} passed`);
     } finally { clearTimeout(deadline); await browser.close(); }
   }
