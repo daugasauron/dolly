@@ -5,7 +5,8 @@
 //   });
 //
 // runs against one startBrowserServer(image, server) in headless Chrome, with a
-// software WebGPU adapter when webgpu is set, or Firefox when browser is "firefox"; launch adds Chrome
+// software WebGPU adapter when webgpu is set, in a Chrome window on DISPLAY with
+// the GPU's adapter when it is "window", or Firefox when browser is "firefox"; launch adds Chrome
 // arguments or Firefox preferences. open() loads the image
 // route after installing DOLLY_HTTP_POLICY = policy and awaiting setup(page),
 // then waits for boot and prompt (null skips it), returning the terminal
@@ -190,13 +191,15 @@ export function meterAudio() {
 }
 export const heardAudio = page => page.evaluate(() => audioMeters.reduce((loudest, peak) => peak.map((x, i) => Math.max(x, loudest[i])), [0, 0]));
 
+const gpuWindow = ["--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan,VulkanFromANGLE"];
 export async function demoTest(label, { image, server: serverOptions, timeout = 300_000, webgpu = false,
   browser: browserName = "chromium", launch } = {}, test) {
   const server = await startBrowserServer(projectDir, image, serverOptions);
   const started = performance.now();
   const browser = await (browserName === "firefox" ? firefox.launch({ headless: true, firefoxUserPrefs: launch })
-    : chromium.launch({ channel: "chrome", headless: true,
-      args: ["--no-sandbox", "--disable-gpu", ...webgpu ? ["--enable-unsafe-webgpu"] : [], ...launch ?? []] }));
+    : chromium.launch({ channel: "chrome", headless: webgpu !== "window",
+      args: ["--no-sandbox", ...webgpu === "window" ? gpuWindow : ["--disable-gpu", ...webgpu ? ["--enable-unsafe-webgpu"] : []],
+        ...launch ?? []] }));
   let expired = false;
   const deadline = setTimeout(() => { expired = true; void browser.close(); }, timeout);
   try {

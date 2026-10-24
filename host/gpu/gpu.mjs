@@ -2,11 +2,11 @@ import { createGpuBridge } from "./bridge.mjs";
 import { DOLLY_ERRNO as E } from "./abi.mjs";
 export { DOLLY_GPU_ABI_DIGEST as digest } from "./abi.mjs";
 
-// The page names the adapter gpu@0 programs get before any of them runs. A
-// module refused at boot never reaches browser() and its page stops, so
-// check() also shows that refusal. A switch after boot passes `signal`,
-// aborted once the registry stops waiting: refused or late, it shows nothing,
-// since the session has no gpu@0 and nena says why.
+// The page names the adapter gpu@0 programs get before any of them runs, or
+// says that there is none. The module is admitted either way: without a
+// device it grants nothing, and OPEN fails with ENODEV, so a program can fall
+// back. A switch after boot passes `signal`, aborted once the registry stops
+// waiting: late, it shows nothing, since nena says why.
 export async function check({ signal: abandoned, ...page }) {
   let adapter, reason = null;
   if (!globalThis.navigator?.gpu) reason = "WebGPU is unavailable in this browser";
@@ -15,9 +15,10 @@ export async function check({ signal: abandoned, ...page }) {
     if (!adapter) reason = "the browser did not provide a GPU adapter";
   } catch (error) { reason = `GPU adapter initialization failed: ${error.message}`; }
   const { vendor, architecture, description, isFallbackAdapter } = adapter?.info ?? {};
-  if (abandoned && (reason || abandoned.aborted)) return reason;
+  if (abandoned?.aborted) return null;
   indicate(page, { vendor, architecture, description, isFallbackAdapter, f16: adapter?.features.has("shader-f16") }, reason);
-  return reason;
+  if (reason) page.showStatus?.(`No WebGPU adapter (${reason}): programs that need the GPU cannot open it`);
+  return null;
 }
 
 // A new adapter state shows the indicators again; no adapter holds them shown.

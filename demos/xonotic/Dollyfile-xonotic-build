@@ -2,6 +2,7 @@ DOLLY 7
 TOOLCHAIN xonotic-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST gpu@0
 REQUIRES HOST audio@0
 REQUIRES HOST http@0
 REQUIRES HOST input@0
@@ -14,7 +15,11 @@ INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 5caffe43d783ed4b72f8b5adb8cb79d54518c4
 INSTALL /v0.1.4/demos/xonotic/Dollyfile-libvorbis c43f392a62261b820c78a06f05eda3b8259667f5b8137724cbdfdb990bff86d1
 INSTALL /v0.1.4/demos/xonotic/Dollyfile-libjpeg 814c162b87c054bd337f0801e21fdea76b0e6f3a56aa8399163b7741122407c1
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype 6350e899b18b7a3d83cb654233304e460e0c50b1c0c9698a721d8bd630baecef
+# The gpu@0 client the render path draws with, and its shaders.
+INSTALL /v0.1.4/Dollyfile-libdolly-gpu d94853ef546b4af6b94b41bede0b3a21c7bf84dbb3f5bb3e186cb5720f45dff8
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-xonotic-shaders ebcd12ce55822dc48d72a70bf17484d19ec308521e14dafdddb73a3178789820
 REQUIRES HEADER cpp
+REQUIRES HEADER gpu
 REQUIRES HEADER sdl2
 REQUIRES HEADER zlib
 REQUIRES HEADER zconf
@@ -29,7 +34,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL gzip
 REQUIRES TOOL rm
 
-SOURCE /v0.1.4/dist/static/xonotic/source.tar.gz 330caf0a04028ec3375b59584b3690ca5709027a3bc9cb9e4b2d89a21dcbe451 /tmp/xonotic/source.tar.gz
+SOURCE /v0.1.4/dist/static/xonotic/source.tar.gz da5d39c43c3e11de0df19acc73ef6437a0f9e31872a7d731268fb5982e4a911e /tmp/xonotic/source.tar.gz
 SLOP gzip -dc /tmp/xonotic/source.tar.gz | tar -xf - -C /
 SLOP make -f /usr/src/dolly/xonotic/Makefile
 

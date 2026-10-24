@@ -9,13 +9,13 @@ SOURCE /v0.1.4/docs/process-model.md db2dd6e2929f128402032661c637e08f89357fd0cce
 SOURCE /v0.1.4/docs/browser-stack.md 6afa6298a0e03ff3af86cf3b5ff102c23508afd542d921a537c8eae7bfc48370 /usr/share/doc/dolly/docs/browser-stack.md
 SOURCE /v0.1.4/docs/slop.md 2b703a1aef25d1fce5c253467784b2837cfca1f416308a34513be08b9c638acb /usr/share/doc/dolly/docs/slop.md
 SOURCE /v0.1.4/docs/display.md 7957b680b781a735463a5cedfebb57447ee4bb7c9ad578a466a3d501bfe69fa8 /usr/share/doc/dolly/docs/display.md
-SOURCE /v0.1.4/docs/gpu.md dffb2841e2c92626af12a921bbfb45c6f44fe7ecc29ff39fd96f5930d4ce3c67 /usr/share/doc/dolly/docs/gpu.md
+SOURCE /v0.1.4/docs/gpu.md 7cd9ae9e8e1327579327cdafab4bfd60d6b7cc28556d572da36deb3f0ba9fa66 /usr/share/doc/dolly/docs/gpu.md
 SOURCE /v0.1.4/docs/audio.md 2380b483c106b884e3e97ed3de8eaac9467e8e2a0307b878bddf620401d43e9f /usr/share/doc/dolly/docs/audio.md
 SOURCE /v0.1.4/docs/http.md de50df79d12ddf7cc5335c1061e0f33c5dcaa2228970754ff844f211ed2a40af /usr/share/doc/dolly/docs/http.md
 SOURCE /v0.1.4/docs/sessions.md 9f4f32a5e6d7b12b9d3a93214de71171c5bb7e46e14eac2509704b5c62c6af6d /usr/share/doc/dolly/docs/sessions.md
 SOURCE /v0.1.4/docs/dollyfile.md 56e10e4dca73d1abc4131909a4903a58427b23b1f4a93c1a459fb0eb354d8541 /usr/share/doc/dolly/docs/dollyfile.md
 SOURCE /v0.1.4/docs/architecture.md ecf36a3c4539c124b12ac57e04571aedac00db258de3eb00fa16e3a905604028 /usr/share/doc/dolly/docs/architecture.md
-SOURCE /v0.1.4/docs/browser-boundary.md a75d26319ad6787f3ec751e505cb57e55705c67131ee5aa2329af2213b03142e /usr/share/doc/dolly/docs/browser-boundary.md
+SOURCE /v0.1.4/docs/browser-boundary.md c2e5d316e5b481683c8d8f7c6021f4c50d2e0f3df1736f78c4dfbb9b90683dd2 /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE /v0.1.4/docs/image-build-service.md 43bbcfcf7c5e7c8ce83f91c55b3c4bc0682651b2905ba35089b2b85b3b13efa9 /usr/share/doc/dolly/docs/image-build-service.md
 SOURCE /v0.1.4/abi/README.md 45b4b76478b39b9ef2c0f45ce6636072dae0b128f2f3fc26c9c27de832b69e29 /usr/share/doc/dolly/abi/README.md
 SOURCE /v0.1.4/host/README.md 0fe7bc3a35a8c435a3204c5b9e14f28f164cf0ba2dca48fe52846122f760adc5 /usr/share/doc/dolly/host/README.md

@@ -30,7 +30,7 @@ async function getDevice() {
   if (device) return device;
   if (initializing) return initializing;
   initializing = (async () => {
-    ensure(navigator.gpu, "This browser has no WebGPU provider", E.ENOSYS);
+    ensure(navigator.gpu, "This browser has no WebGPU provider", E.ENODEV);
     const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
     ensure(adapter, "This browser did not provide a GPU adapter", E.ENODEV);
     const requiredFeatures = ["timestamp-query", "shader-f16", "subgroups", "texture-compression-bc"].filter(name => adapter.features.has(name));
