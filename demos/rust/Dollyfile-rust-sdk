@@ -23,7 +23,7 @@ REQUIRES TOOL mkdir
 
 # The external seed: rustc and its standard library, linked, and Cargo as one
 # object. The linker adapter is compiled inside Dolly.
-SOURCE /v0.1.4/dist/static/rust/rust-sdk.tar.gz 266e4b69d6ed0838c20aef907a367b5a692873c2b8c54efad9d08e3423781a0e /tmp/rust-sdk.tar.gz
+SOURCE /v0.1.4/dist/static/rust/rust-sdk.tar.gz c4ad5d7042db9763db7de2eb27dc40d5bc6796284761441e4cca02f96402a860 /tmp/rust-sdk.tar.gz
 SLOP mkdir -p /opt
 SLOP gzip -dc /tmp/rust-sdk.tar.gz | tar -xf - -C /opt
 SOURCE /v0.1.4/dist/static/rust/rustc.sh 966c3a6e1863196ca1d44b47552c46bc0e7caa8f096ef385252b3216f2f658d1 /opt/rust-sdk/bin/rustc
@@ -44,6 +44,11 @@ SLOP rm /tmp/rust-sdk.tar.gz /tmp/rust-linker.c
 EXPORTS ENV PATH APPEND /opt/rust-sdk/bin
 EXPORTS TOOL rustc
 EXPORTS TOOL cargo
+# Images build once, so rustc's incremental sessions would only be a second
+# copy of every object (there are no hard links), in a filesystem that lives in
+# kernel memory: codex-build ran out of space at codex-core with them. The
+# cargo package, for a session's own projects, keeps them.
+EXPORTS ENV CARGO_INCREMENTAL 0
 # The cc crate's default flags name a target; Dolly's cc has one.
 EXPORTS ENV CRATE_CC_NO_DEFAULTS 1
 EXPORTS FOLDER rust-sdk /opt/rust-sdk

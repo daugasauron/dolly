@@ -94,9 +94,11 @@ with the compiler.
   `vendor-crates` writes when `libc` is among the crates.
 - A build script that compiles C needs `CRATE_CC_NO_DEFAULTS=1`, which the
   package sets: the `cc` crate's default flags name a target.
-- Builds are incremental, as upstream's default: each warns that rustc copies
-  its incremental cache, since there are no hard links. No `cargo search`,
-  `publish` or `login`.
+- A session's builds are incremental, as upstream's default: each warns that
+  rustc copies its incremental cache, since there are no hard links. Image
+  recipes build with `rust-sdk`, which sets `CARGO_INCREMENTAL=0`: a build that
+  runs once would only keep that second copy. No `cargo search`, `publish` or
+  `login`.
 - Its sources are upstream's with target patches only: Cargo's manifest
   without TLS, SSH and HTTP/2 features (`cargo-features`, `git2-curl`), and
   `is_executable`, `jobserver-in-process`, `socket2`, `zlib-rs` and

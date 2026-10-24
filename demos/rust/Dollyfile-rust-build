@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 # here from their pinned sources. The seed builds the first rustc; that one
 # builds the rustc kept. Every Rust program in the catalog is built by this
 # image's toolchain.
-FROM /v0.1.4/demos/rust/Dollyfile-rust-sdk 32842daf53b129dd4671c2d6f04a4438ebf72cc3c5d042a31e06ec9577ec2747
+FROM /v0.1.4/demos/rust/Dollyfile-rust-sdk 9bd76ffd4a5f01177c1603ed82ce41d2d2f81827361e674d3d96814ecb41553d
 COPY /v0.1.4/demos/rust/Dollyfile-rust-llvm 9d1d8c73229c8312a7c75050944487406681bbcafc146c6b749e551ebe0bd8e8 /opt/rust-llvm /opt/rust-llvm
 # cmp, for the check that the second generation rebuilds the same library.
 INSTALL /v0.1.4/Dollyfile-posix 91197e9b325da60d8edbd43706fc6316bf1d6b235471466d2eb57f3c64526cc8
@@ -74,7 +74,7 @@ SLOP CWD /tmp/rustc/sdk-target/wasm64-emscripten-probe/debug/deps slop -e -c 'fo
 SLOP rm -rf /tmp/rustc /opt/rust-llvm /opt/rust-sdk/lib/rustlib/src
 
 # Cargo, by the kept compiler and library; the seed's Cargo drives its last build.
-SOURCE /v0.1.4/dist/static/rust/cargo.tar.gz 6bf320264ef2386bd56bb5b59ea0f0a15d26018218bcafe7d62aa9219a957945 /tmp/cargo.tar.gz
+SOURCE /v0.1.4/dist/static/rust/cargo.tar.gz a1cfcffcac95319a5d6d161ffe6e2b71bba8465943ddd933fb31c795f83ad197 /tmp/cargo.tar.gz
 SLOP gzip -dc /tmp/cargo.tar.gz | tar -xf - -C /
 SLOP rm /tmp/cargo.tar.gz
 SLOP CWD /tmp/cargo/source cargo build -j 4 --offline --bin cargo --target-dir /tmp/cargo/build
