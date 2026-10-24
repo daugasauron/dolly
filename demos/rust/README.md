@@ -12,6 +12,7 @@ Rust in the catalog is built by the result with Cargo.
 - `rust-tools`: interactive shell: `system` with the `rust` and `cargo` packages.
 - `rust`: `rustc` and the Rust standard library, built inside Dolly, with the `cc` package it links through.
 - `cargo`: `cargo`, built inside Dolly, with the `rust` package it compiles with.
+- `vendor-crates`: `vendor-crates`, which writes the crates.io crates a Cargo project depends on to `vendor/` for `cargo build --offline`: crates.io's index sends no CORS headers a page can use.
 - `ripgrep`: `rg`, which searches files by regular expression.
 - `fd`: `fd`, which finds files by name.
 - `protox`: `protox`, a protobuf compiler; Codex is built with it.
