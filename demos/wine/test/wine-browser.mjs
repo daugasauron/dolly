@@ -536,54 +536,65 @@ async function site(page, prompt, start, waitText, server) {
   const log = await waitText(/"Fixture two  -  NetSurf"[\s\S]*"Dolly  -  NetSurf"/);
   assert.match(log, /"Dolly  -  NetSurf"[\s\S]*"Licences and sources . Dolly  -  NetSurf"[\s\S]*"Dolly  -  NetSurf"[\s\S]*"Fixture two  -  NetSurf"[\s\S]*"Dolly  -  NetSurf"/);
   console.log("wine: NetSurf's home page, set to site:/, is the site's own landing page; a link on it loads, a redirect is followed to its last address, Home returns");
-  await fileManager(page, start, waitText);
+  await fileManager(page, start);
 }
 
 // Wine's file manager, from the shell the desktop left: a directory made here, its subdirectory and
 // back, a file deleted, a text file opened into Notepad.
-async function fileManager(page, start, waitText) {
+async function fileManager(page, start) {
   for (const command of ["mkdir -p /0test/inner", "echo Opened from the file manager > /0test/notes.txt",
     "echo deep > /0test/inner/deep.txt", "echo 0123456789 > /0test/ten.dat"]) assert.equal(await start(command).done, 0);
   const session = start("wine desktop");
   await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 60_000 });
   const [, height] = await frameSize(page);
   await pixelIs(page, 640, height - 6, face);
-  await click(page, 30, height - 14);
-  await delay(700);
-  await page.keyboard.press("f");
+  // The Start menu opens over the desktop above its button.
+  const startMenu = async key => { await click(page, 30, height - 14); await pixelIs(page, 40, height - 40, desktop, true); await page.keyboard.press(key); };
+  await startMenu("f");
   // Its window at 0,0 shows drive Z:, the Dolly filesystem: the tree on the left, where 0test sorts first,
   // and from x 310 the entries, with sizes and dates, of the directory above the desktop's own, the
-  // user's. Inside a directory the first two entries are . and ..
+  // user's. Inside a directory the first two entries are . and .. Its title, white on the caption,
+  // names the directory: the right end of that text moves with it.
   const names = () => textRows(page, 334, 112, 46, 440);
   const open = async row => page.mouse.dblclick(...await at(page, 342, 119 + 16 * row));
+  const title = () => snapshotDisplay(page).then(() => page.evaluate(() => {
+    const data = displaySnapshot.getContext("2d").getImageData(0, 6, 700, 12).data;
+    let end = 0;
+    for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] === 765) end = Math.max(end, i / 4 % 700);
+    return end;
+  }));
   await until(async () => await names() >= 2, "the entries of Z:\\home");
   await click(page, 79, 135);
   await until(async () => await names() === 5, "the five entries of 0test");
   await page.screenshot({ path: `${evidence}winefile.png` });
+  const outer = await title();
   await open(2);
-  await until(async () => await names() === 3, "the three entries of 0test\\inner");
-  await delay(800);                           // long enough for the desktop to list the title
+  await until(async () => await names() === 3 && await title() > outer, "the three entries of 0test\\inner, named in the title");
+  const inner = await title();
   await open(1);
-  await until(async () => await names() === 5, "0test again");
-  await click(page, 342, 119 + 16 * 4);       // ten.dat: Delete, and Yes in shell32's question
+  await until(async () => await names() === 5 && await title() < inner, "0test again, named in the title");
+  const folder = await title();
+  // ten.dat: Delete, and Yes in shell32's question, a dialog over the white of the lists.
+  await click(page, 342, 119 + 16 * 4);
+  const whiteness = async () => (await coloured(page, white)).count;
+  const listed = await whiteness();
   await page.keyboard.press("Delete");
-  await delay(1500);
+  await until(async () => await whiteness() < listed - 10_000, "shell32's question");
   await page.keyboard.press("Enter");
   await until(async () => await names() === 4, "0test without ten.dat");
-  await open(3);                              // notes.txt, into Notepad, which opens over it at 0,0
-  await until(async () => await dark(page, 8, 46, 400, 20) > 150, "the text of notes.txt in Notepad");
+  // notes.txt, into Notepad, which opens over it at 0,0: a shorter title, and its text where the
+  // file manager's toolbar has none.
+  await open(3);
+  await until(async () => await title() < folder - 30 && await dark(page, 110, 46, 290, 20) > 50, "notes.txt in Notepad");
   console.log(`wine: the file manager listed a directory, entered and left a subdirectory, deleted a file, and opened a text file into Notepad (${await dark(page, 8, 46, 400, 20)} dark pixels of its text)`);
   await page.keyboard.press("Alt+F4");
-  await delay(1000);
+  await until(async () => await names() === 4, "the file manager again, Notepad closed");
   await click(page, 600, 300);
+  await until(async () => await title() === folder, "the file manager active again");
   await page.keyboard.press("Alt+F4");
-  await delay(1000);
-  await click(page, 30, height - 14);
-  await delay(700);
-  await page.keyboard.press("u");
+  await pixelIs(page, 480, 300, desktop);
+  await startMenu("u");
   assert.equal(await session.done, 0);
-  const log = await waitText(/"notes\.txt - Notepad"/);
-  assert.match(log, /"Wine File Manager - \[Z:\\0test\]"[\s\S]*"Wine File Manager - \[Z:\\0test\\inner\]"[\s\S]*"Wine File Manager - \[Z:\\0test\]"/);
   assert.notEqual(await start("ls /0test/ten.dat").done, 0, "the deleted file is gone from the Dolly filesystem");
 }
 
