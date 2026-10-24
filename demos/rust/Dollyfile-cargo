@@ -6,13 +6,11 @@ REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
 # Cargo as rust-build built it.
-COPY /v0.1.4/demos/rust/Dollyfile-rust-build d0c16d497ebc3a7b6db40ed8ee15f142c5ee1f76ae49be369f2d8bea10b9df17 /usr/bin/cargo /usr/bin/cargo
-COPY /v0.1.4/demos/rust/Dollyfile-rust-build d0c16d497ebc3a7b6db40ed8ee15f142c5ee1f76ae49be369f2d8bea10b9df17 /usr/share/licenses/cargo /usr/share/licenses/cargo
-COPY /v0.1.4/demos/rust/Dollyfile-rust-build d0c16d497ebc3a7b6db40ed8ee15f142c5ee1f76ae49be369f2d8bea10b9df17 /usr/share/dolly/builds/cargo.lock /usr/share/dolly/builds/cargo.lock
+COPY /v0.1.4/demos/rust/Dollyfile-rust-build b3746967e7801821d7d19fe99d25998bc0b0e6d8c657bccdf110674dce5be449 /usr/bin/cargo /usr/bin/cargo
+COPY /v0.1.4/demos/rust/Dollyfile-rust-build b3746967e7801821d7d19fe99d25998bc0b0e6d8c657bccdf110674dce5be449 /usr/share/licenses/cargo /usr/share/licenses/cargo
+COPY /v0.1.4/demos/rust/Dollyfile-rust-build b3746967e7801821d7d19fe99d25998bc0b0e6d8c657bccdf110674dce5be449 /usr/share/dolly/builds/cargo.lock /usr/share/dolly/builds/cargo.lock
 # Cargo runs rustc: the package brings the compiler it was built with.
-INSTALL /v0.1.4/demos/rust/Dollyfile-rust 7ce1cdcb7e2a09641ce5120697bceef5b366b7261bb4f909280695aa585325c3
-# Until Dolly has file locks: rustc's incremental sessions need them.
-EXPORTS ENV CARGO_INCREMENTAL 0
+INSTALL /v0.1.4/demos/rust/Dollyfile-rust f9e1cfb83e5f0bf5dc3c2153e9d5a3fbc51440ce3d42615e7b7b379ff8f0866c
 # The cc crate's default flags name a target; Dolly's cc has one.
 EXPORTS ENV CRATE_CC_NO_DEFAULTS 1
 EXPORTS TOOL cargo
@@ -27,9 +25,9 @@ FILE /usr/share/man/cat1/cargo.1
       target/debug/NAME    runs what it built
     
     cargo run builds and replaces Cargo with the program (exec). Crate archives
-    come through the page's HTTP broker; crates.io's index needs a relay or a
-    vendored directory. A crate that uses libc needs the SDK's copy, in
-    .cargo/config.toml:
-      [patch.crates-io] libc = { path = "/opt/rust-sdk/src/libc" }
-    Incremental builds are off (CARGO_INCREMENTAL=0). There is no cargo search,
-    publish or login. Upstream's book: https://doc.rust-lang.org/cargo/
+    come through the page's HTTP broker; crates.io's index sends no CORS headers,
+    so a project's crates are vendored: amy install vendor-crates, then
+    vendor-crates in the project and cargo build --offline. A crate that uses
+    libc needs the SDK's copy, which vendor-crates patches in.
+    There is no cargo search, publish or login.
+    Upstream's book: https://doc.rust-lang.org/cargo/

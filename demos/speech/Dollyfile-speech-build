@@ -9,7 +9,7 @@ REQUIRES HOST microphone@0
 REQUIRES HOST pty@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build c05c2a5b06cd079eef923fcc4af0d2d6b6999f2c6a44326ae8e59fa3a5ffbf5e
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 75c2fc68ea944dcf0c907ffe20c30644966e50c45fa6ff7298104a8324680f96
 INSTALL /v0.1.4/Dollyfile-libdolly-microphone 5ba7fb8189658ee4780560e35fbea78207b7012b975f731ab437acca226ca27c
 INSTALL /v0.1.4/Dollyfile-libdolly-touch 1881657a3b0726f71ba1ab6bb832d84745638391d4631a2432c4c16d9d0b53bb
 REQUIRES TOOL cc

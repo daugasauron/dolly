@@ -1,0 +1,47 @@
+--- a/core/config.h
++++ b/core/config.h
+@@ -22,7 +22,8 @@
+     && !defined(BUILD_TARGET_RISCV32_ILP32D) \
+     && !defined(BUILD_TARGET_RISCV32_ILP32F) \
+     && !defined(BUILD_TARGET_RISCV32_ILP32) \
+-    && !defined(BUILD_TARGET_ARC)
++    && !defined(BUILD_TARGET_ARC) \
++    && !defined(BUILD_TARGET_WASM)
+ /* clang-format on */
+ #if defined(__x86_64__) || defined(__x86_64)
+ #define BUILD_TARGET_X86_64
+@@ -52,6 +53,8 @@
+ #define BUILD_TARGET_RISCV32_ILP32D
+ #elif defined(__arc__)
+ #define BUILD_TARGET_ARC
++#elif defined(__wasm__)
++#define BUILD_TARGET_WASM
+ #else
+ #error "Build target isn't set"
+ #endif
+--- a/core/iwasm/common/wasm_runtime_common.c
++++ b/core/iwasm/common/wasm_runtime_common.c
+@@ -6402,6 +6402,23 @@
+                  || defined(BUILD_TARGET_RISCV64_LP64D) \
+                  || defined(BUILD_TARGET_RISCV64_LP64) */
+ 
++#if defined(BUILD_TARGET_WASM)
++/* A WebAssembly host has no native calling convention to marshal arguments
++   through: an indirect call must match its callee's type exactly. Only raw
++   natives (wasm_runtime_invoke_native_raw) can be called. */
++bool
++wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
++                           const WASMFuncType *func_type, const char *signature,
++                           void *attachment, uint32 *argv, uint32 argc,
++                           uint32 *argv_ret)
++{
++    wasm_runtime_set_exception(wasm_runtime_get_module_inst(exec_env),
++                               "only raw natives can be called on a "
++                               "WebAssembly host");
++    return false;
++}
++#endif /* end of defined(BUILD_TARGET_WASM) */
++
+ bool
+ wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_index,
+                            uint32 argc, uint32 argv[])

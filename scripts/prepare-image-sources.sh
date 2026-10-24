@@ -56,7 +56,7 @@ has_image system-tools && samurai_dir="$("${project_dir}/scripts/prepare-samurai
 has_image system-build && emscripten_system_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" emscripten)"
 if has_image zig-build; then
   zig_dir="$("${project_dir}/scripts/prepare-zig-native.sh")"
-  wamr_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" wamr)"
+  wamr_dir="$("${project_dir}/scripts/prepare-wamr.sh")"
 fi
 if has_image ghostty-build; then
   ghostty_checkout="$("${project_dir}/scripts/fetch-pinned-checkout.sh" ghostty)"

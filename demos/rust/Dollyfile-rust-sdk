@@ -44,14 +44,12 @@ SLOP rm /tmp/rust-sdk.tar.gz /tmp/rust-linker.c
 EXPORTS ENV PATH APPEND /opt/rust-sdk/bin
 EXPORTS TOOL rustc
 EXPORTS TOOL cargo
-# Until Dolly has file locks: rustc's incremental sessions need them.
-EXPORTS ENV CARGO_INCREMENTAL 0
 # The cc crate's default flags name a target; Dolly's cc has one.
 EXPORTS ENV CRATE_CC_NO_DEFAULTS 1
 EXPORTS FOLDER rust-sdk /opt/rust-sdk
 EXPORTS FOLDER rust-licenses /usr/share/licenses/rust
 SLOP rustc --version --verbose
 SLOP cargo --version
-INSTALL /v0.1.4/Dollyfile-display 2bcc49eeb3b86bb66fc916ea990a9e51a0f2b8f3cfd094e23d77fd7e2eea8b87
+INSTALL /v0.1.4/Dollyfile-display fa73e5254df16a2e2d0cbe1ee7ff148d6ba3e6025dbaf3196d36bbcc46fe8ff6
 
 ENTRY /bin/foreground -i /bin/slop

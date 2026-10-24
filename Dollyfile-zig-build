@@ -23,8 +23,8 @@ SLOP tar \
   -xf /tmp/wamr.tar \
   -C /
 
-# WAMR requires a BUILD_TARGET; zig1 binds only raw natives, so the target
-# selects no native calling convention here.
+# WAMR's target is WebAssembly (config/wamr-dolly.patch), which has no native
+# calling convention: only raw natives can be called, and zig1 binds only those.
 SLOP CWD /tmp/wamr/core cc \
   -O2 \
   -std=gnu99 \
@@ -32,7 +32,6 @@ SLOP CWD /tmp/wamr/core cc \
   -w \
   -D_PLATFORM_WASI_TYPES_H \
   -DBH_PLATFORM_DOLLY \
-  -DBUILD_TARGET_X86_64 \
   -DBH_MALLOC=wasm_runtime_malloc \
   -DBH_FREE=wasm_runtime_free \
   -DWA_MALLOC=wasm_runtime_malloc \
@@ -89,7 +88,6 @@ SLOP CWD /tmp/wamr/core cc \
   iwasm/common/wasm_native.c \
   iwasm/common/wasm_runtime_common.c \
   iwasm/common/wasm_shared_memory.c \
-  iwasm/common/arch/invokeNative_general.c \
   iwasm/interpreter/wasm_interp_fast.c \
   iwasm/interpreter/wasm_loader.c \
   iwasm/interpreter/wasm_runtime.c \
