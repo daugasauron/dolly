@@ -60,15 +60,16 @@ into Cargo and needs a `cargo` build to try.
 - **A git dependency over HTTPS** needs a relay and libgit2's curl transport, which Cargo
   registers only with a non-default `[http]` configuration. `cargo search`, `publish` and
   `login` need `CONNECTTIMEOUT`, `LOW_SPEED_*` and `PUT` in Dolly's libcurl.
-- **Two stopgaps from before the kernel had file locks** are still in place, though it has had
-  `flock` and `fcntl` byte ranges since `85a01262` (2026-10-06): SQLite's dot-file locking
-  (`demos/rust/config/cargo.toml`, whose comment still says Dolly has no such locks; not tried
-  without, it needs a `cargo` build) and `CARGO_INCREMENTAL=0` (`Dollyfile-rust-sdk`,
-  `Dollyfile-cargo`; tried without on 2026-10-13, see "State": it works, with a warning about
-  hard links).
-  Not started (2026-10-24, the wrap-up for a checkpoint): the SQLite one, a three-line deletion
-  in `demos/rust/config/cargo.toml`, needs Cargo rebuilt in `rust-build` (hugebuild); the
-  `CARGO_INCREMENTAL` exports rebuild `rust-build` (`rust-sdk`'s) or every image using `cargo`.
+- **The two stopgaps from before the kernel had file locks: done** (`69d7a5b7`, `cb97afaf`, on
+  `main`). Cargo's SQLite keeps its default `fcntl` locks (no `unix-dotfile` VFS), and the
+  `cargo` package builds incrementally; `rust-sdk` keeps `CARGO_INCREMENTAL=0` for image
+  recipes only, for another reason: a build that runs once would only keep rustc's second copy
+  of every object (no hard links), and codex-build ran out of filesystem space at codex-core
+  with it on. Measured on the local round's images (`default` after `amy install cargo sqlite`):
+  a build, an edit and an incremental rebuild, 3.1 s then 1.9 s in Chromium and 4.1 s then
+  2.7 s in Firefox (`-j 1`), with rustc's one warning about copies and no SQLite or lock error;
+  Cargo's `.global-cache` passes `pragma integrity_check` in the sqlite package's `sqlite3`,
+  with no dot-file lock beside it.
 - **`libc` for a user's project.** crates.io's copy has wasm32 layouts for this target, so a
   project needs `[patch.crates-io] libc = { path = "/opt/rust-sdk/src/libc" }`
   (`demos/rust/README.md`); a system-wide patch would harm every other project.
@@ -87,20 +88,12 @@ into Cargo and needs a `cargo` build to try.
 - **`libdisplay.so` is 1,644,503 bytes** in `default` (2026-10-13), 63% more than the 1,007,438
   an LLVM Zig compiled, because Ghostty is emitted as C. Not measured: where the size comes
   from, and whether `cc` flags recover it.
-- **WAMR is compiled with `-DBUILD_TARGET_X86_64`** (`Dollyfile-zig-build`). The guest never
-  observes it and the recipe says so at the line; an honest form needs a WAMR source change or
-  an upstream generic target (the closed task's "WAMR target").
-  Checked 2026-10-24: upstream offers none. The pinned `68b8ed38` and `main` (`core/config.h`,
-  last changed 2026-10-22) accept only the sixteen CPU targets and `#error "Build target isn't
-  set"` otherwise; `build-scripts/config_common.cmake` fails the same way. The target also
-  decides which `wasm_runtime_invoke_native` exists (`wasm_runtime_common.c`: one per ABI family,
-  none for an unknown one), which the fast interpreter links for every non-raw native; zig1 binds
-  only raw natives (`src/zig/zig1.c`), and no native-ABI call can be right on Wasm, where an
-  indirect call must match its type exactly. What an honest build takes: a patch to WAMR (or
-  upstream) that admits a target with no native ABI, `__wasm__` in `config.h`, and gives it a
-  `wasm_runtime_invoke_native` that fails with an exception ("only raw natives"), so
-  `invokeNative_general.c` leaves the source list; about 15 lines. Not done: it is a source
-  change to WAMR, which the coordinator decides.
+- **WAMR's target: done** (`69d7a5b7`, `f082a01b`, on `main`). `config/wamr-dolly.patch`
+  (applied by `scripts/prepare-wamr.sh`) adds `__wasm__` as `BUILD_TARGET_WASM`, whose
+  `wasm_runtime_invoke_native` raises "only raw natives can be called on a WebAssembly host";
+  `invokeNative_general.c` leaves the build and the recipe names no CPU. zig-build built in
+  382 s, and its 1,441 Zig files, `/usr/bin/zig` among them, are the bytes it built under
+  `BUILD_TARGET_X86_64`; the zig-llvm demo passed in Chromium and Firefox in the local round.
 
 Settled there on 2026-10-13: `test/amy-browser.mjs` runs Zig as a user would (a Zig function
 called from C, and a program on the standard library, through `-ofmt=c` and `cc`); and what
