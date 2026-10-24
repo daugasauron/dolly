@@ -67,10 +67,10 @@ Checks in `test/fixtures/process-lifecycle.c`.
 | `getgroups32`, `getresuid32`, `getresgid32` | group 0, ids 0 | kept | true: one user, id 0, group 0 |
 | `getpriority` / `setpriority`, `setdomainname` | 0 / `EPERM` | kept | every process runs at 0; nothing may change it |
 | `mlock`, `munlock`, `mlockall`, `munlockall` | success | kept | no page of a process's memory is ever written out: locked is how it always is |
-| `mprotect` | success, protects nothing | kept, recorded | granting read and write is true (memory always is); revoking is not done. OCaml's runtime grants with it; refusing revocation would change what Rust's std and JIT-like ports do, which needs the catalog round to measure |
+| `mprotect` | success, protects nothing | read and write: success (a shared file mapping made without write is then written back, `EACCES` if its descriptor is read-only); any other protection: `ENOTSUP` | memory is always readable and writable and never executable; revoking access or granting execution is not done |
 | `mremap` | `ENOMEM` | kept | an explicit failure; realloc copies |
 | `acct`, `mincore`, `socketpair` | `ENOSYS` | kept | explicit; `socketpair` is `sockets@0`'s when linked |
-| `setpgid`, `getpgid`, `getsid`, `setsid` | pretend pid 42 leads its group and session; `setsid` returns 0 | kept, recorded | Dolly has no groups or sessions (`docs/process-model.md`); what a program sees for them is the core's shape, the owner's. Their callers in the catalog's sources run after a `fork` Dolly lacks (libuv, Neovim's pty, CMake's kwsys) |
+| `setpgid`, `getpgid`, `getsid`, `setsid` | pretend pid 42 leads its group and session; `setsid` returns 0 | each process is its own group and its own session: `getpgid`, `getpgrp` and `getsid` give the pid (the caller's for 0), `ESRCH` for none; `setpgid` of itself to itself succeeds, any other `EPERM`; `setsid` `EPERM` | true in Dolly, which has no groups (`docs/process-model.md`); `kill(0)` signals the caller and `kill(-pid)` that one process, `kill(-1)` stays `ENOTSUP`; `tcgetpgrp` and `tcsetpgrp` are `ENOTTY`: no terminal is a session's |
 
 ### Before the takeover (2026-10-23, evening)
 

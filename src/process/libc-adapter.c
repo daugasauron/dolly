@@ -98,8 +98,33 @@ pid_t __syscall_wait4(pid_t pid, int *status, int options, struct rusage *usage)
   return result < 0 ? -errno : result;
 }
 
-/* Emscripten's kill is a self-only libc implementation, not a syscall veneer. */
+/* Dolly has no process groups or sessions: each process is its own group
+ * and its own session, which it leads (docs/process-model.md). */
+static pid_t own_group(pid_t pid) {
+  if (pid == 0) return getpid();
+  if (pid < 0) return -ESRCH;
+  return dolly_kill(pid, 0) == 0 ? pid : -errno;
+}
+pid_t __syscall_getpgid(pid_t pid) { return own_group(pid); }
+pid_t __syscall_getsid(pid_t pid) { return own_group(pid); }
+/* A process is in its own group already; it joins no other. */
+int __syscall_setpgid(pid_t pid, pid_t group) {
+  const pid_t self = getpid();
+  return (pid == 0 || pid == self) && (group == 0 || group == self) ? 0 : -EPERM;
+}
+/* It leads its group already. */
+pid_t __syscall_setsid(void) { return -EPERM; }
+
+/* Emscripten's kill is a self-only libc implementation, not a syscall veneer.
+ * A group's signal is its one process's; kill(-1)'s every process is not
+ * Dolly's to signal. */
 int kill(pid_t pid, int signal_number) {
+  if (pid == INT_MIN) {
+    errno = ESRCH;
+    return -1;
+  }
+  if (pid == 0) pid = getpid();
+  else if (pid < -1) pid = -pid;
   if (pid == getpid() && signal_number != 0) return raise(signal_number);
   return dolly_kill(pid, signal_number);
 }

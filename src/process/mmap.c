@@ -237,6 +237,22 @@ static int advise(void *address, size_t length, int advice) {
   }
 }
 
+/* Wasm memory is always readable and writable and never executable: a grant
+ * of read and write is already true, and a shared mapping made without write
+ * is then written back as one made with it. Revoking access or granting
+ * execution is not done. */
+static int protect(uintptr_t address, size_t length, int protection) {
+  if (protection != (PROT_READ | PROT_WRITE)) return -ENOTSUP;
+  for (dolly_mapping *mapping = mappings; mapping != NULL; mapping = mapping->next) {
+    const uintptr_t start = (uintptr_t)mapping->address;
+    if (mapping->descriptor < 0 || (mapping->protection & PROT_WRITE) != 0 ||
+        address >= start + mapping->length || start >= address + length) continue;
+    if ((fcntl(mapping->descriptor, F_GETFL) & O_ACCMODE) != O_RDWR) return -EACCES;
+    mapping->protection |= PROT_WRITE;
+  }
+  return 0;
+}
+
 intptr_t __syscall_mmap2(void *address, size_t size, int protection, int flags, int fd, off_t offset) {
   dolly_lock_acquire(&mapping_lock);
   intptr_t result = mmap2(address, size, protection, flags, fd, offset);
@@ -258,6 +274,12 @@ int __syscall_munmap(void *address, size_t size) {
 int __syscall_madvise(void *address, size_t size, int advice) {
   dolly_lock_acquire(&mapping_lock);
   int result = advise(address, size, advice);
+  dolly_lock_release(&mapping_lock);
+  return result;
+}
+int __syscall_mprotect(size_t address, size_t size, int protection) {
+  dolly_lock_acquire(&mapping_lock);
+  int result = protect(address, size, protection);
   dolly_lock_release(&mapping_lock);
   return result;
 }
