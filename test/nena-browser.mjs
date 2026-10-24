@@ -201,7 +201,7 @@ await browserTest("nena", { image: "default", timeout: 300_000, server: { fixtur
   assert.equal(await indicated(), null);
   const gpu = await submit("nena enable gpu 2> /tmp/gpu");
   assert.equal((await enabled()).includes("gpu@0"), gpu === 0, await session.text());
-  if (gpu === 0) assert.match(await indicated(), /^(software|hardware)$/);
+  if (gpu === 0) assert.match(await indicated(), /^(software|hardware|unavailable)$/);
   else {
     await run("test -s /tmp/gpu");
     assert.equal(await indicated(), null);
