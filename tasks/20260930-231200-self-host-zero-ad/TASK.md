@@ -1,8 +1,46 @@
-# 0 A.D.: its content is still prepared on the host; developed matches stall
+# 0 A.D.: developed matches stall (its content is prepared in Dolly since 2026-10-24)
 
 - STATUS: OPEN
 - PRIORITY: 90
 - TAGS: demo,0ad,bootstrap,performance,0.1.4
+
+## Item 1 done, 2026-10-24 (the process-contract workstream, `core/page-no-view`, seed `b871765b`)
+
+The content is made inside Dolly; the four host commands are gone from the README and the tree
+(`prepare-shaders.sh`, `prepare-headless.sh`, `package-graphics.py`, `prepare-distribution.mjs`).
+
+- `naga` is a package (`demos/rust/Dollyfile-naga`, naga-cli 30.0.1 by the `cargo` package,
+  134.6 s), which other ports can `USE`. No glslang: the SPIR-V is Wildfire Games' own, in the
+  data release.
+- `zero-ad-data` (`demos/zero-ad/Dollyfile-zero-ad-data`, a package built from `system-tools`
+  with `USE python`, `xz`, `naga`) takes the 1.4 GB release archive as two `SOURCE` halves
+  (one holds at most 1 GiB), checks the joined digest against `DOLLY_0AD_DATA_SHA256`, and
+  pipes it through `xz -dc` into one CPython step (`toolchain/package-data.py`, with
+  `toolchain/shaders.py`), which keeps the 3.6 GB of mod archives in its own memory: the
+  filesystem never holds them. The engine's translations and the licences come from the source
+  release, ICU's data file from ICU's source archive, both staged in `zero-ad-data/tools.tar`.
+- Output: 1,892,561,177 bytes of content, file for file the same as the host-prepared
+  `build/0ad/graphics` (sha256 of every file), minus `ICU-LICENSE` and `OpenAL-Soft-COPYING`,
+  which duplicated `/usr/share/licenses/{icu,OpenAL}`; the same translation (94/80 and 1098/236
+  variants/shaders); the headless archive 33,822,720 bytes as before.
+- Builds: `zero-ad-data` 328.4 s, 1,931,550,464-byte snapshot, scope peak 5.0 GiB (bigbuild).
+  The first version, which unpacked the release into the filesystem, peaked at the 9 GiB cap
+  and was OOM-killed while exporting. `zero-ad`, now `COPY` of `/opt/0ad/{data,licenses}`
+  from `zero-ad-data` instead of 117 `SOURCE` files: 156.2 s, 1,934,970,396 bytes, scope
+  `memory.peak` 18,395,996,160 bytes (17.1 GiB, file cache included): it takes hugebuild; at
+  9 GiB it was OOM-killed at its start.
+- Tests on that image (private Xvfb `:147`, gpu lock): `0ad-spidermonkey`, `0ad-engine`
+  (combat demo 20 turns in 657 ms, replay and economy checks), `0ad-shaders` (316 shaders
+  compiled, 324 programs linked), `0ad-graphics hardware` (95 s, process tree peak 3.4 GB),
+  `0ad-menu chromium` (78 s, peak 3.35 GB) and `0ad-multiplayer headless` (149 synchronized
+  turns) pass. `0ad-menu` in Firefox, its default, gets no WebGPU adapter under Xvfb.
+- Tests changed with it: the engine and multiplayer fixtures take the headless archive from the
+  `zero-ad-data` snapshot, `0ad-shaders` its translated shaders; `0ad-graphics` lost its
+  `default` mode (it staged content into an image without `gpu@0`; the engine was never
+  staged there) and its first argument: the round runs it as `0ad-graphics-browser.mjs
+  hardware`.
+- Bootstrap exception left: the data release itself, which Wildfire Games builds (README,
+  "Build").
 
 ## 2026-10-24 (the games-and-packages workstream)
 
@@ -21,7 +59,7 @@ image plays, and its GPU tests (`0ad-spidermonkey`, `0ad-engine`, `0ad-graphics`
 each release round, last on 2026-10-11 (`work/rust/build/v012-evidence/round.log`). Lowered from
 150 for that reason.
 
-1. **The content is prepared on the host** before `npm run image -- zero-ad`
+1. (Done 2026-10-24, above.) **The content is prepared on the host** before `npm run image -- zero-ad`
    (`demos/zero-ad/README.md`, "Build", read on 2026-10-13: the four commands are still there):
    `toolchain/prepare-shaders.sh` (SPIR-V to WGSL with Naga, a Rust tool run natively) and
    `toolchain/prepare-headless.sh`, `package-graphics.py`, `prepare-distribution.mjs` (the

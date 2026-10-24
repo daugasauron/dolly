@@ -1,0 +1,39 @@
+DOLLY 7
+PACKAGE zero-ad-data
+REQUIRES HOST runtime@0
+
+# Build-only: 0 A.D.'s release data as the game reads it here, made from
+# Wildfire Games' archive with Dolly's Python, XZ and Naga: the Petra AI patch,
+# the SPIR-V shaders translated to WGSL, the content in archives below the
+# site's 25 MiB file limit, and the scripts and maps of a game without graphics.
+FROM /v0.1.4/Dollyfile-system-tools 21a96b461ac377817727376c75fddc3cf7f1bbc5f48d222456d8e6846cc8e138
+USE /v0.1.4/demos/python/Dollyfile-python 0ed694665c16b39c769257057f02dea942213dea5f305d5e877b31eebf5e93b3
+USE /v0.1.4/demos/tools/Dollyfile-xz a8796ad1164b46ae0d4d5f19b5edd18f254d354f596e0c29aa601e5def1547fe
+USE /v0.1.4/demos/rust/Dollyfile-naga a01fdcb9009d3152ce58ac7df1873cdba68578ee62c0a12c2564822e1bdef668
+REQUIRES TOOL python3
+REQUIRES TOOL xz
+REQUIRES TOOL naga
+REQUIRES TOOL patch
+REQUIRES TOOL sha256sum
+REQUIRES TOOL grep
+REQUIRES TOOL tar
+REQUIRES TOOL cat
+REQUIRES TOOL rm
+
+# The release archive in two halves, as one SOURCE holds at most 1 GiB:
+# joined, they are the archive whose digest config/source-pins.sh pins.
+SOURCE /v0.1.4/dist/static/zero-ad-data/0ad-unix-data.tar.xz.1 114469c71f00fe27827d5b8ca96211a6b0ab115507c13a07efc022a3a9f2d9de /tmp/0ad/data.tar.xz.1
+SOURCE /v0.1.4/dist/static/zero-ad-data/0ad-unix-data.tar.xz.2 e52b10890c95af42fcad151821d53e403d8a2766d498b60c2cdda6323078a7ec /tmp/0ad/data.tar.xz.2
+SLOP cat /tmp/0ad/data.tar.xz.1 /tmp/0ad/data.tar.xz.2 | sha256sum | grep -qx 'e844b30ae2102c47e0a4fff2f0e0ef05ba0cebb1890aa72276fa12457c39526f  <stdin>'
+
+# The scripts beside this recipe in toolchain/, ICU 68.2's data file, and the
+# engine's translations and the licences from 0 A.D.'s source release.
+SOURCE /v0.1.4/dist/static/zero-ad-data/tools.tar 7210229c262bf9dc91aae9cb9779e58dc93591de793a2051eeb7a5982eec6910 /tmp/0ad-tools.tar
+SLOP tar -xf /tmp/0ad-tools.tar -C /
+# Python reads the release as it is unpacked and keeps its 3.6 GB of archives
+# in its own memory; each half goes once read.
+SLOP time slop -c 'cat /tmp/0ad/data.tar.xz.1 && rm /tmp/0ad/data.tar.xz.1 && cat /tmp/0ad/data.tar.xz.2 && rm /tmp/0ad/data.tar.xz.2' | xz -dc | python3 /tmp/0ad-tools/package-data.py /tmp/0ad-source naga /opt/0ad /usr/share/zero-ad/headless-data.tar /usr/share/zero-ad/shaders
+
+# zero-ad copies /opt/0ad; the engine's tests read the rest.
+FOLDER /opt/0ad
+FOLDER /usr/share/zero-ad

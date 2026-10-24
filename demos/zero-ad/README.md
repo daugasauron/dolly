@@ -11,6 +11,7 @@ libraries and SpiderMonkey are built inside Dolly from pinned sources.
 - `zero-ad-deps`: A build stage: the engine's libraries built from pinned sources, with FreeType, pkgconf and SDL2.
 - `spidermonkey`: SpiderMonkey 128.13.0, a library for programs the `cc` package builds, built inside Dolly with mozbuild, Python, Cargo and cbindgen, which it does not bring.
 - `zero-ad-engine`: A build stage: the 0 A.D. engine built inside Dolly with premake and Make.
+- `zero-ad-data`: A build stage: 0 A.D.'s release data made into what the game reads, inside Dolly with Python, XZ and Naga.
 - `pkgconf`: pkgconf, also as `pkg-config`, which reads the `.pc` files libraries install; built by its own recipe.
 - `libpng`: libpng with zlib, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
 - `freetype`: FreeType with libpng and zlib, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
@@ -22,10 +23,6 @@ Ctrl-F10 exits cleanly. Saves and replays live in `/opt/0ad/data`.
 ## Build
 
 ```sh
-bash demos/zero-ad/toolchain/prepare-headless.sh
-bash demos/zero-ad/toolchain/prepare-shaders.sh     # SPIR-V to WGSL with Naga
-python3 demos/zero-ad/toolchain/package-graphics.py .cache/0ad/0ad-0.28.0
-node demos/zero-ad/toolchain/prepare-distribution.mjs
 npm run image -- zero-ad
 ```
 
@@ -36,10 +33,19 @@ directories (they have only autotools); it installs the `freetype` and
 `pkgconf` packages (pkgconf for premake), and SDL2 is copied from `sdl2`.
 `zero-ad-engine` ([`Dollyfile-zero-ad-engine`](Dollyfile-zero-ad-engine)) bootstraps premake
 ([`premake-dolly.patch`](premake-dolly.patch)), generates upstream's Makefiles
-and builds `pyrogenesis` with `make -j4`; `zero-ad` copies it. Other pins live in
-`config/source-pins.sh`; [`prepare-distribution.mjs`](toolchain/prepare-distribution.mjs)
-pins the content as published `SOURCE` inputs of [`Dollyfile-zero-ad`](Dollyfile-zero-ad). The
-image is about 2 GB.
+and builds `pyrogenesis` with `make -j4`. `zero-ad-data`
+([`Dollyfile-zero-ad-data`](Dollyfile-zero-ad-data)) unpacks Wildfire Games' data
+archive with `xz` into Dolly's CPython, which keeps its 3.6 GB of mod archives in
+its own memory: [`package-data.py`](toolchain/package-data.py) applies the AI
+patch, writes the scripts and maps a game without graphics reads, translates the
+shaders ([`shaders.py`](toolchain/shaders.py), with the `naga` package) and packs
+all content in archives below 24 MiB. `zero-ad` copies the engine and the
+content; other pins live in `config/source-pins.sh`. The image is about 2 GB.
+
+The data archive is the one input made outside Dolly: Wildfire Games builds
+it, its SPIR-V shaders compiled from the GLSL sources it also holds. One
+`SOURCE` holds at most 1 GiB, so image preparation stages the 1.4 GB archive
+as its two halves; the recipe joins them and checks the release's digest.
 
 ## How it works
 

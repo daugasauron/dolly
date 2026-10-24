@@ -128,9 +128,9 @@ none ([deployment](deployment.md)).
 from `zero-ad-build/deps.tar.gz`, `spidermonkey/source.tar.gz` (SpiderMonkey
 128.13's pinned tarball without its test suites, with 0 A.D.'s patches and
 Dolly's) and `zero-ad-build/engine.tar.gz`, which the site serves as recipe
-inputs. The game data's
-SPIR-V shaders are translated to WGSL by `demos/zero-ad/toolchain` (the GLSL
-sources stay in the served mod archives). The `zero-ad` image keeps the
+inputs. `zero-ad-data` makes the game content from Wildfire Games' data
+archive, which the site serves too: its SPIR-V shaders are translated to WGSL
+by Naga, built in Dolly (the GLSL sources stay in the mod archives). The `zero-ad` image keeps the
 licences of every statically linked library under `/usr/share/licenses/`,
 SpiderMonkey's MPL-2.0 text and the licence files of the vendored Rust crates
 compiled into its `libjsrust.a` (Mozilla's own crates are MPL-2.0).

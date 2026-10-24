@@ -3,14 +3,14 @@ import { mkdir, readFile } from "node:fs/promises";
 import { chromium } from "playwright-core";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
 import { acceptDownload } from "../../browser.mjs";
-import { engineFixture } from "./fixtures/image-file.mjs";
+import { engineFixture, headlessData } from "./fixtures/image-file.mjs";
 
 const output = new URL("../../../.cache/0ad/browser/", import.meta.url);
 await mkdir(output, { recursive: true });
 const server = await startBrowserServer(new URL("../../../", import.meta.url).pathname,
   "zero-ad-engine", { fixtures: {
     "pyrogenesis.wasm": await engineFixture(),
-    "0ad-data.tar": "build/0ad/headless-data.tar",
+    "0ad-data.tar": await headlessData(),
   } });
 let browser, deadline, page;
 try {
