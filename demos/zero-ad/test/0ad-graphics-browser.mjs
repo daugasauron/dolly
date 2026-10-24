@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile,mkdir} from 'node:fs/promises';
 import {chromium,firefox} from 'playwright-core';
-import {startBrowserServer} from '../../../test/browser-server.mjs';
+import {gpuAdapterMocks,startBrowserServer} from '../../../test/browser-server.mjs';
 import {acceptDownload} from '../../browser.mjs';
 import {hasGameHud} from './fixtures/0ad-hud.mjs';
 import {inspectDollyfile} from '../../../src/dollyfile-view.mjs';
@@ -23,13 +23,10 @@ const sources=inspectDollyfile(await readFile(new URL('demos/zero-ad/Dollyfile-z
 const prefix=siteReference('dist/static/zero-ad/');
 const fixtures=Object.fromEntries(sources.map(source=>[source.location.slice(prefix.length),'dist/static/zero-ad/'+source.location.slice(prefix.length)]));
 fixtures['pyrogenesis.wasm']=await engineFixture();
-let provider='import "/test/fixtures/gpu-surface-observer.mjs";\n'+(await readFile(new URL('host/gpu/worker.mjs',root),'utf8'))
-  .replace('stats:{...stats,allocatedBytes:usedBytes}',
-    'stats:{...stats,allocatedBytes:usedBytes,frameTime:performance.now(),gpuTotalMs:scope.gpuTotalMs}');
-if(backend==='software')provider=provider.replace('powerPreference: "high-performance"','forceFallbackAdapter: true');
-if(compression==='uncompressed')provider='import "/test/fixtures/gpu-no-bc.mjs";\n'+provider;
-if(compression==='core')provider='import "/test/fixtures/gpu-core-limits.mjs";\n'+provider;
-const server=await startBrowserServer(root.pathname,image,{sourceOverrides:new Map([['/host/gpu/worker.mjs',provider]]),
+// The software backend is Chrome's own SwiftShader adapter, by its launch flags;
+// a weaker adapter than this machine's is a mock before the GPU Worker.
+const mock={uncompressed:'gpu-no-bc.mjs',core:'gpu-core-limits.mjs'}[compression];
+const server=await startBrowserServer(root.pathname,image,{sourceOverrides:new Map(mock?[await gpuAdapterMocks(mock)]:[]),
   fixtures});
 let browser,deadline,page;
 try {
@@ -51,8 +48,9 @@ try {
       constructor(...args) {
         super(...args);
         this.addEventListener('message',({data})=>{
-          if(data.type==='gpu-status' && data.active && data.stats?.frameTime)
-            frameSamples.push({time:data.stats.frameTime,gpu:data.stats.gpuTotalMs,packets:data.stats.packets,bytes:data.stats.packetBytes,provider:data.stats.batchWallMilliseconds});
+          // The provider reports each frame it presents: the page times them.
+          if(data.type==='gpu-status' && data.active && data.stats)
+            frameSamples.push({time:performance.now(),packets:data.stats.packets,bytes:data.stats.packetBytes,provider:data.stats.batchWallMilliseconds});
         });
       }
     };
@@ -108,7 +106,7 @@ try {
     const first=frameSamples[0],last=frameSamples.at(-1),count=intervals.length;
     return {frames:count,mean:(last.time-first.time)/count,median:intervals[Math.floor(count*.5)],
       p95:intervals[Math.floor(count*.95)],p99:intervals[Math.floor(count*.99)],max:intervals.at(-1),
-      over33Milliseconds:intervals.filter(time=>time>1000/30).length,gpuMilliseconds:(last.gpu-first.gpu)/count,
+      over33Milliseconds:intervals.filter(time=>time>1000/30).length,
       packetsPerFrame:(last.packets-first.packets)/count,bytesPerFrame:(last.bytes-first.bytes)/count,
       providerMilliseconds:(last.provider-first.provider)/count};
   });
@@ -124,15 +122,15 @@ try {
     const start=performance.now();
     do {await advance(2);} while(performance.now()-start<milliseconds);
   };
-  const checkOpacity=async label=>{
-    await page.evaluate(label=>{
-      const channel=new BroadcastChannel('dolly-test-surface-alpha');
-      channel.postMessage(label);channel.close();
-    },label);
-    await page.waitForFunction(label=>__dolly.gpu.surfaceAlpha?.label===label,label);
-    const alpha=await page.evaluate(()=>__dolly.gpu.surfaceAlpha);
-    assert.ok(alpha.width>0,'Presented frame alpha was not observed');
-    assert.equal(alpha.nonOpaquePixels,0,'The game window must not expose the terminal through scene alpha');
+  // The engine's screenshot (F2) reads the presented frame back and logs its
+  // pixels whose alpha is not 1: they would show the terminal through the game.
+  const checkOpacity=async name=>{
+    const readbacks=[...(await download('/opt/0ad/logs/mainlog.html',name)).matchAll(
+      /Dolly GPU: frame readback (\d+)x(\d+), (\d+) non-opaque pixels/g)].map(([,width,height,nonOpaquePixels])=>
+      ({width:Number(width),height:Number(height),nonOpaquePixels:Number(nonOpaquePixels)}));
+    assert.ok(readbacks.length&&readbacks.every(({width})=>width>0),'Presented frame alpha was not observed');
+    assert.ok(readbacks.every(({nonOpaquePixels})=>nonOpaquePixels===0),'The game window must not expose the terminal through scene alpha');
+    return readbacks.at(-1);
   };
   const start=async(options='-autostart=scenarios/combat_demo')=>{
     if(animation==='cpu')options+=' -conf=gpuskinning:false';
@@ -185,7 +183,6 @@ try {
   const before=await frames(),time=performance.now();await advance(120);
   const frameMilliseconds=(performance.now()-time)/((await frames())-before);
   const combatFrameTimings=await frameTimings();
-  await checkOpacity('combat');
   const gpu=await page.evaluate(()=>__dolly.gpu);
   assert.equal(gpu.stats.dispatches>0,animation==='gpu','Compute activity must match the selected animation mode');
   const combatAudio=await page.evaluate(()=>({peak:audioPeak,...__dolly.audio}));
@@ -210,6 +207,7 @@ try {
   await page.keyboard.press('F2');await advance(4);
   await stop();
   const screenshot=await download('/opt/0ad/data/screenshots/screenshot0001.png','graphics-readback.png',null);
+  const combatOpacity=await checkOpacity('graphics-main.html');
   assert.ok(await hasGameHud(page,screenshot),'Native screenshot readback must contain the game HUD');
   const warnings=await download('/opt/0ad/logs/interestinglog.html','graphics-warnings.html');
   assert.doesNotMatch(warnings,/class="error"|class="warning"/);
@@ -233,13 +231,14 @@ try {
   await page.evaluate(()=>{frameSamples=[];});
   await advanceFor(40000);
   const economyFrameTimings=await frameTimings();
-  await checkOpacity('economy');
+  await page.keyboard.press('F2');await advance(4);
   assert.ok(await hasGameHud(page,await page.screenshot({path:new URL('graphics-economy.png',output).pathname})),
     'Economy view must remain visible');
   const economyGpu=await page.evaluate(()=>__dolly.gpu);
   const economyAudio=await page.evaluate(()=>({peak:audioPeak,...__dolly.audio}));
   assert.ok(economyAudio.peak>1e-4,'Economy audio must reach the browser audio graph');
   await stop(true);
+  const economyOpacity=await checkOpacity('graphics-economy-main.html');
   assert.doesNotMatch(await download('/opt/0ad/logs/interestinglog.html','graphics-economy-warnings.html'),/class="error"|class="warning"/);
   assert.equal(await submit("find /opt/0ad/data/replays -name commands.txt | sort | tail -n1 > /tmp/economy-replay-path; cat $(cat /tmp/economy-replay-path) > /tmp/economy-replay.txt; cat $(dirname $(cat /tmp/economy-replay-path))/metadata.json > /tmp/economy-metadata.json"),0);
   const economyReplay=await download('/tmp/economy-replay.txt','graphics-economy-replay.txt');
@@ -258,7 +257,7 @@ try {
     restartMilliseconds,frameMilliseconds:Math.round(frameMilliseconds),combatFrameTimings,economyFrameTimings,allocatedBytes:gpu.stats.allocatedBytes,
     economyAllocatedBytes:economyGpu.stats.allocatedBytes,processTreePeakBytes,visualInput:true,
     economyConstruction:true,economyTraining:true,quickSaveLoad:true,freshProcesses:2,shellRecovery:true,
-    opaquePresentation:gpu.surfaceAlpha,economyOpaquePresentation:economyGpu.surfaceAlpha,
+    opaquePresentation:combatOpacity,economyOpaquePresentation:economyOpacity,
     combatAudio,economyAudio}));
 } catch(error) {
   if(page && !page.isClosed()) {

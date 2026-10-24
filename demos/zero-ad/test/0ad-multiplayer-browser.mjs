@@ -15,11 +15,9 @@ assert.ok(process.argv.length<=4 && ["headless","visual","visual-client"].includ
   "usage: node demos/zero-ad/test/0ad-multiplayer-browser.mjs [headless|visual|visual-client] [hardware|software]");
 const visualIndex=mode==="visual"?0:mode==="visual-client"?1:-1;
 const visual = visualIndex!==-1, image=visual?"zero-ad":"zero-ad-engine";
-const provider = await readFile(new URL("../../../host/gpu/worker.mjs", import.meta.url), "utf8");
 await mkdir(output, {recursive: true});
-const server = await startBrowserServer(new URL("../../../", import.meta.url).pathname, image, { sourceOverrides: new Map(visual && backend==="software" ? [
-  ["/host/gpu/worker.mjs", provider.replace('powerPreference: "high-performance"', 'forceFallbackAdapter: true')]
-] : []), fixtures: {
+// The software backend is Chrome's own SwiftShader adapter, by the launch flags below.
+const server = await startBrowserServer(new URL("../../../", import.meta.url).pathname, image, { fixtures: {
   "pyrogenesis.wasm": await engineFixture(), "0ad-data.tar": "build/0ad/headless-data.tar"
 } });
 const room = createRelayRoom();

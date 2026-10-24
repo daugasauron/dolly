@@ -1,7 +1,15 @@
-import { readdir } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { processSmokeSources } from "./fixtures/process-smoke.mjs";
 import { tarArchive } from "./fixtures/tar.mjs";
 import { startCheckoutServer } from "../scripts/serve-checkout.mjs";
+
+// sourceOverrides' entry for adapter mocks (test/fixtures/gpu-*.mjs, which wrap
+// navigator.gpu) imported before the GPU Worker, whose own code is served as it
+// ships: a weaker adapter than this machine's, for which no browser has a setting.
+export async function gpuAdapterMocks(...fixtures) {
+  const worker = await readFile(new URL("../host/gpu/worker.mjs", import.meta.url), "utf8");
+  return ["/host/gpu/worker.mjs", fixtures.map(name => `import "/test/fixtures/${name}";\n`).join("") + worker];
+}
 
 // The checkout server (scripts/serve-checkout.mjs, same arguments) plus test
 // fixtures: the modules in test/fixtures/, sources under /fixture/ (fixtures:
