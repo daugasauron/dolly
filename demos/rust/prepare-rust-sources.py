@@ -45,8 +45,9 @@ if name == "cargo":
             shutil.copytree(target, link)
         else:
             shutil.copyfile(target, link)
-libc = lock_sdk_libc(source / "Cargo.lock")
-archives = vendor(source / "Cargo.lock", stage / "vendor", stage / "archives")
+lock = source / "Cargo.lock"
+libc = [lock_sdk_libc(lock)] if 'name = "libc"' in lock.read_text() else []  # Naga calls no libc
+archives = vendor(lock, stage / "vendor", stage / "archives")
 adapted = {
     "fd": [("nix-0.31.3", "config/patches/nix-hostname.patch"),
            ("jiff-0.2.29", "config/patches/jiff-timezone.patch")],
@@ -58,7 +59,7 @@ adapted = {
               ("jobserver-0.1.34", "toolchain/jobserver.patch"),
               ("jobserver-0.1.34", "config/patches/jobserver-in-process.patch")],
 }
-for crate, patch in [libc, *adapted.get(name, [])]:
+for crate, patch in [*libc, *adapted.get(name, [])]:
     apply(stage / "vendor" / crate, patch)
 extra = project / "demos/rust/config" / f"{name}.toml"
 cargo_config(source, f"/tmp/{name}/vendor", extra.read_text() if extra.exists() else "")

@@ -505,7 +505,7 @@ const elsewhere = {
   imgui: "demos/sdl2", "imgui-x11": "demos/x11", llvm21: "demos/zig: zig-llvm uses it", "zig-llvm": "demos/zig",
   zsh: "demos/zsh", binaryen: "demos/zsh: zsh's build uses it", "ghostty-gtk": "demos/ghostty-gtk", ocaml: "demos/ocaml",
   glib: "demos/ghostty-gtk: gtk-build installs it", pcre2: "demos/ghostty-gtk: glib uses it", libffi: "demos/ghostty-gtk: glib uses it",
-  go: "demos/go", esbuild: "demos/go",
+  go: "demos/go", esbuild: "demos/go", naga: "demos/zero-ad: 0 A.D.'s shaders",
 };
 const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "llama", "tar", "meson", "typescript", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
 assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no test installs and uses");
