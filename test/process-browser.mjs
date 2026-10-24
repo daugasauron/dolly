@@ -300,10 +300,10 @@ await browserTest("process list", {}, async ({ open }) => {
 });
 
 // The memory budget bounds fan-out: a process holding it with no live child
-// starts the one it waits for. A spawn beside a live child waits for a
-// process to end, then fails: beside a sibling holding the budget that
-// exits, it starts; beside one that stays, it fails EAGAIN after the 5 s the
-// supervisor waits.
+// starts the one it waits for. A spawn beside a live child waits until a
+// process ends, however long (make and Cargo end at EAGAIN): beside a sibling
+// holding the budget that exits, it starts; a parent holding it starts its
+// second child once its first ends, after the 5 s the count's refusal waits.
 await browserTest("process budget", { image: "system" }, async ({ open }) => {
   const { page, submit, text, waitForText } = await open();
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
@@ -314,6 +314,13 @@ await browserTest("process budget", { image: "system" }, async ({ open }) => {
     "'int main(void) { pid_t pid; int status; char *argv[] = {\"true\", 0}; if (!malloc((size_t)4200 << 20) || " +
     "posix_spawnp(&pid, \"true\", 0, 0, argv, environ)) return 1; return waitpid(pid, &status, 0) != pid || status; }' " +
     "> /tmp/chain.c && cc -O0 /tmp/chain.c -o /tmp/chain");
+  await run("printf '%s\\n' '#include <spawn.h>' '#include <stdio.h>' '#include <stdlib.h>' '#include <sys/wait.h>' " +
+    "'extern char **environ;' 'int main(int argc, char **argv) { pid_t first, second; int status; " +
+    "char *hold[] = {\"/tmp/hold\", \"1\", argv[1], 0}, *done[] = {\"true\", 0}; " +
+    "if (!malloc((size_t)4200 << 20) || posix_spawn(&first, \"/tmp/hold\", 0, 0, hold, environ)) return 1; " +
+    "int error = posix_spawnp(&second, \"true\", 0, 0, done, environ); printf(\"WAITED %d\\n\", error); " +
+    "return error || waitpid(second, &status, 0) != second || status || waitpid(first, &status, 0) != first; }' " +
+    "> /tmp/budget.c && cc -O0 /tmp/budget.c -o /tmp/budget");
   const chainStarted = performance.now();
   const chained = { status: await submit("/tmp/chain"), elapsed: Math.round(performance.now() - chainStarted) };
   const spawnBeside = async seconds => {
@@ -328,7 +335,9 @@ await browserTest("process budget", { image: "system" }, async ({ open }) => {
     await run("wait");
     return { status, elapsed };
   };
-  const exits = await spawnBeside(2), stays = await spawnBeside(9);
+  const exits = await spawnBeside(2);
+  const waitStarted = performance.now();
+  const waited = { status: await submit("/tmp/budget 7 > /tmp/waited"), elapsed: Math.round(performance.now() - waitStarted) };
   // A signal ends the wait as it ends any blocking call: a shell with no
   // handler for SIGINT ends at Ctrl+C, beside a holder that ignores it.
   const ended = submit("slop -c '/tmp/hold 4200 9 > /tmp/held & until read line < /tmp/held; do :; done; type :; true'");
@@ -338,13 +347,13 @@ await browserTest("process budget", { image: "system" }, async ({ open }) => {
   await page.keyboard.press("Control+c");
   const interrupted = { status: await ended, elapsed: Math.round(performance.now() - pressed) };
   console.log(`process budget: holding it alone ${JSON.stringify(chained)}, beside an exiting sibling ` +
-    `${JSON.stringify(exits)}, beside a staying one ${JSON.stringify(stays)}, after Ctrl+C ${JSON.stringify(interrupted)}`);
+    `${JSON.stringify(exits)}, a second child ${JSON.stringify(waited)}, after Ctrl+C ${JSON.stringify(interrupted)}`);
   assert.equal(chained.status, 0, await text());
   assert.equal(exits.status, 0, await text());
   assert.ok(exits.elapsed > 500, `${exits.elapsed} ms: the sibling had ended`);
-  assert.equal(stays.status, 126);
-  assert.ok(stays.elapsed >= 5000 && stays.elapsed < 9000, `refused after ${stays.elapsed} ms`);
-  assert.match(await text(), /true: spawn failed: Resource temporarily unavailable/);
+  assert.equal(waited.status, 0, await text());
+  assert.ok(waited.elapsed > 6000, `the second child started ${waited.elapsed} ms in, before the first ended`);
+  await run("grep -qx 'WAITED 0' /tmp/waited");
   assert.equal(interrupted.status, 130, await text());
   assert.ok(interrupted.elapsed < 2500, `ended ${interrupted.elapsed} ms after Ctrl+C`);
 });

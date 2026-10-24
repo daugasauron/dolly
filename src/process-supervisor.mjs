@@ -28,9 +28,13 @@ const processWorkerLimit = 56;
 const processMemoryBudgetBytes = 4 * 1024 * 1024 * 1024;
 // Chromium releases the address space of a terminated Worker's memory some
 // time after terminate(): a memory it cannot reserve is asked for again for
-// a while before the process is refused. A spawn the budget or the count
-// refuses waits as long, like any blocking call, asked again whenever a
-// process ends and at each service tick; then it fails EAGAIN.
+// a while before the process is refused. A spawn the count refuses waits as
+// long, like any blocking call, asked again whenever a process ends and at
+// each service tick; then it fails EAGAIN, a full process table's answer. A
+// spawn the budget refuses waits until a process ends, however long: make and
+// Cargo end a build at a spawn's EAGAIN. So a pipeline started over the
+// budget waits forever if its first stage fills the pipe before the next
+// stage is admitted; a signal (Ctrl+C) ends the wait.
 const reservationRetryMilliseconds = 50;
 const reservationPatienceMilliseconds = 5000;
 const interruptGraceMilliseconds = 500;
@@ -212,22 +216,23 @@ export class DollyProcessSupervisor {
     }
   }
 
+  // What a spawn waits for, "count" or "budget", or null when it is admitted.
   // The budget bounds fan-out (make -j, xargs -P), not a chain: refusing the
   // one child a process waits for (zig build-exe's cc, cc's wasm-opt) would
   // stop a build the machine can hold, so a parent with no live child is
   // admitted under the count alone. The page's own spawns have parent 0.
-  #admitsProcess(parent) {
-    if (this.processes.size >= processWorkerLimit) return false;
+  #spawnWait(parent) {
+    if (this.processes.size >= processWorkerLimit) return "count";
     let committed = 0, fanning = false;
     for (const process of this.processes.values()) {
       committed += process.memory?.buffer.byteLength ?? 0;
       fanning ||= process.parent === parent && !process.retiring;
     }
-    return committed < processMemoryBudgetBytes || !fanning;
+    return committed < processMemoryBudgetBytes || !fanning ? null : "budget";
   }
 
   spawn(arguments_, { foreground = false } = {}) {
-    if (!this.#admitsProcess(0)) throw new Error("Dolly process limit reached");
+    if (this.#spawnWait(0)) throw new Error("Dolly process limit reached");
     const packet = encodeSpawn(arguments_, foreground ? DOLLY_PROCESS_SPAWN_FOREGROUND : 0);
     new Uint8Array(
       this.kernelMemory.buffer,
@@ -678,13 +683,13 @@ export class DollyProcessSupervisor {
         threadArgument = new DataView(this.kernelMemory.buffer, this.mailboxAddress, 8).getBigUint64(0, true);
       const args = [process.pid, message.operation, BigInt(message.requestSize), BigInt(message.responseCapacity)];
       if (process.threaded) args.splice(1, 0, thread.tid);
-      const refused = message.operation === DOLLY_PROCESS_SPAWN && !this.#admitsProcess(process.pid);
-      const now = performance.now();
-      if (refused && now - (refusedSince ?? now) < reservationPatienceMilliseconds) {
-        this.deferred.set(thread, { process, thread, message, timer: null, refusedSince: refusedSince ?? now });
+      const waiting = message.operation === DOLLY_PROCESS_SPAWN ? this.#spawnWait(process.pid) : null;
+      const now = performance.now(), since = waiting === "count" ? refusedSince ?? now : undefined;
+      if (waiting === "budget" || waiting === "count" && now - since < reservationPatienceMilliseconds) {
+        this.deferred.set(thread, { process, thread, message, timer: null, refusedSince: since });
         return;
       }
-      const exhausted = refused ||
+      const exhausted = waiting === "count" ||
         process.threaded && message.operation === DOLLY_THREAD_SPAWN && !this.threadHost?.available(process.pid);
       // Firefox can enter a direct Wasm call twice. Use the generic call path
       // so a completed syscall is never replayed against its response packet.
