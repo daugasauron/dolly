@@ -1,6 +1,6 @@
 # Wine test: a file manager step fails 1 of 3 in Firefox
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 90
 - TAGS: demo,wine,flaky,0.1.4
 
@@ -23,7 +23,8 @@
   after the click that activates it; the desktop where it was. The desktop's title log is no
   longer asserted here: no wait can make a 250 ms sampler see a state without a delay.
 - Firefox: 10 of 10 runs in a row pass (146-165 s; Notepad's text is 434 dark pixels).
-  Logs: `build/process-evidence/wine-ff-*.log` in `work/process`.
+  Chromium passes (144.0 s, the same 434). Commit `5e0582ce`; logs:
+  `build/process-evidence/wine-ff-*.log` and `wine-chromium.log` in `work/process`.
 
 ## State (2026-10-24, before)
 
