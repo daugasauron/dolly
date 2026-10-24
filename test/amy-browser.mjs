@@ -507,6 +507,7 @@ const elsewhere = {
   zsh: "demos/zsh", binaryen: "demos/zsh: zsh's build uses it", "ghostty-gtk": "demos/ghostty-gtk", ocaml: "demos/ocaml",
   glib: "demos/ghostty-gtk: gtk-build installs it", pcre2: "demos/ghostty-gtk: glib uses it", libffi: "demos/ghostty-gtk: glib uses it",
   go: "demos/go", esbuild: "demos/go", naga: "demos/zero-ad: zero-ad-data uses it", "zero-ad-data": "demos/zero-ad: zero-ad copies it",
+  "fingers-build": "demos/fingers: fingers installs it", "vendor-crates": "demos/rust/test/vendor-crates-browser.mjs",
 };
 const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "llama", "tar", "meson", "typescript", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
 assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no test installs and uses");
