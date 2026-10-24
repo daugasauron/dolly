@@ -15,6 +15,8 @@ Move the pointer to stir. H toggles controls (output size, grid height, pressure
 iterations, ink, smoke, shadows), Space pauses, R resets, A toggles automatic
 stirring, Q or Escape returns to Slop. `fluid --check` verifies the solver;
 `fluid --bench 512 1080 120 [smoke|shaded]` times 120 steps.
+With `FLUID_RECORD=FILE`, fluid writes each `gpu@0` packet it sends to FILE,
+after its u32 length: the test replays them in the browser's WebGPU directly.
 
 ## Key files
 

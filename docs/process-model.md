@@ -67,9 +67,12 @@ sequenceDiagram
   instances. It admits a spawn while fewer than 56 processes exist and either
   their committed Wasm memory is under 4 GiB or the spawning process has no
   live child: the budget bounds fan-out such as `make -j`, and a chain of
-  processes each waiting for the next always progresses. A further spawn waits
-  for a process to end, as a blocking call does (a signal interrupts it), and
-  fails `EAGAIN` after 5 s.
+  processes each waiting for the next always progresses. A spawn over the
+  budget waits until a process ends, however long, since make and Cargo end a
+  build at a spawn's `EAGAIN`; one past the count waits up to 5 s, then fails
+  `EAGAIN`. Either wait is a blocking call a signal interrupts. So a pipeline
+  started over the budget waits forever if its first stage fills the pipe
+  before the next stage is admitted; Ctrl+C ends it.
   A start does not read an executable whose module is cached: the kernel opens the
   file and gives its version (`dolly_process_image_version`, a number every write and
   size change of the file renews), and only a version the supervisor has not compiled

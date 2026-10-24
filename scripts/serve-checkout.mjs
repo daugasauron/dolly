@@ -20,7 +20,9 @@ import { siteReference, sitePath } from "../src/static-asset.mjs";
 // IMAGE's current snapshot chain is required; null requires none (the builder,
 // whose image is being built). Options: port; files (URL path -> checkout
 // path, served in addition); sourceOverrides (URL path -> body, may change
-// while serving); responseHeaders (added to every response); handle(request,
+// while serving: fixtures, image metadata, and adapter mocks imported before
+// the GPU Worker, never a trusted module's own code); responseHeaders (added
+// to every response); handle(request,
 // response, path, headers), which returns true when it answered the request.
 export async function startCheckoutServer(projectDir, image = "default",
   { port = 0, files: extraFiles = new Map(), sourceOverrides = new Map(), responseHeaders = {}, handle } = {}) {

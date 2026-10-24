@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
 import { writeCommand } from "../../../browser.mjs";
 
-function tarEntry(name, text) {
+export function tarEntry(name, text) {
   const data = Buffer.from(text), header = Buffer.alloc(512);
   header.write(name);
   header.write("0000644\0", 100);

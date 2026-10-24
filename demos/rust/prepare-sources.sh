@@ -17,6 +17,10 @@ stage_rust_project() {
   copy_static "build/rust-sources/$1.tar.gz" "rust/$1.tar.gz"
 }
 if has_image rust-build; then stage_rust_project cargo; fi
+if has_image vendor-crates; then
+  copy_static demos/rust/vendor-crates.mjs rust/vendor-crates.mjs
+  copy_static demos/rust/vendor-crates.c rust/vendor-crates.c
+fi
 for program in ripgrep protox fd cbindgen naga; do
   if has_image "${program}"; then stage_rust_project "${program}"; fi
 done

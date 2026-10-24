@@ -1719,7 +1719,7 @@
 +#endif
 --- /dev/null
 +++ b/source/renderer/backend/dolly/Device.cpp
-@@ -0,0 +1,1076 @@
+@@ -0,0 +1,1081 @@
 +/* 0 A.D. Dolly renderer. SPDX-License-Identifier: GPL-2.0-or-later */
 +#include "precompiled.h"
 +#include "graphics/ShaderDefines.h"
@@ -2219,6 +2219,8 @@
 +    if(auto it=samplers.find(key);it!=samplers.end())return it->second;
 +    Handle handle=queue.New();void* p=queue.Record(DOLLY_GPU_CREATE_SAMPLER,48);U64(p,8,handle);
 +    for(size_t i=0;i<key.size();i++)U32(p,16+4*i,key[i]);
++    // The widest anisotropy the renderer asks for, in the main log.
++    static uint32_t widest=1;if(key[7]>widest){widest=key[7];LOGMESSAGE("Dolly GPU: samplers filter at %ux anisotropy",widest);}
 +    samplers.emplace(key,handle);return handle;
 +}
 +static unsigned VertexFormat(Format format)
@@ -2778,7 +2780,7 @@
 +    void* p=device->queue.Record(DOLLY_GPU_CAPTURE_FRAME,32);U64(p,8,buffer);U32(p,16,x);U32(p,20,device->height-y-height);U32(p,24,width);U32(p,28,height);
 +    device->queue.Flush();
 +    dolly_gpu_map(device->queue.gpu.get(),buffer,size);device->queue.RawBatch();
-+    auto* bytes=static_cast<uint8_t*>(output);
++    auto* bytes=static_cast<uint8_t*>(output);uint32_t nonOpaque=0;
 +    for(size_t row=0;row<height;row++)
 +    {
 +        Require(dolly_gpu_read(device->queue.gpu.get(),buffer,row*stride,width*4)==int(width*4),"framebuffer readback");
@@ -2786,8 +2788,11 @@
 +        {
 +            const auto* pixel=device->queue.gpu->reply+col*4;auto* destination=bytes+((height-1-row)*width+col)*3;
 +            destination[0]=pixel[device->surfaceBGRA?2:0];destination[1]=pixel[1];destination[2]=pixel[device->surfaceBGRA?0:2];
++            nonOpaque+=pixel[3]!=255;
 +        }
 +    }
++    // A pixel whose alpha is not 1 would show what lies under the canvas.
++    LOGMESSAGE("Dolly GPU: frame readback %ux%u, %u non-opaque pixels",width,height,nonOpaque);
 +    device->queue.retired.push_back(buffer);device->queue.Flush();
 +}
 +std::unique_ptr<IDevice> CreateDevice(SDL_Window* window)

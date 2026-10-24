@@ -13,7 +13,16 @@ static uint64_t id(const void *p) {return (uintptr_t)p;}
 static void put32(void *p,size_t o,uint32_t n) {memcpy((char*)p+o,&n,4);}
 static void put64(void *p,size_t o,uint64_t n) {memcpy((char*)p+o,&n,8);}
 static void unsupported(bool allowed) {if(!allowed){fputs("Unsupported fluid WebGPU descriptor\n",stderr);exit(1);}}
-void gpu_check(int n) {if(n<0){perror("fluid GPU");exit(1);}}
+/* FLUID_RECORD names a file that gets each gpu@0 packet fluid sent, after
+ * its u32 length: a direct replay of the same work (test/fixtures). */
+static void record_packet(void) {
+  static FILE *file;static uint32_t recorded;const char *path=getenv("FLUID_RECORD");
+  if(!path||fluid_gpu.sequence==recorded)return;
+  recorded=fluid_gpu.sequence;uint32_t payload,length;memcpy(&payload,fluid_gpu.packet+24,4);length=32+payload;
+  if(!file&&!(file=fopen(path,"w"))){perror("FLUID_RECORD");exit(1);}
+  if(fwrite(&length,4,1,file)!=1||fwrite(fluid_gpu.packet,length,1,file)!=1){perror("FLUID_RECORD");exit(1);}
+}
+void gpu_check(int n) {if(n<0){perror("fluid GPU");exit(1);}record_packet();}
 void gpu_flush(void) {if(fluid_gpu.count)gpu_check(dolly_gpu_batch(&fluid_gpu));dolly_gpu_begin(&fluid_gpu);}
 void gpu_reset_client(void) {next_id=0;memset(buffers,0,sizeof(buffers));dolly_gpu_begin(&fluid_gpu);}
 void gpu_dimensions(unsigned w,unsigned h) {width=w;height=h;}

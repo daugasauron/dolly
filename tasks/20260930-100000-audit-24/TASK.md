@@ -1,8 +1,34 @@
 # Trusted browser code is too large and carries test-only surface
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: core,boundary,cleanup,0.1.4
+
+## Closed (2026-10-24): steps 6 and 9, the count
+
+- Step 6: neither demo test rewrites the GPU worker. `fluid` writes the `gpu@0` packets it sends
+  to `FLUID_RECORD`, the page offers the file (`download@0`) and the direct replay reads it
+  (`f75eddfc`); Dolly's 0ad backend logs the widest sampler anisotropy in `mainlog.html`, which
+  `0ad-menu` reads (`f0c3ef46`). Both passed in Chromium 156 on a private Xvfb with the GPU lock
+  (NVIDIA): `fluid --check` and four benches, each replay equal to Dolly's run; the menu in
+  22.7 s, "samplers filter at 16x anisotropy". Firefox not run: no adapter under Xvfb.
+- Step 9 (`32db896c`), the other four tests that rewrote it: `0ad-graphics` reads the presented
+  frame's alpha from the backend's screenshot readback in `mainlog.html` (0 non-opaque pixels in
+  both scenes) and the page times the frame statuses it receives; the software backend is
+  Chrome's SwiftShader by launch flags (`0ad-graphics`, `0ad-multiplayer`); an adapter weaker
+  than the machine's (no BC, core limits, none in the Worker) is a mock imported before the
+  unchanged worker (`gpuAdapterMocks`). No browser setup gives the page an adapter and its GPU
+  Worker none: Chrome 156 under X11 with `--use-webgpu-adapter=swiftshader` does for a page's
+  Worker, not for the GPU Worker inside the runtime's. `sourceOverrides` serves fixtures, image
+  metadata and those mocks, never a trusted module's own code. Passed in Chromium on the private
+  Xvfb: `0ad-graphics` hardware, uncompressed and core, `0ad-multiplayer visual software`,
+  `gpu-render` both modes, `gpu-indicator` (hardware there, chromium and firefox headless).
+  `0ad-graphics` software fails at its screenshot's HUD, as the test before this change does:
+  under SwiftShader the combat demo ends before F2. Its `default` mode lacks `gpu@0` since
+  `default` declares `nena@0` and not the module: it runs as `zero-ad`.
+- Count, as below: 11,410 at `32db896c` (+28 since `cc4f439a`: `src/site.mjs` +20 for step 4,
+  `src/process-supervisor.mjs` +8 for the spawn budget's fan-out rule). Neither adds a browser
+  authority. Count again at the release.
 
 ## State (2026-10-24, later): steps 2, 7 and 8 done after the no-view merge
 

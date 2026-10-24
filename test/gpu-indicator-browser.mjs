@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { chromium, firefox } from "playwright-core";
 import { composed } from "./browser.mjs";
-import { startBrowserServer } from "./browser-server.mjs";
+import { gpuAdapterMocks, startBrowserServer } from "./browser-server.mjs";
 
 // The page names the adapter gpu@0 programs get, or why they have none.
 //   chromium  headless Chrome as the core tests run it (SwiftShader): software;
-//             the GPU Worker given no adapter: unavailable once a program opens;
+//             the GPU Worker's adapter mocked away (no browser setup gives the
+//             page an adapter and a Worker none): unavailable once a program opens;
 //             Chrome without WebGPU flags: unavailable before ENTRY
 //   firefox   Firefox as it ships, without navigator.gpu: unavailable before ENTRY
 //   hardware  Chrome with Vulkan WebGPU, needs a display and a GPU: hardware
@@ -27,15 +27,14 @@ const cases = {
 };
 const program = "printf '%s\\n' '#include <dolly/gpu.h>' " +
   "'int main(void) { static dolly_gpu g; return dolly_gpu_open(&g, 0, 0) < 0; }' > /tmp/open.c";
-const provider = await readFile(new URL("../host/gpu/worker.mjs", import.meta.url), "utf8");
-const sourceOverrides = new Map();
+const sourceOverrides = new Map(), noAdapter = await gpuAdapterMocks("gpu-no-adapter.mjs");
 const server = await startBrowserServer(new URL("..", import.meta.url).pathname, "system", { sourceOverrides });
 // system with gpu@0 and its client: an image that declares the module.
 const image = await composed(["runtime", "display", "input", "http", "download", "upload", "snapshot", "gpu"], ["libdolly-gpu"], { base: "system" });
 try {
   for (const [state, launch, { workerAdapter = true } = {}] of names.flatMap(name => cases[name])) {
-    if (workerAdapter) sourceOverrides.delete("/host/gpu/worker.mjs");
-    else sourceOverrides.set("/host/gpu/worker.mjs", `navigator.gpu.requestAdapter = async () => null;\n${provider}`);
+    if (workerAdapter) sourceOverrides.clear();
+    else sourceOverrides.set(...noAdapter);
     const browser = await launch(), deadline = setTimeout(() => void browser.close(), 180_000);
     try {
       const page = await browser.newPage();

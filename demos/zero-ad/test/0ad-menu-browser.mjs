@@ -10,10 +10,7 @@ const browserName=process.argv[2]??'firefox',url=process.argv[3];
 assert.ok(['chromium','firefox'].includes(browserName),'usage: node demos/zero-ad/test/0ad-menu-browser.mjs [chromium|firefox] [page URL]');
 const output=root+'/.cache/0ad/browser';
 await mkdir(output,{recursive:true});
-const provider=(await readFile(root+'/host/gpu/worker.mjs','utf8')).replace(
-  'insert(scope,id,"sampler",device.createSampler({',
-  'stats.maxAnisotropy=Math.max(stats.maxAnisotropy??1,maxAnisotropy);insert(scope,id,"sampler",device.createSampler({');
-const server=url?null:await startBrowserServer(root,'zero-ad',{sourceOverrides:new Map([['/host/gpu/worker.mjs',provider]])});
+const server=url?null:await startBrowserServer(root,'zero-ad');
 let browser,page,deadline;
 try {
   browser=browserName==='firefox'
@@ -100,7 +97,6 @@ try {
   await click(430,92);await click(399,294); // Han.
   await click(254,439);await click(238,525); // Alpine Lakes.
   await launch('alpine');
-  if(server)assert.equal(await page.evaluate(()=>__dolly.gpu.stats.maxAnisotropy),16);
   await page.keyboard.press('Control+F10');
   await page.waitForFunction(()=>!__dolly.graphicsActive);
   await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'menu check shell'));
@@ -111,6 +107,8 @@ try {
     return readFile(`${output}/${name}`,'utf8');
   };
   assert.doesNotMatch(await download('/opt/0ad/logs/interestinglog.html',`menu-${browserName}-warnings.html`),/class="error"|class="warning"/);
+  // The saved 16x filtering reached the samplers the game asked gpu@0 for.
+  assert.match(await download('/opt/0ad/logs/mainlog.html',`menu-${browserName}-main.html`),/Dolly GPU: samplers filter at 16x anisotropy/);
   assert.doesNotMatch(await download('/tmp/save-first-warnings.html',`menu-${browserName}-first-warnings.html`),/class="error"|class="warning"/);
   const config=await download('/opt/0ad/data/config/user.cfg',`menu-${browserName}-user.cfg`);
   assert.match(config,/^textures\.quality = "2"$/m);
