@@ -78,10 +78,8 @@ profile the seed is built with. A recipe then runs `cargo build --offline`.
 Upstream Cargo 0.99.0, the Cargo of Rust 1.98.1. `amy install cargo` brings it
 with the compiler.
 
-- `cargo build`, `cargo rustc` and `cargo metadata` work with path and
-  vendored dependencies, build scripts and procedural macros.
-- `cargo run` builds and then fails: Cargo replaces itself with the program
-  (`exec`), which Dolly does not have. Run `target/debug/NAME`.
+- `cargo new`, `cargo build`, `cargo run`, `cargo rustc` and `cargo metadata`
+  work with path and vendored dependencies, build scripts and procedural macros.
 - crates.io: crate archives come through the HTTP broker. Its index sends CORS
   headers only for files its cache does not hold, so a page needs a relay for
   `index.crates.io` ([HTTP](../../docs/http.md#cors-and-relays)) or the

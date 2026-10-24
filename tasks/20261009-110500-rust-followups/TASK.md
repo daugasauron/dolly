@@ -49,11 +49,12 @@ into Cargo and needs a `cargo` build to try.
 
 ## From Cargo (`tasks/20260930-231102-cargo-native`, closed 2026-10-12)
 
-- **`cargo run`** builds and then fails: Cargo `exec`s the program. The process contract has
-  `exec` on `core/process-exec` (`tasks/20261006-214244-process-exec`): Cargo's
-  `exec_replace` reaches libc's `execvp` through std's `Command::exec`, which this target
-  builds from `unix.rs`. Not measured: it needs Cargo relinked on the new seed, which the
-  reconciliation round does (`cargo`, bigbuild).
+- **`cargo run`** works (2026-10-24, `core/page-no-view`, seed `b871765b`, Cargo relinked on
+  it): in `default` after `amy install cargo`, `cargo new hello && cd hello && cargo run
+  --offline` prints `Hello, world!` and exits 0, in Chromium (5.3 s for both commands) and
+  Firefox (7.4 s). The Rust README says so; `man cargo` (`Dollyfile-cargo`) still says it
+  fails, left for the next change to that recipe, which rebuilds every image using `cargo`.
+  `test/amy-browser.mjs` still builds its own crate and runs the binary, not `cargo run`.
 - **`cargo test`** needs the `test` crate in the SDK, and tests on a panic-abort target need
   `-Zpanic-abort-tests`.
 - **A git dependency over HTTPS** needs a relay and libgit2's curl transport, which Cargo
@@ -65,6 +66,9 @@ into Cargo and needs a `cargo` build to try.
   without, it needs a `cargo` build) and `CARGO_INCREMENTAL=0` (`Dollyfile-rust-sdk`,
   `Dollyfile-cargo`; tried without on 2026-10-13, see "State": it works, with a warning about
   hard links).
+  Not started (2026-10-24, the wrap-up for a checkpoint): the SQLite one, a three-line deletion
+  in `demos/rust/config/cargo.toml`, needs Cargo rebuilt in `rust-build` (hugebuild); the
+  `CARGO_INCREMENTAL` exports rebuild `rust-build` (`rust-sdk`'s) or every image using `cargo`.
 - **`libc` for a user's project.** crates.io's copy has wasm32 layouts for this target, so a
   project needs `[patch.crates-io] libc = { path = "/opt/rust-sdk/src/libc" }`
   (`demos/rust/README.md`); a system-wide patch would harm every other project.
@@ -86,6 +90,17 @@ into Cargo and needs a `cargo` build to try.
 - **WAMR is compiled with `-DBUILD_TARGET_X86_64`** (`Dollyfile-zig-build`). The guest never
   observes it and the recipe says so at the line; an honest form needs a WAMR source change or
   an upstream generic target (the closed task's "WAMR target").
+  Checked 2026-10-24: upstream offers none. The pinned `68b8ed38` and `main` (`core/config.h`,
+  last changed 2026-10-22) accept only the sixteen CPU targets and `#error "Build target isn't
+  set"` otherwise; `build-scripts/config_common.cmake` fails the same way. The target also
+  decides which `wasm_runtime_invoke_native` exists (`wasm_runtime_common.c`: one per ABI family,
+  none for an unknown one), which the fast interpreter links for every non-raw native; zig1 binds
+  only raw natives (`src/zig/zig1.c`), and no native-ABI call can be right on Wasm, where an
+  indirect call must match its type exactly. What an honest build takes: a patch to WAMR (or
+  upstream) that admits a target with no native ABI, `__wasm__` in `config.h`, and gives it a
+  `wasm_runtime_invoke_native` that fails with an exception ("only raw natives"), so
+  `invokeNative_general.c` leaves the source list; about 15 lines. Not done: it is a source
+  change to WAMR, which the coordinator decides.
 
 Settled there on 2026-10-13: `test/amy-browser.mjs` runs Zig as a user would (a Zig function
 called from C, and a program on the standard library, through `-ofmt=c` and `cc`); and what
