@@ -4,6 +4,16 @@
 - PRIORITY: 90
 - TAGS: demo,0ad,bootstrap,performance,0.1.4
 
+## Found (2026-10-24): `0ad-graphics` fails in its software mode
+
+`node demos/zero-ad/test/0ad-graphics-browser.mjs zero-ad software chromium` (Chrome 156,
+SwiftShader by its launch flags, a private Xvfb, `work/runtime`) fails "Native screenshot
+readback must contain the game HUD": under SwiftShader the combat demo ends before the test's
+F2, and the screenshot shows "DEFEATED!" in observer mode. Measured: 114 s and 135 s with the
+test of `32db896c`, 111 s with the test before it (the GPU worker rewritten, as it was): the
+same failure, so not that change's. Hardware mode passes (98 s). The rounds' GPU stage runs only
+`zero-ad hardware` (`work/release-round.sh`, `checkpoint-round.sh`). Not fixed.
+
 ## State (2026-10-13)
 
 Two things are left of the 0 A.D. port, and nobody is on either. Neither blocks a user: the
