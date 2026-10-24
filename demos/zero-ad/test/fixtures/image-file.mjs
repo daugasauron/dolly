@@ -1,4 +1,4 @@
-// Programs the zero-ad image chain built inside Dolly, written as fixture files.
+// Files the zero-ad image chain built inside Dolly, written as fixture files.
 import { readFile, rename, writeFile } from "node:fs/promises";
 import { decodeSystemSnapshot, resolveSnapshotFile } from "../../../../scripts/system-snapshot-format.mjs";
 
@@ -12,3 +12,4 @@ export async function imageFile(image, path, name) {
   return output;
 }
 export const engineFixture = () => imageFile("zero-ad-engine", "/opt/0ad/system/pyrogenesis", "zero-ad-engine.wasm");
+export const headlessData = () => imageFile("zero-ad-data", "/usr/share/zero-ad/headless-data.tar", "zero-ad-headless-data.tar");

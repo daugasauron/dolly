@@ -1,25 +1,27 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
-import {readFile,readdir} from 'node:fs/promises';
+import {readFile} from 'node:fs/promises';
 import {chromium} from 'playwright-core';
+import {decodeSystemSnapshot} from '../../../scripts/system-snapshot-format.mjs';
 
-const root=new URL('../../../build/0ad/shaders/',import.meta.url), shaders={}, pairs=new Map(), computes=[];
+// The shaders zero-ad-data translated, as its snapshot holds them.
+const translated=/^\/usr\/share\/zero-ad\/shaders\/(mod|public)\/shaders\/wgsl\/([^/]+)$/;
+const content=decodeSystemSnapshot(await readFile(new URL('../../../dist/dolly-zero-ad-data-system.snapshot',import.meta.url)));
+const shaders={}, pairs=new Map(), computes=[];
 const borderHelper=await readFile(new URL('../toolchain/border-sampler.wgsl',import.meta.url),'utf8');
 let canvas;
-for(const mod of ['mod','public']) {
-  const directory=new URL(`${mod}/shaders/wgsl/`,root);
-  for(const name of await readdir(directory)) {
-    if(name.endsWith('.wgsl'))shaders[`${mod}/${name}`]=await readFile(new URL(name,directory),'utf8');
-    else if(name.endsWith('.xml')) {
-      const xml=await readFile(new URL(name,directory),'utf8');
-      const stages=[...xml.matchAll(/<(vertex|fragment) file="wgsl\/([^"]+)"/g)].map(m=>`${mod}/${m[2]}`);
-      if(stages.length===2){pairs.set(stages.join(','),stages);if(name.startsWith('canvas2d_'))canvas=stages;}
-      const compute=xml.match(/<compute file="wgsl\/([^"]+)"/);
-      if(compute)computes.push([`${mod}/${compute[1]}`,Number(xml.match(/<binding binding="0" size="(\d+)" type="uniform"/)[1])]);
-    }
+for(const [path,data] of [...content.files].sort(([left],[right])=>left<right?-1:1)) {
+  const [,mod,name]=path.match(translated)??[];
+  if(name?.endsWith('.wgsl'))shaders[`${mod}/${name}`]=data.toString('utf8');
+  else if(name?.endsWith('.xml')) {
+    const xml=data.toString('utf8');
+    const stages=[...xml.matchAll(/<(vertex|fragment) file="wgsl\/([^"]+)"/g)].map(m=>`${mod}/${m[2]}`);
+    if(stages.length===2){pairs.set(stages.join(','),stages);if(name.startsWith('canvas2d_'))canvas=stages;}
+    const compute=xml.match(/<compute file="wgsl\/([^"]+)"/);
+    if(compute)computes.push([`${mod}/${compute[1]}`,Number(xml.match(/<binding binding="0" size="(\d+)" type="uniform"/)[1])]);
   }
 }
-assert.ok(canvas && pairs.size && computes.length,'Run demos/zero-ad/toolchain/prepare-shaders.sh first');
+assert.ok(canvas && pairs.size && computes.length,'Build zero-ad-data first');
 const server=createServer((request,response)=>{
   response.writeHead(200,{'content-type':'text/html','cross-origin-opener-policy':'same-origin','cross-origin-embedder-policy':'require-corp'});
   response.end('<!doctype html><title>0 A.D. translated shader proof</title>');

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Translate non-bindless graphics and buffer-only compute shaders."""
 import hashlib
 import json
@@ -7,7 +6,6 @@ from pathlib import Path, PurePosixPath
 import shutil
 import struct
 import subprocess
-import sys
 import tempfile
 import xml.etree.ElementTree as ET
 from zipfile import ZipFile
@@ -122,7 +120,8 @@ def compute_bindings(stage):
     return len(storage) + 1
 
 
-def main(source, naga, output):
+def translate(mods, naga, output):
+    """The SPIR-V shaders of the archives MODS (name: file) in WGSL, by NAGA, in OUTPUT/NAME."""
     if output.exists():
         shutil.rmtree(output)
     output.mkdir(parents=True)
@@ -134,7 +133,7 @@ def main(source, naga, output):
             destination = output / mod / "shaders/wgsl"
             destination.mkdir(parents=True)
             converted, borders, variants = {}, {}, 0
-            with ZipFile(source / f"binaries/data/mods/{mod}/{mod}.zip") as archive:
+            with ZipFile(mods[mod]) as archive:
                 for name in sorted(archive.namelist()):
                     if not name.startswith("shaders/spirv/") or not name.endswith(".xml"):
                         continue
@@ -189,7 +188,3 @@ def main(source, naga, output):
             manifest["mods"][mod] = {"variants": variants, "shaders": converted}
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     print(json.dumps({mod: {"variants": value["variants"], "shaders": len(value["shaders"])} for mod, value in manifest["mods"].items()}))
-
-
-if __name__ == "__main__":
-    main(Path(sys.argv[1]), sys.argv[2], Path(sys.argv[3]))

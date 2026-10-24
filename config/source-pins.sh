@@ -208,10 +208,6 @@ DOLLY_DAWN_WEBGPU_SHA256=9c36eb46ada070b9cc0de2bdfd04c1fa1a1fd852cc1ebb371e96e68
 DOLLY_LUA55_URL='https://www.lua.org/ftp/lua-5.5.1.tar.gz'
 DOLLY_LUA55_SHA256=1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373dce
 
-# Native shader translator used by the 0 A.D. asset preparation step.
-DOLLY_0AD_NAGA_VERSION=30.0.1
-DOLLY_0AD_NAGA_SHA256=45283c11b8b1da1936214eefc9caf9c1bc74ae5c090023eaea84ba317a194c8c
-
 DOLLY_EMACS_VERSION=31.1
 DOLLY_EMACS_URL='https://ftp.gnu.org/gnu/emacs/emacs-31.1.tar.gz'
 DOLLY_EMACS_SHA256=3cad7fd1466c0e24867df8d2609da3ac75abc90d7c4c0175e410e9be46d4092a

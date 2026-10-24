@@ -1,7 +1,4 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_image zero-ad; then
-  node demos/zero-ad/toolchain/prepare-distribution.mjs "${static_dir}/zero-ad"
-fi
 if has_image openal-build; then
   openal_dir="$(bash demos/zero-ad/prepare-openal.sh)"
   node scripts/build-source-tar.mjs "${static_dir}/openal/source.tar" \
@@ -13,8 +10,34 @@ if has_image openal-build; then
     "${openal_dir}/fmt-11.1.1/LICENSE" /usr/share/licenses/OpenAL/fmt
 fi
 if has_image zero-ad-deps || has_image zero-ad-engine || has_image spidermonkey ||
-   has_image pkgconf || has_image libpng || has_image freetype; then
+   has_image pkgconf || has_image libpng || has_image freetype || has_image zero-ad-data; then
   zad_dir="$(bash demos/zero-ad/prepare-build-sources.sh)"
+fi
+if has_image zero-ad-data; then
+  data_archive="$(source config/source-pins.sh && bash scripts/fetch-verified-file.sh "${DOLLY_0AD_DATA_URL}" \
+    "${DOLLY_0AD_DATA_SHA256}" ".cache/0ad/0ad-${DOLLY_0AD_VERSION}-unix-data.tar.xz")"
+  # One SOURCE holds at most 1 GiB: the release archive travels in two halves.
+  data_halves="${static_dir}/zero-ad-data/0ad-unix-data.tar.xz"
+  if [[ ! -f "${data_halves}.1" || ! -f "${data_halves}.2" ||
+        $(( $(stat -c %s "${data_halves}.1") + $(stat -c %s "${data_halves}.2") )) != "$(stat -c %s "${data_archive}")" ]]; then
+    mkdir -p "${static_dir}/zero-ad-data"
+    rm -f "${data_halves}.1" "${data_halves}.2"
+    split -n 2 -d -a 1 --numeric-suffixes=1 "${data_archive}" "${data_halves}."
+  fi
+  # Beside Dolly's scripts and ICU's data, the engine's translations and the
+  # licences, which the source release holds and the data release does not.
+  data_source="${zad_dir}/0ad-$(source config/source-pins.sh && echo "${DOLLY_0AD_VERSION}")"
+  node scripts/build-source-tar.mjs "${static_dir}/zero-ad-data/tools.tar" \
+    demos/zero-ad/toolchain/package-data.py /tmp/0ad-tools/package-data.py \
+    demos/zero-ad/toolchain/shaders.py /tmp/0ad-tools/shaders.py \
+    demos/zero-ad/toolchain/border-sampler.wgsl /tmp/0ad-tools/border-sampler.wgsl \
+    demos/zero-ad/toolchain/data.patch /tmp/0ad-tools/data.patch \
+    "${zad_dir}/icu/source/data/in/icudt68l.dat" /tmp/0ad-tools/icudt68l.dat \
+    "${data_source}/binaries/data/l10n" /tmp/0ad-source/l10n \
+    "${data_source}/LICENSE.md" /tmp/0ad-source/LICENSE.md \
+    "${data_source}/license_gpl-2.0.txt" /tmp/0ad-source/license_gpl-2.0.txt \
+    "${data_source}/license_lgpl-2.1.txt" /tmp/0ad-source/license_lgpl-2.1.txt \
+    "${data_source}/license_mit.txt" /tmp/0ad-source/license_mit.txt
 fi
 if has_image pkgconf; then
   node scripts/build-source-tar.mjs "${static_dir}/pkgconf/source.tar" \
