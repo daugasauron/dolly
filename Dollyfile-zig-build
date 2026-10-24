@@ -15,7 +15,7 @@ REQUIRES TOOL   cc
 REQUIRES TOOL   tar
 
 SOURCE /v0.1.4/dist/static/default/zig.tar  ecb90770bd24a400120a74903557134642902eb4656d1f7dd3fe5a9eebb11943 /tmp/zig.tar
-SOURCE /v0.1.4/dist/static/default/wamr.tar 84ebb76662fb8a7f013082842150c71e04ee149130e5b15426d630628d6632b3 /tmp/wamr.tar
+SOURCE /v0.1.4/dist/static/default/wamr.tar d35ec64a48e61f6a65397d3d9f13823735a94623a9dcd007b093279e5e0e3615 /tmp/wamr.tar
 SLOP tar \
   -xf /tmp/zig.tar \
   -C /

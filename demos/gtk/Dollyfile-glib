@@ -13,14 +13,14 @@ REQUIRES HOST threads@0
 # which traps in WebAssembly: GObject's pkg-config file asks cc for
 # --dolly-cast-emulation (Binaryen's wasm-opt --fpcast-emu after the link),
 # and this package's own programs are passed through it here.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 4551c41a5fc946265a5ce12b4f71af7000cb5297c3c420f67a9cdfeb42223a57
-INSTALL /v0.1.4/demos/tools/Dollyfile-meson 3924209889043860c16faa2fbed9b1a34d0d0091606cbbd81da86f414bfd3091
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf d154b543b8ad0a1108fe003d156b1b2477d9c106372448cf5375f59b4c4c7278
-INSTALL /v0.1.4/demos/tools/Dollyfile-xz a68f3a3e5bd9f3841b6f261e31a1e28ebd9671fbc9dbc819dc9bb9eb736ae687
-INSTALL /v0.1.4/demos/tools/Dollyfile-tar d0fb07c9c21b62e9040b761b8f9a93e27deae89238fe8f9bb95e3b4b7a2d1b9a
-INSTALL /v0.1.4/demos/tools/Dollyfile-binaryen c9f02abe9172c315941b8ca6ae5ae25da382a03e991be43409dec6306d575483
-INSTALL /v0.1.4/demos/python/Dollyfile-libffi bf711755cb350fb1ff6f5abd7bcd8b17c42502ecdcf4717cebafd120f5ef9561
-INSTALL /v0.1.4/demos/gtk/Dollyfile-pcre2 64074a3668db4f7873be6c757f4e710bf485f7cb1fabe82fb229ec790458d438
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build d648cdafc499706011ee4a7b6e6aa41257249f73d2601d2b8bfd88ac012db601
+INSTALL /v0.1.4/demos/tools/Dollyfile-meson e6681be5c0ea3c65c7b656c7a6d72d70dd4e2d3ce13e6daa6bb57c968b3a0be1
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf b465b86efd9bc5a39221282029c7b3e45fe2c83768d5bc8b6a8dc6d6698f1827
+INSTALL /v0.1.4/demos/tools/Dollyfile-xz 6277cabfb0e2e7139bfdc68488060e158a46fc513bc409f110b5d7fc3cbe4b5f
+INSTALL /v0.1.4/demos/tools/Dollyfile-tar b0451151b176449de3b1bfe7e0754e88755ab76712de9238e77e09ba8be01429
+INSTALL /v0.1.4/demos/tools/Dollyfile-binaryen ab12bc6571073ee7c0a7c4c1827a71025fa1819622c07b16557d517a64ef86da
+INSTALL /v0.1.4/demos/python/Dollyfile-libffi c4b85e0517dadf4ee07305877beb584774801f065fd5ce6812a8eb2c7668318d
+INSTALL /v0.1.4/demos/gtk/Dollyfile-pcre2 1ffed21a9f60c07cd48a07fb505087810d5ee29303c106b46b711d3ada47eddf
 INSTALL /v0.1.4/Dollyfile-zlib 9df90c7cb69efb0c503332233ac35280942f88f10c250de5bd33b8e7a2f2da90
 
 REQUIRES HEADER ffi

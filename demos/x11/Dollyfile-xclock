@@ -5,7 +5,7 @@ REQUIRES HOST sockets@0
 
 # xclock from X.Org's release archive, unchanged: the Athena clock, drawn
 # with the core protocol (no Xft), and its resource files.
-FROM /v0.1.4/demos/x11/Dollyfile-x11-build 80b840e30d6dcab7c13952168a03c4ec889d80da4970bfaebf01f4af3807c12a
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build ac0ee02cc4b8686a39270eb677ede678c694a9879526fe29bc80d6fac637ad87
 
 SOURCE /v0.1.4/dist/static/x11/xclock-1.2.1.tar.gz b44845fae9857861a144a1be7418a8f18e745e05a7697804682d247027168460 /tmp/xclock.tar.gz
 SLOP CWD /tmp gzip -dc xclock.tar.gz | tar -xf -

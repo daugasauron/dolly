@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # the program goes through one signature, so a call through a pointer cast to
 # a function type of other parameters works (GObject programs make them). It
 # runs on one thread, as BINARYEN_CORES says: the package is not threaded.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 4551c41a5fc946265a5ce12b4f71af7000cb5297c3c420f67a9cdfeb42223a57
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build d648cdafc499706011ee4a7b6e6aa41257249f73d2601d2b8bfd88ac012db601
 
 REQUIRES HEADER libc
 REQUIRES HEADER cpp

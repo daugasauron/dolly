@@ -20,17 +20,17 @@ REQUIRES HOST upload@0
 # windows, and three of X's own clients in theirs: a clock, eyes that follow
 # the pointer and a terminal with a shell, where imgui-x11 starts Dear ImGui's
 # example in a window of its own.
-FROM /v0.1.4/Dollyfile-system a8cf708e25f8a80b30a36f0f951abc86080c9a04b2dc309fd0fe273f804af01b
-INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server 4fa63018075817b3ec90f3aca98efbc3fedc3ccf41d67c4d35e7125934d55371
-INSTALL /v0.1.4/demos/x11/Dollyfile-twm bafa9b642d6fc7fd62248f7ca6eb064b3104b0c1e5dbdc992e5146d568f52b70
-INSTALL /v0.1.4/demos/x11/Dollyfile-xclock 8ce03cb252e5327ff736a2a50cb2f82af693c62f29688cad0d4efdbd2b00ff61
-INSTALL /v0.1.4/demos/x11/Dollyfile-xeyes ca1cdf21562ee87b4d4610adfde3dc79669582f91b75ce09214a1a00f7629fe0
-INSTALL /v0.1.4/demos/x11/Dollyfile-xterm abd509d29007aadea1f08eb1ffe86bb3419f95de8b775291dd679ae6c63055c7
+FROM /v0.1.4/Dollyfile-system f184c6d546dd11cca64af88a7e0620a7a7ad7195a3ed76a5e5daebe5b7a99a78
+INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server 5973f0d87eaca0f311021a5a6569b3725f8b9b29b51a9b9bd2d185595483d41d
+INSTALL /v0.1.4/demos/x11/Dollyfile-twm e1db7fff2bf6968182599525f799529d176f5c6e72dd06bea01fc58fad154d27
+INSTALL /v0.1.4/demos/x11/Dollyfile-xclock 5dac10f1985c7e7d553af4249a097a9b26605b8c570c3fc6e4c39288508f343b
+INSTALL /v0.1.4/demos/x11/Dollyfile-xeyes a84bcaf888d7234577e52b39d2846496f641df817a26a86843a2493789c9a6da
+INSTALL /v0.1.4/demos/x11/Dollyfile-xterm 8b75661c97e705ad0430131ba9dabb0459019208162ddcb27ab06c8f99d489fa
 # amy installs packages into the session (tmux, nvim and the rest), with the
 # modules default declares for them; nena enables another.
 INSTALL /v0.1.4/Dollyfile-amy 2747c8d4e0823eb5d4a8b4057e55780b9abe8cbb850f47c4d72c77821eadf972
 INSTALL /v0.1.4/Dollyfile-nena 1dd9dcd473e683c599e4a4be019416a1eb3070e644e540bb3a054590cae611de
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-imgui-x11 f0fead5406ef6eae2e772950a8713b4408f920ef4147a85218159cf30e32106d
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-imgui-x11 1288a36d99b09069cd85e09df3d362041bc8fc5d7c1678502bcd8b9fbf0727eb
 
 # The server takes the display, the keyboard and the pointer until it ends
 # (kill $(cat /tmp/.X0-pid) in the terminal); its clients end with it, and

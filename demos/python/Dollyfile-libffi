@@ -6,7 +6,7 @@ REQUIRES HOST dso@0
 # libffi from upstream's release with Dolly's target (libffi-dolly.c): calls
 # and closures go through dso@0's FFI in the process's own Worker, so a
 # program that links it records dso@0. CPython's ctypes and GObject use it.
-FROM /v0.1.4/Dollyfile-system a8cf708e25f8a80b30a36f0f951abc86080c9a04b2dc309fd0fe273f804af01b
+FROM /v0.1.4/Dollyfile-system f184c6d546dd11cca64af88a7e0620a7a7ad7195a3ed76a5e5daebe5b7a99a78
 REQUIRES HEADER dso
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
