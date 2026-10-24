@@ -18,6 +18,28 @@ Also from the port: `posix_spawn_file_actions_addclose` works since `core/proces
 (`tasks/20261006-214244-process-exec`), and the libc has no `gethostbyaddr` (OCaml raises
 `Not_found`; no change planned).
 
+## State (2026-10-24): groups, sessions and `mprotect` on `core/runtime-cleanup`
+
+Decided by the integrator: each process is its own process group and its own session, and
+`mprotect` grants read and write only (the two rows below). In `029313db`, a seed change (image
+inputs `a3d68c88`); `process-lifecycle.c` checks each answer, and `test/process-browser.mjs`
+passed in Chromium and Firefox on `system` built on it. The ports that call them, on that seed
+with their images rebuilt (`work/runtime`, 2026-10-24):
+
+| Port | Result | What changed |
+| --- | --- | --- |
+| OCaml | `ocaml-browser.mjs` Chromium and Firefox, `fixpoint-browser.mjs` Chromium 142 s, Firefox 167 s | nothing seen: the runtime commits with read and write, and ignores its decommit's (`PROT_NONE`) `ENOTSUP` |
+| zsh | `zsh-browser.mjs` both | nothing seen: `getpgrp` is its pid, so `acquire_pgrp` no longer calls `setpgid`; `monitor` is off at the prompt and after a command, a background job and `wait` work, Ctrl+C gives 130 |
+| tmux | `tmux-browser.mjs` Chromium, Firefox (one flake at the pane menu, then two passes) | none: its port spawns, and its `killpg` follows stopped children, which Dolly has none of |
+| Neovim | `neovim-browser.mjs` Chromium; `neovim-build`'s job checks | none: its patch kills a job by pid; `:suspend`'s `kill(0, SIGSTOP)` is `ENOTSUP` as before (`raise` of SIGSTOP); no pty `:terminal` |
+| CMake | `cmake-browser.mjs` Chromium | none: kwsys's `setsid` and `kill(-pid)` follow its `vfork`; processes go through the libuv port |
+| Rust | `rust-browser.mjs` Chromium: rustc, Cargo and Tokio, with `rust` and `cargo` linked on this seed (`rust-build` in `hugebuild`, 1,771 s, peak 9.7 GB) | none: std's stack guard (`mprotect`) is not built for this target, its `setpgid` and `setsid` follow `fork`, and a process group for a spawn is still `ENOTSUP` |
+| Emacs | `emacs-browser.mjs` Chromium and Firefox | `inherited_pgroup` is 0, so no `setpgid` and `tcsetpgrp` at start and exit; C-g of `M-! sleep 30` still waits for the command (the terminal's interrupt key is C-c, so Emacs reads C-g after it ends) |
+
+libuv's own tests were not run: the staged libuv holds the library, not its tests.
+Every stub of both files now answers honestly or fails explicitly. Left: the catalog round on
+the seed that carries `029313db`.
+
 ## State (2026-10-23, night): the stubs taken over on `core/process-exec`
 
 Done and checked in Chromium and Firefox (`test/process-browser.mjs` runs
