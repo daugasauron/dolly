@@ -1,20 +1,19 @@
 import assert from 'node:assert/strict';
-import {mkdir,readFile,writeFile} from 'node:fs/promises';
+import {mkdir,writeFile} from 'node:fs/promises';
 import {chromium,firefox} from 'playwright-core';
 import {startBrowserServer} from '../../../test/browser-server.mjs';
+import {acceptDownload} from '../../browser.mjs';
 
 if(!process.env.DISPLAY){console.log('gpu-fluid: skipped: needs DISPLAY: a GPU window');process.exit(77);}
 
-// Instrument only this test server: nested Worker loads are not reliably routed
-// by Playwright. Record accepted copies, then turn recording off for timings.
-const original=await readFile(new URL('../../../host/gpu/worker.mjs',import.meta.url),'utf8');
-const instrumented='const proof=new BroadcastChannel("dolly-fluid-proof");let recording=false;proof.onmessage=e=>{recording=e.data==="record";};\n'+original.replace('serial=serial.then(()=>execute(request,scope,parsed))','if(recording)proof.postMessage(request.bytes);serial=serial.then(()=>execute(request,scope,parsed))');
-const site=await startBrowserServer(new URL('../../../',import.meta.url).pathname,'gpu-fluid',{sourceOverrides:new Map([['/host/gpu/worker.mjs',instrumented]]),
-  fixtures:{'fluid-direct.mjs':'demos/gpu-fluid/test/fixtures/fluid-direct.mjs'}});
+// fluid writes the gpu@0 packets it sends to FLUID_RECORD; the page offers the
+// file (download@0), and the direct replay reads it from this server.
 const output=new URL('../../../build/fluid-proof/',import.meta.url),results=[];
 await mkdir(output,{recursive:true});
+const site=await startBrowserServer(new URL('../../../',import.meta.url).pathname,'gpu-fluid',{
+  fixtures:{'fluid-direct.mjs':'demos/gpu-fluid/test/fixtures/fluid-direct.mjs','fluid.packets':'build/fluid-proof/fluid.packets'}});
 try {
- for(const name of ['chromium','firefox']) {
+ for(const name of process.argv.length>2?process.argv.slice(2):['chromium','firefox']) {
   const browser=await ({chromium,firefox})[name].launch(name==='chromium'
    ? {channel:'chrome',headless:false,args:['--no-sandbox','--ozone-platform=x11','--enable-unsafe-webgpu','--use-angle=vulkan','--enable-features=Vulkan,VulkanFromANGLE']}
    : {headless:false,firefoxUserPrefs:{'dom.webgpu.enabled':true,'gfx.webgpu.ignore-blocklist':true}});
@@ -22,7 +21,6 @@ try {
    const context=await browser.newContext({viewport:{width:1280,height:720}});
    const page=await context.newPage(),errors=[];
    page.on('pageerror',error=>errors.push(String(error)));
-   await page.addInitScript(()=>{window.fluidPackets=[];window.fluidCapture=new BroadcastChannel('dolly-fluid-proof');fluidCapture.onmessage=e=>fluidPackets.push(e.data);});
    const submit=command=>page.evaluate(text=>__dolly.submit(text),command);
    const frames=async(n=15)=>{const before=await page.evaluate(()=>__dolly.gpu.stats.frames);await page.waitForFunction(({before,n})=>__dolly.gpu.stats.frames>before+n,{before,n},{timeout:30000});};
    const shot=label=>page.screenshot({path:new URL(`${name}-${label}.png`,output).pathname});
@@ -57,10 +55,9 @@ try {
    await page.keyboard.press('q');await page.waitForFunction(()=>!__dolly.graphicsActive&&!__dolly.gpu.active);
    const measurements=[];
    for(const command of ['fluid --check','fluid --bench 128 720 120','fluid --bench 256 720 120','fluid --bench 512 1080 120','fluid --bench 512 1080 120 shaded']) {
-    await page.evaluate(()=>{fluidPackets=[];fluidCapture.postMessage('record');});await page.waitForTimeout(30);
-    assert.equal(await submit(command),0,await page.evaluate(()=>__dolly.visibleTerminalText()));
-    await page.waitForFunction(()=>fluidPackets.some(p=>new DataView(p.buffer,p.byteOffset,p.byteLength).getUint32(4,true)===5));
-    await page.evaluate(()=>fluidCapture.postMessage('stop'));await page.waitForTimeout(30);
+    assert.equal(await submit(`FLUID_RECORD=/tmp/fluid.packets ${command}`),0,await page.evaluate(()=>__dolly.visibleTerminalText()));
+    const offered=submit('download /tmp/fluid.packets');
+    await (await acceptDownload(page,()=>offered)).saveAs(new URL('fluid.packets',output).pathname);assert.equal(await offered,0);
     assert.equal(await submit(command),0);
     const terminal=await page.evaluate(()=>__dolly.visibleTerminalText());
     const matches=[...terminal.matchAll(/FLUID_BENCH (\{[^\r\n]+\})/g)];assert.ok(matches.length,terminal);
@@ -69,7 +66,11 @@ try {
      const canvas=document.createElement('canvas');canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none';document.querySelector('#terminal').append(canvas);
      const worker=new Worker('/fixture/fluid-direct.mjs',{type:'module'}),close=()=>{worker.terminate();canvas.remove();};
      worker.onmessage=({data})=>{close();data.error?reject(Error(data.error)):resolve(data.result);};worker.onerror=e=>{close();reject(Error(e.message));};
-     const offscreen=canvas.transferControlToOffscreen();worker.postMessage({packets:fluidPackets,canvas:offscreen},[offscreen]);
+     fetch('/fixture/fluid.packets',{cache:'no-store'}).then(response=>response.arrayBuffer()).then(buffer=>{
+      const packets=[],view=new DataView(buffer);
+      for(let at=0;at<buffer.byteLength;at+=4+view.getUint32(at,true))packets.push(new Uint8Array(buffer,at+4,view.getUint32(at,true)));
+      const offscreen=canvas.transferControlToOffscreen();worker.postMessage({packets,canvas:offscreen},[offscreen]);
+     },reject);
     }));
     assert.equal(replay.steps,dolly.steps);assert.ok(dolly.wall_ms>0&&replay.wall_ms>0);
     if(command.includes('--check')) {
