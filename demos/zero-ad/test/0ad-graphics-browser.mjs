@@ -4,30 +4,22 @@ import {chromium,firefox} from 'playwright-core';
 import {gpuAdapterMocks,startBrowserServer} from '../../../test/browser-server.mjs';
 import {acceptDownload} from '../../browser.mjs';
 import {hasGameHud} from './fixtures/0ad-hud.mjs';
-import {inspectDollyfile} from '../../../src/dollyfile-view.mjs';
-import {engineFixture} from './fixtures/image-file.mjs';
-import {siteReference} from '../../../src/static-asset.mjs';
 
 const root=new URL('../../../',import.meta.url), output=new URL('../../../.cache/0ad/browser/',import.meta.url);
-const image=process.argv[2]??'default', backend=process.argv[3]??'hardware';
-const browserName=process.argv[4]??'chromium';
-const compression=process.argv[5]??'auto';
-const animation=process.argv[6]??'gpu';
-assert.ok(['default','zero-ad'].includes(image) && ['hardware','software'].includes(backend),
-  'usage: node demos/zero-ad/test/0ad-graphics-browser.mjs [default|zero-ad] [hardware|software] [chromium|firefox] [auto|uncompressed|core] [gpu|cpu]');
+const backend=process.argv[2]??'hardware';
+const browserName=process.argv[3]??'chromium';
+const compression=process.argv[4]??'auto';
+const animation=process.argv[5]??'gpu';
+assert.ok(['hardware','software'].includes(backend),
+  'usage: node demos/zero-ad/test/0ad-graphics-browser.mjs [hardware|software] [chromium|firefox] [auto|uncompressed|core] [gpu|cpu]');
 assert.ok(['chromium','firefox'].includes(browserName) && (browserName==='chromium'||backend==='hardware'));
 assert.ok(['auto','uncompressed','core'].includes(compression));
 assert.ok(['gpu','cpu'].includes(animation));
 await mkdir(output,{recursive:true});
-const sources=inspectDollyfile(await readFile(new URL('demos/zero-ad/Dollyfile-zero-ad',root),'utf8')).sources;
-const prefix=siteReference('dist/static/zero-ad/');
-const fixtures=Object.fromEntries(sources.map(source=>[source.location.slice(prefix.length),'dist/static/zero-ad/'+source.location.slice(prefix.length)]));
-fixtures['pyrogenesis.wasm']=await engineFixture();
 // The software backend is Chrome's own SwiftShader adapter, by its launch flags;
 // a weaker adapter than this machine's is a mock before the GPU Worker.
 const mock={uncompressed:'gpu-no-bc.mjs',core:'gpu-core-limits.mjs'}[compression];
-const server=await startBrowserServer(root.pathname,image,{sourceOverrides:new Map(mock?[await gpuAdapterMocks(mock)]:[]),
-  fixtures});
+const server=await startBrowserServer(root.pathname,'zero-ad',{sourceOverrides:new Map(mock?[await gpuAdapterMocks(mock)]:[])});
 let browser,deadline,page;
 try {
   browser=browserName==='firefox'
@@ -39,8 +31,7 @@ try {
   deadline=setTimeout(()=>void browser.close(),240000);
   page=await browser.newPage({viewport:{width:1024,height:768}});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
-  await page.addInitScript(({origin,requests})=>{globalThis.DOLLY_HTTP_POLICY={maxRequests:requests,
-    rules:[{origin,pathPrefix:'/fixture/',methods:['GET']}]};
+  await page.addInitScript(()=>{
     globalThis.audioPeak=0;
     globalThis.frameSamples=[];
     const NativeWorker=Worker;
@@ -70,17 +61,15 @@ try {
       source.connect=function(target,...args){return connect.call(this,target===this.context.destination?meter:target,...args);};
       return source;
     };
-  },{origin:server.origin,requests:sources.length});
+  });
   const bootStart=performance.now();
-  await page.goto(server.origin+'/'+image+'/');
+  await page.goto(server.origin+'/zero-ad/');
   await page.waitForFunction(()=>['ready','failed'].includes(document.documentElement.dataset.dollyStatus),null,{timeout:90000});
   assert.equal(await page.evaluate(()=>document.documentElement.dataset.dollyStatus),'ready');
-  if(image==='zero-ad') {
-    await page.waitForFunction(()=>__dolly.gpu.stats?.frames>=90,null,{timeout:60000});
-    await page.screenshot({path:new URL('graphics-main-menu.png',output).pathname});
-    await page.keyboard.press('Control+F10');
-    await page.waitForFunction(()=>!__dolly.graphicsActive);
-  }
+  await page.waitForFunction(()=>__dolly.gpu.stats?.frames>=90,null,{timeout:60000});
+  await page.screenshot({path:new URL('graphics-main-menu.png',output).pathname});
+  await page.keyboard.press('Control+F10');
+  await page.waitForFunction(()=>!__dolly.graphicsActive);
   await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
   const bootMilliseconds=Math.round(performance.now()-bootStart);
   await page.mouse.click(10,10);
@@ -90,16 +79,6 @@ try {
     const file=await event;await file.saveAs(new URL(name,output).pathname);assert.equal(await running,0);
     return readFile(new URL(name,output),encoding);
   };
-  const stagingStart=performance.now();
-  if(image==='default') {
-    for(const source of sources) {
-      const name=source.location.slice(prefix.length);
-      const directory=source.destination.slice(0,source.destination.lastIndexOf('/'));
-      assert.equal(await submit(`mkdir -p ${directory} && curl -fsS ${server.origin}/fixture/${name} -o ${source.destination}`),0);
-    }
-  }
-  const stagingMilliseconds=Math.round(performance.now()-stagingStart);
-  console.log(`Graphical content staged in ${stagingMilliseconds} ms`);
   const frames=()=>page.evaluate(()=>__dolly.gpu.stats?.frames??0);
   const frameTimings=()=>page.evaluate(()=>{
     const intervals=frameSamples.slice(1).map((sample,i)=>sample.time-frameSamples[i].time).sort((a,b)=>a-b);
@@ -135,12 +114,10 @@ try {
   const start=async(options='-autostart=scenarios/combat_demo')=>{
     if(animation==='cpu')options+=' -conf=gpuskinning:false';
     const baseline=await frames(),time=performance.now();
-    await page.evaluate(({options,image})=>{
+    await page.evaluate(options=>{
       globalThis.gameStatus=null;globalThis.audioPeak=0;
-      const launch=image==='zero-ad'?'zero-ad':'ICU_DATA=/opt/0ad/data/icu /opt/0ad/system/pyrogenesis -writableRoot -mod=public -conf=hotkey.exit:Ctrl+F10';
-      void __dolly.submit(launch+' '+options)
-        .then(status=>{globalThis.gameStatus=status;});
-    },{options,image});
+      void __dolly.submit('zero-ad '+options).then(status=>{globalThis.gameStatus=status;});
+    },options);
     await page.waitForFunction(target=>gameStatus!==null || __dolly.gpu.stats?.frames>=target,baseline+22,{timeout:30000});
     assert.equal(await page.evaluate(()=>gameStatus),null);
     while(!await hasGameHud(page)) {
@@ -253,7 +230,7 @@ try {
   assert.deepEqual(errors,[]);
   const cgroup=(await readFile('/proc/self/cgroup','utf8')).match(/^0::(.*)$/m)?.[1];
   const processTreePeakBytes=cgroup?Number(await readFile('/sys/fs/cgroup'+cgroup+'/memory.peak','utf8')):undefined;
-  console.log(JSON.stringify({image,backend,browserName,compression,animation,browser:browser.version(),adapter:gpu.adapter,isFallbackAdapter:gpu.isFallbackAdapter,bootMilliseconds,stagingMilliseconds,startupMilliseconds,
+  console.log(JSON.stringify({backend,browserName,compression,animation,browser:browser.version(),adapter:gpu.adapter,isFallbackAdapter:gpu.isFallbackAdapter,bootMilliseconds,startupMilliseconds,
     restartMilliseconds,frameMilliseconds:Math.round(frameMilliseconds),combatFrameTimings,economyFrameTimings,allocatedBytes:gpu.stats.allocatedBytes,
     economyAllocatedBytes:economyGpu.stats.allocatedBytes,processTreePeakBytes,visualInput:true,
     economyConstruction:true,economyTraining:true,quickSaveLoad:true,freshProcesses:2,shellRecovery:true,
