@@ -342,12 +342,17 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
     heldKeys.clear();
   }
 
-  const interruptChord = event => event.type === "keydown" && event.ctrlKey &&
-    !event.shiftKey && !event.altKey && !event.metaKey && event.code === "KeyC";
+  // The terminal's interrupt key (VINTR, Ctrl+C unless a program sets another,
+  // as Emacs sets C-g): the control character of Ctrl+letter, [, \ or ].
+  const controlCharacter = event => !event.ctrlKey || event.shiftKey || event.altKey || event.metaKey ? 0
+    : /^Key[A-Z]$/.test(event.code) ? event.code.charCodeAt(3) - 64
+    : { BracketLeft: 27, Backslash: 28, BracketRight: 29 }[event.code] ?? 0;
+  const interruptChord = event => event.type === "keydown" && controlCharacter(event) !== 0 &&
+    controlCharacter(event) === get("runtime").terminal.foregroundInterruptKey();
 
   function handleKeyboardEvent(event) {
     // Module UIs claim their keys first and the guest lets go of held keys.
-    // A UI waiting on the foreground program claims with "interrupt": Ctrl+C
+    // A UI waiting on the foreground program claims with "interrupt": its key
     // still interrupts that program. "key" claims one key and leaves the
     // rest of the keyboard with the guest.
     const claim = claimsKey(event);
@@ -356,7 +361,7 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
       releaseHeldKeys();
       if (claim === "interrupt" && interruptChord(event)) {
         event.preventDefault();
-        void get("runtime").terminal.interruptForeground();
+        void get("runtime").terminal.interruptForeground(controlCharacter(event));
       }
       return;
     }
@@ -377,9 +382,11 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
       if (event.type === "keydown") keyboard.focus({ preventScroll: true });
       return;
     }
-    // Ctrl+C interrupts the foreground program where the terminal lets it;
-    // the Worker decides, and otherwise writes the key.
-    post({ type: interruptChord(event) ? "input-interrupt-key" : "input-key", ...keyRecord(event) });
+    // The interrupt key interrupts the foreground program where the terminal
+    // lets it; the Worker decides on the key it holds then, and otherwise
+    // writes the key.
+    post(interruptChord(event) ? { type: "input-interrupt-key", ...keyRecord(event), interrupt: controlCharacter(event) }
+      : { type: "input-key", ...keyRecord(event) });
     if (event.type === "keyup") heldKeys.delete(event.code);
     else heldKeys.set(event.code, {key:event.key,code:event.code,type:"keydown",repeat:false,
       ctrlKey:event.ctrlKey,shiftKey:event.shiftKey,altKey:event.altKey,metaKey:event.metaKey});
@@ -609,10 +616,10 @@ export function worker({ get, send }) {
   return {
     messages: {
       "input-key": record(({ key, code, modifiers, action, flags }) => transport.pushSyntheticKey(key, code, modifiers, action, flags)),
-      // Ctrl+C: the foreground program is interrupted if the terminal lets it,
-      // and reads the key otherwise.
-      "input-interrupt-key": record(({ key, code, modifiers, action, flags }) =>
-        get("runtime").terminal.interruptForeground() || transport.pushSyntheticKey(key, code, modifiers, action, flags)),
+      // The interrupt key: the foreground program is interrupted if the
+      // terminal lets it, and reads the key otherwise.
+      "input-interrupt-key": record(({ key, code, modifiers, action, flags, interrupt }) =>
+        get("runtime").terminal.interruptForeground(interrupt) || transport.pushSyntheticKey(key, code, modifiers, action, flags)),
       "input-text": record(({ text }) => transport.pushText(text)),
       "input-paste": record(({ text }) => transport.pushPaste(text)),
       "input-pointer": record(({ x, y, action, event }) => transport.pushPointer(x, y, action, event)),

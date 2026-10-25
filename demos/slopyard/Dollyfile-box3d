@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # Box3D 0.1.0 from upstream's source, unchanged, without SIMD, and with
 # Dolly's platform file in place of its timer.c: monotonic ticks, and tasks
 # that run serially in the calling thread. For programs the cc package builds.
-FROM /v0.1.4/Dollyfile-system f184c6d546dd11cca64af88a7e0620a7a7ad7195a3ed76a5e5daebe5b7a99a78
+FROM /v0.1.4/Dollyfile-system 024cc8000fcfa2c826693550553dae434c125c95207d212c830b02f04f4a778f
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
 REQUIRES TOOL   cc

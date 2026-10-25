@@ -153,17 +153,19 @@ static int64_t pty_receive(dolly_kernel_socket *shared, unsigned char *bytes, si
 }
 
 /* Takes what fits, at least one byte. The slave's output passes OPOST; the
- * master's is the slave's input, where byte 3 is the interrupt key under ISIG. */
+ * master's is the slave's input, where the mode's interrupt character (VINTR)
+ * is SIGINT under ISIG. */
 static int64_t pty_send(dolly_kernel_socket *shared, const unsigned char *bytes, size_t size, int wait) {
   pty_end *end = (pty_end *)shared, *reader = other_end(end);
   dolly_pty *pty = end->pty;
   if (size == 0) return 0;
   if (!reader->open) return -EIO;
   const int input = end == &pty->master;
+  const unsigned interrupt = dolly_terminal_interrupt(pty->mode);
   size_t taken = 0;
   for (; taken < size; ++taken) {
     const unsigned char byte = bytes[taken];
-    if (input && byte == 3 && (pty->mode & DOLLY_TERMINAL_ISIG) != 0) {
+    if (input && interrupt != 0 && byte == interrupt) {
       dolly_kernel_socket_holders(&pty->slave.shared, 1, raise_signal, DOLLY_PROCESS_SIGINT);
     } else if (input) {
       if (reader->size == reader->capacity) break;
@@ -216,7 +218,7 @@ static int64_t pty_terminal(dolly_kernel_socket *shared, const dolly_process_ter
     case DOLLY_PROCESS_TERMINAL_MODE_SET:
       if ((request->flags & ~(DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO | DOLLY_TERMINAL_OPOST |
                               DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG | DOLLY_TERMINAL_ICRNL |
-                              DOLLY_TERMINAL_INLCR)) != 0) return -EINVAL;
+                              DOLLY_TERMINAL_INLCR | DOLLY_TERMINAL_INTERRUPT)) != 0) return -EINVAL;
       pty->mode = request->flags;
       return 0;
     case DOLLY_PROCESS_TERMINAL_SIZE:

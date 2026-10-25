@@ -202,10 +202,11 @@ static void refresh_foreground(void) {
   foreground_pid = owner == NULL ? 0 : owner->pid;
   // An exited owner keeps the terminal until its Worker has retired, but it
   // is no program to interrupt or to wait on: none is published meanwhile.
-  // Termios ISIG: Ctrl+C is SIGINT while it is set and input once cleared.
+  // Termios ISIG: the interrupt character (VINTR) is SIGINT while it is set
+  // and input once cleared.
   const int running = owner != NULL && owner->state != DOLLY_KERNEL_PROCESS_EXITED;
   dolly_kernel_foreground_publish(running ? foreground_pid : 0,
-      running && (dolly_kernel_terminal_mode() & DOLLY_TERMINAL_ISIG) != 0);
+      running ? dolly_terminal_interrupt(dolly_kernel_terminal_mode()) : 0);
 }
 
 static void dispose_vector(char ***vector, uint32_t *count) {

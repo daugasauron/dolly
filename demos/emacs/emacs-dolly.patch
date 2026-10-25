@@ -157,17 +157,3 @@
  	{
  	  /* Change the status of the process that was found.  */
  	  changed = true;
---- a/src/sysdep.c
-+++ b/src/sysdep.c
-@@ -1143,7 +1143,11 @@
- #ifdef IEXTEN
-   tty.main.c_lflag &= ~IEXTEN;	/* Disable other editing characters.  */
- #endif
-+#ifdef __dolly__ /* The terminal ignores c_cc: its interrupt key is C-c.  Read C-g.  */
-+  tty.main.c_lflag &= ~ISIG;
-+#else
-   tty.main.c_lflag |= ISIG;	/* Enable signals */
-+#endif
-   if (tty_out->flow_control)
-     {
-       tty.main.c_iflag |= IXON;	/* Enable start/stop output control */

@@ -76,8 +76,9 @@
   ;; The terminal mailbox, display or not: six atomic little-endian u32 words
   ;; (src/dolly.c mirrors them). Wasm writes result_sequence (incremented and
   ;; notified after each shell result), result_status, foreground_pid and
-  ;; foreground_interruptible (1 while the terminal has ISIG set, so Ctrl-C
-  ;; interrupts the foreground rather than reaching it as input). The page asks
+  ;; foreground_interruptible (the terminal's interrupt character, termios VINTR,
+  ;; while it has ISIG set, so that key interrupts the foreground rather than
+  ;; reaching it as input; 0 when nothing interrupts). The page asks
   ;; for that interrupt by writing interrupt_target_pid, then incrementing
   ;; interrupt_sequence.
   (global (export "DOLLY_TERMINAL_WORD_RESULT_SEQUENCE") i32 (i32.const 0))

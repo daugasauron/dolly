@@ -9,7 +9,7 @@ REQUIRES HOST sockets@0
 
 # Build-only: the Mojo compiler, compiled and linked inside Dolly from the
 # sources upstream builds with Bazel, and the standard library it precompiles.
-FROM /v0.1.4/demos/mojo/Dollyfile-mojo-llvm f213193f577804aed4b1ffdfd11305d23b206c150b79a43fea78d7c5a9f84a24
+FROM /v0.1.4/demos/mojo/Dollyfile-mojo-llvm 51b7c5d93e15746deac2b20f9ea5820d3600afe3c78619b1c05418f3189d5f33
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python

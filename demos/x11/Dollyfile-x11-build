@@ -14,10 +14,10 @@ REQUIRES HOST sockets@0
 # code xcb-proto's Python generator writes), libX11 and the libraries of the
 # Athena toolkit's stack. Static libraries in /usr/lib, as the packages and
 # programs of this demo link them. Python serves xcb's generator.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build d648cdafc499706011ee4a7b6e6aa41257249f73d2601d2b8bfd88ac012db601
-INSTALL /v0.1.4/demos/python/Dollyfile-python b9fc079aa1f29f38e16404a1a8e826a43283e238970b15e8745aaab1c0dd1a38
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build d6d1b9b433296b550a1da466d949fc76c7b7071b36c5e7cc859957dc05514e1e
+INSTALL /v0.1.4/demos/python/Dollyfile-python 7fc543ddd8fc276caafdc7986dbea4a8a5ac7b24b9891a4f631f33883a6323d9
 # sockets@0's client, which every X program here links (pkg-config names it).
-INSTALL /v0.1.4/Dollyfile-libdolly-sockets 24deef586b20b61734ee0f5bb3f6c62a83d6f2d7e0b97eee9887f63779c970f7
+INSTALL /v0.1.4/Dollyfile-libdolly-sockets 8fd6989cb55e2a218919c535383759dd44eda26843d397a228110496d6fed3b5
 
 REQUIRES HEADER libc
 REQUIRES TOOL ar

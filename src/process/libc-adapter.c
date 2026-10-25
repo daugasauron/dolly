@@ -1296,22 +1296,26 @@ static uintptr_t variadic_argument(uintptr_t arguments) {
 }
 
 /*
- * The terminal performs no input mapping or flow control, Ctrl+C is its only
- * signal key, and reads return the bytes available (VMIN 1, VTIME 0).
- * TCGETS reports exactly that. TCSETS* rejects requests for anything else
- * and, as POSIX allows, ignores attributes that cannot apply to a terminal
- * without a line, such as speeds, parity and break handling.
+ * The terminal performs no input mapping or flow control, its only signal key
+ * is VINTR (Ctrl+C unless a program sets another), and reads return the bytes
+ * available (VMIN 1, VTIME 0). TCGETS reports exactly that. TCSETS* rejects
+ * requests for anything else: under ISIG, VINTR off (there is always a key),
+ * VQUIT other than off or VINTR's own key, which then sends SIGINT (Emacs sets
+ * both to C-g and handles them alike), and VSUSP on, as there is no job
+ * control. As POSIX allows, it ignores attributes that cannot apply to a
+ * terminal without a line, such as speeds, parity and break handling.
  */
 static int terminal_mode_from_attributes(const struct termios *attributes) {
   const tcflag_t unsupported_input = IGNCR | IUCLC | IXON | IXOFF | IXANY | ISTRIP;
   const cc_t *keys = attributes->c_cc;
   if ((attributes->c_iflag & unsupported_input) != 0 ||
       (attributes->c_oflag & ~(tcflag_t)(OPOST | ONLCR)) != 0 ||
-      ((attributes->c_lflag & ISIG) != 0 &&
-       (keys[VINTR] != 3 || keys[VQUIT] != 0 || keys[VSUSP] != 0)) ||
+      ((attributes->c_lflag & ISIG) != 0 && (keys[VINTR] == 0 ||
+       (keys[VQUIT] != 0 && keys[VQUIT] != keys[VINTR]) || keys[VSUSP] != 0)) ||
       ((attributes->c_lflag & ICANON) == 0 &&
        (keys[VMIN] != 1 || keys[VTIME] != 0))) return -EINVAL;
-  uint32_t mode = 0;
+  /* The mode names the key when it is not Ctrl+C. */
+  uint32_t mode = keys[VINTR] == 3 ? 0 : (uint32_t)keys[VINTR] << DOLLY_TERMINAL_INTERRUPT_SHIFT;
   if ((attributes->c_lflag & ICANON) != 0) mode |= DOLLY_TERMINAL_CANONICAL;
   if ((attributes->c_lflag & ECHO) != 0) mode |= DOLLY_TERMINAL_ECHO;
   if ((attributes->c_lflag & ISIG) != 0) mode |= DOLLY_TERMINAL_ISIG;
@@ -1370,7 +1374,8 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
       if ((mode & DOLLY_TERMINAL_ECHO) != 0) {
         attributes.c_lflag |= ECHO | ECHOE | ECHOK;
       }
-      attributes.c_cc[VINTR] = 3;
+      const unsigned interrupt = ((unsigned)mode & DOLLY_TERMINAL_INTERRUPT) >> DOLLY_TERMINAL_INTERRUPT_SHIFT;
+      attributes.c_cc[VINTR] = (cc_t)(interrupt != 0 ? interrupt : 3);
       attributes.c_cc[VERASE] = 127;
       attributes.c_cc[VKILL] = 21;
       attributes.c_cc[VEOF] = 4;

@@ -25,7 +25,7 @@ export function browser({ send }) {
         current?.abort();
       },
     },
-    // The open dialog takes every key; Ctrl+C still interrupts the program that asked.
+    // The open dialog takes every key; the interrupt key still interrupts the program that asked.
     claimsKey: () => document.querySelector("#file-upload[open]") ? "interrupt" : false,
     dispose() { controller?.abort(); },
   };

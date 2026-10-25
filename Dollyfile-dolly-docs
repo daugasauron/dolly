@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # The platform as a program sees it: the documents and machine contracts of
 # this release at their repository paths, so their links to each other work.
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
-SOURCE /v0.1.4/docs/process-model.md db2dd6e2929f128402032661c637e08f89357fd0cce4f87ad9ee760b6aada226 /usr/share/doc/dolly/docs/process-model.md
+SOURCE /v0.1.4/docs/process-model.md f0de2d1f95328076ca9b8d3da2ceb5b332084c6e3bb410722289e9c9d25ed24c /usr/share/doc/dolly/docs/process-model.md
 SOURCE /v0.1.4/docs/browser-stack.md 6afa6298a0e03ff3af86cf3b5ff102c23508afd542d921a537c8eae7bfc48370 /usr/share/doc/dolly/docs/browser-stack.md
 SOURCE /v0.1.4/docs/slop.md 2b703a1aef25d1fce5c253467784b2837cfca1f416308a34513be08b9c638acb /usr/share/doc/dolly/docs/slop.md
 SOURCE /v0.1.4/docs/display.md 7957b680b781a735463a5cedfebb57447ee4bb7c9ad578a466a3d501bfe69fa8 /usr/share/doc/dolly/docs/display.md
@@ -26,7 +26,7 @@ SOURCE /v0.1.4/abi/dolly-kernel-plugin-0.wat 8ed18bd8b9221ac11e077bba609db2e161b
 SOURCE /v0.1.4/docs/input.md ba032530f3bc798c03baf566a73197dc740fd6bb46bf4b5ea7c5de751164b8f1 /usr/share/doc/dolly/docs/input.md
 SOURCE /v0.1.4/abi/dolly-process-0.wat ecbeb8baf2f2ead274da643bde8bd325e250b9a46549ad4155f4451b06d1657d /usr/share/doc/dolly/abi/dolly-process-0.wat
 SOURCE /v0.1.4/abi/dolly-process-gate-0.wat 04763b281b286061ccae2c91cb18207fc5e820e9368ea004306047561e3cf269 /usr/share/doc/dolly/abi/dolly-process-gate-0.wat
-SOURCE /v0.1.4/abi/dolly-supervisor-0.wat ce5c8818c92e7f856745ae087213592dca97f5c6421888f0e0f3c99f072642a4 /usr/share/doc/dolly/abi/dolly-supervisor-0.wat
+SOURCE /v0.1.4/abi/dolly-supervisor-0.wat 9689225c47f2bc13e1b6013e155f1aa1a95ebaab00fffcd77aec706a7d78dcc0 /usr/share/doc/dolly/abi/dolly-supervisor-0.wat
 SOURCE /v0.1.4/host/audio/dolly-audio-0.wat f216dedd6a02c35f51e5b6222cadf9af584f41cdd3d9587c42ebba586ea8e778 /usr/share/doc/dolly/host/audio/dolly-audio-0.wat
 SOURCE /v0.1.4/host/microphone/dolly-microphone-0.wat 76694b97ce96556e72f8e0c5a64a3649405e4b967c2e34a020ef776489abe6ba /usr/share/doc/dolly/host/microphone/dolly-microphone-0.wat
 SOURCE /v0.1.4/host/nena/dolly-nena-0.wat 30925d4e7efe40f7d0f8628f1102b57f6c0b7b6b943094c308274f26d57be748 /usr/share/doc/dolly/host/nena/dolly-nena-0.wat

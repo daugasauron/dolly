@@ -68,10 +68,11 @@ uint32_t dolly_terminal_rows(void);
 // Small terminal discipline contract. Language/libc adapters translate their
 // own termios layouts above these semantic bits. OPOST enables output
 // processing; ONLCR maps LF to CRLF when OPOST is enabled. While ISIG is set,
-// Ctrl+C sends SIGINT to the foreground; once a program clears it (raw mode),
-// Ctrl+C reaches that program as the input byte 0x03. ICRNL reads an input
-// CR as LF and INLCR an input LF as CR (both: they swap); a canonical line
-// ends at either.
+// the interrupt character (termios VINTR) sends SIGINT to the foreground: Ctrl+C
+// (3), or the one INTERRUPT holds when it is not 0, as Emacs sets C-g; once a
+// program clears ISIG (raw mode), it reaches that program as input. ICRNL reads
+// an input CR as LF and INLCR an input LF as CR (both: they swap); a canonical
+// line ends at either.
 enum {
   DOLLY_TERMINAL_CANONICAL = 1u << 0,
   DOLLY_TERMINAL_ECHO = 1u << 1,
@@ -80,7 +81,15 @@ enum {
   DOLLY_TERMINAL_ISIG = 1u << 4,
   DOLLY_TERMINAL_ICRNL = 1u << 5,
   DOLLY_TERMINAL_INLCR = 1u << 6,
+  DOLLY_TERMINAL_INTERRUPT_SHIFT = 8,
+  DOLLY_TERMINAL_INTERRUPT = 0xffu << DOLLY_TERMINAL_INTERRUPT_SHIFT,
 };
+
+// The character that interrupts the foreground under this mode, or 0.
+static inline unsigned dolly_terminal_interrupt(uint32_t mode) {
+  const unsigned key = (mode & DOLLY_TERMINAL_INTERRUPT) >> DOLLY_TERMINAL_INTERRUPT_SHIFT;
+  return (mode & DOLLY_TERMINAL_ISIG) == 0 ? 0 : key != 0 ? key : 3;
+}
 
 // Returns a non-negative DOLLY_TERMINAL_* mask, or a negative errno value.
 int dolly_terminal_mode_get(int descriptor);

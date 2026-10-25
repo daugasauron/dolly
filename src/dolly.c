@@ -29,7 +29,7 @@ typedef struct {
   _Atomic uint32_t result_sequence;
   _Atomic uint32_t result_status;
   _Atomic uint32_t foreground_pid;
-  _Atomic uint32_t foreground_interruptible;
+  _Atomic uint32_t foreground_interrupt;
   _Atomic uint32_t interrupt_sequence;
   _Atomic uint32_t interrupt_target_pid;
 } dolly_terminal_mailbox;
@@ -50,11 +50,11 @@ void dolly_terminal_publish_result(int status) {
                            EMSCRIPTEN_NOTIFY_ALL_WAITERS);
 }
 
-void dolly_kernel_foreground_publish(int pid, int interruptible) {
+void dolly_kernel_foreground_publish(int pid, unsigned interrupt) {
   atomic_store_explicit(&terminal_mailbox.foreground_pid, (uint32_t)pid,
                         memory_order_release);
-  atomic_store_explicit(&terminal_mailbox.foreground_interruptible,
-                        interruptible != 0, memory_order_release);
+  atomic_store_explicit(&terminal_mailbox.foreground_interrupt, interrupt,
+                        memory_order_release);
 }
 
 int dolly_kernel_foreground(void) {
@@ -70,8 +70,8 @@ int dolly_process_take_interrupt(void) {
   const int target = (int)atomic_load_explicit(
       &terminal_mailbox.interrupt_target_pid, memory_order_relaxed);
   return target != 0 && target == dolly_kernel_foreground() &&
-      atomic_load_explicit(&terminal_mailbox.foreground_interruptible,
-                           memory_order_acquire) ? target : 0;
+      atomic_load_explicit(&terminal_mailbox.foreground_interrupt,
+                           memory_order_acquire) != 0 ? target : 0;
 }
 
 uint32_t dolly_kernel_terminal_mode(void) {
@@ -81,7 +81,7 @@ uint32_t dolly_kernel_terminal_mode(void) {
 int dolly_kernel_terminal_set_mode(uint32_t flags) {
   const uint32_t valid = DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO |
       DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG |
-      DOLLY_TERMINAL_ICRNL | DOLLY_TERMINAL_INLCR;
+      DOLLY_TERMINAL_ICRNL | DOLLY_TERMINAL_INLCR | DOLLY_TERMINAL_INTERRUPT;
   if ((flags & ~valid) != 0) return -EINVAL;
   terminal_mode_flags = flags;
   return 0;

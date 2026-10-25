@@ -132,8 +132,12 @@ sequenceDiagram
   shows what is typed. With `ICANON` clear a read returns the bytes as typed.
   The raw read of `runtime.h` (`dolly_terminal_read_raw_timeout`), Slop's and
   Janis's, takes one byte unedited in either mode. `OPOST`/`ONLCR` map LF to
-  CRLF on output. While `ISIG` is set (the default), Ctrl+C sends SIGINT to the
-  foreground; a program that clears it (raw mode) reads Ctrl+C as the byte 0x03.
+  CRLF on output. While `ISIG` is set (the default), the interrupt key, `VINTR`,
+  sends SIGINT to the foreground: Ctrl+C unless a program sets another (Emacs
+  sets C-g, and `VQUIT` to the same key); a program that clears `ISIG` (raw
+  mode) reads that key as its byte. Under `ISIG` there is always a key, no quit
+  key of its own and no job control, so `VINTR` is on, `VQUIT` off or `VINTR`'s
+  key and `VSUSP` off.
   `ICRNL` reads an input CR as LF and `INLCR` an LF as CR, when a program sets
   them (a line editor such as zsh's does). termios reports no other input
   mapping, no flow control or other signal keys, and `VMIN` 1, `VTIME` 0;

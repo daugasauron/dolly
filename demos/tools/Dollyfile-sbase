@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # The sbase commands that posix leaves out and people type, unchanged, built
 # by sbase's own Makefile from the archive system-tools builds its from.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build d648cdafc499706011ee4a7b6e6aa41257249f73d2601d2b8bfd88ac012db601
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build d6d1b9b433296b550a1da466d949fc76c7b7071b36c5e7cc859957dc05514e1e
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar

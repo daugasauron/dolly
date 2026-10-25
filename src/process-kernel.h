@@ -147,7 +147,7 @@ uint64_t dolly_fs_version(int descriptor);
 /* The supervisor's words about the executable it prepares, src/process-kernel.c. */
 int dolly_kernel_launch_diagnostic(const unsigned char *bytes, size_t size);
 void dolly_terminal_publish_result(int status);
-void dolly_kernel_foreground_publish(int pid, int interruptible);
+void dolly_kernel_foreground_publish(int pid, unsigned interrupt);
 /* The terminal's foreground owner, or zero. */
 int dolly_kernel_foreground(void);
 

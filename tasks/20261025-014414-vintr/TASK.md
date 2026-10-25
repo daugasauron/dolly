@@ -1,8 +1,26 @@
 # The terminal's interrupt key is Ctrl+C alone: termios c_cc[VINTR] is not honoured (Emacs sets C-g)
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 70
 - TAGS: core,terminal,0.1.4
+
+## Closed (2026-10-25): the terminal's interrupt key is VINTR, on the owner's word ("Just fix the C-g thing now")
+
+- The terminal mode carries the interrupt character in bits 8 to 15 (`DOLLY_TERMINAL_INTERRUPT`
+  in `include/dolly/runtime.h`); 0 there is Ctrl+C, so a mode set from flags alone keeps it.
+  The process contract is unchanged: the character travels in the `flags` word `MODE_SET` has.
+- The libc adapter takes `VINTR` from `tcsetattr` and reports it in `tcgetattr`; under `ISIG`
+  it refuses `VINTR` off, `VQUIT` other than off or `VINTR`'s key, and `VSUSP` on.
+- The kernel publishes the key in the terminal mailbox's word 3 (`abi/dolly-supervisor-0.wat`:
+  the interrupt character while `ISIG` is set, 0 otherwise); the page's interrupt chord is that
+  key's control character, and the Worker interrupts only if it is still the key. `pty@0`'s
+  line discipline takes the same key.
+- Emacs's Dolly patch no longer clears `ISIG`: Emacs sets `VINTR` (and `VQUIT`) to C-g as on any
+  Unix.
+- Measured on the seed `17781608`: `test/process-browser.mjs` (a program sets C-g: Ctrl+C
+  reads as its byte, C-g interrupts), `terminal-browser.mjs` and `pty-browser.mjs` pass in
+  Chromium and Firefox; `demos/emacs/test/emacs-browser.mjs` passes in both, C-g ending `M-!
+  sleep 30` at once (the test allows 15 s; before, it ran its 30 s).
 
 ## State (2026-10-25)
 

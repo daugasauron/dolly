@@ -5,8 +5,8 @@ REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST sockets@0
 
-FROM /v0.1.4/Dollyfile-system f184c6d546dd11cca64af88a7e0620a7a7ad7195a3ed76a5e5daebe5b7a99a78
-USE /v0.1.4/Dollyfile-libdolly-sockets 24deef586b20b61734ee0f5bb3f6c62a83d6f2d7e0b97eee9887f63779c970f7
+FROM /v0.1.4/Dollyfile-system 024cc8000fcfa2c826693550553dae434c125c95207d212c830b02f04f4a778f
+USE /v0.1.4/Dollyfile-libdolly-sockets 8fd6989cb55e2a218919c535383759dd44eda26843d397a228110496d6fed3b5
 # Build the Python runtime and native extension SDK; pip.dm adds pip.
 REQUIRES HEADER curl
 REQUIRES HEADER dso
@@ -27,7 +27,7 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   touch
 
-INSTALL /v0.1.4/demos/python/Dollyfile-libffi c4b85e0517dadf4ee07305877beb584774801f065fd5ce6812a8eb2c7668318d
+INSTALL /v0.1.4/demos/python/Dollyfile-libffi 468bad1eaccff787b6f26b590ce461692a8aa9bbb7c46a59f12daa43c15b1ecd
 EXPORTS LIB    ffi       /usr/lib/libffi.a
 EXPORTS HEADER ffi       /usr/include/ffi.h
 EXPORTS HEADER ffitarget /usr/include/ffitarget.h
@@ -332,7 +332,7 @@ EXPORTS TOOL pip3
 
 # pip builds what has no wheel for Dolly, which is every native package: a C
 # extension with the compiler, a Meson project such as NumPy with Ninja too.
-INSTALL /v0.1.4/Dollyfile-cc 106380f3bc697b56a23cbbf9290de059a8e76d15da8615b65c8398dfd3c7872d
+INSTALL /v0.1.4/Dollyfile-cc e361a70ba91a3acaadf66ca3991f183fb2a8941bb14853b4a94f433bd240d309
 
 # The browser policy decides which indexes are reachable; skip pip's own
 # PyPI version check. Dolly has one user, uid 0. Progress bars refresh from a

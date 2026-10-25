@@ -198,6 +198,18 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
     }
   }
 
+  // The interrupt key is the program's (termios VINTR): set to C-g, as Emacs
+  // sets it, Ctrl+C is read as its byte and C-g interrupts.
+  const keyed = submit(`${scratch}/interrupt key ${scratch}/shut-down`);
+  await waitForText(/INTERRUPT-READY\s*$/);
+  await settle();
+  await interrupt();
+  await waitForText(/CTRL-C-READ\s*$/);
+  await settle();
+  await page.keyboard.press("Control+g");
+  assert.equal(await keyed, 0, "C-g interrupts once VINTR is C-g, and Ctrl+C is input");
+  await run(`rm ${scratch}/shut-down`);
+
   // At the terminal every resize and every Ctrl+C reaches a handler that
   // jumps out of a blocked read; the program's status is the jumps it made.
   const viewport = page.viewportSize();

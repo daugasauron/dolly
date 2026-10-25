@@ -1,5 +1,6 @@
 // GNU Emacs in the gnu-emacs image, in Chrome and Firefox: the editor entry,
-// editing and saving a file, M-! running Slop and C-x C-c back to Slop. Then,
+// editing and saving a file, M-! running Slop, C-g (the interrupt key Emacs
+// sets) ending a running command, and C-x C-c back to Slop. Then,
 // in Chrome, the emacs package installed into a default-based session.
 // Usage: node demos/emacs/test/emacs-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
@@ -25,6 +26,14 @@ for (const browser of browsers) {
     await waitText(/Shell command:/);
     await input("printf EMACS-SLOP-$((6 * 7))\r");
     await waitText(/EMACS-SLOP-42/);
+    await input("\x1b!");
+    await waitText(/Shell command:/);
+    await input("sleep 30\r");
+    const sleeping = Date.now();
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    await keys("Control+g");
+    await waitText(/Quit/);
+    assert.ok(Date.now() - sleeping < 15_000, `C-g ended sleep 30 after ${Date.now() - sleeping} ms`);
     await keys("Control+x", "Control+c");
     await prompt(recoveryPrompt);
     await run(`test "$(cat ${file})" = 'Dolly Emacs 日本語' && rm ${file}`);

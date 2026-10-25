@@ -53,36 +53,44 @@ class TerminalMailbox {
     return Atomics.load(this.words, TerminalMailbox.foregroundPid);
   }
 
-  foregroundInterruptible() {
-    return Atomics.load(this.words, TerminalMailbox.foregroundInterruptible) !== 0;
+  // The terminal's interrupt character (termios VINTR) while it signals, or 0.
+  foregroundInterruptKey() {
+    return Atomics.load(this.words, TerminalMailbox.foregroundInterruptible);
   }
 
-  // Ctrl-C: Wasm interrupts the foreground command read here only if it still
-  // owns the terminal. False (ISIG clear) lets the key reach it as input.
-  interruptForeground() {
+  foregroundInterruptible() {
+    return this.foregroundInterruptKey() !== 0;
+  }
+
+  // The interrupt key, or a caller with none to give: Wasm interrupts the
+  // foreground command read here only if it still owns the terminal. False
+  // (ISIG clear, or another key) lets the key reach it as input.
+  interruptForeground(key) {
     const pid = this.foregroundPid();
-    if (pid <= 0 || !this.foregroundInterruptible()) return false;
+    if (pid <= 0 || !this.foregroundInterruptible() || (key !== undefined && key !== this.foregroundInterruptKey())) return false;
     Atomics.store(this.words, TerminalMailbox.interruptTargetPid, pid);
     Atomics.add(this.words, TerminalMailbox.interruptSequence, 1);
     return true;
   }
 }
 
-// The page's terminal: the foreground program as the Worker last reported
-// it; the shell's results and Ctrl+C, asked of the Worker.
+// The page's terminal: the foreground program and its interrupt key as the
+// Worker last reported them; the shell's results and interrupts, asked of the
+// Worker, which decides on what it holds then.
 export function browser({ ask }) {
-  let foreground = { pid: 0, interruptible: false };
+  let foreground = { pid: 0, interrupt: 0 };
   const terminal = {
     foregroundPid: () => foreground.pid,
-    foregroundInterruptible: () => foreground.interruptible,
+    foregroundInterruptKey: () => foreground.interrupt,
+    foregroundInterruptible: () => foreground.interrupt !== 0,
     currentResultSequence: () => ask({ type: "terminal-result-sequence" }),
     waitForResult: sequence => ask({ type: "terminal-result", sequence }),
-    interruptForeground: () => ask({ type: "terminal-interrupt" }),
+    interruptForeground: key => ask({ type: "terminal-interrupt", key }),
   };
   return {
     terminal,
     page: { terminal, get foregroundPid() { return foreground.pid; } },
-    messages: { "terminal-foreground"({ pid, interruptible }) { foreground = { pid, interruptible }; } },
+    messages: { "terminal-foreground"({ pid, interrupt }) { foreground = { pid, interrupt }; } },
   };
 }
 
@@ -103,7 +111,7 @@ export function worker({ send, runtimeBase, abi, service }) {
   // The foreground program, sent to the page when it changes.
   function reportForeground() {
     if (!terminal) return;
-    const foreground = { pid: terminal.foregroundPid(), interruptible: terminal.foregroundInterruptible() };
+    const foreground = { pid: terminal.foregroundPid(), interrupt: terminal.foregroundInterruptKey() };
     const text = JSON.stringify(foreground);
     if (text === reported) return;
     reported = text;
@@ -129,7 +137,7 @@ export function worker({ send, runtimeBase, abi, service }) {
     messages: {
       "terminal-result-sequence": () => terminal.currentResultSequence(),
       "terminal-result": ({ sequence }) => terminal.waitForResult(sequence),
-      "terminal-interrupt": () => terminal.interruptForeground(),
+      "terminal-interrupt": ({ key }) => terminal.interruptForeground(key),
     },
     bindings: {
       "env.memory": memory,
