@@ -128,23 +128,26 @@ Libraries are packages too: `amy list` names them, `amy install` adds them
 to the running session, and `cc` links them at once.
 
 - `sdl2`: SDL 2 drawing in software on the terminal's canvas, with keyboard
-  and mouse events, `SDL_GetTicks` and `SDL_Delay`: `#include <SDL2/SDL.h>`,
+  and mouse events, `SDL_GetTicks`, `SDL_Delay` and sound: `#include <SDL2/SDL.h>`,
   link `-lSDL2 -lm`. Every renderer is the software one, whatever the flags
   ask, and `SDL_RenderPresent` does not wait for the display: pace the loop
-  with `SDL_Delay` or the frame time. There is no audio, no threads or
-  `SDL_AddTimer`, and no game controller. Its programs need the `touch@0`
-  module (finger positions); where an image does not declare it, `nena enable
-  touch` first. `imgui` adds Dear ImGui on it.
-- `raylib`: raylib 6's drawing (shapes, text in its own font, textures,
-  `raymath.h`) in software, through Dolly's adapter `<dolly/raylib.h>`:
-  `dolly_raylib_open` (0, or a negative errno) instead of `InitWindow`,
-  `dolly_raylib_end_frame` then `dolly_raylib_wait_frame` (about 60 per
-  second) instead of `EndDrawing`, keys from `dolly_raylib_next_event(&d,
-  &event, 0)` (1 with a record of `<dolly/input.h>`, 0 when none is waiting;
-  `dolly_raylib_code_is(&event, "ArrowLeft")` names its key). raylib's own
-  `IsKeyDown`, `WindowShouldClose`, `GetTime`, `GetFrameTime` and
-  `SetTargetFPS` get no input and no clock here. Link
-  `-lraylib -ldolly-raylib -lm`.
+  with `SDL_Delay` or the frame time. SDL starts no threads here, so its audio
+  callback runs while the program pumps events (`SDL_PollEvent` each frame) and
+  a program that stops pumping goes silent. There is no `SDL_AddTimer` and no
+  game controller. Its programs need the `touch@0` and `audio@0` modules; where
+  an image does not declare them, `nena enable touch audio` first. `imgui` adds
+  Dear ImGui on it.
+- `sdl2-mixer` (sound effects and music: WAV, Ogg Vorbis, MP3, FLAC),
+  `sdl2-ttf` (text in a TrueType font) and `sdl2-image` (PNG, JPEG, GIF, BMP and
+  more) are SDL_mixer, SDL_ttf and SDL_image on `sdl2`. With `amy install pkgconf`,
+  `cc $(pkg-config --cflags SDL2_mixer) game.c $(pkg-config --static --libs SDL2_mixer)`
+  names every flag; list each library you use.
+- `raylib`: raylib 6 in software with upstream's own API: `InitWindow` draws on
+  the terminal's canvas, `IsKeyDown` and the other input calls read the
+  keyboard and pointer, `GetTime`, `SetTargetFPS` and `WindowShouldClose` work;
+  link `-lraylib -lm`. Its audio module is not built: for sound, use `sdl2` with
+  `sdl2-mixer`. `<dolly/raylib.h>` (`-ldolly-raylib`) serves a program that holds
+  the display itself.
 - Others, such as `box3d` (3D physics), `freetype`, `libpng`, `libjpeg` and
   `sqlite`: `amy files NAME` lists their headers, archives and any `.pc`
   file, which names the flags (`pkg-config` comes with `amy install pkgconf`).
