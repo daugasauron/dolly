@@ -1,8 +1,16 @@
 # OCaml's source archive differs from tree to tree
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS: demo,bug,0.1.4
+
+
+## Closed (2026-10-25): the archive is the same from any tree
+
+Cause: libtool's configure measured the host's command-line limit, which follows the stack limit
+of what runs the preparation (`3145728` in one tree, `1572864` in another); `3b0cc25f` gives it
+instead. Prepared under 8 MB and 16 MB stacks the trees are identical, and the full round of 2026-10-25 on `main` `500d4329` (seed `debea04d`, evidence `work/x11fix/build/round-1025-evidence`) staged
+`beac0764`, the archive `work/runtime` staged from its own path before.
 
 ## State (2026-10-24)
 

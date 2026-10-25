@@ -1,6 +1,6 @@
 # Emscripten's libc stubs that claim success: getrusage, times and the rest
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 160
 - TAGS: core,libc,0.1.4
 
@@ -17,6 +17,14 @@ next catalog round, not 0.1.4's.
 Also from the port: `posix_spawn_file_actions_addclose` works since `core/process-exec`
 (`tasks/20261006-214244-process-exec`), and the libc has no `gethostbyaddr` (OCaml raises
 `Not_found`; no change planned).
+
+
+## Closed (2026-10-25): every stub answers honestly, and the catalog's ports pass
+
+Every stub of both files is listed below with what Dolly does and why; the process groups and
+`mprotect` (`029313db`) and `VINTR` (`25867168`) were the last that claimed or refused falsely.
+`test/fixtures/process-lifecycle.c` and `process-interrupt.c` check each change, and in the full round of 2026-10-25 on `main` `500d4329` (seed `debea04d`, evidence `work/x11fix/build/round-1025-evidence`) the
+whole catalog was rebuilt and its ports passed.
 
 ## State (2026-10-24): groups, sessions and `mprotect` on `core/runtime-cleanup`
 

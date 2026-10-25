@@ -1,8 +1,15 @@
 # LLVM is built inside Dolly, and the seed's compiler is that build
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: toolchain,bootstrap,llvm,core,0.1.4
+
+
+## Closed (2026-10-25): the seed's compiler is the one built inside Dolly
+
+The last clause of the done-when: the result replaces the host-built seed. The seed's compiler
+is `llvm-cc`'s (`3f99ed02`, `tasks/20261023-121443-exec-seed`), and in the full round of 2026-10-25 on `main` `500d4329` (seed `debea04d`, evidence `work/x11fix/build/round-1025-evidence`) the `llvm-cc` built
+on that seed linked the same bytes.
 
 ## Decided (2026-10-23): the seed's compiler is the one built inside Dolly, for v0.1.4
 

@@ -1,6 +1,6 @@
 # The seed compiler for the exec contract: llvm-cc built under it and pinned, no restamped compiler left
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: toolchain,bootstrap,process,0.1.4
 
@@ -28,6 +28,19 @@ To do in the round, after every `process.h` change is merged:
 
 Done when: the pinned seed compiler was linked by Dolly under the current process contract,
 and `node demos/llvm/test/stage2-browser.mjs` or a second `llvm-cc` gives its bytes again.
+
+
+## Closed (2026-10-25): the seed's compiler is llvm-cc's, a fixed point
+
+`demos/llvm/pin-seed-compiler.mjs` pinned the compiler `llvm-cc` linked under the exec contract,
+first `3df5b5bd`, then, after the libc that honours `VINTR`, `3f99ed02` (`500d4329`). In the full round of 2026-10-25 on `main` `500d4329` (seed `debea04d`, evidence `work/x11fix/build/round-1025-evidence`)
+the pins stage built `llvm-cc` on that seed and pinned again: `config/source-pins.sh` did not
+change, so the compiler rebuilt itself byte for byte. The restamped compiler is gone. Every image
+was rebuilt on it; source 446/0, artifacts 26/0, the browser suite, npm, 42 demo tests (the two
+flaky ones passing on rerun: `tasks/20261025-101303-speech-tap`, `tasks/20261025-101303-classicube-edge`) and the five GPU tests
+passed. Left for the owner with the release: the archive
+`.cache/dolly-seed-compiler-3f99ed02….tar` (in `work/x11fix`) is the release asset
+`DOLLY_SEED_COMPILER_URL` names; nothing has published it.
 
 ## Step 3's check, on `core/runtime-cleanup` (2026-10-24)
 

@@ -18,6 +18,13 @@ only a view of a demo's build image; each has its check in
 `test/amy-browser.mjs` or its consumer's test; the list of what was not
 broken out says why for each.
 
+
+## State (2026-10-25)
+
+One item is left: `zero-ad-deps` still builds its own Ogg and Vorbis beside the `libogg` and
+`libvorbis` packages (the 2026-10-24 section below); moving it onto them rebuilds the 0 A.D.
+chain. Everything else on the list holds its own build and passed the full round of
+`500d4329` (`work/x11fix/build/round-1025-evidence`).
 ## 2026-10-24: the games-and-packages workstream, `demo/slopyard-catapults`
 
 The integrator's brief (2026-10-23): the "Left" list below, raylib, box3d, libuv, a llama.cpp
