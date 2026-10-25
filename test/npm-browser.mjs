@@ -1,6 +1,7 @@
 // The npm packages as a stranger uses them: packed from this checkout, served by
 // a registry of their own, installed into an empty app with the command and the
 // page of docs/embedding.md, and served as they lie with cross-origin isolation.
+// - Every package but the runtime depends on the runtime alone.
 // - The guide's page boots default, which enables exactly its host modules.
 // - A page that adds every other device module loads them all, enables gpu@0,
 //   and holds the http@0 policy it gives boot().
@@ -36,6 +37,13 @@ try {
     const bytes = await readFile(join(packs, file));
     const manifest = JSON.parse(execFileSync("tar", ["-xzOf", join(packs, file), "package/package.json"], { encoding: "utf8" }));
     published.set(manifest.name, { manifest, file, bytes });
+  }
+  // The packages' own rule: the runtime depends on nothing, every other package on the runtime
+  // alone, at its version.
+  for (const { manifest } of published.values()) {
+    assert.equal(manifest.peerDependencies, undefined, manifest.name);
+    assert.deepEqual(manifest.dependencies, manifest.name === "@daugasauron/dolly" ? undefined
+      : { "@daugasauron/dolly": manifest.version }, manifest.name);
   }
   const registry = await listen(createServer((request, response) => {
     const path = decodeURIComponent(new URL(request.url, "http://x").pathname).slice(1);

@@ -9,6 +9,8 @@
 // - @daugasauron/dolly-image-default, the default image's directory for boot's `images`:
 //   its catalog, every image's metadata of its closure, its packs and the recipes
 //   the page verifies.
+// Each package but the runtime depends on the runtime alone, at this version; an image
+// does not depend on its host modules, which docs/embedding.md names to install.
 // A consumer serves the installed packages as they lie, side by side under
 // node_modules/@daugasauron/, with cross-origin isolation (README.md, "Embed").
 import { execFileSync } from "node:child_process";
@@ -82,7 +84,7 @@ for (const name of deviceModules) {
   const outside = files.filter(file => !file.startsWith(`host/${name}/`));
   if (outside.length) throw new Error(`host/${name} imports outside its directory: ${outside.join(", ")}`);
   tarballs.push(await writePackage(join(out, `dolly-host-${name}`), files.map(file => [file, relative(`host/${name}`, file)]), {
-    name: `${scope}/dolly-host-${name}`, license: "MIT", peerDependencies: { [`${scope}/dolly`]: version },
+    name: `${scope}/dolly-host-${name}`, license: "MIT", dependencies: { [`${scope}/dolly`]: version },
     description: `Dolly's ${name}@0 host module: ${(await manifest(name)).gives}.`,
   }, `# ${scope}/dolly-host-${name}\n\nDolly's \`${name}@0\` host module: ${(await manifest(name)).gives}. Give the URL of its\n\`module.json\` to \`boot()\`'s \`modules\`; ${scope}/dolly's README says how.\n`));
 }
@@ -114,8 +116,8 @@ tarballs.push(await writePackage(imageDirectory, [
   ...recipes,
 ].map(file => [file, file]), {
   name: `${scope}/dolly-image-default`, license: "SEE LICENSE IN README.md", exports: { ".": "./index.mjs" },
+  dependencies: { [`${scope}/dolly`]: version },
   description: "Dolly's default image: a shell, its text tools, Ghostty's terminal, curl, amy and nena.",
-  peerDependencies: Object.fromEntries([`${scope}/dolly`, ...declared.filter(name => deviceModules.includes(name))
-    .map(name => `${scope}/dolly-host-${name}`)].map(name => [name, version])),
-}, `# ${scope}/dolly-image-default\n\nDolly's \`default\` image: a shell, its text tools, Ghostty's terminal, curl, \`amy\`, \`nena\`\nand \`ps\`, for ${scope}/dolly's \`boot()\`:\n\n\`\`\`js\nimport { boot } from "./node_modules/${scope}/dolly/src/browser.mjs";\nimport { images, image, modules } from "./node_modules/${scope}/dolly-image-default/index.mjs";\nawait boot(document.querySelector("#dolly"), { images, image, modules });\n\`\`\`\n\nThe image holds programs built inside Dolly from their upstream sources, each under its own\nlicence: their licence texts are in the image under \`/usr/share/licenses\`, and Dolly's\n\`docs/licences.md\` lists every upstream (https://github.com/daugasauron/dolly).\n`));
+}, `# ${scope}/dolly-image-default\n\nDolly's \`default\` image: a shell, its text tools, Ghostty's terminal, curl, \`amy\`, \`nena\`\nand \`ps\`, for ${scope}/dolly's \`boot()\`. It depends on the runtime alone: install\nit with the runtime and the host modules it declares, all at version ${version}:\n\n\`\`\`sh\nnpm install ${[`${scope}/dolly`, `${scope}/dolly-image-default`, ...declared.filter(name => deviceModules.includes(name))
+  .map(name => `${scope}/dolly-host-${name}`)].join(" ")}\n\`\`\`\n\n\`\`\`js\nimport { boot } from "./node_modules/${scope}/dolly/src/browser.mjs";\nimport { images, image, modules } from "./node_modules/${scope}/dolly-image-default/index.mjs";\nawait boot(document.querySelector("#dolly"), { images, image, modules });\n\`\`\`\n\nThe image holds programs built inside Dolly from their upstream sources, each under its own\nlicence: their licence texts are in the image under \`/usr/share/licenses\`, and Dolly's\n\`docs/licences.md\` lists every upstream (https://github.com/daugasauron/dolly).\n`));
 console.log(tarballs.map(name => join(out, name)).join("\n"));
