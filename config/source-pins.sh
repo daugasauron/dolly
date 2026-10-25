@@ -276,7 +276,8 @@ DOLLY_TINYCC_SHA256=de23af78fca90ce32dff2dd45b3432b2334740bb9bb7b05bf60fdbfc396c
 DOLLY_TINYCC_WIN64_URL='https://download.savannah.gnu.org/releases/tinycc/tcc-0.9.27-win64-bin.zip'
 DOLLY_TINYCC_WIN64_SHA256=34a721949a2583fdff725312da092fa0f5f1f284b702e6f811c6954714faabb2
 # NetSurf for the Wine demo: the release of the browser with all its libraries; gperf generates one of
-# libhubbub's tables during host preparation, as flex does Wine's lexers.
+# libhubbub's tables during host preparation, as flex does Wine's lexers. The GTK demo builds the same
+# release inside Dolly, for fontconfig's build.
 DOLLY_NETSURF_VERSION=3.11
 DOLLY_NETSURF_URL='https://download.netsurf-browser.org/netsurf/releases/source-full/netsurf-all-3.11.tar.gz'
 DOLLY_NETSURF_SHA256=4dea880ff3c2f698bfd62c982b259340f9abcd7f67e6c8eb2b32c61f71644b7b
@@ -442,9 +443,6 @@ DOLLY_HARFBUZZ_SHA256=d07a007327277708a2a73ae437887cdbaf282937f6d03ca5467723e909
 DOLLY_EXPAT_VERSION=2.8.5
 DOLLY_EXPAT_URL='https://github.com/libexpat/libexpat/releases/download/R_2_8_5/expat-2.8.5.tar.xz'
 DOLLY_EXPAT_SHA256=1e727b8933ec51a77a9a9d9afcf8e688bce45d907c13e36ab7393fe36e703182
-DOLLY_GPERF_VERSION=3.1
-DOLLY_GPERF_URL='https://ftp.gnu.org/gnu/gperf/gperf-3.1.tar.gz'
-DOLLY_GPERF_SHA256=588546b945bba4b70b6a3a616e80b4ab466e3f33024a352fc2198112cdbb3ae2
 DOLLY_FONTCONFIG_VERSION=2.18.3
 DOLLY_FONTCONFIG_URL='https://gitlab.freedesktop.org/api/v4/projects/890/packages/generic/fontconfig/2.18.3/fontconfig-2.18.3.tar.xz'
 DOLLY_FONTCONFIG_SHA256=4f7b554a38cdf78c033f666c8871f3749e14a094f65a07f630c91ed0b43d35e3
