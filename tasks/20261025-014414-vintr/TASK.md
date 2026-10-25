@@ -11,7 +11,13 @@ Measured on `core/runtime-cleanup` (2026-10-24, the process-group change, record
 the command, which runs its 30 s; Emacs reads the `C-g` after it ends. Emacs, as on any Unix,
 sets the terminal's interrupt character to `C-g` (`c_cc[VINTR]` through `tcsetattr`) and relies
 on the terminal to signal the foreground. Dolly's terminal signals SIGINT for Ctrl+C alone
-(`ISIG`, the owner's decision of 2026-10-01), whatever `VINTR` says.
+(`ISIG`, the owner's decision of 2026-10-01), and the libc adapter refuses such a `tcsetattr`
+with `EINVAL` (`terminal_mode_from_attributes` in `src/process/libc-adapter.c`: with `ISIG`,
+`VINTR` must be 3 and `VQUIT` and `VSUSP` 0), so Emacs keeps Ctrl+C as the terminal's key.
+
+The interrupt key is not in the terminal's mode contract (`DOLLY_TERMINAL_*` in
+`include/dolly/runtime.h` is a set of bits, and the page's interrupt check knows Ctrl+C), so
+honouring `VINTR` extends that contract: the owner's decision before any code.
 
 To do: the terminal sends SIGINT for the character `c_cc[VINTR]` holds while `ISIG` is set
 (and `VQUIT` and `VSUSP` as far as Dolly has those signals, or say they have none), with a check
