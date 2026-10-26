@@ -63,6 +63,8 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
     ["test \"$(echo PIPE-GREP | grep PIPE)\" = PIPE-GREP"],
     ["test \"$(sed s/Beta/Gamma/ corpus.txt | sed -n 2p)\" = Gamma && test \"$(echo SED-PIPE | sed s/SED/DOLLY/)\" = DOLLY-PIPE"],
     ["test \"$(head -n 1 corpus.txt)\" = alpha && test \"$(head -1 corpus.txt)\" = alpha"],
+    ["test \"$(printf AB | od -A n -t x1 | tr -d ' ')\" = 4142 && test \"$(dd if=/dev/zero bs=4 count=1 2> /dev/null | od -A n -t x1 | tr -d ' ')\" = 0000"],
+    ["echo discarded > /dev/zero && test \"$(dd if=/dev/zero bs=512 count=8 2> /dev/null | wc -c)\" -eq 4096"],
     ["test \"$(wc -l < corpus.txt)\" -eq 2 && test \"$(echo one two | wc -w)\" -eq 2"],
     ["echo 'key:value' > colon.txt && test \"$(awk -F: '{print $2}' colon.txt)\" = value"],
     ["echo 'one 2' > awk-one.txt && echo 'three 4' > awk-two.txt && test \"$(echo awk-*.txt)\" = 'awk-one.txt awk-two.txt'"],

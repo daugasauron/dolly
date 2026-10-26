@@ -177,6 +177,24 @@ public:
   explicit TerminalFile(mode_t mode) : DataFile(mode, NullBackend) {}
 };
 
+// /dev/zero: reads give zero bytes, writes are discarded.
+class ZeroFile : public DataFile {
+  int open(oflags_t) override { return 0; }
+  int close() override { return 0; }
+  int flush() override { return 0; }
+  off_t getSize() override { return 0; }
+  int setSize(off_t) override { return 0; }
+  ssize_t write(const uint8_t *, size_t len, off_t) override { return len; }
+
+  ssize_t read(uint8_t *buf, size_t len, off_t) override {
+    memset(buf, 0, len);
+    return len;
+  }
+
+public:
+  ZeroFile() : DataFile(0666, NullBackend) {}
+};
+
 class BlockBackend : public Backend {
   // WasmFS's memory backend only populates the root with /dev and /tmp.
   backend_t memory = createMemoryBackend();
@@ -197,6 +215,7 @@ public:
     dev.mountChild("dolly-stdout", std::make_shared<TerminalFile>(0222));
     dev.mountChild("dolly-stderr", std::make_shared<TerminalFile>(0222));
     dev.mountChild("tty", std::make_shared<TerminalFile>(0666));
+    dev.mountChild("zero", std::make_shared<ZeroFile>());
   }
 };
 
