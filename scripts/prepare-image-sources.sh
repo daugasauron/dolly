@@ -103,10 +103,14 @@ if has_image system-build; then
   node scripts/build-source-tar.mjs "${static_dir}/default/libcxx-headers.tar" \
     "${staging}/libcxx" /usr/include/c++/v1
   # The library those headers declare, and its unwinder, which
-  # Dollyfile-system-build compiles: the pinned copy, with the same rename.
+  # Dollyfile-system-build compiles: the pinned copy, with the same rename, and
+  # the sysroot's Emscripten headers its threading and console calls are
+  # declared in.
   mkdir "${staging}/libcxx-source"
   git -C "${emscripten_system_dir}" archive HEAD system/lib/libcxx/src system/lib/libcxxabi \
     system/lib/libunwind system/lib/llvm-libc | tar -x -C "${staging}/libcxx-source"
+  mkdir "${staging}/libcxx-source/system/include"
+  cp -r -- "${project_dir}/.cache/emscripten/sysroot/include/emscripten" "${staging}/libcxx-source/system/include/"
   grep -rlZw __EMSCRIPTEN__ "${staging}/libcxx-source" | xargs -0 sed -i 's/\b__EMSCRIPTEN__\b/__dolly__/g'
   node scripts/build-source-tar.mjs "${static_dir}/default/libcxx.tar" "${staging}/libcxx-source" /tmp/cpp
   copy_static "${emscripten_system_dir}/system/lib/libcxx/LICENSE.TXT" default/licenses/libcxx

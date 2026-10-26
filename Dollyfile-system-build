@@ -106,7 +106,7 @@ REQUIRES TOOL   cc
 SOURCE /v0.1.4/dist/static/default/commands/mkdir.c 318f11bbf81beea92df1e4a2cb8dc02787c5eea4cffe62a8be9893503a8e572e /tmp/core-tools/mkdir.c
 SOURCE /v0.1.4/dist/static/default/commands/rm.c 1213c22dc41e247f5fa072aad0431cdc54193dcf9091c8c749ea7880bef30af2 /tmp/core-tools/rm.c
 SOURCE /v0.1.4/dist/static/default/commands/foreground.c e926c3c87764e44064744fc1d3cba008c46666ed7a06d351824ce67792bcdd76 /tmp/core-tools/foreground.c
-SOURCE /v0.1.4/dist/static/default/commands/help.c 64333d311ff4521e7d81cc1691a0b5b75f10648a443603167bcd3cd5c8e0acf1 /tmp/core-tools/help.c
+SOURCE /v0.1.4/dist/static/default/commands/help.c 03ee0e2d8de33d99506f9a7c14018d2bd6e8e8146f9372f19c4974db1afee958 /tmp/core-tools/help.c
 SOURCE /v0.1.4/dist/static/default/commands/man.c 03df8950d27ccd413c9da9cac1641d582f720d483e58e1e6f8e4b90e61e15fa0 /tmp/core-tools/man.c
 SOURCE /v0.1.4/dist/static/default/commands/pwd.c 87886a74d8626d0bdbc2b364fe6ed8882522512d9f595709152dda298ef5c03f /tmp/core-tools/pwd.c
 SOURCE /v0.1.4/dist/static/default/commands/cd.c 36d4c7708b332be6df90105bbc61cf8eb70556e3ed0f9f24756016eebec3d622 /tmp/core-tools/cd.c
@@ -424,7 +424,7 @@ FILE /tmp/cpp/Makefile
     # Static code with hidden symbols, as for a program. The directory is the one
     # Emscripten's build names, so the code and data are its archives' bytes.
     FLAGS := -Oz -g -fno-pic -fvisibility=hidden -ffile-prefix-map=/tmp/cpp=/emsdk/emscripten -DNDEBUG
-    COMPILE := c++ $(FLAGS) -std=c++23 -D_LIBCPP_BUILDING_LIBRARY -I$S/libcxx/src
+    COMPILE := c++ $(FLAGS) -std=c++23 -D_LIBCPP_BUILDING_LIBRARY -I$S/libcxx/src -I/tmp/cpp/system/include
     LIBCXX := $(filter-out %/int128_builtins.cpp,$(wildcard $S/libcxx/src/*.cpp $S/libcxx/src/filesystem/*.cpp \
       $S/libcxx/src/ryu/*.cpp)) $(addprefix $S/libcxx/src/experimental/,chrono_exception.cpp keep.cpp log_hardening_failure.cpp)
     LIBCXXABI := $(addprefix $S/libcxxabi/src/,abort_message.cpp cxa_aux_runtime.cpp cxa_default_handlers.cpp \
