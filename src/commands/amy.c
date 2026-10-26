@@ -291,7 +291,7 @@ static int install_row(const char *name, const char *recipe, const char *sha256)
   if (status != 0) return -1;
   printf("amy: %s installed: %llu files, %llu bytes%s%s; amy files %s lists them\n%s",
          name, summary.files, summary.bytes, summary.commands[0] != '\0' ? ", commands:" : "", summary.commands, name,
-         summary.environment ? "amy: its environment applies when the session is next loaded\n" : "");
+         summary.environment ? "amy: the environment variables it sets apply when the session is next loaded; the rest works now\n" : "");
   return 0;
 }
 
