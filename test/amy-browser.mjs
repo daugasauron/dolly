@@ -514,12 +514,11 @@ assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no
 
 // A package brings the programs its own programs start. rustc links through
 // cc, which default lacks: installed alone, rust links a program and cargo
-// builds a crate. (A package's environment applies from the next session
-// load, so the build names what the cargo package exports.)
+// runs a crate.
 const crate = "mkdir -p /tmp/amy-crate/src && cd /tmp/amy-crate && " +
   "printf '[package]\\nname = \"amy-crate\"\\nversion = \"0.1.0\"\\nedition = \"2021\"\\n' > Cargo.toml && " +
   "printf 'fn main() { println!(\"{}\", 6 * 7); }\\n' > src/main.rs && " +
-  "CARGO_INCREMENTAL=0 cargo build --offline && test \"$(target/debug/amy-crate)\" = 42";
+  "test \"$(cargo run --offline --quiet)\" = 42";
 // cmake configures with the C compiler and builds with make, which the cmake
 // package installs with cc.
 // mojo build links what it compiles through cc.

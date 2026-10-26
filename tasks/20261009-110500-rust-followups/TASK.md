@@ -52,9 +52,8 @@ into Cargo and needs a `cargo` build to try.
 - **`cargo run`** works (2026-10-24, `core/page-no-view`, seed `b871765b`, Cargo relinked on
   it): in `default` after `amy install cargo`, `cargo new hello && cd hello && cargo run
   --offline` prints `Hello, world!` and exits 0, in Chromium (5.3 s for both commands) and
-  Firefox (7.4 s). The Rust README says so; `man cargo` (`Dollyfile-cargo`) still says it
-  fails, left for the next change to that recipe, which rebuilds every image using `cargo`.
-  `test/amy-browser.mjs` still builds its own crate and runs the binary, not `cargo run`.
+  Firefox (7.4 s). The Rust README and `man cargo` say so, and `test/amy-browser.mjs` runs its
+  crate with `cargo run` (2026-10-27).
 - **`cargo test`** needs the `test` crate in the SDK, and tests on a panic-abort target need
   `-Zpanic-abort-tests`.
 - **A git dependency over HTTPS** needs a relay and libgit2's curl transport, which Cargo
