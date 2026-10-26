@@ -72,8 +72,11 @@ into Cargo and needs a `cargo` build to try.
 - **`libc` for a user's project.** crates.io's copy has wasm32 layouts for this target, so a
   project needs `[patch.crates-io] libc = { path = "/opt/rust-sdk/src/libc" }`
   (`demos/rust/README.md`); a system-wide patch would harm every other project.
-- **`--frozen`** failed half the runs with this Cargo and SpiderMonkey's lock (2026-10-07). Not
-  explained; mozbuild does not pass it to a standalone JS build, so the catalog does not meet it.
+- **`--frozen`** failed half the runs with this Cargo and SpiderMonkey's lock (2026-10-07), before
+  the kernel had file locks; mozbuild does not pass it to a standalone JS build, so the catalog
+  does not meet it. Not reproduced since: in `default` (Chromium, 2026-10-27), a crate with
+  `itoa` vendored by `vendor-crates` and its `Cargo.lock` built with `cargo build --frozen` six
+  times from a clean `target`, six passed. SpiderMonkey's own lock was not tried again.
 - The `cargo` image build needs 5 to 6 GB (`tasks/20261006-145958-builder-artifact-copies`).
 - Not measured: that Cargo's parallel build of Codex equals a serial one byte for byte (from
   `tasks/20260930-231102-parallel-rust`, where Patti's ripgrep, fd and protox did).
