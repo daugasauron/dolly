@@ -548,3 +548,15 @@ Findings:
   Game run 2 did not try SDL2 again; it took raylib for its built-in PNG and TTF loading.
 
 Spend, all sessions: **$11.143 of the $20** (round 4: $4.536).
+
+## Round 5 (2026-10-26): blocked, the key is refused
+
+Prepared: the skill's games section brought up to date (`2631be66`: raylib's own input
+and clock, SDL's sound, `sdl2-mixer`, `sdl2-ttf`, `sdl2-image`), pi-agent rebuilt, prompts
+for an arcade game with sound, image sprites and a font, the Cargo crate again (now with
+`vendor-crates`) and a new audit. The first session's request got `401 invalid x-api-key`;
+a `GET /v1/models` from this machine with `~/.claude-api` (unchanged since 2026-10-23)
+gets the same, so the key is revoked or disabled. Nothing was spent and the session's
+files hold no key material (`check.mjs`). Waiting for a new key from the owner.
+
+Spend, all sessions: **$11.143 of the $20**.
