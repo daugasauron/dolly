@@ -8,7 +8,7 @@ libraries and SpiderMonkey are built inside Dolly from pinned sources.
 
 - `zero-ad`: 0 A.D. Release 28: Athens economy and combat scenarios, audio and replay. Requires WebGPU.
 - `openal`: OpenAL Soft's mixer through its loopback device, built for the 0 A.D. audio path, a library for programs the `cc` package builds; it brings no compiler.
-- `zero-ad-deps`: A build stage: the engine's libraries built from pinned sources, with FreeType, pkgconf and SDL2.
+- `zero-ad-deps`: A build stage: the engine's libraries built from pinned sources, with OpenAL, FreeType, Vorbis, pkgconf and SDL2.
 - `spidermonkey`: SpiderMonkey 128.13.0, a library for programs the `cc` package builds, built inside Dolly with mozbuild, Python, Cargo and cbindgen, which it does not bring.
 - `zero-ad-engine`: A build stage: the 0 A.D. engine built inside Dolly with premake and Make.
 - `zero-ad-data`: A build stage: 0 A.D.'s release data made into what the game reads, inside Dolly with Python, XZ and Naga.
@@ -29,8 +29,9 @@ npm run image -- zero-ad
 `zero-ad-deps` builds the engine's libraries from
 [`build-sources.tsv`](build-sources.tsv) ([`Dollyfile-zero-ad-deps`](Dollyfile-zero-ad-deps)):
 CMake projects with CMake, ICU, libsodium and ENet by compiling their source
-directories (they have only autotools); it installs the `freetype` and
-`pkgconf` packages (pkgconf for premake), and SDL2 is copied from `sdl2`.
+directories (they have only autotools); it installs the `openal`, `freetype`,
+`libvorbis` and `pkgconf` packages (pkgconf for premake), and SDL2 is copied
+from `sdl2`.
 `zero-ad-engine` ([`Dollyfile-zero-ad-engine`](Dollyfile-zero-ad-engine)) bootstraps premake
 ([`premake-dolly.patch`](premake-dolly.patch)), generates upstream's Makefiles
 and builds `pyrogenesis` with `make -j4`. `zero-ad-data`

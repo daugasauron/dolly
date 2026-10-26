@@ -58,15 +58,11 @@ if has_image freetype; then
 fi
 if has_image zero-ad-deps; then
   node scripts/build-source-tar.mjs "${static_dir}/zero-ad-build/deps.tar.gz" \
-    "${zad_dir}/libogg-1.3.5/COPYING" /usr/share/licenses/libogg/COPYING \
-    "${zad_dir}/libvorbis-1.3.7/COPYING" /usr/share/licenses/libvorbis/COPYING \
     "${zad_dir}/fmt-7.1.3/LICENSE.rst" /usr/share/licenses/fmt/LICENSE.rst \
     "${zad_dir}/libxml2-2.13.5/Copyright" /usr/share/licenses/libxml2/Copyright \
     "${zad_dir}/icu/LICENSE" /usr/share/licenses/icu/LICENSE \
     "${zad_dir}/libsodium-1.0.20/LICENSE" /usr/share/licenses/libsodium/LICENSE \
     "${zad_dir}/enet-1.3.18/LICENSE" /usr/share/licenses/enet/LICENSE \
-    "${zad_dir}/libogg-1.3.5" /tmp/zad/ogg \
-    "${zad_dir}/libvorbis-1.3.7" /tmp/zad/vorbis \
     "${zad_dir}/fmt-7.1.3" /tmp/zad/fmt \
     "${zad_dir}/libxml2-2.13.5" /tmp/zad/xml2 \
     "${zad_dir}/icu/source/common" /tmp/zad/icu/common \

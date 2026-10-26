@@ -7,12 +7,13 @@ REQUIRES HOST input@0
 REQUIRES HOST http@0
 
 # Build-only: the libraries the 0 A.D. engine links, built from the pinned
-# upstream sources of build-sources.tsv, with FreeType and libpng installed and
-# pkgconf for its premake scripts.
+# upstream sources of build-sources.tsv, with OpenAL, FreeType (with libpng)
+# and Vorbis (with Ogg) installed and pkgconf for its premake scripts.
 FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 3f9cc07612be5e715df223d8957857350c9f97761ae631c13f949870da3cfff6
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-openal f626e9b46ffd6455d4f0561eca0b88c9e18f9b578b08aaf817ee32d1ee45e7ae
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf d59622923d487a7c162ef5b95ae4c4daee2b9cae5e1a534b148a88885a6f8640
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype a2305a0019257823b501d206797bd2e07e6810584e45b5ad02b0ccf1d1371809
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-libvorbis c653104397ea012039d02ac1912f6db943611dd024ac3b59513f99ff23ae32cc
 COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 aeb9f779e98127490f5b8706d64e8a740a6fc2071388269898d19f31b5a68026 /usr/include/SDL2 /usr/include/SDL2
 COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 aeb9f779e98127490f5b8706d64e8a740a6fc2071388269898d19f31b5a68026 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 REQUIRES HEADER libc
@@ -32,7 +33,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL ln
 REQUIRES TOOL mkdir
 
-SOURCE /v0.1.4/dist/static/zero-ad-build/deps.tar.gz 725e009d9819b42b32d685ef6f7cd51ece8f34031fdb94c9bd00cacef9da1579 /tmp/zad/deps.tar.gz
+SOURCE /v0.1.4/dist/static/zero-ad-build/deps.tar.gz 11047f9f9fa9a26b6c79f02819d8286fab41dbd1a5797b822a37f3cc5ef58648 /tmp/zad/deps.tar.gz
 SLOP gzip -dc /tmp/zad/deps.tar.gz | tar -xf - -C /
 # Licences of the libraries the engine links; zero-ad copies them.
 COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 aeb9f779e98127490f5b8706d64e8a740a6fc2071388269898d19f31b5a68026 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
@@ -63,8 +64,6 @@ FILE /tmp/zad/build.slop
       cmake --build /tmp/zad/build/$name -j4
       cmake --install /tmp/zad/build/$name
     }
-    cmake_build ogg -DINSTALL_DOCS=OFF -DBUILD_TESTING=OFF
-    cmake_build vorbis
     cmake_build fmt -DFMT_TEST=OFF -DFMT_DOC=OFF
     cmake_build xml2 -DLIBXML2_WITH_PYTHON=OFF -DLIBXML2_WITH_TESTS=OFF -DLIBXML2_WITH_PROGRAMS=OFF \
       -DLIBXML2_WITH_THREADS=OFF -DLIBXML2_WITH_LZMA=OFF -DLIBXML2_WITH_HTTP=OFF -DLIBXML2_WITH_ICONV=OFF -DLIBXML2_WITH_ZLIB=ON
@@ -137,8 +136,6 @@ SLOP c++ -O1 /tmp/zad/openal-check.cpp -lopenal -lm -o /usr/libexec/zero-ad/open
 FOLDER /usr/libexec/zero-ad
 
 EXPORTS FOLDER zero-ad-pkgconfig /usr/lib/pkgconfig
-EXPORTS HEADER ogg /usr/include/ogg
-EXPORTS HEADER vorbis /usr/include/vorbis
 EXPORTS HEADER fmt /usr/include/fmt
 EXPORTS HEADER libxml2 /usr/include/libxml2
 EXPORTS HEADER unicode /usr/include/unicode
@@ -146,9 +143,6 @@ EXPORTS HEADER sodium /usr/include/sodium
 EXPORTS HEADER sodium.h /usr/include/sodium.h
 EXPORTS HEADER enet /usr/include/enet
 EXPORTS HEADER boost /usr/include/boost
-EXPORTS LIB ogg /usr/lib/libogg.a
-EXPORTS LIB vorbis /usr/lib/libvorbis.a
-EXPORTS LIB vorbisfile /usr/lib/libvorbisfile.a
 EXPORTS LIB fmt /usr/lib/libfmt.a
 EXPORTS LIB xml2 /usr/lib/libxml2.a
 EXPORTS LIB icuuc /usr/lib/libicuuc.a

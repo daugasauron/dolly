@@ -12,7 +12,7 @@ REQUIRES HOST upload@0
 
 # Build-only: premake and the 0 A.D. engine (pyrogenesis), built by upstream's
 # premake Makefiles with Dolly's c++.
-FROM /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-deps 2da998032cb4cf5427b1cb0d358e43069a525b1a667b3090f9cbca9d2d4ffabf
+FROM /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-deps 87ff29f0fea8f556010c3bb99ea42e0dbf0204b903b1a588531aa9d5d2b420ed
 INSTALL /v0.1.4/Dollyfile-libdolly-gpu 48d581f751812019a4040ab9e9b024f61a91f61851cf9d6bb5e52ca0f5a009a9
 INSTALL /v0.1.4/Dollyfile-libdolly-audio d67a202509ee8ec3295cc1dcd9b364edf699972362525d1d93e45a918f866277
 INSTALL /v0.1.4/Dollyfile-libdolly-touch 46753d0752259c7e9c1897a84a031d21288e3d97313345427dbe360d61ef40e1
