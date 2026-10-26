@@ -55,7 +55,11 @@ into Cargo and needs a `cargo` build to try.
   Firefox (7.4 s). The Rust README and `man cargo` say so, and `test/amy-browser.mjs` runs its
   crate with `cargo run` (2026-10-27).
 - **`cargo test`** needs the `test` crate in the SDK, and tests on a panic-abort target need
-  `-Zpanic-abort-tests`.
+  `-Zpanic-abort-tests`. Measured 2026-10-27 (`default`, `cargo new --lib`, `cargo test
+  --offline`): `error[E0463]: can't find crate for 'test'`. The target's `panic` is `abort`;
+  the sysroot holds `libpanic_unwind` beside `libpanic_abort`, and C++ has Wasm exceptions
+  (`libunwind-ww-wasmexcept`), so unwinding Rust panics is the stable route to weigh against
+  the unstable flag. Either rebuilds `rust-build` and what is built with it.
 - **A git dependency over HTTPS** needs a relay and libgit2's curl transport, which Cargo
   registers only with a non-default `[http]` configuration. `cargo search`, `publish` and
   `login` need `CONNECTTIMEOUT`, `LOW_SPEED_*` and `PUT` in Dolly's libcurl.
