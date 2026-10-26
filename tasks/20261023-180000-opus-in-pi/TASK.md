@@ -549,14 +549,41 @@ Findings:
 
 Spend, all sessions: **$11.143 of the $20** (round 4: $4.536).
 
-## Round 5 (2026-10-26): blocked, the key is refused
+## Round 5 (2026-10-27): the game libraries, Cargo with vendor-crates, an audit ($6.200)
 
-Prepared: the skill's games section brought up to date (`2631be66`: raylib's own input
-and clock, SDL's sound, `sdl2-mixer`, `sdl2-ttf`, `sdl2-image`), pi-agent rebuilt, prompts
-for an arcade game with sound, image sprites and a font, the Cargo crate again (now with
-`vendor-crates`) and a new audit. The first session's request got `401 invalid x-api-key`;
-a `GET /v1/models` from this machine with `~/.claude-api` (unchanged since 2026-10-23)
-gets the same, so the key is revoked or disabled. Nothing was spent and the session's
-files hold no key material (`check.mjs`). Waiting for a new key from the owner.
+On pi-agent with the skill's games section brought up to date (`2631be66`: raylib's own input
+and clock, SDL's sound, `sdl2-mixer`, `sdl2-ttf`, `sdl2-image` and their pkg-config line). The
+first attempt, on 2026-10-26, got `401 invalid x-api-key` (the key was refused outside Dolly
+too); the owner replaced it on 2026-10-27. Evidence in `work/x11fix/build/opus-evidence/r5-*`.
 
-Spend, all sessions: **$11.143 of the $20**.
+| task | libraries | calls (failed) | wall / model s | cost |
+| --- | --- | --- | --- | --- |
+| an arcade game with sound effects and music, image sprites, a real font, levels, pause, saved scores; no library named (`r5-game/`) | none: the page's catalog was the integrator's pi-agent-only build, so `amy list` showed 29 packages; it wrote PNG, font and audio code on Dolly's headers and was stopped at $3.5 before `/workspace/play` existed | 65 (1, the stop) | 1127 / 1000 | $3.527 |
+| the same on the whole catalog (`r5-game2/`) | `amy install sdl2 sdl2-mixer sdl2-ttf sdl2-image pkgconf` in its fourth call, linked by pkg-config: music and effects through SDL_mixer, text through SDL_ttf in the terminal's Iosevka, sprites through SDL_image; a self-test bot, screenshots it read back, `make check` | 32 (0) | 652 / 621 | $2.081 |
+| the Cargo crate with `clap` and `serde_json` (`r5-rust/`) | `amy install cargo vendor-crates`, `vendor-crates` (28 crates), `cargo build --offline --release` in 47 s | 14 (2: a `command -v` miss and a grep's status) | 103 / 44 | $0.113 |
+| an audit of the environment (`r5-audit/`, `downloads/01-dolly-audit.md`) | raylib and SDL2 checked by running them | 26 (2) | 289 / 161 | $0.479 |
+
+The game (`r5-game2/game-1.png`, `game-3.png`): Nebula Raiders, a vertical shooter with five
+enemy kinds, a boss per level, pickups and eight high scores, 1,506 lines of C and a 464-line
+asset generator. Round 4's games cost $1.17 and $2.66 and could not use SDL2 (`touch@0`).
+
+Findings, each fixed and in the 2026-10-27 round:
+- The seed's `/usr/include` held Emscripten's headers for libraries Dolly lacks (SDL 1,
+  `fakesdl`, OpenAL, EGL, GL, GLES, GLFW, X11 stubs, WebGL, `emscripten.h`, libuuid,
+  mimalloc, OpenMP); the first game session took `SDL/SDL_image.h` for a leftover. Gone
+  (`c62cc1e3`), with openal's removal of the stale `AL`.
+- `/dev/zero` did not exist (`dd if=/dev/zero`: ENOENT): added to the kernel (`679ff605`).
+- `help` said 16 threads a process, `nena` 32; threads@0 allows 32 since `741d4ad6` (`af0a32d6`).
+- `od -t x1` printed its usage: sbase's parser took the size for a type; patched at staging
+  (`942cc1bf`), the same bug is in upstream's `od.c`.
+- Python had no `sqlite3`, `bz2` or `lzma` although the packages exist: built against them
+  (`703a439c`), with their licences (`32a19f3f`).
+- amy's "its environment applies when the session is next loaded" read as if the package did;
+  it now says only the variables wait (`b2b60ffa`).
+Not changed, as designed or upstream's: Slop's syntax, the POSIX sbase tools (`head -c`,
+`dd bs=1M`, `grep -r`), sbase `mktemp`'s template, no `fork` or listening sockets, the
+browser's stack depth ([emacs-stack](../20261013-202443-emacs-stack/TASK.md)), no `ssl` or
+`_hashlib` (TLS is the broker's, there is no OpenSSL), `_decimal` (its compile time), the first
+`go` build's 80 s (round 4).
+
+Spend, all sessions: **$17.343 of the $20** (round 5: $6.200).
