@@ -80,6 +80,8 @@ entry.
   links the Oniguruma (BSD-2-Clause) and decNumber (ICU licence, in jq's
   `COPYING`) of its own archive; `sqlite3` links zlib and linenoise
   (BSD-2-Clause).
+- `python` links SQLite, bzip2 and XZ Utils statically, and `git` libcurl; each
+  package carries their licence files.
 - less links GNU termcap (GPL-2.0-or-later) statically, so the program is a
   GPL one. less itself is taken under its own two-clause licence, which the
   GPL admits; its `LICENSE` and termcap's `COPYING` are in the package.
