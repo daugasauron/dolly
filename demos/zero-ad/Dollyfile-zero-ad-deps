@@ -10,7 +10,7 @@ REQUIRES HOST http@0
 # upstream sources of build-sources.tsv, with FreeType and libpng installed and
 # pkgconf for its premake scripts.
 FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 3f9cc07612be5e715df223d8957857350c9f97761ae631c13f949870da3cfff6
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-openal f626e9b46ffd6455d4f0561eca0b88c9e18f9b578b08aaf817ee32d1ee45e7ae
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-openal 01dc5beead5a8a86016e4e4c9029de984f08f154bcf9b5aaa4bbacbc2d2b30fe
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf d59622923d487a7c162ef5b95ae4c4daee2b9cae5e1a534b148a88885a6f8640
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype a2305a0019257823b501d206797bd2e07e6810584e45b5ad02b0ccf1d1371809
 COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 aeb9f779e98127490f5b8706d64e8a740a6fc2071388269898d19f31b5a68026 /usr/include/SDL2 /usr/include/SDL2

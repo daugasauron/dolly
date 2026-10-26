@@ -35,8 +35,6 @@ SLOP cmake -S /tmp/openal/source -B /tmp/openal/build \
   -DALSOFT_BACKEND_WAVE=OFF -DALSOFT_INSTALL_HRTF_DATA=OFF -DALSOFT_INSTALL_AMBDEC_PRESETS=OFF \
   -DALSOFT_INSTALL_CONFIG=OFF -DALSOFT_UPDATE_BUILD_VERSION=OFF -DHAVE_PTHREAD=OFF
 SLOP cmake --build /tmp/openal/build
-# Replace bootstrap headers even when normalized source timestamps match.
-SLOP rm -rf /usr/include/AL
 SLOP cmake --install /tmp/openal/build
 SLOP c++ -std=c++17 -O1 /tmp/openal/check.cpp -lopenal -lm -o /tmp/openal/check
 SLOP /tmp/openal/check
