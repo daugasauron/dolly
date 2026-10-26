@@ -20,6 +20,8 @@ npm install @daugasauron/dolly @daugasauron/dolly-image-default \
 Each host module and image depends on the runtime alone, at its own version. An
 image does not depend on the host modules it declares: install them with it (its
 README names them), so that all lie side by side under `node_modules/@daugasauron/`.
+npm, pnpm and Yarn 1 install them so. Yarn 2 and later need `nodeLinker: node-modules`
+in `.yarnrc.yml`: Plug'n'Play leaves no files to serve.
 
 ## A page
 

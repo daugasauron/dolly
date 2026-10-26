@@ -23,12 +23,15 @@ with exactly its fourteen host modules; a page with `gpu@0`, `microphone@0` and 
 them, enables `gpu@0` and holds the `http@0` policy it gives `boot()`; a page that lacks
 `touch@0`, or isolation, says so.
 
-Left:
+Other package managers, measured once (2026-10-27, Chromium, the test's checks with only its
+install command changed): pnpm 12.15.0 (each package a symlink side by side under
+`node_modules/@daugasauron/`, which the server follows), Yarn 1.22.22 (flat, as npm) and Yarn
+4.18.1 with `nodeLinker: node-modules` pass. Yarn 4's default, Plug'n'Play, writes no
+`node_modules` (`.pnp.cjs` and zip archives), so a page has nothing to import; the guide says to
+set the linker.
 
-- Publishing to npmjs under `@daugasauron`, with the release: the owner's step; nothing here
-  publishes.
-- Not tested: pnpm's and yarn's layouts. The guide says the packages must lie side by side
-  under `node_modules/@daugasauron/`, which npm's layout gives.
+Left: publishing to npmjs under `@daugasauron`, with the release: the owner's step; nothing
+here publishes.
 
 Done when: the owner has published the v0.1.4 packages, and `npm install` of the guide's line
 from npmjs gives what the test installs from its own registry.
