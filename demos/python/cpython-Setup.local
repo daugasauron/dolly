@@ -9,11 +9,15 @@ _dolly_http Modules/dolly_http.o
 # an ordinary built-in module without Emscripten JavaScript-library imports.
 _ctypes _ctypes/_ctypes.c _ctypes/callbacks.c _ctypes/callproc.c _ctypes/stgdict.c _ctypes/cfield.c -lffi -DHAVE_FFI_PREP_CIF_VAR -DHAVE_FFI_PREP_CLOSURE_LOC -DHAVE_FFI_CLOSURE_ALLOC
 
-# Dolly has zlib and WasmFS-backed mmap, but not SQLite or bzip2 yet. CPython's
-# bundled _decimal accelerator is also omitted: its portable libmpdec path is a
-# pathological cold compile in the embedded compiler, while decimal.py already
-# falls back to the upstream-compatible pure-Python implementation.
+# The static libraries of the sqlite, bzip2 and xz packages, which the recipe
+# USEs. configure runs without them, so this line states the serialize API the
+# sqlite package keeps.
+_sqlite3 _sqlite/blob.c _sqlite/connection.c _sqlite/cursor.c _sqlite/microprotocols.c _sqlite/module.c _sqlite/prepare_protocol.c _sqlite/row.c _sqlite/statement.c _sqlite/util.c -DPY_SQLITE_HAVE_SERIALIZE -lsqlite3
+_bz2 _bz2module.c -lbz2
+_lzma _lzmamodule.c -llzma
+
+# CPython's bundled _decimal accelerator is omitted: its portable libmpdec path
+# is a pathological cold compile in the embedded compiler, while decimal.py
+# already falls back to the upstream-compatible pure-Python implementation.
 *disabled*
-_bz2
 _decimal
-_sqlite3

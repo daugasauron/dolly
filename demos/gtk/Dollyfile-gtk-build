@@ -18,15 +18,15 @@ REQUIRES HOST threads@0
 # extension libraries GTK's X11 backend links. Static libraries in /usr/lib,
 # as a GTK program links them; GLib's pkg-config file has cc cast-emulate
 # every GObject program, those these builds run among them.
-FROM /v0.1.4/demos/x11/Dollyfile-x11-build 556ef243165f35727d4f76722c22238d65ba871194234e7905c732e41ae8f91d
-INSTALL /v0.1.4/demos/tools/Dollyfile-meson 4e662936debdb3403e189ae54ab32677fb12a7885126792de657a2ea3efb9c43
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build 0648e1ed5f48b7be94379774bb426ddaeccf5f5a98945d3762b299a5eed3c95f
+INSTALL /v0.1.4/demos/tools/Dollyfile-meson 83f4188a9f0830e1fc6db0a97a55e0c67f701f448ff0c9f374e9135fd9b9cf8a
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf d59622923d487a7c162ef5b95ae4c4daee2b9cae5e1a534b148a88885a6f8640
 INSTALL /v0.1.4/demos/tools/Dollyfile-xz b066d1c3b4c53942f7d5b4eee7eb413f1a7ec3d7e171063eea7efa68fe772514
 INSTALL /v0.1.4/demos/tools/Dollyfile-tar 251bef15e5dc9b1122c9ec4c034b5e5545df240c3f511d0cfbaef5bca2bfc182
 INSTALL /v0.1.4/demos/tools/Dollyfile-binaryen 30f203ba8d5774bf0d2bf3689686708d611bc073ea11bc55fdb1fde45937c925
 INSTALL /v0.1.4/demos/python/Dollyfile-libffi 468bad1eaccff787b6f26b590ce461692a8aa9bbb7c46a59f12daa43c15b1ecd
 INSTALL /v0.1.4/demos/gtk/Dollyfile-pcre2 ac383c4d26d2359ccf56bec744f447f73d79dabd814e0019e27d9eefac00a520
-INSTALL /v0.1.4/demos/gtk/Dollyfile-glib 05d066dce7717862bc166a2e6cb03949cd0b4d19b72d5f1ffc7c9ddaf4d9258f
+INSTALL /v0.1.4/demos/gtk/Dollyfile-glib 31786e2e9fccd5f4d256c2ec61b623ebb518ac8a71f2423aa0a7145c237f8bb0
 INSTALL /v0.1.4/Dollyfile-zlib 592de704054a7e961a206610a808ceb362d01386ec713418e20ab717dbd3dc7f
 
 REQUIRES HEADER glib

@@ -14,7 +14,7 @@ REQUIRES HOST threads@0
 REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-agent 5649c9b68f05d214817bb4b214228ddf33779be3760a8c1843c3c1ac1595f86b
+FROM /v0.1.4/demos/pi/Dollyfile-pi-agent 874743800ddd0f82100b32bd2d364b3df9e13689a04584430d95a7063d1248fe
 INSTALL /v0.1.4/demos/local-llm/Dollyfile-llama acb103fc950ea247c2b4b897450daf71fcebf1fbf926c8a807bcf367793becf4
 INSTALL /v0.1.4/demos/local-llm/Dollyfile-qwen3.5-2b 861a801b04a54b2f1756e96054a6bf9a146a464748cf3078230c02e631abcc39
 

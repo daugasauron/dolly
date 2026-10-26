@@ -7,14 +7,23 @@ REQUIRES HOST sockets@0
 
 FROM /v0.1.4/Dollyfile-system 024cc8000fcfa2c826693550553dae434c125c95207d212c830b02f04f4a778f
 USE /v0.1.4/Dollyfile-libdolly-sockets 8fd6989cb55e2a218919c535383759dd44eda26843d397a228110496d6fed3b5
+USE /v0.1.4/demos/tools/Dollyfile-sqlite 0a2bc8b569fb3d2f93f1bafe5d709006c261261d820e5e4082fe8cd50e3137bb
+USE /v0.1.4/demos/tools/Dollyfile-bzip2 084818c1d499118aa32742c8743d882df08c3c5dc6dd62d0d9d403237310c789
+USE /v0.1.4/demos/tools/Dollyfile-xz b066d1c3b4c53942f7d5b4eee7eb413f1a7ec3d7e171063eea7efa68fe772514
 # Build the Python runtime and native extension SDK; pip.dm adds pip.
 REQUIRES HEADER curl
 REQUIRES HEADER dso
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES HEADER zlib
+REQUIRES HEADER sqlite3
+REQUIRES HEADER bzlib
+REQUIRES HEADER lzma
 REQUIRES LIB    curl
 REQUIRES LIB    z
+REQUIRES LIB    sqlite3
+REQUIRES LIB    bz2
+REQUIRES LIB    lzma
 REQUIRES TOOL   ar
 REQUIRES TOOL   cc
 REQUIRES TOOL   c++

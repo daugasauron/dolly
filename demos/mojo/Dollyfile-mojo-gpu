@@ -12,7 +12,7 @@ REQUIRES HOST upload@0
 # A shell with the Mojo compiler that mojo-build built in Dolly and what its
 # programs link against, in an image with a GPU: kernels run here.
 FROM /v0.1.4/Dollyfile-system 024cc8000fcfa2c826693550553dae434c125c95207d212c830b02f04f4a778f
-INSTALL /v0.1.4/demos/mojo/Dollyfile-mojo dad1ddb9b953f884f15203f6def9a85d0bd7fa39d0c9f1b09c95cd136abb0ea2
+INSTALL /v0.1.4/demos/mojo/Dollyfile-mojo 0c5ee870fe93124026953fcd25a905ca9255da97c3596ee47779a2ba88ba1300
 REQUIRES TOOL mojo
 REQUIRES LIB dolly-gpu
 
