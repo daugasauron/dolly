@@ -107,4 +107,6 @@ SLOP text-page /tmp/zsh/Doc/zsh.1
 EXPORTS TOOL zsh
 EXPORTS FOLDER zsh-functions /usr/share/zsh/5.9.2/functions
 FILE /usr/share/licenses/zsh/LICENCE
+# zsh links libterminfo statically and carries its licence.
+FILE /usr/share/licenses/netbsd-curses/COPYING
 FILE /usr/share/man/cat1/zsh.1

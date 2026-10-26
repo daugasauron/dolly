@@ -95,4 +95,7 @@ FILE /etc/tmux.conf
 
 EXPORTS TOOL tmux
 FILE /usr/share/licenses/tmux/COPYING
+# tmux links libevent and libterminfo statically and carries their licences.
+FILE /usr/share/licenses/libevent/LICENSE
+FILE /usr/share/licenses/netbsd-curses/COPYING
 FILE /usr/share/man/cat1/tmux.1
