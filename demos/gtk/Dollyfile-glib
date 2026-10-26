@@ -14,7 +14,7 @@ REQUIRES HOST threads@0
 # --dolly-cast-emulation (Binaryen's wasm-opt --fpcast-emu after the link),
 # and this package's own programs are passed through it here.
 FROM /v0.1.4/demos/tools/Dollyfile-tools-build d6d1b9b433296b550a1da466d949fc76c7b7071b36c5e7cc859957dc05514e1e
-INSTALL /v0.1.4/demos/tools/Dollyfile-meson 83f4188a9f0830e1fc6db0a97a55e0c67f701f448ff0c9f374e9135fd9b9cf8a
+INSTALL /v0.1.4/demos/tools/Dollyfile-meson 1939eaf5e8965d925d580a0cff00c1fe508e3e66bb7f824b2dc6d4117428a7f3
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf d59622923d487a7c162ef5b95ae4c4daee2b9cae5e1a534b148a88885a6f8640
 INSTALL /v0.1.4/demos/tools/Dollyfile-xz b066d1c3b4c53942f7d5b4eee7eb413f1a7ec3d7e171063eea7efa68fe772514
 INSTALL /v0.1.4/demos/tools/Dollyfile-tar 251bef15e5dc9b1122c9ec4c034b5e5545df240c3f511d0cfbaef5bca2bfc182

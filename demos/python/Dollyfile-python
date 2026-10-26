@@ -41,6 +41,11 @@ EXPORTS LIB    ffi       /usr/lib/libffi.a
 EXPORTS HEADER ffi       /usr/include/ffi.h
 EXPORTS HEADER ffitarget /usr/include/ffitarget.h
 FILE /usr/share/licenses/libffi/LICENSE
+# python links the three USEd libraries statically and carries their licences.
+FILE /usr/share/licenses/sqlite/blessing
+FILE /usr/share/licenses/bzip2/LICENSE
+FILE /usr/share/licenses/xz/COPYING
+FILE /usr/share/licenses/xz/COPYING.0BSD
 REQUIRES HEADER http
 REQUIRES HEADER ffi
 REQUIRES HEADER ffitarget

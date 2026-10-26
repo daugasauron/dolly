@@ -16,8 +16,8 @@ REQUIRES HOST sockets@0
 # builds it and pixman, libxkbfile and xkbcomp; libXfont2, its built-in and
 # bitmap fonts, and the SHA-1 of libmd are built by the Makefile below, and
 # xkeyboard-config's rules by its own generator.
-FROM /v0.1.4/demos/x11/Dollyfile-x11-build 0648e1ed5f48b7be94379774bb426ddaeccf5f5a98945d3762b299a5eed3c95f
-INSTALL /v0.1.4/demos/tools/Dollyfile-meson 83f4188a9f0830e1fc6db0a97a55e0c67f701f448ff0c9f374e9135fd9b9cf8a
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build 3c1c43a7e161ef219bf44b34b77a51fd3e1b3f5bce8b63455e92eb5c69ad5e15
+INSTALL /v0.1.4/demos/tools/Dollyfile-meson 1939eaf5e8965d925d580a0cff00c1fe508e3e66bb7f824b2dc6d4117428a7f3
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf d59622923d487a7c162ef5b95ae4c4daee2b9cae5e1a534b148a88885a6f8640
 INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 aeb9f779e98127490f5b8706d64e8a740a6fc2071388269898d19f31b5a68026
 INSTALL /v0.1.4/Dollyfile-zlib 592de704054a7e961a206610a808ceb362d01386ec713418e20ab717dbd3dc7f
