@@ -8,16 +8,16 @@ REQUIRES HOST http@0
 REQUIRES HOST input@0
 REQUIRES HOST touch@0
 
-FROM /v0.1.4/Dollyfile-system-tools 717577d3f201f533ced7042082d370b81964ba0797ed40978bc8f028efefe7c9
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 aeb9f779e98127490f5b8706d64e8a740a6fc2071388269898d19f31b5a68026
+FROM /v0.1.4/Dollyfile-system-tools ff6104173bbf1ca124c0b704b5d68ebf3c066fa18ce7cdf2e2887c77b22e38dc
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 bffad8a2980239a017f1cfa25362056fa6cc8da237967564bf233735dd00404e
 # FreeType (with its libpng) for the client's fonts, libjpeg for its textures,
 # Vorbis (with its Ogg) for its sounds.
-INSTALL /v0.1.4/demos/xonotic/Dollyfile-libvorbis c653104397ea012039d02ac1912f6db943611dd024ac3b59513f99ff23ae32cc
-INSTALL /v0.1.4/demos/xonotic/Dollyfile-libjpeg fb964376f369032766e20847df0d66c0d4adde7cfa4c3c7dab81be16b68a6c9f
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype a2305a0019257823b501d206797bd2e07e6810584e45b5ad02b0ccf1d1371809
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-libvorbis 82232276c7b768b9c623934e5546be2f2f09683765580d91dc74d0173e3d321c
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-libjpeg faa23aed8fa86c17c54c3bc00cbf42a5a7e0b3a1f578fc0d2d81733d1fa6fd42
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype 0e039bbd9425b7168758a7b816c0825fea46fc47dc6f6b058a8f811147f57c08
 # The gpu@0 client the render path draws with, and its shaders.
 INSTALL /v0.1.4/Dollyfile-libdolly-gpu 48d581f751812019a4040ab9e9b024f61a91f61851cf9d6bb5e52ca0f5a009a9
-INSTALL /v0.1.4/demos/xonotic/Dollyfile-xonotic-shaders 05d8202123c49a418ac23143470498290c1418cbef0b8cfedc6a8f7cd9ec3021
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-xonotic-shaders f14333663f7586873c13dbd991921dd63c634b505ee5f8943acd0e3f3e4677ea
 REQUIRES HEADER cpp
 REQUIRES HEADER gpu
 REQUIRES HEADER sdl2

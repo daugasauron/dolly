@@ -15,8 +15,8 @@ REQUIRES HOST touch@0
 # IMG_SaveJPG write. SDL2IMAGE_VENDORED: nothing vendored is built with these
 # options, and the CMake package then does not look for a libjpeg and libpng
 # the library does not link.
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 3f9cc07612be5e715df223d8957857350c9f97761ae631c13f949870da3cfff6
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 aeb9f779e98127490f5b8706d64e8a740a6fc2071388269898d19f31b5a68026
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 6c00eab6186545ebdfd2db21c41e09c7ed419811e29c69ea575afc1c95367bed
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 bffad8a2980239a017f1cfa25362056fa6cc8da237967564bf233735dd00404e
 REQUIRES HEADER libc
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2

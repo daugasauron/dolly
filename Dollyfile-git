@@ -148,6 +148,8 @@ FILE /usr/libexec/dolly/git-remote-http
 FILE /usr/libexec/dolly/git-remote-https
 FOLDER /usr/share/git-core/templates
 FILE /usr/share/licenses/git/COPYING
+# git links libcurl statically and carries its licence.
+FILE /usr/share/licenses/curl/COPYING
 FILE /usr/share/man/cat1/git.1
 
 # Dolly's diff and patch: git diff --no-index and git apply, for programs and

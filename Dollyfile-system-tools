@@ -152,7 +152,7 @@ SLOP rm \
 INSTALL /v0.1.4/Dollyfile-zlib 592de704054a7e961a206610a808ceb362d01386ec713418e20ab717dbd3dc7f
 INSTALL /v0.1.4/Dollyfile-gzip 82966bf0d3d867b6955a977185ea77b7827687a957fbdb4e2f14fe546140ec9e
 INSTALL /v0.1.4/Dollyfile-curl 1b5de7312604a0d72b32d27fc0df5bef5e94d474fc6fe853a7b793db25b56b9a
-INSTALL /v0.1.4/Dollyfile-git e9df3b95d03aac81432b1d75c6364a905d0b7cf1b8fba748cc542aedcaa0822a
+INSTALL /v0.1.4/Dollyfile-git 0b9a0606e04dc470430e0e899548465ae488c727edec4f696d93e4c3f0a993f3
 SOURCE /v0.1.4/dist/static/default/awk.tar f28cae177fa60793a70066d10667e8d06775d979f2262be1c48f8eb941090015 /tmp/awk.tar
 SLOP tar \
   -xf /tmp/awk.tar \

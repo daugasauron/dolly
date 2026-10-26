@@ -10,7 +10,7 @@ REQUIRES HOST input@0
 # text, the pointer and the wheel come from input@0, and GetTime reads the
 # monotonic clock. <dolly/raylib.h> serves a program that holds the display
 # itself. For programs the cc package builds.
-FROM /v0.1.4/Dollyfile-system 024cc8000fcfa2c826693550553dae434c125c95207d212c830b02f04f4a778f
+FROM /v0.1.4/Dollyfile-system b583e263a74673e696770d12b0cd8344e0d5e3cebabd6843ee26b95c83af7a1a
 REQUIRES HEADER libc
 REQUIRES HEADER display
 REQUIRES HEADER input

@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # libuv's sources from upstream's release with Dolly's port (libuv/, see
 # README.md), built by libuv-dolly.mk: CMake and Neovim are built on it, and
 # programs the cc package builds link it.
-FROM /v0.1.4/Dollyfile-system-tools 717577d3f201f533ced7042082d370b81964ba0797ed40978bc8f028efefe7c9
+FROM /v0.1.4/Dollyfile-system-tools ff6104173bbf1ca124c0b704b5d68ebf3c066fa18ce7cdf2e2887c77b22e38dc
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL ar
