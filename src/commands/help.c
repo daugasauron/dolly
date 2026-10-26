@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
   fputs("  install -m changes nothing\n", stdout);
   fputs("processes: cat /proc/processes lists them, as ps (amy install ps) does\n", stdout);
   fputs("limits: 1024 descriptors and 8 GiB of memory per process, 56 processes,\n", stdout);
-  fputs("  16 threads per process (64 in all), 64 KiB pipes; getrlimit reports them\n", stdout);
+  fputs("  32 threads per process (64 in all), 64 KiB pipes; getrlimit reports them\n", stdout);
   fputs("a program that exits 126 was refused or failed: its stderr says why\n", stdout);
   return 0;
 }
