@@ -267,7 +267,12 @@ const programs = {
     "int frames = 0, pressed = 0; " +
     "while (!WindowShouldClose() && !pressed && frames < 3600) { BeginDrawing(); ClearBackground(RAYWHITE); EndDrawing(); frames++; pressed = IsKeyPressed(KEY_SPACE); } " +
     "printf(\"after %d frames %.3f s, frame %.4f s\\n\", frames, GetTime(), GetFrameTime()); CloseWindow(); " +
-    "return !(pressed && GetTime() > 0.1 && GetFrameTime() > 0); }' > /tmp/amy-raylib-keys.c && cc -O0 /tmp/amy-raylib-keys.c -lraylib -lm -o /tmp/amy-raylib-keys",
+    "return !(pressed && GetTime() > 0.1 && GetFrameTime() > 0); }' > /tmp/amy-raylib-keys.c && cc -O0 /tmp/amy-raylib-keys.c -lraylib -lm -o /tmp/amy-raylib-keys && " +
+    // Fingers are raylib's touch points, the first also its mouse (the page puts two down, below).
+    "printf '%s\\n' '#include <raylib.h>' 'int main(void) { InitWindow(320, 180, \"touch\"); SetTargetFPS(60); int frames = 0, most = 0, released = 0; " +
+    "while (!WindowShouldClose() && !(most == 2 && released) && frames < 3600) { BeginDrawing(); ClearBackground(RAYWHITE); EndDrawing(); frames++; " +
+    "if (GetTouchPointCount() > most) most = GetTouchPointCount(); released = IsMouseButtonReleased(MOUSE_BUTTON_LEFT); } " +
+    "CloseWindow(); return !(most == 2 && released); }' > /tmp/amy-raylib-touch.c && cc -O0 /tmp/amy-raylib-touch.c -lraylib -lm -o /tmp/amy-raylib-touch",
   // A square wave played from a buffer is in the samples the loopback device renders.
   openal: "printf '%s\\n' '#define AL_ALEXT_PROTOTYPES' '#include <AL/al.h>' '#include <AL/alc.h>' '#include <AL/alext.h>' " +
     "'int main() { ALCdevice *device = alcLoopbackOpenDeviceSOFT(0); " +
@@ -284,7 +289,7 @@ const programs = {
     "for (int step = 0; step < 60; ++step) b3World_Step(id, 1.0f / 60.0f, 4); int fell = b3Body_GetPosition(ball).y < -1.0f; b3DestroyWorld(id); return !fell; }' " +
     "> /tmp/amy-box3d.c && cc -O0 -U__SIZEOF_INT128__ /tmp/amy-box3d.c -lbox3d -o /tmp/amy-box3d && /tmp/amy-box3d",
 };
-await browserTest("amy programs", { image: "default", timeout: 600_000 }, async ({ open }) => {
+await browserTest("amy programs", { image: "default", timeout: 600_000 }, async ({ name, open }) => {
   const session = await open(), run = check(session);
   for (const [name, program] of Object.entries(programs)) {
     console.log(`amy install ${name}: ${await timed(run, `amy install ${name}`)} ms`);
@@ -296,6 +301,25 @@ await browserTest("amy programs", { image: "default", timeout: 600_000 }, async 
   await session.page.waitForTimeout(3000);
   await session.page.keyboard.press("Space");
   assert.equal(await keys, 0, await session.text());
+  // Two fingers down on raylib's window, then up: CDP's touches in Chromium, a
+  // touchscreen's PointerEvents in Firefox, as test/touch-browser.mjs.
+  const touches = session.submit("/tmp/amy-raylib-touch");
+  await session.page.waitForTimeout(3000);
+  const { x, y } = await session.page.locator("#display").boundingBox(), points = [[x + 60, y + 60], [x + 120, y + 60]];
+  if (name === "chromium") {
+    const cdp = await session.page.context().newCDPSession(session.page);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: points.map(([x, y], id) => ({ x, y, id })) });
+    await session.page.waitForTimeout(500);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  } else {
+    const fingers = type => session.page.evaluate(([type, points]) => points.forEach(([x, y], id) => document.querySelector("#display").dispatchEvent(
+      new PointerEvent(type, { pointerId: 20 + id, pointerType: "touch", isPrimary: id === 0, button: 0, buttons: type === "pointerup" ? 0 : 1,
+        pressure: type === "pointerup" ? 0 : 0.5, clientX: x, clientY: y, bubbles: true, cancelable: true }))), [type, points]);
+    await fingers("pointerdown");
+    await session.page.waitForTimeout(500);
+    await fingers("pointerup");
+  }
+  assert.equal(await touches, 0, await session.text());
 });
 
 // Checks of the demos/tools packages. A file that NAME packs is smaller and

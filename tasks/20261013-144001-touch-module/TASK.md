@@ -200,9 +200,12 @@ Left (2026-10-23, 14:40):
   ghostty-x11, xonotic-build, xonotic, zero-ad-deps, zero-ad-engine, zero-ad, and the docs chain
   dolly-docs, pi-agent, pi-local, dollyfile-studio. Their sealing is the proof that the touch@0
   lines are where a retained executable needs them.
-- raylib: Dolly's raylib adapter (`demos/slopyard/Dollyfile-gamedev-sdk`) hands its programs
-  input@0's records and fills none of raylib's own input state, so raylib's touch functions see
-  nothing; giving them fingers changes that adapter's interface, not this module's.
+- raylib: done (2026-10-27). Its Dolly platform backend (`demos/slopyard/Dollyfile-raylib`)
+  holds touch@0 beside input@0 where the page gives it, and keeps raylib's touch points as
+  raylib's own touch platforms do: fingers in the order they came down, a gesture event each,
+  the first also the mouse; a tap inside one frame reads as down for a frame. raylib declares
+  touch@0, as `sdl2` does, and so do `gamedev-sdk` and `slopyard`. `test/amy-browser.mjs` puts
+  two fingers on a raylib window in Chromium (CDP) and Firefox (touch PointerEvents).
 
 ## Groundwork (2026-10-14, 04:05): the groundwork is gathered; the contract is still the owner's
 

@@ -3,17 +3,20 @@ PACKAGE raylib
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
+REQUIRES HOST touch@0
 
 # raylib 6.0 from upstream's source, unchanged, with its software renderer and
 # Dolly's platform backend (rcore_dolly.c, compiled into raylib's rcore.c as
 # its custom platform): InitWindow shows the frames through display@0, keys,
-# text, the pointer and the wheel come from input@0, and GetTime reads the
-# monotonic clock. <dolly/raylib.h> serves a program that holds the display
+# text, the pointer and the wheel come from input@0, fingers from touch@0, and
+# GetTime reads the monotonic clock. <dolly/raylib.h> serves a program that holds the display
 # itself. For programs the cc package builds.
-FROM /v0.1.4/Dollyfile-system b583e263a74673e696770d12b0cd8344e0d5e3cebabd6843ee26b95c83af7a1a
+FROM /v0.1.4/Dollyfile-system c6309c0a7bbd8f3038f36ebb426704e3c6b2c52d7d8101a59a453a17b18c9781
+INSTALL /v0.1.4/Dollyfile-libdolly-touch 07fbd180b1e76facefc348682df905541fb536cfe01cb1b871e8b6d7e884cba5
 REQUIRES HEADER libc
 REQUIRES HEADER display
 REQUIRES HEADER input
+REQUIRES HEADER touch
 REQUIRES TOOL   ar
 REQUIRES TOOL   cc
 REQUIRES TOOL   make
@@ -70,6 +73,7 @@ FILE /usr/src/dolly/raylib/rcore_dolly.c
     //   - the window is display@0's surface, sized as InitWindow asks; a frame is
     //     presented in SwapScreenBuffer and paced by the page's animation frames;
     //   - keys, text, the pointer and the wheel come from input@0 in PollInputEvents;
+    //   - fingers come from touch@0 where the page has a touchscreen for the program;
     //   - the clock is CLOCK_MONOTONIC.
     // A hidden window (FLAG_WINDOW_HIDDEN), or a program that already holds the
     // display (it composes raylib's frame into its own, or opened it through
@@ -77,12 +81,14 @@ FILE /usr/src/dolly/raylib/rcore_dolly.c
     // the frame and hands raylib its key events through DollyRaylibInputEvent.
     #include <dolly/display.h>
     #include <dolly/input.h>
+    #include <dolly/touch.h>
     #include <time.h>
     
     typedef struct {
         int window;                         // raylib holds the display and the input
         dolly_display_surface surface;
         uint64_t input;
+        uint64_t touch;                     // 0 without fingers
         uint32_t animationFrame;
         double start;
     } PlatformData;
@@ -93,6 +99,7 @@ FILE /usr/src/dolly/raylib/rcore_dolly.c
     // pressed for one frame: its release waits for the next PollInputEvents.
     static char keyReleaseNext[MAX_KEYBOARD_KEYS] = { 0 };
     static char buttonReleaseNext[MAX_MOUSE_BUTTONS] = { 0 };
+    static char touchReleaseNext = 0;
     
     static double MonotonicSeconds(void)
     {
@@ -213,6 +220,49 @@ FILE /usr/src/dolly/raylib/rcore_dolly.c
             if (event->action) CORE.Window.flags &= ~FLAG_WINDOW_UNFOCUSED;
             else CORE.Window.flags |= FLAG_WINDOW_UNFOCUSED;
         }
+    }
+    
+    // One touch@0 record into raylib's touch points as its own touch platforms
+    // keep them: the fingers down in the order they came, each change a gesture
+    // event, and the first finger also the mouse.
+    static void DollyRaylibTouchRecord(const dolly_touch_record *record)
+    {
+        int index = 0;
+        while ((index < CORE.Input.Touch.pointCount) && (CORE.Input.Touch.pointId[index] != (int)record->id)) index++;
+        if (index == CORE.Input.Touch.pointCount)
+        {
+            if ((record->phase != DOLLY_TOUCH_DOWN) || (index == MAX_TOUCH_POINTS)) return;
+            CORE.Input.Touch.pointId[index] = (int)record->id;
+            CORE.Input.Touch.pointCount++;
+        }
+        CORE.Input.Touch.position[index] = (Vector2){ (float)record->x, (float)record->y };
+    #if SUPPORT_GESTURES_SYSTEM
+        GestureEvent gesture = { 0 };
+        gesture.touchAction = (record->phase == DOLLY_TOUCH_DOWN)? TOUCH_ACTION_DOWN :
+            (record->phase == DOLLY_TOUCH_MOVE)? TOUCH_ACTION_MOVE : (record->phase == DOLLY_TOUCH_UP)? TOUCH_ACTION_UP : TOUCH_ACTION_CANCEL;
+        gesture.pointCount = CORE.Input.Touch.pointCount;
+        for (int i = 0; i < gesture.pointCount; i++)
+        {
+            gesture.pointId[i] = CORE.Input.Touch.pointId[i];
+            gesture.position[i] = (Vector2){ CORE.Input.Touch.position[i].x/(float)GetScreenWidth(),
+                CORE.Input.Touch.position[i].y/(float)GetScreenHeight() };
+        }
+        ProcessGestureEvent(gesture);
+    #endif
+        if ((record->phase == DOLLY_TOUCH_UP) || (record->phase == DOLLY_TOUCH_CANCEL))
+        {
+            for (int i = index; i < CORE.Input.Touch.pointCount - 1; i++)
+            {
+                CORE.Input.Touch.pointId[i] = CORE.Input.Touch.pointId[i + 1];
+                CORE.Input.Touch.position[i] = CORE.Input.Touch.position[i + 1];
+            }
+            CORE.Input.Touch.pointCount--;
+        }
+        // A tap inside one frame still reads as down for a frame, as keys do.
+        if (CORE.Input.Touch.pointCount > 0) CORE.Input.Touch.currentTouchState[MOUSE_BUTTON_LEFT] = 1;
+        else if (CORE.Input.Touch.previousTouchState[MOUSE_BUTTON_LEFT] == 0) touchReleaseNext = 1;
+        else CORE.Input.Touch.currentTouchState[MOUSE_BUTTON_LEFT] = 0;
+        if (index == 0) CORE.Input.Mouse.currentPosition = (Vector2){ (float)record->x, (float)record->y };
     }
     
     bool WindowShouldClose(void)
@@ -346,10 +396,23 @@ FILE /usr/src/dolly/raylib/rcore_dolly.c
         CORE.Input.Mouse.previousWheelMove = CORE.Input.Mouse.currentWheelMove;
         CORE.Input.Mouse.currentWheelMove = (Vector2){ 0.0f, 0.0f };
         for (int i = 0; i < MAX_TOUCH_POINTS; i++) CORE.Input.Touch.previousTouchState[i] = CORE.Input.Touch.currentTouchState[i];
+        if (touchReleaseNext) CORE.Input.Touch.currentTouchState[MOUSE_BUTTON_LEFT] = touchReleaseNext = 0;
     
         if (!platform.window) return;
         dolly_input_event event;
         while (dolly_input_next_event(platform.input, &event, 0.0) > 0) DollyRaylibInputEvent(&event);
+        int count = DOLLY_TOUCH_READ_RECORDS;
+        while (platform.touch && (count == DOLLY_TOUCH_READ_RECORDS))
+        {
+            dolly_touch_record records[DOLLY_TOUCH_READ_RECORDS];
+            count = dolly_touch_read(platform.touch, records, DOLLY_TOUCH_READ_RECORDS, 0.0);
+            for (int i = 0; i < count; i++) DollyRaylibTouchRecord(&records[i]);
+            if (count < 0)
+            {
+                dolly_touch_release(platform.touch);
+                platform.touch = 0;
+            }
+        }
     }
     
     int InitPlatform(void)
@@ -373,6 +436,9 @@ FILE /usr/src/dolly/raylib/rcore_dolly.c
             else
             {
                 platform.window = 1;
+                // Fingers where the page has a touchscreen for the program; without
+                // one the program goes on with the mouse and keys.
+                if (dolly_touch_acquire(&platform.touch) != 0) platform.touch = 0;
                 CORE.Window.display.width = (int)platform.surface.width;
                 CORE.Window.display.height = (int)platform.surface.height;
                 if (CORE.Window.screen.width == 0) CORE.Window.screen.width = (int)platform.surface.width;
@@ -383,6 +449,7 @@ FILE /usr/src/dolly/raylib/rcore_dolly.c
                         (uint32_t)CORE.Window.screen.height, &platform.surface) != 0)
                     {
                         TRACELOG(LOG_FATAL, "PLATFORM: DOLLY: the display cannot show %i x %i", CORE.Window.screen.width, CORE.Window.screen.height);
+                        if (platform.touch) dolly_touch_release(platform.touch);
                         dolly_input_release(platform.input);
                         dolly_display_release(platform.surface.generation);
                         platform.window = 0;
@@ -408,10 +475,12 @@ FILE /usr/src/dolly/raylib/rcore_dolly.c
     {
         if (platform.window)
         {
+            if (platform.touch) dolly_touch_release(platform.touch);
             dolly_input_release(platform.input);
             dolly_display_release(platform.surface.generation);
         }
         platform.window = 0;
+        platform.touch = 0;
     }
 FILE /usr/src/dolly/raylib/dolly-raylib.c
     #include "dolly-raylib.h"

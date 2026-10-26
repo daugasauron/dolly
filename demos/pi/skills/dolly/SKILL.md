@@ -144,8 +144,9 @@ to the running session, and `cc` links them at once.
   names every flag; list each library you use.
 - `raylib`: raylib 6 in software with upstream's own API: `InitWindow` draws on
   the terminal's canvas, `IsKeyDown` and the other input calls read the
-  keyboard and pointer, `GetTime`, `SetTargetFPS` and `WindowShouldClose` work;
-  link `-lraylib -lm`. Its audio module is not built: for sound, use `sdl2` with
+  keyboard and pointer, `GetTouchPointCount` and the gestures the fingers
+  (`touch@0`, as for `sdl2`), `GetTime`, `SetTargetFPS` and `WindowShouldClose`
+  work; link `-lraylib -lm`. Its audio module is not built: for sound, use `sdl2` with
   `sdl2-mixer`. `<dolly/raylib.h>` (`-ldolly-raylib`) serves a program that holds
   the display itself.
 - Others, such as `box3d` (3D physics), `freetype`, `libpng`, `libjpeg` and
