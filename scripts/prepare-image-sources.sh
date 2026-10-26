@@ -190,9 +190,14 @@ if has_image curl; then
     "${curl_dir}/COPYING" /usr/share/licenses/curl/COPYING
 fi
 if has_image system-tools; then
+  # sbase's od takes the size in -t x1 for a type of its own and prints its
+  # usage (od.c at the pin, and upstream on 2026-10-27).
+  patch --silent --fuzz=0 -o "${staging}/od.c" "${sbase_dir}/od.c" < config/sbase-od.patch
   sbase_inputs=()
   for path in "${sbase_dir}"/*.[ch1] "${sbase_dir}"/{Makefile,config.mk,libutf,libutil}; do
-    sbase_inputs+=("${path}" "/tmp/sbase/${path##*/}")
+    file="${path}"
+    [[ "${path##*/}" == od.c ]] && file="${staging}/od.c"
+    sbase_inputs+=("${file}" "/tmp/sbase/${path##*/}")
   done
   node scripts/build-source-tar.mjs "${static_dir}/default/sbase.tar" "${sbase_inputs[@]}" \
     "${sbase_dir}/LICENSE" /usr/share/licenses/sbase/LICENSE

@@ -1,0 +1,11 @@
+--- a/od.c
++++ b/od.c
+@@ -282,6 +282,8 @@
+ 					}
+ 				}
+ 				addtype(*s, len);
++				if (*(s+1) && strchr("123456789CSIL", *(s+1)))
++					s++;
+ 				break;
+ 			default:
+ 				usage();
