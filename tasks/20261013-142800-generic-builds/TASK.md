@@ -19,12 +19,32 @@ only a view of a demo's build image; each has its check in
 broken out says why for each.
 
 
-## State (2026-10-25)
+## State (2026-10-27)
 
-One item is left: `zero-ad-deps` still builds its own Ogg and Vorbis beside the `libogg` and
-`libvorbis` packages (the 2026-10-24 section below); moving it onto them rebuilds the 0 A.D.
-chain. Everything else on the list holds its own build and passed the full round of
-`500d4329` (`work/x11fix/build/round-1025-evidence`).
+Ogg and Vorbis are done (`99a6d3f2`, branch `demo/zero-ad-reconcile`): `zero-ad-deps` installs
+`libvorbis`, which brings `libogg`, and builds neither; their sources left `deps.tar.gz` and
+`build-sources.tsv`. `xonotic` takes the FreeType, libpng, Ogg and Vorbis licences from those
+packages, not from `zero-ad-deps` (it shipped no Ogg or Vorbis notice before). Rebuilt on the
+current seed: `zero-ad-deps` 126.5 s, `zero-ad-engine` 341 s (`make` 305 s), `zero-ad` 68 s,
+`xonotic` 35 s. Passed: `0ad-spidermonkey`, `0ad-engine` (replay `be99497b…`, save/load
+`ff2fbc7d…`: the hashes of 2026-10-01), `0ad-graphics hardware` (NVIDIA, 112 s), `0ad-openal`.
+
+The done-when, read whole, does not hold yet; nobody is on what is left:
+
+- Packages that are still views of a demo's build image: `cmake` (`cmake-build`), `go`
+  (`go-build`), `voice` (`speech-build`), `xorg-server` (`xorg-server-build`), `mojo` (five
+  `COPY` rows), `rust` and `cargo` (`COPY` rows of `rust-build`, which replaces the seed
+  compiler twice by the owner's choice: [the engines](../20261013-145359-builds-engines/TASK.md)).
+  In the core, `zig` and `display` (eight `COPY` rows of `ghostty-build`).
+- Built inside an image and kept by the ruling of 2026-10-12, "one consumer"
+  ([0 A.D.'s libraries](../20261013-145359-builds-zero-ad-deps/investigation.md), §1.2), with no
+  decision since the owner's aim of 2026-10-13: fmt 7.1.3 and libxml2 2.13.5 (upstream CMake,
+  unchanged), ICU 68.2, libsodium 1.0.20, ENet 1.3.18 (Dolly's transport) and Boost's headers in
+  `zero-ad-deps`; premake in `zero-ad-engine`. Not covered by any record: gmqcc in
+  `xonotic-build`, transcribe.cpp in `speech-build`.
+- With a recorded reason: Neovim's five libraries, the three LLVMs, the two ggml
+  ([the engines](../20261013-145359-builds-engines/TASK.md)), Wine's libraries (one executable,
+  old series chosen for it, inventory).
 ## 2026-10-24: the games-and-packages workstream, `demo/slopyard-catapults`
 
 The integrator's brief (2026-10-23): the "Left" list below, raylib, box3d, libuv, a llama.cpp
