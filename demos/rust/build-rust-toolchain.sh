@@ -15,7 +15,7 @@ input_key="$({
   sha256sum demos/rust/toolchain/* demos/rust/build-rust-toolchain.sh include/dolly/process.h include/dolly/runtime.h
   sha256sum demos/rust/prepare-rust-sources.py demos/rust/rust_sources.py demos/rust/config/sources.json \
     demos/rust/config/cargo.toml demos/rust/config/patches/*
-  find "$sysroot" -type f | sort | xargs sha256sum | cut -d' ' -f1
+  find -L "$sysroot" -type f | sort | xargs sha256sum | cut -d' ' -f1
 } | sha256sum | cut -d' ' -f1)"
 if [[ -f "$port/seed.inputs" && "$(cat "$port/seed.inputs")" == "$input_key" &&
       -f "$port/seed.sha256" ]] && (cd "$port" && sha256sum --check --status seed.sha256); then
@@ -37,7 +37,7 @@ python3 demos/rust/toolchain/package.py "$port/compiler-build.jsonl" "$port/sdk-
 python3 demos/rust/prepare-rust-sources.py cargo > "$port/cargo-sources.log" 2>&1
 bash demos/rust/toolchain/build-cargo.sh > "$port/cargo-build.log" 2>&1
 rm -rf "$port/process-sysroot"
-cp -a "$sysroot" "$port/process-sysroot"
+cp -aL "$sysroot" "$port/process-sysroot"
 bash demos/rust/toolchain/link.sh > "$port/link.log" 2>&1
 (cd "$port" && sha256sum rust-sdk.tar.gz > seed.sha256)
 printf '%s\n' "$input_key" > "$port/seed.inputs"
