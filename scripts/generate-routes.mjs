@@ -54,10 +54,12 @@ await writeFile(resolve(projectDir, "licences/index.html"),
   renderLicencesPage(menu, await upstreamInventory(projectDir, definitions)));
 // The package index people and amy read: "NAME PATH SHA256 DESCRIPTION" per
 // package, the INSTALL row's operands and the description the menu shows.
+// amy prints a description in a terminal: a README's Markdown link becomes its text.
+const plainText = description => description.replaceAll("`", "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");
 await writeFile(resolve(projectDir, "amy-index.txt"), definitions
   .filter(({ parsed }) => parsed.role === "package").sort((left, right) => alphabetical(left.image, right.image))
   .map(({ image, filename, source }) => `${image} ${siteReference(filename)} ` +
-    `${createHash("sha256").update(source).digest("hex")} ${descriptions.get(image).replaceAll("`", "")}\n`)
+    `${createHash("sha256").update(source).digest("hex")} ${plainText(descriptions.get(image))}\n`)
   .join(""));
 const routes = pageRoutes(definitions.map(({ image }) => ({ image, openable: openable.has(image) })), primaryImage);
 for (const route of routes) {
