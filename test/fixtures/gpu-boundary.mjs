@@ -212,7 +212,13 @@ export async function gpuRetirementProof() {
   } finally {worker.terminate();}
 }
 
+// A scope queues 64 submissions; the next waits for the oldest. A surface's
+// submissions that present nothing count only toward those 64, not its 3 frames.
 export async function gpuSubmissionProof() {
+  for (const size of [0, 64]) await queuedSubmissionsProof(size);
+  return {boundedSubmissions:true,oldestCompletionUnblocks:true,surfaceSubmissions:true};
+}
+async function queuedSubmissionsProof(size) {
   const {worker,packet,record,batch,send}=gpuFixture(
     new URL("./gpu-retirement-worker.mjs",import.meta.url));
   let submitted=0,held=0,finished=false;
@@ -221,12 +227,11 @@ export async function gpuSubmissionProof() {
     if(data.type==="test-held")held++;
   });
   try {
-    check(await send(packet(1,new Uint8Array(8)))===0,"Submission scope open failed");
+    check(await send(packet(1,new Uint8Array(new Uint32Array([size,size]).buffer)))===0,"Submission scope open failed");
     const buffers=[1,2].map(id=>{
       const r=record(1,32,id);r.v.setBigUint64(16,16n,true);r.v.setUint32(24,12,true);return r;
     });
     check(await send(batch(buffers))===0,"Submission buffers failed");
-    // A compute scope queues 64 submissions; the next waits for the oldest.
     const copy=record(9,48,1);copy.v.setBigUint64(16,2n,true);copy.v.setBigUint64(40,16n,true);
     const submit=record(13,8),bound=64;
     const completion=send(batch(Array.from({length:bound+1},()=>[copy,submit]).flat()))
@@ -246,6 +251,5 @@ export async function gpuSubmissionProof() {
     check(submitted===bound+1,"The last submission did not reach the GPU");
     worker.postMessage({type:"test-completion",hold:false});
     check(await send(packet(5))===0,"Submission scope close failed");
-    return {boundedSubmissions:true,oldestCompletionUnblocks:true};
   } finally {worker.terminate();}
 }
