@@ -43,6 +43,7 @@ async function handle(request, response, path, headers) {
 }
 
 await browserTest("shell", { image: "system", server: { handle } }, async ({ server, open }) => {
+  recorded.curl = []; // each browser's run, one after the other on one server
   const { page, submit, result } = await open({ policy: { maxRequests: 256,
     rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"] }] } });
   // Input mailbox: ESC [A with empty history, then help with a deleted typo.
