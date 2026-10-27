@@ -1,0 +1,41 @@
+DOLLY 7
+PACKAGE transcribe
+REQUIRES HOST runtime@0
+# The engine's CPU backend runs threads, in every program it is linked into.
+REQUIRES HOST threads@0
+
+# transcribe.cpp built with CMake from its pinned source: the speech engine and
+# its ggml, for programs the cc package links (speech-to-text, voice). Threads
+# and SIMD are what let the model keep up with speech. The archives are in a
+# directory of their own, beside llama.cpp's ggml in /usr/lib/dolly-llm.
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build a7c12c67f07c9406467205ee32efd798b0f9523ce43e13476d4d3ec21150d037
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL tar
+REQUIRES TOOL mkdir
+REQUIRES TOOL cp
+
+SOURCE /v0.1.4/dist/static/speech/source.tar da5d07ef53db3cf0f2147db7488a06e76b17e0698f23825ebd62752a14dae4ac /tmp/speech-source.tar
+SLOP tar -xf /tmp/speech-source.tar -C /
+# ggml's precompiled header is not built by cc.
+SLOP cmake -S /tmp/transcribe -B /tmp/transcribe/build \
+  -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_C_COMPILER=cc -DCMAKE_CXX_COMPILER=c++ \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE=-O2 -DCMAKE_CXX_FLAGS_RELEASE=-O2 \
+  '-DCMAKE_C_FLAGS=-pthread -msimd128' '-DCMAKE_CXX_FLAGS=-pthread -msimd128' \
+  -DTRANSCRIBE_BUILD_TESTS=OFF -DTRANSCRIBE_BUILD_EXAMPLES=OFF -DTRANSCRIBE_USE_SYSTEM_BLAS=OFF \
+  -DTRANSCRIBE_METAL=OFF -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON
+SLOP make -C /tmp/transcribe/build -j4
+SLOP mkdir -p /usr/lib/transcribe
+SLOP cp /tmp/transcribe/build/src/libtranscribe.a /tmp/transcribe/build/ggml/src/libggml.a \
+  /tmp/transcribe/build/ggml/src/libggml-cpu.a /tmp/transcribe/build/ggml/src/libggml-base.a /usr/lib/transcribe
+SLOP cp -R /tmp/transcribe/include/. /usr/include
+
+EXPORTS LIB    transcribe           /usr/lib/transcribe/libtranscribe.a
+EXPORTS LIB    transcribe-ggml      /usr/lib/transcribe/libggml.a
+EXPORTS LIB    transcribe-ggml-cpu  /usr/lib/transcribe/libggml-cpu.a
+EXPORTS LIB    transcribe-ggml-base /usr/lib/transcribe/libggml-base.a
+EXPORTS HEADER transcribe           /usr/include/transcribe.h
+EXPORTS FOLDER transcribe-headers   /usr/include/transcribe
+EXPORTS FOLDER transcribe-licenses  /usr/share/licenses/transcribe.cpp

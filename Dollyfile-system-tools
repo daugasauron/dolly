@@ -151,8 +151,8 @@ SLOP rm \
 # zlib, gzip and curl for builds, and Git, which Dolly's patch and diff run.
 INSTALL /v0.1.4/Dollyfile-zlib 7f3254e8d51bc7edd2fa47b19f3b1e2e43c747476ab93c57654639e4119abde7
 INSTALL /v0.1.4/Dollyfile-gzip 1be14cb6142500862aa5362445cdfa3c5fc7f4817e775a614754e3dc91ead079
-INSTALL /v0.1.4/Dollyfile-curl 806e6f36d4479c1c8283c58195f53153fff23dcf694de97c58d3e7cf81f15a8c
-INSTALL /v0.1.4/Dollyfile-git 0b7cd77d121eb3736028046fb2eaca04cf507c30fdaf2ad0128094dc5d2032d1
+INSTALL /v0.1.4/Dollyfile-curl 173c3c37eeac846ba8caa316c656cb75e5facea793eb9434337550ddaf3d32d1
+INSTALL /v0.1.4/Dollyfile-git c95451981765c041a271714707ee832eb5b6aaa10ce95d12ac14d152a7fcb5bb
 SOURCE /v0.1.4/dist/static/default/awk.tar f28cae177fa60793a70066d10667e8d06775d979f2262be1c48f8eb941090015 /tmp/awk.tar
 SLOP tar \
   -xf /tmp/awk.tar \

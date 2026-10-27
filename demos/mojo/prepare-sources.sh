@@ -39,7 +39,7 @@ if has_image mojo-llvm; then
   # The one patch of Mojo's LLVM (bazel/public-patches/llvm_source.bzl) outside LLDB and the Bazel overlay.
   copy_static "${mojo_dir}/bazel/public-patches/llvm-machinefunction-sti-ref-to-ptr.patch" mojo/llvm-machinefunction-sti-ref-to-ptr.patch
 fi
-if has_image mojo-build; then
+if has_image mojo; then
   mojo_dir="$(bash scripts/fetch-pinned-checkout.sh modular)"
   fmt_dir="$(bash scripts/fetch-pinned-source.sh fmt)"
   xxhash_dir="$(bash scripts/fetch-pinned-source.sh xxhash)"

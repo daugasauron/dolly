@@ -13,13 +13,13 @@ files.
   compiler links, at the revision Mojo pins, with Mojo's one patch to LLVM's
   code generator, and Zstandard. WebAssembly is the only backend. It keeps
   `/opt/mojo-llvm`: `llvm-tblgen`, `mlir-tblgen`, the archives and the headers.
-- `mojo-build`: a build stage: the compiler, compiled and linked from those
-  archives with the target's patches, and the standard library and the
-  package `gpu` that it precompiles. It keeps `/opt/mojo`.
-- `mojo`: the Mojo compiler built in Dolly, with its standard library, the package `gpu` and the `cc` package: `mojo build NAME.mojo` makes a Dolly executable.
+- `mojo`: the package that holds the compiler's build: compiled and linked
+  from those archives with the target's patches, with the standard library
+  and the package `gpu` that it precompiles, what a Mojo object links against
+  (`libmojo-rt.a`, and `libmojo-gpu.a`, its `DeviceContext` over WebGPU) and
+  the `cc` package: `mojo build NAME.mojo` makes a Dolly executable.
 - `mojo-gpu`: a shell that installs `mojo` in an image that declares `gpu@0`,
   where the kernels of its programs run. Requires WebGPU.
-- `mojo-runtime`: What a Mojo object links against, and its `DeviceContext` over WebGPU. Requires WebGPU.
 
 Programs for Dolly, their runtime and GPU kernels: [target](target/README.md).
 
@@ -49,7 +49,7 @@ in the `mojo-gpu` image.
   and Dolly's GPU library from the same link. The package's
   `/etc/modular/modular.cfg` says so. `--emit object`, `llvm`, `llvm-bitcode` and `asm` write those files.
 - `mojo precompile -o NAME.mojoc DIRECTORY` makes a package; `-I` finds it.
-  `std` and `gpu` are in `/usr/lib/mojo`, precompiled by `mojo-build`.
+  `std` and `gpu` are in `/usr/lib/mojo`, precompiled by the compiler as the package builds.
 - `mojo doc` and `mojo demangle` run.
 - Hello builds in 4.4 s and, from the cache in `~/.cache/modular`, again in
   0.7 s; the standard library precompiles in 22 s (Chrome 151).
@@ -79,10 +79,10 @@ absent, and builds and runs a hello.
 ## Building it
 
 `npm run image -- mojo-gpu` builds the chain: `mojo-llvm` takes 45 to 77 minutes
-at four jobs and `mojo-build` 13 minutes at three, each in a 9 GB slot
+at four jobs and `mojo` 13 minutes at three, each in a 9 GB slot
 (`mojo-llvm`'s `ROCDLDialect.cpp` alone takes a compiler about 5 GB natively;
-`mojo-build` held 6.2 GB of anonymous memory), `mojo` and `mojo-gpu` under
-a minute each.
+the compiler's build held 6.2 GB of anonymous memory), `mojo-gpu` under a
+minute.
 
 ## Key files
 
@@ -111,7 +111,7 @@ a minute each.
   | `Support/PlatformUtils.h` | stops with `#error` unless the platform is Linux, macOS or Windows |
   | `Support/Threading/SpinWaiter.h` | stops with `#error` unless the processor is x86 or ARM; WebAssembly has no pause instruction |
   | `Support/ML/TensorShape.h` | `size_t` and `int64_t` are different types on wasm64, as on macOS |
-  | `Support/lib/BinaryID.cpp` | reads the ELF build-id note of the running program, to key caches; a WebAssembly module has none and names itself by its revision, to which `mojo-build` adds the digest of its source archive |
+  | `Support/lib/BinaryID.cpp` | reads the ELF build-id note of the running program, to key caches; a WebAssembly module has none and names itself by its revision, to which the package's build adds the digest of its source archive |
   | `AsyncRT/Runtime/CPUDevice.h` | the default work queue starts threads; with an LLVM built without threads it is the one that runs on the caller's thread |
   | `AsyncRT/lib/Support/Semaphore.cpp` | `sem_timedwait`, which the libc of a process without threads does not have |
   | `Mojo/tools/mojo/Run/mojo-run.cpp` | `mojo run` executes through LLVM's JIT; it fails saying so |

@@ -8,16 +8,18 @@ REQUIRES HOST http@0
 REQUIRES HOST input@0
 REQUIRES HOST touch@0
 
-FROM /v0.1.4/Dollyfile-system-tools a3b8578fb0377d0a2e3de8bd97b7958272c3d693e67293cb0762d9507dc59663
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 fccd3571549a4aa2495a4950dc8a5ba770a92165e526e3759a036ba538a1ac7a
+FROM /v0.1.4/Dollyfile-system-tools 77db2e123d4c99d554ae29db3fbc17669893bdaef5c000d56f9b5c811bfc7893
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 c141ec6d6d38fae4c627e5b3831a82fe0e332e50fc2267787aa816cef44f9d03
 # FreeType (with its libpng) for the client's fonts, libjpeg for its textures,
 # Vorbis (with its Ogg) for its sounds.
-INSTALL /v0.1.4/demos/xonotic/Dollyfile-libvorbis b8ed71b29e2971f9011f7018bb44df18baf5085900351c9d7031deb9ec8c8b12
-INSTALL /v0.1.4/demos/xonotic/Dollyfile-libjpeg 5bb407a8f5c7159a17325fd23c8b7524164093d89746dcee4254a876b60dfd91
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype 6c1c4abe23f0b790ae86e12442a5bf413c8aff570961ee57e2c6dcb6e312e34e
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-libvorbis 9f59454e904304f7da524b940fcbe95be4d47b9cf9c05bd9e963057c038ffffc
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-libjpeg a48eedc2d8a502ed7126d6fb42b2a431b40adf922990383eb16d65e6be98e49b
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype 7813cf595db4bb3a49e221fe235632f462140ef54126089d3c2c4e236997bc7a
+# gmqcc, which compiles the game logic.
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-gmqcc dff4e0d7f13a81cc247031706bece8a70d9463a9514103e9226911c45f96f5ae
 # The gpu@0 client the render path draws with, and its shaders.
 INSTALL /v0.1.4/Dollyfile-libdolly-gpu 1308d574fd8b030fac77cf9814dc9925d2737be130a6401b9929c80e13307bf2
-INSTALL /v0.1.4/demos/xonotic/Dollyfile-xonotic-shaders 0eacacad1506841de4cd59facad2b0121759519a947007025b49ff2ca4583cf6
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-xonotic-shaders d2a69b7fb9f01e4c887281d678be087f982dd71c9f28b66efcbf5d012e3b5b45
 REQUIRES HEADER cpp
 REQUIRES HEADER gpu
 REQUIRES HEADER sdl2
@@ -40,7 +42,6 @@ SLOP make -f /usr/src/dolly/xonotic/Makefile
 
 EXPORTS TOOL xonotic-dedicated
 EXPORTS TOOL xonotic-sdl
-EXPORTS TOOL gmqcc
 EXPORTS FOLDER xonotic-source /usr/src/xonotic
 EXPORTS FOLDER xonotic-port /usr/src/dolly/xonotic
 FILE /usr/share/licenses/xonotic/COPYING
@@ -49,7 +50,6 @@ FILE /usr/share/licenses/xonotic/GPL-3
 # The MIT notices of qcsrc/lib/warpzone and qcsrc/lib/csqcmodel, compiled into the game logic.
 FILE /usr/share/licenses/xonotic/COPYING.warpzone
 FILE /usr/share/licenses/xonotic/COPYING.csqcmodel
-FILE /usr/share/licenses/gmqcc/LICENSE
 SLOP rm -rf /tmp/xonotic
 
 ENTRY /bin/foreground -i /bin/slop

@@ -8,12 +8,15 @@ own under a stock window manager.
 
 - `x11-desktop`: an X session: the X server, twm, xclock, xeyes and xterm, with `imgui-x11` ([the SDL2 demo](../sdl2/README.md)) for xterm to start and amy to install packages.
 - `xorg-server`: Xsdl, the X server in Dolly's display, with xkbcomp and the keyboard descriptions.
+- `pixman`: the pixel library the X server draws with.
+- `libxkbfile`: X.Org's library of XKB keymap files.
+- `xkbcomp`: the XKB keymap compiler the X server runs.
+- `xkeyboard-config`: the keyboard descriptions xkbcomp reads, with the evdev rules.
 - `twm`: twm, the Tab Window Manager.
 - `xclock`: xclock, the Athena clock.
 - `xeyes`: xeyes, the eyes that follow the pointer.
 - `xterm`: xterm, the terminal emulator for X, with a shell on a pseudo-terminal.
 - `x11-build`: A build stage: X's client libraries, from the protocol headers and libxcb to the Athena widgets, as static libraries.
-- `xorg-server-build`: A build stage: the X server and its libraries, built by upstream's Meson where it has one.
 
 Open `/x11-desktop/`; build with `npm run image -- x11-desktop`. The session
 starts the server, twm, xclock, xeyes and xterm. Windows move by their title
@@ -33,10 +36,11 @@ is back.
   written by xcb-proto's generator in Dolly's Python. Static libraries and
   pkg-config files: `pkg-config --libs xaw7` names what to link, sockets@0's
   client (`-ldolly-sockets`) included.
-- [`Dollyfile-xorg-server-build`](Dollyfile-xorg-server-build): pixman,
-  libxkbfile, xkbcomp and xorg-server 21.1.25 by upstream's Meson, libmd's
-  SHA-1 and libXfont2 (built-in fonts, PCF and BDF) by a Makefile,
-  xkeyboard-config's evdev rules by its own generator.
+- pixman, libxkbfile and xkbcomp are packages, each built by upstream's Meson;
+  xkeyboard-config's package writes its evdev rules with its own generator.
+  [`Dollyfile-xorg-server`](Dollyfile-xorg-server) builds xorg-server 21.1.25
+  by upstream's Meson on them, and libmd's SHA-1 and libXfont2 (built-in
+  fonts, PCF and BDF) for the server alone by a Makefile.
 - The server is Xsdl, the kdrive server in an SDL window, which xorg-server
   had until 2009 (commit 52bc6d94, "kdrive: Purge Xsdl"). [`xsdl/sdl.c`](xsdl/sdl.c)
   is that driver ported to SDL 2 and to today's kdrive, and

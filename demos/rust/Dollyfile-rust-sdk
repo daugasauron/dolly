@@ -10,7 +10,7 @@ REQUIRES HOST threads@0
 FROM /v0.1.4/Dollyfile-system-build 7997c05ba08220831088b2aa713c86dbf0ded0229bbfa84f411476f00269d9fc
 INSTALL /v0.1.4/Dollyfile-zlib 7f3254e8d51bc7edd2fa47b19f3b1e2e43c747476ab93c57654639e4119abde7
 INSTALL /v0.1.4/Dollyfile-gzip 1be14cb6142500862aa5362445cdfa3c5fc7f4817e775a614754e3dc91ead079
-INSTALL /v0.1.4/Dollyfile-curl 806e6f36d4479c1c8283c58195f53153fff23dcf694de97c58d3e7cf81f15a8c
+INSTALL /v0.1.4/Dollyfile-curl 173c3c37eeac846ba8caa316c656cb75e5facea793eb9434337550ddaf3d32d1
 REQUIRES LIB z
 REQUIRES LIB curl
 REQUIRES TOOL cc
@@ -46,7 +46,7 @@ EXPORTS TOOL rustc
 EXPORTS TOOL cargo
 # Images build once, so rustc's incremental sessions would only be a second
 # copy of every object (there are no hard links), in a filesystem that lives in
-# kernel memory: codex-build ran out of space at codex-core with them. The
+# kernel memory: the codex build ran out of space at codex-core with them. The
 # cargo package, for a session's own projects, keeps them.
 EXPORTS ENV CARGO_INCREMENTAL 0
 # The cc crate's default flags name a target; Dolly's cc has one.

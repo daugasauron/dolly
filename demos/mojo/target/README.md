@@ -23,14 +23,15 @@ flowchart LR
   bindings to Dolly's libc, and for WebGPU the kernel-side names
   (`thread_idx`, `block_idx`, `block_dim`, `grid_dim`, `global_idx`) and
   what a kernel prints.
-- [`../Dollyfile-mojo-runtime`](../Dollyfile-mojo-runtime): `libmojo-rt.a`,
-  the compiler runtime over libc, and `libmojo-gpu.a`, the device side of
-  `DeviceContext` over `gpu@0`. Their sources are the recipe's `FILE` bodies.
+- [`../Dollyfile-mojo`](../Dollyfile-mojo): besides the compiler,
+  `libmojo-rt.a`, the compiler runtime over libc, and `libmojo-gpu.a`, the
+  device side of `DeviceContext` over `gpu@0`. Their sources are the recipe's
+  `FILE` bodies.
 - [`gpu/`](gpu): the Mojo package `gpu`: `gpu.host.DeviceContext`, the
   kernel-side names and `gpu.sync.barrier`. A program imports it with `-I`
   this directory.
 - [`cross-compile.sh`](cross-compile.sh), [`test/`](test): the fixtures as
-  objects, and their run in the `mojo-runtime` image.
+  objects, and their run in the `mojo-gpu` image.
 
 ## Build and test
 
@@ -51,7 +52,7 @@ printf '%s\n' 'startup --output_user_root='"$PWD"'/../bazel-root' \
 ./bazelw build //Mojo/tools/mojo:mojo
 cd ../../..
 demos/mojo/target/cross-compile.sh
-npm run image -- mojo-runtime
+npm run image -- mojo-gpu
 node demos/mojo/target/test/mojo-target-browser.mjs
 ```
 

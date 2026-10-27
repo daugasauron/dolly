@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # The Xonotic dedicated server (DarkPlaces' OBJ_SV: null video, thread and
-# sound units) and gmqcc, built inside Dolly.
+# sound units), built inside Dolly; gmqcc, from its package, compiles the game logic.
 CC := cc
 CXX := c++
 SOURCE := /usr/src/xonotic
@@ -42,10 +42,7 @@ CLIENT_CFLAGS := $(CFLAGS) -DCONFIG_MENU -DCONFIG_CD -DSSE_PRESENT -DSSE2_PRESEN
   -DLINK_TO_LIBJPEG -DDP_FREETYPE_STATIC -I/usr/include/freetype2 -DLINK_TO_LIBVORBIS
 SIMD_UNITS := dpsoftrast mod_skeletal_animatevertices_sse
 
-GMQCC_UNITS := ast code conout fold ftepp intrin ir lexer main opts parser stat utf8 util
-GMQCC_OBJECTS := $(patsubst %,$(BUILD)/gmqcc/%.o,$(GMQCC_UNITS))
-
-all: /usr/bin/xonotic-dedicated /usr/bin/xonotic-sdl /usr/bin/gmqcc
+all: /usr/bin/xonotic-dedicated /usr/bin/xonotic-sdl
 
 # builddate.c is compiled at link time, as upstream does, for the version banner.
 /usr/bin/xonotic-dedicated: $(SERVER_OBJECTS) $(ENGINE)/builddate.c
@@ -113,13 +110,6 @@ $(SHADERS)/%.frag.wgsl: $(GLSL)/%.frag
 $(SHADERS)/%.uniforms: $(GLSL)/%.uniforms
 	mkdir -p $(@D)
 	cp $< $@
-
-/usr/bin/gmqcc: $(GMQCC_OBJECTS)
-	$(CXX) $(GMQCC_OBJECTS) -o $@
-
-$(BUILD)/gmqcc/%.o: $(SOURCE)/gmqcc/%.cpp
-	mkdir -p $(@D)
-	$(CXX) -O1 -std=c++11 -c $< -o $@
 
 # The game logic as qcsrc/Makefile and tools/qcc.sh build it: cc preprocesses
 # each progs.inc, the line markers become gmqcc pragmas, gmqcc compiles the

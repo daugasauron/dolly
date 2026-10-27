@@ -9,8 +9,8 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/Dollyfile-system c6309c0a7bbd8f3038f36ebb426704e3c6b2c52d7d8101a59a453a17b18c9781
-INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 6c157a8730382e8725422ee5f41f78da21b990fbdbdf49ccf3fb245b9efd222d
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 950b948e6434e9ba1a4e763fecea827ea76422d27591ff129e07a43c9ecfec83
+FROM /v0.1.4/Dollyfile-system ace3fd69f462238de61423ca89a4c282d22d9cd4d1ca6ba17e86e2bb490b147e
+INSTALL /v0.1.4/demos/javascript/Dollyfile-janis e6628f8fe2a04080db11b4805c2dbb312fcbd21f3383011343172485d15c4a12
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly d15812465dde2de2abfc5eb6dc0630b92b0b4d58dfdbcf434987c0f082a04ce5
 
 ENTRY /bin/foreground -i /bin/slop

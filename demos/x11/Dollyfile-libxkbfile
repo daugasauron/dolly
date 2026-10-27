@@ -1,0 +1,33 @@
+DOLLY 7
+PACKAGE libxkbfile
+REQUIRES HOST runtime@0
+
+# libxkbfile, X.Org's library of XKB keymap files, from its release archive,
+# built by its Meson project as a static library: xkbcomp and the X server
+# link it.
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build e074880a15b565617d3d59732f7a85b52eb0a271162d5bca2dcdb8f94c5774f1
+# The tar package reads the pax headers of X.Org's archives.
+USE /v0.1.4/demos/tools/Dollyfile-tar e010ec84cb2b4677ac4465862c59337dddc68b64c94ac3adcd12d56cded38bde
+USE /v0.1.4/demos/tools/Dollyfile-xz b019dd9e5e073f4c257d20b4330e9c617bb7232d123a31ba086174fdd3dcfa07
+USE /v0.1.4/demos/tools/Dollyfile-meson c6f613ce28509cf624176a286060928a2e39db9862201a7a9d23f766f397856a
+USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 1d5456b04c97495a49675010c912ab55a92bba220979cab66355da1782633947
+REQUIRES TOOL meson
+REQUIRES TOOL xz
+REQUIRES TOOL tar
+
+SOURCE /v0.1.4/dist/static/x11/libxkbfile-1.2.0.tar.xz 7f71884e5faf56fb0e823f3848599cf9b5a9afce51c90982baeb64f635233ebf /tmp/libxkbfile.tar.xz
+SLOP xz -dc /tmp/libxkbfile.tar.xz | tar -xf - -C /tmp
+SLOP meson setup /tmp/build/xkbfile /tmp/libxkbfile-1.2.0 --prefix=/usr --libdir=lib \
+  --buildtype=release -Ddefault_library=static
+SLOP meson compile -C /tmp/build/xkbfile && meson install --no-rebuild -C /tmp/build/xkbfile
+SLOP mkdir -p /usr/share/licenses/libxkbfile && cp /tmp/libxkbfile-1.2.0/COPYING /usr/share/licenses/libxkbfile/
+
+EXPORTS LIB xkbfile /usr/lib/libxkbfile.a
+FILE /usr/include/X11/extensions/XKBbells.h
+FILE /usr/include/X11/extensions/XKBconfig.h
+FILE /usr/include/X11/extensions/XKBfile.h
+FILE /usr/include/X11/extensions/XKBrules.h
+FILE /usr/include/X11/extensions/XKM.h
+FILE /usr/include/X11/extensions/XKMformat.h
+FILE /usr/lib/pkgconfig/xkbfile.pc
+FILE /usr/share/licenses/libxkbfile/COPYING

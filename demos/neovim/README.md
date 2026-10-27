@@ -5,9 +5,9 @@ Neovim, PUC Lua and Tree-sitter grammars compiled inside Dolly from pinned sourc
 ## Images
 
 - `neovim`: Neovim with Lua and syntax parsers.
-- `neovim-build`: Neovim, Lua and syntax-parser build tools.
 - `nvim`: `nvim`, Neovim with its runtime and parsers.
-- `lua`: `lua`, PUC Lua 5.1, with its library and headers and the LPeg and luv modules.
+- `lua`: `lua`, PUC Lua 5.1, with its library and headers and the LPeg and luv
+  modules, also as static libraries.
 
 Open `/neovim/`; build with `npm run image -- neovim`. The image enters the
 editor; `:q` returns to Slop and `nvim` reopens it. `:!command` runs Slop.
@@ -15,8 +15,7 @@ Ctrl+C is Dolly's process interrupt, not an insert-mode exit.
 
 ## Key files
 
-- [`Dollyfile-neovim-build`](Dollyfile-neovim-build), [`Dollyfile-neovim-build`](Dollyfile-neovim-build), [`Dollyfile-neovim-build`](Dollyfile-neovim-build),
-  [`Dollyfile-neovim-build`](Dollyfile-neovim-build), [`Dollyfile-neovim-build`](Dollyfile-neovim-build):
+- [`Dollyfile-lua`](Dollyfile-lua), [`Dollyfile-nvim`](Dollyfile-nvim):
   builds, starting from `cmake-build` ([CMake](../cmake/README.md)).
 - [`neovim-dolly.patch`](neovim-dolly.patch): keeps children attached to their
   owner, targets the child PID on cancel, fixes a memory64 terminfo varargs call.

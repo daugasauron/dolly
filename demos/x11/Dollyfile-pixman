@@ -1,0 +1,37 @@
+DOLLY 7
+PACKAGE pixman
+REQUIRES HOST runtime@0
+
+# pixman, the pixel library of X.Org's server (and of cairo), from its release
+# archive, built by its Meson project as a static library: without the SIMD of
+# other machines; Dolly runs no OpenMP. Meson's install would rebuild first as
+# another user: Dolly's Python has no os.geteuid, so the build compiles, then
+# installs what it compiled.
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build e074880a15b565617d3d59732f7a85b52eb0a271162d5bca2dcdb8f94c5774f1
+# The tar package reads the pax headers of X.Org's archives.
+USE /v0.1.4/demos/tools/Dollyfile-tar e010ec84cb2b4677ac4465862c59337dddc68b64c94ac3adcd12d56cded38bde
+USE /v0.1.4/demos/tools/Dollyfile-meson c6f613ce28509cf624176a286060928a2e39db9862201a7a9d23f766f397856a
+USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 1d5456b04c97495a49675010c912ab55a92bba220979cab66355da1782633947
+REQUIRES TOOL meson
+REQUIRES TOOL gzip
+REQUIRES TOOL tar
+REQUIRES TOOL sed
+REQUIRES TOOL mv
+
+SOURCE /v0.1.4/dist/static/x11/pixman-0.46.4.tar.gz d09c44ebc3bd5bee7021c79f922fe8fb2fb57f7320f55e97ff9914d2346a591c /tmp/pixman.tar.gz
+SLOP gzip -dc /tmp/pixman.tar.gz | tar -xf - -C /tmp
+SLOP meson setup /tmp/build/pixman /tmp/pixman-0.46.4 --prefix=/usr --libdir=lib \
+  --buildtype=release -Ddefault_library=static -Dloongson-mmi=disabled -Dmmx=disabled \
+  -Dsse2=disabled -Dssse3=disabled -Dvmx=disabled -Darm-simd=disabled -Dneon=disabled \
+  -Da64-neon=disabled -Dmips-dspr2=disabled -Drvv=disabled -Dgnu-inline-asm=disabled \
+  -Dopenmp=disabled -Dtimers=false -Dgtk=disabled -Dlibpng=disabled -Dtests=disabled -Ddemos=disabled
+SLOP meson compile -C /tmp/build/pixman && meson install --no-rebuild -C /tmp/build/pixman
+# Meson's threads dependency puts -pthread in pixman's pkg-config file, which
+# would make each program that links it a threaded one; pixman needs no thread here.
+SLOP sed 's/ -pthread//g' /usr/lib/pkgconfig/pixman-1.pc > /tmp/pixman-1.pc && mv /tmp/pixman-1.pc /usr/lib/pkgconfig/pixman-1.pc
+SLOP mkdir -p /usr/share/licenses/pixman && cp /tmp/pixman-0.46.4/COPYING /usr/share/licenses/pixman/
+
+EXPORTS LIB    pixman-1        /usr/lib/libpixman-1.a
+EXPORTS FOLDER pixman-headers  /usr/include/pixman-1
+FILE /usr/lib/pkgconfig/pixman-1.pc
+FILE /usr/share/licenses/pixman/COPYING

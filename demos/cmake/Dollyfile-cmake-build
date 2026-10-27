@@ -5,66 +5,10 @@ REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST http@0
 
-# Keep the expensive bootstrap reusable across source-build workspaces.
-FROM /v0.1.4/Dollyfile-system-tools a3b8578fb0377d0a2e3de8bd97b7958272c3d693e67293cb0762d9507dc59663
-INSTALL /v0.1.4/demos/cmake/Dollyfile-libuv efe171d387d8f839d5ebbd43b22c7b1247f87622041ae698ec50a4076adf35f6
-REQUIRES HEADER libc
-REQUIRES HEADER runtime
-REQUIRES TOOL cc
-REQUIRES TOOL ar
-REQUIRES TOOL make
-REQUIRES TOOL cp
-REQUIRES TOOL tar
-REQUIRES TOOL rm
-# Bootstrap CMake from upstream source on the libuv package.
-REQUIRES HEADER cpp
-REQUIRES LIB c++
-REQUIRES LIB c++abi
-REQUIRES HEADER uv
-REQUIRES LIB uv
-REQUIRES LIB curl
-REQUIRES LIB z
-REQUIRES TOOL c++
-REQUIRES TOOL sh
-REQUIRES TOOL gzip
-REQUIRES TOOL mkdir
-REQUIRES TOOL cat
-REQUIRES TOOL dirname
-REQUIRES TOOL diff
-REQUIRES TOOL echo
-REQUIRES TOOL false
-REQUIRES TOOL grep
-REQUIRES TOOL printf
-REQUIRES TOOL pwd
-REQUIRES TOOL sed
-REQUIRES TOOL test
-REQUIRES TOOL tr
-REQUIRES TOOL true
-REQUIRES TOOL uname
-REQUIRES TOOL which
-
-SOURCE /v0.1.4/dist/static/cmake/cmake.tar.gz e49a4a2cd7ed5ff7fb2b8a7bf3a0ce1a61b7dd444b20604075e2152f158c4a41 /tmp/cmake/source.tar.gz
-SLOP gzip -dc /tmp/cmake/source.tar.gz | tar -xf - -C /
-
-FILE /tmp/cmake/build.slop
-    set -ex
-    cd /tmp/cmake/source
-    CC=cc CXX=c++ CFLAGS=-O0 CXXFLAGS='-O0 -std=c++17' slop bootstrap \
-      --prefix=/usr --parallel=1 --bootstrap-system-libuv \
-      --system-libuv --system-curl --system-zlib --no-qt-gui --no-debugger \
-      -- -DBUILD_TESTING=OFF -DBUILD_CursesDialog=OFF -DCMAKE_USE_OPENSSL=OFF \
-      -DCMake_INSTALL_COMPONENTS=ON \
-      -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS_DEBUG=-O0 -DCMAKE_CXX_FLAGS_DEBUG=-O0
-    make cmake
-    ./bin/cmake --install . --component cmake
-    ./bin/cmake --install . --component Unspecified
-    cmake --version
-SLOP slop -e /tmp/cmake/build.slop
-
-EXPORTS TOOL cmake
-EXPORTS FOLDER cmake-data /usr/share/cmake-4.4
-FILE /usr/share/licenses/cmake/LICENSE.rst
-
-SLOP rm -rf /tmp/cmake
+# The base of CMake builds: the system's tools, libuv and the cmake package,
+# which holds CMake's own build.
+FROM /v0.1.4/Dollyfile-system-tools 77db2e123d4c99d554ae29db3fbc17669893bdaef5c000d56f9b5c811bfc7893
+INSTALL /v0.1.4/demos/cmake/Dollyfile-libuv 381372e689c2d434b8f68bf378c732ea1f722c76133f14211086f6bff8b63433
+INSTALL /v0.1.4/demos/cmake/Dollyfile-cmake 68ade83b73ad16f2fbeb51f37b431817a6f9fd3e97af08aa64c29887952254fd
 
 ENTRY /bin/foreground -i /bin/slop

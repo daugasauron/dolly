@@ -8,7 +8,7 @@ REQUIRES HOST http@0
 # installed with it.
 FROM /v0.1.4/Dollyfile-system-build 7997c05ba08220831088b2aa713c86dbf0ded0229bbfa84f411476f00269d9fc
 USE /v0.1.4/Dollyfile-zlib 7f3254e8d51bc7edd2fa47b19f3b1e2e43c747476ab93c57654639e4119abde7
-USE /v0.1.4/Dollyfile-curl 806e6f36d4479c1c8283c58195f53153fff23dcf694de97c58d3e7cf81f15a8c
+USE /v0.1.4/Dollyfile-curl 173c3c37eeac846ba8caa316c656cb75e5facea793eb9434337550ddaf3d32d1
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES HEADER curl

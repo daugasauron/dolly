@@ -7,9 +7,9 @@ outside, and builds Go programs that run as Dolly commands.
 ## Images
 
 - `go-sdk`: the seed, staged: Go's GOROOT for dolly/wasm64, cross-built outside Dolly.
-- `go-build`: the toolchain and standard library compiled again inside Dolly by the seed; the base of every Go build.
+- `go-build`: the seed with the `go` package installed over it; the base of every Go build.
 - `go-tools`: interactive shell: `system` with the `go` and `esbuild` packages.
-- `go`: `go` and `gofmt`, the Go toolchain built inside Dolly.
+- `go`: `go` and `gofmt`, the Go toolchain and standard library compiled again inside Dolly by the seed.
 - `esbuild`: `esbuild`, the JavaScript and TypeScript bundler, built by `go`.
 
 Build the seed once with `./demos/go/build-go-toolchain.sh` (Linux x86_64, curl, patch,
@@ -29,7 +29,7 @@ was built for (`DOLLY_PROCESS_ABI_DIGEST`), so a change of the contract rebuilds
 
 ## Built inside Dolly
 
-[`Dollyfile-go-build`](Dollyfile-go-build) runs the seed's `go install -a` on the
+[`Dollyfile-go`](Dollyfile-go) runs the seed's `go install -a` on the
 seed's sources, with the flags of upstream's release build, over the seed: every
 package of the standard library and of the ten commands upstream ships is
 compiled in Dolly. The build fails unless each command is byte for byte the
@@ -73,7 +73,7 @@ source by itself.
 - A program is one thread and `runtime.NumCPU` is 1, so the go package sets
   `GOFLAGS=-p=4`, which halves a small module's first build. One compile of
   the toolchain's own `cmd/compile/internal/ssa` can grow to 3.9 GiB, so
-  go-build compiles two at a time under `GOMEMLIMIT`.
+  the go package's build compiles two at a time under `GOMEMLIMIT`.
 - While the processes hold 4 GiB, a compile `go build` starts beside another
   running one waits until a process ends.
 

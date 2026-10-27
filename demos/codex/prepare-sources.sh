@@ -1,5 +1,5 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_image codex-build; then
+if has_image codex; then
   python3 demos/codex/prepare-codex-sources.py
   for part in build/codex-source-parts/*.part; do
     copy_static "${part}" "codex/$(basename "${part}")"

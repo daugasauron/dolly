@@ -3,29 +3,151 @@ PACKAGE nvim
 REQUIRES HOST runtime@0
 REQUIRES HOST dso@0
 
-# Its manual page is formatted here as text, which man prints: tools-build
-# has mandoc, and a package keeps nothing of the base it is built on.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build b289bd068995a5c947bcb5604b186ac475b2a218da3af20a7b37d50615ec1efd
-REQUIRES TOOL gzip
-REQUIRES TOOL tar
-REQUIRES TOOL text-page
-SOURCE /v0.1.4/dist/static/neovim/neovim.tar.gz 037fc672b70c6bc962e9ecf08b847f5d4f4d2e526678c00dd8382aa156db3c82 /tmp/neovim.tar.gz
-SLOP gzip -dc /tmp/neovim.tar.gz | tar -xf - -C /
-SLOP text-page /tmp/neovim/source/src/man/nvim.1
-FILE /usr/share/man/cat1/nvim.1
+# Neovim with the libraries at its pins that only it uses, utf8proc and
+# tree-sitter, and its grammars; Lua, LPeg and luv come from the lua package
+# and are linked in.
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build a7c12c67f07c9406467205ee32efd798b0f9523ce43e13476d4d3ec21150d037
+USE /v0.1.4/demos/neovim/Dollyfile-lua 1f5cd1c1854d70e5b398911c19cda2fe0a3a0195c4cccb81c5bc65ad702665ea
+USE /v0.1.4/Dollyfile-mandoc 3c3fc19cfaf5a095cd7581473a2bcdad3bbe2d7d8bff22fc609a6f81201ae542
+REQUIRES TOOL uname
 
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/bin/nvim /usr/bin/nvim
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/share/nvim /usr/share/nvim
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/lib/nvim /usr/lib/nvim
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/share/licenses/neovim /usr/share/licenses/neovim
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/share/licenses/neovim-parsers /usr/share/licenses/neovim-parsers
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/share/licenses/libuv /usr/share/licenses/libuv
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/share/licenses/lua /usr/share/licenses/lua
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/share/licenses/luv /usr/share/licenses/luv
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/share/licenses/lua-compat53 /usr/share/licenses/lua-compat53
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/share/licenses/lpeg /usr/share/licenses/lpeg
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/share/licenses/utf8proc /usr/share/licenses/utf8proc
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/share/licenses/treesitter /usr/share/licenses/treesitter
+SOURCE /v0.1.4/dist/static/neovim/utf8proc.tar c9fdc1bf18b4d5ceb006b2847f6ead4642bfd82a7f102652cac4c13105b0e12a /tmp/utf8proc/source.tar
+SLOP tar -xf /tmp/utf8proc/source.tar -C /
+SLOP make -C /tmp/utf8proc/source CC=cc CFLAGS=-O0 libutf8proc.a
+SLOP cp /tmp/utf8proc/source/libutf8proc.a /usr/lib/libutf8proc.a
+SLOP cp /tmp/utf8proc/source/utf8proc.h /usr/include/utf8proc.h
+
+FILE /tmp/utf8proc/check.c
+    #include <utf8proc.h>
+    #include <assert.h>
+    #include <stdlib.h>
+    #include <string.h>
+    int main(void) {
+      assert(utf8proc_charwidth(0x65e5) == 2);
+      unsigned char *text = utf8proc_NFC((const unsigned char *)"e\xcc\x81");
+      assert(text && strcmp((const char *)text, "\xc3\xa9") == 0);
+      free(text);
+      return 0;
+    }
+SLOP cc -O0 /tmp/utf8proc/check.c -lutf8proc -o /tmp/utf8proc/check
+SLOP /tmp/utf8proc/check
+
+FILE /usr/share/licenses/utf8proc/LICENSE
+SLOP rm -rf /tmp/utf8proc
+SOURCE /v0.1.4/dist/static/neovim/treesitter.tar c31944873f3cd13235f2e9148b474f329b6bf183823baea50eacdb125fc46f9c /tmp/treesitter/source.tar
+SLOP tar -xf /tmp/treesitter/source.tar -C /
+SLOP make -C /tmp/treesitter/source CC=cc CFLAGS=-O0 libtree-sitter.a
+SLOP cp /tmp/treesitter/source/libtree-sitter.a /usr/lib/libtree-sitter.a
+SLOP cp -R /tmp/treesitter/source/lib/include/tree_sitter /usr/include
+SLOP cp /tmp/treesitter/source/lib/src/unicode/LICENSE /usr/share/licenses/treesitter/Unicode-LICENSE
+
+FILE /tmp/treesitter/check.c
+    #include <tree_sitter/api.h>
+    #include <assert.h>
+    int main(void) {
+      TSParser *parser = ts_parser_new();
+      assert(parser && ts_parser_language(parser) == 0);
+      ts_parser_reset(parser);
+      ts_parser_delete(parser);
+      return 0;
+    }
+SLOP cc -O0 /tmp/treesitter/check.c -ltree-sitter -o /tmp/treesitter/check
+SLOP /tmp/treesitter/check
+
+FILE /usr/share/licenses/treesitter/LICENSE
+FILE /usr/share/licenses/treesitter/Unicode-LICENSE
+SLOP rm -rf /tmp/treesitter
+# Upstream generators and the editor itself execute inside Dolly.
+REQUIRES HEADER luv
+REQUIRES LIB luv
+REQUIRES LIB lpeg
+REQUIRES LIB lua-lpeg
+REQUIRES LIB lua-luv
+REQUIRES TOOL sh
+REQUIRES TOOL sleep
+REQUIRES TOOL timeout
+
+SOURCE /v0.1.4/dist/static/neovim/neovim.tar.gz 037fc672b70c6bc962e9ecf08b847f5d4f4d2e526678c00dd8382aa156db3c82 /tmp/neovim/source.tar.gz
+SLOP gzip -dc /tmp/neovim/source.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/neovim/source -B /tmp/neovim/build \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib \
+  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS_DEBUG=-O0 \
+  -DPREFER_LUA=ON -DENABLE_LTO=OFF -DENABLE_LIBINTL=OFF \
+  -DENABLE_UNIBILIUM=OFF -DENABLE_WASMTIME=OFF \
+  -DLUA_INCLUDE_DIR=/usr/include/lua5.1 -DLUA_LIBRARY=/usr/lib/liblua.a -DLUA_MATH_LIBRARY:STRING=m
+SLOP cmake --build /tmp/neovim/build --target nvim
+SLOP cmake --install /tmp/neovim/build
+
+FILE /tmp/neovim/check.lua
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, {"Dolly", "日本語"})
+    vim.cmd("write /tmp/neovim/check.txt")
+    vim.cmd("bdelete!")
+    vim.cmd("edit /tmp/neovim/check.txt")
+    assert(vim.deep_equal(vim.api.nvim_buf_get_lines(0, 0, -1, false), {"Dolly", "日本語"}))
+    local result = vim.fn.system({"/bin/slop", "-c", "printf SLOP-CHILD"})
+    assert(result == "SLOP-CHILD" and vim.v.shell_error == 0,
+      "Slop child status " .. vim.v.shell_error .. ": " .. vim.inspect(result))
+    local stopped, output = false, ""
+    local job = vim.fn.jobstart({"/bin/slop", "-c", "printf FIRST; read answer; printf SECOND; sleep 30"}, {
+      on_stdout = function(_, data) output = output .. table.concat(data, "\n") end,
+      on_exit = function() stopped = true end,
+    })
+    assert(job > 0)
+    assert(vim.wait(3000, function() return output:find("FIRST", 1, true) end))
+    assert(vim.fn.chansend(job, "go\n") > 0)
+    assert(vim.wait(3000, function() return output:find("SECOND", 1, true) end))
+    assert(vim.fn.jobstop(job) == 1)
+    assert(vim.wait(3000, function() return stopped end))
+    vim.cmd("quit!")
+SLOP timeout 60 nvim --clean --headless -l /tmp/neovim/check.lua
+
 EXPORTS TOOL nvim
 EXPORTS FOLDER nvim-runtime /usr/share/nvim
 EXPORTS FOLDER nvim-libraries /usr/lib/nvim
+FILE /usr/share/licenses/neovim/LICENSE.txt
+FILE /usr/share/licenses/neovim/mpack
+FILE /usr/share/licenses/neovim/vterm
+FILE /usr/share/licenses/lua/COPYRIGHT
+FILE /usr/share/licenses/lpeg/lpeg.html
+FILE /usr/share/licenses/luv/LICENSE.txt
+FILE /usr/share/licenses/lua-compat53/LICENSE
+FILE /usr/share/licenses/libuv/LICENSE
+REQUIRES TOOL text-page
+SLOP text-page /tmp/neovim/source/src/man/nvim.1
+FILE /usr/share/man/cat1/nvim.1
+SLOP rm -rf /tmp/neovim
+REQUIRES TOOL nvim
+
+# Neovim's pinned grammars and its own CMake build recipes, all built in Dolly.
+SOURCE /v0.1.4/dist/static/neovim/parsers.tar 18656076f67f0cb39a68cbe1c6f628c35faf23e2ec207f914e97874a9cf323f7 /tmp/neovim-parsers/source.tar
+SLOP tar -xf /tmp/neovim-parsers/source.tar -C /
+FILE /tmp/neovim-parsers/build.slop
+    set -ex
+    for language in c lua vim vimdoc query markdown; do
+      cmake -S /tmp/neovim-parsers/$language -B /tmp/neovim-parsers/$language/build \
+        -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_C_FLAGS=-O0 -DPARSERLANG=$language
+      cmake --build /tmp/neovim-parsers/$language/build
+      cmake --install /tmp/neovim-parsers/$language/build
+    done
+SLOP slop /tmp/neovim-parsers/build.slop
+
+FILE /tmp/neovim-parsers/check.lua
+    for language, source in pairs({
+      c = "int main(void) { return 0; }",
+      lua = "return 42",
+      vim = "echo 'Dolly'\n",
+      vimdoc = "Dolly\n\n",
+      query = "(identifier) @name",
+      markdown = "# Dolly\n",
+      markdown_inline = "**Dolly**",
+    }) do
+      local parser = vim.treesitter.get_string_parser(source, language)
+      local tree = assert(parser:parse()[1])
+      assert(not tree:root():has_error(), language .. ": " .. tree:root():sexpr())
+    end
+    vim.cmd("quit!")
+SLOP timeout 30 nvim --clean --headless -l /tmp/neovim-parsers/check.lua
+
+EXPORTS FOLDER nvim-parsers /usr/lib/nvim/parser
+EXPORTS FOLDER nvim-parser-licenses /usr/share/licenses/neovim-parsers
+SLOP rm -rf /tmp/neovim-parsers

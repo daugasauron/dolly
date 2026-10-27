@@ -7,7 +7,6 @@ the Rust toolchain Dolly builds ([Rust demo](../rust/README.md)).
 
 - `codex`: `codex`, the Codex coding agent with its launcher, and the `ripgrep` and `fd` packages.
 - `codex-agent`: Codex TUI with shell tools, ripgrep and fd.
-- `codex-build`: Source-built Codex and its build record.
 
 Open `/codex-agent/`; build with `npm run image -- codex-agent` (about 70
 minutes). Quitting the TUI returns to Slop; `codex` starts it again. In
@@ -26,9 +25,9 @@ another image, `amy install codex` brings the command.
 
 ## Key files
 
-- [`Dollyfile-codex-build`](Dollyfile-codex-build): the complete offline Cargo build; its
-  lock file is kept at `/usr/share/dolly/builds/codex.lock`.
-- [`Dollyfile-codex`](Dollyfile-codex), [`launch.c`](launch.c): the package and its launcher;
+- [`Dollyfile-codex`](Dollyfile-codex), [`launch.c`](launch.c): the package, the complete
+  offline Cargo build (its lock file is kept at `/usr/share/dolly/builds/codex.lock`),
+  and its launcher;
   [`Dollyfile-codex-agent`](Dollyfile-codex-agent) installs it and starts the TUI.
 - [`config/`](config/): source pins ([`codex-git.json`](config/codex-git.json)),
   Cargo settings ([`cargo.toml`](config/cargo.toml)) and target patches.

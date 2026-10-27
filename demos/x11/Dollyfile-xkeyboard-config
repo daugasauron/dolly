@@ -1,0 +1,26 @@
+DOLLY 7
+PACKAGE xkeyboard-config
+REQUIRES HOST runtime@0
+
+# xkeyboard-config's keyboard descriptions, which xkbcomp reads for the X
+# server, and the evdev rules its Meson build writes with this generator (the
+# .lst files it adds need Perl).
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build e074880a15b565617d3d59732f7a85b52eb0a271162d5bca2dcdb8f94c5774f1
+# The tar package reads the pax headers of X.Org's archives.
+USE /v0.1.4/demos/tools/Dollyfile-tar e010ec84cb2b4677ac4465862c59337dddc68b64c94ac3adcd12d56cded38bde
+USE /v0.1.4/demos/tools/Dollyfile-xz b019dd9e5e073f4c257d20b4330e9c617bb7232d123a31ba086174fdd3dcfa07
+REQUIRES TOOL python3
+REQUIRES TOOL xz
+REQUIRES TOOL tar
+
+SOURCE /v0.1.4/dist/static/x11/xkeyboard-config-2.48.tar.xz b77041324f0109f77161ee43743fe04baa485866af8460d31e476ad3f7648fd5 /tmp/xkeyboard-config.tar.xz
+SLOP xz -dc /tmp/xkeyboard-config.tar.xz | tar -xf - -C /tmp
+SLOP mkdir -p /usr/share/X11/xkb/rules
+SLOP CWD /tmp/xkeyboard-config-2.48 cp -r compat geometry keycodes symbols types /usr/share/X11/xkb/
+SLOP CWD /tmp/xkeyboard-config-2.48 PYTHONPATH=. python3 -m rules.generator rules \
+  --ruleset evdev --version v2 --output /usr/share/X11/xkb/rules/evdev rules/rules.in
+SLOP cp /tmp/xkeyboard-config-2.48/rules/base.xml /usr/share/X11/xkb/rules/evdev.xml
+SLOP mkdir -p /usr/share/licenses/xkeyboard-config && cp /tmp/xkeyboard-config-2.48/COPYING /usr/share/licenses/xkeyboard-config/
+
+FOLDER /usr/share/X11/xkb
+FILE /usr/share/licenses/xkeyboard-config/COPYING

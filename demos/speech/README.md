@@ -8,7 +8,7 @@ the place of a keyboard, for Pi on a phone.
 
 ## Images
 
-- `speech-build`: transcribe.cpp built with CMake, and `speech-to-text` and `voice` linked against it.
+- `transcribe`: the transcribe.cpp library and its ggml, built with CMake, which `speech-to-text` and `voice` link.
 - `speech-to-text-mic`: Speak, and what the microphone hears is written as text. English.
 - `pi-phone`: Pi for a phone: say what it should do, and tap buttons for the rest. English.
 - `speech-to-text`: `speech-to-text` with the Parakeet model and Silero VAD, for an image that declares `microphone@0`.
@@ -65,7 +65,7 @@ is told goes to the model provider like anything typed.
   sound, 32 ms at a time; a stretch of speech is a line.
 - [`voice.c`](voice.c): the menu, the program on its pseudo-terminal, the
   buttons in the rows below it, taps and typing.
-- [`Dollyfile-speech-build`](Dollyfile-speech-build): the engine's CPU backend
+- [`Dollyfile-transcribe`](Dollyfile-transcribe): the engine's CPU backend
   with threads and Wasm SIMD.
 
 ## Limits

@@ -1,4 +1,4 @@
-// The Mojo compiler that mojo-build compiled inside Dolly, in the mojo-gpu image:
+// The Mojo compiler built inside Dolly (the mojo package), in the mojo-gpu image:
 // it compiles in the session the programs demos/mojo/target cross-compiles,
 // and they run: the standard library, coroutines, kernels that DeviceContext
 // launches on WebGPU and that print, and upstream's own two GPU hellos with

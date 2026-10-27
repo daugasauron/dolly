@@ -15,7 +15,7 @@ REQUIRES TOOL   tar
 
 SOURCE /v0.1.4/dist/static/default/curl-headers.tar 346a0298fcbdafbad7d0c0259a2d7b8539ca46c39222797c01dcac213564bf30 /tmp/curl-headers.tar
 SOURCE /v0.1.4/dist/static/default/libcurl-fetch.c  bdf44cc786ba51355b4fe4b9e9621341a0d71e88710ba3ab653153bdf00aa4e0 /usr/src/dolly/libcurl-fetch.c
-SOURCE /v0.1.4/dist/static/default/commands/curl.c  d142e57bf15f0f9e48e5b502fea5d0a6bbf3fa76e1a22e829993cc0d9d9029a4 /usr/src/dolly/commands/curl.c
+SOURCE /v0.1.4/dist/static/default/commands/curl.c  1cb956eba05199235940ec4a5420558b3c68177405d25ba3cc20d5fc160cfbe3 /usr/src/dolly/commands/curl.c
 SLOP tar \
   -xf /tmp/curl-headers.tar \
   -C /

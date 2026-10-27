@@ -539,6 +539,9 @@ const elsewhere = {
   fmt: "demos/zero-ad: zero-ad-deps installs it", libxml2: "demos/zero-ad: zero-ad-deps installs it",
   libsodium: "demos/zero-ad: zero-ad-deps installs it", "boost-headers": "demos/zero-ad: zero-ad-deps installs it",
   premake: "demos/zero-ad: zero-ad-engine's build uses it",
+  transcribe: "demos/speech: speech-to-text and voice link it", gmqcc: "demos/xonotic: xonotic-build installs it",
+  pixman: "demos/x11: xorg-server links it", libxkbfile: "demos/x11: xorg-server links it", xkbcomp: "demos/x11: xorg-server installs it",
+  "xkeyboard-config": "demos/x11: xorg-server installs it",
 };
 const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "llama", "tar", "meson", "typescript", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
 assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no test installs and uses");

@@ -10,12 +10,13 @@ audio on `audio@0`. The task is `tasks/20261006-122433-xonotic/TASK.md`.
 
 ## Images
 
-- `xonotic-build`: the dedicated server (`xonotic-dedicated`), the SDL client
-  (`xonotic-sdl`) and the QuakeC compiler (`gmqcc`), compiled from the pinned
-  release source with `cc`, `c++` and Make on `system-tools` with the `sdl2`
-  package; the engine, gmqcc and `qcsrc` stay under `/usr/src/xonotic`, and
+- `xonotic-build`: the dedicated server (`xonotic-dedicated`) and the SDL
+  client (`xonotic-sdl`), compiled from the pinned release source with `cc`,
+  `c++` and Make on `system-tools` with the `sdl2` and `gmqcc` packages; the
+  engine and `qcsrc` stay under `/usr/src/xonotic`, and
   `make -f /usr/src/dolly/xonotic/Makefile qc` compiles `progs.dat`,
   `csprogs.dat` and `menu.dat` into `/tmp/xonotic/build/qc`.
+- `gmqcc`: the QuakeC compiler, compiled from the same release source.
 - `xonotic-shaders`: the engine's shader permutations of the normal preset
   as WGSL in `/usr/share/xonotic/shaders`, for the client's `gpu@0` path:
   `dpshaders.c` rewrites the engine's GLSL as naga's GLSL front end reads it

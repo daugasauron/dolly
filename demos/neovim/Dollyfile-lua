@@ -3,33 +3,110 @@ PACKAGE lua
 REQUIRES HOST runtime@0
 REQUIRES HOST dso@0
 
-# PUC Lua 5.1 as neovim-build compiles it for Neovim: the interpreter, its
-# library and headers, and the LPeg and luv modules built for it. Its manual
-# page is formatted here as text, which man prints: tools-build has mandoc,
-# and a package keeps nothing of the base it is built on.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build b289bd068995a5c947bcb5604b186ac475b2a218da3af20a7b37d50615ec1efd
+# PUC Lua 5.1, the version Neovim supports: the interpreter, its library and
+# headers, and the LPeg and luv modules built for it, which programs that
+# embed Lua (nvim) link as static libraries. -rdynamic lets source-built Lua C
+# modules share the interpreter's API.
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build a7c12c67f07c9406467205ee32efd798b0f9523ce43e13476d4d3ec21150d037
+USE /v0.1.4/Dollyfile-mandoc 3c3fc19cfaf5a095cd7581473a2bcdad3bbe2d7d8bff22fc609a6f81201ae542
+REQUIRES HEADER libc
+REQUIRES TOOL cc
+REQUIRES TOOL ar
+REQUIRES TOOL make
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
-REQUIRES TOOL text-page
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/bin/lua /usr/bin/lua
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/include/lua5.1 /usr/include/lua5.1
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/lib/liblua.a /usr/lib/liblua.a
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/lib/lua/5.1/lpeg.so /usr/lib/lua/5.1/lpeg.so
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/lib/lua/5.1/luv.so /usr/lib/lua/5.1/luv.so
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/share/lua/5.1 /usr/share/lua/5.1
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/share/licenses/lua/COPYRIGHT /usr/share/licenses/lua/COPYRIGHT
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/share/licenses/lpeg/lpeg.html /usr/share/licenses/lpeg/lpeg.html
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/share/licenses/luv/LICENSE.txt /usr/share/licenses/luv/LICENSE.txt
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/share/licenses/lua-compat53/LICENSE /usr/share/licenses/lua-compat53/LICENSE
-COPY /v0.1.4/demos/neovim/Dollyfile-neovim-build 2fb7f0ee3170ba0b5723d4f408b973bbad33df776d5960d7eac98ba189f5fde7 /usr/share/licenses/libuv/LICENSE /usr/share/licenses/libuv/LICENSE
-SOURCE /v0.1.4/dist/static/neovim/lua-5.1.5.tar.gz 2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333 /tmp/lua.tar.gz
-SLOP gzip -dc /tmp/lua.tar.gz | tar -xf - -C /tmp
-SLOP text-page /tmp/lua-5.1.5/doc/lua.1
+REQUIRES TOOL mkdir
+REQUIRES TOOL cp
+REQUIRES TOOL rm
+REQUIRES TOOL sed
 
-EXPORTS TOOL   lua
-EXPORTS HEADER lua      /usr/include/lua5.1
-EXPORTS LIB    lua      /usr/lib/liblua.a
-EXPORTS LIB    lua-lpeg /usr/lib/lua/5.1/lpeg.so
-EXPORTS LIB    lua-luv  /usr/lib/lua/5.1/luv.so
-EXPORTS FOLDER lua-re   /usr/share/lua/5.1
+SOURCE /v0.1.4/dist/static/neovim/lua-5.1.5.tar.gz 2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333 /tmp/lua/source.tar.gz
+SLOP gzip -dc /tmp/lua/source.tar.gz > /tmp/lua/source.tar
+SLOP tar -xf /tmp/lua/source.tar -C /tmp/lua
+SLOP sed 's@"/usr/local/"@"/usr/"@' /tmp/lua/lua-5.1.5/src/luaconf.h > /tmp/lua/luaconf.h
+SLOP cp /tmp/lua/luaconf.h /tmp/lua/lua-5.1.5/src/luaconf.h
+SLOP make -C /tmp/lua/lua-5.1.5/src \
+  CC=cc \
+  'CFLAGS=-O0 -std=gnu99 -DLUA_USE_POSIX -DLUA_USE_DLOPEN' \
+  MYLDFLAGS=-rdynamic \
+  'AR=ar rcs' \
+  RANLIB=: \
+  lua
+SLOP cp /tmp/lua/lua-5.1.5/src/lua /usr/bin/lua
+SLOP cp /tmp/lua/lua-5.1.5/src/liblua.a /usr/lib/liblua.a
+SLOP mkdir -p /usr/include/lua5.1 /usr/share/licenses/lua
+SLOP cp /tmp/lua/lua-5.1.5/src/lua.h /tmp/lua/lua-5.1.5/src/luaconf.h \
+  /tmp/lua/lua-5.1.5/src/lauxlib.h /tmp/lua/lua-5.1.5/src/lualib.h /usr/include/lua5.1
+SLOP cp /tmp/lua/lua-5.1.5/COPYRIGHT /usr/share/licenses/lua/COPYRIGHT
+
+FILE /tmp/lua/extension.c
+    #include <lua.h>
+    #include <lauxlib.h>
+    int luaopen_dolly_lua_check(lua_State* state) { lua_pushinteger(state, 42); return 1; }
+SLOP cc -O0 -shared -I/usr/include/lua5.1 /tmp/lua/extension.c -o /tmp/lua/extension.so
+SLOP lua -e 'assert(_VERSION == "Lua 5.1"); assert(assert(package.loadlib("/tmp/lua/extension.so", "luaopen_dolly_lua_check"))() == 42); local f = assert(io.open("/tmp/lua/data", "w")); f:write("shared files"); f:close(); assert(os.execute("test -s /tmp/lua/data") == 0)'
+
+EXPORTS TOOL lua
+EXPORTS HEADER lua /usr/include/lua5.1
+EXPORTS LIB lua /usr/lib/liblua.a
+FILE /usr/share/licenses/lua/COPYRIGHT
+
+REQUIRES TOOL text-page
+SLOP text-page /tmp/lua/lua-5.1.5/doc/lua.1
 FILE /usr/share/man/cat1/lua.1
+SLOP rm -rf /tmp/lua
+REQUIRES HEADER lua
+REQUIRES TOOL lua
+
+SOURCE /v0.1.4/dist/static/neovim/lpeg.tar e8a9fd286cf0ba6b9eff1ac12680eca887e409236b34a556a5cf6e55957f83f6 /tmp/lpeg/source.tar
+SLOP tar -xf /tmp/lpeg/source.tar -C /
+SLOP make -C /tmp/lpeg/source CC=cc LUADIR=/usr/include/lua5.1 \
+  COPT=-O0 DLLFLAGS=-shared lpeg.so
+SLOP ar rcs /usr/lib/liblpeg.a /tmp/lpeg/source/lpvm.o /tmp/lpeg/source/lpcap.o \
+  /tmp/lpeg/source/lptree.o /tmp/lpeg/source/lpcode.o /tmp/lpeg/source/lpprint.o /tmp/lpeg/source/lpcset.o
+SLOP mkdir -p /usr/lib/lua/5.1 /usr/share/lua/5.1
+SLOP cp /tmp/lpeg/source/lpeg.so /usr/lib/lua/5.1/lpeg.so
+SLOP cp /tmp/lpeg/source/re.lua /usr/share/lua/5.1/re.lua
+SLOP lua -e 'local lpeg = require("lpeg"); assert(lpeg.match(lpeg.P("Dolly"), "Dolly") == 6); assert(require("re").match("hello", "%a+") == 6)'
+
+EXPORTS LIB lpeg /usr/lib/liblpeg.a
+EXPORTS LIB lua-lpeg /usr/lib/lua/5.1/lpeg.so
+EXPORTS FOLDER lua-re /usr/share/lua/5.1
+FILE /usr/share/licenses/lpeg/lpeg.html
+
+SLOP rm -rf /tmp/lpeg
+REQUIRES HEADER uv
+REQUIRES LIB uv
+REQUIRES LIB lua
+REQUIRES TOOL cmake
+
+SOURCE /v0.1.4/dist/static/neovim/luv.tar 576f4f861cabfd1d7313d56124e1473f724f3da09060df4dc93d59936d3b4004 /tmp/luv/source.tar
+SLOP tar -xf /tmp/luv/source.tar -C /
+SLOP cmake -S /tmp/luv/source -B /tmp/luv/build \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_C_FLAGS=-O0 \
+  -DWITH_LUA_ENGINE=Lua -DLUA_BUILD_TYPE=System \
+  -DLUA_INCLUDE_DIR=/usr/include/lua5.1 -DLUA_LIBRARY=/usr/lib/liblua.a -DLUA_MATH_LIBRARY:STRING=m \
+  -DWITH_SHARED_LIBUV=ON -DBUILD_STATIC_LIBS=ON -DBUILD_MODULE=ON -DBUILD_SHARED_LIBS=OFF
+SLOP cmake --build /tmp/luv/build
+SLOP cmake --install /tmp/luv/build
+
+FILE /tmp/luv/check.lua
+    local uv = require("luv")
+    local fired = false
+    local timer = assert(uv.new_timer())
+    timer:start(1, 0, function() fired = true; timer:close() end)
+    uv.run()
+    assert(fired)
+    local fd = assert(uv.fs_open("/tmp/luv/check.txt", "w", 438))
+    assert(uv.fs_write(fd, "Dolly", 0) == 5)
+    assert(uv.fs_close(fd))
+    assert(uv.fs_stat("/tmp/luv/check.txt").size == 5)
+SLOP lua /tmp/luv/check.lua
+
+EXPORTS HEADER luv /usr/include/luv
+EXPORTS LIB luv /usr/lib/libluv.a
+EXPORTS LIB lua-luv /usr/lib/lua/5.1/luv.so
+FILE /usr/share/licenses/luv/LICENSE.txt
+FILE /usr/share/licenses/lua-compat53/LICENSE
+FILE /usr/share/licenses/libuv/LICENSE
+SLOP rm -rf /tmp/luv
