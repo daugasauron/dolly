@@ -19,7 +19,9 @@ static void usage(FILE *stream) {
       "  -i, --include           include response headers in output\n"
       "  -X, --request METHOD    select HTTP method\n"
       "  -H, --header LINE       add a request header (repeatable)\n"
-      "  -d, --data DATA         send request data (repeatable)\n"
+      "  -d, --data DATA         send request data (repeatable); @FILE without newlines\n"
+      "      --data-binary DATA  send request data; @FILE as it is\n"
+      "      --data-raw DATA     send request data; @ is no file\n"
       "      --json JSON         send JSON with conventional headers\n"
       "  -u, --user USER:PASS    use HTTP Basic authentication\n"
       "  -A, --user-agent TEXT   set User-Agent\n"
@@ -38,17 +40,46 @@ static void usage(FILE *stream) {
       stream);
 }
 
-static int append_data(char **buffer, size_t *length, const char *value) {
-  size_t value_length = strlen(value);
+static int append_data(char **buffer, size_t *length, const char *value, size_t value_length) {
   if (value_length > SIZE_MAX - *length - 2) return 0;
   size_t separator = *length == 0 ? 0 : 1;
   char *next = realloc(*buffer, *length + separator + value_length + 1);
   if (next == NULL) return 0;
   if (separator) next[(*length)++] = '&';
-  memcpy(next + *length, value, value_length + 1);
+  memcpy(next + *length, value, value_length);
+  next[*length + value_length] = '\0';
   *length += value_length;
   *buffer = next;
   return 1;
+}
+
+// The bytes of a data value of @FILE (@- is standard input), as curl reads
+// them: -d leaves out carriage returns and newlines, --data-binary keeps them.
+static int read_data(const char *path, int binary, char **bytes, size_t *count) {
+  FILE *stream = strcmp(path, "-") == 0 ? stdin : fopen(path, "rb");
+  *bytes = NULL;
+  *count = 0;
+  if (stream == NULL) return 0;
+  size_t capacity = 0;
+  for (;;) {
+    if (*count == capacity) {
+      char *next = capacity > SIZE_MAX / 2 ? NULL : realloc(*bytes, capacity = capacity ? capacity * 2 : 4096);
+      if (next == NULL) break;
+      *bytes = next;
+    }
+    size_t read = fread(*bytes + *count, 1, capacity - *count, stream);
+    if (read == 0) break;
+    *count += read;
+  }
+  int status = !ferror(stream) && feof(stream);
+  if (stream != stdin) fclose(stream);
+  if (!binary) {
+    size_t kept = 0;
+    for (size_t i = 0; i < *count; i++)
+      if ((*bytes)[i] != '\r' && (*bytes)[i] != '\n') (*bytes)[kept++] = (*bytes)[i];
+    *count = kept;
+  }
+  return status;
 }
 
 static size_t write_file(char *bytes, size_t size, size_t count, void *data) {
@@ -168,14 +199,25 @@ int main(int argc, char **argv) {
       headers = next;
       continue;
     }
-    if (strcmp(argument, "-d") == 0 || strcmp(argument, "--data") == 0 ||
-        strcmp(argument, "--data-raw") == 0 ||
-        (inline_value = long_value(argument, "--data")) != NULL ||
-        (inline_value = long_value(argument, "--data-raw")) != NULL) {
+    const int raw = strcmp(argument, "--data-raw") == 0 || (inline_value = long_value(argument, "--data-raw")) != NULL;
+    const int binary = !raw && (strcmp(argument, "--data-binary") == 0 ||
+                                (inline_value = long_value(argument, "--data-binary")) != NULL);
+    if (raw || binary || strcmp(argument, "-d") == 0 || strcmp(argument, "--data") == 0 ||
+        (inline_value = long_value(argument, "--data")) != NULL) {
       const char *value = inline_value;
       if (value == NULL && ++index < argc) value = argv[index];
       if (value == NULL) { fputs("curl: --data requires data\n", stderr); goto usage_error; }
-      if (!append_data(&body, &body_length, value)) goto memory_error;
+      if (raw || value[0] != '@') {
+        if (!append_data(&body, &body_length, value, strlen(value))) goto memory_error;
+        continue;
+      }
+      char *bytes;
+      size_t count;
+      if (!read_data(value + 1, binary, &bytes, &count))
+        fprintf(stderr, "Warning: Couldn't read data from file \"%s\", this makes an empty POST.\n", value + 1);
+      int appended = append_data(&body, &body_length, bytes == NULL ? "" : bytes, bytes == NULL ? 0 : count);
+      free(bytes);
+      if (!appended) goto memory_error;
       continue;
     }
     if (strcmp(argument, "--json") == 0 ||
@@ -183,7 +225,7 @@ int main(int argc, char **argv) {
       const char *value = inline_value;
       if (value == NULL && ++index < argc) value = argv[index];
       if (value == NULL) { fputs("curl: --json requires data\n", stderr); goto usage_error; }
-      if (!append_data(&body, &body_length, value)) goto memory_error;
+      if (!append_data(&body, &body_length, value, strlen(value))) goto memory_error;
       struct curl_slist *next = curl_slist_append(headers, "Content-Type: application/json");
       if (next == NULL) goto memory_error;
       headers = next;
