@@ -22,8 +22,46 @@ software 2 of 2 (192, 222 s) and hardware (NVIDIA) 1 of 1; with its combat chang
 software, four cores and hardware passed once each. On two cores the economy step outlasts the
 test's 240 s deadline (SwiftShader's frames 391 ms), not a configuration the rounds run. Evidence: `work/zeroad/build/zeroad-evidence/`.
 
-Item 2 (developed matches stall) is not measured yet: `demos/zero-ad/test/0ad-large-match-browser.mjs`
-is the soak harness written again from the description below (uncommitted until it has run).
+Item 2, developed matches, measured on the engine built inside Dolly (the chain of `97e011c1`)
+with `demos/zero-ad/test/0ad-large-match-browser.mjs` (written again from the description
+below: four medium Petra AIs on a revealed 256 mainland, seed 11, thirty minutes, a box
+selection every 15 s, the camera on another base every minute; frame intervals from the GPU
+provider's reports; for the last 120 s a Chrome trace with V8's sampling profiler, its samples
+between consecutive frames summed over the frames above 100 ms). Chrome 156 on the Radeon ICD
+(`amd rdna-2`), two cores (`taskset -c 14,15`), the 6 GiB browser slot, Xvfb `:161`; the
+machine ran the other workstreams beside it (load average 10-14), which the two runs differ by:
+
+| run | intervals | mean | median | p95 | p99 | max | >33 ms | >100 ms | simulated | populations |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 09:43 | 54,526 | 33.4 ms | 17.9 | 118 | 238 | 1,498 | 10,939 | 3,470 | 1,548.8 s | 273/235/264/259 |
+| 10:37 | 82,655 | 22.3 ms | 14.1 | 62 | 158 | 950 | 12,079 | 1,819 | 1,588.8 s | 300/292/295/284 |
+
+(2026-09-25, host-built engine: 132,654 intervals, mean 13.6 ms, 8,837 above 33 ms, max 868.)
+Both pass the HUD check with a clean log (peak 5.6 and 5.7 GB). Minute means stay at 13-24 ms
+for the first fifteen minutes and grow with the economies: 82-251 ms in the last ten minutes of
+the first run, 178-225 ms in the last three of the second, where nearly every frame is long
+(433 of 441 and 477 of 557 frames in the traced window). What those long frames spend, of
+108.3 and 103.4 s sampled on the engine's thread:
+
+- Simulation turns 45% and 40%: the four Petra AIs (`CAIWorker::PerformComputation`) 24% and
+  22%, the components' scripts (`CCmpUnknownScript::HandleMessage`) 11% and 10%, the rest the
+  engine's C++. The GUI's simulation-update handlers 12% in the first run.
+- Rendering 38% and 49%, most of it (25% and 34%) waiting in `dolly_gpu_batch` for the GPU
+  provider; the provider's worker was idle 87 of those 103 s (its JavaScript, mostly
+  `createBindGroup`, about 16 s), so the batches wait for Chrome's GPU process and the GPU, not
+  for Dolly's provider or kernel (the kernel's worker idle 94 s).
+- JavaScript interpreted by SpiderMonkey, which has no JIT in Wasm (`js::Interpret` inclusive):
+  48% and 38%. Dolly's libc and kernel calls are small: `malloc` and `free` 2%, the engine's
+  `postMessage` of its kernel calls 2-3%.
+
+So the stalls are the game's own script work, Petra first, run by an interpreter, and GPU
+throughput; neither has a cause in Dolly's runtime or libc that the profile shows. The one
+build flag that could speed the scripts, SpiderMonkey's portable baseline interpreter (the
+interpreter with the JIT's inline caches, made for Wasm; `--enable-portable-baseline-interp`
+forced on), builds here (1,411 s) but breaks UnitAI: `0ad-engine` logs "Tried to change to
+non-existent state 'INDIVIDUAL.COMBAT.CHASING'" and "toState is undefined", so it was not
+kept. Not done: a comparison against the host-built engine of September (it no longer exists),
+and the split of the GPU wait between the GPU process's CPU time and the GPU's.
 
 ## Item 1 done, 2026-10-24 (the process-contract workstream, `core/page-no-view`, seed `b871765b`)
 
@@ -83,7 +121,7 @@ test of `32db896c`, 111 s with the test before it (the GPU worker rewritten, as 
 same failure, so not that change's. Hardware mode passes (98 s). The rounds' GPU stage runs only
 `hardware` (`work/day-round.sh`). Not fixed.
 
-## State (2026-10-13)
+## 2026-10-13: the two items then left
 
 Two things are left of the 0 A.D. port, and nobody is on either. Neither blocks a user: the
 image plays, and its GPU tests (`0ad-spidermonkey`, `0ad-engine`, `0ad-graphics`) passed in

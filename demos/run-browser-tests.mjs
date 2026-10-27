@@ -24,6 +24,7 @@ const needs = new Map([
   ["mojo/target/test/mojo-target-browser.mjs", "the objects of demos/mojo/target/cross-compile.sh, which a native Mojo compiler writes"],
   ["slopyard/test/slopyard-browser.mjs", window],
   ["zero-ad/test/0ad-graphics-browser.mjs", window],
+  ["zero-ad/test/0ad-large-match-browser.mjs", `${window} for thirty minutes: it is run on demand`],
   ["zero-ad/test/0ad-menu-browser.mjs", window],
 ]);
 
