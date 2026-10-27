@@ -582,9 +582,12 @@ Findings, each fixed and in the 2026-10-27 round:
   it now says only the variables wait (`b2b60ffa`).
 Found and not yet fixed: Dolly's `curl` (`src/commands/curl.c`) takes `-d` and `--data-raw` as
 literal data only, so `curl -d @body.json URL` sends the text `@body.json` where curl sends the
-file, and it has no `--data-binary` (found by the Xonotic workstream on 2026-10-27). The fix is
-`@FILE` for `-d` and `--data-binary` as curl reads them; `Dollyfile-curl` is under every image's
-base, so it waits for the next full round.
+file, and it has no `--data-binary` (found by the Xonotic workstream on 2026-10-27). Fixed on
+branch `core/curl-data-file` (`a2a4d079`, on `f9cbff51`): `-d @FILE` without the file's CR and LF,
+`--data-binary @FILE` as it is, `@-` standard input, `--data-raw` literal, curl's warning for an
+unreadable file, a body kept by length; `test/shell-browser.mjs` checks all four and passed in
+Chromium and Firefox on that seed. `Dollyfile-curl` is under every image's base, so it merges
+with the next full round.
 Not changed, as designed or upstream's: Slop's syntax, the POSIX sbase tools (`head -c`,
 `dd bs=1M`, `grep -r`), sbase `mktemp`'s template, no `fork` or listening sockets, the
 browser's stack depth ([emacs-stack](../20261013-202443-emacs-stack/TASK.md)), no `ssl` or
