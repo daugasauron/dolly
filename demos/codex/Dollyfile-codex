@@ -7,12 +7,12 @@ REQUIRES HOST threads@0
 
 # Codex as codex-build compiles it, the launcher that seeds CODEX_HOME, and
 # the search tools Codex runs.
-FROM /v0.1.4/Dollyfile-system b583e263a74673e696770d12b0cd8344e0d5e3cebabd6843ee26b95c83af7a1a
-COPY /v0.1.4/demos/codex/Dollyfile-codex-build d074855f9abdd4a35ac490ddf2127a4acbf71576b52b762d8d333ee1ada315a9 /usr/bin/codex /usr/libexec/codex
-COPY /v0.1.4/demos/codex/Dollyfile-codex-build d074855f9abdd4a35ac490ddf2127a4acbf71576b52b762d8d333ee1ada315a9 /usr/share/licenses/codex /usr/share/licenses/codex
-COPY /v0.1.4/demos/codex/Dollyfile-codex-build d074855f9abdd4a35ac490ddf2127a4acbf71576b52b762d8d333ee1ada315a9 /usr/share/dolly/builds/codex.lock /usr/share/dolly/builds/codex.lock
-INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep b28e5e119cf49612e4711d65db670c546b60be1724b699da0e2435ceeefa63cc
-INSTALL /v0.1.4/demos/rust/Dollyfile-fd 606f6182fdfe2268339d1f91a82c51e80a3ce7f91475f2b49ee6811be396a7ed
+FROM /v0.1.4/Dollyfile-system c6309c0a7bbd8f3038f36ebb426704e3c6b2c52d7d8101a59a453a17b18c9781
+COPY /v0.1.4/demos/codex/Dollyfile-codex-build 9c5cffda0b3dcd00f09d65f0c3087b8d36a04e2e19ac29703ff9c39e9a384bb2 /usr/bin/codex /usr/libexec/codex
+COPY /v0.1.4/demos/codex/Dollyfile-codex-build 9c5cffda0b3dcd00f09d65f0c3087b8d36a04e2e19ac29703ff9c39e9a384bb2 /usr/share/licenses/codex /usr/share/licenses/codex
+COPY /v0.1.4/demos/codex/Dollyfile-codex-build 9c5cffda0b3dcd00f09d65f0c3087b8d36a04e2e19ac29703ff9c39e9a384bb2 /usr/share/dolly/builds/codex.lock /usr/share/dolly/builds/codex.lock
+INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep eec30c2c573d7b2754931ee8b5357c98c6a507a1ea74893462b6dfe692609bc9
+INSTALL /v0.1.4/demos/rust/Dollyfile-fd 31864cb67629b6ebdb6669ed7b44fddeaed44d10002ea1395c38441fee426ada
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL cc

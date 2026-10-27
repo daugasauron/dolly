@@ -6,8 +6,8 @@ REQUIRES HOST input@0
 REQUIRES HOST http@0
 
 # Keep the expensive bootstrap reusable across source-build workspaces.
-FROM /v0.1.4/Dollyfile-system-tools ff6104173bbf1ca124c0b704b5d68ebf3c066fa18ce7cdf2e2887c77b22e38dc
-INSTALL /v0.1.4/demos/cmake/Dollyfile-libuv 9e23674f3eab666440b4b1dd7104e9174c0c8b98941d4d3ac84c4ed17a0a20aa
+FROM /v0.1.4/Dollyfile-system-tools a3b8578fb0377d0a2e3de8bd97b7958272c3d693e67293cb0762d9507dc59663
+INSTALL /v0.1.4/demos/cmake/Dollyfile-libuv efe171d387d8f839d5ebbd43b22c7b1247f87622041ae698ec50a4076adf35f6
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL cc
