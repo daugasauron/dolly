@@ -1,13 +1,17 @@
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -2968,6 +2968,27 @@
+@@ -2968,6 +2968,31 @@
    set(SDL_VIDEO_VULKAN 0)
  endif()
  
 +if(CMAKE_SYSTEM_NAME STREQUAL "Dolly")
-+  set(SDL_VIDEO_DRIVER_DOLLY 1)
-+  set(HAVE_SDL_VIDEO TRUE)
-+  list(APPEND SOURCE_FILES ${SDL2_SOURCE_DIR}/src/video/dolly/SDL_dollyvideo.c)
++  # Dolly's display; an SDL for X11 clients alone (imgui-x11) turns it off.
++  option(SDL_DOLLY_VIDEO "Draw on Dolly's display" ON)
++  if(SDL_DOLLY_VIDEO)
++    set(SDL_VIDEO_DRIVER_DOLLY 1)
++    set(HAVE_SDL_VIDEO TRUE)
++    list(APPEND SOURCE_FILES ${SDL2_SOURCE_DIR}/src/video/dolly/SDL_dollyvideo.c)
++  endif()
 +  if(SDL_AUDIO)
 +    set(SDL_AUDIO_DRIVER_DOLLY 1)
 +    list(APPEND SOURCE_FILES ${SDL2_SOURCE_DIR}/src/audio/dolly/SDL_dollyaudio.c)

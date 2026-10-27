@@ -111,6 +111,19 @@ SLOP CWD /tmp/xorg for source in xorg-server-21.1.25 libXfont2-2.0.9 libmd-1.3.0
 
 EXPORTS TOOL Xsdl
 FILE /usr/share/man/cat1/Xserver.1
+FILE /usr/share/man/cat1/Xsdl.1
+    Xsdl: the X server in Dolly's display, kdrive's SDL server with xkbcomp for
+    its keymap. One screen; clients connect at /tmp/.X11-unix/XN, not over TCP.
+    
+      Xsdl :0 -nolock &              starts it as display :0
+      DISPLAY=:0 xclock &            a client on it
+      Xsdl :0 -screen 1600x900 -nolock    the size of its screen
+    
+    -nolock is needed: the server makes its lock file with link(), and Dolly's
+    filesystem has no hard links, so without it the server ends at once
+    ("Linking lock file ... failed: Too many links"). It holds the display, the
+    keyboard and the pointer until it ends; kill its process to end it.
+    Xserver(1) lists the other options.
 FOLDER /usr/share/licenses/xorg-server
 FOLDER /usr/share/licenses/libXfont2
 FOLDER /usr/share/licenses/libmd

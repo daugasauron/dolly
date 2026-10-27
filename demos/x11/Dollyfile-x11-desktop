@@ -40,8 +40,6 @@ FILE /etc/dolly/init.slop
     Xsdl :0 -screen 1600x900 -nolock -dumbSched -s 0 &
     server=$!
     echo $server > /tmp/.X0-pid
-    # SDL programs started from here draw through X, not Dolly's display.
-    export SDL_VIDEODRIVER=x11
     tries=0
     until test -e /tmp/.X11-unix/X0 || test $tries = 3000; do tries=$((tries + 1)); done
     twm &
@@ -50,7 +48,6 @@ FILE /etc/dolly/init.slop
     xterm -geometry 80x24+40+300 &
     wait $server
     printf 'The X server has ended.\n'
-    unset SDL_VIDEODRIVER
     /bin/foreground -i /bin/slop
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

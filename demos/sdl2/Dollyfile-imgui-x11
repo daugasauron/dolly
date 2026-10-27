@@ -1,17 +1,13 @@
 DOLLY 7
 PACKAGE imgui-x11
 REQUIRES HOST runtime@0
-REQUIRES HOST display@0
-REQUIRES HOST input@0
-REQUIRES HOST touch@0
 REQUIRES HOST sockets@0
 
 # Dear ImGui's SDL2 example as an X client: SDL2 from the sdl2 package's
-# sources, configured where X's libraries are, adds upstream's X11 video
-# driver to Dolly's, and takes X11 when DISPLAY names a server. ImGui and the
-# example are the imgui package's sources, unchanged.
+# sources, configured where X's libraries are, with upstream's X11 video
+# driver in place of Dolly's, so it draws on the server DISPLAY names. ImGui
+# and the example are the imgui package's sources, unchanged.
 FROM /v0.1.4/demos/x11/Dollyfile-x11-build e074880a15b565617d3d59732f7a85b52eb0a271162d5bca2dcdb8f94c5774f1
-USE /v0.1.4/Dollyfile-libdolly-touch 07fbd180b1e76facefc348682df905541fb536cfe01cb1b871e8b6d7e884cba5
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES TOOL c++
@@ -39,7 +35,7 @@ SLOP cmake -S /tmp/sdl2/source -B /tmp/sdl2/build \
   -DSDL_ASSEMBLY=OFF -DSDL_GCC_ATOMICS=ON -DSDL_SYSTEM_ICONV=OFF \
   -DSDL_OPENGL=OFF -DSDL_OPENGLES=OFF -DSDL_VULKAN=OFF -DSDL_RENDER_METAL=OFF \
   -DSDL_X11=ON -DSDL_X11_SHARED=OFF -DCMAKE_EXE_LINKER_FLAGS='-lxcb -lXau -ldolly-sockets' \
-  -DSDL_X11_XFIXES=OFF
+  -DSDL_X11_XFIXES=OFF -DSDL_DOLLY_VIDEO=OFF
 SLOP cmake --build /tmp/sdl2/build
 SLOP cmake --install /tmp/sdl2/build
 
