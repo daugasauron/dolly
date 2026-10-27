@@ -25,9 +25,9 @@ flowchart LR
 - Quotas: 8 scopes with one pending request each, 1 MiB packets of at most 1,024
   records (clients check `CAPABILITIES` before exceeding 256), 128 KiB shaders,
   4,096 objects per scope, 1 GiB per buffer, 4 GiB of buffers and textures in
-  total, 16 bindings, and 3 queued submissions per surface scope (64 per compute
-  scope) before the next batch waits. Released handles are invalid at once; their
-  allocation stays charged until the GPU finishes.
+  total, 16 bindings, and 64 queued submissions per scope, 3 queued frames per
+  surface scope, before the next batch waits. Released handles are invalid at
+  once; their allocation stays charged until the GPU finishes.
 - `CAPABILITIES` returns a fixed 128-byte record of feature bits and
   device-clamped limits: frame capture (16), BGRA surfaces (32), textured
   rendering (64), large batches (128), BC textures (256), f16 vertices (512).

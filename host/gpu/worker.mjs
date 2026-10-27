@@ -14,10 +14,12 @@ const blendFactors = ["zero", "one", "src", "one-minus-src", "dst", "one-minus-d
 const vertexFormats = [null, "float32", "float32x2", "float32x3", "float32x4", "unorm8x4", "snorm8x4", "uint8x4", "sint8x4", "unorm16x2", "unorm16x4", "uint16x2", "uint16x4", "float16x2", "float16x4"];
 const vertexBytes = [0, 4, 8, 12, 16, 4, 4, 4, 4, 4, 8, 4, 8, 4, 8];
 const maxBytes = 4 * 1024 ** 3, bufferCeiling = 1024 ** 3, maxObjects = 4096;
-// Submissions a scope may have queued before its next batch waits: three frames
-// for a surface, more for compute. Firefox settles completions on a 100 ms timer
-// (bug 1870699), and a model token takes about 25 submissions.
-const queuedSubmissions = scope => scope.surface ? 3 : 64;
+// What a scope may have queued before its next batch waits: 64 submissions, and
+// for a surface three frames (the submissions that present: a frame may submit
+// many times). Firefox settles completions on a 100 ms timer (bug 1870699), and
+// a model token takes about 25 submissions.
+const queueFull = scope => scope.surface && scope.frames.length >= 3 ? scope.frames[0]
+  : scope.submissions.length >= 64 ? scope.submissions[0] : null;
 const timestampQueries = A.DOLLY_GPU_MAX_COMMANDS * 2;
 let maxBuffer = bufferCeiling, capabilities;
 const slots = Array(A.DOLLY_GPU_SLOTS).fill(null), generations = slots.map(() => 0);
@@ -267,7 +269,7 @@ function retire(scope) {
 async function batch(scope, commands) {
   const device = scope.device;
   const progress = queueProgress;
-  if (scope.submissions.length >= queuedSubmissions(scope)) await scope.submissions[0];
+  await queueFull(scope);
   let encoder, texture, computePass, renderPass, passWidth, passHeight, timer, queries = 0;
   let renderPipeline, renderGroups, renderBuffers, renderIndex;
   const getEncoder = () => encoder ??= device.createCommandEncoder();
@@ -552,7 +554,7 @@ async function batch(scope, commands) {
         getEncoder().copyTextureToBuffer({texture,origin:{x,y}}, {buffer:dst.value,bytesPerRow}, {width,height});
       } else if (op === A.DOLLY_GPU_SUBMIT) {
         ensure(encoder,"No GPU commands to submit");
-        if (scope.submissions.length >= queuedSubmissions(scope)) await scope.submissions[0];
+        await queueFull(scope);
         const measured = queries ? timer : null, count = queries;
         if (measured) {
           encoder.resolveQuerySet(measured.query,0,count,measured.resolve,0);
@@ -570,8 +572,12 @@ async function batch(scope, commands) {
         timer=null;queries=0;
         const completed=device.queue.onSubmittedWorkDone().then(()=>{
           progress.completed=Math.max(progress.completed,submittedWork);
-        }).finally(()=>scope.submissions.splice(scope.submissions.indexOf(completed),1));
+        }).finally(()=>{
+          scope.submissions.splice(scope.submissions.indexOf(completed),1);
+          if(scope.frames[0]===completed)scope.frames.shift();
+        });
         scope.submissions.push(completed);
+        if(texture)scope.frames.push(completed);
         completed.catch(()=>{});
         if(texture){stats.frames++;postMessage({type:"status",active:true,width:canvas.width,height:canvas.height,stats:{...stats,allocatedBytes:usedBytes}});texture=null;}
       } else if (op === A.DOLLY_GPU_MAP_READ) {
@@ -686,7 +692,7 @@ self.onmessage = event => {
       let scope=slots[request.index];
       if(request.op===1) {
         ensure(!scope&&request.scope>generations[request.index],"GPU scope slot is busy",E.EBUSY);
-        scope={id:request.scope,index:request.index,sequence:0,objects:new Map(),retired:new Map(),high:0,submissions:[],lost:false,surface:false};
+        scope={id:request.scope,index:request.index,sequence:0,objects:new Map(),retired:new Map(),high:0,submissions:[],frames:[],lost:false,surface:false};
         generations[request.index]=scope.id;slots[request.index]=scope;
       }
       ensure(scope?.id===request.scope,"Stale GPU scope",E.ESTALE);
