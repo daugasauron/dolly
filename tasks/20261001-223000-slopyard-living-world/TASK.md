@@ -4,44 +4,69 @@
 - PRIORITY: 50
 - TAGS: game,controllers,cargo,combat,0.1.4
 
-## State (2026-10-24, the games-and-packages workstream)
+## State (2026-10-27, the flaky-tests workstream): rounds come back to their row, none is thrown again
 
-Measured again on `d6c8062c` (the catapult and tether work of
-[the catapult task](../20261023-160002-slopyard-catapults/TASK.md)), fresh catalog, 2,400 s,
-headless (the same Wasm simulation as on a GPU display, which the catapult task checked line for
-line): 40 deliveries (East 23, West 24), 183 actors, no removals or controller errors, one fall
-(Komame, the roaming lookout, 422 s). The catapult work's own audit at `c962100e` counted 45, the
-fresh catalog before it 36; Box3D and the guns changed since the table below.
+Measured on `main` `f9cbff51`, one image throughout (the game sources are uploaded with each run);
+evidence in `work/flaky/build/slopyard-evidence/`. The base, 2,400 s: on the GPU display (Xvfb
+`:163`, `run.mjs` + `audit.c`) 40 deliveries (East 23, West 24), 183 actors, no removals or controller
+errors; falls: Komame West 422 s at the end, Komame East 244 s early. The sling audit (headless) of
+the same sources: 30 shots, all eight guns firing; each tether round thrown once (Blue 82.7 s, Red
+84.6 s) and both brought their machine down (174 s, 217 s). That is the state of 2026-10-24
+(`d6c8062c`) to the line: Oreki four handoffs and no loaded wait over 353 s, Benkei West 374 m,
+Kitsune West 125 m. A per-second trace (`tether-life.c`) shows where they went: each
+tug set its round down standing at its drop-off, (35.2, -50.0) at 244 s and (-35.9, -48.9) at 284 s,
+20 m from the loaders, and nothing moved either again.
 
-Against the open problems below, on this run:
+Why not at their places in the stock row, (±55, -25): the tug gives the place up when anything
+stands within 2.5 m of it (1 m in the rejected `sling-reuse`), and the Koban loader's carriage and
+head pass within 0.5 m of it at rest and over it while working (`bay-walls.c`), so it is always
+given up. That place is also at the edge of the loader's reach: its head takes a box only from its
+own side, and the reach ends 0.14 m beyond the place (x = ±55.135 for a box centre).
 
-- Foundry freight chain: unchanged. The tandem-mast hauler took one pallet and stands in `clear`
-  at (-41.2, 57.9) for 2,023 s, the ore lift waits in `unload`, the quay crane in `seek`.
-- Oreki: four handoffs, no loaded wait longer than 353 s; no deadlock with Tonbi West.
-- Guns: all eight fire (30 shots); both tether rounds are thrown, hit and bring their machine
-  down; neither is thrown a second time. Why, traced on the same sources: the Red tug carries its
-  spent round to its own drop-off by its home and leaves it at (35.2, -50.0) at 250 s, out of
-  the Koban loader's reach (x 47 to 56, z -26 to -23). Its bay in the stock row, (55, -25), is
-  dropped by `kanagu-cable-tug.lua`'s returning step because it lies within 2.5 m of anchored
-  machines (the loader, the gun). Next: a drop point the tug can reach and the loader's head can
-  take from, then measure a second throw. Rejected (`sling-t14`, 2,400 s): letting the Tonbi
-  recovery truck carry standing rounds as it carries boxes. It takes them out of the stock row
-  before they are loaded, and no tether round was thrown at all (39 deliveries).
-  On the `a848735b` seed (`sling-base`/`audit-base`, 2,400 s) the same: 40 deliveries, 30
-  shots, each round thrown once and released on the ground (174 s, 217 s). Rejected
-  (`sling-reuse`/`audit-reuse`): giving up the bay only when a machine stands within 1 m of it,
-  not 2.5 m. The tug brings the Blue round back to its stock row, but the Tonbi West recovery
-  truck takes it and holds it at its bay for the last 992 s, so neither round is thrown again
-  (39 deliveries, East 19, West 27; a fall, Mochi at 1,315 s). Next: the loader, not the
-  recovery truck, takes a returned round from the stock row. Started and stopped for the
-  checkpoint, nothing committed: with that bay change plus the Tonbi trucks leaving any round
-  with a rope part alone (`sling-reuse2`, 2,400 s, beside `sling-base2` on the same image),
-  still no second throw: each round thrown once, neither ends within 20 m of its gun; 33 shots
-  and 41 deliveries against 30 and 40. Not traced where the rounds stop; the living-world
-  audits of the pair did not run.
-- Idle capacity: the Kanagu tugs each haul once (the tether rounds); both Tsuru rescuers and both
-  Kurogane collectors still never grip. Akane, the East crane boat, grips once.
-- Benkei West moves 374 m (58 m on 2026-10-06); Kitsune West 125 m (38 m).
+Rejected on 2026-10-24: the Tonbi trucks carrying standing rounds as they carry boxes (`sling-t14`:
+they took them out of the row before they were loaded); the 1 m margin (`sling-reuse`: the Blue
+round came back once, Tonbi West took it and held it 992 s), and with it the trucks leaving rounds
+with a line alone (`sling-reuse2`: both still at the drop-offs). Tried today, each on the one before
+unless stated (`life-v*`: 1,500 s traces; `sling-v2`, `audit-v2`, `sling-v6`, `audit-v6`: 2,400 s):
+
+- v1: the place is kept unless something stands on the round's own footprint below 2.2 m, and the
+  Tonbi trucks leave rounds with a line alone. Both rounds came back to their places (297 s, 333 s),
+  but lying: the tug turned 45° at speed near the row and the round toppled. The loaders cannot take
+  them so: a lying round's parts reach 0.2 to 1.3 m past the loader's reach, and Red's head, aiming
+  beside the one magnet it could reach, came down on the root block (`pickup.c`).
+- v2: carried steadily (steering at most 0.25, slowing in turns) and set down within 0.4 m. Red came
+  back at 557 s, lying 0.32 m from its place; its loader took it at 620 s and its gun gripped it at
+  647 s, 2.27 m from the magnet (the gun's grip on a standing round: 1.35 m), and it flew off the
+  spinning arm at 865 s: the nearest to a second throw measured, and not one. The Blue tug circled
+  3 m from its home waypoint until each 180 s return expired. Over 2,400 s: 31 shots, 32 deliveries
+  on the GPU display (East 17, West 22), and a new fall (Kawasemi, 3 s at up -0.98).
+- v3: the home waypoint skipped when the round is nearer its place, the last 4 m slowly with full
+  steering. Red stood 0.1 m outside the reach (its pickup failed after 45 s); Blue toppled in the
+  last 4 m, its loader held it by a magnet block, the root never reached the dock and the handoff
+  failed after 45 s.
+- v4: the rounds' places 0.3 m inward (`designs.lua`): the first loads misloaded, rejected.
+- v5, v6: the round set down 0.3 m further from the loader, the last metres steady and slow, let go
+  only when it stands still. Red still settled 0.66 m off (v5); over 2,400 s (v6) Red's round was
+  loaded again but reached the gun lying, 2 m off its dock (two misloads), and Blue's ended behind its
+  loader: no second throw, 27 shots, and on the GPU display 32 deliveries (East 17, West 22; the
+  Tonbo and Yamabiko couriers 9 fewer), no new fall, removal or controller error. Not accepted.
+
+Nothing is committed: no variant throws a returned round again, and both measured over 2,400 s
+deliver 32. The traces agree with the audits of the same sources to the second, so each variant is
+one deterministic world; v6 parts from the base by 600 s, v2 after 1,200 s. What a fix
+needs, as measured: a returned round stands within about 0.2 m of its place, on the loader's far
+side of it; or the loader and gun take a lying round, the loader gripping its root block from its
+own side wherever the round lies within reach and the gun accepting it root down.
+
+The other open problems, on the base GPU audit of this run:
+
+- Foundry freight chain: unchanged. The hauler stands in `clear` at (-41.2, 57.9) for 2,023 s, the
+  ore lift waits in `unload`.
+- Idle capacity: the Kanagu tugs each haul once (the tether rounds), and return them as above. Both
+  Tsuru rescuers scout 2,400 s without a grip; Komame East lay fallen at (43, 82) from about 100 s to
+  340 s. Kurogane East claimed Komame West, fallen at (7.9, 69.1), at 2,000 s, lowered its grapple
+  from 16.6 m for its 60 s deadline without a grip and gave it up (`wrecks.c`); not traced further.
+  Kurogane West patrolled x -20 to 4 while Komame East lay at x 43.
 
 ## State (2026-10-13)
 
