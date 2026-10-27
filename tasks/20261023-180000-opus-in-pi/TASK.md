@@ -594,4 +594,10 @@ browser's stack depth ([emacs-stack](../20261013-202443-emacs-stack/TASK.md)), n
 `_hashlib` (TLS is the broker's, there is no OpenSSL), `_decimal` (its compile time), the first
 `go` build's 80 s (round 4).
 
-Spend, all sessions: **$17.343 of the $20** (round 5: $6.200).
+After the fixes, on the round's images (`r5-after/`, $0.327, 23 calls, 101 s): Opus checked each
+finding from inside and found sqlite3, bz2 and lzma working, `od -t x1` printing bytes (sbase pads
+with spaces, not zeros: upstream's format), `/dev/zero` read by `dd`, no header in `/usr/include` of a
+library that is not installed, amy's message saying the variables wait, and a raylib program asking
+for touch points (refused with `nena disable touch`: it needs touch@0).
+
+Spend, all sessions: **$17.670 of the $20** (round 5: $6.527).
