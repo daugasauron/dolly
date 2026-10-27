@@ -45,15 +45,43 @@ Done on branch `demo/zero-ad-reconcile`, on the current seed:
   algorithms and version, Premake generates a gmake workspace that builds and runs. The ICU
   case is a row of `test/amy-browser.mjs` (`0d6f94c3`); the others' check is 0 A.D.'s.
 
-Left, so the done-when does not hold yet, and out of today's scope by the integrator's
-decision: packages that are still views of a demo's build image, `cmake` (`cmake-build`), `go`
-(`go-build`), `voice` (`speech-build`), `xorg-server` (`xorg-server-build`), `mojo` (five
-`COPY` rows), `rust` and `cargo` (`COPY` rows of `rust-build`, which replaces the seed compiler
-twice by the owner's choice: [the engines](../20261013-145359-builds-engines/TASK.md)), and in
-the core `zig` and `display` (eight `COPY` rows of `ghostty-build`); gmqcc in `xonotic-build`
-and transcribe.cpp in `speech-build`. Recorded reasons stand for Neovim's five libraries, the
-three LLVMs and the two ggml ([the engines](../20261013-145359-builds-engines/TASK.md)) and
-Wine's libraries (one executable, old series chosen for it). ENet stays in `zero-ad-deps`.
+The rest, on 2026-10-27 in the evening (`c973eab9`): no package is a view of a demo's build
+image any more. Each holds the build its build image had, from the same pinned sources, and
+the build images that only made them are gone:
+
+- `cmake` (CMake's bootstrap); `cmake-build` is `system-tools` with `libuv` and `cmake`.
+- `go` (the rebuild of the seed in Dolly, checked equal to it); `go-build` installs it.
+- `mojo` (`mojo-build`'s compiler and `mojo-runtime`'s libraries, both gone).
+- `codex` (`codex-build`'s offline Cargo build, gone; the binary in `/usr/libexec` beside its
+  launcher).
+- `lua` (Lua 5.1, LPeg and luv, also as the static libraries Neovim links) and `nvim`
+  (utf8proc, tree-sitter, Neovim and its grammars, on `lua`); `neovim-build` is gone.
+- `transcribe` (transcribe.cpp and its ggml), which `voice` and `speech-to-text` use;
+  `speech-build` is gone.
+- `gmqcc`, which `xonotic-build` installs.
+- `pixman`, `libxkbfile`, `xkbcomp` (which declares `sockets@0`: it reaches the server through
+  libX11) and `xkeyboard-config`, which `xorg-server`, a package holding the server's build,
+  installs; `xorg-server-build` is gone.
+
+Built first in this tree alone (`DOLLY_BUILD_IMAGES`): `cmake` 928 s and `cmake-build`; `lua`,
+`nvim` and `neovim`; `transcribe`, `voice`, `speech-to-text`; `gmqcc`; `pixman`, `libxkbfile`,
+`xkbcomp`, `xkeyboard-config`, `xorg-server`; `go` (its rebuild equal to the seed).
+
+Not broken out, and why:
+
+- `rust` and `cargo` copy from `rust-build`, which builds the compiler twice and checks the
+  second generation's standard library against the first's, by the owner's choice
+  ([the engines](../20261013-145359-builds-engines/TASK.md)): a package holding that build
+  would be `rust-build` itself.
+- `zig` and `display` (in the core) come from `zig-build` and `ghostty-build`, the core's own
+  bootstrap images (`system-build` → `zig-build` → `ghostty-build` → `display` →
+  `system-tools`), not a demo's.
+- utf8proc and tree-sitter stay inside `nvim`'s build: Neovim's pins, no second user.
+- The three LLVMs and the two ggml: [the engines](../20261013-145359-builds-engines/TASK.md).
+- Wine's libraries: one executable, an old series chosen for it. ENet stays in
+  `zero-ad-deps` (Dolly's transport).
+- `fingers-build` copies SDL2's licence from the `sdl2` package: a licence, not a build.
+
 ## 2026-10-24: the games-and-packages workstream, `demo/slopyard-catapults`
 
 The integrator's brief (2026-10-23): the "Left" list below, raylib, box3d, libuv, a llama.cpp

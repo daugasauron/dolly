@@ -2,9 +2,15 @@
 
 - STATUS: OPEN
 - PRIORITY: 50
-- TAGS: game,controllers,cargo,combat,0.1.4
+- TAGS: game,controllers,cargo,combat
 
 ## State (2026-10-27, the flaky-tests workstream): rounds come back to their row, none is thrown again
+
+After v0.1.4, by the integrator's recommendation, which the owner accepted on 2026-10-27 ("the
+rest of the items go with your recommendations"): what is open here is the game's controllers
+(the tether rounds, the foundry chain, idle machines), not Dolly; the image and its GPU test pass
+on the release candidate. The variants below are kept with their sources
+(`work/evidence-2026-10-27/flaky/slopyard-evidence/src-v1` to `src-v7`) for whoever takes it up.
 
 Measured on `main` `f9cbff51`, one image throughout (the game sources are uploaded with each run);
 evidence in `work/flaky/build/slopyard-evidence/`. The base, 2,400 s: on the GPU display (Xvfb
