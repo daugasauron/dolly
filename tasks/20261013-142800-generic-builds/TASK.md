@@ -21,30 +21,39 @@ broken out says why for each.
 
 ## State (2026-10-27)
 
-Ogg and Vorbis are done (`99a6d3f2`, branch `demo/zero-ad-reconcile`): `zero-ad-deps` installs
-`libvorbis`, which brings `libogg`, and builds neither; their sources left `deps.tar.gz` and
-`build-sources.tsv`. `xonotic` takes the FreeType, libpng, Ogg and Vorbis licences from those
-packages, not from `zero-ad-deps` (it shipped no Ogg or Vorbis notice before). Rebuilt on the
-current seed: `zero-ad-deps` 126.5 s, `zero-ad-engine` 341 s (`make` 305 s), `zero-ad` 68 s,
-`xonotic` 35 s. Passed: `0ad-spidermonkey`, `0ad-engine` (replay `be99497b…`, save/load
-`ff2fbc7d…`: the hashes of 2026-10-01), `0ad-graphics hardware` (NVIDIA, 112 s), `0ad-openal`.
+Done on branch `demo/zero-ad-reconcile`, on the current seed:
 
-The done-when, read whole, does not hold yet; nobody is on what is left:
+- Ogg and Vorbis (`99a6d3f2`): `zero-ad-deps` installs `libvorbis`, which brings `libogg`, and
+  builds neither. `xonotic` takes the FreeType, libpng, Ogg and Vorbis licences from those
+  packages, not from `zero-ad-deps` (it shipped no Ogg or Vorbis notice before).
+- The rest of 0 A.D.'s libraries (`97e011c1`, the integrator's decision of 2026-10-27: the
+  ruling of 2026-10-12, "one consumer", gives way to the owner's aim of 2026-10-13): `fmt` and
+  `libxml2` (upstream CMake), `libsodium` and `icu` (their source directories compiled, as
+  `zero-ad-deps` did), `boost-headers` (Emscripten's header archive and the Boost Software
+  License from Boost's repository at 1.83.0, a new `build-sources.tsv` row), `premake` (out of
+  `zero-ad-engine`), each a package in `demos/zero-ad/` from its pinned source. `icu` brings its
+  data file and finds it in `/usr/share/icu/68.2` (`ICU_DATA_DIR`); the game still sets
+  `ICU_DATA` to its own copy. `zero-ad-deps` installs them, builds ENet alone (Dolly's
+  transport, which stays there) and stands on `system-tools`; its snapshot went from 441 to
+  382 MB. Package snapshots: `fmt` 0.9 MB, `libxml2` 2.4 MB, `libsodium` 0.7 MB,
+  `boost-headers` 152 MB, `icu` 40.6 MB (150 s), `premake` 1.1 MB (36 s).
+- Checks: the four 0 A.D. tests on the rebuilt chain (`zero-ad-deps` 31 s, `zero-ad-engine`
+  `make` 491 s, `zero-ad` 77 s): `0ad-spidermonkey`, `0ad-engine` (replay `be99497b…`,
+  save/load `ff2fbc7d…`, the hashes of 2026-10-01), `0ad-graphics hardware`, `0ad-openal`. In a
+  `default` session (Chromium), each package installed and used: ICU collates Swedish with its
+  data and no `ICU_DATA`, fmt formats, libxml2 parses, libsodium hashes, Boost's string
+  algorithms and version, Premake generates a gmake workspace that builds and runs. The ICU
+  case is a row of `test/amy-browser.mjs` (`0d6f94c3`); the others' check is 0 A.D.'s.
 
-- Packages that are still views of a demo's build image: `cmake` (`cmake-build`), `go`
-  (`go-build`), `voice` (`speech-build`), `xorg-server` (`xorg-server-build`), `mojo` (five
-  `COPY` rows), `rust` and `cargo` (`COPY` rows of `rust-build`, which replaces the seed
-  compiler twice by the owner's choice: [the engines](../20261013-145359-builds-engines/TASK.md)).
-  In the core, `zig` and `display` (eight `COPY` rows of `ghostty-build`).
-- Built inside an image and kept by the ruling of 2026-10-12, "one consumer"
-  ([0 A.D.'s libraries](../20261013-145359-builds-zero-ad-deps/investigation.md), §1.2), with no
-  decision since the owner's aim of 2026-10-13: fmt 7.1.3 and libxml2 2.13.5 (upstream CMake,
-  unchanged), ICU 68.2, libsodium 1.0.20, ENet 1.3.18 (Dolly's transport) and Boost's headers in
-  `zero-ad-deps`; premake in `zero-ad-engine`. Not covered by any record: gmqcc in
-  `xonotic-build`, transcribe.cpp in `speech-build`.
-- With a recorded reason: Neovim's five libraries, the three LLVMs, the two ggml
-  ([the engines](../20261013-145359-builds-engines/TASK.md)), Wine's libraries (one executable,
-  old series chosen for it, inventory).
+Left, so the done-when does not hold yet, and out of today's scope by the integrator's
+decision: packages that are still views of a demo's build image, `cmake` (`cmake-build`), `go`
+(`go-build`), `voice` (`speech-build`), `xorg-server` (`xorg-server-build`), `mojo` (five
+`COPY` rows), `rust` and `cargo` (`COPY` rows of `rust-build`, which replaces the seed compiler
+twice by the owner's choice: [the engines](../20261013-145359-builds-engines/TASK.md)), and in
+the core `zig` and `display` (eight `COPY` rows of `ghostty-build`); gmqcc in `xonotic-build`
+and transcribe.cpp in `speech-build`. Recorded reasons stand for Neovim's five libraries, the
+three LLVMs and the two ggml ([the engines](../20261013-145359-builds-engines/TASK.md)) and
+Wine's libraries (one executable, old series chosen for it). ENet stays in `zero-ad-deps`.
 ## 2026-10-24: the games-and-packages workstream, `demo/slopyard-catapults`
 
 The integrator's brief (2026-10-23): the "Left" list below, raylib, box3d, libuv, a llama.cpp
