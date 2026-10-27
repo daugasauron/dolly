@@ -4,7 +4,7 @@
 - PRIORITY: 50
 - TAGS: game,controllers,cargo,combat,0.1.4
 
-## State (2026-10-27, the flaky-tests workstream): rounds come back to their row, none is thrown again yet
+## State (2026-10-27, the flaky-tests workstream): rounds come back to their row, none is thrown again
 
 Measured on `main` `f9cbff51`, one image throughout (the game sources are uploaded with each run);
 evidence in `work/flaky/build/slopyard-evidence/`. The base, 2,400 s: on the GPU display (Xvfb
@@ -27,7 +27,7 @@ Rejected on 2026-10-24: the Tonbi trucks carrying standing rounds as they carry 
 they took them out of the row before they were loaded); the 1 m margin (`sling-reuse`: the Blue
 round came back once, Tonbi West took it and held it 992 s), and with it the trucks leaving rounds
 with a line alone (`sling-reuse2`: both still at the drop-offs). Tried today, each on the one before
-unless stated (`life-v*`: 1,500 s traces; `sling-v6`, `audit-v6`: 2,400 s):
+unless stated (`life-v*`: 1,500 s traces; `sling-v2`, `audit-v2`, `sling-v6`, `audit-v6`: 2,400 s):
 
 - v1: the place is kept unless something stands on the round's own footprint below 2.2 m, and the
   Tonbi trucks leave rounds with a line alone. Both rounds came back to their places (297 s, 333 s),
@@ -35,9 +35,11 @@ unless stated (`life-v*`: 1,500 s traces; `sling-v6`, `audit-v6`: 2,400 s):
   them so: a lying round's parts reach 0.2 to 1.3 m past the loader's reach, and Red's head, aiming
   beside the one magnet it could reach, came down on the root block (`pickup.c`).
 - v2: carried steadily (steering at most 0.25, slowing in turns) and set down within 0.4 m. Red came
-  back at 557 s, lying 0.32 m from its place; the loader took it at 620 s and the gun threw it a
-  second time at 866 s (straight up, a miss): the only second throw measured. The Blue tug circled
-  3 m from its home waypoint until each 180 s return expired.
+  back at 557 s, lying 0.32 m from its place; its loader took it at 620 s and its gun gripped it at
+  647 s, 2.27 m from the magnet (the gun's grip on a standing round: 1.35 m), and it flew off the
+  spinning arm at 865 s: the nearest to a second throw measured, and not one. The Blue tug circled
+  3 m from its home waypoint until each 180 s return expired. Over 2,400 s: 31 shots, 32 deliveries
+  on the GPU display (East 17, West 22), and a new fall (Kawasemi, 3 s at up -0.98).
 - v3: the home waypoint skipped when the round is nearer its place, the last 4 m slowly with full
   steering. Red stood 0.1 m outside the reach (its pickup failed after 45 s); Blue toppled in the
   last 4 m, its loader held it by a magnet block, the root never reached the dock and the handoff
@@ -49,7 +51,9 @@ unless stated (`life-v*`: 1,500 s traces; `sling-v6`, `audit-v6`: 2,400 s):
   loader: no second throw, 27 shots, and on the GPU display 32 deliveries (East 17, West 22; the
   Tonbo and Yamabiko couriers 9 fewer), no new fall, removal or controller error. Not accepted.
 
-Nothing is committed: no variant throws a returned round again without fewer deliveries. What a fix
+Nothing is committed: no variant throws a returned round again, and both measured over 2,400 s
+deliver 32. The traces agree with the audits of the same sources to the second, so each variant is
+one deterministic world; v6 parts from the base by 600 s, v2 after 1,200 s. What a fix
 needs, as measured: a returned round stands within about 0.2 m of its place, on the loader's far
 side of it; or the loader and gun take a lying round, the loader gripping its root block from its
 own side wherever the round lies within reach and the gun accepting it root down.
