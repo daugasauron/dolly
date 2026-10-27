@@ -601,3 +601,36 @@ library that is not installed, amy's message saying the variables wait, and a ra
 for touch points (refused with `nena disable touch`: it needs touch@0).
 
 Spend, all sessions: **$17.670 of the $20** (round 5: $6.527).
+
+## Round 6 (2026-10-27 evening): the release candidate's developer workflows ($0.995)
+
+One session on the local release of the round of `28a98839` (`/v0.1.4/pi-agent/` on :9015, the
+whole domain catalog), the method's hardened policy and key handling (`check.mjs`: no key
+material in any kept file). The prompt asked for real work beyond the earlier audits: a CMake
+project on amy's libraries, Python's sqlite3/bz2/lzma, Go, a Rust crate, Git, Lua and Neovim,
+X11 and SDL2, upload and download. Opus's report is [release-audit-r6.md](release-audit-r6.md)
+(514 s, $0.995). What came of each failure it lists:
+
+- `amy install go` and `amy install vendor-crates`: "this site publishes no such package". The
+  skill names both (since 2026-10-24), but the domain's catalog never listed them; it now lists
+  `go-tools` (Go and esbuild), `vendor-crates` and `ocaml`, and the catalog test checks what
+  Pi's guidance suggests against the domain (`10170acc`). With vendor-crates, crates.io's index
+  (no CORS headers) is no longer in the way.
+- A local `git clone` or fetch: "git-upload-pack: command not found". The dashed builtins are
+  installed in Git's exec path (`9223689e`, `9bea4870`); the recipe and the shell test clone
+  and fetch a local repository. Push fails ("fork (async) failed": send-pack reads the side
+  band in an async process, and this Git has no threads where there is no `fork`), over HTTP
+  too; the skill and the docs had said push worked through a relay and now say it does not,
+  with the fetch that moves commits between local repositories.
+- `Xsdl :1` without `-nolock`: "Linking lock file ... failed: Too many links". The lock is made
+  with `link()`, and the filesystem has no hard links by design; Xsdl now has a manual page that
+  says so (`fcb4c019`). The desktop images pass `-nolock`.
+- `imgui-x11` where an X server held the display: "Dolly display acquire: -10". Its own SDL is
+  built for X11 alone now (`fcb4c019`), and amy's descriptions give a README link's text
+  (`4d001f92`).
+- `cargo test`: after v0.1.4 ([the Rust follow-ups](../20261009-110500-rust-followups/TASK.md)).
+- Not changed: amy stops a batch at the first package the session cannot take, with status 1
+  and the module named; Dolly's `file` knows WebAssembly only and sbase's `od` has no `-c`
+  (`-t c` works); Neovim is built at `-O0` as a Debug build, for the build's time.
+
+Spend, all sessions: **$18.665 of the $20**.
