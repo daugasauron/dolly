@@ -19,14 +19,21 @@ const gpu = browser === "chromium" && Boolean(process.env.DISPLAY);
 const client = `cd ${basedir} && xonotic-sdl -xonotic -basedir ${basedir} +vid_soft 1 +vid_soft_threads 1 +vid_fullscreen 0 ` +
   "+vid_width 1024 +vid_height 768";
 
-// The lit fraction and a checksum of the frame a person sees: on gpu@0 the GPU
-// canvas over #display (from a screenshot), else #display; null before a 1024x768 one.
+// The lit fraction, a checksum and the mean colour of each of 8x6 blocks (rows
+// from the top) of the 1024x768 frame a person sees: on gpu@0 the GPU canvas over
+// #display (from a screenshot), else #display; null before a 1024x768 one.
 async function frame(page) {
   await page.evaluate(() => {
     globalThis.measureFrame = pixels => {
       let lit = 0, sum = 0;
-      for (let i = 0; i < pixels.length; i += 4) { if (pixels[i] + pixels[i + 1] + pixels[i + 2] > 48) lit++; sum = (sum * 31 + pixels[i]) >>> 0; }
-      return { lit: lit / (pixels.length / 4), sum };
+      const blocks = Array.from({ length: 48 }, () => [0, 0, 0]);
+      for (let i = 0; i < pixels.length; i += 4) {
+        if (pixels[i] + pixels[i + 1] + pixels[i + 2] > 48) lit++;
+        sum = (sum * 31 + pixels[i]) >>> 0;
+        const block = blocks[Math.floor(i / 4 / 1024 / 128) * 8 + Math.floor(i / 4 % 1024 / 128)];
+        for (let c = 0; c < 3; c++) block[c] += pixels[i + c] / (128 * 128);
+      }
+      return { lit: lit / (pixels.length / 4), sum, blocks };
     };
   });
   if (gpu) {
@@ -35,9 +42,9 @@ async function frame(page) {
     const png = (await page.screenshot({ clip: await page.locator("#display").boundingBox() })).toString("base64");
     return page.evaluate(async png => {
       const bitmap = await createImageBitmap(new Blob([Uint8Array.from(atob(png), c => c.charCodeAt(0))], { type: "image/png" }));
-      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height), context = canvas.getContext("2d");
-      context.drawImage(bitmap, 0, 0);
-      return measureFrame(context.getImageData(0, 0, bitmap.width, bitmap.height).data);
+      const canvas = new OffscreenCanvas(1024, 768), context = canvas.getContext("2d");
+      context.drawImage(bitmap, 0, 0, 1024, 768);
+      return measureFrame(context.getImageData(0, 0, 1024, 768).data);
     }, png);
   }
   await snapshotDisplay(page);
@@ -102,23 +109,57 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser,
     fonts.map(name => `curl -fsS ${server.origin}/fixture/${name} -o ${name}`).join(" && "));
   // The menu plays an Ogg Vorbis sound: decoded by Vorbis, mixed by the engine and
   // played through SDL's audio on audio@0. snd_mutewhenidle 0: the engine mutes a
-  // window without input focus, and nobody types here.
-  const menu = start(`${client} +log_file menu.log +snd_mutewhenidle 0 +defer 10 \"play sound/menu/winner.ogg\" +defer 40 quit`);
+  // window without input focus, and nobody types here. The engine's screenshot
+  // reads the frame back (on gpu@0, from the presented surface); then a map
+  // loads, its loading screen drawn over a copy of the last frame (on gpu@0, a
+  // draw into a texture), its picture small so that the copy shows around it.
+  const menu = start(`${client} +log_file menu.log +snd_mutewhenidle 0 +defer 10 \"play sound/menu/winner.ogg\" ` +
+    "+defer 30 \"screenshot menu.tga\" +defer 32 \"scr_loadingscreen_background 1; scr_loadingscreen_scale 0.25; " +
+    "scr_loadingscreen_scale_limit 0; map stormkeep\" +defer 33 quit");
   await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
-  let painted;
-  for (const started = performance.now(); !painted && performance.now() - started < 120_000; await delay(500)) {
+  const menuFrames = [];
+  for (; menu.status === null; await delay(500)) {
     const digest = await frame(page);
-    if (digest && digest.lit > 0.02 && digest.lit < 0.98) painted = digest;
+    if (digest) menuFrames.push(digest);
   }
+  const painted = menuFrames.find(digest => digest.lit > 0.02 && digest.lit < 0.98);
   assert.ok(painted, "a menu frame that is neither blank nor flat");
   console.log(`xonotic: client frame at 1024x768, lit fraction ${painted.lit.toFixed(3)}`);
-  assert.equal(await menu.done, 0, "the client must quit back to the shell");
+  assert.equal(menu.status, 0, "the client must quit back to the shell");
   // The render path says which rasterizer drew.
   await run(`grep -q '${gpu ? "dpgpurast: drawing on gpu@0" : "dpgpurast: gpu@0 has no device"}' ${userdir}/menu.log`);
   console.log(`xonotic: the client drew ${gpu ? "on gpu@0" : "in software, gpu@0 having no device"}`);
   const heard = await heardAudio(page);
   assert.ok(heard[0] > .05 && heard[1] > .05, `the menu's sound was not heard: ${heard}`);
   console.log(`xonotic: the menu's Ogg Vorbis sound reached the page, loudest RMS ${heard.map(x => x.toFixed(3)).join(" and ")}`);
+  // The screenshot: an uncompressed 24-bit TGA of the whole 1024x768 frame, bottom
+  // row first, neither blank nor flat; the mean colours of its top row of blocks
+  // and of the four central ones. od prints its bytes as 4-byte words (sbase's od
+  // takes no size after -t u).
+  const top = [0, 1, 2, 3, 4, 5, 6, 7], centre = [19, 20, 27, 28];
+  await run(`test "$(wc -c < ${userdir}/menu.tga)" -eq ${18 + 1024 * 768 * 3} && tail -c +19 ${userdir}/menu.tga | od -A n -v -t u | ` +
+    "awk '{ for (i = 1; i <= NF; i++) { w = $i; for (j = 0; j < 4; j++) { v[k % 3] = w % 256; w = int(w / 256); if (++k % 3 == 0) { " +
+    "n = k / 3 - 1; b = int((767 - int(n / 1024)) / 128) * 8 + int(n % 1024 / 128); " +
+    "r[b] += v[2]; g[b] += v[1]; u[b] += v[0]; lit += (v[0] + v[1] + v[2] > 48) } } } } " +
+    "END { printf \"screenshot lit %.3f\\n\", lit / (k / 3); " +
+    "for (b = 0; b < 48; b++) if (b < 8 || b == 19 || b == 20 || b == 27 || b == 28) " +
+    "printf \"block %d %.1f %.1f %.1f\\n\", b, r[b] / 16384, g[b] / 16384, u[b] / 16384 }'");
+  const terminal = await text(), shot = Number(terminal.match(/screenshot lit ([\d.]+)/)[1]);
+  assert.ok(shot > 0.02 && shot < 0.98, `the screenshot is blank or flat: lit ${shot}`);
+  console.log(`xonotic: the engine's screenshot of the menu, 1024x768, lit fraction ${shot.toFixed(3)}`);
+  const shotBlocks = Object.fromEntries([...terminal.matchAll(/^block (\d+) ([\d.]+) ([\d.]+) ([\d.]+)\s*$/gm)]
+    .map(([, b, ...rgb]) => [b, rgb.map(Number)]));
+  // How far each of a frame's blocks is from the screenshot's, in mean colour difference.
+  const distances = (digest, blocks) => blocks.map(b =>
+    digest.blocks[b].reduce((sum, value, c) => sum + Math.abs(value - shotBlocks[b][c]), 0) / 3);
+  const mean = values => values.reduce((sum, value) => sum + value, 0) / values.length;
+  // The loading screen: the screenshot's frame along the top (the software
+  // rasterizer draws it a little darker), its picture over the centre.
+  const loading = menuFrames.find(digest => mean(distances(digest, top)) < 5 && Math.max(...distances(digest, centre)) > 6);
+  assert.ok(loading, "a loading screen over the last frame; top and centre distances: " +
+    menuFrames.map(digest => `${mean(distances(digest, top)).toFixed(1)}/${Math.max(...distances(digest, centre)).toFixed(1)}`).join(" "));
+  console.log("xonotic: the loading screen drew over a copy of the menu's frame, as the screenshot read it back " +
+    `(mean distance ${mean(distances(loading, top)).toFixed(1)} along the top, ${Math.max(...distances(loading, centre)).toFixed(1)} in the centre)`);
   await page.waitForFunction(() => !__dolly.transport.graphicsActive()); // the display is released
   await run("echo SHELL-BACK");
   console.log("xonotic: the client drew a frame and quit back to the shell");

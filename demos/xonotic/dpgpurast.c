@@ -5,17 +5,18 @@
 // its DPSOFTRAST_ names as dpsoft_ (the Makefile's DPSOFTRAST_CALLS).
 //
 // The frame is drawn into a colour and a depth texture and copied onto the
-// surface by DPSOFTRAST_Finish. Consecutive draws with the same pipeline,
-// textures and uniforms merge into one: their vertex ranges are gathered into
-// one set of arrays. A merged draw's arrays go into a stream buffer and its
-// uniforms into slots of a storage buffer that the shaders (dpshaders.c,
-// translated to WGSL by naga) index by the draw's instance index; both are
-// written once per command packet. A larger draw whose arrays and indices
-// held the same bytes when drawn before (a static model's) reads them from a
-// geometry buffer instead, where they were written once. Pipelines, shader
-// modules, samplers and texture groups are created on first use and kept. A
-// packet is sent when it fills, which ends the render pass, and at the end of
-// the frame.
+// surface by DPSOFTRAST_Finish; a copy of the frame into a texture is a draw
+// from the colour texture, and the frame is read back from the surface.
+// Consecutive draws with the same pipeline, textures and uniforms merge into
+// one: their vertex ranges are gathered into one set of arrays. A merged
+// draw's arrays go into a stream buffer and its uniforms into slots of a
+// storage buffer that the shaders (dpshaders.c, translated to WGSL by naga)
+// index by the draw's instance index; both are written once per command
+// packet. A larger draw whose arrays and indices held the same bytes when
+// drawn before (a static model's) reads them from a geometry buffer instead,
+// where they were written once. Pipelines, shader modules, samplers and
+// texture groups are created on first use and kept. A packet is sent when it
+// fills, which ends the render pass, and at the end of the frame.
 #include <dolly/gpu.h>
 #include <errno.h>
 #include <stdarg.h>
@@ -154,13 +155,13 @@ static int ranges_count, range_index[2 * MAX_RANGES], frame_number, geometry_ful
 static uint64_t geometry_buffer;
 static uint32_t geometry_used;
 
-static int fb_width, fb_height, target_is_texture;
-static uint64_t color_target, depth_target, stream_buffer, uniform_buffer, blit_pipeline, blit_group;
+static int fb_width, fb_height, target_is_texture, surface_bgra;
+static uint64_t color_target, depth_target, stream_buffer, uniform_buffer, blit_pipeline, blit_group, copy_pipeline, copy_group, capture_buffer;
 static unsigned char stream_data[STREAM_BYTES], uniform_data[UNIFORM_BYTES];
 static uint32_t stream_used, uniform_used;
 static int last_slot = -1;
 static pair_t *last_slot_pair;
-static int pass_open, pass_clear_color, pass_clear_depth, viewport_set;
+static int pass_open, pass_clear_color, pass_clear_depth, viewport_set, encoded;
 static float clear_color[4], clear_depth = 1;
 
 // The engine's state as DPSOFTRAST receives it.
@@ -210,21 +211,26 @@ static void WriteBuffer(uint64_t buffer, const void *data, uint32_t bytes)
 	memcpy((char *)p + 32, data, bytes);
 }
 
+static void EndPass(void)
+{
+	if (pass_open)
+		dolly_gpu_record(&gpu, DOLLY_GPU_END_RENDER_PASS, 8);
+	pass_open = false;
+}
+
 // Sends the packet: writes the arrays and uniforms its draws read, ends the
-// render pass, copies the frame onto the surface when PRESENT, submits, and
+// render pass, copies the frame onto the surface when PRESENT (and the
+// CAPTURE rectangle of it into the capture buffer when given), submits, and
 // starts a packet with the releases that waited for it. The merged draw, if
 // any, waits for the next packet. Each packet costs a wait for gpu@0's
 // validation of it, so a frame takes as few as fit.
-static void Send(int present)
+static void Send(int present, const int *capture)
 {
 	if (stream_used)
 		WriteBuffer(stream_buffer, stream_data, stream_used);
 	if (uniform_used)
 		WriteBuffer(uniform_buffer, uniform_data, uniform_used);
-	int submit = pass_open || present;
-	if (pass_open)
-		dolly_gpu_record(&gpu, DOLLY_GPU_END_RENDER_PASS, 8);
-	pass_open = false;
+	EndPass();
 	if (present)
 	{
 		void *p = dolly_gpu_record(&gpu, DOLLY_GPU_BEGIN_RENDER_PASS, 64);
@@ -232,9 +238,15 @@ static void Send(int present)
 		p = dolly_gpu_record(&gpu, DOLLY_GPU_DRAW_MESH, 88);
 		U64(p, 8, blit_pipeline);U32(p, 40, 3);U32(p, 44, 1);U32(p, 64, 1);U64(p, 80, blit_group);
 		dolly_gpu_record(&gpu, DOLLY_GPU_END_RENDER_PASS, 8);
+		if (capture)
+		{
+			p = dolly_gpu_record(&gpu, DOLLY_GPU_CAPTURE_FRAME, 32);
+			U64(p, 8, capture_buffer);U32(p, 16, capture[0]);U32(p, 20, capture[1]);U32(p, 24, capture[2]);U32(p, 28, capture[3]);
+		}
 	}
-	if (submit)
+	if (encoded || present)
 		dolly_gpu_submit(&gpu);
+	encoded = false;
 	stream_used = uniform_used = 0;
 	last_slot = -1;
 	if (gpu.count && dolly_gpu_batch(&gpu) < 0)
@@ -249,7 +261,7 @@ static void Send(int present)
 	releases_count = 0;
 }
 
-static void Flush(void) {Send(false);}
+static void Flush(void) {Send(false, NULL);}
 
 // Whether the packet holds RECORDS more commands of BYTES, with STREAM and
 // UNIFORM bytes more for Flush to write.
@@ -563,7 +575,7 @@ static void BeginPass(void)
 	for (int i = 0; i < 4; i++)
 		F32(p, 40 + 4 * i, clear_color[i]);
 	F32(p, 56, bound(0.0f, clear_depth, 1.0f));
-	pass_open = true;
+	pass_open = encoded = true;
 	pass_clear_color = pass_clear_depth = 0;
 	viewport_set = false;
 }
@@ -922,12 +934,31 @@ static const char blit_fragment[] =
 	"@fragment fn main(@builtin(position) p: vec4<f32>) -> @location(0) vec4<f32> {\n"
 	"  return vec4<f32>(textureLoad(frame, vec2<i32>(p.xy), 0).rgb, 1.0);\n"
 	"}\n";
+// A rectangle of the frame into a texture, as OpenGL's glCopyTexSubImage2D: its
+// row 0 takes the rectangle's bottom row. The frame's rows run down from the
+// top, so with the draw's slot holding (sx - tx, height - sy + ty), texel
+// (x, y) takes the frame's pixel (x + sx - tx, height - sy + ty - 1 - y).
+static const char copy_vertex[] =
+	"@group(0) @binding(1) var<storage, read> slots: array<vec4<f32>>;\n"
+	"struct V {@builtin(position) position: vec4<f32>, @location(0) @interpolate(flat) origin: vec2<f32>}\n"
+	"@vertex fn main(@builtin(vertex_index) i: u32, @builtin(instance_index) slot: u32) -> V {\n"
+	"  let p = vec2<f32>(f32((i << 1u) & 2u), f32(i & 2u));\n"
+	"  return V(vec4<f32>(p * 2.0 - 1.0, 0.0, 1.0), slots[slot].xy);\n"
+	"}\n";
+static const char copy_fragment[] =
+	"@group(0) @binding(0) var frame: texture_2d<f32>;\n"
+	"@fragment fn main(@builtin(position) p: vec4<f32>, @location(0) @interpolate(flat) origin: vec2<f32>) -> @location(0) vec4<f32> {\n"
+	"  return textureLoad(frame, vec2<i32>(floor(vec2<f32>(origin.x + p.x, origin.y - p.y))), 0);\n"
+	"}\n";
 
 static void CreateFramebuffer(int width, int height)
 {
 	if (color_target)
 	{
-		Release(color_target);Release(depth_target);Release(blit_group);
+		Release(color_target);Release(depth_target);Release(blit_group);Release(copy_group);
+		if (capture_buffer)
+			Release(capture_buffer);
+		capture_buffer = 0;
 		Flush();
 	}
 	fb_width = width;
@@ -938,6 +969,11 @@ static void CreateFramebuffer(int width, int height)
 	void *p = Record(DOLLY_GPU_RESOURCE_GROUP, 64);
 	U64(p, 8, blit_group);U64(p, 16, blit_pipeline);U32(p, 28, 1);
 	U32(p, 36, 1);U64(p, 40, color_target);
+	copy_group = NewHandle();
+	p = Record(DOLLY_GPU_RESOURCE_GROUP, 96);
+	U64(p, 8, copy_group);U64(p, 16, copy_pipeline);U32(p, 28, 2);
+	U32(p, 36, 1);U64(p, 40, color_target);
+	U32(p, 64, 1);U64(p, 72, uniform_buffer);U64(p, 88, UNIFORM_BYTES);
 	pass_clear_color = pass_clear_depth = 1;
 }
 
@@ -952,6 +988,7 @@ static int OpenDevice(int width, int height)
 	if (dolly_gpu_capabilities(&gpu) >= 4)
 		memcpy(&features, gpu.reply, 4);
 	command_limit = (features & DOLLY_GPU_FEATURE_LARGE_BATCH) ? DOLLY_GPU_MAX_COMMANDS : 256;
+	surface_bgra = (features & DOLLY_GPU_FEATURE_SURFACE_BGRA) != 0;
 	dolly_gpu_begin(&gpu);
 	gpu_open = true;
 	stream_buffer = NewHandle();
@@ -972,6 +1009,11 @@ static int OpenDevice(int width, int height)
 	blit_pipeline = NewHandle();
 	void *p = Record(DOLLY_GPU_GRAPHICS_PIPELINE, 112);
 	U64(p, 8, blit_pipeline);U64(p, 16, vertex);U64(p, 24, fragment);U32(p, 52, 8);U32(p, 72, 15);
+	vertex = CreateShader(copy_vertex);
+	fragment = CreateShader(copy_fragment);
+	copy_pipeline = NewHandle();
+	p = Record(DOLLY_GPU_GRAPHICS_PIPELINE, 112);
+	U64(p, 8, copy_pipeline);U64(p, 16, vertex);U64(p, 24, fragment);U32(p, 32, 1);U32(p, 52, 8);U32(p, 72, 15);
 	CreateFramebuffer(width, height);
 	Flush();
 	Con_Printf("dpgpurast: drawing on gpu@0 at %dx%d\n", width, height);
@@ -995,9 +1037,9 @@ void DPSOFTRAST_Shutdown(void)
 	pairs_count = pipelines_count = groups_count = releases_count = objects = 0;
 	merged.vertices = merged.indices = 0;
 	stream_used = uniform_used = 0;
-	color_target = depth_target = next_handle = 0;
+	color_target = depth_target = capture_buffer = next_handle = 0;
 	shader = last_slot_pair = NULL;
-	pass_open = false;
+	pass_open = encoded = false;
 	for (int i = 0; i < ranges_count; i++)
 		free(ranges[i].bytes);
 	ranges_count = geometry_used = 0;
@@ -1009,16 +1051,22 @@ void DPSOFTRAST_Flush(void)
 	SOFTWARE(dpsoft_Flush());
 }
 
+// Draws what is recorded, a clear nothing drew after included.
+static void DrawRecorded(size_t bytes, int records, uint32_t uniform)
+{
+	EmitMerged();
+	if (!Fits(64 + bytes, 1 + records, 0, uniform))
+		Flush();
+	if ((pass_clear_color || pass_clear_depth) && !pass_open)
+		BeginPass();
+}
+
 // The frame, copied onto the surface.
 void DPSOFTRAST_Finish(void)
 {
 	SOFTWARE(dpsoft_Finish());
-	EmitMerged();
-	if (!Fits(64 + 64 + 88 + 8 + 8, 5, 0, 0))
-		Flush();
-	if ((pass_clear_color || pass_clear_depth) && !pass_open)
-		BeginPass(); // a clear nothing drew after
-	Send(true);
+	DrawRecorded(64 + 88 + 8 + 8, 4, 0);
+	Send(true, NULL);
 	if (++frame_number % 8 == 0 || geometry_full)
 		SweepRanges();
 }
@@ -1052,7 +1100,8 @@ int DPSOFTRAST_Texture_New(int flags, int width, int height, int depth)
 	texture->filter = (flags & DPSOFTRAST_TEXTURE_FLAG_MIPMAP) ? DPSOFTRAST_TEXTURE_FILTER_LINEAR_MIPMAP_TRIANGLE : DPSOFTRAST_TEXTURE_FILTER_LINEAR;
 	if (objects > OBJECT_BUDGET)
 		EvictGroups();
-	texture->handle = CreateTexture(width, height, texture->layers, texture->mips, 1, 2 | 4);
+	// One level of one layer can take a copy of the frame (CopyRectangleToTexture).
+	texture->handle = CreateTexture(width, height, texture->layers, texture->mips, 1, 2 | 4 | (texture->mips == 1 && texture->layers == 1 ? 16 : 0));
 	return index;
 }
 
@@ -1303,17 +1352,89 @@ void DPSOFTRAST_Color4f(float r, float g, float b, float a)
 	constant_color[0] = r;constant_color[1] = g;constant_color[2] = b;constant_color[3] = a;
 }
 
+// A block of the frame, as OpenGL's glReadPixels: rows from the bottom, BGRA.
+// gpu@0 reads back only the surface, so the frame is presented again with a
+// capture of the block.
 void DPSOFTRAST_GetPixelsBGRA(int blockx, int blocky, int blockwidth, int blockheight, unsigned char *outpixels)
 {
 	SOFTWARE(dpsoft_GetPixelsBGRA(blockx, blocky, blockwidth, blockheight, outpixels));
-	Warn("reading the frame back (screenshots) is not drawn");
-	memset(outpixels, 0, (size_t)blockwidth * blockheight * 4);
+	int width = min(blockwidth, fb_width - blockx), height = min(blockheight, fb_height - blocky);
+	if (target_is_texture || blockx < 0 || blocky < 0 || width < 1 || height < 1)
+	{
+		Warn("reading back a texture target, or outside the frame, is not drawn");
+		return;
+	}
+	if (!capture_buffer)
+	{
+		capture_buffer = NewHandle();
+		void *p = Record(DOLLY_GPU_CREATE_BUFFER, 32);
+		U64(p, 8, capture_buffer);U64(p, 16, Align(fb_width * 4, 256) * fb_height);U32(p, 24, 1 | 8);
+	}
+	const int capture[4] = {blockx, fb_height - blocky - height, width, height};
+	DrawRecorded(64 + 88 + 8 + 32 + 8, 5, 0);
+	Send(true, capture);
+	uint32_t pitch = (uint32_t)Align(width * 4, 256), bytes = pitch * (height - 1) + width * 4;
+	void *p = dolly_gpu_record(&gpu, DOLLY_GPU_MAP_READ, 32);
+	U64(p, 8, capture_buffer);U64(p, 24, bytes);
+	unsigned char *rows = (unsigned char *)malloc(bytes);
+	int mapped = dolly_gpu_batch(&gpu) >= 0, read = mapped;
+	for (uint32_t at = 0; read && at < bytes; at += DOLLY_GPU_REPLY_BYTES)
+	{
+		uint32_t n = min(bytes - at, DOLLY_GPU_REPLY_BYTES);
+		if ((read = dolly_gpu_read(&gpu, capture_buffer, at, n) == (int)n))
+			memcpy(rows + at, gpu.reply, n);
+	}
+	if (!read)
+		Warn("reading the frame back failed: %s", strerror(errno));
+	dolly_gpu_begin(&gpu);
+	if (mapped)
+		U64(dolly_gpu_record(&gpu, DOLLY_GPU_UNMAP, 16), 8, capture_buffer);
+	for (int y = 0; read && y < height; y++)
+	{
+		const unsigned char *in = rows + (size_t)(height - 1 - y) * pitch;
+		unsigned char *out = outpixels + (size_t)y * blockwidth * 4;
+		for (int x = 0; x < width; x++, in += 4, out += 4)
+		{
+			out[0] = in[surface_bgra ? 0 : 2];
+			out[1] = in[1];
+			out[2] = in[surface_bgra ? 2 : 0];
+			out[3] = in[3];
+		}
+	}
+	free(rows);
 }
 
+// A rectangle of the frame into a texture, drawn by the copy pipeline.
 void DPSOFTRAST_CopyRectangleToTexture(int index, int mip, int tx, int ty, int sx, int sy, int width, int height)
 {
 	SOFTWARE(dpsoft_CopyRectangleToTexture(index, mip, tx, ty, sx, sy, width, height));
-	Warn("copying the frame into a texture is not drawn (an effect beyond the normal preset)");
+	if (index <= 0 || index >= textures_end || !textures[index].handle)
+		return;
+	gpu_texture_t *texture = &textures[index];
+	if (target_is_texture || mip || texture->mips > 1 || texture->layers > 1)
+	{
+		Warn("a copy from a texture target, or into a texture's smaller levels or faces, is not drawn");
+		return;
+	}
+	width = min(width, min(texture->width - tx, fb_width - sx));
+	height = min(height, min(texture->height - ty, fb_height - sy));
+	if (tx < 0 || ty < 0 || sx < 0 || sy < 0 || width < 1 || height < 1)
+		return;
+	DrawRecorded(8 + 64 + 48 + 88 + 8, 5, 32);
+	EndPass();
+	uint32_t at = (uint32_t)Align(uniform_used, 16);
+	const float origin[4] = {(float)(sx - tx), (float)(fb_height - sy + ty), 0, 0};
+	memcpy(uniform_data + at, origin, 16);
+	uniform_used = at + 16;
+	void *p = dolly_gpu_record(&gpu, DOLLY_GPU_BEGIN_RENDER_PASS, 64);
+	U64(p, 8, texture->handle);U32(p, 24, texture->width);U32(p, 28, texture->height);
+	p = dolly_gpu_record(&gpu, DOLLY_GPU_VIEWPORT, 48);
+	F32(p, 16, texture->width);F32(p, 20, texture->height);F32(p, 28, 1);
+	U32(p, 32, tx);U32(p, 36, ty);U32(p, 40, width);U32(p, 44, height);
+	p = dolly_gpu_record(&gpu, DOLLY_GPU_DRAW_MESH, 88);
+	U64(p, 8, copy_pipeline);U32(p, 40, 3);U32(p, 44, 1);U32(p, 56, at / 16);U32(p, 64, 1);U64(p, 80, copy_group);
+	dolly_gpu_record(&gpu, DOLLY_GPU_END_RENDER_PASS, 8);
+	encoded = true;
 }
 
 void DPSOFTRAST_SetTexture(int unitnum, int index)
