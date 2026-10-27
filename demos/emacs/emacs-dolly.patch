@@ -140,6 +140,22 @@
    fcntl (fileno (tty->input), F_SETFL, 0);
  #endif /* USG or CYGWIN */
  #endif /* no FIONREAD */
+@@ -13387,7 +13387,14 @@
+       break;
+     }
+ 
+-  return !NILP (Fmemq (ignore_event, Vwhile_no_input_ignore_events));
++  /* Not Fmemq, which may quit: once an earlier event has set quit-flag
++     for while-no-input, a quit here throws out of the caller, and the
++     rest of the terminal read it is storing is lost.  */
++  Lisp_Object tail = Vwhile_no_input_ignore_events;
++  FOR_EACH_TAIL_SAFE (tail)
++    if (EQ (XCAR (tail), ignore_event))
++      return true;
++  return false;
+ }
+ 
+ static void syms_of_keyboard_for_pdumper (void);
 --- a/src/process.c
 +++ b/src/process.c
 @@ -7739,7 +7739,13 @@

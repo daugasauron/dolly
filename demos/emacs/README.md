@@ -21,7 +21,9 @@ commands run Slop through `posix_spawn` over pipes.
   (`wasm64-unknown-emscripten`) and builds Emacs's own termcap without PTYs.
   Under `DOLLY` it skips what Dolly lacks: the versioned hard link, a spawn
   session, job-control wait options, `FIONREAD` and process groups. `C-g` is
-  the terminal's interrupt key, as Emacs sets it on any Unix (`VINTR`).
+  the terminal's interrupt key, as Emacs sets it on any Unix (`VINTR`). It
+  fixes one bug of the release: a terminal read stored inside `while-no-input`
+  (eager completion at the first prompt) quit after two bytes and lost the rest.
 - [`Dollyfile-emacs`](Dollyfile-emacs): builds at `-O0` with the deeper stack
   (`dolly.process.stack`), dumps with pdumper, installs, and checks files,
   processes, timers and the collector.
