@@ -8,7 +8,7 @@ if has_image libuv; then
     demos/cmake/libuv /tmp/libuv/dolly \
     demos/cmake/libuv-dolly.mk /tmp/libuv/Makefile
 fi
-if has_image cmake-build; then
+if has_image cmake; then
   cmake_dir="$(bash scripts/fetch-pinned-source.sh cmake)"
   node scripts/build-source-tar.mjs "${static_dir}/cmake/cmake.tar.gz" \
     "${cmake_dir}" /tmp/cmake/source \
