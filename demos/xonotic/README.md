@@ -40,12 +40,12 @@ Build with `npm run image -- xonotic-build` or `npm run image -- xonotic`.
   WebGPU adapter the client draws on `gpu@0`; without one, `gpu@0` gives it no
   device and the software rasterizer draws. The image starts with the low
   effects preset (`/home/dolly/.xonotic/data/config.cfg`, overwritten with
-  the player's own settings on exit), chosen for the software path: 31 fps in
-  Chromium on the test's bot-match demo against 13 for the normal preset, at
-  the cost of deluxemapping, gloss and normal maps, realtime dynamic lights,
-  most particles and one texture mip level; the settings menu raises them
-  again. Loading a map takes about two minutes in the software client; the
-  loading plaque stays up meanwhile.
+  the player's own settings on exit), chosen for the software path: 22.9 fps
+  in Firefox on a recording of a running bot match against 12.3 for the
+  normal preset, at the cost of deluxemapping, gloss and normal maps, realtime
+  dynamic lights, most particles and one texture mip level; the settings menu
+  raises them again. Loading stormkeep from the menu takes about 15 s in
+  Firefox's software client.
 - Keyboard and mouse reach the engine through the sdl2 package's video
   backend: in the menu, in the game's own dialogs and in the game menu a map
   opens into, the page's cursor is hidden and the game draws its own; once
@@ -135,15 +135,15 @@ Nexuiz compatibility archives are left out. The browser test runs on
 `xonotic-build` and fetches the same archives through its fixture server into
 `/home/dolly/xonotic/data`, which is the test's arrangement. The compiled
 `progs.dat`, `csprogs.dat` and `menu.dat` inside `data.pk3` are the release's;
-the test runs its second match on the `progs.dat` built in Dolly. The test's
-`short.dem`, a 22 s bot match on stormkeep recorded with the native build, is
-a measurement fixture and not in any image: the software path plays it at
-1024×768 on one thread at 13.7 fps in Chromium and 16.1 fps in Firefox
-(native llvmpipe: 76 fps), the `gpu@0` path at 84 fps in Chrome in an
-800×450 window and 26 fps in a 1280×720 one: under Xvfb each presented frame
-waits until the X server has the window, which grows with its area, so the
-window size goes with every GPU number. An earlier 30 and 43 fps was
-measured before libjpeg was linked, when the surfaces drew untextured;
+the test runs its second match on the `progs.dat` built in Dolly. The test
+records its live bot match (the engine's `record`, with `maxplayers 8` so
+that its menus do not pause the game) and replays the recording as a
+timedemo: at 1024×768 and the normal preset, 39.2 fps on `gpu@0` in Chrome
+in a 1280×800 window and 14.0 fps in software in Firefox, on one thread.
+Under Xvfb each presented frame waits until the X server has the window,
+which grows with its area, so the window size goes with every GPU number.
+The rates measured before 2026-10-27 replayed `short.dem`, a native
+recording of a game its menu had paused: one frame drawn 1,046 times;
 numbers in the task.
 
 ## Licences

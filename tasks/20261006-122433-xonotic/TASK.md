@@ -30,13 +30,15 @@ Route (a), done for the `normal` preset with no contract change and no engine hu
 - Decided with the integrator: `gpu@0` is admitted without an adapter (`07c6b08a`): OPEN fails
   with ENODEV and the page says so, so the image boots and falls back in Firefox under Xvfb.
 
-Measured, `short.dem` timedemo at 1024×768, normal preset (Chrome on my Xvfb :152, nvidia
+Measured on `short.dem`, which replays one paused frame (State, 2026-10-27), at 1024×768,
+normal preset (Chrome on my Xvfb :152, nvidia
 adapter; the machine also ran the integrator's catalog build): `gpu@0` 83.8 fps in an 800×450
 window and 25.9 fps in a 1280×720 one; the software fallback in headless Chromium 11.6 fps,
 13.7 fps in Firefox. Under Xvfb a presented frame waits until the X server has the window,
 growing with its area (`tasks/20261024-025944-gpu-scopes`), so the GPU numbers go with the
 window. The geometry cache: 83.9 and 82.3 fps against 64.5 and 64.9 without it at 800×450,
-23.5 and 23.9 against 26.4 and 24.4 at 1280×720 (within the noise there). The software path's
+23.5 and 23.9 against 26.4 and 24.4 at 1280×720 (within the noise there; on a still frame
+every draw repeats, so the cache's gain overstates a match's). The software path's
 per-frame window present that `vid_sdl.c` still does on the GPU path (blit and
 `SDL_UpdateWindowSurface` of 1024×768) costs 2.2 ms of the engine's frame (`blit.c` timed in
 `xonotic-build`): about a sixth of a frame at 84 fps; no engine hunk added for it.
@@ -77,16 +79,15 @@ which the event pump calls.
 Measured, `xonotic-browser.mjs` (now also the sound): the menu's `play
 sound/menu/winner.ogg` reaches the page at RMS 0.138 on both channels, and the live bot match
 on stormkeep at 0.186/0.121 (Chromium) and 0.171/0.106 (Firefox); every other step passes as
-before in both browsers. The timedemo is 12.7 fps in Chromium (13.0 to 14.3 before) and 16.3
-in Firefox. Two things the engine does on its own: it mutes a window without input focus
+before in both browsers. The timedemo (`short.dem`, a paused frame drawn 1,046 times; State, 2026-10-27) is 12.7 fps in Chromium
+(13.0 to 14.3 before) and 16.3 in Firefox. Two things the engine does on its own: it mutes a window without input focus
 (`snd_mutewhenidle 1`, the test sets 0 for the untouched menu run), and `-benchmark` mixes in
 demo time, which leaves the timedemo silent. Not rebuilt here: the `xonotic` data image.
 
 ## State (2026-10-27)
 
 Open. What is left waits for the owner (the `gpu@0` additions for the presets above
-`normal`, below) or is the speed remark; the timedemo that measured speed turned out to
-replay a paused game (below).
+`normal`, below) or is the speed remark, now measured on the live match (below).
 
 On the domain since v0.1.0 as `/xonotic/`: the dedicated server, the SDL client and gmqcc build
 inside Dolly from the pinned release; the client draws on `gpu@0` at the normal preset
@@ -116,11 +117,11 @@ Done on 2026-10-27 (branch `demo/xonotic-reconcile`):
   the menu draws the menu's frame around the picture for 4.4 s (23 loading-screen updates),
   its top row of blocks equal to the menu's; the software rasterizer draws it about 12%
   darker, its generic shader keeping the texture's alpha that the GLSL's `USEREFLECTCUBE`
-  drops. `-benchmark short` with `r_glsl_postprocess 1` (a copy and a postprocess pass every
-  frame) gives the same block means as without it, 37.0 against 35.9 fps in a 1280×900
-  window; with `r_bloom 1 r_motionblur 0.4 r_damageblur 0.4 hud_postprocessing_maxbluralpha
-  0.5` no draw is skipped (31.3 fps); with `r_water 1` the water views draw, unclipped
-  (29.6 fps).
+  drops. On `short.dem`'s still frame, `-benchmark short` with `r_glsl_postprocess 1` (a
+  copy and a postprocess pass every frame) gives the same block means as without it, 37.0
+  against 35.9 fps in a 1280×900 window; with `r_bloom 1 r_motionblur 0.4 r_damageblur 0.4
+  hud_postprocessing_maxbluralpha 0.5` no draw is skipped (31.3 fps); with `r_water 1` the
+  water views draw, unclipped (29.6 fps).
 - The `xonotic` data image is rebuilt with this client. It builds in the 6 GB `build` scope
   now: 88.9 s, largest process 1.8 GB maximum RSS (the 7 to 9 GB of 2026-10-07 is gone; the
   README's note is removed). `/xonotic/` boots in 22 s and opens into the menu in Chrome on
@@ -130,27 +131,51 @@ Done on 2026-10-27 (branch `demo/xonotic-reconcile`):
   loading-screen frame whose top row matches the screenshot and whose centre carries the
   picture; and ends a client with SIGKILL while its menu is up, then starts the next one,
   which must draw on the same rasterizer again (the done-when's forced termination;
-  `171b2239`). Passed: Chrome on `gpu@0` in 508.6 s (the loading screen 0.1 from the screenshot along the
-  top and 11.9 in the centre, in mean colour per block; timedemo 34.6 fps in a 1280×800
-  window), Firefox headless in software in 539.6 s (2.3 and 16.3; timedemo 10.5 fps). Four
-  earlier runs today passed with a looser loading-screen check, one more failed to boot
-  `/xonotic-build/` in Firefox (`FATAL index out of bounds` at 26 of 202 MiB of the snapshot,
-  no build running); 32 further boots, 12 in fresh browsers, did not reproduce it.
+  `171b2239`); and records the live match and replays it (below, `1e16b79e`). Passed:
+  Chrome on `gpu@0` in 515.6 s (the loading screen 0.1 from the screenshot along the top and
+  11.9 in the centre, in mean colour per block), Firefox headless in software in 556.0 s
+  (2.3 and 16.3). Eight earlier runs today passed (four with a looser loading-screen check);
+  one more failed to boot `/xonotic-build/` in Firefox (`FATAL index out of bounds` at 26 of
+  202 MiB of the snapshot, no build running), which 32 further boots, 12 in fresh browsers,
+  did not reproduce.
 
-Found: `short.dem`, the timedemo every rate in this task was measured with, replays a
-paused game. Its 528 `svc_time` messages span server time 1.80 to 1.97 s (4 distinct values),
-and every frame of it shows the same view with `PAUSE` on it: the native recording ran while
-the in-game menu had paused the local game (`host.c` stops a local game's server while a menu
-or the console is up, when `cl.maxclients` is 1). The rates are of drawing that one view 1,046
-times. A recording of a running match, made in Dolly: `record match stormkeep` with
-`maxplayers 8` (no longer a local game, so the menus do not pause it) and 4 bots, stopped
-after 95 s, 4,340,080 bytes, server time 1.8 to 81.9 s (1,135 distinct), SHA-256
-`d1309644…`, kept in `work/xonotic/build/xonotic-evidence/match-2026-10-27.dem` (an observer's
-fixed view of the bots fighting). Replayed the same way, in one session each: Firefox in
-software 12.3 fps (2,279 frames) against 14.0 for `short.dem`; Chrome on `gpu@0` in a
-1280×800 window 30.0 fps (one-second rates 19 to 39) against 36.8. Replacing the fixture
-changes every recorded rate and writes the shared `.cache/xonotic`, so it is the
-integrator's call.
+Frame rates. `short.dem`, the timedemo every rate in this task was measured with until
+2026-10-27, replays a paused game: its 528 `svc_time` messages span server time 1.80 to
+1.97 s (4 distinct values) and every frame shows the same view with `PAUSE` on it. The native
+recording ran while the in-game menu had paused the local game (`host.c` stops a local game's
+server while a menu or the console is up when `cl.maxclients` is 1), so the earlier rates
+drew one still frame 1,046 times. The integrator's decision: the test records its own demo.
+`xonotic-browser.mjs` now runs the live match with `maxplayers 8` (not a local game for one,
+so the menus do not pause it) and `record live stormkeep`, stops the recording at 60 s and
+replays it with `-benchmark live` at 1024×768 and the normal preset; `short.dem` is no longer
+fetched. The live match's rates:
+
+| Where | Recording | Frames | fps |
+|---|---|---|---|
+| Chrome, `gpu@0`, 1280×800 window | the test's, stopped at 60 s | 3,090 | 39.2 |
+| Chrome, `gpu@0`, 1280×800 window | the test's, stopped at 100 s | 5,402 | 37.9 |
+| Firefox, software, one thread | the test's, stopped at 60 s | 1,367 | 14.0 |
+| Firefox, software, one thread | the test's, stopped at 100 s | 2,223 | 12.7 |
+
+The test's recordings differ run to run (the bots, the observer's frame rate while recording);
+for a fixed comparison, one recording of 80 s of the match (made in Dolly the same way, kept as
+`work/xonotic/build/xonotic-evidence/match-2026-10-27.dem`, 4,340,080 bytes, SHA-256
+`d1309644…`, server time 1.8 to 81.9 s) replayed in one session each beside `short.dem`:
+
+| Where | the match | `short.dem` (one paused frame) |
+|---|---|---|
+| Chrome, `gpu@0`, 1280×800 window | 30.0 | 36.8 |
+| Firefox, software, normal preset | 12.3 | 14.0 |
+| Firefox, software, low preset (the image's default) | 22.9 | not measured |
+| Native SDL client, llvmpipe, 1024×768 window on Xvfb | 20.0 | 22.0 |
+
+The native client is the pinned engine built on the host with IJG libjpeg 9f linked
+(`work/xonotic/build/xonotic-native/`, measurement only); the machine's load average was 16
+to 20 on 16 cores (other workstreams' builds and tests), which slows llvmpipe's threads far
+more than Dolly's one rasterizer thread, so it is not 2026-10-07's 75.8 fps. The low preset
+stays the image's default: 1.9 times the normal preset's rate in software on the match.
+`bench.dem`, behind 2026-10-07's native rates per preset, is not kept, so whether its game
+ran is not known.
 
 Left, against the done-when:
 
@@ -160,9 +185,10 @@ Left, against the done-when:
   engine's fallback; `ultra`'s shadow maps need `dpgpurast.c` to render into depth texture
   targets, which `gpu@0` has. One line for the owner: whether `gpu@0` asks for
   `clip-distances`.
-- Speed, the owner's remark ("needs better performance tuning"): on the running match
-  above, 12.3 fps in software at normal and 30.0 on `gpu@0` in a 1280×800 window; the
-  earlier rates drew the paused view. In software the image starts at the low preset.
+- Speed, the owner's remark ("needs better performance tuning"): on the live match, 14.0 fps
+  in software at normal (22.9 at the low preset the image starts with) and 39.2 on
+  `gpu@0` in a 1280×800 window (the table above); the rates before 2026-10-27 drew one
+  paused frame.
 - Firefox here has no WebGPU adapter, so "a hardware adapter in Chrome and Firefox" is
   measured in Chrome only.
 
@@ -645,9 +671,10 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   (match, QuakeC rebuild, rematch, frame) in 144.9 s
   (`browser-test-chromium-13.log`). The image with the client builds in
   98.7 s.
-- Frame rate: `short.dem` is a 22 s bot-match recording on stormkeep
+- Frame rate: `short.dem` was taken for a 22 s bot-match recording on stormkeep
   (1,046 frames, recorded natively at 1024×768, kept in
-  `.cache/xonotic/release/Xonotic/data/`). Native llvmpipe (GL path,
+  `.cache/xonotic/release/Xonotic/data/`); it replays one paused frame (State,
+  2026-10-27), so every rate below drew that frame. Native llvmpipe (GL path,
   `-benchmark short`): 13.81 s, 75.8 fps (`native-benchmark-short.log`).
   Dolly's software path, same demo and size, one rasterizer thread
   (`-benchmark short` in the test): Chromium 34.98 s, 29.9 fps; Firefox
@@ -796,6 +823,8 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   match, Escape releases it.
 
 ## Software path performance (2026-10-07, `short.dem`, 1,046 frames)
+
+All of these replay `short.dem`'s one paused frame (State, 2026-10-27).
 
 One change at a time from the default (`vid_soft_threads 1`, 1024×768, the
 `normal` preset, client at `-O1`), Chromium unless noted; Firefox runs 15 to
