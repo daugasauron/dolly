@@ -28,6 +28,19 @@ fails, and `unpack_with_sideband` then returns as if the pack were unpacked.
 Not true, and to correct: `9223689e` wrote in `docs/http.md` and the skill that push fails over
 HTTP too.
 
+## State (2026-10-28 09:40)
+
+Done in `995548e0`, `b132fb2f`, `6c88eeab`, pins `89146f14`: Git is built `-pthread` and
+declares `threads@0`, the `fetch-pack` and `send-pack` hunks of `config/git-dolly.patch` are
+gone (it keeps `run-command.c`'s spawn and execute bits), and the 23 image recipes that carry
+Git declare `threads@0`, `system` and `system-tools` among them. Measured on `system`
+(Chromium and Firefox): the recipe's check and `test/shell-browser.mjs` push to a local
+repository; `test/network-browser.mjs` (HTTP clone, fetch, push), `test/threads-browser.mjs`
+(its refusal now on an image of `core`, `posix`, `display` and `curl`, without Git) and
+`test/host-modules-browser.mjs` pass. On 12,000 files in Chromium, `git status` takes 89-93 ms
+with the index preloaded by 20 threads and 121-123 ms without; a local clone 2.1 s, a push
+0.7 s. Left: the round, which rebuilds every image that carries Git.
+
 ## Done-when
 
 - Git is built with `-pthread` and declares `threads@0`; the `fetch-pack` and `send-pack` parts
