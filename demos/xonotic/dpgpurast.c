@@ -157,6 +157,7 @@ static uint32_t geometry_used;
 
 static int fb_width, fb_height, target_is_texture, surface_bgra;
 static uint64_t color_target, depth_target, stream_buffer, uniform_buffer, blit_pipeline, blit_group, copy_pipeline, copy_group, capture_buffer;
+static uint64_t clear_pipeline[2], clear_group[2]; // [0] writes the colour, [1] the depth
 static unsigned char stream_data[STREAM_BYTES], uniform_data[UNIFORM_BYTES];
 static uint32_t stream_used, uniform_used;
 static int last_slot = -1;
@@ -972,6 +973,21 @@ static const char copy_fragment[] =
 	"  return textureLoad(frame, vec2<i32>(floor(vec2<f32>(origin.x + p.x, origin.y - p.y))), 0);\n"
 	"}\n";
 
+// A clear inside the scissor, as dpsoftrast.c clears: a triangle over the
+// frame, cut to the scissor, with the colour in its slot and the depth in the
+// next slot's x.
+static const char clear_vertex[] =
+	"@group(0) @binding(0) var<storage, read> slots: array<vec4<f32>>;\n"
+	"struct V {@builtin(position) position: vec4<f32>, @location(0) @interpolate(flat) color: vec4<f32>}\n"
+	"@vertex fn main(@builtin(vertex_index) i: u32, @builtin(instance_index) slot: u32) -> V {\n"
+	"  let p = vec2<f32>(f32((i << 1u) & 2u), f32(i & 2u));\n"
+	"  return V(vec4<f32>(p * 2.0 - 1.0, slots[slot + 1u].x, 1.0), slots[slot]);\n"
+	"}\n";
+static const char clear_fragment[] =
+	"@fragment fn main(@location(0) @interpolate(flat) color: vec4<f32>) -> @location(0) vec4<f32> {\n"
+	"  return color;\n"
+	"}\n";
+
 static void CreateFramebuffer(int width, int height)
 {
 	if (color_target)
@@ -1035,6 +1051,19 @@ static int OpenDevice(int width, int height)
 	copy_pipeline = NewHandle();
 	p = Record(DOLLY_GPU_GRAPHICS_PIPELINE, 112);
 	U64(p, 8, copy_pipeline);U64(p, 16, vertex);U64(p, 24, fragment);U32(p, 32, 1);U32(p, 52, 8);U32(p, 72, 15);
+	vertex = CreateShader(clear_vertex);
+	fragment = CreateShader(clear_fragment);
+	for (int depth = 0; depth < 2; depth++)
+	{
+		clear_pipeline[depth] = NewHandle();
+		p = Record(DOLLY_GPU_GRAPHICS_PIPELINE, 112);
+		U64(p, 8, clear_pipeline[depth]);U64(p, 16, vertex);U64(p, 24, fragment);U32(p, 32, 1);U32(p, 36, 6);
+		U32(p, 52, 8);U32(p, 56, depth);U32(p, 72, depth ? 0 : 15);
+		clear_group[depth] = NewHandle();
+		p = Record(DOLLY_GPU_RESOURCE_GROUP, 64);
+		U64(p, 8, clear_group[depth]);U64(p, 16, clear_pipeline[depth]);U32(p, 28, 1);
+		U64(p, 40, uniform_buffer);U64(p, 56, UNIFORM_BYTES);
+	}
 	CreateFramebuffer(width, height);
 	Flush();
 	Con_Printf("dpgpurast: drawing on gpu@0 at %dx%d\n", width, height);
@@ -1272,14 +1301,29 @@ void DPSOFTRAST_Viewport(int x, int y, int width, int height)
 	}
 }
 
-// A clear of the whole target opens the next render pass with it; a scissored one is not drawn.
-static int WholeTargetClear(void)
+// A clear of the whole frame opens the next render pass with it; one that the
+// scissor cuts (a water view's) is a draw into the open pass; a texture target
+// is not drawn.
+static int WholeFrameClear(int depth, const float *color, float depth_value)
 {
 	if (target_is_texture)
 		return false;
 	if (scissor_test && (scissor[0] > 0 || scissor[1] > 0 || scissor[0] + scissor[2] < fb_width || scissor[1] + scissor[3] < fb_height))
 	{
-		Warn("a scissored clear is not drawn");
+		DrawRecorded(64 + 48 + 88, 3, 48);
+		if (!pass_open)
+			BeginPass();
+		uint32_t at = (uint32_t)Align(uniform_used, 16);
+		const float slots[8] = {color[0], color[1], color[2], color[3], bound(0.0f, depth_value, 1.0f)};
+		memcpy(uniform_data + at, slots, sizeof(slots));
+		uniform_used = at + sizeof(slots);
+		int x = bound(0, scissor[0], fb_width), y = bound(0, fb_height - scissor[1] - scissor[3], fb_height);
+		void *p = dolly_gpu_record(&gpu, DOLLY_GPU_VIEWPORT, 48);
+		F32(p, 16, fb_width);F32(p, 20, fb_height);F32(p, 28, 1);
+		U32(p, 32, x);U32(p, 36, y);U32(p, 40, bound(0, scissor[2], fb_width - x));U32(p, 44, bound(0, scissor[3], fb_height - y));
+		p = dolly_gpu_record(&gpu, DOLLY_GPU_DRAW_MESH, 88);
+		U64(p, 8, clear_pipeline[depth]);U32(p, 40, 3);U32(p, 44, 1);U32(p, 56, at / 16);U32(p, 64, 1);U64(p, 80, clear_group[depth]);
+		viewport_set = false;
 		return false;
 	}
 	EmitMerged();
@@ -1291,16 +1335,17 @@ static int WholeTargetClear(void)
 void DPSOFTRAST_ClearColor(float r, float g, float b, float a)
 {
 	SOFTWARE(dpsoft_ClearColor(r, g, b, a));
-	if (!WholeTargetClear())
+	const float color[4] = {r, g, b, a};
+	if (!WholeFrameClear(0, color, 0.5f)) // 0.5: any depth inside the clip volume
 		return;
-	clear_color[0] = r;clear_color[1] = g;clear_color[2] = b;clear_color[3] = a;
+	memcpy(clear_color, color, sizeof(color));
 	pass_clear_color = true;
 }
 
 void DPSOFTRAST_ClearDepth(float d)
 {
 	SOFTWARE(dpsoft_ClearDepth(d));
-	if (!WholeTargetClear())
+	if (!WholeFrameClear(1, default_attribute, d))
 		return;
 	clear_depth = d;
 	pass_clear_depth = true;

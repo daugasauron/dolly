@@ -80,10 +80,14 @@ $(BUILD)/client/dpgpurast.o: $(PORT)/dpgpurast.c
 # with the texture's alpha suppressed, which draws a copy of the frame (the
 # loading screen's backdrop, bloom); for the postprocess mode 1, every
 # combination of view tint 4, bloom 4096 and the HUD's postprocessing 16384
-# (bloom asked for 4096, with the HUD's blur 20480).
+# (bloom asked for 4096, with the HUD's blur 20480). The water mode 14 at the
+# high preset (r_water 1), with and without the vertex's alpha (536870912), and
+# the vertex-colour mode with it and reflectcube (545259520), asked for on
+# glowplant, solarium, afterslime and bromine.
 LIGHTING_PERMUTATIONS := $(shell awk 'BEGIN { split("1 8 2048 8192 4194304 8388608", bit, " "); \
   for (set = 0; set < 64; set++) { p = 0; for (i = 0; i < 6; i++) if (int(set / 2 ^ i) % 2) p += bit[i + 1]; printf "%d ", p } }')
-SHADER_PAIRS := 0:0 0:1 0:4 0:12 0:13 0:8388621 1:0 1:4 1:4096 1:4100 1:16384 1:16388 1:20480 1:20484 2:0 4:0 4:2048 4:4194304 13:0 \
+SHADER_PAIRS := 0:0 0:1 0:4 0:12 0:13 0:8388621 1:0 1:4 1:4096 1:4100 1:16384 1:16388 1:20480 1:20484 2:0 4:0 4:2048 4:4194304 \
+  4:545259520 13:0 14:0 14:536870912 \
   $(foreach mode,7 11 12,$(foreach permutation,$(LIGHTING_PERMUTATIONS),$(mode):$(permutation)))
 SHADERS := /usr/share/xonotic/shaders
 GLSL := $(BUILD)/glsl
