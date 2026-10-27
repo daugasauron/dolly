@@ -1,7 +1,8 @@
 // The dedicated server built in the xonotic-build image runs Xonotic's own
 // server benchmark (serverbench.cfg: bots only, benchmark clock) to the end of
 // the match, from the release's pk3 archives fetched into the shared
-// filesystem; then the client draws its menu, a timedemo and a live match.
+// filesystem; then the client draws its menu, a timedemo and a live match, and
+// a SIGKILL ends it with the shell intact.
 // Usage: node demos/xonotic/test/xonotic-browser.mjs
 // With DISPLAY, Chrome runs in a window with the GPU's adapter and the client
 // draws on gpu@0; headless, or with DOLLY_BROWSER=firefox, gpu@0 has no adapter
@@ -153,13 +154,17 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser,
   const distances = (digest, blocks) => blocks.map(b =>
     digest.blocks[b].reduce((sum, value, c) => sum + Math.abs(value - shotBlocks[b][c]), 0) / 3);
   const mean = values => values.reduce((sum, value) => sum + value, 0) / values.length;
-  // The loading screen: the screenshot's frame along the top (the software
-  // rasterizer draws it a little darker), its picture over the centre.
-  const loading = menuFrames.find(digest => mean(distances(digest, top)) < 5 && Math.max(...distances(digest, centre)) > 6);
-  assert.ok(loading, "a loading screen over the last frame; top and centre distances: " +
-    menuFrames.map(digest => `${mean(distances(digest, top)).toFixed(1)}/${Math.max(...distances(digest, centre)).toFixed(1)}`).join(" "));
-  console.log("xonotic: the loading screen drew over a copy of the menu's frame, as the screenshot read it back " +
-    `(mean distance ${mean(distances(loading, top)).toFixed(1)} along the top, ${Math.max(...distances(loading, centre)).toFixed(1)} in the centre)`);
+  const summary = digest => `${mean(distances(digest, top)).toFixed(1)}/${Math.max(...distances(digest, centre)).toFixed(1)}`;
+  // The screenshot is a frame the page showed; the last such frame comes just
+  // before the map loads.
+  const shown = menuFrames.findLastIndex(digest => Math.max(...distances(digest, [...top, ...centre])) < 3);
+  assert.ok(shown >= 0, `the screenshot is a frame the page showed; top and centre distances: ${menuFrames.map(summary).join(" ")}`);
+  // After it, the loading screen: the screenshot's frame along the top (the
+  // software rasterizer draws it a little darker), its picture over the centre.
+  const loading = menuFrames.slice(shown + 1).find(digest => mean(distances(digest, top)) < 5 && Math.max(...distances(digest, centre)) > 6);
+  assert.ok(loading, `a loading screen over the last frame; top and centre distances: ${menuFrames.slice(shown + 1).map(summary).join(" ")}`);
+  console.log("xonotic: the screenshot is the frame the page showed, and the loading screen drew over a copy of it " +
+    `(mean distance along the top / largest in the centre: ${summary(loading)})`);
   await page.waitForFunction(() => !__dolly.transport.graphicsActive()); // the display is released
   await run("echo SHELL-BACK");
   console.log("xonotic: the client drew a frame and quit back to the shell");
@@ -222,4 +227,17 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser,
   await run(`grep -q 'SpawnServer: stormkeep' ${liveLog} && grep -q 'CL_SignonReply: 3' ${liveLog} && test "$(grep -c '\\[BOT\\].* connected' ${liveLog})" -ge 4`);
   console.log(`xonotic: the live match's sound, loudest RMS ${(await heardAudio(page)).map(x => x.toFixed(3)).join(" and ")}`);
   console.log(`xonotic: a bot match on stormkeep spawned 4 bots, the client entered the game and drew it (${frames.length} sampled frame${frames.length > 1 ? "s, different" : ""}, lit ${frames.map(frame => frame.lit.toFixed(2)).join(", ")})`);
+
+  // Forced termination: SIGKILL ends the client while its menu is up; the
+  // display is released, the shell carries on, and the next client draws
+  // again on the same rasterizer.
+  const forced = start(`cd ${basedir}; xonotic-sdl -xonotic -basedir ${basedir} +vid_soft 1 +vid_soft_threads 1 +vid_fullscreen 0 ` +
+    "+vid_width 1024 +vid_height 768 & pid=$!; sleep 40; kill -9 $pid; wait $pid; echo \"client status $?\"");
+  await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 40_000 });
+  assert.equal(await forced.done, 0);
+  assert.match(await text(), /client status 137/);
+  await page.waitForFunction(() => !__dolly.transport.graphicsActive()); // the display is released
+  await run(`${client} +log_file after.log +defer 10 quit`);
+  await run(`grep -q '${gpu ? "dpgpurast: drawing on gpu@0" : "dpgpurast: gpu@0 has no device"}' ${userdir}/after.log`);
+  console.log("xonotic: SIGKILL ended the client in its menu; the shell carried on and the next client drew again");
 });

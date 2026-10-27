@@ -12,12 +12,12 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
 FROM /v0.1.4/Dollyfile-system 024cc8000fcfa2c826693550553dae434c125c95207d212c830b02f04f4a778f
-COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 5a1a7ca732573031f6c7a3e2346092dfbceee5e3592caf2b7874a913802683f6 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
-INSTALL /v0.1.4/demos/xonotic/Dollyfile-xonotic-shaders 719234f89844ba5b8be38d15dcee2ec1a285d0c81a0459dabbe149109404c65b
-COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 5a1a7ca732573031f6c7a3e2346092dfbceee5e3592caf2b7874a913802683f6 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 68a810bdd70c0f2034703c2cbc14a337a541c7bf4afa5649215d874a0bce1650 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-xonotic-shaders 34d37a1fa3a94987648787b5ad7df675686b475d8ed455205807f9ecaf6498bc
+COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 68a810bdd70c0f2034703c2cbc14a337a541c7bf4afa5649215d874a0bce1650 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
 COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 aeb9f779e98127490f5b8706d64e8a740a6fc2071388269898d19f31b5a68026 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
-COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 5a1a7ca732573031f6c7a3e2346092dfbceee5e3592caf2b7874a913802683f6 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
+COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 68a810bdd70c0f2034703c2cbc14a337a541c7bf4afa5649215d874a0bce1650 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
 COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-deps 2da998032cb4cf5427b1cb0d358e43069a525b1a667b3090f9cbca9d2d4ffabf /usr/share/licenses/freetype /usr/share/licenses/freetype
 COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-deps 2da998032cb4cf5427b1cb0d358e43069a525b1a667b3090f9cbca9d2d4ffabf /usr/share/licenses/libpng /usr/share/licenses/libpng
 # Dolly's notices for this image: the IJG sentence, the fonts' terms and the
