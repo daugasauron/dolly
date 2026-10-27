@@ -137,12 +137,19 @@ Done on 2026-10-27 (branch `demo/xonotic-reconcile`):
   `/xonotic-build/` in Firefox (`FATAL index out of bounds` at 26 of 202 MiB of the snapshot,
   no build running); 32 further boots, 12 in fresh browsers, did not reproduce it.
 
-Found, not fixed: `short.dem`, the timedemo every rate in this task was measured with,
-replays a paused game. Its 528 `svc_time` messages span server time 1.80 to 1.97 s (4
-distinct values), and every frame of it shows the same view with `PAUSE` on it: the native
-recording ran while the in-game menu had paused the local game. The rates are of drawing that
-one view 1,046 times, not of a bot match. A new recording of a running match changes every
-recorded rate and replaces a fixture in the shared `.cache/xonotic`, so it is the
+Found: `short.dem`, the timedemo every rate in this task was measured with, replays a
+paused game. Its 528 `svc_time` messages span server time 1.80 to 1.97 s (4 distinct values),
+and every frame of it shows the same view with `PAUSE` on it: the native recording ran while
+the in-game menu had paused the local game (`host.c` stops a local game's server while a menu
+or the console is up, when `cl.maxclients` is 1). The rates are of drawing that one view 1,046
+times. A recording of a running match, made in Dolly: `record match stormkeep` with
+`maxplayers 8` (no longer a local game, so the menus do not pause it) and 4 bots, stopped
+after 95 s, 4,340,080 bytes, server time 1.8 to 81.9 s (1,135 distinct), SHA-256
+`d1309644…`, kept in `work/xonotic/build/xonotic-evidence/match-2026-10-27.dem` (an observer's
+fixed view of the bots fighting). Replayed the same way, in one session each: Firefox in
+software 12.3 fps (2,279 frames) against 14.0 for `short.dem`; Chrome on `gpu@0` in a
+1280×800 window 30.0 fps (one-second rates 19 to 39) against 36.8. Replacing the fixture
+changes every recorded rate and writes the shared `.cache/xonotic`, so it is the
 integrator's call.
 
 Left, against the done-when:
@@ -153,8 +160,9 @@ Left, against the done-when:
   engine's fallback; `ultra`'s shadow maps need `dpgpurast.c` to render into depth texture
   targets, which `gpu@0` has. One line for the owner: whether `gpu@0` asks for
   `clip-distances`.
-- Speed, the owner's remark ("needs better performance tuning"): the rates so far drew the
-  paused view above; in software the image starts at the low preset.
+- Speed, the owner's remark ("needs better performance tuning"): on the running match
+  above, 12.3 fps in software at normal and 30.0 on `gpu@0` in a 1280×800 window; the
+  earlier rates drew the paused view. In software the image starts at the low preset.
 - Firefox here has no WebGPU adapter, so "a hardware adapter in Chrome and Firefox" is
   measured in Chrome only.
 
