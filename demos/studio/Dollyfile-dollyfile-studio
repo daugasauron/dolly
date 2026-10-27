@@ -16,8 +16,8 @@ REQUIRES HOST threads@0
 REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/local-llm/Dollyfile-pi-local 7c0fd0010de189ac9cde6ad65034ab74615158db76e233fedd436203d260bcf5
-INSTALL /v0.1.4/demos/neovim/Dollyfile-nvim 65dbcb99be0e460d99e99dec842baef2afcfd0d76b2755815c35f0534a97cdff
+FROM /v0.1.4/demos/local-llm/Dollyfile-pi-local 890e759adcb8158c7cbbe4a5d543f706a5522208d19756dc13f2dccf91182f9f
+INSTALL /v0.1.4/demos/neovim/Dollyfile-nvim e5ac335cdf57fe988cab74ec21e89fc9d7d99e902ea5b7411525cbf7b7c4aceb
 REQUIRES TOOL pi
 REQUIRES TOOL nvim
 REQUIRES TOOL janis

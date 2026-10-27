@@ -24,7 +24,7 @@ REQUIRES TOOL   mkdir
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.4/dist/static/default/git.tar c4c2f0e7c0fe241b81331b9fd8e10d9847e996c82a0c7249844b692023295648 /tmp/git.tar
+SOURCE /v0.1.4/dist/static/default/git.tar 80a61ce947350bfd0c425ec5624c30379d99c9b443ad2588c6c361f8e0fee5d2 /tmp/git.tar
 SLOP tar \
   -xf /tmp/git.tar \
   -C /
