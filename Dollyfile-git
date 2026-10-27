@@ -158,7 +158,7 @@ FILE /usr/libexec/dolly/git-upload-archive
 SLOP git init -q /tmp/git-check/origin && git -C /tmp/git-check/origin commit -q --allow-empty -m one && \
   git clone -q /tmp/git-check/origin /tmp/git-check/clone && test "$(git -C /tmp/git-check/clone log --format=%s)" = one && \
   git -C /tmp/git-check/clone commit -q --allow-empty -m two && git -C /tmp/git-check/clone push -q origin HEAD:pushed && \
-  test "$(git -C /tmp/git-check/origin log --format=%s pushed)" = "$(printf 'two\none')"
+  test "$(git -C /tmp/git-check/origin log -1 --format=%s pushed)" = two
 SLOP git --help > /usr/share/man/cat1/git.1
 
 FILE /usr/libexec/dolly/git-remote-http
