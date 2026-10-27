@@ -1,8 +1,8 @@
 // The dedicated server built in the xonotic-build image runs Xonotic's own
 // server benchmark (serverbench.cfg: bots only, benchmark clock) to the end of
 // the match, from the release's pk3 archives fetched into the shared
-// filesystem; then the client draws its menu, a timedemo and a live match, and
-// a SIGKILL ends it with the shell intact.
+// filesystem; then the client draws its menu and a live match, which it records
+// and replays as a timedemo, and a SIGKILL ends it with the shell intact.
 // Usage: node demos/xonotic/test/xonotic-browser.mjs
 // With DISPLAY, Chrome runs in a window with the GPU's adapter and the client
 // draws on gpu@0; headless, or with DOLLY_BROWSER=firefox, gpu@0 has no adapter
@@ -12,7 +12,7 @@ import { delay, demoTest, heardAudio, meterAudio, snapshotDisplay } from "../../
 
 const archives = ["xonotic-20230620-data.pk3", "xonotic-20230620-maps.pk3"];
 const fonts = ["font-xolonium-20230620.pk3", "font-unifont-20230620.pk3"];
-const fixtures = Object.fromEntries([...archives, ...fonts, "short.dem"].map(name => [name, `.cache/xonotic/release/Xonotic/data/${name}`]));
+const fixtures = Object.fromEntries([...archives, ...fonts].map(name => [name, `.cache/xonotic/release/Xonotic/data/${name}`]));
 const basedir = "/home/dolly/xonotic";
 const userdir = "/home/dolly/.xonotic/data";
 const browser = process.env.DOLLY_BROWSER ?? "chromium";
@@ -169,23 +169,18 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser,
   await run("echo SHELL-BACK");
   console.log("xonotic: the client drew a frame and quit back to the shell");
 
-  // Frame rate of the software path at the page's size: timedemo of a 22 s
-  // bot-match recording on stormkeep (short.dem, recorded natively).
-  await run(`cd ${basedir}/data && curl -fsS ${server.origin}/fixture/short.dem -o short.dem && rm -f ${userdir}/timedemo.log`);
-  const timedemo = start(`${client} +log_file timedemo.log -benchmark short`);
-  assert.equal(await timedemo.done, 0, "-benchmark quits when the demo ends");
-  await run(`grep ' frames ' ${userdir}/timedemo.log`);
-  console.log((await text()).split("\n").filter(line => / frames .* fps/.test(line)).map(line => `xonotic: timedemo ${line.replace(/^\^7/, "")}`).join("\n"));
-
   await page.evaluate(() => { audioMeters.length = 0; });
 
-  // A live bot match in the client. A local game pauses while the menu is
-  // up, so Escape closes the first-run dialog and the menu as a player would;
-  // then the map loads, the game draws frames that change, and the client
-  // quits back to the shell.
-  // cl_allow_uid2name 0 answers the first-join statistics dialog in advance.
-  const live = start(`${client} +sv_public 0 +bot_number 4 +minplayers 0 +g_warmup 0 +cl_allow_uid2name 0 ` +
-    "+cl_allow_uidtracking 0 +log_file live.log +map stormkeep +defer 200 quit");
+  // A live bot match in the client, recorded from its connection to a stop
+  // (record writes ~/.xonotic/data/live.dem). maxplayers 8 makes it a server
+  // for more than one, which the menus do not pause: a local game for one
+  // stops while a menu is up, as a recording made that way showed, one frame
+  // throughout. Escape closes the first-run dialog and the game menu as a
+  // player would; the game draws frames that change, and the client quits
+  // back to the shell. cl_allow_uid2name 0 answers the first-join statistics
+  // dialog in advance.
+  const live = start(`${client} +sv_public 0 +maxplayers 8 +bot_number 4 +minplayers 0 +g_warmup 0 +cl_allow_uid2name 0 ` +
+    "+cl_allow_uidtracking 0 +log_file live.log +record live stormkeep +defer 60 stop +defer 200 quit");
   // The menu hides the page's cursor and draws its own once the map has loaded.
   await page.waitForFunction(() => __dolly.transport.cursorStyle() === 4, null, { timeout: 180_000 });
   const cursorStyle = () => page.evaluate(() => __dolly.transport.cursorStyle());
@@ -227,6 +222,14 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser,
   await run(`grep -q 'SpawnServer: stormkeep' ${liveLog} && grep -q 'CL_SignonReply: 3' ${liveLog} && test "$(grep -c '\\[BOT\\].* connected' ${liveLog})" -ge 4`);
   console.log(`xonotic: the live match's sound, loudest RMS ${(await heardAudio(page)).map(x => x.toFixed(3)).join(" and ")}`);
   console.log(`xonotic: a bot match on stormkeep spawned 4 bots, the client entered the game and drew it (${frames.length} sampled frame${frames.length > 1 ? "s, different" : ""}, lit ${frames.map(frame => frame.lit.toFixed(2)).join(", ")})`);
+
+  // Frame rate at the page's size: the match's recording replayed as fast as it draws.
+  const timedemo = start(`${client} +log_file timedemo.log -benchmark live`);
+  assert.equal(await timedemo.done, 0, "-benchmark quits when the demo ends");
+  await run(`ls -l ${userdir}/live.dem && grep ' frames ' ${userdir}/timedemo.log`);
+  const rate = (await text()).match(/(?:\^7)?(\d+) frames ([\d.]+) seconds ([\d.]+) fps.*/);
+  assert.ok(rate && Number(rate[1]) >= 100, `the live match's recording replays: ${rate?.[0]}`);
+  console.log(`xonotic: timedemo of the live match's recording: ${rate[1]} frames in ${rate[2]} s, ${rate[3]} fps`);
 
   // Forced termination: SIGKILL ends the client while its menu is up; the
   // display is released, the shell carries on, and the next client draws
