@@ -4,6 +4,27 @@
 - PRIORITY: 90
 - TAGS: demo,0ad,bootstrap,performance,0.1.4
 
+## State (2026-10-27, branch `demo/zero-ad-reconcile`)
+
+Item 1 is done (below). `0ad-graphics` in its software mode is fixed (`e0e9f349`): the combat
+demo ends in player 2's victory after about half a minute of simulation, and the test's steps
+counted frames, each of which simulates as long as it lasts up to the 200 ms turn
+(`CGame::Update`, `maxTurns` 1). Under SwiftShader (84-89 ms frames) the test reached F2 25.4 s
+of simulation after the quickload with 9 of player 1's 30 units left (the replay of the run of
+`f9cbff51`, passing); slower, it ended "DEFEATED!" in observer mode, the screenshot of the
+finding, or the defeat dialog stopped the GPU skinning check (the unchanged test on four cores,
+`taskset -c 8-11`, and on two). The steps up to the screenshot now wait for wall time, which
+bounds what they simulate: F2 comes 64-72 turns (13-14 s) after the quickload with either
+adapter. The economy check waited 40 s of wall time for training and construction; frames
+longer than a turn (SwiftShader's economy frames average 202-245 ms) simulated less, so it now
+waits for 40 s of simulated time. Runs (Chrome 156, Xvfb `:161`): `e0e9f349`'s test passed
+software 2 of 2 (192, 222 s) and hardware (NVIDIA) 1 of 1; with its combat change alone,
+software, four cores and hardware passed once each. On two cores the economy step outlasts the
+test's 240 s deadline (SwiftShader's frames 391 ms), not a configuration the rounds run. Evidence: `work/zeroad/build/zeroad-evidence/`.
+
+Item 2 (developed matches stall) is not measured yet: `demos/zero-ad/test/0ad-large-match-browser.mjs`
+is the soak harness written again from the description below (uncommitted until it has run).
+
 ## Item 1 done, 2026-10-24 (the process-contract workstream, `core/page-no-view`, seed `b871765b`)
 
 The content is made inside Dolly; the four host commands are gone from the README and the tree
