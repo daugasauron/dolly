@@ -2,9 +2,16 @@
 
 - STATUS: OPEN
 - PRIORITY: 90
-- TAGS: toolchain,rust,zig,bootstrap,0.1.4
+- TAGS: toolchain,rust,zig,bootstrap
 
-## State (2026-10-13)
+## State (2026-10-27): after v0.1.4
+
+Out of v0.1.4's scope by the integrator's recommendation, which the owner accepted on
+2026-10-27 ("the rest of the items go with your recommendations"). Since 2026-10-13,
+`cargo run` works and is in `test/amy-browser.mjs`, and `--frozen` passed six of six. `cargo
+test` waits for unwinding Rust panics (below): a rebuild of `rust-build` and of everything
+built with it, which belongs after the release, not in its last round. The rest of the list
+is unchanged and blocks no user or build.
 
 One list of what the three toolchains built inside Dolly left open. Nothing on it blocks a user
 or a build, and nobody is on it; lowered from 160 for that reason. Zig's list joined it on
@@ -67,7 +74,7 @@ into Cargo and needs a `cargo` build to try.
   `main`). Cargo's SQLite keeps its default `fcntl` locks (no `unix-dotfile` VFS), and the
   `cargo` package builds incrementally; `rust-sdk` keeps `CARGO_INCREMENTAL=0` for image
   recipes only, for another reason: a build that runs once would only keep rustc's second copy
-  of every object (no hard links), and codex-build ran out of filesystem space at codex-core
+  of every object (no hard links), and the codex build ran out of filesystem space at codex-core
   with it on. Measured on the local round's images (`default` after `amy install cargo sqlite`):
   a build, an edit and an incremental rebuild, 3.1 s then 1.9 s in Chromium and 4.1 s then
   2.7 s in Firefox (`-j 1`), with rustc's one warning about copies and no SQLite or lock error;

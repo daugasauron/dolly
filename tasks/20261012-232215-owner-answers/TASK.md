@@ -4,7 +4,12 @@
 - PRIORITY: 70
 - TAGS: owner,demo
 
-## State (2026-10-13)
+## State (2026-10-27): item 1 is left
+
+Items 2 and 3 are struck by the integrator's recommendations, which the owner accepted on
+2026-10-27 ("the rest of the items go with your recommendations"): the agents page keeps its two
+recordings, and Paint's text tool stays upstream's, without the two `SetFocus` calls. Item 1, a
+turn with a funded organization's key, is the owner's.
 
 Three demo tasks had nothing left for an agent but a question to the owner. They are closed
 into this one list on 2026-10-13; each keeps its history, and what was verified on `main` that
@@ -25,7 +30,7 @@ strikes is done. Ranked low because it waits for him.
    endpoint) passed in Chrome on 2026-10-13 (`closed-source-agent: chromium passed in 40.5s`,
    `work/rust/build/integrate-evidence/final-demos.log`). A made-up key drew the API's 401,
    which proves the request path and not an answer. The key goes into no file, log or task.
-2. **Demo recordings: which model, and what budget**
+2. **Demo recordings: which model, and what budget** (struck 2026-10-27: the page stays as it is)
    (`tasks/20261005-131651-demo-recordings`). The agents page shows two recordings
    (`sites/slopshare.dev/agents/`: Studio, the new take, and RTS Arena, still the old Codex
    match); ClassiCube and bhop were taken off it on 2026-10-06. The owner's rule was free models
@@ -33,7 +38,7 @@ strikes is done. Ranked low because it waits for him.
    takes are in that task). So: name a paid model and a spending limit for RTS Arena, ClassiCube
    and bhop, or say that the page stays as it is. The rig and its commands are in that task
    under "Rerun"; the key is read from `~/.openrouter` at run time and never written anywhere.
-3. **Paint's text tool: what was bad about the fix**
+3. **Paint's text tool: what was bad about the fix** (struck 2026-10-27: Paint stays upstream's)
    (`tasks/20261010-112539-paint-text`). The bug stands: in the `wine` image Paint's text tool
    takes no typing. ReactOS Paint 0.3.17 takes the text in a window of its own and never gives
    its edit control the keyboard; typing writes after a click inside that window (measured
