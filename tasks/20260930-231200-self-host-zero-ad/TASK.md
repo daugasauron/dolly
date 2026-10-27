@@ -14,6 +14,13 @@ SpiderMonkey's interpreter, which has no JIT in Wasm) and the GPU's throughput. 
 baseline interpreter broke UnitAI and was not kept. These were verified by the round of 2026-10-27
 on `main` `28a98839` (`0ad-engine`, `0ad-graphics` hardware and `0ad-spidermonkey` pass).
 
+Run again on 2026-10-28 on the round's images, on the NVIDIA adapter with every core (Xvfb
+`:171`): the trace of the last 120 s outgrew a string (`ERR_STRING_TOO_LONG` in `JSON.parse`),
+and the test now reads it event by event (`2d87dbd9`). Then it passed: 74,434 intervals, mean
+24.6 ms, p99 108, max 1,102, 933 above 100 ms; 1,638 simulated seconds, populations
+279/255/273/285, the HUD, no warnings, no page errors; of the traced 110 s, 156 long frames,
+`CAIWorker::PerformComputation` 10.6 of their 24.5 s.
+
 ## State (2026-10-27, branch `demo/zero-ad-reconcile`)
 
 Item 1 is done (below). `0ad-graphics` in its software mode is fixed (`e0e9f349`): the combat
