@@ -94,8 +94,7 @@ FILE /tmp/git/Makefile
       -I /usr/src/git/compat/regex \
       -I /usr/src/git \
       -include dolly/runtime.h
-    SERVERS := /usr/libexec/dolly/git-upload-pack /usr/libexec/dolly/git-receive-pack /usr/libexec/dolly/git-upload-archive
-    all: /usr/bin/git /usr/libexec/dolly/git-remote-http /usr/libexec/dolly/git-remote-https $(SERVERS)
+    all: /usr/bin/git /usr/libexec/dolly/git-remote-http /usr/libexec/dolly/git-remote-https
     /tmp/git/objects/%.o: /usr/src/git/%.c
     >mkdir -p $(dir $@)
     >cc \
@@ -114,10 +113,6 @@ FILE /tmp/git/Makefile
     >  -o $@
     /usr/libexec/dolly:
     >mkdir -p $@
-    # The builtins a local transport runs by their dashed names (git clone PATH
-    # runs git-upload-pack), links to git as upstream installs them.
-    $(SERVERS): /usr/bin/git | /usr/libexec/dolly
-    >ln -sf /usr/bin/git $@
     /usr/libexec/dolly/git-remote-http: /usr/src/git/common-main.c /usr/src/git/remote-curl.c /usr/src/git/http.c /usr/src/git/http-walker.c /usr/lib/libgit.a | /usr/libexec/dolly
     >cc \
     >  $(CPPFLAGS) \
@@ -147,16 +142,23 @@ EXPORTS TOOL git
 
 SLOP git \
   --version
-# A clone of a local repository runs git-upload-pack on its other side.
+# The builtins a local transport runs by their dashed names (git clone PATH
+# runs git-upload-pack on its other side), as upstream installs them.
+FILE /usr/libexec/dolly/git-upload-pack
+    #!/bin/slop
+    exec git upload-pack "$@"
+FILE /usr/libexec/dolly/git-receive-pack
+    #!/bin/slop
+    exec git receive-pack "$@"
+FILE /usr/libexec/dolly/git-upload-archive
+    #!/bin/slop
+    exec git upload-archive "$@"
 SLOP git init -q /tmp/git-check/origin && git -C /tmp/git-check/origin commit -q --allow-empty -m one && \
   git clone -q /tmp/git-check/origin /tmp/git-check/clone && test "$(git -C /tmp/git-check/clone log --format=%s)" = one
 SLOP git --help > /usr/share/man/cat1/git.1
 
 FILE /usr/libexec/dolly/git-remote-http
 FILE /usr/libexec/dolly/git-remote-https
-FILE /usr/libexec/dolly/git-upload-pack
-FILE /usr/libexec/dolly/git-receive-pack
-FILE /usr/libexec/dolly/git-upload-archive
 FOLDER /usr/share/git-core/templates
 FILE /usr/share/licenses/git/COPYING
 # git links libcurl statically and carries its licence.
