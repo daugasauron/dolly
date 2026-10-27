@@ -1,6 +1,6 @@
 # Builds become generic: what a build image makes for itself is a package with its own build
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 330
 - TAGS: packages,catalog,owner,0.1.4
 
@@ -18,6 +18,19 @@ only a view of a demo's build image; each has its check in
 `test/amy-browser.mjs` or its consumer's test; the list of what was not
 broken out says why for each.
 
+
+## Closed (2026-10-28): the done-when holds, on the round of 2026-10-27/28
+
+On `core/npm-packages` `7857c9ad`, the round from the light stage built all 184 images inside
+Dolly, the packages above among them, each from its pinned source; no package is a view of a
+build image, and the list below says why each of the rest was not broken out. Each package's
+check passed on those images: the `amy` suites in Chromium and Firefox (their programs and
+tools parts, the ICU row among them, and `cmake`, `mojo` and `cargo` alone); the consumers' demos
+`cmake`, `neovim`, `speech`, `xonotic` (gmqcc), `x11` (the server and its four packages),
+`codex`, `mojo` and the four 0 A.D. tests; and, run after the round on its images
+(2026-10-28, `e5e8c92e`), `go` in Chromium (45.7 s) and Firefox (47.6 s), `ocaml` with its
+fixed point, `zsh`, `tmux` and `ghostty-x11`. The domain catalog publishes `go` (release
+`a9a5caf5…`).
 
 ## State (2026-10-27)
 
