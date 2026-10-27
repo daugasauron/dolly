@@ -1,8 +1,23 @@
 # Xonotic draws on gpu@0 at the normal preset, in software without an adapter, with sound
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: demo,gpu,audio,port,0.1.4
+
+## Closed (2026-10-28): the done-when holds, on the round of 2026-10-27/28
+
+On `core/npm-packages` `7857c9ad`, the round from the light stage (184 images, the seed
+compiler's fixed point unchanged): `xonotic-build`, `xonotic-shaders` and `xonotic` build
+inside Dolly from the pinned release, gmqcc now as its own package; `xonotic-browser.mjs`
+passed in Chrome on `gpu@0` (509.2 s: the server's benchmark to its end on a progs.dat that
+gmqcc rebuilt, the menu with its sound, the screenshot, a loading screen over the frame, a
+live bot match with keyboard and captured mouse, its timedemo, SIGKILL back to Slop). The
+README lists what is off and what each waits for; the licences and upstreams cover the engine,
+data and Dolly's files; no browser authority was added. Measured once more in the State
+below: `high` draws, water included. One line of the done-when is met in Chrome only: Firefox
+under Xvfb gives no WebGPU adapter on this machine, and there the test passes in the
+engine's software rasterizer (556.0 s on 2026-10-27; the round runs Chrome). Left for after v0.1.4, in the README's table:
+`ultra`'s shadow maps and offset mapping. The speed remark is measured in the table below.
 
 ## The gpu@0 render path (2026-10-24, the games-and-packages workstream)
 
@@ -197,12 +212,25 @@ ran is not known.
 
 Left, against the done-when:
 
-- Effects above `normal`: the owner's decisions (the table under "Decisions for the owner");
-  of the three, the frame-to-texture copy for `high` is now drawn inside `gpu@0` as it is.
-  Water's clip planes need WebGPU's `clip-distances` in `gpu@0`; occlusion queries have the
-  engine's fallback; `ultra`'s shadow maps need `dpgpurast.c` to render into depth texture
-  targets, which `gpu@0` has. One line for the owner: whether `gpu@0` asks for
-  `clip-distances`.
+- Effects above `normal`, after the owner accepted the integrator's recommendations on
+  2026-10-27 ("the rest of the items go with your recommendations"): `high` draws on `gpu@0`
+  as it is, with no contract change (2026-10-27, evening, on `core/npm-packages`). The
+  engine's clip plane (`DPSOFTRAST_ClipPlane`, in OpenGL's clip space) is the last uniform
+  slot of every shader, whose vertex stage passes the distance from it; a second fragment
+  stage per permutation discards behind it, made only when a clipped draw first needs it, so
+  unclipped draws keep early depth tests (`ac2f0e74`). A clear the scissor cuts (each water
+  view clears its own rectangle) is a draw over that rectangle, as `dpsoftrast.c` clears; it
+  had been skipped, so the views drew over the frame's depth (`45b3a949`). `high`'s water
+  asked for mode 14 with and without the vertex's alpha and for `4:545259520`; they are in
+  `xonotic-shaders` (214 permutations). A clipped pipeline's stage is made before the
+  pipeline, since `gpu@0` takes objects in their handles' order (`5b5420ac`: before it, every
+  packet that drew with such a pipeline failed, 5,793 times on solarium). Measured on the
+  round's images (Chrome on Xvfb, nvidia adapter, `exec effects-high.cfg`, `developer 1`):
+  glowplant, solarium, afterslime and bromine load with no missing permutation, no failed
+  packet and no warning of `dpgpurast.c`; their water surfaces draw. Occlusion queries keep
+  the engine's fallback. `ultra`'s shadow maps need `dpgpurast.c` to draw into depth texture
+  targets, and offset and relief mapping their permutations: both are in the README's table,
+  after v0.1.4.
 - Speed, the owner's remark ("needs better performance tuning"): on the live match, 14.0 fps
   in software at normal (22.9 at the low preset the image starts with) and 39.2 on
   `gpu@0` in a 1280×800 window (the table above); the rates before 2026-10-27 drew one

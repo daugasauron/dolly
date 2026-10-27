@@ -1,6 +1,6 @@
 # Opus 5.5 in Pi inside Dolly: an audit of the environment, a small game, and guidance that does not confuse models
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: pi,agent,agent-experience,0.1.4
 
@@ -35,6 +35,18 @@ Done when:
    guidance, tools and extension by the agent of this task, the rest (shell, commands, kernel,
    page) listed here with their reproduction and fixed by the integrator or another agent before
    the 0.1.4 round; one that needs a design decision goes to the owner as one line.
+
+## Closed (2026-10-28)
+
+Done-when 1 to 4 were met on 2026-10-23; 5 now holds: every finding of the six rounds is fixed
+and verified or recorded with its reason (round 5 and round 6 below). The last two fixes were
+verified in the round of 2026-10-27/28 on `core/npm-packages` `7857c9ad`: `curl -d @FILE`,
+`--data-binary` and `--data-raw` (`test/shell-browser.mjs`: each browser's four request bodies
+as curl sends them, Chromium and Firefox; the one failure of that run was the test keeping
+Chromium's bodies for Firefox's check, fixed in `16fc5356`), and a local `git clone` and fetch
+(the same test, both browsers). Round 6's other changes built in that round, and `x11`
+(imgui-x11 without `SDL_VIDEODRIVER`), `vendor-crates` and the amy suites passed. Spend: $18.665
+of the $20.
 
 ## State (2026-10-23 16:35 JST, branch `demo/opus-in-pi`)
 
