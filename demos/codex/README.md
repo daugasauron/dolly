@@ -36,7 +36,7 @@ another image, `amy install codex` brings the command.
 
 ## Limits
 
-- Threads run on `threads@0` (at most 16 per process); children use Dolly
+- Threads run on `threads@0` (at most 32 per process); children use Dolly
   spawn/wait.
 - No native sockets, fork hooks or clipboard.
   Socket-based clients such as HTTP MCP are unsupported.

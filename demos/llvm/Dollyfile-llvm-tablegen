@@ -6,6 +6,7 @@ REQUIRES HOST input@0
 REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
 
 # Build-only: LLVM 24 configured by CMake inside Dolly, its TableGen tools and outputs.
 FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 404fa8b20213eb7ba917287f6011d6bea6b5be8a1e11f8a0c4bd43bd0a3ca2c4

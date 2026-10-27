@@ -8,6 +8,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
+REQUIRES HOST threads@0
 
 FROM /v0.1.4/Dollyfile-system 6257f6208c71dd64cba3136f37dc524600c1ccb4e01d8919f30a2bc5070208c9
 INSTALL /v0.1.4/demos/slopyard/Dollyfile-raylib 3c4e4cfda5579c2a1035b72007cde424d2a33a5c2ee1e597af538cbd3af9b5c0

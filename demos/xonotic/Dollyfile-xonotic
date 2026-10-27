@@ -10,6 +10,7 @@ REQUIRES HOST input@0
 REQUIRES HOST touch@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
+REQUIRES HOST threads@0
 
 FROM /v0.1.4/Dollyfile-system 6257f6208c71dd64cba3136f37dc524600c1ccb4e01d8919f30a2bc5070208c9
 COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 5bbfaddbd2248d6051355d21b5d1098a1cf98779474e1f21bfa9a5d81894c283 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl

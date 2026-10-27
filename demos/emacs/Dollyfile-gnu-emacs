@@ -7,6 +7,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
+REQUIRES HOST threads@0
 
 FROM /v0.1.4/Dollyfile-system 6257f6208c71dd64cba3136f37dc524600c1ccb4e01d8919f30a2bc5070208c9
 INSTALL /v0.1.4/demos/emacs/Dollyfile-emacs 9c4fd8c269ecbb1df8d480fe1381bbe9f26da290724edea08982e73dfa208ef3

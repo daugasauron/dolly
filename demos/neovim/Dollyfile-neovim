@@ -8,6 +8,7 @@ REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
+REQUIRES HOST threads@0
 
 FROM /v0.1.4/Dollyfile-system 6257f6208c71dd64cba3136f37dc524600c1ccb4e01d8919f30a2bc5070208c9
 INSTALL /v0.1.4/demos/neovim/Dollyfile-nvim 65dbcb99be0e460d99e99dec842baef2afcfd0d76b2755815c35f0534a97cdff

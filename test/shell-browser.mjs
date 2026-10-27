@@ -95,9 +95,11 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
       "gzip -dc < ../repo.tar.gz | tar -xf - -C ../unpacked && grep -q tracked ../unpacked/tracked.txt && grep -q loose ../unpacked/loose.txt && " +
       // as tar -z of the tar package starts it
       "gzip -dc < ../repo.tar.gz > ../repo.tar && gzip -cdf ../repo.tar.gz | cmp - ../repo.tar"],
-    // A clone and a fetch of a local repository: Git runs git-upload-pack for the other side.
+    // A clone, a fetch and a push of a local repository: Git runs git-upload-pack or git-receive-pack for the other side.
     ["git clone -q . ../clone && test \"$(git -C ../clone log --format=%s)\" = initial && git commit -q -m loose && " +
-      "git -C ../clone fetch -q && test \"$(git -C ../clone log -1 --format=%s FETCH_HEAD)\" = loose"],
+      "git -C ../clone fetch -q && test \"$(git -C ../clone log -1 --format=%s FETCH_HEAD)\" = loose && " +
+      "git -C ../clone commit -q --allow-empty -m pushed && git -C ../clone push -q origin HEAD:from-clone && " +
+      "test \"$(git log -1 --format=%s from-clone)\" = pushed"],
     ["cd .. && test \"$(pwd)\" = /tmp/shell && test \"$(pwd -P)\" = /tmp/shell"],
     ["mkdir -p flags/deep && mkdir -p flags/deep && touch flags/.hidden && echo visible > flags/visible"],
     ["test \"$(ls flags)\" = \"$(printf 'deep\\nvisible')\" && ls -a flags | grep -q '^.hidden$'"],

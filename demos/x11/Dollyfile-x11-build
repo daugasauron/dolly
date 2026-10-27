@@ -8,6 +8,7 @@ REQUIRES HOST http@0
 REQUIRES HOST upload@0
 REQUIRES HOST dso@0
 REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
 
 # The X Window System's client libraries from X.Org's release archives,
 # unchanged: the protocol headers, xtrans, libXau and libxcb (whose protocol

@@ -235,8 +235,8 @@ mounted, and reads no other version's.
   module is not declared. Requirements grant nothing: the embedding enables
   modules and the HTTP broker decides network access
   ([browser boundary](browser-boundary.md)). `system` declares the runtime,
-  display, input, http, download, upload and snapshot; `default` adds packages,
-  nena, threads, dso, sockets, touch and audio, because the packages people
+  display, input, http, download, upload, snapshot and threads (Git runs
+  threads); `default` adds packages, nena, dso, sockets, touch and audio, because the packages people
   install into it need them (`python` and `nvim` load modules, every SDL2
   program records `touch@0` and `audio@0`); a declared module costs a program that
   does not record it nothing. A terminal draws with `display@0` and reads keys

@@ -6,6 +6,7 @@ REQUIRES HOST input@0
 REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
 
 # Build-only: LLVM 21 with every default target, the version Zig 0.16 links,
 # configured by CMake inside Dolly, and its TableGen tools.

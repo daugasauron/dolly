@@ -6,6 +6,7 @@ REQUIRES HOST input@0
 REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
 
 # Build-only: the LLVM 22 libraries rustc links, at the revision Rust pins,
 # compiled inside Dolly by its own c++.
