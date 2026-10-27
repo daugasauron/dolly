@@ -20,11 +20,12 @@ export function terminalText(page) {
   // Selects the whole screen and reads the published selection. The press
   // drops an earlier selection, so the text read after it is this one's. A
   // program that enters or leaves the alternate screen between the press and
-  // the drag leaves the gesture without a selection (an editor exiting), and
-  // one that scrolls a region at the screen's top under it carries the
-  // selection's start into the history, leaving more lines than the screen
-  // has rows (Pi above voice's buttons). Either way the gesture is made again,
-  // each time with a longer wait: a slow frame is not a broken gesture.
+  // the drag leaves the gesture without a selection (an editor exiting), so
+  // the gesture is made again, each time with a longer wait: a slow frame is
+  // not a broken gesture. Output that scrolls between the press and the drag
+  // (a program printing, Pi above voice's buttons) carries the selection's
+  // start into the history while its end is the screen's last cell: the
+  // screen is the selection's last rows.
   async function visibleTerminalText() {
     const { transport, inputTransport } = page;
     for (const attempts of [25, 50, 100, 325]) {
@@ -39,10 +40,11 @@ export function terminalText(page) {
       await waitFor(async () => await transport.copySelection() === null, "terminal selection reset");
       await inputTransport.pushPointer(endX, endY, 2, shifted);
       await inputTransport.pushPointer(endX, endY, 0, shifted);
-      if (await waitFor(async () => (selected = await transport.copySelection()) !== null, null, attempts) &&
-          selected.split("\n").length <= transport.dimensions().rows) return selected;
+      if (await waitFor(async () => (selected = await transport.copySelection()) !== null, null, attempts)) {
+        return selected.split("\n").slice(-dimensions.rows).join("\n");
+      }
     }
-    throw new Error("timed out waiting for a terminal selection of the screen");
+    throw new Error("timed out waiting for terminal selection publication");
   }
 
   // Resolves to the PID of a new foreground program in raw mode showing text
