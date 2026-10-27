@@ -153,7 +153,9 @@ export function worker({ send, runtimeBase, abi, service }) {
         growth[1] = pages;
         Atomics.store(growthWord, 0, 1);
         Atomics.notify(growthWord, 0);
-        Atomics.wait(growthWord, 0, 1);
+        // A notify can be the grower's for the last growth, whose wait found
+        // it done already: this one is done when the word says so.
+        while (Atomics.load(growthWord, 0) === 1) Atomics.wait(growthWord, 0, 1);
         const old = growth[1];
         // This thread learns of the growth by an interrupt, which a wait that
         // found it done already does not take: take it before the kernel
