@@ -1,8 +1,18 @@
 # gpu@0: each command packet waits a frame for its error scopes
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 140
 - TAGS: core,gpu,performance,0.1.4
+
+## Closed (2026-10-27): the contract keeps the wait
+
+Closed by the integrator's recommendation, which the owner accepted on 2026-10-27 ("the rest of
+the items go with your recommendations"). The measurements below answer the question: the error
+scopes cost nothing (0.0 to 0.1 ms without presenting), and the wait belongs to presenting the
+window, which only a packet that presents pays. `gpu@0` keeps answering each packet with its own
+errors; nothing in the contract changes. The Xonotic port packs a frame into as few packets as
+fit. The measurement on a real display with GPU compositing needs the owner's machine; it would
+reopen the question only if a packet that does not present waited there.
 
 ## State (2026-10-24, later): the wait is Xvfb showing the window, not the error scopes
 

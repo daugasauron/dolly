@@ -1,8 +1,18 @@
 # 0 A.D.: developed matches stall (its content is prepared in Dolly since 2026-10-24)
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 90
 - TAGS: demo,0ad,bootstrap,performance,0.1.4
+
+## Closed (2026-10-27): both items done, the stalls measured to the game's own work
+
+Closed by the integrator's recommendation, which the owner accepted on 2026-10-27 ("the rest of
+the items go with your recommendations"). Item 1, the content made in Dolly, is done (below).
+Item 2, developed matches: Dolly's part was the provider's pacing, fixed in `096425ae`; what the
+long frames spend after it is the game's (four Petra AIs and the components' scripts, run by
+SpiderMonkey's interpreter, which has no JIT in Wasm) and the GPU's throughput. The portable
+baseline interpreter broke UnitAI and was not kept. These were verified by the round of 2026-10-27
+on `main` `28a98839` (`0ad-engine`, `0ad-graphics` hardware and `0ad-spidermonkey` pass).
 
 ## State (2026-10-27, branch `demo/zero-ad-reconcile`)
 
