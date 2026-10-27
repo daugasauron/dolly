@@ -135,9 +135,27 @@ Done on 2026-10-27 (branch `demo/xonotic-reconcile`):
   Chrome on `gpu@0` in 515.6 s (the loading screen 0.1 from the screenshot along the top and
   11.9 in the centre, in mean colour per block), Firefox headless in software in 556.0 s
   (2.3 and 16.3). Eight earlier runs today passed (four with a looser loading-screen check);
-  one more failed to boot `/xonotic-build/` in Firefox (`FATAL index out of bounds` at 26 of
-  202 MiB of the snapshot, no build running), which 32 further boots, 12 in fresh browsers,
-  did not reproduce.
+  one more failed to boot `/xonotic-build/` in Firefox, the race of the next item.
+- The boot that fails with `FATAL index out of bounds` (Firefox; Chrome says `memory access
+  out of bounds`) is a race in the kernel memory's growth (`host/runtime/`), not Xonotic's;
+  x11fix's suites met it at `/custom/rebuild/`, twice in Firefox and once in Chrome
+  (`image-browser.mjs`). Fresh headless Firefox boots, a browser
+  each: one at a time, 1 of 300 `rust-build` and none of 300 `/xonotic-build/`; three at once
+  (load 11 to 25), 6 of 446 `rust-build`, 1 of 150 `xonotic`, 1 of 240 `/custom/rebuild/`
+  with `shell-env-browser.mjs`'s recipe. Every trap: `emscripten_builtin_malloc`
+  (`dolly.wasm` function 322, 0x1d620, dlmalloc's `init_top` writing the top's foot at the
+  new end) ← `realloc` ← `BlockFile::grow`, under `dolly_snapshot_stream_write`, `ftruncate`
+  or `write`. Read after the trap (evidence only): the last `dolly_memory_grow` had returned
+  16 as the old size for 16 pages asked, the memory still 3,487 pages, the break 1 MiB past
+  it. When the runtime Worker's wait finds a growth done already, the grower's notify for it
+  can come after the next request and wake that wait before its growth is done. Each side
+  now waits until the word says so (`72a223ff`). `test/memory-growth-notify-browser.mjs`
+  sends each of the grower's notifies again once the next growth waits: `/system/` failed to
+  boot without the fix in Chrome and Firefox and boots with it. After the fix, three at
+  once: 0 of 300 `rust-build`, 0 of 240 `/custom/rebuild/`. Growing on the runtime Worker
+  itself had also booted 600 of 600; a `memory.grow(0n)` after the growth had not (8 of 165).
+  Passed with the fix: `memory-growth` in both browsers, `shell-env` and `pty` ten times
+  each in Firefox, `image` in Chrome, `npm run test:source`.
 
 Frame rates. `short.dem`, the timedemo every rate in this task was measured with until
 2026-10-27, replays a paused game: its 528 `svc_time` messages span server time 1.80 to
