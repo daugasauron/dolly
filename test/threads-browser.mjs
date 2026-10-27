@@ -5,14 +5,15 @@ import { DOLLY_THREADS_ABI_DIGEST } from "../host/threads/abi.mjs";
 import { siteReference } from "../src/static-asset.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 
-const modules = ["runtime@0", "display@0", "input@0", "http@0", "download@0", "upload@0", "snapshot@0"];
-// system holds the compiler and download and declares no threads@0: the
-// suite's image is system with that one line more, built by the page.
-const system = DOLLY_IMAGES.find(({ image }) => image === "system");
-const threadsImage = { path: "/custom/rebuild/", setup: async page => {
-  await page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), ["DOLLY 7", "APPLICATION threads",
-    ...[...modules, "threads@0"].map(module => `REQUIRES HOST ${module}`),
-    `FROM ${siteReference(system.dollyfile)} ${system.sha256}`, "ENTRY /bin/foreground -i /bin/slop", ""].join("\n"));
+// The shell, its tools and curl without Git, whose asyncs are threads: an
+// image that declares no threads@0, built by the page.
+const unthreaded = ["core", "posix", "display", "curl"].map(name => DOLLY_IMAGES.find(({ image }) => image === name));
+const unthreadedImage = { path: "/custom/rebuild/", setup: async page => {
+  await page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), ["DOLLY 7", "APPLICATION unthreaded",
+    ...new Set(["runtime@0", "display@0", "input@0", ...unthreaded.flatMap(({ hostRequirements }) => hostRequirements)]
+      .map(module => `REQUIRES HOST ${module}`)),
+    ...unthreaded.map(({ dollyfile, sha256 }) => `INSTALL ${siteReference(dollyfile)} ${sha256}`),
+    "ENTRY /bin/foreground -i /bin/slop", ""].join("\n"));
 } };
 const fixtures = Object.fromEntries(["threads-pthread.c", "threads-cpp.cpp", "threads-quota.c", "process-exec.c"]
   .map(name => [name, `test/fixtures/${name}`]));
@@ -21,7 +22,7 @@ const probe = "/fixture/process-wrong-call.wasm";
 let valid;
 await browserTest("threads", { image: "system", server: { fixtures, sourceOverrides } }, async ({ server, open }) => {
   const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
-  const { page, submit, text, waitForText } = await open({ policy, ...threadsImage });
+  const { page, submit, text, waitForText } = await open({ policy });
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
@@ -122,7 +123,7 @@ await browserTest("threads", { image: "system", server: { fixtures, sourceOverri
 // An image that does not declare threads@0 refuses a thread executable.
 await browserTest("threads refusal", { image: "system", server: { fixtures, sourceOverrides } }, async ({ server, open }) => {
   const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
-  const denied = await open({ policy });
+  const denied = await open({ policy, ...unthreadedImage });
   sourceOverrides.set(probe, valid);
   assert.equal(await denied.submit(`curl -fsS ${server.origin}${probe} -o /tmp/threads-denied`), 0);
   assert.equal(await denied.submit("/tmp/threads-denied 2> /tmp/refused"), 126);

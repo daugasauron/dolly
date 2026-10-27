@@ -20,15 +20,16 @@ test("every image declares its complete host set itself", async () => {
   // Every image declares the runtime it is built on; the engine retained for
   // FROM builds uses http@0; download and upload tools arrive with transfer,
   // which system installs; a terminal draws with display@0 and reads keys with
-  // input@0, which the display package alone does not ask for; default
-  // installs packages with amy and runs what they bring: threaded tools,
-  // programs that load modules and SDL2's, which read fingers and play sound;
-  // nena enables what else they need.
+  // input@0, which the display package alone does not ask for; Git, which
+  // system-tools holds, runs threads; default installs packages with amy and
+  // runs what they bring: threaded tools, programs that load modules and
+  // SDL2's, which read fingers and play sound; nena enables what else they need.
   const core = {
-    default: [...interactive, "packages@0", "threads@0", "dso@0", "sockets@0", "touch@0", "audio@0", "nena@0"], system: interactive,
+    default: [...interactive, "packages@0", "threads@0", "dso@0", "sockets@0", "touch@0", "audio@0", "nena@0"],
+    system: [...interactive, "threads@0"],
     "system-build": ["runtime@0", "http@0"], "zig-build": ["runtime@0", "http@0"],
     "ghostty-build": [...terminal, "http@0"],
-    "system-tools": [...terminal, "http@0"], transfer: ["runtime@0", "download@0", "upload@0"],
+    "system-tools": [...terminal, "http@0", "threads@0"], transfer: ["runtime@0", "download@0", "upload@0"],
     zlib: ["runtime@0"], gzip: ["runtime@0"], curl: ["runtime@0", "http@0"], display: ["runtime@0", "display@0"],
     nena: ["runtime@0", "nena@0"],
   };
