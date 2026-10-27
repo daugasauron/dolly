@@ -18,7 +18,11 @@
 // - attributes take locations 0 (position), 1 (colour), 2+n (texcoord n),
 //   varyings the order in which the vertex stage declares them, dp_FragColor 0;
 // - invariant and precision statements go, main becomes dp_main, and the new
-//   vertex main maps OpenGL's clip depth (-w to w) onto WebGPU's (0 to w).
+//   vertex main maps OpenGL's clip depth (-w to w) onto WebGPU's (0 to w);
+// - the last slot holds the clip plane dpgpurast.c is given (in OpenGL's clip
+//   space; 0 0 0 1 clips nothing): the vertex stage passes the vertex's
+//   distance from it, and a second fragment stage, M-P.clip, discards what
+//   lies behind it, as the engine's water reflections and refractions ask.
 #define _GNU_SOURCE
 #include <ctype.h>
 #include <spawn.h>
@@ -86,6 +90,7 @@ static void scan(names_t *list, const char *text, const char *prefix, const char
 
 static names_t modes, permutations, uniforms, units;
 static int unit_number[MAX_NAMES];
+static int plane_row; // DPSOFTRAST_UNIFORM_TOTAL, past the engine's rows: dpgpurast.c's clip plane
 
 static void load_tables(const char *engine)
 {
@@ -107,7 +112,8 @@ static void load_tables(const char *engine)
 		unit_number[units.count] = unit;
 		add(&units, name, strlen(name));
 	}
-	if (modes.count != 17 || permutations.count != 32 || uniforms.count < 100)
+	plane_row = find(&uniforms, "TOTAL");
+	if (modes.count != 17 || permutations.count != 32 || uniforms.count < 100 || plane_row != uniforms.count - 1)
 		fail("unexpected engine tables in", engine);
 }
 
@@ -212,8 +218,8 @@ static const char *swizzle(const char *type)
 	return 0;
 }
 
-static void rewrite(const char *path, const char *text, int vertex, const names_t *declared, const int *slot, int slots,
-                    const names_t *varyings)
+static void rewrite(const char *path, const char *text, int vertex, int clip, const names_t *declared, const int *slot,
+                    int slots, const names_t *varyings)
 {
 	FILE *f = fopen(path, "w");
 	if (!f) fail("cannot write", path);
@@ -222,6 +228,7 @@ static void rewrite(const char *path, const char *text, int vertex, const names_
 	           "#define DPU(i) dp_uniforms[dp_draw * %du + (i)]\n", slots);
 	if (vertex) fprintf(f, "uint dp_draw;\nlayout(location=%d) flat out uint dp_draw_out;\n", varyings->count);
 	else fprintf(f, "layout(location=%d) flat in uint dp_draw;\n", varyings->count);
+	if (vertex || clip) fprintf(f, "layout(location=%d) %s float dp_clip;\n", varyings->count + 1, vertex ? "out" : "in");
 	for (const char *line = text; *line; line = strchr(line, '\n') ? strchr(line, '\n') + 1 : line + strlen(line)) {
 		char copy[512], word[8][64];
 		size_t n = strcspn(line, "\n");
@@ -263,10 +270,11 @@ static void rewrite(const char *path, const char *text, int vertex, const names_
 		}
 	}
 	if (vertex)
-		fputs("void main(void)\n{\n\tdp_draw = uint(gl_InstanceIndex);\n\tdp_draw_out = dp_draw;\n\tdp_main();\n"
-		      "\tgl_Position.z = (gl_Position.z + gl_Position.w) * 0.5;\n}\n", f);
+		fprintf(f, "void main(void)\n{\n\tdp_draw = uint(gl_InstanceIndex);\n\tdp_draw_out = dp_draw;\n\tdp_main();\n"
+		           "\tdp_clip = dot(DPU(%d), gl_Position);\n\tgl_Position.z = (gl_Position.z + gl_Position.w) * 0.5;\n}\n",
+		        slots - 1);
 	else
-		fputs("void main(void)\n{\n\tdp_main();\n}\n", f);
+		fprintf(f, "void main(void)\n{\n%s\tdp_main();\n}\n", clip ? "\tif (dp_clip < 0.0)\n\t\tdiscard;\n" : "");
 	fclose(f);
 }
 
@@ -298,12 +306,15 @@ static void pair(const char *output, const char *spec)
 		for (int row = 0; row < (index < 0 ? 4 : 1); row++, slots++)
 			fprintf(f, "%s%d", slots ? " " : "", (index < 0 ? matrix : index) + row);
 	}
-	fputc('\n', f);
+	fprintf(f, "%s%d\n", slots ? " " : "", plane_row);
+	slots++;
 	fclose(f);
 	snprintf(path, sizeof(path), "%s/%s.vert", output, name);
-	rewrite(path, vertex, 1, &declared, slot, slots ? slots : 1, &varyings);
+	rewrite(path, vertex, 1, 0, &declared, slot, slots, &varyings);
 	snprintf(path, sizeof(path), "%s/%s.frag", output, name);
-	rewrite(path, fragment, 0, &declared, slot, slots ? slots : 1, &varyings);
+	rewrite(path, fragment, 0, 0, &declared, slot, slots, &varyings);
+	snprintf(path, sizeof(path), "%s/%s.clip", output, name);
+	rewrite(path, fragment, 0, 1, &declared, slot, slots, &varyings);
 	free(vertex);
 	free(fragment);
 }

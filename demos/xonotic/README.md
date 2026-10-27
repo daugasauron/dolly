@@ -63,7 +63,7 @@ passing, and what each waits for:
 
 | Effect | Preset | Waits for |
 | --- | --- | --- |
-| Water reflection and refraction (`r_water`) | `high` and up | clip planes (WebGPU's `clip-distances` feature, which `gpu@0` does not ask for); the views draw, unclipped |
+| Water reflection and refraction (`r_water`) | `high` and up | the water shader's permutations (mode 14), not in `xonotic-shaders`' list; the reflected and refracted views draw, cut at the water plane |
 | Corona occlusion queries | `high` and up | occlusion queries, which `gpu@0` lacks; the engine traces instead |
 | Realtime world lights and shadow maps | `ultra` and up | drawing into depth textures in `dpgpurast.c` (`gpu@0` has depth targets and compare samplers) |
 | Offset and relief mapping | `ultra` and up | nothing in `gpu@0`: their permutations are not in `xonotic-shaders`' list |

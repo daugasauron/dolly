@@ -65,7 +65,7 @@ typedef struct pair_s
 {
 	int mode, loaded;
 	dpuint64 permutation;
-	uint64_t vertex, fragment;
+	uint64_t vertex, fragment, clipped; // clipped: the fragment stage that discards behind the clip plane
 	int inputs[ATTRIBUTES]; // the vertex inputs the vertex stage reads
 	int units, cubes; // bit u: texture unit u (binding 2u, sampler 2u+1); the cube ones
 	int uniforms; // whether a stage reads the storage buffer of slots
@@ -78,7 +78,7 @@ typedef struct pipeline_state_s
 {
 	pair_t *pair;
 	int format[ATTRIBUTES]; // components of each vertex buffer, 0 for none
-	int blending, source, destination, subtract, test, write, cull, mask, bias;
+	int blending, source, destination, subtract, test, write, cull, mask, bias, clip;
 	float slope;
 }
 pipeline_state_t;
@@ -171,7 +171,11 @@ static float depth_range[2] = {0, 1}, polygon_offset[2], constant_color[4] = {1,
 static int bound_texture[DPSOFTRAST_MAXTEXTUREUNITS];
 static vertex_array_t arrays[ATTRIBUTES];
 static pair_t *shader;
-static float uniform4f[DPSOFTRAST_UNIFORM_TOTAL * 4];
+// The engine's uniforms, and past them the clip plane, which dpshaders.c gives
+// every shader the last slot for: 0 0 0 1 clips nothing.
+#define CLIP_PLANE DPSOFTRAST_UNIFORM_TOTAL
+static float uniform4f[(CLIP_PLANE + 1) * 4] = {[CLIP_PLANE * 4 + 3] = 1};
+static int clipping;
 static const float default_attribute[4] = {0, 0, 0, 1};
 
 
@@ -404,6 +408,22 @@ static pair_t *LoadPair(int mode, dpuint64 permutation)
 	return pair;
 }
 
+// The fragment stage that discards behind the clip plane, made when a draw first needs it.
+static uint64_t ClippedFragment(pair_t *pair)
+{
+	if (!pair->clipped)
+	{
+		char path[256];
+		dpsnprintf(path, sizeof(path), SHADER_DIRECTORY "/%d-%llu.clip.wgsl", pair->mode, (unsigned long long)pair->permutation);
+		char *fragment = ReadFile(path);
+		if (!fragment)
+			Sys_Error("dpgpurast: no %s", path);
+		pair->clipped = CreateShader(fragment);
+		free(fragment);
+	}
+	return pair->clipped;
+}
+
 static int BlendFactor(int gl)
 {
 	switch (gl)
@@ -446,6 +466,7 @@ static pipeline_t *GetPipeline(void)
 	s.mask = color_mask[0] | color_mask[1] << 1 | color_mask[2] << 2 | color_mask[3] << 3;
 	s.bias = (int)polygon_offset[1];
 	s.slope = polygon_offset[0];
+	s.clip = clipping;
 	for (int i = 0; i < pipelines_count; i++)
 		if (!memcmp(&pipelines[i].state, &s, sizeof(s)))
 			return &pipelines[i];
@@ -459,7 +480,7 @@ static pipeline_t *GetPipeline(void)
 		buffers += s.format[i] != 0;
 	pipeline->handle = NewHandle();
 	void *p = Record(DOLLY_GPU_GRAPHICS_PIPELINE, 112 + 32 * buffers);
-	U64(p, 8, pipeline->handle);U64(p, 16, pair->vertex);U64(p, 24, pair->fragment);
+	U64(p, 8, pipeline->handle);U64(p, 16, pair->vertex);U64(p, 24, s.clip ? ClippedFragment(pair) : pair->fragment);
 	U32(p, 32, 1);U32(p, 36, 6);U32(p, 44, s.cull);U32(p, 52, s.test);U32(p, 56, s.write);
 	U32(p, 60, (uint32_t)s.bias);F32(p, 64, s.slope);U32(p, 72, s.mask);U32(p, 76, s.blending);
 	for (int component = 0; component < 2; component++)
@@ -1317,8 +1338,9 @@ void DPSOFTRAST_Scissor(float x, float y, float width, float height)
 void DPSOFTRAST_ClipPlane(float x, float y, float z, float w)
 {
 	SOFTWARE(dpsoft_ClipPlane(x, y, z, w));
-	if (x || y || z || w != 1)
-		Warn("clip planes are not drawn (water reflections, beyond the normal preset)");
+	const float plane[4] = {x, y, z, w};
+	memcpy(&uniform4f[CLIP_PLANE * 4], plane, sizeof(plane));
+	clipping = x || y || z || w != 1;
 }
 
 void DPSOFTRAST_BlendFunc(int smodulate, int dmodulate) {SOFTWARE(dpsoft_BlendFunc(smodulate, dmodulate));blend[0] = smodulate;blend[1] = dmodulate;}

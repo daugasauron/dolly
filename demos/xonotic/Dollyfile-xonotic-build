@@ -19,7 +19,7 @@ INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype 7813cf595db4bb3a49e221fe235632f
 INSTALL /v0.1.4/demos/xonotic/Dollyfile-gmqcc dff4e0d7f13a81cc247031706bece8a70d9463a9514103e9226911c45f96f5ae
 # The gpu@0 client the render path draws with, and its shaders.
 INSTALL /v0.1.4/Dollyfile-libdolly-gpu 1308d574fd8b030fac77cf9814dc9925d2737be130a6401b9929c80e13307bf2
-INSTALL /v0.1.4/demos/xonotic/Dollyfile-xonotic-shaders d2a69b7fb9f01e4c887281d678be087f982dd71c9f28b66efcbf5d012e3b5b45
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-xonotic-shaders d153c5af6fbb8a87684a3c00a2b8279be1d614c2378829ab5063bef3567d1aa8
 REQUIRES HEADER cpp
 REQUIRES HEADER gpu
 REQUIRES HEADER sdl2
@@ -36,7 +36,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL gzip
 REQUIRES TOOL rm
 
-SOURCE /v0.1.4/dist/static/xonotic/source.tar.gz 94ab3e63d326acb86a8b47b1a996b838aeebd2aa0acfd9c2d02b75da43d63bbe /tmp/xonotic/source.tar.gz
+SOURCE /v0.1.4/dist/static/xonotic/source.tar.gz ae59af8695f39fc6d2c5594de4a3644edf5119296cc43f3f8723b2b6fcf13dc5 /tmp/xonotic/source.tar.gz
 SLOP gzip -dc /tmp/xonotic/source.tar.gz | tar -xf - -C /
 SLOP make -f /usr/src/dolly/xonotic/Makefile
 

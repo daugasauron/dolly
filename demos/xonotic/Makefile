@@ -89,13 +89,14 @@ SHADERS := /usr/share/xonotic/shaders
 GLSL := $(BUILD)/glsl
 SHADER_NAMES := $(subst :,-,$(SHADER_PAIRS))
 
-shaders: $(foreach name,$(SHADER_NAMES),$(SHADERS)/$(name).vert.wgsl $(SHADERS)/$(name).frag.wgsl $(SHADERS)/$(name).uniforms)
+shaders: $(foreach name,$(SHADER_NAMES),$(SHADERS)/$(name).vert.wgsl $(SHADERS)/$(name).frag.wgsl $(SHADERS)/$(name).clip.wgsl \
+  $(SHADERS)/$(name).uniforms)
 
 $(BUILD)/dpshaders: $(PORT)/dpshaders.c
 	mkdir -p $(@D)
 	$(CC) -O1 -I$(ENGINE) $< -o $@
 
-$(GLSL)/%.vert $(GLSL)/%.frag $(GLSL)/%.uniforms: $(BUILD)/dpshaders
+$(GLSL)/%.vert $(GLSL)/%.frag $(GLSL)/%.clip $(GLSL)/%.uniforms: $(BUILD)/dpshaders
 	mkdir -p $(GLSL)
 	$(BUILD)/dpshaders $(ENGINE) $(GLSL) $(subst -,:,$*)
 
@@ -104,6 +105,10 @@ $(SHADERS)/%.vert.wgsl: $(GLSL)/%.vert
 	naga --input-kind glsl --shader-stage vert --compact $< $@
 
 $(SHADERS)/%.frag.wgsl: $(GLSL)/%.frag
+	mkdir -p $(@D)
+	naga --input-kind glsl --shader-stage frag --compact $< $@
+
+$(SHADERS)/%.clip.wgsl: $(GLSL)/%.clip
 	mkdir -p $(@D)
 	naga --input-kind glsl --shader-stage frag --compact $< $@
 
