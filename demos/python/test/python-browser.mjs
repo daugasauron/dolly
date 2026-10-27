@@ -101,7 +101,7 @@ await demoTest("python", { image: "python", timeout: packages ? 7_200_000 : 600_
   // A process-local DSO lookup, an FFI call and a closure.
   await run("python -c 'import ctypes; libc = ctypes.CDLL(None); libc.strlen.argtypes = [ctypes.c_char_p]; libc.strlen.restype = ctypes.c_size_t; assert libc.strlen(b\"dolly\") == 5; callback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int)(lambda value: value + 1); assert callback(41) == 42'");
   // sqlite3, bz2 and lzma, linked from the sqlite, bzip2 and xz packages.
-  await run("python -c 'import sqlite3, bz2, lzma; db = sqlite3.connect(\"/tmp/python.db\"); db.execute(\"create table t (v)\"); db.execute(\"insert into t values (42)\"); db.commit(); " +
+  await run("python -c 'import sqlite3, bz2, lzma; db = sqlite3.connect(\"/tmp/python.db\"); db.execute(\"create table t (v)\"); db.execute(\"insert into t values (42)\"); db.commit(); db.close(); " +
     "assert sqlite3.connect(\"/tmp/python.db\").execute(\"select v from t\").fetchone() == (42,); data = b\"dolly\" * 100; " +
     "assert bz2.decompress(bz2.compress(data)) == data and lzma.decompress(lzma.compress(data)) == data'");
   // Every id is 0: a program sees root, as Dolly's libc says.
