@@ -51,12 +51,22 @@ unless stated (`life-v*`: 1,500 s traces; `sling-v2`, `audit-v2`, `sling-v6`, `a
   loader: no second throw, 27 shots, and on the GPU display 32 deliveries (East 17, West 22; the
   Tonbo and Yamabiko couriers 9 fewer), no new fall, removal or controller error. Not accepted.
 
+- v7 (afternoon, v6 plus the loader): the loader takes a round on a line only by its root block,
+  from its own side, where no other part of the round lies in its head's way. The first loads change
+  at once: the loaders take the standing rounds at 6 s instead of 7 s, the Blue gun grips its round
+  at the dock and lets go of it again four times between 52 s and 236 s without a throw, and the Red
+  gun takes its round at 48 s instead of 27 s; the throws of 83 s and 85 s are lost, and neither
+  round is thrown before 666 s. Why the gun lets go was not traced. Stopped after the 1,500 s trace
+  (`life-v7`), not committed.
+
 Nothing is committed: no variant throws a returned round again, and both measured over 2,400 s
 deliver 32. The traces agree with the audits of the same sources to the second, so each variant is
 one deterministic world; v6 parts from the base by 600 s, v2 after 1,200 s. What a fix
 needs, as measured: a returned round stands within about 0.2 m of its place, on the loader's far
-side of it; or the loader and gun take a lying round, the loader gripping its root block from its
-own side wherever the round lies within reach and the gun accepting it root down.
+side of it; or the loader takes a lying round by an outer block and brings it to the dock with its
+root block on top, free of the head, as a standing round arrives: the gun grips only a root block
+that is the nearest part of the round to its pole (`tengu-east-cargo-slinger.lua`), and in v6 the
+returned round, lying, misloaded twice, 2 m off the dock.
 
 The other open problems, on the base GPU audit of this run:
 
