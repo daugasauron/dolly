@@ -536,6 +536,9 @@ const elsewhere = {
   glib: "demos/ghostty-gtk: gtk-build installs it", pcre2: "demos/ghostty-gtk: glib uses it", libffi: "demos/ghostty-gtk: glib uses it",
   go: "demos/go", esbuild: "demos/go", naga: "demos/zero-ad: zero-ad-data uses it", "zero-ad-data": "demos/zero-ad: zero-ad copies it",
   "fingers-build": "demos/fingers: fingers installs it", "vendor-crates": "demos/rust/test/vendor-crates-browser.mjs",
+  fmt: "demos/zero-ad: zero-ad-deps installs it", libxml2: "demos/zero-ad: zero-ad-deps installs it",
+  libsodium: "demos/zero-ad: zero-ad-deps installs it", "boost-headers": "demos/zero-ad: zero-ad-deps installs it",
+  premake: "demos/zero-ad: zero-ad-engine's build uses it",
 };
 const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "llama", "tar", "meson", "typescript", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
 assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no test installs and uses");
