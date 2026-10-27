@@ -1,0 +1,34 @@
+DOLLY 7
+PACKAGE libxml2
+REQUIRES HOST runtime@0
+
+# libxml2 from upstream's release archive, unchanged, built by its CMake project
+# with zlib and without threads, iconv, LZMA, HTTP, Python or its programs, for
+# programs the cc package builds.
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 3f9cc07612be5e715df223d8957857350c9f97761ae631c13f949870da3cfff6
+INSTALL /v0.1.4/Dollyfile-zlib 592de704054a7e961a206610a808ceb362d01386ec713418e20ab717dbd3dc7f
+REQUIRES HEADER libc
+REQUIRES HEADER zlib
+REQUIRES LIB z
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /v0.1.4/dist/static/libxml2/source.tar.gz bb1aba60e6df0bb8060e792c3fa785fe0652d5d94857ade6e935f7dc02956be1 /tmp/libxml2.tar.gz
+SLOP gzip -dc /tmp/libxml2.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/libxml2 -B /tmp/libxml2-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+  -DLIBXML2_WITH_PYTHON=OFF -DLIBXML2_WITH_TESTS=OFF -DLIBXML2_WITH_PROGRAMS=OFF -DLIBXML2_WITH_THREADS=OFF \
+  -DLIBXML2_WITH_LZMA=OFF -DLIBXML2_WITH_HTTP=OFF -DLIBXML2_WITH_ICONV=OFF -DLIBXML2_WITH_ZLIB=ON
+SLOP cmake --build /tmp/libxml2-build -j4
+SLOP cmake --install /tmp/libxml2-build
+
+EXPORTS LIB    xml2          /usr/lib/libxml2.a
+EXPORTS HEADER libxml2       /usr/include/libxml2
+EXPORTS FOLDER libxml2-cmake /usr/lib/cmake/libxml2-2.13.5
+FILE /usr/lib/pkgconfig/libxml-2.0.pc
+FILE /usr/share/licenses/libxml2/Copyright
+SLOP rm -rf /tmp/libxml2 /tmp/libxml2-build /tmp/libxml2.tar.gz

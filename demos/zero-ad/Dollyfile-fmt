@@ -1,0 +1,29 @@
+DOLLY 7
+PACKAGE fmt
+REQUIRES HOST runtime@0
+
+# {fmt} from upstream's release archive, unchanged, built by its CMake project,
+# for programs the cc package builds.
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 3f9cc07612be5e715df223d8957857350c9f97761ae631c13f949870da3cfff6
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /v0.1.4/dist/static/fmt/source.tar.gz 66a92e97c25eb9542032e3d4b3bac3021b573a3bdd1dde3aa31c138afd709ed1 /tmp/fmt.tar.gz
+SLOP gzip -dc /tmp/fmt.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/fmt -B /tmp/fmt-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DFMT_TEST=OFF -DFMT_DOC=OFF
+SLOP cmake --build /tmp/fmt-build -j4
+SLOP cmake --install /tmp/fmt-build
+
+EXPORTS LIB    fmt       /usr/lib/libfmt.a
+EXPORTS HEADER fmt       /usr/include/fmt
+EXPORTS FOLDER fmt-cmake /usr/lib/cmake/fmt
+FILE /usr/lib/pkgconfig/fmt.pc
+FILE /usr/share/licenses/fmt/LICENSE.rst
+SLOP rm -rf /tmp/fmt /tmp/fmt-build /tmp/fmt.tar.gz

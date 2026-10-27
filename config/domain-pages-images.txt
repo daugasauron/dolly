@@ -48,6 +48,12 @@ box3d
 pkgconf
 libpng
 freetype
+fmt
+libxml2
+libsodium
+boost-headers
+icu
+premake
 mojo
 mojo-gpu
 sqlite

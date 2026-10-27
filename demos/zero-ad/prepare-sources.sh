@@ -9,8 +9,9 @@ if has_image openal; then
     "${openal_dir}/LICENSE-pffft" /usr/share/licenses/OpenAL/LICENSE-pffft \
     "${openal_dir}/fmt-11.1.1/LICENSE" /usr/share/licenses/OpenAL/fmt
 fi
-if has_image zero-ad-deps || has_image zero-ad-engine || has_image spidermonkey ||
-   has_image pkgconf || has_image libpng || has_image freetype || has_image zero-ad-data; then
+if has_image zero-ad-deps || has_image zero-ad-engine || has_image spidermonkey || has_image pkgconf ||
+   has_image libpng || has_image freetype || has_image fmt || has_image libxml2 || has_image libsodium ||
+   has_image boost-headers || has_image icu || has_image premake || has_image zero-ad-data; then
   zad_dir="$(bash demos/zero-ad/prepare-build-sources.sh)"
 fi
 if has_image zero-ad-data; then
@@ -56,23 +57,46 @@ if has_image freetype; then
     "${zad_dir}/freetype-VER-2-14-3/LICENSE.TXT" /usr/share/licenses/freetype/LICENSE.TXT \
     "${zad_dir}/freetype-VER-2-14-3/docs/FTL.TXT" /usr/share/licenses/freetype/FTL.TXT
 fi
+if has_image fmt; then
+  node scripts/build-source-tar.mjs "${static_dir}/fmt/source.tar.gz" \
+    "${zad_dir}/fmt-7.1.3" /tmp/fmt \
+    "${zad_dir}/fmt-7.1.3/LICENSE.rst" /usr/share/licenses/fmt/LICENSE.rst
+fi
+if has_image libxml2; then
+  node scripts/build-source-tar.mjs "${static_dir}/libxml2/source.tar.gz" \
+    "${zad_dir}/libxml2-2.13.5" /tmp/libxml2 \
+    "${zad_dir}/libxml2-2.13.5/Copyright" /usr/share/licenses/libxml2/Copyright
+fi
+if has_image libsodium; then
+  node scripts/build-source-tar.mjs "${static_dir}/libsodium/source.tar.gz" \
+    "${zad_dir}/libsodium-1.0.20/src/libsodium" /tmp/libsodium/src/libsodium \
+    "${zad_dir}/libsodium-1.0.20/builds/msvc/version.h" /tmp/libsodium/builds/msvc/version.h \
+    "${zad_dir}/libsodium-1.0.20/LICENSE" /usr/share/licenses/libsodium/LICENSE
+fi
+if has_image boost-headers; then
+  node scripts/build-source-tar.mjs "${static_dir}/boost-headers/source.tar.gz" \
+    "${zad_dir}/boost" /usr/include/boost \
+    "${zad_dir}/boost-LICENSE_1_0.txt" /usr/share/licenses/boost/LICENSE_1_0.txt
+fi
+if has_image icu; then
+  node scripts/build-source-tar.mjs "${static_dir}/icu/source.tar.gz" \
+    "${zad_dir}/icu/source/common" /tmp/icu/source/common \
+    "${zad_dir}/icu/source/i18n" /tmp/icu/source/i18n \
+    "${zad_dir}/icu/source/stubdata" /tmp/icu/source/stubdata \
+    "${zad_dir}/icu/source/data/in/icudt68l.dat" /usr/share/icu/68.2/icudt68l.dat \
+    "${zad_dir}/icu/LICENSE" /usr/share/licenses/icu/LICENSE
+fi
+if has_image premake; then
+  node scripts/build-source-tar.mjs "${static_dir}/premake/source.tar.gz" \
+    "${zad_dir}/premake-core-5.0.0-beta7" /tmp/premake/source \
+    demos/zero-ad/premake-dolly.patch /tmp/premake/dolly.patch \
+    "${zad_dir}/premake-core-5.0.0-beta7/LICENSE.txt" /usr/share/licenses/premake/LICENSE.txt
+fi
 if has_image zero-ad-deps; then
   node scripts/build-source-tar.mjs "${static_dir}/zero-ad-build/deps.tar.gz" \
-    "${zad_dir}/fmt-7.1.3/LICENSE.rst" /usr/share/licenses/fmt/LICENSE.rst \
-    "${zad_dir}/libxml2-2.13.5/Copyright" /usr/share/licenses/libxml2/Copyright \
-    "${zad_dir}/icu/LICENSE" /usr/share/licenses/icu/LICENSE \
-    "${zad_dir}/libsodium-1.0.20/LICENSE" /usr/share/licenses/libsodium/LICENSE \
     "${zad_dir}/enet-1.3.18/LICENSE" /usr/share/licenses/enet/LICENSE \
-    "${zad_dir}/fmt-7.1.3" /tmp/zad/fmt \
-    "${zad_dir}/libxml2-2.13.5" /tmp/zad/xml2 \
-    "${zad_dir}/icu/source/common" /tmp/zad/icu/common \
-    "${zad_dir}/icu/source/i18n" /tmp/zad/icu/i18n \
-    "${zad_dir}/icu/source/stubdata" /tmp/zad/icu/stubdata \
-    "${zad_dir}/libsodium-1.0.20/src/libsodium" /tmp/zad/sodium/src/libsodium \
-    "${zad_dir}/libsodium-1.0.20/builds/msvc/version.h" /tmp/zad/sodium/builds/msvc/version.h \
     "${zad_dir}/enet-1.3.18" /tmp/zad/enet \
     demos/zero-ad/enet-dolly.c /tmp/zad/enet-dolly.c \
-    "${zad_dir}/boost" /tmp/zad/boost/boost \
     demos/zero-ad/test/fixtures/0ad-enet.c /tmp/zad/enet-check.c \
     demos/zero-ad/test/fixtures/0ad-openal.cpp /tmp/zad/openal-check.cpp
 fi
@@ -83,10 +107,8 @@ if has_image zero-ad-engine; then
     "${zad_source}/build/build_version" /tmp/0ad/build/build_version \
     "${zad_source}/source" /tmp/0ad/source \
     "${zad_source}/libraries/source/cxxtest-4.4" /tmp/0ad/libraries/source/cxxtest-4.4 \
-    "${zad_dir}/premake-core-5.0.0-beta7" /tmp/premake-core-5.0.0-beta7 \
     "${zad_source}/LICENSE.md" /tmp/0ad/LICENSE.md \
     demos/zero-ad/engine.patch /tmp/0ad-patches/engine.patch \
-    demos/zero-ad/premake-dolly.patch /tmp/0ad-patches/premake.patch \
     demos/zero-ad/test/fixtures/0ad-spidermonkey.cpp /tmp/0ad-patches/spidermonkey-check.cpp
 fi
 if has_image spidermonkey; then

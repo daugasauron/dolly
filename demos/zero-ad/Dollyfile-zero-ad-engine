@@ -10,9 +10,10 @@ REQUIRES HOST gpu@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-# Build-only: premake and the 0 A.D. engine (pyrogenesis), built by upstream's
-# premake Makefiles with Dolly's c++.
-FROM /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-deps 87ff29f0fea8f556010c3bb99ea42e0dbf0204b903b1a588531aa9d5d2b420ed
+# Build-only: the 0 A.D. engine (pyrogenesis), built by the Makefiles premake
+# generates from upstream's scripts, with Dolly's c++.
+FROM /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-deps 15a93efee51300b54c7cbcac34d32398976f262500b87fbf3de6e55d4dc59cf4
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-premake e06ca3c74d88278d62b7457ea127b0593363e4b328b70ef5792567ff4def8aa9
 INSTALL /v0.1.4/Dollyfile-libdolly-gpu 48d581f751812019a4040ab9e9b024f61a91f61851cf9d6bb5e52ca0f5a009a9
 INSTALL /v0.1.4/Dollyfile-libdolly-audio d67a202509ee8ec3295cc1dcd9b364edf699972362525d1d93e45a918f866277
 INSTALL /v0.1.4/Dollyfile-libdolly-touch 46753d0752259c7e9c1897a84a031d21288e3d97313345427dbe360d61ef40e1
@@ -29,25 +30,9 @@ REQUIRES TOOL patch
 REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 
-SOURCE /v0.1.4/dist/static/zero-ad-build/engine.tar.gz 92d4b642d63dfe691a871826cefafe11604a2311211261982693a2dbe0115284 /tmp/0ad.tar.gz
+SOURCE /v0.1.4/dist/static/zero-ad-build/engine.tar.gz a45cd31cceb7a2c6f474b432ee57e8d1c14214730c12da91c2beb5a441bcb649 /tmp/0ad.tar.gz
 SLOP gzip -dc /tmp/0ad.tar.gz | tar -xf - -C /
 SLOP patch -p1 -d /tmp/0ad -i /tmp/0ad-patches/engine.patch
-
-# Bootstrap.mak's two stages: a premake that loads its scripts, then one with
-# them embedded. Its own Makefiles are skipped for their unbounded make -j.
-SLOP patch -p1 -d /tmp/premake-core-5.0.0-beta7 -i /tmp/0ad-patches/premake.patch
-FILE /tmp/premake.slop
-    set -ex
-    cd /tmp/premake-core-5.0.0-beta7
-    lua=
-    for name in lapi lauxlib lbaselib lbitlib lcode lcorolib lctype ldblib ldebug ldo ldump lfunc lgc linit liolib llex lmathlib lmem loadlib lobject lopcodes loslib lparser lstate lstring lstrlib ltable ltablib ltm lundump lutf8lib lvm lzio; do
-      lua="$lua contrib/lua/src/$name.c"
-    done
-    flags='-DLUA_STATICLIB -DLUA_USE_POSIX -DLUA_USE_DLOPEN -Icontrib/lua/src -Icontrib/luashim'
-    cc -O1 -o premake_bootstrap -DPREMAKE_NO_BUILTIN_SCRIPTS $flags src/host/*.c $lua -lm
-    ./premake_bootstrap embed
-    cc -O2 -o /usr/bin/premake5 $flags src/host/*.c src/scripts.c $lua -lm
-SLOP slop -e /tmp/premake.slop
 
 # SpiderMonkey: its headers, the two archives, its pkg-config file and licences.
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-spidermonkey aac3167842fe2d76c03d78db8a395aaef845bb605330984e86648b132bec31a3
