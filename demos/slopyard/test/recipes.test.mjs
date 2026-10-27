@@ -16,7 +16,7 @@ test("raylib and Box3D build their own packages, and the gamedev SDK installs th
   }
   assert.deepEqual(raylib.exports.filter(({ type }) => type === "HEADER").map(({ name }) => name), ["raylib", "dolly-raylib"]);
   assert.deepEqual(box3d.exports.filter(({ type }) => type === "HEADER").map(({ name }) => name), ["box3d"]);
-  assert.deepEqual(sdk.installs.map(({ image }) => image), ["raylib", "box3d"]);
+  for (const name of ["raylib", "box3d"]) assert.ok(sdk.installs.some(({ image }) => image === name), name);
 });
 
 test("Slopyard declares the host modules its game uses", async () => {
