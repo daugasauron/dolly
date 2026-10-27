@@ -45,6 +45,10 @@ FILE /usr/lib/zig/libc.txt
     kernel32_lib_dir=
     gcc_dir=
 EXPORTS ENV    ZIG_LIBC    /usr/lib/zig/libc.txt
+# Emscripten's headers for that target (demos/zig/prepare-sources.sh).
+SOURCE /v0.1.4/dist/static/zig-llvm/emscripten-headers.tar 4249acab21ed33264dd5a0bde210003c8b1f47b2c6938ff60a7c8766bc0d2484 /tmp/emscripten-headers.tar
+SLOP tar -xf /tmp/emscripten-headers.tar -C /
+FOLDER /usr/include/wasm64-emscripten
 FILE /usr/share/licenses/zig/LICENSE
 SLOP mkdir -p /usr/share/man/cat1
 SLOP zig --help > /usr/share/man/cat1/zig.1

@@ -18,7 +18,7 @@ REQUIRES TOOL ln
 REQUIRES TOOL tar
 REQUIRES TOOL time
 
-SOURCE /v0.1.4/dist/static/llvm/runtimes.tar 605875c4a578ea1b5380fd514ecb53e29f8c25a4fd78eb834a1c8976c30a0b34 /tmp/runtimes.tar
+SOURCE /v0.1.4/dist/static/llvm/runtimes.tar 9e84195766c7c4f79a1d7a9600e1d71e427873b7db7b9e9a7b9f2bee136a94f3 /tmp/runtimes.tar
 SLOP tar -xf /tmp/runtimes.tar -C /
 
 # Sources, flags and member order of the -ww-wasmexcept, -wasmsjlj-ww and pic
@@ -33,7 +33,8 @@ FILE /tmp/llvm-runtimes/Makefile
     # file names; for a process, hidden static code.
     CC1 := -gkey-instructions -debug-info-kind=constructor -dwarf-version=4 -debugger-tuning=gdb \
       -fdebug-compilation-dir=/emsdk/emscripten
-    FLAGS := -Wall -Werror -DNDEBUG $(addprefix -Xclang ,$(CC1)) -ffile-prefix-map=/tmp/llvm-runtimes=/emsdk/emscripten \
+    FLAGS := -Wall -Werror -DNDEBUG $(addprefix -Xclang ,$(CC1)) -I/tmp/llvm-runtimes/cache/sysroot/include \
+      -ffile-prefix-map=/tmp/llvm-runtimes=/emsdk/emscripten \
       -fdebug-prefix-map=/usr/include=/emsdk/emscripten/cache/sysroot/include \
       -fdebug-prefix-map=/usr/lib/clang=/emsdk/upstream/lib/clang
     PROCESS := $(FLAGS) -fvisibility=hidden -fno-pic

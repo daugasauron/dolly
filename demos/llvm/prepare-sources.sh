@@ -77,6 +77,10 @@ if has_image llvm-runtimes; then
     tar -x -C "${staging}/llvm-runtimes"
   # The sanitizers are not built.
   rm -r "${staging}"/llvm-runtimes/system/lib/compiler-rt/{include/sanitizer,lib/{asan,interception,lsan,sanitizer_common,ubsan,ubsan_minimal}}
+  # The sysroot's Emscripten headers, which the runtimes' threading and
+  # internal calls are declared in, where Emscripten's own build reads them.
+  mkdir -p "${staging}/llvm-runtimes/cache/sysroot/include"
+  cp -r -- "${project_dir}/.cache/emscripten/sysroot/include/emscripten" "${staging}/llvm-runtimes/cache/sysroot/include/"
   grep -rlZw __EMSCRIPTEN__ "${staging}/llvm-runtimes" | xargs -0 sed -i 's/\b__EMSCRIPTEN__\b/__dolly__/g'
   node scripts/build-source-tar.mjs "${static_dir}/llvm/runtimes.tar" "${staging}/llvm-runtimes" /tmp/llvm-runtimes \
     "${staging}/llvm-runtimes/system/lib/libunwind/LICENSE.TXT" /usr/share/licenses/libunwind/LICENSE \

@@ -22,6 +22,11 @@ if has_image zig-llvm-build; then
     "${zig_llvm_dir}/stage1/wasi.c" /tmp/zig/stage1/wasi.c \
     "${zig_llvm_dir}/stage1/panic.h" /tmp/zig/stage1/panic.h \
     "${zig_llvm_dir}/LICENSE" /usr/share/licenses/zig/LICENSE
+  # Zig compiles C for the Emscripten target, which defines __EMSCRIPTEN__, so
+  # code for that target includes Emscripten's headers: the sysroot's, in the
+  # target directory Zig's libc.txt names, where cc does not look.
+  node scripts/build-source-tar.mjs "${static_dir}/zig-llvm/emscripten-headers.tar" \
+    "${project_dir}/.cache/emscripten/sysroot/include/emscripten" /usr/include/wasm64-emscripten/emscripten
   node scripts/build-source-tar.mjs "${static_dir}/zig-llvm/wamr.tar" \
     "${zig_llvm_wamr}/core" /tmp/wamr/core \
     src/zig/zig1.c /tmp/wamr/zig1.c \
