@@ -86,7 +86,7 @@ try {
     await page.waitForTimeout(Math.max(0,Math.min(15000,end-performance.now())));
   }
   const providerEnd=traced?await providerStats():null;
-  const profile=traced?{...longFrameProfile(JSON.parse(await browser.stopTracing())),
+  const profile=traced?{...longFrameProfile(traceEvents(await browser.stopTracing())),
     providerPerFrame:{frames:providerEnd.frames-provider.frames,batches:+((providerEnd.packets-provider.packets)/(providerEnd.frames-provider.frames)).toFixed(2),
       milliseconds:+((providerEnd.batchWallMilliseconds-provider.batchWallMilliseconds)/(providerEnd.frames-provider.frames)).toFixed(2)}}:null;
   const intervals=await page.evaluate(first=>frameTimes.slice(first).map((time,i,times)=>i?time-times[i-1]:null).slice(1),firstFrame);
@@ -126,9 +126,22 @@ try {
 // milliseconds, in full for the engine's thread and the busiest functions of the others
 // (the GPU provider's among them), which the engine waits for in its kernel calls; and each
 // browser thread's busy milliseconds (its top-level tasks), the GPU process's among them.
-function longFrameProfile({traceEvents}) {
+// The trace's events one at a time: two minutes of V8's samples are longer than a string can be.
+function* traceEvents(trace) {
+  let at=trace.indexOf('[',trace.indexOf('"traceEvents"'))+1;
+  for(let depth=0,start=0,string=false;at<trace.length;at++) {
+    const byte=trace[at];
+    if(string) {if(byte===0x5c) at++; else if(byte===0x22) string=false;}
+    else if(byte===0x22) string=true;
+    else if(byte===0x7b) {if(depth++===0) start=at;}
+    else if(byte===0x7d) {if(--depth===0) yield JSON.parse(trace.toString('utf8',start,at+1));}
+    else if(byte===0x5d && depth===0) return;
+  }
+}
+
+function longFrameProfile(events) {
   const profiles=new Map(),marks=[],names=new Map(),tasks=[];
-  for(const event of traceEvents) {
+  for(const event of events) {
     if(event.name==='dolly-frame') marks.push(event.ts);
     else if(event.ph==='M' && event.name==='thread_name') names.set(`${event.pid}:${event.tid}`,event.args.name);
     else if(event.ph==='M' && event.name==='process_name') names.set(`${event.pid}`,event.args.name);
