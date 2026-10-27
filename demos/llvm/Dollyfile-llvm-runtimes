@@ -33,7 +33,7 @@ FILE /tmp/llvm-runtimes/Makefile
     # file names; for a process, hidden static code.
     CC1 := -gkey-instructions -debug-info-kind=constructor -dwarf-version=4 -debugger-tuning=gdb \
       -fdebug-compilation-dir=/emsdk/emscripten
-    FLAGS := -Wall -Werror -DNDEBUG $(addprefix -Xclang ,$(CC1)) -I/tmp/llvm-runtimes/cache/sysroot/include \
+    FLAGS := -Wall -Werror -DNDEBUG $(addprefix -Xclang ,$(CC1)) -isystem /tmp/llvm-runtimes/cache/sysroot/include \
       -ffile-prefix-map=/tmp/llvm-runtimes=/emsdk/emscripten \
       -fdebug-prefix-map=/usr/include=/emsdk/emscripten/cache/sysroot/include \
       -fdebug-prefix-map=/usr/lib/clang=/emsdk/upstream/lib/clang
