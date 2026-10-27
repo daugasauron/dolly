@@ -235,7 +235,7 @@ DOLLY_JPEG_VERSION=9f
 DOLLY_JPEG_URL='https://www.ijg.org/files/jpegsrc.v9f.tar.gz'
 DOLLY_JPEG_SHA256=04705c110cb2469caa79fb71fba3d7bf834914706e9641a4589485c1f832565b
 
-# Ogg and Vorbis, linked into Xonotic's client for its Ogg Vorbis sounds.
+# Ogg and Vorbis, linked into Xonotic's client and 0 A.D.'s engine for their Ogg Vorbis sounds.
 DOLLY_LIBOGG_VERSION=1.3.5
 DOLLY_LIBOGG_URL='https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.gz'
 DOLLY_LIBOGG_SHA256=0eb4b4b9420a0f51db142ba3f9c64b333f826532dc0f48c6410ae51f4799b664

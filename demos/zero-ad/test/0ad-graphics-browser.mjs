@@ -155,9 +155,12 @@ try {
   await page.keyboard.press('Shift+F5');await advanceFor(600);
   await page.keyboard.press('Shift+F8');await advance(4);
   await page.screenshot({path:new URL('graphics-game.png',output).pathname});
+  // Player 2 wins the battle after about half a minute of simulation. A step that counts
+  // frames simulates longer on a slower adapter; the steps until the screenshot wait for
+  // wall time, which bounds what they simulate.
   await advanceFor(5000);
   await page.evaluate(()=>{frameSamples=[];});
-  const before=await frames(),time=performance.now();await advance(120);
+  const before=await frames(),time=performance.now();await advanceFor(3000);
   const frameMilliseconds=(performance.now()-time)/((await frames())-before);
   const combatFrameTimings=await frameTimings();
   const gpu=await page.evaluate(()=>__dolly.gpu);
@@ -167,9 +170,9 @@ try {
     await page.keyboard.press('F9');await advanceFor(400);
     await page.keyboard.type('Engine.ConfigDB_CreateValue("user", "gpuskinning", "'+enabled+'")');
     await advance(2);await page.keyboard.press('Enter');await advanceFor(400);
-    await page.keyboard.press('F9');await advance(30);
+    await page.keyboard.press('F9');await advanceFor(1000);
     const first=await page.evaluate(()=>__dolly.gpu.stats.dispatches);
-    await advance(60);
+    await advanceFor(2000);
     assert.equal(await page.evaluate(first=>__dolly.gpu.stats.dispatches>first,first),enabled,
       'Changing GPU skinning during a match must change compute activity');
   }
@@ -204,9 +207,11 @@ try {
   await page.mouse.move(457,475,{steps:5});await page.mouse.up();await advanceFor(300);
   await page.mouse.click(687,626);await advance(3);
   await page.mouse.click(238,423);
-  // Training and construction follow simulation time, independently of GPU speed.
+  // Training and construction follow simulation time, which is wall time until a frame takes
+  // longer than the 200 ms turn: the engine simulates at most one turn per frame.
   await page.evaluate(()=>{frameSamples=[];});
-  await advanceFor(40000);
+  do {await advance(2);} while(await page.evaluate(()=>frameSamples.slice(1)
+    .reduce((simulated,{time},i)=>simulated+Math.min(time-frameSamples[i].time,200),0))<40000);
   const economyFrameTimings=await frameTimings();
   await page.keyboard.press('F2');await advance(4);
   assert.ok(await hasGameHud(page,await page.screenshot({path:new URL('graphics-economy.png',output).pathname})),

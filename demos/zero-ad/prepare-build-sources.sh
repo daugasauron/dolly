@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prints a directory with the verified upstream archives of build-sources.tsv and
+# Prints a directory with the verified upstream files of build-sources.tsv and
 # the 0 A.D. source (its SpiderMonkey still packed) and its premake extracted.
 set -euo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -14,6 +14,7 @@ if [[ ! -d "${output}" ]]; then
     archive="$(bash scripts/fetch-verified-file.sh "${url}" "${checksum}" ".cache/0ad/downloads/${name}")"
     case "${name}" in
       *.zip) unzip -q "${archive}" -d "${temporary}" ;;
+      *.txt) cp "${archive}" "${temporary}/${name}" ;;
       *) tar -xf "${archive}" -C "${temporary}" ;;
     esac
   done < demos/zero-ad/build-sources.tsv

@@ -10,14 +10,15 @@ REQUIRES HOST gpu@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-# Build-only: premake and the 0 A.D. engine (pyrogenesis), built by upstream's
-# premake Makefiles with Dolly's c++.
-FROM /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-deps 6fce1b52d69fe19e70eae3a14859744134586c370b4c48082b8a5e5f2dd9f9c7
-INSTALL /v0.1.4/Dollyfile-libdolly-gpu 1308d574fd8b030fac77cf9814dc9925d2737be130a6401b9929c80e13307bf2
-INSTALL /v0.1.4/Dollyfile-libdolly-audio a227f74a07668f771e64c17d462cf1da0fa3aa59d6deb7524a53516955dfa4d3
-INSTALL /v0.1.4/Dollyfile-libdolly-touch 07fbd180b1e76facefc348682df905541fb536cfe01cb1b871e8b6d7e884cba5
+# Build-only: the 0 A.D. engine (pyrogenesis), built by the Makefiles premake
+# generates from upstream's scripts, with Dolly's c++.
+FROM /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-deps 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-premake 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/Dollyfile-libdolly-gpu 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/Dollyfile-libdolly-audio 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/Dollyfile-libdolly-touch 0000000000000000000000000000000000000000000000000000000000000000
 # download, which the engine's test takes its logs out with.
-INSTALL /v0.1.4/Dollyfile-transfer a7a6e30cd5b1680791d91f56daecaeec446b0aeff20bdad68ae4c2c06b81df5b
+INSTALL /v0.1.4/Dollyfile-transfer 0000000000000000000000000000000000000000000000000000000000000000
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL ar
@@ -29,28 +30,12 @@ REQUIRES TOOL patch
 REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 
-SOURCE /v0.1.4/dist/static/zero-ad-build/engine.tar.gz 92d4b642d63dfe691a871826cefafe11604a2311211261982693a2dbe0115284 /tmp/0ad.tar.gz
+SOURCE /v0.1.4/dist/static/zero-ad-build/engine.tar.gz a45cd31cceb7a2c6f474b432ee57e8d1c14214730c12da91c2beb5a441bcb649 /tmp/0ad.tar.gz
 SLOP gzip -dc /tmp/0ad.tar.gz | tar -xf - -C /
 SLOP patch -p1 -d /tmp/0ad -i /tmp/0ad-patches/engine.patch
 
-# Bootstrap.mak's two stages: a premake that loads its scripts, then one with
-# them embedded. Its own Makefiles are skipped for their unbounded make -j.
-SLOP patch -p1 -d /tmp/premake-core-5.0.0-beta7 -i /tmp/0ad-patches/premake.patch
-FILE /tmp/premake.slop
-    set -ex
-    cd /tmp/premake-core-5.0.0-beta7
-    lua=
-    for name in lapi lauxlib lbaselib lbitlib lcode lcorolib lctype ldblib ldebug ldo ldump lfunc lgc linit liolib llex lmathlib lmem loadlib lobject lopcodes loslib lparser lstate lstring lstrlib ltable ltablib ltm lundump lutf8lib lvm lzio; do
-      lua="$lua contrib/lua/src/$name.c"
-    done
-    flags='-DLUA_STATICLIB -DLUA_USE_POSIX -DLUA_USE_DLOPEN -Icontrib/lua/src -Icontrib/luashim'
-    cc -O1 -o premake_bootstrap -DPREMAKE_NO_BUILTIN_SCRIPTS $flags src/host/*.c $lua -lm
-    ./premake_bootstrap embed
-    cc -O2 -o /usr/bin/premake5 $flags src/host/*.c src/scripts.c $lua -lm
-SLOP slop -e /tmp/premake.slop
-
 # SpiderMonkey: its headers, the two archives, its pkg-config file and licences.
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-spidermonkey e160b4f68359cadd1cc1e920d91ea7c33d8b979b61d4dfdbb8e0b10c44ff1879
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-spidermonkey 0000000000000000000000000000000000000000000000000000000000000000
 
 # Probe for test/0ad-spidermonkey-browser.mjs.
 SLOP mkdir -p /usr/libexec/zero-ad

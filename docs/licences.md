@@ -125,12 +125,12 @@ none ([deployment](deployment.md)).
 
 ## 0 A.D.
 
-0 A.D. is built in Dolly: `zero-ad-deps`, the `spidermonkey` package and
-`zero-ad-engine` compile the engine, SpiderMonkey and the libraries it links
-from `zero-ad-build/deps.tar.gz`, `spidermonkey/source.tar.gz` (SpiderMonkey
+0 A.D. is built in Dolly: the packages of the libraries it links (each from
+its own source archive, such as `spidermonkey/source.tar.gz`, SpiderMonkey
 128.13's pinned tarball without its test suites, with 0 A.D.'s patches and
-Dolly's) and `zero-ad-build/engine.tar.gz`, which the site serves as recipe
-inputs. `zero-ad-data` makes the game content from Wildfire Games' data
+Dolly's), `zero-ad-deps` (ENet, from `zero-ad-build/deps.tar.gz`) and
+`zero-ad-engine` (the engine, from `zero-ad-build/engine.tar.gz`), whose inputs
+the site serves. `zero-ad-data` makes the game content from Wildfire Games' data
 archive, which the site serves too: its SPIR-V shaders are translated to WGSL
 by Naga, built in Dolly (the GLSL sources stay in the mod archives). The `zero-ad` image keeps the
 licences of every statically linked library under `/usr/share/licenses/`,
@@ -150,8 +150,8 @@ GPL-2.0-or-later, `lib/csqcmodel` MIT) that gmqcc compiles there.
 Dolly's own files compiled into the engine, `demos/xonotic/Makefile` and
 `simd-unit.c`, carry `SPDX-License-Identifier: GPL-2.0-or-later`; the six
 hunks of `darkplaces-dolly.patch` change engine files and take the engine's
-licence. FreeType and libpng come as static libraries from their packages,
-with their licence files; FreeType is used under its GPL option, as in 0 A.D.,
+licence. FreeType, libpng, Ogg and Vorbis come as static libraries from their
+packages, with their licence files; FreeType is used under its GPL option, as in 0 A.D.,
 and its source, `freetype/source.tar.gz`, is in the `xonotic` closure the
 site serves. The `xonotic` image takes the release's
 `data`, `maps` and font archives unmodified as prebuilt files
@@ -166,7 +166,7 @@ the FontForge sources) and keeps Xonotic's `COPYING`, `GPL-2` and
 `GPL-3`, the warpzone and csqcmodel MIT notices, Xolonium's README,
 Bitstream's notice for the Vera glyph sheet, Dolly's `NOTICE` (the IJG
 sentence and the fonts' terms), gmqcc's `LICENSE`, libjpeg's, FreeType's,
-libpng's and SDL2's under `/usr/share/licenses/`.
+libpng's, Ogg's, Vorbis's and SDL2's under `/usr/share/licenses/`.
 This software is based in part on the work of the Independent JPEG Group.
 The pass over the shipped archives (task `20261006-122433-xonotic`,
 2026-10-07) found every statement inside them GPL or GPL-compatible and none

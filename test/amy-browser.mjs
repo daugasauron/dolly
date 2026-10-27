@@ -235,6 +235,10 @@ const programs = {
     "for (Uint32 start = SDL_GetTicks(); Mix_Playing(-1) && SDL_GetTicks() - start < 5000; SDL_Delay(10)) SDL_PumpEvents(); " +
     "int ended = !Mix_Playing(-1); Mix_CloseAudio(); SDL_Quit(); return !ended; }' > /tmp/amy-mixer.c && " +
     "cc $(pkg-config --cflags SDL2_mixer) /tmp/amy-mixer.c $(pkg-config --static --libs SDL2_mixer) -o /tmp/amy-mixer && /tmp/amy-mixer",
+  // Swedish collation puts ö after z: ICU finds its data in /usr/share/icu/68.2.
+  icu: "printf '%s\\n' '#include <unicode/ucol.h>' 'int main() { UErrorCode status = U_ZERO_ERROR; UCollator *swedish = ucol_open(\"sv\", &status); " +
+    "int failed = U_FAILURE(status) || ucol_strcollUTF8(swedish, \"z\", 1, \"\\xc3\\xb6\", 2, &status) != UCOL_LESS; ucol_close(swedish); return failed; }' " +
+    "> /tmp/amy-icu.cpp && c++ -O0 -DU_STATIC_IMPLEMENTATION /tmp/amy-icu.cpp -licui18n -licuuc -licudata -o /tmp/amy-icu && /tmp/amy-icu",
   // An Ogg stream is set up and cleared; Vorbis's encoder takes a stereo 48 kHz setup.
   libogg: "printf '%s\\n' '#include <ogg/ogg.h>' 'int main(void) { ogg_stream_state stream; return ogg_stream_init(&stream, 7) != 0 || ogg_stream_clear(&stream) != 0; }' " +
     "> /tmp/amy-ogg.c && cc -O0 /tmp/amy-ogg.c -logg -o /tmp/amy-ogg && /tmp/amy-ogg",

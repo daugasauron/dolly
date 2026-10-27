@@ -1,0 +1,42 @@
+DOLLY 7
+PACKAGE premake
+REQUIRES HOST runtime@0
+
+# Premake 5.0.0-beta7 as 0 A.D.'s source release bundles it, with
+# premake-dolly.patch (premake names the host emscripten and wasm64), for builds
+# that generate their Makefiles with it. Bootstrap.mak's two stages run
+# directly, its own make -j being unbounded: a premake that loads its scripts,
+# then one with them embedded.
+FROM /v0.1.4/Dollyfile-system-tools 717577d3f201f533ced7042082d370b81964ba0797ed40978bc8f028efefe7c9
+REQUIRES HEADER libc
+REQUIRES TOOL cc
+REQUIRES TOOL gzip
+REQUIRES TOOL patch
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /v0.1.4/dist/static/premake/source.tar.gz 1629f9db03329c6196ce90e9457b423cef9dd23e6a45f180888e5285aedb6a55 /tmp/premake.tar.gz
+SLOP gzip -dc /tmp/premake.tar.gz | tar -xf - -C /
+SLOP patch -p1 -d /tmp/premake/source -i /tmp/premake/dolly.patch
+FILE /tmp/premake/build.slop
+    set -ex
+    cd /tmp/premake/source
+    lua=
+    for name in lapi lauxlib lbaselib lbitlib lcode lcorolib lctype ldblib ldebug ldo ldump lfunc lgc linit liolib llex lmathlib lmem loadlib lobject lopcodes loslib lparser lstate lstring lstrlib ltable ltablib ltm lundump lutf8lib lvm lzio; do
+      lua="$lua contrib/lua/src/$name.c"
+    done
+    flags='-DLUA_STATICLIB -DLUA_USE_POSIX -DLUA_USE_DLOPEN -Icontrib/lua/src -Icontrib/luashim'
+    cc -O1 -o premake_bootstrap -DPREMAKE_NO_BUILTIN_SCRIPTS $flags src/host/*.c $lua -lm
+    ./premake_bootstrap embed
+    cc -O2 -o /usr/bin/premake5 $flags src/host/*.c src/scripts.c $lua -lm
+SLOP slop -e /tmp/premake/build.slop
+SLOP premake5 --version
+
+EXPORTS TOOL premake5
+FILE /usr/share/man/cat1/premake5.1
+    premake5: Premake 5.0.0-beta7, as 0 A.D.'s source release bundles it.
+    premake5 ACTION reads premake5.lua in the current directory and writes the
+    project files ACTION names, Makefiles for gmake; premake5 --help lists the
+    actions and options that script adds (its exit status is 1).
+FILE /usr/share/licenses/premake/LICENSE.txt
+SLOP rm -rf /tmp/premake /tmp/premake.tar.gz
