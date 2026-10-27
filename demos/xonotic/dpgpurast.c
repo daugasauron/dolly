@@ -479,9 +479,11 @@ static pipeline_t *GetPipeline(void)
 	int buffers = 0;
 	for (int i = 0; i < ATTRIBUTES; i++)
 		buffers += s.format[i] != 0;
+	// gpu@0 takes objects in the order of their handles: the stage first.
+	uint64_t fragment = s.clip ? ClippedFragment(pair) : pair->fragment;
 	pipeline->handle = NewHandle();
 	void *p = Record(DOLLY_GPU_GRAPHICS_PIPELINE, 112 + 32 * buffers);
-	U64(p, 8, pipeline->handle);U64(p, 16, pair->vertex);U64(p, 24, s.clip ? ClippedFragment(pair) : pair->fragment);
+	U64(p, 8, pipeline->handle);U64(p, 16, pair->vertex);U64(p, 24, fragment);
 	U32(p, 32, 1);U32(p, 36, 6);U32(p, 44, s.cull);U32(p, 52, s.test);U32(p, 56, s.write);
 	U32(p, 60, (uint32_t)s.bias);F32(p, 64, s.slope);U32(p, 72, s.mask);U32(p, 76, s.blending);
 	for (int component = 0; component < 2; component++)
