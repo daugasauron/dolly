@@ -28,7 +28,7 @@ fails, and `unpack_with_sideband` then returns as if the pack were unpacked.
 Not true, and to correct: `9223689e` wrote in `docs/http.md` and the skill that push fails over
 HTTP too.
 
-## State (2026-10-28 09:40)
+## State (2026-10-28 08:40)
 
 Done in `995548e0`, `b132fb2f`, `6c88eeab`, pins `89146f14`: Git is built `-pthread` and
 declares `threads@0`, the `fetch-pack` and `send-pack` hunks of `config/git-dolly.patch` are
