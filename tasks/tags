@@ -70,6 +70,7 @@ iteration, Time from an edit to a verified result
 janis, The Node-compatible JavaScript runtime
 javascript, JavaScript programs running inside Dolly
 kernel, The Wasm kernel
+lean, Lean 4, the theorem prover and language
 libc, The process libc adapter
 licences, Licences of what is built and served
 lifecycle, Process termination and recovery
