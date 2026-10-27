@@ -170,11 +170,15 @@ test("images separate reusable toolchains and packages from applications", async
   }
   assert.deepEqual((await selectImageDefinitions(definitions, "all")).map(item => item.image),
     definitions.map(item => item.image));
-  // Each site publishes the packages default's start-up text suggests.
-  const suggested = [...(await readFile(resolve(project, "Dollyfile"), "utf8")).matchAll(/amy install (\S+)/g)].map(([, name]) => name);
-  for (const list of ["config/github-pages-images.txt", "config/domain-pages-images.txt"]) {
+  // Each site publishes the packages default's start-up text suggests, and the
+  // domain those Pi's guidance suggests (pi-agent is published there).
+  const suggestions = async (...files) => (await Promise.all(files.map(file => readFile(resolve(project, file), "utf8"))))
+    .flatMap(text => [...text.matchAll(/amy install ((?:[a-z0-9.+-]+ ?)+)/g)].flatMap(([, names]) => names.trim().split(" ")));
+  const suggested = await suggestions("Dollyfile");
+  const guided = await suggestions("demos/pi/SYSTEM.md", "demos/pi/skills/dolly/SKILL.md");
+  for (const [list, names] of [["config/github-pages-images.txt", suggested], ["config/domain-pages-images.txt", [...suggested, ...guided]]]) {
     const published = await selectImageDefinitions(definitions, (await readFile(resolve(project, list), "utf8")).trim().split("\n").join(","));
-    assert.deepEqual(suggested.filter(name => !published.some(item => item.image === name)), [], list);
+    assert.deepEqual(names.filter(name => !published.some(item => item.image === name)), [], list);
   }
 });
 

@@ -95,3 +95,6 @@ sdl2-image
 sdl2-mixer
 imgui-x11
 zig-llvm
+go-tools
+vendor-crates
+ocaml
