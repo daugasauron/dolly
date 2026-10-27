@@ -103,21 +103,18 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, snaps
     await click(600,316+index*48);
   };
   // Three game corners and the hotbar's top border, in the game's 640x480 frame and on the page.
+  // The game draws a new frame while a player afloat drifts or water ripples, and the viewer paints
+  // the newest it has read: the display is taken just before the filesystem's snapshot, until both
+  // hold one frame.
   const gamePixels = async docked => {
     let actual, expected;
-    // The game and viewer are separate workers; a filesystem snapshot can lead the painted frame.
-    for(let n=0;n<12;n++) {
-      const s=await state(s=>s.frame>0,'world framebuffer'); expected=s.pixels;
-      await snapshotDisplay();
+    for(const deadline=Date.now()+45000;;await delay(200)) {
+      await snapshotDisplay(); expected=(await probe()).pixels;
       actual=await evaluate(`(() => {const g=displaySnapshot.getContext('2d');
         return [[600,20],[600,460],[20,460],[320,438]].map(([x,y])=>Array.from(g.getImageData(Math.floor((x+.5)*${docked?880:1280}/640),${docked?150:0}+Math.floor((y+.5)*${docked?660:960}/480),1,1).data).slice(0,3));})()`);
       if(JSON.stringify(actual)===JSON.stringify(expected)) break;
-      await delay(200);
+      assert.ok(Date.now()<deadline,`${docked?'panel does not cover the game edges':'hidden interface leaves the complete game unobstructed'}: ${JSON.stringify({actual,expected})}`);
     }
-    // The world moves between the two reads (a player afloat drifts a pixel's water by up to
-    // ten levels a second), so a near match after twelve tries still shows the game there.
-    const close=actual.every((pixel,i)=>pixel.every((level,c)=>Math.abs(level-expected[i][c])<=16));
-    assert.ok(close,`${docked?'panel does not cover the game edges':'hidden interface leaves the complete game unobstructed'}: ${JSON.stringify({actual,expected})}`);
     assert.deepEqual(expected[3],[40,40,40],'hotbar drawn from the texture pack');
   };
   assert.equal(await evaluate("__dolly.httpRequestCount"),0,'world starts without network calls');

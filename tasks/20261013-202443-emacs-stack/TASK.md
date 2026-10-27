@@ -1,6 +1,6 @@
 # Emacs runs out of stack in a fresh Chromium: its first prompt loses typed bytes, or the process dies
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 40
 - TAGS: core,process,emacs,chromium,0.1.4
 
@@ -17,23 +17,13 @@ and the Emacs demo's test passes 30 of 30 runs pinned to one processor in
 Chromium; and it is known how a stack that runs out can lose bytes without
 ending the process, or that question has a task of its own.
 
-## State (2026-10-23, 22:20): the deeper stack is Emacs's; the loss reproduced, 1 of 30
+## State (2026-10-27): the stack is Emacs's own; the loss was an Emacs bug, fixed
 
 Decided (integrator, 2026-10-23): Emacs's recipe gives it the `dolly.process.stack` section,
 the mechanism a program that needs more stack already has (`demos/emacs/Dollyfile-emacs`
-appends it to `src/emacs.c`). Built on the merged exec seed (`core/process-exec` at
-`65736016`):
-
-- The crash is gone: held in Chromium's baseline compiler (`--js-flags=--liftoff-only`),
-  0 of 3 first steps ended Emacs (3 of 3 without the section the same day).
-- The loss is not: `demos/emacs/test/emacs-browser.mjs` pinned to one processor
-  (`taskset -c 6`) in Chromium passed 29 of 30; run 11 lost the name after `/t`, as filed,
-  with the session probes of `tasks/20260923-200000-codex-01` running beside it
-  (`build/process-evidence/emacs-30/` in `work/process`).
-
-So how bytes are lost while Emacs lives reproduces on the exec seed and stays open here; by
-the owner's word ("Emacs is low prio") nothing more was spent on it. The next step, if it is
-taken: the probe below with `*Messages*` printed after a loss, to name the command's error.
+appends it to `src/emacs.c`). Held in Chromium's baseline compiler (`--js-flags=--liftoff-only`)
+on the exec seed, 0 of 3 first steps ended Emacs with it (3 of 3 without it the same day).
+The bytes lost while Emacs lives were not the stack: see the closing section.
 
 ## Where the bytes go (2026-10-23, from the 2026-10-14 evidence)
 
@@ -137,3 +127,35 @@ measured. Not kept: the recipe is as it was and the images were built back.
   compiler logs, the four failing runs, the probe, `overflow.c` and its
   probe).
 
+
+
+## Closed (2026-10-27, `58620d29`): Emacs 31 quit in the middle of storing a terminal read
+
+Measured on `main` `f9cbff51` (`work/flaky/build/flaky-evidence/emacs/`), pinned to one
+processor (`taskset -c 6`) in Chromium: the first-prompt probe lost the name after `/t` in
+4 of 30 launches. In each, `*Messages*` held no error, and a key typed after the loss
+was inserted (`/tx`): Emacs lived and read on. A build that logged every change of its
+keyboard buffer showed the same in 9 of 9 losses (the last line in the 4 of a build that
+logged it):
+
+```
+!tty-got=26 0 -> 0 quit=0 throw=1        the whole name, read inside while-no-input
+!store=47 0 -> 1 quit=0 throw=1          "/" stored; storing it sets quit-flag
+!store=116 1 -> 2 quit=1 throw=1         "t" stored
+!process-quit-flag@loop-store            the throw, from inside that store
+```
+
+Emacs 31's eager completion runs at the first prompt in an idle timer, inside
+`while-no-input`, and redisplays: 34 and 44 ms in a fresh browser in two traced runs, long
+enough for the test's 26 bytes to arrive and be read during it. `kbd_buffer_store_buffered_event` sets quit-flag for
+`while-no-input` after the first byte; for the second it checks
+`while-no-input-ignore-events` with `Fmemq`, whose list walk calls `maybe_quit`, and the throw
+leaves `tty_read_avail_input` with the other 24 bytes in its local buffer. So always two
+bytes, at the first prompt, and no stack involved: that is the question this task kept open.
+
+`demos/emacs/emacs-dolly.patch` walks the list with `FOR_EACH_TAIL_SAFE` (no quit, no cycle
+error); `emacs` and `gnu-emacs` are rebuilt. After it: the probe 0 of 40, and
+`node demos/emacs/test/emacs-browser.mjs chromium` pinned to one processor 30 of 30; both
+browsers pass. One probe that wrapped every timer in Lisp advice ended Emacs at startup once
+("Maximum call stack size exceeded"): the deeper stack has a margin, not a large one, for
+Lisp nested deeper than the release's.

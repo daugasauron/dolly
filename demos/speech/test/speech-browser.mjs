@@ -138,13 +138,15 @@ if (browser === "chromium") await demoTest("pi-phone", { image: "pi-phone", laun
   await tap("Erase");
   await waitText(/\(1\/\d+\)/);
   await tap("Down");
-  const chosen = (await text()).match(/→\s+(\S+)/)[1];
+  // The arrow marks the model Choose takes, a check the one Pi uses now.
+  const chosen = (await waitText(/\(2\/\d+\)/)).match(/→\s+(?:✓\s+)?(\S+)/)[1];
   await tap("Choose");
-  await waitText(new RegExp(chosen.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  // Pi closes the list and names the model it uses now.
+  await waitText(new RegExp(`Model: ${chosen.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m"));
 
   await tap("Menu");
   await tap("Thinking");
-  await delay(1000);
+  await waitText(/^Thinking Level$/m);
   await tap("Down");
   await tap("Choose");
   await waitText(/Thinking level: \w+/);
