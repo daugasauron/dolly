@@ -179,12 +179,15 @@ const relays = [{
   URL without `http(s)://` with `CURLE_UNSUPPORTED_PROTOCOL` and a disallowed
   redirect with `CURLE_COULDNT_CONNECT`.
 - Git: upstream `git` and `git-remote-http(s)` link that libcurl
-  ([`Dollyfile-git`](../Dollyfile-git)): clone, fetch and push over HTTP, from
+  ([`Dollyfile-git`](../Dollyfile-git)): clone and fetch over HTTP, from
   hosts that send CORS headers or through a relay (see [CORS and relays](#cors-and-relays)).
+  Push does not work, over HTTP or to a local repository: send-pack reads the
+  remote's side band in a second process or thread, and this Git, built
+  without threads where there is no `fork`, fails with "fork (async) failed".
   `github.com` sends none on its Git endpoints, so cloning from it fails with
   the `EIO` message unless the embedding maps it to a relay. There is no
   transport over a forge's REST API: it could only imitate a clone, without
-  history, fetch or push. Clean/smudge
+  history or fetch. Clean/smudge
   filters are not ported. Cancelling an exchange does not undo a ref update the
   remote already accepted.
 - Janis `fetch()` polls slots cooperatively so timers and promises keep running.

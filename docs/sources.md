@@ -103,7 +103,7 @@ checks the compiler against `dolly-process-0`.
 | Slop, sbase, Dolly commands | Shell scripts and POSIX file/text tools ([Slop](slop.md)) | Not Bash; POSIX flags, not GNU |
 | C/C++ | Clang/LLD, archives, libc++, process-local DSOs with `dso@0`, `-pthread` with `threads@0` | No native target or `fork` |
 | Make, Ninja | GNU Make 4.4.1 and Samurai 1.3 | Ninja runs two jobs unless told `-j N`: libc counts one processor without `-pthread` |
-| Git, curl | Local Git 2.55 and HTTP clone/fetch/push over Fetch-backed libcurl ([HTTP](http.md)) | CORS applies; no sockets; clean/smudge filters unported |
+| Git, curl | Local Git 2.55 and HTTP clone/fetch over Fetch-backed libcurl ([HTTP](http.md)) | CORS applies; no sockets; no push (no `fork` or threads in Git); clean/smudge filters unported |
 | Awk, zlib, gzip | One True Awk (Bison output prepared outside), zlib 1.3.2, Dolly `gzip` | |
 | less | less 692 over GNU termcap 1.3.1, from upstream's archives; the recipe states what `configure` would find | No later less: from 701 on it asks termcap for a key before `tgetent` when its output is not a terminal, which termcap 1.3.1 does not survive |
 | Zig, Ghostty | Zig 0.16 built from source by `cc`; source-built terminal ([display](display.md#zig-and-the-ghostty-build)) | Builder images only; Zig emits only C |

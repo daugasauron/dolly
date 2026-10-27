@@ -62,14 +62,18 @@ is unreachable, and another spelling of the same host will not help; status 9
 means this page's policy refused it. Never send credentials through a public
 CORS proxy.
 
-`git clone https://github.com/OWNER/REPO` is real Git and works, with history,
-fetch and push, only where the page was set up with a relay for that host; the
+`git clone https://github.com/OWNER/REPO` is real Git and works, with history
+and fetch, only where the page was set up with a relay for that host; the
 public Dolly sites have none. Try it once: it answers within a second. If it
 says "Browser could not fetch the URL", there is no relay and no Git option
 will change that; take a snapshot of the files instead (below), and if you
 need version control run `git init -q . && git add -A && git commit -qm snapshot`
 there. That repository has no upstream history and cannot fetch or push; say
-so when it matters to the task.
+so when it matters to the task. `git push` does not work here, to a relay or
+to a local repository: push reads the other side's progress in a second
+process or thread, which this Git cannot start ("fork (async) failed"). To
+move commits between local repositories, fetch from the receiving one
+(`git -C DEST fetch SOURCE BRANCH:BRANCH`).
 
 - One file: `curl -fsSLO https://raw.githubusercontent.com/OWNER/REPO/REF/PATH`
 - A tree: list its files with
