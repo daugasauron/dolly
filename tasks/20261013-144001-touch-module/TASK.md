@@ -180,7 +180,10 @@ Step 4, `buttons@0` removed and `pi-phone` ported:
   browsers (checked by hand, not a committed test).
 - Not attributed: an early voice called a null function pointer in `lay_out` and hung, with no
   "process failed" line and no shell prompt after it; a small `-pthread` program making the same
-  call ends with status 126 as it should. Not reproduced beyond voice.
+  call ends with status 126 as it should. Not reproduced beyond voice. Measured again on
+  2026-10-28 (`1da64c86`'s images, Chromium): a main thread's null call ends the process with
+  "failed: null function" and 126 within 0.21 s while another thread computes, waits on a
+  condition or sleeps, also with a child on a pseudo-terminal from `openpty`, as voice runs Pi.
 
 Also run after step 4, in Chromium and Firefox: `imgui` (rebuilt on the new `sdl2`; it seals with touch@0), `sockets`, `boundary`, `host-modules`, `nena`,
 `terminal`, `indicators` and `default` (its last part needs `zig` in this tree's narrowed image
