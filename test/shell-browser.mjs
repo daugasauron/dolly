@@ -28,7 +28,7 @@ async function handle(request, response, path, headers) {
   if (path === "/fixture/curl-options" && request.method === "POST") {
     let body = "";
     for await (const chunk of request) body += chunk;
-    recorded.curl = { header: request.headers["x-dolly-cli"], body };
+    (recorded.curl ??= []).push({ header: request.headers["x-dolly-cli"], body });
     response.writeHead(201, { ...headers, "content-type": "text/plain; charset=utf-8", "x-dolly-response": "yes",
       "access-control-expose-headers": "x-dolly-response" });
     response.end("CURL-CLI-OK\n");
@@ -76,6 +76,9 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
     ["curl -sS -X POST -H 'X-Dolly-Cli: yes' -d one=1 -d two=2 -D headers.txt -o body.txt " +
       `-w '%{http_code} %{content_type}\\n' ${server.origin}/fixture/curl-options > meta.txt`],
     ["grep -q '^CURL-CLI-OK$' body.txt && grep -qi '^x-dolly-response: yes' headers.txt && grep -q '^201 text/plain; charset=utf-8$' meta.txt"],
+    // A data value of @FILE is the file: -d without its newlines, --data-binary as it is.
+    ["printf 'three=3\\r\\nfour\\n' > data.txt && " + ["-d @data.txt -d five=5", "--data-binary @data.txt", "--data-raw @data.txt"]
+      .map(data => `curl -sS -o /dev/null ${data} ${server.origin}/fixture/curl-options`).join(" && ")],
     [`curl -f ${server.origin}/fixture/missing`, 22],
     // curl exits with curl's own status for each class of failure.
     [`curl -sS -m 0.3 ${server.origin}/fixture/slow -o slow.txt`, 28],
@@ -124,7 +127,8 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
     ["mkdir -p copy/nested && echo FILE > copy/file && echo NESTED > copy/nested/file && cp -R copy copied && grep -q FILE copied/file && grep -q NESTED copied/nested/file"],
   ];
   for (const [command, expected = 0] of cases) assert.equal(await submit(command), expected, command);
-  assert.deepEqual(recorded.curl, { header: "yes", body: "one=1&two=2" });
+  assert.deepEqual(recorded.curl.map(({ body }) => body), ["one=1&two=2", "three=3four&five=5", "three=3\r\nfour\n", "@data.txt"]);
+  assert.equal(recorded.curl[0].header, "yes");
   assert.deepEqual(recorded.git, { method: "GET", protocol: "version=2", service: "git-upload-pack" });
 
   // An IME composition that straddles the 88-byte input packet boundary.
