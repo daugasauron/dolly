@@ -20,48 +20,61 @@ longer than a turn (SwiftShader's economy frames average 202-245 ms) simulated l
 waits for 40 s of simulated time. Runs (Chrome 156, Xvfb `:161`): `e0e9f349`'s test passed
 software 2 of 2 (192, 222 s) and hardware (NVIDIA) 1 of 1; with its combat change alone,
 software, four cores and hardware passed once each. On two cores the economy step outlasts the
-test's 240 s deadline (SwiftShader's frames 391 ms), not a configuration the rounds run. Evidence: `work/zeroad/build/zeroad-evidence/`.
+test's 240 s deadline (SwiftShader's frames 391 ms), not a configuration the rounds run.
+Evidence: `work/zeroad/build/zeroad-evidence/`.
 
 Item 2, developed matches, measured on the engine built inside Dolly (the chain of `97e011c1`)
-with `demos/zero-ad/test/0ad-large-match-browser.mjs` (written again from the description
-below: four medium Petra AIs on a revealed 256 mainland, seed 11, thirty minutes, a box
-selection every 15 s, the camera on another base every minute; frame intervals from the GPU
-provider's reports; for the last 120 s a Chrome trace with V8's sampling profiler, its samples
-between consecutive frames summed over the frames above 100 ms). Chrome 156 on the Radeon ICD
-(`amd rdna-2`), two cores (`taskset -c 14,15`), the 6 GiB browser slot, Xvfb `:161`; the
-machine ran the other workstreams beside it (load average 10-14), which the two runs differ by:
+with `demos/zero-ad/test/0ad-large-match-browser.mjs` (`52ded807`, written again from the
+description below: four medium Petra AIs on a revealed 256 mainland, seed 11, thirty minutes,
+a box selection every 15 s, the camera on another base every minute; frame intervals from the
+GPU provider's reports; for the last 120 s a Chrome trace with V8's sampling profiler, its
+samples between consecutive frames summed over the frames above 100 ms, each browser thread's
+busy time and the provider's batches per frame). Chrome 156 on the Radeon ICD (`amd rdna-2`),
+two cores (`taskset -c 14,15`), the 6 GiB browser slot, Xvfb `:161`, beside the other
+workstreams (load average 9-14), which the runs differ by. Every run passes its HUD check with
+a clean log, the slot's peak at most its 6 GiB; the last three end at 1,579-1,592 simulated
+seconds with populations 297-300/298/299/273:
 
-| run | intervals | mean | median | p95 | p99 | max | >33 ms | >100 ms | simulated | populations |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 09:43 | 54,526 | 33.4 ms | 17.9 | 118 | 238 | 1,498 | 10,939 | 3,470 | 1,548.8 s | 273/235/264/259 |
-| 10:37 | 82,655 | 22.3 ms | 14.1 | 62 | 158 | 950 | 12,079 | 1,819 | 1,588.8 s | 300/292/295/284 |
+| run, pacing | intervals | mean | p95 | p99 | max | >100 ms | last 10 min | traced 110 s: frames, long, long s, batch wait s | batches, provider ms a frame |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 09:43, 3 submissions | 54,526 | 33.4 | 118 | 238 | 1,498 | 3,470 | 153 ms | 441, 433, 108.3, 26.6 | |
+| 10:37, 3 submissions | 82,655 | 22.3 | 62 | 158 | 950 | 1,819 | 81 ms | 557, 477, 103.4, 35.5 | |
+| 11:55, 3 submissions | 48,227 | 38.2 | 122 | 221 | 939 | 3,558 | 102 ms | 992, 413, 71.1, 19.9 | 15.4, 38.2 |
+| 12:36, 3 frames | 77,276 | 23.9 | 70 | 141 | 850 | 1,816 | 65 ms | 1,304, 318, 54.0, 12.4 | 15.9, 30.8 |
+| 13:17, 3 submissions | 61,034 | 30.2 | 92 | 171 | 909 | 2,519 | 82 ms | 1,097, 382, 64.2, 17.2 | 15.5, 35.9 |
 
 (2026-09-25, host-built engine: 132,654 intervals, mean 13.6 ms, 8,837 above 33 ms, max 868.)
-Both pass the HUD check with a clean log (peak 5.6 and 5.7 GB). Minute means stay at 13-24 ms
-for the first fifteen minutes and grow with the economies: 82-251 ms in the last ten minutes of
-the first run, 178-225 ms in the last three of the second, where nearly every frame is long
-(433 of 441 and 477 of 557 frames in the traced window). What those long frames spend, of
-108.3 and 103.4 s sampled on the engine's thread:
+Minute means stay at 10-24 ms for the first fifteen minutes and grow with the economies. What
+the long frames spend, of the engine thread's samples in the five runs:
 
-- Simulation turns 45% and 40%: the four Petra AIs (`CAIWorker::PerformComputation`) 24% and
-  22%, the components' scripts (`CCmpUnknownScript::HandleMessage`) 11% and 10%, the rest the
-  engine's C++. The GUI's simulation-update handlers 12% in the first run.
-- Rendering 38% and 49%, most of it (25% and 34%) waiting in `dolly_gpu_batch` for the GPU
-  provider; the provider's worker was idle 87 of those 103 s (its JavaScript, mostly
-  `createBindGroup`, about 16 s), so the batches wait for Chrome's GPU process and the GPU, not
-  for Dolly's provider or kernel (the kernel's worker idle 94 s).
+- Simulation turns 40-53%: the four Petra AIs (`CAIWorker::PerformComputation`) 22-35%, the
+  components' scripts (`CCmpUnknownScript::HandleMessage`) 10-11%, the rest the engine's C++;
+  the GUI's simulation-update handlers up to 12%.
+- Rendering 35-49%, of it 23-34% waiting in `dolly_gpu_batch`. The provider's worker was idle
+  87 of 103 s (its JavaScript, mostly `createBindGroup`, about 16 s) and the GPU process's main
+  thread busy 7.9-12.5 s of 54-71 s: the batches wait for the GPU.
 - JavaScript interpreted by SpiderMonkey, which has no JIT in Wasm (`js::Interpret` inclusive):
-  48% and 38%. Dolly's libc and kernel calls are small: `malloc` and `free` 2%, the engine's
+  38-55%. Dolly's libc and kernel calls are small: `malloc` and `free` 2%, the engine's
   `postMessage` of its kernel calls 2-3%.
 
-So the stalls are the game's own script work, Petra first, run by an interpreter, and GPU
-throughput; neither has a cause in Dolly's runtime or libc that the profile shows. The one
-build flag that could speed the scripts, SpiderMonkey's portable baseline interpreter (the
+One cause was Dolly's: in a developed match the engine submits 15-16 batches a frame, and the
+provider let a surface queue three submissions before its next batch waited (its comment said
+three frames), so the engine waited for the GPU to finish what it had submitted earlier in the
+same frame. A surface now queues three frames, every scope 64 submissions (`096425ae`; its
+checks: `gpu-render` with the submission proof on a surface scope too, which fails on the old
+pacing, `host-compute`, `0ad-graphics` hardware and software, `slopyard`; `gpu-render` in
+Firefox gets no adapter under Xvfb). The run between two runs with the old pacing is better
+than both: 1,816 frames above 100 ms against 3,558 and 2,519, the last ten minutes 65 ms a
+frame against 102 and 82, 1,304 frames in the traced window against 992 and 1,097, and less of
+the batch wait in the long frames (12.4 s against 19.9 and 17.2).
+
+The rest is the game's own script work, Petra first, run by an interpreter, and GPU throughput.
+The build flag that could speed the scripts, SpiderMonkey's portable baseline interpreter (the
 interpreter with the JIT's inline caches, made for Wasm; `--enable-portable-baseline-interp`
 forced on), builds here (1,411 s) but breaks UnitAI: `0ad-engine` logs "Tried to change to
-non-existent state 'INDIVIDUAL.COMBAT.CHASING'" and "toState is undefined", so it was not
-kept. Not done: a comparison against the host-built engine of September (it no longer exists),
-and the split of the GPU wait between the GPU process's CPU time and the GPU's.
+non-existent state 'INDIVIDUAL.COMBAT.CHASING'" and "toState is undefined", so it was not kept.
+Not done: a comparison against the host-built engine of September (it no longer exists), runs
+without the other workstreams' load, and a split of the GPU's own time per frame.
 
 ## Item 1 done, 2026-10-24 (the process-contract workstream, `core/page-no-view`, seed `b871765b`)
 
