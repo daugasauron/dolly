@@ -5,7 +5,8 @@ onmessage = ({ data: { memory, control } }) => {
   const values = new BigInt64Array(control), word = new Int32Array(control);
   postMessage("waiting");
   for (;;) {
-    Atomics.wait(word, 0, 0);
+    // A notify can be the runtime Worker's for a growth done already.
+    while (Atomics.load(word, 0) === 0) Atomics.wait(word, 0, 0);
     try { values[1] = BigInt(memory.grow(values[1])); } catch { values[1] = -1n; }
     Atomics.store(word, 0, 0);
     Atomics.notify(word, 0);
