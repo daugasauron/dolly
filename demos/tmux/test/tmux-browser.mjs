@@ -82,11 +82,15 @@ for (const browser of browsers) {
     await page.mouse.move(...await cell(cols - 3, 2));
     await page.mouse.wheel(0, 30000);
     await waitText(/^(?![\s\S]*\[\d+\/\d+\])[\s\S]*SCROLLED-79/);
-    // The secondary button opens tmux's menu of the pane, and Escape closes it.
-    await page.mouse.click(...await cell(cols - 3, 3), { button: "right" });
+    // The secondary button held opens tmux's menu of the pane, and Escape
+    // closes it. Released first, it would close the menu wherever tmux had
+    // drawn it by then: the release of the opening press lands on its border.
+    await page.mouse.move(...await cell(cols - 3, 3));
+    await page.mouse.down({ button: "right" });
     await waitText(/Horizontal Split/);
     await page.keyboard.press("Escape");
     await waitText(/^(?![\s\S]*Horizontal Split)[\s\S]*SCROLLED-79/);
+    await page.mouse.up({ button: "right" });
     await page.mouse.click(...await cell(cols - 3, 1));
 
     // Ctrl+C is for the program in the pane; its shell reads the next line.
