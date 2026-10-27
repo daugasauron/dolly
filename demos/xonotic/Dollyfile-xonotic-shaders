@@ -16,7 +16,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL tar
 REQUIRES TOOL gzip
 
-SOURCE /v0.1.4/dist/static/xonotic/source.tar.gz da5d39c43c3e11de0df19acc73ef6437a0f9e31872a7d731268fb5982e4a911e /tmp/xonotic/source.tar.gz
+SOURCE /v0.1.4/dist/static/xonotic/source.tar.gz 94ab3e63d326acb86a8b47b1a996b838aeebd2aa0acfd9c2d02b75da43d63bbe /tmp/xonotic/source.tar.gz
 SLOP gzip -dc /tmp/xonotic/source.tar.gz | tar -xf - -C /
 SLOP make -f /usr/src/dolly/xonotic/Makefile shaders
 FOLDER /usr/share/xonotic/shaders

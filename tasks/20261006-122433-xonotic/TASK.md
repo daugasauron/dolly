@@ -82,32 +82,81 @@ in Firefox. Two things the engine does on its own: it mutes a window without inp
 (`snd_mutewhenidle 1`, the test sets 0 for the untouched menu run), and `-benchmark` mixes in
 demo time, which leaves the timedemo silent. Not rebuilt here: the `xonotic` data image.
 
-## State (2026-10-13)
+## State (2026-10-27)
 
-A large item that stays open: it plays, and what is left is the larger half, which nobody is on.
+Open. What is left waits for the owner (the `gpu@0` additions for the presets above
+`normal`, below) or is the speed remark; the timedemo that measured speed turned out to
+replay a paused game (below).
 
 On the domain since v0.1.0 as `/xonotic/`: the dedicated server, the SDL client and gmqcc build
-inside Dolly from the pinned release; the menu and a bot match on the stock maps play with
-keyboard and captured mouse, drawn by the engine's own software rasterizer at 1024×768. The
-second pointer the owner saw is fixed (`demos/sdl2/SDL_dollyvideo.c`). Its browser test passed
-in each release round and on `main` on 2026-10-13 in Chrome (442.6 s: an 8-bot server
-benchmark, `progs.dat` rebuilt by gmqcc, a client frame, a bot match on stormkeep, and a
-timedemo at 14.3 fps with the engine's default effects, the normal preset;
-`work/rust/build/integrate-evidence/final-demos.log`).
-The licence pass with its asset pass, the pins, and `timedemo` rates in Dolly and native are
-recorded below; the owner accepted the pass's two open points on 2026-10-07
-(`tasks/20261007-133708-v010`, "The owner's gates").
+inside Dolly from the pinned release; the client draws on `gpu@0` at the normal preset
+(2026-10-24, above) or, without an adapter, in the engine's software rasterizer, with sound on
+`audio@0`; the menu and a bot match play with keyboard and captured mouse.
+
+Done on 2026-10-27 (branch `demo/xonotic-reconcile`):
+
+- `dpgpurast.c` draws into textures within `gpu@0` as it is (`1869dd71`). The engine's copies
+  of the frame into a texture (`CopyRectangleToTexture`: the loading screen's backdrop,
+  `R_BlendView`'s postprocessing, bloom, motion blur, water views) are a draw from the frame's
+  colour texture into the texture, rows bottom-up as `glCopyTexSubImage2D` puts them; textures
+  of one level and one layer take `RENDER_ATTACHMENT` for it. Screenshots (`GetPixelsBGRA`)
+  present the frame again with a `CAPTURE_FRAME` of the block and read it back. Rendering
+  into texture targets (`SetRenderTargets` with a texture: `r_viewfbo`, shadow maps) stays
+  undrawn; no setting measured here asks for it.
+- `xonotic-shaders` adds `0:8388621` (the generic mode with the texture's alpha suppressed,
+  which draws the backdrop and bloom's passes) and the postprocess mode's combinations of view
+  tint, bloom and the HUD's postprocessing: 211 permutations (`1869dd71`, `171b2239`). With
+  `r_bloom 1` the frame had shown bloom's downscaled copy in a corner, its composite `1:4096`
+  missing.
+- Measured on `gpu@0` (Chrome in a window on Xvfb :162, nvidia adapter): `screenshot
+  menu.tga` writes the 2,359,314-byte TGA of the menu, whose 8×6 block means equal the
+  page's capture of the canvas within 1 (orientation and channel order right). With
+  `scr_loadingscreen_background 1` (Xonotic's default is 0; its full-screen loading picture
+  would cover the backdrop anyway) and the picture at a quarter size, `map stormkeep` from
+  the menu draws the menu's frame around the picture for 4.4 s (23 loading-screen updates),
+  its top row of blocks equal to the menu's; the software rasterizer draws it about 12%
+  darker, its generic shader keeping the texture's alpha that the GLSL's `USEREFLECTCUBE`
+  drops. `-benchmark short` with `r_glsl_postprocess 1` (a copy and a postprocess pass every
+  frame) gives the same block means as without it, 37.0 against 35.9 fps in a 1280×900
+  window; with `r_bloom 1 r_motionblur 0.4 r_damageblur 0.4 hud_postprocessing_maxbluralpha
+  0.5` no draw is skipped (31.3 fps); with `r_water 1` the water views draw, unclipped
+  (29.6 fps).
+- The `xonotic` data image is rebuilt with this client. It builds in the 6 GB `build` scope
+  now: 88.9 s, largest process 1.8 GB maximum RSS (the 7 to 9 GB of 2026-10-07 is gone; the
+  README's note is removed). `/xonotic/` boots in 22 s and opens into the menu in Chrome on
+  `gpu@0` and in Firefox headless in software.
+- `xonotic-browser.mjs` also takes a screenshot of the menu and checks its size, lit
+  fraction and blocks; loads a map from the menu with the backdrop on and finds a
+  loading-screen frame whose top row matches the screenshot and whose centre carries the
+  picture; and ends a client with SIGKILL while its menu is up, then starts the next one,
+  which must draw on the same rasterizer again (the done-when's forced termination;
+  `171b2239`). Passed: Chrome on `gpu@0` in 508.6 s (the loading screen 0.1 from the screenshot along the
+  top and 11.9 in the centre, in mean colour per block; timedemo 34.6 fps in a 1280×800
+  window), Firefox headless in software in 539.6 s (2.3 and 16.3; timedemo 10.5 fps). Four
+  earlier runs today passed with a looser loading-screen check, one more failed to boot
+  `/xonotic-build/` in Firefox (`FATAL index out of bounds` at 26 of 202 MiB of the snapshot,
+  no build running); 32 further boots, 12 in fresh browsers, did not reproduce it.
+
+Found, not fixed: `short.dem`, the timedemo every rate in this task was measured with,
+replays a paused game. Its 528 `svc_time` messages span server time 1.80 to 1.97 s (4
+distinct values), and every frame of it shows the same view with `PAUSE` on it: the native
+recording ran while the in-game menu had paused the local game. The rates are of drawing that
+one view 1,046 times, not of a bot match. A new recording of a running match changes every
+recorded rate and replaces a fixture in the shared `.cache/xonotic`, so it is the
+integrator's call.
 
 Left, against the done-when:
 
-- **The `gpu@0` renderer**: done for `normal` (above); the `xonotic` data image is not
-  rebuilt with it.
-- **Sound**: done (above).
-- **Speed**, the owner's remark ("needs better performance tuning"): on `gpu@0` 84 fps at
-  normal in a small window (above); in software 31 fps at the low preset and 13 to 14 at
-  normal in Chromium, on one rasterizer thread; a map takes about two minutes to load in
-  software.
-- The README's list of effects that are off on `gpu@0`, each with what it waits for: done.
+- Effects above `normal`: the owner's decisions (the table under "Decisions for the owner");
+  of the three, the frame-to-texture copy for `high` is now drawn inside `gpu@0` as it is.
+  Water's clip planes need WebGPU's `clip-distances` in `gpu@0`; occlusion queries have the
+  engine's fallback; `ultra`'s shadow maps need `dpgpurast.c` to render into depth texture
+  targets, which `gpu@0` has. One line for the owner: whether `gpu@0` asks for
+  `clip-distances`.
+- Speed, the owner's remark ("needs better performance tuning"): the rates so far drew the
+  paused view above; in software the image starts at the low preset.
+- Firefox here has no WebGPU adapter, so "a hardware adapter in Chrome and Firefox" is
+  measured in Chrome only.
 
 ## The request
 

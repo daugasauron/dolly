@@ -31,9 +31,7 @@ audio on `audio@0`. The task is `tasks/20261006-122433-xonotic/TASK.md`.
   (946 MB) under `/usr/share/xonotic/data`; `/xonotic/` starts `xonotic`,
   the client in software at 1024×768, and leaves the shell when it quits.
 
-Build with `npm run image -- xonotic-build` or `npm run image -- xonotic`
-(the data image's builder needs more than 9 GB during its snapshot upload;
-the task records the measurements).
+Build with `npm run image -- xonotic-build` or `npm run image -- xonotic`.
 
 ## What works in `/xonotic/` today
 
@@ -55,9 +53,7 @@ the task records the measurements).
   in the match captures the pointer (the page shows a crosshair until then;
   Escape releases the capture).
 - Not working or not there: network play (single player with bots only), the music and Nexuiz
-  compatibility archives, and on `gpu@0` the effects below. Building the data
-  image needs a builder scope above 9 GB (7 to 9 GB of renderer memory during
-  its snapshot upload; the task records the runs).
+  compatibility archives, and on `gpu@0` the effects below.
 
 ## Effects that are off on `gpu@0`
 
@@ -66,13 +62,10 @@ passing, and what each waits for:
 
 | Effect | Preset | Waits for |
 | --- | --- | --- |
-| Bloom, motion blur, the HUD's blur | `high` and up | a copy of the frame into a texture: `gpu@0` copies only buffers; drawing the frame into a texture would do, and `dpgpurast.c` does not yet draw into textures |
-| Water reflection and refraction (`r_water`) | `high` and up | clip planes (WebGPU's `clip-distances` feature, which `gpu@0` does not ask for) and drawing into textures |
+| Water reflection and refraction (`r_water`) | `high` and up | clip planes (WebGPU's `clip-distances` feature, which `gpu@0` does not ask for); the views draw, unclipped |
 | Corona occlusion queries | `high` and up | occlusion queries, which `gpu@0` lacks; the engine traces instead |
 | Realtime world lights and shadow maps | `ultra` and up | drawing into depth textures in `dpgpurast.c` (`gpu@0` has depth targets and compare samplers) |
 | Offset and relief mapping | `ultra` and up | nothing in `gpu@0`: their permutations are not in `xonotic-shaders`' list |
-| The loading screen's backdrop of the last frame | all | the copy of the frame into a texture, as above |
-| Screenshots | all | reading the frame back; `gpu@0` captures the presented frame into a buffer, which `dpgpurast.c` does not use |
 
 A shader permutation outside the list in [`Makefile`](Makefile) draws nothing
 and is printed once (`dpgpurast: no WGSL for shader mode M permutation P`).
@@ -103,10 +96,13 @@ and is printed once (`dpgpurast: no WGSL for shader mode M permutation P`).
 - The engine's software render path (`vid_soft 1`) calls the 41 functions of
   `dpsoftrast.h`; [`dpgpurast.c`](dpgpurast.c) implements them on `gpu@0`,
   with no change to the engine. It draws each frame into a colour and a depth
-  texture and copies that onto the surface once, merges consecutive draws
-  with the same pipeline, textures and uniforms, keeps a static model's
-  arrays in a geometry buffer once a draw has read the same bytes twice, and
-  sends one command packet per frame where they fit. Where `dolly_gpu_open`
+  texture and copies that onto the surface once; the engine's copies of the
+  frame into a texture (its postprocessing, the loading screen's backdrop)
+  are draws from that colour texture, and a screenshot presents the frame
+  again and reads the surface back (`gpu@0`'s frame capture). It merges
+  consecutive draws with the same pipeline, textures and uniforms, keeps a
+  static model's arrays in a geometry buffer once a draw has read the same
+  bytes twice, and sends one command packet per frame where they fit. Where `dolly_gpu_open`
   fails it forwards every call to `dpsoftrast.c`, compiled with its names
   prefixed `dpsoft_` (the Makefile's `DPSOFTRAST_CALLS`). `vid_sdl.c` keeps
   the window, input and cursor; `gpu@0` draws on its own canvas over it.
