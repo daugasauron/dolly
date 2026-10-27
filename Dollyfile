@@ -23,7 +23,7 @@ INSTALL /v0.1.4/Dollyfile-core c3aa527edcbac3332fe2aee277b392cc4e9b66b570935967f
 INSTALL /v0.1.4/Dollyfile-posix bbceb77b8adc6ccb240a3e502a1af9302b257977176aeb12e5bfb34c64353b25
 INSTALL /v0.1.4/Dollyfile-display d15ef860730ddefa417080c1d27cc0a26f03d5409c93805e9b3cbc5b6af61011
 INSTALL /v0.1.4/Dollyfile-curl 806e6f36d4479c1c8283c58195f53153fff23dcf694de97c58d3e7cf81f15a8c
-INSTALL /v0.1.4/Dollyfile-amy 97f004cab1146f53d5d7833f670c6ab061d18ba34b235dc7ba5979aba3b456ca
+INSTALL /v0.1.4/Dollyfile-amy 90701fe1be537fae9f0e376f2dcfda377c019426cdbab48faeb9107f91bcb6de
 INSTALL /v0.1.4/Dollyfile-nena 2e851d9a70ca04b6ef01be6980cdc2e4e9e0c49a291573dde00df9558f04d249
 INSTALL /v0.1.4/Dollyfile-transfer a7a6e30cd5b1680791d91f56daecaeec446b0aeff20bdad68ae4c2c06b81df5b
 INSTALL /v0.1.4/Dollyfile-ps 39cdf2bfaa3fb52f3c161672634f9600381754e6f006971896d6f79b6b345b77

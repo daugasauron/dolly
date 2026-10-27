@@ -22,11 +22,11 @@ FROM /v0.1.4/demos/x11/Dollyfile-x11-build 9daf062c32d89ad8532643bebe12319b993ff
 INSTALL /v0.1.4/demos/tools/Dollyfile-meson 6ceb886afd093c1889c1ec2372a8e4a542f428e8cbd35e6a666e6679b1813762
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 1a6fb611acc209b26ab66726145b3edab459ff7f5431d9d0f944559c53fd48b0
 INSTALL /v0.1.4/demos/tools/Dollyfile-xz fe10d5d4dc073da6f23c733a7b7fabdc4f25812c95603066eddbe91bfb3853b7
-INSTALL /v0.1.4/demos/tools/Dollyfile-tar ac645efbe63b01b40b4b2b25815649e25b0f7436f4b945f372d3efb8a400005a
+INSTALL /v0.1.4/demos/tools/Dollyfile-tar fe49876661c3f37977407200c7b0211bef8559be8deafe623889e3d01a9bacb6
 INSTALL /v0.1.4/demos/tools/Dollyfile-binaryen dabbabc1932c62ac66f7897eef807078fde48062b31d0f27ffc349cbeef01fb5
 INSTALL /v0.1.4/demos/python/Dollyfile-libffi 92377673dc3e1a36a4ef6852ff2390c3584eb5d4afd2c2117e1ac71b4a67adc0
 INSTALL /v0.1.4/demos/gtk/Dollyfile-pcre2 3d12f6c1f7eb83b85424d3fd8f1bdad4264d17aec7231ccc1748dc844592c89b
-INSTALL /v0.1.4/demos/gtk/Dollyfile-glib 4d1a5799ad8365b010ccd36147084d7a2b235a226f5066d632e5790999ed94ec
+INSTALL /v0.1.4/demos/gtk/Dollyfile-glib 1e882c01d78f7a5882983a6bf531fd3be073b9ccfe2f84f9944baf2e7ac055b1
 INSTALL /v0.1.4/Dollyfile-zlib 7f3254e8d51bc7edd2fa47b19f3b1e2e43c747476ab93c57654639e4119abde7
 
 REQUIRES HEADER glib

@@ -21,14 +21,14 @@ REQUIRES HOST upload@0
 # the pointer and a terminal with a shell, where imgui-x11 starts Dear ImGui's
 # example in a window of its own.
 FROM /v0.1.4/Dollyfile-system c6309c0a7bbd8f3038f36ebb426704e3c6b2c52d7d8101a59a453a17b18c9781
-INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server f52688aae5d559f841038cd2ce6d848b80b529bfa2a12b2ba9f68c0cc43c3520
+INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server c924409c2467e6e23f461a8291f60bde856534a95c50c5aa8fa46c68a5e4a98c
 INSTALL /v0.1.4/demos/x11/Dollyfile-twm af0f61ca1fd5de2fcd17fb80279d818d12554cfe9c582c9bf36e4624804207f1
 INSTALL /v0.1.4/demos/x11/Dollyfile-xclock a54aeaff29dc697e975075f5761207a2c059a6e9659741d58a25b5f5145f2d12
 INSTALL /v0.1.4/demos/x11/Dollyfile-xeyes 1fce80812e6b460c1fe8ad857085c5d2b28ae061f0f57ffa37a962bb75d10cfe
 INSTALL /v0.1.4/demos/x11/Dollyfile-xterm 2bb93e2001b577954961360381aaf53d974c88b6226ba54b62dbfe3a87f041cc
 # amy installs packages into the session (tmux, nvim and the rest), with the
 # modules default declares for them; nena enables another.
-INSTALL /v0.1.4/Dollyfile-amy 97f004cab1146f53d5d7833f670c6ab061d18ba34b235dc7ba5979aba3b456ca
+INSTALL /v0.1.4/Dollyfile-amy 90701fe1be537fae9f0e376f2dcfda377c019426cdbab48faeb9107f91bcb6de
 INSTALL /v0.1.4/Dollyfile-nena 2e851d9a70ca04b6ef01be6980cdc2e4e9e0c49a291573dde00df9558f04d249
 INSTALL /v0.1.4/demos/sdl2/Dollyfile-imgui-x11 18bd1bcac050af7e33919bab17a81edfa465cc87ce4788d68817cd25f0c16eef
 

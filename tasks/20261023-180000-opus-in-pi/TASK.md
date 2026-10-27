@@ -580,6 +580,11 @@ Findings, each fixed and in the 2026-10-27 round:
   (`703a439c`), with their licences (`32a19f3f`).
 - amy's "its environment applies when the session is next loaded" read as if the package did;
   it now says only the variables wait (`b2b60ffa`).
+Found and not yet fixed: Dolly's `curl` (`src/commands/curl.c`) takes `-d` and `--data-raw` as
+literal data only, so `curl -d @body.json URL` sends the text `@body.json` where curl sends the
+file, and it has no `--data-binary` (found by the Xonotic workstream on 2026-10-27). The fix is
+`@FILE` for `-d` and `--data-binary` as curl reads them; `Dollyfile-curl` is under every image's
+base, so it waits for the next full round.
 Not changed, as designed or upstream's: Slop's syntax, the POSIX sbase tools (`head -c`,
 `dd bs=1M`, `grep -r`), sbase `mktemp`'s template, no `fork` or listening sockets, the
 browser's stack depth ([emacs-stack](../20261013-202443-emacs-stack/TASK.md)), no `ssl` or

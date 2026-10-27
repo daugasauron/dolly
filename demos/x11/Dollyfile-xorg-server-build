@@ -21,7 +21,7 @@ INSTALL /v0.1.4/demos/tools/Dollyfile-meson 6ceb886afd093c1889c1ec2372a8e4a542f4
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 1a6fb611acc209b26ab66726145b3edab459ff7f5431d9d0f944559c53fd48b0
 INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 fccd3571549a4aa2495a4950dc8a5ba770a92165e526e3759a036ba538a1ac7a
 INSTALL /v0.1.4/Dollyfile-zlib 7f3254e8d51bc7edd2fa47b19f3b1e2e43c747476ab93c57654639e4119abde7
-INSTALL /v0.1.4/demos/tools/Dollyfile-tar ac645efbe63b01b40b4b2b25815649e25b0f7436f4b945f372d3efb8a400005a
+INSTALL /v0.1.4/demos/tools/Dollyfile-tar fe49876661c3f37977407200c7b0211bef8559be8deafe623889e3d01a9bacb6
 INSTALL /v0.1.4/demos/tools/Dollyfile-xz fe10d5d4dc073da6f23c733a7b7fabdc4f25812c95603066eddbe91bfb3853b7
 INSTALL /v0.1.4/demos/tools/Dollyfile-yacc 40707f9d85ab439a58b2275bf2d8c3e265e9d24b3922ef38771f90dc3628f11c
 
