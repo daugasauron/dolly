@@ -73,3 +73,6 @@ as its two halves; the recipe joins them and checks the release's digest.
 - Defaults: low textures, no shadows, advanced water or postprocessing.
 - Audio latency is about 0.7 s to absorb slow frames.
 - No lobby, LAN discovery, native peers or network rejoin; HTTP multiplayer is slow.
+- Firefox gives WebGPU only on a display with hardware GL: on Xvfb, and headless with no
+  display, Firefox 155 says "WebGPU is disabled by blocklist" and `gfx.webgpu.ignore-blocklist`
+  does not lift it (2026-10-28). `test/0ad-menu-browser.mjs firefox` needs such a display.
