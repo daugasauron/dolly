@@ -65,7 +65,7 @@ agent a short-lived token that allows what the frontend allowed.
 
 ## What is measured
 
-[`demos/pi/test/frontend-browser.mjs`](../demos/pi/test/frontend-browser.mjs),
+`demos/pi/test/frontend-browser.mjs`,
 in Chromium and Firefox: the page builds the image on the published
 `pi-runtime`, a scripted model on an origin of its own receives the system
 prompt and the skill with its key, Pi reads the skill, lists the orders with
