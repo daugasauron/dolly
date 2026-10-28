@@ -18,8 +18,8 @@ REQUIRES TOOL tar
 REQUIRES TOOL tr
 REQUIRES TOOL xargs
 
-SOURCE /v0.1.4/dist/static/lean/lean.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/lean.tar.gz
-SOURCE /v0.1.4/dist/static/lean/port.tar 0000000000000000000000000000000000000000000000000000000000000000 /tmp/lean-port.tar
+SOURCE /v0.1.4/dist/static/lean/lean.tar.gz ef83239912f7c218c5f0e937de704b7da807b9802b05216414b59b9dec42e0da /tmp/lean.tar.gz
+SOURCE /v0.1.4/dist/static/lean/port.tar 820bde9550df16d328b5581cfd6c5bbbd04c25f6a370d71e4590217da7f12957 /tmp/lean-port.tar
 # Stage 1 reads only src/.
 SLOP gzip -dc /tmp/lean.tar.gz | tar -xf - -C / && rm -r /tmp/lean.tar.gz /tmp/lean/stage0
 SLOP tar -xf /tmp/lean-port.tar -C /
