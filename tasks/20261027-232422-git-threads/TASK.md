@@ -1,6 +1,6 @@
 # Git is built with threads, so a push to a local repository works
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: git,bug,0.1.4
 
@@ -48,3 +48,15 @@ with the index preloaded by 20 threads and 121-123 ms without; a local clone 2.1
 - A push to a local repository works, in the recipe's check and in the shell test, in Chromium
   and Firefox; HTTP clone, fetch and push still pass (`test/network-browser.mjs`).
 - The docs and Pi's guidance say what works.
+
+## Closed (2026-10-28)
+
+The round of 2026-10-28 rebuilt the whole catalog with Git built `-pthread` (pins `a1a7826a`)
+and passed on `1aaf671c`: source 446, artifacts 26, the browser suites in Chromium and Firefox
+(`test/shell-browser.mjs`'s local clone, fetch and push, `test/network-browser.mjs`'s HTTP
+push among them), npm, the demo suite (26 passed, 2 skipped, Studio's after the fix below) and
+the GPU tests; release `cc4f3bef…`, domain release
+`77f03793…`. It found three more places that missed `threads@0`: gpu-fluid's recipe
+generator (`67e6474b`), and the recipes on `system` that eight browser tests and the Studio
+test wrote by hand, which now take a base image's modules from its `hostRequirements`
+(`305b7428`). Evidence: `build/round-1028-evidence/` in `work/x11fix`.
