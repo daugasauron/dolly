@@ -86,16 +86,15 @@ export async function waitForDisplay(page, predicate, arg, { timeout = 30000 } =
 
 // open() options for an image the page builds with the named host modules:
 // from packages alone (a root recipe, as `default` is) or on top of a base
-// image, whose modules it restates since nothing is inherited. files (path ->
-// text) are written into it and entry is its ENTRY; setup(page) runs with the
-// page's own. A test of a host module opens `system` with the module added.
+// image, whose own modules it restates since nothing is inherited. files (path
+// -> text) are written into it and entry is its ENTRY; setup(page) runs with
+// the page's own. A test of a host module opens `system` with the module added.
 export async function composed(hosts, packages, { base, files = {}, entry = "/bin/foreground -i /bin/slop", setup } = {}) {
   const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
-  const pin = name => {
-    const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
-    return `${siteReference(dollyfile)} ${sha256}`;
-  };
-  const recipe = ["DOLLY 7", "APPLICATION composed", ...hosts.map(host => `REQUIRES HOST ${host}@0`),
+  const definition = name => DOLLY_IMAGES.find(definition => definition.image === name);
+  const pin = name => `${siteReference(definition(name).dollyfile)} ${definition(name).sha256}`;
+  const modules = new Set([...base ? definition(base).hostRequirements : [], ...hosts.map(host => `${host}@0`)]);
+  const recipe = ["DOLLY 7", "APPLICATION composed", ...[...modules].map(module => `REQUIRES HOST ${module}`),
     ...base ? [`FROM ${pin(base)}`] : [], ...packages.map(name => `INSTALL ${pin(name)}`),
     ...Object.entries(files).map(([path, text]) => `FILE ${path}\n${text.trim().split("\n").map(line => `    ${line}`).join("\n")}`),
     `ENTRY ${entry}`, ""].join("\n");

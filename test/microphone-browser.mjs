@@ -24,12 +24,11 @@ const denied = { chromium: ["--use-fake-device-for-media-stream", "--deny-permis
   firefox: { "media.navigator.streams.fake": true, "permissions.default.microphone": 2 } };
 
 // system's host modules: the image under test adds the one it tests.
-const systemModules = ["runtime", "display", "input", "http", "download", "upload", "snapshot"];
 async function compiled(open, server) {
   const errors = [];
   const session = await open({
     policy: { maxRequests: 3, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
-    ...await composed([...systemModules, "microphone"], ["libdolly-microphone"], { base: "system",
+    ...await composed(["microphone"], ["libdolly-microphone"], { base: "system",
       setup: page => page.on("pageerror", error => errors.push(error.message)) }) });
   const run = async command => assert.equal(await session.submit(command), 0, await session.text());
   await run(`curl -fsS ${server.origin}/fixture/microphone.c -o /tmp/microphone.c`);

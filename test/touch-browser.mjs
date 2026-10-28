@@ -12,7 +12,7 @@ import { browserTest, composed } from "./browser.mjs";
 
 const fixtures = { "touch.c": "test/fixtures/touch.c" };
 
-const image = () => composed(["runtime", "display", "input", "http", "download", "upload", "snapshot", "touch"],
+const image = () => composed(["touch"],
   ["libdolly-touch"], { base: "system" });
 // `system` with touch@0, in a page of the browser context's options.
 async function opened(open, server, context, initScript) {

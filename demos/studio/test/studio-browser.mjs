@@ -44,17 +44,10 @@ await demoTest("studio", { image: "dollyfile-studio", webgpu: true, timeout: 900
   // dollyfile-build streams a build in the page without approval; only clicking
   // Open image opens the result, which has neither parent files nor build services.
   const { DOLLY_IMAGES } = await import("../../../dist/dolly-images.mjs");
-  const system = DOLLY_IMAGES.find(definition => definition.image === "system").sha256;
+  const system = DOLLY_IMAGES.find(definition => definition.image === "system");
   const recipe = `DOLLY 7
 APPLICATION build-proof
-REQUIRES HOST runtime@0
-REQUIRES HOST display@0
-REQUIRES HOST input@0
-REQUIRES HOST download@0
-REQUIRES HOST http@0
-REQUIRES HOST snapshot@0
-REQUIRES HOST upload@0
-FROM ${siteReference("Dollyfile-system")} ${system}
+${system.hostRequirements.map(module => `REQUIRES HOST ${module}\n`).join("")}FROM ${siteReference("Dollyfile-system")} ${system.sha256}
 FILE /tmp/proof/hello.c
     #include <stdio.h>
     #warning BUILD-COMPILER-WARNING

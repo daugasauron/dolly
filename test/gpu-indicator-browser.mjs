@@ -32,7 +32,7 @@ const program = "printf '%s\\n' '#include <dolly/gpu.h>' " +
 const sourceOverrides = new Map(), noAdapter = await gpuAdapterMocks("gpu-no-adapter.mjs");
 const server = await startBrowserServer(new URL("..", import.meta.url).pathname, "system", { sourceOverrides });
 // system with gpu@0 and its client: an image that declares the module.
-const image = await composed(["runtime", "display", "input", "http", "download", "upload", "snapshot", "gpu"], ["libdolly-gpu"], { base: "system" });
+const image = await composed(["gpu"], ["libdolly-gpu"], { base: "system" });
 try {
   for (const [state, launch, { workerAdapter = true } = {}] of names.flatMap(name => cases[name])) {
     if (workerAdapter) sourceOverrides.clear();

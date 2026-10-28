@@ -21,26 +21,26 @@ const pin = name => {
 };
 const sha256 = text => createHash("sha256").update(text).digest("hex");
 
-// A sealed package that needs threads@0, as the engine would build it: the
+// A sealed package that needs sockets@0, as the engine would build it: the
 // retained recipe plus its receipt (recipe chain, host requirements, exports).
 const encoder = new TextEncoder();
 const u32 = value => { const bytes = new Uint8Array(4); new DataView(bytes.buffer).setUint32(0, value, true); return bytes; };
 const text = value => [u32(encoder.encode(value).length), encoder.encode(value)];
-const threaded = { url: siteReference("Dollyfile-threaded"),
-  source: "DOLLY 7\nPACKAGE threaded\nREQUIRES HOST runtime@0\nREQUIRES HOST threads@0\nFILE /usr/share/threaded\n    needs threads\n" };
-threaded.sha256 = sha256(threaded.source);
+const connects = { url: siteReference("Dollyfile-connects"),
+  source: "DOLLY 7\nPACKAGE connects\nREQUIRES HOST runtime@0\nREQUIRES HOST sockets@0\nFILE /usr/share/connects\n    needs sockets\n" };
+connects.sha256 = sha256(connects.source);
 const receipt = [encoder.encode("DOLLYART"), u32(5), u32(1),
-  ...["PACKAGE", "threaded", threaded.url, threaded.sha256, threaded.source].flatMap(text),
-  u32(1), ...text("threads@0"), u32(1), ...text("FILE"), ...text("threaded"), ...text("/usr/share/threaded"), u32(1),
-  ...text("/usr/share/threaded")];
+  ...["PACKAGE", "connects", connects.url, connects.sha256, connects.source].flatMap(text),
+  u32(1), ...text("sockets@0"), u32(1), ...text("FILE"), ...text("connects"), ...text("/usr/share/connects"), u32(1),
+  ...text("/usr/share/connects")];
 const bytes = parts => { const joined = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0)); let offset = 0;
   for (const part of parts) { joined.set(part, offset); offset += part.length; } return joined; };
 const file = data => ({ kind: 2, data: encoder.encode(data) });
-const snapshot = encodeSnapshotRecords(new Map([["/etc/dolly/Dollyfile", file(threaded.source)],
-  ["/etc/dolly/artifact", { kind: 2, data: bytes(receipt) }], ["/usr/share/threaded", file("needs threads\n")]]));
+const snapshot = encodeSnapshotRecords(new Map([["/etc/dolly/Dollyfile", file(connects.source)],
+  ["/etc/dolly/artifact", { kind: 2, data: bytes(receipt) }], ["/usr/share/connects", file("needs sockets\n")]]));
 const scratch = await mkdtemp(join(tmpdir(), "dolly-amy-"));
-await writeFile(join(scratch, "threaded.snapshot"), snapshot);
-const fixtures = { "threaded.snapshot": join(scratch, "threaded.snapshot") };
+await writeFile(join(scratch, "connects.snapshot"), snapshot);
+const fixtures = { "connects.snapshot": join(scratch, "connects.snapshot") };
 // Sealed packages of one file, /usr/share/NAME, as the engine would build
 // them. `needed` are the packages the recipe installs: its INSTALL rows, which
 // the snapshot records and does not hold. `hosts` are its host modules,
@@ -70,8 +70,8 @@ const needs = await sealed("needs", "top", [newer]), listens = await sealed("lis
 const library = await sealed("library", "lib", [newer], ["microphone@0"], { LIBRARY_BUILT: "used" });
 const shared = await sealed("shared", "also", [newer]);
 for (const name of ["dollyfile.c", "sha256.h", "fs-record.h"]) fixtures[name] = `src/${name}`;
-const artifact = `/etc/dolly/artifacts/${threaded.sha256}.snapshot`;
-const row = `INSTALL ${threaded.url} ${threaded.sha256}`;
+const artifact = `/etc/dolly/artifacts/${connects.sha256}.snapshot`;
+const row = `INSTALL ${connects.url} ${connects.sha256}`;
 const check = ({ submit, text }) => async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
 // What a restricted page adds for amy: its own site's index.
 const indexRule = origin => ({ origin, path: "/amy-index.txt", methods: ["GET"] });
@@ -131,10 +131,10 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   site.index = null;
   // An install is the engine's INSTALL row: a package whose host modules the
   // image declares installs and is recorded, so amy lists it.
-  await run(`mkdir -p /etc/dolly/artifacts && curl -fsS ${server.origin}/fixture/threaded.snapshot -o ${artifact}`);
-  await run(`dollyfile install ${threaded.url} ${threaded.sha256} && rm ${artifact}`);
-  await run(`test "$(cat /usr/share/threaded)" = 'needs threads' && grep -qx '${row}' /etc/dolly/installed`);
-  await run(`test "$(amy installed | tail -n 1)" = "threaded ${threaded.url} ${threaded.sha256}"`);
+  await run(`mkdir -p /etc/dolly/artifacts && curl -fsS ${server.origin}/fixture/connects.snapshot -o ${artifact}`);
+  await run(`dollyfile install ${connects.url} ${connects.sha256} && rm ${artifact}`);
+  await run(`test "$(cat /usr/share/connects)" = 'needs sockets' && grep -qx '${row}' /etc/dolly/installed`);
+  await run(`test "$(amy installed | tail -n 1)" = "connects ${connects.url} ${connects.sha256}"`);
   // A package names the packages its recipe installs and holds none of their
   // files: the engine installs those rows first, each from its own snapshot.
   // Without a row's snapshot it ends with 3 and changes nothing: amy then
@@ -169,7 +169,7 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
     await session.page.locator("#bootstrap-log").textContent());
   await session.page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "session shell"));
   await run("test \"$(python3 -c 'print(6 * 7)')\" = 42 && test \"$PYTHONUTF8\" = 1 && test \"$PYTHONDONTWRITEBYTECODE\" = 1");
-  await run(`amy installed | grep -qx "python ${pin("python")}" && test "$(cat /usr/share/threaded)" = 'needs threads'`);
+  await run(`amy installed | grep -qx "python ${pin("python")}" && test "$(cat /usr/share/connects)" = 'needs sockets'`);
   await run(`test "$(cat /usr/share/needs)" = top && amy installed | grep -qx "needed ${newer.url} ${newer.sha256}"`);
 });
 
@@ -597,13 +597,13 @@ await browserTest("amy refusal", { image: "system", server: { fixtures } }, asyn
     { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
   const system = await open({ policy });
   const refuse = async command => assert.equal(await system.submit(command), 0, `${command}\n${await system.text()}`);
-  await refuse(`mkdir -p /etc/dolly/artifacts && curl -fsS ${server.origin}/fixture/threaded.snapshot -o ${artifact}`);
-  assert.equal(await system.submit(`dollyfile install ${threaded.url} ${threaded.sha256} 2> /tmp/refused`), 2);
-  await refuse("grep -q 'Dollyfile-threaded needs threads@0: add REQUIRES HOST threads@0' /tmp/refused");
+  await refuse(`mkdir -p /etc/dolly/artifacts && curl -fsS ${server.origin}/fixture/connects.snapshot -o ${artifact}`);
+  assert.equal(await system.submit(`dollyfile install ${connects.url} ${connects.sha256} 2> /tmp/refused`), 2);
+  await refuse("grep -q 'Dollyfile-connects needs sockets@0: add REQUIRES HOST sockets@0' /tmp/refused");
   await refuse(`curl -fsS ${server.origin}/fixture/${listens.sha256}.snapshot -o /etc/dolly/artifacts/${listens.sha256}.snapshot`);
   assert.equal(await system.submit(`dollyfile install ${listens.url} ${listens.sha256} 2> /tmp/refused`), 2);
   await refuse("grep -q 'Dollyfile-listens needs microphone@0 and gpu@0: add REQUIRES HOST microphone@0 and REQUIRES HOST gpu@0$' /tmp/refused");
-  await refuse("test ! -e /usr/share/threaded && ! grep -q threaded /etc/dolly/installed");
+  await refuse("test ! -e /usr/share/connects && ! grep -q connects /etc/dolly/installed");
   assert.notEqual(await system.submit(`curl -fsS https://packages.dolly.invalid/v1/packages/${indexed("zlib")[2]} -o /dev/null`), 0);
 });
 

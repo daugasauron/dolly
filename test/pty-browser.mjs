@@ -4,7 +4,6 @@ import { siteReference } from "../src/static-asset.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 
 const fixtures = { "pty.c": "test/fixtures/pty.c" };
-const systemModules = ["runtime", "display", "input", "http", "download", "upload", "snapshot"];
 
 // pty@0: pseudo-terminals, with a program compiled in the image
 // (test/fixtures/pty.c names what each mode proves). A program asks for
@@ -12,7 +11,7 @@ const systemModules = ["runtime", "display", "input", "http", "download", "uploa
 // suite's image is `system` with that one line more.
 await browserTest("pty", { image: "system", server: { fixtures } }, async ({ server, open }) => {
   const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
-  const { page, submit, text } = await open({ policy, ...await composed([...systemModules, "pty"], [], { base: "system" }) });
+  const { page, submit, text } = await open({ policy, ...await composed(["pty"], [], { base: "system" }) });
   const status = async (command, expected = 0) => assert.equal(await submit(command), expected, `${command}\n${await text()}`);
   await status(`curl -fsS ${server.origin}/fixture/pty.c -o /tmp/pty.c && cc -O1 /tmp/pty.c -ldolly-pty -o /tmp/pty`);
 
@@ -48,8 +47,8 @@ await browserTest("pty not declared", { image: "system", server: { fixtures } },
   assert.equal(await submit("/tmp/pty pair 2> /tmp/refused"), 126);
   await run("grep -q 'pty@0' /tmp/refused");
 
-  const { dollyfile, sha256 } = DOLLY_IMAGES.find(({ image }) => image === "system");
-  const recipe = ["DOLLY 7", "APPLICATION unsealed", ...systemModules.map(module => `REQUIRES HOST ${module}@0`),
+  const { dollyfile, sha256, hostRequirements } = DOLLY_IMAGES.find(({ image }) => image === "system");
+  const recipe = ["DOLLY 7", "APPLICATION unsealed", ...hostRequirements.map(module => `REQUIRES HOST ${module}`),
     `FROM ${siteReference(dollyfile)} ${sha256}`, "REQUIRES TOOL cc", "FILE /tmp/asked.c", "    #include <pty.h>",
     "    int main(void) { int master, slave; return openpty(&master, &slave, 0, 0, 0); }",
     "SLOP cc /tmp/asked.c -ldolly-pty -o /usr/bin/asked", "EXPORTS TOOL asked", "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");

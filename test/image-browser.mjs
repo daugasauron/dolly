@@ -32,14 +32,7 @@ function handle(request, response, path, headers) {
 // that must keep its U+FEFF.
 const iterationRecipe = (base, marker) => `DOLLY 7
 APPLICATION iteration
-REQUIRES HOST runtime@0
-REQUIRES HOST display@0
-REQUIRES HOST input@0
-REQUIRES HOST download@0
-REQUIRES HOST http@0
-REQUIRES HOST snapshot@0
-REQUIRES HOST upload@0
-FROM ${siteReference(base.dollyfile)} ${base.sha256}
+${base.hostRequirements.map(module => `REQUIRES HOST ${module}\n`).join("")}FROM ${siteReference(base.dollyfile)} ${base.sha256}
 SLOP test -z "$(ls /etc/dolly/artifacts)"
 SLOP mkdir -p /opt/iteration/bin; cp /bin/echo /opt/iteration/bin/echo
 EXPORTS ENV PATH /opt/iteration/bin:/bin:/usr/bin

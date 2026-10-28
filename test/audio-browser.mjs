@@ -52,7 +52,6 @@ async function queueBeforeActivation(origin) {
 }
 
 // system's host modules: the image under test adds the one it tests.
-const systemModules = ["runtime", "display", "input", "http", "download", "upload", "snapshot"];
 const fixtures = { "audio.c": "test/fixtures/audio.c", "audio-client-contract.c": "test/fixtures/audio-client-contract.c",
   "audio-client.c": "host/audio/client.c" };
 await browserTest("audio", { image: "system", server: { fixtures } }, async ({ browser, server, open }) => {
@@ -72,7 +71,7 @@ await browserTest("audio", { image: "system", server: { fixtures } }, async ({ b
   const errors = [];
   const { page, submit, text } = await open({
     policy: { maxRequests: 3, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
-    ...await composed([...systemModules, "audio"], ["libdolly-audio"], { base: "system", setup: page => {
+    ...await composed(["audio"], ["libdolly-audio"], { base: "system", setup: page => {
       page.on("pageerror", error => errors.push(error.message));
       return Promise.all([page.addInitScript(meter), page.addInitScript(countCaptures)]);
     } }) });
