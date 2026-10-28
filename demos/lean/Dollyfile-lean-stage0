@@ -1,0 +1,34 @@
+DOLLY 7
+TOOLCHAIN lean-stage0
+REQUIRES HOST runtime@0
+REQUIRES HOST threads@0
+
+# The first lean of Lean's bootstrap: upstream's stage0/, its copy of the
+# C++ runtime and the C the release before emitted, compiled inside Dolly
+# (lean-dolly.mk, lean-dolly.patch). lean-build compiles the release with it.
+FROM /v0.1.4/Dollyfile-system-tools 7f6c86fcc73e544e7007646eba2718bbc4d43b7f0516d9558e2dc500b1a05a80
+INSTALL /v0.1.4/demos/cmake/Dollyfile-libuv f01b9cb62f8ebdd387a93b3402685a8e3da188bc343b59bf2e2a73b2d1175653
+
+REQUIRES HEADER libc
+REQUIRES HEADER uv
+REQUIRES LIB uv
+REQUIRES TOOL ar
+REQUIRES TOOL c++
+REQUIRES TOOL cc
+REQUIRES TOOL find
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL patch
+REQUIRES TOOL sed
+REQUIRES TOOL tar
+
+SOURCE /v0.1.4/dist/static/lean/lean.tar.gz ef83239912f7c218c5f0e937de704b7da807b9802b05216414b59b9dec42e0da /tmp/lean.tar.gz
+SOURCE /v0.1.4/dist/static/lean/port.tar 8119c163eaeccb1e989e03adcd5f68e09e9b3d12e83c650e590d74e0ea96d228 /tmp/lean-port.tar
+SLOP gzip -dc /tmp/lean.tar.gz | tar -xf - -C / && rm /tmp/lean.tar.gz
+SLOP tar -xf /tmp/lean-port.tar -C /
+SLOP CWD /tmp/lean/stage0 patch -p1 < ../dolly/lean-dolly.patch
+SLOP CWD /tmp/lean make -f dolly/lean-dolly.mk -j4
+SLOP mkdir -p /usr/lib/lean-stage0 && cp /tmp/lean/build/stage0/bin/lean /usr/lib/lean-stage0/lean
+SLOP /usr/lib/lean-stage0/lean --version
+
+FILE /usr/lib/lean-stage0/lean

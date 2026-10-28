@@ -3,7 +3,9 @@
 # platform that links every program statically: lean and lake are linked with
 # a table of the symbols -rdynamic would export (lean-symbols.c), in which the
 # interpreter finds compiled code. STAGE=0 builds the first lean from stage0/:
-# upstream's copy of the C++ and the C its previous compiler emitted.
+# upstream's copy of the C++ and the C its previous compiler emitted. STAGE=1
+# has it compile the LIBRARIES named into /usr/lib/lean, beside those built
+# before: a snapshot holds at most 2 GiB, so the release is built in parts.
 .RECIPEPREFIX := >
 SOURCE ?= /tmp/lean
 STAGE ?= 0
@@ -44,9 +46,8 @@ cpp = $(addprefix $(OUT)/cpp/,$(addsuffix .o,$(1)))
 
 HEADERS := $(addprefix $(OUT)/include/lean/,lean.h lean_gmp.h lean_libuv.h config.h version.h) \
   $(OUT)/githash.h
-LIB := $(OUT)/lib/lean
-
-all: $(OUT)/bin/lean $(if $(filter 1,$(STAGE)),$(OUT)/bin/lake $(OUT)/bin/leanc)
+LIB := $(if $(filter 0,$(STAGE)),$(OUT)/lib/lean,/usr/lib/lean)
+.DEFAULT_GOAL := $(if $(filter 0,$(STAGE)),$(OUT)/bin/lean,libraries)
 
 $(OUT)/include/lean/%.h: $(CPP)/include/lean/%.h
 > mkdir -p $(@D)
@@ -97,15 +98,16 @@ else
 # lean.mk's rules, with stage 0's lean: each module's .olean, .ilean and C,
 # which is compiled at once and then removed. Lake's sources are in src/lake,
 # and Leanc.lean is configured, as CMake does.
-LIBRARIES := Init Std Lean LeanExport Lake Leanc
-LEAN := $(SOURCE)/build/stage0/bin/lean
+libraries: $(LIBRARIES:%=$(LIB)/lib%.a)
+programs: $(OUT)/bin/lean $(OUT)/bin/lake $(OUT)/bin/leanc
+LEAN ?= $(SOURCE)/build/stage0/bin/lean
 LEAN_OPTS := -DwarningAsError=true -Dinterpreter.prefer_native=false -Dpp.rawOnError=true
-TEMP := $(OUT)/lib/temp
+TEMP := $(OUT)/temp
 root = $(if $(filter Lake LakeMain,$(1)),$(SOURCE)/src/lake,$(if $(filter Leanc,$(1)),$(OUT)/leanc,$(SOURCE)/src))
 sources = $(if $(filter Leanc,$(1)),$(OUT)/leanc/Leanc.lean,$(wildcard $(call root,$(1))/$(1).lean) \
   $(shell find $(call root,$(1))/$(1) -name '*.lean' 2>/dev/null))
 objects = $(patsubst $(call root,$(1))/%.lean,$(TEMP)/%.o,$(call sources,$(1)))
-MODULES := $(foreach library,$(LIBRARIES) LakeMain,$(patsubst $(call root,$(library))/%.lean,%,$(call sources,$(library))))
+MODULES := $(foreach library,$(LIBRARIES) $(if $(filter Lake,$(LIBRARIES)),LakeMain),$(patsubst $(call root,$(library))/%.lean,%,$(call sources,$(library))))
 $(OUT)/leanc/Leanc.lean: $(SOURCE)/src/Leanc.lean
 > mkdir -p $(@D)
 > sed -e 's|@LEANC_CC@|cc|' $< > $@
@@ -130,6 +132,7 @@ $(LIBRARIES:%=$(LIB)/lib%.a): $(HEADERS)
 > rm -f $@
 > $(file >$(OUT)/$(@F).objects,$(filter %.o,$^))
 > ar rcs $@ @$(OUT)/$(@F).objects
+> $(if $(filter 1,$(STAGE)),xargs rm < $(OUT)/$(@F).objects)
 > rm $(OUT)/$(@F).objects
 
 $(TOOLS)/lean-symbols: $(SOURCE)/dolly/lean-symbols.c
@@ -157,3 +160,11 @@ $(OUT)/bin/lake: $(TEMP)/LakeMain.o $(OUT)/symbols/lake.o $(OUT)/stack.o $(LAKE_
 $(OUT)/bin/leanc: $(LIB)/libLeanc.a $(LEAN_LIBRARIES)
 > mkdir -p $(@D)
 > $(call LINK,-lLeanc)
+
+# Upstream's install of the programs, at Dolly's prefix; the libraries are
+# in place.
+install: programs
+> mkdir -p /usr/bin /usr/include /usr/share/licenses/lean
+> cp $(OUT)/bin/lean $(OUT)/bin/lake $(OUT)/bin/leanc /usr/bin/
+> cp -R $(OUT)/include/lean /usr/include/
+> cp $(SOURCE)/LICENSE /usr/share/licenses/lean/LICENSE

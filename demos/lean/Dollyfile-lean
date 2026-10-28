@@ -1,0 +1,80 @@
+DOLLY 7
+PACKAGE lean
+REQUIRES HOST runtime@0
+REQUIRES HOST threads@0
+
+# Lean 4.35's programs, lean, lake and leanc, linked from the libraries the
+# first lean (lean-stage0) compiled: Init and Std (lean-std), Lean
+# (lean-meta), and here Lake's and LeanExport's, as upstream links them
+# (lean-dolly.mk), with the C++ runtime compiled again from src/. Lake
+# compiles a package's C with cc and links it with libuv.
+FROM /v0.1.4/demos/lean/Dollyfile-lean-stage0 1a8d33031eb5c901d30beadea54da20ad81e14165bdffde1010fa79c7f3905b8
+INSTALL /v0.1.4/demos/lean/Dollyfile-lean-std 976aab3ed398263ccaf7cc8c6e7d1394dfbb7bc269b1941611c2df7c6a2ec4c6
+INSTALL /v0.1.4/demos/lean/Dollyfile-lean-meta 50fff5076960901c88ccd2995eb7b1b57a894bebb2e0f12a37e8fb064bcba1f5
+INSTALL /v0.1.4/Dollyfile-cc dadb1af6ae3450a3a48bf4c955fe40d012a9a20d6dc3eca63c4f2737ab4080cc
+INSTALL /v0.1.4/demos/cmake/Dollyfile-libuv f01b9cb62f8ebdd387a93b3402685a8e3da188bc343b59bf2e2a73b2d1175653
+
+REQUIRES HEADER libc
+REQUIRES HEADER uv
+REQUIRES LIB uv
+REQUIRES TOOL ar
+REQUIRES TOOL c++
+REQUIRES TOOL cc
+REQUIRES TOOL cp
+REQUIRES TOOL find
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL patch
+REQUIRES TOOL rm
+REQUIRES TOOL sed
+REQUIRES TOOL tar
+REQUIRES TOOL tr
+REQUIRES TOOL xargs
+
+SOURCE /v0.1.4/dist/static/lean/lean.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/lean.tar.gz
+SOURCE /v0.1.4/dist/static/lean/port.tar 0000000000000000000000000000000000000000000000000000000000000000 /tmp/lean-port.tar
+# Stage 1 reads only src/.
+SLOP gzip -dc /tmp/lean.tar.gz | tar -xf - -C / && rm -r /tmp/lean.tar.gz /tmp/lean/stage0
+SLOP tar -xf /tmp/lean-port.tar -C /
+SLOP CWD /tmp/lean patch -p1 < dolly/lean-dolly.patch
+SLOP CWD /tmp/lean make -f dolly/lean-dolly.mk -j4 STAGE=1 LIBRARIES='LeanExport Lake Leanc' \
+  LEAN=/usr/lib/lean-stage0/lean GITHASH=eb6cafb7290e8bd5f2937522d8d804f58f02bafc libraries install
+
+# lean runs a program and checks a proof; lake makes a package and builds
+# its program with cc.
+FILE /tmp/lean-check/squares.lean
+    def main : IO Unit := IO.println s!"{((List.range 10).map (· ^ 2)).foldl (· + ·) 0}"
+FILE /tmp/lean-check/proof.lean
+    theorem byOmega (x y : Nat) (h : x < y) : x + 1 ≤ y := by omega
+SLOP CWD /tmp/lean-check test "$(lean --run squares.lean)" = 285
+SLOP CWD /tmp/lean-check lean proof.lean
+SLOP CWD /tmp/lean-check lake new greeting && cd greeting && lake build && test "$(.lake/build/bin/greeting)" = 'Hello, world!'
+
+EXPORTS TOOL lean
+EXPORTS TOOL lake
+EXPORTS TOOL leanc
+FOLDER /usr/lib/lean/Lake
+FOLDER /usr/lib/lean/LeanExport
+FILE /usr/lib/lean/Lake.olean
+FILE /usr/lib/lean/Lake.olean.server
+FILE /usr/lib/lean/Lake.olean.private
+FILE /usr/lib/lean/Lake.ir
+FILE /usr/lib/lean/Lake.ir.sig
+FILE /usr/lib/lean/Lake.ilean
+FILE /usr/lib/lean/LakeMain.olean
+FILE /usr/lib/lean/LakeMain.olean.server
+FILE /usr/lib/lean/LakeMain.olean.private
+FILE /usr/lib/lean/LakeMain.ir
+FILE /usr/lib/lean/LakeMain.ir.sig
+FILE /usr/lib/lean/LakeMain.ilean
+FILE /usr/lib/lean/LeanExport.olean
+FILE /usr/lib/lean/LeanExport.ilean
+FILE /usr/lib/lean/Leanc.olean
+FILE /usr/lib/lean/Leanc.ilean
+FILE /usr/lib/lean/libLake.a
+FILE /usr/lib/lean/libLeanExport.a
+FILE /usr/lib/lean/libLeanc.a
+FILE /usr/lib/lean/libleancpp.a
+FILE /usr/lib/lean/libleanrt.a
+FOLDER /usr/include/lean
+FILE /usr/share/licenses/lean/LICENSE

@@ -1,0 +1,36 @@
+DOLLY 7
+PACKAGE lean-meta
+REQUIRES HOST runtime@0
+
+# Lean's Lean library, the compiler and elaborator that a Lean program
+# imports to work with Lean itself, compiled by the first lean (lean-stage0)
+# as lean-std is: its .olean files and libLean.a, which every Lean program
+# links, as upstream's flags name it.
+FROM /v0.1.4/demos/lean/Dollyfile-lean-stage0 1a8d33031eb5c901d30beadea54da20ad81e14165bdffde1010fa79c7f3905b8
+INSTALL /v0.1.4/demos/lean/Dollyfile-lean-std 976aab3ed398263ccaf7cc8c6e7d1394dfbb7bc269b1941611c2df7c6a2ec4c6
+REQUIRES TOOL ar
+REQUIRES TOOL cc
+REQUIRES TOOL find
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL sed
+REQUIRES TOOL tar
+REQUIRES TOOL tr
+REQUIRES TOOL xargs
+
+SOURCE /v0.1.4/dist/static/lean/lean.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/lean.tar.gz
+SOURCE /v0.1.4/dist/static/lean/port.tar 0000000000000000000000000000000000000000000000000000000000000000 /tmp/lean-port.tar
+# Stage 1 reads only src/.
+SLOP gzip -dc /tmp/lean.tar.gz | tar -xf - -C / && rm -r /tmp/lean.tar.gz /tmp/lean/stage0
+SLOP tar -xf /tmp/lean-port.tar -C /
+SLOP CWD /tmp/lean make -f dolly/lean-dolly.mk -j4 STAGE=1 LIBRARIES=Lean LEAN=/usr/lib/lean-stage0/lean
+
+FOLDER /usr/lib/lean/Lean
+FILE /usr/lib/lean/Lean.olean
+FILE /usr/lib/lean/Lean.olean.server
+FILE /usr/lib/lean/Lean.olean.private
+FILE /usr/lib/lean/Lean.ir
+FILE /usr/lib/lean/Lean.ir.sig
+FILE /usr/lib/lean/Lean.ilean
+FILE /usr/lib/lean/libLean.a

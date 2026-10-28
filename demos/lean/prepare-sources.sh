@@ -1,5 +1,5 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_image lean-build; then
+if has_image lean-stage0; then
   # The release's sources unchanged, without its tests and documentation (its
   # archive starts with a pax header, which Dolly's tar does not read), and
   # Dolly's part of the build.
