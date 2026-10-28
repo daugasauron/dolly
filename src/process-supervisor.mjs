@@ -190,7 +190,7 @@ export class DollyProcessSupervisor {
       // Entered through JSPI (WebAssembly.promising), a process runs on a
       // stack of its own. Chrome's holds about 950 KB where a Worker's holds
       // 500 KB, which Clang needs: an executable asks for it with a
-      // dolly.process.stack section, and only the compiler carries one
+      // dolly.process.stack section, as the compiler and lean and lake do
       // (src/process/compiler-main.c). Every other program is entered
       // directly: a Codex build crashed Chrome's tab twice on that stack
       // (tasks/20260930-232236-llvm-in-dolly), and Firefox 155 reports every

@@ -98,3 +98,6 @@ zig-llvm
 go-tools
 vendor-crates
 ocaml
+lean-std
+lean-meta
+lean

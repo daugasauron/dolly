@@ -8,9 +8,9 @@ REQUIRES HOST threads@0
 # (lean-meta), and here Lake's and LeanExport's, as upstream links them
 # (lean-dolly.mk), with the C++ runtime compiled again from src/. Lake
 # compiles a package's C with cc and links it with libuv.
-FROM /v0.1.4/demos/lean/Dollyfile-lean-stage0 1a8d33031eb5c901d30beadea54da20ad81e14165bdffde1010fa79c7f3905b8
-INSTALL /v0.1.4/demos/lean/Dollyfile-lean-std 976aab3ed398263ccaf7cc8c6e7d1394dfbb7bc269b1941611c2df7c6a2ec4c6
-INSTALL /v0.1.4/demos/lean/Dollyfile-lean-meta 50fff5076960901c88ccd2995eb7b1b57a894bebb2e0f12a37e8fb064bcba1f5
+FROM /v0.1.4/demos/lean/Dollyfile-lean-stage0 4721b1241e39a12e83190f23acee5e726c62c871a05d0e19cf9fde0e3236227c
+INSTALL /v0.1.4/demos/lean/Dollyfile-lean-std 12af821d3848c392e15b0a24dc0484584e71d74a1c5434f48b4e3a27389ad55a
+INSTALL /v0.1.4/demos/lean/Dollyfile-lean-meta 67bf444852b3d81278f94c3a8d9487d381b6d8a292c5d869009e4c568d92640d
 INSTALL /v0.1.4/Dollyfile-cc dadb1af6ae3450a3a48bf4c955fe40d012a9a20d6dc3eca63c4f2737ab4080cc
 INSTALL /v0.1.4/demos/cmake/Dollyfile-libuv f01b9cb62f8ebdd387a93b3402685a8e3da188bc343b59bf2e2a73b2d1175653
 
@@ -49,6 +49,8 @@ FILE /tmp/lean-check/proof.lean
 SLOP CWD /tmp/lean-check test "$(lean --run squares.lean)" = 285
 SLOP CWD /tmp/lean-check lean proof.lean
 SLOP CWD /tmp/lean-check lake new greeting && cd greeting && lake build && test "$(.lake/build/bin/greeting)" = 'Hello, world!'
+# Lean has no manual pages: lean's and lake's help are theirs.
+SLOP mkdir -p /usr/share/man/cat1 && lean --help > /usr/share/man/cat1/lean.1 && lake --help > /usr/share/man/cat1/lake.1
 
 EXPORTS TOOL lean
 EXPORTS TOOL lake
@@ -78,3 +80,5 @@ FILE /usr/lib/lean/libleancpp.a
 FILE /usr/lib/lean/libleanrt.a
 FOLDER /usr/include/lean
 FILE /usr/share/licenses/lean/LICENSE
+FILE /usr/share/man/cat1/lean.1
+FILE /usr/share/man/cat1/lake.1

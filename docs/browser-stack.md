@@ -45,8 +45,9 @@ before its Worker handles anything else.
   module nests before the stack ends, entered each way
   ([`process-supervisor.mjs`](../src/process-supervisor.mjs)).
 - An executable asks for the deeper stack with a `dolly.process.stack` custom
-  section, and only the compiler carries one
-  ([`compiler-main.c`](../src/process/compiler-main.c)). It and its threads
+  section, which the compiler carries
+  ([`compiler-main.c`](../src/process/compiler-main.c)), and of the catalog's
+  other programs only Lean's `lean` and `lake`. It and its threads
   enter through `promising` where that is at least half again as deep
   ([`process-worker.mjs`](../src/process-worker.mjs)); every other program is
   entered directly, in every browser.

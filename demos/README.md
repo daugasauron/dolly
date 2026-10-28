@@ -17,6 +17,7 @@ README. Demos may use each other; the core never uses a demo.
 - [gpu-fluid](gpu-fluid/README.md): an upstream WebGPU fluid solver.
 - [gtk](gtk/README.md): the libraries GTK is built on, GLib and PCRE2, as packages; GObject programs pass through Binaryen's cast emulation.
 - [javascript](javascript/README.md): QuickJS-ng, Janis and TypeScript, each a package.
+- [lean](lean/README.md): Lean 4.35, bootstrapped inside Dolly from upstream's stage0, with Lake building programs through `cc`, as a package.
 - [llvm](llvm/README.md): LLVM, Clang and LLD built inside Dolly by its own `cc`, and the resulting compiler.
 - [local-llm](local-llm/README.md): llama.cpp and model packages for Pi.
 - [mojo](mojo/README.md): the Mojo compiler built inside Dolly, as the package `mojo`; its programs run there, and in `mojo-gpu` with kernels on WebGPU.

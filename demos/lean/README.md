@@ -25,8 +25,14 @@ no Bash and links every program statically, so
 2. Stage 1: that `lean` compiles the release's 2,550 Lean modules (`Init`,
    `Std`, `Lean`, `LeanExport`, `Lake`, `Leanc`), each to its `.olean`
    files and its C, which `cc` compiles at once, as upstream does without
-   Lake (`USE_LAKE=OFF`); the C++ is compiled again from `src/`, and the
-   release's `lean`, `lake` and `leanc` are linked.
+   Lake (`USE_LAKE=OFF`: Lake's build loads stage 0's Lake as a shared
+   library); the C++ is compiled again from `src/`, and the release's
+   `lean`, `lake` and `leanc` are linked.
+
+A snapshot holds at most 2 GiB and the release's libraries are about
+2.9 GB, so stage 1 is built in three images, each compiling into
+`/usr/lib/lean` beside the parts installed before it: `lean-std`,
+`lean-meta`, then `lean`, which installs the other two.
 
 The flags are those CMake computes for a Unix that is neither Linux nor
 Darwin, in a Release build without GMP, mimalloc or mmap: Lean's own bignums,
