@@ -138,6 +138,7 @@ Image builds rewrite SHA-256 pins in `Dollyfile*`. Check by what you changed
 
 - [Architecture](docs/architecture.md): components, system calls, core images.
 - [Embedding](docs/embedding.md): the npm packages, `boot()`, serving a page.
+- [Agent frontend](docs/agent-frontend.md): Pi, skills and a policy in place of a web frontend.
 - [Process model](docs/process-model.md): spawn, descriptors, pipes, signals.
 - [Browser stack](docs/browser-stack.md): what bounds recursion, how a process is entered, Firefox, LLVM.
 - [Machine contracts](abi/README.md): exact Wasm imports, exports and layouts.

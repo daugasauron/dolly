@@ -30,6 +30,30 @@ install command changed): pnpm 12.15.0 (each package a symlink side by side unde
 `node_modules` (`.pnp.cjs` and zip archives), so a page has nothing to import; the guide says to
 set the linker.
 
+## The first use case (owner, 2026-10-28)
+
+> Regarding npm, the most important thing for me at the moment #1 usecase, is to be able to
+> deploy something like pi agent, a set of skills, and a policy that is only allowed to go
+> against one site (and the LLM backend provider necessary), such that it can "replace" a
+> webapp frontend for an existing system with a good backend API.
+
+`docs/agent-frontend.md` describes it. `demos/pi/test/frontend-browser.mjs` measures it with
+the site's in-tab build, not the npm packages (Chromium 12.5 s, Firefox 14.3 s, 2026-10-28): a
+recipe on `pi-runtime` with a system prompt, an orders skill, `models.json` and an entry that
+reads the token and key with `secretenv`; a policy of two rules (the API's `/api/` prefix,
+the model's completions path); a scripted model on its own origin receives the prompt, the
+skill and its key; Pi reads the skill, lists and cancels through the API with the token; the
+policy refuses `example.com`, another API path and `DELETE` (curl 9). No real model was run:
+`~/.openrouter` (OpenRouter's `/api/v1/key`: 401 "User not found") and `~/.claude-api`
+(Anthropic's `/v1/models`: 401 "invalid x-api-key") were both refused that day.
+
+What the npm path lacks for it:
+- an image package for an agent image: `package-npm.mjs` packages `default` alone;
+- building a deployer's recipe without a Dolly checkout (the npm packages do not build);
+- a way for the page to hand the guest a token other than `paste()` into a hidden prompt
+  (`boot()` takes no files or environment; the broker never injects credentials);
+- a smaller first load: `pi-runtime` is 66.5 MB compressed, 35 MB of it the compiler.
+
 Left: publishing to npmjs under `@daugasauron`, with the release: the owner's step; nothing
 here publishes.
 

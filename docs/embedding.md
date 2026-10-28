@@ -2,7 +2,8 @@
 
 Dolly is a POSIX-like userspace for wasm64 that runs in a browser tab: a Wasm
 kernel, programs in private Wasm memories, and host modules that bridge it to
-the browser. These npm packages put it in a page of your own.
+the browser. These npm packages put it in a page of your own. Their first use is
+an agent in place of a web frontend (`docs/agent-frontend.md` in the repository).
 
 | Package | What it holds |
 | --- | --- |
