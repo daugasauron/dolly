@@ -46,7 +46,8 @@ done
 # The site keeps checkout paths: published pages, code, recipes and sources.
 mkdir -p "${staging}/site/dist"
 node "${project_dir}/scripts/site-release.mjs" source "${staging}/site" "${project_dir}"
-mapfile -t sources < <(node "${project_dir}/scripts/list-images.mjs" --sources)
+# abi/*.wat is copied whole, whether or not a recipe names a contract as a source.
+mapfile -t sources < <(node "${project_dir}/scripts/list-images.mjs" --sources | grep -v "^abi/.*\.wat$")
 (cd "${project_dir}" && cp --parents -R index.html amy-index.txt 404.html terminal.html coi-serviceworker.js LICENSE llms.txt licences \
   host src/*.mjs abi/*.wat "${sources[@]}" "${image_names[@]}" view rebuild \
   custom/index.html custom/rebuild custom/run session sessions "${staging}/site/")
