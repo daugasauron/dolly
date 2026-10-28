@@ -35,3 +35,5 @@ SLOP mkdir -p /usr/lib/lean-stage0 && cp /tmp/lean/build/stage0/bin/lean /usr/li
 SLOP /usr/lib/lean-stage0/lean --version
 
 FILE /usr/lib/lean-stage0/lean
+
+ENTRY /bin/foreground -i /bin/slop

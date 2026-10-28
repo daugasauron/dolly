@@ -72,3 +72,13 @@ in `stage0/src`:
 - The program's path is read from `/proc/self/exe`, the only such link
   Dolly's kernel answers.
 - The OpenSSL version is 0, as under Emscripten: Dolly has no OpenSSL.
+
+## Limits
+
+- A threaded Dolly program loads no shared objects, so `lean --plugin` and
+  `--load-dynlib`, and Lake's `precompileModules` and shared `extern_lib`s,
+  fail when they load one.
+- `bv_decide` runs CaDiCaL and Lake's artifact cache runs leantar, which the
+  release downloads or builds beside Lean; neither is built here.
+- A Lake dependency fetched with Git needs `amy install git`, and its host
+  must send CORS headers ([HTTP](../../docs/http.md)).
