@@ -14,6 +14,10 @@ package, whose programs `cc` compiles from the C Lean emits.
 
 ## Building
 
+Stage 1 does not build yet: Lean's elaborator recurses deeper than a
+browser's stack holds, and the first modules of `Init` that need more fail
+([browser stack](../../docs/browser-stack.md)). `lean-stage0` builds.
+
 Upstream's build is CMake around Bash: `stdlib.make`, `lean.mk`, `leanc.sh`
 and `leanmake` are Bash scripts, the libraries are linked into shared
 libraries, and stage 1 downloads mimalloc, CaDiCaL and leantar. Dolly has

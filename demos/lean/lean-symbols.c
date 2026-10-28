@@ -244,7 +244,7 @@ int main(int argc, char **argv) {
   for (size_t i = 0; i < symbol_count; i++)
     if (unique == 0 || strcmp(symbols[unique - 1].name, symbols[i].name) != 0) symbols[unique++] = symbols[i];
   /* No header: a declaration here may name what a header declares otherwise. */
-  puts("static int compare(const char *a, const char *b) {\n"
+  puts("static int lean_dolly_compare(const char *a, const char *b) {\n"
        "  while (*a && *a == *b) a++, b++;\n"
        "  return (unsigned char)*a - (unsigned char)*b;\n"
        "}");
@@ -255,15 +255,15 @@ int main(int argc, char **argv) {
       putchar('\n');
     } else printf("extern char %s[];\n", symbols[i].name);
   }
-  puts("static const struct { const char *name; void *address; } symbols[] = {");
+  puts("static const struct { const char *name; void *address; } lean_dolly_symbols[] = {");
   for (size_t i = 0; i < unique; i++) printf("{\"%s\", (void *)%s},\n", symbols[i].name, symbols[i].name);
   puts("};");
   printf("void *lean_dolly_symbol(const char *name) {\n"
          "  unsigned long low = 0, high = %zu;\n"
          "  while (low < high) {\n"
          "    unsigned long middle = low + (high - low) / 2;\n"
-         "    int order = compare(name, symbols[middle].name);\n"
-         "    if (order == 0) return symbols[middle].address;\n"
+         "    int order = lean_dolly_compare(name, lean_dolly_symbols[middle].name);\n"
+         "    if (order == 0) return lean_dolly_symbols[middle].address;\n"
          "    if (order < 0) high = middle; else low = middle + 1;\n"
          "  }\n"
          "  return 0;\n"
