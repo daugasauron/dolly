@@ -131,8 +131,10 @@ test("no two contracts claim one process operation number", async () => {
   for (const { name, url, processWorker } of hostManifests) {
     if (!processWorker) continue;
     const { serve } = await import(new URL(processWorker, url));
-    const local = serve({ memory: new WebAssembly.Memory({ initial: 1 }),
-      instance: { exports: {} }, processInterface: { exports: [] } });
+    // What a process Worker gives a provider, with stack-wrap's two exports.
+    const local = serve({ memory: new WebAssembly.Memory({ initial: 1 }), processInterface: { exports: [] },
+      instance: { exports: { dolly_stack_room: new WebAssembly.Global({ value: "i32", mutable: true }, 0),
+        dolly_stack_continue() {} } }, stack: { promisingEntry: false, depths: { direct: 0, promising: 0 } } });
     for (let operation = 0; operation < 256; ++operation) {
       if (local.handles(operation)) claims.push({ name: `${name}@${operation}`, first: operation, last: operation });
     }

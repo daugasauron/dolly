@@ -11,5 +11,6 @@
   "process": ["dolly-stack-0.wat"],
   "headers": ["stack-abi.h"],
   "kernel": [],
-  "client": []
+  "client": [],
+  "tools": ["stack-wrap.c"]
 }

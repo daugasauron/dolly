@@ -32,19 +32,22 @@ export function serve({ instance, stack }) {
   if (!(room instanceof WebAssembly.Global) || typeof resume !== "function") {
     throw new TypeError("an executable recording stack@0 must export dolly_stack_room and dolly_stack_continue");
   }
-  if (!WebAssembly.promising) throw new Error("stack@0 needs WebAssembly.promising");
-  const helper = new WebAssembly.Instance(entry, { program: { continue: resume } });
-  const enter = WebAssembly.promising(helper.exports.enter);
-  const { done, rethrow } = helper.exports;
   const fresh = roomOf(stack.depths.promising);
   room.value = stack.promisingEntry ? fresh : roomOf(stack.depths.direct);
   // The reason of the first trap on a fresh stack. Its caller traps too, as the
   // call returns 1; the rejection that carries the reason arrives a moment later.
-  let failure;
+  let failure, helper, enter;
   return {
     handles: operation => operation === DOLLY_STACK_CONTINUE,
     call(operation, request, response) {
       if (request.size || response.size) return -BigInt(DOLLY_ERRNO.EINVAL);
+      if (!WebAssembly.promising) {
+        failure ??= new Error("this browser has no WebAssembly.promising, which stack@0 needs");
+        return -BigInt(DOLLY_ERRNO.ENOSYS);
+      }
+      helper ??= new WebAssembly.Instance(entry, { program: { continue: resume } });
+      enter ??= WebAssembly.promising(helper.exports.enter);
+      const { done, rethrow } = helper.exports;
       const saved = room.value;
       room.value = fresh;
       done.value = 0;

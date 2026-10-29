@@ -7,12 +7,13 @@ import { fileURLToPath } from "node:url";
 import { hostManifests } from "../host/manifests.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-export const hostFiles = field => hostManifests.flatMap(manifest => [manifest[field]].flat()
+export const hostFiles = field => hostManifests.flatMap(manifest => [manifest[field] ?? []].flat()
   .map(path => ({ name: manifest.name, file: relative(root, fileURLToPath(new URL(path, manifest.url))) })));
 
-// Module headers and clients are published at their checkout path; headers
-// are installed as /usr/include/dolly/NAME.h, by the seed or a package.
-export const publishedHostFiles = new Set([...hostFiles("headers"), ...hostFiles("client")].map(({ file }) => `/${file}`));
+// Module headers, clients and tools are published at their checkout path;
+// headers are installed as /usr/include/dolly/NAME.h, by the seed or a package.
+export const publishedHostFiles = new Set([...hostFiles("headers"), ...hostFiles("client"), ...hostFiles("tools")]
+  .map(({ file }) => `/${file}`));
 
 // The platform's documents and machine contracts are published at their
 // checkout path as well (package-documentation.mjs) and installed under
