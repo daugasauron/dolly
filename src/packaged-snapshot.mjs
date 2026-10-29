@@ -1,13 +1,15 @@
 // The images of an image directory as the page and the Worker load them: each
 // one's metadata, checked against the catalog and the recipes the directory
-// serves, and its packs, streamed or whole.
+// serves, and its packs: streamed into a booting kernel, or merged in path
+// order into the image's canonical snapshot.
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES, imageBase } from "./images.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
 import { hostRequirements } from "../host/requirements.mjs";
 import { siteReference, sitePath, decodeStaticAsset, sha256 } from "./static-asset.mjs";
-import { mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
+import { decodeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 import { unretainedPath } from "./image-names.mjs";
+import { Sha256 } from "./sha256.mjs";
 const definitionOf = image => DOLLY_IMAGES.find(definition => definition.image === image);
 const encoder = new TextEncoder();
 const expectedRecipes = image => definitionOf(image).recipes;
@@ -120,56 +122,199 @@ async function* packagedSnapshotParts(image, metadata, signal) {
     if (!response.ok || !response.body) throw new Error(`snapshot returned HTTP ${response.status}`);
     const declared = response.headers.get("content-length");
     if (declared !== null && Number(declared) !== expected) throw new Error("snapshot HTTP content length mismatch");
-    const body = compressed ? response.body.pipeThrough(new DecompressionStream("gzip")) : response.body;
-    yield { ...part, body };
+    yield { ...part, compressed, body: response.body };
   }
+}
+
+const gunzip = body => body.pipeThrough(new DecompressionStream("gzip"));
+
+// The chunks of `body`; a consumer that stops early cancels it.
+async function* chunksOf(body, signal) {
+  const reader = body.getReader();
+  let finished = false;
+  try {
+    for (;;) {
+      signal?.throwIfAborted();
+      const { done, value } = await reader.read();
+      if (done) break;
+      yield value;
+    }
+    finished = true;
+  } finally {
+    if (!finished) await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+}
+
+async function readBytes(body, length, signal) {
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  for await (const chunk of chunksOf(body, signal)) {
+    if (chunk.length > length - offset) throw new Error("snapshot exceeds declared size");
+    bytes.set(chunk, offset);
+    offset += chunk.length;
+  }
+  if (offset !== length) throw new Error("snapshot integrity mismatch");
+  return bytes;
+}
+
+// The stream of `bytes` in pieces of at most 16 KiB, so that decompressing it
+// holds only a little of the output at a time.
+function streamOf(bytes) {
+  let offset = 0;
+  return new ReadableStream({
+    pull(controller) {
+      const end = Math.min(offset + 16 * 1024, bytes.length);
+      controller.enqueue(bytes.subarray(offset, end));
+      offset = end;
+      if (offset === bytes.length) controller.close();
+    },
+  }, { highWaterMark: 0 });
 }
 
 // The sink owns incremental hashing. Every part is checked before another is
 // requested; the caller verifies the complete canonical image before booting.
 export async function streamPackagedSystemSnapshot(image, metadata, write, endPart, signal) {
   for await (const part of packagedSnapshotParts(image, metadata, signal)) {
-    const reader = part.body.getReader();
     let size = 0;
-    try {
-      for (;;) {
-        signal?.throwIfAborted();
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value.length > part.byteLength - size) throw new Error("snapshot exceeds declared size");
-        await write(value);
-        size += value.length;
-      }
-      if (size !== part.byteLength || await endPart() !== part.sha256) throw new Error("snapshot integrity mismatch");
-    } catch (error) {
-      await reader.cancel().catch(() => {});
-      throw error;
-    } finally { reader.releaseLock(); }
+    for await (const chunk of chunksOf(part.compressed ? gunzip(part.body) : part.body, signal)) {
+      if (chunk.length > part.byteLength - size) throw new Error("snapshot exceeds declared size");
+      await write(chunk);
+      size += chunk.length;
+    }
+    if (size !== part.byteLength || await endPart() !== part.sha256) throw new Error("snapshot integrity mismatch");
   }
 }
 
-export async function loadPackagedSystemSnapshot(image, metadata, signal) {
-  const parts = [];
-  for await (const part of packagedSnapshotParts(image, metadata, signal)) {
-    const reader = part.body.getReader(), bytes = new Uint8Array(part.byteLength);
-    let offset = 0;
-    try {
-      for (;;) {
-        signal?.throwIfAborted();
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value.length > bytes.length - offset) throw new Error("snapshot exceeds declared size");
-        bytes.set(value, offset);
-        offset += value.length;
-      }
-      if (offset !== bytes.length || await sha256(bytes) !== part.sha256) throw new Error("snapshot integrity mismatch");
-      parts.push(bytes);
-    } catch (error) {
-      await reader.cancel().catch(() => {});
-      throw error;
-    } finally { reader.releaseLock(); }
+function snapshotHeader(count) {
+  const bytes = new Uint8Array(16), view = new DataView(bytes.buffer);
+  bytes.set(encoder.encode("DOLLYSNP"));
+  view.setUint32(8, 2, true);
+  view.setUint32(12, count, true);
+  return bytes;
+}
+
+function recordHeader(kind, path, size) {
+  const bytes = new Uint8Array(16 + path.length), view = new DataView(bytes.buffer);
+  view.setUint32(0, kind, true);
+  view.setUint32(4, path.length, true);
+  view.setBigUint64(8, BigInt(size), true);
+  bytes.set(path, 16);
+  return bytes;
+}
+
+function compareBytes(left, right) {
+  for (let index = 0; index < Math.min(left.length, right.length); index += 1) {
+    if (left[index] !== right[index]) return left[index] - right[index];
   }
-  const bytes = parts.length === 1 ? parts[0] : mergeSnapshotRecords(parts);
-  if (bytes.length !== metadata.byteLength || await sha256(bytes) !== metadata.sha256) throw new Error("packed snapshot integrity mismatch");
+  return left.length - right.length;
+}
+
+// One pack's bytes, decompressed again as its records are reached in path order.
+class PackReader {
+  constructor(compressed) {
+    this.chunks = chunksOf(gunzip(streamOf(compressed)));
+    this.chunk = new Uint8Array(0);
+    this.position = 0; // the pack offset of this.chunk
+  }
+
+  // The pack's bytes [offset, offset + length), skipping those before it.
+  async *read(offset, length) {
+    const end = offset + length;
+    while (this.position < end) {
+      if (this.chunk.length === 0) {
+        const { done, value } = await this.chunks.next();
+        if (done) throw new Error("truncated snapshot pack");
+        this.chunk = value;
+      }
+      const start = Math.max(offset - this.position, 0), taken = Math.min(this.chunk.length, end - this.position);
+      if (taken > start) yield this.chunk.subarray(start, taken);
+      this.chunk = this.chunk.subarray(taken);
+      this.position += taken;
+    }
+  }
+
+  close() { return this.chunks.return(); }
+}
+
+// Checks every pack against its hash, keeping only its compressed bytes and
+// where its records lie; returns the image's records in path order, each
+// pack's read from its bytes decompressed once more.
+async function packedRecords(image, metadata, signal) {
+  const records = [];
+  for await (const part of packagedSnapshotParts(image, metadata, signal)) {
+    const pack = { compressed: await readBytes(part.body, part.encodedByteLength, signal), unread: 0 };
+    const bytes = await readBytes(gunzip(streamOf(pack.compressed)), part.byteLength, signal);
+    if (await sha256(bytes) !== part.sha256) throw new Error("snapshot integrity mismatch");
+    for (const [path, { kind, data }] of decodeSnapshotRecords(bytes)) {
+      records.push({ pack, kind, path: encoder.encode(path), offset: data.byteOffset, size: data.length });
+      pack.unread += 1;
+    }
+  }
+  records.sort((left, right) => compareBytes(left.path, right.path));
+  return (async function* () {
+    yield snapshotHeader(records.length);
+    for (const { pack, kind, path, offset, size } of records) {
+      yield recordHeader(kind, path, size);
+      pack.reader ??= new PackReader(pack.compressed);
+      yield* pack.reader.read(offset, size);
+      if (--pack.unread === 0) {
+        await pack.reader.close();
+        pack.reader = pack.compressed = null;
+      }
+    }
+  })();
+}
+
+// Joins pieces into chunks of 1 MiB, the last one shorter.
+async function* joined(pieces) {
+  const size = 1024 * 1024;
+  let chunk = new Uint8Array(size), used = 0;
+  for await (let piece of pieces) {
+    while (piece.length !== 0) {
+      const taken = Math.min(piece.length, size - used);
+      chunk.set(piece.subarray(0, taken), used);
+      used += taken;
+      piece = piece.subarray(taken);
+      if (used === size) {
+        yield chunk;
+        chunk = new Uint8Array(size);
+        used = 0;
+      }
+    }
+  }
+  if (used !== 0) yield chunk.subarray(0, used);
+}
+
+// The image's canonical snapshot in chunks, merged from its packs as they are
+// read: the page holds the packs' compressed bytes, not the image. Every pack
+// matches its hash before the first chunk; the chunks end in an error, not
+// their end, unless together they match the image's hash.
+export async function packagedSystemSnapshot(image, metadata, signal) {
+  const pieces = metadata.encoding === "packs" ? await packedRecords(image, metadata, signal)
+    : (async function* () {
+      for await (const part of packagedSnapshotParts(image, metadata, signal))
+        yield* chunksOf(part.compressed ? gunzip(part.body) : part.body, signal);
+    })();
+  return (async function* () {
+    const hash = new Sha256();
+    let size = 0;
+    for await (const chunk of joined(pieces)) {
+      if (chunk.length > metadata.byteLength - size) throw new Error("snapshot exceeds declared size");
+      size += chunk.length;
+      hash.update(chunk);
+      yield chunk;
+    }
+    if (size !== metadata.byteLength || hash.hex() !== metadata.sha256) throw new Error("packed snapshot integrity mismatch");
+  })();
+}
+
+export async function loadPackagedSystemSnapshot(image, metadata, signal) {
+  const bytes = new Uint8Array(metadata.byteLength);
+  let offset = 0;
+  for await (const chunk of await packagedSystemSnapshot(image, metadata, signal)) {
+    bytes.set(chunk, offset);
+    offset += chunk.length;
+  }
   return bytes.buffer;
 }
