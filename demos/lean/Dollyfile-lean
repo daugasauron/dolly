@@ -34,13 +34,21 @@ REQUIRES TOOL tr
 REQUIRES TOOL xargs
 
 SOURCE /v0.1.4/dist/static/lean/lean.tar.gz ef83239912f7c218c5f0e937de704b7da807b9802b05216414b59b9dec42e0da /tmp/lean.tar.gz
-SOURCE /v0.1.4/dist/static/lean/port.tar 79862a8012efe1a0acf551ec97c992ffde2cb846aac46cb3f92ab3fdcce09d05 /tmp/lean-port.tar
+SOURCE /v0.1.4/dist/static/lean/port.tar a3414edac56f838f8d0f607751c1d9d9f67667826153cff29368b0cbc5b86821 /tmp/lean-port.tar
 # Stage 1 reads only src/.
 SLOP gzip -dc /tmp/lean.tar.gz | tar -xf - -C / && rm -r /tmp/lean.tar.gz /tmp/lean/stage0
 SLOP tar -xf /tmp/lean-port.tar -C /
 SLOP CWD /tmp/lean patch -p1 < dolly/lean-dolly.patch
-SLOP CWD /tmp/lean make -f dolly/lean-dolly.mk -j4 STAGE=1 LIBRARIES='LeanExport Lake Leanc' \
-  LEAN=/usr/lib/lean-stage0/lean GITHASH=eb6cafb7290e8bd5f2937522d8d804f58f02bafc libraries install
+# One job: the kernel holds Lean's libraries, 2.4 GB, and at four jobs the
+# lean processes that import them exceeded a 9 GB build.
+# lake's symbol table leaves libLeanExport.a out: LeanExport.o is a
+# program's (its main, which WebAssembly names __main_argc_argv), and the
+# table's references would link it beside LakeMain's. Lake links the members
+# it calls; the interpreter runs any other's IR.
+SLOP CWD /tmp/lean make -f dolly/lean-dolly.mk STAGE=1 LIBRARIES='LeanExport Lake Leanc' \
+  LEAN=/usr/lib/lean-stage0/lean GITHASH=eb6cafb7290e8bd5f2937522d8d804f58f02bafc \
+  LAKE_LIBRARIES='/usr/lib/lean/libLake.a /usr/lib/lean/libleancpp.a /usr/lib/lean/libLean.a /usr/lib/lean/libStd.a /usr/lib/lean/libInit.a /usr/lib/lean/libleanrt.a' \
+  libraries install
 
 # lean runs a program and checks a proof; lake makes a package and builds
 # its program with cc.
