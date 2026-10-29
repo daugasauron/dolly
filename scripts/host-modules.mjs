@@ -41,10 +41,12 @@ const kernelModuleList = () => hostManifests.filter(({ provides, kernel }) => pr
 
 if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === "kernel-modules") {
   process.stdout.write(`// Generated from the host module manifests.\n${kernelModuleList()}`);
+} else if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === "packaged") {
+  for (const { name, package: image } of hostManifests) if (image) console.log(name);
 } else if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const field = process.argv[2];
   if (process.argv.length !== 3 || !["contracts", "process", "headers", "kernel", "client"].includes(field)) {
-    throw new Error("usage: host-modules.mjs contracts|process|headers|kernel|client");
+    throw new Error("usage: host-modules.mjs contracts|process|headers|kernel|client|packaged");
   }
   for (const { name, file } of hostFiles(field)) console.log(field === "client" ? `${name} ${file}` : file);
 }

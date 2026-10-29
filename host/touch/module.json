@@ -10,5 +10,6 @@
   "process": [],
   "headers": ["touch.h", "touch-abi.h"],
   "kernel": ["kernel.c"],
-  "client": ["client.c"]
+  "client": ["client.c"],
+  "package": "libdolly-touch"
 }

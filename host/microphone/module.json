@@ -10,5 +10,6 @@
   "process": [],
   "headers": ["microphone.h", "microphone-abi.h"],
   "kernel": ["kernel.c"],
-  "client": ["client.c"]
+  "client": ["client.c"],
+  "package": "libdolly-microphone"
 }

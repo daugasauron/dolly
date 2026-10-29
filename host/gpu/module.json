@@ -10,5 +10,6 @@
   "process": [],
   "headers": ["gpu.h", "gpu-abi.h"],
   "kernel": ["kernel.c"],
-  "client": ["client.c"]
+  "client": ["client.c"],
+  "package": "libdolly-gpu"
 }

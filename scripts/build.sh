@@ -87,10 +87,10 @@ node scripts/generate-abi-constants.mjs
 mapfile -t headers < <(node scripts/host-modules.mjs headers)
 # -p keeps source mtimes so unchanged headers rebuild nothing.
 rm -rf build/include && mkdir -p build/include/dolly && cp -p -- "${headers[@]}" build/include/dolly/
-# The modules no core source includes ship their headers and clients as
-# packages (Dollyfile-libdolly-NAME); the kernel compiles against every header,
-# the seed holds the others.
-packaged_modules=(audio gpu microphone sockets stack touch)
+# The modules no core source includes ship their headers and clients as the
+# package their manifest names; the kernel compiles against every header, the
+# seed holds the others.
+mapfile -t packaged_modules < <(node scripts/host-modules.mjs packaged)
 packaged() { [[ " ${packaged_modules[*]} " == *" $1 "* ]]; }
 rm -rf build/seed-include && mkdir -p build/seed-include/dolly
 for header in "${headers[@]}"; do

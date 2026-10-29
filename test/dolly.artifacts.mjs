@@ -100,14 +100,21 @@ test("the production seed contains only bootstrap and compiler executables, not 
   assert.ok(![...files.keys()].some(path => path.includes("/c++/v1/")));
   for (const port of ["boost/version.hpp", "png.h", "unicode/utypes.h"])
     assert.ok(!files.has("/usr/include/" + port), `SDK cache port leaked into the compiler seed: ${port}`);
-  // A module header or client that a package's recipe takes (libdolly-NAME, stack-wrap) is not in the seed; every other is.
-  const packaged = new Set((await discoverImageDefinitions(new URL("..", import.meta.url).pathname))
-    .flatMap(({ parsed }) => parsed.sources.map(({ location }) => location.replace(/^\/v[^/]+\//, ""))));
-  for (const { file } of hostFiles("headers").filter(({ file }) => file.startsWith("host/"))) {
-    assert.equal(files.has(`/usr/include/dolly/${basename(file)}`), !packaged.has(file), file);
-  }
-  for (const { name, file } of hostFiles("client")) {
-    assert.equal(files.has(`/usr/lib/dolly/process/libdolly-${name}.a`), !packaged.has(file), name);
+  // A module whose manifest names a package is not in the seed, and that package's recipe
+  // takes its headers and clients; every other module's are in the seed.
+  const definitions = await discoverImageDefinitions(new URL("..", import.meta.url).pathname);
+  for (const { name, package: image } of hostManifests) {
+    const taken = image && definitions.find(definition => definition.image === image).parsed.sources
+      .map(({ location }) => location.replace(/^\/v[^/]+\//, ""));
+    for (const { file } of [...hostFiles("headers"), ...hostFiles("client")].filter(entry => entry.name === name)) {
+      if (image) assert.ok(taken.includes(file), `${image} takes ${file}`);
+    }
+    for (const { file } of hostFiles("headers").filter(entry => entry.name === name && entry.file.startsWith("host/"))) {
+      assert.equal(files.has(`/usr/include/dolly/${basename(file)}`), !image, file);
+    }
+    if (hostFiles("client").some(entry => entry.name === name)) {
+      assert.equal(files.has(`/usr/lib/dolly/process/libdolly-${name}.a`), !image, name);
+    }
   }
 });
 

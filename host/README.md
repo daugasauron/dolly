@@ -33,6 +33,7 @@ a page of the site names those its route uses ([`site.mjs`](../src/site.mjs)).
 | `kernel` | Kernel C; defines `dolly_NAME_kernel`, the process operations it handles and its release hook ([`process-kernel.h`](../src/process-kernel.h)) |
 | `client` | Process C linked as `libdolly-NAME.a`; it records `DOLLY_HOST_REQUIRE(NAME, VERSION, DOLLY_NAME_ABI_DIGEST)` |
 | `tools` | Process C of a program a package builds from the module's directory, such as `stack-wrap`; optional |
+| `package` | The package whose recipe installs the module's headers and clients, which the seed then leaves out; absent when the seed holds them |
 
 A provider's `browser()` and `worker()` receive the page's shared resources
 (`mount`, `canvas`, `keyboard`, `applicationBase` (the image directory), `site`
@@ -79,9 +80,9 @@ Adding a module takes its directory, one name in `manifests.mjs`, its imports
 in `abi/dolly-browser-0.wat` and its row in
 [browser boundary](../docs/browser-boundary.md); the last two are where a human
 reviews the authority it adds. Its header and client reach programs through a
-package, `Dollyfile-libdolly-NAME`, which `scripts/build.sh` then leaves out of
-the seed, as for gpu, audio, microphone, sockets and touch (stack's is
-`Dollyfile-stack-wrap`); a module that a
+package, `Dollyfile-libdolly-NAME` named as the manifest's `package`, which
+`scripts/build.sh` then leaves out of the seed, as for gpu, audio, microphone,
+sockets and touch (stack's is `stack-wrap`); a module that a
 core source includes stays in the seed. A module without imports may instead own a
 reserved origin of the HTTP broker ([`http/local-services.mjs`](http/local-services.mjs)),
 as `build` and `packages` do: its service admits each request itself.

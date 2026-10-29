@@ -12,5 +12,6 @@
   "headers": ["stack-abi.h"],
   "kernel": [],
   "client": [],
+  "package": "stack-wrap",
   "tools": ["stack-wrap.c"]
 }

@@ -10,5 +10,6 @@
   "process": [],
   "headers": ["audio.h", "audio-abi.h"],
   "kernel": ["kernel.c"],
-  "client": ["client.c"]
+  "client": ["client.c"],
+  "package": "libdolly-audio"
 }

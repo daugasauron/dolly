@@ -9,5 +9,6 @@
   "process": ["dolly-sockets-0.wat"],
   "headers": ["sockets.h", "sockets-abi.h"],
   "kernel": ["kernel.c"],
-  "client": ["client.c"]
+  "client": ["client.c"],
+  "package": "libdolly-sockets"
 }
