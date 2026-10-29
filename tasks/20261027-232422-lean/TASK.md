@@ -23,27 +23,13 @@ exception the demo's README states.
 - A demo test passes in Chromium and Firefox; the package has its row in `test/amy-browser.mjs`;
   sources are pinned, with licence rows.
 
-## State (2026-10-28, evening): blocked by the browser's stack
+## State (2026-10-29): building on stack@0
 
-Stage 0 builds in Dolly: `lean-stage0` is an image (471 s on the round's base, cgroup peak
-3.7 GB, snapshot 352 MB), and its `lean` runs. Stage 1 cannot be built: Lean's elaborator
-recurses deeper than any browser's stack, which a page cannot size. In Chrome, on the larger
-`promising` stack (about 950 KB), `Init/Meta/Defs.lean` and `Init/Grind/Config.lean` die with
-`Maximum call stack size exceeded`, and every other module of `Init` and `Std` imports one of
-them. Natively, upstream runs this on 1 GiB threads; the survey below shows modules needing
-up to 2.6 MB of native stack, about 4 to 5 MB in Dolly.
-
-What would unblock it is the owner's decision, not this task's: the "general fix, not taken"
-of `docs/browser-stack.md` (continuing on a fresh `promising` stack), together with a point at
-which to move. For Lean that point has to be in compiled code (the deep recursion is the
-compiled elaborator's, not the interpreter's), so a hook in every function's prologue, from
-the compiler or a Binaryen pass, which is the process contract's and the toolchain's change.
-`lean-std`, `lean-meta` and `lean` are written for that day and fail now: `lean-std` stops
-after 36 modules, the other two are skipped. Do not put them in a round until then.
-
-The work is on branch `demo/lean` (072c5560, on 5c411d1a), not merged: three of its four
-recipes fail, and `lean-stage0` alone gives a `lean` without a library to import. It waits
-for the owner and is not part of v0.1.4.
+`stack@0` (core `d957ea08`) lifts the stack blocker: `stack-wrap` rewrites `lean` and `lake`
+(stage 0's and the shipped ones), and the images that hold them declare `stack@0`. In a session,
+the wrapped stage-0 `lean` compiles `Init/Grind/Config.lean` and `Init/Meta/Defs.lean`, which
+died without it. `lean`, `lean-std` and `lean-meta` are being built; `default` gets `stack@0`
+the way it gets any module it does not declare: `nena enable stack`, then `amy install lean`.
 
 ## Measurements (Chrome, in a browser slot, 6 GB cap)
 
@@ -135,3 +121,13 @@ module, lean.mk's rules), since Lake would need stage 0's `libLake_shared.so` pl
   (`work/lean/build/lean-evidence/stack-survey-lean.txt`): 1,039 pass at 384 KB, 140 need 576 KB, 34
   need 768 KB, 15 need 1,152 KB, `Lean/Meta/Tactic/FunInd` 1,728 KB, and
   `Lean/Meta/Sym/{DSimp,Simp}/EvalGround` 2,592 KB.
+
+## stack@0 on Lean (2026-10-29, Chrome, a browser slot)
+
+- `stack-wrap` rewrites stage 0's `lean` from 188 to 214 MB in 0.9 s (natively built tool).
+- Wrapped, it builds the 48 modules up to `Init/Grind/Config` and `Init/Meta/Defs` with status 0.
+- Overhead, both programs entered through `promising` in one session: `Init/Prelude.lean`
+  7.55 and 7.33 s unwrapped, 8.28 and 7.90 s wrapped (about 8 %); `Init/Notation.lean` 7.18
+  and 7.01 s against 8.34 and 7.71 s (about 13 %). The earlier 6.0 s for `Init/Prelude` was on a
+  quieter machine.
+- The `dolly.process.stack` section is dropped: with stack@0 it only saved moves.
