@@ -28,7 +28,7 @@ const scope = "@daugasauron";
 // The modules that are the runtime's own machinery, and the device modules each
 // published on its own: the rest of host/manifests.mjs but build@0, the site's
 // image builder, which is not published.
-const runtimeModules = ["runtime", "http", "threads", "dso", "nena", "snapshot", "packages"];
+const runtimeModules = ["runtime", "http", "threads", "dso", "stack", "nena", "snapshot", "packages"];
 const deviceModules = hostManifests.map(({ name }) => name).filter(name => ![...runtimeModules, "build"].includes(name));
 
 // The files a module graph reaches by relative specifiers: static and literal dynamic
@@ -71,7 +71,7 @@ for (const name of runtimeModules) {
 // The contracts the runtime reads (process-supervisor.mjs, host/dso/dso.mjs); a
 // device module's travel in its own package.
 const runtimeFiles = [...await closure(runtimeEntries), "dist/dolly.wasm", "dist/dolly-process-worker.mjs",
-  "dist/dolly-process-dso.mjs", "LICENSE",
+  "dist/dolly-process-dso.mjs", "dist/dolly-process-stack.mjs", "LICENSE",
   ...["process-gate", "process", "threads", "dso"].map(name => `dist/dolly-${name}-0.wasm`)];
 const tarballs = [await writePackage(join(out, "dolly"), runtimeFiles.map(file => [file, file]), {
   name: `${scope}/dolly`, license: "MIT", exports: { ".": "./src/browser.mjs" },

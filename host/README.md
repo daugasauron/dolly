@@ -26,7 +26,7 @@ a page of the site names those its route uses ([`site.mjs`](../src/site.mjs)).
 | `phase` | When the Worker side starts: after the kernel loads (`kernel`) or after the image is restored (`image`) |
 | `imports` | Kernel Wasm imports this module provides; `abi/dolly-browser-0.wat` is their reviewed allowlist |
 | `host` | Trusted JavaScript: `check()`, `browser()` and `worker()` sides ([`modules.mjs`](modules.mjs)); a module with a client exports the `digest` it implements |
-| `processWorker` | Trusted JavaScript served inside the process Worker, bundled as `dist/dolly-process-NAME.mjs`; only `dso` has one (below) |
+| `processWorker` | Trusted JavaScript served inside the process Worker, bundled as `dist/dolly-process-NAME.mjs`; `dso` and `stack` have one (below) |
 | `contracts` | WAT of the kernel boundary: its exports are kernel exports, its imports the host's |
 | `process` | WAT of process-side ABIs, such as the threads entry point |
 | `headers` | C API and packets, installed as `<dolly/NAME.h>`; `NAME-abi.h` is generated from the WAT constants and carries the module's ABI digest |
@@ -52,7 +52,7 @@ kernel. A device module imports only its own files, so it can be delivered on
 its own: its generated `abi.mjs` carries its contracts' constants and the
 process contract's errno numbers, as its C includes `<dolly/process.h>`. The
 modules that are the runtime's own machinery (`runtime`, `http`, `threads`,
-`dso`, `nena`, `snapshot`, `packages`, `build`) also use the runtime's files. They return an instance whose optional members the registry
+`dso`, `stack`, `nena`, `snapshot`, `packages`, `build`) also use the runtime's files. They return an instance whose optional members the registry
 calls: `start` (Worker/page handshake), `messages`, `bindings` (kernel
 imports), `service` (periodic work), `imageRestored(context)` (after the system
 image is restored, before image-phase starts), `claimsKey(event)` (take a key
@@ -79,7 +79,8 @@ in `abi/dolly-browser-0.wat` and its row in
 [browser boundary](../docs/browser-boundary.md); the last two are where a human
 reviews the authority it adds. Its header and client reach programs through a
 package, `Dollyfile-libdolly-NAME`, which `scripts/build.sh` then leaves out of
-the seed, as for gpu, audio, microphone, sockets and touch; a module that a
+the seed, as for gpu, audio, microphone, sockets and touch (stack's is
+`Dollyfile-stack-wrap`); a module that a
 core source includes stays in the seed. A module without imports may instead own a
 reserved origin of the HTTP broker ([`http/local-services.mjs`](http/local-services.mjs)),
 as `build` and `packages` do: its service admits each request itself.
@@ -117,6 +118,16 @@ gets the process libc's refusal and records nothing. In a program using
 `threads@0` it serves every thread's Worker, each with a function table of its
 own: a call works in any thread, and loading a library or preparing a closure,
 which would add an entry to one Worker's table only, is refused (`ENOTSUP`).
+
+`stack@0` lets a program recurse deeper than one browser stack
+([browser stack](../docs/browser-stack.md)). An executable records it once
+`stack-wrap` has rewritten it (`Dollyfile-stack-wrap`, which holds the header
+the seed leaves out): each function that makes calls charges its frame against
+the program's `dolly_stack_room`, and one that finds too little room calls
+itself again through `DOLLY_STACK_CONTINUE`. The provider answers in the
+process's Worker by running the program's `dolly_stack_continue` on a fresh
+stack, and sets each stack's room. It serves every thread's Worker of a
+program using `threads@0`.
 
 ## Local sockets
 

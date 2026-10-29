@@ -1,0 +1,26 @@
+DOLLY 7
+PACKAGE stack-wrap
+REQUIRES HOST runtime@0
+
+# stack-wrap, which makes a program continue deep recursion on fresh browser
+# stacks (host/stack, docs/browser-stack.md). A program it has rewritten
+# records stack@0, which an image that holds one declares.
+FROM /v0.1.4/Dollyfile-system-build 7997c05ba08220831088b2aa713c86dbf0ded0229bbfa84f411476f00269d9fc
+REQUIRES HEADER libc
+REQUIRES TOOL cc
+REQUIRES TOOL rm
+
+SOURCE /v0.1.4/host/stack/stack-abi.h 0d9e5e60fba53fcd348e84f7c6aba92a8b97faab7b6105e8ee3ac55b25039cad /tmp/stack-wrap/dolly/stack-abi.h
+SOURCE /v0.1.4/host/stack/stack-wrap.c 20f6fd5816a679f8b172e8c54c77ba8f9b25199b81b7cd6fb42d52b84ad969d9 /tmp/stack-wrap/stack-wrap.c
+SLOP cc -O2 -I/tmp/stack-wrap /tmp/stack-wrap/stack-wrap.c -o /usr/bin/stack-wrap
+SLOP rm -rf /tmp/stack-wrap
+
+EXPORTS TOOL stack-wrap
+FILE /usr/share/man/cat1/stack-wrap.1
+    stack-wrap IN -o OUT: rewrites a linked program so that it recurses deeper
+    than one browser stack. Each function that makes calls charges its frame
+    on entry; with too little room left it continues on a fresh stack.
+    
+    The program then records stack@0: an image that holds it declares
+    REQUIRES HOST stack@0. A function that makes a tail call, debug
+    information and unlinked objects are refused.

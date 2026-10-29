@@ -2,7 +2,7 @@
 // module's files; the build, packaging and tests read only these, and the site's
 // pages give the registry (modules.mjs) all of them.
 const hostModuleNames = Object.freeze(["runtime", "display", "input", "touch", "http", "gpu", "audio", "microphone",
-  "download", "upload", "snapshot", "threads", "dso", "sockets", "pty", "build", "packages", "nena"]);
+  "download", "upload", "snapshot", "threads", "dso", "stack", "sockets", "pty", "build", "packages", "nena"]);
 
 export const hostModuleUrls = Object.freeze(hostModuleNames.map(name => new URL(`./${name}/module.json`, import.meta.url).href));
 

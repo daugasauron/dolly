@@ -1,0 +1,15 @@
+{
+  "name": "stack",
+  "version": 0,
+  "gives": "recursion deeper than one browser stack",
+  "dependencies": ["runtime@0"],
+  "phase": "kernel",
+  "imports": [],
+  "host": "stack.mjs",
+  "processWorker": "process.mjs",
+  "contracts": [],
+  "process": ["dolly-stack-0.wat"],
+  "headers": ["stack-abi.h"],
+  "kernel": [],
+  "client": []
+}

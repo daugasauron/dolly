@@ -150,7 +150,8 @@ try {
     const url = URL.createObjectURL(bundle);
     try {
       return (await import(url)).serve({ ...options, instance, memory: configuration.memory,
-        processInterface: configuration.processInterface, threaded: configuration.threaded });
+        processInterface: configuration.processInterface, threaded: configuration.threaded,
+        stack: { promisingEntry: configuration.promisingEntry, depths: configuration.stackDepths } });
     } finally { URL.revokeObjectURL(url); }
   }));
   self.postMessage({ type: "started", pid: configuration.pid, tid: configuration.tid });
@@ -163,12 +164,16 @@ try {
     await enter(instance.exports._start)();
     self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
   }
-} catch (error) {
-  if (error === THREAD_EXIT && configuration.threaded && typeof threadResult === "bigint") {
+} catch (caught) {
+  if (caught === THREAD_EXIT && configuration.threaded && typeof threadResult === "bigint") {
     self.postMessage({ type: "thread-finished", pid: configuration.pid, tid: configuration.tid, result: threadResult });
-  } else if (error === PROCESS_EXIT) {
+  } else if (caught === PROCESS_EXIT) {
     self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
   } else {
+    // A trap on a stack stack@0 made ends its caller with a trap of its own;
+    // the provider learns the first one's reason a moment later.
+    await null;
+    const error = localModules.map(module => module.failure).find(Boolean) ?? caught;
     self.postMessage({
       type: "failed",
       pid: configuration.pid, tid: configuration.tid,

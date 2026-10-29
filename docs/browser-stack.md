@@ -3,10 +3,11 @@
 A Dolly process recurses on a stack that belongs to the browser, that a page
 cannot size, and that is far smaller than a native one. This page says what
 that bounds, how a process is entered to get the larger of the stacks a
-browser offers, why Firefox is entered differently, and what it means for
-building LLVM inside Dolly. Every number was measured in headless Chrome 151
-and Firefox 155 in October 2026; the runs are recorded in the task
-`tasks/20260930-232236-llvm-in-dolly`.
+browser offers, why Firefox is entered differently, what it means for
+building LLVM inside Dolly, and how a program goes deeper than one stack.
+Every number was measured in headless Chrome 151 and Firefox 155 in October
+2026; the runs are recorded in the tasks `tasks/20260930-232236-llvm-in-dolly`
+and `tasks/20261027-232422-lean`.
 
 ## Two stacks
 
@@ -124,18 +125,41 @@ Images are built by a Chromium-based browser and are the same bytes for
 every browser that opens them. So the self-compilation running only in
 Chrome limits who can rebuild the image, not who can use it.
 
-## A general fix, not taken
+## Deeper than one stack: stack@0
 
-More stack needs more than one browser stack. An import that enters
-WebAssembly again through `promising` gets a fresh stack, and the callee has
-finished when the call returns, so nothing suspends: measured in both
-browsers with a 125-byte module, a recursion that moves to a fresh stack
-every 2,048 frames reached 1,593,343 frames in Chrome and 262,144 in
-Firefox, and 400 such moves cost 9 ms.
+A program that `stack-wrap` rewrote continues on a fresh stack when the one
+it runs on is nearly used ([`host/stack`](../host/stack/dolly-stack-0.wat)).
+WebAssembly cannot read a browser stack's depth, so the program keeps count:
 
-Not solved: when to move, since WebAssembly cannot read the browser stack's
-depth; that Firefox, after one overflow inside such a call, fails every
-later one in that Worker; and the fault above, which would return. Offering
-it to programs (Clang's `runOnNewStack`, rustc's `stacker`) is a new
-operation of the [process contract](process-model.md), a decision that has
-not been made.
+- Each function that makes calls charges an estimate of its frame against a
+  global, the room, on entry and gives it back on return: 16 slots of 8 bytes
+  plus one for each parameter and local. A function that makes none is left
+  as it was; every check keeps room for the largest of those.
+- With too little room, the function stashes its arguments and itself in
+  globals and asks the `stack@0` provider, in its own Worker, to continue.
+  The provider runs the program's `dolly_stack_continue` through
+  `WebAssembly.promising`, which makes the call again on a fresh stack.
+- JavaScript runs on the thread's first stack wherever it is called from:
+  a program entered from JavaScript on the fresh stack ran on the first one
+  again. The provider therefore enters it from a module of three functions,
+  which also catches what it throws; the stack below throws it again, so C++
+  exceptions and `exit` cross stacks. A trap on a fresh stack ends the
+  function below it with a trap too, and the process fails with the first
+  one's reason.
+- A stack's room is half of what the supervisor's probe nests on it. With
+  each stack's full measure instead, the deepest test still passed; at 1.3
+  times it, a function of 32 locals overflowed in both browsers.
+
+Measured with hand-written modules (Chrome 151, Firefox 155, October 2026):
+
+| | Chrome | Firefox |
+| --- | --- | --- |
+| A recursion of 1,000,000 calls | 20 ms, about 200 stacks | 0.5 s, 175 stacks entered through `promising`; entered directly, the first stack ran out after about 170 |
+| A move to a fresh stack and back | 0.7 µs | 3.3 µs |
+| `fib(32)`, every call charged | 2.6 times as long | 2 times as long |
+
+Not solved: a Worker that Firefox terminates while it is inside a
+`promising` call reports the fault above. A program that ends while another
+of its threads is deep in a fresh stack, or that is killed there, shows it.
+A tail call through a check would grow the stack, so `stack-wrap` refuses
+one, and debug information, whose code offsets would be wrong.

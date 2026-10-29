@@ -197,9 +197,11 @@ export class DollyProcessSupervisor {
       // Worker terminated inside such a call as an uncaught exception that no
       // listener receives. Firefox's holds no more, so the entry is also taken
       // only where it is measured half again as deep (Chrome 151: 1.90
-      // times, Firefox 155: 1.01, each in 48 measurements of 48).
-      supervisor.promisingEntry = WebAssembly.promising !== undefined &&
-        await stackDepth(WebAssembly.promising) > 1.5 * await stackDepth(entry => entry);
+      // times, Firefox 155: 1.01, each in 48 measurements of 48). stack@0
+      // sizes the room of each stack by the same measurements.
+      supervisor.stackDepths = { direct: await stackDepth(entry => entry),
+        promising: WebAssembly.promising ? await stackDepth(WebAssembly.promising) : 0 };
+      supervisor.promisingEntry = supervisor.stackDepths.promising > 1.5 * supervisor.stackDepths.direct;
       return supervisor;
     } catch (error) {
       URL.revokeObjectURL(workerUrl.href);
@@ -606,7 +608,7 @@ export class DollyProcessSupervisor {
     // local: the modules this executable records that are served in its own
     // Worker (host/dso), each as the bundle it imports and its configuration.
     worker.postMessage({ type: "configure", pid, tid: thread.tid, argument, threaded, module, memory, control,
-      promisingEntry: this.promisingEntry && process.largeStack,
+      promisingEntry: this.promisingEntry && process.largeStack, stackDepths: this.stackDepths,
       clockOrigin: performance.timeOrigin, processInterface, local: local.map(requirement => this.processModules.get(requirement)) });
   }
 
