@@ -100,14 +100,14 @@ test("the production seed contains only bootstrap and compiler executables, not 
   assert.ok(![...files.keys()].some(path => path.includes("/c++/v1/")));
   for (const port of ["boost/version.hpp", "png.h", "unicode/utypes.h"])
     assert.ok(!files.has("/usr/include/" + port), `SDK cache port leaked into the compiler seed: ${port}`);
-  // A module whose header and client are a package (libdolly-NAME) is not in the seed; every other's is.
+  // A module header or client that a package's recipe takes (libdolly-NAME, stack-wrap) is not in the seed; every other is.
   const packaged = new Set((await discoverImageDefinitions(new URL("..", import.meta.url).pathname))
-    .map(({ image }) => image.match(/^libdolly-(.+)$/)?.[1]).filter(Boolean));
-  for (const { name, file } of hostFiles("headers").filter(({ file }) => file.startsWith("host/"))) {
-    assert.equal(files.has(`/usr/include/dolly/${basename(file)}`), !packaged.has(name), file);
+    .flatMap(({ parsed }) => parsed.sources.map(({ location }) => location.replace(/^\/v[^/]+\//, ""))));
+  for (const { file } of hostFiles("headers").filter(({ file }) => file.startsWith("host/"))) {
+    assert.equal(files.has(`/usr/include/dolly/${basename(file)}`), !packaged.has(file), file);
   }
-  for (const { name } of hostFiles("client")) {
-    assert.equal(files.has(`/usr/lib/dolly/process/libdolly-${name}.a`), !packaged.has(name), name);
+  for (const { name, file } of hostFiles("client")) {
+    assert.equal(files.has(`/usr/lib/dolly/process/libdolly-${name}.a`), !packaged.has(file), name);
   }
 });
 
@@ -251,6 +251,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["posix", "/bin/grep"],
     ["ps", "/bin/ps"],
     ["session-recover", "/usr/bin/session-recover"],
+    ["stack-wrap", "/usr/bin/stack-wrap"],
     ["system", "/usr/lib/libdisplay.so"],
     ["system-build", "/bin/slop"],
     ["system-tools", "/usr/bin/git"],
