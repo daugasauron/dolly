@@ -6,9 +6,11 @@
 // - A page that adds every other device module loads them all, enables gpu@0,
 //   and holds the http@0 policy it gives boot().
 // - A page that lacks a module the image requires, or isolation, says so.
+// - The README's "Pi with npm", as written: its packages, page and server run Pi,
+//   and its policy refuses another origin.
 // Usage: node test/npm-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
-import { execFile, execFileSync } from "node:child_process";
+import { execFile, execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
@@ -73,6 +75,20 @@ try {
   const [install, more] = blocks("sh");
   await npm(app, install);
   await npm(app, more);
+  const readme = await readFile(resolve(projectDir, "README.md"), "utf8");
+  const piSection = readme.slice(readme.indexOf("\n## Pi with npm\n"), readme.indexOf("\n## ", readme.indexOf("\n## Pi with npm\n") + 1));
+  const piBlocks = language => [...piSection.matchAll(new RegExp("```" + language + "\\n([\\s\\S]*?)```", "g"))].map(([, text]) => text);
+  const piApp = join(work, "pi-app");
+  await mkdir(piApp);
+  await npm(piApp, piBlocks("sh")[0]);
+  await writeFile(join(piApp, "index.html"), piBlocks("html")[0].replace("await boot(", "window.dolly = await boot("));
+  await writeFile(join(piApp, "serve.mjs"), piBlocks("js")[0]);
+  const piServer = spawn(process.execPath, ["serve.mjs"], { cwd: piApp, env: { ...process.env, PORT: "0" } });
+  servers.push({ close: () => piServer.kill() });
+  const piPage = await new Promise((resolveAddress, reject) => {
+    piServer.stdout.once("data", data => resolveAddress(String(data).trim()));
+    piServer.once("exit", status => reject(new Error(`the README's serve.mjs exited with ${status}`)));
+  });
 
   // The guide's page, which also keeps the handle for the test; the same page
   // with every other device module and a policy; and one that lacks touch@0.
@@ -102,21 +118,21 @@ try {
   }));
   const [isolated, plain] = await Promise.all([serve(true), serve(false)]);
   servers.push(isolated, plain);
-  const booted = async (tab, path) => {
+  const booted = async (tab, url, started = /dolly:[^\n]*\$\s*$/) => {
     const errors = [];
     tab.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
     tab.on("pageerror", error => errors.push(error.message));
-    await tab.goto(`${origin(isolated)}/${path}`);
+    await tab.goto(url);
     await tab.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus),
       null, { timeout: 180_000 }).catch(async error => {
       const log = await tab.locator("#bootstrap-log").textContent({ timeout: 1000 }).catch(() => "no boot log");
-      throw new Error(`${path || "index.html"} did not boot: ${log}\n${errors.join("\n")}`,
+      throw new Error(`${url} did not boot: ${log}\n${errors.join("\n")}`,
         { cause: error });
     });
     assert.equal(await tab.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",
       await tab.locator("#bootstrap-log").textContent());
-    await within(tab.evaluate(() => window.dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "the shell", 0)),
-      60, "the shell's prompt");
+    await within(tab.evaluate(started => window.dolly.waitForInteractiveTerminal(new RegExp(started), "the program", 0),
+      started.source), 120, `${started}`);
     return command => within(tab.evaluate(command => window.dolly.submit(command), command), 60, command);
   };
   for (const name of names) {
@@ -125,7 +141,7 @@ try {
       ? chromium.launch({ channel: "chrome", headless: true, args: ["--no-sandbox", "--disable-gpu"] })
       : firefox.launch({ headless: true }));
     try {
-      const tab = await browser.newPage(), submit = await booted(tab, "");
+      const tab = await browser.newPage(), submit = await booted(tab, `${origin(isolated)}/`);
       assert.equal(await submit("echo npm-$((6 * 7))"), 0);
       assert.match(await tab.evaluate(() => window.dolly.visibleTerminalText()), /npm-42/);
       // An explicit check of the capability set: what default declares, no more.
@@ -133,7 +149,7 @@ try {
         ["audio@0", "display@0", "download@0", "dso@0", "http@0", "input@0", "nena@0", "packages@0", "runtime@0",
           "snapshot@0", "sockets@0", "threads@0", "touch@0", "upload@0"]);
 
-      const devices = await browser.newPage(), run = await booted(devices, "devices.html");
+      const devices = await browser.newPage(), run = await booted(devices, `${origin(isolated)}/devices.html`);
       for (const module of ["gpu@0", "microphone@0", "pty@0"]) {
         assert.equal(await run(`nena | grep -q '^${module}  *available '`), 0, `nena lists ${module}`);
       }
@@ -152,6 +168,17 @@ try {
       await bare.goto(`${origin(plain)}/`);
       await bare.waitForFunction(() => document.documentElement.dataset.dollyStatus === "failed", null, { timeout: 60_000 });
       assert.match(await bare.locator("#bootstrap-log").textContent(), /cross-origin isolation/);
+
+      // Pi starts; Ctrl+D leaves it for the shell, where the policy refuses what it does not name.
+      const pi = await browser.newPage(), shell = await booted(pi, piPage, /Bash is not installed/);
+      await pi.keyboard.press("Control+d");
+      await within(pi.evaluate(() => window.dolly.waitForInteractiveTerminal(
+        /Dolly: image entry exited; entering the recovery Slop shell\.[\s\S]*\ndolly:[^\n]*\$\s*$/, "the shell", 0)), 60, "the shell");
+      assert.notEqual(await shell("curl -fsS https://example.com > /dev/null"), 0);
+      assert.deepEqual((await pi.evaluate(() => window.dolly.hostModules)).sort(),
+        ["audio@0", "display@0", "download@0", "http@0", "input@0", "nena@0", "packages@0", "runtime@0",
+          "snapshot@0", "threads@0", "touch@0", "upload@0"]);
+      assert.equal(await shell("command -v pi-key > /dev/null"), 0);
       console.log(`npm packages: ${name} passed in ${((performance.now() - started) / 1000).toFixed(1)}s`);
     } finally { await browser.close(); }
   }

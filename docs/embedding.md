@@ -10,6 +10,7 @@ an agent in place of a web frontend (`docs/agent-frontend.md` in the repository)
 | `@daugasauron/dolly` | The runtime: `boot()`, the kernel, the process runtime, and the host modules that are its own machinery (`runtime`, `http`, `threads`, `dso`, `stack`, `nena`, `snapshot`, `packages`). Building images stays with Dolly's site |
 | `@daugasauron/dolly-host-NAME` | One device host module each: `display` (Ghostty's terminal and programs' frames), `input`, `gpu`, `audio`, `microphone`, `touch`, `download` (as `dolly-host-save`: npm takes no new name with the word), `upload`, `sockets`, `pty` |
 | `@daugasauron/dolly-image-default` | The `default` image alone: a shell, its text tools, the terminal, curl, `amy`, `nena`, `ps`. `amy` lists what is installed and has nothing more to install |
+| `@daugasauron/dolly-image-pi-agent` | The `pi-agent` image alone: the Pi coding agent with JavaScript (Janis), shell tools, ripgrep and fd. The README's "Pi with npm" serves it with a policy |
 
 ```sh
 npm install @daugasauron/dolly @daugasauron/dolly-image-default \

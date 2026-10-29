@@ -75,9 +75,9 @@ token the API answers 401, and neither secret is shown.
 
 ## Not there yet
 
-- npm ships one image, `default`: `scripts/package-npm.mjs` packages it alone.
-  An agent image needs an image package of its own, or a checkout's built
-  image directory served as `images`.
+- npm ships two images, `default` and `pi-agent` (the README's "Pi with npm"):
+  an agent image of your own needs an image package of its own, or a
+  checkout's built image directory served as `images`.
 - The npm packages do not build images: the recipe is built in a Dolly
   checkout (`npm run image`), or in the tab on Dolly's site (`/custom/`), as
   the test does.

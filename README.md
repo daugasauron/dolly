@@ -87,7 +87,7 @@ Open [slopshare.dev](https://slopshare.dev/) or
 [GitHub Pages](https://daugasauron.github.io/dolly/). The menu lists every image.
 
 In a page of your own: `npm install @daugasauron/dolly @daugasauron/dolly-image-default`
-and [Embedding](docs/embedding.md).
+and [Embedding](docs/embedding.md), or [Pi with npm](#pi-with-npm) below.
 
 - `/IMAGE/` boots the prebuilt image; `/IMAGE/rebuild/` builds it from its
   Dollyfile in your browser; `/view/IMAGE/` shows the recipe.
@@ -99,6 +99,66 @@ and [Embedding](docs/embedding.md).
   the page is ready. `upload PATH` and `download FILE` move single files.
 - Needs cross-origin isolation and shared WebAssembly memory64/table64; there is
   no wasm32 fallback.
+
+## Pi with npm
+
+A page of your own that runs the Pi coding agent, served from your machine, whose
+requests the browser admits to the model's provider and nowhere else. In an empty
+directory, with Node.js and npm:
+
+```sh
+npm init --yes
+npm install @daugasauron/dolly @daugasauron/dolly-image-pi-agent \
+  @daugasauron/dolly-host-display @daugasauron/dolly-host-input @daugasauron/dolly-host-audio \
+  @daugasauron/dolly-host-touch @daugasauron/dolly-host-save @daugasauron/dolly-host-upload
+```
+
+`index.html` boots `pi-agent` with an [HTTP policy](docs/http.md) of one rule:
+OpenRouter's API. The broker refuses every other request, whatever Pi or a
+program it runs asks for.
+
+```html
+<!doctype html>
+<meta charset="utf-8">
+<main id="dolly" style="position:fixed;inset:0"></main>
+<script type="module">
+  import { boot } from "./node_modules/@daugasauron/dolly/src/browser.mjs";
+  import { images, image, modules } from "./node_modules/@daugasauron/dolly-image-pi-agent/index.mjs";
+  const policy = { rules: [
+    { origin: "https://openrouter.ai", pathPrefix: "/api/v1/", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },
+  ] };
+  await boot(document.querySelector("#dolly"), { images, image, modules, http: { policy } });
+</script>
+```
+
+`serve.mjs` serves the directory with the cross-origin isolation Dolly needs:
+
+```js
+import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { extname, join, normalize } from "node:path";
+
+const types = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript",
+  ".json": "application/json", ".wasm": "application/wasm" };
+const server = createServer(async (request, response) => {
+  try {
+    const path = join(process.cwd(), normalize(decodeURIComponent(new URL(request.url, "http://localhost").pathname)));
+    const body = await readFile(path.endsWith("/") ? join(path, "index.html") : path);
+    response.writeHead(200, { "content-type": types[extname(path) || ".html"] ?? "application/octet-stream",
+      "cross-origin-opener-policy": "same-origin", "cross-origin-embedder-policy": "require-corp" });
+    response.end(body);
+  } catch {
+    response.writeHead(404).end();
+  }
+}).listen(Number(process.env.PORT ?? 8080), "127.0.0.1", () => console.log(`http://127.0.0.1:${server.address().port}/`));
+```
+
+Run `node serve.mjs` and open the address it prints. Pi starts; leave it with
+Ctrl+D for a shell, where `pi-key OPENROUTER_API_KEY --provider openrouter`
+reads your key without showing it and starts Pi with it, and `/model` picks a
+model. The key stays in that Pi's environment. `curl https://example.com`
+in the shell fails: the policy refuses it. [An agent in place of a web
+frontend](docs/agent-frontend.md) adds skills and an API of your own.
 
 ## Boundary
 
