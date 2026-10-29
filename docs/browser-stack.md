@@ -158,6 +158,14 @@ Measured with hand-written modules (Chrome 151, Firefox 155, October 2026):
 | A move to a fresh stack and back | 0.7 µs | 3.3 µs |
 | `fib(32)`, every call charged | 2.6 times as long | 2 times as long |
 
+Dolly's own compiler, rewritten in a session (one second), compiles 6,020
+consecutive `case` labels with `-Wimplicit-fallthrough`, which end the
+compiler as built in both browsers; a C++ file of `<regex>` and `<map>` takes
+10% longer in Chrome and 13% in Firefox. A chain of 1,200 member calls then
+ends on the other stack, the 8 MiB in the process's memory
+(`memory access out of bounds`), where natively Clang would move to a larger
+one. The compiler in the images is not rewritten.
+
 Not solved: a Worker that Firefox terminates while it is inside a
 `promising` call reports the fault above. A program that ends while another
 of its threads is deep in a fresh stack, or that is killed there, shows it.
