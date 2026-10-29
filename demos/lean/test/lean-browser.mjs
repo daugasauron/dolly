@@ -1,5 +1,6 @@
-// Lean in default, as a person installs it: amy installs the package with cc
-// and libuv, which it names; lean runs a program, accepts theorems proved by
+// Lean in default, as a person installs it: nena enables stack@0, on which
+// lean and lake recurse, and amy installs the package with cc and libuv,
+// which it names; lean runs a program, accepts theorems proved by
 // rfl, decide, simp and omega and rejects a false one; lake makes a package
 // and builds it, cc compiles the C Lean emits, and the program runs.
 // Usage: node demos/lean/test/lean-browser.mjs [chromium|firefox ...]
@@ -18,7 +19,7 @@ const falsehood = "theorem wrong : 2 + 2 = 5 := by decide";
 for (const browser of browsers) {
   await demoTest("lean", { image: "default", timeout: 1_200_000, browser }, async ({ open }) => {
     const { run } = await open();
-    await run("amy install lean");
+    await run("nena enable stack && amy install lean");
     await run(`mkdir /tmp/lean-check && cd /tmp/lean-check && ${writeCommand("squares.lean", program)} && ` +
       `${writeCommand("theorems.lean", theorems)} && ${writeCommand("wrong.lean", falsehood)}`);
     await run("cd /tmp/lean-check && test \"$(lean --run squares.lean)\" = '285 0149'");

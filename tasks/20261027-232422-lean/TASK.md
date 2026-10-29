@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 60
-- TAGS: packages,demo,lean
+- TAGS: packages,demo,lean,0.1.4
 
 Owner (2026-10-28): "I want to add lean to amy."
 
@@ -23,13 +23,49 @@ exception the demo's README states.
 - A demo test passes in Chromium and Firefox; the package has its row in `test/amy-browser.mjs`;
   sources are pinned, with licence rows.
 
-## State (2026-10-29): building on stack@0
+## State (2026-10-30 01:25): the four images build; the demo test needs more than a 6 GB slot
 
-`stack@0` (core `d957ea08`) lifts the stack blocker: `stack-wrap` rewrites `lean` and `lake`
-(stage 0's and the shipped ones), and the images that hold them declare `stack@0`. In a session,
-the wrapped stage-0 `lean` compiles `Init/Grind/Config.lean` and `Init/Meta/Defs.lean`, which
-died without it. `lean`, `lean-std` and `lean-meta` are being built; `default` gets `stack@0`
-the way it gets any module it does not declare: `nena enable stack`, then `amy install lean`.
+Built in `work/lean` (Chrome, `slot.sh bigbuild`, 9 GB cap; memory is the scope's anonymous
+memory, sampled every 10 s, then the cgroup peak with page cache):
+
+| Image | Time | Memory | Snapshot |
+| --- | --- | --- | --- |
+| `lean-stage0` (`-j4`) | 463 s | 3.5 GB (6.3) | 378 MB |
+| `lean-std` (`-j4`) | 1,620 s | 6.7 GB (7.3) | 790 MB, 217 packs |
+| `lean-meta` (`-j3`) | 1,921 s | 7.4 GB (8.7) | 1.58 GB, 387 packs |
+| `lean` (one job) | 959 s | 7.2 GB (9.2) | 685 MB |
+
+In `lean`'s build: `lean --run` of a program prints 285, a theorem by `omega` checks, and
+`lake new greeting && lake build` compiles, links with `cc` and runs the program.
+
+Fixed on the way:
+- Core `7a55caa1`: a build enables `stack@0` (it admitted the module without serving it, so stage
+  0's wrapped `lean` trapped `unreachable` at `--version`); `Dollyfile-stack-wrap` checks a
+  rewritten recursion in its build. `dolly-docs` and the 10 images that hold it are repinned.
+- Core `c88bd37b`: the pack bound follows the image bound (256 packs refused `lean-meta`).
+- `20e781cf`: `IO.Process.spawn` asks for default signal dispositions (Lake's children failed with
+  `ENOTSUP`: a Dolly child cannot keep the `SIGPIPE` Lean ignores).
+- `d80cd691`: lake's symbol table leaves `libLeanExport.a` out (its `LeanExport.o` is a program's
+  and linked a second `main`). The `main` check `20e781cf` put in `lean-symbols.c` never matches:
+  WebAssembly names `main(argc, argv)` `__main_argc_argv`. It goes, with the recipe's override or
+  for a `__main_argc_argv` check, at the next rebuild of all four images (it is in `port.tar`).
+- Jobs: `lean-meta` at four was killed by the 9 GB cap once (and passed once at 7.9 GB);
+  `lean` at four was killed within a minute.
+
+Not done:
+- `demos/lean/test/lean-browser.mjs` (`nena enable stack && amy install lean` in `default`):
+  Chromium in a 6 GB browser slot was killed by the cap 16 s into the install (anonymous
+  4.0 GB at the last sample). The install's kernel high-water is about 4.6 GB (`lean`'s snapshot
+  while its rows install, `lean-std`'s files, `lean-meta`'s snapshot and its files) beside a
+  page of 1.5 GB, and the page merges each package's packs into one buffer (twice the package
+  while it merges). The test needs a larger cap; Firefox not run.
+- `test/amy-browser.mjs`: Lean's row is the `elsewhere` entry (`lean`, `lean-std`, `lean-meta`:
+  `demos/lean`); the file's own check needs the full catalog, not run here.
+- Stage 0's `lean` failed twice with `memory access out of bounds` in about 6,000 runs
+  (`Init/Data/Range/Polymorphic/IntLemmas`, `Lean/Data/RBMap`), each passing in the next build;
+  the cause is not found. Not it: memory growth followed by a kernel read into the new pages
+  (240,000 rounds in four processes) or a thread reading a page another grew (240,000 hand-offs).
+  Native `lean -j4` runs 8 to 12 threads, so four at once approach the page's 64 thread Workers.
 
 ## Measurements (Chrome, in a browser slot, 6 GB cap)
 
