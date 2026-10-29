@@ -7,7 +7,8 @@
 //   import, the kernel and the contracts beside them, and the host modules that are
 //   the runtime's own machinery.
 // - @daugasauron/dolly-host-NAME, one device host module: its directory, which imports
-//   nothing outside it (host/README.md).
+//   nothing outside it (host/README.md). download@0's is dolly-host-save: npm refuses a
+//   new name with the word download ("That word is not allowed", 2026-10-30).
 // - @daugasauron/dolly-image-default, the default image's directory for boot's `images`:
 //   its catalog, every image's metadata of its closure, its packs and the recipes
 //   the page verifies.
@@ -34,6 +35,7 @@ const scope = "@daugasauron";
 // image builder, which is not published.
 const runtimeModules = ["runtime", "http", "threads", "dso", "stack", "nena", "snapshot", "packages"];
 const deviceModules = hostManifests.map(({ name }) => name).filter(name => ![...runtimeModules, "build"].includes(name));
+const hostPackage = name => `dolly-host-${name === "download" ? "save" : name}`;
 
 // The files a module graph reaches by relative specifiers: static and literal dynamic
 // imports, and the Workers and worklets it starts from new URL("…", import.meta.url).
@@ -87,10 +89,10 @@ for (const name of deviceModules) {
   const files = await closure([`host/${name}/module.json`, `host/${name}/${host}`]);
   const outside = files.filter(file => !file.startsWith(`host/${name}/`));
   if (outside.length) throw new Error(`host/${name} imports outside its directory: ${outside.join(", ")}`);
-  tarballs.push(await writePackage(join(out, `dolly-host-${name}`), files.map(file => [file, relative(`host/${name}`, file)]), {
-    name: `${scope}/dolly-host-${name}`, license: "MIT", dependencies: { [`${scope}/dolly`]: version },
+  tarballs.push(await writePackage(join(out, hostPackage(name)), files.map(file => [file, relative(`host/${name}`, file)]), {
+    name: `${scope}/${hostPackage(name)}`, license: "MIT", dependencies: { [`${scope}/dolly`]: version },
     description: `Dolly's ${name}@0 host module: ${(await manifest(name)).gives}.`,
-  }, `# ${scope}/dolly-host-${name}\n\nDolly's \`${name}@0\` host module: ${(await manifest(name)).gives}. Give the URL of its\n\`module.json\` to \`boot()\`'s \`modules\`; ${scope}/dolly's README says how.\n`));
+  }, `# ${scope}/${hostPackage(name)}\n\nDolly's \`${name}@0\` host module: ${(await manifest(name)).gives}. Give the URL of its\n\`module.json\` to \`boot()\`'s \`modules\`; ${scope}/dolly's README says how.\n`));
 }
 
 // The default image's directory: its catalog alone, its closure's metadata, its own
@@ -111,7 +113,7 @@ await writeFile(join(imageDirectory, "index.mjs"), `// The default image for boo
 export const images = new URL("./", import.meta.url).href;
 export const image = "default";
 export const modules = ${JSON.stringify(declared.map(name =>
-    runtimeModules.includes(name) ? `../dolly/host/${name}/module.json` : `../dolly-host-${name}/module.json`))}
+    runtimeModules.includes(name) ? `../dolly/host/${name}/module.json` : `../${hostPackage(name)}/module.json`))}
   .map(path => new URL(path, import.meta.url).href);
 `);
 tarballs.push(await writePackage(imageDirectory, [
@@ -123,5 +125,5 @@ tarballs.push(await writePackage(imageDirectory, [
   dependencies: { [`${scope}/dolly`]: version },
   description: "Dolly's default image: a shell, its text tools, Ghostty's terminal, curl, amy and nena.",
 }, `# ${scope}/dolly-image-default\n\nDolly's \`default\` image: a shell, its text tools, Ghostty's terminal, curl, \`amy\`, \`nena\`\nand \`ps\`, for ${scope}/dolly's \`boot()\`. It depends on the runtime alone: install\nit with the runtime and the host modules it declares, all at version ${version}:\n\n\`\`\`sh\nnpm install ${[`${scope}/dolly`, `${scope}/dolly-image-default`, ...declared.filter(name => deviceModules.includes(name))
-  .map(name => `${scope}/dolly-host-${name}`)].join(" ")}\n\`\`\`\n\n\`\`\`js\nimport { boot } from "./node_modules/${scope}/dolly/src/browser.mjs";\nimport { images, image, modules } from "./node_modules/${scope}/dolly-image-default/index.mjs";\nawait boot(document.querySelector("#dolly"), { images, image, modules });\n\`\`\`\n\nThe image holds programs built inside Dolly from their upstream sources, each under its own\nlicence: their licence texts are in the image under \`/usr/share/licenses\`, and Dolly's\n\`docs/licences.md\` lists every upstream (https://github.com/daugasauron/dolly).\n`));
+  .map(name => `${scope}/${hostPackage(name)}`)].join(" ")}\n\`\`\`\n\n\`\`\`js\nimport { boot } from "./node_modules/${scope}/dolly/src/browser.mjs";\nimport { images, image, modules } from "./node_modules/${scope}/dolly-image-default/index.mjs";\nawait boot(document.querySelector("#dolly"), { images, image, modules });\n\`\`\`\n\nThe image holds programs built inside Dolly from their upstream sources, each under its own\nlicence: their licence texts are in the image under \`/usr/share/licenses\`, and Dolly's\n\`docs/licences.md\` lists every upstream (https://github.com/daugasauron/dolly).\n`));
 console.log(tarballs.map(name => join(out, name)).join("\n"));
