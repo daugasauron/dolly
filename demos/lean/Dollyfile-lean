@@ -10,8 +10,8 @@ REQUIRES HOST threads@0
 # (lean-dolly.mk), with the C++ runtime compiled again from src/. Lake
 # compiles a package's C with cc and links it with libuv.
 FROM /v0.1.4/demos/lean/Dollyfile-lean-stage0 33250f0e0bf20f6b94ba50ac134e063fc5707c0f278e8f2c5595572a79820248
-INSTALL /v0.1.4/demos/lean/Dollyfile-lean-std 1f1a543b48724839e061ae267cf64f151cc3341e5636ddee6eabce841211d70e
-INSTALL /v0.1.4/demos/lean/Dollyfile-lean-meta 206c23a59a2d60d362e000bddc7ba65a453e1b8c46fe43476bb4dc2d641d4275
+INSTALL /v0.1.4/demos/lean/Dollyfile-lean-std 57af7357abe501002b87cfd87a4578bf8e89d19b92fed0236c770358438bbb37
+INSTALL /v0.1.4/demos/lean/Dollyfile-lean-meta 22c2382bc26861df0922ef28c8feff93d7009ef5d03372dbbe0a3549ffecda81
 INSTALL /v0.1.4/Dollyfile-cc dadb1af6ae3450a3a48bf4c955fe40d012a9a20d6dc3eca63c4f2737ab4080cc
 INSTALL /v0.1.4/demos/cmake/Dollyfile-libuv f01b9cb62f8ebdd387a93b3402685a8e3da188bc343b59bf2e2a73b2d1175653
 
@@ -28,6 +28,7 @@ REQUIRES TOOL make
 REQUIRES TOOL patch
 REQUIRES TOOL rm
 REQUIRES TOOL sed
+REQUIRES TOOL stack-wrap
 REQUIRES TOOL tar
 REQUIRES TOOL tr
 REQUIRES TOOL xargs
