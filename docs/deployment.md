@@ -142,7 +142,9 @@ pushes, uploads or deploys.
 
 1. A green round on the commit (source, artifacts, browser suites in both
    browsers, demos, GPU tests); the tree clean.
-2. No credential in the commits to push or in `dist/dolly-*-system.snapshot`.
+2. No credential in the commits to push or in `dist/dolly-*-system.snapshot`;
+   an image may ship an upstream's public test key, listed by its PEM block's
+   SHA-256 in `config/public-test-keys.txt`.
 3. Both sites packaged from that commit and accepted; the Pages workflow's
    steps pass locally, under 1 GB; the npm packages ([embedding](embedding.md))
    packed from it boot from an empty app (`test/npm-browser.mjs`).

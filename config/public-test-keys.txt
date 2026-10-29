@@ -1,0 +1,2 @@
+4280dcaf02ddf203cc1e3179b872f2e2f130662437b2f525bb24dfab4e7fade3 Go 1.27.3 src/crypto/tls/testdata/example-key.pem, also in src/crypto/tls/example_test.go
+2fea2ebe77388df61566fcd43eb0070dbff2842c8786a0e7906a13e5f10c3e65 Go 1.27.3 src/crypto/x509/platform_root_key.pem

@@ -30,14 +30,27 @@ seed_compiler=".cache/dolly-seed-compiler-${DOLLY_SEED_COMPILER_SHA256}.tar"
    -f "${seed_compiler}" ]] || stop "the seed compiler is not pinned to this release's asset (docs/sources.md)"
 
 step "2 no token-shaped string in the unpushed commits or the image snapshots"
-tokens='sk-ant-[A-Za-z0-9_-]{20,}|sk-or-v1-[0-9a-f]{32,}|sk-proj-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----[[:cntrl:]]?$'
+tokens='sk-ant-[A-Za-z0-9_-]{20,}|sk-or-v1-[0-9a-f]{32,}|sk-proj-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{20,}'
 # A key's PEM header ends its line; GLib's parser keeps one as a string that ends in NUL.
+pem='-----BEGIN [A-Z ]*PRIVATE KEY-----[[:cntrl:]]?$'
 git rev-parse -q --verify origin/main > /dev/null || stop "origin/main is unknown, so nothing says which commits a push would publish"
 compgen -G "dist/dolly-*-system.snapshot" > /dev/null || stop "dist/ holds no image snapshot"
 # Test fixtures say what they are: not-a-real-key.
-found="$({ git log -p origin/main..HEAD; cat dist/dolly-*-system.snapshot; } | { /usr/bin/grep -a -o -E "${tokens}" || true; } |
+found="$({ git log -p origin/main..HEAD | { /usr/bin/grep -a -o -E "${tokens}|${pem}" || true; }
+  cat dist/dolly-*-system.snapshot | { /usr/bin/grep -a -o -E "${tokens}" || true; }; } |
   { /usr/bin/grep -v not-a-real-key || true; } | cut -c1-12 | sort -u)"
 [[ -z "${found}" ]] || stop "token-shaped strings begin: ${found//$'\n'/ }"
+# An image may ship an upstream's public test key, which config/public-test-keys.txt
+# lists by the SHA-256 of its PEM block.
+for snapshot in dist/dolly-*-system.snapshot; do
+  while IFS=: read -r offset _; do
+    digest="$(set +o pipefail; tail -c +$((offset + 1)) "${snapshot}" | head -c 16384 |
+      awk '{ print } /-----END [A-Z ]*PRIVATE KEY-----/ { exit }' |
+      sed -E '$ s/(-----END [A-Z ]*PRIVATE KEY-----).*/\1/' | sha256sum | cut -c1-64)"
+    /usr/bin/grep -q "^${digest} " config/public-test-keys.txt ||
+      stop "${snapshot} holds a private key at byte ${offset} that config/public-test-keys.txt does not list"
+  done < <(/usr/bin/grep -a -b -o -E -- "${pem}" "${snapshot}" || true)
+done
 
 step "3 both sites are sealed from ${commit:0:8}, accepted, and are ${version}"
 for site in "${domain}" "${github}"; do
