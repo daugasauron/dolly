@@ -166,6 +166,13 @@ ends on the other stack, the 8 MiB in the process's memory
 (`memory access out of bounds`), where natively Clang would move to a larger
 one. The compiler in the images is not rewritten.
 
+The fresh stacks nest only so deep. In a session, the `fold` of
+`test/stack-browser.mjs` recurses 6,345 calls as built and 1,242,579
+rewritten in Chrome, 64,743 and 846,485 in Firefox (each within 2%). A
+deeper one fails the process as one not rewritten fails (`Maximum call stack
+size exceeded`, `too much recursion`), and the shell goes on; a recursion
+without end fails so after 0.2 s in Chrome and 0.75 s in Firefox.
+
 Not solved: a Worker that Firefox terminates while it is inside a
 `promising` call reports the fault above. A program that ends while another
 of its threads is deep in a fresh stack, or that is killed there, shows it.
