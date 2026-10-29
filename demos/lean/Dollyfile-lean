@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 # compiles a package's C with cc and links it with libuv.
 FROM /v0.1.4/demos/lean/Dollyfile-lean-stage0 dbf750ae7f41df5d3c55172707269d5aff3ed3a85c2e7b7eb9797de47047a959
 INSTALL /v0.1.4/demos/lean/Dollyfile-lean-std 1d9015b7897c35573a5962e4345f10d28b0ec1ea0a716b18d64345e18b592187
-INSTALL /v0.1.4/demos/lean/Dollyfile-lean-meta ccf3e6f6f93fb024c2933b3ca1fdadc45033fbad4fa1d6d51ec1cbff0cdd3fa6
+INSTALL /v0.1.4/demos/lean/Dollyfile-lean-meta 40c12f824c27501e6a963339dd827e9353b3b66f9324f5b09d34037527918cf1
 INSTALL /v0.1.4/Dollyfile-cc dadb1af6ae3450a3a48bf4c955fe40d012a9a20d6dc3eca63c4f2737ab4080cc
 INSTALL /v0.1.4/demos/cmake/Dollyfile-libuv f01b9cb62f8ebdd387a93b3402685a8e3da188bc343b59bf2e2a73b2d1175653
 
