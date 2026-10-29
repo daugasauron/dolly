@@ -14,9 +14,9 @@
 // exit status; text() reads the visible terminal; result(action) runs action()
 // (typing, a paste) and resolves to the status of the command it completes;
 // waitForText(pattern) waits until the visible terminal matches. On failure the
-// latest page's terminal is printed; each browser is closed after timeout
-// milliseconds. launch adds to how the browsers start: { chromium: [argument…],
-// firefox: { preference: value } }.
+// latest page's terminal is printed; after timeout milliseconds the browser is
+// closed and the test fails, whatever it awaits. launch adds to how the
+// browsers start: { chromium: [argument…], firefox: { preference: value } }.
 import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "./browser-server.mjs";
 import { siteReference } from "../src/static-asset.mjs";
@@ -122,9 +122,14 @@ export async function browserTest(label, { image = "default", server: serverOpti
         : firefox.launch({ headless: true, firefoxUserPrefs: { "dom.events.testing.asyncClipboard": true,
           "dom.webgpu.enabled": true, ...launch.firefox } }));
       let expired = false;
-      const deadline = setTimeout(() => { expired = true; void browser.close(); }, timeout);
+      let deadline;
+      // A test may await what no page settles, such as a request to the server.
+      const expiry = new Promise((resolve, reject) => {
+        deadline = setTimeout(() => { expired = true; void browser.close(); reject(new Error("the deadline passed")); }, timeout);
+      });
       try {
-        await test({ name, browser, server, open: options => openImage(browser, server.origin, image, options) });
+        await Promise.race([expiry,
+          test({ name, browser, server, open: options => openImage(browser, server.origin, image, options) })]);
         console.log(`${label}: ${name} passed in ${((performance.now() - started) / 1000).toFixed(1)}s`);
       } catch (error) {
         if (expired) throw new Error(`${name}: ${label} exceeded ${timeout / 1000} seconds`, { cause: error });
