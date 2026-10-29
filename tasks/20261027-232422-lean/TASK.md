@@ -54,11 +54,15 @@ Fixed on the way:
 
 Not done:
 - `demos/lean/test/lean-browser.mjs` (`nena enable stack && amy install lean` in `default`):
-  Chromium in a 6 GB browser slot was killed by the cap 16 s into the install (anonymous
-  4.0 GB at the last sample). The install's kernel high-water is about 4.6 GB (`lean`'s snapshot
-  while its rows install, `lean-std`'s files, `lean-meta`'s snapshot and its files) beside a
-  page of 1.5 GB, and the page merges each package's packs into one buffer (twice the package
-  while it merges). The test needs a larger cap; Firefox not run.
+  the install passes since the page merges a package's packs as amy reads it (`c8d69656`;
+  whole scope at most 5.6 GB in Chromium, 6.4 GB in Firefox, 24 GB cap). The test then fails
+  in both browsers at `lake new greeting` (process `memory access out of bounds`), before and
+  after that commit: `default` has no `git`, and a spawn of a missing program crashes Lean
+  (`IO.Process.output { cmd := "nosuchprogram" }` does too). The patch's `spawn_child` throws
+  posix_spawnp's ENOENT as an `int`, which upstream's `lean_io_process_spawn` passes to
+  `decode_io_error(err, nullptr)`, whose ENOENT case needs a file name (upstream's fork reports
+  a missing program as the child's exit instead). With `amy install lean git` the whole test
+  passes: Chromium 91 s, at most 7.3 GB (6.9 anonymous); Firefox 170 s, 10.5 GB (8.9).
 - `test/amy-browser.mjs`: Lean's row is the `elsewhere` entry (`lean`, `lean-std`, `lean-meta`:
   `demos/lean`); the file's own check needs the full catalog, not run here.
 - Stage 0's `lean` failed twice with `memory access out of bounds` in about 6,000 runs
