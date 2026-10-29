@@ -12,7 +12,7 @@ REQUIRES HOST threads@0
 # (lean-dolly.mk, lean-dolly.patch) and rewritten by stack-wrap; lean-std,
 # lean-meta and lean compile the release with it.
 FROM /v0.1.4/Dollyfile-system-tools 7f6c86fcc73e544e7007646eba2718bbc4d43b7f0516d9558e2dc500b1a05a80
-INSTALL /v0.1.4/Dollyfile-stack-wrap 4dd3a2e8809b7a45b8f197d865163479314dc022571609399d6979db2ca8aa7f
+INSTALL /v0.1.4/Dollyfile-stack-wrap 5c64ec6732717c29a74318aa7736fbf330ca918af1610c40af89b1170cc97a29
 INSTALL /v0.1.4/demos/cmake/Dollyfile-libuv f01b9cb62f8ebdd387a93b3402685a8e3da188bc343b59bf2e2a73b2d1175653
 
 REQUIRES HEADER libc

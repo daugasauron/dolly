@@ -13,6 +13,20 @@ REQUIRES TOOL rm
 SOURCE /v0.1.4/host/stack/stack-abi.h 220793655506ef3b506ea83f1cd50afeb3f4517f6e47a8d9a3baa3558a2a9c08 /tmp/stack-wrap/dolly/stack-abi.h
 SOURCE /v0.1.4/host/stack/stack-wrap.c b0c850f6a839eaf2f96664ab9e6861f61971a5431cdc934655adfe0564bb8c21 /tmp/stack-wrap/stack-wrap.c
 SLOP cc -O2 -I/tmp/stack-wrap /tmp/stack-wrap/stack-wrap.c -o /usr/bin/stack-wrap
+# A program it rewrote recurses deeper than one browser stack, in a build too.
+FILE /tmp/stack-wrap/deep.c
+    #include <stdlib.h>
+    __attribute__((noinline)) static unsigned long fold(unsigned long n) {
+      if (n == 0) return 0;
+      unsigned long below = fold(n - 1);
+      return below ^ (below >> 3) ^ n;
+    }
+    int main(int argc, char **argv) {
+      unsigned long n = strtoul(argv[1], NULL, 10), expected = 0;
+      for (unsigned long step = 1; step <= n; ++step) expected ^= (expected >> 3) ^ step;
+      return fold(n) != expected;
+    }
+SLOP CWD /tmp/stack-wrap cc -O2 deep.c -o plain && stack-wrap plain -o deep && ./deep 200000
 SLOP rm -rf /tmp/stack-wrap
 
 EXPORTS TOOL stack-wrap

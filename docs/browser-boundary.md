@@ -131,10 +131,10 @@ Worker URL.
     declares `nena@0`, where the userspace decides anyway. A module the page
     cannot enable then is reported on the page and left out.
 - The page enables exactly the image's requirements, its runtime among them;
-  rebuild routes add `http@0`, `threads@0` and `dso@0` for building (sources
-  are fetched, and toolchains run threaded tools and compilers and
-  interpreters that load modules), and a dependency build enables the
-  declared runtime with those three. A build's loader also admits the
+  rebuild routes add `http@0`, `threads@0`, `dso@0` and `stack@0` for
+  building (sources are fetched, and toolchains run threaded tools, compilers
+  and interpreters that load modules, and tools `stack-wrap` rewrote), and a
+  dependency build enables the declared runtime with those four. A build's loader also admits the
   modules of the images it reads, which it does not enable: their calls
   answer `ENOSYS`. Only Dollyfile Studio
   declares `build@0`, and the page admits it only after ENTRY starts
