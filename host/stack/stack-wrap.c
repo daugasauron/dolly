@@ -359,8 +359,9 @@ static void instrument(buffer *code, uint32_t function, reader body) {
   put(&out, groups_bytes.at, (size_t)(locals.at - groups_bytes.at));
   uleb(&out, 1); byte(&out, 0x7f);
 
-  int64_t slots = (int64_t)frame[function];
-  op(&out, 0x23, room); op(&out, 0x22, saved); i32_const(&out, slots + (int64_t)leaf_slots); byte(&out, 0x48);
+  int64_t slots = (int64_t)frame[function], check = slots + (int64_t)leaf_slots;
+  if (check > DOLLY_STACK_CHECK_SLOTS) check = DOLLY_STACK_CHECK_SLOTS;
+  op(&out, 0x23, room); op(&out, 0x22, saved); i32_const(&out, check); byte(&out, 0x48);
   byte(&out, 0x04); byte(&out, 0x40);
   uint32_t used[KINDS] = { 0 };
   for (uint32_t value = 0; value < type->params; ++value) {

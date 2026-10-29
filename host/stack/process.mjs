@@ -4,7 +4,7 @@
  * program's dolly_stack_continue on a fresh browser stack and sets the room
  * each stack gives. It adds no browser capability or import to the executable.
  */
-import { DOLLY_ERRNO, DOLLY_STACK_CONTINUE } from "./abi.mjs";
+import { DOLLY_ERRNO, DOLLY_STACK_CHECK_SLOTS, DOLLY_STACK_CONTINUE } from "./abi.mjs";
 
 // WebAssembly.promising runs an export on a stack of its own. JavaScript runs
 // on the thread's first stack wherever it is called from, so the program is
@@ -41,8 +41,9 @@ export function serve({ instance, stack }) {
     handles: operation => operation === DOLLY_STACK_CONTINUE,
     call(operation, request, response) {
       if (request.size || response.size) return -BigInt(DOLLY_ERRNO.EINVAL);
-      if (!WebAssembly.promising) {
-        failure ??= new Error("this browser has no WebAssembly.promising, which stack@0 needs");
+      if (!WebAssembly.promising || fresh < DOLLY_STACK_CHECK_SLOTS) {
+        failure ??= new Error(WebAssembly.promising ? `a fresh stack gives ${fresh} slots, fewer than stack@0 needs`
+          : "this browser has no WebAssembly.promising, which stack@0 needs");
         return -BigInt(DOLLY_ERRNO.ENOSYS);
       }
       helper ??= new WebAssembly.Instance(entry, { program: { continue: resume } });

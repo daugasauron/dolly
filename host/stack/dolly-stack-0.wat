@@ -1,10 +1,10 @@
 (module
   ;; Optional profile of an executable that continues deep recursion on a
   ;; fresh browser stack (docs/browser-stack.md); stack-wrap produces it. Each
-  ;; function of the program is entered through a wrapper that charges an
-  ;; estimate of its frames against dolly_stack_room, in 8-byte slots, and
-  ;; restores the room when it returns. A wrapper that finds too little room
-  ;; stashes its call in the program's own globals and makes it through
+  ;; function that makes calls charges an estimate of its frame against
+  ;; dolly_stack_room, in 8-byte slots, on entry and gives it back when it
+  ;; returns. One that finds too little room stashes its arguments and itself
+  ;; in the program's own globals and table and makes the call through
   ;; CONTINUE instead.
 
   ;; The room left on the browser stack this thread runs on. The provider sets
@@ -20,4 +20,8 @@
   ;; exception it throws is thrown from this call; a trap in it is a trap of
   ;; the process.
   (global (export "DOLLY_STACK_CONTINUE") i32 (i32.const 116))
+  ;; No function asks for more room than this, though it is charged its whole
+  ;; frame, so that it passes its check on a fresh stack. A stack that gives
+  ;; less room is not moved to.
+  (global (export "DOLLY_STACK_CHECK_SLOTS") i32 (i32.const 16384))
 )
