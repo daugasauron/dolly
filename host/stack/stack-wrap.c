@@ -151,16 +151,17 @@ static void skip_value_type(reader *in) {
   if (code == 0x63 || code == 0x64) skip_sleb(in);
 }
 
-/* What a stash global can hold: numbers, vectors, funcref, externref. */
-enum { I32, I64, F32, F64, V128, FUNCREF, EXTERNREF, KINDS };
-static const uint8_t kind_code[KINDS] = { 0x7f, 0x7e, 0x7d, 0x7c, 0x7b, 0x70, 0x6f };
+/* What a stash global can hold: numbers, vectors, funcref, externref, exnref. */
+enum { I32, I64, F32, F64, V128, FUNCREF, EXTERNREF, EXNREF, KINDS, UNSTASHED = 0xff };
+static const uint8_t kind_code[KINDS] = { 0x7f, 0x7e, 0x7d, 0x7c, 0x7b, 0x70, 0x6f, 0x69 };
 
 static int kind_of(uint8_t code) {
   for (int kind = 0; kind < KINDS; ++kind) if (kind_code[kind] == code) return kind;
   return -1;
 }
 
-typedef struct { uint32_t params, results; uint8_t *kinds; } signature;
+/* A type's values by kind; stashable is 0 when one has none. */
+typedef struct { uint32_t params, results; uint8_t *kinds; int stashable; } signature;
 
 /* The module, as read. */
 static signature *types;
@@ -189,10 +190,11 @@ static void read_types(reader in) {
     type->kinds = allocate(type->params + type->results, 1);
     memcpy(type->kinds, params.at, type->params);
     memcpy(type->kinds + type->params, results.at, type->results);
+    type->stashable = 1;
     for (uint32_t value = 0; value < type->params + type->results; ++value) {
       int kind = kind_of(type->kinds[value]);
-      if (kind < 0) fail("type %u has a value type a global cannot hold", index);
-      type->kinds[value] = (uint8_t)kind;
+      type->stashable &= kind >= 0;
+      type->kinds[value] = kind < 0 ? UNSTASHED : (uint8_t)kind;
     }
   }
 }
@@ -328,6 +330,9 @@ static void survey(uint32_t function, reader body) {
     calls |= code == 0x10 || code == 0x11 || code == 0x14;
   }
   charged[function] = calls || frame[function] > LEAF_SLOTS;
+  if (charged[function] && !type->stashable) {
+    fail("function %u has a parameter or result of a type a global cannot hold", function);
+  }
   if (!charged[function] && frame[function] > leaf_slots) leaf_slots = frame[function];
 }
 

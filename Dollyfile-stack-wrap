@@ -11,7 +11,7 @@ REQUIRES TOOL cc
 REQUIRES TOOL rm
 
 SOURCE /v0.1.4/host/stack/stack-abi.h 0d9e5e60fba53fcd348e84f7c6aba92a8b97faab7b6105e8ee3ac55b25039cad /tmp/stack-wrap/dolly/stack-abi.h
-SOURCE /v0.1.4/host/stack/stack-wrap.c 20f6fd5816a679f8b172e8c54c77ba8f9b25199b81b7cd6fb42d52b84ad969d9 /tmp/stack-wrap/stack-wrap.c
+SOURCE /v0.1.4/host/stack/stack-wrap.c 0b6decb40a5622032745fdfac9e1aea29ed45962a1b2bf68e3a4c3c6be17f52e /tmp/stack-wrap/stack-wrap.c
 SLOP cc -O2 -I/tmp/stack-wrap /tmp/stack-wrap/stack-wrap.c -o /usr/bin/stack-wrap
 SLOP rm -rf /tmp/stack-wrap
 
