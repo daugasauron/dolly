@@ -169,7 +169,7 @@
  #else
      // since Linux 2.4.11, our glibc 2.27 requires at least 3.2
      // glibc 2.30 would provide a wrapper
-@@ -431,10 +438,54 @@
+@@ -431,10 +438,65 @@
      lean_unreachable();
  }
  
@@ -212,8 +212,19 @@
 +        envp.push_back(var.data());
 +    }
 +    envp.push_back(nullptr);
++    // The child starts with default dispositions and no signal blocked, as a Dolly child does:
++    // a forked one would keep the SIGPIPE Lean ignores.
++    posix_spawnattr_t attributes;
++    posix_spawnattr_init(&attributes);
++    sigset_t signals;
++    sigemptyset(&signals);
++    posix_spawnattr_setsigmask(&attributes, &signals);
++    sigfillset(&signals);
++    posix_spawnattr_setsigdefault(&attributes, &signals);
++    posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF);
 +    int pid;
-+    int error = posix_spawnp(&pid, pargs[0], &actions, nullptr, pargs, envp.data());
++    int error = posix_spawnp(&pid, pargs[0], &actions, &attributes, pargs, envp.data());
++    posix_spawnattr_destroy(&attributes);
 +    posix_spawn_file_actions_destroy(&actions);
 +    if (error != 0) {
 +        throw error;
@@ -225,7 +236,7 @@
  static obj_res spawn(string_ref const & proc_name, array_ref<string_ref> const & args, stdio stdin_mode, stdio stdout_mode,
    stdio stderr_mode, option_ref<string_ref> const & cwd, array_ref<pair_ref<string_ref, option_ref<string_ref>>> const & env,
    bool inherit_env, bool do_setsid) {
-@@ -450,6 +501,11 @@
+@@ -450,6 +512,11 @@
          pargs.push_back(strdup(arg.data()));
      pargs.push_back(NULL);
  
@@ -237,7 +248,7 @@
      int pid = fork();
  
      if (pid == 0) {
-@@ -515,6 +571,7 @@
+@@ -515,6 +582,7 @@
      } else if (pid == -1) {
          throw errno;
      }

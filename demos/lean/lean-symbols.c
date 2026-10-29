@@ -3,7 +3,9 @@
  * that is defined, global and of default visibility, which is what -rdynamic
  * would export. Lean's interpreter finds compiled code by these names
  * (lean-dolly.patch). A function is declared with the signature its object
- * gives it, so that taking its address takes the function itself. */
+ * gives it, so that taking its address takes the function itself. An object
+ * that defines main is another program's (LeanExport's in libLeanExport.a):
+ * a program exports none of it, and the table's references would link it. */
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -172,6 +174,8 @@ static void object(const unsigned char *data, size_t size, const char *file) {
   if (!linking) fail("no linking section", file);
   reader l = {linking, linking_end, file};
   if (uleb(&l) != 2) fail("unknown linking version", file);
+  const size_t first = symbol_count;
+  int program = 0;
   while (l.at < l.end) {
     unsigned char kind = byte(&l);
     uint64_t length = uleb(&l);
@@ -200,7 +204,9 @@ static void object(const unsigned char *data, size_t size, const char *file) {
         index = uleb(&s);
         if (defined || (flags & FLAG_EXPLICIT_NAME)) name(&s, &text, &length);
       }
-      if (!defined || (flags & (FLAG_LOCAL | FLAG_HIDDEN | FLAG_TLS)) || !c_identifier(text, length)) continue;
+      if (!defined) continue;
+      if (symbol_kind == KIND_FUNCTION && length == 4 && memcmp(text, "main", 4) == 0) program = 1;
+      if ((flags & (FLAG_LOCAL | FLAG_HIDDEN | FLAG_TLS)) || !c_identifier(text, length)) continue;
       if (symbol_kind == KIND_FUNCTION) {
         if (index >= function_count || function_types[index] >= type_count || !types[function_types[index]]) continue;
         add(text, length, types[function_types[index]]);
@@ -209,6 +215,7 @@ static void object(const unsigned char *data, size_t size, const char *file) {
       }
     }
   }
+  if (program) while (symbol_count > first) free(symbols[--symbol_count].name);
   free(function_types);
 }
 
