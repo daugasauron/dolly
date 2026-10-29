@@ -14,10 +14,6 @@ package, whose programs `cc` compiles from the C Lean emits.
 
 ## Building
 
-Stage 1 does not build yet: Lean's elaborator recurses deeper than a
-browser's stack holds, and the first modules of `Init` that need more fail
-([browser stack](../../docs/browser-stack.md)). `lean-stage0` builds.
-
 Upstream's build is CMake around Bash: `stdlib.make`, `lean.mk`, `leanc.sh`
 and `leanmake` are Bash scripts, the libraries are linked into shared
 libraries, and stage 1 downloads mimalloc, CaDiCaL and leantar. Dolly has
@@ -54,10 +50,12 @@ symbols, generated from the archives' WebAssembly objects by
 signature its object gives it. A program Lake links has no table, as
 natively it has no exported symbols either.
 
-`lean` and `lake` recurse deeper than a Chrome Worker's stack holds (stage
-0 fails on `Init/Prelude.lean` without it), so they ask to be entered on the
-larger stack a browser may have, as the compiler does
-([`lean-stack.c`](lean-stack.c), [browser stack](../../docs/browser-stack.md)).
+`lean` and `lake` recurse deeper than a browser's stack holds: upstream
+gives Lean's elaboration a thread of 1 GiB, and some of the release's own
+modules need 2.6 MB of it natively. `stack-wrap` rewrites them, as
+`lean-stage0`'s, to continue on fresh stacks (`stack@0`,
+[browser stack](../../docs/browser-stack.md)), so the images that hold them
+declare that module, and a session enables it: `nena enable stack`.
 
 [`lean-dolly.patch`](lean-dolly.patch) is applied to `src/` and to its copy
 in `stage0/src`:

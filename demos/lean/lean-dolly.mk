@@ -147,16 +147,18 @@ $(OUT)/symbols/lean.c $(OUT)/symbols/lake.c:
 > $(TOOLS)/lean-symbols $(filter %.a,$^) > $@
 $(OUT)/symbols/%.o: $(OUT)/symbols/%.c
 > cc -O1 -fno-builtin -c $< -o $@
-$(OUT)/stack.o: $(SOURCE)/dolly/lean-stack.c
-> cc -c $< -o $@
-
-LINK = c++ -o $@ $(filter %.o,$^) -L$(LIB) $(1) $(STATIC_LINK_FLAGS) $(LEAN_LINK_FLAGS)
-$(OUT)/bin/lean: $(call cpp,shell/lean util/shell) $(OUT)/symbols/lean.o $(OUT)/stack.o $(LEAN_LIBRARIES)
+# lean and lake recurse deeper than a browser's stack holds (Lean gives these
+# threads 1 GiB), so stack-wrap makes them continue on fresh stacks (stack@0).
+LINK = c++ -o $@$(2) $(filter %.o,$^) -L$(LIB) $(1) $(STATIC_LINK_FLAGS) $(LEAN_LINK_FLAGS)
+WRAP = stack-wrap $@.unwrapped -o $@ && rm $@.unwrapped
+$(OUT)/bin/lean: $(call cpp,shell/lean util/shell) $(OUT)/symbols/lean.o $(LEAN_LIBRARIES)
 > mkdir -p $(@D)
-> $(LINK)
-$(OUT)/bin/lake: $(TEMP)/LakeMain.o $(OUT)/symbols/lake.o $(OUT)/stack.o $(LAKE_LIBRARIES)
+> $(call LINK,,.unwrapped)
+> $(WRAP)
+$(OUT)/bin/lake: $(TEMP)/LakeMain.o $(OUT)/symbols/lake.o $(LAKE_LIBRARIES)
 > mkdir -p $(@D)
-> $(call LINK,-lLake -lLeanExport)
+> $(call LINK,-lLake -lLeanExport,.unwrapped)
+> $(WRAP)
 $(OUT)/bin/leanc: $(LIB)/libLeanc.a $(LEAN_LIBRARIES)
 > mkdir -p $(@D)
 > $(call LINK,-lLeanc)

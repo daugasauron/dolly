@@ -93,7 +93,7 @@ sequenceDiagram
   the function an FFI call reaches ends the process like any other trap.
 - Wasm calls nest on a browser stack that a page cannot size; a program that
   exhausts it fails with 126 like any other trap. The Worker enters an
-  executable that asks for it, as the compiler does, through
+  executable that asks for it, which only the compiler does, through
   `WebAssembly.promising` where that stack is measured half again as deep:
   Chrome 151, about 950 KB instead of a Worker's 500 KB, and not Firefox 155
   ([browser stack](browser-stack.md)). A program `stack-wrap` rewrote records

@@ -9,6 +9,5 @@ if has_image lean-stage0; then
   node scripts/build-source-tar.mjs "${static_dir}/lean/port.tar" \
     demos/lean/lean-dolly.mk /tmp/lean/dolly/lean-dolly.mk \
     demos/lean/lean-dolly.patch /tmp/lean/dolly/lean-dolly.patch \
-    demos/lean/lean-symbols.c /tmp/lean/dolly/lean-symbols.c \
-    demos/lean/lean-stack.c /tmp/lean/dolly/lean-stack.c
+    demos/lean/lean-symbols.c /tmp/lean/dolly/lean-symbols.c
 fi
