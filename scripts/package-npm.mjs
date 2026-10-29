@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Packages this checkout as npm packages, one directory and one tarball each under OUT:
-//   node scripts/package-npm.mjs OUT
+//   node scripts/package-npm.mjs OUT [VERSION]
+// VERSION is the checkout's (package.json) or a prerelease of it, such as 0.1.4-rc.0,
+// which npm publishes beside the release without taking its number.
 // - @daugasauron/dolly, the runtime: what boot() (src/browser.mjs) and the Worker
 //   import, the kernel and the contracts beside them, and the host modules that are
 //   the runtime's own machinery.
@@ -22,8 +24,10 @@ import { hostManifests } from "../host/manifests.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const out = resolve(process.argv[2] ?? "");
-if (!process.argv[2]) throw new Error("usage: package-npm.mjs OUT");
-const { version } = JSON.parse(await readFile(resolve(projectDir, "package.json"), "utf8"));
+if (!process.argv[2]) throw new Error("usage: package-npm.mjs OUT [VERSION]");
+const checkout = JSON.parse(await readFile(resolve(projectDir, "package.json"), "utf8")).version;
+const version = process.argv[3] ?? checkout;
+if (version !== checkout && !version.startsWith(`${checkout}-`)) throw new Error(`VERSION is ${checkout} or a prerelease of it`);
 const scope = "@daugasauron";
 // The modules that are the runtime's own machinery, and the device modules each
 // published on its own: the rest of host/manifests.mjs but build@0, the site's
