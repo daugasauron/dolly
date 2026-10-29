@@ -7,7 +7,35 @@
 Owner (2026-10-29): "focus on having 0.1.4 release candidate ready for me tomorrow morning
 7am". A candidate is local: nothing is pushed, published or deployed until the owner says so.
 
-## State (2026-10-30, 01:40): packaged and served, the owner's to try
+## State (2026-10-30, 08:15): npm candidates published; main pushed, untagged
+
+Owner, 07:00 to 08:00: npm candidates ("can you do like 0.1.4-rc?", "go ahead with rc"), with
+a bypass-2FA token; a README section on serving Dolly locally with npm that runs Pi under a
+policy; "commit and push (don't tag yet)".
+
+| npm | Packages | |
+|---|---|---|
+| `0.1.4-rc.0` | 11 of 12 | npm refused `@daugasauron/dolly-host-download`: "That word is not allowed"; deprecated |
+| `0.1.4-rc.1` | 12 | `download@0`'s package is `dolly-host-save`; installed from npmjs.com, `test/npm-browser.mjs`'s checks passed in Chromium and Firefox |
+| `0.1.4-rc.2` | 13 | adds `dolly-image-pi-agent` (67 MB); `latest` and `rc` point at it |
+
+The registry adds `0.0.0-stage` ("Temporary package placeholder for staged publishing") to
+each new package; a new package's first version appears a few minutes after its publish.
+
+Commits after the first candidate, none of which changes an image (the plan reuses all 185):
+- `a69a5d71`: a browser test fails at its deadline whatever it awaits. The first suite ran four
+  files in one 6 GB slot, the cap killed Chrome, and host-modules, awaiting its probe's request
+  to the server, waited two hours; the suite then passed in a 20 GB unit.
+- `a4cf917c`: `package-npm.mjs OUT [VERSION]`, the checkout's version or a prerelease of it.
+- `aeb1e71e`: `download@0`'s npm package is `dolly-host-save`.
+- `155211db`: the README's "Pi with npm" (packages, page with a one-rule policy, a server with
+  cross-origin isolation); `pi-agent` packaged as `default` is; `test/npm-browser.mjs` runs the
+  section as written. Source 446/0; the npm test passed in Chromium and Firefox.
+
+Left before the tag: both sites packaged from the pushed commit, the release checklist, the
+GPU tests and the served boot, as for the first candidate below.
+
+## The first candidate (2026-10-30, 01:40): `20a9ed5b`, packaged and served
 
 Tag `rc-2026-10-30` = `20a9ed5b` (local `main`, version 0.1.4, 185 images, image inputs
 `45d43ca5...`). Since v0.1.3: 485 commits; the npm packages are the release's main feature.
@@ -37,18 +65,10 @@ http://127.0.0.1:9015/ leads to `/v0.1.4/`; unversioned paths are 404. v0.1.3's 
 stays on 9014. Evidence: `work/x11fix/build/rc-1030a-evidence/` (`work/rc-1030.sh` ran it,
 `work/rc-1030-suites.sh` the suites).
 
-Lean is not in it. Its four images build on `demo/lean` (`4eb2ac12`), but `amy install lean`
+Lean is not in it (owner, 07:40: "disregard lean from 0.1.4"). Its four images build on `demo/lean` (`4eb2ac12`), but `amy install lean`
 in `default` was killed by the test's 6 GB cap 16 s into the install: the kernel holds about
 4.6 GB while the packages install, and the page merges each package's packs into one buffer.
 Firefox was not run, and stage 0's `lean` failed twice in about 6,000 runs with `memory access
 out of bounds`, the cause not found. Its two core commits (the pack bound follows the image
 bound; a build enables `stack@0`) stay with it ([lean](../20261027-232422-lean/TASK.md)).
 
-After the tag, on `core/release-fixes`: `a69a5d71`, a browser test fails at its deadline
-whatever it awaits. The candidate's first suite ran four files in one 6 GB slot, the cap killed
-Chrome, and host-modules, awaiting its probe's request to the server, waited two hours; the
-suite then passed in a 20 GB unit. The change ships nothing.
-
-Not done, because a candidate is local: tag `v0.1.4`, push, GitHub release, `npm publish`,
-deployment. `scripts/release-checklist.sh` prints the commands
-(`build/rc-1030a-evidence/checklist.log`).
