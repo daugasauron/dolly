@@ -84,6 +84,5 @@ token the API answers 401, and neither secret is shown.
 - `boot()` takes no files or environment: a token comes from the user or the
   page's `paste()` into a prompt. The broker never injects credentials.
 - First load: `pi-runtime` is 66.5 MB compressed, 35 MB of it `system`'s
-  compiler; Pi on `default`'s packages instead would be about 25 MB, by the
-  packages' sizes.
+  compiler; `pi-minimal`, Pi without the compiler, is 27.5 MB.
 - The interface is Pi's terminal UI.
