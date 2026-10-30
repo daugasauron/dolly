@@ -10,7 +10,7 @@
 //   nothing outside it (host/README.md). download@0's is dolly-host-save: npm refuses a
 //   new name with the word download ("That word is not allowed", 2026-10-30).
 // - @daugasauron/dolly-image-NAME, an image's directory for boot's `images` (default,
-//   and pi-agent for an agent's page): its catalog, every image's metadata of its
+//   and pi-minimal, the README's Pi with npm): its catalog, every image's metadata of its
 //   closure, its packs and the recipes the page verifies.
 // Each package but the runtime depends on the runtime alone, at this version; an image
 // does not depend on its host modules, which docs/embedding.md names to install.
@@ -100,7 +100,7 @@ for (const name of deviceModules) {
 const definitions = await discoverImageDefinitions(projectDir);
 const publishedImages = {
   default: "a shell, its text tools, Ghostty's terminal, curl, `amy`, `nena` and `ps`",
-  "pi-agent": "the Pi coding agent, with JavaScript (Janis), shell tools, ripgrep and fd",
+  "pi-minimal": "the Pi coding agent, with JavaScript (Janis), a shell, POSIX tools, curl, ripgrep and fd",
 };
 for (const [image, holds] of Object.entries(publishedImages)) {
   const closureOfImage = await selectImageDefinitions(definitions, image);

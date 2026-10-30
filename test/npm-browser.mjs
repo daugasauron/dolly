@@ -176,8 +176,7 @@ try {
         /Dolly: image entry exited; entering the recovery Slop shell\.[\s\S]*\ndolly:[^\n]*\$\s*$/, "the shell", 0)), 60, "the shell");
       assert.notEqual(await shell("curl -fsS https://example.com > /dev/null"), 0);
       assert.deepEqual((await pi.evaluate(() => window.dolly.hostModules)).sort(),
-        ["audio@0", "display@0", "download@0", "http@0", "input@0", "nena@0", "packages@0", "runtime@0",
-          "snapshot@0", "threads@0", "touch@0", "upload@0"]);
+        ["display@0", "download@0", "http@0", "input@0", "runtime@0", "threads@0"]);
       assert.equal(await shell("command -v pi-key > /dev/null"), 0);
       console.log(`npm packages: ${name} passed in ${((performance.now() - started) / 1000).toFixed(1)}s`);
     } finally { await browser.close(); }

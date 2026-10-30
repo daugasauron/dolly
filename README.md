@@ -108,12 +108,14 @@ directory, with Node.js and npm:
 
 ```sh
 npm init --yes
-npm install @daugasauron/dolly @daugasauron/dolly-image-pi-agent \
-  @daugasauron/dolly-host-display @daugasauron/dolly-host-input @daugasauron/dolly-host-audio \
-  @daugasauron/dolly-host-touch @daugasauron/dolly-host-save @daugasauron/dolly-host-upload
+npm install @daugasauron/dolly @daugasauron/dolly-image-pi-minimal \
+  @daugasauron/dolly-host-display @daugasauron/dolly-host-input @daugasauron/dolly-host-save
 ```
 
-`index.html` boots `pi-agent` with an [HTTP policy](docs/http.md) of one rule:
+`pi-minimal` is Pi with a shell, POSIX tools and curl; the page gives it a
+terminal (`display`), a keyboard (`input`) and Pi's download tool (`save`), and
+nothing else of the browser.
+`index.html` boots it with an [HTTP policy](docs/http.md) of one rule:
 OpenRouter's API. The broker refuses every other request, whatever Pi or a
 program it runs asks for.
 
@@ -123,7 +125,7 @@ program it runs asks for.
 <main id="dolly" style="position:fixed;inset:0"></main>
 <script type="module">
   import { boot } from "./node_modules/@daugasauron/dolly/src/browser.mjs";
-  import { images, image, modules } from "./node_modules/@daugasauron/dolly-image-pi-agent/index.mjs";
+  import { images, image, modules } from "./node_modules/@daugasauron/dolly-image-pi-minimal/index.mjs";
   const policy = { rules: [
     { origin: "https://openrouter.ai", pathPrefix: "/api/v1/", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },
   ] };

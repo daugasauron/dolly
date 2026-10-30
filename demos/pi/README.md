@@ -9,6 +9,7 @@ Dolly's files, processes and HTTP broker.
 - `pi`: `pi`, the Pi coding agent as npm publishes it, with the `janis-install`, `ripgrep` and `fd` packages.
 - `pi-dolly`: Pi's Dolly extension: the prompt, the `dolly` skill, Slop for its shell tool, a download tool, settings, theme and `pi-key`, with the `pi`, `secretenv` and `dolly-docs` packages.
 - `pi-agent`: Pi coding agent with JavaScript, shell tools, ripgrep and fd.
+- `pi-minimal`: Pi with a shell, POSIX tools and curl, on `display@0`, `input@0` and `download@0` alone: the README's "Pi with npm".
 - `pi-runtime`: Reusable Pi and Janis runtime.
 
 Open `/pi-agent/`; build with `npm run image -- pi-agent`. Leave Pi with

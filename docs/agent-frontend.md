@@ -75,7 +75,7 @@ token the API answers 401, and neither secret is shown.
 
 ## Not there yet
 
-- npm ships two images, `default` and `pi-agent` (the README's "Pi with npm"):
+- npm ships two images, `default` and `pi-minimal` (the README's "Pi with npm"):
   an agent image of your own needs an image package of its own, or a
   checkout's built image directory served as `images`.
 - The npm packages do not build images: the recipe is built in a Dolly
