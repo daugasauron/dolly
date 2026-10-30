@@ -26,8 +26,8 @@ A threaded process's memory is grown to its 8 GiB maximum, in a Worker of its ow
 first thread starts, so it never grows while two threads run; it counts against the spawn
 budget with the memory it started with. `test/fixtures/threads-grown.c` in
 `test/threads-browser.mjs` trapped 10 of 10 without it. With it: 0 of 240 Lean runs in a
-session, `threads-browser` and `stack-browser` pass in both browsers, an IntLemmas compile
-takes 17.3 s against 16.4 s.
+session, and 0 of 480 in an image build (the stress above, 63 min), `threads-browser` and
+`stack-browser` pass in both browsers, an IntLemmas compile takes 17.3 s against 16.4 s.
 
 Not merged into v0.1.4 (the bug is as old as threads): every threaded process then holds
 8 GiB of grown memory. On Linux here its resident memory did not move; Chrome on Windows
