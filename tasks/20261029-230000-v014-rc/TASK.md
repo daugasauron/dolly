@@ -32,8 +32,22 @@ Commits after the first candidate, none of which changes an image (the plan reus
   cross-origin isolation); `pi-agent` packaged as `default` is; `test/npm-browser.mjs` runs the
   section as written. Source 446/0; the npm test passed in Chromium and Firefox.
 
-Left before the tag: both sites packaged from the pushed commit, the release checklist, the
-GPU tests and the served boot, as for the first candidate below.
+## The candidate to tag (2026-10-30, 09:52): `de70eb2e`, the pushed `main`
+
+Packaged and checked from `de70eb2e`, as the first candidate below; nothing tagged.
+
+| Check | Result |
+|---|---|
+| Domain site | `build/rc-1030b-domain-releases`, release `5edf7122...`, 22.3 GB, accepted; served on 9015 |
+| GitHub Pages subset | `build/rc-1030b-github-releases`, release `20ef5fb9...`, export 839,180,815 bytes of 1 GB, accepted |
+| Release checklist, steps 1 to 3 and 6 | passed: no credential, both sites sealed from `de70eb2e`, the 13 npm packages packed, installed into an empty app and booted; deployment v0.1.0 to v0.1.4, 14,046 files, v0.1.4's list `f92b7149...` |
+| GPU (Xvfb, NVIDIA) | local-llm, 0ad-spidermonkey, 0ad-engine, 0ad-graphics, slopyard, mojo: all passed |
+| Served boot | `default` boots from the domain site in Chromium and Firefox |
+| Core browser suite (Chromium, Firefox) | all passed in 575 s |
+| The docs chain's demos | pi, pi frontend, bhop, rts, classicube, studio, speech, pi-phone: 7 passed, 0 failed |
+
+The owner's commands are the checklist's (`build/rc-1030b-evidence/checklist.log`). Its npm
+loop publishes `0.1.4` under `latest`, which then leaves `0.1.4-rc.2`.
 
 ## The first candidate (2026-10-30, 01:40): `20a9ed5b`, packaged and served
 
