@@ -133,18 +133,39 @@ program it runs asks for.
 </script>
 ```
 
-`serve.mjs` serves the directory with the cross-origin isolation Dolly needs:
+`serve.mjs` serves the directory with the cross-origin isolation Dolly needs,
+and relays the hosts in `relayed` for a page whose programs need a host that
+sends no CORS headers ([relays](docs/http.md#cors-and-relays)):
 
 ```js
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 
+// Hosts without CORS headers: METHOD /relay/HOST/PATH is sent on to https://HOST/PATH.
+const relayed = new Set([]);
 const types = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript",
   ".json": "application/json", ".wasm": "application/wasm" };
+
+async function relay(request, response, url) {
+  const target = new URL(`https://${url.pathname.slice("/relay/".length)}${url.search}`);
+  if (!relayed.has(target.host)) return response.writeHead(403).end();
+  const headers = Object.fromEntries(Object.entries(request.headers).filter(([name]) =>
+    !["host", "origin", "referer", "cookie", "connection", "content-length"].includes(name) && !name.startsWith("sec-")));
+  const body = ["GET", "HEAD"].includes(request.method) ? undefined : request;
+  const answer = await fetch(target, { method: request.method, headers, body, duplex: "half", redirect: "error" });
+  response.writeHead(answer.status, { "content-type": answer.headers.get("content-type") ?? "application/octet-stream" });
+  for await (const chunk of answer.body ?? []) response.write(chunk);
+  response.end();
+}
+
 const server = createServer(async (request, response) => {
+  const url = new URL(request.url, "http://localhost");
+  if (url.pathname.startsWith("/relay/")) {
+    return relay(request, response, url).catch(() => response.headersSent ? response.destroy() : response.writeHead(502).end());
+  }
   try {
-    const path = join(process.cwd(), normalize(decodeURIComponent(new URL(request.url, "http://localhost").pathname)));
+    const path = join(process.cwd(), normalize(decodeURIComponent(url.pathname)));
     const body = await readFile(path.endsWith("/") ? join(path, "index.html") : path);
     response.writeHead(200, { "content-type": types[extname(path) || ".html"] ?? "application/octet-stream",
       "cross-origin-opener-policy": "same-origin", "cross-origin-embedder-policy": "require-corp" });
@@ -159,8 +180,12 @@ Run `node serve.mjs` and open the address it prints. Pi starts; leave it with
 Ctrl+D for a shell, where `pi-key OPENROUTER_API_KEY --provider openrouter`
 reads your key without showing it and starts Pi with it, and `/model` picks a
 model. The key stays in that Pi's environment. `curl https://example.com`
-in the shell fails: the policy refuses it. [An agent in place of a web
-frontend](docs/agent-frontend.md) adds skills and an API of your own.
+in the shell fails: the policy refuses it.
+
+[An agent in place of a web frontend](docs/agent-frontend.md) goes on from here:
+your company's instructions and skills, your backend's API, your model provider
+(Bedrock, Copilot, a gateway of your own) and how Pi starts, all as files beside
+`index.html`, with no image to rebuild.
 
 ## Boundary
 

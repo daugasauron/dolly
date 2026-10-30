@@ -35,15 +35,17 @@ function element(tag, properties, attributes = {}) {
 // directory `images` (images.mjs). The embedding, trusted page code, names the
 // host modules the page has (`modules`, the URLs of their manifests) and sets
 // the HTTP broker's policy (`http`: { policy, relays }), both before anything
-// of the guest runs. `site`, given, is the root of the routes a module may link
-// to (session/, sessions/, docs/). It resolves to the page's API (window.__dolly
-// on the site) once the image's ENTRY runs.
-export function boot(mount, { images, image, modules, site, http = {} } = {}) {
+// of the guest runs. `files` ({ "/absolute/path": string or Uint8Array }) are
+// written over the restored image before its ENTRY starts. `site`, given, is the
+// root of the routes a module may link to (session/, sessions/, docs/). It
+// resolves to the page's API (window.__dolly on the site) once the image's ENTRY runs.
+export function boot(mount, { images, image, modules, site, http = {}, files = {} } = {}) {
   return run(mount, { images, modules, site, http }, async () => {
     const definition = DOLLY_IMAGES.find(candidate => candidate.image === image);
-    if (!definition) throw new Error("invalid Dolly boot options");
+    if (!definition || typeof files !== "object" || files === null) throw new Error("invalid Dolly boot options");
     if (definition.entry === null) throw new Error(`${image} has no ENTRY; it only builds`);
-    return { image, label: "PRECOMPILED SYSTEM", required: definition.hostRequirements ?? [] };
+    return { image, label: "PRECOMPILED SYSTEM", required: definition.hostRequirements ?? [],
+      start: () => ({ message: { files }, transfers: [] }) };
   });
 }
 

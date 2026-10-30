@@ -5,7 +5,7 @@ import { loadPackagedSnapshotMetadata, streamPackagedSystemSnapshot } from "./pa
 import { siteReference, hex } from "./static-asset.mjs";
 import { checkedMemoryRange, runImage } from "./worker-image.mjs";
 
-await runImage(async ({ image, mode }, host) => {
+await runImage(async ({ image, mode, files: given = {} }, host) => {
   const definition = DOLLY_IMAGES.find(candidate => candidate.image === image);
   if (!definition || mode !== "snapshot") throw new Error("invalid Dolly image selection");
   const metadata = await loadPackagedSnapshotMetadata(image);
@@ -19,7 +19,7 @@ await runImage(async ({ image, mode }, host) => {
       // The kernel restores a snapshot against the list of its paths.
       files.write("/etc/dolly/image.manifest", `${metadata.manifest.join("\n")}\n`);
     },
-    async restore({ kernel, memory, stage }) {
+    async restore({ kernel, memory, files, stage }) {
       stage("loading precompiled userspace snapshot...");
       const capacity = 1024 * 1024;
       const address = kernel.dolly_snapshot_restore_address(BigInt(capacity));
@@ -49,7 +49,10 @@ await runImage(async ({ image, mode }, host) => {
           throw new Error("Dolly rejected an incomplete snapshot part");
         return hex(staging().subarray(0, 32));
       });
-      return { status: kernel.dolly_bootstrap_snapshot_end() };
+      const status = kernel.dolly_bootstrap_snapshot_end();
+      // The embedding's files (boot's `files`) lie over the image's.
+      if (status === 0) for (const [path, contents] of Object.entries(given)) files.write(path, contents);
+      return { status };
     },
   };
 });

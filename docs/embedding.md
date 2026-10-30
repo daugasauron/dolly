@@ -51,6 +51,7 @@ shows its own failure in the element.
 | `modules` | URLs of the `module.json` of each host module the page has. The registry loads these and no other; an image's `REQUIRES HOST` must be among them |
 | `site` | Optional: the URL of a site that serves Dolly's own pages (`session/`, `sessions/`, `docs/`), as Dolly's site does. Given, a saved session names itself in the tab's URL and modules link to those pages |
 | `http` | Optional `{ policy, relays }` for the HTTP broker, the page's one network edge (docs/http.md). Without a policy a program may fetch any HTTPS URL |
+| `files` | Optional `{ "/absolute/path": text or Uint8Array }`, written over the image before its program starts: Pi's instructions and skills (`docs/agent-frontend.md`), a start script. Programs can read them; they are not for secrets |
 
 The page, not the image, chooses the modules and the policy, before anything of
 the image runs. A program reaches nothing of the browser but through them.

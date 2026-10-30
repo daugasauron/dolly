@@ -91,14 +91,15 @@ try {
   });
 
   // The guide's page, which also keeps the handle for the test; the same page
-  // with every other device module and a policy; and one that lacks touch@0.
+  // with every other device module, a policy and files; and one that lacks touch@0.
   const page = blocks("html")[0].replace("const dolly = await boot(", "const dolly = window.dolly = await boot(");
   await writeFile(join(app, "index.html"), page);
   const options = 'document.querySelector("#dolly"), { images, image, modules }';
   assert.ok(page.includes(options), "the guide's page calls boot() as the test expects");
   const extended = page.replace(options, `document.querySelector("#dolly"), { images, image, modules: [...modules,
     ...["gpu", "microphone", "pty"].map(name => new URL(\`./node_modules/@daugasauron/dolly-host-\${name}/module.json\`, location.href).href)],
-    http: { policy: { rules: [{ origin: location.origin, pathPrefix: "/allowed/", methods: ["GET"] }] } } }`);
+    http: { policy: { rules: [{ origin: location.origin, pathPrefix: "/allowed/", methods: ["GET"] }] } },
+    files: { "/home/dolly/.pi/agent/AGENTS.md": "Answer in French.\\n", "/etc/bytes": new Uint8Array([104, 105, 10]) } }`);
   await writeFile(join(app, "devices.html"), extended);
   await writeFile(join(app, "lacking.html"), page.replace(options,
     'document.querySelector("#dolly"), { images, image, modules: modules.filter(url => !url.includes("/dolly-host-touch/")) }'));
@@ -157,6 +158,7 @@ try {
       assert.equal(await run("nena enable gpu"), 0);
       assert.ok((await devices.evaluate(() => window.dolly.hostModules)).includes("gpu@0"));
       assert.equal(await run("nena disable gpu"), 0);
+      assert.equal(await run("grep -qx 'Answer in French.' ~/.pi/agent/AGENTS.md && grep -qx hi /etc/bytes"), 0);
       assert.equal(await run(`curl -fsS ${origin(isolated)}/allowed/note.txt > /tmp/note && grep -q 'through the policy' /tmp/note`), 0);
       assert.notEqual(await run(`curl -fsS ${origin(isolated)}/refused/note.txt > /dev/null`), 0);
 
