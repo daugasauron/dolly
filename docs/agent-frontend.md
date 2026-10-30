@@ -106,10 +106,10 @@ policy. A backend that cannot answer CORS is reached through a relay (below).
   ```
 
 - Amazon Bedrock: its OpenAI-compatible endpoint, as such an entry, with a
-  Bedrock API key; it serves the models that support Chat Completions (AWS's
-  Bedrock user guide lists them). Pi's own `amazon-bedrock` provider does not
-  run in Dolly: it sends through the AWS SDK's Node handler, which Janis does not
-  have. Bedrock answers CORS.
+  Bedrock API key, through a relay; it serves the models that support Chat
+  Completions (AWS's Bedrock user guide lists them). Pi's own `amazon-bedrock`
+  provider does not run in Dolly: it sends through the AWS SDK's Node handler,
+  which Janis does not have.
 
   ```json
   { "providers": { "bedrock": {
@@ -117,10 +117,12 @@ policy. A backend that cannot answer CORS is reached through a relay (below).
     "apiKey": "$AWS_BEARER_TOKEN_BEDROCK", "models": [{ "id": "openai.gpt-oss-120b-1:0" }] } } }
   ```
 
-- GitHub Copilot: Pi's `github-copilot` provider with `COPILOT_GITHUB_TOKEN`.
-  Copilot's API refuses the preflight of the headers Pi sends, so it goes
-  through a relay, for `https://api.individual.githubcopilot.com` (or your
+- GitHub Copilot: Pi's `github-copilot` provider with `COPILOT_GITHUB_TOKEN`,
+  through a relay for `https://api.individual.githubcopilot.com` (or your
   enterprise's Copilot host).
+
+Bedrock and Copilot refuse the CORS preflight of the headers Pi's clients send
+(`x-stainless-*` and others), so the page reaches them through a relay.
 
 ## Hosts without CORS: relays
 
@@ -170,9 +172,10 @@ agent a short-lived token that allows what the frontend allowed.
   lists the orders with the user's token and cancels the one asked for; `curl`
   of `example.com`, of another path of the API and with `DELETE` is refused
   (status 9), without the token the API answers 401, and neither secret is shown.
-- Copilot through the README's relay, and Bedrock's OpenAI-compatible endpoint
-  through `models.json`: their requests reach the provider and are refused for
-  a wrong key (by hand, 2026-10-31). Without the relay, Copilot's preflight
+- This guide's files as written, by hand in Chromium and Firefox (2026-10-31):
+  `start.slop` asks for both secrets, Pi starts with `AGENTS.md` and the skill,
+  and the secrets are gone after it; Copilot and Bedrock through the README's
+  relay answer a wrong key with their refusal, and without it their preflight
   fails.
 
 ## Not there yet
