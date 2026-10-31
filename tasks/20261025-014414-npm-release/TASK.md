@@ -1,10 +1,28 @@
 # npm packages for v0.1.4: what is left before the owner publishes them
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 250
 - TAGS: packages,release,0.1.4
 
 The npm packages are the main feature of v0.1.4 (owner, 2026-10-24).
+
+## Published (2026-10-31)
+
+On the owner's word ("release 0.1.4 ... publish npm"), the 13 packages the release checklist
+packed from `42f0bf21` (`build/npm-v0.1.4/`) are on npmjs.com at `0.1.4`, under `latest`:
+the runtime, ten host modules, `dolly-image-default` and `dolly-image-pi-minimal`. npmjs.com
+served `latest` 0.1.4 a few minutes after the publish. `test/npm-browser.mjs`'s checks
+on the packages as npmjs.com serves them, installed into empty apps with an empty cache and no
+login (the guide's command and the README's "Pi with npm" as written): Chromium 4.9 s,
+Firefox 5.8 s.
+
+Since the state below: `pi-minimal` (Pi, a shell, POSIX tools, curl; three device host
+modules) is the README's image in place of `pi-agent`; `boot()` takes `files`, written over
+the image before its `ENTRY` starts, so `docs/agent-frontend.md`'s instructions, skills and
+`models.json` are files beside the page; the README's server relays hosts without CORS, which
+Copilot and Bedrock need. The four gaps listed under "What the npm path lacks" were, in
+order: one agent image is packaged; building a recipe still needs a checkout; the page hands
+the guest files (secrets still go through hidden prompts); `pi-minimal` is 27.5 MB.
 
 ## State (2026-10-25)
 

@@ -1,11 +1,40 @@
 # v0.1.4 release candidate
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 60
 - TAGS: release,0.1.4
 
 Owner (2026-10-29): "focus on having 0.1.4 release candidate ready for me tomorrow morning
 7am". A candidate is local: nothing is pushed, published or deployed until the owner says so.
+
+## Released (2026-10-31): `v0.1.4` = `42f0bf21`
+
+Owner (2026-10-30): "go ahead and release 0.1.4 commit, tag, push to slopshare daugasauron
+github and publish npm", after the npm guide's audit (`pi-minimal`, `boot()`'s `files`, the
+README's relay, `docs/agent-frontend.md`).
+
+| Check on `42f0bf21` (`work/rc-1030.sh`, `work/rc-1030-suites.sh`) | Result |
+|---|---|
+| Domain site | release `cdd85fc5...`, 22.3 GB, accepted |
+| GitHub Pages subset | release `b6001ec0...`, export 839,186,675 bytes of 1 GB, accepted |
+| Release checklist, steps 1 to 3 and 6 | passed; deployment v0.1.0 to v0.1.4, 14,046 files; v0.1.4's list `1715778c...` |
+| GPU (Xvfb, NVIDIA) | local-llm, 0ad-spidermonkey, 0ad-engine, 0ad-graphics, slopyard, mojo: all passed |
+| Served boot, core browser suite | `default` boots in Chromium and Firefox; the suite passed in 442 s |
+| The docs chain's demos | 7 passed, 0 failed |
+
+Released: tag `v0.1.4` and `main` pushed; the GitHub release with `dolly-pages.tar.gz` and the
+seed compiler; the Pages workflow (run 41141881973) succeeded and
+`https://daugasauron.github.io/dolly/v0.1.4/` boots `default` in Chromium and Firefox; the 13
+npm packages at `0.1.4` ([npm release](../20261025-014414-npm-release/TASK.md)); slopshare.dev
+(wrangler, deployment `eb9d045d`, about 55 minutes at 4 MB/s): it serves every file of v0.1.4
+and the lists of v0.1.0 to v0.1.4, and each of the five versions boots `default` in Chromium and
+Firefox. The deployment is archived in `work/locks/published/v0.1.4`.
+
+The checklist's deploy command failed twice before it uploaded anything. A user unit has the
+manager's PATH (Node 12, which wrangler 4 refuses) and runs in the home directory, where
+wrangler made its project directory `.wrangler/`, which it then also took for its legacy
+global configuration, finding no login there. It now runs in the project with the caller's
+PATH (`scripts/release-checklist.sh`).
 
 ## State (2026-10-30, 08:15): npm candidates published; main pushed, untagged
 
