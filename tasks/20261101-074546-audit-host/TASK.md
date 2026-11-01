@@ -16,7 +16,7 @@ its shapes consistent with the others; does a path grant authority it should not
 quota; duplication with another module or the page core; dead code, workarounds, special
 cases; do its tests prove denied access and behaviour rather than spelling.
 
-## State (2026-11-01 22:00 JST)
+## State (2026-11-01 22:20 JST)
 
 All 18 modules read (page and Worker sides, kernel C, clients, headers, contracts). Fixes 1
 to 10 committed, each verified in Chromium and Firefox. Fixes 7 and 8 are seed changes: the
@@ -192,9 +192,13 @@ Described, not changed (each moot or another workstream's, as it says):
   clients; the reply slots and lease rules are said once in `dolly-supervisor-0.wat`; the
   bridge checks the whole header and the providers parse only bodies; the GPU Worker, which
   reads its packets from memory itself, keeps its parse. It does not make the code smaller:
-  157 lines in and 161 out outside the tests, since the one statement of the protocol costs
-  what the restatements saved; its worth is one place to change it. Measured on its branch:
-  see its commit.
+  152 lines in and 161 out outside the tests, since the one statement of the protocol costs
+  what the restatements saved; its worth is one place to change it. Measured on it: the 29
+  images rebuilt, the device suites (audio, microphone, nena, gpu-indicator, host-compute,
+  dso, host-modules, core, boundary) pass in Chromium and Firefox and hardware gpu-render in
+  Chrome. A first try with the call in the runtime adapter failed the audio client's
+  contract fixture, which mocks `dolly_process_call` in the client's own file: the inline
+  keeps that test as it is.
 - **P2. Mailbox values in the WAT, as `touch@0` has them.** `input@0`'s record types, modifier
   bits, composing flag and lease flags and `display@0`'s copy flags, graphics flag and cursor
   styles are enums in `input.h` and `display.h` and typed again in JavaScript
