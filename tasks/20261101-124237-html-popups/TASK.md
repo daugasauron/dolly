@@ -4,7 +4,7 @@
 - PRIORITY: 320
 - TAGS: host-modules,pi,html,0.1.5
 
-## State (2026-11-02 00:35 JST)
+## State (2026-11-02 01:35 JST)
 
 Done and verified in Chromium and Firefox on this tree's images (image inputs `ea109605`):
 `html@0` (`d82f7474`), its browser test (`cf5fd1eb`), the page's font in the popup
@@ -18,10 +18,12 @@ Chromium (23.6 s) and Firefox (30.1 s), and again after each later change. Besid
 with the module on every `default` page (the site gives an image that declares `nena@0`
 every module): core, host-modules, nena, embedding, boundary, upload, indicators, terminal
 and shell pass in both browsers (nena once `libdolly-audio` and `libdolly-microphone` were
-built here). `integrate/2026-11-02` (`ef2ad83b`) is merged (`d106561d`); this tree's images
-are stale against it until its round is green. Left: link the round's images, build `html`,
-`dolly-docs` and the Pi family here, and run the committed Pi test on `pi-runtime` and
-`test/npm-browser.mjs` on `pi-minimal`.
+built here). `integrate/2026-11-02` is merged (`d106561d`, and `d9f694a8` for its revert of
+`fef1fc36`): this tree's runtime gives the round's image inputs (`896df05e`), `system`'s
+closure is linked from `work/integrate`, `html` and `default` built here, and
+`test/html-browser.mjs` passes on them in Chromium and Firefox (01:32). Left: link the
+round's Pi closure when it is built, build `dolly-docs` and the Pi family here, and run the
+committed Pi test on `pi-runtime` and `test/npm-browser.mjs` on `pi-minimal`.
 
 Owner (2026-11-01, 21:45 JST):
 
