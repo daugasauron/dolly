@@ -16,15 +16,15 @@ its shapes consistent with the others; does a path grant authority it should not
 quota; duplication with another module or the page core; dead code, workarounds, special
 cases; do its tests prove denied access and behaviour rather than spelling.
 
-## State (2026-11-01 22:20 JST)
+## State (2026-11-01 23:10 JST)
 
 All 18 modules read (page and Worker sides, kernel C, clients, headers, contracts). Fixes 1
 to 10 committed, each verified in Chromium and Firefox. Fixes 7 and 8 are seed changes: the
 catalog needs a round (this tree rebuilt only the images its tests open, so its
 `dist/dolly-images.mjs` lists those). The proposals are on branches of their own, never
 on this one: P1 on `proposal/leased-device`, P2 on `proposal/host-mailbox-constants`, P4
-on `proposal/snapshot-no-session-name`, each a `Proposal:` commit on fix 10; P3 waits
-for the owner as described. Left open for the
+on `proposal/snapshot-no-session-name`, P5 on `proposal/http-body-limit`, each a
+`Proposal:` commit on fix 10 or its task commits; P3 waits for the owner as described. Left open for the
 owner's word on the proposals; close it when they are decided.
 
 ## Findings
@@ -165,6 +165,23 @@ Described, not changed (each moot or another workstream's, as it says):
   Playwright's Firefox, which gets no adapter under Xvfb (`docs/gpu.md`), and the installed
   Firefox (a snap) does not start inside the capped scope (`gpu-render-2.log`, 180 s launch
   timeout). Chrome's hardware run is the GPU Worker's measurement tonight.
+- **A request over 8 MiB failed as a lost connection** (the integrator's finding from the
+  Studio path-tracer recording: Pi on the default policy, about ten PNG frames in its
+  context; its next request never reached the network, and Pi printed "Connection error."
+  four times, then "Retry failed after 3 attempts"). Reproduced in Chromium and Firefox
+  (`http-size-before.log`): a body of 8 MiB reaches the server; with one byte more, nothing
+  leaves the page and curl prints `curl: (63) Browser HTTP byte limit exceeded`. Janis's
+  fetch rejects with `E2BIG`, "Browser HTTP byte limit exceeded" (`janis-size.log`). So
+  Dolly does not lose the reason; the Anthropic SDK does. It turns every fetch rejection into
+  `APIConnectionError` "Connection error.", keeps the reason only as `cause`, and retries,
+  as it would after a refused connection under Node. Pi recovers from an oversized request
+  only when the service refuses it: it reads `413 request_too_large` as context overflow
+  and compacts (`packages/ai/src/utils/overflow.ts`). Here the broker refused first, below
+  the 32 MB the Messages API accepts. The fix is the limit, not the message: see P5. The
+  size of the refused request was not recorded (the traffic log lists only what reached the
+  network). The size refusal is inferred by elimination: under the default policy, the only
+  local refusals are size and a malformed request, and the 33 requests of the same shape
+  before it succeeded.
 
 ## Proposals for the owner
 
@@ -229,6 +246,24 @@ Described, not changed (each moot or another workstream's, as it says):
   word and the kernel's check go, 41 lines in, 83 out; not an image input (image inputs
   unchanged), and custom-session, session-offline, snapshot-stream, nena, indicators and
   boundary pass in Chromium and Firefox.
+- **P5. `http@0`'s body cap above what the services programs call accept.**
+  `DOLLY_HTTP_MAX_BODY` has been 8 MiB since the broker's first commit (`aa0e63c0`), with
+  no reason recorded. It bounds the copy the Worker makes of a guest's body before the page
+  judges it: one body for each of the 16 slots. It guards no authority. Without a policy
+  object there is no request quota, and with one, a destination already receives up to 256
+  requests. The guest already holds memories of 8 GiB, so 16 bodies of 64 MiB (2 GiB, in
+  two copies) are no new kind of exhaustion. Its job is to stay out of the services' way.
+  Anthropic's Messages API accepts 32 MB, images included; OpenAI's and OpenRouter's limits
+  are not in the tree and were not checked. At 64 MiB, the service, not the broker, refuses
+  anything between 32 MB and 64 MiB. That margin is more than one step of an agent's
+  context: Pi caps an image at 4.5 MB of base64.
+  Prototyped on `proposal/http-body-limit`. The contract constant is 64 MiB, and the policy
+  default reads it instead of repeating it. `http-check.c` posts 8 MiB + 17 bytes, which
+  was refused before, and one byte over the cap. Measured in Chromium and Firefox
+  (`http-size-after.log`, `janis-size.log`): 8 MiB + 1 and 64 MiB reach the server, and
+  64 MiB + 1 fails as before. A 64 MiB curl POST to the local server takes 1.9 s in
+  Chromium and 0.5 s in Firefox.
+  A seed change (the http contract): it needs a catalog round.
 
 ## Lessons
 
@@ -252,6 +287,11 @@ Described, not changed (each moot or another workstream's, as it says):
   test's own fixture had presented a translucent gray for weeks, and no test looked at the
   screen, only at `__dolly.frame()`, the presenter's copy. A test of what a display shows
   must read the screen (a screenshot of the canvas), not the bytes the page was given.
+- A refusal is only as good as the vocabulary it reaches. An HTTP library knows statuses
+  and failed connections, so the broker's honest `E2BIG` became "Connection error." and
+  three retries. The service's 413 for the same request would have made Pi compact and go
+  on. A local limit below a remote one turns a refusal the program can act on into one it
+  cannot. Set such limits above the remote ones, and let the remote side refuse.
 - Read a commit back before trusting it. A `git add` with one path that no longer existed
   (the test file `git mv` had renamed) added nothing, its error hidden by `2>/dev/null`,
   and the commit held only the rename; `git show --stat` after every commit caught it.
