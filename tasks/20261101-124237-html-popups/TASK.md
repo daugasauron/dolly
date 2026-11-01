@@ -91,7 +91,9 @@ leased-device protocol D's audit describes does not fit and is not copied).
   install it are unchanged by the module: `build:runtime` gave image inputs `ea109605` both
   with the module and with its manifest entry and import taken out (measured 23:18).
   Pi-dolly installs it; `default` does not (what a base image contains is the
-  owner's call), and `amy install html` plus `nena enable html` give it there.
+  owner's call), and `nena enable html` then `amy install html` give it there (amy refuses
+  the package while the module is off; measured in both browsers, the popup's form then
+  answers `a=1`).
 - **No Janis binding**: Pi's tools run the `html` command (child_process, the document on
   stdin) instead of a `Dolly.html()` that Janis would link. Janis is linked into every
   JavaScript image (typescript, janis-install, the Pi family, …); a binding would make every
