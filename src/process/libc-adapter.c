@@ -1385,7 +1385,8 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
       if (mode & DOLLY_TERMINAL_ONLCR) attributes.c_oflag |= ONLCR;
       if (mode & DOLLY_TERMINAL_ICRNL) attributes.c_iflag |= ICRNL;
       if (mode & DOLLY_TERMINAL_INLCR) attributes.c_iflag |= INLCR;
-      attributes.c_cflag = CS8 | CREAD;
+      /* musl's cfgetospeed reads the speed from c_cflag; B0 would mean hung up. */
+      attributes.c_cflag = CS8 | CREAD | B38400;
       if ((mode & DOLLY_TERMINAL_ISIG) != 0) attributes.c_lflag |= ISIG;
       if ((mode & DOLLY_TERMINAL_CANONICAL) != 0) {
         attributes.c_lflag |= ICANON;

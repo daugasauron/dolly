@@ -18,17 +18,18 @@ confirms is fixed with a test that failed before (or code gone and nothing
 broken), the moot is closed with its reason and the uncertain rest is a few
 lines each below.
 
-## State (2026-11-01 21:10 JST)
+## State (2026-11-01 22:10 JST)
 
 Read: the whole of the scope above. Baseline: build reproducible (same runtime
 and image ids), source suite 446/446 in 27 s, `process-browser` passes in
-Chromium (58 s). Items 1-23 are committed and verified on `default,system`
-(and `libdolly-sockets` for 1-20) built from the newest seed (image inputs
-`3b4ff6ad…`): `process` and `core` pass in Chromium and Firefox on it, and
-`process` three times in a row on the one before; `threads`, `sockets` and
-`pty` passed on `88343cce…` (items 1-21), `terminal`, `slop` and `shell` on
-the seed before that, `default` and `terminal` on `88343cce…` too. The libc
-items need a catalog round (the integrator's of 2026-11-02 00:30).
+Chromium (58 s). Items 1-26 are committed and verified on `default,system`
+built from the newest seed (image inputs `9702a0d5…`): `process`,
+`terminal`, `pty` and `core` pass in Chromium and Firefox on it; `default`
+on the seed before (`3b4ff6ad…`, items 1-25), `process` three times in a
+row on the one before that; `threads` and `sockets` (with
+`libdolly-sockets`) on `88343cce…` (items 1-21), `slop` and `shell` on the
+seed before that. The libc items need a catalog round (the integrator's of
+2026-11-02 00:30).
 
 ## The shape of it
 
@@ -289,6 +290,19 @@ Each with a test that failed before, verified in Chromium and Firefox.
     mode 100666 and the position (Chromium), now 20666 and ESPIPE;
     `process`, `terminal`, `pty` and `default` pass in Chromium and Firefox.
 
+26. **Every terminal's line speed read as B0, hung up.** TCGETS gave the
+    speed in musl's unused `__c_ospeed` field while musl's `cfgetospeed`
+    reads it from `c_cflag`. Emacs, for one, turns B0 into 1200 baud
+    (`init_baud_rate`), so its isearch ran in slow-terminal mode, showing
+    the line it reached in a one-line window, and its redisplay costed
+    scrolling for 1200 baud. `c_cflag` now carries B38400, as a Linux pty
+    reports. Found by a fifth comparison (`probes/term-edges.c`, on the
+    terminal itself; natively under `script`). Seed input. Check in
+    `device_answers` (`process-descriptors.c`), which Linux passes too.
+    The rest of that comparison is the documented terminal: VMIN 0, IXON,
+    VSUSP and output mappings other than ONLCR refused with EINVAL,
+    `tcflow` and `tcsendbreak` ENOTSUP, no process group to get or set.
+
 ## Proposals for the owner
 
 - **The kernel told each disposition, and a spawned child that keeps what
@@ -364,6 +378,14 @@ Each with a test that failed before, verified in Chromium and Firefox.
 
 ## Findings, not changed
 
+- `ttyname` of the terminal fails (ENOENT): musl reads `/proc/self/fd/N`,
+  which the kernel does not answer, and would then find the descriptor's
+  identity differs from `/dev/tty`'s (the terminal's streams are WasmFS's
+  `/dev/stdin` and the kernel's output devices). Python's `os.ttyname`
+  fails; `tty` prints `/dev/tty`. `/dev/fd/N` is absent too, so zsh has
+  neither it nor FIFOs for `<(…)`. Both would be kernel additions; no
+  program of the catalog was found to need them.
+
 - Clocks, identity and environment (`probes/misc-edges.c`) showed nothing
   to fix: Linux's own clocks (`CLOCK_BOOTTIME`, `_RAW`, `_COARSE`) are
   EINVAL, so a program falls back to the POSIX ones; `gethostname` truncates
@@ -409,6 +431,11 @@ Each with a test that failed before, verified in Chromium and Firefox.
   an hour that the browser suites, written from Dolly's side, never asked
   about. `process-descriptors.c` already compiles natively under
   sanitizers: checks put there prove Linux agrees.
+- Errno probes find wrong answers; the quiet defects were in state a call
+  leaves for another program to read: a modification time after
+  truncation (make), a line speed (Emacs), a file type and position (Python,
+  `test -c`). The later comparisons asked what make, git and Emacs read,
+  and each found one.
 - A rule decided in two places drifts: the kernel learned what exec carries
   across, the supervisor kept ending any process not yet started. One
   decider (the kernel), and the other side asks.

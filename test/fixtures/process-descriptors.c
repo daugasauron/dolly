@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <sys/wait.h>
+#include <termios.h>
 #include <unistd.h>
 #ifdef __dolly__
 #include <dolly/runtime.h>
@@ -401,12 +402,17 @@ static void path_answers(void) {
   CHECK(close(reader) == 0 && close(writer) == 0 && unlink(file) == 0 && rmdir(directory) == 0);
 }
 
-/* Devices are character devices, and a terminal has no position. */
+/* Devices are character devices, and a terminal has no position and a line
+ * speed that is not B0, hung up. */
 static void device_answers(void) {
   struct stat metadata;
   CHECK(stat("/dev/tty", &metadata) == 0 && S_ISCHR(metadata.st_mode));
   CHECK(stat("/dev/zero", &metadata) == 0 && S_ISCHR(metadata.st_mode));
-  if (isatty(STDOUT_FILENO)) CHECK(lseek(STDOUT_FILENO, 0, SEEK_CUR) == -1 && errno == ESPIPE);
+  struct termios mode;
+  if (isatty(STDOUT_FILENO)) {
+    CHECK(lseek(STDOUT_FILENO, 0, SEEK_CUR) == -1 && errno == ESPIPE);
+    CHECK(tcgetattr(STDOUT_FILENO, &mode) == 0 && cfgetospeed(&mode) != B0);
+  }
 }
 
 /* Truncation, by O_TRUNC or ftruncate, modifies a file: make reads its time. */
