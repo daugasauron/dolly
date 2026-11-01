@@ -88,9 +88,3 @@ export async function prepareImageArtifacts(image, customSource, build, report, 
   for (const node of selected.values()) loaded.push(await materialize(node));
   return loaded;
 }
-
-// Resolve compatibility from pinned recipes before materializing large artifacts.
-export async function loadImageHostRequirements(image, customSource) {
-  if (image !== "custom") return imageDefinition(image).hostRequirements;
-  return (await customRecipeGraph(customSource)).root.hostRequirements;
-}

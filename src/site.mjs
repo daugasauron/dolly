@@ -7,7 +7,7 @@ import { buildHost } from "../host/modules.mjs";
 import { hostManifests } from "../host/manifests.mjs";
 import { run } from "./browser.mjs";
 import { imageBase, imageDefinition, loadImages } from "./images.mjs";
-import { prepareImageArtifacts, loadImageHostRequirements } from "./image-build.mjs";
+import { prepareImageArtifacts } from "./image-build.mjs";
 import { buildImage } from "./image-builder.mjs";
 import { loadCustomImage, storedCustomImage } from "./custom-image.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
@@ -54,7 +54,8 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
     const recipe = source === undefined ? imageDefinition(image) : inspectDollyfile(source);
     const runnable = recipe.entry !== null;
     if (!runnable && !rebuild) throw new Error(`${image} has no ENTRY; it only builds`);
-    const required = [...await loadImageHostRequirements(image, source), ...selected ? [selected.module] : []];
+    // An image declares its modules itself; nothing is inherited from what it is built from.
+    const required = [...recipe.hostRequirements, ...selected ? [selected.module] : []];
     // The completed custom image this tab restores, or the identity of the one it rebuilt.
     let customArtifact, rebuilt = null;
     return {
