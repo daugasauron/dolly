@@ -16,21 +16,22 @@ session modules), building on the page (`image-build*.mjs`, `build-worker.mjs`,
 Done when: each finding below is fixed with its browser evidence, closed as moot with the
 reason, or left as a few lines for the owner.
 
-## State (2026-11-01 20:35 JST)
+## State (2026-11-01 21:00 JST)
 
-Findings 1 to 7 and 9 to 18 (and the scoped style sheet) are committed, each verified as its commit says: source suite,
-and in Chromium and Firefox the suites in `build/audit-runtime-evidence/run2.log` to
-`run12.log` and `tip1.log` to `tip4.log` (at the tip: core, site, ending, image, custom
-session, session offline, snapshot stream, host compute, host modules, nena, threads,
-sockets, pty, shell env, boundary, indicators, npm packages, amy, docs, terminal, display,
-display cursor, touch, upload, GPU indicator, pager, man). Left: finding 8 to `demo/lean-2`;
-for agent D, `input@0`'s key rule (17) and the modules' controls outside the element (16);
-for the owner, the four questions below. The docs repins of finding 7 restale `dolly-docs`
-and the images that install it: `dolly-docs`, `pi-dolly` and `pi-minimal` are rebuilt in this
-tree (2.8 min, `image-build-docs.log`); `bhop`, `classicube`, `pi-runtime`, `pi-agent`,
+Findings 1 to 7 and 9 to 19 (and the scoped style sheet) are committed, each verified as its
+commit says: source suite, and in Chromium and Firefox the suites in
+`build/audit-runtime-evidence/run2.log` to `run13.log`, `tip1.log` to `tip4.log` and
+`t1.log` to `t4.log` (at the tip, all that this branch touches: core, site, ending, image,
+custom session, session offline, snapshot stream, host compute, host modules, nena, threads,
+sockets, pty, shell env, boundary, indicators, default, microphone, npm packages, amy, docs,
+terminal, display, display cursor, touch, upload, GPU indicator, pager, man). The second
+assignment (the tests, the release and build scripts) is below its findings. Left: finding 8
+to `demo/lean-2`; for agent D, `input@0`'s key rule (17) and the modules' controls outside
+the element (16); for the owner, the four questions below. The docs repins of finding 7
+restale `dolly-docs` and the images that install it: `dolly-docs`, `pi-dolly` and
+`pi-minimal` are rebuilt in this tree; `bhop`, `classicube`, `pi-runtime`, `pi-agent`,
 `pi-local`, `pi-phone`, `dollyfile-studio`, `rts-arena` and `slopyard` wait for a catalog
-round (the other branches' docs repins restale them too). No change of this branch is a seed
-input: every core image's plan is "reuse".
+round. No change of this branch is a seed input.
 
 ## Findings
 
