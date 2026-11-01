@@ -16,10 +16,13 @@ its shapes consistent with the others; does a path grant authority it should not
 quota; duplication with another module or the page core; dead code, workarounds, special
 cases; do its tests prove denied access and behaviour rather than spelling.
 
-## State (2026-11-01 17:20 JST)
+## State (2026-11-01 18:10 JST)
 
-Survey of all 18 modules done (page and Worker sides, kernel C, clients, headers, contracts).
-Fixes in progress below; findings that are proposals for the owner at the end.
+All 18 modules read (page and Worker sides, kernel C, clients, headers, contracts). Fixes 1
+to 7 committed, each verified in Chromium and Firefox. Fix 7 is a seed change: the catalog
+needs a round (this tree rebuilt only the 28 images its tests open, so its
+`dist/dolly-images.mjs` lists those). P2 is being prototyped as a `Proposal:` commit, the
+last of the branch.
 
 ## Findings
 
@@ -70,7 +73,19 @@ Fixed:
    in the same case. No browser that runs Dolly lacks those APIs, so the checks never
    refused; where one would, `gpu@0`'s rule (`07c6b08a`: admitted, grants nothing, OPEN
    fails with `ENODEV`, a program falls back) is the one to keep. The checks go, the
-   providers say `ENODEV`. audio, microphone and nena pass in Chromium and Firefox.
+   providers say `ENODEV`. audio, microphone and nena pass in Chromium and Firefox. The rule
+   is now written once (`14a0636f`, `host/README.md`), `docs/process-model.md` no longer
+   says such a switch is refused, and the nena test lost its branch for a `gpu@0` refusal
+   that cannot happen.
+7. **Two stale contract sentences** (`20ea4768`, a seed change): `dolly-pty-0.wat` said
+   byte 3 on the master is SIGINT, which is the mode's VINTR since `25867168`;
+   `dolly-http-0.wat` said a URL must be absolute, which a site path need not be since
+   `f9b2cb49`. Both digests change, so every program linked with either client must be
+   rebuilt: a catalog round. The 28 images of `default`, `system`, `system-build`, the
+   `libdolly-*` packages and `stack-wrap` rebuilt here in 1,227 s; pty, network, core,
+   host-modules, nena, audio, microphone, sockets, stack, dso, threads, terminal, display,
+   touch, upload, gpu-indicator, host-compute and boundary pass in Chromium and Firefox on
+   them, and hardware `gpu-render` in Chrome.
 
 Described, not changed (each moot or another workstream's, as it says):
 
@@ -82,6 +97,9 @@ Described, not changed (each moot or another workstream's, as it says):
 - **Three clients compute the same deadline** (`display_deadline`, `input_deadline`,
   `touch_deadline`). Sharing one needs a header every client includes, which is the process
   contract's (`include/dolly/`). Left.
+- **`upload@0`'s and `download@0`'s clients** each build a `dolly_process_path_request`
+  by hand (20 lines each), as the libc adapter's static `path_call` does. A shared helper
+  would be the process contract's. Left.
 - **`__dolly.transport`** (`display@0`'s page record) is a view of what the Worker last
   reported, not a transport, and doubles `graphicsActive`, `fontSize` and `copySelection` on
   the same handle; 40 uses in tests and demos. Renaming is churn without a defect. Left.
@@ -135,3 +153,24 @@ Described, not changed (each moot or another workstream's, as it says):
   (`host/runtime/runtime.mjs`, `host/modules.mjs`).
 
 ## Lessons
+
+- A contract's prose is its identity. `DOLLY_NAME_ABI_DIGEST` hashes every byte of a
+  module's WAT and headers, comments included, so the two stale sentences found here
+  (`pty@0` interrupting on "byte 3", `http@0` URLs "must be absolute") cost a full catalog
+  round to correct: every program linked with the http client is refused until rebuilt.
+  Gather contract-prose fixes and land them with a round that happens anyway.
+- A split leaves dead halves. The page/Worker split of 2026-10-23 moved decisions across
+  the boundary and left members behind on both sides (the Worker's
+  `relativePointerRequested`, http's page-side `transport`, audio's and gpu's `status`),
+  each still looking used because a test or a comment mentions it. After a split, list each
+  half's members and grep every one against its callers.
+- One rule for missing devices, written once. `gpu@0` learnt that a module should be
+  admitted and fail OPEN where the browser has no device (`07c6b08a`); `audio@0` and
+  `microphone@0` kept the older refusal for a week because the rule lived in a commit
+  message. Where a rule spans modules it belongs in `host/README.md`.
+- The harness: this tree's `dist/` came from `work/x11fix`, two demo recipes ahead of
+  `main`, so `npm run routes` refused until those two recipes matched; a docs edit
+  repins twelve recipes (the docs package and the pi family that installs it), and the
+  source suite checks the working tree's pins, so an uncommitted docs edit fails it. The
+  installed Firefox is a snap and does not start inside a capped `systemd-run` scope, so
+  hardware WebGPU in Firefox cannot be measured on this machine.
