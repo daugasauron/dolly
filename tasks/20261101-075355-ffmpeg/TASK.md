@@ -89,6 +89,19 @@ no input, print Clang's banner on stderr and end with 0, as Clang does:
 `clang version 24.0.0`, `Target: wasm64-unknown-dolly`, `Thread model: posix`. Then the recipe
 drops `--optflags` and configure picks Clang's `-O3` and `-MMD` itself.
 
+## Finding: the core gzip is taken for a compressor
+
+FFmpeg's configure enables resource compression when `[ -x "$(command -v gzip)" ]`, and its
+Makefile then runs `gzip -nc9` on `fftools/resources/graph.html`. The `gzip` package (USE'd here
+to unpack the archive) only decompresses, by design (`docs/slop.md`, `fd44230c`), so the first
+build stopped after 1,059 compiles: `gzip: -n is unsupported: this gzip only decompresses`,
+`common.mak:171: fftools/resources/graph.html.gz] Error 2`. The recipe says
+`--disable-resource-compression`, upstream's option ("don't compress resources even when
+possible"); the resources are then embedded as they are. Proposal (core package, owner's
+call): the core `gzip` compresses as well, with the zlib it already links (`deflateInit2`
+with a gzip wrapper writes no name or time, which is `-n`), so a command named gzip does what
+upstream build scripts take that name to do.
+
 ## State (2026-11-01 21:10)
 
 Integrator: agent C fixes (1) and (2) in `core/audit-slop` before 00:30; this branch merges
