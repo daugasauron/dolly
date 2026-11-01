@@ -226,6 +226,15 @@ markup shapes go. Files another branch changes tonight are left to it (B: `proce
   `pi-minimal`'s six in one. The browser checks now compare the page's modules with the
   recipe's declared list, which is the behaviour (the page enables what the image declares,
   no more); the list itself stays in `host-modules.test.mjs`.
+- `image-browser.mjs`: after finding 1 no code asks for a raw `dist/dolly-IMAGE-system.snapshot`,
+  and the `downloads` check beside the request check already fails on any `.snapshot` a
+  build fetches: the request check goes. `system-snapshot-format.test.mjs` ran each
+  malformed snapshot through `decodeSystemSnapshot` and `decodeSnapshotRecords`, which the
+  first calls before anything else: the records decoder alone.
+- Kept, as the only guard of their behaviour: `pages-publication.test.mjs`'s match of the
+  workflow text (the deploy checks the digest the owner chose; it runs on GitHub alone),
+  `host-modules.test.mjs`'s parse of `process.h` and the kernels for operation numbers (an
+  ABI check), `default-browser.mjs`'s check that the welcome text names published packages.
 
 ## Checked and left
 

@@ -271,7 +271,6 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
   try {
     const built = await boot(missing, "iteration-one", "/dist/static/session-recovery/");
     assert.ok(server.requests.has("/dist/dolly-system-system-snapshot.mjs"));
-    assert.equal(server.requests.has("/dist/dolly-system-system.snapshot"), false);
     assert.deepEqual([built.payloadReads, built.downloads], [[], buildPacks]);
   } finally { hideSystemMetadata = false; }
 });
