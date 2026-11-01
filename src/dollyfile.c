@@ -94,9 +94,6 @@ typedef struct {
   // A live install in a session with nena@0: the session's record of the
   // modules it enabled since, one name@version a line; NULL in every other run.
   char *enabled;
-  // A live install moves each file out of the snapshot amy fetched for it,
-  // which it removes after: the kernel never holds a package twice.
-  int consume;
   Scope exports;
   Artifact artifact;
 } Engine;
@@ -1460,11 +1457,14 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
     selected[count++].path = path;
   }
   if (result == 0 && dolly_fs_restore(selected, count, 1) != 0) result = -errno;
-  // From the snapshot's end, which a live install cuts off behind each file.
+  // A snapshot is as large as its image: it leaves with the recipe's last line
+  // that names it, and that line moves its files out of it, from its end, so
+  // that the kernel never holds them twice.
+  const last = rest != NULL && strstr(rest, expected) == NULL;
   for (size_t index = count; result == 0 && index-- > 0;) {
     if (selected[index].kind != DOLLY_FS_FILE) continue;
     result = copy_artifact_file(artifact, indices[index], selected[index].path);
-    if (result == 0 && engine->consume && truncate(artifact_path, artifact->offsets[indices[index]]) != 0) result = -errno;
+    if (result == 0 && last && truncate(artifact_path, artifact->offsets[indices[index]]) != 0) result = -errno;
   }
   for (size_t index = 0; result == 0 && keep && index < count; ++index)
     result = append_string(&engine->keep, &engine->keep_count, &engine->keep_capacity, selected[index].path);
@@ -1504,9 +1504,7 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   for (size_t index = 0; index < count; ++index) free(selected[index].path);
   free(indices);
   free(selected);
-  // A snapshot is as large as its image: it leaves with the recipe's last line
-  // that names it, so the commands that follow have its room.
-  if (result == 0 && rest != NULL && strstr(rest, expected) == NULL) {
+  if (result == 0 && last) {
     dispose_artifact(artifact);
     if (unlink(artifact_path) != 0) result = -errno;
   }
@@ -2261,8 +2259,8 @@ static int install_live(Engine *engine, const char *locator, const char *expecte
     fprintf(stderr, "dollyfile: install takes a recipe's site path and its SHA256\n");
     result = 2;
   }
-  engine->consume = 1;
-  if (result == 0) result = load_artifact(engine, locator, expected, IMPORT_INSTALL, 0, NULL, NULL, &visible, &exports, &own, NULL);
+  // Nothing follows the row: its snapshot, which amy fetched, is used for the last time.
+  if (result == 0) result = load_artifact(engine, locator, expected, IMPORT_INSTALL, 0, NULL, NULL, &visible, &exports, &own, "");
   if (result == 0) result = write_environment_file(engine);
   dispose_scope(&exports);
   dispose_scope(&visible);
