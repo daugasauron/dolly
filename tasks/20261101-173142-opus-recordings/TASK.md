@@ -27,4 +27,13 @@ Still open, each measured once (evidence under `work/videos-2026-11-01/`):
   jumps fall short of pad 3's top. Not a Dolly defect as far as measured; the course may need a
   first section a model can learn from screenshots, which is a game-design question.
 
+- **http@0's 10-minute deadline cuts a streamed model response** (`studio/s11-chess`, 2026-11-02
+  07:07): Opus 5.5 at high effort streamed a 910-line C file in one response; at 600 s the broker
+  ended the request ("Browser HTTP deadline exceeded") and Pi stopped. The deadline
+  (`timeoutMilliseconds`, 600,000 by default) bounds a whole request, and a streamed response may
+  rightly last longer (128K output tokens). A hang is a silence, so the bound that protects the
+  page is one on time without bytes, not on total time; the same lesson as the 8 MiB body limit
+  (`proposal/http-body-limit`): a local limit below the remote one turns success into an error.
+  A contract change: for the owner, with the body limit.
+
 Done when each item is fixed with its evidence or closed with its reason.
