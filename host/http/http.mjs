@@ -12,7 +12,6 @@ export function browser({ applicationBase, configuration, send, ask }) {
   const services = {};
   const instance = {
     services,
-    get transport() { return transport; },
     page: {
       get httpActive() { return transport?.active ?? false; },
       get httpRequestCount() { return transport?.requestCount ?? 0; },

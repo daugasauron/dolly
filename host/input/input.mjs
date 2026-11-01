@@ -245,10 +245,6 @@ export class InputTransport {
     return (Atomics.load(this.words, this.word + InputTransport.flags) & 1) !== 0;
   }
 
-  relativePointerRequested() {
-    return (Atomics.load(this.words, this.word + InputTransport.flags) & 3) === 3;
-  }
-
   // Tells the kernel whether this page listens: without it no lease is given.
   enable(enabled) {
     Atomics.store(this.words, this.word + InputTransport.enabled, enabled ? 1 : 0);
