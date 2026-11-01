@@ -16,8 +16,10 @@ Three rounds of seed fixes are committed with every recipe repinned. Builds 1 an
 stopped early to batch the next round into one chain rebuild; build 3 (all three rounds,
 `default` and `system` and their closure, 22 images) runs in this tree as unit
 `dolly-audit-slop-seed3` (log `build/audit-slop-evidence/image-seed3.log`). Browser
-verification in Chromium and Firefox follows it. Proposal P1 is prototyped on branch
-`proposal/dollyfile-no-append` (`607fcc3a`), not on this branch.
+verification in Chromium and Firefox follows it. Proposals P1 and P2 are prototyped on
+branches `proposal/dollyfile-no-append` (`607fcc3a`) and `proposal/dollyfile-requires`
+(`8573582e`), not on this branch; each compiles with the parser fixture and its JavaScript
+side accepts and refuses the rows it should.
 
 ## Method
 
@@ -150,4 +152,13 @@ and on the catalog. What follows are changes to the language itself, the owner's
 
 - A plain `npm run image` stages `src/` while it runs: editing `src/slop.c` during its source
   preparation pinned a half-edited Slop into every recipe and started a 183-image rebuild,
-  stopped after six images. Never edit seed inputs while a build in the same tree prepares.
+  stopped after six images. Never edit seed inputs while a build in the same tree prepares;
+  once the plan line is printed, the build reads only `dist/static`.
+- Native probes against dash and Bash found every Slop defect of the night in seconds; the
+  browser was needed only to confirm. A probe battery is cheaper than reading 5,400 lines,
+  and `cc` of `slop.c` with `native-spawn.c` runs real upstream scripts (Make's configure).
+- The corpus decides between POSIX and Bash: counting spellings in the cached sources
+  (`${1+"$@"}` 344 times, `cp -p` 72, `set -f` 20, `cd -P` 6) turned "might matter" into a
+  measured need, and showed that `readonly` and `hash` do not.
+- Seed rounds cost a chain rebuild each (zig-build alone is most of it): batch every seed fix
+  first and stop a build that has not reached the expensive images when another fix arrives.
