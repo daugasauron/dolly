@@ -4,7 +4,7 @@
 - PRIORITY: 320
 - TAGS: host-modules,pi,html,0.1.5
 
-## State (2026-11-02 03:15 JST)
+## State (2026-11-02 03:20 JST)
 
 Done and verified in Chromium and Firefox: `html@0` (`d82f7474`, wording `3bb52f36`), its
 browser test (`cf5fd1eb`), the page's font in the popup (`9ddc5e32`), Pi's `ask_user` and
@@ -17,9 +17,12 @@ uncommitted, until the round commits them. Before the merge, on this tree's own 
 the html test, the same Pi test on a Pi the page built without ripgrep and fd, and core,
 host-modules, nena, embedding, boundary, upload, indicators, terminal and shell passed in
 both browsers; after it, the html test again (01:32). `test/npm-browser.mjs` (pi-minimal by
-npm) fails before any of html@0: at the README's `npx dolly-build`, which loads the image's
-device modules from the runtime package once `fef1fc36` is reverted (reported to the
-integrator). Left: rerun it when that is settled; merge the round's commit.
+npm, the README's install with `dolly-host-html`) first failed before any of html@0, at the
+README's `npx dolly-build`, which loaded the image's device modules from the runtime package
+once `fef1fc36` was reverted; with A's fix `e210dbe4` taken as the integrator asked
+(`7063ee93`, `45c28eef`; the html package then rebuilt to the same bytes through it), it
+passes in Chromium (17.2 s) and Firefox (19.2 s), and the html and Pi tests again (03:15).
+Left: merge the round's commit when it is green (its pins are in this tree uncommitted).
 
 Owner (2026-11-01, 21:45 JST):
 
