@@ -103,8 +103,8 @@ REQUIRES TOOL   cc
 
 # Dolly's own small commands, from src/commands. Each TOOL export names the
 # compiled result.
-SOURCE /v0.1.4/dist/static/default/commands/mkdir.c 16a3e3644539d472a20f59ba4cb2d0e85af489cd9defce3fadbdd91d3dece6fc /tmp/core-tools/mkdir.c
-SOURCE /v0.1.4/dist/static/default/commands/rm.c 294c05be223b0c8f11630f2dcdee6fe26fd1b05a9a16307c78c85dfb465a580e /tmp/core-tools/rm.c
+SOURCE /v0.1.4/dist/static/default/commands/mkdir.c 0713179c0b44c92e30d2fd22c87a930ca23f5417b1b3392b3997547648617ad6 /tmp/core-tools/mkdir.c
+SOURCE /v0.1.4/dist/static/default/commands/rm.c 2adb95ed560a55f22b91eda217fdbfc4108bd14ebe71b143ef706869d88a1997 /tmp/core-tools/rm.c
 SOURCE /v0.1.4/dist/static/default/commands/foreground.c e926c3c87764e44064744fc1d3cba008c46666ed7a06d351824ce67792bcdd76 /tmp/core-tools/foreground.c
 SOURCE /v0.1.4/dist/static/default/commands/help.c fca35557b4ba2b542243cd1391f5d3b85326a27800869b91b28eed2c3558e7c5 /tmp/core-tools/help.c
 SOURCE /v0.1.4/dist/static/default/commands/man.c cd13cdece7706188e083a1754187cb19b7627e9cb8d2b294ba21cd2f88ff39d8 /tmp/core-tools/man.c

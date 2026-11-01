@@ -143,6 +143,11 @@ test("Dolly's own core tools keep their no-permission and finite semantics", asy
   assert.equal(status(touch, ["-m", "-d", "1970-01-01T00:20:00Z", "touched"]), 0);
   const touched = await stat(join(scratch, "touched"));
   assert.deepEqual([touched.atimeMs, touched.mtimeMs], [accessed, 1200_000]);
+  // mkdir -m (modes are not kept) and rm -v and -d, as POSIX.1-2024 has them.
+  assert.equal(status(build("mkdir"), ["-pm", "755", "made/deep"]), 0);
+  assert.equal(run(build("rm"), ["-rv", "made"]).stdout, "made/deep\nmade\n");
+  await mkdir(join(scratch, "empty-directory"));
+  assert.equal(status(build("rm"), ["-d", "empty-directory"]), 0);
   assert.equal(run(build("du"), ["-b", "install-source"]).stdout, "5\tinstall-source\n");
   assert.equal(run(build("rev"), [], { input: "aé✓b\n" }).stdout, "b✓éa\n");
 });

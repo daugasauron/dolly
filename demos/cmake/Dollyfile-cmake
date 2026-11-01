@@ -6,10 +6,10 @@ REQUIRES HOST http@0
 # CMake bootstrapped from upstream's source inside Dolly, on the libuv package,
 # which it links statically (USE); cmake-build installs it for the CMake builds
 # that start from it.
-FROM /v0.1.4/Dollyfile-system-tools 7e797bdea9f6ac6b9af5435728fefaded61a3e88b7d1511d59c86d728fb79304
-USE /v0.1.4/demos/cmake/Dollyfile-libuv cb8f4dbee9ec544262a66324fbf73eef63fd692ffd2c43b674839f449564667d
+FROM /v0.1.4/Dollyfile-system-tools 3d5a3ba1fa6afc637e6daf7d8e8ac8806374fae95f80809448cd93283c399594
+USE /v0.1.4/demos/cmake/Dollyfile-libuv 29bf815bd995b3593a4ab39bc4d09a6852bae38278911f1329ca386e1d5827d4
 # Configuring runs the C compiler and building runs make.
-INSTALL /v0.1.4/Dollyfile-cc 7874a12f782e7c69926250701fd71b9e236361fbf7a5f5760a770ee35eba39f7
+INSTALL /v0.1.4/Dollyfile-cc eea77a7ca7d3ca0b741edb64b92a701edba3bb2b90b8680255683f390cfde8fa
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES HEADER cpp

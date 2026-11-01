@@ -41,22 +41,35 @@ int main(int argc, char **argv) {
   int parents = 0;
   int first_path = 1;
   for (; first_path < argc; first_path++) {
-    if (strcmp(argv[first_path], "--") == 0) {
+    const char *argument = argv[first_path];
+    if (strcmp(argument, "--") == 0) {
       first_path++;
       break;
     }
-    if (strcmp(argv[first_path], "--help") == 0) {
-      fputs("usage: mkdir [-p] [--] DIRECTORY ...\n", stdout);
+    if (strcmp(argument, "--help") == 0) {
+      fputs("usage: mkdir [-p] [-m MODE] [--] DIRECTORY ...\n"
+            "-m is accepted for unchanged install recipes: there are no modes to set\n", stdout);
       return 0;
     }
-    if (strcmp(argv[first_path], "-p") == 0 ||
-        strcmp(argv[first_path], "--parents") == 0) {
+    if (strcmp(argument, "--parents") == 0) {
       parents = 1;
-    } else if (argv[first_path][0] == '-') {
-      fprintf(stderr, "mkdir: unsupported option: %s\n", argv[first_path]);
-      return 2;
-    } else {
-      break;
+      continue;
+    }
+    if (argument[0] != '-' || argument[1] == '\0') break;
+    for (const char *letter = argument + 1; *letter != '\0'; letter++) {
+      if (*letter == 'p') {
+        parents = 1;
+      } else if (*letter == 'm') {
+        // The mode takes the rest of the word or the next one: -m755, -pm 755.
+        if (letter[1] == '\0' && ++first_path == argc) {
+          fputs("mkdir: -m requires a mode\n", stderr);
+          return 2;
+        }
+        break;
+      } else {
+        fprintf(stderr, "mkdir: unsupported option: -%c\n", *letter);
+        return 2;
+      }
     }
   }
   if (first_path == argc) {

@@ -18,8 +18,10 @@ whole chain, zig-build and ghostty-build included) and pass in Chromium and Fire
 in a dot directory, UTF-8 editing), `core-browser.mjs`, `man-browser.mjs`,
 `process-browser.mjs`, `terminal-browser.mjs`. Not measured: `default-browser.mjs`, whose
 first check reads the package index of the whole catalog (`python`), which a narrowed build
-does not publish. Round 5 (`install`, `timeout`: `system-tools` only) is committed and builds
-next. Proposals P1 and P2 are prototyped on branches `proposal/dollyfile-no-append`
+does not publish. Round 5 (`install`, `timeout`: `system-tools` only, 71 s to build) passes the same tests in
+both browsers. Round 6 (`mkdir -m`, `rm -v -d`: the root recipe again) builds as unit
+`dolly-audit-slop-seed6`. CMake's `bootstrap`, run natively under the branch's Slop and under
+Bash, prints the same 1,068 lines and bootstraps. Proposals P1 and P2 are prototyped on branches `proposal/dollyfile-no-append`
 (`607fcc3a`) and `proposal/dollyfile-requires` (`8573582e`), not on this branch; each
 compiles with the parser fixture and its JavaScript side accepts and refuses the rows it
 should. The catalog needs a round: every recipe is repinned.
@@ -113,6 +115,10 @@ differ were read in the source.
     in the cached upstream Makefiles), `-m755` (10), `-Dm644` (2) and `-cm 644` failed with
     "unsupported option". Letters now combine and a value may be attached or follow; `-D -t
     DIR` creates the directory as GNU install does.
+19. (round 6) **`mkdir -m` was refused** (`mkdir -m 755 -p` in utf8proc's install rule): the
+    mode is accepted and not kept, as `install -m` is (the owner's decision of 2026-10-01), and
+    letters combine (`-pm 755`). **`rm` gains `-v` and `-d`** (POSIX.1-2024; `rm -rv` in the
+    corpus).
 
 Not fixed, measured: `realpath` without `-e` fails on a missing last component (POSIX.1-2024's
 default is uncertain to me); `readonly`, `times` and `hash` are "command not found" (no use in

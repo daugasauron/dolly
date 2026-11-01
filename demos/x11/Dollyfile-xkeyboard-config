@@ -5,10 +5,10 @@ REQUIRES HOST runtime@0
 # xkeyboard-config's keyboard descriptions, which xkbcomp reads for the X
 # server, and the evdev rules its Meson build writes with this generator (the
 # .lst files it adds need Perl).
-FROM /v0.1.4/demos/x11/Dollyfile-x11-build 46d65726c2c7e805c79102e18ed4f7f77deb10c06c5e613e30fa03c04a969f9b
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build aed88be490f96fabf45ce84a7d7fb261b1c7dd538afababe0b759f540b19a752
 # The tar package reads the pax headers of X.Org's archives.
-USE /v0.1.4/demos/tools/Dollyfile-tar e8d230f5195b02fee34c47e88650e21ba011da3720361fe3f03128dd0ec44269
-USE /v0.1.4/demos/tools/Dollyfile-xz 93a9faf61c0ddcdf4df511f84005b40c8de5ccf7da294f0a18d59314a0d0dd93
+USE /v0.1.4/demos/tools/Dollyfile-tar c168588fa0ebb3131c5a95b189ef38d62fa590251ae5dc9e7bdfcd58c7182fbd
+USE /v0.1.4/demos/tools/Dollyfile-xz 9fcb58007bcc4af124a00404cd80a8f1f7511ac7ad1d0bfed79a9e91b3287738
 REQUIRES TOOL python3
 REQUIRES TOOL xz
 REQUIRES TOOL tar

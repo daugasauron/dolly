@@ -7,6 +7,14 @@
 #include <string.h>
 #include <sys/stat.h>
 
+// -v names each path once it is gone; -d removes an empty directory (POSIX.1-2024).
+static int verbose, empty_directories;
+
+static int removed(const char *path) {
+  if (verbose) printf("%s\n", path);
+  return 0;
+}
+
 static int remove_path(const char *path, int recursive, int force) {
   struct stat metadata;
   if (lstat(path, &metadata) != 0) {
@@ -14,8 +22,8 @@ static int remove_path(const char *path, int recursive, int force) {
     fprintf(stderr, "rm: %s: %s\n", path, strerror(errno));
     return 1;
   }
-  if (!S_ISDIR(metadata.st_mode)) {
-    if (remove(path) == 0) return 0;
+  if (!S_ISDIR(metadata.st_mode) || (empty_directories && !recursive)) {
+    if (remove(path) == 0) return removed(path);
     fprintf(stderr, "rm: %s: %s\n", path, strerror(errno));
     return 1;
   }
@@ -51,6 +59,8 @@ static int remove_path(const char *path, int recursive, int force) {
   if (status == 0 && remove(path) != 0) {
     fprintf(stderr, "rm: %s: %s\n", path, strerror(errno));
     status = 1;
+  } else if (status == 0) {
+    removed(path);
   }
   return status;
 }
@@ -98,13 +108,15 @@ int main(int argc, char **argv) {
       break;
     }
     if (strcmp(argument, "--help") == 0) {
-      fputs("usage: rm [-f] [-r|-R] [--] PATH ...\n", stdout);
+      fputs("usage: rm [-dfv] [-r|-R] [--] PATH ...\n", stdout);
       return 0;
     }
     if (argument[0] != '-' || argument[1] == '\0') break;
     for (const char *option = argument + 1; *option != '\0'; option++) {
       if (*option == 'f') force = 1;
       else if (*option == 'r' || *option == 'R') recursive = 1;
+      else if (*option == 'v') verbose = 1;
+      else if (*option == 'd') empty_directories = 1;
       else {
         fprintf(stderr, "rm: unsupported option: -%c\n", *option);
         return 2;
@@ -137,6 +149,10 @@ int main(int argc, char **argv) {
       continue;
     }
     if (remove_path(argv[index], recursive, force) != 0) status = 1;
+  }
+  if (fflush(stdout) != 0) {
+    fprintf(stderr, "rm: write error: %s\n", strerror(errno));
+    return 1;
   }
   return status;
 }
