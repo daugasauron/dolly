@@ -111,6 +111,27 @@ but does not filed here as a finding.
   touch reserve (20), the terminal padding 12 by 10, the GPU quotas and feature bits, the audio
   and microphone constants.
 
+### Limits the documents did not name (found reading the kernel and engine)
+
+- `process-model.md`: the kernel holds at most 64 pipes (`DOLLY_KERNEL_PIPE_LIMIT`, an open
+  of `/proc/processes` among them; one more is `ENFILE`), and an executable file is at most
+  512 MiB (`DOLLY_KERNEL_EXECUTABLE_LIMIT`, `ENOEXEC`). Sockets (128) and pseudo-terminals
+  (32) had their bounds there; pipes had not.
+- `sessions.md`: a save holds at most 100,000 paths (`DOLLY_SESSION_MAX_RECORDS`), and `/proc`
+  is excluded with `/run` and `/dev` (`session-records.h`). `dollyfile.md`: an image retains
+  at most 100,000 paths (`MAX_MANIFEST_FILES`).
+- `embedding.md`: since the night (becd6a08, 7dbcfc88, f8fe3878) everything Dolly shows stays
+  in `boot()`'s element and keys typed outside it are the page's; one sentence says so. The
+  npm `default` package holds no package index, so its "`amy` lists what is installed and has
+  nothing more to install" is now what the code does: `amy installed` lists, `amy list` and
+  `amy install` fail naming the index (read from `amy.c` and `http.mjs`'s site, the image
+  directory; not run).
+- `browser-stack.md`: the supervisor's probe re-measured with its own module in a Worker on
+  2026-11-02: Chrome 156 nests 2,761 calls directly and 5,252 through `promising` (1.90),
+  Firefox 155 5,891 to 5,906 and 5,957 (1.01), 12 runs each, against Chrome 151's 2,766 and
+  5,252 and Firefox's 5,900 and 5,957. The task paths in that shipped page are gone.
+  `process-model.md` repeated the stack sizes; it links the page instead.
+
 ### Demo READMEs
 
 Each README's image list matches its recipes (checked by script; the lines feed `amy-index.txt`).
@@ -131,6 +152,13 @@ Changed where a claim was wrong, mostly a core behaviour the night changed:
 - `neovim`: "No PTY `:terminal`, tmux": tmux runs (its own demo); `:terminal` fails because
   `nvim` is not linked with `-ldolly-pty`.
 - `x11`: the patch's line count (48 added) was 55; dropped, it rots with every hunk.
+- `wine`: built "with the FreeType that `zero-ad-deps` built"; `wine-build` installs the
+  `freetype` package. `demos/README.md`: `tools` listed `mandoc` (a core package) and not
+  Binaryen; `xonotic` "drawn by its software rasterizer" draws on `gpu@0` too.
+- Pi's `dolly` skill: "`amy install tar` brings a `tar` that writes `.tar`; its `-z` fails
+  here": sbase's tar runs `gzip -cf`, which the core gzip now does (checked natively, not in
+  a browser); and the host clients that link without `-l` exclude sockets and pty, as for
+  `cc --help` below.
 - `slopyard`: `Dollyfile-slopyard` listed twice.
 - Checked without change: versions against `config/source-pins.sh` (SDL2 2.32.10, Lua 5.1.5,
   xorg-server 21.1.25, xterm 412), `zero-ad`'s 1.94 GB image, `parakeet`'s 135 MB, Studio's
@@ -154,6 +182,10 @@ Changed where a claim was wrong, mostly a core behaviour the night changed:
 
 ## Findings (claims the code should meet but does not)
 
+- A save of more than 100,000 paths fails with "Dolly session capture failed with status -1"
+  (`host/snapshot/transport.mjs` names only the 512 MiB limit, `EFBIG`); `E2BIG` deserves the
+  same plain message. Page JavaScript, no seed input.
+
 - Workarounds whose cause the night removed, each a demo change for its owner:
   `demos/ffmpeg/Dollyfile-ffmpeg` (`--optflags=-O3`, `--disable-resource-compression`, both
   for FFmpeg's configure, which 68824453 was made for); `demos/mojo/llvm-wait.patch` (`wait4`
@@ -161,17 +193,33 @@ Changed where a claim was wrong, mostly a core behaviour the night changed:
   out because "Dolly's gzip only decompresses"; the plain-tar stagings of
   `demos/tools/prepare-sources.sh` (jq, zstd, lz4, Binaryen, ...), `demos/x11/prepare-sources.sh`
   (xterm) and `demos/lean/prepare-sources.sh` exist because tar read no pax header, which it
-  does since dbf38965 (links stay refused, so each needs its archive checked).
+  does since dbf38965 (links stay refused, so each needs its archive checked); for the same
+  reason the x11 recipes `Dollyfile-libxkbfile`, `-pixman`, `-xkbcomp`, `-xkeyboard-config`
+  and `-xorg-server` install the tools demo's `tar` ("reads the pax headers of X.Org's
+  archives"). Recipe comments that give the old reasons, changed with those recipes:
+  `Dollyfile-pigz` (gzip "only reads"), `Dollyfile-tar` ("The gzip of the core reads .gz;
+  pigz writes it"), `Dollyfile-emacs`, `Dollyfile-ffmpeg`.
 - `cc --help` says the `<dolly/NAME.h>` host clients link without `-l`; `sockets@0`'s and
   `pty@0`'s need `-ldolly-sockets` and `-ldolly-pty` (`host_client_libraries()` in
   `compiler.cpp`). The text is the seed compiler's, so it waits for the next compiler round.
 - Studio stages its own copies of `docs/dollyfile.md` and `docs/image-build-service.md`
   (`demos/studio/prepare-sources.sh`, read by its skill at `/usr/share/dollyfile-studio/`)
   although its base installs `dolly-docs`, which holds both under `/usr/share/doc/dolly/docs/`.
-
 - Pages' header rules (measured above): the deployment of v0.1.4 uses 92 of 100. The exporter
   fails at 100 naming the versions, by design, and removing a version is the owner's act; the
   next release should expect that choice if it adds more than eight large files that the
   published versions do not store the same way.
 
 ## Not checked
+
+- Dated measurements kept as records, not re-run (each gives its date or browser): the
+  browser-stack page's compile limits, LLVM and `stack@0` figures (only the probe was re-run);
+  `gpu.md`'s Firefox row (needs the owner's display; Firefox under Xvfb gives no adapter);
+  `local-llm`'s model table, `zig`'s and `zsh`'s timings, `ghostty-gtk`'s frame times,
+  `speech`'s phone, `xonotic`'s frame rates, `zero-ad`'s Firefox note, `rust`'s third
+  generation. Undated build times that need a 9 GB or larger slot: `codex` (70 minutes),
+  `llvm` stage 2 (50 minutes, 7 GB), `mojo-llvm`, `wine` (330 s).
+- Prose about upstream programs' behaviour inside Dolly (Pi's, Claude Code's, Wine's, Codex's
+  features and failures) where no test names it: read for contradictions with the core only.
+- `docs/agent-frontend.md`'s hand checks of 2026-10-31 (Copilot, Bedrock through a relay).
+- `site-release.mjs accept` holding "about twice the largest image": not measured.

@@ -47,7 +47,7 @@ filesystem, no sockets to the outside, no root and no `apt`, `npm` or
   directory:
   `git init -q . && git add -A && git archive -o out.tar.gz $(git write-tree)`
   (`.tar`, `.tar.gz` or `.zip`). `amy install tar` brings a `tar` that writes
-  `.tar`; its `-z` fails here.
+  archives, `-z` through `gzip`.
 
 ## Network
 
@@ -117,7 +117,8 @@ module, as `file` says: never `cat` one. Upstream `./configure` scripts usually 
 than Slop has: compile the sources directly or write a small Makefile. `-lm`, `-lz` and `-lcurl` (libcurl over the browser)
 link from `/usr/lib`. To use a Dolly interface (`display.h` draws on the
 terminal's canvas, `input.h` reads keys and the pointer), include its header from `/usr/include/dolly/`: its client
-library links automatically, with no `-l`. The program then runs only in images whose recipe declares that
+library links automatically, with no `-l` (local sockets and
+pseudo-terminals take `-ldolly-sockets` and `-ldolly-pty`). The program then runs only in images whose recipe declares that
 module, and `-pthread` needs `threads@0`. A program that draws or reads keys
 needs the terminal: build it with the tool, and the user runs it from Slop.
 Time code with `clock_gettime(CLOCK_MONOTONIC)`.

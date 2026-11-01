@@ -28,9 +28,10 @@ flowchart LR
   descriptors, scrollback, environment, cwd, hard links, timestamps or modes;
   `/etc/dolly/environment` is a file, loaded after the replay, so installed
   variables apply when the session loads.
-- `/run` and `/dev` are excluded ([`session-records.h`](../src/session-records.h));
+- `/run`, `/dev` and `/proc` are excluded ([`session-records.h`](../src/session-records.h));
   the uncompressed delta is at most 512 MiB, and exceeding it fails the save
-  visibly, naming the limit. A failed save leaves the previous record intact.
+  visibly, naming the limit. A delta of more than 100,000 paths fails too. A
+  failed save leaves the previous record intact.
 - Hashing, encoding and restoring stay in Wasm: sessions add no Wasm import or
   path-level browser filesystem API. The kernel serves a save in steps between
   system calls, one chunk per acknowledgement, so programs keep running while

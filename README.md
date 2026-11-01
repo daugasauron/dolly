@@ -79,7 +79,7 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `stack-wrap`: rewrites a program the `cc` package built so that it recurses deeper than one browser stack, with `stack@0`.
 - `ps`: `ps`, which lists the processes: PID, parent, state and command line.
 - `session-recover`: `session-recover`, which copies the files of a saved session file into a new directory.
-- `display`: the terminal: the Ghostty display plugin, its font and the termcap entry.
+- `display`: the terminal: the Ghostty display plugin, its fonts and the termcap entry.
 - `dolly-docs`: the platform's documents and machine contracts, in `/usr/share/doc/dolly`.
 
 ## Try it

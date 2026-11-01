@@ -166,8 +166,8 @@ mounted, and reads no other version's.
   lines are its own: the build may use them, the image does not declare them.
 - `COPY` merges directories, replaces files and fails on a missing source; it
   imports no environment, exports or host requirements. Imported images are
-  earlier builds of at most 2 GiB; an image cannot share a name with one it
-  imports.
+  earlier builds of at most 2 GiB and 100,000 retained paths; an image cannot
+  share a name with one it imports.
 - `SOURCE` downloads through the HTTP broker, creates parent directories and
   replaces `DESTINATION` only after the digest matches. Downloads are not
   retained by themselves.

@@ -24,7 +24,7 @@ what this image compiled (`desktop`, `notepad`, `winefile`, `winemine`,
   `shcore`, `uxtheme`, `winspool.drv`, `msvcrt`), the display driver
   `winedolly.drv`,
   the programs and `wineserver`, linked as `/usr/bin/wine` on
-  `system-tools` with the FreeType that `zero-ad-deps` built. Wine's source
+  `system-tools` with the `freetype` package of [0 A.D.](../zero-ad/README.md). Wine's source
   as built stays under `/usr/src/wine`, the port under `/usr/src/dolly/wine`.
   The build ends by running TinyCC's x86-64 compiler under `x86emu` to make
   the Start menu's x86-64 sample.
