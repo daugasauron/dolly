@@ -121,11 +121,8 @@ last full run of the suites this branch touches.
     graph; on `/custom/rebuild/` `prepareImageArtifacts` walked it again. Fix: the route reads
     the recipe's own lines; the build's walk still validates the graph before any artifact
     is loaded. Measured on `/custom/rebuild/` (a recipe `FROM system`, 100 ms round trip,
-    Chrome): 134 recipe requests and 18.0 s to ready before, 116 and 15.3 s after.
-    Of the 116, the page asks for each recipe of `system`'s closure at most twice (the graph
-    and the visible-recipe check); the rest is the Dollyfile engine, whose `execute_recipe`
-    fetches a recipe through http@0 each time it parses one (`Dollyfile-system-build` 19
-    times): agent C's engine, reported to the integrator.
+    Chrome): 134 recipe requests and 18.0 s to ready before, 116 and 15.3 s after; finding
+    15 is where the other 98 came from (I first took them for the engine's: wrong).
 13. **Every save on a custom image read the whole image back from the cache.** Before a save,
     `verifyBase` checks that the custom image the session restores onto is still in this
     browser's image cache; it did so with `loadCustomImage`, which reads the payload Blob,
@@ -139,6 +136,18 @@ last full run of the suites this branch touches.
     (from the graph's root, which is the recipe's own list) and `serve-checkout.mjs`. Fix:
     `opens(recipe)` in `image-menu.mjs`, beside `pageRoutes`; for all 186 recipes and catalog
     records it gives what the three did (50 open).
+15. **A build checked the visible recipes of every image it resolved.** The rest of finding 12's
+    116 requests was not the engine (it fetches only its root recipe, `fetch_recipe` in
+    `dollyfile.c`) but `prepareImageArtifacts`: it resolves the whole closure of a recipe's
+    inputs, and `loadPackagedSnapshotMetadata` checked, for each image, that the directory
+    serves the recipes of that image's closure (98 fetches for a recipe `FROM system`,
+    `Dollyfile-system-build` 19 times, found with a stack-recording `fetch`). The check is
+    for the image a page boots (its page shows its recipes); builds pin recipes by digest
+    and the package service serves snapshots by pin. Fix: `verifyVisibleRecipes(image)` is
+    the boot's, beside `loadPackagedSnapshotMetadata` in `runtime-worker.mjs`;
+    `snapshot-stream-browser.mjs` gains the case of a changed recipe, which the boot refuses
+    (nothing tested that before). `/custom/rebuild/` at 100 ms: 18 recipe requests (was 116),
+    14.2 s to ready (was 15.3).
 
 ## Checked and left
 

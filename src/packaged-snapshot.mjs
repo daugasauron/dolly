@@ -20,10 +20,10 @@ function validSnapshotPath(path) {
     !unretainedPath(path);
 }
 
-// The recipes the directory serves are the ones that built the image, fetched
-// together so that their round trips overlap.
-async function verifyVisibleRecipes(recipes) {
-  await Promise.all(recipes.map(async recipe => {
+// The recipes the directory serves for IMAGE (its page shows them) are the ones
+// that built the image a boot runs. They are fetched together.
+export async function verifyVisibleRecipes(image) {
+  await Promise.all(expectedRecipes(image).map(async recipe => {
     const response = await fetch(new URL(sitePath(recipe.sourcePath).slice(1), imageBase), {
       credentials: "same-origin", redirect: "error",
     });
@@ -61,13 +61,11 @@ async function importMetadata(image) {
   }
 }
 
-// An image's metadata, checked against the catalog, the recipes the directory
-// serves and the metadata of every image it is built from. All of them are
-// fetched together, so that a boot waits one round trip for them, not one each.
+// An image's metadata, checked against the catalog and the metadata of every
+// image it is built from, which are fetched together.
 export async function loadPackagedSnapshotMetadata(image) {
   const closure = inputClosure(image);
-  const [loaded] = await Promise.all([Promise.all(closure.map(importMetadata)),
-    verifyVisibleRecipes(expectedRecipes(image))]);
+  const loaded = await Promise.all(closure.map(importMetadata));
   const checked = new Map();
   closure.forEach((name, index) => checked.set(name, checkedMetadata(name, loaded[index], checked)));
   return checked.get(image);
