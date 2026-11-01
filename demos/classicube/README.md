@@ -18,7 +18,7 @@ Open `/classicube/`; build with `npm run image -- classicube`.
 - Backtick switches between you and the agent; `[` and `]` switch players;
   **+ Add player** adds one. Enter writes an instruction, Ctrl+Enter replaces the
   task, Escape interrupts, Ctrl+, opens settings.
-- Settings selects OpenRouter (sign-in or API key) or a local Codex relay
+- Settings selects OpenRouter (sign-in or API key), Anthropic (API key) or a local Codex relay
   ([game-agent](../game-agent/README.md)), a vision model and effort. Starting or
   restoring makes no model calls.
 - The agent's only tool is `game_input`: up to 16 actions and 2 s of input per
