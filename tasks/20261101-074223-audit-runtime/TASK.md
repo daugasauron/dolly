@@ -16,14 +16,15 @@ session modules), building on the page (`image-build*.mjs`, `build-worker.mjs`,
 Done when: each finding below is fixed with its browser evidence, closed as moot with the
 reason, or left as a few lines for the owner.
 
-## State (2026-11-01 18:00 JST)
+## State (2026-11-01 18:25 JST)
 
-Findings 1 to 7, 9 and 10 are committed, each verified as its commit says (source suite;
-Chromium and Firefox suites in `build/audit-runtime-evidence/run2.log` to `run5.log`);
+Findings 1 to 7 and 9 to 13 are committed, each verified as its commit says (source suite;
+Chromium and Firefox suites in `build/audit-runtime-evidence/run2.log` to `run7.log`);
 8 is left to `demo/lean-2`. The docs repin of finding 7 restales `dolly-docs` and the eleven
 demo images that install it, so in this tree `amy` (which installs `dolly-docs`) and the npm
-packages suite (`pi-minimal`) fail until a catalog round rebuilds them. Next: the rest of the
-scope (scripts that serve and package, the remaining page modules).
+packages suite (`pi-minimal`) fail until a catalog round rebuilds them; both passed on the
+commits before the repin. Next: the rest of the flows (Studio builds, the sessions page), a
+last full run of the suites this branch touches.
 
 ## Findings
 
@@ -178,6 +179,12 @@ scope (scripts that serve and package, the remaining page modules).
   the files; `dist/` converts without a rebuild; the npm image packages change layout, so it
   belongs to a version (0.1.5), not a patch. Not done tonight: it touches the other agents'
   demo tests.
+- **Should a boot check the recipes the directory serves?** `loadPackagedSnapshotMetadata`
+  fetches every recipe of the booted image's closure (17 for `default`, 42 for `pi-minimal`)
+  and compares them with the catalog, so that what `/view/IMAGE/` shows is what built the
+  image. A boot uses none of them, builds check their pins in the engine, and the check is
+  why every npm image package ships its recipes. After finding 10 it costs one round trip.
+  Keep it (as now), or check recipes only where they are read (views, rebuilds).
 - **`boot()` has no end.** The handle has no way to stop the session: an embedding that
   removes Dolly's element keeps the runtime Worker, the kernel's memory and every process
   Worker until the page is hidden (`pagehide`). The page already has the step (`fatal()` and
