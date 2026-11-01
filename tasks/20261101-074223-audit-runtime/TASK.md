@@ -104,8 +104,10 @@ the image inputs hash is `main`'s.
     files never change and the dev and release servers send `no-store` themselves. After:
     `default` 6.15 s, `pi-minimal` 9.55 s (-32 %, -43 %). What remains sequential is the packs
     (`pi-minimal`: 35 over 4.2 s), one fetch after another so that the kernel takes them in
-    order; prefetching the next pack while one streams would overlap them, in the code
-    `demo/lean-2` rewrites, so it is left for after that merge.
+    order ("every part is checked before another is requested"). Prefetching the next pack
+    while one streams would overlap them, but it is the performance machinery `AGENTS.md`
+    weighs against serial semantics, in the code `demo/lean-2` rewrites: left for the owner
+    to want, with this measurement.
 11. **A custom image over 512 MiB could not open.** `customSessionIdentity` bounded the
     custom image a session is saved on by the session delta's limit (512 MiB), and snapshot@0
     asks it for every custom image as the image starts: a custom image `FROM system` with
