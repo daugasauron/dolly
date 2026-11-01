@@ -6,8 +6,8 @@ REQUIRES HOST runtime@0
 # imports to work with Lean itself, compiled by the first lean (lean-stage0)
 # as lean-std is: its .olean files and libLean.a, which every Lean program
 # links, as upstream's flags name it.
-FROM /v0.1.4/demos/lean/Dollyfile-lean-stage0 5f113c4f035fda8f81d56dafa61920d2f10a0dd1af4c1a4495acd81053b4eb3b
-INSTALL /v0.1.4/demos/lean/Dollyfile-lean-std 8fcd72d971b3ab0c1adcaecd3f6d1eefb585966ab6120bafbc098246e84003d2
+FROM /v0.1.4/demos/lean/Dollyfile-lean-stage0 c9f9d323a41cbe9752535d56820cccbf2cd85fff493dbc8bd23df5c354c5105e
+INSTALL /v0.1.4/demos/lean/Dollyfile-lean-std 0e9f37b9235f607c82e08397c7cf9ba77e667d8dcbfc5ee23d23bf3807b49565
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL find
@@ -20,7 +20,7 @@ REQUIRES TOOL tr
 REQUIRES TOOL xargs
 
 SOURCE /v0.1.4/dist/static/lean/lean.tar.gz ef83239912f7c218c5f0e937de704b7da807b9802b05216414b59b9dec42e0da /tmp/lean.tar.gz
-SOURCE /v0.1.4/dist/static/lean/port.tar a3414edac56f838f8d0f607751c1d9d9f67667826153cff29368b0cbc5b86821 /tmp/lean-port.tar
+SOURCE /v0.1.4/dist/static/lean/port.tar 1716710f88ccdd478709b75533ef1686ff39e381ad7d66ff65caff992e2dd1a6 /tmp/lean-port.tar
 # Stage 1 reads only src/.
 SLOP gzip -dc /tmp/lean.tar.gz | tar -xf - -C / && rm -r /tmp/lean.tar.gz /tmp/lean/stage0
 SLOP tar -xf /tmp/lean-port.tar -C /

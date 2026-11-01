@@ -9,9 +9,9 @@ REQUIRES HOST threads@0
 # (lean-meta), and here Lake's and LeanExport's, as upstream links them
 # (lean-dolly.mk), with the C++ runtime compiled again from src/. Lake
 # compiles a package's C with cc and links it with libuv.
-FROM /v0.1.4/demos/lean/Dollyfile-lean-stage0 5f113c4f035fda8f81d56dafa61920d2f10a0dd1af4c1a4495acd81053b4eb3b
-INSTALL /v0.1.4/demos/lean/Dollyfile-lean-std 8fcd72d971b3ab0c1adcaecd3f6d1eefb585966ab6120bafbc098246e84003d2
-INSTALL /v0.1.4/demos/lean/Dollyfile-lean-meta 998c105909bbc29893a8c53672625789c2bd28cd792be181d637c5876591284f
+FROM /v0.1.4/demos/lean/Dollyfile-lean-stage0 c9f9d323a41cbe9752535d56820cccbf2cd85fff493dbc8bd23df5c354c5105e
+INSTALL /v0.1.4/demos/lean/Dollyfile-lean-std 0e9f37b9235f607c82e08397c7cf9ba77e667d8dcbfc5ee23d23bf3807b49565
+INSTALL /v0.1.4/demos/lean/Dollyfile-lean-meta e6a0a9adab20cd3582de33ff7383fbadbe1811d56b6ee354cc8bcd8f8147af35
 INSTALL /v0.1.4/Dollyfile-cc dadb1af6ae3450a3a48bf4c955fe40d012a9a20d6dc3eca63c4f2737ab4080cc
 INSTALL /v0.1.4/demos/cmake/Dollyfile-libuv 2265bc1264cb74d036639170fbe4ac2e746f158c4f182262bcb4b65a9562bb8e
 
@@ -34,21 +34,15 @@ REQUIRES TOOL tr
 REQUIRES TOOL xargs
 
 SOURCE /v0.1.4/dist/static/lean/lean.tar.gz ef83239912f7c218c5f0e937de704b7da807b9802b05216414b59b9dec42e0da /tmp/lean.tar.gz
-SOURCE /v0.1.4/dist/static/lean/port.tar a3414edac56f838f8d0f607751c1d9d9f67667826153cff29368b0cbc5b86821 /tmp/lean-port.tar
+SOURCE /v0.1.4/dist/static/lean/port.tar 1716710f88ccdd478709b75533ef1686ff39e381ad7d66ff65caff992e2dd1a6 /tmp/lean-port.tar
 # Stage 1 reads only src/.
 SLOP gzip -dc /tmp/lean.tar.gz | tar -xf - -C / && rm -r /tmp/lean.tar.gz /tmp/lean/stage0
 SLOP tar -xf /tmp/lean-port.tar -C /
 SLOP CWD /tmp/lean patch -p1 < dolly/lean-dolly.patch
 # One job: the kernel holds Lean's libraries, 2.4 GB, and at four jobs the
 # lean processes that import them exceeded a 9 GB build.
-# lake's symbol table leaves libLeanExport.a out: LeanExport.o is a
-# program's (its main, which WebAssembly names __main_argc_argv), and the
-# table's references would link it beside LakeMain's. Lake links the members
-# it calls; the interpreter runs any other's IR.
 SLOP CWD /tmp/lean make -f dolly/lean-dolly.mk STAGE=1 LIBRARIES='LeanExport Lake Leanc' \
-  LEAN=/usr/lib/lean-stage0/lean GITHASH=eb6cafb7290e8bd5f2937522d8d804f58f02bafc \
-  LAKE_LIBRARIES='/usr/lib/lean/libLake.a /usr/lib/lean/libleancpp.a /usr/lib/lean/libLean.a /usr/lib/lean/libStd.a /usr/lib/lean/libInit.a /usr/lib/lean/libleanrt.a' \
-  libraries install
+  LEAN=/usr/lib/lean-stage0/lean GITHASH=eb6cafb7290e8bd5f2937522d8d804f58f02bafc libraries install
 
 # lean runs a program and checks a proof; lake makes a package and builds
 # its program with cc.

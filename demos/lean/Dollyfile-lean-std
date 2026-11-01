@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # from the release's sources: each module's .olean files and its C, which cc
 # compiles into libInit.a and libStd.a (lean-dolly.mk). Every Lean file
 # imports Init.
-FROM /v0.1.4/demos/lean/Dollyfile-lean-stage0 5f113c4f035fda8f81d56dafa61920d2f10a0dd1af4c1a4495acd81053b4eb3b
+FROM /v0.1.4/demos/lean/Dollyfile-lean-stage0 c9f9d323a41cbe9752535d56820cccbf2cd85fff493dbc8bd23df5c354c5105e
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL find
@@ -19,7 +19,7 @@ REQUIRES TOOL tr
 REQUIRES TOOL xargs
 
 SOURCE /v0.1.4/dist/static/lean/lean.tar.gz ef83239912f7c218c5f0e937de704b7da807b9802b05216414b59b9dec42e0da /tmp/lean.tar.gz
-SOURCE /v0.1.4/dist/static/lean/port.tar a3414edac56f838f8d0f607751c1d9d9f67667826153cff29368b0cbc5b86821 /tmp/lean-port.tar
+SOURCE /v0.1.4/dist/static/lean/port.tar 1716710f88ccdd478709b75533ef1686ff39e381ad7d66ff65caff992e2dd1a6 /tmp/lean-port.tar
 # Stage 1 reads only src/.
 SLOP gzip -dc /tmp/lean.tar.gz | tar -xf - -C / && rm -r /tmp/lean.tar.gz /tmp/lean/stage0
 SLOP tar -xf /tmp/lean-port.tar -C /

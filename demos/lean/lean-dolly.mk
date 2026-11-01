@@ -141,7 +141,11 @@ $(TOOLS)/lean-symbols: $(SOURCE)/dolly/lean-symbols.c
 LEAN_LIBRARIES := $(addprefix $(LIB)/lib,$(addsuffix .a,leancpp Lean Std Init leanrt))
 LAKE_LIBRARIES := $(addprefix $(LIB)/lib,$(addsuffix .a,Lake LeanExport)) $(LEAN_LIBRARIES)
 $(OUT)/symbols/lean.c: $(TOOLS)/lean-symbols $(LEAN_LIBRARIES)
-$(OUT)/symbols/lake.c: $(TOOLS)/lean-symbols $(LAKE_LIBRARIES)
+# lake's table leaves libLeanExport.a out: LeanExport.o is a program's (its
+# main, which WebAssembly names __main_argc_argv), and the table's references
+# would link it beside LakeMain's. lake links the members it calls; the
+# interpreter runs any other's IR.
+$(OUT)/symbols/lake.c: $(TOOLS)/lean-symbols $(LIB)/libLake.a $(LEAN_LIBRARIES)
 $(OUT)/symbols/lean.c $(OUT)/symbols/lake.c:
 > mkdir -p $(@D)
 > $(TOOLS)/lean-symbols $(filter %.a,$^) > $@

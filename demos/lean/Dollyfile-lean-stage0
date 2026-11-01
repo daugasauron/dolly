@@ -30,7 +30,7 @@ REQUIRES TOOL stack-wrap
 REQUIRES TOOL tar
 
 SOURCE /v0.1.4/dist/static/lean/lean.tar.gz ef83239912f7c218c5f0e937de704b7da807b9802b05216414b59b9dec42e0da /tmp/lean.tar.gz
-SOURCE /v0.1.4/dist/static/lean/port.tar a3414edac56f838f8d0f607751c1d9d9f67667826153cff29368b0cbc5b86821 /tmp/lean-port.tar
+SOURCE /v0.1.4/dist/static/lean/port.tar 1716710f88ccdd478709b75533ef1686ff39e381ad7d66ff65caff992e2dd1a6 /tmp/lean-port.tar
 SLOP gzip -dc /tmp/lean.tar.gz | tar -xf - -C / && rm /tmp/lean.tar.gz
 SLOP tar -xf /tmp/lean-port.tar -C /
 SLOP CWD /tmp/lean/stage0 patch -p1 < ../dolly/lean-dolly.patch

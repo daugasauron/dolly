@@ -169,7 +169,7 @@
  #else
      // since Linux 2.4.11, our glibc 2.27 requires at least 3.2
      // glibc 2.30 would provide a wrapper
-@@ -431,10 +438,65 @@
+@@ -431,10 +438,62 @@
      lean_unreachable();
  }
  
@@ -179,9 +179,10 @@
  #endif
  
 +#ifdef __dolly__
-+// Dolly has no fork: posix_spawnp gives the child its descriptors, directory and environment.
++// Dolly has no fork: posix_spawnp gives the child its descriptors, directory and environment,
++// and returns its error, where a forked child that cannot run the program exits.
 +// A Dolly process leads a session of its own, so `do_setsid` needs nothing.
-+static int spawn_child(char * const * pargs, optional<pipe> const * pipes, stdio const * modes,
++static int spawn_child(int * pid, char * const * pargs, optional<pipe> const * pipes, stdio const * modes,
 +  option_ref<string_ref> const & cwd, array_ref<pair_ref<string_ref, option_ref<string_ref>>> const & env,
 +  bool inherit_env) {
 +    posix_spawn_file_actions_t actions;
@@ -222,33 +223,35 @@
 +    sigfillset(&signals);
 +    posix_spawnattr_setsigdefault(&attributes, &signals);
 +    posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF);
-+    int pid;
-+    int error = posix_spawnp(&pid, pargs[0], &actions, &attributes, pargs, envp.data());
++    int error = posix_spawnp(pid, pargs[0], &actions, &attributes, pargs, envp.data());
 +    posix_spawnattr_destroy(&attributes);
 +    posix_spawn_file_actions_destroy(&actions);
-+    if (error != 0) {
-+        throw error;
-+    }
-+    return pid;
++    return error;
 +}
 +#endif
 +
  static obj_res spawn(string_ref const & proc_name, array_ref<string_ref> const & args, stdio stdin_mode, stdio stdout_mode,
    stdio stderr_mode, option_ref<string_ref> const & cwd, array_ref<pair_ref<string_ref, option_ref<string_ref>>> const & env,
    bool inherit_env, bool do_setsid) {
-@@ -450,6 +512,11 @@
+@@ -450,6 +509,17 @@
          pargs.push_back(strdup(arg.data()));
      pargs.push_back(NULL);
  
 +#ifdef __dolly__
 +    optional<pipe> const pipes[3] = {stdin_pipe, stdout_pipe, stderr_pipe};
 +    stdio const modes[3] = {stdin_mode, stdout_mode, stderr_mode};
-+    int pid = spawn_child(pargs.data(), pipes, modes, cwd, env, inherit_env);
++    int pid;
++    if (int error = spawn_child(&pid, pargs.data(), pipes, modes, cwd, env, inherit_env)) {
++        for (char * parg : pargs) free(parg);
++        for (auto & piped : pipes) if (piped) { close(piped->m_read_fd); close(piped->m_write_fd); }
++        // The error names the program: Lean's for a missing file needs its name.
++        return lean_io_result_mk_error(decode_io_error(error, proc_name.raw()));
++    }
 +#else
      int pid = fork();
  
      if (pid == 0) {
-@@ -515,6 +582,7 @@
+@@ -515,6 +585,7 @@
      } else if (pid == -1) {
          throw errno;
      }

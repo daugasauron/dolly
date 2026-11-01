@@ -23,10 +23,28 @@ exception the demo's README states.
 - A demo test passes in Chromium and Firefox; the package has its row in `test/amy-browser.mjs`;
   sources are pinned, with licence rows.
 
-## State (2026-10-30 01:25): the four images build; the demo test needs more than a 6 GB slot
+## State (2026-11-01): `demo/lean-2`, on `main`
 
-Built in `work/lean` (Chrome, `slot.sh bigbuild`, 9 GB cap; memory is the scope's anonymous
-memory, sampled every 10 s, then the cgroup peak with page cache):
+`demo/lean-2` is `demo/lean` replayed on `main` (v0.1.4), with `core/install-memory` and
+`core/thread-memory-max`, each judged in its own task, and what tonight added:
+
+- `lake new` without Git: the patch's spawn threw posix_spawnp's error as an `int`, which
+  upstream's `lean_io_process_spawn` decodes without a file name, and ENOENT's needs one, so a
+  missing program crashed Lean (`IO.Process.output { cmd := "nosuchprogram" }` did too). Now the
+  spawn returns an IO error naming the program, closing the pipes it made, and Lake's handler
+  turns `git init` failing into a warning, as a forked child exiting 255 does upstream.
+- `lean-symbols.c`'s `main` check, which never matched (WebAssembly names `main(argc, argv)`
+  `__main_argc_argv`), is gone; `lean-dolly.mk` leaves `libLeanExport.a` out of lake's table,
+  which the recipe overrode `LAKE_LIBRARIES` to do. The new tool on the new list writes the
+  table the old one wrote on the recipe's list, byte for byte (86,540,368 bytes).
+- The install's kernel memory (`tasks/20261030-084000-install-snapshot-file`, a seed change): the
+  kernel held each package twice, and a Wasm memory never shrinks.
+- A process's memory takes its maximum before its second thread, in a Worker that ends after it
+  (`tasks/20261030-090000-chrome-grown-memory`): kept in a lasting Worker, every `lean` with
+  threads stayed resident after it ended, and the `lean` image build was killed by its 9 GB cap.
+
+Built before tonight, in `work/lean` (Chrome, `slot.sh bigbuild`, 9 GB cap; memory is the scope's
+anonymous memory, sampled every 10 s, then the cgroup peak with page cache):
 
 | Image | Time | Memory | Snapshot |
 | --- | --- | --- | --- |
@@ -46,30 +64,30 @@ Fixed on the way:
 - `20e781cf`: `IO.Process.spawn` asks for default signal dispositions (Lake's children failed with
   `ENOTSUP`: a Dolly child cannot keep the `SIGPIPE` Lean ignores).
 - `d80cd691`: lake's symbol table leaves `libLeanExport.a` out (its `LeanExport.o` is a program's
-  and linked a second `main`). The `main` check `20e781cf` put in `lean-symbols.c` never matches:
-  WebAssembly names `main(argc, argv)` `__main_argc_argv`. It goes, with the recipe's override or
-  for a `__main_argc_argv` check, at the next rebuild of all four images (it is in `port.tar`).
+  and linked a second `main`).
 - Jobs: `lean-meta` at four was killed by the 9 GB cap once (and passed once at 7.9 GB);
   `lean` at four was killed within a minute.
 
+Tonight's builds (`work/lean`, `slot.sh bigbuild`, 9 GB cap, Chrome): `lean-stage0` 644 s,
+`lean-std` 2,043 s, `lean-meta` 2,483 s, each with the patch and makefile above; the `lean` image
+was killed by the cap twice in its first minutes, compiling `LeanExport` and `Lake` (each
+`lean` imports `Lean`, 1.7 GB, beside the kernel's copy of `lean-std` and `lean-meta`, files and
+snapshots, about 4.7 GB at its high-water). `lean-meta` was killed once too, copying its finished
+image. Two causes, fixed in the core: dead processes stayed resident until the runtime Worker
+collected garbage (`tasks/20261101-102515-retained-process-memory`), and a build's `INSTALL`
+copied a package's files out of its snapshot beside it (the engine now moves them out of the
+snapshot at its last use, a build's as a session's: `tasks/20261030-084000-install-snapshot-file`).
+
 Not done:
-- `demos/lean/test/lean-browser.mjs` (`nena enable stack && amy install lean` in `default`):
-  the install passes since the page merges a package's packs as amy reads it (`c8d69656`;
-  whole scope at most 5.6 GB in Chromium, 6.4 GB in Firefox, 24 GB cap). The test then fails
-  in both browsers at `lake new greeting` (process `memory access out of bounds`), before and
-  after that commit: `default` has no `git`, and a spawn of a missing program crashes Lean
-  (`IO.Process.output { cmd := "nosuchprogram" }` does too). The patch's `spawn_child` throws
-  posix_spawnp's ENOENT as an `int`, which upstream's `lean_io_process_spawn` passes to
-  `decode_io_error(err, nullptr)`, whose ENOENT case needs a file name (upstream's fork reports
-  a missing program as the child's exit instead). With `amy install lean git` the whole test
-  passes: Chromium 91 s, at most 7.3 GB (6.9 anonymous); Firefox 170 s, 10.5 GB (8.9).
+- The `lean` image is not built with tonight's fixes, so `lean --run`, the theorems, `lake new`
+  without Git and `lake build` are not measured in `default`, nor the demo test
+  (`demos/lean/test/lean-browser.mjs`) in Chromium and Firefox. Before them, the install itself
+  was measured (`build/lean-evidence/lean-measure.mjs`, Chromium, 6 GB slot): the whole scope at
+  6.31 GB during `amy install lean git` and 5.99 GB (5.22 anonymous) after it, then the cap.
 - `test/amy-browser.mjs`: Lean's row is the `elsewhere` entry (`lean`, `lean-std`, `lean-meta`:
-  `demos/lean`); the file's own check needs the full catalog, not run here.
-- Stage 0's `lean` failed twice with `memory access out of bounds` in about 6,000 runs
-  (`Init/Data/Range/Polymorphic/IntLemmas`, `Lean/Data/RBMap`), each passing in the next build;
-  the cause is not found. Not it: memory growth followed by a kernel read into the new pages
-  (240,000 rounds in four processes) or a thread reading a page another grew (240,000 hand-offs).
-  Native `lean -j4` runs 8 to 12 threads, so four at once approach the page's 64 thread Workers.
+  `demos/lean`); the file's own check needs the full catalog, not built here.
+- Stage 0's `lean` failed twice with `memory access out of bounds` in about 6,000 runs: Chrome's
+  late view of memory another thread grew (`tasks/20261030-090000-chrome-grown-memory`).
 
 ## Measurements (Chrome, in a browser slot, 6 GB cap)
 
@@ -171,3 +189,19 @@ module, lean.mk's rules), since Lake would need stage 0's `libLake_shared.so` pl
   and 7.01 s against 8.34 and 7.71 s (about 13 %). The earlier 6.0 s for `Init/Prelude` was on a
   quieter machine.
 - The `dolly.process.stack` section is dropped: with stack@0 it only saved moves.
+
+## Lessons
+
+- A Wasm memory never shrinks, and the browser frees a dead process's only when an isolate
+  collects garbage: what an install or a build holds for a moment, the tab holds for good or
+  until a collection nobody schedules. Measure a step's high-water and what stays after it,
+  not its end state.
+- Resolving a cherry-pick's pin conflicts with "ours" silently dropped the commit's other lines
+  in the same files (`REQUIRES TOOL stack-wrap`); taking "theirs" and regenerating the pins,
+  then diffing the result against the source branch, replays a recipe branch faithfully.
+- RSS alone hid the cost of growing a shared memory to its maximum: Firefox charges all of it to
+  Linux's commit limit and Chrome none (`smaps` flags `ac`, measured per mapping). A cost that
+  differs by browser has to be measured in both before a fix is chosen.
+- A tree's test server serves its working files: with `Dollyfile-lean` edited and not yet
+  built, `amy install lean` failed with HTTP 502, the page checking the served recipe against the
+  package's. Keep an image's inputs still while it is tested or built.

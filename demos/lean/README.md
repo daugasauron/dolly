@@ -47,10 +47,11 @@ Lean's interpreter calls compiled code by its symbol, which it finds with
 `-rdynamic`, so `lean` and `lake` are linked with a table of the same
 symbols, generated from the archives' WebAssembly objects by
 [`lean-symbols.c`](lean-symbols.c), each function declared with the
-signature its object gives it. An object that defines `main` is another
-program's (LeanExport's, in `libLeanExport.a`) and is left out, as the
-release's `lake` exports none of it. A program Lake links has no table, as
-natively it has no exported symbols either.
+signature its object gives it. `lake`'s table leaves `libLeanExport.a` out:
+its object is another program's, with a `main`, which the table's references
+would link beside Lake's, and the release's `lake` exports none of it. A
+program Lake links has no table, as natively it has no exported symbols
+either.
 
 `lean` and `lake` recurse deeper than a browser's stack holds: upstream
 gives Lean's elaboration a thread of 1 GiB, and some of the release's own
@@ -67,7 +68,9 @@ in `stage0/src`:
   Dolly process leads its own session already. The child starts with default
   signal dispositions and none blocked, which a Dolly child always does and
   `posix_spawnp` refuses to imply: a forked child would keep the `SIGPIPE`
-  Lean ignores.
+  Lean ignores. A program that cannot be run fails the spawn with an error
+  that names it, where a forked child would exit with 255: `lake new` without
+  Git warns that it made no repository, as Lake does when `git` fails.
 - Eight C++ definitions take other parameters than the Lean declarations
   that call them: six IO functions keep a world argument the compiler no
   longer passes, and two `Unit →` functions take none. A native call
