@@ -4,25 +4,30 @@
 - PRIORITY: 320
 - TAGS: host-modules,pi,html,0.1.5
 
-## State (2026-11-02 03:20 JST)
+## State (2026-11-02 04:45 JST)
 
-Done and verified in Chromium and Firefox: `html@0` (`d82f7474`, wording `3bb52f36`), its
-browser test (`cf5fd1eb`), the page's font in the popup (`9ddc5e32`), Pi's `ask_user` and
-`show_html` with the recipes that install and declare them (`4c4bba89`, `aaed334e`), and
-`demos/pi/test/ask-user-browser.mjs` on a real `pi-runtime` (14.2 s, 16.8 s; 03:09). That
-run is on the round's seed (`896df05e`, `integrate/2026-11-02` merged as `d106561d` and
-`d9f694a8`), with the round's images linked from `work/integrate` (its Rust ones among
-them) and its working tree's recipe pins for its new Rust seed copied into this tree,
-uncommitted, until the round commits them. Before the merge, on this tree's own images:
-the html test, the same Pi test on a Pi the page built without ripgrep and fd, and core,
-host-modules, nena, embedding, boundary, upload, indicators, terminal and shell passed in
-both browsers; after it, the html test again (01:32). `test/npm-browser.mjs` (pi-minimal by
-npm, the README's install with `dolly-host-html`) first failed before any of html@0, at the
-README's `npx dolly-build`, which loaded the image's device modules from the runtime package
-once `fef1fc36` was reverted; with A's fix `e210dbe4` taken as the integrator asked
-(`7063ee93`, `45c28eef`; the html package then rebuilt to the same bytes through it), it
-passes in Chromium (17.2 s) and Firefox (19.2 s), and the html and Pi tests again (03:15).
-Left: merge the round's commit when it is green (its pins are in this tree uncommitted).
+Every part of the done-when is written and measured in Chromium and Firefox; the task stays
+open until the catalog holds the new and changed images (a round) and the owner has seen it.
+
+- `html@0` (`d82f7474`, wording `3bb52f36`), the page's font in the popup (`9ddc5e32`) and
+  `test/html-browser.mjs` (`cf5fd1eb`): pass on this tree's own seed (`ea109605`) and on the
+  round's of 00:51 (`896df05e`).
+- Pi's `ask_user` and `show_html` (`4c4bba89`, `aaed334e`) and
+  `demos/pi/test/ask-user-browser.mjs`: pass on a real `pi-runtime` (Chromium 14.2 s,
+  Firefox 16.8 s at 03:09; 17.9 s and 22.3 s at 03:15) and, before that, on a Pi the page
+  built without ripgrep and fd.
+- `test/npm-browser.mjs` (the README's Pi with npm, with `dolly-host-html`, and pi-minimal
+  declaring `html@0`): passes in Chromium (17.2 s) and Firefox (19.2 s) at 03:13, with A's
+  builder fix `e210dbe4` (taken here as `45c28eef`).
+- Beside the module, on this tree's seed: core, host-modules, nena, embedding, boundary,
+  upload, indicators, terminal and shell pass in both browsers.
+
+The 896df05e runs used the round's images linked from `work/integrate` and its working
+tree's recipe pins for its new Rust seed, copied here for the runs and not committed. The
+round restarted at 04:40 on a seed change (`129d9fe1`), so the catalog needs that round's
+images for `html`, `dolly-docs` and the Pi family: `pi-dolly`, `pi-runtime`, `pi-minimal`,
+`pi-agent`, `pi-local`, `pi-phone`, `bhop`, `slopyard`, `rts-arena`, `classicube`,
+`dollyfile-studio`, which now declare `html@0`.
 
 Owner (2026-11-01, 21:45 JST):
 
@@ -222,3 +227,6 @@ images built FROM pi-runtime keep `/usr/bin/html`, which sealing refuses undecla
   line, before it starts).
 - Read the clock before planning against a deadline: I put the time 15 minutes late and
   declined a hugebuild slot whose estimate would have fitted.
+- Rewriting a task's State "up to the next heading" silently dropped the owner's words that
+  sat between State and Done-when; a diff of the owner's lines against the first commit of
+  the task caught it. Replace a section by its own markers, and diff before committing.
