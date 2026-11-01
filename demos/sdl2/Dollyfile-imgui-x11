@@ -7,7 +7,7 @@ REQUIRES HOST sockets@0
 # sources, configured where X's libraries are, with upstream's X11 video
 # driver in place of Dolly's, so it draws on the server DISPLAY names. ImGui
 # and the example are the imgui package's sources, unchanged.
-FROM /v0.1.4/demos/x11/Dollyfile-x11-build 380d3ecd65fc139980ea61ec2723800eadb501c594740f1f6dafa33fe844502e
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build d87fd2b3da39b97cffaa5e2e91ac14f1a25224453a284fc5fca7eb9ba56a1723
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES TOOL c++

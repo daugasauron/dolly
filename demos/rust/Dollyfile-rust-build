@@ -11,10 +11,10 @@ REQUIRES HOST threads@0
 # here from their pinned sources. The seed builds the first rustc; that one
 # builds the rustc kept. Every Rust program in the catalog is built by this
 # image's toolchain.
-FROM /v0.1.4/demos/rust/Dollyfile-rust-sdk 8d79fc03876f9ea6db40cde89f4597e0bdde9c96519471d46db9a05c3e60db2f
-COPY /v0.1.4/demos/rust/Dollyfile-rust-llvm 61c9ab460e4197a42d7e3aaed3758d3a9843675cda520f59d9f478c2c795f528 /opt/rust-llvm /opt/rust-llvm
+FROM /v0.1.4/demos/rust/Dollyfile-rust-sdk 81ffef13dea1c24233c84adf88061d6e933f843d497f18f1dcbd1b43c8eac5c5
+COPY /v0.1.4/demos/rust/Dollyfile-rust-llvm d291f122f2e72fb212841c5725c1311d64333effd0d5f4b37055c5e5c2202961 /opt/rust-llvm /opt/rust-llvm
 # cmp, for the check that the second generation rebuilds the same library.
-INSTALL /v0.1.4/Dollyfile-posix 77d573799ee8664d94bde14f701bc96a0589320d5ea89dff239aff247b806c2c
+INSTALL /v0.1.4/Dollyfile-posix 603a50fa0589809db58bd85e6e01bd2e588c1e18e62f03af7ab85cd2f25efcf2
 REQUIRES TOOL cargo
 REQUIRES TOOL rustc
 REQUIRES TOOL cc

@@ -32,10 +32,10 @@ await browserTest("sockets", { image: "system", server: { fixtures } }, async ({
   await run("/tmp/sockets stale /tmp/named.sock && test ! -e /tmp/named.sock && test ! -e /tmp/named.sock.moved");
   await run("/tmp/sockets backlog /tmp/backlog.sock");
 
-  // One process can take every socket the kernel holds. Exit, abort (its
+  // One process can take every socket the kernel holds. Exit, a trap (its
   // Worker fails) and forced termination of a CPU loop each give them back.
   await run("/tmp/sockets quota exit");
-  await status("/tmp/sockets quota abort 2> /dev/null", 126);
+  await status("/tmp/sockets quota trap 2> /dev/null", 126);
   await run("/tmp/sockets quota exit");
   await status("timeout 1 /tmp/sockets quota spin", 124);
   await run("/tmp/sockets quota exit");

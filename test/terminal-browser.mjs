@@ -242,9 +242,18 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
   assert.equal(await lines, 0);
   assert.equal(await submit("test \"$(cat /tmp/typed-lines)\" = \"$(printf 'on\\ntwo')\""), 0);
   const reading = start("read word && test \"$word\" = yes");
+  // Typed before the shell has the command, the keys would join its line.
+  await waitForText(/read word && test "\$word" = yes\s*$/);
   await page.keyboard.type("yes");
   await page.keyboard.press("Enter");
   assert.equal(await reading, 0);
+  // getpass reads the terminal, whatever standard input is, and does not echo.
+  const password = start(`${probe} password < /dev/null`);
+  await waitForText(/Password:\s*$/);
+  await page.keyboard.type("hunter2");
+  await page.keyboard.press("Enter");
+  assert.equal(await password, 0);
+  assert.ok(!(await text()).includes("hunter2"), "getpass echoed the password");
 
   // Reading and copying the selection while a child sleeps keeps queued
   // typed text, a paste and terminal query replies for that child.

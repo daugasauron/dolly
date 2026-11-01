@@ -216,7 +216,8 @@ int main(int argc, char **argv) {
   assert(dlopen(NULL, RTLD_NOW) == NULL && errno == ENOSYS);
   /* Dolly keeps no thread names, and a thread has no affinity to read. */
   char name[16];
-  assert(pthread_getname_np(pthread_self(), name, sizeof(name)) == ENOSYS);
+  assert(pthread_getname_np(pthread_self(), name, sizeof(name)) == ENOSYS &&
+         pthread_setname_np(pthread_self(), "named") == ENOSYS);
   cpu_set_t cpus;
   CPU_ZERO(&cpus);
   CPU_SET(1, &cpus);

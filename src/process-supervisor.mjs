@@ -317,15 +317,17 @@ export class DollyProcessSupervisor {
   }
 
   #deliverSignal(process, signalNumber = DOLLY_PROCESS_SIGINT) {
-    if (!process || process.retiring || this.processes.get(process.pid) !== process) return false;
+    if (!process || process.retiring || this.processes.get(process.pid) !== process) return;
     const result = this.kernel.dolly_process_signal(process.pid, signalNumber);
     process.lastSignal = signalNumber;
-    // Resize notification is not an interrupt request and must never acquire
-    // a forced-termination deadline, including before program entry.
-    if (signalNumber === DOLLY_PROCESS_SIGWINCH && (result !== 0 || !process.started)) return result === 0;
-    if (signalNumber === DOLLY_PROCESS_SIGKILL || result !== 0 || !process.started) {
-      return this.#forceExit(process.pid, 128 + signalNumber, signalNumber);
+    // The kernel decides what the signal does: it may have ended the process.
+    if (this.kernel.dolly_process_exited(process.pid) !== 0) {
+      this.#retire(process);
+      return;
     }
+    // A program not yet entered has no call to interrupt; what the kernel
+    // keeps for it, it takes when it starts.
+    if (result !== 0 || !process.started) return;
     const receiver = process.threaded
       ? [...process.threads.values()].sort((a, b) => a.tid - b.tid)[0] : process;
     const deferred = this.deferred.get(receiver);
@@ -342,7 +344,6 @@ export class DollyProcessSupervisor {
       this.#signal(receiver, message.sequence, interruptedSystemCall);
     }
     if (signalNumber !== DOLLY_PROCESS_SIGWINCH) this.#armInterrupt(process, signalNumber);
-    return true;
   }
 
   // A program that does not finish a delivered signal in time is ended by it.

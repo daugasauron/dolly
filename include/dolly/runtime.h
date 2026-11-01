@@ -113,10 +113,6 @@ void dolly_exit_signal(int signal_number) __attribute__((__noreturn__));
 pid_t dolly_waitpid(pid_t pid, int *status, int options);
 int dolly_kill(pid_t pid, int signal_number);
 
-// Raw sockets are deliberately absent: the POSIX socket functions fail
-// explicitly. HTTP-capable libraries use the typed dolly_http_perform broker,
-// whose sole outer edge is browser Fetch.
-
 #ifdef __cplusplus
 }
 #endif

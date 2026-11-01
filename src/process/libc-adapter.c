@@ -4,6 +4,7 @@
 #include <dolly/pty.h>
 #include <dolly/runtime.h>
 
+#include <arpa/inet.h>
 #include <errno.h>
 #include <dirent.h>
 #include <dlfcn.h>
@@ -65,20 +66,21 @@ int uname(struct utsname *information) {
 }
 
 static pid_t process_id(int parent) {
-  static _Thread_local dolly_process_info_response identity;
-  if (identity.pid == 0) {
-    dolly_process_info_response response;
-    const int64_t result = dolly_process_call(DOLLY_PROCESS_INFO,
-        NULL, 0, &response, sizeof(response));
-    if (result < 0) return (pid_t)result;
-    if (result != sizeof(response) || response.pid == 0 ||
-        response.pid > INT32_MAX || response.parent_pid > INT32_MAX) return -EIO;
-    identity = response;
-  }
-  return (pid_t)(parent ? identity.parent_pid : identity.pid);
+  dolly_process_info_response response;
+  const int64_t result = dolly_process_call(DOLLY_PROCESS_INFO,
+      NULL, 0, &response, sizeof(response));
+  if (result < 0) return (pid_t)result;
+  if (result != sizeof(response) || response.pid == 0 ||
+      response.pid > INT32_MAX || response.parent_pid > INT32_MAX) return -EIO;
+  return (pid_t)(parent ? response.parent_pid : response.pid);
 }
 
-pid_t __syscall_getpid(void) { return process_id(0); }
+/* A process keeps its pid, exec included; its parent is 0 once that ends. */
+pid_t __syscall_getpid(void) {
+  static _Thread_local pid_t pid;
+  if (pid <= 0) pid = process_id(0);
+  return pid;
+}
 pid_t __syscall_getppid(void) { return process_id(1); }
 
 /* One thread per private process. libc-ww's fallback TID 42 would disagree
@@ -92,10 +94,12 @@ pid_t gettid(void) {
 #endif
 }
 
+/* A child's times are zero, as getrusage reports its children's. */
 pid_t __syscall_wait4(pid_t pid, int *status, int options, struct rusage *usage) {
-  if (usage != NULL) return -ENOTSUP;
   const pid_t result = dolly_waitpid(pid, status, options);
-  return result < 0 ? -errno : result;
+  if (result < 0) return -errno;
+  if (result > 0 && usage != NULL) memset(usage, 0, sizeof(*usage));
+  return result;
 }
 
 /* Dolly has no process groups or sessions: each process is its own group
@@ -829,18 +833,34 @@ int __syscall_umask(mode_t mask) {
 }
 
 /* The limits every process has, which nothing can change: the kernel's
- * descriptor and process tables, and the linker's memory ceiling and stack. */
+ * descriptor and process tables, and the linker's memory ceiling and stack.
+ * Setting one to what it is succeeds; any other value is refused. */
 int __syscall_prlimit64(pid_t pid, int resource, const struct rlimit *new_limit,
                         struct rlimit *old_limit) {
   (void)pid;
-  if (new_limit) return -EPERM;
-  if (old_limit) {
-    const rlim_t limit = resource == RLIMIT_NOFILE ? 1024 : resource == RLIMIT_NPROC ? 56
-        : resource == RLIMIT_AS || resource == RLIMIT_DATA ? (rlim_t)8 << 30
-        : resource == RLIMIT_STACK ? (rlim_t)8 << 20 : RLIM_INFINITY;
-    *old_limit = (struct rlimit){limit, limit};
-  }
+  const rlim_t limit = resource == RLIMIT_NOFILE ? 1024 : resource == RLIMIT_NPROC ? 56
+      : resource == RLIMIT_AS || resource == RLIMIT_DATA ? (rlim_t)8 << 30
+      : resource == RLIMIT_STACK ? (rlim_t)8 << 20 : RLIM_INFINITY;
+  if (new_limit && (new_limit->rlim_cur != limit || new_limit->rlim_max != limit)) return -EPERM;
+  if (old_limit) *old_limit = (struct rlimit){limit, limit};
   return 0;
+}
+
+/* One scheduling priority, nice 0, which the kernel's encoding gives as 20
+ * (musl's getpriority answers 20 minus it): setting it is all that succeeds.
+ * Emscripten's stubs answered 0, which musl read as nice 20. */
+static int priority_target(int which, id_t who) {
+  if (which != PRIO_PROCESS && which != PRIO_PGRP && which != PRIO_USER) return -EINVAL;
+  if (who == 0 || (which == PRIO_USER ? 0 : dolly_kill((pid_t)who, 0) == 0)) return 0;
+  return -ESRCH;
+}
+int __syscall_getpriority(int which, id_t who) {
+  const int target = priority_target(which, who);
+  return target < 0 ? target : 20;
+}
+int __syscall_setpriority(int which, id_t who, int priority) {
+  const int target = priority_target(which, who);
+  return target < 0 ? target : priority == 0 ? 0 : -EPERM;
 }
 
 int __syscall_mknodat(int directory, const char *path,
@@ -859,17 +879,110 @@ int __syscall_fchdir(int descriptor) {
   return result < 0 ? (int)result : 0;
 }
 
-int getaddrinfo(const char *node, const char *service,
-                const struct addrinfo *hints, struct addrinfo **result) {
-  (void)node;
-  (void)service;
-  (void)hints;
-  if (result != NULL) *result = NULL;
-  return EAI_FAIL;
+/* Dolly has no network of its own (HTTP goes through the browser's broker),
+ * so no name resolves: EAI_FAIL. A numeric address and port convert without a
+ * lookup, as POSIX has them, and a socket of that family then refuses
+ * (EAFNOSUPPORT). Each entry is one allocation, its address and name in it. */
+struct numeric_address {
+  struct addrinfo info;
+  union { struct sockaddr_in v4; struct sockaddr_in6 v6; } address;
+  char name[];
+};
+
+static int numeric_port(const char *service, int flags, uint16_t *port) {
+  *port = 0;
+  if (service == NULL) return 0;
+  char *end = NULL;
+  const unsigned long number = strtoul(service, &end, 10);
+  if (service[0] < '0' || service[0] > '9' || *end != 0)
+    return service[0] != 0 && (flags & AI_NUMERICSERV) != 0 ? EAI_NONAME : EAI_SERVICE;
+  if (number > UINT16_MAX) return EAI_SERVICE;
+  *port = htons((uint16_t)number);
+  return 0;
 }
 
-/* No address list is allocated by Dolly's unsupported resolver. */
-void freeaddrinfo(struct addrinfo *result) { (void)result; }
+static struct addrinfo *numeric_entry(int family, const void *bytes, uint16_t port,
+                                      int socktype, int protocol, const char *name) {
+  const size_t name_size = name != NULL ? strlen(name) + 1 : 0;
+  struct numeric_address *entry = calloc(1, sizeof(*entry) + name_size);
+  if (entry == NULL) return NULL;
+  if (family == AF_INET) {
+    entry->address.v4 = (struct sockaddr_in){.sin_family = AF_INET, .sin_port = port};
+    memcpy(&entry->address.v4.sin_addr, bytes, sizeof(struct in_addr));
+    entry->info.ai_addrlen = sizeof(entry->address.v4);
+  } else {
+    entry->address.v6 = (struct sockaddr_in6){.sin6_family = AF_INET6, .sin6_port = port};
+    memcpy(&entry->address.v6.sin6_addr, bytes, sizeof(struct in6_addr));
+    entry->info.ai_addrlen = sizeof(entry->address.v6);
+  }
+  entry->info.ai_family = family;
+  entry->info.ai_socktype = socktype;
+  entry->info.ai_protocol = protocol;
+  entry->info.ai_addr = (struct sockaddr *)&entry->address;
+  if (name != NULL) entry->info.ai_canonname = memcpy(entry->name, name, name_size);
+  return &entry->info;
+}
+
+void freeaddrinfo(struct addrinfo *result) {
+  while (result != NULL) {
+    struct addrinfo *next = result->ai_next;
+    free(result);
+    result = next;
+  }
+}
+
+int getaddrinfo(const char *node, const char *service,
+                const struct addrinfo *hints, struct addrinfo **result) {
+  static const struct addrinfo no_hints;
+  if (hints == NULL) hints = &no_hints;
+  const int flags = hints->ai_flags, family = hints->ai_family;
+  const int known = AI_PASSIVE | AI_CANONNAME | AI_NUMERICHOST | AI_NUMERICSERV |
+                    AI_V4MAPPED | AI_ALL | AI_ADDRCONFIG;
+  if (node == NULL && service == NULL) return EAI_NONAME;
+  if ((flags & ~known) != 0 || ((flags & AI_CANONNAME) != 0 && node == NULL)) return EAI_BADFLAGS;
+  if (family != AF_UNSPEC && family != AF_INET && family != AF_INET6) return EAI_FAMILY;
+  uint16_t port;
+  const int service_error = numeric_port(service, flags, &port);
+  if (service_error != 0) return service_error;
+  /* An absent host is the wildcard for a server, else the loopback. */
+  struct in_addr v4 = {INADDR_ANY};
+  struct in6_addr v6 = IN6ADDR_ANY_INIT;
+  int families = 3; /* 1: IPv4, 2: IPv6 */
+  if (node == NULL && (flags & AI_PASSIVE) == 0) {
+    v4.s_addr = htonl(INADDR_LOOPBACK);
+    v6 = in6addr_loopback;
+  } else if (node != NULL && inet_aton(node, &v4)) {
+    families = 1;
+  } else if (node != NULL && inet_pton(AF_INET6, node, &v6) == 1) {
+    families = 2;
+  } else if (node != NULL) {
+    return (flags & AI_NUMERICHOST) != 0 ? EAI_NONAME : EAI_FAIL;
+  }
+  if (family == AF_INET) families &= 1;
+  if (family == AF_INET6) families &= 2;
+  if (families == 0) return EAI_NONAME;
+  static const int kinds[][2] = {{SOCK_STREAM, IPPROTO_TCP}, {SOCK_DGRAM, IPPROTO_UDP}};
+  struct addrinfo *first = NULL, **last = &first;
+  for (int v6_family = 0; v6_family < 2; ++v6_family) {
+    if ((families & (1 << v6_family)) == 0) continue;
+    for (size_t kind = 0; kind < sizeof(kinds) / sizeof(*kinds); ++kind) {
+      if ((hints->ai_socktype != 0 && hints->ai_socktype != kinds[kind][0]) ||
+          (hints->ai_protocol != 0 && hints->ai_protocol != kinds[kind][1])) continue;
+      *last = numeric_entry(v6_family ? AF_INET6 : AF_INET, v6_family ? (const void *)&v6 : &v4, port,
+                            kinds[kind][0], kinds[kind][1],
+                            first == NULL && (flags & AI_CANONNAME) != 0 ? node : NULL);
+      if (*last == NULL) {
+        freeaddrinfo(first);
+        return EAI_MEMORY;
+      }
+      last = &(*last)->ai_next;
+    }
+  }
+  if (first == NULL) return EAI_SOCKTYPE;
+  *result = first;
+  return 0;
+}
+
 struct protoent *getprotobyname(const char *name) {
   (void)name; errno = ENOSYS; return NULL;
 }
@@ -902,9 +1015,12 @@ int res_query(const char *name, int class, int type, unsigned char *answer, int 
  * their own; normal static-link symbol ownership must let that definition
  * replace the generic one without a runtime-specific linker exception.
  */
-/* Dolly keeps no thread names; the threaded libc declares this and has none. */
+/* Dolly keeps no thread names, in either profile. */
 __attribute__((__weak__)) int pthread_getname_np(pthread_t thread, char *name, size_t size) {
   (void)thread; (void)name; (void)size; return ENOSYS;
+}
+__attribute__((__weak__)) int pthread_setname_np(pthread_t thread, const char *name) {
+  (void)thread; (void)name; return ENOSYS;
 }
 /* A thread runs wherever the browser puts its Worker: no affinity to read. */
 __attribute__((__weak__)) int pthread_getaffinity_np(pthread_t thread, size_t size, cpu_set_t *set) {
@@ -944,9 +1060,6 @@ __attribute__((__weak__)) int pthread_condattr_destroy(pthread_condattr_t *attri
 __attribute__((__weak__)) int pthread_condattr_setclock(pthread_condattr_t *attribute,
                                                   clockid_t clock) {
   (void)attribute; (void)clock; return ENOSYS;
-}
-__attribute__((__weak__)) int pthread_setname_np(pthread_t thread, const char *name) {
-  (void)thread; (void)name; return ENOSYS;
 }
 __attribute__((__weak__)) int pthread_getschedparam(pthread_t thread, int *policy,
                                                struct sched_param *parameter) {
@@ -1366,7 +1479,8 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
       if (mode & DOLLY_TERMINAL_ONLCR) attributes.c_oflag |= ONLCR;
       if (mode & DOLLY_TERMINAL_ICRNL) attributes.c_iflag |= ICRNL;
       if (mode & DOLLY_TERMINAL_INLCR) attributes.c_iflag |= INLCR;
-      attributes.c_cflag = CS8 | CREAD;
+      /* musl's cfgetospeed reads the speed from c_cflag; B0 would mean hung up. */
+      attributes.c_cflag = CS8 | CREAD | B38400;
       if ((mode & DOLLY_TERMINAL_ISIG) != 0) attributes.c_lflag |= ISIG;
       if ((mode & DOLLY_TERMINAL_CANONICAL) != 0) {
         attributes.c_lflag |= ICANON;

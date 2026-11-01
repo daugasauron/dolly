@@ -4,6 +4,7 @@
 #include <dolly/runtime.h>
 #include <dolly/toolchain.h>
 
+#include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -43,6 +44,10 @@ static int spawn_mapped(const char *path, int argc, char **argv,
       (mapping_count != 0 && mappings == NULL) ||
       !(timeout_milliseconds == -1 || timeout_milliseconds >= 0)) return -EINVAL;
   if (mapping_count > DOLLY_PROCESS_PACKET_LIMIT / sizeof(*mappings)) return -E2BIG;
+  /* No environment is this process's own, as it is now: the kernel knows only
+   * the one it started with. */
+  static char *const no_environment[] = {NULL};
+  if (envp == NULL) envp = environ != NULL ? environ : no_environment;
   const size_t mapping_bytes = mapping_count * sizeof(*mappings);
   const size_t path_size = strlen(path);
   const size_t cwd_size = cwd == NULL ? 0 : strlen(cwd);
@@ -57,14 +62,12 @@ static int spawn_mapped(const char *path, int argc, char **argv,
   }
   uint32_t environment_count = 0;
   size_t environment_bytes = 0;
-  if (envp != NULL) {
-    while (envp[environment_count] != NULL) {
-      const size_t length = strlen(envp[environment_count]) + 1;
-      if (length > DOLLY_PROCESS_PACKET_LIMIT - environment_bytes ||
-          environment_count == UINT32_MAX) return -E2BIG;
-      environment_bytes += length;
-      ++environment_count;
-    }
+  while (envp[environment_count] != NULL) {
+    const size_t length = strlen(envp[environment_count]) + 1;
+    if (length > DOLLY_PROCESS_PACKET_LIMIT - environment_bytes ||
+        environment_count == UINT32_MAX) return -E2BIG;
+    environment_bytes += length;
+    ++environment_count;
   }
   const size_t packet_size = sizeof(dolly_process_spawn_request) +
       path_size + argument_bytes + environment_bytes + cwd_size + mapping_bytes;
@@ -82,7 +85,7 @@ static int spawn_mapped(const char *path, int argc, char **argv,
     deadline = now + (uint64_t)delta;
   }
   const dolly_process_spawn_request request = {
-      flags | (envp == NULL ? DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT : 0),
+      flags,
       (uint32_t)argc,
       environment_count,
       (uint32_t)cwd_size,
@@ -270,45 +273,48 @@ ssize_t getrandom(void *buffer, size_t length, unsigned flags) {
   return (ssize_t)length;
 }
 
-char *getpass(const char *prompt) {
-  static char password[256];
-  if (prompt != NULL) {
-    fputs(prompt, stderr);
-    fflush(stderr);
-  }
-  if (fgets(password, sizeof(password), stdin) == NULL) return NULL;
-  password[strcspn(password, "\r\n")] = '\0';
-  return password;
-}
-
 struct hostent *gethostbyname(const char *name) {
   (void)name;
   h_errno = NO_RECOVERY;
   return NULL;
 }
 
+/* Without a resolver a host and a service are their numbers, which POSIX
+ * gives unless the caller requires a name. */
 int getnameinfo(const struct sockaddr *address, socklen_t address_length,
                 char *host, socklen_t host_length,
                 char *service, socklen_t service_length, int flags) {
-  (void)address;
-  (void)address_length;
-  (void)host;
-  (void)host_length;
-  (void)service;
-  (void)service_length;
-  (void)flags;
-  return EAI_FAIL;
+  const void *bytes;
+  uint16_t port;
+  if (address != NULL && address->sa_family == AF_INET && address_length >= sizeof(struct sockaddr_in)) {
+    bytes = &((const struct sockaddr_in *)address)->sin_addr;
+    port = ((const struct sockaddr_in *)address)->sin_port;
+  } else if (address != NULL && address->sa_family == AF_INET6 &&
+             address_length >= sizeof(struct sockaddr_in6)) {
+    bytes = &((const struct sockaddr_in6 *)address)->sin6_addr;
+    port = ((const struct sockaddr_in6 *)address)->sin6_port;
+  } else {
+    return EAI_FAMILY;
+  }
+  const int wants_host = host != NULL && host_length > 0;
+  const int wants_service = service != NULL && service_length > 0;
+  if ((!wants_host && !wants_service) || (wants_host && (flags & NI_NAMEREQD) != 0)) return EAI_NONAME;
+  if (wants_host && inet_ntop(address->sa_family, bytes, host, host_length) == NULL) return EAI_OVERFLOW;
+  if (wants_service && snprintf(service, service_length, "%u", ntohs(port)) >= (int)service_length)
+    return EAI_OVERFLOW;
+  return 0;
 }
 
-/* -1 and 0 wait for any child; Dolly has no other process groups. No child
- * stops, so one that asks for stopped children too (WUNTRACED) is told of
- * every change there is, and one that asks for continued children
- * (WCONTINUED) of none more. */
+/* -1 and 0 wait for any child; -PID for the group of one that PID is, as
+ * kill(-PID) signals it. No child stops, so one that asks for stopped
+ * children too (WUNTRACED) is told of every change there is, and one that
+ * asks for continued children (WCONTINUED) of none more. */
 pid_t dolly_waitpid(pid_t pid, int *status, int options) {
-  if ((options & ~(WNOHANG | WUNTRACED | WCONTINUED)) != 0 || pid < -1) {
-    errno = pid < -1 ? ECHILD : ENOTSUP;
+  if ((options & ~(WNOHANG | WUNTRACED | WCONTINUED)) != 0 || pid == INT_MIN) {
+    errno = pid == INT_MIN ? ECHILD : EINVAL;
     return -1;
   }
+  if (pid < -1) pid = -pid;
   dolly_process_wait_response response;
   const int result = wait_process(pid > 0 ? (uint32_t)pid : 0,
       options & WNOHANG ? DOLLY_PROCESS_WAIT_NONBLOCK : 0, &response);
@@ -651,18 +657,33 @@ int posix_spawnp(pid_t *restrict pid, const char *restrict file,
   return spawn(pid, file, actions, attributes, argv, envp, 1);
 }
 
+/* As POSIX says, the caller ignores SIGINT and SIGQUIT and blocks SIGCHLD
+ * while the command runs: Ctrl+C ends the command, not the program that
+ * waits for it. */
 int system(const char *command) {
   if (command == NULL) return 1;
+  const struct sigaction ignore = {.sa_handler = SIG_IGN};
+  struct sigaction interrupt, quit;
+  sigset_t child, mask;
+  sigemptyset(&child);
+  sigaddset(&child, SIGCHLD);
+  sigaction(SIGINT, &ignore, &interrupt);
+  sigaction(SIGQUIT, &ignore, &quit);
+  sigprocmask(SIG_BLOCK, &child, &mask);
   char *arguments[] = {"slop", "-c", (char *)command, NULL};
   const int pid = dolly_spawn(
       "/bin/slop", 3, arguments,
       STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
-  if (pid < 0) {
-    errno = -pid;
-    return -1;
+  int status = -1, error = -pid;
+  if (pid > 0) {
+    while (dolly_waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
+    error = errno;
   }
-  int status;
-  return dolly_waitpid(pid, &status, 0) < 0 ? -1 : status;
+  sigaction(SIGINT, &interrupt, NULL);
+  sigaction(SIGQUIT, &quit, NULL);
+  sigprocmask(SIG_SETMASK, &mask, NULL);
+  errno = error;
+  return status;
 }
 
 typedef struct {
@@ -700,7 +721,7 @@ FILE *popen(const char *command, const char *mode) {
   process_popen_entries[slot].pid = -1;
   dolly_lock_release(&popen_lock);
   int descriptors[2];
-  if (pipe(descriptors) != 0) { popen_release(slot); return NULL; }
+  if (pipe2(descriptors, mode[1] == 'e' ? O_CLOEXEC : 0) != 0) { popen_release(slot); return NULL; }
   const int reading = mode[0] == 'r';
   char *arguments[] = {"slop", "-c", (char *)command, NULL};
   const int pid = dolly_spawn(

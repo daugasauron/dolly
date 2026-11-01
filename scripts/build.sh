@@ -68,12 +68,7 @@ rm -f \
   "${project_dir}/dist/dolly-process-abi.mjs" \
   "${project_dir}/dist/dolly-build-id.mjs" \
   "${project_dir}/dist/dolly-image-build-id.mjs" \
-  "${project_dir}/dist/IosevkaTerm-SemiBold.woff2" \
-  "${project_dir}/dist/ghostty-web.js" \
-  "${project_dir}/dist/process-check.wasm" \
-  "${project_dir}/dist/process-fs-check.wasm" \
-  "${project_dir}/dist/process-pipe-check.wasm" \
-  "${project_dir}/dist/slop-process.wasm"
+  "${project_dir}/dist/IosevkaTerm-SemiBold.woff2"
 
 # Every WAT contract: the core ones in abi/ and those host module manifests name.
 mapfile -t contracts < <(printf '%s\n' abi/dolly-kernel-plugin-0.wat abi/dolly-host-0.wat \
@@ -194,15 +189,16 @@ for client in "${clients[@]}"; do
   echo "${checked} -c ${source} -o ${object}"
   echo "/emsdk/upstream/emscripten/emar rcsD build/libdolly-${module}.a.new ${object}"
 done | in_container
-# musl's getdate, which Emscripten's libc leaves out for a stub (libc-stubs.c),
-# and the thread attributes its single-threaded libc leaves out, which Rust's
-# std prepares before pthread_create refuses.
+# musl's getdate and getpass, which Emscripten's libc leaves out, and the
+# thread attributes its single-threaded libc leaves out, which Rust's std
+# prepares before pthread_create refuses.
 in_container <<EOF
 ${emcc} -c ${emscripten_libc}/libc/musl/src/time/getdate.c -o build/process-getdate.o
+${emcc} -c ${emscripten_libc}/libc/musl/src/legacy/getpass.c -o build/process-getpass.o
 ${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/pthread_attr_init.c -o build/process-pthread_attr_init.o
 ${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/pthread_attr_setstacksize.c -o build/process-pthread_attr_setstacksize.o
 ${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/pthread_attr_destroy.c -o build/process-pthread_attr_destroy.o
-/emsdk/upstream/emscripten/emar rcsD build/libdolly-runtime.a.new build/process-getdate.o \
+/emsdk/upstream/emscripten/emar rcsD build/libdolly-runtime.a.new build/process-getdate.o build/process-getpass.o \
   build/process-pthread_attr_init.o build/process-pthread_attr_setstacksize.o build/process-pthread_attr_destroy.o
 EOF
 for module in $(printf '%s\n' "${clients[@]%% *}" | uniq); do

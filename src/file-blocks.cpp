@@ -158,8 +158,9 @@ public:
   ~BlockFile() override { release(0); }
 };
 
-// Writes render on the terminal (src/dolly.c); reads are at end of file, since
-// the kernel reads terminal input for processes itself (src/process-kernel.c).
+// A character device whose writes render on the terminal (src/dolly.c), which
+// has no position; reads are at end of file, since the kernel reads terminal
+// input for processes itself (src/process-kernel.c).
 class TerminalFile : public DataFile {
   int open(oflags_t) override { return 0; }
   int close() override { return 0; }
@@ -174,7 +175,7 @@ class TerminalFile : public DataFile {
   }
 
 public:
-  explicit TerminalFile(mode_t mode) : DataFile(mode, NullBackend) {}
+  explicit TerminalFile(mode_t mode) : DataFile(mode, NullBackend, S_IFCHR) { seekable = false; }
 };
 
 // /dev/zero: reads give zero bytes, writes are discarded.
@@ -192,7 +193,7 @@ class ZeroFile : public DataFile {
   }
 
 public:
-  ZeroFile() : DataFile(0666, NullBackend) {}
+  ZeroFile() : DataFile(0666, NullBackend, S_IFCHR) {}
 };
 
 class BlockBackend : public Backend {

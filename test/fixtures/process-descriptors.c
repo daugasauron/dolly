@@ -1,6 +1,9 @@
 #define _GNU_SOURCE
+#include <arpa/inet.h>
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <netdb.h>
 #include <poll.h>
 #include <signal.h>
 #include <spawn.h>
@@ -8,8 +11,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/uio.h>
 #include <sys/wait.h>
+#include <termios.h>
 #include <unistd.h>
 #ifdef __dolly__
 #include <dolly/runtime.h>
@@ -49,6 +55,14 @@ static void nonblocking_pipes(void) {
   CHECK(read(pipes[0], bytes, 1) == -1 && errno == EAGAIN);
   CHECK(read(pipes[0], bytes, 0) == 0);
   CHECK(write(pipes[1], "x", 1) == 1);
+  // A write end without a reader polls writable, as its write fails at once,
+  // and in error; a hang-up is the read end's news.
+  int lone[2];
+  CHECK(pipe(lone) == 0 && close(lone[0]) == 0);
+  struct pollfd orphan = {lone[1], POLLOUT, 0};
+  CHECK(poll(&orphan, 1, 0) == 1 && orphan.revents == (POLLOUT | POLLERR) && close(lone[1]) == 0);
+  // A pipe has nothing to sync or truncate.
+  CHECK(fsync(pipes[1]) == -1 && errno == EINVAL && ftruncate(pipes[1], 0) == -1 && errno == EINVAL);
   struct iovec vectors[] = {{bytes, 1}, {bytes + 1, 1}};
   CHECK(readv(pipes[0], vectors, 2) == 1 && bytes[0] == 'x');
   size_t capacity = 0;
@@ -361,14 +375,160 @@ static void spawning(const char *path) {
 }
 #endif
 
+/* Path and file calls answer as Linux does. */
+static void path_answers(void) {
+  char directory[] = "/tmp/process-descriptors-XXXXXX", file[128], path[256];
+  CHECK(mkdtemp(directory) != NULL);
+  snprintf(file, sizeof(file), "%s/file", directory);
+  const int writer = open(file, O_RDWR | O_CREAT, 0644);
+  CHECK(writer >= 0 && write(writer, "data", 4) == 4);
+  // A path that ends in a slash names a directory.
+  struct stat metadata;
+  snprintf(path, sizeof(path), "%s/", file);
+  CHECK(open(path, O_RDONLY) == -1 && errno == ENOTDIR);
+  CHECK(stat(path, &metadata) == -1 && errno == ENOTDIR);
+  snprintf(path, sizeof(path), "%s/new/", directory);
+  CHECK(open(path, O_WRONLY | O_CREAT, 0644) == -1 && errno == EISDIR && stat(path, &metadata) == -1);
+  CHECK(mkdir(path, 0755) == 0 && stat(path, &metadata) == 0 && rmdir(path) == 0);
+  // Truncation needs a descriptor open for writing.
+  const int reader = open(file, O_RDONLY);
+  CHECK(reader >= 0 && ftruncate(reader, 0) == -1 && errno == EINVAL);
+  CHECK(fstat(writer, &metadata) == 0 && metadata.st_size == 4);
+  // A regular file polls ready for reading and writing, whatever its access.
+  struct pollfd ready = {reader, POLLIN | POLLOUT, 0};
+  CHECK(poll(&ready, 1, 0) == 1 && ready.revents == (POLLIN | POLLOUT));
+#ifdef __dolly__
+  // There are no hard links: EPERM, as for a filesystem without them.
+  snprintf(path, sizeof(path), "%s/hard", directory);
+  CHECK(link(file, path) == -1 && errno == EPERM);
+#endif
+  CHECK(close(reader) == 0 && close(writer) == 0 && unlink(file) == 0 && rmdir(directory) == 0);
+}
+
+/* A numeric address and port convert without a lookup, either way (POSIX). */
+static void address_answers(void) {
+  struct addrinfo hints = {.ai_family = AF_UNSPEC, .ai_socktype = SOCK_STREAM, .ai_flags = AI_NUMERICHOST};
+  struct addrinfo *found = NULL;
+  CHECK(getaddrinfo("127.0.0.1", "9", &hints, &found) == 0 && found != NULL && found->ai_next == NULL);
+  const struct sockaddr_in *v4 = (const struct sockaddr_in *)found->ai_addr;
+  CHECK(found->ai_family == AF_INET && found->ai_socktype == SOCK_STREAM && found->ai_addrlen == sizeof(*v4) &&
+        ntohs(v4->sin_port) == 9 && ntohl(v4->sin_addr.s_addr) == INADDR_LOOPBACK);
+  char host[INET6_ADDRSTRLEN], port[8];
+  CHECK(getnameinfo(found->ai_addr, found->ai_addrlen, host, sizeof(host), port, sizeof(port),
+                    NI_NUMERICHOST | NI_NUMERICSERV) == 0 && strcmp(host, "127.0.0.1") == 0 && strcmp(port, "9") == 0);
+  freeaddrinfo(found);
+  CHECK(getaddrinfo("::1", NULL, &hints, &found) == 0 && found->ai_family == AF_INET6);
+  freeaddrinfo(found);
+  CHECK(getaddrinfo("not.a.number", "9", &hints, &found) == EAI_NONAME);
+  hints.ai_flags = AI_NUMERICSERV;
+  CHECK(getaddrinfo("127.0.0.1", "discard", &hints, &found) == EAI_NONAME);
+  hints.ai_flags = AI_PASSIVE;
+  hints.ai_family = AF_INET;
+  CHECK(getaddrinfo(NULL, "80", &hints, &found) == 0 && found->ai_next == NULL &&
+        ((const struct sockaddr_in *)found->ai_addr)->sin_addr.s_addr == htonl(INADDR_ANY));
+  freeaddrinfo(found);
+}
+
+/* Devices are character devices, and a terminal has no position and a line
+ * speed that is not B0, hung up. */
+static void device_answers(void) {
+  struct stat metadata;
+  CHECK(stat("/dev/tty", &metadata) == 0 && S_ISCHR(metadata.st_mode));
+  CHECK(stat("/dev/zero", &metadata) == 0 && S_ISCHR(metadata.st_mode));
+  struct termios mode;
+  if (isatty(STDOUT_FILENO)) {
+    CHECK(lseek(STDOUT_FILENO, 0, SEEK_CUR) == -1 && errno == ESPIPE);
+    CHECK(tcgetattr(STDOUT_FILENO, &mode) == 0 && cfgetospeed(&mode) != B0);
+  }
+}
+
+/* Truncation, by O_TRUNC or ftruncate, modifies a file: make reads its time. */
+static void truncation_times(void) {
+  char path[] = "/tmp/process-descriptors-XXXXXX";
+  const int fd = mkstemp(path);
+  const struct timespec past[2] = {{1000, 0}, {1000, 0}};
+  struct stat metadata;
+  CHECK(fd >= 0 && futimens(fd, past) == 0 && ftruncate(fd, 0) == 0);
+  CHECK(fstat(fd, &metadata) == 0 && metadata.st_mtime > 1000);
+  CHECK(futimens(fd, past) == 0);
+  const int truncated = open(path, O_WRONLY | O_TRUNC);
+  CHECK(truncated >= 0 && fstat(truncated, &metadata) == 0 && metadata.st_mtime > 1000 &&
+        metadata.st_atime == 1000);
+  CHECK(close(truncated) == 0 && close(fd) == 0 && unlink(path) == 0);
+}
+
+/* A slash after a symbolic link follows it, and O_CREAT follows one to a file
+ * not there yet, unless with O_EXCL. A dot is no name to rename. */
+static void link_answers(void) {
+  char directory[] = "/tmp/process-descriptors-XXXXXX", link_path[128], target[128], path[256];
+  CHECK(mkdtemp(directory) != NULL);
+  struct stat metadata;
+  snprintf(link_path, sizeof(link_path), "%s/here", directory);
+  snprintf(path, sizeof(path), "%s/", link_path);
+  CHECK(symlink(".", link_path) == 0 && lstat(path, &metadata) == 0 && S_ISDIR(metadata.st_mode));
+  CHECK(unlink(path) == -1 && lstat(link_path, &metadata) == 0 && S_ISLNK(metadata.st_mode));
+  CHECK(unlink(link_path) == 0);
+  snprintf(target, sizeof(target), "%s/made", directory);
+  CHECK(symlink("made", link_path) == 0);
+  CHECK(open(link_path, O_WRONLY | O_CREAT | O_EXCL, 0644) == -1 && errno == EEXIST);
+  const int made = open(link_path, O_WRONLY | O_CREAT, 0644);
+  CHECK(made >= 0 && close(made) == 0 && lstat(target, &metadata) == 0 && S_ISREG(metadata.st_mode));
+  char moved[128];
+  snprintf(path, sizeof(path), "%s/.", directory);
+  snprintf(moved, sizeof(moved), "%s-moved", directory);
+  CHECK(rename(path, moved) == -1 && stat(directory, &metadata) == 0);
+  CHECK(unlink(link_path) == 0 && unlink(target) == 0 && rmdir(directory) == 0);
+}
+
+#ifdef __dolly__
+static int directory_entries(int fd, size_t capacity) {
+  char records[4096];
+  int count = 0;
+  for (ssize_t size; (size = getdents(fd, (struct dirent *)records, capacity)) > 0;) {
+    for (ssize_t offset = 0; offset < size; offset += ((struct dirent *)(records + offset))->d_reclen) ++count;
+  }
+  return count;
+}
+
+/* A directory read a few entries at a time is read from where lseek puts
+ * its descriptor: from the start again, every entry once more. */
+static void directory_positions(void) {
+  char directory[] = "/tmp/process-descriptors-XXXXXX", path[64];
+  CHECK(mkdtemp(directory) != NULL);
+  for (int index = 0; index < 10; ++index) {
+    snprintf(path, sizeof(path), "%s/%d", directory, index);
+    const int file = open(path, O_WRONLY | O_CREAT, 0644);
+    CHECK(file >= 0 && close(file) == 0);
+  }
+  const int fd = open(directory, O_RDONLY | O_DIRECTORY);
+  CHECK(fd >= 0);
+  const int entries = directory_entries(fd, sizeof(struct dirent) * 3);
+  CHECK(entries == 12 && lseek(fd, 0, SEEK_SET) == 0);
+  char records[sizeof(struct dirent) * 3];
+  CHECK(getdents(fd, (struct dirent *)records, sizeof(records)) > 0 && lseek(fd, 0, SEEK_SET) == 0);
+  CHECK(directory_entries(fd, sizeof(records)) == entries && close(fd) == 0);
+  for (int index = 0; index < 10; ++index) {
+    snprintf(path, sizeof(path), "%s/%d", directory, index);
+    CHECK(unlink(path) == 0);
+  }
+  CHECK(rmdir(directory) == 0);
+}
+#endif
+
 int main(int argc, char **argv) {
   if (argc > 1) return child(argc, argv);
   descriptor_flags();
   nonblocking_pipes();
   vectored_io();
   posix_spawning(argv[0]);
+  path_answers();
+  link_answers();
+  truncation_times();
+  device_answers();
+  address_answers();
 #ifdef __dolly__
   spawning(argv[0]);
+  directory_positions();
 #endif
   puts("PROCESS-DESCRIPTORS-OK");
   return 0;
