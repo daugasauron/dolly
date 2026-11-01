@@ -16,7 +16,7 @@ its shapes consistent with the others; does a path grant authority it should not
 quota; duplication with another module or the page core; dead code, workarounds, special
 cases; do its tests prove denied access and behaviour rather than spelling.
 
-## State (2026-11-01 17:40 JST)
+## State (2026-11-01 17:20 JST)
 
 Survey of all 18 modules done (page and Worker sides, kernel C, clients, headers, contracts).
 Fixes in progress below; findings that are proposals for the owner at the end.
@@ -52,8 +52,70 @@ Fixed:
    module served in the process Worker say whether it serves threads, and the supervisor
    refused a threaded program a module that did not. `dso@0` said yes, and `stack@0` since
    it came; nothing says no, so the flag and the refusal go
-   (`src/process-supervisor.mjs`'s `#admit`, two lines: `core/audit-runtime`'s file).
+   (`src/process-supervisor.mjs`'s `#admit`, two lines: `core/audit-runtime`'s file),
+   `2dc47392`. dso (threaded FFI), stack (a threaded program `stack-wrap` rewrote) and threads
+   pass in Chromium and Firefox.
+
+Described, not changed (each moot or another workstream's, as it says):
+
+- **Leased-device boilerplate in the kernel**: `host/{audio,gpu,microphone,nena}/kernel.c` are
+  the same 28 lines but for names. One `call` and `release` could serve all four if
+  `dolly_kernel_module` carried a context pointer (`src/process-kernel.h`,
+  `core/audit-kernel`'s); a macro would hide the `dolly_NAME_mailbox_address` exports from
+  grep. Left.
+- **Three clients compute the same deadline** (`display_deadline`, `input_deadline`,
+  `touch_deadline`). Sharing one needs a header every client includes, which is the process
+  contract's (`include/dolly/`). Left.
+- **`__dolly.transport`** (`display@0`'s page record) is a view of what the Worker last
+  reported, not a transport, and doubles `graphicsActive`, `fontSize` and `copySelection` on
+  the same handle; 40 uses in tests and demos. Renaming is churn without a defect. Left.
+- **`input@0` reads `display@0`'s cursor** (`canvas.style.cursor === "default"`) to know that
+  a program asked the terminal for the mouse (`09b50fa6`, chosen so as to add no mailbox
+  word). A graphics program that shows the arrow then also holds back the canvas's context
+  menu; nothing else follows, since without the input lease such presses reach a terminal
+  that ignores them. Moot.
+- **`snapshot.h`** restates the snapshot contract's sizes by hand and only its total size is
+  asserted, where `upload@0` and the others assert every word against the generated header:
+  a kernel-only module has no generated C header (`scripts/generate-abi-constants.mjs` writes
+  `NAME-abi.h` only for a listed header, which the seed would then install). Left.
+- **The leased devices' page sides** (`audio.mjs`, `microphone.mjs`, `nena.mjs`) repeat the
+  same request, revoke and complete handlers around `leaseBridge`, and each provider parses
+  the packet header the bridge has half checked: see P1.
+- **Hardware GPU in Firefox is not measurable here**: `test/gpu-render-browser.mjs` launches
+  Playwright's Firefox, which gets no adapter under Xvfb (`docs/gpu.md`), and the installed
+  Firefox (a snap) does not start inside the capped scope (`gpu-render-2.log`, 180 s launch
+  timeout). Chrome's hardware run is the GPU Worker's measurement tonight.
 
 ## Proposals for the owner
+
+- **P1. One contract for the leased-device protocol.** `gpu@0`, `audio@0`, `microphone@0` and
+  `nena@0` speak one protocol: a 32-byte header (version, operation, scope, sequence, body
+  length, reserved), a reply slot of a 64-byte header (state, scope, sequence, errno, length)
+  and its bytes, a scope never reused, sequences that only increase, `dispatch(NULL, scope)`
+  to revoke. It is written down eight times: in prose in each of the four WATs, as C in
+  `src/device-lease.{h,c}`, as JavaScript in `host/runtime/lease-bridge.mjs` and again in the
+  GPU Worker's `header()` and `publish()`; each of the four clients builds the header by hand
+  (`u32(packet, 0, VERSION)`…, 14 lines each) and each page provider parses it again (audio,
+  microphone, nena). Smallest diff: `abi/dolly-device-0.wat` beside the supervisor contract,
+  exporting the header and reply offsets; `device-lease.h`, `lease-bridge.mjs` and the GPU
+  Worker use its generated constants; the bridge checks the whole header (the version is in
+  the lease descriptor) and hands a provider `{ operation, scope, body }`; one
+  `static inline dolly_device_call()` in a runtime header replaces the clients' `call()`; the
+  four WATs name the protocol instead of restating it. Every client's digest changes: a
+  catalog round.
+- **P2. Mailbox values in the WAT, as `touch@0` has them.** `input@0`'s record types, modifier
+  bits, composing flag and lease flags and `display@0`'s copy flags, graphics flag and cursor
+  styles are enums in `input.h` and `display.h` and typed again in JavaScript
+  (`static keyEvent = 1`, `(flags & 3) === 3`, `16` and `32` for Caps and Num Lock,
+  `copyAvailable = 1`, `cursorStyles` by index), while the word offsets beside them come from
+  the WAT and are asserted. `touch@0`'s phases are WAT globals. Smallest diff: those 40 values
+  as globals in `dolly-input-0.wat` and `dolly-display-0.wat`, the enums defined from
+  `*-abi.h`, the JavaScript reading `A.*`. Seed change (both headers), a catalog round; no
+  behaviour changes.
+- **P3. A process-Worker module's bundle by its manifest.** `dso.mjs` and `stack.mjs` each
+  fetch `dist/dolly-process-NAME.mjs` with the same options and register it; the manifest's
+  `processWorker` field names it already. The runtime could fetch it for every enabled module
+  that has one, leaving the modules their configuration. `core/audit-runtime`'s files
+  (`host/runtime/runtime.mjs`, `host/modules.mjs`).
 
 ## Lessons
