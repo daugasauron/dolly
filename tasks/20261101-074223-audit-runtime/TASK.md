@@ -16,15 +16,15 @@ session modules), building on the page (`image-build*.mjs`, `build-worker.mjs`,
 Done when: each finding below is fixed with its browser evidence, closed as moot with the
 reason, or left as a few lines for the owner.
 
-## State (2026-11-01 18:25 JST)
+## State (2026-11-01 18:50 JST)
 
-Findings 1 to 7 and 9 to 13 are committed, each verified as its commit says (source suite;
-Chromium and Firefox suites in `build/audit-runtime-evidence/run2.log` to `run7.log`);
-8 is left to `demo/lean-2`. The docs repin of finding 7 restales `dolly-docs` and the eleven
-demo images that install it, so in this tree `amy` (which installs `dolly-docs`) and the npm
-packages suite (`pi-minimal`) fail until a catalog round rebuilds them; both passed on the
-commits before the repin. Next: the rest of the flows (Studio builds, the sessions page), a
-last full run of the suites this branch touches.
+Findings 1 to 7 and 9 to 15 are committed, each verified as its commit says (source suite;
+Chromium and Firefox suites in `build/audit-runtime-evidence/run2.log` to `run9.log`,
+`tip1.log`); 8 is left to `demo/lean-2`. The docs repin of finding 7 restales `dolly-docs`
+and the eleven demo images that install it, so in this tree `amy` (which installs
+`dolly-docs`) and the npm packages suite (`pi-minimal`) fail until a catalog round rebuilds
+them; both passed on the commits before the repin, and no later commit touches their path
+but finding 15's (the package service no longer checks recipes it does not read).
 
 ## Findings
 
@@ -179,6 +179,12 @@ last full run of the suites this branch touches.
 - **`test/pages-publication.test.mjs` matches the text of `.github/workflows/pages.yml`.**
   It is the only check of a workflow that runs on GitHub alone, and what it checks (the
   deploy verifies the digest the owner chose) is the release's authority: left.
+- **A build validates the metadata of shared inputs again for each image it resolves.**
+  `prepareImageArtifacts` asks `loadPackagedSnapshotMetadata` for each image of the closure,
+  and each call checks its whole closure (imports are cached; the checks are not): in Node,
+  20 to 30 ms a call for `default` or `system`, 140 to 220 ms for `pi-local`,
+  `dollyfile-studio` or `zero-ad`. A memo per image directory would make it one check per
+  image per page; rebuild routes alone pay it, so it is left.
 - **The registry** (`host/modules.mjs`): every member of the context a provider gets and of
   the host `createHost` returns has a reader; boot and `nena` share one attach/detach path, as
   decided on 2026-10-23. No change.
