@@ -51,19 +51,15 @@ export async function loadPackagedSnapshotMetadata(image, checked = new Map(), a
       metadata.image !== image || metadata.buildId !== DOLLY_IMAGE_BUILD_ID ||
       metadata.formatVersion !== 2 || metadata.identityVersion !== 2 ||
       JSON.stringify(metadata.recipes) !== JSON.stringify(recipes) ||
-      JSON.stringify(hostRequirements(metadata.hostRequirements)) !== JSON.stringify(definitionOf(image).hostRequirements ?? []) ||
+      JSON.stringify(hostRequirements(metadata.hostRequirements)) !== JSON.stringify(definitionOf(image).hostRequirements) ||
       !Number.isSafeInteger(metadata.byteLength) || metadata.byteLength <= 0 ||
-      metadata.byteLength > snapshotSizeLimit ||
-      (![undefined, "gzip", "packs"].includes(metadata.encoding)) ||
-      (metadata.encoding === "gzip" &&
-       (!Number.isSafeInteger(metadata.encodedByteLength) ||
-        metadata.encodedByteLength <= 0 || metadata.encodedByteLength > snapshotSizeLimit)) ||
+      metadata.byteLength > snapshotSizeLimit || metadata.encoding !== "packs" ||
       !/^[0-9a-f]{64}$/.test(metadata.sha256) ||
       !Array.isArray(metadata.manifest) || metadata.manifest.length === 0 ||
       metadata.manifest.length > 100_000) {
     throw new Error("The packaged system snapshot metadata does not match this Dolly build");
   }
-  if (metadata.encoding === "packs") validateSnapshotPacks(metadata);
+  validateSnapshotPacks(metadata);
   const inputs = imageInputs(metadata.inputs);
   const references = [...new Set(definitionOf(image).artifacts.map(reference => reference.sha256))].sort();
   if (JSON.stringify(inputs.map(input => input.recipeSha256)) !== JSON.stringify(references)) {
@@ -105,30 +101,25 @@ export async function loadPackagedSnapshotMetadata(image, checked = new Map(), a
   return metadata;
 }
 
-async function* packagedSnapshotParts(image, metadata, signal) {
-  const packed = metadata.encoding === "packs";
-  const parts = packed ? validateSnapshotPacks(metadata) : [metadata];
-  for (const part of parts) {
+// An image is the records of its packs, each a gzip-compressed snapshot named
+// by its digest, which images that hold the same files share.
+async function* packagedSnapshotParts(metadata, signal) {
+  for (const pack of validateSnapshotPacks(metadata)) {
     signal?.throwIfAborted();
-    const compressed = packed || metadata.encoding === "gzip";
-    const url = packed
-      ? new URL(`dist/packs/${part.sha256}.snapshot.gz`, imageBase)
-      : new URL(`dist/dolly-${image}-system.snapshot${compressed ? ".gz" : ""}`, imageBase);
-    const init = { cache: packed ? "force-cache" : "no-store", credentials: "same-origin", redirect: "error", signal };
-    const expected = compressed ? part.encodedByteLength : part.byteLength;
-    const response = await decodeStaticAsset(await fetch(url, init), url, init, expected);
+    const url = new URL(`dist/packs/${pack.sha256}.snapshot.gz`, imageBase);
+    const init = { cache: "force-cache", credentials: "same-origin", redirect: "error", signal };
+    const response = await decodeStaticAsset(await fetch(url, init), url, init, pack.encodedByteLength);
     if (!response.ok || !response.body) throw new Error(`snapshot returned HTTP ${response.status}`);
     const declared = response.headers.get("content-length");
-    if (declared !== null && Number(declared) !== expected) throw new Error("snapshot HTTP content length mismatch");
-    const body = compressed ? response.body.pipeThrough(new DecompressionStream("gzip")) : response.body;
-    yield { ...part, body };
+    if (declared !== null && Number(declared) !== pack.encodedByteLength) throw new Error("snapshot HTTP content length mismatch");
+    yield { ...pack, body: response.body.pipeThrough(new DecompressionStream("gzip")) };
   }
 }
 
 // The sink owns incremental hashing. Every part is checked before another is
 // requested; the caller verifies the complete canonical image before booting.
-export async function streamPackagedSystemSnapshot(image, metadata, write, endPart, signal) {
-  for await (const part of packagedSnapshotParts(image, metadata, signal)) {
+export async function streamPackagedSystemSnapshot(metadata, write, endPart, signal) {
+  for await (const part of packagedSnapshotParts(metadata, signal)) {
     const reader = part.body.getReader();
     let size = 0;
     try {
@@ -148,9 +139,9 @@ export async function streamPackagedSystemSnapshot(image, metadata, write, endPa
   }
 }
 
-export async function loadPackagedSystemSnapshot(image, metadata, signal) {
+export async function loadPackagedSystemSnapshot(metadata, signal) {
   const parts = [];
-  for await (const part of packagedSnapshotParts(image, metadata, signal)) {
+  for await (const part of packagedSnapshotParts(metadata, signal)) {
     const reader = part.body.getReader(), bytes = new Uint8Array(part.byteLength);
     let offset = 0;
     try {

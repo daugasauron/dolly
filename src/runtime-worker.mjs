@@ -31,7 +31,7 @@ await runImage(async ({ image, mode, files: given = {} }, host) => {
       if (kernel.dolly_bootstrap_snapshot_begin(BigInt(metadata.byteLength)) !== 0)
         throw new Error("Dolly snapshot stream initialization failed");
       let loaded = 0, reported = 0;
-      await streamPackagedSystemSnapshot(image, metadata, bytes => {
+      await streamPackagedSystemSnapshot(metadata, bytes => {
         for (let offset = 0; offset < bytes.length; offset += capacity) {
           const chunk = bytes.subarray(offset, offset + capacity);
           staging().set(chunk);

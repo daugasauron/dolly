@@ -2,7 +2,7 @@
 // Serves this checkout and its current dist/ on 127.0.0.1 to a browser, the
 // browser tests and the image builder: npm run dev [-- IMAGE] (DOLLY_PORT,
 // default 8080). Only what a page loads is served: src/*.mjs, host modules,
-// recipes and their sources, the runtime, snapshots and generated pages, and
+// recipes and their sources, the runtime, snapshot packs and generated pages, and
 // /__dolly_build_page, a blank page for scripts that build images in it.
 import { createReadStream } from "node:fs";
 import { access, readdir, readFile } from "node:fs/promises";
@@ -28,7 +28,7 @@ export async function startCheckoutServer(projectDir, image = "default",
   { port = 0, files: extraFiles = new Map(), sourceOverrides = new Map(), responseHeaders = {}, handle } = {}) {
   await bundleProcessWorker(projectDir);
   const rebuild = image ? `npm run image -- ${image}` : "npm run image -- IMAGE";
-  await Promise.all(["dolly-images.mjs", "dolly.wasm", "dolly.data", ...image ? [`dolly-${image}-system.snapshot`] : []]
+  await Promise.all(["dolly-images.mjs", "dolly.wasm", "dolly.data", ...image ? [`dolly-${image}-system-snapshot.mjs`] : []]
     .map(path => access(resolve(projectDir, "dist", path)))).catch(error => {
       throw new Error(`Browser checks need a built runtime and image. Run npm run build:runtime once, then ${rebuild}.`, { cause: error });
     });
@@ -81,7 +81,6 @@ export async function startCheckoutServer(projectDir, image = "default",
   for (const definition of DOLLY_IMAGES) {
     paths.add(definition.dollyfile);
     paths.add(`view/${definition.image}/index.html`);
-    paths.add(`dist/dolly-${definition.image}-system.snapshot`);
     paths.add(`dist/dolly-${definition.image}-system-snapshot.mjs`);
   }
   for (const name of await readdir(resolve(projectDir, "dist"))) {

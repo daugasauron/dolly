@@ -152,7 +152,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
     const { siteReference } = await import("/src/static-asset.mjs");
     const prime = async definition => {
       const metadata = await loadPackagedSnapshotMetadata(definition.image);
-      const artifact = await describeImageArtifact(await loadPackagedSystemSnapshot(definition.image, metadata),
+      const artifact = await describeImageArtifact(await loadPackagedSystemSnapshot(metadata),
         definition.sha256, metadata.inputs);
       if (!await saveImageArtifact(artifact, `/${definition.dollyfile}`)) throw new Error("cache priming failed");
       return artifact;

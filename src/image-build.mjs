@@ -38,7 +38,7 @@ export async function prepareImageArtifacts(image, customSource, build, report, 
       if (metadata.sha256 !== descriptor.sha256 || !imageInputsMatch(metadata.inputs, descriptor.inputs)) {
         throw new Error(`${definition.image}: selected image artifact is no longer available; retry the rebuild`);
       }
-      artifact = await describeImageArtifact(await loadPackagedSystemSnapshot(definition.image, metadata, signal),
+      artifact = await describeImageArtifact(await loadPackagedSystemSnapshot(metadata, signal),
         definition.sha256, descriptor.inputs);
       report(`reusing published ${definition.image} artifact`);
       await saveImageArtifact(artifact, `/${definition.dollyfile}`);

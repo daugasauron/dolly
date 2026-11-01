@@ -38,7 +38,7 @@ export class PackageService {
     let bytes;
     try {
       const metadata = await loadPackagedSnapshotMetadata(definition.image);
-      bytes = await loadPackagedSystemSnapshot(definition.image, metadata, init.signal);
+      bytes = await loadPackagedSystemSnapshot(metadata, init.signal);
     } catch (error) {
       this.active = false;
       return reply(`${definition.image}: ${error.message}\n`, 502);
