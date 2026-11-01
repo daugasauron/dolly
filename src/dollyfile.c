@@ -1460,7 +1460,7 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   // A snapshot is as large as its image: it leaves with the recipe's last line
   // that names it, and that line moves its files out of it, from its end, so
   // that the kernel never holds them twice.
-  const last = rest != NULL && strstr(rest, expected) == NULL;
+  const int last = rest != NULL && strstr(rest, expected) == NULL;
   for (size_t index = count; result == 0 && index-- > 0;) {
     if (selected[index].kind != DOLLY_FS_FILE) continue;
     result = copy_artifact_file(artifact, indices[index], selected[index].path);
