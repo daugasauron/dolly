@@ -11,7 +11,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime f3242ccc5e4575d76021d274fda0bb98fe993d386ed5bf0c2977604b89dc9d2b
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 7a5f91f9486521069776fefb2c2a9941e08416d67ea8093e28f055c7f245bc8e
 COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 281edbe580c10bb248d39073e7244114e67756e04d484676b326c3c358c7e9ca /usr/bin/classicube /usr/bin/classicube
 COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 281edbe580c10bb248d39073e7244114e67756e04d484676b326c3c358c7e9ca /usr/share/classicube /home/dolly/classicube
 COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 281edbe580c10bb248d39073e7244114e67756e04d484676b326c3c358c7e9ca /usr/share/licenses/classicube /usr/share/licenses/classicube

@@ -182,7 +182,7 @@ that run inside the shell stay serial.
   own Makefile in `system-tools` ([`Dollyfile-system-tools`](../Dollyfile-system-tools)). They follow
   POSIX, not GNU: `dd bs=1024k`, not `bs=1M`. `ln -s` works; hard links fail in
   WasmFS. `command -v NAME` says what runs for a name and ends with 1 when
-  nothing does; sbase's `which` ends with 2 then ("not an external command"). `kill` signals any process by PID. There is no `/dev/zero`, and no
+  nothing does; sbase's `which` ends with 2 then ("not an external command"). `kill` signals any process by PID. There is no
   `chmod`, `chown`, `id`, `whoami` or `df`: one user without modes to
   change or a name database, and no mount list to read; the `ps` package
   prints `/proc/processes`. `tar` only extracts and `gzip` only
@@ -195,7 +195,8 @@ that run inside the shell stay serial.
   `SHELL=/bin/slop` and starts recipes with `posix_spawn`. `-jN` runs N jobs at
   once and shares a pipe jobserver with recursive Makes; `-O` groups each
   target's output.
-  `ninja` is Samurai, which still runs one job ([`Dollyfile-system-tools`](../Dollyfile-system-tools)).
+  `ninja` is Samurai ([`Dollyfile-system-tools`](../Dollyfile-system-tools)), which runs two jobs
+  at once unless told `-j N`: libc counts one processor without `-pthread`.
 - `cc`, `c++`, `ld` and `ar` are the private compiler
   ([process model](process-model.md#executables)); `git`, `curl` and `gzip` are
   source-built.
