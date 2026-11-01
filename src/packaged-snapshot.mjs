@@ -20,32 +20,62 @@ function validSnapshotPath(path) {
     !unretainedPath(path);
 }
 
+// The recipes the directory serves are the ones that built the image, fetched
+// together so that their round trips overlap.
 async function verifyVisibleRecipes(recipes) {
-  for (const recipe of recipes) {
+  await Promise.all(recipes.map(async recipe => {
     const response = await fetch(new URL(sitePath(recipe.sourcePath).slice(1), imageBase), {
-      cache: "no-store", credentials: "same-origin", redirect: "error",
+      credentials: "same-origin", redirect: "error",
     });
     if (!response.ok) throw new Error(`${recipe.sourcePath} returned HTTP ${response.status}`);
     const bytes = await response.arrayBuffer();
     if (bytes.byteLength !== recipe.byteLength || await sha256(bytes) !== recipe.sha256) {
       throw new Error(`${recipe.sourcePath} does not match the packaged snapshot recipe`);
     }
-  }
+  }));
 }
 
-export async function loadPackagedSnapshotMetadata(image, checked = new Map(), active = new Set()) {
-  if (checked.has(image)) return checked.get(image);
-  if (active.has(image)) throw new Error("packaged image cycle");
-  active.add(image);
-  const metadataUrl = new URL(
-    `dist/dolly-${image}-system-snapshot.mjs`, imageBase,
-  );
-  let metadata;
+// The image a FROM, COPY or INSTALL row names: its recipe at that path and pin.
+const referenced = ({ location, sha256 }) => DOLLY_IMAGES.find(candidate =>
+  siteReference(candidate.dollyfile) === location && candidate.sha256 === sha256);
+
+// The images IMAGE is built from, each once and before those built from it,
+// IMAGE last; a cycle is refused.
+function inputClosure(image, order = [], path = []) {
+  if (path.includes(image)) throw new Error("packaged image cycle");
+  if (order.includes(image)) return order;
+  for (const reference of definitionOf(image).artifacts) {
+    const dependency = referenced(reference);
+    if (!dependency) throw new Error("packaged image input is missing");
+    inputClosure(dependency.image, order, [...path, image]);
+  }
+  order.push(image);
+  return order;
+}
+
+async function importMetadata(image) {
   try {
-    ({ DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(metadataUrl.href));
+    return (await import(new URL(`dist/dolly-${image}-system-snapshot.mjs`, imageBase).href)).DOLLY_SYSTEM_SNAPSHOT;
   } catch {
     throw new Error(`The packaged ${image} snapshot is missing. Run npm run image -- ${image} first.`);
   }
+}
+
+// An image's metadata, checked against the catalog, the recipes the directory
+// serves and the metadata of every image it is built from. All of them are
+// fetched together, so that a boot waits one round trip for them, not one each.
+export async function loadPackagedSnapshotMetadata(image) {
+  const closure = inputClosure(image);
+  const [loaded] = await Promise.all([Promise.all(closure.map(importMetadata)),
+    verifyVisibleRecipes(expectedRecipes(image))]);
+  const checked = new Map();
+  closure.forEach((name, index) => checked.set(name, checkedMetadata(name, loaded[index], checked)));
+  return checked.get(image);
+}
+
+// METADATA, checked as IMAGE's against the catalog and CHECKED, the metadata
+// of the images it is built from.
+function checkedMetadata(image, metadata, checked) {
   const recipes = expectedRecipes(image);
   if (metadata === null || typeof metadata !== "object" ||
       metadata.image !== image || metadata.buildId !== DOLLY_IMAGE_BUILD_ID ||
@@ -86,18 +116,9 @@ export async function loadPackagedSnapshotMetadata(image, checked = new Map(), a
       throw new Error(`The packaged system snapshot is missing ${required}`);
     }
   }
-  const expectedInputs = [];
-  for (const reference of definitionOf(image).artifacts) {
-    const dependency = DOLLY_IMAGES.find(candidate =>
-      siteReference(candidate.dollyfile) === reference.location && candidate.sha256 === reference.sha256);
-    if (!dependency) throw new Error("packaged image input is missing");
-    const parent = await loadPackagedSnapshotMetadata(dependency.image, checked, active);
-    expectedInputs.push({ recipeSha256: reference.sha256, sha256: parent.sha256 });
-  }
+  const expectedInputs = definitionOf(image).artifacts.map(reference =>
+    ({ recipeSha256: reference.sha256, sha256: checked.get(referenced(reference).image).sha256 }));
   if (!imageInputsMatch(inputs, expectedInputs)) throw new Error("The packaged system snapshot has stale image inputs");
-  if (active.size === 1) await verifyVisibleRecipes(recipes);
-  active.delete(image);
-  checked.set(image, metadata);
   return metadata;
 }
 
