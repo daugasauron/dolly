@@ -16,9 +16,9 @@ session modules), building on the page (`image-build*.mjs`, `build-worker.mjs`,
 Done when: each finding below is fixed with its browser evidence, closed as moot with the
 reason, or left as a few lines for the owner.
 
-## State (2026-11-01 20:10 JST)
+## State (2026-11-01 20:35 JST)
 
-Findings 1 to 7 and 9 to 18 are committed, each verified as its commit says: source suite,
+Findings 1 to 7 and 9 to 18 (and the scoped style sheet) are committed, each verified as its commit says: source suite,
 and in Chromium and Firefox the suites in `build/audit-runtime-evidence/run2.log` to
 `run12.log` and `tip1.log` to `tip4.log` (at the tip: core, site, ending, image, custom
 session, session offline, snapshot stream, host compute, host modules, nena, threads,
