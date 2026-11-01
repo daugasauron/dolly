@@ -4,30 +4,22 @@
 - PRIORITY: 320
 - TAGS: host-modules,pi,html,0.1.5
 
-## State (2026-11-02 02:40 JST)
+## State (2026-11-02 03:15 JST)
 
-Done and verified in Chromium and Firefox on this tree's images (image inputs `ea109605`):
-`html@0` (`d82f7474`), its browser test (`cf5fd1eb`), the page's font in the popup
-(`9ddc5e32`), and Pi's `ask_user` and `show_html` with the recipes that install and declare
-them (`4c4bba89`, `aaed334e`). `demos/pi/test/ask-user-browser.mjs` builds its image
-on `pi-runtime`, which this tree cannot rebuild tonight (every Pi image holds rust-llvm and
-rust-build); the same test, its base swapped for a Pi the page builds from `system`,
-`janis-install` and `html` without ripgrep and fd
-(`build/html-bridge-evidence/ask-user-interim-browser.mjs`, not committed), passed in
-Chromium (23.6 s) and Firefox (30.1 s), and again after each later change. Beside them,
-with the module on every `default` page (the site gives an image that declares `nena@0`
-every module): core, host-modules, nena, embedding, boundary, upload, indicators, terminal
-and shell pass in both browsers (nena once `libdolly-audio` and `libdolly-microphone` were
-built here). `integrate/2026-11-02` is merged (`d106561d`, and `d9f694a8` for its revert of
-`fef1fc36`): this tree's runtime gives the round's image inputs (`896df05e`), `system`'s
-closure is linked from `work/integrate`, `html` and `default` built here, and
-`test/html-browser.mjs` passes on them in Chromium and Firefox (01:32). The round repins
-recipes in its tree as it goes (its new Rust seed changes `Dollyfile-rust-sdk`'s source pin),
-so its rust images match this branch only once those pins are committed: a build here at
-02:36 found rust-sdk's recipe changed and was stopped before rust-build. Left: merge the
-round's commit when it is green, link its Pi closure, build `html`, `dolly-docs` and the Pi
-family here, and run the committed Pi test on `pi-runtime` and `test/npm-browser.mjs` on
-`pi-minimal`.
+Done and verified in Chromium and Firefox: `html@0` (`d82f7474`, wording `3bb52f36`), its
+browser test (`cf5fd1eb`), the page's font in the popup (`9ddc5e32`), Pi's `ask_user` and
+`show_html` with the recipes that install and declare them (`4c4bba89`, `aaed334e`), and
+`demos/pi/test/ask-user-browser.mjs` on a real `pi-runtime` (14.2 s, 16.8 s; 03:09). That
+run is on the round's seed (`896df05e`, `integrate/2026-11-02` merged as `d106561d` and
+`d9f694a8`), with the round's images linked from `work/integrate` (its Rust ones among
+them) and its working tree's recipe pins for its new Rust seed copied into this tree,
+uncommitted, until the round commits them. Before the merge, on this tree's own images:
+the html test, the same Pi test on a Pi the page built without ripgrep and fd, and core,
+host-modules, nena, embedding, boundary, upload, indicators, terminal and shell passed in
+both browsers; after it, the html test again (01:32). `test/npm-browser.mjs` (pi-minimal by
+npm) fails before any of html@0: at the README's `npx dolly-build`, which loads the image's
+device modules from the runtime package once `fef1fc36` is reverted (reported to the
+integrator). Left: rerun it when that is settled; merge the round's commit.
 
 Owner (2026-11-01, 21:45 JST):
 
