@@ -189,6 +189,14 @@ the image inputs hash is `main`'s.
   20 to 30 ms a call for `default` or `system`, 140 to 220 ms for `pi-local`,
   `dollyfile-studio` or `zero-ad`. A memo per image directory would make it one check per
   image per page; rebuild routes alone pay it, so it is left.
+- **An image may have at most 256 packs** (`validateSnapshotPacks`), which bounds the requests
+  of a boot but not the image's size: packs are about 4 MiB and smaller where few images
+  share their files. The catalog's largest is `llvm-build`, 173 packs for 903 MiB, so an
+  image of that kind fails to pack, explicitly, somewhere past 1.3 GB, under the 2 GiB a
+  snapshot may have. Not a bug today; worth knowing before `llvm-build` grows again.
+- **`boot()` takes absolute URLs** (`images`, each of `modules`, `site`): a relative one fails
+  with "Invalid URL" or a wrong import, explicitly. The guide's page and the image packages'
+  `index.mjs` pass absolute ones. Left.
 - **The registry** (`host/modules.mjs`): every member of the context a provider gets and of
   the host `createHost` returns has a reader; boot and `nena` share one attach/detach path, as
   decided on 2026-10-23. No change.
