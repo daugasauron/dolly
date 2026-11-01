@@ -214,6 +214,11 @@ images built FROM pi-runtime keep `/usr/bin/html`, which sealing refuses undecla
   red in Firefox. A test of defense in depth passes while one layer is gone.
 - Every Pi image holds rust-llvm and rust-build, through the `pi` package's ripgrep and fd,
   so after any seed change a Pi feature cannot be measured in a 6 GB build slot that night.
-  Pi's npm tree alone needs only janis-install's closure (no Rust).
+  Pi's npm tree alone needs only janis-install's closure (no Rust), which gave the first
+  evidence; linking a round's images gave the rest, but only after this tree also had the
+  round's Rust seed (`build/rustc-port`, which every build restages into `dist/static`) and
+  its recipe pins: an image is reused only where recipe, pins and staged sources all match,
+  and a build that finds one Rust pin changed plans rust-build at once (stop it on the plan
+  line, before it starts).
 - Read the clock before planning against a deadline: I put the time 15 minutes late and
   declined a hugebuild slot whose estimate would have fitted.
