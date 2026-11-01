@@ -213,7 +213,6 @@ input: every core image's plan is "reuse".
   4.4 to 4.6 s at 100 ms on a first visit; listing its 75 modules as `modulepreload` made it
   6.0 s over the local HTTP/1.1 server, which takes six requests at a time
   (`preload-experiment.log`). Not pursued: Pages' HTTP/2 would need its own measurement.
-
 - **A custom image is described twice when it boots** (`/custom/run/`, a custom session):
   the page reads it from the image cache and checks it (`loadCustomImage`), the build Worker
   checks the bytes it is handed again (`checkedCustomArtifact`). Measured on `system`'s
@@ -294,25 +293,20 @@ without the loaders' `image` argument (finding 1), and keep this branch's metada
   session reader four, and per-version session databases had made it unreachable the day
   0.1.0 shipped. "Nothing writes this" is checkable: the writers' code and the 215 metadata
   files of `dist/`.
-- A limit borrowed from a neighbouring thing is a bug waiting at its boundary: the session
-  delta's 512 MiB bounded the custom image a session is saved on, so no custom image over
-  512 MiB could open, and the test asserted the borrowed bound. Reading the code did not show
-  it; building one image just over the limit did, in two minutes.
+- The bugs lived where no test goes, and building that case found each in minutes: a custom
+  image just over 512 MiB (a limit borrowed from the session delta, which the test asserted),
+  an element smaller than the window (every suite boots full-window, so the ending notice and
+  the keys left the element unseen), a log of 20,000 lines (246 s of Chrome's main thread).
+  Ask of each bound and each "the page": what is the largest or other case, and build it.
 - On localhost every boot looks instant; with a 100 ms round trip emulated, one `await` per
   recipe and per metadata module was a third of `default`'s boot and over two fifths of
   `pi-minimal`'s. The code read clean; only a request timeline showed it.
 - Attribute before blaming: I first took 98 recipe requests of a custom build for the
   Dollyfile engine's (agent C's); a `fetch` wrapper recording stacks showed in one run that
-  they were the page's own metadata loader, called once per image of the closure. Likewise a
-  line-based grep called `appendCustomSection` test-only; the source suite showed that
-  `scripts/dolly-abi.mjs` stamps every executable with it.
-- Look at the other branches' diffs of your files before refactoring shared code (`git diff
-  --name-only main...BRANCH`): agent E had rewritten the pack loader I was about to fold.
-  And never edit served files, or run a script that checks out the index, while a browser
-  batch runs: two batches were lost or blurred that way.
-- The tree came without generated pages, and `generate-routes.mjs` cannot run in it (its
-  `dist/static` is the integration tree's, whose demo sources are ahead of `main`'s pins);
-  writing the route pages from the catalog in `dist/` with the same template works. A docs
-  repin restales a chain of demo images; rebuilding only the chain a suite needs
-  (`dolly-docs`, `pi-dolly`, `pi-minimal`: 2.8 min) and rewriting the full catalog by hand
-  kept the npm suite runnable.
+  they were the page's own metadata loader. Likewise a line-based grep called
+  `appendCustomSection` test-only; the source suite showed `scripts/dolly-abi.mjs` uses it.
+- Process: look at the other branches' diffs of your files before refactoring shared code
+  (agent E had rewritten the pack loader I was about to fold); never edit served files, or run
+  a script that checks out the index, while a browser batch runs (two batches lost); a tree
+  whose `dist/` comes from another branch needs its route pages written from that catalog,
+  and a docs repin is cheapest verified by rebuilding only the chain a suite needs (2.8 min).
