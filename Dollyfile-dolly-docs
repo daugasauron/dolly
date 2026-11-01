@@ -7,14 +7,14 @@ REQUIRES HOST runtime@0
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
 SOURCE /v0.1.4/docs/process-model.md b387ed04f63bbcc38ffd6da14c7f0560cc8f80d8a6b518a4569eaaa0b33f619e /usr/share/doc/dolly/docs/process-model.md
 SOURCE /v0.1.4/docs/browser-stack.md 9f16905e91c1ea4a129574a6c73729874be7863439a3aaf18189be139b5c37fc /usr/share/doc/dolly/docs/browser-stack.md
-SOURCE /v0.1.4/docs/slop.md 2b703a1aef25d1fce5c253467784b2837cfca1f416308a34513be08b9c638acb /usr/share/doc/dolly/docs/slop.md
+SOURCE /v0.1.4/docs/slop.md 2bb14e366ba2069cb490d9aa2383967ce407e70e07c0d45a9339b655dfb88f73 /usr/share/doc/dolly/docs/slop.md
 SOURCE /v0.1.4/docs/display.md 7957b680b781a735463a5cedfebb57447ee4bb7c9ad578a466a3d501bfe69fa8 /usr/share/doc/dolly/docs/display.md
 SOURCE /v0.1.4/docs/gpu.md 146497430801f395f968c37c97f134944ed9cb89cf4a7b7b9956ee8f4f5a0ce3 /usr/share/doc/dolly/docs/gpu.md
 SOURCE /v0.1.4/docs/audio.md 2380b483c106b884e3e97ed3de8eaac9467e8e2a0307b878bddf620401d43e9f /usr/share/doc/dolly/docs/audio.md
 SOURCE /v0.1.4/docs/http.md de50df79d12ddf7cc5335c1061e0f33c5dcaa2228970754ff844f211ed2a40af /usr/share/doc/dolly/docs/http.md
 SOURCE /v0.1.4/docs/sessions.md 9f4f32a5e6d7b12b9d3a93214de71171c5bb7e46e14eac2509704b5c62c6af6d /usr/share/doc/dolly/docs/sessions.md
 SOURCE /v0.1.4/docs/dollyfile.md 0eac6e7e04d597dc49d88f8fd00112d69917c5ef3d3cd98eb22a8ea0e7bdfde1 /usr/share/doc/dolly/docs/dollyfile.md
-SOURCE /v0.1.4/docs/architecture.md ecf36a3c4539c124b12ac57e04571aedac00db258de3eb00fa16e3a905604028 /usr/share/doc/dolly/docs/architecture.md
+SOURCE /v0.1.4/docs/architecture.md c2b6cc99ed25443ebe84b9299d44b9c3485b63978c8b2c942c76474fe21f33a8 /usr/share/doc/dolly/docs/architecture.md
 SOURCE /v0.1.4/docs/browser-boundary.md 7cb8a9c5622d29a218e39f91649023ef3093fb521f01c506102c66faf95ad34b /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE /v0.1.4/docs/image-build-service.md 43bbcfcf7c5e7c8ce83f91c55b3c4bc0682651b2905ba35089b2b85b3b13efa9 /usr/share/doc/dolly/docs/image-build-service.md
 SOURCE /v0.1.4/abi/README.md 7b8e426c675870cc697e92590446e556568e4c8572cd849373ac149c8a802000 /usr/share/doc/dolly/abi/README.md

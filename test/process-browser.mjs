@@ -342,7 +342,8 @@ await browserTest("process budget", { image: "system" }, async ({ open }) => {
       assert.ok(Date.now() < deadline, await text());
     }
     const started = performance.now();
-    const status = await submit("true");
+    // A program, by its path: the shell runs the system's true itself.
+    const status = await submit("/bin/true");
     const elapsed = Math.round(performance.now() - started);
     await run("wait");
     return { status, elapsed };

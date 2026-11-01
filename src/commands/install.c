@@ -176,31 +176,42 @@ int main(int argc, char **argv) {
       usage(stdout);
       return 0;
     }
-    if (strcmp(option, "-d") == 0 || strcmp(option, "--directory") == 0) {
+    if (strcmp(option, "--directory") == 0) {
       directories = 1;
-    } else if (strcmp(option, "-D") == 0) {
-      create_leading = 1;
-    } else if (strcmp(option, "-T") == 0 ||
-               strcmp(option, "--no-target-directory") == 0) {
+    } else if (strcmp(option, "--no-target-directory") == 0) {
       no_target_directory = 1;
-    } else if (strcmp(option, "-v") == 0 || strcmp(option, "--verbose") == 0) {
+    } else if (strcmp(option, "--verbose") == 0) {
       verbose = 1;
-    } else if (strcmp(option, "-c") == 0) {
-      // Historical; install always copies.
-    } else if (strcmp(option, "-p") == 0) {
-      preserve_times = 1;
-    } else if (strcmp(option, "-m") == 0 || strcmp(option, "-o") == 0 ||
-               strcmp(option, "-g") == 0) {
-      if (++first == argc) goto usage_error;
-      // Accepted for unchanged Make install recipes; no metadata is created.
-    } else if (strcmp(option, "-t") == 0 ||
-               strcmp(option, "--target-directory") == 0) {
-      if (++first == argc || target_directory != NULL) goto usage_error;
-      target_directory = argv[first];
-    } else if (strncmp(option, "--target-directory=", 19) == 0) {
-      if (target_directory != NULL || option[19] == '\0') goto usage_error;
-      target_directory = option + 19;
-    } else if (option[0] == '-') {
+    } else if (strcmp(option, "--target-directory") == 0 || strncmp(option, "--target-directory=", 19) == 0) {
+      const char *value = option[18] == '=' ? option + 19 : ++first < argc ? argv[first] : NULL;
+      if (value == NULL || value[0] == '\0' || target_directory != NULL) goto usage_error;
+      target_directory = value;
+    } else if (option[0] == '-' && option[1] != '\0' && option[1] != '-') {
+      // Letters combine, and one that takes a value takes the rest of the word
+      // or the next one, as Make install recipes write them: -m644, -Dm 644.
+      for (const char *letter = option + 1; *letter != '\0'; letter++) {
+        if (*letter == 'd') directories = 1;
+        else if (*letter == 'D') create_leading = 1;
+        else if (*letter == 'T') no_target_directory = 1;
+        else if (*letter == 'v') verbose = 1;
+        else if (*letter == 'c') {} // Historical; install always copies.
+        else if (*letter == 'p') preserve_times = 1;
+        else if (strchr("mogt", *letter) != NULL) {
+          const char *value = letter[1] != '\0' ? letter + 1 : ++first < argc ? argv[first] : NULL;
+          if (value == NULL) goto usage_error;
+          // -m, -o and -g are accepted for unchanged Make install recipes;
+          // there are no modes or owners to set.
+          if (*letter == 't') {
+            if (target_directory != NULL) goto usage_error;
+            target_directory = value;
+          }
+          break;
+        } else {
+          fprintf(stderr, "install: unsupported option: -%c\n", *letter);
+          return 2;
+        }
+      }
+    } else if (option[0] == '-' && option[1] != '\0') {
       fprintf(stderr, "install: unsupported option: %s\n", option);
       return 2;
     } else {
@@ -228,6 +239,11 @@ int main(int argc, char **argv) {
   if (target_directory != NULL) {
     destination = target_directory;
     last_source = argc;
+    // -D with -t creates the target directory, as GNU install does.
+    if (create_leading && create_parents(destination, 1) != 0) {
+      fprintf(stderr, "install: %s: %s\n", destination, strerror(errno));
+      return 1;
+    }
     if (!directory(destination)) {
       fprintf(stderr, "install: %s: not a directory\n", destination);
       return 1;

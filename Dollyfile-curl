@@ -3,7 +3,7 @@ PACKAGE curl
 REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 
-FROM /v0.1.4/Dollyfile-system-build 7997c05ba08220831088b2aa713c86dbf0ded0229bbfa84f411476f00269d9fc
+FROM /v0.1.4/Dollyfile-system-build d87b88870dc62c72b302c584dc860f5dab8ece6110c439016df94a9bc8ed1396
 
 REQUIRES HEADER libc
 REQUIRES HEADER http
@@ -15,7 +15,7 @@ REQUIRES TOOL   tar
 
 SOURCE /v0.1.4/dist/static/default/curl-headers.tar 346a0298fcbdafbad7d0c0259a2d7b8539ca46c39222797c01dcac213564bf30 /tmp/curl-headers.tar
 SOURCE /v0.1.4/dist/static/default/libcurl-fetch.c  bdf44cc786ba51355b4fe4b9e9621341a0d71e88710ba3ab653153bdf00aa4e0 /usr/src/dolly/libcurl-fetch.c
-SOURCE /v0.1.4/dist/static/default/commands/curl.c  1cb956eba05199235940ec4a5420558b3c68177405d25ba3cc20d5fc160cfbe3 /usr/src/dolly/commands/curl.c
+SOURCE /v0.1.4/dist/static/default/commands/curl.c  27025bd6aa514801c5592bd616a3e62e9ebe436c5d1092eafc31fd0c43f50bed /usr/src/dolly/commands/curl.c
 SLOP tar \
   -xf /tmp/curl-headers.tar \
   -C /

@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 # Build-only: the libraries of Clang, LLD and the WebAssembly backend that the
 # seed compiler links, compiled inside Dolly by its own c++, then the rest of
 # LLVM in the same tree for the llvm package.
-FROM /v0.1.4/demos/llvm/Dollyfile-llvm-tablegen 522b41c3855d7661815d77e27505f943a285462a26d3996f2150d27f880fb59d
+FROM /v0.1.4/demos/llvm/Dollyfile-llvm-tablegen a9f86bb6f3f090bcad4643394f26fcf2a8cb949d691e3229c320f6307e0e82ec
 REQUIRES TOOL llvm-tblgen
 REQUIRES TOOL clang-tblgen
 REQUIRES TOOL cmake

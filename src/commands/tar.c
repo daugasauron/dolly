@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
@@ -7,7 +9,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-enum { BLOCK_SIZE = 512 };
+enum { BLOCK_SIZE = 512, PATH_BYTES = 4096, EXTENDED_HEADER_BYTES = 64 * 1024 };
 
 static int read_exact(int descriptor, void *bytes_value, size_t length) {
   unsigned char *bytes = bytes_value;
@@ -102,25 +104,32 @@ static int mkdir_parents(const char *path, int include_last) {
       free(copy);
       return -1;
     }
-    if (!exists) {
-      /*
-       * The version-0 dynamic-command libc surface does not consistently
-       * preserve errno across its WasmFS wrapper.  Treat the filesystem as
-       * authoritative: after mkdir, verify the path instead of interpreting
-       * errno as the result.
-       */
-      (void)mkdir(copy, 0755);
-      if (stat(copy, &metadata) != 0 || !S_ISDIR(metadata.st_mode)) {
-        if (errno == 0) errno = EIO;
-        free(copy);
-        return -1;
-      }
+    if (!exists && mkdir(copy, 0755) != 0) {
+      free(copy);
+      return -1;
     }
     *cursor = saved;
     if (saved == '\0') break;
   }
   free(copy);
   return 0;
+}
+
+// The path a pax extended header ("LENGTH path=VALUE\n" records) gives the
+// next member, as a malloc'd string; NULL with errno set when it has none.
+static char *pax_path(const unsigned char *records, size_t size) {
+  for (size_t offset = 0; offset < size;) {
+    char *end;
+    const unsigned long length = strtoul((const char *)records + offset, &end, 10);
+    const size_t start = (size_t)(end - (const char *)records);
+    if (length == 0 || offset + length > size || start >= offset + length || *end != ' ' ||
+        records[offset + length - 1] != '\n') break;
+    if (strncmp(end + 1, "path=", 5) == 0)
+      return strndup(end + 6, offset + length - 1 - (start + 6));
+    offset += length;
+  }
+  errno = ENOENT;
+  return NULL;
 }
 
 // Prints why it failed, once.
@@ -134,7 +143,9 @@ static int extract(const char *archive_path, const char *directory) {
   unsigned char data[BLOCK_SIZE];
   int status = 0;
   const char *stage = "read header";
-  char active_member[257] = "";
+  char active_member[PATH_BYTES + 1] = "";
+  // The next member's path, from a pax or GNU long-name header before it.
+  char *long_path = NULL;
   for (;;) {
     stage = "read header";
     if (read_exact(archive, header, sizeof(header)) != 0) {
@@ -160,10 +171,43 @@ static int extract(const char *archive_path, const char *directory) {
       status = -1;
       break;
     }
-    char member[257];
+    const unsigned char type = header[156];
+    // git archive writes a pax global header ('g', the commit id), and a pax
+    // ('x') or GNU ('L') header names a member whose path does not fit.
+    if (type == 'g' || type == 'x' || type == 'L') {
+      stage = "read extended header";
+      unsigned char *records = size <= EXTENDED_HEADER_BYTES ? malloc((size_t)size + BLOCK_SIZE) : NULL;
+      if (records == NULL) {
+        errno = EFBIG;
+        status = -1;
+        break;
+      }
+      for (uint64_t offset = 0; status == 0 && offset < size; offset += BLOCK_SIZE)
+        if (read_exact(archive, records + offset, BLOCK_SIZE) != 0) status = -1;
+      records[size] = '\0';
+      if (status == 0 && type != 'g') {
+        free(long_path);
+        long_path = type == 'L' ? strndup((const char *)records, bounded_length(records, (size_t)size))
+                                : pax_path(records, (size_t)size);
+        if (long_path == NULL) status = -1;
+      }
+      free(records);
+      if (status != 0) break;
+      continue;
+    }
+    char member[PATH_BYTES + 1];
     const size_t name_length = bounded_length(header, 100);
     const size_t prefix_length = bounded_length(header + 345, 155);
-    if (prefix_length != 0) {
+    if (long_path != NULL) {
+      if (strlen(long_path) > PATH_BYTES) {
+        errno = ENAMETOOLONG;
+        status = -1;
+        break;
+      }
+      memcpy(member, long_path, strlen(long_path) + 1);
+      free(long_path);
+      long_path = NULL;
+    } else if (prefix_length != 0) {
       if (prefix_length + name_length + 2 > sizeof(member)) {
         errno = ENAMETOOLONG;
         status = -1;
@@ -179,7 +223,6 @@ static int extract(const char *archive_path, const char *directory) {
     }
     memcpy(active_member, member, strlen(member) + 1);
     stage = "validate path";
-    const unsigned char type = header[156];
     const char *relative = member;
     while (strncmp(relative, "./", 2) == 0) relative += 2;
     const int root = *member != '\0' && (*relative == '\0' || strcmp(relative, ".") == 0);
@@ -246,6 +289,7 @@ static int extract(const char *archive_path, const char *directory) {
   } else if (status != 0) {
     fprintf(stderr, "tar: %s: %s%s%s: %s\n", archive_path, stage, *active_member ? " " : "", active_member, strerror(errno));
   }
+  free(long_path);
   if (close(archive) != 0 && status == 0) {
     fprintf(stderr, "tar: %s: %s\n", archive_path, strerror(errno));
     status = -1;
@@ -254,7 +298,9 @@ static int extract(const char *archive_path, const char *directory) {
 }
 
 static void usage(FILE *stream) {
-  fputs("usage: tar -xf ARCHIVE [-C DIRECTORY]\nUse - as ARCHIVE to read stdin. This tar extracts only; git archive creates archives.\n", stream);
+  fputs("usage: tar -xf ARCHIVE [-C DIRECTORY]\n"
+        "Use - as ARCHIVE to read stdin. This tar extracts only: git archive creates\n"
+        "archives, and amy install tar gives a tar with its other options.\n", stream);
 }
 
 // -z, in any cluster of options (tar xzf as well), is refused with the way

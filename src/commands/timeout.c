@@ -39,6 +39,12 @@ int main(int argc, char **argv) {
     return 0;
   }
   if (argument < argc && strcmp(argv[argument], "--") == 0) argument++;
+  else if (argument < argc && argv[argument][0] == '-' && argv[argument][1] != '\0') {
+    // POSIX's -f, -k, -p and -s choose signals and process groups; Dolly's
+    // deadline ends the process itself.
+    fprintf(stderr, "timeout: unsupported option: %s\n", argv[argument]);
+    return 125;
+  }
   if (argument + 1 >= argc) {
     usage(stderr);
     return 125;

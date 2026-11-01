@@ -10,8 +10,8 @@ REQUIRES HOST upload@0
 REQUIRES HOST threads@0
 
 # An interactive shell: system with the go and esbuild packages.
-FROM /v0.1.4/Dollyfile-system 915c71d4ce772989e3076060967824e48ccd6a1a6259624fe6213542df088dbc
-INSTALL /v0.1.4/demos/go/Dollyfile-go 34168acdd40324bb81992f719c6322c855790baf118931e5994c4ac0b2e588f9
-INSTALL /v0.1.4/demos/go/Dollyfile-esbuild 87b0fbef837722ab39eb1b8abb504e87072e7a832862eaa8d70e92b0e4f8f623
+FROM /v0.1.4/Dollyfile-system 661b5fa1b6872a8a2e4d318141ea638bfb8cb28df2ed4f0b318ae9051cf604fb
+INSTALL /v0.1.4/demos/go/Dollyfile-go d91432c659c8989043d5bd0d78cbdd2abba5ca133c2b54599511d7317df0d4b7
+INSTALL /v0.1.4/demos/go/Dollyfile-esbuild 0512dd26bb48fd9e7bca4a5cfdd2a119ce6343718156c98d8878dd61519dad11
 
 ENTRY /bin/foreground -i /bin/slop

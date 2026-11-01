@@ -94,7 +94,10 @@ EXPORTS TOOL dollyfile
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 
-SOURCE /v0.1.4/dist/static/default/slop.c 44ed93bd97c101396895c9351c42f572d17d33b4c843a17aa8074c34c2889bc4 /tmp/slop/slop.c
+SOURCE /v0.1.4/dist/static/default/slop.c e51664f35798e4180957b985063f8adbffe65972c3dd01cb9e605af6ead863a6 /tmp/slop/slop.c
+# Slop runs the code of the system's test, [ and echo itself.
+SOURCE /v0.1.4/dist/static/default/commands/test.c 3b21b6855f7495f8e6dca7b46bc8b9ce54f4f589570c30339b1ea5e869471edd /tmp/slop/commands/test.c
+SOURCE /v0.1.4/dist/static/default/commands/echo.c b452aa1e2e101d11bc6ac27052d116a8b9e1792cb3ad3406dc23f31f218adb56 /tmp/slop/commands/echo.c
 RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/slop/slop.c -o /bin/slop
 
 EXPORTS TOOL slop
@@ -103,24 +106,23 @@ REQUIRES TOOL   cc
 
 # Dolly's own small commands, from src/commands. Each TOOL export names the
 # compiled result.
-SOURCE /v0.1.4/dist/static/default/commands/mkdir.c 318f11bbf81beea92df1e4a2cb8dc02787c5eea4cffe62a8be9893503a8e572e /tmp/core-tools/mkdir.c
-SOURCE /v0.1.4/dist/static/default/commands/rm.c 1213c22dc41e247f5fa072aad0431cdc54193dcf9091c8c749ea7880bef30af2 /tmp/core-tools/rm.c
+SOURCE /v0.1.4/dist/static/default/commands/mkdir.c 0713179c0b44c92e30d2fd22c87a930ca23f5417b1b3392b3997547648617ad6 /tmp/core-tools/mkdir.c
+SOURCE /v0.1.4/dist/static/default/commands/rm.c 2adb95ed560a55f22b91eda217fdbfc4108bd14ebe71b143ef706869d88a1997 /tmp/core-tools/rm.c
 SOURCE /v0.1.4/dist/static/default/commands/foreground.c e926c3c87764e44064744fc1d3cba008c46666ed7a06d351824ce67792bcdd76 /tmp/core-tools/foreground.c
-SOURCE /v0.1.4/dist/static/default/commands/help.c 03ee0e2d8de33d99506f9a7c14018d2bd6e8e8146f9372f19c4974db1afee958 /tmp/core-tools/help.c
-SOURCE /v0.1.4/dist/static/default/commands/man.c 03df8950d27ccd413c9da9cac1641d582f720d483e58e1e6f8e4b90e61e15fa0 /tmp/core-tools/man.c
-SOURCE /v0.1.4/dist/static/default/commands/pwd.c 87886a74d8626d0bdbc2b364fe6ed8882522512d9f595709152dda298ef5c03f /tmp/core-tools/pwd.c
+SOURCE /v0.1.4/dist/static/default/commands/help.c 2cf1323f34d0130fe518a9da768594c6549a78ce72c53cc04d54d6f2207890f7 /tmp/core-tools/help.c
+SOURCE /v0.1.4/dist/static/default/commands/man.c cd13cdece7706188e083a1754187cb19b7627e9cb8d2b294ba21cd2f88ff39d8 /tmp/core-tools/man.c
+SOURCE /v0.1.4/dist/static/default/commands/pwd.c 61b2840bfba274f511c3777f5b800bcdfff1947bef13b771c5d9a98eb5d03d3d /tmp/core-tools/pwd.c
 SOURCE /v0.1.4/dist/static/default/commands/cd.c 36d4c7708b332be6df90105bbc61cf8eb70556e3ed0f9f24756016eebec3d622 /tmp/core-tools/cd.c
-SOURCE /v0.1.4/dist/static/default/commands/cat.c 82bffbefba15dcbd3aacb04135f3236be176a19704678aacb168ef02b91e04d4 /tmp/core-tools/cat.c
-SOURCE /v0.1.4/dist/static/default/commands/echo.c afa079a258f25f9a7bcfce7191647e4bae8b0b0518476e903538ac88b3d9ad19 /tmp/core-tools/echo.c
-SOURCE /v0.1.4/dist/static/default/commands/touch.c d80d0b12c21d4da8a238ca736b690452b94455a5e3e3bced7fc9ba20e44be286 /tmp/core-tools/touch.c
+SOURCE /v0.1.4/dist/static/default/commands/cat.c 43eabd1e83f6c56cd5b5a7d8e5f9621e214c35e9407dea6bbce34120cb9da723 /tmp/core-tools/cat.c
+SOURCE /v0.1.4/dist/static/default/commands/echo.c b452aa1e2e101d11bc6ac27052d116a8b9e1792cb3ad3406dc23f31f218adb56 /tmp/core-tools/echo.c
+SOURCE /v0.1.4/dist/static/default/commands/touch.c 1eb3737abe39d9efe0c66d9e84a7bf6445fa2c07c12b46ad107cd799f2f0747c /tmp/core-tools/touch.c
 SOURCE /v0.1.4/dist/static/default/commands/clear.c f2e6915b3fe34393087ec7d04e61d090c0d62e551b86b36e8c3ff6bfff72598d /tmp/core-tools/clear.c
-SOURCE /v0.1.4/dist/static/default/commands/ls.c 7c510abd3849e7d7966f5fe59378a096459b5591749ce61ae488b7436a48326e /tmp/core-tools/ls.c
-SOURCE /v0.1.4/dist/static/default/commands/stat.c 1d39b289d8b2b4680e5c8ae8ec63bd183ba62864f5fd9bc0f180d1d97a64ef21 /tmp/core-tools/stat.c
-SOURCE /v0.1.4/dist/static/default/commands/file.c ce908d435b9b29f79085e3fc8ddc36e52a9012e2a5e5da3c707b236d3b85f85e /tmp/core-tools/file.c
-SOURCE /v0.1.4/dist/static/default/commands/test.c 738c318548c39b9e8e6b2108707c1f3a030fef9fd4ba3d4e6b84fbbb071e1866 /tmp/core-tools/test.c
-SOURCE /v0.1.4/dist/static/default/commands/bracket.c 5dadee574cc128d583fe337e68b271cebbb3220dcd7e307fac08d4b5e9d73e4c /tmp/core-tools/bracket.c
+SOURCE /v0.1.4/dist/static/default/commands/ls.c 9a1ad375e4e1688b3ed8a27a3d9e9220be6780a279559e8032e6b15c45611a5e /tmp/core-tools/ls.c
+SOURCE /v0.1.4/dist/static/default/commands/stat.c 716e40d4db491a766b738e21c780d4f386641be93daccc4481b4d71b603110c2 /tmp/core-tools/stat.c
+SOURCE /v0.1.4/dist/static/default/commands/file.c 3fd871ab9da0233ab738683f3ae45ab8cac3b37df3be92359575448137b4ec37 /tmp/core-tools/file.c
+SOURCE /v0.1.4/dist/static/default/commands/test.c 3b21b6855f7495f8e6dca7b46bc8b9ce54f4f589570c30339b1ea5e869471edd /tmp/core-tools/test.c
 SOURCE /v0.1.4/dist/static/default/commands/mv.c 326b21d8de8cd70652ec1ae1d42356095ee792c2608dfe362bba7ec05eacc9c3 /tmp/core-tools/mv.c
-SOURCE /v0.1.4/dist/static/default/commands/cp.c 69ba86c9338bd97df04f06ccf84b9acd4e163f26d820efa066b6883152784ff1 /tmp/core-tools/cp.c
+SOURCE /v0.1.4/dist/static/default/commands/cp.c 0598cc06e13171dc95314d644f7dc0adb0419d78e776745d430225639ca5b123 /tmp/core-tools/cp.c
 SLOP cc \
   -O2 \
   /tmp/core-tools/foreground.c \
@@ -175,8 +177,7 @@ SLOP cc \
   -o /bin/test
 SLOP cc \
   -O2 \
-  -I /tmp/core-tools \
-  /tmp/core-tools/bracket.c \
+  /tmp/core-tools/test.c \
   -o /bin/[
 SLOP cc \
   -O2 \
@@ -219,10 +220,15 @@ SLOP mkdir \
   -p \
   /usr/share/man/cat1 \
   /usr/share/man/man1
-SLOP for name in ar c++ cat cc cd clear cp dollyfile echo file foreground help ld ls man mkdir mv pwd rm slop stat touch; do \
+SLOP for name in ar c++ cat cc cd clear cp dollyfile file foreground help ld ls man mkdir mv pwd rm slop stat touch; do \
   "/bin/$name" --help > "/usr/share/man/cat1/$name.1"; \
   done
 SLOP help >> /usr/share/man/cat1/slop.1
+# echo prints its operands, --help among them, as POSIX says.
+FILE /usr/share/man/cat1/echo.1
+    usage: echo [-n] [ARG ...]
+    Print the ARGs separated by spaces and a newline; -n as the first ARG omits the newline.
+    Backslashes are printed as they are: printf interprets escapes.
 FILE /usr/share/man/cat1/test.1
     usage: test EXPRESSION
            [ EXPRESSION ]
@@ -233,13 +239,18 @@ FILE /usr/share/man/cat1/test.1
       -x FILE          FILE is a regular file or a directory
       -h FILE, -L FILE FILE is a symbolic link
       -s FILE          FILE is not empty
+      -b, -c, -p, -S FILE  FILE is a block or character device, a FIFO, a socket
+      -g, -u, -k FILE  the set-group-ID, set-user-ID, sticky bit of the fixed modes stat reports
+      -t FD            descriptor FD is a terminal
       -n STRING        STRING is not empty (so is a lone STRING)
       -z STRING        STRING is empty
       A = B, A != B    the strings are equal (== is the same), differ
+      A < B, A > B     A sorts before, after B
       M -eq N          the integers are equal; also -ne -lt -le -gt -ge
       F -nt G, F -ot G F was modified after, before G (a missing file is older)
       F -ef G          F and G are the same file
-      ! E, E -a E, E -o E, ( E )   not, and, or, grouping
+      ! E, E -a E, E -o E, ( E )   not, and, or, grouping; up to four arguments
+      count, as POSIX says, so test "$x" = -a compares strings
     example: test -d /tmp && [ "$HOME" != / ]
 SLOP cp /usr/share/man/cat1/test.1 '/usr/share/man/cat1/[.1'
 
@@ -249,7 +260,7 @@ SLOP rm \
 REQUIRES TOOL   rm
 
 # Dolly's deliberately small ustar extractor.
-SOURCE /v0.1.4/dist/static/default/commands/tar.c 18adec6edc7ae34a305f31890f671cb69ae6ec3979df4d34e2d759295a410890 /tmp/bootstrap/tar.c
+SOURCE /v0.1.4/dist/static/default/commands/tar.c 662f118412ec406559132c63e7472686ab1e4665a3e3aa01a2344e638a2eddf5 /tmp/bootstrap/tar.c
 SLOP cc \
   /tmp/bootstrap/tar.c \
   -o /bin/tar

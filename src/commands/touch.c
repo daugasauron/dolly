@@ -4,7 +4,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <utime.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 static int field(const char *p) { return (p[0] - '0') * 10 + (p[1] - '0'); }
 
@@ -48,66 +51,95 @@ static int parse_stamp(const char *stamp, time_t *out) {
   return 0;
 }
 
+/* POSIX -d YYYY-MM-DDThh:mm:SS[.frac][Z]: a space may stand for T; local
+   time without Z. */
+static int parse_date(const char *text, struct timespec *out) {
+  struct tm tm = {0};
+  int used = 0;
+  if (sscanf(text, "%4d-%2d-%2d%n", &tm.tm_year, &tm.tm_mon, &tm.tm_mday, &used) != 3 || used != 10 ||
+      (text[10] != 'T' && text[10] != ' ') ||
+      sscanf(text + 11, "%2d:%2d:%2d%n", &tm.tm_hour, &tm.tm_min, &tm.tm_sec, &used) != 3 || used != 8) return -1;
+  const char *rest = text + 19;
+  long nanoseconds = 0;
+  if (*rest == '.' || *rest == ',') {
+    long scale = 100000000;
+    for (rest++; isdigit((unsigned char)*rest); rest++, scale /= 10) nanoseconds += (*rest - '0') * scale;
+  }
+  const int utc = *rest == 'Z';
+  if (rest[utc] != '\0') return -1;
+  tm.tm_year -= 1900;
+  tm.tm_mon -= 1;
+  tm.tm_isdst = -1;
+  if (utc) setenv("TZ", "UTC0", 1);
+  const time_t when = mktime(&tm);
+  if (when == (time_t)-1) return -1;
+  *out = (struct timespec){.tv_sec = when, .tv_nsec = nanoseconds};
+  return 0;
+}
+
 int main(int argc, char **argv) {
-  int no_create = 0;
-  struct utimbuf stamp;
-  int have_stamp = 0;
+  int no_create = 0, access_only = 0, modification_only = 0;
+  // Both times; UTIME_NOW unless -t, -d or -r gives them.
+  struct timespec times[2] = {{.tv_nsec = UTIME_NOW}, {.tv_nsec = UTIME_NOW}};
   int first_file = 1;
   for (; first_file < argc; first_file++) {
-    if (strcmp(argv[first_file], "--") == 0) {
+    const char *option = argv[first_file];
+    if (strcmp(option, "--") == 0) {
       first_file++;
       break;
     }
-    if (strcmp(argv[first_file], "--help") == 0) {
-      fputs("usage: touch [-c] [-t [[CC]YY]MMDDhhmm[.ss]] [--] FILE ...\n", stdout);
+    if (strcmp(option, "--help") == 0) {
+      fputs("usage: touch [-acm] [-r FILE | -t [[CC]YY]MMDDhhmm[.ss] | -d YYYY-MM-DDThh:mm:SS[.frac][Z]]\n"
+            "             [--] FILE ...\n", stdout);
       return 0;
     }
-    if (strcmp(argv[first_file], "-c") == 0 ||
-        strcmp(argv[first_file], "--no-create") == 0) {
-      no_create = 1;
-    } else if (strcmp(argv[first_file], "-t") == 0) {
-      if (++first_file == argc) {
-        fputs("touch: -t requires a timestamp\n", stderr);
-        return 2;
-      }
+    if (option[0] != '-' || option[1] == '\0') break;
+    if (strcmp(option, "-c") == 0 || strcmp(option, "--no-create") == 0) no_create = 1;
+    else if (strcmp(option, "-a") == 0) access_only = 1;
+    else if (strcmp(option, "-m") == 0) modification_only = 1;
+    else if (strcmp(option, "-t") == 0 || strcmp(option, "-d") == 0 || strcmp(option, "-r") == 0) {
+      const char *value = ++first_file < argc ? argv[first_file] : NULL;
+      struct stat reference;
       time_t when;
-      if (parse_stamp(argv[first_file], &when) != 0) {
-        fprintf(stderr, "touch: invalid timestamp: %s\n", argv[first_file]);
+      if (value != NULL && option[1] == 'r' && stat(value, &reference) == 0) {
+        times[0] = reference.st_atim;
+        times[1] = reference.st_mtim;
+      } else if (value != NULL && option[1] == 't' && parse_stamp(value, &when) == 0) {
+        times[0] = times[1] = (struct timespec){.tv_sec = when};
+      } else if (value == NULL || option[1] == 'r' || option[1] == 't' || parse_date(value, &times[0]) != 0) {
+        fprintf(stderr, "touch: %s: %s\n", option, value == NULL ? "a value is required"
+                : option[1] == 'r' ? strerror(errno) : "invalid time");
         return 2;
+      } else {
+        times[1] = times[0];
       }
-      stamp.actime = stamp.modtime = when;
-      have_stamp = 1;
-    } else if (argv[first_file][0] == '-') {
-      fprintf(stderr, "touch: unsupported option: %s\n", argv[first_file]);
-      return 2;
     } else {
-      break;
+      fprintf(stderr, "touch: unsupported option: %s\n", option);
+      return 2;
     }
   }
   if (first_file == argc) {
     fputs("touch: missing file operand\n", stderr);
     return 2;
   }
+  // -a or -m alone leaves the other time as it is.
+  if (access_only != modification_only) times[access_only ? 1 : 0].tv_nsec = UTIME_OMIT;
 
   int status = 0;
   for (int index = first_file; index < argc; index++) {
-    if (utime(argv[index], have_stamp ? &stamp : NULL) == 0) {
-      continue;
-    }
+    if (utimensat(AT_FDCWD, argv[index], times, 0) == 0) continue;
     if (errno != ENOENT) {
       fprintf(stderr, "touch: %s: %s\n", argv[index], strerror(errno));
       status = 1;
       continue;
     }
     if (no_create) continue;
-    FILE *file = fopen(argv[index], "ab");
-    if (file == NULL) {
+    const int descriptor = open(argv[index], O_WRONLY | O_CREAT, 0666);
+    if (descriptor < 0 || futimens(descriptor, times) != 0) {
       fprintf(stderr, "touch: %s: %s\n", argv[index], strerror(errno));
       status = 1;
-    } else if (fclose(file) != 0) {
-      fprintf(stderr, "touch: %s: %s\n", argv[index], strerror(errno));
-      status = 1;
-    } else if (have_stamp && utime(argv[index], &stamp) != 0) {
+    }
+    if (descriptor >= 0 && close(descriptor) != 0) {
       fprintf(stderr, "touch: %s: %s\n", argv[index], strerror(errno));
       status = 1;
     }

@@ -76,6 +76,8 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
     ["awk 'BEGIN {status = (\"printf AWK-PIPE\" | getline value); exit status == 1 && value == \"AWK-PIPE\" ? 0 : 1}'"],
     ["awk -f", 2],
     [`curl -fsSL ${server.origin}/fixture/http.txt -o fetched.txt && grep -q FETCHED-THROUGH-BROWSER fetched.txt`],
+    // A cluster may end with a letter that takes a value, as agents write curl -fsSLo FILE.
+    [`curl -fsSLo clustered.txt ${server.origin}/fixture/http.txt && grep -q FETCHED-THROUGH-BROWSER clustered.txt`],
     ["curl -sS -X POST -H 'X-Dolly-Cli: yes' -d one=1 -d two=2 -D headers.txt -o body.txt " +
       `-w '%{http_code} %{content_type}\\n' ${server.origin}/fixture/curl-options > meta.txt`],
     ["grep -q '^CURL-CLI-OK$' body.txt && grep -qi '^x-dolly-response: yes' headers.txt && grep -q '^201 text/plain; charset=utf-8$' meta.txt"],
@@ -157,6 +159,20 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
   assert.equal(await typed(["ArrowUp", "Enter"]), 0);
   assert.equal(await typed(["h", "e", "l", "Control+r", "Enter"]), 0);
   assert.equal(await submit("grep -q '^help$' \"$HISTFILE\""), 0);
+  // Tab completes under ~ and in a dot directory as it does under /.
+  assert.equal(await submit("mkdir -p ~/.tab-probe/inside"), 0);
+  assert.equal(await result(async () => {
+    await page.keyboard.type("cd ~/.tab-pr");
+    await page.keyboard.press("Tab");
+    await page.keyboard.type("ins");
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Enter");
+  }), 0);
+  assert.equal(await submit('test "$PWD" = "$HOME/.tab-probe/inside" && cd /tmp/shell && rm -r ~/.tab-probe'), 0);
+  // Backspace and the arrows step over a whole UTF-8 character: type x=aé日,
+  // Left, Backspace, b, Enter.
+  assert.equal(await result(() => page.evaluate(() => __dolly.input("x=a\u00e9\u65e5\x1b[D\x7fb\r"))), 0);
+  assert.equal(await submit('test "$x" = "ab日"'), 0);
 
   // Wasm offers downloads under their literal names.
   for (const name of ["browser-download.txt", "\uFEFFbrowser-download.txt"]) {
