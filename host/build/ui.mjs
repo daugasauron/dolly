@@ -1,5 +1,6 @@
 import { ImageBuildService } from "./service.mjs";
 import { buildImage } from "../../src/image-builder.mjs";
+import { hostModuleUrls } from "../manifests.mjs";
 import { prepareImageArtifacts } from "../../src/image-build.mjs";
 import { loadImageArtifactDescriptor } from "../../src/image-artifact.mjs";
 import { openCustomImage } from "../../src/custom-image.mjs";
@@ -9,10 +10,11 @@ export function mountImageBuild(http, mount, keyboard) {
   const builders = { http: http.builder };
   const service = new ImageBuildService(async (source, report, signal) => {
     const artifacts = await prepareImageArtifacts("custom", source,
-      (image, artifacts) => buildImage(image, artifacts, builders, report, { signal }),
+      (image, artifacts) => buildImage(image, artifacts, builders, report, { modules: hostModuleUrls, signal }),
       text => report(text + "\n"), signal);
     signal.throwIfAborted();
-    const artifact = await buildImage("custom", artifacts, builders, report, { signal, customSource: source, consume: true });
+    const artifact = await buildImage("custom", artifacts, builders, report,
+      { modules: hostModuleUrls, signal, customSource: source, consume: true });
     signal.throwIfAborted();
     const descriptor = await loadImageArtifactDescriptor(artifact.recipeSha256, artifact.inputs);
     if (!descriptor || descriptor.sha256 !== artifact.sha256) {

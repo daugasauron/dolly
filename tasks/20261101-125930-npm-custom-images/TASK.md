@@ -80,9 +80,10 @@ anywhere: a FROM build restores the base and runs the base's own `/bin/dollyfile
 
 ## State (2026-11-01 23:20 JST)
 
-Done as designed, measured; on branch `core/npm-custom-images` (from `core/audit-runtime`),
-which the integrator merges into tonight's catalog round (it restales `amy`'s chain and
-`pi-minimal`, which that round rebuilds anyway).
+Done as designed, measured; on branch `core/npm-custom-images` (from `core/audit-runtime`).
+The integrator merged it into the 2026-11-02 round and reverted `fef1fc36` there (it broke
+`transfer`'s build: the audit task's finding 22); the fix is on this branch for the next
+round.
 
 - `Dollyfile-dollyfile`, a core package: the engine alone, `FROM system-build`. `pi-minimal`
   installs it (134 KB more: 99.5 MB). `amy` installs it instead of exporting the same file
@@ -90,8 +91,9 @@ which the integrator merges into tonight's catalog round (it restales `amy`'s ch
   kept from its base, which the eight images with `amy` on `system-build` would otherwise
   hold unrecorded. Commit `807338ce`.
 - The runtime package carries its builder (`src/image-builder.mjs`, `image-build.mjs`,
-  `build-worker.mjs`, `host/http/local-services.mjs`), whose registry is the runtime and the
-  build host beside it (`fef1fc36`, on `core/audit-runtime`).
+  `build-worker.mjs`, `host/http/local-services.mjs`). It registers the build host and the
+  modules the image and its inputs declare, from the module URLs its caller passes: the
+  site's list, or `dolly-build`'s installed packages, which it serves at their names.
 - One writer for both the catalog and an npm user's directory: `scripts/image-directory.mjs`
   (`6ae5a22c`, on `core/audit-runtime`); regenerating `dist`'s catalog and four images'
   metadata gives the same bytes.

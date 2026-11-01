@@ -7,19 +7,24 @@ import { inspectDollyfile } from "./dollyfile-view.mjs";
 // Disposable Wasm userspace on the runtime the image declares, with the build
 // host's modules, configured as the caller's host says (host.builder): the
 // caller's browser policy and no display, file picker, local service or ENTRY.
+// MODULES are the URLs of the module.json of each host module the page has.
 // Used for dependencies and Studio builds. A caller that builds nothing more
 // from these artifacts says `consume`: the Worker then frees each one once it
 // is in Wasm instead of handing it back to be held for the whole build.
-export async function buildImage(image, artifacts, configuration, report, { customSource, signal, consume = false } = {}) {
+export async function buildImage(image, artifacts, configuration, report, { modules, customSource, signal, consume = false } = {}) {
   signal?.throwIfAborted();
   const inputs = new Map(artifacts.map(artifact => [artifact.recipeSha256, artifact]));
   const declared = image === "custom" ? inspectDollyfile(customSource).hostRequirements
     : imageDefinition(image).hostRequirements;
   let worker;
-  // A build enables the runtime and the build host, the runtime's own modules
-  // beside this file, wherever the page is: the site or an embedding.
-  const names = ["runtime", ...buildHost.map(value => hostRequirement(value).name)];
-  const registry = await hostRegistry(names.map(name => new URL(`../host/${name}/module.json`, import.meta.url).href));
+  // The build registers the build host and every module the image and its
+  // inputs declare: it enables only the runtime and the build host, but a step
+  // may run a program linked against a declared module's client (transfer's
+  // download --help), which the Worker admits by that module's ABI.
+  const needed = new Set([...buildHost, ...declared, ...artifacts.flatMap(artifact => artifact.hostRequirements)]
+    .map(value => hostRequirement(value).name));
+  const manifests = await Promise.all(modules.map(async url => ({ url, ...(await import(url, { with: { type: "json" } })).default })));
+  const registry = await hostRegistry(manifests.filter(({ name }) => needed.has(name)).map(({ url }) => url));
   const host = await registry.createHost("browser", registry.buildHostFor(declared),
     { send: message => worker.postMessage(message), configuration });
   let abort, result;

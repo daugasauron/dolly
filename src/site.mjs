@@ -68,11 +68,13 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
       inherited: rebuild ? undefined : custom,
       worker: rebuild || image === "custom" ? new URL("./build-worker.mjs", import.meta.url) : undefined,
       async start(host, report) {
-        const build = (name, inputs) => buildImage(name, inputs, host.builder, report);
+        // The site's builds have every module it builds, whatever the page enables.
+        const site = hostManifests.map(({ url }) => url);
+        const build = (name, inputs) => buildImage(name, inputs, host.builder, report, { modules: site });
         const artifacts = rebuild ? await prepareImageArtifacts(image, source, build, text => report(`${text}\n`)) : [];
         if (!runnable) {
           // An image without ENTRY has no program to run: keep the complete log and report the result.
-          const built = await buildImage(image, artifacts, host.builder, report, { customSource: source, consume: true });
+          const built = await buildImage(image, artifacts, host.builder, report, { modules: site, customSource: source, consume: true });
           report(`\nBUILT ${source === undefined ? image : recipe.image} · ${(built.byteLength / 1024 / 1024).toFixed(1)} MiB · sha256 ${built.sha256}\n`);
           return null;
         }
