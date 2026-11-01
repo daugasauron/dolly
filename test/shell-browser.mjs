@@ -96,7 +96,9 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
     ["echo loose > loose.txt && git add loose.txt && git archive -o ../repo.tar.gz $(git write-tree) && mkdir ../unpacked && " +
       "gzip -dc < ../repo.tar.gz | tar -xf - -C ../unpacked && grep -q tracked ../unpacked/tracked.txt && grep -q loose ../unpacked/loose.txt && " +
       // as tar -z of the tar package starts it
-      "gzip -dc < ../repo.tar.gz > ../repo.tar && gzip -cdf ../repo.tar.gz | cmp - ../repo.tar"],
+      "gzip -dc < ../repo.tar.gz > ../repo.tar && gzip -cdf ../repo.tar.gz | cmp - ../repo.tar && " +
+      // and compresses, as FFmpeg's Makefile does
+      "gzip -nc9 ../repo.tar | gzip -dc | cmp - ../repo.tar && gzip -kf ../repo.tar && gzip -t ../repo.tar.gz"],
     // A clone, a fetch and a push of a local repository: Git runs git-upload-pack or git-receive-pack for the other side.
     ["git clone -q . ../clone && test \"$(git -C ../clone log --format=%s)\" = initial && git commit -q -m loose && " +
       "git -C ../clone fetch -q && test \"$(git -C ../clone log -1 --format=%s FETCH_HEAD)\" = loose && " +
@@ -121,6 +123,8 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
     ["ls absent", 1],
     ["ls /bin /usr/bin > /dev/null && test \"$(echo /b*)\" = /bin && ls /usr/lib/libdisplay.so && test ! -e /usr/bin/ghostty-vt"],
     ["cc --version && c++ --version && ld --help > /dev/null && ar --version && make --version"],
+    // Clang's banner, as FFmpeg's configure reads it: cc -v 2>&1 | grep -q clang
+    ["cc -v 2> banner && grep -q '^clang version ' banner && c++ -v 2>&1 | grep -qx 'Target: wasm64-unknown-dolly'"],
     ["cc --definitely-unsupported", 64],
     ["cat /bin/echo > invalid-module && echo invalid >> invalid-module"],
     ["./invalid-module", 126],

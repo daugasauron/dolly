@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { chmod, lstat, mkdir, mkdtemp, open, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -164,11 +165,16 @@ test("cat writes a pipe's bytes as they arrive", async () => {
   assert.equal(String(first), "first\n");
 });
 
+const gzipTool = () => {
+  const gzip = join(scratch, "gzip");
+  execFileSync("cc", ["-std=c17", "-Wall", "-Wextra", "-Werror", "src/commands/gzip.c", "-o", gzip, "-lz"], { cwd: project, stdio: "pipe" });
+  return gzip;
+};
+
 // gzip decompresses in place as well as to stdout, and data that is no gzip
 // stream fails, unless -f copies it as tar -z asks.
 test("gzip -d replaces FILE.gz with FILE and refuses what is not gzip", async () => {
-  const gzip = join(scratch, "gzip");
-  execFileSync("cc", ["-std=c17", "-Wall", "-Wextra", "-Werror", "src/commands/gzip.c", "-o", gzip, "-lz"], { cwd: project, stdio: "pipe" });
+  const gzip = gzipTool();
   const work = join(scratch, "gzip-work");
   await mkdir(work);
   await writeFile(join(work, "data"), "gzip data\n");
@@ -181,6 +187,34 @@ test("gzip -d replaces FILE.gz with FILE and refuses what is not gzip", async ()
   await writeFile(join(work, "plain.gz"), "plain\n");
   assert.equal(run(gzip, ["-dc", "plain.gz"], { cwd: work }).status, 1);
   assert.equal(run(gzip, ["-cdf", "plain.gz"], { cwd: work }).stdout, "plain\n");
+});
+
+// What it writes the host's gzip reads, and the other way round: FFmpeg's
+// Makefile runs gzip -nc9, automake's dist gzip --best -c.
+test("gzip compresses in place and to stdout, as the host's gzip reads it", async () => {
+  const gzip = gzipTool(), work = join(scratch, "gzip-pack");
+  await mkdir(work);
+  const data = Buffer.concat([randomBytes(50000), Buffer.from("compressible line\n".repeat(5000))]);
+  await writeFile(join(work, "data"), data);
+  const packed = (args, options = {}) => spawnSync(gzip, args, { cwd: work, ...options }).stdout;
+  const unpackedByHost = bytes => execFileSync("gzip", ["-dc"], { input: bytes });
+  for (const args of [["-nc9", "data"], ["--best", "-c", "data"], ["-c1", "data"], ["-c", "-"]]) {
+    assert.deepEqual(unpackedByHost(packed(args, { input: data })), data, args.join(" "));
+  }
+  assert.deepEqual(packed(["-c", "data"]), packed(["-c", "data"]), "no name or time, so the same bytes");
+  assert.deepEqual(unpackedByHost(packed(["-c", "data", "data"])), Buffer.concat([data, data]), "one member each");
+  assert.deepEqual(packed(["-dc"], { input: execFileSync("gzip", ["-c"], { input: data }) }), data);
+  await utimes(join(work, "data"), 1e9, 1e9);
+  assert.equal(run(gzip, ["data"], { cwd: work }).status, 0);
+  await assert.rejects(stat(join(work, "data")));
+  assert.equal((await stat(join(work, "data.gz"))).mtimeMs, 1e12, "the input's times");
+  assert.deepEqual(unpackedByHost(await readFile(join(work, "data.gz"))), data);
+  assert.equal(run(gzip, ["data.gz"], { cwd: work }).status, 1, "already compressed");
+  await writeFile(join(work, "data"), data);
+  assert.equal(run(gzip, ["-k", "data"], { cwd: work }).status, 1, "data.gz exists");
+  assert.equal(run(gzip, ["-kf", "data"], { cwd: work }).status, 0);
+  assert.deepEqual(await readFile(join(work, "data")), data, "-k keeps it");
+  assert.equal(run(gzip, ["-N", "data"], { cwd: work }).status, 2, "no name is stored");
 });
 
 // A full disk (in Dolly, kernel memory) fails what writes to it.
