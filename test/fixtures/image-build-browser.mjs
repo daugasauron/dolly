@@ -15,6 +15,23 @@ export async function buildLogProof() {
   }
   log.clear(); log.append("retry");
   if (element.textContent !== "retry") throw new Error("Build retry retained old output");
+  // Shown, the log follows its end a frame later until its reader scrolls up,
+  // and a flood of lines costs no layout each (Chrome took 246 s for these).
+  const shown = Object.assign(document.createElement("pre"),
+    { style: "position:fixed;top:0;left:0;width:200px;height:100px;overflow:auto;margin:0" });
+  document.body.append(shown);
+  const followed = buildLog(shown), frame = () => new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve)));
+  const started = performance.now();
+  for (let line = 0; line < 20000; line++) followed.append(`line ${line} ${"x".repeat(90)}\n`);
+  if (performance.now() - started > 2000) throw new Error("Appending build output took over two seconds");
+  await frame();
+  if (shown.scrollHeight - shown.scrollTop - shown.clientHeight >= 24) throw new Error("The build log did not follow its end");
+  shown.scrollTop = 0;
+  await frame();
+  followed.append("more\n");
+  await frame();
+  if (shown.scrollTop !== 0) throw new Error("The build log moved a reader who scrolled up");
+  shown.remove();
   return true;
 }
 

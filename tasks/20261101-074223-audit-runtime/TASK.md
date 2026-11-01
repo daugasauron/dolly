@@ -183,6 +183,16 @@ input: every core image's plan is "reuse".
     fixes it there once the modules' dialogs and panels live in the element too (finding
     16): today the upload dialog, appended to the body, claims Ctrl+C for the program it
     waits on through `claimsKey`, which that rule would skip. Reported to the integrator.
+18. **Every line of a build log cost a layout of the whole log.** `buildLog.append` (the boot
+    log, rebuild routes, Studio's build panel) read `scrollHeight` to decide whether to follow
+    the end and then set `scrollTop`, so each append laid out the visible text, up to the
+    log's megabyte. Measured on the page in a visible `pre` (`build-log-cost*.log`): 20,000
+    appends of a 100-character line took 246 s in Chrome and 12.4 s in Firefox; the catalog's
+    longest build logs have 4,900 to 8,100 lines (`llvm-build`, `cmake`), all on the page's
+    main thread, which also brokers the build's HTTP. Fix: the reader's position is kept from
+    their last scroll event and the log follows its end once a frame, so an append reads no
+    layout: 13 ms in Chrome, 20 ms in Firefox. The build-log fixture of `image-browser.mjs`
+    checks the follow, the stop when the reader scrolls up, and a 2 s bound (it fails before).
 
 ## Checked and left
 
