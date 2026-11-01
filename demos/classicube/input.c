@@ -40,6 +40,11 @@ extern int SDL_SendMouseButton(SDL_Window *, Uint32, Uint8, Uint8);
 extern void SDL_SetKeyboardFocus(SDL_Window *);
 static Action actions[16];
 static uint32_t id, count, index_, started, frame, last_view, last_save, human_serial;
+/* A look arrives as a hand moves a mouse, a step a frame: ClassiCube applies a frame's motion
+ * at once and decides which way pitch clamps from where it was, so a turn past vertical
+ * in one frame would end looking up. 200 px is 23 degrees at the default sensitivity. */
+enum { LOOK_STEP = 200 };
+static int32_t looked_x, looked_y;
 static GameControl control;
 static int active, released, capture, stopped, watched = 1;
 static SDL_Window *window;
@@ -120,7 +125,7 @@ static void type_text(const char *text) {
 }
 static void start(void) {
     Action *a = &actions[index_]; started = SDL_GetTicks(); released = 0;
-    if (a->kind == LOOK) SDL_SendMouseMotion(window, 0, SDL_TRUE, a->x, a->y);
+    looked_x = looked_y = 0;
     if (a->kind == MOVE || a->kind == CLICK || a->kind == DRAG) {
         /* Absolute coordinates select menus; gameplay clicks use the crosshair. */
         if (!Input.RawMode) SDL_SendMouseMotion(window, 0, SDL_FALSE, a->x, a->y);
@@ -263,7 +268,11 @@ void DollyAgent_Poll(SDL_Window *target) {
         double fraction = elapsed >= a->milliseconds ? 1.0 : (double)elapsed / a->milliseconds;
         SDL_SendMouseMotion(window, 0, SDL_FALSE, a->x + (a->end_x - a->x) * fraction, a->y + (a->end_y - a->y) * fraction);
     }
-    if (elapsed >= a->milliseconds) { release(); released = 1; }
+    if (a->kind == LOOK && (looked_x != a->x || looked_y != a->y)) {
+        int32_t dx = SDL_clamp(a->x - looked_x, -LOOK_STEP, LOOK_STEP), dy = SDL_clamp(a->y - looked_y, -LOOK_STEP, LOOK_STEP);
+        SDL_SendMouseMotion(window, 0, SDL_TRUE, dx, dy); looked_x += dx; looked_y += dy;
+    }
+    if (elapsed >= a->milliseconds && (a->kind != LOOK || (looked_x == a->x && looked_y == a->y))) { release(); released = 1; }
 }
 static cc_result write_png(struct Stream *stream, const cc_uint8 *data, cc_uint32 size, cc_uint32 *written) {
     if (size > stream->meta.mem.left) return ENOSPC;
