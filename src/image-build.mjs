@@ -92,6 +92,6 @@ export async function prepareImageArtifacts(image, customSource, build, report, 
 
 // Resolve compatibility from pinned recipes before materializing large artifacts.
 export async function loadImageHostRequirements(image, customSource) {
-  if (image !== "custom") return DOLLY_IMAGES.find(definition => definition.image === image).hostRequirements ?? [];
+  if (image !== "custom") return DOLLY_IMAGES.find(definition => definition.image === image).hostRequirements;
   return (await customRecipeGraph(customSource)).root.hostRequirements;
 }

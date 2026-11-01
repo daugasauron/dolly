@@ -3,7 +3,6 @@
 // image into that kernel, and runs its ENTRY. runtime-worker.mjs restores an
 // image of the image directory; the site's build-worker.mjs builds one or
 // restores a custom one.
-import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
 import { loadImages } from "./images.mjs";
 import { decodeImageEntry } from "./image-entry.mjs";
 import { MAX_SNAPSHOT_BYTES } from "./snapshot-records.mjs";
@@ -45,7 +44,7 @@ export function checkedMemoryRange(memory, addressValue, sizeValue) {
   return { address, size };
 }
 
-const stage = text => self.postMessage({ type: "bootstrap", text: `${text}\n`, error: false });
+const stage = text => self.postMessage({ type: "bootstrap", text: `${text}\n` });
 
 function acknowledged(type, failure) {
   return new Promise((resolve, reject) => {
@@ -111,8 +110,7 @@ export async function runImage(image) {
     }
     stage("starting image entry...");
     const entryReady = acknowledged("entry-ready-ack", "browser did not acknowledge image startup");
-    self.postMessage({ type: "ready", image: runtimeImage, routeImage: steps.name, buildId: DOLLY_BUILD_ID,
-      hostModules: host.enabled });
+    self.postMessage({ type: "ready", image: runtimeImage });
     await entryReady;
 
     // The image ends with its ENTRY process, however that ended: a program that

@@ -5,13 +5,12 @@ import { loadPackagedSnapshotMetadata, streamPackagedSystemSnapshot } from "./pa
 import { siteReference, hex } from "./static-asset.mjs";
 import { checkedMemoryRange, runImage } from "./worker-image.mjs";
 
-await runImage(async ({ image, mode, files: given = {} }, host) => {
+await runImage(async ({ image, files: given = {} }, host) => {
   const definition = DOLLY_IMAGES.find(candidate => candidate.image === image);
-  if (!definition || mode !== "snapshot") throw new Error("invalid Dolly image selection");
+  if (!definition) throw new Error("invalid Dolly image selection");
   const metadata = await loadPackagedSnapshotMetadata(image);
-  const declared = metadata.hostRequirements ?? definition.hostRequirements ?? [];
-  host.require(declared);
-  host.admit(declared);
+  host.require(definition.hostRequirements);
+  host.admit(definition.hostRequirements);
   return {
     name: image,
     prepare({ files }) {

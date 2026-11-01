@@ -44,7 +44,7 @@ export function boot(mount, { images, image, modules, site, http = {}, files = {
     const definition = DOLLY_IMAGES.find(candidate => candidate.image === image);
     if (!definition || typeof files !== "object" || files === null) throw new Error("invalid Dolly boot options");
     if (definition.entry === null) throw new Error(`${image} has no ENTRY; it only builds`);
-    return { image, label: "PRECOMPILED SYSTEM", required: definition.hostRequirements ?? [],
+    return { image, label: "PRECOMPILED SYSTEM", required: definition.hostRequirements,
       start: () => ({ message: { files }, transfers: [] }) };
   });
 }
@@ -61,8 +61,8 @@ export function boot(mount, { images, image, modules, site, http = {}, files = {
 //   configure message ({ message, transfers }), or null once an image without
 //   ENTRY is built;
 // - message(message): each message of the Worker;
-// - running(ready, host): the context host modules' entryStarted is given
-//   beside `image`, and members of the page's handle.
+// - running(host): the context host modules' entryStarted is given beside
+//   `image`, and members of the page's handle.
 export async function run(mount, { images, modules, site, http }, route) {
   if (!document.querySelector("style[data-dolly]")) {
     document.head.append(element("style", { textContent: style }, { "data-dolly": "" }));
@@ -75,7 +75,6 @@ export async function run(mount, { images, modules, site, http }, route) {
   mount.classList.add("dolly-terminal");
   mount.replaceChildren(canvas, keyboard, bootstrapLog, status);
   const bootstrapOutput = buildLog(bootstrapLog);
-  bootstrapOutput.clear();
   const appendBootstrap = text => bootstrapOutput.append(text);
   pageChords(keyboard);
   const bootstrapDecoder = new TextDecoder();
@@ -189,7 +188,6 @@ export async function run(mount, { images, modules, site, http }, route) {
     runtimeWorker.postMessage({
       type: "configure",
       image,
-      mode: "snapshot",
       images: imageBase.href,
       modules: registry.urls,
       hostModules: host.enabled,
@@ -213,11 +211,8 @@ export async function run(mount, { images, modules, site, http }, route) {
     }).finally(() => { rejectReady = null; });
     appendBootstrap(bootstrapDecoder.decode());
     runtimeReady = true;
-    if (ready.routeImage !== image || (image !== "custom" && ready.image !== image)) {
-      throw new Error("runtime image mismatch");
-    }
     document.documentElement.dataset.image = ready.image;
-    const { context, page } = await selected.running?.(ready, host) ?? {};
+    const { context, page } = await selected.running?.(host) ?? {};
     await host.entryStarted({ image, ...context });
     runtimeWorker.postMessage({ type: "entry-ready-ack" });
     // A module that shows the canvas replaces the bootstrap log.

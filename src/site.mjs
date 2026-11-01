@@ -89,7 +89,7 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
       // A session saved here restores onto this tab's base: a custom image the
       // browser must still hold, or a rebuilt filesystem that must equal the
       // packaged one.
-      async running(ready, host) {
+      async running(host) {
         const page = { get systemSnapshot() { return systemSnapshot; } };
         if (image === "custom") {
           const artifact = customArtifact ?? await describeImageArtifact(systemSnapshot,
