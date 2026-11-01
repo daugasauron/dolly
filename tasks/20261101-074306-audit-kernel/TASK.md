@@ -18,18 +18,16 @@ confirms is fixed with a test that failed before (or code gone and nothing
 broken), the moot is closed with its reason and the uncertain rest is a few
 lines each below.
 
-## State (2026-11-01 22:35 JST)
+## State (2026-11-01 22:45 JST)
 
 Read: the whole of the scope above. Baseline: build reproducible (same runtime
 and image ids), source suite 446/446 in 27 s, `process-browser` passes in
 Chromium (58 s). Items 1-27 are committed and verified on `default,system`
-built from the newest seed (image inputs `cf6b9518…`): `process` and `core`
-pass in Chromium and Firefox on it; `terminal` and `pty` on the seed before
-(`9702a0d5…`, items 1-26), `default` on `3b4ff6ad…` (items 1-25),
-`process` three times in a row on the one before that; `threads` and
-`sockets` (with `libdolly-sockets`) on `88343cce…` (items 1-21), `slop`
-and `shell` on the seed before that. The libc items need a catalog round
-(the integrator's of 2026-11-02 00:30).
+and `libdolly-sockets` built from the newest seed (image inputs
+`cf6b9518…`): `process`, `core`, `threads`, `sockets`, `slop`, `shell`,
+`terminal`, `pty` and `default` pass in Chromium and Firefox on it, and
+`process` passed three times in a row on an earlier seed. The libc items
+need a catalog round (the integrator's of 2026-11-02 00:30).
 
 ## The shape of it
 
@@ -402,6 +400,10 @@ Each with a test that failed before, verified in Chromium and Firefox.
   copy is the price.
 
 ## Findings, not changed
+
+- What two processes share through a file (`probes/share-edges.c`: an
+  inherited offset, appends from two descriptions, `fcntl` and `flock`
+  locks against each other and inherited, a pipe) answers as on Linux.
 
 - `ttyname` of the terminal fails (ENOENT): musl reads `/proc/self/fd/N`,
   which the kernel does not answer, and would then find the descriptor's
