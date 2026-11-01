@@ -25,3 +25,28 @@ Both are in the seed: a change rebuilds every image. What each would save:
 
 Done-when: the kernel's high-water for `amy install lean` is the installed files and little more,
 measured in Chromium and Firefox.
+
+## Why the install hit the cap, and what each side does now (2026-11-01)
+
+Measured in Chromium in a 6 GB browser slot (`build/lean-evidence/lean-measure.mjs`, `amy install
+lean git` on `default`): the install's whole scope peaked at 6.31 GB (5.54 anonymous) and stayed
+at 5.99 GB (5.22) after it, for 3.06 GB of files; the cap then killed the browser at the theorems.
+A Wasm memory never shrinks, so the kernel keeps its high-water for the rest of the session: what
+an install holds twice for a moment it holds for good.
+
+- The page's side (`1d12850b`, kept): the page held every decompressed pack, then the merged
+  snapshot, then WebCrypto's copy, two to three times the package. Merging as the guest reads,
+  from the compressed packs (397 MB for `lean-meta`), is the right place: the guest takes one
+  stream either way. Holding the decompressed packs instead would hold 1.58 GB for no gain;
+  serving the packs to the guest would change `packages@0` and the seed and still give one
+  stream. The incremental SHA-256 (`src/sha256.mjs`) stays: the stream must end only if it is
+  the image the catalog's chain names (`metadata.sha256`), as the page's check before it did.
+- The kernel's side (here): the engine copies a live install's files from the snapshot's end and
+  cuts the snapshot off behind each (`truncate`, `src/dollyfile.c`), so a package's bytes are in
+  the kernel once, plus the file being copied; amy lists the files before the engine runs. A
+  build run keeps its snapshots for the rows after. With that, holding `lean`'s snapshot while
+  its rows install costs nothing extra: those bytes become `lean`'s files. A seed change.
+
+Also seen: a guest that finds no HTTP record waits 10 ms (`host/http/client.c`,
+`src/libcurl-fetch.c`, polling `dolly_http_poll`), which is why the merge must stay off the
+page's thread; a wait on the broker's notification would not poll.

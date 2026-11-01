@@ -94,6 +94,9 @@ typedef struct {
   // A live install in a session with nena@0: the session's record of the
   // modules it enabled since, one name@version a line; NULL in every other run.
   char *enabled;
+  // A live install moves each file out of the snapshot amy fetched for it,
+  // which it removes after: the kernel never holds a package twice.
+  int consume;
   Scope exports;
   Artifact artifact;
 } Engine;
@@ -1457,10 +1460,14 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
     selected[count++].path = path;
   }
   if (result == 0 && dolly_fs_restore(selected, count, 1) != 0) result = -errno;
-  for (size_t index = 0; result == 0 && index < count; ++index) {
-    if (selected[index].kind == DOLLY_FS_FILE) result = copy_artifact_file(artifact, indices[index], selected[index].path);
-    if (result == 0 && keep) result = append_string(&engine->keep, &engine->keep_count, &engine->keep_capacity, selected[index].path);
+  // From the snapshot's end, which a live install cuts off behind each file.
+  for (size_t index = count; result == 0 && index-- > 0;) {
+    if (selected[index].kind != DOLLY_FS_FILE) continue;
+    result = copy_artifact_file(artifact, indices[index], selected[index].path);
+    if (result == 0 && engine->consume && truncate(artifact_path, artifact->offsets[indices[index]]) != 0) result = -errno;
   }
+  for (size_t index = 0; result == 0 && keep && index < count; ++index)
+    result = append_string(&engine->keep, &engine->keep_count, &engine->keep_capacity, selected[index].path);
   // A package recipe starts its own record; INSTALL adds the package's rows, then its row.
   if (result == 0 && mode == IMPORT_FROM && package_recipe && unlink(installed_path) != 0 && errno != ENOENT) result = -errno;
   const dolly_fs_record *rows = result == 0 && mode == IMPORT_INSTALL ? artifact_file(artifact, installed_path) : NULL;
@@ -2254,6 +2261,7 @@ static int install_live(Engine *engine, const char *locator, const char *expecte
     fprintf(stderr, "dollyfile: install takes a recipe's site path and its SHA256\n");
     result = 2;
   }
+  engine->consume = 1;
   if (result == 0) result = load_artifact(engine, locator, expected, IMPORT_INSTALL, 0, NULL, NULL, &visible, &exports, &own, NULL);
   if (result == 0) result = write_environment_file(engine);
   dispose_scope(&exports);

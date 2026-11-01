@@ -325,7 +325,8 @@ EXPORTS TOOL rg
 - `amy install NAME` executes that row in a running session: the page's
   `packages@0` service ([browser boundary](browser-boundary.md#host-modules))
   hands over the verified snapshot of that pin, and `dollyfile install RECIPE
-  SHA256` restores the files, merges the exported variables into
+  SHA256` moves the files out of it, from its end, so that the kernel never
+  holds the package twice, merges the exported variables into
   `/etc/dolly/environment` and records the row as a build does; `amy
   installed` prints the record. The rows the package's record names come
   first. The engine is asked before anything is fetched for them, so a
