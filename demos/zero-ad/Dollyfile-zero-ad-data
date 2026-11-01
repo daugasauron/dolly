@@ -6,10 +6,10 @@ REQUIRES HOST runtime@0
 # Wildfire Games' archive with Dolly's Python, XZ and Naga: the Petra AI patch,
 # the SPIR-V shaders translated to WGSL, the content in archives below the
 # site's 25 MiB file limit, and the scripts and maps of a game without graphics.
-FROM /v0.1.4/Dollyfile-system-tools 7f6c86fcc73e544e7007646eba2718bbc4d43b7f0516d9558e2dc500b1a05a80
-USE /v0.1.4/demos/python/Dollyfile-python 3e3b6f083bff4d9be1a817d8fa142378e2c0b492c42998e71977e2c309bdddb3
-USE /v0.1.4/demos/tools/Dollyfile-xz 97034a7e8088aba5b63ff0a5f8fea7b42e7e44c88c69ea20e23ad165ae1e658d
-USE /v0.1.4/demos/rust/Dollyfile-naga 42ad8432a0f4aa9692a8e7bffb2c1221c06830f644763e4b52aab43b2de6b0df
+FROM /v0.1.4/Dollyfile-system-tools 55feaf44d7eb61aff9297f945135834eadb838364723a3fcb771b42025175ae9
+USE /v0.1.4/demos/python/Dollyfile-python 889214e654b5daa69c11bfaf80ad466d818a8d807bf7c75af98f0d33130fe221
+USE /v0.1.4/demos/tools/Dollyfile-xz ed8e91213fbadb04760907e81d604ca15d860b8e6ff4138fb33c82408963c5f7
+USE /v0.1.4/demos/rust/Dollyfile-naga a7ba808f92b59e922386a59c20a6fca674c523c1a5501fa5f2290ff1c4a886b6
 REQUIRES TOOL python3
 REQUIRES TOOL xz
 REQUIRES TOOL naga
