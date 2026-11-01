@@ -21,6 +21,28 @@ const maxBytes = 4 * 1024 ** 3, bufferCeiling = 1024 ** 3, maxObjects = 4096;
 const queueFull = scope => scope.surface && scope.frames.length >= 3 ? scope.frames[0]
   : scope.submissions.length >= 64 ? scope.submissions[0] : null;
 const timestampQueries = A.DOLLY_GPU_MAX_COMMANDS * 2;
+// A batch record's byte length: exact for one of fixed layout, the least for
+// one with a variable tail, which records() checks.
+const fixedRecordBytes = new Map([[A.DOLLY_GPU_CREATE_BUFFER, 32], [A.DOLLY_GPU_RENDER, 64],
+  [A.DOLLY_GPU_COMPUTE, 40], [A.DOLLY_GPU_COPY_BUFFER, 48], [A.DOLLY_GPU_MAP_READ, 32], [A.DOLLY_GPU_UNMAP, 16],
+  [A.DOLLY_GPU_RELEASE, 16], [A.DOLLY_GPU_SUBMIT, 8], [A.DOLLY_GPU_RENDER_VERTEX, 88],
+  [A.DOLLY_GPU_CAPTURE_FRAME, 32], [A.DOLLY_GPU_CREATE_TEXTURE, 48], [A.DOLLY_GPU_CREATE_SAMPLER, 48],
+  [A.DOLLY_GPU_BEGIN_RENDER_PASS, 64], [A.DOLLY_GPU_END_RENDER_PASS, 8], [A.DOLLY_GPU_VIEWPORT, 48]]);
+const leastRecordBytes = new Map([[A.DOLLY_GPU_WRITE_BUFFER, 32], [A.DOLLY_GPU_CREATE_SHADER, 24],
+  [A.DOLLY_GPU_RENDER_PIPELINE, 40], [A.DOLLY_GPU_COMPUTE_PIPELINE, 32], [A.DOLLY_GPU_BIND_GROUP, 32],
+  [A.DOLLY_GPU_VERTEX_PIPELINE, 48], [A.DOLLY_GPU_COMPUTE_CONSTANTS, 32], [A.DOLLY_GPU_WRITE_TEXTURE, 48],
+  [A.DOLLY_GPU_GRAPHICS_PIPELINE, 112], [A.DOLLY_GPU_RESOURCE_GROUP, 32], [A.DOLLY_GPU_DRAW_MESH, 80]]);
+// The records a render pass may hold, between BEGIN_RENDER_PASS and END_RENDER_PASS.
+const renderPassRecords = new Set([A.DOLLY_GPU_CREATE_BUFFER, A.DOLLY_GPU_WRITE_BUFFER, A.DOLLY_GPU_CREATE_SHADER,
+  A.DOLLY_GPU_CREATE_TEXTURE, A.DOLLY_GPU_CREATE_SAMPLER, A.DOLLY_GPU_GRAPHICS_PIPELINE, A.DOLLY_GPU_RESOURCE_GROUP,
+  A.DOLLY_GPU_END_RENDER_PASS, A.DOLLY_GPU_DRAW_MESH, A.DOLLY_GPU_VIEWPORT]);
+// The records that create an object, charged to the scope's object quota before they run.
+const creatingRecords = new Set([A.DOLLY_GPU_CREATE_BUFFER, A.DOLLY_GPU_CREATE_SHADER, A.DOLLY_GPU_RENDER_PIPELINE,
+  A.DOLLY_GPU_COMPUTE_PIPELINE, A.DOLLY_GPU_BIND_GROUP, A.DOLLY_GPU_VERTEX_PIPELINE, A.DOLLY_GPU_COMPUTE_CONSTANTS,
+  A.DOLLY_GPU_CREATE_TEXTURE, A.DOLLY_GPU_CREATE_SAMPLER, A.DOLLY_GPU_GRAPHICS_PIPELINE, A.DOLLY_GPU_RESOURCE_GROUP]);
+// A request's byte length, header included; BATCH's is its records'.
+const requestBytes = new Map([[A.DOLLY_GPU_OPEN, 40], [A.DOLLY_GPU_WAIT, 32], [A.DOLLY_GPU_READ, 56],
+  [A.DOLLY_GPU_CLOSE, 32], [A.DOLLY_GPU_INFO, 32], [A.DOLLY_GPU_CAPABILITIES, 32]]);
 let maxBuffer = bufferCeiling, capabilities;
 const slots = Array(A.DOLLY_GPU_SLOTS).fill(null), generations = slots.map(() => 0);
 let heap, memory, mailbox, control, canvas, context, device, format;
@@ -117,24 +139,20 @@ function records(request) {
     const opcode = v.getUint32(offset, true), size = v.getUint32(offset + 4, true);
     ensure(size >= 8 && size % 8 === 0 && size <= bytes.length - offset, "Invalid GPU command length");
     const b = bytes.subarray(offset, offset + size), w = new DataView(b.buffer, b.byteOffset, b.byteLength);
-    const fixed = { 1: 32, 7: 64, 8: 40, 9: 48, 10: 32, 11: 16, 12: 16, 13: 8, 15: 88, 17: 32, 18: 48, 20: 48, 23: 64, 24: 8, 26: 48 }[opcode];
-    if (fixed) ensure(size === fixed, "Wrong GPU command layout");
-    else {
-      const minimum = { 2: 32, 3: 24, 4: 40, 5: 32, 6: 32, 14: 48, 16: 32, 19: 48, 21: 112, 22: 32, 25: 80 }[opcode];
-      ensure(minimum && size >= minimum, "Unsupported GPU command", E.ENOTSUP);
-    }
+    if (fixedRecordBytes.has(opcode)) ensure(size === fixedRecordBytes.get(opcode), "Wrong GPU command layout");
+    else ensure(leastRecordBytes.has(opcode) && size >= leastRecordBytes.get(opcode), "Unsupported GPU command", E.ENOTSUP);
     // Validate every variable-length span before any command has side effects.
-    if (opcode === 2) {
+    if (opcode === A.DOLLY_GPU_WRITE_BUFFER) {
       const at = w.getUint32(24, true), n = w.getUint32(28, true);
       ensure(at >= 32 && at <= size - n && n % 4 === 0, "Invalid GPU upload span");
-    } else if (opcode === 3) {
+    } else if (opcode === A.DOLLY_GPU_CREATE_SHADER) {
       ensure(w.getUint32(20, true) === 0, "Shader reserved field");
       text(b, 24, w.getUint32(16, true));
-    } else if (opcode === 4 || opcode === 14) {
+    } else if (opcode === A.DOLLY_GPU_RENDER_PIPELINE || opcode === A.DOLLY_GPU_VERTEX_PIPELINE) {
       const vs = w.getUint32(32, true), fs = w.getUint32(36, true);
       ensure(vs <= 64 && fs <= 64, "GPU entry name too long");
       let at = 40;
-      if (opcode === 14) {
+      if (opcode === A.DOLLY_GPU_VERTEX_PIPELINE) {
         const count = w.getUint32(44, true), stride = w.getUint32(40, true);
         ensure(count > 0 && count <= 8 && stride > 0 && stride <= 2048 && stride % 4 === 0 && size >= 48 + count * 16, "Vertex layout");
         const locations = new Set();
@@ -146,10 +164,10 @@ function records(request) {
         at = 48 + count * 16;
       }
       text(b, at, vs); text(b, at + vs, fs);
-    } else if (opcode === 5) {
+    } else if (opcode === A.DOLLY_GPU_COMPUTE_PIPELINE) {
       ensure(w.getUint32(28, true) === 0 && w.getUint32(24, true) <= 64, "Compute entry name");
       text(b, 32, w.getUint32(24, true));
-    } else if (opcode === 16) {
+    } else if (opcode === A.DOLLY_GPU_COMPUTE_CONSTANTS) {
       const entryBytes = w.getUint32(24,true), count = w.getUint32(28,true);
       ensure(entryBytes <= 64 && count <= 16, "Compute constants layout");
       text(b,32,entryBytes);
@@ -164,7 +182,7 @@ function records(request) {
         at=(at+16+n+7)&~7;
       }
       ensure(at===size,"Trailing compute constant bytes");
-    } else if (opcode === 6) {
+    } else if (opcode === A.DOLLY_GPU_BIND_GROUP) {
       const n = w.getUint32(24, true);
       ensure(n <= A.DOLLY_GPU_MAX_BINDINGS && size === 32 + n * 24 && w.getUint32(28, true) === 0, "Bind group layout");
     }
@@ -288,13 +306,12 @@ async function batch(scope, commands) {
     for (const { opcode: op, b, w } of commands) {
       const id = b.length >= 16 && op !== A.DOLLY_GPU_VIEWPORT ? integer(w, 8) : 0;
       if (op !== A.DOLLY_GPU_COMPUTE) endCompute();
-      if (renderPass) ensure([1,2,3,18,20,21,22,24,25,26].includes(op), "Command is invalid inside a render pass");
-      if ([1,3,4,5,6,14,16,18,20,21,22].includes(op)) ensure(id > scope.high && id <= 0xffffffff && scope.objects.size + scope.retired.size < maxObjects, "GPU object quota", E.ENOSPC);
+      if (renderPass) ensure(renderPassRecords.has(op), "Command is invalid inside a render pass");
+      if (creatingRecords.has(op)) ensure(id > scope.high && id <= 0xffffffff && scope.objects.size + scope.retired.size < maxObjects, "GPU object quota", E.ENOSPC);
       if (op === A.DOLLY_GPU_CREATE_BUFFER) {
         const size = integer(w, 16), usage = w.getUint32(24, true);
         ensure(size > 0 && size <= maxBuffer && size <= maxBytes - usedBytes, "GPU allocation quota", E.ENOMEM);
         ensure(w.getUint32(28, true) === 0 && usage > 0 && (usage & ~1023) === 0, "Buffer usage");
-        ensure(id > scope.high && scope.objects.size + scope.retired.size < maxObjects, "GPU resource quota", E.ENOSPC);
         const buffer = device.createBuffer({ size, usage });
         insert(scope, id, "buffer", buffer, size); usedBytes += size;
       } else if (op === A.DOLLY_GPU_WRITE_BUFFER) {
@@ -686,11 +703,11 @@ self.onmessage = event => {
     } else {
       ensure(Number.isSafeInteger(address)&&Number.isSafeInteger(size)&&address>0&&size>=32&&size<=A.DOLLY_GPU_PACKET_BYTES&&address<=memory.byteLength-size,"Invalid GPU request span",E.EFAULT);
       const request=header(new Uint8Array(memory,address,size).slice());
-      ensure(request.op>=1&&request.op<=7,"Unknown GPU operation",E.ENOTSUP);
-      ensure((request.op!==1||size===40)&&(![3,5,6,7].includes(request.op)||size===32)&&(request.op!==4||size===56),"GPU operation layout");
-      const parsed=request.op===2?records(request):null;
+      ensure(request.op>=A.DOLLY_GPU_OPEN&&request.op<=A.DOLLY_GPU_CAPABILITIES,"Unknown GPU operation",E.ENOTSUP);
+      ensure(!requestBytes.has(request.op)||requestBytes.get(request.op)===size,"GPU operation layout");
+      const parsed=request.op===A.DOLLY_GPU_BATCH?records(request):null;
       let scope=slots[request.index];
-      if(request.op===1) {
+      if(request.op===A.DOLLY_GPU_OPEN) {
         ensure(!scope&&request.scope>generations[request.index],"GPU scope slot is busy",E.EBUSY);
         scope={id:request.scope,index:request.index,sequence:0,objects:new Map(),retired:new Map(),high:0,submissions:[],frames:[],lost:false,surface:false};
         generations[request.index]=scope.id;slots[request.index]=scope;

@@ -17,7 +17,6 @@ export function browser({ send }) {
   window.addEventListener("keydown", resume, { capture: true });
   window.addEventListener("pointerdown", resume, { capture: true });
   return {
-    get status() { return provider.status(); },
     page: { get audio() { return provider.status(); } },
     messages: {
       "audio-request"(message) {
