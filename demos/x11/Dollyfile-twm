@@ -5,7 +5,7 @@ REQUIRES HOST sockets@0
 
 # twm, the Tab Window Manager, from X.Org's release archive, unchanged: its
 # parser and default configuration come generated in the archive.
-FROM /v0.1.4/demos/x11/Dollyfile-x11-build aed88be490f96fabf45ce84a7d7fb261b1c7dd538afababe0b759f540b19a752
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build 01434e24f77e31e3473954ab88ffa579c7d64a2c06b77b5badf1cfe27b5b92e3
 
 SOURCE /v0.1.4/dist/static/x11/twm-1.0.13.1.tar.gz e16bdbc82ac57c096d606a90e63c42c73a4a8a6a8a04d97b7dad199f919c8471 /tmp/twm.tar.gz
 SLOP CWD /tmp gzip -dc twm.tar.gz | tar -xf -

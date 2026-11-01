@@ -119,6 +119,11 @@ differ were read in the source.
     mode is accepted and not kept, as `install -m` is (the owner's decision of 2026-10-01), and
     letters combine (`-pm 755`). **`rm` gains `-v` and `-d`** (POSIX.1-2024; `rm -rv` in the
     corpus).
+20. (round 7) Small Slop fixes from reading the new scanner and the editor: `$(cat <<< w)`
+    said "unterminated command substitution" instead of refusing `<<<` by name; `time` keeps
+    the command position, so `$(time case …)` reads its patterns; the history file kept every
+    command of every session (it is part of each saved session) while the editor keeps 1,000:
+    loading now rewrites it to those 1,000.
 
 Not fixed, measured: `realpath` without `-e` fails on a missing last component (POSIX.1-2024's
 default is uncertain to me); `readonly`, `times` and `hash` are "command not found" (no use in

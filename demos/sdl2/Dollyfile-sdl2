@@ -6,9 +6,9 @@ REQUIRES HOST input@0
 REQUIRES HOST audio@0
 REQUIRES HOST touch@0
 
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 34946ab460d616e613cd5c747364a23f0a6a154783d95705599a127db1a8a0fa
-INSTALL /v0.1.4/Dollyfile-libdolly-audio 6883be0719aa4f23da4afde647299592f4e9d6a63c77529f46d200c1daeb325c
-INSTALL /v0.1.4/Dollyfile-libdolly-touch 5be2938443e0486fe06d241779d32f79e313770e24504fd86ef5e2c320b91e97
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build a739386f846c28bf416685d58d5c6291ca04d3f99a7de601cb8a6fda6d9792c3
+INSTALL /v0.1.4/Dollyfile-libdolly-audio 10c7681e90ed1635936dfd3cdb75950646ce20c84d759e7719f12da9a21e0e62
+INSTALL /v0.1.4/Dollyfile-libdolly-touch f55ebdde2d91ca59731636645d0df2f3b52805c508e84d371f99915e171f55e9
 REQUIRES HEADER libc
 REQUIRES HEADER audio
 REQUIRES HEADER display

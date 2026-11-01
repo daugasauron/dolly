@@ -10,9 +10,9 @@ REQUIRES HOST threads@0
 
 # Build-only: LLVM 21 with every default target, the version Zig 0.16 links,
 # configured by CMake inside Dolly, and its TableGen tools.
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 34946ab460d616e613cd5c747364a23f0a6a154783d95705599a127db1a8a0fa
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build a739386f846c28bf416685d58d5c6291ca04d3f99a7de601cb8a6fda6d9792c3
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL /v0.1.4/demos/python/Dollyfile-python 9d273bfcf3dfa946c332efb301427cb32b85e8ed0d4032b1b922bba22e82fa45
+INSTALL /v0.1.4/demos/python/Dollyfile-python b344d713f2c2a3482355fa3bb98d7cfcb2a32a15facb1adc2489bcf38ac26533
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python

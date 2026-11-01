@@ -10,11 +10,11 @@ REQUIRES HOST threads@0
 # Pi with a shell, POSIX tools and curl, and no compiler: the README's "Pi with npm",
 # whose page installs three device host modules: display, input, and download for
 # the download tool of Pi's Dolly extension (Janis links its client).
-INSTALL /v0.1.4/Dollyfile-core dbeb018f3e39279e9554b4a0d0afa025f8f43c9dc17a11c6fce9eba530c1c019
-INSTALL /v0.1.4/Dollyfile-posix 379b5b82a150d330f6e4d6aa402d853faf37bd421c45a5ef15b396d551351484
-INSTALL /v0.1.4/Dollyfile-display cca69b2ccfa2cf09502730f3679bc3babc377aaafd27ec4bac3c01efe657c85c
-INSTALL /v0.1.4/Dollyfile-curl f0631c76f683fac00061f511c51afdbc64e07bfe37db5f77c8a6acfaf1c0345e
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 06d6a277c4dd3d86e09ef070ac91d6ed5797e6bbda25aa102465dbb63c1b1ff6
+INSTALL /v0.1.4/Dollyfile-core 27016b7ce2eacafb0c1aa25beba8ef3e3416edb2926ffa907bffead005744b92
+INSTALL /v0.1.4/Dollyfile-posix 6e462698b6c5d8c94d534892ec31342cbd63f5bd71334e72155ef20dc479f0a6
+INSTALL /v0.1.4/Dollyfile-display d01cade91708c30b38a87069f92ada3c9cec12e0664e349a21549b6861ac91bf
+INSTALL /v0.1.4/Dollyfile-curl a37d14e11b0b6a211a20410ea7468eb1cd5421290462a6bef8f83158b522a436
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 1c03371f0f7c016c7e4d757e390ce6ccce1bc7528dcc26774ae9f8104043df8e
 REQUIRES TOOL foreground
 REQUIRES TOOL printf
 REQUIRES TOOL pi

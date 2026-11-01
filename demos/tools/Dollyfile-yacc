@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # Berkeley Yacc from upstream's release archive, unchanged. Slop does not run
 # its configure, so config.h says what it would find here. byacc is the name
 # it goes by beside another yacc.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build d7ce5df961a87cee1597ab09fbc4e39371e546ef7184faac89100909670c007c
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 41e7a71c76566db3d33df351deac021dac3dc54eefe22fdc3b58aa60ba5d3adb
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc

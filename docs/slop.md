@@ -56,7 +56,7 @@ slop [-efnux] script [arg ...]
 - The interactive line editor has cursor keys, history, Tab completion of
   commands and paths, Home/End, Ctrl-A/E/U/K/L and Ctrl-R search. History is the
   plain file `$HISTFILE` (default `/home/dolly/.slop_history`); the editor
-  keeps its last 1,000 entries.
+  and the file keep its last 1,000 entries.
 - `PATH` defaults to `/bin:/usr/bin`. Lookup finds regular files; execute bits
   are ignored. Each tool is a separate executable.
 

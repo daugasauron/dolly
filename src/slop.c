@@ -740,6 +740,9 @@ static const char *substitution_end(const char *source) {
       else depth--;
       source++;
       command_position = pattern;
+    } else if (byte == '<' && source[1] == '<' && source[2] == '<') {
+      // Bash's here-string, refused by name when the substitution runs.
+      source += 3;
     } else if (byte == '<' && source[1] == '<') {
       const int strip = source[2] == '-';
       source += strip ? 3 : 2;
@@ -780,7 +783,8 @@ static const char *substitution_end(const char *source) {
       command_position = SUBSTITUTION_WORD_IS("if") || SUBSTITUTION_WORD_IS("then") ||
           SUBSTITUTION_WORD_IS("else") || SUBSTITUTION_WORD_IS("elif") ||
           SUBSTITUTION_WORD_IS("while") || SUBSTITUTION_WORD_IS("until") ||
-          SUBSTITUTION_WORD_IS("do") || SUBSTITUTION_WORD_IS("{") || SUBSTITUTION_WORD_IS("!");
+          SUBSTITUTION_WORD_IS("do") || SUBSTITUTION_WORD_IS("{") || SUBSTITUTION_WORD_IS("!") ||
+          SUBSTITUTION_WORD_IS("time");
       if (state != NULL && *state == CASE_SUBJECT) {
         *state = CASE_IN;
       } else if (state != NULL && *state == CASE_IN) {
@@ -5015,7 +5019,9 @@ static void history_load(History *history) {
   if (file == NULL) return;
   char *line = malloc(SLOP_MAX_LINE + 2);
   if (line == NULL) { fclose(file); return; }
+  size_t lines = 0;
   while (fgets(line, SLOP_MAX_LINE + 2, file) != NULL) {
+    lines++;
     size_t length = strlen(line);
     if (length == SLOP_MAX_LINE + 1 && line[length - 1] != '\n') {
       int byte;
@@ -5032,6 +5038,17 @@ static void history_load(History *history) {
   }
   free(line);
   fclose(file);
+  // The file keeps what the editor keeps, so it does not grow with every session.
+  if (lines <= SLOP_MAX_HISTORY) return;
+  const size_t length = strlen(path) + 6;
+  char *temporary = malloc(length);
+  FILE *kept = temporary == NULL ? NULL : (snprintf(temporary, length, "%s.new", path), fopen(temporary, "wb"));
+  int ok = kept != NULL;
+  for (size_t index = 0; ok && index < history->count; index++)
+    ok = fputs(history->items[index], kept) != EOF && fputc('\n', kept) != EOF;
+  if (kept != NULL && fclose(kept) != 0) ok = 0;
+  if (temporary != NULL && (!ok || rename(temporary, path) != 0)) unlink(temporary);
+  free(temporary);
 }
 
 static void history_add(History *history, const char *line) {
