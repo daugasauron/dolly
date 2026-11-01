@@ -9,9 +9,9 @@ REQUIRES HOST touch@0
 # SDL_ttf from upstream's release archive, unchanged, built by its CMake
 # project on the FreeType package: libSDL2_ttf.a with its header, pkg-config
 # file and CMake package, for programs the cc package builds with SDL2.
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 29a2e6865330343d62221bf75dd107cf861cbe7974676562b68487b662b4230a
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 522635fad88c1adba06f33e7d6ade76278aaa55ff8f77a4ffccbf2a3712abd1e
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype 4487fde89a844a16d05e40b4118370274a8bf4423350e060c3b87fd70129ba6d
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build a6399c495b8d26c54222972a164415785175f7240865d042835f9a3924de94bb
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 f3f968cde0766174f2d35cdd773e11c6e3c409c8fc8afceafd173b578dfea37f
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype 28ce9760986db58c2de517a4e6b567cd8dfb699ddd981e43c9e1b36f5cefbad4
 REQUIRES HEADER libc
 REQUIRES HEADER sdl2
 REQUIRES HEADER freetype2

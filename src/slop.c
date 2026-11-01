@@ -2410,6 +2410,21 @@ static int ifs_byte(const char *ifs, char byte) {
 
 // Reads one logical line from fd 0 without consuming bytes after it, so the
 // next reader of the same file or pipe sees them. 1 ok, 0 memory, -1 errno.
+static int ifs_space(const char *ifs, char byte) {
+  return ifs_byte(ifs, byte) && (byte == ' ' || byte == '\t' || byte == '\n');
+}
+
+// Past the field separator at `cursor`, as POSIX splits fields: IFS white
+// space, or one other IFS byte with the white space around it.
+static char *separator_end(const char *ifs, char *cursor) {
+  while (ifs_space(ifs, *cursor)) cursor++;
+  if (*cursor != '\0' && ifs_byte(ifs, *cursor) && !ifs_space(ifs, *cursor)) {
+    cursor++;
+    while (ifs_space(ifs, *cursor)) cursor++;
+  }
+  return cursor;
+}
+
 static int read_line(Buffer *line, int raw, int *reached_eof) {
   const int seekable = lseek(STDIN_FILENO, 0, SEEK_CUR) >= 0;
   char bytes[4096];
@@ -2476,17 +2491,22 @@ static int builtin_read(int argc, char **argv) {
   if (text == NULL) goto memory_error;
   const char *ifs = getenv("IFS");
   if (ifs == NULL) ifs = " \t\n";
+  // Each name but the last takes a field, so a:: gives an empty one; the last
+  // takes the rest without its trailing IFS white space, and without the
+  // separator that ends it when only one field is left (a:b: gives b).
   char *cursor = text;
-  while (ifs_byte(ifs, *cursor)) cursor++;
+  while (ifs_space(ifs, *cursor)) cursor++;
   for (int index = first_name; index < argc; index++) {
     char *value = cursor;
+    while (*cursor != '\0' && !ifs_byte(ifs, *cursor)) cursor++;
     if (index + 1 < argc) {
-      while (*cursor != '\0' && !ifs_byte(ifs, *cursor)) cursor++;
-      if (*cursor != '\0') *cursor++ = '\0';
-      while (ifs_byte(ifs, *cursor)) cursor++;
+      char *next = separator_end(ifs, cursor);
+      *cursor = '\0';
+      cursor = next;
     } else {
       char *end = cursor + strlen(cursor);
-      while (end > cursor && ifs_byte(ifs, end[-1])) *--end = '\0';
+      while (end > cursor && ifs_space(ifs, end[-1])) *--end = '\0';
+      if (*cursor != '\0' && *separator_end(ifs, cursor) == '\0') *cursor = '\0';
     }
     if (setenv(argv[index], value, 1) != 0) {
       free(text);

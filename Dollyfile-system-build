@@ -94,7 +94,7 @@ EXPORTS TOOL dollyfile
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 
-SOURCE /v0.1.4/dist/static/default/slop.c dd1433b92789bf0572f27f53f75895a6c4674b7781ced6de9bddfce9cac9f755 /tmp/slop/slop.c
+SOURCE /v0.1.4/dist/static/default/slop.c 6f300a1217605becc201810493b02f93e199840b1f82d062cded1cf6917d7ceb /tmp/slop/slop.c
 RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/slop/slop.c -o /bin/slop
 
 EXPORTS TOOL slop
@@ -106,7 +106,7 @@ REQUIRES TOOL   cc
 SOURCE /v0.1.4/dist/static/default/commands/mkdir.c 0713179c0b44c92e30d2fd22c87a930ca23f5417b1b3392b3997547648617ad6 /tmp/core-tools/mkdir.c
 SOURCE /v0.1.4/dist/static/default/commands/rm.c 2adb95ed560a55f22b91eda217fdbfc4108bd14ebe71b143ef706869d88a1997 /tmp/core-tools/rm.c
 SOURCE /v0.1.4/dist/static/default/commands/foreground.c e926c3c87764e44064744fc1d3cba008c46666ed7a06d351824ce67792bcdd76 /tmp/core-tools/foreground.c
-SOURCE /v0.1.4/dist/static/default/commands/help.c fca35557b4ba2b542243cd1391f5d3b85326a27800869b91b28eed2c3558e7c5 /tmp/core-tools/help.c
+SOURCE /v0.1.4/dist/static/default/commands/help.c 2cf1323f34d0130fe518a9da768594c6549a78ce72c53cc04d54d6f2207890f7 /tmp/core-tools/help.c
 SOURCE /v0.1.4/dist/static/default/commands/man.c cd13cdece7706188e083a1754187cb19b7627e9cb8d2b294ba21cd2f88ff39d8 /tmp/core-tools/man.c
 SOURCE /v0.1.4/dist/static/default/commands/pwd.c 61b2840bfba274f511c3777f5b800bcdfff1947bef13b771c5d9a98eb5d03d3d /tmp/core-tools/pwd.c
 SOURCE /v0.1.4/dist/static/default/commands/cd.c 36d4c7708b332be6df90105bbc61cf8eb70556e3ed0f9f24756016eebec3d622 /tmp/core-tools/cd.c
@@ -259,7 +259,7 @@ SLOP rm \
 REQUIRES TOOL   rm
 
 # Dolly's deliberately small ustar extractor.
-SOURCE /v0.1.4/dist/static/default/commands/tar.c 4d51057d8ccb85ee16474cd8884aa2ad0a1b00f079c4544bda9901de532b2312 /tmp/bootstrap/tar.c
+SOURCE /v0.1.4/dist/static/default/commands/tar.c 662f118412ec406559132c63e7472686ab1e4665a3e3aa01a2344e638a2eddf5 /tmp/bootstrap/tar.c
 SLOP cc \
   /tmp/bootstrap/tar.c \
   -o /bin/tar

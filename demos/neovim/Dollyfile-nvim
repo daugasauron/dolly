@@ -6,9 +6,9 @@ REQUIRES HOST dso@0
 # Neovim with the libraries at its pins that only it uses, utf8proc and
 # tree-sitter, and its grammars; Lua, LPeg and luv come from the lua package
 # and are linked in.
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 29a2e6865330343d62221bf75dd107cf861cbe7974676562b68487b662b4230a
-USE /v0.1.4/demos/neovim/Dollyfile-lua 8f3cbe0eac7967d5d2ce55fe0e903215365e94822d5274929faf6f65df174bfe
-USE /v0.1.4/Dollyfile-mandoc d335162c94d9dc8a83a9e871b1a9946809ff48a084b3297a755d1645c58f7c88
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build a6399c495b8d26c54222972a164415785175f7240865d042835f9a3924de94bb
+USE /v0.1.4/demos/neovim/Dollyfile-lua 644e1ffe40459605b031fd97eb18b35ca386be82273872d78ddf9c5226c8a042
+USE /v0.1.4/Dollyfile-mandoc d1c1c3e7c753af460c8594f9dd41e532e7779e6ae06ada78b551bd8761d2e663
 REQUIRES TOOL uname
 
 SOURCE /v0.1.4/dist/static/neovim/utf8proc.tar c9fdc1bf18b4d5ceb006b2847f6ead4642bfd82a7f102652cac4c13105b0e12a /tmp/utf8proc/source.tar

@@ -134,6 +134,18 @@ differ were read in the source.
     checks as any other (`../` is refused, `test/tar.test.mjs`); links stay refused. A stale
     workaround went with it: `mkdir_parents` ignored `mkdir`'s result and re-checked with
     `stat` because an early libc "does not consistently preserve errno"; it now reads the result.
+22. (round 9) **`read` collapsed every run of IFS bytes**: with `IFS=:`, `user::1000` gave
+    `b=1000` instead of an empty `b`, and `:x` gave `a=x`; a loop over `/etc/passwd`-style
+    records, where empty fields are usual, read the wrong columns. `read` now splits as POSIX
+    splits fields (IFS white space, or one other IFS byte with white space around it), and
+    the last name keeps the rest, matching dash and Bash on ten forms; case "read gives an empty
+    field between two separators…" fails on main (status 91) and passes.
+
+One failure was seen and attributed, not fixed: `test/terminal-browser.mjs` failed once in
+Chromium on round 7's images because a typed `y` reached the shell before the command that
+`start("read word …")` submitted (the screen shows `yread word …`, then `es`); the test types
+right after an unawaited submit, a race between the input ring's two writers. Three reruns
+passed, and round 6's run of the same test passed.
 
 Not fixed, measured: `realpath` without `-e` fails on a missing last component (POSIX.1-2024's
 default is uncertain to me); `readonly`, `times` and `hash` are "command not found" (no use in

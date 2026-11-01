@@ -161,6 +161,8 @@ export const shellCases = [
   ["only a program runs in the background", "(exit 3) & exit 7", 7],
   ["& does not take a && list", ": && : & exit 7", 2, 7],
   ["a path that names nothing is not a missing command", "./no-such-program; a=$?; no-such-program; b=$?; ./; c=$?; exit $((a + b + c))", 380 & 255],
+  // A colon-separated record, as /etc/passwd's empty fields are.
+  ["read gives an empty field between two separators, as POSIX splits fields", 'IFS=: read -r a b c d <<EOF\nuser::1000:x:y\nEOF\ncase "$a|$b|$c|$d" in "user||1000|x:y") :;; *) exit 91;; esac; IFS=: read -r e f <<EOF\n:g:\nEOF\ncase "$e|$f" in "|g") :;; *) exit 92;; esac', 0],
   // The usual option loop, in a script given no option.
   ["OPTIND is 1 when the shell starts", 'set -- file; while getopts ab o; do :; done; shift $((OPTIND - 1)); case $OPTIND:$1 in 1:file) :;; *) exit 91;; esac', 0],
   ["command -V says what runs for a name", 'f() { :; }; command -V f > /dev/null && command -V cd > /dev/null && ! command -V no-such-command 2> /dev/null', 0],

@@ -298,7 +298,9 @@ static int extract(const char *archive_path, const char *directory) {
 }
 
 static void usage(FILE *stream) {
-  fputs("usage: tar -xf ARCHIVE [-C DIRECTORY]\nUse - as ARCHIVE to read stdin. This tar extracts only; git archive creates archives.\n", stream);
+  fputs("usage: tar -xf ARCHIVE [-C DIRECTORY]\n"
+        "Use - as ARCHIVE to read stdin. This tar extracts only: git archive creates\n"
+        "archives, and amy install tar gives a tar with its other options.\n", stream);
 }
 
 // -z, in any cluster of options (tar xzf as well), is refused with the way
