@@ -2,10 +2,21 @@
 export function buildLog(element) {
   const maximum = 1024 * 1024;
   let length = 0, escape = "", carriageReturn = false;
+  // The log follows its end while the reader is there, as their last scroll left
+  // it, once a frame: an append reads no layout, which in a log of a megabyte
+  // took Chrome 12 ms each.
+  let following = true, scrolling = false;
+  element.addEventListener("scroll", () => {
+    following = element.scrollHeight - element.scrollTop - element.clientHeight < 24;
+  });
+  function follow() {
+    if (!following || scrolling) return;
+    scrolling = true;
+    requestAnimationFrame(() => { scrolling = false; element.scrollTop = element.scrollHeight; });
+  }
   return {
     clear() { element.replaceChildren(); length = 0; escape = ""; carriageReturn = false; },
     append(text) {
-      const follow = element.scrollHeight - element.scrollTop - element.clientHeight < 24;
       text = escape + String(text);
       escape = /\x1b(?:\[[0-9;:]{0,128})?$/.exec(text)?.[0] ?? "";
       if (escape) text = text.slice(0, -escape.length);
@@ -24,7 +35,7 @@ export function buildLog(element) {
         if (first.length <= excess) { length -= first.length; first.remove(); }
         else { first.deleteData(0, excess); length -= excess; }
       }
-      if (follow) element.scrollTop = element.scrollHeight;
+      follow();
     },
   };
 }

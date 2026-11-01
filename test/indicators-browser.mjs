@@ -62,4 +62,10 @@ await browserTest("indicators", { image: "system", server }, async ({ server, op
   assert.equal(await save.isVisible(), true);
   await elapse();
   assert.equal(await save.isHidden(), true, "the indicators stayed after the save succeeded");
+
+  // A text field of an embedding's own, outside Dolly's element, keeps the chord.
+  await page.evaluate(() => document.body.append(Object.assign(document.createElement("input"), { id: "embedding-field" })));
+  await page.focus("#embedding-field");
+  await page.keyboard.press("Control+Shift+F");
+  assert.equal(await save.isHidden(), true, "the page took the chord from the embedding's own field");
 });

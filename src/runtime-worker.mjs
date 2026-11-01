@@ -1,17 +1,16 @@
 // The runtime Worker boot() starts: it restores an image of the image directory
 // from its packs into a new kernel and runs its ENTRY (worker-image.mjs).
-import { DOLLY_IMAGES } from "./images.mjs";
-import { loadPackagedSnapshotMetadata, streamPackagedSystemSnapshot } from "./packaged-snapshot.mjs";
+import { imageDefinition } from "./images.mjs";
+import { loadPackagedSnapshotMetadata, streamPackagedSystemSnapshot, verifyVisibleRecipes } from "./packaged-snapshot.mjs";
 import { siteReference, hex } from "./static-asset.mjs";
 import { checkedMemoryRange, runImage } from "./worker-image.mjs";
 
-await runImage(async ({ image, mode, files: given = {} }, host) => {
-  const definition = DOLLY_IMAGES.find(candidate => candidate.image === image);
-  if (!definition || mode !== "snapshot") throw new Error("invalid Dolly image selection");
-  const metadata = await loadPackagedSnapshotMetadata(image);
-  const declared = metadata.hostRequirements ?? definition.hostRequirements ?? [];
-  host.require(declared);
-  host.admit(declared);
+await runImage(async ({ image, files: given = {} }, host) => {
+  const definition = imageDefinition(image);
+  if (!definition) throw new Error("invalid Dolly image selection");
+  const [metadata] = await Promise.all([loadPackagedSnapshotMetadata(image), verifyVisibleRecipes(image)]);
+  host.require(definition.hostRequirements);
+  host.admit(definition.hostRequirements);
   return {
     name: image,
     prepare({ files }) {
@@ -31,7 +30,7 @@ await runImage(async ({ image, mode, files: given = {} }, host) => {
       if (kernel.dolly_bootstrap_snapshot_begin(BigInt(metadata.byteLength)) !== 0)
         throw new Error("Dolly snapshot stream initialization failed");
       let loaded = 0, reported = 0;
-      await streamPackagedSystemSnapshot(image, metadata, bytes => {
+      await streamPackagedSystemSnapshot(metadata, bytes => {
         for (let offset = 0; offset < bytes.length; offset += capacity) {
           const chunk = bytes.subarray(offset, offset + capacity);
           staging().set(chunk);

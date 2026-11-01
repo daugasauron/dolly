@@ -1,6 +1,6 @@
 import { MAX_SNAPSHOT_BYTES } from "./snapshot-records.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
-import { describeImageArtifact, loadImageArtifact, sha256 } from "./image-artifact.mjs";
+import { describeImageArtifact, loadImageArtifact, loadImageArtifactDescriptor, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
 
 export async function loadCustomImage(source, descriptor) {
@@ -12,6 +12,14 @@ export async function loadCustomImage(source, descriptor) {
   const artifact = await loadImageArtifact(descriptor);
   if (!artifact) throw new Error("Completed custom image is missing or changed in the browser cache. Rebuild the exact image, or open /sessions to recover saved files. Saved sessions have not been changed.");
   return artifact;
+}
+
+// Whether this browser's image cache still records the completed custom image
+// ARTIFACT (its descriptor): a session saved on it can then be restored, which
+// checks the image's bytes.
+export async function customImageCached(artifact) {
+  const cached = await loadImageArtifactDescriptor(artifact.recipeSha256, artifact.inputs);
+  return cached?.sha256 === artifact.sha256 && cached.byteLength === artifact.byteLength;
 }
 
 export async function checkedCustomArtifact(source, candidate) {

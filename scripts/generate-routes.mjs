@@ -16,7 +16,7 @@ import {
 } from "./image-definitions.mjs";
 import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
 import { renderDollyfilePage } from "./render-dollyfile-view.mjs";
-import { imageDescriptions, menuBody, menuGroup, pageRoutes } from "./image-menu.mjs";
+import { imageDescriptions, menuBody, menuGroup, opens, pageRoutes } from "./image-menu.mjs";
 import { bundleProcessWorker } from "./bundle-process-worker.mjs";
 import { renderLicencesPage, upstreamInventory } from "./upstreams.mjs";
 import { alphabetical } from "../src/alphabetical.mjs";
@@ -34,9 +34,7 @@ const graphs = await Promise.all(definitions.map(async (definition) => ({
   definition,
   graph: await loadGraph(definition.filename),
 })));
-// An image opens when it has ENTRY and a display; otherwise it only builds.
-const openable = new Set(graphs.filter(({ definition, graph }) =>
-  definition.parsed.entry && graph.root.hostRequirements.includes("display@0")).map(({ definition }) => definition.image));
+const openable = new Set(definitions.filter(({ parsed }) => opens(parsed)).map(({ image }) => image));
 // A name that no longer opens, such as an application renamed to its package, keeps no page.
 await Promise.all(definitions.filter(({ image }) => !openable.has(image))
   .map(({ image }) => rm(resolve(projectDir, image, "index.html"), { force: true })));

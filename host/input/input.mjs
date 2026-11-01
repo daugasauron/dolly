@@ -560,11 +560,11 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, surfac
   });
   // A touchscreen has no paste chord: there the page shows its own Paste
   // button and reads the clipboard only inside the user's press of it.
-  const pasteButton = document.body.appendChild(document.createElement("button"));
+  const pasteButton = mount.appendChild(document.createElement("button"));
   pasteButton.id = "paste";
   pasteButton.type = "button";
   pasteButton.textContent = "Paste";
-  pasteButton.style.cssText = "position:fixed;right:0.4rem;top:0.4rem;z-index:6;padding:0.35rem 0.6rem;color:inherit;" +
+  pasteButton.style.cssText = "position:absolute;right:0.4rem;top:0.4rem;z-index:6;padding:0.35rem 0.6rem;color:inherit;" +
     "background:#333;border:1px solid #f2d45c;border-radius:6px;font:inherit;font-size:15px;touch-action:none";
   const touchscreen = matchMedia("(pointer: coarse)"), placePaste = () => { pasteButton.hidden = !touchscreen.matches; };
   placePaste();

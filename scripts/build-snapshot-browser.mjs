@@ -39,7 +39,7 @@ const rules = graph.records.flatMap(record => record.sources.filter(source => si
   .map(source => ({ origin: new URL(source.location).origin, path: new URL(source.location).pathname, methods: ["GET"] }));
 
 async function handle(request, response, path, headers) {
-  if (!unpackaged || !/^\/dist\/(?:packs\/|dolly-.+-system(?:\.snapshot|-snapshot\.mjs)$)/.test(path)) return false;
+  if (!unpackaged || !/^\/dist\/(?:packs\/|dolly-.+-system-snapshot\.mjs$)/.test(path)) return false;
   response.writeHead(404, headers).end();
   return true;
 }

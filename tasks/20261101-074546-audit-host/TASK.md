@@ -19,7 +19,7 @@ cases; do its tests prove denied access and behaviour rather than spelling.
 ## State (2026-11-01 20:40 JST)
 
 All 18 modules read (page and Worker sides, kernel C, clients, headers, contracts). Fixes 1
-to 9 committed, each verified in Chromium and Firefox. Fixes 7 and 8 are seed changes: the
+to 10 committed, each verified in Chromium and Firefox. Fixes 7 and 8 are seed changes: the
 catalog needs a round (this tree rebuilt only the images its tests open, so its
 `dist/dolly-images.mjs` lists those). P2 and P4 are prototyped and measured as the branch's
 two last commits, subjects `Proposal:`; P1 and P3 wait for the owner as described. Left open for the
@@ -115,11 +115,21 @@ Fixed:
    the shell only because every key did (the touch suite hung on the rule alone): a tap now
    gives the terminal the keyboard again, as the other panels' buttons do. Page JavaScript
    only. `test/embedded-keys-browser.mjs` (A's repro) fails before in Chromium
-   and Firefox and passes after. A's finding 16, that these panels are fixed to the window
-   and not placed in the element, waits for A's `23eb2d07`, which makes the element the box
-   they can be placed in: then each module appends its panel to `mount` instead of the body
-   and positions it in the element (download, snapshot, input's Paste button, the gpu and
-   microphone indicators, the Studio panel). Not done tonight.
+   and Firefox and passes after.
+10. **The modules' controls lay on the embedder's page** (A's finding 16): the Save button
+    and dialog, the Paste button, the gpu and microphone indicators, the download offers,
+    the Studio panel and the upload dialog were appended to the body and fixed to the
+    window. After merging `core/audit-runtime` (its `23eb2d07` positions the element), each
+    module appends its control to `mount` and places it there; a display-less embedding,
+    which has no element, keeps the gpu indicator detached. Page JavaScript only.
+    `test/embedding-browser.mjs` (the keys test, renamed) checks that the Save button and an
+    offer lie inside a 640 by 400 element of a 1280 by 720 window: both lay outside before,
+    in both browsers. embedding, upload, touch, indicators, custom-session, microphone,
+    gpu-indicator, nena, host-compute, ending, terminal, core, host-modules, shell,
+    session-offline, display and audio pass in Chromium and Firefox. `test/npm-browser.mjs`
+    was not measured here: it boots pi-minimal, whose closure (52 images, rust-llvm among
+    them) this tree has not rebuilt since fix 7's seed change, and it fails on that stale
+    image.
 
 Described, not changed (each moot or another workstream's, as it says):
 

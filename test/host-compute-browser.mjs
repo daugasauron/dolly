@@ -17,12 +17,11 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       // This page is an embedding of its own: its images are the site's.
       const images = await import("/src/images.mjs");
       await images.loadImages(new URL("/", location.href));
-      const { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } = images;
       const { DollyHttpPolicy } = await import("/host/http/policy.mjs");
       const { localServicesTransport } = await import("/host/http/local-services.mjs");
-      const sources = [...DOLLY_IMAGES.map(d => ({ path: `/${d.dollyfile}`, byteLength: d.byteLength })), ...DOLLY_STATIC_SOURCES];
       const site = new URL("/", location.href);
-      return { ...localServicesTransport(new DollyHttpPolicy(globalThis.DOLLY_HTTP_POLICY, sources, site)), site: site.href };
+      return { ...localServicesTransport(new DollyHttpPolicy(globalThis.DOLLY_HTTP_POLICY, images.bootstrapSources(), site)),
+        site: site.href };
     };
     globalThis.runHeadless = async (modules, configuration, transfers, running) => {
       // Only the modules it enables: the registry loads what the page names.

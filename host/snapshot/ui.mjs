@@ -12,7 +12,7 @@ import {
 } from "../../src/session-store.mjs";
 
 const markup = `<style>
-  #session-open { position: fixed; right: 0.5rem; bottom: 0.35rem; z-index: 6;
+  #session-open { position: absolute; right: 0.5rem; bottom: 0.35rem; z-index: 6;
     padding: 0.15rem 0.45rem; color: inherit; background: #262626;
     border: 1px solid #77736c; font: inherit; font-size: 13px; cursor: pointer; }
   #session-open[data-failed] { border-color: #e98773; }
@@ -54,7 +54,7 @@ const markup = `<style>
 // session this page booted from, if any. On a page with a site, a save names
 // itself in the tab's URL and the dialog links the site's list of saves.
 export function mountSessionSave({ mount, keyboard, showStatus, site, indicators }, transport, restored) {
-  document.body.insertAdjacentHTML("beforeend", markup);
+  mount.insertAdjacentHTML("beforeend", markup);
   const button = document.querySelector("#session-open");
   const dialog = document.querySelector("#session-dialog");
   const nameField = document.querySelector("#session-name");
