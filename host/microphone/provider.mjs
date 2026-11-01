@@ -85,7 +85,7 @@ export function createMicrophoneProvider(changed = () => {}) {
         if (packet.length !== 32) fail(E.EINVAL);
         if (scope <= generation) fail(E.ESTALE);
         if (capture) fail(E.EBUSY);
-        if (typeof navigator.mediaDevices?.getUserMedia !== "function" || typeof AudioWorkletNode !== "function") fail(E.ENOSYS);
+        if (typeof navigator.mediaDevices?.getUserMedia !== "function" || typeof AudioWorkletNode !== "function") fail(E.ENODEV);
         capture = { scope, sequence, state: M.DOLLY_MICROPHONE_WAITING, released: false,
           samples: new Float32Array(M.DOLLY_MICROPHONE_QUEUE_FRAMES), start: 0, length: 0, captured: 0, dropped: 0 };
         generation = scope;

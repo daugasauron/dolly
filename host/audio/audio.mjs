@@ -7,10 +7,6 @@ export { DOLLY_AUDIO_ABI_DIGEST as digest } from "./abi.mjs";
 export const lease = { type: "audio", slots: A.DOLLY_AUDIO_SLOTS, packetBytes: A.DOLLY_AUDIO_PACKET_BYTES,
   replyBytes: A.DOLLY_AUDIO_REPLY_BYTES, open: A.DOLLY_AUDIO_OPEN, close: A.DOLLY_AUDIO_CLOSE };
 
-export function check() {
-  return typeof globalThis.AudioContext === "function" ? null : "Web Audio playback is unavailable in this browser";
-}
-
 export function browser({ send }) {
   const provider = createAudioProvider();
   const resume = event => { if (event.isTrusted) provider.resume(); };

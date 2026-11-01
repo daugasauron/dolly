@@ -7,11 +7,6 @@ export { DOLLY_MICROPHONE_ABI_DIGEST as digest } from "./abi.mjs";
 export const lease = { type: "microphone", slots: M.DOLLY_MICROPHONE_SLOTS, packetBytes: M.DOLLY_MICROPHONE_PACKET_BYTES,
   replyBytes: M.DOLLY_MICROPHONE_REPLY_BYTES, open: M.DOLLY_MICROPHONE_OPEN, close: M.DOLLY_MICROPHONE_CLOSE };
 
-export function check() {
-  return typeof navigator.mediaDevices?.getUserMedia === "function" && typeof globalThis.AudioWorkletNode === "function"
-    ? null : "Microphone capture is unavailable in this browser";
-}
-
 // Trusted page DOM over the display, beside the browser's own recording mark:
 // shown for as long as a program has asked for or holds the microphone.
 function indicate(indicators, state) {
