@@ -103,6 +103,36 @@ scope (scripts that serve and package, the remaining page modules).
     (`pi-minimal`: 35 over 4.2 s), one fetch after another so that the kernel takes them in
     order; prefetching the next pack while one streams would overlap them, in the code
     `demo/lean-2` rewrites, so it is left for after that merge.
+11. **A custom image over 512 MiB could not open.** `customSessionIdentity` bounded the
+    custom image a session is saved on by the session delta's limit (512 MiB), and snapshot@0
+    asks it for every custom image as the image starts: a custom image `FROM system` with
+    400 MiB more (583 MB) built, then failed with "invalid custom session base". Catalog
+    images reach 1.8 GiB (`zero-ad`, `dollyfile-studio`, `pi-local`), so a custom image on
+    one of them never opened. The session test asserted the wrong bound. Fix: the base is
+    bounded as an image (`MAX_SNAPSHOT_BYTES`); a source test that failed before. The repro
+    (`build/audit-runtime-evidence/repro/`) builds, boots, saves and restores that image in
+    Chromium and Firefox after the fix (`febec515`).
+12. **A custom route fetched the recipe graph only for the host requirements it already had.**
+    `loadImageHostRequirements` walked the custom recipe's whole graph (one fetch per recipe,
+    in sequence) to read its root's `REQUIRES HOST` lines, which `inspectDollyfile` of the
+    text `site.mjs` already holds gives: nothing is inherited from what an image is built
+    from. On `/custom/run/` and a custom session that walk was the route's only use of the
+    graph; on `/custom/rebuild/` `prepareImageArtifacts` walked it again. Fix: the route reads
+    the recipe's own lines; the build's walk still validates the graph before any artifact
+    is loaded. Measured on `/custom/rebuild/` (a recipe `FROM system`, 100 ms round trip,
+    Chrome): 134 recipe requests and 18.0 s to ready before, 116 and 15.3 s after.
+    Of the 116, the page asks for each recipe of `system`'s closure at most twice (the graph
+    and the visible-recipe check); the rest is the Dollyfile engine, whose `execute_recipe`
+    fetches a recipe through http@0 each time it parses one (`Dollyfile-system-build` 19
+    times): agent C's engine, reported to the integrator.
+13. **Every save on a custom image read the whole image back from the cache.** Before a save,
+    `verifyBase` checks that the custom image the session restores onto is still in this
+    browser's image cache; it did so with `loadCustomImage`, which reads the payload Blob,
+    decodes the snapshot and hashes it, in the page, at each save. The sessions page asks the
+    same question of the cache's record alone (`loadImageArtifactDescriptor`), and restoring
+    checks the bytes anyway. Fix: one `customImageCached(artifact)` in `custom-image.mjs`
+    for both. Measured on the 583 MB custom image of finding 11, three saves each in Chrome:
+    3.42 to 3.65 s before, 2.76 to 2.85 s after, and no copy of the image in the page's heap.
 
 ## Checked and left
 
