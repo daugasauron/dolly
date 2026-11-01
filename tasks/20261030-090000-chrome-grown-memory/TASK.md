@@ -77,10 +77,12 @@ Found on the way, older than this: a process that ends leaves its memory residen
 runtime Worker collects garbage, which its small heap rarely needs. The same six runs without
 threads rose to 3.8 GiB in Chrome before a collection, on `main` too, and stayed flat when the
 Worker was made to collect after each process (`--expose-gc`, a diagnostic). No browser frees a
-shared memory on request, so only that Worker's collection releases it; an untouched 1 GiB
-`ArrayBuffer` allocated as a process ends prompts one (at most one dead process kept in Chrome,
-none in Firefox), but that steers the collector's heuristics rather than freeing anything, so it
-is not made. `tasks/20261101-102515-retained-process-memory` carries it.
+shared memory on request, so only that Worker's collection releases it. A memory taken to its
+maximum likely makes it worse (not measured apart): it grows once, by another isolate, where a
+process growing itself made the runtime Worker allocate a new buffer object at each step. With
+the reservation the `lean-meta` image build was then killed by its 9 GB cap while it
+copied the finished image, which passed at 8.7 GB before. `tasks/20261101-102515-retained-process-memory`
+carries what was done about it.
 
 Left for the owner: the spawn budget no longer sees what a process with threads allocates after
 its second thread starts (its memory then is all grown; Linux shows none of it until touched), so

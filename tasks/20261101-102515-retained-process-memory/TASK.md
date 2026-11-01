@@ -25,7 +25,24 @@ that touches 512 MiB, the scope's anonymous memory after each, Chrome 156 and Fi
 A build of large processes in a row keeps several dead ones resident: the `lean` image's modules
 each import 1.7 GB, beside the kernel's 2.4 GB of libraries.
 
-Done-when: a process's memory is released when it ends (or reused by the next process), measured
-with that program in Chromium and Firefox, without steering a collector. Candidates: a pool of
-memories handed to the next process (zeroed, but a memory never shrinks and a process with threads
-has all 8 GiB grown); the gate in a Worker of the process's own, ended with it.
+## Made (2026-11-01): the supervisor reports the garbage
+
+A process's memory taken to its maximum before its second thread
+(`tasks/20261030-090000-chrome-grown-memory`) grows once, by another isolate, so the runtime Worker
+no longer allocates a buffer object at each of its steps, which likely made it collect even less
+(not measured apart): the `lean-meta`
+image build was killed by its 9 GB cap while it copied the finished image (8.7 GB before). So
+`#disposeWorker` allocates an untouched `ArrayBuffer` of the dead memory's size (at most 2 GiB) and
+drops it: the bytes that became garbage, which the collectors' own count lacks. It touches no page.
+Same six runs: Chrome keeps at most one dead process with or without threads (0.78 to 1.28 GiB),
+Firefox none without threads and at most two with them.
+
+This steers the collectors' heuristics rather than freeing anything, the one lever JavaScript has.
+The deterministic design is for the owner: the runtime Worker holding no reference to a process's
+memory at all, the copies between it and the kernel's done in the process's own Worker, ended with
+it (the gate's job today), at the price of kernel memory in process Workers, which the security
+perimeter allows (in-Wasm compromise is assumed) but the design has kept out.
+
+Done-when: a process's memory is released when it ends, measured with that program in Chromium and
+Firefox, without steering a collector. A pool handing dead memories to the next process would not
+do: it never frees one either, a memory never shrinks, and a process with threads has all 8 GiB.

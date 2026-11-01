@@ -126,6 +126,16 @@ function encodeSpawn(arguments_, flags) {
   return packet;
 }
 
+// A process's memory is released only when this Worker collects garbage,
+// which neither browser counts it towards: six processes of 512 MiB in a row
+// stayed resident in Chrome until a seventh (tasks/20261101-102515-retained-
+// process-memory). No browser frees a shared memory on request, so an
+// untouched buffer of the bytes that became garbage tells the collector what
+// its own count lacks; it dies at once and touches no page.
+function reportGarbage(bytes) {
+  try { void new ArrayBuffer(Math.min(bytes, 2 ** 31)); } catch {}
+}
+
 function createProcessMemory({ initial, maximum }) {
   return new WebAssembly.Memory({
     initial,
@@ -1016,7 +1026,9 @@ export class DollyProcessSupervisor {
   #disposeWorker(process) {
     for (const thread of [...process.threads.values()]) this.#disposeThread(process, thread);
     this.#disposeThread(process, process);
+    const bytes = process.memory?.buffer.byteLength ?? 0;
     process.gate = process.memory = process.module = process.processInterface = null;
+    reportGarbage(bytes);
   }
 
   serviceDeferred() {
