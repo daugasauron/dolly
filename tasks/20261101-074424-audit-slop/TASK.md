@@ -10,21 +10,20 @@ the Dollyfile language (`docs/dollyfile.md`) and its two implementations (`src/d
 `src/dollyfile-view.mjs` with `src/dollyfile-graph.mjs`), the linters and pin scripts.
 Measure: Unix philosophy, POSIX where claimed, explicit failure otherwise.
 
-## State (2026-11-01 18:40)
+## State (2026-11-01 20:30)
 
-Rounds 1 to 4 are built (`fdee4c2b`: the 22 images of `default` and `system`, 1,349 s for the
-whole chain, zig-build and ghostty-build included) and pass in Chromium and Firefox:
-`test/slop-browser.mjs` (every Slop case, in Dolly), `shell-browser.mjs` (Tab under `~` and
-in a dot directory, UTF-8 editing), `core-browser.mjs`, `man-browser.mjs`,
-`process-browser.mjs`, `terminal-browser.mjs`. Not measured: `default-browser.mjs`, whose
-first check reads the package index of the whole catalog (`python`), which a narrowed build
-does not publish. Round 5 (`install`, `timeout`: `system-tools` only, 71 s to build) passes the same tests in
-both browsers. Round 6 (`mkdir -m`, `rm -v -d`: the root recipe again) builds as unit
-`dolly-audit-slop-seed6`. CMake's `bootstrap`, run natively under the branch's Slop and under
-Bash, prints the same 1,068 lines and bootstraps. Proposals P1 and P2 are prototyped on branches `proposal/dollyfile-no-append`
-(`607fcc3a`) and `proposal/dollyfile-requires` (`8573582e`), not on this branch; each
-compiles with the parser fixture and its JavaScript side accepts and refuses the rows it
-should. The catalog needs a round: every recipe is repinned.
+Every fix below is committed with every recipe repinned, built and verified: the last build
+(`d87c8442`, the 22 images of `default` and `system`, 1,192 s) passes `test/slop-browser.mjs`
+(every Slop case, run in Dolly), `shell-browser.mjs` (Tab under `~` and in a dot directory,
+UTF-8 editing), `core-browser.mjs`, `man-browser.mjs`, `process-browser.mjs` and
+`terminal-browser.mjs` in Chromium and Firefox. The source suite passes (458). Not measured:
+`default-browser.mjs`, whose checks read the whole catalog's package index and packages
+(`python`, `zig`) that a narrowed build neither publishes nor rebuilds, and the demos. The
+catalog needs a round: `src/slop.c` and `src/commands/` are root-recipe inputs and every
+recipe is repinned; the integrator merges this branch at 00:30 for the night's round.
+Proposals P1 and P2 are prototyped on branches `proposal/dollyfile-no-append` (`607fcc3a`)
+and `proposal/dollyfile-requires` (`8573582e`), not on this branch; each compiles with the
+parser fixture and its JavaScript side accepts and refuses the rows it should.
 
 ## Method
 
@@ -111,20 +110,20 @@ differ were read in the source.
     as POSIX says and dash and Bash do (cases "OPTIND is 1…", "IFS is space, tab and newline…").
 17. **`command -V` was refused**: POSIX's description of what runs for a name now shares
     `type`'s code (`describe_commands`).
-18. (round 5, `system-tools` only) **`install` refused combined options**: `-m644` (16 uses
+18. **`install` refused combined options**: `-m644` (16 uses
     in the cached upstream Makefiles), `-m755` (10), `-Dm644` (2) and `-cm 644` failed with
     "unsupported option". Letters now combine and a value may be attached or follow; `-D -t
     DIR` creates the directory as GNU install does.
-19. (round 6) **`mkdir -m` was refused** (`mkdir -m 755 -p` in utf8proc's install rule): the
+19. **`mkdir -m` was refused** (`mkdir -m 755 -p` in utf8proc's install rule): the
     mode is accepted and not kept, as `install -m` is (the owner's decision of 2026-10-01), and
     letters combine (`-pm 755`). **`rm` gains `-v` and `-d`** (POSIX.1-2024; `rm -rv` in the
     corpus).
-20. (round 7) Small Slop fixes from reading the new scanner and the editor: `$(cat <<< w)`
+20. Small Slop fixes from reading the new scanner and the editor: `$(cat <<< w)`
     said "unterminated command substitution" instead of refusing `<<<` by name; `time` keeps
     the command position, so `$(time case …)` reads its patterns; the history file kept every
     command of every session (it is part of each saved session) while the editor keeps 1,000:
     loading now rewrites it to those 1,000.
-21. (round 8) **`tar` refused every `git archive` of a commit, so every GitHub source
+21. **`tar` refused every `git archive` of a commit, so every GitHub source
     tarball**: git writes a pax global header (`pax_global_header`), which the extractor
     failed on with "Operation not supported", and the archive of a tree failed as soon as one
     path exceeded ustar's 100 bytes (pax `x` header); GNU tar's `././@LongLink` likewise.
@@ -134,7 +133,7 @@ differ were read in the source.
     checks as any other (`../` is refused, `test/tar.test.mjs`); links stay refused. A stale
     workaround went with it: `mkdir_parents` ignored `mkdir`'s result and re-checked with
     `stat` because an early libc "does not consistently preserve errno"; it now reads the result.
-22. (round 9) **`read` collapsed every run of IFS bytes**: with `IFS=:`, `user::1000` gave
+22. **`read` collapsed every run of IFS bytes**: with `IFS=:`, `user::1000` gave
     `b=1000` instead of an empty `b`, and `:x` gave `a=x`; a loop over `/etc/passwd`-style
     records, where empty fields are usual, read the wrong columns. `read` now splits as POSIX
     splits fields (IFS white space, or one other IFS byte with white space around it), and
