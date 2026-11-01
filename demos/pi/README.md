@@ -7,9 +7,9 @@ Dolly's files, processes and HTTP broker.
 ## Images
 
 - `pi`: `pi`, the Pi coding agent as npm publishes it, with the `janis-install`, `ripgrep` and `fd` packages.
-- `pi-dolly`: Pi's Dolly extension: the prompt, the `dolly` skill, Slop for its shell tool, a download tool, settings, theme and `pi-key`, with the `pi`, `secretenv` and `dolly-docs` packages.
+- `pi-dolly`: Pi's Dolly extension: the prompt, the `dolly` skill, Slop for its shell tool, a download tool, `ask_user` and `show_html`, settings, theme and `pi-key`, with the `pi`, `secretenv`, `html` and `dolly-docs` packages.
 - `pi-agent`: Pi coding agent with JavaScript, shell tools, ripgrep and fd.
-- `pi-minimal`: Pi with a shell, POSIX tools and curl, on `display@0`, `input@0` and `download@0` alone: the README's "Pi with npm".
+- `pi-minimal`: Pi with a shell, POSIX tools and curl, on `display@0`, `input@0`, `download@0` and `html@0` alone: the README's "Pi with npm".
 - `pi-runtime`: Reusable Pi and Janis runtime.
 
 Open `/pi-agent/`; build with `npm run image -- pi-agent`. Leave Pi with
@@ -29,6 +29,10 @@ as pi-agent has it, `amy install pi` Pi alone.
   it in that environment variable only, as the Claude Code launcher does.
 - [`dolly-tools.js`](dolly-tools.js) plugs Slop into Pi's `bash` tool and `!`,
   keeps bytes that are not UTF-8 intact in edits and adds a `download` tool.
+- [`ask-user.js`](ask-user.js) adds `ask_user`, which asks the user questions in
+  an HTML form, and `show_html`, which shows an HTML document such as a report;
+  both run the `html` command (`html@0`), whose popup the page draws in its own
+  style.
 - Conversations live in `~/.pi/agent/sessions` (`/resume`); credentials in
   `~/.pi/agent/auth.json`. Images never retain them; saved sessions do.
 - [`settings.json`](settings.json) keeps Pi's regular TUI: fullscreen mode

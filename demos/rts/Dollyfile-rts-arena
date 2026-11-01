@@ -2,6 +2,7 @@ DOLLY 7
 APPLICATION rts-arena
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST html@0
 REQUIRES HOST input@0
 REQUIRES HOST audio@0
 REQUIRES HOST touch@0
@@ -11,7 +12,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime fbcbead213600f12a2dc3961c210379b85e308b19f62056a6cd7da4a009a9fc2
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime c28a2fcabd20d3e41c038fbadadae7b223db3bf6a6c19742932255f48a1531d9
 INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 7db70370dbe53f6996ddb388087d1878dadf6df5696442dd0483ea1feed51c35
 COPY /v0.1.4/demos/rts/Dollyfile-rts-build f74079eb431ebbdd7a91b1de8b95f78c763dc20e9b0794a48fbe80219c31c262 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
 COPY /v0.1.4/demos/rts/Dollyfile-rts-build f74079eb431ebbdd7a91b1de8b95f78c763dc20e9b0794a48fbe80219c31c262 /usr/share/7kaa /usr/share/7kaa

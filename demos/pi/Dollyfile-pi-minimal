@@ -2,19 +2,21 @@ DOLLY 7
 APPLICATION pi-minimal
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST html@0
 REQUIRES HOST input@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
 # Pi with a shell, POSIX tools and curl, and no compiler: the README's "Pi with npm",
-# whose page installs three device host modules: display, input, and download for
-# the download tool of Pi's Dolly extension (Janis links its client).
+# whose page installs four device host modules: display, input, download for
+# the download tool of Pi's Dolly extension (Janis links its client), and html
+# for its ask_user and show_html tools (the html command).
 INSTALL /v0.1.4/Dollyfile-core e926903699c738aadd81c9e9a4a7f342153def64d7c6978a2039ba6faecef6e3
 INSTALL /v0.1.4/Dollyfile-posix 77d573799ee8664d94bde14f701bc96a0589320d5ea89dff239aff247b806c2c
 INSTALL /v0.1.4/Dollyfile-display 75213a58df6ab12d1a21972e49cc9c7e0004f10ea8c2bf2395fc30fb8c4bf065
 INSTALL /v0.1.4/Dollyfile-curl 87116d0b43da4f6c8717721ab89320e180ba1cd14733a3188ddfd3f539a5092e
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly b739d013a44789ada08be1e82afe9331ace1fb3061fbed6be8e31fccc788651c
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 69e68a7b9d8efc0af2023023bd488b640d489ef3c538da6660cac1fd27f6fb26
 REQUIRES TOOL foreground
 REQUIRES TOOL printf
 REQUIRES TOOL pi

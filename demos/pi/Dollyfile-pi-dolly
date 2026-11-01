@@ -2,25 +2,30 @@ DOLLY 7
 PACKAGE pi-dolly
 REQUIRES HOST runtime@0
 REQUIRES HOST download@0
+REQUIRES HOST html@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
 # Pi's Dolly extension, where Pi reads it: the system prompt, the dolly skill,
 # dolly-tools.js (Slop for the shell tool and !, edits that keep bytes, a
-# download tool), the settings and the theme; with Pi, and the platform's
-# documents that the prompt and the skill name. pi-key starts Pi with an API
+# download tool), ask-user.js (ask_user and show_html, over the html package's
+# command), the settings and the theme; with Pi, and the platform's documents
+# that the prompt and the skill name. pi-key starts Pi with an API
 # key it reads without showing it: Pi's own /login shows a key as it is typed.
 INSTALL /v0.1.4/demos/pi/Dollyfile-pi 5bafdf0819789e38c8e024037b6b6c243acdb57ca4fafff7ed26efa7208f15c6
 INSTALL /v0.1.4/demos/closed-source-agent/Dollyfile-secretenv ddb8bd046ec795bcfe6c1a90a22340c03473959fa9ade41f201812445d8bf63a
+INSTALL /v0.1.4/Dollyfile-html cab83c6edf5e7d0b964441de11be962cfd1ac09e77f21e548b161d063a3dd2c4
 INSTALL /v0.1.4/Dollyfile-dolly-docs 5bc0ceb73f399c7b00dfa8f3d6f71e1e1d14f395940cc628f7efed74f3b13ed8
 
 SOURCE /v0.1.4/dist/static/default/pi/dolly-tools.js                    b2d5ecb9788c9f701d4892a23d0c0b8b17adb6309278de9876aefc8d8ca4b6a8 /home/dolly/.pi/agent/extensions/dolly-tools.js
-SOURCE /v0.1.4/dist/static/default/pi/SYSTEM.md                         1bb5c684e163c05692d5212f051d7b4489b3e2d97714fd4384b0910f2a1ad1b1 /home/dolly/.pi/agent/SYSTEM.md
+SOURCE /v0.1.4/dist/static/default/pi/ask-user.js                       6efcc56c4ec3c4cbac8e17e8bb8962ae244b86b049e0a1e555232b28086a2ba6 /home/dolly/.pi/agent/extensions/ask-user.js
+SOURCE /v0.1.4/dist/static/default/pi/SYSTEM.md                         70ed91e73f66d65e71eb6d220fedea0cf1ce5ec1ce7bbac3a5b6a849c8ef0628 /home/dolly/.pi/agent/SYSTEM.md
 SOURCE /v0.1.4/dist/static/default/pi/settings.json                     852b78af9b490d627858723c8b67f24e55e58d9f621ce4afbc7424b872917c1f /home/dolly/.pi/agent/settings.json
 SOURCE /v0.1.4/dist/static/default/pi/dolly-theme.json                  ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297 /home/dolly/.pi/agent/themes/dolly.json
 SOURCE /v0.1.4/dist/static/default/pi/dolly-skill.md                    e7076be4509ebbc17bb677d5ffebef06469d5f80d7f80583285b4e710eed80f5 /home/dolly/.pi/agent/skills/dolly/SKILL.md
 
 FILE /home/dolly/.pi/agent/extensions/dolly-tools.js
+FILE /home/dolly/.pi/agent/extensions/ask-user.js
 FILE /home/dolly/.pi/agent/SYSTEM.md
 FILE /home/dolly/.pi/agent/settings.json
 FILE /home/dolly/.pi/agent/themes/dolly.json

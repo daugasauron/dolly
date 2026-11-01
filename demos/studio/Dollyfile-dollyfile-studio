@@ -4,6 +4,7 @@ REQUIRES HOST runtime@0
 REQUIRES HOST audio@0
 REQUIRES HOST build@0
 REQUIRES HOST display@0
+REQUIRES HOST html@0
 REQUIRES HOST input@0
 REQUIRES HOST download@0
 REQUIRES HOST dso@0
@@ -16,7 +17,7 @@ REQUIRES HOST threads@0
 REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/local-llm/Dollyfile-pi-local a189a6ef5f59554c3a11509c86aff62658b449678787618834f0bee850b0849d
+FROM /v0.1.4/demos/local-llm/Dollyfile-pi-local 65128b41ad5cf75f035230a5b4c1e87df7d8e0af9d05cf2e408840e129754b9c
 INSTALL /v0.1.4/demos/neovim/Dollyfile-nvim d771ba12edf03b4a4eff6c8c1af074ff1075698fe925aed88752d75fce90b6db
 REQUIRES TOOL pi
 REQUIRES TOOL nvim

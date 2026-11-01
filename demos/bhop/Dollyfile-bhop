@@ -2,6 +2,7 @@ DOLLY 7
 APPLICATION bhop
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST html@0
 REQUIRES HOST input@0
 REQUIRES HOST audio@0
 REQUIRES HOST touch@0
@@ -13,7 +14,7 @@ REQUIRES HOST upload@0
 
 FROM /v0.1.4/demos/slopyard/Dollyfile-gamedev-sdk df371039073230476c9756df0f0ca29746d1f9688031b76e31bd604c0e11bd41
 INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 0f9c5fa1309d71e4b1e9fc2745f8b597cf4c1ffc9ec51b60191ff7d0da33302e
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly b739d013a44789ada08be1e82afe9331ace1fb3061fbed6be8e31fccc788651c
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 69e68a7b9d8efc0af2023023bd488b640d489ef3c538da6660cac1fd27f6fb26
 INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 7db70370dbe53f6996ddb388087d1878dadf6df5696442dd0483ea1feed51c35
 REQUIRES TOOL cc
 REQUIRES TOOL make

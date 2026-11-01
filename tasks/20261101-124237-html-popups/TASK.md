@@ -4,20 +4,21 @@
 - PRIORITY: 320
 - TAGS: host-modules,pi,html,0.1.5
 
-## State (2026-11-01 23:15 JST)
+## State (2026-11-01 23:20 JST)
 
-Done and verified: `html@0` (`d82f7474`) and its browser test (`cf5fd1eb`), which passes in
-Chromium and Firefox on this tree's `default`, `system` and `html` (image inputs
-`ea109605`). Since then, not yet committed: the page hands the popup the embedding's font
-file (`--dolly-html-font-file`; Dolly's site gives Iosevka), the contract states its EINVAL
-and EFBIG cases, and the test presses a real Ctrl+C; the html package is being rebuilt for
-the new digest and the test rerun. Written, not yet run: Pi's `ask_user` and `show_html`
-(`demos/pi/ask-user.js`), the recipes that install and declare them, and
-`demos/pi/test/ask-user-browser.mjs`. Every Pi image holds rust-llvm and rust-build, which
-this tree cannot rebuild tonight; the integrator's round (`integrate/2026-11-02`) will, and
-the Pi test then runs on its `pi-runtime`. Meanwhile the same test runs on a Pi the page
-builds from `system`, `janis-install` (built here at 23:02) and `html`, without ripgrep and
-fd (evidence only, not committed).
+Done and verified in Chromium and Firefox on this tree's images (image inputs `ea109605`):
+`html@0` (`d82f7474`), its browser test (`cf5fd1eb`), the page's font in the popup
+(`9ddc5e32`), and Pi's `ask_user` and `show_html` with the recipes that install and declare
+them (the commit after `9ddc5e32`). `demos/pi/test/ask-user-browser.mjs` builds its image
+on `pi-runtime`, which this tree cannot rebuild tonight (every Pi image holds rust-llvm and
+rust-build); the same test, its base swapped for a Pi the page builds from `system`,
+`janis-install` and `html` without ripgrep and fd
+(`build/html-bridge-evidence/ask-user-interim-browser.mjs`, not committed), passed in
+Chromium (23.6 s) and Firefox (30.1 s). Left: run the committed test on `pi-runtime` and
+`test/npm-browser.mjs` on `pi-minimal` once the integrator's round (`integrate/2026-11-02`)
+has built them; then apply the contract's held-back wording (EINVAL for a span outside 1 to
+DOCUMENT_MAX, EFBIG on SHOW), which changes the digest and so the html package, with that
+rebuild.
 
 Owner (2026-11-01, 21:45 JST):
 

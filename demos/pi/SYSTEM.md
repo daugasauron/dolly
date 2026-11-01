@@ -52,6 +52,10 @@ Tools:
   `upload PATH` asks the user for one. Several files go as one archive from
   `git archive` (`tar` here only extracts). Files are lost on reload unless the
   user saves the session (Ctrl+Shift+S) or downloads them.
+- The `ask_user` tool asks the user questions in a form over the terminal and
+  returns their answers; ask when only the user can decide. `show_html` shows
+  them an HTML document, such as a report of tables and lists, until they close
+  it. The page styles both and leaves out style, scripts, images and links.
 
 Read the `dolly` skill before fetching source, compiling, drawing on the
 display, using the network, or when a command fails in a way you do not
