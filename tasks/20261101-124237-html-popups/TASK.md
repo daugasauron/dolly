@@ -4,7 +4,7 @@
 - PRIORITY: 320
 - TAGS: host-modules,pi,html,0.1.5
 
-## State (2026-11-01 23:20 JST)
+## State (2026-11-01 23:30 JST)
 
 Done and verified in Chromium and Firefox on this tree's images (image inputs `ea109605`):
 `html@0` (`d82f7474`), its browser test (`cf5fd1eb`), the page's font in the popup
@@ -14,7 +14,10 @@ on `pi-runtime`, which this tree cannot rebuild tonight (every Pi image holds ru
 rust-build); the same test, its base swapped for a Pi the page builds from `system`,
 `janis-install` and `html` without ripgrep and fd
 (`build/html-bridge-evidence/ask-user-interim-browser.mjs`, not committed), passed in
-Chromium (23.6 s) and Firefox (30.1 s). Left: run the committed test on `pi-runtime` and
+Chromium (23.6 s) and Firefox (30.1 s), again after `aaed334e` (24.1 s, 31.1 s). Beside
+them, with the module on every `default` page (the site gives an image that declares
+`nena@0` every module): core, host-modules, nena, embedding and boundary pass in both
+browsers (nena once `libdolly-audio` and `libdolly-microphone` were built here). Left: run the committed test on `pi-runtime` and
 `test/npm-browser.mjs` on `pi-minimal` once the integrator's round (`integrate/2026-11-02`)
 has built them; then apply the contract's held-back wording (EINVAL for a span outside 1 to
 DOCUMENT_MAX, EFBIG on SHOW), which changes the digest and so the html package, with that
