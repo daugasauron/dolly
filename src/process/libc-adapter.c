@@ -830,18 +830,34 @@ int __syscall_umask(mode_t mask) {
 }
 
 /* The limits every process has, which nothing can change: the kernel's
- * descriptor and process tables, and the linker's memory ceiling and stack. */
+ * descriptor and process tables, and the linker's memory ceiling and stack.
+ * Setting one to what it is succeeds; any other value is refused. */
 int __syscall_prlimit64(pid_t pid, int resource, const struct rlimit *new_limit,
                         struct rlimit *old_limit) {
   (void)pid;
-  if (new_limit) return -EPERM;
-  if (old_limit) {
-    const rlim_t limit = resource == RLIMIT_NOFILE ? 1024 : resource == RLIMIT_NPROC ? 56
-        : resource == RLIMIT_AS || resource == RLIMIT_DATA ? (rlim_t)8 << 30
-        : resource == RLIMIT_STACK ? (rlim_t)8 << 20 : RLIM_INFINITY;
-    *old_limit = (struct rlimit){limit, limit};
-  }
+  const rlim_t limit = resource == RLIMIT_NOFILE ? 1024 : resource == RLIMIT_NPROC ? 56
+      : resource == RLIMIT_AS || resource == RLIMIT_DATA ? (rlim_t)8 << 30
+      : resource == RLIMIT_STACK ? (rlim_t)8 << 20 : RLIM_INFINITY;
+  if (new_limit && (new_limit->rlim_cur != limit || new_limit->rlim_max != limit)) return -EPERM;
+  if (old_limit) *old_limit = (struct rlimit){limit, limit};
   return 0;
+}
+
+/* One scheduling priority, nice 0, which the kernel's encoding gives as 20
+ * (musl's getpriority answers 20 minus it): setting it is all that succeeds.
+ * Emscripten's stubs answered 0, which musl read as nice 20. */
+static int priority_target(int which, id_t who) {
+  if (which != PRIO_PROCESS && which != PRIO_PGRP && which != PRIO_USER) return -EINVAL;
+  if (who == 0 || (which == PRIO_USER ? 0 : dolly_kill((pid_t)who, 0) == 0)) return 0;
+  return -ESRCH;
+}
+int __syscall_getpriority(int which, id_t who) {
+  const int target = priority_target(which, who);
+  return target < 0 ? target : 20;
+}
+int __syscall_setpriority(int which, id_t who, int priority) {
+  const int target = priority_target(which, who);
+  return target < 0 ? target : priority == 0 ? 0 : -EPERM;
 }
 
 int __syscall_mknodat(int directory, const char *path,

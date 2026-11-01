@@ -18,15 +18,15 @@ confirms is fixed with a test that failed before (or code gone and nothing
 broken), the moot is closed with its reason and the uncertain rest is a few
 lines each below.
 
-## State (2026-11-01 18:55 JST)
+## State (2026-11-01 19:25 JST)
 
 Read: the whole of the scope above. Baseline: build reproducible (same runtime
 and image ids), source suite 446/446 in 27 s, `process-browser` passes in
-Chromium (58 s). Items 1-17 are committed and verified on `default,system`
-built from the new seed (image inputs `5a218e03…`; the first round of it
-failed at git's link, item 7): `process`, `terminal`, `core`, `pty`,
-`threads`, `slop` and `shell` pass in Chromium and Firefox. The libc items
-need a catalog round. Next: the cost of a system call on the page's side.
+Chromium (58 s). Items 1-18 are committed and verified on `default,system`
+built from the newest seed (image inputs `f205bd59…`): `process`, `core`,
+`threads`, `slop`, `pty`, `sockets` and `terminal` pass in Chromium and
+Firefox (`shell` too on the seed before). The libc items need a catalog
+round.
 
 ## Fixed
 
@@ -151,7 +151,43 @@ need a catalog round. Next: the cost of a system call on the page's side.
     grace for that death; with the EXIT rule gone the grace never fired, in
     800 ms of hang-ups either.)
 
+18. **The same comparison for 56 process and signal calls**
+    (`probes/process-edges.c`) found:
+    - **`abort()` trapped** (Emscripten's `_abort_js`): the process "failed:
+      unreachable" with status 126 instead of ending by SIGABRT (134), and
+      a SIGABRT handler never ran. Assertion failures go through it. libc's
+      `abort` is now POSIX's: the handler runs, and if it returns, or the
+      signal is blocked or ignored, the process ends by SIGABRT. Seed input.
+    - **`getpriority` answered 20**, the lowest priority: Emscripten's stub
+      returns 0 where musl expects the kernel's encoding (20 minus the nice
+      value), so `nice(0)` then tried nice 19 and failed. One priority is
+      there, nice 0; setting it succeeds, any other EPERM. Seed input.
+    - `setrlimit` to the limits a process has failed with EPERM; it succeeds
+      now, and anything else is still EPERM. `waitpid` with an unknown
+      option failed with ENOTSUP; POSIX says EINVAL. Seed input.
+    - `execve` (and `posix_spawn`) of a directory failed with ENOEXEC;
+      POSIX says EACCES for a file that is not regular. Kernel C.
+    Left: `setpgid` of another process answers EPERM where Linux answers
+    ESRCH for one that is not a child; `CLOCK_THREAD_CPUTIME_ID` is EINVAL
+    while the process clock is answered; `sysconf(_SC_CHILD_MAX)` is libc's
+    1024, not the 56 of `RLIMIT_NPROC`; `sched_getscheduler` does not link.
+
 ## Proposals for the owner
+
+- **A spawned child that keeps what its parent ignores.** `posix_spawn`
+  from a program that ignores a signal fails with ENOTSUP unless the
+  attributes reset it (`spawn_signals_supported`): a C program that ignores
+  SIGPIPE, as many do, cannot start one that way, where POSIX gives the
+  child the parent's ignored signals and mask. No program of the catalog
+  is known to meet it (git spawns through its Dolly patch, CPython and
+  libuv through `dolly_spawn_mapped`, Rust's std resets SIGPIPE in its
+  attributes), so this is for the owner to weigh against a round. EXEC already carries both (`dolly_process_exec_state`, applied by
+  `__dolly_signal_start` at every start); SPAWN carries neither. Smallest
+  diff: a `dolly_process_exec_state signals` in `dolly_process_spawn_request`
+  (56 to 72 bytes), the kernel copying it into `start_signals`, libc filling
+  it from the attributes or the caller's state and dropping
+  `spawn_signals_supported`. A layout change of `process.h`: every
+  executable's identity, the seed compiler's restamp and a catalog round.
 
 - **Inherited environments for the page's spawns only.** After 12 no
   process asks the kernel to inherit an environment; only the supervisor's
@@ -165,6 +201,18 @@ need a catalog round. Next: the cost of a system call on the page's side.
   and `dolly_snapshot_format_version` is called by nothing but a test that
   instantiates the contract file itself, never the kernel. Dropping both
   changes the image contract, an image input: a catalog round.
+
+## Uncertain, left
+
+- `cc`, `c++`, `ld` and `ar` run the compiler up to three times when it
+  ends with status 126 (`dolly_toolchain_proxy`, restored by `5221de89`
+  with its reason: a transient Worker allocation failure in long builds).
+  Since `2b9fd4a4` (2026-10-23) the supervisor itself asks a refused memory
+  reservation again for up to 5 s, which is that failure's cause; a 126
+  that is deterministic (a trap, a stack exhausted in Firefox, which has no
+  larger JSPI stack) now costs three compiles before it is reported. Not
+  measured whether any transient 126 is left; not changed, as the owner
+  restored this once.
 
 ## Views on agent E's two commits (read only)
 
@@ -201,19 +249,30 @@ need a catalog round. Next: the cost of a system call on the page's side.
   round trip by `postMessage` and `Atomics.wait`, as `process-worker.mjs`
   makes it, takes 9.8 µs in Chrome, and 6.2 µs with `Atomics.waitAsync`
   in its place (20,000 round trips, `build/audit-kernel-evidence/bench`);
-  the rest is the supervisor's and the kernel's work for each call. A
-  protocol on `waitAsync` would save ~15% of a call, not enough for its
-  complexity. (The same page hung in Firefox in the postMessage mode; not
-  looked into, Dolly's own calls work there.)
+  posting the call as an object of nine fields instead of a number costs
+  4.3 µs more. Two page-side changes were tried and dropped, as neither
+  showed against the noise of a shared machine (a call measured 8-25 µs in
+  Chrome and 11-26 µs in Firefox from run to run, interleaved A/B, three
+  runs each): the call's fields in the control buffer and a number as the
+  message, and scheduling launches only after a spawn instead of after
+  every call. A `waitAsync` protocol is not worth its complexity on these
+  numbers. (The benchmark page hung in Firefox once in each mode; not looked
+  into, Dolly's own calls work there.)
 
 ## Lessons
 
-- Four of the defects are code from the first checkpoint (`b95459ce`,
+- Most of the defects are code from the first checkpoint (`b95459ce`,
   2026-09-05) written before the mechanism it stood in for existed, and not
   looked at when the mechanism came: `getpass` before termios had ECHO,
   `system` before handlers ran in Wasm, the `getppid` cache before children
-  outlived parents, the signal-before-start rule before exec carried signal
-  state. When a mechanism lands, grep for what assumed its absence.
+  outlived parents, EXIT's signal override before libc took signals, the
+  signal-before-start rule before exec carried signal state. When a
+  mechanism lands, grep for what compensated for its absence.
+- One program run natively and in Dolly, diffing one line per edge case
+  (`probes/posix-edges.c`, `probes/process-edges.c`), found nine defects in
+  an hour that the browser suites, written from Dolly's side, never asked
+  about. `process-descriptors.c` already compiles natively under
+  sanitizers: checks put there prove Linux agrees.
 - A rule decided in two places drifts: the kernel learned what exec carries
   across, the supervisor kept ending any process not yet started. One
   decider (the kernel), and the other side asks.
@@ -221,7 +280,12 @@ need a catalog round. Next: the cost of a system call on the page's side.
   builds of musl (`tools/system_libs.py`): `getpass` was there because
   Emscripten leaves it out, not because musl's was wrong. The first image
   round found it at git's link, 9 minutes in.
+- A flaky failure blamed on the obvious suspect can be another bug: the
+  supervisor's 500 ms grace looked guilty of a death under a flood of
+  signals; a log line per exit showed EXIT's override. Instrument before
+  fixing.
 - Kernel C iterates in 14 s; one libc line costs a `default,system` round
-  of ~14 min, and a seed header (`runtime.h`) rewrites the pins of all 186
-  recipes. Batch libc fixes, and keep header edits for rounds that change a
-  header anyway.
+  of 20 min (more while three agents share three build slots), and a seed
+  header (`runtime.h`) rewrites the pins of all 186 recipes. Batch libc
+  fixes. On this shared machine one call measured 8-25 µs from run to run:
+  page-side savings under ~20% cannot be shown, so two were dropped.

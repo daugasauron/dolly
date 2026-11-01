@@ -417,8 +417,9 @@ static int open_image(dolly_kernel_program *program) {
   program->image_descriptor = descriptor;
   struct stat metadata;
   if (fstat(descriptor, &metadata) != 0) return -errno;
-  if (!S_ISREG(metadata.st_mode) || metadata.st_size < 8 ||
-      metadata.st_size > DOLLY_KERNEL_EXECUTABLE_LIMIT) return -ENOEXEC;
+  /* POSIX: EACCES for a file that is not regular, as a directory. */
+  if (!S_ISREG(metadata.st_mode)) return -EACCES;
+  if (metadata.st_size < 8 || metadata.st_size > DOLLY_KERNEL_EXECUTABLE_LIMIT) return -ENOEXEC;
   const size_t head = metadata.st_size < DOLLY_KERNEL_SHEBANG_LIMIT
       ? (size_t)metadata.st_size : DOLLY_KERNEL_SHEBANG_LIMIT;
   program->image = malloc(head);

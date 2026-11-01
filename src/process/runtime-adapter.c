@@ -297,7 +297,7 @@ int getnameinfo(const struct sockaddr *address, socklen_t address_length,
  * asks for continued children (WCONTINUED) of none more. */
 pid_t dolly_waitpid(pid_t pid, int *status, int options) {
   if ((options & ~(WNOHANG | WUNTRACED | WCONTINUED)) != 0 || pid == INT_MIN) {
-    errno = pid == INT_MIN ? ECHILD : ENOTSUP;
+    errno = pid == INT_MIN ? ECHILD : EINVAL;
     return -1;
   }
   if (pid < -1) pid = -pid;

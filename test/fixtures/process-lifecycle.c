@@ -33,6 +33,9 @@ static double now(void) {
 static volatile sig_atomic_t retired;
 static void child_retired(int number) { retired += number == SIGCHLD; }
 
+static void abort_exits(int number) { _exit(number == SIGABRT ? 77 : 1); }
+static void abort_returns(int number) { (void)number; }
+
 static int child(const char *path, const char *mode) {
   int output[2];
   if (pipe(output) != 0) return -1;
@@ -206,6 +209,12 @@ int main(int argc, char **argv) {
       printf("%d %d\n", parent, now);
       return 0;
     }
+    // abort ends the process by SIGABRT, its handler run first: one that
+    // exits ends it so, one that returns does not save it.
+    if (strncmp(argv[1], "abort", 5) == 0) {
+      if (argv[1][5] != 0) signal(SIGABRT, argv[1][6] == 'e' ? abort_exits : abort_returns);
+      abort();
+    }
     if (strcmp(argv[1], "self") == 0) { kill(getpid(), SIGTERM); return 99; }
     if (strcmp(argv[1], "checkpoint") == 0) for (;;) access("/", F_OK);
     if (strcmp(argv[1], "spin") == 0) for (;;) __asm__ volatile("");
@@ -305,6 +314,19 @@ int main(int argc, char **argv) {
   CHECK(waitpid(-1, &status, 0) == any && WEXITSTATUS(status) == 130);
   status = system("exit 3");
   CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 3);
+  const int aborted = child(argv[0], "abort"), handled = child(argv[0], "abort-exits"),
+      returned = child(argv[0], "abort-returns");
+  CHECK(waitpid(aborted, &status, 0) == aborted && WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT);
+  CHECK(waitpid(handled, &status, 0) == handled && WIFEXITED(status) && WEXITSTATUS(status) == 77);
+  CHECK(waitpid(returned, &status, 0) == returned && WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT);
+  CHECK(waitpid(-1, &status, 0x1000) == -1 && errno == EINVAL);
+  // One priority, nice 0, and limits that are what they are.
+  CHECK(getpriority(PRIO_PROCESS, 0) == 0 && nice(0) == 0 &&
+        setpriority(PRIO_PROCESS, 0, 5) == -1 && errno == EPERM);
+  struct rlimit files;
+  CHECK(getrlimit(RLIMIT_NOFILE, &files) == 0 && setrlimit(RLIMIT_NOFILE, &files) == 0);
+  files.rlim_cur = 64;
+  CHECK(setrlimit(RLIMIT_NOFILE, &files) == -1 && errno == EPERM);
   // popen's "e" gives the caller's end FD_CLOEXEC.
   FILE *closing = popen("true", "re"), *kept = popen("true", "r");
   CHECK(closing != NULL && kept != NULL && fcntl(fileno(closing), F_GETFD) == FD_CLOEXEC &&

@@ -12,7 +12,7 @@ REQUIRES HOST threads@0
 # key it reads without showing it: Pi's own /login shows a key as it is typed.
 INSTALL /v0.1.4/demos/pi/Dollyfile-pi 26878de8916cdeec0be7ca4e79b1da69a5df383932a866b58f323d20ec6fbe72
 INSTALL /v0.1.4/demos/closed-source-agent/Dollyfile-secretenv f3244bbac2565376508fd680157834191d54207bacaec6008a44db4c8810a605
-INSTALL /v0.1.4/Dollyfile-dolly-docs 7101e59c08cbcea49073c7c2a17f60fa4fd7a2bb51756d13ece455e6a7db99c1
+INSTALL /v0.1.4/Dollyfile-dolly-docs 0433f6c2eba72bedc6fc7ea2c9b1b339cd8c4031ea0cba4632620be18e116818
 
 SOURCE /v0.1.4/dist/static/default/pi/dolly-tools.js                    b2d5ecb9788c9f701d4892a23d0c0b8b17adb6309278de9876aefc8d8ca4b6a8 /home/dolly/.pi/agent/extensions/dolly-tools.js
 SOURCE /v0.1.4/dist/static/default/pi/SYSTEM.md                         1bb5c684e163c05692d5212f051d7b4489b3e2d97714fd4384b0910f2a1ad1b1 /home/dolly/.pi/agent/SYSTEM.md

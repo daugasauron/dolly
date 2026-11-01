@@ -22,10 +22,10 @@ await browserTest("pty", { image: "system", server: { fixtures } }, async ({ ser
   await status("/tmp/pty deaf");
   await status("/tmp/pty flow");
 
-  // One process can take every pseudo-terminal. Exit, abort (its Worker
+  // One process can take every pseudo-terminal. Exit, a trap (its Worker
   // fails) and forced termination of a CPU loop each give them back.
   await status("/tmp/pty quota exit");
-  await status("/tmp/pty quota abort 2> /dev/null", 126);
+  await status("/tmp/pty quota trap 2> /dev/null", 126);
   await status("/tmp/pty quota exit");
   await status("timeout 1 /tmp/pty quota spin", 124);
   await status("/tmp/pty quota exit");

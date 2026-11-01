@@ -110,8 +110,10 @@ sequenceDiagram
   Ghostty holds more than 256. Descriptor flags are per handle; offsets and status
   flags belong to the shared open description. `FD_CLOEXEC` works everywhere.
   `getrlimit` reports the fixed limits (`RLIMIT_NOFILE` 1024, `RLIMIT_NPROC` 56,
-  `RLIMIT_AS` 8 GiB, `RLIMIT_STACK` 8 MiB); `sysconf(_SC_OPEN_MAX)` is still
-  libc's constant 1024.
+  `RLIMIT_AS` 8 GiB, `RLIMIT_STACK` 8 MiB), and `setrlimit` to anything else
+  fails with `EPERM`; `sysconf(_SC_OPEN_MAX)` is still libc's constant 1024.
+  So is the one scheduling priority, nice 0: `nice` and `setpriority` to
+  another fail with `EPERM`.
 - Pipes hold 64 KiB. Empty reads and full writes return `EAGAIN` when
   nonblocking; closing all writers gives EOF, also to a reader that was
   waiting. Writing with no reader, or waiting to write when the last reader

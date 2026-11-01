@@ -377,7 +377,7 @@ static int quota(const char *end) {
   int64_t result;
   while ((result = pty_open(0, ends)) == 0) ++count;
   CHECK(result == -ENFILE && count == DOLLY_PTY_LIMIT);
-  if (strcmp(end, "abort") == 0) abort();
+  if (strcmp(end, "trap") == 0) __builtin_trap();
   while (strcmp(end, "spin") == 0) {}
   return 0;
 }

@@ -164,6 +164,7 @@ int main(int argc, char **argv) {
   CHECK(text != NULL && fputs("hello\n", text) >= 0 && fclose(text) == 0);
   CHECK(execl("not-a-program", "not-a-program", (char *)NULL) == -1 && errno == ENOEXEC);
   CHECK(execl(argv[3], argv[3], (char *)NULL) == -1 && errno == ENOEXEC);
+  CHECK(execl(scratch, scratch, (char *)NULL) == -1 && errno == EACCES);
   char *no_arguments[] = {NULL};
   CHECK(execv(self, no_arguments) == -1 && errno == EINVAL);
   // A path longer than the packet is a malformed request.
