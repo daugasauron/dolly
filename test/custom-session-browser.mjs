@@ -274,7 +274,8 @@ async function namedSessions(context, server, name) {
     const store = await import("/src/session-store.mjs");
     const good = await store.loadStoredSession("browser-proof");
     await store.saveStoredSession({ ...good, name: "wrong-base", buildId: "different-runtime" });
-    await store.saveStoredSession({ ...good, name: "broken-data", encoding: "identity", bytes: new ArrayBuffer(16) });
+    await store.saveStoredSession({ ...good, name: "broken-data",
+      ...await store.encodeSessionStream(write => write(new Uint8Array(16))) });
   });
   for (const session of ["wrong-base", "broken-data", "missing-session"]) {
     await page.goto(`${server.origin}/session/?name=${session}`);

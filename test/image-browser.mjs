@@ -237,7 +237,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
       recovered = artifact.sha256 === base.sha256 && artifact.bytes.byteLength === base.bytes.byteLength;
     } finally { await saveImageArtifact(base, `/${system.dollyfile}`); }
     await saveStoredSession({ name: "cache-migration-proof", formatVersion: 2, buildId: first.buildId,
-      image: "system", imageIdentity: `system:${system.sha256}`, updatedAt: 0, encoding: "identity", bytes: first.bytes });
+      image: "system", imageIdentity: `system:${system.sha256}`, updatedAt: 0, encoding: "gzip", bytes: first.bytes });
     await new Promise((resolve, reject) => {
       const request = indexedDB.deleteDatabase("dolly-image-artifacts-v3");
       request.onsuccess = resolve; request.onerror = () => reject(request.error);

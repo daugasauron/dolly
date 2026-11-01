@@ -8,7 +8,7 @@ import { createHash, randomBytes } from "node:crypto";
 const bytes = new TextEncoder().encode("DOLLYSES-opaque-\uFEFF日本語-credential").buffer;
 const encodeSessionSnapshot = input => encodeSessionStream(write => write(new Uint8Array(input)));
 const record = { name: "work.1", formatVersion: 2, buildId: "fixture-build",
-  image: "default", imageIdentity: "default:fixture", updatedAt: 123, encoding: "identity", bytes };
+  image: "default", imageIdentity: "default:fixture", updatedAt: 123, ...await encodeSessionSnapshot(bytes) };
 
 async function edit(file, change) {
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -21,13 +21,10 @@ async function edit(file, change) {
   return new Blob([header, encoded, bytes.subarray(12 + length)]);
 }
 
-test("session files round-trip identity and gzip bytes and literal metadata", async () => {
-  for (const encoded of [{ encoding: "identity", bytes }, await encodeSessionSnapshot(bytes)]) {
-    const saved = { ...record, ...encoded };
-    const restored = await importSessionFile(await exportSessionFile(saved));
-    assert.deepEqual(restored, saved);
-    assert.deepEqual(await decodeSessionSnapshot(restored), bytes);
-  }
+test("session files round-trip their bytes and literal metadata", async () => {
+  const restored = await importSessionFile(await exportSessionFile(record));
+  assert.deepEqual(restored, record);
+  assert.deepEqual(await decodeSessionSnapshot(restored), bytes);
 });
 
 test("streamed compression preserves bytes across chunks and rejects an incomplete producer", async () => {
@@ -80,8 +77,9 @@ test("reject corrupt, truncated, oversized and unsupported session envelopes", a
   ]) await assert.rejects(importSessionFile(await edit(file, mutate)));
   // Another version's file is refused by a message naming the version it belongs to.
   await assert.rejects(importSessionFile(await edit(file, meta => { meta.version = "9.8.7"; })), /9\.8\.7/);
-  await assert.rejects(importSessionFile(await exportSessionFile({ ...record, encoding: "gzip" })));
-  await assert.rejects(importSessionFile(await exportSessionFile({ ...record, bytes: new ArrayBuffer(1) })), /incomplete/);
+  await assert.rejects(importSessionFile(await exportSessionFile({ ...record, bytes })));
+  await assert.rejects(importSessionFile(await exportSessionFile({ ...record,
+    ...await encodeSessionSnapshot(new ArrayBuffer(1)) })), /incomplete/);
 });
 
 test("custom session files retain the exact recipe, artifact and inherited restrictions", async () => {

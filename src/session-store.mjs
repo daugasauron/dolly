@@ -111,11 +111,9 @@ export async function encodeSessionStream(produce) {
 export async function decodeSessionSnapshot(record) {
   if (record === null || typeof record !== "object" ||
       !(record.bytes instanceof ArrayBuffer) || record.bytes.byteLength === 0 ||
-      record.bytes.byteLength > DOLLY_SESSION_MAX_BYTES ||
-      !["gzip", "identity"].includes(record.encoding)) {
+      record.bytes.byteLength > DOLLY_SESSION_MAX_BYTES || record.encoding !== "gzip") {
     throw new Error("Stored Dolly session is invalid");
   }
-  if (record.encoding === "identity") return record.bytes.slice(0);
   let offset = 0;
   const stream = new ReadableStream({
     pull(controller) {
@@ -178,8 +176,7 @@ export function validateSessionRecord(record) {
       typeof record.imageIdentity !== "string" || record.imageIdentity.length > 256 ||
       !Number.isSafeInteger(record.updatedAt) ||
       !(record.bytes instanceof ArrayBuffer) || record.bytes.byteLength === 0 ||
-      record.bytes.byteLength > DOLLY_SESSION_MAX_BYTES ||
-      !["gzip", "identity"].includes(record.encoding)) {
+      record.bytes.byteLength > DOLLY_SESSION_MAX_BYTES || record.encoding !== "gzip") {
     throw new TypeError("invalid Dolly session record");
   }
   if (record.image === "custom" ? record.imageIdentity !== customSessionIdentity(record.customImage)
