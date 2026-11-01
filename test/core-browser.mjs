@@ -53,17 +53,16 @@ await browserTest("core", { image }, async ({ server, open }) => {
   await page.waitForFunction(() => !__dolly.httpActive);
   assert.equal(server.cancelledRequests, cancelledBefore + 1, "cancelled HTTP response stayed open");
   assert.equal(await submit(`mkdir /tmp/core-tar; curl -fsS ${server.origin}/fixture/root.tar -o /tmp/core.tar && tar -xf /tmp/core.tar -C /tmp/core-tar && test "$(cat /tmp/core-tar/file)" = 'root preserved' && rm -rf /tmp/core-tar /tmp/core.tar`), 0);
-  // A file that is no tar archive says so; gzip data, short or not, says how to read it.
+  // A file that is no tar archive is refused; gzip data, short or not, is refused with
+  // the command that reads it here, and a file that is neither gets no such command.
+  const reads = file => `gzip -dc ${file} | tar -xf -`;
   assert.equal(await submit("cd /tmp && printf 'not an archive at all\\n' > junk.tar && printf '\\037\\213\\010' > short.tgz && " +
     "{ printf '\\037\\213\\010\\000'; cat /bin/slop; } > long.tgz && said=no && ! tar -xf junk.tar 2> err && " +
-    "test \"$(cat err)\" = 'tar: junk.tar: not a tar archive' && said=yes; for name in short long; do ! tar -xf $name.tgz 2> err && " +
-    "test \"$(cat err)\" = \"tar: $name.tgz: gzip data, not a tar archive: gzip -dc $name.tgz | tar -xf - (amy install gzip, where gzip is missing)\" " +
-    "|| said=no; done; rm junk.tar short.tgz long.tgz err; test $said = yes"), 0);
-  // It has no -z: given one, it says how gzip data is read here, naming the archive where there is one.
-  const noGzip = file => `tar: -z is not supported here: gzip -dc ${file} | tar -xf - ` +
-    "(amy install gzip, where gzip is missing; amy install tar gives a tar with -z)";
+    "! grep -q 'gzip -dc' err && said=yes; for name in short long; do ! tar -xf $name.tgz 2> err && " +
+    `grep -qF "${reads("$name.tgz")}" err || said=no; done; rm junk.tar short.tgz long.tgz err; test $said = yes`), 0);
+  // It has no -z: given one, it gives the command that reads gzip data here, naming the archive where there is one.
   for (const [options, file] of [["-xzf x.crate", "x.crate"], ["-zxf x.crate -C /tmp", "x.crate"], ["xzf x.crate", "x.crate"], ["-z", "FILE"]]) {
-    assert.equal(await submit(`tar ${options} 2> /tmp/err; test $? = 1 && test "$(cat /tmp/err)" = '${noGzip(file)}' && rm /tmp/err`), 0, options);
+    assert.equal(await submit(`tar ${options} 2> /tmp/err; test $? = 1 && grep -qF '${reads(file)}' /tmp/err && rm /tmp/err`), 0, options);
   }
   assert.equal(await submit("printf 'needle\\n' > /tmp/core-search; grep -q needle /tmp/core-search && test \"$(find /tmp -maxdepth 1 -name core-search)\" = /tmp/core-search && rm /tmp/core-search"), 0);
   assert.equal(await submit([

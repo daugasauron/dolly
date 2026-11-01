@@ -196,6 +196,32 @@ input: every core image's plan is "reuse".
     layout: 13 ms in Chrome, 20 ms in Firefox. The build-log fixture of `image-browser.mjs`
     checks the follow, the stop when the reader scrolls up, and a 2 s bound (it fails before).
 
+## The tests (second assignment, from 20:30)
+
+The integrator asked for a sweep of `test/*.test.mjs`, `test/*-browser.mjs` and their
+fixtures for assertions on source text, error wording, prose or layout, duplicated checks and
+checks that can no longer fail. The rule applied: a check of what happened (a refusal, a
+status, bytes, nothing written) stays; a short keyword naming which of several checks refused
+(`/symlink loop/`, `/not retained/`, `/stale recipe pin/`) stays, as the behaviour under test,
+where the effect alone cannot tell the paths apart; whole sentences, advice prose and
+markup shapes go. Files another branch changes tonight are left to it (B: `process-`,
+`pty-`, `sockets-`, `terminal-browser`; C: `commands`, `tar`, `man-`, `shell-browser`; D:
+`audio-`, `display-cursor-`, `nena-browser`, `display-transport`, `session-transport`; E:
+`amy-`, `host-modules-`, `threads-`, `memory-growth-notify-browser`, `snapshot-packs`).
+
+- `core-browser.mjs`: tar's refusals were three exact sentences of advice. Now: each is
+  refused (status), gzip data and `-z` get the command that reads them here
+  (`gzip -dc FILE | tar -xf -`, the part an agent runs), and a file that is neither gets no
+  such command.
+- `package-documentation.test.mjs`: "every demo has its row" checked `demos/README.md`'s
+  index against the directories, a layout of prose; the link check beside it, which guards
+  what the site publishes, stays.
+- `site-browser.mjs`: "a row is the image's name, its description and its links" counted
+  the menu's table cells; the links of each row, which the test follows, stay.
+- `site-release.test.mjs`: the release server test also asserted `sessionLoadUrl`'s URL,
+  which `session-transport.test.mjs` tests where it belongs; and the domain page's count of
+  `<video` tags, where the media checks beside it are the behaviour.
+
 ## Checked and left
 
 - **The rest of a boot at a 100 ms round trip is the module graph.** After finding 10,
