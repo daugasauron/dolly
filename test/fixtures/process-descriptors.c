@@ -401,6 +401,21 @@ static void path_answers(void) {
   CHECK(close(reader) == 0 && close(writer) == 0 && unlink(file) == 0 && rmdir(directory) == 0);
 }
 
+/* Truncation, by O_TRUNC or ftruncate, modifies a file: make reads its time. */
+static void truncation_times(void) {
+  char path[] = "/tmp/process-descriptors-XXXXXX";
+  const int fd = mkstemp(path);
+  const struct timespec past[2] = {{1000, 0}, {1000, 0}};
+  struct stat metadata;
+  CHECK(fd >= 0 && futimens(fd, past) == 0 && ftruncate(fd, 0) == 0);
+  CHECK(fstat(fd, &metadata) == 0 && metadata.st_mtime > 1000);
+  CHECK(futimens(fd, past) == 0);
+  const int truncated = open(path, O_WRONLY | O_TRUNC);
+  CHECK(truncated >= 0 && fstat(truncated, &metadata) == 0 && metadata.st_mtime > 1000 &&
+        metadata.st_atime == 1000);
+  CHECK(close(truncated) == 0 && close(fd) == 0 && unlink(path) == 0);
+}
+
 /* A slash after a symbolic link follows it, and O_CREAT follows one to a file
  * not there yet, unless with O_EXCL. A dot is no name to rename. */
 static void link_answers(void) {
@@ -467,6 +482,7 @@ int main(int argc, char **argv) {
   posix_spawning(argv[0]);
   path_answers();
   link_answers();
+  truncation_times();
 #ifdef __dolly__
   spawning(argv[0]);
   directory_positions();

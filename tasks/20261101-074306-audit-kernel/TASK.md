@@ -260,6 +260,21 @@ Each with a test that failed before, verified in Chromium and Firefox.
     `sigwait` are ENOTSUP, `waitid` refuses `WNOWAIT`, and a file that is
     unlinked while open keeps `st_nlink` 1 (WasmFS).
 
+24. **Truncating a file left its modification time.** WasmFS marks it on a
+    write but not when `ftruncate` or `open` with `O_TRUNC` empties the
+    file, so `: > stamp`, make's way to renew a stamp, left it as old as
+    before and the rule ran again on every make. POSIX marks it for both;
+    the kernel now does (`mark_truncated`). Found by a fourth comparison
+    (`probes/stamp-edges.c`: times, inode numbers and sizes as make, git
+    and rsync read them). Kernel C. Test `truncation_times` in
+    `process-descriptors.c`, which Linux passes too: before, failed at its
+    first check (Chromium), now passes in Chromium and Firefox. Left: a
+    write, rename or chmod does not move `st_ctime` (WasmFS marks it only
+    on its own chmod, which Dolly's libc never calls, there being no
+    permission bits), so ctime is the creation time; git and make compare
+    mtime and size too, which do move. Directories count one link, as on
+    btrfs.
+
 ## Proposals for the owner
 
 - **The kernel told each disposition, and a spawned child that keeps what

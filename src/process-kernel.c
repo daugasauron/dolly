@@ -1051,6 +1051,14 @@ static int path_from_packet(dolly_kernel_process *process,
   return 0;
 }
 
+/* WasmFS keeps a file's modification time when it truncates it, by O_TRUNC
+ * or ftruncate. POSIX marks it, and make reads it. */
+static void mark_truncated(int kernel_fd) {
+  static const struct timespec now[2] = {{0, UTIME_OMIT}, {0, UTIME_NOW}};
+  struct stat file;
+  if (fstat(kernel_fd, &file) == 0 && S_ISREG(file.st_mode)) (void)futimens(kernel_fd, now);
+}
+
 /* WasmFS fails to create the file a symbolic link names that does not
  * exist yet. POSIX creates it, and with O_EXCL never follows the link. */
 static int create_through_link(int directory, const char *path, int flags, int depth) {
@@ -1908,7 +1916,9 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       const int access = fcntl(descriptor, F_GETFL);
       if (access < 0) return -errno;
       if ((access & O_ACCMODE) == O_RDONLY) return -EINVAL;
-      return ftruncate(descriptor, (off_t)request.size) == 0 ? 0 : -errno;
+      if (ftruncate(descriptor, (off_t)request.size) != 0) return -errno;
+      mark_truncated(descriptor);
+      return 0;
     }
     case DOLLY_PROCESS_FD_STAT_FILESYSTEM: {
       if (response_capacity < sizeof(dolly_process_filesystem_stat_response)) return -EINVAL;
@@ -2118,6 +2128,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
           kernel_fd = create_through_link(directory, path, flags, 40);
         else if (kernel_fd < 0) kernel_fd = -errno;
         if (kernel_fd < 0) result = kernel_fd;
+        else if ((flags & O_TRUNC) != 0) mark_truncated(kernel_fd);
       }
       free(path);
       if (result != 0) return result;
