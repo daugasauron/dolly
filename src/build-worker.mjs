@@ -114,7 +114,11 @@ await runImage(async (config, host) => {
       }
       prepareRecipe(files);
       for (const artifact of artifacts.values()) {
-        files.write(`/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`, new Uint8Array(await artifact.bytes.arrayBuffer()));
+        const path = `/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`;
+        for (let offset = 0; offset === 0 || offset < artifact.bytes.size; offset += PIECE) {
+          const piece = new Uint8Array(await artifact.bytes.slice(offset, offset + PIECE).arrayBuffer());
+          if (offset === 0) files.write(path, piece); else files.append(path, piece);
+        }
         if (artifact !== base) artifact.bytes = null;
       }
       // The kernel restores a snapshot against the list of its paths.
