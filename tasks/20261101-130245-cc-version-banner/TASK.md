@@ -1,6 +1,6 @@
 # cc -v without input prints Clang's banner, as configure scripts read it
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 120
 - TAGS: compiler,toolchain
 
@@ -19,3 +19,9 @@ CFLAGS" and gives no optimization, dependency or Clang flags: FFmpeg would build
   stays a frontend option.
 - After the compiler round (`llvm-cc` built and pinned, `docs/sources.md`), FFmpeg's
   configure prints no "Unknown C compiler" and its recipe drops `--optflags=-O3`.
+
+## Closed (2026-11-02, integration)
+
+Fixed without a compiler round by `68824453` on `core/audit-slop`: `cc -v` and `c++ -v` alone print
+Clang's banner, the version taken from `__clang_version__` of the seed compiler that builds
+them, which is the compiler they start. Merged into `integrate/2026-11-02`.
