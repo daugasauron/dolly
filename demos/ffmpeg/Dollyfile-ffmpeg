@@ -14,6 +14,9 @@ REQUIRES HOST threads@0
 # - the cc package's compiler for target and host (its defaults are gcc and
 #   g++); ar s to index an archive, as there is no ranlib; nothing to strip
 #   with; no documentation (its manual pages below);
+# - -O3, what it gives Clang: it names Clang by the banner of cc -v, which
+#   Dolly's cc answers with "no input files", and an unknown compiler gets
+#   no optimization flags (--optflags is its option for that);
 # - pthreads, required: every program linked with these needs threads@0.
 FROM /v0.1.4/Dollyfile-system-tools cb2033daa110ad94dbe4205463184eaa8db6e05f09b3457ce5e4f7df2b6036e5
 USE /v0.1.4/Dollyfile-gzip 79b8feb18c7ca929eabe3e30e49f43ed5640660caf8a97e1d705359e4a22ed3f
@@ -35,7 +38,7 @@ SOURCE /v0.1.4/dist/static/ffmpeg/ffmpeg-9.0.2.tar.gz 84960df915059e8754fef2cd7c
 SLOP gzip -dc /tmp/ffmpeg.tar.gz | tar -xf - -C /tmp
 SLOP mkdir /tmp/ffmpeg-build
 SLOP CWD /tmp/ffmpeg-build time /tmp/ffmpeg-9.0.2/configure --prefix=/usr --target-os=none --arch=wasm --disable-asm \
-  --cc=cc --cxx=c++ --host-cc=cc --ar=ar --ranlib='ar s' --disable-stripping --disable-doc --disable-debug \
+  --cc=cc --cxx=c++ --host-cc=cc --ar=ar --ranlib='ar s' --disable-stripping --disable-doc --disable-debug --optflags=-O3 \
   --disable-autodetect --enable-pthreads --enable-zlib
 SLOP CWD /tmp/ffmpeg-build time make -j4
 SLOP CWD /tmp/ffmpeg-build make install

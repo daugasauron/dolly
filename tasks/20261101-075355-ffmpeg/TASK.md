@@ -77,6 +77,18 @@ status; Dolly's spawn ignores execute bits and runs a `#!` line's absolute in-Wa
 (`docs/process-model.md`), so the script runs and the sanity test passes. To confirm in the
 build's log.
 
+## Finding: `cc -v` without input is not Clang's banner
+
+FFmpeg's configure (`probe_cc`) names Clang by `$cc -v 2>&1 | grep -q clang`, as autoconf's
+version log and Meson read `-v` too. Dolly's `cc -v` alone prints `cc: no input files` and ends
+with 64 (`src/compiler.cpp`, `options.inputs.empty()`), so configure warns "Unknown C compiler
+cc, unable to select optimal CFLAGS" and gives it no optimization, dependency or Clang flags:
+the build would be `-O0`. The recipe says `--optflags=-O3` (configure's own option for that)
+and the comment says why. Proposal (compiler driver, a seed and compiler round): with `-v` and
+no input, print Clang's banner on stderr and end with 0, as Clang does:
+`clang version 24.0.0`, `Target: wasm64-unknown-dolly`, `Thread model: posix`. Then the recipe
+drops `--optflags` and configure picks Clang's `-O3` and `-MMD` itself.
+
 ## State (2026-11-01 21:10)
 
 Integrator: agent C fixes (1) and (2) in `core/audit-slop` before 00:30; this branch merges
@@ -90,3 +102,20 @@ rows, the demo index and the `elsewhere` row of `test/amy-browser.mjs`.
   against its source, the PNG `png,320,240` with its signature.
 - The package's manual pages are each command's `-h`: FFmpeg's pages are Texinfo, which needs
   makeinfo and Perl (`--disable-doc`).
+
+## Where FFmpeg would serve in Dolly (the owner's question)
+
+- Today nothing in the catalog decodes or encodes media with FFmpeg's breadth; each user
+  carries a small decoder of its own: `sdl2-mixer` (stb_vorbis, minimp3, dr_flac), Xonotic and
+  0 A.D. (libogg and libvorbis packages), ClassiCube's own PNG and Vorbis code, the RTS's and
+  raylib's PNG writers for the agents' screenshots, the speech demo's 48 to 16 kHz resampler
+  (`demos/speech/hearing.h`).
+- None should switch: each decoder is one file or one small library sized to its use, and a
+  static FFmpeg is tens of MB per program and needs `threads@0`. The SDL2 games play through
+  SDL_mixer, which upstream builds on exactly those single-file decoders.
+- Where it adds something nobody has: sessions and agents that handle media files (inspect
+  with `ffprobe`, convert, cut, extract frames or sound), bhop's recorded attempts (PNG frames
+  plus `inputs.jsonl`, `demos/bhop/agent/replay.mjs`) turned into one video file inside Dolly,
+  and recipes that need libavcodec or libavformat (a media player on `display@0`/`audio@0`,
+  or a game engine whose upstream video path uses FFmpeg). Those are new work, not switches.
+
