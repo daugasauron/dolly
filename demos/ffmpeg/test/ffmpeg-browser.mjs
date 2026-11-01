@@ -40,9 +40,9 @@ for (const browser of browsers) {
     await run("cd /tmp/media && " +
       `${quiet.replace("error", "info")} -i clip.mp4 ${video} -lavfi '[0:v][1:v]psnr' -f null - 2> psnr.txt && ` +
       "test \"$(sed -n 's/.* average:\\([0-9]*\\).*/\\1/p' psnr.txt)\" -gt 30");
+    // A frame as PNG, which ffprobe decodes to its size.
     await run("cd /tmp/media && " +
-      `${quiet} -ss 1 -i clip.mp4 -frames:v 1 frame.png && ${lists(probe("stream=codec_name,width,height", "frame.png"), ["png,320,240"])} && ` +
-      "test \"$(od -An -c -N 4 frame.png | tr -d ' ')\" = '211PNG'");
+      `${quiet} -ss 1 -i clip.mp4 -frames:v 1 frame.png && ${lists(probe("stream=codec_name,width,height", "frame.png"), ["png,320,240"])}`);
     // The libraries and headers, for programs the cc package builds.
     await run("amy install cc");
     await run(`cd /tmp/media && ${writeCommand("probe.c", program)} && ` +

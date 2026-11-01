@@ -102,19 +102,54 @@ call): the core `gzip` compresses as well, with the zlib it already links (`defl
 with a gzip wrapper writes no name or time, which is `-n`), so a command named gzip does what
 upstream build scripts take that name to do.
 
-## State (2026-11-01 21:10)
+## State (2026-11-01 22:05): the package builds inside Dolly
 
-Integrator: agent C fixes (1) and (2) in `core/audit-slop` before 00:30; this branch merges
-them, rebuilds the seed and images, and builds `ffmpeg`. Written and committed meanwhile:
-`demos/ffmpeg/` (recipe, staging hook, README, browser test), the pin, upstream and licence
-rows, the demo index and the `elsewhere` row of `test/amy-browser.mjs`.
+C's Slop (`core/audit-slop` `ad78dbef`: `for NAME do`, `test`/`[`/`echo` run in the shell, a
+subshell undoes only what it changed) is merged here (`2a0afc9f`); the seed was rebuilt (image
+inputs `sha256:45d43ca5…`) and the images `ffmpeg` needs that C's tree had built from the same
+recipes and seed were hard-linked from `work/audit-slop/dist` (system-build, core, zlib, gzip,
+curl, git, zig-build, ghostty-build, display, system-tools, mandoc, posix, amy, nena, transfer,
+default, cc: same recipe hash and build ID, so the plan reuses them).
 
-- The test's commands and expected answers were checked natively with the host's FFmpeg 4.4.2:
-  `mpeg4,320,240`/`aac`, `ffv1,320,240`/`flac`, `pcm_s16le,44100,1`, `2.000000`, equal MD5s of
-  source and decoded FFV1 video and FLAC/WAV audio, MPEG-4 at `-q:v 3` 46 dB average PSNR
-  against its source, the PNG `png,320,240` with its signature.
-- The package's manual pages are each command's `-h`: FFmpeg's pages are Texinfo, which needs
-  makeinfo and Perl (`--disable-doc`).
+`ffmpeg` built in Chrome (`slot.sh bigbuild`, one job), 2026-11-01 21:52, `0209a103`:
+
+| Step | Time |
+| --- | --- |
+| configure (Slop) | 64.6 s (102 s in the first run, beside other builds) |
+| `make -j4`: 2,052 compiles, 7 archives, 2 programs | 196 s |
+| whole image (restore, unpack, configure, make, install, checks, seal) | 281 s |
+
+- Memory: the scope's cgroup peak 2.68 GB (page cache included), sampled anonymous at most
+  1.48 GB. It needs no `bigbuild`; a 6 GB build slot holds it.
+- Snapshot 79 MB in 10 packs, 222 files: `ffmpeg` 20.3 MiB, `ffprobe` 20.1 MiB,
+  `libavcodec.a` 21.6 MiB, `libavfilter.a` 4.5, `libavformat.a` 3.9, `libavutil.a` 1.9,
+  `libswscale.a` 1.3, `libswresample.a` 0.1; host modules `runtime@0`, `threads@0`.
+- Configure under Slop printed `slop: chmod: command not found` once (the other `chmod` goes to
+  its log) and passed its sanity test: the `#!/bin/sh` script ran without modes, as above.
+  It detects `pthreads`, network support (sockets refused at run time), the `lavfi` input
+  device only (no `fbdev`, `oss`, `v4l2` headers here), and warns "Unknown C compiler cc" and
+  "pkg-config not found" (nothing is looked up with it).
+- In the build: lavfi's test pattern and tone encoded to MPEG-4 and FLAC in Matroska, and
+  `ffprobe` names both streams.
+- `wasm-ld: warning: unknown -z value: noexecstack`, twice: configure's `check_ldflags` keeps
+  `-Wl,-z,noexecstack` because the linker only warns. Harmless; not changed.
+
+## The demo test (2026-11-01 22:00)
+
+`demos/ffmpeg/test/ffmpeg-browser.mjs` passes in Chromium (5.4 s) and Firefox (7.1 s), each run
+whole, on `default` with this branch's images: `amy install ffmpeg` (zlib first, 197 files,
+79 MB), lavfi's pattern and tone into MP4 (MPEG-4 Part 2, AAC), Matroska (FFV1, FLAC) and WAV
+(PCM), `ffprobe` reads every stream back, the FFV1 video and the FLAC/WAV audio decode to the
+MD5 of lavfi's own output, the MPEG-4 video is compared with its source (above 30 dB), a frame
+is written as PNG and probed, and after `amy install cc` a C program including the three main
+headers links `-lavformat -lavcodec -lavutil -lswresample` and runs.
+
+Measured in Chromium besides the test (`build/ffmpeg-evidence/evidence-chromium.log`):
+`amy install ffmpeg` 0.96 s from the local server, `ffmpeg -version` 90 ms, two seconds of
+320x240 to MP4 255 ms, four seconds of 640x480 MPEG-4 at `-threads 4` 226 ms; PSNR of the
+MPEG-4 clip 46.0 dB (the host's FFmpeg 4.4.2 gives 46 too); 177 encoders, 502 decoders.
+Not run: `test/amy-browser.mjs` (it asserts that every package of the catalog is used, and this
+tree's catalog is narrowed); its row for `ffmpeg` is the `elsewhere` entry.
 
 ## Where FFmpeg would serve in Dolly (the owner's question)
 
