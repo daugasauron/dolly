@@ -6,10 +6,10 @@
 
 ## Summary for the owner
 
-1. `proposal/http-limits` (two `Proposal:` commits on `integrate/2026-11-02`): `http@0` stops refusing what the services programs call accept.
+1. `proposal/http-limits` (two `Proposal:` commits on `integrate/2026-11-02` and its repin): `http@0` stops refusing what the services programs call accept.
 2. Body cap 8 MiB to 64 MiB (P5 of `tasks/20261101-074546-audit-host`): above the 32 MB the Messages API takes, so the service answers 413, which Pi acts on, not the broker an `E2BIG` the SDK calls "Connection error.".
 3. `timeoutMilliseconds` (name and 10-minute default kept) bounds a wait, not a whole request: the wait for the headers, for the next bytes, or for the program to read; a stream that keeps moving, like Opus's 910-line answer, completes.
-4. Still every request is bounded and nothing gains authority: a server that never answers or stops is cut with `ETIMEDOUT` as before, bytes stay under `maxResponseBytes`. Browser runs pending.
+4. Still every request is bounded and nothing gains authority: a server that never answers or stops is cut with `ETIMEDOUT` as before, bytes stay under `maxResponseBytes`. Measured in Chromium and Firefox: a 6 s stream under a 2 s timeout completes (cut at 2 s before), a stall is cut 2.0 s after its last line.
 5. Cost: one catalog round for both (the contract's text changes the http digest). Accept with "yes"; or take only the body cap (first commit) or only the timeout.
 
 ## Why
@@ -100,13 +100,68 @@ source of many parts (up to 2 GiB) no longer has to arrive whole within 10 minut
   of a line every 500 ms for 6 s completes, the same stream stopping is cut a
   timeout after its last line (curl 28, all 12 lines received), and a server that
   never answers headers is cut (curl 28).
-- Not a proposal, on the same branch and mergeable alone: `f7ced301`, the policy
+- Not a proposal, on the same branch and mergeable alone: `8519d689`, the policy
   refuses a timeout above 2^31 - 1 ms. `setTimeout` waits no longer (Node fires a
   longer one after 1 ms, browsers convert it to a 32-bit integer), so such a policy
   ended every request at once (measured in Node: `ETIMEDOUT` after 19 ms).
 
 ## Measurements
 
-Pending: `default` and `system` rebuilt on this branch, then `test/network-browser.mjs`,
-`test/core-browser.mjs` and `test/boundary-browser.mjs` in Chromium and Firefox.
+Evidence under `work/audit-host/build/http-limits-evidence/`.
 
+- Commits: `d07e816c` repins the six commands `integrate/2026-11-02` changed without
+  repinning (amy, du, find, install, timeout, xargs; the integration tree's round writes
+  the same), `a85477e3` P5 carried over, `8519d689` the timer range, `f22cb90e` the
+  timeout. The first try committed stale source pins (see Lessons); the build caught it.
+- `default` and `system` with their closure, 23 images, rebuilt on this branch in
+  1,095 s at one job (`images.log`). The source suite passes (468).
+- `test/http-broker.test.mjs`'s new case fails on the old broker: the 30-byte stream
+  of three 100 ms timeouts was cut after 9 bytes (`unit-before.log`).
+- `test/network-browser.mjs` passes in Chromium (46.7 s) and Firefox (52.2 s)
+  (`network-after.log`), P5's 8 MiB + 17 and cap + 1 bodies included. With the old
+  broker it fails in Chromium at its first timeout case: the 6 s stream ends in
+  curl's 28 (`network-before.log`).
+- The three cases timed (`timeout-cases.mjs`, a rule of 2 s, a line every 500 ms):
+
+  | Case | Broker | Chromium | Firefox |
+  | --- | --- | --- | --- |
+  | 12 lines in 6 s, then the end | before | curl 28 after 2,068 ms, 3 lines | curl 28 after 2,086 ms, 3 lines |
+  | | after | curl 0 after 6,578 ms, 12 lines | curl 0 after 6,579 ms, 12 lines |
+  | 12 lines in 6 s, then silence | before | curl 28 after 2,108 ms, 3 lines | curl 28 after 2,062 ms, 3 lines |
+  | | after | curl 28, 12 lines, closed 2,003 ms after the last | curl 28, 12 lines, closed 2,014 ms after the last |
+  | no headers | before | closed 2,003 ms after the request | closed 2,001 ms |
+  | | after | closed 2,000 ms after the request | closed 1,998 ms |
+
+  The server saw every cut connection close: the page releases what it held.
+- `test/core-browser.mjs` passes in Chromium (42.7 s) and Firefox (72.2 s)
+  (`core-boundary.log`).
+- `test/boundary-browser.mjs` does not finish on this branch: Chromium exceeds its
+  120 s twice. Not this change: with the old broker it hangs the same way
+  (`boundary-timed-oldbroker.log`), and with marks in a copy of its fixture no check
+  is reached, the HTTP ones included (`boundary-marks.log`). It stops before
+  `checkKernelBounds` returns, which starts `runtime@0` alone in a dedicated Worker
+  (`hostRegistry`, `createHost`, `host.kernel.growing`). Not measured on
+  `integrate/2026-11-02` itself; reported to the integrator. The night's audit-host
+  branch passed it in 3 s.
+
+
+## Lessons
+
+- Name what a limit protects before choosing its unit. The deadline protected the slot
+  pool, which a transfer holds while it waits, so it had to measure waiting; total time
+  protected nothing and cut the one request that was working best. The body cap had the
+  same flaw (P5): both were below the remote limit they stood in front of.
+- `update-recipe-pins.mjs --sources` pins what `dist/static/` holds, not the tree's
+  sources. After the rebase, this tree's staged copies were the old branch's, and the
+  first two commits pinned 17 of system-build's sources (slop.c, cc.c, ls.c…) at their
+  old hashes; the image build's staging rewrote them, which is how it showed. After a
+  rebase, stage (build) before repinning sources, and compare the build's rewritten
+  recipes with the commit.
+- The integration branch is not always pinned between catalog rounds: six commands had
+  changed on it without their recipes. A proposal branch then needs that repin as its
+  own first commit to build, kept apart from the proposal's own pins.
+- A setting the code hands to `setTimeout` has a range, 2^31 - 1 ms; outside it the timer
+  fires early. Validate such a value where it is read, as the policy now does.
+- Harness: `exit N` in a page's command ends the image's shell (the page then reports
+  "host providers closed"); `/bin/slop -c 'exit N'` returns a number. A subagent that
+  ends its turn to wait for a job stops; waits must stay in the foreground.
