@@ -8,7 +8,7 @@ import { gunzipSync } from "node:zlib";
 import test from "node:test";
 import { promisify } from "node:util";
 import { ensureSnapshotPacks, shareSnapshots, splitSnapshotRecords } from "../scripts/share-pages-snapshots.mjs";
-import { parseGeneratedConstant } from "../scripts/site-release.mjs";
+import { parseGeneratedConstant } from "../scripts/image-directory.mjs";
 import { decodeSnapshotRecords, encodeSnapshotRecords, mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 
 const digest = value => createHash("sha256").update(value).digest("hex");

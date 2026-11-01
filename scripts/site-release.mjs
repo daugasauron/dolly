@@ -17,18 +17,7 @@ import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
 import { readWasmInterface } from "./wasm-interface.mjs";
 import { verifyDocumentationLinks } from "./package-documentation.mjs";
 import { buildIdentities } from "./write-build-id.mjs";
-
-// Generated metadata is data, not executable input to the release verifier.
-export function parseGeneratedConstant(source, name) {
-  if (!/^[A-Z][A-Z0-9_]*$/.test(name)) throw new Error("invalid constant name");
-  const prefix = new RegExp(`^(?://[^\\n]*\\n)*export const ${name} = `);
-  if (!prefix.test(source)) throw new Error(`invalid generated ${name}`);
-  let value = source.replace(prefix, "").trim();
-  if (!value.endsWith(";")) throw new Error(`invalid generated ${name}`);
-  value = value.slice(0, -1);
-  if (value.startsWith("Object.freeze(") && value.endsWith(")")) value = value.slice(14, -1);
-  return JSON.parse(value);
-}
+import { parseGeneratedConstant } from "./image-directory.mjs";
 
 export function safePath(path) {
   if (!path || /[\\\r\n\0]/.test(path) || path.split("/").some(part => !part || part === "." || part === "..")) {

@@ -16,7 +16,7 @@ session modules), building on the page (`image-build*.mjs`, `build-worker.mjs`,
 Done when: each finding below is fixed with its browser evidence, closed as moot with the
 reason, or left as a few lines for the owner.
 
-## State (2026-11-01 21:00 JST)
+## State (2026-11-01 23:25 JST)
 
 Findings 1 to 7 and 9 to 19 (and the scoped style sheet) are committed, each verified as its
 commit says: source suite, and in Chromium and Firefox the suites in
@@ -31,7 +31,13 @@ the element (16); for the owner, the four questions below. The docs repins of fi
 restale `dolly-docs` and the images that install it: `dolly-docs`, `pi-dolly` and
 `pi-minimal` are rebuilt in this tree; `bhop`, `classicube`, `pi-runtime`, `pi-agent`,
 `pi-local`, `pi-phone`, `dollyfile-studio`, `rts-arena` and `slopyard` wait for a catalog
-round. No change of this branch is a seed input.
+round. No change of this branch is a seed input. Third assignment (from 22:00): Studio's
+examples (20, committed) and a build's memory (21, for the integrator); the builder's registry
+is the runtime and the build host (committed with `image-browser` and `custom-session` in
+both browsers), and one writer of image directories (`scripts/image-directory.mjs`, same
+bytes as before), both of which the npm image builder needs. That builder
+(`tasks/20261101-125930-npm-custom-images/`) is done and measured on `core/npm-custom-images`,
+held off this branch for the round after tonight's.
 
 ## Findings
 
@@ -261,6 +267,43 @@ markup shapes go. Files another branch changes tonight are left to it (B: `proce
   `host-modules.test.mjs`'s parse of `process.h` and the kernels for operation numbers (an
   ABI check), `default-browser.mjs`'s check that the welcome text names published packages.
 
+## Studio's examples and a build's memory (third assignment, from 22:00)
+
+20. **Studio's examples could not build.** Studio recordings showed the first
+    `dollyfile-build` failing with "dollyfile: /usr/bin/git uses threads@0: add REQUIRES HOST
+    threads@0": `demos/studio/examples/hello.in` and `tool.in` listed seven of `system`'s eight
+    host modules, and `skills/dollyfiles/SKILL.md` taught "system's six". No test built an
+    example. Fix: both examples declare `threads@0`; the skill names all eight, the command
+    that prints them, and that the build fails on `FROM`; `test/studio-browser.mjs` copies the
+    shipped `Dollyfile-tool` to `/workspace` and builds it to success. Measured by building
+    each example as a custom image `FROM system` in a page, the path Studio's
+    `dollyfile-build` takes (`repro/studio-example-build.mjs`): before, `tool.in` fails with
+    the recording's error in Chromium and Firefox (`studio-example-before-*.log`); after, both
+    examples build in both (`studio-example-after-*.log`). The Studio test itself needs
+    `dollyfile-studio`, which is `FROM pi-local`, and `pi-local` cannot build here (21): the
+    catalog round runs it.
+21. **A build holds about three copies of the image it captures.** `pi-local` (a 1.65 GB
+    snapshot) was killed by the 9 GB cap twice at "copying completed image". Sampled from the
+    scope's `memory.stat` each second (`pi-local-measure2.memory.txt`): 4.8 GB anon at
+    "restoring image builder", then 7.3 GB anon and 1.8 GB page cache at the kill. At that
+    moment three copies are alive in the build Worker: the kernel's filesystem (Wasm memory),
+    the capture `capture_snapshot()` mallocs in Wasm memory for the whole snapshot
+    (`src/system-snapshot.c`, kernel) and the `ArrayBuffer` `build-worker.mjs` copies it into
+    to post it (`copying completed image`, page side). The JS copy cannot go on the page
+    side alone: Wasm memory never shrinks, and the bytes must leave it before the Worker ends;
+    keeping the Worker's memory alive instead and reading the range from it only moves the
+    copy, since the digest (`crypto.subtle`) and the image cache (IndexedDB) take an unshared
+    buffer. What lowers the peak is a capture that streams, the mirror of the restore's
+    `dolly_snapshot_stream_begin`/`write`/`finish`: in the kernel, a begin that does the
+    metadata pass `capture_snapshot()` already does and returns the total, and a read that
+    fills a fixed window with the next bytes of the stream (headers, paths, file data read at
+    an offset); in `build-worker.mjs`, one `new Uint8Array(total)` filled window by window.
+    The peak drops by the capture, to the filesystem and one copy (about 1.65 GB less for
+    `pi-local`). It changes `dolly.wasm`, which is not an image build input
+    (`write-build-id.mjs`: the seed `dolly.data` and the contract modules), so no image
+    restales as long as the runtime build leaves `dolly.data` byte-identical. Agent B's
+    kernel: the integrator's call.
+
 ## Checked and left
 
 - **The rest of a boot at a 100 ms round trip is the module graph.** After finding 10,
@@ -375,3 +418,8 @@ without the loaders' `image` argument (finding 1), and keep this branch's metada
   a script that checks out the index, while a browser batch runs (two batches lost); a tree
   whose `dist/` comes from another branch needs its route pages written from that catalog,
   and a docs repin is cheapest verified by rebuilding only the chain a suite needs (2.8 min).
+- A cap that kills a build says how much, not where: sampling the scope's `memory.stat`
+  each second beside the build's log took two runs and showed anonymous memory, not page
+  cache, at the stage that copies the image, which the code then accounts for (21). And a
+  template that no test builds rots: Studio's examples declared seven of `system`'s eight
+  modules, and nothing built them until a recording did.

@@ -7,7 +7,7 @@ import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { gzipSync } from "node:zlib";
 import { shareSnapshots } from "../scripts/share-pages-snapshots.mjs";
-import { parseGeneratedConstant } from "../scripts/site-release.mjs";
+import { parseGeneratedConstant } from "../scripts/image-directory.mjs";
 import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
 import { loadImages } from "../src/images.mjs";
 import { packagedSystemSnapshot } from "../src/packaged-snapshot.mjs";
