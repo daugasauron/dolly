@@ -69,7 +69,9 @@ them too). No change of this branch is a seed input: every core image's plan is 
    `entry-ready-ack` deadline, and `verifyBase` hashes them at the first save of a rebuilt
    catalog image. Fix: the Worker sends the identity it computed (`image-built`), the page
    keeps that (`__dolly.builtImage`); bytes travel to the page only for the image builder
-   (`buildOnly`), whose callers need them.
+   (`buildOnly`), whose callers need them. Measured on `/system/rebuild/` in Chrome
+   (`performance.measureUserAgentSpecificMemory`, two boots each, `rebuild-memory-*.log`):
+   the page held 158 MiB before, 5.5 MiB after; the tab 1,254 MiB before, 1,097 after.
 7. **The review map's trusted files were incomplete and called generated modules data.**
    `docs/browser-boundary.md` left out `image-names.mjs` (every image and session check),
    `custom-dollyfile.mjs` and `source-download.mjs` (site pages), and said the catalog and
