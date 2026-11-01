@@ -35,8 +35,8 @@ spawn (`#reserveMaximum`, `src/process-supervisor.mjs`):
 
 - Measured on Linux (`build/lean-evidence/memory-cost/measure.mjs`, `system`, the scope's
   processes' mappings marked `ac` in `smaps`, which Linux charges to its commit limit):
-  Chrome charges nothing and its RSS does not move, either way (V8 reserves the maximum with
-  `MAP_NORESERVE`). Firefox charges the whole maximum: 2.2 GiB idle, 10.1 GiB while a
+  Chrome charges nothing (none of its mappings gains `ac`) and its RSS does not move, either
+  way. Firefox charges the whole maximum: 2.2 GiB idle, 10.1 GiB while a
   `-pthread` program that starts no thread runs with `a15a3c6c`, 2.0 GiB with the reservation
   at the first spawn, 10.0 GiB while one with a second thread runs. RSS unchanged.
   Linux's default overcommit refuses one such growth on a machine whose RAM and swap together
@@ -93,3 +93,11 @@ adapter reporting its break to the kernel when `sbrk` moves past it in such a pr
 contract change (`abi/`), not made.
 
 Done-when: merged with the decision in `docs/process-model.md`.
+
+## Lessons
+
+- A fix for one browser's defect has a cost in the other: measure both before choosing where the
+  fix binds. Here the rule (no growth while two threads run) was right, the place (every
+  `-pthread` program's start) charged Firefox 8 GiB for git commands that never start a thread.
+- A helper Worker that is handed a memory keeps it alive until that Worker collects garbage; a
+  Worker used once and ended releases it at once.

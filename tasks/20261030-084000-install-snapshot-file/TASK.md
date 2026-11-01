@@ -41,11 +41,17 @@ an install holds twice for a moment it holds for good.
   serving the packs to the guest would change `packages@0` and the seed and still give one
   stream. The incremental SHA-256 (`src/sha256.mjs`) stays: the stream must end only if it is
   the image the catalog's chain names (`metadata.sha256`), as the page's check before it did.
-- The kernel's side (here): the engine copies a live install's files from the snapshot's end and
-  cuts the snapshot off behind each (`truncate`, `src/dollyfile.c`), so a package's bytes are in
-  the kernel once, plus the file being copied; amy lists the files before the engine runs. A
-  build run keeps its snapshots for the rows after. With that, holding `lean`'s snapshot while
-  its rows install costs nothing extra: those bytes become `lean`'s files. A seed change.
+- The kernel's side (`749d57c9`, `695329cb`): the line that uses a snapshot for the last time
+  copies its files from the snapshot's end and cuts the snapshot off behind each (`truncate`,
+  `src/dollyfile.c`), so a package's bytes are in the kernel once, plus the file being copied.
+  One condition decides that and the snapshot's removal, which builds already had (the recipe's
+  last line naming it); a session's install is such a line, and amy lists the files before the
+  engine runs. Holding `lean`'s snapshot while its rows install then costs nothing extra: those
+  bytes become `lean`'s files. In the `lean` image's build the same rule drops `lean-std`'s and
+  `lean-meta`'s second copy, 2.4 GB; with it the 9 GB cap killed that build twice. A seed
+  change. Measured: `amy install make`, `git` and `cc` in `default` work in Chromium and Firefox
+  with the session's rule, `/etc/dolly/artifacts` gone after; the high-water for `amy install
+  lean` waits for the `lean` image.
 
 Also seen: a guest that finds no HTTP record waits 10 ms (`host/http/client.c`,
 `src/libcurl-fetch.c`, polling `dolly_http_poll`), which is why the merge must stay off the
