@@ -11,7 +11,7 @@ terminal.
 
 ## The port
 
-Dolly has no `fork` or `exec`: a program starts by `posix_spawn`
+Dolly has no `fork`: a program starts by `posix_spawn`
 ([process model](../../docs/process-model.md#spawn-and-wait)).
 [`zsh-dolly.patch`](zsh-dolly.patch) changes `Src/exec.c`, where zsh forks,
 and `Src/init.c`:

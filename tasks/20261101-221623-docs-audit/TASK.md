@@ -171,6 +171,8 @@ Changed where a claim was wrong, mostly a core behaviour the night changed:
 - `mojo`: the reason for `llvm-wait.patch` was fixed in the night (bbec81cc); the README says so.
 - `zsh`: "`time` reports elapsed time only: Dolly's `wait` reports no resource usage": `wait4`
   reports a child's times as zero since bbec81cc; the port is configured without `wait3`.
+  "Dolly has no `fork` or `exec`": `execve` is in the process contract since ba5f2568
+  (2026-10-23), a week after the port; its `exec` still spawns and waits (Findings).
 - `tmux`, `speech`: `amy install` in `default` is refused "since default does not declare"
   `pty@0`/`microphone@0`, and `speech` said `default` lacks `touch@0`, which it declares;
   `nena enable` gives the module (`tmux-browser.mjs`'s "tmux in ps" case does it).
@@ -240,7 +242,9 @@ Changed where a claim was wrong, mostly a core behaviour the night changed:
   and `-xorg-server` install the tools demo's `tar` ("reads the pax headers of X.Org's
   archives"). Recipe comments that give the old reasons, changed with those recipes:
   `Dollyfile-pigz` (gzip "only reads"), `Dollyfile-tar` ("The gzip of the core reads .gz;
-  pigz writes it"), `Dollyfile-emacs`, `Dollyfile-ffmpeg`.
+  pigz writes it"), `Dollyfile-emacs`. And `demos/zsh/zsh-dolly.patch` ("Dolly has no fork or
+  exec") makes zsh's `exec` and the last command of `zsh -c` spawn the program and wait for it;
+  Dolly's `execve` (ba5f2568) would let them replace the shell, as upstream does.
 - `cc --help` says the `<dolly/NAME.h>` host clients link without `-l`; `sockets@0`'s and
   `pty@0`'s need `-ldolly-sockets` and `-ldolly-pty` (`host_client_libraries()` in
   `compiler.cpp`). The text is the seed compiler's, so it waits for the next compiler round.
