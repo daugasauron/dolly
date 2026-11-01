@@ -15,9 +15,9 @@ REQUIRES HOST threads@0
 #   g++); ar s to index an archive, as there is no ranlib; nothing to strip
 #   with; no documentation (its manual pages below);
 # - pthreads, required: every program linked with these needs threads@0.
-FROM /v0.1.4/Dollyfile-system-tools 7f6c86fcc73e544e7007646eba2718bbc4d43b7f0516d9558e2dc500b1a05a80
-USE /v0.1.4/Dollyfile-gzip 1be14cb6142500862aa5362445cdfa3c5fc7f4817e775a614754e3dc91ead079
-INSTALL /v0.1.4/Dollyfile-zlib 7f3254e8d51bc7edd2fa47b19f3b1e2e43c747476ab93c57654639e4119abde7
+FROM /v0.1.4/Dollyfile-system-tools cb2033daa110ad94dbe4205463184eaa8db6e05f09b3457ce5e4f7df2b6036e5
+USE /v0.1.4/Dollyfile-gzip 79b8feb18c7ca929eabe3e30e49f43ed5640660caf8a97e1d705359e4a22ed3f
+INSTALL /v0.1.4/Dollyfile-zlib bd00998ace2e47b6d7ef229211350fc7d299262c84b7e9a69529d21f05fb46d3
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib
