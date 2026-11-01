@@ -242,6 +242,8 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
   assert.equal(await lines, 0);
   assert.equal(await submit("test \"$(cat /tmp/typed-lines)\" = \"$(printf 'on\\ntwo')\""), 0);
   const reading = start("read word && test \"$word\" = yes");
+  // Typed before the shell has the command, the keys would join its line.
+  await waitForText(/read word && test "\$word" = yes\s*$/);
   await page.keyboard.type("yes");
   await page.keyboard.press("Enter");
   assert.equal(await reading, 0);

@@ -26,7 +26,8 @@ Chromium (58 s). Items 1-20 are committed and verified on `default,system`
 (and `libdolly-sockets`) built from the newest seed (image inputs
 `88343cce…`): `process`, `core`, `threads`, `sockets` and `pty` pass in
 Chromium and Firefox, and `terminal`, `slop` and `shell` on the seed before
-this round's two libc files. The libc items need a catalog round.
+this round's two libc files; `default` and `terminal` on this one too. The
+libc items need a catalog round (the integrator's of 2026-11-02 00:30).
 
 ## The shape of it
 
@@ -224,6 +225,13 @@ below. The defects sat at three seams:
     `MAP_FIXED`, partial `munmap`; `mremap` is ENOMEM and `mincore` ENOSYS
     (Emscripten's), `mlock` succeeds (memory is never paged out).
 
+21. `terminal-browser` failed twice in six runs at its `read word` step: the
+    keys it types raced the command `start()` had not yet submitted, and the
+    shell read `yeread word …` (127). The test now waits for the command
+    line before it types. (`default-browser` fails in a tree whose catalog
+    is narrowed: its welcome names packages `amy-index.txt` lists only for
+    the whole catalog; `generate-routes` restores it.)
+
 ## Proposals for the owner
 
 - **The kernel told each disposition, and a spawned child that keeps what
@@ -280,11 +288,6 @@ below. The defects sat at three seams:
   measured whether any transient 126 is left; not changed, as the owner
   restored this once.
 
-- `terminal-browser` failed once of four runs at the `read word` step: the
-  keys `page.keyboard.type("yes")` sends raced the command `start()` had not
-  yet submitted, and the shell read `yeread word …` (127). The test does not
-  wait for the command line before it types; not this branch's change, and
-  not touched.
 
 ## Views on agent E's two commits (read only)
 
