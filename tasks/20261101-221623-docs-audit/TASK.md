@@ -185,6 +185,9 @@ Changed where a claim was wrong, mostly a core behaviour the night changed:
   a browser); and the host clients that link without `-l` exclude sockets and pty, as for
   `cc --help` below.
 - `slopyard`: `Dollyfile-slopyard` listed twice.
+- Studio's `dollyfiles` skill: "ripgrep and fd need `threads@0`": they declare `http@0` too.
+  Its staged `studio.tar` holds `docs/dollyfile.md`, which this branch changed, so it is
+  staged again and repinned (the build-source-tar command of `demos/studio/prepare-sources.sh`).
 - Checked without change: versions against `config/source-pins.sh` (SDL2 2.32.10, Lua 5.1.5,
   xorg-server 21.1.25, xterm 412), `zero-ad`'s 1.94 GB image, `parakeet`'s 135 MB, Studio's
   docs (staged by its `prepare-sources.sh`), the cmake-build dependents, the JavaScript

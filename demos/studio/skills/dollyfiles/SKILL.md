@@ -38,7 +38,7 @@ Never run `/bin/dollyfile` here: it replaces the running image.
   /etc/dolly/recipes/Dollyfile-system` prints them), or the build fails on
   `FROM`, naming a program that uses a missing one (Git uses `threads@0`).
   Installing a package means declaring every module that package declares
-  (ripgrep and fd need `threads@0`). Read the package's recipe first; otherwise
+  (ripgrep and fd need `http@0` and `threads@0`). Read the package's recipe first; otherwise
   the build fails on the `INSTALL` row, naming the missing line.
 - `FROM PATH SHA256` is the first operation. `INSTALL PATH SHA256` adds a
   package anywhere after it. In a `PACKAGE`, `USE PATH SHA256` installs one
