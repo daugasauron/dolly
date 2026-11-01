@@ -16,10 +16,10 @@ its shapes consistent with the others; does a path grant authority it should not
 quota; duplication with another module or the page core; dead code, workarounds, special
 cases; do its tests prove denied access and behaviour rather than spelling.
 
-## State (2026-11-01 18:10 JST)
+## State (2026-11-01 20:40 JST)
 
 All 18 modules read (page and Worker sides, kernel C, clients, headers, contracts). Fixes 1
-to 8 committed, each verified in Chromium and Firefox. Fixes 7 and 8 are seed changes: the
+to 9 committed, each verified in Chromium and Firefox. Fixes 7 and 8 are seed changes: the
 catalog needs a round (this tree rebuilt only the images its tests open, so its
 `dist/dolly-images.mjs` lists those). P2 and P4 are prototyped and measured as the branch's
 two last commits, subjects `Proposal:`; P1 and P3 wait for the owner as described. Left open for the
@@ -104,6 +104,23 @@ Fixed:
    in the same catalog round as fix 7. Wine's driver sets alpha while it converts BGR, which
    it must do anyway: left.
 
+9. **Keys typed beside Dolly's element were taken** (agent A's finding 17, forwarded by the
+   integrator): `input@0` listens on the window, so every key of a text field of the
+   embedding's own went to the shell and lost its default (the field stayed empty in both
+   browsers), and `snapshot@0`'s Ctrl+Shift+S opened the save dialog from there. Both take a
+   key only when its target is inside the element or is the body, as the page's chords do
+   since A's `2562222e`; the modules' panels outside the element still claim their keys
+   first through `claimsKey`, so the upload dialog's Ctrl+C still interrupts. `input@0`'s
+   Paste button kept the focus after a tap, and the Enter that ran the pasted line reached
+   the shell only because every key did (the touch suite hung on the rule alone): a tap now
+   gives the terminal the keyboard again, as the other panels' buttons do. Page JavaScript
+   only. `test/embedded-keys-browser.mjs` (A's repro) fails before in Chromium
+   and Firefox and passes after. A's finding 16, that these panels are fixed to the window
+   and not placed in the element, waits for A's `23eb2d07`, which makes the element the box
+   they can be placed in: then each module appends its panel to `mount` instead of the body
+   and positions it in the element (download, snapshot, input's Paste button, the gpu and
+   microphone indicators, the Studio panel). Not done tonight.
+
 Described, not changed (each moot or another workstream's, as it says):
 
 - **Leased-device boilerplate in the kernel**: `host/{audio,gpu,microphone,nena}/kernel.c` are
@@ -167,12 +184,15 @@ Described, not changed (each moot or another workstream's, as it says):
   as globals in `dolly-input-0.wat` and `dolly-display-0.wat`, the enums defined from
   `*-abi.h`, the JavaScript reading `A.*`. Seed change (both headers), a catalog round; no
   behaviour changes. Prototyped as the branch's next to last commit (`Proposal:`, merge the
-  branch without it unless the owner takes it): the two WATs gain 56 lines, the two headers
-  lose 83 and the JavaScript gains 9; the enum type names go (no program names one). On top
+  branch without it unless the owner takes it): the two WATs gain 57 lines, the two headers
+  lose 84 and the JavaScript gains 9; the enum type names go (no program names one). On top
   of fix 7 the 28 images rebuilt in 1,270 s, Ghostty's display library among them, and
   terminal, display, display-cursor, touch, indicators, host-modules, core, shell, upload,
   nena, boundary and pager pass in Chromium and Firefox on them, as do pty, network, sockets,
-  stack, dso, threads, audio, microphone, gpu-indicator and host-compute.
+  stack, dso, threads, audio, microphone, gpu-indicator and host-compute. Moved on top of
+  fixes 8 and 9 (its WAT now says a frame is opaque), with P4 after it: the 29 images
+  rebuilt in 2,007 s and those 26 suites, embedded-keys, custom-session, session-offline and
+  snapshot-stream among them, pass in both browsers at the branch's tip.
 - **P3. A process-Worker module's bundle by its manifest.** `dso.mjs` and `stack.mjs` each
   fetch `dist/dolly-process-NAME.mjs` with the same options and register it; the manifest's
   `processWorker` field names it already. The runtime could fetch it for every enabled module
@@ -204,6 +224,11 @@ Described, not changed (each moot or another workstream's, as it says):
   admitted and fail OPEN where the browser has no device (`07c6b08a`); `audio@0` and
   `microphone@0` kept the older refusal for a week because the rule lived in a commit
   message. Where a rule spans modules it belongs in `host/README.md`.
+- A program's workaround is the core's bug report. The raylib program in the Studio
+  recording forced alpha to 255 because `display.h` told it alpha mattered; the cursor
+  test's own fixture had presented a translucent gray for weeks, and no test looked at the
+  screen, only at `__dolly.frame()`, the presenter's copy. A test of what a display shows
+  must read the screen (a screenshot of the canvas), not the bytes the page was given.
 - The harness: this tree's `dist/` came from `work/x11fix`, two demo recipes ahead of
   `main`, so `npm run routes` refused until those two recipes matched; a docs edit
   repins twelve recipes (the docs package and the pi family that installs it), and the
