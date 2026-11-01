@@ -4,6 +4,7 @@
 #include <dolly/runtime.h>
 #include <dolly/toolchain.h>
 
+#include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -278,17 +279,30 @@ struct hostent *gethostbyname(const char *name) {
   return NULL;
 }
 
+/* Without a resolver a host and a service are their numbers, which POSIX
+ * gives unless the caller requires a name. */
 int getnameinfo(const struct sockaddr *address, socklen_t address_length,
                 char *host, socklen_t host_length,
                 char *service, socklen_t service_length, int flags) {
-  (void)address;
-  (void)address_length;
-  (void)host;
-  (void)host_length;
-  (void)service;
-  (void)service_length;
-  (void)flags;
-  return EAI_FAIL;
+  const void *bytes;
+  uint16_t port;
+  if (address != NULL && address->sa_family == AF_INET && address_length >= sizeof(struct sockaddr_in)) {
+    bytes = &((const struct sockaddr_in *)address)->sin_addr;
+    port = ((const struct sockaddr_in *)address)->sin_port;
+  } else if (address != NULL && address->sa_family == AF_INET6 &&
+             address_length >= sizeof(struct sockaddr_in6)) {
+    bytes = &((const struct sockaddr_in6 *)address)->sin6_addr;
+    port = ((const struct sockaddr_in6 *)address)->sin6_port;
+  } else {
+    return EAI_FAMILY;
+  }
+  const int wants_host = host != NULL && host_length > 0;
+  const int wants_service = service != NULL && service_length > 0;
+  if ((!wants_host && !wants_service) || (wants_host && (flags & NI_NAMEREQD) != 0)) return EAI_NONAME;
+  if (wants_host && inet_ntop(address->sa_family, bytes, host, host_length) == NULL) return EAI_OVERFLOW;
+  if (wants_service && snprintf(service, service_length, "%u", ntohs(port)) >= (int)service_length)
+    return EAI_OVERFLOW;
+  return 0;
 }
 
 /* -1 and 0 wait for any child; -PID for the group of one that PID is, as

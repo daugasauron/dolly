@@ -18,18 +18,18 @@ confirms is fixed with a test that failed before (or code gone and nothing
 broken), the moot is closed with its reason and the uncertain rest is a few
 lines each below.
 
-## State (2026-11-01 22:10 JST)
+## State (2026-11-01 22:35 JST)
 
 Read: the whole of the scope above. Baseline: build reproducible (same runtime
 and image ids), source suite 446/446 in 27 s, `process-browser` passes in
-Chromium (58 s). Items 1-26 are committed and verified on `default,system`
-built from the newest seed (image inputs `9702a0d5…`): `process`,
-`terminal`, `pty` and `core` pass in Chromium and Firefox on it; `default`
-on the seed before (`3b4ff6ad…`, items 1-25), `process` three times in a
-row on the one before that; `threads` and `sockets` (with
-`libdolly-sockets`) on `88343cce…` (items 1-21), `slop` and `shell` on the
-seed before that. The libc items need a catalog round (the integrator's of
-2026-11-02 00:30).
+Chromium (58 s). Items 1-27 are committed and verified on `default,system`
+built from the newest seed (image inputs `cf6b9518…`): `process` and `core`
+pass in Chromium and Firefox on it; `terminal` and `pty` on the seed before
+(`9702a0d5…`, items 1-26), `default` on `3b4ff6ad…` (items 1-25),
+`process` three times in a row on the one before that; `threads` and
+`sockets` (with `libdolly-sockets`) on `88343cce…` (items 1-21), `slop`
+and `shell` on the seed before that. The libc items need a catalog round
+(the integrator's of 2026-11-02 00:30).
 
 ## The shape of it
 
@@ -303,6 +303,25 @@ Each with a test that failed before, verified in Chromium and Firefox.
     VSUSP and output mappings other than ONLCR refused with EINVAL,
     `tcflow` and `tcsendbreak` ENOTSUP, no process group to get or set.
 
+27. **`getaddrinfo` failed with EAI_FAIL for a numeric address** (found by
+    agent F's FFmpeg port: `tcp://127.0.0.1:9` said "Failed to resolve
+    hostname 127.0.0.1: Non-recoverable error"), with `AI_NUMERICHOST`
+    too, and `getnameinfo` failed for any address. Both were stubs from the
+    first checkpoint (`b95459ce`). POSIX converts a numeric host and port
+    without a lookup: Dolly's `getaddrinfo` now does (musl's answers: IPv4
+    before IPv6, a stream and a datagram entry, EAI_SERVICE above port
+    65535, EAI_NONAME for a family that does not match), and `getnameinfo`
+    gives the numeric host and port unless `NI_NAMEREQD`. A name still
+    fails with EAI_FAIL, there being no resolver, and an AF_INET socket
+    then refuses with EAFNOSUPPORT, where FFmpeg reports it. Compared with
+    glibc over 2016 combinations of host, service, family, type and flags
+    (`gai-compare.c`, under sanitizers): the differences are glibc's own
+    (a SOCK_RAW entry, IPv6 first, port 65536 wrapping to 0,
+    EAI_ADDRFAMILY). musl's own `getaddrinfo` is not usable: Emscripten's
+    `lookup_name.o` resolves through a JavaScript import. Seed input. Test
+    `address_answers` in `process-descriptors.c`, which Linux passes too:
+    before, failed at its first check (Chromium).
+
 ## Proposals for the owner
 
 - **The kernel told each disposition, and a spawned child that keeps what
@@ -328,6 +347,12 @@ Each with a test that failed before, verified in Chromium and Firefox.
   through `dolly_spawn_mapped`, Rust's std resets SIGPIPE in its
   attributes).
 
+- **Session saves with modification times.** A save holds no timestamps
+  (`docs/sessions.md`), so after a restore every file is as old as the
+  restore and make compares the replay's order, not the edits': a source
+  edited after its last build can look older than the target. A time per
+  record (8 bytes in `session-records.h`) would keep make's answers across
+  a reload; a record format change.
 - **Inherited environments for the page's spawns only.** After 12 no
   process asks the kernel to inherit an environment; only the supervisor's
   root spawns do (`encodeSpawn`, parent 0, the kernel's own `environ`). The

@@ -1,7 +1,9 @@
 #define _GNU_SOURCE
+#include <arpa/inet.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <netdb.h>
 #include <poll.h>
 #include <signal.h>
 #include <spawn.h>
@@ -9,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <sys/wait.h>
@@ -402,6 +405,30 @@ static void path_answers(void) {
   CHECK(close(reader) == 0 && close(writer) == 0 && unlink(file) == 0 && rmdir(directory) == 0);
 }
 
+/* A numeric address and port convert without a lookup, either way (POSIX). */
+static void address_answers(void) {
+  struct addrinfo hints = {.ai_family = AF_UNSPEC, .ai_socktype = SOCK_STREAM, .ai_flags = AI_NUMERICHOST};
+  struct addrinfo *found = NULL;
+  CHECK(getaddrinfo("127.0.0.1", "9", &hints, &found) == 0 && found != NULL && found->ai_next == NULL);
+  const struct sockaddr_in *v4 = (const struct sockaddr_in *)found->ai_addr;
+  CHECK(found->ai_family == AF_INET && found->ai_socktype == SOCK_STREAM && found->ai_addrlen == sizeof(*v4) &&
+        ntohs(v4->sin_port) == 9 && ntohl(v4->sin_addr.s_addr) == INADDR_LOOPBACK);
+  char host[INET6_ADDRSTRLEN], port[8];
+  CHECK(getnameinfo(found->ai_addr, found->ai_addrlen, host, sizeof(host), port, sizeof(port),
+                    NI_NUMERICHOST | NI_NUMERICSERV) == 0 && strcmp(host, "127.0.0.1") == 0 && strcmp(port, "9") == 0);
+  freeaddrinfo(found);
+  CHECK(getaddrinfo("::1", NULL, &hints, &found) == 0 && found->ai_family == AF_INET6);
+  freeaddrinfo(found);
+  CHECK(getaddrinfo("not.a.number", "9", &hints, &found) == EAI_NONAME);
+  hints.ai_flags = AI_NUMERICSERV;
+  CHECK(getaddrinfo("127.0.0.1", "discard", &hints, &found) == EAI_NONAME);
+  hints.ai_flags = AI_PASSIVE;
+  hints.ai_family = AF_INET;
+  CHECK(getaddrinfo(NULL, "80", &hints, &found) == 0 && found->ai_next == NULL &&
+        ((const struct sockaddr_in *)found->ai_addr)->sin_addr.s_addr == htonl(INADDR_ANY));
+  freeaddrinfo(found);
+}
+
 /* Devices are character devices, and a terminal has no position and a line
  * speed that is not B0, hung up. */
 static void device_answers(void) {
@@ -498,6 +525,7 @@ int main(int argc, char **argv) {
   link_answers();
   truncation_times();
   device_answers();
+  address_answers();
 #ifdef __dolly__
   spawning(argv[0]);
   directory_positions();
