@@ -139,6 +139,29 @@ differ were read in the source.
     splits fields (IFS white space, or one other IFS byte with white space around it), and
     the last name keeps the rest, matching dash and Bash on ten forms; case "read gives an empty
     field between two separators…" fails on main (status 91) and passes.
+23. **FFmpeg's configure** (`ffmpeg-9.0.2`, the newest release, from ffmpeg.org; run natively
+    out of tree with `--disable-asm --disable-everything --enable-decoder=pcm_s16le,flac
+    --enable-demuxer=wav,flac --enable-muxer=wav --enable-protocol=file --disable-doc --cc=cc
+    --disable-autodetect`, with `sh` linked to the spawning Slop) found three things:
+    - Slop refused `for opt do` (`configure:4682`): POSIX's `for NAME do` needs no separator;
+      only a word list ends with one. Fixed; configure then ran to the end.
+    - Its log, `config.h`, `config.mak`, `config_components.h` and the codec and demuxer lists
+      are byte for byte dash's.
+    - It took 3 min 38 s against dash's 5 s. Slop started 70,301 processes against dash's 4,476
+      (`strace -f`): `test`, `[`, `echo`, `true` and `false` are files on `PATH`, and each
+      process costs about 12 ms in Dolly (measured in Chromium: 200 `test`s in 2.36 s, 200
+      builtin iterations in 0.016 s), so this configure alone would spend some 13 minutes
+      starting them. Slop now runs the code of the system's own `test`, `[`, `echo`, `true` and
+      `false` itself when `PATH` finds them in `/bin`, as other shells build them in: the
+      same source (`src/commands/test.c` and `echo.c` are included with `DOLLY_SHELL_UTILITY`;
+      `[` is `test.c` called by that name, `bracket.c` is gone), and a command found earlier
+      on `PATH` still runs. Background stages stay programs. 3,902 processes remain, 1,609 of
+      them sbase's `printf`, which Slop does not hold.
+    - The rest of the time was Slop's own: every substitution copied the whole environment and
+      restored it with an `unsetenv` and a `setenv` per variable, each linear in the number of
+      variables (thousands here). Subshells now keep a log of the variables they change and
+      undo only those (`shell_setenv`, `environment_log_undo`). Natively the configure takes
+      11 s with the same outputs.
 
 One failure was seen and attributed, not fixed: `test/terminal-browser.mjs` failed once in
 Chromium on round 7's images because a typed `y` reached the shell before the command that

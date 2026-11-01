@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # GNU Make as system-build compiles it, for a session that runs rules and
 # compiles nothing: the cc package holds the same file.
-FROM /v0.1.4/Dollyfile-system-build 685753d5f8550ed5625afdc9775167dec638ae59ac48b9d20ec85fbf48422b31
+FROM /v0.1.4/Dollyfile-system-build b0e141713c125a101cfa6e6b2ff5508a755ef54b712ab3584f9390b4cc778e28
 
 EXPORTS TOOL make
 FILE /usr/share/man/cat1/make.1

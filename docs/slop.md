@@ -70,7 +70,7 @@ slop [-efnux] script [arg ...]
 | Parameters | `$VAR`, `${VAR}`, `$?`, `$$`, `$!`, `$#`, `$-`, `$LINENO`, `$0`–`$9`, `$@`, `$*` (joined with the first `IFS` byte), `"$@"` and `"${@}"` as one field per parameter, also inside a word (`"x$@"`) and as `${1+"$@"}` |
 | Quoting | `'…'`, `"…"`, backslash, and `$'…'` with the C escapes `\a \b \e \f \n \r \t \v \\ \' \" \cX \xHH \NNN` |
 | Expansions | `${VAR-w}`, `=`, `+`, `?` and their `:` forms; `${#VAR}`; `#`, `##`, `%`, `%%`; `$(…)`; simple backticks; `$((…))` in signed 64-bit with C's operators, assignments (`=`, `+=`, …) and `?:` (no `++`, `--` or comma); `fnmatch` patterns (`*`, `?`, `[…]`, `[[:class:]]`) in globs, `case` and pattern removal; leading `~`; `IFS` splitting of unquoted expansions |
-| Builtins | `: . source eval exec exit return cd export unset set shift read getopts local type command break continue trap wait` |
+| Builtins | `: . source eval exec exit return cd export unset set shift read getopts local type command break continue trap wait`; and the system's `test`, `[`, `echo`, `true` and `false` run in the shell when `PATH` finds them in `/bin` |
 | Options | `set -e -f -u -x`; `set -o NAME` for errexit, noglob, nounset, pipefail and xtrace; combined as in `set -euo pipefail` |
 
 - Expansion happens when a command runs, so `x=1 && echo "$x"` prints `1`.

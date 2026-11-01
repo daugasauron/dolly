@@ -20,6 +20,12 @@
 
 #include <dolly/runtime.h>
 
+// test, [ and echo: the system's own commands, whose code the shell holds too
+// (shell_utility).
+#define DOLLY_SHELL_UTILITY
+#include "commands/echo.c"
+#include "commands/test.c"
+
 #define SLOP_MAX_LINE 65536
 #define SLOP_MAX_HISTORY 1000
 #define SLOP_MAX_HEREDOCS 32
@@ -157,7 +163,6 @@ struct LocalFrame {
   size_t capacity;
 };
 typedef struct {
-  Arguments environment;
   Arguments exported;
   int cwd;
 } ShellStateSnapshot;
@@ -973,8 +978,61 @@ static int high_descriptor(int descriptor) {
   return moved;
 }
 
+// The variables a subshell changed, with their earlier values, which it
+// restores when it leaves. The shell's variables are `environ`: copying and
+// restoring all of them for every $(...) cost a substitution time in the
+// square of their number, which FFmpeg's configure counts in thousands.
+typedef struct { EnvironmentChange *items; size_t count, capacity; } EnvironmentLog;
+static EnvironmentLog *environment_log; // The innermost subshell's, or NULL.
+
+static int log_variable(const char *name) {
+  if (environment_log == NULL) return 1;
+  if (!grow((void **)&environment_log->items, &environment_log->capacity,
+            environment_log->count + 1, sizeof(*environment_log->items))) return 0;
+  const char *old_value = getenv(name);
+  EnvironmentChange change = {.name = strdup(name), .existed = old_value != NULL,
+                              .old_value = old_value == NULL ? NULL : strdup(old_value)};
+  if (change.name == NULL || (old_value != NULL && change.old_value == NULL)) {
+    free(change.name);
+    free(change.old_value);
+    return 0;
+  }
+  environment_log->items[environment_log->count++] = change;
+  return 1;
+}
+
+// Every variable change goes through these, so a subshell can undo it.
+static int shell_setenv(const char *name, const char *value, int overwrite) {
+  if (!log_variable(name)) {
+    errno = ENOMEM;
+    return -1;
+  }
+  return setenv(name, value, overwrite);
+}
+
+static int shell_unsetenv(const char *name) {
+  if (!log_variable(name)) {
+    errno = ENOMEM;
+    return -1;
+  }
+  return unsetenv(name);
+}
+
+// Restores the values the log holds, newest change first.
+static int environment_log_undo(EnvironmentLog *log) {
+  int ok = 1;
+  while (log->count != 0) {
+    EnvironmentChange *change = &log->items[--log->count];
+    if ((change->existed ? setenv(change->name, change->old_value, 1) : unsetenv(change->name)) != 0) ok = 0;
+    free(change->name);
+    free(change->old_value);
+  }
+  free(log->items);
+  memset(log, 0, sizeof(*log));
+  return ok;
+}
+
 static void shell_state_snapshot_dispose(ShellStateSnapshot *snapshot) {
-  arguments_dispose(&snapshot->environment);
   arguments_dispose(&snapshot->exported);
   if (snapshot->cwd >= 0) close(snapshot->cwd);
   snapshot->cwd = -1;
@@ -984,12 +1042,6 @@ static int shell_state_capture(ShellStateSnapshot *snapshot) {
   memset(snapshot, 0, sizeof(*snapshot));
   snapshot->cwd = high_descriptor(open(".", O_RDONLY | O_DIRECTORY));
   if (snapshot->cwd < 0) return 0;
-  for (char **entry = environ; entry != NULL && *entry != NULL; entry++) {
-    if (!argument_push(&snapshot->environment, *entry)) {
-      shell_state_snapshot_dispose(snapshot);
-      return 0;
-    }
-  }
   if (!arguments_copy(&exported_names, &snapshot->exported)) {
     shell_state_snapshot_dispose(snapshot);
     return 0;
@@ -997,35 +1049,9 @@ static int shell_state_capture(ShellStateSnapshot *snapshot) {
   return 1;
 }
 
-// Consumes the snapshot's exported names.
+// Consumes the snapshot's exported names; the variables are the log's.
 static int shell_state_restore(ShellStateSnapshot *snapshot) {
-  Arguments current_names = {0};
-  for (char **entry = environ; entry != NULL && *entry != NULL; entry++) {
-    const char *equals = strchr(*entry, '=');
-    if (equals == NULL) continue;
-    char *name = strndup(*entry, (size_t)(equals - *entry));
-    if (name == NULL || !argument_push_owned(&current_names, name)) {
-      arguments_dispose(&current_names);
-      return 0;
-    }
-  }
   int ok = 1;
-  for (size_t index = 0; index < current_names.count; index++) {
-    if (unsetenv(current_names.items[index]) != 0) ok = 0;
-  }
-  arguments_dispose(&current_names);
-  for (size_t index = 0; index < snapshot->environment.count; index++) {
-    const char *entry = snapshot->environment.items[index];
-    const char *equals = strchr(entry, '=');
-    if (equals == NULL) continue;
-    char *name = strndup(entry, (size_t)(equals - entry));
-    if (name == NULL) {
-      ok = 0;
-      continue;
-    }
-    if (setenv(name, equals + 1, 1) != 0) ok = 0;
-    free(name);
-  }
   arguments_dispose(&exported_names);
   exported_names = snapshot->exported;
   memset(&snapshot->exported, 0, sizeof(snapshot->exported));
@@ -1123,6 +1149,8 @@ typedef struct {
   Shell shell;
   Functions functions;
   ShellStateSnapshot state;
+  EnvironmentLog environment;
+  EnvironmentLog *outer_environment;
   DescriptorState descriptors;
 } Subshell;
 
@@ -1158,6 +1186,8 @@ static int subshell_enter(Shell *shell, Subshell *subshell) {
     fputs("slop: subshell: out of memory\n", stderr);
     return 0;
   }
+  subshell->outer_environment = environment_log;
+  environment_log = &subshell->environment;
   return 1;
 }
 
@@ -1167,7 +1197,9 @@ static int subshell_leave(Shell *shell, Subshell *subshell, int status) {
   functions_dispose(&subshell->functions);
   shell_argv_dispose(nested);
   descriptor_state_restore(&subshell->descriptors);
-  if (!shell_state_restore(&subshell->state))
+  environment_log = subshell->outer_environment;
+  const int restored = environment_log_undo(&subshell->environment);
+  if (!shell_state_restore(&subshell->state) || !restored)
     fputs("slop: could not restore subshell state\n", stderr);
   shell_state_snapshot_dispose(&subshell->state);
   interrupt_shell(shell, nested->terminating_signal);
@@ -1489,7 +1521,7 @@ static long arithmetic_assignment(Arithmetic *parser) {
   memcpy(name, start, (size_t)(end - start));
   name[end - start] = '\0';
   snprintf(text, sizeof(text), "%ld", value);
-  if (setenv(name, text, 1) != 0) parser->error = 1;
+  if (shell_setenv(name, text, 1) != 0) parser->error = 1;
   return value;
 }
 
@@ -1705,7 +1737,7 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
           if (ok) {
             char *assigned_value = buffer_release(&assigned);
             ok = assigned_value != NULL &&
-                 setenv(variable, assigned_value, 1) == 0 &&
+                 shell_setenv(variable, assigned_value, 1) == 0 &&
                  buffer_append(word, assigned_value, strlen(assigned_value));
             free(assigned_value);
           } else {
@@ -2388,7 +2420,7 @@ static int set_assignment(const char *word) {
   if (!assignment(word, &name_length)) return 0;
   char *name = strndup(word, name_length);
   if (name == NULL) return -1;
-  int status = setenv(name, word + name_length + 1, 1);
+  int status = shell_setenv(name, word + name_length + 1, 1);
   free(name);
   return status == 0 ? 1 : -1;
 }
@@ -2508,7 +2540,7 @@ static int builtin_read(int argc, char **argv) {
       while (end > cursor && ifs_space(ifs, end[-1])) *--end = '\0';
       if (*cursor != '\0' && *separator_end(ifs, cursor) == '\0') *cursor = '\0';
     }
-    if (setenv(argv[index], value, 1) != 0) {
+    if (shell_setenv(argv[index], value, 1) != 0) {
       free(text);
       return 1;
     }
@@ -2523,15 +2555,17 @@ memory_error:
 }
 
 static int print_shell_variables(int exported_only) {
-  ShellStateSnapshot snapshot;
-  if (!shell_state_capture(&snapshot)) {
-    fputs("slop: out of memory\n", stderr);
-    return 1;
+  Arguments variables = {0};
+  for (char **entry = environ; entry != NULL && *entry != NULL; entry++) {
+    if (!argument_push(&variables, *entry)) {
+      arguments_dispose(&variables);
+      fputs("slop: out of memory\n", stderr);
+      return 1;
+    }
   }
-  qsort(snapshot.environment.items, snapshot.environment.count,
-        sizeof(*snapshot.environment.items), compare_strings);
-  for (size_t index = 0; index < snapshot.environment.count; index++) {
-    const char *entry = snapshot.environment.items[index];
+  qsort(variables.items, variables.count, sizeof(*variables.items), compare_strings);
+  for (size_t index = 0; index < variables.count; index++) {
+    const char *entry = variables.items[index];
     const char *equals = strchr(entry, '=');
     if (equals == NULL || (exported_only &&
         exported_index(entry, (size_t)(equals - entry)) == SIZE_MAX)) continue;
@@ -2544,7 +2578,7 @@ static int print_shell_variables(int exported_only) {
     }
     fputs("'\n", stdout);
   }
-  shell_state_snapshot_dispose(&snapshot);
+  arguments_dispose(&variables);
   return ferror(stdout) ? 1 : 0;
 }
 
@@ -2582,7 +2616,7 @@ static int publish_getopts_index(unsigned index) {
   char text[32];
   const int length = snprintf(text, sizeof(text), "%u", index);
   return length >= 0 && (size_t)length < sizeof(text) &&
-         setenv("OPTIND", text, 1) == 0;
+         shell_setenv("OPTIND", text, 1) == 0;
 }
 
 static int builtin_getopts(Shell *shell, int argc, char **argv) {
@@ -2662,30 +2696,30 @@ static int builtin_getopts(Shell *shell, int argc, char **argv) {
 
   char option_text[2] = {option, '\0'};
   if (!known) {
-    if (setenv(name, "?", 1) != 0) return 1;
+    if (shell_setenv(name, "?", 1) != 0) return 1;
     if (silent) {
-      if (setenv("OPTARG", option_text, 1) != 0) return 1;
+      if (shell_setenv("OPTARG", option_text, 1) != 0) return 1;
     } else {
-      unsetenv("OPTARG");
+      shell_unsetenv("OPTARG");
       fprintf(stderr, "slop: getopts: illegal option: %c\n", option);
     }
     return 0;
   }
   if (missing_argument) {
-    if (setenv(name, silent ? ":" : "?", 1) != 0) return 1;
+    if (shell_setenv(name, silent ? ":" : "?", 1) != 0) return 1;
     if (silent) {
-      if (setenv("OPTARG", option_text, 1) != 0) return 1;
+      if (shell_setenv("OPTARG", option_text, 1) != 0) return 1;
     } else {
-      unsetenv("OPTARG");
+      shell_unsetenv("OPTARG");
       fprintf(stderr, "slop: getopts: option requires an argument: %c\n", option);
     }
     return 0;
   }
-  if (setenv(name, option_text, 1) != 0) return 1;
+  if (shell_setenv(name, option_text, 1) != 0) return 1;
   if (requires_argument) {
-    if (setenv("OPTARG", option_argument, 1) != 0) return 1;
+    if (shell_setenv("OPTARG", option_argument, 1) != 0) return 1;
   } else {
-    unsetenv("OPTARG");
+    shell_unsetenv("OPTARG");
   }
   return 0;
 }
@@ -2734,7 +2768,7 @@ static int builtin_local(Shell *shell, int argc, char **argv) {
       }
       frame->count++;
     }
-    if (setenv(change->name, has_value ? word + name_length + 1 : "", 1) != 0)
+    if (shell_setenv(change->name, has_value ? word + name_length + 1 : "", 1) != 0)
       return 1;
   }
   return 0;
@@ -3105,8 +3139,8 @@ static int builtin(Shell *shell, int argc, char **argv) {
       return 1;
     }
     char *new_cwd = getcwd(NULL, 0);
-    if (new_cwd == NULL || setenv("OLDPWD", old_cwd, 1) != 0 ||
-        setenv("PWD", new_cwd, 1) != 0 || !export_variable("OLDPWD")) {
+    if (new_cwd == NULL || shell_setenv("OLDPWD", old_cwd, 1) != 0 ||
+        shell_setenv("PWD", new_cwd, 1) != 0 || !export_variable("OLDPWD")) {
       fprintf(stderr, "slop: cd: could not publish directory state: %s\n",
               strerror(errno));
       free(old_cwd);
@@ -3157,7 +3191,7 @@ static int builtin(Shell *shell, int argc, char **argv) {
         *function = shell->functions->items[--shell->functions->count];
         continue;
       }
-      if (unsetenv(argv[index]) != 0) return 1;
+      if (shell_unsetenv(argv[index]) != 0) return 1;
       unexport_variable(argv[index]);
     }
     return 0;
@@ -3363,6 +3397,35 @@ static const char *unsupported_builtin(const char *name) {
   return NULL;
 }
 
+static int true_utility(int argc, char **argv) { (void)argc; (void)argv; return 0; }
+static int false_utility(int argc, char **argv) { (void)argc; (void)argv; return 1; }
+
+// The system's test, [, echo, true and false, which a script may start tens of
+// thousands of times (FFmpeg's configure does 66,000, at about 12 ms a
+// process): when PATH finds one in /bin, the shell runs the same code itself,
+// as other shells have them built in. One found earlier on PATH still runs.
+static int (*shell_utility(const char *name))(int, char **) {
+  static const struct { const char *name; int (*run)(int, char **); } utilities[] = {
+      {"test", test_utility}, {"[", test_utility}, {"echo", echo_utility},
+      {"true", true_utility}, {"false", false_utility},
+  };
+  for (size_t index = 0; index < sizeof(utilities) / sizeof(utilities[0]); index++) {
+    if (strcmp(name, utilities[index].name) != 0) continue;
+    char path[PATH_MAX], system[16];
+    snprintf(system, sizeof(system), "/bin/%s", name);
+    return resolve_command(name, path_variable(), path, sizeof(path)) == COMMAND_FOUND &&
+           strcmp(path, system) == 0 ? utilities[index].run : NULL;
+  }
+  return NULL;
+}
+
+static int run_utility(int (*utility)(int, char **), int argc, char **argv) {
+  clearerr(stdout);
+  const int status = utility(argc, argv);
+  fflush(stdout);
+  return status;
+}
+
 static int run_command_words(Shell *shell, int argc, char **argv) {
   if (!shell->active) return shell->exit_status;
   Function *function = function_lookup(shell->functions, argv[0]);
@@ -3381,6 +3444,9 @@ static int run_command_words(Shell *shell, int argc, char **argv) {
     fprintf(stderr, "slop: kill: %s: there is no job control; kill $! or a PID\n", argv[index]);
     return 2;
   }
+  // A stage's program starts as one; elsewhere a system utility runs here.
+  int (*utility)(int, char **) = shell->stage == NULL ? shell_utility(argv[0]) : NULL;
+  if (utility != NULL) return run_utility(utility, argc, argv);
   return spawn_command(shell, argc, argv, path_variable());
 }
 
@@ -3428,9 +3494,10 @@ static int command_builtin(Shell *shell, int argc, char **argv) {
   if (argument == argc) return describe ? 2 : 0;
   if (describe == 2) return describe_commands(shell, argc - argument, argv + argument, 0, search);
   if (!describe) {
-    return builtin_name(argv[argument])
-        ? builtin(shell, argc - argument, argv + argument)
-        : spawn_command(shell, argc - argument, argv + argument, search);
+    if (builtin_name(argv[argument])) return builtin(shell, argc - argument, argv + argument);
+    int (*utility)(int, char **) = shell_utility(argv[argument]);
+    return utility != NULL ? run_utility(utility, argc - argument, argv + argument)
+                           : spawn_command(shell, argc - argument, argv + argument, search);
   }
   int status = 0;
   for (; argument < argc; argument++) {
@@ -3453,7 +3520,7 @@ static int save_environment_change(const char *word, size_t name_length,
   const int ok = name != NULL && remember_variable(name, change);
   free(name);
   if (!ok) return 0;
-  if (setenv(change->name, word + name_length + 1, 1) != 0 ||
+  if (shell_setenv(change->name, word + name_length + 1, 1) != 0 ||
       !export_variable(change->name)) {
     restore_environment_changes(change, 1);
     return 0;
@@ -3464,8 +3531,8 @@ static int save_environment_change(const char *word, size_t name_length,
 static void restore_environment_changes(EnvironmentChange *changes, size_t count) {
   while (count != 0) {
     EnvironmentChange *change = &changes[--count];
-    if (change->existed) setenv(change->name, change->old_value, 1);
-    else unsetenv(change->name);
+    if (change->existed) shell_setenv(change->name, change->old_value, 1);
+    else shell_unsetenv(change->name);
     if (change->exported) export_variable(change->name);
     else unexport_variable(change->name);
     free(change->name); free(change->old_value);
@@ -3906,9 +3973,11 @@ static int assignment_word(const Token *token, size_t *name_length) {
 static int stage_open(Shell *shell, Stage *stage, DescriptorState *descriptors,
                       const char *name) {
   char path[PATH_MAX];
+  // A system utility in a pipeline runs in the shell; started with & it is a program.
   const int program = name != NULL && function_lookup(shell->functions, name) == NULL &&
       !builtin_name(name) && unsupported_builtin(name) == NULL &&
-      resolve_command(name, path_variable(), path, sizeof(path)) == COMMAND_FOUND;
+      resolve_command(name, path_variable(), path, sizeof(path)) == COMMAND_FOUND &&
+      (stage->background || shell_utility(name) == NULL);
   if (stage->background && !program) {
     fprintf(stderr, "slop: %s: only a program can run in the background; use slop -c '...' &\n",
             name == NULL ? "&" : name);
@@ -4300,7 +4369,9 @@ static int parse_for(Shell *shell, CommandParser *parser, int execute,
   Arguments values = {0};
   int failed = 0;
   linebreak_before_in(parser);
-  if (command_word(parser, "in")) {
+  // `for NAME do` needs no separator: only a word list ends with one.
+  const int listed = command_word(parser, "in");
+  if (listed) {
     parser->cursor++;
     const size_t words_start = parser->cursor;
     while (parser->cursor < parser->end &&
@@ -4325,8 +4396,8 @@ static int parse_for(Shell *shell, CommandParser *parser, int execute,
     }
   }
 
-  if (parser->cursor == parser->end ||
-      parser->tokens[parser->cursor].kind != TOKEN_SEMI) {
+  if (listed && (parser->cursor == parser->end ||
+                 parser->tokens[parser->cursor].kind != TOKEN_SEMI)) {
     fputs("slop: for word list requires a separator before do\n", stderr);
     goto syntax_error;
   }
@@ -4352,7 +4423,7 @@ static int parse_for(Shell *shell, CommandParser *parser, int execute,
     };
     unsigned stopped = 0;
     int run = execute && iteration_index < iterations;
-    if (run && setenv(variable, values.items[iteration_index], 1) != 0) {
+    if (run && shell_setenv(variable, values.items[iteration_index], 1) != 0) {
       fprintf(stderr, "slop: for: %s\n", strerror(errno));
       status = 1;
       run = 0;
@@ -5575,12 +5646,12 @@ static int interactive(Shell *shell) {
     fprintf(stderr, "slop: /workspace: %s\n", strerror(errno)); return 1;
   }
   if (chdir("/workspace") != 0) { fprintf(stderr, "slop: /workspace: %s\n", strerror(errno)); return 1; }
-  if (setenv("PWD", "/workspace", 1) != 0) {
+  if (shell_setenv("PWD", "/workspace", 1) != 0) {
     fprintf(stderr, "slop: PWD: %s\n", strerror(errno));
     return 1;
   }
   if (getenv("HISTFILE") == NULL &&
-      setenv("HISTFILE", "/home/dolly/.slop_history", 0) != 0) {
+      shell_setenv("HISTFILE", "/home/dolly/.slop_history", 0) != 0) {
     fprintf(stderr, "slop: HISTFILE: %s\n", strerror(errno));
     return 1;
   }
@@ -5696,8 +5767,8 @@ int main(int argc, char **argv) {
   // restores it (old=$IFS ... IFS=$old) keeps splitting fields; PPID.
   char parent[32];
   snprintf(parent, sizeof(parent), "%ld", (long)getppid());
-  if (setenv("OPTIND", "1", 1) != 0 || setenv("IFS", " \t\n", 1) != 0 ||
-      setenv("PPID", parent, 1) != 0) { perror("slop"); return 1; }
+  if (shell_setenv("OPTIND", "1", 1) != 0 || shell_setenv("IFS", " \t\n", 1) != 0 ||
+      shell_setenv("PPID", parent, 1) != 0) { perror("slop"); return 1; }
   int index = 1;
   int command = 0;
   if (index < argc && strcmp(argv[index], "--help") == 0) { usage(stdout); return 0; }
@@ -5729,7 +5800,7 @@ int main(int argc, char **argv) {
   }
   // Started in a removed directory, the shell keeps the PWD it was given.
   char *cwd = getcwd(NULL, 0);
-  if (cwd != NULL && setenv("PWD", cwd, 1) != 0) { perror("slop: PWD"); return 1; }
+  if (cwd != NULL && shell_setenv("PWD", cwd, 1) != 0) { perror("slop: PWD"); return 1; }
   free(cwd);
   if (command) {
     if (index == argc) { usage(stderr); return 2; }

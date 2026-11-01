@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/demos/rust/Dollyfile-rust-build 4508ce2d95c9eb2fcdb5a81e2148e843c5233648a15d91eb7c84dcb08e5fb2ca
+FROM /v0.1.4/demos/rust/Dollyfile-rust-build 8416867f3fe78064ec211fe3a740e9b92e76a1a36e06ca17f3e977d04f9a7ee3
 REQUIRES TOOL cargo
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
