@@ -71,6 +71,8 @@ from the guest's input), `surfaceSize`, `entryStarted(context)` (the image ENTRY
 now run), `ended()` (the links, `{ text, href }`, it offers on the page's
 notice once the image has ended), `dispose` and `disabled` (below); and whose optional records
 the registry assembles:
+`configuration` (what the page side gives its Worker side's `configuration`,
+with `transfers`, the objects it transfers, such as the display's canvas),
 `page` (members of `window.__dolly`, by descriptor), `builder` (the module's
 configuration for a child build host, `host.builder`) and `inherited` (what an
 opened result tab or restored session inherits, `host.inherited`). A module may

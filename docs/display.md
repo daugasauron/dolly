@@ -120,7 +120,7 @@ flowchart LR
   which `cc` compiles to `/usr/bin/zig`.
 - `ghostty-build` ([`Dollyfile-ghostty-build`](../Dollyfile-ghostty-build)) has that Zig emit Ghostty VT and
   compiler_rt as C, compiles them with `cc` and links `/usr/lib/libdisplay.so`.
-  `system` copies only that plugin, the font and licenses.
+  The `display` package copies only that plugin, the fonts and their licenses.
 - This Zig has no LLVM: it emits only C, so there is no `zig build` or `zig cc`.
   Host preparation only patches the pinned tree for Emscripten's wasm64 layouts,
   WasmFS and threads ([`zig-0.16.0-dolly-native.patch`](../config/zig-0.16.0-dolly-native.patch));

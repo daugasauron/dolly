@@ -223,7 +223,8 @@ mounted, and reads no other version's.
   the kernel, the process ABI and the image format,
   [host modules](../host/README.md)). A package also declares the modules its
   programs need, a library or compiler those every program built with it needs
-  (`sdl2`: `display@0` and `input@0`, `rust`: `threads@0`, `cc`: none);
+  (`sdl2`: `display@0`, `input@0`, `audio@0` and `touch@0`; `rust`: `dso@0`
+  and `threads@0`; `cc`: none);
   `INSTALL` checks that the installing recipe declares them too.
 - Sealing checks every retained executable: a `dolly.host` record naming a
   module the recipe does not declare fails the build, naming the file and the
@@ -298,8 +299,8 @@ EXPORTS TOOL rg
 - A recipe installs it with `INSTALL RECIPE SHA256`, anywhere.
 - A package holds its build (`FROM` a toolchain, then steps: `zlib`,
   `ripgrep`, `sdl2`) or keeps the outputs of the toolchain that built them,
-  with `FROM` and only `EXPORTS` (`cc`, `cmake`) or with `COPY`
-  rows (`nvim`, `rust`, `codex`), which leaves an expensive builder as it
+  with `FROM` and only `EXPORTS` (`cc`, `zig`) or with `COPY`
+  rows (`display`, `rust`, `cargo`), which leaves an expensive builder as it
   is.
 - Packages install into standard paths (`/usr/bin`, `/usr/lib`, `/usr/share`)
   and set environment variables only for their own use: an installed value

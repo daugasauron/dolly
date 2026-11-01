@@ -64,7 +64,7 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `git`: `git` over the page's HTTP broker, with `diff` and `patch`.
 - `zlib`: libz: zlib's headers and static library, for programs the `cc` package builds; it brings no compiler.
 - `curl`: `curl` and libcurl, over the page's HTTP broker.
-- `gzip`: `gzip -dc`, which unpacks a `.gz` file to standard output; the `pigz` package writes them.
+- `gzip`: `gzip`, which compresses and decompresses `.gz` files with zlib.
 - `less`: `less`, the pager; Git and `man` page through it once it is installed.
 - `ninja`: `ninja` (Samurai), which Meson and CMake's Ninja generator build with.
 - `mandoc`: `mandoc`, which formats a manual page of man or mdoc macros as text, and `text-page`, with which a package formats upstream's pages when it is built.

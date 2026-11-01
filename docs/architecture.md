@@ -104,7 +104,7 @@ flowchart TD
   zb --> gb["ghostty-build<br/>Ghostty"]
   gb -. "COPY plugin + font" .-> disp["display<br/>package"]
   sb --> st["system-tools<br/>sbase, awk, /bin/sh"]
-  sb -. "packages: zlib, curl, git" .-> st
+  sb -. "packages: zlib, gzip, curl, git" .-> st
   disp -. "INSTALL" .-> st
   st --> sys["system<br/>sessions"]
   sb -. "packages: transfer" .-> sys
@@ -129,8 +129,8 @@ flowchart TD
   `display` package, so Zig and Ghostty are inputs to everything built from
   it (CMake, Neovim, SDL), and the `git` package, since builds patch with it;
   `rust-sdk` starts from `system-build` and installs `display` as well.
-  `amy` and `transfer` are built on `system-build` and reach the images that
-  install them: `default`, `system` (`transfer`) and the agents (`amy`).
+  A package built on `system-build`, such as `amy` or `transfer`, reaches
+  only the images that install it.
 - Toolchains stay in images that are only built; applications and packages keep
   exact outputs, as the `display` package copies Ghostty's plugin and font
   without the Zig SDK and `pi-runtime` installs the `janis` package

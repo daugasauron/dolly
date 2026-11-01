@@ -57,8 +57,7 @@ flowchart LR
   ([`version.mjs`](../src/version.mjs)): the database is
   `dolly-sessions-vX.Y.Z`, so the pages under `/vX.Y.Z/` list, load, export
   and import only their own saves. An exported file records its version, and
-  another version refuses it, naming the version it belongs to. Saves made
-  before 0.1.0 are not carried over.
+  another version refuses it, naming the version it belongs to.
 - The image cache is one database for every version on the origin. It holds
   rebuildable images only, never a save: an entry is keyed by the runtime's
   image build ID and the recipe's SHA-256, and its bytes are checked against
