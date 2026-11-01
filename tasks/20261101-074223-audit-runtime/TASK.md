@@ -16,18 +16,21 @@ session modules), building on the page (`image-build*.mjs`, `build-worker.mjs`,
 Done when: each finding below is fixed with its browser evidence, closed as moot with the
 reason, or left as a few lines for the owner.
 
-## State (2026-11-01 19:30 JST)
+## State (2026-11-01 19:55 JST)
 
-Findings 1 to 7 and 9 to 17 are committed, each verified as its commit says (source suite;
-Chromium and Firefox suites in `build/audit-runtime-evidence/run2.log` to `run11.log`,
-`tip1.log` to `tip3.log`); 8 is left to `demo/lean-2`. For agent D (via the integrator):
-`input@0` takes keys typed outside the element (finding 17) and the modules' controls sit
-outside it (finding 16). The docs repins of finding 7 restale `dolly-docs` and the images that
-install it: `dolly-docs`, `pi-dolly` and `pi-minimal` are rebuilt in this tree (2.8 min,
-`image-build-docs.log`), so the npm packages, amy and docs suites run at the tip; `bhop`,
-`classicube`, `pi-runtime`, `pi-agent`, `pi-local`, `pi-phone`, `dollyfile-studio`,
-`rts-arena` and `slopyard` wait for a catalog round (the other branches' docs repins restale
-them too). No change of this branch is a seed input: every core image's plan is "reuse".
+Findings 1 to 7 and 9 to 17 are committed, each verified as its commit says: source suite,
+and in Chromium and Firefox the suites in `build/audit-runtime-evidence/run2.log` to
+`run11.log` and `tip1.log` to `tip4.log` (at the tip: core, site, ending, image, custom
+session, session offline, snapshot stream, host compute, host modules, nena, threads,
+sockets, pty, shell env, boundary, indicators, npm packages, amy, docs, terminal, display,
+display cursor, touch, upload, GPU indicator, pager, man). Left: finding 8 to `demo/lean-2`;
+for agent D, `input@0`'s key rule (17) and the modules' controls outside the element (16);
+for the owner, the four questions below. The docs repins of finding 7 restale `dolly-docs`
+and the images that install it: `dolly-docs`, `pi-dolly` and `pi-minimal` are rebuilt in this
+tree (2.8 min, `image-build-docs.log`); `bhop`, `classicube`, `pi-runtime`, `pi-agent`,
+`pi-local`, `pi-phone`, `dollyfile-studio`, `rts-arena` and `slopyard` wait for a catalog
+round (the other branches' docs repins restale them too). No change of this branch is a seed
+input: every core image's plan is "reuse".
 
 ## Findings
 
@@ -254,12 +257,15 @@ without the loaders' `image` argument (finding 1), and keep this branch's metada
   the files; `dist/` converts without a rebuild; the npm image packages change layout, so it
   belongs to a version (0.1.5), not a patch. Not done tonight: it touches the other agents'
   demo tests.
-- **Should a boot check the recipes the directory serves?** `loadPackagedSnapshotMetadata`
-  fetches every recipe of the booted image's closure (17 for `default`, 42 for `pi-minimal`)
-  and compares them with the catalog, so that what `/view/IMAGE/` shows is what built the
-  image. A boot uses none of them, builds check their pins in the engine, and the check is
+- **Should a boot check the recipes the directory serves?** `verifyVisibleRecipes` (the boot's
+  alone since finding 15) fetches every recipe of the booted image's closure (17 for
+  `default`, 42 for `pi-minimal`) and compares them with the catalog, so that what
+  `/view/IMAGE/` shows is what built the image. A boot uses none of them, and the check is
   why every npm image package ships its recipes. After finding 10 it costs one round trip.
-  Keep it (as now), or check recipes only where they are read (views, rebuilds).
+  Keep it (as now), or drop it and let the image packages leave their recipes out.
+- **Prefetch packs?** A boot takes its packs one after another (finding 10: `pi-minimal`'s 35
+  over 4.2 s at a 100 ms round trip). Overlapping the next fetch with the current stream is
+  the performance machinery `AGENTS.md` weighs against serial semantics; say if it is wanted.
 - **`boot()` has no end.** The handle has no way to stop the session: an embedding that
   removes Dolly's element keeps the runtime Worker, the kernel's memory and every process
   Worker until the page is hidden (`pagehide`). The page already has the step (`fatal()` and
