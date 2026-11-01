@@ -188,7 +188,8 @@ differ were read in the source.
       allocation"): a workaround for spawns that fail transiently, which a 126 from the
       compiler itself would also trigger; the fix belongs in spawning (queue or `EAGAIN`).
       `amy` is being changed on `demo/lean-2` and was left alone.
-25. **Two probes the FFmpeg port read literally** (agent F, worked around with upstream options):
+25. **Two probes the FFmpeg port read literally** (agent F, worked around with upstream options;
+    fixed in `68824453`):
     - **`gzip` did not compress**, and FFmpeg's configure takes any `gzip` on `PATH` for a
       compressor (its Makefile runs `gzip -nc9`). It now compresses with the zlib it links:
       in place (`FILE.gz`, the input's times, `-k` keeps it, an existing output or a `.gz`
