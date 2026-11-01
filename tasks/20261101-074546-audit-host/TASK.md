@@ -19,8 +19,8 @@ cases; do its tests prove denied access and behaviour rather than spelling.
 ## State (2026-11-01 18:10 JST)
 
 All 18 modules read (page and Worker sides, kernel C, clients, headers, contracts). Fixes 1
-to 7 committed, each verified in Chromium and Firefox. Fix 7 is a seed change: the catalog
-needs a round (this tree rebuilt only the images its tests open, so its
+to 8 committed, each verified in Chromium and Firefox. Fixes 7 and 8 are seed changes: the
+catalog needs a round (this tree rebuilt only the images its tests open, so its
 `dist/dolly-images.mjs` lists those). P2 and P4 are prototyped and measured as the branch's
 two last commits, subjects `Proposal:`; P1 and P3 wait for the owner as described. Left open for the
 owner's word on the proposals; close it when they are decided.
@@ -87,6 +87,22 @@ Fixed:
    host-modules, nena, audio, microphone, sockets, stack, dso, threads, terminal, display,
    touch, upload, gpu-indicator, host-compute and boundary pass in Chromium and Firefox on
    them, and hardware `gpu-render` in Chrome.
+
+8. **A frame showed its alpha** (the integrator's finding from the Studio recording
+   `videos-2026-11-01/studio/s4-rubik`: a raylib program forced every pixel's alpha to 255
+   before presenting, because its blended pixels showed darkened). A window's framebuffer is
+   opaque; `display.h` instead said "alpha must be 255 for an opaque pixel", and the
+   presenter put the frame unchanged on its `alpha: false` canvas, where Firefox premultiplies
+   it (gray `0x60` in all four bytes showed as 37) and Chrome showed it white. raylib's
+   software renderer, SDL's RGBA32 window surface and the cursor test's own fixture all leave
+   alpha below 255. The presenter now sets the fourth byte of its copy to 255 before it paints:
+   0.9 ms a 1920x1080 frame in Chrome and Firefox, beside putImageData's 0.8 and 1.1 ms (an
+   RGBX `VideoFrame`, which ignores the byte natively, costs 2.7 and 3.1 ms; measured in a
+   page of the test server, `exp/videoframe.mjs` in the session's scratch). `display.h` and
+   `docs/display.md` say a frame is opaque; `test/display-cursor-browser.mjs` reads the
+   screen and fails before the fix in both browsers. A seed change (the display digest),
+   in the same catalog round as fix 7. Wine's driver sets alpha while it converts BGR, which
+   it must do anyway: left.
 
 Described, not changed (each moot or another workstream's, as it says):
 
