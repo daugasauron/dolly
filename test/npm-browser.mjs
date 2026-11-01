@@ -21,6 +21,9 @@ import { chromium, firefox } from "playwright-core";
 import { isolationHeaders, mimeTypes } from "../scripts/serve.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
+// What an image's recipe declares, which its page enables and nothing more.
+const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
+const declared = image => DOLLY_IMAGES.find(definition => definition.image === image).hostRequirements.toSorted();
 const names = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 // page.evaluate has no deadline of its own.
 const within = (promise, seconds, what) => Promise.race([promise, new Promise((_, reject) =>
@@ -146,9 +149,7 @@ try {
       assert.equal(await submit("echo npm-$((6 * 7))"), 0);
       assert.match(await tab.evaluate(() => window.dolly.visibleTerminalText()), /npm-42/);
       // An explicit check of the capability set: what default declares, no more.
-      assert.deepEqual((await tab.evaluate(() => window.dolly.hostModules)).sort(),
-        ["audio@0", "display@0", "download@0", "dso@0", "http@0", "input@0", "nena@0", "packages@0", "runtime@0",
-          "snapshot@0", "sockets@0", "threads@0", "touch@0", "upload@0"]);
+      assert.deepEqual((await tab.evaluate(() => window.dolly.hostModules)).sort(), declared("default"));
 
       const devices = await browser.newPage(), run = await booted(devices, `${origin(isolated)}/devices.html`);
       for (const module of ["gpu@0", "microphone@0", "pty@0"]) {
@@ -177,8 +178,7 @@ try {
       await within(pi.evaluate(() => window.dolly.waitForInteractiveTerminal(
         /Dolly: image entry exited; entering the recovery Slop shell\.[\s\S]*\ndolly:[^\n]*\$\s*$/, "the shell", 0)), 60, "the shell");
       assert.notEqual(await shell("curl -fsS https://example.com > /dev/null"), 0);
-      assert.deepEqual((await pi.evaluate(() => window.dolly.hostModules)).sort(),
-        ["display@0", "download@0", "http@0", "input@0", "runtime@0", "threads@0"]);
+      assert.deepEqual((await pi.evaluate(() => window.dolly.hostModules)).sort(), declared("pi-minimal"));
       assert.equal(await shell("command -v pi-key > /dev/null"), 0);
       console.log(`npm packages: ${name} passed in ${((performance.now() - started) / 1000).toFixed(1)}s`);
     } finally { await browser.close(); }

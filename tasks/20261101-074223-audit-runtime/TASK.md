@@ -221,6 +221,11 @@ markup shapes go. Files another branch changes tonight are left to it (B: `proce
 - `site-release.test.mjs`: the release server test also asserted `sessionLoadUrl`'s URL,
   which `session-transport.test.mjs` tests where it belongs; and the domain page's count of
   `<video` tags, where the media checks beside it are the behaviour.
+- `default-browser.mjs`, `npm-browser.mjs`: `default`'s fourteen modules were written out in
+  three files (with `host-modules.test.mjs`, which records what each core image declares),
+  `pi-minimal`'s six in one. The browser checks now compare the page's modules with the
+  recipe's declared list, which is the behaviour (the page enables what the image declares,
+  no more); the list itself stays in `host-modules.test.mjs`.
 
 ## Checked and left
 
