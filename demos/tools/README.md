@@ -14,7 +14,7 @@ the script would find here, in the comments beside its flags.
 - `zstd`: Zstandard: `zstd`, `unzstd`, `zstdcat` and libzstd.
 - `bzip2`: bzip2: `bzip2`, `bunzip2`, `bzcat` and libbz2.
 - `lz4`: LZ4: `lz4`, `unlz4`, `lz4cat` and liblz4.
-- `pigz`: pigz, which writes the `.gz` files `gzip` here only reads, and `unpigz`.
+- `pigz`: pigz and `unpigz`, on one thread.
 - `zip`: Info-ZIP's `zip`, with the `unzip` package, which `zip -T` starts.
 - `unzip`: Info-ZIP's `unzip` and `zipinfo`.
 - `tree`: tree, which draws a directory as a tree.
@@ -30,7 +30,7 @@ the script would find here, in the comments beside its flags.
 - `toybox`: toybox's `grep` and `sed`, which have `grep -r` and `sed -i`, in place of the image's.
 - `dte`: dte, a small full-screen editor with the keys of a desktop one.
 - `tools-build`: A build stage: `cmake-build` with the core's `mandoc`, what these packages are built on.
-- `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks; `-z`, `-j` and `-J` run gzip, bzip2 and xz (pigz writes `.gz`).
+- `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks; `-z`, `-j` and `-J` run gzip, bzip2 and xz.
 - `sbase`: the sbase commands the image leaves out: `yes`, `cal`, `sha1sum`, `sha512sum`, `sponge`, `cols`, `uuencode` and `uudecode`.
 
 `man` prints a page of text (`/usr/share/man/cat1`) as it is and has no
@@ -53,9 +53,9 @@ What the platform decides ([process model](../../docs/process-model.md)):
   from before the terminal edited a line itself. `vi` reads Enter through a
   few lines the recipe adds, a change to an upstream source with its reason
   there: Neatvi reads unedited and leaves Enter's mapping to the terminal.
-- Dolly's `tar` reads files and directories. An archive with a pax header
-  (every `git archive`) or links is staged as a plain tar of the files a
-  build reads ([`prepare-sources.sh`](prepare-sources.sh)); `sqlite`, `xz`,
+- Dolly's `tar` reads files, directories and pax headers, and refuses links.
+  The other packages' sources are staged as plain tars of the files a build
+  reads ([`prepare-sources.sh`](prepare-sources.sh)); `sqlite`, `xz`,
   `bzip2`, `pigz`, `zip`, `unzip`, `yacc` and `flex` build from the archive
   as published.
 - `fork` fails: `vi`'s `!` commands and language servers say so.

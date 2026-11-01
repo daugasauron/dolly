@@ -111,7 +111,63 @@ but does not filed here as a finding.
   touch reserve (20), the terminal padding 12 by 10, the GPU quotas and feature bits, the audio
   and microphone constants.
 
+### Demo READMEs
+
+Each README's image list matches its recipes (checked by script; the lines feed `amy-index.txt`).
+Changed where a claim was wrong, mostly a core behaviour the night changed:
+
+- `tools`: `pigz` "writes the `.gz` files `gzip` here only reads" and `tar`'s "(pigz writes
+  `.gz`)": `gzip` compresses (68824453). "Dolly's `tar` reads files and directories; an archive
+  with a pax header is staged": it reads pax headers since dbf38965. The staging comment in
+  `prepare-sources.sh` gave the same stale reason.
+- `emacs`: no installed Lisp sources "(Dolly's `gzip` cannot compress them)": the reason is gone.
+- `ffmpeg`, `mojo`: the reasons for `--optflags=-O3`, `--disable-resource-compression` and
+  `llvm-wait.patch` were fixed in the night (68824453, bbec81cc); the READMEs now say so.
+- `zsh`: "`time` reports elapsed time only: Dolly's `wait` reports no resource usage": `wait4`
+  reports a child's times as zero since bbec81cc; the port is configured without `wait3`.
+- `tmux`, `speech`: `amy install` in `default` is refused "since default does not declare"
+  `pty@0`/`microphone@0`, and `speech` said `default` lacks `touch@0`, which it declares;
+  `nena enable` gives the module (`tmux-browser.mjs`'s "tmux in ps" case does it).
+- `neovim`: "No PTY `:terminal`, tmux": tmux runs (its own demo); `:terminal` fails because
+  `nvim` is not linked with `-ldolly-pty`.
+- `x11`: the patch's line count (48 added) was 55; dropped, it rots with every hunk.
+- `slopyard`: `Dollyfile-slopyard` listed twice.
+- Checked without change: versions against `config/source-pins.sh` (SDL2 2.32.10, Lua 5.1.5,
+  xorg-server 21.1.25, xterm 412), `zero-ad`'s 1.94 GB image, `parakeet`'s 135 MB, Studio's
+  docs (staged by its `prepare-sources.sh`), the cmake-build dependents, the JavaScript
+  packages' bases, `pi-minimal`'s installs, the X screen size.
+- Not changed: `lean` (E's tree today); its `prepare-sources.sh` stages Lean's source because
+  "its archive starts with a pax header, which Dolly's tar does not read", no longer true.
+
+### Help texts and manual pages (seed inputs)
+
+- Built natively (`gcc`, a two-function spawn stub) and ran every option each `--help` lists:
+  `ls`, `cp`, `mv`, `rm`, `mkdir`, `cat`, `stat`, `touch`, `file`, `du`, `env`, `find`,
+  `xargs`, `timeout`, `time`, `hostname`, `pwd`, `realpath`, `install`, `gzip`, `tar`: all
+  accepted. `help`'s limits match the code (1024 descriptors, 8 GiB, 56 processes, 32/64
+  threads, 64 KiB pipes); `echo.1` and `test.1` (recipe bodies) match `echo.c` and `test.c`.
+- `tar` failed on a pax archive whose extended headers carry no path: GNU tar `--format=pax`
+  writes one of times before every member, and macOS's bsdtar writes them for extended
+  attributes (`tar: -: read extended header: No such file or directory`). slop.md promises pax
+  archives. Fixed in `src/commands/tar.c` (a seed input) with a case in `test/tar.test.mjs`
+  that failed before.
+
 ## Findings (claims the code should meet but does not)
+
+- Workarounds whose cause the night removed, each a demo change for its owner:
+  `demos/ffmpeg/Dollyfile-ffmpeg` (`--optflags=-O3`, `--disable-resource-compression`, both
+  for FFmpeg's configure, which 68824453 was made for); `demos/mojo/llvm-wait.patch` (`wait4`
+  takes a usage record since bbec81cc); `demos/emacs/Dollyfile-emacs` leaves the Lisp sources
+  out because "Dolly's gzip only decompresses"; the plain-tar stagings of
+  `demos/tools/prepare-sources.sh` (jq, zstd, lz4, Binaryen, ...), `demos/x11/prepare-sources.sh`
+  (xterm) and `demos/lean/prepare-sources.sh` exist because tar read no pax header, which it
+  does since dbf38965 (links stay refused, so each needs its archive checked).
+- `cc --help` says the `<dolly/NAME.h>` host clients link without `-l`; `sockets@0`'s and
+  `pty@0`'s need `-ldolly-sockets` and `-ldolly-pty` (`host_client_libraries()` in
+  `compiler.cpp`). The text is the seed compiler's, so it waits for the next compiler round.
+- Studio stages its own copies of `docs/dollyfile.md` and `docs/image-build-service.md`
+  (`demos/studio/prepare-sources.sh`, read by its skill at `/usr/share/dollyfile-studio/`)
+  although its base installs `dolly-docs`, which holds both under `/usr/share/doc/dolly/docs/`.
 
 - Pages' header rules (measured above): the deployment of v0.1.4 uses 92 of 100. The exporter
   fails at 100 naming the versions, by design, and removing a version is the owner's act; the

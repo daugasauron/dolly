@@ -20,9 +20,10 @@ Open `/speech-to-text-mic/` or `/pi-phone/` and allow the microphone; build with
 
 The two images are a base and a package each. A recipe that declares the host
 modules installs the same: `INSTALL` of `speech-to-text` or `voice`. `default`
-declares neither `microphone@0` nor `touch@0`, so `amy install
-speech-to-text` is refused there, naming the module; `parakeet` installs
-anywhere.
+declares neither `microphone@0` nor `pty@0`, so `amy install speech-to-text`
+is refused there, naming the module, until `nena enable microphone` gives the
+session the module (`voice` needs `nena enable microphone pty`); `parakeet`
+installs anywhere.
 
 ## speech-to-text
 

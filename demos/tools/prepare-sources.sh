@@ -21,9 +21,8 @@ if has_image xxd; then
   copy_static "$(bash scripts/fetch-pinned-archive.sh xxd)" tools/xxd.c
   copy_static "$(bash scripts/fetch-pinned-archive.sh xxd_man)" tools/xxd.1
 fi
-# Dolly's tar reads files and directories. These release archives also hold a
-# pax header (every git archive has one) or links, so the files a build reads
-# are staged from them, unchanged, with licence and manual at their paths.
+# The files a build reads, staged from pinned checkouts, unchanged, with licence
+# and manual at their paths.
 if has_image sqlite; then
   tool_dir="$(bash scripts/fetch-pinned-source.sh linenoise)"
   node scripts/build-source-tar.mjs "${static_dir}/tools/linenoise.tar" \
