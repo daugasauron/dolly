@@ -2101,9 +2101,6 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
         struct stat metadata;
         if (fstat(process->descriptors[guest], &metadata) != 0) return -errno;
         encode_stat(&metadata, &response);
-        if (process->terminal_descriptors[guest]) {
-          response.file_type = DOLLY_PROCESS_FILE_CHARACTER_DEVICE;
-        }
       }
       return respond(&response, sizeof(response));
     }

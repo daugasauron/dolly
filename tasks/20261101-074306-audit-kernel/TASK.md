@@ -275,6 +275,20 @@ Each with a test that failed before, verified in Chromium and Firefox.
     mtime and size too, which do move. Directories count one link, as on
     btrfs.
 
+25. **The terminal had a position, and `/dev/tty` was a regular file.** The
+    terminal's output device (`TerminalFile` in `file-blocks.cpp`, since
+    `ff3a5c19`) was made as WasmFS's default kind of file: `lseek(1, 0,
+    SEEK_CUR)` on the terminal answered the bytes written (527) where Linux
+    says ESPIPE, so Python's `sys.stdout.seekable()` was true, and
+    `stat("/dev/tty")` and `stat("/dev/zero")` said regular file, so `test
+    -c /dev/tty` failed. The kernel's FD_STAT hid it for descriptors 0-2 by
+    calling any terminal descriptor a character device. Both devices are now
+    character devices, the terminal unseekable, and FD_STAT's correction is
+    gone. Kernel C++. Test `device_answers` in `process-descriptors.c`
+    (Linux passes it under `script`); before, `probes/tty-identity.c` read
+    mode 100666 and the position (Chromium), now 20666 and ESPIPE;
+    `process`, `terminal`, `pty` and `default` pass in Chromium and Firefox.
+
 ## Proposals for the owner
 
 - **The kernel told each disposition, and a spawned child that keeps what

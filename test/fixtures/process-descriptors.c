@@ -401,6 +401,14 @@ static void path_answers(void) {
   CHECK(close(reader) == 0 && close(writer) == 0 && unlink(file) == 0 && rmdir(directory) == 0);
 }
 
+/* Devices are character devices, and a terminal has no position. */
+static void device_answers(void) {
+  struct stat metadata;
+  CHECK(stat("/dev/tty", &metadata) == 0 && S_ISCHR(metadata.st_mode));
+  CHECK(stat("/dev/zero", &metadata) == 0 && S_ISCHR(metadata.st_mode));
+  if (isatty(STDOUT_FILENO)) CHECK(lseek(STDOUT_FILENO, 0, SEEK_CUR) == -1 && errno == ESPIPE);
+}
+
 /* Truncation, by O_TRUNC or ftruncate, modifies a file: make reads its time. */
 static void truncation_times(void) {
   char path[] = "/tmp/process-descriptors-XXXXXX";
@@ -483,6 +491,7 @@ int main(int argc, char **argv) {
   path_answers();
   link_answers();
   truncation_times();
+  device_answers();
 #ifdef __dolly__
   spawning(argv[0]);
   directory_positions();
