@@ -24,7 +24,8 @@ demos. The catalog needs a round: `src/slop.c` and `src/commands/` are root-reci
 every recipe is repinned. Proposals P1, P2, P3 and P6 are prototyped on branches
 `proposal/dollyfile-no-append` (`607fcc3a`), `proposal/dollyfile-requires` (`8573582e`),
 `proposal/dollyfile-one-parser` (`e934ca17`) and `proposal/slop-utilities` (one commit on
-`68bbd7d9`), not on this branch. Agent F's FFmpeg
+`68bbd7d9`), not on this branch. Since 23:20 this tree's `dist/` holds P3's runtime and images
+(image inputs `b63e9fa2…`), not this branch's: take nothing from it for this branch's round. Agent F's FFmpeg
 build (`demo/ffmpeg`) merged `ad78dbef`, whose utilities this branch took out again: its
 65 s configure in Dolly ran with P6; without it the full option set measured here starts
 67,949 more processes.
@@ -281,9 +282,13 @@ and on the catalog. What follows are changes to the language itself, the owner's
     `fixtures/dollyfile-cases.mjs`). Net over `src/`, `test/` and `docs/`: 256 in, 372 out.
   - *What it costs:* a new interface between page and engine (the rows file, versioned by its
     `DOLLY 7` header), and `/bin/dollyfile FILE:recipe` typed by hand needs the page's rows.
-  - *Verified:* the source suite (463) and the native harness. Not yet in a browser: the engine
-    is in the seed (`dolly.data`), so it needs `npm run build:runtime` and a round of images,
-    run after the 00:30 merge.
+  - *Verified* in Chromium and Firefox: `npm run build:runtime` (the engine is in the seed's
+    `dolly.data`, image inputs `b63e9fa2…`), then the 22 images of `default` and `system`, every
+    one built from the page's rows (976 s); `image-browser.mjs` (custom images built in the tab,
+    the in-Dolly engine cases), the Slop, shell, core and process suites, and `amy-browser.mjs`'s
+    refusal and USE tests and a live `amy install gzip` (the image's own receipt), run from a copy
+    without the tests that install packages a narrowed build does not publish (`python`). The
+    source suite passes (463).
 - **P4. Remove `/bin/cd`.** It cannot do what `cd` means (a program cannot change its
   caller's directory); `xargs cd`, `env cd` and `find -exec cd` only test that a directory
   exists. POSIX.1-2024, Slop's target, made `cd`, `command` and the other intrinsic utilities
@@ -346,3 +351,7 @@ and on the catalog. What follows are changes to the language itself, the owner's
 - Comparing whole logs finds what outputs hide: FFmpeg's `config.h` was already identical
   when `config.log`'s variable dump still showed `opt=libxeveb`, which led to a `return`
   that never left a `while` loop, on main too.
+- Who calls a component settles which copy of it to keep faster than comparing the copies:
+  the engine parsed only recipes the page had read first, and one whose content its image's
+  receipt already held, so P3 kept the page's parser and the engine lost its own without a
+  feature lost.
