@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
+import { chmod, lstat, mkdir, mkdtemp, open, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -33,6 +34,15 @@ test("find -exec + runs every path even after a failed batch", async () => {
   const recorded = (await readFile(log, "utf8")).trim().split("\n");
   assert.equal(new Set(recorded).size, 600);
   assert.equal(run(find, [tree, "-name", "file-1[0-9]", "-path", "*/file-*"]).stdout.split("\n").length - 1, 10);
+  // POSIX's time and size primaries: a stamp file, whole days, 512-byte blocks.
+  await writeFile(join(tree, "file-0"), "x".repeat(1000));
+  await utimes(join(tree, "file-1"), 1000, 1000);
+  await utimes(join(tree, "file-2"), 2000, 2000);
+  const found = (...expression) => run(find, [tree, ...expression]).stdout.trim().split("\n").map(path => path.slice(tree.length + 1)).sort();
+  assert.deepEqual(found("-newer", join(tree, "file-1"), "-name", "file-[12]"), ["file-2"]);
+  assert.deepEqual(found("-mtime", "+30", "-name", "file-*"), ["file-1", "file-2"]);
+  assert.deepEqual(found("-size", "2"), ["file-0"]);
+  assert.deepEqual(found("-size", "+999c", "-size", "-1001c"), ["file-0"]);
 });
 
 test("xargs streams large input in size- and count-bounded batches", () => {
@@ -52,6 +62,10 @@ test("xargs streams large input in size- and count-bounded batches", () => {
   assert.equal(run(xargs, ["sh", "-c", "exit 3"], { input: "a" }).status, 123);
   assert.equal(run(xargs, ["missing-command"], { input: "a" }).status, 127);
   assert.equal(run(xargs, ["-I", "{}", "echo", "<{}>"], { input: "a b\nc\n" }).stdout, "<a b>\n<c>\n");
+  // POSIX's -L: a command per line, a trailing blank continues the line; -E ends the input.
+  assert.equal(run(xargs, ["-L", "1", "echo"], { input: "a b\nc \nd\n\ne\n" }).stdout, "a b\nc d\ne\n");
+  assert.equal(run(xargs, ["-E", "stop", "echo"], { input: "a stop b\n" }).stdout, "a\n");
+  assert.equal(run(xargs, ["--no-run-if-empty", "echo", "ran"], { input: "" }).stdout, "");
   // -P runs commands at once: each waits until all three have started.
   const together = run(xargs, ["-P", "3", "-n", "1", "sh", "-c",
     ': > "started-$1"; until [ "$(ls started-* | wc -l)" -eq 3 ]; do sleep 0.01; done; test "$1" != b', "sh"],
@@ -73,8 +87,16 @@ test("Dolly's own core tools keep their no-permission and finite semantics", asy
   assert.equal(status(bracket, ["(", "-n", "a", "-a", "-z", "", ")", "-o", "!", "-d", ".", "]"]), 0);
   assert.equal(status(bracket, ["!", "(", "a", "=", "a", ")", "-a", "-d", ".", "]"]), 1);
   assert.equal(status(bracket, ["-n", "a"]), 2);
+  // Up to four arguments POSIX decides by their number, so an operand that
+  // looks like an operator stays an operand, as in option loops: [ "$1" = -o ].
+  for (const [args, expected] of [[["-n", "-o"], 0], [["-z", "-a"], 1], [["x", "=", "-a"], 1], [["!", "=", "x"], 1],
+    [["x", "=", "-o", "-o", "y", "=", "y"], 0], [["-c", "/dev/null"], 0], [["-t", "0"], 1], [["b", ">", "a"], 0]]) {
+    assert.equal(status(testTool, args), expected, args.join(" "));
+  }
   assert.equal(run(build("cat"), ["-n"], { input: "a\nb\n" }).stdout, "     1\ta\n     2\tb\n");
+  assert.equal(run(build("cat"), ["-u"], { input: "u" }).stdout, "u", "POSIX's one option");
   assert.equal(run(build("echo"), ["--"]).stdout, "--\n");
+  assert.equal(run(build("echo"), ["--help"]).stdout, "--help\n");
   const ls = build("ls");
   assert.equal(status(ls, ["--color=never", "."]), 0);
   // The POSIX long format; a directory starts with its total, an empty one has nothing else.
@@ -99,11 +121,110 @@ test("Dolly's own core tools keep their no-permission and finite semantics", asy
   assert.equal(status(build("install"), ["-m", "755", "-o", "nobody", "-g", "nogroup",
     "install-source", "installed"]), 0);
   assert.equal(await readFile(join(scratch, "installed"), "utf8"), "bytes");
+  // As Make install recipes write the options: letters combined, a value attached.
+  assert.equal(status(build("install"), ["-Dm644", "install-source", "nested/installed"]), 0);
+  assert.equal(status(build("install"), ["-cm", "755", "install-source", "nested/again"]), 0);
+  assert.equal(await readFile(join(scratch, "nested/again"), "utf8"), "bytes");
   await utimes(join(scratch, "install-source"), 1000, 2000);
   assert.equal(status(build("install"), ["-p", "install-source", "preserved"]), 0);
   assert.equal((await stat(join(scratch, "preserved"))).mtimeMs, 2000_000);
+  // POSIX cp copies what a link operand names; -R copies links as links.
+  const cp = build("cp");
+  await symlink("install-source", join(scratch, "source-link"));
+  assert.equal(status(cp, ["source-link", "copied-file"]), 0);
+  assert.equal((await lstat(join(scratch, "copied-file"))).isFile(), true);
+  assert.equal(status(cp, ["-R", "source-link", "copied-link"]), 0);
+  assert.equal((await lstat(join(scratch, "copied-link"))).isSymbolicLink(), true);
+  assert.equal(status(cp, ["-p", "install-source", "cp-preserved"]), 0);
+  assert.equal((await stat(join(scratch, "cp-preserved"))).mtimeMs, 2000_000);
+  // touch's POSIX options: a reference file, an ISO 8601 date, one of the two times.
+  const touch = build("touch");
+  assert.equal(status(touch, ["-r", "install-source", "touched"]), 0);
+  assert.equal((await stat(join(scratch, "touched"))).mtimeMs, 2000_000);
+  const accessed = (await stat(join(scratch, "touched"))).atimeMs;
+  assert.equal(status(touch, ["-m", "-d", "1970-01-01T00:20:00Z", "touched"]), 0);
+  const touched = await stat(join(scratch, "touched"));
+  assert.deepEqual([touched.atimeMs, touched.mtimeMs], [accessed, 1200_000]);
+  // mkdir -m (modes are not kept) and rm -v and -d, as POSIX.1-2024 has them.
+  assert.equal(status(build("mkdir"), ["-pm", "755", "made/deep"]), 0);
+  assert.equal(run(build("rm"), ["-rv", "made"]).stdout, "made/deep\nmade\n");
+  await mkdir(join(scratch, "empty-directory"));
+  assert.equal(status(build("rm"), ["-d", "empty-directory"]), 0);
   assert.equal(run(build("du"), ["-b", "install-source"]).stdout, "5\tinstall-source\n");
   assert.equal(run(build("rev"), [], { input: "aé✓b\n" }).stdout, "b✓éa\n");
+});
+
+// make 2>&1 | cat shows each line as Make prints it.
+test("cat writes a pipe's bytes as they arrive", async () => {
+  const cat = spawn(build("cat"), [], { stdio: ["pipe", "pipe", "inherit"] });
+  cat.stdin.write("first\n");
+  const first = await Promise.race([new Promise(resolve => cat.stdout.once("data", resolve)),
+    new Promise(resolve => setTimeout(resolve, 5000, "nothing before the input ended"))]);
+  cat.stdin.end();
+  await new Promise(resolve => cat.once("exit", resolve));
+  assert.equal(String(first), "first\n");
+});
+
+const gzipTool = () => {
+  const gzip = join(scratch, "gzip");
+  execFileSync("cc", ["-std=c17", "-Wall", "-Wextra", "-Werror", "src/commands/gzip.c", "-o", gzip, "-lz"], { cwd: project, stdio: "pipe" });
+  return gzip;
+};
+
+// gzip decompresses in place as well as to stdout, and data that is no gzip
+// stream fails, unless -f copies it as tar -z asks.
+test("gzip -d replaces FILE.gz with FILE and refuses what is not gzip", async () => {
+  const gzip = gzipTool();
+  const work = join(scratch, "gzip-work");
+  await mkdir(work);
+  await writeFile(join(work, "data"), "gzip data\n");
+  execFileSync("gzip", ["data"], { cwd: work });
+  assert.equal(run(gzip, ["-dk", "data.gz"], { cwd: work }).status, 0);
+  assert.equal(await readFile(join(work, "data"), "utf8"), "gzip data\n");
+  assert.equal(run(gzip, ["-d", "data.gz"], { cwd: work }).status, 1, "data exists");
+  assert.equal(run(gzip, ["-df", "data.gz"], { cwd: work }).status, 0);
+  await assert.rejects(stat(join(work, "data.gz")));
+  await writeFile(join(work, "plain.gz"), "plain\n");
+  assert.equal(run(gzip, ["-dc", "plain.gz"], { cwd: work }).status, 1);
+  assert.equal(run(gzip, ["-cdf", "plain.gz"], { cwd: work }).stdout, "plain\n");
+});
+
+// What it writes the host's gzip reads, and the other way round: FFmpeg's
+// Makefile runs gzip -nc9, automake's dist gzip --best -c.
+test("gzip compresses in place and to stdout, as the host's gzip reads it", async () => {
+  const gzip = gzipTool(), work = join(scratch, "gzip-pack");
+  await mkdir(work);
+  const data = Buffer.concat([randomBytes(50000), Buffer.from("compressible line\n".repeat(5000))]);
+  await writeFile(join(work, "data"), data);
+  const packed = (args, options = {}) => spawnSync(gzip, args, { cwd: work, ...options }).stdout;
+  const unpackedByHost = bytes => execFileSync("gzip", ["-dc"], { input: bytes });
+  for (const args of [["-nc9", "data"], ["--best", "-c", "data"], ["-c1", "data"], ["-c", "-"]]) {
+    assert.deepEqual(unpackedByHost(packed(args, { input: data })), data, args.join(" "));
+  }
+  assert.deepEqual(packed(["-c", "data"]), packed(["-c", "data"]), "no name or time, so the same bytes");
+  assert.deepEqual(unpackedByHost(packed(["-c", "data", "data"])), Buffer.concat([data, data]), "one member each");
+  assert.deepEqual(packed(["-dc"], { input: execFileSync("gzip", ["-c"], { input: data }) }), data);
+  await utimes(join(work, "data"), 1e9, 1e9);
+  assert.equal(run(gzip, ["data"], { cwd: work }).status, 0);
+  await assert.rejects(stat(join(work, "data")));
+  assert.equal((await stat(join(work, "data.gz"))).mtimeMs, 1e12, "the input's times");
+  assert.deepEqual(unpackedByHost(await readFile(join(work, "data.gz"))), data);
+  assert.equal(run(gzip, ["data.gz"], { cwd: work }).status, 1, "already compressed");
+  await writeFile(join(work, "data"), data);
+  assert.equal(run(gzip, ["-k", "data"], { cwd: work }).status, 1, "data.gz exists");
+  assert.equal(run(gzip, ["-kf", "data"], { cwd: work }).status, 0);
+  assert.deepEqual(await readFile(join(work, "data")), data, "-k keeps it");
+  assert.equal(run(gzip, ["-N", "data"], { cwd: work }).status, 2, "no name is stored");
+});
+
+// A full disk (in Dolly, kernel memory) fails what writes to it.
+test("commands whose output cannot be written fail", async () => {
+  const full = await open("/dev/full", "w");
+  try {
+    for (const [name, args] of [["ls", ["."]], ["find", ["."]], ["du", ["."]], ["stat", ["."]], ["file", ["."]], ["pwd", []]]) {
+      assert.equal(spawnSync(build(name), args, { cwd: scratch, stdio: ["ignore", full.fd, "ignore"] }).status, 1, name);
+    }
+  } finally { await full.close(); }
 });
 
 test("env, command and time resolve programs on the resulting PATH", () => {
@@ -138,7 +259,9 @@ test("diff reports 0/1/2 and patch reads the patch, never a file operand", async
   assert.equal(run(diff, ["-r", "a", "b"], options).status, 1);
   assert.equal(run(diff, ["a/file", "missing"], options).status, 2);
   assert.equal(run(diff, ["-N", "a/file", "missing"], options).status, 1);
-  assert.equal(run(diff, ["-s", "a/file", "b/file"], options).status, 2);
+  // -s and --brief, as upstream test scripts call them.
+  assert.equal(run(diff, ["-s", "a/file", "a/file"], options).stdout, "Files a/file and a/file are identical\n");
+  assert.equal(run(diff, ["--brief", "a/file", "b/file"], options).status, 1);
   await writeFile(join(work, "change.patch"), unified.stdout);
   const inside = { cwd: join(work, "a") };
   assert.equal(run(patch, ["file"], { ...inside, input: unified.stdout }).status, 2);
@@ -169,7 +292,7 @@ test("file recognizes UTF-8 text and stat reports modes or rejects unknown forma
 });
 
 test("Dolly's own commands answer --help with their usage and status 0; man reports a missing page", async () => {
-  const core = ["cat", "cd", "clear", "cp", "echo", "file", "help", "ls", "man", "mkdir", "mv", "pwd", "rm", "stat", "touch"];
+  const core = ["cat", "cd", "clear", "cp", "file", "help", "ls", "man", "mkdir", "mv", "pwd", "rm", "stat", "touch"];
   const sources = ["command", "diff", "du", "env", "find", "hostname", "install", "nproc", "patch", "realpath", "rev",
     "time", "timeout", "tty", "xargs"];
   const programs = [...core.map(name => build(name)), ...sources.map(name => build(name))];

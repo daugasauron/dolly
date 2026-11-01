@@ -16,6 +16,7 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+#include <wchar.h>
 
 #include <dolly/runtime.h>
 
@@ -112,6 +113,7 @@ typedef struct {
   int xtrace;
   int nounset;
   int noexec;
+  int noglob; // set -f: no pathname expansion
   int pipefail;
   int loop_depth;
   int loop_control;
@@ -155,7 +157,6 @@ struct LocalFrame {
   size_t capacity;
 };
 typedef struct {
-  Arguments environment;
   Arguments exported;
   int cwd;
 } ShellStateSnapshot;
@@ -516,6 +517,99 @@ static int valid_name(const char *text, size_t length) {
   return 1;
 }
 
+// The shell's variables, in a table of their own: a lookup or an assignment
+// costs the same with ten variables or ten thousand (FFmpeg's configure
+// holds thousands), where `environ` costs a scan of every entry. Children get
+// only the exported ones (exported_environment).
+typedef struct Variable {
+  struct Variable *next;
+  char *name;
+  char *value;
+} Variable;
+static struct {
+  Variable **buckets;
+  size_t capacity; // A power of two, or 0.
+  size_t count;
+} variables;
+
+static size_t variable_hash(const char *name, size_t length) {
+  size_t hash = 2166136261u;
+  for (size_t index = 0; index < length; index++) hash = (hash ^ (unsigned char)name[index]) * 16777619u;
+  return hash;
+}
+
+static Variable **variable_slot(const char *name, size_t length) {
+  if (variables.capacity == 0) return NULL;
+  Variable **slot = &variables.buckets[variable_hash(name, length) & (variables.capacity - 1)];
+  while (*slot != NULL && (strncmp((*slot)->name, name, length) != 0 || (*slot)->name[length] != '\0'))
+    slot = &(*slot)->next;
+  return slot;
+}
+
+// The value of the variable whose name is the first `length` bytes of `name`, or NULL.
+static const char *variable_value_n(const char *name, size_t length) {
+  Variable **slot = variable_slot(name, length);
+  return slot == NULL || *slot == NULL ? NULL : (*slot)->value;
+}
+
+static const char *variable_value(const char *name) {
+  return variable_value_n(name, strlen(name));
+}
+
+static int variables_grow(void) {
+  const size_t capacity = variables.capacity == 0 ? 256 : variables.capacity * 2;
+  Variable **buckets = calloc(capacity, sizeof(*buckets));
+  if (buckets == NULL) return 0;
+  for (size_t index = 0; index < variables.capacity; index++) {
+    for (Variable *variable = variables.buckets[index], *next; variable != NULL; variable = next) {
+      next = variable->next;
+      Variable **slot = &buckets[variable_hash(variable->name, strlen(variable->name)) & (capacity - 1)];
+      variable->next = *slot;
+      *slot = variable;
+    }
+  }
+  free(variables.buckets);
+  variables.buckets = buckets;
+  variables.capacity = capacity;
+  return 1;
+}
+
+// Sets or, with a NULL value, unsets a variable without the subshell log.
+static int store_variable(const char *name, const char *value) {
+  if (value != NULL && variables.count >= variables.capacity && !variables_grow()) return -1;
+  Variable **slot = variable_slot(name, strlen(name));
+  if (slot == NULL) return 0;
+  if (value == NULL) {
+    Variable *gone = *slot;
+    if (gone == NULL) return 0;
+    *slot = gone->next;
+    free(gone->name);
+    free(gone->value);
+    free(gone);
+    variables.count--;
+    return 0;
+  }
+  char *copy = strdup(value);
+  if (copy == NULL) return -1;
+  if (*slot != NULL) {
+    free((*slot)->value);
+    (*slot)->value = copy;
+    return 0;
+  }
+  Variable *variable = malloc(sizeof(*variable));
+  char *name_copy = strdup(name);
+  if (variable == NULL || name_copy == NULL) {
+    free(variable);
+    free(name_copy);
+    free(copy);
+    return -1;
+  }
+  *variable = (Variable){.next = NULL, .name = name_copy, .value = copy};
+  *slot = variable;
+  variables.count++;
+  return 0;
+}
+
 static const char *parameter_value(Shell *shell, const char *name,
                                    size_t length, char temporary[64], int *is_set) {
   if (is_set) *is_set = 1;
@@ -544,6 +638,7 @@ static const char *parameter_value(Shell *shell, const char *name,
   if (length == 1 && name[0] == '-') {
     size_t index = 0;
     if (shell->errexit) temporary[index++] = 'e';
+    if (shell->noglob) temporary[index++] = 'f';
     if (shell->interactive) temporary[index++] = 'i';
     if (shell->noexec) temporary[index++] = 'n';
     if (shell->nounset) temporary[index++] = 'u';
@@ -562,10 +657,7 @@ static const char *parameter_value(Shell *shell, const char *name,
     return index < (size_t)shell->argc ? shell->argv[index] : "";
   }
   if (!valid_name(name, length)) return "";
-  char *copy = strndup(name, length);
-  if (copy == NULL) return NULL;
-  const char *value = getenv(copy);
-  free(copy);
+  const char *value = variable_value_n(name, length);
   if (is_set) *is_set = value != NULL;
   return value == NULL ? "" : value;
 }
@@ -607,6 +699,204 @@ static const char *parameter_closing_brace(const char *source) {
   return NULL;
 }
 
+// After `$((`, the first `)` of the `))` that closes the arithmetic expansion.
+static const char *arithmetic_end(const char *source) {
+  for (int depth = 0; *source != '\0'; source++) {
+    if (*source == '(') depth++;
+    else if (*source == ')' && depth != 0) depth--;
+    else if (*source == ')' && source[1] == ')') return source;
+  }
+  return NULL;
+}
+
+static const char *substitution_end(const char *source);
+
+// The end of a word inside a command substitution, read with its quotes,
+// escapes and nested expansions; NULL when one of them is unterminated.
+static const char *substitution_word_end(const char *source, int *quoted) {
+  char quote = '\0';
+  *quoted = 0;
+  while (*source != '\0') {
+    if (quote == '\0' && strchr(" \t\r\n;&|()<>", *source) != NULL) return source;
+    if (quote == '\'') {
+      if (*source == '\'') quote = '\0';
+      source++;
+    } else if (*source == '\\') {
+      *quoted = 1;
+      if (source[1] == '\0') return NULL;
+      source += 2;
+    } else if (quote == '\0' && (*source == '\'' || *source == '"')) {
+      quote = *source++;
+      *quoted = 1;
+    } else if (quote == '"' && *source == '"') {
+      quote = '\0';
+      source++;
+    } else if (quote == '\0' && source[0] == '$' && source[1] == '\'') {
+      *quoted = 1;
+      for (source += 2; *source != '\''; source++) {
+        if (*source == '\0') return NULL;
+        if (*source == '\\' && source[1] != '\0') source++;
+      }
+      source++;
+    } else if (source[0] == '$' && source[1] == '(') {
+      const char *closing = source[2] == '(' ? arithmetic_end(source + 3)
+                                             : substitution_end(source + 2);
+      if (closing == NULL) return NULL;
+      source = closing + (source[2] == '(' ? 2 : 1);
+    } else if (source[0] == '$' && source[1] == '{') {
+      const char *closing = parameter_closing_brace(source + 2);
+      if (closing == NULL) return NULL;
+      source = closing + 1;
+    } else if (*source == '`') {
+      for (source++; *source != '`'; source++) {
+        if (*source == '\0') return NULL;
+        if (*source == '\\' && source[1] != '\0') source++;
+      }
+      source++;
+    } else {
+      source++;
+    }
+  }
+  return quote == '\0' ? source : NULL;
+}
+
+// After a here-document's operator line, the line after its delimiter line.
+static const char *heredoc_body_end(const char *source, const char *delimiter,
+                                    int strip_tabs) {
+  const size_t length = strlen(delimiter);
+  while (*source != '\0') {
+    const char *line = source;
+    if (strip_tabs) while (*line == '\t') line++;
+    const char *newline = strchr(line, '\n');
+    const char *line_end = newline == NULL ? line + strlen(line) : newline;
+    if (line_end > line && line_end[-1] == '\r') line_end--;
+    if ((size_t)(line_end - line) == length && memcmp(line, delimiter, length) == 0)
+      return newline == NULL ? line_end : newline + 1;
+    if (newline == NULL) return NULL;
+    source = newline + 1;
+  }
+  return NULL;
+}
+
+enum { CASE_SUBJECT, CASE_IN, CASE_PATTERN, CASE_BODY };
+
+// After `$(`, the `)` that closes the command substitution, found by reading
+// the text as the shell reads a command: quotes, escapes, comments, nested
+// substitutions, here-document bodies and the `)` that ends a case pattern
+// stay inside. NULL when the text ends first.
+static const char *substitution_end(const char *source) {
+  int cases[64];
+  size_t case_count = 0;
+  unsigned depth = 0;
+  int command_position = 1;
+  char *delimiters[SLOP_MAX_HEREDOCS];
+  int strip_tabs[SLOP_MAX_HEREDOCS];
+  size_t heredoc_count = 0;
+  const char *end = NULL;
+  while (source != NULL && *source != '\0' && end == NULL) {
+    int *state = case_count == 0 ? NULL : &cases[case_count - 1];
+    const char byte = *source;
+    if (byte == ' ' || byte == '\t' || byte == '\r') {
+      source++;
+    } else if (byte == '\\' && source[1] == '\n') {
+      source += 2;
+    } else if (byte == '#') {
+      while (*source != '\0' && *source != '\n') source++;
+    } else if (byte == '\n') {
+      source++;
+      for (size_t index = 0; index < heredoc_count; index++) {
+        if (source != NULL) source = heredoc_body_end(source, delimiters[index], strip_tabs[index]);
+        free(delimiters[index]);
+      }
+      heredoc_count = 0;
+      command_position = 1;
+    } else if (byte == ';' && (source[1] == ';' || source[1] == '&')) {
+      if (state != NULL && *state == CASE_BODY) *state = CASE_PATTERN;
+      source += 2;
+      command_position = 1;
+    } else if (byte == ';' || byte == '&' || byte == '|') {
+      source++;
+      command_position = 1;
+    } else if (byte == '(') {
+      source++;
+      // A pattern may open with `(`; elsewhere it opens a subshell.
+      if (state == NULL || *state != CASE_PATTERN) depth++;
+      command_position = 1;
+    } else if (byte == ')') {
+      const int pattern = state != NULL && *state == CASE_PATTERN;
+      if (pattern) *state = CASE_BODY;
+      else if (depth == 0) end = source;
+      else depth--;
+      source++;
+      command_position = pattern;
+    } else if (byte == '<' && source[1] == '<' && source[2] == '<') {
+      // Bash's here-string, refused by name when the substitution runs.
+      source += 3;
+    } else if (byte == '<' && source[1] == '<') {
+      const int strip = source[2] == '-';
+      source += strip ? 3 : 2;
+      while (*source == ' ' || *source == '\t') source++;
+      int quoted;
+      const char *word = source;
+      source = substitution_word_end(word, &quoted);
+      char *delimiter = source == NULL || source == word || heredoc_count == SLOP_MAX_HEREDOCS
+          ? NULL : malloc((size_t)(source - word) + 1);
+      if (delimiter == NULL) {
+        source = NULL;
+        break;
+      }
+      // The delimiter is the word with its quotes removed.
+      size_t length = 0;
+      for (char quote = '\0'; word < source; word++) {
+        if (quote == '\0' && (*word == '\'' || *word == '"')) quote = *word;
+        else if (quote != '\0' && *word == quote) quote = '\0';
+        else if (*word == '\\' && quote != '\'' && word + 1 < source) delimiter[length++] = *++word;
+        else delimiter[length++] = *word;
+      }
+      delimiter[length] = '\0';
+      delimiters[heredoc_count] = delimiter;
+      strip_tabs[heredoc_count++] = strip;
+      command_position = 0;
+    } else if (byte == '<' || byte == '>') {
+      source++;
+      if (*source == '>' || *source == '&' || *source == '|') source++;
+    } else {
+      int quoted;
+      const char *word = source;
+      source = substitution_word_end(word, &quoted);
+      if (source == NULL) break;
+      const size_t length = (size_t)(source - word);
+#define SUBSTITUTION_WORD_IS(text) \
+  (!quoted && length == sizeof(text) - 1 && memcmp(word, text, length) == 0)
+      const int was_command_position = command_position;
+      command_position = SUBSTITUTION_WORD_IS("if") || SUBSTITUTION_WORD_IS("then") ||
+          SUBSTITUTION_WORD_IS("else") || SUBSTITUTION_WORD_IS("elif") ||
+          SUBSTITUTION_WORD_IS("while") || SUBSTITUTION_WORD_IS("until") ||
+          SUBSTITUTION_WORD_IS("do") || SUBSTITUTION_WORD_IS("{") || SUBSTITUTION_WORD_IS("!") ||
+          SUBSTITUTION_WORD_IS("time");
+      if (state != NULL && *state == CASE_SUBJECT) {
+        *state = CASE_IN;
+      } else if (state != NULL && *state == CASE_IN) {
+        if (SUBSTITUTION_WORD_IS("in")) *state = CASE_PATTERN;
+        else case_count--;
+      } else if (state != NULL && (*state == CASE_PATTERN || was_command_position) &&
+                 SUBSTITUTION_WORD_IS("esac")) {
+        case_count--;
+      } else if ((state == NULL || *state != CASE_PATTERN) && was_command_position &&
+                 SUBSTITUTION_WORD_IS("case")) {
+        if (case_count == sizeof(cases) / sizeof(cases[0])) {
+          source = NULL;
+          break;
+        }
+        cases[case_count++] = CASE_SUBJECT;
+      }
+#undef SUBSTITUTION_WORD_IS
+    }
+  }
+  for (size_t index = 0; index < heredoc_count; index++) free(delimiters[index]);
+  return end;
+}
+
 static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word);
 
 // While expand_dollars expands a word, the text it is building and the mask
@@ -625,6 +915,31 @@ static int mark_expanded(const Buffer *output, char protection) {
 // Set by a caller whose word is a pattern (${NAME%word}): what the word
 // quotes must then match itself, so it is escaped for fnmatch.
 static int expanding_pattern;
+
+// Set when a quoted "$@" gave the word expand_dollars builds a field, which
+// stays even when it is empty.
+static int expanding_fields;
+
+// The quoted $@ or ${@} at `source`: its length, else 0.
+static size_t quoted_positional_length(const char *source) {
+  return strncmp(source, "$@", 2) == 0 ? 2 : strncmp(source, "${@}", 4) == 0 ? 4 : 0;
+}
+
+// A quoted "$@": one field per parameter. The mask marks each boundary 'f'
+// and the rest `protection`; where fields do not split, a boundary reads as
+// a space.
+static int append_positional_fields(Shell *shell, Buffer *text, Buffer *mask,
+                                    char protection) {
+  for (int index = 1; index < shell->argc; index++) {
+    while (mask->length < text->length)
+      if (!buffer_character(mask, protection)) return 0;
+    if (index > 1 && (!buffer_character(text, ' ') || !buffer_character(mask, 'f')))
+      return 0;
+    if (!buffer_append(text, shell->argv[index], strlen(shell->argv[index]))) return 0;
+  }
+  if (shell->argc > 1) expanding_fields = 1;
+  return 1;
+}
 
 // Escapes the pattern characters `output` gained since `from`.
 static int pattern_literal(Buffer *output, size_t from) {
@@ -668,6 +983,14 @@ static int expand_parameter_word(Shell *shell, const char *source,
         continue;
       }
     }
+    const size_t positional = output == expanding_text && *source == '$' &&
+        (quote == '"' || (quote == '\0' && expanding_protection == 'q'))
+        ? quoted_positional_length(source) : 0;
+    if (positional != 0 && source + positional <= end) {
+      if (!append_positional_fields(shell, output, expanding_mask, 'q')) return 0;
+      source += positional;
+      continue;
+    }
     if (*source == '$' && quote != '\'') {
       const char *cursor = source;
       if (expand_dollar_now(shell, &cursor, output) < 0 || cursor > end ||
@@ -681,7 +1004,7 @@ static int expand_parameter_word(Shell *shell, const char *source,
   return quote == '\0';
 }
 
-// Every shell variable lives in `environ`; only these names reach children.
+// Only these names reach children.
 static Arguments exported_names;
 
 static size_t exported_index(const char *name, size_t length) {
@@ -705,18 +1028,25 @@ static void unexport_variable(const char *name) {
   exported_names.items[exported_names.count] = NULL;
 }
 
-// Borrowed pointers into `environ`; valid until the next variable change.
+static void environment_dispose(char **environment) {
+  for (char **entry = environment; entry != NULL && *entry != NULL; entry++) free(*entry);
+  free(environment);
+}
+
+// NAME=VALUE for each exported variable that is set, for a child.
 static char **exported_environment(void) {
-  size_t count = 0;
-  for (char **entry = environ; entry != NULL && *entry != NULL; entry++) count++;
-  char **result = calloc(count + 1, sizeof(*result));
+  char **result = calloc(exported_names.count + 1, sizeof(*result));
   if (result == NULL) return NULL;
   size_t used = 0;
-  for (char **entry = environ; entry != NULL && *entry != NULL; entry++) {
-    const char *equals = strchr(*entry, '=');
-    if (equals != NULL &&
-        exported_index(*entry, (size_t)(equals - *entry)) != SIZE_MAX)
-      result[used++] = *entry;
+  for (size_t index = 0; index < exported_names.count; index++) {
+    const char *name = exported_names.items[index], *value = variable_value(name);
+    if (value == NULL) continue;
+    const size_t length = strlen(name) + strlen(value) + 2;
+    if ((result[used] = malloc(length)) == NULL) {
+      environment_dispose(result);
+      return NULL;
+    }
+    snprintf(result[used++], length, "%s=%s", name, value);
   }
   return result;
 }
@@ -739,8 +1069,61 @@ static int high_descriptor(int descriptor) {
   return moved;
 }
 
+// The variables a subshell changed, with their earlier values, which it
+// restores when it leaves: copying and restoring all of them for every
+// $(...) cost a substitution time in the square of their number, which
+// FFmpeg's configure counts in thousands.
+typedef struct { EnvironmentChange *items; size_t count, capacity; } EnvironmentLog;
+static EnvironmentLog *environment_log; // The innermost subshell's, or NULL.
+
+static int log_variable(const char *name) {
+  if (environment_log == NULL) return 1;
+  if (!grow((void **)&environment_log->items, &environment_log->capacity,
+            environment_log->count + 1, sizeof(*environment_log->items))) return 0;
+  const char *old_value = variable_value(name);
+  EnvironmentChange change = {.name = strdup(name), .existed = old_value != NULL,
+                              .old_value = old_value == NULL ? NULL : strdup(old_value)};
+  if (change.name == NULL || (old_value != NULL && change.old_value == NULL)) {
+    free(change.name);
+    free(change.old_value);
+    return 0;
+  }
+  environment_log->items[environment_log->count++] = change;
+  return 1;
+}
+
+// Every variable change goes through these, so a subshell can undo it.
+static int set_variable(const char *name, const char *value) {
+  if (!log_variable(name)) {
+    errno = ENOMEM;
+    return -1;
+  }
+  return store_variable(name, value);
+}
+
+static int unset_variable(const char *name) {
+  if (!log_variable(name)) {
+    errno = ENOMEM;
+    return -1;
+  }
+  return store_variable(name, NULL);
+}
+
+// Restores the values the log holds, newest change first.
+static int environment_log_undo(EnvironmentLog *log) {
+  int ok = 1;
+  while (log->count != 0) {
+    EnvironmentChange *change = &log->items[--log->count];
+    if (store_variable(change->name, change->existed ? change->old_value : NULL) != 0) ok = 0;
+    free(change->name);
+    free(change->old_value);
+  }
+  free(log->items);
+  memset(log, 0, sizeof(*log));
+  return ok;
+}
+
 static void shell_state_snapshot_dispose(ShellStateSnapshot *snapshot) {
-  arguments_dispose(&snapshot->environment);
   arguments_dispose(&snapshot->exported);
   if (snapshot->cwd >= 0) close(snapshot->cwd);
   snapshot->cwd = -1;
@@ -750,12 +1133,6 @@ static int shell_state_capture(ShellStateSnapshot *snapshot) {
   memset(snapshot, 0, sizeof(*snapshot));
   snapshot->cwd = high_descriptor(open(".", O_RDONLY | O_DIRECTORY));
   if (snapshot->cwd < 0) return 0;
-  for (char **entry = environ; entry != NULL && *entry != NULL; entry++) {
-    if (!argument_push(&snapshot->environment, *entry)) {
-      shell_state_snapshot_dispose(snapshot);
-      return 0;
-    }
-  }
   if (!arguments_copy(&exported_names, &snapshot->exported)) {
     shell_state_snapshot_dispose(snapshot);
     return 0;
@@ -763,35 +1140,9 @@ static int shell_state_capture(ShellStateSnapshot *snapshot) {
   return 1;
 }
 
-// Consumes the snapshot's exported names.
+// Consumes the snapshot's exported names; the variables are the log's.
 static int shell_state_restore(ShellStateSnapshot *snapshot) {
-  Arguments current_names = {0};
-  for (char **entry = environ; entry != NULL && *entry != NULL; entry++) {
-    const char *equals = strchr(*entry, '=');
-    if (equals == NULL) continue;
-    char *name = strndup(*entry, (size_t)(equals - *entry));
-    if (name == NULL || !argument_push_owned(&current_names, name)) {
-      arguments_dispose(&current_names);
-      return 0;
-    }
-  }
   int ok = 1;
-  for (size_t index = 0; index < current_names.count; index++) {
-    if (unsetenv(current_names.items[index]) != 0) ok = 0;
-  }
-  arguments_dispose(&current_names);
-  for (size_t index = 0; index < snapshot->environment.count; index++) {
-    const char *entry = snapshot->environment.items[index];
-    const char *equals = strchr(entry, '=');
-    if (equals == NULL) continue;
-    char *name = strndup(entry, (size_t)(equals - entry));
-    if (name == NULL) {
-      ok = 0;
-      continue;
-    }
-    if (setenv(name, equals + 1, 1) != 0) ok = 0;
-    free(name);
-  }
   arguments_dispose(&exported_names);
   exported_names = snapshot->exported;
   memset(&snapshot->exported, 0, sizeof(snapshot->exported));
@@ -889,6 +1240,8 @@ typedef struct {
   Shell shell;
   Functions functions;
   ShellStateSnapshot state;
+  EnvironmentLog environment;
+  EnvironmentLog *outer_environment;
   DescriptorState descriptors;
 } Subshell;
 
@@ -924,6 +1277,8 @@ static int subshell_enter(Shell *shell, Subshell *subshell) {
     fputs("slop: subshell: out of memory\n", stderr);
     return 0;
   }
+  subshell->outer_environment = environment_log;
+  environment_log = &subshell->environment;
   return 1;
 }
 
@@ -933,7 +1288,9 @@ static int subshell_leave(Shell *shell, Subshell *subshell, int status) {
   functions_dispose(&subshell->functions);
   shell_argv_dispose(nested);
   descriptor_state_restore(&subshell->descriptors);
-  if (!shell_state_restore(&subshell->state))
+  environment_log = subshell->outer_environment;
+  const int restored = environment_log_undo(&subshell->environment);
+  if (!shell_state_restore(&subshell->state) || !restored)
     fputs("slop: could not restore subshell state\n", stderr);
   shell_state_snapshot_dispose(&subshell->state);
   interrupt_shell(shell, nested->terminating_signal);
@@ -1007,13 +1364,7 @@ static long arithmetic_primary(Arithmetic *parser) {
   if (is_name_start(*parser->cursor)) {
     const char *start = parser->cursor++;
     while (is_name_byte(*parser->cursor)) parser->cursor++;
-    char *name = strndup(start, (size_t)(parser->cursor - start));
-    if (name == NULL) {
-      parser->error = 1;
-      return 0;
-    }
-    const char *text = getenv(name);
-    free(name);
+    const char *text = variable_value_n(start, (size_t)(parser->cursor - start));
     if (text == NULL || text[0] == '\0') return 0;
     char *end = NULL;
     errno = 0;
@@ -1255,7 +1606,7 @@ static long arithmetic_assignment(Arithmetic *parser) {
   memcpy(name, start, (size_t)(end - start));
   name[end - start] = '\0';
   snprintf(text, sizeof(text), "%ld", value);
-  if (setenv(name, text, 1) != 0) parser->error = 1;
+  if (set_variable(name, text) != 0) parser->error = 1;
   return value;
 }
 
@@ -1321,17 +1672,8 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
   const char *source = *cursor + 1;
   if (source[0] == '(' && source[1] == '(') {
     const char *start = source + 2;
-    const char *closing = start;
-    int depth = 0;
-    while (*closing != '\0') {
-      if (*closing == '(') depth++;
-      else if (*closing == ')') {
-        if (depth != 0) depth--;
-        else if (closing[1] == ')') break;
-      }
-      closing++;
-    }
-    if (*closing == '\0') {
+    const char *closing = arithmetic_end(start);
+    if (closing == NULL) {
       fputs("slop: unterminated arithmetic expansion\n", stderr);
       return -1;
     }
@@ -1342,19 +1684,8 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
   }
   if (*source == '(') {
     const char *start = ++source;
-    int depth = 1;
-    char quote = '\0';
-    while (*source != '\0' && depth != 0) {
-      if (quote != '\0') {
-        if (*source == quote) quote = '\0';
-        else if (*source == '\\' && quote == '"' && source[1] != '\0') source++;
-      } else if (*source == '\\' && source[1] != '\0') source++;
-      else if (*source == '\'' || *source == '"') quote = *source;
-      else if (*source == '(') depth++;
-      else if (*source == ')' && --depth == 0) break;
-      source++;
-    }
-    if (depth != 0) {
+    source = substitution_end(start);
+    if (source == NULL) {
       fputs("slop: unterminated command substitution\n", stderr);
       return -1;
     }
@@ -1491,7 +1822,7 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
           if (ok) {
             char *assigned_value = buffer_release(&assigned);
             ok = assigned_value != NULL &&
-                 setenv(variable, assigned_value, 1) == 0 &&
+                 set_variable(variable, assigned_value) == 0 &&
                  buffer_append(word, assigned_value, strlen(assigned_value));
             free(assigned_value);
           } else {
@@ -1533,7 +1864,7 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
   }
 
   if (length == 1 && (name[0] == '@' || name[0] == '*')) {
-    const char *ifs = name[0] == '*' ? getenv("IFS") : NULL;
+    const char *ifs = name[0] == '*' ? variable_value("IFS") : NULL;
     const char separator = ifs == NULL ? ' ' : ifs[0];
     for (int index = 1; index < shell->argc; index++) {
       if (index != 1 && separator != '\0' && !buffer_character(word, separator)) return -1;
@@ -1557,26 +1888,14 @@ static int defer_dollar(const char **cursor, Buffer *word) {
   const char *start = *cursor;
   const char *source = start + 1;
   if (*source == '(') {
-    int depth = 1;
-    char quote = '\0';
-    source++;
-    while (*source != '\0' && depth != 0) {
-      if (quote != '\0') {
-        if (*source == quote) quote = '\0';
-        else if (*source == '\\' && quote == '"' && source[1] != '\0') source++;
-      } else if (*source == '\\' && source[1] != '\0') source++;
-      else if (*source == '\'' || *source == '"') quote = *source;
-      else if (*source == '(') depth++;
-      else if (*source == ')' && --depth == 0) {
-        source++;
-        break;
-      }
-      source++;
-    }
-    if (depth != 0) {
-      fputs("slop: unterminated command substitution\n", stderr);
+    const int arithmetic = source[1] == '(';
+    const char *closing = arithmetic ? arithmetic_end(source + 2) : substitution_end(source + 1);
+    if (closing == NULL) {
+      fprintf(stderr, "slop: unterminated %s\n",
+              arithmetic ? "arithmetic expansion" : "command substitution");
       return -1;
     }
+    source = closing + (arithmetic ? 2 : 1);
   } else if (*source == '{') {
     const char *closing = parameter_closing_brace(source + 1);
     if (closing == NULL) {
@@ -1670,12 +1989,6 @@ static int deferred_quoted_positional_fields(const char *text) {
          (length == 4 && strcmp(cursor, "${@}") == 0);
 }
 
-// `${1+"$@"}` is how scripts for pre-POSIX shells spell "$@": the same fields.
-static int deferred_guarded_positional_fields(const char *text) {
-  return text != NULL && text[0] == SLOP_DEFERRED_DOLLAR &&
-         strcmp(text + 1, "9:${1+\"$@\"}") == 0;
-}
-
 static TokenKind operator_kind(const char *source, size_t *length,
                                int token_boundary, int *descriptor,
                                int *target_descriptor) {
@@ -1761,6 +2074,18 @@ static TokenKind operator_kind(const char *source, size_t *length,
 
 static int redirection_boundary(unsigned char byte) {
   return byte == '\0' || isspace(byte) || strchr(";|&<>()", byte) != NULL;
+}
+
+// Bash operators that a POSIX shell would read as something else: `((` as
+// two subshells, `<(` as a redirection, `<<<` as a here-document.
+static const char *bash_operator(const char *source) {
+  if (strncmp(source, "<<<", 3) == 0)
+    return "<<< is Bash's here-string: use printf '%s\\n' WORD | COMMAND or a here-document";
+  if ((source[0] == '<' || source[0] == '>') && source[1] == '(')
+    return "<(...) and >(...) are Bash's process substitution: use a pipe or a file";
+  if (source[0] == '(' && source[1] == '(')
+    return "((...)) is Bash's arithmetic command: use $((...)), as in : $((i += 1))";
+  return NULL;
 }
 
 static int invalid_descriptor_redirection(const char *source) {
@@ -1861,6 +2186,11 @@ static int lex(const char *source, TokenList *tokens) {
       tokens->items[tokens->count - 1].background = 1;
       source++;
       continue;
+    }
+    const char *bash = bash_operator(source);
+    if (bash != NULL) {
+      fprintf(stderr, "slop: %s\n", bash);
+      return 0;
     }
     if (invalid_descriptor_redirection(source)) {
       fputs("slop: invalid file descriptor redirection; descriptors are 0 through 9\n",
@@ -2002,9 +2332,7 @@ static int lex(const char *source, TokenList *tokens) {
     if (!tokens->items[tokens->count - 1].quote_mask) return 0;
     tokens->items[tokens->count - 1].split = split;
     tokens->items[tokens->count - 1].positional_fields =
-        (quoted && deferred_quoted_positional_fields(
-                       tokens->items[tokens->count - 1].text)) ||
-        deferred_guarded_positional_fields(tokens->items[tokens->count - 1].text);
+        quoted && deferred_quoted_positional_fields(tokens->items[tokens->count - 1].text);
     if (both_outputs) {
       if (!token_push(tokens, TOKEN_DUP_OUTPUT, NULL, 0)) return 0;
       tokens->items[tokens->count - 1].descriptor = STDERR_FILENO;
@@ -2087,10 +2415,10 @@ static int glob_below(const Token *token, size_t offset, Buffer *path,
   return ok;
 }
 
-static int expand_glob(Arguments *arguments, const Token *token) {
+static int expand_glob(const Shell *shell, Arguments *arguments, const Token *token) {
   int has_pattern = 0;
   for (size_t index = 0; token->text[index]; index++) has_pattern |= glob_active(token, index);
-  if (!has_pattern) return argument_push(arguments, token->text);
+  if (!has_pattern || shell->noglob) return argument_push(arguments, token->text);
   Arguments matches = {0};
   Buffer path = {0};
   int ok = glob_below(token, 0, &path, &matches);
@@ -2143,7 +2471,7 @@ static int next_path_directory(const char **cursor, const char **directory,
 }
 
 static const char *path_variable(void) {
-  const char *path = getenv("PATH");
+  const char *path = variable_value("PATH");
   return path == NULL ? "/bin:/usr/bin" : path;
 }
 
@@ -2177,7 +2505,7 @@ static int set_assignment(const char *word) {
   if (!assignment(word, &name_length)) return 0;
   char *name = strndup(word, name_length);
   if (name == NULL) return -1;
-  int status = setenv(name, word + name_length + 1, 1);
+  int status = set_variable(name, word + name_length + 1);
   free(name);
   return status == 0 ? 1 : -1;
 }
@@ -2185,7 +2513,7 @@ static int set_assignment(const char *word) {
 static int remember_variable(const char *name, EnvironmentChange *change) {
   change->name = strdup(name);
   if (change->name == NULL) return 0;
-  const char *old = getenv(name);
+  const char *old = variable_value(name);
   change->existed = old != NULL;
   change->old_value = old == NULL ? NULL : strdup(old);
   change->exported = exported_index(name, strlen(name)) != SIZE_MAX;
@@ -2199,6 +2527,21 @@ static int ifs_byte(const char *ifs, char byte) {
 
 // Reads one logical line from fd 0 without consuming bytes after it, so the
 // next reader of the same file or pipe sees them. 1 ok, 0 memory, -1 errno.
+static int ifs_space(const char *ifs, char byte) {
+  return ifs_byte(ifs, byte) && (byte == ' ' || byte == '\t' || byte == '\n');
+}
+
+// Past the field separator at `cursor`, as POSIX splits fields: IFS white
+// space, or one other IFS byte with the white space around it.
+static char *separator_end(const char *ifs, char *cursor) {
+  while (ifs_space(ifs, *cursor)) cursor++;
+  if (*cursor != '\0' && ifs_byte(ifs, *cursor) && !ifs_space(ifs, *cursor)) {
+    cursor++;
+    while (ifs_space(ifs, *cursor)) cursor++;
+  }
+  return cursor;
+}
+
 static int read_line(Buffer *line, int raw, int *reached_eof) {
   const int seekable = lseek(STDIN_FILENO, 0, SEEK_CUR) >= 0;
   char bytes[4096];
@@ -2263,21 +2606,26 @@ static int builtin_read(int argc, char **argv) {
   }
   char *text = buffer_release(&line);
   if (text == NULL) goto memory_error;
-  const char *ifs = getenv("IFS");
+  const char *ifs = variable_value("IFS");
   if (ifs == NULL) ifs = " \t\n";
+  // Each name but the last takes a field, so a:: gives an empty one; the last
+  // takes the rest without its trailing IFS white space, and without the
+  // separator that ends it when only one field is left (a:b: gives b).
   char *cursor = text;
-  while (ifs_byte(ifs, *cursor)) cursor++;
+  while (ifs_space(ifs, *cursor)) cursor++;
   for (int index = first_name; index < argc; index++) {
     char *value = cursor;
+    while (*cursor != '\0' && !ifs_byte(ifs, *cursor)) cursor++;
     if (index + 1 < argc) {
-      while (*cursor != '\0' && !ifs_byte(ifs, *cursor)) cursor++;
-      if (*cursor != '\0') *cursor++ = '\0';
-      while (ifs_byte(ifs, *cursor)) cursor++;
+      char *next = separator_end(ifs, cursor);
+      *cursor = '\0';
+      cursor = next;
     } else {
       char *end = cursor + strlen(cursor);
-      while (end > cursor && ifs_byte(ifs, end[-1])) *--end = '\0';
+      while (end > cursor && ifs_space(ifs, end[-1])) *--end = '\0';
+      if (*cursor != '\0' && *separator_end(ifs, cursor) == '\0') *cursor = '\0';
     }
-    if (setenv(argv[index], value, 1) != 0) {
+    if (set_variable(argv[index], value) != 0) {
       free(text);
       return 1;
     }
@@ -2292,39 +2640,42 @@ memory_error:
 }
 
 static int print_shell_variables(int exported_only) {
-  ShellStateSnapshot snapshot;
-  if (!shell_state_capture(&snapshot)) {
-    fputs("slop: out of memory\n", stderr);
-    return 1;
+  Arguments names = {0};
+  for (size_t bucket = 0; bucket < variables.capacity; bucket++) {
+    for (Variable *variable = variables.buckets[bucket]; variable != NULL; variable = variable->next) {
+      if (!argument_push(&names, variable->name)) {
+        arguments_dispose(&names);
+        fputs("slop: out of memory\n", stderr);
+        return 1;
+      }
+    }
   }
-  qsort(snapshot.environment.items, snapshot.environment.count,
-        sizeof(*snapshot.environment.items), compare_strings);
-  for (size_t index = 0; index < snapshot.environment.count; index++) {
-    const char *entry = snapshot.environment.items[index];
-    const char *equals = strchr(entry, '=');
-    if (equals == NULL || (exported_only &&
-        exported_index(entry, (size_t)(equals - entry)) == SIZE_MAX)) continue;
+  qsort(names.items, names.count, sizeof(*names.items), compare_strings);
+  for (size_t index = 0; index < names.count; index++) {
+    const char *name = names.items[index];
+    if (exported_only && exported_index(name, strlen(name)) == SIZE_MAX) continue;
     if (exported_only) fputs("export ", stdout);
-    fwrite(entry, 1, (size_t)(equals - entry) + 1, stdout);
-    fputc('\'', stdout);
-    for (const char *value = equals + 1; *value != '\0'; value++) {
+    printf("%s='", name);
+    for (const char *value = variable_value(name); *value != '\0'; value++) {
       if (*value == '\'') fputs("'\\''", stdout);
       else fputc(*value, stdout);
     }
     fputs("'\n", stdout);
   }
-  shell_state_snapshot_dispose(&snapshot);
+  arguments_dispose(&names);
   return ferror(stdout) ? 1 : 0;
 }
 
 static int print_shell_options(const Shell *shell, int commands) {
   if (commands) {
     printf("set %co errexit\n", shell->errexit ? '-' : '+');
+    printf("set %co noglob\n", shell->noglob ? '-' : '+');
     printf("set %co nounset\n", shell->nounset ? '-' : '+');
     printf("set %co pipefail\n", shell->pipefail ? '-' : '+');
     printf("set %co xtrace\n", shell->xtrace ? '-' : '+');
   } else {
     printf("errexit %s\n", shell->errexit ? "on" : "off");
+    printf("noglob %s\n", shell->noglob ? "on" : "off");
     printf("nounset %s\n", shell->nounset ? "on" : "off");
     printf("pipefail %s\n", shell->pipefail ? "on" : "off");
     printf("xtrace %s\n", shell->xtrace ? "on" : "off");
@@ -2334,6 +2685,7 @@ static int print_shell_options(const Shell *shell, int commands) {
 
 static int set_named_option(Shell *shell, const char *name, int enabled) {
   if (strcmp(name, "errexit") == 0) shell->errexit = enabled;
+  else if (strcmp(name, "noglob") == 0) shell->noglob = enabled;
   else if (strcmp(name, "nounset") == 0) shell->nounset = enabled;
   else if (strcmp(name, "pipefail") == 0) shell->pipefail = enabled;
   else if (strcmp(name, "xtrace") == 0) shell->xtrace = enabled;
@@ -2348,7 +2700,7 @@ static int publish_getopts_index(unsigned index) {
   char text[32];
   const int length = snprintf(text, sizeof(text), "%u", index);
   return length >= 0 && (size_t)length < sizeof(text) &&
-         setenv("OPTIND", text, 1) == 0;
+         set_variable("OPTIND", text) == 0;
 }
 
 static int builtin_getopts(Shell *shell, int argc, char **argv) {
@@ -2364,7 +2716,7 @@ static int builtin_getopts(Shell *shell, int argc, char **argv) {
   }
 
   unsigned requested_index = 1;
-  const char *optind_text = getenv("OPTIND");
+  const char *optind_text = variable_value("OPTIND");
   if (optind_text != NULL && optind_text[0] != '\0') {
     char *end = NULL;
     errno = 0;
@@ -2428,30 +2780,30 @@ static int builtin_getopts(Shell *shell, int argc, char **argv) {
 
   char option_text[2] = {option, '\0'};
   if (!known) {
-    if (setenv(name, "?", 1) != 0) return 1;
+    if (set_variable(name, "?") != 0) return 1;
     if (silent) {
-      if (setenv("OPTARG", option_text, 1) != 0) return 1;
+      if (set_variable("OPTARG", option_text) != 0) return 1;
     } else {
-      unsetenv("OPTARG");
+      unset_variable("OPTARG");
       fprintf(stderr, "slop: getopts: illegal option: %c\n", option);
     }
     return 0;
   }
   if (missing_argument) {
-    if (setenv(name, silent ? ":" : "?", 1) != 0) return 1;
+    if (set_variable(name, silent ? ":" : "?") != 0) return 1;
     if (silent) {
-      if (setenv("OPTARG", option_text, 1) != 0) return 1;
+      if (set_variable("OPTARG", option_text) != 0) return 1;
     } else {
-      unsetenv("OPTARG");
+      unset_variable("OPTARG");
       fprintf(stderr, "slop: getopts: option requires an argument: %c\n", option);
     }
     return 0;
   }
-  if (setenv(name, option_text, 1) != 0) return 1;
+  if (set_variable(name, option_text) != 0) return 1;
   if (requires_argument) {
-    if (setenv("OPTARG", option_argument, 1) != 0) return 1;
+    if (set_variable("OPTARG", option_argument) != 0) return 1;
   } else {
-    unsetenv("OPTARG");
+    unset_variable("OPTARG");
   }
   return 0;
 }
@@ -2500,7 +2852,7 @@ static int builtin_local(Shell *shell, int argc, char **argv) {
       }
       frame->count++;
     }
-    if (setenv(change->name, has_value ? word + name_length + 1 : "", 1) != 0)
+    if (set_variable(change->name, has_value ? word + name_length + 1 : "") != 0)
       return 1;
   }
   return 0;
@@ -2531,6 +2883,8 @@ static int special_builtin_name(const char *name) {
 }
 
 static int command_builtin(Shell *shell, int argc, char **argv);
+static int describe_commands(Shell *shell, int count, char **names, int path_only,
+                             const char *search);
 static int spawn_command(Shell *shell, int argc, char **argv, const char *search);
 static int find_program(const char *word, const char *search, char *path, size_t capacity);
 static int interrupted_preparing(Shell *shell);
@@ -2668,7 +3022,7 @@ static int builtin_exec(Shell *shell, int argc, char **argv) {
       fflush(NULL);
       execve(path, argv + first, environment);
       const int error = errno;
-      free(environment);
+      environment_dispose(environment);
       fprintf(stderr, "slop: exec: %s: %s\n", argv[first], strerror(error));
       status = error == ENOENT ? 127 : 126;
     }
@@ -2690,7 +3044,7 @@ static int builtin(Shell *shell, int argc, char **argv) {
       fprintf(stderr, "slop: %s: a script path is required\n", argv[0]);
       return 2;
     }
-    char resolved[1024];
+    char resolved[PATH_MAX];
     const char *path = argv[1];
     if (strchr(path, '/') == NULL) {
       const enum command_resolution resolution =
@@ -2831,15 +3185,26 @@ static int builtin(Shell *shell, int argc, char **argv) {
   }
   if (strcmp(argv[0], "cd") == 0) {
     int argument = 1;
-    if (argument < argc && strcmp(argv[argument], "--") == 0) argument++;
+    // PWD is always the directory's real path, so -P is what cd does; -e
+    // adds nothing to it. -L would need the path as typed.
+    for (; argument < argc && argv[argument][0] == '-' && argv[argument][1] != '\0'; argument++) {
+      if (strcmp(argv[argument], "--") == 0) {
+        argument++;
+        break;
+      }
+      if (strspn(argv[argument] + 1, "Pe") != strlen(argv[argument] + 1)) {
+        fprintf(stderr, "slop: cd: %s: only -P is supported: PWD is always the real path\n", argv[argument]);
+        return 2;
+      }
+    }
     if (argc - argument > 1) {
       fputs("slop: cd: expected at most one directory\n", stderr);
       return 2;
     }
     const int previous = argument < argc && strcmp(argv[argument], "-") == 0;
     const char *path = argument < argc
-                           ? (previous ? getenv("OLDPWD") : argv[argument])
-                           : getenv("HOME");
+                           ? (previous ? variable_value("OLDPWD") : argv[argument])
+                           : variable_value("HOME");
     if (path == NULL || path[0] == '\0') {
       if (argument < argc && !previous) return 0;
       fprintf(stderr, "slop: cd: %s is not set\n", previous ? "OLDPWD" : "HOME");
@@ -2847,7 +3212,7 @@ static int builtin(Shell *shell, int argc, char **argv) {
     }
     // A removed working directory has no name left but the one in PWD.
     char *old_cwd = getcwd(NULL, 0);
-    if (old_cwd == NULL && getenv("PWD") != NULL) old_cwd = strdup(getenv("PWD"));
+    if (old_cwd == NULL && variable_value("PWD") != NULL) old_cwd = strdup(variable_value("PWD"));
     if (old_cwd == NULL) {
       fprintf(stderr, "slop: cd: %s\n", strerror(errno));
       return 1;
@@ -2858,8 +3223,8 @@ static int builtin(Shell *shell, int argc, char **argv) {
       return 1;
     }
     char *new_cwd = getcwd(NULL, 0);
-    if (new_cwd == NULL || setenv("OLDPWD", old_cwd, 1) != 0 ||
-        setenv("PWD", new_cwd, 1) != 0 || !export_variable("OLDPWD")) {
+    if (new_cwd == NULL || set_variable("OLDPWD", old_cwd) != 0 ||
+        set_variable("PWD", new_cwd) != 0 || !export_variable("OLDPWD")) {
       fprintf(stderr, "slop: cd: could not publish directory state: %s\n",
               strerror(errno));
       free(old_cwd);
@@ -2910,7 +3275,7 @@ static int builtin(Shell *shell, int argc, char **argv) {
         *function = shell->functions->items[--shell->functions->count];
         continue;
       }
-      if (unsetenv(argv[index]) != 0) return 1;
+      if (unset_variable(argv[index]) != 0) return 1;
       unexport_variable(argv[index]);
     }
     return 0;
@@ -2961,8 +3326,9 @@ static int builtin(Shell *shell, int argc, char **argv) {
         if (option[index] == 'e') shell->errexit = enabled;
         else if (option[index] == 'u') shell->nounset = enabled;
         else if (option[index] == 'x') shell->xtrace = enabled;
+        else if (option[index] == 'f') shell->noglob = enabled;
         else if (option[index] != 'o') {
-          fputs("slop: set: only e, u, x, and named -o options are supported\n", stderr);
+          fputs("slop: set: only e, f, u, x, and named -o options are supported\n", stderr);
           return 2;
         } else if (argument + 1 == argc) {
           return print_shell_options(shell, !enabled);
@@ -2992,28 +3358,7 @@ static int builtin(Shell *shell, int argc, char **argv) {
       fputs("slop: type: a command name is required\n", stderr);
       return 2;
     }
-    int status = 0;
-    for (; argument < argc; argument++) {
-      const char *name = argv[argument];
-      Function *function = function_lookup(shell->functions, name);
-      if (!path_only && function != NULL) {
-        printf("%s is a shell function\n", name);
-        continue;
-      }
-      if (!path_only && builtin_name(name)) {
-        printf("%s is a shell builtin\n", name);
-        continue;
-      }
-      char path[1024];
-      if (resolve_command(name, path_variable(), path, sizeof(path)) == COMMAND_FOUND) {
-        if (path_only) puts(path);
-        else printf("%s is %s\n", name, path);
-      } else {
-        if (!path_only) fprintf(stderr, "slop: type: %s: not found\n", name);
-        status = 1;
-      }
-    }
-    return status;
+    return describe_commands(shell, argc - argument, argv + argument, path_only, path_variable());
   }
   return 0;
 }
@@ -3112,7 +3457,7 @@ static int spawn_command(Shell *shell, int argc, char **argv, const char *search
   fflush(NULL);
   const int pid = dolly_spawn_mapped(path, argc, argv, environment, NULL,
                                      DOLLY_PROCESS_INHERIT_FDS_ALL, NULL, 0, -1);
-  free(environment);
+  environment_dispose(environment);
   if (pid < 0) { fprintf(stderr, "slop: %s: spawn failed: %s\n", argv[0], strerror(-pid)); return 126; }
   if (stage == NULL) return wait_command(shell, pid);
   stage->pid = pid;
@@ -3159,6 +3504,32 @@ static int run_command_words(Shell *shell, int argc, char **argv) {
 
 // command NAME runs a built-in or a program, never a function; -v prints what
 // would run and -p searches the default PATH.
+// What runs for each name, as type and command -V say it.
+static int describe_commands(Shell *shell, int count, char **names, int path_only,
+                             const char *search) {
+  int status = 0;
+  for (int index = 0; index < count; index++) {
+    const char *name = names[index];
+    if (!path_only && function_lookup(shell->functions, name) != NULL) {
+      printf("%s is a shell function\n", name);
+      continue;
+    }
+    if (!path_only && builtin_name(name)) {
+      printf("%s is a shell builtin\n", name);
+      continue;
+    }
+    char path[PATH_MAX];
+    if (resolve_command(name, search, path, sizeof(path)) == COMMAND_FOUND) {
+      if (path_only) puts(path);
+      else printf("%s is %s\n", name, path);
+    } else {
+      if (!path_only) fprintf(stderr, "slop: type: %s: not found\n", name);
+      status = 1;
+    }
+  }
+  return status;
+}
+
 static int command_builtin(Shell *shell, int argc, char **argv) {
   const char *search = path_variable();
   int describe = 0, argument = 1;
@@ -3166,12 +3537,14 @@ static int command_builtin(Shell *shell, int argc, char **argv) {
     if (strcmp(argv[argument], "--") == 0) { argument++; break; }
     if (strcmp(argv[argument], "-p") == 0) search = "/bin:/usr/bin";
     else if (strcmp(argv[argument], "-v") == 0) describe = 1;
+    else if (strcmp(argv[argument], "-V") == 0) describe = 2;
     else {
       fprintf(stderr, "slop: command: unsupported option: %s\n", argv[argument]);
       return 2;
     }
   }
   if (argument == argc) return describe ? 2 : 0;
+  if (describe == 2) return describe_commands(shell, argc - argument, argv + argument, 0, search);
   if (!describe) {
     return builtin_name(argv[argument])
         ? builtin(shell, argc - argument, argv + argument)
@@ -3198,7 +3571,7 @@ static int save_environment_change(const char *word, size_t name_length,
   const int ok = name != NULL && remember_variable(name, change);
   free(name);
   if (!ok) return 0;
-  if (setenv(change->name, word + name_length + 1, 1) != 0 ||
+  if (set_variable(change->name, word + name_length + 1) != 0 ||
       !export_variable(change->name)) {
     restore_environment_changes(change, 1);
     return 0;
@@ -3209,8 +3582,8 @@ static int save_environment_change(const char *word, size_t name_length,
 static void restore_environment_changes(EnvironmentChange *changes, size_t count) {
   while (count != 0) {
     EnvironmentChange *change = &changes[--count];
-    if (change->existed) setenv(change->name, change->old_value, 1);
-    else unsetenv(change->name);
+    if (change->existed) set_variable(change->name, change->old_value);
+    else unset_variable(change->name);
     if (change->exported) export_variable(change->name);
     else unexport_variable(change->name);
     free(change->name); free(change->old_value);
@@ -3354,6 +3727,7 @@ static int expand_dollars(Shell *shell, Token *token) {
       strchr(token->text, SLOP_DEFERRED_DOLLAR) == NULL) return 1;
   Buffer expanded = {0}, expanded_mask = {0};
   const char *cursor = token->text;
+  expanding_fields = 0;
   while (*cursor != '\0') {
     const char protection = token->quote_mask
         ? token->quote_mask[cursor - token->text] : 'u';
@@ -3374,18 +3748,9 @@ static int expand_dollars(Shell *shell, Token *token) {
         cursor++;
       }
       if (*cursor++ != ':' || strlen(cursor) < length) goto malformed;
-      // A quoted $@ inside a word: one field per parameter. The mask marks
-      // each boundary 'f'; where fields do not split it reads as a space.
-      if (protection == 'q' && ((length == 2 && strncmp(cursor, "$@", 2) == 0) ||
-                                (length == 4 && strncmp(cursor, "${@}", 4) == 0))) {
-        for (int index = 1; index < shell->argc; index++) {
-          while (expanded_mask.length < expanded.length)
-            if (!buffer_character(&expanded_mask, protection)) goto memory_error;
-          if (index > 1 && (!buffer_character(&expanded, ' ') ||
-                            !buffer_character(&expanded_mask, 'f'))) goto memory_error;
-          if (!buffer_append(&expanded, shell->argv[index], strlen(shell->argv[index])))
-            goto memory_error;
-        }
+      if (protection == 'q' && quoted_positional_length(cursor) == length) {
+        if (!append_positional_fields(shell, &expanded, &expanded_mask, protection))
+          goto memory_error;
         cursor += length;
         continue;
       }
@@ -3420,6 +3785,8 @@ static int expand_dollars(Shell *shell, Token *token) {
   }
   free(token->text);
   token->text = buffer_release(&expanded);
+  // A field of "$@" is a quoted part of the word.
+  if (expanding_fields) token->quoted = 1;
   if (token->quote_mask) {
     free(token->quote_mask);
     token->quote_mask = buffer_release(&expanded_mask);
@@ -3441,7 +3808,7 @@ memory_error:
 
 // `~` starts a fully unquoted word or the value of an assignment.
 static int expand_tilde(Token *token, size_t offset) {
-  const char *home = getenv("HOME");
+  const char *home = variable_value("HOME");
   if (home == NULL || home[0] == '\0' || token->text == NULL) return 1;
   const char *tilde = token->text + offset;
   // An unquoted `~` up to an unquoted `/`, or `:` in an assignment's value.
@@ -3614,11 +3981,11 @@ static int expand_word_arguments(Shell *shell, Arguments *arguments,
     free(head.quote_mask);
     return ok;
   }
-  if (!token->split) return expand_glob(arguments, token);
+  if (!token->split) return expand_glob(shell, arguments, token);
   if (token->quoted && !token->text[0]) return argument_push(arguments, "");
-  const char *ifs = getenv("IFS");
+  const char *ifs = variable_value("IFS");
   if (ifs == NULL) ifs = " \t\n";
-  if (ifs[0] == '\0') return expand_glob(arguments, token);
+  if (ifs[0] == '\0') return expand_glob(shell, arguments, token);
   // POSIX 2.6.5: IFS white space around a field is dropped; every other IFS
   // byte ends a field, so two of them in a row hold an empty one.
   const char *cursor = token->text;
@@ -3638,7 +4005,7 @@ static int expand_word_arguments(Shell *shell, Arguments *arguments,
         .quote_mask = token->quote_mask ? token->quote_mask + (start - token->text) : NULL,
     };
     const int ok = field.text != NULL &&
-        (end == start ? argument_push(arguments, "") : expand_glob(arguments, &field));
+        (end == start ? argument_push(arguments, "") : expand_glob(shell, arguments, &field));
     free(field.text);
     if (!ok) return 0;
   }
@@ -4051,7 +4418,9 @@ static int parse_for(Shell *shell, CommandParser *parser, int execute,
   Arguments values = {0};
   int failed = 0;
   linebreak_before_in(parser);
-  if (command_word(parser, "in")) {
+  // `for NAME do` needs no separator: only a word list ends with one.
+  const int listed = command_word(parser, "in");
+  if (listed) {
     parser->cursor++;
     const size_t words_start = parser->cursor;
     while (parser->cursor < parser->end &&
@@ -4076,8 +4445,8 @@ static int parse_for(Shell *shell, CommandParser *parser, int execute,
     }
   }
 
-  if (parser->cursor == parser->end ||
-      parser->tokens[parser->cursor].kind != TOKEN_SEMI) {
+  if (listed && (parser->cursor == parser->end ||
+                 parser->tokens[parser->cursor].kind != TOKEN_SEMI)) {
     fputs("slop: for word list requires a separator before do\n", stderr);
     goto syntax_error;
   }
@@ -4103,7 +4472,7 @@ static int parse_for(Shell *shell, CommandParser *parser, int execute,
     };
     unsigned stopped = 0;
     int run = execute && iteration_index < iterations;
-    if (run && setenv(variable, values.items[iteration_index], 1) != 0) {
+    if (run && set_variable(variable, values.items[iteration_index]) != 0) {
       fprintf(stderr, "slop: for: %s\n", strerror(errno));
       status = 1;
       run = 0;
@@ -4132,7 +4501,7 @@ static int parse_for(Shell *shell, CommandParser *parser, int execute,
       if (control == LOOP_CONTROL_BREAK) break;
       continue;
     }
-    if (!shell->active) break;
+    if (!shell->active || shell->returning) break;
   }
   if (execute) shell->loop_depth--;
   parser->cursor = body_end + 1;
@@ -4205,8 +4574,7 @@ static int parse_while(Shell *shell, CommandParser *parser, int execute,
       if (control == LOOP_CONTROL_BREAK) break;
       continue;
     }
-    if (!selected) break;
-    if (!shell->active) break;
+    if (!selected || !shell->active || shell->returning) break;
   }
   if (execute) shell->loop_depth--;
   parser->cursor = body_end + 1;
@@ -4779,7 +5147,7 @@ static int line_is_blank(const char *line) {
 }
 
 static const char *history_path(void) {
-  const char *path = getenv("HISTFILE");
+  const char *path = variable_value("HISTFILE");
   return path == NULL ? "/home/dolly/.slop_history" : path;
 }
 
@@ -4790,7 +5158,9 @@ static void history_load(History *history) {
   if (file == NULL) return;
   char *line = malloc(SLOP_MAX_LINE + 2);
   if (line == NULL) { fclose(file); return; }
+  size_t lines = 0;
   while (fgets(line, SLOP_MAX_LINE + 2, file) != NULL) {
+    lines++;
     size_t length = strlen(line);
     if (length == SLOP_MAX_LINE + 1 && line[length - 1] != '\n') {
       int byte;
@@ -4807,6 +5177,17 @@ static void history_load(History *history) {
   }
   free(line);
   fclose(file);
+  // The file keeps what the editor keeps, so it does not grow with every session.
+  if (lines <= SLOP_MAX_HISTORY) return;
+  const size_t length = strlen(path) + 6;
+  char *temporary = malloc(length);
+  FILE *kept = temporary == NULL ? NULL : (snprintf(temporary, length, "%s.new", path), fopen(temporary, "wb"));
+  int ok = kept != NULL;
+  for (size_t index = 0; ok && index < history->count; index++)
+    ok = fputs(history->items[index], kept) != EOF && fputc('\n', kept) != EOF;
+  if (kept != NULL && fclose(kept) != 0) ok = 0;
+  if (temporary != NULL && (!ok || rename(temporary, path) != 0)) unlink(temporary);
+  free(temporary);
 }
 
 static void history_add(History *history, const char *line) {
@@ -4913,9 +5294,16 @@ static int collect_completions(const char *word, int command_position,
   if (slash != NULL || !command_position) {
     size_t directory_length = slash == NULL ? 0 : (size_t)(slash - word);
     const char *base = slash == NULL ? word : slash + 1;
-    char *directory = slash == NULL ? strdup(".")
-                      : directory_length == 0 ? strdup("/")
-                                              : strndup(word, directory_length);
+    // The directory the shell will expand the word into: a leading `~/` is HOME.
+    const char *home = variable_value("HOME");
+    const int tilde = word[0] == '~' && word[1] == '/' && home != NULL && home[0] != '\0';
+    char *directory = NULL;
+    if (slash == NULL) directory = strdup(".");
+    else if (directory_length == 0) directory = strdup("/");
+    else if (!tilde) directory = strndup(word, directory_length);
+    else if ((directory = malloc(strlen(home) + directory_length)) != NULL)
+      snprintf(directory, strlen(home) + directory_length, "%s%.*s", home,
+               (int)directory_length - 1, word + 1);
     char *replacement = slash == NULL ? strdup("")
                         : strndup(word, (size_t)(slash - word) + 1);
     if (directory == NULL || replacement == NULL) {
@@ -4951,15 +5339,50 @@ static void editor_write_bytes(const unsigned char *bytes, size_t length) {
   fflush(stdout);
 }
 
+// The line is UTF-8: a character is a lead byte and its continuation bytes,
+// and the terminal gives it the columns wcwidth says (two for a wide one).
+static int continuation_byte(char byte) { return ((unsigned char)byte & 0xc0) == 0x80; }
+
+static size_t previous_character(const char *line, size_t cursor) {
+  while (cursor != 0 && continuation_byte(line[--cursor])) {}
+  return cursor;
+}
+
+static size_t next_character(const char *line, size_t length, size_t cursor) {
+  if (cursor < length) cursor++;
+  while (cursor < length && continuation_byte(line[cursor])) cursor++;
+  return cursor;
+}
+
+static size_t text_columns(const char *text, size_t length) {
+  size_t columns = 0;
+  for (size_t index = 0; index < length;) {
+    const unsigned char lead = (unsigned char)text[index];
+    const size_t size = lead >= 0xf0 ? 4 : lead >= 0xe0 ? 3 : lead >= 0xc0 ? 2 : 1;
+    wchar_t character = size == 1 ? lead : lead & (0x7f >> size);
+    for (size_t part = 1; part < size && index + part < length && continuation_byte(text[index + part]); part++)
+      character = (wchar_t)(character << 6 | ((unsigned char)text[index + part] & 0x3f));
+    const int width = wcwidth(character);
+    columns += width < 0 ? 1 : (size_t)width;
+    index = next_character(text, length, index);
+  }
+  return columns;
+}
+
+// Moves the terminal's cursor over the columns of `length` bytes of text.
+static void move_cursor(const char *text, size_t length, char direction) {
+  const size_t columns = text_columns(text, length);
+  if (columns == 0) return;
+  char movement[64];
+  snprintf(movement, sizeof(movement), "\033[%zu%c", columns, direction);
+  editor_write(movement);
+}
+
 static void redraw_line(const char *line, size_t length, size_t cursor) {
   editor_write("\r\033[2K");
   print_prompt();
   editor_write_bytes((const unsigned char *)line, length);
-  if (cursor < length) {
-    char movement[64];
-    snprintf(movement, sizeof(movement), "\033[%zuD", length - cursor);
-    editor_write(movement);
-  }
+  move_cursor(line + cursor, length - cursor, 'D');
 }
 
 static void editor_replace(char *line, size_t *length, size_t *cursor,
@@ -5008,11 +5431,7 @@ static void show_completions(const Completions *completions,
   editor_write("\r\n");
   print_prompt();
   editor_write_bytes((const unsigned char *)line, length);
-  if (cursor < length) {
-    char movement[64];
-    snprintf(movement, sizeof(movement), "\033[%zuD", length - cursor);
-    editor_write(movement);
-  }
+  move_cursor(line + cursor, length - cursor, 'D');
 }
 
 static void complete_line(char *line, size_t *length, size_t *cursor) {
@@ -5134,17 +5553,15 @@ static enum editor_result read_interactive_line(char *line, History *history) {
       continue;
     }
     if (key == KEY_RIGHT || byte == 0x06) {
-      if (cursor < length) {
-        cursor++;
-        editor_write("\033[C");
-      }
+      const size_t next = next_character(line, length, cursor);
+      move_cursor(line + cursor, next - cursor, 'C');
+      cursor = next;
       continue;
     }
     if (key == KEY_LEFT || byte == 0x02) {
-      if (cursor != 0) {
-        cursor--;
-        editor_write("\033[D");
-      }
+      const size_t previous = previous_character(line, cursor);
+      move_cursor(line + previous, cursor - previous, 'D');
+      cursor = previous;
       continue;
     }
     if (key == KEY_DELETE || byte == 0x04) {
@@ -5153,8 +5570,9 @@ static enum editor_result read_interactive_line(char *line, History *history) {
         return EDITOR_EOF;
       }
       if (cursor < length) {
-        memmove(line + cursor, line + cursor + 1, length - cursor);
-        length--;
+        const size_t next = next_character(line, length, cursor);
+        memmove(line + cursor, line + next, length - next + 1);
+        length -= next - cursor;
         redraw_line(line, length, cursor);
       }
       continue;
@@ -5226,9 +5644,10 @@ static enum editor_result read_interactive_line(char *line, History *history) {
     }
     if (byte == 0x7f || byte == '\b') {
       if (cursor != 0) {
-        memmove(line + cursor - 1, line + cursor, length - cursor + 1);
-        cursor--;
-        length--;
+        const size_t previous = previous_character(line, cursor);
+        memmove(line + previous, line + cursor, length - cursor + 1);
+        length -= cursor - previous;
+        cursor = previous;
         redraw_line(line, length, cursor);
       }
       free(search); search = NULL;
@@ -5264,7 +5683,7 @@ static void terminal_signals(int enabled) {
 }
 
 static void print_prompt(void) {
-  char cwd[1024];
+  char cwd[PATH_MAX];
   if (getcwd(cwd, sizeof(cwd)) == NULL) strcpy(cwd, "?");
   printf("\033[33mdolly\033[0m:%s$ ", cwd);
   fflush(stdout);
@@ -5275,12 +5694,12 @@ static int interactive(Shell *shell) {
     fprintf(stderr, "slop: /workspace: %s\n", strerror(errno)); return 1;
   }
   if (chdir("/workspace") != 0) { fprintf(stderr, "slop: /workspace: %s\n", strerror(errno)); return 1; }
-  if (setenv("PWD", "/workspace", 1) != 0) {
+  if (set_variable("PWD", "/workspace") != 0) {
     fprintf(stderr, "slop: PWD: %s\n", strerror(errno));
     return 1;
   }
-  if (getenv("HISTFILE") == NULL &&
-      setenv("HISTFILE", "/home/dolly/.slop_history", 0) != 0) {
+  if (variable_value("HISTFILE") == NULL &&
+      set_variable("HISTFILE", "/home/dolly/.slop_history") != 0) {
     fprintf(stderr, "slop: HISTFILE: %s\n", strerror(errno));
     return 1;
   }
@@ -5361,7 +5780,7 @@ static char *read_script(const char *path) {
 }
 
 static void usage(FILE *stream) {
-  fputs("usage: slop [-cenux] [COMMAND [NAME [ARG ...]] | FILE [ARG ...]]\n",
+  fputs("usage: slop [-cefnux] [COMMAND [NAME [ARG ...]] | FILE [ARG ...]]\n",
         stream);
 }
 
@@ -5387,9 +5806,19 @@ int main(int argc, char **argv) {
   };
   for (char **entry = environ; entry != NULL && *entry != NULL; entry++) {
     char *name = strndup(*entry, strcspn(*entry, "="));
-    if (name == NULL || !export_variable(name)) { perror("slop"); return 1; }
+    const char *equals = strchr(*entry, '=');
+    if (name == NULL || equals == NULL || store_variable(name, equals + 1) != 0 ||
+        !export_variable(name)) { perror("slop"); return 1; }
     free(name);
   }
+  // What POSIX sets when the shell starts, as dash and Bash do: OPTIND is 1, so
+  // shift $((OPTIND - 1)) after a getopts loop that found no option shifts
+  // nothing; IFS is space, tab and newline, so a script that saves and
+  // restores it (old=$IFS ... IFS=$old) keeps splitting fields; PPID.
+  char parent[32];
+  snprintf(parent, sizeof(parent), "%ld", (long)getppid());
+  if (set_variable("OPTIND", "1") != 0 || set_variable("IFS", " \t\n") != 0 ||
+      set_variable("PPID", parent) != 0) { perror("slop"); return 1; }
   int index = 1;
   int command = 0;
   if (index < argc && strcmp(argv[index], "--help") == 0) { usage(stdout); return 0; }
@@ -5401,6 +5830,7 @@ int main(int argc, char **argv) {
     for (size_t option = 1; argv[index][option] != '\0'; option++) {
       if (argv[index][option] == 'c') command = 1;
       else if (argv[index][option] == 'e') shell.errexit = 1;
+      else if (argv[index][option] == 'f') shell.noglob = 1;
       else if (argv[index][option] == 'n') shell.noexec = 1;
       else if (argv[index][option] == 'u') shell.nounset = 1;
       else if (argv[index][option] == 'x') shell.xtrace = 1;
@@ -5420,7 +5850,7 @@ int main(int argc, char **argv) {
   }
   // Started in a removed directory, the shell keeps the PWD it was given.
   char *cwd = getcwd(NULL, 0);
-  if (cwd != NULL && setenv("PWD", cwd, 1) != 0) { perror("slop: PWD"); return 1; }
+  if (cwd != NULL && set_variable("PWD", cwd) != 0) { perror("slop: PWD"); return 1; }
   free(cwd);
   if (command) {
     if (index == argc) { usage(stderr); return 2; }

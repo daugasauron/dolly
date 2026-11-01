@@ -52,5 +52,29 @@ test("tar extracts paths and stdin, preserves block padding, and rejects damaged
     }
     archive[0] ^= 1;
     assert.equal(spawnSync(binary, ["-xf", "-", "-C", directory], { input: archive }).status, 1);
+    // What git archive and GNU tar write: a pax global header, and a member whose path
+    // is longer than ustar holds, named by a pax record or a GNU long-name block.
+    const entry = (name, contents, type) => tarArchive(name, contents, type).subarray(0, -1024);
+    const record = (key, value) => {
+      const text = ` ${key}=${value}\n`;
+      let length = text.length + 2;
+      while (String(length).length + text.length !== length) length++;
+      return `${length}${text}`;
+    };
+    const deep = `${"d".repeat(120)}/${"f".repeat(120)}`;
+    for (const [label, header] of [["pax", entry("PaxHeader", Buffer.from(record("path", deep)), "x")],
+      ["GNU", entry("././@LongLink", Buffer.from(`${deep}\0`), "L")]]) {
+      const long = Buffer.concat([entry("pax_global_header", Buffer.from(record("comment", "0123abcd")), "g"),
+        header, entry(deep.slice(0, 99), Buffer.from(label)), Buffer.alloc(1024)]);
+      const output = join(directory, `long-${label}`);
+      await mkdir(output);
+      const result = spawnSync(binary, ["-xf", "-", "-C", output], { input: long });
+      assert.equal(result.status, 0, result.stderr.toString());
+      assert.equal(await readFile(join(output, deep), "utf8"), label);
+    }
+    const escape = Buffer.concat([entry("PaxHeader", Buffer.from(record("path", "../outside")), "x"),
+      entry("inside", Buffer.from("changed")), Buffer.alloc(1024)]);
+    assert.equal(spawnSync(binary, ["-xf", "-", "-C", outputDirectory], { input: escape }).status, 1);
+    assert.equal(await readFile(outside, "utf8"), "preserved");
   } finally { await rm(directory, { recursive: true, force: true }); }
 });

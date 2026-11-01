@@ -3,13 +3,13 @@
 #include "run-program.h"
 
 static void usage(FILE *stream) {
-  fputs("usage: diff [-abNqrw] [-u | -U N] [--] FILE FILE\n"
+  fputs("usage: diff [-abNqrsw] [--brief] [-u | -U N] [--] FILE FILE\n"
         "Dolly compares with source-built git diff --no-index; output is "
         "always unified.\n", stream);
 }
 
 int main(int argc, char **argv) {
-  int text = 0, space_change = 0, all_space = 0, brief = 0, new_file = 0;
+  int text = 0, space_change = 0, all_space = 0, brief = 0, new_file = 0, same = 0;
   char context[16] = "-U3";
   int argument = 1;
   for (; argument < argc && argv[argument][0] == '-' && argv[argument][1] != '\0'; argument++) {
@@ -21,12 +21,17 @@ int main(int argc, char **argv) {
       usage(stdout);
       return 0;
     }
+    if (strcmp(argv[argument], "--brief") == 0) {
+      brief = 1;
+      continue;
+    }
     for (const char *option = argv[argument] + 1; *option != '\0'; option++) {
       if (*option == 'u' || *option == 'r') continue;
       if (*option == 'a') text = 1;
       else if (*option == 'b') space_change = 1;
       else if (*option == 'w') all_space = 1;
       else if (*option == 'q') brief = 1;
+      else if (*option == 's') same = 1;
       else if (*option == 'N') new_file = 1;
       else if (*option == 'U') {
         const char *lines = option[1] != '\0' ? option + 1 : argv[++argument];
@@ -68,5 +73,6 @@ int main(int argc, char **argv) {
   }
   const int status = run_program("diff", count, arguments, getenv("PATH"), -1);
   if (brief && status == 1) printf("Files %s and %s differ\n", argv[argc - 2], argv[argc - 1]);
+  if (same && status == 0) printf("Files %s and %s are identical\n", argv[argc - 2], argv[argc - 1]);
   return status <= 1 ? status : 2;
 }

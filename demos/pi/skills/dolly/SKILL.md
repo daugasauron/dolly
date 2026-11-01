@@ -43,8 +43,8 @@ filesystem, no sockets to the outside, no root and no `apt`, `npm` or
   browser, which saves it when the user clicks Save; use it only when asked.
 - `upload PATH` asks the user to pick a file and writes it to `PATH`; an
   existing file is never replaced.
-- Several files: `tar` here only extracts and `gzip` only decompresses. Git
-  writes archives of any directory:
+- Several files: `tar` here only extracts. Git writes archives of any
+  directory:
   `git init -q . && git add -A && git archive -o out.tar.gz $(git write-tree)`
   (`.tar`, `.tar.gz` or `.zip`). `amy install tar` brings a `tar` that writes
   `.tar`; its `-z` fails here.

@@ -27,8 +27,8 @@ typedef struct {
 } string_list;
 
 static void usage(FILE *stream) {
-  fputs("usage: xargs [-0rt] [-n number] [-s size] [-I replace] [-P maxprocs] "
-        "[command [argument ...]]\n", stream);
+  fputs("usage: xargs [-0rtx] [-n number | -L number] [-s size] [-I replace] [-E eofstr]\n"
+        "             [-P maxprocs] [command [argument ...]]\n", stream);
 }
 
 static int push_byte(buffer *item, int byte) {
@@ -56,14 +56,18 @@ static int push_item(string_list *list, char *item) {
   return 0;
 }
 
-// Reads the next input item: 1 when one was read, 0 at end of input, -1 on error.
-static int read_item(buffer *item, int nul, int line_mode) {
+// Reads the next input item: 1 when one was read, 0 at end of input, -1 on
+// error. *line_end says whether a newline ended it, which ends a line of -L:
+// an item that a blank ends continues its line.
+static int read_item(buffer *item, int nul, int line_mode, int *line_end) {
   int quote = 0, started = 0, byte;
   item->length = 0;
+  *line_end = 1;
   while ((byte = getchar()) != EOF) {
     const int separator = nul ? byte == '\0'
         : quote == 0 && (byte == '\n' || (!line_mode && isspace(byte)));
     if (separator) {
+      *line_end = byte == '\n';
       if (nul || started) return push_byte(item, '\0') == 0 ? 1 : -1;
       continue;
     }
@@ -184,22 +188,26 @@ static int parse_count(const char *text, size_t *value) {
 }
 
 int main(int argc, char **argv) {
-  int nul = 0, no_run_if_empty = 0, trace = 0;
-  size_t maximum_items = SIZE_MAX, maximum_bytes = DEFAULT_COMMAND_BYTES;
-  const char *replace = NULL;
+  int nul = 0, no_run_if_empty = 0, trace = 0, exact = 0;
+  size_t maximum_items = SIZE_MAX, maximum_lines = SIZE_MAX, maximum_bytes = DEFAULT_COMMAND_BYTES;
+  const char *replace = NULL, *end_of_input = NULL;
   int index = 1;
   for (; index < argc && argv[index][0] == '-' && argv[index][1] != '\0'; ++index) {
     const char *option = argv[index];
     const char *value = option[2] != '\0' ? option + 2 : argv[index + 1];
-    const int consumes = strchr("nsIP", option[1]) != NULL && option[2] == '\0';
+    const int consumes = strchr("nsIPLE", option[1]) != NULL && option[2] == '\0';
     if (strcmp(option, "--") == 0) {
       index++;
       break;
     }
     if (strcmp(option, "-0") == 0) nul = 1;
-    else if (strcmp(option, "-r") == 0) no_run_if_empty = 1;
+    else if (strcmp(option, "-r") == 0 || strcmp(option, "--no-run-if-empty") == 0) no_run_if_empty = 1;
     else if (strcmp(option, "-t") == 0) trace = 1;
-    else if (option[1] == 'n' && parse_count(value, &maximum_items) == 0) {}
+    else if (strcmp(option, "-x") == 0) exact = 1;
+    // -n and -L exclude each other: the later one counts.
+    else if (option[1] == 'n' && parse_count(value, &maximum_items) == 0) maximum_lines = SIZE_MAX;
+    else if (option[1] == 'L' && parse_count(value, &maximum_lines) == 0) maximum_items = SIZE_MAX;
+    else if (option[1] == 'E' && value != NULL) end_of_input = value;
     else if (option[1] == 's' && parse_count(value, &maximum_bytes) == 0) {}
     else if (option[1] == 'I' && value != NULL && value[0] != '\0') replace = value;
     else if (option[1] == 'P' && parse_count(value, &parallel) == 0) {}
@@ -210,6 +218,9 @@ int main(int argc, char **argv) {
             "  -r          do not run the command when there are no items\n"
             "  -t          print each command to standard error before it runs\n"
             "  -n number   at most number items per command\n"
+            "  -L number   a command for each number lines of items; a line ending in a blank continues\n"
+            "  -x          fail when a command of -n or -L items exceeds -s\n"
+            "  -E eofstr   an item eofstr ends the input\n"
             "  -s size     at most size bytes per command line\n"
             "  -I replace  one command per line, replace standing for the line\n"
             "  -P maxprocs run up to maxprocs commands at once\n"
@@ -234,8 +245,13 @@ int main(int argc, char **argv) {
   const size_t base_count = command.count;
   size_t bytes = base_bytes;
   buffer item = {0};
-  int status = 0, ran = 0, result;
-  while ((result = read_item(&item, nul, replace != NULL)) > 0) {
+  int status = 0, ran = 0, result, line_end;
+  size_t lines = 0;
+  while ((result = read_item(&item, nul, replace != NULL, &line_end)) > 0) {
+    if (end_of_input != NULL && !nul && strcmp(item.bytes, end_of_input) == 0) {
+      result = 0;
+      break;
+    }
     if (replace != NULL) {
       for (size_t argument = 0; argument < base_count; ++argument) {
         command.items[argument] = replace_all(base[argument], replace, item.bytes);
@@ -252,13 +268,25 @@ int main(int argc, char **argv) {
       break;
     }
     if (command.count - base_count == maximum_items || bytes + item.length > maximum_bytes) {
+      if (exact && bytes + item.length > maximum_bytes) {
+        fprintf(stderr, "xargs: a command exceeds the %zu-byte command line (-x)\n", maximum_bytes);
+        status = 1;
+        break;
+      }
       ran = 1;
       if (execute(&command, base_count, trace, &status)) break;
       bytes = base_bytes;
+      lines = 0;
     }
     char *copy = strdup(item.bytes);
     if (copy == NULL || push_item(&command, copy) != 0) return 1;
     bytes += item.length;
+    if (line_end && ++lines == maximum_lines) {
+      ran = 1;
+      lines = 0;
+      bytes = base_bytes;
+      if (execute(&command, base_count, trace, &status)) break;
+    }
   }
   if (result < 0) status = 1;
   if (result == 0 && replace == NULL &&

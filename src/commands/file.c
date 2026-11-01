@@ -69,5 +69,10 @@ int main(int argc, char **argv) {
     if (!brief) printf("%s: ", argv[first]);
     puts(classify(argv[first], mime));
   }
+  // Output that could not be written fails the command, as any other error does.
+  if (fflush(stdout) != 0) {
+    fprintf(stderr, "file: write error: %s\n", strerror(errno));
+    return 1;
+  }
   return 0;
 }
