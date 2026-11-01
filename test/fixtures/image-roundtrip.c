@@ -21,23 +21,53 @@ static dolly_fs_record records[] = {
   {ROOT "/link", DOLLY_FS_SYMLINK, 4, (const unsigned char *)"file"},
 };
 
+// The image as the Worker captures it: through a staging window, here of an odd
+// size so that pieces end inside headers, paths and data; NULL when the
+// capture fails.
+static unsigned char *capture_image(size_t *size) {
+  const uintptr_t total = dolly_snapshot_capture_begin();
+  unsigned char *window = (unsigned char *)dolly_snapshot_restore_address(17);
+  unsigned char *bytes = total != 0 && window != NULL ? malloc(total) : NULL;
+  if (bytes == NULL) return NULL;
+  uintptr_t offset = 0, got;
+  while ((got = dolly_snapshot_capture_read()) != 0) {
+    if (got > total - offset) { free(bytes); return NULL; }
+    memcpy(bytes + offset, window, got);
+    offset += got;
+  }
+  if (offset != total) { free(bytes); return NULL; }
+  *size = total;
+  return bytes;
+}
+
+// Whether a capture now gives BYTES again.
+static int captures(const unsigned char *bytes, size_t size) {
+  size_t again;
+  unsigned char *now = capture_image(&again);
+  const int same = now != NULL && again == size && memcmp(now, bytes, size) == 0;
+  free(now);
+  return same;
+}
+
 static int roundtrip(void) {
   FILE *manifest = fopen("/etc/dolly/image.manifest", "w");
   CHECK(manifest != NULL);
   for (size_t index = 0; index < 6; ++index) CHECK(fprintf(manifest, "%s\n", records[index].path) > 0);
   CHECK(fclose(manifest) == 0);
-  CHECK(dolly_snapshot_capture() == 0 && dolly_snapshot_format_version() == 2);
-  const uintptr_t size = dolly_snapshot_size();
+  CHECK(dolly_snapshot_format_version() == 2);
+  size_t size;
+  unsigned char *image = capture_image(&size);
+  CHECK(image != NULL);
   unsigned char *staged = (unsigned char *)dolly_snapshot_restore_address(size);
   CHECK(staged != NULL);
-  memcpy(staged, (const void *)dolly_snapshot_address(), size);
+  memcpy(staged, image, size);
   CHECK(dolly_fs_remove_tree(ROOT) == 0);
   CHECK(dolly_snapshot_restore_staged(size, NULL) == 0);
   CHECK(restore_bytes == NULL && restore_capacity == 0);
   for (const char **path = (const char *[]){ROOT "/missing", ROOT, ROOT "/link", NULL}; *path; ++path) {
     staged = (unsigned char *)dolly_snapshot_restore_address(size);
     CHECK(staged != NULL);
-    memcpy(staged, (const void *)dolly_snapshot_address(), size);
+    memcpy(staged, image, size);
     CHECK(dolly_snapshot_restore_staged(size, *path) != 0);
     CHECK(restore_bytes == NULL && restore_capacity == 0);
   }
@@ -45,7 +75,7 @@ static int roundtrip(void) {
   for (int corruption = 0; corruption < 2; ++corruption) {
     staged = (unsigned char *)dolly_snapshot_restore_address(size);
     CHECK(staged != NULL);
-    memcpy(staged, (const void *)dolly_snapshot_address(), size);
+    memcpy(staged, image, size);
     if (corruption == 0) staged[16] = DOLLY_FS_FILE; // invalid parent elsewhere in the image
     else staged[size - 1] = 0; // invalid unselected symlink
     CHECK(dolly_snapshot_restore_staged(size, ROOT "/file") != 0);
@@ -54,7 +84,7 @@ static int roundtrip(void) {
   }
   staged = (unsigned char *)dolly_snapshot_restore_address(size);
   CHECK(staged != NULL);
-  memcpy(staged, (const void *)dolly_snapshot_address(), size);
+  memcpy(staged, image, size);
   CHECK(dolly_snapshot_restore_staged(size, ROOT "/file") == 0);
   CHECK(restore_bytes == NULL && restore_capacity == 0);
   unsigned char selected[4];
@@ -64,37 +94,36 @@ static int roundtrip(void) {
   CHECK(lstat(ROOT "/link", &absent) == -1 && errno == ENOENT);
   staged = (unsigned char *)dolly_snapshot_restore_address(size);
   CHECK(staged != NULL);
-  memcpy(staged, (const void *)dolly_snapshot_address(), size);
+  memcpy(staged, image, size);
   CHECK(dolly_snapshot_restore_staged(size, NULL) == 0);
   CHECK(restore_bytes == NULL && restore_capacity == 0);
   CHECK(dolly_snapshot_restore_staged(size, NULL) != 0 && errno == EINVAL);
   // A malformed path kind fails before touching the restored file tree.
   staged = (unsigned char *)dolly_snapshot_restore_address(size);
   CHECK(staged != NULL);
-  memcpy(staged, (const void *)dolly_snapshot_address(), size);
+  memcpy(staged, image, size);
   staged[16] = 4;
   CHECK(dolly_snapshot_restore_staged(size, NULL) != 0);
   CHECK(restore_bytes == NULL && restore_capacity == 0);
   staged = (unsigned char *)dolly_snapshot_restore_address(size);
   CHECK(staged != NULL);
-  memcpy(staged, (const void *)dolly_snapshot_address(), size);
+  memcpy(staged, image, size);
   CHECK(dolly_snapshot_restore_staged(size + 1, NULL) != 0 && errno == EINVAL);
   CHECK(restore_bytes == NULL && restore_capacity == 0);
   staged = (unsigned char *)dolly_snapshot_restore_address(size);
   CHECK(staged != NULL);
-  memcpy(staged, (const void *)dolly_snapshot_address(), size);
+  memcpy(staged, image, size);
   CHECK(dolly_snapshot_restore_staged(size, NULL) == 0);
   CHECK(restore_bytes == NULL && restore_capacity == 0);
-  discard_capture();
-  CHECK(dolly_snapshot_address() == 0 && dolly_snapshot_size() == 0);
-  discard_capture();
-  CHECK(dolly_snapshot_capture() == 0 && dolly_snapshot_size() == size);
+  CHECK(captures(image, size));
+  // A capture left unread is replaced by the next; a missing input fails one.
+  CHECK(dolly_snapshot_capture_begin() == size);
+  CHECK(captures(image, size));
   CHECK(unlink(ROOT "/file") == 0);
-  CHECK(dolly_snapshot_capture() != 0);
-  CHECK(dolly_snapshot_address() == 0 && dolly_snapshot_size() == 0);
+  CHECK(dolly_snapshot_capture_begin() == 0);
   CHECK(dolly_fs_restore(&records[4], 1, 0) == 0);
-  CHECK(dolly_snapshot_capture() == 0 && dolly_snapshot_size() == size);
-  discard_capture();
+  CHECK(captures(image, size));
+  free(image);
   return 0;
 }
 
@@ -125,20 +154,15 @@ static int begin_stream(const unsigned char *bytes, size_t size, int corrupt_has
 }
 
 static int stream_roundtrip(void) {
-  CHECK(dolly_snapshot_capture() == 0);
-  const size_t size = dolly_snapshot_size();
-  unsigned char *bytes = malloc(size);
+  size_t size;
+  unsigned char *bytes = capture_image(&size);
   CHECK(bytes != NULL);
-  memcpy(bytes, (const void *)dolly_snapshot_address(), size);
-  discard_capture();
   for (size_t chunk = 1; chunk <= 1024; chunk *= 2) {
     CHECK(dolly_fs_remove_tree(ROOT) == 0);
     CHECK(begin_stream(bytes, size, 0) == 0);
     CHECK(feed_part(bytes, size, chunk) == 0);
     CHECK(dolly_snapshot_stream_finish() == 0);
-    CHECK(dolly_snapshot_capture() == 0 && dolly_snapshot_size() == size);
-    CHECK(memcmp(bytes, (const void *)dolly_snapshot_address(), size) == 0);
-    discard_capture();
+    CHECK(captures(bytes, size));
   }
   size_t offsets[7];
   const unsigned char *cursor = bytes + 16, *end = bytes + size;
@@ -162,9 +186,7 @@ static int stream_roundtrip(void) {
     CHECK(feed_part(part, 16 + length, 7) == 0);
   }
   CHECK(dolly_snapshot_stream_finish() == 0);
-  CHECK(dolly_snapshot_capture() == 0 && dolly_snapshot_size() == size);
-  CHECK(memcmp(bytes, (const void *)dolly_snapshot_address(), size) == 0);
-  discard_capture();
+  CHECK(captures(bytes, size));
   CHECK(begin_stream(bytes, size, 1) == 0);
   CHECK(feed_part(bytes, size, 31) == 0);
   CHECK(dolly_snapshot_stream_finish() != 0 && errno == EBADMSG);

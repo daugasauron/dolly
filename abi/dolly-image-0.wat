@@ -48,14 +48,14 @@
   (func (export "dolly_write_file") (param i64 i64 i64) (result i32)
     i32.const 0)
 
-  ;; A cold /rebuild asks Wasm to capture the system manifest, then copies the
-  ;; resulting opaque range into a static packaged artifact. Each capture
-  ;; invalidates its predecessor; failure leaves address/size zero. Finishing
-  ;; boot releases the successful capture, so copy it before bootstrap_finish.
-  (func (export "dolly_snapshot_capture") (result i32)
-    i32.const 0)
-  (func (export "dolly_snapshot_address") (result i64)
+  ;; A build asks Wasm to capture the retained files as one snapshot through
+  ;; the staging range of dolly_snapshot_restore_address, which the Worker
+  ;; sizes: begin lists them and returns the snapshot's size (0 fails); each
+  ;; read fills the range with its next bytes and returns how many, 0 at the
+  ;; end, which releases the capture and the range. A new begin replaces an
+  ;; unfinished capture; finishing boot discards one.
+  (func (export "dolly_snapshot_capture_begin") (result i64)
     i64.const 0)
-  (func (export "dolly_snapshot_size") (result i64)
+  (func (export "dolly_snapshot_capture_read") (result i64)
     i64.const 0)
 )

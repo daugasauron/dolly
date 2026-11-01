@@ -99,16 +99,9 @@ static int load_manifest(dolly_snapshot_manifest *manifest) {
   return 0;
 }
 
-static unsigned char *capture_bytes;
-static uintptr_t capture_size;
 static unsigned char *restore_bytes;
 static uintptr_t restore_capacity;
-
-static void discard_capture(void) {
-  free(capture_bytes);
-  capture_bytes = NULL;
-  capture_size = 0;
-}
+static void capture_dispose(void);
 
 static int compare_paths(const void *left, const void *right) {
   return strcmp(*(const char *const *)left, *(const char *const *)right);
@@ -153,7 +146,7 @@ static int prune_path(const dolly_snapshot_manifest *manifest, const char *path)
 }
 
 int dolly_snapshot_prune(void) {
-  discard_capture();
+  capture_dispose();
   dolly_snapshot_manifest manifest;
   if (load_manifest(&manifest) != 0) return 1;
   const int status = prune_path(&manifest, "/");
@@ -489,89 +482,133 @@ int dolly_snapshot_stream_finish(void) {
   return stream_dispose(0);
 }
 
-static int capture_snapshot(void) {
+// A capture streams the retained files through the staging range: begin lists
+// them and returns the image's size; each read fills the range with the next
+// bytes and returns how many, 0 at the end, which releases the capture and the
+// range. The bytes are the header, then each record's header, path and data in
+// manifest order; a record's header, path and symlink target wait in pending,
+// a file's data is read from its descriptor into the range.
+static struct {
   dolly_snapshot_manifest manifest;
-  if (load_manifest(&manifest) != 0) {
-    fprintf(stderr, "dolly: could not load image manifest: %s\n", strerror(errno));
-    return 1;
-  }
-  const size_t file_count = manifest.count;
-  uintptr_t total = DOLLY_SNAPSHOT_HEADER_SIZE;
-  dolly_fs_record *metadata = calloc(file_count, sizeof(*metadata));
-  if (metadata == NULL) {
-    fprintf(stderr, "dolly: snapshot metadata allocation failed: %s\n", strerror(errno));
-    dispose_manifest(&manifest);
-    return 1;
-  }
-  for (size_t index = 0; index < file_count; ++index) {
-    metadata[index].path = manifest.paths[index];
-    if (dolly_fs_metadata(metadata[index].path, &metadata[index].kind, &metadata[index].size) != 0) {
-      fprintf(stderr, "dolly: snapshot input is missing: %s\n", manifest.paths[index]);
-      free(metadata);
-      dispose_manifest(&manifest);
-      return 1;
-    }
-    uintptr_t path_size = strlen(manifest.paths[index]);
-    if (metadata[index].size > DOLLY_SNAPSHOT_MAX_SIZE ||
-        checked_add(&total, 16) != 0 || checked_add(&total, path_size) != 0 ||
-        checked_add(&total, metadata[index].size) != 0) {
-      fprintf(stderr, "dolly: system snapshot exceeds its size limit\n");
-      free(metadata);
-      dispose_manifest(&manifest);
-      return 1;
-    }
-  }
+  dolly_fs_record *metadata;
+  unsigned char pending[16 + 2 * PATH_MAX];
+  size_t pending_size, pending_used, index;
+  uintptr_t data_left;
+  int descriptor, active;
+} capture;
 
-  capture_bytes = malloc(total);
-  if (capture_bytes == NULL) {
-    fprintf(stderr, "dolly: snapshot buffer allocation failed: %s\n", strerror(errno));
-    free(metadata);
-    dispose_manifest(&manifest);
-    return 1;
+static void capture_dispose(void) {
+  if (capture.active && capture.descriptor >= 0) close(capture.descriptor);
+  free(capture.metadata);
+  dispose_manifest(&capture.manifest);
+  memset(&capture, 0, sizeof(capture));
+}
+
+uintptr_t dolly_snapshot_capture_begin(void) {
+  capture_dispose();
+  if (load_manifest(&capture.manifest) != 0) {
+    fprintf(stderr, "dolly: could not load image manifest: %s\n", strerror(errno));
+    return 0;
   }
-  unsigned char *cursor = capture_bytes;
+  const size_t count = capture.manifest.count;
+  uintptr_t total = DOLLY_SNAPSHOT_HEADER_SIZE;
+  capture.metadata = calloc(count, sizeof(*capture.metadata));
+  if (capture.metadata == NULL) {
+    fprintf(stderr, "dolly: snapshot metadata allocation failed: %s\n", strerror(errno));
+    capture_dispose();
+    return 0;
+  }
+  for (size_t index = 0; index < count; ++index) {
+    dolly_fs_record *record = &capture.metadata[index];
+    record->path = capture.manifest.paths[index];
+    if (dolly_fs_metadata(record->path, &record->kind, &record->size) != 0) {
+      fprintf(stderr, "dolly: snapshot input is missing: %s\n", record->path);
+      capture_dispose();
+      return 0;
+    }
+    if (record->size > DOLLY_SNAPSHOT_MAX_SIZE || checked_add(&total, 16) != 0 ||
+        checked_add(&total, strlen(record->path)) != 0 || checked_add(&total, record->size) != 0) {
+      fprintf(stderr, "dolly: system snapshot exceeds its size limit\n");
+      capture_dispose();
+      return 0;
+    }
+  }
+  unsigned char *cursor = capture.pending;
   memcpy(cursor, DOLLY_SNAPSHOT_MAGIC, sizeof(DOLLY_SNAPSHOT_MAGIC));
   cursor += sizeof(DOLLY_SNAPSHOT_MAGIC);
   dolly_fs_put_u32(&cursor, DOLLY_SNAPSHOT_VERSION);
-  dolly_fs_put_u32(&cursor, (uint32_t)file_count);
+  dolly_fs_put_u32(&cursor, (uint32_t)count);
+  capture.pending_size = DOLLY_SNAPSHOT_HEADER_SIZE;
+  capture.descriptor = -1;
+  capture.active = 1;
+  return total;
+}
 
-  for (size_t index = 0; index < file_count; ++index) {
-    uint32_t path_size = (uint32_t)strlen(manifest.paths[index]);
-    uintptr_t data_size = metadata[index].size;
-    dolly_fs_put_u32(&cursor, metadata[index].kind);
-    dolly_fs_put_u32(&cursor, path_size);
-    dolly_fs_put_u64(&cursor, data_size);
-    memcpy(cursor, manifest.paths[index], path_size);
-    cursor += path_size;
-    if (dolly_fs_read_data(&metadata[index], cursor) != 0) {
-      fprintf(stderr, "dolly: could not capture %s\n", manifest.paths[index]);
-      free(metadata);
-      dispose_manifest(&manifest);
-      return 1;
-    }
-    cursor += data_size;
+// The next record's header and path into pending, a symlink's target after
+// them; a file's data follows from its descriptor.
+static int capture_next_record(void) {
+  const dolly_fs_record *record = &capture.metadata[capture.index++];
+  const size_t path_size = strlen(record->path);
+  unsigned char *cursor = capture.pending;
+  dolly_fs_put_u32(&cursor, record->kind);
+  dolly_fs_put_u32(&cursor, (uint32_t)path_size);
+  dolly_fs_put_u64(&cursor, record->size);
+  memcpy(cursor, record->path, path_size);
+  cursor += path_size;
+  if (record->kind == DOLLY_FS_SYMLINK) {
+    if (record->size >= PATH_MAX || dolly_fs_read_data(record, cursor) != 0) return -1;
+    cursor += record->size;
+  } else if (record->kind == DOLLY_FS_FILE && record->size != 0) {
+    capture.descriptor = open(record->path, O_RDONLY);
+    if (capture.descriptor < 0) return -1;
+    capture.data_left = record->size;
   }
-  free(metadata);
-  dispose_manifest(&manifest);
-  if ((uintptr_t)(cursor - capture_bytes) != total) {
-    fprintf(stderr, "dolly: snapshot size accounting mismatch\n");
-    return 1;
-  }
-  capture_size = total;
+  capture.pending_size = cursor - capture.pending;
+  capture.pending_used = 0;
   return 0;
 }
 
-int dolly_snapshot_capture(void) {
-  discard_capture();
-  const int result = capture_snapshot();
-  if (result != 0) discard_capture();
-  return result;
-}
-
-uintptr_t dolly_snapshot_address(void) {
-  return (uintptr_t)capture_bytes;
-}
-
-uintptr_t dolly_snapshot_size(void) {
-  return capture_size;
+uintptr_t dolly_snapshot_capture_read(void) {
+  if (!capture.active || restore_bytes == NULL || restore_capacity == 0) {
+    errno = EINVAL;
+    capture_dispose();
+    return 0;
+  }
+  unsigned char *cursor = restore_bytes, *end = restore_bytes + restore_capacity;
+  while (cursor != end) {
+    if (capture.pending_used < capture.pending_size) {
+      size_t amount = capture.pending_size - capture.pending_used;
+      if (amount > (size_t)(end - cursor)) amount = end - cursor;
+      memcpy(cursor, capture.pending + capture.pending_used, amount);
+      capture.pending_used += amount;
+      cursor += amount;
+    } else if (capture.data_left != 0) {
+      uintptr_t amount = capture.data_left;
+      if (amount > (uintptr_t)(end - cursor)) amount = end - cursor;
+      if (dolly_fs_read_exact(capture.descriptor, cursor, amount) != 0) goto failed;
+      capture.data_left -= amount;
+      cursor += amount;
+      if (capture.data_left == 0) {
+        const int descriptor = capture.descriptor;
+        capture.descriptor = -1;
+        if (close(descriptor) != 0) goto failed;
+      }
+    } else if (capture.index == capture.manifest.count) {
+      break;
+    } else if (capture_next_record() != 0) {
+      goto failed;
+    }
+  }
+  const uintptr_t produced = cursor - restore_bytes;
+  if (produced == 0) {
+    capture_dispose();
+    free(restore_bytes);
+    restore_bytes = NULL;
+    restore_capacity = 0;
+  }
+  return produced;
+failed:
+  fprintf(stderr, "dolly: could not capture %s: %s\n", capture.metadata[capture.index - 1].path, strerror(errno));
+  capture_dispose();
+  return 0;
 }
