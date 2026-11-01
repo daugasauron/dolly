@@ -16,15 +16,17 @@ session modules), building on the page (`image-build*.mjs`, `build-worker.mjs`,
 Done when: each finding below is fixed with its browser evidence, closed as moot with the
 reason, or left as a few lines for the owner.
 
-## State (2026-11-01 18:50 JST)
+## State (2026-11-01 19:00 JST)
 
 Findings 1 to 7 and 9 to 15 are committed, each verified as its commit says (source suite;
 Chromium and Firefox suites in `build/audit-runtime-evidence/run2.log` to `run9.log`,
-`tip1.log`); 8 is left to `demo/lean-2`. The docs repin of finding 7 restales `dolly-docs`
-and the eleven demo images that install it, so in this tree `amy` (which installs
-`dolly-docs`) and the npm packages suite (`pi-minimal`) fail until a catalog round rebuilds
-them; both passed on the commits before the repin, and no later commit touches their path
-but finding 15's (the package service no longer checks recipes it does not read).
+`tip1.log`, `tip2.log`); 8 is left to `demo/lean-2`. The docs repins of finding 7 restale
+`dolly-docs` and the images that install it: `dolly-docs`, `pi-dolly` and `pi-minimal` are
+rebuilt in this tree (2.8 min, `image-build-docs.log`), so the npm packages, amy and docs
+suites run at the tip; `bhop`, `classicube`, `pi-runtime`, `pi-agent`, `pi-local`,
+`pi-phone`, `dollyfile-studio`, `rts-arena` and `slopyard` wait for a catalog round (the
+other branches' docs repins restale them too). No change of this branch is a seed input:
+the image inputs hash is `main`'s.
 
 ## Findings
 
@@ -234,17 +236,25 @@ without the loaders' `image` argument (finding 1), and keep this branch's metada
   session reader four, and per-version session databases had made it unreachable the day
   0.1.0 shipped. "Nothing writes this" is checkable: the writers' code and the 215 metadata
   files of `dist/`.
+- A limit borrowed from a neighbouring thing is a bug waiting at its boundary: the session
+  delta's 512 MiB bounded the custom image a session is saved on, so no custom image over
+  512 MiB could open, and the test asserted the borrowed bound. Reading the code did not show
+  it; building one image just over the limit did, in two minutes.
 - On localhost every boot looks instant; with a 100 ms round trip emulated, one `await` per
   recipe and per metadata module was a third of `default`'s boot and over two fifths of
-  `pi-minimal`'s. The code read clean; only a request timeline showed it. Every `await` in a
-  loop over network resources deserves that measurement.
-- A line-based grep is not a call graph: it called `appendCustomSection` test-only, and a
-  multi-line import in `scripts/dolly-abi.mjs` uses it. Deleting and running the 30 s source
-  suite settles "unused"; grep only nominates.
+  `pi-minimal`'s. The code read clean; only a request timeline showed it.
+- Attribute before blaming: I first took 98 recipe requests of a custom build for the
+  Dollyfile engine's (agent C's); a `fetch` wrapper recording stacks showed in one run that
+  they were the page's own metadata loader, called once per image of the closure. Likewise a
+  line-based grep called `appendCustomSection` test-only; the source suite showed that
+  `scripts/dolly-abi.mjs` stamps every executable with it.
 - Look at the other branches' diffs of your files before refactoring shared code (`git diff
-  --name-only main...BRANCH`): agent E had rewritten the pack loader I was about to fold, and
-  a browser batch was lost to it.
-- The tree came without generated pages, and `generate-routes.mjs` cannot run in it: its
-  `dist/` is the integration tree's, whose demo sources are ahead of `main`'s pins. Writing
-  the route pages from the catalog in `dist/` with the same template works; editing served
-  files while a browser batch runs does not (one batch lost).
+  --name-only main...BRANCH`): agent E had rewritten the pack loader I was about to fold.
+  And never edit served files, or run a script that checks out the index, while a browser
+  batch runs: two batches were lost or blurred that way.
+- The tree came without generated pages, and `generate-routes.mjs` cannot run in it (its
+  `dist/static` is the integration tree's, whose demo sources are ahead of `main`'s pins);
+  writing the route pages from the catalog in `dist/` with the same template works. A docs
+  repin restales a chain of demo images; rebuilding only the chain a suite needs
+  (`dolly-docs`, `pi-dolly`, `pi-minimal`: 2.8 min) and rewriting the full catalog by hand
+  kept the npm suite runnable.
