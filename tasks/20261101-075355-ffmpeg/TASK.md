@@ -107,8 +107,8 @@ rows, the demo index and the `elsewhere` row of `test/amy-browser.mjs`.
 
 - Today nothing in the catalog decodes or encodes media with FFmpeg's breadth; each user
   carries a small decoder of its own: `sdl2-mixer` (stb_vorbis, minimp3, dr_flac), Xonotic and
-  0 A.D. (libogg and libvorbis packages), ClassiCube's own PNG and Vorbis code, the RTS's and
-  raylib's PNG writers for the agents' screenshots, the speech demo's 48 to 16 kHz resampler
+  0 A.D. (libogg and libvorbis packages), the PNG writers of ClassiCube, the RTS and raylib for
+  the agents' screenshots (ClassiCube's and the RTS's sound are off), the speech demo's 48 to 16 kHz resampler
   (`demos/speech/hearing.h`).
 - None should switch: each decoder is one file or one small library sized to its use, and a
   static FFmpeg is tens of MB per program and needs `threads@0`. The SDL2 games play through
