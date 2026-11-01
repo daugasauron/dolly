@@ -134,3 +134,16 @@ command to serve and pin more than the base package holds.
 - `pi-minimal` now holds the recipe engine (134 KB), so that it can be built `FROM`.
 - `amy` installs the `dollyfile` package rather than exporting `/bin/dollyfile` itself; an
   image's files do not change, its record (`/etc/dolly/installed`) lists `dollyfile`.
+
+## Lessons
+
+- Build where the guarantees already are: the catalog's in-page build, given the runtime's
+  URL apart from the image directory's, built an npm user's image with no change to the
+  runtime, the kernel or the recipe language. What the command adds is serving and writing
+  files; Chrome and Firefox gave byte-identical directories.
+- A rule in a test can carry the design: `dollyfile-catalog.test.mjs`'s "an image with amy
+  records the packages its base holds" turned "amy keeps its own export" into "amy installs
+  the package", one exporter of the engine instead of two.
+- An interactive check needs the state it acts on, not only the screen it starts from: in
+  Firefox, Enter reached Pi before its command menu showed the typed command and took a
+  stale entry; the test now waits for the menu to offer it.
