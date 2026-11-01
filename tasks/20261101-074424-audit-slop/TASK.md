@@ -10,20 +10,23 @@ the Dollyfile language (`docs/dollyfile.md`) and its two implementations (`src/d
 `src/dollyfile-view.mjs` with `src/dollyfile-graph.mjs`), the linters and pin scripts.
 Measure: Unix philosophy, POSIX where claimed, explicit failure otherwise.
 
-## State (2026-11-01 20:30)
+## State (2026-11-01 22:30)
 
-Every fix below is committed with every recipe repinned, built and verified: the last build
-(`d87c8442`, the 22 images of `default` and `system`, 1,192 s) passes `test/slop-browser.mjs`
-(every Slop case, run in Dolly), `shell-browser.mjs` (Tab under `~` and in a dot directory,
-UTF-8 editing), `core-browser.mjs`, `man-browser.mjs`, `process-browser.mjs` and
-`terminal-browser.mjs` in Chromium and Firefox. The source suite passes (458). Not measured:
-`default-browser.mjs`, whose checks read the whole catalog's package index and packages
-(`python`, `zig`) that a narrowed build neither publishes nor rebuilds, and the demos. The
-catalog needs a round: `src/slop.c` and `src/commands/` are root-recipe inputs and every
-recipe is repinned; the integrator merges this branch at 00:30 for the night's round.
-Proposals P1 and P2 are prototyped on branches `proposal/dollyfile-no-append` (`607fcc3a`)
-and `proposal/dollyfile-requires` (`8573582e`), not on this branch; each compiles with the
-parser fixture and its JavaScript side accepts and refuses the rows it should.
+Every fix below is committed with every recipe repinned, built and verified in Chromium and
+Firefox: round 12 (`68bbd7d9`, the 22 images of `default` and `system`, 884 s) passes
+`test/slop-browser.mjs` (every Slop case, run in Dolly), `shell-browser.mjs`,
+`core-browser.mjs`, `man-browser.mjs`, `process-browser.mjs` and `terminal-browser.mjs`;
+round 13 (finding 25: `gzip` compresses, `cc -v`; 873 s) passes the shell, core, man,
+process and Slop suites. The source suite passes (462).
+Not measured: `default-browser.mjs`, whose checks read the whole catalog's package index and
+packages (`python`, `zig`) that a narrowed build neither publishes nor rebuilds, and the
+demos. The catalog needs a round: `src/slop.c` and `src/commands/` are root-recipe inputs and
+every recipe is repinned. Proposals P1, P2 and P6 are prototyped on branches
+`proposal/dollyfile-no-append` (`607fcc3a`), `proposal/dollyfile-requires` (`8573582e`) and
+`proposal/slop-utilities` (one commit on `68bbd7d9`), not on this branch. Agent F's FFmpeg
+build (`demo/ffmpeg`) merged `ad78dbef`, whose utilities this branch took out again: its
+65 s configure in Dolly ran with P6; without it the full option set measured here starts
+67,949 more processes.
 
 ## Method
 
@@ -140,34 +143,34 @@ differ were read in the source.
     the last name keeps the rest, matching dash and Bash on ten forms; case "read gives an empty
     field between two separators…" fails on main (status 91) and passes.
 23. **FFmpeg's configure** (`ffmpeg-9.0.2`, the newest release, from ffmpeg.org; run natively
-    out of tree with `--disable-asm --disable-everything --enable-decoder=pcm_s16le,flac
-    --enable-demuxer=wav,flac --enable-muxer=wav --enable-protocol=file --disable-doc --cc=cc
-    --disable-autodetect`, with `sh` linked to the spawning Slop) found three things:
+    out of tree with `--disable-asm --disable-doc --cc=cc --disable-autodetect`, every native
+    component, and with a small set, `--disable-everything` and five components; `sh` linked
+    to the spawning Slop) found four things, also reported by agent F
+    (`demo/ffmpeg:tasks/20261101-075355-ffmpeg/TASK.md`, "Blocker"):
     - Slop refused `for opt do` (`configure:4682`): POSIX's `for NAME do` needs no separator;
-      only a word list ends with one. Fixed; configure then ran to the end.
-    - Its log, `config.h`, `config.mak`, `config_components.h` and the codec and demuxer lists
-      are byte for byte dash's.
-    - It took 3 min 38 s against dash's 5 s. Slop started 70,301 processes against dash's 4,476
-      (`strace -f`): `test`, `[`, `echo`, `true` and `false` are files on `PATH`, and each
-      process costs about 12 ms in Dolly (measured in Chromium: 200 `test`s in 2.36 s, 200
-      builtin iterations in 0.016 s), so this configure alone would spend some 13 minutes
-      starting them. Slop now runs the code of the system's own `test`, `[`, `echo`, `true` and
-      `false` itself when `PATH` finds them in `/bin`, as other shells build them in: the
-      same source (`src/commands/test.c` and `echo.c` are included with `DOLLY_SHELL_UTILITY`;
-      `[` is `test.c` called by that name, `bracket.c` is gone), and a command found earlier
-      on `PATH` still runs. Background stages stay programs. 3,902 processes remain, 1,609 of
-      them sbase's `printf`, which Slop does not hold.
-    - The rest of the time was Slop's own: every substitution copied the whole environment and
-      restored it with an `unsetenv` and a `setenv` per variable, each linear in the number of
-      variables (thousands here). Subshells now keep a log of the variables they change and
-      undo only those (`shell_setenv`, `environment_log_undo`). Natively the configure takes
-      11 s with the same outputs; the full one (every native codec, 645 of them) 31 s against
-      dash's 6 s, with the same `config.h`, `config.mak`, component headers and lists. What
-      remains is `getenv` scanning thousands of variables in `environ` and every subshell
-      copying every function body; a variable table would remove both, a larger change than
-      tonight's. In Dolly the configure's own compiler runs (433 `cc`) now dominate.
-    - A name with a slash stays a program (`/bin/true`), and `test/process-browser.mjs`, whose
-      budget check timed a spawned `true`, now spawns `/bin/true`.
+      only a word list ends with one. Fixed (`ad78dbef`).
+    - **The variables lived in `environ`**: every lookup and assignment scanned all of them, and
+      every substitution copied and restored the whole environment (quadratic; F measured 100
+      `x=$(:)` after 10,000 assignments at 32 s). Subshells now undo only the variables they
+      changed (`ad78dbef`), and the variables are in Slop's own hash table (`0cbea7bf`; history:
+      `environ` with a list of exported names since `f70583ce`, 2026-09-30); `export` keeps its
+      list of names and a child's environment is built from it. With 0, 10,000 and 40,000
+      variables, a loop of 20,000 lookups takes 0.70, 0.71 and 0.73 s natively (with `environ`
+      and the log, 2.1 s with 10,000; all at `-O2`). Not the cause, measured: unexported
+      variables never reached children, on main either (`x=1; env | grep -c ^x=` gives 0;
+      `exported_environment` filters).
+    - **`return` inside a loop**: `while :; do return 3; done` in a function never ended, and in
+      `for` the loop variable ran on to the last value (`opt=libxeveb` instead of `libxeve` in
+      configure's log, from `enabled_all`'s `for opt; do enabled $opt || return 1; done`). Both
+      on main; the loops now stop (`0cbea7bf`, cases "return leaves while and until loops",
+      "…a for loop on the value it returned on").
+    - The full configure now takes 22.6 s natively (10.7 s with P6) against Bash's 10.1 s and
+      dash's 5.7 s, and writes the same `config.h`, `ffbuild/config.mak`, `config_components.h`
+      and output as both. Its `config.log` is dash's but for temporary names, `PATH`, `PPID`,
+      `PS1`, `E2` (the status of `(: ${foo?})`: 1 as in Bash, 2 in dash; POSIX says non-zero)
+      and `echo "1:\n"` (Slop's echo, like Bash's, prints the backslash). Slop starts 75,504
+      processes for it, dash 4,476: `[` (31,484), `test` (29,525) and `echo` (6,942) are
+      programs in Dolly and builtins elsewhere (P6).
 24. **The commands I had not reached**, chosen by counting their spellings in the cached
     upstream sources (`curl -Lo`, `-fsSL`, `-sL`, `-Ssf`; `gzip -d` 9, `-cdf` 7, `-f` 6, `-dc` 6,
     `-t` 1; `diff -u` 36, `-q` 9, `-s` 7, `--brief` 4; `xargs --no-run-if-empty` 2; `patch -p1`
@@ -177,7 +180,7 @@ differ were read in the source.
     - `gzip -dc` of data that is no gzip stream printed the data and exited 0 (zlib's
       transparent mode; measured on main's): it is now an error, and `-f` copies it as GNU
       gzip and `tar -z` expect. `gzip -d [-fk] FILE.gz` decompresses in place (`.tgz` to
-      `.tar`), `-t` checks, several files go to stdout in turn; compressing stays pigz's.
+      `.tar`), `-t` checks, several files go to stdout in turn.
     - `diff -s` reports identical files and `--brief` is `-q`; `xargs --no-run-if-empty` is `-r`.
     - Not changed: the `cc`, `c++`, `ld` and `ar` programs are two-line proxies to
       `dolly_toolchain_proxy` (`src/process/runtime-adapter.c`, agent B's), which retries a
@@ -185,6 +188,25 @@ differ were read in the source.
       allocation"): a workaround for spawns that fail transiently, which a 126 from the
       compiler itself would also trigger; the fix belongs in spawning (queue or `EAGAIN`).
       `amy` is being changed on `demo/lean-2` and was left alone.
+25. **Two probes the FFmpeg port read literally** (agent F, worked around with upstream options):
+    - **`gzip` did not compress**, and FFmpeg's configure takes any `gzip` on `PATH` for a
+      compressor (its Makefile runs `gzip -nc9`). It now compresses with the zlib it links:
+      in place (`FILE.gz`, the input's times, `-k` keeps it, an existing output or a `.gz`
+      input is refused), to stdout (`-c`, `-` or no file; several files are one member each),
+      `-1`…`-9`, `--fast`, `--best` and the long names of each letter. It stores no name or
+      time, so `-n` is what it always does and `-N` is refused; compressed data is not
+      written to a terminal without `-f`. Chosen by the cached sources: `-d` 12, `GZIP_ENV`
+      (`--best`) `-c` 18, `-cdf` 7, `-dc` 6, `-f -9 -c` 4, `-c` 3, `-9` 2, `--best` 2, `-n`,
+      `--no-name`, `--stdout`, `--fast` 1 each; `-l` 3, `-v` 2 and `-S` 3 stay refused.
+      `test/commands.test.mjs` checks that the host's gzip reads every form and that this one
+      reads the host's.
+    - **`cc -v` alone said "no input files"** (64), so FFmpeg's `probe_cc` (`cc -v 2>&1 |
+      grep -q clang`) found no Clang and would build at `-O0`
+      (`tasks/20261101-130245-cc-version-banner`, on `demo/ffmpeg`). The answer belongs to the
+      seed's `cc` and `c++` commands, not the compiler: they print Clang's banner for `-v`
+      alone (`clang version`, `Target: wasm64-unknown-dolly`, `Thread model: posix`), with
+      the version the seed compiler that builds them defines (`__clang_version__`), so no
+      compiler round is needed; with inputs `-v` still reaches the compiler.
 
 One failure was seen and attributed, not fixed: `test/terminal-browser.mjs` failed once in
 Chromium on round 7's images because a typed `y` reached the shell before the command that
@@ -249,6 +271,24 @@ and on the catalog. What follows are changes to the language itself, the owner's
   `pi-minimal`'s does); images whose ENTRY is `/bin/foreground -i /bin/slop` would then start
   in `/` unless their ENTRY or a start-up script changes directory. The visible start of
   every image changes, so it is the owner's call.
+- **P6. Run the system's `test`, `[`, `echo`, `printf`, `true` and `false` in the shell.**
+  No owner decision about builtins exists (`tasks/20261006-121403-configure-survey` measured
+  the cost and handed it to `tasks/20261006-120641-umask`, which did not decide; `docs/slop.md`
+  says "Each tool is a separate executable"), so it is the owner's call and not on this branch.
+  Measured: FFmpeg's full configure starts 75,504 processes under Slop and 7,555 with five of
+  them in the shell (5,289 of the rest `printf`; `strace -f` natively, the same `config.h`);
+  a process costs 5 to 12 ms in Chromium (a loop of 200 `[` took 2.36 s on an earlier round's
+  images, one of 200 `[`, `test` and `echo` 2.79 s on round 12's, beside other agents'
+  builds), so the difference is 6 to 14 minutes of one configure; Make's configure starts
+  `test` 1,898 and `printf` 1,561 times (the survey). Prototyped on `proposal/slop-utilities`:
+  Slop includes `src/commands/test.c`
+  and `echo.c` (one source, so `test` in the shell and `/bin/test` agree) and runs that code
+  when `PATH` finds the name in `/bin`; a command found earlier on `PATH`, a name with a slash
+  and a background stage stay programs. Rounds 10 and 11 built it: 200 iterations of `test`
+  and `echo` take 0.055 s in Chromium and 0.057 s in Firefox; the Slop, shell, core, man and
+  terminal suites passed in both browsers, and `process-browser.mjs` failed where its budget
+  checks need a process and wrote `true` (the proposal branch writes `/bin/true`).
+  Recommendation: adopt it, with `printf` added.
 - **Observation, not a proposal.** `REQUIRES HOST` is a manifest declaration that must follow
   the role line; `REQUIRES TOOL`/`LIB`/`HEADER` are build-time assertions anywhere. One keyword
   carries two meanings with different placement rules.
@@ -274,3 +314,10 @@ and on the catalog. What follows are changes to the language itself, the owner's
 - Docs drift where two pages state one fact: `sources.md` was updated when Ninja became
   parallel, `slop.md` and `architecture.md` were not; `slop.md` still denied `/dev/zero` four
   days after the kernel gained it.
+- One commit carried three decisions (`ad78dbef`: `for NAME do`, the utilities in the shell,
+  the subshell log); when the utilities turned out to need the owner, taking them out was
+  hand surgery on `slop.c`, the root recipe and four tests. A design choice gets its own
+  commit, so that moving it to a proposal branch is a revert.
+- Comparing whole logs finds what outputs hide: FFmpeg's `config.h` was already identical
+  when `config.log`'s variable dump still showed `opt=libxeveb`, which led to a `return`
+  that never left a `while` loop, on main too.
