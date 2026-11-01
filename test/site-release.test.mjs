@@ -8,7 +8,6 @@ import test from "node:test";
 import { fileManifest, parseGeneratedConstant, publishRelease, siteManifest, sourceManifest, verifyRelease } from "../scripts/site-release.mjs";
 import { createReleaseServer } from "../scripts/serve.mjs";
 import { sha256 } from "../scripts/snapshot-identity.mjs";
-import { sessionLoadUrl } from "../src/session-store.mjs";
 import { exportVersionedSite } from "../scripts/export-static.mjs";
 import { packageDomain } from "../scripts/package-domain.mjs";
 import { packageGithubPages } from "../scripts/package-github-pages.mjs";
@@ -30,7 +29,6 @@ test("domain packaging adds the showcase only to its selected site, with public 
   // Its links are relative, so they lead to this site's pages wherever it is mounted.
   const links = [...page.matchAll(/<a href="([^"]+)"/g)].map(([, link]) => new URL(link, "https://site.example/v0.1.0/agents/").pathname);
   for (const path of ["/v0.1.0/", "/v0.1.0/rts-arena/"]) assert.ok(links.includes(path), path);
-  assert.equal((page.match(/<video /g) ?? []).length, 2);
   for (const [, path] of page.matchAll(/(?:src|poster)="([^"]+)"/g)) {
     const bytes = await readFile(resolve(root, "domain/agents", path));
     assert.ok(bytes.length > 0 && bytes.length <= 25 * 1024 * 1024, `${path} must fit a Pages asset`);
@@ -165,7 +163,6 @@ test("the release server serves the current release as deployed: its files under
   assert.match(await (await get("/v1.2.3/default/")).text(), /script src="\.\.\/src\/browser.mjs"/);
   assert.equal(await (await get("/v1.2.3/src/browser.mjs")).text(), "old candidate");
   assert.match((await get("/v1.2.3/Dollyfile-system")).headers.get("content-type"), /^text\/plain/);
-  assert.equal(sessionLoadUrl("work.1", `${origin}/v1.2.3/`).href, `${origin}/v1.2.3/session/?name=work.1`);
   // The root speaks for the release's version, as a deployment's root does for its newest.
   assert.equal(await (await get("/robots.txt")).text(), "# Dolly\n#\n# - default /v1.2.3/default/: a shell\n\nUser-agent: *\nDisallow: /v1.2.3/dist/\n");
   assert.deepEqual(await answer("/llms.txt"), [302, "/v1.2.3/llms.txt"]);

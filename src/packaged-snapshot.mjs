@@ -22,50 +22,74 @@ function validSnapshotPath(path) {
     !unretainedPath(path);
 }
 
-async function verifyVisibleRecipes(recipes) {
-  for (const recipe of recipes) {
+// The recipes the directory serves for IMAGE (its page shows them) are the ones
+// that built the image a boot runs. They are fetched together.
+export async function verifyVisibleRecipes(image) {
+  await Promise.all(expectedRecipes(image).map(async recipe => {
     const response = await fetch(new URL(sitePath(recipe.sourcePath).slice(1), imageBase), {
-      cache: "no-store", credentials: "same-origin", redirect: "error",
+      credentials: "same-origin", redirect: "error",
     });
     if (!response.ok) throw new Error(`${recipe.sourcePath} returned HTTP ${response.status}`);
     const bytes = await response.arrayBuffer();
     if (bytes.byteLength !== recipe.byteLength || await sha256(bytes) !== recipe.sha256) {
       throw new Error(`${recipe.sourcePath} does not match the packaged snapshot recipe`);
     }
-  }
+  }));
 }
 
-export async function loadPackagedSnapshotMetadata(image, checked = new Map(), active = new Set()) {
-  if (checked.has(image)) return checked.get(image);
-  if (active.has(image)) throw new Error("packaged image cycle");
-  active.add(image);
-  const metadataUrl = new URL(
-    `dist/dolly-${image}-system-snapshot.mjs`, imageBase,
-  );
-  let metadata;
+// The image a FROM, COPY or INSTALL row names: its recipe at that path and pin.
+const referenced = ({ location, sha256 }) => DOLLY_IMAGES.find(candidate =>
+  siteReference(candidate.dollyfile) === location && candidate.sha256 === sha256);
+
+// The images IMAGE is built from, each once and before those built from it,
+// IMAGE last; a cycle is refused.
+function inputClosure(image, order = [], path = []) {
+  if (path.includes(image)) throw new Error("packaged image cycle");
+  if (order.includes(image)) return order;
+  for (const reference of definitionOf(image).artifacts) {
+    const dependency = referenced(reference);
+    if (!dependency) throw new Error("packaged image input is missing");
+    inputClosure(dependency.image, order, [...path, image]);
+  }
+  order.push(image);
+  return order;
+}
+
+async function importMetadata(image) {
   try {
-    ({ DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(metadataUrl.href));
+    return (await import(new URL(`dist/dolly-${image}-system-snapshot.mjs`, imageBase).href)).DOLLY_SYSTEM_SNAPSHOT;
   } catch {
     throw new Error(`The packaged ${image} snapshot is missing. Run npm run image -- ${image} first.`);
   }
+}
+
+// An image's metadata, checked against the catalog and the metadata of every
+// image it is built from, which are fetched together.
+export async function loadPackagedSnapshotMetadata(image) {
+  const closure = inputClosure(image);
+  const loaded = await Promise.all(closure.map(importMetadata));
+  const checked = new Map();
+  closure.forEach((name, index) => checked.set(name, checkedMetadata(name, loaded[index], checked)));
+  return checked.get(image);
+}
+
+// METADATA, checked as IMAGE's against the catalog and CHECKED, the metadata
+// of the images it is built from.
+function checkedMetadata(image, metadata, checked) {
   const recipes = expectedRecipes(image);
   if (metadata === null || typeof metadata !== "object" ||
       metadata.image !== image || metadata.buildId !== DOLLY_IMAGE_BUILD_ID ||
       metadata.formatVersion !== 2 || metadata.identityVersion !== 2 ||
       JSON.stringify(metadata.recipes) !== JSON.stringify(recipes) ||
-      JSON.stringify(hostRequirements(metadata.hostRequirements)) !== JSON.stringify(definitionOf(image).hostRequirements ?? []) ||
+      JSON.stringify(hostRequirements(metadata.hostRequirements)) !== JSON.stringify(definitionOf(image).hostRequirements) ||
       !Number.isSafeInteger(metadata.byteLength) || metadata.byteLength <= 0 ||
-      metadata.byteLength > snapshotSizeLimit ||
-      (![undefined, "gzip", "packs"].includes(metadata.encoding)) ||
-      (metadata.encoding === "gzip" &&
-       (!Number.isSafeInteger(metadata.encodedByteLength) ||
-        metadata.encodedByteLength <= 0 || metadata.encodedByteLength > snapshotSizeLimit)) ||
+      metadata.byteLength > snapshotSizeLimit || metadata.encoding !== "packs" ||
       !/^[0-9a-f]{64}$/.test(metadata.sha256) ||
       !Array.isArray(metadata.manifest) || metadata.manifest.length === 0 ||
       metadata.manifest.length > 100_000) {
     throw new Error("The packaged system snapshot metadata does not match this Dolly build");
   }
-  if (metadata.encoding === "packs") validateSnapshotPacks(metadata);
+  validateSnapshotPacks(metadata);
   const inputs = imageInputs(metadata.inputs);
   const references = [...new Set(definitionOf(image).artifacts.map(reference => reference.sha256))].sort();
   if (JSON.stringify(inputs.map(input => input.recipeSha256)) !== JSON.stringify(references)) {
@@ -92,37 +116,25 @@ export async function loadPackagedSnapshotMetadata(image, checked = new Map(), a
       throw new Error(`The packaged system snapshot is missing ${required}`);
     }
   }
-  const expectedInputs = [];
-  for (const reference of definitionOf(image).artifacts) {
-    const dependency = DOLLY_IMAGES.find(candidate =>
-      siteReference(candidate.dollyfile) === reference.location && candidate.sha256 === reference.sha256);
-    if (!dependency) throw new Error("packaged image input is missing");
-    const parent = await loadPackagedSnapshotMetadata(dependency.image, checked, active);
-    expectedInputs.push({ recipeSha256: reference.sha256, sha256: parent.sha256 });
-  }
+  const expectedInputs = definitionOf(image).artifacts.map(reference =>
+    ({ recipeSha256: reference.sha256, sha256: checked.get(referenced(reference).image).sha256 }));
   if (!imageInputsMatch(inputs, expectedInputs)) throw new Error("The packaged system snapshot has stale image inputs");
-  if (active.size === 1) await verifyVisibleRecipes(recipes);
-  active.delete(image);
-  checked.set(image, metadata);
   return metadata;
 }
 
-async function* packagedSnapshotParts(image, metadata, signal) {
-  const packed = metadata.encoding === "packs";
-  const parts = packed ? validateSnapshotPacks(metadata) : [metadata];
-  for (const part of parts) {
+// An image is the records of its packs, each a gzip-compressed snapshot named
+// by its digest, which images that hold the same files share.
+// Each pack's compressed body, checked against its declared length.
+async function* packagedSnapshotParts(metadata, signal) {
+  for (const pack of validateSnapshotPacks(metadata)) {
     signal?.throwIfAborted();
-    const compressed = packed || metadata.encoding === "gzip";
-    const url = packed
-      ? new URL(`dist/packs/${part.sha256}.snapshot.gz`, imageBase)
-      : new URL(`dist/dolly-${image}-system.snapshot${compressed ? ".gz" : ""}`, imageBase);
-    const init = { cache: packed ? "force-cache" : "no-store", credentials: "same-origin", redirect: "error", signal };
-    const expected = compressed ? part.encodedByteLength : part.byteLength;
-    const response = await decodeStaticAsset(await fetch(url, init), url, init, expected);
+    const url = new URL(`dist/packs/${pack.sha256}.snapshot.gz`, imageBase);
+    const init = { cache: "force-cache", credentials: "same-origin", redirect: "error", signal };
+    const response = await decodeStaticAsset(await fetch(url, init), url, init, pack.encodedByteLength);
     if (!response.ok || !response.body) throw new Error(`snapshot returned HTTP ${response.status}`);
     const declared = response.headers.get("content-length");
-    if (declared !== null && Number(declared) !== expected) throw new Error("snapshot HTTP content length mismatch");
-    yield { ...part, compressed, body: response.body };
+    if (declared !== null && Number(declared) !== pack.encodedByteLength) throw new Error("snapshot HTTP content length mismatch");
+    yield { ...pack, body: response.body };
   }
 }
 
@@ -174,10 +186,10 @@ function streamOf(bytes) {
 
 // The sink owns incremental hashing. Every part is checked before another is
 // requested; the caller verifies the complete canonical image before booting.
-export async function streamPackagedSystemSnapshot(image, metadata, write, endPart, signal) {
-  for await (const part of packagedSnapshotParts(image, metadata, signal)) {
+export async function streamPackagedSystemSnapshot(metadata, write, endPart, signal) {
+  for await (const part of packagedSnapshotParts(metadata, signal)) {
     let size = 0;
-    for await (const chunk of chunksOf(part.compressed ? gunzip(part.body) : part.body, signal)) {
+    for await (const chunk of chunksOf(gunzip(part.body), signal)) {
       if (chunk.length > part.byteLength - size) throw new Error("snapshot exceeds declared size");
       await write(chunk);
       size += chunk.length;
@@ -240,9 +252,9 @@ class PackReader {
 // Checks every pack against its hash, keeping only its compressed bytes and
 // where its records lie; returns the image's records in path order, each
 // pack's read from its bytes decompressed once more.
-async function packedRecords(image, metadata, signal) {
+async function packedRecords(metadata, signal) {
   const records = [];
-  for await (const part of packagedSnapshotParts(image, metadata, signal)) {
+  for await (const part of packagedSnapshotParts(metadata, signal)) {
     const pack = { compressed: await readBytes(part.body, part.encodedByteLength, signal), unread: 0 };
     const bytes = await readBytes(gunzip(streamOf(pack.compressed)), part.byteLength, signal);
     if (await sha256(bytes) !== part.sha256) throw new Error("snapshot integrity mismatch");
@@ -290,12 +302,8 @@ async function* joined(pieces) {
 // read: the page holds the packs' compressed bytes, not the image. Every pack
 // matches its hash before the first chunk; the chunks end in an error, not
 // their end, unless together they match the image's hash.
-export async function packagedSystemSnapshot(image, metadata, signal) {
-  const pieces = metadata.encoding === "packs" ? await packedRecords(image, metadata, signal)
-    : (async function* () {
-      for await (const part of packagedSnapshotParts(image, metadata, signal))
-        yield* chunksOf(part.compressed ? gunzip(part.body) : part.body, signal);
-    })();
+export async function packagedSystemSnapshot(metadata, signal) {
+  const pieces = await packedRecords(metadata, signal);
   return (async function* () {
     const hash = new Sha256();
     let size = 0;
@@ -309,10 +317,10 @@ export async function packagedSystemSnapshot(image, metadata, signal) {
   })();
 }
 
-export async function loadPackagedSystemSnapshot(image, metadata, signal) {
+export async function loadPackagedSystemSnapshot(metadata, signal) {
   const bytes = new Uint8Array(metadata.byteLength);
   let offset = 0;
-  for await (const chunk of await packagedSystemSnapshot(image, metadata, signal)) {
+  for await (const chunk of await packagedSystemSnapshot(metadata, signal)) {
     bytes.set(chunk, offset);
     offset += chunk.length;
   }

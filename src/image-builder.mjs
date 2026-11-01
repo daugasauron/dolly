@@ -1,5 +1,5 @@
 import { hostRegistry } from "../host/modules.mjs";
-import { DOLLY_IMAGES, imageBase } from "./images.mjs";
+import { imageBase, imageDefinition } from "./images.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
 
@@ -13,7 +13,7 @@ export async function buildImage(image, artifacts, configuration, report, { cust
   signal?.throwIfAborted();
   const inputs = new Map(artifacts.map(artifact => [artifact.recipeSha256, artifact]));
   const declared = image === "custom" ? inspectDollyfile(customSource).hostRequirements
-    : DOLLY_IMAGES.find(candidate => candidate.image === image).hostRequirements;
+    : imageDefinition(image).hostRequirements;
   let worker;
   // A build runs where the site is, which offers every module this repository
   // builds; a page that only runs images never loads that list.
@@ -65,7 +65,7 @@ export async function buildImage(image, artifacts, configuration, report, { cust
   // Drop the build filesystem before hashing and persisting its exported copy.
   // Otherwise large images retain both Wasm storage and browser cache copies.
   signal?.throwIfAborted();
-  const definition = DOLLY_IMAGES.find(candidate => candidate.image === image);
+  const definition = imageDefinition(image);
   const recipeSha256 = image === "custom"
     ? await sha256(new TextEncoder().encode(customSource)) : definition.sha256;
   report("verifying completed image...\n");

@@ -2,7 +2,7 @@
 // Serves this checkout and its current dist/ on 127.0.0.1 to a browser, the
 // browser tests and the image builder: npm run dev [-- IMAGE] (DOLLY_PORT,
 // default 8080). Only what a page loads is served: src/*.mjs, host modules,
-// recipes and their sources, the runtime, snapshots and generated pages, and
+// recipes and their sources, the runtime, snapshot packs and generated pages, and
 // /__dolly_build_page, a blank page for scripts that build images in it.
 import { createReadStream } from "node:fs";
 import { access, readdir, readFile } from "node:fs/promises";
@@ -11,7 +11,7 @@ import { createServer } from "node:http";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { bundleProcessWorker } from "./bundle-process-worker.mjs";
-import { pageRoutes } from "./image-menu.mjs";
+import { opens, pageRoutes } from "./image-menu.mjs";
 import { isolationHeaders, mimeTypes } from "./serve.mjs";
 import { buildIdentities } from "./write-build-id.mjs";
 import { imageInputsMatch } from "../src/image-inputs.mjs";
@@ -28,7 +28,7 @@ export async function startCheckoutServer(projectDir, image = "default",
   { port = 0, files: extraFiles = new Map(), sourceOverrides = new Map(), responseHeaders = {}, handle } = {}) {
   await bundleProcessWorker(projectDir);
   const rebuild = image ? `npm run image -- ${image}` : "npm run image -- IMAGE";
-  await Promise.all(["dolly-images.mjs", "dolly.wasm", "dolly.data", ...image ? [`dolly-${image}-system.snapshot`] : []]
+  await Promise.all(["dolly-images.mjs", "dolly.wasm", "dolly.data", ...image ? [`dolly-${image}-system-snapshot.mjs`] : []]
     .map(path => access(resolve(projectDir, "dist", path)))).catch(error => {
       throw new Error(`Browser checks need a built runtime and image. Run npm run build:runtime once, then ${rebuild}.`, { cause: error });
     });
@@ -74,14 +74,13 @@ export async function startCheckoutServer(projectDir, image = "default",
     ...await listed("host/", /\.(?:mjs|json)$/),
     "coi-serviceworker.js", "llms.txt", "index.html", "licences/index.html", "custom/index.html", "sessions/index.html",
     "amy-index.txt",
-    ...pageRoutes(DOLLY_IMAGES.map(definition => ({ image: definition.image,
-      openable: definition.entry && definition.hostRequirements.includes("display@0") })), image).map(route => route.path),
+    ...pageRoutes(DOLLY_IMAGES.map(definition => ({ image: definition.image, openable: opens(definition) })), image)
+      .map(route => route.path),
     ...DOLLY_STATIC_SOURCES.map(source => source.path.slice(1)),
   ]);
   for (const definition of DOLLY_IMAGES) {
     paths.add(definition.dollyfile);
     paths.add(`view/${definition.image}/index.html`);
-    paths.add(`dist/dolly-${definition.image}-system.snapshot`);
     paths.add(`dist/dolly-${definition.image}-system-snapshot.mjs`);
   }
   for (const name of await readdir(resolve(projectDir, "dist"))) {

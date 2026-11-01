@@ -53,7 +53,7 @@ test("a package's snapshot is merged from its packs as it is read, and checked w
     assert.ok(metadata.packs.length >= 3);
     const read = async metadata => {
       const chunks = [];
-      for await (const chunk of await packagedSystemSnapshot("own", metadata)) chunks.push(chunk);
+      for await (const chunk of await packagedSystemSnapshot(metadata)) chunks.push(chunk);
       return Buffer.concat(chunks);
     };
     assert.deepEqual(new Uint8Array(await read(metadata)), encodeSnapshotRecords(own));

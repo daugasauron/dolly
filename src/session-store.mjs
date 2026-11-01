@@ -1,6 +1,7 @@
 import { alphabetical } from "./alphabetical.mjs";
 import { validName } from "./image-names.mjs";
 import { imageInputs } from "./image-inputs.mjs";
+import { MAX_SNAPSHOT_BYTES } from "./snapshot-records.mjs";
 import { DOLLY_VERSION } from "./version.mjs";
 
 export const DOLLY_SESSION_FORMAT_VERSION = 2;
@@ -31,7 +32,7 @@ export function customSessionIdentity(custom) {
       typeof artifact.recipeSha256 !== "string" || typeof artifact.sha256 !== "string" ||
       !/^[0-9a-f]{64}$/.test(artifact.recipeSha256) || !/^[0-9a-f]{64}$/.test(artifact.sha256) ||
       !Number.isSafeInteger(artifact.byteLength) || artifact.byteLength <= 0 ||
-      artifact.byteLength > DOLLY_SESSION_MAX_BYTES ||
+      artifact.byteLength > MAX_SNAPSHOT_BYTES ||
       (policies !== undefined && (!Array.isArray(policies) || policies.length === 0 || policies.length > 16 ||
         new TextEncoder().encode(JSON.stringify(policies)).byteLength > 65536))) {
     throw new TypeError("invalid custom session base");
@@ -111,11 +112,9 @@ export async function encodeSessionStream(produce) {
 export async function decodeSessionSnapshot(record) {
   if (record === null || typeof record !== "object" ||
       !(record.bytes instanceof ArrayBuffer) || record.bytes.byteLength === 0 ||
-      record.bytes.byteLength > DOLLY_SESSION_MAX_BYTES ||
-      !["gzip", "identity"].includes(record.encoding)) {
+      record.bytes.byteLength > DOLLY_SESSION_MAX_BYTES || record.encoding !== "gzip") {
     throw new Error("Stored Dolly session is invalid");
   }
-  if (record.encoding === "identity") return record.bytes.slice(0);
   let offset = 0;
   const stream = new ReadableStream({
     pull(controller) {
@@ -178,8 +177,7 @@ export function validateSessionRecord(record) {
       typeof record.imageIdentity !== "string" || record.imageIdentity.length > 256 ||
       !Number.isSafeInteger(record.updatedAt) ||
       !(record.bytes instanceof ArrayBuffer) || record.bytes.byteLength === 0 ||
-      record.bytes.byteLength > DOLLY_SESSION_MAX_BYTES ||
-      !["gzip", "identity"].includes(record.encoding)) {
+      record.bytes.byteLength > DOLLY_SESSION_MAX_BYTES || record.encoding !== "gzip") {
     throw new TypeError("invalid Dolly session record");
   }
   if (record.image === "custom" ? record.imageIdentity !== customSessionIdentity(record.customImage)

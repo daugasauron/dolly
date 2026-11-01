@@ -24,10 +24,13 @@ export async function imageDescriptions(projectDir, definitions) {
   return descriptions;
 }
 
-// An image's row; parsed is its recipe. An image without ENTRY or display
-// cannot be opened, only rebuilt.
+// An image opens on a page of its own when it has ENTRY and a display;
+// otherwise it only builds. The argument is its recipe or its catalog record.
+export const opens = ({ entry, hostRequirements }) => Boolean(entry) && hostRequirements.includes("display@0");
+
+// An image's row; parsed is its recipe.
 function menuRow({ image, description, parsed }) {
-  const interactive = parsed.entry && parsed.hostRequirements.includes("display@0");
+  const interactive = opens(parsed);
   const name = interactive ? `<a href="./${image}/">${image}</a>` : image;
   const open = interactive ? `<a href="./${image}/">open →</a>`
     : `<span class="unavailable" title="${parsed.role === "package" ? `A package: amy install ${image} adds it to a running image`

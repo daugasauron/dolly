@@ -71,10 +71,12 @@ await browserTest("microphone", { image: "system", server: { fixtures }, launch:
   // Ctrl-C of a recording process releases the device.
   const holding = submit("/tmp/microphone --hold");
   await page.waitForFunction(() => __dolly.microphone.state === "capturing" && __dolly.microphone.liveTracks === 1);
-  assert.equal(await page.evaluate(() => document.querySelector("#microphone-status").textContent), "Microphone on");
+  // The page shows that a program holds the microphone, and no longer once it is released.
+  assert.equal(await page.locator("#microphone-status").isVisible(), true);
   await page.keyboard.press("Control+c");
   assert.equal(await holding, 130);
   await page.waitForFunction(idle);
+  assert.equal(await page.locator("#microphone-status").isHidden(), true);
   // Malformed packets, leases, sequence replay and revocation at the provider boundary.
   await page.evaluate(async () => (await import("/test/fixtures/microphone-boundary.mjs")).microphoneBoundaryProof());
   await page.waitForFunction(idle);

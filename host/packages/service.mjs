@@ -57,7 +57,7 @@ export class PackageService {
     });
     try {
       const metadata = await loadPackagedSnapshotMetadata(definition.image);
-      await ask({ base: imageBase.href, image: definition.image, metadata });
+      await ask({ base: imageBase.href, metadata });
     } catch (error) {
       release();
       return reply(`${definition.image}: ${error.message}\n`, 502);

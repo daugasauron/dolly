@@ -7,9 +7,9 @@ import { packagedSystemSnapshot } from "../../src/packaged-snapshot.mjs";
 let chunks;
 onmessage = async ({ data }) => {
   try {
-    if (data.image) {
+    if (data.metadata) {
       await loadImages(data.base);
-      chunks = await packagedSystemSnapshot(data.image, data.metadata);
+      chunks = await packagedSystemSnapshot(data.metadata);
       postMessage({ done: false });
     } else {
       const { done, value } = await chunks.next();
