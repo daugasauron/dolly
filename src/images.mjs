@@ -8,3 +8,10 @@ export async function loadImages(base) {
   imageBase = new URL(base);
   ({ DOLLY_IMAGES, DOLLY_STATIC_SOURCES } = await import(new URL("dist/dolly-images.mjs", imageBase).href));
 }
+
+// The files of the directory a build reads by site path, with their sizes:
+// every recipe and every source (http@0's trusted sources).
+export const bootstrapSources = () => [
+  ...DOLLY_IMAGES.map(definition => ({ path: `/${definition.dollyfile}`, byteLength: definition.byteLength })),
+  ...DOLLY_STATIC_SOURCES,
+];

@@ -10,12 +10,8 @@ export async function buildImageInPage(base, image, custom) {
     "src/image-builder.mjs", "src/image-build.mjs",
   ].map(path => import(new URL(path, base).href)));
   await registry.loadImages(base);
-  const sources = [
-    ...registry.DOLLY_IMAGES.map(definition => ({ path: `/${definition.dollyfile}`, byteLength: definition.byteLength })),
-    ...registry.DOLLY_STATIC_SOURCES,
-  ];
-  const network = { ...transport.localServicesTransport(new policy.DollyHttpPolicy(globalThis.DOLLY_HTTP_POLICY, sources, new URL(base))),
-    site: base };
+  const network = { ...transport.localServicesTransport(new policy.DollyHttpPolicy(globalThis.DOLLY_HTTP_POLICY,
+    registry.bootstrapSources(), new URL(base))), site: base };
   const build = (name, artifacts, consume) => builder.buildImage(name, artifacts, { http: { network } }, log,
     { customSource: name === "custom" ? custom : undefined, consume });
   let dependenciesBuilt = 0;
