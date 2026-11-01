@@ -134,6 +134,11 @@ last full run of the suites this branch touches.
     checks the bytes anyway. Fix: one `customImageCached(artifact)` in `custom-image.mjs`
     for both. Measured on the 583 MB custom image of finding 11, three saves each in Chrome:
     3.42 to 3.65 s before, 2.76 to 2.85 s after, and no copy of the image in the page's heap.
+14. **The rule for which image has a page of its own was spelled three times** (an image opens
+    when it has ENTRY and `display@0`): `image-menu.mjs`'s menu row, `generate-routes.mjs`
+    (from the graph's root, which is the recipe's own list) and `serve-checkout.mjs`. Fix:
+    `opens(recipe)` in `image-menu.mjs`, beside `pageRoutes`; for all 186 recipes and catalog
+    records it gives what the three did (50 open).
 
 ## Checked and left
 
@@ -147,7 +152,11 @@ last full run of the suites this branch touches.
   not at all for `pi-minimal` (`boot-timeline-after.log`): reverted, not worth its lines.
   What would help is fewer levels or a generated `modulepreload` list; one level everywhere
   comes from `host/requirements.mjs` importing `static-asset.mjs` for `hex`, which pulls in
-  `snapshot-records.mjs` and `image-names.mjs`. Left as a measurement.
+  `snapshot-records.mjs` and `image-names.mjs`. Served as Pages serves a version (immutable
+  caching, so the Worker's imports hit the cache the page's filled), `default` is ready in
+  4.4 to 4.6 s at 100 ms on a first visit; listing its 75 modules as `modulepreload` made it
+  6.0 s over the local HTTP/1.1 server, which takes six requests at a time
+  (`preload-experiment.log`). Not pursued: Pages' HTTP/2 would need its own measurement.
 
 - **A custom image is described twice when it boots** (`/custom/run/`, a custom session):
   the page reads it from the image cache and checks it (`loadCustomImage`), the build Worker

@@ -11,7 +11,7 @@ import { createServer } from "node:http";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { bundleProcessWorker } from "./bundle-process-worker.mjs";
-import { pageRoutes } from "./image-menu.mjs";
+import { opens, pageRoutes } from "./image-menu.mjs";
 import { isolationHeaders, mimeTypes } from "./serve.mjs";
 import { buildIdentities } from "./write-build-id.mjs";
 import { imageInputsMatch } from "../src/image-inputs.mjs";
@@ -74,8 +74,8 @@ export async function startCheckoutServer(projectDir, image = "default",
     ...await listed("host/", /\.(?:mjs|json)$/),
     "coi-serviceworker.js", "llms.txt", "index.html", "licences/index.html", "custom/index.html", "sessions/index.html",
     "amy-index.txt",
-    ...pageRoutes(DOLLY_IMAGES.map(definition => ({ image: definition.image,
-      openable: definition.entry && definition.hostRequirements.includes("display@0") })), image).map(route => route.path),
+    ...pageRoutes(DOLLY_IMAGES.map(definition => ({ image: definition.image, openable: opens(definition) })), image)
+      .map(route => route.path),
     ...DOLLY_STATIC_SOURCES.map(source => source.path.slice(1)),
   ]);
   for (const definition of DOLLY_IMAGES) {
