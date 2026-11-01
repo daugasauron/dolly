@@ -77,7 +77,11 @@ leased-device protocol D's audit describes does not fit and is not copied).
   so a program cannot reopen a popup faster than the user can reach Ctrl+C. Process exit
   removes the popup (the kernel's release hook). The Worker side checks every span against
   the memory, decodes the document with a fatal UTF-8 decoder (`EILSEQ`), and gives each
-  answer once; `test/html-host.test.mjs` drives it with a hostile kernel's calls.
+  answer once; `test/html-host.test.mjs` drives it with a hostile kernel's calls. A
+  compromised userspace that withdraws and shows popups in a loop takes the page's focus
+  each time: an annoyance it can cause through the terminal too, which grants nothing (the
+  user's keys in the popup reach the program only in a form the user submits), so no rate
+  beyond the 2 s after a close.
 - **Commands**: `html [FILE]` reads FILE or standard input, prints the fields on one line
   and exits 0, exits 1 when the user closed the popup, 2 on an error (grep's convention:
   1 is "no answer", not a failure). A script asks with `answer=$(html form.html)`; a report
@@ -160,6 +164,9 @@ script makes a `FontFace` of. Measured (`exp/font-exp.mjs`): a `FontFace` from a
 `ArrayBuffer` loads under `default-src 'none'` in Chromium and Firefox (status `loaded`, and
 ten `i` at 16 px measure 80 px, Iosevka's half-em advance). Dolly's `terminal.html` sets
 Iosevka and its file, so the site's popups have the terminal's font.
+
+Screenshots of a report and a form on the site's page, Chromium and Firefox:
+`build/html-bridge-evidence/popup-{report,form}-{chromium,firefox}.png` (this machine only).
 
 ### Pi
 
