@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # LLVM 21 with every default target, Clang and LLD as libraries and headers,
 # and llvm-config, under /usr/lib/llvm21: what Zig 0.16 links. Built by its
 # CMake inside Dolly with the TableGen tools of llvm21-tablegen.
-FROM /v0.1.4/demos/llvm/Dollyfile-llvm21-tablegen 9f67496e7acd4ab22c9867b0149bfcd5f686b99ce1c915f84d7ec60751d0a932
+FROM /v0.1.4/demos/llvm/Dollyfile-llvm21-tablegen a4a5594ee5d9145b41055296c8a46b0878c296d2bf62e2cf0de47a75be9f203b
 REQUIRES TOOL llvm-tblgen
 REQUIRES TOOL clang-tblgen
 REQUIRES TOOL cmake

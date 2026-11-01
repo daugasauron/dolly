@@ -163,8 +163,6 @@ export const shellCases = [
   ["only a program runs in the background", "(exit 3) & exit 7", 7],
   ["& does not take a && list", ": && : & exit 7", 2, 7],
   ["a path that names nothing is not a missing command", "./no-such-program; a=$?; no-such-program; b=$?; ./; c=$?; exit $((a + b + c))", 380 & 255],
-  // Natively no process can start here: these run in the shell, the code of /bin's.
-  ["the test, [, echo, true and false that PATH finds in /bin run in the shell", 'PATH=/bin; [ a = a ] && test -n x && echo > /dev/null && true && ! false || exit 91; PATH=/nowhere; test x', 127, 0],
   // A colon-separated record, as /etc/passwd's empty fields are.
   ["read gives an empty field between two separators, as POSIX splits fields", 'IFS=: read -r a b c d <<EOF\nuser::1000:x:y\nEOF\ncase "$a|$b|$c|$d" in "user||1000|x:y") :;; *) exit 91;; esac; IFS=: read -r e f <<EOF\n:g:\nEOF\ncase "$e|$f" in "|g") :;; *) exit 92;; esac', 0],
   // The usual option loop, in a script given no option.

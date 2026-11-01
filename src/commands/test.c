@@ -8,9 +8,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-// test and [ are this one program, [ when it is called by that name. Slop
-// includes it and runs the same code itself for the test and [ that PATH finds
-// in /bin (DOLLY_SHELL_UTILITY), as other shells have them built in.
+#ifndef DOLLY_BRACKET
+#define DOLLY_BRACKET 0
+#endif
 
 static int unary(const char *operation, const char *value, int *known) {
   struct stat metadata;
@@ -210,20 +210,14 @@ static int evaluate(int argc, char **argv, int *error) {
   return result;
 }
 
-static int test_utility(int argc, char **argv) {
-  const char *slash = strrchr(argv[0], '/');
-  const int bracket = strcmp(slash == NULL ? argv[0] : slash + 1, "[") == 0;
+int main(int argc, char **argv) {
   argc--; argv++;
-  if (bracket) {
+  if (DOLLY_BRACKET) {
     if (argc == 0 || strcmp(argv[argc - 1], "]") != 0) { fputs("[: missing ]\n", stderr); return 2; }
     argc--;
   }
   int error = 0;
   const int result = evaluate(argc, argv, &error);
-  if (error) { fputs(bracket ? "[: unsupported expression\n" : "test: unsupported expression\n", stderr); return 2; }
+  if (error) { fputs(DOLLY_BRACKET ? "[: unsupported expression\n" : "test: unsupported expression\n", stderr); return 2; }
   return result ? 0 : 1;
 }
-
-#ifndef DOLLY_SHELL_UTILITY
-int main(int argc, char **argv) { return test_utility(argc, argv); }
-#endif

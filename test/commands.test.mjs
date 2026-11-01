@@ -11,7 +11,8 @@ const project = resolve(import.meta.dirname, "..");
 const scratch = await mkdtemp(join(tmpdir(), "dolly-commands-"));
 test.after(() => rm(scratch, { recursive: true, force: true }));
 
-function build(name, output = join(scratch, name)) {
+function build(name) {
+  const output = join(scratch, name);
   execFileSync("cc", ["-std=c17", "-Wall", "-Wextra", "-Werror", `-I${includeDirectory}`, `src/commands/${name}.c`,
     "test/fixtures/native-spawn.c", "-o", output, "-lm"], { cwd: project, stdio: "pipe" });
   return output;
@@ -78,8 +79,7 @@ test("timeout 0 disables the deadline", () => {
 });
 
 test("Dolly's own core tools keep their no-permission and finite semantics", async () => {
-  // [ is test's program called by that name.
-  const testTool = build("test"), bracket = build("test", join(scratch, "["));
+  const testTool = build("test"), bracket = build("bracket");
   const status = (program, args) => run(program, args).status;
   assert.equal(status(testTool, ["-x", "."]), 0, "a directory can be searched");
   assert.equal(status(testTool, ["-x", testTool]), 0);

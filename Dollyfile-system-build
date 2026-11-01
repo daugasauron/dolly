@@ -94,10 +94,7 @@ EXPORTS TOOL dollyfile
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 
-SOURCE /v0.1.4/dist/static/default/slop.c e51664f35798e4180957b985063f8adbffe65972c3dd01cb9e605af6ead863a6 /tmp/slop/slop.c
-# Slop runs the code of the system's test, [ and echo itself.
-SOURCE /v0.1.4/dist/static/default/commands/test.c 3b21b6855f7495f8e6dca7b46bc8b9ce54f4f589570c30339b1ea5e869471edd /tmp/slop/commands/test.c
-SOURCE /v0.1.4/dist/static/default/commands/echo.c b452aa1e2e101d11bc6ac27052d116a8b9e1792cb3ad3406dc23f31f218adb56 /tmp/slop/commands/echo.c
+SOURCE /v0.1.4/dist/static/default/slop.c d966be3bd259e916868e4a457e108fbf8485ac44e4ae0741084f2c7739a41d1a /tmp/slop/slop.c
 RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/slop/slop.c -o /bin/slop
 
 EXPORTS TOOL slop
@@ -114,13 +111,14 @@ SOURCE /v0.1.4/dist/static/default/commands/man.c cd13cdece7706188e083a1754187cb
 SOURCE /v0.1.4/dist/static/default/commands/pwd.c 61b2840bfba274f511c3777f5b800bcdfff1947bef13b771c5d9a98eb5d03d3d /tmp/core-tools/pwd.c
 SOURCE /v0.1.4/dist/static/default/commands/cd.c 36d4c7708b332be6df90105bbc61cf8eb70556e3ed0f9f24756016eebec3d622 /tmp/core-tools/cd.c
 SOURCE /v0.1.4/dist/static/default/commands/cat.c 43eabd1e83f6c56cd5b5a7d8e5f9621e214c35e9407dea6bbce34120cb9da723 /tmp/core-tools/cat.c
-SOURCE /v0.1.4/dist/static/default/commands/echo.c b452aa1e2e101d11bc6ac27052d116a8b9e1792cb3ad3406dc23f31f218adb56 /tmp/core-tools/echo.c
+SOURCE /v0.1.4/dist/static/default/commands/echo.c 85e649c88b7d75cf7ebbac50bf8015a548c79affcc79f955d51bd02d75833cde /tmp/core-tools/echo.c
 SOURCE /v0.1.4/dist/static/default/commands/touch.c 1eb3737abe39d9efe0c66d9e84a7bf6445fa2c07c12b46ad107cd799f2f0747c /tmp/core-tools/touch.c
 SOURCE /v0.1.4/dist/static/default/commands/clear.c f2e6915b3fe34393087ec7d04e61d090c0d62e551b86b36e8c3ff6bfff72598d /tmp/core-tools/clear.c
 SOURCE /v0.1.4/dist/static/default/commands/ls.c 9a1ad375e4e1688b3ed8a27a3d9e9220be6780a279559e8032e6b15c45611a5e /tmp/core-tools/ls.c
 SOURCE /v0.1.4/dist/static/default/commands/stat.c 716e40d4db491a766b738e21c780d4f386641be93daccc4481b4d71b603110c2 /tmp/core-tools/stat.c
 SOURCE /v0.1.4/dist/static/default/commands/file.c 3fd871ab9da0233ab738683f3ae45ab8cac3b37df3be92359575448137b4ec37 /tmp/core-tools/file.c
-SOURCE /v0.1.4/dist/static/default/commands/test.c 3b21b6855f7495f8e6dca7b46bc8b9ce54f4f589570c30339b1ea5e869471edd /tmp/core-tools/test.c
+SOURCE /v0.1.4/dist/static/default/commands/test.c 7da0427461396c06ac8d11e62250f5b0d20a110aa67b6b7dbfe94967bb6290ba /tmp/core-tools/test.c
+SOURCE /v0.1.4/dist/static/default/commands/bracket.c 5dadee574cc128d583fe337e68b271cebbb3220dcd7e307fac08d4b5e9d73e4c /tmp/core-tools/bracket.c
 SOURCE /v0.1.4/dist/static/default/commands/mv.c 326b21d8de8cd70652ec1ae1d42356095ee792c2608dfe362bba7ec05eacc9c3 /tmp/core-tools/mv.c
 SOURCE /v0.1.4/dist/static/default/commands/cp.c 0598cc06e13171dc95314d644f7dc0adb0419d78e776745d430225639ca5b123 /tmp/core-tools/cp.c
 SLOP cc \
@@ -177,7 +175,8 @@ SLOP cc \
   -o /bin/test
 SLOP cc \
   -O2 \
-  /tmp/core-tools/test.c \
+  -I /tmp/core-tools \
+  /tmp/core-tools/bracket.c \
   -o /bin/[
 SLOP cc \
   -O2 \

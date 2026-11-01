@@ -20,12 +20,6 @@
 
 #include <dolly/runtime.h>
 
-// test, [ and echo: the system's own commands, whose code the shell holds too
-// (shell_utility).
-#define DOLLY_SHELL_UTILITY
-#include "commands/echo.c"
-#include "commands/test.c"
-
 #define SLOP_MAX_LINE 65536
 #define SLOP_MAX_HISTORY 1000
 #define SLOP_MAX_HEREDOCS 32
@@ -3487,37 +3481,6 @@ static const char *unsupported_builtin(const char *name) {
   return NULL;
 }
 
-static int true_utility(int argc, char **argv) { (void)argc; (void)argv; return 0; }
-static int false_utility(int argc, char **argv) { (void)argc; (void)argv; return 1; }
-
-// The system's test, [, echo, true and false, which a script may start tens of
-// thousands of times (FFmpeg's configure does 66,000, at about 12 ms a
-// process): when PATH finds one in /bin, the shell runs the same code itself,
-// as other shells have them built in. One found earlier on PATH still runs,
-// and a name with a slash is always a program, as /bin/true is.
-static int (*shell_utility(const char *name))(int, char **) {
-  if (strchr(name, '/') != NULL) return NULL;
-  static const struct { const char *name; int (*run)(int, char **); } utilities[] = {
-      {"test", test_utility}, {"[", test_utility}, {"echo", echo_utility},
-      {"true", true_utility}, {"false", false_utility},
-  };
-  for (size_t index = 0; index < sizeof(utilities) / sizeof(utilities[0]); index++) {
-    if (strcmp(name, utilities[index].name) != 0) continue;
-    char path[PATH_MAX], system[16];
-    snprintf(system, sizeof(system), "/bin/%s", name);
-    return resolve_command(name, path_variable(), path, sizeof(path)) == COMMAND_FOUND &&
-           strcmp(path, system) == 0 ? utilities[index].run : NULL;
-  }
-  return NULL;
-}
-
-static int run_utility(int (*utility)(int, char **), int argc, char **argv) {
-  clearerr(stdout);
-  const int status = utility(argc, argv);
-  fflush(stdout);
-  return status;
-}
-
 static int run_command_words(Shell *shell, int argc, char **argv) {
   if (!shell->active) return shell->exit_status;
   Function *function = function_lookup(shell->functions, argv[0]);
@@ -3536,9 +3499,6 @@ static int run_command_words(Shell *shell, int argc, char **argv) {
     fprintf(stderr, "slop: kill: %s: there is no job control; kill $! or a PID\n", argv[index]);
     return 2;
   }
-  // A stage's program starts as one; elsewhere a system utility runs here.
-  int (*utility)(int, char **) = shell->stage == NULL ? shell_utility(argv[0]) : NULL;
-  if (utility != NULL) return run_utility(utility, argc, argv);
   return spawn_command(shell, argc, argv, path_variable());
 }
 
@@ -3586,10 +3546,9 @@ static int command_builtin(Shell *shell, int argc, char **argv) {
   if (argument == argc) return describe ? 2 : 0;
   if (describe == 2) return describe_commands(shell, argc - argument, argv + argument, 0, search);
   if (!describe) {
-    if (builtin_name(argv[argument])) return builtin(shell, argc - argument, argv + argument);
-    int (*utility)(int, char **) = shell_utility(argv[argument]);
-    return utility != NULL ? run_utility(utility, argc - argument, argv + argument)
-                           : spawn_command(shell, argc - argument, argv + argument, search);
+    return builtin_name(argv[argument])
+        ? builtin(shell, argc - argument, argv + argument)
+        : spawn_command(shell, argc - argument, argv + argument, search);
   }
   int status = 0;
   for (; argument < argc; argument++) {
@@ -4065,11 +4024,9 @@ static int assignment_word(const Token *token, size_t *name_length) {
 static int stage_open(Shell *shell, Stage *stage, DescriptorState *descriptors,
                       const char *name) {
   char path[PATH_MAX];
-  // A system utility in a pipeline runs in the shell; started with & it is a program.
   const int program = name != NULL && function_lookup(shell->functions, name) == NULL &&
       !builtin_name(name) && unsupported_builtin(name) == NULL &&
-      resolve_command(name, path_variable(), path, sizeof(path)) == COMMAND_FOUND &&
-      (stage->background || shell_utility(name) == NULL);
+      resolve_command(name, path_variable(), path, sizeof(path)) == COMMAND_FOUND;
   if (stage->background && !program) {
     fprintf(stderr, "slop: %s: only a program can run in the background; use slop -c '...' &\n",
             name == NULL ? "&" : name);
