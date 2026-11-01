@@ -3,26 +3,27 @@ import { holdIndicators, showIndicators } from "./page-indicators.mjs";
 import { hostRegistry } from "../host/modules.mjs";
 import { pageChords } from "./page-chords.mjs";
 import { terminalText } from "./terminal-text.mjs";
-import { DOLLY_IMAGES, DOLLY_STATIC_SOURCES, imageBase, loadImages } from "./images.mjs";
+import { bootstrapSources, imageBase, imageDefinition, loadImages } from "./images.mjs";
 import * as processConstants from "./process-constants.mjs";
 
 // The terminal's own look: its canvas, the hidden keyboard, the boot log and
-// the status line. A host module brings the look of what it adds; the page, the
-// boot log's font (the site's is Iosevka, dist/IosevkaTerm-SemiBold.woff2).
+// the status line, which lie in boot()'s element and style nothing else of the
+// page. A host module brings the look of what it adds; the page, the boot log's
+// font (the site's is Iosevka, dist/IosevkaTerm-SemiBold.woff2).
 const style = `
   .dolly-terminal { position: relative; overflow: hidden; outline: none; caret-color: transparent; }
-  #display { display: block; width: 100%; height: 100%; cursor: text; touch-action: none; }
-  #display[hidden] { display: none; }
-  #keyboard { position: fixed; left: -10000px; top: 0; width: 1px; height: 1px; opacity: 0; caret-color: transparent; }
-  #bootstrap-log { position: absolute; inset: 0; z-index: 1; margin: 0; padding: 1rem 1.15rem; overflow: auto;
+  .dolly-terminal #display { display: block; width: 100%; height: 100%; cursor: text; touch-action: none; }
+  .dolly-terminal #display[hidden] { display: none; }
+  .dolly-terminal #keyboard { position: fixed; left: -10000px; top: 0; width: 1px; height: 1px; opacity: 0; caret-color: transparent; }
+  .dolly-terminal #bootstrap-log { position: absolute; inset: 0; z-index: 1; margin: 0; padding: 1rem 1.15rem; overflow: auto;
     white-space: pre-wrap; color: #e8e3d7; background: #262626; font: 600 20px/1.35 "Dolly IosevkaTerm SemiBold", monospace;
     scrollbar-width: thin; scrollbar-color: #f2d45c #262626; }
-  #bootstrap-log[hidden] { display: none; }
-  #session-status { position: fixed; right: 1rem; top: 1rem; z-index: 5; max-width: calc(100vw - 2rem);
+  .dolly-terminal #bootstrap-log[hidden] { display: none; }
+  .dolly-terminal #session-status { position: absolute; right: 1rem; top: 1rem; z-index: 5; max-width: calc(100% - 2rem);
     padding: 0.5rem 0.75rem; color: #e8e3d7; background: #262626; border: 1px solid #77736c; font-size: 14px; }
-  #session-status[hidden] { display: none; }
+  .dolly-terminal #session-status[hidden] { display: none; }
   html[data-indicators="hidden"] .page-indicator { display: none; }
-  @media (max-width: 640px) { #bootstrap-log { padding: 0.65rem 0.75rem; } }
+  @media (max-width: 640px) { .dolly-terminal #bootstrap-log { padding: 0.65rem 0.75rem; } }
 `;
 
 function element(tag, properties, attributes = {}) {
@@ -41,10 +42,10 @@ function element(tag, properties, attributes = {}) {
 // resolves to the page's API (window.__dolly on the site) once the image's ENTRY runs.
 export function boot(mount, { images, image, modules, site, http = {}, files = {} } = {}) {
   return run(mount, { images, modules, site, http }, async () => {
-    const definition = DOLLY_IMAGES.find(candidate => candidate.image === image);
+    const definition = imageDefinition(image);
     if (!definition || typeof files !== "object" || files === null) throw new Error("invalid Dolly boot options");
     if (definition.entry === null) throw new Error(`${image} has no ENTRY; it only builds`);
-    return { image, label: "PRECOMPILED SYSTEM", required: definition.hostRequirements ?? [],
+    return { image, label: "PRECOMPILED SYSTEM", required: definition.hostRequirements,
       start: () => ({ message: { files }, transfers: [] }) };
   });
 }
@@ -61,8 +62,8 @@ export function boot(mount, { images, image, modules, site, http = {}, files = {
 //   configure message ({ message, transfers }), or null once an image without
 //   ENTRY is built;
 // - message(message): each message of the Worker;
-// - running(ready, host): the context host modules' entryStarted is given
-//   beside `image`, and members of the page's handle.
+// - running(host): the context host modules' entryStarted is given beside
+//   `image`, and members of the page's handle.
 export async function run(mount, { images, modules, site, http }, route) {
   if (!document.querySelector("style[data-dolly]")) {
     document.head.append(element("style", { textContent: style }, { "data-dolly": "" }));
@@ -75,9 +76,8 @@ export async function run(mount, { images, modules, site, http }, route) {
   mount.classList.add("dolly-terminal");
   mount.replaceChildren(canvas, keyboard, bootstrapLog, status);
   const bootstrapOutput = buildLog(bootstrapLog);
-  bootstrapOutput.clear();
   const appendBootstrap = text => bootstrapOutput.append(text);
-  pageChords(keyboard);
+  pageChords(mount, keyboard);
   const bootstrapDecoder = new TextDecoder();
 
   let runtimeWorker;
@@ -111,13 +111,14 @@ export async function run(mount, { images, modules, site, http }, route) {
     const how = failure ? `failed: ${failure}` : signal ? `was ended by ${signalName ?? `signal ${signal}`}`
       : `exited with status ${code}`;
     const notice = mount.appendChild(element("div", { id: "image-ended" }, { role: "alert" }));
-    notice.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:9;padding:0.6rem 1rem;" +
+    notice.style.cssText = "position:absolute;left:0;right:0;bottom:0;z-index:9;padding:0.6rem 1rem;" +
       "color:#e8e3d7;background:#262626;border-top:1px solid #f2d45c;font-size:16px";
     const links = [{ text: "Reload to start again", href: location.href }, ...offers].map(({ text, href }) =>
       Object.assign(document.createElement("a"), { textContent: text, href, style: "color:#f2d45c;margin-left:1.5ch" }));
     notice.append(`This image has ended: its program ${how}.`, ...links);
-    mount.style.height = `calc(100% - ${notice.offsetHeight}px)`;
-    Object.assign(canvas.style, { objectFit: "contain", objectPosition: "left top" });
+    // The notice takes the element's bottom strip; the last frame and the log keep the rest.
+    Object.assign(canvas.style, { height: `calc(100% - ${notice.offsetHeight}px)`, objectFit: "contain", objectPosition: "left top" });
+    bootstrapLog.style.bottom = `${notice.offsetHeight}px`;
     links[0].focus();
     document.documentElement.dataset.dollyStatus = "exited";
   }
@@ -139,20 +140,13 @@ export async function run(mount, { images, modules, site, http }, route) {
     const registry = await hostRegistry(modules);
     const selected = await route(registry);
     const { image } = selected;
-    const bootstrapSources = [
-      ...DOLLY_IMAGES.map((definition) => ({
-        path: `/${definition.dollyfile}`,
-        byteLength: definition.byteLength,
-      })),
-      ...DOLLY_STATIC_SOURCES,
-    ];
     appendBootstrap(`DOLLY / ${image.toUpperCase()} / ${selected.label}\n\n`);
     host = await registry.createHost("browser", selected.enabled ?? selected.required, {
       send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),
       resources: { mount, canvas, keyboard, applicationBase: imageBase, site: site && new URL(site), showStatus, fatal,
         indicators: { hold: holdIndicators, show: showIndicators } },
       configuration: { ...selected.configuration, http: { ...selected.configuration?.http, embedding: http,
-        sources: bootstrapSources, inherited: selected.inherited } },
+        sources: bootstrapSources(), inherited: selected.inherited } },
     });
     host.require(selected.required);
     const started = selected.start ? await selected.start(host, appendBootstrap) : { message: {}, transfers: [] };
@@ -189,7 +183,6 @@ export async function run(mount, { images, modules, site, http }, route) {
     runtimeWorker.postMessage({
       type: "configure",
       image,
-      mode: "snapshot",
       images: imageBase.href,
       modules: registry.urls,
       hostModules: host.enabled,
@@ -213,11 +206,8 @@ export async function run(mount, { images, modules, site, http }, route) {
     }).finally(() => { rejectReady = null; });
     appendBootstrap(bootstrapDecoder.decode());
     runtimeReady = true;
-    if (ready.routeImage !== image || (image !== "custom" && ready.image !== image)) {
-      throw new Error("runtime image mismatch");
-    }
     document.documentElement.dataset.image = ready.image;
-    const { context, page } = await selected.running?.(ready, host) ?? {};
+    const { context, page } = await selected.running?.(host) ?? {};
     await host.entryStarted({ image, ...context });
     runtimeWorker.postMessage({ type: "entry-ready-ack" });
     // A module that shows the canvas replaces the bootstrap log.

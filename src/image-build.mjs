@@ -1,4 +1,4 @@
-import { DOLLY_IMAGES, imageBase } from "./images.mjs";
+import { DOLLY_IMAGES, imageBase, imageDefinition } from "./images.mjs";
 import { loadRecipeGraph } from "./dollyfile-graph.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
 import { describeImageArtifact, loadImageArtifactDescriptor, loadImageArtifact, saveImageArtifact } from "./image-artifact.mjs";
@@ -23,7 +23,6 @@ async function customRecipeGraph(customSource, signal) {
 // Only explicit image references schedule builds. Modules still execute in
 // order inside their caller's userspace; this traversal makes no input guesses.
 export async function prepareImageArtifacts(image, customSource, build, report, signal) {
-  const definitions = new Map(DOLLY_IMAGES.map(definition => [definition.image, definition]));
   const artifacts = new Map(), active = new Set();
   async function materialize(node) {
     signal?.throwIfAborted();
@@ -38,7 +37,7 @@ export async function prepareImageArtifacts(image, customSource, build, report, 
       if (metadata.sha256 !== descriptor.sha256 || !imageInputsMatch(metadata.inputs, descriptor.inputs)) {
         throw new Error(`${definition.image}: selected image artifact is no longer available; retry the rebuild`);
       }
-      artifact = await describeImageArtifact(await loadPackagedSystemSnapshot(definition.image, metadata, signal),
+      artifact = await describeImageArtifact(await loadPackagedSystemSnapshot(metadata, signal),
         definition.sha256, descriptor.inputs);
       report(`reusing published ${definition.image} artifact`);
       await saveImageArtifact(artifact, `/${definition.dollyfile}`);
@@ -82,16 +81,10 @@ export async function prepareImageArtifacts(image, customSource, build, report, 
     artifacts.set(definition.sha256, node);
     return node;
   }
-  const references = image === "custom" ? (await customRecipeGraph(customSource, signal)).artifacts : definitions.get(image).artifacts;
+  const references = image === "custom" ? (await customRecipeGraph(customSource, signal)).artifacts : imageDefinition(image).artifacts;
   const selected = new Map();
   for (const reference of references) selected.set(reference.sha256, await resolve(reference));
   const loaded = [];
   for (const node of selected.values()) loaded.push(await materialize(node));
   return loaded;
-}
-
-// Resolve compatibility from pinned recipes before materializing large artifacts.
-export async function loadImageHostRequirements(image, customSource) {
-  if (image !== "custom") return DOLLY_IMAGES.find(definition => definition.image === image).hostRequirements ?? [];
-  return (await customRecipeGraph(customSource)).root.hostRequirements;
 }

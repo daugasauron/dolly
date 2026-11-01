@@ -211,7 +211,8 @@ Worker URL.
   snapshot packs and user-clicked source links. The manifest holds sizes and
   hashes, never destinations; parts are fixed `.part-N` siblings fetched without
   guest headers, credentials, queries or redirects, within the original deadline
-  and byte bound (64 parts of 20 MiB, 1 GiB). A remote response cannot activate it.
+  and byte bound (parts of 20 MiB, at most the largest snapshot, 2 GiB). A remote
+  response cannot activate it.
 
 ## Other crossings
 
@@ -236,16 +237,19 @@ Worker URL.
 Beside the host modules (each one's directory, named by its manifest), these
 are the trusted files a page and its runtime Worker load; a process Worker
 loads the bundle of [`process-worker.mjs`](../src/process-worker.mjs) and the
-modules it serves. The rest of what a page fetches is data: the catalog, image
-metadata and packs, recipes and sources.
+modules it serves. An image directory's catalog (`dist/dolly-images.mjs`) and
+image metadata (`dist/dolly-IMAGE-system-snapshot.mjs`) are modules its build
+writes, which the page and the Worker import: the embedding trusts the image
+directory it names as it trusts the runtime. The rest of what a page fetches is
+data checked against them: packs, recipes and sources.
 
 | Part | Files |
 | --- | --- |
-| Page | [`browser.mjs`](../src/browser.mjs) (`boot()`), [`site.mjs`](../src/site.mjs) (the site's routes), [`terminal-text.mjs`](../src/terminal-text.mjs), [`build-log.mjs`](../src/build-log.mjs), [`page-chords.mjs`](../src/page-chords.mjs), [`page-indicators.mjs`](../src/page-indicators.mjs), [`coi-serviceworker.js`](../coi-serviceworker.js) (isolation where a host sends no headers) |
+| Page | [`browser.mjs`](../src/browser.mjs) (`boot()`), [`site.mjs`](../src/site.mjs) (the site's routes), [`source-download.mjs`](../src/source-download.mjs) (the site's source links), [`terminal-text.mjs`](../src/terminal-text.mjs), [`build-log.mjs`](../src/build-log.mjs), [`page-chords.mjs`](../src/page-chords.mjs), [`page-indicators.mjs`](../src/page-indicators.mjs), [`coi-serviceworker.js`](../coi-serviceworker.js) (isolation where a host sends no headers) |
 | Registry | [`modules.mjs`](../host/modules.mjs), [`manifests.mjs`](../host/manifests.mjs) (the site's list), [`requirements.mjs`](../host/requirements.mjs), [`abi.mjs`](../host/abi.mjs) |
-| Images | [`images.mjs`](../src/images.mjs), [`packaged-snapshot.mjs`](../src/packaged-snapshot.mjs), [`image-inputs.mjs`](../src/image-inputs.mjs), [`snapshot-records.mjs`](../src/snapshot-records.mjs), [`image-entry.mjs`](../src/image-entry.mjs), [`static-asset.mjs`](../src/static-asset.mjs), [`version.mjs`](../src/version.mjs) |
+| Images | [`images.mjs`](../src/images.mjs), [`packaged-snapshot.mjs`](../src/packaged-snapshot.mjs), [`image-inputs.mjs`](../src/image-inputs.mjs), [`snapshot-records.mjs`](../src/snapshot-records.mjs), [`image-entry.mjs`](../src/image-entry.mjs), [`image-names.mjs`](../src/image-names.mjs), [`static-asset.mjs`](../src/static-asset.mjs), [`version.mjs`](../src/version.mjs) |
 | Runtime Worker | [`worker-image.mjs`](../src/worker-image.mjs), [`runtime-worker.mjs`](../src/runtime-worker.mjs) (boot()'s), [`build-worker.mjs`](../src/build-worker.mjs) (the site's), [`process-supervisor.mjs`](../src/process-supervisor.mjs), [`kernel-plugin.mjs`](../src/kernel-plugin.mjs), [`process-abi.mjs`](../src/process-abi.mjs), [`wasm-interface.mjs`](../src/wasm-interface.mjs), [`process-constants.mjs`](../src/process-constants.mjs) |
-| Building and custom images, the site's alone | [`image-build.mjs`](../src/image-build.mjs), [`image-builder.mjs`](../src/image-builder.mjs), [`image-artifact.mjs`](../src/image-artifact.mjs), [`custom-image.mjs`](../src/custom-image.mjs), [`dollyfile-view.mjs`](../src/dollyfile-view.mjs), [`dollyfile-graph.mjs`](../src/dollyfile-graph.mjs) |
+| Building and custom images, the site's alone | [`image-build.mjs`](../src/image-build.mjs), [`image-builder.mjs`](../src/image-builder.mjs), [`image-artifact.mjs`](../src/image-artifact.mjs), [`custom-image.mjs`](../src/custom-image.mjs), [`custom-dollyfile.mjs`](../src/custom-dollyfile.mjs) (the custom image page), [`dollyfile-view.mjs`](../src/dollyfile-view.mjs), [`dollyfile-graph.mjs`](../src/dollyfile-graph.mjs) |
 | Sessions | [`session-store.mjs`](../src/session-store.mjs), [`session-file.mjs`](../src/session-file.mjs), [`sessions.mjs`](../src/sessions.mjs) (the site's list), [`alphabetical.mjs`](../src/alphabetical.mjs) |
 
 ## The page's handle
@@ -263,7 +267,8 @@ acceptance and the checks of a deployed site use it.
   a program in raw mode whose screen matches.
 - `terminal` (the result's sequence, the foreground, `interruptForeground()`,
   which is Ctrl+C), `foregroundPid`, `hostModules` (the session's modules) and
-  `systemSnapshot` (the bytes a rebuild built). What the handle reads of the
+  `builtImage` (the identity of the image a rebuild built: its SHA-256, size and
+  inputs). What the handle reads of the
   terminal (its foreground, grid, geometry, the leases) is what the Worker last
   reported; what it asks (a result, the selection) resolves later.
 - An enabled module adds its own and takes them away when `nena` disables it:
