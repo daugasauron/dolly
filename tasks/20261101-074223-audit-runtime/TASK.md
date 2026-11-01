@@ -196,6 +196,25 @@ input: every core image's plan is "reuse".
     layout: 13 ms in Chrome, 20 ms in Firefox. The build-log fixture of `image-browser.mjs`
     checks the follow, the stop when the reader scrolls up, and a 2 s bound (it fails before).
 
+## The scripts (second assignment)
+
+19. **Every plan of the catalog read every snapshot again.** `build-system-snapshot.mjs`
+    re-read, hashed and decoded each reused image's snapshot to check it against its
+    metadata on every `npm run image`, also when nothing was to be built: 46 GB for the full
+    catalog, 49 s and 2.2 GB of memory (`/usr/bin/time`, this tree). Fix: the tree records
+    each snapshot it checked by its file's size, modification time and inode and the
+    metadata's text (`build/verified-snapshots.json`); a plan reads again only a snapshot
+    that changed. Second plan: 1.1 s, 173 MB. A changed file (touched, replaced, deduped
+    into another inode) is checked once more, as before; the release's own checks
+    (`site-release.mjs`) read every pack regardless.
+- Checked, no change: `release-checklist.sh` packs the npm tarballs it publishes, and the
+  npm suite it then runs packs its own; two packings give identical bytes (13 tarballs,
+  compared), so the published ones are the tested ones. `published-version.mjs`'s mirror,
+  verify and boot checks hold each file to its `deployment.sha256` and boot every version;
+  `site-release.mjs` verifies with the same identity checks the build uses
+  (`verifySnapshotIdentity`); its packs-only reading is finding 1. `generate-routes.mjs` and
+  `image-menu.mjs`: finding 14.
+
 ## The tests (second assignment, from 20:30)
 
 The integrator asked for a sweep of `test/*.test.mjs`, `test/*-browser.mjs` and their

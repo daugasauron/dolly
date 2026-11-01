@@ -2,7 +2,7 @@
 
 import { spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { availableParallelism, freemem } from "node:os";
 import { resolve } from "node:path";
 import { createInterface } from "node:readline";
@@ -90,6 +90,20 @@ function verifyImage(image, parsed) {
 const metadataPath = image => resolve(projectDir, `dist/dolly-${image}-system-snapshot.mjs`);
 const readMetadata = async image => parseGeneratedConstant(await readFile(metadataPath(image), "utf8"), "DOLLY_SYSTEM_SNAPSHOT");
 
+// The snapshots this tree has checked against their metadata, each by its file's
+// identity (size, modification time, inode) and the metadata's text: a plan reads
+// again only a snapshot that changed since. Reading them all took a full catalog's
+// plan 49 s and 2.2 GB for 46 GB of snapshots.
+const verifiedPath = resolve(projectDir, "build/verified-snapshots.json");
+const verified = new Map(Object.entries(JSON.parse(await readFile(verifiedPath, "utf8").catch(error => {
+  if (error.code === "ENOENT") return "{}";
+  throw error;
+}))));
+const verifiedKey = async (image, metadata) => {
+  const { size, mtimeMs, ino } = await stat(resolve(projectDir, `dist/dolly-${image}-system.snapshot`));
+  return `${size} ${mtimeMs} ${ino} ${digest(JSON.stringify(metadata))}`;
+};
+
 async function inspectSnapshot(image, inputs) {
   try {
     const metadata = await readMetadata(image);
@@ -112,13 +126,17 @@ async function inspectSnapshot(image, inputs) {
       });
       return stale(`dependency output changed: ${changed.map(reference => reference.image).join(", ") || "input list"}`);
     }
+    const reuse = { action: "reuse", reason: `${metadata.sha256.slice(0, 16)}…`, metadata };
+    const key = await verifiedKey(image, metadata);
+    if (verified.get(image) === key) return reuse;
     const snapshot = await readFile(resolve(projectDir, `dist/dolly-${image}-system.snapshot`));
     if (metadata.byteLength !== snapshot.length) return stale("snapshot size mismatch");
     if (metadata.sha256 !== digest(snapshot)) return stale("snapshot digest mismatch");
     const parsed = decodeSystemSnapshot(snapshot), entry = verifyImage(image, parsed);
     if (JSON.stringify(metadata.entry) !== JSON.stringify(entry)) return stale("entry metadata mismatch");
     if (JSON.stringify(metadata.manifest) !== JSON.stringify(parsed.manifest)) return stale("manifest mismatch");
-    return { action: "reuse", reason: `${metadata.sha256.slice(0, 16)}…`, metadata };
+    verified.set(image, key);
+    return reuse;
   } catch (error) {
     return { action: "build", reason: error.code === "ENOENT"
       ? `missing ${error.path?.split("/").at(-1) ?? "snapshot metadata"}` : `invalid artifact: ${error.message}` };
@@ -196,6 +214,9 @@ for (const image of images) {
     ? ` (${pending.map(reference => reference.image).join(", ")})` : ""}`);
 }
 console.log(`dolly: inspected image inputs and cached outputs in ${((performance.now() - started) / 1000).toFixed(1)}s`);
+await mkdir(resolve(projectDir, "build"), { recursive: true });
+await writeFile(`${verifiedPath}.${process.pid}.tmp`, JSON.stringify(Object.fromEntries(verified)));
+await rename(`${verifiedPath}.${process.pid}.tmp`, verifiedPath);
 async function produce(image, builder) {
   const inputs = inputsFor(image);
   let result = plan.get(image);
