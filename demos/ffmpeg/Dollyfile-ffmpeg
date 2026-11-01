@@ -20,9 +20,9 @@ REQUIRES HOST threads@0
 # - no resource compression: it takes any gzip on PATH for a compressor,
 #   and the gzip package, which unpacks the archive here, only decompresses;
 # - pthreads, required: every program linked with these needs threads@0.
-FROM /v0.1.4/Dollyfile-system-tools cb2033daa110ad94dbe4205463184eaa8db6e05f09b3457ce5e4f7df2b6036e5
-USE /v0.1.4/Dollyfile-gzip 79b8feb18c7ca929eabe3e30e49f43ed5640660caf8a97e1d705359e4a22ed3f
-INSTALL /v0.1.4/Dollyfile-zlib bd00998ace2e47b6d7ef229211350fc7d299262c84b7e9a69529d21f05fb46d3
+FROM /v0.1.4/Dollyfile-system-tools dd061ff77d48703a124b94f2b3752b227acb27fd1fdb4926e748c71593f3f91e
+USE /v0.1.4/Dollyfile-gzip 53ed96ed915c386f2ec984ef277792f4327992359c2e65ef97fc36db566a76d7
+INSTALL /v0.1.4/Dollyfile-zlib 9b532e018ade234c097fdfdbffbe6b1137e08af9082d182e70448d78ba63c817
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib
