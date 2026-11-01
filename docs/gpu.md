@@ -63,7 +63,8 @@ BC textures) and raised limits are requested only where the adapter has them,
 and `CAPABILITIES` reports what the device got.
 
 Measured on Linux with an NVIDIA RTX 5070 (driver 580) and an AMD integrated
-GPU (Chrome 151, Firefox 156, 2026-10-05):
+GPU (Chrome 151, Firefox 156, 2026-10-05; Chrome's row again in Chrome 156 on
+2026-11-02):
 
 | Browser | Enable | `high-performance` gets | `shader-f16` |
 | --- | --- | --- | --- |

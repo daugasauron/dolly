@@ -6,7 +6,10 @@
 
 ## State (2026-11-02)
 
-In progress on `core/docs-audit` (from `integrate/2026-11-02`, fa949c1b).
+On `core/docs-audit` (from `integrate/2026-11-02`, fa949c1b). Every document of the scope was
+read and its claims checked as listed below; wrong ones are fixed, gone ones cut. One seed
+change, `tar` (705de088), needs a catalog round. What is left: the findings below, each for
+the owner of its code.
 
 Scope: `README.md`, `docs/*.md`, `host/README.md`, `abi/README.md`, `demos/*/README.md`,
 and the help texts and manual pages the core ships. Method: each document's factual claims
@@ -19,7 +22,17 @@ but does not filed here as a finding.
 ### README.md
 
 - `gzip` compresses since 68824453 (the night): the core image list said it only unpacks
-  (`gzip -dc`) and that `pigz` writes `.gz` files.
+  (`gzip -dc`) and that `pigz` writes `.gz` files. `display` holds three fonts, not one.
+- The turnaround table, re-measured on 2026-11-02 on this machine while the integration round
+  and four other agents ran (load 18 on 16 cores): `npm run test:source` 29.4 and 29.6 s (was
+  20 s); `test:core` 27.9 s in Chrome and 39.1 s in Firefox (was 24-32 and 32-68 s); a
+  no-change `npm run build:runtime` 15.0 and 15.1 s (was 9-12 s); a no-change
+  `npm run image -- default` 3.1 and 3.8 s (was 3 s); `gzip`'s build 4.1 s (the cell's
+  "9 s to rebuild gzip" was end to end, not re-run: the build slots were taken); the seed
+  rebuild of `default`, `cc`, `git` and `less` 970 s for 19 images at
+  `DOLLY_IMAGE_JOBS=1` (was 888 s for 15, zig-build alone 598 s now); the browser suite
+  442 s on 2026-10-31 (`work/x11fix/build/rc-1031b-evidence/browser.log`). `test:artifacts`
+  needs every image current and was not run: its number is dropped.
 
 ### docs/architecture.md
 
@@ -101,7 +114,14 @@ but does not filed here as a finding.
   links there.
 - The Claude Code row linked a task, which a `docs/` page may not.
 
-### docs/embedding.md, docs/agent-frontend.md, docs/image-build-service.md, docs/http.md, docs/input.md, docs/audio.md, docs/gpu.md
+### docs/gpu.md
+
+- Chrome's row of the adapter table measured again (`build/docs-audit-evidence/gpu-hardware.mjs`,
+  Chrome 156 with Vulkan WebGPU on Xvfb :134, driver 580.178): `high-performance` and no
+  preference both get `nvidia blackwell` without `shader-f16`; with
+  `--use-webgpu-power-preference=force-low-power`, `amd rdna-2` with it. As the table says.
+
+### docs/embedding.md, docs/agent-frontend.md, docs/image-build-service.md, docs/http.md, docs/input.md, docs/audio.md
 
 - No wrong claim found. Checked: the npm package split in `package-npm.mjs` (`runtimeModules`,
   `dolly-host-save`), `pi-minimal`'s modules and installs, `boot()`'s options, pi-minimal's
@@ -142,8 +162,13 @@ Changed where a claim was wrong, mostly a core behaviour the night changed:
   with a pax header is staged": it reads pax headers since dbf38965. The staging comment in
   `prepare-sources.sh` gave the same stale reason.
 - `emacs`: no installed Lisp sources "(Dolly's `gzip` cannot compress them)": the reason is gone.
-- `ffmpeg`, `mojo`: the reasons for `--optflags=-O3`, `--disable-resource-compression` and
-  `llvm-wait.patch` were fixed in the night (68824453, bbec81cc); the READMEs now say so.
+- `ffmpeg`: the two workaround flags are gone (Findings); its network failure measured again
+  (`build/docs-audit-evidence/ffmpeg-network.mjs`, Chrome): since 4cb57a1b a numeric host
+  resolves, and `tcp:` and `udp:` fail at `socket()` with "Function not implemented", `http:`
+  with an I/O error (the README said `tcp:` could not resolve `127.0.0.1`). The build figures
+  are this tree's: configure 439 s, `make -j4` 184 s, 2,052 objects, 79 MB, the programs
+  21.3 and 21.1 MB; the "at most 2.7 GB" of memory is dropped, not measured.
+- `mojo`: the reason for `llvm-wait.patch` was fixed in the night (bbec81cc); the README says so.
 - `zsh`: "`time` reports elapsed time only: Dolly's `wait` reports no resource usage": `wait4`
   reports a child's times as zero since bbec81cc; the port is configured without `wait3`.
 - `tmux`, `speech`: `amy install` in `default` is refused "since default does not declare"
@@ -182,13 +207,27 @@ Changed where a claim was wrong, mostly a core behaviour the night changed:
 
 ## Findings (claims the code should meet but does not)
 
+- FFmpeg's configure inside Dolly took 65 s on `demo/ffmpeg` (f18ddab7, 2026-11-01 22:01),
+  with Slop running `[`, `test` and `echo` itself (P6 of the Slop audit, in ad78dbef); 68bbd7d9
+  moved that to `proposal/slop-utilities` eight minutes later, and the same configure took 344 s
+  in the integration tree (06:55) and 439 s here (08:30). The audit counted 75,504 processes
+  for it, 61,009 of them `[` and `test`. Evidence for the owner's P6 decision, not a defect.
+  Measured beside it, for agent M (`tasks/20261101-102515-retained-process-memory`): with
+  `#disposeWorker`'s `reportGarbage` commented out, 200 runs of `/bin/true` took 1.59 s
+  against 1.70 s in Chrome and 2.67 against 3.18 s in Firefox, 40 `cc -c` 1.46 against
+  1.55 s and 1.82 against 2.24 s (`build/docs-audit-evidence/spawn-bench.mjs`, one run each,
+  `system`): the collector hint costs 6% in Chrome and about 20% in Firefox on short processes.
+
 - A save of more than 100,000 paths fails with "Dolly session capture failed with status -1"
   (`host/snapshot/transport.mjs` names only the 512 MiB limit, `EFBIG`); `E2BIG` deserves the
   same plain message. Page JavaScript, no seed input.
 
-- Workarounds whose cause the night removed, each a demo change for its owner:
-  `demos/ffmpeg/Dollyfile-ffmpeg` (`--optflags=-O3`, `--disable-resource-compression`, both
-  for FFmpeg's configure, which 68824453 was made for); `demos/mojo/llvm-wait.patch` (`wait4`
+- Workarounds whose cause the night removed, each a demo change for its owner. Done here for
+  FFmpeg, the one cheap to rebuild: its recipe drops `--optflags=-O3` and
+  `--disable-resource-compression` (68824453 was made for both); the image builds, its make
+  prints `GZIP fftools/resources/graph.html.gz`, and `ffmpeg-browser.mjs` now also requires
+  `ffmpeg -version` to say it was built with Clang (an unknown compiler gets no optimization
+  of its own). The rest: `demos/mojo/llvm-wait.patch` (`wait4`
   takes a usage record since bbec81cc); `demos/emacs/Dollyfile-emacs` leaves the Lisp sources
   out because "Dolly's gzip only decompresses"; the plain-tar stagings of
   `demos/tools/prepare-sources.sh` (jq, zstd, lz4, Binaryen, ...), `demos/x11/prepare-sources.sh`
@@ -223,3 +262,24 @@ Changed where a claim was wrong, mostly a core behaviour the night changed:
   features and failures) where no test names it: read for contradictions with the core only.
 - `docs/agent-frontend.md`'s hand checks of 2026-10-31 (Copilot, Bedrock through a relay).
 - `site-release.mjs accept` holding "about twice the largest image": not measured.
+
+## Lessons
+
+- Rot follows behaviour changes into the places that give the old limit as a reason. 68824453
+  (gzip compresses, `cc -v`) fixed `slop.md` and Pi's skill, and left README, four demo
+  READMEs, three recipe comments and two FFmpeg configure flags saying the opposite. When a
+  commit lifts a limit, `git grep` the limit's own words ("only decompresses", "pax header",
+  "refuses a usage record") across `demos/`, recipes and prepare scripts, not only `docs/`.
+- Enumerations rot; rules do not. Every wrong list was a list: GPL files (10, 12 now), which
+  packages hold their build (`cmake`, `nvim`), the core images of a diagram, the trusted files
+  of the boundary map, the contracts of `abi/README.md`, which images install `amy`. A
+  sentence that states the rule (a package built on `system-build` reaches only the images
+  that install it) stays true; a list belongs where a test or a generator keeps it whole.
+- Numbers without a date read as current and mostly were not: the archive's 2,139 files were
+  3,785, the turnarounds of the README's table had all moved, FFmpeg's configure took 65 s on
+  its branch and 344 s after the night's merge. Re-measuring them found one real limit (92 of
+  Pages' 100 header rules) and one regression worth a look; a number that cannot be re-run
+  should carry its date or go.
+- Reading the kernel's and engine's `enum`s against the documents found limits nobody had
+  written down (64 pipes, 512 MiB executables, 100,000 paths a save or an image holds); the
+  documents listed the bounds of the newer modules (sockets, ptys) and not of the old core.
