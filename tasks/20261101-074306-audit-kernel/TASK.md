@@ -54,6 +54,9 @@ below. The defects sat at three seams:
   `standalone.c` against POSIX was done tonight for what the probes hit;
   what is left there answers ENOSYS or what is true.
 
+## Fixed
+
+Each with a test that failed before, verified in Chromium and Firefox.
 
 1. **A signal the old program ignored ended the program `exec` started.**
    Between the commit of an exec and the new Worker's start the kernel ended
@@ -66,9 +69,9 @@ below. The defects sat at three seams:
    this itself: it asks the kernel whether the signal ended the process
    (`dolly_process_exited`) and retires it then, so the rule lives in one
    place. Test: `process-exec.c` check mode spawns a program that ignores
-   SIGHUP, reports it on a pipe and execs, and sends SIGHUP every 2 ms until it
-   ends; before, `EXEC hangup ended by 1` (Chromium), now status 46. Kernel C
-   and page JavaScript only: image inputs unchanged.
+   SIGHUP, reports it on a pipe and execs, and sends it SIGHUP until it ends;
+   before, ended by SIGHUP (Chromium), now status 46 (see 17 for the rest of
+   that story). Kernel C and page JavaScript only.
 2. **Dead kernel code.** `interrupt_deadline` and `DOLLY_KERNEL_INTERRUPT_GRACE`
    were written on every signal and read nowhere since `328a4017` (a child
    outlives its parent) removed their reader. `prune_path` spared `/seed`,
@@ -78,7 +81,6 @@ below. The defects sat at three seams:
 3. **Doc rot.** `docs/process-model.md` said posix_spawn file actions other
    than dup2 and close fail with ENOTSUP; `84bb1d10` added `addopen` (and
    `addchdir_np` is there too) without the bullet.
-
 4. **Ctrl+C at a program in `system()` ended the program.** POSIX has
    `system()` ignore SIGINT and SIGQUIT and block SIGCHLD in its caller while
    the command runs; Dolly's (`runtime-adapter.c`, from the first checkpoint
@@ -115,7 +117,6 @@ below. The defects sat at three seams:
 10. `scripts/build.sh` removed five outputs no build has made since
     2026-09-06 (`slop-process.wasm`, `process-check.wasm` and two more) and
     `ghostty-web.js` (2026-08-31).
-
 11. **`getppid` never changed.** libc cached the parent with the pid on the
     first call (`018c5f27`, when a parent's exit still took its children);
     since `328a4017` a child outlives its parent and has parent 0, and a
@@ -130,7 +131,6 @@ below. The defects sat at three seams:
     `process-lifecycle.c` (`cwd`). Seed input.
 13. `runtime.h` said socket functions all fail; with sockets@0 they do not,
     and the process model documents both. The comment is gone. Seed input.
-
 14. **`fsync` and `ftruncate` of a pipe failed with ESPIPE**, an errno POSIX
     does not list for them; it and Linux say EINVAL. Kernel C. The check in
     `process-descriptors.c` runs natively too, where Linux agrees.
@@ -156,10 +156,9 @@ below. The defects sat at three seams:
       Linux's for a filesystem without them is EPERM, on which programs
       fall back to a copy.
     The other differences are Dolly's documented limits (1024 descriptors,
-    no hard links, whole-mapping `munmap`, no FIFOs, a 64 KiB page) and two
-    small ones left: `futimens` of a pipe fails with ESPIPE, and `nice(0)`
-    fails with EPERM (Emscripten's `setpriority` refuses even the priority
-    a process has, the only one there is: a libc line for a seed round).
+    no hard links, whole-mapping `munmap`, no FIFOs, a 64 KiB page),
+    `futimens` of a pipe failing with ESPIPE, which is left, and `nice(0)`
+    failing with EPERM, fixed in 18.
 
 17. **A program that exited while a signal it ignores was pending was
     recorded as killed by it.** The kernel's EXIT took the lowest pending
@@ -207,10 +206,8 @@ below. The defects sat at three seams:
     socket holds: a contract addition, not wanted by a program found);
     `gettid()` of a threaded program's first thread is its threads@0
     number, not its pid as on Linux (threads@0's numbering, agent E's
-    tonight); `pthread_setname_np` does not link with `-pthread` while
-    `pthread_getname_np` is ENOSYS (libc defines the first for the serial
-    profile only: a line for the next seed round); guard pages, directed
-    signals and cancellation are ENOTSUP, as documented.
+    tonight); guard pages, directed signals and cancellation are ENOTSUP,
+    as documented. `pthread_setname_np` did not link with `-pthread`: 20.
 
 20. **mmap compared too** (`probes/mmap-edges.c`). `mmap` with `PROT_EXEC`
     failed with ENOMEM: libc returned EPERM, which musl's wrapper "fixes" to
@@ -218,8 +215,9 @@ below. The defects sat at three seams:
     ENOTSUP now, POSIX's word for a protection not given. Mapping a
     directory failed with EISDIR (a pipe with ESPIPE); POSIX and Linux say
     ENODEV. `munmap` of a range that holds no mapping failed with EINVAL;
-    POSIX unmaps it as nothing. And item 19's `pthread_setname_np` now
-    links with `-pthread` (ENOSYS in both profiles). Checks in
+    POSIX unmaps it as nothing. `pthread_setname_np` was defined for the
+    serial profile only; it links with `-pthread` now (ENOSYS in both, as
+    `pthread_getname_np`). Checks in
     `mmap-bounds.c`, which runs natively too, and `threads-pthread.c`. Seed
     input. Left as documented: `mprotect` to less than read and write,
     `MAP_FIXED`, partial `munmap`; `mremap` is ENOMEM and `mincore` ENOSYS
@@ -255,13 +253,7 @@ below. The defects sat at three seams:
   a catalog round. No program of the catalog is known to hit the spawn
   refusal today (git spawns through its Dolly patch, CPython and libuv
   through `dolly_spawn_mapped`, Rust's std resets SIGPIPE in its
-  attributes). EXEC already carries both (`dolly_process_exec_state`, applied by
-  `__dolly_signal_start` at every start); SPAWN carries neither. Smallest
-  diff: a `dolly_process_exec_state signals` in `dolly_process_spawn_request`
-  (56 to 72 bytes), the kernel copying it into `start_signals`, libc filling
-  it from the attributes or the caller's state and dropping
-  `spawn_signals_supported`. A layout change of `process.h`: every
-  executable's identity, the seed compiler's restamp and a catalog round.
+  attributes).
 
 - **Inherited environments for the page's spawns only.** After 12 no
   process asks the kernel to inherit an environment; only the supervisor's
@@ -287,7 +279,10 @@ below. The defects sat at three seams:
   larger JSPI stack) now costs three compiles before it is reported. Not
   measured whether any transient 126 is left; not changed, as the owner
   restored this once.
-
+- libc's `ioctl(TIOCSWINSZ)` sends pty@0's operation itself
+  (`DOLLY_PTY_RESIZE`, `libc-adapter.c` includes `<dolly/pty.h>`): the base
+  libc knows a host module's number, which the module's client could own.
+  Small; left for whoever next touches pty@0.
 
 ## Views on agent E's two commits (read only)
 
@@ -316,9 +311,9 @@ below. The defects sat at three seams:
   as POSIX allows; `umask` changes no mode, as decided. POSIX timers
   (`timer_create`) and `sethostname` do not link: absent, which a configure
   finds.
-
-- **Every system call costs 23-25 µs in Chromium and 31-35 µs in Firefox**
-  (20,000 `fcntl(F_GETFD)`, `-O2`, `system` image): a postMessage, the
+- **A system call costs 8-25 µs in Chromium and 11-35 µs in Firefox**, with
+  the load of the machine (20,000 `fcntl(F_GETFD)`, `-O2`, `system` image;
+  23-25 and 31-35 at the start of the night): a postMessage, the
   runtime Worker's event loop and an Atomics wait. Writes go in 16 KiB
   packets (`DOLLY_PROCESS_IO_CHUNK`, since `b95459ce`) while reads take
   1 MiB: 64 MiB written in 1 MiB calls take 0.12-0.16 s (410-550 MiB/s),
@@ -327,7 +322,7 @@ below. The defects sat at three seams:
   pipe takes on each retry of a blocked write; it is a seed change for a gain
   no measured workload has shown yet (a 78 MB link output is ~0.14 s of
   calls), so it is left.
-- Of those 23-25 µs the hop itself is the smaller part: a Worker's blocking
+- Of a 23-25 µs call the hop itself is the smaller part: a Worker's blocking
   round trip by `postMessage` and `Atomics.wait`, as `process-worker.mjs`
   makes it, takes 9.8 µs in Chrome, and 6.2 µs with `Atomics.waitAsync`
   in its place (20,000 round trips, `build/audit-kernel-evidence/bench`);
