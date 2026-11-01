@@ -44,8 +44,9 @@ spawn (`#reserveMaximum`, `src/process-supervisor.mjs`):
   both browsers; not measured (no Windows here).
 - Of the catalog's 186 images, the threaded programs are git (and its remote helpers), rg, fd,
   cargo, codex, protox, cbindgen, naga, lean, lake, ocamlrun, ghostty, wine, glib's tools,
-  voice and speech-to-text. git starts threads only for large indexes, packs and grep; with
-  the reservation at its start every git command charged Firefox 8 GiB.
+  voice and speech-to-text. git (upstream's source) starts threads for an index of 1,000 entries
+  or more (`preload-index.c`), grep, packs and its asyncs (fetch, push): with the reservation
+  at its start every git command charged Firefox 8 GiB, `git status` in a small repository too.
 - A reservation the browser refuses fails `pthread_create` with `EAGAIN`, POSIX's answer for
   a lack of resources, instead of refusing the program; the spawn budget counts the process
   with the size it had when its second thread started, not its maximum (which would hold every
@@ -65,5 +66,13 @@ then a thread fills each page another grows) fails on `main` in Chrome with `mem
 out of bounds`; `threads-browser` and `memory-growth-browser` pass in Chromium and Firefox.
 With `a15a3c6c` 0 of 480 Lean runs trapped in an image build (the stress above); the rule
 is the same, since what a process grows before its second thread it grows alone.
+
+Left for the owner: the spawn budget no longer sees what a process with threads allocates after
+its second thread starts (its memory then is all grown; Linux shows none of it until touched), so
+`lake build -j4` of four `lean`, each importing 1.7 GB, is not held back as four unthreaded
+processes of that size would be. Counting such a process at its maximum would hold every fan-out
+of a threaded parent (cargo's rustc) to one child. What would let the budget see it is the libc
+adapter reporting its break to the kernel when `sbrk` moves past it in such a process: a process
+contract change (`abi/`), not made.
 
 Done-when: merged with the decision in `docs/process-model.md`.
