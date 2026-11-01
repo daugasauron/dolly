@@ -63,6 +63,7 @@ test("xargs streams large input in size- and count-bounded batches", () => {
   // POSIX's -L: a command per line, a trailing blank continues the line; -E ends the input.
   assert.equal(run(xargs, ["-L", "1", "echo"], { input: "a b\nc \nd\n\ne\n" }).stdout, "a b\nc d\ne\n");
   assert.equal(run(xargs, ["-E", "stop", "echo"], { input: "a stop b\n" }).stdout, "a\n");
+  assert.equal(run(xargs, ["--no-run-if-empty", "echo", "ran"], { input: "" }).stdout, "");
   // -P runs commands at once: each waits until all three have started.
   const together = run(xargs, ["-P", "3", "-n", "1", "sh", "-c",
     ': > "started-$1"; until [ "$(ls started-* | wc -l)" -eq 3 ]; do sleep 0.01; done; test "$1" != b', "sh"],
@@ -163,6 +164,25 @@ test("cat writes a pipe's bytes as they arrive", async () => {
   assert.equal(String(first), "first\n");
 });
 
+// gzip decompresses in place as well as to stdout, and data that is no gzip
+// stream fails, unless -f copies it as tar -z asks.
+test("gzip -d replaces FILE.gz with FILE and refuses what is not gzip", async () => {
+  const gzip = join(scratch, "gzip");
+  execFileSync("cc", ["-std=c17", "-Wall", "-Wextra", "-Werror", "src/commands/gzip.c", "-o", gzip, "-lz"], { cwd: project, stdio: "pipe" });
+  const work = join(scratch, "gzip-work");
+  await mkdir(work);
+  await writeFile(join(work, "data"), "gzip data\n");
+  execFileSync("gzip", ["data"], { cwd: work });
+  assert.equal(run(gzip, ["-dk", "data.gz"], { cwd: work }).status, 0);
+  assert.equal(await readFile(join(work, "data"), "utf8"), "gzip data\n");
+  assert.equal(run(gzip, ["-d", "data.gz"], { cwd: work }).status, 1, "data exists");
+  assert.equal(run(gzip, ["-df", "data.gz"], { cwd: work }).status, 0);
+  await assert.rejects(stat(join(work, "data.gz")));
+  await writeFile(join(work, "plain.gz"), "plain\n");
+  assert.equal(run(gzip, ["-dc", "plain.gz"], { cwd: work }).status, 1);
+  assert.equal(run(gzip, ["-cdf", "plain.gz"], { cwd: work }).stdout, "plain\n");
+});
+
 // A full disk (in Dolly, kernel memory) fails what writes to it.
 test("commands whose output cannot be written fail", async () => {
   const full = await open("/dev/full", "w");
@@ -205,7 +225,9 @@ test("diff reports 0/1/2 and patch reads the patch, never a file operand", async
   assert.equal(run(diff, ["-r", "a", "b"], options).status, 1);
   assert.equal(run(diff, ["a/file", "missing"], options).status, 2);
   assert.equal(run(diff, ["-N", "a/file", "missing"], options).status, 1);
-  assert.equal(run(diff, ["-s", "a/file", "b/file"], options).status, 2);
+  // -s and --brief, as upstream test scripts call them.
+  assert.equal(run(diff, ["-s", "a/file", "a/file"], options).stdout, "Files a/file and a/file are identical\n");
+  assert.equal(run(diff, ["--brief", "a/file", "b/file"], options).status, 1);
   await writeFile(join(work, "change.patch"), unified.stdout);
   const inside = { cwd: join(work, "a") };
   assert.equal(run(patch, ["file"], { ...inside, input: unified.stdout }).status, 2);

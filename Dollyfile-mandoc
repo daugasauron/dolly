@@ -8,8 +8,8 @@ REQUIRES HOST runtime@0
 # man, apropos and makewhatis the same program can be are not installed: man
 # is the core's, and prints a page of text. A package that ships upstream's
 # pages uses this one to format them with text-page when it is built.
-FROM /v0.1.4/Dollyfile-system-tools 17a04d10ed9fd500cb9945b5f0a544e58e8a9b1b5c65fb9574f51723fedd303a
-USE /v0.1.4/Dollyfile-zlib 173251fb62c0eef784c8315809a974da0b6ab9447d57b0da9a7bf87c2a4e84e7
+FROM /v0.1.4/Dollyfile-system-tools cb2033daa110ad94dbe4205463184eaa8db6e05f09b3457ce5e4f7df2b6036e5
+USE /v0.1.4/Dollyfile-zlib bd00998ace2e47b6d7ef229211350fc7d299262c84b7e9a69529d21f05fb46d3
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib

@@ -94,7 +94,7 @@ EXPORTS TOOL dollyfile
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 
-SOURCE /v0.1.4/dist/static/default/slop.c fff60794325db1451d7266fedb2e82a2cf8fa3b7af781055060cf603b6796fbe /tmp/slop/slop.c
+SOURCE /v0.1.4/dist/static/default/slop.c e51664f35798e4180957b985063f8adbffe65972c3dd01cb9e605af6ead863a6 /tmp/slop/slop.c
 # Slop runs the code of the system's test, [ and echo itself.
 SOURCE /v0.1.4/dist/static/default/commands/test.c 3b21b6855f7495f8e6dca7b46bc8b9ce54f4f589570c30339b1ea5e869471edd /tmp/slop/commands/test.c
 SOURCE /v0.1.4/dist/static/default/commands/echo.c b452aa1e2e101d11bc6ac27052d116a8b9e1792cb3ad3406dc23f31f218adb56 /tmp/slop/commands/echo.c

@@ -201,7 +201,7 @@ int main(int argc, char **argv) {
       break;
     }
     if (strcmp(option, "-0") == 0) nul = 1;
-    else if (strcmp(option, "-r") == 0) no_run_if_empty = 1;
+    else if (strcmp(option, "-r") == 0 || strcmp(option, "--no-run-if-empty") == 0) no_run_if_empty = 1;
     else if (strcmp(option, "-t") == 0) trace = 1;
     else if (strcmp(option, "-x") == 0) exact = 1;
     // -n and -L exclude each other: the later one counts.

@@ -3403,8 +3403,10 @@ static int false_utility(int argc, char **argv) { (void)argc; (void)argv; return
 // The system's test, [, echo, true and false, which a script may start tens of
 // thousands of times (FFmpeg's configure does 66,000, at about 12 ms a
 // process): when PATH finds one in /bin, the shell runs the same code itself,
-// as other shells have them built in. One found earlier on PATH still runs.
+// as other shells have them built in. One found earlier on PATH still runs,
+// and a name with a slash is always a program, as /bin/true is.
 static int (*shell_utility(const char *name))(int, char **) {
+  if (strchr(name, '/') != NULL) return NULL;
   static const struct { const char *name; int (*run)(int, char **); } utilities[] = {
       {"test", test_utility}, {"[", test_utility}, {"echo", echo_utility},
       {"true", true_utility}, {"false", false_utility},

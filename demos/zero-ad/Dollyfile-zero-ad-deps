@@ -10,18 +10,18 @@ REQUIRES HOST threads@0
 # Build-only: the libraries the 0 A.D. engine links, installed from their
 # packages, and ENet with Dolly's transport built here from the pinned upstream
 # source of build-sources.tsv; pkgconf for its premake scripts.
-FROM /v0.1.4/Dollyfile-system-tools 17a04d10ed9fd500cb9945b5f0a544e58e8a9b1b5c65fb9574f51723fedd303a
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-openal ece0bbaa8712797afe1917fd498671b33a0c742247b13ae005fcdcfa024fe486
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 4b58d308385ec365a85b4a518733a36e9a1ca324f9b592dbdf36407a1db14104
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype d2cc11e22ba1256f256cfb99f1473b405bd211408d489257d3b3d3550ffee2fc
-INSTALL /v0.1.4/demos/xonotic/Dollyfile-libvorbis 6a0c863f457b47711f0e2936e102bbc5107908547b68f204a313bfa0688bdade
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-fmt c3dfc9242a02ebe372f605d6a9c1bd46cdda09418fb9a985a304e609d4eeca3f
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-libxml2 bb95cccccc5b585bc678d2fca691ba9522b38ad86f84d25a7e91a9c0b59aeab5
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-libsodium 76886320ea3056f9ab82211199da7c1e90d58a0755bf417c34bb93c402a905f9
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-boost-headers 469ff23c20487a144cb6c826f9739fa30f2ec975f51b839620189b0629bc3da8
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-icu 81fafc5f6be55d2504e351661863107c86953b916f77712dd6491f3fc722f54e
-COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 ccf0fd95864a72b9487aa29a079ef833c65d254ed6f7e55117c1bf3cde2214ac /usr/include/SDL2 /usr/include/SDL2
-COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 ccf0fd95864a72b9487aa29a079ef833c65d254ed6f7e55117c1bf3cde2214ac /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+FROM /v0.1.4/Dollyfile-system-tools cb2033daa110ad94dbe4205463184eaa8db6e05f09b3457ce5e4f7df2b6036e5
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-openal 97ea95a24f2242d13be072c33bde61e074fbdded3189388c72dfa60779723d5d
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf bfc282b548d5bf7306d33e76aa93c8b64a87af365c343784ad3b9739ffac2050
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype 2518d047d8370f2ffa6fb93d1bc9ca8fd66a51585229f297ac877c8dae959975
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-libvorbis 66a56cf4c3ea51273e96d4f3e28834c6ffd02255816e3665b2dc7ddd2b0947fa
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-fmt 812c75f801b1a6a862e4126a56218aad867a02288738aff661978a28e58f8a64
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-libxml2 5f6beec08966d907f697574cca07918f92e64de9aee9a301e9cbb6e4a1d06546
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-libsodium 6277d2c3bf2872f8c11186ca764ca83c0a1e6ce0916558cd3722033c8804d92f
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-boost-headers 9d7d7ccf9d7a2f93943fb7a058cf8ffbe752a2bfbff753bdf1dc6c84ba77e084
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-icu aebe4a4205bce8124d710a666cd4ff05eb39ff6831d0291abbf74f6c13c553be
+COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 31f54e5a3557f25a528b73f662b4ed41045b7ddd04e1cc2c973986e84318f020 /usr/include/SDL2 /usr/include/SDL2
+COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 31f54e5a3557f25a528b73f662b4ed41045b7ddd04e1cc2c973986e84318f020 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES TOOL cc
@@ -37,7 +37,7 @@ REQUIRES TOOL rm
 SOURCE /v0.1.4/dist/static/zero-ad-build/deps.tar.gz 18922d6461ca5e99d0c62930aae4c3f7f65f5c19d20fe98a711e225e9e8c3048 /tmp/zad/deps.tar.gz
 SLOP gzip -dc /tmp/zad/deps.tar.gz | tar -xf - -C /
 # Licences of the libraries the engine links; zero-ad copies them.
-COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 ccf0fd95864a72b9487aa29a079ef833c65d254ed6f7e55117c1bf3cde2214ac /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 31f54e5a3557f25a528b73f662b4ed41045b7ddd04e1cc2c973986e84318f020 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 FOLDER /usr/share/licenses
 
 # ENet keeps its protocol; dolly.c replaces the unix.c and win32.c socket backends.

@@ -161,7 +161,30 @@ differ were read in the source.
       restored it with an `unsetenv` and a `setenv` per variable, each linear in the number of
       variables (thousands here). Subshells now keep a log of the variables they change and
       undo only those (`shell_setenv`, `environment_log_undo`). Natively the configure takes
-      11 s with the same outputs.
+      11 s with the same outputs; the full one (every native codec, 645 of them) 31 s against
+      dash's 6 s, with the same `config.h`, `config.mak`, component headers and lists. What
+      remains is `getenv` scanning thousands of variables in `environ` and every subshell
+      copying every function body; a variable table would remove both, a larger change than
+      tonight's. In Dolly the configure's own compiler runs (433 `cc`) now dominate.
+    - A name with a slash stays a program (`/bin/true`), and `test/process-browser.mjs`, whose
+      budget check timed a spawned `true`, now spawns `/bin/true`.
+24. **The commands I had not reached**, chosen by counting their spellings in the cached
+    upstream sources (`curl -Lo`, `-fsSL`, `-sL`, `-Ssf`; `gzip -d` 9, `-cdf` 7, `-f` 6, `-dc` 6,
+    `-t` 1; `diff -u` 36, `-q` 9, `-s` 7, `--brief` 4; `xargs --no-run-if-empty` 2; `patch -p1`
+    only; `install`'s other spellings are apt-get's):
+    - `curl` refused a letter cluster that ends with a value option (`curl -fsSLo FILE`, `-Lo`):
+      `o D X A u r w m` now take the rest of the word or the next one.
+    - `gzip -dc` of data that is no gzip stream printed the data and exited 0 (zlib's
+      transparent mode; measured on main's): it is now an error, and `-f` copies it as GNU
+      gzip and `tar -z` expect. `gzip -d [-fk] FILE.gz` decompresses in place (`.tgz` to
+      `.tar`), `-t` checks, several files go to stdout in turn; compressing stays pigz's.
+    - `diff -s` reports identical files and `--brief` is `-q`; `xargs --no-run-if-empty` is `-r`.
+    - Not changed: the `cc`, `c++`, `ld` and `ar` programs are two-line proxies to
+      `dolly_toolchain_proxy` (`src/process/runtime-adapter.c`, agent B's), which retries a
+      compiler launch that ends 126 three times (`5221de89`, "survive transient Worker
+      allocation"): a workaround for spawns that fail transiently, which a 126 from the
+      compiler itself would also trigger; the fix belongs in spawning (queue or `EAGAIN`).
+      `amy` is being changed on `demo/lean-2` and was left alone.
 
 One failure was seen and attributed, not fixed: `test/terminal-browser.mjs` failed once in
 Chromium on round 7's images because a typed `y` reached the shell before the command that

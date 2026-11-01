@@ -8,8 +8,8 @@ REQUIRES HOST threads@0
 
 # The base of CMake builds: the system's tools, libuv and the cmake package,
 # which holds CMake's own build.
-FROM /v0.1.4/Dollyfile-system-tools 17a04d10ed9fd500cb9945b5f0a544e58e8a9b1b5c65fb9574f51723fedd303a
-INSTALL /v0.1.4/demos/cmake/Dollyfile-libuv 42f43f0788756939aa1514cc30aeac9d54b203d05b2b762a3f6324d308378dc1
-INSTALL /v0.1.4/demos/cmake/Dollyfile-cmake 07b4846f5a65027215c271f0c36698d558a84d2e8895d9cfeff0d30d28a18722
+FROM /v0.1.4/Dollyfile-system-tools cb2033daa110ad94dbe4205463184eaa8db6e05f09b3457ce5e4f7df2b6036e5
+INSTALL /v0.1.4/demos/cmake/Dollyfile-libuv 9c9c2d7e019591974de1784177f1160680a814ce4a9f2d1676ae6a457d8c3f00
+INSTALL /v0.1.4/demos/cmake/Dollyfile-cmake ee3cb34aff4dabb6d822bcd4005a24c35be076d2d52d8d4d28273569a6799955
 
 ENTRY /bin/foreground -i /bin/slop

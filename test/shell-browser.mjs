@@ -76,6 +76,8 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
     ["awk 'BEGIN {status = (\"printf AWK-PIPE\" | getline value); exit status == 1 && value == \"AWK-PIPE\" ? 0 : 1}'"],
     ["awk -f", 2],
     [`curl -fsSL ${server.origin}/fixture/http.txt -o fetched.txt && grep -q FETCHED-THROUGH-BROWSER fetched.txt`],
+    // A cluster may end with a letter that takes a value, as agents write curl -fsSLo FILE.
+    [`curl -fsSLo clustered.txt ${server.origin}/fixture/http.txt && grep -q FETCHED-THROUGH-BROWSER clustered.txt`],
     ["curl -sS -X POST -H 'X-Dolly-Cli: yes' -d one=1 -d two=2 -D headers.txt -o body.txt " +
       `-w '%{http_code} %{content_type}\\n' ${server.origin}/fixture/curl-options > meta.txt`],
     ["grep -q '^CURL-CLI-OK$' body.txt && grep -qi '^x-dolly-response: yes' headers.txt && grep -q '^201 text/plain; charset=utf-8$' meta.txt"],
