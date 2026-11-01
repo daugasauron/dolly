@@ -231,7 +231,9 @@ input: every core image's plan is "reuse".
   and each call checks its whole closure (imports are cached; the checks are not): in Node,
   20 to 30 ms a call for `default` or `system`, 140 to 220 ms for `pi-local`,
   `dollyfile-studio` or `zero-ad`. A memo per image directory would make it one check per
-  image per page; rebuild routes alone pay it, so it is left.
+  image per page; rebuild routes alone pay it. The page's long tasks (over 50 ms, Chrome,
+  `longtasks.log`): `/default/` none to its prompt; `/system/rebuild/` four, 732 ms;
+  `/pi-minimal/rebuild/` nine, 809 ms, the longest 183 ms. Left.
 - **An image may have at most 256 packs** (`validateSnapshotPacks`), which bounds the requests
   of a boot but not the image's size: packs are about 4 MiB and smaller where few images
   share their files. The catalog's largest is `llvm-build`, 173 packs for 903 MiB, so an
