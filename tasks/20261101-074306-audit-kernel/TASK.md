@@ -18,16 +18,15 @@ confirms is fixed with a test that failed before (or code gone and nothing
 broken), the moot is closed with its reason and the uncertain rest is a few
 lines each below.
 
-## State (2026-11-01 18:20 JST)
+## State (2026-11-01 18:55 JST)
 
 Read: the whole of the scope above. Baseline: build reproducible (same runtime
 and image ids), source suite 446/446 in 27 s, `process-browser` passes in
-Chromium (58 s). Items 1-15 are committed and verified on `default,system`
+Chromium (58 s). Items 1-17 are committed and verified on `default,system`
 built from the new seed (image inputs `5a218e03…`; the first round of it
-failed at git's link, item 7): `process`, `terminal`, `core`, `pty` and
-`threads` pass in Chromium and Firefox. The libc items need a catalog
-round. Next: an edge-case comparison of file and process calls against
-Linux, and the cost of a system call on the page's side.
+failed at git's link, item 7): `process`, `terminal`, `core`, `pty`,
+`threads`, `slop` and `shell` pass in Chromium and Firefox. The libc items
+need a catalog round. Next: the cost of a system call on the page's side.
 
 ## Fixed
 
@@ -114,6 +113,44 @@ Linux, and the cost of a system call on the page's side.
     child PID, its own group. It now waits for that child. Seed input.
     Test in `process-lifecycle.c`.
 
+16. **A comparison of 88 file and process calls against Linux**
+    (`build/audit-kernel-evidence/probes/posix-edges.c`, the same program
+    natively and in `system`) found four kernel answers that differed with
+    no reason, all fixed and checked in `process-descriptors.c`, whose
+    portable part runs natively too:
+    - `ftruncate` through a descriptor open only for reading **truncated
+      the file** (WasmFS does not check); EINVAL now, as POSIX and Linux say.
+    - A path ending in a slash resolved as if it had none: `open("file/")`
+      and `stat("file/")` succeeded on a regular file, and
+      `open("new/", O_CREAT)` made a regular file `new`. Now ENOTDIR for a
+      path that names something that is not a directory, EISDIR for a slash
+      with `O_CREAT`.
+    - `poll` of a regular file open only for writing did not report it
+      readable; POSIX: regular files always poll true for both.
+    - `link` failed with EMLINK, WasmFS's word for having no hard links;
+      Linux's for a filesystem without them is EPERM, on which programs
+      fall back to a copy.
+    The other differences are Dolly's documented limits (1024 descriptors,
+    no hard links, whole-mapping `munmap`, no FIFOs, a 64 KiB page) and two
+    small ones left: `futimens` of a pipe fails with ESPIPE, and `nice(0)`
+    fails with EPERM (Emscripten's `setpriority` refuses even the priority
+    a process has, the only one there is: a libc line for a seed round).
+
+17. **A program that exited while a signal it ignores was pending was
+    recorded as killed by it.** The kernel's EXIT took the lowest pending
+    terminating signal over the status the program gave: from the first
+    checkpoint, when libc ran no handlers and a program woken by EINTR could
+    only fail ("must not let an otherwise signal-unaware program turn Ctrl-C
+    into an arbitrary failure status"). Since `signal.c` every call that
+    returns EINTR takes the signal and acts on its disposition, so the rule
+    only ever fired for a signal that arrived after the program's last call:
+    a `nohup`'d program exiting 46 under SIGHUPs was recorded as ended by
+    SIGHUP (5 of 6 runs, `kill` without pause). EXIT now records what the
+    program says. The exec fixture's hang-ups now come without pause; 6 of 6
+    pass. Kernel C. (An earlier note here blamed the supervisor's 500 ms
+    grace for that death; with the EXIT rule gone the grace never fired, in
+    800 ms of hang-ups either.)
+
 ## Proposals for the owner
 
 - **Inherited environments for the page's spawns only.** After 12 no
@@ -168,11 +205,6 @@ Linux, and the cost of a system call on the page's side.
   protocol on `waitAsync` would save ~15% of a call, not enough for its
   complexity. (The same page hung in Firefox in the postMessage mode; not
   looked into, Dolly's own calls work there.)
-- Signals arriving faster than a handler finishes keep the supervisor's
-  500 ms grace timer armed (`#armInterrupt` is cleared only by an
-  acknowledgement with nothing pending): `kill` in a loop without pause ended
-  a process that ignores the signal. No real sender is that fast (a held
-  Ctrl+C repeats at ~30 Hz).
 
 ## Lessons
 

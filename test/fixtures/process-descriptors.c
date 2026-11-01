@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <sys/uio.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -364,6 +365,36 @@ static void spawning(const char *path) {
 }
 #endif
 
+/* Path and file calls answer as Linux does. */
+static void path_answers(void) {
+  char directory[] = "/tmp/process-descriptors-XXXXXX", file[128], path[256];
+  CHECK(mkdtemp(directory) != NULL);
+  snprintf(file, sizeof(file), "%s/file", directory);
+  const int writer = open(file, O_RDWR | O_CREAT, 0644);
+  CHECK(writer >= 0 && write(writer, "data", 4) == 4);
+  // A path that ends in a slash names a directory.
+  struct stat metadata;
+  snprintf(path, sizeof(path), "%s/", file);
+  CHECK(open(path, O_RDONLY) == -1 && errno == ENOTDIR);
+  CHECK(stat(path, &metadata) == -1 && errno == ENOTDIR);
+  snprintf(path, sizeof(path), "%s/new/", directory);
+  CHECK(open(path, O_WRONLY | O_CREAT, 0644) == -1 && errno == EISDIR && stat(path, &metadata) == -1);
+  CHECK(mkdir(path, 0755) == 0 && stat(path, &metadata) == 0 && rmdir(path) == 0);
+  // Truncation needs a descriptor open for writing.
+  const int reader = open(file, O_RDONLY);
+  CHECK(reader >= 0 && ftruncate(reader, 0) == -1 && errno == EINVAL);
+  CHECK(fstat(writer, &metadata) == 0 && metadata.st_size == 4);
+  // A regular file polls ready for reading and writing, whatever its access.
+  struct pollfd ready = {reader, POLLIN | POLLOUT, 0};
+  CHECK(poll(&ready, 1, 0) == 1 && ready.revents == (POLLIN | POLLOUT));
+#ifdef __dolly__
+  // There are no hard links: EPERM, as for a filesystem without them.
+  snprintf(path, sizeof(path), "%s/hard", directory);
+  CHECK(link(file, path) == -1 && errno == EPERM);
+#endif
+  CHECK(close(reader) == 0 && close(writer) == 0 && unlink(file) == 0 && rmdir(directory) == 0);
+}
+
 #ifdef __dolly__
 static int directory_entries(int fd, size_t capacity) {
   char records[4096];
@@ -405,6 +436,7 @@ int main(int argc, char **argv) {
   nonblocking_pipes();
   vectored_io();
   posix_spawning(argv[0]);
+  path_answers();
 #ifdef __dolly__
   spawning(argv[0]);
   directory_positions();

@@ -208,8 +208,8 @@ int main(int argc, char **argv) {
   CHECK(run(NULL, "alarm-ignored", NULL) == 44 << 8);
 
   // A signal the program exec replaced ignored ends no program: hang-ups,
-  // from the moment the first program ignores them, reach the next one while
-  // it starts.
+  // sent as fast as they go from the moment the first program ignores them,
+  // reach the next one while it starts, runs and exits.
   int ready[2];
   CHECK(pipe(ready) == 0);
   CHECK(posix_spawn_file_actions_init(&actions) == 0 && posix_spawn_file_actions_adddup2(&actions, ready[1], 3) == 0);
@@ -219,10 +219,7 @@ int main(int argc, char **argv) {
   char byte;
   CHECK(read(ready[0], &byte, 1) == 1 && close(ready[0]) == 0);
   pid_t waited;
-  while ((waited = waitpid(child, &status, WNOHANG)) == 0) {
-    CHECK(kill(child, SIGHUP) == 0 || errno == ESRCH);
-    usleep(2000);
-  }
+  while ((waited = waitpid(child, &status, WNOHANG)) == 0) CHECK(kill(child, SIGHUP) == 0);
   CHECK(waited == child && WIFEXITED(status) && WEXITSTATUS(status) == 46);
   if (failures) return 1;
   puts("PROCESS-EXEC-OK");

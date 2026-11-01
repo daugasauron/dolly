@@ -1034,6 +1034,14 @@ static int path_from_packet(dolly_kernel_process *process,
   if (path == NULL) return -ENOMEM;
   memcpy(path, bytes, size);
   path[size] = 0;
+  /* A path that ends in a slash names a directory; WasmFS resolves "file/"
+   * as "file". */
+  struct stat named;
+  if (size > 1 && path[size - 1] == '/' && fstatat(directory, path, &named, 0) == 0 &&
+      !S_ISDIR(named.st_mode)) {
+    free(path);
+    return -ENOTDIR;
+  }
   *path_out = path;
   *directory_out = directory;
   return 0;
@@ -1687,25 +1695,16 @@ static uint16_t fd_poll_events(dolly_kernel_process *process,
 
   const int descriptor = descriptor_for(process, query->descriptor);
   if (descriptor < 0) return DOLLY_PROCESS_POLL_INVALID;
+  /* POSIX: regular files always poll true for reading and writing, as do the
+   * kernel's other files; their next read or write completes at once. */
+  if (!process->terminal_descriptors[query->descriptor])
+    return requested & (DOLLY_PROCESS_POLL_READ | DOLLY_PROCESS_POLL_WRITE);
   int access = fcntl(descriptor, F_GETFL);
   if (access < 0) return DOLLY_PROCESS_POLL_ERROR;
   access &= O_ACCMODE;
-
   uint16_t result = 0;
-  if (process->terminal_descriptors[query->descriptor]) {
-    if ((requested & DOLLY_PROCESS_POLL_READ) != 0 && access != O_WRONLY &&
-        dolly_kernel_terminal_readable()) {
-      result |= DOLLY_PROCESS_POLL_READ;
-    }
-    if ((requested & DOLLY_PROCESS_POLL_WRITE) != 0 && access != O_RDONLY) {
-      result |= DOLLY_PROCESS_POLL_WRITE;
-    }
-    return result;
-  }
-
-  /* Kernel-backed regular files and directories never need host readiness.
-   * Their next bounded read or write can complete synchronously. */
-  if ((requested & DOLLY_PROCESS_POLL_READ) != 0 && access != O_WRONLY) {
+  if ((requested & DOLLY_PROCESS_POLL_READ) != 0 && access != O_WRONLY &&
+      dolly_kernel_terminal_readable()) {
     result |= DOLLY_PROCESS_POLL_READ;
   }
   if ((requested & DOLLY_PROCESS_POLL_WRITE) != 0 && access != O_RDONLY) {
@@ -1867,6 +1866,10 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       if (request.reserved != 0 || request.size > INT64_MAX) return -EINVAL;
       int descriptor = descriptor_for(process, request.descriptor);
       if (descriptor < 0) return descriptor == -ESPIPE ? -EINVAL : descriptor;
+      /* POSIX: a descriptor open for writing; WasmFS truncates through any. */
+      const int access = fcntl(descriptor, F_GETFL);
+      if (access < 0) return -errno;
+      if ((access & O_ACCMODE) == O_RDONLY) return -EINVAL;
       return ftruncate(descriptor, (off_t)request.size) == 0 ? 0 : -errno;
     }
     case DOLLY_PROCESS_FD_STAT_FILESYSTEM: {
@@ -2065,6 +2068,9 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
                                        &request, &path, &directory);
       int flags = result == 0 ? open_flags(request.flags) : result;
       if (flags < 0) result = flags;
+      /* What a slash names is a directory, which open does not create. */
+      else if ((request.flags & DOLLY_PROCESS_OPEN_CREATE) != 0 && path[request.path_size - 1] == '/')
+        result = -EISDIR;
       int guest_fd = result == 0 ? unused_descriptor(process, 0) : -1;
       if (result == 0 && guest_fd < 0) result = guest_fd;
       int kernel_fd = -1;
@@ -2159,7 +2165,9 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
         const int call_result = operation == DOLLY_PROCESS_PATH_RENAME
             ? renameat(old_directory, old_path, new_directory, new_path)
             : linkat(old_directory, old_path, new_directory, new_path, 0);
-        if (call_result != 0) result = -errno;
+        /* WasmFS has no hard links and says EMLINK; Linux says EPERM for a
+         * filesystem without them, and programs fall back to a copy on it. */
+        if (call_result != 0) result = errno == EMLINK && operation == DOLLY_PROCESS_PATH_LINK ? -EPERM : -errno;
       }
       free(old_path);
       free(new_path);
@@ -2440,15 +2448,9 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       memcpy(&request, process_mailbox, sizeof(request));
       if (request.status > 255 || !supported_signal(request.signal_number) ||
           (request.signal_number != 0 && request.status != 128 + request.signal_number)) return -EINVAL;
-      /* Waking a blocking operation with EINTR must not let an otherwise
-       * signal-unaware program turn Ctrl-C into an arbitrary failure status.
-       * A runtime that deliberately handles SIGINT acknowledges it through
-       * DOLLY_PROCESS_INTERRUPT_POLL. */
-      const uint32_t terminating = process->pending_signals & ~notification_signals(process);
-      const int signal_number = request.signal_number != 0
-          ? (int)request.signal_number : (terminating ? __builtin_ctz(terminating) : 0);
-      const int status = signal_number != 0 ? 128 + signal_number : (int)request.status;
-      mark_process_exited(process, status, signal_number);
+      /* The program's word: a signal still pending was not taken, and one it
+       * ignores or blocks must not turn its exit into a death. */
+      mark_process_exited(process, (int)request.status, (int)request.signal_number);
       return 0;
     }
     default:
