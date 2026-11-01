@@ -116,6 +116,8 @@ npx dolly-build Dollyfile-my-pi my-pi
 - Import `images`, `image` and `modules` from `OUT/index.mjs` as from an image
   package. Its modules are found in the packages under `node_modules/@daugasauron/`,
   so serve `OUT` beside them, from where it was built.
+- An image is built for the installed versions: after the packages update, its
+  `FROM` row's pin is another (`from` prints the new row), and it is built again.
 
 The repository README's "Your own Pi image" adds a Pi extension and a skill.
 
