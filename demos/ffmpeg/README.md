@@ -15,8 +15,9 @@ own `configure` under Slop and built by its Makefiles inside Dolly, as the
   among them, in MP4, Matroska and WAV. Encoders that are external
   libraries (x264, x265, libvpx) are not.
 - `-f lavfi` makes test input: `ffmpeg -f lavfi -i testsrc2 -f lavfi -i sine`.
-- Files are the session's; a network URL fails as on a host without a
-  network: FFmpeg's protocols open IP sockets, which Dolly refuses
+- Files are the session's. A network URL fails with an I/O error (`tcp:`
+  says it cannot resolve even `127.0.0.1`): FFmpeg's protocols use IP
+  sockets, which Dolly does not have
   ([process model](../../docs/process-model.md)).
 - The programs run threads, so an image that installs the package declares
   `threads@0`, as `default` does. A program linked with the libraries needs

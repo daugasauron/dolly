@@ -148,6 +148,11 @@ Measured in Chromium besides the test (`build/ffmpeg-evidence/evidence-chromium.
 `amy install ffmpeg` 0.96 s from the local server, `ffmpeg -version` 90 ms, two seconds of
 320x240 to MP4 255 ms, four seconds of 640x480 MPEG-4 at `-threads 4` 226 ms; PSNR of the
 MPEG-4 clip 46.0 dB (the host's FFmpeg 4.4.2 gives 46 too); 177 encoders, 502 decoders.
+A network URL: `ffprobe http://127.0.0.1:9/clip.mp4` and `tcp://127.0.0.1:9` end with 1, "I/O
+error", the second after "Failed to resolve hostname 127.0.0.1: Non-recoverable error": libc's
+`getaddrinfo` answers `EAI_FAIL` for a numeric address, where POSIX parses it without a lookup
+and the refusal would come from `socket` (`EAFNOSUPPORT`). Explicit either way; for the kernel
+and libc audit (B), not changed here.
 Not run: `test/amy-browser.mjs` (it asserts that every package of the catalog is used, and this
 tree's catalog is narrowed); its row for `ffmpeg` is the `elsewhere` entry.
 
