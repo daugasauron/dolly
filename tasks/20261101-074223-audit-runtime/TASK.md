@@ -137,7 +137,7 @@ them too). No change of this branch is a seed input: every core image's plan is 
     same question of the cache's record alone (`loadImageArtifactDescriptor`), and restoring
     checks the bytes anyway. Fix: one `customImageCached(artifact)` in `custom-image.mjs`
     for both. Measured on the 583 MB custom image of finding 11, three saves each in Chrome:
-    3.42 to 3.65 s before, 2.76 to 2.85 s after, and no copy of the image in the page's heap.
+    3.42 to 3.65 s before, 2.76 to 2.85 s after; the page no longer reads the image's 583 MB at a save.
 14. **The rule for which image has a page of its own was spelled three times** (an image opens
     when it has ENTRY and `display@0`): `image-menu.mjs`'s menu row, `generate-routes.mjs`
     (from the graph's root, which is the recipe's own list) and `serve-checkout.mjs`. Fix:
