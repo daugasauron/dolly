@@ -27,7 +27,7 @@ const configured = new Promise((resolve, reject) => {
 const { hostRegistry } = await import("../host/modules.mjs");
 
 // The runtime's own files: the kernel and the contracts beside this module.
-export const runtimeBase = new URL("../", import.meta.url);
+const runtimeBase = new URL("../", import.meta.url);
 export const kernelArtifact = path => {
   if (path !== "dolly.wasm" && path !== "dolly.data") throw new Error("unknown fixed kernel artifact");
   return new URL(`dist/${path}`, runtimeBase).href;

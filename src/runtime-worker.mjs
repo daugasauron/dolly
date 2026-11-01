@@ -1,12 +1,12 @@
 // The runtime Worker boot() starts: it restores an image of the image directory
 // from its packs into a new kernel and runs its ENTRY (worker-image.mjs).
-import { DOLLY_IMAGES } from "./images.mjs";
+import { imageDefinition } from "./images.mjs";
 import { loadPackagedSnapshotMetadata, streamPackagedSystemSnapshot } from "./packaged-snapshot.mjs";
 import { siteReference, hex } from "./static-asset.mjs";
 import { checkedMemoryRange, runImage } from "./worker-image.mjs";
 
 await runImage(async ({ image, files: given = {} }, host) => {
-  const definition = DOLLY_IMAGES.find(candidate => candidate.image === image);
+  const definition = imageDefinition(image);
   if (!definition) throw new Error("invalid Dolly image selection");
   const metadata = await loadPackagedSnapshotMetadata(image);
   host.require(definition.hostRequirements);

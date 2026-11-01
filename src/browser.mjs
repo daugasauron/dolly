@@ -3,7 +3,7 @@ import { holdIndicators, showIndicators } from "./page-indicators.mjs";
 import { hostRegistry } from "../host/modules.mjs";
 import { pageChords } from "./page-chords.mjs";
 import { terminalText } from "./terminal-text.mjs";
-import { DOLLY_IMAGES, bootstrapSources, imageBase, loadImages } from "./images.mjs";
+import { bootstrapSources, imageBase, imageDefinition, loadImages } from "./images.mjs";
 import * as processConstants from "./process-constants.mjs";
 
 // The terminal's own look: its canvas, the hidden keyboard, the boot log and
@@ -41,7 +41,7 @@ function element(tag, properties, attributes = {}) {
 // resolves to the page's API (window.__dolly on the site) once the image's ENTRY runs.
 export function boot(mount, { images, image, modules, site, http = {}, files = {} } = {}) {
   return run(mount, { images, modules, site, http }, async () => {
-    const definition = DOLLY_IMAGES.find(candidate => candidate.image === image);
+    const definition = imageDefinition(image);
     if (!definition || typeof files !== "object" || files === null) throw new Error("invalid Dolly boot options");
     if (definition.entry === null) throw new Error(`${image} has no ENTRY; it only builds`);
     return { image, label: "PRECOMPILED SYSTEM", required: definition.hostRequirements,

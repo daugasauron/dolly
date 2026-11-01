@@ -6,7 +6,7 @@
 import { buildHost } from "../host/modules.mjs";
 import { hostManifests } from "../host/manifests.mjs";
 import { run } from "./browser.mjs";
-import { DOLLY_IMAGES, imageBase, loadImages } from "./images.mjs";
+import { imageBase, imageDefinition, loadImages } from "./images.mjs";
 import { prepareImageArtifacts, loadImageHostRequirements } from "./image-build.mjs";
 import { buildImage } from "./image-builder.mjs";
 import { loadCustomImage, storedCustomImage } from "./custom-image.mjs";
@@ -19,7 +19,7 @@ import { inspectDollyfile } from "./dollyfile-view.mjs";
 // this repository builds. A test may name fewer (named).
 async function pageModules({ image, mode, loadSession, images, named }) {
   await loadImages(images);
-  const declared = DOLLY_IMAGES.find(definition => definition.image === image)?.hostRequirements;
+  const declared = imageDefinition(image)?.hostRequirements;
   const own = mode === "snapshot" && !loadSession && declared && !declared.includes("nena@0") ? new Set(declared) : null;
   for (const value of own ?? []) {
     for (const dependency of hostManifests.find(({ name, version }) => `${name}@${version}` === value)?.dependencies ?? []) own.add(dependency);
@@ -40,7 +40,7 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
     // module and the custom image record it was saved from.
     const selected = await registry.selectBoot({ image: route, mode, loadSession });
     const image = selected?.image ?? route;
-    if (!(DOLLY_IMAGES.some(definition => definition.image === image) || image === "custom")) {
+    if (!(imageDefinition(image) || image === "custom")) {
       throw new Error("invalid Dolly boot options");
     }
     // The custom image this tab runs: its Dollyfile and, in snapshot mode, the
@@ -51,7 +51,7 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
     }
     const source = custom?.source;
     const rebuild = mode === "rebuild";
-    const recipe = source === undefined ? DOLLY_IMAGES.find(definition => definition.image === image) : inspectDollyfile(source);
+    const recipe = source === undefined ? imageDefinition(image) : inspectDollyfile(source);
     const runnable = recipe.entry !== null;
     if (!runnable && !rebuild) throw new Error(`${image} has no ENTRY; it only builds`);
     const required = [...await loadImageHostRequirements(image, source), ...selected ? [selected.module] : []];

@@ -4,7 +4,7 @@
 // only hands the snapshot back (buildOnly); or it restores a custom image the
 // site built before.
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
-import { DOLLY_IMAGES } from "./images.mjs";
+import { imageDefinition } from "./images.mjs";
 import { decodeSnapshotRecords, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256 } from "./image-artifact.mjs";
 import { imageInputs } from "./image-inputs.mjs";
@@ -17,7 +17,7 @@ const encoder = new TextEncoder();
 
 await runImage(async (config, host) => {
   const { image, mode, customSource } = config;
-  const definition = DOLLY_IMAGES.find(candidate => candidate.image === image);
+  const definition = imageDefinition(image);
   const custom = image === "custom";
   if (!(definition || custom) || !["snapshot", "rebuild"].includes(mode) || (mode === "snapshot" && !custom)) {
     throw new Error("invalid Dolly image selection");
