@@ -119,7 +119,7 @@ Measured:
   first took a stale entry of Pi's command menu; the test waits for the menu to offer the
   command.
 - Before `pi-minimal` held the engine, `FROM default` from packages packed into a
-  `node_modules/@daugasauron/` of their own (`build/audit-runtime-evidence/fake/`): a `FILE`
+  `node_modules/@daugasauron/` of their own (`fake-build-*.log`): a `FILE`
   row built in Chrome (sandboxed, headless) and in Firefox gave byte-identical directories
   (7.6 MB), which `boot()` ran in both browsers.
 - Installed with pnpm 12 and Yarn 1.22 from the same registry

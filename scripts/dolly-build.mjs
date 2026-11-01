@@ -56,8 +56,6 @@ const installed = image => packages.find(candidate => candidate.image === image)
 if (positionals[0] === "from") {
   const [, base, name] = positionals;
   const definition = installed(base).DOLLY_IMAGES.find(candidate => candidate.image === base);
-  if (definition.role === "package") fail(`${base} is a package: INSTALL it instead`);
-  if (definition.entry?.some(word => /\s/.test(word))) fail(`${base}: its ENTRY has a word with a space`);
   process.stdout.write(`DOLLY 7\nAPPLICATION ${name}\n` +
     definition.hostRequirements.map(requirement => `REQUIRES HOST ${requirement}\n`).join("") +
     `\nFROM ${siteReference(definition.dollyfile)} ${definition.sha256}\n\n` +
