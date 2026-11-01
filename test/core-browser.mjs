@@ -105,7 +105,7 @@ await browserTest("core", { image }, async ({ server, open }) => {
     const { DOLLY_IMAGE_BUILD_ID: buildId } = await import("/dist/dolly-image-build-id.mjs");
     const recipe = index => index.toString(16).padStart(64, "0"), kept = [];
     const save = index => saveImageArtifact({ buildId, recipeSha256: recipe(index), sha256: "a".repeat(64), inputs: [],
-      hostRequirements: [], byteLength: 16, bytes: new ArrayBuffer(16) }, `custom:bound-${index}`);
+      hostRequirements: [], byteLength: 16, bytes: new Blob([new Uint8Array(16)]) }, `custom:bound-${index}`);
     await save(0);
     // Another version's page keeps its images in the same cache: a save here
     // leaves them, even one in the slot this runtime writes next.

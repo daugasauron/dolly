@@ -190,10 +190,10 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
     const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import("/dist/dolly-system-system-snapshot.mjs");
     const make = async (name, value) => {
       const source = new TextEncoder().encode(`DOLLY 7\nAPPLICATION ${name}\nENTRY /bin/slop\n`);
-      return describeImageArtifact(encodeSnapshotRecords(new Map([
+      return describeImageArtifact(new Blob([encodeSnapshotRecords(new Map([
         ["/etc/dolly/Dollyfile", { kind: 2, data: source }],
         ["/etc/dolly/artifact", { kind: 2, data: new TextEncoder().encode(value) }],
-      ])).buffer, await sha256(source));
+      ]))]), await sha256(source));
     };
     const first = await make("cache-proof", "first"), second = await make("cache-proof", "other"), slot = "/cache-proof";
     if (!await saveImageArtifact(first, slot)) throw new Error("initial cache write failed");
@@ -227,16 +227,16 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
     const base = await loadImageArtifact(await loadImageArtifactDescriptor(system.sha256, metadata.inputs));
     let recovered;
     try {
-      if (!await saveImageArtifact({ ...base, bytes: new ArrayBuffer(1), byteLength: 1 }, `/${system.dollyfile}`)) {
+      if (!await saveImageArtifact({ ...base, bytes: new Blob([new Uint8Array(1)]), byteLength: 1 }, `/${system.dollyfile}`)) {
         throw new Error("corrupt base write failed");
       }
       const [artifact] = await prepareImageArtifacts("custom",
         `DOLLY 7\nAPPLICATION cache-consumer\nFROM ${siteReference(system.dollyfile)} ${system.sha256}\nENTRY /bin/slop\n`,
         async () => { throw new Error("corruption must recover the exact published bytes, not rebuild"); }, () => {});
-      recovered = artifact.sha256 === base.sha256 && artifact.bytes.byteLength === base.bytes.byteLength;
+      recovered = artifact.sha256 === base.sha256 && artifact.bytes.size === base.bytes.size;
     } finally { await saveImageArtifact(base, `/${system.dollyfile}`); }
     await saveStoredSession({ name: "cache-migration-proof", formatVersion: 2, buildId: first.buildId,
-      image: "system", imageIdentity: `system:${system.sha256}`, updatedAt: 0, encoding: "gzip", bytes: first.bytes });
+      image: "system", imageIdentity: `system:${system.sha256}`, updatedAt: 0, encoding: "gzip", bytes: await first.bytes.arrayBuffer() });
     await new Promise((resolve, reject) => {
       const request = indexedDB.deleteDatabase("dolly-image-artifacts-v3");
       request.onsuccess = resolve; request.onerror = () => reject(request.error);
