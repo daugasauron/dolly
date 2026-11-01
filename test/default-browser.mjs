@@ -20,7 +20,8 @@ await browserTest("default", {}, async ({ open }) => {
   // The entry prints the text once; a shell started later prints nothing.
   const installs = [...welcome.matchAll(/amy install (\S+)/g)].map(([, name]) => name);
   assert.ok(installs.length > 0 && installs.every(name => published.includes(name)), `the text names ${installs}`);
-  assert.equal((await session.text()).split("amy list").length, 2, "the start-up text is on the first screen once");
+  const first = /^echo '([^']+)'/m.exec(welcome)[1];
+  assert.equal((await session.text()).split(first).length, 2, "the start-up text is on the first screen once");
   await run("test \"$(slop -c 'echo nested')\" = nested");
   // The page enables what the recipe declares, no more (host-modules.test.mjs lists that).
   assert.deepEqual(await session.page.evaluate(() => [...__dolly.hostModules].sort()), recipe.hostRequirements.toSorted());

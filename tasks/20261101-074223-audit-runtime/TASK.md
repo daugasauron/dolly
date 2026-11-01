@@ -250,6 +250,11 @@ markup shapes go. Files another branch changes tonight are left to it (B: `proce
   build fetches: the request check goes. `system-snapshot-format.test.mjs` ran each
   malformed snapshot through `decodeSystemSnapshot` and `decodeSnapshotRecords`, which the
   first calls before anything else: the records decoder alone.
+- `microphone-browser.mjs` compared the indicator's text with "Microphone on"; it now checks
+  that the indicator shows while a program holds the microphone (the state is waited for
+  just before) and is gone once Ctrl+C released it, which nothing checked.
+  `default-browser.mjs` counted the words "amy list" to see the start-up text once; it counts
+  the first line the recipe's own `.dollyrc` prints.
 - Kept, as the only guard of their behaviour: `pages-publication.test.mjs`'s match of the
   workflow text (the deploy checks the digest the owner chose; it runs on GitHub alone),
   `host-modules.test.mjs`'s parse of `process.h` and the kernels for operation numbers (an
