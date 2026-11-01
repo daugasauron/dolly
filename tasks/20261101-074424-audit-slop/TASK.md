@@ -10,12 +10,12 @@ the Dollyfile language (`docs/dollyfile.md`) and its two implementations (`src/d
 `src/dollyfile-view.mjs` with `src/dollyfile-graph.mjs`), the linters and pin scripts.
 Measure: Unix philosophy, POSIX where claimed, explicit failure otherwise.
 
-## State (2026-11-01 17:55)
+## State (2026-11-01 18:05)
 
-Three rounds of seed fixes are committed with every recipe repinned. Builds 1 and 2 were
-stopped early to batch the next round into one chain rebuild; build 3 (all three rounds,
+Four rounds of seed fixes are committed with every recipe repinned. Builds 1 to 3 were
+stopped early to batch the next round into one chain rebuild; build 4 (all four rounds,
 `default` and `system` and their closure, 22 images) runs in this tree as unit
-`dolly-audit-slop-seed3` (log `build/audit-slop-evidence/image-seed3.log`). Browser
+`dolly-audit-slop-seed4` (log `build/audit-slop-evidence/image-seed4.log`). Browser
 verification in Chromium and Firefox follows it. Proposals P1 and P2 are prototyped on
 branches `proposal/dollyfile-no-append` (`607fcc3a`) and `proposal/dollyfile-requires`
 (`8573582e`), not on this branch; each compiles with the parser fixture and its JavaScript
@@ -98,6 +98,14 @@ differ were read in the source.
     sources) splits a path between `set -f` and `set +f`; under Slop both printed an error
     and globbing stayed on. `set -f`, `set -o noglob`, `slop -f` and `f` in `$-` are added,
     per shell (a subshell's `set -f` does not leak).
+
+16. **`OPTIND` was unset when Slop started**, so the usual option loop in a script given no
+    option, `while getopts ab o; do …; done; shift $((OPTIND - 1))`, ran `shift -1` and failed.
+    **`IFS` was unset too**, so `old=$IFS; IFS=:; …; IFS=$old` left it empty and turned field
+    splitting off for the rest of a script; **`PPID`** was missing. All three are set at start,
+    as POSIX says and dash and Bash do (cases "OPTIND is 1…", "IFS is space, tab and newline…").
+17. **`command -V` was refused**: POSIX's description of what runs for a name now shares
+    `type`'s code (`describe_commands`).
 
 Not fixed, measured: `realpath` without `-e` fails on a missing last component (POSIX.1-2024's
 default is uncertain to me); `readonly`, `times` and `hash` are "command not found" (no use in

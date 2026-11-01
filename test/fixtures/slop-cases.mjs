@@ -161,6 +161,10 @@ export const shellCases = [
   ["only a program runs in the background", "(exit 3) & exit 7", 7],
   ["& does not take a && list", ": && : & exit 7", 2, 7],
   ["a path that names nothing is not a missing command", "./no-such-program; a=$?; no-such-program; b=$?; ./; c=$?; exit $((a + b + c))", 380 & 255],
+  // The usual option loop, in a script given no option.
+  ["OPTIND is 1 when the shell starts", 'set -- file; while getopts ab o; do :; done; shift $((OPTIND - 1)); case $OPTIND:$1 in 1:file) :;; *) exit 91;; esac', 0],
+  ["command -V says what runs for a name", 'f() { :; }; command -V f > /dev/null && command -V cd > /dev/null && ! command -V no-such-command 2> /dev/null', 0],
+  ["IFS is space, tab and newline when the shell starts", 'old=$IFS; IFS=:; IFS=$old; x="a b"; set -- $x; case $#:${PPID:+set} in 2:set) :;; *) exit 91;; esac', 0],
   // automake's install-sh splits a path at / between set -f and set +f.
   ["set -f turns pathname expansion off, in this shell only", 'set -f; set -- /*; case $1 in "/*") :;; *) exit 91;; esac; case $- in *f*) :;; *) exit 94;; esac; set +f; set -- /*; case $1 in "/*") exit 92;; esac; (set -o noglob); set -- /*; case $1 in "/*") exit 93;; esac', 0],
   // sdl2-config finds its prefix with cd -P -- DIR.

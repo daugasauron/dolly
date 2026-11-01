@@ -75,6 +75,8 @@ slop [-efnux] script [arg ...]
 
 - Expansion happens when a command runs, so `x=1 && echo "$x"` prints `1`.
 - Only inherited, `export`ed or prefix-assigned variables reach children.
+- The shell starts with `IFS` set to space, tab and newline, `OPTIND=1` and
+  `PPID`, as POSIX says and dash and Bash do.
 - An assignment-only command returns the last substitution's status, so
   `set -e; x=$(exit 7)` stops with 7.
 - Command substitutions and `( … )` keep cwd, variables and `exit` private; file

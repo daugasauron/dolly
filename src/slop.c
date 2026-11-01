@@ -2741,6 +2741,8 @@ static int special_builtin_name(const char *name) {
 }
 
 static int command_builtin(Shell *shell, int argc, char **argv);
+static int describe_commands(Shell *shell, int count, char **names, int path_only,
+                             const char *search);
 static int spawn_command(Shell *shell, int argc, char **argv, const char *search);
 static int find_program(const char *word, const char *search, char *path, size_t capacity);
 static int interrupted_preparing(Shell *shell);
@@ -3214,28 +3216,7 @@ static int builtin(Shell *shell, int argc, char **argv) {
       fputs("slop: type: a command name is required\n", stderr);
       return 2;
     }
-    int status = 0;
-    for (; argument < argc; argument++) {
-      const char *name = argv[argument];
-      Function *function = function_lookup(shell->functions, name);
-      if (!path_only && function != NULL) {
-        printf("%s is a shell function\n", name);
-        continue;
-      }
-      if (!path_only && builtin_name(name)) {
-        printf("%s is a shell builtin\n", name);
-        continue;
-      }
-      char path[PATH_MAX];
-      if (resolve_command(name, path_variable(), path, sizeof(path)) == COMMAND_FOUND) {
-        if (path_only) puts(path);
-        else printf("%s is %s\n", name, path);
-      } else {
-        if (!path_only) fprintf(stderr, "slop: type: %s: not found\n", name);
-        status = 1;
-      }
-    }
-    return status;
+    return describe_commands(shell, argc - argument, argv + argument, path_only, path_variable());
   }
   return 0;
 }
@@ -3381,6 +3362,32 @@ static int run_command_words(Shell *shell, int argc, char **argv) {
 
 // command NAME runs a built-in or a program, never a function; -v prints what
 // would run and -p searches the default PATH.
+// What runs for each name, as type and command -V say it.
+static int describe_commands(Shell *shell, int count, char **names, int path_only,
+                             const char *search) {
+  int status = 0;
+  for (int index = 0; index < count; index++) {
+    const char *name = names[index];
+    if (!path_only && function_lookup(shell->functions, name) != NULL) {
+      printf("%s is a shell function\n", name);
+      continue;
+    }
+    if (!path_only && builtin_name(name)) {
+      printf("%s is a shell builtin\n", name);
+      continue;
+    }
+    char path[PATH_MAX];
+    if (resolve_command(name, search, path, sizeof(path)) == COMMAND_FOUND) {
+      if (path_only) puts(path);
+      else printf("%s is %s\n", name, path);
+    } else {
+      if (!path_only) fprintf(stderr, "slop: type: %s: not found\n", name);
+      status = 1;
+    }
+  }
+  return status;
+}
+
 static int command_builtin(Shell *shell, int argc, char **argv) {
   const char *search = path_variable();
   int describe = 0, argument = 1;
@@ -3388,12 +3395,14 @@ static int command_builtin(Shell *shell, int argc, char **argv) {
     if (strcmp(argv[argument], "--") == 0) { argument++; break; }
     if (strcmp(argv[argument], "-p") == 0) search = "/bin:/usr/bin";
     else if (strcmp(argv[argument], "-v") == 0) describe = 1;
+    else if (strcmp(argv[argument], "-V") == 0) describe = 2;
     else {
       fprintf(stderr, "slop: command: unsupported option: %s\n", argv[argument]);
       return 2;
     }
   }
   if (argument == argc) return describe ? 2 : 0;
+  if (describe == 2) return describe_commands(shell, argc - argument, argv + argument, 0, search);
   if (!describe) {
     return builtin_name(argv[argument])
         ? builtin(shell, argc - argument, argv + argument)
@@ -5644,6 +5653,14 @@ int main(int argc, char **argv) {
     if (name == NULL || !export_variable(name)) { perror("slop"); return 1; }
     free(name);
   }
+  // What POSIX sets when the shell starts, as dash and Bash do: OPTIND is 1, so
+  // shift $((OPTIND - 1)) after a getopts loop that found no option shifts
+  // nothing; IFS is space, tab and newline, so a script that saves and
+  // restores it (old=$IFS ... IFS=$old) keeps splitting fields; PPID.
+  char parent[32];
+  snprintf(parent, sizeof(parent), "%ld", (long)getppid());
+  if (setenv("OPTIND", "1", 1) != 0 || setenv("IFS", " \t\n", 1) != 0 ||
+      setenv("PPID", parent, 1) != 0) { perror("slop"); return 1; }
   int index = 1;
   int command = 0;
   if (index < argc && strcmp(argv[index], "--help") == 0) { usage(stdout); return 0; }
