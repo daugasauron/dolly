@@ -433,8 +433,10 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   `nena enable NAME...` and `nena disable NAME...` switch them. The loader's
   refusal of a program and the engine's refusal of a package name the command:
   `host module gpu@0 is not enabled: nena enable gpu`.
-- Enabling starts the module as at boot; where the browser lacks what it
-  needs, the refusal says so. Disabling takes it away at once: programs that
+- Enabling starts the module as at boot: a device module is enabled also
+  where the browser has no such device, and its programs' OPEN fails with
+  `ENODEV`. A module whose check the browser does not answer within five
+  seconds is refused, and the refusal says so. Disabling takes it away at once: programs that
   record it are refused, and a running program's next call through it fails
   with `ENOSYS`. Sockets and other state a module keeps in the kernel stay
   with their processes; a threaded program ends with status 126 when

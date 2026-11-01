@@ -58,7 +58,10 @@ leased per process ([`runtime/lease-bridge.mjs`](runtime/lease-bridge.mjs)) and
 `kernelPlugin(bytes, kernel)` for a resident library linked into the
 kernel. A device module imports only its own files, so it can be delivered on
 its own: its generated `abi.mjs` carries its contracts' constants and the
-process contract's errno numbers, as its C includes `<dolly/process.h>`. The
+process contract's errno numbers, as its C includes `<dolly/process.h>`. It is
+admitted also where the browser has no such device (no WebGPU adapter, no
+Web Audio): it grants nothing then, OPEN fails with `ENODEV`, and a program
+goes on without it. The
 modules that are the runtime's own machinery (`runtime`, `http`, `threads`,
 `dso`, `stack`, `nena`, `snapshot`, `packages`, `build`) also use the runtime's files. They return an instance whose optional members the registry
 calls: `start` (Worker/page handshake), `messages`, `bindings` (kernel

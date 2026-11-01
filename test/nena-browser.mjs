@@ -193,19 +193,14 @@ await browserTest("nena", { image: "default", timeout: 300_000, server: { fixtur
   }
   assert.deepEqual((await enabled()).filter(module => /^(runtime|http|display|input|snapshot|build)@/.test(module)).sort(),
     ["display@0", "http@0", "input@0", "runtime@0", "snapshot@0"]);
-  // gpu@0 is enabled where the browser has WebGPU and refused with the reason
-  // where it has not. The page's indicator is there, naming an adapter, only
-  // while the session has the module: not before, not once it is disabled,
-  // and not when it is refused.
+  // gpu@0 is enabled with or without WebGPU. The page's indicator is there,
+  // naming an adapter or saying there is none, only while the session has the
+  // module: not before, not once it is disabled, and not when it is refused.
   const indicated = () => page.evaluate(() => document.querySelector("#gpu-status")?.dataset.gpu ?? null);
   assert.equal(await indicated(), null);
-  const gpu = await submit("nena enable gpu 2> /tmp/gpu");
-  assert.equal((await enabled()).includes("gpu@0"), gpu === 0, await session.text());
-  if (gpu === 0) assert.match(await indicated(), /^(software|hardware|unavailable)$/);
-  else {
-    await run("test -s /tmp/gpu");
-    assert.equal(await indicated(), null);
-  }
+  await run("nena enable gpu");
+  assert.ok((await enabled()).includes("gpu@0"));
+  assert.match(await indicated(), /^(software|hardware|unavailable)$/);
   await run("nena disable gpu");
   assert.equal(await indicated(), null);
   // An adapter that answers after the switch was refused changes nothing on the page.
