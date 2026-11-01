@@ -5,10 +5,11 @@
 //   npx dolly-build from IMAGE NAME     prints a recipe for NAME FROM IMAGE
 //   npx dolly-build Dollyfile-NAME OUT [--browser chrome|chromium|firefox]
 // OUT is new: the image's catalog, metadata and packs, the recipes it was built
-// from and an index.mjs, as an image package holds. It runs from
-// node_modules/@daugasauron/dolly-build, beside the runtime, the image packages
-// and the host module packages; the runtime runs only in the browser.
-import { cp, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+// from and an index.mjs, as an image package holds. It runs in the directory whose
+// node_modules/@daugasauron/ holds the runtime, the image packages and the host
+// module packages (pnpm links there what it keeps elsewhere); the runtime runs
+// only in the browser.
+import { cp, mkdtemp, readdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { createServer } from "node:http";
 import { basename, dirname, extname, join, relative, resolve, sep } from "node:path";
@@ -27,7 +28,8 @@ import { imageFileName, inspectDollyfile } from "../src/dollyfile-view.mjs";
 import { imageInputs } from "../src/image-inputs.mjs";
 import { siteReference, sitePath } from "../src/static-asset.mjs";
 
-const scope = resolve(import.meta.dirname, "../..");
+const scope = resolve("node_modules/@daugasauron");
+if (!existsSync(join(scope, "dolly"))) throw new Error("run dolly-build where node_modules/@daugasauron/dolly is installed");
 const load = path => import(pathToFileURL(path).href);
 const { positionals, values: { browser: browserName } } = parseArgs({ allowPositionals: true,
   options: { browser: { type: "string", default: "chrome" } } });
@@ -42,7 +44,7 @@ if (!browsers[browserName] || positionals.length !== 3 && positionals.length !==
 
 // The image packages installed beside this one, each with its own image and its catalog.
 const packages = await Promise.all((await readdir(scope)).filter(name => name.startsWith("dolly-image-"))
-  .map(async name => ({ directory: join(scope, name), image: name.slice("dolly-image-".length),
+  .map(async name => ({ directory: await realpath(join(scope, name)), image: name.slice("dolly-image-".length),
     ...await load(join(scope, name, "dist/dolly-images.mjs")) })));
 const installed = image => packages.find(candidate => candidate.image === image)
   ?? fail(`${image}: no image package holds it; install @daugasauron/dolly-image-${image}`);

@@ -122,8 +122,14 @@ Measured:
   `node_modules/@daugasauron/` of their own (`build/audit-runtime-evidence/fake/`): a `FILE`
   row built in Chrome (sandboxed, headless) and in Firefox gave byte-identical directories
   (7.6 MB), which `boot()` ran in both browsers.
-- `default-browser` and `amy-browser` in both browsers, `image-browser` and
-  `custom-session-browser` in both for the builder's registry; source suite 447 pass.
+- Installed with pnpm 12 and Yarn 1.22 from the same registry
+  (`repro/pnpm-dolly-build.mjs`, `layout-*.log`), `npx dolly-build` prints the recipe and
+  builds it. Under pnpm it first found no image package: it looked beside its own real path,
+  where pnpm keeps only its dependencies; it now reads the working directory's
+  `node_modules/@daugasauron/`, and copies the base from its real path.
+- `default-browser`, `amy-browser`, `core-browser` and `image-inventory-browser` in both
+  browsers, `image-browser` and `custom-session-browser` in both for the builder's
+  registry; source suite 447 pass.
 
 Not done: `SOURCE` rows of files beside the recipe (a `FILE` body is at most the recipe's
 128 KiB); `INSTALL` of a package the image package does not ship. Both would need the

@@ -110,6 +110,8 @@ npx dolly-build Dollyfile-my-pi my-pi
 - `dolly-build Dollyfile-NAME OUT` builds it into the new directory `OUT`:
   `--browser chrome` (the default: your Chrome), `chromium` or `firefox`
   (Playwright's, after `npx playwright-core install chromium` or `firefox`).
+  Both run where the packages are installed: the directory whose
+  `node_modules/@daugasauron/` holds them (npm, pnpm and Yarn 1 alike).
 - Import `images`, `image` and `modules` from `OUT/index.mjs` as from an image
   package. Its modules are found in the packages under `node_modules/@daugasauron/`,
   so serve `OUT` beside them, from where it was built.
