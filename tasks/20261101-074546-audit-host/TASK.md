@@ -21,8 +21,8 @@ cases; do its tests prove denied access and behaviour rather than spelling.
 All 18 modules read (page and Worker sides, kernel C, clients, headers, contracts). Fixes 1
 to 7 committed, each verified in Chromium and Firefox. Fix 7 is a seed change: the catalog
 needs a round (this tree rebuilt only the images its tests open, so its
-`dist/dolly-images.mjs` lists those). P2 is prototyped and measured as a `Proposal:` commit,
-the last of the branch; P1 and P3 wait for the owner as described. Left open for the
+`dist/dolly-images.mjs` lists those). P2 and P4 are prototyped and measured as the branch's
+two last commits, subjects `Proposal:`; P1 and P3 wait for the owner as described. Left open for the
 owner's word on the proposals; close it when they are decided.
 
 ## Findings
@@ -150,17 +150,26 @@ Described, not changed (each moot or another workstream's, as it says):
   the WAT and are asserted. `touch@0`'s phases are WAT globals. Smallest diff: those 40 values
   as globals in `dolly-input-0.wat` and `dolly-display-0.wat`, the enums defined from
   `*-abi.h`, the JavaScript reading `A.*`. Seed change (both headers), a catalog round; no
-  behaviour changes. Prototyped as the branch's last commit (`Proposal:`, merge the branch
-  without it unless the owner takes it): the two WATs gain 56 lines, the two headers lose
-  83 and the JavaScript gains 9; the enum type names go (no program names one). On top of fix 7 the 28
-  images rebuilt in 1,270 s, Ghostty's display library among them, and terminal, display,
-  display-cursor, touch, indicators, host-modules, core, shell, upload, nena, boundary and
-  pager pass in Chromium and Firefox on them.
+  behaviour changes. Prototyped as the branch's next to last commit (`Proposal:`, merge the
+  branch without it unless the owner takes it): the two WATs gain 56 lines, the two headers
+  lose 83 and the JavaScript gains 9; the enum type names go (no program names one). On top
+  of fix 7 the 28 images rebuilt in 1,270 s, Ghostty's display library among them, and
+  terminal, display, display-cursor, touch, indicators, host-modules, core, shell, upload,
+  nena, boundary and pager pass in Chromium and Firefox on them, as do pty, network, sockets,
+  stack, dso, threads, audio, microphone, gpu-indicator and host-compute.
 - **P3. A process-Worker module's bundle by its manifest.** `dso.mjs` and `stack.mjs` each
   fetch `dist/dolly-process-NAME.mjs` with the same options and register it; the manifest's
   `processWorker` field names it already. The runtime could fetch it for every enabled module
   that has one, leaving the modules their configuration. `core/audit-runtime`'s files
   (`host/runtime/runtime.mjs`, `host/modules.mjs`).
+- **P4. `snapshot@0`'s mailbox without the session name.** The page writes the save's name
+  into a 128-byte kernel buffer and its length into word 3 of the mailbox, and the kernel
+  validates it a second time and drops it: what it fed, a marker file in `/home/dolly`, went
+  in `5afba99c` because nothing read it. The page keys its saves by the name it validated
+  itself. Prototyped as the branch's last commit (`Proposal:`): the buffer, its export, the
+  word and the kernel's check go, 41 lines in, 83 out; not an image input (image inputs
+  unchanged), and custom-session, session-offline, snapshot-stream, nena, indicators and
+  boundary pass in Chromium and Firefox.
 
 ## Lessons
 
