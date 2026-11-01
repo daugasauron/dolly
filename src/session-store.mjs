@@ -1,6 +1,7 @@
 import { alphabetical } from "./alphabetical.mjs";
 import { validName } from "./image-names.mjs";
 import { imageInputs } from "./image-inputs.mjs";
+import { MAX_SNAPSHOT_BYTES } from "./snapshot-records.mjs";
 import { DOLLY_VERSION } from "./version.mjs";
 
 export const DOLLY_SESSION_FORMAT_VERSION = 2;
@@ -31,7 +32,7 @@ export function customSessionIdentity(custom) {
       typeof artifact.recipeSha256 !== "string" || typeof artifact.sha256 !== "string" ||
       !/^[0-9a-f]{64}$/.test(artifact.recipeSha256) || !/^[0-9a-f]{64}$/.test(artifact.sha256) ||
       !Number.isSafeInteger(artifact.byteLength) || artifact.byteLength <= 0 ||
-      artifact.byteLength > DOLLY_SESSION_MAX_BYTES ||
+      artifact.byteLength > MAX_SNAPSHOT_BYTES ||
       (policies !== undefined && (!Array.isArray(policies) || policies.length === 0 || policies.length > 16 ||
         new TextEncoder().encode(JSON.stringify(policies)).byteLength > 65536))) {
     throw new TypeError("invalid custom session base");

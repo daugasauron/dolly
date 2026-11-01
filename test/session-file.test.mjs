@@ -4,6 +4,7 @@ import { exportSessionFile, importSessionFile } from "../src/session-file.mjs";
 import { DOLLY_SESSION_MAX_BYTES, DOLLY_SESSION_METADATA_MAX_BYTES,
   customSessionIdentity, sessionCompatible, encodeSessionStream, decodeSessionSnapshot } from "../src/session-store.mjs";
 import { createHash, randomBytes } from "node:crypto";
+import { MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 
 const bytes = new TextEncoder().encode("DOLLYSES-opaque-\uFEFF日本語-credential").buffer;
 const encodeSessionSnapshot = input => encodeSessionStream(write => write(new Uint8Array(input)));
@@ -106,11 +107,21 @@ test("custom session files retain the exact recipe, artifact and inherited restr
     meta => { meta.customImage.source = "DOLLY 2"; },
     meta => { meta.customImage.artifact.sha256 = "invalid"; },
     meta => { meta.customImage.artifact.sha256 = ["a".repeat(64)]; },
-    meta => { meta.customImage.artifact.byteLength = DOLLY_SESSION_MAX_BYTES + 1; },
+    meta => { meta.customImage.artifact.byteLength = MAX_SNAPSHOT_BYTES + 1; },
     meta => { meta.customImage.artifact.inputs[0].sha256 = "invalid"; },
     meta => { meta.customImage.policies = []; },
     meta => { meta.customImage.policies = ["x".repeat(65536)]; },
   ]) await assert.rejects(importSessionFile(await edit(await exportSessionFile(saved), mutate)));
+});
+
+// The base is an image, which may be larger than the delta a save holds.
+test("a session's custom image may be as large as any image", () => {
+  const source = "DOLLY 7\nAPPLICATION large\nENTRY /bin/slop\n";
+  const custom = byteLength => ({ source, artifact: { buildId: "image-build",
+    recipeSha256: createHash("sha256").update(source).digest("hex"), sha256: "a".repeat(64), byteLength, inputs: [] } });
+  assert.match(customSessionIdentity(custom(DOLLY_SESSION_MAX_BYTES + 1)), /^custom:/);
+  assert.match(customSessionIdentity(custom(MAX_SNAPSHOT_BYTES)), /^custom:/);
+  assert.throws(() => customSessionIdentity(custom(MAX_SNAPSHOT_BYTES + 1)), /invalid custom session base/);
 });
 
 test("incompatible build IDs remain exportable without interpreting filesystem records", async () => {
