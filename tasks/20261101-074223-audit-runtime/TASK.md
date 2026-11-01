@@ -175,8 +175,11 @@ them too). No change of this branch is a seed input: every core image's plan is 
     shows the larger half in `input@0` (agent D's): its window listener sends every key of
     that field to the shell and prevents its default, so in both browsers the field stays
     empty and the shell reads "hello". An embedding with a text field beside the terminal,
-    the agent frontend's chat box for one, cannot be typed in. The same rule (target in the
-    element or the body) fixes it there; reported to the integrator.
+    a login form or a search box, cannot be typed in (the agent frontend's own page is
+    Dolly alone, so it does not meet it). The same rule (target in the element or the body)
+    fixes it there once the modules' dialogs and panels live in the element too (finding
+    16): today the upload dialog, appended to the body, claims Ctrl+C for the program it
+    waits on through `claimsKey`, which that rule would skip. Reported to the integrator.
 
 ## Checked and left
 
