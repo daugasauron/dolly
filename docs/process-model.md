@@ -160,7 +160,8 @@ sequenceDiagram
   cannot protect or revoke part of linear memory. So `mprotect` grants read
   and write, which memory always is (a shared mapping made without write then
   writes back, `EACCES` if its descriptor is read-only), and any other
-  protection fails `ENOTSUP`.
+  protection fails `ENOTSUP`, as `mmap` with `PROT_EXEC` does. `munmap` takes
+  a whole mapping, or a range that holds none; part of one is `EINVAL`.
 - Advisory locks live in one kernel table of 1024 for all processes; a request
   that needs one more fails with `ENOLCK`. `flock` locks the whole file for an
   open file description: descriptors made by `dup` or inherited by a spawned

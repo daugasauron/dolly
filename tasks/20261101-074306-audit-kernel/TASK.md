@@ -18,17 +18,41 @@ confirms is fixed with a test that failed before (or code gone and nothing
 broken), the moot is closed with its reason and the uncertain rest is a few
 lines each below.
 
-## State (2026-11-01 19:25 JST)
+## State (2026-11-01 20:10 JST)
 
 Read: the whole of the scope above. Baseline: build reproducible (same runtime
 and image ids), source suite 446/446 in 27 s, `process-browser` passes in
-Chromium (58 s). Items 1-18 are committed and verified on `default,system`
-built from the newest seed (image inputs `f205bd59…`): `process`, `core`,
-`threads`, `slop`, `pty`, `sockets` and `terminal` pass in Chromium and
-Firefox (`shell` too on the seed before). The libc items need a catalog
-round.
+Chromium (58 s). Items 1-20 are committed and verified on `default,system`
+(and `libdolly-sockets`) built from the newest seed (image inputs
+`88343cce…`): `process`, `core`, `threads`, `sockets` and `pty` pass in
+Chromium and Firefox, and `terminal`, `slop` and `shell` on the seed before
+this round's two libc files. The libc items need a catalog round.
 
-## Fixed
+## The shape of it
+
+The contract itself is lean and holds: 47 operations, pointer-free bounded
+packets, one import, errors as one vocabulary, a malformed call an errno.
+Nothing tonight wanted a new operation except the dispositions proposal
+below. The defects sat at three seams:
+
+- **libc and kernel each holding half of signal state.** Dispositions live
+  in libc, the kernel guesses: EXIT's override, the signal-before-start
+  rule, spawn's refusal for an ignored signal, no reaping for an ignored
+  SIGCHLD. Fixed where the kernel already knew enough; the rest is the
+  first proposal.
+- **WasmFS is Emscripten's filesystem, not POSIX's.** The kernel delegates
+  paths and files to it and corrected four answers at its call sites
+  (trailing slash, truncation through a read-only descriptor, the hard link
+  errno, the directory reader's read-ahead). The portable part of
+  `process-descriptors.c`, compiled natively under sanitizers by the source
+  suite, is where such answers are now pinned to Linux's.
+- **Emscripten's libc stubs, written for a JavaScript host.** `abort`
+  trapped, `getpriority` gave the wrong encoding, `pthread_cancel` claimed
+  success, `getpass` was missing; Dolly had copies or nothing. A sweep of
+  `emscripten_syscall_stubs.c`, `library_pthread_stub.c` and
+  `standalone.c` against POSIX was done tonight for what the probes hit;
+  what is left there answers ENOSYS or what is true.
+
 
 1. **A signal the old program ignored ended the program `exec` started.**
    Between the commit of an exec and the new Worker's start the kernel ended
@@ -187,6 +211,19 @@ round.
     profile only: a line for the next seed round); guard pages, directed
     signals and cancellation are ENOTSUP, as documented.
 
+20. **mmap compared too** (`probes/mmap-edges.c`). `mmap` with `PROT_EXEC`
+    failed with ENOMEM: libc returned EPERM, which musl's wrapper "fixes" to
+    ENOMEM for an anonymous mapping, so a JIT read it as memory exhausted;
+    ENOTSUP now, POSIX's word for a protection not given. Mapping a
+    directory failed with EISDIR (a pipe with ESPIPE); POSIX and Linux say
+    ENODEV. `munmap` of a range that holds no mapping failed with EINVAL;
+    POSIX unmaps it as nothing. And item 19's `pthread_setname_np` now
+    links with `-pthread` (ENOSYS in both profiles). Checks in
+    `mmap-bounds.c`, which runs natively too, and `threads-pthread.c`. Seed
+    input. Left as documented: `mprotect` to less than read and write,
+    `MAP_FIXED`, partial `munmap`; `mremap` is ENOMEM and `mincore` ENOSYS
+    (Emscripten's), `mlock` succeeds (memory is never paged out).
+
 ## Proposals for the owner
 
 - **The kernel told each disposition, and a spawned child that keeps what
@@ -242,6 +279,12 @@ round.
   larger JSPI stack) now costs three compiles before it is reported. Not
   measured whether any transient 126 is left; not changed, as the owner
   restored this once.
+
+- `terminal-browser` failed once of four runs at the `read word` step: the
+  keys `page.keyboard.type("yes")` sends raced the command `start()` had not
+  yet submitted, and the shell read `yeread word …` (127). The test does not
+  wait for the command line before it types; not this branch's change, and
+  not touched.
 
 ## Views on agent E's two commits (read only)
 

@@ -919,9 +919,12 @@ int res_query(const char *name, int class, int type, unsigned char *answer, int 
  * their own; normal static-link symbol ownership must let that definition
  * replace the generic one without a runtime-specific linker exception.
  */
-/* Dolly keeps no thread names; the threaded libc declares this and has none. */
+/* Dolly keeps no thread names, in either profile. */
 __attribute__((__weak__)) int pthread_getname_np(pthread_t thread, char *name, size_t size) {
   (void)thread; (void)name; (void)size; return ENOSYS;
+}
+__attribute__((__weak__)) int pthread_setname_np(pthread_t thread, const char *name) {
+  (void)thread; (void)name; return ENOSYS;
 }
 /* A thread runs wherever the browser puts its Worker: no affinity to read. */
 __attribute__((__weak__)) int pthread_getaffinity_np(pthread_t thread, size_t size, cpu_set_t *set) {
@@ -961,9 +964,6 @@ __attribute__((__weak__)) int pthread_condattr_destroy(pthread_condattr_t *attri
 __attribute__((__weak__)) int pthread_condattr_setclock(pthread_condattr_t *attribute,
                                                   clockid_t clock) {
   (void)attribute; (void)clock; return ENOSYS;
-}
-__attribute__((__weak__)) int pthread_setname_np(pthread_t thread, const char *name) {
-  (void)thread; (void)name; return ENOSYS;
 }
 __attribute__((__weak__)) int pthread_getschedparam(pthread_t thread, int *policy,
                                                struct sched_param *parameter) {

@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -50,4 +51,17 @@ int main(void) {
   assert(munmap(shared, length) == 0);
   check_size(fd, 0);
   assert(close(fd) == 0 && unlink(path) == 0);
+
+  // A directory has no bytes to map, and a range that holds no mapping
+  // unmaps as nothing.
+  int directory = open("/tmp", O_RDONLY);
+  assert(directory >= 0 && mmap(NULL, length, PROT_READ, MAP_PRIVATE, directory, 0) == MAP_FAILED &&
+         errno == ENODEV && close(directory) == 0);
+  void *anonymous = mmap(NULL, length, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  assert(anonymous != MAP_FAILED && munmap(anonymous, length) == 0 && munmap(anonymous, length) == 0);
+#ifdef __dolly__
+  // Memory is never executable.
+  assert(mmap(NULL, length, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) == MAP_FAILED &&
+         errno == ENOTSUP);
+#endif
 }
