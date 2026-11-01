@@ -8,16 +8,15 @@
 // usage: build-snapshot-browser.mjs IMAGE OUTPUT [--unpackaged cold|warm]
 // env: DOLLY_BROWSER_PROFILE (.cache/snapshot-browser-profile)
 import { createHash } from "node:crypto";
-import { open, rm, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 import { chromium } from "playwright-core";
 
 import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
 import { discoverImageDefinitions, selectImageDefinitions } from "./image-definitions.mjs";
-import { buildImageInPage } from "./page-image-build.mjs";
+import { buildImageInPage, savePageSnapshot } from "./page-image-build.mjs";
 import { startCheckoutServer } from "./serve-checkout.mjs";
-import { MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { sitePath } from "../src/static-asset.mjs";
 
@@ -44,28 +43,6 @@ async function handle(request, response, path, headers) {
   return true;
 }
 
-// Copies the page's snapshot to OUTPUT in pieces. Not by the page's fetch:
-// Playwright keeps the body of every request a page sends, so an upload held
-// the whole snapshot a second time.
-async function saveSnapshot(page) {
-  const length = await page.evaluate(() => globalThis.dollySnapshot.length), piece = 16 * 1024 * 1024;
-  if (length <= 0 || length > MAX_SNAPSHOT_BYTES) throw new Error("invalid snapshot size");
-  const file = await open(output, "wx");
-  try {
-    for (let offset = 0; offset < length; offset += piece) {
-      const bytes = Buffer.from(await page.evaluate(([offset, piece]) =>
-        globalThis.dollySnapshot.subarray(offset, offset + piece).toBase64(), [offset, piece]), "base64");
-      await file.write(bytes, 0, bytes.length, offset);
-    }
-  } catch (error) {
-    await rm(output, { force: true });
-    throw error;
-  } finally {
-    await file.close();
-  }
-  return length;
-}
-
 const server = await startCheckoutServer(projectDir, null, { port, handle });
 let context;
 try {
@@ -78,8 +55,8 @@ try {
   await page.addInitScript(rules => { globalThis.DOLLY_HTTP_POLICY = { maxRequests: 256, rules }; }, rules);
   await page.goto(`${server.origin}/__dolly_build_page`);
   const { inputs, dependenciesBuilt } = await page.evaluate(
-    `(${buildImageInPage})(location.origin + "/", ${JSON.stringify(image)})`);
-  const saved = await saveSnapshot(page);
+    `(${buildImageInPage})(location.origin + "/", location.origin + "/", ${JSON.stringify(image)})`);
+  const saved = await savePageSnapshot(page, output);
   const dependencies = (await selectImageDefinitions(await discoverImageDefinitions(projectDir), image)).length - 1;
   if (unpackaged && dependenciesBuilt !== (unpackaged === "cold" ? dependencies : 0)) {
     throw new Error(`${image} did not exercise the ${unpackaged} image cache`);

@@ -20,6 +20,7 @@ import { execFileSync } from "node:child_process";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { discoverImageDefinitions, imageRegistrySource, selectImageDefinitions } from "./image-definitions.mjs";
+import { indexSource } from "./image-directory.mjs";
 import { sitePath } from "../src/static-asset.mjs";
 import { hostManifests } from "../host/manifests.mjs";
 
@@ -114,14 +115,8 @@ for (const [image, holds] of Object.entries(publishedImages)) {
   const imageDirectory = join(out, `dolly-image-${image}`);
   await mkdir(join(imageDirectory, "dist"), { recursive: true });
   await writeFile(join(imageDirectory, "dist/dolly-images.mjs"), registry);
-  await writeFile(join(imageDirectory, "index.mjs"), `// The ${image} image for boot(): its directory, and the manifests of the host modules it
-// declares, from the packages installed beside this one.
-export const images = new URL("./", import.meta.url).href;
-export const image = ${JSON.stringify(image)};
-export const modules = ${JSON.stringify(declared.map(name =>
-      runtimeModules.includes(name) ? `../dolly/host/${name}/module.json` : `../${hostPackage(name)}/module.json`))}
-  .map(path => new URL(path, import.meta.url).href);
-`);
+  await writeFile(join(imageDirectory, "index.mjs"), indexSource(image, declared.map(name =>
+    runtimeModules.includes(name) ? `../dolly/host/${name}/module.json` : `../${hostPackage(name)}/module.json`)));
   tarballs.push(await writePackage(imageDirectory, [
     ...closureOfImage.map(definition => `dist/dolly-${definition.image}-system-snapshot.mjs`),
     ...metadata.packs.map(pack => `dist/packs/${pack.sha256}.snapshot.gz`),
