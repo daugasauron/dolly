@@ -51,6 +51,8 @@ export default function askUser(pi) {
     name: "ask_user",
     label: "ask user",
     executionMode: "sequential",
+    // Pi's advice for a tool that asks the user: the model calls it, no script does.
+    exposure: "model-only",
     description:
       "Ask the user one or more questions in a form shown over the terminal, and wait for the answers. " +
       "Use it when a decision or a fact only the user has is needed to go on, not for anything you can find " +
@@ -91,6 +93,7 @@ export default function askUser(pi) {
     name: "show_html",
     label: "show HTML",
     executionMode: "sequential",
+    exposure: "model-only",
     description:
       "Show the user an HTML document in a popup over the terminal, such as a report, and wait until they " +
       "close it. Write content: headings, paragraphs, lists, tables, pre and code, details, and forms with " +

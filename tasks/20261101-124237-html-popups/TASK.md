@@ -81,8 +81,9 @@ leased-device protocol D's audit describes does not fit and is not copied).
   is `html report.html`, which waits until the user closes it.
 - **Package, not seed**: the header, client and command are the `html` package
   (`Dollyfile-html`, the manifest's `package`), so the seed and every image that does not
-  install it are unchanged by the module (`scripts/build.sh` leaves a packaged module's
-  header and archive out of the seed). Pi-dolly installs it; `default` does not (what a base image contains is the
+  install it are unchanged by the module: `build:runtime` gave image inputs `ea109605` both
+  with the module and with its manifest entry and import taken out (measured 23:18).
+  Pi-dolly installs it; `default` does not (what a base image contains is the
   owner's call), and `amy install html` plus `nena enable html` give it there.
 - **No Janis binding**: Pi's tools run the `html` command (child_process, the document on
   stdin) instead of a `Dolly.html()` that Janis would link. Janis is linked into every

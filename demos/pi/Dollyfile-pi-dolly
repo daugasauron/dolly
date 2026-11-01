@@ -18,7 +18,7 @@ INSTALL /v0.1.4/Dollyfile-html cab83c6edf5e7d0b964441de11be962cfd1ac09e77f21e548
 INSTALL /v0.1.4/Dollyfile-dolly-docs 5bc0ceb73f399c7b00dfa8f3d6f71e1e1d14f395940cc628f7efed74f3b13ed8
 
 SOURCE /v0.1.4/dist/static/default/pi/dolly-tools.js                    b2d5ecb9788c9f701d4892a23d0c0b8b17adb6309278de9876aefc8d8ca4b6a8 /home/dolly/.pi/agent/extensions/dolly-tools.js
-SOURCE /v0.1.4/dist/static/default/pi/ask-user.js                       6efcc56c4ec3c4cbac8e17e8bb8962ae244b86b049e0a1e555232b28086a2ba6 /home/dolly/.pi/agent/extensions/ask-user.js
+SOURCE /v0.1.4/dist/static/default/pi/ask-user.js                       b19d4ceff9de4890f4b888fdc50f9e0e987a88ca57237d898304229284158289 /home/dolly/.pi/agent/extensions/ask-user.js
 SOURCE /v0.1.4/dist/static/default/pi/SYSTEM.md                         70ed91e73f66d65e71eb6d220fedea0cf1ce5ec1ce7bbac3a5b6a849c8ef0628 /home/dolly/.pi/agent/SYSTEM.md
 SOURCE /v0.1.4/dist/static/default/pi/settings.json                     852b78af9b490d627858723c8b67f24e55e58d9f621ce4afbc7424b872917c1f /home/dolly/.pi/agent/settings.json
 SOURCE /v0.1.4/dist/static/default/pi/dolly-theme.json                  ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297 /home/dolly/.pi/agent/themes/dolly.json
