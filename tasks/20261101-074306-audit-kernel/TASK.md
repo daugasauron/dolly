@@ -310,6 +310,13 @@ below. The defects sat at three seams:
 
 ## Findings, not changed
 
+- Clocks, identity and environment (`probes/misc-edges.c`) showed nothing
+  to fix: Linux's own clocks (`CLOCK_BOOTTIME`, `_RAW`, `_COARSE`) are
+  EINVAL, so a program falls back to the POSIX ones; `gethostname` truncates
+  as POSIX allows; `umask` changes no mode, as decided. POSIX timers
+  (`timer_create`) and `sethostname` do not link: absent, which a configure
+  finds.
+
 - **Every system call costs 23-25 µs in Chromium and 31-35 µs in Firefox**
   (20,000 `fcntl(F_GETFD)`, `-O2`, `system` image): a postMessage, the
   runtime Worker's event loop and an Atomics wait. Writes go in 16 KiB
