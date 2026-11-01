@@ -6,8 +6,23 @@
 
 ## State (2026-11-02)
 
-Investigating, then streaming the Worker and page side (JavaScript, no image input);
-the kernel's own copy is a contract change, written as a proposal below.
+Done in 4439f99c (JavaScript only, image inputs hash unchanged): the Worker and page
+copies are gone; a built image is a Blob read in pieces. Measured on `system`
+(164 MB), old code in `work/audit-runtime-base` against new code here, each a rebuild
+of `system` alone from published inputs, the build scope's `memory.stat` sampled every
+0.2 s (`build/stream-capture-evidence/{baseline,after}-system-fast.*`):
+
+| | anon before capture | peak anon, capture to export | scope peak |
+| --- | --- | --- | --- |
+| before (fa949c1b) | 1.05 GB | 1.55 GB (+0.50 GB, 3.0 x the image) | 2.05 GB |
+| after (4439f99c) | 1.12 GB | 1.27 GB (+0.15 GB, 0.9 x: the kernel's copy) | 1.76 GB |
+
+Both builds produced sha256 `6b61cde503cae838…`, byte-identical to the baseline closure's.
+The remaining copy is the kernel's `capture_bytes`: the proposal below.
+
+Left: the browser tests (image, session, custom-session, `test/image-browser.mjs`) in
+Chromium and Firefox once a browser slot is free; `pi-local` under the 9 GB cap once its
+closure exists (the integrator's catalog round, about 11:00); the proposal's prototype.
 
 ## The copies, measured and read
 
