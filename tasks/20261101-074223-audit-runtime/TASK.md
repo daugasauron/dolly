@@ -37,7 +37,7 @@ is the runtime and the build host (committed with `image-browser` and `custom-se
 both browsers), and one writer of image directories (`scripts/image-directory.mjs`, same
 bytes as before), both of which the npm image builder needs. That builder
 (`tasks/20261101-125930-npm-custom-images/`) is done and measured on `core/npm-custom-images`,
-held off this branch for the round after tonight's.
+which holds this branch and goes into tonight's round in its place.
 
 ## Findings
 
