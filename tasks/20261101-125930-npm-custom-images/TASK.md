@@ -15,6 +15,23 @@ write a Dollyfile `FROM pi-minimal` that adds a Pi extension and a skill, build 
 boot it with `boot()`, and Pi has them; a browser test proves that from packed packages in
 Chromium and Firefox; `docs/embedding.md` says how.
 
+## How a stranger uses it
+
+After the README's "Pi with npm" (Node, npm, Chrome):
+
+```sh
+npm install @daugasauron/dolly-build
+npx dolly-build from pi-minimal my-pi > Dollyfile-my-pi   # a recipe FROM the installed pi-minimal
+# add a FILE row per file before its ENTRY line, the body indented four spaces, e.g.
+#   FILE /home/dolly/.pi/agent/extensions/hello.js   and   .../skills/changelog/SKILL.md
+npx dolly-build Dollyfile-my-pi my-pi                      # builds in headless Chrome
+```
+
+Then `index.html` imports `images`, `image` and `modules` from `./my-pi/index.mjs` instead
+of the package's, and the same `serve.mjs` hosts it: Pi starts with the extension and the
+skill in the image. `--browser firefox` builds in Firefox instead; a rebuild needs `my-pi`
+removed first.
+
 ## Today
 
 The npm packages ship two prebuilt images (`dolly-image-default`, `dolly-image-pi-minimal`:
@@ -64,7 +81,8 @@ anywhere: a FROM build restores the base and runs the base's own `/bin/dollyfile
 ## State (2026-11-01 23:20 JST)
 
 Done as designed, measured; on branch `core/npm-custom-images` (from `core/audit-runtime`),
-for the catalog round after tonight's (it restales `amy`'s chain and `pi-minimal`).
+which the integrator merges into tonight's catalog round (it restales `amy`'s chain and
+`pi-minimal`, which that round rebuilds anyway).
 
 - `Dollyfile-dollyfile`, a core package: the engine alone, `FROM system-build`. `pi-minimal`
   installs it (134 KB more: 99.5 MB). `amy` installs it instead of exporting the same file
@@ -86,7 +104,9 @@ for the catalog round after tonight's (it restales `amy`'s chain and `pi-minimal
   metadata and recipes, the image's packs and metadata, `index.mjs`. Depends on the runtime
   and `playwright-core`.
 - Docs: README "Your own Pi image" (an extension with `/hello` and a `changelog` skill as
-  `FILE` rows), `docs/embedding.md` "Your own image", `docs/agent-frontend.md`.
+  `FILE` rows), `docs/embedding.md` "Your own image", `docs/agent-frontend.md`; the review
+  map (`docs/browser-boundary.md`) names `dolly-build`'s page beside the site's as a user of
+  the builder.
 
 Measured:
 
