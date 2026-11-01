@@ -174,6 +174,17 @@ last full run of the suites this branch touches.
   the host `createHost` returns has a reader; boot and `nena` share one attach/detach path, as
   decided on 2026-10-23. No change.
 
+## Merging
+
+A trial merge with `demo/lean-2` (`git merge-tree`, 18:20) conflicts in
+`src/packaged-snapshot.mjs` and `host/packages/service.mjs` beside the recipe pins every
+branch's docs repin touches (`node scripts/update-recipe-pins.mjs` after the merge settles
+those): take lean-2's pack loader, without its branch for metadata that is not `"packs"` and
+without the loaders' `image` argument (finding 1), and keep this branch's metadata loader
+(finding 10), which lean-2 does not change. `docs/browser-boundary.md` and
+`scripts/build-snapshot-browser.mjs` merge cleanly. `core/audit-host` rewrites the
+`host/README.md` paragraph finding 7 would have fixed, so this branch leaves it.
+
 ## For the owner
 
 - **An image directory could be data.** Because the catalog and metadata are modules, a page
