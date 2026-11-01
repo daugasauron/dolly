@@ -17,17 +17,17 @@ const sizeLabel = bytes => bytes < 1024 * 1024 ? `${Math.ceil(bytes / 1024)} KiB
 
 // Wasm can only ask. Each file reaches the browser's download manager through
 // one user click on its Save button, never automatically.
-export function browser({ keyboard, indicators }) {
+export function browser({ mount, keyboard, indicators }) {
   const pending = new Int32Array(new SharedArrayBuffer(4));
   const panel = document.createElement("ul");
   panel.id = "downloads";
   panel.className = "page-indicator";
   panel.setAttribute("aria-label", "Files Dolly offers to save");
   panel.hidden = true;
-  document.body.append(panel);
+  mount.append(panel);
   const look = document.head.appendChild(Object.assign(document.createElement("style"), { textContent: `
-    #downloads { position: fixed; left: 0.6rem; bottom: 0.6rem; z-index: 7; margin: 0; padding: 0.5rem; list-style: none;
-      max-width: calc(100vw - 1.2rem); color: #e8e3d7; background: #262626; border: 1px solid #f2d45c; font-size: 14px; }
+    #downloads { position: absolute; left: 0.6rem; bottom: 0.6rem; z-index: 7; margin: 0; padding: 0.5rem; list-style: none;
+      max-width: calc(100% - 1.2rem); color: #e8e3d7; background: #262626; border: 1px solid #f2d45c; font-size: 14px; }
     #downloads[hidden] { display: none; } #downloads li + li { margin-top: 0.4rem; }
     #downloads button { margin-right: 0.4rem; color: inherit; background: #333; border: 1px solid #77736c;
       font: inherit; cursor: pointer; }` }));

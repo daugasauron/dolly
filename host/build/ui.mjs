@@ -5,7 +5,7 @@ import { loadImageArtifactDescriptor } from "../../src/image-artifact.mjs";
 import { openCustomImage } from "../../src/custom-image.mjs";
 import { buildLog } from "../../src/build-log.mjs";
 
-export function mountImageBuild(http, keyboard) {
+export function mountImageBuild(http, mount, keyboard) {
   const builders = { http: http.builder };
   const service = new ImageBuildService(async (source, report, signal) => {
     const artifacts = await prepareImageArtifacts("custom", source,
@@ -23,8 +23,8 @@ export function mountImageBuild(http, keyboard) {
   const panel = document.createElement("section");
   panel.id = "image-build";
   panel.hidden = true;
-  panel.innerHTML = `<style>#image-build { position: fixed; right: 0.6rem; bottom: 0.6rem; z-index: 7;
-      width: min(520px, calc(100vw - 1.2rem)); max-height: calc(100vh - 1.2rem); overflow: auto; color: #e8e3d7;
+  panel.innerHTML = `<style>#image-build { position: absolute; right: 0.6rem; bottom: 0.6rem; z-index: 7;
+      width: min(520px, calc(100% - 1.2rem)); max-height: calc(100% - 1.2rem); overflow: auto; color: #e8e3d7;
       background: #262626; border: 1px solid #f2d45c; padding: 0.75rem; font-size: 15px; }
     #image-build[hidden], #image-build [hidden] { display: none; } #image-build p { margin: 0 0 0.6rem; }
     #image-build details { margin-bottom: 0.6rem; }
@@ -70,7 +70,7 @@ export function mountImageBuild(http, keyboard) {
   });
   service.addEventListener("change", render);
   service.addEventListener("log", event => output.append(event.data));
-  document.body.append(panel);
+  mount.append(panel);
   addEventListener("pagehide", () => service.cancel(), { once: true });
   return service;
 }

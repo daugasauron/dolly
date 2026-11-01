@@ -114,7 +114,7 @@ export class UploadTransport {
 }
 
 // One modal dialog per request: the picker, then progress until the transfer ends.
-export function chooseUploadFile(controller) {
+export function chooseUploadFile(mount, controller) {
   return new Promise(resolve => {
     const { signal } = controller;
     if (signal.aborted) { resolve(null); return; }
@@ -143,7 +143,7 @@ export function chooseUploadFile(controller) {
       resolve(file);
     });
     signal.addEventListener("abort", () => { dialog.close(); dialog.remove(); resolve(null); }, { once: true });
-    document.body.append(dialog);
+    mount.append(dialog);
     if (document.pointerLockElement) document.exitPointerLock();
     dialog.showModal();
   });
