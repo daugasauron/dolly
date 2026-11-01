@@ -344,7 +344,8 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
 - A signal delivered while the new program is prepared interrupts the call:
   the old program handles it, and libc calls `exec` again. Between the old
   Worker's end and the new one's start the process is `starting`, as a spawned
-  one is, and a signal then ends it.
+  one is: a signal the old program ignored is ignored, one it blocked waits
+  for the new program, and any other ends it.
 - A large interactive program gets the 500 ms of reclamation it gets at exit
   before its successor's memory is made.
 

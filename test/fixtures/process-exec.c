@@ -138,6 +138,16 @@ int main(int argc, char **argv) {
     return exec_self("after-pipe", NULL, NULL);
   }
   if (strcmp(mode, "after-pipe") == 0) return puts("AFTER") < 0;
+  // A program ignores SIGHUP, as nohup does, says so on descriptor 3 and
+  // execs: the signal stays ignored while the next program starts.
+  if (strcmp(mode, "hangup") == 0) {
+    if (signal(SIGHUP, SIG_IGN) == SIG_ERR || write(3, "i", 1) != 1) return 3;
+    return exec_self("after-hangup", NULL, NULL);
+  }
+  if (strcmp(mode, "after-hangup") == 0) {
+    usleep(200000);
+    return handler_is(SIGHUP, SIG_IGN) ? 46 : 1;
+  }
   // Under a timed spawn the deadline ends the program exec started.
   if (strcmp(mode, "deadline") == 0) {
     execlp("sleep", "sleep", "30", (char *)NULL);
@@ -196,6 +206,24 @@ int main(int argc, char **argv) {
   status = run(NULL, "alarm", NULL);
   CHECK(WIFSIGNALED(status) && WTERMSIG(status) == SIGALRM);
   CHECK(run(NULL, "alarm-ignored", NULL) == 44 << 8);
+
+  // A signal the program exec replaced ignored ends no program: hang-ups,
+  // from the moment the first program ignores them, reach the next one while
+  // it starts.
+  int ready[2];
+  CHECK(pipe(ready) == 0);
+  CHECK(posix_spawn_file_actions_init(&actions) == 0 && posix_spawn_file_actions_adddup2(&actions, ready[1], 3) == 0);
+  char *hangup[] = {self, "hangup", NULL};
+  CHECK(posix_spawn(&child, self, &actions, NULL, hangup, environ) == 0);
+  CHECK(posix_spawn_file_actions_destroy(&actions) == 0 && close(ready[1]) == 0);
+  char byte;
+  CHECK(read(ready[0], &byte, 1) == 1 && close(ready[0]) == 0);
+  pid_t waited;
+  while ((waited = waitpid(child, &status, WNOHANG)) == 0) {
+    CHECK(kill(child, SIGHUP) == 0 || errno == ESRCH);
+    usleep(2000);
+  }
+  CHECK(waited == child && WIFEXITED(status) && WEXITSTATUS(status) == 46);
   if (failures) return 1;
   puts("PROCESS-EXEC-OK");
   return 0;

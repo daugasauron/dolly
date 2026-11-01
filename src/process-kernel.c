@@ -2711,12 +2711,16 @@ int dolly_process_signal(int pid, int signal_number) {
   }
   if (!supported_signal((uint32_t)signal_number)) return -ENOTSUP;
   if (signal_number == 0) return 0;
-  if (signal_number == DOLLY_PROCESS_SIGWINCH && process->state != DOLLY_KERNEL_PROCESS_RUNNING)
-    return 0;
-  if (signal_number != DOLLY_PROCESS_SIGKILL && process->state == DOLLY_KERNEL_PROCESS_RUNNING) {
-    process->pending_signals |= 1u << signal_number;
-  } else {
-    /* SIGKILL and signals before command entry cannot run userspace handlers. */
+  const uint32_t signal = 1u << signal_number;
+  const dolly_process_exec_state *start = &process->start_signals;
+  if (signal_number == DOLLY_PROCESS_SIGKILL) {
+    mark_process_exited(process, 128 + signal_number, signal_number);
+  } else if (process->state == DOLLY_KERNEL_PROCESS_RUNNING || (start->blocked_signals & signal) != 0) {
+    process->pending_signals |= signal;
+  } else if ((start->ignored_signals & signal) == 0 && signal_number != DOLLY_PROCESS_SIGWINCH) {
+    /* A program not yet entered runs no handler. It ignores and blocks what
+     * the program exec replaced left it, and ignores a resize; any other
+     * signal ends it. */
     mark_process_exited(process, 128 + signal_number, signal_number);
   }
   return 0;
