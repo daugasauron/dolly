@@ -23,6 +23,14 @@ exception the demo's README states.
 - A demo test passes in Chromium and Firefox; the package has its row in `test/amy-browser.mjs`;
   sources are pinned, with licence rows.
 
+## State (2026-11-02): `demo/lean-3`, on `integrate/2026-11-02`
+
+`demo/lean-2` is merged in `integrate/2026-11-02` (`fa949c1b`); the catalog round of that
+branch builds Lean's four images one at a time in a 36 GB scope. On the branch, with the
+round's images linked into this tree (same recipe hashes and build id, image inputs
+`a58af3f9`), amy's installs, threads, memory growth and `core` pass in Chromium and Firefox,
+and six dead processes of 512 MiB leave at most one resident (two with threads in Firefox).
+
 ## State (2026-11-01): `demo/lean-2`, on `main`
 
 `demo/lean-2` is `demo/lean` replayed on `main` (v0.1.4), with `core/install-memory` and
