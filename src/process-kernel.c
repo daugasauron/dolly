@@ -36,9 +36,6 @@ enum {
 
 static const uint64_t DOLLY_KERNEL_SPAWN_DEADLINE_LIMIT =
     UINT64_C(24) * 60 * 60 * 1000000000;
-/* How long an exiting parent leaves a signalled child running. The supervisor
- * allows a handler the same time (interruptGraceMilliseconds). */
-static const uint64_t DOLLY_KERNEL_INTERRUPT_GRACE = UINT64_C(500) * 1000000;
 
 typedef struct {
   size_t offset;
@@ -93,7 +90,6 @@ typedef struct {
   uint64_t deadline_nanoseconds;
   uint32_t pending_signals;
   int handling_signal;
-  uint64_t interrupt_deadline; /* Monotonic end of the grace after a terminating signal. */
   uint64_t alarm_deadline; /* Monotonic SIGALRM time; zero while disarmed. */
   uint64_t alarm_interval;
   int alarm_handled;
@@ -815,18 +811,9 @@ static int spawn_packet(int parent_pid, size_t size) {
     } else {
       if (parent == NULL) result = -ESRCH;
       else {
-        for (uint32_t index = 0; index < parent->program.environment_count; ++index) {
-          const size_t length = strlen(parent->program.environment[index]) + 1;
-          if (length > SIZE_MAX - environment_bytes) {
-            result = -E2BIG;
-            break;
-          }
-        }
-        if (result == 0) {
-          process->program.environment = calloc((size_t)parent->program.environment_count + 1,
-                                                sizeof(*process->program.environment));
-          if (process->program.environment == NULL) result = -ENOMEM;
-        }
+        process->program.environment = calloc((size_t)parent->program.environment_count + 1,
+                                              sizeof(*process->program.environment));
+        if (process->program.environment == NULL) result = -ENOMEM;
         for (uint32_t index = 0;
              result == 0 && index < parent->program.environment_count; ++index) {
           process->program.environment[index] = strdup(parent->program.environment[index]);
@@ -2728,8 +2715,6 @@ int dolly_process_signal(int pid, int signal_number) {
     return 0;
   if (signal_number != DOLLY_PROCESS_SIGKILL && process->state == DOLLY_KERNEL_PROCESS_RUNNING) {
     process->pending_signals |= 1u << signal_number;
-    if (!(notification_signals(process) & (1u << signal_number)))
-      process->interrupt_deadline = clock_nanoseconds(CLOCK_MONOTONIC) + DOLLY_KERNEL_INTERRUPT_GRACE;
   } else {
     /* SIGKILL and signals before command entry cannot run userspace handlers. */
     mark_process_exited(process, 128 + signal_number, signal_number);

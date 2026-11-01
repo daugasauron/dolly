@@ -277,12 +277,14 @@ nothing and declares nothing: any program built for Dolly runs on one.
 - Spawn inherits no descriptors, the standard streams, or all non-CLOEXEC
   descriptors, then applies explicit parent-to-child mappings, all read from the
   parent at once. A spawn may set the child's cwd.
-- `posix_spawn` inherits all non-CLOEXEC descriptors and replays `adddup2`
-  and `addclose` actions in order as mappings, a closed one keeping the child
-  from inheriting the descriptor ([`runtime-adapter.c`](../src/process/runtime-adapter.c)).
-  A child starts with default dispositions and an empty signal mask; other file
-  actions, a session, process group or scheduler, and a non-empty mask return
-  `ENOTSUP`. There is no `fork`: it fails with `ENOSYS`.
+- `posix_spawn` inherits all non-CLOEXEC descriptors and replays its file
+  actions in order ([`runtime-adapter.c`](../src/process/runtime-adapter.c)):
+  `adddup2` and `addclose` as mappings, a closed one keeping the child from
+  inheriting the descriptor; `addchdir_np` chooses the child's directory, and
+  `addopen` opens the file in the parent, from that directory, for the child.
+  A child starts with default dispositions and an empty signal mask; a
+  session, process group or scheduler, and a mask or an ignored signal the
+  child would keep return `ENOTSUP`. There is no `fork`: it fails with `ENOSYS`.
 - Each process is its own process group and its own session, which it leads:
   `getpgid`, `getpgrp` and `getsid` give its PID (the caller's for 0, `ESRCH`
   for none), `setpgid` of a process to itself succeeds and any other fails
