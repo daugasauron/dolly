@@ -16,13 +16,14 @@ session modules), building on the page (`image-build*.mjs`, `build-worker.mjs`,
 Done when: each finding below is fixed with its browser evidence, closed as moot with the
 reason, or left as a few lines for the owner.
 
-## State (2026-11-01 17:30 JST)
+## State (2026-11-01 18:00 JST)
 
-Read every file of the scope and the audit of 2026-10-23 (`tasks/20261023-200000-core-audit`),
-whose findings are all on `main`. Findings 1 to 5 are committed (`08733fc1`, `8e322019`,
-`3d6ec732`, `4c180e49`), verified by the source suite and, in Chromium and Firefox, the
-snapshot stream, image, custom session, session offline, core, site, ending and host compute
-suites (`build/audit-runtime-evidence/run2.log`). Next: finding 6.
+Findings 1 to 7, 9 and 10 are committed, each verified as its commit says (source suite;
+Chromium and Firefox suites in `build/audit-runtime-evidence/run2.log` to `run5.log`);
+8 is left to `demo/lean-2`. The docs repin of finding 7 restales `dolly-docs` and the eleven
+demo images that install it, so in this tree `amy` (which installs `dolly-docs`) and the npm
+packages suite (`pi-minimal`) fail until a catalog round rebuilds them. Next: the rest of the
+scope (scripts that serve and package, the remaining page modules).
 
 ## Findings
 
@@ -65,5 +66,113 @@ suites (`build/audit-runtime-evidence/run2.log`). Next: finding 6.
    catalog image. Fix: the Worker sends the identity it computed (`image-built`), the page
    keeps that (`__dolly.builtImage`); bytes travel to the page only for the image builder
    (`buildOnly`), whose callers need them.
+7. **The review map's trusted files were incomplete and called generated modules data.**
+   `docs/browser-boundary.md` left out `image-names.mjs` (every image and session check),
+   `custom-dollyfile.mjs` and `source-download.mjs` (site pages), and said the catalog and
+   image metadata are data; both are `.mjs` modules the page and the Worker `import()`
+   (`images.mjs`, `packaged-snapshot.mjs`, `site.mjs`). Fix: the table lists them and says the
+   embedding trusts the image directory it names as it trusts the runtime. Pinned document:
+   `Dollyfile-dolly-docs` repinned, which restales `dolly-docs` and what is built on it.
+   `host/README.md` said both sides of a provider receive the page's resources; the Worker's
+   receives `runtimeBase` (and `abi`). `core/audit-host` (agent D) rewrites that paragraph
+   correctly, so it is left to that branch.
+8. **Two loops read a pack** (`streamPackagedSystemSnapshot`, `loadPackagedSystemSnapshot`),
+   each with its reader, bounds, digest check and cancellation. Left: `demo/lean-2`
+   (`ac9502fa`, agent E) rewrites `loadPackagedSystemSnapshot` to merge packs as they are read,
+   with a reader of its own (`chunksOf`) that both use. That rewrite still has a branch for
+   metadata that is not `"packs"`, which finding 1 makes unreachable: drop it at the merge.
+9. **Seven lookups of the catalog by name, spelled out.**
+   `DOLLY_IMAGES.find(candidate => candidate.image === image)` in `browser.mjs`, `site.mjs`
+   (three), `runtime-worker.mjs`, `build-worker.mjs`, `image-builder.mjs` (two),
+   `image-build.mjs`. Fix: `imageDefinition(name)` in `images.mjs`. `packaged-snapshot.mjs`
+   keeps its own `definitionOf` until E's rewrite of it is merged. `worker-image.mjs` stops
+   exporting `runtimeBase`, which only it reads.
+10. **A boot waited one round trip per recipe and per metadata module.**
+    `loadPackagedSnapshotMetadata` imported the metadata of each image the booted one is built
+    from in a depth-first walk, one `await` at a time, then fetched each of the image's
+    recipes one at a time (`cache: "no-store"`) to check that the directory serves the
+    recipes that built it. Measured in Chrome with a 100 ms round trip emulated
+    (`build/audit-runtime-evidence/boot-latency*.log`, three boots each, the same within
+    0.15 s): `default` 9.09 s to ready, of which 17 metadata imports over 1.67 s and 17 recipe
+    fetches over 1.65 s; `pi-minimal` 16.77 s, 42 metadata over 4.37 s and 42 recipes over
+    4.23 s. Fix: the closure of inputs is computed from the catalog first (refusing a cycle,
+    as the walk did), then every metadata module and every recipe is fetched at once and
+    checked in dependency order; the recipes may come from the HTTP cache, since a version's
+    files never change and the dev and release servers send `no-store` themselves. After:
+    `default` 6.15 s, `pi-minimal` 9.55 s (-32 %, -43 %). What remains sequential is the packs
+    (`pi-minimal`: 35 over 4.2 s), one fetch after another so that the kernel takes them in
+    order; prefetching the next pack while one streams would overlap them, in the code
+    `demo/lean-2` rewrites, so it is left for after that merge.
+
+## Checked and left
+
+- **The rest of a boot at a 100 ms round trip is the module graph.** After finding 10,
+  `default` boots in 6.0 s: the page's and the Worker's module imports run from 0.12 s to
+  4.25 s (147 `src`/`host` requests, 38 manifests; `site.mjs` is 9 imports deep,
+  `runtime-worker.mjs` 7, and the providers the registry imports after their manifests up
+  to 7 more), then metadata, kernel and packs (`boot-timeline-before.log`). Starting the
+  kernel's fetch when the Worker starts and loading the catalog beside the registry moved
+  the kernel from 4.90 s to 2.91 s but readiness only from 6.03 s to 5.93 s (`default`) and
+  not at all for `pi-minimal` (`boot-timeline-after.log`): reverted, not worth its lines.
+  What would help is fewer levels or a generated `modulepreload` list; one level everywhere
+  comes from `host/requirements.mjs` importing `static-asset.mjs` for `hex`, which pulls in
+  `snapshot-records.mjs` and `image-names.mjs`. Left as a measurement.
+
+- **A custom image is described twice when it boots** (`/custom/run/`, a custom session):
+  the page reads it from the image cache and checks it (`loadCustomImage`), the build Worker
+  checks the bytes it is handed again (`checkedCustomArtifact`). Measured on `system`'s
+  156 MiB snapshot in Node: decoding 6 to 10 ms, SHA-256 113 ms. Two trusted sides, a tenth
+  of a second for a typical custom image: left.
+- **`appendCustomSection` looked test-only** (three test files import it from
+  `src/wasm-interface.mjs`), but `scripts/dolly-abi.mjs` stamps every executable's sections
+  with it through a multi-line import a line-based grep missed; the source suite said so.
+  Kept.
+- **`test/pages-publication.test.mjs` matches the text of `.github/workflows/pages.yml`.**
+  It is the only check of a workflow that runs on GitHub alone, and what it checks (the
+  deploy verifies the digest the owner chose) is the release's authority: left.
+- **The registry** (`host/modules.mjs`): every member of the context a provider gets and of
+  the host `createHost` returns has a reader; boot and `nena` share one attach/detach path, as
+  decided on 2026-10-23. No change.
+
+## For the owner
+
+- **An image directory could be data.** Because the catalog and metadata are modules, a page
+  runs the JavaScript of any image directory it boots, and the release verifier parses them
+  with `parseGeneratedConstant` ("Generated metadata is data, not executable input to the
+  release verifier"), a parser for JSON wrapped in `export const X = Object.freeze(…)`. As
+  `dist/dolly-images.json` and `dist/dolly-IMAGE-system-snapshot.json`, read with
+  `import(url, { with: { type: "json" } })` as the host manifests already are, an embedding
+  could boot an image directory it does not trust (its programs are untrusted anyway), and
+  the parser goes. Cost: the writers (`image-definitions.mjs`, `build-system-snapshot.mjs`,
+  `share-pages-snapshots.mjs`), 5 page modules, 10 scripts, 16 tests and 9 demo tests name
+  the files; `dist/` converts without a rebuild; the npm image packages change layout, so it
+  belongs to a version (0.1.5), not a patch. Not done tonight: it touches the other agents'
+  demo tests.
+- **`boot()` has no end.** The handle has no way to stop the session: an embedding that
+  removes Dolly's element keeps the runtime Worker, the kernel's memory and every process
+  Worker until the page is hidden (`pagehide`). The page already has the step (`fatal()` and
+  `ended()` dispose the modules and terminate the Worker); a handle member `end()` would be
+  about five lines and a row in `docs/embedding.md`. No embedding has asked for it, so it is
+  not added.
 
 ## Lessons
+
+- A reader outlives its writer unless the commit that retires the writer removes it. The raw
+  and gzip snapshot readers lasted five weeks after every image was packed, the uncompressed
+  session reader four, and per-version session databases had made it unreachable the day
+  0.1.0 shipped. "Nothing writes this" is checkable: the writers' code and the 215 metadata
+  files of `dist/`.
+- On localhost every boot looks instant; with a 100 ms round trip emulated, one `await` per
+  recipe and per metadata module was a third of `default`'s boot and over two fifths of
+  `pi-minimal`'s. The code read clean; only a request timeline showed it. Every `await` in a
+  loop over network resources deserves that measurement.
+- A line-based grep is not a call graph: it called `appendCustomSection` test-only, and a
+  multi-line import in `scripts/dolly-abi.mjs` uses it. Deleting and running the 30 s source
+  suite settles "unused"; grep only nominates.
+- Look at the other branches' diffs of your files before refactoring shared code (`git diff
+  --name-only main...BRANCH`): agent E had rewritten the pack loader I was about to fold, and
+  a browser batch was lost to it.
+- The tree came without generated pages, and `generate-routes.mjs` cannot run in it: its
+  `dist/` is the integration tree's, whose demo sources are ahead of `main`'s pins. Writing
+  the route pages from the catalog in `dist/` with the same template works; editing served
+  files while a browser batch runs does not (one batch lost).
