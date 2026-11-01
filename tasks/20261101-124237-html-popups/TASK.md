@@ -198,7 +198,7 @@ images built FROM pi-runtime keep `/usr/bin/html`, which sealing refuses undecla
 ## Proposals for the owner
 
 - `default` (and `system`) could install the `html` package, so a shell user has `html`
-  without `amy install html` and `nena enable html`: a base-image change, yours to make.
+  without `nena enable html` and `amy install html`: a base-image change, yours to make.
 
 ## Lessons
 
