@@ -166,7 +166,7 @@ export class DollyProcessSupervisor {
     this.serviceTimer = setInterval(() => this.#serviceTick(), 16);
   }
 
-  static async create(kernel, kernelMemory, runtimeBase, hostAbi, serviceHost, threadHost, processModules, grow) {
+  static async create(kernel, kernelMemory, runtimeBase, hostAbi, serviceHost, threadHost, processModules, growerUrl) {
     const [gateBytes, contractBytes, threadBytes, workerBytes] = await Promise.all([
       "dolly-process-gate-0.wasm", "dolly-process-0.wasm", "dolly-threads-0.wasm",
       "dolly-process-worker.mjs",
@@ -187,7 +187,7 @@ export class DollyProcessSupervisor {
         hostAbi, serviceHost, parseWasmInterface(threadBytes, "dolly-threads-0"), threadHost, processModules,
       );
       supervisor.releaseWorkerSource = () => URL.revokeObjectURL(workerUrl.href);
-      supervisor.grow = grow;
+      supervisor.growerUrl = growerUrl;
       // Entered through JSPI (WebAssembly.promising), a process runs on a
       // stack of its own. Chrome's holds about 950 KB where a Worker's holds
       // 500 KB, which Clang needs: an executable asks for it with a
@@ -532,7 +532,7 @@ export class DollyProcessSupervisor {
       process: { memory },
       kernel: { memory: this.kernelMemory },
     });
-    Object.assign(process, { memory, maximum: memoryRequirements.maximum, budgetBytes: undefined,
+    Object.assign(process, { memory, maximum: memoryRequirements.maximum, budgetBytes: undefined, reservation: null, reservationRefused: false,
       gate, module, processInterface, threaded, largeStack, local });
     if (threaded) {
       const tid = this.kernel.dolly_threads_attach(process.pid);
@@ -550,13 +550,33 @@ export class DollyProcessSupervisor {
   // there ("memory access out of bounds"; Lean's lean_copy_expand_array right
   // after malloc). Firefox 155 does not. So a process's memory takes its
   // maximum before a second thread starts and never grows while two run; the
-  // spawn budget counts it with the size it had then.
+  // spawn budget counts it with the size it had then. A Worker of its own
+  // grows it and ends: Chrome charges a shared memory to the isolate that
+  // grows it, and an isolate that lives on keeps a memory it was handed until
+  // it collects garbage, which an idle one did not for many processes. The
+  // next one starts at once, which saves the next reservation 25 ms in Chrome.
   #reserveMaximum(process) {
-    const size = process.memory.buffer.byteLength, pages = process.maximum - BigInt(size / 65536);
-    if (pages === 0n) return;
-    if (this.grow(process.memory, pages) < 0n) throw new Error("the process's memory cannot take its maximum");
-    process.budgetBytes = size;
+    const { memory } = process, size = memory.buffer.byteLength, control = new SharedArrayBuffer(16);
+    const values = new BigInt64Array(control), word = new Int32Array(control);
+    values[0] = process.maximum - BigInt(size / 65536);
+    const grower = this.nextGrower ?? this.#startGrower();
+    this.nextGrower = this.#startGrower();
+    grower.onerror = () => { values[0] = -1n; Atomics.store(word, 2, 1); Atomics.notify(word, 2); };
+    grower.postMessage({ memory, control });
+    process.reservation = Promise.resolve(Atomics.waitAsync(word, 2, 0).value).then(() => {
+      grower.terminate();
+      if (process.memory !== memory) return;
+      if (values[0] >= 0n) {
+        // This thread takes the growth at an interrupt check, as a loop does at each turn.
+        while (BigInt(memory.buffer.byteLength) < process.maximum * 65536n);
+        process.budgetBytes = size;
+      } else process.reservationRefused = true;
+      process.reservation = null;
+      this.serviceDeferred();
+    });
   }
+
+  #startGrower() { return new Worker(this.growerUrl, { type: "module", name: "dolly-process-memory" }); }
 
   // EXEC: the kernel has read the new program and the old one waits in the
   // call while it is compiled and admitted. A refusal returns to the old
@@ -707,8 +727,18 @@ export class DollyProcessSupervisor {
         this.deferred.set(thread, { process, thread, message, timer: null, refusedSince: since });
         return;
       }
-      const exhausted = waiting === "count" ||
-        process.threaded && message.operation === DOLLY_THREAD_SPAWN && !this.threadHost?.available(process.pid);
+      const spawnsThread = process.threaded && message.operation === DOLLY_THREAD_SPAWN;
+      if (spawnsThread && !process.reservationRefused &&
+          BigInt(process.memory.buffer.byteLength) < process.maximum * 65536n) {
+        if (!process.reservation) this.#reserveMaximum(process);
+        this.deferred.set(thread, { process, thread, message, timer: null });
+        return;
+      }
+      // A reservation the browser refused fails this spawn; the next one asks again.
+      const refused = spawnsThread && process.reservationRefused;
+      if (spawnsThread) process.reservationRefused = false;
+      const exhausted = waiting === "count" || refused ||
+        spawnsThread && !this.threadHost?.available(process.pid);
       // Firefox can enter a direct Wasm call twice. Use the generic call path
       // so a completed syscall is never replayed against its response packet.
       result = exhausted ? -BigInt(DOLLY_ERRNO.EAGAIN)
@@ -752,10 +782,8 @@ export class DollyProcessSupervisor {
             throw new Error("invalid kernel thread identity");
           const child = { tid, worker: null, control: null };
           process.threads.set(tid, child);
-          try {
-            this.#reserveMaximum(process);
-            this.#launchWorker(process, child, threadArgument);
-          } catch (error) {
+          try { this.#launchWorker(process, child, threadArgument); }
+          catch (error) {
             this.#disposeThread(process, child);
             this.kernel.dolly_threads_unstarted(process.pid, tid);
             result = -BigInt(DOLLY_ERRNO.EAGAIN);
@@ -1005,6 +1033,7 @@ export class DollyProcessSupervisor {
 
   dispose() {
     clearInterval(this.serviceTimer);
+    this.nextGrower?.terminate();
     for (const process of this.processes.values()) {
       this.#stop(process);
       process.reject?.(new Error("Dolly runtime closed"));

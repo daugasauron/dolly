@@ -56,16 +56,31 @@ spawn (`#reserveMaximum`, `src/process-supervisor.mjs`):
   maximum's last page right after `pthread_create` it trapped in none without that wait
   either, so it closes the case where the reply comes before the thread waits, not an
   observed failure. It costs nothing measurable (that program, 20 runs each way in Firefox).
-- The kernel's memory and a process's now grow in the one Worker of `runtime@0`
-  (`host/runtime/grower.mjs`), each request with its own control word: the late-notify race
-  `72a223ff` fixed cannot occur, so `test/memory-growth-notify-browser.mjs` and its fixture
-  go; the supervisor's own Blob Worker goes.
+- The kernel's memory grows in `runtime@0`'s Worker (`host/runtime/grower.mjs`), each request
+  with its own control word: the late-notify race `72a223ff` fixed cannot occur, so
+  `test/memory-growth-notify-browser.mjs` and its fixture go. A process's memory grows in a
+  Worker of that file which ends after it, the next one started ahead (the spawn waits as a
+  deferred call; 13 to 22 ms for a program's first thread in Chrome, against about 10 ms in a
+  lasting Worker and 40 ms with a Worker started then; 20 to 25 ms in Firefox either way). In a
+  lasting Worker, the `lean` image build was killed by its 9 GB cap: an idle isolate keeps a
+  memory it was handed until it collects garbage, so each process with threads stayed resident
+  after it ended (`build/lean-evidence/leak/leak.mjs`: six runs touching 512 MiB, the scope's
+  anonymous memory rose by 0.5 GiB each until a collection, in both browsers).
 
 Verified: `test/fixtures/threads-grown.c` (the spawning thread fills the maximum's last page,
 then a thread fills each page another grows) fails on `main` in Chrome with `memory access
 out of bounds`; `threads-browser` and `memory-growth-browser` pass in Chromium and Firefox.
 With `a15a3c6c` 0 of 480 Lean runs trapped in an image build (the stress above); the rule
 is the same, since what a process grows before its second thread it grows alone.
+
+Found on the way, older than this: a process that ends leaves its memory resident until the
+runtime Worker collects garbage, which its small heap rarely needs. The same six runs without
+threads rose to 3.8 GiB in Chrome before a collection, on `main` too, and stayed flat when the
+Worker was made to collect after each process (`--expose-gc`, a diagnostic). No browser frees a
+shared memory on request, so only that Worker's collection releases it; an untouched 1 GiB
+`ArrayBuffer` allocated as a process ends prompts one (at most one dead process kept in Chrome,
+none in Firefox), but that steers the collector's heuristics rather than freeing anything, so it
+is not made. `tasks/20261101-102515-retained-process-memory` carries it.
 
 Left for the owner: the spawn budget no longer sees what a process with threads allocates after
 its second thread starts (its memory then is all grown; Linux shows none of it until touched), so
