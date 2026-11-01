@@ -115,21 +115,28 @@ static int mkdir_parents(const char *path, int include_last) {
   return 0;
 }
 
-// The path a pax extended header ("LENGTH path=VALUE\n" records) gives the
-// next member, as a malloc'd string; NULL with errno set when it has none.
-static char *pax_path(const unsigned char *records, size_t size) {
+// The path a pax extended header ("LENGTH KEY=VALUE\n" records) gives the
+// next member, as a malloc'd string in *path, or NULL when it gives none: GNU
+// tar and libarchive also record times and attributes there. -1 with errno
+// set for a malformed header.
+static int pax_path(const unsigned char *records, size_t size, char **path) {
+  *path = NULL;
   for (size_t offset = 0; offset < size;) {
     char *end;
     const unsigned long length = strtoul((const char *)records + offset, &end, 10);
     const size_t start = (size_t)(end - (const char *)records);
     if (length == 0 || offset + length > size || start >= offset + length || *end != ' ' ||
-        records[offset + length - 1] != '\n') break;
-    if (strncmp(end + 1, "path=", 5) == 0)
-      return strndup(end + 6, offset + length - 1 - (start + 6));
+        records[offset + length - 1] != '\n') {
+      errno = EINVAL;
+      return -1;
+    }
+    if (strncmp(end + 1, "path=", 5) == 0) {
+      *path = strndup(end + 6, offset + length - 1 - (start + 6));
+      return *path == NULL ? -1 : 0;
+    }
     offset += length;
   }
-  errno = ENOENT;
-  return NULL;
+  return 0;
 }
 
 // Prints why it failed, once.
@@ -173,7 +180,8 @@ static int extract(const char *archive_path, const char *directory) {
     }
     const unsigned char type = header[156];
     // git archive writes a pax global header ('g', the commit id), and a pax
-    // ('x') or GNU ('L') header names a member whose path does not fit.
+    // ('x') or GNU ('L') header names a member whose path does not fit; GNU
+    // tar --format=pax writes an 'x' header of times before every member.
     if (type == 'g' || type == 'x' || type == 'L') {
       stage = "read extended header";
       unsigned char *records = size <= EXTENDED_HEADER_BYTES ? malloc((size_t)size + BLOCK_SIZE) : NULL;
@@ -187,9 +195,13 @@ static int extract(const char *archive_path, const char *directory) {
       records[size] = '\0';
       if (status == 0 && type != 'g') {
         free(long_path);
-        long_path = type == 'L' ? strndup((const char *)records, bounded_length(records, (size_t)size))
-                                : pax_path(records, (size_t)size);
-        if (long_path == NULL) status = -1;
+        long_path = NULL;
+        if (type == 'L') {
+          long_path = strndup((const char *)records, bounded_length(records, (size_t)size));
+          if (long_path == NULL) status = -1;
+        } else if (pax_path(records, (size_t)size, &long_path) != 0) {
+          status = -1;
+        }
       }
       free(records);
       if (status != 0) break;

@@ -7,10 +7,10 @@ REQUIRES HOST input@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/Dollyfile-system-tools dd061ff77d48703a124b94f2b3752b227acb27fd1fdb4926e748c71593f3f91e
-INSTALL /v0.1.4/Dollyfile-libdolly-sockets 84a80eb351413aea0eaef6bdbb40b44bd01efe3d8fe2aff50d44b60c15ff0604
+FROM /v0.1.4/Dollyfile-system-tools a3966eab3ecc8753c192922471550404921e8245ab806431e64f04dcb15d6e27
+INSTALL /v0.1.4/Dollyfile-libdolly-sockets e9dfb8a3a0faf248c645dde75049045a2aad06ac1debaf8c1c0d040a57d42f49
 # FreeType (with its libpng) for gdi32's fonts, as 0 A.D. built them; libpng's headers for NetSurf.
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype e49ddb8827dc1e62d662647aa59f37c15a1074a25a4c133dfd817141fd397c06
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype 30391a90b7e7d8a0a531d72de11550d155e903753678b27ffc40401742d417a1
 REQUIRES HEADER curl
 REQUIRES HEADER zlib
 REQUIRES LIB curl

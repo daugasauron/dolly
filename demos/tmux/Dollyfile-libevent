@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # libevent's core from upstream's release archive, unchanged: the event loop
 # over poll, buffers and listeners, for programs the cc package builds
 # (-levent_core). A program that gives it sockets links -ldolly-sockets too.
-FROM /v0.1.4/Dollyfile-system-tools dd061ff77d48703a124b94f2b3752b227acb27fd1fdb4926e748c71593f3f91e
+FROM /v0.1.4/Dollyfile-system-tools a3966eab3ecc8753c192922471550404921e8245ab806431e64f04dcb15d6e27
 
 REQUIRES HEADER libc
 REQUIRES TOOL ar

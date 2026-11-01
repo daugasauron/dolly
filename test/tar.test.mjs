@@ -34,6 +34,14 @@ test("tar extracts paths and stdin, preserves block padding, and rejects damaged
     const extracted = spawnSync(binary, ["-xf", "-", "-C", outputDirectory], { input: upstream.stdout });
     assert.equal(extracted.status, 0, extracted.stderr.toString());
     assert.equal(await readFile(join(outputDirectory, "file"), "utf8"), "upstream tar root");
+    // GNU tar's pax format: an extended header of times, without a path, before every member.
+    const pax = spawnSync("tar", ["--format=pax", "-cf", "-", "-C", inputDirectory, "file"]);
+    assert.equal(pax.status, 0, pax.stderr.toString());
+    const paxOutput = join(directory, "pax-output");
+    await mkdir(paxOutput);
+    const paxExtracted = spawnSync(binary, ["-xf", "-", "-C", paxOutput], { input: pax.stdout });
+    assert.equal(paxExtracted.status, 0, paxExtracted.stderr.toString());
+    assert.equal(await readFile(join(paxOutput, "file"), "utf8"), "upstream tar root");
     for (const name of [".", "./", "././"]) {
       assert.equal(spawnSync(binary, ["-xf", "-", "-C", outputDirectory], { input: tarArchive(name, Buffer.alloc(0), "5") }).status, 0);
       assert.equal(spawnSync(binary, ["-xf", "-", "-C", outputDirectory], { input: tarArchive(name, Buffer.from("data")) }).status, 1);
