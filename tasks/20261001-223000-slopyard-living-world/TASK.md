@@ -105,7 +105,6 @@ beside this file.
 A fix is accepted when the audit after it has more deliveries or one stall fewer, and no new
 fall, removal or controller error.
 
-
 `audit.c` runs the fresh catalog (or a saved world) inside Dolly and prints,
 per actor, path, grips, deliveries, uprightness, the longest time fallen and the
 longest time stationary while holding something, with the controller status at
