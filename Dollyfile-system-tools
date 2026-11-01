@@ -6,7 +6,7 @@ REQUIRES HOST input@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/Dollyfile-system-build 7997c05ba08220831088b2aa713c86dbf0ded0229bbfa84f411476f00269d9fc
+FROM /v0.1.4/Dollyfile-system-build 8b8cfecf027c5901983e2c4ad44c393a35001281201791d14915be69f1b7c5fa
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -150,10 +150,10 @@ SLOP rm \
   -rf \
   /tmp/ninja
 # zlib, gzip and curl for builds, and Git, which Dolly's patch and diff run.
-INSTALL /v0.1.4/Dollyfile-zlib 7f3254e8d51bc7edd2fa47b19f3b1e2e43c747476ab93c57654639e4119abde7
-INSTALL /v0.1.4/Dollyfile-gzip 1be14cb6142500862aa5362445cdfa3c5fc7f4817e775a614754e3dc91ead079
-INSTALL /v0.1.4/Dollyfile-curl 173c3c37eeac846ba8caa316c656cb75e5facea793eb9434337550ddaf3d32d1
-INSTALL /v0.1.4/Dollyfile-git e2e345443c205910aa59f4896970f54726e209eb522083a27ac9307e678eb26f
+INSTALL /v0.1.4/Dollyfile-zlib 70690debef3f3c3415807217f65f663aec77a52fce2acbd4517d37d13a2a1d3d
+INSTALL /v0.1.4/Dollyfile-gzip 222c8f5ce72f17637d6b9c4c48a0716738ac3ee8d8ee64381149f4cfb9ebc172
+INSTALL /v0.1.4/Dollyfile-curl 4d70cf2c6bc75d5c40ad3b2e7b863c4c91df48dd3b783058ca3d71f206a77d61
+INSTALL /v0.1.4/Dollyfile-git 00d33fc493fbf6478ad81c8d648c759f9a807e8f1fe7de9cc66544455a289144
 SOURCE /v0.1.4/dist/static/default/awk.tar f28cae177fa60793a70066d10667e8d06775d979f2262be1c48f8eb941090015 /tmp/awk.tar
 SLOP tar \
   -xf /tmp/awk.tar \
@@ -237,6 +237,6 @@ SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
 SLOP cp /usr/share/man/cat1/slop.1 /usr/share/man/cat1/sh.1
 FOLDER /usr/share/man
-INSTALL /v0.1.4/Dollyfile-display d15ef860730ddefa417080c1d27cc0a26f03d5409c93805e9b3cbc5b6af61011
+INSTALL /v0.1.4/Dollyfile-display 8b88f13d676ce9bd1aece7b2bd717664eb68ff32cd67fdf82abe62ac0171cf67
 
 ENTRY /bin/foreground -i /bin/slop

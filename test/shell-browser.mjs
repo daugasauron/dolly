@@ -157,6 +157,16 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
   assert.equal(await typed(["ArrowUp", "Enter"]), 0);
   assert.equal(await typed(["h", "e", "l", "Control+r", "Enter"]), 0);
   assert.equal(await submit("grep -q '^help$' \"$HISTFILE\""), 0);
+  // Tab completes under ~ and in a dot directory as it does under /.
+  assert.equal(await submit("mkdir -p ~/.tab-probe/inside"), 0);
+  assert.equal(await result(async () => {
+    await page.keyboard.type("cd ~/.tab-pr");
+    await page.keyboard.press("Tab");
+    await page.keyboard.type("ins");
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Enter");
+  }), 0);
+  assert.equal(await submit('test "$PWD" = "$HOME/.tab-probe/inside" && cd / && rm -r ~/.tab-probe'), 0);
 
   // Wasm offers downloads under their literal names.
   for (const name of ["browser-download.txt", "\uFEFFbrowser-download.txt"]) {

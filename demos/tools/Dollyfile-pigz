@@ -7,8 +7,8 @@ REQUIRES HOST runtime@0
 # (its NOTHREAD: a -pthread program would need threads@0). It writes the .gz
 # files that the gzip package only reads. unpigz is pigz under the name it
 # looks for.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 81e1c1bc8b06c83b1daead6c8f09bc8b1382e8fe165f896a98109396b58bb305
-USE /v0.1.4/Dollyfile-zlib 7f3254e8d51bc7edd2fa47b19f3b1e2e43c747476ab93c57654639e4119abde7
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 5bf59c12d8c1af86b8b802aec00c3ffc0fa1f8673615f848ffd4e28eda579e90
+USE /v0.1.4/Dollyfile-zlib 70690debef3f3c3415807217f65f663aec77a52fce2acbd4517d37d13a2a1d3d
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib

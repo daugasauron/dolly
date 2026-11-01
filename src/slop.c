@@ -1952,6 +1952,18 @@ static int redirection_boundary(unsigned char byte) {
   return byte == '\0' || isspace(byte) || strchr(";|&<>()", byte) != NULL;
 }
 
+// Bash operators that a POSIX shell would read as something else: `((` as
+// two subshells, `<(` as a redirection, `<<<` as a here-document.
+static const char *bash_operator(const char *source) {
+  if (strncmp(source, "<<<", 3) == 0)
+    return "<<< is Bash's here-string: use printf '%s\\n' WORD | COMMAND or a here-document";
+  if ((source[0] == '<' || source[0] == '>') && source[1] == '(')
+    return "<(...) and >(...) are Bash's process substitution: use a pipe or a file";
+  if (source[0] == '(' && source[1] == '(')
+    return "((...)) is Bash's arithmetic command: use $((...)), as in : $((i += 1))";
+  return NULL;
+}
+
 static int invalid_descriptor_redirection(const char *source) {
   const char *operator = source;
   while (isdigit((unsigned char)*operator)) operator++;
@@ -2050,6 +2062,11 @@ static int lex(const char *source, TokenList *tokens) {
       tokens->items[tokens->count - 1].background = 1;
       source++;
       continue;
+    }
+    const char *bash = bash_operator(source);
+    if (bash != NULL) {
+      fprintf(stderr, "slop: %s\n", bash);
+      return 0;
     }
     if (invalid_descriptor_redirection(source)) {
       fputs("slop: invalid file descriptor redirection; descriptors are 0 through 9\n",
@@ -2877,7 +2894,7 @@ static int builtin(Shell *shell, int argc, char **argv) {
       fprintf(stderr, "slop: %s: a script path is required\n", argv[0]);
       return 2;
     }
-    char resolved[1024];
+    char resolved[PATH_MAX];
     const char *path = argv[1];
     if (strchr(path, '/') == NULL) {
       const enum command_resolution resolution =
@@ -3191,7 +3208,7 @@ static int builtin(Shell *shell, int argc, char **argv) {
         printf("%s is a shell builtin\n", name);
         continue;
       }
-      char path[1024];
+      char path[PATH_MAX];
       if (resolve_command(name, path_variable(), path, sizeof(path)) == COMMAND_FOUND) {
         if (path_only) puts(path);
         else printf("%s is %s\n", name, path);
@@ -5452,7 +5469,7 @@ static void terminal_signals(int enabled) {
 }
 
 static void print_prompt(void) {
-  char cwd[1024];
+  char cwd[PATH_MAX];
   if (getcwd(cwd, sizeof(cwd)) == NULL) strcpy(cwd, "?");
   printf("\033[33mdolly\033[0m:%s$ ", cwd);
   fflush(stdout);

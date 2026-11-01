@@ -1,5 +1,8 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 
@@ -14,20 +17,24 @@ static int ensure_directory(const char *path) {
 }
 
 static int create_parents(const char *path) {
-  char buffer[1024];
-  const size_t length = strlen(path);
-  if (length == 0 || length >= sizeof(buffer)) {
-    errno = length == 0 ? EINVAL : ENAMETOOLONG;
+  if (path[0] == '\0') {
+    errno = EINVAL;
     return -1;
   }
-  memcpy(buffer, path, length + 1);
-  for (char *cursor = buffer + 1; *cursor != '\0'; cursor++) {
+  char *buffer = strdup(path);
+  if (buffer == NULL) return -1;
+  int result = 0;
+  for (char *cursor = buffer + 1; result == 0 && *cursor != '\0'; cursor++) {
     if (*cursor != '/') continue;
     *cursor = '\0';
-    if (ensure_directory(buffer) != 0) return -1;
+    result = ensure_directory(buffer);
     *cursor = '/';
   }
-  return ensure_directory(buffer);
+  if (result == 0) result = ensure_directory(buffer);
+  const int error = errno;
+  free(buffer);
+  errno = error;
+  return result;
 }
 
 int main(int argc, char **argv) {

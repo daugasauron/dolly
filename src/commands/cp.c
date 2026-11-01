@@ -14,6 +14,11 @@
 
 static int recursive;
 static int verbose;
+static int preserve;
+// Which symbolic links are copied as the file they name: 'H' the operands,
+// 'L' every one, 'P' none. POSIX follows operands without -R; with -R, as GNU
+// cp does, none.
+static char follow;
 
 static char *base_name_copy(const char *path) {
   size_t length = strlen(path);
@@ -39,7 +44,16 @@ static char *join_path(const char *directory, const char *name) {
   return joined;
 }
 
-static int copy_path(const char *source, const char *destination);
+static int copy_path(const char *source, const char *destination, int operand);
+
+// -p: the copy keeps the source's access and modification times. There are no
+// owners or modes to keep.
+static int preserve_times(const char *destination, const struct stat *source) {
+  const struct timespec times[2] = {source->st_atim, source->st_mtim};
+  if (!preserve || utimensat(AT_FDCWD, destination, times, 0) == 0) return 0;
+  fprintf(stderr, "cp: %s: %s\n", destination, strerror(errno));
+  return 1;
+}
 
 static int copy_regular(const char *source, const char *destination) {
   int input = open(source, O_RDONLY);
@@ -98,7 +112,7 @@ static int copy_regular(const char *source, const char *destination) {
     fprintf(stderr, "cp: %s: %s\n", destination, strerror(errno));
     status = 1;
   }
-  return status;
+  return status != 0 ? status : preserve_times(destination, &source_metadata);
 }
 
 static int copy_link(const char *source, const char *destination,
@@ -181,7 +195,7 @@ static int copy_directory(const char *source, const char *destination) {
     if (source_child == NULL || destination_child == NULL) {
       fputs("cp: out of memory\n", stderr);
       status = 1;
-    } else if (copy_path(source_child, destination_child) != 0) {
+    } else if (copy_path(source_child, destination_child, 0) != 0) {
       status = 1;
     }
     free(source_child);
@@ -189,12 +203,15 @@ static int copy_directory(const char *source, const char *destination) {
     if (status != 0) break;
   }
   if (closedir(directory) != 0 && status == 0) status = 1;
+  struct stat metadata;
+  if (status == 0 && stat(source, &metadata) == 0) status = preserve_times(destination, &metadata);
   return status;
 }
 
-static int copy_path(const char *source, const char *destination) {
+static int copy_path(const char *source, const char *destination, int operand) {
   struct stat metadata;
-  if (lstat(source, &metadata) != 0) {
+  const int follows = follow == 'L' || (follow == 'H' && operand);
+  if ((follows ? stat(source, &metadata) : lstat(source, &metadata)) != 0) {
     fprintf(stderr, "cp: %s: %s\n", source, strerror(errno));
     return 1;
   }
@@ -225,7 +242,7 @@ static int copy_operand(const char *source, const char *destination,
       return 1;
     }
   }
-  const int status = copy_path(source, target == NULL ? destination : target);
+  const int status = copy_path(source, target == NULL ? destination : target, 1);
   free(target);
   return status;
 }
@@ -239,13 +256,17 @@ int main(int argc, char **argv) {
       break;
     }
     if (strcmp(argument, "--help") == 0) {
-      fputs("usage: cp [-Rrvf] [--] SOURCE... DESTINATION\n", stdout);
+      fputs("usage: cp [-Rrvfp] [-H|-L|-P] [--] SOURCE... DESTINATION\n"
+            "-p keeps access and modification times; a link operand is copied as the\n"
+            "file it names, under -R as the link (-H, -L and -P choose)\n", stdout);
       return 0;
     }
     if (argument[0] != '-' || argument[1] == '\0') break;
     for (const char *option = argument + 1; *option != '\0'; option++) {
       if (*option == 'R' || *option == 'r') recursive = 1;
       else if (*option == 'v') verbose = 1;
+      else if (*option == 'p') preserve = 1;
+      else if (*option == 'H' || *option == 'L' || *option == 'P') follow = *option;
       else if (*option != 'f') {
         fprintf(stderr, "cp: unsupported option -%c\n", *option);
         return 2;
@@ -253,9 +274,10 @@ int main(int argc, char **argv) {
     }
   }
   if (argc - first < 2) {
-    fputs("usage: cp [-Rrvf] [--] SOURCE... DESTINATION\n", stderr);
+    fputs("usage: cp [-Rrvfp] [-H|-L|-P] [--] SOURCE... DESTINATION\n", stderr);
     return 2;
   }
+  if (follow == '\0') follow = recursive ? 'P' : 'H';
 
   const char *destination = argv[argc - 1];
   struct stat metadata;

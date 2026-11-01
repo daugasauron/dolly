@@ -36,14 +36,16 @@ static int remove_path(const char *path, int recursive, int force) {
     if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
       continue;
     }
-    char child[1024];
-    const int length = snprintf(child, sizeof(child), "%s/%s", path, entry->d_name);
-    if (length < 0 || (size_t)length >= sizeof(child)) {
-      fprintf(stderr, "rm: %s/%s: path is too long\n", path, entry->d_name);
+    const size_t length = strlen(path) + strlen(entry->d_name) + 2;
+    char *child = malloc(length);
+    if (child == NULL) {
+      fprintf(stderr, "rm: %s/%s: %s\n", path, entry->d_name, strerror(errno));
       status = 1;
       continue;
     }
+    snprintf(child, length, "%s/%s", path, entry->d_name);
     if (remove_path(child, recursive, force) != 0) status = 1;
+    free(child);
   }
   if (closedir(directory) != 0) status = 1;
   if (status == 0 && remove(path) != 0) {

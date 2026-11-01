@@ -93,7 +93,9 @@ slop [-enux] script [arg ...]
   default signal actions, so an ignored signal could not be inherited.
 - Not implemented, and rejected by name: `alias`, `unalias`, `jobs`, `fg`,
   `bg` and a job spec to `kill` (no job control: `kill $!`), `umask` (there are no permission bits), `ulimit` (limits are fixed),
-  `${VAR:off:len}`, `${VAR/pat/rep}`.
+  `${VAR:off:len}`, `${VAR/pat/rep}`, and Bash's `((...))`, `<<<` and
+  `<(...)`, which POSIX would read as two subshells, a here-document and a
+  redirection.
   As in POSIX `sh`, braces do not expand (`echo {1..3}` prints `{1..3}`) and
   a glob that matches nothing stays as typed. `help` lists the same limits
   inside every image.

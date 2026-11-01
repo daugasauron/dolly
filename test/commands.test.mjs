@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { chmod, lstat, mkdir, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -73,8 +73,16 @@ test("Dolly's own core tools keep their no-permission and finite semantics", asy
   assert.equal(status(bracket, ["(", "-n", "a", "-a", "-z", "", ")", "-o", "!", "-d", ".", "]"]), 0);
   assert.equal(status(bracket, ["!", "(", "a", "=", "a", ")", "-a", "-d", ".", "]"]), 1);
   assert.equal(status(bracket, ["-n", "a"]), 2);
+  // Up to four arguments POSIX decides by their number, so an operand that
+  // looks like an operator stays an operand, as in option loops: [ "$1" = -o ].
+  for (const [args, expected] of [[["-n", "-o"], 0], [["-z", "-a"], 1], [["x", "=", "-a"], 1], [["!", "=", "x"], 1],
+    [["x", "=", "-o", "-o", "y", "=", "y"], 0], [["-c", "/dev/null"], 0], [["-t", "0"], 1], [["b", ">", "a"], 0]]) {
+    assert.equal(status(testTool, args), expected, args.join(" "));
+  }
   assert.equal(run(build("cat"), ["-n"], { input: "a\nb\n" }).stdout, "     1\ta\n     2\tb\n");
+  assert.equal(run(build("cat"), ["-u"], { input: "u" }).stdout, "u", "POSIX's one option");
   assert.equal(run(build("echo"), ["--"]).stdout, "--\n");
+  assert.equal(run(build("echo"), ["--help"]).stdout, "--help\n");
   const ls = build("ls");
   assert.equal(status(ls, ["--color=never", "."]), 0);
   // The POSIX long format; a directory starts with its total, an empty one has nothing else.
@@ -102,8 +110,28 @@ test("Dolly's own core tools keep their no-permission and finite semantics", asy
   await utimes(join(scratch, "install-source"), 1000, 2000);
   assert.equal(status(build("install"), ["-p", "install-source", "preserved"]), 0);
   assert.equal((await stat(join(scratch, "preserved"))).mtimeMs, 2000_000);
+  // POSIX cp copies what a link operand names; -R copies links as links.
+  const cp = build("cp");
+  await symlink("install-source", join(scratch, "source-link"));
+  assert.equal(status(cp, ["source-link", "copied-file"]), 0);
+  assert.equal((await lstat(join(scratch, "copied-file"))).isFile(), true);
+  assert.equal(status(cp, ["-R", "source-link", "copied-link"]), 0);
+  assert.equal((await lstat(join(scratch, "copied-link"))).isSymbolicLink(), true);
+  assert.equal(status(cp, ["-p", "install-source", "cp-preserved"]), 0);
+  assert.equal((await stat(join(scratch, "cp-preserved"))).mtimeMs, 2000_000);
   assert.equal(run(build("du"), ["-b", "install-source"]).stdout, "5\tinstall-source\n");
   assert.equal(run(build("rev"), [], { input: "aé✓b\n" }).stdout, "b✓éa\n");
+});
+
+// make 2>&1 | cat shows each line as Make prints it.
+test("cat writes a pipe's bytes as they arrive", async () => {
+  const cat = spawn(build("cat"), [], { stdio: ["pipe", "pipe", "inherit"] });
+  cat.stdin.write("first\n");
+  const first = await Promise.race([new Promise(resolve => cat.stdout.once("data", resolve)),
+    new Promise(resolve => setTimeout(resolve, 5000, "nothing before the input ended"))]);
+  cat.stdin.end();
+  await new Promise(resolve => cat.once("exit", resolve));
+  assert.equal(String(first), "first\n");
 });
 
 test("env, command and time resolve programs on the resulting PATH", () => {
@@ -169,7 +197,7 @@ test("file recognizes UTF-8 text and stat reports modes or rejects unknown forma
 });
 
 test("Dolly's own commands answer --help with their usage and status 0; man reports a missing page", async () => {
-  const core = ["cat", "cd", "clear", "cp", "echo", "file", "help", "ls", "man", "mkdir", "mv", "pwd", "rm", "stat", "touch"];
+  const core = ["cat", "cd", "clear", "cp", "file", "help", "ls", "man", "mkdir", "mv", "pwd", "rm", "stat", "touch"];
   const sources = ["command", "diff", "du", "env", "find", "hostname", "install", "nproc", "patch", "realpath", "rev",
     "time", "timeout", "tty", "xargs"];
   const programs = [...core.map(name => build(name)), ...sources.map(name => build(name))];
