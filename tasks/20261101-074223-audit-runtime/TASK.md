@@ -16,7 +16,7 @@ session modules), building on the page (`image-build*.mjs`, `build-worker.mjs`,
 Done when: each finding below is fixed with its browser evidence, closed as moot with the
 reason, or left as a few lines for the owner.
 
-## State (2026-11-01 21:00 JST)
+## State (2026-11-01 23:25 JST)
 
 Findings 1 to 7 and 9 to 19 (and the scoped style sheet) are committed, each verified as its
 commit says: source suite, and in Chromium and Firefox the suites in
@@ -31,7 +31,13 @@ the element (16); for the owner, the four questions below. The docs repins of fi
 restale `dolly-docs` and the images that install it: `dolly-docs`, `pi-dolly` and
 `pi-minimal` are rebuilt in this tree; `bhop`, `classicube`, `pi-runtime`, `pi-agent`,
 `pi-local`, `pi-phone`, `dollyfile-studio`, `rts-arena` and `slopyard` wait for a catalog
-round. No change of this branch is a seed input.
+round. No change of this branch is a seed input. Third assignment (from 22:00): Studio's
+examples (20, committed) and a build's memory (21, for the integrator); the builder's registry
+is the runtime and the build host (committed with `image-browser` and `custom-session` in
+both browsers), and one writer of image directories (`scripts/image-directory.mjs`, same
+bytes as before), both of which the npm image builder needs. That builder
+(`tasks/20261101-125930-npm-custom-images/`) is done and measured on `core/npm-custom-images`,
+held off this branch for the round after tonight's.
 
 ## Findings
 
@@ -412,3 +418,8 @@ without the loaders' `image` argument (finding 1), and keep this branch's metada
   a script that checks out the index, while a browser batch runs (two batches lost); a tree
   whose `dist/` comes from another branch needs its route pages written from that catalog,
   and a docs repin is cheapest verified by rebuilding only the chain a suite needs (2.8 min).
+- A cap that kills a build says how much, not where: sampling the scope's `memory.stat`
+  each second beside the build's log took two runs and showed anonymous memory, not page
+  cache, at the stage that copies the image, which the code then accounts for (21). And a
+  template that no test builds rots: Studio's examples declared seven of `system`'s eight
+  modules, and nothing built them until a recording did.
