@@ -137,7 +137,11 @@ Described, not changed (each moot or another workstream's, as it says):
   the lease descriptor) and hands a provider `{ operation, scope, body }`; one
   `static inline dolly_device_call()` in a runtime header replaces the clients' `call()`; the
   four WATs name the protocol instead of restating it. Every client's digest changes: a
-  catalog round.
+  catalog round. It does not break "a device module imports only its own files": the
+  protocol would be the runtime's, as `<dolly/process.h>` and `leaseBridge` already are,
+  and every device module depends on `runtime@0`. Not prototyped: where the shared WAT lives
+  and whether the GPU Worker, which reads its packets from memory itself, goes through the
+  bridge are the owner's to choose first.
 - **P2. Mailbox values in the WAT, as `touch@0` has them.** `input@0`'s record types, modifier
   bits, composing flag and lease flags and `display@0`'s copy flags, graphics flag and cursor
   styles are enums in `input.h` and `display.h` and typed again in JavaScript
