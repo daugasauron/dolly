@@ -74,7 +74,7 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
         const artifacts = rebuild ? await prepareImageArtifacts(image, source, build, text => report(`${text}\n`)) : [];
         if (!runnable) {
           // An image without ENTRY has no program to run: keep the complete log and report the result.
-          const built = await buildImage(image, artifacts, host.builder, report, { modules: site, customSource: source, consume: true });
+          const built = await buildImage(image, artifacts, host.builder, report, { modules: site, customSource: source });
           report(`\nBUILT ${source === undefined ? image : recipe.image} · ${(built.byteLength / 1024 / 1024).toFixed(1)} MiB · sha256 ${built.sha256}\n`);
           return null;
         }
@@ -82,7 +82,7 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
         return {
           message: { mode, artifacts, ...source === undefined ? {} : { customSource: source },
             ...customArtifact === undefined ? {} : { customArtifact } },
-          transfers: [...artifacts.map(artifact => artifact.bytes), ...customArtifact === undefined ? [] : [customArtifact.bytes]],
+          transfers: [],
         };
       },
       message(message) {
