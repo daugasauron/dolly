@@ -8,7 +8,7 @@ const quietMilliseconds = 2000;
 
 // The popup's look is the page's: an embedding sets these on boot()'s element
 // (or above it) in its own style sheet; unset, they are Dolly's.
-export const themeProperties = Object.freeze({
+const themeProperties = Object.freeze({
   "--dolly-html-background": "#262626",
   "--dolly-html-color": "#e8e3d7",
   "--dolly-html-accent": "#f2d45c",
