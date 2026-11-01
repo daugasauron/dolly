@@ -16,21 +16,28 @@ session modules), building on the page (`image-build*.mjs`, `build-worker.mjs`,
 Done when: each finding below is fixed with its browser evidence, closed as moot with the
 reason, or left as a few lines for the owner.
 
-## State (2026-11-01 20:35 JST)
+## State (2026-11-01 23:25 JST)
 
-Findings 1 to 7 and 9 to 18 (and the scoped style sheet) are committed, each verified as its commit says: source suite,
-and in Chromium and Firefox the suites in `build/audit-runtime-evidence/run2.log` to
-`run12.log` and `tip1.log` to `tip4.log` (at the tip: core, site, ending, image, custom
-session, session offline, snapshot stream, host compute, host modules, nena, threads,
-sockets, pty, shell env, boundary, indicators, npm packages, amy, docs, terminal, display,
-display cursor, touch, upload, GPU indicator, pager, man). Left: finding 8 to `demo/lean-2`;
-for agent D, `input@0`'s key rule (17) and the modules' controls outside the element (16);
-for the owner, the four questions below. The docs repins of finding 7 restale `dolly-docs`
-and the images that install it: `dolly-docs`, `pi-dolly` and `pi-minimal` are rebuilt in this
-tree (2.8 min, `image-build-docs.log`); `bhop`, `classicube`, `pi-runtime`, `pi-agent`,
+Findings 1 to 7 and 9 to 19 (and the scoped style sheet) are committed, each verified as its
+commit says: source suite, and in Chromium and Firefox the suites in
+`build/audit-runtime-evidence/run2.log` to `run13.log`, `tip1.log` to `tip4.log` and
+`t1.log` to `t4.log` (at the tip, all that this branch touches: core, site, ending, image,
+custom session, session offline, snapshot stream, host compute, host modules, nena, threads,
+sockets, pty, shell env, boundary, indicators, default, microphone, npm packages, amy, docs,
+terminal, display, display cursor, touch, upload, GPU indicator, pager, man). The second
+assignment (the tests, the release and build scripts) is below its findings. Left: finding 8
+to `demo/lean-2`; for agent D, `input@0`'s key rule (17) and the modules' controls outside
+the element (16); for the owner, the four questions below. The docs repins of finding 7
+restale `dolly-docs` and the images that install it: `dolly-docs`, `pi-dolly` and
+`pi-minimal` are rebuilt in this tree; `bhop`, `classicube`, `pi-runtime`, `pi-agent`,
 `pi-local`, `pi-phone`, `dollyfile-studio`, `rts-arena` and `slopyard` wait for a catalog
-round (the other branches' docs repins restale them too). No change of this branch is a seed
-input: every core image's plan is "reuse".
+round. No change of this branch is a seed input. Third assignment (from 22:00): Studio's
+examples (20, committed) and a build's memory (21, for the integrator); the builder's registry
+is the runtime and the build host (committed with `image-browser` and `custom-session` in
+both browsers), and one writer of image directories (`scripts/image-directory.mjs`, same
+bytes as before), both of which the npm image builder needs. That builder
+(`tasks/20261101-125930-npm-custom-images/`) is done and measured on `core/npm-custom-images`,
+which holds this branch and goes into tonight's round in its place.
 
 ## Findings
 
@@ -196,6 +203,25 @@ input: every core image's plan is "reuse".
     layout: 13 ms in Chrome, 20 ms in Firefox. The build-log fixture of `image-browser.mjs`
     checks the follow, the stop when the reader scrolls up, and a 2 s bound (it fails before).
 
+## The scripts (second assignment)
+
+19. **Every plan of the catalog read every snapshot again.** `build-system-snapshot.mjs`
+    re-read, hashed and decoded each reused image's snapshot to check it against its
+    metadata on every `npm run image`, also when nothing was to be built: 46 GB for the full
+    catalog, 49 s and 2.2 GB of memory (`/usr/bin/time`, this tree). Fix: the tree records
+    each snapshot it checked by its file's size, modification time and inode and the
+    metadata's text (`build/verified-snapshots.json`); a plan reads again only a snapshot
+    that changed. Second plan: 1.1 s, 173 MB. A changed file (touched, replaced, deduped
+    into another inode) is checked once more, as before; the release's own checks
+    (`site-release.mjs`) read every pack regardless.
+- Checked, no change: `release-checklist.sh` packs the npm tarballs it publishes, and the
+  npm suite it then runs packs its own; two packings give identical bytes (13 tarballs,
+  compared), so the published ones are the tested ones. `published-version.mjs`'s mirror,
+  verify and boot checks hold each file to its `deployment.sha256` and boot every version;
+  `site-release.mjs` verifies with the same identity checks the build uses
+  (`verifySnapshotIdentity`); its packs-only reading is finding 1. `generate-routes.mjs` and
+  `image-menu.mjs`: finding 14.
+
 ## The tests (second assignment, from 20:30)
 
 The integrator asked for a sweep of `test/*.test.mjs`, `test/*-browser.mjs` and their
@@ -221,6 +247,62 @@ markup shapes go. Files another branch changes tonight are left to it (B: `proce
 - `site-release.test.mjs`: the release server test also asserted `sessionLoadUrl`'s URL,
   which `session-transport.test.mjs` tests where it belongs; and the domain page's count of
   `<video` tags, where the media checks beside it are the behaviour.
+- `default-browser.mjs`, `npm-browser.mjs`: `default`'s fourteen modules were written out in
+  three files (with `host-modules.test.mjs`, which records what each core image declares),
+  `pi-minimal`'s six in one. The browser checks now compare the page's modules with the
+  recipe's declared list, which is the behaviour (the page enables what the image declares,
+  no more); the list itself stays in `host-modules.test.mjs`.
+- `image-browser.mjs`: after finding 1 no code asks for a raw `dist/dolly-IMAGE-system.snapshot`,
+  and the `downloads` check beside the request check already fails on any `.snapshot` a
+  build fetches: the request check goes. `system-snapshot-format.test.mjs` ran each
+  malformed snapshot through `decodeSystemSnapshot` and `decodeSnapshotRecords`, which the
+  first calls before anything else: the records decoder alone.
+- `microphone-browser.mjs` compared the indicator's text with "Microphone on"; it now checks
+  that the indicator shows while a program holds the microphone (the state is waited for
+  just before) and is gone once Ctrl+C released it, which nothing checked.
+  `default-browser.mjs` counted the words "amy list" to see the start-up text once; it counts
+  the first line the recipe's own `.dollyrc` prints.
+- Kept, as the only guard of their behaviour: `pages-publication.test.mjs`'s match of the
+  workflow text (the deploy checks the digest the owner chose; it runs on GitHub alone),
+  `host-modules.test.mjs`'s parse of `process.h` and the kernels for operation numbers (an
+  ABI check), `default-browser.mjs`'s check that the welcome text names published packages.
+
+## Studio's examples and a build's memory (third assignment, from 22:00)
+
+20. **Studio's examples could not build.** Studio recordings showed the first
+    `dollyfile-build` failing with "dollyfile: /usr/bin/git uses threads@0: add REQUIRES HOST
+    threads@0": `demos/studio/examples/hello.in` and `tool.in` listed seven of `system`'s eight
+    host modules, and `skills/dollyfiles/SKILL.md` taught "system's six". No test built an
+    example. Fix: both examples declare `threads@0`; the skill names all eight, the command
+    that prints them, and that the build fails on `FROM`; `test/studio-browser.mjs` copies the
+    shipped `Dollyfile-tool` to `/workspace` and builds it to success. Measured by building
+    each example as a custom image `FROM system` in a page, the path Studio's
+    `dollyfile-build` takes (`repro/studio-example-build.mjs`): before, `tool.in` fails with
+    the recording's error in Chromium and Firefox (`studio-example-before-*.log`); after, both
+    examples build in both (`studio-example-after-*.log`). The Studio test itself needs
+    `dollyfile-studio`, which is `FROM pi-local`, and `pi-local` cannot build here (21): the
+    catalog round runs it.
+21. **A build holds about three copies of the image it captures.** `pi-local` (a 1.65 GB
+    snapshot) was killed by the 9 GB cap twice at "copying completed image". Sampled from the
+    scope's `memory.stat` each second (`pi-local-measure2.memory.txt`): 4.8 GB anon at
+    "restoring image builder", then 7.3 GB anon and 1.8 GB page cache at the kill. At that
+    moment three copies are alive in the build Worker: the kernel's filesystem (Wasm memory),
+    the capture `capture_snapshot()` mallocs in Wasm memory for the whole snapshot
+    (`src/system-snapshot.c`, kernel) and the `ArrayBuffer` `build-worker.mjs` copies it into
+    to post it (`copying completed image`, page side). The JS copy cannot go on the page
+    side alone: Wasm memory never shrinks, and the bytes must leave it before the Worker ends;
+    keeping the Worker's memory alive instead and reading the range from it only moves the
+    copy, since the digest (`crypto.subtle`) and the image cache (IndexedDB) take an unshared
+    buffer. What lowers the peak is a capture that streams, the mirror of the restore's
+    `dolly_snapshot_stream_begin`/`write`/`finish`: in the kernel, a begin that does the
+    metadata pass `capture_snapshot()` already does and returns the total, and a read that
+    fills a fixed window with the next bytes of the stream (headers, paths, file data read at
+    an offset); in `build-worker.mjs`, one `new Uint8Array(total)` filled window by window.
+    The peak drops by the capture, to the filesystem and one copy (about 1.65 GB less for
+    `pi-local`). It changes `dolly.wasm`, which is not an image build input
+    (`write-build-id.mjs`: the seed `dolly.data` and the contract modules), so no image
+    restales as long as the runtime build leaves `dolly.data` byte-identical. Agent B's
+    kernel: the integrator's call.
 
 ## Checked and left
 
@@ -336,3 +418,8 @@ without the loaders' `image` argument (finding 1), and keep this branch's metada
   a script that checks out the index, while a browser batch runs (two batches lost); a tree
   whose `dist/` comes from another branch needs its route pages written from that catalog,
   and a docs repin is cheapest verified by rebuilding only the chain a suite needs (2.8 min).
+- A cap that kills a build says how much, not where: sampling the scope's `memory.stat`
+  each second beside the build's log took two runs and showed anonymous memory, not page
+  cache, at the stage that copies the image, which the code then accounts for (21). And a
+  template that no test builds rots: Studio's examples declared seven of `system`'s eight
+  modules, and nothing built them until a recording did.

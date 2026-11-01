@@ -1,5 +1,6 @@
 // Pi supervision and all application state stay inside Dolly. SPDX-License-Identifier: MIT
 import { createSettings, writeAtomic } from "./settings.mjs";
+import { redactKeys } from "./auth.mjs";
 import { traceText } from "../rts/spectator/trace.mjs";
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -31,7 +32,7 @@ export async function runAgent({ fs, spawn, world, run, scratch, directory: sett
     atomic("cost.txt", `$${Number(usage.reportedUSD).toFixed(4)} reported${subscription ? " · Codex subscription" : ""}`);
   };
   const record = (type, fields = {}) => {
-    const event = JSON.parse(JSON.stringify({ time: Date.now(), type, ...fields }).replace(/sk-or-v1-[\w-]+/g, "[redacted]"));
+    const event = JSON.parse(redactKeys(JSON.stringify({ time: Date.now(), type, ...fields })));
     fs.appendFileSync(`${run}/agent.events.jsonl`, JSON.stringify(event) + "\n");
     const actions = event.args?.actions;
     const text = type === "tool" && app.toolText ? `\n[${event.name}] ${app.toolText(event.name, event.args)}\n` : type === "tool" && Array.isArray(actions) ? `\n[game_input] ${actions.length ? actions.map(a =>

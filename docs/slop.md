@@ -46,16 +46,17 @@ image, and `man NAME` describes a command.
 ## Invocation
 
 ```text
-slop [-enux]                              interactive on a terminal, else reads stdin
-slop [-enux] -c 'command' [name [arg ...]]
-slop [-enux] script [arg ...]
+slop [-efnux]                             interactive on a terminal, else reads stdin
+slop [-efnux] -c 'command' [name [arg ...]]
+slop [-efnux] script [arg ...]
 ```
 
-- `-e` errexit, `-n` parse only, `-u` nounset, `-x` trace; letters combine.
+- `-e` errexit, `-f` no pathname expansion, `-n` parse only, `-u` nounset, `-x`
+  trace; letters combine.
 - The interactive line editor has cursor keys, history, Tab completion of
   commands and paths, Home/End, Ctrl-A/E/U/K/L and Ctrl-R search. History is the
   plain file `$HISTFILE` (default `/home/dolly/.slop_history`); the editor
-  keeps its last 1,000 entries.
+  and the file keep its last 1,000 entries.
 - `PATH` defaults to `/bin:/usr/bin`. Lookup finds regular files; execute bits
   are ignored. Each tool is a separate executable.
 
@@ -70,10 +71,12 @@ slop [-enux] script [arg ...]
 | Quoting | `'…'`, `"…"`, backslash, and `$'…'` with the C escapes `\a \b \e \f \n \r \t \v \\ \' \" \cX \xHH \NNN` |
 | Expansions | `${VAR-w}`, `=`, `+`, `?` and their `:` forms; `${#VAR}`; `#`, `##`, `%`, `%%`; `$(…)`; simple backticks; `$((…))` in signed 64-bit with C's operators, assignments (`=`, `+=`, …) and `?:` (no `++`, `--` or comma); `fnmatch` patterns (`*`, `?`, `[…]`, `[[:class:]]`) in globs, `case` and pattern removal; leading `~`; `IFS` splitting of unquoted expansions |
 | Builtins | `: . source eval exec exit return cd export unset set shift read getopts local type command break continue trap wait` |
-| Options | `set -e -u -x`; `set -o NAME` for errexit, nounset, pipefail and xtrace; combined as in `set -euo pipefail` |
+| Options | `set -e -f -u -x`; `set -o NAME` for errexit, noglob, nounset, pipefail and xtrace; combined as in `set -euo pipefail` |
 
 - Expansion happens when a command runs, so `x=1 && echo "$x"` prints `1`.
 - Only inherited, `export`ed or prefix-assigned variables reach children.
+- The shell starts with `IFS` set to space, tab and newline, `OPTIND=1` and
+  `PPID`, as POSIX says and dash and Bash do.
 - An assignment-only command returns the last substitution's status, so
   `set -e; x=$(exit 7)` stops with 7.
 - Command substitutions and `( … )` keep cwd, variables and `exit` private; file
@@ -85,7 +88,9 @@ slop [-enux] script [arg ...]
 - Functions take precedence over regular builtins such as `cd`; the special
   builtins (`:`, `.`, `eval`, `exec`, `exit`, `export`, `return`, `set`,
   `shift`, `unset`, `break`, `continue`) always run.
-- `cd` without an operand needs `HOME`; an empty operand is a no-op.
+- `cd` without an operand needs `HOME`; an empty operand is a no-op. `PWD` is
+  always the directory's real path, so `cd -P` is what `cd` does and `-L` is
+  refused.
 - `trap ACTION CONDITION...` handles `EXIT`, `HUP`, `INT`, `QUIT`, `PIPE` and `TERM`.
   A signal's action runs once the current command has finished; `EXIT` runs
   when the shell or a subshell leaves, also after a signal. A subshell starts
@@ -93,7 +98,9 @@ slop [-enux] script [arg ...]
   default signal actions, so an ignored signal could not be inherited.
 - Not implemented, and rejected by name: `alias`, `unalias`, `jobs`, `fg`,
   `bg` and a job spec to `kill` (no job control: `kill $!`), `umask` (there are no permission bits), `ulimit` (limits are fixed),
-  `${VAR:off:len}`, `${VAR/pat/rep}`.
+  `${VAR:off:len}`, `${VAR/pat/rep}`, and Bash's `((...))`, `<<<` and
+  `<(...)`, which POSIX would read as two subshells, a here-document and a
+  redirection.
   As in POSIX `sh`, braces do not expand (`echo {1..3}` prints `{1..3}`) and
   a glob that matches nothing stays as typed. `help` lists the same limits
   inside every image.
@@ -151,8 +158,9 @@ that run inside the shell stay serial.
 
 - Core tools are Dolly's own ([`Dollyfile-system-build`](../Dollyfile-system-build)),
   compiled with plain `cc` in `system-build` before Make, whose recipes need `cp`:
-  `cat [-n]`, `cp`, `mv`, `ls [--color]`, `echo`, `touch`, `pwd`, `mkdir`, `rm`,
-  `test`/`[` with `!`, `-a`, `-o`, parentheses and `-nt`, `-ot`, `-ef`, `foreground`, `help`, `clear`,
+  `cat [-nu]`, which writes what it reads at once, `cp`, `mv`, `ls [--color]`, `echo`,
+  `touch`, `pwd`, `mkdir`, `rm`, `test`/`[` (up to four arguments decided by
+  their number, as POSIX says), `foreground`, `help`, `clear`,
   `stat`, `file`.
   There are no permission bits: `test -x` means a regular file or a directory,
   `-r`/`-w` that the path exists. `ls -l` is the POSIX long format: the fixed modes `stat`
@@ -174,11 +182,12 @@ that run inside the shell stay serial.
   own Makefile in `system-tools` ([`Dollyfile-system-tools`](../Dollyfile-system-tools)). They follow
   POSIX, not GNU: `dd bs=1024k`, not `bs=1M`. `ln -s` works; hard links fail in
   WasmFS. `command -v NAME` says what runs for a name and ends with 1 when
-  nothing does; sbase's `which` ends with 2 then ("not an external command"). `kill` signals any process by PID. There is no `/dev/zero`, and no
+  nothing does; sbase's `which` ends with 2 then ("not an external command"). `kill` signals any process by PID. There is no
   `chmod`, `chown`, `id`, `whoami` or `df`: one user without modes to
   change or a name database, and no mount list to read; the `ps` package
-  prints `/proc/processes`. `tar` only extracts and `gzip` only
-  decompresses (`gzip -dc`); Git creates archives of any directory:
+  prints `/proc/processes`. `tar` only extracts, regular files and directories
+  of ustar, pax and GNU archives (what `git archive` and GitHub's tarballs are);
+  `gzip` stores no name or time (`-n`); Git creates archives of any directory:
   `git init -q . && git add -A && git archive -o out.tar.gz $(git write-tree)`
   (`.tar`, `.tar.gz` and `.zip`).
 - `uname` and `hostname` report the fixed Dolly/wasm64 identity, never the
@@ -187,7 +196,8 @@ that run inside the shell stay serial.
   `SHELL=/bin/slop` and starts recipes with `posix_spawn`. `-jN` runs N jobs at
   once and shares a pipe jobserver with recursive Makes; `-O` groups each
   target's output.
-  `ninja` is Samurai, which still runs one job ([`Dollyfile-system-tools`](../Dollyfile-system-tools)).
+  `ninja` is Samurai ([`Dollyfile-system-tools`](../Dollyfile-system-tools)), which runs two jobs
+  at once unless told `-j N`: libc counts one processor without `-pthread`.
 - `cc`, `c++`, `ld` and `ar` are the private compiler
   ([process model](process-model.md#executables)); `git`, `curl` and `gzip` are
   source-built.

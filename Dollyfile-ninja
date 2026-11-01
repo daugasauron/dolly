@@ -4,8 +4,8 @@ REQUIRES HOST runtime@0
 
 # Ninja as system-tools builds it: Samurai, unchanged, which runs its jobs at
 # once through posix_spawn and starts each command with /bin/sh, Slop.
-FROM /v0.1.4/Dollyfile-system-tools 0b0b0ac0caa5056706d83699a85230f865c62d8fa01e97019f85713ddf953362
-USE /v0.1.4/Dollyfile-mandoc 2be5fe3a8095ac03b1243dcb28f7863a5a30b15a5d312d42d01bdfb3ad07b770
+FROM /v0.1.4/Dollyfile-system-tools cf8e80dfa6bee50673dda6984a8e7088b84f6f4f088ae57d1a1cd4217133c2aa
+USE /v0.1.4/Dollyfile-mandoc 9deccc90c92164085b815648c9c59bc1714b569f91e2074b11dff7f06c7b758e
 
 REQUIRES TOOL text-page
 SLOP text-page /usr/share/man/man1/ninja.1

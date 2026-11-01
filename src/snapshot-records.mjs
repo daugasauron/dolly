@@ -1,6 +1,9 @@
 import { unretainedPath } from "./image-names.mjs";
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 export const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024 * 1024;
+// Packs average 2 MiB or more (scripts/share-pages-snapshots.mjs): an image of
+// MAX_SNAPSHOT_BYTES needs about 1,024, which this bound leaves room for.
+const MAX_SNAPSHOT_PACKS = MAX_SNAPSHOT_BYTES / (1024 * 1024);
 
 function compareBytes(left, right) {
   for (let index = 0; index < Math.min(left.length, right.length); index += 1) {
@@ -91,7 +94,7 @@ export function mergeSnapshotRecords(parts) {
 }
 
 export function validateSnapshotPacks(metadata) {
-  if (!Array.isArray(metadata.packs) || metadata.packs.length === 0 || metadata.packs.length > 256) throw new Error("invalid snapshot packs");
+  if (!Array.isArray(metadata.packs) || metadata.packs.length === 0 || metadata.packs.length > MAX_SNAPSHOT_PACKS) throw new Error("invalid snapshot packs");
   const hashes = new Set();
   let size = 16;
   for (const pack of metadata.packs) {

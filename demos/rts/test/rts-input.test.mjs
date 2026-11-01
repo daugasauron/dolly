@@ -23,30 +23,32 @@ test("screenshots and input schemas describe player-local, top-left-origin pixel
   assert.deepEqual(action.properties.type.enum, ["move", "click", "key", "drag", "wait"]);
 });
 
-test("model context preserves intent and two recent views without mutating full history", () => {
-  const messages = [
-    { role: "user", content: [{ type: "text", text: "Initial view" }, { type: "image", data: "oldest" }] },
-    { role: "user", content: [{ type: "text", text: "Play" }, { type: "image", data: "first" }] },
-    { role: "assistant", content: [{ type: "text", text: "The selection changed. I will test this control." },
-      { type: "toolCall", name: "game_input" }] },
-    { role: "toolResult", content: [{ type: "text", text: "frame 42" }, { type: "image", data: "current" }] },
+test("model context drops old views in batches, so each request extends the last one's prefix", () => {
+  const turn = n => [
+    { role: "assistant", content: [{ type: "text", text: `step ${n}` }, { type: "toolCall", name: "game_input" }] },
+    { role: "toolResult", content: [{ type: "text", text: `frame ${n}` }, { type: "image", data: `view ${n}` }] },
   ];
-  const original = structuredClone(messages);
-  const context = modelContext(messages);
-  assert.deepEqual(context[0].content, [{ type: "text", text: "Initial view" }]);
-  assert.match(context[1].content[0].text, /^PREVIOUS screenshot/);
-  assert.match(context[3].content[0].text, /^CURRENT screenshot/);
-  assert.deepEqual(context[1].content.slice(1), messages[1].content);
-  assert.deepEqual(context[2], messages[2]);
-  assert.deepEqual(context[3].content.slice(1), messages[3].content);
-  assert.deepEqual(messages, original);
+  const history = [{ role: "user", content: [{ type: "text", text: "Play" }] }];
+  const images = context => context.flatMap(message => message.content.filter(part => part.type === "image").map(part => part.data));
+  let previous = modelContext(history), misses = 0;
+  for (let n = 1; n <= 30; n++) {
+    history.push(...turn(n));
+    const original = structuredClone(history), context = modelContext(history);
+    assert.deepEqual(history, original, "the saved history is never changed");
+    assert.equal(images(context).at(-1), `view ${n}`, "the newest view is always shown");
+    assert.ok(images(context).length <= 8, "at most a batch and the two before it");
+    assert.deepEqual(context.map(message => message.content.map(part => part.type)), history.map(message =>
+      message.content.map(part => part.type)).map((types, index) => images(context).some(image =>
+      context[index].content.some(part => part.data === image)) ? types : types.filter(type => type !== "image")));
+    if (JSON.stringify(context.slice(0, previous.length)) !== JSON.stringify(previous)) misses++;
+    previous = context;
+  }
+  assert.equal(misses, 4, "the prefix changes only at a batch boundary: views 7, 13, 19 and 25");
+  const large = [...turn(1), ...turn(2)];
+  large[1].content[1].data = "x".repeat(5 * 1024 * 1024);
+  assert.deepEqual(images(modelContext(large)), ["view 2"], "images over the byte budget leave, never the newest");
+  assert.deepEqual(images(modelContext([large[1]])), [large[1].content[1].data], "the only view stays, whatever its size");
   assert.deepEqual(modelContext([]), []);
-  const large = structuredClone(messages);
-  large[1].content[1].data = "x".repeat(640 * 1024);
-  assert.deepEqual(modelContext(large)[1].content, [{ type: "text", text: "Play" }]);
-  assert.deepEqual(modelContext(large)[2], large[2], "large pairs retain assistant intent and tools");
-  assert.deepEqual(modelContext(large)[3].content.slice(1), large[3].content, "large pairs retain the newest image");
-  assert.deepEqual(modelContext([large[1]])[0].content.slice(1), large[1].content, "never strip the only observation");
 });
 
 test("upstream Pi accepts the game-input schema and rejects unrelated tools' arguments", () => {

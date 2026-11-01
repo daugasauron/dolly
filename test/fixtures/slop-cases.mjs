@@ -39,6 +39,9 @@ export const shellCases = [
   ["a quoted part of a parameter word stays one field", 'x="a b"; set -- ${x:+"$x"} ${x:+$x}; case $#:$1 in "3:a b") :;; *) exit 91;; esac; unset u; set -- ${u-"c  d"   e} ${u-"g h"i j}; case "$#:$1:$2:$3" in "4:c  d:e:g hi") :;; *) exit 92;; esac; x="*"; set -- ${x+"$x"}; case $#:$1 in "1:*") :;; *) exit 93;; esac', 0],
   ["what a pattern quotes matches itself", "x='a*b*'; y='*'; case \"${x%\"$y\"}:${x%$y}:${x%\\*}:${x#\"a*\"}:${x#a*}:${x%%'*'}\" in 'a*b:a*b*:a*b:b*:*b*:a*b') :;; *) exit 91;; esac; f=/usr/lib/libx.so; p=/usr/lib; case \"${f#\"$p\"/}:${f%\"${f##*/}\"}\" in libx.so:/usr/lib/) :;; *) exit 92;; esac", 0],
   ["unset and empty positional defaults", 'set -- ""; case ${1-default}:${1:-fallback}:${2-default}:${999999999999999999999-default} in :fallback:default:default) :;; *) exit 91;; esac', 0],
+  ["a quoted $@ in a parameter word is one field per parameter", 'f() { n=$#; first=$1; last=$2; }; set -- "a b" "" c; f ${1:+"$@"}; case $n:$first:$last in "3:a b:") :;; *) exit 91;; esac; f "${x-$@}"; case $n:$first in "3:a b") :;; *) exit 92;; esac; set -- ""; f ${1+"$@"}; case $n:$first in 1:) :;; *) exit 93;; esac; set --; f ${1+"$@"}; exit $n', 0],
+  // As agents write commit messages, "$(cat <<'EOF' ... EOF\n)": a here-document in a substitution.
+  ["a substitution holds a here-document, a comment and a case pattern", 'x=$(read -r m <<\'EOF\'\nFix the parser (it didn\'t stop)\nEOF\ncase $m in "Fix the parser (it didn\'t stop)") exit 7;; esac); case $? in 7) :;; *) exit 91;; esac; y=$(: kept # a comment\'s )\n); z=$(case a in a) exit 8;; esac); case $? in 8) :;; *) exit 92;; esac', 0],
   ["positional replacement and length", 'set -- abc ""; case ${1+yes}:${2:+yes}:${3+yes}:${#1}:${1#a} in yes:::3:bc) :;; *) exit 91;; esac', 0],
   ["braced count and status", 'set -- a b; (exit 7); case ${?}:${#} in 7:2) :;; *) exit 91;; esac', 0],
   ["positional default shell pattern", 'f() { value=${2-[^=]*=}; case $value in "[^=]*=") :;; *) exit 91;; esac; }; f first', 0],
@@ -66,6 +69,8 @@ export const shellCases = [
   ["a completed failing body is the loop's status", "i=0; while case $i in 2) (exit 1);; esac; do i=$((i+1)); (exit 5); done", 5],
   ["break 2 from a while inside a for", "for a in 1 2; do i=0; while :; do i=$((i+1)); (exit $((i != 2))) && break 2; done; done; case $?:$a$i in 0:12) :;; *) exit 91;; esac", 0],
   ["break beyond the outermost loop leaves it with status 0", "i=0; while :; do i=$((i+1)); for b in 1; do (exit 1); done; (exit $((i != 2))) && break 5; done", 0],
+  ["return leaves while and until loops", "f() { while :; do return 3; done; }; f; case $? in 3) :;; *) exit 91;; esac; g() { until false; do return 4; done; }; g", 4],
+  ["return leaves a for loop on the value it returned on", "f() { for opt; do return 3; done; }; f a b; case $?:$opt in 3:a) :;; *) exit 91;; esac", 0],
   ["for loops keep the status of break and continue", "for i in 1 2; do (exit 1); continue; done || exit 91; for i in 1 2; do (exit 1) || break; done || exit 92; for i in 1 2; do (exit 1) && break; done", 1],
   ["sourcing shares replacement arguments", "set -- old; . ./replace.slop; case $#:$1:$2 in 2:new:tail) :;; *) exit 91;; esac", 0],
   ["sourcing shares shifted arguments", "set -- old kept; . ./shift.slop; case $1 in kept) :;; *) exit 91;; esac", 0],
@@ -158,6 +163,19 @@ export const shellCases = [
   ["only a program runs in the background", "(exit 3) & exit 7", 7],
   ["& does not take a && list", ": && : & exit 7", 2, 7],
   ["a path that names nothing is not a missing command", "./no-such-program; a=$?; no-such-program; b=$?; ./; c=$?; exit $((a + b + c))", 380 & 255],
+  // A colon-separated record, as /etc/passwd's empty fields are.
+  ["read gives an empty field between two separators, as POSIX splits fields", 'IFS=: read -r a b c d <<EOF\nuser::1000:x:y\nEOF\ncase "$a|$b|$c|$d" in "user||1000|x:y") :;; *) exit 91;; esac; IFS=: read -r e f <<EOF\n:g:\nEOF\ncase "$e|$f" in "|g") :;; *) exit 92;; esac', 0],
+  // The usual option loop, in a script given no option.
+  ["OPTIND is 1 when the shell starts", 'set -- file; while getopts ab o; do :; done; shift $((OPTIND - 1)); case $OPTIND:$1 in 1:file) :;; *) exit 91;; esac', 0],
+  ["command -V says what runs for a name", 'f() { :; }; command -V f > /dev/null && command -V cd > /dev/null && ! command -V no-such-command 2> /dev/null', 0],
+  ["IFS is space, tab and newline when the shell starts", 'old=$IFS; IFS=:; IFS=$old; x="a b"; set -- $x; case $#:${PPID:+set} in 2:set) :;; *) exit 91;; esac', 0],
+  // automake's install-sh splits a path at / between set -f and set +f.
+  ["set -f turns pathname expansion off, in this shell only", 'set -f; set -- /*; case $1 in "/*") :;; *) exit 91;; esac; case $- in *f*) :;; *) exit 94;; esac; set +f; set -- /*; case $1 in "/*") exit 92;; esac; (set -o noglob); set -- /*; case $1 in "/*") exit 93;; esac', 0],
+  // sdl2-config finds its prefix with cd -P -- DIR.
+  ["cd takes -P: its directory is always the real path", 'cd -P -- / && case $PWD in /) exit 7;; esac', 7],
+  // A POSIX shell would read each as something else; (( x > 3 )) would write a file named 3.
+  ["Bash's ((...)) is refused before anything runs", "exit 7; (( x > 3 ))", 2, 7],
+  ["Bash's <<< and <(...) are refused before anything runs", "exit 7; read -r x <<< word; cat <(:)", 2, 7],
   ["aliases, umask and ulimit are refused", "alias x=y; a=$?; umask 022; b=$?; ulimit -n > /dev/null; exit $((a + b + $?))", 6, 0],
   ["jobs, fg, bg and a job spec to kill are refused", "jobs; a=$?; fg; b=$?; bg; c=$?; kill -TERM %1; exit $((a + b + c + $?))", 8, 3],
 ];

@@ -8,7 +8,7 @@ import { gunzipSync } from "node:zlib";
 import test from "node:test";
 import { promisify } from "node:util";
 import { ensureSnapshotPacks, shareSnapshots, splitSnapshotRecords } from "../scripts/share-pages-snapshots.mjs";
-import { parseGeneratedConstant } from "../scripts/site-release.mjs";
+import { parseGeneratedConstant } from "../scripts/image-directory.mjs";
 import { decodeSnapshotRecords, encodeSnapshotRecords, mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 
 const digest = value => createHash("sha256").update(value).digest("hex");
@@ -41,6 +41,23 @@ test("large image packs fit the image bound, including aggregate-size enforcemen
   assert.throws(() => validateSnapshotPacks({ byteLength: limit + 1, packs: [pack(limit + 1)] }), /descriptor/);
   assert.throws(() => validateSnapshotPacks({ byteLength: limit + 1,
     packs: [pack(limit), { ...pack(17), sha256: "b".repeat(64) }] }), /size limit/);
+});
+
+test("an image of small files at the size bound fits the pack bound", () => {
+  // Records of 700 KiB, as a library's .olean files, up to the image bound.
+  const records = new Map(), size = 700 * 1024;
+  let byteLength = 16;
+  for (let index = 0; ; index += 1) {
+    const path = `/usr/lib/${String(index).padStart(6, "0")}`;
+    if (byteLength + 16 + path.length + size > MAX_SNAPSHOT_BYTES) break;
+    records.set(path, { kind: 2, byteLength: size });
+    byteLength += 16 + path.length + size;
+  }
+  const packs = splitSnapshotRecords(records).map((part, index) => {
+    const packLength = [...part].reduce((sum, [path, record]) => sum + 16 + path.length + record.byteLength, 16);
+    return { sha256: index.toString(16).padStart(64, "0"), byteLength: packLength, encodedByteLength: packLength };
+  });
+  assert.equal(validateSnapshotPacks({ byteLength, packs }).length, packs.length);
 });
 
 async function packImages(directory, inputs) {

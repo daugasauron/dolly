@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { checkKey, signIn, efforts, openRouterJSON, visionModels, validateSelection } from "./auth.mjs";
+import { checkAnthropicKey, checkKey, signIn, efforts, openRouterJSON, providers as available, redactKeys, visionModels, validateSelection } from "./auth.mjs";
 import { importRelay } from "../rts/spectator/relay.mjs";
 export const defaultSelection = { provider: "openrouter", model: "", effort: "low" };
 export const writeAtomic = (fs, path, data) => { fs.writeFileSync(`${path}.tmp`, data); fs.renameSync(`${path}.tmp`, path); };
@@ -36,13 +36,14 @@ export function createSettings(fs, scratch, run, changed, profile) {
     writeAtomic(fs, `${profile}/agent.json`, JSON.stringify(selection) + "\n");
     selected(); await changed(selection);
   };
-  const providerName = () => selection.provider === "codex-local" ? "Codex (local proxy)" : "OpenRouter";
+  const providerName = () => ({ "codex-local": "Codex (local proxy)", anthropic: "Anthropic" })[selection.provider] ?? "OpenRouter";
   const home = message => menu("Agent settings", [
     ["provider", "Provider", providerName()], ["model", "Model", selection.model || "Select a model"],
     ["effort", "Reasoning effort", selection.effort], ["connection", "Connection", providerName()],
   ], message, "settings");
   const providers = () => menu("Provider", [
     ["provider:openrouter", "OpenRouter", "Use an OpenRouter account or API key"],
+    ["provider:anthropic", "Anthropic", "Use an Anthropic API key"],
     ["provider:codex-local", "Codex (local proxy)", "Use your Codex subscription through a local proxy"],
   ]);
   const ask = (title, { secret = false, message } = {}) => new Promise((resolve, reject) => {
@@ -64,7 +65,7 @@ export function createSettings(fs, scratch, run, changed, profile) {
     const runtime = await models();
     if (key.startsWith("provider:")) {
       const provider = key.slice(9);
-      if (!["openrouter", "codex-local"].includes(provider)) throw Error("Choose an available provider");
+      if (!available.includes(provider)) throw Error("Choose an available provider");
       if (provider !== selection.provider) await save({ provider, model: "", effort: "low" });
       return runtime.hasConfiguredAuth(provider) ? home() : select("connection");
     }
@@ -73,6 +74,9 @@ export function createSettings(fs, scratch, run, changed, profile) {
       return menu(providerName(), selection.provider === "codex-local" ? [
         ["relay", connected ? "Replace proxy configuration" : "Connect local proxy", "Choose the proxy's models.json file"],
         ...(connected ? [["disconnect", "Disconnect", "Remove this proxy from Dolly"]] : []),
+      ] : selection.provider === "anthropic" ? [
+        ["key", connected ? "Replace API key" : "Use an API key", "Paste a key with hidden input"],
+        ...(connected ? [["disconnect", "Disconnect", "Remove the Anthropic key from Dolly"]] : []),
       ] : [
         ["oauth", "Sign in with OpenRouter", "Open the sign-in link and paste the authorization code"],
         ["key", connected ? "Replace API key" : "Use an API key", "Paste a key with hidden input"],
@@ -102,6 +106,14 @@ export function createSettings(fs, scratch, run, changed, profile) {
       if (!levels.includes(key.slice(7))) throw Error("Unsupported reasoning effort");
       await save({ ...selection, effort: key.slice(7) }); return home();
     }
+    if (key === "key" && selection.provider === "anthropic") {
+      const credential = await ask("Anthropic API key", { secret: true });
+      menu("Connecting Anthropic", [], "Checking the key…", "busy");
+      await checkAnthropicKey(credential);
+      await runtime.login("anthropic", "api_key", { prompt: async () => credential, notify: () => {} });
+      await save({ ...selection });
+      return select("model");
+    }
     if (key === "key" || key === "oauth") {
       if (selection.provider !== "openrouter") throw Error("Select OpenRouter first");
       const credential = key === "key" ? await ask("OpenRouter API key", { secret: true }) : await signIn(ask, async (_message, url) => {
@@ -130,7 +142,7 @@ export function createSettings(fs, scratch, run, changed, profile) {
         const config = fs.existsSync(modelsPath) ? JSON.parse(fs.readFileSync(modelsPath, "utf8")) : {};
         if (config.providers) delete config.providers["codex-local"];
         writeAtomic(fs, modelsPath, JSON.stringify(config)); await models(true);
-      } else await runtime.logout("openrouter");
+      } else await runtime.logout(selection.provider);
       await save({ ...selection, model: "" }); return home();
     }
     throw Error("Unknown settings selection");
@@ -139,7 +151,7 @@ export function createSettings(fs, scratch, run, changed, profile) {
     respond(value) { const pending = answer; answer = undefined; if (value === null) pending?.reject(Error("Cancelled")); else pending?.resolve(value); },
     async select(key) {
       if (!["home", "provider"].includes(key)) menu("Loading", [], "Loading provider settings…", "busy");
-      try { await select(key); } catch (error) { home(String(error.message).replace(/sk-or-v1-[\w-]+/g, "[redacted]")); } },
+      try { await select(key); } catch (error) { home(redactKeys(error.message)); } },
     async ready() {
       const runtime = await models();
       if (!runtime.hasConfiguredAuth(selection.provider) || !runtime.getModels(selection.provider).some(model => model.id === selection.model && model.input.includes("image")))

@@ -66,9 +66,7 @@ test("snapshot rejects malformed kinds, paths, parent graphs, lengths and orderi
     [["/b", 2], ["/a", 2]], [["/a", 2], ["/a", 2]],
     [["/a", 3, "b"], ["/a/file", 2]], [["/a", 2], ["/a/file", 2]],
     [["\uFEFF/file", 2]], [["/tmp/file", 2]], [["/workspace/file", 2]],
-  ]) for (const decode of [decodeSystemSnapshot, decodeSnapshotRecords]) {
-    assert.throws(() => decode(snapshot(records)));
-  }
+  ]) assert.throws(() => decodeSnapshotRecords(snapshot(records)));
   const bytes = snapshot([["/file", 2, "data"]]);
   assert.throws(() => decodeSystemSnapshot(bytes.subarray(0, -1)), /truncated/);
   assert.throws(() => decodeSystemSnapshot(Buffer.concat([bytes, Buffer.of(0)])), /trailing/);

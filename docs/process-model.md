@@ -110,8 +110,10 @@ sequenceDiagram
   Ghostty holds more than 256. Descriptor flags are per handle; offsets and status
   flags belong to the shared open description. `FD_CLOEXEC` works everywhere.
   `getrlimit` reports the fixed limits (`RLIMIT_NOFILE` 1024, `RLIMIT_NPROC` 56,
-  `RLIMIT_AS` 8 GiB, `RLIMIT_STACK` 8 MiB); `sysconf(_SC_OPEN_MAX)` is still
-  libc's constant 1024.
+  `RLIMIT_AS` 8 GiB, `RLIMIT_STACK` 8 MiB), and `setrlimit` to anything else
+  fails with `EPERM`; `sysconf(_SC_OPEN_MAX)` is still libc's constant 1024.
+  So is the one scheduling priority, nice 0: `nice` and `setpriority` to
+  another fail with `EPERM`.
 - Pipes hold 64 KiB. Empty reads and full writes return `EAGAIN` when
   nonblocking; closing all writers gives EOF, also to a reader that was
   waiting. Writing with no reader, or waiting to write when the last reader
@@ -158,7 +160,8 @@ sequenceDiagram
   cannot protect or revoke part of linear memory. So `mprotect` grants read
   and write, which memory always is (a shared mapping made without write then
   writes back, `EACCES` if its descriptor is read-only), and any other
-  protection fails `ENOTSUP`.
+  protection fails `ENOTSUP`, as `mmap` with `PROT_EXEC` does. `munmap` takes
+  a whole mapping, or a range that holds none; part of one is `EINVAL`.
 - Advisory locks live in one kernel table of 1024 for all processes; a request
   that needs one more fails with `ENOLCK`. `flock` locks the whole file for an
   open file description: descriptors made by `dup` or inherited by a spawned
@@ -277,21 +280,29 @@ nothing and declares nothing: any program built for Dolly runs on one.
 - Spawn inherits no descriptors, the standard streams, or all non-CLOEXEC
   descriptors, then applies explicit parent-to-child mappings, all read from the
   parent at once. A spawn may set the child's cwd.
-- `posix_spawn` inherits all non-CLOEXEC descriptors and replays `adddup2`
-  and `addclose` actions in order as mappings, a closed one keeping the child
-  from inheriting the descriptor ([`runtime-adapter.c`](../src/process/runtime-adapter.c)).
-  A child starts with default dispositions and an empty signal mask; other file
-  actions, a session, process group or scheduler, and a non-empty mask return
-  `ENOTSUP`. There is no `fork`: it fails with `ENOSYS`.
+- `posix_spawn` inherits all non-CLOEXEC descriptors and replays its file
+  actions in order ([`runtime-adapter.c`](../src/process/runtime-adapter.c)):
+  `adddup2` and `addclose` as mappings, a closed one keeping the child from
+  inheriting the descriptor; `addchdir_np` chooses the child's directory, and
+  `addopen` opens the file in the parent, from that directory, for the child.
+  A child starts with default dispositions and an empty signal mask; a
+  session, process group or scheduler, and a mask or an ignored signal the
+  child would keep return `ENOTSUP`. There is no `fork`: it fails with `ENOSYS`.
 - Each process is its own process group and its own session, which it leads:
   `getpgid`, `getpgrp` and `getsid` give its PID (the caller's for 0, `ESRCH`
   for none), `setpgid` of a process to itself succeeds and any other fails
   `EPERM`, as `setsid` does ([`libc-adapter.c`](../src/process/libc-adapter.c)).
   `kill(0)` signals the caller and `kill(-PID)` that one process, not its
   descendants; `kill(-1)` fails `ENOTSUP`.
-- `waitpid` accepts a child PID, `-1` or `0`, with `WNOHANG`, `WUNTRACED` and
+- `waitpid` accepts a child PID, `-1` or `0`, and `-PID` for the group the
+  child PID is, with `WNOHANG`, `WUNTRACED` and
   `WCONTINUED`: no child ever stops or continues. Wait records distinguish signal termination from exit:
-  `exit(130)` is not SIGINT.
+  `exit(130)` is not SIGINT. A child that has exited is there until it is
+  waited for: `kill` of it succeeds and does nothing.
+- `system` and `popen` run their command as `/bin/slop -c`, given the
+  standard streams only; `system` ignores SIGINT and SIGQUIT and blocks
+  SIGCHLD while it waits, as POSIX says, so Ctrl+C ends the command and not
+  its caller.
 - Timed spawns carry an absolute monotonic deadline at most one day away; the
   supervisor ends the child with status 124 even inside a pure CPU loop.
 - `SPAWN_FOREGROUND` and `SPAWN_INTERACTIVE` are explicit roles. Ctrl+C with
@@ -342,14 +353,17 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
 - A signal delivered while the new program is prepared interrupts the call:
   the old program handles it, and libc calls `exec` again. Between the old
   Worker's end and the new one's start the process is `starting`, as a spawned
-  one is, and a signal then ends it.
+  one is: a signal the old program ignored is ignored, one it blocked waits
+  for the new program, and any other ends it.
 - A large interactive program gets the 500 ms of reclamation it gets at exit
   before its successor's memory is made.
 
 ## Signals
 
 - Supported: `SIGHUP`, `SIGINT`, `SIGQUIT`, `SIGABRT`, `SIGKILL`, `SIGPIPE`,
-  `SIGALRM`, `SIGTERM`, `SIGCHLD`, `SIGWINCH`; others are rejected.
+  `SIGALRM`, `SIGTERM`, `SIGCHLD`, `SIGWINCH`; others are rejected, and only
+  the kernel sends another process `SIGCHLD` (`kill` with it fails with
+  `ENOTSUP`).
 - Handlers run in Wasm at syscall boundaries ([`signal.c`](../src/process/signal.c))
   with masks, `SA_RESTART`, `SA_RESETHAND`, `SA_NODEFER` and `SA_SIGINFO`.
   Alternate stacks, `sigwait`, asynchronous preemption and `SA_NOCLDWAIT` are
@@ -387,15 +401,20 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
 - CPU time is not accounted: `clock()`, `CLOCK_PROCESS_CPUTIME_ID`,
   `getrusage` and `times` report the monotonic time since the program started
   (since its `exec`, if it was exec'd) as its user time, an upper bound that is
-  exact while it computes without blocking; system time and children's times
-  are zero ([`libc-adapter.c`](../src/process/libc-adapter.c)).
+  exact while it computes without blocking; system time and children's times,
+  `wait4`'s too, are zero ([`libc-adapter.c`](../src/process/libc-adapter.c)).
 
 ## Threads, DSOs and FFI
 
 - `threads@0` ([`host/threads/dolly-threads-0.wat`](../host/threads/dolly-threads-0.wat),
   [`host/threads/threads.mjs`](../host/threads/threads.mjs)): statically linked `-pthread`
   programs, one Worker per thread sharing the process memory, at most 32 per
-  process and 64 in total; `sysconf` reports 4 processors. Handlers run on the
+  process and 64 in total; `sysconf` reports 4 processors. The memory takes its
+  maximum, 8 GiB, before a second thread starts and never grows while two run:
+  Chrome checks a copy, fill or atomic access against each thread's own record
+  of the size, which another thread's growth updates late. Firefox charges that
+  maximum to Linux's commit limit; a reservation the browser refuses fails
+  `pthread_create` with `EAGAIN`. Handlers run on the
   main thread, also while it waits in `pthread_join`. FFI calls work in every
   thread; no DSOs, FFI closures, cancellation or directed signals.
 - `dso@0` ([`host/dso/dolly-dso-0.wat`](../host/dso/dolly-dso-0.wat),

@@ -97,16 +97,29 @@ export function browser({ ask }) {
 export function worker({ send, runtimeBase, abi, service }) {
   const memory = new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" });
   // The kernel's memory grows in a Worker of its own (grower.mjs) while this
-  // one waits. Chrome counts a shared memory as external memory of the isolate
-  // that grows it; past twice its heap limit it then collects between every
-  // message of this one, and every system call takes fifteen times as long.
-  const growth = new BigInt64Array(new SharedArrayBuffer(16)), growthWord = new Int32Array(growth.buffer);
-  const grower = new Worker(new URL("./grower.mjs", import.meta.url), { type: "module", name: "dolly-memory" });
+  // one waits, as a process's does in one per process (process-supervisor.mjs).
+  // Chrome counts a shared memory as external memory of the isolate that grows
+  // it; past twice its heap limit it then collects between every message of
+  // this one, and every system call takes fifteen times as long.
+  const growerUrl = new URL("./grower.mjs", import.meta.url);
+  const grower = new Worker(growerUrl, { type: "module", name: "dolly-memory" });
   const growing = new Promise((resolve, reject) => {
     grower.onmessage = resolve;
-    grower.onerror = event => reject(new Error(event.message || "the kernel memory Worker failed"));
+    grower.onerror = event => reject(new Error(event.message || "the memory Worker failed"));
   });
-  grower.postMessage({ memory, control: growth.buffer });
+  // The old size in pages, or -1: this thread sees the new size when it returns.
+  const grow = pages => {
+    const control = new SharedArrayBuffer(16), values = new BigInt64Array(control), word = new Int32Array(control);
+    values[0] = pages;
+    grower.postMessage({ memory, control });
+    while (Atomics.load(word, 2) === 0) Atomics.wait(word, 2, 0);
+    const old = values[0];
+    // This thread learns of the growth by an interrupt, which a wait that
+    // found it done already does not take: take it before the kernel touches
+    // the new pages, as a loop does at each turn.
+    if (old >= 0n) while (BigInt(memory.buffer.byteLength) < (old + pages) * 65536n);
+    return old;
+  };
   let supervisor, threadProvider, terminal, reported = "";
   // The foreground program, sent to the page when it changes.
   function reportForeground() {
@@ -149,20 +162,7 @@ export function worker({ send, runtimeBase, abi, service }) {
       },
       "env.dolly_clock_realtime": () => Date.now(),
       "env.dolly_clock_monotonic": () => performance.now(),
-      "env.dolly_memory_grow": pages => {
-        growth[1] = pages;
-        Atomics.store(growthWord, 0, 1);
-        Atomics.notify(growthWord, 0);
-        // A notify can be the grower's for the last growth, whose wait found
-        // it done already: this one is done when the word says so.
-        while (Atomics.load(growthWord, 0) === 1) Atomics.wait(growthWord, 0, 1);
-        const old = growth[1];
-        // This thread learns of the growth by an interrupt, which a wait that
-        // found it done already does not take: take it before the kernel
-        // touches the new pages, as a loop does at each turn.
-        if (old >= 0n) while (BigInt(memory.buffer.byteLength) < (old + pages) * 65536n);
-        return old;
-      },
+      "env.dolly_memory_grow": grow,
       // Web Crypto rejects views of shared memory: fill a private buffer, then copy.
       "env.dolly_entropy": (address, length) => {
         const bytes = span(address, length, maxEntropy);
@@ -182,7 +182,7 @@ export function worker({ send, runtimeBase, abi, service }) {
       if (module) processModules.set(requirement, module); else processModules.delete(requirement);
     },
     async supervisor(kernel) {
-      return supervisor ??= await DollyProcessSupervisor.create(kernel, memory, runtimeBase, abi, service, threadProvider, processModules);
+      return supervisor ??= await DollyProcessSupervisor.create(kernel, memory, runtimeBase, abi, service, threadProvider, processModules, growerUrl);
     },
     start({ kernel }) {
       terminal = new TerminalMailbox(memory.buffer, Number(kernel.dolly_terminal_mailbox_address()));

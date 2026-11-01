@@ -33,11 +33,13 @@ Never run `/bin/dollyfile` here: it replaces the running image.
 - `REQUIRES HOST name@0` lines come right after the role and list every host
   module the image uses, `runtime@0` first: every image and package names the
   runtime it is built on. Nothing is inherited from `FROM` or `INSTALL`: an
-  application on `system` repeats system's six (runtime, display, download,
-  http, snapshot, upload), and installing a package means declaring every
-  module that package declares (ripgrep and fd need `threads@0`). Read the package's
-  recipe first; otherwise the build fails on the `INSTALL` row, naming the
-  missing line.
+  application on `system` repeats every line of system's own (runtime, display,
+  input, download, http, snapshot, upload, threads: `grep '^REQUIRES HOST'
+  /etc/dolly/recipes/Dollyfile-system` prints them), or the build fails on
+  `FROM`, naming a program that uses a missing one (Git uses `threads@0`).
+  Installing a package means declaring every module that package declares
+  (ripgrep and fd need `threads@0`). Read the package's recipe first; otherwise
+  the build fails on the `INSTALL` row, naming the missing line.
 - `FROM PATH SHA256` is the first operation. `INSTALL PATH SHA256` adds a
   package anywhere after it. In a `PACKAGE`, `USE PATH SHA256` installs one
   for the build only; what installs the package does not get it. `COPY`

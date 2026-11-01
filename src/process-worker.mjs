@@ -1,6 +1,6 @@
 import { DOLLY_ERRNO } from "./process-constants.mjs";
 
-import { DOLLY_THREAD_EXIT } from "../host/threads/abi.mjs";
+import { DOLLY_THREAD_EXIT, DOLLY_THREAD_SPAWN } from "../host/threads/abi.mjs";
 import {
   DOLLY_PROCESS_CLOCK_MONOTONIC, DOLLY_PROCESS_CLOCK_REALTIME, DOLLY_PROCESS_CLOCK_TIME,
   DOLLY_PROCESS_EXIT, DOLLY_PROCESS_INTERRUPT_POLL,
@@ -131,6 +131,10 @@ function call(operation, requestAddressValue, requestSizeValue,
     threadResult = exitingResult;
     throw THREAD_EXIT;
   }
+  // A second thread starts once the memory has its maximum (process-supervisor.mjs):
+  // this thread learns of it by an interrupt, which a loop takes at each turn.
+  if (operation === DOLLY_THREAD_SPAWN && result >= 0n)
+    while (BigInt(configuration.memory.buffer.byteLength) < configuration.maximum * 65536n);
   // Sample the same clock after kernel checks too: Firefox rounds Worker
   // time origins, so alternating the two clocks can otherwise move backwards.
   if (clock !== undefined && result === 8n) return clockResponse(clock, response, lastSignalCheck);

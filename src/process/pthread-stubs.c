@@ -82,4 +82,12 @@
 #pragma weak sem_wait
 #pragma weak thrd_detach
 
+/* Upstream's pthread_cancel reports success and cancels nothing. The one
+ * thread a serial process has is not cancelled: ENOTSUP, as threads@0 says. */
+#define pthread_cancel emscripten_stub_pthread_cancel
 #include "library_pthread_stub.c"
+#undef pthread_cancel
+int pthread_cancel(pthread_t thread) {
+  (void)thread;
+  return ENOTSUP;
+}

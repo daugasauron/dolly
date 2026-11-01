@@ -333,6 +333,13 @@ DOLLY_OCAML_VERSION=5.5.0
 DOLLY_OCAML_URL='https://github.com/ocaml/ocaml/releases/download/5.5.0/ocaml-5.5.0.tar.gz'
 DOLLY_OCAML_SHA256=c018052c8264a3791a8f54f84179e6bcc78ed82eb889bacc2773df445259aed3
 
+# Lean 4's release, whose stage0/ holds the C of the compiler it bootstraps
+# from (demos/lean); its commit is the hash a build from git embeds.
+DOLLY_LEAN_VERSION=4.35.0
+DOLLY_LEAN_COMMIT=eb6cafb7290e8bd5f2937522d8d804f58f02bafc
+DOLLY_LEAN_URL='https://github.com/leanprover/lean4/archive/refs/tags/v4.35.0.tar.gz'
+DOLLY_LEAN_SHA256=6747b099d03d3675f2716e7cf5924a16bfbf75822b13a3d36f51f933ffcc307b
+
 DOLLY_TMUX_VERSION=3.8
 DOLLY_TMUX_URL='https://github.com/tmux/tmux/releases/download/3.8/tmux-3.8.tar.gz'
 DOLLY_TMUX_SHA256=e79c699c7e949dccd0a4a125e17b8d1261e311b16979dbc8eb34542f3966d82e
@@ -633,3 +640,7 @@ DOLLY_GO_HOST_SHA256=65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e3
 DOLLY_ESBUILD_VERSION=0.28.2
 DOLLY_ESBUILD_URL='https://github.com/evanw/esbuild/archive/refs/tags/v0.28.2.tar.gz'
 DOLLY_ESBUILD_SHA256=300162f899361d9f0263065f8728ef9086dcfc1a3d36bcbc4e0abe5de9c58bf8
+# FFmpeg: the release archive (demos/ffmpeg), signed by FFmpeg's release key.
+DOLLY_FFMPEG_VERSION=9.0.2
+DOLLY_FFMPEG_URL='https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.gz'
+DOLLY_FFMPEG_SHA256=84960df915059e8754fef2cd7c9afeb614062b1b5458ec471eecee619ee04e98

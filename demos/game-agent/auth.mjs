@@ -13,6 +13,19 @@ export async function checkKey(key) {
   await openRouterJSON("key", { headers: { Authorization: `Bearer ${key}` } });
 }
 
+export async function checkAnthropicKey(key) {
+  if (!/^sk-ant-[A-Za-z0-9_-]+$/.test(key)) throw Error("Enter an Anthropic API key beginning sk-ant-.");
+  const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 30000);
+  // Anthropic answers a refused key without CORS headers, so the browser reports it as unreachable.
+  const refused = Error("Anthropic did not accept the key or could not be reached. Check the key and try again.");
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/models", { signal: controller.signal, headers: {
+      "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" } })
+      .catch(() => { throw refused; });
+    if (!response.ok) throw refused;
+  } finally { clearTimeout(timeout); }
+}
+
 export async function signIn(ask, show = console.log) {
   const crypto = globalThis.__janisBuiltin("crypto");
   const base64url = bytes => bytes.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -46,8 +59,11 @@ export function visionModels(catalog, cached = []) {
         cacheRead: Number(model.pricing.input_cache_read || 0) * 1e6, cacheWrite: 0 } }));
 }
 
+export const providers = ["openrouter", "anthropic", "codex-local"];
+export const redactKeys = text => String(text).replace(/sk-(or-v1|ant)-[\w-]+/g, "[redacted]");
+
 export function validateSelection(config) {
-  if (!config || !["openrouter", "codex-local"].includes(config.provider) || typeof config.model !== "string" ||
+  if (!config || !providers.includes(config.provider) || typeof config.model !== "string" ||
       config.model.length > 256 || !["off", "minimal", "low", "medium", "high", "xhigh", "max"].includes(config.effort))
     throw Error("Choose a provider, vision model and supported reasoning effort.");
   return { provider: config.provider, model: config.model, effort: config.effort };

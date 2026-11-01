@@ -115,6 +115,15 @@ ENTRY /bin/foreground -i /bin/slop
   assert.match(await result.locator("#bootstrap-log").textContent(), /loading precompiled userspace snapshot/);
   await result.close();
 
+  // A shipped example builds as it is: an agent starts by copying one.
+  await run("cp /usr/share/dollyfile-studio/examples/Dollyfile-tool /workspace/Dollyfile-hello-tool");
+  const example = start("dollyfile-build /workspace/Dollyfile-hello-tool");
+  await state("building");
+  await page.waitForFunction(() => ["ready", "error"].includes(document.querySelector("#image-build")?.dataset.state),
+    null, { timeout: 300_000 });
+  assert.equal(await example.done, 0, await panel.locator("[data-output]").textContent());
+  await run("rm /workspace/Dollyfile-hello-tool");
+
   building = await build(recipe.replace("SLOP sleep 4", "FILE /tmp/proof/error.c\n    #error BUILD-COMPILER-ERROR\nSLOP cc /tmp/proof/error.c -o /tmp/proof/error"));
   await state("error");
   assert.notEqual(await building.done, 0);

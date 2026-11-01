@@ -2,9 +2,10 @@ import { hostRequirement, hostRequirements } from "./requirements.mjs";
 import { DOLLY_ERRNO as E } from "../src/process-constants.mjs";
 
 // What a build enables beside the runtime its image declares: the broker the
-// engine fetches sources through, the threads its toolchain uses and the
-// modules its compilers and interpreters load.
-export const buildHost = Object.freeze(["http@0", "threads@0", "dso@0"]);
+// engine fetches sources through, the threads its toolchain uses, the
+// modules its compilers and interpreters load and the fresh stacks of the
+// tools stack-wrap rewrote.
+export const buildHost = Object.freeze(["http@0", "threads@0", "dso@0", "stack@0"]);
 
 // A page's host modules, from the URLs of their manifests. The embedding, trusted
 // code, names them; images select no JS or Worker URLs, and each module's provider

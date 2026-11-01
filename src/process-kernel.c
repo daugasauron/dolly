@@ -36,9 +36,6 @@ enum {
 
 static const uint64_t DOLLY_KERNEL_SPAWN_DEADLINE_LIMIT =
     UINT64_C(24) * 60 * 60 * 1000000000;
-/* How long an exiting parent leaves a signalled child running. The supervisor
- * allows a handler the same time (interruptGraceMilliseconds). */
-static const uint64_t DOLLY_KERNEL_INTERRUPT_GRACE = UINT64_C(500) * 1000000;
 
 typedef struct {
   size_t offset;
@@ -93,7 +90,6 @@ typedef struct {
   uint64_t deadline_nanoseconds;
   uint32_t pending_signals;
   int handling_signal;
-  uint64_t interrupt_deadline; /* Monotonic end of the grace after a terminating signal. */
   uint64_t alarm_deadline; /* Monotonic SIGALRM time; zero while disarmed. */
   uint64_t alarm_interval;
   int alarm_handled;
@@ -421,8 +417,9 @@ static int open_image(dolly_kernel_program *program) {
   program->image_descriptor = descriptor;
   struct stat metadata;
   if (fstat(descriptor, &metadata) != 0) return -errno;
-  if (!S_ISREG(metadata.st_mode) || metadata.st_size < 8 ||
-      metadata.st_size > DOLLY_KERNEL_EXECUTABLE_LIMIT) return -ENOEXEC;
+  /* POSIX: EACCES for a file that is not regular, as a directory. */
+  if (!S_ISREG(metadata.st_mode)) return -EACCES;
+  if (metadata.st_size < 8 || metadata.st_size > DOLLY_KERNEL_EXECUTABLE_LIMIT) return -ENOEXEC;
   const size_t head = metadata.st_size < DOLLY_KERNEL_SHEBANG_LIMIT
       ? (size_t)metadata.st_size : DOLLY_KERNEL_SHEBANG_LIMIT;
   program->image = malloc(head);
@@ -815,18 +812,9 @@ static int spawn_packet(int parent_pid, size_t size) {
     } else {
       if (parent == NULL) result = -ESRCH;
       else {
-        for (uint32_t index = 0; index < parent->program.environment_count; ++index) {
-          const size_t length = strlen(parent->program.environment[index]) + 1;
-          if (length > SIZE_MAX - environment_bytes) {
-            result = -E2BIG;
-            break;
-          }
-        }
-        if (result == 0) {
-          process->program.environment = calloc((size_t)parent->program.environment_count + 1,
-                                                sizeof(*process->program.environment));
-          if (process->program.environment == NULL) result = -ENOMEM;
-        }
+        process->program.environment = calloc((size_t)parent->program.environment_count + 1,
+                                              sizeof(*process->program.environment));
+        if (process->program.environment == NULL) result = -ENOMEM;
         for (uint32_t index = 0;
              result == 0 && index < parent->program.environment_count; ++index) {
           process->program.environment[index] = strdup(parent->program.environment[index]);
@@ -1043,13 +1031,64 @@ static int path_from_packet(dolly_kernel_process *process,
         ? process->current_directory : descriptor_for(process, directory_descriptor);
     if (directory < 0) return directory;
   }
-  char *path = malloc((size_t)size + 1);
+  char *path = malloc((size_t)size + 2);
   if (path == NULL) return -ENOMEM;
   memcpy(path, bytes, size);
   path[size] = 0;
+  /* A path that ends in a slash names a directory, through a symbolic link
+   * too; WasmFS resolves "name/" as "name", so "link/." is what follows it. */
+  struct stat named;
+  if (size > 1 && path[size - 1] == '/') {
+    if (fstatat(directory, path, &named, 0) == 0 && !S_ISDIR(named.st_mode)) {
+      free(path);
+      return -ENOTDIR;
+    }
+    if (fstatat(directory, path, &named, AT_SYMLINK_NOFOLLOW) == 0 && S_ISLNK(named.st_mode))
+      memcpy(path + size, ".", 2);
+  }
   *path_out = path;
   *directory_out = directory;
   return 0;
+}
+
+/* WasmFS keeps a file's modification time when it truncates it, by O_TRUNC
+ * or ftruncate. POSIX marks it, and make reads it. */
+static void mark_truncated(int kernel_fd) {
+  static const struct timespec now[2] = {{0, UTIME_OMIT}, {0, UTIME_NOW}};
+  struct stat file;
+  if (fstat(kernel_fd, &file) == 0 && S_ISREG(file.st_mode)) (void)futimens(kernel_fd, now);
+}
+
+/* WasmFS fails to create the file a symbolic link names that does not
+ * exist yet. POSIX creates it, and with O_EXCL never follows the link. */
+static int create_through_link(int directory, const char *path, int flags, int depth) {
+  struct stat link;
+  if (fstatat(directory, path, &link, AT_SYMLINK_NOFOLLOW) != 0 || !S_ISLNK(link.st_mode)) return -ENOENT;
+  if ((flags & O_EXCL) != 0) return -EEXIST;
+  if (depth == 0) return -ELOOP;
+  char target[PATH_MAX], named[PATH_MAX];
+  const ssize_t length = readlinkat(directory, path, target, sizeof(target));
+  if (length < 0) return -errno;
+  if ((size_t)length >= sizeof(target)) return -ENAMETOOLONG;
+  target[length] = 0;
+  const char *slash = strrchr(path, '/');
+  const int written = target[0] == '/' || slash == NULL
+      ? snprintf(named, sizeof(named), "%s", target)
+      : snprintf(named, sizeof(named), "%.*s/%s", (int)(slash - path), path, target);
+  if ((size_t)written >= sizeof(named)) return -ENAMETOOLONG;
+  const int descriptor = openat(directory, named, flags, 0666);
+  if (descriptor >= 0) return descriptor;
+  return errno == ENOENT ? create_through_link(directory, named, flags, depth - 1) : -errno;
+}
+
+/* Whether the last name of a path, slashes after it aside, is "." or "..". */
+static int ends_in_dot(const char *path) {
+  size_t end = strlen(path);
+  while (end > 1 && path[end - 1] == '/') --end;
+  size_t start = end;
+  while (start > 0 && path[start - 1] != '/') --start;
+  const size_t length = end - start;
+  return (length == 1 || length == 2) && strncmp(path + start, "..", length) == 0;
 }
 
 static int directory_path(int descriptor, char *buffer, size_t capacity) {
@@ -1682,8 +1721,10 @@ static uint16_t fd_poll_events(dolly_kernel_process *process,
       }
       if (pipe->writers == 0) result |= DOLLY_PROCESS_POLL_HANGUP;
     } else if (direction == DOLLY_KERNEL_PIPE_WRITE) {
+      /* With no reader a write fails at once: an error, and no wait. A
+       * hang-up is the reader's news that the writers went (POSIX). */
       if (pipe->readers == 0) {
-        result |= DOLLY_PROCESS_POLL_ERROR | DOLLY_PROCESS_POLL_HANGUP;
+        result |= DOLLY_PROCESS_POLL_ERROR | (requested & DOLLY_PROCESS_POLL_WRITE);
       } else if ((requested & DOLLY_PROCESS_POLL_WRITE) != 0 &&
                  pipe->size < DOLLY_KERNEL_PIPE_CAPACITY) {
         result |= DOLLY_PROCESS_POLL_WRITE;
@@ -1700,25 +1741,16 @@ static uint16_t fd_poll_events(dolly_kernel_process *process,
 
   const int descriptor = descriptor_for(process, query->descriptor);
   if (descriptor < 0) return DOLLY_PROCESS_POLL_INVALID;
+  /* POSIX: regular files always poll true for reading and writing, as do the
+   * kernel's other files; their next read or write completes at once. */
+  if (!process->terminal_descriptors[query->descriptor])
+    return requested & (DOLLY_PROCESS_POLL_READ | DOLLY_PROCESS_POLL_WRITE);
   int access = fcntl(descriptor, F_GETFL);
   if (access < 0) return DOLLY_PROCESS_POLL_ERROR;
   access &= O_ACCMODE;
-
   uint16_t result = 0;
-  if (process->terminal_descriptors[query->descriptor]) {
-    if ((requested & DOLLY_PROCESS_POLL_READ) != 0 && access != O_WRONLY &&
-        dolly_kernel_terminal_readable()) {
-      result |= DOLLY_PROCESS_POLL_READ;
-    }
-    if ((requested & DOLLY_PROCESS_POLL_WRITE) != 0 && access != O_RDONLY) {
-      result |= DOLLY_PROCESS_POLL_WRITE;
-    }
-    return result;
-  }
-
-  /* Kernel-backed regular files and directories never need host readiness.
-   * Their next bounded read or write can complete synchronously. */
-  if ((requested & DOLLY_PROCESS_POLL_READ) != 0 && access != O_WRONLY) {
+  if ((requested & DOLLY_PROCESS_POLL_READ) != 0 && access != O_WRONLY &&
+      dolly_kernel_terminal_readable()) {
     result |= DOLLY_PROCESS_POLL_READ;
   }
   if ((requested & DOLLY_PROCESS_POLL_WRITE) != 0 && access != O_RDONLY) {
@@ -1856,6 +1888,12 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       if (request.whence > DOLLY_PROCESS_SEEK_END) return -EINVAL;
       off_t offset = lseek(descriptor, (off_t)request.offset, whence[request.whence]);
       if (offset < 0) return -errno;
+      /* A directory set to a position (rewinddir, seekdir) is read on from
+       * there, not from the entries the kernel's reader holds. */
+      if (request.whence == DOLLY_PROCESS_SEEK_SET && process->directories[request.descriptor] != NULL) {
+        closedir(process->directories[request.descriptor]);
+        process->directories[request.descriptor] = NULL;
+      }
       dolly_process_fd_seek_response response = {(uint64_t)offset};
       return respond(&response, sizeof(response));
     }
@@ -1863,7 +1901,8 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       uint32_t guest;
       int descriptor = decode_fd_request(process, request_size, &guest);
       if (descriptor == 0) descriptor = descriptor_for(process, guest);
-      if (descriptor < 0) return descriptor;
+      /* A pipe or a socket has nothing to sync or truncate (POSIX: EINVAL). */
+      if (descriptor < 0) return descriptor == -ESPIPE ? -EINVAL : descriptor;
       return fsync(descriptor) == 0 ? 0 : -errno;
     }
     case DOLLY_PROCESS_FD_TRUNCATE: {
@@ -1872,8 +1911,14 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       memcpy(&request, process_mailbox, sizeof(request));
       if (request.reserved != 0 || request.size > INT64_MAX) return -EINVAL;
       int descriptor = descriptor_for(process, request.descriptor);
-      if (descriptor < 0) return descriptor;
-      return ftruncate(descriptor, (off_t)request.size) == 0 ? 0 : -errno;
+      if (descriptor < 0) return descriptor == -ESPIPE ? -EINVAL : descriptor;
+      /* POSIX: a descriptor open for writing; WasmFS truncates through any. */
+      const int access = fcntl(descriptor, F_GETFL);
+      if (access < 0) return -errno;
+      if ((access & O_ACCMODE) == O_RDONLY) return -EINVAL;
+      if (ftruncate(descriptor, (off_t)request.size) != 0) return -errno;
+      mark_truncated(descriptor);
+      return 0;
     }
     case DOLLY_PROCESS_FD_STAT_FILESYSTEM: {
       if (response_capacity < sizeof(dolly_process_filesystem_stat_response)) return -EINVAL;
@@ -2056,9 +2101,6 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
         struct stat metadata;
         if (fstat(process->descriptors[guest], &metadata) != 0) return -errno;
         encode_stat(&metadata, &response);
-        if (process->terminal_descriptors[guest]) {
-          response.file_type = DOLLY_PROCESS_FILE_CHARACTER_DEVICE;
-        }
       }
       return respond(&response, sizeof(response));
     }
@@ -2071,12 +2113,19 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
                                        &request, &path, &directory);
       int flags = result == 0 ? open_flags(request.flags) : result;
       if (flags < 0) result = flags;
+      /* What a slash names is a directory, which open does not create. */
+      else if ((request.flags & DOLLY_PROCESS_OPEN_CREATE) != 0 && path[request.path_size - 1] == '/')
+        result = -EISDIR;
       int guest_fd = result == 0 ? unused_descriptor(process, 0) : -1;
       if (result == 0 && guest_fd < 0) result = guest_fd;
       int kernel_fd = -1;
       if (result == 0) {
         kernel_fd = openat(directory, path, flags, 0666);
-        if (kernel_fd < 0) result = -errno;
+        if (kernel_fd < 0 && errno == ENOENT && (flags & O_CREAT) != 0)
+          kernel_fd = create_through_link(directory, path, flags, 40);
+        else if (kernel_fd < 0) kernel_fd = -errno;
+        if (kernel_fd < 0) result = kernel_fd;
+        else if ((flags & O_TRUNC) != 0) mark_truncated(kernel_fd);
       }
       free(path);
       if (result != 0) return result;
@@ -2161,11 +2210,16 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
           process, request.new_directory_descriptor,
           process_mailbox + sizeof(request) + request.old_path_size,
           request.new_path_size, &new_path, &new_directory);
+      /* WasmFS renames the directory "dir/." names; POSIX refuses a dot. */
+      if (result == 0 && operation == DOLLY_PROCESS_PATH_RENAME &&
+          (ends_in_dot(old_path) || ends_in_dot(new_path))) result = -EINVAL;
       if (result == 0) {
         const int call_result = operation == DOLLY_PROCESS_PATH_RENAME
             ? renameat(old_directory, old_path, new_directory, new_path)
             : linkat(old_directory, old_path, new_directory, new_path, 0);
-        if (call_result != 0) result = -errno;
+        /* WasmFS has no hard links and says EMLINK; Linux says EPERM for a
+         * filesystem without them, and programs fall back to a copy on it. */
+        if (call_result != 0) result = errno == EMLINK && operation == DOLLY_PROCESS_PATH_LINK ? -EPERM : -errno;
       }
       free(old_path);
       free(new_path);
@@ -2446,15 +2500,9 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       memcpy(&request, process_mailbox, sizeof(request));
       if (request.status > 255 || !supported_signal(request.signal_number) ||
           (request.signal_number != 0 && request.status != 128 + request.signal_number)) return -EINVAL;
-      /* Waking a blocking operation with EINTR must not let an otherwise
-       * signal-unaware program turn Ctrl-C into an arbitrary failure status.
-       * A runtime that deliberately handles SIGINT acknowledges it through
-       * DOLLY_PROCESS_INTERRUPT_POLL. */
-      const uint32_t terminating = process->pending_signals & ~notification_signals(process);
-      const int signal_number = request.signal_number != 0
-          ? (int)request.signal_number : (terminating ? __builtin_ctz(terminating) : 0);
-      const int status = signal_number != 0 ? 128 + signal_number : (int)request.status;
-      mark_process_exited(process, status, signal_number);
+      /* The program's word: a signal still pending was not taken, and one it
+       * ignores or blocks must not turn its exit into a death. */
+      mark_process_exited(process, (int)request.status, (int)request.signal_number);
       return 0;
     }
     default:
@@ -2719,19 +2767,20 @@ int dolly_process_spawn_flags(int pid) {
 
 int dolly_process_signal(int pid, int signal_number) {
   dolly_kernel_process *process = find_process(pid);
-  if (process == NULL || process->state == DOLLY_KERNEL_PROCESS_EXITED) {
-    return -ESRCH;
-  }
+  if (process == NULL) return -ESRCH;
   if (!supported_signal((uint32_t)signal_number)) return -ENOTSUP;
-  if (signal_number == 0) return 0;
-  if (signal_number == DOLLY_PROCESS_SIGWINCH && process->state != DOLLY_KERNEL_PROCESS_RUNNING)
-    return 0;
-  if (signal_number != DOLLY_PROCESS_SIGKILL && process->state == DOLLY_KERNEL_PROCESS_RUNNING) {
-    process->pending_signals |= 1u << signal_number;
-    if (!(notification_signals(process) & (1u << signal_number)))
-      process->interrupt_deadline = clock_nanoseconds(CLOCK_MONOTONIC) + DOLLY_KERNEL_INTERRUPT_GRACE;
-  } else {
-    /* SIGKILL and signals before command entry cannot run userspace handlers. */
+  /* One that has exited is there until it is waited for, and takes nothing. */
+  if (signal_number == 0 || process->state == DOLLY_KERNEL_PROCESS_EXITED) return 0;
+  const uint32_t signal = 1u << signal_number;
+  const dolly_process_exec_state *start = &process->start_signals;
+  if (signal_number == DOLLY_PROCESS_SIGKILL) {
+    mark_process_exited(process, 128 + signal_number, signal_number);
+  } else if (process->state == DOLLY_KERNEL_PROCESS_RUNNING || (start->blocked_signals & signal) != 0) {
+    process->pending_signals |= signal;
+  } else if ((start->ignored_signals & signal) == 0 && signal_number != DOLLY_PROCESS_SIGWINCH) {
+    /* A program not yet entered runs no handler. It ignores and blocks what
+     * the program exec replaced left it, and ignores a resize; any other
+     * signal ends it. */
     mark_process_exited(process, 128 + signal_number, signal_number);
   }
   return 0;

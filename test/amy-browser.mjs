@@ -9,9 +9,9 @@ import { siteReference } from "../src/static-asset.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 
 const packages = DOLLY_IMAGES.filter(definition => definition.role === "package").map(({ image }) => image).sort();
-// The packages default's recipe installs.
-const preinstalled = [...(await readFile(new URL("../Dollyfile", import.meta.url), "utf8")).matchAll(/^INSTALL \S+Dollyfile-(\S+) /gm)]
-  .map(([, name]) => name).sort();
+// The packages default's recipe installs, and those they install (amy's dollyfile).
+const preinstalled = [...new Set(DOLLY_IMAGES.find(definition => definition.image === "default").artifacts
+  .filter(artifact => artifact.operation === "install").map(artifact => artifact.image))].sort();
 // The site's index, as generated: NAME RECIPE SHA256 DESCRIPTION.
 const index = await readFile(new URL("../amy-index.txt", import.meta.url), "utf8");
 const indexed = name => index.split("\n").find(row => row.startsWith(`${name} `)).split(" ");
@@ -425,7 +425,7 @@ const tools = {
   zstd: ["zstd", `${packs("zstd", "unzstd", "zst")} && ${links("zstd", "zstd", "ZSTD_versionNumber() != ZSTD_VERSION_NUMBER")}`],
   bzip2: ["bzip2", `${packs("bzip2", "bunzip2", "bz2")} && ${links("bzlib", "bz2", "BZ2_bzlibVersion()[0] != '1'")}`],
   lz4: ["lz4", `${packs("lz4", "unlz4", "lz4")} && ${links("lz4", "lz4", "LZ4_versionNumber() != LZ4_VERSION_NUMBER")}`],
-  // gzip, earlier in this table, only unpacks: it reads what pigz packs.
+  // gzip, earlier in this table, reads what pigz packs.
   pigz: ["pigz", `${packs("pigz", "unpigz", "gz")} && pigz -c /tmp/amy-pigz | gzip -dc | cmp - /tmp/amy-pigz`],
   unzip: ["unzip", `mkdir /tmp/amy-unzip && cd /tmp/amy-unzip && printf '${zipped}' > note.zip && test "$(zipinfo -1 note.zip)" = note && ` +
     "unzip -q note.zip && grep -qx packed note"],
@@ -532,7 +532,8 @@ const elsewhere = {
   libjpeg: "demos/xonotic", "xonotic-shaders": "demos/xonotic: xonotic-build installs it", spidermonkey: "demos/zero-ad",
   "xorg-server": "demos/x11", twm: "demos/x11", xclock: "demos/x11", xeyes: "demos/x11", xterm: "demos/x11",
   imgui: "demos/sdl2", "imgui-x11": "demos/x11", llvm21: "demos/zig: zig-llvm uses it", "zig-llvm": "demos/zig",
-  zsh: "demos/zsh", binaryen: "demos/zsh: zsh's build uses it", "ghostty-gtk": "demos/ghostty-gtk", ocaml: "demos/ocaml",
+  ffmpeg: "demos/ffmpeg", zsh: "demos/zsh", binaryen: "demos/zsh: zsh's build uses it", "ghostty-gtk": "demos/ghostty-gtk", ocaml: "demos/ocaml", lean: "demos/lean",
+  "lean-std": "demos/lean: lean installs it", "lean-meta": "demos/lean: lean installs it",
   glib: "demos/ghostty-gtk: gtk-build installs it", pcre2: "demos/ghostty-gtk: glib uses it", libffi: "demos/ghostty-gtk: glib uses it",
   go: "demos/go", esbuild: "demos/go", naga: "demos/zero-ad: zero-ad-data uses it", "zero-ad-data": "demos/zero-ad: zero-ad copies it",
   "fingers-build": "demos/fingers: fingers installs it", "vendor-crates": "demos/rust/test/vendor-crates-browser.mjs",

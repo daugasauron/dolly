@@ -190,7 +190,7 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
     return stopped;
   };
   for (const wrapper of ["", "timeout 15 "]) {
-    for (const blocked of ["poll", "read", "wait", "sleep"]) {
+    for (const blocked of ["poll", "read", "wait", "sleep", "system"]) {
       const command = `${wrapper}${scratch}/interrupt ${blocked} ${scratch}/shut-down`;
       assert.equal(await interrupted(command), wrapper ? 130 : 0, command);
       await eventually(`test -f ${scratch}/shut-down`);

@@ -279,9 +279,10 @@ or more than one image uses it. An application, or a toolchain people open,
 is then a base, `INSTALL` rows and its own entry and configuration
 (`codex-agent`, `neovim`, `rust-tools`); a toolchain remains where software is
 built. The same `COPY` rows in two recipes are a missing package. The core
-is packaged the same way: `core` (Slop and its commands) and `cc` (the C/C++
-toolchain) are kept from the toolchain that builds them; `amy`, `git` and
-`transfer` hold their builds.
+is packaged the same way: `core` (Slop and its commands), `cc` (the C/C++
+toolchain) and `dollyfile` (the recipe engine, which `amy` installs) are kept
+from the toolchain that builds them; `amy`, `git` and `transfer` hold their
+builds.
 
 ```text
 DOLLY 7
@@ -325,7 +326,8 @@ EXPORTS TOOL rg
 - `amy install NAME` executes that row in a running session: the page's
   `packages@0` service ([browser boundary](browser-boundary.md#host-modules))
   hands over the verified snapshot of that pin, and `dollyfile install RECIPE
-  SHA256` restores the files, merges the exported variables into
+  SHA256` moves the files out of it, from its end, so that the kernel never
+  holds the package twice, merges the exported variables into
   `/etc/dolly/environment` and records the row as a build does; `amy
   installed` prints the record. The rows the package's record names come
   first. The engine is asked before anything is fetched for them, so a

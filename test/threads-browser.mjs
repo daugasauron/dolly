@@ -15,7 +15,7 @@ const unthreadedImage = { path: "/custom/rebuild/", setup: async page => {
     ...unthreaded.map(({ dollyfile, sha256 }) => `INSTALL ${siteReference(dollyfile)} ${sha256}`),
     "ENTRY /bin/foreground -i /bin/slop", ""].join("\n"));
 } };
-const fixtures = Object.fromEntries(["threads-pthread.c", "threads-cpp.cpp", "threads-quota.c", "process-exec.c"]
+const fixtures = Object.fromEntries(["threads-pthread.c", "threads-cpp.cpp", "threads-quota.c", "process-exec.c", "threads-grown.c"]
   .map(name => [name, `test/fixtures/${name}`]));
 const sourceOverrides = new Map();
 const probe = "/fixture/process-wrong-call.wasm";
@@ -43,6 +43,8 @@ await browserTest("threads", { image: "system", server: { fixtures, sourceOverri
     }
     assert.ok((await text()).includes(marker), marker);
   }
+  // A thread fills a page another thread grew the memory by, at once.
+  await run(`curl -fsS ${server.origin}/fixture/threads-grown.c -o /tmp/grown.c && cc -O1 -pthread /tmp/grown.c -o /tmp/grown && /tmp/grown`);
   const threaded = "/tmp/threads-pthread.c.wasm";
   // Ending a process terminates the Workers of its remaining threads, and the
   // browser reports nothing for them (Firefox 155 does for a Worker inside a

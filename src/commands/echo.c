@@ -4,10 +4,7 @@
 int main(int argc, char **argv) {
   int newline = 1;
   int first = 1;
-  if (first < argc && strcmp(argv[first], "--help") == 0) {
-    fputs("usage: echo [-n] [ARG ...]\n", stdout);
-    return 0;
-  }
+  // POSIX: echo takes no options but -n, so `echo --help` prints --help.
   if (first < argc && strcmp(argv[first], "-n") == 0) {
     newline = 0;
     first++;

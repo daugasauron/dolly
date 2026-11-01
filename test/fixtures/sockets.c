@@ -341,7 +341,7 @@ static void quota(const char *ending) {
   CHECK(socket(AF_UNIX, SOCK_STREAM, 0) == -1 && errno == ENFILE);
   puts("SOCKETS-QUOTA-OK");
   fflush(stdout);
-  if (strcmp(ending, "abort") == 0) abort();
+  if (strcmp(ending, "trap") == 0) __builtin_trap();
   if (strcmp(ending, "spin") == 0) for (;;) {}
 }
 

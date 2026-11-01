@@ -1,0 +1,43 @@
+DOLLY 7
+PACKAGE lean-std
+REQUIRES HOST runtime@0
+
+# Lean's Init and Std libraries, which the first lean (lean-stage0) compiles
+# from the release's sources: each module's .olean files and its C, which cc
+# compiles into libInit.a and libStd.a (lean-dolly.mk). Every Lean file
+# imports Init.
+FROM /v0.1.4/demos/lean/Dollyfile-lean-stage0 f649836350b6c9f188c7ee2d4ea07aa6ba8ad62469ecfbfc4d0283daa0d94e09
+REQUIRES TOOL ar
+REQUIRES TOOL cc
+REQUIRES TOOL find
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL sed
+REQUIRES TOOL tar
+REQUIRES TOOL tr
+REQUIRES TOOL xargs
+
+SOURCE /v0.1.4/dist/static/lean/lean.tar.gz ef83239912f7c218c5f0e937de704b7da807b9802b05216414b59b9dec42e0da /tmp/lean.tar.gz
+SOURCE /v0.1.4/dist/static/lean/port.tar 1716710f88ccdd478709b75533ef1686ff39e381ad7d66ff65caff992e2dd1a6 /tmp/lean-port.tar
+# Stage 1 reads only src/.
+SLOP gzip -dc /tmp/lean.tar.gz | tar -xf - -C / && rm -r /tmp/lean.tar.gz /tmp/lean/stage0
+SLOP tar -xf /tmp/lean-port.tar -C /
+SLOP CWD /tmp/lean make -f dolly/lean-dolly.mk -j4 STAGE=1 LIBRARIES='Init Std' LEAN=/usr/lib/lean-stage0/lean
+
+FOLDER /usr/lib/lean/Init
+FILE /usr/lib/lean/Init.olean
+FILE /usr/lib/lean/Init.olean.server
+FILE /usr/lib/lean/Init.olean.private
+FILE /usr/lib/lean/Init.ir
+FILE /usr/lib/lean/Init.ir.sig
+FILE /usr/lib/lean/Init.ilean
+FOLDER /usr/lib/lean/Std
+FILE /usr/lib/lean/Std.olean
+FILE /usr/lib/lean/Std.olean.server
+FILE /usr/lib/lean/Std.olean.private
+FILE /usr/lib/lean/Std.ir
+FILE /usr/lib/lean/Std.ir.sig
+FILE /usr/lib/lean/Std.ilean
+FILE /usr/lib/lean/libInit.a
+FILE /usr/lib/lean/libStd.a

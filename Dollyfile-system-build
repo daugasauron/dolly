@@ -7,7 +7,7 @@ REQUIRES HOST http@0
 # and C headers are the externally supplied bootstrap seed. How those headers
 # eventually map to the lower-level machine contract is deliberately open.
 SOURCE /v0.1.4/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415 /usr/include/dolly/toolchain.h
-SOURCE /v0.1.4/include/dolly/runtime.h   1db3b267703af948051a171b06029560c3660ddbdc9f33f0c15f0b770bac7d3f /usr/include/dolly/runtime.h
+SOURCE /v0.1.4/include/dolly/runtime.h   5e375da8658d7dd8ea0b271f81f688768bff007c1c6463df06fef0fb283b1ff4 /usr/include/dolly/runtime.h
 SOURCE /v0.1.4/include/dolly/process.h   6919b5de21efa877d73ea8d004d88b66ec00b5a883bdbeece12e2ed14dc370b5 /usr/include/dolly/process.h
 SOURCE /v0.1.4/host/http/http.h      d09f57cda4a6cde89106653f12366ac95554c21d37d05a69c15764d4254b70a5 /usr/include/dolly/http.h
 SOURCE /v0.1.4/host/http/http-abi.h eb672b697efb8e9b13f5ef35a65e1b7fbb1b23dfc3da96827195401abe2b3863 /usr/include/dolly/http-abi.h
@@ -219,10 +219,15 @@ SLOP mkdir \
   -p \
   /usr/share/man/cat1 \
   /usr/share/man/man1
-SLOP for name in ar c++ cat cc cd clear cp dollyfile echo file foreground help ld ls man mkdir mv pwd rm slop stat touch; do \
+SLOP for name in ar c++ cat cc cd clear cp dollyfile file foreground help ld ls man mkdir mv pwd rm slop stat touch; do \
   "/bin/$name" --help > "/usr/share/man/cat1/$name.1"; \
   done
 SLOP help >> /usr/share/man/cat1/slop.1
+# echo prints its operands, --help among them, as POSIX says.
+FILE /usr/share/man/cat1/echo.1
+    usage: echo [-n] [ARG ...]
+    Print the ARGs separated by spaces and a newline; -n as the first ARG omits the newline.
+    Backslashes are printed as they are: printf interprets escapes.
 FILE /usr/share/man/cat1/test.1
     usage: test EXPRESSION
            [ EXPRESSION ]
@@ -233,13 +238,18 @@ FILE /usr/share/man/cat1/test.1
       -x FILE          FILE is a regular file or a directory
       -h FILE, -L FILE FILE is a symbolic link
       -s FILE          FILE is not empty
+      -b, -c, -p, -S FILE  FILE is a block or character device, a FIFO, a socket
+      -g, -u, -k FILE  the set-group-ID, set-user-ID, sticky bit of the fixed modes stat reports
+      -t FD            descriptor FD is a terminal
       -n STRING        STRING is not empty (so is a lone STRING)
       -z STRING        STRING is empty
       A = B, A != B    the strings are equal (== is the same), differ
+      A < B, A > B     A sorts before, after B
       M -eq N          the integers are equal; also -ne -lt -le -gt -ge
       F -nt G, F -ot G F was modified after, before G (a missing file is older)
       F -ef G          F and G are the same file
-      ! E, E -a E, E -o E, ( E )   not, and, or, grouping
+      ! E, E -a E, E -o E, ( E )   not, and, or, grouping; up to four arguments
+      count, as POSIX says, so test "$x" = -a compares strings
     example: test -d /tmp && [ "$HOME" != / ]
 SLOP cp /usr/share/man/cat1/test.1 '/usr/share/man/cat1/[.1'
 

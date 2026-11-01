@@ -113,7 +113,9 @@ static intptr_t mmap2(void *requested_address, size_t length,
   (void)requested_address; /* A hint; MAP_FIXED is refused below. */
   if (length == 0) return -EINVAL;
   if ((protection & ~(PROT_READ | PROT_WRITE | PROT_EXEC)) != 0) return -EINVAL;
-  if ((protection & PROT_EXEC) != 0) return -EPERM;
+  /* POSIX's word for protections the implementation cannot give; musl turns
+   * an EPERM of an anonymous mapping into ENOMEM, which it is not. */
+  if ((protection & PROT_EXEC) != 0) return -ENOTSUP;
   const int mapping_type = flags & MAP_TYPE;
   if (mapping_type != MAP_PRIVATE && mapping_type != MAP_SHARED) return -EINVAL;
   if ((flags & MAP_FIXED) != 0) return -ENOTSUP;
@@ -136,10 +138,17 @@ static intptr_t mmap2(void *requested_address, size_t length,
       (uint64_t)page_offset * DOLLY_MMAP2_OFFSET_UNIT;
   if ((flags & MAP_ANONYMOUS) == 0) {
     const int descriptor_flags = fcntl(descriptor, F_GETFL);
-    if (descriptor_flags < 0) {
+    struct stat file;
+    if (descriptor_flags < 0 || fstat(descriptor, &file) != 0) {
       free(address);
       free(mapping);
       return -errno;
+    }
+    /* What has no bytes to map, a directory, pipe or socket (POSIX: ENODEV). */
+    if (!S_ISREG(file.st_mode) && !S_ISCHR(file.st_mode)) {
+      free(address);
+      free(mapping);
+      return -ENODEV;
     }
     if ((descriptor_flags & O_ACCMODE) == O_WRONLY ||
         (mapping_type == MAP_SHARED && (protection & PROT_WRITE) != 0 &&
@@ -191,13 +200,23 @@ static int sync_mapping(void *address, size_t length, int flags) {
   return mapping == NULL ? -ENOMEM : write_mapping(mapping, address, length);
 }
 
+/* A whole mapping, or a range that holds none, which POSIX unmaps by doing
+ * nothing; part of a mapping cannot be unmapped (EINVAL). */
 static int unmap(void *address, size_t length) {
+  if (length == 0) return -EINVAL;
   dolly_mapping **link = &mappings;
   while (*link != NULL &&
          ((*link)->address != address || (*link)->length != length)) {
     link = &(*link)->next;
   }
-  if (*link == NULL || length == 0) return -EINVAL;
+  if (*link == NULL) {
+    const uintptr_t start = (uintptr_t)address, end = start + length;
+    for (const dolly_mapping *mapping = mappings; mapping != NULL; mapping = mapping->next) {
+      const uintptr_t mapped = (uintptr_t)mapping->address;
+      if (mapped < end && start < mapped + mapping->length) return -EINVAL;
+    }
+    return 0;
+  }
   dolly_mapping *mapping = *link;
   const int result = write_mapping(mapping, address, length);
   if (result != 0) return result;

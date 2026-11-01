@@ -67,6 +67,10 @@ static void on_resize(int number) { (void)number; resized = 1; }
 
 int main(int argc, char **argv) {
   if (argc > 1 && strcmp(argv[1], "discipline") == 0) return check_discipline();
+  if (argc > 1 && strcmp(argv[1], "password") == 0) {
+    const char *word = getpass("Password: ");
+    return word == NULL || strcmp(word, "hunter2") != 0;
+  }
   if (argc > 1 && strcmp(argv[1], "resize") == 0) {
     // Reports the terminal's grid after each of two SIGWINCH, reading keys meanwhile.
     const int saved = dolly_terminal_mode_get(0);

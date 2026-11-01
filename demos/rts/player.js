@@ -76,20 +76,21 @@ export function connectPlayer(fs, directory, firstId = 1, codec = { encodeBatch,
   };
 }
 
-export function modelContext(messages) {
-  const images = messages.flatMap((message, index) => Array.isArray(message.content) &&
-    message.content.some(part => part.type === "image") ? [index] : []).slice(-2);
-  const size = images.reduce((total, index) => total + messages[index].content.reduce((sum, part) =>
-    sum + (part.type === "image" ? part.data.length : 0), 0), 0);
-  // Leave room for text/tool history below the process packet's 1 MiB limit.
-  if (images.length > 1 && size > 640 * 1024) images.shift();
-  return messages.map((message, index) => {
-    if (!Array.isArray(message.content)) return message;
-    if (!images.includes(index)) return { ...message, content: message.content.filter(part => part.type !== "image") };
-    const label = index === images.at(-1) ? "CURRENT screenshot: use this view for your next inputs." :
-      "PREVIOUS screenshot: comparison only, not the current state.";
-    return { ...message, content: [{ type: "text", text: label }, ...message.content] };
-  });
+// Older views leave the model's context in batches: between two batches the context
+// only grows, so the provider's prompt cache keeps serving all of it. The views since
+// the last batch boundary stay, with the `kept` before it; their images stay under
+// `imageBytes` (the broker's 8 MiB request limit, less the text), oldest batches first.
+export function modelContext(messages, { batch = 6, kept = 2, imageBytes = 4 * 1024 * 1024 } = {}) {
+  const views = messages.flatMap((message, index) => Array.isArray(message.content) &&
+    message.content.some(part => part.type === "image") ? [index] : []);
+  const bytes = index => messages[index].content.reduce((sum, part) => sum + (part.type === "image" ? part.data.length : 0), 0);
+  let first = Math.max(0, Math.floor((views.length - 1) / batch) * batch - kept);
+  while (first < views.length - 1 && views.slice(first).reduce((sum, index) => sum + bytes(index), 0) > imageBytes) {
+    first = Math.min(first + batch, views.length - 1);
+  }
+  const shown = new Set(views.slice(first));
+  return messages.map((message, index) => !Array.isArray(message.content) || shown.has(index) ? message :
+    { ...message, content: message.content.filter(part => part.type !== "image") });
 }
 
 export default function playerTools(pi) {

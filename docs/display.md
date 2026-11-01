@@ -125,6 +125,7 @@ flowchart LR
   Host preparation only patches the pinned tree for Emscripten's wasm64 layouts,
   WasmFS and threads ([`zig-0.16.0-dolly-native.patch`](../config/zig-0.16.0-dolly-native.patch));
   the SDK files are listed in [`zig-sdk-files.txt`](../config/zig-sdk-files.txt).
-- Ghostty's generated option and Unicode tables are pinned source inputs
-  ([`src/ghostty/generated/`](../src/ghostty/generated/README.md));
+- Ghostty's generated options and Wuffs bindings are checked-in source inputs
+  ([`src/ghostty/generated/`](../src/ghostty/generated/README.md)); its Unicode
+  tables are generated in the build, from uucode's UCD files, by programs of this Zig;
   [`ghostty-dolly.patch`](../config/ghostty-dolly.patch) zeroes page-pool buffers.

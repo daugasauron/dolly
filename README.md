@@ -58,6 +58,7 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `core`: the shell `slop` and its core commands: `ls`, `cat`, `cp`, `mv`, `rm`, `mkdir`, `tar`, `man`, `help` and others.
 - `cc`: `cc` and `c++` with `ld`, `ar` and `make`, and the headers and libraries they compile against.
 - `amy`: `amy`, the package installer, and `dollyfile`, the recipe engine it runs.
+- `dollyfile`: `dollyfile`, the recipe engine alone: an image that installs it can be built `FROM`.
 - `nena`: `nena`, which lists a session's host modules and enables or disables them, where the image declares `nena@0`.
 - `posix`: `grep`, `sed`, `sort`, `find`, `xargs`, `awk`, `sh` and the other text and file tools.
 - `git`: `git` over the page's HTTP broker, with `diff` and `patch`.
@@ -184,6 +185,48 @@ Ctrl+D for a shell, where `pi-key OPENROUTER_API_KEY --provider openrouter`
 reads your key without showing it and starts Pi with it, and `/model` picks a
 model. The key stays in that Pi's environment. `curl https://example.com`
 in the shell fails: the policy refuses it.
+
+### Your own Pi image
+
+Your extensions and skills can be part of the image the page serves.
+`dolly-build` builds an image of your own `FROM` `pi-minimal`, in your Chrome
+(headless, with the runtime you installed), into a directory that `boot()`
+loads:
+
+```sh
+npm install @daugasauron/dolly-build
+npx dolly-build from pi-minimal my-pi > Dollyfile-my-pi
+```
+
+`Dollyfile-my-pi` is a [recipe](docs/dollyfile.md): `pi-minimal`'s host
+modules, `FROM` it at its pin, and its `ENTRY`. Before `ENTRY`, add a `FILE` row
+for each file, its body indented four spaces: here an extension with a `/hello`
+command and a skill.
+
+```dollyfile
+FILE /home/dolly/.pi/agent/extensions/hello.js
+    export default function (pi) {
+      pi.registerCommand("hello", {
+        description: "Say hello",
+        handler: async (name, ctx) => ctx.ui.notify(`Hello, ${name || "world"}, from my-pi!`, "info"),
+      });
+    }
+FILE /home/dolly/.pi/agent/skills/changelog/SKILL.md
+    ---
+    name: changelog
+    description: Keeps /workspace/CHANGELOG.md. Use when asked to record a change.
+    ---
+    Add the change under "## Unreleased", one line each, newest first.
+```
+
+```sh
+npx dolly-build Dollyfile-my-pi my-pi
+```
+
+In `index.html`, import `images`, `image` and `modules` from `./my-pi/index.mjs`
+instead of the package's. Pi starts with both, under `[Skills]` and
+`[Extensions]`. After a change, the same command builds `my-pi` again.
+`--browser firefox` builds in Firefox, after `npx playwright-core install firefox`.
 
 [An agent in place of a web frontend](docs/agent-frontend.md) goes on from here:
 your company's instructions and skills, your backend's API, your model provider

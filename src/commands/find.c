@@ -1,8 +1,11 @@
 #define _XOPEN_SOURCE 700
 
+#include <ctype.h>
 #include <dirent.h>
 #include <fnmatch.h>
+#include <inttypes.h>
 #include <stdint.h>
+#include <time.h>
 
 #include "run-program.h"
 
@@ -22,6 +25,9 @@ typedef enum {
   NODE_PATH,
   NODE_TYPE,
   NODE_EMPTY,
+  NODE_NEWER,
+  NODE_TIME,
+  NODE_SIZE,
   NODE_PRINT,
   NODE_PRINT0,
   NODE_PRUNE,
@@ -48,7 +54,10 @@ typedef struct expression {
   struct expression *left;
   struct expression *right;
   const char *text;
-  char type;
+  char type;  // -type's letter; -atime, -ctime or -mtime's first letter; 'c' for -size in bytes
+  char comparison;  // '+', '-' or '=' for a number
+  intmax_t number;
+  struct timespec newer;
   exec_spec *execution;
 } expression;
 
@@ -84,12 +93,14 @@ typedef struct {
 } evaluation;
 
 static find_state state;
+static time_t started;
 
 static void usage(FILE *stream) {
   fputs(
       "usage: find [path ...] [expression]\n"
       "expression: [-maxdepth N] [-mindepth N] [-depth]\n"
-      "            [-name PATTERN] [-path PATTERN] [-type f|d|l] [-empty]\n"
+      "            [-name PATTERN] [-path PATTERN] [-type f|d|l|p|s|b|c] [-empty]\n"
+      "            [-newer FILE] [-atime|-ctime|-mtime [+-]DAYS] [-size [+-]N[c]]\n"
       "            [-print|-print0|-prune|-quit]\n"
       "            [-exec COMMAND ... {} ';' | -exec COMMAND ... {} +]\n"
       "            [! EXPR] [( EXPR )] [EXPR -a EXPR] [EXPR -o EXPR]\n",
@@ -342,10 +353,46 @@ static expression *parse_primary(parser *input) {
     if (node != NULL) node->text = input->argv[input->index++];
     return node;
   }
+  if (strcmp(token, "-newer") == 0) {
+    struct stat reference;
+    if (input->index >= input->argc || stat(input->argv[input->index], &reference) != 0) {
+      fprintf(stderr, "find: -newer: %s: %s\n", input->index < input->argc ? input->argv[input->index] : "",
+              input->index < input->argc ? strerror(errno) : "a file is required");
+      input->failed = 1;
+      return NULL;
+    }
+    input->index++;
+    expression *node = new_node(input, NODE_NEWER);
+    if (node != NULL) node->newer = reference.st_mtim;
+    return node;
+  }
+  // -atime, -ctime, -mtime [+-]DAYS and -size [+-]N[c]: more than, less than or exactly N.
+  if (strcmp(token, "-atime") == 0 || strcmp(token, "-ctime") == 0 ||
+      strcmp(token, "-mtime") == 0 || strcmp(token, "-size") == 0) {
+    const char *text = input->index < input->argc ? input->argv[input->index] : "";
+    const char comparison = *text == '+' || *text == '-' ? *text++ : '=';
+    char *end;
+    errno = 0;
+    const intmax_t number = strtoimax(text, &end, 10);
+    const int bytes = token[1] == 's' && *end == 'c';
+    if (end == text || !isdigit((unsigned char)*text) || errno != 0 || end[bytes] != '\0') {
+      fprintf(stderr, "find: %s requires a number%s\n", token, token[1] == 's' ? " of blocks, or of bytes with c" : " of days");
+      input->failed = 1;
+      return NULL;
+    }
+    input->index++;
+    expression *node = new_node(input, token[1] == 's' ? NODE_SIZE : NODE_TIME);
+    if (node != NULL) {
+      node->type = token[1] == 's' ? (bytes ? 'c' : 'b') : token[1];
+      node->comparison = comparison;
+      node->number = number;
+    }
+    return node;
+  }
   if (strcmp(token, "-type") == 0) {
     if (input->index >= input->argc || strlen(input->argv[input->index]) != 1 ||
-        strchr("fdl", input->argv[input->index][0]) == NULL) {
-      fputs("find: -type supports exactly f, d, or l\n", stderr);
+        strchr("fdlpsbc", input->argv[input->index][0]) == NULL) {
+      fputs("find: -type takes one of f, d, l, p, s, b or c\n", stderr);
       input->failed = 1;
       return NULL;
     }
@@ -529,10 +576,36 @@ static int evaluate_expression(expression *node, evaluation *item) {
       return fnmatch(node->text, item->name, 0) == 0;
     case NODE_PATH:
       return fnmatch(node->text, item->path, 0) == 0;
-    case NODE_TYPE:
-      return (node->type == 'f' && S_ISREG(item->metadata->st_mode)) ||
-             (node->type == 'd' && S_ISDIR(item->metadata->st_mode)) ||
-             (node->type == 'l' && S_ISLNK(item->metadata->st_mode));
+    case NODE_TYPE: {
+      const mode_t mode = item->metadata->st_mode;
+      switch (node->type) {
+        case 'f': return S_ISREG(mode);
+        case 'd': return S_ISDIR(mode);
+        case 'l': return S_ISLNK(mode);
+        case 'p': return S_ISFIFO(mode);
+        case 's': return S_ISSOCK(mode);
+        case 'b': return S_ISBLK(mode);
+        default: return S_ISCHR(mode);
+      }
+    }
+    case NODE_NEWER:
+      return item->metadata->st_mtim.tv_sec != node->newer.tv_sec
+                 ? item->metadata->st_mtim.tv_sec > node->newer.tv_sec
+                 : item->metadata->st_mtim.tv_nsec > node->newer.tv_nsec;
+    case NODE_TIME:
+    case NODE_SIZE: {
+      const struct stat *metadata = item->metadata;
+      const time_t time = node->type == 'a' ? metadata->st_atim.tv_sec
+                          : node->type == 'c' && node->kind == NODE_TIME ? metadata->st_ctim.tv_sec
+                                                                         : metadata->st_mtim.tv_sec;
+      // POSIX: whole days since find started, or the size in bytes or in
+      // 512-byte blocks rounded up.
+      const intmax_t value = node->kind == NODE_TIME ? (intmax_t)(started - time) / 86400
+                             : node->type == 'c' ? (intmax_t)metadata->st_size
+                                                 : ((intmax_t)metadata->st_size + 511) / 512;
+      return node->comparison == '+' ? value > node->number
+             : node->comparison == '-' ? value < node->number : value == node->number;
+    }
     case NODE_EMPTY:
       if (S_ISREG(item->metadata->st_mode)) return item->metadata->st_size == 0;
       if (S_ISDIR(item->metadata->st_mode)) return directory_empty(item->path);
@@ -649,6 +722,7 @@ static int expression_start(const char *argument) {
 
 int main(int argc, char **argv) {
   state = (find_state){0};
+  started = time(NULL);
   if (argc == 2 && strcmp(argv[1], "--help") == 0) {
     usage(stdout);
     return 0;
@@ -724,5 +798,10 @@ int main(int argc, char **argv) {
 
   if (input.failed) return 2;
   if (state.interrupted) return 130;
+  // Output that could not be written fails the command, as any other error does.
+  if (fflush(stdout) != 0) {
+    fprintf(stderr, "find: write error: %s\n", strerror(errno));
+    return 1;
+  }
   return state.had_error ? 1 : 0;
 }

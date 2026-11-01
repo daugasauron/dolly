@@ -21,9 +21,11 @@ done
 emcc "${flags[@]}" -c src/process/threads-start.S -o "$target/threads-start.o"
 rm -f "$target/libdolly-process.a" "$target/libdolly-runtime.a"
 emar rcsD "$target/libdolly-process.a" "$target"/{libc-adapter,mmap,time,poll,signal,threads,threads-start}.o
-emcc "${flags[@]}" -c /emsdk/upstream/emscripten/system/lib/libc/musl/src/time/getdate.c -o "$target/getdate.o"
+for source in time/getdate legacy/getpass; do
+  emcc "${flags[@]}" -c "/emsdk/upstream/emscripten/system/lib/libc/musl/src/$source.c" -o "$target/${source#*/}.o"
+done
 emar rcsD "$target/libdolly-runtime.a" "$target/runtime-adapter.o" "$target/socket-refusals.o" \
-  "$target/libc-stubs.o" "$target/getdate.o"
+  "$target/libc-stubs.o" "$target/getdate.o" "$target/getpass.o"
 cp /emsdk/upstream/emscripten/cache/sysroot/lib/wasm64-emscripten/libc-mt.a "$target/libc-mt.a"
 # Replace upstream browser thread lifecycle and signal owners, retaining musl's
 # actual mutex/condition/semaphore/once/TSD/stdio algorithms unchanged.

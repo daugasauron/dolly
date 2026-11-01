@@ -214,6 +214,11 @@ int main(int argc, char **argv) {
     }
   }
   if (options.total) print_size(grand_total, "total", &options);
+  // Output that could not be written fails the command, as any other error does.
+  if (fflush(stdout) != 0) {
+    fprintf(stderr, "du: write error: %s\n", strerror(errno));
+    return 1;
+  }
   return options.status;
 
 usage_error:

@@ -76,6 +76,8 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
     ["awk 'BEGIN {status = (\"printf AWK-PIPE\" | getline value); exit status == 1 && value == \"AWK-PIPE\" ? 0 : 1}'"],
     ["awk -f", 2],
     [`curl -fsSL ${server.origin}/fixture/http.txt -o fetched.txt && grep -q FETCHED-THROUGH-BROWSER fetched.txt`],
+    // A cluster may end with a letter that takes a value, as agents write curl -fsSLo FILE.
+    [`curl -fsSLo clustered.txt ${server.origin}/fixture/http.txt && grep -q FETCHED-THROUGH-BROWSER clustered.txt`],
     ["curl -sS -X POST -H 'X-Dolly-Cli: yes' -d one=1 -d two=2 -D headers.txt -o body.txt " +
       `-w '%{http_code} %{content_type}\\n' ${server.origin}/fixture/curl-options > meta.txt`],
     ["grep -q '^CURL-CLI-OK$' body.txt && grep -qi '^x-dolly-response: yes' headers.txt && grep -q '^201 text/plain; charset=utf-8$' meta.txt"],
@@ -94,7 +96,9 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
     ["echo loose > loose.txt && git add loose.txt && git archive -o ../repo.tar.gz $(git write-tree) && mkdir ../unpacked && " +
       "gzip -dc < ../repo.tar.gz | tar -xf - -C ../unpacked && grep -q tracked ../unpacked/tracked.txt && grep -q loose ../unpacked/loose.txt && " +
       // as tar -z of the tar package starts it
-      "gzip -dc < ../repo.tar.gz > ../repo.tar && gzip -cdf ../repo.tar.gz | cmp - ../repo.tar"],
+      "gzip -dc < ../repo.tar.gz > ../repo.tar && gzip -cdf ../repo.tar.gz | cmp - ../repo.tar && " +
+      // and compresses, as FFmpeg's Makefile does
+      "gzip -nc9 ../repo.tar | gzip -dc | cmp - ../repo.tar && gzip -kf ../repo.tar && gzip -t ../repo.tar.gz"],
     // A clone, a fetch and a push of a local repository: Git runs git-upload-pack or git-receive-pack for the other side.
     ["git clone -q . ../clone && test \"$(git -C ../clone log --format=%s)\" = initial && git commit -q -m loose && " +
       "git -C ../clone fetch -q && test \"$(git -C ../clone log -1 --format=%s FETCH_HEAD)\" = loose && " +
@@ -119,6 +123,8 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
     ["ls absent", 1],
     ["ls /bin /usr/bin > /dev/null && test \"$(echo /b*)\" = /bin && ls /usr/lib/libdisplay.so && test ! -e /usr/bin/ghostty-vt"],
     ["cc --version && c++ --version && ld --help > /dev/null && ar --version && make --version"],
+    // Clang's banner, as FFmpeg's configure reads it: cc -v 2>&1 | grep -q clang
+    ["cc -v 2> banner && grep -q '^clang version ' banner && c++ -v 2>&1 | grep -qx 'Target: wasm64-unknown-dolly'"],
     ["cc --definitely-unsupported", 64],
     ["cat /bin/echo > invalid-module && echo invalid >> invalid-module"],
     ["./invalid-module", 126],
@@ -157,6 +163,20 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
   assert.equal(await typed(["ArrowUp", "Enter"]), 0);
   assert.equal(await typed(["h", "e", "l", "Control+r", "Enter"]), 0);
   assert.equal(await submit("grep -q '^help$' \"$HISTFILE\""), 0);
+  // Tab completes under ~ and in a dot directory as it does under /.
+  assert.equal(await submit("mkdir -p ~/.tab-probe/inside"), 0);
+  assert.equal(await result(async () => {
+    await page.keyboard.type("cd ~/.tab-pr");
+    await page.keyboard.press("Tab");
+    await page.keyboard.type("ins");
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Enter");
+  }), 0);
+  assert.equal(await submit('test "$PWD" = "$HOME/.tab-probe/inside" && cd /tmp/shell && rm -r ~/.tab-probe'), 0);
+  // Backspace and the arrows step over a whole UTF-8 character: type x=aé日,
+  // Left, Backspace, b, Enter.
+  assert.equal(await result(() => page.evaluate(() => __dolly.input("x=a\u00e9\u65e5\x1b[D\x7fb\r"))), 0);
+  assert.equal(await submit('test "$x" = "ab日"'), 0);
 
   // Wasm offers downloads under their literal names.
   for (const name of ["browser-download.txt", "\uFEFFbrowser-download.txt"]) {

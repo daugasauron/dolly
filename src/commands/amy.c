@@ -266,12 +266,15 @@ static int engine_install(const Package *package) {
 // Installs the row INSTALL RECIPE SHA256. The engine decides first whether
 // the package may be installed here; it ends with 3 when a row the package
 // records is not installed yet: those are installed, each as an install of
-// its own, and the engine is asked again.
+// its own, and the engine is asked again. Its files are listed first: the
+// engine moves them out of the snapshot.
 static int install_row(const char *name, const char *recipe, const char *sha256) {
   const Package package = {.name = (char *)name, .recipe = (char *)recipe, .sha256 = (char *)sha256};
   char path[sizeof(artifacts_dir) + 80];
   snprintf(path, sizeof(path), "%s/%s.snapshot", artifacts_dir, sha256);
+  Summary summary = {0};
   int status = fetch_snapshot(&package, path);
+  if (status == 0) status = snapshot_files(&package, path, 1, &summary);
   if (status == 0 && (status = engine_install(&package)) == 3) {
     Packages needs = {0};
     if ((status = snapshot_rows(path, &needs)) != 0) fprintf(stderr, "amy: %s: cannot read its record\n", name);
@@ -283,12 +286,15 @@ static int install_row(const char *name, const char *recipe, const char *sha256)
     free(needs.text);
     if (status == 0) status = engine_install(&package);
   }
-  if (status != 0) fprintf(stderr, "amy: %s: not installed\n", name);
-  Summary summary = {0};
-  if (status == 0) status = snapshot_files(&package, path, 1, &summary);
   unlink(path);
   rmdir(artifacts_dir);
-  if (status != 0) return -1;
+  if (status != 0) {
+    char record[sizeof(files_dir) + 128];
+    files_path(record, sizeof(record), name);
+    unlink(record);
+    fprintf(stderr, "amy: %s: not installed\n", name);
+    return -1;
+  }
   printf("amy: %s installed: %llu files, %llu bytes%s%s; amy files %s lists them\n%s",
          name, summary.files, summary.bytes, summary.commands[0] != '\0' ? ", commands:" : "", summary.commands, name,
          summary.environment ? "amy: the environment variables it sets apply when the session is next loaded; the rest works now\n" : "");

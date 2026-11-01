@@ -7,7 +7,8 @@
 //   and holds the http@0 policy it gives boot().
 // - A page that lacks a module the image requires, or isolation, says so.
 // - The README's "Pi with npm", as written: its packages, page and server run Pi,
-//   and its policy refuses another origin.
+//   and its policy refuses another origin; its own image, built by dolly-build in
+//   the browser under test, starts Pi with the extension and the skill it adds.
 // Usage: node test/npm-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { execFile, execFileSync, spawn } from "node:child_process";
@@ -21,6 +22,9 @@ import { chromium, firefox } from "playwright-core";
 import { isolationHeaders, mimeTypes } from "../scripts/serve.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
+// What an image's recipe declares, which its page enables and nothing more.
+const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
+const declared = image => DOLLY_IMAGES.find(definition => definition.image === image).hostRequirements.toSorted();
 const names = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 // page.evaluate has no deadline of its own.
 const within = (promise, seconds, what) => Promise.race([promise, new Promise((_, reject) =>
@@ -32,6 +36,8 @@ const servers = [];
 try {
   const packs = join(work, "packs");
   execFileSync("node", [resolve(projectDir, "scripts/package-npm.mjs"), packs], { stdio: "ignore" });
+  // dolly-build starts its browser with playwright-core, which the registry holds too.
+  execFileSync("npm", ["pack", "--silent", "--pack-destination", packs], { cwd: resolve(projectDir, "node_modules/playwright-core") });
 
   // A registry that holds these packages alone, as npmjs would serve them.
   const published = new Map();
@@ -41,11 +47,13 @@ try {
     published.set(manifest.name, { manifest, file, bytes });
   }
   // The packages' own rule: the runtime depends on nothing, every other package on the runtime
-  // alone, at its version.
+  // alone, at its version, and dolly-build also on the playwright-core it starts browsers with.
   for (const { manifest } of published.values()) {
+    if (manifest.name === "playwright-core") continue;
     assert.equal(manifest.peerDependencies, undefined, manifest.name);
     assert.deepEqual(manifest.dependencies, manifest.name === "@daugasauron/dolly" ? undefined
-      : { "@daugasauron/dolly": manifest.version }, manifest.name);
+      : { "@daugasauron/dolly": manifest.version, ...manifest.name === "@daugasauron/dolly-build"
+        ? { "playwright-core": published.get("playwright-core").manifest.version } : {} }, manifest.name);
   }
   const registry = await listen(createServer((request, response) => {
     const path = decodeURIComponent(new URL(request.url, "http://x").pathname).slice(1);
@@ -82,6 +90,15 @@ try {
   await mkdir(piApp);
   await npm(piApp, piBlocks("sh")[0]);
   await writeFile(join(piApp, "index.html"), piBlocks("html")[0].replace("await boot(", "window.dolly = await boot("));
+  // Its own image: the page imports it from the directory dolly-build writes.
+  const packageIndex = "./node_modules/@daugasauron/dolly-image-pi-minimal/index.mjs";
+  assert.ok(piBlocks("html")[0].includes(packageIndex));
+  await writeFile(join(piApp, "my-pi.html"), (await readFile(join(piApp, "index.html"), "utf8")).replace(packageIndex, "./my-pi/index.mjs"));
+  const [, recipeCommands, buildCommand] = piBlocks("sh");
+  await npm(piApp, recipeCommands);
+  const recipe = await readFile(join(piApp, "Dollyfile-my-pi"), "utf8");
+  assert.match(recipe, /^ENTRY /m);
+  await writeFile(join(piApp, "Dollyfile-my-pi"), recipe.replace(/^ENTRY /m, `${piBlocks("dollyfile")[0]}ENTRY `));
   await writeFile(join(piApp, "serve.mjs"), piBlocks("js")[0]);
   const piServer = spawn(process.execPath, ["serve.mjs"], { cwd: piApp, env: { ...process.env, PORT: "0" } });
   servers.push({ close: () => piServer.kill() });
@@ -146,9 +163,7 @@ try {
       assert.equal(await submit("echo npm-$((6 * 7))"), 0);
       assert.match(await tab.evaluate(() => window.dolly.visibleTerminalText()), /npm-42/);
       // An explicit check of the capability set: what default declares, no more.
-      assert.deepEqual((await tab.evaluate(() => window.dolly.hostModules)).sort(),
-        ["audio@0", "display@0", "download@0", "dso@0", "http@0", "input@0", "nena@0", "packages@0", "runtime@0",
-          "snapshot@0", "sockets@0", "threads@0", "touch@0", "upload@0"]);
+      assert.deepEqual((await tab.evaluate(() => window.dolly.hostModules)).sort(), declared("default"));
 
       const devices = await browser.newPage(), run = await booted(devices, `${origin(isolated)}/devices.html`);
       for (const module of ["gpu@0", "microphone@0", "pty@0"]) {
@@ -171,14 +186,27 @@ try {
       await bare.waitForFunction(() => document.documentElement.dataset.dollyStatus === "failed", null, { timeout: 60_000 });
       assert.match(await bare.locator("#bootstrap-log").textContent(), /cross-origin isolation/);
 
+      // Its own image, built in this browser (after the first, over the last one's): Pi lists the
+      // skill and the extension, and runs its command.
+      await npm(piApp, `${buildCommand.trim()} --browser ${name === "chromium" ? "chrome" : name}`);
+      const mine = await browser.newPage();
+      await booted(mine, `${piPage}my-pi.html`, /Bash is not installed/);
+      assert.match(await mine.evaluate(() => window.dolly.visibleTerminalText()), /changelog[\s\S]*hello\.js|hello\.js[\s\S]*changelog/);
+      // Enter takes the command menu's choice, so it waits for the menu to offer this one.
+      await mine.keyboard.type("/hello");
+      await within(mine.evaluate(() => window.dolly.waitForInteractiveTerminal(/Say hello/, "the menu", 0)), 60, "the menu");
+      await mine.keyboard.press("Enter");
+      await within(mine.evaluate(() => window.dolly.waitForInteractiveTerminal(/Hello, world, from my-pi!/, "the command", 0)), 60, "/hello");
+      assert.deepEqual((await mine.evaluate(() => window.dolly.hostModules)).sort(), declared("pi-minimal"));
+      await mine.close();
+
       // Pi starts; Ctrl+D leaves it for the shell, where the policy refuses what it does not name.
       const pi = await browser.newPage(), shell = await booted(pi, piPage, /Bash is not installed/);
       await pi.keyboard.press("Control+d");
       await within(pi.evaluate(() => window.dolly.waitForInteractiveTerminal(
         /Dolly: image entry exited; entering the recovery Slop shell\.[\s\S]*\ndolly:[^\n]*\$\s*$/, "the shell", 0)), 60, "the shell");
       assert.notEqual(await shell("curl -fsS https://example.com > /dev/null"), 0);
-      assert.deepEqual((await pi.evaluate(() => window.dolly.hostModules)).sort(),
-        ["display@0", "download@0", "http@0", "input@0", "runtime@0", "threads@0"]);
+      assert.deepEqual((await pi.evaluate(() => window.dolly.hostModules)).sort(), declared("pi-minimal"));
       assert.equal(await shell("command -v pi-key > /dev/null"), 0);
       console.log(`npm packages: ${name} passed in ${((performance.now() - started) / 1000).toFixed(1)}s`);
     } finally { await browser.close(); }

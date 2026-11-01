@@ -79,13 +79,10 @@ if has_image ghostty-build; then
 fi
 has_image system-build && copy_static src/slop.c default/slop.c
 has_image mandoc && copy_static "$(bash scripts/fetch-pinned-archive.sh mandoc)" default/mandoc-1.14.6.tar.gz
-if has_image system-build; then
-  # The tools the root recipe compiles before it has tar: one SOURCE row each.
-  for source in ar.c bracket.c cat.c cc.c cd.c clear.c cp.c cxx.c echo.c file.c foreground.c help.c ld.c \
-      ls.c man.c mkdir.c mv.c pwd.c rm.c stat.c tar.c test.c touch.c; do
-    copy_static "src/commands/${source}" "default/commands/${source}"
-  done
-fi
+# Dolly's own commands: each recipe takes the ones it builds by a SOURCE row.
+for source in src/commands/*.[ch]; do
+  copy_static "${source}" "default/commands/${source##*/}"
+done
 if has_image session-recover; then
   copy_static src/commands/session-recover.c session-recovery/session-recover.c
   for header in session-records.h fs-record.h; do
@@ -93,7 +90,6 @@ if has_image session-recover; then
   done
 fi
 if has_image curl; then
-  copy_static "${project_dir}/src/commands/curl.c" default/commands/curl.c
   copy_static "${project_dir}/src/libcurl-fetch.c" default/libcurl-fetch.c
 fi
 if has_image system-build; then
@@ -126,25 +122,7 @@ fi
 if has_image system-tools; then
   copy_static "${project_dir}/src/runtimes/samurai-unit-dolly.c" default/runtimes/samurai-unit-dolly.c
 fi
-if has_image gzip; then
-  copy_static src/commands/gzip.c default/commands/gzip.c
-fi
-if has_image nena; then
-  copy_static src/commands/nena.c default/commands/nena.c
-fi
-if has_image system-tools; then
-  for source in run-program.h install.c du.c rev.c command.c xargs.c \
-      find.c env.c time.c timeout.c realpath.c hostname.c tty.c nproc.c; do
-    copy_static "${project_dir}/src/commands/${source}" "default/commands/${source}"
-  done
-fi
-if has_image git; then
-  for source in run-program.h diff.c patch.c; do
-    copy_static "${project_dir}/src/commands/${source}" "default/commands/${source}"
-  done
-fi
 if has_image amy; then
-  copy_static src/commands/amy.c default/commands/amy.c
   # amy asks the site for the package index of the version it was built for.
   node -p '`#define DOLLY_VERSION "${require("./package.json").version}"`' > "${staging}/version.h"
   copy_static "${staging}/version.h" default/commands/version.h
@@ -259,7 +237,9 @@ node scripts/build-source-tar.mjs "${static_dir}/default/ghostty.tar" \
   "${vendor_dir}/translate_c/LICENSE" /usr/share/licenses/translate-c/LICENSE
 node scripts/build-source-tar.mjs "${static_dir}/default/uucode.tar" \
   "${uucode_dir}/src" /usr/src/uucode/src \
-  "${uucode_dir}/LICENSE.md" /usr/share/licenses/uucode/LICENSE.md
+  "${uucode_dir}/ucd" /usr/src/uucode/ucd \
+  "${uucode_dir}/LICENSE.md" /usr/share/licenses/uucode/LICENSE.md \
+  "${uucode_dir}/licenses/LICENSE_unicode" /usr/share/licenses/uucode/LICENSE_unicode
 fi
 
 if [[ -d "${project_dir}/dist/static" ]]; then

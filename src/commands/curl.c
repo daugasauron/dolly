@@ -258,7 +258,16 @@ int main(int argc, char **argv) {
         else if (*flag == 'i') include_headers = 1;
         else if (*flag == 'O') use_remote_name = 1;
         else if (*flag == 'v') verbose = 1;
-        else { fprintf(stderr, "curl: unsupported option: -%c\n", *flag); goto usage_error; }
+        else if (strchr("oDXAurwm", *flag) != NULL) {
+          // A letter with a value ends the word: its value is the rest or the next word (-sSLo FILE).
+          const char *value = flag[1] != '\0' ? flag + 1 : index + 1 < argc ? argv[++index] : NULL;
+          if (value == NULL) { fprintf(stderr, "curl: -%c requires a value\n", *flag); goto usage_error; }
+          const char **destination = *flag == 'o' ? &output_path : *flag == 'D' ? &header_path
+              : *flag == 'X' ? &method : *flag == 'A' ? &user_agent : *flag == 'u' ? &user
+              : *flag == 'r' ? &range : *flag == 'w' ? &write_format : &max_time;
+          *destination = value;
+          break;
+        } else { fprintf(stderr, "curl: unsupported option: -%c\n", *flag); goto usage_error; }
       }
     } else if (url == NULL) url = argument;
     else { fputs("curl: only one URL is supported per invocation\n", stderr); goto usage_error; }

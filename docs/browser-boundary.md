@@ -71,7 +71,7 @@ Worker URL.
 
 | Module | Channel | Authority | Code |
 | --- | --- | --- | --- |
-| `runtime@0` | `env.memory`, `env.dolly_memory_grow`, `env.dolly_clock_realtime`, `env.dolly_clock_monotonic`, `env.dolly_entropy`, `env.dolly_bootstrap_write_bytes`, terminal mailbox | Kernel memory, grown up to its maximum by a Worker of the module's own; the two clocks; 64 KiB of entropy a call; boot text, 1 MiB a write; process Workers; report foreground and results, receive Ctrl+C | [`host/runtime/`](../host/runtime/module.json) ([`process-supervisor.mjs`](../src/process-supervisor.mjs)) |
+| `runtime@0` | `env.memory`, `env.dolly_memory_grow`, `env.dolly_clock_realtime`, `env.dolly_clock_monotonic`, `env.dolly_entropy`, `env.dolly_bootstrap_write_bytes`, terminal mailbox | Kernel memory, and a process's before its second thread, grown up to its maximum by a Worker of the module's own; the two clocks; 64 KiB of entropy a call; boot text, 1 MiB a write; process Workers; report foreground and results, receive Ctrl+C | [`host/runtime/`](../host/runtime/module.json) ([`process-supervisor.mjs`](../src/process-supervisor.mjs)) |
 | `http@0` | `env.dolly_http_dispatch`, 16-slot pool | The only agent-selected network edge, under the page's policy | [`host/http/`](../host/http/module.json) |
 | `download@0` | `env.dolly_download_dispatch` | Stream one file (1 MiB chunks, 1 GiB) into a Blob under a checked basename; saved only by a user click; at most 4 waiting | [`host/download/`](../host/download/module.json) |
 | `html@0` | `env.dolly_html_dispatch` | Show one document of at most 1 MiB of UTF-8 in a popup in boot()'s element, and return the fields of the form of it the user submits (64 KiB, as a form posts them) or that the user closed it. The popup is a sandboxed frame of an opaque origin (scripts and forms only, no popups, modals or top navigation) whose policy fetches nothing and runs only the page's script and style; that script builds the popup from the document's text and an allowlist of content and form elements and attributes, copied into new elements, so no URL, style, script, link, refresh or base of it exists there. The look is the embedding's (custom properties on boot()'s element; the page fetches the font file they name and hands the popup its bytes). One popup at a time; refused for 2 s after a close | [`host/html/`](../host/html/module.json) |
@@ -134,10 +134,10 @@ Worker URL.
     declares `nena@0`, where the userspace decides anyway. A module the page
     cannot enable then is reported on the page and left out.
 - The page enables exactly the image's requirements, its runtime among them;
-  rebuild routes add `http@0`, `threads@0` and `dso@0` for building (sources
-  are fetched, and toolchains run threaded tools and compilers and
-  interpreters that load modules), and a dependency build enables the
-  declared runtime with those three. A build's loader also admits the
+  rebuild routes add `http@0`, `threads@0`, `dso@0` and `stack@0` for
+  building (sources are fetched, and toolchains run threaded tools, compilers
+  and interpreters that load modules, and tools `stack-wrap` rewrote), and a
+  dependency build enables the declared runtime with those four. A build's loader also admits the
   modules of the images it reads, which it does not enable: their calls
   answer `ENOSYS`. Only Dollyfile Studio
   declares `build@0`, and the page admits it only after ENTRY starts
@@ -251,8 +251,8 @@ data checked against them: packs, recipes and sources.
 | Page | [`browser.mjs`](../src/browser.mjs) (`boot()`), [`site.mjs`](../src/site.mjs) (the site's routes), [`source-download.mjs`](../src/source-download.mjs) (the site's source links), [`terminal-text.mjs`](../src/terminal-text.mjs), [`build-log.mjs`](../src/build-log.mjs), [`page-chords.mjs`](../src/page-chords.mjs), [`page-indicators.mjs`](../src/page-indicators.mjs), [`coi-serviceworker.js`](../coi-serviceworker.js) (isolation where a host sends no headers) |
 | Registry | [`modules.mjs`](../host/modules.mjs), [`manifests.mjs`](../host/manifests.mjs) (the site's list), [`requirements.mjs`](../host/requirements.mjs), [`abi.mjs`](../host/abi.mjs) |
 | Images | [`images.mjs`](../src/images.mjs), [`packaged-snapshot.mjs`](../src/packaged-snapshot.mjs), [`image-inputs.mjs`](../src/image-inputs.mjs), [`snapshot-records.mjs`](../src/snapshot-records.mjs), [`image-entry.mjs`](../src/image-entry.mjs), [`image-names.mjs`](../src/image-names.mjs), [`static-asset.mjs`](../src/static-asset.mjs), [`version.mjs`](../src/version.mjs) |
-| Runtime Worker | [`worker-image.mjs`](../src/worker-image.mjs), [`runtime-worker.mjs`](../src/runtime-worker.mjs) (boot()'s), [`build-worker.mjs`](../src/build-worker.mjs) (the site's), [`process-supervisor.mjs`](../src/process-supervisor.mjs), [`kernel-plugin.mjs`](../src/kernel-plugin.mjs), [`process-abi.mjs`](../src/process-abi.mjs), [`wasm-interface.mjs`](../src/wasm-interface.mjs), [`process-constants.mjs`](../src/process-constants.mjs) |
-| Building and custom images, the site's alone | [`image-build.mjs`](../src/image-build.mjs), [`image-builder.mjs`](../src/image-builder.mjs), [`image-artifact.mjs`](../src/image-artifact.mjs), [`custom-image.mjs`](../src/custom-image.mjs), [`custom-dollyfile.mjs`](../src/custom-dollyfile.mjs) (the custom image page), [`dollyfile-view.mjs`](../src/dollyfile-view.mjs), [`dollyfile-graph.mjs`](../src/dollyfile-graph.mjs) |
+| Runtime Worker | [`worker-image.mjs`](../src/worker-image.mjs), [`runtime-worker.mjs`](../src/runtime-worker.mjs) (boot()'s), [`build-worker.mjs`](../src/build-worker.mjs) (the site's and `dolly-build`'s), [`process-supervisor.mjs`](../src/process-supervisor.mjs), [`kernel-plugin.mjs`](../src/kernel-plugin.mjs), [`process-abi.mjs`](../src/process-abi.mjs), [`wasm-interface.mjs`](../src/wasm-interface.mjs), [`process-constants.mjs`](../src/process-constants.mjs) |
+| Building images (the site's, and `dolly-build`'s page for npm users) and custom images (the site's) | [`image-build.mjs`](../src/image-build.mjs), [`image-builder.mjs`](../src/image-builder.mjs), [`image-artifact.mjs`](../src/image-artifact.mjs), [`custom-image.mjs`](../src/custom-image.mjs), [`custom-dollyfile.mjs`](../src/custom-dollyfile.mjs) (the custom image page), [`dollyfile-view.mjs`](../src/dollyfile-view.mjs), [`dollyfile-graph.mjs`](../src/dollyfile-graph.mjs) |
 | Sessions | [`session-store.mjs`](../src/session-store.mjs), [`session-file.mjs`](../src/session-file.mjs), [`sessions.mjs`](../src/sessions.mjs) (the site's list), [`alphabetical.mjs`](../src/alphabetical.mjs) |
 
 ## The page's handle

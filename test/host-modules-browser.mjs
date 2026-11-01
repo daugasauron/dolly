@@ -176,9 +176,9 @@ curl -fsS ${server.origin}/fixture/report/refused-$refused/forged-$forged/read-$
 sleep 60`,
     },
   }) });
-  // The rebuild route adds the build's modules (http, threads, dso) to the declared ones.
+  // The rebuild route adds the build's modules (http, threads, dso, stack) to the declared ones.
   assert.deepEqual(await drawing.page.evaluate(() => [[...__dolly.hostModules].sort(), "inputTransport" in __dolly, "transport" in __dolly]),
-    [["display@0", "dso@0", "http@0", "runtime@0", "threads@0"], false, true]);
+    [["display@0", "dso@0", "http@0", "runtime@0", "stack@0", "threads@0"], false, true]);
   const typing = setInterval(() => void drawing.page.keyboard.press("k").catch(() => {}), 100);
   try { assert.equal(await report, "refused-0/forged-0/read-0"); } finally { clearInterval(typing); }
   await drawing.page.close();
@@ -209,7 +209,7 @@ int main(void) {
   // The log also holds the recipe: each awaited line differs from its source.
   const logged = text => headless.page.waitForFunction(text => document.querySelector("#bootstrap-log").textContent.includes(text), text);
   assert.deepEqual(await headless.page.evaluate(() => [[...__dolly.hostModules].sort(), "transport" in __dolly,
-    document.querySelector("#display").hidden]), [["dso@0", "http@0", "input@0", "runtime@0", "threads@0"], false, true]);
+    document.querySelector("#display").hidden]), [["dso@0", "http@0", "input@0", "runtime@0", "stack@0", "threads@0"], false, true]);
   await logged("INPUT-LEASED");
   await headless.page.keyboard.press("k");
   await logged("INPUT-KEY k KeyK");

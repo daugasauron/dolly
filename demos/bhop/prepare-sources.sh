@@ -4,7 +4,7 @@ if has_image bhop; then
   for entry in auth.mjs control.h mission.mjs settings.mjs viewer.cpp; do
     bhop_inputs+=("demos/game-agent/${entry}" "/usr/src/dolly/game-agent/${entry}")
   done
-  for entry in spectator/relay.mjs spectator/trace.mjs spectator/graphics.h; do
+  for entry in player.js codec.mjs spectator/relay.mjs spectator/trace.mjs spectator/graphics.h; do
     bhop_inputs+=("demos/rts/${entry}" "/usr/src/dolly/rts/${entry}")
   done
   node scripts/build-source-tar.mjs "${static_dir}/bhop/source.tar" \

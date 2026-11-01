@@ -4,9 +4,11 @@ REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 REQUIRES HOST packages@0
 
-# amy and the recipe engine it runs: what a session needs to install packages.
-# amy asks the site for the package index of the version it was built for.
-FROM /v0.1.4/Dollyfile-system-build 44b244a2e96435e98ed3fc1b28d41f509558d37bb8c853ee5bfb65ce37d5cbe9
+# amy and the recipe engine it runs (the dollyfile package): what a session needs
+# to install packages. amy asks the site for the package index of the version it
+# was built for.
+FROM /v0.1.4/Dollyfile-system-build 77f6e93acb9d87f062531bc5367845004fff6e4f3c5fb2a81c60737cce00abf4
+INSTALL /v0.1.4/Dollyfile-dollyfile 69f3aff9a072190ae39aed0839f142fa57dd45b582f61642a276948302889d7b
 REQUIRES HEADER libc
 REQUIRES HEADER http
 REQUIRES TOOL cc
@@ -17,8 +19,6 @@ SOURCE /v0.1.4/dist/static/default/commands/version.h 26530b4c4fe62f84d3a4e133a3
 SLOP cc -O2 /tmp/amy/amy.c -o /bin/amy
 
 EXPORTS TOOL amy
-EXPORTS TOOL dollyfile
 SLOP amy --help > /usr/share/man/cat1/amy.1
 FILE /usr/share/man/cat1/amy.1
-FILE /usr/share/man/cat1/dollyfile.1
 SLOP rm -rf /tmp/amy
