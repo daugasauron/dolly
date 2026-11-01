@@ -211,7 +211,8 @@ Worker URL.
   snapshot packs and user-clicked source links. The manifest holds sizes and
   hashes, never destinations; parts are fixed `.part-N` siblings fetched without
   guest headers, credentials, queries or redirects, within the original deadline
-  and byte bound (64 parts of 20 MiB, 1 GiB). A remote response cannot activate it.
+  and byte bound (parts of 20 MiB, at most the largest snapshot, 2 GiB). A remote
+  response cannot activate it.
 
 ## Other crossings
 
