@@ -124,10 +124,22 @@ differ were read in the source.
     the command position, so `$(time case …)` reads its patterns; the history file kept every
     command of every session (it is part of each saved session) while the editor keeps 1,000:
     loading now rewrites it to those 1,000.
+21. (round 8) **`tar` refused every `git archive` of a commit, so every GitHub source
+    tarball**: git writes a pax global header (`pax_global_header`), which the extractor
+    failed on with "Operation not supported", and the archive of a tree failed as soon as one
+    path exceeded ustar's 100 bytes (pax `x` header); GNU tar's `././@LongLink` likewise.
+    Measured natively on `git archive HEAD` and `git archive $(git write-tree)` of a repository
+    with a 241-byte path, the round trip `docs/slop.md` recommends. Global headers are skipped,
+    a pax `path` record or a GNU long name names the next member, and that path passes the same
+    checks as any other (`../` is refused, `test/tar.test.mjs`); links stay refused. A stale
+    workaround went with it: `mkdir_parents` ignored `mkdir`'s result and re-checked with
+    `stat` because an early libc "does not consistently preserve errno"; it now reads the result.
 
 Not fixed, measured: `realpath` without `-e` fails on a missing last component (POSIX.1-2024's
 default is uncertain to me); `readonly`, `times` and `hash` are "command not found" (no use in
-the corpus). Regressions, measured natively with the spawning Slop: the configure scripts of
+the corpus); POSIX's `>|` and `<>` and redirections after a function body
+(`f() { …; } > log`) fail with a syntax error rather than run (no use found in the corpus).
+Regressions, measured natively with the spawning Slop: the configure scripts of
 GNU Make (197 checks), bison (523 lines) and libffi (161) print the same log under the branch's
 Slop and main's, and stop at `umask` in `config.status` as before; libffi's differs in one line,
 `printf "%s\n" "…exec … ${1+\"$@\"}"`, where the branch now prints one line per parameter as
@@ -196,5 +208,12 @@ and on the catalog. What follows are changes to the language itself, the owner's
 - The corpus decides between POSIX and Bash: counting spellings in the cached sources
   (`${1+"$@"}` 344 times, `cp -p` 72, `set -f` 20, `cd -P` 6) turned "might matter" into a
   measured need, and showed that `readonly` and `hash` do not.
-- Seed rounds cost a chain rebuild each (zig-build alone is most of it): batch every seed fix
-  first and stop a build that has not reached the expensive images when another fix arrives.
+- I guessed a seed round would take an hour and stopped three builds to batch fixes; measured,
+  the 22 images of `default` and `system` take 17 to 23 minutes (zig-build about 15), and a
+  `system-tools`-only change 71 s. Measure the cost of a round before planning around it.
+- A narrowed build (`DOLLY_BUILD_IMAGES=default,system`) also narrows `amy-index.txt`, so a
+  test that reads the whole catalog's index (`default-browser.mjs`) fails for a reason that is
+  not the change: read a failure's first assertion before attributing it.
+- Docs drift where two pages state one fact: `sources.md` was updated when Ninja became
+  parallel, `slop.md` and `architecture.md` were not; `slop.md` still denied `/dev/zero` four
+  days after the kernel gained it.

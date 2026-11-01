@@ -6,8 +6,8 @@ REQUIRES HOST runtime@0
 # run unix/configure, so the flags say what it would find here. The sources
 # are C of 1990, which -std=gnu89 compiles. zip -T starts unzip, so unzip
 # comes with it.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 41e7a71c76566db3d33df351deac021dac3dc54eefe22fdc3b58aa60ba5d3adb
-INSTALL /v0.1.4/demos/tools/Dollyfile-unzip dae40c88d4201c2badd4ec3da86f92c287d7d6f131eff374aa03add9599c7be2
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build f76b72f46e36f1f97dfa30cbc3c8530b4a05dc78bd97ff265eb092b45fc48c9f
+INSTALL /v0.1.4/demos/tools/Dollyfile-unzip 46c656c3cc02f1550dcc26e9760f8cacbc119d89fded2366f2a54853387cc162
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc

@@ -185,8 +185,9 @@ that run inside the shell stay serial.
   nothing does; sbase's `which` ends with 2 then ("not an external command"). `kill` signals any process by PID. There is no
   `chmod`, `chown`, `id`, `whoami` or `df`: one user without modes to
   change or a name database, and no mount list to read; the `ps` package
-  prints `/proc/processes`. `tar` only extracts and `gzip` only
-  decompresses (`gzip -dc`); Git creates archives of any directory:
+  prints `/proc/processes`. `tar` only extracts, regular files and directories
+  of ustar, pax and GNU archives (what `git archive` and GitHub's tarballs are);
+  `gzip` only decompresses (`gzip -dc`); Git creates archives of any directory:
   `git init -q . && git add -A && git archive -o out.tar.gz $(git write-tree)`
   (`.tar`, `.tar.gz` and `.zip`).
 - `uname` and `hostname` report the fixed Dolly/wasm64 identity, never the
