@@ -106,11 +106,18 @@ differ were read in the source.
     as POSIX says and dash and Bash do (cases "OPTIND is 1…", "IFS is space, tab and newline…").
 17. **`command -V` was refused**: POSIX's description of what runs for a name now shares
     `type`'s code (`describe_commands`).
+18. (round 5, `system-tools` only) **`install` refused combined options**: `-m644` (16 uses
+    in the cached upstream Makefiles), `-m755` (10), `-Dm644` (2) and `-cm 644` failed with
+    "unsupported option". Letters now combine and a value may be attached or follow; `-D -t
+    DIR` creates the directory as GNU install does.
 
 Not fixed, measured: `realpath` without `-e` fails on a missing last component (POSIX.1-2024's
 default is uncertain to me); `readonly`, `times` and `hash` are "command not found" (no use in
-the corpus); GNU Make's configure prints the same 197 checks under the branch's Slop and
-main's, natively, and stops at `umask` in `config.status` as before.
+the corpus). Regressions, measured natively with the spawning Slop: the configure scripts of
+GNU Make (197 checks), bison (523 lines) and libffi (161) print the same log under the branch's
+Slop and main's, and stop at `umask` in `config.status` as before; libffi's differs in one line,
+`printf "%s\n" "…exec … ${1+\"$@\"}"`, where the branch now prints one line per parameter as
+dash and Bash do (finding 2).
 
 ## The Dollyfile language: what is measured, and proposals for the owner
 
@@ -152,6 +159,13 @@ and on the catalog. What follows are changes to the language itself, the owner's
   exists. POSIX.1-2024, Slop's target, made `cd`, `command` and the other intrinsic utilities
   optional as executables, and Make sends `cd` lines to the shell. It is in `core` and every
   image, so it is the owner's call; `/bin/command` stays (it `exec`s the program it names).
+- **P5. The interactive shell should not choose its directory.** `interactive()` creates
+  `/workspace`, changes into it and sets `PWD` whatever directory Slop started in (since the
+  first prototype, `0d224977`, undocumented), so `slop` typed in `/tmp` lands in `/workspace`.
+  Where an image wants its shell there, its start-up script says `cd /workspace` (as
+  `pi-minimal`'s does); images whose ENTRY is `/bin/foreground -i /bin/slop` would then start
+  in `/` unless their ENTRY or a start-up script changes directory. The visible start of
+  every image changes, so it is the owner's call.
 - **Observation, not a proposal.** `REQUIRES HOST` is a manifest declaration that must follow
   the role line; `REQUIRES TOOL`/`LIB`/`HEADER` are build-time assertions anywhere. One keyword
   carries two meanings with different placement rules.

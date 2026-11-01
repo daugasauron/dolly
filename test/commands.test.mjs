@@ -119,6 +119,10 @@ test("Dolly's own core tools keep their no-permission and finite semantics", asy
   assert.equal(status(build("install"), ["-m", "755", "-o", "nobody", "-g", "nogroup",
     "install-source", "installed"]), 0);
   assert.equal(await readFile(join(scratch, "installed"), "utf8"), "bytes");
+  // As Make install recipes write the options: letters combined, a value attached.
+  assert.equal(status(build("install"), ["-Dm644", "install-source", "nested/installed"]), 0);
+  assert.equal(status(build("install"), ["-cm", "755", "install-source", "nested/again"]), 0);
+  assert.equal(await readFile(join(scratch, "nested/again"), "utf8"), "bytes");
   await utimes(join(scratch, "install-source"), 1000, 2000);
   assert.equal(status(build("install"), ["-p", "install-source", "preserved"]), 0);
   assert.equal((await stat(join(scratch, "preserved"))).mtimeMs, 2000_000);
