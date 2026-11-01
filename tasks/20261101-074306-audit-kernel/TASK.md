@@ -18,11 +18,16 @@ confirms is fixed with a test that failed before (or code gone and nothing
 broken), the moot is closed with its reason and the uncertain rest is a few
 lines each below.
 
-## State (2026-11-01 17:30 JST)
+## State (2026-11-01 18:20 JST)
 
 Read: the whole of the scope above. Baseline: build reproducible (same runtime
 and image ids), source suite 446/446 in 27 s, `process-browser` passes in
-Chromium (58 s).
+Chromium (58 s). Items 1-15 are committed and verified on `default,system`
+built from the new seed (image inputs `5a218e03…`; the first round of it
+failed at git's link, item 7): `process`, `terminal`, `core`, `pty` and
+`threads` pass in Chromium and Firefox. The libc items need a catalog
+round. Next: an edge-case comparison of file and process calls against
+Linux, and the cost of a system call on the page's side.
 
 ## Fixed
 
@@ -50,10 +55,141 @@ Chromium (58 s).
    than dup2 and close fail with ENOTSUP; `84bb1d10` added `addopen` (and
    `addchdir_np` is there too) without the bullet.
 
+4. **Ctrl+C at a program in `system()` ended the program.** POSIX has
+   `system()` ignore SIGINT and SIGQUIT and block SIGCHLD in its caller while
+   the command runs; Dolly's (`runtime-adapter.c`, from the first checkpoint
+   `b95459ce`) did none of it, so Ctrl+C ended the caller with its command.
+   Test: `process-interrupt system` in `process-browser`: status 130 and no
+   marker before, the command ends and the program goes on now. Seed input.
+5. **`popen(…, "re")` gave the caller's end no FD_CLOEXEC** (glibc and musl
+   honour `e`). Test in `process-lifecycle.c`. Seed input.
+6. **`pthread_cancel` claimed success** in a program without `-pthread`:
+   Emscripten's `library_pthread_stub.c` returns 0 and cancels nothing. Now
+   ENOTSUP, as the threads@0 profile already answers. Probe before: `cancel 0`.
+   Test in `process-lifecycle.c`. Seed input.
+7. **`getpass` echoed the password and read standard input.** Dolly's own
+   (`b95459ce`, no reason recorded) printed the prompt on stderr and read
+   stdin with `fgets`; musl's opens `/dev/tty`, clears ECHO and restores the
+   mode, which Dolly's termios now supports. Git's credential prompt is
+   `getpass` here (no `HAVE_DEV_TTY`). Emscripten's libc leaves musl's
+   `legacy/getpass.c` out (its `system_libs.py` takes three files of that
+   directory), which is why Dolly had a copy: the build now compiles musl's
+   file into the runtime client, as it does `getdate`, and Dolly's copy is
+   gone. `terminal-browser` types a password at `getpass` with stdin from
+   /dev/null: before, the prompt was never waited at (fgets of /dev/null),
+   now it is read and not shown. Seed input.
+8. **`kill` of a child that has exited and is not yet waited for failed with
+   ESRCH**; POSIX (and Linux) keep it until it is waited for: success,
+   nothing happens. Kernel C. Test in `process-lifecycle.c`.
+9. **`rewinddir`/`seekdir` after a partial read returned entries twice.**
+   The kernel reads a directory through a `DIR` of its own per descriptor,
+   which holds read-ahead; an `lseek` of the descriptor (musl's rewinddir and
+   seekdir) left that read-ahead to be returned first. A `SEEK_SET` now drops
+   the kernel's reader. Common `readdir` loops do not show it (the guest's
+   and the kernel's buffers both take 7 entries), `getdents` with another
+   buffer size does. Test in `process-descriptors.c`. Kernel C.
+10. `scripts/build.sh` removed five outputs no build has made since
+    2026-09-06 (`slop-process.wasm`, `process-check.wasm` and two more) and
+    `ghostty-web.js` (2026-08-31).
+
+11. **`getppid` never changed.** libc cached the parent with the pid on the
+    first call (`018c5f27`, when a parent's exit still took its children);
+    since `328a4017` a child outlives its parent and has parent 0, and a
+    program that watches `getppid` to learn its parent ended never saw it.
+    The pid stays cached, the parent is asked. Test in `process-lifecycle.c`
+    (`adopting`). Seed input.
+12. **A spawn without an environment gave the child the one its parent
+    started with.** `dolly_spawn_*` with `envp` NULL set
+    `SPAWN_INHERIT_ENVIRONMENT`, and the kernel, which never sees a process's
+    `environ`, copied the parent's starting environment: a variable the
+    parent set was missing. libc now sends `environ`. Test in
+    `process-lifecycle.c` (`cwd`). Seed input.
+13. `runtime.h` said socket functions all fail; with sockets@0 they do not,
+    and the process model documents both. The comment is gone. Seed input.
+
+14. **`fsync` and `ftruncate` of a pipe failed with ESPIPE**, an errno POSIX
+    does not list for them; it and Linux say EINVAL. Kernel C. The check in
+    `process-descriptors.c` runs natively too, where Linux agrees.
+15. `waitpid(-PID)` failed with ECHILD although `kill(-PID)` signals the
+    child PID, its own group. It now waits for that child. Seed input.
+    Test in `process-lifecycle.c`.
+
+## Proposals for the owner
+
+- **Inherited environments for the page's spawns only.** After 12 no
+  process asks the kernel to inherit an environment; only the supervisor's
+  root spawns do (`encodeSpawn`, parent 0, the kernel's own `environ`). The
+  kernel's branch that copies a parent's starting environment (15 lines of
+  `spawn_packet`) can refuse with EINVAL instead. Kernel C only, but it
+  narrows what `process.h` allows.
+- **`dolly-image-0.wat`: two exports that carry nothing.**
+  `dolly_process_bootstrap_resume_prepare`'s second parameter must be 1
+  since Dollyfile v3 (`99093739`, when it stopped counting cached modules),
+  and `dolly_snapshot_format_version` is called by nothing but a test that
+  instantiates the contract file itself, never the kernel. Dropping both
+  changes the image contract, an image input: a catalog round.
+
+## Views on agent E's two commits (read only)
+
+- `a15a3c6c` (a threaded process starts at its maximum memory) is a
+  measured workaround for a V8 defect (Chrome 156 bounds-checks
+  `memory.copy`, `fill` and atomics against a stale size after another
+  thread grew the memory); Firefox has none. Its costs: every threaded
+  process reserves its whole maximum (8 GiB for a program linked with the
+  default), and the supervisor's event loop, which serves every process's
+  calls, waits in `Atomics.wait` and then spins on `buffer.byteLength` while
+  the grower Worker grows it. It deserves a line naming the Chrome version
+  to recheck, as `511cd751`'s Firefox workaround has.
+- `1d12850b` (a package's snapshot merged from its packs) adds
+  `src/sha256.mjs` beside the kernel's `src/sha256.h`: two SHA-256s, one per
+  side of the boundary, because WebCrypto has no incremental digest. Where
+  the bytes end in the kernel anyway (`dolly_snapshot_stream_*` already
+  hashes a streamed image in Wasm), the check could be the kernel's alone;
+  where the page must refuse bytes before the guest sees them, the second
+  copy is the price.
+
 ## Findings, not changed
 
-(filled as the night goes)
+- **Every system call costs 23-25 µs in Chromium and 31-35 µs in Firefox**
+  (20,000 `fcntl(F_GETFD)`, `-O2`, `system` image): a postMessage, the
+  runtime Worker's event loop and an Atomics wait. Writes go in 16 KiB
+  packets (`DOLLY_PROCESS_IO_CHUNK`, since `b95459ce`) while reads take
+  1 MiB: 64 MiB written in 1 MiB calls take 0.12-0.16 s (410-550 MiB/s),
+  read back in 0.010-0.026 s. A 64 KiB write packet (the pipe's capacity)
+  would make bulk file writes about 4x cheaper without copying more than a
+  pipe takes on each retry of a blocked write; it is a seed change for a gain
+  no measured workload has shown yet (a 78 MB link output is ~0.14 s of
+  calls), so it is left.
+- Of those 23-25 µs the hop itself is the smaller part: a Worker's blocking
+  round trip by `postMessage` and `Atomics.wait`, as `process-worker.mjs`
+  makes it, takes 9.8 µs in Chrome, and 6.2 µs with `Atomics.waitAsync`
+  in its place (20,000 round trips, `build/audit-kernel-evidence/bench`);
+  the rest is the supervisor's and the kernel's work for each call. A
+  protocol on `waitAsync` would save ~15% of a call, not enough for its
+  complexity. (The same page hung in Firefox in the postMessage mode; not
+  looked into, Dolly's own calls work there.)
+- Signals arriving faster than a handler finishes keep the supervisor's
+  500 ms grace timer armed (`#armInterrupt` is cleared only by an
+  acknowledgement with nothing pending): `kill` in a loop without pause ended
+  a process that ignores the signal. No real sender is that fast (a held
+  Ctrl+C repeats at ~30 Hz).
 
 ## Lessons
 
-(at the end)
+- Four of the defects are code from the first checkpoint (`b95459ce`,
+  2026-09-05) written before the mechanism it stood in for existed, and not
+  looked at when the mechanism came: `getpass` before termios had ECHO,
+  `system` before handlers ran in Wasm, the `getppid` cache before children
+  outlived parents, the signal-before-start rule before exec carried signal
+  state. When a mechanism lands, grep for what assumed its absence.
+- A rule decided in two places drifts: the kernel learned what exec carries
+  across, the supervisor kept ending any process not yet started. One
+  decider (the kernel), and the other side asks.
+- Before deleting a Dolly copy of a libc function, look at what Emscripten
+  builds of musl (`tools/system_libs.py`): `getpass` was there because
+  Emscripten leaves it out, not because musl's was wrong. The first image
+  round found it at git's link, 9 minutes in.
+- Kernel C iterates in 14 s; one libc line costs a `default,system` round
+  of ~14 min, and a seed header (`runtime.h`) rewrites the pins of all 186
+  recipes. Batch libc fixes, and keep header edits for rounds that change a
+  header anyway.

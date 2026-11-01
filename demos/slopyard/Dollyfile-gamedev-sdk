@@ -10,9 +10,9 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/Dollyfile-system 915c71d4ce772989e3076060967824e48ccd6a1a6259624fe6213542df088dbc
-INSTALL /v0.1.4/demos/slopyard/Dollyfile-raylib d0ac649d10a7faf68a40e58cfc61f4419b1a595f47dc2c5126106ed60af61564
-INSTALL /v0.1.4/demos/slopyard/Dollyfile-box3d 576bec25915a1511fb1cd791f1afce94da24733ca6940785209e93618cde216a
+FROM /v0.1.4/Dollyfile-system f1fa8104555572ab95996ed6b89ad705419e6cb5729d4b291a9da0276cee4ee7
+INSTALL /v0.1.4/demos/slopyard/Dollyfile-raylib 5c58a2460a08e2e57920e4db769f04a80777633f228173cdab15efb8514b99ae
+INSTALL /v0.1.4/demos/slopyard/Dollyfile-box3d e57faaf01c97c36c7c2aee27234746ca93f9a7a311d298d27b8021ebe21ed9fa
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
 REQUIRES TOOL   cc

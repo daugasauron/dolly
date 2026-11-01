@@ -2,7 +2,9 @@
 // pipe, and the program shuts down after its blocking call returns. With
 // "key" the interrupt key is C-g, as Emacs sets it (VQUIT too): Ctrl+C is then
 // read as its byte, and C-g interrupts.
-// Usage: process-interrupt poll|read|wait|sleep|key MARKER
+// With "system" the program waits in system(), which ignores SIGINT while the
+// command runs: Ctrl+C ends the command, and the program goes on.
+// Usage: process-interrupt poll|read|wait|sleep|system|key MARKER
 #define _GNU_SOURCE
 #include <dolly/runtime.h>
 #include <errno.h>
@@ -10,6 +12,7 @@
 #include <poll.h>
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
 #include <termios.h>
@@ -52,6 +55,16 @@ int main(int argc, char **argv) {
   if (argc != 3) return 2;
   const char *blocked = argv[1];
   if (!strcmp(blocked, "child")) return sleep(30), 3;
+  if (!strcmp(blocked, "system")) {
+    puts("INTERRUPT-READY");
+    fflush(stdout);
+    const int status = system("sleep 30");
+    struct sigaction after;
+    if (!(WIFSIGNALED(status) ? WTERMSIG(status) == SIGINT : WEXITSTATUS(status) == 130) ||
+        sigaction(SIGINT, NULL, &after) || after.sa_handler != SIG_DFL) return 4;
+    const int marker = open(argv[2], O_WRONLY | O_CREAT | O_EXCL, 0600);
+    return marker < 0 || close(marker) ? 7 : 0;
+  }
   // Only the restarted read returns the handler's byte without EINTR.
   const struct sigaction action = {.sa_handler = note, .sa_flags = !strcmp(blocked, "read") ? SA_RESTART : 0};
   if (pipe(notes) || sigaction(SIGINT, &action, NULL)) return 2;

@@ -7,10 +7,10 @@ REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/Dollyfile-system-build 7997c05ba08220831088b2aa713c86dbf0ded0229bbfa84f411476f00269d9fc
-INSTALL /v0.1.4/Dollyfile-zlib 7f3254e8d51bc7edd2fa47b19f3b1e2e43c747476ab93c57654639e4119abde7
-INSTALL /v0.1.4/Dollyfile-gzip 1be14cb6142500862aa5362445cdfa3c5fc7f4817e775a614754e3dc91ead079
-INSTALL /v0.1.4/Dollyfile-curl 173c3c37eeac846ba8caa316c656cb75e5facea793eb9434337550ddaf3d32d1
+FROM /v0.1.4/Dollyfile-system-build 5eaa4dfb39a2a5e5cd7f405bc1abc6ef3eb872978d42255d4f205bb988082fa2
+INSTALL /v0.1.4/Dollyfile-zlib 4f7df276bf3862f99d6ab7bdba2fcd62b083dc47140aebb13b00ef02a66a8625
+INSTALL /v0.1.4/Dollyfile-gzip 25ddc48bbf01be0917d009b9d51952f710d2c0fa356d74f8e99ac4c4b0d23cb5
+INSTALL /v0.1.4/Dollyfile-curl c008878b80771544cf7c7a460a02e6e33e02ef65fdbf24649fa8cd327196ed7f
 REQUIRES LIB z
 REQUIRES LIB curl
 REQUIRES TOOL cc
@@ -55,6 +55,6 @@ EXPORTS FOLDER rust-sdk /opt/rust-sdk
 EXPORTS FOLDER rust-licenses /usr/share/licenses/rust
 SLOP rustc --version --verbose
 SLOP cargo --version
-INSTALL /v0.1.4/Dollyfile-display d15ef860730ddefa417080c1d27cc0a26f03d5409c93805e9b3cbc5b6af61011
+INSTALL /v0.1.4/Dollyfile-display cef7cffe3719694b4e0b3722652a9f23419a0e579de45dffc98c2b80781531a8
 
 ENTRY /bin/foreground -i /bin/slop

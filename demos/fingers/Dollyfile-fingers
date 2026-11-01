@@ -7,10 +7,10 @@ REQUIRES HOST audio@0
 REQUIRES HOST touch@0
 
 # The shell, its tools and the terminal, and fingers in front of them.
-INSTALL /v0.1.4/Dollyfile-core c3aa527edcbac3332fe2aee277b392cc4e9b66b570935967f04d0bd3378ac506
-INSTALL /v0.1.4/Dollyfile-posix e8bc6b8368a186bea1a6f3f667ba0eafb30f40e1a0faac81705aab7ccb058e8f
-INSTALL /v0.1.4/Dollyfile-display d15ef860730ddefa417080c1d27cc0a26f03d5409c93805e9b3cbc5b6af61011
-INSTALL /v0.1.4/demos/fingers/Dollyfile-fingers-build 82ae54883f5f301b2c752d7eccf68b6bb05870a1a8ad144ed8fa90081092ffcc
+INSTALL /v0.1.4/Dollyfile-core 538a20f282187b0a0b01ec279e30787f5a4fccbef40343c8d63848cbe4f62877
+INSTALL /v0.1.4/Dollyfile-posix 603a50fa0589809db58bd85e6e01bd2e588c1e18e62f03af7ab85cd2f25efcf2
+INSTALL /v0.1.4/Dollyfile-display cef7cffe3719694b4e0b3722652a9f23419a0e579de45dffc98c2b80781531a8
+INSTALL /v0.1.4/demos/fingers/Dollyfile-fingers-build 1055aa83dd85dc6a8254afacbb1958e67fc0a34de42bae04373bb8916f072228
 FILE /etc/dolly/init.slop
     /usr/bin/fingers
     printf '\nDolly: fingers has ended; this is the recovery Slop shell.\n'

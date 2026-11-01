@@ -65,20 +65,21 @@ int uname(struct utsname *information) {
 }
 
 static pid_t process_id(int parent) {
-  static _Thread_local dolly_process_info_response identity;
-  if (identity.pid == 0) {
-    dolly_process_info_response response;
-    const int64_t result = dolly_process_call(DOLLY_PROCESS_INFO,
-        NULL, 0, &response, sizeof(response));
-    if (result < 0) return (pid_t)result;
-    if (result != sizeof(response) || response.pid == 0 ||
-        response.pid > INT32_MAX || response.parent_pid > INT32_MAX) return -EIO;
-    identity = response;
-  }
-  return (pid_t)(parent ? identity.parent_pid : identity.pid);
+  dolly_process_info_response response;
+  const int64_t result = dolly_process_call(DOLLY_PROCESS_INFO,
+      NULL, 0, &response, sizeof(response));
+  if (result < 0) return (pid_t)result;
+  if (result != sizeof(response) || response.pid == 0 ||
+      response.pid > INT32_MAX || response.parent_pid > INT32_MAX) return -EIO;
+  return (pid_t)(parent ? response.parent_pid : response.pid);
 }
 
-pid_t __syscall_getpid(void) { return process_id(0); }
+/* A process keeps its pid, exec included; its parent is 0 once that ends. */
+pid_t __syscall_getpid(void) {
+  static _Thread_local pid_t pid;
+  if (pid <= 0) pid = process_id(0);
+  return pid;
+}
 pid_t __syscall_getppid(void) { return process_id(1); }
 
 /* One thread per private process. libc-ww's fallback TID 42 would disagree

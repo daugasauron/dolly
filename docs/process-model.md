@@ -291,10 +291,15 @@ nothing and declares nothing: any program built for Dolly runs on one.
   `EPERM`, as `setsid` does ([`libc-adapter.c`](../src/process/libc-adapter.c)).
   `kill(0)` signals the caller and `kill(-PID)` that one process, not its
   descendants; `kill(-1)` fails `ENOTSUP`.
-- `waitpid` accepts a child PID, `-1` or `0`, with `WNOHANG`, `WUNTRACED` and
+- `waitpid` accepts a child PID, `-1` or `0`, and `-PID` for the group the
+  child PID is, with `WNOHANG`, `WUNTRACED` and
   `WCONTINUED`: no child ever stops or continues. Wait records distinguish signal termination from exit:
   `exit(130)` is not SIGINT. A child that has exited is there until it is
   waited for: `kill` of it succeeds and does nothing.
+- `system` and `popen` run their command as `/bin/slop -c`, given the
+  standard streams only; `system` ignores SIGINT and SIGQUIT and blocks
+  SIGCHLD while it waits, as POSIX says, so Ctrl+C ends the command and not
+  its caller.
 - Timed spawns carry an absolute monotonic deadline at most one day away; the
   supervisor ends the child with status 124 even inside a pure CPU loop.
 - `SPAWN_FOREGROUND` and `SPAWN_INTERACTIVE` are explicit roles. Ctrl+C with
@@ -353,7 +358,9 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
 ## Signals
 
 - Supported: `SIGHUP`, `SIGINT`, `SIGQUIT`, `SIGABRT`, `SIGKILL`, `SIGPIPE`,
-  `SIGALRM`, `SIGTERM`, `SIGCHLD`, `SIGWINCH`; others are rejected.
+  `SIGALRM`, `SIGTERM`, `SIGCHLD`, `SIGWINCH`; others are rejected, and only
+  the kernel sends another process `SIGCHLD` (`kill` with it fails with
+  `ENOTSUP`).
 - Handlers run in Wasm at syscall boundaries ([`signal.c`](../src/process/signal.c))
   with masks, `SA_RESTART`, `SA_RESETHAND`, `SA_NODEFER` and `SA_SIGINFO`.
   Alternate stacks, `sigwait`, asynchronous preemption and `SA_NOCLDWAIT` are

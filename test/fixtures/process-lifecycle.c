@@ -177,7 +177,8 @@ int main(int argc, char **argv) {
     if (strcmp(argv[1], "exit130") == 0) return 130;
     if (strcmp(argv[1], "cwd") == 0) {
       char directory[4096];
-      return getcwd(directory, sizeof(directory)) != NULL && strcmp(directory, "/tmp") == 0 ? 0 : 1;
+      return getcwd(directory, sizeof(directory)) != NULL && strcmp(directory, "/tmp") == 0 &&
+          getenv("LIFECYCLE_SET") != NULL ? 0 : 1;
     }
     if (strcmp(argv[1], "orphans") == 0) {
       char *arguments[] = {argv[0], "foreground-exit", NULL};
@@ -188,6 +189,22 @@ int main(int argc, char **argv) {
         if (dolly_spawn(argv[0], 2, arguments, 0, 1, 2) <= 0) return 1;
       }
       return 0; /* Also abandon children still queued for launch. */
+    }
+    // Its child reads its parent, has it end and reads again.
+    if (strcmp(argv[1], "adopting") == 0) {
+      int ready[2];
+      char *arguments[] = {argv[0], "adopted", NULL}, byte;
+      if (pipe(ready) != 0 || dolly_spawn(argv[0], 2, arguments, 0, 1, ready[1]) <= 0 ||
+          read(ready[0], &byte, 1) != 1) return 1;
+      return 0;
+    }
+    if (strcmp(argv[1], "adopted") == 0) {
+      const pid_t parent = getppid();
+      if (write(2, "r", 1) != 1) return 1;
+      pid_t now = parent;
+      for (int tenth = 0; tenth < 50 && (now = getppid()) == parent; ++tenth) usleep(100000);
+      printf("%d %d\n", parent, now);
+      return 0;
     }
     if (strcmp(argv[1], "self") == 0) { kill(getpid(), SIGTERM); return 99; }
     if (strcmp(argv[1], "checkpoint") == 0) for (;;) access("/", F_OK);
@@ -268,10 +285,10 @@ int main(int argc, char **argv) {
   CHECK(kill(pid, SIGUSR1) == -1 && errno == ENOTSUP);
   errno = 0;
   CHECK(kill(-1, SIGTERM) == -1 && errno == ENOTSUP);
-  // The child is its own group: the group's signal is its own.
+  // The child is its own group: the group's signal and wait are its own.
   CHECK(getpgid(pid) == pid && getsid(pid) == pid && kill(-pid, SIGTERM) == 0);
   if (failures) return 1; /* The invocation boundary owns any remaining children. */
-  CHECK(waitpid(pid, &status, 0) == pid);
+  CHECK(waitpid(-pid, &status, 0) == pid);
   CHECK(WIFSIGNALED(status) && WTERMSIG(status) == SIGTERM);
   errno = 0;
   CHECK(waitpid(pid, &status, WNOHANG) == -1 && errno == ECHILD);
@@ -288,6 +305,10 @@ int main(int argc, char **argv) {
   CHECK(waitpid(-1, &status, 0) == any && WEXITSTATUS(status) == 130);
   status = system("exit 3");
   CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 3);
+  // popen's "e" gives the caller's end FD_CLOEXEC.
+  FILE *closing = popen("true", "re"), *kept = popen("true", "r");
+  CHECK(closing != NULL && kept != NULL && fcntl(fileno(closing), F_GETFD) == FD_CLOEXEC &&
+        fcntl(fileno(kept), F_GETFD) == 0 && pclose(closing) == 0 && pclose(kept) == 0);
   const int spinning = child(argv[0], "spin");
   CHECK(kill(spinning, SIGKILL) == 0);
   CHECK(waitpid(spinning, &status, 0) == spinning);
@@ -295,6 +316,8 @@ int main(int argc, char **argv) {
   char directory[4096], after[4096];
   CHECK(getcwd(directory, sizeof(directory)) != NULL);
   char *cwd_arguments[] = {argv[0], "cwd", NULL};
+  // No environment is the one this process has now.
+  CHECK(setenv("LIFECYCLE_SET", "1", 1) == 0);
   const int cwd_child = dolly_spawn_env_cwd(argv[0], 2, cwd_arguments, NULL, "/tmp", 0, 1, 2, -1);
   CHECK(cwd_child > 0);
   CHECK(getcwd(after, sizeof(after)) != NULL && strcmp(after, directory) == 0);
@@ -325,6 +348,18 @@ int main(int argc, char **argv) {
     CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 0);
     if (failures) return 1;
   }
+  // A child whose parent ends has none from then on.
+  int adoption[2];
+  CHECK(pipe(adoption) == 0);
+  char *adopting[] = {argv[0], "adopting", NULL};
+  const int parent = dolly_spawn(argv[0], 2, adopting, 0, adoption[1], 2);
+  CHECK(parent > 0 && close(adoption[1]) == 0);
+  FILE *adopted = fdopen(adoption[0], "r");
+  int first_parent = -1, last_parent = -1;
+  // Each prints its pid and parent first: the adopting child, the adopted one.
+  CHECK(fscanf(adopted, "%*d %*d %*d %*d %d %d", &first_parent, &last_parent) == 2 &&
+        first_parent == parent && last_parent == 0);
+  CHECK(fclose(adopted) == 0 && waitpid(parent, &status, 0) == parent && WIFEXITED(status) && WEXITSTATUS(status) == 0);
   // The children they abandoned live on, and are reaped when they end.
   for (int tenth = 0; tenth < 100 && listed(" foreground-exit") != 0; ++tenth) usleep(100000);
   CHECK(listed(" foreground-exit") == 0);
@@ -386,6 +421,8 @@ int main(int argc, char **argv) {
   pthread_attr_t attributes;
   CHECK(pthread_attr_init(&attributes) == 0 && pthread_attr_setstacksize(&attributes, 1 << 20) == 0 &&
         pthread_attr_destroy(&attributes) == 0);
+  // The one thread there is is not cancelled.
+  CHECK(pthread_cancel(pthread_self()) == ENOTSUP);
   // The kernel refuses a spawn deadline more than a day away.
   CHECK(dolly_spawn_timeout(argv[0], 2, sleep_arguments, 0, 1, 2, 2 * 86400e3) == -EINVAL);
   if (failures) return 1;
