@@ -1031,21 +1031,56 @@ static int path_from_packet(dolly_kernel_process *process,
         ? process->current_directory : descriptor_for(process, directory_descriptor);
     if (directory < 0) return directory;
   }
-  char *path = malloc((size_t)size + 1);
+  char *path = malloc((size_t)size + 2);
   if (path == NULL) return -ENOMEM;
   memcpy(path, bytes, size);
   path[size] = 0;
-  /* A path that ends in a slash names a directory; WasmFS resolves "file/"
-   * as "file". */
+  /* A path that ends in a slash names a directory, through a symbolic link
+   * too; WasmFS resolves "name/" as "name", so "link/." is what follows it. */
   struct stat named;
-  if (size > 1 && path[size - 1] == '/' && fstatat(directory, path, &named, 0) == 0 &&
-      !S_ISDIR(named.st_mode)) {
-    free(path);
-    return -ENOTDIR;
+  if (size > 1 && path[size - 1] == '/') {
+    if (fstatat(directory, path, &named, 0) == 0 && !S_ISDIR(named.st_mode)) {
+      free(path);
+      return -ENOTDIR;
+    }
+    if (fstatat(directory, path, &named, AT_SYMLINK_NOFOLLOW) == 0 && S_ISLNK(named.st_mode))
+      memcpy(path + size, ".", 2);
   }
   *path_out = path;
   *directory_out = directory;
   return 0;
+}
+
+/* WasmFS fails to create the file a symbolic link names that does not
+ * exist yet. POSIX creates it, and with O_EXCL never follows the link. */
+static int create_through_link(int directory, const char *path, int flags, int depth) {
+  struct stat link;
+  if (fstatat(directory, path, &link, AT_SYMLINK_NOFOLLOW) != 0 || !S_ISLNK(link.st_mode)) return -ENOENT;
+  if ((flags & O_EXCL) != 0) return -EEXIST;
+  if (depth == 0) return -ELOOP;
+  char target[PATH_MAX], named[PATH_MAX];
+  const ssize_t length = readlinkat(directory, path, target, sizeof(target));
+  if (length < 0) return -errno;
+  if ((size_t)length >= sizeof(target)) return -ENAMETOOLONG;
+  target[length] = 0;
+  const char *slash = strrchr(path, '/');
+  const int written = target[0] == '/' || slash == NULL
+      ? snprintf(named, sizeof(named), "%s", target)
+      : snprintf(named, sizeof(named), "%.*s/%s", (int)(slash - path), path, target);
+  if ((size_t)written >= sizeof(named)) return -ENAMETOOLONG;
+  const int descriptor = openat(directory, named, flags, 0666);
+  if (descriptor >= 0) return descriptor;
+  return errno == ENOENT ? create_through_link(directory, named, flags, depth - 1) : -errno;
+}
+
+/* Whether the last name of a path, slashes after it aside, is "." or "..". */
+static int ends_in_dot(const char *path) {
+  size_t end = strlen(path);
+  while (end > 1 && path[end - 1] == '/') --end;
+  size_t start = end;
+  while (start > 0 && path[start - 1] != '/') --start;
+  const size_t length = end - start;
+  return (length == 1 || length == 2) && strncmp(path + start, "..", length) == 0;
 }
 
 static int directory_path(int descriptor, char *buffer, size_t capacity) {
@@ -2079,7 +2114,10 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       int kernel_fd = -1;
       if (result == 0) {
         kernel_fd = openat(directory, path, flags, 0666);
-        if (kernel_fd < 0) result = -errno;
+        if (kernel_fd < 0 && errno == ENOENT && (flags & O_CREAT) != 0)
+          kernel_fd = create_through_link(directory, path, flags, 40);
+        else if (kernel_fd < 0) kernel_fd = -errno;
+        if (kernel_fd < 0) result = kernel_fd;
       }
       free(path);
       if (result != 0) return result;
@@ -2164,6 +2202,9 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
           process, request.new_directory_descriptor,
           process_mailbox + sizeof(request) + request.old_path_size,
           request.new_path_size, &new_path, &new_directory);
+      /* WasmFS renames the directory "dir/." names; POSIX refuses a dot. */
+      if (result == 0 && operation == DOLLY_PROCESS_PATH_RENAME &&
+          (ends_in_dot(old_path) || ends_in_dot(new_path))) result = -EINVAL;
       if (result == 0) {
         const int call_result = operation == DOLLY_PROCESS_PATH_RENAME
             ? renameat(old_directory, old_path, new_directory, new_path)

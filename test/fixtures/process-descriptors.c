@@ -401,6 +401,29 @@ static void path_answers(void) {
   CHECK(close(reader) == 0 && close(writer) == 0 && unlink(file) == 0 && rmdir(directory) == 0);
 }
 
+/* A slash after a symbolic link follows it, and O_CREAT follows one to a file
+ * not there yet, unless with O_EXCL. A dot is no name to rename. */
+static void link_answers(void) {
+  char directory[] = "/tmp/process-descriptors-XXXXXX", link_path[128], target[128], path[256];
+  CHECK(mkdtemp(directory) != NULL);
+  struct stat metadata;
+  snprintf(link_path, sizeof(link_path), "%s/here", directory);
+  snprintf(path, sizeof(path), "%s/", link_path);
+  CHECK(symlink(".", link_path) == 0 && lstat(path, &metadata) == 0 && S_ISDIR(metadata.st_mode));
+  CHECK(unlink(path) == -1 && lstat(link_path, &metadata) == 0 && S_ISLNK(metadata.st_mode));
+  CHECK(unlink(link_path) == 0);
+  snprintf(target, sizeof(target), "%s/made", directory);
+  CHECK(symlink("made", link_path) == 0);
+  CHECK(open(link_path, O_WRONLY | O_CREAT | O_EXCL, 0644) == -1 && errno == EEXIST);
+  const int made = open(link_path, O_WRONLY | O_CREAT, 0644);
+  CHECK(made >= 0 && close(made) == 0 && lstat(target, &metadata) == 0 && S_ISREG(metadata.st_mode));
+  char moved[128];
+  snprintf(path, sizeof(path), "%s/.", directory);
+  snprintf(moved, sizeof(moved), "%s-moved", directory);
+  CHECK(rename(path, moved) == -1 && stat(directory, &metadata) == 0);
+  CHECK(unlink(link_path) == 0 && unlink(target) == 0 && rmdir(directory) == 0);
+}
+
 #ifdef __dolly__
 static int directory_entries(int fd, size_t capacity) {
   char records[4096];
@@ -443,6 +466,7 @@ int main(int argc, char **argv) {
   vectored_io();
   posix_spawning(argv[0]);
   path_answers();
+  link_answers();
 #ifdef __dolly__
   spawning(argv[0]);
   directory_positions();

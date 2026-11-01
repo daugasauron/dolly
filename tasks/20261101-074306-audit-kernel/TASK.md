@@ -230,6 +230,23 @@ Each with a test that failed before, verified in Chromium and Firefox.
     is narrowed: its welcome names packages `amy-index.txt` lists only for
     the whole catalog; `generate-routes` restores it.)
 
+22. **A slash after a symbolic link did not follow it.** `lstat("link/")`
+    answered the link, not the directory it names, and `unlink("link/")`
+    removed the link, where Linux refuses (ENOTDIR): `ls -l link/` showed the
+    link and `rm -r link/` took it. The kernel now resolves such a path as
+    "link/.", which WasmFS follows; removing or renaming it is refused
+    (EISDIR or EINVAL, not Linux's ENOTDIR). That showed a WasmFS rename of
+    "dir/." moving the directory: a rename whose last name is a dot now fails
+    with POSIX's EINVAL (Linux: EBUSY). And `open` with `O_CREAT` through a
+    link to a file not there yet failed with ENOENT where POSIX creates the
+    file, and with `O_EXCL` too, where POSIX says EEXIST: the kernel now
+    follows the link (40 deep) itself. Found by a third comparison
+    (`probes/more-edges.c`, 150 calls: descriptor flags, the `*at` calls,
+    locks, vectored I/O, waits, terminal calls on files). Kernel C. Test
+    `link_answers` in `process-descriptors.c`, which Linux passes too:
+    before, failed at its first check (Chromium), now passes in Chromium and
+    Firefox.
+
 ## Proposals for the owner
 
 - **The kernel told each disposition, and a spawned child that keeps what
