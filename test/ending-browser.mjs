@@ -19,11 +19,22 @@ const ended = async page => {
 };
 
 await browserTest("ending", { image: "system", timeout: 300_000 }, async ({ browser, server, open }) => {
-  const { page } = await open();
+  // The page's element is smaller than the window, as an embedding's may be:
+  // the notice is the element's, and its last frame stays above it.
+  const { page } = await open({ setup: page => page.addInitScript(() => document.addEventListener("DOMContentLoaded", () =>
+    document.head.append(Object.assign(document.createElement("style"),
+      { textContent: "#terminal { position: absolute; left: 100px; top: 80px; width: 640px; height: 400px; }" })))) });
   await page.keyboard.type("exit 7\n");
   let end = await ended(page);
   assert.deepEqual([end.status, end.visible, end.log], ["exited", true, ""], end.notice);
   assert.match(end.notice, /\b7\b/);
+  assert.deepEqual(await page.evaluate(() => {
+    const [element, notice, frame] = ["#terminal", "#image-ended", "#display"].map(selector =>
+      Object.fromEntries(Object.entries(document.querySelector(selector).getBoundingClientRect().toJSON())
+        .map(([edge, value]) => [edge, Math.round(value)])));
+    return [notice.left === element.left && notice.right === element.right && notice.bottom === element.bottom,
+      frame.top === element.top && frame.bottom === notice.top];
+  }), [true, true], "the notice lies outside the element or over the last frame");
   // The first link starts the image again.
   await page.locator("#image-ended a").first().click();
   await page.waitForFunction(() => document.documentElement.dataset.dollyStatus === "ready");

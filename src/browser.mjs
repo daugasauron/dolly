@@ -18,7 +18,7 @@ const style = `
     white-space: pre-wrap; color: #e8e3d7; background: #262626; font: 600 20px/1.35 "Dolly IosevkaTerm SemiBold", monospace;
     scrollbar-width: thin; scrollbar-color: #f2d45c #262626; }
   #bootstrap-log[hidden] { display: none; }
-  #session-status { position: fixed; right: 1rem; top: 1rem; z-index: 5; max-width: calc(100vw - 2rem);
+  #session-status { position: absolute; right: 1rem; top: 1rem; z-index: 5; max-width: calc(100% - 2rem);
     padding: 0.5rem 0.75rem; color: #e8e3d7; background: #262626; border: 1px solid #77736c; font-size: 14px; }
   #session-status[hidden] { display: none; }
   html[data-indicators="hidden"] .page-indicator { display: none; }
@@ -110,13 +110,14 @@ export async function run(mount, { images, modules, site, http }, route) {
     const how = failure ? `failed: ${failure}` : signal ? `was ended by ${signalName ?? `signal ${signal}`}`
       : `exited with status ${code}`;
     const notice = mount.appendChild(element("div", { id: "image-ended" }, { role: "alert" }));
-    notice.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:9;padding:0.6rem 1rem;" +
+    notice.style.cssText = "position:absolute;left:0;right:0;bottom:0;z-index:9;padding:0.6rem 1rem;" +
       "color:#e8e3d7;background:#262626;border-top:1px solid #f2d45c;font-size:16px";
     const links = [{ text: "Reload to start again", href: location.href }, ...offers].map(({ text, href }) =>
       Object.assign(document.createElement("a"), { textContent: text, href, style: "color:#f2d45c;margin-left:1.5ch" }));
     notice.append(`This image has ended: its program ${how}.`, ...links);
-    mount.style.height = `calc(100% - ${notice.offsetHeight}px)`;
-    Object.assign(canvas.style, { objectFit: "contain", objectPosition: "left top" });
+    // The notice takes the element's bottom strip; the last frame and the log keep the rest.
+    Object.assign(canvas.style, { height: `calc(100% - ${notice.offsetHeight}px)`, objectFit: "contain", objectPosition: "left top" });
+    bootstrapLog.style.bottom = `${notice.offsetHeight}px`;
     links[0].focus();
     document.documentElement.dataset.dollyStatus = "exited";
   }

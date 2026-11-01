@@ -152,6 +152,17 @@ the image inputs hash is `main`'s.
     `snapshot-stream-browser.mjs` gains the case of a changed recipe, which the boot refuses
     (nothing tested that before). `/custom/rebuild/` at 100 ms: 18 recipe requests (was 116),
     14.2 s to ready (was 15.3).
+16. **The page's own notices left an embedding's element.** `boot(element)` runs an image in an
+    element the embedding sizes, but the image-ended notice and the status line were
+    `position: fixed` against the window, and the ending shrank the embedder's element
+    (`mount.style.height`). In an element of 640 by 400 at (100, 80) of a 1280 by 720 window,
+    the notice lay across the window's bottom, outside the element. Fix: both are placed in
+    the element (which is `position: relative`), and the ending shrinks the canvas and the log
+    above the notice, not the element. `ending-browser.mjs` now boots in such an element and
+    checks it (it failed before). The host modules' own controls are the same kind, attached
+    to `document.body` with `position: fixed`: snapshot's Save button, input's Paste button,
+    the GPU and microphone indicators, download offers and the Studio build panel (agent D's
+    modules, reported to the integrator).
 
 ## Checked and left
 
