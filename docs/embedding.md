@@ -89,11 +89,14 @@ your page; unset, they are Dolly's:
   --dolly-html-accent: #f2d45c;          /* headings, buttons, focus */
   --dolly-html-font: ui-monospace, monospace;
   --dolly-html-color-scheme: dark;       /* the form controls' own colours */
+  --dolly-html-font-file: none;          /* or url(…): the font of the first family above */
 }
 ```
 
-The popup loads nothing, so name fonts the system has: a web font of your page
-does not reach it. The page reads the properties each time a popup opens.
+The popup loads nothing itself: the page fetches the font file, once, and hands
+the popup its bytes; without one, name fonts the system has. The page reads the
+properties each time a popup opens. Dolly's site sets
+`"Dolly IosevkaTerm SemiBold", monospace` and its font file.
 
 ## Serving
 

@@ -86,6 +86,8 @@ await browserTest("html", { image: "system", timeout: 300_000 }, async ({ name, 
   assert.equal(await colour("h1"), "rgb(1, 2, 3)", "the page's style, not the program's");
   assert.equal(await frame.locator("body").evaluate(body => getComputedStyle(body.parentElement).backgroundColor),
     "rgb(38, 38, 38)");
+  assert.ok(await frame.locator("body").evaluate(() => [...document.fonts].some(face =>
+    face.family.replaceAll('"', "") === "Dolly IosevkaTerm SemiBold" && face.status === "loaded")), "the site's font, given by the page");
   // A link's text stays; clicking it goes nowhere.
   for (const words of ["a link", "to the top", "a window", "a fragment", "javascript"]) await frame.getByText(words).click();
   assert.equal(page.context().pages().length, 1, "no window opened");
@@ -114,9 +116,10 @@ await browserTest("html", { image: "system", timeout: 300_000 }, async ({ name, 
   await frame.getByRole("button", { name: "Send" }).click();
   assert.equal(await status, 0);
   await run(`test "$(cat /tmp/fields)" = 'answer=forty+two'`);
-  // Ctrl+C ends the program, and its popup goes with it.
+  // Ctrl+C on the popup's own button interrupts the program, and its popup goes with it.
   [status] = await show("html /home/dolly/question.html");
-  await page.evaluate(() => __dolly.terminal.interruptForeground());
+  await popup.getByRole("button", { name: "Close" }).focus();
+  await page.keyboard.press("Control+C");
   assert.equal(await status, 130);
   assert.equal(await popup.count(), 0);
 

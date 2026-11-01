@@ -4,14 +4,20 @@
 - PRIORITY: 320
 - TAGS: host-modules,pi,html,0.1.5
 
-## State (2026-11-01 22:30 JST)
+## State (2026-11-01 23:15 JST)
 
-`html@0` (host/html/), the `html` command and package (Dollyfile-html), Pi's `ask_user` and
-`show_html` (demos/pi/ask-user.js) and the recipes that declare the module are written; the
-page side was measured in Chromium and Firefox outside Dolly (below). Building `default`,
-`system` and `html` on this tree's runtime; the module's browser test waits for them. The Pi
-test waits for a Pi image on this seed: every Pi image holds rust-llvm and rust-build, which
-the integrator's round of 2026-11-02 rebuilds.
+Done and verified: `html@0` (`d82f7474`) and its browser test (`cf5fd1eb`), which passes in
+Chromium and Firefox on this tree's `default`, `system` and `html` (image inputs
+`ea109605`). Since then, not yet committed: the page hands the popup the embedding's font
+file (`--dolly-html-font-file`; Dolly's site gives Iosevka), the contract states its EINVAL
+and EFBIG cases, and the test presses a real Ctrl+C; the html package is being rebuilt for
+the new digest and the test rerun. Written, not yet run: Pi's `ask_user` and `show_html`
+(`demos/pi/ask-user.js`), the recipes that install and declare them, and
+`demos/pi/test/ask-user-browser.mjs`. Every Pi image holds rust-llvm and rust-build, which
+this tree cannot rebuild tonight; the integrator's round (`integrate/2026-11-02`) will, and
+the Pi test then runs on its `pi-runtime`. Meanwhile the same test runs on a Pi the page
+builds from `system`, `janis-install` (built here at 23:02) and `html`, without ripgrep and
+fd (evidence only, not committed).
 
 Owner (2026-11-01, 21:45 JST):
 
@@ -137,13 +143,18 @@ content; the page's style sheet draws it (headings, paragraphs, lists, tables, `
 inputs, buttons, focus, invalid fields). A program may style nothing: its `style` and
 `class` attributes and `<style>` elements are not copied, and the frame's CSP would refuse
 them anyway, which also closes CSS as a channel (selectors that fetch per matched value). An
-embedding themes popups with five CSS custom properties on boot()'s element, read each time
-a popup opens (`--dolly-html-background`, `-color`, `-accent`, `-font`, `-color-scheme`;
-unset, Dolly's: #262626, #e8e3d7, #f2d45c, `ui-monospace, monospace`, dark), documented in
+embedding themes popups with CSS custom properties on boot()'s element, read each time a popup
+opens (`--dolly-html-background`, `-color`, `-accent`, `-font`, `-color-scheme`; unset, Dolly's:
+#262626, #e8e3d7, #f2d45c, `ui-monospace, monospace`, dark), documented in
 `docs/embedding.md`; the page sets them in the frame through CSSOM, which the CSP does not
-govern, so no value is parsed into the frame's markup. The popup loads nothing, so its font
-is one the system has: the site's Iosevka is a web font and does not reach it (a font's
-bytes could be handed over as a `FontFace` from an `ArrayBuffer` if the owner wants it).
+govern, so no value is parsed into the frame's markup. Fonts: the popup fetches nothing, so a
+web font of the page cannot load there by URL. `--dolly-html-font-file: url(…)` names the font
+file of the first family of `--dolly-html-font`; the page fetches it once (its own request, of
+a URL the embedding's style sheet names) and hands the frame its bytes, which the frame's
+script makes a `FontFace` of. Measured (`exp/font-exp.mjs`): a `FontFace` from an
+`ArrayBuffer` loads under `default-src 'none'` in Chromium and Firefox (status `loaded`, and
+ten `i` at 16 px measure 80 px, Iosevka's half-em advance). Dolly's `terminal.html` sets
+Iosevka and its file, so the site's popups have the terminal's font.
 
 ### Pi
 
@@ -157,3 +168,37 @@ installs the `html` package and declares `html@0`, and so do the images that ins
 are built from pi-runtime (bhop, slopyard, pi-minimal, pi-runtime, pi-agent, pi-local,
 pi-phone, rts-arena, classicube, dollyfile-studio): the lint found the installers, and the
 images built FROM pi-runtime keep `/usr/bin/html`, which sealing refuses undeclared.
+
+## Findings beside the module
+
+- **A deferred process call copies its request again on each retry**
+  (`src/process-supervisor.mjs` `#syscall`, every 16 ms and at each `serviceDeferred()`):
+  the kernel has one mailbox for every process, so it must. Moot for small requests (a path);
+  a module whose request is large must return at once and defer a second, empty call, as
+  `html@0`'s `SHOW` and `WAIT` do. Written in the design above; nothing to change.
+- **An srcdoc frame's relative URLs resolve against its parent**: `href="#here"` navigated
+  Chromium's sandboxed popup to the page's own URL, a request to the page's origin. Nothing
+  of a program's links reaches the popup, so `html@0` is not affected; another module that
+  shows srcdoc content would be.
+
+## Proposals for the owner
+
+- `default` (and `system`) could install the `html` package, so a shell user has `html`
+  without `amy install html` and `nena enable html`: a base-image change, yours to make.
+
+## Lessons
+
+- Measure the browser before designing a sandbox. CSP and `sandbox` are not a network
+  boundary for a frame's own navigation (no shipped directive governs it), and a srcdoc frame
+  resolves `#x` against its parent's URL; a 20-minute experiment with the hostile HTML placed
+  raw in the intended frame showed both, and turned the design from "sanitize, then trust CSP"
+  into "build the popup from an allowlist; CSP is the second layer". Count connections, not
+  only requests: the preconnect showed only as a TCP connection.
+- Mutate each layer to learn which one a test exercises. Copying `style` attributes into the
+  popup left the test green, because the frame's CSP refused them; copying links turned it
+  red in Firefox. A test of defense in depth passes while one layer is gone.
+- Every Pi image holds rust-llvm and rust-build, through the `pi` package's ripgrep and fd,
+  so after any seed change a Pi feature cannot be measured in a 6 GB build slot that night.
+  Pi's npm tree alone needs only janis-install's closure (no Rust).
+- Read the clock before planning against a deadline: I put the time 15 minutes late and
+  declined a hugebuild slot whose estimate would have fitted.
