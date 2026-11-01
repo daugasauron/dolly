@@ -168,7 +168,9 @@ input: every core image's plan is "reuse".
     checks it (it failed before). The host modules' own controls are the same kind, attached
     to `document.body` with `position: fixed`: snapshot's Save button, input's Paste button,
     the GPU and microphone indicators, download offers and the Studio build panel (agent D's
-    modules, reported to the integrator).
+    modules, reported to the integrator). The page's style sheet selected its ids page-wide
+    (`#display`, `#keyboard`, …), so it would restyle an embedder's own element of that id;
+    its rules now select inside `.dolly-terminal` (a hygiene change, no failure shown).
 17. **Keys typed into an embedding's own field were taken.** The page's chords listen on the
     window, so Ctrl+Shift+F in a text field of the embedding, outside Dolly's element,
     toggled Dolly's indicators. Fix: `pageChords(mount, keyboard)` takes keys whose target is

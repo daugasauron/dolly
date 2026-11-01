@@ -7,22 +7,23 @@ import { bootstrapSources, imageBase, imageDefinition, loadImages } from "./imag
 import * as processConstants from "./process-constants.mjs";
 
 // The terminal's own look: its canvas, the hidden keyboard, the boot log and
-// the status line. A host module brings the look of what it adds; the page, the
-// boot log's font (the site's is Iosevka, dist/IosevkaTerm-SemiBold.woff2).
+// the status line, which lie in boot()'s element and style nothing else of the
+// page. A host module brings the look of what it adds; the page, the boot log's
+// font (the site's is Iosevka, dist/IosevkaTerm-SemiBold.woff2).
 const style = `
   .dolly-terminal { position: relative; overflow: hidden; outline: none; caret-color: transparent; }
-  #display { display: block; width: 100%; height: 100%; cursor: text; touch-action: none; }
-  #display[hidden] { display: none; }
-  #keyboard { position: fixed; left: -10000px; top: 0; width: 1px; height: 1px; opacity: 0; caret-color: transparent; }
-  #bootstrap-log { position: absolute; inset: 0; z-index: 1; margin: 0; padding: 1rem 1.15rem; overflow: auto;
+  .dolly-terminal #display { display: block; width: 100%; height: 100%; cursor: text; touch-action: none; }
+  .dolly-terminal #display[hidden] { display: none; }
+  .dolly-terminal #keyboard { position: fixed; left: -10000px; top: 0; width: 1px; height: 1px; opacity: 0; caret-color: transparent; }
+  .dolly-terminal #bootstrap-log { position: absolute; inset: 0; z-index: 1; margin: 0; padding: 1rem 1.15rem; overflow: auto;
     white-space: pre-wrap; color: #e8e3d7; background: #262626; font: 600 20px/1.35 "Dolly IosevkaTerm SemiBold", monospace;
     scrollbar-width: thin; scrollbar-color: #f2d45c #262626; }
-  #bootstrap-log[hidden] { display: none; }
-  #session-status { position: absolute; right: 1rem; top: 1rem; z-index: 5; max-width: calc(100% - 2rem);
+  .dolly-terminal #bootstrap-log[hidden] { display: none; }
+  .dolly-terminal #session-status { position: absolute; right: 1rem; top: 1rem; z-index: 5; max-width: calc(100% - 2rem);
     padding: 0.5rem 0.75rem; color: #e8e3d7; background: #262626; border: 1px solid #77736c; font-size: 14px; }
-  #session-status[hidden] { display: none; }
+  .dolly-terminal #session-status[hidden] { display: none; }
   html[data-indicators="hidden"] .page-indicator { display: none; }
-  @media (max-width: 640px) { #bootstrap-log { padding: 0.65rem 0.75rem; } }
+  @media (max-width: 640px) { .dolly-terminal #bootstrap-log { padding: 0.65rem 0.75rem; } }
 `;
 
 function element(tag, properties, attributes = {}) {
