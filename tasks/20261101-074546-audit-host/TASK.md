@@ -20,9 +20,10 @@ cases; do its tests prove denied access and behaviour rather than spelling.
 
 All 18 modules read (page and Worker sides, kernel C, clients, headers, contracts). Fixes 1
 to 7 committed, each verified in Chromium and Firefox. Fix 7 is a seed change: the catalog
-needs a round (this tree rebuilt only the 28 images its tests open, so its
-`dist/dolly-images.mjs` lists those). P2 is being prototyped as a `Proposal:` commit, the
-last of the branch.
+needs a round (this tree rebuilt only the images its tests open, so its
+`dist/dolly-images.mjs` lists those). P2 is prototyped and measured as a `Proposal:` commit,
+the last of the branch; P1 and P3 wait for the owner as described. Left open for the
+owner's word on the proposals; close it when they are decided.
 
 ## Findings
 
@@ -145,7 +146,12 @@ Described, not changed (each moot or another workstream's, as it says):
   the WAT and are asserted. `touch@0`'s phases are WAT globals. Smallest diff: those 40 values
   as globals in `dolly-input-0.wat` and `dolly-display-0.wat`, the enums defined from
   `*-abi.h`, the JavaScript reading `A.*`. Seed change (both headers), a catalog round; no
-  behaviour changes.
+  behaviour changes. Prototyped as the branch's last commit (`Proposal:`, merge the branch
+  without it unless the owner takes it): the two WATs gain 56 lines, the two headers lose
+  83 and the JavaScript gains 9; the enum type names go (no program names one). On top of fix 7 the 28
+  images rebuilt in 1,270 s, Ghostty's display library among them, and terminal, display,
+  display-cursor, touch, indicators, host-modules, core, shell, upload, nena, boundary and
+  pager pass in Chromium and Firefox on them.
 - **P3. A process-Worker module's bundle by its manifest.** `dso.mjs` and `stack.mjs` each
   fetch `dist/dolly-process-NAME.mjs` with the same options and register it; the manifest's
   `processWorker` field names it already. The runtime could fetch it for every enabled module
@@ -159,11 +165,12 @@ Described, not changed (each moot or another workstream's, as it says):
   (`pty@0` interrupting on "byte 3", `http@0` URLs "must be absolute") cost a full catalog
   round to correct: every program linked with the http client is refused until rebuilt.
   Gather contract-prose fixes and land them with a round that happens anyway.
-- A split leaves dead halves. The page/Worker split of 2026-10-23 moved decisions across
-  the boundary and left members behind on both sides (the Worker's
-  `relativePointerRequested`, http's page-side `transport`, audio's and gpu's `status`),
-  each still looking used because a test or a comment mentions it. After a split, list each
-  half's members and grep every one against its callers.
+- Moves leave dead members behind. The page/Worker split (`30dc877d`) left the Worker's
+  `InputTransport.relativePointerRequested()`; the getters that the per-module manifests
+  (`fe9cac9a`) gave http's, audio's and gpu's page sides outlived their readers; and the
+  process modules' `threads` flag, made general for a second module, never met one that
+  says no. Each looked used because a test or a comment names it. After a move, list the moved code's members and
+  grep each against its callers.
 - One rule for missing devices, written once. `gpu@0` learnt that a module should be
   admitted and fail OPEN where the browser has no device (`07c6b08a`); `audio@0` and
   `microphone@0` kept the older refusal for a week because the rule lived in a commit
