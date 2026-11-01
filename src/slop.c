@@ -607,6 +607,200 @@ static const char *parameter_closing_brace(const char *source) {
   return NULL;
 }
 
+// After `$((`, the first `)` of the `))` that closes the arithmetic expansion.
+static const char *arithmetic_end(const char *source) {
+  for (int depth = 0; *source != '\0'; source++) {
+    if (*source == '(') depth++;
+    else if (*source == ')' && depth != 0) depth--;
+    else if (*source == ')' && source[1] == ')') return source;
+  }
+  return NULL;
+}
+
+static const char *substitution_end(const char *source);
+
+// The end of a word inside a command substitution, read with its quotes,
+// escapes and nested expansions; NULL when one of them is unterminated.
+static const char *substitution_word_end(const char *source, int *quoted) {
+  char quote = '\0';
+  *quoted = 0;
+  while (*source != '\0') {
+    if (quote == '\0' && strchr(" \t\r\n;&|()<>", *source) != NULL) return source;
+    if (quote == '\'') {
+      if (*source == '\'') quote = '\0';
+      source++;
+    } else if (*source == '\\') {
+      *quoted = 1;
+      if (source[1] == '\0') return NULL;
+      source += 2;
+    } else if (quote == '\0' && (*source == '\'' || *source == '"')) {
+      quote = *source++;
+      *quoted = 1;
+    } else if (quote == '"' && *source == '"') {
+      quote = '\0';
+      source++;
+    } else if (quote == '\0' && source[0] == '$' && source[1] == '\'') {
+      *quoted = 1;
+      for (source += 2; *source != '\''; source++) {
+        if (*source == '\0') return NULL;
+        if (*source == '\\' && source[1] != '\0') source++;
+      }
+      source++;
+    } else if (source[0] == '$' && source[1] == '(') {
+      const char *closing = source[2] == '(' ? arithmetic_end(source + 3)
+                                             : substitution_end(source + 2);
+      if (closing == NULL) return NULL;
+      source = closing + (source[2] == '(' ? 2 : 1);
+    } else if (source[0] == '$' && source[1] == '{') {
+      const char *closing = parameter_closing_brace(source + 2);
+      if (closing == NULL) return NULL;
+      source = closing + 1;
+    } else if (*source == '`') {
+      for (source++; *source != '`'; source++) {
+        if (*source == '\0') return NULL;
+        if (*source == '\\' && source[1] != '\0') source++;
+      }
+      source++;
+    } else {
+      source++;
+    }
+  }
+  return quote == '\0' ? source : NULL;
+}
+
+// After a here-document's operator line, the line after its delimiter line.
+static const char *heredoc_body_end(const char *source, const char *delimiter,
+                                    int strip_tabs) {
+  const size_t length = strlen(delimiter);
+  while (*source != '\0') {
+    const char *line = source;
+    if (strip_tabs) while (*line == '\t') line++;
+    const char *newline = strchr(line, '\n');
+    const char *line_end = newline == NULL ? line + strlen(line) : newline;
+    if (line_end > line && line_end[-1] == '\r') line_end--;
+    if ((size_t)(line_end - line) == length && memcmp(line, delimiter, length) == 0)
+      return newline == NULL ? line_end : newline + 1;
+    if (newline == NULL) return NULL;
+    source = newline + 1;
+  }
+  return NULL;
+}
+
+enum { CASE_SUBJECT, CASE_IN, CASE_PATTERN, CASE_BODY };
+
+// After `$(`, the `)` that closes the command substitution, found by reading
+// the text as the shell reads a command: quotes, escapes, comments, nested
+// substitutions, here-document bodies and the `)` that ends a case pattern
+// stay inside. NULL when the text ends first.
+static const char *substitution_end(const char *source) {
+  int cases[64];
+  size_t case_count = 0;
+  unsigned depth = 0;
+  int command_position = 1;
+  char *delimiters[SLOP_MAX_HEREDOCS];
+  int strip_tabs[SLOP_MAX_HEREDOCS];
+  size_t heredoc_count = 0;
+  const char *end = NULL;
+  while (source != NULL && *source != '\0' && end == NULL) {
+    int *state = case_count == 0 ? NULL : &cases[case_count - 1];
+    const char byte = *source;
+    if (byte == ' ' || byte == '\t' || byte == '\r') {
+      source++;
+    } else if (byte == '\\' && source[1] == '\n') {
+      source += 2;
+    } else if (byte == '#') {
+      while (*source != '\0' && *source != '\n') source++;
+    } else if (byte == '\n') {
+      source++;
+      for (size_t index = 0; index < heredoc_count; index++) {
+        if (source != NULL) source = heredoc_body_end(source, delimiters[index], strip_tabs[index]);
+        free(delimiters[index]);
+      }
+      heredoc_count = 0;
+      command_position = 1;
+    } else if (byte == ';' && (source[1] == ';' || source[1] == '&')) {
+      if (state != NULL && *state == CASE_BODY) *state = CASE_PATTERN;
+      source += 2;
+      command_position = 1;
+    } else if (byte == ';' || byte == '&' || byte == '|') {
+      source++;
+      command_position = 1;
+    } else if (byte == '(') {
+      source++;
+      // A pattern may open with `(`; elsewhere it opens a subshell.
+      if (state == NULL || *state != CASE_PATTERN) depth++;
+      command_position = 1;
+    } else if (byte == ')') {
+      const int pattern = state != NULL && *state == CASE_PATTERN;
+      if (pattern) *state = CASE_BODY;
+      else if (depth == 0) end = source;
+      else depth--;
+      source++;
+      command_position = pattern;
+    } else if (byte == '<' && source[1] == '<') {
+      const int strip = source[2] == '-';
+      source += strip ? 3 : 2;
+      while (*source == ' ' || *source == '\t') source++;
+      int quoted;
+      const char *word = source;
+      source = substitution_word_end(word, &quoted);
+      char *delimiter = source == NULL || source == word || heredoc_count == SLOP_MAX_HEREDOCS
+          ? NULL : malloc((size_t)(source - word) + 1);
+      if (delimiter == NULL) {
+        source = NULL;
+        break;
+      }
+      // The delimiter is the word with its quotes removed.
+      size_t length = 0;
+      for (char quote = '\0'; word < source; word++) {
+        if (quote == '\0' && (*word == '\'' || *word == '"')) quote = *word;
+        else if (quote != '\0' && *word == quote) quote = '\0';
+        else if (*word == '\\' && quote != '\'' && word + 1 < source) delimiter[length++] = *++word;
+        else delimiter[length++] = *word;
+      }
+      delimiter[length] = '\0';
+      delimiters[heredoc_count] = delimiter;
+      strip_tabs[heredoc_count++] = strip;
+      command_position = 0;
+    } else if (byte == '<' || byte == '>') {
+      source++;
+      if (*source == '>' || *source == '&' || *source == '|') source++;
+    } else {
+      int quoted;
+      const char *word = source;
+      source = substitution_word_end(word, &quoted);
+      if (source == NULL) break;
+      const size_t length = (size_t)(source - word);
+#define SUBSTITUTION_WORD_IS(text) \
+  (!quoted && length == sizeof(text) - 1 && memcmp(word, text, length) == 0)
+      const int was_command_position = command_position;
+      command_position = SUBSTITUTION_WORD_IS("if") || SUBSTITUTION_WORD_IS("then") ||
+          SUBSTITUTION_WORD_IS("else") || SUBSTITUTION_WORD_IS("elif") ||
+          SUBSTITUTION_WORD_IS("while") || SUBSTITUTION_WORD_IS("until") ||
+          SUBSTITUTION_WORD_IS("do") || SUBSTITUTION_WORD_IS("{") || SUBSTITUTION_WORD_IS("!");
+      if (state != NULL && *state == CASE_SUBJECT) {
+        *state = CASE_IN;
+      } else if (state != NULL && *state == CASE_IN) {
+        if (SUBSTITUTION_WORD_IS("in")) *state = CASE_PATTERN;
+        else case_count--;
+      } else if (state != NULL && (*state == CASE_PATTERN || was_command_position) &&
+                 SUBSTITUTION_WORD_IS("esac")) {
+        case_count--;
+      } else if ((state == NULL || *state != CASE_PATTERN) && was_command_position &&
+                 SUBSTITUTION_WORD_IS("case")) {
+        if (case_count == sizeof(cases) / sizeof(cases[0])) {
+          source = NULL;
+          break;
+        }
+        cases[case_count++] = CASE_SUBJECT;
+      }
+#undef SUBSTITUTION_WORD_IS
+    }
+  }
+  for (size_t index = 0; index < heredoc_count; index++) free(delimiters[index]);
+  return end;
+}
+
 static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word);
 
 // While expand_dollars expands a word, the text it is building and the mask
@@ -625,6 +819,31 @@ static int mark_expanded(const Buffer *output, char protection) {
 // Set by a caller whose word is a pattern (${NAME%word}): what the word
 // quotes must then match itself, so it is escaped for fnmatch.
 static int expanding_pattern;
+
+// Set when a quoted "$@" gave the word expand_dollars builds a field, which
+// stays even when it is empty.
+static int expanding_fields;
+
+// The quoted $@ or ${@} at `source`: its length, else 0.
+static size_t quoted_positional_length(const char *source) {
+  return strncmp(source, "$@", 2) == 0 ? 2 : strncmp(source, "${@}", 4) == 0 ? 4 : 0;
+}
+
+// A quoted "$@": one field per parameter. The mask marks each boundary 'f'
+// and the rest `protection`; where fields do not split, a boundary reads as
+// a space.
+static int append_positional_fields(Shell *shell, Buffer *text, Buffer *mask,
+                                    char protection) {
+  for (int index = 1; index < shell->argc; index++) {
+    while (mask->length < text->length)
+      if (!buffer_character(mask, protection)) return 0;
+    if (index > 1 && (!buffer_character(text, ' ') || !buffer_character(mask, 'f')))
+      return 0;
+    if (!buffer_append(text, shell->argv[index], strlen(shell->argv[index]))) return 0;
+  }
+  if (shell->argc > 1) expanding_fields = 1;
+  return 1;
+}
 
 // Escapes the pattern characters `output` gained since `from`.
 static int pattern_literal(Buffer *output, size_t from) {
@@ -667,6 +886,14 @@ static int expand_parameter_word(Shell *shell, const char *source,
         source++;
         continue;
       }
+    }
+    const size_t positional = output == expanding_text && *source == '$' &&
+        (quote == '"' || (quote == '\0' && expanding_protection == 'q'))
+        ? quoted_positional_length(source) : 0;
+    if (positional != 0 && source + positional <= end) {
+      if (!append_positional_fields(shell, output, expanding_mask, 'q')) return 0;
+      source += positional;
+      continue;
     }
     if (*source == '$' && quote != '\'') {
       const char *cursor = source;
@@ -1321,17 +1548,8 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
   const char *source = *cursor + 1;
   if (source[0] == '(' && source[1] == '(') {
     const char *start = source + 2;
-    const char *closing = start;
-    int depth = 0;
-    while (*closing != '\0') {
-      if (*closing == '(') depth++;
-      else if (*closing == ')') {
-        if (depth != 0) depth--;
-        else if (closing[1] == ')') break;
-      }
-      closing++;
-    }
-    if (*closing == '\0') {
+    const char *closing = arithmetic_end(start);
+    if (closing == NULL) {
       fputs("slop: unterminated arithmetic expansion\n", stderr);
       return -1;
     }
@@ -1342,19 +1560,8 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
   }
   if (*source == '(') {
     const char *start = ++source;
-    int depth = 1;
-    char quote = '\0';
-    while (*source != '\0' && depth != 0) {
-      if (quote != '\0') {
-        if (*source == quote) quote = '\0';
-        else if (*source == '\\' && quote == '"' && source[1] != '\0') source++;
-      } else if (*source == '\\' && source[1] != '\0') source++;
-      else if (*source == '\'' || *source == '"') quote = *source;
-      else if (*source == '(') depth++;
-      else if (*source == ')' && --depth == 0) break;
-      source++;
-    }
-    if (depth != 0) {
+    source = substitution_end(start);
+    if (source == NULL) {
       fputs("slop: unterminated command substitution\n", stderr);
       return -1;
     }
@@ -1557,26 +1764,14 @@ static int defer_dollar(const char **cursor, Buffer *word) {
   const char *start = *cursor;
   const char *source = start + 1;
   if (*source == '(') {
-    int depth = 1;
-    char quote = '\0';
-    source++;
-    while (*source != '\0' && depth != 0) {
-      if (quote != '\0') {
-        if (*source == quote) quote = '\0';
-        else if (*source == '\\' && quote == '"' && source[1] != '\0') source++;
-      } else if (*source == '\\' && source[1] != '\0') source++;
-      else if (*source == '\'' || *source == '"') quote = *source;
-      else if (*source == '(') depth++;
-      else if (*source == ')' && --depth == 0) {
-        source++;
-        break;
-      }
-      source++;
-    }
-    if (depth != 0) {
-      fputs("slop: unterminated command substitution\n", stderr);
+    const int arithmetic = source[1] == '(';
+    const char *closing = arithmetic ? arithmetic_end(source + 2) : substitution_end(source + 1);
+    if (closing == NULL) {
+      fprintf(stderr, "slop: unterminated %s\n",
+              arithmetic ? "arithmetic expansion" : "command substitution");
       return -1;
     }
+    source = closing + (arithmetic ? 2 : 1);
   } else if (*source == '{') {
     const char *closing = parameter_closing_brace(source + 1);
     if (closing == NULL) {
@@ -1668,12 +1863,6 @@ static int deferred_quoted_positional_fields(const char *text) {
   if (*cursor++ != ':') return 0;
   return (length == 2 && strcmp(cursor, "$@") == 0) ||
          (length == 4 && strcmp(cursor, "${@}") == 0);
-}
-
-// `${1+"$@"}` is how scripts for pre-POSIX shells spell "$@": the same fields.
-static int deferred_guarded_positional_fields(const char *text) {
-  return text != NULL && text[0] == SLOP_DEFERRED_DOLLAR &&
-         strcmp(text + 1, "9:${1+\"$@\"}") == 0;
 }
 
 static TokenKind operator_kind(const char *source, size_t *length,
@@ -2002,9 +2191,7 @@ static int lex(const char *source, TokenList *tokens) {
     if (!tokens->items[tokens->count - 1].quote_mask) return 0;
     tokens->items[tokens->count - 1].split = split;
     tokens->items[tokens->count - 1].positional_fields =
-        (quoted && deferred_quoted_positional_fields(
-                       tokens->items[tokens->count - 1].text)) ||
-        deferred_guarded_positional_fields(tokens->items[tokens->count - 1].text);
+        quoted && deferred_quoted_positional_fields(tokens->items[tokens->count - 1].text);
     if (both_outputs) {
       if (!token_push(tokens, TOKEN_DUP_OUTPUT, NULL, 0)) return 0;
       tokens->items[tokens->count - 1].descriptor = STDERR_FILENO;
@@ -3354,6 +3541,7 @@ static int expand_dollars(Shell *shell, Token *token) {
       strchr(token->text, SLOP_DEFERRED_DOLLAR) == NULL) return 1;
   Buffer expanded = {0}, expanded_mask = {0};
   const char *cursor = token->text;
+  expanding_fields = 0;
   while (*cursor != '\0') {
     const char protection = token->quote_mask
         ? token->quote_mask[cursor - token->text] : 'u';
@@ -3374,18 +3562,9 @@ static int expand_dollars(Shell *shell, Token *token) {
         cursor++;
       }
       if (*cursor++ != ':' || strlen(cursor) < length) goto malformed;
-      // A quoted $@ inside a word: one field per parameter. The mask marks
-      // each boundary 'f'; where fields do not split it reads as a space.
-      if (protection == 'q' && ((length == 2 && strncmp(cursor, "$@", 2) == 0) ||
-                                (length == 4 && strncmp(cursor, "${@}", 4) == 0))) {
-        for (int index = 1; index < shell->argc; index++) {
-          while (expanded_mask.length < expanded.length)
-            if (!buffer_character(&expanded_mask, protection)) goto memory_error;
-          if (index > 1 && (!buffer_character(&expanded, ' ') ||
-                            !buffer_character(&expanded_mask, 'f'))) goto memory_error;
-          if (!buffer_append(&expanded, shell->argv[index], strlen(shell->argv[index])))
-            goto memory_error;
-        }
+      if (protection == 'q' && quoted_positional_length(cursor) == length) {
+        if (!append_positional_fields(shell, &expanded, &expanded_mask, protection))
+          goto memory_error;
         cursor += length;
         continue;
       }
@@ -3420,6 +3599,8 @@ static int expand_dollars(Shell *shell, Token *token) {
   }
   free(token->text);
   token->text = buffer_release(&expanded);
+  // A field of "$@" is a quoted part of the word.
+  if (expanding_fields) token->quoted = 1;
   if (token->quote_mask) {
     free(token->quote_mask);
     token->quote_mask = buffer_release(&expanded_mask);
@@ -4913,9 +5094,16 @@ static int collect_completions(const char *word, int command_position,
   if (slash != NULL || !command_position) {
     size_t directory_length = slash == NULL ? 0 : (size_t)(slash - word);
     const char *base = slash == NULL ? word : slash + 1;
-    char *directory = slash == NULL ? strdup(".")
-                      : directory_length == 0 ? strdup("/")
-                                              : strndup(word, directory_length);
+    // The directory the shell will expand the word into: a leading `~/` is HOME.
+    const char *home = getenv("HOME");
+    const int tilde = word[0] == '~' && word[1] == '/' && home != NULL && home[0] != '\0';
+    char *directory = NULL;
+    if (slash == NULL) directory = strdup(".");
+    else if (directory_length == 0) directory = strdup("/");
+    else if (!tilde) directory = strndup(word, directory_length);
+    else if ((directory = malloc(strlen(home) + directory_length)) != NULL)
+      snprintf(directory, strlen(home) + directory_length, "%s%.*s", home,
+               (int)directory_length - 1, word + 1);
     char *replacement = slash == NULL ? strdup("")
                         : strndup(word, (size_t)(slash - word) + 1);
     if (directory == NULL || replacement == NULL) {
