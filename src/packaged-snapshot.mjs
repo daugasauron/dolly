@@ -316,13 +316,3 @@ export async function packagedSystemSnapshot(metadata, signal) {
     if (size !== metadata.byteLength || hash.hex() !== metadata.sha256) throw new Error("packed snapshot integrity mismatch");
   })();
 }
-
-export async function loadPackagedSystemSnapshot(metadata, signal) {
-  const bytes = new Uint8Array(metadata.byteLength);
-  let offset = 0;
-  for await (const chunk of await packagedSystemSnapshot(metadata, signal)) {
-    bytes.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return bytes.buffer;
-}

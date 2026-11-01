@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { browserTest } from "./browser.mjs";
 import { dollyfileCases } from "./fixtures/dollyfile-cases.mjs";
-import { buildBufferReuse, buildLogProof } from "./fixtures/image-build-browser.mjs";
+import { buildInputReuse, buildLogProof } from "./fixtures/image-build-browser.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { siteReference } from "../src/static-asset.mjs";
 import { DOLLY_SYSTEM_SNAPSHOT as systemMetadata } from "../dist/dolly-system-system-snapshot.mjs";
@@ -81,7 +81,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
   ] } });
   // The rebuild screen's log and the in-page builder's reuse of its inputs.
   assert.equal(await shell.evaluate(buildLogProof), true);
-  assert.match(await shell.evaluate(buildBufferReuse), /^[0-9a-f]{64}$/);
+  assert.match(await shell.evaluate(buildInputReuse), /^[0-9a-f]{64}$/);
   assert.equal(await shell.evaluate(async () => {
     const memory = new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" });
     const { instance } = await WebAssembly.instantiateStreaming(fetch("/dist/dolly-image-0.wasm"), { env: { memory } });
@@ -145,24 +145,24 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
   assert.deepEqual(await page.evaluate(async ({ system, child }) => {
     const { loadImageArtifactDescriptor, loadImageArtifact, describeImageArtifact, saveImageArtifact } =
       await import("/src/image-artifact.mjs");
-    const { loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } = await import("/src/packaged-snapshot.mjs");
+    const { loadPackagedSnapshotMetadata, packagedSystemSnapshot } = await import("/src/packaged-snapshot.mjs");
     const { decodeSnapshotRecords, encodeSnapshotRecords } = await import("/src/snapshot-records.mjs");
     const { prepareImageArtifacts } = await import("/src/image-build.mjs");
     const { siteReference } = await import("/src/static-asset.mjs");
     const prime = async definition => {
       const metadata = await loadPackagedSnapshotMetadata(definition.image);
-      const artifact = await describeImageArtifact(await loadPackagedSystemSnapshot(metadata),
+      const artifact = await describeImageArtifact(await packagedSystemSnapshot(metadata),
         definition.sha256, metadata.inputs);
       if (!await saveImageArtifact(artifact, `/${definition.dollyfile}`)) throw new Error("cache priming failed");
       return artifact;
     };
     const original = await prime(system);
     await prime(child);
-    const records = decodeSnapshotRecords(original.bytes);
+    const records = decodeSnapshotRecords(await original.bytes.arrayBuffer());
     const gitconfig = records.get("/etc/gitconfig");
     records.set("/etc/gitconfig", { kind: 2, data: new TextEncoder().encode(
       new TextDecoder().decode(gitconfig.data) + "\n# changed base output\n") });
-    const changed = await describeImageArtifact(encodeSnapshotRecords(records).buffer, system.sha256, original.inputs);
+    const changed = await describeImageArtifact(new Blob([encodeSnapshotRecords(records)]), system.sha256, original.inputs);
     try {
       if (!await saveImageArtifact(changed, `/${system.dollyfile}`)) throw new Error("cache write failed");
       const staleHit = await loadImageArtifactDescriptor(child.sha256, [{ recipeSha256: system.sha256, sha256: changed.sha256 }]);
