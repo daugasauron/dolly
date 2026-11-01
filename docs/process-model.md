@@ -401,8 +401,8 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
 - CPU time is not accounted: `clock()`, `CLOCK_PROCESS_CPUTIME_ID`,
   `getrusage` and `times` report the monotonic time since the program started
   (since its `exec`, if it was exec'd) as its user time, an upper bound that is
-  exact while it computes without blocking; system time and children's times
-  are zero ([`libc-adapter.c`](../src/process/libc-adapter.c)).
+  exact while it computes without blocking; system time and children's times,
+  `wait4`'s too, are zero ([`libc-adapter.c`](../src/process/libc-adapter.c)).
 
 ## Threads, DSOs and FFI
 

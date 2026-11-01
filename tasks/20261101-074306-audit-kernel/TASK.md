@@ -18,16 +18,17 @@ confirms is fixed with a test that failed before (or code gone and nothing
 broken), the moot is closed with its reason and the uncertain rest is a few
 lines each below.
 
-## State (2026-11-01 20:10 JST)
+## State (2026-11-01 21:10 JST)
 
 Read: the whole of the scope above. Baseline: build reproducible (same runtime
 and image ids), source suite 446/446 in 27 s, `process-browser` passes in
-Chromium (58 s). Items 1-20 are committed and verified on `default,system`
-(and `libdolly-sockets`) built from the newest seed (image inputs
-`88343cce…`): `process`, `core`, `threads`, `sockets` and `pty` pass in
-Chromium and Firefox, and `terminal`, `slop` and `shell` on the seed before
-this round's two libc files; `default` and `terminal` on this one too. The
-libc items need a catalog round (the integrator's of 2026-11-02 00:30).
+Chromium (58 s). Items 1-23 are committed and verified on `default,system`
+(and `libdolly-sockets` for 1-20) built from the newest seed (image inputs
+`3b4ff6ad…`): `process` and `core` pass in Chromium and Firefox on it, and
+`process` three times in a row on the one before; `threads`, `sockets` and
+`pty` passed on `88343cce…` (items 1-21), `terminal`, `slop` and `shell` on
+the seed before that, `default` and `terminal` on `88343cce…` too. The libc
+items need a catalog round (the integrator's of 2026-11-02 00:30).
 
 ## The shape of it
 
@@ -246,6 +247,18 @@ Each with a test that failed before, verified in Chromium and Firefox.
     `link_answers` in `process-descriptors.c`, which Linux passes too:
     before, failed at its first check (Chromium), now passes in Chromium and
     Firefox.
+
+23. **`wait4` (and `wait3`) with a usage buffer failed with ENOTSUP**, from
+    before `getrusage` had a rule for times (`d5badb25`, 2026-09-06; the
+    rule came with `03717431`, 2026-10-23): GNU and BusyBox `time` and
+    Python's `os.wait4` wait so. It now waits and reports the child's times
+    as `getrusage` reports children's: zero. Seed input. Test in
+    `process-lifecycle.c`. The same comparison found no other defect worth
+    a line: Linux's own calls (`copy_file_range`, `renameat2`, `syncfs`,
+    `fallocate`, `sigqueue`) do not link, `pwrite` with `O_APPEND` writes
+    where it is told as POSIX says (Linux appends), `sigtimedwait` and
+    `sigwait` are ENOTSUP, `waitid` refuses `WNOWAIT`, and a file that is
+    unlinked while open keeps `st_nlink` 1 (WasmFS).
 
 ## Proposals for the owner
 

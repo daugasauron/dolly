@@ -312,6 +312,11 @@ int main(int argc, char **argv) {
   CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 130);
   const int any = child(argv[0], "exit130");
   CHECK(waitpid(-1, &status, 0) == any && WEXITSTATUS(status) == 130);
+  struct rusage child_usage;
+  memset(&child_usage, 0xff, sizeof(child_usage));
+  const int timed = child(argv[0], "exit130");
+  CHECK(wait4(timed, &status, 0, &child_usage) == timed && WEXITSTATUS(status) == 130 &&
+        child_usage.ru_utime.tv_sec == 0 && child_usage.ru_stime.tv_usec == 0);
   status = system("exit 3");
   CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 3);
   const int aborted = child(argv[0], "abort"), handled = child(argv[0], "abort-exits"),

@@ -93,10 +93,12 @@ pid_t gettid(void) {
 #endif
 }
 
+/* A child's times are zero, as getrusage reports its children's. */
 pid_t __syscall_wait4(pid_t pid, int *status, int options, struct rusage *usage) {
-  if (usage != NULL) return -ENOTSUP;
   const pid_t result = dolly_waitpid(pid, status, options);
-  return result < 0 ? -errno : result;
+  if (result < 0) return -errno;
+  if (result > 0 && usage != NULL) memset(usage, 0, sizeof(*usage));
+  return result;
 }
 
 /* Dolly has no process groups or sessions: each process is its own group
