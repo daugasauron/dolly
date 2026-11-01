@@ -53,7 +53,7 @@ const markup = `<style>
 // describes the running image once its ENTRY starts; restored names the
 // session this page booted from, if any. On a page with a site, a save names
 // itself in the tab's URL and the dialog links the site's list of saves.
-export function mountSessionSave({ keyboard, showStatus, site, indicators }, transport, restored) {
+export function mountSessionSave({ mount, keyboard, showStatus, site, indicators }, transport, restored) {
   document.body.insertAdjacentHTML("beforeend", markup);
   const button = document.querySelector("#session-open");
   const dialog = document.querySelector("#session-dialog");
@@ -175,6 +175,7 @@ export function mountSessionSave({ keyboard, showStatus, site, indicators }, tra
     // first time through the dialog.
     claimsKey(event) {
       if (dialog.open || button.contains(event.target)) return true;
+      if (event.target !== document.body && !mount.contains(event.target)) return false;
       if (!base || !event.ctrlKey || !event.shiftKey || event.altKey || event.metaKey || event.code !== "KeyS") return false;
       event.preventDefault();
       event.stopImmediatePropagation();

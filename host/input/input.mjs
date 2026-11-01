@@ -268,7 +268,7 @@ const pointerEvent = event => ({ shiftKey: event.shiftKey, ctrlKey: event.ctrlKe
 // decides which keys the guest reads: the page's own chords are taken before
 // it (src/page-chords.mjs) and module UIs claim theirs through it. Records
 // flow once the Worker's side has started.
-export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, send, ask, get }) {
+export function browser({ mount, canvas, keyboard, showStatus, claimsKey, surfaceSize, send, ask, get }) {
   // selecting: the primary button's press went to the terminal; held: the
   // middle or secondary button's.
   let started = false, selecting = false, held = -1, flags = 0;
@@ -361,7 +361,9 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
       }
       return;
     }
-    if (!started) return;
+    // A key typed into the embedding's own controls, outside Dolly's element,
+    // is the embedding's; with nothing focused (the body) it is the guest's.
+    if (!started || (event.target !== document.body && !mount.contains(event.target))) return;
     if (event.type === "keydown" && event.key === "Escape" && document.pointerLockElement === canvas) {
       document.exitPointerLock();
       event.preventDefault();
@@ -567,8 +569,12 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
   const touchscreen = matchMedia("(pointer: coarse)"), placePaste = () => { pasteButton.hidden = !touchscreen.matches; };
   placePaste();
   touchscreen.addEventListener("change", placePaste);
-  pasteButton.addEventListener("click", () => navigator.clipboard.readText()
-    .then(deliverPaste, () => showStatus("Paste refused: the browser did not let the page read the clipboard")));
+  // The keys that follow are the terminal's again, as after any panel's button.
+  pasteButton.addEventListener("click", () => {
+    keyboard.focus({ preventScroll: true });
+    void navigator.clipboard.readText()
+      .then(deliverPaste, () => showStatus("Paste refused: the browser did not let the page read the clipboard"));
+  });
 
   return {
     page: {
