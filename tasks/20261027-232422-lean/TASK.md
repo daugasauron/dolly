@@ -78,6 +78,15 @@ collected garbage (`tasks/20261101-102515-retained-process-memory`), and a build
 copied a package's files out of its snapshot beside it (the engine now moves them out of the
 snapshot at its last use, a build's as a session's: `tasks/20261030-084000-install-snapshot-file`).
 
+With both fixes and the seed they need (image inputs `36d3ff59`), `lean-stage0` (623 s) and
+`lean-std` built again, and `lean-meta` compiled all its modules, then was killed by the cap
+again while the page copied and verified its finished 1.58 GB image (it passed so once tonight,
+at 21:51, and failed so at 20:59): the kernel's serialized image beside its files, the Worker's
+copy and the page's digest (`src/build-worker.mjs`, `src/image-builder.mjs`) hold the image three
+or four times while the kernel's memory awaits release. That is the image builder's, beyond this
+task: an image near the 2 GiB bound needs more than a 9 GB build to be captured. Its anonymous
+memory while it compiled was 3 to 5 GB (sampled at 21:10), against a 7.4 GB peak on 2026-10-29.
+
 Not done:
 - The `lean` image is not built with tonight's fixes, so `lean --run`, the theorems, `lake new`
   without Git and `lake build` are not measured in `default`, nor the demo test
