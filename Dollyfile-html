@@ -14,7 +14,7 @@ REQUIRES TOOL cc
 REQUIRES TOOL rm
 
 SOURCE /v0.1.4/host/html/html.h b5d3905d3cb6d70cb4b019f9f5c6375cb92ce241608ccaf02fc13278ebb08261 /usr/include/dolly/html.h
-SOURCE /v0.1.4/host/html/html-abi.h c8837ed8673e61bbdbb0c85ea4b8b71b1b1f0be5e2bc019e2952ffa8ec5a89fa /usr/include/dolly/html-abi.h
+SOURCE /v0.1.4/host/html/html-abi.h 0a8f41deb7c332d02f856177f886978df80a1f0486839ddd77564953706e0264 /usr/include/dolly/html-abi.h
 SOURCE /v0.1.4/host/html/client.c 4c907d8a84cad64fc4e6433b057f4ac9a413e2454f20c7579129dc34c9afc202 /tmp/html/client.c
 SLOP cc -O1 -c /tmp/html/client.c -o /tmp/html/client.o
 SLOP ar rcs /usr/lib/dolly/process/libdolly-html.a /tmp/html/client.o

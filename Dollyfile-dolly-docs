@@ -33,7 +33,7 @@ SOURCE /v0.1.4/host/nena/dolly-nena-0.wat 30925d4e7efe40f7d0f8628f1102b57f6c0b7b
 SOURCE /v0.1.4/host/input/dolly-input-0.wat 00b2c08636e16c2cc29dd8b12daee83eca13f52b919e72dcb7465c3a683fc879 /usr/share/doc/dolly/host/input/dolly-input-0.wat
 SOURCE /v0.1.4/host/display/dolly-display-0.wat 3aa860644850c15c5a3cb7e28c3ece28b3ec26d8e3c988b12a6363414b7c6fdf /usr/share/doc/dolly/host/display/dolly-display-0.wat
 SOURCE /v0.1.4/host/download/dolly-download-0.wat 6aacfaf743af4bc16ce3099e0068369370d5924c3783bd297039eec458498943 /usr/share/doc/dolly/host/download/dolly-download-0.wat
-SOURCE /v0.1.4/host/html/dolly-html-0.wat 76b12c48279549ca253ae26bbaba3f30c861f42b207145a116cbe1d44132ed5c /usr/share/doc/dolly/host/html/dolly-html-0.wat
+SOURCE /v0.1.4/host/html/dolly-html-0.wat 3d2227e25d3e2972973a8698511eb4114d4f664fe4a6425a673529feca0d50ba /usr/share/doc/dolly/host/html/dolly-html-0.wat
 SOURCE /v0.1.4/host/dso/dolly-dso-0.wat c7ec277a279bf43f660ae802ddfb3e2c8a8f211cde3492efccca9842496661a6 /usr/share/doc/dolly/host/dso/dolly-dso-0.wat
 SOURCE /v0.1.4/host/stack/dolly-stack-0.wat 60e29cb49bedc7e2b891c2837343939cab882a4ca32d03672f9e362cfcd8c1b3 /usr/share/doc/dolly/host/stack/dolly-stack-0.wat
 SOURCE /v0.1.4/host/gpu/dolly-gpu-0.wat 2dc0bed0e75621938eac9e7d65c1575dbd666bb24ada4e176a1ef1bf1b9f2ab7 /usr/share/doc/dolly/host/gpu/dolly-gpu-0.wat
