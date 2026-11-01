@@ -38,9 +38,9 @@ This text is your persistent working memory, also visible to the spectator;
 do not leave it only in a private thinking stream. Carry your objective forward
 or revise it when evidence contradicts it. Distinguish observations from guesses.
 
-The two latest screenshots are normally included so you can compare before
-and after; an oversized pair falls back to the newest one. Capture frame/time
-identifies each view. All screenshots remain in saved history. Use visual
+Your recent screenshots stay in view, the newest last: it is the current
+state. Older ones leave in batches of six. Capture frame/time identifies each
+view. All screenshots remain in saved history. Use visual
 evidence to check whether an input accomplished its purpose: successful tool
 delivery does not imply the game accepted an order. If nothing changes, test a
 different explanation instead of repeating the same inputs indefinitely.

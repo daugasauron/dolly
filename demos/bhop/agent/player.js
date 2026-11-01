@@ -1,5 +1,6 @@
 // Vision and input tools only. All recordings stay in Dolly's filesystem. SPDX-License-Identifier: MIT
 import { parameters, encodeBatch } from './codec.mjs';
+import { modelContext } from '../../rts/player.js';
 export const describe = image => `Bhop framebuffer at frame ${image.frame}, ${image.milliseconds} ms since launch (960×540). The course keeps running while you think. No game-state telemetry is available.${image.recording_failures ? ` Recording warning: ${image.recording_failures} snapshots could not be saved in this attempt; its archive has gaps. This is the current live view. Details are in game.log.` : ''}`;
 export const toolText = (name,args) => name==='game_input' ? args.actions.map(a=>`${a.ticks*10} ms [${a.keys.join('+')||'release'}] mouse (${a.mouse_dx||0}, ${a.mouse_dy||0})${a.wheel?' wheel '+a.wheel:''}`).join('; ') || 'observe' : JSON.stringify(args);
 const wait = ms => new Promise(resolve=>setTimeout(resolve,ms));
@@ -65,10 +66,6 @@ export function review(fs,run,attempt,indices) {
   }
   if(content.reduce((sum,item)=>sum+(item.data?.length||0),0)>700000)throw Error('These frames exceed the model image budget; request fewer frames');
   return {content,details:{attempt:saved.attempt,frames:indices,totalFrames:saved.frames.length}};
-}
-export function modelContext(messages) {
-  const latest=messages.findLastIndex(message=>Array.isArray(message.content)&&message.content.some(part=>part.type==='image'));
-  return messages.map((message,n)=>n===latest||!Array.isArray(message.content)?message:{...message,content:message.content.filter(part=>part.type!=='image')});
 }
 export default function tools(pi) {
   const fs=globalThis.__janisBuiltin('fs'),directory=process.env.DOLLY_BHOP_DIR,run=process.env.DOLLY_BHOP_RUN,input=connect(fs,directory);

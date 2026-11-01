@@ -5,7 +5,8 @@ import fs from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { encodeBatch, parameters } from '../agent/codec.mjs';
-import registerTools, { review, modelContext } from '../agent/player.js';
+import registerTools, { review } from '../agent/player.js';
+import { modelContext } from '../../rts/player.js';
 
 test('browser tool encoding reaches native ticks with exact signed fractional mouse movement', () => {
   const directory = fs.mkdtempSync(join(tmpdir(), 'bhop-timeline-')), binary = join(directory, 'check');
@@ -63,7 +64,6 @@ test('attempt review returns only selected recorded frames and retains their his
     const history=[{role:'user',content:[{type:'text',text:'initial view'},{type:'image',data:'old'}]},
       {role:'toolResult',content:result.content},{role:'assistant',content:[{type:'text',text:'reviewing'}]}];
     const context=modelContext(history);
-    assert.deepEqual(context[0].content,[{type:'text',text:'initial view'}]);
     assert.equal(context[1].content,result.content);
     assert.equal(history[0].content.length,2);
   } finally {fs.rmSync(run,{recursive:true,force:true});}
