@@ -69,6 +69,8 @@ export const shellCases = [
   ["a completed failing body is the loop's status", "i=0; while case $i in 2) (exit 1);; esac; do i=$((i+1)); (exit 5); done", 5],
   ["break 2 from a while inside a for", "for a in 1 2; do i=0; while :; do i=$((i+1)); (exit $((i != 2))) && break 2; done; done; case $?:$a$i in 0:12) :;; *) exit 91;; esac", 0],
   ["break beyond the outermost loop leaves it with status 0", "i=0; while :; do i=$((i+1)); for b in 1; do (exit 1); done; (exit $((i != 2))) && break 5; done", 0],
+  ["return leaves while and until loops", "f() { while :; do return 3; done; }; f; case $? in 3) :;; *) exit 91;; esac; g() { until false; do return 4; done; }; g", 4],
+  ["return leaves a for loop on the value it returned on", "f() { for opt; do return 3; done; }; f a b; case $?:$opt in 3:a) :;; *) exit 91;; esac", 0],
   ["for loops keep the status of break and continue", "for i in 1 2; do (exit 1); continue; done || exit 91; for i in 1 2; do (exit 1) || break; done || exit 92; for i in 1 2; do (exit 1) && break; done", 1],
   ["sourcing shares replacement arguments", "set -- old; . ./replace.slop; case $#:$1:$2 in 2:new:tail) :;; *) exit 91;; esac", 0],
   ["sourcing shares shifted arguments", "set -- old kept; . ./shift.slop; case $1 in kept) :;; *) exit 91;; esac", 0],

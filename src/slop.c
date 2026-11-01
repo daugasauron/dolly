@@ -523,6 +523,99 @@ static int valid_name(const char *text, size_t length) {
   return 1;
 }
 
+// The shell's variables, in a table of their own: a lookup or an assignment
+// costs the same with ten variables or ten thousand (FFmpeg's configure
+// holds thousands), where `environ` costs a scan of every entry. Children get
+// only the exported ones (exported_environment).
+typedef struct Variable {
+  struct Variable *next;
+  char *name;
+  char *value;
+} Variable;
+static struct {
+  Variable **buckets;
+  size_t capacity; // A power of two, or 0.
+  size_t count;
+} variables;
+
+static size_t variable_hash(const char *name, size_t length) {
+  size_t hash = 2166136261u;
+  for (size_t index = 0; index < length; index++) hash = (hash ^ (unsigned char)name[index]) * 16777619u;
+  return hash;
+}
+
+static Variable **variable_slot(const char *name, size_t length) {
+  if (variables.capacity == 0) return NULL;
+  Variable **slot = &variables.buckets[variable_hash(name, length) & (variables.capacity - 1)];
+  while (*slot != NULL && (strncmp((*slot)->name, name, length) != 0 || (*slot)->name[length] != '\0'))
+    slot = &(*slot)->next;
+  return slot;
+}
+
+// The value of the variable whose name is the first `length` bytes of `name`, or NULL.
+static const char *variable_value_n(const char *name, size_t length) {
+  Variable **slot = variable_slot(name, length);
+  return slot == NULL || *slot == NULL ? NULL : (*slot)->value;
+}
+
+static const char *variable_value(const char *name) {
+  return variable_value_n(name, strlen(name));
+}
+
+static int variables_grow(void) {
+  const size_t capacity = variables.capacity == 0 ? 256 : variables.capacity * 2;
+  Variable **buckets = calloc(capacity, sizeof(*buckets));
+  if (buckets == NULL) return 0;
+  for (size_t index = 0; index < variables.capacity; index++) {
+    for (Variable *variable = variables.buckets[index], *next; variable != NULL; variable = next) {
+      next = variable->next;
+      Variable **slot = &buckets[variable_hash(variable->name, strlen(variable->name)) & (capacity - 1)];
+      variable->next = *slot;
+      *slot = variable;
+    }
+  }
+  free(variables.buckets);
+  variables.buckets = buckets;
+  variables.capacity = capacity;
+  return 1;
+}
+
+// Sets or, with a NULL value, unsets a variable without the subshell log.
+static int store_variable(const char *name, const char *value) {
+  if (value != NULL && variables.count >= variables.capacity && !variables_grow()) return -1;
+  Variable **slot = variable_slot(name, strlen(name));
+  if (slot == NULL) return 0;
+  if (value == NULL) {
+    Variable *gone = *slot;
+    if (gone == NULL) return 0;
+    *slot = gone->next;
+    free(gone->name);
+    free(gone->value);
+    free(gone);
+    variables.count--;
+    return 0;
+  }
+  char *copy = strdup(value);
+  if (copy == NULL) return -1;
+  if (*slot != NULL) {
+    free((*slot)->value);
+    (*slot)->value = copy;
+    return 0;
+  }
+  Variable *variable = malloc(sizeof(*variable));
+  char *name_copy = strdup(name);
+  if (variable == NULL || name_copy == NULL) {
+    free(variable);
+    free(name_copy);
+    free(copy);
+    return -1;
+  }
+  *variable = (Variable){.next = NULL, .name = name_copy, .value = copy};
+  *slot = variable;
+  variables.count++;
+  return 0;
+}
+
 static const char *parameter_value(Shell *shell, const char *name,
                                    size_t length, char temporary[64], int *is_set) {
   if (is_set) *is_set = 1;
@@ -570,10 +663,7 @@ static const char *parameter_value(Shell *shell, const char *name,
     return index < (size_t)shell->argc ? shell->argv[index] : "";
   }
   if (!valid_name(name, length)) return "";
-  char *copy = strndup(name, length);
-  if (copy == NULL) return NULL;
-  const char *value = getenv(copy);
-  free(copy);
+  const char *value = variable_value_n(name, length);
   if (is_set) *is_set = value != NULL;
   return value == NULL ? "" : value;
 }
@@ -920,7 +1010,7 @@ static int expand_parameter_word(Shell *shell, const char *source,
   return quote == '\0';
 }
 
-// Every shell variable lives in `environ`; only these names reach children.
+// Only these names reach children.
 static Arguments exported_names;
 
 static size_t exported_index(const char *name, size_t length) {
@@ -944,18 +1034,25 @@ static void unexport_variable(const char *name) {
   exported_names.items[exported_names.count] = NULL;
 }
 
-// Borrowed pointers into `environ`; valid until the next variable change.
+static void environment_dispose(char **environment) {
+  for (char **entry = environment; entry != NULL && *entry != NULL; entry++) free(*entry);
+  free(environment);
+}
+
+// NAME=VALUE for each exported variable that is set, for a child.
 static char **exported_environment(void) {
-  size_t count = 0;
-  for (char **entry = environ; entry != NULL && *entry != NULL; entry++) count++;
-  char **result = calloc(count + 1, sizeof(*result));
+  char **result = calloc(exported_names.count + 1, sizeof(*result));
   if (result == NULL) return NULL;
   size_t used = 0;
-  for (char **entry = environ; entry != NULL && *entry != NULL; entry++) {
-    const char *equals = strchr(*entry, '=');
-    if (equals != NULL &&
-        exported_index(*entry, (size_t)(equals - *entry)) != SIZE_MAX)
-      result[used++] = *entry;
+  for (size_t index = 0; index < exported_names.count; index++) {
+    const char *name = exported_names.items[index], *value = variable_value(name);
+    if (value == NULL) continue;
+    const size_t length = strlen(name) + strlen(value) + 2;
+    if ((result[used] = malloc(length)) == NULL) {
+      environment_dispose(result);
+      return NULL;
+    }
+    snprintf(result[used++], length, "%s=%s", name, value);
   }
   return result;
 }
@@ -979,9 +1076,9 @@ static int high_descriptor(int descriptor) {
 }
 
 // The variables a subshell changed, with their earlier values, which it
-// restores when it leaves. The shell's variables are `environ`: copying and
-// restoring all of them for every $(...) cost a substitution time in the
-// square of their number, which FFmpeg's configure counts in thousands.
+// restores when it leaves: copying and restoring all of them for every
+// $(...) cost a substitution time in the square of their number, which
+// FFmpeg's configure counts in thousands.
 typedef struct { EnvironmentChange *items; size_t count, capacity; } EnvironmentLog;
 static EnvironmentLog *environment_log; // The innermost subshell's, or NULL.
 
@@ -989,7 +1086,7 @@ static int log_variable(const char *name) {
   if (environment_log == NULL) return 1;
   if (!grow((void **)&environment_log->items, &environment_log->capacity,
             environment_log->count + 1, sizeof(*environment_log->items))) return 0;
-  const char *old_value = getenv(name);
+  const char *old_value = variable_value(name);
   EnvironmentChange change = {.name = strdup(name), .existed = old_value != NULL,
                               .old_value = old_value == NULL ? NULL : strdup(old_value)};
   if (change.name == NULL || (old_value != NULL && change.old_value == NULL)) {
@@ -1002,20 +1099,20 @@ static int log_variable(const char *name) {
 }
 
 // Every variable change goes through these, so a subshell can undo it.
-static int shell_setenv(const char *name, const char *value, int overwrite) {
+static int set_variable(const char *name, const char *value) {
   if (!log_variable(name)) {
     errno = ENOMEM;
     return -1;
   }
-  return setenv(name, value, overwrite);
+  return store_variable(name, value);
 }
 
-static int shell_unsetenv(const char *name) {
+static int unset_variable(const char *name) {
   if (!log_variable(name)) {
     errno = ENOMEM;
     return -1;
   }
-  return unsetenv(name);
+  return store_variable(name, NULL);
 }
 
 // Restores the values the log holds, newest change first.
@@ -1023,7 +1120,7 @@ static int environment_log_undo(EnvironmentLog *log) {
   int ok = 1;
   while (log->count != 0) {
     EnvironmentChange *change = &log->items[--log->count];
-    if ((change->existed ? setenv(change->name, change->old_value, 1) : unsetenv(change->name)) != 0) ok = 0;
+    if (store_variable(change->name, change->existed ? change->old_value : NULL) != 0) ok = 0;
     free(change->name);
     free(change->old_value);
   }
@@ -1273,13 +1370,7 @@ static long arithmetic_primary(Arithmetic *parser) {
   if (is_name_start(*parser->cursor)) {
     const char *start = parser->cursor++;
     while (is_name_byte(*parser->cursor)) parser->cursor++;
-    char *name = strndup(start, (size_t)(parser->cursor - start));
-    if (name == NULL) {
-      parser->error = 1;
-      return 0;
-    }
-    const char *text = getenv(name);
-    free(name);
+    const char *text = variable_value_n(start, (size_t)(parser->cursor - start));
     if (text == NULL || text[0] == '\0') return 0;
     char *end = NULL;
     errno = 0;
@@ -1521,7 +1612,7 @@ static long arithmetic_assignment(Arithmetic *parser) {
   memcpy(name, start, (size_t)(end - start));
   name[end - start] = '\0';
   snprintf(text, sizeof(text), "%ld", value);
-  if (shell_setenv(name, text, 1) != 0) parser->error = 1;
+  if (set_variable(name, text) != 0) parser->error = 1;
   return value;
 }
 
@@ -1737,7 +1828,7 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
           if (ok) {
             char *assigned_value = buffer_release(&assigned);
             ok = assigned_value != NULL &&
-                 shell_setenv(variable, assigned_value, 1) == 0 &&
+                 set_variable(variable, assigned_value) == 0 &&
                  buffer_append(word, assigned_value, strlen(assigned_value));
             free(assigned_value);
           } else {
@@ -1779,7 +1870,7 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
   }
 
   if (length == 1 && (name[0] == '@' || name[0] == '*')) {
-    const char *ifs = name[0] == '*' ? getenv("IFS") : NULL;
+    const char *ifs = name[0] == '*' ? variable_value("IFS") : NULL;
     const char separator = ifs == NULL ? ' ' : ifs[0];
     for (int index = 1; index < shell->argc; index++) {
       if (index != 1 && separator != '\0' && !buffer_character(word, separator)) return -1;
@@ -2386,7 +2477,7 @@ static int next_path_directory(const char **cursor, const char **directory,
 }
 
 static const char *path_variable(void) {
-  const char *path = getenv("PATH");
+  const char *path = variable_value("PATH");
   return path == NULL ? "/bin:/usr/bin" : path;
 }
 
@@ -2420,7 +2511,7 @@ static int set_assignment(const char *word) {
   if (!assignment(word, &name_length)) return 0;
   char *name = strndup(word, name_length);
   if (name == NULL) return -1;
-  int status = shell_setenv(name, word + name_length + 1, 1);
+  int status = set_variable(name, word + name_length + 1);
   free(name);
   return status == 0 ? 1 : -1;
 }
@@ -2428,7 +2519,7 @@ static int set_assignment(const char *word) {
 static int remember_variable(const char *name, EnvironmentChange *change) {
   change->name = strdup(name);
   if (change->name == NULL) return 0;
-  const char *old = getenv(name);
+  const char *old = variable_value(name);
   change->existed = old != NULL;
   change->old_value = old == NULL ? NULL : strdup(old);
   change->exported = exported_index(name, strlen(name)) != SIZE_MAX;
@@ -2521,7 +2612,7 @@ static int builtin_read(int argc, char **argv) {
   }
   char *text = buffer_release(&line);
   if (text == NULL) goto memory_error;
-  const char *ifs = getenv("IFS");
+  const char *ifs = variable_value("IFS");
   if (ifs == NULL) ifs = " \t\n";
   // Each name but the last takes a field, so a:: gives an empty one; the last
   // takes the rest without its trailing IFS white space, and without the
@@ -2540,7 +2631,7 @@ static int builtin_read(int argc, char **argv) {
       while (end > cursor && ifs_space(ifs, end[-1])) *--end = '\0';
       if (*cursor != '\0' && *separator_end(ifs, cursor) == '\0') *cursor = '\0';
     }
-    if (shell_setenv(argv[index], value, 1) != 0) {
+    if (set_variable(argv[index], value) != 0) {
       free(text);
       return 1;
     }
@@ -2555,30 +2646,29 @@ memory_error:
 }
 
 static int print_shell_variables(int exported_only) {
-  Arguments variables = {0};
-  for (char **entry = environ; entry != NULL && *entry != NULL; entry++) {
-    if (!argument_push(&variables, *entry)) {
-      arguments_dispose(&variables);
-      fputs("slop: out of memory\n", stderr);
-      return 1;
+  Arguments names = {0};
+  for (size_t bucket = 0; bucket < variables.capacity; bucket++) {
+    for (Variable *variable = variables.buckets[bucket]; variable != NULL; variable = variable->next) {
+      if (!argument_push(&names, variable->name)) {
+        arguments_dispose(&names);
+        fputs("slop: out of memory\n", stderr);
+        return 1;
+      }
     }
   }
-  qsort(variables.items, variables.count, sizeof(*variables.items), compare_strings);
-  for (size_t index = 0; index < variables.count; index++) {
-    const char *entry = variables.items[index];
-    const char *equals = strchr(entry, '=');
-    if (equals == NULL || (exported_only &&
-        exported_index(entry, (size_t)(equals - entry)) == SIZE_MAX)) continue;
+  qsort(names.items, names.count, sizeof(*names.items), compare_strings);
+  for (size_t index = 0; index < names.count; index++) {
+    const char *name = names.items[index];
+    if (exported_only && exported_index(name, strlen(name)) == SIZE_MAX) continue;
     if (exported_only) fputs("export ", stdout);
-    fwrite(entry, 1, (size_t)(equals - entry) + 1, stdout);
-    fputc('\'', stdout);
-    for (const char *value = equals + 1; *value != '\0'; value++) {
+    printf("%s='", name);
+    for (const char *value = variable_value(name); *value != '\0'; value++) {
       if (*value == '\'') fputs("'\\''", stdout);
       else fputc(*value, stdout);
     }
     fputs("'\n", stdout);
   }
-  arguments_dispose(&variables);
+  arguments_dispose(&names);
   return ferror(stdout) ? 1 : 0;
 }
 
@@ -2616,7 +2706,7 @@ static int publish_getopts_index(unsigned index) {
   char text[32];
   const int length = snprintf(text, sizeof(text), "%u", index);
   return length >= 0 && (size_t)length < sizeof(text) &&
-         shell_setenv("OPTIND", text, 1) == 0;
+         set_variable("OPTIND", text) == 0;
 }
 
 static int builtin_getopts(Shell *shell, int argc, char **argv) {
@@ -2632,7 +2722,7 @@ static int builtin_getopts(Shell *shell, int argc, char **argv) {
   }
 
   unsigned requested_index = 1;
-  const char *optind_text = getenv("OPTIND");
+  const char *optind_text = variable_value("OPTIND");
   if (optind_text != NULL && optind_text[0] != '\0') {
     char *end = NULL;
     errno = 0;
@@ -2696,30 +2786,30 @@ static int builtin_getopts(Shell *shell, int argc, char **argv) {
 
   char option_text[2] = {option, '\0'};
   if (!known) {
-    if (shell_setenv(name, "?", 1) != 0) return 1;
+    if (set_variable(name, "?") != 0) return 1;
     if (silent) {
-      if (shell_setenv("OPTARG", option_text, 1) != 0) return 1;
+      if (set_variable("OPTARG", option_text) != 0) return 1;
     } else {
-      shell_unsetenv("OPTARG");
+      unset_variable("OPTARG");
       fprintf(stderr, "slop: getopts: illegal option: %c\n", option);
     }
     return 0;
   }
   if (missing_argument) {
-    if (shell_setenv(name, silent ? ":" : "?", 1) != 0) return 1;
+    if (set_variable(name, silent ? ":" : "?") != 0) return 1;
     if (silent) {
-      if (shell_setenv("OPTARG", option_text, 1) != 0) return 1;
+      if (set_variable("OPTARG", option_text) != 0) return 1;
     } else {
-      shell_unsetenv("OPTARG");
+      unset_variable("OPTARG");
       fprintf(stderr, "slop: getopts: option requires an argument: %c\n", option);
     }
     return 0;
   }
-  if (shell_setenv(name, option_text, 1) != 0) return 1;
+  if (set_variable(name, option_text) != 0) return 1;
   if (requires_argument) {
-    if (shell_setenv("OPTARG", option_argument, 1) != 0) return 1;
+    if (set_variable("OPTARG", option_argument) != 0) return 1;
   } else {
-    shell_unsetenv("OPTARG");
+    unset_variable("OPTARG");
   }
   return 0;
 }
@@ -2768,7 +2858,7 @@ static int builtin_local(Shell *shell, int argc, char **argv) {
       }
       frame->count++;
     }
-    if (shell_setenv(change->name, has_value ? word + name_length + 1 : "", 1) != 0)
+    if (set_variable(change->name, has_value ? word + name_length + 1 : "") != 0)
       return 1;
   }
   return 0;
@@ -2938,7 +3028,7 @@ static int builtin_exec(Shell *shell, int argc, char **argv) {
       fflush(NULL);
       execve(path, argv + first, environment);
       const int error = errno;
-      free(environment);
+      environment_dispose(environment);
       fprintf(stderr, "slop: exec: %s: %s\n", argv[first], strerror(error));
       status = error == ENOENT ? 127 : 126;
     }
@@ -3119,8 +3209,8 @@ static int builtin(Shell *shell, int argc, char **argv) {
     }
     const int previous = argument < argc && strcmp(argv[argument], "-") == 0;
     const char *path = argument < argc
-                           ? (previous ? getenv("OLDPWD") : argv[argument])
-                           : getenv("HOME");
+                           ? (previous ? variable_value("OLDPWD") : argv[argument])
+                           : variable_value("HOME");
     if (path == NULL || path[0] == '\0') {
       if (argument < argc && !previous) return 0;
       fprintf(stderr, "slop: cd: %s is not set\n", previous ? "OLDPWD" : "HOME");
@@ -3128,7 +3218,7 @@ static int builtin(Shell *shell, int argc, char **argv) {
     }
     // A removed working directory has no name left but the one in PWD.
     char *old_cwd = getcwd(NULL, 0);
-    if (old_cwd == NULL && getenv("PWD") != NULL) old_cwd = strdup(getenv("PWD"));
+    if (old_cwd == NULL && variable_value("PWD") != NULL) old_cwd = strdup(variable_value("PWD"));
     if (old_cwd == NULL) {
       fprintf(stderr, "slop: cd: %s\n", strerror(errno));
       return 1;
@@ -3139,8 +3229,8 @@ static int builtin(Shell *shell, int argc, char **argv) {
       return 1;
     }
     char *new_cwd = getcwd(NULL, 0);
-    if (new_cwd == NULL || shell_setenv("OLDPWD", old_cwd, 1) != 0 ||
-        shell_setenv("PWD", new_cwd, 1) != 0 || !export_variable("OLDPWD")) {
+    if (new_cwd == NULL || set_variable("OLDPWD", old_cwd) != 0 ||
+        set_variable("PWD", new_cwd) != 0 || !export_variable("OLDPWD")) {
       fprintf(stderr, "slop: cd: could not publish directory state: %s\n",
               strerror(errno));
       free(old_cwd);
@@ -3191,7 +3281,7 @@ static int builtin(Shell *shell, int argc, char **argv) {
         *function = shell->functions->items[--shell->functions->count];
         continue;
       }
-      if (shell_unsetenv(argv[index]) != 0) return 1;
+      if (unset_variable(argv[index]) != 0) return 1;
       unexport_variable(argv[index]);
     }
     return 0;
@@ -3373,7 +3463,7 @@ static int spawn_command(Shell *shell, int argc, char **argv, const char *search
   fflush(NULL);
   const int pid = dolly_spawn_mapped(path, argc, argv, environment, NULL,
                                      DOLLY_PROCESS_INHERIT_FDS_ALL, NULL, 0, -1);
-  free(environment);
+  environment_dispose(environment);
   if (pid < 0) { fprintf(stderr, "slop: %s: spawn failed: %s\n", argv[0], strerror(-pid)); return 126; }
   if (stage == NULL) return wait_command(shell, pid);
   stage->pid = pid;
@@ -3522,7 +3612,7 @@ static int save_environment_change(const char *word, size_t name_length,
   const int ok = name != NULL && remember_variable(name, change);
   free(name);
   if (!ok) return 0;
-  if (shell_setenv(change->name, word + name_length + 1, 1) != 0 ||
+  if (set_variable(change->name, word + name_length + 1) != 0 ||
       !export_variable(change->name)) {
     restore_environment_changes(change, 1);
     return 0;
@@ -3533,8 +3623,8 @@ static int save_environment_change(const char *word, size_t name_length,
 static void restore_environment_changes(EnvironmentChange *changes, size_t count) {
   while (count != 0) {
     EnvironmentChange *change = &changes[--count];
-    if (change->existed) shell_setenv(change->name, change->old_value, 1);
-    else shell_unsetenv(change->name);
+    if (change->existed) set_variable(change->name, change->old_value);
+    else unset_variable(change->name);
     if (change->exported) export_variable(change->name);
     else unexport_variable(change->name);
     free(change->name); free(change->old_value);
@@ -3759,7 +3849,7 @@ memory_error:
 
 // `~` starts a fully unquoted word or the value of an assignment.
 static int expand_tilde(Token *token, size_t offset) {
-  const char *home = getenv("HOME");
+  const char *home = variable_value("HOME");
   if (home == NULL || home[0] == '\0' || token->text == NULL) return 1;
   const char *tilde = token->text + offset;
   // An unquoted `~` up to an unquoted `/`, or `:` in an assignment's value.
@@ -3934,7 +4024,7 @@ static int expand_word_arguments(Shell *shell, Arguments *arguments,
   }
   if (!token->split) return expand_glob(shell, arguments, token);
   if (token->quoted && !token->text[0]) return argument_push(arguments, "");
-  const char *ifs = getenv("IFS");
+  const char *ifs = variable_value("IFS");
   if (ifs == NULL) ifs = " \t\n";
   if (ifs[0] == '\0') return expand_glob(shell, arguments, token);
   // POSIX 2.6.5: IFS white space around a field is dropped; every other IFS
@@ -4425,7 +4515,7 @@ static int parse_for(Shell *shell, CommandParser *parser, int execute,
     };
     unsigned stopped = 0;
     int run = execute && iteration_index < iterations;
-    if (run && shell_setenv(variable, values.items[iteration_index], 1) != 0) {
+    if (run && set_variable(variable, values.items[iteration_index]) != 0) {
       fprintf(stderr, "slop: for: %s\n", strerror(errno));
       status = 1;
       run = 0;
@@ -4454,7 +4544,7 @@ static int parse_for(Shell *shell, CommandParser *parser, int execute,
       if (control == LOOP_CONTROL_BREAK) break;
       continue;
     }
-    if (!shell->active) break;
+    if (!shell->active || shell->returning) break;
   }
   if (execute) shell->loop_depth--;
   parser->cursor = body_end + 1;
@@ -4527,8 +4617,7 @@ static int parse_while(Shell *shell, CommandParser *parser, int execute,
       if (control == LOOP_CONTROL_BREAK) break;
       continue;
     }
-    if (!selected) break;
-    if (!shell->active) break;
+    if (!selected || !shell->active || shell->returning) break;
   }
   if (execute) shell->loop_depth--;
   parser->cursor = body_end + 1;
@@ -5101,7 +5190,7 @@ static int line_is_blank(const char *line) {
 }
 
 static const char *history_path(void) {
-  const char *path = getenv("HISTFILE");
+  const char *path = variable_value("HISTFILE");
   return path == NULL ? "/home/dolly/.slop_history" : path;
 }
 
@@ -5249,7 +5338,7 @@ static int collect_completions(const char *word, int command_position,
     size_t directory_length = slash == NULL ? 0 : (size_t)(slash - word);
     const char *base = slash == NULL ? word : slash + 1;
     // The directory the shell will expand the word into: a leading `~/` is HOME.
-    const char *home = getenv("HOME");
+    const char *home = variable_value("HOME");
     const int tilde = word[0] == '~' && word[1] == '/' && home != NULL && home[0] != '\0';
     char *directory = NULL;
     if (slash == NULL) directory = strdup(".");
@@ -5648,12 +5737,12 @@ static int interactive(Shell *shell) {
     fprintf(stderr, "slop: /workspace: %s\n", strerror(errno)); return 1;
   }
   if (chdir("/workspace") != 0) { fprintf(stderr, "slop: /workspace: %s\n", strerror(errno)); return 1; }
-  if (shell_setenv("PWD", "/workspace", 1) != 0) {
+  if (set_variable("PWD", "/workspace") != 0) {
     fprintf(stderr, "slop: PWD: %s\n", strerror(errno));
     return 1;
   }
-  if (getenv("HISTFILE") == NULL &&
-      shell_setenv("HISTFILE", "/home/dolly/.slop_history", 0) != 0) {
+  if (variable_value("HISTFILE") == NULL &&
+      set_variable("HISTFILE", "/home/dolly/.slop_history") != 0) {
     fprintf(stderr, "slop: HISTFILE: %s\n", strerror(errno));
     return 1;
   }
@@ -5760,7 +5849,9 @@ int main(int argc, char **argv) {
   };
   for (char **entry = environ; entry != NULL && *entry != NULL; entry++) {
     char *name = strndup(*entry, strcspn(*entry, "="));
-    if (name == NULL || !export_variable(name)) { perror("slop"); return 1; }
+    const char *equals = strchr(*entry, '=');
+    if (name == NULL || equals == NULL || store_variable(name, equals + 1) != 0 ||
+        !export_variable(name)) { perror("slop"); return 1; }
     free(name);
   }
   // What POSIX sets when the shell starts, as dash and Bash do: OPTIND is 1, so
@@ -5769,8 +5860,8 @@ int main(int argc, char **argv) {
   // restores it (old=$IFS ... IFS=$old) keeps splitting fields; PPID.
   char parent[32];
   snprintf(parent, sizeof(parent), "%ld", (long)getppid());
-  if (shell_setenv("OPTIND", "1", 1) != 0 || shell_setenv("IFS", " \t\n", 1) != 0 ||
-      shell_setenv("PPID", parent, 1) != 0) { perror("slop"); return 1; }
+  if (set_variable("OPTIND", "1") != 0 || set_variable("IFS", " \t\n") != 0 ||
+      set_variable("PPID", parent) != 0) { perror("slop"); return 1; }
   int index = 1;
   int command = 0;
   if (index < argc && strcmp(argv[index], "--help") == 0) { usage(stdout); return 0; }
@@ -5802,7 +5893,7 @@ int main(int argc, char **argv) {
   }
   // Started in a removed directory, the shell keeps the PWD it was given.
   char *cwd = getcwd(NULL, 0);
-  if (cwd != NULL && shell_setenv("PWD", cwd, 1) != 0) { perror("slop: PWD"); return 1; }
+  if (cwd != NULL && set_variable("PWD", cwd) != 0) { perror("slop: PWD"); return 1; }
   free(cwd);
   if (command) {
     if (index == argc) { usage(stderr); return 2; }
