@@ -124,8 +124,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
       (path.startsWith("/dist/static/") && !path.startsWith(ownSources)) || path === "/dist/dolly.data"), [],
       "a derived build fetched build sources or the compiler seed");
     return target.evaluate(async () => ({
-      digest: [...new Uint8Array(await crypto.subtle.digest("SHA-256", __dolly.systemSnapshot))]
-        .map(byte => byte.toString(16).padStart(2, "0")).join(""),
+      digest: __dolly.builtImage.sha256,
       payloadReads: artifactReads.filter(read => read.bytes > 0).map(({ store, key }) => ({ store, key })),
       downloads: performance.getEntriesByType("resource").map(entry => new URL(entry.name).pathname)
         .filter(path => /\/dist\/packs\/|\.snapshot$/.test(path)).sort(),

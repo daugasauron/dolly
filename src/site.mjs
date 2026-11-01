@@ -10,9 +10,7 @@ import { DOLLY_IMAGES, imageBase, loadImages } from "./images.mjs";
 import { prepareImageArtifacts, loadImageHostRequirements } from "./image-build.mjs";
 import { buildImage } from "./image-builder.mjs";
 import { loadCustomImage, storedCustomImage } from "./custom-image.mjs";
-import { describeImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
-import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 
 // The modules a route's page has (the registry loads those alone): an image of
 // the directory run from its packs has its own and what they depend on; a route
@@ -57,7 +55,8 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
     const runnable = recipe.entry !== null;
     if (!runnable && !rebuild) throw new Error(`${image} has no ENTRY; it only builds`);
     const required = [...await loadImageHostRequirements(image, source), ...selected ? [selected.module] : []];
-    let customArtifact, systemSnapshot = null, systemInputs = null;
+    // The completed custom image this tab restores, or the identity of the one it rebuilt.
+    let customArtifact, rebuilt = null;
     return {
       image,
       label: selected?.label ?? (rebuild ? "REBUILD FROM SOURCE" : "PRECOMPILED SYSTEM"),
@@ -84,27 +83,25 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
         };
       },
       message(message) {
-        if (message.type === "system-snapshot") ({ bytes: systemSnapshot, inputs: systemInputs } = message);
+        if (message.type === "image-built") rebuilt = message.artifact;
       },
       // A session saved here restores onto this tab's base: a custom image the
       // browser must still hold, or a rebuilt filesystem that must equal the
       // packaged one.
       async running(host) {
-        const page = { get systemSnapshot() { return systemSnapshot; } };
+        const page = { get builtImage() { return rebuilt; } };
         if (image === "custom") {
-          const artifact = customArtifact ?? await describeImageArtifact(systemSnapshot,
-            await sha256(new TextEncoder().encode(source)), systemInputs);
-          const { buildId, recipeSha256, sha256: digest, byteLength, inputs } = artifact;
+          const { buildId, recipeSha256, sha256: digest, byteLength, inputs } = customArtifact ?? rebuilt;
           const running = { source, artifact: { buildId, recipeSha256, sha256: digest, byteLength, inputs }, ...host.inherited };
           return { page, context: { custom: running, verifyBase: () => loadCustomImage(running.source, running.artifact) } };
         }
-        if (systemSnapshot === null) return { page };
+        if (rebuilt === null) return { page };
         let verified = false;
         return { page, context: { async verifyBase() {
           if (verified) return;
           const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(new URL(`dist/dolly-${image}-system-snapshot.mjs`, imageBase).href);
-          if (metadata.image !== image || metadata.buildId !== DOLLY_IMAGE_BUILD_ID ||
-              metadata.byteLength !== systemSnapshot.byteLength || metadata.sha256 !== await sha256(systemSnapshot)) {
+          if (metadata.image !== image || metadata.buildId !== rebuilt.buildId ||
+              metadata.byteLength !== rebuilt.byteLength || metadata.sha256 !== rebuilt.sha256) {
             throw new Error("Rebuilt filesystem differs from the prebuilt session base; no session was saved");
           }
           verified = true;

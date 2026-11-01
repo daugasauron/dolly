@@ -205,22 +205,25 @@ ENTRY /bin/foreground -i /bin/slop
 }
 
 async function namedSessions(context, server, name) {
+  // A rebuilt base carries a named save only when it is the packaged snapshot:
+  // where the packaged one says another digest, the save is refused.
+  const differing = await newPage(context);
+  await differing.route("**/dist/dolly-system-system-snapshot.mjs", async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, body: (await response.text()).replace(/\n  "sha256": "[0-9a-f]{64}"/, `\n  "sha256": "${"0".repeat(64)}"`) });
+  });
+  await differing.goto(server.origin + "/system/rebuild/");
+  await boot(differing);
+  assert.equal(await differing.evaluate(async () => {
+    try { await __dolly.saveSession("wrong-rebuilt-base"); } catch {}
+    return (await import("/src/session-store.mjs")).loadStoredSession("wrong-rebuilt-base");
+  }), null, "a rebuilt base the packaged snapshot does not name produced a named save");
+  await differing.close();
   const page = await newPage(context);
-  // A rebuilt base carries a named save only when it is the packaged snapshot.
   await page.goto(server.origin + "/system/rebuild/");
   await boot(page);
-  assert.equal(await page.evaluate(async () => {
-    const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import("/dist/dolly-system-system-snapshot.mjs");
-    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", __dolly.systemSnapshot));
-    return [...digest].map(byte => byte.toString(16).padStart(2, "0")).join("") === metadata.sha256;
-  }), true, "rebuilt session base differs from the packaged snapshot");
-  assert.equal(await page.evaluate(async () => {
-    const bytes = new Uint8Array(__dolly.systemSnapshot);
-    bytes[bytes.length - 1] ^= 1;
-    try { await __dolly.saveSession("wrong-rebuilt-base"); } catch {}
-    finally { bytes[bytes.length - 1] ^= 1; }
-    return (await import("/src/session-store.mjs")).loadStoredSession("wrong-rebuilt-base");
-  }), null, "a changed rebuilt base produced a named save");
+  assert.equal(await page.evaluate(async () => (await import("/dist/dolly-system-system-snapshot.mjs"))
+    .DOLLY_SYSTEM_SNAPSHOT.sha256 === __dolly.builtImage.sha256), true, "rebuilt session base differs from the packaged snapshot");
   await check(page, [
     "echo SESSION-WORKSPACE > /workspace/session-proof.txt",
     "echo SESSION-HOME > /home/dolly/session-proof.txt",
