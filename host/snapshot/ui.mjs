@@ -12,7 +12,7 @@ import {
 } from "../../src/session-store.mjs";
 
 const markup = `<style>
-  #session-open { position: fixed; right: 0.5rem; bottom: 0.35rem; z-index: 6;
+  #session-open { position: absolute; right: 0.5rem; bottom: 0.35rem; z-index: 6;
     padding: 0.15rem 0.45rem; color: inherit; background: #262626;
     border: 1px solid #77736c; font: inherit; font-size: 13px; cursor: pointer; }
   #session-open[data-failed] { border-color: #e98773; }
@@ -53,8 +53,8 @@ const markup = `<style>
 // describes the running image once its ENTRY starts; restored names the
 // session this page booted from, if any. On a page with a site, a save names
 // itself in the tab's URL and the dialog links the site's list of saves.
-export function mountSessionSave({ keyboard, showStatus, site, indicators }, transport, restored) {
-  document.body.insertAdjacentHTML("beforeend", markup);
+export function mountSessionSave({ mount, keyboard, showStatus, site, indicators }, transport, restored) {
+  mount.insertAdjacentHTML("beforeend", markup);
   const button = document.querySelector("#session-open");
   const dialog = document.querySelector("#session-dialog");
   const nameField = document.querySelector("#session-name");
@@ -175,6 +175,7 @@ export function mountSessionSave({ keyboard, showStatus, site, indicators }, tra
     // first time through the dialog.
     claimsKey(event) {
       if (dialog.open || button.contains(event.target)) return true;
+      if (event.target !== document.body && !mount.contains(event.target)) return false;
       if (!base || !event.ctrlKey || !event.shiftKey || event.altKey || event.metaKey || event.code !== "KeyS") return false;
       event.preventDefault();
       event.stopImmediatePropagation();

@@ -7,11 +7,11 @@ REQUIRES HOST runtime@0
 # other machines; Dolly runs no OpenMP. Meson's install would rebuild first as
 # another user: Dolly's Python has no os.geteuid, so the build compiles, then
 # installs what it compiled.
-FROM /v0.1.4/demos/x11/Dollyfile-x11-build ff3eec2e743dc9930c83702df4b879c7f164bd9ad362d82f37a233a45819caa8
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build 380d3ecd65fc139980ea61ec2723800eadb501c594740f1f6dafa33fe844502e
 # The tar package reads the pax headers of X.Org's archives.
-USE /v0.1.4/demos/tools/Dollyfile-tar 23cd8ef5cce746bd0a47657aba6d1914efd81017ec0a4c20e7f78944e058eae7
-USE /v0.1.4/demos/tools/Dollyfile-meson fdf6b56135f6b2446e9b02680b94a43c04a95ddb0aa1ee9ec9176658b365eb8a
-USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf c9be89938c3e165017d6b0763625b658b6409345f90275460e4a161d90f679ef
+USE /v0.1.4/demos/tools/Dollyfile-tar c805b9181e3a51ba506952ed351913ff7f377e09fc04b336445fb69ba43f8885
+USE /v0.1.4/demos/tools/Dollyfile-meson 8cf890a440853fa92bca973d935ec0cee93d5f10e38d32f7451451099866e212
+USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf c6deb0099a5aecaa675dd691e14197c81893d640cef9d6529fe75bc402bf8ae4
 REQUIRES TOOL meson
 REQUIRES TOOL gzip
 REQUIRES TOOL tar

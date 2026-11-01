@@ -35,24 +35,33 @@ a page of the site names those its route uses ([`site.mjs`](../src/site.mjs)).
 | `tools` | Process C of a program a package builds from the module's directory, such as `stack-wrap`; optional |
 | `package` | The package whose recipe installs the module's headers and clients, which the seed then leaves out; absent when the seed holds them |
 
-A provider's `browser()` and `worker()` receive the page's shared resources
-(`mount`, `canvas`, `keyboard`, `applicationBase` (the image directory), `site`
-(the root of the site's routes, when the embedding has one), `showStatus`,
-`fatal` and `indicators` (`hold(holder, held)` and `show()`, the page's corner
-indicators)), `send` to the other side, `ask` (a message whose handler's
-result, or error, comes back), `get(dependency)` and its `configuration`; `check()` receives the page's resources too, and on a switch
-after boot the `signal` that is aborted once the registry stops waiting.
+A provider's `browser()` receives the page's shared resources (`mount`,
+`canvas`, `keyboard`, `applicationBase` (the image directory), `site` (the
+root of the site's routes, when the embedding has one), `showStatus`, `fatal`
+and `indicators` (`hold(holder, held)` and `show()`, the page's corner
+indicators)), and `claimsKey(event)` and `surfaceSize()`, what the other
+modules' `claimsKey` and `surfaceSize` (below) say; its `worker()` receives
+`runtimeBase` (where the runtime's files are served) and `abi` (the modules
+executables may record now, with their digests). Both receive `send` to the
+other side, `ask` (a message whose handler's result, or error, comes back),
+`get(dependency)` and their `configuration`; `check()` receives the page's
+resources too, and on a switch after boot the `signal` that is aborted once
+the registry stops waiting.
 The page side holds no view of kernel memory ([browser boundary](../docs/browser-boundary.md)):
 the Worker side owns the module's mailboxes and sends the page copies, and the
 page side keeps its DOM work and sends what the user does.
 `get("runtime")` on the Worker side gives the kernel's `memory`,
-`serviceOnNotify(words, index)`, which resumes waiting programs each time a
-mailbox word is notified, `leaseBridge(lease, mailbox, send)` for a device
+`serviceDeferred()`, which resumes the programs waiting on a device,
+`serviceOnNotify(words, index)`, which does so each time a mailbox word is
+notified, `leaseBridge(lease, mailbox, send)` for a device
 leased per process ([`runtime/lease-bridge.mjs`](runtime/lease-bridge.mjs)) and
 `kernelPlugin(bytes, kernel)` for a resident library linked into the
 kernel. A device module imports only its own files, so it can be delivered on
 its own: its generated `abi.mjs` carries its contracts' constants and the
-process contract's errno numbers, as its C includes `<dolly/process.h>`. The
+process contract's errno numbers, as its C includes `<dolly/process.h>`. It is
+admitted also where the browser has no such device (no WebGPU adapter, no
+Web Audio): it grants nothing then, OPEN fails with `ENODEV`, and a program
+goes on without it. The
 modules that are the runtime's own machinery (`runtime`, `http`, `threads`,
 `dso`, `stack`, `nena`, `snapshot`, `packages`, `build`) also use the runtime's files. They return an instance whose optional members the registry
 calls: `start` (Worker/page handshake), `messages`, `bindings` (kernel

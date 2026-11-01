@@ -17,9 +17,8 @@ export function worker({ get, abi, runtimeBase }) {
       }));
       // abi is the live set of modules the image admits; a loaded library's
       // own records are checked against it.
-      // threads: it serves each thread's Worker of a program using threads@0.
       get("runtime").serveInProcess("dso@0", { bundle: new Blob([bundle], { type: "text/javascript" }),
-        configuration: { contract: parseWasmInterface(contract, "dolly-dso-0"), hostAbi: abi }, threads: true });
+        configuration: { contract: parseWasmInterface(contract, "dolly-dso-0"), hostAbi: abi } });
     },
     disabled() { get("runtime").serveInProcess("dso@0"); },
   };

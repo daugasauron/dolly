@@ -63,9 +63,9 @@ await browserTest("audio", { image: "system", server: { fixtures } }, async ({ b
   await blank.goto(`${server.origin}/fixture/http.txt`);
   assert.deepEqual(await autoplay, { error: 0, activated: false, resumeCalls: 0 });
   await blank.mouse.click(10, 10);
-  await blank.waitForFunction(() => provider.status.state === "running");
+  await blank.waitForFunction(() => provider.page.audio.state === "running");
   await blank.evaluate(() => provider.dispose());
-  await blank.waitForFunction(() => provider.status.state === "closed");
+  await blank.waitForFunction(() => provider.page.audio.state === "closed");
   await blank.close();
 
   const errors = [];

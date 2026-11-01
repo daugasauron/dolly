@@ -513,14 +513,11 @@ export class DollyProcessSupervisor {
   }
 
   // Checked at every launch, not only when compiled: nena@0 may have disabled
-  // a module since. The modules served in this executable's own Worker each
-  // hold one Worker's state, such as its function table: one goes with threads
-  // only where it serves every thread. Returns those modules.
+  // a module since. Returns the modules served in this executable's own
+  // Workers, each thread's among them (dso@0, stack@0).
   #admit({ requirements, threaded }) {
     checkHostAbi(requirements, this.hostAbi);
     const local = [...requirements.keys()].filter(requirement => this.processModules.has(requirement));
-    const unthreaded = local.filter(requirement => !this.processModules.get(requirement).threads);
-    if (threaded && unthreaded.length) throw new TypeError(`a program using threads@0 cannot use ${unthreaded.join(", ")}`);
     if (threaded && !this.threadHost) throw new Error("threads@0 is unavailable");
     return local;
   }

@@ -37,11 +37,12 @@ function announce({ indicators }, element, state, borderColor) {
 function indicate(page, info, unavailable) {
   let element = document.querySelector("#gpu-status");
   if (!element) {
-    element = document.body.appendChild(document.createElement("div"));
+    // In Dolly's element; a display-less embedding has none, and the indicator shows nowhere.
+    element = (page.mount ?? document.createElement("div")).appendChild(document.createElement("div"));
     element.id = "gpu-status";
     element.className = "page-indicator";
     element.setAttribute("role", "status");
-    element.style.cssText = "position:fixed;right:0.5rem;bottom:2rem;z-index:8;max-width:calc(100vw - 1rem);" +
+    element.style.cssText = "position:absolute;right:0.5rem;bottom:2rem;z-index:8;max-width:calc(100% - 1rem);" +
       "padding:0.15rem 0.45rem;background:#262626;border:1px solid;font-size:13px;pointer-events:none";
   }
   if (unavailable) {
@@ -78,7 +79,6 @@ export function browser(page) {
   let status = {};
   return {
     configuration: { canvas: surface }, transfers: surface ? [surface] : [],
-    get status() { return status; },
     page: { get gpu() { return status; } },
     get surfaceSize() { return status.active ? { width: status.width, height: status.height } : undefined; },
     // The provider reports the adapter of each device it creates, or why it has none.

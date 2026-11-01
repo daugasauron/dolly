@@ -57,7 +57,7 @@ export function createAudioProvider() {
         if (scope <= generations[slot]) fail(E.ESTALE);
         if ([...streams.keys()].some(key => (key - 1) % A.DOLLY_AUDIO_SLOTS === slot)) fail(E.EBUSY);
         if (!context) {
-          if (typeof AudioContext !== "function") fail(E.ENOSYS);
+          if (typeof AudioContext !== "function") fail(E.ENODEV);
           context = new AudioContext({sampleRate: A.DOLLY_AUDIO_RATE, latencyHint: "interactive"});
         }
         if (context.state === "closed") fail(E.EIO);

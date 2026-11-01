@@ -14,9 +14,9 @@ REQUIRES HOST threads@0
 REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-agent d250c174da8618d690b9c1123d29bfdc3efc43fa211a331e2c8faf1bc3471f8e
-INSTALL /v0.1.4/demos/local-llm/Dollyfile-llama 22ca8b5ac631921a550379f575ef351e529d2980153a31e79301a499b88a0ee1
-INSTALL /v0.1.4/demos/local-llm/Dollyfile-qwen3.5-2b 879ad3ba8f3f477103798701f0ea0eadf7eb87acba84f2c2da3417f9c39b1f8c
+FROM /v0.1.4/demos/pi/Dollyfile-pi-agent ed5b9b66cceb6626cbdfa869db2e55720acd431570da5b378e656d2e5eaa05da
+INSTALL /v0.1.4/demos/local-llm/Dollyfile-llama 16799526f3e22a9501639ed1d719f203b5e09a62ce2921879651694ad428dda4
+INSTALL /v0.1.4/demos/local-llm/Dollyfile-qwen3.5-2b e9b08b6a340c749e1878308ace40dd58ea1be96f0a85ce6c20ff1b7a2ef404c8
 
 REQUIRES TOOL janis
 REQUIRES TOOL tar

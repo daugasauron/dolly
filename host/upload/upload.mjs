@@ -5,7 +5,7 @@ export { DOLLY_UPLOAD_ABI_DIGEST as digest } from "./abi.mjs";
 // The page shows the picker and the progress; the Worker asks for a file,
 // reads it and writes it into the mailbox. The user's Cancel reaches the
 // Worker, and the Worker's end of a transfer closes the dialog.
-export function browser({ send }) {
+export function browser({ mount, send }) {
   let controller = null;
   return {
     messages: {
@@ -16,7 +16,7 @@ export function browser({ send }) {
           controller = null;
           send({ type: "upload-cancel" });
         }, { once: true });
-        return chooseUploadFile(current);
+        return chooseUploadFile(mount, current);
       },
       "upload-progress"({ sent, size }) { showUploadProgress(sent, size); },
       "upload-close"() {

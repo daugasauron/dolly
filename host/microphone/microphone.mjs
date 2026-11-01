@@ -7,21 +7,16 @@ export { DOLLY_MICROPHONE_ABI_DIGEST as digest } from "./abi.mjs";
 export const lease = { type: "microphone", slots: M.DOLLY_MICROPHONE_SLOTS, packetBytes: M.DOLLY_MICROPHONE_PACKET_BYTES,
   replyBytes: M.DOLLY_MICROPHONE_REPLY_BYTES, open: M.DOLLY_MICROPHONE_OPEN, close: M.DOLLY_MICROPHONE_CLOSE };
 
-export function check() {
-  return typeof navigator.mediaDevices?.getUserMedia === "function" && typeof globalThis.AudioWorkletNode === "function"
-    ? null : "Microphone capture is unavailable in this browser";
-}
-
 // Trusted page DOM over the display, beside the browser's own recording mark:
 // shown for as long as a program has asked for or holds the microphone.
-function indicate(indicators, state) {
+function indicate({ mount, indicators }, state) {
   let element = document.querySelector("#microphone-status");
   if (!element) {
-    element = document.body.appendChild(document.createElement("div"));
+    element = mount.appendChild(document.createElement("div"));
     element.id = "microphone-status";
     element.className = "page-indicator";
     element.setAttribute("role", "status");
-    element.style.cssText = "position:fixed;left:0.5rem;bottom:2rem;z-index:8;max-width:calc(100vw - 1rem);" +
+    element.style.cssText = "position:absolute;left:0.5rem;bottom:2rem;z-index:8;max-width:calc(100% - 1rem);" +
       "padding:0.15rem 0.45rem;background:#262626;border:1px solid #e98773;color:#e98773;font-size:13px;pointer-events:none";
   }
   const text = { waiting: "Microphone: waiting for permission", capturing: "Microphone on" }[state];
@@ -30,8 +25,8 @@ function indicate(indicators, state) {
   indicators.hold(element, Boolean(text));
 }
 
-export function browser({ send, indicators }) {
-  const provider = createMicrophoneProvider(() => indicate(indicators, provider.status().state));
+export function browser({ mount, send, indicators }) {
+  const provider = createMicrophoneProvider(() => indicate({ mount, indicators }, provider.status().state));
   return {
     page: { get microphone() { return provider.status(); } },
     messages: {

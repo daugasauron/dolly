@@ -245,10 +245,6 @@ export class InputTransport {
     return (Atomics.load(this.words, this.word + InputTransport.flags) & 1) !== 0;
   }
 
-  relativePointerRequested() {
-    return (Atomics.load(this.words, this.word + InputTransport.flags) & 3) === 3;
-  }
-
   // Tells the kernel whether this page listens: without it no lease is given.
   enable(enabled) {
     Atomics.store(this.words, this.word + InputTransport.enabled, enabled ? 1 : 0);
@@ -272,7 +268,7 @@ const pointerEvent = event => ({ shiftKey: event.shiftKey, ctrlKey: event.ctrlKe
 // decides which keys the guest reads: the page's own chords are taken before
 // it (src/page-chords.mjs) and module UIs claim theirs through it. Records
 // flow once the Worker's side has started.
-export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, send, ask, get }) {
+export function browser({ mount, canvas, keyboard, showStatus, claimsKey, surfaceSize, send, ask, get }) {
   // selecting: the primary button's press went to the terminal; held: the
   // middle or secondary button's.
   let started = false, selecting = false, held = -1, flags = 0;
@@ -365,7 +361,9 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
       }
       return;
     }
-    if (!started) return;
+    // A key typed into the embedding's own controls, outside Dolly's element,
+    // is the embedding's; with nothing focused (the body) it is the guest's.
+    if (!started || (event.target !== document.body && !mount.contains(event.target))) return;
     if (event.type === "keydown" && event.key === "Escape" && document.pointerLockElement === canvas) {
       document.exitPointerLock();
       event.preventDefault();
@@ -562,17 +560,21 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
   });
   // A touchscreen has no paste chord: there the page shows its own Paste
   // button and reads the clipboard only inside the user's press of it.
-  const pasteButton = document.body.appendChild(document.createElement("button"));
+  const pasteButton = mount.appendChild(document.createElement("button"));
   pasteButton.id = "paste";
   pasteButton.type = "button";
   pasteButton.textContent = "Paste";
-  pasteButton.style.cssText = "position:fixed;right:0.4rem;top:0.4rem;z-index:6;padding:0.35rem 0.6rem;color:inherit;" +
+  pasteButton.style.cssText = "position:absolute;right:0.4rem;top:0.4rem;z-index:6;padding:0.35rem 0.6rem;color:inherit;" +
     "background:#333;border:1px solid #f2d45c;border-radius:6px;font:inherit;font-size:15px;touch-action:none";
   const touchscreen = matchMedia("(pointer: coarse)"), placePaste = () => { pasteButton.hidden = !touchscreen.matches; };
   placePaste();
   touchscreen.addEventListener("change", placePaste);
-  pasteButton.addEventListener("click", () => navigator.clipboard.readText()
-    .then(deliverPaste, () => showStatus("Paste refused: the browser did not let the page read the clipboard")));
+  // The keys that follow are the terminal's again, as after any panel's button.
+  pasteButton.addEventListener("click", () => {
+    keyboard.focus({ preventScroll: true });
+    void navigator.clipboard.readText()
+      .then(deliverPaste, () => showStatus("Paste refused: the browser did not let the page read the clipboard"));
+  });
 
   return {
     page: {
