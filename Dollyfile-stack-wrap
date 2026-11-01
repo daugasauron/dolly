@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # stack-wrap, which makes a program continue deep recursion on fresh browser
 # stacks (host/stack, docs/browser-stack.md). A program it has rewritten
 # records stack@0, which an image that holds one declares.
-FROM /v0.1.4/Dollyfile-system-build 5f29b55d84496629f2ecba42f39890d423f2198b0090acbad6b8dc15e57d728d
+FROM /v0.1.4/Dollyfile-system-build 709e4b6ac8a530c932c873532a5ee205734621d2798da2e3f6d329e8a6f07901
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL rm

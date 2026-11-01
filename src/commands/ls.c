@@ -261,5 +261,10 @@ int main(int argc, char **argv) {
   }
   free_names(&files);
   free_names(&directories);
+  // Output that could not be written fails the command, as any other error does.
+  if (fflush(stdout) != 0) {
+    fprintf(stderr, "ls: write error: %s\n", strerror(errno));
+    return 1;
+  }
   return status;
 }

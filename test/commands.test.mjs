@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { chmod, lstat, mkdir, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, mkdtemp, open, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -152,6 +152,16 @@ test("cat writes a pipe's bytes as they arrive", async () => {
   cat.stdin.end();
   await new Promise(resolve => cat.once("exit", resolve));
   assert.equal(String(first), "first\n");
+});
+
+// A full disk (in Dolly, kernel memory) fails what writes to it.
+test("commands whose output cannot be written fail", async () => {
+  const full = await open("/dev/full", "w");
+  try {
+    for (const [name, args] of [["ls", ["."]], ["find", ["."]], ["du", ["."]], ["stat", ["."]], ["file", ["."]], ["pwd", []]]) {
+      assert.equal(spawnSync(build(name), args, { cwd: scratch, stdio: ["ignore", full.fd, "ignore"] }).status, 1, name);
+    }
+  } finally { await full.close(); }
 });
 
 test("env, command and time resolve programs on the resulting PATH", () => {

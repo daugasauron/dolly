@@ -798,5 +798,10 @@ int main(int argc, char **argv) {
 
   if (input.failed) return 2;
   if (state.interrupted) return 130;
+  // Output that could not be written fails the command, as any other error does.
+  if (fflush(stdout) != 0) {
+    fprintf(stderr, "find: write error: %s\n", strerror(errno));
+    return 1;
+  }
   return state.had_error ? 1 : 0;
 }

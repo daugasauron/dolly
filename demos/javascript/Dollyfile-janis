@@ -8,8 +8,8 @@ REQUIRES HOST http@0
 # a finite node:* surface over Dolly's files, processes and HTTP. The runner
 # is a library too: a program that is one script (tsc, pi, a game's agent)
 # links -ldolly-js -lquickjs and reads the two scripts kept here when it starts.
-FROM /v0.1.4/Dollyfile-system-tools a76ac4f9a7e54075ff4a4b17d607823f0f315f392dc953bcf58066b51f4b60ed
-INSTALL /v0.1.4/demos/javascript/Dollyfile-quickjs 6a7ecdd7cb806620df9c843532c2b5fb218cb51aeb59d2f525a298c4598b92ad
+FROM /v0.1.4/Dollyfile-system-tools 25e3d56d694b46ab730ae83026d674de251e59a098953d987eae77845b20de89
+INSTALL /v0.1.4/demos/javascript/Dollyfile-quickjs 9f3b507b34f3f6437ed26ca5368c10e4c8ea2a931e72a165b6b19446e794b1ea
 
 REQUIRES HEADER libc
 REQUIRES HEADER runtime

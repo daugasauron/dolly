@@ -161,6 +161,8 @@ export const shellCases = [
   ["only a program runs in the background", "(exit 3) & exit 7", 7],
   ["& does not take a && list", ": && : & exit 7", 2, 7],
   ["a path that names nothing is not a missing command", "./no-such-program; a=$?; no-such-program; b=$?; ./; c=$?; exit $((a + b + c))", 380 & 255],
+  // automake's install-sh splits a path at / between set -f and set +f.
+  ["set -f turns pathname expansion off, in this shell only", 'set -f; set -- /*; case $1 in "/*") :;; *) exit 91;; esac; case $- in *f*) :;; *) exit 94;; esac; set +f; set -- /*; case $1 in "/*") exit 92;; esac; (set -o noglob); set -- /*; case $1 in "/*") exit 93;; esac', 0],
   // sdl2-config finds its prefix with cd -P -- DIR.
   ["cd takes -P: its directory is always the real path", 'cd -P -- / && case $PWD in /) exit 7;; esac', 7],
   // A POSIX shell would read each as something else; (( x > 3 )) would write a file named 3.

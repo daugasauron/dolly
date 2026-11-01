@@ -81,5 +81,10 @@ int main(int argc, char **argv) {
     printf("  File: %s\n  Size: %lld\tType: %s\nModify: %s\n",
            argv[first], (long long)metadata.st_size, kind(metadata.st_mode), timestamp);
   }
+  // Output that could not be written fails the command, as any other error does.
+  if (fflush(stdout) != 0) {
+    fprintf(stderr, "stat: write error: %s\n", strerror(errno));
+    return 1;
+  }
   return status;
 }

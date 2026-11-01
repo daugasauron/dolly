@@ -46,12 +46,13 @@ image, and `man NAME` describes a command.
 ## Invocation
 
 ```text
-slop [-enux]                              interactive on a terminal, else reads stdin
-slop [-enux] -c 'command' [name [arg ...]]
-slop [-enux] script [arg ...]
+slop [-efnux]                             interactive on a terminal, else reads stdin
+slop [-efnux] -c 'command' [name [arg ...]]
+slop [-efnux] script [arg ...]
 ```
 
-- `-e` errexit, `-n` parse only, `-u` nounset, `-x` trace; letters combine.
+- `-e` errexit, `-f` no pathname expansion, `-n` parse only, `-u` nounset, `-x`
+  trace; letters combine.
 - The interactive line editor has cursor keys, history, Tab completion of
   commands and paths, Home/End, Ctrl-A/E/U/K/L and Ctrl-R search. History is the
   plain file `$HISTFILE` (default `/home/dolly/.slop_history`); the editor
@@ -70,7 +71,7 @@ slop [-enux] script [arg ...]
 | Quoting | `'…'`, `"…"`, backslash, and `$'…'` with the C escapes `\a \b \e \f \n \r \t \v \\ \' \" \cX \xHH \NNN` |
 | Expansions | `${VAR-w}`, `=`, `+`, `?` and their `:` forms; `${#VAR}`; `#`, `##`, `%`, `%%`; `$(…)`; simple backticks; `$((…))` in signed 64-bit with C's operators, assignments (`=`, `+=`, …) and `?:` (no `++`, `--` or comma); `fnmatch` patterns (`*`, `?`, `[…]`, `[[:class:]]`) in globs, `case` and pattern removal; leading `~`; `IFS` splitting of unquoted expansions |
 | Builtins | `: . source eval exec exit return cd export unset set shift read getopts local type command break continue trap wait` |
-| Options | `set -e -u -x`; `set -o NAME` for errexit, nounset, pipefail and xtrace; combined as in `set -euo pipefail` |
+| Options | `set -e -f -u -x`; `set -o NAME` for errexit, noglob, nounset, pipefail and xtrace; combined as in `set -euo pipefail` |
 
 - Expansion happens when a command runs, so `x=1 && echo "$x"` prints `1`.
 - Only inherited, `export`ed or prefix-assigned variables reach children.

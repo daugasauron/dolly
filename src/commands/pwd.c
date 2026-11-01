@@ -23,5 +23,10 @@ int main(int argc, char **argv) {
   }
   fputs(cwd, stdout);
   fputc('\n', stdout);
+  // Output that could not be written fails the command, as any other error does.
+  if (fflush(stdout) != 0) {
+    fprintf(stderr, "pwd: write error: %s\n", strerror(errno));
+    return 1;
+  }
   return 0;
 }

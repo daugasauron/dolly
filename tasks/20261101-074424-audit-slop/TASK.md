@@ -10,13 +10,14 @@ the Dollyfile language (`docs/dollyfile.md`) and its two implementations (`src/d
 `src/dollyfile-view.mjs` with `src/dollyfile-graph.mjs`), the linters and pin scripts.
 Measure: Unix philosophy, POSIX where claimed, explicit failure otherwise.
 
-## State (2026-11-01 17:45)
+## State (2026-11-01 17:55)
 
-Two rounds of seed fixes are committed with every recipe repinned; the second build (both
-rounds, `default` and `system` and their closure, 22 images) runs in this tree as unit
-`dolly-audit-slop-seed2` (log `build/audit-slop-evidence/image-seed2.log`). The first build
-was stopped after six images to batch round 2 into one chain rebuild. Browser verification
-(Chromium, Firefox: core, slop, shell, amy-free tests) follows the build.
+Three rounds of seed fixes are committed with every recipe repinned. Builds 1 and 2 were
+stopped early to batch the next round into one chain rebuild; build 3 (all three rounds,
+`default` and `system` and their closure, 22 images) runs in this tree as unit
+`dolly-audit-slop-seed3` (log `build/audit-slop-evidence/image-seed3.log`). Browser
+verification in Chromium and Firefox follows it. Proposal P1 is prototyped on branch
+`proposal/dollyfile-no-append` (`607fcc3a`), not on this branch.
 
 ## Method
 
@@ -86,6 +87,20 @@ differ were read in the source.
 13. **`stat` read an unknown option as a file** (`stat -L f`: "-L: No such file"): options are
     parsed, `-L` follows the link, others fail with 2. **`ls -p` marked links with `@`**: `-p`
     marks directories only; `-F` also links, FIFOs (`|`) and sockets (`=`).
+14. **Output that could not be written was success**: `ls`, `find`, `du`, `stat`,
+    `file`, `pwd` and `man` exited 0 with their output to `/dev/full` (measured on main's `ls`,
+    `du`, `pwd`); in Dolly a full kernel memory is `ENOSPC`, so `find / > list` could truncate
+    silently. They now flush and fail with 1 and a message (`commands whose output cannot be
+    written fail`).
+15. **`set -f` was refused**: automake's `install-sh` (nine copies in the cached
+    sources) splits a path between `set -f` and `set +f`; under Slop both printed an error
+    and globbing stayed on. `set -f`, `set -o noglob`, `slop -f` and `f` in `$-` are added,
+    per shell (a subshell's `set -f` does not leak).
+
+Not fixed, measured: `realpath` without `-e` fails on a missing last component (POSIX.1-2024's
+default is uncertain to me); `readonly`, `times` and `hash` are "command not found" (no use in
+the corpus); GNU Make's configure prints the same 197 checks under the branch's Slop and
+main's, natively, and stops at `umask` in `config.status` as before.
 
 ## The Dollyfile language: what is measured, and proposals for the owner
 
@@ -122,6 +137,11 @@ and on the catalog. What follows are changes to the language itself, the owner's
   it and building that parser into a small Wasm module the page and scripts call would remove
   the JavaScript parser and the parity tests, but adds a build artifact to the page and moves
   work into agent A's area; not prototyped.
+- **P4. Remove `/bin/cd`.** It cannot do what `cd` means (a program cannot change its
+  caller's directory); `xargs cd`, `env cd` and `find -exec cd` only test that a directory
+  exists. POSIX.1-2024, Slop's target, made `cd`, `command` and the other intrinsic utilities
+  optional as executables, and Make sends `cd` lines to the shell. It is in `core` and every
+  image, so it is the owner's call; `/bin/command` stays (it `exec`s the program it names).
 - **Observation, not a proposal.** `REQUIRES HOST` is a manifest declaration that must follow
   the role line; `REQUIRES TOOL`/`LIB`/`HEADER` are build-time assertions anywhere. One keyword
   carries two meanings with different placement rules.

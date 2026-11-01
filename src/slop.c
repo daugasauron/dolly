@@ -113,6 +113,7 @@ typedef struct {
   int xtrace;
   int nounset;
   int noexec;
+  int noglob; // set -f: no pathname expansion
   int pipefail;
   int loop_depth;
   int loop_control;
@@ -545,6 +546,7 @@ static const char *parameter_value(Shell *shell, const char *name,
   if (length == 1 && name[0] == '-') {
     size_t index = 0;
     if (shell->errexit) temporary[index++] = 'e';
+    if (shell->noglob) temporary[index++] = 'f';
     if (shell->interactive) temporary[index++] = 'i';
     if (shell->noexec) temporary[index++] = 'n';
     if (shell->nounset) temporary[index++] = 'u';
@@ -2292,10 +2294,10 @@ static int glob_below(const Token *token, size_t offset, Buffer *path,
   return ok;
 }
 
-static int expand_glob(Arguments *arguments, const Token *token) {
+static int expand_glob(const Shell *shell, Arguments *arguments, const Token *token) {
   int has_pattern = 0;
   for (size_t index = 0; token->text[index]; index++) has_pattern |= glob_active(token, index);
-  if (!has_pattern) return argument_push(arguments, token->text);
+  if (!has_pattern || shell->noglob) return argument_push(arguments, token->text);
   Arguments matches = {0};
   Buffer path = {0};
   int ok = glob_below(token, 0, &path, &matches);
@@ -2525,11 +2527,13 @@ static int print_shell_variables(int exported_only) {
 static int print_shell_options(const Shell *shell, int commands) {
   if (commands) {
     printf("set %co errexit\n", shell->errexit ? '-' : '+');
+    printf("set %co noglob\n", shell->noglob ? '-' : '+');
     printf("set %co nounset\n", shell->nounset ? '-' : '+');
     printf("set %co pipefail\n", shell->pipefail ? '-' : '+');
     printf("set %co xtrace\n", shell->xtrace ? '-' : '+');
   } else {
     printf("errexit %s\n", shell->errexit ? "on" : "off");
+    printf("noglob %s\n", shell->noglob ? "on" : "off");
     printf("nounset %s\n", shell->nounset ? "on" : "off");
     printf("pipefail %s\n", shell->pipefail ? "on" : "off");
     printf("xtrace %s\n", shell->xtrace ? "on" : "off");
@@ -2539,6 +2543,7 @@ static int print_shell_options(const Shell *shell, int commands) {
 
 static int set_named_option(Shell *shell, const char *name, int enabled) {
   if (strcmp(name, "errexit") == 0) shell->errexit = enabled;
+  else if (strcmp(name, "noglob") == 0) shell->noglob = enabled;
   else if (strcmp(name, "nounset") == 0) shell->nounset = enabled;
   else if (strcmp(name, "pipefail") == 0) shell->pipefail = enabled;
   else if (strcmp(name, "xtrace") == 0) shell->xtrace = enabled;
@@ -3177,8 +3182,9 @@ static int builtin(Shell *shell, int argc, char **argv) {
         if (option[index] == 'e') shell->errexit = enabled;
         else if (option[index] == 'u') shell->nounset = enabled;
         else if (option[index] == 'x') shell->xtrace = enabled;
+        else if (option[index] == 'f') shell->noglob = enabled;
         else if (option[index] != 'o') {
-          fputs("slop: set: only e, u, x, and named -o options are supported\n", stderr);
+          fputs("slop: set: only e, f, u, x, and named -o options are supported\n", stderr);
           return 2;
         } else if (argument + 1 == argc) {
           return print_shell_options(shell, !enabled);
@@ -3824,11 +3830,11 @@ static int expand_word_arguments(Shell *shell, Arguments *arguments,
     free(head.quote_mask);
     return ok;
   }
-  if (!token->split) return expand_glob(arguments, token);
+  if (!token->split) return expand_glob(shell, arguments, token);
   if (token->quoted && !token->text[0]) return argument_push(arguments, "");
   const char *ifs = getenv("IFS");
   if (ifs == NULL) ifs = " \t\n";
-  if (ifs[0] == '\0') return expand_glob(arguments, token);
+  if (ifs[0] == '\0') return expand_glob(shell, arguments, token);
   // POSIX 2.6.5: IFS white space around a field is dropped; every other IFS
   // byte ends a field, so two of them in a row hold an empty one.
   const char *cursor = token->text;
@@ -3848,7 +3854,7 @@ static int expand_word_arguments(Shell *shell, Arguments *arguments,
         .quote_mask = token->quote_mask ? token->quote_mask + (start - token->text) : NULL,
     };
     const int ok = field.text != NULL &&
-        (end == start ? argument_push(arguments, "") : expand_glob(arguments, &field));
+        (end == start ? argument_push(arguments, "") : expand_glob(shell, arguments, &field));
     free(field.text);
     if (!ok) return 0;
   }
@@ -5609,7 +5615,7 @@ static char *read_script(const char *path) {
 }
 
 static void usage(FILE *stream) {
-  fputs("usage: slop [-cenux] [COMMAND [NAME [ARG ...]] | FILE [ARG ...]]\n",
+  fputs("usage: slop [-cefnux] [COMMAND [NAME [ARG ...]] | FILE [ARG ...]]\n",
         stream);
 }
 
@@ -5649,6 +5655,7 @@ int main(int argc, char **argv) {
     for (size_t option = 1; argv[index][option] != '\0'; option++) {
       if (argv[index][option] == 'c') command = 1;
       else if (argv[index][option] == 'e') shell.errexit = 1;
+      else if (argv[index][option] == 'f') shell.noglob = 1;
       else if (argv[index][option] == 'n') shell.noexec = 1;
       else if (argv[index][option] == 'u') shell.nounset = 1;
       else if (argv[index][option] == 'x') shell.xtrace = 1;

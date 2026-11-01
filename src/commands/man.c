@@ -1,4 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,6 +39,11 @@ int main(int argc, char **argv) {
     size_t count;
     while ((count = fread(buffer, 1, sizeof(buffer), page)) > 0) fwrite(buffer, 1, count, stdout);
     fclose(page);
+    // Output that could not be written fails the command, as any other error does.
+    if (fflush(stdout) != 0) {
+      fprintf(stderr, "man: write error: %s\n", strerror(errno));
+      return 1;
+    }
     return 0;
   }
   fprintf(stderr, "man: no manual entry for %s\n", argv[1]);

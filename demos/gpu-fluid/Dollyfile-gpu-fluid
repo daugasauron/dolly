@@ -10,8 +10,8 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/Dollyfile-system f36768a8d5103e5d0174be6a7eca40452e7ade6cdf41cf8a6bb4c378e05dd20f
-INSTALL /v0.1.4/Dollyfile-libdolly-gpu cba5f08ae70ea9c11ba775fa58000b7389d47f9a1f69555f1ba7ac2f4a449afb
+FROM /v0.1.4/Dollyfile-system 0e1e68a8bf1207ae829c338fb9794d94e7747294e22161eec79a8183a526c9ba
+INSTALL /v0.1.4/Dollyfile-libdolly-gpu e5db09a352d52cb1edb968641cf6b81d0258a0f9eea9fc4d870257a9257b5d24
 REQUIRES TOOL cc
 REQUIRES HEADER gpu
 REQUIRES LIB dolly-gpu
