@@ -51,6 +51,12 @@ static void nonblocking_pipes(void) {
   CHECK(read(pipes[0], bytes, 1) == -1 && errno == EAGAIN);
   CHECK(read(pipes[0], bytes, 0) == 0);
   CHECK(write(pipes[1], "x", 1) == 1);
+  // A write end without a reader polls writable, as its write fails at once,
+  // and in error; a hang-up is the read end's news.
+  int lone[2];
+  CHECK(pipe(lone) == 0 && close(lone[0]) == 0);
+  struct pollfd orphan = {lone[1], POLLOUT, 0};
+  CHECK(poll(&orphan, 1, 0) == 1 && orphan.revents == (POLLOUT | POLLERR) && close(lone[1]) == 0);
   // A pipe has nothing to sync or truncate.
   CHECK(fsync(pipes[1]) == -1 && errno == EINVAL && ftruncate(pipes[1], 0) == -1 && errno == EINVAL);
   struct iovec vectors[] = {{bytes, 1}, {bytes + 1, 1}};

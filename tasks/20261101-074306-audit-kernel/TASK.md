@@ -172,16 +172,45 @@ round.
     while the process clock is answered; `sysconf(_SC_CHILD_MAX)` is libc's
     1024, not the 56 of `RLIMIT_NPROC`; `sched_getscheduler` does not link.
 
+19. **Pipes, poll and threads compared too** (`probes/pipe-edges.c`,
+    `probes/thread-edges.c`, -pthread). The write end of a pipe without a
+    reader polled `POLLERR|POLLHUP` and not writable; POSIX keeps POLLHUP
+    for the read end's news that the writers went, and Linux answers
+    `POLLOUT|POLLERR` (the write fails at once). Now so. Kernel C; the
+    check in `process-descriptors.c` runs natively too. Left, with reasons:
+    `FIONREAD` fails with ENOTTY (no operation tells the bytes a pipe or
+    socket holds: a contract addition, not wanted by a program found);
+    `gettid()` of a threaded program's first thread is its threads@0
+    number, not its pid as on Linux (threads@0's numbering, agent E's
+    tonight); `pthread_setname_np` does not link with `-pthread` while
+    `pthread_getname_np` is ENOSYS (libc defines the first for the serial
+    profile only: a line for the next seed round); guard pages, directed
+    signals and cancellation are ENOTSUP, as documented.
+
 ## Proposals for the owner
 
-- **A spawned child that keeps what its parent ignores.** `posix_spawn`
-  from a program that ignores a signal fails with ENOTSUP unless the
-  attributes reset it (`spawn_signals_supported`): a C program that ignores
-  SIGPIPE, as many do, cannot start one that way, where POSIX gives the
-  child the parent's ignored signals and mask. No program of the catalog
-  is known to meet it (git spawns through its Dolly patch, CPython and
-  libuv through `dolly_spawn_mapped`, Rust's std resets SIGPIPE in its
-  attributes), so this is for the owner to weigh against a round. EXEC already carries both (`dolly_process_exec_state`, applied by
+- **The kernel told each disposition, and a spawned child that keeps what
+  its parent ignores.** Dispositions live in libc; the kernel learns one
+  only for SIGALRM (`ALARM_HANDLED`, op 71). Three things follow from not
+  knowing the rest, each measured tonight: `posix_spawn` from a program
+  that ignores any signal fails with ENOTSUP unless the attributes reset it
+  (`spawn_signals_supported`), so the common `signal(SIGPIPE, SIG_IGN)` or
+  `signal(SIGCHLD, SIG_IGN)` program cannot start one (probe
+  `sigchld-ignore.c`: 0 of 80 spawned; Linux 80); with SIGCHLD ignored POSIX
+  reaps exited children itself, which Dolly cannot, so a daemon that relies
+  on it fills the 56-slot table with zombies; and a signal a program
+  ignores still arms the supervisor's 500 ms forced termination until libc
+  acknowledges it. One operation in place of op 71 (libc reports the
+  ignored and handled masks on each change) lets the kernel reap for an
+  ignored SIGCHLD, skip the grace for an ignored signal, and give a spawned
+  child the parent's ignored set and mask as EXEC already does
+  (`dolly_process_exec_state` in `dolly_process_spawn_request`, 56 to 72
+  bytes), dropping `spawn_signals_supported`. A layout change of
+  `process.h`: every executable's identity, the seed compiler's restamp and
+  a catalog round. No program of the catalog is known to hit the spawn
+  refusal today (git spawns through its Dolly patch, CPython and libuv
+  through `dolly_spawn_mapped`, Rust's std resets SIGPIPE in its
+  attributes). EXEC already carries both (`dolly_process_exec_state`, applied by
   `__dolly_signal_start` at every start); SPAWN carries neither. Smallest
   diff: a `dolly_process_exec_state signals` in `dolly_process_spawn_request`
   (56 to 72 bytes), the kernel copying it into `start_signals`, libc filling

@@ -1678,8 +1678,10 @@ static uint16_t fd_poll_events(dolly_kernel_process *process,
       }
       if (pipe->writers == 0) result |= DOLLY_PROCESS_POLL_HANGUP;
     } else if (direction == DOLLY_KERNEL_PIPE_WRITE) {
+      /* With no reader a write fails at once: an error, and no wait. A
+       * hang-up is the reader's news that the writers went (POSIX). */
       if (pipe->readers == 0) {
-        result |= DOLLY_PROCESS_POLL_ERROR | DOLLY_PROCESS_POLL_HANGUP;
+        result |= DOLLY_PROCESS_POLL_ERROR | (requested & DOLLY_PROCESS_POLL_WRITE);
       } else if ((requested & DOLLY_PROCESS_POLL_WRITE) != 0 &&
                  pipe->size < DOLLY_KERNEL_PIPE_CAPACITY) {
         result |= DOLLY_PROCESS_POLL_WRITE;
