@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # that generate their Makefiles with it. Bootstrap.mak's two stages run
 # directly, its own make -j being unbounded: a premake that loads its scripts,
 # then one with them embedded.
-FROM /v0.1.4/Dollyfile-system-tools 55feaf44d7eb61aff9297f945135834eadb838364723a3fcb771b42025175ae9
+FROM /v0.1.4/Dollyfile-system-tools 0b0b0ac0caa5056706d83699a85230f865c62d8fa01e97019f85713ddf953362
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL gzip

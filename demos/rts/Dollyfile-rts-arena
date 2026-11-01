@@ -11,13 +11,13 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime a2e06b2325a14316891e6b8133388c25fb631ee2eb54669156a5652167a4364c
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 a7e674d17880952f8b7ec62bf3b6a1d79863e7f658f1289cf376121b9b9ccbcd
-COPY /v0.1.4/demos/rts/Dollyfile-rts-build e79152fb1aac189b23d8dce84133bc1242e8a03cb7eea93dc6a48040d6893076 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
-COPY /v0.1.4/demos/rts/Dollyfile-rts-build e79152fb1aac189b23d8dce84133bc1242e8a03cb7eea93dc6a48040d6893076 /usr/share/7kaa /usr/share/7kaa
-COPY /v0.1.4/demos/rts/Dollyfile-rts-build e79152fb1aac189b23d8dce84133bc1242e8a03cb7eea93dc6a48040d6893076 /usr/src/7kaa /usr/src/7kaa
-COPY /v0.1.4/demos/rts/Dollyfile-rts-build e79152fb1aac189b23d8dce84133bc1242e8a03cb7eea93dc6a48040d6893076 /usr/src/dolly/rts /usr/src/dolly/rts
-COPY /v0.1.4/demos/rts/Dollyfile-rts-build e79152fb1aac189b23d8dce84133bc1242e8a03cb7eea93dc6a48040d6893076 /usr/share/licenses/7kaa /usr/share/licenses/7kaa
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 1057e3caed3dda64d6c933b1ef26fd754caef88371584c098b5a40bd19a3cdc5
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 7db70370dbe53f6996ddb388087d1878dadf6df5696442dd0483ea1feed51c35
+COPY /v0.1.4/demos/rts/Dollyfile-rts-build f74079eb431ebbdd7a91b1de8b95f78c763dc20e9b0794a48fbe80219c31c262 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
+COPY /v0.1.4/demos/rts/Dollyfile-rts-build f74079eb431ebbdd7a91b1de8b95f78c763dc20e9b0794a48fbe80219c31c262 /usr/share/7kaa /usr/share/7kaa
+COPY /v0.1.4/demos/rts/Dollyfile-rts-build f74079eb431ebbdd7a91b1de8b95f78c763dc20e9b0794a48fbe80219c31c262 /usr/src/7kaa /usr/src/7kaa
+COPY /v0.1.4/demos/rts/Dollyfile-rts-build f74079eb431ebbdd7a91b1de8b95f78c763dc20e9b0794a48fbe80219c31c262 /usr/src/dolly/rts /usr/src/dolly/rts
+COPY /v0.1.4/demos/rts/Dollyfile-rts-build f74079eb431ebbdd7a91b1de8b95f78c763dc20e9b0794a48fbe80219c31c262 /usr/share/licenses/7kaa /usr/share/licenses/7kaa
 EXPORTS TOOL seven-kingdoms
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner

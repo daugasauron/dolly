@@ -11,8 +11,8 @@ SOURCE /v0.1.4/include/dolly/runtime.h   1db3b267703af948051a171b06029560c3660dd
 SOURCE /v0.1.4/include/dolly/process.h   6919b5de21efa877d73ea8d004d88b66ec00b5a883bdbeece12e2ed14dc370b5 /usr/include/dolly/process.h
 SOURCE /v0.1.4/host/http/http.h      d09f57cda4a6cde89106653f12366ac95554c21d37d05a69c15764d4254b70a5 /usr/include/dolly/http.h
 SOURCE /v0.1.4/host/http/http-abi.h eb672b697efb8e9b13f5ef35a65e1b7fbb1b23dfc3da96827195401abe2b3863 /usr/include/dolly/http-abi.h
-SOURCE /v0.1.4/host/display/display.h   31054ebb6af133ea0a5de7e01730475a536a362261b1c24569a67d0749969633 /usr/include/dolly/display.h
-SOURCE /v0.1.4/host/display/display-abi.h 89e4ac84fb4b807ed1aa5e47c28eb402746a1596d7949fa373ea45878782c05f /usr/include/dolly/display-abi.h
+SOURCE /v0.1.4/host/display/display.h   912b820d44d2c42cf6bbac3971892a9efef2918401ac97ed518926d31bc37f77 /usr/include/dolly/display.h
+SOURCE /v0.1.4/host/display/display-abi.h ccced92565fafc5cbb1ba00f80e8c8709fadd3dfb5079b33d9fc401dc1fa50e4 /usr/include/dolly/display-abi.h
 SOURCE /v0.1.4/host/input/input.h   c380e2c168061ebd22785cbbcd6f7c7e05be2df187115ae1054c24cf39042a41 /usr/include/dolly/input.h
 SOURCE /v0.1.4/host/input/input-abi.h f84f9ab4008108895a3e853fbb41b2194cd0cd41265cc9e14eae1c3b5a75220b /usr/include/dolly/input-abi.h
 SOURCE /v0.1.4/host/download/download.h  666bca4fba5da7bf1e998c6486f56dce24cdbc82f1126f9be59067eb03b03bfa /usr/include/dolly/download.h

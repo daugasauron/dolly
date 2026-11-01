@@ -11,8 +11,9 @@ extern "C" {
 #endif
 
 typedef enum {
-  // Four consecutive, non-premultiplied bytes per pixel. Alpha must be 255
-  // for an opaque pixel. Rows are top-to-bottom and pixels are left-to-right.
+  // Four consecutive bytes per pixel: red, green, blue and a fourth the page
+  // does not show, for a frame is opaque as a window is. Rows are
+  // top-to-bottom and pixels are left-to-right.
   DOLLY_DISPLAY_PIXEL_RGBA8 = 1,
 } dolly_display_pixel_format;
 

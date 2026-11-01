@@ -89,8 +89,9 @@ flowchart LR
 | `dolly_display_set_cursor` | One of the page's own cursors: text, default, crosshair, pointer, hidden, the four resize arrows, move, wait, progress, not-allowed, help |
 | `dolly_display_release` | Return the canvas to the terminal |
 
-- Frames are top-down non-premultiplied RGBA8. The kernel checks size, stride,
-  generation and length before publishing; the browser checks again.
+- Frames are top-down RGBA8 and opaque, as a window is: the page does not show
+  the fourth byte. The kernel checks size, stride, generation and length
+  before publishing; the browser checks again.
 - Only the foreground process or a descendant can acquire the lease. Exit, trap
   or forced termination releases it, and Ghostty redraws its retained grid.
 - The lease starts at the terminal's frame size; a program picks its own with

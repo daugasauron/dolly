@@ -237,6 +237,9 @@ export class FramebufferPresenter {
       this.image.data.set(this.frames[index] ??= new Uint8ClampedArray(this.buffer, address, length));
       const after = Atomics.load(words, word + DisplayTransport.frameSequence) >>> 0;
       if (before !== after) continue;
+      // A frame is opaque, as a window is: the fourth byte of a pixel is not shown.
+      const pixels = this.image.data;
+      for (let alpha = 3; alpha < pixels.length; alpha += 4) pixels[alpha] = 255;
       if (this.surface.width !== width || this.surface.height !== height) {
         this.surface.width = width;
         this.surface.height = height;

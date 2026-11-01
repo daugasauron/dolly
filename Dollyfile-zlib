@@ -2,7 +2,7 @@ DOLLY 7
 PACKAGE zlib
 REQUIRES HOST runtime@0
 
-FROM /v0.1.4/Dollyfile-system-build 510355294fec8cb8e0b8c90fed338a70b7a8224717b3f480f23bb0b23705a7ca
+FROM /v0.1.4/Dollyfile-system-build 44b244a2e96435e98ed3fc1b28d41f509558d37bb8c853ee5bfb65ce37d5cbe9
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar

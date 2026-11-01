@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # NetBSD's terminfo library from the netbsd-curses release, two lines fixed, for
 # programs the cc package builds (-lterminfo): <term.h> and <termcap.h> over
 # the terminal descriptions the library holds.
-FROM /v0.1.4/Dollyfile-system-tools 55feaf44d7eb61aff9297f945135834eadb838364723a3fcb771b42025175ae9
+FROM /v0.1.4/Dollyfile-system-tools 0b0b0ac0caa5056706d83699a85230f865c62d8fa01e97019f85713ddf953362
 
 REQUIRES HEADER libc
 REQUIRES TOOL ar
