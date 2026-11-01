@@ -37,16 +37,16 @@ export async function buildLogProof() {
 
 export async function buildBufferReuse() {
   const base = new URL("../", document.baseURI);
-  const [registry, policy, transport, builder, graph, artifactStore, { siteReference }] = await Promise.all([
+  const [registry, policy, transport, builder, graph, artifactStore, { siteReference }, { hostModuleUrls: modules }] = await Promise.all([
     "src/images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
-    "src/image-builder.mjs", "src/image-build.mjs", "src/image-artifact.mjs", "src/static-asset.mjs",
+    "src/image-builder.mjs", "src/image-build.mjs", "src/image-artifact.mjs", "src/static-asset.mjs", "host/manifests.mjs",
   ].map(path => import(new URL(path, base).href)));
   await registry.loadImages(base);
   const definition = registry.DOLLY_IMAGES.find(image => image.image === "system-build");
   const source = `DOLLY 7\nAPPLICATION buffer-proof\nREQUIRES HOST runtime@0\nREQUIRES HOST display@0\nREQUIRES HOST input@0\nREQUIRES HOST download@0\nREQUIRES HOST http@0\nREQUIRES HOST snapshot@0\nREQUIRES HOST upload@0\nFROM ${siteReference(definition.dollyfile)} ${definition.sha256}\nENTRY /bin/slop\n`;
   const network = { ...transport.localServicesTransport(new policy.DollyHttpPolicy(undefined, registry.bootstrapSources(), base)),
     site: base.href };
-  const build = (image, inputs, customSource) => builder.buildImage(image, inputs, { http: { network } }, () => {}, { customSource });
+  const build = (image, inputs, customSource) => builder.buildImage(image, inputs, { http: { network } }, () => {}, { modules, customSource });
   const inputs = await graph.prepareImageArtifacts("custom", source, build, () => {});
   let digest;
   for (const text of [source, source.replace("ENTRY", "SLOP false\nENTRY"), source]) {
@@ -68,7 +68,7 @@ export async function buildBufferReuse() {
     }
   }
   // A build told to consume its inputs frees them: the page holds none afterwards.
-  const consumed = await builder.buildImage("custom", inputs, { http: { network } }, () => {}, { customSource: source, consume: true });
+  const consumed = await builder.buildImage("custom", inputs, { http: { network } }, () => {}, { modules, customSource: source, consume: true });
   if (inputs.some(input => input.bytes.byteLength !== 0)) throw new Error("A consuming build left its input buffers in the page");
   if (await artifactStore.sha256(consumed.bytes) !== digest) throw new Error("Consuming build inputs changed output");
   return digest;

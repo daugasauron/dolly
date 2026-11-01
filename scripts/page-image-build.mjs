@@ -3,10 +3,12 @@ import { MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 
 // Runs in a page (pass its source to page.evaluate): builds IMAGE of the image
 // directory at IMAGES, or "custom" from CUSTOM, after its missing dependencies,
-// with the builder and HTTP broker of the runtime at RUNTIME; on Dolly's site
-// both are the site. Logs through the exposed dollyBuildLog(text), keeps the
-// snapshot in globalThis.dollySnapshot and returns { inputs, dependenciesBuilt }.
-export async function buildImageInPage(runtime, images, image, custom) {
+// with the builder and HTTP broker of the runtime at RUNTIME and the host
+// modules whose module.json URLs are MODULES; on Dolly's site both directories
+// are the site and the modules every one it builds (host/manifests.mjs). Logs
+// through the exposed dollyBuildLog(text), keeps the snapshot in
+// globalThis.dollySnapshot and returns { inputs, dependenciesBuilt }.
+export async function buildImageInPage(runtime, images, image, custom, modules) {
   const log = text => void globalThis.dollyBuildLog(text);
   const [registry, policy, transport, builder, graph] = await Promise.all([
     "src/images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
@@ -15,8 +17,9 @@ export async function buildImageInPage(runtime, images, image, custom) {
   await registry.loadImages(images);
   const network = { ...transport.localServicesTransport(new policy.DollyHttpPolicy(globalThis.DOLLY_HTTP_POLICY,
     registry.bootstrapSources(), new URL(images))), site: images };
+  modules ??= (await import(new URL("host/manifests.mjs", runtime).href)).hostModuleUrls;
   const build = (name, artifacts, consume) => builder.buildImage(name, artifacts, { http: { network } }, log,
-    { customSource: name === "custom" ? custom : undefined, consume });
+    { modules, customSource: name === "custom" ? custom : undefined, consume });
   let dependenciesBuilt = 0;
   const dependencies = await graph.prepareImageArtifacts(image, custom, (name, artifacts) => {
     dependenciesBuilt++;

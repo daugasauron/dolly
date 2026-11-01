@@ -56,6 +56,7 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
     globalThis.buildCustom = async (name, rows, packages = []) => {
       const { DOLLY_IMAGES } = await import("/dist/dolly-images.mjs");
       const { buildImage } = await import("/src/image-builder.mjs");
+      const { hostModuleUrls: modules } = await import("/host/manifests.mjs");
       const { prepareImageArtifacts } = await import("/src/image-build.mjs");
       const { describeImageArtifact, sha256 } = await import("/src/image-artifact.mjs");
       const { siteReference } = await import("/src/static-asset.mjs");
@@ -66,8 +67,8 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
         .map(d => `INSTALL ${siteReference(d.dollyfile)} ${d.sha256}\n`).join("");
       const recipe = `DOLLY 7\nAPPLICATION ${name}\n${hosts}FROM ${siteReference(base.dollyfile)} ${base.sha256}\n${installs}${rows.slice(hosts.length)}`;
       const report = () => {};
-      const artifacts = await prepareImageArtifacts("custom", recipe, (name, inputs) => buildImage(name, inputs, builders, report), report);
-      const built = await buildImage("custom", artifacts, builders, report, { customSource: recipe });
+      const artifacts = await prepareImageArtifacts("custom", recipe, (name, inputs) => buildImage(name, inputs, builders, report, { modules }), report);
+      const built = await buildImage("custom", artifacts, builders, report, { modules, customSource: recipe });
       const artifact = await describeImageArtifact(built.bytes, await sha256(new TextEncoder().encode(recipe)), built.inputs);
       return { artifact, configuration: { image: "custom", customSource: recipe, customArtifact: artifact } };
     };

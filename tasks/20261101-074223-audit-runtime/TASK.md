@@ -303,6 +303,19 @@ markup shapes go. Files another branch changes tonight are left to it (B: `proce
     (`write-build-id.mjs`: the seed `dolly.data` and the contract modules), so no image
     restales as long as the runtime build leaves `dolly.data` byte-identical. Agent B's
     kernel: the integrator's call.
+22. **The narrowed builder registry broke the catalog round.** `fef1fc36` registered only
+    the runtime and the build host, which the build enables. But the Worker admits a
+    program's host modules by the registry's ABI digests, so a step that runs a program
+    linked against a declared module's client was refused: transfer's `download --help`,
+    "host module download@0 is not declared by this image (REQUIRES HOST)", and with it
+    `transfer`, `system` and all above them (the integrator reverted it in
+    `integrate/2026-11-02`, `529ad73f`). `image-browser` and `custom-session` had passed:
+    neither builds a recipe whose step runs such a program. Fix, on `core/npm-custom-images`:
+    the builder registers the build host and every module the image and its inputs declare,
+    from the module URLs its caller has (the site's list; `dolly-build`'s installed
+    packages), not all 19 and not only those it enables. Measured by building `transfer` in
+    a page as the catalog does (`repro/build-in-page.mjs`): before, refused in Chromium and
+    Firefox (`transfer-before-*.log`); after, built in both (`transfer-after-*.log`).
 
 ## Checked and left
 
@@ -423,3 +436,7 @@ without the loaders' `image` argument (finding 1), and keep this branch's metada
   cache, at the stage that copies the image, which the code then accounts for (21). And a
   template that no test builds rots: Studio's examples declared seven of `system`'s eight
   modules, and nothing built them until a recording did.
+- A change to what a build registers is verified by a build whose steps use what it leaves
+  out: a catalog image whose recipe runs a program linked against a device client was the
+  case no test covered, and the catalog round found it (22). Before narrowing a list, find
+  its every reader, here the Worker's admission of a program's modules.
