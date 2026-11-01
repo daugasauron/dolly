@@ -76,7 +76,7 @@ export async function run(mount, { images, modules, site, http }, route) {
   mount.replaceChildren(canvas, keyboard, bootstrapLog, status);
   const bootstrapOutput = buildLog(bootstrapLog);
   const appendBootstrap = text => bootstrapOutput.append(text);
-  pageChords(keyboard);
+  pageChords(mount, keyboard);
   const bootstrapDecoder = new TextDecoder();
 
   let runtimeWorker;

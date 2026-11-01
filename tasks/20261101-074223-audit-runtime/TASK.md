@@ -163,6 +163,17 @@ the image inputs hash is `main`'s.
     to `document.body` with `position: fixed`: snapshot's Save button, input's Paste button,
     the GPU and microphone indicators, download offers and the Studio build panel (agent D's
     modules, reported to the integrator).
+17. **Keys typed into an embedding's own field were taken.** The page's chords listen on the
+    window, so Ctrl+Shift+F in a text field of the embedding, outside Dolly's element,
+    toggled Dolly's indicators. Fix: `pageChords(mount, keyboard)` takes keys whose target is
+    in the element or the page's body (no element focused, which the site's keyboard rule
+    needs); `indicators-browser.mjs` checks a field outside the element (failed before).
+    The same repro (`build/audit-runtime-evidence/repro/repro-embedded-keys-browser.mjs`)
+    shows the larger half in `input@0` (agent D's): its window listener sends every key of
+    that field to the shell and prevents its default, so in both browsers the field stays
+    empty and the shell reads "hello". An embedding with a text field beside the terminal,
+    the agent frontend's chat box for one, cannot be typed in. The same rule (target in the
+    element or the body) fixes it there; reported to the integrator.
 
 ## Checked and left
 
