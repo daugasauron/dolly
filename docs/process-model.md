@@ -409,7 +409,12 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
 - `threads@0` ([`host/threads/dolly-threads-0.wat`](../host/threads/dolly-threads-0.wat),
   [`host/threads/threads.mjs`](../host/threads/threads.mjs)): statically linked `-pthread`
   programs, one Worker per thread sharing the process memory, at most 32 per
-  process and 64 in total; `sysconf` reports 4 processors. Handlers run on the
+  process and 64 in total; `sysconf` reports 4 processors. The memory takes its
+  maximum, 8 GiB, before a second thread starts and never grows while two run:
+  Chrome checks a copy, fill or atomic access against each thread's own record
+  of the size, which another thread's growth updates late. Firefox charges that
+  maximum to Linux's commit limit; a reservation the browser refuses fails
+  `pthread_create` with `EAGAIN`. Handlers run on the
   main thread, also while it waits in `pthread_join`. FFI calls work in every
   thread; no DSOs, FFI closures, cancellation or directed signals.
 - `dso@0` ([`host/dso/dolly-dso-0.wat`](../host/dso/dolly-dso-0.wat),

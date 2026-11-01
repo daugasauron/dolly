@@ -1,5 +1,5 @@
-import { DOLLY_IMAGES } from "../../src/images.mjs";
-import { loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } from "../../src/packaged-snapshot.mjs";
+import { DOLLY_IMAGES, imageBase } from "../../src/images.mjs";
+import { loadPackagedSnapshotMetadata } from "../../src/packaged-snapshot.mjs";
 import { MAX_SNAPSHOT_BYTES } from "../../src/snapshot-records.mjs";
 
 const PACKAGES_ORIGIN = "https://packages.dolly.invalid";
@@ -16,8 +16,9 @@ function reply(body, status, type = "text/plain; charset=utf-8") {
 }
 
 // GET /v1/packages/SHA256 is the exact snapshot of the package whose recipe
-// has that pin, verified from the published packs. One snapshot is held at a
-// time, until the guest has read it or the broker's deadline cancels it.
+// has that pin, verified from the published packs and merged as the guest
+// reads it. One snapshot is served at a time, until the guest has read it or
+// the broker's deadline cancels it.
 export class PackageService {
   constructor() {
     this.active = false;
@@ -35,25 +36,44 @@ export class PackageService {
     if (this.served >= PACKAGE_LIMITS.maxSnapshots) return reply("Package snapshot quota exceeded\n", 429);
     this.active = true;
     this.served += 1;
-    let bytes;
+    // The Worker (worker.mjs) answers each message in turn: the first with the
+    // packs checked, every later one with the snapshot's next chunk.
+    const worker = new Worker(new URL("./worker.mjs", import.meta.url), { type: "module", name: "dolly-packages" });
+    let released = false, refuse;
+    const release = () => {
+      if (released) return;
+      released = true;
+      worker.terminate();
+      refuse?.(new Error("the package transfer ended"));
+      this.active = false;
+    };
+    init.signal?.addEventListener("abort", release, { once: true });
+    const ask = message => new Promise((resolve, reject) => {
+      refuse = reject;
+      worker.onmessage = ({ data }) => data.error === undefined ? resolve(data) : reject(new Error(data.error));
+      worker.onerror = event => { event.preventDefault(); reject(new Error(event.message || "package Worker failed")); };
+      if (released) reject(new Error("the package transfer ended"));
+      else worker.postMessage(message);
+    });
     try {
       const metadata = await loadPackagedSnapshotMetadata(definition.image);
-      bytes = await loadPackagedSystemSnapshot(metadata, init.signal);
+      await ask({ base: imageBase.href, metadata });
     } catch (error) {
-      this.active = false;
+      release();
       return reply(`${definition.image}: ${error.message}\n`, 502);
     }
-    const release = () => { this.active = false; };
-    let offset = 0;
     const body = new ReadableStream({
-      pull: controller => {
-        const end = Math.min(offset + 1024 * 1024, bytes.byteLength);
-        controller.enqueue(new Uint8Array(bytes, offset, end - offset));
-        offset = end;
-        if (offset === bytes.byteLength) { controller.close(); release(); }
+      async pull(controller) {
+        try {
+          const { done, value } = await ask({});
+          if (done) { release(); controller.close(); } else controller.enqueue(value);
+        } catch (error) {
+          release();
+          throw error;
+        }
       },
       cancel: release,
-    }, { highWaterMark: 0 });
+    }, { highWaterMark: 4 });
     return reply(body, 200, "application/octet-stream");
   }
 }

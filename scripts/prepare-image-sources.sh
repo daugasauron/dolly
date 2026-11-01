@@ -237,7 +237,9 @@ node scripts/build-source-tar.mjs "${static_dir}/default/ghostty.tar" \
   "${vendor_dir}/translate_c/LICENSE" /usr/share/licenses/translate-c/LICENSE
 node scripts/build-source-tar.mjs "${static_dir}/default/uucode.tar" \
   "${uucode_dir}/src" /usr/src/uucode/src \
-  "${uucode_dir}/LICENSE.md" /usr/share/licenses/uucode/LICENSE.md
+  "${uucode_dir}/ucd" /usr/src/uucode/ucd \
+  "${uucode_dir}/LICENSE.md" /usr/share/licenses/uucode/LICENSE.md \
+  "${uucode_dir}/licenses/LICENSE_unicode" /usr/share/licenses/uucode/LICENSE_unicode
 fi
 
 if [[ -d "${project_dir}/dist/static" ]]; then

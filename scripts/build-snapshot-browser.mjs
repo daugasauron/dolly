@@ -51,6 +51,7 @@ try {
     channel: "chrome", headless: true, args: ["--no-sandbox", "--disable-gpu"],
   });
   const page = context.pages()[0] ?? await context.newPage();
+  page.on("console", message => { if (message.type() === "error") process.stdout.write(`console: ${message.text()}\n`); });
   await page.exposeFunction("dollyBuildLog", text => void process.stdout.write(text));
   await page.addInitScript(rules => { globalThis.DOLLY_HTTP_POLICY = { maxRequests: 256, rules }; }, rules);
   await page.goto(`${server.origin}/__dolly_build_page`);
