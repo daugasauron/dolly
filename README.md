@@ -70,6 +70,7 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `make`: GNU `make` alone, for rules that compile nothing; `cc` brings it too.
 - `zig`: `zig` with its standard library, and the `cc` package: it emits C (`-ofmt=c`) that `cc` compiles.
 - `transfer`: `download` and `upload`, the page's file exchange.
+- `html`: `html`, which shows the user an HTML page or form in a popup and prints what they submit, and the `html@0` module's header and client library.
 - `libdolly-gpu`: the `gpu@0` module's header and client library, for programs the `cc` package builds.
 - `libdolly-audio`: the `audio@0` module's header and client library, for programs the `cc` package builds.
 - `libdolly-microphone`: the `microphone@0` module's header and client library, for programs the `cc` package builds.
@@ -109,12 +110,14 @@ directory, with Node.js and npm:
 ```sh
 npm init --yes
 npm install @daugasauron/dolly @daugasauron/dolly-image-pi-minimal \
-  @daugasauron/dolly-host-display @daugasauron/dolly-host-input @daugasauron/dolly-host-save
+  @daugasauron/dolly-host-display @daugasauron/dolly-host-input @daugasauron/dolly-host-save \
+  @daugasauron/dolly-host-html
 ```
 
 `pi-minimal` is Pi with a shell, POSIX tools and curl; the page gives it a
-terminal (`display`), a keyboard (`input`) and Pi's download tool (`save`), and
-nothing else of the browser.
+terminal (`display`), a keyboard (`input`), Pi's download tool (`save`) and the
+popup its `ask_user` and `show_html` tools show (`html`), and nothing else of
+the browser.
 `index.html` boots it with an [HTTP policy](docs/http.md) of one rule:
 OpenRouter's API. The broker refuses every other request, whatever Pi or a
 program it runs asks for.

@@ -25,6 +25,7 @@ flowchart TB
     rt["runtime@0"]
     http["http@0"]
     dl["download@0"]
+    html["html@0"]
     gpu["gpu@0"]
     au["audio@0"]
     mic["microphone@0"]
@@ -50,6 +51,7 @@ flowchart TB
   policy --> build["build@0: local build service"]
   policy --> packages["packages@0: local package service"]
   dl --> save["user clicks Save"]
+  html --> answer["user submits a form or closes"]
   up --> picker["user picks a file"]
   mic --> prompt["browser's own permission prompt"]
   inp --> paste["user presses the page's Paste button"]
@@ -72,6 +74,7 @@ Worker URL.
 | `runtime@0` | `env.memory`, `env.dolly_memory_grow`, `env.dolly_clock_realtime`, `env.dolly_clock_monotonic`, `env.dolly_entropy`, `env.dolly_bootstrap_write_bytes`, terminal mailbox | Kernel memory, grown up to its maximum by a Worker of the module's own; the two clocks; 64 KiB of entropy a call; boot text, 1 MiB a write; process Workers; report foreground and results, receive Ctrl+C | [`host/runtime/`](../host/runtime/module.json) ([`process-supervisor.mjs`](../src/process-supervisor.mjs)) |
 | `http@0` | `env.dolly_http_dispatch`, 16-slot pool | The only agent-selected network edge, under the page's policy | [`host/http/`](../host/http/module.json) |
 | `download@0` | `env.dolly_download_dispatch` | Stream one file (1 MiB chunks, 1 GiB) into a Blob under a checked basename; saved only by a user click; at most 4 waiting | [`host/download/`](../host/download/module.json) |
+| `html@0` | `env.dolly_html_dispatch` | Show one document of at most 1 MiB of UTF-8 in a popup in boot()'s element, and return the fields of the form of it the user submits (64 KiB, as a form posts them) or that the user closed it. The popup is a sandboxed frame of an opaque origin (scripts and forms only, no popups, modals or top navigation) whose policy fetches nothing and runs only the page's script and style; that script builds the popup from the document's text and an allowlist of content and form elements and attributes, copied into new elements, so no URL, style, script, link, refresh or base of it exists there. One popup at a time; refused for 2 s after a close | [`host/html/`](../host/html/module.json) |
 | `upload@0` | mailbox | Ask for a file; the user picks it; 1 GiB of bytes in 1 MiB chunks, no name or path; refused for 2 s after a cancel | [`host/upload/`](../host/upload/module.json) |
 | `snapshot@0` | mailbox | Save and restore opaque session deltas (512 MiB) on user action | [`host/snapshot/`](../host/snapshot/module.json) |
 | `display@0` | mailbox | Publish checked RGBA frames and a closed cursor value; read the surface's size; load the display plugin from WasmFS; the terminal's selection reaches the clipboard on the user's Ctrl+Shift+C | [`host/display/`](../host/display/module.json) ([`kernel-plugin.mjs`](../src/kernel-plugin.mjs)) |
@@ -222,7 +225,7 @@ Worker URL.
 | Surface size (`display@0`) | Three numbers the page sends: width, height, device scale |
 | Clipboard copy (`display@0`) | Bounded selection text after a user Ctrl+Shift+C |
 | Page keys | F11 (fullscreen) and Ctrl+Shift+F (indicators) are the page's own and are taken before any module or the guest reads them ([`page-chords.mjs`](../src/page-chords.mjs)); the guest cannot request fullscreen |
-| RGBA frames, bootstrap text | Visible output only; the browser parses no terminal or HTML content |
+| RGBA frames, bootstrap text | Visible output only; the browser parses no terminal content, and HTML only in `html@0`'s popup |
 | Mailbox wake-ups | The kernel and the Worker's module sides notify each other on display, input and touch mailbox words (new frame, animation frame, input or touch record, lease); a notify carries no data, and a forged one only costs the guest's own time |
 | GPU indicator | While the session has `gpu@0`, page text over the display naming the browser's adapter and whether it has `shader-f16`, or why there is none; no guest input ([`gpu.mjs`](../host/gpu/gpu.mjs)) |
 | Indicator visibility | The GPU indicator, Save button and download offers hide ten seconds after the page is ready and on the user's `Ctrl+Shift+F`, which is not delivered as input. Page state shows them again (a new adapter state, a save, an offer); the one guest request among these is the bounded download offer, which shows them and can hide nothing ([`page-indicators.mjs`](../src/page-indicators.mjs)) |

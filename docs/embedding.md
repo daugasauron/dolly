@@ -8,9 +8,9 @@ an agent in place of a web frontend (`docs/agent-frontend.md` in the repository)
 | Package | What it holds |
 | --- | --- |
 | `@daugasauron/dolly` | The runtime: `boot()`, the kernel, the process runtime, and the host modules that are its own machinery (`runtime`, `http`, `threads`, `dso`, `stack`, `nena`, `snapshot`, `packages`). Building images stays with Dolly's site |
-| `@daugasauron/dolly-host-NAME` | One device host module each: `display` (Ghostty's terminal and programs' frames), `input`, `gpu`, `audio`, `microphone`, `touch`, `download` (as `dolly-host-save`: npm takes no new name with the word), `upload`, `sockets`, `pty` |
+| `@daugasauron/dolly-host-NAME` | One device host module each: `display` (Ghostty's terminal and programs' frames), `input`, `gpu`, `audio`, `microphone`, `touch`, `download` (as `dolly-host-save`: npm takes no new name with the word), `upload`, `html`, `sockets`, `pty` |
 | `@daugasauron/dolly-image-default` | The `default` image alone: a shell, its text tools, the terminal, curl, `amy`, `nena`, `ps`. `amy` lists what is installed and has nothing more to install |
-| `@daugasauron/dolly-image-pi-minimal` | The `pi-minimal` image alone: the Pi coding agent with JavaScript (Janis), a shell, POSIX tools, curl, ripgrep and fd, on `display`, `input` and `download` alone. The README's "Pi with npm" serves it with a policy |
+| `@daugasauron/dolly-image-pi-minimal` | The `pi-minimal` image alone: the Pi coding agent with JavaScript (Janis), a shell, POSIX tools, curl, ripgrep and fd, on `display`, `input`, `download` and `html` alone. The README's "Pi with npm" serves it with a policy |
 
 ```sh
 npm install @daugasauron/dolly @daugasauron/dolly-image-default \
@@ -72,6 +72,28 @@ const dolly = await boot(element, { images, image, modules: [...modules, gpu] })
 
 `nena enable gpu` then gives a program the GPU, or, where the browser has no
 WebGPU adapter, a device that fails to open with `ENODEV`.
+
+## Popups
+
+`html@0` shows a program's HTML document in a popup over the terminal, in
+boot()'s element: a report, or a form whose submitted fields go back to the
+program (Pi's `ask_user` and `show_html`). The popup takes the document's text,
+headings, lists, tables and forms and nothing else of it; its look is the
+page's. Set these on the element (or above it) in your style sheet to match
+your page; unset, they are Dolly's:
+
+```css
+#dolly {
+  --dolly-html-background: #262626;
+  --dolly-html-color: #e8e3d7;
+  --dolly-html-accent: #f2d45c;          /* headings, buttons, focus */
+  --dolly-html-font: ui-monospace, monospace;
+  --dolly-html-color-scheme: dark;       /* the form controls' own colours */
+}
+```
+
+The popup loads nothing, so name fonts the system has: a web font of your page
+does not reach it. The page reads the properties each time a popup opens.
 
 ## Serving
 
