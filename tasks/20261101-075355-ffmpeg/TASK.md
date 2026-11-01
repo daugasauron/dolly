@@ -173,7 +173,7 @@ tree's catalog is narrowed); its row for `ffmpeg` is the `elsewhere` entry.
   and recipes that need libavcodec or libavformat (a media player on `display@0`/`audio@0`,
   or a game engine whose upstream video path uses FFmpeg). Those are new work, not switches.
 
-## Closed (2026-11-01 22:15)
+## Closed (2026-11-01 22:00)
 
 Every done-when item holds on `demo/ffmpeg` (`724e4177`), with `core/audit-slop` merged: the
 package builds inside Dolly, the demo test passes in Chromium and Firefox, the pins, upstream,

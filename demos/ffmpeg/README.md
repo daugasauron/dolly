@@ -36,7 +36,7 @@ Dolly's `cc -v` does not print Clang's banner, by which configure knows
 Clang, and `--disable-resource-compression`, as it takes the core `gzip`,
 which only decompresses, for a compressor. In Chrome the image builds in
 under five minutes (configure 65 s, `make -j4` 196 s for 2,052 objects),
-in at most 2.7 GB; the package is 79 MB, `ffmpeg` and `ffprobe` 20 MB each.
+in at most 2.7 GB; the package is 79 MB, `ffmpeg` and `ffprobe` 21 MB each.
 
 [`ffmpeg-browser.mjs`](test/ffmpeg-browser.mjs) installs the package into
 `default`, encodes lavfi's test pattern and tone into MP4, Matroska and WAV,
