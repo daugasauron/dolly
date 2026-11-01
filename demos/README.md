@@ -10,6 +10,7 @@ README. Demos may use each other; the core never uses a demo.
 - [cmake](cmake/README.md): CMake and libuv, a base for C/C++ ports.
 - [codex](codex/README.md): the Codex CLI built from Rust source inside Dolly.
 - [emacs](emacs/README.md): GNU Emacs for the terminal, as a package and an application.
+- [ffmpeg](ffmpeg/README.md): FFmpeg, `ffmpeg` and `ffprobe` with its libraries, built inside Dolly by its own configure, as a package.
 - [fingers](fingers/README.md): a figure that fingers on a touchscreen move and zoom, through SDL2's finger events.
 - [game-agent](game-agent/README.md): agent code and the Codex relay shared by the games.
 - [ghostty-gtk](ghostty-gtk/README.md): Ghostty's GTK application on Dolly's X server: its window, its OpenGL renderer on Mesa and a shell.
