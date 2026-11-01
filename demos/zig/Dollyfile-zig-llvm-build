@@ -7,7 +7,7 @@ REQUIRES HOST http@0
 # LLVM, zig1 (upstream's zig1.wasm, run by WAMR as in zig-build) with
 # upstream's stage1/config.zig.in, and cc's objects of it. zig-llvm links
 # them with LLVM.
-FROM /v0.1.4/Dollyfile-system-build 5eaa4dfb39a2a5e5cd7f405bc1abc6ef3eb872978d42255d4f205bb988082fa2
+FROM /v0.1.4/Dollyfile-system-build b884aff21ef0d9f7f8c5de5012b4128a5f0bec2e029ad4191261a8ddc44be73a
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
 REQUIRES TOOL   tar

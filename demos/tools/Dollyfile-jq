@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # jq from the files of upstream's release archive, unchanged, with the
 # Oniguruma and decNumber it vendors and the parser it ships generated.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 9d691adfd6c4b3de609c69366e08139858ad1887592aa6d365ba043c38d52a75
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 5006b5707d3997448db5844579877c91767e2ee204ea15e3945e4d3e313dfea6
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc

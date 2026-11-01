@@ -5,11 +5,11 @@ REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST sockets@0
 
-FROM /v0.1.4/Dollyfile-system f1fa8104555572ab95996ed6b89ad705419e6cb5729d4b291a9da0276cee4ee7
-USE /v0.1.4/Dollyfile-libdolly-sockets 503252cc3b2261f4dd5d3d2face1904382115353805a0f870d0671415183627c
-USE /v0.1.4/demos/tools/Dollyfile-sqlite 27dc1e7a136f83afd23a2d2ff61ca030a3ef98112c75f556efb756fc01f74b77
-USE /v0.1.4/demos/tools/Dollyfile-bzip2 0322d31ddd5f5ae883728c52641df89154f6e13b7964276fb10212d21ea16268
-USE /v0.1.4/demos/tools/Dollyfile-xz 49e0b6d653d30cc1464291fd689b07ff2bc41da51ac88c3418d2e9c91f10ff1f
+FROM /v0.1.4/Dollyfile-system 0504628114efa3723790dc9a08d39a2f45c867f7fb1a509d6e270a28acb5fb96
+USE /v0.1.4/Dollyfile-libdolly-sockets 2ede9eea3bd3fe18de67fa10c1734c79f618f61ab84125fbecee9c2ff64b4e19
+USE /v0.1.4/demos/tools/Dollyfile-sqlite 1d6ebde6ae68a4f12005f3cba9096d2a32e3794f449c0d7bc2de97e1ecd6bf96
+USE /v0.1.4/demos/tools/Dollyfile-bzip2 688fadb253a8ff8fe4a1533e37e2f10bda73f17e0e7775098aec7b7581657bba
+USE /v0.1.4/demos/tools/Dollyfile-xz 6cd30e1bd0b5912d8e894106c10b26665df16b0fce9d700d07a347474dd364c6
 # Build the Python runtime and native extension SDK; pip.dm adds pip.
 REQUIRES HEADER curl
 REQUIRES HEADER dso
@@ -36,7 +36,7 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   touch
 
-INSTALL /v0.1.4/demos/python/Dollyfile-libffi 9435dcba7ae6cc9723f0ea2538257a2667aa7711914b4e26f20ebc3f48084750
+INSTALL /v0.1.4/demos/python/Dollyfile-libffi 79961dd189bac552419eba4a2942fc1b455384e6db8825cdfbc354bd93e5bee1
 EXPORTS LIB    ffi       /usr/lib/libffi.a
 EXPORTS HEADER ffi       /usr/include/ffi.h
 EXPORTS HEADER ffitarget /usr/include/ffitarget.h
@@ -346,7 +346,7 @@ EXPORTS TOOL pip3
 
 # pip builds what has no wheel for Dolly, which is every native package: a C
 # extension with the compiler, a Meson project such as NumPy with Ninja too.
-INSTALL /v0.1.4/Dollyfile-cc 818b0656a5ea261c18d3928607df84ccab16cb0ccae91f8928d42aa9930be587
+INSTALL /v0.1.4/Dollyfile-cc 88f98d02dfd877ced2be00b2479c4d00e41277db6b599706b170529196a6ffbe
 
 # The browser policy decides which indexes are reachable; skip pip's own
 # PyPI version check. Dolly has one user, uid 0. Progress bars refresh from a

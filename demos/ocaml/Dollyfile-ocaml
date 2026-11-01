@@ -10,9 +10,9 @@ REQUIRES HOST threads@0
 # builds the compiler, the libraries and the tools; then the compiler builds
 # itself until it reproduces itself. The runtime runs OCaml 5's domains on
 # Dolly's threads.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 9d691adfd6c4b3de609c69366e08139858ad1887592aa6d365ba043c38d52a75
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 5006b5707d3997448db5844579877c91767e2ee204ea15e3945e4d3e313dfea6
 # A program with C stubs (unix, str, threads) links its runtime with cc.
-INSTALL /v0.1.4/Dollyfile-cc 818b0656a5ea261c18d3928607df84ccab16cb0ccae91f8928d42aa9930be587
+INSTALL /v0.1.4/Dollyfile-cc 88f98d02dfd877ced2be00b2479c4d00e41277db6b599706b170529196a6ffbe
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
