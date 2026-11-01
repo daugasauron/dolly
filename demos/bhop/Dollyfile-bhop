@@ -29,7 +29,7 @@ REQUIRES LIB dolly-js
 REQUIRES LIB quickjs
 REQUIRES LIB SDL2
 
-SOURCE /v0.1.4/dist/static/bhop/source.tar 4344d320e9b18ea3c96293e89d4557125709989b8313be566be6fb75b3152b40 /tmp/bhop-source.tar
+SOURCE /v0.1.4/dist/static/bhop/source.tar ec72dcd9268eaad9d386b9e877b3773e419c0cc4eac66e03bc727e17036afdc4 /tmp/bhop-source.tar
 SOURCE /v0.1.4/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/bhop-stb/stb_truetype.h
 SLOP tar -xf /tmp/bhop-source.tar -C /
 
