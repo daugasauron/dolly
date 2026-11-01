@@ -21,9 +21,10 @@ process and Slop suites. The source suite passes (462).
 Not measured: `default-browser.mjs`, whose checks read the whole catalog's package index and
 packages (`python`, `zig`) that a narrowed build neither publishes nor rebuilds, and the
 demos. The catalog needs a round: `src/slop.c` and `src/commands/` are root-recipe inputs and
-every recipe is repinned. Proposals P1, P2 and P6 are prototyped on branches
-`proposal/dollyfile-no-append` (`607fcc3a`), `proposal/dollyfile-requires` (`8573582e`) and
-`proposal/slop-utilities` (one commit on `68bbd7d9`), not on this branch. Agent F's FFmpeg
+every recipe is repinned. Proposals P1, P2, P3 and P6 are prototyped on branches
+`proposal/dollyfile-no-append` (`607fcc3a`), `proposal/dollyfile-requires` (`8573582e`),
+`proposal/dollyfile-one-parser` (`e934ca17`) and `proposal/slop-utilities` (one commit on
+`68bbd7d9`), not on this branch. Agent F's FFmpeg
 build (`demo/ffmpeg`) merged `ad78dbef`, whose utilities this branch took out again: its
 65 s configure in Dolly ran with P6; without it the full option set measured here starts
 67,949 more processes.
@@ -250,16 +251,39 @@ and on the catalog. What follows are changes to the language itself, the owner's
   sealing checks anyway); `REQUIRES FILE` appears in one browser test. `REQUIRES` keeps the
   three kinds recipes use: `TOOL`, `LIB`, `HEADER` (and `HOST`). The exports stay: they retain
   and name objects.
-- **P3 (larger, uncertain). One parser.** The language has two implementations kept equal by
-  545 lines of parity tests (`test/dollyfile-parser.test.mjs`, `test/fixtures/dollyfile-*.{mjs,c}`):
-  the engine (`src/dollyfile.c`, about 350 lines of parsing and validation interleaved with
-  execution in `process_line`) and `src/dollyfile-view.mjs` (312 lines), which the page, the
-  build service, Studio (`demos/studio/lint.mjs` is a command over it, not a third parser) and
-  every script use. The page validates before the engine runs, so the engine's own late
-  validation never fails in practice. Making the engine parse a whole recipe before executing
-  it and building that parser into a small Wasm module the page and scripts call would remove
-  the JavaScript parser and the parity tests, but adds a build artifact to the page and moves
-  work into agent A's area; not prototyped.
+- **P3. One parser, the page's.** Prototyped on `proposal/dollyfile-one-parser` (`e934ca17`,
+  one commit on `dd5b0fa8`). The language had two parsers kept equal by parity tests: the
+  engine's (`src/dollyfile.c`, tokenizer, line assembly and syntax checks interleaved with
+  execution) and the page's (`src/dollyfile-view.mjs`).
+  - *Which side remains, and why: the page's.* It runs outside the sandbox, where host
+    requirements, pins and routes are decided (the engine is in-Wasm userspace, assumed
+    compromised, so its checks protect nothing); every other user reads it (the page, the
+    build service, scripts, Studio's lint inside Dolly); and it needs no build step, where a C
+    parser for the page would be a Wasm artifact of `npm run build:runtime` in front of every
+    script, `npm run image` included. Measured first: the engine parses only the root recipe of
+    a build, which the page always reads first, and the running image's recipe in `dollyfile
+    install`, whose receipt (`/etc/dolly/artifact`) already holds what it needed.
+  - *How:* `recipeRows` compiles a recipe into NUL-separated fields, `DOLLY 7 SHA256` and per
+    line its number, count, directive and words (a FILE's body; RUN's and SLOP's directory
+    first; SLOP's command as Slop reads it). The build worker writes them to
+    `/etc/dolly/recipe.rows` (fetching a catalog recipe and checking its pin); the engine checks
+    the digest against the text it fetches, checks only the field counts it indexes, and
+    executes. `dollyfile install` reads the image's own receipt instead of parsing its recipe.
+  - *What goes:* in `src/dollyfile.c` 318 lines out and 130 in (2,322 to 2,134): the tokenizer
+    (`strip_comment`, `next_word`, `split_words`, `trim`), the line assembly, and every syntax
+    and order check `process_line` repeated. The validators stay: artifact receipts use them.
+    In the tests, the two parity checks go (C and JavaScript accept the same recipes; decode
+    the same words): the cases (`test/fixtures/dollyfile-syntax.mjs`) now test the one parser,
+    the engine executes the rows of each accepted one, the word cases have literal
+    expectations, and a new test refuses rows of another recipe. Added: 28 lines of
+    JavaScript, 11 in the build worker, and rows for the three browser tests that run a
+    checkout-built engine by hand (`image-browser.mjs`, `amy-browser.mjs` USE,
+    `fixtures/dollyfile-cases.mjs`). Net over `src/`, `test/` and `docs/`: 256 in, 372 out.
+  - *What it costs:* a new interface between page and engine (the rows file, versioned by its
+    `DOLLY 7` header), and `/bin/dollyfile FILE:recipe` typed by hand needs the page's rows.
+  - *Verified:* the source suite (463) and the native harness. Not yet in a browser: the engine
+    is in the seed (`dolly.data`), so it needs `npm run build:runtime` and a round of images,
+    run after the 00:30 merge.
 - **P4. Remove `/bin/cd`.** It cannot do what `cd` means (a program cannot change its
   caller's directory); `xargs cd`, `env cd` and `find -exec cd` only test that a directory
   exists. POSIX.1-2024, Slop's target, made `cd`, `command` and the other intrinsic utilities
