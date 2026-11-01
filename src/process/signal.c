@@ -258,14 +258,6 @@ int sigwait(const sigset_t *restrict set, int *restrict number) {
   return ENOTSUP;
 }
 
-/* As POSIX says, SIGABRT's handler runs unless the signal is blocked, and if
- * it returns, or the signal is blocked or ignored, the process ends by
- * SIGABRT. Emscripten's abort traps instead: the process failed with 126. */
-_Noreturn void abort(void) {
-  raise(SIGABRT);
-  dolly_exit_signal(SIGABRT);
-}
-
 /* The jump itself, whatever <setjmp.h> makes of the name longjmp. */
 _Noreturn void jump(jmp_buf, int) __asm__("longjmp");
 
