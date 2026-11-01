@@ -10,16 +10,19 @@ the Dollyfile language (`docs/dollyfile.md`) and its two implementations (`src/d
 `src/dollyfile-view.mjs` with `src/dollyfile-graph.mjs`), the linters and pin scripts.
 Measure: Unix philosophy, POSIX where claimed, explicit failure otherwise.
 
-## State (2026-11-01 18:05)
+## State (2026-11-01 18:40)
 
-Four rounds of seed fixes are committed with every recipe repinned. Builds 1 to 3 were
-stopped early to batch the next round into one chain rebuild; build 4 (all four rounds,
-`default` and `system` and their closure, 22 images) runs in this tree as unit
-`dolly-audit-slop-seed4` (log `build/audit-slop-evidence/image-seed4.log`). Browser
-verification in Chromium and Firefox follows it. Proposals P1 and P2 are prototyped on
-branches `proposal/dollyfile-no-append` (`607fcc3a`) and `proposal/dollyfile-requires`
-(`8573582e`), not on this branch; each compiles with the parser fixture and its JavaScript
-side accepts and refuses the rows it should.
+Rounds 1 to 4 are built (`fdee4c2b`: the 22 images of `default` and `system`, 1,349 s for the
+whole chain, zig-build and ghostty-build included) and pass in Chromium and Firefox:
+`test/slop-browser.mjs` (every Slop case, in Dolly), `shell-browser.mjs` (Tab under `~` and
+in a dot directory, UTF-8 editing), `core-browser.mjs`, `man-browser.mjs`,
+`process-browser.mjs`, `terminal-browser.mjs`. Not measured: `default-browser.mjs`, whose
+first check reads the package index of the whole catalog (`python`), which a narrowed build
+does not publish. Round 5 (`install`, `timeout`: `system-tools` only) is committed and builds
+next. Proposals P1 and P2 are prototyped on branches `proposal/dollyfile-no-append`
+(`607fcc3a`) and `proposal/dollyfile-requires` (`8573582e`), not on this branch; each
+compiles with the parser fixture and its JavaScript side accepts and refuses the rows it
+should. The catalog needs a round: every recipe is repinned.
 
 ## Method
 

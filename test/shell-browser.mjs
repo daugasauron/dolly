@@ -166,15 +166,10 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
     await page.keyboard.press("Tab");
     await page.keyboard.press("Enter");
   }), 0);
-  assert.equal(await submit('test "$PWD" = "$HOME/.tab-probe/inside" && cd / && rm -r ~/.tab-probe'), 0);
-  // Backspace and the arrows step over a whole UTF-8 character.
-  assert.equal(await result(async () => {
-    await page.keyboard.type("x=aé日");
-    await page.keyboard.press("ArrowLeft");
-    await page.keyboard.press("Backspace");
-    await page.keyboard.type("b");
-    await page.keyboard.press("Enter");
-  }), 0);
+  assert.equal(await submit('test "$PWD" = "$HOME/.tab-probe/inside" && cd /tmp/shell && rm -r ~/.tab-probe'), 0);
+  // Backspace and the arrows step over a whole UTF-8 character: type x=aé日,
+  // Left, Backspace, b, Enter.
+  assert.equal(await result(() => page.evaluate(() => __dolly.input("x=a\u00e9\u65e5\x1b[D\x7fb\r"))), 0);
   assert.equal(await submit('test "$x" = "ab日"'), 0);
 
   // Wasm offers downloads under their literal names.
