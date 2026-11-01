@@ -126,31 +126,6 @@ function encodeSpawn(arguments_, flags) {
   return packet;
 }
 
-// V8 (Chrome 156) checks memory.copy, memory.fill and atomic accesses against
-// each thread's own record of a shared memory's size, which a memory.grow by
-// another thread updates only at that thread's next interrupt check: memory
-// one thread grew and another reached at once traps there ("memory access out
-// of bounds"; Lean's lean_copy_expand_array right after malloc). Firefox 155
-// does not. So a threaded process starts at its maximum and never grows while
-// two of its threads run. A Worker of its own grows it: Chrome counts a shared
-// memory as external memory of the isolate that grows it, and this one would
-// then collect between messages (20,000 stat calls took 4.3 s, not 0.3).
-async function startMemoryGrower() {
-  const source = `onmessage = ({ data: { memory, pages, control } }) => {
-  const word = new Int32Array(control);
-  let grown = 1;
-  try { memory.grow(pages); } catch { grown = 2; }
-  Atomics.store(word, 0, grown);
-  Atomics.notify(word, 0);
-};
-postMessage("ready");`;
-  const url = URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
-  const grower = new Worker(url, { name: "dolly-process-memory" });
-  await new Promise(resolve => { grower.onmessage = resolve; });
-  URL.revokeObjectURL(url);
-  return grower;
-}
-
 function createProcessMemory({ initial, maximum }) {
   return new WebAssembly.Memory({
     initial,
@@ -191,7 +166,7 @@ export class DollyProcessSupervisor {
     this.serviceTimer = setInterval(() => this.#serviceTick(), 16);
   }
 
-  static async create(kernel, kernelMemory, runtimeBase, hostAbi, serviceHost, threadHost, processModules) {
+  static async create(kernel, kernelMemory, runtimeBase, hostAbi, serviceHost, threadHost, processModules, grow) {
     const [gateBytes, contractBytes, threadBytes, workerBytes] = await Promise.all([
       "dolly-process-gate-0.wasm", "dolly-process-0.wasm", "dolly-threads-0.wasm",
       "dolly-process-worker.mjs",
@@ -203,7 +178,6 @@ export class DollyProcessSupervisor {
       return response.arrayBuffer();
     }));
     const gateModule = await WebAssembly.compile(gateBytes);
-    const grower = await startMemoryGrower();
     // Fresh Workers share trusted code bytes, never process memory or JS state.
     const workerUrl = new URL(URL.createObjectURL(new Blob([workerBytes], { type: "text/javascript" })));
     try {
@@ -213,7 +187,7 @@ export class DollyProcessSupervisor {
         hostAbi, serviceHost, parseWasmInterface(threadBytes, "dolly-threads-0"), threadHost, processModules,
       );
       supervisor.releaseWorkerSource = () => URL.revokeObjectURL(workerUrl.href);
-      supervisor.grower = grower;
+      supervisor.grow = grow;
       // Entered through JSPI (WebAssembly.promising), a process runs on a
       // stack of its own. Chrome's holds about 950 KB where a Worker's holds
       // 500 KB, which Clang needs: an executable asks for it with a
@@ -254,7 +228,7 @@ export class DollyProcessSupervisor {
     if (this.processes.size >= processWorkerLimit) return "count";
     let committed = 0, fanning = false;
     for (const process of this.processes.values()) {
-      committed += process.startBytes ?? process.memory?.buffer.byteLength ?? 0;
+      committed += process.budgetBytes ?? process.memory?.buffer.byteLength ?? 0;
       fanning ||= process.parent === parent && !process.retiring;
     }
     return committed < processMemoryBudgetBytes || !fanning ? null : "budget";
@@ -554,15 +528,12 @@ export class DollyProcessSupervisor {
 
   #start(process, { module, memoryRequirements, processInterface, threaded, largeStack }, local) {
     const memory = createProcessMemory(memoryRequirements);
-    if (threaded) this.#growToMaximum(memory, memoryRequirements);
-    // A threaded process counts against the spawn budget with what it started with.
-    process.startBytes = threaded ? Number(memoryRequirements.initial) * 65536 : undefined;
-    process.memory = memory;
     const gate = new WebAssembly.Instance(this.gateModule, {
       process: { memory },
       kernel: { memory: this.kernelMemory },
     });
-    Object.assign(process, { gate, module, processInterface, threaded, largeStack, local });
+    Object.assign(process, { memory, maximum: memoryRequirements.maximum, budgetBytes: undefined,
+      gate, module, processInterface, threaded, largeStack, local });
     if (threaded) {
       const tid = this.kernel.dolly_threads_attach(process.pid);
       if (tid <= 0) throw new Error(`kernel could not reserve main thread: ${tid}`);
@@ -572,14 +543,19 @@ export class DollyProcessSupervisor {
     this.#launchWorker(process, process);
   }
 
-  // A threaded process's memory, grown to its maximum before its first
-  // Worker starts (startMemoryGrower); then this thread's view of it.
-  #growToMaximum(memory, { initial, maximum }) {
-    const control = new Int32Array(new SharedArrayBuffer(4));
-    this.grower.postMessage({ memory, pages: maximum - initial, control: control.buffer });
-    Atomics.wait(control, 0, 0);
-    if (control[0] !== 1) throw new Error("the memory of a threaded process could not be reserved");
-    while (BigInt(memory.buffer.byteLength) < maximum * 65536n);
+  // V8 (Chrome 156) checks memory.copy, memory.fill and atomic accesses of a
+  // shared memory against each thread's own record of its size, which a
+  // memory.grow by another thread updates only at that thread's next
+  // interrupt check: memory one thread grew and another reached at once traps
+  // there ("memory access out of bounds"; Lean's lean_copy_expand_array right
+  // after malloc). Firefox 155 does not. So a process's memory takes its
+  // maximum before a second thread starts and never grows while two run; the
+  // spawn budget counts it with the size it had then.
+  #reserveMaximum(process) {
+    const size = process.memory.buffer.byteLength, pages = process.maximum - BigInt(size / 65536);
+    if (pages === 0n) return;
+    if (this.grow(process.memory, pages) < 0n) throw new Error("the process's memory cannot take its maximum");
+    process.budgetBytes = size;
   }
 
   // EXEC: the kernel has read the new program and the old one waits in the
@@ -631,7 +607,7 @@ export class DollyProcessSupervisor {
   }
 
   #launchWorker(process, thread, argument = undefined) {
-    const { pid, module, memory, processInterface, threaded, local } = process;
+    const { pid, module, memory, maximum, processInterface, threaded, local } = process;
     const control = new SharedArrayBuffer(16);
     const name = `dolly-process-${pid}-thread-${thread.tid}`;
     const worker = threaded ? this.threadHost.create(pid, this.workerUrl, name)
@@ -647,7 +623,7 @@ export class DollyProcessSupervisor {
     worker.addEventListener("messageerror", thread.messageErrorHandler, { once: true });
     // local: the modules this executable records that are served in its own
     // Worker (host/dso), each as the bundle it imports and its configuration.
-    worker.postMessage({ type: "configure", pid, tid: thread.tid, argument, threaded, module, memory, control,
+    worker.postMessage({ type: "configure", pid, tid: thread.tid, argument, threaded, module, memory, maximum, control,
       promisingEntry: this.promisingEntry && process.largeStack, stackDepths: this.stackDepths,
       clockOrigin: performance.timeOrigin, processInterface, local: local.map(requirement => this.processModules.get(requirement)) });
   }
@@ -776,8 +752,10 @@ export class DollyProcessSupervisor {
             throw new Error("invalid kernel thread identity");
           const child = { tid, worker: null, control: null };
           process.threads.set(tid, child);
-          try { this.#launchWorker(process, child, threadArgument); }
-          catch (error) {
+          try {
+            this.#reserveMaximum(process);
+            this.#launchWorker(process, child, threadArgument);
+          } catch (error) {
             this.#disposeThread(process, child);
             this.kernel.dolly_threads_unstarted(process.pid, tid);
             result = -BigInt(DOLLY_ERRNO.EAGAIN);
