@@ -10,9 +10,8 @@ export function worker({ get, runtimeBase }) {
         cache: "no-store", credentials: "same-origin", redirect: "error",
       });
       if (!response.ok) throw new Error(`Dolly dolly-process-stack.mjs returned HTTP ${response.status}`);
-      // threads: it serves each thread's Worker of a program using threads@0.
       get("runtime").serveInProcess("stack@0", {
-        bundle: new Blob([await response.arrayBuffer()], { type: "text/javascript" }), configuration: {}, threads: true });
+        bundle: new Blob([await response.arrayBuffer()], { type: "text/javascript" }), configuration: {} });
     },
     disabled() { get("runtime").serveInProcess("stack@0"); },
   };
