@@ -1,6 +1,6 @@
 # FFmpeg as an amy package, built inside Dolly
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: packages,demo,ffmpeg
 
@@ -87,7 +87,8 @@ the build would be `-O0`. The recipe says `--optflags=-O3` (configure's own opti
 and the comment says why. Proposal (compiler driver, a seed and compiler round): with `-v` and
 no input, print Clang's banner on stderr and end with 0, as Clang does:
 `clang version 24.0.0`, `Target: wasm64-unknown-dolly`, `Thread model: posix`. Then the recipe
-drops `--optflags` and configure picks Clang's `-O3` and `-MMD` itself.
+drops `--optflags` and configure picks Clang's `-O3` and `-MMD` itself. Filed as
+`tasks/20261101-130245-cc-version-banner`.
 
 ## Finding: the core gzip is taken for a compressor
 
@@ -171,4 +172,28 @@ tree's catalog is narrowed); its row for `ffmpeg` is the `elsewhere` entry.
   plus `inputs.jsonl`, `demos/bhop/agent/replay.mjs`) turned into one video file inside Dolly,
   and recipes that need libavcodec or libavformat (a media player on `display@0`/`audio@0`,
   or a game engine whose upstream video path uses FFmpeg). Those are new work, not switches.
+
+## Closed (2026-11-01 22:15)
+
+Every done-when item holds on `demo/ffmpeg` (`724e4177`), with `core/audit-slop` merged: the
+package builds inside Dolly, the demo test passes in Chromium and Firefox, the pins, upstream,
+licence and `test/amy-browser.mjs` rows and the README are in. The package needs C's Slop
+(`ad78dbef`) in the same round. Open elsewhere: the `cc -v` banner
+(`tasks/20261101-130245-cc-version-banner`) and, the owner's call, a core `gzip` that
+compresses (above).
+
+## Lessons
+
+- The first wall was the shell, and it was measured natively in minutes: Slop with
+  `test/fixtures/native-spawn.c` ran the 9,000-line configure against Bash on the host, which
+  separated the one parse error (`for opt do`) from the cost (variables in `environ`, 551 s
+  against 5.8 s) before any image was built. Inside Dolly configure then took 65 s.
+- Each later stop was an upstream probe reading a Dolly answer literally: `uname -s` (unknown
+  OS), `cc -v` (no banner, so `-O0`), `command -v gzip` (a decompressor taken for a
+  compressor). Upstream's own options (`--target-os=none`, `--optflags`,
+  `--disable-resource-compression`) said what the probes could not, without a patch; the
+  causes are in Dolly and filed.
+- Reusing another tree's built images by hard link, when recipe hash and build ID are equal,
+  turned a seed change into a 5-minute package build instead of rebuilding the chain behind
+  `default` (Zig, Ghostty); `npm run image --plan` confirms the reuse before anything runs.
 
