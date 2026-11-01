@@ -225,3 +225,8 @@ module, lean.mk's rules), since Lake would need stage 0's `libLake_shared.so` pl
 - A tree's test server serves its working files: with `Dollyfile-lean` edited and not yet
   built, `amy install lean` failed with HTTP 502, the page checking the served recipe against the
   package's. Keep an image's inputs still while it is tested or built.
+- Only what a build replaces by rename may be hard-linked between trees (`*.snapshot`,
+  `dist/packs`): on 2026-11-02 a script here linked the round's catalog and metadata modules
+  too, a cache-hit `npm run image` in this tree rewrote `dist/dolly-images.mjs` in place with 23
+  images, and three images of the round in `work/integrate` failed with it; the light stage
+  restarted. Copy every other file, and check `find dist -type f -links +1` before a build.
