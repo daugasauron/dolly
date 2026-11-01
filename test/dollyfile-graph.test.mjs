@@ -140,7 +140,7 @@ test("images separate reusable toolchains and packages from applications", async
     "zig-build": ["system-build"], "ghostty-build": ["zig-build"], display: ["ghostty-build"],
     git: ["system-build", "zlib", "curl"], "system-tools": ["system-build", "zlib", "gzip", "curl", "git", "display"],
     system: ["system-tools", "transfer", "session-recover", "core", "cc", "make", "posix", "ninja"],
-    default: ["core", "posix", "display", "curl", "amy", "nena", "transfer", "ps"],
+    default: ["core", "posix", "display", "curl", "dollyfile", "amy", "nena", "transfer", "ps"],
   };
   const files = await recipeFiles(project);
   const definitions = await discoverImageDefinitions(project);

@@ -14,8 +14,8 @@ REQUIRES HOST threads@0
 REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime e10fbef5341978b25b5e0710cf7de75c94b13201f75fb7613c4540fb6bd86eb0
-INSTALL /v0.1.4/Dollyfile-amy 90701fe1be537fae9f0e376f2dcfda377c019426cdbab48faeb9107f91bcb6de
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 14e7380ca497682f90ee93a7b2b99d0dfee32d17eb3d0ce57e05ef945dd415da
+INSTALL /v0.1.4/Dollyfile-amy cbd803e429f235555703a3063c13827cc6a2ee51c6a141e8b6bb5f69626e5ab3
 REQUIRES TOOL foreground
 REQUIRES TOOL pi
 INSTALL /v0.1.4/demos/speech/Dollyfile-voice 5946afa1f3eb5ab54b47637a0d4de4605c04d330af7b981ce52d7413d9f3c9b5

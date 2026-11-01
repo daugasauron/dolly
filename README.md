@@ -58,6 +58,7 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `core`: the shell `slop` and its core commands: `ls`, `cat`, `cp`, `mv`, `rm`, `mkdir`, `tar`, `man`, `help` and others.
 - `cc`: `cc` and `c++` with `ld`, `ar` and `make`, and the headers and libraries they compile against.
 - `amy`: `amy`, the package installer, and `dollyfile`, the recipe engine it runs.
+- `dollyfile`: `dollyfile`, the recipe engine alone: an image that installs it can be built `FROM`.
 - `nena`: `nena`, which lists a session's host modules and enables or disables them, where the image declares `nena@0`.
 - `posix`: `grep`, `sed`, `sort`, `find`, `xargs`, `awk`, `sh` and the other text and file tools.
 - `git`: `git` over the page's HTTP broker, with `diff` and `patch`.

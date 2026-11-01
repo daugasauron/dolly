@@ -9,9 +9,9 @@ import { siteReference } from "../src/static-asset.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 
 const packages = DOLLY_IMAGES.filter(definition => definition.role === "package").map(({ image }) => image).sort();
-// The packages default's recipe installs.
-const preinstalled = [...(await readFile(new URL("../Dollyfile", import.meta.url), "utf8")).matchAll(/^INSTALL \S+Dollyfile-(\S+) /gm)]
-  .map(([, name]) => name).sort();
+// The packages default's recipe installs, and those they install (amy's dollyfile).
+const preinstalled = [...new Set(DOLLY_IMAGES.find(definition => definition.image === "default").artifacts
+  .filter(artifact => artifact.operation === "install").map(artifact => artifact.image))].sort();
 // The site's index, as generated: NAME RECIPE SHA256 DESCRIPTION.
 const index = await readFile(new URL("../amy-index.txt", import.meta.url), "utf8");
 const indexed = name => index.split("\n").find(row => row.startsWith(`${name} `)).split(" ");
