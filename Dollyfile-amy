@@ -6,7 +6,7 @@ REQUIRES HOST packages@0
 
 # amy and the recipe engine it runs: what a session needs to install packages.
 # amy asks the site for the package index of the version it was built for.
-FROM /v0.1.4/Dollyfile-system-build 5e406eef0adf0326a27a03be5f4cc413c9d72e3decba2011e2b6762f593dc5a3
+FROM /v0.1.4/Dollyfile-system-build 64a3faafb8702eba5ddbdbaf733c656fd476f2cc04ac023792b84403c7b005b4
 REQUIRES HEADER libc
 REQUIRES HEADER http
 REQUIRES TOOL cc

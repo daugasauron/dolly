@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # Slop and the commands system-build compiles beside it: a shell without the
 # compiler or the recipe engine.
-FROM /v0.1.4/Dollyfile-system-build 5e406eef0adf0326a27a03be5f4cc413c9d72e3decba2011e2b6762f593dc5a3
+FROM /v0.1.4/Dollyfile-system-build 64a3faafb8702eba5ddbdbaf733c656fd476f2cc04ac023792b84403c7b005b4
 
 EXPORTS TOOL slop
 EXPORTS ENV SHELL /bin/slop

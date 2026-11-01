@@ -13,13 +13,13 @@ REQUIRES HOST threads@0
 
 # Build-only: the 0 A.D. engine (pyrogenesis), built by the Makefiles premake
 # generates from upstream's scripts, with Dolly's c++.
-FROM /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-deps 9e6561dffbf29b614e4928600509c008a5fd9088e2c6884f3d4e1bfbb748331a
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-premake cfa676f6ef7d0707c3209cd714d7d22ee986dd7c89916f3968bce78c89503058
-INSTALL /v0.1.4/Dollyfile-libdolly-gpu a40b46e8f331e03a5a6db7d3f7b6150fa18b5542d5870a94b042b70d5b460cb6
-INSTALL /v0.1.4/Dollyfile-libdolly-audio 28ff1b70469ce93c22bb8bc71d71aea6bd57771c97d5860b496218550eafa2a7
-INSTALL /v0.1.4/Dollyfile-libdolly-touch 7388b9ebc543c1a8246223c6d5cc636377e93a86d10d900e0bbb17dc6df734e2
+FROM /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-deps 2710baeb64d7ddd92ebb88c43f7373b5b1e5922d386bcf46f983c1116c668163
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-premake 3715d9a68003b7776e5551da17601cdcac69e68b43fbf10baa0c16179c7e2734
+INSTALL /v0.1.4/Dollyfile-libdolly-gpu bd9b96fb8a6d6586226508bb3fc291f473a2e38cefbf8250460a8bd08123ca9c
+INSTALL /v0.1.4/Dollyfile-libdolly-audio 5ae809c9b3db9d5879db4239d1f8540066bd5998258e953e3324f0f313b70f75
+INSTALL /v0.1.4/Dollyfile-libdolly-touch 55839bc9af90848f9de2510c46bb68e466145e9dd029a7f3f2febbb0fdba6780
 # download, which the engine's test takes its logs out with.
-INSTALL /v0.1.4/Dollyfile-transfer 5d22fafeefa5cb2542fb49a9a7d1b37d10a213cc3b6278903d42161e5af65837
+INSTALL /v0.1.4/Dollyfile-transfer d76dafb22fbedeb9fcb1210fa4f80828fa03ae768e5894af79fc1d4393cebe96
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL ar
@@ -36,7 +36,7 @@ SLOP gzip -dc /tmp/0ad.tar.gz | tar -xf - -C /
 SLOP patch -p1 -d /tmp/0ad -i /tmp/0ad-patches/engine.patch
 
 # SpiderMonkey: its headers, the two archives, its pkg-config file and licences.
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-spidermonkey 54fc84709b36fe83315a46f1fb8d775366facdf5e9a6335df9b3a2a0c49ae963
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-spidermonkey 413333aa7f7da875fa9d65f50959b8f1f86f91fe2fba124a56f607ad3fe7ce48
 
 # Probe for test/0ad-spidermonkey-browser.mjs.
 SLOP mkdir -p /usr/libexec/zero-ad
