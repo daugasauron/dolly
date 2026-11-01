@@ -55,6 +55,22 @@ Fixed:
    (`src/process-supervisor.mjs`'s `#admit`, two lines: `core/audit-runtime`'s file),
    `2dc47392`. dso (threaded FFI), stack (a threaded program `stack-wrap` rewrote) and threads
    pass in Chromium and Firefox.
+4. **Members the page/Worker split left unread** (`00e69e65`): the Worker's `InputTransport`
+   kept `relativePointerRequested()` after `30dc877d` moved that decision to the page, which
+   decides on the flags the Worker reports; `http@0`'s page side kept a `transport` getter no
+   module reads. terminal, network and core pass in Chromium and Firefox.
+5. **Docs** (`1f2d522b`): `host/README.md` said `browser()` and `worker()` both receive the
+   page's resources (the Worker side gets `runtimeBase` and `abi`, the page side also
+   `claimsKey` and `surfaceSize`) and left out `serviceDeferred()`, which `gpu@0` uses;
+   `docs/display.md` linked each of two recipes twice since `5ec4783c` replaced the `.dm`
+   module that stood beside each.
+6. **Two device modules refused by their `check()`** (`3c324b42`): `audio@0` without
+   `AudioContext` and `microphone@0` without `getUserMedia` and `AudioWorkletNode` refused the
+   module and so every image declaring it, while their providers refused OPEN with `ENOSYS`
+   in the same case. No browser that runs Dolly lacks those APIs, so the checks never
+   refused; where one would, `gpu@0`'s rule (`07c6b08a`: admitted, grants nothing, OPEN
+   fails with `ENODEV`, a program falls back) is the one to keep. The checks go, the
+   providers say `ENODEV`. audio, microphone and nena pass in Chromium and Firefox.
 
 Described, not changed (each moot or another workstream's, as it says):
 
