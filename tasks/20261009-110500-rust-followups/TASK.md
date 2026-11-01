@@ -59,6 +59,6 @@ Each is fixed or has its own task.
 
 - A reason recorded beside committed output ("the generators need a host filesystem") goes
   stale as the platform grows: Zig ran inside Dolly for a month before anyone tried the
-  generators, which then took four short sessions and gave identical bytes.
+  generators, which then ran in under an hour of trying and gave identical bytes.
 - A generated module's file name reaches the C Zig emits (its identifiers): generating the same
   tables under other names changed 16 MB of Ghostty VT's C, so compare outputs, not inputs.
