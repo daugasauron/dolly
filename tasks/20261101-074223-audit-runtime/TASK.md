@@ -16,17 +16,18 @@ session modules), building on the page (`image-build*.mjs`, `build-worker.mjs`,
 Done when: each finding below is fixed with its browser evidence, closed as moot with the
 reason, or left as a few lines for the owner.
 
-## State (2026-11-01 19:00 JST)
+## State (2026-11-01 19:30 JST)
 
-Findings 1 to 7 and 9 to 15 are committed, each verified as its commit says (source suite;
-Chromium and Firefox suites in `build/audit-runtime-evidence/run2.log` to `run9.log`,
-`tip1.log`, `tip2.log`); 8 is left to `demo/lean-2`. The docs repins of finding 7 restale
-`dolly-docs` and the images that install it: `dolly-docs`, `pi-dolly` and `pi-minimal` are
-rebuilt in this tree (2.8 min, `image-build-docs.log`), so the npm packages, amy and docs
-suites run at the tip; `bhop`, `classicube`, `pi-runtime`, `pi-agent`, `pi-local`,
-`pi-phone`, `dollyfile-studio`, `rts-arena` and `slopyard` wait for a catalog round (the
-other branches' docs repins restale them too). No change of this branch is a seed input:
-the image inputs hash is `main`'s.
+Findings 1 to 7 and 9 to 17 are committed, each verified as its commit says (source suite;
+Chromium and Firefox suites in `build/audit-runtime-evidence/run2.log` to `run11.log`,
+`tip1.log` to `tip3.log`); 8 is left to `demo/lean-2`. For agent D (via the integrator):
+`input@0` takes keys typed outside the element (finding 17) and the modules' controls sit
+outside it (finding 16). The docs repins of finding 7 restale `dolly-docs` and the images that
+install it: `dolly-docs`, `pi-dolly` and `pi-minimal` are rebuilt in this tree (2.8 min,
+`image-build-docs.log`), so the npm packages, amy and docs suites run at the tip; `bhop`,
+`classicube`, `pi-runtime`, `pi-agent`, `pi-local`, `pi-phone`, `dollyfile-studio`,
+`rts-arena` and `slopyard` wait for a catalog round (the other branches' docs repins restale
+them too). No change of this branch is a seed input: every core image's plan is "reuse".
 
 ## Findings
 
