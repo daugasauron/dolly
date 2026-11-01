@@ -25,7 +25,7 @@ INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server fc1a9254504cf2ce3958847249b0b93b
 INSTALL /v0.1.4/demos/ghostty-gtk/Dollyfile-ghostty-gtk 88d6f32a3f70e632ab42b14e6f3469143b6f17edb7d7382fa2a2f25575527dc1
 # amy installs packages into the session (tmux, nvim and the rest), with the
 # modules default declares for them; nena enables another.
-INSTALL /v0.1.4/Dollyfile-amy 90701fe1be537fae9f0e376f2dcfda377c019426cdbab48faeb9107f91bcb6de
+INSTALL /v0.1.4/Dollyfile-amy cbd803e429f235555703a3063c13827cc6a2ee51c6a141e8b6bb5f69626e5ab3
 INSTALL /v0.1.4/Dollyfile-nena 2e851d9a70ca04b6ef01be6980cdc2e4e9e0c49a291573dde00df9558f04d249
 COPY /v0.1.4/Dollyfile-ghostty-build f38a8d00f83771f683325881db2823730beb943ce0a0eb470e1cdef802d25206 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 FILE /etc/fonts/fonts.conf

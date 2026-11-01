@@ -279,9 +279,10 @@ or more than one image uses it. An application, or a toolchain people open,
 is then a base, `INSTALL` rows and its own entry and configuration
 (`codex-agent`, `neovim`, `rust-tools`); a toolchain remains where software is
 built. The same `COPY` rows in two recipes are a missing package. The core
-is packaged the same way: `core` (Slop and its commands) and `cc` (the C/C++
-toolchain) are kept from the toolchain that builds them; `amy`, `git` and
-`transfer` hold their builds.
+is packaged the same way: `core` (Slop and its commands), `cc` (the C/C++
+toolchain) and `dollyfile` (the recipe engine, which `amy` installs) are kept
+from the toolchain that builds them; `amy`, `git` and `transfer` hold their
+builds.
 
 ```text
 DOLLY 7

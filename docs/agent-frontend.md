@@ -81,6 +81,12 @@ edit and a reload; no image is rebuilt:
 
 Files are not secrets: Pi's tools can read them, and so can its model.
 
+The same files can be built into the image instead, so that the page serves one
+directory and gives `boot()` no `files`: the README's "Your own Pi image" writes
+each as a `FILE` row of a recipe `FROM` `pi-minimal` at its path under
+`/home/dolly/.pi/agent/`, and `dolly-build` builds it ([Embedding](embedding.md),
+"Your own image"). A change is then a rebuild instead of a reload.
+
 ## Your backend
 
 A rule admits the API's origin, the paths and methods the agent may use, and
@@ -165,7 +171,9 @@ agent a short-lived token that allows what the frontend allowed.
 
 - `test/npm-browser.mjs`, in Chromium and Firefox: the README's "Pi with npm"
   as written, packed from the checkout and installed from a registry; `boot()`'s
-  `files` in the image.
+  `files` in the image; its own image, built by `dolly-build` in the same
+  browser, where Pi lists the extension and the skill and runs the extension's
+  command.
 - `demos/pi/test/frontend-browser.mjs`, in Chromium and Firefox: the files of
   this guide built into an image: a scripted model on an origin of its own
   receives the system prompt and the skill with its key, Pi reads the skill,
@@ -180,8 +188,9 @@ agent a short-lived token that allows what the frontend allowed.
 
 ## Not there yet
 
-- npm ships two images, `default` and `pi-minimal`. A program neither has
-  (Python, Git, a compiler) needs an image built in a Dolly checkout
-  (`npm run image`), whose `dist/` the page then serves as `images`.
+- npm ships two images, `default` and `pi-minimal`; `dolly-build` adds files
+  and steps with their tools. A program neither has (Python, Git, a compiler)
+  needs an image built in a Dolly checkout (`npm run image`), whose `dist/` the
+  page then serves as `images`.
 - `pi-minimal` is 27.5 MB compressed on first load.
 - The interface is Pi's terminal UI.

@@ -44,7 +44,7 @@ export async function acceptImage(browser, server, image) {
     `SLOP help > /usr/inventory-extra\nSLOP if /tmp/inventory /tmp/help ${manifestHash} ${artifact}; then exit 1; fi\n` +
     "SLOP rm /usr/inventory-extra\n";
   if (base) {
-    await page.evaluate(`(${buildImageInPage})(location.origin + "/", "custom", ${JSON.stringify(recipe)})`)
+    await page.evaluate(`(${buildImageInPage})(location.origin + "/", location.origin + "/", "custom", ${JSON.stringify(recipe)})`)
       .catch(error => { throw new Error(`${image}: ${error.message}\n${log}`, { cause: error }); });
     assert.equal(seedRequested(server.requests), false, `${image}: building on a published image fetched the compiler seed`);
   }

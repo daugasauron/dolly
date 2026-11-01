@@ -1,9 +1,10 @@
 // The site's runtime Worker (worker-image.mjs): it builds an image from its
 // recipe, from the compiler seed or the base image the page hands it, and runs
-// it or, for the image builder, only hands the snapshot back (buildOnly); or it
-// restores a custom image the site built before.
+// it, caching it and telling the page its identity, or, for the image builder,
+// only hands the snapshot back (buildOnly); or it restores a custom image the
+// site built before.
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
-import { DOLLY_IMAGES } from "./images.mjs";
+import { imageDefinition } from "./images.mjs";
 import { decodeSnapshotRecords, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256 } from "./image-artifact.mjs";
 import { imageInputs } from "./image-inputs.mjs";
@@ -16,7 +17,7 @@ const encoder = new TextEncoder();
 
 await runImage(async (config, host) => {
   const { image, mode, customSource } = config;
-  const definition = DOLLY_IMAGES.find(candidate => candidate.image === image);
+  const definition = imageDefinition(image);
   const custom = image === "custom";
   if (!(definition || custom) || !["snapshot", "rebuild"].includes(mode) || (mode === "snapshot" && !custom)) {
     throw new Error("invalid Dolly image selection");
@@ -129,14 +130,19 @@ await runImage(async (config, host) => {
       stage("copying completed image...");
       const copy = new Uint8Array(range.size);
       copy.set(new Uint8Array(memory.buffer, range.address, range.size));
-      if (!config.buildOnly) {
-        const artifact = await describeImageArtifact(copy.buffer, recipeSha256, inputs);
-        host.require(artifact.hostRequirements);
-        host.admit(artifact.hostRequirements);
-        const saved = await saveImageArtifact(artifact, custom ? `custom:${recipe.image}` : `/${definition.dollyfile}`);
-        stage(saved ? "saved completed image artifact" : "image built; local cache unavailable");
+      if (config.buildOnly) {
+        self.postMessage({ type: "system-snapshot", bytes: copy.buffer, inputs }, [copy.buffer]);
+        return { status };
       }
-      self.postMessage({ type: "system-snapshot", bytes: copy.buffer, inputs }, [copy.buffer]);
+      // The image runs here with its own modules. The page keeps its identity,
+      // which a session saved on it names, not a copy of its bytes.
+      const artifact = await describeImageArtifact(copy.buffer, recipeSha256, inputs);
+      host.require(artifact.hostRequirements);
+      host.admit(artifact.hostRequirements);
+      const saved = await saveImageArtifact(artifact, custom ? `custom:${recipe.image}` : `/${definition.dollyfile}`);
+      stage(saved ? "saved completed image artifact" : "image built; local cache unavailable");
+      const { buildId, sha256: digest, byteLength } = artifact;
+      self.postMessage({ type: "image-built", artifact: { buildId, recipeSha256, sha256: digest, byteLength, inputs: artifact.inputs } });
       built = true;
       return { status, supervisor };
     },

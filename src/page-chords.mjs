@@ -2,8 +2,9 @@ import { toggleIndicators } from "./page-indicators.mjs";
 
 // The page's own keys, taken before any host module or the guest reads them:
 // F11 toggles fullscreen and Ctrl+Shift+F the page's indicators. Listening
-// starts with the page, so they work while an image boots.
-export function pageChords(keyboard) {
+// starts with the page, so they work while an image boots. Keys typed into an
+// embedding's own controls, outside Dolly's element, are the embedding's.
+export function pageChords(mount, keyboard) {
   async function toggleFullscreen() {
     try {
       if (document.fullscreenElement) {
@@ -27,6 +28,7 @@ export function pageChords(keyboard) {
   }
 
   function take(event) {
+    if (event.target !== document.body && !mount.contains(event.target)) return;
     const fullscreen = event.key === "F11";
     if (!fullscreen && !indicatorsChord(event)) return;
     event.preventDefault();

@@ -17,18 +17,7 @@ import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
 import { readWasmInterface } from "./wasm-interface.mjs";
 import { verifyDocumentationLinks } from "./package-documentation.mjs";
 import { buildIdentities } from "./write-build-id.mjs";
-
-// Generated metadata is data, not executable input to the release verifier.
-export function parseGeneratedConstant(source, name) {
-  if (!/^[A-Z][A-Z0-9_]*$/.test(name)) throw new Error("invalid constant name");
-  const prefix = new RegExp(`^(?://[^\\n]*\\n)*export const ${name} = `);
-  if (!prefix.test(source)) throw new Error(`invalid generated ${name}`);
-  let value = source.replace(prefix, "").trim();
-  if (!value.endsWith(";")) throw new Error(`invalid generated ${name}`);
-  value = value.slice(0, -1);
-  if (value.startsWith("Object.freeze(") && value.endsWith(")")) value = value.slice(14, -1);
-  return JSON.parse(value);
-}
+import { parseGeneratedConstant } from "./image-directory.mjs";
 
 export function safePath(path) {
   if (!path || /[\\\r\n\0]/.test(path) || path.split("/").some(part => !part || part === "." || part === "..")) {
@@ -109,26 +98,18 @@ async function verifySite(site) {
     if (metadata.image !== image || metadata.buildId !== imageBuildId ||
         metadata.formatVersion !== 2 || metadata.identityVersion !== 2 ||
         !Number.isSafeInteger(metadata.byteLength) || metadata.byteLength < 16 ||
-        metadata.byteLength > MAX_SNAPSHOT_BYTES ||
-        ![undefined, "gzip", "packs"].includes(metadata.encoding)) throw new Error(`${image}: release snapshot identity mismatch`);
-    let bytes;
-    if (metadata.encoding === "packs") {
-      const parts = [];
-      for (const pack of validateSnapshotPacks(metadata)) {
-        const compressed = await readFile(resolve(site, `dist/packs/${pack.sha256}.snapshot.gz`));
-        if (compressed.length !== pack.encodedByteLength) throw new Error(`${image}: pack size mismatch`);
-        const part = gunzipSync(compressed, { maxOutputLength: pack.byteLength });
-        if (part.length !== pack.byteLength || sha256(part) !== pack.sha256) throw new Error(`${image}: pack digest mismatch`);
-        parts.push(part);
-      }
-      bytes = mergeSnapshotRecords(parts);
-    } else {
-      bytes = await readFile(resolve(site, `dist/dolly-${image}-system.snapshot${metadata.encoding ? ".gz" : ""}`));
-      if (metadata.encoding === "gzip") {
-        if (bytes.length !== metadata.encodedByteLength) throw new Error(`${image}: encoded snapshot size mismatch`);
-        bytes = gunzipSync(bytes, { maxOutputLength: metadata.byteLength });
-      }
+        metadata.byteLength > MAX_SNAPSHOT_BYTES || metadata.encoding !== "packs") {
+      throw new Error(`${image}: release snapshot identity mismatch`);
     }
+    const parts = [];
+    for (const pack of validateSnapshotPacks(metadata)) {
+      const compressed = await readFile(resolve(site, `dist/packs/${pack.sha256}.snapshot.gz`));
+      if (compressed.length !== pack.encodedByteLength) throw new Error(`${image}: pack size mismatch`);
+      const part = gunzipSync(compressed, { maxOutputLength: pack.byteLength });
+      if (part.length !== pack.byteLength || sha256(part) !== pack.sha256) throw new Error(`${image}: pack digest mismatch`);
+      parts.push(part);
+    }
+    const bytes = mergeSnapshotRecords(parts);
     if (bytes.length !== metadata.byteLength || sha256(bytes) !== metadata.sha256) {
       throw new Error(`${image}: release snapshot digest mismatch`);
     }

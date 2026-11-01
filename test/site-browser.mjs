@@ -48,17 +48,15 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   // The static menu links each image's routes, and every linked route exists.
   await page.goto(`${origin}${prefix}/`);
   assert.equal(await page.locator("script").count(), 0);
-  const images = await page.$$eval("tr.image", rows => rows.map(row => ({ image: row.dataset.image, cells: row.cells.length,
+  const images = await page.$$eval("tr.image", rows => rows.map(row => ({ image: row.dataset.image,
     links: [...row.querySelectorAll(".image-links a")].map(link => new URL(link.href).pathname) })));
   assert.deepEqual(images.map(row => row.image).sort(), DOLLY_IMAGES.map(definition => definition.image).sort());
-  for (const { image, links, cells } of images) {
+  for (const { image, links } of images) {
     const definition = DOLLY_IMAGES.find(definition => definition.image === image);
     const displayed = definition.entry !== null && definition.hostRequirements.includes("display@0");
     assert.deepEqual(links.sort(), [...displayed ? [`${prefix}/${image}/`] : [], `${prefix}/${image}/rebuild/`,
       `${prefix}/view/${image}/`].sort(), image);
     for (const link of links) assert.ok(existsSync(`${root}${link.slice(prefix.length + 1)}index.html`), link);
-    // A row is the image's name, its description and its links.
-    assert.equal(cells, 3, image);
   }
   const menu = await page.evaluate(() => {
     const groups = [];

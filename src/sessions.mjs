@@ -1,7 +1,7 @@
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES, loadImages } from "./images.mjs";
-import { loadImageArtifactDescriptor } from "./image-artifact.mjs";
+import { customImageCached } from "./custom-image.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION, listStoredSessions, sessionCompatible,
   sessionLoadUrl, validSessionName,
@@ -38,8 +38,7 @@ async function refresh() {
     const item = document.createElement("li");
     const compatible = sessionCompatible(record, DOLLY_IMAGES, DOLLY_BUILD_ID, DOLLY_IMAGE_BUILD_ID);
     const custom = compatible ? record.customImage : undefined;
-    const cached = custom && await loadImageArtifactDescriptor(custom.artifact.recipeSha256, custom.artifact.inputs);
-    const missingBase = custom && (cached?.sha256 !== custom.artifact.sha256 || cached.byteLength !== custom.artifact.byteLength);
+    const missingBase = custom && !await customImageCached(custom.artifact);
     const recoverable = (!compatible || custom) && validSessionName(record.name) &&
       record.formatVersion === DOLLY_SESSION_FORMAT_VERSION && DOLLY_IMAGES.some(({ image }) => image === "system");
     const name = document.createElement(validSessionName(record.name) && compatible && !missingBase ? "a" : "span");

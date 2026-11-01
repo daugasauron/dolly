@@ -15,6 +15,23 @@ export async function buildLogProof() {
   }
   log.clear(); log.append("retry");
   if (element.textContent !== "retry") throw new Error("Build retry retained old output");
+  // Shown, the log follows its end a frame later until its reader scrolls up,
+  // and a flood of lines costs no layout each (Chrome took 246 s for these).
+  const shown = Object.assign(document.createElement("pre"),
+    { style: "position:fixed;top:0;left:0;width:200px;height:100px;overflow:auto;margin:0" });
+  document.body.append(shown);
+  const followed = buildLog(shown), frame = () => new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve)));
+  const started = performance.now();
+  for (let line = 0; line < 20000; line++) followed.append(`line ${line} ${"x".repeat(90)}\n`);
+  if (performance.now() - started > 2000) throw new Error("Appending build output took over two seconds");
+  await frame();
+  if (shown.scrollHeight - shown.scrollTop - shown.clientHeight >= 24) throw new Error("The build log did not follow its end");
+  shown.scrollTop = 0;
+  await frame();
+  followed.append("more\n");
+  await frame();
+  if (shown.scrollTop !== 0) throw new Error("The build log moved a reader who scrolled up");
+  shown.remove();
   return true;
 }
 
@@ -27,9 +44,8 @@ export async function buildBufferReuse() {
   await registry.loadImages(base);
   const definition = registry.DOLLY_IMAGES.find(image => image.image === "system-build");
   const source = `DOLLY 7\nAPPLICATION buffer-proof\nREQUIRES HOST runtime@0\nREQUIRES HOST display@0\nREQUIRES HOST input@0\nREQUIRES HOST download@0\nREQUIRES HOST http@0\nREQUIRES HOST snapshot@0\nREQUIRES HOST upload@0\nFROM ${siteReference(definition.dollyfile)} ${definition.sha256}\nENTRY /bin/slop\n`;
-  const sources = [...registry.DOLLY_IMAGES.map(image => ({ path: `/${image.dollyfile}`, byteLength: image.byteLength })),
-    ...registry.DOLLY_STATIC_SOURCES];
-  const network = { ...transport.localServicesTransport(new policy.DollyHttpPolicy(undefined, sources, base)), site: base.href };
+  const network = { ...transport.localServicesTransport(new policy.DollyHttpPolicy(undefined, registry.bootstrapSources(), base)),
+    site: base.href };
   const build = (image, inputs, customSource) => builder.buildImage(image, inputs, { http: { network } }, () => {}, { customSource });
   const inputs = await graph.prepareImageArtifacts("custom", source, build, () => {});
   let digest;

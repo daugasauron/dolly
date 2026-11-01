@@ -4,10 +4,8 @@ import { basename, resolve } from "node:path";
 
 import { inspectDollyfile, imageFileName } from "../src/dollyfile-view.mjs";
 import { validName } from "../src/image-names.mjs";
-import {
-  createDollyfileGraphLoader,
-  recipeRecords,
-} from "./dollyfile-graph.mjs";
+import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
+import { catalogRecord, catalogSource } from "./image-directory.mjs";
 import { recipeFiles } from "./recipe-files.mjs";
 import { publishedHostFiles, publishedDocument } from "./host-modules.mjs";
 import { siteReference, sitePath } from "../src/static-asset.mjs";
@@ -124,38 +122,10 @@ export async function inspectStaticSources(projectDir, definitions) {
     left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
 }
 
-export function registrySource(definitions, staticSources = []) {
-  const records = definitions.map(({ image, filename, source, parsed }) => ({
-    image,
-    role: parsed.role,
-    entry: parsed.entry,
-    dollyfile: filename,
-    byteLength: Buffer.byteLength(source),
-    sha256: createHash("sha256").update(source).digest("hex"),
-    recipes: parsed.recipes ?? [],
-    artifacts: parsed.artifacts ?? [],
-    hostRequirements: parsed.hostRequirements ?? [],
-  }));
-  return "// Generated from source-visible Dollyfiles. Do not edit.\n" +
-    `export const DOLLY_IMAGES = Object.freeze(${JSON.stringify(records, null, 2)});\n` +
-    `export const DOLLY_STATIC_SOURCES = Object.freeze(${JSON.stringify(staticSources, null, 2)});\n`;
-}
-
 export async function imageRegistrySource(projectDir, definitions, staticSources = []) {
   const loadGraph = createDollyfileGraphLoader(projectDir);
-  const enriched = await Promise.all(definitions.map(async (definition) => {
-    const graph = await loadGraph(definition.filename);
-    return {
-      ...definition,
-      parsed: {
-        ...definition.parsed,
-        artifacts: graph.artifacts,
-        recipes: recipeRecords(graph),
-        hostRequirements: graph.root.hostRequirements,
-      },
-    };
-  }));
-  return registrySource(enriched, staticSources);
+  return catalogSource(await Promise.all(definitions.map(async definition =>
+    catalogRecord(definition, await loadGraph(definition.filename)))), staticSources);
 }
 
 export async function writeImageRegistry(projectDir, definitions, staticSources = []) {

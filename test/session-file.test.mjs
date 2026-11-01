@@ -4,11 +4,12 @@ import { exportSessionFile, importSessionFile } from "../src/session-file.mjs";
 import { DOLLY_SESSION_MAX_BYTES, DOLLY_SESSION_METADATA_MAX_BYTES,
   customSessionIdentity, sessionCompatible, encodeSessionStream, decodeSessionSnapshot } from "../src/session-store.mjs";
 import { createHash, randomBytes } from "node:crypto";
+import { MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 
 const bytes = new TextEncoder().encode("DOLLYSES-opaque-\uFEFF日本語-credential").buffer;
 const encodeSessionSnapshot = input => encodeSessionStream(write => write(new Uint8Array(input)));
 const record = { name: "work.1", formatVersion: 2, buildId: "fixture-build",
-  image: "default", imageIdentity: "default:fixture", updatedAt: 123, encoding: "identity", bytes };
+  image: "default", imageIdentity: "default:fixture", updatedAt: 123, ...await encodeSessionSnapshot(bytes) };
 
 async function edit(file, change) {
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -21,13 +22,10 @@ async function edit(file, change) {
   return new Blob([header, encoded, bytes.subarray(12 + length)]);
 }
 
-test("session files round-trip identity and gzip bytes and literal metadata", async () => {
-  for (const encoded of [{ encoding: "identity", bytes }, await encodeSessionSnapshot(bytes)]) {
-    const saved = { ...record, ...encoded };
-    const restored = await importSessionFile(await exportSessionFile(saved));
-    assert.deepEqual(restored, saved);
-    assert.deepEqual(await decodeSessionSnapshot(restored), bytes);
-  }
+test("session files round-trip their bytes and literal metadata", async () => {
+  const restored = await importSessionFile(await exportSessionFile(record));
+  assert.deepEqual(restored, record);
+  assert.deepEqual(await decodeSessionSnapshot(restored), bytes);
 });
 
 test("streamed compression preserves bytes across chunks and rejects an incomplete producer", async () => {
@@ -80,8 +78,9 @@ test("reject corrupt, truncated, oversized and unsupported session envelopes", a
   ]) await assert.rejects(importSessionFile(await edit(file, mutate)));
   // Another version's file is refused by a message naming the version it belongs to.
   await assert.rejects(importSessionFile(await edit(file, meta => { meta.version = "9.8.7"; })), /9\.8\.7/);
-  await assert.rejects(importSessionFile(await exportSessionFile({ ...record, encoding: "gzip" })));
-  await assert.rejects(importSessionFile(await exportSessionFile({ ...record, bytes: new ArrayBuffer(1) })), /incomplete/);
+  await assert.rejects(importSessionFile(await exportSessionFile({ ...record, bytes })));
+  await assert.rejects(importSessionFile(await exportSessionFile({ ...record,
+    ...await encodeSessionSnapshot(new ArrayBuffer(1)) })), /incomplete/);
 });
 
 test("custom session files retain the exact recipe, artifact and inherited restrictions", async () => {
@@ -108,11 +107,21 @@ test("custom session files retain the exact recipe, artifact and inherited restr
     meta => { meta.customImage.source = "DOLLY 2"; },
     meta => { meta.customImage.artifact.sha256 = "invalid"; },
     meta => { meta.customImage.artifact.sha256 = ["a".repeat(64)]; },
-    meta => { meta.customImage.artifact.byteLength = DOLLY_SESSION_MAX_BYTES + 1; },
+    meta => { meta.customImage.artifact.byteLength = MAX_SNAPSHOT_BYTES + 1; },
     meta => { meta.customImage.artifact.inputs[0].sha256 = "invalid"; },
     meta => { meta.customImage.policies = []; },
     meta => { meta.customImage.policies = ["x".repeat(65536)]; },
   ]) await assert.rejects(importSessionFile(await edit(await exportSessionFile(saved), mutate)));
+});
+
+// The base is an image, which may be larger than the delta a save holds.
+test("a session's custom image may be as large as any image", () => {
+  const source = "DOLLY 7\nAPPLICATION large\nENTRY /bin/slop\n";
+  const custom = byteLength => ({ source, artifact: { buildId: "image-build",
+    recipeSha256: createHash("sha256").update(source).digest("hex"), sha256: "a".repeat(64), byteLength, inputs: [] } });
+  assert.match(customSessionIdentity(custom(DOLLY_SESSION_MAX_BYTES + 1)), /^custom:/);
+  assert.match(customSessionIdentity(custom(MAX_SNAPSHOT_BYTES)), /^custom:/);
+  assert.throws(() => customSessionIdentity(custom(MAX_SNAPSHOT_BYTES + 1)), /invalid custom session base/);
 });
 
 test("incompatible build IDs remain exportable without interpreting filesystem records", async () => {

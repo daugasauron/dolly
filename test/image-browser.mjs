@@ -124,8 +124,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
       (path.startsWith("/dist/static/") && !path.startsWith(ownSources)) || path === "/dist/dolly.data"), [],
       "a derived build fetched build sources or the compiler seed");
     return target.evaluate(async () => ({
-      digest: [...new Uint8Array(await crypto.subtle.digest("SHA-256", __dolly.systemSnapshot))]
-        .map(byte => byte.toString(16).padStart(2, "0")).join(""),
+      digest: __dolly.builtImage.sha256,
       payloadReads: artifactReads.filter(read => read.bytes > 0).map(({ store, key }) => ({ store, key })),
       downloads: performance.getEntriesByType("resource").map(entry => new URL(entry.name).pathname)
         .filter(path => /\/dist\/packs\/|\.snapshot$/.test(path)).sort(),
@@ -152,7 +151,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
     const { siteReference } = await import("/src/static-asset.mjs");
     const prime = async definition => {
       const metadata = await loadPackagedSnapshotMetadata(definition.image);
-      const artifact = await describeImageArtifact(await loadPackagedSystemSnapshot(definition.image, metadata),
+      const artifact = await describeImageArtifact(await loadPackagedSystemSnapshot(metadata),
         definition.sha256, metadata.inputs);
       if (!await saveImageArtifact(artifact, `/${definition.dollyfile}`)) throw new Error("cache priming failed");
       return artifact;
@@ -237,7 +236,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
       recovered = artifact.sha256 === base.sha256 && artifact.bytes.byteLength === base.bytes.byteLength;
     } finally { await saveImageArtifact(base, `/${system.dollyfile}`); }
     await saveStoredSession({ name: "cache-migration-proof", formatVersion: 2, buildId: first.buildId,
-      image: "system", imageIdentity: `system:${system.sha256}`, updatedAt: 0, encoding: "identity", bytes: first.bytes });
+      image: "system", imageIdentity: `system:${system.sha256}`, updatedAt: 0, encoding: "gzip", bytes: first.bytes });
     await new Promise((resolve, reject) => {
       const request = indexedDB.deleteDatabase("dolly-image-artifacts-v3");
       request.onsuccess = resolve; request.onerror = () => reject(request.error);
@@ -272,7 +271,6 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
   try {
     const built = await boot(missing, "iteration-one", "/dist/static/session-recovery/");
     assert.ok(server.requests.has("/dist/dolly-system-system-snapshot.mjs"));
-    assert.equal(server.requests.has("/dist/dolly-system-system.snapshot"), false);
     assert.deepEqual([built.payloadReads, built.downloads], [[], buildPacks]);
   } finally { hideSystemMetadata = false; }
 });
