@@ -10,8 +10,8 @@ REQUIRES HOST threads@0
 # mesa-build: libadwaita, blueprint-compiler for its interface files, and
 # Ghostty's own build.zig
 # (ghostty-dolly.patch; its packages fetched on the host, prepare-ghostty.sh).
-FROM /v0.1.4/demos/ghostty-gtk/Dollyfile-mesa-build 775cbfcdaec211053a16c9f5ba63d200fdf72b0f7e431e3b0d79af153ac9c5b7
-USE /v0.1.4/demos/zig/Dollyfile-zig-llvm b711a972e6cb15b85ae06efa77bea36a448dbc55b4d264d2a7b76c6e2ba1620c
+FROM /v0.1.4/demos/ghostty-gtk/Dollyfile-mesa-build 89ea6fdf6eb7286286d9d866ec6bb7ec144b763266f9e9171ca9835240b8da37
+USE /v0.1.4/demos/zig/Dollyfile-zig-llvm b1bba90d255279ad3a00384d4949abe6b7bc87e61990ed50a625a0ec141cd361
 
 REQUIRES TOOL   c++
 REQUIRES TOOL   cc

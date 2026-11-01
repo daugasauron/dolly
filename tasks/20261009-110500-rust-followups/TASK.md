@@ -23,6 +23,13 @@ Cargo by that rustc (v0.1.1, `2370dc85`); Zig since 2026-10-01, emitting Ghostty
 - Cargo's one environment for every build script (Oniguruma's C settings reach every C file of
   the Codex build, `demos/codex/config/cargo.toml`): Cargo's `[env]` semantics, harmless there.
 - The `cargo` image needing 5 to 6 GB: `tasks/20261006-145958-builder-artifact-copies`, closed.
+- `src/ghostty/generated/`'s Unicode tables (233,650 of its 239,297 lines, 5.6 MB): generated in
+  `ghostty-build` since 2026-11-01. uucode's generator reads its UCD files (now in `uucode.tar`)
+  and Ghostty's two print their tables over its output, each a program of the image's Zig
+  (`-ofmt=c`, `cc`); their root gives them libc's allocator, since Zig's page allocator on
+  WebAssembly grows the memory behind libc's `sbrk`. The three tables, Ghostty VT's C and
+  `libdisplay.so` (sha256 `64f8bc2b…`) are byte for byte those of the committed tables; the image
+  build takes 110 s instead of 77.
 
 ## Still open
 
@@ -38,13 +45,11 @@ Cargo by that rustc (v0.1.1, `2370dc85`); Zig since 2026-10-01, emitting Ghostty
 - **Not measured**: that a third rustc equals the second with the recipe's commands (needs LLVM
   in the image; `Dollyfile-rust-build` drops it), and that Cargo's parallel Codex build equals a
   serial one byte for byte.
-- **`src/ghostty/generated/` is committed output**: 5.7 MB, 239,297 lines (`uucode-tables.zig`
-  233,478), the largest deletion available in the core tree. Its README says the generators need
-  a host-style filesystem; since Zig runs inside Dolly (a standard-library program through
-  `-ofmt=c` and `cc`, `test/amy-browser.mjs`), the uucode and Ghostty table generators could run
-  in `ghostty-build` from pinned UCD files. Not tried: it changes the seed's display.
-- **`libdisplay.so` is 1,644,503 bytes**, 63% more than an LLVM Zig's 1,007,438 (2026-10-13),
-  since Ghostty is emitted as C. Where the size comes from is not measured.
+- **`libdisplay.so` is 1,862,935 bytes** (2026-11-01; 1,644,503 on 2026-10-13, before kitty
+  graphics and Wuffs), against an LLVM Zig's 1,007,438 then, since Ghostty is emitted as C.
+  Where the size comes from is not measured.
+- **`wuffs-c.zig` and the two options modules stay committed** (`src/ghostty/generated/`,
+  5,610 lines): translate-c is not built inside Dolly.
 
 ## Done when
 

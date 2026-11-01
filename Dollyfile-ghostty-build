@@ -17,8 +17,8 @@ REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 REQUIRES TOOL   zig
 
-SOURCE /v0.1.4/dist/static/default/ghostty.tar              3add3703b5d426311460df7b0474595549b9791af2855082d01ab26571232ba6 /tmp/ghostty.tar
-SOURCE /v0.1.4/dist/static/default/uucode.tar               27d4103c73b68b20c21adaee05c4cd2c01fc418e083f5961148e1f872951453e /tmp/uucode.tar
+SOURCE /v0.1.4/dist/static/default/ghostty.tar              1c5ff99a4ca1ec62957b8c57efe0c03bea415525c037653b603f644873a043d0 /tmp/ghostty.tar
+SOURCE /v0.1.4/dist/static/default/uucode.tar               3797828ab1f665e0530d2720a547f7848b5dda404067117018630315cf2b3d08 /tmp/uucode.tar
 SOURCE /v0.1.4/dist/static/default/ghostty/display.c        8c4ad6cc67a72e13724aa823c58a3ac0c20908ae5e2490d5f7e30cac9276145e /usr/src/dolly/ghostty/display.c
 SOURCE /v0.1.4/dist/static/default/stb_truetype.h           ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/ghostty/stb_truetype.h
 SOURCE /v0.1.4/dist/static/default/stb_image.h              594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3 /tmp/ghostty/stb_image.h
@@ -35,14 +35,50 @@ SLOP tar \
   -xf /tmp/uucode.tar \
   -C /
 
+# The Unicode tables' generators run as programs of this Zig: Zig's page
+# allocator on WebAssembly grows the memory itself, behind libc's sbrk, so
+# their root gives them libc's.
+FILE /tmp/ghostty/generator.zig
+    const std = @import("std");
+    pub const os = struct {
+        pub const heap = struct {
+            pub const page_allocator = std.heap.c_allocator;
+        };
+    };
+    pub const main = @import("generate").main;
+
 # Zig emits Ghostty VT and compiler_rt as C; cc compiles them. zig.h passes
 # usize as uint64_t *, and @returnAddress would import an Emscripten helper.
+# The Unicode tables are generated first, as Ghostty's build does
+# (src/build/UnicodeTables.zig, uucode's build.zig): uucode's generator reads
+# the UCD and writes its tables, over which Ghostty's two print theirs.
 FILE /tmp/ghostty/Makefile
     .RECIPEPREFIX := >
     ZIGFLAGS := -OReleaseSmall -target wasm64-emscripten -mcpu=generic+atomics -fsingle-threaded -ofmt=c
     CFLAGS := -O2 -std=c99 -fno-strict-aliasing -Wno-incompatible-pointer-types -I /usr/lib/zig
+    UUCODE_CONFIG := --dep storage.zig -Mconfig.zig=/usr/src/uucode/src/config.zig \
+      --dep config.zig -Mstorage.zig=/usr/src/uucode/src/storage.zig \
+      --dep config.zig --dep storage.zig -Mbuild_config=/usr/src/ghostty/src/build/uucode_config.zig
+    GENERATORS := /tmp/ghostty/uucode-generate /tmp/ghostty/props-generate /tmp/ghostty/symbols-generate
     all: /usr/lib/libghostty-vt.a /usr/lib/libdisplay.so
-    /tmp/ghostty/ghostty-vt.c:
+    /tmp/ghostty/uucode-generate.c:
+    >zig build-exe $(ZIGFLAGS) -lc --name uucode-generate --dep generate -Mroot=/tmp/ghostty/generator.zig \
+    >  --dep config.zig --dep storage.zig --dep build_config -Mgenerate=/usr/src/uucode/src/generate.zig \
+    >  $(UUCODE_CONFIG) -femit-bin=$@
+    /tmp/ghostty/props-generate.c /tmp/ghostty/symbols-generate.c: /tmp/ghostty/uucode-tables.zig
+    >zig build-exe $(ZIGFLAGS) -lc --name $(basename $(@F)) --dep generate -Mroot=/tmp/ghostty/generator.zig \
+    >  --dep uucode -Mgenerate=/usr/src/ghostty/src/unicode/$(subst -generate.c,_uucode.zig,$(@F)) \
+    >  --dep types.zig --dep config.zig --dep tables -Muucode=/usr/src/uucode/src/root.zig \
+    >  -Mtypes.zig=/usr/src/uucode/src/types.zig \
+    >  --dep types.zig $(UUCODE_CONFIG) \
+    >  --dep config.zig --dep storage.zig --dep build_config -Mtables=/tmp/ghostty/uucode-tables.zig -femit-bin=$@
+    $(GENERATORS): %: %.c /tmp/ghostty/compiler_rt.o
+    >cc $(CFLAGS) '-D__builtin_return_address(level)=0' -o $@ $^
+    /tmp/ghostty/uucode-tables.zig: /tmp/ghostty/uucode-generate
+    >cd /usr/src/uucode && $< $@
+    /tmp/ghostty/unicode-props.zig /tmp/ghostty/unicode-symbols.zig: /tmp/ghostty/unicode-%.zig: /tmp/ghostty/%-generate
+    >$< > $@
+    /tmp/ghostty/ghostty-vt.c: /tmp/ghostty/uucode-tables.zig /tmp/ghostty/unicode-props.zig /tmp/ghostty/unicode-symbols.zig
     >zig build-obj \
     >  $(ZIGFLAGS) \
     >  -lc \
@@ -56,8 +92,8 @@ FILE /tmp/ghostty/Makefile
     >  -Mroot=/usr/src/ghostty/src/lib_vt.zig \
     >  -Mbuild_options=/usr/src/ghostty/generated/build-options.zig \
     >  -Mterminal_options=/usr/src/ghostty/generated/terminal-options.zig \
-    >  -Municode_tables=/usr/src/ghostty/generated/unicode-props.zig \
-    >  -Msymbols_tables=/usr/src/ghostty/generated/unicode-symbols.zig \
+    >  -Municode_tables=/tmp/ghostty/unicode-props.zig \
+    >  -Msymbols_tables=/tmp/ghostty/unicode-symbols.zig \
     >  -ODebug \
     >  --dep types.zig \
     >  --dep config.zig \
@@ -73,7 +109,7 @@ FILE /tmp/ghostty/Makefile
     >  --dep config.zig \
     >  --dep storage.zig \
     >  --dep build_config \
-    >  -Mtables=/usr/src/ghostty/generated/uucode-tables.zig \
+    >  -Mtables=/tmp/ghostty/uucode-tables.zig \
     >  -ODebug \
     >  --dep config.zig \
     >  -Mstorage.zig=/usr/src/uucode/src/storage.zig \
@@ -124,6 +160,7 @@ FILE /usr/share/licenses/droid-fonts/NOTICE
 FILE /usr/share/licenses/noto-emoji/OFL.txt
 FILE /usr/share/licenses/ghostty/LICENSE
 FILE /usr/share/licenses/uucode/LICENSE.md
+FILE /usr/share/licenses/uucode/LICENSE_unicode
 FILE /usr/share/licenses/wuffs/LICENSE-APACHE
 FILE /usr/share/licenses/wuffs/LICENSE-MIT
 FILE /usr/share/licenses/translate-c/LICENSE

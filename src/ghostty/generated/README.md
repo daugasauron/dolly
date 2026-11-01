@@ -14,18 +14,11 @@ zig build --build-file GHOSTTY/build.zig \
   -Doptimize=ReleaseSmall
 ```
 
-`wuffs-c.zig` is translate-c's output for Wuffs' header in the same build
-(Ghostty's `pkg/wuffs`), which kitty graphics take.
-
-`uucode-tables.zig` comes from uucode 0.2.0 commit
-`2826a37a4562284fdacd8fa029d49509cc9bffcd`, whose exact archive and checksum
-are recorded in `config/source-pins.sh`. `unicode-props.zig` and
-`unicode-symbols.zig` are Ghostty's derived tables over that uucode output.
 The two options modules record the exact feature and target choices.
+`wuffs-c.zig` is translate-c's output for Wuffs' header in the same build
+(Ghostty's `pkg/wuffs`), which kitty graphics take; translate-c is not built
+inside Dolly.
 
-The generators are Zig programs that require a host-style filesystem and I/O
-executor. Dolly deliberately does not grant that implicit host environment.
-Checking in their deterministic Zig output is the same source-distribution
-boundary used for generated parser tables elsewhere in Dolly. The generated
-files are verified against `SHA256SUMS`, while the actual Ghostty library is
-still analyzed by Zig and compiled and linked inside the sandbox.
+The Unicode tables are not here: `ghostty-build` generates them as Ghostty's
+build does, running uucode's generator on its UCD files and Ghostty's two over
+its tables, each a program of the image's Zig (`Dollyfile-ghostty-build`).

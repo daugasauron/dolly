@@ -55,6 +55,6 @@ EXPORTS FOLDER rust-sdk /opt/rust-sdk
 EXPORTS FOLDER rust-licenses /usr/share/licenses/rust
 SLOP rustc --version --verbose
 SLOP cargo --version
-INSTALL /v0.1.4/Dollyfile-display d15ef860730ddefa417080c1d27cc0a26f03d5409c93805e9b3cbc5b6af61011
+INSTALL /v0.1.4/Dollyfile-display e0d18fd09e53dea27fa3550d3b80a561abfed177eb969cfe213dc127fc747d7a
 
 ENTRY /bin/foreground -i /bin/slop
