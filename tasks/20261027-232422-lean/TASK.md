@@ -84,7 +84,10 @@ again while the page copied and verified its finished 1.58 GB image (it passed s
 at 21:51, and failed so at 20:59): the kernel's serialized image beside its files, the Worker's
 copy and the page's digest (`src/build-worker.mjs`, `src/image-builder.mjs`) hold the image three
 or four times while the kernel's memory awaits release. That is the image builder's, beyond this
-task: an image near the 2 GiB bound needs more than a 9 GB build to be captured. Its anonymous
+task: an image near the 2 GiB bound needs more than a 9 GB build to be captured. A third try
+captured it (1,866 s, 00:25); the `lean` image was then killed by the cap a third time, at Lake's
+first module, with `lean-std` and `lean-meta` installed once (the last-use rule). Built in a
+9 GB scope, Lean's images are a matter of luck tonight; the catalog round should give them more. Its anonymous
 memory while it compiled was 3 to 5 GB (sampled at 21:10), against a 7.4 GB peak on 2026-10-29.
 
 Not done:
