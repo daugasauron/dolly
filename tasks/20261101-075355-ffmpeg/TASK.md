@@ -61,9 +61,32 @@ Measured natively (`src/slop.c` with `test/fixtures/native-spawn.c`, as
    Bash with 10,000: 0.09 s in all. N assignments alone: 10,000 take 0.58 s.
    With line 4682 changed to `for opt in "$@"; do` in a scratch copy, Slop reached the 343rd
    check in 90 s natively (88 % of a core in Slop itself); Bash runs all 733 checks in 5.8 s.
+   The whole run, with that one line changed: **551 s natively under Slop** (99 MB peak)
+   against 5.8 s under Bash, and every file it writes is the same (`config.h`,
+   `config_components.h`, `ffbuild/config.mak`, `ffbuild/config.sh`, `libavutil/avconfig.h`,
+   the component lists) as is its output. So (1) blocks and (2) is the cost; no other shell
+   difference showed.
 3. Programs that are builtins elsewhere: in its first 126 checks Slop spawned `[` 980,
    `echo` 737, `test` 379, `printf` 283 times (strace), as the configure survey found
    (`tasks/20261006-121403-configure-survey`).
 
-Also in configure's way inside Dolly (not Slop): `chmod +x $TMPE` and `$TMPSH` (a `#!/bin/sh`
-script it then runs, "Sanity test failed" otherwise).
+`chmod +x $TMPE` and `chmod +x $TMPSH`, then running `$TMPSH` (a `#!/bin/sh` script; "Sanity
+test failed" otherwise): neither side is wrong. Dolly has no `chmod` (no permission bits, the
+owner's decision), so the two lines print "not found" into the log and configure ignores their
+status; Dolly's spawn ignores execute bits and runs a `#!` line's absolute in-Wasm interpreter
+(`docs/process-model.md`), so the script runs and the sanity test passes. To confirm in the
+build's log.
+
+## State (2026-11-01 21:10)
+
+Integrator: agent C fixes (1) and (2) in `core/audit-slop` before 00:30; this branch merges
+them, rebuilds the seed and images, and builds `ffmpeg`. Written and committed meanwhile:
+`demos/ffmpeg/` (recipe, staging hook, README, browser test), the pin, upstream and licence
+rows, the demo index and the `elsewhere` row of `test/amy-browser.mjs`.
+
+- The test's commands and expected answers were checked natively with the host's FFmpeg 4.4.2:
+  `mpeg4,320,240`/`aac`, `ffv1,320,240`/`flac`, `pcm_s16le,44100,1`, `2.000000`, equal MD5s of
+  source and decoded FFV1 video and FLAC/WAV audio, MPEG-4 at `-q:v 3` 46 dB average PSNR
+  against its source, the PNG `png,320,240` with its signature.
+- The package's manual pages are each command's `-h`: FFmpeg's pages are Texinfo, which needs
+  makeinfo and Perl (`--disable-doc`).

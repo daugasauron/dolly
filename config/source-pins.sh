@@ -633,3 +633,7 @@ DOLLY_GO_HOST_SHA256=65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e3
 DOLLY_ESBUILD_VERSION=0.28.2
 DOLLY_ESBUILD_URL='https://github.com/evanw/esbuild/archive/refs/tags/v0.28.2.tar.gz'
 DOLLY_ESBUILD_SHA256=300162f899361d9f0263065f8728ef9086dcfc1a3d36bcbc4e0abe5de9c58bf8
+# FFmpeg: the release archive (demos/ffmpeg), signed by FFmpeg's release key.
+DOLLY_FFMPEG_VERSION=9.0.2
+DOLLY_FFMPEG_URL='https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.gz'
+DOLLY_FFMPEG_SHA256=84960df915059e8754fef2cd7c9afeb614062b1b5458ec471eecee619ee04e98

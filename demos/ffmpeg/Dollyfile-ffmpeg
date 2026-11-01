@@ -1,0 +1,82 @@
+DOLLY 7
+PACKAGE ffmpeg
+REQUIRES HOST runtime@0
+REQUIRES HOST threads@0
+
+# FFmpeg from upstream's release archive, unchanged, configured by its own
+# configure script under Slop and built by its Makefiles: ffmpeg, ffprobe,
+# and the libraries with their headers for programs the cc package builds.
+# The LGPL build: FFmpeg's own codecs, formats, devices and filters, zlib
+# from amy and no other library (--disable-autodetect). configure is told:
+# - --target-os=none: it knows no Dolly (uname -s) and stops naming it; none
+#   is its OS without settings of its own, so every feature is probed;
+# - --arch=wasm, which uname -m gives, and --disable-asm: no simd128 code;
+# - the cc package's compiler for target and host (its defaults are gcc and
+#   g++); ar s to index an archive, as there is no ranlib; nothing to strip
+#   with; no documentation (its manual pages below);
+# - pthreads, required: every program linked with these needs threads@0.
+FROM /v0.1.4/Dollyfile-system-tools 7f6c86fcc73e544e7007646eba2718bbc4d43b7f0516d9558e2dc500b1a05a80
+USE /v0.1.4/Dollyfile-gzip 1be14cb6142500862aa5362445cdfa3c5fc7f4817e775a614754e3dc91ead079
+INSTALL /v0.1.4/Dollyfile-zlib 7f3254e8d51bc7edd2fa47b19f3b1e2e43c747476ab93c57654639e4119abde7
+
+REQUIRES HEADER libc
+REQUIRES HEADER zlib
+REQUIRES LIB    z
+REQUIRES TOOL   ar
+REQUIRES TOOL   cc
+REQUIRES TOOL   cp
+REQUIRES TOOL   gzip
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   tar
+REQUIRES TOOL   test
+
+SOURCE /v0.1.4/dist/static/ffmpeg/ffmpeg-9.0.2.tar.gz 84960df915059e8754fef2cd7c9afeb614062b1b5458ec471eecee619ee04e98 /tmp/ffmpeg.tar.gz
+SLOP gzip -dc /tmp/ffmpeg.tar.gz | tar -xf - -C /tmp
+SLOP mkdir /tmp/ffmpeg-build
+SLOP CWD /tmp/ffmpeg-build time /tmp/ffmpeg-9.0.2/configure --prefix=/usr --target-os=none --arch=wasm --disable-asm \
+  --cc=cc --cxx=c++ --host-cc=cc --ar=ar --ranlib='ar s' --disable-stripping --disable-doc --disable-debug \
+  --disable-autodetect --enable-pthreads --enable-zlib
+SLOP CWD /tmp/ffmpeg-build time make -j4
+SLOP CWD /tmp/ffmpeg-build make install
+
+# Two seconds of test pattern and tone, encoded by FFmpeg's own MPEG-4 and
+# FLAC encoders and read back.
+SLOP ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=160x120:rate=10:duration=2 \
+  -f lavfi -i sine=frequency=440:duration=2 -c:v mpeg4 -c:a flac /tmp/ffmpeg-check.mkv
+SLOP test "$(ffprobe -v error -show_entries stream=codec_name -of csv=p=0 /tmp/ffmpeg-check.mkv)" = "$(printf 'mpeg4\nflac')"
+
+EXPORTS TOOL   ffmpeg
+EXPORTS TOOL   ffprobe
+EXPORTS LIB    avcodec     /usr/lib/libavcodec.a
+EXPORTS LIB    avdevice    /usr/lib/libavdevice.a
+EXPORTS LIB    avfilter    /usr/lib/libavfilter.a
+EXPORTS LIB    avformat    /usr/lib/libavformat.a
+EXPORTS LIB    avutil      /usr/lib/libavutil.a
+EXPORTS LIB    swresample  /usr/lib/libswresample.a
+EXPORTS LIB    swscale     /usr/lib/libswscale.a
+EXPORTS HEADER libavcodec    /usr/include/libavcodec
+EXPORTS HEADER libavdevice   /usr/include/libavdevice
+EXPORTS HEADER libavfilter   /usr/include/libavfilter
+EXPORTS HEADER libavformat   /usr/include/libavformat
+EXPORTS HEADER libavutil     /usr/include/libavutil
+EXPORTS HEADER libswresample /usr/include/libswresample
+EXPORTS HEADER libswscale    /usr/include/libswscale
+FILE /usr/lib/pkgconfig/libavcodec.pc
+FILE /usr/lib/pkgconfig/libavdevice.pc
+FILE /usr/lib/pkgconfig/libavfilter.pc
+FILE /usr/lib/pkgconfig/libavformat.pc
+FILE /usr/lib/pkgconfig/libavutil.pc
+FILE /usr/lib/pkgconfig/libswresample.pc
+FILE /usr/lib/pkgconfig/libswscale.pc
+FOLDER /usr/share/ffmpeg
+# The manual pages are Texinfo, which needs makeinfo and Perl: each command's
+# page is its own help.
+SLOP ffmpeg -hide_banner -h > /usr/share/man/cat1/ffmpeg.1
+SLOP ffprobe -hide_banner -h > /usr/share/man/cat1/ffprobe.1
+FILE /usr/share/man/cat1/ffmpeg.1
+FILE /usr/share/man/cat1/ffprobe.1
+SLOP mkdir -p /usr/share/licenses/ffmpeg
+SLOP cp /tmp/ffmpeg-9.0.2/LICENSE.md /tmp/ffmpeg-9.0.2/COPYING.LGPLv2.1 /usr/share/licenses/ffmpeg
+FILE /usr/share/licenses/ffmpeg/LICENSE.md
+FILE /usr/share/licenses/ffmpeg/COPYING.LGPLv2.1
