@@ -16,7 +16,7 @@ Open `/bhop/`; build with `npm run image -- bhop`.
   sections.
 - `bhop-agent` adds the overlay: Backtick switches between you and the agent,
   Tab hides it, Enter sends an instruction, Escape interrupts, Ctrl+Enter
-  replaces the task. Settings selects OpenRouter or a local Codex relay
+  replaces the task. Settings selects OpenRouter, Anthropic (API key) or a local Codex relay
   ([game-agent](../game-agent/README.md)).
 - The agent's only tools are `game_input` (up to 128 timed segments of keys and
   mouse deltas, 30 s) and `review_attempt` (archived frames). It sees only the

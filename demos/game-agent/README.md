@@ -2,7 +2,7 @@
 
 Shared code for the ClassiCube and Airtime agents: mission loop
 ([`mission.mjs`](mission.mjs)), settings ([`settings.mjs`](settings.mjs)),
-OpenRouter and Codex authentication ([`auth.mjs`](auth.mjs)), the control
+OpenRouter, Anthropic and Codex authentication ([`auth.mjs`](auth.mjs)), the control
 protocol ([`control.h`](control.h)) and the source-built viewer
 ([`viewer.cpp`](viewer.cpp)). It also uses the RTS spectator relay, trace and
 graphics code, so both install side by side under `/usr/src/dolly/`.
