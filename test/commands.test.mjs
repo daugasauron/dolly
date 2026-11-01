@@ -33,6 +33,15 @@ test("find -exec + runs every path even after a failed batch", async () => {
   const recorded = (await readFile(log, "utf8")).trim().split("\n");
   assert.equal(new Set(recorded).size, 600);
   assert.equal(run(find, [tree, "-name", "file-1[0-9]", "-path", "*/file-*"]).stdout.split("\n").length - 1, 10);
+  // POSIX's time and size primaries: a stamp file, whole days, 512-byte blocks.
+  await writeFile(join(tree, "file-0"), "x".repeat(1000));
+  await utimes(join(tree, "file-1"), 1000, 1000);
+  await utimes(join(tree, "file-2"), 2000, 2000);
+  const found = (...expression) => run(find, [tree, ...expression]).stdout.trim().split("\n").map(path => path.slice(tree.length + 1)).sort();
+  assert.deepEqual(found("-newer", join(tree, "file-1"), "-name", "file-[12]"), ["file-2"]);
+  assert.deepEqual(found("-mtime", "+30", "-name", "file-*"), ["file-1", "file-2"]);
+  assert.deepEqual(found("-size", "2"), ["file-0"]);
+  assert.deepEqual(found("-size", "+999c", "-size", "-1001c"), ["file-0"]);
 });
 
 test("xargs streams large input in size- and count-bounded batches", () => {
@@ -52,6 +61,9 @@ test("xargs streams large input in size- and count-bounded batches", () => {
   assert.equal(run(xargs, ["sh", "-c", "exit 3"], { input: "a" }).status, 123);
   assert.equal(run(xargs, ["missing-command"], { input: "a" }).status, 127);
   assert.equal(run(xargs, ["-I", "{}", "echo", "<{}>"], { input: "a b\nc\n" }).stdout, "<a b>\n<c>\n");
+  // POSIX's -L: a command per line, a trailing blank continues the line; -E ends the input.
+  assert.equal(run(xargs, ["-L", "1", "echo"], { input: "a b\nc \nd\n\ne\n" }).stdout, "a b\nc d\ne\n");
+  assert.equal(run(xargs, ["-E", "stop", "echo"], { input: "a stop b\n" }).stdout, "a\n");
   // -P runs commands at once: each waits until all three have started.
   const together = run(xargs, ["-P", "3", "-n", "1", "sh", "-c",
     ': > "started-$1"; until [ "$(ls started-* | wc -l)" -eq 3 ]; do sleep 0.01; done; test "$1" != b', "sh"],
@@ -119,6 +131,14 @@ test("Dolly's own core tools keep their no-permission and finite semantics", asy
   assert.equal((await lstat(join(scratch, "copied-link"))).isSymbolicLink(), true);
   assert.equal(status(cp, ["-p", "install-source", "cp-preserved"]), 0);
   assert.equal((await stat(join(scratch, "cp-preserved"))).mtimeMs, 2000_000);
+  // touch's POSIX options: a reference file, an ISO 8601 date, one of the two times.
+  const touch = build("touch");
+  assert.equal(status(touch, ["-r", "install-source", "touched"]), 0);
+  assert.equal((await stat(join(scratch, "touched"))).mtimeMs, 2000_000);
+  const accessed = (await stat(join(scratch, "touched"))).atimeMs;
+  assert.equal(status(touch, ["-m", "-d", "1970-01-01T00:20:00Z", "touched"]), 0);
+  const touched = await stat(join(scratch, "touched"));
+  assert.deepEqual([touched.atimeMs, touched.mtimeMs], [accessed, 1200_000]);
   assert.equal(run(build("du"), ["-b", "install-source"]).stdout, "5\tinstall-source\n");
   assert.equal(run(build("rev"), [], { input: "aé✓b\n" }).stdout, "b✓éa\n");
 });

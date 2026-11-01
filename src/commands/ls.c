@@ -88,9 +88,11 @@ static int print_entry(const char *path, const char *name, const options *option
     fprintf(stderr, "ls: %s: %s\n", path, strerror(errno));
     return 1;
   }
-  const char suffix = option->classify
-      ? S_ISDIR(metadata.st_mode) ? '/' : S_ISLNK(metadata.st_mode) ? '@' : '\0'
-      : '\0';
+  // -p marks directories, -F also links, FIFOs and sockets (no file is executable).
+  const mode_t type = metadata.st_mode;
+  const char suffix = option->classify == 0 ? '\0' : S_ISDIR(type) ? '/'
+      : option->classify == 'p' ? '\0' : S_ISLNK(type) ? '@' : S_ISFIFO(type) ? '|'
+      : S_ISSOCK(type) ? '=' : '\0';
   if (option->inode) printf("%llu ", (unsigned long long)metadata.st_ino);
   if (!option->long_format) {
     fputs(name, stdout);
@@ -194,7 +196,7 @@ static int short_option(options *option, char value) {
     case 'a': option->show_all = 1; option->almost_all = 0; return 0;
     case 'A': option->almost_all = 1; option->show_all = 0; return 0;
     case 'd': option->directory = 1; return 0;
-    case 'F': case 'p': option->classify = 1; return 0;
+    case 'F': case 'p': option->classify = option->classify == 'F' ? 'F' : value; return 0;
     case 'h': option->human = 1; return 0;
     case 'i': option->inode = 1; return 0;
     case 'L': option->follow = 1; return 0;

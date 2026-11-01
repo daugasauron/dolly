@@ -85,7 +85,9 @@ slop [-enux] script [arg ...]
 - Functions take precedence over regular builtins such as `cd`; the special
   builtins (`:`, `.`, `eval`, `exec`, `exit`, `export`, `return`, `set`,
   `shift`, `unset`, `break`, `continue`) always run.
-- `cd` without an operand needs `HOME`; an empty operand is a no-op.
+- `cd` without an operand needs `HOME`; an empty operand is a no-op. `PWD` is
+  always the directory's real path, so `cd -P` is what `cd` does and `-L` is
+  refused.
 - `trap ACTION CONDITION...` handles `EXIT`, `HUP`, `INT`, `QUIT`, `PIPE` and `TERM`.
   A signal's action runs once the current command has finished; `EXIT` runs
   when the shell or a subshell leaves, also after a signal. A subshell starts
@@ -153,8 +155,9 @@ that run inside the shell stay serial.
 
 - Core tools are Dolly's own ([`Dollyfile-system-build`](../Dollyfile-system-build)),
   compiled with plain `cc` in `system-build` before Make, whose recipes need `cp`:
-  `cat [-n]`, `cp`, `mv`, `ls [--color]`, `echo`, `touch`, `pwd`, `mkdir`, `rm`,
-  `test`/`[` with `!`, `-a`, `-o`, parentheses and `-nt`, `-ot`, `-ef`, `foreground`, `help`, `clear`,
+  `cat [-nu]`, which writes what it reads at once, `cp`, `mv`, `ls [--color]`, `echo`,
+  `touch`, `pwd`, `mkdir`, `rm`, `test`/`[` (up to four arguments decided by
+  their number, as POSIX says), `foreground`, `help`, `clear`,
   `stat`, `file`.
   There are no permission bits: `test -x` means a regular file or a directory,
   `-r`/`-w` that the path exists. `ls -l` is the POSIX long format: the fixed modes `stat`

@@ -94,7 +94,7 @@ EXPORTS TOOL dollyfile
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 
-SOURCE /v0.1.4/dist/static/default/slop.c 820f7f572abb47838901cde49c2f921a40a151cffe9d691ac362f3ebcb72139a /tmp/slop/slop.c
+SOURCE /v0.1.4/dist/static/default/slop.c 357309affa62e24a4314ff69031dc8f624537ce30714e78b1d9ade378a78ed0c /tmp/slop/slop.c
 RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/slop/slop.c -o /bin/slop
 
 EXPORTS TOOL slop
@@ -112,10 +112,10 @@ SOURCE /v0.1.4/dist/static/default/commands/pwd.c 372eeebb7cb645b4ca6e28b77fecd3
 SOURCE /v0.1.4/dist/static/default/commands/cd.c 36d4c7708b332be6df90105bbc61cf8eb70556e3ed0f9f24756016eebec3d622 /tmp/core-tools/cd.c
 SOURCE /v0.1.4/dist/static/default/commands/cat.c 43eabd1e83f6c56cd5b5a7d8e5f9621e214c35e9407dea6bbce34120cb9da723 /tmp/core-tools/cat.c
 SOURCE /v0.1.4/dist/static/default/commands/echo.c 85e649c88b7d75cf7ebbac50bf8015a548c79affcc79f955d51bd02d75833cde /tmp/core-tools/echo.c
-SOURCE /v0.1.4/dist/static/default/commands/touch.c d80d0b12c21d4da8a238ca736b690452b94455a5e3e3bced7fc9ba20e44be286 /tmp/core-tools/touch.c
+SOURCE /v0.1.4/dist/static/default/commands/touch.c 1eb3737abe39d9efe0c66d9e84a7bf6445fa2c07c12b46ad107cd799f2f0747c /tmp/core-tools/touch.c
 SOURCE /v0.1.4/dist/static/default/commands/clear.c f2e6915b3fe34393087ec7d04e61d090c0d62e551b86b36e8c3ff6bfff72598d /tmp/core-tools/clear.c
-SOURCE /v0.1.4/dist/static/default/commands/ls.c 7c510abd3849e7d7966f5fe59378a096459b5591749ce61ae488b7436a48326e /tmp/core-tools/ls.c
-SOURCE /v0.1.4/dist/static/default/commands/stat.c 1d39b289d8b2b4680e5c8ae8ec63bd183ba62864f5fd9bc0f180d1d97a64ef21 /tmp/core-tools/stat.c
+SOURCE /v0.1.4/dist/static/default/commands/ls.c 005f81497348620c90b9c385b624e342c010d80f6ec2a233f0dd9c5434a4cbc8 /tmp/core-tools/ls.c
+SOURCE /v0.1.4/dist/static/default/commands/stat.c 81f883023fcb061f44bc261c818bf0d569af37b6a6dc13cf69b1e5d086b08856 /tmp/core-tools/stat.c
 SOURCE /v0.1.4/dist/static/default/commands/file.c ce908d435b9b29f79085e3fc8ddc36e52a9012e2a5e5da3c707b236d3b85f85e /tmp/core-tools/file.c
 SOURCE /v0.1.4/dist/static/default/commands/test.c 7da0427461396c06ac8d11e62250f5b0d20a110aa67b6b7dbfe94967bb6290ba /tmp/core-tools/test.c
 SOURCE /v0.1.4/dist/static/default/commands/bracket.c 5dadee574cc128d583fe337e68b271cebbb3220dcd7e307fac08d4b5e9d73e4c /tmp/core-tools/bracket.c

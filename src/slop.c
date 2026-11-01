@@ -16,6 +16,7 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+#include <wchar.h>
 
 #include <dolly/runtime.h>
 
@@ -3035,7 +3036,18 @@ static int builtin(Shell *shell, int argc, char **argv) {
   }
   if (strcmp(argv[0], "cd") == 0) {
     int argument = 1;
-    if (argument < argc && strcmp(argv[argument], "--") == 0) argument++;
+    // PWD is always the directory's real path, so -P is what cd does; -e
+    // adds nothing to it. -L would need the path as typed.
+    for (; argument < argc && argv[argument][0] == '-' && argv[argument][1] != '\0'; argument++) {
+      if (strcmp(argv[argument], "--") == 0) {
+        argument++;
+        break;
+      }
+      if (strspn(argv[argument] + 1, "Pe") != strlen(argv[argument] + 1)) {
+        fprintf(stderr, "slop: cd: %s: only -P is supported: PWD is always the real path\n", argv[argument]);
+        return 2;
+      }
+    }
     if (argc - argument > 1) {
       fputs("slop: cd: expected at most one directory\n", stderr);
       return 2;
@@ -5156,15 +5168,50 @@ static void editor_write_bytes(const unsigned char *bytes, size_t length) {
   fflush(stdout);
 }
 
+// The line is UTF-8: a character is a lead byte and its continuation bytes,
+// and the terminal gives it the columns wcwidth says (two for a wide one).
+static int continuation_byte(char byte) { return ((unsigned char)byte & 0xc0) == 0x80; }
+
+static size_t previous_character(const char *line, size_t cursor) {
+  while (cursor != 0 && continuation_byte(line[--cursor])) {}
+  return cursor;
+}
+
+static size_t next_character(const char *line, size_t length, size_t cursor) {
+  if (cursor < length) cursor++;
+  while (cursor < length && continuation_byte(line[cursor])) cursor++;
+  return cursor;
+}
+
+static size_t text_columns(const char *text, size_t length) {
+  size_t columns = 0;
+  for (size_t index = 0; index < length;) {
+    const unsigned char lead = (unsigned char)text[index];
+    const size_t size = lead >= 0xf0 ? 4 : lead >= 0xe0 ? 3 : lead >= 0xc0 ? 2 : 1;
+    wchar_t character = size == 1 ? lead : lead & (0x7f >> size);
+    for (size_t part = 1; part < size && index + part < length && continuation_byte(text[index + part]); part++)
+      character = (wchar_t)(character << 6 | ((unsigned char)text[index + part] & 0x3f));
+    const int width = wcwidth(character);
+    columns += width < 0 ? 1 : (size_t)width;
+    index = next_character(text, length, index);
+  }
+  return columns;
+}
+
+// Moves the terminal's cursor over the columns of `length` bytes of text.
+static void move_cursor(const char *text, size_t length, char direction) {
+  const size_t columns = text_columns(text, length);
+  if (columns == 0) return;
+  char movement[64];
+  snprintf(movement, sizeof(movement), "\033[%zu%c", columns, direction);
+  editor_write(movement);
+}
+
 static void redraw_line(const char *line, size_t length, size_t cursor) {
   editor_write("\r\033[2K");
   print_prompt();
   editor_write_bytes((const unsigned char *)line, length);
-  if (cursor < length) {
-    char movement[64];
-    snprintf(movement, sizeof(movement), "\033[%zuD", length - cursor);
-    editor_write(movement);
-  }
+  move_cursor(line + cursor, length - cursor, 'D');
 }
 
 static void editor_replace(char *line, size_t *length, size_t *cursor,
@@ -5213,11 +5260,7 @@ static void show_completions(const Completions *completions,
   editor_write("\r\n");
   print_prompt();
   editor_write_bytes((const unsigned char *)line, length);
-  if (cursor < length) {
-    char movement[64];
-    snprintf(movement, sizeof(movement), "\033[%zuD", length - cursor);
-    editor_write(movement);
-  }
+  move_cursor(line + cursor, length - cursor, 'D');
 }
 
 static void complete_line(char *line, size_t *length, size_t *cursor) {
@@ -5339,17 +5382,15 @@ static enum editor_result read_interactive_line(char *line, History *history) {
       continue;
     }
     if (key == KEY_RIGHT || byte == 0x06) {
-      if (cursor < length) {
-        cursor++;
-        editor_write("\033[C");
-      }
+      const size_t next = next_character(line, length, cursor);
+      move_cursor(line + cursor, next - cursor, 'C');
+      cursor = next;
       continue;
     }
     if (key == KEY_LEFT || byte == 0x02) {
-      if (cursor != 0) {
-        cursor--;
-        editor_write("\033[D");
-      }
+      const size_t previous = previous_character(line, cursor);
+      move_cursor(line + previous, cursor - previous, 'D');
+      cursor = previous;
       continue;
     }
     if (key == KEY_DELETE || byte == 0x04) {
@@ -5358,8 +5399,9 @@ static enum editor_result read_interactive_line(char *line, History *history) {
         return EDITOR_EOF;
       }
       if (cursor < length) {
-        memmove(line + cursor, line + cursor + 1, length - cursor);
-        length--;
+        const size_t next = next_character(line, length, cursor);
+        memmove(line + cursor, line + next, length - next + 1);
+        length -= next - cursor;
         redraw_line(line, length, cursor);
       }
       continue;
@@ -5431,9 +5473,10 @@ static enum editor_result read_interactive_line(char *line, History *history) {
     }
     if (byte == 0x7f || byte == '\b') {
       if (cursor != 0) {
-        memmove(line + cursor - 1, line + cursor, length - cursor + 1);
-        cursor--;
-        length--;
+        const size_t previous = previous_character(line, cursor);
+        memmove(line + previous, line + cursor, length - cursor + 1);
+        length -= cursor - previous;
+        cursor = previous;
         redraw_line(line, length, cursor);
       }
       free(search); search = NULL;

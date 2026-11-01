@@ -38,15 +38,26 @@ static void formatted(const char *format, const char *path, const struct stat *m
 
 int main(int argc, char **argv) {
   const char *format = NULL;
+  int follow = 0;
   int first = 1;
-  if (first < argc && strcmp(argv[first], "-c") == 0) {
-    if (++first == argc) { fputs("stat: -c requires a format\n", stderr); return 2; }
-    format = argv[first++];
-  } else if (first < argc && strncmp(argv[first], "--format=", 9) == 0) {
-    format = argv[first++] + 9;
-  } else if (first < argc && strcmp(argv[first], "--help") == 0) {
-    fputs("usage: stat [-c FORMAT] FILE ...\nformats: %n name, %s size, %F type, %Y mtime, %a octal mode, %A mode, %% percent\n", stdout);
-    return 0;
+  for (; first < argc && argv[first][0] == '-' && argv[first][1] != '\0'; first++) {
+    const char *option = argv[first];
+    if (strcmp(option, "--") == 0) {
+      first++;
+      break;
+    }
+    if (strcmp(option, "--help") == 0) {
+      fputs("usage: stat [-L] [-c FORMAT] FILE ...\n-L describes the file a link names\n"
+            "formats: %n name, %s size, %F type, %Y mtime, %a octal mode, %A mode, %% percent\n", stdout);
+      return 0;
+    }
+    if (strcmp(option, "-L") == 0) follow = 1;
+    else if (strncmp(option, "--format=", 9) == 0) format = option + 9;
+    else if (strcmp(option, "-c") == 0 && first + 1 < argc) format = argv[++first];
+    else {
+      fprintf(stderr, "stat: unsupported option: %s\n", option);
+      return 2;
+    }
   }
   for (const char *cursor = format; cursor != NULL && (cursor = strchr(cursor, '%')) != NULL; cursor += 2) {
     if (cursor[1] == '\0' || strchr("%nsFYaA", cursor[1]) == NULL) {
@@ -58,7 +69,7 @@ int main(int argc, char **argv) {
   int status = 0;
   for (; first < argc; first++) {
     struct stat metadata;
-    if (lstat(argv[first], &metadata) != 0) {
+    if ((follow ? stat(argv[first], &metadata) : lstat(argv[first], &metadata)) != 0) {
       fprintf(stderr, "stat: %s: %s\n", argv[first], strerror(errno));
       status = 1;
       continue;
