@@ -62,7 +62,7 @@ function popup({ source, theme, font, origin }) {
     "details summary form fieldset legend label input button select option optgroup textarea output progress meter")
     .split(" "));
   // Shown without the element: an unknown element's text stays, these go with theirs.
-  const dropped = new Set("head title script style template noscript iframe object embed video audio canvas datalist".split(" "));
+  const dropped = new Set("title script style template noscript iframe object embed video audio canvas datalist".split(" "));
   const attributes = {
     "*": ["id", "title", "lang", "dir"],
     ol: ["start", "reversed", "type"], li: ["value"], col: ["span"], colgroup: ["span"],

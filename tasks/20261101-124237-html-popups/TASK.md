@@ -17,10 +17,9 @@ rust-build); the same test, its base swapped for a Pi the page builds from `syst
 Chromium (23.6 s) and Firefox (30.1 s), and again after each later change. Beside them,
 with the module on every `default` page (the site gives an image that declares `nena@0`
 every module): core, host-modules, nena, embedding, boundary, upload, indicators, terminal
-and shell pass in both browsers (nena
-once `libdolly-audio` and `libdolly-microphone` were built here). Left: run the committed Pi
-test on `pi-runtime` and `test/npm-browser.mjs` on `pi-minimal` once the integrator's round
-(`integrate/2026-11-02`) has built them.
+and shell pass in both browsers (nena once `libdolly-audio` and `libdolly-microphone` were
+built here). Left: run the committed Pi test on `pi-runtime` and `test/npm-browser.mjs` on
+`pi-minimal` once the integrator's round (`integrate/2026-11-02`) has built them.
 
 Owner (2026-11-01, 21:45 JST):
 
