@@ -68,12 +68,7 @@ rm -f \
   "${project_dir}/dist/dolly-process-abi.mjs" \
   "${project_dir}/dist/dolly-build-id.mjs" \
   "${project_dir}/dist/dolly-image-build-id.mjs" \
-  "${project_dir}/dist/IosevkaTerm-SemiBold.woff2" \
-  "${project_dir}/dist/ghostty-web.js" \
-  "${project_dir}/dist/process-check.wasm" \
-  "${project_dir}/dist/process-fs-check.wasm" \
-  "${project_dir}/dist/process-pipe-check.wasm" \
-  "${project_dir}/dist/slop-process.wasm"
+  "${project_dir}/dist/IosevkaTerm-SemiBold.woff2"
 
 # Every WAT contract: the core ones in abi/ and those host module manifests name.
 mapfile -t contracts < <(printf '%s\n' abi/dolly-kernel-plugin-0.wat abi/dolly-host-0.wat \

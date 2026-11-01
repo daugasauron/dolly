@@ -1843,6 +1843,12 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       if (request.whence > DOLLY_PROCESS_SEEK_END) return -EINVAL;
       off_t offset = lseek(descriptor, (off_t)request.offset, whence[request.whence]);
       if (offset < 0) return -errno;
+      /* A directory set to a position (rewinddir, seekdir) is read on from
+       * there, not from the entries the kernel's reader holds. */
+      if (request.whence == DOLLY_PROCESS_SEEK_SET && process->directories[request.descriptor] != NULL) {
+        closedir(process->directories[request.descriptor]);
+        process->directories[request.descriptor] = NULL;
+      }
       dolly_process_fd_seek_response response = {(uint64_t)offset};
       return respond(&response, sizeof(response));
     }
@@ -1850,7 +1856,8 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       uint32_t guest;
       int descriptor = decode_fd_request(process, request_size, &guest);
       if (descriptor == 0) descriptor = descriptor_for(process, guest);
-      if (descriptor < 0) return descriptor;
+      /* A pipe or a socket has nothing to sync or truncate (POSIX: EINVAL). */
+      if (descriptor < 0) return descriptor == -ESPIPE ? -EINVAL : descriptor;
       return fsync(descriptor) == 0 ? 0 : -errno;
     }
     case DOLLY_PROCESS_FD_TRUNCATE: {
@@ -1859,7 +1866,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       memcpy(&request, process_mailbox, sizeof(request));
       if (request.reserved != 0 || request.size > INT64_MAX) return -EINVAL;
       int descriptor = descriptor_for(process, request.descriptor);
-      if (descriptor < 0) return descriptor;
+      if (descriptor < 0) return descriptor == -ESPIPE ? -EINVAL : descriptor;
       return ftruncate(descriptor, (off_t)request.size) == 0 ? 0 : -errno;
     }
     case DOLLY_PROCESS_FD_STAT_FILESYSTEM: {
@@ -2706,11 +2713,10 @@ int dolly_process_spawn_flags(int pid) {
 
 int dolly_process_signal(int pid, int signal_number) {
   dolly_kernel_process *process = find_process(pid);
-  if (process == NULL || process->state == DOLLY_KERNEL_PROCESS_EXITED) {
-    return -ESRCH;
-  }
+  if (process == NULL) return -ESRCH;
   if (!supported_signal((uint32_t)signal_number)) return -ENOTSUP;
-  if (signal_number == 0) return 0;
+  /* One that has exited is there until it is waited for, and takes nothing. */
+  if (signal_number == 0 || process->state == DOLLY_KERNEL_PROCESS_EXITED) return 0;
   const uint32_t signal = 1u << signal_number;
   const dolly_process_exec_state *start = &process->start_signals;
   if (signal_number == DOLLY_PROCESS_SIGKILL) {

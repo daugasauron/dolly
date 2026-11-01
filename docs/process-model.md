@@ -293,7 +293,8 @@ nothing and declares nothing: any program built for Dolly runs on one.
   descendants; `kill(-1)` fails `ENOTSUP`.
 - `waitpid` accepts a child PID, `-1` or `0`, with `WNOHANG`, `WUNTRACED` and
   `WCONTINUED`: no child ever stops or continues. Wait records distinguish signal termination from exit:
-  `exit(130)` is not SIGINT.
+  `exit(130)` is not SIGINT. A child that has exited is there until it is
+  waited for: `kill` of it succeeds and does nothing.
 - Timed spawns carry an absolute monotonic deadline at most one day away; the
   supervisor ends the child with status 124 even inside a pure CPU loop.
 - `SPAWN_FOREGROUND` and `SPAWN_INTERACTIVE` are explicit roles. Ctrl+C with

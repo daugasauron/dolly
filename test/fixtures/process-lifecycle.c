@@ -279,6 +279,9 @@ int main(int argc, char **argv) {
   CHECK(kill(pid, 0) == -1 && errno == ESRCH);
 
   const int exited = child(argv[0], "exit130");
+  // Until it is waited for, a child that has exited is there to signal.
+  usleep(300000);
+  CHECK(kill(exited, 0) == 0 && kill(exited, SIGTERM) == 0);
   CHECK(waitpid(exited, &status, 0) == exited);
   CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 130);
   const int any = child(argv[0], "exit130");

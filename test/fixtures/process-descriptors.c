@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
@@ -49,6 +50,8 @@ static void nonblocking_pipes(void) {
   CHECK(read(pipes[0], bytes, 1) == -1 && errno == EAGAIN);
   CHECK(read(pipes[0], bytes, 0) == 0);
   CHECK(write(pipes[1], "x", 1) == 1);
+  // A pipe has nothing to sync or truncate.
+  CHECK(fsync(pipes[1]) == -1 && errno == EINVAL && ftruncate(pipes[1], 0) == -1 && errno == EINVAL);
   struct iovec vectors[] = {{bytes, 1}, {bytes + 1, 1}};
   CHECK(readv(pipes[0], vectors, 2) == 1 && bytes[0] == 'x');
   size_t capacity = 0;
@@ -361,6 +364,41 @@ static void spawning(const char *path) {
 }
 #endif
 
+#ifdef __dolly__
+static int directory_entries(int fd, size_t capacity) {
+  char records[4096];
+  int count = 0;
+  for (ssize_t size; (size = getdents(fd, (struct dirent *)records, capacity)) > 0;) {
+    for (ssize_t offset = 0; offset < size; offset += ((struct dirent *)(records + offset))->d_reclen) ++count;
+  }
+  return count;
+}
+
+/* A directory read a few entries at a time is read from where lseek puts
+ * its descriptor: from the start again, every entry once more. */
+static void directory_positions(void) {
+  char directory[] = "/tmp/process-descriptors-XXXXXX", path[64];
+  CHECK(mkdtemp(directory) != NULL);
+  for (int index = 0; index < 10; ++index) {
+    snprintf(path, sizeof(path), "%s/%d", directory, index);
+    const int file = open(path, O_WRONLY | O_CREAT, 0644);
+    CHECK(file >= 0 && close(file) == 0);
+  }
+  const int fd = open(directory, O_RDONLY | O_DIRECTORY);
+  CHECK(fd >= 0);
+  const int entries = directory_entries(fd, sizeof(struct dirent) * 3);
+  CHECK(entries == 12 && lseek(fd, 0, SEEK_SET) == 0);
+  char records[sizeof(struct dirent) * 3];
+  CHECK(getdents(fd, (struct dirent *)records, sizeof(records)) > 0 && lseek(fd, 0, SEEK_SET) == 0);
+  CHECK(directory_entries(fd, sizeof(records)) == entries && close(fd) == 0);
+  for (int index = 0; index < 10; ++index) {
+    snprintf(path, sizeof(path), "%s/%d", directory, index);
+    CHECK(unlink(path) == 0);
+  }
+  CHECK(rmdir(directory) == 0);
+}
+#endif
+
 int main(int argc, char **argv) {
   if (argc > 1) return child(argc, argv);
   descriptor_flags();
@@ -369,6 +407,7 @@ int main(int argc, char **argv) {
   posix_spawning(argv[0]);
 #ifdef __dolly__
   spawning(argv[0]);
+  directory_positions();
 #endif
   puts("PROCESS-DESCRIPTORS-OK");
   return 0;
