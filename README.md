@@ -222,7 +222,7 @@ npx dolly-build Dollyfile-my-pi my-pi
 
 In `index.html`, import `images`, `image` and `modules` from `./my-pi/index.mjs`
 instead of the package's. Pi starts with both, under `[Skills]` and
-`[Extensions]`. A rebuild writes a new directory: remove `my-pi` first.
+`[Extensions]`. After a change, the same command builds `my-pi` again.
 `--browser firefox` builds in Firefox, after `npx playwright-core install firefox`.
 
 [An agent in place of a web frontend](docs/agent-frontend.md) goes on from here:

@@ -4,7 +4,7 @@
 // boot() loads and a host serves (docs/embedding.md, "Your own image").
 //   npx dolly-build from IMAGE NAME     prints a recipe for NAME FROM IMAGE
 //   npx dolly-build Dollyfile-NAME OUT [--browser chrome|chromium|firefox]
-// OUT is new: the image's catalog, metadata and packs, the recipes it was built
+// OUT holds the image's catalog, metadata and packs, the recipes it was built
 // from and an index.mjs, as an image package holds. It runs in the directory whose
 // node_modules/@daugasauron/ holds the runtime, the image packages and the host
 // module packages (pnpm links there what it keeps elsewhere); the runtime runs
@@ -28,8 +28,12 @@ import { imageFileName, inspectDollyfile } from "../src/dollyfile-view.mjs";
 import { imageInputs } from "../src/image-inputs.mjs";
 import { siteReference, sitePath } from "../src/static-asset.mjs";
 
+function fail(message) {
+  console.error(`dolly-build: ${message}`);
+  process.exit(1);
+}
 const scope = resolve("node_modules/@daugasauron");
-if (!existsSync(join(scope, "dolly"))) throw new Error("run dolly-build where node_modules/@daugasauron/dolly is installed");
+if (!existsSync(join(scope, "dolly"))) fail("run it where node_modules/@daugasauron/dolly is installed");
 const load = path => import(pathToFileURL(path).href);
 const { positionals, values: { browser: browserName } } = parseArgs({ allowPositionals: true,
   options: { browser: { type: "string", default: "chrome" } } });
@@ -38,17 +42,16 @@ const browsers = {
   chromium: () => chromium.launch({ headless: true }),
   firefox: () => firefox.launch({ headless: true }),
 };
-const usage = "usage: dolly-build from IMAGE NAME | dolly-build Dollyfile-NAME OUT [--browser chrome|chromium|firefox]";
+const usage = "usage: dolly-build from IMAGE NAME | Dollyfile-NAME OUT [--browser chrome|chromium|firefox]";
 if (!browsers[browserName] || positionals.length !== 3 && positionals.length !== 2 ||
-    (positionals.length === 3) !== (positionals[0] === "from")) throw new Error(usage);
+    (positionals.length === 3) !== (positionals[0] === "from")) fail(usage);
 
-// The image packages installed beside this one, each with its own image and its catalog.
+// The installed image packages, each with its own image and its catalog.
 const packages = await Promise.all((await readdir(scope)).filter(name => name.startsWith("dolly-image-"))
   .map(async name => ({ directory: await realpath(join(scope, name)), image: name.slice("dolly-image-".length),
     ...await load(join(scope, name, "dist/dolly-images.mjs")) })));
 const installed = image => packages.find(candidate => candidate.image === image)
   ?? fail(`${image}: no image package holds it; install @daugasauron/dolly-image-${image}`);
-function fail(message) { throw new Error(message); }
 
 if (positionals[0] === "from") {
   const [, base, name] = positionals;
@@ -68,7 +71,10 @@ const filename = basename(recipePath), source = await readFile(recipePath, "utf8
 const parsed = inspectDollyfile(source, filename), image = parsed.image;
 if (imageFileName(filename) !== image) fail(`${filename}: name it Dollyfile-${image}`);
 if (!parsed.from) fail(`${filename}: FROM an installed image`);
-if (existsSync(outArgument)) fail(`${outArgument} exists: remove it first`);
+// A rebuild replaces the image directory it wrote before, and nothing else.
+if (existsSync(outArgument) && !existsSync(join(outArgument, "dist/dolly-images.mjs"))) {
+  fail(`${outArgument} exists and is not an image directory`);
+}
 const base = packages.find(candidate => candidate.DOLLY_IMAGES.some(definition => definition.image === candidate.image &&
   siteReference(definition.dollyfile) === parsed.from.location && definition.sha256 === parsed.from.sha256))
   ?? fail(`${filename}: no installed image package is its FROM at that pin (dolly-build from IMAGE prints the row)`);
@@ -150,6 +156,7 @@ try {
 
   await writeFile(join(staging, "index.mjs"), indexSource(image,
     declared.map(name => relative(outArgument, join(scope, modules.get(name))).split(sep).join("/"))));
+  await rm(outArgument, { recursive: true, force: true });
   await rename(staging, outArgument);
 } catch (error) {
   await rm(staging, { recursive: true, force: true });

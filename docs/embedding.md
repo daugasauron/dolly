@@ -107,7 +107,8 @@ npx dolly-build Dollyfile-my-pi my-pi
   `ENTRY`, so the recipe repeats those. Add rows before `ENTRY`: `FILE` with a
   body (indented four spaces) and `SLOP` with the base's tools. A recipe is at
   most 128 KiB.
-- `dolly-build Dollyfile-NAME OUT` builds it into the new directory `OUT`:
+- `dolly-build Dollyfile-NAME OUT` builds it into `OUT`, replacing the image
+  directory a build wrote there before:
   `--browser chrome` (the default: your Chrome), `chromium` or `firefox`
   (Playwright's, after `npx playwright-core install chromium` or `firefox`).
   Both run where the packages are installed: the directory whose

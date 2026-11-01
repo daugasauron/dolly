@@ -29,8 +29,8 @@ npx dolly-build Dollyfile-my-pi my-pi                      # builds in headless 
 
 Then `index.html` imports `images`, `image` and `modules` from `./my-pi/index.mjs` instead
 of the package's, and the same `serve.mjs` hosts it: Pi starts with the extension and the
-skill in the image. `--browser firefox` builds in Firefox instead; a rebuild needs `my-pi`
-removed first.
+skill in the image. After a change, the same build command replaces `my-pi`;
+`--browser firefox` builds in Firefox instead.
 
 ## Today
 

@@ -186,8 +186,8 @@ try {
       await bare.waitForFunction(() => document.documentElement.dataset.dollyStatus === "failed", null, { timeout: 60_000 });
       assert.match(await bare.locator("#bootstrap-log").textContent(), /cross-origin isolation/);
 
-      // Its own image, built in this browser: Pi lists the skill and the extension, and runs its command.
-      await rm(join(piApp, "my-pi"), { recursive: true, force: true });
+      // Its own image, built in this browser (after the first, over the last one's): Pi lists the
+      // skill and the extension, and runs its command.
       await npm(piApp, `${buildCommand.trim()} --browser ${name === "chromium" ? "chrome" : name}`);
       const mine = await browser.newPage();
       await booted(mine, `${piPage}my-pi.html`, /Bash is not installed/);
