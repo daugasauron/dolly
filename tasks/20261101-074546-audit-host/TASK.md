@@ -16,13 +16,15 @@ its shapes consistent with the others; does a path grant authority it should not
 quota; duplication with another module or the page core; dead code, workarounds, special
 cases; do its tests prove denied access and behaviour rather than spelling.
 
-## State (2026-11-01 20:40 JST)
+## State (2026-11-01 22:00 JST)
 
 All 18 modules read (page and Worker sides, kernel C, clients, headers, contracts). Fixes 1
 to 10 committed, each verified in Chromium and Firefox. Fixes 7 and 8 are seed changes: the
 catalog needs a round (this tree rebuilt only the images its tests open, so its
-`dist/dolly-images.mjs` lists those). P2 and P4 are prototyped and measured as the branch's
-two last commits, subjects `Proposal:`; P1 and P3 wait for the owner as described. Left open for the
+`dist/dolly-images.mjs` lists those). The proposals are on branches of their own, never
+on this one: P1 on `proposal/leased-device`, P2 on `proposal/host-mailbox-constants`, P4
+on `proposal/snapshot-no-session-name`, each a `Proposal:` commit on fix 10; P3 waits
+for the owner as described. Left open for the
 owner's word on the proposals; close it when they are decided.
 
 ## Findings
@@ -181,10 +183,18 @@ Described, not changed (each moot or another workstream's, as it says):
   `static inline dolly_device_call()` in a runtime header replaces the clients' `call()`; the
   four WATs name the protocol instead of restating it. Every client's digest changes: a
   catalog round. It does not break "a device module imports only its own files": the
-  protocol would be the runtime's, as `<dolly/process.h>` and `leaseBridge` already are,
-  and every device module depends on `runtime@0`. Not prototyped: where the shared WAT lives
-  and whether the GPU Worker, which reads its packets from memory itself, goes through the
-  bridge are the owner's to choose first.
+  protocol is the runtime's, as `<dolly/process.h>` and `leaseBridge` already are, and
+  every device module depends on `runtime@0`. Prototyped on `proposal/leased-device`
+  (one `Proposal:` commit on fix 10), choosing for the owner: the header is
+  `dolly_device_header` in `runtime.h`, not `process.h`, so the process stamp and the seed
+  compiler stay (in `process.h` it would be stamped, at the cost of a seed-compiler restamp
+  round); one `static inline dolly_device_request()` beside it fills it for the four
+  clients; the reply slots and lease rules are said once in `dolly-supervisor-0.wat`; the
+  bridge checks the whole header and the providers parse only bodies; the GPU Worker, which
+  reads its packets from memory itself, keeps its parse. It does not make the code smaller:
+  157 lines in and 161 out outside the tests, since the one statement of the protocol costs
+  what the restatements saved; its worth is one place to change it. Measured on its branch:
+  see its commit.
 - **P2. Mailbox values in the WAT, as `touch@0` has them.** `input@0`'s record types, modifier
   bits, composing flag and lease flags and `display@0`'s copy flags, graphics flag and cursor
   styles are enums in `input.h` and `display.h` and typed again in JavaScript
@@ -193,8 +203,7 @@ Described, not changed (each moot or another workstream's, as it says):
   the WAT and are asserted. `touch@0`'s phases are WAT globals. Smallest diff: those 40 values
   as globals in `dolly-input-0.wat` and `dolly-display-0.wat`, the enums defined from
   `*-abi.h`, the JavaScript reading `A.*`. Seed change (both headers), a catalog round; no
-  behaviour changes. Prototyped as the branch's next to last commit (`Proposal:`, merge the
-  branch without it unless the owner takes it): the two WATs gain 57 lines, the two headers
+  behaviour changes. Prototyped on `proposal/host-mailbox-constants`: the two WATs gain 57 lines, the two headers
   lose 84 and the JavaScript gains 9; the enum type names go (no program names one). On top
   of fix 7 the 28 images rebuilt in 1,270 s, Ghostty's display library among them, and
   terminal, display, display-cursor, touch, indicators, host-modules, core, shell, upload,
@@ -202,7 +211,7 @@ Described, not changed (each moot or another workstream's, as it says):
   stack, dso, threads, audio, microphone, gpu-indicator and host-compute. Moved on top of
   fixes 8 and 9 (its WAT now says a frame is opaque), with P4 after it: the 29 images
   rebuilt in 2,007 s and those 26 suites, embedded-keys, custom-session, session-offline and
-  snapshot-stream among them, pass in both browsers at the branch's tip.
+  snapshot-stream among them, pass in both browsers with P2 and P4 on top of fix 9.
 - **P3. A process-Worker module's bundle by its manifest.** `dso.mjs` and `stack.mjs` each
   fetch `dist/dolly-process-NAME.mjs` with the same options and register it; the manifest's
   `processWorker` field names it already. The runtime could fetch it for every enabled module
@@ -212,7 +221,7 @@ Described, not changed (each moot or another workstream's, as it says):
   into a 128-byte kernel buffer and its length into word 3 of the mailbox, and the kernel
   validates it a second time and drops it: what it fed, a marker file in `/home/dolly`, went
   in `5afba99c` because nothing read it. The page keys its saves by the name it validated
-  itself. Prototyped as the branch's last commit (`Proposal:`): the buffer, its export, the
+  itself. Prototyped on `proposal/snapshot-no-session-name`: the buffer, its export, the
   word and the kernel's check go, 41 lines in, 83 out; not an image input (image inputs
   unchanged), and custom-session, session-offline, snapshot-stream, nena, indicators and
   boundary pass in Chromium and Firefox.
@@ -239,6 +248,9 @@ Described, not changed (each moot or another workstream's, as it says):
   test's own fixture had presented a translucent gray for weeks, and no test looked at the
   screen, only at `__dolly.frame()`, the presenter's copy. A test of what a display shows
   must read the screen (a screenshot of the canvas), not the bytes the page was given.
+- Read a commit back before trusting it. A `git add` with one path that no longer existed
+  (the test file `git mv` had renamed) added nothing, its error hidden by `2>/dev/null`,
+  and the commit held only the rename; `git show --stat` after every commit caught it.
 - The harness: this tree's `dist/` came from `work/x11fix`, two demo recipes ahead of
   `main`, so `npm run routes` refused until those two recipes matched; a docs edit
   repins twelve recipes (the docs package and the pi family that installs it), and the
