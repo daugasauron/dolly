@@ -11,10 +11,10 @@ REQUIRES HOST threads@0
 # whose page installs three device host modules: display, input, and download for
 # the download tool of Pi's Dolly extension (Janis links its client).
 INSTALL /v0.1.4/Dollyfile-core 1e34055dccc3574b0a0d301dfd45674bb10c108dc0b4ae0cde5e9bb0a9f38aa9
-INSTALL /v0.1.4/Dollyfile-posix fdef01c7b79e782293e9af48bf7db1efe776b0584f8cedc987249711cf04f92e
+INSTALL /v0.1.4/Dollyfile-posix 77a60ab6cfb4d966d8feaf735b83a0fc7a6b28d848f52505230ef3e2141c3c7b
 INSTALL /v0.1.4/Dollyfile-display 76357ef23475ef0081f4023794f862bf56794b8957311e9eee29085854a6a2fb
 INSTALL /v0.1.4/Dollyfile-curl c5baefb7ee08a5f0680728ad7ea6fd83c4e119d8c03244c831996fdc03b33670
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly d03382ed4f6f66d0383f92008c0457f6b880afc0f6299c59f9d0ff1130881def
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 3becd2af349600417eb11873ac2cd90887d92a5f3658b81344acd2c4d63ec445
 REQUIRES TOOL foreground
 REQUIRES TOOL printf
 REQUIRES TOOL pi
