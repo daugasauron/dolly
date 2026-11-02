@@ -41,7 +41,12 @@ This steers the collectors' heuristics rather than freeing anything, the one lev
 The deterministic design is for the owner: the runtime Worker holding no reference to a process's
 memory at all, the copies between it and the kernel's done in the process's own Worker, ended with
 it (the gate's job today), at the price of kernel memory in process Workers, which the security
-perimeter allows (in-Wasm compromise is assumed) but the design has kept out.
+perimeter allows (in-Wasm compromise is assumed) but the design has kept out. Read on 2026-11-02:
+the gate (`abi/dolly-process-gate-0.wat`) is the runtime Worker's only access to a process's
+bytes besides its size, and every call goes through the kernel's one mailbox. Done in the process
+Worker against that mailbox, each call would need two more hand-offs between the Workers; with a
+mailbox of each process's own in kernel memory, written before the call is posted and read after
+its answer, it needs none, but that changes the supervisor contract (`abi/dolly-supervisor-0.wat`).
 
 Done-when: a process's memory is released when it ends, measured with that program in Chromium and
 Firefox, without steering a collector. A pool handing dead memories to the next process would not
