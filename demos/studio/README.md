@@ -14,7 +14,7 @@ highlighted and lint errors refresh on edit; `:DollyLint` checks at once.
 
 Key files: [`Dollyfile-dollyfile-studio`](Dollyfile-dollyfile-studio), [`lint.mjs`](lint.mjs),
 [`build.mjs`](build.mjs), the Pi skill in [`skills/dollyfiles/`](skills/dollyfiles/SKILL.md),
-and [`nvim/`](nvim/). The image also carries `docs/dollyfile.md` and
-`docs/image-build-service.md` for the agent.
+and [`nvim/`](nvim/). The agent reads `docs/dollyfile.md` from the `dolly-docs`
+package its base installs, at `/usr/share/doc/dolly/docs/`.
 
 Test: `npm run test:demos -- studio` ([`test/`](test/)).

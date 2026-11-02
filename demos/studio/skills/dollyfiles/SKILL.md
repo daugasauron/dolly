@@ -5,7 +5,7 @@ description: Write, lint and build Dollyfile (DOLLY 7) recipes for custom Dolly 
 
 # Dollyfiles in Studio
 
-`/usr/share/dollyfile-studio/dollyfile.md` is the language reference; read it
+`/usr/share/doc/dolly/docs/dollyfile.md` is the language reference; read it
 before using a declaration you have not seen in an example. The `dolly` skill
 describes the machine itself (network, shell, compilers).
 
