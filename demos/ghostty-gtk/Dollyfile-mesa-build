@@ -3,9 +3,7 @@ TOOLCHAIN mesa-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
-REQUIRES HOST download@0
 REQUIRES HOST http@0
-REQUIRES HOST upload@0
 REQUIRES HOST dso@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
@@ -14,7 +12,7 @@ REQUIRES HOST threads@0
 # softpipe in the program itself (mesa-dolly.patch; its parsers are made on the
 # host, prepare-mesa.sh), and libepoxy taking that GLX from the program
 # (epoxy-dolly.patch). Static libraries in /usr/lib.
-FROM /v0.1.4/demos/gtk/Dollyfile-gtk-build 6ed138a04b824cfaa2a72e333a96950c33ffd34d8daf024f53908402473ec298
+FROM /v0.1.4/demos/gtk/Dollyfile-gtk-build 373f242594a3449fcc2626b537d10491b9a1efdb4320bf0cc987e16cc378dc16
 
 REQUIRES TOOL   ar
 REQUIRES TOOL   c++
