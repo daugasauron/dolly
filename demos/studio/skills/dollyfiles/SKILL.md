@@ -21,7 +21,9 @@ describes the machine itself (network, shell, compilers).
    streams the log; it needs no approval. A build error names the recipe line:
    fix the recipe, lint and build again. Report the actual result.
 5. After success the user can click **Open image**; building never changes
-   Studio's own files, and the image does not see them.
+   Studio's own files, and the image does not see them. Your tools run
+   commands without a terminal: a program that reads keys or sets the
+   terminal's mode (termios, raw mode) is proven only in the opened image.
 
 Never run `/bin/dollyfile` here: it replaces the running image.
 
