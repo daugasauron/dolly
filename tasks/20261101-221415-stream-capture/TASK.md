@@ -231,3 +231,67 @@ reverted on integrate so the overnight round runs on the path that built the mor
 To bring it back: put a published snapshot into the Cache API before describing it (so its Blob is
 disk-backed) or keep a transfer for that path, and add an image-browser case whose input is over
 512 MB, which fails today.
+
+## Brought back (2026-11-03): the image's snapshot is a file of the browser's storage
+
+4439f99c and 829e38f1 re-applied (4de5ca7d4, 76d1073b5); the published-input failure
+reproduced, understood and fixed (095394c36). Image inputs unchanged, `sha256:fe5261db…`.
+
+### The cause, measured (`build/stream-capture-2-evidence/probe-*.log`, the probe in the
+integrator's scratchpad extended: `probe2.mjs`)
+
+A Blob a page or Worker builds from parts in memory is held by Chrome's blob storage, whose
+in-memory space is 500 MiB until Chrome has computed the machine's limits, which it does only
+once the browser has been idle for a few seconds after a context starts (the limits task is
+best-effort). Until then a Blob over 500 MiB is broken: unreadable even in the page that made
+it (`NotReadableError`), from 1 MiB or 8 MiB parts alike, in a plain context and in a persistent
+profile alike, `probe-chrome-1mib.log`, `probe-chrome-persistent-1mib.log`, `probe-chrome-8mib-delay0.log`.
+Made 3 s or more after launch with the page idle, the same Blob reads at 527 MB and 1.1 GB in both
+contexts (`probe-chrome-delay-series.log`, `probe-chrome-8mib-delay15.log`). The evening round's
+fd build described the published 527 MB rust-build within seconds of a fresh Chrome, busy from
+its first moment: the Blob was broken, and the Worker's read of it was the "network error". The
+pi-local capture came minutes later in a browser that had idled: it worked. A fix that keeps the
+in-memory Blob would depend on the browser's idle time and on the machine's memory (the computed
+space is a share of it): not acceptable.
+
+The other stores, each at 527 MB and 1.1 GB, 1 MiB parts, Chrome plain, Chrome persistent profile,
+Firefox (`probe-chrome-limits.log`, `probe-*-opfs-lifetime.log`, `probe-firefox-*.log`):
+
+| sink | Chrome plain context | Chrome persistent profile | Firefox |
+| --- | --- | --- | --- |
+| `new Blob(parts)` | broken until idle (above) | the same | reads; 1.1 GB costs 4 GB when posted and read |
+| IndexedDB `put(blob)` | stores the broken Blob | `DataError: Failed to write blobs` | reads |
+| Cache API, `put(Response(stream))` | `UnknownError` from 300 MB (its memory backend's entry limit) | reads | reads |
+| origin-private file, `createWritable()` | reads | reads | reads |
+| that File `put` into IndexedDB | reads | reads (a copy on disk) | reads |
+| … then the file removed | the IndexedDB Blob is a reference: `NotFoundError` | reads | reads |
+| the File after `removeEntry` or a rewrite | `NotFoundError` / `NotReadableError` | the same | `AbortError` |
+
+So a File of origin-private storage is the one Blob every context reads at any size; it is a live
+reference to its file, which must outlive every reader; and IndexedDB cannot be trusted to copy it.
+
+### The fix: the image store (`src/image-artifact.mjs`)
+
+`describeImageArtifact(pieces)` writes the pieces it digests into a new file of a directory of
+origin-private storage, and that File is the artifact's bytes: the Worker's capture and the page's
+published input never exist as a Blob of parts. The IndexedDB `images` store keeps the entries and
+names each one's file (`file`); there is no payload copy. Loading an entry marks it used, so the
+inputs of a build are the entries evicted last (least recently used, where it was least recently
+saved: a build's inputs loaded from the cache kept their old date and could be evicted by the
+same build's later saves). A file this page has read is kept when its entry is replaced or
+evicted, since a build of this page may still read it; files no entry names and no page holds
+are swept an hour after they were written. The bounds are as before: 32 entries, 8 GiB.
+
+What changed in kind: an evicted entry's bytes are gone for other pages at once (IndexedDB kept
+a Blob alive for every holder). Two tabs building at the same time, one evicting or replacing
+what the other reads, fail that build with a read error, to retry; the test's own flows that
+hold a loaded artifact across a replacement work because the page holds the file. The `payloads`
+store stays for the entries other runtime versions keep in the shared database.
+
+### The test (`test/image-input-browser.mjs`, c16712d3f)
+
+A published package (ps, which nothing else the build reads is built from) is served with a
+520 MiB file added, in its own pack; a custom image FROM system copies that file, built first
+thing after the browser starts, as the catalog's build page does, then built again from the
+cache. On 4439f99c Chrome fails as the round did (`image-input-before-fix-chromium.log`:
+"network error" from the build Worker).
