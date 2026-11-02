@@ -1,6 +1,6 @@
 # integrate/day-candidate: the day's branches merged and tested
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: integration
 
@@ -213,6 +213,54 @@ Round 9 on `4ad9a862`, 13:43 to 13:44: amy-browser's first test ("amy", the one 
 three fixed steps) passes, Chromium 16 s, Firefox 18 s. Its second test stops at `amy
 install sdl2`: not in this catalog; the full catalog's run covers the rest of the file.
 
+## The remerge (14:29 to 14:31, brought forward from 16:00 by the integrator: every owner done)
+
+1. `integrate/2026-11-02` at `10e832db9` merged first (`5640ed23`). Conflicts: 162 recipes
+   (its catalog repin `56a0802c` against the candidate's pins: the candidate's side) and two
+   code files, `host/runtime/grower.mjs` and `src/process-supervisor.mjs`, from `eee6dd9e`,
+   the cherry-pick of `41c6a754`, which the candidate already holds through integrate/html
+   with later commits on both files; the cherry-pick's hunks equal 41c6a754's, so the
+   candidate's side. `10e832db9` (game agents' fixtures) merged clean. Repinned (`89567351`):
+   35 recipes, the round's as-built SOURCE pins of `rust-sdk.tar.gz` and `go-sdk.tar.gz` and
+   their cascade, none in the images this tree built. `config/source-pins.sh` keeps the
+   seed compiler at `3f99ed02`.
+2. The branches' heads now: `integrate/html` `d9fe83a3`, `core/process-memory` `761d0cb8`,
+   `fix/abort-own-definition` `5b50fcdb` (a task note), `core/docs-audit` `1cb873dd`,
+   `demo/workaround-removal` `d6715534` (a task note), `demo/lean-3` `479112fa` (task notes).
+   All clean. Head `af8f1371`.
+3. Image inputs still `fe5261db7b3f17f6d24332acbd6adcfe2efd438c2fcd8ded1617d8a98601739c`;
+   source suite 468 pass; the catalog refresh on the final head is cache hits (`ready in
+   5.4s`); hard-link check 0; core-browser on the final head `af8f1371`: Chromium pass 23 s,
+   Firefox pass 33 s (`core-browser-BROWSER-final.log`, 14:33).
+
+Done: the candidate is `integrate/day-candidate` at `af8f1371` (plus this task commit), ready
+for the integrator to merge into `integrate/2026-11-02` and start the next catalog round.
+
+## Not tested here
+
+- `pi-dolly` and `pi-minimal` (npm-browser), `janis-install`, the Lean images and every other
+  image outside the 50 built: the next catalog round (every image rebuilds: two seed
+  changes).
+- `fs-growth-browser` (needs more than the 6 GB browser cap), the GPU tests and
+  `host-compute`, `dso` (libdolly-gpu), amy-browser's second test from `amy install sdl2`.
+- `sockets-browser` fails on integrate/html alone (its hand-written kernel import list lacks
+  `env.dolly_html_dispatch`); left to its owner.
+- The round's `rust-sdk.tar.gz` and `go-sdk.tar.gz` SOURCE pins were staged on integrate's
+  seed; if those tars depend on the seed, the candidate's round repins them.
+
 ## Lessons
 
-(filled in at the end)
+- A merge script that takes one side of a recipe conflict loses the other side's content,
+  and its CHECK only covers the branches of one invocation: when it stops for a hand merge,
+  rerun the CHECK for every branch before trusting the result. Twelve `REQUIRES HOST html@0`
+  rows went missing silently.
+- Zero the pins and merge three-way (`work/merge-recipes.py`): recipe conflicts are pin
+  cascades, and pins regenerate. SOURCE pins of staged sources do not regenerate without the
+  staging, so a source two branches changed needs its pin computed from the merged file (or
+  the tar rebuilt: `build-source-tar.mjs` is deterministic).
+- A narrowed catalog makes several core tests fail before any behaviour runs (`composed`
+  on a missing package, `amy-index.txt`, `amy install X`, dolly-build FROM pi-minimal); read
+  the first error before attributing. Each such gap was closed by building the small package
+  it named, which found three stale steps the full suite had never reached.
+- Fixing a stale test lets the test run further and find the next stale step of the same
+  commit (749d57c99 left three in amy-browser); rerun to the end before reporting fixed.
