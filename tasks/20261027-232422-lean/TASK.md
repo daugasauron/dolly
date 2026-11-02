@@ -51,6 +51,23 @@ scope's memory, anonymous in brackets):
 | `lake new greeting` (no git: a warning) | 0.9 s | killed by the cap |
 | `lake build`, then the program prints `Hello, world!` | 7.5 s, anonymous at most 6.05 GB | |
 
+After merging `core/process-memory` (`761d0cb8`: a process's memory lives in its Workers alone and
+goes with them), same steps, same slots (anonymous memory, the step's highest, then after it):
+
+| Step | Chromium before | Chromium after | Firefox before | Firefox after |
+| --- | --- | --- | --- | --- |
+| install | 4.02, 3.98 | 4.03, 3.98 | 4.67, 4.55 | 4.67, 4.52 |
+| `lean --run` | 4.83, 4.35 | 4.81, 4.36 | 4.99, 5.47 | 5.85, 5.43 |
+| theorems | 4.93, 4.91 | 4.88, 4.89 | 5.94, 6.00 | 5.90, 5.44 |
+| false theorem | 5.42, 5.48 | 4.89, 4.65 | 6.38, 5.48 | 5.95, 5.44 |
+| `lake new` | 5.84, 5.23 | 4.83, 4.32 | killed | killed |
+| `lake build` | 6.05, 5.14 | 5.58, 4.84 | | |
+
+Dead processes no longer pile up: in Chromium the test now ends 1.3 GB lower, and
+`demos/lean/test/lean-browser.mjs` passes (52.6 s). In Firefox a live `lean` takes about 1.4 GB
+above the 4.5 GB the session holds after the install (0.85 in Chromium, above 4.0), and the
+cap kills the tab at `lake new`, in the test too: Firefox needs a cap of about 7 GB for it.
+
 The install's kernel side is now the package's size: anonymous 3.98 GB after it in Chromium
 where it was 5.22 before the last-use rule. Chromium passed the measured steps three times and
 `demos/lean/test/lean-browser.mjs` crashed once at `lake build`: each `lean` that ends stays

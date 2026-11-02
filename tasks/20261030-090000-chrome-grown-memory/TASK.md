@@ -103,6 +103,10 @@ the reservation the `lean-meta` image build was then killed by its 9 GB cap whil
 copied the finished image, which passed at 8.7 GB before. `tasks/20261101-102515-retained-process-memory`
 carries what was done about it.
 
+Since `core/process-memory` (`761d0cb8`, 2026-11-02, agent M) the spawning thread's own Worker
+makes the reservation before it posts the spawn: a process's memory lives in its Workers alone,
+so the Worker that ends with it is the process's own, with no start-up and no wait for the size.
+
 Left for the owner: the spawn budget no longer sees what a process with threads allocates after
 its second thread starts (its memory then is all grown; Linux shows none of it until touched), so
 `lake build -j4` of four `lean`, each importing 1.7 GB, is not held back as four unthreaded
