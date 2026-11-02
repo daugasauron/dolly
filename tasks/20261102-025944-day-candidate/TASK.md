@@ -97,6 +97,12 @@ built; its snapshot carries image inputs `fe5261db…`). Logs `NAME-BROWSER-2.lo
 | html-browser | pass, 13 s | pass, 16 s |
 | core-browser | pass, 28 s | pass, 40 s |
 
+Round 3 on `393b5c4b`: `DOLLY_BUILD_IMAGES=default,system,html,typescript npm run image` 12:38,
+`ready in 64.3s` (quickjs, janis with the cherry-picked pump, typescript). The javascript
+demo's browser test (`DOLLY_BROWSER=BROWSER node demos/javascript/test/javascript-browser.mjs`,
+image `typescript`): Chromium pass, 36.5 s; Firefox pass, 43.6 s. `janis-install-browser` is
+not run: its closure holds cmake-build.
+
 ## Lessons
 
 (filled in at the end)
