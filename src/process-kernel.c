@@ -1880,7 +1880,11 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       operation != DOLLY_PROCESS_INTERRUPT_POLL &&
       operation != DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE &&
       operation != DOLLY_PROCESS_EXIT &&
-      !(operation == DOLLY_PROCESS_EXEC && request_size == 0)) return -EINTR;
+      !(operation == DOLLY_PROCESS_EXEC && request_size == 0)) {
+    /* A VMIN 0 read the signal interrupts begins anew when made again. */
+    process->read_deadline = 0;
+    return -EINTR;
+  }
   const dolly_kernel_module *module = module_for(operation);
   if (module) return module->call(pid, tid, operation, process_mailbox, request_size, response_capacity);
   switch (operation) {
