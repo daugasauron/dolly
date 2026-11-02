@@ -1,16 +1,36 @@
 # Image builds and session saves hold the image about three times: capture it as a stream
 
 - STATUS: OPEN
-- PRIORITY: 290
+- PRIORITY: 120
 - TAGS: core,memory,snapshots
 
 ## State (2026-11-02)
 
-Done in 4439f99c (JavaScript only, image inputs hash unchanged): the Worker and page
-copies are gone; a built image is a Blob read in pieces. Measured on `system`
-(164 MB), old code in `work/audit-runtime-base` against new code here, each a rebuild
-of `system` alone from published inputs, the build scope's `memory.stat` sampled every
-0.2 s (`build/stream-capture-evidence/{baseline,after}-system-fast.*`):
+Done and verified for the mergeable commits (4439f99c, cc38734d, 829e38f1): the Worker and
+page copies are gone, a built image is a Blob read in pieces, image inputs unchanged
+(`sha256:a58af3f9…`). Waits for the owner: the two `Proposal:` commits at the end of the
+branch (the kernel's capture as a stream, a dependency written in pieces), each a change to
+`abi/dolly-image-0.wat` and so a catalog round.
+
+**pi-local under `slot.sh bigbuild`'s 9 GB cap (the acceptance test)** built on the baseline
+rig (`work/audit-runtime-base`, the mergeable commits, inputs from the integrator's tree):
+1,651,863,160 bytes, sha256 `dd54fb5b…`, 57 s, capture to cache in 8 s (`pi-local.*`,
+1 s samples). Anonymous memory 5.04 GB at "restoring image builder" (A: 4.8), 6.30 GB when
+the capture began, 7.16 GB at its peak (+0.86 GB; A: +2.5 GB and the kill), 2.1 GB once the
+Worker ended. The scope touched its cap (9.54 GB current) with 0.7 GB of page cache
+reclaimed: the margin is the proposals'. The integrator's round built pi-local with the old
+code at 09:48 (its own file): the same sha256 `dd54fb5b…`, byte-identical at 1.65 GB.
+
+**lean-meta under the 9 GB cap** built on the same rig (lean-stage0, lean-std and lean-meta
+from fa949c1b's recipes, one build slot shared with the integrator's round): 1,581,471,990
+bytes, sha256 `479ed597…`, lean-meta's own build 57 min (`lean-meta.*`, 1 s samples). Its
+compile phase peaked at 8.21 GB anonymous; at the capture 4.34 GB rose to 6.18 GB (+1.84 GB,
+the kernel's copy and the Blob) where +3.2 GB killed it before (`tasks/…-lean`), and the
+Worker's end left 0.72 GB.
+
+**Mid-size images**, old code in the baseline tree against new code here, each a rebuild of
+`system` alone from published inputs, the build scope's `memory.stat` sampled every 0.2 s
+(`{baseline,after}-system-fast.*`):
 
 | | anon before capture | peak anon, capture to export | scope peak |
 | --- | --- | --- | --- |
@@ -18,11 +38,31 @@ of `system` alone from published inputs, the build scope's `memory.stat` sampled
 | after (4439f99c) | 1.12 GB | 1.27 GB (+0.15 GB, 0.9 x: the kernel's copy) | 1.76 GB |
 
 Both builds produced sha256 `6b61cde503cae838…`, byte-identical to the baseline closure's.
-The remaining copy is the kernel's `capture_bytes`: the proposal below.
+The remaining copy is the kernel's `capture_bytes`: the proposal below. With it (this tree,
+image inputs `f8b159f1`, the same 23-image closure rebuilt in 20.5 min, 0.2 s samples in
+`layer2-closure-capture.*`), every one of the 23 snapshots has the digest and size the old
+code produced, and the capture-phase rise is the Blob in the browser process alone:
 
-Left: the browser tests (image, session, custom-session, `test/image-browser.mjs`) in
-Chromium and Firefox once a browser slot is free; `pi-local` under the 9 GB cap once its
-closure exists (the integrator's catalog round, about 11:00); the proposal's prototype.
+| image | size | before: capture to export | proposal |
+| --- | --- | --- | --- |
+| system | 164 MB | +0.50 GB (3.0 x) | +0.12 GB (0.7 x) |
+| ghostty-build | 212 MB | +0.54 GB (2.5 x, 1 s samples) | +0.13 GB (0.6 x) |
+| zig-build | 195 MB | +0.47 GB (2.4 x, 1 s samples) | +0.20 GB (1.0 x) |
+
+`test/image-browser.mjs` passed on the proposal in Chromium (66 s) and Firefox (72 s):
+the roundtrip fixture compiled in Dolly captures through a 17-byte window, and the
+in-page builds use the two new exports.
+
+Browser tests of the mergeable commits (baseline tree, Chromium and Firefox):
+`test/image-browser.mjs` passed (56 s, 89 s): in-page rebuilds from published packs, the
+Blob inputs reused across three builds, the cache's rollback and corruption checks;
+`custom-session` (94 s, 115 s), `session-offline` (7 s, 8 s) and `core` (37 s, 55 s)
+passed. Two test fixtures handed the cache ArrayBuffers and are Blobs now (829e38f1).
+`host-compute` (10 s, 13 s), whose fixture builds a custom image and runs it headless from
+its Blob, passed once `libdolly-gpu` joined the baseline closure; of the other tests that
+build images in the page, `ending`, `shell-env`, `pty`, `threads` and `sockets` passed in
+both browsers; `site` fetches every source the site names and needs the full catalog
+registered (the rig's is narrowed to its closure), so it was not run meaningfully.
 
 ## The copies, measured and read
 
@@ -102,9 +142,46 @@ Replace in `abi/dolly-image-0.wat` the three capture exports
 ```
 
 `begin` does the metadata pass `capture_snapshot()` does and keeps the manifest; `read`
-writes header, record headers, paths and file data from an offset into the window the Worker
-sized. Peak memory becomes the filesystem plus the window. It changes `dolly-image-0.wasm`:
-a catalog round. Prototype: a `Proposal:` commit on this branch, if time allows.
+writes the header, then each record's header, path and data into the window the Worker
+sized (8 MiB), a file's data straight from its descriptor. Peak memory becomes the
+filesystem plus the window. It changes `dolly-image-0.wasm` (image inputs
+`sha256:f8b159f1…` with it): a catalog round. Prototyped as the `Proposal:` commit at the
+end of this branch: kernel, contract, `Dollyfile-dolly-docs`'s pin of the contract and its
+dependents, the Worker, and `test/fixtures/image-roundtrip.c`, which captures through a
+17-byte window so pieces end inside headers, paths and data.
+
+### The restore side, in the same round
+
+A build's inputs enter its filesystem as boot files (`/etc/dolly/artifacts/*.snapshot`):
+the Worker's whole ArrayBuffer, `boot-files.mjs`'s `malloc` of the same size for
+`dolly_write_file` to copy from, and WasmFS: three copies of qwen3.5-2b's 1.4 GB before
+`pi-local`'s build starts (A's 4.8 GB at "restoring image builder"), three of lean-std and
+lean-meta's 2.4 GB before `lean`'s. `dolly_write_file` truncates, so a second `Proposal:`
+commit (51205bca) adds `dolly_append_file` beside it; the Worker slices an input's Blob
+8 MiB at a time (`files.write`, then `files.append`), and the two transient copies are a
+piece each. Image inputs with both proposals: `sha256:9964d057…`; the 23-image closure
+rebuilt with both (14.5 min) is again byte-identical to the baseline's, every digest and size.
+Measured on a custom image FROM system-build (135 MB) that INSTALLs cc (134 MB), built in
+each tree from published inputs (`install-layer1.*`, `install-proposal.*`): the build takes
+2 s, too short for the 0.2 s samples to separate its phases, but the scope's high-water mark
+over its start reads +0.47 GB with the whole write and +0.23 GB with the piecewise one.
+`test/image-browser.mjs` passed with both proposals in Chromium (65 s) and Firefox (77 s), as
+did `custom-session` (64 s, 101 s), `session-offline` (5 s, 7 s) and `core` (29 s, 41 s).
+
+## Checked and left
+
+- A session save holds its delta once in the kernel (`capture_filesystem()`, at most
+  512 MiB) and streams it through the 1 MiB mailbox window; the page gzips chunk by chunk
+  and stores the compressed Blob. That copy stays: programs keep running while the page
+  consumes the save, so the copy, made between two system calls, is the save's one
+  consistent moment; reading each file into the window as the proposal's capture does
+  could save a file torn by a write in between. An image capture has no such problem,
+  every builder process has exited.
+- The base of a build is staged piece by piece in any case (`dolly_snapshot_restore_address`
+  sized to the base, filled from Blob slices); the staging range itself is one copy the
+  kernel frees after `dolly_process_bootstrap_resume_prepare`.
+- Chrome keeps a Blob's bytes in the browser process and pages them to disk; Firefox keeps
+  them in the content process. Either way they leave the JS heap and the Wasm memory.
 
 ## Done when
 
@@ -115,4 +192,27 @@ a catalog round. Prototype: a `Proposal:` commit on this branch, if time allows.
 
 ## Lessons
 
-(at the end)
+- "Kernel C is not an image input" holds only while the kernel's export list stands: the
+  contract wat that names the exports is one of the five inputs, so a new kernel export is
+  a catalog round, however small the C. Check `scripts/write-build-id.mjs` before
+  promising no round.
+- An image's natural page-side form is a Blob: it leaves the JS heap and Wasm memory,
+  clones by reference into every Worker, slices for staging, streams for a digest and is
+  what IndexedDB stores anyway. The returnInputs/consume round trips existed only because
+  an ArrayBuffer cannot be shared; with Blobs they had nothing left to do.
+- Sampling a build's memory: `slot.sh`'s scope is `run-*.scope`; a sampler that takes the
+  first `.scope` ancestor finds the terminal's scope and reads flat numbers. One sample a
+  second misses a capture that takes under a second; 0.2 s showed the 3x step.
+- Only `*.snapshot`, `dist/packs/*` and `dist/static/*` may be hard links between trees:
+  the metadata `.mjs` files I linked with `ln -f` after the baseline closure (220 files)
+  are written in place by generators, so a build in one tree can rewrite the other's
+  catalog. The integrator caught it; the links were broken before this tree's proposal
+  closure wrote anything, and the two `system` measurements had each been written by
+  their own tree's build (checked by inode and digest).
+- A rig that reuses another tree's images needs that tree's recipe files and seed
+  records as well (`build/rustc-port`, `build/rust-sources`): the metadata's recipe digests
+  say which recipes built an image, and `--plan` says in one line what would rebuild. pi-local's
+  acceptance build cost three false starts before the rig had them.
+- `git status | head` hid 150 repinned recipes for an hour; `git cherry-pick -q` does not
+  exist and a `reset --hard && cherry-pick` chain that fails midway leaves the tree reset:
+  bookmark commits before reordering them.
