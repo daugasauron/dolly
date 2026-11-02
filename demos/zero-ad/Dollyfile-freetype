@@ -5,8 +5,8 @@ REQUIRES HOST runtime@0
 # FreeType from upstream's release archive, unchanged, built by its CMake
 # project, for programs the cc package builds, with the libpng and zlib it
 # reads fonts with.
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 4179900b5abf5d0edf587fdbf768ac0102a029d2072911e5da5ccc1ef9edda99
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-libpng 0cd1dbfd64b7e438b4c6682590918aadff66e7fefb466777ce698e80084d2725
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 1db90c0ff76e9ad0a3e8cff6ad7aa0d49fc9ae2c5f2e0227f92eafe170143e6d
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-libpng e98327e375d5510f5c24299d828fd4817caa292f1d66bfb43f15ea139caf9a08
 REQUIRES HEADER libc
 REQUIRES HEADER png
 REQUIRES HEADER zlib

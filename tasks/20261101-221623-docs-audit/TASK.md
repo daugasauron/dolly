@@ -8,10 +8,11 @@
 
 On `core/docs-audit` (from `integrate/2026-11-02`, fa949c1b). Every document of the scope was
 read and its claims checked as listed below; wrong ones are fixed, gone ones cut, and the
-numbers re-measured or dropped. One seed change, `tar` (705de088), needs a catalog round: this
-tree rebuilt and tested only `default`, `system`, `cc`, `git`, `less`, `dolly-docs`,
-`libdolly-gpu` and `ffmpeg` with their closures (27 images; its `dist/dolly-images.mjs` is that
-closure, since the other images are stale on the new seed). What is left: the findings below,
+numbers re-measured or dropped. Two seed changes need a catalog round, `tar` (705de088) and
+`runtime.h`'s comment (image inputs 937952de): this tree rebuilt and tested only `default`,
+`system`, `cc`, `git`, `less`, `dolly-docs` and `libdolly-gpu` with their closures on the
+second (`ffmpeg` on the first), and its `dist/dolly-images.mjs` is that closure, since the
+other images are stale on the new seed. What is left: the findings below,
 each for the owner of its code; the task closes when they have moved to their owners' tasks or
 are done.
 
@@ -218,9 +219,9 @@ Changed where a claim was wrong, mostly a core behaviour the night changed:
 
 ### Help texts and manual pages (seed inputs)
 
-- The seed change was verified on the images it rebuilt: `core-browser`, `shell-browser`,
-  `slop-browser`, `man-browser`, `process-browser` and `docs-browser` pass in Chromium and
-  Firefox (`build/docs-audit-evidence/*-browser.log`).
+- Both seed changes were verified on the images they rebuilt: `core-browser`,
+  `shell-browser`, `slop-browser`, `man-browser`, `process-browser` and `docs-browser` pass in
+  Chromium and Firefox after each (`build/docs-audit-evidence/*-browser.log` and `round2/`).
 - Built natively (`gcc`, a two-function spawn stub) and ran every option each `--help` lists:
   `ls`, `cp`, `mv`, `rm`, `mkdir`, `cat`, `stat`, `touch`, `file`, `du`, `env`, `find`,
   `xargs`, `timeout`, `time`, `hostname`, `pwd`, `realpath`, `install`, `gzip`, `tar`: all
@@ -233,8 +234,8 @@ Changed where a claim was wrong, mostly a core behaviour the night changed:
   a compound command), leaves `{1..3}` and an unmatched glob as typed, and runs `$'\t'`,
   `?:`, `set -euo pipefail` and `time` as it says.
 - `include/dolly/runtime.h`: "waitpid accepts a child PID or -1/0 for any child";
-  `dolly_waitpid` takes `-PID` too, as `process-model.md` says. A seed input, left for a seed
-  round with something else to carry (Findings).
+  `dolly_waitpid` takes `-PID` too, as `process-model.md` says. Fixed in the same catalog round
+  as `tar` (a seed input: image inputs 937952de).
 - `tar` failed on a pax archive whose extended headers carry no path: GNU tar `--format=pax`
   writes one of times before every member, and macOS's bsdtar writes them for extended
   attributes (`tar: -: read extended header: No such file or directory`). slop.md promises pax
@@ -281,7 +282,6 @@ Changed where a claim was wrong, mostly a core behaviour the night changed:
   pigz writes it"), `Dollyfile-emacs`. And `demos/zsh/zsh-dolly.patch` ("Dolly has no fork or
   exec") makes zsh's `exec` and the last command of `zsh -c` spawn the program and wait for it;
   Dolly's `execve` (ba5f2568) would let them replace the shell, as upstream does.
-- `runtime.h`'s comment on `dolly_waitpid` omits the `-PID` it accepts (above).
 - `cc --help` says the `<dolly/NAME.h>` host clients link without `-l`; `sockets@0`'s and
   `pty@0`'s need `-ldolly-sockets` and `-ldolly-pty` (`host_client_libraries()` in
   `compiler.cpp`). The text is the seed compiler's, so it waits for the next compiler round.
