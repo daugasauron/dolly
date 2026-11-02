@@ -1,6 +1,6 @@
 # amy install holds a package's snapshot beside the files it installs
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 70
 - TAGS: amy,kernel,memory,packages
 
@@ -56,3 +56,7 @@ an install holds twice for a moment it holds for good.
 Also seen: a guest that finds no HTTP record waits 10 ms (`host/http/client.c`,
 `src/libcurl-fetch.c`, polling `dolly_http_poll`), which is why the merge must stay off the
 page's thread; a wait on the broker's notification would not poll.
+
+## Closed (2026-11-02 night, integrator)
+
+Done (2026-11-02): `amy install lean` in `default` leaves 3.98 GB anonymous in Chromium (5.22 GB before the last-use rule; peak 4.57 GB) for 3.06 GB of installed files, and 4.52 GB in Firefox, which charges more per session (`tasks/20261027-232422-lean`); the snapshot is cut off behind each file it installs, and amy-browser and nena-browser now assert it is gone.
