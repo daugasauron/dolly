@@ -141,8 +141,12 @@ Read in `demos/game-agent/mission.mjs` and `viewer.cpp`:
 
 - [x] Finding 1 reproduced, the cause fixed in the substrate with tests that
   failed before (`ab51b690`).
-- [ ] The fix measured on rebuilt `default` and `system` in Chromium and
-  Firefox (`test/terminal-browser.mjs`, `test/pty-browser.mjs`).
+- [x] The fix measured on rebuilt `default` and `system` (seed `8dbcbf24…`,
+  the closure of both, 23 images, 18 min) in Chromium and Firefox:
+  `test/terminal-browser.mjs`, `test/pty-browser.mjs`, `test/core-browser.mjs`
+  all passed (`build/video-findings-evidence/*-browser.log`, 12:17 JST).
+- [x] Studio's skill says a program that reads keys or sets the terminal's
+  mode is proven only in the opened image (`88f27845`).
 - [ ] A catalog round for the seed change; then the garden driver's `run`
   and `thread` variants on the rebuilt Rust images.
 - [ ] Finding 2 measured as above.
