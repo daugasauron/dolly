@@ -27,7 +27,7 @@ SLOP sed 's@"/usr/local/"@"/usr/"@' /tmp/lua/lua-5.1.5/src/luaconf.h > /tmp/lua/
 SLOP cp /tmp/lua/luaconf.h /tmp/lua/lua-5.1.5/src/luaconf.h
 SLOP make -C /tmp/lua/lua-5.1.5/src \
   CC=cc \
-  'CFLAGS=-O0 -std=gnu99 -DLUA_USE_POSIX -DLUA_USE_DLOPEN' \
+  'CFLAGS=-O2 -std=gnu99 -DLUA_USE_POSIX -DLUA_USE_DLOPEN' \
   MYLDFLAGS=-rdynamic \
   'AR=ar rcs' \
   RANLIB=: \
@@ -61,7 +61,7 @@ REQUIRES TOOL lua
 SOURCE /v0.1.4/dist/static/neovim/lpeg.tar e8a9fd286cf0ba6b9eff1ac12680eca887e409236b34a556a5cf6e55957f83f6 /tmp/lpeg/source.tar
 SLOP tar -xf /tmp/lpeg/source.tar -C /
 SLOP make -C /tmp/lpeg/source CC=cc LUADIR=/usr/include/lua5.1 \
-  COPT=-O0 DLLFLAGS=-shared lpeg.so
+  COPT=-O2 DLLFLAGS=-shared lpeg.so
 SLOP ar rcs /usr/lib/liblpeg.a /tmp/lpeg/source/lpvm.o /tmp/lpeg/source/lpcap.o \
   /tmp/lpeg/source/lptree.o /tmp/lpeg/source/lpcode.o /tmp/lpeg/source/lpprint.o /tmp/lpeg/source/lpcset.o
 SLOP mkdir -p /usr/lib/lua/5.1 /usr/share/lua/5.1
@@ -83,7 +83,7 @@ REQUIRES TOOL cmake
 SOURCE /v0.1.4/dist/static/neovim/luv.tar 576f4f861cabfd1d7313d56124e1473f724f3da09060df4dc93d59936d3b4004 /tmp/luv/source.tar
 SLOP tar -xf /tmp/luv/source.tar -C /
 SLOP cmake -S /tmp/luv/source -B /tmp/luv/build \
-  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_C_FLAGS=-O0 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_C_FLAGS=-O2 \
   -DWITH_LUA_ENGINE=Lua -DLUA_BUILD_TYPE=System \
   -DLUA_INCLUDE_DIR=/usr/include/lua5.1 -DLUA_LIBRARY=/usr/lib/liblua.a -DLUA_MATH_LIBRARY:STRING=m \
   -DWITH_SHARED_LIBUV=ON -DBUILD_STATIC_LIBS=ON -DBUILD_MODULE=ON -DBUILD_SHARED_LIBS=OFF
