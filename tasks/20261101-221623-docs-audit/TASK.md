@@ -222,6 +222,15 @@ Changed where a claim was wrong, mostly a core behaviour the night changed:
   `xargs`, `timeout`, `time`, `hostname`, `pwd`, `realpath`, `install`, `gzip`, `tar`: all
   accepted. `help`'s limits match the code (1024 descriptors, 8 GiB, 56 processes, 32/64
   threads, 64 KiB pipes); `echo.1` and `test.1` (recipe bodies) match `echo.c` and `test.c`.
+- `curl --help`'s 23 options are each parsed by `curl.c`; `diff`'s and `command`'s usage
+  match their parsers (read). Slop, built natively with the test fixtures, refuses by name
+  what `slop.md` says it refuses (`<(...)`, `${x/a/b}`, `${x:1:1}`, `umask`, `ulimit`,
+  `alias`, `jobs`, `fg`, `bg`, `kill %1`, `((...))`, `<<<`, `trap '' INT`, `cd -L`, `&` after
+  a compound command), leaves `{1..3}` and an unmatched glob as typed, and runs `$'\t'`,
+  `?:`, `set -euo pipefail` and `time` as it says.
+- `include/dolly/runtime.h`: "waitpid accepts a child PID or -1/0 for any child";
+  `dolly_waitpid` takes `-PID` too, as `process-model.md` says. A seed input, left for a seed
+  round with something else to carry (Findings).
 - `tar` failed on a pax archive whose extended headers carry no path: GNU tar `--format=pax`
   writes one of times before every member, and macOS's bsdtar writes them for extended
   attributes (`tar: -: read extended header: No such file or directory`). slop.md promises pax
@@ -268,6 +277,7 @@ Changed where a claim was wrong, mostly a core behaviour the night changed:
   pigz writes it"), `Dollyfile-emacs`. And `demos/zsh/zsh-dolly.patch` ("Dolly has no fork or
   exec") makes zsh's `exec` and the last command of `zsh -c` spawn the program and wait for it;
   Dolly's `execve` (ba5f2568) would let them replace the shell, as upstream does.
+- `runtime.h`'s comment on `dolly_waitpid` omits the `-PID` it accepts (above).
 - `cc --help` says the `<dolly/NAME.h>` host clients link without `-l`; `sockets@0`'s and
   `pty@0`'s need `-ldolly-sockets` and `-ldolly-pty` (`host_client_libraries()` in
   `compiler.cpp`). The text is the seed compiler's, so it waits for the next compiler round.
