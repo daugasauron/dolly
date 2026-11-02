@@ -103,6 +103,60 @@ demo's browser test (`DOLLY_BROWSER=BROWSER node demos/javascript/test/javascrip
 image `typescript`): Chromium pass, 36.5 s; Firefox pass, 43.6 s. `janis-install-browser` is
 not run: its closure holds cmake-build.
 
+Round 4 on `393b5c4b`: the remaining core browser tests whose images a small build gives
+(`DOLLY_BUILD_IMAGES=default,system,html,typescript,dolly-docs,libdolly-sockets,libdolly-audio,
+libdolly-microphone,libdolly-touch,zig,stack-wrap`, 12:42, `ready in 46.9s`). Left out: amy
+(every PACKAGE row), dso, gpu-indicator, gpu-render (libdolly-gpu, a GPU). Logs `NAME-BROWSER-4.log`.
+Run 12:44 to 12:53, one slot per browser:
+
+| Test | Chromium | Firefox |
+| --- | --- | --- |
+| cpp | pass, 15 s | pass, 18 s |
+| default | no run: narrowed catalog (below) | same |
+| display | pass, 16 s | pass, 17 s |
+| display-cursor | pass, 10 s | pass, 11 s |
+| docs | pass, 5 s | pass, 6 s |
+| embedding | pass, 4 s | pass, 6 s |
+| ending | pass, 29 s | pass, 38 s |
+| fs-growth | OOM at the 6 GB cap (below) | OOM at the 6 GB cap |
+| host-compute | no run: needs libdolly-gpu | same |
+| host-modules | pass, 38 s | pass, 46 s |
+| image-inventory | pass, 9 s | pass, 12 s |
+| indicators | pass, 6 s | pass, 7 s |
+| man | pass, 12 s | pass, 20 s |
+| memory-growth | pass, 9 s | pass, 10 s |
+| microphone | pass, 23 s | pass, 28 s |
+| network | pass, 31 s | pass, 38 s |
+| npm | no run: dolly-build FROM pi-minimal, 404 on the narrowed catalog | same |
+| pager | no run: `amy install less`, less not in the catalog; round 5 | same |
+| pty | pass, 25 s | pass, 29 s |
+| shell-env | pass, 7 s | pass, 8 s |
+| site | pass, 5 s | pass, 7 s |
+| slop | pass, 22 s | pass, 30 s |
+| snapshot-stream | pass, 4 s | pass, 7 s |
+| sockets | FAIL: integrate/html alone (below) | FAIL, the same |
+| stack | pass, 11 s | pass, 23 s |
+| terminal | pass, 34 s | pass, 34 s |
+| touch | pass, 29 s | pass, 14 s |
+| upload | pass, 15 s | pass, 16 s |
+| audio | timeout, 120 s (rerun in round 5) | pass, 16 s |
+
+- `default-browser` cannot run on a narrowed catalog: it reads the generated `amy-index.txt`
+  (28 rows here, 136 in a full tree) and asserts the welcome text names only published
+  packages; `python` is not in this catalog. Not a merge fault; the full catalog's run covers it.
+- `sockets-browser` is a failure of `integrate/html` alone: its line 44 lists the kernel's
+  imports by hand, and `d82f7474` (html@0, 2026-11-01 22:21) added `env.dolly_html_dispatch`
+  to `dist/dolly.wasm` without adding it to the list. The html agent's sockets passes
+  (`work/audit-host/build/audit-host-evidence/*.log`) are from 19:40, before that commit.
+  Reported to its owner, not fixed here; the fix is that one entry.
+- `fs-growth-browser` fills kernel memory to "most of 8 GiB" (its last steps): in a 6 GB
+  browser slot the kernel's OOM killer took Chrome (anon RSS 5.99 GB, 12:45:31) and
+  Firefox's content process (5.9 GB, 12:45:56), `journalctl -k`. No earlier evidence shows
+  it passing inside a 6 GB slot (`rc-1031b` passed it in a 20G unit), so it is not a
+  candidate finding; it needs the integrator's uncapped suite.
+- `host-compute-browser` installs `libdolly-gpu` and declares gpu@0: left out with the GPU
+  tests.
+
 ## Lessons
 
 (filled in at the end)
