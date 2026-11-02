@@ -118,7 +118,24 @@ minutes together: the patch, its `SOURCE`, `SLOP` and staging line, its README
 bullet and its inventory entry are gone (c21e62f8). Build D (C plus `mojo-gpu`,
 bigbuild, unit `dolly-workaround-removal-build-d`, started 11:55; the README
 gives `mojo-llvm` 45 to 77 minutes) and `npm run test:demos -- mojo` decide
-whether it stays.
+whether it stays. Build D was ready at 13:12 (4611 s: mojo-llvm, mojo and
+mojo-gpu built, the rest reused; `mojo --version` and the two `mojo precompile`
+runs of the recipe passed, `mojo.log`). The catalog then holds 69 images, the
+closure of the fifteen named; no dist file outside the snapshots, packs and
+static directories is a hard link. `npm run test:demos -- mojo` passed in
+headless Chromium on SwiftShader (`mojo-test.log`): its `mojo build` runs link
+through `cc`, which LLVM's `ExecuteAndWait` now waits for with upstream's
+`wait4`. The demo's test is Chromium's (the GPU path); the removal stays.
+
+## What remains
+
+- Studio's browser test (`npm run test:demos -- studio`) on a `dollyfile-studio`
+  built on this seed: the catalog round's, since its closure holds
+  `rust-build`. The source suite and the recipe chain are the evidence here.
+- `demos/lean/prepare-sources.sh` (branch `demo/lean-3`): its comment gives
+  "a pax header" as the reason for the plain tar; the measured reason is the
+  seven links of Lean's archive. One line for that agent.
+- The whole branch needs the catalog round that 705de088 already needs.
 
 ## Builds and tests
 
@@ -183,3 +200,12 @@ demo's test runs Chromium by default), `x11-test.log`, and in Firefox
 - One recipe's pin cascades: changing `Dollyfile-sqlite` (linenoise) touched
   70 recipes through python. On a seed-change branch that costs nothing; on
   `main` it is a catalog round, so such a change belongs with one.
+- Image builds are faster than their reputation: the x11 closure (python,
+  sixteen X libraries, the server, SDL2, xterm, tmux: 25 images) built in 692 s,
+  the 10 of cmake, binaryen and zsh in 3159 s, Emacs's seven in 226 s, Mojo's
+  three in 4611 s. Planning the day around "hours per closure" nearly left the
+  Mojo item as a finding; measuring the first build and re-planning won it.
+- A test table that installs every package cannot run on a narrowed catalog:
+  a short script that reuses its commands for the rebuilt packages does, and
+  found that `default` has no `gzip` command before it found anything about
+  pigz. Read what the table installs before the row you copy.
