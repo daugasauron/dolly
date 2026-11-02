@@ -40,7 +40,6 @@ async function openStoreFile() {
     write: piece => writable.write(piece),
     async close() {
       await writable.close();
-      held.add(name);
       return handle.getFile();
     },
     async abort() {
@@ -48,6 +47,13 @@ async function openStoreFile() {
       await directory.removeEntry(name).catch(() => {});
     },
   };
+}
+
+// The File of a store file written through OPENED, which this page then holds.
+async function storeFile(opened) {
+  const file = await opened.close();
+  held.add(file.name);
+  return file;
 }
 
 // An artifact's identity read from its snapshot, SOURCE: a Blob, or the
@@ -81,7 +87,7 @@ export async function describeImageArtifact(source, recipeSha256, inputs = []) {
     }, "Dollyfile");
     return { buildId: DOLLY_IMAGE_BUILD_ID, recipeSha256, sha256: hash.hex(),
       inputs: imageInputs(inputs), hostRequirements: graph.root.hostRequirements,
-      byteLength, manifest: [...records.keys()], bytes: blob ?? (file ? await file.close() : new Blob(parts)) };
+      byteLength, manifest: [...records.keys()], bytes: blob ?? (file ? await storeFile(file) : new Blob(parts)) };
   } catch (error) {
     await file?.abort();
     throw error;
@@ -126,20 +132,24 @@ export async function loadImageArtifactDescriptor(recipeSha256, inputs = []) {
   } catch { return null; }
 }
 
-// The cached artifact DESCRIPTOR names, its bytes the store's file, or null
-// when the entry has changed or its file is missing or holds other bytes.
-// Loading marks the entry used: the entries a build reads are evicted last.
+// The cached artifact DESCRIPTOR (its recipe, digest, size and inputs) names,
+// its bytes the entry's file, or null when the entry holds another image or
+// its file is missing or holds other bytes. Loading marks the entry used: the
+// entries a build reads are evicted last.
 export async function loadImageArtifact(descriptor) {
   try {
+    const id = `${DOLLY_IMAGE_BUILD_ID}:${descriptor.recipeSha256}`;
     const entry = await databaseOperation("readwrite", store => {
-      const request = store.get(descriptor.id);
-      request.onsuccess = () => { if (request.result?.file === descriptor.file) store.put({ ...request.result, usedAt: now() }); };
+      const request = store.get(id);
+      request.onsuccess = () => {
+        if (request.result?.sha256 === descriptor.sha256 && request.result.file) store.put({ ...request.result, usedAt: now() });
+      };
       return request;
     });
-    if (entry?.file !== descriptor.file) return null;
-    const payload = await (await (await storeDirectory()).getFileHandle(descriptor.file)).getFile();
+    if (entry?.sha256 !== descriptor.sha256 || typeof entry.file !== "string") return null;
+    const payload = await (await (await storeDirectory()).getFileHandle(entry.file)).getFile();
     if (payload.size !== descriptor.byteLength || payload.size <= 0 || payload.size > snapshotSizeLimit) return null;
-    held.add(descriptor.file);
+    held.add(entry.file);
     const artifact = await describeImageArtifact(payload, descriptor.recipeSha256, descriptor.inputs);
     return artifact.sha256 === descriptor.sha256 ? artifact : null;
   } catch { return null; }
