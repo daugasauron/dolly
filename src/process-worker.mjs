@@ -60,15 +60,27 @@ let memory, gate;
 let localModules = [];
 // The channels this Worker sent a thread's memory on, each with the word the
 // thread's Worker sets once it has the memory. Firefox drops what was posted
-// on a port whose sender closes it before the receiver has started (measured
-// 2026-11-02, Firefox 155; Chrome 156 delivers it), so a channel is closed at
-// a later call, once that word is set.
+// on a port whose sender closes it, or ends, before the receiver has started
+// (measured 2026-11-02, Firefox 155; Chrome 156 delivers it), so a channel is
+// closed at a later call, once that word is set, and this Worker leaves only
+// once every thread it spawned has its memory.
 const openChannels = [];
+const receiverPatienceMilliseconds = 10_000;
 function closeReceivedChannels() {
   for (let index = openChannels.length; index--;) {
     const { port, received } = openChannels[index];
     if (Atomics.load(received, 0)) { port.close(); openChannels.splice(index, 1); }
   }
+}
+// The supervisor ends this Worker once it reports that its thread ended while
+// the process lives on: the threads it spawned have their memory first. When
+// the process ends, the supervisor has ended them already.
+function reportThreadFinished() {
+  for (const { received } of openChannels) {
+    while (Atomics.load(received, 0) === 0 &&
+           Atomics.wait(received, 0, 0, receiverPatienceMilliseconds) !== "timed-out");
+  }
+  self.postMessage({ type: "thread-finished", pid: configuration.pid, tid: configuration.tid, result: threadResult });
 }
 
 // The process's memory lives in its Workers alone, so that it goes when they
@@ -85,6 +97,7 @@ async function processMemory() {
       throw new TypeError("Dolly thread received an invalid memory");
     }
     Atomics.store(received, 0, 1);
+    Atomics.notify(received, 0);
     return memory;
   }
   const { initial, maximum } = configuration.memory;
@@ -263,14 +276,14 @@ try {
   const enter = configuration.promisingEntry ? WebAssembly.promising : entry => entry;
   if (configuration.argument !== undefined) {
     threadResult = await enter(instance.exports.dolly_thread_start)(configuration.tid, configuration.argument);
-    self.postMessage({ type: "thread-finished", pid: configuration.pid, tid: configuration.tid, result: threadResult });
+    reportThreadFinished();
   } else {
     await enter(instance.exports._start)();
     self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
   }
 } catch (caught) {
   if (caught === THREAD_EXIT && configuration.threaded && typeof threadResult === "bigint") {
-    self.postMessage({ type: "thread-finished", pid: configuration.pid, tid: configuration.tid, result: threadResult });
+    reportThreadFinished();
   } else if (caught === PROCESS_EXIT) {
     self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
   } else {
