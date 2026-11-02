@@ -136,9 +136,14 @@ function clockResponse(clock, response, now) {
 
 // The request goes into the mailbox under control word 4, which the
 // supervisor seals (2) before it frees the mailbox of a Worker it ends: a
-// Worker ended mid-copy cannot write into memory the kernel has reused.
+// Worker ended mid-copy cannot write into memory the kernel has reused. A
+// sealed Worker is being terminated and the program must not run on; an
+// exception thrown into it is caught by a C++ catch (...) or turns a noexcept
+// frame into abort, exit and this call again, each round deeper (Lean's main
+// thread nested 508 fresh stacks that way, tasks/20261101-102515-retained-
+// process-memory). So the thread waits here for its termination.
 function copyRequest(request) {
-  if (Atomics.compareExchange(control, 4, 0, 1) !== 0) throw PROCESS_EXIT;
+  while (Atomics.compareExchange(control, 4, 0, 1) !== 0) Atomics.wait(control, 4, 2);
   try {
     gate.exports.request(BigInt(request.address), mailbox, BigInt(request.size));
   } finally {

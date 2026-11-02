@@ -261,3 +261,106 @@ rather than resident memory, but proves nothing yet.
 To bring it back: reproduce in under five minutes with `DOLLY_BUILD_IMAGES=lean-stage0,lean-std,lean-meta`
 on a tree where lean-meta is not built, find the cause (Chrome's crash reporter, or bisecting the
 change's three commits), fix it, and keep the lean-meta build as the test that failed before.
+
+## Reopened 2026-11-03 (night, agent on `debug/process-memory`): the crash's cause
+
+The renderer dies at Linux's `vm.max_map_count` (65,530 mappings a process), not for memory.
+Evidence, in `work/pm-debug/build/pm-debug-evidence/`:
+
+- `/var/crash/_opt_google_chrome_chrome.1000.crash`: apport's report of the integrate tree's
+  lean-std renderer (22:36, signal 5: V8's `FatalProcessOutOfMemory`, a deliberate trap when an
+  `mmap` fails). Its `ProcMaps` has 65,525 lines, VmRSS 2.8 GB. 50,930 of them are 992 KiB
+  `---p [anon:v8]` regions at random addresses: 984 KiB (V8's `--stack-size`) plus two guard
+  pages, PROT_NONE. Another 324 are live ones (`rw-p` 984 KiB with a guard page each side).
+  These are the stacks `WebAssembly.promising` runs on. V8 (`src/wasm/stacks.cc`,
+  `StackMemory::StackSegment::~StackSegment`) frees a stack with `DecommitPages`, never
+  `FreePages`: its address range stays reserved, one mapping each, until the renderer exits.
+  A stack is deleted when its isolate's pool is released (`StackPool::ReleaseFinishedStacks`,
+  called from the GC epilogue of a memory-reducing mark-compact), trimmed past
+  `--wasm-stack-pool-capacity-mb` (500), or when the isolate ends (a Worker's end).
+- `renderer-monitor.py` samples every renderer's mapping count, dead and live stacks, every 2 s.
+  The change (variant C, `repro1-monitor.log`): the lean-meta build's renderer reaches 65,089
+  mappings, 53,996 dead stacks, 3.7 minutes in, in the Lean stage (`make -j3 STAGE=1
+  LIBRARIES=Lean`: 1,227 `lean --deps` and the compiles, `cc -O3` between them), and the build
+  dies. The stacks die in bursts of about 500 (`live_stacks` rises to 488..513 and falls to 1
+  within 2 s). Before the change (`repro-old-monitor.log`, 49fb0e689's files, same stage, 4.75
+  min): 1,707 dead stacks, 12,000 mappings, live stacks at most 11.
+- Chrome's own sizes: an idle renderer has 1,448 GB of virtual size (V8's sandbox and partition
+  reservations); the dead stacks add 50 GB, which is the growth the integrator saw.
+- The kernel's journal has memcg OOM kills of renderers at 23:29..00:39 (anon-rss 4.6..7.3 GB):
+  those were runs in 6 and 9 GB scopes, a different death.
+
+Probes (`stack-leak-probe*.mjs`, `probe*-new.log`, the change's runtime, `system` + stack-wrap):
+a process entered through `promising` (the compiler) leaves one dead stack when it ends; a plain
+process making 100k kernel calls none; a stack-wrap program recursing 200,000 deep nests 61 fresh
+stacks and leaves 61 when it ends, the same with 20 rounds in one process (the pool reuses them),
+with its memory at its maximum (a thread spawned first), with the recursion on a thread, and with
+20,000 kernel calls between rounds. So the change leaks nothing per call or per growth; what the
+Lean build does differently is in its lean processes.
+
+Instrumented (`probe-summary.py`, `probe-by-pid.py`: a `console.error` line per Worker at its
+end with its call count and stack@0's counters, `repro-probe-image.log` with the change,
+`repro-oldprobe-image.log` without): with the change, every lean compile's main Worker makes
+about 170,000 calls, nests 508 continuations (where the central stack ends: "Maximum call stack
+size exceeded"), ends 1 to 2 s after it started, and its 508 pooled stacks die with it; its
+thread Workers make up to 257,796 continuations one deep. Without the change, no Worker nests
+more than one continuation, a lean compile's main Worker is ended by the supervisor when the
+process exits (no line), and thread Workers make no continuation at all.
+
+Narrowed (02:30, `milestones*-image.log`, `probe-by-pid.py`): a line at each nesting of 2, 4, 8, ...
+shows that with the change every lean compile's main Worker, about 0.8 s after it started and
+after 36 ordinary continuations, nests one fresh stack per two continuations (nesting 8 at
+continuation 51, 16 at 67, 32 at 99, 64 at 163, 128 at 291, 256 at 547: a recursion that at each
+level makes one continuation that completes and one that goes deeper), in 110 ms, with the room
+at each continue call always 94 slots of `fresh` 60,398 (`depths` 2773/5252 in both designs): a
+genuine recursion of about 60,000 charged slots a level, 508 levels, until the central stack ends.
+Without the change not one Worker of the same build reaches a nesting of 8 (0 lines in 150 s, 55
+compiles). `lean --deps` is identical in both (11,159 calls, 36 continuations). Thread Workers are
+ready 26 ms after they start in both; `pthread_create` succeeds in both (`spawns`). The compile's
+main Worker makes 170,011 calls whatever the module (169,698 for a few), so the recursion is in
+work that does not depend on the module; the compiles succeed (make runs `cc` after each).
+
+Found on the way: `stack-wrap` restores the room on `return` and at a body's end, not when an
+exception unwinds a charged frame (`host/stack/stack-wrap.c`, `instrument`): a throw through
+charged frames leaves their slots charged on that stack for good. Not the cause here (the room at
+each continue call is a constant 94, not negative), but a program that throws through many charged
+frames on its first stack continues on a fresh stack at every charged call afterwards.
+
+### The cause (02:40)
+
+Operation histograms at a Worker's 100,000th and 160,000th call (`ops-new-image.log`,
+`ops-old-image.log`): with the change, a lean compile's main Worker has made 88,275 EXIT calls by
+its 100,000th and 147,891 by its 160,000th, after 11,090 clock reads, with one THREAD_WAIT
+answered by the deferred result; without the change no compile Worker reaches 100,000 calls.
+
+What happens: the compile ends on a thread (its EXIT returns 0 to that thread, which traps as
+`__wasi_proc_exit` does, so its Worker reports `failed`, which `#fail` turns into `#retire`), and
+`#disposeThread` ends the main thread's Worker, waiting in `pthread_join` (THREAD_WAIT): it is
+answered with the deferred result, so that it leaves Wasm and closes itself, then its mailbox is
+sealed (control word 4 := 2) and freed, then `terminate()`, which Chrome delays for a Worker
+inside `Atomics.wait`. The Worker throws PROCESS_EXIT out of `call` into the program, where
+Lean's main thread was joining from a destructor: a JavaScript exception is catchable in Wasm
+exception handling, and a frame that lets none pass (`noexcept`, as every destructor is) ends in
+`std::terminate`, `abort`, `raise(SIGABRT)`, `dolly_exit_signal`, an EXIT call. Before the change
+that call reached the supervisor and failed (`ESRCH`), and `__builtin_trap` ended the Worker: a
+trap no Wasm catch takes. With the change, `copyRequest` finds the mailbox sealed and throws
+PROCESS_EXIT again, which leaves `abort` the same way: terminate, abort, EXIT, throw, each round
+deeper on the stack. With stack-wrap, every 156 rounds move to a fresh stack; 508 fresh stacks
+later the central stack ends (`Maximum call stack size exceeded`), the Worker fails with
+`unreachable` and closes, and V8 decommits its 508 stacks without unmapping them. 148,000 rounds
+a second, one compile a second: 65,530 mappings in four minutes.
+
+### The fix
+
+`src/process-worker.mjs`, `copyRequest`: a Worker whose mailbox is sealed is being terminated and
+the program must not run on, and nothing JavaScript throws into Wasm is uncatchable; so the thread
+waits on the seal word (`Atomics.wait(control, 4, 2)`) until its termination. The deferred result
+still ends a waiting Worker that lets the exception pass, which every thread of every test program
+and Lean's own threads do; one that catches it and calls again waits here. A parked Worker holds
+its memory until Chrome ends it, which it does within two seconds of the `terminate()` already
+made.
+
+`test/ended-worker-browser.mjs` (new, fixture `test/fixtures/ended-worker.cpp`): a thread exits
+the process while the main thread joins it from a destructor; stack-wrapped, run twenty times; the
+browser's processes must keep their memory mappings (read from `/proc`, as the memory test reads
+`RssAnon`).
