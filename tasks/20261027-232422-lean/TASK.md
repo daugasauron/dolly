@@ -67,6 +67,11 @@ Dead processes no longer pile up: in Chromium the test now ends 1.3 GB lower, an
 `demos/lean/test/lean-browser.mjs` passes (52.6 s). In Firefox a live `lean` takes about 1.4 GB
 above the 4.5 GB the session holds after the install (0.85 in Chromium, above 4.0), and the
 cap kills the tab at `lake new`, in the test too: Firefox needs a cap of about 7 GB for it.
+The thread count is not it (`build/lean-evidence/day/threads-cost.mjs`: `lean -j1`, `-j2` and the
+default each add about 0.5 GB while they run, in both browsers). The first `lean` leaves 0.8 GB
+behind in Firefox and 0.3 GB in Chromium after it ends, and later ones nothing: most likely the
+compiled module of the 214 MB `lean`, which the supervisor keeps compiled; `lake`, as large, then
+adds its own. Not measured apart.
 
 The install's kernel side is now the package's size: anonymous 3.98 GB after it in Chromium
 where it was 5.22 before the last-use rule. Chromium passed the measured steps three times and
