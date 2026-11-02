@@ -1,0 +1,301 @@
+# Audit: every application and game Dollyfile
+
+- STATUS: OPEN
+- PRIORITY: 250
+- TAGS: audit,dollyfile
+
+The night of 2 to 3 November 2026, branch `audit/recipes-apps` from `integrate/2026-11-02`
+(71d2603fc): every recipe of the application and game demos (bhop, classicube, cmake,
+emacs, ffmpeg, fingers, ghostty-gtk, gpu-fluid, gtk, mojo, neovim, rts, sdl2, slopyard,
+speech, tmux, wine, x11, xonotic, zero-ad, zsh; 80 recipes) read in full against
+`work/RECIPE-AUDIT.md`. Evidence in `build/recipes-apps-evidence/` (not committed):
+`snapshot-report.txt` (every image's size by directory, largest files, and the
+`dolly.host` records of every retained executable, from `snapshot-report.mjs`) and
+`host-declarations.txt` (declared `REQUIRES HOST` against those records).
+
+## Method
+
+- Declarations were measured, not read: a snapshot's retained Wasm executables were
+  scanned for `dolly.host` records and compared with the recipe's `REQUIRES HOST`.
+  `display@0` and `input@0` are needed by every image that is opened (the terminal),
+  `snapshot@0` by one that saves sessions, `packages@0` where amy is installed; the rest
+  of a declaration that nothing records is dead.
+- Every patch, `sed`, flag and hand-written configuration was traced with `git log -S`
+  to its first commit and its reason checked against today's core.
+
+## One line per recipe
+
+| Recipe | Verdict and findings |
+| --- | --- |
+| bhop | ok after fix 1: linked `-fno-builtin` against the libm shim; `rm -rf /tmp` moot |
+| classicube-build | ok; final `rm -rf /tmp` moot |
+| classicube | ok; `snapshot@0` is the session convention; `rm -rf /tmp` moot |
+| cmake-build | ok (opened, so `display@0`/`input@0` are right) |
+| cmake | CMake built at `-O0` since the 2026-09-07 checkpoint (`cmake.dm`), no reason recorded: proposal P1 |
+| libuv | ok; `libuv-dolly.mk` also `-O0` (P1) |
+| emacs | ok: `-O0` has a reason (conservative GC scans the stack, `prepare-emacs.sh`); the mtime helper works around the core tar not restoring times (shared finding S2) |
+| gnu-emacs | ok |
+| ffmpeg | ok: upstream's own configure runs under Slop (so configure scripts can); `time` is used but not required |
+| fingers-build | ok; name is a toolchain's for a package (the app takes `fingers`) |
+| fingers | ok, the leanest application (18 MiB): core, posix, display, fingers-build |
+| mesa-build | `download@0`, `upload@0` declared, nothing records them (fix 2); Mesa's parsers made on the host while Dolly has `yacc` and `flex` packages: finding F3 |
+| ghostty-gtk | ok; the 40-line `cc` wrapper is what Zig's link needs, explained |
+| ghostty-x11 | ok; busy-wait for the server socket (3000 `test` spawns) shared with x11-desktop: F4 |
+| gpu-fluid | ok: external `SOURCE` URLs are the documented exception (raw.githubusercontent.com) |
+| pcre2 | ok |
+| glib | `http@0`, `sockets@0` declared, no executable or program built with it records them (fix 2) |
+| gtk-build | `download@0`, `upload@0` dead (fix 2) |
+| mojo-llvm | ok (opened) |
+| mojo | ok; 480 lines of C inline as `FILE` bodies where other demos stage a tar: F5 |
+| mojo-gpu | ok |
+| lua | all of Lua, LPeg and luv at `-O0` (P1) |
+| nvim | utf8proc, tree-sitter, Neovim (`Debug -O0`) and the parsers at `-O0` (P1); welcome text says PTYs are unsupported while Dolly has `pty@0`: F6 |
+| neovim | ok |
+| rts-build | ok |
+| rts-arena | ok; keeps 6.7 MiB of 7kaa source, which the agent reads |
+| sdl2 | `-O1` since 8bfcd8843 without a recorded reason, siblings at CMake's Release `-O3`: F7 |
+| sdl2-image, sdl2-mixer, sdl2-ttf | ok |
+| imgui | ok |
+| imgui-x11 | ok; XFixes exclusion is a true trap reason |
+| raylib | fix 1: `rtext.c` compiled at `-O0` for a September compiler limit; `-fno-builtin` |
+| box3d | fix 1: `-fno-builtin -U__SIZEOF_INT128__` for a September compiler limit |
+| gamedev-sdk | fix 1: a `libm.a` of double-precision wrappers (`fabsf`, `sqrtf`, `abs`…) shadowing musl's; the toolchain resolves `-lm` itself (fingers proves it) |
+| slopyard (generated) | fix 1: `-U__SIZEOF_INT128__` on Lua 5.5 and the game, which use no int128; `src/box3d.mk` the same; `ENTRY` script named `slopyard.slop` where others use `init.slop` (F8) |
+| parakeet | ok, lean |
+| speech-to-text, voice | ok; the same compile block twice (the four archive paths): F9 |
+| speech-to-text-mic | ok |
+| transcribe | ok (`threads@0` is the library convention) |
+| pi-phone | ok (`audio@0` for what amy installs, as pi-agent) |
+| libevent | ok; comment says `getrandom`'s header is missing: libc has `sys/random.h` now (F10) |
+| libterminfo | ok: both `sed` fixes are real (tparm's int/long, tputs's cast), each guarded by a grep |
+| tmux | ok |
+| tmux-panes | ok, its extra modules explained |
+| wine-build, wine | ok |
+| x11-build | `download@0`, `upload@0` dead (fix 2) |
+| pixman, xkeyboard-config, libxkbfile, xkbcomp | ok |
+| xorg-server | ok (`audio@0` is SDL2's record) |
+| xterm, twm, xclock, xeyes | ok; the ten-line licence `FOLDER` block repeated in five recipes, each a different set: not shared |
+| x11-desktop | ok; F4 |
+| gmqcc, libogg, libvorbis | ok |
+| libjpeg | `-O1` (F7) |
+| xonotic-build, xonotic-shaders | ok |
+| xonotic | ok; F8 (`xonotic.slop`); the two font-source `SOURCE`s exist for the pin alone, documented |
+| boost-headers, fmt, freetype, icu, libpng, libsodium, libxml2, pkgconf, premake | ok |
+| openal | `-O1` (F7) |
+| spidermonkey | builds as `-D__wasi__` on `wasm64-unknown-wasi`: a detection claim of the porting rules' kind, documented (F11) |
+| zero-ad-data, zero-ad-engine | ok |
+| zero-ad-deps | copies SDL2's headers and archive and writes its own `sdl2.pc` (version 2.32.10) where `INSTALL sdl2` plus `REQUIRES HOST touch@0` would do; `audio@0`, `display@0`, `input@0` dead until then (F12) |
+| zero-ad | ok; F8 (`zero-ad.slop`) |
+| zsh | ok |
+
+## Fixes
+
+1. `27523f9fa` Games: raylib's rtext at -O2, no libm shim, no -fno-builtin or int128 flags.
+   Four September workarounds (9c6699d2f, 1f2954b6c): raylib's `rtext.c` compiled at `-O0`
+   for a compiler limit that is gone (compiles at -O2, 1.9 -> 1.8 MiB); gamedev-sdk's
+   `/usr/lib/libm.a` of double-precision wrappers (`fabsf`, `sqrtf`, `abs`, ten more)
+   shadowing musl's, while the toolchain resolves `-lm` itself (fingers links `-lm` from
+   system-tools, which has no `libm.a`); `-fno-builtin` on raylib, Box3D and bhop;
+   `-U__SIZEOF_INT128__` on Box3D, Lua 5.5 and Slopyard (only Box3D's verstable uses int128,
+   for a 64x64 multiply). Rebuilt raylib, box3d, gamedev-sdk, slopyard, bhop (249 s) with
+   their self-checks (`slopyard --check`, bhop.mk `check`); source suite 467/467.
+   Browser: `npm run test:demos -- bhop` passed in Chromium (216 s; the test runs Chromium
+   only). Slopyard's browser test needs a GPU window (Vulkan) and was not run: the change does
+   not touch its GPU path, and its `--check` self-test ran in the build.
+2. `896be41ca` Dead host declarations and glib's build tools:
+   `download@0`/`upload@0` in x11-build, gtk-build, mesa-build, which nothing records (no
+   transfer tools in them); glib's `http@0`/`sockets@0`, there only because it `INSTALL`ed
+   meson, pkgconf, xz, tar and binaryen, build tools whose records every installer of glib
+   (gtk-build, ghostty-gtk) then carried: they are `USE` rows now, and the two declarations go.
+   The lint found the cause (`glib:15: meson needs REQUIRES HOST http@0, sockets@0`).
+   Measured on the rebuilt glib: `/etc/dolly/installed` lists libffi, pcre2, zlib where the
+   evening round's listed libffi, cc, python, ninja, meson, pkgconf, xz, tar, binaryen, pcre2,
+   zlib (a compiler and Python came with every install of glib); its executables record
+   `dso@0 threads@0`, which it declares. x11-build's records: `dso@0 http@0 sockets@0
+   threads@0` plus the two an opened image needs, exactly its declarations now. The x11 set
+   (x11-build and twelve images on it, glib) rebuilt in 600 s.
+3. (in 896be41ca) xterm: `INSTALL libterminfo` was the only package record in these demos naming a library
+   its program links statically (tmux, zsh take it with `USE`); it is `USE` now and xterm
+   carries NetBSD's licence itself. Rebuilt xterm and x11-desktop (in the Neovim invocation):
+   xterm's record is empty, x11-desktop no longer holds `libterminfo.a`, `term.h`, `termcap.h`.
+4. `a5d603cd8` Neovim at `-O2` (lua, nvim; P1's Neovim half): Lua, LPeg, luv, utf8proc, tree-sitter,
+   Neovim (`Release -O2` for `Debug -O0`) and the parsers. Built in the same invocation as
+   libevent's comment fix (tmux's binary is byte-identical before and after, 1,568,913 bytes):
+   `nvim` 10,280,033 -> 8,094,322 bytes, `lua` 2,281,617 -> 2,222,431, `liblua.a` 311,460 ->
+   248,976, the C parser 658,890 -> 646,316; nvim's recipe checks (a buffer written and read,
+   a Slop child, a job with stdin, seven parsers) passed in the build. Browser: the neovim
+   demo test passed in Chromium (6.6 s). Timing in the new image (`nvim-timing-browser.mjs`,
+   Chromium, three rounds): a Lua loop of five million iterations in 34-36 ms; the -O0 image
+   is not in this tree any more, so the before number is the next round's to take.
+
+   gtk-build (399,296,468 bytes) and mesa-build (429,039,642) rebuilt with the two
+   declarations fewer; ghostty-gtk's build then died in libadwaita's Meson step with Chrome's
+   `Target crashed`, the process-memory crash the integrator reported at 00:10. Merged
+   `integrate/2026-11-02` (64491fd72, the revert) as ac06673c8, `npm run build:runtime` (14 s,
+   image inputs still fe5261db), and the whole-catalog run below rebuilt ghostty-gtk and
+   ghostty-x11.
+5. pixman's comment (F15) and xorg-server's `-D__stub_memfd_create` (F14) corrected: commit
+   05f9f4648; pixman, xorg-server and x11-desktop rebuilt in the whole-catalog run, the x11
+   demo test passed again in Chromium (40 s); ghostty-x11 in the 9 GB run.
+   The whole-catalog run that followed (plain `npm run image`, 6 GB slot, 00:13) rebuilt 15
+   images (pixman, xorg-server, x11-desktop, slopyard, gpu-fluid, xonotic and the pi chain the
+   merge repinned) and lost four to `Target crashed` again: ghostty-gtk, zero-ad, pi-local and
+   lean-std, the four largest builds, with the reverted runtime in place (`dolly-build-id.mjs`
+   b979c6eb, the same as integrate's). That is the 6 GB cap killing Chrome's renderer, not the
+   kernel: the evening round built the first three in the integrator's larger scope. Rerun in
+   a 9 GB `bigbuild` slot (the brief allows it for the heavy chains): below.
+
+6. ENTRY scripts named `init.slop` (F8 fixed rather than kept): `docs/agent-frontend.md` shows
+   an embedding's `boot()` writing `/etc/dolly/init.slop` over the image's, which only works
+   when ENTRY runs that file; slopyard, gpu-fluid (both generated recipes: the generators
+   changed), xonotic and zero-ad ran `/etc/dolly/NAME.slop`. Commit 91df1890c; slopyard,
+   gpu-fluid and xonotic rebuilt in the whole-catalog run, zero-ad in the 9 GB run; their GPU
+   browser tests not run (sealing checks the retained ENTRY file; the script's content is
+   unchanged).
+
+Browser runs after the Neovim set (`test:demos -- x11`, `tmux`, `neovim`, Chromium): x11
+passed (39 s: X server frame 3.7 s after navigation, xeyes 88 ms behind the pointer, a drag at
+45 frames/s, ImGui 53 frames/s, tmux installed with amy inside xterm); neovim passed; tmux
+failed at `amy install vi` inside a pane ("vi: command not found"): `vi` is a core package the
+narrowed catalog of this tree did not list, not a tmux change (tmux's binary is byte-identical).
+Rerun on the whole catalog (00:15): tmux passed in Chromium (21.6 s) and Firefox (13.3 s),
+with its package and `ps` tests in both; x11 passed in Chromium (40.2 s) on the rebuilt
+xorg-server and x11-desktop. Source suite after every commit: 467/467.
+
+The x11 demo test's first run (Chromium) passed the X server, xeyes, a window drag, typing
+into xterm and ImGui's frames, then timed out at `amy install tmux` inside xterm: at that
+moment `dist/dolly-images.mjs` had been rewritten without tmux by a build I had stopped
+(below, Lessons), not by the x11 change. Rerun after the Neovim set: below.
+
+## raylib 6.0's software renderer
+
+None of the audited recipes hits the four rlsw behaviours (blend modes, additive wrap,
+`DrawPoly`, `LoadImageFromScreen`): bhop draws rectangles, cubes, cylinders, lines and text
+and mixes colours with its own `blend()`; Slopyard draws through `gpu@0` and copies raylib's
+framebuffer (`rlCopyFramebuffer`). Only Studio's recordings are affected (not audited here).
+
+## Findings kept as findings (each a few lines; none changes a base or the language)
+
+- F3 mesa-build: Mesa's GLSL parsers are generated on the host (`prepare-mesa.sh`, a bootstrap
+  exception) while the catalog has `yacc` (byacc) and `flex`. Mesa's grammars use Bison-only
+  declarations (`%define api.pure`, `%locations`, `%parse-param`); byacc accepts some. To try:
+  a `bison` package, or byacc with `-b`/`-P`; a Mesa rebuild is 1-2 hours.
+- F4 ghostty-x11, x11-desktop: `until test -e /tmp/.X11-unix/X0 || test $tries = 3000` spawns
+  `/bin/test` (not a Slop builtin) up to 6000 times while the server starts; sbase's `sleep`
+  takes whole seconds (`estrtonum`), so `sleep 1` would cost up to a second of start-up instead.
+  A fractional `sleep` in the core would make the plain `until ...; do sleep 0.1; done` possible.
+- F5 mojo: 480 lines of C (`runtime.c`, `gpu.c`) are `FILE` bodies inside the recipe; every
+  other demo stages its port files as a `SOURCE` tar. Moving them is a mojo rebuild (hours).
+- F7 optimisation levels: sdl2 and imgui-x11's SDL2 at `-O1` (8bfcd8843, no reason recorded),
+  libjpeg `-O1`, openal `-O1`, zero-ad's probes `-O1`; siblings built by CMake take Release's
+  `-O3`, hand-written makefiles `-O2`. Nothing measured says `-O1` is needed; each change is a
+  rebuild of that package and its consumers (sdl2: twelve images).
+- F8 ENTRY scripts: slopyard, xonotic, zero-ad and gpu-fluid name theirs `/etc/dolly/NAME.slop`;
+  the other fourteen applications and docs/dollyfile.md say `init.slop`. Three of the four are
+  GPU images (1-2 GiB) whose tests need a GPU window; not rebuilt tonight for a file name.
+- F9 speech-to-text, voice: the same compile and link block (four archive paths under
+  `/usr/lib/transcribe`) in both; `-L/usr/lib/transcribe -ltranscribe -lggml -lggml-cpu
+  -lggml-base` would read better. Cosmetic.
+- F11 spidermonkey: built with `CC='cc -D__wasi__'` on `--target=wasm64-unknown-wasi`: a
+  detection claim of the kind the porting rules forbid for Linux and AMD64, chosen because
+  mozbuild knows no Dolly. A `dolly` OS in mozbuild's tables would be the first-principles port.
+- F12 zero-ad-deps: copies SDL2's headers and `libSDL2.a` out of the sdl2 package and writes
+  its own `sdl2.pc` (equivalent to the package's today, `Version: 2.32.10`) instead of `INSTALL sdl2`, which carries the real
+  `sdl2.pc` and the licence; the toolchain already declares three of sdl2's four modules
+  (`touch@0` missing). Smallest diff: replace the two `COPY`s, the `FILE sdl2.pc` and the
+  licence `COPY` by `INSTALL sdl2` and `REQUIRES HOST touch@0` (-9 lines). It rebuilds
+  zero-ad-deps, zero-ad-engine (about 3 hours in a 9 GB slot) and zero-ad, whose test needs a
+  GPU: for a round with the GPU procedure.
+- F13 fingers-build: a `PACKAGE` with a toolchain's name, because the application took
+  `fingers`; the catalog convention gives the package the plain name. A rename changes the
+  application's route.
+- F15 pixman: the comment gives `meson install --no-rebuild` the reason "Dolly's Python has no
+  os.geteuid"; it has one now (`python3 -c 'import os; os.geteuid'` in x11-build, Chromium).
+  The flag only spares Meson a second run of the build that just ran; the comment should say
+  so (one line, with the next pixman rebuild; gtk-build and mesa-build use the flag without
+  the claim).
+- F14 xorg-server: `-Dc_args='-D__stub_epoll_create1 -D__stub_memfd_create'` says both are
+  libc stubs; `libc-ww.a` holds `epoll_create1` and no `memfd_create` at all (Meson's link
+  check fails on its own), so the second define is moot: one token to drop with the next
+  xorg-server rebuild (xorg-server, x11-desktop, ghostty-x11 follow).
+- F6 nvim's welcome text says PTY terminals are unsupported: true for this build (no
+  `pty@0`, libuv's pty path not ported), so not stale; recorded for the day `:terminal` is wanted.
+
+## Proposals
+
+- P1 cmake at `-O0`: CMake, libuv (`libuv-dolly.mk`), Lua, LPeg, luv, utf8proc, tree-sitter,
+  Neovim (`Debug -O0`) and its parsers are built at `-O0` since the 2026-09-07 checkpoint
+  (1f2954b6c, "Checkpoint source-built Neovim and independent compiler images"), when the
+  in-sandbox compiler could not optimise every unit (raylib's `rtext.c` rule is the same
+  era). The Neovim side is fixed below (lua, nvim at `-O2`). CMake is left: `cmake-build` is
+  the base of about sixty images (sdl2, tablegen, rust-llvm, mojo-llvm, zig-llvm, every CMake
+  package), so the change is a catalog round; measured tonight in `default` after
+  `amy install cmake` (Chromium): a one-file project configures in 1.6 s (0.7 s warm) and
+  builds in 0.4 s, CMake's own evaluation and generation of 300 targets in 4.3 s (`cmake-timing-browser.mjs` in the evidence directory). Smallest diff: in
+  `demos/cmake/Dollyfile-cmake`, `CFLAGS=-O0 CXXFLAGS='-O0 -std=c++17'` -> `-O2`, drop
+  `-DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS_DEBUG=-O0 -DCMAKE_CXX_FLAGS_DEBUG=-O0` for
+  `-DCMAKE_BUILD_TYPE=Release`; `demos/cmake/libuv-dolly.mk` `CFLAGS = -O0` -> `-O2`.
+  The same recipe bootstraps with `--parallel=1` and builds with a plain `make cmake`, one
+  compile at a time, where every other recipe uses `-j4`: the round that takes the `-O2`
+  change can take `-j4` too and measure the image's build time against the evening round's.
+
+## Shared findings (recorded by both audits)
+
+- S1: 43 `rm -rf /tmp/...` steps in these recipes (and 20 more in the core's): `/tmp` is never
+  retained ("scratch needs no cleanup"), so a final `rm` frees nothing; a mid-build `rm` of a
+  large archive (mojo-llvm) frees memory and stays.
+- S2: the core `tar` restores no mtimes; Emacs compiles a 12-line `utimensat` program to make
+  the release's generated files current. A tar that restores mtimes (a seed change) removes it.
+
+## What the images keep (criterion 4)
+
+Every application here is its base plus its program and data: the compiler
+(`/usr/libexec/dolly/process-bin/compiler`, 91.6 MiB) and libc++ (7.9 MiB) of `system` are
+the largest files of fourteen of them, which is base content, the owner's. Libraries and
+objects outside the toolchain are 1.8-9.8 MiB per image and in use (SDL2 and raylib for the
+viewers and the in-image `make` the games' `.dollyrc` invites; curl, zlib, libdisplay from
+the base); `/usr/src` holds the game ports (bhop 2.1 MiB, slopyard 3.5 MiB, rts-arena 6.7 MiB
+of Seven Kingdoms, which the agents read and rebuild). No build leftovers were found. The
+largest demo images are their data: zero-ad 1842 MiB of game content, xonotic 1068 MiB of pk3,
+rts-arena 119 MiB of 7kaa resources, pi-phone's 129 MiB Parakeet model.
+
+## Tests (criterion 8)
+
+Every image of these demos is named by a browser test or an `amy-browser.mjs` row except the
+six build-only toolchains (classicube-build, mesa-build, mojo-llvm, rts-build, wine-build,
+x11-build), whose outputs the consumers' tests open. Sources: every `SOURCE` has its row in
+`config/upstreams.json` (`test/upstreams.test.mjs` enforces it; `docs/licences.md` is the audit
+over that file), every demo's `prepare-sources.sh` is guarded by `has_image`.
+
+## Base of the branch
+
+`integrate/2026-11-02` at 71d2603fc; the integrator's 00:10 note (the process-memory revert
+2f8d93609 on 64491fd72, kernel C and page JavaScript only, image inputs fe5261db unchanged)
+needed no merge here: no build of the night crashed Chrome (`Target crashed` in no log).
+P1 (CMake at -O0) is a catalog-round decision, left in this task for the integrator.
+
+## Lessons
+
+- A Dollyfile `FILE` body's blank lines are four spaces; the Edit tool strips whitespace-only
+  lines, so my first raylib edit ended the makefile body at its first blank line and the build
+  stopped at `.PHONY:` "unknown directive". Edit recipe bodies with sed or python, and run
+  `update-recipe-pins.mjs` (which parses every recipe) before any build.
+- `work/slot.sh` runs its command in a transient scope of its own: `systemctl --user stop` of
+  the service that called it stops the shell and leaves the build running. The orphan rewrote
+  `dist/dolly-images.mjs` with its own image set a minute later, which made the next build fail
+  on `nvim` and `tmux` ("usage: build-snapshot-browser.mjs IMAGE OUTPUT": the image was not in
+  the catalog) and the x11 test's `amy install tmux` time out. Stop the scope
+  (`systemctl --user list-units --type=scope`), and never chain two `npm run image` calls
+  with `&&` when one may have to be interrupted.
+- One tree runs one `npm run image` at a time, and `generate-routes` narrows the catalog at
+  every start: a browser test in the same tree must open an image the current invocation
+  names, so every invocation of the night named the union of what was built before.
+- Declarations are measured in minutes: a 60-line script that reads each snapshot's
+  `dolly.host` records and compares them with `REQUIRES HOST` found every dead declaration;
+  the lint's completeness error on the first removal (`meson needs http@0, sockets@0`) pointed
+  at the cause, build tools `INSTALL`ed instead of `USE`d, whose records every consumer then
+  carried. A dead declaration is a symptom; find what put it there.
+- The September workarounds (`-O0` units, `-fno-builtin`, a `libm.a` shim, `-U__SIZEOF_INT128__`)
+  carried no reason in the recipe; `git log -S` found the checkpoint commits, and the
+  measurement that retired them was a four-minute rebuild. A flag that works around a compiler
+  of the day needs its reason and the condition for removing it next to it.
