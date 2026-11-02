@@ -17,18 +17,12 @@
 /* A host module's kernel side (host/NAME/kernel.c defines dolly_NAME_kernel).
  * Process operations in [first_operation, last_operation] reach call() with
  * the request in the process mailbox, where call() also writes its response.
- * A call that defers (DOLLY_PROCESS_DISPATCH_DEFERRED) has written nothing:
- * the request stays in the mailbox for the retry.
- * release() runs when a thread retires and, with tid 0, when a process exits.
- * mailbox(), which a module that runs a process on several threads defines,
- * keeps the mailbox of each thread's Worker (dolly_process_worker_mailbox):
- * zero, or -ESRCH for a thread it does not know. */
+ * release() runs when a thread retires and, with tid 0, when a process exits. */
 typedef struct {
   uint32_t first_operation, last_operation;
   int64_t (*call)(int pid, int tid, uint32_t operation, unsigned char *mailbox,
                   uintptr_t request_size, uintptr_t response_capacity);
   void (*release)(int pid, int tid);
-  int (*mailbox)(int pid, int tid, uintptr_t address);
 } dolly_kernel_module;
 
 static inline int64_t dolly_kernel_respond(unsigned char *mailbox,
@@ -40,12 +34,10 @@ static inline int64_t dolly_kernel_respond(unsigned char *mailbox,
 int dolly_kernel_deadline_pending(uint64_t deadline_nanoseconds);
 /* For a module that runs a process on several threads (host/threads/kernel.c):
  * dispatch for one thread, where takes_signals marks the thread receiving the
- * process's signals and mailbox is the thread's Worker's; the process states
- * it may act on; and the release of what every module holds for a thread that
- * ended. */
+ * process's signals; the process states it may act on; and the release of what
+ * every module holds for a thread that ended. */
 int64_t dolly_kernel_dispatch(int pid, int tid, int takes_signals, uint32_t operation,
-                              uintptr_t mailbox, uintptr_t request_size,
-                              uintptr_t response_capacity);
+                              uintptr_t request_size, uintptr_t response_capacity);
 int dolly_kernel_process_launching(int pid);
 int dolly_kernel_process_running(int pid);
 void dolly_kernel_thread_released(int pid, int tid);

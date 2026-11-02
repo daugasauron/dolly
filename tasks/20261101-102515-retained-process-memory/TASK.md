@@ -1,6 +1,6 @@
 # A process that ends keeps its memory resident until the runtime Worker collects garbage
 
-- STATUS: CLOSED
+- STATUS: OPEN
 - PRIORITY: 200
 - TAGS: core,memory,processes
 
@@ -243,3 +243,21 @@ catalog round, and it is the owner's call: the process contract's identity is pa
 name it: its imports are checked to be `env.memory` and `dolly_process_0.call` alone, and
 `host/dso/process.mjs` builds a DSO's import object from the process's own memory. The security
 perimeter is unchanged (AGENTS.md: total compromise of the in-Wasm userspace is assumed).
+
+## Reverted on integrate/2026-11-02 (2026-11-02 night, integrator)
+
+The evening round's lean-std crashed Chrome ("page.evaluate: Target crashed") about three minutes into
+its build, at the same place each time (the C stage, four `cc -O3 -pthread` of Lean's generated C at
+once), and lean-meta crashed the same way. With this change's eight runtime and kernel files as they
+were before its merge (49fb0e689), lean-std built (789,745,795 bytes, as in the morning). The change
+is reverted on integrate (code, its tests, its lines in the docs); `core/process-memory` keeps it.
+
+What the crash is not: 300 threaded processes in a row and `make -j4` of 200 threaded 700 MiB processes
+run under the change without a crash (`build/round-1102b-evidence/leakprobe*`), Chrome's stderr shows
+nothing, and the build renderer stayed at 3 to 4 GB resident. Its virtual size grew from an idle
+renderer's 1,448 GB to about 1,537 GB before it crashed, which points at address-space reservations
+rather than resident memory, but proves nothing yet.
+
+To bring it back: reproduce in under five minutes with `DOLLY_BUILD_IMAGES=lean-stage0,lean-std,lean-meta`
+on a tree where lean-meta is not built, find the cause (Chrome's crash reporter, or bisecting the
+change's three commits), fix it, and keep the lean-meta build as the test that failed before.
