@@ -281,6 +281,27 @@ cache. On 4439f99c Chrome fails as the round did (`image-input-before-fix-chromi
   `after-npm.log`); they load no artifact.
 - `npm run build:runtime`: image inputs `sha256:fe5261db…` (`build-runtime.log`), unchanged.
 
+**fd from the published rust-build** (`DOLLY_BUILD_IMAGES=rust-build,fd`, this tree's fd snapshot
+removed, the 6 GB cap, `fd-after.*`, 0.2 s samples): "reusing published rust-build artifact", the
+527 MB input read from its packs into the store and by the Worker, fd built in 100 s, exported
+5,649,578 bytes, sha256 `d5992f49…`: byte-identical to the catalog's. The scope's anonymous memory
+peaked at 5.28 GB in Cargo's build, the Blob and the copy of rust-build nowhere in it.
+
+**pi-local under the 9 GB cap**, this tree's snapshot removed, the same inputs each time
+(`pi-local-after.*` with this branch, `pi-local-before.*` with integrate's page code, dc7b58aa4):
+
+| | restoring the image builder | the capture, to the export | the Worker gone |
+| --- | --- | --- | --- |
+| before (an ArrayBuffer of each input, the captured image copied whole, a Blob of it for IndexedDB) | 7.1 GB | 8.55 GB peak, 7.0 to 7.2 GB for 25 s while the cache wrote its copy | 1.7 GB |
+| after (inputs and the capture as files of the store) | 5.57 GB peak, for a second | 5.55 GB peak | 0.84 GB |
+
+Both builds exported 1,651,923,573 bytes with sha256 `31294d38…`: the store changes nothing in the
+image. (The catalog's pi-local, `78691695…`, is 61 bytes smaller: pi-agent carries the four edited
+documents, so the next round rebuilds dolly-docs and its dependents.) The old code's run was not
+killed this time (agent A's was, finding 21): its 0.45 GB of margin under the cap is now 3.4 GB.
+The remaining copies are the kernel's (`capture_bytes`, the proposal above) and the inputs written
+whole into WasmFS (`dolly_write_file` truncates; the second proposal).
+
 ## Lessons
 
 - "Kernel C is not an image input" holds only while the kernel's export list stands: the
