@@ -24,7 +24,7 @@ REQUIRES TOOL   mkdir
 SOURCE /v0.1.4/dist/static/default/runtimes/quickjs-main.c   d8d0b1c931c5c1932c630b2fa4d51be7a3f9f392c3d19e954b66280a4a9ecb62 /tmp/janis/quickjs-main.c
 SOURCE /v0.1.4/dist/static/default/runtimes/quickjs-runner.h cb2ae27cc02ed3d90b43eeb924f474b01fa8d7598f1e5989b0de3fcd12c2a97f /usr/include/dolly/quickjs-runner.h
 SOURCE /v0.1.4/dist/static/default/runtimes/dolly-node.js    d7e19c4bb4f46cce32ccbe2130e5f5e9203c1ba185cf0d0a9952f5d1b1ecabd3 /usr/lib/dolly/node.js
-SOURCE /v0.1.4/dist/static/default/runtimes/janis.js         55c00d249d784edaa073af89c319fc97aeea443be86e7636d814f2bdbf7f9b62 /usr/lib/janis/runtime.js
+SOURCE /v0.1.4/dist/static/default/runtimes/janis.js         15c3714d0cb57b7a20daad2e775604c26af47868f999be3c922005c36171b47f /usr/lib/janis/runtime.js
 SOURCE /v0.1.4/dist/static/default/commands/janis.c          08c40227d11f06e851a6406fe5ed8f8d7e5f7cdd28a3dad2609c04650a7afe1b /tmp/janis/janis.c
 
 SLOP cc -O2 -std=gnu11 -funsigned-char -D_GNU_SOURCE -I /usr/include/dolly -c /tmp/janis/quickjs-main.c -o /tmp/janis/quickjs-main.o

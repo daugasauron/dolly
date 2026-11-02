@@ -10,7 +10,7 @@ REQUIRES HOST http@0
 # It is one Janis script linked with the runner, as janis-install is, and
 # checks and decompresses crates with sha256sum and gzip.
 FROM /v0.1.4/Dollyfile-system-tools 4e1f937ead579cf898829e91608c8bb21511c7eaff93bb3b3355984007d868c2
-INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 7a17f07e977c1bee6c8b3d2f8ffb4f9937ff158dc9e9673a7165e3c4c79043d6
+INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 7c72a3cc505a51e8f3319d18ce930549cbd03e532cde8d1b330c08414a8db6e7
 INSTALL /v0.1.4/Dollyfile-gzip acabe00e57d6fb7e8b1e657340d20ca5085a0726f935df90441c1265a1a0c7e2
 INSTALL /v0.1.4/demos/tools/Dollyfile-sbase 7bca1884518ae643abbc65ba231fd3730523b176afe845450f10845b0964363a
 

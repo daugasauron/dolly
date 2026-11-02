@@ -12,7 +12,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 1d86dc1ff0bea08d448ebf5db371a1c0f6f3cfb365387de9c7ff930ed6e91aef
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 8ee0eddd08c7226dc811ae1abd39fd5ddf9f9819453eff1a023a0bc18ef7d3a7
 INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 5cc7503c8fdb57cb748da222d390d6c9a4f34ab9c0ea6f8c5ae6fc907acfda6f
 COPY /v0.1.4/demos/rts/Dollyfile-rts-build 4fa51cc3ab58e24d25c9d9450a7db65c6bd3648670d7b1f6881e04c869d79d94 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
 COPY /v0.1.4/demos/rts/Dollyfile-rts-build 4fa51cc3ab58e24d25c9d9450a7db65c6bd3648670d7b1f6881e04c869d79d94 /usr/share/7kaa /usr/share/7kaa
