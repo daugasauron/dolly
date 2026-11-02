@@ -42,6 +42,19 @@ pi-dolly's `SYSTEM.md` (html) and `dolly-skill.md` (docs-audit), studio's `studi
 `scripts/build-source-tar.mjs`, deterministic); `prepare-image-sources.sh` refreshes them
 on a build of those images anyway.
 
+### Added after round 1 (12:33)
+
+- Cherry-picks from `fix/video-findings`, code and skill files only, as the integrator asked
+  (`4f6e1ace` -> `2fdb9ac7` Janis's pump drains what a child wrote; `88f27845` -> `6e777d4e`
+  studio's skill). Their recipe hunks were made on another seed: janis.js's SOURCE pin is the
+  file's digest, studio.tar's the deterministic tar over the merged sources, the rest
+  `update-recipe-pins.mjs`. Left out as the owner's call: `ab51b690`, `588a5ebd`, `8f3a9d49`
+  (terminal VMIN 0 in `include/dolly/runtime.h`, a process-contract change).
+- The branches that moved since the morning merge: `demo/workaround-removal` `6f343fbb`
+  (Mojo's llvm-wait.patch goes) and `demo/lean-3` `49bdc352` (its merge of
+  core/process-memory, already in the candidate, and a task note). Both merged clean, no
+  seed input touched, image inputs still `fe5261db…`, source suite 468 pass.
+
 `docs/embedding.md`: html's package rows (the `html` module in the host list and in
 pi-minimal's modules) with docs-audit's description of `amy` in the default image.
 
@@ -74,6 +87,15 @@ html-browser composes `system` with the `html` package (`composed(["html"], ["ht
 "system" })`), which the default,system build does not include: `composed` fails on the
 catalog entry (`reading 'dollyfile'`) before a browser opens. Not a merge fault; `html` is
 built in round 2 below.
+
+Round 2 on `393b5c4b` (the cherry-picks and the moved branches above): `DOLLY_BUILD_IMAGES=
+default,system,html npm run image` 12:35, `ready in 8.3s` (default and system cached, html
+built; its snapshot carries image inputs `fe5261db…`). Logs `NAME-BROWSER-2.log`:
+
+| Test | Chromium | Firefox |
+| --- | --- | --- |
+| html-browser | pass, 13 s | pass, 16 s |
+| core-browser | pass, 28 s | pass, 40 s |
 
 ## Lessons
 
