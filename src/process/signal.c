@@ -260,8 +260,10 @@ int sigwait(const sigset_t *restrict set, int *restrict number) {
 
 /* As POSIX says, SIGABRT's handler runs unless the signal is blocked, and if
  * it returns, or the signal is blocked or ignored, the process ends by
- * SIGABRT. Emscripten's abort traps instead: the process failed with 126. */
-_Noreturn void abort(void) {
+ * SIGABRT. Emscripten's abort traps instead: the process failed with 126.
+ * Weak, because this archive is linked whole: a program's own abort
+ * (SpiderMonkey's mozalloc has one) takes its place, as with a static libc. */
+__attribute__((__weak__)) _Noreturn void abort(void) {
   raise(SIGABRT);
   dolly_exit_signal(SIGABRT);
 }
