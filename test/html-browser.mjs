@@ -106,7 +106,12 @@ await browserTest("html", { image: "system", timeout: 300_000 }, async ({ name, 
   assert.equal(await submit("html /home/dolly/question.html"), 1);
   await page.waitForTimeout(2000);
   [status] = await show("html /home/dolly/question.html");
-  await frame.locator("input").press("Escape");
+  // Its keydown removes the frame, so the keyup goes to the page: Chromium never
+  // acknowledges a keyup sent to the removed frame, and a press would wait for it.
+  await frame.locator("input").focus();
+  await page.keyboard.down("Escape");
+  await popup.waitFor({ state: "detached" });
+  await page.keyboard.up("Escape");
   assert.equal(await status, 1);
   await page.waitForTimeout(2000);
   // A form's own constraints hold: an empty required field is not sent.
