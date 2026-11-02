@@ -223,7 +223,9 @@ cc 23 s (69 MB, 49 packs), boot to Pi 5.8 s with 302 workspace files (`check-chr
    with the source, `SLOP cc`), a file of an npm package (`SOURCE` from unpkg, then `FILE` to
    keep it). `EXPORTS TOOL` puts each on the agent's `PATH`. A package of the user's own in the
    `INSTALL` sense is not supported: `dolly-build` resolves rows against `node_modules/@daugasauron/`
-   alone, so the way for the user's files is `SOURCE` by URL and digest.
+   alone, so the way for the user's files is `SOURCE` by URL and digest. The recommended
+   way for a tool of one's own is the `FILE` row (a script, or a C source with its `SLOP cc`):
+   it is in the recipe, pinned by the recipe's own hash, with nothing to fetch.
 5. **The page fetches the workspace concurrently** (`Promise.all`): 16.1 s to 0.18 s at 50 ms a
    request for 302 files, 0.30 to 0.10 s on localhost.
 6. **README**: `cc` in the install line and `init my-pi git cc` (a C compiler is a coding
@@ -296,8 +298,15 @@ passes the policy and OpenRouter's CORS, and OpenRouter judges the key. The tool
 
 ## Proposals (the second pass)
 
-- `boot({ session: NAME })`, or the session route in the npm runtime, so a page of one's own
-  can open the sessions it saves; until then `snapshot@0` is write-only outside the site.
+- `boot({ session: NAME })`, so a page of one's own can open the sessions it saves; until
+  then `snapshot@0` is write-only outside the site. The smallest diff: `browser.mjs`'s `boot()`
+  with `session` given runs the route `site.mjs`'s `bootRoute` runs for `/session/` (`mode
+  "snapshot"`, `loadSession: true`, the image's modules plus `snapshot@0`), and
+  `host/snapshot/snapshot.mjs`'s `boot(route)` takes the name from `route.session` before
+  `location`'s `?name=`. About ten lines, no new browser authority (the module and its
+  IndexedDB store are the ones the site uses); `embedding.md` would list the option, and the
+  page keeps its own list of names (`/sessions/` stays the site's). Owner's call: it adds an
+  option to `boot()`.
 - The terminal's palette (`src/ghostty/display.c`): still compiled in. With it a file, Pi's
   `system` theme could follow the terminal and `theme.json` would be the one place for colours.
 
