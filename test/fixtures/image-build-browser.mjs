@@ -75,3 +75,31 @@ export async function buildInputReuse() {
   }
   return digest;
 }
+
+// Two builds of RECIPE in this page, as the catalog's build page builds: each
+// one's input sizes, the built image's size and digest, whether its Blob
+// holds what its identity says, and how many packs the page fetched for it.
+export async function buildTwice(recipe) {
+  const base = new URL("../", document.baseURI);
+  const [registry, policy, transport, builder, graph, artifactStore, { hostModuleUrls: modules }] = await Promise.all([
+    "src/images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
+    "src/image-builder.mjs", "src/image-build.mjs", "src/image-artifact.mjs", "host/manifests.mjs",
+  ].map(path => import(new URL(path, base).href)));
+  await registry.loadImages(base);
+  const network = { ...transport.localServicesTransport(new policy.DollyHttpPolicy(undefined, registry.bootstrapSources(), base)),
+    site: base.href };
+  const build = (image, inputs, customSource) => builder.buildImage(image, inputs, { http: { network } }, () => {}, { modules, customSource });
+  performance.setResourceTimingBufferSize(4000);
+  const packs = () => performance.getEntriesByType("resource").filter(entry => entry.name.includes("/dist/packs/")).length;
+  const builds = [];
+  for (let round = 0; round < 2; round++) {
+    const fetched = packs();
+    const inputs = await graph.prepareImageArtifacts("custom", recipe, build, () => {});
+    const built = await build("custom", inputs, recipe);
+    const described = await artifactStore.describeImageArtifact(built.bytes, built.recipeSha256);
+    builds.push({ inputs: inputs.map(({ byteLength }) => byteLength).sort((left, right) => left - right),
+      byteLength: built.byteLength, sha256: built.sha256, packsFetched: packs() - fetched,
+      intact: described.sha256 === built.sha256 && described.byteLength === built.byteLength });
+  }
+  return builds;
+}
