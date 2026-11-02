@@ -101,7 +101,8 @@ try {
   const piPageSource = await readFile(join(piApp, "index.html"), "utf8");
   assert.ok(piPageSource.includes("await boot("));
   await writeFile(join(piApp, "index.html"), piPageSource.replace("await boot(", "window.dolly = await boot("));
-  await writeFile(join(piApp, "workspace/ocean.txt"), "the deepest trench\n");
+  await mkdir(join(piApp, "workspace/notes"));
+  await writeFile(join(piApp, "workspace/notes/deep sea.txt"), "the deepest trench\n");
   const recipe = await readFile(join(piApp, "Dollyfile-my-pi"), "utf8");
   const declaredByRecipe = [...recipe.matchAll(/^REQUIRES HOST (\S+)/gm)].map(([, name]) => name).toSorted();
   const piServer = spawn(process.execPath, ["serve.mjs"], { cwd: piApp, env: { ...process.env, PORT: "0" } });
@@ -216,7 +217,7 @@ try {
       })();
       assert.equal(await shell("grep -q 'coding agent' ~/.pi/agent/AGENTS.md && command -v todo > /dev/null"), 0);
       assert.equal(await shell("git --version > /dev/null"), 0);
-      assert.equal(await shell("grep -q 'deepest trench' /workspace/ocean.txt"), 0);
+      assert.equal(await shell("grep -q 'deepest trench' '/workspace/notes/deep sea.txt' && test -f /workspace/README.md"), 0);
       assert.notEqual(await shell("curl -fsS https://example.com > /dev/null"), 0);
       console.log(`npm packages: ${name} passed in ${((performance.now() - started) / 1000).toFixed(1)}s`);
     } finally { await browser.close(); }

@@ -116,6 +116,9 @@ script) is now written by `init` or said in its comments.
   157 s in all (`npm-browser-both-2.log`).
 - `test/npm-browser.mjs chromium firefox` at the final command (`init` writes `.gitignore`):
   passed, 16.2 s and 20.5 s of browser time (`npm-browser-both-3.log`).
+- `test/npm-browser.mjs chromium firefox` with a workspace file in a subdirectory with a space
+  in its name (the page encodes each path segment): passed, 16.9 s and 20.3 s
+  (`npm-browser-both-4.log`).
 - Not measured tonight: `init` under pnpm and Yarn. This machine's pnpm 12.15 insists on
   fetching pnpm 12.16.1 from whatever registry `.npmrc` names, so it never installed from
   the test registry; `init` reads the same `node_modules/@daugasauron/` the build reads,

@@ -26,7 +26,8 @@
   if (!listing.ok) throw new Error("GET workspace/ must list the project's files, as serve.mjs does");
   const files = {};
   for (const path of await listing.json()) {
-    files[`/workspace/${path}`] = new Uint8Array(await (await fetch(`./workspace/${path}`)).arrayBuffer());
+    const url = `./workspace/${path.split("/").map(encodeURIComponent).join("/")}`;
+    files[`/workspace/${path}`] = new Uint8Array(await (await fetch(url)).arrayBuffer());
   }
 
   await boot(document.querySelector("#dolly"), { images, image, modules, http: { policy }, files });
