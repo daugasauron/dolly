@@ -77,7 +77,8 @@ sequenceDiagram
   A start does not read an executable whose module is cached: the kernel opens the
   file and gives its version (`dolly_process_image_version`, a number every write and
   size change of the file renews), and only a version the supervisor has not compiled
-  is read (`dolly_process_image_read`) and hashed.
+  is copied out of the file's own blocks (`dolly_process_image_block`; the kernel makes
+  no copy of its own) and hashed.
 - A refusal is reported to the program that asked, not to the person at the
   page. An executable the loader refuses (a wrong stamp or import, a host module
   the session does not have or whose layout differs, a thread client without

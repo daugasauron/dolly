@@ -13,6 +13,7 @@ import {
   DOLLY_PROCESS_SPAWN_INTERACTIVE,
 } from "./process-constants.mjs";
 import { hex } from "./static-asset.mjs";
+import { DOLLY_FS_BLOCK_SIZE } from "../host/runtime/abi.mjs";
 
 const encoder = new TextEncoder();
 const spawnHeaderSize = DOLLY_PROCESS_SIZEOF.dolly_process_spawn_request;
@@ -484,18 +485,22 @@ export class DollyProcessSupervisor {
     }
   }
 
-  // The bytes of the executable the kernel opened for a process, which it then closes.
+  // The bytes of the executable the kernel opened for a process, copied from
+  // the file's own blocks (the kernel makes no copy), which it then closes.
+  // One copy: Web Crypto rejects views of shared memory.
   #takeImage(pid) {
-    const read = this.kernel.dolly_process_image_read(pid);
-    if (read !== 0) throw new Error(`cannot read the executable of process ${pid}: ${read}`);
-    const address = Number(this.kernel.dolly_process_image_address(pid));
     const size = Number(this.kernel.dolly_process_image_size(pid));
-    if (!Number.isSafeInteger(address) || !Number.isSafeInteger(size) ||
-        address <= 0 || size < 8 || address > this.kernelMemory.buffer.byteLength - size) {
-      throw new Error(`kernel supplied an invalid executable for process ${pid}`);
-    }
+    if (size < 0) throw new Error(`cannot read the executable of process ${pid}: ${size}`);
+    if (!Number.isSafeInteger(size) || size < 8) throw new Error(`kernel supplied an invalid executable for process ${pid}`);
     const bytes = new Uint8Array(size);
-    bytes.set(new Uint8Array(this.kernelMemory.buffer, address, size));
+    for (let offset = 0; offset < size; offset += DOLLY_FS_BLOCK_SIZE) {
+      const length = Math.min(DOLLY_FS_BLOCK_SIZE, size - offset);
+      const address = Number(this.kernel.dolly_process_image_block(pid, BigInt(offset / DOLLY_FS_BLOCK_SIZE)));
+      if (!Number.isSafeInteger(address) || address <= 0 || address > this.kernelMemory.buffer.byteLength - length) {
+        throw new Error(`kernel supplied an invalid executable for process ${pid}`);
+      }
+      bytes.set(new Uint8Array(this.kernelMemory.buffer, address, length), offset);
+    }
     if (this.kernel.dolly_process_image_consumed(pid) !== 0) {
       throw new Error(`kernel did not release executable ${pid}`);
     }
