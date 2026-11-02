@@ -1686,13 +1686,19 @@ function pumpChildren() {
     try {
       const queries = record.fds.map((fd, index) => [fd ?? -1, index === 0 ? Dolly.fsConstants.POLLOUT : Dolly.fsConstants.POLLIN]);
       const ready = Dolly.fsPoll(queries, 0);
+      // A pump drains what the child has written, up to 1 MiB a stream: one
+      // chunk a pump left a reply queued behind a large event for seconds.
       for (const index of [1, 2]) {
         if (record.fds[index] === null || !ready[index] || record.paused[index] ||
             (!record.waited && child.stdio[index].listenerCount("data") === 0)) continue;
-        const bytes = Buffer.alloc(16384);
-        const count = Dolly.fsRead(record.fds[index], bytes, 0, bytes.length);
-        if (count) child.stdio[index].push(bytes.subarray(0, count));
-        else { closeChildFd(record, index); child.stdio[index].push(null); }
+        for (let reads = 0; reads < 64; ++reads) {
+          if (reads && !Dolly.fsPoll([[record.fds[index], Dolly.fsConstants.POLLIN]], 0)[0]) break;
+          const bytes = Buffer.alloc(16384);
+          const count = Dolly.fsRead(record.fds[index], bytes, 0, bytes.length);
+          if (count) child.stdio[index].push(bytes.subarray(0, count));
+          else { closeChildFd(record, index); child.stdio[index].push(null); break; }
+          if (count < bytes.length) break;
+        }
       }
       if (record.fds[0] !== null) {
         if (ready[0] & (Dolly.fsConstants.POLLERR | Dolly.fsConstants.POLLHUP)) {

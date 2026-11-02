@@ -274,5 +274,19 @@ await check('combined signals and timer promises abort mid-wait', async () => {
   try { await delay(200, undefined, { signal }); } catch (value) { error = value; }
   assert(signal.reason === reason && error?.name === 'AbortError' && error.cause === reason, 'timer ignored mid-wait abort');
 });
+// A reply a child writes after a large event is read promptly: a pump drains
+// what the child wrote, not one chunk (4 MB took 4.1 s at one chunk a pump).
+await check('a line queued behind 4 MB of a child\'s output arrives within 2.5 s', async () => {
+  const size = 4_000_000;
+  const script = `const chunk = Buffer.alloc(65536, 65); let written = 0;
+    function more() { while (written < ${size}) { const piece = chunk.subarray(0, Math.min(chunk.length, ${size} - written)); written += piece.length;
+      if (!process.stdout.write(piece)) { process.stdout.once("drain", more); return; } } process.stdout.write("\\nRESPONSE\\n"); }
+    more();`;
+  const started = Date.now();
+  const result = await completion(spawn('janis', ['-e', script], { stdio: ['ignore', 'pipe', 'inherit'] }));
+  const elapsed = Date.now() - started;
+  assert(result.status === 0 && result.stdout.length === size + 10 && result.stdout.subarray(-9).toString() === 'RESPONSE\n', `child output lost (${result.stdout.length} bytes, status ${result.status})`);
+  assert(elapsed < 2500, `4 MB and its reply took ${elapsed} ms`);
+});
 if (failures.length) throw new Error(`Janis process/abort groups failed:\n${failures.join('\n')}`);
 console.log('JANIS-PROCESS-OK');
