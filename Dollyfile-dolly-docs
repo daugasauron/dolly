@@ -12,11 +12,11 @@ SOURCE /v0.1.4/docs/display.md 4862aa3d0f0251c03887be702f03267bb3c1ef8c683c816a6
 SOURCE /v0.1.4/docs/gpu.md bfd3b4ce7c8b29cf58fa33d3faa1b3a315892808ed7e2d5b19415589d48836b3 /usr/share/doc/dolly/docs/gpu.md
 SOURCE /v0.1.4/docs/audio.md 2380b483c106b884e3e97ed3de8eaac9467e8e2a0307b878bddf620401d43e9f /usr/share/doc/dolly/docs/audio.md
 SOURCE /v0.1.4/docs/http.md de50df79d12ddf7cc5335c1061e0f33c5dcaa2228970754ff844f211ed2a40af /usr/share/doc/dolly/docs/http.md
-SOURCE /v0.1.4/docs/sessions.md 655a7f4d49eb105548e331c595b7ae9b9a9cabb272debc0ffd6f33b937c87bf4 /usr/share/doc/dolly/docs/sessions.md
-SOURCE /v0.1.4/docs/dollyfile.md 3aa08e0ef0de7d2e4fe0964ce6f124b6e26ef47ef8551dd6c20a7da1c5f3c22e /usr/share/doc/dolly/docs/dollyfile.md
+SOURCE /v0.1.4/docs/sessions.md 4189995ee74f62f7230654a752fcb603c7853394a6489f2fab97c6264157de5e /usr/share/doc/dolly/docs/sessions.md
+SOURCE /v0.1.4/docs/dollyfile.md 20e441c6c6fefd1cbc5aeae28426d00e48acd18ddebf56de47e42b5bb85b85b7 /usr/share/doc/dolly/docs/dollyfile.md
 SOURCE /v0.1.4/docs/architecture.md 237223326f8a1d045b0c3b61e162dde01af0f38734fca69c816f75a95135a144 /usr/share/doc/dolly/docs/architecture.md
-SOURCE /v0.1.4/docs/browser-boundary.md ef3d86c7de5c88f266d4b91a4bd62c23d4058479fdf9b8199e76fb9f92a0d8ed /usr/share/doc/dolly/docs/browser-boundary.md
-SOURCE /v0.1.4/docs/image-build-service.md 43bbcfcf7c5e7c8ce83f91c55b3c4bc0682651b2905ba35089b2b85b3b13efa9 /usr/share/doc/dolly/docs/image-build-service.md
+SOURCE /v0.1.4/docs/browser-boundary.md 690ada71c218f4bd5a29794c20dd498d116f6e1301f7d279f993387ea1b963a1 /usr/share/doc/dolly/docs/browser-boundary.md
+SOURCE /v0.1.4/docs/image-build-service.md 658d9961bf2af518506d8dc00a6c7ed7445cd15c783c5ce63a409816a4b3a201 /usr/share/doc/dolly/docs/image-build-service.md
 SOURCE /v0.1.4/abi/README.md b717b7f52bf84ec6c52cf73355107cc10e25bc6bdc8c543fb4d4e0c340b62295 /usr/share/doc/dolly/abi/README.md
 SOURCE /v0.1.4/host/README.md 800d6b8a4affe8e4476e25fcfdcf027fcfb0c507b5e9e01a3c1c0f02d978cb8a /usr/share/doc/dolly/host/README.md
 SOURCE /v0.1.4/abi/dolly-browser-0.wat 54576bfa23c0a01f7cd213f03c3e68309c9298a95a6310c476915490f868407d /usr/share/doc/dolly/abi/dolly-browser-0.wat
