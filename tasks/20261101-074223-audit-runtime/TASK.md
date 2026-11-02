@@ -1,6 +1,6 @@
 # Audit: the browser runtime, page and module loading
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 300
 - TAGS: core,audit,runtime
 
@@ -440,3 +440,7 @@ without the loaders' `image` argument (finding 1), and keep this branch's metada
   out: a catalog image whose recipe runs a program linked against a device client was the
   case no test covered, and the catalog round found it (22). Before narrowing a list, find
   its every reader, here the Worker's admission of a program's modules.
+
+## Closed (2026-11-02 night, integrator)
+
+Its fixes are merged on `integrate/2026-11-02`; its proposals are in `tasks/20261102-133353-owner-decisions`.

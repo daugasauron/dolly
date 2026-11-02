@@ -17,16 +17,9 @@
   ;; Runs the kernel's constructors: once, after instantiation, before any
   ;; other export.
   (func (export "_initialize"))
-  ;; The supervisor's mailbox holds DOLLY_PROCESS_PACKET_LIMIT bytes (process.h)
-  ;; for its own packets: spawn_serialized, worker_failed and exec_refused.
+  ;; The process mailbox holds DOLLY_PROCESS_PACKET_LIMIT bytes (process.h).
   (func $mailbox_address (result i64) i64.const 0)
   (func $spawn_serialized (param i64) (result i32) i32.const 0)
-  ;; A process Worker's own mailbox, as many bytes of kernel memory, which the
-  ;; Worker fills with each request and reads each response from: PID, TID (zero
-  ;; for a process without threads) and its address, named when the Worker
-  ;; starts and withdrawn with zero when it ends. dispatch and
-  ;; dolly_threads_dispatch find it by the thread.
-  (func $worker_mailbox (param i32 i32 i64) (result i32) i32.const 0)
   (func $dispatch (param i32 i32 i64 i64) (result i64) i64.const 0)
   ;; Remaining wait from the last dispatch, or -1 for no finite timer.
   ;; This is a wakeup hint; retry dispatch to decide readiness in Wasm.
@@ -107,7 +100,6 @@
 
   (export "dolly_process_mailbox_address" (func $mailbox_address))
   (export "dolly_process_spawn_serialized" (func $spawn_serialized))
-  (export "dolly_process_worker_mailbox" (func $worker_mailbox))
   (export "dolly_process_dispatch" (func $dispatch))
   (export "dolly_process_deferred_milliseconds" (func $deferred_milliseconds))
   (export "dolly_process_take_wakeup" (func $take_wakeup))

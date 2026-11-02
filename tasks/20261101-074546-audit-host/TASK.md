@@ -1,6 +1,6 @@
 # Audit: the host modules
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 300
 - TAGS: core,audit,host-modules
 
@@ -301,3 +301,7 @@ Described, not changed (each moot or another workstream's, as it says):
   source suite checks the working tree's pins, so an uncommitted docs edit fails it. The
   installed Firefox is a snap and does not start inside a capped `systemd-run` scope, so
   hardware WebGPU in Firefox cannot be measured on this machine.
+
+## Closed (2026-11-02 night, integrator)
+
+Its fixes are merged on `integrate/2026-11-02`; its proposals are in `tasks/20261102-133353-owner-decisions`.

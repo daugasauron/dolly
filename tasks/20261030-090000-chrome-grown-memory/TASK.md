@@ -1,6 +1,6 @@
 # Chrome traps a copy, fill or atomic into memory another thread just grew
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 280
 - TAGS: core,threads,bug
 
@@ -127,3 +127,7 @@ Done-when: merged with the decision in `docs/process-model.md`.
 - A thread that waits in `Atomics.wait` must not wait for a message it has just posted: Chrome
   delivers a message to a Worker that started moments before only after the sender's next task.
   Hand a helper its shared state once, let it say it waits, and pass requests through words.
+
+## Closed (2026-11-02 night, integrator)
+
+Done: the decision is merged and in `docs/process-model.md`, and the deadlock its first form caused in Chrome is fixed (41c6a754). `core/process-memory`'s form of it (the spawning Worker makes the reservation) was reverted on integrate the same night (lean-std crashed Chrome with it; `tasks/20261101-102515-retained-process-memory`). The spawn budget question is in `tasks/20261102-133353-owner-decisions`.
