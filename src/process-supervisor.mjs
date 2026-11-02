@@ -26,17 +26,18 @@ const interruptedSystemCall = -BigInt(DOLLY_ERRNO.EINTR);
 // the memory of a 61st process of 8 GiB was refused.
 const processWorkerLimit = 56;
 const processMemoryBudgetBytes = 4 * 1024 * 1024 * 1024;
-// Chromium releases the address space of a terminated Worker's memory some
-// time after terminate(): a memory it cannot reserve is asked for again for
-// a while before the process is refused. A spawn the count refuses waits as
-// long, like any blocking call, asked again whenever a process ends and at
-// each service tick; then it fails EAGAIN, a full process table's answer. A
-// spawn the budget refuses waits until a process ends, however long: make and
-// Cargo end a build at a spawn's EAGAIN. So a pipeline started over the
-// budget waits forever if its first stage fills the pipe before the next
-// stage is admitted; a signal (Ctrl+C) ends the wait.
-const reservationRetryMilliseconds = 50;
+// A spawn the count refuses waits as long as a Worker asks again for a memory
+// Chromium cannot reserve yet (src/process-worker.mjs), like any blocking
+// call, asked again whenever a process ends and at each service tick; then it
+// fails EAGAIN, a full process table's answer. A spawn the budget refuses
+// waits until a process ends, however long: make and Cargo end a build at a
+// spawn's EAGAIN. So a pipeline started over the budget waits forever if its
+// first stage fills the pipe before the next stage is admitted; a signal
+// (Ctrl+C) ends the wait.
 const reservationPatienceMilliseconds = 5000;
+// A Worker ended mid-copy into its mailbox finishes the copy within
+// microseconds; one that holds the mailbox this long keeps it.
+const mailboxSealMilliseconds = 1000;
 const interruptGraceMilliseconds = 500;
 const compiledModuleCacheEntries = 64;
 const compiledModuleCacheBytes = 256 * 1024 * 1024;
@@ -126,25 +127,13 @@ function encodeSpawn(arguments_, flags) {
   return packet;
 }
 
-// A process's memory is released only when this Worker collects garbage,
-// which neither browser counts it towards: six processes of 512 MiB in a row
-// stayed resident in Chrome until a seventh (tasks/20261101-102515-retained-
-// process-memory). No browser frees a shared memory on request, so an
-// untouched buffer of the bytes that became garbage tells the collector what
-// its own count lacks; it dies at once and touches no page.
-function reportGarbage(bytes) {
-  try { void new ArrayBuffer(Math.min(bytes, 2 ** 31)); } catch {}
-}
-
-function createProcessMemory({ initial, maximum }) {
-  return new WebAssembly.Memory({
-    initial,
-    maximum,
-    shared: true,
-    address: "i64",
-  });
-}
-
+// A process's memory lives in its own Workers alone, never in this one: a
+// shared memory's pages go when the last agent holding it drops it, and a
+// living Worker drops one only when it collects garbage, which a small heap
+// rarely needs (tasks/20261101-102515-retained-process-memory). So each
+// Worker makes or receives the memory, holds the gate and copies its requests
+// into a mailbox of its own in kernel memory, and the memory goes with the
+// Worker. This Worker only names that mailbox to the kernel.
 export class DollyProcessSupervisor {
   constructor(kernel, kernelMemory, gateModule, workerUrl, processContract, hostAbi, serviceHost, threadContract, threadHost, processModules) {
     if (!(kernelMemory instanceof WebAssembly.Memory) ||
@@ -176,7 +165,7 @@ export class DollyProcessSupervisor {
     this.serviceTimer = setInterval(() => this.#serviceTick(), 16);
   }
 
-  static async create(kernel, kernelMemory, runtimeBase, hostAbi, serviceHost, threadHost, processModules, growerUrl) {
+  static async create(kernel, kernelMemory, runtimeBase, hostAbi, serviceHost, threadHost, processModules) {
     const [gateBytes, contractBytes, threadBytes, workerBytes] = await Promise.all([
       "dolly-process-gate-0.wasm", "dolly-process-0.wasm", "dolly-threads-0.wasm",
       "dolly-process-worker.mjs",
@@ -197,7 +186,6 @@ export class DollyProcessSupervisor {
         hostAbi, serviceHost, parseWasmInterface(threadBytes, "dolly-threads-0"), threadHost, processModules,
       );
       supervisor.releaseWorkerSource = () => URL.revokeObjectURL(workerUrl.href);
-      supervisor.growerUrl = growerUrl;
       // Entered through JSPI (WebAssembly.promising), a process runs on a
       // stack of its own. Chrome's holds about 950 KB where a Worker's holds
       // 500 KB, which Clang needs: an executable asks for it with a
@@ -238,7 +226,7 @@ export class DollyProcessSupervisor {
     if (this.processes.size >= processWorkerLimit) return "count";
     let committed = 0, fanning = false;
     for (const process of this.processes.values()) {
-      committed += process.budgetBytes ?? process.memory?.buffer.byteLength ?? 0;
+      committed += process.memoryBytes;
       fanning ||= process.parent === parent && !process.retiring;
     }
     return committed < processMemoryBudgetBytes || !fanning ? null : "budget";
@@ -271,8 +259,8 @@ export class DollyProcessSupervisor {
       throw new Error(`kernel supplied invalid process ${pid}`);
     }
     const process = {
-      pid, parent, resolve, reject, worker: null, gate: null, control: null,
-      memory: null, messageHandler: null, errorHandler: null,
+      pid, parent, resolve, reject, worker: null, control: null, mailbox: 0,
+      memoryBytes: 0, messageHandler: null, errorHandler: null,
       messageErrorHandler: null, started: false,
       failure: null, interactive: (flags & DOLLY_PROCESS_SPAWN_INTERACTIVE) !== 0, retiring: false,
       interruptTimer: null, deadlineTimer: null, retirementTimer: null, lastSignal: 0,
@@ -486,17 +474,7 @@ export class DollyProcessSupervisor {
         if (!process) throw new Error(`kernel supplied unregistered process ${pid}`);
         const compiled = await this.#compiledImage(pid);
         if (!this.#canLaunch(process)) continue;
-        const local = this.#admit(compiled);
-        for (let waited = 0; ; waited += reservationRetryMilliseconds) {
-          try {
-            this.#start(process, compiled, local);
-            break;
-          } catch (error) {
-            if (!(error instanceof RangeError) || process.memory || waited >= reservationPatienceMilliseconds) throw error;
-          }
-          await new Promise(resolve => setTimeout(resolve, reservationRetryMilliseconds));
-          if (!this.#canLaunch(process)) break;
-        }
+        this.#start(process, compiled, this.#admit(compiled));
       } catch (error) {
         // A failed launch ends only its own process; exiting it in the kernel
         // also stops next_launch from naming it again.
@@ -535,13 +513,8 @@ export class DollyProcessSupervisor {
   }
 
   #start(process, { module, memoryRequirements, processInterface, threaded, largeStack }, local) {
-    const memory = createProcessMemory(memoryRequirements);
-    const gate = new WebAssembly.Instance(this.gateModule, {
-      process: { memory },
-      kernel: { memory: this.kernelMemory },
-    });
-    Object.assign(process, { memory, maximum: memoryRequirements.maximum, budgetBytes: undefined, reservation: null, reservationRefused: false,
-      gate, module, processInterface, threaded, largeStack, local });
+    Object.assign(process, { memoryRequirements, memoryBytes: Number(memoryRequirements.initial) * 65536,
+      maximumBytes: Number(memoryRequirements.maximum) * 65536, module, processInterface, threaded, largeStack, local });
     if (threaded) {
       const tid = this.kernel.dolly_threads_attach(process.pid);
       if (tid <= 0) throw new Error(`kernel could not reserve main thread: ${tid}`);
@@ -550,42 +523,6 @@ export class DollyProcessSupervisor {
     }
     this.#launchWorker(process, process);
   }
-
-  // V8 (Chrome 156) checks memory.copy, memory.fill and atomic accesses of a
-  // shared memory against each thread's own record of its size, which a
-  // memory.grow by another thread updates only at that thread's next
-  // interrupt check: memory one thread grew and another reached at once traps
-  // there ("memory access out of bounds"; Lean's lean_copy_expand_array right
-  // after malloc). Firefox 155 does not. So a process's memory takes its
-  // maximum before a second thread starts and never grows while two run; the
-  // spawn budget counts it with the size it had then. A Worker of its own
-  // grows it and ends: Chrome charges a shared memory to the isolate that
-  // grows it, and an isolate that lives on keeps a memory it was handed until
-  // it collects garbage, which an idle one did not for many processes. The
-  // next one starts at once, which saves the next reservation 25 ms in Chrome.
-  #reserveMaximum(process) {
-    const { memory } = process, size = memory.buffer.byteLength, control = new SharedArrayBuffer(16);
-    const values = new BigInt64Array(control), word = new Int32Array(control);
-    values[0] = process.maximum - BigInt(size / 65536);
-    Atomics.store(word, 2, 1);
-    const grower = this.nextGrower ?? this.#startGrower();
-    this.nextGrower = this.#startGrower();
-    grower.onerror = () => { values[0] = -1n; Atomics.store(word, 2, 0); Atomics.notify(word, 2); };
-    grower.postMessage({ memory, control });
-    process.reservation = Promise.resolve(Atomics.waitAsync(word, 2, 1).value).then(() => {
-      grower.terminate();
-      if (process.memory !== memory) return;
-      if (values[0] >= 0n) {
-        // This thread takes the growth at an interrupt check, as a loop does at each turn.
-        while (BigInt(memory.buffer.byteLength) < process.maximum * 65536n);
-        process.budgetBytes = size;
-      } else process.reservationRefused = true;
-      process.reservation = null;
-      this.serviceDeferred();
-    });
-  }
-
-  #startGrower() { return new Worker(this.growerUrl, { type: "module", name: "dolly-process-memory" }); }
 
   // EXEC: the kernel has read the new program and the old one waits in the
   // call while it is compiled and admitted. A refusal returns to the old
@@ -635,26 +572,41 @@ export class DollyProcessSupervisor {
     else start();
   }
 
-  #launchWorker(process, thread, argument = undefined) {
-    const { pid, module, memory, maximum, processInterface, threaded, local } = process;
-    const control = new SharedArrayBuffer(16);
+  // port: for a thread, the channel the spawning Worker sends the memory on.
+  #launchWorker(process, thread, argument = undefined, port = undefined) {
+    const { pid, module, memoryRequirements, processInterface, threaded, local } = process;
     const name = `dolly-process-${pid}-thread-${thread.tid}`;
     const worker = threaded ? this.threadHost.create(pid, this.workerUrl, name)
       : new Worker(this.workerUrl, { type: "module", name });
     if (!worker) throw new Error("thread Worker capacity exhausted");
+    // Words: the call sequence, the answered sequence, the result's two
+    // halves, and the copy word (src/process-worker.mjs copyRequest).
+    const control = new SharedArrayBuffer(32);
+    thread.mailbox = Number(this.kernel.malloc(BigInt(packetLimit)));
+    if (!thread.mailbox) { worker.terminate(); throw new Error("kernel memory for a process mailbox"); }
+    if (this.kernel.dolly_process_worker_mailbox(pid, thread.tid, BigInt(thread.mailbox)) !== 0) {
+      worker.terminate();
+      this.kernel.free(BigInt(thread.mailbox));
+      thread.mailbox = 0;
+      throw new Error(`kernel does not know thread ${thread.tid} of process ${pid}`);
+    }
     thread.worker = worker;
     thread.control = new Int32Array(control);
     thread.messageHandler = event => this.#message(process, event.data, thread);
-    thread.errorHandler = event => this.#fail(process, new Error(event.message || `${name} failed`));
+    // Cancelled, or the browser reports the Worker's uncaught error again in
+    // this Worker, whose end it would be (src/browser.mjs).
+    thread.errorHandler = event => { event.preventDefault(); this.#fail(process, new Error(event.message || `${name} failed`)); };
     thread.messageErrorHandler = () => this.#fail(process, new Error(`${name} message could not be decoded`));
     worker.addEventListener("message", thread.messageHandler);
     worker.addEventListener("error", thread.errorHandler, { once: true });
     worker.addEventListener("messageerror", thread.messageErrorHandler, { once: true });
     // local: the modules this executable records that are served in its own
     // Worker (host/dso), each as the bundle it imports and its configuration.
-    worker.postMessage({ type: "configure", pid, tid: thread.tid, argument, threaded, module, memory, maximum, control,
+    worker.postMessage({ type: "configure", pid, tid: thread.tid, argument, threaded, module, control,
+      memory: memoryRequirements, port, mailbox: thread.mailbox, kernelMemory: this.kernelMemory, gateModule: this.gateModule,
       promisingEntry: this.promisingEntry && process.largeStack, stackDepths: this.stackDepths,
-      clockOrigin: performance.timeOrigin, processInterface, local: local.map(requirement => this.processModules.get(requirement)) });
+      clockOrigin: performance.timeOrigin, processInterface, local: local.map(requirement => this.processModules.get(requirement)) },
+    port ? [port] : []);
   }
 
   #canLaunch(process) {
@@ -698,8 +650,11 @@ export class DollyProcessSupervisor {
     this.deferred.delete(thread);
   }
 
+  // The thread's Worker has copied the request into its mailbox (thread.mailbox)
+  // and reads the response from it once answered; what this reads of the
+  // mailbox, it reads before it answers.
   #syscall(process, message, retry = false, thread = process) {
-    const refusedSince = this.deferred.get(thread)?.refusedSince;
+    const pending = this.deferred.get(thread);
     this.#clearDeferred(thread);
     const values = [
       message.sequence,
@@ -708,46 +663,40 @@ export class DollyProcessSupervisor {
       message.requestSize,
       message.responseAddress,
       message.responseCapacity,
+      message.memoryBytes,
     ];
+    const spawnsThread = process.threaded && message.operation === DOLLY_THREAD_SPAWN;
     if (message.pid !== process.pid || message.tid !== thread.tid ||
         values.some((value) => !Number.isSafeInteger(value) || value < 0) ||
         message.requestSize > packetLimit || message.responseCapacity > packetLimit ||
+        spawnsThread !== (message.port instanceof MessagePort) ||
         Atomics.load(thread.control, 0) !== message.sequence ||
         Atomics.load(thread.control, 1) === message.sequence) {
       this.#fail(process, new Error(`process ${process.pid} sent an invalid syscall`));
       return;
     }
+    // The size the budget counts: a threaded process keeps the one it reported
+    // before its memory took its maximum (src/process-worker.mjs).
+    if (!(process.threaded && message.memoryBytes >= process.maximumBytes)) process.memoryBytes = message.memoryBytes;
     let result;
     let signalDelivery;
     let threadArgument;
+    let portTaken = false;
     try {
-      process.gate.exports.request(
-        BigInt(message.requestAddress),
-        BigInt(this.mailboxAddress),
-        BigInt(message.requestSize),
-      );
+      // A deferred call is retried against the request still in the mailbox:
+      // a handler that defers has written nothing (src/process-kernel.h).
+      const mailbox = () => new DataView(this.kernelMemory.buffer, thread.mailbox, 8);
       if (message.operation === DOLLY_THREAD_SPAWN && message.requestSize === 8)
-        threadArgument = new DataView(this.kernelMemory.buffer, this.mailboxAddress, 8).getBigUint64(0, true);
+        threadArgument = mailbox().getBigUint64(0, true);
       const args = [process.pid, message.operation, BigInt(message.requestSize), BigInt(message.responseCapacity)];
       if (process.threaded) args.splice(1, 0, thread.tid);
       const waiting = message.operation === DOLLY_PROCESS_SPAWN ? this.#spawnWait(process.pid) : null;
-      const now = performance.now(), since = waiting === "count" ? refusedSince ?? now : undefined;
+      const now = performance.now(), since = waiting === "count" ? pending?.refusedSince ?? now : undefined;
       if (waiting === "budget" || waiting === "count" && now - since < reservationPatienceMilliseconds) {
         this.deferred.set(thread, { process, thread, message, timer: null, refusedSince: since });
         return;
       }
-      const spawnsThread = process.threaded && message.operation === DOLLY_THREAD_SPAWN;
-      if (spawnsThread && !process.reservationRefused &&
-          BigInt(process.memory.buffer.byteLength) < process.maximum * 65536n) {
-        if (!process.reservation) this.#reserveMaximum(process);
-        this.deferred.set(thread, { process, thread, message, timer: null });
-        return;
-      }
-      // A reservation the browser refused fails this spawn; the next one asks again.
-      const refused = spawnsThread && process.reservationRefused;
-      if (spawnsThread) process.reservationRefused = false;
-      const exhausted = waiting === "count" || refused ||
-        spawnsThread && !this.threadHost?.available(process.pid);
+      const exhausted = waiting === "count" || spawnsThread && !this.threadHost?.available(process.pid);
       // Firefox can enter a direct Wasm call twice. Use the generic call path
       // so a completed syscall is never replayed against its response packet.
       result = exhausted ? -BigInt(DOLLY_ERRNO.EAGAIN)
@@ -778,20 +727,14 @@ export class DollyProcessSupervisor {
         if (result > BigInt(message.responseCapacity)) {
           throw new Error(`kernel overfilled process ${process.pid} response`);
         }
-        process.gate.exports.response(
-          BigInt(this.mailboxAddress),
-          BigInt(message.responseAddress),
-          result,
-        );
         if (message.operation === DOLLY_THREAD_SPAWN) {
           if (result !== 8n || threadArgument === undefined) throw new Error("invalid kernel thread response");
-          const response = new DataView(this.kernelMemory.buffer, this.mailboxAddress, 8);
-          const tid = response.getUint32(0, true);
-          if (!tid || tid > 0x7fffffff || response.getUint32(4, true) || process.threads.has(tid))
+          const tid = mailbox().getUint32(0, true);
+          if (!tid || tid > 0x7fffffff || mailbox().getUint32(4, true) || process.threads.has(tid))
             throw new Error("invalid kernel thread identity");
-          const child = { tid, worker: null, control: null };
+          const child = { tid, worker: null, control: null, mailbox: 0 };
           process.threads.set(tid, child);
-          try { this.#launchWorker(process, child, threadArgument); }
+          try { this.#launchWorker(process, child, threadArgument, message.port); portTaken = true; }
           catch (error) {
             this.#disposeThread(process, child);
             this.kernel.dolly_threads_unstarted(process.pid, tid);
@@ -800,33 +743,32 @@ export class DollyProcessSupervisor {
         }
         if (message.operation === DOLLY_PROCESS_SPAWN) {
           if (result !== 8n) throw new Error("invalid kernel spawn response");
-          const response = new DataView(this.kernelMemory.buffer, this.mailboxAddress, 8);
-          const pid = response.getUint32(0, true);
-          if (pid === 0 || pid > 0x7fffffff || response.getUint32(4, true) !== 0) {
+          const pid = mailbox().getUint32(0, true);
+          if (pid === 0 || pid > 0x7fffffff || mailbox().getUint32(4, true) !== 0) {
             throw new Error("invalid kernel spawn identity");
           }
           this.#registerProcess(pid, process.pid);
         }
         if (message.operation === DOLLY_PROCESS_SIGNAL) {
           if (result !== 8n) throw new Error("invalid kernel signal response");
-          const response = new DataView(this.kernelMemory.buffer, this.mailboxAddress, 8);
-          signalDelivery = { pid: response.getUint32(0, true), signal: response.getUint32(4, true) };
+          signalDelivery = { pid: mailbox().getUint32(0, true), signal: mailbox().getUint32(4, true) };
           if (signalDelivery.pid === 0 || signalDelivery.pid > 0x7fffffff) {
             throw new Error("invalid kernel signal target");
           }
         }
+        if (message.operation === DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE && result === 4n &&
+            mailbox().getInt32(0, true) === 0 && process.interruptTimer !== null) {
+          clearTimeout(process.interruptTimer);
+          process.interruptTimer = null;
+        }
       }
     } catch (error) {
+      message.port?.close();
       this.#fail(process, error);
       return;
     }
+    if (!portTaken) message.port?.close();
     this.#signal(thread, message.sequence, result);
-    if (message.operation === DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE && result === 4n &&
-        new DataView(this.kernelMemory.buffer, this.mailboxAddress, 4).getInt32(0, true) === 0 &&
-        process.interruptTimer !== null) {
-      clearTimeout(process.interruptTimer);
-      process.interruptTimer = null;
-    }
     if (signalDelivery?.signal) {
       this.#deliverSignal(this.processes.get(signalDelivery.pid), signalDelivery.signal);
     }
@@ -881,7 +823,7 @@ export class DollyProcessSupervisor {
 
   #reclamationDeadline(process) {
     return Math.max(process.reclamationDeadline,
-      process.interactive && (process.memory?.buffer.byteLength ?? 0) >= largeInteractiveProcessBytes
+      process.interactive && process.memoryBytes >= largeInteractiveProcessBytes
         ? performance.now() + workerReclamationMilliseconds : 0);
   }
 
@@ -1008,6 +950,17 @@ export class DollyProcessSupervisor {
       if (process.threaded && this.threadHost) this.threadHost.release(thread.worker);
       else thread.worker.terminate();
     }
+    // The Worker copies a request into its mailbox under control word 4
+    // (src/process-worker.mjs copyRequest); sealed, it copies no more, and the
+    // mailbox goes back to the kernel. Termination has no completion event: a
+    // Worker ended inside a copy finishes it first.
+    if (thread.mailbox) {
+      this.kernel.dolly_process_worker_mailbox(process.pid, thread.tid, 0n);
+      while (Atomics.compareExchange(thread.control, 4, 0, 2) === 1 &&
+             Atomics.wait(thread.control, 4, 1, mailboxSealMilliseconds) !== "timed-out");
+      if (Atomics.load(thread.control, 4) === 2) this.kernel.free(BigInt(thread.mailbox));
+    }
+    thread.mailbox = 0;
     thread.worker = null;
     thread.control = null;
     thread.messageHandler = thread.errorHandler = thread.messageErrorHandler = null;
@@ -1025,9 +978,7 @@ export class DollyProcessSupervisor {
   #disposeWorker(process) {
     for (const thread of [...process.threads.values()]) this.#disposeThread(process, thread);
     this.#disposeThread(process, process);
-    const bytes = process.memory?.buffer.byteLength ?? 0;
-    process.gate = process.memory = process.module = process.processInterface = null;
-    reportGarbage(bytes);
+    process.module = process.processInterface = null;
   }
 
   serviceDeferred() {
@@ -1044,7 +995,6 @@ export class DollyProcessSupervisor {
 
   dispose() {
     clearInterval(this.serviceTimer);
-    this.nextGrower?.terminate();
     for (const process of this.processes.values()) {
       this.#stop(process);
       process.reject?.(new Error("Dolly runtime closed"));

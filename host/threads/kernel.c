@@ -14,6 +14,7 @@ enum { DOLLY_THREADS_PER_PROCESS = 64 };
 typedef struct {
   int tid, waiter, waiting_on, retired;
   uint64_t result;
+  uintptr_t mailbox; /* The thread's Worker's (dolly_process_worker_mailbox). */
 } dolly_thread;
 
 typedef struct dolly_thread_table {
@@ -102,8 +103,15 @@ int64_t dolly_threads_dispatch(int pid, int tid, uint32_t operation,
   dolly_thread *thread = find_thread(table, tid);
   if (!thread || thread->retired || !dolly_kernel_process_running(pid)) return -ESRCH;
   if (thread->waiting_on && operation != DOLLY_THREAD_WAIT) abandon_wait(table, thread);
-  return dolly_kernel_dispatch(pid, tid, tid == table->signal_tid, operation,
+  return dolly_kernel_dispatch(pid, tid, tid == table->signal_tid, operation, thread->mailbox,
                                request_size, response_capacity);
+}
+
+static int threads_mailbox(int pid, int tid, uintptr_t address) {
+  dolly_thread *thread = find_thread(table_for(pid), tid);
+  if (!thread) return -ESRCH;
+  thread->mailbox = address;
+  return 0;
 }
 
 static int64_t threads_call(int pid, int tid, uint32_t operation, unsigned char *mailbox,
@@ -167,4 +175,4 @@ static void threads_release(int pid, int tid) {
 }
 
 const dolly_kernel_module dolly_threads_kernel = {
-    DOLLY_THREAD_SPAWN, DOLLY_THREAD_WAIT, threads_call, threads_release};
+    DOLLY_THREAD_SPAWN, DOLLY_THREAD_WAIT, threads_call, threads_release, threads_mailbox};
