@@ -9,8 +9,10 @@
 1. `proposal/http-limits` (two `Proposal:` commits on `integrate/2026-11-02` and its repin): `http@0` stops refusing what the services programs call accept.
 2. Body cap 8 MiB to 64 MiB (P5 of `tasks/20261101-074546-audit-host`): above the 32 MB the Messages API takes, so the service answers 413, which Pi acts on, not the broker an `E2BIG` the SDK calls "Connection error.".
 3. `timeoutMilliseconds` (name and 10-minute default kept) bounds a wait, not a whole request: the wait for the headers, for the next bytes, or for the program to read; a stream that keeps moving, like Opus's 910-line answer, completes.
-4. Still every request is bounded and nothing gains authority: a server that never answers or stops is cut with `ETIMEDOUT` as before, bytes stay under `maxResponseBytes`. Measured in Chromium and Firefox: a 6 s stream under a 2 s timeout completes (cut at 2 s before), a stall is cut 2.0 s after its last line.
+4. Still every request is bounded and nothing gains authority: a server that never answers or stops is cut with `ETIMEDOUT` as before, bytes stay under `maxResponseBytes`. Measured in Chromium and Firefox: a 6 s stream under a 2 s timeout completes (cut at 2 s before), a stall is cut 2.0 s after its last line; under the default policy a 630 s stream completes.
 5. Cost: one catalog round for both (the contract's text changes the http digest). Accept with "yes"; or take only the body cap (first commit) or only the timeout.
+
+Done when the owner has decided and, on yes, the branch is merged with a catalog round.
 
 ## Why
 
@@ -143,7 +145,10 @@ Evidence under `work/audit-host/build/http-limits-evidence/`.
   (`hostRegistry`, `createHost`, `host.kernel.growing`). Not measured on
   `integrate/2026-11-02` itself; reported to the integrator. The night's audit-host
   branch passed it in 3 s.
-
+- Under the default policy (no policy object, as in the recording), a stream of a line
+  every 10 s for 630 s, longer than the old 600 s deadline (`long-stream.mjs`):
+  curl 0 after 640.0 s with all 63 lines in Chromium, after 640.1 s in Firefox
+  (`long-stream.log`). The recording's failure, 600 s into a moving stream, is gone.
 
 ## Lessons
 
