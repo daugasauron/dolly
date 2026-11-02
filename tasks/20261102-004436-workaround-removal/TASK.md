@@ -113,10 +113,12 @@ Commit: 6d33e42b.
 `wait4` takes a usage record since bbec81cc: `__syscall_wait4` in
 `src/process/libc-adapter.c` zeroes it. The patch's two hunks (a `wait4` that
 calls `waitpid`; the `ProcStat` report left out) can both go: LLVM would report
-zero times, as `time` does here. Not done: `mojo-llvm` is a 9 GB build of hours,
-and the build slots went to the x11 and Emacs closures. The finding is the
-integrator's, with the patch and `Dollyfile-mojo-llvm` lines 41-44 and 112, and
-`README.md` line 92, as the diff.
+zero times, as `time` does here. Done once builds A to C had finished in 72
+minutes together: the patch, its `SOURCE`, `SLOP` and staging line, its README
+bullet and its inventory entry are gone (c21e62f8). Build D (C plus `mojo-gpu`,
+bigbuild, unit `dolly-workaround-removal-build-d`, started 11:55; the README
+gives `mojo-llvm` 45 to 77 minutes) and `npm run test:demos -- mojo` decide
+whether it stays.
 
 ## Builds and tests
 
@@ -162,8 +164,8 @@ place (`build/image-logs/`). The three ran serially in this one tree, each
 catalog a superset of the last.
 
 Tests on C: `npm run test:demos -- x11` passed in Chromium (39.6 s; the
-demo's test runs Chromium by default), `x11-test.log`; a Firefox run follows
-in `x11-test-firefox.log`.
+demo's test runs Chromium by default), `x11-test.log`, and in Firefox
+(`node demos/x11/test/x11-browser.mjs firefox`, 45.1 s), `x11-test-firefox.log`.
 
 ## Lessons
 
