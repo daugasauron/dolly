@@ -13,10 +13,10 @@ REQUIRES HOST threads@0
 # engine lets an npm user build an image FROM it (dolly-build).
 INSTALL /v0.1.4/Dollyfile-core e228f22585a2a7d265ca0c5f13fdd1d850d0c87024701539c985a6b4dfe98143
 INSTALL /v0.1.4/Dollyfile-dollyfile b435f6e2b01af1e83c0c666f9f9a0fb512bd0091a673e300c91961087505a88f
-INSTALL /v0.1.4/Dollyfile-posix 90e20261df3ff9d0d7d2ccc8b344b130bf1c6c84c00e2a3aa9a2c5a31bffc98d
+INSTALL /v0.1.4/Dollyfile-posix 63749337a626bed97e0aae891aec71d71d26c4b91d2d390966d86a445f08fc9c
 INSTALL /v0.1.4/Dollyfile-display e10a23113849c4e0dc158dfc6689cde85218a07ea09a7886afecc1a376b36e58
 INSTALL /v0.1.4/Dollyfile-curl 3f1a155941748a159bf3863ff95bed85abb9d10b35cbe00c005a462a1a08c78a
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 3396529274c58abc9ba77003e6acaf6275d6f734d31bdfc058545ba44fc600a3
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 6522c3c335142875de5a3c87d2f1707a3bc01275d834d7874b0a109e1fcba664
 REQUIRES TOOL foreground
 REQUIRES TOOL printf
 REQUIRES TOOL pi
