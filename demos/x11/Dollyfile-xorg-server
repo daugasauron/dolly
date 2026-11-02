@@ -18,7 +18,7 @@ FROM /v0.1.4/demos/x11/Dollyfile-x11-build 8d71827760671169e6e1d6840e52f07c58b7b
 USE /v0.1.4/demos/tools/Dollyfile-meson f127123f37654f8bc827e2e8f0854e25a7e9554f21af495856298c89949dceae
 USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf b2ded50e3dd8b41ac7ab68a67300728fcde10512d47cc21d745492361274c266
 USE /v0.1.4/demos/sdl2/Dollyfile-sdl2 875f6ffd80b45b1dfb22c90066cf6765f38cebae1a6a820ce3feabcd73dd8f5d
-USE /v0.1.4/demos/x11/Dollyfile-pixman ad53dd266ea6f9e54452a50348448bd0bb2d9939d7f002fc3d1845361ec2655f
+USE /v0.1.4/demos/x11/Dollyfile-pixman cfb3bf22492656160721edc8c7035ef88f76f458932aebec8e9fae1ed6552f9f
 USE /v0.1.4/demos/x11/Dollyfile-libxkbfile e3c3f7870b6c8798677a7fbe92f9df4f612fc87265df55b9c0f9e60a115e0a49
 USE /v0.1.4/Dollyfile-zlib 30330b94eb312c4546feb3cabfae1a867b348c201bd3fc8e4684c7f099c509dd
 USE /v0.1.4/demos/tools/Dollyfile-xz 6dfbb52c1a87a823b80557cad95b46d438cefd00fdd59658f2d8419f84ab1030
@@ -88,12 +88,12 @@ FILE /tmp/xorg/libs.mk
 SLOP make -j4 -f /tmp/xorg/libs.mk
 
 # The server: Xsdl alone, without a GPU, TCP, shared memory or Xorg's
-# hardware. epoll_create1 and memfd_create are libc's stubs here, which
-# Meson's function checks would find: __stub_ names them so, as glibc does.
+# hardware. epoll_create1 is a stub in libc, which Meson's function check
+# would find: __stub_ names it so, as glibc does.
 # Its sockets are sockets@0's, which it asks for when it links: set after
 # setup, which would link its linker probe with them.
 SLOP meson setup /tmp/xorg/build/server /tmp/xorg/xorg-server-21.1.25 --prefix=/usr --libdir=lib \
-  --buildtype=release -Dc_args='-D__stub_epoll_create1 -D__stub_memfd_create' \
+  --buildtype=release -Dc_args=-D__stub_epoll_create1 \
   -Dxsdl=true -Dxorg=false -Dxephyr=false -Dxnest=false -Dxvfb=false -Dxwin=false -Dxquartz=false \
   -Dglamor=false -Dglx=false -Ddri1=false -Ddri2=false -Ddri3=false -Ddrm=false -Dudev=false \
   -Dudev_kms=false -Dhal=false -Dsystemd_logind=false -Dxdmcp=false -Dxdm-auth-1=false \

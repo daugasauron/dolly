@@ -4,9 +4,8 @@ REQUIRES HOST runtime@0
 
 # pixman, the pixel library of X.Org's server (and of cairo), from its release
 # archive, built by its Meson project as a static library: without the SIMD of
-# other machines; Dolly runs no OpenMP. Meson's install would rebuild first as
-# another user: Dolly's Python has no os.geteuid, so the build compiles, then
-# installs what it compiled.
+# other machines; Dolly runs no OpenMP. The build compiles, then installs what
+# it compiled (--no-rebuild: Meson's install step would run the build again).
 FROM /v0.1.4/demos/x11/Dollyfile-x11-build 8d71827760671169e6e1d6840e52f07c58b7b61c0972824f872657267982bc72
 # The tar package reads the pax headers of X.Org's archives.
 USE /v0.1.4/demos/tools/Dollyfile-tar b8c9ba9c671a555990cddc69bd59e5ef74a53a469d12e88cefd571831ecb31df
