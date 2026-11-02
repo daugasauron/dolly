@@ -142,9 +142,9 @@ Evidence under `work/audit-host/build/http-limits-evidence/`.
   (`boundary-timed-oldbroker.log`), and with marks in a copy of its fixture no check
   is reached, the HTTP ones included (`boundary-marks.log`). It stops before
   `checkKernelBounds` returns, which starts `runtime@0` alone in a dedicated Worker
-  (`hostRegistry`, `createHost`, `host.kernel.growing`). Not measured on
-  `integrate/2026-11-02` itself; reported to the integrator. The night's audit-host
-  branch passed it in 3 s.
+  (`hostRegistry`, `createHost`, `host.kernel.growing`). The cause was the kernel's
+  memory growth, not this branch: fixed on `fix/boundary-hang` (`41c6a754`; the record is
+  in `tasks/20261030-090000-chrome-grown-memory`).
 - Under the default policy (no policy object, as in the recording), a stream of a line
   every 10 s for 630 s, longer than the old 600 s deadline (`long-stream.mjs`):
   curl 0 after 640.0 s with all 63 lines in Chromium, after 640.1 s in Firefox
