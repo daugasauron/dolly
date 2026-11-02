@@ -162,7 +162,12 @@ Read in `demos/game-agent/mission.mjs` and `viewer.cpp`:
   mode is proven only in the opened image (`88f27845`).
 - [ ] A catalog round for the seed change; then the garden driver's `run`
   and `thread` variants on the rebuilt Rust images.
-- [ ] Finding 2 measured as above.
+- [x] Janis's pump change measured: `demos/javascript/test/javascript-browser.mjs`
+  passed in Chromium and Firefox on the rebuilt `typescript` (its
+  `janis-process.mjs` check included; `build/video-findings-evidence/
+  javascript-browser-*.log`, 12:24 JST).
+- [ ] Finding 2's cause in the b3 take measured as above (Pi's RPC latency
+  around a failed request).
 
 ## Lessons
 
