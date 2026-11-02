@@ -209,6 +209,10 @@ twice, finds no artifact (the first install consumed it, 749d57c99): a third sta
 the same commit, reached only once 135 was fixed. `4ad9a862` places the artifact again
 before that install; amy-browser rerun in both browsers below (`amy-BROWSER-9.log`).
 
+Round 9 on `4ad9a862`, 13:43 to 13:44: amy-browser's first test ("amy", the one with the
+three fixed steps) passes, Chromium 16 s, Firefox 18 s. Its second test stops at `amy
+install sdl2`: not in this catalog; the full catalog's run covers the rest of the file.
+
 ## Lessons
 
 (filled in at the end)
