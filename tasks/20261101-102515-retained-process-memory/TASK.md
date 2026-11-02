@@ -1,6 +1,6 @@
 # A process that ends keeps its memory resident until the runtime Worker collects garbage
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: core,memory,processes
 
@@ -405,3 +405,18 @@ browser's processes must keep their memory mappings (read from `/proc`, as the m
   1,200, 1,183 and 1,184 to 1,188, make in 29.2 s peaks 374 over, 4 over two seconds after.
 - `core`, `process`, `threads`, `boundary`, `memory-growth-notify`: pass in Chromium and
   Firefox (`verify.log`); the source suite 467 of 467.
+- The full lean-meta build with the fix, in the tree's catalog restore (`catalog-restore.log`,
+  no memory cap, three builds at a time): exported, 1,581,471,990 bytes, 34 minutes from its
+  start (1,141 modules, each `lean` then `cc -O3`). The restore's ten other failures (tmux, twm,
+  x11-desktop, xclock, xterm, rts-arena, slopyard, xonotic, zero-ad, tmux-panes) started while
+  this tree's runtime was being rebuilt for the before-and-after test runs ("Browser checks need
+  a built runtime", "Could not resolve ../../dist/dolly-process-abi.mjs"), and are rebuilt by a
+  second plain `npm run image` (`catalog-restore2.log`).
+
+## Closed 2026-11-03
+
+Done-when met again: the lean-meta build completes with the change, the fixture fails before the
+fix and passes after, and the memory test still passes in both browsers. Commits on
+`core/process-memory-2` (from `integrate/2026-11-02` at 74aeada32): fc98e6c98 (the change
+reapplied), the seal fix, its test, the notes and pins. `tasks/20261102-174743-pm-debug` holds
+the stack-wrap finding.
