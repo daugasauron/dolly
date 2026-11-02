@@ -19,8 +19,9 @@ flowchart LR
   subgraph procs["Process Workers"]
     proc["At most 56 processes<br/>private memory64<br/>one import: dolly_process_0.call"]
   end
-  proc -- "syscall packet" --> supervisor
-  supervisor -- "gate copy + dispatch" --> kernel
+  proc -- "gate copy into its mailbox" --> kernel
+  proc -- "syscall" --> supervisor
+  supervisor -- "dispatch" --> kernel
   kernel --- ghostty
   kernel -- "host-module mailboxes and imports" --> ui
   kernel -- "env.dolly_http_dispatch" --> broker
@@ -33,8 +34,8 @@ flowchart LR
 | Host modules | [`host/`](../host/README.md) | One directory and manifest per bridge: JavaScript provider, WAT contract, C header, kernel C, process client; see [browser boundary](browser-boundary.md) |
 | Runtime Worker | [`worker-image.mjs`](../src/worker-image.mjs), [`runtime-worker.mjs`](../src/runtime-worker.mjs), [`build-worker.mjs`](../src/build-worker.mjs) | Instantiates the kernel with the host modules' imports, restores the image from its packs, or, for the site, builds it or restores a custom one, and runs its ENTRY |
 | Kernel | [`dolly.c`](../src/dolly.c), [`process-kernel.c`](../src/process-kernel.c), [`system-snapshot.c`](../src/system-snapshot.c), [`file-blocks.cpp`](../src/file-blocks.cpp) | WasmFS, open files, pipes, processes, signals, terminal modes, image snapshots; module operations go to each module's `kernel.c` ([build](../toolchain/CMakeLists.txt)) |
-| Supervisor | [`process-supervisor.mjs`](../src/process-supervisor.mjs) | Compiles executables, gives each process a fresh memory, gate and Worker (one per thread), forwards syscalls, enforces deadlines |
-| Process Worker | [`process-worker.mjs`](../src/process-worker.mjs) | Instantiates the executable and enters the kernel for it; for an executable that records `dso@0`, imports the loader and FFI ([`host/dso/process.mjs`](../host/dso/process.mjs)) |
+| Supervisor | [`process-supervisor.mjs`](../src/process-supervisor.mjs) | Compiles executables, gives each process a Worker (one per thread) and each Worker a mailbox in kernel memory, dispatches syscalls, enforces deadlines |
+| Process Worker | [`process-worker.mjs`](../src/process-worker.mjs) | Makes the process's memory and gate, instantiates the executable, copies each packet between that memory and its mailbox and enters the kernel for it; for an executable that records `dso@0`, imports the loader and FFI ([`host/dso/process.mjs`](../host/dso/process.mjs)) |
 | Process libc | [`libc-adapter.c`](../src/process/libc-adapter.c), [`signal.c`](../src/process/signal.c) | Maps Emscripten musl's low-level calls to process operations |
 | Kernel libc | [`libc-host.c`](../src/libc-host.c) | Answers what Emscripten musl and WasmFS ask of a host from the kernel's own imports |
 | Display | [`host/display/kernel.c`](../host/display/kernel.c), [`ghostty/display.c`](../src/ghostty/display.c), [`kernel-plugin.mjs`](../src/kernel-plugin.mjs) | The terminal device's output and the framebuffer lease; resident terminal emulator and rasterizer; see [display](display.md) |
@@ -71,13 +72,13 @@ sequenceDiagram
   participant K as Kernel
   P->>L: read(fd, buf, n)
   L->>W: dolly_process_0.call(op, request, response)
+  W->>G: request(): copy packet into the Worker's mailbox
   W->>S: postMessage, then Atomics.wait
-  S->>G: request(): copy packet into the kernel mailbox
   S->>K: dolly_process_dispatch(pid, op, sizes)
   K-->>S: response size, -errno or deferred
   Note over S,K: deferred calls retry when the kernel wakes them
-  S->>G: response(): copy reply into process memory
   S-->>W: Atomics.store + notify
+  W->>G: response(): copy reply into process memory
   W-->>L: result
   L-->>P: bytes read or -1/errno
 ```
@@ -85,7 +86,12 @@ sequenceDiagram
 - Packets are at most 1 MiB, use fixed-width little-endian fields and relative
   ranges, never pointers ([`process.h`](../include/dolly/process.h)).
 - The gate ([`dolly-process-gate-0.wat`](../abi/dolly-process-gate-0.wat)) is a
-  policy-free multi-memory copier; bounds failures trap.
+  policy-free multi-memory copier; bounds failures trap. Each Worker holds its
+  own instance and a 1 MiB mailbox in kernel memory, registered with the kernel
+  when the Worker starts (`dolly_process_worker_mailbox`), so a process's
+  memory is held by its Workers alone and goes when they end; the runtime
+  Worker never holds one, since a living Worker drops a shared memory only when
+  it collects garbage ([process model](process-model.md#spawn-and-wait)).
 - Errors are negated `dolly_process_error` numbers of `process.h`, part of the
   hashed contract; a libc maps its `errno` to them.
   A malformed packet is one of them, never the end of the process.
