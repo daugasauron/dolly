@@ -384,3 +384,24 @@ browser's processes must keep their memory mappings (read from `/proc`, as the m
 - A reverted change that "crashed the Lean build" was reverted on its Lean symptom; the bisect
   (three variants, a build each) was right about the commit and said nothing about the cause.
   The cause was two commits away from the memory: the seal, added for a Worker ended mid-copy.
+
+### Verified (03:55)
+
+- `test/ended-worker-browser.mjs` before the fix (the branch's Worker with the seal that throws,
+  `work/pm-debug2/build/trace/`): Chromium 9,005 mappings before twenty runs, 19,291 after
+  (10,286 left); the fixture's main Worker makes 164,182 calls in 213 ms, nests 525 fresh
+  stacks, ends with `unreachable`, and the renderer keeps about 510 dead stacks a run
+  (`leak-before.log`: 0, 507, 1,018, 1,527, then 4,090 after five more). Firefox leaves none
+  (7,464 before, 7,267 after): its stacks go when their Worker does. After the fix: Chromium
+  8,665 before, 8,700 after; Firefox 7,460 and 7,351.
+- The lean-meta build with the fix, in a 36 GB scope under `renderer-monitor.py`
+  (`fixed-monitor.log`): 1,600 dead stacks and 12,400 mappings at the point where the change
+  alone had 54,000 and 65,089; killed by its own 1,500 s timeout 25 minutes in, at 4,570 dead
+  stacks, still in the Lean stage. The full build runs in the tree's catalog restore
+  (`catalog-restore.log`).
+- `test/process-memory-browser.mjs` (both browsers): Chromium baseline 947 MiB, 922 to 945 after
+  each of twenty 512 MiB processes, 921 to 933 with a thread, make -j4 of 32 files in 24.6 s
+  peaks 417 MiB over its baseline and is 78 over it two seconds after; Firefox 1,197 and 1,190 to
+  1,200, 1,183 and 1,184 to 1,188, make in 29.2 s peaks 374 over, 4 over two seconds after.
+- `core`, `process`, `threads`, `boundary`, `memory-growth-notify`: pass in Chromium and
+  Firefox (`verify.log`); the source suite 467 of 467.
