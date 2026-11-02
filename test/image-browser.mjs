@@ -54,20 +54,16 @@ EXPORTS FILE iteration-entry /usr/share/iteration-entry.slop
 ENTRY /bin/slop /usr/share/iteration-entry.slop '\uFEFFargument'
 `;
 
-// Records image-cache payload reads, which only happen in the page.
+// Records the image cache's file reads (a lookup of an existing file of
+// origin-private storage), which only happen in the page.
 function instrument(source) {
   if (!sessionStorage.getItem("dolly-custom-source")) sessionStorage.setItem("dolly-custom-source", source);
   globalThis.artifactReads = [];
   performance.setResourceTimingBufferSize(4000);
-  const get = IDBObjectStore.prototype.get;
-  IDBObjectStore.prototype.get = function (key) {
-    const request = get.call(this, key), store = this.name;
-    request.addEventListener("success", () => {
-      const value = request.result;
-      artifactReads.push({ store, key, bytes: value instanceof Blob ? value.size
-        : (value instanceof ArrayBuffer ? value : value?.bytes)?.byteLength ?? 0 });
-    });
-    return request;
+  const getFileHandle = FileSystemDirectoryHandle.prototype.getFileHandle;
+  FileSystemDirectoryHandle.prototype.getFileHandle = function (name, options) {
+    if (!options?.create) artifactReads.push(name);
+    return getFileHandle.call(this, name, options);
   };
 }
 
@@ -123,20 +119,21 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
     assert.deepEqual([...server.requests.keys()].filter(path =>
       (path.startsWith("/dist/static/") && !path.startsWith(ownSources)) || path === "/dist/dolly.data"), [],
       "a derived build fetched build sources or the compiler seed");
-    return target.evaluate(async () => ({
+    return target.evaluate(async ({ sha256, inputs }) => ({
       digest: __dolly.builtImage.sha256,
-      payloadReads: artifactReads.filter(read => read.bytes > 0).map(({ store, key }) => ({ store, key })),
+      payloadReads: artifactReads.splice(0),
+      cachedBase: (await (await import("/src/image-artifact.mjs")).loadImageArtifactDescriptor(sha256, inputs))?.file,
       downloads: performance.getEntriesByType("resource").map(entry => new URL(entry.name).pathname)
         .filter(path => /\/dist\/packs\/|\.snapshot$/.test(path)).sort(),
-    }));
+    }), { sha256: system.sha256, inputs: systemMetadata.inputs });
   };
   // A fresh tab reads the published base's packs only; a second build reads its
   // cached payload only and is byte-identical; an edited command changes the image.
   const published = await boot(page, "iteration-one");
   assert.deepEqual([published.payloadReads, published.downloads], [[], systemPacks]);
   const cached = await boot(page, "iteration-one");
-  assert.deepEqual([cached.payloadReads, cached.downloads],
-    [[{ store: "payloads", key: `${systemMetadata.buildId}:${system.sha256}` }], []]);
+  assert.deepEqual([cached.payloadReads, cached.downloads], [[cached.cachedBase], []]);
+  assert.match(cached.cachedBase, /^[0-9a-f-]{36}$/);
   assert.equal(cached.digest, published.digest);
   await page.evaluate(source => sessionStorage.setItem("dolly-custom-source", source), iterationRecipe(system, "iteration-two"));
   assert.notEqual((await boot(page, "iteration-two")).digest, published.digest);
@@ -212,13 +209,13 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
     const staleRejected = await loadImageArtifact(original) === null;
     const replacement = await loadImageArtifactDescriptor(second.recipeSha256);
     if (!await saveImageArtifact({ ...second, bytes: first.bytes }, slot)) throw new Error("corrupt fixture write failed");
-    const corruptionRejected = await loadImageArtifact(replacement) === null;
+    const corruptionRejected = await loadImageArtifact(await loadImageArtifactDescriptor(second.recipeSha256)) === null;
     const next = await make("cache-next", "next");
     if (!await saveImageArtifact(next, slot)) throw new Error("new recipe write failed");
     const oldDescriptorGone = await loadImageArtifactDescriptor(first.recipeSha256) === null;
-    const before = artifactReads.length;
-    await loadImageArtifact(original);
-    const oldPayloadGone = artifactReads.slice(before).some(read => read.store === "payloads" && read.bytes === 0);
+    // The replaced entry's file is deleted, this page having never read it.
+    const store = await (await navigator.storage.getDirectory()).getDirectoryHandle("dolly-images");
+    const oldPayloadGone = await store.getFileHandle(replacement.file).then(() => false, error => error.name === "NotFoundError");
     const writes = await Promise.all([saveImageArtifact(first, slot), saveImageArtifact(next, slot)]);
     const survivors = (await Promise.all([loadImageArtifactDescriptor(first.recipeSha256),
       loadImageArtifactDescriptor(next.recipeSha256)])).filter(Boolean);
