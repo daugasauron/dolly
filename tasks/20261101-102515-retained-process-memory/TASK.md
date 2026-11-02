@@ -157,12 +157,19 @@ After (`after-process-memory-2.log`, the test passes in both):
   26 s peaks 373 MiB over its baseline, 8 over it two seconds after.
 
 The memory goes with the process in both browsers, and make runs a third faster: the runtime
-Worker no longer copies any packet.
+Worker no longer copies any packet. A Worker's teardown follows the shell's prompt by some
+milliseconds, more on a loaded machine (beside an image build a sample right after a run read
+up to 288 MiB over the baseline once, flat two seconds later), so the test's sample has a second
+to come within its bound; a memory kept for a collection does not. On the final code, beside
+that build, both browsers pass (`final-process-memory.log`: Chromium 1031 MiB, then 1032 to
+1089 after each run; Firefox 1210, then 1209 to 1308).
 
-Verified so far (`build/proc-mem-evidence/tests-*.log`): the source suite (466), and in Chromium
-`core`, `ending`, `pty`, `threads` and `process` (pipes, signals, exec among them) with the poll
-fix; `stack`, `host-compute`, `sockets` and `dso` compose images from packages the tree's
-narrowed catalog lacked (`libdolly-sockets`, `libdolly-gpu`, `stack-wrap`), built next.
+Verified (`build/proc-mem-evidence/tests-*.log`), in Chromium and Firefox each: `core`, `ending`,
+`pty`, `threads`, `process` (pipes, signals, exec among them), `stack`, `host-compute`, `sockets`,
+`dso`, and the merged fix's `boundary` and `memory-growth-notify`; the source suite (466).
+`fix/boundary-hang` (41c6a754, the kernel's grower asked through its control word) is merged:
+its three lines in `#reserveMaximum` had no function to land in, since a process's memory is
+grown by the Worker that spawns its first thread, with no message and no wait.
 
 Found on the way: `integrate/2026-11-02` (fa949c1b) pins `src/commands/{install,du,xargs,find,timeout}.c`
 at digests older than the files (ba1e63b1 changed them without `update-recipe-pins.mjs`), which
@@ -204,7 +211,11 @@ catalog round, and it is the owner's call: the process contract's identity is pa
 - A copy of a request taken after the call ran is a copy of whatever the call left: when the
   retry of a deferred call needs the request, the rule belongs where the request is consumed
   (the handler writes nothing until it answers), not in a cache beside it. The one-thread
-  memory fixture passed; the threads, pty and process tests found it within the hour. The process module cannot
+  memory fixture passed; the threads, pty and process tests found it within the hour.
+- Firefox drops a message on a `MessagePort` whose sender closes the port, or ends, before the
+  receiver has started; Chrome delivers it. Anything handed over a port needs the receiver's
+  acknowledgement before the sender lets go: a bare page settled it in ten minutes where the
+  full test had only said "not provided". The process module cannot
 name it: its imports are checked to be `env.memory` and `dolly_process_0.call` alone, and
 `host/dso/process.mjs` builds a DSO's import object from the process's own memory. The security
 perimeter is unchanged (AGENTS.md: total compromise of the in-Wasm userspace is assumed).

@@ -39,6 +39,15 @@ function residentAnonymous() {
 
 const settle = () => new Promise(resolve => setTimeout(resolve, 2000));
 const inMebibytes = bytes => Math.round(bytes / mebibyte);
+// A Worker's teardown follows the shell's prompt by some milliseconds, more on
+// a loaded machine: a sample has a second to come within the bound. A memory
+// kept for a collection does not.
+async function settledSample(baseline) {
+  for (const deadline = performance.now() + 1000; ; await new Promise(resolve => setTimeout(resolve, 50))) {
+    const sample = residentAnonymous();
+    if (sample - baseline < retainedBound || performance.now() > deadline) return sample;
+  }
+}
 
 await browserTest("process memory", { image: "system", timeout: 600_000 }, async ({ name, open }) => {
   const { submit, text } = await open();
@@ -59,7 +68,7 @@ await browserTest("process memory", { image: "system", timeout: 600_000 }, async
     const samples = [];
     for (let round = 0; round < rounds; ++round) {
       await run(command);
-      samples.push(residentAnonymous());
+      samples.push(await settledSample(baseline));
     }
     await settle();
     const after = residentAnonymous();
