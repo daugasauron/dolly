@@ -292,7 +292,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.ok(metadata.manifest.includes("/etc/dolly/recipes.lock"));
     // An application or toolchain built on a base carries the seed its base
     // retained. A package, or an image composed from packages, keeps only what
-    // it declares: the engine is in amy, the toolchain in cc, the shell in core.
+    // it declares: the engine is in dollyfile, the toolchain in cc, the shell in core.
     const toolchain = ["/usr/libexec/dolly/process-bin/compiler", "/usr/lib/dolly/process/libc-ww.a",
       "/usr/lib/clang/24/include/stddef.h", "/usr/lib/dolly/dolly-kernel-plugin-0.wasm"];
     const base = graph.root.role === "package" || graph.root.from === null ? undefined : definitions.find(
@@ -303,7 +303,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     // the ones those name; a package names them and holds none of their files.
     const installed = graph.root.role === "package" ? [] : (await Promise.all(graph.root.installTargets.map(async target =>
       (await import(artifact(`dolly-${target.image}-system-snapshot.mjs`))).DOLLY_SYSTEM_SNAPSHOT.manifest))).flat();
-    const declared = { amy: ["/bin/dollyfile"], cc: toolchain, core: ["/bin/foreground"] }[image] ?? [];
+    const declared = { dollyfile: ["/bin/dollyfile"], cc: toolchain, core: ["/bin/foreground"] }[image] ?? [];
     for (const path of ["/bin/dollyfile", "/bin/foreground", ...toolchain]) {
       assert.equal(metadata.manifest.includes(path), image === "system-build" || inherited.includes(path) ||
         installed.includes(path) || declared.includes(path), `${image}: ${path}`);
