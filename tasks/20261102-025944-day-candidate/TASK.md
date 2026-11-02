@@ -162,6 +162,41 @@ pager-browser Chromium pass 8 s, Firefox pass 11 s; audio-browser Chromium pass 
 rerun (the round-4 run hit the test's 120 s deadline with nothing else in its log; not
 reproduced). Logs `NAME-BROWSER-5.log`.
 
+Round 6 on `393b5c4b`, 12:58 to 13:30: the build above plus the tool recipes
+demo/workaround-removal changed and zsh (`tar,sqlite,tree,vi,base64,lz4,dte,pigz,binaryen,zsh`;
+cmake-build and tools-build in their closure), `ready in 1867.1s`, every image built. The
+`function signature mismatch` in binaryen's log is its recipe's own check that an
+un-emulated cast traps before `wasm-opt --fpcast-emu`. zsh-browser (image default):
+Chromium pass 2 s, Firefox pass 3 s. The tool images have no browser tests; their builds,
+with their recipes' checks, are the evidence.
+
+### Stale tests fixed on the candidate (13:30 to 13:34, each in its own commit)
+
+- `257b072b` the artifacts test's corePrograms table gets the `dollyfile` row (807338ce
+  made the recipe engine a package; the round's artifacts suite found it; asked by the
+  integrator).
+- `840613ba` the same table gets the `html` row: integrate/html adds the package
+  (`/usr/bin/html`) without the row, so "system snapshots are sealed to their visible
+  recipe chain" fails on that branch alone. One row, like dollyfile's, so I added it.
+- `7ed689e4` the same test declared the engine's program in amy (`amy: ["/bin/dollyfile"]`);
+  since 807338ce amy is a package that INSTALLs dollyfile and holds none of its files, and
+  the dollyfile package holds `/bin/dollyfile`. With the rows complete the test failed on
+  `amy: /bin/dollyfile`; the declaration now names dollyfile. Test 17 passes
+  (`artifacts-3.log`).
+- `27ec48c0` amy-browser:135 and nena-browser:136 ran `rm` on an artifact that
+  `dollyfile install` consumes since 749d57c99 (asked by the integrator); they assert
+  `test ! -e` instead. amy-browser:160's `rm -r /etc/dolly/artifacts` stays: the engine
+  unlinks only an installed artifact (`src/dollyfile.c` `load_artifact`, `result == 0 &&
+  last`) and never the directory, so after the refused `older` install the directory holds
+  that artifact.
+
+`npm run -s test:artifacts` on this catalog (`artifacts-1.log`, before the html and
+declared fixes): 23 pass, 2 fail: test 17 (above, now passing) and "dist registers every
+image of the catalog" (50 of 193: this tree's catalog is narrowed; the full catalog's run
+covers it). Source suite after the fixes: 468 pass.
+
+Round 7 on `27ec48c0`: nena-browser and amy-browser in both browsers (below).
+
 ## Lessons
 
 (filled in at the end)
