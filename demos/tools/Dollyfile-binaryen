@@ -18,17 +18,21 @@ REQUIRES TOOL   cc
 REQUIRES TOOL   cmake
 REQUIRES TOOL   cp
 REQUIRES TOOL   grep
+REQUIRES TOOL   gzip
 REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   mv
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.4/dist/static/tools/binaryen.tar ce5873bc7df45ebf45b5b3230c79c359d34c7269cac9a6c3395641329f7fa98d /tmp/binaryen.tar
-SLOP tar -xf /tmp/binaryen.tar -C /
+SOURCE /v0.1.4/dist/static/tools/binaryen-version_133.tar.gz 2f3e3d9edc56751499571da073a8a81943ca3fcbc08a945d2c619a7a1d4eb88b /tmp/binaryen.tar.gz
+SLOP gzip -dc /tmp/binaryen.tar.gz | tar -xf - -C /tmp && mv /tmp/binaryen-version_133 /tmp/binaryen
 SLOP cmake -S /tmp/binaryen -B /tmp/binaryen/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF -DENABLE_WERROR=OFF -DBYN_ENABLE_LTO=OFF \
   -DBUILD_EMSCRIPTEN_TOOLS_ONLY=ON -DINSTALL_LIBS=OFF
 SLOP cmake --build /tmp/binaryen/build -j4 --target wasm-opt
 SLOP cp /tmp/binaryen/build/bin/wasm-opt /usr/bin/wasm-opt
+SLOP mkdir -p /usr/share/licenses/binaryen && cp /tmp/binaryen/LICENSE /usr/share/licenses/binaryen/LICENSE && cp /tmp/binaryen/third_party/FP16/LICENSE /usr/share/licenses/binaryen/FP16-LICENSE
 EXPORTS ENV BINARYEN_CORES 1
 
 # A call through a pointer cast to a type of more parameters traps in

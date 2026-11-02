@@ -15,9 +15,12 @@ INSTALL /v0.1.4/demos/tmux/Dollyfile-libterminfo 25cb3e730fb0952e03bbbc41b5aa17c
 REQUIRES HEADER term
 REQUIRES LIB terminfo
 REQUIRES TOOL awk
+REQUIRES TOOL gzip
+REQUIRES TOOL mv
 
-SOURCE /v0.1.4/dist/static/x11/xterm.tar 53f82219a5e642fca0247b3d05efc7f11e0aac6af59238acb60442916cb40807 /tmp/xterm.tar
-SLOP tar -xf /tmp/xterm.tar -C /
+SOURCE /v0.1.4/dist/static/x11/xterm-412.tar.gz 26b76917f13b56f5bfa69ac1984ef688c1b22cf7100cd4ad02352ba5899c537d /tmp/xterm.tar.gz
+SLOP gzip -dc /tmp/xterm.tar.gz | tar -xf - -C /tmp && mv /tmp/xterm-snapshots-xterm-412 /tmp/xterm
+SOURCE /v0.1.4/dist/static/x11/xterm-pty.c 24aaf9abc75b345d1ab4e89e1afdec3ec0f4fe394d8e4993bb330ba6dd96475a /tmp/xterm-pty.c
 
 # Slop does not run the configure script, so this says what it would find
 # here, with the features left out named. setsid, setpgid and utmp are not
@@ -114,7 +117,7 @@ FILE /tmp/xterm/xterm.mk
     >cc $(CFLAGS) -c $< -o $@
     /usr/libexec/xterm: $(addprefix $(X)/,$(addsuffix .o,$(SOURCES)))
     >cc $^ -o $@ -lXaw7 -lXmu -lXpm -lXt -lSM -lICE -lXext -lX11 -lxcb -lXau -lterminfo -ldolly-sockets
-    /usr/bin/xterm: $(X)/xterm-pty.c
+    /usr/bin/xterm: /tmp/xterm-pty.c
     >cc -O2 $< -o $@ -ldolly-pty
 SLOP make -j4 -f /tmp/xterm/xterm.mk
 SLOP mkdir -p /usr/share/X11/app-defaults /usr/share/licenses/xterm
