@@ -66,8 +66,8 @@ demos/tools:
 - `dte`: ok; its one changed line (tcgetpgrp -> isatty) is still needed, the libc adapter has
   no tcgetpgrp (17, proposal).
 - `toybox`: ok; three lines changed for a Linux-only #error, syscall and an exit handler.
-- `vi`: 6 (the Enter-to-newline read wrapper is moot: the kernel has ICRNL since e4c637b8b,
-  2026-10-15, two days after the recipe).
+- `vi`: 6 (the Enter-to-newline read wrapper stands in for an ICRNL the kernel's initial mode
+  lacks; proposal P1, recipe unchanged).
 
 demos/rust:
 
@@ -144,8 +144,11 @@ demos/ocaml: `ocaml`: ok. demos/studio: `dollyfile-studio`: ok (1.6 GB: pi-local
 5. `session-recover` is FROM system-tools and needs only cc: system-build, as amy, curl, nena,
    transfer and gzip are.
 6. `vi` wraps `read` to turn Enter's CR into LF because "Dolly's terminal maps no input". The
-   kernel maps CR to LF under ICRNL since e4c637b8b and Neatvi leaves c_iflag as it finds it
-   (term.c clears only ICANON, ISIG and ECHO).
+   kernel maps CR to LF under ICRNL since e4c637b8b, but the wrapper is not moot: measured
+   (`vi-enter-2.log`), a vi built without it gets `one^Mtwo^Mthree` on one line and `:wq`
+   never runs, because the kernel's initial mode (`src/dolly.c:21`, CANONICAL ECHO OPOST ONLCR
+   ISIG) has no ICRNL where every Unix terminal starts with it, and Neatvi, like most programs,
+   keeps c_iflag as tcgetattr gives it. The recipe is unchanged; the cause is a proposal (P1).
 7. `pi-runtime` installs janis before pi-dolly, whose pi installs janis-install, which installs
    janis: the row is installed by the chain whether written or not.
 8. `vendor-crates` installs the sbase package; its script runs sha256sum (posix), gzip and cargo
@@ -185,12 +188,50 @@ demos/ocaml: `ocaml`: ok. demos/studio: `dollyfile-studio`: ok (1.6 GB: pi-local
 
 ## Fixes
 
-(filled as each lands: commit, images rebuilt, test run)
+- 495ae47dc, findings 7-13: the dead `http@0` lines of cbindgen, fd, naga, protox, ripgrep,
+  zig-llvm and esbuild; pi-runtime's janis row and vendor-crates' sbase row; six `mkdir -p
+  /usr/share/man/cat1`; the model packages' `REQUIRES TOOL` rows and the removal of their parts
+  before the capture. Rebuilt (`build-a.log`, sealing passed): quickjs janis janis-install
+  ripgrep closed-source-agent esbuild fd go-tools pi pi-dolly pi-runtime pi-agent pi-minimal
+  typescript vendor-crates. Tests: `tests-{js,pi,go}.log` (results below). Not rebuilt here:
+  naga, protox, cbindgen, zig-llvm, the four models, and the dependents codex, codex-agent,
+  pi-local, dollyfile-studio, bhop, classicube, rts-arena, slopyard, pi-phone, spidermonkey,
+  zero-ad*, xonotic*, ghostty-gtk, ghostty-x11: the next catalog round.
 
 ## Proposals
 
-(filled below)
+- P1. The kernel's initial terminal mode has no ICRNL (`src/dolly.c:21`), where POSIX terminals
+  start with it (`stty sane`). A program that leaves c_iflag alone, as Neatvi does, reads Enter
+  as CR in raw mode; the vi package carries a read wrapper for it, and any ported editor that
+  trusts the Unix default would need the same. Smallest diff: add `DOLLY_TERMINAL_ICRNL` to the
+  initial `terminal_mode_flags` (kernel C, not an image input); the line editor already ends a
+  line at either character, and a program that wants CR clears the flag. Then vi's wrapper
+  goes. Evidence: finding 6, `vi-enter-2.log`.
+- P2. The language keeps build-only tools in an image that used them: rust-build's 370 MB
+  toolchain stays in every image built FROM it (ripgrep's own package is 5.9 MB because it is a
+  PACKAGE; rust-tools, FROM system with rust and cargo installed, is 513 MB by design). The
+  known language question; the measurements here are the snapshot sizes in
+  `snapshot-sizes.txt`.
+- P3. `tcgetpgrp` is absent from the libc adapter, so dte's one changed line (finding 17) stays.
+  A process-contract question: answering it for the terminal descriptor with the foreground
+  process's id would let dte build unchanged.
 
 ## Lessons
 
-(filled at the end)
+- A `REQUIRES HOST` line is checkable: the `dolly.host` section of the retained executable says
+  what the program records (`host-stamps.mjs`). Seven packages declared a module nothing in them
+  records, and three READMEs or comments said the binary "records" it. Read the stamp before
+  believing the comment, and give the lint that check: a package whose executables record a
+  strict subset of its declarations (modules a compiler passes on excepted) is a finding it can
+  print.
+- A workaround's reason can be true and still not be the cause. vi's Enter wrapper says "the
+  terminal maps no input"; the kernel has mapped CR under ICRNL for weeks, yet the wrapper is
+  needed, because the initial mode lacks the flag every Unix starts with. The fix is one kernel
+  line (P1), not a recipe. Measure the workaround's removal (the typed test) before deleting it.
+- The bootstrap compiler's limits of October are gone: Samurai's `util.c` compiles in 0.85 s at
+  -O1 and Git in 89 s at -O2, so the unit files, the 7- and 13-part builds and Git's -O0 were
+  rot. Re-measure every "the compiler cannot" comment after a seed change; a 180 s session of
+  `system` with the staged archives as fixtures answered three of them.
+- A plain `npm run image` in a tree builds every image its catalog lacks, Lean's 2 GB chain
+  included; name the images (`DOLLY_BUILD_IMAGES`) even to restore a catalog. And never wait on a
+  monitor without a deadline you check yourself: two of tonight's hours went to that.
