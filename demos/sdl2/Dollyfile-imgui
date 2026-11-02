@@ -12,7 +12,7 @@ REQUIRES HOST touch@0
 # which link -limgui -lSDL2 -lm, and imgui-demo, upstream's
 # example_sdl2_sdlrenderer2.
 FROM /v0.1.4/Dollyfile-system-tools edd2a16bf0454ed1fe0bd2d221f7a01f0f0837a63cce6c8c447c5fd6b8c41362
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 875f6ffd80b45b1dfb22c90066cf6765f38cebae1a6a820ce3feabcd73dd8f5d
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 6373d6e9b103562d25d7bad1b065a3f036e354979180776798658ddfecdea385
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES HEADER sdl2

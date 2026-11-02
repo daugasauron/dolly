@@ -14,7 +14,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE /v0.1.4/dist/static/cmake/libuv.tar 066c5934e185978c680d03a8fbb42b9241f47fe8dc4b923abe84ee9896f0b86b /tmp/libuv/source.tar
+SOURCE /v0.1.4/dist/static/cmake/libuv.tar 857fd4de59b9d4bbbba20798d6b2e922bbc9773a07e9d563ad0363a3033c9fd1 /tmp/libuv/source.tar
 SLOP tar -xf /tmp/libuv/source.tar -C /
 SLOP make -C /tmp/libuv
 SLOP cp /tmp/libuv/libuv.a /usr/lib/libuv.a

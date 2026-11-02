@@ -13,14 +13,14 @@ REQUIRES HOST threads@0
 # which traps in WebAssembly: GObject's pkg-config file asks cc for
 # --dolly-cast-emulation (Binaryen's wasm-opt --fpcast-emu after the link),
 # and this package's own programs are passed through it here.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 93567a333bc84fb7da97f02aa52388d60a43d3b75e31b7f672e967d6fac1fb06
-INSTALL /v0.1.4/demos/tools/Dollyfile-meson f127123f37654f8bc827e2e8f0854e25a7e9554f21af495856298c89949dceae
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 1d9feaa3a6b68adbbb30d01024fa370ccd4537da9e45183309ea2b86ca7a46cc
+INSTALL /v0.1.4/demos/tools/Dollyfile-meson 828e727bd13777a07a8e350f81e55509c1b2a34a2bfcade78a19d23dcf6c5047
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf b2ded50e3dd8b41ac7ab68a67300728fcde10512d47cc21d745492361274c266
-INSTALL /v0.1.4/demos/tools/Dollyfile-xz 6dfbb52c1a87a823b80557cad95b46d438cefd00fdd59658f2d8419f84ab1030
-INSTALL /v0.1.4/demos/tools/Dollyfile-tar b8c9ba9c671a555990cddc69bd59e5ef74a53a469d12e88cefd571831ecb31df
-INSTALL /v0.1.4/demos/tools/Dollyfile-binaryen 7b987c35d5bf2d62ce9a0f4a8fa17d081e1f2e776f73268688dd7bfebd11d832
+INSTALL /v0.1.4/demos/tools/Dollyfile-xz 6fd1c2a22c20a20a807adf311b5343259729377da888b3a694bb76529a0f3f01
+INSTALL /v0.1.4/demos/tools/Dollyfile-tar 97a6c2b30f007aadfc608b39f8a7c94687b22487d1df603000c2fba480c428fb
+INSTALL /v0.1.4/demos/tools/Dollyfile-binaryen 85761e656bb442246c1b00b29e0d26a58f5c5b630acd54e503b1f836fbe4259b
 INSTALL /v0.1.4/demos/python/Dollyfile-libffi 1cada37c6aff28cf59c05ed986cbcb0b3900c1a53c4c48c8a415a67bc79013f1
-INSTALL /v0.1.4/demos/gtk/Dollyfile-pcre2 8521aa926884495ace17ddcbd83f0db47a1f10174d53e666891c46d80f962788
+INSTALL /v0.1.4/demos/gtk/Dollyfile-pcre2 babd6b6171ad02935af7130dded0e6eb8302420550bfb3b37270fbd4954dac18
 INSTALL /v0.1.4/Dollyfile-zlib 30330b94eb312c4546feb3cabfae1a867b348c201bd3fc8e4684c7f099c509dd
 
 REQUIRES HEADER ffi

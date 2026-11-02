@@ -13,7 +13,7 @@ REQUIRES HOST threads@0
 # lean-meta and lean compile the release with it.
 FROM /v0.1.4/Dollyfile-system-tools edd2a16bf0454ed1fe0bd2d221f7a01f0f0837a63cce6c8c447c5fd6b8c41362
 INSTALL /v0.1.4/Dollyfile-stack-wrap 6957c963f3b3cf56442c63332dbb28e56bcf302a8b00ff776e5e87ee1e128700
-INSTALL /v0.1.4/demos/cmake/Dollyfile-libuv 0282598e177ef572986610be619cf4849cadbb1677f1486b74a87b6200619158
+INSTALL /v0.1.4/demos/cmake/Dollyfile-libuv 5f09b9710ab2a4317316673202900a7940fa860d776c9c0901e48972caafda7c
 
 REQUIRES HEADER libc
 REQUIRES HEADER uv
