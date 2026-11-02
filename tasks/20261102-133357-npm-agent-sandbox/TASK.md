@@ -272,6 +272,8 @@ passes the policy and OpenRouter's CORS, and OpenRouter judges the key. The tool
   of browser time (`npm-browser-both-2.log`). The first run failed in the test itself: the
   tree's catalog was narrowed to the three images rebuilt after the merge, and the test reads
   `default` from it.
+- `test/npm-browser.mjs chromium firefox` at the final templates (the `models.json` row): passed,
+  24.7 s and 26.3 s of browser time (`npm-browser-both-3-final.log`).
 - The workspace fetch, 302 files, in the page: sequential 0.30 s and concurrent 0.10 s on
   localhost; with 50 ms added to each request, 16.1 s against 0.18 s (`fetch-timing.log`).
 - Builds of the stranger's image with `cc`: 23.3 s before, 18.8 s and 22.4 s after.
