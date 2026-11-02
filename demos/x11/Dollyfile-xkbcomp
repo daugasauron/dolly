@@ -8,11 +8,9 @@ REQUIRES HOST sockets@0
 # keymap: from its release archive, built by its Meson project against the
 # libxkbfile package, which it links statically.
 FROM /v0.1.4/demos/x11/Dollyfile-x11-build 8740a131297dca195205dc91338b488cbae0e008fbfb67e30dcd60eaa0b9a458
-# The tar package reads the pax headers of X.Org's archives.
-USE /v0.1.4/demos/tools/Dollyfile-tar c60d26e259beef2a62d9cd1cb59cbc4acdf2b7d552af0d4e2a4109e4f14224ae
 USE /v0.1.4/demos/tools/Dollyfile-meson 9e7e72f493f36a8a59cb2635c78a1fc1643692458b75e564555d3d150293c30f
 USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf b2ded50e3dd8b41ac7ab68a67300728fcde10512d47cc21d745492361274c266
-USE /v0.1.4/demos/x11/Dollyfile-libxkbfile 0174f5678a0b8f70b1fa330d9bdf0d3ba978f5ccd133880fb3642addbd93f671
+USE /v0.1.4/demos/x11/Dollyfile-libxkbfile e5cc320dae5b4254a2861908151239f9872345b2de66b5b470372289b679897c
 USE /v0.1.4/demos/tools/Dollyfile-yacc 380ddd9c1da7d61b2ac5613939e7b2d631199da4f6fa37fc75da7d7697da1f9e
 REQUIRES TOOL meson
 REQUIRES TOOL byacc

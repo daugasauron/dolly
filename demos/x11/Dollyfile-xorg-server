@@ -19,12 +19,11 @@ USE /v0.1.4/demos/tools/Dollyfile-meson 9e7e72f493f36a8a59cb2635c78a1fc164369245
 USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf b2ded50e3dd8b41ac7ab68a67300728fcde10512d47cc21d745492361274c266
 USE /v0.1.4/demos/sdl2/Dollyfile-sdl2 875f6ffd80b45b1dfb22c90066cf6765f38cebae1a6a820ce3feabcd73dd8f5d
 USE /v0.1.4/demos/x11/Dollyfile-pixman b3c6eb01d4d8bcc5026bd0db2e3784b914c9cb8bfc768c7cecbd478b78cd8852
-USE /v0.1.4/demos/x11/Dollyfile-libxkbfile 0174f5678a0b8f70b1fa330d9bdf0d3ba978f5ccd133880fb3642addbd93f671
+USE /v0.1.4/demos/x11/Dollyfile-libxkbfile e5cc320dae5b4254a2861908151239f9872345b2de66b5b470372289b679897c
 USE /v0.1.4/Dollyfile-zlib 30330b94eb312c4546feb3cabfae1a867b348c201bd3fc8e4684c7f099c509dd
-USE /v0.1.4/demos/tools/Dollyfile-tar c60d26e259beef2a62d9cd1cb59cbc4acdf2b7d552af0d4e2a4109e4f14224ae
 USE /v0.1.4/demos/tools/Dollyfile-xz 6dfbb52c1a87a823b80557cad95b46d438cefd00fdd59658f2d8419f84ab1030
 USE /v0.1.4/demos/tools/Dollyfile-yacc 380ddd9c1da7d61b2ac5613939e7b2d631199da4f6fa37fc75da7d7697da1f9e
-INSTALL /v0.1.4/demos/x11/Dollyfile-xkbcomp 8285221d3fcbea05b4cb30620ca27cd201a7492ab2794071ea14290859ebff97
+INSTALL /v0.1.4/demos/x11/Dollyfile-xkbcomp 5b6aab95360aeb339d57d3e4295d05f9daa22c226969c744fda8536784aae884
 INSTALL /v0.1.4/demos/x11/Dollyfile-xkeyboard-config 6ee195e96480c4315bc39a501892c2e78f517b1ef031f13e7b12ce77845304da
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2
@@ -40,8 +39,6 @@ SOURCE /v0.1.4/dist/static/x11/libmd-1.3.0.tar.xz fc0f1eb6b6766470326f2c01469380
 SOURCE /v0.1.4/dist/static/x11/libXfont2-2.0.9.tar.gz 8564b4df365bc5a6cb0c15900dc688f6e8f47b00a8571c6708c916dfb85066ba /tmp/xorg/libXfont2.tar.gz
 SOURCE /v0.1.4/dist/static/x11/xorg-server-21.1.25.tar.gz fdb5ec9b4ab7371745b182b68c7054ed72fc4d13e185fc369cfc45e0c3a174e7 /tmp/xorg/xorg-server.tar.gz
 SOURCE /v0.1.4/dist/static/x11/xsdl.tar f0933a4d8392135d00fafd6fb1739494e077db5d3f3b58a28e5adb8f99ca1e6f /tmp/xorg/xsdl.tar
-# The tar package reads the pax headers of Meson's archives; it starts no
-# decompressor itself.
 SLOP CWD /tmp/xorg for archive in *.tar.gz; do gzip -dc "$archive" | tar -xf -; done
 SLOP CWD /tmp/xorg for archive in *.tar.xz; do xz -dc "$archive" | tar -xf -; done
 SLOP tar -xf /tmp/xorg/xsdl.tar -C /

@@ -6,8 +6,6 @@ REQUIRES HOST runtime@0
 # built by its Meson project as a static library: xkbcomp and the X server
 # link it.
 FROM /v0.1.4/demos/x11/Dollyfile-x11-build 8740a131297dca195205dc91338b488cbae0e008fbfb67e30dcd60eaa0b9a458
-# The tar package reads the pax headers of X.Org's archives.
-USE /v0.1.4/demos/tools/Dollyfile-tar c60d26e259beef2a62d9cd1cb59cbc4acdf2b7d552af0d4e2a4109e4f14224ae
 USE /v0.1.4/demos/tools/Dollyfile-xz 6dfbb52c1a87a823b80557cad95b46d438cefd00fdd59658f2d8419f84ab1030
 USE /v0.1.4/demos/tools/Dollyfile-meson 9e7e72f493f36a8a59cb2635c78a1fc1643692458b75e564555d3d150293c30f
 USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf b2ded50e3dd8b41ac7ab68a67300728fcde10512d47cc21d745492361274c266
