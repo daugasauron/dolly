@@ -37,6 +37,30 @@ two (`build/lean-evidence/day/spawn-check.mjs`), stage 0's lean runs `IO.Process
 it crashed before: Chromium. In Firefox the tab was killed while the page built that image
 (`lean-std` copied in beside `lean-stage0`), the builder's memory, not Lean's.
 
+The round built `lean-meta` in 3,428 s and `lean` in 1,179 s; in its build `lean --run`, a
+theorem by `omega`, and `lake new greeting && lake build` and the program pass. In `default`
+(`build/lean-evidence/lean-measure.mjs`, the test's steps without git, a 6 GB browser slot, the
+scope's memory, anonymous in brackets):
+
+| Step | Chromium | Firefox |
+| --- | --- | --- |
+| `nena enable stack && amy install lean` | 45.6 s, at most 4.57 GB (4.02), 3.98 after | 71.5 s, at most 6.44 GB (4.67), 4.55 after |
+| `lean --run squares.lean` prints `285 0149` | 2.0 s | 3.1 s |
+| `lean theorems.lean` (`rfl`, `decide`, `simp`, `omega`) | 1.1 s | 1.8 s |
+| `lean wrong.lean`, status 1 | 1.2 s | 3.9 s |
+| `lake new greeting` (no git: a warning) | 0.9 s | killed by the cap |
+| `lake build`, then the program prints `Hello, world!` | 7.5 s, anonymous at most 6.05 GB | |
+
+The install's kernel side is now the package's size: anonymous 3.98 GB after it in Chromium
+where it was 5.22 before the last-use rule. Chromium passed the measured steps three times and
+`demos/lean/test/lean-browser.mjs` crashed once at `lake build`: each `lean` that ends stays
+resident until a collection (`tasks/20261101-102515-retained-process-memory`), so the
+anonymous memory rises by about half a GB a step to 6.0 GB, at the 6 GB cap. In Firefox it rises
+faster and the cap killed the tab at the fourth process. The test needs about 7 GB in Chromium
+and more in Firefox; the round runs it in its 36 GB scope. A second report of a threaded
+process's memory a second after it ends kept none resident in the six-run test in Chrome (one
+in Firefox) but did not move these numbers, so it is not made.
+
 ## State (2026-11-01): `demo/lean-2`, on `main`
 
 `demo/lean-2` is `demo/lean` replayed on `main` (v0.1.4), with `core/install-memory` and
