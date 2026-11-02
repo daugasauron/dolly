@@ -92,9 +92,10 @@ not rerun on the fixed seed, since every Rust image needs a catalog round.
 - The ENTRY shapes (a script that falls back to a shell, a direct program).
 - The terminal's size at ENTRY start (157x26 in `/custom/rebuild/`).
 - `std::thread::spawn`, `poll`, `sigaction`, the alternate screen, the kitty
-  keyboard mode, 24-bit colour (drawn as the palette's yellow by the display:
-  `chromium-script-after-8s.png` shows every `38;2;r;g;b` cell in one colour;
-  a display finding, not a process one; not pursued).
+  keyboard mode, 24-bit colour. (`chromium-script-after-8s.png` shows every
+  cell in the accent colour: the display paints a selected cell so
+  (`src/ghostty/display.c`), and something in the rebuild page's flow had
+  selected the screen; a display or page finding, not pursued.)
 
 ## 2. The game agent's retry after a network error (bhop take b3)
 
@@ -147,3 +148,22 @@ Read in `demos/game-agent/mission.mjs` and `viewer.cpp`:
 - [ ] Finding 2 measured as above.
 
 ## Lessons
+
+- A program that ran only under Pi's bash tool has never met a terminal:
+  the tool spawns `slop -c` with stdin ignored. "It worked in the session"
+  says nothing about termios; a TUI is proven on the display's terminal or
+  a pty, and the Studio skill should say so.
+- Reusing a round's images in another tree takes the round's Rust seed
+  bytes in `build/rustc-port` (each tree's seed differs) and its pins, not
+  only linked snapshots and packs: the prepare step restages the tree's own
+  seed and the plan then says "recipe changed" for every Rust image. Caught
+  by `--plan`, after one unintended `rust-sdk` build had started.
+- A browser reproduction on cached images costs a minute per variant; the
+  driver's own mistakes (an async terminal read, reading a page whose image
+  has ended, a grep that hid raw mode's staircase lines) cost more than the
+  builds. Trace every step of the probe to a file and to stderr.
+- Do the reproduction on the old seed before touching the seed: a runtime
+  rebuild under a running browser test hangs it, and the seed change
+  invalidates every image of the tree until rebuilt.
+- The rig's log is wall-clock, the traffic log UTC: relate the clocks
+  before ordering events (the failed request was in flight 75 s).
