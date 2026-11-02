@@ -255,13 +255,16 @@ framebuffer (`rlCopyFramebuffer`). Only Studio's recordings are affected (not au
   compile at a time, where every other recipe uses `-j4`: the round that takes the `-O2`
   change can take `-j4` too and measure the image's build time against the evening round's.
 
-P1 done on `audit/cmake-o2` (2026-11-03 03:15, the integrator; 5ecb73b00): the smallest diff above
-with `--parallel=4` and `make -j4`. libuv and cmake built in 532 s in a 9 GB slot, `cmake-build` in
-22 s; `demos/cmake/test/cmake-browser.mjs` passed in Chromium and Firefox (30 s each). In
-`cmake-build`, Chromium, three runs (`work/evidence-2026-11-03/recipes-apps/cmake-o2-evidence/`): 300 targets
-configure in 1.68-1.93 s (4.31 s at -O0), a one-file project configures in 0.36-0.50 s (0.69) and
-builds in 0.23-0.34 s (0.45); the -O0 numbers are from `default` after `amy install cmake`. The
-recipes on cmake-build (the LLVM builds among them) are repinned: the next round builds them.
+P1 done on `audit/cmake-o2` (2026-11-03, the integrator; 5ecb73b00): the smallest diff above with
+`--parallel=4` and `make -j4`. libuv and cmake built in 532 s in a 9 GB slot (402 s on a quieter
+machine), `cmake-build` in 22 s; `demos/cmake/test/cmake-browser.mjs` passed in Chromium and
+Firefox (30 s each). Measured in the same tree and image (`cmake-build`, Chromium, three runs each,
+`work/integrate/build/cmake-baseline/`): 300 targets configure in 1.38-1.51 s at -O2 against
+2.04-2.14 s at -O0; a one-file project configures in 0.32-0.37 s against 0.38-0.41 s and builds in
+0.23-0.25 s against 0.19-0.21 s (the build starts cmake several times; not explained tonight). The
+commit message's "4.3 s at -O0" came from `default` after `amy install cmake` under other load and
+overstates the gain. The recipes on cmake-build (the LLVM builds among them) are repinned: the next
+round builds them.
 
 ## Shared findings (recorded by both audits)
 
