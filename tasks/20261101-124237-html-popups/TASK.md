@@ -42,6 +42,26 @@ Owner (2026-11-01, 21:55 JST), forwarded by the integrator:
 > That sounds good, but I want the theme of the form to match the rest of the page, so some kind
 > of styling would be needed but it shouldn't be owned by the agent side
 
+## Merged for integrate (2026-11-02, `integrate/html` in `work/audit-host`)
+
+`core/html-bridge` merged onto `fix/boundary-hang` (`integrate/2026-11-02` with the growth fix
+`41c6a754`) by `integrate-merge.sh`: no conflict outside recipe pins, no recipe line lost, image
+inputs unchanged (`a58af3f9`). Built on that seed: `html`, `dolly-docs`, `pi-dolly`, `pi-runtime`
+and `pi-minimal` (285 s); `default` and `system` were current. The rest of Pi's closure, the
+Rust chain among it, came from the round's images in `work/integrate` with its new Rust seed
+(`ff231d03`) and the recipe pins it gives, used for these runs and not committed: the branch
+keeps `integrate/2026-11-02`'s pins, which the round's repin replaces.
+
+- Pass in Chromium and Firefox: `html-browser` (14 s, 17 s), `demos/pi/test/ask-user-browser.mjs`
+  (34.5 s, 43.7 s), `npm-browser` (44.0 s, 63.2 s), `core-browser` (57.9 s, 83.9 s); the
+  source suite (467).
+- `html-browser` failed in Chromium in 8 of 24 runs, with or without `41c6a754`: the Escape
+  pressed in the popup closed it, but the press never returned (7 times), once the click on Send
+  after it. The keydown removes the frame, and Chromium never acknowledges the keyup sent to
+  the removed frame. Fixed in the test (`764c6808`): the keydown goes into the popup, the keyup
+  to the page once it is gone; then 7 of 7 in Chromium, 6 of 6 in Firefox. The module is
+  unchanged: a user's keyup to a removed frame is dropped, not waited for.
+
 ## Done-when
 
 - A host module (its own `host/NAME/` directory and manifest) lets a program show the user
