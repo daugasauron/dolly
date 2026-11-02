@@ -3,11 +3,10 @@ PACKAGE tar
 REQUIRES HOST runtime@0
 
 # sbase's tar, built by sbase's own Makefile from the archive system-tools
-# builds its commands from. It writes archives and reads links and pax
-# headers, which the tar of the core package does not, and it takes that
-# one's place: /bin comes first on PATH. Its -z, -j and -J start gzip, bzip2
-# or xz from PATH, by posix_spawn instead of fork (sbase-tar-spawn.patch),
-# and tar waits for it. The gzip of the core reads .gz; pigz writes it.
+# builds its commands from. It writes archives and reads links, which the
+# tar of the core package does not, and it takes that one's place: /bin
+# comes first on PATH. Its -z, -j and -J start gzip, bzip2 or xz from PATH,
+# by posix_spawn instead of fork (sbase-tar-spawn.patch), and tar waits for it.
 FROM /v0.1.4/demos/tools/Dollyfile-tools-build 93567a333bc84fb7da97f02aa52388d60a43d3b75e31b7f672e967d6fac1fb06
 
 REQUIRES HEADER libc

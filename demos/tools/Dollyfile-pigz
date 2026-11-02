@@ -4,9 +4,8 @@ REQUIRES HOST runtime@0
 
 # pigz, the gzip of zlib's author, from upstream's release archive, unchanged,
 # by the rules of its Makefile, with the Zopfli it vendors and on one thread
-# (its NOTHREAD: a -pthread program would need threads@0). It writes the .gz
-# files that the gzip package only reads. unpigz is pigz under the name it
-# looks for.
+# (its NOTHREAD: a -pthread program would need threads@0). unpigz is pigz
+# under the name it looks for.
 FROM /v0.1.4/demos/tools/Dollyfile-tools-build 93567a333bc84fb7da97f02aa52388d60a43d3b75e31b7f672e967d6fac1fb06
 USE /v0.1.4/Dollyfile-zlib 30330b94eb312c4546feb3cabfae1a867b348c201bd3fc8e4684c7f099c509dd
 
