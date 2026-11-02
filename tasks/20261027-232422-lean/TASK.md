@@ -25,6 +25,14 @@ exception the demo's README states.
 
 ## State (2026-11-02): `demo/lean-3`, on `integrate/2026-11-02`
 
+Against the done-when, 12:45: met in Chromium, in a 6 GB slot: `amy install lean` on `default`
+from the round's catalog, `lean --run`, the four theorems, the false one with status 1, `lake new`
+without Git, `lake build` and the program, and `demos/lean/test/lean-browser.mjs` (52.6 s, with
+`core/process-memory`). In Firefox the same steps pass up to `lake new`, where the 6 GB cap kills
+the tab (about 7 GB needed). The `test/amy-browser.mjs` row, pins and licence rows are in. Not
+verified here: the domain's catalog (`config/domain-pages-images.txt` lists the three packages;
+the round's publish stage packages it) and Firefox at a larger cap (the round's suites).
+
 `demo/lean-2` is merged in `integrate/2026-11-02` (`fa949c1b`); the catalog round of that
 branch builds Lean's four images one at a time in a 36 GB scope. On the branch, with the
 round's images linked into this tree (same recipe hashes and build id, image inputs
@@ -287,3 +295,6 @@ module, lean.mk's rules), since Lake would need stage 0's `libLake_shared.so` pl
   too, a cache-hit `npm run image` in this tree rewrote `dist/dolly-images.mjs` in place with 23
   images, and three images of the round in `work/integrate` failed with it; the light stage
   restarted. Copy every other file, and check `find dist -type f -links +1` before a build.
+- A large program's first run leaves its compiled module behind (most likely; 0.8 GB for
+  `lean`'s 214 MB in Firefox, 0.3 in Chromium): a browser slot's budget for a test of big
+  programs is the session plus each one's compiled code, which differs by browser.
