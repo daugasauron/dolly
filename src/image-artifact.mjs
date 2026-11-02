@@ -5,38 +5,26 @@ import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
 import { loadRecipeGraph } from "./dollyfile-graph.mjs";
 import { recipeFileName } from "./dollyfile-view.mjs";
 import { sha256 } from "./static-asset.mjs";
-import { Sha256 } from "./sha256.mjs";
-import { scanSnapshotRecords, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
+import { decodeSnapshotRecords, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 export { sha256 };
 
-// An artifact's identity read from its snapshot, SOURCE: a Blob, or the
-// snapshot's bytes in pieces (an iterable of Uint8Array), which become the
-// artifact's Blob. The snapshot is digested and checked as it passes; only the
-// identity's files under /etc/dolly are held.
-export async function describeImageArtifact(source, recipeSha256, inputs = []) {
-  const blob = source instanceof Blob ? source : null, hash = new Sha256(), parts = [];
-  const pieces = (async function* () {
-    for await (const piece of blob ? blob.stream() : source) {
-      hash.update(piece);
-      if (!blob) parts.push(new Blob([piece]));
-      yield piece;
-    }
-  })();
-  const { records, byteLength } = await scanSnapshotRecords(pieces, path => path.startsWith("/etc/dolly/"));
-  const recipe = records.get("/etc/dolly/Dollyfile");
-  if (recipe?.kind !== 2 || await sha256(recipe.data) !== recipeSha256 ||
+export async function describeImageArtifact(bytes, recipeSha256, inputs = []) {
+  const records = decodeSnapshotRecords(bytes);
+  const source = records.get("/etc/dolly/Dollyfile");
+  if (source?.kind !== 2 || await sha256(source.data) !== recipeSha256 ||
       records.get("/etc/dolly/artifact")?.kind !== 2) throw new Error("artifact recipe identity mismatch");
   // The artifact retains every recipe it was built from, by file name.
   const graph = await loadRecipeGraph(reference => {
-    if (reference === "Dollyfile") return recipe.data;
+    if (reference === "Dollyfile") return source.data;
     const path = `/etc/dolly/recipes/${recipeFileName(reference)}`;
     const record = records.get(path);
     if (record?.kind !== 2) throw new Error(`artifact does not retain recipe ${reference}`);
     return record.data;
   }, "Dollyfile");
-  return { buildId: DOLLY_IMAGE_BUILD_ID, recipeSha256, sha256: hash.hex(),
-    inputs: imageInputs(inputs), hostRequirements: graph.root.hostRequirements,
-    byteLength, manifest: [...records.keys()], bytes: blob ?? new Blob(parts) };
+  const required = graph.root.hostRequirements;
+  return { buildId: DOLLY_IMAGE_BUILD_ID, recipeSha256, sha256: await sha256(bytes),
+    inputs: imageInputs(inputs), hostRequirements: required,
+    byteLength: bytes.byteLength, manifest: [...records.keys()], bytes };
 }
 
 async function databaseOperation(mode, operation) {
@@ -81,7 +69,7 @@ export async function loadImageArtifact(descriptor) {
     const payload = await databaseOperation("readonly", (_store, payloads) => payloads.get(id));
     if (!(payload instanceof Blob) || payload.size !== descriptor.byteLength || payload.size <= 0 ||
         payload.size > snapshotSizeLimit) return null;
-    const artifact = await describeImageArtifact(payload, descriptor.recipeSha256, descriptor.inputs);
+    const artifact = await describeImageArtifact(await payload.arrayBuffer(), descriptor.recipeSha256, descriptor.inputs);
     return artifact.sha256 === descriptor.sha256 ? artifact : null;
   } catch { return null; }
 }
@@ -92,13 +80,13 @@ const IMAGE_CACHE_MAX_BYTES = 8 * 1024 ** 3;
 
 export async function saveImageArtifact(artifact, slot = artifact.recipeSha256) {
   try {
-    if (artifact.buildId !== DOLLY_IMAGE_BUILD_ID || !(artifact.bytes instanceof Blob) ||
-        artifact.bytes.size !== artifact.byteLength || artifact.byteLength <= 0 ||
+    if (artifact.buildId !== DOLLY_IMAGE_BUILD_ID || !(artifact.bytes instanceof ArrayBuffer) ||
+        artifact.bytes.byteLength !== artifact.byteLength || artifact.byteLength <= 0 ||
         artifact.byteLength > snapshotSizeLimit) return false;
     const id = `${DOLLY_IMAGE_BUILD_ID}:${artifact.recipeSha256}`;
     const { buildId, recipeSha256, sha256, inputs, hostRequirements, byteLength } = artifact;
     await databaseOperation("readwrite", (store, payloads) => {
-      payloads.put(artifact.bytes, id);
+      payloads.put(new Blob([artifact.bytes]), id);
       const published = store.put({ buildId, recipeSha256, sha256, inputs, hostRequirements, byteLength, slot, id,
         savedAt: performance.timeOrigin + performance.now() });
       // Publish and prune atomically: failed writes preserve the previous pair,

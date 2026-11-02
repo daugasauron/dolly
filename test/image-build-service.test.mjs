@@ -137,16 +137,11 @@ test("custom result restoration binds exact recipe, runtime and complete snapsho
   const file = text => ({ kind: 2, data: encoder.encode(text) });
   const bytes = encodeSnapshotRecords(new Map([
     ["/etc/dolly/Dollyfile", file(source)], ["/etc/dolly/artifact", file("proof")],
-  ]));
-  const artifact = await describeImageArtifact(new Blob([bytes]), await sha256(encoder.encode(source)));
-  assert.equal(artifact.sha256, await sha256(bytes));
-  // From pieces, the same identity and a Blob of the whole.
-  const pieced = await describeImageArtifact([bytes.subarray(0, 21), bytes.subarray(21)], artifact.recipeSha256);
-  assert.deepEqual({ ...pieced, bytes: new Uint8Array(await pieced.bytes.arrayBuffer()) }, { ...artifact, bytes });
+  ])).buffer;
+  const artifact = await describeImageArtifact(bytes, await sha256(encoder.encode(source)));
   assert.equal((await checkedCustomArtifact(source, artifact)).sha256, artifact.sha256);
   for (const candidate of [undefined, { ...artifact, buildId: "old" }, { ...artifact, sha256: "0".repeat(64) },
-    { ...artifact, bytes: new Blob([bytes.subarray(0, -1)]) }, { ...artifact, bytes: bytes },
-    { ...artifact, inputs: [{ recipeSha256: "invalid" }] }]) {
+    { ...artifact, bytes: bytes.slice(0, -1) }, { ...artifact, inputs: [{ recipeSha256: "invalid" }] }]) {
     await assert.rejects(checkedCustomArtifact(source, candidate));
   }
   await assert.rejects(checkedCustomArtifact(source + "\n", artifact));

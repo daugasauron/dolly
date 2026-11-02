@@ -58,6 +58,7 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       const { buildImage } = await import("/src/image-builder.mjs");
       const { hostModuleUrls: modules } = await import("/host/manifests.mjs");
       const { prepareImageArtifacts } = await import("/src/image-build.mjs");
+      const { describeImageArtifact, sha256 } = await import("/src/image-artifact.mjs");
       const { siteReference } = await import("/src/static-asset.mjs");
       const builders = { http: { network: await headlessNetwork() } };
       const base = DOLLY_IMAGES.find(d => d.image === "system-build");
@@ -67,7 +68,8 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       const recipe = `DOLLY 7\nAPPLICATION ${name}\n${hosts}FROM ${siteReference(base.dollyfile)} ${base.sha256}\n${installs}${rows.slice(hosts.length)}`;
       const report = () => {};
       const artifacts = await prepareImageArtifacts("custom", recipe, (name, inputs) => buildImage(name, inputs, builders, report, { modules }), report);
-      const artifact = await buildImage("custom", artifacts, builders, report, { modules, customSource: recipe });
+      const built = await buildImage("custom", artifacts, builders, report, { modules, customSource: recipe });
+      const artifact = await describeImageArtifact(built.bytes, await sha256(new TextEncoder().encode(recipe)), built.inputs);
       return { artifact, configuration: { image: "custom", customSource: recipe, customArtifact: artifact } };
     };
   });
@@ -78,14 +80,14 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
     const { artifact, configuration } = await buildCustom("compute", "REQUIRES HOST runtime@0\nREQUIRES HOST gpu@0\nREQUIRES HOST http@0\n" +
       `FILE /tmp/probe.c\n${code.trimEnd().split("\n").map(line => "    " + line).join("\n")}\n` +
       "SLOP cc -O1 /tmp/probe.c -ldolly-gpu -o /usr/bin/probe\nEXPORTS TOOL probe\nENTRY /usr/bin/probe\n", ["libdolly-gpu"]);
-    const status = await runHeadless(["runtime@0", "gpu@0", "http@0"], configuration, [], (_runtime, exited) => exited);
+    const status = await runHeadless(["runtime@0", "gpu@0", "http@0"], configuration, [artifact.bytes], (_runtime, exited) => exited);
     return { status, requirements: artifact.hostRequirements, canvases: document.querySelectorAll("canvas").length };
   }, code);
   assert.deepEqual(await compute, { status: adapter ? 0 : 1, requirements: ["gpu@0", "http@0", "runtime@0"], canvases: 0 });
   assert.deepEqual(await page.evaluate(async () => {
     const { artifact, configuration } = await buildCustom("loop",
       "REQUIRES HOST runtime@0\nREQUIRES HOST http@0\nFILE /etc/loop.slop\n    while :; do :; done\nENTRY /bin/slop /etc/loop.slop\n");
-    return runHeadless(["runtime@0", "http@0"], configuration, [], async (runtime, exited) => {
+    return runHeadless(["runtime@0", "http@0"], configuration, [artifact.bytes], async (runtime, exited) => {
       while (!runtime.terminal?.foregroundInterruptible()) await new Promise(resolve => setTimeout(resolve, 10));
       return [await runtime.terminal.interruptForeground(), await exited];
     });

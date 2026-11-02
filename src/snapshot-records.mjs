@@ -12,154 +12,47 @@ function compareBytes(left, right) {
   return left.length - right.length;
 }
 
-// The 16-byte snapshot header: its record count.
-function decodeHeader(bytes) {
+export function decodeSnapshotRecords(input) {
+  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  if (bytes.length < 16 || decoder.decode(bytes.subarray(0, 8)) !== "DOLLYSNP" || view.getUint32(8, true) !== 2) {
+  if (bytes.length < 16 || bytes.length > MAX_SNAPSHOT_BYTES ||
+      decoder.decode(bytes.subarray(0, 8)) !== "DOLLYSNP" || view.getUint32(8, true) !== 2) {
     throw new Error("invalid Dolly snapshot header");
   }
   const count = view.getUint32(12, true);
   if (count === 0 || count > 100_000) throw new Error("invalid Dolly snapshot record count");
-  return count;
-}
-
-// A record's 16-byte header: its kind, path length and data size.
-function decodeRecordHeader(bytes) {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const kind = view.getUint32(0, true), pathLength = view.getUint32(4, true), size = view.getBigUint64(8, true);
-  if (kind < 1 || kind > 3 || pathLength < 2 || pathLength >= 4096 ||
-      size > BigInt(MAX_SNAPSHOT_BYTES) || (kind === 1 && size !== 0n) ||
-      (kind === 3 && (size === 0n || size >= 4096n))) throw new Error("invalid snapshot record size");
-  return { kind, pathLength, size: Number(size) };
-}
-
-// The path of PATHBYTES, valid and after PREVIOUS in byte order.
-function decodePath(pathBytes, previous) {
-  const path = decoder.decode(pathBytes);
-  if (!path.startsWith("/") || /[\0\\\r\n]/.test(path) ||
-      path.slice(1).split("/").some(part => !part || part === "." || part === "..") ||
-      unretainedPath(path) ||
-      previous && compareBytes(previous, pathBytes) >= 0) throw new Error(`invalid snapshot path ${path}`);
-  return path;
-}
-
-function checkParents(records) {
+  const records = new Map();
+  let offset = 16, previous;
+  for (let index = 0; index < count; index += 1) {
+    if (offset > bytes.length - 16) throw new Error("truncated snapshot record");
+    const kind = view.getUint32(offset, true), pathLength = view.getUint32(offset + 4, true);
+    const size = view.getBigUint64(offset + 8, true);
+    offset += 16;
+    if (kind < 1 || kind > 3 || pathLength < 2 || pathLength >= 4096 ||
+        size > BigInt(MAX_SNAPSHOT_BYTES) || (kind === 1 && size !== 0n) ||
+        (kind === 3 && (size === 0n || size >= 4096n))) throw new Error("invalid snapshot record size");
+    if (offset > bytes.length - pathLength - Number(size)) throw new Error("truncated snapshot record");
+    const pathBytes = bytes.subarray(offset, offset + pathLength);
+    const path = decoder.decode(pathBytes);
+    if (!path.startsWith("/") || /[\0\\\r\n]/.test(path) ||
+        path.slice(1).split("/").some(part => !part || part === "." || part === "..") ||
+        unretainedPath(path) ||
+        previous && compareBytes(previous, pathBytes) >= 0) throw new Error(`invalid snapshot path ${path}`);
+    previous = pathBytes;
+    offset += pathLength;
+    const data = bytes.subarray(offset, offset + Number(size));
+    if (kind === 3 && data.includes(0)) throw new Error("invalid snapshot symlink");
+    records.set(path, { kind, data });
+    offset += Number(size);
+  }
+  if (offset !== bytes.length) throw new Error("trailing snapshot bytes");
   for (const path of records.keys()) {
     for (let slash = path.indexOf("/", 1); slash !== -1; slash = path.indexOf("/", slash + 1)) {
       const parent = records.get(path.slice(0, slash));
       if (parent && parent.kind !== 1) throw new Error(`snapshot parent is not a directory: ${path}`);
     }
   }
-}
-
-export function decodeSnapshotRecords(input) {
-  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
-  if (bytes.length > MAX_SNAPSHOT_BYTES) throw new Error("invalid Dolly snapshot header");
-  const count = decodeHeader(bytes.subarray(0, 16));
-  const records = new Map();
-  let offset = 16, previous;
-  for (let index = 0; index < count; index += 1) {
-    if (offset > bytes.length - 16) throw new Error("truncated snapshot record");
-    const { kind, pathLength, size } = decodeRecordHeader(bytes.subarray(offset, offset + 16));
-    offset += 16;
-    if (offset > bytes.length - pathLength - size) throw new Error("truncated snapshot record");
-    const pathBytes = bytes.subarray(offset, offset + pathLength);
-    const path = decodePath(pathBytes, previous);
-    previous = pathBytes;
-    offset += pathLength;
-    const data = bytes.subarray(offset, offset + size);
-    if (kind === 3 && data.includes(0)) throw new Error("invalid snapshot symlink");
-    records.set(path, { kind, data });
-    offset += size;
-  }
-  if (offset !== bytes.length) throw new Error("trailing snapshot bytes");
-  checkParents(records);
   return records;
-}
-
-// Bytes that arrive in pieces (an iterable of Uint8Array), read in order.
-class PieceReader {
-  constructor(pieces) {
-    this.pieces = pieces[Symbol.asyncIterator]?.() ?? pieces[Symbol.iterator]();
-    this.chunk = new Uint8Array(0);
-    this.position = 0;
-  }
-
-  async #fill() {
-    const { done, value } = await this.pieces.next();
-    if (done) return false;
-    if (!(value instanceof Uint8Array)) throw new TypeError("invalid snapshot piece");
-    this.chunk = value;
-    return true;
-  }
-
-  #advance(length) {
-    this.position += length;
-    if (this.position > MAX_SNAPSHOT_BYTES) throw new Error("snapshot exceeds its size limit");
-  }
-
-  // The next LENGTH bytes, a view into the current piece when they lie in one.
-  async take(length) {
-    if (length === 0) return new Uint8Array(0);
-    if (this.chunk.length === 0 && !await this.#fill()) throw new Error("truncated snapshot record");
-    if (this.chunk.length >= length) {
-      const bytes = this.chunk.subarray(0, length);
-      this.chunk = this.chunk.subarray(length);
-      this.#advance(length);
-      return bytes;
-    }
-    const bytes = new Uint8Array(length);
-    for (let filled = 0; filled < length;) {
-      if (this.chunk.length === 0 && !await this.#fill()) throw new Error("truncated snapshot record");
-      const taken = Math.min(this.chunk.length, length - filled);
-      bytes.set(this.chunk.subarray(0, taken), filled);
-      this.chunk = this.chunk.subarray(taken);
-      filled += taken;
-    }
-    this.#advance(length);
-    return bytes;
-  }
-
-  async skip(length) {
-    while (length !== 0) {
-      if (this.chunk.length === 0 && !await this.#fill()) throw new Error("truncated snapshot record");
-      const taken = Math.min(this.chunk.length, length);
-      this.chunk = this.chunk.subarray(taken);
-      this.#advance(taken);
-      length -= taken;
-    }
-  }
-
-  async ended() {
-    while (this.chunk.length === 0) if (!await this.#fill()) return true;
-    return false;
-  }
-}
-
-// The records of a snapshot that arrives in pieces, checked as
-// decodeSnapshotRecords checks them without holding the snapshot: every path
-// with its kind, and the data of the paths KEEP selects (symlink targets
-// always). Resolves to the records and the snapshot's size.
-export async function scanSnapshotRecords(pieces, keep) {
-  const reader = new PieceReader(pieces);
-  const count = decodeHeader(await reader.take(16));
-  const records = new Map();
-  let previous;
-  for (let index = 0; index < count; index += 1) {
-    const { kind, pathLength, size } = decodeRecordHeader(await reader.take(16));
-    const pathBytes = await reader.take(pathLength);
-    const path = decodePath(pathBytes, previous);
-    previous = pathBytes;
-    let data;
-    if (kind === 3 || (kind === 2 && keep(path))) {
-      data = await reader.take(size);
-      if (kind === 3 && data.includes(0)) throw new Error("invalid snapshot symlink");
-    } else await reader.skip(size);
-    records.set(path, { kind, data });
-  }
-  if (!await reader.ended()) throw new Error("trailing snapshot bytes");
-  checkParents(records);
-  return { records, byteLength: reader.position };
 }
 
 export function encodeSnapshotRecords(records) {

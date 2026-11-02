@@ -9,7 +9,7 @@ import test from "node:test";
 import { promisify } from "node:util";
 import { ensureSnapshotPacks, shareSnapshots, splitSnapshotRecords } from "../scripts/share-pages-snapshots.mjs";
 import { parseGeneratedConstant } from "../scripts/image-directory.mjs";
-import { decodeSnapshotRecords, encodeSnapshotRecords, mergeSnapshotRecords, scanSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
+import { decodeSnapshotRecords, encodeSnapshotRecords, mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 
 const digest = value => createHash("sha256").update(value).digest("hex");
 const execFile = promisify(execFileCallback);
@@ -174,27 +174,4 @@ test("adding a partially overlapping image preserves large existing pack identit
       assert.ok(image.packs.some(pack => known.has(pack.sha256) && pack.byteLength > 6 * 1024 * 1024));
     }
   } finally { await rm(directory, { recursive: true, force: true }); }
-});
-
-test("a snapshot read in pieces decodes as the whole does, holding only the selected data", async () => {
-  const directory = { kind: 1, data: new Uint8Array(0) };
-  const records = new Map([["/etc", directory], ["/etc/dolly", directory], ["/etc/dolly/Dollyfile", file("DOLLY 7\n")],
-    ["/link", { kind: 3, data: new TextEncoder().encode("etc") }], ["/usr", directory],
-    ["/usr/large", { kind: 2, data: new Uint8Array(70_000).map((_, index) => index) }]]);
-  const bytes = encodeSnapshotRecords(records);
-  const pieces = function* (size) { for (let offset = 0; offset < bytes.length; offset += size) yield bytes.subarray(offset, offset + size); };
-  for (const size of [1, 7, 16, 4096, bytes.length]) {
-    const { records: scanned, byteLength } = await scanSnapshotRecords(pieces(size), path => path.startsWith("/etc/dolly/"));
-    assert.equal(byteLength, bytes.length);
-    assert.deepEqual([...scanned.keys()], [...decodeSnapshotRecords(bytes).keys()]);
-    assert.deepEqual(scanned.get("/etc/dolly/Dollyfile"), records.get("/etc/dolly/Dollyfile"));
-    assert.deepEqual(scanned.get("/link").data, records.get("/link").data);
-    assert.deepEqual(scanned.get("/usr/large"), { kind: 2, data: undefined });
-  }
-  assert.equal((await scanSnapshotRecords([bytes, new Uint8Array(0)], () => false)).byteLength, bytes.length);
-  await assert.rejects(scanSnapshotRecords([bytes.subarray(0, -1)], () => false), /truncated/);
-  await assert.rejects(scanSnapshotRecords([bytes, new Uint8Array(1)], () => false), /trailing/);
-  const unsorted = new Uint8Array(bytes);
-  unsorted.set(new TextEncoder().encode("/aaa"), bytes.length - 70_000 - 10);
-  await assert.rejects(scanSnapshotRecords([unsorted], () => false), /invalid snapshot path/);
 });
