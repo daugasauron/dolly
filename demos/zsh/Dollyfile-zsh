@@ -2,7 +2,7 @@ DOLLY 7
 PACKAGE zsh
 REQUIRES HOST runtime@0
 
-# zsh from upstream's release, ported to spawn: Dolly has no fork or exec
+# zsh from upstream's release, ported to spawn: Dolly has no fork
 # (README.md, zsh-dolly.patch). It is configured outside, as Emacs is
 # (prepare-zsh.sh); Dolly compiles every object and links in the modules
 # zsh links statically, through Binaryen's cast emulation: zsh calls its
@@ -32,7 +32,7 @@ REQUIRES TOOL   text-page
 REQUIRES TOOL   tr
 REQUIRES TOOL   wasm-opt
 
-SOURCE /v0.1.4/dist/static/zsh/zsh.tar.gz 15da8e93daa5adc5b065ce24fb0e158a19706624926be49811ec3a7ffa53d4d3 /tmp/zsh.tar.gz
+SOURCE /v0.1.4/dist/static/zsh/zsh.tar.gz 1e03835f23390df4f26923a0f60e94e611d3d659fa97711d8b37a526f856f01d /tmp/zsh.tar.gz
 SLOP gzip -dc /tmp/zsh.tar.gz | tar -xf - -C /
 
 FILE /tmp/zsh.mk
@@ -75,6 +75,9 @@ FILE /tmp/zsh-check.zsh
     ls /usr | while read d; do n=$((n + 1)); done; (( n > 0 )) && print "read in the shell"
     sleep 1 & wait; print waited
     zsh -fc 'exec print exec-done'
+    zsh -fc 'print $$; exec zsh -fc "print \$\$"' | { read a; read b; [[ $a == $b ]] && print "exec keeps the pid" }
+    zsh -fc 'print $$; zsh -fc "print \$\$"' | { read a; read b; [[ $a == $b ]] && print "the last command too" }
+    zsh -fc 'exec zsh -fc "exit 3"'; print "exec status $?"
 FILE /tmp/zsh-check.expected
     /tmp
     /usr
@@ -93,6 +96,9 @@ FILE /tmp/zsh-check.expected
     read in the shell
     waited
     exec-done
+    exec keeps the pid
+    the last command too
+    exec status 3
 SLOP zsh -f /tmp/zsh-check.zsh > /tmp/zsh-check.out 2>&1 && cmp /tmp/zsh-check.out /tmp/zsh-check.expected
 
 # The functions zsh looks for in its FPATH: completion, prompts, line editing.
