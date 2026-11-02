@@ -195,7 +195,11 @@ declared fixes): 23 pass, 2 fail: test 17 (above, now passing) and "dist registe
 image of the catalog" (50 of 193: this tree's catalog is narrowed; the full catalog's run
 covers it). Source suite after the fixes: 468 pass.
 
-Round 7 on `27ec48c0`: nena-browser and amy-browser in both browsers (below).
+Round 7 on `27ec48c0`, 13:34 to 13:36, logs `NAME-BROWSER-7.log`: nena-browser Chromium
+pass 43 s, Firefox pass 47 s, so its changed line (the engine's `dollyfile install URL SHA`,
+then `test ! -e` on the artifact) holds in both browsers. amy-browser stops at its line 111,
+`amy install python`: python is not in this catalog. Its changed line 135 runs the same
+engine command as nena's; the full catalog's run reaches it.
 
 ## Lessons
 
