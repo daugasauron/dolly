@@ -277,8 +277,9 @@ cache. On 4439f99c Chrome fails as the round did (`image-input-before-fix-chromi
   first run found two faults of 095394c36: a file written for a foreign Blob was held, so a replaced
   entry's file stayed, and `loadImageArtifact` wanted the entry's own descriptor where a session or an
   opened tab hands it the artifact's identity alone.
-- `core` (Chromium 25 s, Firefox 40 s) and `npm` (18 s, 23 s) passed on 095394c36 (`after-core.log`,
-  `after-npm.log`); they load no artifact.
+- On the final code (34870df49), with the catalog whole again: `image-input` (Chromium 30 s, Firefox
+  36 s) and `core` (21 s, 32 s) passed (`browser-chain-3.out`); `npm` (18 s, 23 s) passed on 095394c36
+  (`after-npm.log`), which differs from the final code only in what loads an entry.
 - `npm run build:runtime`: image inputs `sha256:fe5261db…` (`build-runtime.log`), unchanged.
 
 **fd from the published rust-build** (`DOLLY_BUILD_IMAGES=rust-build,fd`, this tree's fd snapshot
