@@ -152,6 +152,21 @@ but does not filed here as a finding.
   5,252 and Firefox's 5,900 and 5,957. The task paths in that shipped page are gone.
   `process-model.md` repeated the stack sizes; it links the page instead.
 
+### The process model and Slop pages, run in `system`
+
+`build/docs-audit-evidence/claims/` (a C program and shell lines, Chromium and Firefox, the same
+answers in both): `getrlimit` 1024 descriptors, 56 processes, 8 GiB and an 8 MiB stack, and
+`setrlimit` to less fails `EPERM`; `_SC_OPEN_MAX` 1024, `_SC_NPROCESSORS_ONLN` 1 (4 with
+`-pthread`); `kill -s CHLD` of another process "Not supported"; `statvfs` 2,097,152 blocks of 4 KiB (8 GiB, the kernel's maximum) with 0
+files; `ttyname` fails (`ENOENT`) and `tcgetpgrp` with `ENOTTY`; `fork` and an `AF_INET`
+socket `ENOSYS`; `nice(1)` `EPERM`; `pipe` succeeds 64 times, then `ENFILE`;
+`readlink /proc/self/exe` the program's path;
+`uname` "Dolly", `uname -sm` "Dolly wasm64", `cc -dumpmachine` `wasm64-unknown-dolly`, `nproc`
+4, `hostname` dolly; `echo --help` prints `--help`; `test -x` of a directory is true;
+`/dev/zero` and `/dev/tty` are character devices; `ls /proc` lists `processes`, whose lines
+are `PID PARENT STATE COMMAND`; `command -v` of nothing ends with 1, sbase's `which` with 2
+and "not an external command". All as the pages say.
+
 ### Demo READMEs
 
 Each README's image list matches its recipes (checked by script; the lines feed `amy-index.txt`).
