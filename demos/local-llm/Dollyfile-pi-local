@@ -2,6 +2,7 @@ DOLLY 7
 APPLICATION pi-local
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST html@0
 REQUIRES HOST input@0
 REQUIRES HOST audio@0
 REQUIRES HOST download@0
@@ -14,7 +15,7 @@ REQUIRES HOST threads@0
 REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-agent fa5bb91c583cc797642ddeafe54dd95187c32b37ec8c0abfbaf6c5d11d90f0f7
+FROM /v0.1.4/demos/pi/Dollyfile-pi-agent 3b5392f27c53351c62917d00bc2192bc5852ad817e9a7e16ec56cfa081656928
 INSTALL /v0.1.4/demos/local-llm/Dollyfile-llama 69b56a92faf63f64a9915b61e22151bb8748935cc954d04eac7b923f37f5e216
 INSTALL /v0.1.4/demos/local-llm/Dollyfile-qwen3.5-2b 299c084901da8ed927a39402c20641d5153e5c78430a068e1e108e3ad8c25b4b
 

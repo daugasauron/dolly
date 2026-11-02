@@ -1,0 +1,14 @@
+{
+  "name": "html",
+  "version": 0,
+  "gives": "show the user an HTML page or form; the user answers or closes it",
+  "dependencies": ["runtime@0"],
+  "imports": ["env.dolly_html_dispatch"],
+  "host": "html.mjs",
+  "contracts": ["dolly-html-0.wat"],
+  "process": [],
+  "headers": ["html.h", "html-abi.h"],
+  "kernel": ["kernel.c"],
+  "client": ["client.c"],
+  "package": "html"
+}

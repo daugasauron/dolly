@@ -2,6 +2,7 @@ DOLLY 7
 APPLICATION classicube
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST html@0
 REQUIRES HOST input@0
 REQUIRES HOST audio@0
 REQUIRES HOST touch@0
@@ -11,7 +12,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 4709fb3764fc80a20297d305208e1064ad5ea83a889f39cc4e19b91e80fa14be
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime bb7e71df10b5bac47a5269aefaede598f8e061e3fcf7e8f0cb981eb15aaef5a3
 COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 5a600b6c88a1bf7dcba187be6031bc7963ce8478a147b822d1d24320fd7635b8 /usr/bin/classicube /usr/bin/classicube
 COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 5a600b6c88a1bf7dcba187be6031bc7963ce8478a147b822d1d24320fd7635b8 /usr/share/classicube /home/dolly/classicube
 COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 5a600b6c88a1bf7dcba187be6031bc7963ce8478a147b822d1d24320fd7635b8 /usr/share/licenses/classicube /usr/share/licenses/classicube
