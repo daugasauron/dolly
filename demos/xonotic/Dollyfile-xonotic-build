@@ -9,18 +9,18 @@ REQUIRES HOST input@0
 REQUIRES HOST touch@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/Dollyfile-system-tools a76845818fc0a13aea061f36003eb48fe8e5ca139b6e9668d43cf63198bcd60a
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 a4ab111fd2ae6cf9709f14990a398207d97179abee4179c198d0929bc99811bd
+FROM /v0.1.4/Dollyfile-system-tools 4e1f937ead579cf898829e91608c8bb21511c7eaff93bb3b3355984007d868c2
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 5cc7503c8fdb57cb748da222d390d6c9a4f34ab9c0ea6f8c5ae6fc907acfda6f
 # FreeType (with its libpng) for the client's fonts, libjpeg for its textures,
 # Vorbis (with its Ogg) for its sounds.
-INSTALL /v0.1.4/demos/xonotic/Dollyfile-libvorbis 86d14efecdf82c35ed8081b85e436e123935679a42d3e1dcd69dd0169a8d8e82
-INSTALL /v0.1.4/demos/xonotic/Dollyfile-libjpeg ee984b80382ebc6e2d7e3f7a6cd83672a1d23fc8fe7b9a72def25f75b65bc521
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype 92e9197e83d5d4fc66032741d74321f1b2e5d4d7fbf2987c3a0d598893a1b0df
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-libvorbis fab58925cb393c2cdc0dd3d4e2f5b76397083988fde80b8e4d47c0cdb23d0dc6
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-libjpeg 4a18273b5b70d68b5c809236f05ff0561ed85279060d3005dfb7cf671df099f9
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype b3bccba857d1a65a4fb24146ca8bf12141bbb8cc30a438fbd6111b0670a0a6fe
 # gmqcc, which compiles the game logic.
-INSTALL /v0.1.4/demos/xonotic/Dollyfile-gmqcc 21f2ef59dd9e586b0f74aa44b6fd059df20c75d0ffe6d9fa05683744cf807f9d
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-gmqcc 6fed26a4ce39269c61d5ebdce80cbc16c3c429f39f35ab2dc043fab8c7a10c1f
 # The gpu@0 client the render path draws with, and its shaders.
-INSTALL /v0.1.4/Dollyfile-libdolly-gpu bd9b96fb8a6d6586226508bb3fc291f473a2e38cefbf8250460a8bd08123ca9c
-INSTALL /v0.1.4/demos/xonotic/Dollyfile-xonotic-shaders 0be371904da776067853983d9293d6916fc5a72730bf467c6ed7cf9e3f63ff16
+INSTALL /v0.1.4/Dollyfile-libdolly-gpu 4ccbc249f607ee132b62526fbad1b66234dddc15d26ded566220428374efd591
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-xonotic-shaders f64d6499c8e1984a04024ce4e9491db10ef2376d7510a87db3b641b29e7628b5
 REQUIRES HEADER cpp
 REQUIRES HEADER gpu
 REQUIRES HEADER sdl2

@@ -7,7 +7,7 @@ REQUIRES HOST html@0
 # the user an HTML page or form in a popup of the page and prints the fields
 # of the form they submit. cc links every client archive in
 # /usr/lib/dolly/process; a program records html@0 when it calls the client.
-FROM /v0.1.4/Dollyfile-system-build 64a3faafb8702eba5ddbdbaf733c656fd476f2cc04ac023792b84403c7b005b4
+FROM /v0.1.4/Dollyfile-system-build 3d0623b5d985ab0bcbb7a79ad3f5e6bc7a8da06d30b4a5a43504b70b2eeeac71
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc

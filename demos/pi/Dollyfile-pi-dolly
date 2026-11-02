@@ -12,9 +12,9 @@ REQUIRES HOST threads@0
 # command), the settings and the theme; with Pi, and the platform's documents
 # that the prompt and the skill name. pi-key starts Pi with an API
 # key it reads without showing it: Pi's own /login shows a key as it is typed.
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi 1673604eea14d9e98268f834e6c7ebf71de6dc113abbd8167b38b1871ef4fda0
-INSTALL /v0.1.4/demos/closed-source-agent/Dollyfile-secretenv 50a8225c603712bd9ce3a7e889a060fc82fe9bf8c2e936b21589cd64e23c3309
-INSTALL /v0.1.4/Dollyfile-html 07a51495790795bf677941b2555abde7a91bd016c2904a10a8685a8a54258b5f
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi cf78d1d34396d20d69b662efe826619f020faa9162bbff36252c652da5756ece
+INSTALL /v0.1.4/demos/closed-source-agent/Dollyfile-secretenv 68cd2ab965144a90b32f8331b3bc54fa8eccbb416fa722b01dd8a3512beb48ca
+INSTALL /v0.1.4/Dollyfile-html bad9c9a6ee5664970acae64f635b1ebfef21280b25f9a1f75a9667e442852151
 INSTALL /v0.1.4/Dollyfile-dolly-docs a4c172e956c662f52de4ba7d7fc703489eb6aa9b28dff2a0326b648849eea2f6
 
 SOURCE /v0.1.4/dist/static/default/pi/dolly-tools.js                    b2d5ecb9788c9f701d4892a23d0c0b8b17adb6309278de9876aefc8d8ca4b6a8 /home/dolly/.pi/agent/extensions/dolly-tools.js
