@@ -33,6 +33,8 @@ and a failed exec `_exit`s as upstream. The spawn path is unchanged. The
 gains: `exec zsh -fc 'print $$'` and the last command of `zsh -c` print the
 outer shell's pid; `exec zsh -fc 'exit 3'` gives status 3.
 
+Commit: 163e1b4e.
+
 ## 2. Recipe comments and Emacs's Lisp sources
 
 - `Dollyfile-pigz` said gzip "only reads"; `Dollyfile-tar` said "The gzip of the
@@ -51,6 +53,8 @@ outer shell's pid; `exec zsh -fc 'exit 3'` gives status 3.
   (21.3 MB with the images beside them). The check loads `subr.el.gz` through
   `find-library-name` and `insert-file-contents`.
 
+Commit: 9b585cb5.
+
 ## 3. X.Org recipes that installed the tools demo's tar
 
 Measured with `core-tar` (705de088) on the pinned archives
@@ -60,6 +64,8 @@ libXfont2 (123) and xorg-server (1661) extract; pixman fails on
 xkeyboard-config on `symbols/caps` (a link). `Dollyfile-libxkbfile`,
 `-xkbcomp` and `-xorg-server` drop `USE Dollyfile-tar` and its comment;
 `-pixman` and `-xkeyboard-config` keep it, for the links.
+
+Commit: 2a69eb27.
 
 ## 4. Plain-tar stagings made for the pax headers
 
@@ -74,10 +80,16 @@ the archives holds a pax header any more; what fails is links.
 | jq 1.8.2 | refused: a hard link in `docs/` | kept |
 | zstd 1.5.7 | refused: two symlinks in `tests/` | kept |
 | lean 4.35.0 | refused: 7 symlinks (`AGENTS.md`, `tests/`) | kept, another agent's (`demo/lean-3`): its comment's reason ("a pax header") is wrong, the links are the reason |
-| tree, dte, base64, neatvi, linenoise (checkouts) | extract | kept for now: convertible the same way, each a rebuild; bc is refused (a link, `configure`) |
+| tree 2.3.2, dte 1.11.1, base64 0.5.2, neatvi 20, linenoise 2.0 | extract (24, 389, 79, 103, 8 files) | dropped in a second commit: the recipes copy the licences, README and man pages the stagings placed |
+| bc 7.0.3 | refused: a link, `configure` | kept |
 | wabt (xz), toybox (links, generated headers) | not pax | kept |
 
-`demos/tools/README.md` now names the reasons that remain.
+`demos/tools/README.md` now names the reasons that remain. sqlite's recipe
+changing (linenoise) cascades through python's pin into most of the catalog,
+which the seed change invalidates anyway.
+
+Commits: a44d764b (Binaryen, lz4, xterm), 2807e7f0 (tree, dte, base64, vi,
+sqlite's linenoise).
 
 ## 5. Studio's copies of two docs
 
@@ -94,11 +106,69 @@ outside the 25. Verified by the source suite (`demos/studio/test/studio.test.mjs
 reads the staging) and the recipe chain; the browser test waits for the catalog
 round.
 
+Commit: 6d33e42b.
+
 ## 6. Mojo's `llvm-wait.patch`
 
-`wait4` takes a usage record since bbec81cc. `mojo-llvm` is a 9 GB build; left
-for the integrator unless time allows (see the end).
+`wait4` takes a usage record since bbec81cc: `__syscall_wait4` in
+`src/process/libc-adapter.c` zeroes it. The patch's two hunks (a `wait4` that
+calls `waitpid`; the `ProcStat` report left out) can both go: LLVM would report
+zero times, as `time` does here. Not done: `mojo-llvm` is a 9 GB build of hours,
+and the build slots went to the x11 and Emacs closures. The finding is the
+integrator's, with the patch and `Dollyfile-mojo-llvm` lines 41-44 and 112, and
+`README.md` line 92, as the diff.
+
+## Builds and tests
+
+Build A (`default,zsh,lz4,pigz,tar`, unit `dolly-workaround-removal-build-a`,
+slot taken 10:36): the plan rebuilt libuv, cmake, cmake-build, tools-build,
+binaryen, libterminfo, lz4, pigz, tar and zsh on the seed ("seed or image ABI
+changed"); 19 images reused. Logs `build-a.log`, `build/image-logs/`. Ready at
+11:28, 3159 s for the ten; zsh's recipe check passed with the three new lines
+(exec and the last command of `zsh -c` keep the pid, `exec` passes the status).
+
+Tests on A: `npm run test:demos -- zsh` passed in Chromium (5.0 s) and Firefox
+(9.7 s), `zsh-test.log`. The packages (lz4, pigz, tar, binaryen) are checked by
+`packages-browser.mjs` in the evidence directory: `test/amy-browser.mjs`'s
+checks for them, copied, since its table installs every package and the
+catalog here is narrowed. Its first run failed on pigz because `default` has no
+`gzip` command (the gzip package; `amy-browser.mjs` installs it earlier in its
+table): a mistake of the copy, not of pigz; `packages-a2.log` installs it first
+and passes for lz4 (with its three licence files and man page), pigz, tar and
+binaryen (`--fpcast-emu`, both licence files) in Chromium (11.3 s) and Firefox
+(17.5 s).
+
+Build B (A plus `emacs,gnu-emacs,tree,dte,base64,vi,sqlite`, unit
+`dolly-workaround-removal-build-b`, started 11:30, ready 11:39: base64, dte,
+emacs, gnu-emacs, sqlite, tree and vi built in 226 s, the rest reused).
+Emacs's recipe ran the three gzip steps and its check printed `31.1 dolly`
+after the `subr.el.gz` assertions; the emacs snapshot is 146,020,081 bytes
+against 141,230,250 before the sources came back (+4.8 MB, 3.4%), `emacs.log`.
+
+Tests on B: `npm run test:demos -- emacs` passed (gnu-emacs in Chromium 7.3 s
+and Firefox 8.9 s; the emacs package into default in Chromium 6.9 s),
+`emacs-test.log`; `packages-b.log`: tree, dte, base64, vi and sqlite pass in
+Chromium (5.7 s) and Firefox (8.3 s), licences, README and man pages included.
+Studio's path claim has its existing check: `test/amy-browser.mjs` asserts
+`/usr/share/doc/dolly/docs/dollyfile.md` after `amy install dolly-docs`.
+
+Build C (B plus `x11-desktop,tmux`, bigbuild for the server, unit
+`dolly-workaround-removal-build-c`, started 11:39). The three run serially in
+this one tree, each catalog a superset of the last.
 
 ## Lessons
 
-(at the end)
+- A workaround's comment outlives its cause by weeks: three "pax header"
+  stagings were written for a tar that reads pax headers since dbf38965, and
+  none of the archives even has one now (the GitHub archives lost theirs). What
+  stays needed is links, which no comment named. Measure the archive, not the
+  comment: the native build of `src/commands/tar.c` takes a second and settles
+  each claim.
+- `update-recipe-pins.mjs` reads `SOURCE` bytes from `dist/static`, and the
+  staging refuses stale pins: a new `SOURCE` path needs a plain pin run, then
+  the staging (which repins sources), in that order. Splitting one working
+  tree into pin-consistent commits is cheapest done before the build takes a
+  slot, with a throwaway `wip` commit as the source of each item's files.
+- One recipe's pin cascades: changing `Dollyfile-sqlite` (linenoise) touched
+  70 recipes through python. On a seed-change branch that costs nothing; on
+  `main` it is a catalog round, so such a change belongs with one.
