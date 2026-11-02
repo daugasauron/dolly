@@ -12,12 +12,15 @@ REQUIRES TOOL   ar
 REQUIRES TOOL   cc
 REQUIRES TOOL   cp
 REQUIRES TOOL   echo
+REQUIRES TOOL   gzip
 REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   mv
 REQUIRES TOOL   tar
 REQUIRES TOOL   test
 
-SOURCE /v0.1.4/dist/static/tools/base64.tar 42736effaa4eab13712b57cffa44922b45931bde9a03dac109bd0f9c279ca6a2 /tmp/base64.tar
-SLOP tar -xf /tmp/base64.tar -C /
+SOURCE /v0.1.4/dist/static/tools/base64-0.5.2.tar.gz 723a0f9f4cf44cf79e97bcc315ec8f85e52eb104c8882942c3f2fba95acc080d /tmp/base64.tar.gz
+SLOP gzip -dc /tmp/base64.tar.gz | tar -xf - -C /tmp && mv /tmp/base64-0.5.2 /tmp/base64
 
 # As upstream's Makefile writes it when no codec is asked for.
 FILE /tmp/base64/lib/config.h
@@ -44,6 +47,7 @@ FILE /tmp/base64.mk
     >cc $^ -o $@
 SLOP make -j4 -f /tmp/base64.mk
 SLOP cp /tmp/base64/include/libbase64.h /usr/include/libbase64.h
+SLOP mkdir -p /usr/share/licenses/base64 && cp /tmp/base64/LICENSE /usr/share/licenses/base64/LICENSE
 
 SLOP test "$(echo packed | base64)" = cGFja2VkCg== && test "$(echo cGFja2VkCg== | base64 -d)" = packed
 

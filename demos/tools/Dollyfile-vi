@@ -10,16 +10,19 @@ FROM /v0.1.4/Dollyfile-system-tools edd2a16bf0454ed1fe0bd2d221f7a01f0f0837a63cce
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
+REQUIRES TOOL   cp
+REQUIRES TOOL   gzip
 REQUIRES TOOL   ln
 REQUIRES TOOL   make
 REQUIRES TOOL   mkdir
+REQUIRES TOOL   mv
 REQUIRES TOOL   printf
 REQUIRES TOOL   sed
 REQUIRES TOOL   tar
 REQUIRES TOOL   test
 
-SOURCE /v0.1.4/dist/static/tools/neatvi.tar 46da6486814546d4b020784571bb1a750d279dc3a128fdd4d5e99a66454cfca3 /tmp/neatvi.tar
-SLOP tar -xf /tmp/neatvi.tar -C /
+SOURCE /v0.1.4/dist/static/tools/neatvi-20.tar.gz e1d9a89d770aa5bb60da472be1a526eb1d99be9267c4d6067fc625f10efc8fe5 /tmp/neatvi.tar.gz
+SLOP gzip -dc /tmp/neatvi.tar.gz | tar -xf - -C /tmp && mv /tmp/neatvi-20 /tmp/neatvi
 
 # Neatvi leaves it to the terminal to turn Enter, a carriage return, into a
 # newline (ICRNL). Dolly's terminal maps no input, so term.c reads through this.
@@ -49,6 +52,7 @@ SLOP ln -s vi /usr/bin/ex
 # licence, and its README is the manual.
 SLOP mkdir -p /usr/share/licenses/vi
 SLOP sed -n 2,16p /tmp/neatvi/vi.c > /usr/share/licenses/vi/LICENSE
+SLOP mkdir -p /usr/share/doc/vi && cp /tmp/neatvi/README /usr/share/doc/vi/README
 
 SLOP printf 'one\ntwo\n' > /tmp/vi-check && printf '%s\n' '%s/two/2/' 'w' 'q' | ex -s /tmp/vi-check > /dev/null && test "$(sed -n 2p /tmp/vi-check)" = 2
 

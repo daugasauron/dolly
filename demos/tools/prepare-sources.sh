@@ -14,6 +14,11 @@ unzip unzip unzip60.tar.gz
 pigz pigz pigz-2.8.tar.gz
 lz4 lz4 lz4-1.10.0.tar.gz
 binaryen binaryen binaryen-version_133.tar.gz
+tree tree unix-tree-2.3.2.tar.gz
+dte dte dte-1.11.1.tar.gz
+base64 base64 base64-0.5.2.tar.gz
+vi neatvi neatvi-20.tar.gz
+sqlite linenoise linenoise-2.0.tar.gz
 yacc byacc byacc-20260126.tgz
 flex reflex reflex-20260131.tgz
 meson meson meson-1.12.1-py3-none-any.whl
@@ -25,13 +30,6 @@ if has_image xxd; then
 fi
 # The files a build reads, staged from pinned checkouts, unchanged, with licence
 # and manual at their paths.
-if has_image sqlite; then
-  tool_dir="$(bash scripts/fetch-pinned-source.sh linenoise)"
-  node scripts/build-source-tar.mjs "${static_dir}/tools/linenoise.tar" \
-    "${tool_dir}/linenoise.c" /tmp/linenoise/linenoise.c \
-    "${tool_dir}/linenoise.h" /tmp/linenoise/linenoise.h \
-    "${tool_dir}/LICENSE" /usr/share/licenses/linenoise/LICENSE
-fi
 if has_image jq; then
   tool_dir="$(bash scripts/fetch-pinned-source.sh jq)"
   node scripts/build-source-tar.mjs "${static_dir}/tools/jq.tar" \
@@ -50,22 +48,6 @@ if has_image zstd; then
     "${tool_dir}/LICENSE" /usr/share/licenses/zstd/LICENSE \
     "${tool_dir}/programs/zstd.1" /usr/share/man/man1/zstd.1
 fi
-if has_image tree; then
-  tool_dir="$(bash scripts/fetch-pinned-source.sh tree)"
-  node scripts/build-source-tar.mjs "${static_dir}/tools/tree.tar" \
-    "${tool_dir}" /tmp/tree \
-    "${tool_dir}/LICENSE" /usr/share/licenses/tree/LICENSE \
-    "${tool_dir}/doc/tree.1" /usr/share/man/man1/tree.1
-fi
-if has_image dte; then
-  tool_dir="$(bash scripts/fetch-pinned-source.sh dte)"
-  node scripts/build-source-tar.mjs "${static_dir}/tools/dte.tar" \
-    "${tool_dir}/src" /tmp/dte/src \
-    "${tool_dir}/config" /tmp/dte/config \
-    "${tool_dir}/mk/config2c.awk" /tmp/dte/mk/config2c.awk \
-    "${tool_dir}/LICENSE" /usr/share/licenses/dte/LICENSE \
-    "${tool_dir}/docs/dte.1" /usr/share/man/man1/dte.1
-fi
 if has_image bc; then
   tool_dir="$(bash scripts/fetch-pinned-source.sh bc)"
   node scripts/build-source-tar.mjs "${static_dir}/tools/bc.tar" \
@@ -76,14 +58,6 @@ if has_image bc; then
     "${tool_dir}/NOTICE.md" /usr/share/licenses/bc/NOTICE.md \
     "${tool_dir}/manuals/bc/N.1" /usr/share/man/man1/bc.1 \
     "${tool_dir}/manuals/dc/N.1" /usr/share/man/man1/dc.1
-fi
-if has_image base64; then
-  tool_dir="$(bash scripts/fetch-pinned-source.sh base64)"
-  node scripts/build-source-tar.mjs "${static_dir}/tools/base64.tar" \
-    "${tool_dir}/bin" /tmp/base64/bin \
-    "${tool_dir}/include" /tmp/base64/include \
-    "${tool_dir}/lib" /tmp/base64/lib \
-    "${tool_dir}/LICENSE" /usr/share/licenses/base64/LICENSE
 fi
 # wabt's source release, with the libraries it vendors, is an xz archive.
 if has_image wabt; then
@@ -130,12 +104,6 @@ if has_image toybox; then
     "${tool_dir}/generated/newtoys.h" /tmp/toybox/generated/newtoys.h \
     "${tool_dir}/generated/tags.h" /tmp/toybox/generated/tags.h \
     "${tool_dir}/LICENSE" /usr/share/licenses/toybox/LICENSE
-fi
-if has_image vi; then
-  tool_dir="$(bash scripts/fetch-pinned-source.sh neatvi)"
-  node scripts/build-source-tar.mjs "${static_dir}/tools/neatvi.tar" \
-    "${tool_dir}" /tmp/neatvi \
-    "${tool_dir}/README" /usr/share/doc/vi/README
 fi
 # sbase's tar starts its compressor with posix_spawn instead of fork.
 if has_image tar; then
