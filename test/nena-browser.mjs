@@ -133,7 +133,7 @@ await browserTest("nena", { image: "default", timeout: 300_000, server: { fixtur
   await run("nena enable microphone && test \"$(cat /etc/dolly/enabled)\" = microphone@0");
   assert.ok((await enabled()).includes("microphone@0"));
   await state("microphone", "enabled");
-  await run(`$HOME/listen && ${install} && rm ${artifact} && test "$(cat /usr/share/listener)" = 'needs the microphone'`);
+  await run(`$HOME/listen && ${install} && test ! -e ${artifact} && test "$(cat /usr/share/listener)" = 'needs the microphone'`);
   // Disabled, it is gone for programs that record it and for those that do not.
   await run("nena disable microphone && test ! -e /etc/dolly/enabled");
   assert.ok(!(await enabled()).includes("microphone@0"));

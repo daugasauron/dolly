@@ -132,7 +132,7 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   // An install is the engine's INSTALL row: a package whose host modules the
   // image declares installs and is recorded, so amy lists it.
   await run(`mkdir -p /etc/dolly/artifacts && curl -fsS ${server.origin}/fixture/connects.snapshot -o ${artifact}`);
-  await run(`dollyfile install ${connects.url} ${connects.sha256} && rm ${artifact}`);
+  await run(`dollyfile install ${connects.url} ${connects.sha256} && test ! -e ${artifact}`);
   await run(`test "$(cat /usr/share/connects)" = 'needs sockets' && grep -qx '${row}' /etc/dolly/installed`);
   await run(`test "$(amy installed | tail -n 1)" = "connects ${connects.url} ${connects.sha256}"`);
   // A package names the packages its recipe installs and holds none of their
