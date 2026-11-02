@@ -50,7 +50,7 @@ FILE /tmp/lua55/Makefile
     /usr/lib/liblua5.5.a: $(OBJECTS)
     	ar rcs $@ $^
     /tmp/lua55/%.o: $(SOURCE)/%.c
-    	cc -std=c17 -O2 -U__SIZEOF_INT128__ -DLUA_USE_C89 -I $(SOURCE) -c $< -o $@
+    	cc -std=c17 -O2 -DLUA_USE_C89 -I $(SOURCE) -c $< -o $@
 SLOP make -f /tmp/lua55/Makefile
 SLOP mkdir -p /usr/include/lua5.5 /usr/share/licenses/lua5.5
 SLOP cp /tmp/lua55/lua-5.5.1/src/lua.h /tmp/lua55/lua-5.5.1/src/luaconf.h /tmp/lua55/lua-5.5.1/src/lauxlib.h /tmp/lua55/lua-5.5.1/src/lualib.h /usr/include/lua5.5
@@ -73,7 +73,7 @@ REQUIRES HEADER quickjs-runner
 SOURCE ${siteReference("dist/static/slopyard/source.tar")} ${hash(await readFile(output))} /tmp/slopyard.tar
 SLOP tar -xf /tmp/slopyard.tar -C / && rm /tmp/slopyard.tar
 SLOP make -f /usr/src/dolly/slopyard/box3d.mk
-SLOP cc -std=c17 -O2 -pthread -U__SIZEOF_INT128__ -I/usr/include/lua5.5 /usr/src/dolly/slopyard/main.c /usr/src/dolly/slopyard/data.c /usr/src/dolly/slopyard/pi.c /usr/src/dolly/slopyard/character.c /usr/src/dolly/slopyard/render.c /usr/src/dolly/slopyard/world.c /usr/src/dolly/slopyard/terrain.c /usr/src/dolly/slopyard/magnet.c -ldolly-gpu -llua5.5 -ldolly-js -lquickjs -ldolly-raylib -lraylib -lslopyard-box3d -lm -o /usr/bin/slopyard
+SLOP cc -std=c17 -O2 -pthread -I/usr/include/lua5.5 /usr/src/dolly/slopyard/main.c /usr/src/dolly/slopyard/data.c /usr/src/dolly/slopyard/pi.c /usr/src/dolly/slopyard/character.c /usr/src/dolly/slopyard/render.c /usr/src/dolly/slopyard/world.c /usr/src/dolly/slopyard/terrain.c /usr/src/dolly/slopyard/magnet.c -ldolly-gpu -llua5.5 -ldolly-js -lquickjs -ldolly-raylib -lraylib -lslopyard-box3d -lm -o /usr/bin/slopyard
 SLOP /usr/bin/slopyard --check
 SLOP rm -rf /tmp/slopyard-box3d
 EXPORTS TOOL slopyard

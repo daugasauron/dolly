@@ -22,7 +22,7 @@ FILE /usr/src/dolly/box3d/box3d.mk
     BUILD := /usr/src/dolly/box3d/build
     SOURCES := $(filter-out $(SOURCE)/timer.c,$(wildcard $(SOURCE)/*.c))
     OBJECTS := $(patsubst $(SOURCE)/%.c,$(BUILD)/%.o,$(SOURCES)) $(BUILD)/platform.o
-    FLAGS := -std=gnu17 -O2 -fno-builtin -U__SIZEOF_INT128__ -DBOX3D_DISABLE_SIMD -I /usr/src/box3d/include -I $(SOURCE)
+    FLAGS := -std=gnu17 -O2 -DBOX3D_DISABLE_SIMD -I /usr/src/box3d/include -I $(SOURCE)
     
     .PHONY: all
     

@@ -30,7 +30,7 @@ FILE /usr/src/dolly/raylib/raylib.mk
     AR := ar
     SOURCE := /usr/src/raylib/src
     BUILD := /usr/src/dolly/raylib/build
-    FLAGS := -std=gnu99 -O2 -D_GNU_SOURCE -DGRAPHICS_API_OPENGL_SOFTWARE -DSW_FRAMEBUFFER_OUTPUT_BGRA=0 -fno-strict-aliasing -fno-builtin -I $(SOURCE)
+    FLAGS := -std=gnu99 -O2 -D_GNU_SOURCE -DGRAPHICS_API_OPENGL_SOFTWARE -DSW_FRAMEBUFFER_OUTPUT_BGRA=0 -fno-strict-aliasing -I $(SOURCE)
     OBJECTS := $(patsubst %,$(BUILD)/%.o,rcore rshapes rtextures rtext rmodels)
     
     .PHONY: all
@@ -40,13 +40,6 @@ FILE /usr/src/dolly/raylib/raylib.mk
     $(BUILD)/%.o: $(SOURCE)/%.c
     	mkdir -p $(BUILD)
     	$(CC) $(FLAGS) -c $< -o $@
-    
-    # rtext.c triggers the embedded LLVM backend's current high-optimization
-    # memory/trap limit. Text layout is not the software 3D render hot path, so
-    # keep this one upstream translation unit at the reliable bootstrap level.
-    $(BUILD)/rtext.o: $(SOURCE)/rtext.c
-    	mkdir -p $(BUILD)
-    	$(CC) $(subst -O2,-O0,$(FLAGS)) -c $< -o $@
     
     # raylib's core with Dolly's platform backend in the same unit.
     $(BUILD)/rcore.o: /usr/src/dolly/raylib/rcore-dolly.c /usr/src/dolly/raylib/rcore_dolly.c $(SOURCE)/rcore.c
@@ -60,7 +53,7 @@ FILE /usr/src/dolly/raylib/raylib.mk
     /usr/lib/libdolly-raylib.a: /usr/src/dolly/raylib/dolly-raylib.c /usr/src/dolly/raylib/dolly-raylib.h /usr/lib/libraylib.a
     	mkdir -p /usr/include/dolly
     	cp /usr/src/dolly/raylib/dolly-raylib.h /usr/include/dolly/raylib.h
-    	$(CC) -std=c17 -O2 -fno-builtin -I /usr/src/dolly/raylib -c /usr/src/dolly/raylib/dolly-raylib.c -o $(BUILD)/dolly-raylib.o
+    	$(CC) -std=c17 -O2 -I /usr/src/dolly/raylib -c /usr/src/dolly/raylib/dolly-raylib.c -o $(BUILD)/dolly-raylib.o
     	$(AR) rcs $@ $(BUILD)/dolly-raylib.o
 FILE /usr/src/dolly/raylib/rcore-dolly.c
     // raylib's core with Dolly's platform backend: built with no PLATFORM_* defined,
