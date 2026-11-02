@@ -478,10 +478,14 @@ const typed = {
   // Its status line is up; Ctrl+S saves and Ctrl+Q quits.
   "dte /tmp/amy-dte": [[/INS +UTF-8/, "one\ntwo\x13\x11"]],
 };
+// A package whose recipe requires a host module the image has not enabled is refused until the
+// user enables it (pi-dolly's html@0 popups).
+const enables = { "pi-dolly": "html" };
 await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ open }) => {
   const session = await open(), run = check(session);
   for (const [name, [command, use]] of Object.entries(tools)) {
     await run(`! command -v ${command}`);
+    if (enables[name]) await run(`nena enable ${enables[name]}`);
     console.log(`amy install ${name}: ${await timed(run, `amy install ${name}`)} ms`);
     await run(use);
     for (const read of reads(name)) await run(read);
