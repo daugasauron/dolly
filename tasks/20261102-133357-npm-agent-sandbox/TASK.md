@@ -67,7 +67,8 @@ declares what the browser gives it, `dolly-build` writes both and builds.
    an extension with `/hello`, a `todo` tool, a comment on themes, the start script with
    `pi-key OPENROUTER_API_KEY --offline --provider openrouter`, and `pi-minimal`'s `ENTRY`),
    `index.html` (the OpenRouter rule, the popup colours, the files of `workspace/` for
-   `boot()`'s `files`), `serve.mjs` (isolation, a `/workspace/` listing, relays) and
+   `boot()`'s `files`, listed by `workspace.json`, which `serve.mjs` answers and a static
+   host holds as a file), `serve.mjs` (isolation, the listing, relays) and
    `workspace/README.md`, and a `.gitignore` (`node_modules/`, the image directory) unless
    the project has one. It refuses to write over a file, and names the host module package
    to install when the recipe declares one the page lacks (`python`'s `sockets`). Templates:
@@ -119,6 +120,8 @@ script) is now written by `init` or said in its comments.
 - `test/npm-browser.mjs chromium firefox` with a workspace file in a subdirectory with a space
   in its name (the page encodes each path segment): passed, 16.9 s and 20.3 s
   (`npm-browser-both-4.log`).
+- `test/npm-browser.mjs chromium firefox` with the listing at `workspace.json`: passed, 15.1 s
+  and 17.4 s (`npm-browser-both-5.log`).
 - Not measured tonight: `init` under pnpm and Yarn. This machine's pnpm 12.15 insists on
   fetching pnpm 12.16.1 from whatever registry `.npmrc` names, so it never installed from
   the test registry; `init` reads the same `node_modules/@daugasauron/` the build reads,

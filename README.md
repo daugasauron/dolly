@@ -130,7 +130,7 @@ fails: the policy refuses it.
 | `Dollyfile-my-pi` | The sandbox, a [recipe](docs/dollyfile.md) `FROM` `pi-minimal`: `INSTALL` rows for the packages you named (`git`, `python`, `cc`), `FILE` rows with Pi's `AGENTS.md`, a skill, an extension with a `/hello` command, a `todo` tool, and the script that starts Pi with its provider | Build again |
 | `index.html` | The hosts the agent may reach ([HTTP policy](docs/http.md)): one rule, OpenRouter's API. The popups' colours. The files written into `/workspace` | Reload |
 | `workspace/` | The project the agent works on, written into `/workspace` at each boot | Reload |
-| `serve.mjs` | Serving with cross-origin isolation; the hosts it relays for programs that need one without CORS headers ([relays](docs/http.md#cors-and-relays)) | Restart |
+| `serve.mjs` | Serving with cross-origin isolation and the listing of `workspace/` (`workspace.json`); the hosts it relays for programs that need one without CORS headers ([relays](docs/http.md#cors-and-relays)). A static host sends the two headers ([Embedding](docs/embedding.md), "Serving") and holds the listing as a file | Restart |
 
 `pi-minimal` is Pi with a shell, POSIX tools, curl, ripgrep and fd; the page gives
 it a terminal (`display`), a keyboard (`input`), Pi's download tool (`save`) and the

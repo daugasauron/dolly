@@ -136,7 +136,8 @@ npx dolly-build Dollyfile-my-pi my-pi
   package at the installed pins, rows for Pi's instructions, a skill, an extension,
   a tool and the script that starts Pi, and `pi-minimal`'s `ENTRY`), `index.html`
   (the policy, the popups' colours, and the files of `workspace/` for `boot()`'s
-  `files`), `serve.mjs`, `workspace/README.md` and, unless the project has one, a
+  `files`, listed by `workspace.json`), `serve.mjs` (isolation, the listing,
+  relays), `workspace/README.md` and, unless the project has one, a
   `.gitignore` for `node_modules/` and the image directory. It names the host module
   package to install when a package needs one the page lacks (`python`'s `sockets`).
   The repository README's "Pi with npm" says what each file is for.

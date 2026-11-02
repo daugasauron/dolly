@@ -1,6 +1,7 @@
-// Serves this directory with the cross-origin isolation Dolly needs, lists
-// workspace/ for the page, and relays the hosts in `relayed` for programs that
-// need a host without CORS headers.   node serve.mjs   (PORT=8080)
+// Serves this directory with the cross-origin isolation Dolly needs, answers
+// workspace.json with the files under workspace/ for the page, and relays
+// the hosts in `relayed` for programs that need a host without CORS headers.
+//   node serve.mjs   (PORT=8080)
 import { createServer } from "node:http";
 import { readdir, readFile } from "node:fs/promises";
 import { extname, join, normalize, relative } from "node:path";
@@ -36,7 +37,7 @@ const server = createServer(async (request, response) => {
     return relay(request, response, url).catch(() => response.headersSent ? response.destroy() : response.writeHead(502).end());
   }
   try {
-    if (url.pathname === "/workspace/") {
+    if (url.pathname === "/workspace.json") {
       return response.writeHead(200, { "content-type": "application/json", ...isolation }).end(JSON.stringify(await workspace()));
     }
     const path = join(process.cwd(), normalize(decodeURIComponent(url.pathname)));

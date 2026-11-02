@@ -21,9 +21,11 @@
   ] };
 
   // The project: workspace/ is written into /workspace at each boot, so an edit
-  // there is a reload. Pi's tools can read these files; they are not for secrets.
-  const listing = await fetch("./workspace/");
-  if (!listing.ok) throw new Error("GET workspace/ must list the project's files, as serve.mjs does");
+  // there is a reload. serve.mjs answers workspace.json, the paths under workspace/;
+  // a static host holds that file. Pi's tools can read these files; they are not
+  // for secrets.
+  const listing = await fetch("./workspace.json");
+  if (!listing.ok) throw new Error("workspace.json must list the files under workspace/, as serve.mjs does");
   const files = {};
   for (const path of await listing.json()) {
     const url = `./workspace/${path.split("/").map(encodeURIComponent).join("/")}`;
