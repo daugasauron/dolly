@@ -216,3 +216,18 @@ did `custom-session` (64 s, 101 s), `session-offline` (5 s, 7 s) and `core` (29 
 - `git status | head` hid 150 repinned recipes for an hour; `git cherry-pick -q` does not
   exist and a `reset --hard && cherry-pick` chain that fails midway leaves the tree reset:
   bookmark commits before reordering them.
+
+## Reverted on integrate/2026-11-02 for the evening round (2026-11-02 16:30, e69e7cfbb)
+
+The evening round failed at fd: the build Worker read the published 527 MB rust-build artifact
+and got "network error". Measured in Chrome in a 6 GB slot (data: and http origins): a Blob that a
+page builds from 8 MiB in-memory parts and posts to a Worker reads at 128, 256 and 400 MB, and fails
+at 527 MB and 1.1 GB with NotReadableError (the probe is a page that builds such a Blob and a Worker
+that reads it by slices and whole). `prepareImageArtifacts` describes a published input
+(`packagedSystemSnapshot` -> `describeImageArtifact`) into exactly such a Blob; inputs reused from
+the Cache API are disk-backed, which is why pi-local and lean-meta built. 4439f99c and 829e38f1 are
+reverted on integrate so the overnight round runs on the path that built the morning's catalog.
+
+To bring it back: put a published snapshot into the Cache API before describing it (so its Blob is
+disk-backed) or keep a transfer for that path, and add an image-browser case whose input is over
+512 MB, which fails today.
