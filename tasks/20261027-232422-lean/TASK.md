@@ -23,6 +23,20 @@ exception the demo's README states.
 - A demo test passes in Chromium and Firefox; the package has its row in `test/amy-browser.mjs`;
   sources are pinned, with licence rows.
 
+## State (2026-11-02): `demo/lean-3`, on `integrate/2026-11-02`
+
+`demo/lean-2` is merged in `integrate/2026-11-02` (`fa949c1b`); the catalog round of that
+branch builds Lean's four images one at a time in a 36 GB scope. On the branch, with the
+round's images linked into this tree (same recipe hashes and build id, image inputs
+`a58af3f9`), amy's installs, threads, memory growth and `core` pass in Chromium and Firefox,
+and six dead processes of 512 MiB leave at most one resident (two with threads in Firefox).
+
+The round built `lean-stage0` in 603 s and `lean-std` in 2,466 s. On the page-built image of the
+two (`build/lean-evidence/day/spawn-check.mjs`), stage 0's lean runs `IO.Process.output { cmd :=
+"nosuchprogram" }` and prints `error: no such file or directory (error code: 44)` naming it, where
+it crashed before: Chromium. In Firefox the tab was killed while the page built that image
+(`lean-std` copied in beside `lean-stage0`), the builder's memory, not Lean's.
+
 ## State (2026-11-01): `demo/lean-2`, on `main`
 
 `demo/lean-2` is `demo/lean` replayed on `main` (v0.1.4), with `core/install-memory` and
@@ -217,3 +231,8 @@ module, lean.mk's rules), since Lake would need stage 0's `libLake_shared.so` pl
 - A tree's test server serves its working files: with `Dollyfile-lean` edited and not yet
   built, `amy install lean` failed with HTTP 502, the page checking the served recipe against the
   package's. Keep an image's inputs still while it is tested or built.
+- Only what a build replaces by rename may be hard-linked between trees (`*.snapshot`,
+  `dist/packs`): on 2026-11-02 a script here linked the round's catalog and metadata modules
+  too, a cache-hit `npm run image` in this tree rewrote `dist/dolly-images.mjs` in place with 23
+  images, and three images of the round in `work/integrate` failed with it; the light stage
+  restarted. Copy every other file, and check `find dist -type f -links +1` before a build.
