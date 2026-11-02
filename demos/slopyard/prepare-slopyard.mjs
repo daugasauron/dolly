@@ -80,9 +80,9 @@ EXPORTS TOOL slopyard
 EXPORTS LIB slopyard-box3d /usr/lib/libslopyard-box3d.a
 EXPORTS FOLDER slopyard-source /usr/src/dolly/slopyard
 
-FILE /etc/dolly/slopyard.slop
+FILE /etc/dolly/init.slop
     /bin/foreground /usr/bin/slopyard
     /bin/foreground -i /bin/slop
 
-ENTRY /bin/foreground -i /bin/slop /etc/dolly/slopyard.slop
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
 `);

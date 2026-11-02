@@ -46,10 +46,10 @@ EXPORTS FOLDER fluid-upstream-license /usr/share/licenses/webgpu-native-examples
 EXPORTS FOLDER fluid-cglm-license /usr/share/licenses/cglm
 EXPORTS FOLDER fluid-webgpu-headers-license /usr/share/licenses/webgpu-headers
 
-FILE /etc/dolly/gpu-fluid.slop
+FILE /etc/dolly/init.slop
     /bin/foreground /usr/bin/fluid
     /bin/foreground -i /bin/slop
 
-ENTRY /bin/foreground -i /bin/slop /etc/dolly/gpu-fluid.slop
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
 `);
 console.log("dolly: prepared GPU fluid sources and recipe");

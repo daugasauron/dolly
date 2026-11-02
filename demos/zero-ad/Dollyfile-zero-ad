@@ -45,8 +45,8 @@ SLOP /usr/bin/zero-ad -version
 EXPORTS TOOL zero-ad
 EXPORTS FOLDER zero-ad /opt/0ad
 
-FILE /etc/dolly/zero-ad.slop
+FILE /etc/dolly/init.slop
     /bin/foreground /usr/bin/zero-ad
     /bin/foreground -i /bin/slop
 
-ENTRY /bin/foreground -i /bin/slop /etc/dolly/zero-ad.slop
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

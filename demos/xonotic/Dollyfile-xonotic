@@ -158,8 +158,8 @@ FILE /usr/bin/xonotic
 EXPORTS TOOL xonotic
 EXPORTS FOLDER xonotic-data /usr/share/xonotic
 
-FILE /etc/dolly/xonotic.slop
+FILE /etc/dolly/init.slop
     /bin/foreground /usr/bin/xonotic
     /bin/foreground -i /bin/slop
 
-ENTRY /bin/foreground -i /bin/slop /etc/dolly/xonotic.slop
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
