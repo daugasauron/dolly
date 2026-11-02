@@ -130,4 +130,4 @@ Done-when: merged with the decision in `docs/process-model.md`.
 
 ## Closed (2026-11-02 night, integrator)
 
-Done: the decision is merged and in `docs/process-model.md`; since 2026-11-02 the spawning Worker makes the reservation (`core/process-memory`), and the deadlock its first form caused in Chrome is fixed (41c6a754). The spawn budget question is in `tasks/20261102-133353-owner-decisions`.
+Done: the decision is merged and in `docs/process-model.md`, and the deadlock its first form caused in Chrome is fixed (41c6a754). `core/process-memory`'s form of it (the spawning Worker makes the reservation) was reverted on integrate the same night (lean-std crashed Chrome with it; `tasks/20261101-102515-retained-process-memory`). The spawn budget question is in `tasks/20261102-133353-owner-decisions`.
