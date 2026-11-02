@@ -364,3 +364,23 @@ made.
 the process while the main thread joins it from a destructor; stack-wrapped, run twenty times; the
 browser's processes must keep their memory mappings (read from `/proc`, as the memory test reads
 `RssAnon`).
+
+## Lessons (2026-11-03)
+
+- A renderer that dies with a signal and 3 GB resident is not out of memory: read the crash
+  report. apport had kept the first crash's `ProcMaps` (65,525 lines) in `/var/crash` all evening;
+  `vm.max_map_count` was the limit, and one `sort | uniq -c` over the mappings named the stacks.
+  The kernel's journal told the other deaths apart (memcg kills in 6 and 9 GB scopes).
+- "Which Worker does what" beats "what the browser does": a `console.error` line per Worker at
+  its end, with counters, found in three runs what probes of the mechanisms (growth, calls,
+  threads, nesting) had not in ten. The build page forwards Workers' console errors; a build is
+  the harness.
+- Nothing JavaScript throws into Wasm is uncatchable: a `catch (...)`, a destructor, a `noexcept`
+  frame, each turns a "leave now" exception into a program that goes on, and the next ending must
+  not be another exception. Ending a Worker means not returning to it.
+- V8 frees a `promising` stack with `DecommitPages`: every stack a Worker ever had is a mapping
+  the renderer keeps, and a Worker that nests 500 of them costs 500 of the 65,530. A design that
+  starts a Worker per process spends that budget on every process's deepest recursion.
+- A reverted change that "crashed the Lean build" was reverted on its Lean symptom; the bisect
+  (three variants, a build each) was right about the commit and said nothing about the cause.
+  The cause was two commits away from the memory: the seal, added for a Worker ended mid-copy.
