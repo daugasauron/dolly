@@ -362,7 +362,7 @@ flowchart TD
   inputs["SOURCE files via the HTTP broker"] --> exec
   exec["/bin/dollyfile in a fresh runtime"] --> snap["Sealed snapshot: retained files, env, ENTRY"]
   snap -- "npm run image: headless Chrome on /IMAGE/rebuild/" --> packs["dist/ snapshot, packaged as shared packs"]
-  snap -- "/IMAGE/rebuild/ in a browser" --> cache[("IndexedDB image cache")]
+  snap -- "/IMAGE/rebuild/ in a browser" --> cache[("Browser image cache")]
   packs --> boot["/IMAGE/: prebuilt boot"]
 ```
 
