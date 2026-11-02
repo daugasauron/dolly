@@ -17,7 +17,7 @@ sequenceDiagram
   K-->>Sh: child pid
   S->>K: next launch
   K-->>S: executable bytes
-  S->>C: new Worker, fresh memory and gate
+  S->>C: new Worker, which makes its memory and gate
   Sh->>K: WAIT pid (deferred)
   Note over K,C: Ctrl+C or kill: SIGINT is pending
   K-->>C: next call returns -EINTR
@@ -315,7 +315,9 @@ nothing and declares nothing: any program built for Dolly runs on one.
   use `/bin/foreground`; the browser knows no command names. Only the
   foreground tree can pass the role on; retirement returns it to the nearest
   foreground ancestor.
-- Retirement drops the Worker, memory and gate before the child is waitable.
+- Retirement ends the Worker before the child is waitable, and the memory and
+  gate with it: they live in the process's Workers alone, so the pages go when
+  the Workers do, not when the runtime Worker next collects garbage.
 - A child outlives a parent that exits, as on POSIX: a child still running
   loses it (its parent is 0) and is reaped when it ends, as init reaps
   orphans. The terminal goes back to the parent's foreground ancestor, as a
@@ -327,7 +329,10 @@ nothing and declares nothing: any program built for Dolly runs on one.
   process group.
 - Worker termination has no completion event, so a large interactive process
   gets 500 ms of reclamation before its exit is acknowledged, sparing the
-  recovery shell. Nothing guarantees against browser memory pressure; this is
+  recovery shell. A Worker ended while it waits in a call leaves Wasm and
+  closes itself; a program that catches that (a C++ `catch (...)`, a
+  destructor) and calls again waits for the termination, since nothing
+  JavaScript throws into Wasm is uncatchable. Nothing guarantees against browser memory pressure; this is
   one reason Slop itself is [serial](architecture.md#decisions) and parallel
   builds need a modest `-jN`.
 
