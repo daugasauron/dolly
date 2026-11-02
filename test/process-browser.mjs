@@ -163,6 +163,12 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   await run(`cd ${scratch} && echo 'int main(void) { return 41; }' > again.c && cc again.c -o again && cp again again-41 && ` +
     "(./again; test $? = 41) && echo 'int main(void) { return 42; }' > again.c && cc again.c -o again && (./again; test $? = 42) && " +
     "cat again-41 > again && (./again; test $? = 41)");
+  // A program's own abort, here in an archive as SpiderMonkey's mozalloc has
+  // it, takes libc's place, as with a static libc.
+  await run(`cd ${scratch} && printf '%s\\n' '#include <unistd.h>' 'void abort(void) { _exit(7); }' > own-abort.c && ` +
+    "cc -c own-abort.c -o own-abort.o && ar rcs libown-abort.a own-abort.o && " +
+    "printf '%s\\n' '#include <stdlib.h>' 'int main(void) { abort(); }' > calls-abort.c && " +
+    "cc calls-abort.c -L. -lown-abort -o calls-abort && (./calls-abort; test $? = 7)");
   // Ninja runs its jobs at once: each of the two waits for the other to start.
   const ninja = ["rule a", "  command = touch a-started; until test -e b-started; do sleep 1; done; touch $out",
     "rule b", "  command = touch b-started; until test -e a-started; do sleep 1; done; touch $out",

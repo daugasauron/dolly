@@ -444,6 +444,78 @@ Each with a test that failed before, verified in Chromium and Firefox.
   numbers. (The benchmark page hung in Firefox once in each mode; not looked
   into, Dolly's own calls work there.)
 
+## abort under the whole archive (2026-11-02, day round, `fix/abort-own-definition`)
+
+The catalog round on integrate/2026-11-02 failed `zero-ad-engine` at the
+link of `spidermonkey-check`: `duplicate symbol: abort`, defined in
+`libjs_static.a(Unified_cpp_memory_mozalloc0.o)` and in
+`libdolly-process.a(process-abort.o)`. Item 15's `abort` (e0c73f1c) is the
+first libc function in `libdolly-process.a` that a real program also
+defines, and that archive is linked whole: `src/compiler.cpp` (907),
+`scripts/build.sh` (`build_process`, `build_process_cxx`) and
+`demos/rust/toolchain/link.sh` all pass `--whole-archive`, so every member
+goes in and a member boundary (129d9fe1's `abort.c`) changes nothing.
+129d9fe1 also left the threaded archive without `abort`:
+`scripts/build-process-threads.sh` compiles `signal.c`, not `abort.c`, so
+`-pthread` programs trapped again.
+
+Fix: 129d9fe1 reverted (822aebd5); `abort` is `__attribute__((__weak__))`
+in `signal.c` (36367ba3), with its comment saying why. Measured in the seed
+toolchain with `wasm-ld --trace-symbol=abort`, the link line of
+`build_process` (`build/abort-evidence/link-probe*.log`):
+
+| archive | program's own abort | result |
+|---|---|---|
+| 129d9fe1's (strong) | object | `duplicate symbol: abort` |
+| weak | object | program's definition |
+| weak | archive member the program references | program's definition |
+| weak | none | `process-signal.o`; `libc-ww.a(abort.o)` is not fetched |
+| none (Emscripten's) | none | `libc-ww.a(abort.o)` |
+
+One corner differs from a static libc, measured in `link-probe-4.log`: a
+program's `abort` in an archive member that nothing in the program's own
+objects references (only a later library does, here dlmalloc's `sbrk.o`) is
+not fetched; the whole archive's definition, weak or strong, replaces the
+lazy symbol and is the one linked. An ordinarily linked archive takes the
+program's. The mozalloc case is not this one (SpiderMonkey's code references
+the member), so the smaller change stands; `abort` in `libdolly-runtime.a`
+would have those semantics at the price of a member in two builds, the shape
+129d9fe1's regression had.
+
+Finding, not changed: `--whole-archive` is from the first checkpoint
+(`b95459ce`, 2026-09-05), no reason recorded. What it does today: the libc
+adapter's definitions (`raise`, `sigaction`, `getpid`, ...) go in whether
+or not referenced, and so beat Emscripten's libc members of the same names
+without an export list; it also makes every such name collide with a
+program's own, and `abort` is the first a program defines. The probe shows
+an ordinarily linked archive before `-lc-ww` wins by order too (lld keeps
+the first lazy definition), so the whole archive may only be covering
+unreferenced definitions, such as the ones a DSO host exports. Dropping it
+is a link-model decision for the owner, with the DSO provider list
+(`--export-if-defined`) measured first.
+
+Also found: the repins of 00:29 (90ca88ca) hashed stale staged copies in
+`dist/static/default/commands/` (no staging after merging 0f6324fc), so
+161 recipes carried the earlier commands' pins; the builder repins the
+working tree at its start, which is why the round built them. Committed as
+6ce4f9dc. The abort change itself moves no pin: the archive is an image
+input (`af3cb5ea…`), not a pinned source.
+
+Tests: `process-browser.mjs` builds an `abort` of the program's own into an
+archive and links a program against it (exit 7 proves the program's ran);
+`threads-browser.mjs` ends a `-pthread` program's `abort` by SIGABRT (134).
+On `default,system` built from this seed (16 min at one job): `process`
+passes in Chromium (41.5 s) and Firefox (41.6 s), e0c73f1c's SIGABRT cases
+with it; `threads` passes in both (10.7 s, 12.6 s); `core` passes in both
+(25.7 s, 37.6 s); source suite 466/466. The link that failed,
+ahead of the 58-image closure: `/opt/mozjs` taken out of the older seed's
+`spidermonkey` snapshot (`decodeSystemSnapshot`, 330 files) into the new
+`system` image, then the recipe's line `c++ -std=c++20 -O1
+-I/opt/mozjs/include spidermonkey-check.cpp -L/opt/mozjs/lib -ljs_static
+-ljsrust -lz` links in 3.0 s and the check prints "wasm64 realms, GC,
+callbacks and clone passed", in Chromium and Firefox
+(`build/abort-evidence/sm-link-browser.{mjs,log}`).
+
 ## Lessons
 
 - Most of the defects are code from the first checkpoint (`b95459ce`,
@@ -479,3 +551,19 @@ Each with a test that failed before, verified in Chromium and Firefox.
   header (`runtime.h`) rewrites the pins of all 186 recipes. Batch libc
   fixes. On this shared machine one call measured 8-25 µs from run to run:
   page-side savings under ~20% cannot be shown, so two were dropped.
+- A whole-archive link makes member boundaries meaningless: 129d9fe1 fixed
+  the symptom by the libc rule ("each function its own member") without
+  reading the link line that consumes the archive. Read how an archive is
+  linked before reasoning about its members.
+- A fix for a failed image is verified by the link that failed, not by the
+  theory: `wasm-ld --trace-symbol=abort` on `build_process`'s line, in the
+  seed container, answered in a minute which definition each case takes,
+  while the image that failed sits behind a 59-image closure.
+- The same source compiled into two archives (`build.sh`,
+  `build-process-threads.sh`) drifts the moment one gains a file: the
+  threaded libc lost `abort` for a night. One source file per libc function
+  group, both builds compile the same list, or the list is shared.
+- A repin hashes the staged copies in `dist/static/`, not the sources:
+  after a merge, stage (`npm run image`) before `update-recipe-pins.mjs`, or
+  the pins are the previous commit's bytes and only the builder's own repin
+  at start hides it.

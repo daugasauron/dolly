@@ -74,12 +74,16 @@ await browserTest("threads", { image: "system", server: { fixtures, sourceOverri
 
   assert.deepEqual(reports, []);
 
-  // A thread's process exit or trap ends the whole process; the shell survives.
+  // A thread's process exit or trap ends the whole process, and a threaded
+  // program's abort ends it by SIGABRT (the libc of -pthread is its own
+  // archive); the shell survives.
   sourceOverrides.set(probe, "#include <pthread.h>\n#include <stdlib.h>\n" +
     "static void *body(void *exiting) { if (exiting) exit(37); __builtin_trap(); }\n" +
-    "int main(int argc, char **argv) { pthread_t thread; pthread_create(&thread, 0, body, argc > 1 ? argv : 0); pthread_join(thread, 0); return 0; }\n");
+    "int main(int argc, char **argv) { if (argc > 1 && argv[1][0] == 'a') abort(); " +
+    "pthread_t thread; pthread_create(&thread, 0, body, argc > 1 ? argv : 0); pthread_join(thread, 0); return 0; }\n");
   await run(`curl -fsS ${server.origin}${probe} -o /tmp/ending.c && cc -O1 -pthread /tmp/ending.c -o /tmp/ending`);
   assert.equal(await submit("/tmp/ending exit"), 37);
+  assert.equal(await submit("/tmp/ending abort"), 128 + 6, "SIGABRT");
   assert.notEqual(await submit("/tmp/ending"), 0);
   await run("printf alive > /tmp/alive && test $(cat /tmp/alive) = alive");
 
