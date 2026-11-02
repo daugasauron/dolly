@@ -89,6 +89,7 @@ mojo, The Mojo compiler and its programs
 neovim, Neovim as an image and in Studio
 netsurf, NetSurf in the Wine image
 network, The HTTP broker and what crosses it
+npm, The npm packages and the pages built on them
 observability, Seeing what the runtime does while it runs
 openrouter, Models reached through OpenRouter
 owner, A decision only the owner can make

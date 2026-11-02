@@ -55,7 +55,7 @@ const directories = await Promise.all((await readdir(scope)).filter(name => /^do
     image: name.replace(/^dolly-(image|package)-/, ""), ...await load(join(scope, name, "dist/dolly-images.mjs")) })));
 const definitionOf = ({ DOLLY_IMAGES, image }) => DOLLY_IMAGES.find(candidate => candidate.image === image);
 const installed = (image, kind) => directories.find(candidate => candidate.image === image)
-  ?? fail(`${image}: no ${kind} package holds it; install @daugasauron/dolly-${kind}-${image}`);
+  ?? fail(`${image} is not installed: npm install @daugasauron/dolly-${kind}-${image}`);
 // The directory whose own image a row names, at the row's pin.
 const holder = reference => directories.find(candidate => {
   const definition = definitionOf(candidate);

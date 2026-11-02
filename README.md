@@ -119,7 +119,7 @@ node serve.mjs
 ```
 
 `init` writes the project; the second `dolly-build` builds its image in your
-Chrome (headless, 10 s; `--browser firefox` after `npx playwright-core install firefox`),
+Chrome (headless, 10 to 30 s; `--browser firefox` after `npx playwright-core install firefox`),
 and `serve.mjs` serves the page. Open the address it prints: Pi asks for your
 OpenRouter key at a prompt that does not show it, and starts in `/workspace`
 with Git and the project's files. `curl https://example.com` in Pi's shell
