@@ -9,8 +9,8 @@ REQUIRES HOST sockets@0
 # no fork, so xterm runs in its own slave mode (-S): xterm-pty, Dolly's part,
 # opens the pseudo-terminal, starts xterm on its master and the shell on its
 # slave. It is installed as xterm; upstream's program is /usr/libexec/xterm.
-FROM /v0.1.4/demos/x11/Dollyfile-x11-build 2ae7f82fca5453d6bef03ac9b4a2d9f78be730f6b1d53093dbd57c54dba0bdca
-INSTALL /v0.1.4/demos/tmux/Dollyfile-libterminfo 25cb3e730fb0952e03bbbc41b5aa17c069f438879ce5d99da455649ff524bb59
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build 8d71827760671169e6e1d6840e52f07c58b7b61c0972824f872657267982bc72
+USE /v0.1.4/demos/tmux/Dollyfile-libterminfo 25cb3e730fb0952e03bbbc41b5aa17c069f438879ce5d99da455649ff524bb59
 
 REQUIRES HEADER term
 REQUIRES LIB terminfo
@@ -130,7 +130,8 @@ FILE /usr/libexec/xterm
 FILE /usr/share/X11/app-defaults/XTerm
 FILE /usr/share/licenses/xterm/COPYING
 FILE /usr/share/man/cat1/xterm.1
-# The licences of the X libraries it links.
+# The licences of the X libraries and the terminfo library it links.
+FILE /usr/share/licenses/netbsd-curses/COPYING
 FOLDER /usr/share/licenses/libXaw
 FOLDER /usr/share/licenses/libXmu
 FOLDER /usr/share/licenses/libXpm

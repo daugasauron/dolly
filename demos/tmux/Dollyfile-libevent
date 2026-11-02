@@ -21,7 +21,7 @@ SLOP gzip -dc /tmp/libevent.tar.gz | tar -xf - -C /tmp
 
 # Slop does not run upstream's configure script, so these say what it would
 # find here. Not claimed: epoll and select (libevent polls), threads,
-# sendfile and getrandom, whose header is missing.
+# sendfile, and getrandom, which libc declares but does not define.
 FILE /tmp/libevent-2.1.13-stable/evconfig-private.h
     #define _GNU_SOURCE 1
 FILE /tmp/libevent-2.1.13-stable/include/event2/event-config.h

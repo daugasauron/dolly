@@ -12,7 +12,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/slopyard/Dollyfile-gamedev-sdk 944f5d1a003a73cadcfafac0b50b1804270a1a551d13f8026cc2eca05bc5a98e
+FROM /v0.1.4/demos/slopyard/Dollyfile-gamedev-sdk c69039f9e952209852e40ac190b331422b798af3cee8c6f44129fe15e99660bc
 INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 02e82642fc572beb6b5c0358bde9ce8a00329c0ce238e22965e4871f2deff093
 INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 39d58d6958f1b8eff5b6a5d9c361652f187892c10ed5d3fd58c38315a01631b7
 INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 875f6ffd80b45b1dfb22c90066cf6765f38cebae1a6a820ce3feabcd73dd8f5d
@@ -736,10 +736,10 @@ FILE /usr/src/dolly/bhop/bhop.c
 FILE /usr/src/dolly/bhop/bhop.mk
     .PHONY: all check
     all: /usr/bin/bhop
-    /usr/bin/bhop: /usr/src/dolly/bhop/bhop.c /usr/src/dolly/bhop/bhop-movement.h /usr/src/dolly/bhop/bhop-course.h /usr/src/dolly/bhop/agent/input.c /usr/src/dolly/bhop/agent/input.h /usr/src/dolly/bhop/agent/timeline.h /usr/src/dolly/game-agent/control.h /usr/lib/libdolly-raylib.a /usr/lib/libraylib.a /usr/lib/libm.a
-    	cc -std=c17 -O2 -fno-builtin $< /usr/src/dolly/bhop/agent/input.c -o $@ -ldolly-raylib -lraylib -lm
+    /usr/bin/bhop: /usr/src/dolly/bhop/bhop.c /usr/src/dolly/bhop/bhop-movement.h /usr/src/dolly/bhop/bhop-course.h /usr/src/dolly/bhop/agent/input.c /usr/src/dolly/bhop/agent/input.h /usr/src/dolly/bhop/agent/timeline.h /usr/src/dolly/game-agent/control.h /usr/lib/libdolly-raylib.a /usr/lib/libraylib.a
+    	cc -std=c17 -O2 $< /usr/src/dolly/bhop/agent/input.c -o $@ -ldolly-raylib -lraylib -lm
     check:
-    	@output=/tmp/bhop-check.$$$$; status=0; cc -std=c17 -O2 -fno-builtin /usr/src/dolly/bhop/bhop-check.c -o "$$output" -lm && "$$output" || status=$$?; rm -f "$$output"; exit "$$status"
+    	@output=/tmp/bhop-check.$$$$; status=0; cc -std=c17 -O2 /usr/src/dolly/bhop/bhop-check.c -o "$$output" -lm && "$$output" || status=$$?; rm -f "$$output"; exit "$$status"
 
 SLOP make -f /usr/src/dolly/bhop/bhop.mk all check
 
