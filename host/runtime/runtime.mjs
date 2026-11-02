@@ -97,10 +97,10 @@ export function browser({ ask }) {
 export function worker({ send, runtimeBase, abi, service }) {
   const memory = new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" });
   // The kernel's memory grows in a Worker of its own (grower.mjs) while this
-  // one waits. Chrome counts a shared memory as external memory of the isolate
-  // that grows it; past twice its heap limit it then collects between every
-  // message of this one, and every system call takes fifteen times as long.
-  // A process's memory never reaches this Worker (process-supervisor.mjs).
+  // one waits, as a process's does in one per process (process-supervisor.mjs).
+  // Chrome counts a shared memory as external memory of the isolate that grows
+  // it; past twice its heap limit it then collects between every message of
+  // this one, and every system call takes fifteen times as long.
   const growerUrl = new URL("./grower.mjs", import.meta.url);
   const grower = new Worker(growerUrl, { type: "module", name: "dolly-memory" });
   const control = new SharedArrayBuffer(16), values = new BigInt64Array(control), word = new Int32Array(control);
@@ -187,7 +187,7 @@ export function worker({ send, runtimeBase, abi, service }) {
       if (module) processModules.set(requirement, module); else processModules.delete(requirement);
     },
     async supervisor(kernel) {
-      return supervisor ??= await DollyProcessSupervisor.create(kernel, memory, runtimeBase, abi, service, threadProvider, processModules);
+      return supervisor ??= await DollyProcessSupervisor.create(kernel, memory, runtimeBase, abi, service, threadProvider, processModules, growerUrl);
     },
     start({ kernel }) {
       terminal = new TerminalMailbox(memory.buffer, Number(kernel.dolly_terminal_mailbox_address()));

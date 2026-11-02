@@ -250,3 +250,7 @@ images built FROM pi-runtime keep `/usr/bin/html`, which sealing refuses undecla
 - Rewriting a task's State "up to the next heading" silently dropped the owner's words that
   sat between State and Done-when; a diff of the owner's lines against the first commit of
   the task caught it. Replace a section by its own markers, and diff before committing.
+
+## The round (2026-11-02 evening)
+
+The evening round on `integrate/2026-11-02` (seed fe5261db) built `html`, `pi-dolly` and their closure; `test/html-browser.mjs` passed in Chromium and Firefox, and `demos/pi/test/ask-user-browser.mjs` passed in the day candidate in both. `amy install pi-dolly` in `default` now needs `nena enable html` first (71d2603fc). Waits only for the owner to see it.

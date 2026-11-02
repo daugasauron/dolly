@@ -7,19 +7,8 @@ function check(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-const dist = async name => (await fetch(new URL(`../../dist/${name}`, import.meta.url))).arrayBuffer();
-// What the supervisor gives every process Worker: the gate and a kernel memory
-// with a mailbox in it (unused here: these programs enter no kernel).
-let gateModule, kernelMemory;
-
-// Runs the program in a process Worker configured as the supervisor would,
-// with this memory handed over as a thread's is, so the program's writes to it
-// can be read afterwards.
-async function runWorker({ memory, ...configuration }) {
-  gateModule ??= await WebAssembly.compile(await dist("dolly-process-gate-0.wasm"));
-  kernelMemory ??= new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" });
+async function runWorker(configuration) {
   const worker = new Worker(new URL("../../src/process-worker.mjs", import.meta.url), { type: "module" });
-  const channel = new MessageChannel();
   let timer;
   try {
     await new Promise((resolve, reject) => {
@@ -29,15 +18,14 @@ async function runWorker({ memory, ...configuration }) {
         if (data.type === "finished") resolve();
         else if (data.type !== "started") reject(new Error(data.message ?? `unexpected process message: ${data.type}`));
       };
-      worker.postMessage({ type: "configure", pid: 1, control: new SharedArrayBuffer(32), clockOrigin: performance.timeOrigin,
-        local: [], memory: { initial: BigInt(memory.buffer.byteLength / 65536), maximum: 131072n }, port: channel.port1,
-        mailbox: 65536, gateModule, kernelMemory, ...configuration }, [channel.port1]);
-      channel.port2.postMessage({ memory, received: new Int32Array(new SharedArrayBuffer(4)) });
+      worker.postMessage({ type: "configure", pid: 1, control: new SharedArrayBuffer(16),
+        clockOrigin: performance.timeOrigin, local: [], ...configuration });
     });
-  } finally { clearTimeout(timer); worker.terminate(); channel.port2.close(); }
+  } finally { clearTimeout(timer); worker.terminate(); }
 }
 
 // What the supervisor hands the Worker of an executable that records dso@0.
+const dist = async name => (await fetch(new URL(`../../dist/${name}`, import.meta.url))).arrayBuffer();
 const dsoModule = async () => [{ bundle: new Blob([await dist("dolly-process-dso.mjs")], { type: "text/javascript" }),
   configuration: { hostAbi: new Map(), contract: parseWasmInterface(await dist("dolly-dso-0.wasm")) } }];
 

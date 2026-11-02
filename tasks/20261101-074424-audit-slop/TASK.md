@@ -1,6 +1,6 @@
 # Audit: Slop, the seed commands and the Dollyfile language
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 300
 - TAGS: core,audit,slop,dollyfile
 
@@ -355,3 +355,7 @@ and on the catalog. What follows are changes to the language itself, the owner's
   the engine parsed only recipes the page had read first, and one whose content its image's
   receipt already held, so P3 kept the page's parser and the engine lost its own without a
   feature lost.
+
+## Closed (2026-11-02 night, integrator)
+
+Its fixes are merged on `integrate/2026-11-02`; its proposals are in `tasks/20261102-133353-owner-decisions`.
