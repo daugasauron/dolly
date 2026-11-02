@@ -10,13 +10,14 @@ import { DOLLY_SYSTEM_SNAPSHOT as systemMetadata } from "../dist/dolly-system-sy
 // rust-build: the page reads it from its packs and hands it to the build
 // Worker, which copies a file of it into the image, itself over 512 MB; a
 // second build reads both from the image cache. Built first thing after the
-// browser starts, as the catalog's build page does.
-const [system, core] = ["system", "core"].map(name => DOLLY_IMAGES.find(({ image }) => image === name));
-const large = await largePublishedInput("core");
+// browser starts, as the catalog's build page does. The input stands in for
+// ps, a package nothing else the build reads is built from.
+const [system, ps] = ["system", "ps"].map(name => DOLLY_IMAGES.find(({ image }) => image === name));
+const large = await largePublishedInput("ps");
 const recipe = `DOLLY 7
 APPLICATION large-input
 ${system.hostRequirements.map(module => `REQUIRES HOST ${module}\n`).join("")}FROM ${siteReference(system.dollyfile)} ${system.sha256}
-COPY ${siteReference(core.dollyfile)} ${core.sha256} ${LARGE_INPUT_PATH} ${LARGE_INPUT_PATH}
+COPY ${siteReference(ps.dollyfile)} ${ps.sha256} ${LARGE_INPUT_PATH} ${LARGE_INPUT_PATH}
 ENTRY /bin/slop
 `;
 function handle(request, response, path, headers) {
