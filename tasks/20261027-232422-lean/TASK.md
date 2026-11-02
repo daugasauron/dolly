@@ -31,6 +31,12 @@ round's images linked into this tree (same recipe hashes and build id, image inp
 `a58af3f9`), amy's installs, threads, memory growth and `core` pass in Chromium and Firefox,
 and six dead processes of 512 MiB leave at most one resident (two with threads in Firefox).
 
+The round built `lean-stage0` in 603 s and `lean-std` in 2,466 s. On the page-built image of the
+two (`build/lean-evidence/day/spawn-check.mjs`), stage 0's lean runs `IO.Process.output { cmd :=
+"nosuchprogram" }` and prints `error: no such file or directory (error code: 44)` naming it, where
+it crashed before: Chromium. In Firefox the tab was killed while the page built that image
+(`lean-std` copied in beside `lean-stage0`), the builder's memory, not Lean's.
+
 ## State (2026-11-01): `demo/lean-2`, on `main`
 
 `demo/lean-2` is `demo/lean` replayed on `main` (v0.1.4), with `core/install-memory` and
