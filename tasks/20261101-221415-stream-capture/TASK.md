@@ -1,8 +1,15 @@
 # Image builds and session saves hold the image about three times: capture it as a stream
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 120
 - TAGS: core,memory,snapshots
+
+## Closed (2026-11-03)
+
+Done on `core/stream-capture-2` (4de5ca7d4 to 5f9296a65): the streaming capture re-applied, its
+published-input failure measured to its cause and fixed by the image store, fd and pi-local built
+and measured, the tests passing in both browsers. The kernel-side proposals (5952d104, 3dbf32ba)
+are the owner's, listed in `tasks/20261102-133353-owner-decisions`.
 
 ## State (2026-11-02)
 
@@ -190,6 +197,122 @@ did `custom-session` (64 s, 101 s), `session-offline` (5 s, 7 s) and `core` (29 
 - The image, session, custom-session and `test/image-browser.mjs` tests pass in Chromium
   and Firefox; the image inputs hash is unchanged.
 
+## Reverted on integrate/2026-11-02 for the evening round (2026-11-02 16:30, e69e7cfbb)
+
+The evening round failed at fd: the build Worker read the published 527 MB rust-build artifact
+and got "network error". Measured in Chrome in a 6 GB slot (data: and http origins): a Blob that a
+page builds from 8 MiB in-memory parts and posts to a Worker reads at 128, 256 and 400 MB, and fails
+at 527 MB and 1.1 GB with NotReadableError (the probe is a page that builds such a Blob and a Worker
+that reads it by slices and whole). `prepareImageArtifacts` describes a published input
+(`packagedSystemSnapshot` -> `describeImageArtifact`) into exactly such a Blob; inputs reused from
+the Cache API are disk-backed, which is why pi-local and lean-meta built. 4439f99c and 829e38f1 are
+reverted on integrate so the overnight round runs on the path that built the morning's catalog.
+
+To bring it back: put a published snapshot into the Cache API before describing it (so its Blob is
+disk-backed) or keep a transfer for that path, and add an image-browser case whose input is over
+512 MB, which fails today.
+
+## Brought back (2026-11-03): the image's snapshot is a file of the browser's storage
+
+4439f99c and 829e38f1 re-applied (4de5ca7d4, 76d1073b5); the published-input failure
+reproduced, understood and fixed (095394c36). Image inputs unchanged, `sha256:fe5261db…`.
+
+### The cause, measured (`build/stream-capture-2-evidence/probe-*.log`, the probe in the
+integrator's scratchpad extended: `probe2.mjs`)
+
+A Blob a page or Worker builds from parts in memory is held by Chrome's blob storage, whose
+in-memory space is 500 MiB until Chrome has computed the machine's limits, which it does only
+once the browser has been idle for a few seconds after a context starts (the limits task is
+best-effort). Until then a Blob over 500 MiB is broken: unreadable even in the page that made
+it (`NotReadableError`), from 1 MiB or 8 MiB parts alike, in a plain context and in a persistent
+profile alike, `probe-chrome-1mib.log`, `probe-chrome-persistent-1mib.log`, `probe-chrome-8mib-delay0.log`.
+Made 3 s or more after launch with the page idle, the same Blob reads at 527 MB and 1.1 GB in both
+contexts (`probe-chrome-delay-series.log`, `probe-chrome-8mib-delay15.log`). The evening round's
+fd build described the published 527 MB rust-build within seconds of a fresh Chrome, busy from
+its first moment: the Blob was broken, and the Worker's read of it was the "network error". The
+pi-local capture came minutes later in a browser that had idled: it worked. A fix that keeps the
+in-memory Blob would depend on the browser's idle time and on the machine's memory (the computed
+space is a share of it): not acceptable.
+
+The other stores, each at 527 MB and 1.1 GB, 1 MiB parts, Chrome plain, Chrome persistent profile,
+Firefox (`probe-chrome-limits.log`, `probe-*-opfs-lifetime.log`, `probe-firefox-*.log`):
+
+| sink | Chrome plain context | Chrome persistent profile | Firefox |
+| --- | --- | --- | --- |
+| `new Blob(parts)` | broken until idle (above) | the same | reads; 1.1 GB costs 4 GB when posted and read |
+| IndexedDB `put(blob)` | stores the broken Blob | `DataError: Failed to write blobs` | reads |
+| Cache API, `put(Response(stream))` | `UnknownError` from 300 MB (its memory backend's entry limit) | reads | reads |
+| origin-private file, `createWritable()` | reads | reads | reads |
+| that File `put` into IndexedDB | reads | reads (a copy on disk) | reads |
+| … then the file removed | the IndexedDB Blob is a reference: `NotFoundError` | reads | reads |
+| the File after `removeEntry` or a rewrite | `NotFoundError` / `NotReadableError` | the same | `AbortError` |
+
+So a File of origin-private storage is the one Blob every context reads at any size; it is a live
+reference to its file, which must outlive every reader; and IndexedDB cannot be trusted to copy it.
+
+### The fix: the image store (`src/image-artifact.mjs`)
+
+`describeImageArtifact(pieces)` writes the pieces it digests into a new file of a directory of
+origin-private storage, and that File is the artifact's bytes: the Worker's capture and the page's
+published input never exist as a Blob of parts. The IndexedDB `images` store keeps the entries and
+names each one's file (`file`); there is no payload copy. Loading an entry marks it used, so the
+inputs of a build are the entries evicted last (least recently used, where it was least recently
+saved: a build's inputs loaded from the cache kept their old date and could be evicted by the
+same build's later saves). A file this page has read is kept when its entry is replaced or
+evicted, since a build of this page may still read it; files no entry names and no page holds
+are swept an hour after they were written. The bounds are as before: 32 entries, 8 GiB.
+
+What changed in kind: an evicted entry's bytes are gone for other pages at once (IndexedDB kept
+a Blob alive for every holder). Two tabs building at the same time, one evicting or replacing
+what the other reads, fail that build with a read error, to retry; the test's own flows that
+hold a loaded artifact across a replacement work because the page holds the file. The `payloads`
+store stays for the entries other runtime versions keep in the shared database.
+
+### The test (`test/image-input-browser.mjs`, c16712d3f)
+
+A published package (ps, which nothing else the build reads is built from) is served with a
+520 MiB file added, in its own pack; a custom image FROM system copies that file, built first
+thing after the browser starts, as the catalog's build page does, then built again from the
+cache. On 4439f99c Chrome fails as the round did (`image-input-before-fix-chromium.log`:
+"network error" from the build Worker).
+
+### Verified (2026-11-03, `build/stream-capture-2-evidence/`)
+
+- `test/image-input-browser.mjs` on the fix: Chromium 35 s, Firefox 42 s (`image-input-after-fix.log`).
+- `image` (Chromium 52 s, Firefox 66 s), `custom-session` (62 s, 89 s) and `session-offline` (4 s, 5 s)
+  passed on 34870df49 (`after-image.log`, `after-custom-session.log`, `after-session-offline.log`); their
+  first run found two faults of 095394c36: a file written for a foreign Blob was held, so a replaced
+  entry's file stayed, and `loadImageArtifact` wanted the entry's own descriptor where a session or an
+  opened tab hands it the artifact's identity alone.
+- On the final code (34870df49), with the catalog whole again: `image-input` (Chromium 30 s, Firefox
+  36 s), `core` (21 s, 32 s) and `npm` (18 s, 21 s) passed (`browser-chain-3.out`, `browser-chain-4.out`).
+- This tree's dist holds the application audit's builds of some twenty recipes this branch does not
+  have (raylib, lua, x11-build, glib and their dependents): a plain `npm run image` here would
+  rebuild them for hours, so the catalog was registered from the present metadata instead
+  (`prepare-sources.log`); the pi images were rebuilt on the repinned docs package.
+- `npm run build:runtime`: image inputs `sha256:fe5261db…` (`build-runtime.log`), unchanged.
+
+**fd from the published rust-build** (`DOLLY_BUILD_IMAGES=rust-build,fd`, this tree's fd snapshot
+removed, the 6 GB cap, `fd-after.*`, 0.2 s samples): "reusing published rust-build artifact", the
+527 MB input read from its packs into the store and by the Worker, fd built in 100 s, exported
+5,649,578 bytes, sha256 `d5992f49…`: byte-identical to the catalog's. The scope's anonymous memory
+peaked at 5.28 GB in Cargo's build, the Blob and the copy of rust-build nowhere in it.
+
+**pi-local under the 9 GB cap**, this tree's snapshot removed, the same inputs each time
+(`pi-local-after.*` with this branch, `pi-local-before.*` with integrate's page code, dc7b58aa4):
+
+| | restoring the image builder | the capture, to the export | the Worker gone |
+| --- | --- | --- | --- |
+| before (an ArrayBuffer of each input, the captured image copied whole, a Blob of it for IndexedDB) | 7.1 GB | 8.55 GB peak, 7.0 to 7.2 GB for 25 s while the cache wrote its copy | 1.7 GB |
+| after (inputs and the capture as files of the store) | 5.57 GB peak, for a second | 5.55 GB peak | 0.84 GB |
+
+Both builds exported 1,651,923,573 bytes with sha256 `31294d38…`: the store changes nothing in the
+image. (The catalog's pi-local, `78691695…`, is 61 bytes smaller: pi-agent carries the four edited
+documents, so the next round rebuilds dolly-docs and its dependents.) The old code's run was not
+killed this time (agent A's was, finding 21): its 0.45 GB of margin under the cap is now 3.4 GB.
+The remaining copies are the kernel's (`capture_bytes`, the proposal above) and the inputs written
+whole into WasmFS (`dolly_write_file` truncates; the second proposal).
+
 ## Lessons
 
 - "Kernel C is not an image input" holds only while the kernel's export list stands: the
@@ -216,18 +339,17 @@ did `custom-session` (64 s, 101 s), `session-offline` (5 s, 7 s) and `core` (29 
 - `git status | head` hid 150 repinned recipes for an hour; `git cherry-pick -q` does not
   exist and a `reset --hard && cherry-pick` chain that fails midway leaves the tree reset:
   bookmark commits before reordering them.
-
-## Reverted on integrate/2026-11-02 for the evening round (2026-11-02 16:30, e69e7cfbb)
-
-The evening round failed at fd: the build Worker read the published 527 MB rust-build artifact
-and got "network error". Measured in Chrome in a 6 GB slot (data: and http origins): a Blob that a
-page builds from 8 MiB in-memory parts and posts to a Worker reads at 128, 256 and 400 MB, and fails
-at 527 MB and 1.1 GB with NotReadableError (the probe is a page that builds such a Blob and a Worker
-that reads it by slices and whole). `prepareImageArtifacts` describes a published input
-(`packagedSystemSnapshot` -> `describeImageArtifact`) into exactly such a Blob; inputs reused from
-the Cache API are disk-backed, which is why pi-local and lean-meta built. 4439f99c and 829e38f1 are
-reverted on integrate so the overnight round runs on the path that built the morning's catalog.
-
-To bring it back: put a published snapshot into the Cache API before describing it (so its Blob is
-disk-backed) or keep a transfer for that path, and add an image-browser case whose input is over
-512 MB, which fails today.
+- (2026-11-03) "A Blob is in blob storage, not the JS heap" was true and not enough: Chrome's blob
+  storage has an in-memory space that is 500 MiB until a best-effort task has measured the machine,
+  which a busy fresh browser never lets run; a build page is busy from its first moment. A Blob
+  of a large thing must be born in a storage API, and the probe must do what the failing case
+  did (first thing after launch), not what is convenient (after the shell has booted).
+- (2026-11-03) Each store has a shape of its own that no documentation states: the Cache API's
+  memory backend caps an entry near a quarter of a gigabyte; IndexedDB in a plain Chrome context
+  keeps a reference to the File it was given rather than a copy; an origin-private File dies with
+  its file in every browser. Six probes of a minute each settled what a day of reading would not.
+- (2026-11-03) A fixture that replaces a published image's bytes must pick one nothing else the
+  test reads is built from: standing in for core made system's published inputs stale, and the
+  page quietly rebuilt system (its 709 MB included the fixture's file). The inputs mechanism
+  worked exactly as designed; the test's first assumption was wrong, and the failure message
+  (two sizes, neither expected) said so once read as numbers rather than as a bug.

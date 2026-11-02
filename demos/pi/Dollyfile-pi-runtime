@@ -12,6 +12,6 @@ REQUIRES HOST upload@0
 
 FROM /v0.1.4/Dollyfile-system 57020abe76b98939f2413f828f8bfeae6ed9a092125645640c2bc991044a4532
 INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 02e82642fc572beb6b5c0358bde9ce8a00329c0ce238e22965e4871f2deff093
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 39d58d6958f1b8eff5b6a5d9c361652f187892c10ed5d3fd58c38315a01631b7
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly fa05e85ed63658ff6a1ffb5bbcebf4b661fd7ad8d877d62d2a5e562304f40ab5
 
 ENTRY /bin/foreground -i /bin/slop

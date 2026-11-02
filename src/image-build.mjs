@@ -2,7 +2,7 @@ import { DOLLY_IMAGES, imageBase, imageDefinition } from "./images.mjs";
 import { loadRecipeGraph } from "./dollyfile-graph.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
 import { describeImageArtifact, loadImageArtifactDescriptor, loadImageArtifact, saveImageArtifact } from "./image-artifact.mjs";
-import { loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } from "./packaged-snapshot.mjs";
+import { loadPackagedSnapshotMetadata, packagedSystemSnapshot } from "./packaged-snapshot.mjs";
 import { siteReference, sitePath } from "./static-asset.mjs";
 
 
@@ -26,7 +26,7 @@ export async function prepareImageArtifacts(image, customSource, build, report, 
   const artifacts = new Map(), active = new Set();
   async function materialize(node) {
     signal?.throwIfAborted();
-    if (node.artifact?.bytes.byteLength > 0) return node.artifact;
+    if (node.artifact) return node.artifact;
     const { definition, descriptor } = node;
     let artifact = await loadImageArtifact(descriptor);
     if (artifact) report(`reusing local ${definition.image} artifact`);
@@ -37,7 +37,7 @@ export async function prepareImageArtifacts(image, customSource, build, report, 
       if (metadata.sha256 !== descriptor.sha256 || !imageInputsMatch(metadata.inputs, descriptor.inputs)) {
         throw new Error(`${definition.image}: selected image artifact is no longer available; retry the rebuild`);
       }
-      artifact = await describeImageArtifact(await loadPackagedSystemSnapshot(metadata, signal),
+      artifact = await describeImageArtifact(await packagedSystemSnapshot(metadata, signal),
         definition.sha256, descriptor.inputs);
       report(`reusing published ${definition.image} artifact`);
       await saveImageArtifact(artifact, `/${definition.dollyfile}`);
@@ -69,9 +69,8 @@ export async function prepareImageArtifacts(image, customSource, build, report, 
         report(`building missing ${definition.image} artifact`);
         const loaded = [];
         for (const dependency of dependencies.values()) loaded.push(await materialize(dependency));
-        const result = await build(definition.image, loaded);
-        if (!imageInputsMatch(result.inputs, inputs)) throw new Error("built image inputs changed");
-        artifact = await describeImageArtifact(result.bytes, definition.sha256, inputs);
+        artifact = await build(definition.image, loaded);
+        if (!imageInputsMatch(artifact.inputs, inputs)) throw new Error("built image inputs changed");
         descriptor = artifact;
       }
     }

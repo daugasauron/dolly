@@ -44,7 +44,7 @@ sequenceDiagram
 ## Results
 
 - The result is bound to the runtime, recipe, input digests and snapshot hash in
-  the browser image cache (32 images, 8 GiB, least recently saved evicted).
+  the browser image cache (32 images, 8 GiB, least recently used evicted).
   Keep the recipe: eviction means rebuilding.
 - **Open image** launches `/custom/run/` in a new tab. It checks the cached
   bytes and inherits the parent's HTTP policy, intersected with its own: the

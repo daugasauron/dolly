@@ -64,7 +64,7 @@ flowchart LR
   image build ID and the recipe's SHA-256, and its bytes are checked against
   their SHA-256 when loaded, so one version cannot hand another a wrong
   image. The versions share its bound (32 images, 8 GiB, least recently
-  saved first out).
+  used first out).
 
 Code: kernel [`host/snapshot/kernel.c`](../host/snapshot/kernel.c); page
 [`host/snapshot/transport.mjs`](../host/snapshot/transport.mjs),
