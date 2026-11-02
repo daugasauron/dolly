@@ -22,8 +22,10 @@
 
   // The project: workspace/ is written into /workspace at each boot, so an edit
   // there is a reload. Pi's tools can read these files; they are not for secrets.
+  const listing = await fetch("./workspace/");
+  if (!listing.ok) throw new Error("GET workspace/ must list the project's files, as serve.mjs does");
   const files = {};
-  for (const path of await (await fetch("./workspace/")).json()) {
+  for (const path of await listing.json()) {
     files[`/workspace/${path}`] = new Uint8Array(await (await fetch(`./workspace/${path}`)).arrayBuffer());
   }
 

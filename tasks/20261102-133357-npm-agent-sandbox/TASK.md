@@ -109,6 +109,9 @@ script) is now written by `init` or said in its comments.
   packing and installing (`npm-browser-chromium-1.log`).
 - `test/npm-browser.mjs firefox` at 5def8d092: passed, 23.9 s of browser time, 151 s in all
   (`npm-browser-firefox-1.log`).
+- `test/npm-browser.mjs chromium firefox` after the template's icon and listing error and
+  `init`'s note of a missing host module package: passed, 13.3 s and 16.7 s of browser time,
+  157 s in all (`npm-browser-both-2.log`).
 - `dolly-build`'s error paths by hand (`init` over existing files, a bad name, a package not
   installed, a body line without its spaces, a stale pin, a file that is no recipe, no
   arguments): one line each, naming the file and line or the command to run.
@@ -138,3 +141,21 @@ script) is now written by `init` or said in its comments.
 - Publishing `@daugasauron/dolly-package-git`, `-python` and `-cc` (3.4, 51 and 35 MB)
   is the owner's: `package-npm.mjs` packs them, the release checklist's npm step would
   publish them.
+
+## Lessons
+
+- A stopwatch and a stranger's seat found what reading the docs did not: Pi refuses
+  `--provider` without `--model` (the README's sentence had not been run), a package's
+  directory must carry the packs of what its recipe installs (`python` failed on `libffi`'s),
+  a recipe typo died in a stack trace, and the page logged a 404 for a favicon on every load.
+  Each is a line to fix; none shows up in a review of the design.
+- Files that must be exact (pins, a server's isolation headers, a page's `boot()` call) are
+  better written by a command than pasted from a README: "Pi with npm" went from 118 lines
+  to 27 while covering more, and since the test runs what `init` wrote, the guide, the
+  templates and the test cannot drift apart.
+- The recipe language already held the answer to "the tools they want": `INSTALL` at build
+  time, and the image directory format the catalog uses, made packages on npm a loop in
+  `package-npm.mjs` and a lookup in `dolly-build.mjs`, with no change to the runtime, the
+  kernel, the language or `boot()`.
+- A check script is a product too: two of my runs failed on my own regex and on a handle the
+  page did not expose. Dumping the screen on failure turned the third run into the finding.

@@ -99,7 +99,9 @@ async function scaffold(name, packages) {
   if (present.length) fail(`${present.join(", ")}: already here`);
   await mkdir("workspace", { recursive: true });
   for (const [file, text] of Object.entries(files)) await writeFile(file, text);
+  const missing = hosts.map(host => host.split("@")[0]).filter(name => !modules.has(name));
   console.log(`dolly-build: wrote ${Object.keys(files).join(", ")}\n` +
+    (missing.length ? `  npm install ${missing.map(hostPackage).join(" ")}   the recipe declares ${missing.join(", ")}\n` : "") +
     `  npx dolly-build Dollyfile-${name} ${name}   builds the image (again after a change to the recipe)\n` +
     "  node serve.mjs                       serves the page");
 }
