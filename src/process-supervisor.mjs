@@ -567,11 +567,12 @@ export class DollyProcessSupervisor {
     const { memory } = process, size = memory.buffer.byteLength, control = new SharedArrayBuffer(16);
     const values = new BigInt64Array(control), word = new Int32Array(control);
     values[0] = process.maximum - BigInt(size / 65536);
+    Atomics.store(word, 2, 1);
     const grower = this.nextGrower ?? this.#startGrower();
     this.nextGrower = this.#startGrower();
-    grower.onerror = () => { values[0] = -1n; Atomics.store(word, 2, 1); Atomics.notify(word, 2); };
+    grower.onerror = () => { values[0] = -1n; Atomics.store(word, 2, 0); Atomics.notify(word, 2); };
     grower.postMessage({ memory, control });
-    process.reservation = Promise.resolve(Atomics.waitAsync(word, 2, 0).value).then(() => {
+    process.reservation = Promise.resolve(Atomics.waitAsync(word, 2, 1).value).then(() => {
       grower.terminate();
       if (process.memory !== memory) return;
       if (values[0] >= 0n) {
