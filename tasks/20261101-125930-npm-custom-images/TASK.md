@@ -1,6 +1,6 @@
 # npm: build and host custom images, e.g. Pi with your own extensions and skills
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 310
 - TAGS: npm,packages,pi,0.1.5
 
@@ -17,20 +17,21 @@ Chromium and Firefox; `docs/embedding.md` says how.
 
 ## How a stranger uses it
 
-After the README's "Pi with npm" (Node, npm, Chrome):
+After the README's "Pi with npm" (Node, npm, Chrome), since `npm/agent-sandbox`
+(task `20261102-133357-npm-agent-sandbox`):
 
 ```sh
-npm install @daugasauron/dolly-build
-npx dolly-build from pi-minimal my-pi > Dollyfile-my-pi   # a recipe FROM the installed pi-minimal
-# add a FILE row per file before its ENTRY line, the body indented four spaces, e.g.
-#   FILE /home/dolly/.pi/agent/extensions/hello.js   and   .../skills/changelog/SKILL.md
+npm install @daugasauron/dolly-build @daugasauron/dolly-package-git
+npx dolly-build init my-pi git      # Dollyfile-my-pi FROM pi-minimal with INSTALL git, index.html, serve.mjs, workspace/
 npx dolly-build Dollyfile-my-pi my-pi                      # builds in headless Chrome
+node serve.mjs
 ```
 
-Then `index.html` imports `images`, `image` and `modules` from `./my-pi/index.mjs` instead
-of the package's, and the same `serve.mjs` hosts it: Pi starts with the extension and the
-skill in the image. After a change, the same build command replaces `my-pi`;
-`--browser firefox` builds in Firefox instead.
+The recipe `init` writes holds a Pi extension, a skill and `AGENTS.md` as `FILE` rows (bodies
+indented four spaces) to edit, and the page imports `./my-pi/index.mjs`. After a change, the
+same build command replaces `my-pi`; `--browser firefox` builds in Firefox instead. Before
+`init`, the path was `npx dolly-build from pi-minimal my-pi > Dollyfile-my-pi`, the README's
+page and server pasted by hand, and the rows added to the recipe.
 
 ## Today
 
@@ -136,6 +137,16 @@ Measured:
 Not done: `SOURCE` rows of files beside the recipe (a `FILE` body is at most the recipe's
 128 KiB); `INSTALL` of a package the image package does not ship. Both would need the
 command to serve and pin more than the base package holds.
+
+## Closed (2026-11-02 23:20 JST)
+
+Done as the done-when says, on `npm/agent-sandbox` (task `20261102-133357-npm-agent-sandbox`,
+commit 5def8d092): the README's "Pi with npm" is `npx dolly-build init my-pi git` and a build,
+the recipe `init` writes holds a Pi extension and a skill (and `AGENTS.md`, a tool, the start
+script), `test/npm-browser.mjs` runs the README's block from packed packages in Chromium
+(22.5 s) and Firefox (23.9 s) and Pi has them, and `docs/embedding.md` "Your own image" says
+how. `from` is gone: `init` writes the pinned rows. Not done here and still wanted: nothing;
+`SOURCE` rows beside the recipe stay dropped (`FILE` rows and `boot()`'s `files` cover it).
 
 ## For the owner
 

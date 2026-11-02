@@ -1,0 +1,42 @@
+# Pi reads its instructions, skills, extensions and themes from /home/dolly/.pi/agent/
+# (Pi's docs/configuration.md, in the image under /usr/lib/node_modules/@earendil-works/pi-coding-agent/docs/).
+# A FILE row writes its body, each line indented four spaces, into the image.
+
+FILE /home/dolly/.pi/agent/AGENTS.md
+    You are the coding agent of this project. Keep answers short, and run the
+    project's tests after a change.
+
+FILE /home/dolly/.pi/agent/skills/changelog/SKILL.md
+    ---
+    name: changelog
+    description: Keeps /workspace/CHANGELOG.md. Use when asked to record a change.
+    ---
+    Add the change under "## Unreleased", one line each, newest first.
+
+FILE /home/dolly/.pi/agent/extensions/hello.js
+    export default function (pi) {
+      pi.registerCommand("hello", {
+        description: "Say hello",
+        handler: async (name, ctx) => ctx.ui.notify(`Hello, ${name || "world"}, from __NAME__!`, "info"),
+      });
+    }
+
+# A tool of your own: a script on PATH (#!/bin/slop, or #!/usr/bin/janis for
+# JavaScript); with the cc package, SLOP cc FILE -o /usr/bin/NAME compiles one.
+FILE /usr/bin/todo
+    #!/bin/slop
+    # todo [DIR]: lists the TODO and FIXME notes under DIR (default .).
+    rg -n 'TODO|FIXME' "${1:-.}"
+EXPORTS TOOL todo
+
+# A Pi theme: FILE /home/dolly/.pi/agent/themes/NAME.json (Pi's docs/themes.md; the
+# image's is themes/dolly.json) and a settings.json like the image's with "theme": "NAME".
+
+# How Pi starts: the key at a prompt that does not show it, the provider and the
+# model (Pi's docs/providers.md; /model in Pi picks one). --offline keeps Pi from
+# requests the policy refuses. Ctrl+D leaves Pi for a shell.
+FILE /etc/dolly/init.slop
+    cd /workspace
+    pi-key OPENROUTER_API_KEY --offline --provider openrouter --model anthropic/claude-sonnet-4.5
+    printf '\nPi exited; this is a Slop shell.\n'
+    /bin/foreground -i /bin/slop

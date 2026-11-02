@@ -20,7 +20,7 @@
 // A consumer serves the installed packages as they lie, side by side under
 // node_modules/@daugasauron/, with cross-origin isolation (README.md, "Embed").
 import { execFileSync } from "node:child_process";
-import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { discoverImageDefinitions, imageRegistrySource, selectImageDefinitions } from "./image-definitions.mjs";
 import { indexSource } from "./image-directory.mjs";
@@ -102,40 +102,67 @@ for (const name of deviceModules) {
 }
 
 // An image's directory: its catalog alone, its closure's metadata, its own packs (a
-// booted image reads only its own) and every recipe the page verifies.
+// booted image reads only its own) and every recipe the page verifies. An application
+// (dolly-image-NAME) has an index.mjs for boot(); a package (dolly-package-NAME) is
+// INSTALLed by a recipe dolly-build builds, and holds the same directory without it.
 const definitions = await discoverImageDefinitions(projectDir);
 const publishedImages = {
   default: "a shell, its text tools, Ghostty's terminal, curl, `amy`, `nena` and `ps`",
   "pi-minimal": "the Pi coding agent, with JavaScript (Janis), a shell, POSIX tools, curl, ripgrep and fd",
 };
-for (const [image, holds] of Object.entries(publishedImages)) {
+const publishedPackages = {
+  git: "Git with diff and patch; clone, fetch and push over HTTP",
+  python: "Python 3.14 with pip",
+  cc: "the C and C++ compiler with its headers, libraries and Make",
+};
+const licensed = "The image holds programs built inside Dolly from their upstream sources, each under its own\n" +
+  "licence: their licence texts are in the image under `/usr/share/licenses`, and Dolly's\n" +
+  "`docs/licences.md` lists every upstream (https://github.com/daugasauron/dolly).\n";
+async function writeImageDirectory(image, holds, bootable) {
   const closureOfImage = await selectImageDefinitions(definitions, image);
   const registry = await imageRegistrySource(projectDir, closureOfImage);
-  const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(resolve(projectDir, `dist/dolly-${image}-system-snapshot.mjs`));
   const { DOLLY_IMAGES } = await import(`data:text/javascript,${encodeURIComponent(registry)}`);
   const record = DOLLY_IMAGES.find(entry => entry.image === image);
+  if ((record.role === "package") === bootable) throw new Error(`${image} is a ${record.role}`);
+  // A package arrives with the packages its recipe installs, each from its own snapshot.
+  const held = bootable ? [image] : [image, ...record.artifacts.filter(artifact => artifact.operation === "install").map(artifact => artifact.image)];
+  const packs = new Set();
+  for (const name of held) {
+    const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(resolve(projectDir, `dist/dolly-${name}-system-snapshot.mjs`));
+    for (const pack of metadata.packs) packs.add(`dist/packs/${pack.sha256}.snapshot.gz`);
+  }
   const recipes = new Set(closureOfImage.map(definition => definition.filename));
   for (const recipe of record.recipes) recipes.add(sitePath(recipe.sourcePath).slice(1));
   const declared = record.hostRequirements.map(value => value.split("@")[0]);
-  const imageDirectory = join(out, `dolly-image-${image}`);
-  await mkdir(join(imageDirectory, "dist"), { recursive: true });
-  await writeFile(join(imageDirectory, "dist/dolly-images.mjs"), registry);
-  await writeFile(join(imageDirectory, "index.mjs"), indexSource(image, declared.map(name =>
-    runtimeModules.includes(name) ? `../dolly/host/${name}/module.json` : `../${hostPackage(name)}/module.json`)));
-  tarballs.push(await writePackage(imageDirectory, [
+  const name = `dolly-${bootable ? "image" : "package"}-${image}`, directory = join(out, name);
+  await mkdir(join(directory, "dist"), { recursive: true });
+  await writeFile(join(directory, "dist/dolly-images.mjs"), registry);
+  if (bootable) {
+    await writeFile(join(directory, "index.mjs"), indexSource(image, declared.map(name =>
+      runtimeModules.includes(name) ? `../dolly/host/${name}/module.json` : `../${hostPackage(name)}/module.json`)));
+  }
+  const install = [`${scope}/dolly`, ...bootable ? [`${scope}/${name}`] : [`${scope}/dolly-image-pi-minimal`, `${scope}/dolly-build`, `${scope}/${name}`],
+    ...declared.filter(name => deviceModules.includes(name)).map(name => `${scope}/${hostPackage(name)}`)].join(" ");
+  return writePackage(directory, [
     ...closureOfImage.map(definition => `dist/dolly-${definition.image}-system-snapshot.mjs`),
-    ...metadata.packs.map(pack => `dist/packs/${pack.sha256}.snapshot.gz`),
+    ...packs,
     ...recipes,
   ].map(file => [file, file]), {
-    name: `${scope}/dolly-image-${image}`, license: "SEE LICENSE IN README.md", exports: { ".": "./index.mjs" },
+    name: `${scope}/${name}`, license: "SEE LICENSE IN README.md", ...bootable ? { exports: { ".": "./index.mjs" } } : {},
     dependencies: { [`${scope}/dolly`]: version },
-    description: `Dolly's ${image} image: ${holds.replaceAll("`", "")}.`,
-  }, `# ${scope}/dolly-image-${image}\n\nDolly's \`${image}\` image: ${holds}, for ${scope}/dolly's \`boot()\`.\nIt depends on the runtime alone: install it with the runtime and the host modules it\ndeclares, all at version ${version}:\n\n\`\`\`sh\nnpm install ${[`${scope}/dolly`, `${scope}/dolly-image-${image}`, ...declared.filter(name => deviceModules.includes(name))
-    .map(name => `${scope}/${hostPackage(name)}`)].join(" ")}\n\`\`\`\n\n\`\`\`js\nimport { boot } from "./node_modules/${scope}/dolly/src/browser.mjs";\nimport { images, image, modules } from "./node_modules/${scope}/dolly-image-${image}/index.mjs";\nawait boot(document.querySelector("#dolly"), { images, image, modules });\n\`\`\`\n\nThe image holds programs built inside Dolly from their upstream sources, each under its own\nlicence: their licence texts are in the image under \`/usr/share/licenses\`, and Dolly's\n\`docs/licences.md\` lists every upstream (https://github.com/daugasauron/dolly).\n`));
+    description: `Dolly's ${image} ${bootable ? "image" : "package"}: ${holds.replaceAll("`", "")}.`,
+  }, bootable
+    ? `# ${scope}/${name}\n\nDolly's \`${image}\` image: ${holds}, for ${scope}/dolly's \`boot()\`.\nIt depends on the runtime alone: install it with the runtime and the host modules it\ndeclares, all at version ${version}:\n\n\`\`\`sh\nnpm install ${install}\n\`\`\`\n\n\`\`\`js\nimport { boot } from "./node_modules/${scope}/dolly/src/browser.mjs";\nimport { images, image, modules } from "./node_modules/${scope}/dolly-image-${image}/index.mjs";\nawait boot(document.querySelector("#dolly"), { images, image, modules });\n\`\`\`\n\n${licensed}`
+    : `# ${scope}/${name}\n\nDolly's \`${image}\` package: ${holds}, for an image of your own: \`dolly-build init NAME ${image}\`\nwrites a recipe that \`INSTALL\`s it, \`FROM\` \`pi-minimal\` (${scope}/dolly's README, "Your own image").\nInstall it with the runtime, the base image, the command and the host modules it declares,\nall at version ${version}:\n\n\`\`\`sh\nnpm install ${install}\n\`\`\`\n\n${licensed}`);
 }
-// The build command and the scripts it runs, at their checkout paths. It finds the
-// runtime and the packages it builds from beside itself, never through these copies.
-const buildFiles = await closure(["scripts/dolly-build.mjs"]);
+for (const [image, holds] of Object.entries(publishedImages)) tarballs.push(await writeImageDirectory(image, holds, true));
+for (const [image, holds] of Object.entries(publishedPackages)) tarballs.push(await writeImageDirectory(image, holds, false));
+// The build command, the scripts it runs and the files init writes, at their checkout
+// paths. It finds the runtime and the packages it builds from beside itself, never through
+// these copies.
+const buildFiles = [...await closure(["scripts/dolly-build.mjs"]), ...(await readdir(resolve(projectDir, "scripts/dolly-build-init"),
+  { recursive: true, withFileTypes: true })).filter(entry => entry.isFile())
+  .map(entry => relative(projectDir, join(entry.parentPath, entry.name)))];
 const built = buildFiles.filter(file => file.startsWith("dist/"));
 if (built.length) throw new Error(`dolly-build would carry its own ${built.join(", ")}: read the runtime's`);
 const { devDependencies } = JSON.parse(await readFile(resolve(projectDir, "package.json"), "utf8"));
@@ -143,5 +170,5 @@ tarballs.push(await writePackage(join(out, "dolly-build"), [...buildFiles, "LICE
   name: `${scope}/dolly-build`, license: "MIT", bin: { "dolly-build": "scripts/dolly-build.mjs" },
   dependencies: { [`${scope}/dolly`]: version, "playwright-core": devDependencies["playwright-core"] },
   description: "Build a Dolly image of your own, FROM an installed image package, in a browser.",
-}, `# ${scope}/dolly-build\n\nBuilds a Dolly image of your own in a browser: a Dollyfile \`FROM\` an installed image\npackage (\`${scope}/dolly-image-pi-minimal\`), with its files, into a directory that\n\`boot()\` loads and a host serves. ${scope}/dolly's README (\`docs/embedding.md\`) says how.\n\n\`\`\`sh\nnpx dolly-build from pi-minimal my-pi > Dollyfile-my-pi\nnpx dolly-build Dollyfile-my-pi my-pi\n\`\`\`\n`));
+}, `# ${scope}/dolly-build\n\nA project with a Dolly image of your own: a Dollyfile \`FROM\` the installed\n\`${scope}/dolly-image-pi-minimal\` with the packages it INSTALLs (\`${scope}/dolly-package-git\`,\n\`-python\`, \`-cc\`) and your files, built in a browser into a directory that \`boot()\` loads and\na host serves. ${scope}/dolly's README (\`docs/embedding.md\`) says how.\n\n\`\`\`sh\nnpx dolly-build init my-pi git\nnpx dolly-build Dollyfile-my-pi my-pi\n\`\`\`\n`));
 console.log(tarballs.map(name => join(out, name)).join("\n"));
