@@ -34,7 +34,8 @@ sequenceDiagram
   `dolly_process_0.call`; export `_start`; carry `dolly.process` stamps
   ([`dolly-process-0.wat`](../abi/dolly-process-0.wat)) and a `dolly.host`
   record with the ABI digest of each host module they link
-  ([`dolly-host-0.wat`](../abi/dolly-host-0.wat)). Memory is at most 8 GiB.
+  ([`dolly-host-0.wat`](../abi/dolly-host-0.wat)). Memory is at most 8 GiB,
+  and the file at most 512 MiB: a larger one fails the spawn with `ENOEXEC`.
 - A start section may initialize memory/TLS but must not call the kernel.
 - Found through `PATH`; `#!` lines name an absolute in-Wasm interpreter, nested at most 4 deep.
 - `readlink("/proc/self/exe")` returns the loaded image's canonical path, and
@@ -95,9 +96,9 @@ sequenceDiagram
   exhausts it fails with 126 like any other trap. The Worker enters an
   executable that asks for it, which only the compiler does, through
   `WebAssembly.promising` where that stack is measured half again as deep:
-  Chrome 151, about 950 KB instead of a Worker's 500 KB, and not Firefox 155
-  ([browser stack](browser-stack.md)). A program `stack-wrap` rewrote records
-  `stack@0` and continues on fresh stacks instead of ending.
+  in Chrome, not in Firefox ([browser stack](browser-stack.md)). A program
+  `stack-wrap` rewrote records `stack@0` and continues on fresh stacks
+  instead of ending.
   `RLIMIT_STACK` describes only the stack inside the process's memory.
 - `cc`, `c++`, `ld` and `ar` retry status 126 up to twice
   ([`runtime-adapter.c`](../src/process/runtime-adapter.c)), so long
@@ -114,7 +115,9 @@ sequenceDiagram
   fails with `EPERM`; `sysconf(_SC_OPEN_MAX)` is still libc's constant 1024.
   So is the one scheduling priority, nice 0: `nice` and `setpriority` to
   another fail with `EPERM`.
-- Pipes hold 64 KiB. Empty reads and full writes return `EAGAIN` when
+- Pipes hold 64 KiB, and the kernel at most 64 of them (an open of
+  `/proc/processes` among them); one more fails with `ENFILE`. Empty reads
+  and full writes return `EAGAIN` when
   nonblocking; closing all writers gives EOF, also to a reader that was
   waiting. Writing with no reader, or waiting to write when the last reader
   closes, returns `EPIPE`, and libc raises `SIGPIPE` in the writer before

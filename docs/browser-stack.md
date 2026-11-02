@@ -6,8 +6,8 @@ that bounds, how a process is entered to get the larger of the stacks a
 browser offers, why Firefox is entered differently, what it means for
 building LLVM inside Dolly, and how a program goes deeper than one stack.
 Every number was measured in headless Chrome 151 and Firefox 155 in October
-2026; the runs are recorded in the tasks `tasks/20260930-232236-llvm-in-dolly`
-and `tasks/20261027-232422-lean`.
+2026. The probe's depths in the first table were measured again on
+2026-11-02, in Chrome 156 and Firefox 155: the same within 0.2%.
 
 ## Two stacks
 

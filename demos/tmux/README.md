@@ -37,7 +37,8 @@ puts an editor beside a shell.
   spawns `tmux -D` and serves it its first command over a socket pair. The
   server outlives the client and ends with its last session.
 - `INSTALL` the package into an image that declares `pty@0` and `sockets@0`.
-  `default` does not declare `pty@0`, so `amy install tmux` is refused there.
+  `default` does not declare `pty@0`: `amy install tmux` is refused there
+  until `nena enable pty` gives the session the module.
 - `/etc/tmux.conf` sets `default-terminal` to `xterm-256color`: Dolly's
   termcap programs, `less` among them, know that one terminal (`/etc/termcap`).
 

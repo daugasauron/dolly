@@ -14,15 +14,12 @@ REQUIRES HOST threads@0
 # - the cc package's compiler for target and host (its defaults are gcc and
 #   g++); ar s to index an archive, as there is no ranlib; nothing to strip
 #   with; no documentation (its manual pages below);
-# - -O3, what it gives Clang: it names Clang by the banner of cc -v, which
-#   Dolly's cc answers with "no input files", and an unknown compiler gets
-#   no optimization flags (--optflags is its option for that);
-# - no resource compression: it takes any gzip on PATH for a compressor,
-#   and the gzip package, which unpacks the archive here, only decompresses;
 # - pthreads, required: every program linked with these needs threads@0.
-FROM /v0.1.4/Dollyfile-system-tools a76845818fc0a13aea061f36003eb48fe8e5ca139b6e9668d43cf63198bcd60a
-USE /v0.1.4/Dollyfile-gzip 53ed96ed915c386f2ec984ef277792f4327992359c2e65ef97fc36db566a76d7
-INSTALL /v0.1.4/Dollyfile-zlib 9b532e018ade234c097fdfdbffbe6b1137e08af9082d182e70448d78ba63c817
+# It knows Clang by the banner of cc -v and compresses its resources with the
+# gzip package, which also unpacks the archive here.
+FROM /v0.1.4/Dollyfile-system-tools 0000000000000000000000000000000000000000000000000000000000000000
+USE /v0.1.4/Dollyfile-gzip 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/Dollyfile-zlib 0000000000000000000000000000000000000000000000000000000000000000
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib
@@ -40,8 +37,8 @@ SOURCE /v0.1.4/dist/static/ffmpeg/ffmpeg-9.0.2.tar.gz 84960df915059e8754fef2cd7c
 SLOP gzip -dc /tmp/ffmpeg.tar.gz | tar -xf - -C /tmp
 SLOP mkdir /tmp/ffmpeg-build
 SLOP CWD /tmp/ffmpeg-build time /tmp/ffmpeg-9.0.2/configure --prefix=/usr --target-os=none --arch=wasm --disable-asm \
-  --cc=cc --cxx=c++ --host-cc=cc --ar=ar --ranlib='ar s' --disable-stripping --disable-doc --disable-debug --optflags=-O3 \
-  --disable-resource-compression --disable-autodetect --enable-pthreads --enable-zlib
+  --cc=cc --cxx=c++ --host-cc=cc --ar=ar --ranlib='ar s' --disable-stripping --disable-doc --disable-debug \
+  --disable-autodetect --enable-pthreads --enable-zlib
 SLOP CWD /tmp/ffmpeg-build time make -j4
 SLOP CWD /tmp/ffmpeg-build make install
 

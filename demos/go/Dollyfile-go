@@ -10,7 +10,7 @@ REQUIRES HOST http@0
 # toolenv), and installs it over the seed's. The build fails unless every
 # command is, byte for byte, the seed's. The commands start it by its own
 # path, from which it finds its GOROOT.
-FROM /v0.1.4/demos/go/Dollyfile-go-sdk 3957dc0c5b430adcad94e3623f5ec8e1302c72e9944e96a555e8f967ecdc3cbf
+FROM /v0.1.4/demos/go/Dollyfile-go-sdk 791d68f37754afa89d4919565ae876635dc9adca8f8daaa5a497a020a2524844
 REQUIRES TOOL go
 SLOP mkdir -p /tmp/seed
 SLOP cp -R /usr/lib/go/pkg/tool/dolly_wasm64 /tmp/seed/tool

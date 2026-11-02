@@ -22,12 +22,12 @@ entry.
 - **Sources**: every site-path `SOURCE` of the catalog under `dist/static/`,
   the recipes and headers, at the same release path as the images. The gpu-fluid
   sources come from raw.githubusercontent.com instead.
-- **Dolly's code**: MIT ([`LICENSE`](../LICENSE), `package.json`), except 10
+- **Dolly's code**: MIT ([`LICENSE`](../LICENSE), `package.json`), except 12
   files marked `SPDX-License-Identifier: GPL-2.0-or-later` because they are
   compiled into GPL programs: the Seven Kingdoms port in `demos/rts`
   (`Makefile`, `OAUDIO.h`, `arena.*`, `config.h`, `input.*`, built with the game),
-  the 0 A.D. `engine.patch`, and the Xonotic port's `Makefile` and
-  `simd-unit.c`. The agents, spectators and viewers are separate
+  the 0 A.D. `engine.patch`, and the Xonotic port's `Makefile`, `dpgpurast.c`,
+  `dpshaders.c` and `simd-unit.c`. The agents, spectators and viewers are separate
   programs that drive the games over pipes and screenshots; they are Dolly's own
   and MIT. The MIT grant covers Dolly's own files only; it does not relicense
   the upstream code an image contains.
@@ -52,7 +52,7 @@ entry.
 | Apache-2.0 weights | Qwen3.5-2B (GGUF by bartowski), Qwen3.5-4B (GGUF by unsloth), MiniCPM5-2B | Licence copy; no use restrictions | Each model package keeps the licence copied into the demo; nothing checks it against the pinned Hugging Face revision |
 | LFM Open License v1.0 weights | LFM2.5-2.6B by Liquid AI | Redistribution with the licence text and Liquid AI's notices; commercial use is licensed only below 10 million US dollars of annual revenue | `lfm2.5` keeps the licence's text; Dolly is free and earns nothing (owner, 2026-10-23); nothing checks it against the pinned Hugging Face revision |
 | CC-BY-4.0 weights | Parakeet TDT-CTC 110M by NVIDIA (GGUF by transcribe.cpp's authors) | Credit, the licence, and a note of changes | `speech-to-text` and `pi-phone` keep the licence's text and a `NOTICE` naming NVIDIA and the conversion; nothing checks the conversion against the pinned Hugging Face revision |
-| Anthropic Commercial Terms | Claude Code: nothing. The `closed-source-agent` image downloads 2.1.112 from the npm registry into the user's session after a notice; no file of it is in the repository, an image or a site | Unmodified binary, every built-in sign-in method kept, no paid or intermediated usage, no use of the names as a product name | Met by construction ([task](../tasks/20261007-085236-claude-code-image/TASK.md)); **Owner**: acceptance of the Commercial Terms |
+| Anthropic Commercial Terms | Claude Code: nothing. The `closed-source-agent` image downloads 2.1.112 from the npm registry into the user's session after a notice; no file of it is in the repository, an image or a site | Unmodified binary, every built-in sign-in method kept, no paid or intermediated usage, no use of the names as a product name | Met by construction; **Owner**: acceptance of the Commercial Terms |
 
 ## Combined binaries
 
@@ -147,8 +147,9 @@ which the `libjpeg` package builds from `libjpeg/source.tar.gz`; the site
 serves both as recipe inputs, together with the
 QuakeC game logic (`qcsrc`, GPL-3.0-or-later; `lib/warpzone` MIT or
 GPL-2.0-or-later, `lib/csqcmodel` MIT) that gmqcc compiles there.
-Dolly's own files compiled into the engine, `demos/xonotic/Makefile` and
-`simd-unit.c`, carry `SPDX-License-Identifier: GPL-2.0-or-later`; the six
+Dolly's own files compiled into the engine, `demos/xonotic/Makefile`,
+`dpgpurast.c`, `dpshaders.c` and `simd-unit.c`, carry
+`SPDX-License-Identifier: GPL-2.0-or-later`; the six
 hunks of `darkplaces-dolly.patch` change engine files and take the engine's
 licence. FreeType, libpng, Ogg and Vorbis come as static libraries from their
 packages, with their licence files; FreeType is used under its GPL option, as in 0 A.D.,
@@ -189,7 +190,7 @@ notice in gpu-fluid, and CPython's change summary.
 The owner delegated three decisions (task `20261005-135857-licence-owner`):
 
 1. 0 A.D.'s missing corresponding source is now served (above).
-2. Dolly's agents, spectators and viewers are MIT; only the 10 files compiled
+2. Dolly's agents, spectators and viewers are MIT; only the 12 files compiled
    into Seven Kingdoms, 0 A.D. or Xonotic stay GPL-2.0-or-later.
 3. ClassiCube's default texture pack names no licence: upstream's
    `license.txt` covers its code, `credits.txt` names Goodlyay as the artist,

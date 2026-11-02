@@ -38,6 +38,6 @@ commands run Slop through `posix_spawn` over pipes.
   only at system calls.
 - `M-x shell` fails: Slop has no `-i` and reads piped input to the end first.
 - No PTYs, network processes, `emacsclient`, Lisp threads, or installed Lisp
-  sources for compiled files (Dolly's `gzip` cannot compress them).
+  sources for compiled files.
 
 Test: `npm run test:demos -- emacs` ([`test/`](test/)).

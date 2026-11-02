@@ -109,7 +109,8 @@ int dolly_isatty(int descriptor);
 void dolly_exit_signal(int signal_number) __attribute__((__noreturn__));
 
 // POSIX-shaped waiting and signals above Dolly's private processes. waitpid
-// accepts a child PID or -1/0 for any child; kill needs a positive PID.
+// accepts a child PID, -PID for the same child (a process group is one
+// process), or -1/0 for any child; kill needs a positive PID.
 pid_t dolly_waitpid(pid_t pid, int *status, int options);
 int dolly_kill(pid_t pid, int signal_number);
 

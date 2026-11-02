@@ -9,7 +9,7 @@ an agent in place of a web frontend (`docs/agent-frontend.md` in the repository)
 | --- | --- |
 | `@daugasauron/dolly` | The runtime: `boot()`, the kernel, the process runtime, its image builder, and the host modules that are its own machinery (`runtime`, `http`, `threads`, `dso`, `stack`, `nena`, `snapshot`, `packages`) |
 | `@daugasauron/dolly-host-NAME` | One device host module each: `display` (Ghostty's terminal and programs' frames), `input`, `gpu`, `audio`, `microphone`, `touch`, `download` (as `dolly-host-save`: npm takes no new name with the word), `upload`, `html`, `sockets`, `pty` |
-| `@daugasauron/dolly-image-default` | The `default` image alone: a shell, its text tools, the terminal, curl, `amy`, `nena`, `ps`. `amy` lists what is installed and has nothing more to install |
+| `@daugasauron/dolly-image-default` | The `default` image alone: a shell, its text tools, the terminal, curl, `amy`, `nena`, `ps`. The package holds no package index, so `amy installed` lists what the image holds and `amy list` and `amy install` fail naming the index |
 | `@daugasauron/dolly-image-pi-minimal` | The `pi-minimal` image alone: the Pi coding agent with JavaScript (Janis), a shell, POSIX tools, curl, ripgrep and fd, on `display`, `input`, `download` and `html` alone. The README's "Pi with npm" serves it with a policy |
 | `@daugasauron/dolly-build` | The `dolly-build` command: an image of your own, `FROM` an installed image, built in a browser ("Your own image" below) |
 
@@ -43,7 +43,10 @@ in `.yarnrc.yml`: Plug'n'Play leaves no files to serve.
 resolves once the image's program starts, to the page's handle on the session
 (`hostModules`, `visibleTerminalText()`, `waitForInteractiveTerminal(pattern)`,
 then `submit(command)` at the shell's prompt, and what each module adds), and
-shows its own failure in the element.
+shows its own failure in the element. What Dolly shows, its modules' buttons,
+dialogs and indicators among them, stays inside `element`, and its styles
+select only there; keys typed outside it, into the page's own controls, are
+the page's.
 
 | Option | Meaning |
 | --- | --- |

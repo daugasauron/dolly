@@ -104,10 +104,9 @@ bash scripts/package-pages.sh build/github-releases github-pages
   `sha256sum --check release/files.sha256` checks a static export, and
   `deployment.sha256` what Cloudflare stores.
 - A release build needs disk for the catalog twice (snapshots in `dist/` and
-  their packs) and little memory: sharing the 67-image, 25 GB catalog into
-  packs streams one 4 MB chunk at a time (221 MB peak, 3.5 minutes);
-  `site-release.mjs accept` then holds about twice the largest image while it
-  merges that image's packs.
+  their packs) and little memory: sharing the catalog into packs streams one
+  4 MiB chunk at a time; `site-release.mjs accept` then holds about twice the
+  largest image while it merges that image's packs.
 
 ## The archive of published versions
 
@@ -128,10 +127,10 @@ bash scripts/package-pages.sh build/github-releases github-pages
   The exporter fails at either limit, naming the versions; nothing is dropped
   automatically. One rule covers a file in every version that stores it the
   same way, so rules grow with distinct large files, not with versions.
-- Measured on 2026-10-08 (71 images): one version is 2,139 files and
-  19.1 GB, so nine versions fit in 20,000 files. It needs 45 rules: 6 for
-  every version, 28 for large sources by path and 11 for large packs by
-  content, which leaves 55 for the large files later versions change.
+- Measured on 2026-11-02 on the archive of v0.1.0 to v0.1.4: v0.1.4 is
+  3,785 files and 21.9 GB and alone needs 55 rules: 6 for every version, 37
+  for large sources by path and 12 for large packs by content. The five
+  versions are 14,037 files and need 92 rules.
 
 ## Release
 

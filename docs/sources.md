@@ -89,9 +89,9 @@ checks the compiler against `dolly-process-0`.
   `/bin/tar` ([`Dollyfile-system-build`](../Dollyfile-system-build)) extracts only regular files and
   directories inside WasmFS.
 - [`write-build-id.mjs`](../scripts/write-build-id.mjs) derives two identities.
-  The image build ID covers the seed, its loader and the process, `dso@0`,
-  kernel-plugin and snapshot contracts; images and caches use it, so kernel-only
-  changes reuse images. The runtime build ID adds the kernel bytes; sessions
+  The image build ID covers the seed (`dist/dolly.data`) and the process,
+  `dso@0`, kernel-plugin and image contracts; images and caches use it, so
+  kernel-only changes reuse images. The runtime build ID adds the kernel bytes; sessions
   require it.
 - Preparation writes to unique staging paths and publishes completed,
   verified results atomically.

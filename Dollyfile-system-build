@@ -7,7 +7,7 @@ REQUIRES HOST http@0
 # and C headers are the externally supplied bootstrap seed. How those headers
 # eventually map to the lower-level machine contract is deliberately open.
 SOURCE /v0.1.4/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415 /usr/include/dolly/toolchain.h
-SOURCE /v0.1.4/include/dolly/runtime.h   5e375da8658d7dd8ea0b271f81f688768bff007c1c6463df06fef0fb283b1ff4 /usr/include/dolly/runtime.h
+SOURCE /v0.1.4/include/dolly/runtime.h   c5918b4195485c672ebdc2c81cfdd29d8a10ff94a78c66068b53d2707e24cd33 /usr/include/dolly/runtime.h
 SOURCE /v0.1.4/include/dolly/process.h   6919b5de21efa877d73ea8d004d88b66ec00b5a883bdbeece12e2ed14dc370b5 /usr/include/dolly/process.h
 SOURCE /v0.1.4/host/http/http.h      d09f57cda4a6cde89106653f12366ac95554c21d37d05a69c15764d4254b70a5 /usr/include/dolly/http.h
 SOURCE /v0.1.4/host/http/http-abi.h eb672b697efb8e9b13f5ef35a65e1b7fbb1b23dfc3da96827195401abe2b3863 /usr/include/dolly/http-abi.h
@@ -259,7 +259,7 @@ SLOP rm \
 REQUIRES TOOL   rm
 
 # Dolly's deliberately small ustar extractor.
-SOURCE /v0.1.4/dist/static/default/commands/tar.c 662f118412ec406559132c63e7472686ab1e4665a3e3aa01a2344e638a2eddf5 /tmp/bootstrap/tar.c
+SOURCE /v0.1.4/dist/static/default/commands/tar.c c64a227afda1ba2bc3450f6beb895b157c91bcda442597888c9d4a0e57e81673 /tmp/bootstrap/tar.c
 SLOP cc \
   /tmp/bootstrap/tar.c \
   -o /bin/tar

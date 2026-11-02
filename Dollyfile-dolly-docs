@@ -5,20 +5,20 @@ REQUIRES HOST runtime@0
 # The platform as a program sees it: the documents and machine contracts of
 # this release at their repository paths, so their links to each other work.
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
-SOURCE /v0.1.4/docs/process-model.md 8b02fdfce520c556546964b678bd349cf41968877a27417c515ad6532402e7ee /usr/share/doc/dolly/docs/process-model.md
-SOURCE /v0.1.4/docs/browser-stack.md 9f16905e91c1ea4a129574a6c73729874be7863439a3aaf18189be139b5c37fc /usr/share/doc/dolly/docs/browser-stack.md
-SOURCE /v0.1.4/docs/slop.md 3d0dc60c78139154c033a55cea566b67ef01a55d06b8b42d97900b9b809356d1 /usr/share/doc/dolly/docs/slop.md
-SOURCE /v0.1.4/docs/display.md fd67c8cb0440c6af27bcb92f0bccbade5bb71eba0a207a16b171aec9e86e8301 /usr/share/doc/dolly/docs/display.md
-SOURCE /v0.1.4/docs/gpu.md 146497430801f395f968c37c97f134944ed9cb89cf4a7b7b9956ee8f4f5a0ce3 /usr/share/doc/dolly/docs/gpu.md
+SOURCE /v0.1.4/docs/process-model.md 6f4c6ed75638843590a570f88341495307d85a7088b2037120dfbf3f667b37f1 /usr/share/doc/dolly/docs/process-model.md
+SOURCE /v0.1.4/docs/browser-stack.md f63342db58fdd4969208cdea639f0792dbc6f9b08eda54f62a40c98fb897d988 /usr/share/doc/dolly/docs/browser-stack.md
+SOURCE /v0.1.4/docs/slop.md 65389e4a7f0181f1fa4ab3cd36be887d2c4c6e36c47cbf96bc7123fea0700dab /usr/share/doc/dolly/docs/slop.md
+SOURCE /v0.1.4/docs/display.md 4862aa3d0f0251c03887be702f03267bb3c1ef8c683c816a60797f89471b0b02 /usr/share/doc/dolly/docs/display.md
+SOURCE /v0.1.4/docs/gpu.md bfd3b4ce7c8b29cf58fa33d3faa1b3a315892808ed7e2d5b19415589d48836b3 /usr/share/doc/dolly/docs/gpu.md
 SOURCE /v0.1.4/docs/audio.md 2380b483c106b884e3e97ed3de8eaac9467e8e2a0307b878bddf620401d43e9f /usr/share/doc/dolly/docs/audio.md
 SOURCE /v0.1.4/docs/http.md de50df79d12ddf7cc5335c1061e0f33c5dcaa2228970754ff844f211ed2a40af /usr/share/doc/dolly/docs/http.md
-SOURCE /v0.1.4/docs/sessions.md 9f4f32a5e6d7b12b9d3a93214de71171c5bb7e46e14eac2509704b5c62c6af6d /usr/share/doc/dolly/docs/sessions.md
-SOURCE /v0.1.4/docs/dollyfile.md 0ace775d61fae523f2c3fcf9cf0c4db2ba9504a93506e70479d25b280cbbdd71 /usr/share/doc/dolly/docs/dollyfile.md
-SOURCE /v0.1.4/docs/architecture.md 7346c09db48816b68e7014cea16eea7f3d84d26fbdf81b6776215fba239f7e11 /usr/share/doc/dolly/docs/architecture.md
-SOURCE /v0.1.4/docs/browser-boundary.md 1fcde30de0ea7882e4fb12a21939d6f2ef43a82adcfeadfd17552c3603413640 /usr/share/doc/dolly/docs/browser-boundary.md
+SOURCE /v0.1.4/docs/sessions.md 655a7f4d49eb105548e331c595b7ae9b9a9cabb272debc0ffd6f33b937c87bf4 /usr/share/doc/dolly/docs/sessions.md
+SOURCE /v0.1.4/docs/dollyfile.md 3aa08e0ef0de7d2e4fe0964ce6f124b6e26ef47ef8551dd6c20a7da1c5f3c22e /usr/share/doc/dolly/docs/dollyfile.md
+SOURCE /v0.1.4/docs/architecture.md 5ad4ce501063178f77b7c340ad807ea73222ff74f28490fc130900e5721fc77c /usr/share/doc/dolly/docs/architecture.md
+SOURCE /v0.1.4/docs/browser-boundary.md 1d0a7f13bcef2d347c82765da4f909054d58c695f6cdb2b32a88780bbc7e20ed /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE /v0.1.4/docs/image-build-service.md 43bbcfcf7c5e7c8ce83f91c55b3c4bc0682651b2905ba35089b2b85b3b13efa9 /usr/share/doc/dolly/docs/image-build-service.md
-SOURCE /v0.1.4/abi/README.md 078689e4c2c92867d7e13cf3aeb634e0f4f7e2e0aa1fac5a96fb7d82385a548f /usr/share/doc/dolly/abi/README.md
-SOURCE /v0.1.4/host/README.md 436a06417fdb68a155e288495f10b88ac13e5badf2ca040d7c741e667c1459ad /usr/share/doc/dolly/host/README.md
+SOURCE /v0.1.4/abi/README.md 4eed10accc3691e2d0ef2ec1cbb8a30c15d250f0af4b55ba5caec2978378a5f9 /usr/share/doc/dolly/abi/README.md
+SOURCE /v0.1.4/host/README.md 800d6b8a4affe8e4476e25fcfdcf027fcfb0c507b5e9e01a3c1c0f02d978cb8a /usr/share/doc/dolly/host/README.md
 SOURCE /v0.1.4/abi/dolly-browser-0.wat 54576bfa23c0a01f7cd213f03c3e68309c9298a95a6310c476915490f868407d /usr/share/doc/dolly/abi/dolly-browser-0.wat
 SOURCE /v0.1.4/abi/dolly-host-0.wat 7d1a02e3317086c06ca022e917d6d8537d9a005e9804e5ffdf256dc7d70c8671 /usr/share/doc/dolly/abi/dolly-host-0.wat
 SOURCE /v0.1.4/abi/dolly-image-0.wat 9a16a6472d26ee6ca5d7a67a474a1723745b3eefaf585bd292d115725bf44d6a /usr/share/doc/dolly/abi/dolly-image-0.wat

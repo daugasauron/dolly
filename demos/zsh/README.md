@@ -11,7 +11,7 @@ terminal.
 
 ## The port
 
-Dolly has no `fork` or `exec`: a program starts by `posix_spawn`
+Dolly has no `fork`: a program starts by `posix_spawn`
 ([process model](../../docs/process-model.md#spawn-and-wait)).
 [`zsh-dolly.patch`](zsh-dolly.patch) changes `Src/exec.c`, where zsh forks,
 and `Src/init.c`:
@@ -33,7 +33,8 @@ and `Src/init.c`:
   `$(...)` took 14 ms in Chromium, against 10 ms without it (2026-10-16).
 - Not available: `<(...)`, `>(...)` and `=(...)`, multios (`> a > b`), and
   job control (Dolly has no process groups). `time` reports elapsed time
-  only: Dolly's `wait` reports no resource usage.
+  only: the port is configured without `wait3`, and Dolly reports a child's
+  CPU times as zero.
 
 zsh calls its hooks, builtins and callbacks through function pointers of a
 common type, which a WebAssembly call traps on: the program is linked with

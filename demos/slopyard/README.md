@@ -37,7 +37,7 @@ Open `/slopyard/`; build with `npm run image -- slopyard`. Slopyard needs
 - Controllers run at 20 Hz by default in separate Lua 5.5 states with no I/O.
 - Buoyancy samples each block's volume; it is not a fluid simulation.
 - Key files: [`Dollyfile-slopyard`](Dollyfile-slopyard), [`Dollyfile-gamedev-sdk`](Dollyfile-gamedev-sdk),
-  [`Dollyfile-slopyard`](Dollyfile-slopyard), [`src/main.c`](src/main.c),
+  [`src/main.c`](src/main.c),
   [`src/pi.mjs`](src/pi.mjs), catalog programs in [`src/programs/`](src/programs/);
   tests in [`test/`](test/).
 

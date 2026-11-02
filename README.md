@@ -64,7 +64,7 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `git`: `git` over the page's HTTP broker, with `diff` and `patch`.
 - `zlib`: libz: zlib's headers and static library, for programs the `cc` package builds; it brings no compiler.
 - `curl`: `curl` and libcurl, over the page's HTTP broker.
-- `gzip`: `gzip -dc`, which unpacks a `.gz` file to standard output; the `pigz` package writes them.
+- `gzip`: `gzip`, which compresses and decompresses `.gz` files with zlib.
 - `less`: `less`, the pager; Git and `man` page through it once it is installed.
 - `ninja`: `ninja` (Samurai), which Meson and CMake's Ninja generator build with.
 - `mandoc`: `mandoc`, which formats a manual page of man or mdoc macros as text, and `text-page`, with which a package formats upstream's pages when it is built.
@@ -80,7 +80,7 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `stack-wrap`: rewrites a program the `cc` package built so that it recurses deeper than one browser stack, with `stack@0`.
 - `ps`: `ps`, which lists the processes: PID, parent, state and command line.
 - `session-recover`: `session-recover`, which copies the files of a saved session file into a new directory.
-- `display`: the terminal: the Ghostty display plugin, its font and the termcap entry.
+- `display`: the terminal: the Ghostty display plugin, its fonts and the termcap entry.
 - `dolly-docs`: the platform's documents and machine contracts, in `/usr/share/doc/dolly`.
 
 ## Try it
@@ -257,16 +257,16 @@ npm run image -- default --package    # also seal a local release for npm run se
 ```
 
 Image builds rewrite SHA-256 pins in `Dollyfile*`. Check by what you changed
-(measured on 16 shared cores, on 2026-10-06 where no date is given):
+(measured on 16 shared cores, busy with other builds):
 
 | Edit | Check | Turnaround |
 | --- | --- | --- |
-| Scripts, Node-side code | `npm run test:source`, `npm run test:artifacts` | 20 s, 24 s (2026-10-14) |
-| Page JavaScript | `npm run dev`, reload; `npm run test:core` | 24-32 s Chrome, 32-68 s Firefox, the higher under load (2026-10-13) |
-| Kernel C | `npm run build:runtime`, then `npm run test:core` | 9-12 s without changes |
-| A recipe or its sources | `npm run image -- IMAGE` | 3 s when nothing changed (`default`, 2026-10-14); 9 s to rebuild `gzip` |
-| Seed: headers, Slop, commands, libc adapter | every image rebuilds | 888 s for `default`, `cc`, `git` and `less`, 15 images (2026-10-13) |
-| Before merging | `npm run test:browser` (`test/*-browser.mjs`), `npm run test:demos` (`demos/*/test/`) | 7 min for the core tests in both browsers, four files at a time (2026-10-14) |
+| Scripts, Node-side code | `npm run test:source`, `npm run test:artifacts` | 30 s for the first (2026-11-02) |
+| Page JavaScript | `npm run dev`, reload; `npm run test:core` | 28 s Chrome, 39 s Firefox (2026-11-02) |
+| Kernel C | `npm run build:runtime`, then `npm run test:core` | 15 s without changes (2026-11-02) |
+| A recipe or its sources | `npm run image -- IMAGE` | 3 s when nothing changed (`default`); `gzip` builds in 4 s (2026-11-02) |
+| Seed: headers, Slop, commands, libc adapter | every image rebuilds | 970 s for `default`, `cc`, `git` and `less`, 19 images, one browser at a time (2026-11-02) |
+| Before merging | `npm run test:browser` (`test/*-browser.mjs`), `npm run test:demos` (`demos/*/test/`) | 442 s for the core tests in both browsers, four files at a time (2026-10-31) |
 
 ## Docs
 
@@ -291,7 +291,5 @@ Image builds rewrite SHA-256 pins in `Dollyfile*`. Check by what you changed
 
 Dolly is a prototype, not full POSIX, Node or libcurl compatibility.
 [MIT licensed](LICENSE), except the files marked
-`SPDX-License-Identifier: GPL-2.0-or-later`: the Seven Kingdoms port compiled
-into the game (`demos/rts`: `Makefile`, `OAUDIO.h`, `arena.*`, `config.h`,
-`input.*`) and `demos/zero-ad/engine.patch`. Bundled upstream programs keep
-their own [licences](docs/licences.md).
+`SPDX-License-Identifier: GPL-2.0-or-later`, which are compiled into GPL games.
+Bundled upstream programs keep their own [licences](docs/licences.md).

@@ -20,11 +20,6 @@ image, and `man NAME` describes a command.
      recipes of upstream and generated Makefiles, and upstream build scripts
      such as CMake's `bootstrap`;
   2. what agents type inside Dolly, as recorded in transcripts and audits.
-  Measured natively against Bash (2026-10-06,
-  `tasks/20261006-121403-configure-survey`): the `configure` scripts of GNU
-  Make, libffi, CPython and bison print the same checks and write the same
-  files under Slop, once `umask` exists. Inside Dolly they still stop at
-  `chmod` and at `config.sub`, which does not know Dolly.
 - **A missing feature** is judged in this order:
   1. Not POSIX (`[[ ]]`, arrays, `<( )`, `${VAR/pat/rep}`, `${VAR:off:len}`,
      brace expansion, `function`, `let`): refused, by name where agents are

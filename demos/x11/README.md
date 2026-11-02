@@ -50,8 +50,7 @@ is back.
   copied to it at most once every 16 ms, SDL's events are read when the
   server wakes, at least every 8 ms, and SDL's scancodes become the evdev
   keycodes of the default keymap (`us`, `pc105`).
-- [`xorg-server-dolly.patch`](xorg-server-dolly.patch) (48 lines added, 7
-  taken out): `Popen` and `Pclose`, with which the server runs xkbcomp for its
+- [`xorg-server-dolly.patch`](xorg-server-dolly.patch): `Popen` and `Pclose`, with which the server runs xkbcomp for its
   keymap, use libc's `popen`, since Dolly has no `fork`; and the null
   functions the server installs as casts of `NoopDDA(void)` are functions of
   their pointers' types: WebAssembly traps on a call through a pointer of
