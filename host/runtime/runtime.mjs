@@ -103,16 +103,21 @@ export function worker({ send, runtimeBase, abi, service }) {
   // A process's memory never reaches this Worker (process-supervisor.mjs).
   const growerUrl = new URL("./grower.mjs", import.meta.url);
   const grower = new Worker(growerUrl, { type: "module", name: "dolly-memory" });
+  const control = new SharedArrayBuffer(16), values = new BigInt64Array(control), word = new Int32Array(control);
+  // Once the grower holds the memory and waits on the word.
   const growing = new Promise((resolve, reject) => {
     grower.onmessage = resolve;
     grower.onerror = event => reject(new Error(event.message || "the memory Worker failed"));
   });
+  grower.postMessage({ memory, control });
   // The old size in pages, or -1: this thread sees the new size when it returns.
   const grow = pages => {
-    const control = new SharedArrayBuffer(16), values = new BigInt64Array(control), word = new Int32Array(control);
     values[0] = pages;
-    grower.postMessage({ memory, control });
-    while (Atomics.load(word, 2) === 0) Atomics.wait(word, 2, 0);
+    Atomics.store(word, 2, 1);
+    Atomics.notify(word, 2);
+    // A notify can be the grower's for the last growth, whose wait found it
+    // done already: this one is done when the word says so.
+    while (Atomics.load(word, 2) === 1) Atomics.wait(word, 2, 1);
     const old = values[0];
     // This thread learns of the growth by an interrupt, which a wait that
     // found it done already does not take: take it before the kernel touches

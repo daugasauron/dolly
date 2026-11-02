@@ -159,6 +159,11 @@ After (`after-process-memory-2.log`, the test passes in both):
 The memory goes with the process in both browsers, and make runs a third faster: the runtime
 Worker no longer copies any packet.
 
+Verified so far (`build/proc-mem-evidence/tests-*.log`): the source suite (466), and in Chromium
+`core`, `ending`, `pty`, `threads` and `process` (pipes, signals, exec among them) with the poll
+fix; `stack`, `host-compute`, `sockets` and `dso` compose images from packages the tree's
+narrowed catalog lacked (`libdolly-sockets`, `libdolly-gpu`, `stack-wrap`), built next.
+
 Found on the way: `integrate/2026-11-02` (fa949c1b) pins `src/commands/{install,du,xargs,find,timeout}.c`
 at digests older than the files (ba1e63b1 changed them without `update-recipe-pins.mjs`), which
 `npm run image` silently corrects at its start since re-pinning is its first phase; 162 recipes
