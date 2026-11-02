@@ -88,6 +88,10 @@ out of bounds`; `threads-browser` and `memory-growth-browser` pass in Chromium a
 With `a15a3c6c` 0 of 480 Lean runs trapped in an image build (the stress above); the rule
 is the same, since what a process grows before its second thread it grows alone.
 
+2026-11-02 (`core/process-memory`): the reservation is made by the Worker that spawns the thread,
+before it posts the spawn, since the runtime Worker no longer holds a process's memory at all; the
+grower of this file serves the kernel's memory alone. The rule stands.
+
 Found on the way, older than this: a process that ends leaves its memory resident until the
 runtime Worker collects garbage, which its small heap rarely needs. The same six runs without
 threads rose to 3.8 GiB in Chrome before a collection, on `main` too, and stayed flat when the

@@ -12,11 +12,11 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime bb7e71df10b5bac47a5269aefaede598f8e061e3fcf7e8f0cb981eb15aaef5a3
-COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 5a600b6c88a1bf7dcba187be6031bc7963ce8478a147b822d1d24320fd7635b8 /usr/bin/classicube /usr/bin/classicube
-COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 5a600b6c88a1bf7dcba187be6031bc7963ce8478a147b822d1d24320fd7635b8 /usr/share/classicube /home/dolly/classicube
-COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 5a600b6c88a1bf7dcba187be6031bc7963ce8478a147b822d1d24320fd7635b8 /usr/share/licenses/classicube /usr/share/licenses/classicube
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 a4ab111fd2ae6cf9709f14990a398207d97179abee4179c198d0929bc99811bd
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 0000000000000000000000000000000000000000000000000000000000000000
+COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 0000000000000000000000000000000000000000000000000000000000000000 /usr/bin/classicube /usr/bin/classicube
+COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 0000000000000000000000000000000000000000000000000000000000000000 /usr/share/classicube /home/dolly/classicube
+COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 0000000000000000000000000000000000000000000000000000000000000000 /usr/share/licenses/classicube /usr/share/licenses/classicube
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 0000000000000000000000000000000000000000000000000000000000000000
 EXPORTS TOOL classicube
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner
@@ -33,7 +33,7 @@ REQUIRES TOOL classicube
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE /v0.1.4/dist/static/classicube/agent.tar 098a3cba98a7188bb513273e6a1530f609c026f48075f6d5f43c9649e25b407f /tmp/classicube-agent/source.tar
+SOURCE /v0.1.4/dist/static/classicube/agent.tar a575c5c5354cb8210464a4577204ed3169a31838ad981acac4cba3adaa30e60e /tmp/classicube-agent/source.tar
 SOURCE /v0.1.4/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/classicube-agent/stb_truetype.h
 SLOP tar -xf /tmp/classicube-agent/source.tar -C /
 SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/classicube-agent \

@@ -12,10 +12,10 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/slopyard/Dollyfile-gamedev-sdk 867ff29378ccf50aea67b02bb254cacf818d2e37106f3501108bc757554d12c6
-INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 2de069378eadd1d9dc70993cd799a0e66f05fc3aa94655ac66d85512501c5c91
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly b6dc68b5be4844f67096fc0f39bb04153354ff8bde71793757437931a65b2ac7
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 a4ab111fd2ae6cf9709f14990a398207d97179abee4179c198d0929bc99811bd
+FROM /v0.1.4/demos/slopyard/Dollyfile-gamedev-sdk 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 0000000000000000000000000000000000000000000000000000000000000000
 REQUIRES TOOL cc
 REQUIRES TOOL make
 REQUIRES TOOL c++
@@ -30,7 +30,7 @@ REQUIRES LIB dolly-js
 REQUIRES LIB quickjs
 REQUIRES LIB SDL2
 
-SOURCE /v0.1.4/dist/static/bhop/source.tar 0446cbeb662cd144fac5cd12973093bf92db6c0295b4a55dd71a0aa283df4c3c /tmp/bhop-source.tar
+SOURCE /v0.1.4/dist/static/bhop/source.tar ec72dcd9268eaad9d386b9e877b3773e419c0cc4eac66e03bc727e17036afdc4 /tmp/bhop-source.tar
 SOURCE /v0.1.4/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/bhop-stb/stb_truetype.h
 SLOP tar -xf /tmp/bhop-source.tar -C /
 

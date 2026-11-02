@@ -19,7 +19,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL gzip
 REQUIRES TOOL rm
 
-SOURCE /v0.1.4/dist/static/classicube/source.tar.gz 20ebb3e4c9fa4fe103c57153585365974ce90f788eec7589a0cc7fbd635cc8fe /tmp/classicube/source.tar.gz
+SOURCE /v0.1.4/dist/static/classicube/source.tar.gz f22ef0de1963ba2698e74524479f2d1b7835e33f8d97b570dd020efa658b070e /tmp/classicube/source.tar.gz
 SLOP gzip -dc /tmp/classicube/source.tar.gz | tar -xf - -C /
 SLOP make -f /usr/src/dolly/classicube/Makefile
 

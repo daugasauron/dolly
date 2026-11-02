@@ -1,6 +1,5 @@
-// Grows a shared memory, the kernel's or a process's, for the runtime Worker
-// (runtime.mjs, process-supervisor.mjs), which hands it the memory and a
-// control once. A growth is asked while the control's third word is 1: its
+// Grows the kernel's memory for the runtime Worker (runtime.mjs), which hands
+// it the memory and a control once. A growth is asked while the control's third word is 1: its
 // first value, the pages asked, becomes the old size in pages or -1, and the
 // word 0. Requests pass through the word, not messages: the kernel's growth
 // waits in Atomics.wait, and Chrome keeps a message posted then to a Worker
