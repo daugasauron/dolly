@@ -201,6 +201,14 @@ then `test ! -e` on the artifact) holds in both browsers. amy-browser stops at i
 `amy install python`: python is not in this catalog. Its changed line 135 runs the same
 engine command as nena's; the full catalog's run reaches it.
 
+Round 8 on `27ec48c0`, 13:36 to 13:42: the build above plus `python` (`ready in 171.9s`), so
+the welcome text's three packages are in the catalog. default-browser: Chromium pass 60 s
+(its three tests), Firefox pass 107 s. amy-browser now passes its line 135 and stops at 156:
+the second `dollyfile install` of `needs`, meant to show a recorded row is not installed
+twice, finds no artifact (the first install consumed it, 749d57c99): a third stale step of
+the same commit, reached only once 135 was fixed. `4ad9a862` places the artifact again
+before that install; amy-browser rerun in both browsers below (`amy-BROWSER-9.log`).
+
 ## Lessons
 
 (filled in at the end)
