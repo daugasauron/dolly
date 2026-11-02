@@ -157,6 +157,11 @@ Run 12:44 to 12:53, one slot per browser:
 - `host-compute-browser` installs `libdolly-gpu` and declares gpu@0: left out with the GPU
   tests.
 
+Round 5 on `393b5c4b`, 12:55 to 12:57: the build above plus `less` (`ready in 14.0s`), then
+pager-browser Chromium pass 8 s, Firefox pass 11 s; audio-browser Chromium pass 12 s on its
+rerun (the round-4 run hit the test's 120 s deadline with nothing else in its log; not
+reproduced). Logs `NAME-BROWSER-5.log`.
+
 ## Lessons
 
 (filled in at the end)
