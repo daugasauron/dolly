@@ -516,6 +516,17 @@ ahead of the 58-image closure: `/opt/mozjs` taken out of the older seed's
 callbacks and clone passed", in Chromium and Firefox
 (`build/abort-evidence/sm-link-browser.{mjs,log}`).
 
+The image that failed, rebuilt: the 58-image closure of
+`default,system,zero-ad-engine` at one job in a `bigbuild` (9 GB) slot took
+3 h 16 min (09:15 to 12:31; rust-llvm 46 min, rust-build 57 min,
+spidermonkey 25 min, zero-ad-engine 11 min). `Dollyfile-zero-ad-engine:43`
+links `spidermonkey-check`, which prints the line above; `pyrogenesis
+-version` prints `Pyrogenesis 0.28.0`; the snapshot packaged
+(`e7316454…`). `demos/zero-ad/test/0ad-spidermonkey-browser.mjs` runs that
+check out of the new image in Chrome: 81 ms, then 30 ms. Also measured:
+`rust-build`, noted as needing the 24 GB slot (peak 9.7 GB on 2026-10-23),
+built under the 9 GB cap.
+
 ## Lessons
 
 - Most of the defects are code from the first checkpoint (`b95459ce`,
