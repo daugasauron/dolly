@@ -47,7 +47,33 @@ pi-minimal's modules) with docs-audit's description of `amy` in the default imag
 
 ## Builds and tests
 
-(filled in as they finish)
+- `DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=default,system npm run image` (build slot, 6G):
+  12:02 to 12:23, `default,system ready in 1255.5s`; the build left no pin changes, so the
+  pins committed above are the staged sources' pins. Hard-link check: 0.
+- `pi-dolly` is not built: its closure holds `rust-build` (ripgrep, fd), a hugebuild image
+  that the seed change invalidates and that only the integrator builds.
+
+Round 1 on `fb57526b` (default,system built), 12:23 to 12:33, one browser slot per browser,
+logs `build/candidate-evidence/NAME-BROWSER.log`:
+
+| Test | Chromium | Firefox |
+| --- | --- | --- |
+| core-browser | pass, 49 s | pass, 114 s |
+| process-browser | pass, 78 s | pass, 91 s |
+| threads-browser | pass, 35 s | pass, 50 s |
+| boundary-browser | pass, 4 s | pass, 7 s |
+| memory-growth-notify-browser | pass, 5 s | pass, 8 s |
+| process-memory-browser | pass, 81 s | pass, 86 s |
+| html-browser | no run: catalog lacks `html` | no run: catalog lacks `html` |
+| shell-browser | pass, 16 s | pass, 15 s |
+| image-browser | pass, 88 s | pass, 104 s |
+| custom-session-browser | pass, 86 s | pass, 90 s |
+| session-offline-browser | pass, 9 s | pass, 6 s |
+
+html-browser composes `system` with the `html` package (`composed(["html"], ["html"], { base:
+"system" })`), which the default,system build does not include: `composed` fails on the
+catalog entry (`reading 'dollyfile'`) before a browser opens. Not a merge fault; `html` is
+built in round 2 below.
 
 ## Lessons
 
