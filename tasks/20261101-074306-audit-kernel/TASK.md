@@ -506,7 +506,8 @@ archive and links a program against it (exit 7 proves the program's ran);
 `threads-browser.mjs` ends a `-pthread` program's `abort` by SIGABRT (134).
 On `default,system` built from this seed (16 min at one job): `process`
 passes in Chromium (41.5 s) and Firefox (41.6 s), e0c73f1c's SIGABRT cases
-with it; `threads` passes in both (10.7 s, 12.6 s). The link that failed,
+with it; `threads` passes in both (10.7 s, 12.6 s); `core` passes in both
+(25.7 s, 37.6 s); source suite 466/466. The link that failed,
 ahead of the 58-image closure: `/opt/mozjs` taken out of the older seed's
 `spidermonkey` snapshot (`decodeSystemSnapshot`, 330 files) into the new
 `system` image, then the recipe's line `c++ -std=c++20 -O1
