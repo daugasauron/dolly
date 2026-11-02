@@ -504,7 +504,16 @@ input (`af3cb5ea…`), not a pinned source.
 Tests: `process-browser.mjs` builds an `abort` of the program's own into an
 archive and links a program against it (exit 7 proves the program's ran);
 `threads-browser.mjs` ends a `-pthread` program's `abort` by SIGABRT (134).
-Browser results on `default,system` from this seed: see below.
+On `default,system` built from this seed (16 min at one job): `process`
+passes in Chromium (41.5 s) and Firefox (41.6 s), e0c73f1c's SIGABRT cases
+with it; `threads` passes in both (10.7 s, 12.6 s). The link that failed,
+ahead of the 58-image closure: `/opt/mozjs` taken out of the older seed's
+`spidermonkey` snapshot (`decodeSystemSnapshot`, 330 files) into the new
+`system` image, then the recipe's line `c++ -std=c++20 -O1
+-I/opt/mozjs/include spidermonkey-check.cpp -L/opt/mozjs/lib -ljs_static
+-ljsrust -lz` links in 3.0 s and the check prints "wasm64 realms, GC,
+callbacks and clone passed", in Chromium and Firefox
+(`build/abort-evidence/sm-link-browser.{mjs,log}`).
 
 ## Lessons
 
