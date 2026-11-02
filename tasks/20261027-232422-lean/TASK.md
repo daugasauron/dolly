@@ -25,6 +25,14 @@ exception the demo's README states.
 
 ## State (2026-11-02): `demo/lean-3`, on `integrate/2026-11-02`
 
+Against the done-when, 12:45: met in Chromium, in a 6 GB slot: `amy install lean` on `default`
+from the round's catalog, `lean --run`, the four theorems, the false one with status 1, `lake new`
+without Git, `lake build` and the program, and `demos/lean/test/lean-browser.mjs` (52.6 s, with
+`core/process-memory`). In Firefox the same steps pass up to `lake new`, where the 6 GB cap kills
+the tab (about 7 GB needed). The `test/amy-browser.mjs` row, pins and licence rows are in. Not
+verified here: the domain's catalog (`config/domain-pages-images.txt` lists the three packages;
+the round's publish stage packages it) and Firefox at a larger cap (the round's suites).
+
 `demo/lean-2` is merged in `integrate/2026-11-02` (`fa949c1b`); the catalog round of that
 branch builds Lean's four images one at a time in a 36 GB scope. On the branch, with the
 round's images linked into this tree (same recipe hashes and build id, image inputs
@@ -50,6 +58,33 @@ scope's memory, anonymous in brackets):
 | `lean wrong.lean`, status 1 | 1.2 s | 3.9 s |
 | `lake new greeting` (no git: a warning) | 0.9 s | killed by the cap |
 | `lake build`, then the program prints `Hello, world!` | 7.5 s, anonymous at most 6.05 GB | |
+
+After merging `core/process-memory` (`761d0cb8`: a process's memory lives in its Workers alone and
+goes with them), same steps, same slots (anonymous memory, the step's highest, then after it):
+
+| Step | Chromium before | Chromium after | Firefox before | Firefox after |
+| --- | --- | --- | --- | --- |
+| install | 4.02, 3.98 | 4.03, 3.98 | 4.67, 4.55 | 4.67, 4.52 |
+| `lean --run` | 4.83, 4.35 | 4.81, 4.36 | 4.99, 5.47 | 5.85, 5.43 |
+| theorems | 4.93, 4.91 | 4.88, 4.89 | 5.94, 6.00 | 5.90, 5.44 |
+| false theorem | 5.42, 5.48 | 4.89, 4.65 | 6.38, 5.48 | 5.95, 5.44 |
+| `lake new` | 5.84, 5.23 | 4.83, 4.32 | killed | killed |
+| `lake build` | 6.05, 5.14 | 5.58, 4.84 | | |
+
+Dead processes no longer pile up: in Chromium the test now ends 1.3 GB lower, and
+`demos/lean/test/lean-browser.mjs` passes (52.6 s). In Firefox a live `lean` takes about 1.4 GB
+above the 4.5 GB the session holds after the install (0.85 in Chromium, above 4.0), and the
+cap kills the tab at `lake new`, in the test too: Firefox needs a cap of about 7 GB for it.
+The thread count is not it (`build/lean-evidence/day/threads-cost.mjs`: `lean -j1`, `-j2` and the
+default each add about 0.5 GB while they run, in both browsers). The first `lean` leaves 0.8 GB
+behind in Firefox and 0.3 GB in Chromium after it ends, and later ones nothing: most likely the
+compiled module of the 214 MB `lean`, which the supervisor keeps compiled; `lake`, as large, then
+adds its own. Not measured apart.
+
+`test/amy-browser.mjs`'s row: its check that every package of the catalog is installed by a
+test or names where (`elsewhere`), evaluated against the round's full catalog (136 packages,
+`work/integrate/dist/dolly-images.mjs`, the browser tests stubbed), passes with `lean`,
+`lean-std` and `lean-meta` in it; the file's browser tests run in the round's suites.
 
 The install's kernel side is now the package's size: anonymous 3.98 GB after it in Chromium
 where it was 5.22 before the last-use rule. Chromium passed the measured steps three times and
@@ -260,3 +295,6 @@ module, lean.mk's rules), since Lake would need stage 0's `libLake_shared.so` pl
   too, a cache-hit `npm run image` in this tree rewrote `dist/dolly-images.mjs` in place with 23
   images, and three images of the round in `work/integrate` failed with it; the light stage
   restarted. Copy every other file, and check `find dist -type f -links +1` before a build.
+- A large program's first run leaves its compiled module behind (most likely; 0.8 GB for
+  `lean`'s 214 MB in Firefox, 0.3 in Chromium): a browser slot's budget for a test of big
+  programs is the session plus each one's compiled code, which differs by browser.
