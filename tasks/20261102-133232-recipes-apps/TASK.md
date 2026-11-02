@@ -142,8 +142,14 @@ speech, tmux, wine, x11, xonotic, zero-ad, zsh; 80 recipes) read in full against
    merge repinned) and lost four to `Target crashed` again: ghostty-gtk, zero-ad, pi-local and
    lean-std, the four largest builds, with the reverted runtime in place (`dolly-build-id.mjs`
    b979c6eb, the same as integrate's). That is the 6 GB cap killing Chrome's renderer, not the
-   kernel: the evening round built the first three in the integrator's larger scope. Rerun in
-   a 9 GB `bigbuild` slot (the brief allows it for the heavy chains): below.
+   kernel: the evening round built the first three in the integrator's larger scope. The rerun
+   in a 9 GB `bigbuild` slot (00:16-01:35) built pi-local and lean-std and lost ghostty-gtk
+   (in Zig's parallel compile), dollyfile-studio (1.69 GB) and zero-ad (1.94 GB) at the
+   page's "verifying completed image" step, each with the user journal's "A process of this
+   unit has been killed by the OOM killer" for the slot's scope (00:18, 00:29, 01:35): the
+   cap, measured. They need the next catalog round in the integrator's scope; so does
+   ghostty-x11, which waits for ghostty-gtk. gtk-build and mesa-build, the two recipes of fix 2
+   that these depend on, are built and sealed.
 
 6. ENTRY scripts named `init.slop` (F8 fixed rather than kept): `docs/agent-frontend.md` shows
    an embedding's `boot()` writing `/etc/dolly/init.slop` over the image's, which only works
@@ -160,7 +166,17 @@ failed at `amy install vi` inside a pane ("vi: command not found"): `vi` is a co
 narrowed catalog of this tree did not list, not a tmux change (tmux's binary is byte-identical).
 Rerun on the whole catalog (00:15): tmux passed in Chromium (21.6 s) and Firefox (13.3 s),
 with its package and `ps` tests in both; x11 passed in Chromium (40.2 s) on the rebuilt
-xorg-server and x11-desktop. Source suite after every commit: 467/467.
+xorg-server and x11-desktop; x11 also passed in Firefox (41.2 s: a drag at 51 frames/s, ImGui
+55 frames/s). Source suite after every commit: 467/467.
+
+## State, 2026-11-03 01:45
+
+Done: the table above, six fixes in five recipe commits (27523f9fa, 896be41ca, a5d603cd8,
+91df1890c, 05f9f4648) plus the merge ac06673c8, every image of these demos rebuilt in
+`work/recipes-apps` except the four that exceed a 9 GB slot (above). Left for the next
+round: those four; the findings F3-F15 as written; P1 for the integrator. The tree's own
+files are 21.6 GB after `work/disk.sh` (2.3 GB linked) and the removal of the builders'
+Chrome profiles and other demos' staging trees.
 
 The x11 demo test's first run (Chromium) passed the X server, xeyes, a window drag, typing
 into xterm and ImGui's frames, then timed out at `amy install tmux` inside xterm: at that
@@ -274,6 +290,14 @@ over that file), every demo's `prepare-sources.sh` is guarded by `has_image`.
 needed no merge here: no build of the night crashed Chrome (`Target crashed` in no log).
 P1 (CMake at -O0) is a catalog-round decision, left in this task for the integrator.
 
+## For the next catalog round
+
+ghostty-gtk, ghostty-x11, zero-ad and dollyfile-studio: their recipes changed only by the
+declarations, `init.slop` and pins above (ghostty-gtk by its base mesa-build's pin), and their
+builds exceed a 9 GB slot. Every other image of these demos is built in this tree with the
+merged runtime (b979c6eb) at image inputs fe5261db. GPU browser tests not run tonight: slopyard,
+gpu-fluid, xonotic, zero-ad (no display number in the brief).
+
 ## Lessons
 
 - A Dollyfile `FILE` body's blank lines are four spaces; the Edit tool strips whitespace-only
@@ -295,6 +319,11 @@ P1 (CMake at -O0) is a catalog-round decision, left in this task for the integra
   the lint's completeness error on the first removal (`meson needs http@0, sockets@0`) pointed
   at the cause, build tools `INSTALL`ed instead of `USE`d, whose records every consumer then
   carried. A dead declaration is a symptom; find what put it there.
+- `Target crashed` in a build log is Chrome's renderer dying, and the slot's memory cap kills
+  it as readily as a kernel bug: ghostty-gtk, zero-ad and dollyfile-studio died under 6 GB and
+  again under 9 GB with the reverted runtime in place (the build id matched integrate's), and
+  `journalctl --user` named the OOM killer each time. Check the journal before blaming the
+  kernel, and give a 1.7-2 GB image's capture the integrator's scope.
 - The September workarounds (`-O0` units, `-fno-builtin`, a `libm.a` shim, `-U__SIZEOF_INT128__`)
   carried no reason in the recipe; `git log -S` found the checkpoint commits, and the
   measurement that retired them was a four-minute rebuild. A flag that works around a compiler
