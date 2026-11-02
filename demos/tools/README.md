@@ -54,10 +54,10 @@ What the platform decides ([process model](../../docs/process-model.md)):
   few lines the recipe adds, a change to an upstream source with its reason
   there: Neatvi reads unedited and leaves Enter's mapping to the terminal.
 - Dolly's `tar` reads files, directories and pax headers, and refuses links.
-  The other packages' sources are staged as plain tars of the files a build
-  reads ([`prepare-sources.sh`](prepare-sources.sh)); `sqlite`, `xz`,
-  `bzip2`, `pigz`, `zip`, `unzip`, `yacc` and `flex` build from the archive
-  as published.
+  `jq`'s, `zstd`'s and `bc`'s archives hold links, `wabt`'s is xz, and
+  `toybox`'s headers are generated: their builds read plain tars of the files they need
+  ([`prepare-sources.sh`](prepare-sources.sh)); the rest build from the
+  archive as published.
 - `fork` fails: `vi`'s `!` commands and language servers say so.
 - `/bin` comes before `/usr/bin`, so `tar` installs over the core's
   `/bin/tar`, and `toybox` over `/bin/grep` and `/bin/sed` of `posix` with

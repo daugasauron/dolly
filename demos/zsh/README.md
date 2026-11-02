@@ -21,8 +21,8 @@ and `Src/init.c`:
   does for a builtin; the program's pid joins the job, and zsh waits for it
   as for a forked child. Descriptors the forked child would have closed
   before `exec` are close-on-exec.
-- `exec`, and the last command of `zsh -c`, spawn the program, wait for it
-  and exit with its status.
+- `exec`, and the last command of `zsh -c`, replace the shell by `execve`,
+  as upstream's do: the program keeps the shell's pid.
 - Shell code that needs a process of its own runs in a new zsh: a builtin or
   function in a pipeline before its end or in the background (its words
   expanded, a function with its definition), a `( ... )` subshell, `$(...)`.

@@ -13,13 +13,16 @@ REQUIRES TOOL   ar
 REQUIRES TOOL   cc
 REQUIRES TOOL   cmp
 REQUIRES TOOL   cp
+REQUIRES TOOL   gzip
 REQUIRES TOOL   ln
 REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   mv
 REQUIRES TOOL   tar
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.4/dist/static/tools/lz4.tar 4d09752b58d1c0051e1fc94321767836d78c6cdc095d4016ff0a595f7d5656b7 /tmp/lz4.tar
-SLOP tar -xf /tmp/lz4.tar -C /
+SOURCE /v0.1.4/dist/static/tools/lz4-1.10.0.tar.gz 537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b /tmp/lz4.tar.gz
+SLOP gzip -dc /tmp/lz4.tar.gz | tar -xf - -C /tmp && mv /tmp/lz4-1.10.0 /tmp/lz4
 
 FILE /tmp/lz4.mk
     .RECIPEPREFIX := >
@@ -39,6 +42,7 @@ SLOP make -j4 -f /tmp/lz4.mk
 SLOP ln -s lz4 /usr/bin/unlz4
 SLOP ln -s lz4 /usr/bin/lz4cat
 SLOP cp /tmp/lz4/lib/lz4.h /tmp/lz4/lib/lz4hc.h /tmp/lz4/lib/lz4frame.h /usr/include
+SLOP mkdir -p /usr/share/licenses/lz4 && cp /tmp/lz4/LICENSE /usr/share/licenses/lz4/LICENSE && cp /tmp/lz4/lib/LICENSE /usr/share/licenses/lz4/lib-LICENSE && cp /tmp/lz4/programs/COPYING /usr/share/licenses/lz4/programs-COPYING
 
 SLOP lz4 -9 -c /tmp/lz4/lib/lz4.h | unlz4 | cmp - /tmp/lz4/lib/lz4.h
 SLOP lz4 -q /tmp/lz4/lib/lz4.h /tmp/lz4-check.lz4 && lz4cat /tmp/lz4-check.lz4 | cmp - /tmp/lz4/lib/lz4.h
@@ -53,5 +57,5 @@ EXPORTS HEADER lz4frame /usr/include/lz4frame.h
 FILE /usr/share/licenses/lz4/LICENSE
 FILE /usr/share/licenses/lz4/lib-LICENSE
 FILE /usr/share/licenses/lz4/programs-COPYING
-SLOP text-page /usr/share/man/man1/lz4.1
+SLOP text-page /tmp/lz4/programs/lz4.1
 FILE /usr/share/man/cat1/lz4.1

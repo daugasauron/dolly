@@ -26,6 +26,7 @@ REQUIRES TOOL   cp
 REQUIRES TOOL   gzip
 REQUIRES TOOL   make
 REQUIRES TOOL   mkdir
+REQUIRES TOOL   mv
 REQUIRES TOOL   sed
 REQUIRES TOOL   tar
 REQUIRES TOOL   test
@@ -33,8 +34,8 @@ REQUIRES TOOL   text-page
 
 SOURCE /v0.1.4/dist/static/tools/sqlite-autoconf-3540000.tar.gz 134ec0802dda5795816e25d25872d20b312cb3973438c49b30bc40b7705ea9ed /tmp/sqlite.tar.gz
 SLOP gzip -dc /tmp/sqlite.tar.gz | tar -xf - -C /tmp
-SOURCE /v0.1.4/dist/static/tools/linenoise.tar af43b5f86a81c4ae570a49520451f08756ae72b57e05328951cc18fbcb01973a /tmp/linenoise.tar
-SLOP tar -xf /tmp/linenoise.tar -C /
+SOURCE /v0.1.4/dist/static/tools/linenoise-2.0.tar.gz 97ad7d4041e11d7fa395819fd773c1892dea89e5292342378a8345692ce89c29 /tmp/linenoise.tar.gz
+SLOP gzip -dc /tmp/linenoise.tar.gz | tar -xf - -C /tmp && mv /tmp/linenoise-2.0 /tmp/linenoise
 
 FILE /tmp/sqlite.mk
     .RECIPEPREFIX := >
@@ -64,6 +65,7 @@ SLOP text-page /tmp/sqlite-autoconf-3540000/sqlite3.1
 # with the dedication.
 SLOP mkdir -p /usr/share/licenses/sqlite
 SLOP sed -n 2,10p /tmp/sqlite-autoconf-3540000/sqlite3.h > /usr/share/licenses/sqlite/blessing
+SLOP mkdir -p /usr/share/licenses/linenoise && cp /tmp/linenoise/LICENSE /usr/share/licenses/linenoise/LICENSE
 
 SLOP test "$(sqlite3 :memory: "select sqlite_version(), json_extract(json_array(6, 7), '\$[1]'), sqrt(16)")" = '3.54.0|7|4.0'
 

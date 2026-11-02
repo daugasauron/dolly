@@ -55,9 +55,9 @@ SLOP make -C /tmp/emacs/lib -j4
 SLOP make -C /tmp/emacs/lib-src -j4
 SLOP make -C /tmp/emacs/src -j4
 
-# Install as upstream's make install lays it out, which needs tar -c. Lisp
-# sources whose bytecode is installed are left out: upstream compresses them,
-# and Dolly's gzip only decompresses.
+# Install as upstream's make install lays it out, which needs tar -c, and
+# compress what it compresses: the Lisp sources whose bytecode is installed,
+# the public suffix list and the info pages. Emacs reads them through gzip.
 SLOP mkdir -p /usr/libexec/emacs/31.1/wasm64-unknown-emscripten /usr/share/emacs/31.1 \
   /usr/share/emacs/site-lisp /usr/share/licenses/emacs
 SLOP cp /tmp/emacs/src/emacs /usr/bin/emacs
@@ -68,7 +68,9 @@ SLOP cp /tmp/emacs/src/emacs.pdmp \
 SLOP cp -R /tmp/emacs/lisp /usr/share/emacs/31.1/lisp
 SLOP cp -R /tmp/emacs/etc /usr/share/emacs/31.1/etc
 SLOP cp -R /tmp/emacs/info /usr/share/info
-SLOP find /usr/share/emacs/31.1/lisp -name '*.elc' | sed 's/c$//' | xargs rm -f
+SLOP find /usr/share/emacs/31.1/lisp -name '*.elc' | sed 's/c$//' | xargs gzip -9n
+SLOP gzip -9n /usr/share/emacs/31.1/etc/publicsuffix.txt
+SLOP find /usr/share/info -name '*.info' -exec gzip -9n {} +
 SLOP find /usr/share/emacs/31.1 -name 'Makefile*' -exec rm -f {} +
 SLOP cp /tmp/emacs/COPYING /usr/share/licenses/emacs/COPYING
 
@@ -103,6 +105,10 @@ FILE /tmp/emacs-check.el
       (cl-assert (= (process-exit-status process) 4))
       (cl-assert (equal (with-current-buffer (process-buffer process) (buffer-substring 1 6))
                         "ASYNC")))
+    (require 'find-func)
+    (cl-assert (string-suffix-p "/subr.el.gz" (find-library-name "subr")))
+    (cl-assert (with-temp-buffer (insert-file-contents (find-library-name "subr"))
+                 (search-forward ";;; subr.el ---" nil t)))
     (garbage-collect)
     (princ (format "%s %s\n" emacs-version system-type))
 SLOP timeout 120 emacs --batch -l /tmp/emacs-check.el

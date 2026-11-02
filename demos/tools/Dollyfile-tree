@@ -8,15 +8,18 @@ FROM /v0.1.4/demos/tools/Dollyfile-tools-build 93567a333bc84fb7da97f02aa52388d60
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
+REQUIRES TOOL   cp
+REQUIRES TOOL   gzip
 REQUIRES TOOL   make
 REQUIRES TOOL   mkdir
+REQUIRES TOOL   mv
 REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   wc
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.4/dist/static/tools/tree.tar 2dc320ddce8575de63146bb58fc68101dcce7bf9630334510dc7e83c0bf505ea /tmp/tree.tar
-SLOP tar -xf /tmp/tree.tar -C /
+SOURCE /v0.1.4/dist/static/tools/unix-tree-2.3.2.tar.gz 513a53cbc42ca1f4ea06af2bab1f5283524a3848266b1d162416f8033afc4985 /tmp/tree.tar.gz
+SLOP gzip -dc /tmp/tree.tar.gz | tar -xf - -C /tmp && mv /tmp/unix-tree-2.3.2 /tmp/tree
 
 FILE /tmp/tree.mk
     .RECIPEPREFIX := >
@@ -28,10 +31,11 @@ FILE /tmp/tree.mk
     $S/%.o: $S/%.c $S/tree.h
     >cc -O2 -std=c11 -DLARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -c $< -o $@
 SLOP make -j4 -f /tmp/tree.mk
+SLOP mkdir -p /usr/share/licenses/tree && cp /tmp/tree/LICENSE /usr/share/licenses/tree/LICENSE
 
 SLOP mkdir -p /tmp/tree-check/a/b && test "$(tree -dn --noreport /tmp/tree-check | wc -l)" = 3
 
 EXPORTS TOOL tree
 FILE /usr/share/licenses/tree/LICENSE
-SLOP text-page /usr/share/man/man1/tree.1
+SLOP text-page /tmp/tree/doc/tree.1
 FILE /usr/share/man/cat1/tree.1
