@@ -214,6 +214,9 @@ Changed where a claim was wrong, mostly a core behaviour the night changed:
 
 ### Help texts and manual pages (seed inputs)
 
+- The seed change was verified on the images it rebuilt: `core-browser`, `shell-browser`,
+  `slop-browser`, `man-browser`, `process-browser` and `docs-browser` pass in Chromium and
+  Firefox (`build/docs-audit-evidence/*-browser.log`).
 - Built natively (`gcc`, a two-function spawn stub) and ran every option each `--help` lists:
   `ls`, `cp`, `mv`, `rm`, `mkdir`, `cat`, `stat`, `touch`, `file`, `du`, `env`, `find`,
   `xargs`, `timeout`, `time`, `hostname`, `pwd`, `realpath`, `install`, `gzip`, `tar`: all
@@ -255,7 +258,12 @@ Changed where a claim was wrong, mostly a core behaviour the night changed:
   does since dbf38965 (links stay refused, so each needs its archive checked); for the same
   reason the x11 recipes `Dollyfile-libxkbfile`, `-pixman`, `-xkbcomp`, `-xkeyboard-config`
   and `-xorg-server` install the tools demo's `tar` ("reads the pax headers of X.Org's
-  archives"). Recipe comments that give the old reasons, changed with those recipes:
+  archives"). Measured natively on the 26 staged X.Org archives: the core tar before 705de088
+  refused `libxkbfile`, `pixman` and `xkeyboard-config` ("read extended header", the pax
+  headers without a path); with it only `pixman` and `xkeyboard-config` fail, on their links
+  (17 and 8). `xkbcomp`'s and `xorg-server`'s archives (libmd, libXfont2 and the server)
+  extract with either, and `libxkbfile`'s with the new one: three recipes could drop the
+  tools `tar`. Recipe comments that give the old reasons, changed with those recipes:
   `Dollyfile-pigz` (gzip "only reads"), `Dollyfile-tar` ("The gzip of the core reads .gz;
   pigz writes it"), `Dollyfile-emacs`. And `demos/zsh/zsh-dolly.patch` ("Dolly has no fork or
   exec") makes zsh's `exec` and the last command of `zsh -c` spawn the program and wait for it;
