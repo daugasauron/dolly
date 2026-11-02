@@ -298,3 +298,12 @@ module, lean.mk's rules), since Lake would need stage 0's `libLake_shared.so` pl
 - A large program's first run leaves its compiled module behind (most likely; 0.8 GB for
   `lean`'s 214 MB in Firefox, 0.3 in Chromium): a browser slot's budget for a test of big
   programs is the session plus each one's compiled code, which differs by browser.
+
+## After the process-memory revert (2026-11-03 00:40, integrator)
+
+`core/process-memory` is reverted on integrate (lean-std and lean-meta crashed Chrome with it;
+`tasks/20261101-102515-retained-process-memory`). On the reverted runtime the whole Lean chain builds
+(lean-std 789,745,795 bytes, lean-meta 1,581,471,990, lean 685,090,950; about an hour in a 36 GB scope),
+and `demos/lean/test/lean-browser.mjs` passes in Chromium in a 12 GB scope (65.4 s); in a 6 GB slot
+Chromium is killed at `lake new` and `lake build`, as before the change. Firefox ran past the test's
+1,200 s in 12 GB. Lean in a 6 GB Chromium and in Firefox wait for the process-memory work's return.
