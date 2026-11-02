@@ -39,7 +39,6 @@ SLOP cp /usr/src/quickjs/quickjs.h /usr/include/quickjs.h
 
 SLOP test "$(qjs -e 'console.log(6 * 7)')" = 42
 # qjs --help ends with status 1.
-SLOP mkdir -p /usr/share/man/cat1
 SLOP qjs --help > /usr/share/man/cat1/qjs.1 || test -s /usr/share/man/cat1/qjs.1
 
 EXPORTS TOOL   qjs

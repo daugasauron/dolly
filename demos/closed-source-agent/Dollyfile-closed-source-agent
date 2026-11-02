@@ -16,9 +16,9 @@ REQUIRES HOST upload@0
 # the session after the notice: the image holds nothing of it.
 FROM /v0.1.4/Dollyfile-system 57020abe76b98939f2413f828f8bfeae6ed9a092125645640c2bc991044a4532
 INSTALL /v0.1.4/Dollyfile-amy 8ad5e794b30a0366651f0283aa92fe6de36f891772dbc685f5dbcdaa7daac656
-INSTALL /v0.1.4/demos/javascript/Dollyfile-janis-install d676bcbd471c445d1d02dfa0c0c05eba49c706c49668469e4be090328b4941ee
+INSTALL /v0.1.4/demos/javascript/Dollyfile-janis-install 0ae98b08fa19f7358924555668e19ff819aa3df9bc367dfcb7fd0af3cd6f6ba5
 INSTALL /v0.1.4/demos/closed-source-agent/Dollyfile-secretenv eb33e95366513d5ad322502c6c522c65f34e390396dfb8ead76d914a90fd4b44
-INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 0a1eaa201a06495e3ad4f3e1192e73f1636b10e5eb161c0a32e7db9bc4a7951a
+INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 1459196b8baeb16bcd63af2186b539b92fa22d3b5fbfe9832de3c9a21c60aeaf
 REQUIRES TOOL cc
 REQUIRES TOOL foreground
 REQUIRES TOOL janis

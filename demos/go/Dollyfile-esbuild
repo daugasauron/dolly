@@ -1,8 +1,6 @@
 DOLLY 7
 PACKAGE esbuild
 REQUIRES HOST runtime@0
-# esbuild links net/http, which records http@0.
-REQUIRES HOST http@0
 
 # esbuild, built by go-build's toolchain from its release and the module it
 # vendors.

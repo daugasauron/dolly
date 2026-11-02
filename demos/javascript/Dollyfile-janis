@@ -9,7 +9,7 @@ REQUIRES HOST http@0
 # is a library too: a program that is one script (tsc, pi, a game's agent)
 # links -ldolly-js -lquickjs and reads the two scripts kept here when it starts.
 FROM /v0.1.4/Dollyfile-system-tools edd2a16bf0454ed1fe0bd2d221f7a01f0f0837a63cce6c8c447c5fd6b8c41362
-INSTALL /v0.1.4/demos/javascript/Dollyfile-quickjs d2b5f7b24af34b989ba435efdc3206109cbf11eebcc56464c78b7b9321954512
+INSTALL /v0.1.4/demos/javascript/Dollyfile-quickjs 6450229082df61f118c4e0e5b5e3ba403ccdb82a2a8886acdf8c27815fffe53d
 
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
@@ -32,7 +32,6 @@ SLOP ar rcs /usr/lib/libdolly-js.a /tmp/janis/quickjs-main.o
 SLOP cc -I /usr/include/dolly /tmp/janis/janis.c -ldolly-js -lquickjs -o /usr/bin/janis
 
 SLOP test "$(janis -e 'console.log(require("node:fs").readFileSync("/tmp/janis/janis.c", "utf8").includes("dolly_quickjs_run"))')" = true
-SLOP mkdir -p /usr/share/man/cat1
 SLOP janis --help > /usr/share/man/cat1/janis.1
 
 EXPORTS TOOL   janis

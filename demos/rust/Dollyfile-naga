@@ -1,7 +1,6 @@
 DOLLY 7
 PACKAGE naga
 REQUIRES HOST runtime@0
-REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
 FROM /v0.1.4/demos/rust/Dollyfile-rust-build 3bdd852963815fa03af165e785ce5282a6140adf010d9dd4b4f0881b0984f72b

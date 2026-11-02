@@ -1,7 +1,6 @@
 DOLLY 7
 PACKAGE zig-llvm
 REQUIRES HOST runtime@0
-REQUIRES HOST http@0
 # What Zig builds runs threads unless it is single-threaded: zig build's runner.
 REQUIRES HOST threads@0
 
@@ -50,6 +49,5 @@ SOURCE /v0.1.4/dist/static/zig-llvm/emscripten-headers.tar 4249acab21ed33264dd5a
 SLOP tar -xf /tmp/emscripten-headers.tar -C /
 FOLDER /usr/include/wasm64-emscripten
 FILE /usr/share/licenses/zig/LICENSE
-SLOP mkdir -p /usr/share/man/cat1
 SLOP zig --help > /usr/share/man/cat1/zig.1
 FILE /usr/share/man/cat1/zig.1

@@ -10,9 +10,9 @@ REQUIRES HOST threads@0
 # as the build's record.
 FROM /v0.1.4/demos/rust/Dollyfile-rust-build 3bdd852963815fa03af165e785ce5282a6140adf010d9dd4b4f0881b0984f72b
 USE /v0.1.4/Dollyfile-libdolly-sockets 39d86fc16dc5a168463872b3e19d93e01478601c0491d89340fb88975933b5f9
-USE /v0.1.4/demos/rust/Dollyfile-protox ca77940a6fedb2bb928f2906472171991749aca6c841fae62b94e7c361495e22
-INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 0a1eaa201a06495e3ad4f3e1192e73f1636b10e5eb161c0a32e7db9bc4a7951a
-INSTALL /v0.1.4/demos/rust/Dollyfile-fd 3edf72b800820beff0fb3c069fafd55237feca16b38eb543a087d79f987242fc
+USE /v0.1.4/demos/rust/Dollyfile-protox 50713e82174d5e25d39005f1b2da626951e113df08180dd8f6e08419fdefd762
+INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 1459196b8baeb16bcd63af2186b539b92fa22d3b5fbfe9832de3c9a21c60aeaf
+INSTALL /v0.1.4/demos/rust/Dollyfile-fd 12f4c52a66d30778046def65f45a635d64b742c5e7c1b6ff8ea08e75ef8a969d
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL cargo
