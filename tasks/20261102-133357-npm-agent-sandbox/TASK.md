@@ -174,6 +174,129 @@ firefox` on the merged tree and the rebuilt `pi-minimal`: passed, 26.7 s and 34.
   is the owner's: `package-npm.mjs` packs them, the release checklist's npm step would
   publish them.
 
+## The second stranger's log, before (2026-11-03 03:00-03:10 JST)
+
+The same way (tarballs of `package-npm.mjs` at 816021e9f, a registry of their own,
+`build/npm-sandbox-evidence/stranger2/`), this time another provider, a real turn, the
+user's own tools, the look, a project of 300 files, sessions and hosts. `install` of the
+README's line with `dolly-package-cc` 1.2 s, `init my-agent git cc` 0.5 s, the build with
+cc 23 s (69 MB, 49 packs), boot to Pi 5.8 s with 302 workspace files (`check-chromium-before.log`).
+
+| Want | Found |
+| --- | --- |
+| Anthropic's API with my key | `agent-frontend.md` says Anthropic answers CORS and names no header: the rule needs `credentialHeaders: ["x-api-key"]` (Pi's Anthropic client sends the key in `x-api-key` and the `anthropic-dangerous-direct-browser-access` header Anthropic's CORS requires; both checked with a preflight and a 401 from Anthropic in the sandbox). Pi refuses `--provider` without `--model`, and Anthropic's model ids differ from OpenRouter's (`claude-sonnet-5-5` against `anthropic/claude-sonnet-5.5`) |
+| A current model | The template named `anthropic/claude-sonnet-4.5` (2025). OpenRouter's public list (`/api/v1/models`, no key) has `anthropic/claude-sonnet-5.5` (2026-09-28) and `anthropic/claude-haiku-5.5` (2026-10-07); Pi 1.0.3's bundled catalog knows `anthropic/claude-sonnet-5.5` and `claude-sonnet-5-5`, not the Haiku 5.5 ids |
+| A real turn | **The README's path could not complete one.** Pi 1.0.3 sends OpenRouter's `anthropic/*` models through Anthropic's Messages API (`https://openrouter.ai/api/v1/messages`) with the `anthropic-dangerous-direct-browser-access` header; OpenRouter's CORS preflight does not allow it (`Access-Control-Allow-Headers` lists the `X-Stainless-*` headers and not the `anthropic-*` ones). Pi shows `Error: Connection error.` three times and `Retry failed after 3 attempts` (`agent2.out`, the console's CORS errors). The first pass tested a fake key and never a request. OpenRouter's Chat Completions endpoint answers the preflight for everything Pi's OpenAI client sends |
+| A C tool | The comment's `SLOP cc FILE -o /usr/bin/NAME` works at the first try: `count-lines` from a `FILE /tmp/count-lines.c` row prints `2 lines` |
+| A file of an npm package | `SOURCE https://unpkg.com/pretty-bytes@6.1.1/index.js SHA256 /usr/lib/pretty-bytes.mjs` downloads at build time (the build admits each `SOURCE` URL), then `hr` failed: `could not load module '/usr/lib/pretty-bytes.mjs': No such file or directory`. `dollyfile.md` says downloads are not retained by themselves; a `FILE /usr/lib/pretty-bytes.mjs` row keeps it. The template's comment did not say so |
+| Pi's colours | A 60-line theme: Pi's schema requires 51 of its 56 colour roles, so no theme is short. The template said where it goes and left the writing to the user |
+| A host for the agent | One rule, `{ origin: "https://api.github.com", pathPrefix: "/", methods: ["GET"] }`: `curl https://api.github.com/zen` answers (GitHub, PyPI, OpenAI and Anthropic all answer CORS for a page origin). A refused host in Pi's `!` mode and its shell: `curl: (9) Browser HTTP policy denied the request`, clear. The provider's own host refused is not: Pi's clients say `Connection error.` |
+| 300 files | Boot to the key prompt 3.2 s on localhost. The page fetched the files one after another: with 50 ms per request (a remote host) the loop takes 16.1 s for 302 files, concurrently 0.18 s (`fetch-timing.log`) |
+| Sessions | No Save button: `pi-minimal` does not declare `snapshot@0`, and nothing in the project mentions it. On reload the agent's edits are gone: `/workspace` is written from `workspace/` at each boot, as the template's comment says |
+
+## What changed and why (2026-11-03, the second pass)
+
+1. **The template's provider lines.** `init.slop` starts Pi with `anthropic/claude-sonnet-5.5`;
+   the next line, a comment, is Anthropic's API with the user's own key (`pi-key ANTHROPIC_API_KEY
+   --offline --provider anthropic --model claude-sonnet-5-5`), and the page's policy has the
+   matching rule as a comment under OpenRouter's (`x-api-key`). Switching is uncommenting one
+   line in each file; the two files are two by design (the page holds what the browser admits,
+   the recipe what runs). An OpenAI-compatible endpoint is `models.json` (`agent-frontend.md`,
+   now with the `pi-key` line and the rule that go with it). No relay and no login anywhere.
+2. **OpenRouter's Claude models through Chat Completions.** The template's recipe writes
+   `models.json` with an `openrouter` entry (`baseUrl https://openrouter.ai/api/v1`, `api
+   openai-completions`, `apiKey $OPENROUTER_API_KEY`, the default model's id). Pi then sends
+   the default model through Chat Completions, whose preflight OpenRouter answers for the
+   OpenAI client's headers. Measured on the built image: with the key file's key OpenRouter
+   answers `401 {"message":"User not found."}` (the request arrived and was judged; that key
+   is revoked, as `tasks/20261025-014414-npm-release` found on 2026-10-25), where the same
+   start without the entry died in the preflight (`check-chromium-openrouter-realkey.log`,
+   `agent2.out`). A Claude model picked with `/model` that the entry does not list goes the
+   Messages way again: one more `id` in the row. No relay, no login, no change to the broker.
+3. **`theme.json`.** `init` writes the image's Pi theme (name `dolly`, five `vars`, the 51 roles
+   naming them) beside the page, and the page writes it over the image's theme at boot with the
+   workspace. Editing colours is editing five values and reloading; `settings.json` stays the
+   image's (`"theme": "dolly"`, `shellPath`). Chosen over a `FILE` row because a theme is 60
+   lines whatever its source, a reload beats a rebuild for a colour, and `boot()`'s `files`
+   already carries Pi's files; the recipe keeps a one-line pointer.
+4. **The template's tool comment** names the three ways measured: a script, a C program (`FILE`
+   with the source, `SLOP cc`), a file of an npm package (`SOURCE` from unpkg, then `FILE` to
+   keep it). `EXPORTS TOOL` puts each on the agent's `PATH`. A package of the user's own in the
+   `INSTALL` sense is not supported: `dolly-build` resolves rows against `node_modules/@daugasauron/`
+   alone, so the way for the user's files is `SOURCE` by URL and digest.
+5. **The page fetches the workspace concurrently** (`Promise.all`): 16.1 s to 0.18 s at 50 ms a
+   request for 302 files, 0.30 to 0.10 s on localhost.
+6. **README**: `cc` in the install line and `init my-pi git cc` (a C compiler is a coding
+   sandbox's tool; the build takes 19 to 23 s with it), a row for `theme.json`, the provider
+   sentence in the recipe's row. `embedding.md`: `init` writes `theme.json`. `agent-frontend.md`:
+   the provider section with the lines and headers.
+7. **`test/npm-browser.mjs`**: the user edits a colour of `theme.json` and appends the C tool's
+   rows before the build; in the shell the theme file holds the colour and `count-lines`
+   counts. The rest as before.
+
+## The second stranger's log, after (2026-11-03 03:45-03:55 JST)
+
+From the same tarballs with the new `dolly-build` templates in place of the installed ones
+(`app-final/`), the README's block with `cc`: install 0.6 s, `init my-agent git cc` 0.4 s
+(now `theme.json` too), my rows (the C tool, the unpkg library with its `FILE` row as the
+comment now says, `REQUIRES HOST snapshot@0`), the GitHub rule, one colour in `theme.json`,
+the 302-file project; build 22.4 s (69 MB, 49 packs). Boot to the key prompt 4.0 s in
+Chromium and 4.9 s in Firefox, to Pi 6.5 s and 7.9 s; Pi's status bar shows
+`anthropic/claude-sonnet-5.5`; `count-lines` prints `2 lines`, `hr 123456` prints `123 kB`,
+`curl https://api.github.com/zen` answers and `curl https://example.com` is refused with
+`curl: (9) Browser HTTP policy denied the request` in Pi's `!` mode and the shell; the
+theme file holds my colour; the Save button is there, `saveSession("stranger")` saves in
+0.8 s ("Saved stranger locally"), and after a reload (3.8 s to the key prompt) the file the
+shell had edited is the original again (`check-chromium-final.log`, `check-firefox-final.log`,
+`check-chromium-save.log`). Anthropic's API with a wrong key under the commented rule: Pi
+shows Anthropic's `401 authentication_error: invalid x-api-key` (the request went through,
+CORS passed); under the OpenRouter-only policy the same start shows `Error: Connection
+error.` three times (`check-chromium-anthropic-rule.log`, `-norule.log`).
+
+The real turn was not completed: the key in `~/.openrouter` is revoked (OpenRouter's
+`/api/v1/key` answers 401 to it, as it did on 2026-10-25), so no model answered and nothing
+was spent. What the night proves of the turn's path: the request leaves Pi's OpenAI client,
+passes the policy and OpenRouter's CORS, and OpenRouter judges the key. The tool loop itself
+(read, bash tool, edit) is `demos/pi/test/frontend-browser.mjs`'s scripted model.
+
+## Measured (the second pass)
+
+- `test/npm-browser.mjs chromium firefox` on the new templates (the README's block with `cc`,
+  a colour edited in `theme.json`, the C tool's rows appended): passed, 34.5 s and 37.3 s
+  of browser time (`npm-browser-both-2.log`). The first run failed in the test itself: the
+  tree's catalog was narrowed to the three images rebuilt after the merge, and the test reads
+  `default` from it.
+- The workspace fetch, 302 files, in the page: sequential 0.30 s and concurrent 0.10 s on
+  localhost; with 50 ms added to each request, 16.1 s against 0.18 s (`fetch-timing.log`).
+- Builds of the stranger's image with `cc`: 23.3 s before, 18.8 s and 22.4 s after.
+- Source suite 468 pass, `lint:dollyfiles` 193 recipes, before each commit.
+- The tree's catalog: integrate's repin (816021e9f) changed 38 recipes (the x11 chain,
+  mesa-build, xonotic, zero-ad among them), hours of builds; the plain `npm run image` was
+  stopped after pi-local and the catalog narrowed to `default,pi-minimal,git,python,cc`
+  (cache hits, 10 s), which the npm packages and their test need. The next catalog round
+  makes it whole.
+
+## Frictions left (the second pass)
+
+- Saving a session in a page of one's own: `REQUIRES HOST snapshot@0` in the recipe puts the
+  module in `index.mjs` and the Save button on the page, and a save takes 0.8 s. Loading one is the
+  site's `/session/?name=` route (`src/site.mjs`), which the npm runtime does not carry and
+  `boot()` has no option for: a save there cannot be opened. Not in the template until it can.
+- The provider's host refused by the policy reads `Connection error.` in Pi (its SDKs hide the
+  cause); the agent's own `curl` says `Browser HTTP policy denied the request`.
+- `init` writes OpenRouter; a user who wants Anthropic edits two lines in two files. One place
+  would mean the page writing the start script, which moves the sandbox's declaration out of
+  the recipe.
+- The template holds the model id of the day; Pi's `/model` lists its catalog's. A Haiku 5.5 on
+  OpenRouter is not in Pi 1.0.3's catalog; `models.json` adds one.
+
+## Proposals (the second pass)
+
+- `boot({ session: NAME })`, or the session route in the npm runtime, so a page of one's own
+  can open the sessions it saves; until then `snapshot@0` is write-only outside the site.
+- The terminal's palette (`src/ghostty/display.c`): still compiled in. With it a file, Pi's
+  `system` theme could follow the terminal and `theme.json` would be the one place for colours.
+
 ## Lessons
 
 - A stopwatch and a stranger's seat found what reading the docs did not: Pi refuses
@@ -191,3 +314,14 @@ firefox` on the merged tree and the rebuilt `pi-minimal`: passed, 26.7 s and 34.
   kernel, the language or `boot()`.
 - A check script is a product too: two of my runs failed on my own regex and on a handle the
   page did not expose. Dumping the screen on failure turned the third run into the finding.
+- (The second pass) A fake key never reaches the provider, so a green test with one proves
+  nothing past the prompt: the README's path for Claude on OpenRouter died in a CORS preflight
+  that no test had sent. A wrong key of the provider's format is the cheapest real request:
+  its 401 proves the policy, CORS and the headers, and costs nothing.
+- Read what the tasks say about a credential before planning a measurement on it: the key in
+  `~/.openrouter` was recorded revoked on 2026-10-25; the real turn was planned on it anyway.
+- A narrowed catalog (`DOLLY_BUILD_IMAGES`) breaks every test that reads `dist/dolly-images.mjs`,
+  and after a merge that repins recipes the plain `npm run image` is hours, not seconds: plan
+  the narrow set the tests need and say so, rather than start the whole and wait.
+- The stranger reads the template's comment, not `dollyfile.md`: "downloads are not retained"
+  was documented and still cost a failed tool; the comment now carries the `FILE` row.

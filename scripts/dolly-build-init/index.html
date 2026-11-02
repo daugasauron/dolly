@@ -12,12 +12,14 @@
   import { boot } from "./node_modules/@daugasauron/dolly/src/browser.mjs";
   import { images, image, modules } from "./__NAME__/index.mjs";
 
-  // The hosts the agent may reach, and nothing else: the model's provider here. A
-  // rule names an origin, its paths and methods, and the header that carries the
-  // key (docs/http.md in @daugasauron/dolly). Hosts without CORS headers go
-  // through serve.mjs's relay (docs/agent-frontend.md).
+  // The hosts the agent may reach, and nothing else: the model's provider here,
+  // one rule per host the agent needs (api.github.com, pypi.org). A rule names an
+  // origin, its paths and methods, and the header that carries the key (docs/http.md
+  // in @daugasauron/dolly). Hosts without CORS headers go through serve.mjs's relay
+  // (docs/agent-frontend.md).
   const policy = { rules: [
     { origin: "https://openrouter.ai", pathPrefix: "/api/v1/", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },
+    // { origin: "https://api.anthropic.com", pathPrefix: "/v1/", methods: ["POST"], credentialHeaders: ["x-api-key"] },
   ] };
 
   // The project: workspace/ is written into /workspace at each boot, so an edit
@@ -27,10 +29,12 @@
   const listing = await fetch("./workspace.json");
   if (!listing.ok) throw new Error("workspace.json must list the files under workspace/, as serve.mjs does");
   const files = {};
-  for (const path of await listing.json()) {
+  await Promise.all((await listing.json()).map(async path => {
     const url = `./workspace/${path.split("/").map(encodeURIComponent).join("/")}`;
     files[`/workspace/${path}`] = new Uint8Array(await (await fetch(url)).arrayBuffer());
-  }
+  }));
+  // Pi's colours: theme.json (Pi's docs/themes.md), written over the image's theme.
+  files["/home/dolly/.pi/agent/themes/dolly.json"] = await (await fetch("./theme.json")).text();
 
   await boot(document.querySelector("#dolly"), { images, image, modules, http: { policy }, files });
 </script>
