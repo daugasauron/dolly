@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # Boost's header-only libraries, as Emscripten's port packs Boost 1.83.0's
 # headers, with the Boost Software License from Boost's repository at that
 # release, for programs the cc package builds; nothing is compiled.
-FROM /v0.1.4/Dollyfile-system-tools edd2a16bf0454ed1fe0bd2d221f7a01f0f0837a63cce6c8c447c5fd6b8c41362
+FROM /v0.1.4/Dollyfile-system-tools 3613905f318bbbacafd3292203f8771298d53c02c2509eed45b7d803b54c3cbf
 REQUIRES TOOL gzip
 REQUIRES TOOL rm
 REQUIRES TOOL tar

@@ -5,8 +5,8 @@ REQUIRES HOST http@0
 
 # The external seed (build-go-toolchain.sh): Go's GOROOT for dolly/wasm64,
 # cross-built on Linux. go-build rebuilds its toolchain here.
-FROM /v0.1.4/Dollyfile-system-build 51c17d6371860a56e459c21e04c734ff04a192f4788f245f5a700b4a57f7d5fa
-INSTALL /v0.1.4/Dollyfile-gzip 31566fa31de1767aedcfd62825426adce11f3aca753f31c41b88e657c9cfd4fa
+FROM /v0.1.4/Dollyfile-system-build 366e3b94c5ae445590f40051091750b3941325938ac55a3dc671dc3faf93f67a
+INSTALL /v0.1.4/Dollyfile-gzip f38751cfb56f3726afaa8c6438d35a6900e5b9676ae30986e5aea5ef5e1b9647
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
 SOURCE /v0.1.4/dist/static/go/go-sdk.tar.gz ac1e44ffd626cf1931d14df840256a33157a909252b914bd39f4861bdbe0cc97 /tmp/go-sdk.tar.gz

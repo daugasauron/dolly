@@ -3,7 +3,13 @@ PACKAGE qwen3.5-4b
 REQUIRES HOST runtime@0
 
 # Qwen3.5-4B Q3_K_S, the exact upstream GGUF assembled from parts SOURCE accepts, its description and its license.
-FROM /v0.1.4/Dollyfile-system 57020abe76b98939f2413f828f8bfeae6ed9a092125645640c2bc991044a4532
+FROM /v0.1.4/Dollyfile-system 03687a356e2435bcb5cb6a062caed281f20c189bb051f4b91405abef805a7ee6
+REQUIRES TOOL cat
+REQUIRES TOOL cut
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+REQUIRES TOOL sha256sum
+REQUIRES TOOL test
 
 SOURCE /v0.1.4/dist/static/llm/qwen3.5-4b/0.part a5bbcdb28f28d3fc2ede3831fc513c4e7596a90ede8c57798c0f081790941ebd /tmp/llm/0.part
 SOURCE /v0.1.4/dist/static/llm/qwen3.5-4b/1.part d909705e34691eabd7048e94f714533ea8a359644e7223542ff6771ba678d41d /tmp/llm/1.part
@@ -11,7 +17,7 @@ SOURCE /v0.1.4/dist/static/llm/qwen3.5-4b/qwen3.5-4b.json 8bb239ecf525e98f01bd63
 SOURCE /v0.1.4/dist/static/llm/qwen3.5-4b/LICENSE bbedc3fda3305820b977265f01b8619d87570a6739de3a5582c3464840f1e57a /usr/share/licenses/qwen3.5-4b/LICENSE
 SLOP mkdir -p /usr/share/dolly/llm
 SLOP cat /tmp/llm/0.part /tmp/llm/1.part > /usr/share/dolly/llm/qwen3.5-4b.gguf
-# The parts go before the capture, which copies the image twice: the build then fits 9 GB.
+# The parts go before the capture, which copies the image twice.
 SLOP rm /tmp/llm/0.part /tmp/llm/1.part
 SLOP test "$(sha256sum /usr/share/dolly/llm/qwen3.5-4b.gguf | cut -d ' ' -f 1)" = 7e2dd96b6141226b62fa88c775db06e0e9ff0aa84130805d7091a768868a3353
 EXPORTS FILE qwen3.5-4b /usr/share/dolly/llm/qwen3.5-4b.gguf

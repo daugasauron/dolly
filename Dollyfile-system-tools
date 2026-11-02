@@ -6,7 +6,7 @@ REQUIRES HOST input@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/Dollyfile-system-build 51c17d6371860a56e459c21e04c734ff04a192f4788f245f5a700b4a57f7d5fa
+FROM /v0.1.4/Dollyfile-system-build 366e3b94c5ae445590f40051091750b3941325938ac55a3dc671dc3faf93f67a
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -91,52 +91,17 @@ SLOP rm \
   -rf \
   /tmp/sbase \
   /tmp/sbase.tar
-# Shared C/C++ build and system utilities, without a display or Rust tools.
-# Samurai is a compact Ninja-compatible executor. Its upstream parser, graph,
-# depfile handling, and build log stay as separate ordinary C translation
-# units, and its jobs start through posix_spawn, unchanged. `util.c` has two
-# explicit loop checkpoints and is compiled without generic edge coverage,
-# which otherwise causes a severe bootstrap-compiler blowup for that one file.
+# Samurai, a compact Ninja-compatible executor, unchanged: its jobs start
+# through posix_spawn.
 REQUIRES HEADER runtime
 
 SOURCE /v0.1.4/dist/static/default/samurai.tar                   df4d14af0e48a206d1ccc175f134c3c81b6601b3d243b24561b1927ecd0afc45 /tmp/ninja/samurai.tar
-SOURCE /v0.1.4/dist/static/default/runtimes/samurai-unit-dolly.c 4412175ad18939c580d6a31ca89a1284d313026674d5ac4faa0841aab379a4f7 /tmp/ninja/samurai-unit-dolly.c
-
-FILE /tmp/ninja/Makefile
-    .RECIPEPREFIX := >
-    SOURCE_ROOT := /tmp/ninja/source
-    NAMES := build deps env graph htab log parse samu scan tool tree util os-posix
-    SOURCES := $(addprefix $(SOURCE_ROOT)/,$(addsuffix .c,$(NAMES)))
-    PARTS := 1 2 3 4 5 6 7 8 9 10 11 12 13
-    UNIT := /tmp/ninja/samurai-unit-dolly.c
-    OBJECTS := $(addprefix /tmp/ninja/part-,$(addsuffix .o,$(PARTS)))
-    CFLAGS := -O1 -std=c99 -D_POSIX_C_SOURCE=200809L -I $(SOURCE_ROOT)
-    
-    all: /usr/bin/ninja
-    
-    /tmp/ninja/part-12.o: $(UNIT) $(SOURCES)
-    >cc \
-    >  $(CFLAGS) \
-    >  -O0 \
-    >  -DDOLLY_SAMURAI_PART=12 \
-    >  -c $(UNIT) \
-    >  -o $@
-    
-    /tmp/ninja/part-%.o: $(UNIT) $(SOURCES)
-    >cc \
-    >  $(CFLAGS) \
-    >  -DDOLLY_SAMURAI_PART=$* \
-    >  -c $(UNIT) \
-    >  -o $@
-    
-    /usr/bin/ninja: $(OBJECTS)
-    >cc $(OBJECTS) -o $@
 
 SLOP tar \
   -xf /tmp/ninja/samurai.tar \
   -C /
-SLOP make \
-  -f /tmp/ninja/Makefile
+SLOP CWD /tmp/ninja/source cc -O1 -std=c99 -D_POSIX_C_SOURCE=200809L -I /tmp/ninja/source \
+  build.c deps.c env.c graph.c htab.c log.c parse.c samu.c scan.c tool.c tree.c util.c os-posix.c -o /usr/bin/ninja
 
 EXPORTS TOOL ninja
 
@@ -150,10 +115,10 @@ SLOP rm \
   -rf \
   /tmp/ninja
 # zlib, gzip and curl for builds, and Git, which Dolly's patch and diff run.
-INSTALL /v0.1.4/Dollyfile-zlib 30330b94eb312c4546feb3cabfae1a867b348c201bd3fc8e4684c7f099c509dd
-INSTALL /v0.1.4/Dollyfile-gzip 31566fa31de1767aedcfd62825426adce11f3aca753f31c41b88e657c9cfd4fa
-INSTALL /v0.1.4/Dollyfile-curl 060e03122cceea55eb6fa115d795edf595fdf0747e1df8af241f95a8baa6476e
-INSTALL /v0.1.4/Dollyfile-git 31d1a0c90a68042c8d56dfd91567808a0b47220cf4518d3446b511c862db7c6c
+INSTALL /v0.1.4/Dollyfile-zlib 9cfec80035841129241b745ef516b95e26d86e5fa3b1272a3fd8b63274464b71
+INSTALL /v0.1.4/Dollyfile-gzip f38751cfb56f3726afaa8c6438d35a6900e5b9676ae30986e5aea5ef5e1b9647
+INSTALL /v0.1.4/Dollyfile-curl 0b359fe54713f7b735702be014933245b3aea43460ad99aba9efc020a6aaaec3
+INSTALL /v0.1.4/Dollyfile-git 332d54e675341b03454834304c31aa0b8c5486ef0153f2cbda18a6b88d6178b0
 SOURCE /v0.1.4/dist/static/default/awk.tar f28cae177fa60793a70066d10667e8d06775d979f2262be1c48f8eb941090015 /tmp/awk.tar
 SLOP tar \
   -xf /tmp/awk.tar \
@@ -184,9 +149,7 @@ SLOP rm \
   /tmp/awk.tar \
   /usr/libexec/dolly/awk-maketab \
   /usr/src/awk
-# Focused compatibility commands used by build systems and coding agents.
-# Each remains a separate Wasm executable; wrappers which launch another tool
-# do so through Dolly's in-userspace spawn/wait contract.
+# Dolly's own commands beside sbase's, from src/commands.
 SOURCE /v0.1.4/dist/static/default/commands/run-program.h e73415ba149e8dcb9944313c36d8d2319202d699c810e02a26d5a94caa8f3a9f /tmp/agent-tools/run-program.h
 SOURCE /v0.1.4/dist/static/default/commands/install.c     c65b5d737e8db898e44856df2924c155595296933ca3f79c0c16ef08bee360f5 /tmp/agent-tools/install.c
 SOURCE /v0.1.4/dist/static/default/commands/du.c          79c39241876af8a479c8afe3383dca43d002b560adbd6b773fb8f0d223f2ab4a /tmp/agent-tools/du.c
@@ -237,6 +200,6 @@ SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
 SLOP cp /usr/share/man/cat1/slop.1 /usr/share/man/cat1/sh.1
 FOLDER /usr/share/man
-INSTALL /v0.1.4/Dollyfile-display 73603d4b17881b99844d03814480da6c429975b846c043dba345da7a04c6d29a
+INSTALL /v0.1.4/Dollyfile-display cee9e8aa8510dc548e054c6b4437047c997d828cf7d1d4a08ad8e0216fa1497f
 
 ENTRY /bin/foreground -i /bin/slop
