@@ -35,7 +35,7 @@ export function classicubeProvider() {
       assert.deepEqual(payload.tools.map(tool => tool.function.name), ["game_input"]);
       const images = payload.messages.flatMap(message => Array.isArray(message.content)
         ? message.content.filter(part => part.type === "image_url").map(part => part.image_url.url) : []);
-      assert.ok(images.length > 0 && images.length <= 2);
+      assert.ok(images.length > 0 && images.length <= 8);
       for (const url of images) {
         const png = Buffer.from(url.split(",")[1], "base64");
         assert.equal(png.readUInt32BE(16), 640); assert.equal(png.readUInt32BE(20), 480);

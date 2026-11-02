@@ -65,11 +65,11 @@ export function rtsProvider() {
       assert.ok(sequence.some(request => request.messages.filter(message => message.role === "user" &&
         JSON.stringify(message.content).includes("Play from this view.")).length >= 2),
         "a text-only response must settle before the supervisor continues the same session");
-      assert.ok(sequence.every(request => request.images.length <= 2), "Keep at most two recent screenshots in model context");
+      assert.ok(sequence.every(request => request.images.length <= 8), "Keep at most a batch of six views and the two before it");
       assert.ok(sequence.some(request => request.images.length === 2), "Include before/after feedback");
       assert.ok(sequence.slice(1).every(request => request.messages.some(message => message.role === "assistant" &&
         JSON.stringify(message.content).includes("RTS-FIXTURE-INTENT"))), "Ordinary assistant intent must reach subsequent requests");
-      assert.ok(sequence.some(request => request.images[0] !== sequence[0].images[0]), "Fresh tool screenshots must reach the provider");
+      assert.ok(sequence.some(request => request.images.at(-1) !== sequence[0].images[0]), "Fresh tool screenshots must reach the provider");
     }
     return { fast: fast.length, slow: slow.length, overlappingPlayers: firstModels.size };
   }

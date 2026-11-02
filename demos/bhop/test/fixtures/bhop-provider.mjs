@@ -18,12 +18,15 @@ export function bhopProvider() {
       assert.equal(payload.model,'fixture/vision');assert.equal(payload.reasoning?.effort,'low');
       assert.deepEqual(payload.tools.map(t=>t.function.name),['game_input','review_attempt']);
       const images=payload.messages.flatMap(m=>Array.isArray(m.content)?m.content.filter(c=>c.type==='image_url').map(c=>c.image_url.url):[]);
-      assert.ok(images.length>0&&images.length<=4);
+      assert.ok(images.length>0);
+      const views=payload.messages.filter(m=>Array.isArray(m.content)&&m.content.some(c=>c.type==='image_url'));
+      assert.ok(views.length<=8,'at most a batch of six views and the two before it');
+      const latest=views.at(-1).content.filter(c=>c.type==='image_url').length;
       for(const url of images){const png=Buffer.from(url.split(',')[1],'base64');assert.equal(png.readUInt32BE(16),960);assert.equal(png.readUInt32BE(20),540);}
       const text=payload.messages.filter(m=>m.role==='user').map(m=>typeof m.content==='string'?m.content:m.content.filter(c=>c.type==='text').map(c=>c.text).join('\n')).join('\n');
       const markers=[...text.matchAll(/BHOP-ATTEMPT|BHOP-CANCEL|Review the snapshots from your last attempt/g)];
       const phase=markers.at(-1)?.[0]||'unknown',step=steps.get(phase)||0;steps.set(phase,step+1);
-      requests.push({phase,step,images,messages:payload.messages});
+      requests.push({phase,step,images,latest,messages:payload.messages});
       response.writeHead(200,{...headers,'content-type':'text/event-stream'});response.flushHeaders();
       await new Promise(resolve=>setTimeout(resolve,phase==='BHOP-ATTEMPT'&&step===1?3500:200));
       if(response.destroyed)return;
@@ -43,8 +46,8 @@ export function bhopProvider() {
     verify() {
       assert.ok(requests.filter(r=>r.phase==='BHOP-ATTEMPT').length>=4);
       assert.ok(requests.some(r=>r.phase.startsWith('Review')),'idle prompts retry the course');
-      assert.ok(requests.some(r=>r.images.length===4),'input responses carry a timeline of framebuffers');
-      assert.ok(requests.some(r=>r.images.length===3),'review returns the selected archive frames');
+      assert.ok(requests.some(r=>r.latest===4),'input responses carry a timeline of framebuffers');
+      assert.ok(requests.some(r=>r.latest===3),'review returns the selected archive frames');
       const views=requests.flatMap(r=>r.images);assert.ok(new Set(views).size>=6,'the attempt changes the actual rendered view');
     }
   };
