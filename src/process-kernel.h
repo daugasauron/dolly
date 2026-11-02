@@ -17,6 +17,8 @@
 /* A host module's kernel side (host/NAME/kernel.c defines dolly_NAME_kernel).
  * Process operations in [first_operation, last_operation] reach call() with
  * the request in the process mailbox, where call() also writes its response.
+ * A call that defers (DOLLY_PROCESS_DISPATCH_DEFERRED) has written nothing:
+ * the request stays in the mailbox for the retry.
  * release() runs when a thread retires and, with tid 0, when a process exits.
  * mailbox(), which a module that runs a process on several threads defines,
  * keeps the mailbox of each thread's Worker (dolly_process_worker_mailbox):

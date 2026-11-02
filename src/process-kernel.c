@@ -1786,8 +1786,10 @@ static int64_t fd_poll_packet(dolly_kernel_process *process,
     return -EINVAL;
   }
 
-  /* Request and response headers and records have equal sizes, so each
-   * result overwrites its own query in place. The header is written last. */
+  /* A call that defers leaves its request for the retry, so readiness is
+   * found first and written only once the call answers: request and response
+   * headers and records have equal sizes, so each result then overwrites its
+   * own query in place, and the header is written last. */
   uint32_t ready = 0;
   const uint16_t known = DOLLY_PROCESS_POLL_READ |
       DOLLY_PROCESS_POLL_WRITE | DOLLY_PROCESS_POLL_PRIORITY;
@@ -1796,14 +1798,18 @@ static int64_t fd_poll_packet(dolly_kernel_process *process,
     memcpy(&query, process_mailbox + sizeof(request) +
                        (size_t)index * sizeof(query), sizeof(query));
     if (query.reserved != 0 || (query.events & ~known) != 0) return -EINVAL;
-    const uint16_t events = fd_poll_events(process, &query);
-    if (events != 0) ++ready;
-    dolly_process_poll_result result = {events, 0, 0};
-    memcpy(process_mailbox + sizeof(dolly_process_poll_response) +
-               (size_t)index * sizeof(result), &result, sizeof(result));
+    if (fd_poll_events(process, &query) != 0) ++ready;
   }
   if (ready == 0 && dolly_kernel_deadline_pending(request.deadline_nanoseconds)) {
     return DOLLY_PROCESS_DISPATCH_DEFERRED;
+  }
+  for (uint32_t index = 0; index < request.count; ++index) {
+    dolly_process_poll_query query;
+    memcpy(&query, process_mailbox + sizeof(request) +
+                       (size_t)index * sizeof(query), sizeof(query));
+    const dolly_process_poll_result result = {fd_poll_events(process, &query), 0, 0};
+    memcpy(process_mailbox + sizeof(dolly_process_poll_response) +
+               (size_t)index * sizeof(result), &result, sizeof(result));
   }
   const dolly_process_poll_response response = {
       .ready = ready,

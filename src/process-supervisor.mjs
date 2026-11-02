@@ -683,17 +683,9 @@ export class DollyProcessSupervisor {
     let threadArgument;
     let portTaken = false;
     try {
+      // A deferred call is retried against the request still in the mailbox:
+      // a handler that defers has written nothing (src/process-kernel.h).
       const mailbox = () => new DataView(this.kernelMemory.buffer, thread.mailbox, 8);
-      // A deferred call is retried against its request: a handler may have
-      // written into the mailbox before it deferred (poll writes each result
-      // over its query), so the first deferral keeps a copy and each retry
-      // restores it.
-      const defer = (deferred) => {
-        deferred.request = pending?.request ??
-          new Uint8Array(this.kernelMemory.buffer, thread.mailbox, message.requestSize).slice();
-        this.deferred.set(thread, deferred);
-      };
-      if (pending?.request) new Uint8Array(this.kernelMemory.buffer, thread.mailbox, pending.request.length).set(pending.request);
       if (message.operation === DOLLY_THREAD_SPAWN && message.requestSize === 8)
         threadArgument = mailbox().getBigUint64(0, true);
       const args = [process.pid, message.operation, BigInt(message.requestSize), BigInt(message.responseCapacity)];
@@ -701,7 +693,7 @@ export class DollyProcessSupervisor {
       const waiting = message.operation === DOLLY_PROCESS_SPAWN ? this.#spawnWait(process.pid) : null;
       const now = performance.now(), since = waiting === "count" ? pending?.refusedSince ?? now : undefined;
       if (waiting === "budget" || waiting === "count" && now - since < reservationPatienceMilliseconds) {
-        defer({ process, thread, message, timer: null, refusedSince: since });
+        this.deferred.set(thread, { process, thread, message, timer: null, refusedSince: since });
         return;
       }
       const exhausted = waiting === "count" || spawnsThread && !this.threadHost?.available(process.pid);
@@ -712,7 +704,7 @@ export class DollyProcessSupervisor {
           this.kernel, args);
       if (result === deferredResult) {
         const deferred = { process, thread, message, timer: null };
-        defer(deferred);
+        this.deferred.set(thread, deferred);
         const remaining = this.kernel.dolly_process_deferred_milliseconds();
         if (remaining >= 0 && remaining <= 16) {
           deferred.timer = setTimeout(() => {

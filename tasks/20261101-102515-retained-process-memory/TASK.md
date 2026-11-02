@@ -100,11 +100,17 @@ in a Worker that ends with the process. Its consequences, each decided here:
 4. The spawn budget and the large-interactive window read the size the Worker reports with each
    call; a threaded process's reports at its maximum are ignored, so the budget keeps the size
    before the reservation, as `budgetBytes` did.
-5. A deferred call is retried against the request bytes: `fd_poll_packet` writes each result
-   over its query before it may defer, and 26 sites in the kernel and the modules return the
-   deferred result. Rather than a new kernel invariant across them all, the supervisor keeps a
-   copy of the request at the first deferral and restores it before each retry: what the gate's
-   re-copy from the blocked process did, at the same cost.
+5. A deferred call is retried against the request still in the mailbox, so a handler that
+   defers must have written nothing: that is now the module contract (`process-kernel.h`), and
+   `fd_poll_packet`, the one handler that wrote its results over its queries before it could
+   defer, finds readiness first and writes only when it answers. The other 25 deferral sites in
+   the kernel and the modules already left the request alone. A first version had the
+   supervisor keep a copy of the request at the first deferral and restore it before each
+   retry; taken after the dispatch, the copy held poll's clobbered queries, and a thread's
+   `poll` on a pipe, a pty master's read and a parent's read of a child's pipe never completed
+   (`threads-browser`, `pty-browser`, `process-browser`; `build/proc-mem-evidence/trace2-
+   chromium.log` shows the two retries alternating forever). The invariant is the smaller rule
+   and costs nothing per call.
 
 Rejected: steering the collector (c53115b6: frees nothing, measured to leave one or two dead
 processes); a memory pool (never frees, 8 GiB for a threaded one); making the memory in the Worker
@@ -160,6 +166,19 @@ move with them. Committed apart here as the pins this tree builds with.
 
 Kernel memory reaches process Workers, which the design had kept out.
 
+## Proposal for the owner: a module's ABI digest should cover what its executables link
+
+`DOLLY_NAME_ABI_DIGEST`, which every executable linking a module records and the loader checks,
+is the SHA-256 of the module's `contracts` (the kernel-to-runtime WAT, such as
+`dolly-threads-supervisor-0.wat`), its `process` WAT and its headers
+(`scripts/generate-abi-constants.mjs`). A supervisor contract is internal to the runtime and the
+kernel, which ship together; an executable compiles against the process WAT and the headers
+alone. Hashing the supervisor contract makes any edit to it, a comment included, a seed change
+that refuses every threaded and every pty program in the catalog, which is what stopped the first
+shape of this fix. The smallest diff: `files("process")` and the headers alone in the digest
+(`generate-abi-constants.mjs:50`). It changes the threads and pty digests once, so it needs a
+catalog round, and it is the owner's call: the process contract's identity is part of the ABI.
+
 ## Lessons
 
 - A browser engine frees a shared memory when the last wrapper goes, and a wrapper in a Worker
@@ -176,7 +195,11 @@ Kernel memory reaches process Workers, which the design had kept out.
   after a failed one, the first three phases of `npm run image` restore the catalog without
   building.
 - The harness refuses a stale image; with a new seed every image a test opens is stale. Start the
-  closure build before anything else: the core closure took 20 minutes in a 6 GB slot. The process module cannot
+  closure build before anything else: the core closure took 20 minutes in a 6 GB slot.
+- A copy of a request taken after the call ran is a copy of whatever the call left: when the
+  retry of a deferred call needs the request, the rule belongs where the request is consumed
+  (the handler writes nothing until it answers), not in a cache beside it. The one-thread
+  memory fixture passed; the threads, pty and process tests found it within the hour. The process module cannot
 name it: its imports are checked to be `env.memory` and `dolly_process_0.call` alone, and
 `host/dso/process.mjs` builds a DSO's import object from the process's own memory. The security
 perimeter is unchanged (AGENTS.md: total compromise of the in-Wasm userspace is assumed).
