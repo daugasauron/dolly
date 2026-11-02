@@ -136,8 +136,10 @@ npx dolly-build Dollyfile-my-pi my-pi
   package at the installed pins, rows for Pi's instructions, a skill, an extension,
   a tool and the script that starts Pi, and `pi-minimal`'s `ENTRY`), `index.html`
   (the policy, the popups' colours, and the files of `workspace/` for `boot()`'s
-  `files`), `serve.mjs` and `workspace/README.md`. The repository README's "Pi
-  with npm" says what each is for.
+  `files`), `serve.mjs`, `workspace/README.md` and, unless the project has one, a
+  `.gitignore` for `node_modules/` and the image directory. It names the host module
+  package to install when a package needs one the page lacks (`python`'s `sockets`).
+  The repository README's "Pi with npm" says what each file is for.
 - The recipe is the one place that declares the sandbox. Add rows before `ENTRY`:
   `FILE` with a body (indented four spaces) for a file, `INSTALL` of a package
   whose directory is installed (every package it needs comes with it, so `python`

@@ -68,7 +68,9 @@ declares what the browser gives it, `dolly-build` writes both and builds.
    `pi-key OPENROUTER_API_KEY --offline --provider openrouter`, and `pi-minimal`'s `ENTRY`),
    `index.html` (the OpenRouter rule, the popup colours, the files of `workspace/` for
    `boot()`'s `files`), `serve.mjs` (isolation, a `/workspace/` listing, relays) and
-   `workspace/README.md`. It refuses to write over a file. Templates:
+   `workspace/README.md`, and a `.gitignore` (`node_modules/`, the image directory) unless
+   the project has one. It refuses to write over a file, and names the host module package
+   to install when the recipe declares one the page lacks (`python`'s `sockets`). Templates:
    `scripts/dolly-build-init/`, shipped in the package. Why a scaffold and not more docs:
    the README held 75 lines of page and server for the reader to paste, and the recipe's
    pins cannot be typed; `from` printed only the recipe. `init` is `from` plus the three
@@ -112,6 +114,12 @@ script) is now written by `init` or said in its comments.
 - `test/npm-browser.mjs chromium firefox` after the template's icon and listing error and
   `init`'s note of a missing host module package: passed, 13.3 s and 16.7 s of browser time,
   157 s in all (`npm-browser-both-2.log`).
+- `test/npm-browser.mjs chromium firefox` at the final command (`init` writes `.gitignore`):
+  passed, 16.2 s and 20.5 s of browser time (`npm-browser-both-3.log`).
+- Not measured tonight: `init` under pnpm and Yarn. This machine's pnpm 12.15 insists on
+  fetching pnpm 12.16.1 from whatever registry `.npmrc` names, so it never installed from
+  the test registry; `init` reads the same `node_modules/@daugasauron/` the build reads,
+  which the earlier task measured under pnpm 12 and Yarn 1.
 - `dolly-build`'s error paths by hand (`init` over existing files, a bad name, a package not
   installed, a body line without its spaces, a stale pin, a file that is no recipe, no
   arguments): one line each, naming the file and line or the command to run.

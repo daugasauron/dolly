@@ -99,6 +99,8 @@ async function scaffold(name, packages) {
   if (present.length) fail(`${present.join(", ")}: already here`);
   await mkdir("workspace", { recursive: true });
   for (const [file, text] of Object.entries(files)) await writeFile(file, text);
+  // The image directory and node_modules are built, not kept: a .gitignore, unless the project has one.
+  if (!existsSync(".gitignore")) await writeFile(".gitignore", `node_modules/\n${name}/\n`);
   const missing = hosts.map(host => host.split("@")[0]).filter(name => !modules.has(name));
   console.log(`dolly-build: wrote ${Object.keys(files).join(", ")}\n` +
     (missing.length ? `  npm install ${missing.map(hostPackage).join(" ")}   the recipe declares ${missing.join(", ")}\n` : "") +
