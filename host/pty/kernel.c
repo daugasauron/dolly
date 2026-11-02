@@ -216,9 +216,7 @@ static int64_t pty_terminal(dolly_kernel_socket *shared, const dolly_process_ter
       response->value = pty->mode;
       return 0;
     case DOLLY_PROCESS_TERMINAL_MODE_SET:
-      if ((request->flags & ~(DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO | DOLLY_TERMINAL_OPOST |
-                              DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG | DOLLY_TERMINAL_ICRNL |
-                              DOLLY_TERMINAL_INLCR | DOLLY_TERMINAL_INTERRUPT)) != 0) return -EINVAL;
+      if ((request->flags & ~DOLLY_TERMINAL_MODE_BITS) != 0) return -EINVAL;
       pty->mode = request->flags;
       return 0;
     case DOLLY_PROCESS_TERMINAL_SIZE:

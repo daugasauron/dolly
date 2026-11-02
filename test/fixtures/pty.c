@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 #include <dolly/process.h>
 #include <dolly/pty.h>
@@ -136,6 +137,24 @@ static int pair(void) {
   CHECK(tcsetattr(ends[1], TCSANOW, &mode) == 0);
   CHECK(write(ends[1], "raw\n", 4) == 4);
   expect(ends[0], "raw\n");
+  /* Non-canonical VMIN 0: the slave's read ends without a byte, at once or
+   * after VTIME tenths of a second, and with the byte typed meanwhile. */
+  unsigned char key = 0;
+  struct timespec before, after;
+  mode.c_lflag &= ~(tcflag_t)(ICANON | ECHO);
+  mode.c_cc[VMIN] = 0;
+  mode.c_cc[VTIME] = 0;
+  CHECK(tcsetattr(ends[1], TCSANOW, &mode) == 0 && tcgetattr(ends[1], &mode) == 0 && mode.c_cc[VMIN] == 0);
+  CHECK(read(ends[1], &key, 1) == 0);
+  mode.c_cc[VTIME] = 2;
+  CHECK(tcsetattr(ends[1], TCSANOW, &mode) == 0 && clock_gettime(CLOCK_MONOTONIC, &before) == 0);
+  CHECK(read(ends[1], &key, 1) == 0 && clock_gettime(CLOCK_MONOTONIC, &after) == 0);
+  CHECK((after.tv_sec - before.tv_sec) * 1000 + (after.tv_nsec - before.tv_nsec) / 1000000 >= 150);
+  CHECK(write(ends[0], "k", 1) == 1 && read(ends[1], &key, 1) == 1 && key == 'k');
+  mode.c_lflag |= ICANON | ECHO;
+  mode.c_cc[VMIN] = 1;
+  mode.c_cc[VTIME] = 0;
+  CHECK(tcsetattr(ends[1], TCSANOW, &mode) == 0);
 
   CHECK(pty_call(DOLLY_PTY_RESIZE, ends[0], 0, 30, 100, NULL) == 0);
   CHECK(ioctl(ends[1], TIOCGWINSZ, &size) == 0 && size.ws_row == 30 && size.ws_col == 100);
