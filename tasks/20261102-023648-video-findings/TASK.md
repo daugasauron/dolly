@@ -128,14 +128,27 @@ Read in `demos/game-agent/mission.mjs` and `viewer.cpp`:
   kernel pipe, and Pi awaits `waitForRawStdoutBackpressure()` before
   answering (`rpc-mode.ts`); its events after a prompt carry the
   screenshot the mission attached.
-- A fixed 3 s is the wrong bound for an RPC to a Pi that may be mid-write or
-  mid-retry: the mission kills an agent whose only fault was being busy,
-  then reports its own kill as a provider error. The right change is
-  decided by measurement, not here: record Pi's stdout volume and the RPC
-  latency around a failed request in `demos/classicube/test/fixtures/
-  classicube-agent-browser.mjs` (its injected provider timeout already
-  exercises Retry task) before choosing between a longer bound, an
-  interrupt that does not kill, or draining faster.
+- Measured (`build/video-findings-evidence/drain.mjs`, janis on the
+  rebuilt `default`, Chromium): a janis parent drained a child's stdout at
+  0.93 to 0.96 MiB/s, one 16 KiB chunk a pump; a line the child wrote after
+  1 MB arrived after 1.0 s, after 4 MB after 4.1 s. Pi's events after a
+  prompt carry the mission's screenshot (hundreds of KB of base64) and the
+  assistant's text; three seconds of backlog is about 3 MB. Not measured:
+  Pi's event sizes in the b3 session (nothing of them was kept).
+- Fixed the measured part: janis's pump drains what a child has written,
+  up to 1 MiB a stream, polling before each further chunk so a child that
+  wrote exactly one chunk never blocks its parent
+  (`demos/javascript/janis.js`, `pumpChildren`); the check in
+  `demos/javascript/test/fixtures/janis-process.mjs` ("a line queued behind
+  4 MB … within 2.5 s") failed before. A janis change: every image with
+  janis rebuilds (Pi's chain).
+- Still open: whether the b3 timeout was that backlog, Pi's retry, or
+  something else; the mission's 3 s bound kills an agent whose only fault
+  may be being busy and reports its own kill as a provider error. Measure
+  Pi's RPC latency around a failed request in
+  `demos/classicube/test/fixtures/classicube-agent-browser.mjs` (its
+  injected provider timeout already exercises Retry task) before choosing
+  between a longer bound and an interrupt that does not kill.
 
 ## Done when
 
