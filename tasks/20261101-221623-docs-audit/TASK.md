@@ -7,9 +7,13 @@
 ## State (2026-11-02)
 
 On `core/docs-audit` (from `integrate/2026-11-02`, fa949c1b). Every document of the scope was
-read and its claims checked as listed below; wrong ones are fixed, gone ones cut. One seed
-change, `tar` (705de088), needs a catalog round. What is left: the findings below, each for
-the owner of its code.
+read and its claims checked as listed below; wrong ones are fixed, gone ones cut, and the
+numbers re-measured or dropped. One seed change, `tar` (705de088), needs a catalog round: this
+tree rebuilt and tested only `default`, `system`, `cc`, `git`, `less`, `dolly-docs`,
+`libdolly-gpu` and `ffmpeg` with their closures (27 images; its `dist/dolly-images.mjs` is that
+closure, since the other images are stale on the new seed). What is left: the findings below,
+each for the owner of its code; the task closes when they have moved to their owners' tasks or
+are done.
 
 Scope: `README.md`, `docs/*.md`, `host/README.md`, `abi/README.md`, `demos/*/README.md`,
 and the help texts and manual pages the core ships. Method: each document's factual claims
