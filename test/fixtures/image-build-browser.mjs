@@ -35,7 +35,10 @@ export async function buildLogProof() {
   return true;
 }
 
-export async function buildBufferReuse() {
+// Three builds from the same inputs, one of them failing: the inputs stay
+// intact and the built image is the same each time; its Blob holds what its
+// identity says.
+export async function buildInputReuse() {
   const base = new URL("../", document.baseURI);
   const [registry, policy, transport, builder, graph, artifactStore, { siteReference }, { hostModuleUrls: modules }] = await Promise.all([
     "src/images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
@@ -48,28 +51,27 @@ export async function buildBufferReuse() {
     site: base.href };
   const build = (image, inputs, customSource) => builder.buildImage(image, inputs, { http: { network } }, () => {}, { modules, customSource });
   const inputs = await graph.prepareImageArtifacts("custom", source, build, () => {});
+  const digestOf = async artifact => (await artifactStore.describeImageArtifact(artifact.bytes, artifact.recipeSha256)).sha256;
   let digest;
   for (const text of [source, source.replace("ENTRY", "SLOP false\nENTRY"), source]) {
     let result, failure;
     try { result = await build("custom", inputs, text); }
     catch (error) { failure = error.message; }
     for (const input of inputs) {
-      if (input.bytes.byteLength !== input.byteLength || await artifactStore.sha256(input.bytes) !== input.sha256) {
-        throw new Error("Build did not return its input buffers intact");
+      if (input.bytes.size !== input.byteLength || await digestOf(input) !== input.sha256) {
+        throw new Error("A build changed its inputs");
       }
     }
     if (text !== source) {
       if (!failure?.includes("bootstrap failed")) throw new Error("Invalid recipe did not fail its build");
     } else {
       if (failure) throw new Error(failure);
-      const actual = await artifactStore.sha256(result.bytes);
-      if (digest && actual !== digest) throw new Error("Reusing build buffers changed output");
-      digest = actual;
+      if (result.bytes.size !== result.byteLength || await digestOf(result) !== result.sha256) {
+        throw new Error("The built image's bytes do not match its identity");
+      }
+      if (digest && result.sha256 !== digest) throw new Error("Reusing build inputs changed output");
+      digest = result.sha256;
     }
   }
-  // A build told to consume its inputs frees them: the page holds none afterwards.
-  const consumed = await builder.buildImage("custom", inputs, { http: { network } }, () => {}, { modules, customSource: source, consume: true });
-  if (inputs.some(input => input.bytes.byteLength !== 0)) throw new Error("A consuming build left its input buffers in the page");
-  if (await artifactStore.sha256(consumed.bytes) !== digest) throw new Error("Consuming build inputs changed output");
   return digest;
 }
