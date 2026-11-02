@@ -251,7 +251,11 @@ shell had edited is the original again (`check-chromium-final.log`, `check-firef
 `check-chromium-save.log`). Anthropic's API with a wrong key under the commented rule: Pi
 shows Anthropic's `401 authentication_error: invalid x-api-key` (the request went through,
 CORS passed); under the OpenRouter-only policy the same start shows `Error: Connection
-error.` three times (`check-chromium-anthropic-rule.log`, `-norule.log`).
+error.` three times (`check-chromium-anthropic-rule.log`, `-norule.log`). OpenAI's API under a
+rule of its own (`authorization`): the preflight passes (its `Access-Control-Allow-Headers`
+echoes the OpenAI client's `x-stainless-*` and `openai-beta`), but its 401 to a wrong key
+carries no `Access-Control-Allow-Origin`, so Pi reads `Connection error.`; a valid key was
+not tried (`check-chromium-openai-rule.log`).
 
 The real turn was not completed: the key in `~/.openrouter` is revoked (OpenRouter's
 `/api/v1/key` answers 401 to it, as it did on 2026-10-25), so no model answered and nothing

@@ -79,8 +79,10 @@ policy. A backend that cannot answer CORS is reached through a relay (below).
   OpenRouter (`OPENROUTER_API_KEY`, `authorization`) and, as a comment on the
   next line of each file, Anthropic's API with your own key (`ANTHROPIC_API_KEY`,
   `x-api-key`; Pi sends the `anthropic-dangerous-direct-browser-access` header
-  its CORS requires). OpenAI's is `OPENAI_API_KEY` with `authorization`. All
-  three answer CORS. There is no login: a key, typed at the prompt. Pi sends
+  its CORS requires). OpenAI's is `OPENAI_API_KEY` with `authorization`; it
+  answers the preflight, and its error answers carry no CORS header, so a
+  refused key reads `Connection error.` in Pi. There is no login: a key, typed
+  at the prompt. Pi sends
   OpenRouter's `anthropic/*` models through Anthropic's Messages API, whose
   browser header OpenRouter's CORS refuses; `init`'s `models.json` row sends
   them through Chat Completions, one `id` per Claude model you want there.
