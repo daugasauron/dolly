@@ -1,8 +1,15 @@
 # Audit: every core and toolchain Dollyfile
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: audit,dollyfile
+
+## Closed (2026-11-03, 05:30)
+
+Every recipe of the scope read and judged (the table); what a measurement confirmed is fixed in
+495ae47dc and the base-batch commit below, each rebuilt and tested in both browsers; the rest is
+three proposals (P1-P3) and three uncertain items (16-18) that stay here. The images not rebuilt
+in this tree are the next catalog round's, which a base change calls for anyway.
 
 ## State (2026-11-02, night)
 
@@ -197,6 +204,23 @@ demos/ocaml: `ocaml`: ok. demos/studio: `dollyfile-studio`: ok (1.6 GB: pi-local
   naga, protox, cbindgen, zig-llvm, the four models, and the dependents codex, codex-agent,
   pi-local, dollyfile-studio, bhop, classicube, rts-arena, slopyard, pi-phone, spidermonkey,
   zero-ad*, xonotic*, ghostty-gtk, ghostty-x11: the next catalog round.
+- The base batch (one commit, findings 1-5 and 15): Git at -O2 without the seven denials
+  (`measure-git.log`: the whole build 89 s against 53 s at -O0; cold `git gc` 113 ms against
+  915, `add`+`commit` of 20 MB 158 against 489, warm runs the same), `git-remote-https` copied
+  from `git-remote-http` (system-build has `cp` and no `ln`: the first build with `ln -s` failed,
+  `build-base.log`), the five compat sources Git no longer denies out of
+  `scripts/generate-git-sources.mjs`; Make from its 34 sources in one `cc` and Samurai from
+  its 13, `src/runtimes/make-amalgamation-dolly.c` and `samurai-unit-dolly.c` deleted with their
+  staging lines (102 and 50 recipe lines out); session-recover FROM system-build; the two stale
+  comments. Rebuilt: the closure of `default` and `system` (`build-base.log`, `build-base-2.log`);
+  git is 4.59 MB (was 6.35), git-remote-http 1.27 MB (1.80), ninja 145.6 KB (146.7), make
+  363 KB (387).
+  Tests (`tests-core.log`): core-browser in Chromium and Firefox, man, pager (with `less` rebuilt
+  on the new base, `test-pager-browser-both-2.log`) and shell in both: all passed. Every other
+  image needs the next catalog round.
+- Tests of 495ae47dc: javascript (typescript) and vendor-crates in Chromium and Firefox,
+  pi-frontend and pi-ask-user (pi-runtime) in both, pi (pi-agent) in Chromium, go (go-tools) in
+  both, closed-source-agent in both: all passed (`tests-js.log`, `tests-pi.log`, `tests-go.log`).
 
 ## Proposals
 

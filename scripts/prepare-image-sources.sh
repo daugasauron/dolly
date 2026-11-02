@@ -116,12 +116,6 @@ if has_image system-build; then
   git -C "${emscripten_system_dir}" show HEAD:system/lib/libc/musl/COPYRIGHT > "${staging}/musl-COPYRIGHT"
   copy_static "${staging}/musl-COPYRIGHT" default/licenses/musl
 fi
-if has_image system-build; then
-  copy_static "${project_dir}/src/runtimes/make-amalgamation-dolly.c" default/runtimes/make-amalgamation-dolly.c
-fi
-if has_image system-tools; then
-  copy_static "${project_dir}/src/runtimes/samurai-unit-dolly.c" default/runtimes/samurai-unit-dolly.c
-fi
 if has_image amy; then
   # amy asks the site for the package index of the version it was built for.
   node -p '`#define DOLLY_VERSION "${require("./package.json").version}"`' > "${staging}/version.h"
