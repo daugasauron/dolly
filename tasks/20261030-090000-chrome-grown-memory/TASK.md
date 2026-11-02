@@ -56,9 +56,24 @@ spawn (`#reserveMaximum`, `src/process-supervisor.mjs`):
   maximum's last page right after `pthread_create` it trapped in none without that wait
   either, so it closes the case where the reply comes before the thread waits, not an
   observed failure. It costs nothing measurable (that program, 20 runs each way in Firefox).
-- The kernel's memory grows in `runtime@0`'s Worker (`host/runtime/grower.mjs`), each request
-  with its own control word: the late-notify race `72a223ff` fixed cannot occur, so
-  `test/memory-growth-notify-browser.mjs` and its fixture go. A process's memory grows in a
+- The kernel's memory grows in `runtime@0`'s Worker (`host/runtime/grower.mjs`). Each request
+  with its own control word, posted to the grower (`ff095b5b`), deadlocked in Chrome
+  (2026-11-02, `fix/boundary-hang`): the runtime Worker posts the request and waits in
+  `Atomics.wait`, and Chrome holds a message posted to a Worker that started moments before
+  until the sender's next task. On a blank page, a message posted to a nested Worker right
+  after its "ready" was not delivered within 3 s while the sender waited, and was after one
+  event-loop turn; Firefox delivered it at once (`build/boundary-evidence/grow-repro2.log` in
+  `work/audit-host`). `test/boundary-browser.mjs`, whose kernel-bounds check grows past the
+  maximum right after the grower starts, hung there. The grower is again handed its memory and
+  control once and served through the control's word, so the late notify `72a223ff` fixed can
+  occur again; both sides wait in a loop on the word, and
+  `test/memory-growth-notify-browser.mjs` with its fixture is back. Measured on `default` and
+  `system` built for that branch: `boundary-browser` hangs in Chromium (120 s) with
+  `integrate/2026-11-02`'s three files and passes with the fix in Chromium (2.4 s) and Firefox
+  (4.2 s, which passed before too); `memory-growth-notify`, `memory-growth`, `threads` and
+  `core` pass in both. Without the runtime Worker's loop on the word, `memory-growth-notify`
+  fails to boot `system` as `72a223ff` measured ("memory access out of bounds" in Chromium,
+  "index out of bounds" in Firefox). A process's memory grows in a
   Worker of that file which ends after it, the next one started ahead (the spawn waits as a
   deferred call; 13 to 22 ms for a program's first thread in Chrome, against about 10 ms in a
   lasting Worker and 40 ms with a Worker started then; 20 to 25 ms in Firefox either way). In a
@@ -101,3 +116,6 @@ Done-when: merged with the decision in `docs/process-model.md`.
   `-pthread` program's start) charged Firefox 8 GiB for git commands that never start a thread.
 - A helper Worker that is handed a memory keeps it alive until that Worker collects garbage; a
   Worker used once and ended releases it at once.
+- A thread that waits in `Atomics.wait` must not wait for a message it has just posted: Chrome
+  delivers a message to a Worker that started moments before only after the sender's next task.
+  Hand a helper its shared state once, let it say it waits, and pass requests through words.

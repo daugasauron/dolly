@@ -528,7 +528,7 @@ const elsewhere = {
   "lfm2.5": "demos/local-llm",
   "libdolly-audio": "audio-browser.mjs", "libdolly-gpu": "gpu-render-browser.mjs",
   "libdolly-microphone": "microphone-browser.mjs", "libdolly-sockets": "sockets-browser.mjs",
-  "libdolly-touch": "touch-browser.mjs", "stack-wrap": "stack-browser.mjs",
+  "libdolly-touch": "touch-browser.mjs", "stack-wrap": "stack-browser.mjs", html: "html-browser.mjs",
   libjpeg: "demos/xonotic", "xonotic-shaders": "demos/xonotic: xonotic-build installs it", spidermonkey: "demos/zero-ad",
   "xorg-server": "demos/x11", twm: "demos/x11", xclock: "demos/x11", xeyes: "demos/x11", xterm: "demos/x11",
   imgui: "demos/sdl2", "imgui-x11": "demos/x11", llvm21: "demos/zig: zig-llvm uses it", "zig-llvm": "demos/zig",

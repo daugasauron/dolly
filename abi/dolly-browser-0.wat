@@ -30,6 +30,11 @@
   (import "env" "dolly_bootstrap_write_bytes" (func (param i64 i64) (result i32)))
   (import "env" "dolly_download_dispatch"
     (func (param i32 i64 i64) (result i32)))
+  ;; A document the page shows in a popup it builds from the document's text
+  ;; and forms, and the fields of a form the user submits there: no URL of it
+  ;; is fetched or navigated to, and no script of it runs.
+  (import "env" "dolly_html_dispatch"
+    (func (param i32 i64 i64) (result i32)))
 
   ;; Time in milliseconds: since the epoch, and since the runtime Worker started.
   (import "env" "dolly_clock_realtime" (func (result f64)))

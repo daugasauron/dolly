@@ -5,6 +5,7 @@ if has_image pi; then
 fi
 if has_image pi-dolly; then
   copy_static demos/pi/dolly-tools.js default/pi/dolly-tools.js
+  copy_static demos/pi/ask-user.js default/pi/ask-user.js
   copy_static demos/pi/SYSTEM.md default/pi/SYSTEM.md
   copy_static demos/pi/settings.json default/pi/settings.json
   copy_static demos/pi/dolly-theme.json default/pi/dolly-theme.json

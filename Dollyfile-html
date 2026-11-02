@@ -1,0 +1,78 @@
+DOLLY 7
+PACKAGE html
+REQUIRES HOST runtime@0
+REQUIRES HOST html@0
+
+# The html@0 module's header and client, and the html command, which shows
+# the user an HTML page or form in a popup of the page and prints the fields
+# of the form they submit. cc links every client archive in
+# /usr/lib/dolly/process; a program records html@0 when it calls the client.
+FROM /v0.1.4/Dollyfile-system-build 64a3faafb8702eba5ddbdbaf733c656fd476f2cc04ac023792b84403c7b005b4
+REQUIRES HEADER libc
+REQUIRES TOOL ar
+REQUIRES TOOL cc
+REQUIRES TOOL rm
+
+SOURCE /v0.1.4/host/html/html.h b5d3905d3cb6d70cb4b019f9f5c6375cb92ce241608ccaf02fc13278ebb08261 /usr/include/dolly/html.h
+SOURCE /v0.1.4/host/html/html-abi.h 0a8f41deb7c332d02f856177f886978df80a1f0486839ddd77564953706e0264 /usr/include/dolly/html-abi.h
+SOURCE /v0.1.4/host/html/client.c 4c907d8a84cad64fc4e6433b057f4ac9a413e2454f20c7579129dc34c9afc202 /tmp/html/client.c
+SLOP cc -O1 -c /tmp/html/client.c -o /tmp/html/client.o
+SLOP ar rcs /usr/lib/dolly/process/libdolly-html.a /tmp/html/client.o
+
+EXPORTS HEADER html     /usr/include/dolly/html.h
+EXPORTS HEADER html-abi /usr/include/dolly/html-abi.h
+EXPORTS LIB    dolly-html /usr/lib/dolly/process/libdolly-html.a
+
+FILE /tmp/html/html.c
+    #include <dolly/html.h>
+    #include <errno.h>
+    #include <stdio.h>
+    #include <string.h>
+    
+    static const char usage[] =
+        "usage: html [FILE]\n"
+        "Shows FILE, or standard input, an HTML document of at most 1 MiB, in a popup\n"
+        "of the page: its text, headings, lists, tables and forms, in the page's style.\n"
+        "When the user submits a form, prints its fields on one line as a browser posts\n"
+        "them (application/x-www-form-urlencoded) and exits 0; exits 1 when the user\n"
+        "closes the popup, 2 on an error.\n";
+    static char document[DOLLY_HTML_DOCUMENT_MAX + 1];
+    static char fields[DOLLY_HTML_FIELDS_MAX];
+    
+    int main(int argc, char **argv) {
+      if (argc == 2 && strcmp(argv[1], "--help") == 0) {
+        fputs(usage, stdout);
+        return 0;
+      }
+      if (argc > 2) {
+        fputs(usage, stderr);
+        return 2;
+      }
+      FILE *input = argc == 2 ? fopen(argv[1], "rb") : stdin;
+      if (input == NULL) {
+        fprintf(stderr, "html: %s: %s\n", argv[1], strerror(errno));
+        return 2;
+      }
+      const size_t size = fread(document, 1, sizeof(document), input);
+      if (ferror(input)) {
+        fprintf(stderr, "html: %s\n", strerror(errno));
+        return 2;
+      }
+      if (size == 0 || size > DOLLY_HTML_DOCUMENT_MAX) {
+        fprintf(stderr, "html: the document is %s\n", size == 0 ? "empty" : "over 1 MiB");
+        return 2;
+      }
+      const int result = dolly_html_show(document, size, fields, sizeof(fields));
+      if (result == -ECANCELED) return 1;
+      if (result < 0) {
+        fprintf(stderr, "html: %s\n", strerror(-result));
+        return 2;
+      }
+      printf("%.*s\n", result, fields);
+      return 0;
+    }
+SLOP cc -O1 /tmp/html/html.c -o /usr/bin/html
+EXPORTS TOOL html
+SLOP html --help > /usr/share/man/cat1/html.1
+FILE /usr/share/man/cat1/html.1
+SLOP rm -rf /tmp/html

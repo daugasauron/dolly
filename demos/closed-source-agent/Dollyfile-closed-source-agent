@@ -14,11 +14,11 @@ REQUIRES HOST upload@0
 
 # Runs Claude Code, which the launcher downloads from the npm registry into
 # the session after the notice: the image holds nothing of it.
-FROM /v0.1.4/Dollyfile-system bf94b7ea01fe1a46f412661c9528aee151913a0eca68a115b8adccbad11a3d3f
-INSTALL /v0.1.4/Dollyfile-amy 9f7d1d16abb91b05a816e24491ad7e3ec53872d4aa7ae48372461a7fbbe96c89
-INSTALL /v0.1.4/demos/javascript/Dollyfile-janis-install 4e10310bdb731c91c14fdc8a93d2de2fcf5727b9666709da570306c364d845f6
+FROM /v0.1.4/Dollyfile-system 60b0bd82ccfcf0fda1d4ad6ab89a2efe404ccc4b32a2c9747d579b25ddfbc284
+INSTALL /v0.1.4/Dollyfile-amy e301b027884187fe2c03e3942fc7b771344af9e0ad8d654c4e06132cb8292727
+INSTALL /v0.1.4/demos/javascript/Dollyfile-janis-install b55a6abde899378eb585fc59cdd474358022b030bff250d01621ec534a1b06aa
 INSTALL /v0.1.4/demos/closed-source-agent/Dollyfile-secretenv 50a8225c603712bd9ce3a7e889a060fc82fe9bf8c2e936b21589cd64e23c3309
-INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 0bdf77f3d462a06b0da9848e7276850098c427833833defd44b1b6bafacf89a9
+INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep c33c210a966735cf044de7cc085071d451470a831fa117550a431c560e8cb5cf
 REQUIRES TOOL cc
 REQUIRES TOOL foreground
 REQUIRES TOOL janis
