@@ -56,6 +56,19 @@ tasks they came from are closed; their own work is merged on `integrate/2026-11-
   `nena enable html` (`tasks/20261101-124237-html-popups`): a base-image change.
 - The recipe language cannot leave build-only tools out of an image (Rust's 370 MB toolchain stays
   in an image that used cargo).
+- `tar` restoring mtimes (a seed change): Emacs compiles a 12-line `utimensat` program to make the
+  release's generated files current (`tasks/20261102-133232-recipes-apps`, S2); with the session
+  saves' mtimes above, make sees the times upstream's archive gives.
+- A fractional `sleep` in the core: ghostty-x11 and x11-desktop poll for the X socket with up to
+  6000 `test` spawns, since sbase's `sleep` takes whole seconds (recipes-apps F4).
+- SpiderMonkey builds as `-D__wasi__` on `wasm64-unknown-wasi`, a detection claim of the kind the
+  porting rules forbid, because mozbuild knows no Dolly; a `dolly` OS in its tables is a source
+  patch (recipes-apps F11).
+- The terminal's palette (`src/ghostty/display.c`, a seed input) as a file the image holds or a
+  `display@0` setting, so a page's look is complete: popups follow the page's CSS, the terminal
+  does not (`tasks/20261102-133357-npm-agent-sandbox`).
+- Publishing `@daugasauron/dolly-package-git`, `-python` and `-cc` (3.4, 51 and 35 MB), which
+  `scripts/package-npm.mjs` packs and `dolly-build init` installs from (npm-agent-sandbox).
 - raylib 6.0's software renderer (unchanged upstream) does nothing for blend modes, wraps additive
   colours, draws nothing for DrawPoly and reads the screen upside down: patch upstream or wait.
 
