@@ -131,6 +131,24 @@ script) is now written by `init` or said in its comments.
   arguments): one line each, naming the file and line or the command to run.
 - Source suite 467 pass, `lint:dollyfiles` 193 recipes, before each commit.
 
+## After the merge of integrate/2026-11-02 at 64491fd72 (2026-11-03 00:15 JST)
+
+Merged cleanly (8c7cffcd5); `npm run build:runtime` kept the image inputs at fe5261db.
+The branch repins `Dollyfile-dolly-docs` (the docs it holds changed), so `dolly-docs`,
+`pi-dolly` and `pi-minimal` are "recipe changed" in `npm run image -- pi-minimal --plan`
+and were rebuilt here before the final test (`image-after-merge.log`, 132 s for the three):
+the npm packages pack `pi-minimal` from `dist/`, and a `FROM` at the recipe's pin needs the
+built image to carry it. `default`, `git`, `python` and `cc` are unchanged. The plain
+`npm run image` that followed, to make the catalog whole, was not seconds of cache hits:
+the repin had changed twelve recipes (`bhop`, `classicube`, `dolly-docs`, `dollyfile-studio`,
+`pi-agent`, `pi-dolly`, `pi-local`, `pi-minimal`, `pi-phone`, `pi-runtime`, `rts-arena`,
+`slopyard`), and the Lean chain (`lean`, `lean-std`, `lean-meta`) was missing from the
+evening round's catalog, so it built them all: 5792 s, exit 0, headless Chrome, and (my
+mistake) outside the build slot. The catalog is whole again: 193 images, every pin the
+recipe's, no hard link outside snapshots and packs. Then `test/npm-browser.mjs chromium
+firefox` on the merged tree and the rebuilt `pi-minimal`: passed, 26.7 s and 34.4 s
+(`npm-browser-both-6-after-merge.log`); source suite 467, lint 193.
+
 ## Frictions left
 
 - Pi's theme: a 60-line JSON and a whole `settings.json`; the template names the files
