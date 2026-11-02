@@ -6,9 +6,11 @@
 // - A page that adds every other device module loads them all, enables gpu@0,
 //   and holds the http@0 policy it gives boot().
 // - A page that lacks a module the image requires, or isolation, says so.
-// - The README's "Pi with npm", as written: its packages, page and server run Pi,
-//   and its policy refuses another origin; its own image, built by dolly-build in
-//   the browser under test, starts Pi with the extension and the skill it adds.
+// - The README's "Pi with npm", as written: its packages and the project
+//   dolly-build init writes, whose image dolly-build builds in the browser under
+//   test, start Pi with the extension, the skill, the instructions, the tool and
+//   the package the recipe declares, the workspace the page writes, and a policy
+//   that refuses another origin.
 // Usage: node test/npm-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { execFile, execFileSync, spawn } from "node:child_process";
@@ -83,28 +85,30 @@ try {
   const [install, more] = blocks("sh");
   await npm(app, install);
   await npm(app, more);
+
+  // The README's "Pi with npm": its one block of commands, the last of which serves.
   const readme = await readFile(resolve(projectDir, "README.md"), "utf8");
   const piSection = readme.slice(readme.indexOf("\n## Pi with npm\n"), readme.indexOf("\n## ", readme.indexOf("\n## Pi with npm\n") + 1));
-  const piBlocks = language => [...piSection.matchAll(new RegExp("```" + language + "\\n([\\s\\S]*?)```", "g"))].map(([, text]) => text);
+  const [piCommands] = [...piSection.matchAll(/```sh\n([\s\S]*?)```/g)].map(([, text]) => text);
+  const [piInit, piInstall, scaffold, buildCommand, serveCommand] = piCommands.replace(/\\\n/g, " ").trim().split("\n");
+  assert.equal(serveCommand, "node serve.mjs");
   const piApp = join(work, "pi-app");
   await mkdir(piApp);
-  await npm(piApp, piBlocks("sh")[0]);
-  await writeFile(join(piApp, "index.html"), piBlocks("html")[0].replace("await boot(", "window.dolly = await boot("));
-  // Its own image: the page imports it from the directory dolly-build writes.
-  const packageIndex = "./node_modules/@daugasauron/dolly-image-pi-minimal/index.mjs";
-  assert.ok(piBlocks("html")[0].includes(packageIndex));
-  await writeFile(join(piApp, "my-pi.html"), (await readFile(join(piApp, "index.html"), "utf8")).replace(packageIndex, "./my-pi/index.mjs"));
-  const [, recipeCommands, buildCommand] = piBlocks("sh");
-  await npm(piApp, recipeCommands);
+  await npm(piApp, piInit);
+  await npm(piApp, piInstall);
+  await npm(piApp, scaffold);
+  // The project as written, with the page's handle kept for the test and a file of its own in the workspace.
+  const piPageSource = await readFile(join(piApp, "index.html"), "utf8");
+  assert.ok(piPageSource.includes("await boot("));
+  await writeFile(join(piApp, "index.html"), piPageSource.replace("await boot(", "window.dolly = await boot("));
+  await writeFile(join(piApp, "workspace/ocean.txt"), "the deepest trench\n");
   const recipe = await readFile(join(piApp, "Dollyfile-my-pi"), "utf8");
-  assert.match(recipe, /^ENTRY /m);
-  await writeFile(join(piApp, "Dollyfile-my-pi"), recipe.replace(/^ENTRY /m, `${piBlocks("dollyfile")[0]}ENTRY `));
-  await writeFile(join(piApp, "serve.mjs"), piBlocks("js")[0]);
+  const declaredByRecipe = [...recipe.matchAll(/^REQUIRES HOST (\S+)/gm)].map(([, name]) => name).toSorted();
   const piServer = spawn(process.execPath, ["serve.mjs"], { cwd: piApp, env: { ...process.env, PORT: "0" } });
   servers.push({ close: () => piServer.kill() });
   const piPage = await new Promise((resolveAddress, reject) => {
     piServer.stdout.once("data", data => resolveAddress(String(data).trim()));
-    piServer.once("exit", status => reject(new Error(`the README's serve.mjs exited with ${status}`)));
+    piServer.once("exit", status => reject(new Error(`the project's serve.mjs exited with ${status}`)));
   });
 
   // The guide's page, which also keeps the handle for the test; the same page
@@ -153,6 +157,8 @@ try {
       started.source), 120, `${started}`);
     return command => within(tab.evaluate(command => window.dolly.submit(command), command), 60, command);
   };
+  const shows = (tab, pattern, what) => within(tab.evaluate(([source, what]) =>
+    window.dolly.waitForInteractiveTerminal(new RegExp(source), what, 0), [pattern.source, what]), 120, what);
   for (const name of names) {
     const started = performance.now();
     const browser = await (name === "chromium"
@@ -186,28 +192,32 @@ try {
       await bare.waitForFunction(() => document.documentElement.dataset.dollyStatus === "failed", null, { timeout: 60_000 });
       assert.match(await bare.locator("#bootstrap-log").textContent(), /cross-origin isolation/);
 
-      // Its own image, built in this browser (after the first, over the last one's): Pi lists the
-      // skill and the extension, and runs its command.
-      await npm(piApp, `${buildCommand.trim()} --browser ${name === "chromium" ? "chrome" : name}`);
-      const mine = await browser.newPage();
-      await booted(mine, `${piPage}my-pi.html`, /Bash is not installed/);
-      assert.match(await mine.evaluate(() => window.dolly.visibleTerminalText()), /changelog[\s\S]*hello\.js|hello\.js[\s\S]*changelog/);
+      // The project's image, built in this browser (after the first, over the last one's). Its
+      // start script asks for the key; Pi then lists the skill and the extension and runs its command.
+      await npm(piApp, `${buildCommand} --browser ${name === "chromium" ? "chrome" : name}`);
+      const pi = await browser.newPage();
+      await booted(pi, piPage, /not shown\):/);
+      await pi.keyboard.type("sk-or-test");
+      await pi.keyboard.press("Enter");
+      await shows(pi, /Bash is not installed/, "Pi");
+      assert.match(await pi.evaluate(() => window.dolly.visibleTerminalText()), /changelog[\s\S]*hello\.js|hello\.js[\s\S]*changelog/);
       // Enter takes the command menu's choice, so it waits for the menu to offer this one.
-      await mine.keyboard.type("/hello");
-      await within(mine.evaluate(() => window.dolly.waitForInteractiveTerminal(/Say hello/, "the menu", 0)), 60, "the menu");
-      await mine.keyboard.press("Enter");
-      await within(mine.evaluate(() => window.dolly.waitForInteractiveTerminal(/Hello, world, from my-pi!/, "the command", 0)), 60, "/hello");
-      assert.deepEqual((await mine.evaluate(() => window.dolly.hostModules)).sort(), declared("pi-minimal"));
-      await mine.close();
-
-      // Pi starts; Ctrl+D leaves it for the shell, where the policy refuses what it does not name.
-      const pi = await browser.newPage(), shell = await booted(pi, piPage, /Bash is not installed/);
+      await pi.keyboard.type("/hello");
+      await shows(pi, /Say hello/, "the menu");
+      await pi.keyboard.press("Enter");
+      await shows(pi, /Hello, world, from my-pi!/, "/hello");
+      assert.deepEqual((await pi.evaluate(() => window.dolly.hostModules)).sort(), declaredByRecipe);
+      // Ctrl+D leaves Pi for the shell: the instructions, the tool, Git and the workspace are
+      // there, and the policy refuses what it does not name.
       await pi.keyboard.press("Control+d");
-      await within(pi.evaluate(() => window.dolly.waitForInteractiveTerminal(
-        /Dolly: image entry exited; entering the recovery Slop shell\.[\s\S]*\ndolly:[^\n]*\$\s*$/, "the shell", 0)), 60, "the shell");
+      const shell = await (async () => {
+        await shows(pi, /Pi exited; this is a Slop shell\.[\s\S]*\ndolly:[^\n]*\$\s*$/, "the shell");
+        return command => within(pi.evaluate(command => window.dolly.submit(command), command), 60, command);
+      })();
+      assert.equal(await shell("grep -q 'coding agent' ~/.pi/agent/AGENTS.md && command -v todo > /dev/null"), 0);
+      assert.equal(await shell("git --version > /dev/null"), 0);
+      assert.equal(await shell("grep -q 'deepest trench' /workspace/ocean.txt"), 0);
       assert.notEqual(await shell("curl -fsS https://example.com > /dev/null"), 0);
-      assert.deepEqual((await pi.evaluate(() => window.dolly.hostModules)).sort(), declared("pi-minimal"));
-      assert.equal(await shell("command -v pi-key > /dev/null"), 0);
       console.log(`npm packages: ${name} passed in ${((performance.now() - started) / 1000).toFixed(1)}s`);
     } finally { await browser.close(); }
   }

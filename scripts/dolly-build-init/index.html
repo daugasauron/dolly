@@ -1,0 +1,30 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>__NAME__</title>
+<style>
+  /* The popups of Pi's ask_user and show_html take the page's colours and font. */
+  #dolly { --dolly-html-background: #262626; --dolly-html-color: #e8e3d7; --dolly-html-accent: #f2d45c;
+    --dolly-html-font: ui-monospace, monospace; --dolly-html-color-scheme: dark; }
+</style>
+<main id="dolly" style="position:fixed;inset:0"></main>
+<script type="module">
+  import { boot } from "./node_modules/@daugasauron/dolly/src/browser.mjs";
+  import { images, image, modules } from "./__NAME__/index.mjs";
+
+  // The hosts the agent may reach, and nothing else: the model's provider here. A
+  // rule names an origin, its paths and methods, and the header that carries the
+  // key (docs/http.md in @daugasauron/dolly). Hosts without CORS headers go
+  // through serve.mjs's relay (docs/agent-frontend.md).
+  const policy = { rules: [
+    { origin: "https://openrouter.ai", pathPrefix: "/api/v1/", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },
+  ] };
+
+  // The project: workspace/ is written into /workspace at each boot, so an edit
+  // there is a reload. Pi's tools can read these files; they are not for secrets.
+  const files = {};
+  for (const path of await (await fetch("./workspace/")).json()) {
+    files[`/workspace/${path}`] = new Uint8Array(await (await fetch(`./workspace/${path}`)).arrayBuffer());
+  }
+
+  await boot(document.querySelector("#dolly"), { images, image, modules, http: { policy }, files });
+</script>

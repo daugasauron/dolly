@@ -104,134 +104,43 @@ and [Embedding](docs/embedding.md), or [Pi with npm](#pi-with-npm) below.
 
 ## Pi with npm
 
-A page of your own that runs the Pi coding agent, served from your machine, whose
-requests the browser admits to the model's provider and nowhere else. In an empty
-directory, with Node.js and npm:
+A page of your own that runs the Pi coding agent on your project, served from
+your machine, whose requests the browser admits to the model's provider and
+nowhere else. In an empty directory, with Node.js, npm and Chrome:
 
 ```sh
 npm init --yes
-npm install @daugasauron/dolly @daugasauron/dolly-image-pi-minimal \
+npm install @daugasauron/dolly @daugasauron/dolly-image-pi-minimal @daugasauron/dolly-build \
   @daugasauron/dolly-host-display @daugasauron/dolly-host-input @daugasauron/dolly-host-save \
-  @daugasauron/dolly-host-html
-```
-
-`pi-minimal` is Pi with a shell, POSIX tools and curl; the page gives it a
-terminal (`display`), a keyboard (`input`), Pi's download tool (`save`) and the
-popup its `ask_user` and `show_html` tools show (`html`), and nothing else of
-the browser.
-`index.html` boots it with an [HTTP policy](docs/http.md) of one rule:
-OpenRouter's API. The broker refuses every other request, whatever Pi or a
-program it runs asks for.
-
-```html
-<!doctype html>
-<meta charset="utf-8">
-<main id="dolly" style="position:fixed;inset:0"></main>
-<script type="module">
-  import { boot } from "./node_modules/@daugasauron/dolly/src/browser.mjs";
-  import { images, image, modules } from "./node_modules/@daugasauron/dolly-image-pi-minimal/index.mjs";
-  const policy = { rules: [
-    { origin: "https://openrouter.ai", pathPrefix: "/api/v1/", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },
-  ] };
-  await boot(document.querySelector("#dolly"), { images, image, modules, http: { policy } });
-</script>
-```
-
-`serve.mjs` serves the directory with the cross-origin isolation Dolly needs,
-and relays the hosts in `relayed` for a page whose programs need a host that
-sends no CORS headers ([relays](docs/http.md#cors-and-relays)):
-
-```js
-import { createServer } from "node:http";
-import { readFile } from "node:fs/promises";
-import { extname, join, normalize } from "node:path";
-
-// Hosts without CORS headers: METHOD /relay/HOST/PATH is sent on to https://HOST/PATH.
-const relayed = new Set([]);
-const types = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript",
-  ".json": "application/json", ".wasm": "application/wasm" };
-
-async function relay(request, response, url) {
-  const target = new URL(`https://${url.pathname.slice("/relay/".length)}${url.search}`);
-  if (!relayed.has(target.host)) return response.writeHead(403).end();
-  const headers = Object.fromEntries(Object.entries(request.headers).filter(([name]) =>
-    !["host", "origin", "referer", "cookie", "connection", "content-length"].includes(name) && !name.startsWith("sec-")));
-  const body = ["GET", "HEAD"].includes(request.method) ? undefined : request;
-  const answer = await fetch(target, { method: request.method, headers, body, duplex: "half", redirect: "error" });
-  response.writeHead(answer.status, { "content-type": answer.headers.get("content-type") ?? "application/octet-stream" });
-  for await (const chunk of answer.body ?? []) response.write(chunk);
-  response.end();
-}
-
-const server = createServer(async (request, response) => {
-  const url = new URL(request.url, "http://localhost");
-  if (url.pathname.startsWith("/relay/")) {
-    return relay(request, response, url).catch(() => response.headersSent ? response.destroy() : response.writeHead(502).end());
-  }
-  try {
-    const path = join(process.cwd(), normalize(decodeURIComponent(url.pathname)));
-    const body = await readFile(path.endsWith("/") ? join(path, "index.html") : path);
-    response.writeHead(200, { "content-type": types[extname(path) || ".html"] ?? "application/octet-stream",
-      "cross-origin-opener-policy": "same-origin", "cross-origin-embedder-policy": "require-corp" });
-    response.end(body);
-  } catch {
-    response.writeHead(404).end();
-  }
-}).listen(Number(process.env.PORT ?? 8080), "127.0.0.1", () => console.log(`http://127.0.0.1:${server.address().port}/`));
-```
-
-Run `node serve.mjs` and open the address it prints. Pi starts; leave it with
-Ctrl+D for a shell, where `pi-key OPENROUTER_API_KEY --provider openrouter`
-reads your key without showing it and starts Pi with it, and `/model` picks a
-model. The key stays in that Pi's environment. `curl https://example.com`
-in the shell fails: the policy refuses it.
-
-### Your own Pi image
-
-Your extensions and skills can be part of the image the page serves.
-`dolly-build` builds an image of your own `FROM` `pi-minimal`, in your Chrome
-(headless, with the runtime you installed), into a directory that `boot()`
-loads:
-
-```sh
-npm install @daugasauron/dolly-build
-npx dolly-build from pi-minimal my-pi > Dollyfile-my-pi
-```
-
-`Dollyfile-my-pi` is a [recipe](docs/dollyfile.md): `pi-minimal`'s host
-modules, `FROM` it at its pin, and its `ENTRY`. Before `ENTRY`, add a `FILE` row
-for each file, its body indented four spaces: here an extension with a `/hello`
-command and a skill.
-
-```dollyfile
-FILE /home/dolly/.pi/agent/extensions/hello.js
-    export default function (pi) {
-      pi.registerCommand("hello", {
-        description: "Say hello",
-        handler: async (name, ctx) => ctx.ui.notify(`Hello, ${name || "world"}, from my-pi!`, "info"),
-      });
-    }
-FILE /home/dolly/.pi/agent/skills/changelog/SKILL.md
-    ---
-    name: changelog
-    description: Keeps /workspace/CHANGELOG.md. Use when asked to record a change.
-    ---
-    Add the change under "## Unreleased", one line each, newest first.
-```
-
-```sh
+  @daugasauron/dolly-host-html @daugasauron/dolly-package-git
+npx dolly-build init my-pi git
 npx dolly-build Dollyfile-my-pi my-pi
+node serve.mjs
 ```
 
-In `index.html`, import `images`, `image` and `modules` from `./my-pi/index.mjs`
-instead of the package's. Pi starts with both, under `[Skills]` and
-`[Extensions]`. After a change, the same command builds `my-pi` again.
-`--browser firefox` builds in Firefox, after `npx playwright-core install firefox`.
+`init` writes the project; the second `dolly-build` builds its image in your
+Chrome (headless, 10 s; `--browser firefox` after `npx playwright-core install firefox`),
+and `serve.mjs` serves the page. Open the address it prints: Pi asks for your
+OpenRouter key at a prompt that does not show it, and starts in `/workspace`
+with Git and the project's files. `curl https://example.com` in Pi's shell
+fails: the policy refuses it.
+
+| File | What it declares | After a change |
+| --- | --- | --- |
+| `Dollyfile-my-pi` | The sandbox, a [recipe](docs/dollyfile.md) `FROM` `pi-minimal`: `INSTALL` rows for the packages you named (`git`, `python`, `cc`), `FILE` rows with Pi's `AGENTS.md`, a skill, an extension with a `/hello` command, a `todo` tool, and the script that starts Pi with its provider | Build again |
+| `index.html` | The hosts the agent may reach ([HTTP policy](docs/http.md)): one rule, OpenRouter's API. The popups' colours. The files written into `/workspace` | Reload |
+| `workspace/` | The project the agent works on, written into `/workspace` at each boot | Reload |
+| `serve.mjs` | Serving with cross-origin isolation; the hosts it relays for programs that need one without CORS headers ([relays](docs/http.md#cors-and-relays)) | Restart |
+
+`pi-minimal` is Pi with a shell, POSIX tools, curl, ripgrep and fd; the page gives
+it a terminal (`display`), a keyboard (`input`), Pi's download tool (`save`) and the
+popup its `ask_user` and `show_html` tools show (`html`), and nothing else of the
+browser. A package's host modules join the recipe's `REQUIRES HOST` rows and the
+page's install line: `python` needs `@daugasauron/dolly-host-sockets`.
 
 [An agent in place of a web frontend](docs/agent-frontend.md) goes on from here:
 your company's instructions and skills, your backend's API, your model provider
-(Bedrock, Copilot, a gateway of your own) and how Pi starts, all as files beside
-`index.html`, with no image to rebuild.
+(Bedrock, Copilot, a gateway of your own) and how Pi starts.
 
 ## Boundary
 

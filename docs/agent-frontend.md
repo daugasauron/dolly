@@ -8,59 +8,33 @@ is. This guide builds such a page from the npm packages ([Embedding](embedding.m
 
 ## Start
 
-Make the README's "Pi with npm" first: one `npm install`, an `index.html` and
-a `serve.mjs`, and `node serve.mjs`. It runs `pi-minimal` (Pi, a shell, POSIX
-tools, curl, ripgrep and fd) under a policy that admits OpenRouter alone. This
-guide adds files beside them:
+Make the README's "Pi with npm" first: `npx dolly-build init my-pi git` writes
+a project that runs `pi-minimal` (Pi, a shell, POSIX tools, curl, ripgrep and fd)
+with Git under a policy that admits OpenRouter alone, and `dolly-build` builds
+its image. This guide changes its files:
 
 ```
-index.html                    the page: policy, relays, and the files it gives Pi
+Dollyfile-my-pi               the sandbox: Pi's instructions, skills, extensions, tools, how Pi starts
+index.html                    the page: the policy, relays, and the files it writes at boot
 serve.mjs                     serves the directory; relays hosts without CORS
-start.slop                    how Pi starts: the secrets it asks for, its provider and model
-agent/AGENTS.md               how to work in your company
-agent/skills/orders/SKILL.md  how to use your backend's API
-agent/models.json             your model endpoint
+workspace/                    the project Pi works on, written into /workspace at each boot
 ```
 
 ## Pi's files
 
 Pi reads its instructions, skills, extensions and model endpoints from files
 in `~/.pi/agent/` (Pi's `docs/configuration.md`, in the image under
-`/usr/lib/node_modules/@earendil-works/pi-coding-agent/docs/`). `boot()`'s
-`files` writes the page's own over the image before Pi starts, so a change is an
-edit and a reload; no image is rebuilt:
+`/usr/lib/node_modules/@earendil-works/pi-coding-agent/docs/`). `init` wrote
+them as `FILE` rows of the recipe, each body indented four spaces, so they are
+part of the image the page serves; a change is a rebuild (10 s).
 
-```html
-<!doctype html>
-<meta charset="utf-8">
-<main id="dolly" style="position:fixed;inset:0"></main>
-<script type="module">
-  import { boot } from "./node_modules/@daugasauron/dolly/src/browser.mjs";
-  import { images, image, modules } from "./node_modules/@daugasauron/dolly-image-pi-minimal/index.mjs";
-  const text = async path => {
-    const response = await fetch(path);
-    if (!response.ok) throw new Error(`${path}: ${response.status}`);
-    return response.text();
-  };
-  const files = { "/etc/dolly/init.slop": await text("./start.slop") };
-  for (const name of ["AGENTS.md", "skills/orders/SKILL.md", "models.json"]) {
-    files[`/home/dolly/.pi/agent/${name}`] = await text(`./agent/${name}`);
-  }
-  const policy = { rules: [
-    { origin: "https://api.example.com", pathPrefix: "/api/", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },
-    { origin: "https://llm.example.com", path: "/v1/chat/completions", methods: ["POST"], credentialHeaders: ["authorization"] },
-  ] };
-  await boot(document.querySelector("#dolly"), { images, image, modules, http: { policy }, files });
-</script>
-```
-
-- `agent/AGENTS.md`: instructions Pi takes into every session: who the users
-  are, what they may ask, what never to do. `APPEND_SYSTEM.md` adds to the
-  system prompt instead; `SYSTEM.md` would replace the image's, which tells Pi
-  what Dolly is and what fails there.
-- `agent/skills/NAME/SKILL.md`: a skill, which Pi lists by its description and
-  reads when a task needs it. Files a skill refers to go beside it, each in the
-  page's list:
+- `FILE /home/dolly/.pi/agent/AGENTS.md`: instructions Pi takes into every
+  session: who the users are, what they may ask, what never to do.
+  `APPEND_SYSTEM.md` adds to the system prompt instead; `SYSTEM.md` would
+  replace the image's, which tells Pi what Dolly is and what fails there.
+- `FILE /home/dolly/.pi/agent/skills/NAME/SKILL.md`: a skill, which Pi lists by
+  its description and reads when a task needs it. Files a skill refers to go
+  beside it, each its own row:
 
   ```markdown
   ---
@@ -74,18 +48,17 @@ edit and a reload; no image is rebuilt:
   - POST /api/orders/ID/cancel: cancels an order; 409 once it has shipped
   ```
 
-- `agent/extensions/NAME.js`: a Pi extension in JavaScript (Pi's TypeScript
-  extensions are not measured in Dolly). The image's `dolly-tools.js` is one.
-- `agent/models.json`: a model endpoint Pi does not know by name (below).
-- `start.slop` replaces `pi-minimal`'s `/etc/dolly/init.slop`, which `ENTRY` runs.
+- `FILE /home/dolly/.pi/agent/extensions/NAME.js`: a Pi extension in JavaScript
+  (Pi's TypeScript extensions are not measured in Dolly). The image's
+  `dolly-tools.js` is one.
+- `FILE /home/dolly/.pi/agent/models.json`: a model endpoint Pi does not know by
+  name (below).
+- `FILE /etc/dolly/init.slop`: how Pi starts (below).
 
-Files are not secrets: Pi's tools can read them, and so can its model.
-
-The same files can be built into the image instead, so that the page serves one
-directory and gives `boot()` no `files`: the README's "Your own Pi image" writes
-each as a `FILE` row of a recipe `FROM` `pi-minimal` at its path under
-`/home/dolly/.pi/agent/`, and `dolly-build` builds it ([Embedding](embedding.md),
-"Your own image"). A change is then a rebuild instead of a reload.
+A file the page writes at boot instead, as it writes `workspace/`, is a reload
+rather than a rebuild: `boot()`'s `files` takes `{ "/home/dolly/.pi/agent/AGENTS.md": text }`
+beside the workspace's ([Embedding](embedding.md)). Files are not secrets: Pi's
+tools can read them, and so can its model.
 
 ## Your backend
 
@@ -102,7 +75,7 @@ policy. A backend that cannot answer CORS is reached through a relay (below).
   Anthropic or OpenAI: a rule for its API, and its key in the variable that
   page names (`OPENROUTER_API_KEY`). OpenRouter and Anthropic answer CORS.
 - An endpoint that speaks OpenAI's or Anthropic's API, such as your gateway
-  (LiteLLM, Azure OpenAI, a proxy of your own): an entry in `agent/models.json`,
+  (LiteLLM, Azure OpenAI, a proxy of your own): an entry in `models.json`,
   whose `apiKey` names the variable the key is in:
 
   ```json
@@ -150,15 +123,18 @@ same protocol ([CORS and relays](http.md#cors-and-relays)).
 
 ## How Pi starts
 
-`start.slop` asks for the secrets at hidden prompts, puts them in Pi's
-environment alone, and starts Pi with its provider and model. `--offline` keeps
-Pi from catalog and update requests, which the policy would refuse:
+The recipe's `FILE /etc/dolly/init.slop` is the script `ENTRY` runs. `init`
+wrote one that asks for the OpenRouter key; this one asks for two secrets at
+hidden prompts, puts them in Pi's environment alone, and starts Pi with its
+provider and model. `--offline` keeps Pi from catalog and update requests,
+which the policy would refuse:
 
 ```
-cd /workspace
-secretenv ORDERS_TOKEN 'Orders token (not shown): ' secretenv COMPANY_LLM_KEY 'Model key (not shown): ' pi --offline --provider company --model MODEL
-printf '\nPi exited; this is a Slop shell.\n'
-/bin/foreground -i /bin/slop
+FILE /etc/dolly/init.slop
+    cd /workspace
+    secretenv ORDERS_TOKEN 'Orders token (not shown): ' secretenv COMPANY_LLM_KEY 'Model key (not shown): ' pi --offline --provider company --model MODEL
+    printf '\nPi exited; this is a Slop shell.\n'
+    /bin/foreground -i /bin/slop
 ```
 
 `secretenv NAME PROMPT COMMAND` reads one secret without showing it; the page
@@ -170,10 +146,11 @@ agent a short-lived token that allows what the frontend allowed.
 ## What is measured
 
 - `test/npm-browser.mjs`, in Chromium and Firefox: the README's "Pi with npm"
-  as written, packed from the checkout and installed from a registry; `boot()`'s
-  `files` in the image; its own image, built by `dolly-build` in the same
-  browser, where Pi lists the extension and the skill and runs the extension's
-  command.
+  as written, packed from the checkout and installed from a registry: the project
+  `init` writes, built by `dolly-build` in the same browser, where Pi lists the
+  extension and the skill, runs the extension's command, has `AGENTS.md`, the
+  `todo` tool, Git and the workspace, and the policy refuses another origin;
+  `boot()`'s `files` in the `default` image.
 - `demos/pi/test/frontend-browser.mjs`, in Chromium and Firefox: the files of
   this guide built into an image: a scripted model on an origin of its own
   receives the system prompt and the skill with its key, Pi reads the skill,
@@ -181,16 +158,15 @@ agent a short-lived token that allows what the frontend allowed.
   of `example.com`, of another path of the API and with `DELETE` is refused
   (status 9), without the token the API answers 401, and neither secret is shown.
 - This guide's files as written, by hand in Chromium and Firefox (2026-10-31):
-  `start.slop` asks for both secrets, Pi starts with `AGENTS.md` and the skill,
+  the start script asks for both secrets, Pi starts with `AGENTS.md` and the skill,
   and the secrets are gone after it; Copilot and Bedrock through the README's
   relay answer a wrong key with their refusal, and without it their preflight
   fails.
 
 ## Not there yet
 
-- npm ships two images, `default` and `pi-minimal`; `dolly-build` adds files
-  and steps with their tools. A program neither has (Python, Git, a compiler)
-  needs an image built in a Dolly checkout (`npm run image`), whose `dist/` the
-  page then serves as `images`.
+- npm ships two images, `default` and `pi-minimal`, and three packages, `git`,
+  `python` and `cc`. Another program needs an image built in a Dolly checkout
+  (`npm run image`), whose `dist/` the page then serves as `images`.
 - `pi-minimal` is 27.5 MB compressed on first load.
 - The interface is Pi's terminal UI.
