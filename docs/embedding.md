@@ -135,8 +135,9 @@ npx dolly-build Dollyfile-my-pi my-pi
   of `pi-minimal` and of each package, `FROM` `pi-minimal` and `INSTALL` of each
   package at the installed pins, rows for Pi's instructions, a skill, an extension,
   a tool and the script that starts Pi, and `pi-minimal`'s `ENTRY`), `index.html`
-  (the policy, the popups' colours, and the files of `workspace/` for `boot()`'s
-  `files`, listed by `workspace.json`), `serve.mjs` (isolation, the listing,
+  (the policy, the popups' colours, and the files of `workspace/` and `theme.json`
+  for `boot()`'s `files`, listed by `workspace.json`), `theme.json` (Pi's colours,
+  written over the image's theme at boot), `serve.mjs` (isolation, the listing,
   relays), `workspace/README.md` and, unless the project has one, a
   `.gitignore` for `node_modules/` and the image directory. It names the host module
   package to install when a package needs one the page lacks (`python`'s `sockets`).

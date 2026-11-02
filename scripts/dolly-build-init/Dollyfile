@@ -21,22 +21,35 @@ FILE /home/dolly/.pi/agent/extensions/hello.js
       });
     }
 
-# A tool of your own: a script on PATH (#!/bin/slop, or #!/usr/bin/janis for
-# JavaScript); with the cc package, SLOP cc FILE -o /usr/bin/NAME compiles one.
+# A tool of your own, on the agent's PATH with EXPORTS TOOL: a script
+# (#!/bin/slop, or #!/usr/bin/janis for JavaScript); with the cc package, a C
+# program (FILE /tmp/NAME.c with its body, then SLOP cc /tmp/NAME.c -o /usr/bin/NAME);
+# a file of an npm package, pinned by its SHA-256 (SOURCE https://unpkg.com/PACKAGE@VERSION/FILE
+# SHA256 /usr/lib/FILE, then FILE /usr/lib/FILE to keep it; a script imports it by that path).
 FILE /usr/bin/todo
     #!/bin/slop
     # todo [DIR]: lists the TODO and FIXME notes under DIR (default .).
     rg -n 'TODO|FIXME' "${1:-.}"
 EXPORTS TOOL todo
 
-# A Pi theme: FILE /home/dolly/.pi/agent/themes/NAME.json (Pi's docs/themes.md; the
-# image's is themes/dolly.json) and a settings.json like the image's with "theme": "NAME".
+# Pi's colours are theme.json beside the page, which writes it at boot.
+
+# Pi sends OpenRouter's Claude models through Anthropic's Messages API, whose
+# browser header OpenRouter's CORS refuses: this entry sends them through Chat
+# Completions. An endpoint of your own that speaks OpenAI's API is such an entry
+# too (docs/agent-frontend.md).
+FILE /home/dolly/.pi/agent/models.json
+    { "providers": { "openrouter": { "baseUrl": "https://openrouter.ai/api/v1", "api": "openai-completions",
+      "apiKey": "$OPENROUTER_API_KEY", "models": [{ "id": "anthropic/claude-sonnet-5.5" }] } } }
 
 # How Pi starts: the key at a prompt that does not show it, the provider and the
-# model (Pi's docs/providers.md; /model in Pi picks one). --offline keeps Pi from
-# requests the policy refuses. Ctrl+D leaves Pi for a shell.
+# model (Pi's docs/providers.md). Another provider is this line and the page's
+# policy rule: Anthropic's API with your own key is the second line. /model in Pi
+# changes the model for a session; --offline keeps Pi from requests the policy
+# refuses. Ctrl+D leaves Pi for a shell.
 FILE /etc/dolly/init.slop
     cd /workspace
-    pi-key OPENROUTER_API_KEY --offline --provider openrouter --model anthropic/claude-sonnet-4.5
+    pi-key OPENROUTER_API_KEY --offline --provider openrouter --model anthropic/claude-sonnet-5.5
+    # pi-key ANTHROPIC_API_KEY --offline --provider anthropic --model claude-sonnet-5-5
     printf '\nPi exited; this is a Slop shell.\n'
     /bin/foreground -i /bin/slop

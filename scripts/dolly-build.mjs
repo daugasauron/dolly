@@ -3,7 +3,7 @@
 // the packages it INSTALLs from their packages, in a browser with that browser's
 // Dolly runtime, into an image directory that boot() loads and a host serves
 // (docs/embedding.md, "Your own image").
-//   npx dolly-build init NAME [PACKAGE…]   writes Dollyfile-NAME FROM pi-minimal, index.html, serve.mjs, workspace/
+//   npx dolly-build init NAME [PACKAGE…]   writes Dollyfile-NAME FROM pi-minimal, index.html, theme.json, serve.mjs, workspace/
 //   npx dolly-build Dollyfile-NAME OUT [--browser chrome|chromium|firefox]
 // OUT holds the image's catalog, metadata and packs, the recipes it was built
 // from and an index.mjs, as an image package holds. It runs in the directory whose
@@ -92,6 +92,7 @@ async function scaffold(name, packages) {
       row("FROM", base) + installs.map(definition => row("INSTALL", definition)).join("") + "\n" + await template("Dollyfile") +
       `\nENTRY ${base.entry.join(" ")}\n`,
     "index.html": await template("index.html"),
+    "theme.json": await template("theme.json"),
     "serve.mjs": await template("serve.mjs"),
     "workspace/README.md": await template("workspace/README.md"),
   };

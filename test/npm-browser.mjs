@@ -8,8 +8,9 @@
 // - A page that lacks a module the image requires, or isolation, says so.
 // - The README's "Pi with npm", as written: its packages and the project
 //   dolly-build init writes, whose image dolly-build builds in the browser under
-//   test, start Pi with the extension, the skill, the instructions, the tool and
-//   the package the recipe declares, the workspace the page writes, and a policy
+//   test, start Pi with the extension, the skill, the instructions, the tools (the
+//   template's and a C program the recipe compiles) and the packages the recipe
+//   declares, the workspace and the user's theme the page writes, and a policy
 //   that refuses another origin.
 // Usage: node test/npm-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
@@ -103,7 +104,14 @@ try {
   await writeFile(join(piApp, "index.html"), piPageSource.replace("await boot(", "window.dolly = await boot("));
   await mkdir(join(piApp, "workspace/notes"));
   await writeFile(join(piApp, "workspace/notes/deep sea.txt"), "the deepest trench\n");
-  const recipe = await readFile(join(piApp, "Dollyfile-my-pi"), "utf8");
+  // The user's own colour, and a C tool of their own as the recipe's comment describes it.
+  const theme = await readFile(join(piApp, "theme.json"), "utf8");
+  assert.ok(theme.includes('"#f2d45c"'));
+  await writeFile(join(piApp, "theme.json"), theme.replace('"#f2d45c"', '"#0fa9e6"'));
+  const recipe = (await readFile(join(piApp, "Dollyfile-my-pi"), "utf8")).replace("\nENTRY ",
+    "\nFILE /tmp/count-lines.c\n    #include <stdio.h>\n    int main(void) { int c, n = 0; while ((c = getchar()) != EOF) n += c == '\\n'; printf(\"%d lines\\n\", n); }\n" +
+    "SLOP cc /tmp/count-lines.c -o /usr/bin/count-lines\nEXPORTS TOOL count-lines\n\nENTRY ");
+  await writeFile(join(piApp, "Dollyfile-my-pi"), recipe);
   const declaredByRecipe = [...recipe.matchAll(/^REQUIRES HOST (\S+)/gm)].map(([, name]) => name).toSorted();
   const piServer = spawn(process.execPath, ["serve.mjs"], { cwd: piApp, env: { ...process.env, PORT: "0" } });
   servers.push({ close: () => piServer.kill() });
@@ -216,6 +224,8 @@ try {
         return command => within(pi.evaluate(command => window.dolly.submit(command), command), 60, command);
       })();
       assert.equal(await shell("grep -q 'coding agent' ~/.pi/agent/AGENTS.md && command -v todo > /dev/null"), 0);
+      assert.equal(await shell("grep -q '#0fa9e6' ~/.pi/agent/themes/dolly.json && grep -q '\"theme\": \"dolly\"' ~/.pi/agent/settings.json"), 0);
+      assert.equal(await shell("test \"$(printf 'a\\nb\\n' | count-lines)\" = '2 lines'"), 0);
       assert.equal(await shell("git --version > /dev/null"), 0);
       assert.equal(await shell("grep -q 'deepest trench' '/workspace/notes/deep sea.txt' && test -f /workspace/README.md"), 0);
       assert.notEqual(await shell("curl -fsS https://example.com > /dev/null"), 0);

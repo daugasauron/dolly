@@ -72,11 +72,24 @@ policy. A backend that cannot answer CORS is reached through a relay (below).
 ## The model's provider
 
 - A provider Pi knows by name (Pi's `docs/providers.md`), such as OpenRouter,
-  Anthropic or OpenAI: a rule for its API, and its key in the variable that
-  page names (`OPENROUTER_API_KEY`). OpenRouter and Anthropic answer CORS.
+  Anthropic or OpenAI: the `pi-key` line of `init.slop` names the variable Pi
+  reads for it, the provider and a model of its catalog (`--provider` needs
+  `--model`; `/model` in Pi changes it for the session), and the page's policy
+  has one rule for its API with the header that carries the key. `init` writes
+  OpenRouter (`OPENROUTER_API_KEY`, `authorization`) and, as a comment on the
+  next line of each file, Anthropic's API with your own key (`ANTHROPIC_API_KEY`,
+  `x-api-key`; Pi sends the `anthropic-dangerous-direct-browser-access` header
+  its CORS requires). OpenAI's is `OPENAI_API_KEY` with `authorization`; it
+  answers the preflight, and its error answers carry no CORS header, so a
+  refused key reads `Connection error.` in Pi. There is no login: a key, typed
+  at the prompt. Pi sends
+  OpenRouter's `anthropic/*` models through Anthropic's Messages API, whose
+  browser header OpenRouter's CORS refuses; `init`'s `models.json` row sends
+  them through Chat Completions, one `id` per Claude model you want there.
 - An endpoint that speaks OpenAI's or Anthropic's API, such as your gateway
   (LiteLLM, Azure OpenAI, a proxy of your own): an entry in `models.json`,
-  whose `apiKey` names the variable the key is in:
+  whose `apiKey` names the variable the key is in, a `pi-key` line with that
+  variable, `--provider company --model MODEL`, and a rule for its origin:
 
   ```json
   { "providers": { "company": {
