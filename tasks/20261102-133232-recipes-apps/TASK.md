@@ -259,7 +259,7 @@ P1 done on `audit/cmake-o2` (2026-11-03, the integrator; 5ecb73b00): the smalles
 `--parallel=4` and `make -j4`. libuv and cmake built in 532 s in a 9 GB slot (402 s on a quieter
 machine), `cmake-build` in 22 s; `demos/cmake/test/cmake-browser.mjs` passed in Chromium and
 Firefox (30 s each). Measured in the same tree and image (`cmake-build`, Chromium, three runs each,
-`work/integrate/build/cmake-baseline/`): 300 targets configure in 1.38-1.51 s at -O2 against
+`work/evidence-2026-11-03/cmake-baseline/`): 300 targets configure in 1.38-1.51 s at -O2 against
 2.04-2.14 s at -O0; a one-file project configures in 0.32-0.37 s against 0.38-0.41 s and builds in
 0.23-0.25 s against 0.19-0.21 s (the build starts cmake several times; not explained tonight). The
 commit message's "4.3 s at -O0" came from `default` after `amy install cmake` under other load and
