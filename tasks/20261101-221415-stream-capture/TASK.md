@@ -1,8 +1,15 @@
 # Image builds and session saves hold the image about three times: capture it as a stream
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 120
 - TAGS: core,memory,snapshots
+
+## Closed (2026-11-03)
+
+Done on `core/stream-capture-2` (4de5ca7d4 to 5f9296a65): the streaming capture re-applied, its
+published-input failure measured to its cause and fixed by the image store, fd and pi-local built
+and measured, the tests passing in both browsers. The kernel-side proposals (5952d104, 3dbf32ba)
+are the owner's, listed in `tasks/20261102-133353-owner-decisions`.
 
 ## State (2026-11-02)
 
