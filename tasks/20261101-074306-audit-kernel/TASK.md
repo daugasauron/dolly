@@ -1,6 +1,6 @@
 # Audit: the kernel, the process contract and the libc adapter
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 300
 - TAGS: core,audit,kernel
 
@@ -578,3 +578,7 @@ built under the 9 GB cap.
   after a merge, stage (`npm run image`) before `update-recipe-pins.mjs`, or
   the pins are the previous commit's bytes and only the builder's own repin
   at start hides it.
+
+## Closed (2026-11-02 night, integrator)
+
+Its fixes are merged on `integrate/2026-11-02` (the night's audit, the weak `abort` of 2026-11-02); its proposals are in `tasks/20261102-133353-owner-decisions`.

@@ -1,6 +1,6 @@
 # Audit: every claim in the documentation, against the code
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 260
 - TAGS: docs,audit
 
@@ -327,3 +327,7 @@ Changed where a claim was wrong, mostly a core behaviour the night changed:
 - Reading the kernel's and engine's `enum`s against the documents found limits nobody had
   written down (64 pipes, 512 MiB executables, 100,000 paths a save or an image holds); the
   documents listed the bounds of the newer modules (sockets, ptys) and not of the old core.
+
+## Closed (2026-11-02 night, integrator)
+
+Its fixes are merged on `integrate/2026-11-02` (with demo/workaround-removal, which took its workaround list); its proposals are in `tasks/20261102-133353-owner-decisions`.
