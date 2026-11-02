@@ -1,6 +1,6 @@
 # A process that ends keeps its memory resident until the runtime Worker collects garbage
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: core,memory,processes
 
@@ -164,6 +164,15 @@ to come within its bound; a memory kept for a collection does not. On the final 
 that build, both browsers pass (`final-process-memory.log`: Chromium 1031 MiB, then 1032 to
 1089 after each run; Firefox 1210, then 1209 to 1308).
 
+The image build of `system-build` (about 100 compiler processes, 76 s unloaded), three times
+through the reproducibility check in a 6 GB scope sampled every 2 s, the three snapshots
+byte-identical with each other and with the morning's (`293147bb…`): fa949c1b's runtime peaks at
+3059, 3185 and 3343 MiB a build (`before-repro-samples.log`), this one at 3143, 3330 and 3183
+(`after-repro-samples.log`, beside the other agents' builds, each build half as fast). Within
+noise: this build's compilers are small and short, and c53115b6's garbage report kept Chrome to
+one dead one. The gain is where a dead process is large (one 512 MiB process in Chrome, three
+with threads in Firefox) and in make's time.
+
 Verified (`build/proc-mem-evidence/tests-*.log`), in Chromium and Firefox each: `core`, `ending`,
 `pty`, `threads`, `process` (pipes, signals, exec among them), `stack`, `host-compute`, `sockets`,
 `dso`, and the merged fix's `boundary` and `memory-growth-notify`; the source suite (466).
@@ -177,6 +186,16 @@ at digests older than the files (ba1e63b1 changed them without `update-recipe-pi
 move with them. Committed apart here as the pins this tree builds with.
 
 Kernel memory reaches process Workers, which the design had kept out.
+
+## Closed 2026-11-02
+
+Done-when met: `test/process-memory-browser.mjs` fails on fa949c1b (one dead process retained
+in Chrome, three in Firefox with threads) and passes on `core/process-memory` in both browsers,
+with no collector steered. Commits: ccabef7e (pins), 02d36f09 (the memory in the Workers),
+b1e680c5 (deferral invariant, poll), b3fe9813 (fixture), 96ded447 (merge of fix/boundary-hang),
+b0a0d69d (a spawner waits for its threads' memory), 9b25cbff (the test's sample settles).
+Image inputs unchanged (`a58af3f9…`). `tasks/20261030-090000-chrome-grown-memory` notes where
+the reservation moved.
 
 ## Proposal for the owner: a module's ABI digest should cover what its executables link
 
