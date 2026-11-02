@@ -190,33 +190,6 @@ did `custom-session` (64 s, 101 s), `session-offline` (5 s, 7 s) and `core` (29 
 - The image, session, custom-session and `test/image-browser.mjs` tests pass in Chromium
   and Firefox; the image inputs hash is unchanged.
 
-## Lessons
-
-- "Kernel C is not an image input" holds only while the kernel's export list stands: the
-  contract wat that names the exports is one of the five inputs, so a new kernel export is
-  a catalog round, however small the C. Check `scripts/write-build-id.mjs` before
-  promising no round.
-- An image's natural page-side form is a Blob: it leaves the JS heap and Wasm memory,
-  clones by reference into every Worker, slices for staging, streams for a digest and is
-  what IndexedDB stores anyway. The returnInputs/consume round trips existed only because
-  an ArrayBuffer cannot be shared; with Blobs they had nothing left to do.
-- Sampling a build's memory: `slot.sh`'s scope is `run-*.scope`; a sampler that takes the
-  first `.scope` ancestor finds the terminal's scope and reads flat numbers. One sample a
-  second misses a capture that takes under a second; 0.2 s showed the 3x step.
-- Only `*.snapshot`, `dist/packs/*` and `dist/static/*` may be hard links between trees:
-  the metadata `.mjs` files I linked with `ln -f` after the baseline closure (220 files)
-  are written in place by generators, so a build in one tree can rewrite the other's
-  catalog. The integrator caught it; the links were broken before this tree's proposal
-  closure wrote anything, and the two `system` measurements had each been written by
-  their own tree's build (checked by inode and digest).
-- A rig that reuses another tree's images needs that tree's recipe files and seed
-  records as well (`build/rustc-port`, `build/rust-sources`): the metadata's recipe digests
-  say which recipes built an image, and `--plan` says in one line what would rebuild. pi-local's
-  acceptance build cost three false starts before the rig had them.
-- `git status | head` hid 150 repinned recipes for an hour; `git cherry-pick -q` does not
-  exist and a `reset --hard && cherry-pick` chain that fails midway leaves the tree reset:
-  bookmark commits before reordering them.
-
 ## Reverted on integrate/2026-11-02 for the evening round (2026-11-02 16:30, e69e7cfbb)
 
 The evening round failed at fd: the build Worker read the published 527 MB rust-build artifact
@@ -295,3 +268,56 @@ A published package (ps, which nothing else the build reads is built from) is se
 thing after the browser starts, as the catalog's build page does, then built again from the
 cache. On 4439f99c Chrome fails as the round did (`image-input-before-fix-chromium.log`:
 "network error" from the build Worker).
+
+### Verified (2026-11-03, `build/stream-capture-2-evidence/`)
+
+- `test/image-input-browser.mjs` on the fix: Chromium 35 s, Firefox 42 s (`image-input-after-fix.log`).
+- `image` (Chromium 52 s, Firefox 66 s), `custom-session` (62 s, 89 s) and `session-offline` (4 s, 5 s)
+  passed on 34870df49 (`after-image.log`, `after-custom-session.log`, `after-session-offline.log`); their
+  first run found two faults of 095394c36: a file written for a foreign Blob was held, so a replaced
+  entry's file stayed, and `loadImageArtifact` wanted the entry's own descriptor where a session or an
+  opened tab hands it the artifact's identity alone.
+- `core` (Chromium 25 s, Firefox 40 s) and `npm` (18 s, 23 s) passed on 095394c36 (`after-core.log`,
+  `after-npm.log`); they load no artifact.
+- `npm run build:runtime`: image inputs `sha256:fe5261db…` (`build-runtime.log`), unchanged.
+
+## Lessons
+
+- "Kernel C is not an image input" holds only while the kernel's export list stands: the
+  contract wat that names the exports is one of the five inputs, so a new kernel export is
+  a catalog round, however small the C. Check `scripts/write-build-id.mjs` before
+  promising no round.
+- An image's natural page-side form is a Blob: it leaves the JS heap and Wasm memory,
+  clones by reference into every Worker, slices for staging, streams for a digest and is
+  what IndexedDB stores anyway. The returnInputs/consume round trips existed only because
+  an ArrayBuffer cannot be shared; with Blobs they had nothing left to do.
+- Sampling a build's memory: `slot.sh`'s scope is `run-*.scope`; a sampler that takes the
+  first `.scope` ancestor finds the terminal's scope and reads flat numbers. One sample a
+  second misses a capture that takes under a second; 0.2 s showed the 3x step.
+- Only `*.snapshot`, `dist/packs/*` and `dist/static/*` may be hard links between trees:
+  the metadata `.mjs` files I linked with `ln -f` after the baseline closure (220 files)
+  are written in place by generators, so a build in one tree can rewrite the other's
+  catalog. The integrator caught it; the links were broken before this tree's proposal
+  closure wrote anything, and the two `system` measurements had each been written by
+  their own tree's build (checked by inode and digest).
+- A rig that reuses another tree's images needs that tree's recipe files and seed
+  records as well (`build/rustc-port`, `build/rust-sources`): the metadata's recipe digests
+  say which recipes built an image, and `--plan` says in one line what would rebuild. pi-local's
+  acceptance build cost three false starts before the rig had them.
+- `git status | head` hid 150 repinned recipes for an hour; `git cherry-pick -q` does not
+  exist and a `reset --hard && cherry-pick` chain that fails midway leaves the tree reset:
+  bookmark commits before reordering them.
+- (2026-11-03) "A Blob is in blob storage, not the JS heap" was true and not enough: Chrome's blob
+  storage has an in-memory space that is 500 MiB until a best-effort task has measured the machine,
+  which a busy fresh browser never lets run; a build page is busy from its first moment. A Blob
+  of a large thing must be born in a storage API, and the probe must do what the failing case
+  did (first thing after launch), not what is convenient (after the shell has booted).
+- (2026-11-03) Each store has a shape of its own that no documentation states: the Cache API's
+  memory backend caps an entry near a quarter of a gigabyte; IndexedDB in a plain Chrome context
+  keeps a reference to the File it was given rather than a copy; an origin-private File dies with
+  its file in every browser. Six probes of a minute each settled what a day of reading would not.
+- (2026-11-03) A fixture that replaces a published image's bytes must pick one nothing else the
+  test reads is built from: standing in for core made system's published inputs stale, and the
+  page quietly rebuilt system (its 709 MB included the fixture's file). The inputs mechanism
+  worked exactly as designed; the test's first assumption was wrong, and the failure message
+  (two sizes, neither expected) said so once read as numbers rather than as a bug.
