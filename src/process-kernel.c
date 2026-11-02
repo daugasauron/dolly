@@ -93,10 +93,17 @@ typedef struct {
   uint64_t alarm_deadline; /* Monotonic SIGALRM time; zero while disarmed. */
   uint64_t alarm_interval;
   int alarm_handled;
+  /* The mailbox of the Worker of a process without threads (dolly_process_worker_mailbox). */
+  uintptr_t mailbox;
 } dolly_kernel_process;
 
-_Alignas(64) static unsigned char
-    process_mailbox[DOLLY_PROCESS_PACKET_LIMIT];
+/* The supervisor's own packets: the page's spawn, a refusal or failure line. */
+_Alignas(64) static unsigned char supervisor_mailbox[DOLLY_PROCESS_PACKET_LIMIT];
+/* The mailbox of the call in progress, DOLLY_PROCESS_PACKET_LIMIT bytes: the
+ * one a process Worker fills with its request before the call and reads its
+ * response from after it (src/process-worker.mjs), or the supervisor's. Each
+ * entry sets it. */
+static unsigned char *process_mailbox = supervisor_mailbox;
 static dolly_kernel_process process_table[DOLLY_KERNEL_PROCESS_LIMIT];
 static int next_process_pid = 100;
 static uint32_t live_pipe_count;
@@ -733,7 +740,7 @@ static int valid_spawn_deadline(uint64_t deadline) {
 
 static int spawn_packet(int parent_pid, size_t size) {
   if (size < sizeof(dolly_process_spawn_request) ||
-      size > sizeof(process_mailbox)) return -EINVAL;
+      size > DOLLY_PROCESS_PACKET_LIMIT) return -EINVAL;
   dolly_process_spawn_request request;
   memcpy(&request, process_mailbox, sizeof(request));
   if (request.cwd_size > PATH_MAX || request.argument_count == 0 ||
@@ -1766,7 +1773,7 @@ static int64_t fd_poll_packet(dolly_kernel_process *process,
   dolly_process_poll_request request;
   memcpy(&request, process_mailbox, sizeof(request));
   if (request.reserved != 0 ||
-      request.count > (sizeof(process_mailbox) - sizeof(request)) /
+      request.count > (DOLLY_PROCESS_PACKET_LIMIT - sizeof(request)) /
           sizeof(dolly_process_poll_query)) {
     return -EINVAL;
   }
@@ -1808,7 +1815,7 @@ static int64_t fd_poll_packet(dolly_kernel_process *process,
 }
 
 uintptr_t dolly_process_mailbox_address(void) {
-  return (uintptr_t)process_mailbox;
+  return (uintptr_t)supervisor_mailbox;
 }
 
 double dolly_process_deferred_milliseconds(void) {
@@ -1822,15 +1829,18 @@ int dolly_process_take_wakeup(void) {
 }
 
 int dolly_process_spawn_serialized(uintptr_t request_size) {
+  process_mailbox = supervisor_mailbox;
   return spawn_packet(0, (size_t)request_size);
 }
 
 static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t operation,
-                               uintptr_t request_size,
+                               uintptr_t mailbox, uintptr_t request_size,
                                uintptr_t response_capacity) {
   deferred_milliseconds = -1;
-  if (request_size > sizeof(process_mailbox) ||
-      response_capacity > sizeof(process_mailbox)) return -E2BIG;
+  if (mailbox == 0) return -EINVAL;
+  if (request_size > DOLLY_PROCESS_PACKET_LIMIT ||
+      response_capacity > DOLLY_PROCESS_PACKET_LIMIT) return -E2BIG;
+  process_mailbox = (unsigned char *)mailbox;
   dolly_kernel_process *process = find_process(pid);
   if (process == NULL) return -ESRCH;
   if (process->state != DOLLY_KERNEL_PROCESS_RUNNING &&
@@ -2511,14 +2521,30 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
 }
 
 int64_t dolly_process_dispatch(int pid, uint32_t operation,
-                               uintptr_t request_size,
-                               uintptr_t response_capacity) {
-  return process_dispatch(pid, 0, 1, operation, request_size, response_capacity);
+                               uintptr_t request_size, uintptr_t response_capacity) {
+  const dolly_kernel_process *process = find_process(pid);
+  return process_dispatch(pid, 0, 1, operation, process ? process->mailbox : 0,
+                          request_size, response_capacity);
+}
+
+int dolly_process_worker_mailbox(int pid, int tid, uintptr_t address) {
+  dolly_kernel_process *process = find_process(pid);
+  if (process == NULL) return -ESRCH;
+  if (tid == 0) {
+    process->mailbox = address;
+    return 0;
+  }
+  for (size_t index = 0; index < sizeof(kernel_modules) / sizeof(kernel_modules[0]); ++index) {
+    if (kernel_modules[index]->mailbox) return kernel_modules[index]->mailbox(pid, tid, address);
+  }
+  return -ESRCH;
 }
 
 int64_t dolly_kernel_dispatch(int pid, int tid, int takes_signals, uint32_t operation,
-                              uintptr_t request_size, uintptr_t response_capacity) {
-  return process_dispatch(pid, tid, takes_signals, operation, request_size, response_capacity);
+                              uintptr_t mailbox, uintptr_t request_size,
+                              uintptr_t response_capacity) {
+  return process_dispatch(pid, tid, takes_signals, operation, mailbox, request_size,
+                          response_capacity);
 }
 
 int dolly_kernel_process_launching(int pid) {
@@ -2658,7 +2684,7 @@ int dolly_process_image_consumed(int pid) {
 /* Writes the line of `size` bytes in the mailbox to the process's descriptor 2. */
 static int write_diagnostic(dolly_kernel_process *process, uintptr_t size) {
   const dolly_process_fd_io_request request = {STDERR_FILENO, 0, size};
-  if (size > sizeof(process_mailbox) - sizeof(request)) return -EINVAL;
+  if (size > DOLLY_PROCESS_PACKET_LIMIT - sizeof(request)) return -EINVAL;
   memmove(process_mailbox + sizeof(request), process_mailbox, size);
   memcpy(process_mailbox, &request, sizeof(request));
   /* A closed descriptor or a full pipe loses the line, never the status. */
@@ -2699,6 +2725,7 @@ int dolly_process_exec_refused(int pid, uintptr_t size) {
   dolly_kernel_process *process = find_process(pid);
   if (process == NULL || process->state != DOLLY_KERNEL_PROCESS_RUNNING ||
       process->staged.path == NULL) return -EINVAL;
+  process_mailbox = supervisor_mailbox;
   if (size != 0 && write_diagnostic(process, size) != 0) return -EINVAL;
   dispose_program(&process->staged);
   memset(&process->staged_signals, 0, sizeof(process->staged_signals));
@@ -2724,6 +2751,7 @@ int dolly_process_worker_exited(int pid, int status, int signal_number) {
 
 int dolly_process_worker_failed(int pid, uintptr_t size) {
   dolly_kernel_process *process = find_process(pid);
+  process_mailbox = supervisor_mailbox;
   if (process == NULL || process->state == DOLLY_KERNEL_PROCESS_EXITED ||
       write_diagnostic(process, size) != 0) return -EINVAL;
   mark_process_exited(process, 126, 0);

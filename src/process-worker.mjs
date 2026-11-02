@@ -9,6 +9,13 @@ import {
 
 const PROCESS_EXIT = Symbol("Dolly process exit");
 const THREAD_EXIT = Symbol("Dolly thread exit");
+// The supervisor's answer to a call whose process it is ending.
+const deferredResult = -(1n << 63n);
+// Chromium releases the address space of a terminated Worker's memory some
+// time after terminate(): a memory it cannot reserve is asked for again for
+// a while before the process is refused.
+const reservationRetryMilliseconds = 50;
+const reservationPatienceMilliseconds = 5000;
 
 const configuration = await new Promise((resolve, reject) => {
   const timeout = setTimeout(
@@ -24,16 +31,22 @@ const configuration = await new Promise((resolve, reject) => {
 });
 
 if (!(configuration.module instanceof WebAssembly.Module) ||
-    !(configuration.memory instanceof WebAssembly.Memory) ||
+    !(configuration.gateModule instanceof WebAssembly.Module) ||
+    !(configuration.kernelMemory instanceof WebAssembly.Memory) ||
     !(configuration.control instanceof SharedArrayBuffer) ||
     !Array.isArray(configuration.local) ||
-    configuration.control.byteLength !== 16 ||
+    configuration.control.byteLength !== 32 ||
     !Number.isFinite(configuration.clockOrigin) ||
+    !Number.isSafeInteger(configuration.mailbox) || configuration.mailbox <= 0 ||
+    typeof configuration.memory?.initial !== "bigint" || typeof configuration.memory?.maximum !== "bigint" ||
+    (configuration.port !== undefined && !(configuration.port instanceof MessagePort)) ||
     !Number.isInteger(configuration.pid) || configuration.pid <= 0) {
   throw new Error("Dolly process received an invalid configuration");
 }
 
 const control = new Int32Array(configuration.control);
+const mailbox = BigInt(configuration.mailbox);
+const maximumBytes = configuration.memory.maximum * 65536n;
 const clockOffset = performance.timeOrigin - configuration.clockOrigin;
 // When this thread last returned from the kernel without EINTR. For a
 // millisecond after that, clock reads and interrupt polls are answered here
@@ -41,15 +54,54 @@ const clockOffset = performance.timeOrigin - configuration.clockOrigin;
 let lastSignalCheck = -Infinity;
 let threadResult;
 let instance;
+let memory, gate;
 // Host modules the executable records that are served in this Worker, without
 // entering the kernel (configuration.local: the loader and FFI of dso@0).
 let localModules = [];
+// The channels this Worker sent a thread's memory on, each with the word the
+// thread's Worker sets once it has the memory. Firefox drops what was posted
+// on a port whose sender closes it before the receiver has started (measured
+// 2026-11-02, Firefox 155; Chrome 156 delivers it), so a channel is closed at
+// a later call, once that word is set.
+const openChannels = [];
+function closeReceivedChannels() {
+  for (let index = openChannels.length; index--;) {
+    const { port, received } = openChannels[index];
+    if (Atomics.load(received, 0)) { port.close(); openChannels.splice(index, 1); }
+  }
+}
 
+// The process's memory lives in its Workers alone, so that it goes when they
+// end: the first Worker makes it, and a thread's receives it from the Worker
+// that spawned the thread (tasks/20261101-102515-retained-process-memory).
+async function processMemory() {
+  if (configuration.port) {
+    const { memory, received } = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("the process memory was not provided")), 10_000);
+      configuration.port.onmessage = ({ data }) => { clearTimeout(timeout); resolve(data ?? {}); };
+    });
+    configuration.port.close();
+    if (!(memory instanceof WebAssembly.Memory) || !(received instanceof Int32Array)) {
+      throw new TypeError("Dolly thread received an invalid memory");
+    }
+    Atomics.store(received, 0, 1);
+    return memory;
+  }
+  const { initial, maximum } = configuration.memory;
+  for (let waited = 0; ; waited += reservationRetryMilliseconds) {
+    try {
+      return new WebAssembly.Memory({ initial, maximum, shared: true, address: "i64" });
+    } catch (error) {
+      if (!(error instanceof RangeError) || waited >= reservationPatienceMilliseconds) throw error;
+    }
+    await new Promise(resolve => setTimeout(resolve, reservationRetryMilliseconds));
+  }
+}
 // A packet range inside the process's memory, or null.
 function packetRange(addressValue, sizeValue) {
   const address = Number(addressValue);
   const size = Number(sizeValue);
-  const length = configuration.memory.buffer.byteLength;
+  const length = memory.buffer.byteLength;
   return !Number.isSafeInteger(address) || !Number.isSafeInteger(size) ||
       address < 0 || size < 0 || address > length - size ||
       (size !== 0 && address === 0) ? null : { address, size };
@@ -64,9 +116,35 @@ function decodeResult() {
 function clockResponse(clock, response, now) {
   const nanoseconds = Math.round(
     (clock === DOLLY_PROCESS_CLOCK_REALTIME ? Date.now() : now + clockOffset) * 1e6);
-  new DataView(configuration.memory.buffer, response.address, 8)
+  new DataView(memory.buffer, response.address, 8)
     .setBigUint64(0, BigInt(nanoseconds), true);
   return 8n;
+}
+
+// The request goes into the mailbox under control word 4, which the
+// supervisor seals (2) before it frees the mailbox of a Worker it ends: a
+// Worker ended mid-copy cannot write into memory the kernel has reused.
+function copyRequest(request) {
+  if (Atomics.compareExchange(control, 4, 0, 1) !== 0) throw PROCESS_EXIT;
+  try {
+    gate.exports.request(BigInt(request.address), mailbox, BigInt(request.size));
+  } finally {
+    Atomics.store(control, 4, 0);
+    Atomics.notify(control, 4);
+  }
+}
+
+// Chrome checks a copy, fill or atomic access of a shared memory against each
+// thread's own record of its size, which another thread's growth updates
+// late: the memory takes its maximum before a second thread starts and never
+// grows while two run (tasks/20261030-090000-chrome-grown-memory). The thread
+// that spawns does it, so its own record is current at once; a reservation
+// the browser refuses fails this spawn, and the next one asks again.
+function reserveMaximum() {
+  const size = BigInt(memory.buffer.byteLength);
+  if (size >= maximumBytes) return true;
+  try { memory.grow(configuration.memory.maximum - size / 65536n); } catch { return false; }
+  return true;
 }
 
 function call(operation, requestAddressValue, requestSizeValue,
@@ -80,11 +158,11 @@ function call(operation, requestAddressValue, requestSizeValue,
     if (module.handles(operation)) return module.call(operation, request, response);
   }
   const exitingResult = operation === DOLLY_THREAD_EXIT && request.size === 8
-    ? new DataView(configuration.memory.buffer, request.address, 8).getBigUint64(0, true) : undefined;
+    ? new DataView(memory.buffer, request.address, 8).getBigUint64(0, true) : undefined;
   let clock;
   if (operation === DOLLY_PROCESS_CLOCK_TIME && request.size === 16 && response.size >= 8 &&
       response.size <= DOLLY_PROCESS_PACKET_LIMIT) {
-    const packet = new DataView(configuration.memory.buffer, request.address, 16);
+    const packet = new DataView(memory.buffer, request.address, 16);
     const id = packet.getUint32(0, true);
     if ((id === DOLLY_PROCESS_CLOCK_REALTIME || id === DOLLY_PROCESS_CLOCK_MONOTONIC) &&
         packet.getUint32(4, true) === 0) clock = id;
@@ -96,15 +174,26 @@ function call(operation, requestAddressValue, requestSizeValue,
   }
   if (operation === DOLLY_PROCESS_INTERRUPT_POLL && request.size === 0 && response.size >= 4 &&
       performance.now() - lastSignalCheck < 1) {
-    new DataView(configuration.memory.buffer, response.address, 4).setInt32(0, 0, true);
+    new DataView(memory.buffer, response.address, 4).setInt32(0, 0, true);
     return 4n;
   }
   if (request.size > DOLLY_PROCESS_PACKET_LIMIT || response.size > DOLLY_PROCESS_PACKET_LIMIT) {
     return -BigInt(DOLLY_ERRNO.E2BIG);
   }
+  // The size the spawn budget counts: a threaded process's before its reservation.
+  const memoryBytes = memory.buffer.byteLength;
+  // A new thread's Worker gets the memory from this one, over a channel the
+  // supervisor hands it without opening.
+  let channel;
+  if (openChannels.length) closeReceivedChannels();
+  if (operation === DOLLY_THREAD_SPAWN && configuration.threaded) {
+    if (!reserveMaximum()) return -BigInt(DOLLY_ERRNO.EAGAIN);
+    channel = new MessageChannel();
+  }
   // Positive 31-bit sequences wrap from 2^31 - 1 back to one.
   const sequence = Atomics.load(control, 0) % 0x7fffffff + 1;
   Atomics.store(control, 0, sequence);
+  copyRequest(request);
   self.postMessage({
     type: "syscall",
     pid: configuration.pid, tid: configuration.tid,
@@ -114,7 +203,9 @@ function call(operation, requestAddressValue, requestSizeValue,
     requestSize: request.size,
     responseAddress: response.address,
     responseCapacity: response.size,
-  });
+    memoryBytes,
+    port: channel?.port1,
+  }, channel ? [channel.port1] : []);
   for (;;) {
     const observed = Atomics.load(control, 1);
     if (observed === sequence) break;
@@ -124,17 +215,21 @@ function call(operation, requestAddressValue, requestSizeValue,
     Atomics.wait(control, 1, observed);
   }
   const result = decodeResult();
-  // The supervisor's answer to a call whose process it is ending.
-  if (result === -(1n << 63n)) throw PROCESS_EXIT;
+  if (channel) {
+    if (result < 0n) channel.port2.close();
+    else {
+      const received = new Int32Array(new SharedArrayBuffer(4));
+      channel.port2.postMessage({ memory, received });
+      openChannels.push({ port: channel.port2, received });
+    }
+  }
+  if (result === deferredResult) throw PROCESS_EXIT;
+  if (result > 0n) gate.exports.response(mailbox, BigInt(response.address), result);
   lastSignalCheck = result === -BigInt(DOLLY_ERRNO.EINTR) ? -Infinity : performance.now();
   if (operation === DOLLY_THREAD_EXIT && result >= 0n) {
     threadResult = exitingResult;
     throw THREAD_EXIT;
   }
-  // A second thread starts once the memory has its maximum (process-supervisor.mjs):
-  // this thread learns of it by an interrupt, which a loop takes at each turn.
-  if (operation === DOLLY_THREAD_SPAWN && result >= 0n)
-    while (BigInt(configuration.memory.buffer.byteLength) < configuration.maximum * 65536n);
   // Sample the same clock after kernel checks too: Firefox rounds Worker
   // time origins, so alternating the two clocks can otherwise move backwards.
   if (clock !== undefined && result === 8n) return clockResponse(clock, response, lastSignalCheck);
@@ -143,8 +238,13 @@ function call(operation, requestAddressValue, requestSizeValue,
 }
 
 try {
+  memory = await processMemory();
+  // The trusted copier between this memory and the mailbox (abi/dolly-process-gate-0.wat).
+  gate = new WebAssembly.Instance(configuration.gateModule, {
+    process: { memory }, kernel: { memory: configuration.kernelMemory },
+  });
   instance = await WebAssembly.instantiate(configuration.module, {
-    env: { memory: configuration.memory },
+    env: { memory },
     dolly_process_0: { call },
   });
   if (typeof instance.exports._start !== "function") {
@@ -153,7 +253,7 @@ try {
   localModules = await Promise.all(configuration.local.map(async ({ bundle, configuration: options }) => {
     const url = URL.createObjectURL(bundle);
     try {
-      return (await import(url)).serve({ ...options, instance, memory: configuration.memory,
+      return (await import(url)).serve({ ...options, instance, memory,
         processInterface: configuration.processInterface, threaded: configuration.threaded,
         stack: { promisingEntry: configuration.promisingEntry, depths: configuration.stackDepths } });
     } finally { URL.revokeObjectURL(url); }
