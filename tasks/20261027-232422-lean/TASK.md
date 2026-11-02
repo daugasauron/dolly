@@ -73,6 +73,11 @@ behind in Firefox and 0.3 GB in Chromium after it ends, and later ones nothing: 
 compiled module of the 214 MB `lean`, which the supervisor keeps compiled; `lake`, as large, then
 adds its own. Not measured apart.
 
+`test/amy-browser.mjs`'s row: its check that every package of the catalog is installed by a
+test or names where (`elsewhere`), evaluated against the round's full catalog (136 packages,
+`work/integrate/dist/dolly-images.mjs`, the browser tests stubbed), passes with `lean`,
+`lean-std` and `lean-meta` in it; the file's browser tests run in the round's suites.
+
 The install's kernel side is now the package's size: anonymous 3.98 GB after it in Chromium
 where it was 5.22 before the last-use rule. Chromium passed the measured steps three times and
 `demos/lean/test/lean-browser.mjs` crashed once at `lake build`: each `lean` that ends stays
