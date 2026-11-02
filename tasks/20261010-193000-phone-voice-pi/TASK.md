@@ -231,6 +231,29 @@ Left open by the phone:
   menu's commands empty the prompt first, so they are not hurt; a first spoken prompt is.
 - The USB link dropped three times in forty minutes; the port forwards go with it.
 
+## On the owner's phone again (2026-11-03, 07:55 to 08:25)
+
+Owner: "pick up the pi-phone task now ... log in on pi with opus5 using claude API key on the
+device and save that session." The same MD06P (Chrome 152), driven over USB with Chrome's
+debugging socket and the page's `__dolly.input`; pi-phone from slopshare.dev/v0.1.4 (the public
+page has no HTTP policy object, so Pi reaches api.anthropic.com directly).
+
+- `/login anthropic`, "Sign in with an API key", the key from `~/.claude-api` typed as input and
+  never printed (the reading script withholds any screen text holding six of its characters):
+  "Saved API key for Anthropic"; `/model`, `claude-opus-5`, Ctrl+S: "Default model:
+  anthropic/claude-opus-5". A turn answered ($0.023).
+- Saved as `pi-opus5` (8,407 bytes, 38,723 uncompressed); the page moved to
+  `/v0.1.4/session/?name=pi-opus5`. Reloaded: Pi restored on `claude-opus-5` without a login and
+  answered "restored" ($0.022). The thinking level read "medium" after the restore, "off" before.
+- The saved session holds the key (Pi's `auth.json`), in that Chrome profile for slopshare.dev;
+  `/login` shows the key as it is typed (Pi's banner says so and names `pi-key`, which a save
+  does not keep).
+- Every open downloads the 367 MiB image again over the phone's connection (about 4 minutes on
+  this one): the first load's copy was not kept.
+- USB: the link dropped while a reload restored the session, the phone then failed to enumerate
+  on port 1-3 (`device not accepting address, error -71`) and worked at once on port 1-2. During
+  the work `stay_on_while_plugged_in` was 2 (USB), restored to the phone's 0 afterwards.
+
 ## Parked (2026-10-10, 23:55)
 
 Owner: "I think using the phone GPU for the speech to text would be a significant boost? And
