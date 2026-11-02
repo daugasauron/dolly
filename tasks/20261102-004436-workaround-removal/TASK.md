@@ -153,8 +153,17 @@ Studio's path claim has its existing check: `test/amy-browser.mjs` asserts
 `/usr/share/doc/dolly/docs/dollyfile.md` after `amy install dolly-docs`.
 
 Build C (B plus `x11-desktop,tmux`, bigbuild for the server, unit
-`dolly-workaround-removal-build-c`, started 11:39). The three run serially in
-this one tree, each catalog a superset of the last.
+`dolly-workaround-removal-build-c`, started 11:39, ready 11:53: 25 images
+built in 692 s, python, x11-build, pixman, libxkbfile, xkbcomp,
+xkeyboard-config, xorg-server, sdl2, imgui-x11, twm, xclock, xeyes, xterm,
+tmux and x11-desktop among them). The logs show libxkbfile's and xkbcomp's
+archives extracted by the core tar and xterm's GitHub archive moved into
+place (`build/image-logs/`). The three ran serially in this one tree, each
+catalog a superset of the last.
+
+Tests on C: `npm run test:demos -- x11` passed in Chromium (39.6 s; the
+demo's test runs Chromium by default), `x11-test.log`; a Firefox run follows
+in `x11-test-firefox.log`.
 
 ## Lessons
 

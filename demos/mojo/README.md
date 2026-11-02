@@ -89,10 +89,6 @@ minute.
 - [`prepare-sources.sh`](prepare-sources.sh) stages LLVM's tree without tests
   or docs, and of Modular's repository the packages of the compiler's closure
   and the standard library; nothing of `max/`.
-- [`llvm-wait.patch`](llvm-wait.patch): LLVM waits for a child with `wait4`
-  and a usage record, which Dolly's `wait4` refused until bbec81cc; the patch
-  waits with `waitpid`, and `mojo build` runs `cc` through it. `mojo-llvm` applies it with the two LLVM patches of the `llvm`
-  and `rust` demos.
 - [`bazel-to-cmake.py`](bazel-to-cmake.py) evaluates the `BUILD.bazel` files
   as Python, with the macros of `bazel/api.bzl` and
   `bazel/internal/tablegen.bzl` re-stated, and prints the closure of
