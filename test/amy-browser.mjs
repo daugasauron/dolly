@@ -153,7 +153,8 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   await run(`${install(needs)} && test "$(cat /usr/share/needed)" = two && test "$(cat /usr/share/needs)" = top`);
   await run(`test "$(grep Dollyfile-need /etc/dolly/installed | tr '\\n' ' ')" = 'INSTALL ${newer.url} ${newer.sha256} INSTALL ${needs.url} ${needs.sha256} '`);
   // A row the record holds is not installed again: the file changed since stays.
-  await run(`echo kept > /usr/share/needed && ${install(needs)} && test "$(cat /usr/share/needed)" = kept`);
+  // The install above consumed the artifact, so the second install gets its own.
+  await run(`${place(needs)} && echo kept > /usr/share/needed && ${install(needs)} && test "$(cat /usr/share/needed)" = kept`);
   // The record holds a recipe at one pin, in a session as in a build: another pin is refused.
   await run(`${place(older)}`);
   assert.equal(await session.submit(install(older)), 2);
