@@ -258,7 +258,7 @@ framebuffer (`rlCopyFramebuffer`). Only Studio's recordings are affected (not au
 P1 done on `audit/cmake-o2` (2026-11-03 03:15, the integrator; 5ecb73b00): the smallest diff above
 with `--parallel=4` and `make -j4`. libuv and cmake built in 532 s in a 9 GB slot, `cmake-build` in
 22 s; `demos/cmake/test/cmake-browser.mjs` passed in Chromium and Firefox (30 s each). In
-`cmake-build`, Chromium, three runs (`work/recipes-apps/build/cmake-o2-evidence/`): 300 targets
+`cmake-build`, Chromium, three runs (`work/evidence-2026-11-03/recipes-apps/cmake-o2-evidence/`): 300 targets
 configure in 1.68-1.93 s (4.31 s at -O0), a one-file project configures in 0.36-0.50 s (0.69) and
 builds in 0.23-0.34 s (0.45); the -O0 numbers are from `default` after `amy install cmake`. The
 recipes on cmake-build (the LLVM builds among them) are repinned: the next round builds them.
