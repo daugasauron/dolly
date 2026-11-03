@@ -2,37 +2,16 @@
 # "LABEL = TEXT" is a button that types TEXT: \r Enter, \e Escape, \t Tab,
 # \xHH a byte, \w a wait of 0.4 s. After the text, one of
 #   :speak       listen, then type what was said
-#   :word        listen, then type it as a search word
 #   :page NAME   show another page
 
-# A command begins with \x15, which empties Pi's prompt. No button types into
-# a list that Pi has yet to open: voice cannot see when it has, the user can.
+# Menu's key is F12, which phone-menu.js (a Pi extension) takes for itself:
+# the menu is Pi's, and it shows the keys page when it opens one of Pi's lists.
+[main] Menu: speak, send, models, thinking and all of Pi's commands.
+Menu = \e[24~
 
-[main] Tap Speak and say what Pi should do. The first time: Menu, then OpenRouter key.
-Speak = :speak
-Send = \r
-Stop = \e
-Menu = :page menu
-Erase = \x15
+[keys] Pi asks: the arrows and Enter answer it, Done is the Menu again.
 Up = \e[A
 Down = \e[B
-
-[menu] Pi's settings.
-Model = \x15/model\r :page pick
-Thinking = \x15/thinking\r :page pick
-OpenRouter key = \x15/login openrouter\r :page key
-New chat = \x15/new\r :page main
-Back = :page main
-
-[pick] Say part of a name, or move with the arrows, then Choose.
-Say = :word
-Up = \e[A
-Down = \e[B
-Choose = \r :page main
-Erase = \x15
-Back = \e :page main
-
-[key] Tap API key when Pi asks. Copy the key at openrouter.ai/keys, tap Paste (top right), Enter.
-API key = \e[B\r
-Enter = \r :page main
-Back = \e :page main
+Enter = \r
+Esc = \e
+Done = :page main

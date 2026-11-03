@@ -32,4 +32,5 @@ if has_image speech-to-text; then
 fi
 if has_image pi-phone; then
   copy_static demos/speech/pi.menu speech/pi.menu
+  copy_static demos/speech/phone-menu.js speech/phone-menu.js
 fi

@@ -35,6 +35,11 @@ tasks they came from are closed; their own work is merged on `integrate/2026-11-
   the night changed. Not a choice but a scheduled step: rebuild with the new seed and check the pin
   is a fixed point.
 
+- **`ICRNL` in the kernel's initial terminal mode** (`src/dolly.c:21`), the POSIX default (`stty
+  sane`): a program that leaves `c_iflag` alone, as Neatvi does, reads Enter as CR in raw mode, so
+  the vi package wraps `read` (without the wrapper, `one^Mtwo` on one line, measured). One kernel
+  line, then the wrapper goes (`tasks/20261102-133210-recipes-core`, P1).
+
 ## Recommended later, or small
 
 - The kernel side of streaming capture (`core/stream-capture` 5952d104, 3dbf32ba): changes
@@ -69,6 +74,8 @@ tasks they came from are closed; their own work is merged on `integrate/2026-11-
   does not (`tasks/20261102-133357-npm-agent-sandbox`).
 - Publishing `@daugasauron/dolly-package-git`, `-python` and `-cc` (3.4, 51 and 35 MB), which
   `scripts/package-npm.mjs` packs and `dolly-build init` installs from (npm-agent-sandbox).
+- `tcgetpgrp` for the terminal descriptor in the libc adapter (a process-contract change): dte's one
+  changed line exists because the adapter has none (recipes-core P3).
 - raylib 6.0's software renderer (unchanged upstream) does nothing for blend modes, wraps additive
   colours, draws nothing for DrawPoly and reads the screen upside down: patch upstream or wait.
 

@@ -15,15 +15,18 @@ REQUIRES HOST threads@0
 REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 2aa280b307a27f9e6641c32b1f15a41a2042ac305d9fc8919e208873e54dcf5e
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 0de0446f9624f6dbf462ac6c114d35039439cca00660e6a5ac494a91da37a564
 INSTALL /v0.1.4/Dollyfile-amy de8d4c2404adfd43bb54bc492688aa8ba6d7e7d388889cb4b965e018800bafe6
 REQUIRES TOOL foreground
 REQUIRES TOOL pi
-INSTALL /v0.1.4/demos/speech/Dollyfile-voice 00ea97ea48417c475e45afc279564556fb1cc8b34d5cf7089904304eeae2eaa8
-SOURCE /v0.1.4/dist/static/speech/pi.menu 10c28421825610d22e8766be6138ba45b0b38f5e8600b6d109bd915a3e9d0161 /etc/dolly/pi.menu
+INSTALL /v0.1.4/demos/speech/Dollyfile-voice d68498858559840cbaf6c59462e027e2f5a905c91817d58119fce31e603b36b9
+SOURCE /v0.1.4/dist/static/speech/pi.menu 127b6d4e470a0b0c6f503c418895a84ad7180496cabb2d7c4f8506fea9570cba /etc/dolly/pi.menu
+SOURCE /v0.1.4/dist/static/speech/phone-menu.js dfc8e9d130feba2f3f2eb8a52f6ef8749316ee7e3ea1981757248c5d630ee80a /home/dolly/.pi/agent/extensions/phone-menu.js
 EXPORTS FILE pi-menu /etc/dolly/pi.menu
+FILE /home/dolly/.pi/agent/extensions/phone-menu.js
 
-# voice runs Pi above its buttons and types into Pi's terminal.
+# voice runs Pi above its one button, Menu, and types into Pi's terminal;
+# phone-menu.js, Pi's extension, shows the menu and tells voice what it needs.
 FILE /etc/dolly/init.slop
     cd /workspace
     for attempt in 1 2 3; do

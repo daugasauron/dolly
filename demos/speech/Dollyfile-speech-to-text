@@ -15,7 +15,7 @@ REQUIRES TOOL c++
 REQUIRES TOOL tar
 REQUIRES HEADER transcribe
 REQUIRES LIB transcribe
-SOURCE /v0.1.4/dist/static/speech/programs.tar 7482e5dc8e2a698dbc776f61ccd71b1a3a1888290ccdf94771add48c24aed96f /tmp/speech/programs.tar
+SOURCE /v0.1.4/dist/static/speech/programs.tar 8afe66dc13e67ab90106901c8781d57f174b0d6007c99bf013116880cd30607c /tmp/speech/programs.tar
 SLOP tar -xf /tmp/speech/programs.tar -C /
 SLOP cc -pthread -msimd128 -O2 -Wall -Werror -c /tmp/speech/speech-to-text.c -o /tmp/speech/speech-to-text.o
 SLOP c++ -pthread -msimd128 -O2 /tmp/speech/speech-to-text.o /usr/lib/transcribe/libtranscribe.a \

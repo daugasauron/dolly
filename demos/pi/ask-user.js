@@ -6,7 +6,7 @@
 import { spawn } from "node:child_process";
 
 // Resolves to the submitted form's fields, or null when the user closed the popup.
-function showHtml(document, signal) {
+export function showHtml(document, signal) {
   return new Promise((resolveFields, reject) => {
     if (signal?.aborted) return reject(new Error("aborted"));
     const child = spawn("html", [], { stdio: ["pipe", "pipe", "pipe"] });
