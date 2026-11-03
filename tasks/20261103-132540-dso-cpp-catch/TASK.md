@@ -6,8 +6,8 @@
 
 ## State (2026-11-03)
 
-Reproduced in Chromium; not fixed. Rust is not affected: its landing pads catch all and call no
-personality, so they never touch `__wasm_lpad_context`
+Reproduced in Chromium and Firefox; not fixed. Rust is not affected: its landing pads catch all
+and call no personality, so they never touch `__wasm_lpad_context`
 ([rust-followups](../20261009-110500-rust-followups/TASK.md)).
 
 ## Reproduction
@@ -21,7 +21,7 @@ by an `-rdynamic` program:
     // main.cpp: c++ -rdynamic main.cpp -o main; dlopen("./lib.so"), then inside()
 
 `./main` prints `drop lib` (the cleanup runs) and the process fails with
-`[object WebAssembly.Exception]`, status 126: the `catch (int)` never matches.
+`[object WebAssembly.Exception]`, status 126, in both browsers: the `catch (int)` never matches.
 
 ## Cause
 
