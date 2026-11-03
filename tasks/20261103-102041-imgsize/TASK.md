@@ -9,10 +9,11 @@ fonts mainly? I think a lot of that can be stripped."
 
 ## State (2026-11-03 20:10 JST)
 
-Measured: the table and findings below. In progress on `audit/image-size`: the terminal's
-font subset to the glyphs a program can draw (7.7 MB to 0.9 MB, no drawn pixel changes) and
-Git's HTTPS helper as a script instead of a second copy of the HTTP one. Waiting for the
-owner: the proposals below (what `system`, `default` and `cc` contain).
+Done on `audit/image-size` (below): the terminal's font subset to the glyphs a program can
+draw (7.7 MB to 0.9 MB, no drawn pixel changes) and Git's HTTPS helper as a script instead
+of a second copy; `default` and `system` rebuilt and tested, the rest of the catalog waits
+for the next round. Waiting for the owner: the three proposals (what `system`, `default`,
+`cc` and the packages contain).
 
 ## How an image reaches a page
 
@@ -66,8 +67,9 @@ What a page downloads, packs shared: `default` 7.1 MB; `system` 46.1 MB cold, 39
      stretched and not (`build/imgsize-evidence/fontcompare.c`, 90,648 bitmaps, 0
      differences; it finds the 48 differences of a font with one moved point). Dropping the
      default features too would save 0.07 MB gzip more and change GTK shaping: not done.
-     A subset to fewer characters (Latin only) would save at most 0.3 MB gzip more and
-     lose characters programs print: not worth it.
+     A subset to fewer characters would save at most the 0.38 MB gzip left and lose
+     characters programs print: not worth it. Memory drops twice as much as the image,
+     since the display holds a copy of the file in its heap: 13.5 MB per tab.
    - DroidSansFallback.ttf: 3.45 MB (1.66 gzip), 20,902 CJK ideographs and 11,172 Hangul
      syllables; its unmapped glyphs are components, so a lossless subset saves nothing.
      Only a smaller character set or a package would: proposal 2.
@@ -99,24 +101,83 @@ What a page downloads, packs shared: `default` 7.1 MB; `system` 46.1 MB cold, 39
    compiler-rt's builtins are in three archives (two identical, 0.81 MB each).
 7. **Clang's resource headers for other targets** (x86 3.36 MB, GPU 1.35, PowerPC and s390
    1.16, Hexagon 0.81, LoongArch 0.30) are 7.1 MB but 0.66 MB gzip in every compiler image;
-   they are Clang's install as upstream ships it. Not worth a deviation.
-8. **Zig's library tests**: `zig-build` holds `lib/zig/compiler_rt/*_test.zig` (12 MB, 0.5
-   gzip); upstream's install writes `*test.zig` files empty. For the Zig 0.17 upgrade.
+   they are Clang's install as upstream ships it. `prepare-kernel-seed.sh` already drops
+   Emscripten's `arm_neon.h` ("Dolly's compiler is no ARM compiler"), and a header that
+   `#error`s on wasm64 only misleads `__has_include`; the precise set would be the headers
+   that fail to compile alone for wasm64 and that no compiling header includes. Small in
+   download; 7 MB of memory in each compiler tab. Left for the owner with proposal 1.
+8. **Zig's library tests**: `zig-build` holds 89 `*test.zig` files under `/usr/lib/zig`
+   (13.5 MB, 0.71 gzip; `compiler_rt/udivmodti4_test.zig` alone is 10.2 MB); upstream's
+   install writes `*test.zig` files empty (`blank_extensions` in its `build.zig`). Its
+   `include` (13.4 MB, 0.97 gzip) is Clang's headers for every target, as in finding 7.
+   For the Zig 0.17 upgrade.
 9. **Name sections**: `cmake` carries 9.9 MB of names (of 23.1 MB; 0.44 MB gzip), Ripgrep and
    fd 1.5 MB. They make crash and profile traces readable; small compressed. Left.
-10. Locales, man pages and test data are under 1% everywhere. CPython's test suite is
+10. After the fonts, `default` is `posix`'s 58 programs (3.18 MB, 1.34 gzip, 48 KB median,
+    each linking its own libc) and `core`'s 20 (1.00 MB, 0.42 gzip). sbase's multi-call
+    build (`sbase-box`) is the known alternative; not measured.
+11. Packs at gzip level 9 instead of 6 would save 0.4% (`default`) to 0.6% (`system`,
+    42.66 to 42.38 MB): not worth it. Another codec than the page's
+    `DecompressionStream("gzip")` was not examined.
+12. Locales, man pages and test data are under 1% everywhere. CPython's test suite is
     already out; `idlelib` and `tkinter` (2 MB, 0.6 gzip) have no Tk to run against.
+
+## Done on `audit/image-size`
+
+Measured on this tree's builds (seed `fe5261db`), bytes uncompressed / packs' gzip bytes:
+
+| Image | Before | After | Saved |
+| --- | --- | --- | --- |
+| display | 13,988,465 / 5,065,884 | 7,214,293 / 3,243,255 | 6.77 MB / 1.82 MB (36% of the download) |
+| default | 19,010,276 / 7,043,672 | 12,235,968 / 5,221,287 | 6.77 MB / 1.82 MB (26%) |
+| git | 7,335,705 / 2,597,515 | 6,065,193 / 2,139,799 | 1.27 MB / 0.46 MB |
+| system | 161,218,920 / 45,221,404 | 153,174,304 / 42,942,032 | 8.04 MB / 2.28 MB (5%) |
+
+- The terminal's font, subset with fontTools 4.68.0 (pinned, run by the host's Python like
+  the other host steps) in `scripts/fetch-iosevka.sh`: `--unicodes='*' --notdef-outline`
+  and every name record, so the OFL notice stays (Iosevka reserves no font name). The
+  output is the same bytes on every run (`cb3fd282…`), so the recipe's pin holds.
+- `git-remote-https` is a two-line Slop script that runs `git-remote-http`, as the
+  dashed builtins beside it already are; remote-curl reads its URL, not its name.
+- Tested in Chromium and Firefox: `terminal` (its CJK, emoji and box cells among them),
+  `core`, `display`, `shell` (the HTTPS helper lists a fixture's refs, a new line),
+  `network` (clones through the relay), `default`.
+- Not rebuilt here: everything else built on `display` or `system-tools`, which the next
+  catalog round rebuilds. `pi-minimal`'s closure includes the Rust toolchain (`rust-sdk`
+  installs `display`, and ripgrep and fd are built FROM `rust-build`), a `hugebuild`.
 
 ## Proposals for the owner
 
-1. Build the C runtime's archives without DWARF: `-Oz` instead of `-Oz -g` in
-   `Dollyfile-system-build`'s libc++ flags, and `llvm-strip --strip-debug` on the archives
-   `prepare-process-sysroot.sh` and `build-process-threads.sh` copy. Saves 13.8 MB of memory and 4.85 MB of download per
-   compiler image; costs libc's and libc++'s source lines in a debugger for a `-g` program.
-   A seed and base change: a catalog round.
-2. Move Droid Sans Fallback into its own package (`amy install cjk-fonts`), leaving Noto
-   Emoji in `display` since agents print emoji. Saves 3.45 MB and 1.66 MB gzip in every
-   image with the terminal (`default` after the Iosevka subset: 5.3 to 3.6 MB gzip); without
-   the package, Chinese, Japanese and Korean show as boxes. `display.c` needs no change.
-3. Split `libpython3.14.a` into a `libpython` package: `python` 16.1 to 11.6 MB gzip; a
-   program that embeds CPython installs it.
+1. **The C runtime's archives without DWARF.** `-Oz` instead of `-Oz -g` in
+   `Dollyfile-system-build`'s libc++ flags, and `llvm-strip --strip-debug` over the archives
+   `prepare-process-sysroot.sh` stages (Emscripten's libc and compiler-rt, both builds) and
+   over `prepare-compiler-rt.sh`'s. Saves 13.8 MB of memory and 4.85 MB of download in
+   `cc`, `system` and every toolchain (`system` 10%, `cc` 13%); costs the source lines of
+   libc and libc++ in a debugger for a program built with `-g` (its own stay). A seed and
+   base change: a catalog round.
+2. **Chinese, Japanese and Korean in a package.** A `cjk-fonts` package holding Droid Sans
+   Fallback and its NOTICE (two `COPY` rows moved out of `Dollyfile-display`), which
+   `amy install cjk-fonts` adds; Noto Emoji stays in `display`, since agents print emoji.
+   Saves 3.45 MB and 1.66 MB gzip in every image with the terminal: `default` after the
+   Iosevka subset 5.2 to 3.6 MB gzip, a third. Without the package those characters are
+   boxes; the terminal test's CJK cells would install it first. `display.c` needs no change.
+3. **A package's build files apart from its programs.** `python` carries `libpython3.14.a`
+   (13.1 MB, 4.5 MB gzip, 28% of the package) for programs that embed CPython; nothing in
+   the catalog links it. `pi-minimal` carries QuickJS's archive and headers (1.9 MB, 0.7
+   gzip) and `default` curl's headers, with no compiler in either image. A `libpython`
+   package (and the like for QuickJS) would take `python` from 16.1 to 11.6 MB gzip. This
+   is Debian's `-dev` split; it changes what packages are, so it is the owner's design.
+
+## Lessons
+
+- Rank by compressed bytes, not file size: headers shrink six times in gzip, PNGs and
+  model weights not at all, and the owner's guess (fonts) holds for `default` (63%) while
+  `system` is the compiler (60%) and debug information nobody links (10%).
+- A font carries what its users never reach: Iosevka has six glyphs per mapped character
+  for the variants that OpenType features select. Rendering every glyph of both fonts with
+  the terminal's own rasterizer turns "lossless" from a claim into a 0.3-second check.
+- Plan before building: `DOLLY_BUILD_IMAGES=… npm run image -- --plan` shows the closure.
+  `default` and `system` rebuild in 3.5 minutes, but `pi-minimal` reaches the Rust
+  toolchain through `rust-sdk`'s `INSTALL display`, so a font change is a `hugebuild`.
+- A narrowed catalog narrows `amy-index.txt` too: `test/default-browser.mjs` fails when
+  `python` is not in it, which says nothing about the change under test.

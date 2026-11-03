@@ -20,9 +20,9 @@ REQUIRES HOST upload@0
 # takes the display, and Ghostty draws its terminal with Mesa's OpenGL
 # (softpipe, GLX over Xlib, OpenGL 4.3 as Ghostty asks) and its window's
 # widgets with cairo. GTK's text is fontconfig's, from the terminal's font.
-FROM /v0.1.4/Dollyfile-system 9afff85ea68791281293b0cbacfaa1e3ead36407f060e74b56e104ee440a7217
-INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server ec349e378cf93986270e32c4e2f892fc0c98e7c7d8257cb229e2bb7f51b38aad
-INSTALL /v0.1.4/demos/ghostty-gtk/Dollyfile-ghostty-gtk 27bd82f0f7abcf531652e1882023ff54141e83d08abb2b003ef4abec347e2dc7
+FROM /v0.1.4/Dollyfile-system c2cbab2b18d89d756a8ec3f6554a5c85072a097848f355d2d592984d2a326357
+INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server d390f30116aa4d3e89f4cd1e7b4789e94659e82719c7e3807bbf1e8d6eaab63c
+INSTALL /v0.1.4/demos/ghostty-gtk/Dollyfile-ghostty-gtk 69aa84a252de4abf5c3b44386c0d3c699f430749618817c480c46d098da8c178
 # amy installs packages into the session (tmux, nvim and the rest), with the
 # modules default declares for them; nena enables another.
 INSTALL /v0.1.4/Dollyfile-amy de8d4c2404adfd43bb54bc492688aa8ba6d7e7d388889cb4b965e018800bafe6

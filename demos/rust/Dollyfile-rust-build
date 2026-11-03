@@ -12,9 +12,9 @@ REQUIRES HOST threads@0
 # builds the rustc kept. Every Rust program in the catalog is built by this
 # image's toolchain.
 FROM /v0.1.4/demos/rust/Dollyfile-rust-sdk fb88523a89188efbd1d8e79491c6c34478401562c5266ce8de1c4befc84f4667
-COPY /v0.1.4/demos/rust/Dollyfile-rust-llvm 0006522b7d486a1df5e1284f2018e06a04c26010047e69cb42d26932816b0a26 /opt/rust-llvm /opt/rust-llvm
+COPY /v0.1.4/demos/rust/Dollyfile-rust-llvm 07fa041dc47be71ee21ee6bf4f54410027c0f7e254b5ba3bb909c5cf535ff4c9 /opt/rust-llvm /opt/rust-llvm
 # cmp, for the check that the second generation rebuilds the same library.
-INSTALL /v0.1.4/Dollyfile-posix ac570f4f6eda07923e02e0fde12889a17ce5c1359323cdc2bcbb5ed3ada22fb8
+INSTALL /v0.1.4/Dollyfile-posix ef76228bd8498ac62a7c87ebc428501a521a781c4d04299515f5d8af90b82618
 REQUIRES TOOL cargo
 REQUIRES TOOL rustc
 REQUIRES TOOL cc

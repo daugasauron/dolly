@@ -92,6 +92,7 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
     ["git --version && git config --global --get user.name && git config --global user.email asdf && test \"$(git config --global --get user.email)\" = asdf"],
     ["mkdir repo && cd repo && git init && echo tracked > tracked.txt && git add tracked.txt && git commit -m initial && test \"$(git log --format=%s)\" = initial"],
     [`printf 'list\\n\\n' | /usr/libexec/dolly/git-remote-http origin ${server.origin}/fixture/git`],
+    [`printf 'list\\n\\n' | /usr/libexec/dolly/git-remote-https origin ${server.origin}/fixture/git`],
     // tar only extracts; Git creates the archive, from an index as well as a commit.
     ["echo loose > loose.txt && git add loose.txt && git archive -o ../repo.tar.gz $(git write-tree) && mkdir ../unpacked && " +
       "gzip -dc < ../repo.tar.gz | tar -xf - -C ../unpacked && grep -q tracked ../unpacked/tracked.txt && grep -q loose ../unpacked/loose.txt && " +

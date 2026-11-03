@@ -88,7 +88,7 @@ FILE /tmp/git/Makefile
       -I /usr/src/git/compat/regex \
       -I /usr/src/git \
       -include dolly/runtime.h
-    all: /usr/bin/git /usr/libexec/dolly/git-remote-http /usr/libexec/dolly/git-remote-https
+    all: /usr/bin/git /usr/libexec/dolly/git-remote-http
     /tmp/git/objects/%.o: /usr/src/git/%.c
     >mkdir -p $(dir $@)
     >cc \
@@ -118,9 +118,6 @@ FILE /tmp/git/Makefile
     >  -lcurl \
     >  -lz \
     >  -o $@
-    # Upstream installs it as a link; system-build has cp and no ln.
-    /usr/libexec/dolly/git-remote-https: /usr/libexec/dolly/git-remote-http
-    >cp $< $@
 SLOP CWD /usr/src/git make \
   -f /tmp/git/Makefile
 
@@ -129,7 +126,8 @@ EXPORTS TOOL git
 SLOP git \
   --version
 # The builtins a local transport runs by their dashed names (git clone PATH
-# runs git-upload-pack on its other side), as upstream installs them.
+# runs git-upload-pack on its other side), as upstream installs them, and
+# the HTTPS helper, which upstream links to the HTTP one.
 FILE /usr/libexec/dolly/git-upload-pack
     #!/bin/slop
     exec git upload-pack "$@"
@@ -139,6 +137,9 @@ FILE /usr/libexec/dolly/git-receive-pack
 FILE /usr/libexec/dolly/git-upload-archive
     #!/bin/slop
     exec git upload-archive "$@"
+FILE /usr/libexec/dolly/git-remote-https
+    #!/bin/slop
+    exec /usr/libexec/dolly/git-remote-http "$@"
 SLOP git init -q /tmp/git-check/origin && git -C /tmp/git-check/origin commit -q --allow-empty -m one && \
   git clone -q /tmp/git-check/origin /tmp/git-check/clone && test "$(git -C /tmp/git-check/clone log --format=%s)" = one && \
   git -C /tmp/git-check/clone commit -q --allow-empty -m two && git -C /tmp/git-check/clone push -q origin HEAD:pushed && \
@@ -146,7 +147,6 @@ SLOP git init -q /tmp/git-check/origin && git -C /tmp/git-check/origin commit -q
 SLOP git --help > /usr/share/man/cat1/git.1
 
 FILE /usr/libexec/dolly/git-remote-http
-FILE /usr/libexec/dolly/git-remote-https
 FOLDER /usr/share/git-core/templates
 FILE /usr/share/licenses/git/COPYING
 # git links libcurl statically and carries its licence.
