@@ -76,9 +76,9 @@ speech, tmux, wine, x11, xonotic, zero-ad, zsh; 80 recipes) read in full against
 | xorg-server | ok (`audio@0` is SDL2's record) |
 | xterm, twm, xclock, xeyes | ok; the ten-line licence `FOLDER` block repeated in five recipes, each a different set: not shared |
 | x11-desktop | ok; F4 |
-| gmqcc, libogg, libvorbis | ok |
+| gmqcc, libogg, libvorbis | ok; gmqcc F7: upstream's `-O3` for an unrecorded `-O1` (07a63c860) |
 | libjpeg | F7 fixed: `-O2` for Xonotic's `-O1` (b6c539c10) |
-| xonotic-build, xonotic-shaders | ok |
+| xonotic-build, xonotic-shaders | ok; F7: the engine at upstream's release `-O3` (b59cb5505) |
 | xonotic | ok; F8 (`xonotic.slop`); the two font-source `SOURCE`s exist for the pin alone, documented |
 | boost-headers, fmt, freetype, icu, libpng, libsodium, libxml2, pkgconf, premake | ok |
 | openal | F7 fixed: Release for the 0 A.D. host build's `-O1` (a4078f0fc) |
@@ -202,8 +202,9 @@ framebuffer (`rlCopyFramebuffer`). Only Studio's recordings are affected (not au
   A fractional `sleep` in the core would make the plain `until ...; do sleep 0.1; done` possible.
 - F5 mojo: 480 lines of C (`runtime.c`, `gpu.c`) are `FILE` bodies inside the recipe; every
   other demo stages its port files as a `SOURCE` tar. Moving them is a mojo rebuild (hours).
-- F7 optimisation levels: fixed for sdl2, imgui-x11, libjpeg and openal (below, "F7, the
-  optimisation levels"); zero-ad's three probes stay at `-O1` (each runs once in its build).
+- F7 optimisation levels: fixed for sdl2, imgui-x11, libjpeg, openal, Xonotic's engine and
+  gmqcc (below, "F7, the optimisation levels"); zero-ad's three probes and Xonotic's shader
+  generator stay at `-O1` (each runs once in its build).
 - F8 ENTRY scripts: slopyard, xonotic, zero-ad and gpu-fluid name theirs `/etc/dolly/NAME.slop`;
   the other fourteen applications and docs/dollyfile.md say `init.slop`. Three of the four are
   GPU images (1-2 GiB) whose tests need a GPU window; not rebuilt tonight for a file name.
@@ -316,13 +317,41 @@ Commits and checks:
   imgui-x11 rebuilt; `demos/x11/test/x11-browser.mjs chromium firefox chromium firefox` passed
   on both levels.
 - b6c539c10 libjpeg at `-O2`; a4078f0fc openal at Release (its recipe's loopback check passed in
-  the build).
+  the build); b59cb5505 Xonotic's engine and 07a63c860 gmqcc at upstream's `-O3` (below).
 
-Left at `-O1`: zero-ad-deps' ENet and OpenAL probes and zero-ad-engine's SpiderMonkey probe
-(each compiled and run once in its build; the level does not reach a shipped program), and,
-outside these four packages, Xonotic's engine (`demos/xonotic/Makefile`, where libjpeg's came
-from), gmqcc, wabt and llama-cpp: the same unrecorded pattern, each a rebuild of a GPU or
-large image, for a round that measures them.
+Then the root of libjpeg's level, with the same method:
+
+- Xonotic's engine (`demos/xonotic/Makefile`, `-O1` since the demo's first commit 86057ebb1):
+  upstream's `makefile.inc` builds release at `OPTIM_RELEASE=-O3 -fno-strict-aliasing
+  -fno-math-errno -fno-trapping-math`; the Makefile's comment left the two math flags out
+  because "Dolly's cc takes no" them, which is moot (cc accepts `-fno-math-errno` since
+  9d21e9879, and both are the compiler's defaults on WebAssembly) and gave no reason for `-O1`.
+  Both clients, taken out of their snapshots, replayed `short.dem` (one paused frame drawn
+  1,046 times, software rasterizer, 1024x768) in one xonotic-build session, two alternating
+  sets (`xonotic-levels-browser.mjs`): 13.1, 10.9, 11.3, 10.9 fps at `-O1`, 14.3, 12.4, 11.7,
+  11.8 at `-O3`, faster in each adjacent pair (6-11%); `xonotic-sdl` 5,779,229 -> 5,889,934
+  bytes, `xonotic-dedicated` 3,429,013 -> 3,518,472. The headless test's own numbers do not
+  compare: its server benchmark runs on the benchmark clock (62.0 s at either level) and its
+  timedemo replays that run's own recording (1277 frames at `-O1`, 1385 at `-O3`). Commit
+  b59cb5505 (README's line too).
+- gmqcc (`-O1` in the same commit; the recipe says "compiled as upstream's Makefile does",
+  whose release is `-O3`): both binaries compiled the server's game logic from the same
+  preprocessed source in one session, three rounds each (`gmqcc-levels-browser.mjs`): 2.29,
+  2.43, 2.26 s at `-O1`, 2.34, 2.18, 2.42 s at `-O3`, and the same `progs.dat` as the image's
+  (5f67ef20...); 654,996 -> 659,334 bytes. Taken for upstream's level, which makes the
+  recipe's comment true; it buys nothing measured. Commit 07a63c860; the headless Xonotic test
+  passed again in Chromium on the rebuilt gmqcc and xonotic-build (540 s).
+
+Left at `-O1`: zero-ad-deps' ENet and OpenAL probes, zero-ad-engine's SpiderMonkey probe and
+Xonotic's `dpshaders` generator (each compiled and run once in its build; the level reaches no
+shipped program), and wabt (tools demo, the core audit's) and llama-cpp (GPU), the same
+unrecorded pattern.
+
+Found on the way: gmqcc (`main.cpp`'s banner) and the Xonotic engine (`builddate.c`, as
+upstream links it) embed `__DATE__ __TIME__`, so two builds of one recipe differ (gmqcc: 56
+bytes, `Built Nov  3 2026 07:48:17` against `08:07:30`), and a rebuild of gmqcc rebuilds
+xonotic-build and xonotic. If the in-sandbox Clang honours `SOURCE_DATE_EPOCH` (Clang 18 and
+later do), setting it in the build environment would make both reproducible; not tried.
 
 Consumers rebuilt on the new packages and tested (the tree's whole list, 96 images with the
 closure, in 257 s for the eleven that changed): `npm run test:demos -- fingers bhop classicube
@@ -335,7 +364,7 @@ rasterizer (gpu@0 has no adapter there), passed in Chromium (512 s: the server b
 menu, a bot match, its timedemo at 12.5 frames/s, sound); `0ad-openal-browser.mjs` ran
 zero-ad-deps' OpenAL probe in Chromium (34 and 17 ms).
 
-For the next catalog round: every consumer of the four packages. Built and tested here: sdl2,
+For the next catalog round: every consumer of the six. Built and tested here: sdl2, gmqcc, xonotic-shaders,
 sdl2-mixer, sdl2-image, sdl2-ttf, imgui, imgui-x11, xorg-server, x11-desktop, libjpeg, openal,
 raylib, gamedev-sdk, bhop, classicube-build, classicube, rts-build, rts-arena, fingers-build,
 fingers, xonotic-build, zero-ad-deps. Not built here, with the GPU stage: xonotic (on
@@ -426,7 +455,10 @@ gpu-fluid, xonotic, zero-ad (no display number in the brief).
 - Display-paced numbers cannot show a library's level: the x11 test's drag and ImGui frames sit
   at the display's rate at `-O1` and `-O3` alike. A program that outruns the display
   (imgui-demo, 140-200 frames/s on Dolly's display) or an offscreen benchmark can. The page's
-  own ready time is a free load gauge: it rose by the same share as the frames fell.
+  own ready time is a free load gauge: it rose by the same share as the frames fell. Read a
+  test's printed benchmark before trusting it: Xonotic's server benchmark runs on the benchmark
+  clock (62.0 s at every level) and its timedemo replays the run's own recording (a different
+  frame count each run); `short.dem`, a fixed demo in the cache, made the engine comparable.
 - All four `-O1`s were copies (the Seven Kingdoms commit, Xonotic's makefile, the 0 A.D.
   Emscripten build); `git log -S` to the first commit found each in minutes. A level with no
   reason beside it is usually a line that travelled.
