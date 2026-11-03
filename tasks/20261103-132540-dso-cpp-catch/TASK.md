@@ -4,7 +4,17 @@
 - PRIORITY: 120
 - TAGS: bug,host-modules,compiler
 
-## State (2026-11-03)
+## State (2026-11-04, 05:40)
+
+The same bug as section 3 of the owner's report (`tasks/20261103-141816-mplreport`), found
+twice the same night on branches that did not see each other: fixed on `demo/pydata` by
+4e992e97a and f751f3480 (a library's `GOT.mem` import of a host C++ `thread_local` gets the
+address its `_ZTW` wrapper returns), merged into `integrate/2026-11-03`; `test/dso-browser.mjs`
+now has a library that throws and catches inside itself, the case below. Closes when the night
+round's `dso` test passes on integrate. What stays open beyond it is the proposal at the end: a
+C `_Thread_local` export has no wrapper.
+
+### First found (2026-11-03)
 
 Reproduced in Chromium and Firefox; not fixed. Rust is not affected: its landing pads catch all
 and call no personality, so they never touch `__wasm_lpad_context`
