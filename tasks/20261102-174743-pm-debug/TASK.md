@@ -42,8 +42,9 @@ Not the proposed `try_table (catch_all_ref)` around every charged body, for two 
 - It would catch and rethrow every exception, `exit`'s JavaScript one included, in every frame.
   Firefox 155 pays about 80 µs for each rethrow deep in a stack: `dive(100000)` with a
   destructor in each frame (a `catch_all_ref` and `throw_ref` per frame, as the proposal would
-  add) takes 8.2 s in Firefox and 58 ms in Chrome, the same unwrapped. `./deep 200000 exit`
-  would pay that per frame.
+  add) takes 8.2 s in Firefox and 58 ms in Chrome, the same unwrapped. `exit` from 100,000
+  frames deep takes Firefox 92 ms where no frame catches and 9.5 s where each does (Chrome 43
+  and 54 ms).
 - Only frames that catch need anything. A C program that catches nothing is rewritten byte for
   byte as before (`fib.c` rewritten by both tools: `cmp` equal).
 
