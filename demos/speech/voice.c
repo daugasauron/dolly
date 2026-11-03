@@ -163,6 +163,15 @@ static unsigned lay_out(int count, const char *(*name)(int), struct place *at) {
     if (at) at[index] = (struct place){row, column, column + width};
     column += width + 1;
   }
+  // Each row ends beside Paste.
+  if (at) {
+    unsigned ends[KEYS] = {0};
+    for (int index = 0; index < count; ++index) ends[at[index].row] = at[index].to;
+    for (int index = 0; index < count; ++index) {
+      const unsigned shift = room > ends[at[index].row] ? room - ends[at[index].row] : 0;
+      at[index].from += shift, at[index].to += shift;
+    }
+  }
   return count ? row + 1 : 0;
 }
 
