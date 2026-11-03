@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 60
-- TAGS: packages,demo,lean,0.1.4
+- TAGS: packages,demo,lean,0.1.5
 
 Owner (2026-10-28): "I want to add lean to amy."
 
@@ -23,7 +23,34 @@ exception the demo's README states.
 - A demo test passes in Chromium and Firefox; the package has its row in `test/amy-browser.mjs`;
   sources are pinned, with licence rows.
 
-## State (2026-11-02): `demo/lean-3`, on `integrate/2026-11-02`
+## State (2026-11-03): Firefox, a 6 GB Chromium and the domain are left
+
+Tagged `0.1.5` (it was `0.1.4`, which shipped without it): the done-when names the domain's
+catalog, which only a release publishes.
+
+Done, on `integrate/2026-11-03` (`demo/lean-3` merged): the four images, `amy install lean` on
+`default`, `lean --run`, the four theorems and the false one, `lake new` and `lake build`, and
+`demos/lean/test/lean-browser.mjs` in Chromium (65.4 s in a 12 GB scope, on the reverted runtime,
+the integrator's note at the end); the `test/amy-browser.mjs` row (`lean`, `lean-std`,
+`lean-meta`: `demos/lean`), the pin (`config/source-pins.sh`) and the licence row
+(`config/upstreams.json`).
+
+Left:
+
+- The demo test in Firefox and in a 6 GB Chromium. Both waited for the process-memory change,
+  which is back since 2026-11-03 (`core/process-memory-2`: fc98e6c98 and the seal fix 697ef27da,
+  merged c89b87060; `tasks/20261101-102515-retained-process-memory`, closed). Not measured since:
+  for the next catalog round, which builds the Lean chain on that runtime.
+- The domain's catalog: `config/domain-pages-images.txt` lists `lean-std`, `lean-meta` and
+  `lean`; the next release publishes them.
+- `demos/lean/prepare-sources.sh`'s comment gives "a pax header" as the reason for its plain tar;
+  measured with the core tar, the reason is the archive's seven symlinks (`AGENTS.md`, `tests/`;
+  moved here from `tasks/20261102-004436-workaround-removal`). One line, with the next change of
+  that file.
+- stack-wrap keeps a frame's room charged when an exception unwinds it:
+  `tasks/20261102-174743-pm-debug`.
+
+## Measured (2026-11-02): `demo/lean-3`, on `integrate/2026-11-02`
 
 Against the done-when, 12:45: met in Chromium, in a 6 GB slot: `amy install lean` on `default`
 from the round's catalog, `lean --run`, the four theorems, the false one with status 1, `lake new`
@@ -96,7 +123,7 @@ and more in Firefox; the round runs it in its 36 GB scope. A second report of a 
 process's memory a second after it ends kept none resident in the six-run test in Chrome (one
 in Firefox) but did not move these numbers, so it is not made.
 
-## State (2026-11-01): `demo/lean-2`, on `main`
+## Built (2026-11-01): `demo/lean-2`, on `main`
 
 `demo/lean-2` is `demo/lean` replayed on `main` (v0.1.4), with `core/install-memory` and
 `core/thread-memory-max`, each judged in its own task, and what tonight added:
