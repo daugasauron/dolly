@@ -103,6 +103,11 @@ a blobless clone `ghostty-git/`).
   diff (16 files, +3834 −296) adds render-state, search, snapshot and OSC APIs; what it removes
   (`ghostty_terminal_vt_write_until_ground`, `GHOSTTY_OSC_COMMAND_CONTEXT_SIGNAL`) display.c does
   not use, and the rest of the removals are comment rewording.
+- What else changes in the terminal: 887 commits from `4540d499` to v1.4.0, 231 of them in the
+  terminal library (`src/terminal`, `lib_vt.zig`, `include/ghostty`; +30281 −3626 lines in
+  `src/terminal`), and uucode's UCD moves from Unicode 17.0 to 18.0. The display grows from
+  13.99 MB to 14.37 MB. The terminal's own tests (kitty graphics, keys, selection, scrollback)
+  pass unchanged.
 - `config/ghostty-dolly.patch`: the same seven hunks, two of them rebased (the page memsets and
   kitty graphics' shared-memory refusal, which v1.4.0 moved; it now also refuses without libc,
   which does not cover Dolly).
@@ -165,9 +170,10 @@ the man page's program, its `cc` and its run 4.7 s.
 
 ## Tests (2026-11-03, `work/sdl2`, on the images above)
 
-- Chromium and Firefox: `test/terminal-browser.mjs`, `test/touch-browser.mjs`,
-  `test/core-browser.mjs`, `test/default-browser.mjs` (its composed `core display zig` image
-  included) passed.
+- Chromium and Firefox: `test/terminal-browser.mjs` (kitty graphics among its checks),
+  `touch-browser.mjs`, `core-browser.mjs`, `default-browser.mjs` (its composed `core display zig`
+  image included), `display-browser.mjs`, `display-cursor-browser.mjs`, `shell-browser.mjs`,
+  `pager-browser.mjs` and `pty-browser.mjs` passed. `test/zig-sdk.artifacts.mjs` passed (3/3).
 - The amy test's zig row and more, run as a script of their own in `default` (amy-browser.mjs
   needs every package of the catalog): `amy install zig`; `answer.zig` as C for a C program;
   `hello.zig` with the standard library, with and without `-target`; a program that spawns

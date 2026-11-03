@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # LLVM 22 with every default target, Clang and LLD as libraries and headers,
 # and llvm-config, under /usr/lib/llvm22: what Zig 0.17 links. Built by its
 # CMake inside Dolly with the TableGen tools of llvm22-tablegen.
-FROM /v0.1.4/demos/llvm/Dollyfile-llvm22-tablegen b34efbdcb9f91f7387893bc2dac0f989fa2f19ae00f17063e7838988bc1cd2ba
+FROM /v0.1.4/demos/llvm/Dollyfile-llvm22-tablegen 270fc84c461b5ff8ce01bd6f1b4a218efb1ce18d6e678fdd5a8d8c3fc62a1e80
 REQUIRES TOOL llvm-tblgen
 REQUIRES TOOL clang-tblgen
 REQUIRES TOOL cmake
@@ -17,7 +17,7 @@ REQUIRES TOOL gzip
 REQUIRES TOOL tar
 REQUIRES TOOL patch
 
-SOURCE /v0.1.4/dist/static/llvm22/llvm-project.tar.gz 3042fa04776a40e02e800b71105d7c8199b9c5dd7b951a715d0edd208238daed /tmp/llvm-project.tar.gz
+SOURCE /v0.1.4/dist/static/llvm22/llvm-project.tar.gz d2b6b682f06a79130bd7a2de9a88f45a80a81abb44b37bad57f018c0d2c8f9ed /tmp/llvm-project.tar.gz
 SLOP time slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
 SOURCE /v0.1.4/dist/static/llvm22/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch

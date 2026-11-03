@@ -25,7 +25,7 @@ REQUIRES TOOL time
 REQUIRES TOOL cp
 REQUIRES TOOL rm
 
-SOURCE /v0.1.4/dist/static/llvm22/llvm-project.tar.gz 3042fa04776a40e02e800b71105d7c8199b9c5dd7b951a715d0edd208238daed /tmp/llvm-project.tar.gz
+SOURCE /v0.1.4/dist/static/llvm22/llvm-project.tar.gz d2b6b682f06a79130bd7a2de9a88f45a80a81abb44b37bad57f018c0d2c8f9ed /tmp/llvm-project.tar.gz
 SLOP time slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
 # LLVM runs config.guess even when LLVM_HOST_TRIPLE is given; it knows no Dolly host.

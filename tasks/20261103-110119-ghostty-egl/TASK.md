@@ -21,6 +21,12 @@ branch rebased them by hand (the GLX context hunks dropped) and mapped `zig-pack
 v1.4.0's packages, so the staging runs; nothing of it was built in Dolly (no `zig-llvm` on LLVM
 22 then, no EGL), so `ghostty-gtk` and `ghostty-x11` are expected to fail until this is done.
 
+Mesa 26.2.5 refuses EGL beside the Xlib GLX the demo builds: "EGL requires DRI, but GLX is being
+built with xlib support" (`meson.build:563`; EGL requires DRI, Haiku, Windows or Android, :562).
+So the step is Mesa's DRI frontend with softpipe for both GLX and EGL (swrast over X11, the
+surfaceless platform for Ghostty), which loads its gallium driver library at run time (`dso@0`,
+which `ghostty-gtk` already requires), not a flag beside the current build.
+
 Done when `ghostty-x11` opens Ghostty 1.4's window on Dolly's X server with a shell in it, in
 Chromium and Firefox (`npm run test:demos -- ghostty-gtk`), with Ghostty's renderer drawing through
 Mesa's EGL and softpipe, and no GLX context loaded by hand.
