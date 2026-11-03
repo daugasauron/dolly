@@ -4,6 +4,13 @@
 - PRIORITY: 150
 - TAGS: bug,rust,demo
 
+## State (2026-11-04)
+
+The branch is merged into `core/terminal-mode` (f701e633; `tasks/20261104-074502-terminal-mode`),
+where `terminal`, `pty` and `core` passed again in Chromium and Firefox on that branch's seed
+(`3bc72763…`). Left here: the catalog round and the garden driver's `run` and `thread` variants on
+rebuilt Rust images; finding 2's cause (Pi's RPC latency around a failed request).
+
 Two findings from the recordings of 2026-11-01 (Claude Opus 5.5 working in
 Dolly), each a claim until reproduced. Evidence in
 `build/video-findings-evidence/` of `work/audit-host` (branch
