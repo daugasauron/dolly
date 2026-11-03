@@ -5,9 +5,10 @@
 #include "run-program.h"
 
 static void usage(FILE *stream) {
-  fputs("usage: patch [-pN] [-R] [-s] [--dry-run] [-d DIR] [-i PATCHFILE] < PATCHFILE\n"
+  fputs("usage: patch [-pN] [-R] [-s] [-l] [-f] [--dry-run] [-d DIR] [-i PATCHFILE] < PATCHFILE\n"
         "Dolly applies unified patches to the files they name with source-built "
-        "git apply.\n", stream);
+        "git apply: -l ignores whitespace in context lines; it asks no questions, so\n"
+        "-f changes nothing, and a patch that does not apply fails.\n", stream);
 }
 
 int main(int argc, char **argv) {
@@ -35,6 +36,11 @@ int main(int argc, char **argv) {
       arguments[count++] = "--check";
     } else if (strcmp(option, "-s") == 0 || strcmp(option, "--quiet") == 0) {
       arguments[count++] = "--quiet";
+    } else if (strcmp(option, "-l") == 0 || strcmp(option, "--ignore-whitespace") == 0) {
+      // Meson applies a wrap's diff_files with patch -l -f -p1 -i FILE.
+      arguments[count++] = "--ignore-whitespace";
+    } else if (strcmp(option, "-f") == 0 || strcmp(option, "--force") == 0) {
+      // GNU patch's "ask no questions": git apply asks none.
     } else if (strcmp(option, "-R") == 0 || strncmp(option, "-p", 2) == 0) {
       arguments[count++] = argv[index];
     } else if (option[0] == '-') {

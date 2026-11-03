@@ -24,9 +24,9 @@ for (const browser of browsers) {
   await demoTest("ffmpeg", { image: "default", timeout: 900_000, browser }, async ({ open }) => {
     const { run } = await open();
     await run("amy install ffmpeg");
-    // configure knew Clang by cc -v, so it chose Clang's optimization (-O3):
-    // an unknown compiler is built with none of its own and named so.
-    await run("ffmpeg -version | grep -q '^built with dolly toolchain: Clang'");
+    // configure knew Clang by cc -v, so it chose Clang's optimization (-O3)
+    // and names it by cc --version.
+    await run("ffmpeg -version | grep -q '^built with clang version'");
     await run("mkdir /tmp/media && cd /tmp/media && " +
       `${quiet} ${video} ${tone} -c:v mpeg4 -q:v 3 -c:a aac -shortest clip.mp4 && ` +
       `${quiet} ${video} ${tone} -pix_fmt yuv420p -c:v ffv1 -c:a flac lossless.mkv && ` +
