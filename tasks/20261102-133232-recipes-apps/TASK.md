@@ -297,9 +297,10 @@ benchmark prints a checksum of its output: it was the same at every level (no mi
 | libjpeg | `-O1` -> `-O2` | 288,672 -> 297,962 | 1600x900 at quality 90: encode 23.7/24.3 ms, decode 12.5/11.8 ms (Chromium), 24.2/24.3 and 11.6/12.3 (Firefox): no difference |
 | openal | `-O1` -> Release | 3,148,334 -> 3,125,126 | sixteen sources over a loopback device: 2.49/2.61 ms per second of audio (Chromium), 4.22/3.18 (Firefox) |
 
-Decision: sdl2, imgui-x11 and openal take CMake's Release flags, like the eleven other CMake
-packages that set no override (sdl2-image, sdl2-mixer, sdl2-ttf, freetype, libpng, fmt,
-libxml2, libogg, libvorbis, binaryen, cmake); `-O2` measured no faster than `-O3` and 2.6%
+Decision: sdl2, imgui-x11 and openal take CMake's Release flags, like the thirteen CMake
+recipes that set no override (sdl2-image, sdl2-mixer, sdl2-ttf, freetype, libpng, fmt,
+libxml2, libogg, libvorbis, binaryen, cmake, llvm-tablegen, gtk-build; nvim and transcribe pin
+`-O2`, wabt and llama-cpp `-O1`); `-O2` measured no faster than `-O3` and 2.6%
 smaller, too little to justify an override line of its own. libjpeg takes `-O2`, the level of
 every other hand-written package makefile; it buys nothing measured and costs 9 KB, and an
 `-O1` would need a reason in the recipe, which nothing gives. Build times did not change
@@ -323,9 +324,17 @@ outside these four packages, Xonotic's engine (`demos/xonotic/Makefile`, where l
 from), gmqcc, wabt and llama-cpp: the same unrecorded pattern, each a rebuild of a GPU or
 large image, for a round that measures them.
 
+Consumers rebuilt on the new packages and tested (the tree's whole list, 96 images with the
+closure, in 257 s for the eleven that changed): `npm run test:demos -- fingers bhop classicube
+rts` passed (bhop 186 s, rts 289 s, classicube 290 s in Chromium, as those tests run; fingers in
+Chromium and Firefox); `test/amy-browser.mjs`'s sdl2-ttf, sdl2-image and openal rows, run alone
+in `default` after `amy install cmake pkgconf` and each package (`sdl2-packages-browser.mjs`),
+passed in Chromium and Firefox.
+
 For the next catalog round: every consumer of the four packages. Built and tested here: sdl2,
-sdl2-mixer, imgui, imgui-x11, xorg-server, x11-desktop, libjpeg, openal (and the CPU games in
-the run below). Not built here, GPU stage: xonotic-build, xonotic (libjpeg, sdl2),
+sdl2-mixer, sdl2-image, sdl2-ttf, imgui, imgui-x11, xorg-server, x11-desktop, libjpeg, openal,
+raylib, gamedev-sdk, bhop, classicube-build, classicube, rts-build, rts-arena, fingers-build,
+fingers. Not built here, GPU stage: xonotic-build, xonotic (libjpeg, sdl2),
 zero-ad-deps, zero-ad-engine, zero-ad (openal, sdl2; zero-ad-deps copies SDL2's archive, F12),
 ghostty-x11 (on x11-desktop's chain). zero-ad's builds exceed a 9 GB slot (above).
 
