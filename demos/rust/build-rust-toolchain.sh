@@ -27,7 +27,14 @@ if [[ ! -f "$port/prepare.inputs" || "$(cat "$port/prepare.inputs")" != "$prepar
   rm -rf "$port/rust" "$port/toolchain" "$port/libc" "$port/libc-186" "$port/jobserver"
   bash demos/rust/toolchain/prepare.sh > "$port/prepare.log" 2>&1
 fi
-cp demos/rust/toolchain/wasm64-emscripten-probe.json "$port/wasm64-emscripten-probe.json"
+# The seed aborts: env.sh builds its compiler and library with panic = "abort", so the
+# definition it carries says so. rust-build builds the unwinding library inside Dolly.
+python3 - demos/rust/toolchain/wasm64-emscripten-probe.json "$port/wasm64-emscripten-probe.json" <<'EOF'
+import json, sys
+spec = json.load(open(sys.argv[1]))
+spec["panic-strategy"] = "abort"
+open(sys.argv[2], "w").write(json.dumps(spec, indent=2) + "\n")
+EOF
 bash demos/rust/toolchain/build-llvm.sh > "$port/llvm-build.log" 2>&1
 # package.py takes the one main object; a reused target directory may hold older ones.
 rm -f "$port"/target/wasm64-emscripten-probe/debug/deps/rustc_main-*
