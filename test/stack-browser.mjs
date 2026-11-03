@@ -1,7 +1,8 @@
 // Recursion deeper than a browser stack: programs stack-wrap rewrote, in
 // `system` with stack@0 added, recurse further than an unwrapped one can,
-// throw C++ exceptions and exit across the stacks they moved to, end with the
-// reason of a trap far down, and do so in a thread too.
+// throw C++ exceptions and exit across the stacks they moved to, get back the
+// room of the frames an exception unwound, end with the reason of a trap far
+// down, and do so in a thread too.
 import assert from "node:assert/strict";
 import { browserTest, composed } from "./browser.mjs";
 
@@ -36,12 +37,23 @@ __attribute__((noinline)) static long dive(long n) {
   if (n == 0) throw std::runtime_error("bottom");
   return dive(n - 1) + 1;
 }
+// Each level of climb catches a throw from 3,000 frames below. Had the frames it
+// unwound kept their room, each level would need a fresh stack: more than nest.
+__attribute__((noinline)) static unsigned long sink(unsigned long n) {
+  if (n == 0) throw std::runtime_error("bottom");
+  unsigned long below = sink(n - 1);
+  return below ^ (below >> 3) ^ n;
+}
+__attribute__((noinline)) static long climb(long level) {
+  Guard guard;
+  if (level == 0) return 0;
+  try { sink(3000); } catch (const std::runtime_error &) {}
+  return climb(level - 1) + 1;
+}
 int main() {
-  try { dive(100000); } catch (const std::runtime_error &error) {
-    std::printf("%s %ld\\n", error.what(), destroyed);
-    return destroyed == 100001 ? 0 : 1;
-  }
-  return 2;
+  try { dive(100000); } catch (const std::runtime_error &error) { std::printf("%s %ld\\n", error.what(), destroyed); }
+  if (destroyed != 100001) return 1;
+  return climb(1000) == 1000 ? 0 : 2;
 }
 `,
   "trap.c": `__attribute__((noinline)) static int down(int n) { if (n == 0) __builtin_trap(); return down(n - 1) + 1; }

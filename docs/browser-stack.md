@@ -135,6 +135,9 @@ WebAssembly cannot read a browser stack's depth, so the program keeps count:
   global, the room, on entry and gives it back on return: 16 slots of 8 bytes
   plus one for each parameter and local. A function that makes none is left
   as it was; every check keeps room for the largest of those.
+- The frames an exception unwinds give nothing back, so the function that
+  catches it sets the room to its own again, as LLVM sets the stack pointer
+  in memory there.
 - With too little room, the function stashes its arguments and itself in
   globals and asks the `stack@0` provider, in its own Worker, to continue.
   The provider runs the program's `dolly_stack_continue` through
