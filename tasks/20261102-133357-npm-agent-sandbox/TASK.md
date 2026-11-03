@@ -1,6 +1,6 @@
 # npm: a custom coding agent sandbox in minutes
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: npm,packages,pi
 
@@ -15,6 +15,23 @@ how the key is entered; the hosts the agent may reach; their page's look.
 Done when a stranger goes from the packed packages to a hosted agent that has all of the
 above along one documented path, and `test/npm-browser.mjs` walks that path from packed
 packages in Chromium and Firefox.
+
+## Closed (2026-11-03)
+
+The done-when is met at `integrate/2026-11-03` (merged as acd793aad and 1b3e165d0): `dolly-build
+init` writes the sandbox (recipe, page, server, theme, workspace) and `git`, `python` and `cc`
+arrive as packages (5def8d092, e4d9857fc, 98147be03, a518178b0, 0b36aef09, cdc1e1228); the
+README's "Pi with npm" is that one path. `test/npm-browser.mjs` runs it as written from the packed
+packages (install, `init my-pi git cc`, a colour in `theme.json`, a C tool's rows, build, serve,
+boot: Pi with the extension and skill, `/hello`, `AGENTS.md`, git, the tool, the workspace file,
+a refused host, the page's modules exactly the recipe's) and passed in Chromium and Firefox on
+the final templates and again after the merge of `integrate/2026-11-02` (sections below).
+
+Not proven: a real model's answer (the key in `~/.openrouter` is revoked; a wrong Anthropic key
+drew Anthropic's own 401 through the policy and CORS). What is left is the owner's, in
+`tasks/20261102-133353-owner-decisions`: publishing the `git`, `python` and `cc` packages, the
+terminal's palette as a file, and `boot({ session })`. The frictions listed below stay as
+recorded, none a defect.
 
 ## The stranger's log, before (2026-11-02 22:36-22:48 JST)
 
