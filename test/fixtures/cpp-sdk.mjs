@@ -16,6 +16,7 @@ extern "C" int cpp_sdk_check() {
     catch (const std::exception &error) { if (std::string(error.what()) != "checked") return 2; }
     if (destroyed != 1) return 3;
     try { (void)words.at(9); return 4; } catch (const std::out_of_range &) {}
+    try { throw 42; } catch (int thrown) { if (thrown != 42) return 6; }
     Derived derived;
     Base *base = &derived;
     auto *value = dynamic_cast<Derived *>(base);
