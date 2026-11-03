@@ -12,7 +12,7 @@ REQUIRES HOST threads@0
 # configured by CMake inside Dolly, and its TableGen tools.
 FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 401c2ef6db67f13a274e6336f99f3be93041292b9862eee6940637888372498a
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL /v0.1.4/demos/python/Dollyfile-python e9e48311799116ff776f582de062473d2ecd8a4a1fc080b6964f2252b94823b5
+INSTALL /v0.1.4/demos/python/Dollyfile-python 2783f5b111ace5f9791fe9328e189ae5aa4499c3718ca590aff0017c68478a78
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python

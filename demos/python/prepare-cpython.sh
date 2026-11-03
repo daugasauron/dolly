@@ -92,7 +92,7 @@ fi
   ac_cv_func_rewinddir=no ac_cv_func_getpriority=no ac_cv_func_times=no \
   ac_cv_func_execv=no ac_cv_func_fexecve=no ac_cv_func_posix_openpt=no \
   ac_cv_func_grantpt=no ac_cv_func_unlockpt=no ac_cv_func_ptsname_r=no \
-  ac_cv_func_login_tty=no \
+  ac_cv_func_login_tty=no ac_cv_func_fork=no ac_cv_func_vfork=no \
   ac_cv_func_setrlimit=no ac_cv_func_pthread_sigmask=no \
   ac_cv_func_ptsname=no \
   /emsdk/upstream/emscripten/emconfigure ./configure \

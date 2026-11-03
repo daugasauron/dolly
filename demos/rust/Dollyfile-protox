@@ -3,7 +3,7 @@ PACKAGE protox
 REQUIRES HOST runtime@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/demos/rust/Dollyfile-rust-build 52d3ea202fb9c3172f67fbcc76cd04d51130a39240ce3ef57be9735980c3e547
+FROM /v0.1.4/demos/rust/Dollyfile-rust-build cfcf17ccc33f72df0912330f0db2413338015af2073547ad50391bc9247bf2a4
 REQUIRES TOOL cargo
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
