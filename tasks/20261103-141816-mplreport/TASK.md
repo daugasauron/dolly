@@ -43,3 +43,70 @@ The build's frictions (section 4), each to check and fix at its cause, or close 
 - `amy install python` asks for `nena enable dso sockets` first, in `default`.
 - Hosts without CORS headers (github.com, savannah): Matplotlib's Meson wraps cannot fetch their
   sources; the report fetched them through api.github.com and raw.githubusercontent.com.
+
+## State (2026-11-03 23:45, branch `demo/pydata`, by the pydata agent)
+
+Checked against `demo/pydata` (integrate's head of the evening plus the pydata work), where
+python-data builds Matplotlib 3.10.9 and its figures render ([pydata](../20261103-110906-pydata/TASK.md)).
+
+Blocking:
+
+1. C++ exceptions in shared libraries: fixed in the loader, `4e992e97a` (page code, not an
+   image input). Both sides already agree that `__wasm_lpad_context` is thread-local: every
+   Dolly object is compiled with atomics and bulk memory (`compiler.cpp`), shared ones too, so
+   LLVM's WasmEHPrepare makes it thread-local in the library as in libunwind; the report's guess
+   that `-shared` objects are compiled without threads does not hold. A thread-local reached
+   from position-independent code is a `GOT.mem` import whose value the dynamic linker must make
+   the thread's address, and `host/dso/process.mjs` gave it the exported value, the offset (72).
+   It now gives a `GOT.mem` import of a process C++ `thread_local` the address its `_ZTW`
+   wrapper returns, called in the Worker that instantiates the library (each instance has GOT
+   globals of its own, so this holds for threads too). `test/fixtures/cpp-sdk.mjs`'s library
+   now throws and catches inside itself (`cpp_sdk_check`: `std::exception`, `out_of_range`);
+   with the old loader the host dies of the uncaught exception. `dso-browser.mjs` passes in
+   Chromium and Firefox; in a session the report's matrix (`int`, the same type, a base, a
+   type of the library) returns all four from a `-shared` pybind11 module, and Matplotlib
+   imports and draws. Left: a C `_Thread_local` of the process has no wrapper, and the loader
+   cannot tell its offset from an address; the exact fix is the compiler recording which
+   exports are thread-local (a seed change), not needed by anything built tonight.
+2. Thread pools: `c085280fb` makes `ThreadPoolExecutor.submit()` run the item at once, in a
+   worker context of its own, on Dolly, since `Thread.start()` runs its target serially there.
+   Measured: Pillow builds in 24 s (it hung), the python recipe checks three submitted items.
+   Making `start()` fail instead turns Pillow's build into a failure, not a fallback:
+   setuptools' `build_ext` has no serial path once `parallel` is set, and the patch's serial
+   `start()` serves callers that drain spooled subprocess output. `multiprocessing.pool.
+   ThreadPool` still waits for ever; real threads are `20261103-134653-pythreads`.
+
+Frictions:
+
+- Python's `sysconfig`: fixed at its cause, `6a0b03b77` (`prepare-cpython.sh` drops
+  Emscripten's `-s` settings and names `c++ -shared`; the check module is built from
+  sysconfig's flags as setuptools builds one).
+- `-flto`: Dolly links no LTO bitcode; Matplotlib's builds pass `-Db_lto=false`. Supporting it
+  would mean `cc -flto` emitting bitcode and the driver running wasm-ld's LTO (a seed change);
+  no image needs it.
+- `-pthread -shared`: a library cannot link the thread runtime while threads@0 refuses DSOs;
+  only Matplotlib 3.11's HarfBuzz asks (Meson grants `threads` everywhere). Belongs to
+  pythreads.
+- `patch -l -f`: fixed on `demo/pydata-seed` (`src/commands/patch.c`, a seed input; a native
+  test that failed before). Matplotlib 3.10.9 needs no diff files, so python-data does not wait
+  for it.
+- `tar`: python-data-build stages the sdists as files and pip unpacks them with Python's
+  tarfile, so it meets neither pax headers nor `-z`. Not checked further tonight.
+- Pillow's `_imagingft` (`png_create_read_struct`): met here too. Pillow links `-lfreetype`
+  alone and the freetype package's static library needs libpng and zlib (its `freetype2.pc`
+  requires both); python-data-build passes them in `LDFLAGS`, and the demo test draws text with
+  Pillow's FreeType font.
+- `_qhull`'s `__small_sprintf`: met here too. LLVM rewrites `sprintf` calls without a
+  floating-point conversion to Emscripten libc's `__small_sprintf`; a static program links it,
+  but a `-rdynamic` host exports only `config/process-libc-provider.symbols`'s reserved names
+  and `__small_*` are not among them. Fixed on `demo/pydata-seed` (the three `__small_` names
+  LLVM emits added to the list; the process sysroot is a seed input). Verified in a session: a
+  library calling `__small_sprintf` fails to load in a host linked with the old list and runs
+  in one linked with the new. Until a round builds it, `matplotlib.tri` and `tricontour` fail
+  to import `_qhull` in python-data.
+- `amy install python` asking for `nena enable dso sockets` in `default`: on this branch
+  `default` declares both modules and python's demo test ("python on default") installs it
+  without nena, in Chromium and Firefox. The published v0.1.4 was not checked.
+- Hosts without CORS headers: python-data-build stages every source on the site (pins in
+  `config/source-pins.sh`); a session building Matplotlib 3.11 from PyPI still meets them.
+  That is the HTTP policy's and the relays' domain (`docs/http.md`), not changed here.

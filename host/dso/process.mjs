@@ -125,9 +125,9 @@ function symbolAddress({ value }) {
 
 // A GOT entry's address. A C++ thread_local of the process is exported as its
 // offset in the thread's TLS block, which a DSO cannot add the process's
-// __tls_base to; its Itanium ABI wrapper (_ZTW…) returns its address. A process
-// that loads DSOs has one thread (threads@0 refuses DSOs), so that address holds
-// for the DSO's lifetime. libunwind's __wasm_lpad_context is one: through it the
+// __tls_base to; its Itanium ABI wrapper (_ZTW…) returns its address in the
+// thread whose Worker instantiates the DSO, as each instance has GOT globals of
+// its own. libunwind's __wasm_lpad_context is one: through it the
 // code a DSO's catch compiles to hands the process's personality routine its
 // exception table, and without it no catch clause but catch (...) matches.
 function gotAddress(relocation, symbol) {
