@@ -27,8 +27,20 @@ boot: Pi with the extension and skill, `/hello`, `AGENTS.md`, git, the tool, the
 a refused host, the page's modules exactly the recipe's) and passed in Chromium and Firefox on
 the final templates and again after the merge of `integrate/2026-11-02` (sections below).
 
-Not proven: a real model's answer (the key in `~/.openrouter` is revoked; a wrong Anthropic key
-drew Anthropic's own 401 through the policy and CORS). What is left is the owner's, in
+A real turn, measured by the integrator on 2026-11-03 at 15:34 JST: the README's block as
+written, packages packed from `demo/phone-menu` (edaca025c) and installed from the tarballs
+(1.8 s), `init my-pi git cc`, then the Anthropic switch the recipe's comment describes (the
+OpenRouter `pi-key` line commented, the Anthropic one uncommented, the page's `api.anthropic.com`
+rule with `credentialHeaders: ["x-api-key"]` uncommented); build 20.4 s; headless Chrome, the
+key prompt at 3.6 s, Pi at 7.4 s, the owner's Anthropic key at the hidden prompt; "What is 17
+times 23? Reply with only the number." answered `391` after 13.8 s ($0.011,
+`claude-sonnet-5-5`). Evidence: `work/phone/build/npm-evidence/` (`build.log`, `install.log`).
+The OpenRouter path is proven only to OpenRouter's 401: the key in `~/.openrouter` is revoked.
+One friction for scripting, not for users: the template's page does not keep `boot()`'s handle
+(`window.dolly` is then the `<main id="dolly">` element, by the browser's named access), so
+`test/npm-browser.mjs` rewrites the page to `window.dolly = await boot(` itself.
+
+What is left is the owner's, in
 `tasks/20261102-133353-owner-decisions`: publishing the `git`, `python` and `cc` packages, the
 terminal's palette as a file, and `boot({ session })`. The frictions listed below stay as
 recorded, none a defect.
