@@ -145,9 +145,11 @@ sequenceDiagram
   key of its own and no job control, so `VINTR` is on, `VQUIT` off or `VINTR`'s
   key and `VSUSP` off.
   `ICRNL` reads an input CR as LF and `INLCR` an LF as CR, when a program sets
-  them (a line editor such as zsh's does). termios reports no other input
-  mapping, no flow control or other signal keys, and `VMIN` 1, `VTIME` 0;
-  `tcsetattr` rejects anything else with `EINVAL`.
+  them (a line editor such as zsh's does). A non-canonical read returns the
+  bytes queued, at least one (`VMIN` 1), or with `VMIN` 0 returns without a
+  byte, at once or after `VTIME` tenths of a second (kilo's raw mode). termios
+  reports no other input mapping, no flow control or other signal keys, and
+  no `VMIN` above 1; `tcsetattr` rejects anything else with `EINVAL`.
   `TCSAFLUSH` and `tcflush` discard unread input; break and flow control fail
   with `ENOTSUP`.
 - There is one user and no permission bits: `chmod`, `chown` and `access` only

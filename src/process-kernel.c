@@ -95,6 +95,7 @@ typedef struct {
   int alarm_handled;
   /* The mailbox of the Worker of a process without threads (dolly_process_worker_mailbox). */
   uintptr_t mailbox;
+  uint64_t read_deadline; /* When a VMIN 0 terminal read gives up; zero between reads. */
 } dolly_kernel_process;
 
 /* The supervisor's own packets: the page's spawn, a refusal or failure line. */
@@ -1288,6 +1289,46 @@ static int open_flags(uint32_t flags) {
   return result;
 }
 
+/* A terminal read that found no byte, under the terminal's MODE: deferred
+ * until one arrives, unless termios VMIN is 0 (DOLLY_TERMINAL_VMIN_ZERO):
+ * then it ends with none, at once or once VTIME tenths of a second have
+ * passed since the read began (dolly_kernel_deadline_pending wakes it). */
+static int64_t terminal_read_waits(dolly_kernel_process *process, uint32_t mode) {
+  if ((mode & (DOLLY_TERMINAL_VMIN_ZERO | DOLLY_TERMINAL_CANONICAL)) != DOLLY_TERMINAL_VMIN_ZERO) {
+    return DOLLY_PROCESS_DISPATCH_DEFERRED;
+  }
+  const uint64_t tenths = (mode & DOLLY_TERMINAL_VTIME) >> DOLLY_TERMINAL_VTIME_SHIFT;
+  if (process->read_deadline == 0 && tenths != 0) {
+    process->read_deadline = saturating_add(clock_nanoseconds(CLOCK_MONOTONIC), tenths * UINT64_C(100000000));
+  }
+  if (process->read_deadline != 0 && dolly_kernel_deadline_pending(process->read_deadline)) {
+    return DOLLY_PROCESS_DISPATCH_DEFERRED;
+  }
+  process->read_deadline = 0;
+  return 0;
+}
+
+/* A terminal read that ended, with bytes or an error: the next one begins anew. */
+static int64_t terminal_read_ended(dolly_kernel_process *process, int64_t result) {
+  if (result != DOLLY_PROCESS_DISPATCH_DEFERRED) process->read_deadline = 0;
+  return result;
+}
+
+static int64_t socket_read(dolly_kernel_process *process, dolly_kernel_socket *socket,
+                           uint32_t descriptor, size_t size) {
+  const int64_t count = socket->kind->receive(socket, process_mailbox, size, 1);
+  if (count != DOLLY_PROCESS_DISPATCH_DEFERRED || socket->kind->terminal == NULL) {
+    return terminal_read_ended(process, count);
+  }
+  /* A pseudo-terminal's slave waits as its mode says; its master is no terminal. */
+  dolly_process_terminal_request ask = {DOLLY_PROCESS_TERMINAL_ISATTY, descriptor, 0, 0, 0};
+  dolly_process_terminal_response answer = {0};
+  if (socket->kind->terminal(socket, &ask, &answer) < 0 || answer.value == 0) return count;
+  ask.operation = DOLLY_PROCESS_TERMINAL_MODE_GET;
+  if (socket->kind->terminal(socket, &ask, &answer) < 0) return count;
+  return terminal_read_waits(process, (uint32_t)answer.value);
+}
+
 static int64_t fd_read_packet(dolly_kernel_process *process,
                               uintptr_t request_size,
                               uintptr_t response_capacity) {
@@ -1318,18 +1359,18 @@ static int64_t fd_read_packet(dolly_kernel_process *process,
     return (int64_t)count;
   }
   if (process->sockets[request.descriptor] != NULL) {
-    dolly_kernel_socket *socket = process->sockets[request.descriptor];
-    return socket->kind->receive(socket, process_mailbox, (size_t)request.size, 1);
+    return socket_read(process, process->sockets[request.descriptor], request.descriptor, (size_t)request.size);
   }
   int descriptor = descriptor_for(process, request.descriptor);
   if (descriptor < 0) return descriptor;
   if (process->terminal_descriptors[request.descriptor]) {
     if (request.size == 0) return 0;
     const int64_t count = dolly_kernel_terminal_receive(process_mailbox, (size_t)request.size);
-    if (count != -EAGAIN) return count;
+    if (count != -EAGAIN) return terminal_read_ended(process, count);
     const int flags = fcntl(descriptor, F_GETFL);
     if (flags < 0) return -errno;
-    return flags & O_NONBLOCK ? -EAGAIN : DOLLY_PROCESS_DISPATCH_DEFERRED;
+    if (flags & O_NONBLOCK) return terminal_read_ended(process, -EAGAIN);
+    return terminal_read_waits(process, dolly_kernel_terminal_mode());
   }
   for (;;) {
     ssize_t count = read(descriptor, process_mailbox, (size_t)request.size);
@@ -1855,7 +1896,11 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       operation != DOLLY_PROCESS_INTERRUPT_POLL &&
       operation != DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE &&
       operation != DOLLY_PROCESS_EXIT &&
-      !(operation == DOLLY_PROCESS_EXEC && request_size == 0)) return -EINTR;
+      !(operation == DOLLY_PROCESS_EXEC && request_size == 0)) {
+    /* A VMIN 0 read the signal interrupts begins anew when made again. */
+    process->read_deadline = 0;
+    return -EINTR;
+  }
   const dolly_kernel_module *module = module_for(operation);
   if (module) return module->call(pid, tid, operation, process_mailbox, request_size, response_capacity);
   switch (operation) {

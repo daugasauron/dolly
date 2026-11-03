@@ -79,10 +79,7 @@ uint32_t dolly_kernel_terminal_mode(void) {
 }
 
 int dolly_kernel_terminal_set_mode(uint32_t flags) {
-  const uint32_t valid = DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO |
-      DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG |
-      DOLLY_TERMINAL_ICRNL | DOLLY_TERMINAL_INLCR | DOLLY_TERMINAL_INTERRUPT;
-  if ((flags & ~valid) != 0) return -EINVAL;
+  if ((flags & ~DOLLY_TERMINAL_MODE_BITS) != 0) return -EINVAL;
   terminal_mode_flags = flags;
   return 0;
 }
