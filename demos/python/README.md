@@ -48,6 +48,7 @@ COPY /vX.Y.Z/demos/python/Dollyfile-python-data-build SHA256 /opt/python-data/nu
 | `pillow` | 13.0.0, with zlib, libjpeg and the `freetype` package | |
 | `contourpy` | 1.4.0 | `numpy` |
 | `kiwisolver`, `cycler`, `fonttools`, `pyparsing`, `packaging`, `python-dateutil`, `tzdata` | 1.5.1, 0.12.1, 4.68.0, 3.3.3, 26.3, 4.0.0, 2026.6 | `python-dateutil` needs `tzdata` |
+| `markupsafe`, `jinja2`, `et-xmlfile`, `openpyxl`, `tabulate` (pandas' HTML, Excel and Markdown) | 3.0.3, 3.1.6, 2.0.0, 3.1.5, 0.10.0 | `jinja2` needs `markupsafe`, `openpyxl` `et-xmlfile` |
 
 Every image that takes a root needs `python` installed; pip lists and
 uninstalls what the roots hold. `python-data` takes them all.

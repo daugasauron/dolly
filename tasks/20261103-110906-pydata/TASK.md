@@ -93,7 +93,10 @@ slot. Close this task when a round's python-data passes its test.
   2.5.4, pandas 3.0.5 (3.1.0 needs Meson to see Clang's version, below), Matplotlib 3.10.9
   (3.11 needs threads in a DSO, below), Pillow 13.0.0, contourpy 1.4.0, kiwisolver 1.5.1,
   seaborn 0.13.2, and the pure-Python ones; setuptools-scm 9.2.2, which Matplotlib's `<10`
-  admits.
+  admits. Beside the set the owner named: seaborn, and what pandas reads and writes beyond CSV
+  (Jinja 3.1.6 with MarkupSafe 3.0.3, the Mesa build's pin, for HTML; openpyxl 3.1.5 with
+  et_xmlfile for Excel; tabulate 0.10.0 for Markdown). SymPy and NetworkX would install from
+  their wheels too; they are left out, as data frames and plots do not use them.
 - Sources: PyPI's sdists for the native libraries, wheels for the pure-Python ones and the
   tools, each a pin in `config/source-pins.sh`, a row of `config/upstreams.json` and a
   `SOURCE` of its own (as `demos/tools` stages Meson's wheel); the Qhull Matplotlib bundles at
@@ -114,12 +117,13 @@ slot. Close this task when a round's python-data passes its test.
 | `contourpy` 1.4.0 | 1.1 MB | 26 | | 0.9 MB |
 | `seaborn` 0.13.2 | 1.0 MB | 60 | | |
 | `tzdata`, `packaging`, `pyparsing`, `python-dateutil`, `cycler` | 1.9 MB | 728 | | |
+| `openpyxl`, `jinja2`, `tabulate`, `et-xmlfile`, `markupsafe` | 1.7 MB | 265 | | |
 
-- All roots: 96.4 MB. The tests are upstream's: their wheels install them (NumPy's
+- All roots: 98.1 MB. The tests are upstream's: their wheels install them (NumPy's
   `--tags=…,tests`), 22 MB of the 96.
-- `python-data-build`: snapshot 315.2 MB, 9049 paths, packs 86.4 MB compressed; built in
-  557 s in a `build` slot (its packages reused). `python-data`: 299.9 MB, 8528 paths, packs
-  81.7 MB compressed (`default` 19.0 MB, `python` 49.7 MB, `cc` 134.4 MB, the roots), built in
+- `python-data-build`: snapshot 317.1 MB, 9372 paths, packs 86.9 MB compressed; built in
+  about 500 s in a `build` slot (its packages reused). `python-data`: 301.8 MB, 8825 paths,
+  packs 82.2 MB compressed (`default` 19.0 MB, `python` 49.7 MB, `cc` 134.4 MB, the roots), built in
   27 s from the toolchain.
 - A recipe that COPYs only NumPy gets 22.3 MB in 927 files beside `default` and `python`.
 - In a session (Chromium): NumPy builds in 141 s, pandas 237 s, Matplotlib 62-70 s, Pillow

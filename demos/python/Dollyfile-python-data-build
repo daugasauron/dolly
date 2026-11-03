@@ -53,6 +53,11 @@ SOURCE /v0.1.4/dist/static/python-data/packaging-26.3-py3-none-any.whl d7193f7c8
 SOURCE /v0.1.4/dist/static/python-data/python_dateutil-4.0.0-py3-none-any.whl a5e246f79eb80475e691bf93862cead98decd8a498cf53ba0516fcdc0f50dc1c /tmp/python-data/python_dateutil-4.0.0-py3-none-any.whl
 SOURCE /v0.1.4/dist/static/python-data/tzdata-2026.6-py2.py3-none-any.whl 0a10eec6e13ef16b627fabed9a5f2ba61a62b1c67f327305f4e7e412a70b4aec /tmp/python-data/tzdata-2026.6-py2.py3-none-any.whl
 SOURCE /v0.1.4/dist/static/python-data/seaborn-0.13.2-py3-none-any.whl 636f8336facf092165e27924f223d3c62ca560b1f2bb5dff7ab7fad265361987 /tmp/python-data/seaborn-0.13.2-py3-none-any.whl
+SOURCE /v0.1.4/dist/static/python-data/markupsafe-3.0.3.tar.gz 722695808f4b6457b320fdc131280796bdceb04ab50fe1795cd540799ebe1698 /tmp/python-data/markupsafe-3.0.3.tar.gz
+SOURCE /v0.1.4/dist/static/python-data/jinja2-3.1.6-py3-none-any.whl 85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67 /tmp/python-data/jinja2-3.1.6-py3-none-any.whl
+SOURCE /v0.1.4/dist/static/python-data/et_xmlfile-2.0.0-py3-none-any.whl 7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa /tmp/python-data/et_xmlfile-2.0.0-py3-none-any.whl
+SOURCE /v0.1.4/dist/static/python-data/openpyxl-3.1.5-py2.py3-none-any.whl 5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2 /tmp/python-data/openpyxl-3.1.5-py2.py3-none-any.whl
+SOURCE /v0.1.4/dist/static/python-data/tabulate-0.10.0-py3-none-any.whl f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3 /tmp/python-data/tabulate-0.10.0-py3-none-any.whl
 SOURCE /v0.1.4/dist/static/python-data/meson_python-0.22.1-py3-none-any.whl 258fde948cf45aab5df23fcc9e17a9050ee73d4e1002fe6cf86519f61c414778 /tmp/python-data/meson_python-0.22.1-py3-none-any.whl
 SOURCE /v0.1.4/dist/static/python-data/cython-3.3.1-py3-none-any.whl 61abc7feedd20dac6c4ff7ab3a30e17136a067b242ab9253e2b4a6d9a72c2b61 /tmp/python-data/cython-3.3.1-py3-none-any.whl
 SOURCE /v0.1.4/dist/static/python-data/pyproject_metadata-0.12.1-py3-none-any.whl f7162d580a96386a8eb096da06215f981f547d1490f03055ef99e323bc2da427 /tmp/python-data/pyproject_metadata-0.12.1-py3-none-any.whl
@@ -115,6 +120,13 @@ SLOP cp -R /usr/share/licenses/freetype /opt/python-data/matplotlib/usr/share/li
 SLOP cp /usr/share/licenses/libpng/LICENSE /opt/python-data/matplotlib/usr/share/licenses/libpng/LICENSE
 SLOP cp /tmp/python-data/qhull-8.0.2/COPYING.txt /opt/python-data/matplotlib/usr/share/licenses/qhull/COPYING.txt
 SLOP slop /tmp/python-data/install seaborn 0.13.2
+# What pandas reads and writes besides CSV: HTML through Jinja's templates, Excel
+# with openpyxl, Markdown with tabulate.
+SLOP slop /tmp/python-data/install markupsafe 3.0.3
+SLOP slop /tmp/python-data/install jinja2 3.1.6
+SLOP slop /tmp/python-data/install et-xmlfile 2.0.0
+SLOP slop /tmp/python-data/install openpyxl 3.1.5
+SLOP slop /tmp/python-data/install tabulate 0.10.0
 SLOP python -c 'import numpy, pandas, seaborn, matplotlib.pyplot as plt; plt.plot([0, 1], [1, 0]); plt.title("Dolly"); plt.savefig("/tmp/python-data/check.png")'
 
 FOLDER /opt/python-data

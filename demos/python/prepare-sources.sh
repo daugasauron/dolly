@@ -53,6 +53,11 @@ packaging packaging-26.3-py3-none-any.whl
 dateutil python_dateutil-4.0.0-py3-none-any.whl
 tzdata tzdata-2026.6-py2.py3-none-any.whl
 seaborn seaborn-0.13.2-py3-none-any.whl
+markupsafe markupsafe-3.0.3.tar.gz
+jinja2 jinja2-3.1.6-py3-none-any.whl
+et_xmlfile et_xmlfile-2.0.0-py3-none-any.whl
+openpyxl openpyxl-3.1.5-py2.py3-none-any.whl
+tabulate tabulate-0.10.0-py3-none-any.whl
 meson_python meson_python-0.22.1-py3-none-any.whl
 cython cython-3.3.1-py3-none-any.whl
 pyproject_metadata pyproject_metadata-0.12.1-py3-none-any.whl

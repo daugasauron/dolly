@@ -84,8 +84,9 @@ entry.
   package carries their licence files.
 - `python-data` and the roots of `python-data-build` hold NumPy (BSD-3-Clause,
   with 0BSD, MIT, Zlib and CC0-1.0 parts), pandas, contourpy, kiwisolver,
-  cycler, seaborn and python-dateutil (BSD-3-Clause), Pillow (MIT-CMU), fontTools
-  and pyparsing (MIT), packaging (Apache-2.0 OR BSD-2-Clause), tzdata (Apache-2.0)
+  cycler, seaborn, python-dateutil, Jinja and MarkupSafe (BSD-3-Clause), Pillow
+  (MIT-CMU), fontTools, pyparsing, openpyxl, et_xmlfile and tabulate (MIT),
+  packaging (Apache-2.0 OR BSD-2-Clause), tzdata (Apache-2.0)
   and Matplotlib (its PSF-style licence; OFL-1.1 and Bitstream Vera fonts), whose
   extensions link FreeType (under the FTL: portions of this software are
   copyright The FreeType Project, www.freetype.org), libpng, zlib and Qhull

@@ -646,7 +646,7 @@ DOLLY_FFMPEG_URL='https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.gz'
 DOLLY_FFMPEG_SHA256=84960df915059e8754fef2cd7c9afeb614062b1b5458ec471eecee619ee04e98
 # The python-data images' libraries (demos/python): PyPI's sdists of the native ones, which
 # python-data-build compiles, and the wheels of the pure-Python ones and of the build tools.
-# Meson and packaging are the MESON and PACKAGING pins.
+# Meson, packaging and MarkupSafe are the MESON, PACKAGING and MARKUPSAFE pins.
 DOLLY_NUMPY_VERSION=2.5.4
 DOLLY_NUMPY_URL='https://files.pythonhosted.org/packages/95/b0/c7453d0b6e2073c3264468b106ee1563750cecc910965e67357e3698c83e/numpy-2.5.4.tar.gz'
 DOLLY_NUMPY_SHA256=9a94cf751c9ad8ebaa835bcd3d40dacf8534ad086b88c38029b65123c7999d2a
@@ -683,6 +683,18 @@ DOLLY_TZDATA_SHA256=0a10eec6e13ef16b627fabed9a5f2ba61a62b1c67f327305f4e7e412a70b
 DOLLY_SEABORN_VERSION=0.13.2
 DOLLY_SEABORN_URL='https://files.pythonhosted.org/packages/83/11/00d3c3dfc25ad54e731d91449895a79e4bf2384dc3ac01809010ba88f6d5/seaborn-0.13.2-py3-none-any.whl'
 DOLLY_SEABORN_SHA256=636f8336facf092165e27924f223d3c62ca560b1f2bb5dff7ab7fad265361987
+DOLLY_JINJA2_VERSION=3.1.6
+DOLLY_JINJA2_URL='https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl'
+DOLLY_JINJA2_SHA256=85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67
+DOLLY_OPENPYXL_VERSION=3.1.5
+DOLLY_OPENPYXL_URL='https://files.pythonhosted.org/packages/c0/da/977ded879c29cbd04de313843e76868e6e13408a94ed6b987245dc7c8506/openpyxl-3.1.5-py2.py3-none-any.whl'
+DOLLY_OPENPYXL_SHA256=5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2
+DOLLY_ET_XMLFILE_VERSION=2.0.0
+DOLLY_ET_XMLFILE_URL='https://files.pythonhosted.org/packages/c1/8b/5fe2cc11fee489817272089c4203e679c63b570a5aaeb18d852ae3cbba6a/et_xmlfile-2.0.0-py3-none-any.whl'
+DOLLY_ET_XMLFILE_SHA256=7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa
+DOLLY_TABULATE_VERSION=0.10.0
+DOLLY_TABULATE_URL='https://files.pythonhosted.org/packages/99/55/db07de81b5c630da5cbf5c7df646580ca26dfaefa593667fc6f2fe016d2e/tabulate-0.10.0-py3-none-any.whl'
+DOLLY_TABULATE_SHA256=f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3
 DOLLY_MESON_PYTHON_VERSION=0.22.1
 DOLLY_MESON_PYTHON_URL='https://files.pythonhosted.org/packages/96/62/0c1cf20fe158b0e623e78acbf5fb6de5f1410a408f65f727e4090497627b/meson_python-0.22.1-py3-none-any.whl'
 DOLLY_MESON_PYTHON_SHA256=258fde948cf45aab5df23fcc9e17a9050ee73d4e1002fe6cf86519f61c414778

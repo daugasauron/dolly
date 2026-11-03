@@ -22,6 +22,9 @@ days = pd.Series(range(4), index=pd.date_range("2026-11-01", periods=4, freq="D"
 assert days.resample("2D").sum().tolist() == [1, 5]
 frame.to_csv("/tmp/frame.csv", index=False)
 assert pd.read_csv("/tmp/frame.csv").equals(frame)
+frame.to_excel("/tmp/frame.xlsx", index=False)
+assert pd.read_excel("/tmp/frame.xlsx").equals(frame)
+assert "<table" in frame.style.to_html() and "| city" in frame.to_markdown(index=False)
 print("PANDAS-OK", pd.__version__)`,
   matplotlib: `import matplotlib.pyplot as plt, numpy, seaborn
 from PIL import Image, ImageDraw, ImageFont
