@@ -101,6 +101,9 @@ of either strategy links it. Reasons, each read in the sources or measured:
   (+7.5%: libtest, getopts and std's landing pads 6.2 MB, rustdoc in rustc 17.7 MB; rustc
   266,902,572), Cargo +0.86%, ripgrep +1.23%, fd +1.52%, protox +0.83%, cbindgen +3.19%,
   naga +0.75%.
+- Codex builds on the final chain (`hugebuild`, Cargo 36 min 20 s); its executable is
+  199,534,503 bytes against the integration round's 199,077,281 (+0.23%). Not run: its demo
+  test, nor the other 24 images built on `rust-sdk` (the next catalog round's).
 - Doc tests (2026-11-04, the final images, Chromium and Firefox): a library's `cargo test` runs
   its doc tests; an edition 2024 failure reports as natively with status 101, and an edition
   2021 doc test that passes runs as a program of its own.
