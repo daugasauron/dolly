@@ -185,7 +185,9 @@ the man page's program, its `cc` and its run 4.7 s.
 - Chromium and Firefox: `test/terminal-browser.mjs` (kitty graphics among its checks),
   `touch-browser.mjs`, `core-browser.mjs`, `default-browser.mjs` (its composed `core display zig`
   image included), `display-browser.mjs`, `display-cursor-browser.mjs`, `shell-browser.mjs`,
-  `pager-browser.mjs` and `pty-browser.mjs` passed. `test/zig-sdk.artifacts.mjs` passed (3/3).
+  `pager-browser.mjs`, `pty-browser.mjs`, `image-browser.mjs`, `indicators-browser.mjs`,
+  `embedding-browser.mjs`, `slop-browser.mjs`, `man-browser.mjs`, `custom-session-browser.mjs` and
+  `process-browser.mjs` passed. `test/zig-sdk.artifacts.mjs` passed (3/3).
 - The amy test's zig row and more, run as a script of their own in `default` (amy-browser.mjs
   needs every package of the catalog): `amy install zig`; `answer.zig` as C for a C program;
   `hello.zig` with the standard library, with and without `-target`; a program that spawns
