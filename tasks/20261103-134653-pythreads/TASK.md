@@ -50,3 +50,46 @@ order, so the same table indices, without relocating data or running constructor
 kernel call, between slices of a futex wait (which then waits in slices), and at a thread's
 start; the loading thread's `dlopen` returns once every live thread has acknowledged the
 generation. FFI closures the same way. The adapter is a seed input: every image rebuilds.
+
+## The core: libraries and closures in threaded hosts (2026-11-04 night, `demo/python-threads`)
+
+Checked against the code, the design changes in four places:
+
+- **No futex slices.** A thread that waits must not hold up a load, and one blocked in a kernel
+  call (`read` of the terminal, `pthread_join`) would never reach a slice. So a thread is marked
+  *waiting in the host* while its Worker waits for the supervisor's answer or in a futex wait, and
+  a load returns once every other thread has applied it *or is waiting*; a waiting thread applies
+  what it has not before it returns to the program (Dekker: the loader publishes then reads the
+  marks, the waiter clears its mark then reads the count, both sequentially consistent). libc's
+  futex wait therefore goes through the loader in a host: `DOLLY_DSO_WAIT` (dso@0's one new
+  operation), whose `Atomics.wait` is the same wait `memory.atomic.wait32` was; with no address
+  it only applies, which `__dolly_pthread_start` does after the thread's TLS and before its entry
+  (an entry may be a library's function, and `GOT.mem` of a host `thread_local` must be the new
+  thread's address, pydata's `_ZTW` fix).
+- **Every table change is a record, not only loads.** A thread's table grows at a load, at a
+  closure, and when `dlsym` or a library's `GOT.func` takes the address of a function no entry
+  holds (`functionIndex`). Each Worker makes the same changes in the same order from the same
+  start (the executable's table), so the indices agree; `dlsym`'s new entries and closures'
+  alloc/prep/free are records too, and a `GOT.func` entry is part of its library's load. A record
+  carries the index it gave, and a Worker that gets another is a bug the process dies of
+  (`ThreadRecordError`), not a wrong call later.
+- **A library's thread-locals.** wasm-ld initialises a library's TLS in its start function for
+  the first instance only (`__wasm_init_memory`'s flag); every other thread's instance has
+  `__tls_base` 0. `cc -shared` now exports `__wasm_init_tls`, `__tls_size`, `__tls_align`
+  (Emscripten's side modules do the same), and each other Worker gives the library a block. A
+  threaded host refuses a library without them (an older one) instead of corrupting low memory.
+- **Where the records live.** In the host's memory (process state lives in Wasm memory): the
+  dso client reserves `__dolly_dso_threads` (272 bytes: a lock, the count, the array of 48-byte
+  records, 63 thread marks), which `-rdynamic` exports; the library's bytes and `dlsym`'s names
+  are kept for later threads (`__dolly_dso_allocate`). A thread's Worker takes a mark when it
+  starts, as waiting, and gives it up at `THREAD_EXIT`. A program using `threads@0` that is not a
+  host keeps the refusal of closures: it has no allocator export and nothing needs it.
+- Constructors run once, after every thread placed the library; data relocations once. A load
+  that fails after it changed the table is published as failed, and the others repeat the
+  failure; a closure freed later in the records a thread applies is not prepared (its cif may be
+  gone). The loader's lock is reentrant: a constructor may `dlopen`.
+
+Seed changes: the compiler (`-pthread` with `-rdynamic` and `-shared`; side modules export
+their TLS initialiser), the libc adapter (`src/process/threads.c`: the wait hook), the dso@0
+contract and client (`DOLLY_DSO_WAIT`, `__dolly_dso_threads`, the TLS exports): a compiler round
+(`llvm-cc`, pinned) and every image.
