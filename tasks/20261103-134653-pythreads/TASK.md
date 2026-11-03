@@ -182,3 +182,11 @@ contract and client (`DOLLY_DSO_WAIT`, `__dolly_dso_threads`, the TLS exports): 
 - Mutation checks are cheap once a browser test exists: disabling the replay and then the TLS
   blocks showed the new test fails for each, and which threads (exit status 30) — evidence a
   passing run alone does not give.
+
+## Round 2 (seed with the adapter's locks, image inputs `d0581b88…`)
+
+- Rebuilt here from `system-build`: `system`, `default`, `cc`, `python`, `python-data-build`,
+  `python-data` and their closure.
+- `dso-browser.mjs` Chromium 20.7 s, Firefox 23.2 s; `threads-browser.mjs` 12.1 s, 14.1 s;
+  `core-browser.mjs` 24.7 s, 37.3 s; the Python demo: `python` 31.4 s (Chromium), `python on
+  default` 157.2 s (Chromium), 168.2 s (Firefox).
