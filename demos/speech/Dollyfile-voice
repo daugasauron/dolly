@@ -18,7 +18,7 @@ REQUIRES TOOL c++
 REQUIRES TOOL tar
 REQUIRES HEADER transcribe
 REQUIRES LIB transcribe
-SOURCE /v0.1.4/dist/static/speech/programs.tar 7482e5dc8e2a698dbc776f61ccd71b1a3a1888290ccdf94771add48c24aed96f /tmp/speech/programs.tar
+SOURCE /v0.1.4/dist/static/speech/programs.tar 8afe66dc13e67ab90106901c8781d57f174b0d6007c99bf013116880cd30607c /tmp/speech/programs.tar
 SLOP tar -xf /tmp/speech/programs.tar -C /
 SLOP cc -pthread -msimd128 -O2 -Wall -Werror -c /tmp/speech/voice.c -o /tmp/speech/voice.o
 SLOP c++ -pthread -msimd128 -O2 /tmp/speech/voice.o /usr/lib/transcribe/libtranscribe.a \
@@ -35,9 +35,11 @@ FILE /usr/share/man/cat1/voice.1
     
     In MENU, "[NAME] caption" begins a page of buttons and "LABEL = TEXT" is a
     button that types TEXT (\r Enter, \e Escape, \t Tab, \xHH a byte, \w a wait
-    of 0.4 s). After the text, :speak listens and types what was said, :word
-    types it as a search word and :page NAME shows another page. pi-phone's
-    /etc/dolly/pi.menu is one. PROGRAM runs on a pseudo-terminal; the keyboard
-    and a paste still reach it. It needs touch@0, pty@0 and microphone@0; the
+    of 0.4 s). After the text, :speak listens and types what was said and
+    :page NAME shows another page. pi-phone's /etc/dolly/pi.menu is one.
+    PROGRAM runs on a pseudo-terminal; the keyboard and a paste still reach it,
+    and PROGRAM may ask voice for the same, a line each, on the pipe
+    VOICE_CONTROL_FD names: speak, page NAME, type TEXT. It needs touch@0,
+    pty@0 and microphone@0; the
     microphone is open only while it listens, and nothing that is said leaves
     the page.

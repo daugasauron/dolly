@@ -254,6 +254,44 @@ page has no HTTP policy object, so Pi reaches api.anthropic.com directly).
   on port 1-3 (`device not accepting address, error -71`) and worked at once on port 1-2. During
   the work `stay_on_while_plugged_in` was 2 (USB), restored to the phone's 0 afterwards.
 
+## One button and Pi's menu (2026-11-03)
+
+Owner, after trying it on the phone: "I really dont like the buttons. I want there to be one
+button to toggle the menu, and the menu should look a lot nicer and tie better in to how pi is
+implemented, ideally you can convert the pi agents complete command/model into a "button menu"
+somehow."
+
+Branch `demo/phone-menu`:
+
+- voice shows one button, **Menu**, which types F12 (`pi.menu`). Where Pi shows a list of its
+  own, the row is Up, Down, Enter, Esc and Done.
+- `demos/speech/phone-menu.js`, a Pi extension in pi-phone, takes F12 (`ctx.ui.onTerminalInput`)
+  and shows Pi's menu with the html command (`html@0`), built from Pi each time it opens: the
+  model (heading), provider, thinking level and context; the editor's draft; Speak, Send, Stop
+  (while Pi runs), Clear, Arrow keys; **Model**: `modelRegistry.getAvailable()` by provider and,
+  for OpenRouter's 435, by maker, set with `pi.setModel`; **Thinking**: `getSupportedThinkingLevels`
+  of the model, set with `pi.setThinkingLevel`; **Commands**: Pi's built-in list (its own
+  `dist/core/slash-commands.js`, which Pi does not export) and `pi.getCommands()` (extensions,
+  skills, prompts), each with its description, run as typed; **Sign in**: every provider, Pi's
+  own `/login`. Pi's built-ins the menu does itself or a phone cannot use are left out of
+  Commands (model, thinking, login, quit, hotkeys, copy, share, bug, import).
+- What a choice needs of voice goes on a pipe voice gives Pi at descriptor 3
+  (`VOICE_CONTROL_FD`, `dolly_spawn_mapped`): `speak`, `type TEXT`, `page NAME`. Text Pi shows
+  cannot ask for the microphone, as an escape sequence in its output could. `:word` (search
+  by voice in Pi's model list) is gone with the list.
+- `html@0`'s style: a `nav` of buttons is a grid of buttons a finger can hit (one column on a
+  phone), `details` a list of sections. ask-user's `showHtml` is exported for the menu.
+- The yellow screen on the phone was the driving script's: `visibleTerminalText`, the page
+  handle's screen read, selects every cell (two tests copy that selection), and the script
+  read the screen over USB without clearing it after.
+
+Measured: `demos/speech/test/speech-browser.mjs` (pi-phone signs in to OpenRouter through the
+menu, chooses a Claude model, thinking high, runs `/session`, speaks and sends) passed in
+Chromium (25.3 s); `test/html-browser.mjs` and pi's `ask-user-browser.mjs` passed in Chromium
+and Firefox. Screenshots: `build/phone-evidence/shots.mjs`.
+
+Left: Pi's lists still want the arrow row, since the menu cannot tell when one is open.
+
 ## Parked (2026-10-10, 23:55)
 
 Owner: "I think using the phone GPU for the speech to text would be a significant boost? And

@@ -3,9 +3,10 @@
 // last rows, where voice draws the buttons MENU names. A finger's tap on one
 // types what it says into PROGRAM's terminal, and while one of them listens,
 // what the microphone hears. The keyboard still types, and a paste reaches
-// PROGRAM as it would without voice.
+// PROGRAM as it would without voice. PROGRAM may ask the same of voice, one
+// line each, on the pipe VOICE_CONTROL_FD names: "speak", "page NAME", or
+// "type TEXT" (the menu's escapes); text it shows can ask nothing.
 #define _GNU_SOURCE
-#include <ctype.h>
 #include <dolly/runtime.h>
 #include <dolly/touch.h>
 #include <errno.h>
@@ -24,7 +25,7 @@
 enum { PAGES = 8, KEYS = 12, LABEL = 24, CAPTION = 480, NAME = 32, TEXT = 256,
        WAIT = 0 /* the byte that stands for \w in a key's text */,
        TALL = 3 /* terminal rows a row of buttons takes, for a finger */, CAPTION_ROWS = 2 };
-enum action { TYPE, SPEAK, WORD, PAGE };
+enum action { TYPE, SPEAK, PAGE };
 struct key {
   char label[LABEL], text[TEXT], target[NAME];
   size_t length;
@@ -44,8 +45,7 @@ static const char *model_path;
 static transcribe_status loaded = TRANSCRIBE_ERR_OOM;
 static _Atomic int loading = 1;
 static enum { RESTING, ASKING, LISTENING, ENDING } state;
-static enum action speaking; // SPEAK types what was said; WORD types it as a search word
-static int sending;          // and Enter after it
+static int sending; // Enter after what was said
 static char said[sizeof(line.text)], note[CAPTION];
 static unsigned seen;
 
@@ -67,8 +67,8 @@ static size_t unescape(const char *from, const char *end, char *text) {
 }
 
 // "[NAME] caption" begins a page; "LABEL = TEXT" is a button, and after its
-// text may stand ":speak", ":word" or ":page NAME". The menu's own comment
-// says what they do. False names the line at fault.
+// text may stand ":speak" or ":page NAME". The menu's own comment says what
+// they do. False names the line at fault.
 static int read_menu(const char *path) {
   FILE *file = fopen(path, "r");
   if (!file) { perror(path); return 0; }
@@ -97,7 +97,6 @@ static int read_menu(const char *path) {
     if (!action) continue;
     action += *action == ' ';
     if (!strcmp(action, ":speak")) key->action = SPEAK;
-    else if (!strcmp(action, ":word")) key->action = WORD;
     else if (!strncmp(action, ":page ", 6)) { key->action = PAGE; snprintf(key->target, sizeof(key->target), "%s", action + 6); }
     else { fprintf(stderr, "voice: %s:%d: %s is not an action\n", path, number, action); return 0; }
   }
@@ -117,6 +116,10 @@ static int read_menu(const char *path) {
 // voice's: CAPTION_ROWS of caption, then the buttons, TALL rows each. A cell is
 // cell_width by cell_height pixels of the frame a finger's position is in.
 static int master = -1, program = -1;
+// The read end of PROGRAM's pipe to voice, and its lines not yet obeyed.
+static int control = -1;
+static char orders[1024];
+static size_t ordered;
 static struct termios cooked;
 static unsigned rows, columns, top, cell_width, cell_height;
 // Each shown button's place: the row of buttons it is in and its columns.
@@ -293,9 +296,16 @@ static int between(void) { return parse.state == GROUND && !parse.continuation &
 // voice's rows again after output, once the output can be cut. Waits up to
 // `milliseconds` for either. Returns 0 once the program has closed its terminal.
 static int pump(int milliseconds) {
-  struct pollfd ready[2] = {{master, POLLIN, 0}, {0, POLLIN, 0}};
-  if (poll(ready, 2, milliseconds) < 0 && errno != EINTR) return 1;
+  struct pollfd ready[3] = {{master, POLLIN, 0}, {0, POLLIN, 0}, {control, POLLIN, 0}};
+  if (poll(ready, 3, milliseconds) < 0 && errno != EINTR) return 1;
   int wrote = 0;
+  if (ready[2].revents) {
+    const ssize_t count = read(control, orders + ordered, sizeof(orders) - ordered);
+    if (count > 0) ordered += (size_t)count;
+    // A closed pipe ends the orders, and so does a line longer than the buffer.
+    if (count == 0 || ordered == sizeof(orders)) close(control), control = -1;
+    if (ordered == sizeof(orders)) ordered = 0;
+  }
   if (ready[0].revents) {
     unsigned char bytes[4096];
     const ssize_t count = read(master, bytes, sizeof(bytes));
@@ -350,13 +360,12 @@ static void rest(const char *why) {
   draw();
 }
 
-static void listen(enum action how) {
+static void listen(void) {
   if (loading) { rest("The speech model is still loading."); return; }
   if (loaded != TRANSCRIBE_OK) { rest("The speech model did not load."); return; }
   if (dolly_microphone_open(&microphone) != 0) { rest(strerror(errno)); return; }
   line_begin();
   said[0] = 0;
-  speaking = how;
   state = ASKING;
   draw();
 }
@@ -371,25 +380,15 @@ static void end(int button) {
   draw();
 }
 
-// A search word: small letters and digits, nothing a sentence adds.
-static void plain(char *text) {
-  char *to = text;
-  for (const char *from = text; *from; ++from) {
-    if (!strchr(".,!?;:\"", *from)) *to++ = (char)tolower((unsigned char)*from);
-  }
-  *to = 0;
-}
-
 static void heard(void) {
   transcribe_status failed;
   const unsigned before = seen;
   const int ended = line_read(said, sizeof(said), &seen, &failed);
   if (failed != TRANSCRIBE_OK) { rest(transcribe_status_string(failed)); return; }
   if (state == ENDING && ended) {
-    if (speaking == WORD) plain(said);
     type(said, strlen(said));
     if (sending) type("\r", 1);
-    else if (speaking == SPEAK && *said) type(" ", 1);
+    else if (*said) type(" ", 1);
     rest(*said ? said : "Nothing was heard.");
   } else if (seen != before) draw();
 }
@@ -412,8 +411,29 @@ static void pressed(int button) {
   note[0] = 0;
   type(key->text, key->length);
   current = key->page;
-  if (key->action == SPEAK || key->action == WORD) listen(key->action);
+  if (key->action == SPEAK) listen();
   else draw();
+}
+
+// PROGRAM's whole lines, each as a button that says the same would do. A
+// line leaves the buffer before it is obeyed: typing reads the pipe again.
+static void obey(void) {
+  char *newline;
+  while ((newline = memchr(orders, '\n', ordered))) {
+    char line[sizeof(orders)];
+    const size_t length = (size_t)(newline - orders);
+    memcpy(line, orders, length);
+    line[length] = 0;
+    ordered -= length + 1;
+    memmove(orders, newline + 1, ordered);
+    if (!strcmp(line, "speak")) { if (state == RESTING) note[0] = 0, listen(); }
+    else if (!strncmp(line, "page ", 5)) {
+      for (int at = 0; at < page_count; ++at) if (!strcmp(pages[at].name, line + 5)) current = at, draw();
+    } else if (!strncmp(line, "type ", 5)) {
+      char text[TEXT];
+      type(text, unescape(line + 5, line + length, text));
+    }
+  }
 }
 
 // The button under a finger, or -1. The terminal does not report its padding
@@ -483,8 +503,20 @@ int main(int argc, char **argv) {
   fcntl(master, F_SETFL, fcntl(master, F_GETFL) | O_NONBLOCK);
   snprintf(note, sizeof(note), "Loading the speech model.");
   measure();
-  program = dolly_spawn(argv[dashes + 1], argc - dashes - 1, argv + dashes + 1, slave, slave, slave);
+  int pipe_ends[2];
+  if (pipe(pipe_ends) != 0) {
+    perror("voice: a pipe");
+    return leave(1);
+  }
+  control = pipe_ends[0];
+  fcntl(control, F_SETFL, fcntl(control, F_GETFL) | O_NONBLOCK);
+  setenv("VOICE_CONTROL_FD", "3", 1);
+  const dolly_process_fd_mapping mappings[] = {{(uint32_t)slave, 0}, {(uint32_t)slave, 1}, {(uint32_t)slave, 2},
+                                               {(uint32_t)pipe_ends[1], 3}};
+  program = dolly_spawn_mapped(argv[dashes + 1], argc - dashes - 1, argv + dashes + 1, environ, NULL,
+                               DOLLY_PROCESS_INHERIT_FDS_NONE, mappings, 4, -1);
   close(slave);
+  close(pipe_ends[1]);
   // The program's Ctrl+C is the keyboard's byte 3, which its terminal makes SIGINT.
   signal(SIGINT, SIG_IGN);
   if (program < 0) {
@@ -506,6 +538,7 @@ int main(int argc, char **argv) {
       if (state == RESTING) rest(loaded == TRANSCRIBE_OK ? "" : "The speech model did not load.");
     }
     if (lease) touched(lease);
+    obey();
     if (state == ASKING || state == LISTENING) capture();
     if (state != RESTING) heard();
   }

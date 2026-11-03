@@ -37,6 +37,12 @@ const popupStyle = `
   hr { border: 0; border-top: 1px solid var(--line); }
   mark { color: var(--dolly-html-background); background: var(--dolly-html-accent); }
   summary { cursor: pointer; }
+  details { margin: 0; border-top: 1px solid var(--line); } details details { margin-left: 0.75rem; }
+  details > summary { padding: 0.75rem 0; color: var(--dolly-html-accent); }
+  /* A nav of buttons is a menu: a grid of buttons a finger can hit. */
+  nav { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(12rem, 100%), 1fr)); gap: 0.5rem; margin: 0 0 1rem; }
+  nav > button { min-height: 2.75rem; margin: 0; text-align: left; }
+  button small { display: block; opacity: 0.7; font-size: 0.85em; }
   fieldset { padding: 0.75rem 1rem; border: 1px solid var(--line); } legend { padding: 0 0.4rem; }
   label { display: inline-block; margin: 0.2rem 0; }
   input, select, textarea, button { margin: 0.2rem 0; padding: 0.3rem 0.5rem; color: inherit; background: var(--panel);

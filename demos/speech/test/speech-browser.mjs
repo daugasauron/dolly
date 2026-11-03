@@ -1,9 +1,9 @@
 // The speech-to-text-mic image writes what the microphone hears while it is being
 // said; refused the microphone, the program says so and leaves a shell. The
-// pi-phone image is Pi worked by touch on a phone's screen, by voice's buttons
-// in the terminal's last rows: an OpenRouter key pasted with the page's Paste,
-// a model and a thinking level chosen, a prompt spoken and sent, with
-// openrouter.ai answered here. The microphone is the engine's sample recording
+// pi-phone image is Pi worked by touch on a phone's screen, by voice's Menu
+// button and Pi's menu (a popup of the page): an OpenRouter key pasted with the
+// page's Paste, a model, a thinking level and a command chosen, a prompt spoken
+// and sent, with openrouter.ai answered here. The microphone is the engine's sample recording
 // played over and over through Web Audio (test/microphone-browser.mjs proves
 // the device itself).
 // Usage: node demos/speech/test/speech-browser.mjs [chromium|firefox]
@@ -111,47 +111,52 @@ if (browser === "chromium") await demoTest("pi-phone", { image: "pi-phone", laun
     }, [column, row]);
     await page.touchscreen.tap(x, y);
   };
+  // Pi's menu (phone-menu.js) is a popup of the page: Menu opens it, a finger
+  // opens its sections by their names and taps a button; the popup closes.
+  const popup = page.frameLocator("#html-popup iframe");
+  const choose = async (...path) => {
+    await tap("Menu");
+    // Each name is looked for in the section opened before it, where it begins a summary or a button.
+    let section = popup;
+    for (const name of path.slice(0, -1)) {
+      const summary = section.locator("summary", { hasText: new RegExp(`^${name}`) }).first();
+      await summary.tap();
+      section = summary.locator("xpath=..");
+    }
+    const last = path.at(-1);
+    const button = typeof last === "string" ? section.locator("button", { hasText: new RegExp(`^${last}`) }).first() : last(section);
+    const value = await button.getAttribute("value");
+    await button.tap();
+    await page.locator("#html-popup").waitFor({ state: "detached" });
+    return value;
+  };
   const caption = pattern => waitText(pattern, 90_000);
-  await caption(/Tap Speak/);
+  await caption(/Menu: speak/);
   await waitText(/No models available/);
   assert.notEqual(await page.evaluate(() => __dolly.touchTransport.lease()), 0, "voice holds the fingers");
 
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.evaluate(key => navigator.clipboard.writeText(key), key);
-  await tap("Menu");
-  await tap("OpenRouter key");
+  await choose("Sign in", "OpenRouter");
   await waitText(/Select authentication method/);
-  await tap("API key");
+  await tap("Down");
+  await tap("Enter");
   await waitText(/Enter OpenRouter API key/);
   await page.locator("#paste").tap();
   await tap("Enter");
   await waitText(/Saved API key for OpenRouter/);
+  await tap("Done");
   assert.doesNotMatch(await text(), /DOLLYPHONETESTKEY/, "Pi shows the key it was given");
 
-  await tap("Menu");
-  await tap("Model");
-  await waitText(/\(1\/\d+\)/);
-  await tap("Say");
-  await caption(/my fellow americans/i);
-  await tap("Done");
-  await waitText(/> and so,? my fellow/);
-  await tap("Erase");
-  await waitText(/\(1\/\d+\)/);
-  await tap("Down");
-  // The arrow marks the model Choose takes, a check the one Pi uses now.
-  const chosen = (await waitText(/\(2\/\d+\)/)).match(/→\s+(?:✓\s+)?(\S+)/)[1];
-  await tap("Choose");
-  // Pi closes the list and names the model it uses now.
-  await waitText(new RegExp(`Model: ${chosen.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m"));
+  // The menu lists the models the key reaches, by maker: a Claude model, then its thinking.
+  const chosen = await choose("Model", "OpenRouter", "anthropic", popup => popup.locator("button[value*=claude]:not(:has-text('✓'))").first());
+  await waitText(new RegExp(`Model: ${chosen.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  await choose("Thinking", "high");
+  await waitText(/Thinking level: high/);
+  await choose("Commands", "Pi", "/session");
+  await waitText(/Session Info/);
 
-  await tap("Menu");
-  await tap("Thinking");
-  await waitText(/^Thinking Level$/m);
-  await tap("Down");
-  await tap("Choose");
-  await waitText(/Thinking level: \w+/);
-
-  await tap("Speak");
+  await choose("Speak");
   await caption(/ask not what your country can do for you/i);
   await tap("Send");
   await waitText(new RegExp(said));
