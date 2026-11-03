@@ -24,7 +24,8 @@
 
 enum { PAGES = 8, KEYS = 12, LABEL = 24, CAPTION = 480, NAME = 32, TEXT = 256,
        WAIT = 0 /* the byte that stands for \w in a key's text */,
-       TALL = 3 /* terminal rows a row of buttons takes, for a finger */, CAPTION_ROWS = 2 };
+       TALL = 3 /* terminal rows a row of buttons takes: a box of line characters */, CAPTION_ROWS = 2,
+       PASTE = 10 /* columns left at the rows' right end for the page's Paste button on a touchscreen */ };
 enum action { TYPE, SPEAK, PAGE };
 struct key {
   char label[LABEL], text[TEXT], target[NAME];
@@ -125,6 +126,8 @@ static unsigned rows, columns, top, cell_width, cell_height;
 // Each shown button's place: the row of buttons it is in and its columns.
 static struct place { unsigned row, from, to; } places[KEYS];
 static int shown_count;
+// The terminal rows above the shown buttons, which end at its last row, beside Paste.
+static unsigned above_buttons;
 static const char *const ends[] = {"Send", "Done", "Cancel"};
 
 static void out(const char *bytes, size_t length) {
@@ -143,12 +146,20 @@ static const char *end_label(int index) { return ends[index]; }
 static const char *label(int index) { return state == RESTING ? pages[current].keys[index].label : ends[index]; }
 static int label_count(void) { return state == RESTING ? pages[current].count : 3; }
 
-// Lays out `count` labels in rows `columns` wide; returns the rows taken.
+static unsigned characters(const char *text) {
+  unsigned count = 0;
+  for (; *text; ++text) count += (*text & 0xc0) != 0x80;
+  return count;
+}
+
+// Lays out `count` labels in rows `columns` wide, Paste's columns aside;
+// returns the rows taken.
 static unsigned lay_out(int count, const char *(*name)(int), struct place *at) {
+  const unsigned room = columns > PASTE ? columns - PASTE : columns;
   unsigned row = 0, column = 0;
   for (int index = 0; index < count; ++index) {
-    const unsigned width = (unsigned)strlen(name(index)) + 4;
-    if (column && column + width > columns) ++row, column = 0;
+    const unsigned width = characters(name(index)) + 4;
+    if (column && column + width > room) ++row, column = 0;
     if (at) at[index] = (struct place){row, column, column + width};
     column += width + 1;
   }
@@ -189,13 +200,24 @@ static void caption(char rows_text[CAPTION_ROWS][CAPTION + 8]) {
   }
 }
 
+// One of a button's TALL rows: its box's top, its label or its bottom, in
+// the yellow of the page's Paste button.
+static void draw_button(FILE *bytes, unsigned part, unsigned inside, const char *text) {
+  static const char *const left[TALL] = {"╭", "│", "╰"}, *const right[TALL] = {"╮", "│", "╯"};
+  fprintf(bytes, "\033[0;38;2;242;212;92m%s", left[part]);
+  if (part == 1) fprintf(bytes, "\033[0m %s \033[38;2;242;212;92m", text);
+  else for (unsigned at = 0; at < inside; ++at) fputs("─", bytes);
+  fprintf(bytes, "%s", right[part]);
+}
+
 // voice's rows, drawn over whatever the program left there; the cursor, its
 // attributes and the scroll region that keeps the program above them stay
 // the program's.
 static void draw(void) {
   if (!rows) return;
   shown_count = label_count();
-  lay_out(shown_count, label, places);
+  const unsigned taken = lay_out(shown_count, label, places) * TALL;
+  above_buttons = rows > top + CAPTION_ROWS + taken ? rows - taken : top + CAPTION_ROWS;
   char text[CAPTION_ROWS][CAPTION + 8];
   caption(text);
   char *frame = NULL;
@@ -204,15 +226,15 @@ static void draw(void) {
   fprintf(bytes, "\0337\033[1;%ur", top);
   for (int row = 0; row < CAPTION_ROWS; ++row)
     fprintf(bytes, "\033[%u;1H\033[0;2m%s\033[0m\033[K", top + 1 + row, text[row]);
-  for (unsigned row = 0; row + top + CAPTION_ROWS < rows; ++row) {
-    const unsigned line = top + CAPTION_ROWS + 1 + row;
+  for (unsigned line = top + CAPTION_ROWS + 1; line <= rows; ++line) {
     fprintf(bytes, "\033[%u;1H\033[0m\033[K", line);
+    if (line <= above_buttons) continue;
+    const unsigned row = line - above_buttons - 1;
     for (int index = 0; index < shown_count; ++index) {
       if (places[index].row != row / TALL) continue;
       const struct place *place = &places[index];
-      fprintf(bytes, "\033[%u;%uH\033[0;97;48;5;238m", line, place->from + 1);
-      if (row % TALL == TALL / 2) fprintf(bytes, "  %s  ", label(index));
-      else fprintf(bytes, "%*s", (int)(place->to - place->from), "");
+      fprintf(bytes, "\033[%u;%uH", line, place->from + 1);
+      draw_button(bytes, row % TALL, place->to - place->from - 2, label(index));
     }
   }
   fputs("\033[0m\0338", bytes);
@@ -442,8 +464,8 @@ static void obey(void) {
 static int button_at(int32_t x, int32_t y) {
   if (!cell_width || !cell_height || x < 0 || y < 0) return -1;
   const unsigned column = (unsigned)x / cell_width, row = (unsigned)y / cell_height;
-  if (row < top + CAPTION_ROWS) return -1;
-  const unsigned button_row = (row - top - CAPTION_ROWS) / TALL;
+  if (row < above_buttons) return -1;
+  const unsigned button_row = (row - above_buttons) / TALL;
   for (int index = shown_count - 1; index >= 0; --index)
     if (places[index].row == button_row && column >= places[index].from && column <= places[index].to) return index;
   return -1;

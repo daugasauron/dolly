@@ -94,10 +94,10 @@ if (browser === "chromium") await demoTest("pi-phone", { image: "pi-phone", laun
         body: answer.map(([event, data]) => `${event}data: ${JSON.stringify(data)}\n\n`).join("") + "data: [DONE]\n\n" });
     });
   } });
-  // voice's buttons are the terminal's last rows: a label's cells, tapped by a finger.
+  // voice's buttons are boxes in the terminal's last rows: a label's cells, tapped by a finger.
   const tap = async label => {
-    // A row's trailing blanks are not in the text; a page of buttons is drawn after the tap that shows it.
-    const button = new RegExp(`  ${label}(  |$)`);
+    // A page of buttons is drawn after the tap that shows it.
+    const button = new RegExp(`│ ${label} │`);
     let rows, row;
     for (const deadline = Date.now() + 30_000; (row = (rows = (await text()).split("\n")).findLastIndex(line => button.test(line))) < 0;) {
       assert.ok(Date.now() < deadline, `no button ${label}:\n${rows.join("\n")}`);
@@ -137,9 +137,10 @@ if (browser === "chromium") await demoTest("pi-phone", { image: "pi-phone", laun
 
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.evaluate(key => navigator.clipboard.writeText(key), key);
-  await choose("Sign in", "OpenRouter");
+  // Signed out, the menu opens on Sign in.
+  await choose("OpenRouter");
   await waitText(/Select authentication method/);
-  await tap("Down");
+  await tap("↓");
   await tap("Enter");
   await waitText(/Enter OpenRouter API key/);
   await page.locator("#paste").tap();

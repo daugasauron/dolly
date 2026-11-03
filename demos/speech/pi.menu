@@ -10,8 +10,8 @@
 Menu = \e[24~
 
 [keys] Pi asks: the arrows and Enter answer it, Done is the Menu again.
-Up = \e[A
-Down = \e[B
+↑ = \e[A
+↓ = \e[B
 Enter = \r
 Esc = \e
 Done = :page main

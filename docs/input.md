@@ -30,7 +30,7 @@ flowchart LR
   Two fingers moving apart or together are sent as the keys Ctrl+= and
   Ctrl+-, a font size for each 20 CSS px.
 - A touchscreen has no paste chord. There the page shows its own Paste
-  button: it reads the clipboard only inside the user's press of it and
+  button, at the right end of the terminal's last rows: it reads the clipboard only inside the user's press of it and
   delivers the text as a paste, to the terminal or to a program holding the
   lease.
 - `dolly_input_acquire` gives the foreground process or a descendant the
