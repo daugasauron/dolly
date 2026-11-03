@@ -6,8 +6,8 @@ REQUIRES HOST http@0
 
 # TypeScript's compiler as Microsoft's npm archive holds it, unchanged, run
 # by Janis: tsc is the runner started on the archive's own compiler script.
-FROM /v0.1.4/Dollyfile-system-tools 0000000000000000000000000000000000000000000000000000000000000000
-INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 0000000000000000000000000000000000000000000000000000000000000000
+FROM /v0.1.4/Dollyfile-system-tools 35a11274c9fbd8221484a10542d60f4d3cbb664e7df5c77996ae5d308a5452c2
+INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 25d4fc76e5251a6655c43ab2cbedb4b6ce0f19cc27693ddcb48f3c724ceeddcb
 
 REQUIRES HEADER libc
 REQUIRES HEADER quickjs-runner
