@@ -44,12 +44,13 @@ working; the image is an npm image package that an npm-only project boots and bu
 `demos/python/README.md` and the npm docs (`README.md`'s npm section, `docs/embedding.md`) say how
 to use it.
 
-## State (2026-11-04 01:20, branch `demo/pydata`)
+## State (2026-11-04 01:35, branch `demo/pydata`)
 
 Done but the catalog round: both images, their demo test (Chromium, Firefox, the NumPy-only
 COPY), the npm package and its test (without its Pi part, see npm), the python fixes
-(`6a0b03b77`, `c085280fb`), the DSO exception fix (`4e992e97a`), Pillow's FreeType
-(`72a523d85`).
+(`6a0b03b77`, `c085280fb`), the DSO exception fix (`4e992e97a`, `f751f3480`), Pillow's
+FreeType (`72a523d85`), Jinja, openpyxl and tabulate (`506737a73`), the kept font list
+(`d89558b97`).
 
 `demo/pydata-seed` is one commit on top: the seed fixes (`cc --version`, `patch -l -f`, the
 `__small_` exports that Matplotlib's `_qhull` needs) and a demo-test step that imports every
