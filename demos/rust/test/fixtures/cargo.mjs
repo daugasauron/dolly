@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
@@ -48,6 +48,7 @@ export function createCargoRegistry() {
 // A crate in a Git repository, which native Git serves over smart HTTP.
 export function createCargoGitRepository() {
   const directory = mkdtempSync(join(tmpdir(), "dolly-cargo-git-"));
+  process.once("exit", () => rmSync(directory, { recursive: true, force: true }));
   const environment = { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null",
     GIT_AUTHOR_NAME: "Dolly", GIT_AUTHOR_EMAIL: "fixture@example.invalid", GIT_AUTHOR_DATE: "2000-01-01T00:00:00Z",
     GIT_COMMITTER_NAME: "Dolly", GIT_COMMITTER_EMAIL: "fixture@example.invalid", GIT_COMMITTER_DATE: "2000-01-01T00:00:00Z" };
