@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # {fmt} from upstream's release archive, unchanged, built by its CMake project,
 # for programs the cc package builds.
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 0000000000000000000000000000000000000000000000000000000000000000
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 61758daf4cdf9911a30445dec0634c4868c7a62db4c14fbace29d1f29bff692e
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES TOOL cmake

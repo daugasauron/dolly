@@ -13,8 +13,8 @@ REQUIRES HOST threads@0
 # the package: nothing installs mandoc because a page was formatted with it.
 # (COPY may not write under /tmp, so a package cannot borrow the formatter
 # from another image for its build alone.)
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 0000000000000000000000000000000000000000000000000000000000000000
-INSTALL /v0.1.4/Dollyfile-mandoc 0000000000000000000000000000000000000000000000000000000000000000
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 61758daf4cdf9911a30445dec0634c4868c7a62db4c14fbace29d1f29bff692e
+INSTALL /v0.1.4/Dollyfile-mandoc 74fdd732c76eb8abee2c44df79c4c6b5291b4b8fa25c1f4b7855ac09826dfda9
 
 REQUIRES TOOL mandoc
 REQUIRES TOOL text-page
