@@ -350,8 +350,12 @@ unrecorded pattern.
 Found on the way: gmqcc (`main.cpp`'s banner) and the Xonotic engine (`builddate.c`, as
 upstream links it) embed `__DATE__ __TIME__`, so two builds of one recipe differ (gmqcc: 56
 bytes, `Built Nov  3 2026 07:48:17` against `08:07:30`), and a rebuild of gmqcc rebuilds
-xonotic-build and xonotic. If the in-sandbox Clang honours `SOURCE_DATE_EPOCH` (Clang 18 and
-later do), setting it in the build environment would make both reproducible; not tried.
+xonotic-build and xonotic. Fixed by the integrator (2026-11-03 17:25): Dolly's `cc` takes
+`SOURCE_DATE_EPOCH` (`src/compiler.cpp`, `test/cpp-browser.mjs`), and `Dollyfile-gmqcc` and
+`Dollyfile-xonotic-build` set it on their compile lines to 1687230584, the newest file time of
+Xonotic 0.8.6's source release, as `Dollyfile-zero-ad-engine` sets its release's. Rebuilt in
+2 min 11 s: `/usr/bin/gmqcc`, `xonotic-dedicated` and `xonotic-sdl` hold `Jun 20 2023` and no
+build-day date (their snapshots' files searched).
 
 Consumers rebuilt on the new packages and tested (the tree's whole list, 96 images with the
 closure, in 257 s for the eleven that changed): `npm run test:demos -- fingers bhop classicube

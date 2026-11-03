@@ -10,7 +10,8 @@ REQUIRES TOOL tar
 
 SOURCE /v0.1.4/dist/static/xonotic/gmqcc.tar c2519d5c292708aa1628631ddb241aa06c1c8b0238a622429f5754142fde524a /tmp/gmqcc.tar
 SLOP tar -xf /tmp/gmqcc.tar -C /
-SLOP CWD /tmp/gmqcc slop -c 'for unit in ast code conout fold ftepp intrin ir lexer main opts parser stat utf8 util; do c++ -O3 -std=c++11 -c $unit.cpp -o $unit.o || exit 1; done'
+# __DATE__ and __TIME__ are the newest file time of Xonotic 0.8.6's source release, for reproducible builds.
+SLOP CWD /tmp/gmqcc SOURCE_DATE_EPOCH=1687230584 slop -c 'for unit in ast code conout fold ftepp intrin ir lexer main opts parser stat utf8 util; do c++ -O3 -std=c++11 -c $unit.cpp -o $unit.o || exit 1; done'
 SLOP CWD /tmp/gmqcc c++ ast.o code.o conout.o fold.o ftepp.o intrin.o ir.o lexer.o main.o opts.o parser.o stat.o utf8.o util.o -o /usr/bin/gmqcc
 
 EXPORTS TOOL gmqcc

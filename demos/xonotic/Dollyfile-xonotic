@@ -13,12 +13,12 @@ REQUIRES HOST upload@0
 REQUIRES HOST threads@0
 
 FROM /v0.1.4/Dollyfile-system 03687a356e2435bcb5cb6a062caed281f20c189bb051f4b91405abef805a7ee6
-COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 8387ab3397c257f48d72ea9dd99d278cec6de28841adfb7b47a6eb7b5cda7e6b /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 08389ac0e4514a20c8972fd8b209cf69eec8d33a8496992debd9637c222402b3 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
 INSTALL /v0.1.4/demos/xonotic/Dollyfile-xonotic-shaders ac59e5747f86b5ba7ed99cbec6b9dc9d2cd836a994444c8496710a32e3f5f6a0
-COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 8387ab3397c257f48d72ea9dd99d278cec6de28841adfb7b47a6eb7b5cda7e6b /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 08389ac0e4514a20c8972fd8b209cf69eec8d33a8496992debd9637c222402b3 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
 COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 248d6cf4331c4cbfb48a267cb929e8926449eaec73aaa4e9e35bbab6b657b338 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
-COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 8387ab3397c257f48d72ea9dd99d278cec6de28841adfb7b47a6eb7b5cda7e6b /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
+COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 08389ac0e4514a20c8972fd8b209cf69eec8d33a8496992debd9637c222402b3 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
 COPY /v0.1.4/demos/zero-ad/Dollyfile-freetype 82c62f2a7013b642fd378987f27235ff94e0ce6fddfa4a1fe97dc159379a012a /usr/share/licenses/freetype /usr/share/licenses/freetype
 COPY /v0.1.4/demos/zero-ad/Dollyfile-libpng 2b07e0f33809e9a9db9f7b7c1c8ae59bb367323429bb544335ef8ec02dbd51d3 /usr/share/licenses/libpng /usr/share/licenses/libpng
 COPY /v0.1.4/demos/xonotic/Dollyfile-libogg 34e6f7cd4debdd9cce55421e08bf614a177163dda372ffca6ce6aa09963a98b2 /usr/share/licenses/libogg /usr/share/licenses/libogg
