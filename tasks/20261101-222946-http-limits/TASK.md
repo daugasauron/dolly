@@ -2,7 +2,11 @@
 
 - STATUS: OPEN
 - PRIORITY: 250
-- TAGS: core,http,proposal
+- TAGS: core,http
+
+Decided 2026-11-04 (`tasks/20261102-133353-owner-decisions`): yes, both. Carried onto
+`core/http-limits-2`; its merge in a catalog round is `tasks/20261104-074501-http-merge`, which
+closes this task with it.
 
 ## Summary for the owner
 
