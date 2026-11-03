@@ -7,7 +7,10 @@
 ## State (2026-11-04, branch `core/terminal-mode`)
 
 Done in code: `fix/video-findings` merged (f701e633, repinned ac273d20); the initial mode with
-ICRNL (1c725ae7). Verification on rebuilt images is under way; see Work below.
+ICRNL (1c725ae7). Measured on this tree's rebuilt `default`, `system` and `vi` (seed `3bc72763…`,
+24 images, 17.5 min): `terminal` (its `vmin0` and `discipline`), `pty`, `core` and the vi probe
+pass in Chromium and Firefox. Left: Janis's and Python's checks on rebuilt `typescript` and
+`python` (building), the fixtures' failure before the kernel change, and the catalog round.
 
 Two findings of the same discipline, decided 2026-11-04 (`tasks/20261102-133353-owner-decisions`).
 
@@ -61,3 +64,9 @@ round's images; `docs/process-model.md` lists the initial mode as it is.
   - Read and left: programs that set raw mode with `cfmakeraw`, linenoise, readline, ncurses'
     `raw`/`nonl`, crossterm, Go's x/term, Python's `tty.setraw` clear ICRNL themselves; voice.c
     and xterm-pty.c take the mode they find.
+- **Measured** (`build/termmode-evidence/`, 08:35-08:40 JST): `test/terminal-browser.mjs`,
+  `test/pty-browser.mjs`, `test/core-browser.mjs` and `vi-enter.mjs` (in `default`: `amy install vi`,
+  `vi /tmp/vi-enter`, `ione`, Enter, `two`, Escape, `:wq`, Enter; vi ends with status 0 and the file
+  is `one`, `two`) passed in Chromium and Firefox (`a-*-{chromium,firefox}.log`). Before, a vi built
+  without the wrapper put `one^Mtwo^Mthree` on one line and never ran `:wq` (`vi-enter-2.log`,
+  `work/evidence-2026-11-03/recipes-core/`).
