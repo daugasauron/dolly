@@ -33,28 +33,31 @@ buttons, captions or any program; a small program proves it (two fingers
 zoom something it draws), in Chromium with touch emulation and on a phone;
 `buttons@0` is replaced by it.
 
-## State (2026-11-03): waits for the owner: the phone, and buttons in touch@0
+(2026-11-04: the sentence on buttons is superseded by the owner's approval of 835fa963b on
+2026-11-03; the State says why. The phone's part is paused at the owner's word.)
+
+## State (2026-11-04): buttons stay in touch@0; the phone is paused
 
 In v0.1.4 (released 2026-10-31): `touch@0` (`host/touch/`), the SDL2 and raylib drivers, the
 `fingers` demo, `buttons@0` removed; `test/touch-ring.test.mjs`, `test/touch-browser.mjs` and
 `demos/fingers/test/fingers-browser.mjs` pass in Chromium and Firefox. The images "not rebuilt
-here" on 2026-10-23 (below) are in that release's catalog. The `0.1.4` tag is gone: what is left
-is no release's work. Ranked 60 from 310, as it waits for the owner.
+here" on 2026-10-23 (below) are in that release's catalog. Since 835fa963b (2026-11-03, approved
+by the owner that day) the lease holder may give the page up to 12 labels (BUTTONS, op 95), shown
+in input@0's bar below the canvas before Paste; a tap is a `PRESS` record; pi-phone's Speak, Send,
+Clear and Menu are such buttons.
 
-Left:
-
-- **Buttons in `touch@0`.** 835fa963b (2026-11-03, a contract change the owner approved that
-  day, `tasks/20261010-193000-phone-voice-pi`) gives the lease holder BUTTONS (op 95): up to 12
-  labels the page shows in input@0's bar below the canvas, before Paste and drawn as Paste is; a
-  tap is a `PRESS` record (id the button's index, x the labels word), and the buttons go with the
-  lease. pi-phone's Speak, Send, Clear and Menu are such buttons. This contradicts the done-when
-  below ("the module knows nothing of buttons, captions or any program") and resembles
-  `buttons@0`: keep them in `touch@0` as approved, or give them a module of their own. A line of
-  `tasks/20261102-133353-owner-decisions`.
-- **The phone.** pi-phone ran on the owner's phone on 2026-11-03 over USB. Not tried there:
-  `fingers` with two real fingers, and the phone keyboard's own paste at the `default` prompt
-  (if it reaches the terminal, Paste could leave input@0). Both at the owner's call
-  (2026-10-24: "phone stuff - wait for my calls later").
+- **Buttons stay in `touch@0`.** Decided 2026-11-04 on the owner's behalf
+  (`tasks/20261102-133353-owner-decisions`). Only the page may read the clipboard, so every button
+  beside Paste is the page's, drawn by one renderer (the owner's rule of 2026-11-03); a press is a
+  tap on that bar and belongs to whoever holds the fingers, so the contract is the touch lease's:
+  labels in, `PRESS` records out, gone with the lease. A module of its own would need a lease, a
+  foreground rule and a relation to touch's for the same two messages. The contract is generic
+  (labels and indices; no captions, no program), which is what the done-when's sentence guarded
+  against in October; the approval of 2026-11-03 stands and the sentence is read so. `buttons@0`
+  stays removed.
+- **The phone is paused.** Owner (2026-11-04): "the last test was okay so just pause that."
+  `fingers` with two real fingers and the phone keyboard's own paste at the `default` prompt are
+  not scheduled; Paste stays in `input@0`. Nothing of this task is waiting for anyone.
 
 ## The contract (2026-10-23): decided; went with v0.1.4
 
