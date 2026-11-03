@@ -9,6 +9,7 @@ builds, plus stock pip over Dolly's HTTP broker.
 - `libffi`: libffi with Dolly's target: calls and closures of signatures known at run time, through `dso@0`.
 - `python-data`: Python with NumPy, pandas, Matplotlib and seaborn, built once: a session imports them at once.
 - `python-data-build`: A build stage: NumPy, pandas, Matplotlib and what they need, compiled in Dolly from PyPI's releases, one root per library for `COPY`.
+- `openblas`: OpenBLAS's BLAS and LAPACK for wasm64, its generic C kernels and C translation of LAPACK, static, found by pkg-config as `openblas`.
 
 Install it with `INSTALL` or `amy install python`; build with
 `npm run image -- python`.
@@ -64,6 +65,9 @@ uninstalls what the roots hold. `python-data` takes them all.
   [`http.h`](../../host/http/http.h)) and `_dolly_transport`, which `site.py`
   imports so that urllib and requests use it, in venvs too.
 - [`Dollyfile-python`](Dollyfile-python): pip and its configuration, a later image step.
+- [`Dollyfile-openblas`](Dollyfile-openblas), [`openblas-dolly.patch`](openblas-dolly.patch): OpenBLAS
+  for a wasm that is not Emscripten, with LAPACK's subroutines returning void, as their callers
+  declare them (WebAssembly traps a call of another type); the patch's head says why each change.
 - [`Dollyfile-python-data-build`](Dollyfile-python-data-build): the data libraries, one root each,
   and why each build setting; [`Dollyfile-python-data`](Dollyfile-python-data): the image with
   them all.

@@ -3,8 +3,10 @@
 // as PNG and read back, text drawn with Pillow's FreeType), and a recipe that
 // COPYs NumPy's root alone from python-data-build, which gets NumPy and no other
 // library.
+// The openblas package alone links a C program that calls it as SciPy does.
 // Usage: node demos/python/test/python-data-browser.mjs
-import { demoTest, shellPrompt, writeCommand } from "../../browser.mjs";
+import { readFile } from "node:fs/promises";
+import { demoTest, installProbe, shellPrompt, writeCommand } from "../../browser.mjs";
 import { siteReference } from "../../../src/static-asset.mjs";
 
 const scripts = {
@@ -53,6 +55,17 @@ for (const browser of ["chromium", "firefox"]) {
   await demoTest("python-data", { image: "python-data", browser, timeout: 900_000 }, async ({ open }) => {
     const { run } = await open();
     for (const name of Object.keys(scripts)) await runScript(run, name);
+  });
+}
+
+const openblasCheck = await readFile(new URL("fixtures/openblas-check.c", import.meta.url), "utf8");
+for (const browser of ["chromium", "firefox"]) {
+  await demoTest("openblas", { image: "system", browser, timeout: 300_000 }, async ({ open }) => {
+    const { run, text } = await open(await installProbe("cc", "pkgconf", "openblas"));
+    await run(writeCommand("/tmp/openblas-check.c", openblasCheck));
+    await run("cc $(pkg-config --cflags openblas) /tmp/openblas-check.c $(pkg-config --libs openblas) -o /tmp/openblas-check");
+    await run("/tmp/openblas-check 500");
+    console.log((await text()).match(/OPENBLAS-OK n \d+.*/)[0]);
   });
 }
 

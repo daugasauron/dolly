@@ -723,3 +723,7 @@ DOLLY_VERSIONEER_SHA256=0f1a137bb5d6811e96a79bb0486798aeae9b9c6efc24b389659cebb0
 DOLLY_MPL_QHULL_VERSION=8.0.2
 DOLLY_MPL_QHULL_URL='https://github.com/qhull/qhull/archive/v8.0.2/qhull-8.0.2.tar.gz'
 DOLLY_MPL_QHULL_SHA256=8774e9a12c70b0180b95d6b0b563c5aa4bea8d5960c15e18ae3b6d2521d64f8b
+# OpenBLAS (demos/python's openblas package): BLAS and LAPACK for SciPy, upstream's release archive.
+DOLLY_OPENBLAS_VERSION=0.3.34
+DOLLY_OPENBLAS_URL='https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.34/OpenBLAS-0.3.34.tar.gz'
+DOLLY_OPENBLAS_SHA256=cd7e129868320cc2d033afa920e31202dfe0b8066a5b66661900ccc0f197dfed
