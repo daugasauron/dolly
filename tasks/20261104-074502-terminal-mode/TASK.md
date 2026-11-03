@@ -4,6 +4,11 @@
 - PRIORITY: 240
 - TAGS: core,terminal,kernel,libc
 
+## State (2026-11-04, branch `core/terminal-mode`)
+
+Done in code: `fix/video-findings` merged (f701e633, repinned ac273d20); the initial mode with
+ICRNL (1c725ae7). Verification on rebuilt images is under way; see Work below.
+
 Two findings of the same discipline, decided 2026-11-04 (`tasks/20261102-133353-owner-decisions`).
 
 **VMIN 0 and VTIME.** The discipline refused every non-canonical `VMIN` but 1 and every `VTIME`
@@ -31,3 +36,28 @@ initial `terminal_mode_flags`, a check in `test/fixtures/terminal-ui.c` reads it
 Enter, `two`, Enter, `:wq` as two lines in Chromium and Firefox; `test/terminal-browser.mjs`
 (`vmin0`), `test/pty-browser.mjs` and `test/core-browser.mjs` pass in both browsers on the
 round's images; `docs/process-model.md` lists the initial mode as it is.
+
+## Work (2026-11-04)
+
+- **Merge.** `fix/video-findings` into `core/terminal-mode` with `work/integrate-merge.sh`: one hand
+  merge in `src/process-kernel.c` (the process struct took both integrate's `mailbox` and the
+  branch's `read_deadline`), recipes three-way, docs digests and pins regenerated (ac273d20); no
+  recipe line of the branch lost (the script's CHECK guard). Its task's open boxes stay its own.
+- **Stale after the merge:** `demos/python/test/fixtures/python-process.py` still expected
+  `tcsetattr` to refuse VMIN 0 and VTIME 5; it now expects the refusal of VMIN 2 (825f18c8).
+- **ICRNL** (1c725ae7). `DOLLY_KERNEL_TERMINAL_INITIAL_MODE` (`src/process-kernel.h`) is the one
+  initial mode, of the display's terminal (`src/dolly.c`) and of a pseudo-terminal's slave
+  (`host/pty/kernel.c`, which had the same five flags: a program under tmux or xterm met the same
+  CR). What assumed the old mode follows:
+  - Janis's `setRawMode` cleared CANONICAL, ECHO and ISIG only. With ICRNL on it would have handed
+    Pi LF for Enter; it now clears ICRNL as libuv's raw mode does (`tmp.c_iflag &= ~(BRKINT |
+    ICRNL | INPCK | ISTRIP | IXON)`). Check: `javascript-browser.mjs`, Enter in raw mode is 13.
+  - Slop's line editor ends a line at CR or LF (`src/slop.c`, `read_interactive_line`): unchanged.
+  - `terminal-ui.c discipline` asserted `c_iflag == 0`; it now reads ICRNL back. `pty.c` reads it
+    on a new pair. `python-process.py` asserted no ICRNL. Neovim's test bounded the mode word at
+    31 (its flags before ICRNL); now below 128 (VMIN_ZERO), still not an error status.
+  - `demos/tools/Dollyfile-vi` lost its `read` wrapper and the `-include` that applied it.
+  - `docs/process-model.md` lists the initial mode.
+  - Read and left: programs that set raw mode with `cfmakeraw`, linenoise, readline, ncurses'
+    `raw`/`nonl`, crossterm, Go's x/term, Python's `tty.setraw` clear ICRNL themselves; voice.c
+    and xterm-pty.c take the mode they find.
