@@ -181,7 +181,8 @@ variable. Rust is not affected (its pads catch all and call no personality).
 - A third rustc equals the second with the recipe's commands (2026-11-04): a scratch recipe on
   this branch's `rust-build`, with `rust-llvm`'s libraries and the same `cargo rustc` line, built
   rustc with the kept rustc in 9 min 29 s, and `cmp` found it equal to `/opt/rust-sdk/bin/rustc-real`
-  (249,167,527 bytes). The recipe still checks the library, not the compiler, on every build.
+  (249,167,527 bytes), before rustdoc and the sysroot patch joined it. The recipe still checks
+  the library, not the compiler, on every build.
 
 - `libc` for a user's project: crates.io's `libc` has wasm32 layouts for this target, and the
   SDK's patched copy is what a project builds against; `vendor-crates`, the one way a session

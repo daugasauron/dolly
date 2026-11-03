@@ -58,8 +58,8 @@ compiler against `rust-llvm`'s libraries and keeps the second:
 - A third rustc is the second again: measured in a Chrome session, 264 files
   (the 251.3 MiB `rustc` and 263 libraries) were the same between the second
   and third generation ([task](../../tasks/20260930-231100-self-host-rust/TASK.md)),
-  and with the recipe's own command on 2026-11-04. The recipe checks the
-  standard library on every build, not the compiler.
+  and with the recipe's own command on 2026-11-04, before rustdoc joined it. The
+  recipe checks the standard library on every build, not the compiler.
 - The sources are the seed's: the pinned Rust archive with the same patches,
   the `rust-src` component for the standard library, and each locked crate
   extracted as Cargo's directory source
