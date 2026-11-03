@@ -6,11 +6,11 @@
 
 ## State (2026-11-04, branch `core/terminal-mode`)
 
-Done in code: `fix/video-findings` merged (f701e633, repinned ac273d20); the initial mode with
-ICRNL (1c725ae7). Measured on this tree's rebuilt `default`, `system` and `vi` (seed `3bc72763…`,
-24 images, 17.5 min): `terminal` (its `vmin0` and `discipline`), `pty`, `core` and the vi probe
-pass in Chromium and Firefox. Left: Janis's and Python's checks on rebuilt `typescript` and
-`python` (building), the fixtures' failure before the kernel change, and the catalog round.
+Done and measured on this tree's rebuilt images (seed `3bc72763…`, runtime `e0059b51…`): every
+part of the done-when but the last run on the catalog round's images. Left: the round, which must
+rebuild every image (the merged VMIN 0 change is in `runtime.h` and the libc adapter; vi and Janis
+changed too), and there `terminal`, `pty`, `core`, the amy typed vi step, `javascript` and
+`python`; close this task then. Neovim's test (its bound on the mode word changed) was not run.
 
 Two findings of the same discipline, decided 2026-11-04 (`tasks/20261102-133353-owner-decisions`).
 
@@ -64,9 +64,37 @@ round's images; `docs/process-model.md` lists the initial mode as it is.
   - Read and left: programs that set raw mode with `cfmakeraw`, linenoise, readline, ncurses'
     `raw`/`nonl`, crossterm, Go's x/term, Python's `tty.setraw` clear ICRNL themselves; voice.c
     and xterm-pty.c take the mode they find.
-- **Measured** (`build/termmode-evidence/`, 08:35-08:40 JST): `test/terminal-browser.mjs`,
-  `test/pty-browser.mjs`, `test/core-browser.mjs` and `vi-enter.mjs` (in `default`: `amy install vi`,
-  `vi /tmp/vi-enter`, `ione`, Enter, `two`, Escape, `:wq`, Enter; vi ends with status 0 and the file
-  is `one`, `two`) passed in Chromium and Firefox (`a-*-{chromium,firefox}.log`). Before, a vi built
-  without the wrapper put `one^Mtwo^Mthree` on one line and never ran `:wq` (`vi-enter-2.log`,
-  `work/evidence-2026-11-03/recipes-core/`).
+- **Measured** (`build/termmode-evidence/`, Chromium and Firefox, 08:35-08:50 JST) on this tree's
+  `default`, `system` and `vi` (24 images, 17.5 min) and `typescript` and `python` (13 more,
+  13.5 min):
+  - `test/terminal-browser.mjs` (its `discipline` and `vmin0`), `test/pty-browser.mjs` and
+    `test/core-browser.mjs` passed (`a-*-{chromium,firefox}.log`).
+  - `vi-enter.mjs`: in `default`, `amy install vi`, `vi /tmp/vi-enter`, `ione`, Enter, `two`,
+    Escape, `:wq`, Enter: vi ends with status 0 and the file is the lines `one` and `two`.
+  - `demos/javascript/test/javascript-browser.mjs` with the new Enter check, and
+    `python-termios.mjs` (`python-process.py` in an `installProbe("python")` session, as
+    `python-browser.mjs` runs it) passed (`b-*.log`).
+- **Before**, the same images with a runtime whose initial mode lacks ICRNL (kernel only: the image
+  inputs hash is the same): `terminal` failed at `discipline` with status 22, `pty` at the new
+  `pty.c` line 100, vi hung with `one^Mtwo` on one line, `python-process.py`'s termios group failed
+  (`before-*-chromium.log`). Not measured: Janis's check against a Janis that keeps ICRNL (it needs
+  a second Janis build); by reading, its raw mode would pass the kernel's ICRNL through.
+- **Pins.** The image build restaged `ghostty.tar`, `uucode.tar`, the terminal's font and `patch.c`
+  (22a4f78c4) with digests newer than integrate/2026-11-03's recipes, as the round's tree has them
+  uncommitted; committed here (e2961b2e) so the recipes describe the images.
+
+## Lessons
+
+- A default reaches past the program that motivated it. Grepping every consumer of the mode word
+  (`DOLLY_TERMINAL_*`, `c_iflag`, numeric bounds on the mode) before building found the one that
+  mattered most: Janis built raw mode from the current mode instead of termios, so ICRNL on would
+  have given Pi LF for Enter. Node's raw mode is libuv's, which clears ICRNL; Janis now matches it.
+- `fix/video-findings` was measured on `terminal`, `pty` and `core`, yet left Python's termios
+  fixture asserting the old EINVAL for VMIN 0. A substrate change's test list is every fixture that
+  names the changed values (grep `VMIN`, `VTIME`), not the tests the task names.
+- A failure-before run for a kernel-only change is cheap: rebuild the runtime alone (20 s) with the
+  change reverted, keep the images, and run the same tests; the image inputs hash proves the
+  images are the same. Do it after the image builds end, never during one.
+- `work/integrate-merge.sh` works in an agent's tree with `DOLLY_MERGE_TREE`; when it stops for a
+  hand merge it has not yet run its tail (docs digests, `update-recipe-pins.mjs`, the CHECK
+  guard), which must then be run by hand.
