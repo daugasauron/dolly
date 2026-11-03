@@ -162,6 +162,9 @@ Measured on this tree's builds (seed `fe5261db`), bytes uncompressed / packs' gz
 
 ## Proposals for the owner
 
+Owner (2026-11-04), on all three: "I think these sounds too complex and would cause issue. Lets
+leave it for now."
+
 1. **The C runtime's archives without DWARF** (prototype on `proposal/image-size-dwarf`).
    `emstrip --strip-debug` over Emscripten's archives in `prepare-process-sysroot.sh` and
    over the seed's compiler-rt in `build.sh`, and `-Oz` instead of `-Oz -g` for libc++,
