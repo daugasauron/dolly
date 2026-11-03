@@ -183,8 +183,6 @@ static uint32_t padding_x;
 static uint32_t padding_y;
 static float font_scale;
 static int font_ascent;
-// The font's full block (U+2588), in font units: the cell its line and block characters fill.
-static int block_top, block_bottom, block_advance;
 static unsigned char pty_response[PTY_RESPONSE_CAPACITY];
 static size_t pty_response_read;
 static size_t pty_response_write;
@@ -477,8 +475,7 @@ static void draw_codepoint(unsigned char *frame, uint32_t codepoint, bool first,
   int x0, y0, width, height, advance;
   const unsigned char *bitmap;
   const int span_pixels = span * (int)cell_width;
-  float scale = font_scale, scale_y = font_scale;
-  bool fills = false;
+  float scale = font_scale;
   cached_glyph *cached = codepoint < 128 ? &ascii_glyphs[codepoint] : NULL;
   if (cached != NULL && cached->ready) {
     x0 = cached->x0;
@@ -498,16 +495,8 @@ static void draw_codepoint(unsigned char *frame, uint32_t codepoint, bool first,
       face = fallback_glyph(codepoint, span_pixels, &glyph, &scale);
     }
     if (glyph == 0 && !first) return;
-    // Line and block characters fill their cell as the full block does, so
-    // they join the next row's and column's.
-    fills = face == &font && codepoint >= 0x2500 && codepoint < 0x25a0 &&
-            block_top > block_bottom && block_advance > 0;
-    if (fills) {
-      scale = (float)cell_width / (float)block_advance;
-      scale_y = (float)cell_height / (float)(block_top - block_bottom);
-    } else scale_y = scale;
     int x1, y1, left_bearing = 0;
-    stbtt_GetGlyphBitmapBox(face, glyph, scale, scale_y, &x0, &y0, &x1, &y1);
+    stbtt_GetGlyphBitmapBox(face, glyph, scale, scale, &x0, &y0, &x1, &y1);
     width = x1 - x0;
     height = y1 - y0;
     stbtt_GetGlyphHMetrics(face, glyph, &advance, &left_bearing);
@@ -518,7 +507,7 @@ static void draw_codepoint(unsigned char *frame, uint32_t codepoint, bool first,
       cached->bitmap = malloc(bitmap_size);
       if (cached->bitmap == NULL) return;
       stbtt_MakeGlyphBitmap(face, cached->bitmap, width, height, width,
-                            scale, scale_y, glyph);
+                            scale, scale, glyph);
       cached->width = width;
       cached->height = height;
       cached->x0 = x0;
@@ -529,14 +518,14 @@ static void draw_codepoint(unsigned char *frame, uint32_t codepoint, bool first,
     } else {
       if (ensure_glyph_bitmap(bitmap_size) != 0) return;
       stbtt_MakeGlyphBitmap(face, glyph_bitmap, width, height, width,
-                            scale, scale_y, glyph);
+                            scale, scale, glyph);
       bitmap = glyph_bitmap;
     }
   }
   const int drawn_advance = (int)(advance * scale + 0.5f);
   const int origin_x = cell_x + (span_pixels - drawn_advance) / 2 + x0;
-  const int baseline = fills ? cell_y + (int)(block_top * scale_y + 0.5f)
-      : cell_y + ((int)cell_height + (int)(font_ascent * font_scale + 0.5f)) / 2;
+  const int baseline = cell_y + ((int)cell_height +
+      (int)(font_ascent * font_scale + 0.5f)) / 2;
   const int origin_y = baseline + y0;
   for (int row = 0; row < height; ++row) {
     const int destination_y = origin_y + row;
@@ -829,9 +818,6 @@ static int initialize(dolly_display_mailbox *shared_mailbox,
           GHOSTTY_SELECTION_GESTURE_EVENT_TYPE_RELEASE) != GHOSTTY_SUCCESS) {
     return -1;
   }
-  int ignored;
-  stbtt_GetGlyphBox(&font, stbtt_FindGlyphIndex(&font, 0x2588), &ignored, &block_bottom, &ignored, &block_top);
-  stbtt_GetCodepointHMetrics(&font, 0x2588, &block_advance, &ignored);
   configure_theme();
   ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_KITTY_IMAGE_STORAGE_LIMIT,
                        &kitty_image_storage_limit);
