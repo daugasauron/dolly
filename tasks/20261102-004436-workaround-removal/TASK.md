@@ -1,8 +1,20 @@
 # Demo workarounds whose causes are gone
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: demo,cleanup
+
+## Closed (2026-11-03)
+
+All six items are removed and measured (sections 1 to 6: zsh's exec 163e1b4e, Emacs's Lisp
+sources 9b585cb5, X.Org's tar 2a69eb27, the plain-tar stagings a44d764b and 2807e7f0, Studio's
+copies 6d33e42b, Mojo's `llvm-wait.patch` c21e62f8), with the zsh, emacs, x11 and mojo demo tests
+and the packages' checks passing in the browsers named below. The branch is merged
+(f90ae7782, 84dd44214, f7290754f on `integrate/2026-11-02`), and the evening round of
+2026-11-02 built the catalog on its seed (926402a58, 257154ee7). What remained moved: Studio's
+browser test on a rebuilt `dollyfile-studio` is the next catalog round's
+(`tasks/20261102-133232-recipes-apps`), and the Lean staging comment's wrong reason is a line of
+`tasks/20261027-232422-lean`.
 
 The docs audit (`tasks/20261101-221623-docs-audit`) listed demo workarounds whose
 cause the core has since removed: `execve` (ba5f2568), gzip compressing
