@@ -1,8 +1,32 @@
 # A host bridge for HTML popups and forms; pi-dolly's ask-user extension
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 320
 - TAGS: host-modules,pi,html,0.1.5
+
+## Closed (2026-11-03)
+
+The done-when is met at `integrate/2026-11-03` (2c8839ab3), not yet released (hence `0.1.5`):
+
+- The module: `host/html/` with its manifest (d82f74742; the contract's errors 3bb52f36f, the
+  page's font 9ddc5e32c, `head` left out eb042da3d). `test/html-host.test.mjs` drives the Worker
+  side with a hostile kernel's calls (in the source suite).
+- The refusals: `test/html-browser.mjs` (cf5fd1ebd, 764c6808) proves the popup reaches no
+  server, runs no script of the program's and takes the page's style; the `html@0` row of
+  `docs/browser-boundary.md` says so. It passed in Chromium and Firefox in the evening round of
+  2026-11-02 (seed fe5261db) and again on `demo/phone-menu` (4cf7c7757).
+- Pi: `ask_user` and `show_html` (4c4bba89, aaed334e); `demos/pi/test/ask-user-browser.mjs`
+  drives a scripted model through both, passed in Chromium and Firefox in the day candidate and
+  on 4cf7c7757.
+- The images: the 11 recipes that install pi-dolly or are built from pi-runtime declare
+  `html@0`, as `Dollyfile-html` does, and the round built them. The npm package
+  is `@daugasauron/dolly-host-html`, one of `scripts/package-npm.mjs`'s device modules;
+  `test/npm-browser.mjs` boots with it.
+- In use: pi-phone's menu is an `html@0` popup since 4cf7c7757, and ran on the owner's phone on
+  2026-11-03 (`tasks/20261010-193000-phone-voice-pi`).
+
+The one proposal, `default` and `system` installing the `html` package, is a line of
+`tasks/20261102-133353-owner-decisions`.
 
 ## State (2026-11-02 04:45 JST)
 

@@ -1,6 +1,6 @@
 # cc -v without input prints Clang's banner, as configure scripts read it
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: compiler,toolchain
 

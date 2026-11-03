@@ -1,6 +1,6 @@
 # v0.1.4 release candidate
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 60
 - TAGS: release,0.1.4
 

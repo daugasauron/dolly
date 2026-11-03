@@ -1,4 +1,5 @@
 0.1.4, Goes with release v0.1.4
+0.1.5, Goes with release v0.1.5
 0ad, The 0 A.D. port and its build
 abi, Machine ABI and contract numbers, layouts and digests
 agent, A coding agent running inside Dolly, or a model driving a demo
@@ -9,8 +10,8 @@ architecture, Where a responsibility lives among kernel, modules and page
 art, Look of the Slopyard world
 audio, Sound playback and capture
 audit, Finding of the 2026-09-13 or 2026-09-30 audit, or a task to audit something
-boundary, The browser host boundary and its trusted code
 bootstrap, What is still built outside Dolly, and building it inside
+boundary, The browser host boundary and its trusted code
 browser, Behaviour particular to a browser or its engine
 browser-boundary, Older spelling of boundary
 bug, Confirmed incorrect behavior
@@ -20,6 +21,7 @@ camera, Slopyard's view
 cargo, Rust's Cargo; cargo hauling in Slopyard
 catalog, The list of images a site publishes
 checkpoint, A verified state of the tree and its images, kept to return to
+chromium, Chromium's or Chrome's behaviour that Dolly meets
 classicube, The ClassiCube demo
 cleanup, Remove unused code or reduce maintenance
 cloudflare, The domain's host
@@ -35,6 +37,7 @@ controllers, Programs that steer Slopyard's creatures and machines
 controls, Driving a Slopyard creation by hand
 core, Shared runtime or platform substrate
 corpus, Measurements over a set of real upstream programs
+decisions, Choices only the owner makes
 demo, A demo under demos/
 deployment, Publishing a site
 design, A decision about shape to make before code
@@ -46,8 +49,10 @@ docs, Documents under docs/ and in images
 documentation, Older spelling of docs
 dollyfile, The recipe language and its engine
 editor, A text editor as an image
+emacs, The Emacs port
 environment, Environment variables an image exports
 experiment, A prototype to learn from, not to keep
+ffmpeg, The FFmpeg port
 filesystem, File and path semantics
 firefox, Seen in Firefox only
 flaky, A test that fails some runs
@@ -56,11 +61,15 @@ game, The Slopyard game
 gamedev, Game engine ports
 gimp, GIMP in the Wine image
 git, Git inside Dolly
+go, The Go toolchain built inside Dolly
 gpu, The GPU module and what renders or computes through it
 graphics, How the Slopyard world is drawn
 host, Older spelling of host-modules
 host-modules, A host bridge: its contract, kernel part, client and page side
 hosting, Where and how the sites are served
+html, html@0: the popups and forms a program shows on the page
+http, The HTTP broker and its policy (http@0)
+hygiene, Tests and code that cost more than they prove
 image, A new image for the catalog
 images, Image recipes, their sizes and what they keep
 input, Keyboard, pointer, touch and paste
@@ -106,6 +115,7 @@ placement, Where Slopyard puts structures
 plan, A plan to agree on before work
 port, An upstream program brought to Dolly
 process, The process contract, spawn, wait, pipes and signals
+processes, Processes' lifecycle, Workers and their memory
 programs, Programs embedded in Slopyard's machines
 python, CPython inside Dolly
 recording, Demo videos
@@ -121,6 +131,7 @@ rts, The RTS Arena demo
 runtime, The page's runtime Worker, timers and sessions
 rust, The Rust toolchain
 scripting, The language Slopyard's controllers are written in
+sdl2, The SDL2 port and its Dolly backend
 security, What a compromised userspace could reach
 seed, The externally built start of every image
 sessions, Saved sessions and their page
@@ -131,8 +142,10 @@ skills, The skills Pi is given
 slop, The shell
 slopyard, The Slopyard demo
 small, Little work
+snapshots, Image and session snapshots: building, capturing and restoring them
 sockets, Local stream sockets
 speech, Speech to text
+stack, stack@0 and stack-wrap: recursion deeper than one browser stack
 studio, Dollyfile Studio
 syntax, The spelling of a recipe line
 teams, The two sides of a Slopyard world
@@ -144,6 +157,7 @@ threads, The threads module and threaded programs
 timers, Timer wakeups
 tmux, tmux inside Dolly
 toolchain, Compilers and build tools
+touch, touch@0: fingers on a touchscreen and the holder's buttons
 ui, What a player or user sees and presses
 upgrade, Moving to a newer upstream version
 usability, A limit a user runs into

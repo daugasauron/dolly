@@ -1,6 +1,6 @@
 # npm: a custom coding agent sandbox in minutes
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: npm,packages,pi
 
@@ -15,6 +15,35 @@ how the key is entered; the hosts the agent may reach; their page's look.
 Done when a stranger goes from the packed packages to a hosted agent that has all of the
 above along one documented path, and `test/npm-browser.mjs` walks that path from packed
 packages in Chromium and Firefox.
+
+## Closed (2026-11-03)
+
+The done-when is met at `integrate/2026-11-03` (merged as acd793aad and 1b3e165d0): `dolly-build
+init` writes the sandbox (recipe, page, server, theme, workspace) and `git`, `python` and `cc`
+arrive as packages (5def8d092, e4d9857fc, 98147be03, a518178b0, 0b36aef09, cdc1e1228); the
+README's "Pi with npm" is that one path. `test/npm-browser.mjs` runs it as written from the packed
+packages (install, `init my-pi git cc`, a colour in `theme.json`, a C tool's rows, build, serve,
+boot: Pi with the extension and skill, `/hello`, `AGENTS.md`, git, the tool, the workspace file,
+a refused host, the page's modules exactly the recipe's) and passed in Chromium and Firefox on
+the final templates and again after the merge of `integrate/2026-11-02` (sections below).
+
+A real turn, measured by the integrator on 2026-11-03 at 15:34 JST: the README's block as
+written, packages packed from `demo/phone-menu` (edaca025c) and installed from the tarballs
+(1.8 s), `init my-pi git cc`, then the Anthropic switch the recipe's comment describes (the
+OpenRouter `pi-key` line commented, the Anthropic one uncommented, the page's `api.anthropic.com`
+rule with `credentialHeaders: ["x-api-key"]` uncommented); build 20.4 s; headless Chrome, the
+key prompt at 3.6 s, Pi at 7.4 s, the owner's Anthropic key at the hidden prompt; "What is 17
+times 23? Reply with only the number." answered `391` after 13.8 s ($0.011,
+`claude-sonnet-5-5`). Evidence: `work/phone/build/npm-evidence/` (`build.log`, `install.log`).
+The OpenRouter path is proven only to OpenRouter's 401: the key in `~/.openrouter` is revoked.
+One friction for scripting, not for users: the template's page does not keep `boot()`'s handle
+(`window.dolly` is then the `<main id="dolly">` element, by the browser's named access), so
+`test/npm-browser.mjs` rewrites the page to `window.dolly = await boot(` itself.
+
+What is left is the owner's, in
+`tasks/20261102-133353-owner-decisions`: publishing the `git`, `python` and `cc` packages, the
+terminal's palette as a file, and `boot({ session })`. The frictions listed below stay as
+recorded, none a defect.
 
 ## The stranger's log, before (2026-11-02 22:36-22:48 JST)
 

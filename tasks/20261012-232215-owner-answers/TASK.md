@@ -1,8 +1,16 @@
 # Three answers only the owner can give: Claude Code's real turn, the recordings' model, Paint's text
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 70
 - TAGS: owner,demo
+
+## Closed (2026-11-03): folded into the owner's decisions
+
+Items 2 and 3 were struck on 2026-10-27 (below). Item 1, Claude Code's real turn, is one line of
+`tasks/20261102-133353-owner-decisions` ("Claude Code's real turn") since 2026-11-03: the key in
+`~/.claude-api` that drew "Credit balance too low" on 2026-10-23 answered Pi's turns on the
+owner's phone on 2026-11-03 (`tasks/20261010-193000-phone-voice-pi`), so the turn can be tried
+again, by the owner or by an agent on the owner's word.
 
 ## State (2026-10-27): item 1 is left
 

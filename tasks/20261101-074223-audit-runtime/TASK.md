@@ -1,6 +1,6 @@
 # Audit: the browser runtime, page and module loading
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: core,audit,runtime
 

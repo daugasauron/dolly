@@ -1,41 +1,33 @@
-# Phone: Pi by buttons and speech (parked), and touch for programs
+# Phone: Pi by buttons and speech
 
 - STATUS: OPEN
 - PRIORITY: 60
 - TAGS: demo,speech,pi,phone,host-modules,owner
 
-## State (2026-10-13)
+## State (2026-11-03): taken up again on the owner's phone
 
-Parked by the owner on 2026-10-10: "I want to park this locally for now and focus on the wine
-stuff." It waits for him to take it up again; lowered from 100 for that reason.
+No longer parked: on 2026-11-03 the owner had pi-phone sign in to `claude-opus-5` on the owner's phone,
+its session saved and restored (529fb7c27), then reshaped it there: Pi's menu as an `html@0`
+popup built from Pi (4cf7c7757); one bar of the page's buttons below the canvas, Speak, Send,
+Clear, Menu and Paste, from `touch@0`'s BUTTONS (835fa963b, edaca025c); the page resized by the
+phone's keyboard (5e31a9129); line and block characters that fill their cell (97d2d51bb, merged
+from `core/display-fill` in 2c8839ab3, a seed change for the next full round). Sections below.
 
-In v0.1.2, on the domain: the `pi-phone` image, `voice`, `buttons@0` (`7a6daada`, `c6fed63f`),
-the 48-column font rule (`870b6ab4`), and in `host/input` a finger's drag that scrolls the
-terminal and a pinch that changes the font's size (`c6fed63f`, `077bb981`). "Done means" 1 to 6
-are met in Chrome's phone emulation and on the owner's phone ("Result", "On the owner's phone").
-On `main` on 2026-10-13 the tests of `pi-phone` and `speech` passed in Chrome
-(`work/rust/build/integrate-evidence/final-demos.log`).
+The list of 2026-10-13, checked: the stray reply is closed
+(`tasks/20261010-234000-pi-stray-reply`); touch for programs is `touch@0`
+(`tasks/20261013-144001-touch-module`, in v0.1.4); `buttons@0` is gone since 2026-10-23, and
+whether the bar's buttons stay in `touch@0` is a line of `tasks/20261102-133353-owner-decisions`.
+Done means 4's "`input@0` is unchanged" gave way on 2026-10-23: Paste is input@0's, fingers
+`touch@0`'s.
 
-Open, in the order to take it up:
+Left:
 
-1. **Hearing is slow on a phone** (1.8 times as fast as speech, against 29 on this desktop):
-   whether the phone's Chrome has WebGPU and transcribe.cpp's ggml a backend for it over
-   `gpu@0`; more threads (Dolly does not tell a program how many cores there are); why the Wasm
-   build is a quarter of the native one's speed.
-2. **The stray reply in Pi's prompt** on a slow device: `tasks/20261010-234000-pi-stray-reply`.
-3. **The owner's verdict on `buttons@0`**: "Keep it as is for now, I want to try it before
-   rejecting it." Keep, rename (`keypad@0`), or have the terminal reserve rows; the last two
-   change the seed ("The owner on the module's shape").
-4. **Touch for programs**, from `tasks/20261005-222057-touch-input` (closed into this task).
-   Owner (2026-10-06): "a smartphone-input module so it's easy to write programs for phones
-   (respond to touch, drag etc), and a simple image with some demo to prove/test that it works
-   nicely." Not built: a program still gets a finger as the one pointer of `input@0`, with no
-   contact id, so no second finger and no pinch of its own. Wanted there: contact records (id;
-   down, move, up, cancel; position; pressure and radius where the browser gives them) in a
-   bounded ring; gestures as a C library in Wasm; a demo image that draws with several fingers,
-   drags and pinches, tested with emulated multi-touch in Chrome and Firefox and by hand on a
-   phone. The record layout sketched for it ("Touch, later") is in
-   `tasks/20261002-072000-input-host-module`. Not measured either: a graphics image on a phone.
+- Hearing is slow on a phone (1.8 times as fast as speech against 29 on the desktop,
+  2026-10-10): WebGPU for transcribe.cpp's ggml over `gpu@0`, more threads, the Wasm build's
+  speed against the native one. Not taken up.
+- Pi's own lists still want the arrow row: the menu cannot tell when one is open.
+- Every open on the phone downloaded the 367 MiB image again (slopshare.dev/v0.1.4, about 4
+  minutes); why the first load's copy was not kept is not measured.
 
 ## The request
 
