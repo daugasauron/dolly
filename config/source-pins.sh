@@ -179,6 +179,10 @@ DOLLY_IOSEVKA_URL='https://raw.githubusercontent.com/iosevka-webfonts/unhinted-i
 DOLLY_IOSEVKA_SHA256=8642ab1546b24042d75500d34dbf2cba323bae4424ed41aa3005122b807a05fe
 DOLLY_IOSEVKA_TTF_URL='https://raw.githubusercontent.com/iosevka-webfonts/unhinted-iosevkaterm/dc5f458fa3918d909f0f78313b09b4887f3131d8/TTF-Unhinted/IosevkaTerm-SemiBold.ttf'
 DOLLY_IOSEVKA_TTF_SHA256=754545a4f6250efdd3d2cc916bb344c59f0c59830405307dfd44d183f919a654
+# Subsets the terminal's font on the host (scripts/prepare-image-sources.sh).
+DOLLY_FONTTOOLS_VERSION=4.68.0
+DOLLY_FONTTOOLS_URL='https://files.pythonhosted.org/packages/35/74/4ea331ecc65ba05a58b1e4e8ccd604c8a15565f876dfbf93fc2a2ea2e22b/fonttools-4.68.0-py3-none-any.whl'
+DOLLY_FONTTOOLS_SHA256=d76f8fdcb6936f5e1045a0c9dd721a4bf11112e60d1e243bfa1d39f06a8b3104
 
 DOLLY_DROID_COMMIT=28c94330a909a10a5ab452538c2c97e247c48a13
 DOLLY_DROID_URL='https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/28c94330a909a10a5ab452538c2c97e247c48a13/data/fonts/DroidSansFallback.ttf'

@@ -5,11 +5,11 @@ REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST sockets@0
 
-FROM /v0.1.4/Dollyfile-system 03687a356e2435bcb5cb6a062caed281f20c189bb051f4b91405abef805a7ee6
+FROM /v0.1.4/Dollyfile-system 9afff85ea68791281293b0cbacfaa1e3ead36407f060e74b56e104ee440a7217
 USE /v0.1.4/Dollyfile-libdolly-sockets b2e86570181578165b21cd1af0dd5bb7657613fe766f729b32ef686a362ee09b
-USE /v0.1.4/demos/tools/Dollyfile-sqlite 7d747ed9c3542bb66cc6731b60f299c7e02908374c1bc6f2e05d9e3a818b2313
-USE /v0.1.4/demos/tools/Dollyfile-bzip2 5c93302615723b27003b2da83c75466945966398e0b7bcf1da64bd345e9e31d9
-USE /v0.1.4/demos/tools/Dollyfile-xz acc1adb31d703179be455351a3123b46926869a0a611dd6c922520604d7c9fcc
+USE /v0.1.4/demos/tools/Dollyfile-sqlite 6884aded346c89382cc495facfe7ec5479fc40f0bf82e949d74034e4dee97df3
+USE /v0.1.4/demos/tools/Dollyfile-bzip2 25eb127a94a428531494bbb8d2cd32a5b0f30c266b45b70ef66ae83633aec188
+USE /v0.1.4/demos/tools/Dollyfile-xz ce87dbaf20c36c79334d06363d80cc08a880ca65ccf4d9f724d84b7c25934b16
 # Build the Python runtime and native extension SDK; pip.dm adds pip.
 REQUIRES HEADER curl
 REQUIRES HEADER dso
@@ -36,7 +36,7 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   touch
 
-INSTALL /v0.1.4/demos/python/Dollyfile-libffi eecbdc4133c1484b8681ce7fc1bc1f0c4931f2b18d47b7056a5e7de0c791f387
+INSTALL /v0.1.4/demos/python/Dollyfile-libffi cba335962a7f9aff798e5b186fb9bdeb5b89daeee4083b247f99465760eb2e3d
 EXPORTS LIB    ffi       /usr/lib/libffi.a
 EXPORTS HEADER ffi       /usr/include/ffi.h
 EXPORTS HEADER ffitarget /usr/include/ffitarget.h

@@ -47,7 +47,9 @@ flowchart LR
   explicit map of kernel exports ([`kernel-plugin.mjs`](../src/kernel-plugin.mjs)):
   no URLs, dependency loading or JavaScript evaluation.
 - The driver ([`ghostty/display.c`](../src/ghostty/display.c)) renders
-  libghostty-vt's grid with IosevkaTerm SemiBold through stb_truetype. The
+  libghostty-vt's grid with IosevkaTerm SemiBold through stb_truetype: 0.9 MB,
+  the glyphs of the characters it maps and of its default features, out of
+  the release's 7.7 MB ([`fetch-iosevka.sh`](../scripts/fetch-iosevka.sh)). The
   supervisor coalesces redraws on a 16 ms tick.
 - What IosevkaTerm has no glyph for comes from Droid Sans Fallback (Chinese,
   Japanese and Korean, 3.4 MB) or Noto Emoji (emoji in the text's colour,
