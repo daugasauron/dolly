@@ -30,7 +30,7 @@ INSTALL /v0.1.4/demos/x11/Dollyfile-xterm 7e033203e6ca75b3a587d2359779f4bdc1cde6
 # modules default declares for them; nena enables another.
 INSTALL /v0.1.4/Dollyfile-amy de8d4c2404adfd43bb54bc492688aa8ba6d7e7d388889cb4b965e018800bafe6
 INSTALL /v0.1.4/Dollyfile-nena c178ca1752cdd95bf79fad652be90724128620c5d7183097660d38565aee519e
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-imgui-x11 f2260c57aebf1170c9198c803fb0dc4068a64bdb311f78e2bead749ca669e1f3
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-imgui-x11 6bdfde4cd0aa27ad8a9754a7277f08a120957bf284afbd25a022eee9f35a2542
 
 # The server takes the display, the keyboard and the pointer until it ends
 # (kill $(cat /tmp/.X0-pid) in the terminal); its clients end with it, and
