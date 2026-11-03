@@ -190,3 +190,21 @@ contract and client (`DOLLY_DSO_WAIT`, `__dolly_dso_threads`, the TLS exports): 
 - `dso-browser.mjs` Chromium 20.7 s, Firefox 23.2 s; `threads-browser.mjs` 12.1 s, 14.1 s;
   `core-browser.mjs` 24.7 s, 37.3 s; the Python demo: `python` 31.4 s (Chromium), `python on
   default` 157.2 s (Chromium), 168.2 s (Firefox).
+- `stack-browser.mjs` 8.3 s, 18.2 s; `cpp-browser.mjs` 10.4 s, 11.9 s; `process-browser.mjs`
+  41.7 s, 42.1 s; `host-modules-browser.mjs` 29.9 s, 33.2 s (Chromium, Firefox).
+- python-data built on the threaded python (its setuptools `build_ext` with `parallel`, Pillow's,
+  in real pool threads); its demo test: Chromium 22.5 s, Firefox 25.3 s, the NumPy COPY 25.2 s.
+  `build/pythreads-evidence/pydata-threads.mjs`, the same in both browsers: NumPy's first
+  import in four pool workers at once; pandas imported while a thread multiplies matrices with
+  the GIL released (3.74 s, 4.24 s alone, in Chromium; 3.88 s and 3.82 s in Firefox); Matplotlib
+  loaded by the main thread draws a PNG in another, where ft2font's C++ exception is caught as
+  `RuntimeError` (the `_ZTW` thread-local, resolved by that thread's Worker).
+
+## What remains (for the catalog round)
+
+Seed changes on this branch: the compiler (`src/compiler.cpp`; `llvm-cc` built and pinned here,
+`aa17d632…`), the libc adapter (`src/process/threads.c`, `lock.h`), dso@0's contract and client
+(new digest `67583333…`). Every image rebuilds; the round rebuilds `llvm-tablegen`,
+`llvm-build` and `llvm-cc` with the new seed and pins `llvm-cc` again unless it gives the same
+bytes. Recipes that install python now declare `threads@0`. Close this task when the round has
+built the images on python (python-data's, meson's, the LLVM chains') and their tests pass.
