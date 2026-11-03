@@ -1,3 +1,66 @@
+--- a/lib/compiler/Maker.zig
++++ b/lib/compiler/Maker.zig
+@@ -64,9 +64,9 @@
+ skip_oom_steps: bool,
+ unit_test_timeout_ns: ?u64,
+ watch: bool,
+-protocol_server: ?*AvoidableServer,
++protocol_server: ?ServerRef,
+ protocol_server_mutex: Io.Mutex,
+-web_server: ?*AvoidableWebServer,
++web_server: ?WebServerRef,
+ /// Allocated into `gpa`.
+ memory_blocked_steps: std.ArrayList(Configuration.Step.Index),
+ /// Allocated into `gpa` during `prepare`.
+@@ -86,6 +86,9 @@
+ 
+ const AvoidableServer = if (builtin.single_threaded) void else Server;
+ const AvoidableWebServer = if (builtin.single_threaded) void else WebServer;
++// A single-threaded host has neither server, so what uses one is not compiled.
++const ServerRef = if (builtin.single_threaded) noreturn else *Server;
++const WebServerRef = if (builtin.single_threaded) noreturn else *WebServer;
+ 
+ const is_debug_mode = builtin.mode == .debug;
+ const use_safe_allocator = switch (builtin.mode) {
+@@ -703,7 +706,7 @@
+     const now = Io.Clock.Timestamp.now(io, .awake);
+ 
+     var web_server_allocation: AvoidableWebServer = undefined;
+-    const web_server: ?*AvoidableWebServer = if (webui_listen) |listen_address| ws: {
++    const web_server: ?WebServerRef = if (webui_listen) |listen_address| ws: {
+         if (watch_flag) fatal("using '--webui' and '--watch' together is not yet supported; consider omitting '--watch' in favour of the web UI \"Rebuild\" button", .{});
+         if (builtin.single_threaded) fatal("--webui is not yet supported on single-threaded hosts", .{});
+         web_server_allocation = .init(.{
+@@ -721,7 +724,7 @@
+     const stdout_writer = initStdoutWriter(io);
+ 
+     var protocol_server_allocation: AvoidableServer = undefined;
+-    const protocol_server: ?*AvoidableServer = if (listen) s: {
++    const protocol_server: ?ServerRef = if (listen) s: {
+         if (builtin.single_threaded) fatal("--listen is not yet supported on single-threaded hosts", .{});
+         if (watch_flag) fatal("using '--watch' and '--listen' together is not supported", .{});
+         if (fuzz != null) fatal("using '--fuzz' and '--listen' together is not supported", .{});
+--- a/lib/compiler/Maker/Step.zig
++++ b/lib/compiler/Maker/Step.zig
+@@ -284,7 +284,7 @@
+     };
+     if (start_ts) |*ts| {
+         const duration = ts.untilNow(io, .awake);
+-        maker.web_server.?.updateTimeReportGeneric(step_index, duration);
++        if (maker.web_server) |ws| ws.updateTimeReportGeneric(step_index, duration);
+     }
+ 
+     make_result catch |err| switch (err) {
+--- a/lib/compiler/Maker/Watch.zig
++++ b/lib/compiler/Maker/Watch.zig
+@@ -1022,5 +1022,7 @@
+ }
+ 
+ pub fn deinit(w: *Watch) void {
++    // Comptime-known, as the maker's own guards: a host without a watcher has none to end.
++    if (!have_impl) unreachable;
+     Os.deinit(w);
+ }
 --- a/lib/std/Io/Dir.zig
 +++ b/lib/std/Io/Dir.zig
 @@ -63,6 +63,7 @@

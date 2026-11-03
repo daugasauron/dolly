@@ -88,6 +88,17 @@ a blobless clone `ghostty-git/`).
   `else if (starts_with(argument, "-Wp,"))` pushing each comma-separated part onto
   `options.frontend_options` (cc1 takes `-v` there, as `cc -E -v` shows). It needs a new seed
   compiler (`llvm-cc`), so it waits for the owner and a seed round.
+- **Zig 0.17's maker (`zig build`) does not compile for Dolly.** `zig build` is now a `jitCmd` of
+  `lib/compiler/Maker.zig`, built for the native target, and WebAssembly defaults to
+  single-threaded (`src/target.zig` `defaultSingleThreaded`). Single-threaded, its protocol and web
+  servers are `void` but it calls them (`Maker.zig:2476` `ws.startBuild()`, and ten more, and
+  `Step.zig:287`); multi-threaded, it ends a file watcher Emscripten has none of
+  (`Watch.zig:1025` `Os.deinit`, `Os` being `void`). Master has the same lines (2026-11-03). The
+  demo's patch types the servers `noreturn` on a single-threaded host (the uses compile away, as a
+  `?noreturn` capture is never analyzed), unwraps the time report by `if`, and guards `deinit` as
+  the maker's own code does (`if (!have_impl) unreachable`). A host Zig compiles the maker both
+  ways for wasm64-emscripten with them; applied in a session by `sed`, `zig build` of the test's
+  project built and ran `hello child` in Chromium (102.5 s, the maker compiled in the session).
 - A host Zig 0.17 compiles the patched compiler to C (`zig build-exe … -ofmt=c` of
   `src/main.zig` with `src/zig/config.zig`) in 2.3 s on this machine, so a source error shows in
   seconds instead of after a 5-minute image build.
@@ -178,7 +189,9 @@ as `llvm21`'s chain had (`tasks/20261014-234000-zig-llvm`).
 LLVM 22 in a 9 GB `bigbuild` slot (Chrome, 2026-11-03 22:15 to 23:34): `llvm22-tablegen` 218 s
 (255.8 MB); `llvm22` 4500 s, its `make -k -j4` 4450 s, 448.0 MB, `llvm-config` 22.1.8 with Zig's
 20 targets, no failed unit. (`llvm21`'s make took 3797 s in the round of 3 November; its image
-was 426.6 MB.)
+was 426.6 MB.) Then in the same slot `zig-llvm-build` 1715 s (zig1 19 min, `cc` of the compiler's C
+8 min at 5.7 GB of the renderer; 372.1 MB) and `zig-llvm` (zigcpp against LLVM 22's headers and
+the link; 449.2 MB; `zig version` 0.17.0). The chain from `llvm22-tablegen` to `zig-llvm`: 109 min.
 
 Staging the whole `ghostty-x11` closure (`prepare-image-sources.sh`, every `has_image` of
 `ghostty-gtk`, `mesa-build`, `llvm22`, `zig-llvm-build`) runs, 22 s with the trees prepared.

@@ -13,8 +13,10 @@ adds the libc and the process records; takes the host's CPU as the one the
 compiler was built for (Zig's fallback has no atomics, and a Dolly program
 shares its memory); reads `/proc/self/exe`; and lets the tools Zig compiles
 for itself (`zig build`'s maker among them) read `ZIG_LIBC`, which names the
-libc's directories, as `zig build-exe` does. Zig 0.17 links libc for
-Emscripten by itself.
+libc's directories, as `zig build-exe` does; and lets Zig 0.17's maker compile
+for a host that is single-threaded (Zig's default on WebAssembly) and has no
+file watcher, as Dolly is: upstream's maker calls its servers and watcher where
+such a host has none. Zig 0.17 links libc for Emscripten by itself.
 
 zig2 is built with every command (`dev = .full`): upstream builds the full
 compiler with zig2, and here zig2 is the compiler. A program for Dolly is
