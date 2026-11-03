@@ -108,8 +108,9 @@ contract and client (`DOLLY_DSO_WAIT`, `__dolly_dso_threads`, the TLS exports): 
   `_Py_thread_local` an ordinary global (the main program's TLS is per thread now:
   `__wasm_init_tls` of each thread's block). `pthread_getattr_np` stays (musl's, from the
   thread record Dolly fills): CPython reads each thread's real stack, 2 MiB for a thread and
-  8 MiB for the main one, instead of assuming 4 MB, which on a 2 MiB thread stack would have let
-  a deep recursion run into the heap (linear memory has no guard page). `pthread_condattr_setclock`
+  8 MiB for the main one, instead of assuming 4 MB. A deep C recursion (repr of a list nested
+  10^6 deep) meets the browser's own stack first, in a thread as in the main thread: the process
+  ends with "Maximum call stack size exceeded" (measured; not a thread matter). `pthread_condattr_setclock`
   is configure's again (timed waits on the monotonic clock); thread CPU clocks and
   `pthread_kill` stay undefined, as Dolly has neither.
 - `-pthread` compiles and links python, and sysconfig's `CONFIGURE_CFLAGS`/`CONFIGURE_LDFLAGS`
@@ -118,3 +119,21 @@ contract and client (`DOLLY_DSO_WAIT`, `__dolly_dso_threads`, the TLS exports): 
   pool's run at submission (pydata's stopgap, `c085280fb`), and the two stub headers.
   `/etc/pip.conf` loses `progress-bar = off`. Recipes that install python declare `threads@0`
   (the lint named meson's).
+
+## Measured (2026-11-04, seed `aa17d632…`, image inputs `a8928037…`)
+
+- `test/dso-browser.mjs` with the new case (`test/fixtures/dso-threads.c`: a host loads a C++
+  library while one thread waits on a condition, one in a `read`, one computes; then all call
+  it, its data's pointers, its thread-locals, its own catch and an FFI closure; a thread started
+  after; a thread that loads it again while the main one joins): Chromium 20.2 s, Firefox 23.5 s.
+  It fails with replay disabled (the program's checks fail), and with the other threads' TLS
+  blocks skipped exit status 30: exactly the four non-loading threads fail.
+- `threads-browser.mjs`, `cpp-browser.mjs`, `core-browser.mjs`: pass in Chromium and Firefox.
+- The python image's build checks (two threads that wait on each other, three pool workers at
+  a barrier, an extension module and a `ctypes` callback from another thread): pass; python
+  builds in 98 s. The demo's test: `python` in Chromium 32.3 s, `python on default` (pip builds
+  NumPy from its sdist) in Chromium 149.8 s and Firefox 185.1 s.
+- `python -m test` cannot run here: regrtest spawns a worker whose arguments hold an
+  undecodable directory name, and `_dolly_subprocess.spawn` encodes them as strict UTF-8
+  (`UnicodeEncodeError ... surrogates not allowed`): a subprocess limit, not threads. The
+  thread tests run with `python -m unittest` instead (below).
