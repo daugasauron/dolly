@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # xxd, the hex dump Vim ships, from Vim's tagged source, unchanged: one file
 # and its manual page.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 37209da63ccc496f9f8d156b140f22b445db6b4733b3778ccd71e1471fcb9d66
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 5e1764770962a40d2c6b1fbc47ec4e6b56116efec55644ae50417a98c5a71134
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
