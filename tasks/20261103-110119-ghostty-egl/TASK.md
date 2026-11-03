@@ -25,7 +25,11 @@ Mesa 26.2.5 refuses EGL beside the Xlib GLX the demo builds: "EGL requires DRI, 
 built with xlib support" (`meson.build:563`; EGL requires DRI, Haiku, Windows or Android, :562).
 So the step is Mesa's DRI frontend with softpipe for both GLX and EGL (swrast over X11, the
 surfaceless platform for Ghostty), which loads its gallium driver library at run time (`dso@0`,
-which `ghostty-gtk` already requires), not a flag beside the current build.
+which `ghostty-gtk` already requires), not a flag beside the current build. In that tree, EGL
+turns DRI on only where the system has KMS/DRM (`with_dri`, `meson.build:364`; `-Dglx=dri` turns
+it on regardless, :535), and the driver is `libgallium_dri`, a `shared_library`
+(`src/gallium/targets/dri/meson.build:42`) that the loader opens with `dlopen`
+(`src/loader/loader.c:899`).
 
 Done when `ghostty-x11` opens Ghostty 1.4's window on Dolly's X server with a shell in it, in
 Chromium and Firefox (`npm run test:demos -- ghostty-gtk`), with Ghostty's renderer drawing through
