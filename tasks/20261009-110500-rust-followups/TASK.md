@@ -191,6 +191,11 @@ variable. Rust is not affected (its pads catch all and call no personality).
 
 ## Still open
 
+- **A failing doc test before edition 2024 ends rustdoc** (status 134, its report lost), since
+  rustdoc reports one by unwinding and the compiler aborts. A compiler built to unwind fixes it
+  and compiled 1.5 to 3 times slower (above); why landing pads slow rustc in the browsers while
+  ripgrep's cost nothing is not measured (a profile of one crate's build in Chrome would say).
+
 - **Network Cargo**: `cargo search`, `publish` and `login` need `CONNECTTIMEOUT`, `LOW_SPEED_*`
   and `PUT` in Dolly's libcurl. `vendor-crates` covers crates.io. A Git dependency now works
   (2026-11-03, Chromium and Firefox, `demos/rust/test/fixtures/cargo.mjs`): the cargo package
