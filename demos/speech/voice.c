@@ -5,8 +5,8 @@
 // into PROGRAM's terminal, and while one of them listens, what the
 // microphone hears. The keyboard still types, and a paste reaches PROGRAM as
 // it would without voice. PROGRAM may ask the same of voice, one
-// line each, on the pipe VOICE_CONTROL_FD names: "speak", "page NAME", or
-// "type TEXT" (the menu's escapes); text it shows can ask nothing.
+// line each, on the pipe VOICE_CONTROL_FD names: "page NAME" or "type TEXT"
+// (the menu's escapes); text it shows can ask nothing.
 #define _GNU_SOURCE
 #include <dolly/runtime.h>
 #include <dolly/touch.h>
@@ -125,7 +125,7 @@ static unsigned rows, columns, top;
 // shows: a page's, or (-1) the three ways to end listening.
 static uint64_t lease;
 static int shown = -2;
-static const char *const ends[] = {"Send", "Done", "Cancel"};
+static const char *const ends[] = {"Stop", "Send", "Clear"};
 
 static void out(const char *bytes, size_t length) {
   while (length) {
@@ -313,12 +313,12 @@ static void listen(void) {
   draw();
 }
 
-// Send, Done or Cancel; a full line ends as Done.
+// Stop, Send or Clear; a full line ends as Stop.
 static void end(int button) {
   if (button == 2) { rest(""); return; }
   dolly_microphone_close(&microphone);
   line_end();
-  sending = button == 0;
+  sending = button == 1;
   state = ENDING;
   draw();
 }
@@ -342,7 +342,7 @@ static void capture(void) {
   int count = dolly_microphone_get_status(&microphone, &status);
   if (count == 0 && state == ASKING && status.state == DOLLY_MICROPHONE_CAPTURING) { state = LISTENING; draw(); }
   while (count == 0 && (count = microphone_read_16_khz(&microphone, samples)) > 0) {
-    if (line_add(samples, (size_t)count) < (size_t)count) { end(1); return; }
+    if (line_add(samples, (size_t)count) < (size_t)count) { end(0); return; }
     count = 0;
   }
   if (count < 0) rest(errno == EACCES ? "The browser refused the microphone." : errno == ENODEV ? "No microphone is available." : strerror(errno));
@@ -369,8 +369,7 @@ static void obey(void) {
     line[length] = 0;
     ordered -= length + 1;
     memmove(orders, newline + 1, ordered);
-    if (!strcmp(line, "speak")) { if (state == RESTING) note[0] = 0, listen(); }
-    else if (!strncmp(line, "page ", 5)) {
+    if (!strncmp(line, "page ", 5)) {
       for (int at = 0; at < page_count; ++at) if (!strcmp(pages[at].name, line + 5)) current = at, draw();
     } else if (!strncmp(line, "type ", 5)) {
       char text[TEXT];

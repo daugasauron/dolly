@@ -563,7 +563,7 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, surfac
   // Paste, which reads the clipboard only inside the user's press of it.
   const bar = mount.appendChild(document.createElement("div"));
   bar.id = "buttons";
-  bar.style.cssText = "display:none;flex-wrap:wrap;justify-content:flex-end;gap:0.5rem;padding:0.4rem";
+  bar.style.cssText = "display:none;flex-wrap:wrap;gap:0.5rem;padding:0.4rem";
   const button = (label, press) => {
     const node = document.createElement("button");
     node.type = "button";

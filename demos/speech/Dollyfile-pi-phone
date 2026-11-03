@@ -19,9 +19,9 @@ FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 3a8cc39dfbb9d97272d4f2b022d0c579bf1b7
 INSTALL /v0.1.4/Dollyfile-amy de8d4c2404adfd43bb54bc492688aa8ba6d7e7d388889cb4b965e018800bafe6
 REQUIRES TOOL foreground
 REQUIRES TOOL pi
-INSTALL /v0.1.4/demos/speech/Dollyfile-voice e06af7b21781b7986c1374f19998244d955426733e10023412ade17ea21096da
-SOURCE /v0.1.4/dist/static/speech/pi.menu 040cffa665faf996752cf322927359c08f46a9267c2120b8cadc3c6e4cddf62c /etc/dolly/pi.menu
-SOURCE /v0.1.4/dist/static/speech/phone-menu.js a0c6e7f015ce70dc15c6283a2db6a56453bb20b9ddc6ffc8fe89a76b410d6003 /home/dolly/.pi/agent/extensions/phone-menu.js
+INSTALL /v0.1.4/demos/speech/Dollyfile-voice f75632963690ef033d4d3a0e81dfdc68a2602f3f66efd77e76f25a4b3d152855
+SOURCE /v0.1.4/dist/static/speech/pi.menu 0be56971da401fb0e0a5d82abd1d92529f078e96ab4508a3e4ca2347979e2cdd /etc/dolly/pi.menu
+SOURCE /v0.1.4/dist/static/speech/phone-menu.js 04550fc67a7b087d011c1ba408498632749984ff23d023c04c14dcfcaa157c9b /home/dolly/.pi/agent/extensions/phone-menu.js
 EXPORTS FILE pi-menu /etc/dolly/pi.menu
 FILE /home/dolly/.pi/agent/extensions/phone-menu.js
 

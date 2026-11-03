@@ -325,6 +325,12 @@ buttons to be different [...] Rethink it from first principles". Then approved a
   the page's bottom while the terminal has the focus, and Chrome kept the page's height under
   it. The terminal page's viewport resizes with the keyboard (`interactive-widget=
   resizes-content`): the bar sits above the strip (screenshot over USB, 14:30).
+- Owner: "The buttons should be on the left, not right, and I also want a button to toggle
+  voice capture. And one button to send/clear that input." The bar starts at the left: Speak,
+  Send, Clear, Menu, Paste. Speak is Stop while voice listens; Stop types what was heard into
+  Pi's editor, Send types it and Enter, Clear drops it; resting, Send is Enter and Clear's F11
+  empties Pi's editor (phone-menu.js; the key goes on, so Pi draws the editor again). The
+  menu's own Speak, Send and Clear, and voice's `speak` order, are gone.
 
 ## Parked (2026-10-10, 23:55)
 

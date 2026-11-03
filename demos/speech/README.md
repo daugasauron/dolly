@@ -10,7 +10,7 @@ the place of a keyboard, for Pi on a phone.
 
 - `transcribe`: the transcribe.cpp library and its ggml, built with CMake, which `speech-to-text` and `voice` link.
 - `speech-to-text-mic`: Speak, and what the microphone hears is written as text. English.
-- `pi-phone`: Pi for a phone: one Menu button for speech, models, thinking and all of Pi's commands. English.
+- `pi-phone`: Pi for a phone: Speak, Send, Clear, and a Menu of models, thinking and all of Pi's commands. English.
 - `speech-to-text`: `speech-to-text` with the Parakeet model and Silero VAD, for an image that declares `microphone@0`.
 - `voice`: `voice` with the Parakeet model, for an image that declares `microphone@0`, `touch@0` and `pty@0`.
 - `parakeet`: NVIDIA's Parakeet TDT-CTC 110M speech model (English, 135 MB), which `speech-to-text` and `voice` read.
@@ -36,16 +36,21 @@ again.
 ## pi-phone
 
 `voice` runs Pi on a pseudo-terminal (`pty@0`) in all but the terminal's last
-rows, where it shows what it hears, and gives the page one button, **Menu**,
-which the page shows beside its Paste below the terminal (`touch@0`,
-[input](../../docs/input.md#touch)). Menu types F12, which
-[`phone-menu.js`](phone-menu.js), a Pi extension, takes for itself: it shows
-Pi's menu in a popup of the page (`html@0`), built from Pi's own state each
-time it opens:
+rows, where it shows what it hears, and gives the page its buttons, which the
+page shows before its Paste in a bar below the terminal (`touch@0`,
+[input](../../docs/input.md#touch)):
 
-- **Speak**, then Send, Done or Cancel in the bar: what was heard so far shows
-  below Pi, and Send or Done type it into Pi. **Send** and **Clear** act on
-  what Pi's editor holds, which the menu shows; **Stop** ends Pi's run.
+- **Speak** listens and is **Stop** while it does: what was heard so far shows
+  below Pi. Stop types it into Pi's editor, **Send** types it and Enter,
+  **Clear** drops it. Otherwise Send sends what Pi's editor holds and Clear
+  empties it.
+- **Menu** types F12 and Clear F11, which [`phone-menu.js`](phone-menu.js), a
+  Pi extension, takes for itself. Menu shows Pi's menu in a popup of the page
+  (`html@0`), built from Pi's own state each time it opens.
+
+The menu holds:
+
+- **Stop**, while Pi runs, and **Arrow keys** (below).
 - **Model**: every model Pi can reach with the keys it has, by provider (and
   by maker for OpenRouter's). **Thinking**: the levels the model has.
 - **Commands**: all of Pi's, its own and those of its extensions, skills and
@@ -58,8 +63,8 @@ time it opens:
   too. The keyboard still types into Pi, and a paste reaches it as without voice.
 - The microphone is open only while voice listens.
 
-The extension asks voice for listening, Enter and the arrow row on a pipe only
-Pi holds, so nothing Pi shows can ask it. [`pi.menu`](pi.menu) is voice's
+The extension asks voice for Enter and the arrow row on a pipe only Pi holds,
+so nothing Pi shows can ask it. [`pi.menu`](pi.menu) is voice's
 part; `voice MENU [MODEL.gguf] -- PROGRAM` runs any terminal program so.
 
 Nothing that is said leaves the page: the sound goes from `microphone@0`

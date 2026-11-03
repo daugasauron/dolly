@@ -116,7 +116,7 @@ if (browser === "chromium") await demoTest("pi-phone", { image: "pi-phone", laun
     return value;
   };
   const caption = pattern => waitText(pattern, 90_000);
-  await caption(/Menu: speak/);
+  await caption(/Speak to Pi/);
   await waitText(/No models available/);
   assert.notEqual(await page.evaluate(() => __dolly.touchTransport.lease()), 0, "voice holds the fingers");
 
@@ -143,7 +143,14 @@ if (browser === "chromium") await demoTest("pi-phone", { image: "pi-phone", laun
   await choose("Commands", "Pi", "/session");
   await waitText(/Cache Warming/);
 
-  await choose("Speak");
+  // Clear empties Pi's editor; Speak is Stop while voice listens, and Send types what it heard and Enter.
+  await page.keyboard.type("a draft to clear");
+  await waitText(/a draft to clear/);
+  await tap("Clear");
+  for (const deadline = Date.now() + 10_000; /a draft to clear/.test(await text()); await delay(100))
+    assert.ok(Date.now() < deadline, "Clear left Pi's editor");
+  await tap("Speak");
+  await page.locator("#buttons button", { hasText: /^Stop$/ }).waitFor();
   await caption(/ask not what your country can do for you/i);
   await tap("Send");
   await waitText(new RegExp(said));

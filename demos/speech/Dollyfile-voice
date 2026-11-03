@@ -18,7 +18,7 @@ REQUIRES TOOL c++
 REQUIRES TOOL tar
 REQUIRES HEADER transcribe
 REQUIRES LIB transcribe
-SOURCE /v0.1.4/dist/static/speech/programs.tar 2140aeb3383435dbab302f33ac41238623ec6024c5ce2d5c31f07ac606e95a60 /tmp/speech/programs.tar
+SOURCE /v0.1.4/dist/static/speech/programs.tar 8055dd388ad56c7462112366154bd22838a8593e76bbd275e26a598f8d9e3dcb /tmp/speech/programs.tar
 SLOP tar -xf /tmp/speech/programs.tar -C /
 SLOP cc -pthread -msimd128 -O2 -Wall -Werror -c /tmp/speech/voice.c -o /tmp/speech/voice.o
 SLOP c++ -pthread -msimd128 -O2 /tmp/speech/voice.o /usr/lib/transcribe/libtranscribe.a \
@@ -40,7 +40,7 @@ FILE /usr/share/man/cat1/voice.1
     :page NAME shows another page. pi-phone's /etc/dolly/pi.menu is one.
     PROGRAM runs on a pseudo-terminal; the keyboard and a paste still reach it,
     and PROGRAM may ask voice for the same, a line each, on the pipe
-    VOICE_CONTROL_FD names: speak, page NAME, type TEXT. It needs touch@0,
+    VOICE_CONTROL_FD names: page NAME, type TEXT. It needs touch@0,
     pty@0 and microphone@0; the
     microphone is open only while it listens, and nothing that is said leaves
     the page.

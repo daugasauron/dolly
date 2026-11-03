@@ -1,12 +1,13 @@
 // This is a Pi extension for pi-phone: Pi's menu on Dolly's page (html@0),
-// built from Pi's own state each time it opens. voice's one button types F12,
-// which this takes for itself; what a choice needs of voice (listening,
-// pressing Enter, its arrow keys) goes down the pipe voice gives Pi.
+// built from Pi's own state each time it opens. voice's Menu types F12,
+// which this takes for itself, and its Clear F11, on which this empties Pi's
+// editor; what a choice needs of voice (pressing Enter, its arrow keys) goes
+// down the pipe voice gives Pi.
 import { writeSync } from "node:fs";
 import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 import { showHtml } from "./ask-user.js";
 
-const menuKey = "\x1b[24~";
+const menuKey = "\x1b[24~", clearKey = "\x1b[23~";
 const voice = Number(process.env.VOICE_CONTROL_FD);
 const tell = (line) => writeSync(voice, `${line}\n`);
 
@@ -36,9 +37,8 @@ function menu(pi, ctx, builtins) {
     usage?.percent != null ? `${Math.round(usage.percent)}% of context` : null].filter(Boolean).join(" · ") :
     "Sign in to a provider below";
 
-  const actions = [button("do", "speak", "Speak"), draft && button("do", "send", "Send"),
-    !ctx.isIdle() && button("do", "stop", "Stop"), draft && button("do", "clear", "Clear"),
-    button("do", "keys", "Arrow keys")].filter(Boolean).join("");
+  const actions = [!ctx.isIdle() && button("do", "stop", "Stop"), button("do", "keys", "Arrow keys")]
+    .filter(Boolean).join("");
 
   // OpenRouter's hundreds of models are grouped again by the maker the id begins with.
   const available = ctx.modelRegistry.getAvailable();
@@ -88,10 +88,7 @@ async function open(pi, ctx) {
   if (!fields) return;
   const [[name, value] = []] = fields;
   if (name === "do") {
-    if (value === "speak") tell("speak");
-    if (value === "send") tell("type \\r");
     if (value === "stop") ctx.abort();
-    if (value === "clear") ctx.ui.setEditorText("");
     if (value === "keys") tell("page keys");
   } else if (name === "model") {
     const [provider, ...id] = value.split("/");
@@ -114,6 +111,8 @@ export default function phoneMenu(pi) {
   pi.on("session_start", (_event, ctx) => {
     unsubscribe?.();
     unsubscribe = ctx.ui.onTerminalInput((data) => {
+      // Clear's key goes on to Pi's editor, which does nothing with it but draw itself again.
+      if (data === clearKey) ctx.ui.setEditorText("");
       if (data !== menuKey) return undefined;
       if (!opened) {
         opened = true;

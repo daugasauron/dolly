@@ -4,12 +4,17 @@
 #   :speak       listen, then type what was said
 #   :page NAME   show another page
 
-# Menu's key is F12, which phone-menu.js (a Pi extension) takes for itself:
-# the menu is Pi's, and it shows the keys page when it opens one of Pi's lists.
-[main] Menu: speak, send, models, thinking and all of Pi's commands.
+# Speak listens; then Stop types what was heard into Pi's editor, Send types
+# it and Enter, Clear drops it. Clear's key is F11 and Menu's F12, which
+# phone-menu.js (a Pi extension) takes for itself: Clear empties Pi's editor,
+# and the menu is Pi's, which shows the keys page when it opens one of Pi's lists.
+[main] Speak to Pi, Send or Clear its editor; Menu holds models and commands.
+Speak = :speak
+Send = \r
+Clear = \e[23~
 Menu = \e[24~
 
-[keys] Pi asks: the arrows and Enter answer it, Done is the Menu again.
+[keys] Pi asks: the arrows and Enter answer it; Done goes back.
 ↑ = \e[A
 ↓ = \e[B
 Enter = \r
