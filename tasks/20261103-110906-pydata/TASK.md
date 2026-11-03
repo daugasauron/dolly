@@ -44,13 +44,15 @@ working; the image is an npm image package that an npm-only project boots and bu
 `demos/python/README.md` and the npm docs (`README.md`'s npm section, `docs/embedding.md`) say how
 to use it.
 
-## State (2026-11-03 23:20, branch `demo/pydata`)
+## State (2026-11-04 00:05, branch `demo/pydata`)
 
-Ready to merge: the python fixes (`6a0b03b77`, `c085280fb`), the DSO loader's (`4e992e97a`) and
-the two images with their demo test. `python-data-browser.mjs` passed in Chromium (24.8 s) and
-Firefox (28.3 s), and its recipe that COPYs only NumPy's root in Chromium (22.0 s). In
-progress: the npm package. Not done here: the catalog round; `demo/pydata-seed` holds the
-seed fixes for `cc --version` and `patch -l -f` (below), unbuilt.
+Done but the catalog round: both images, their demo test (Chromium, Firefox, the NumPy-only
+COPY), the npm package and its test (without its Pi part, see npm), the python fixes
+(`6a0b03b77`, `c085280fb`), the DSO exception fix (`4e992e97a`), Pillow's FreeType
+(`72a523d85`). `demo/pydata-seed` holds the seed fixes (`cc --version`, `patch -l -f`, the
+`__small_` exports that Matplotlib's `_qhull` needs), unbuilt: with them, python-data's test
+imports every extension module. Left after the round: close this task when the round's
+python-data passes its test with `_qhull`.
 
 ## Decisions
 
@@ -114,6 +116,21 @@ seed fixes for `cc --version` and `patch -l -f` (below), unbuilt.
 - In a session (Chromium): NumPy builds in 141 s, pandas 237 s, Matplotlib 62-70 s, Pillow
   24 s; `import matplotlib.pyplot` takes 8.7 s the first time (the font cache) and 2.9 s
   after.
+
+## npm
+
+- `scripts/package-npm.mjs` packs `python-data` as `@daugasauron/dolly-image-python-data`
+  (81.9 MB; `dolly-image-default` is 7.1 MB, `dolly-package-python` 51.1 MB), and every image
+  package's README now gives the `FROM` row of a recipe built on it. `dolly-build` already
+  builds a recipe `FROM` any installed image; `docs/embedding.md` says so. `init` stays Pi's.
+- `test/npm-browser.mjs` gains a project made with npm alone: it installs what the package's
+  README says, boots python-data (NumPy, pandas, Matplotlib), writes a recipe on the README's
+  `FROM` row whose build runs Python with NumPy and pandas, builds it with `dolly-build` in the
+  browser under test and boots it. Run here as an untracked copy without the Pi part (pi-minimal
+  needs the Rust chain, which display.c's change already invalidates and a `build` slot cannot
+  rebuild): Chromium 45.7 s, Firefox 52.9 s. The whole test is for the round.
+- The build image is not packed: a recipe that COPYs from it needs its whole snapshot (315 MB,
+  86 MB of packs) to take one root; an npm project builds on python-data instead.
 
 ## Findings (2026-11-03 evening, exploration session in Chromium)
 

@@ -89,7 +89,8 @@ Open [slopshare.dev](https://slopshare.dev/) or
 [GitHub Pages](https://daugasauron.github.io/dolly/). The menu lists every image.
 
 In a page of your own: `npm install @daugasauron/dolly @daugasauron/dolly-image-default`
-and [Embedding](docs/embedding.md), or [Pi with npm](#pi-with-npm) below.
+and [Embedding](docs/embedding.md), or [Pi with npm](#pi-with-npm) below;
+`@daugasauron/dolly-image-python-data` is Python with NumPy, pandas and Matplotlib.
 
 - `/IMAGE/` boots the prebuilt image; `/IMAGE/rebuild/` builds it from its
   Dollyfile in your browser; `/view/IMAGE/` shows the recipe.
