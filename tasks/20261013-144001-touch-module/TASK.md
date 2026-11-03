@@ -1,8 +1,8 @@
 # buttons@0 is reworked: a generic module for a touchscreen's input, which programs compile against
 
 - STATUS: OPEN
-- PRIORITY: 310
-- TAGS: host-modules,input,phone,0.1.4
+- PRIORITY: 60
+- TAGS: host-modules,input,phone
 
 Owner (2026-10-13): "create a task to rework the "buttons module"
 completely. What I wanted from that is something generic to capture
@@ -33,7 +33,30 @@ buttons, captions or any program; a small program proves it (two fingers
 zoom something it draws), in Chromium with touch emulation and on a phone;
 `buttons@0` is replaced by it.
 
-## State (2026-10-23): the contract is decided; goes with v0.1.4
+## State (2026-11-03): waits for the owner: the phone, and buttons in touch@0
+
+In v0.1.4 (released 2026-10-31): `touch@0` (`host/touch/`), the SDL2 and raylib drivers, the
+`fingers` demo, `buttons@0` removed; `test/touch-ring.test.mjs`, `test/touch-browser.mjs` and
+`demos/fingers/test/fingers-browser.mjs` pass in Chromium and Firefox. The images "not rebuilt
+here" on 2026-10-23 (below) are in that release's catalog. The `0.1.4` tag is gone: what is left
+is no release's work. Ranked 60 from 310, as it waits for the owner.
+
+Left:
+
+- **Buttons in `touch@0`.** 835fa963b (2026-11-03, a contract change the owner approved that
+  day, `tasks/20261010-193000-phone-voice-pi`) gives the lease holder BUTTONS (op 95): up to 12
+  labels the page shows in input@0's bar below the canvas, before Paste and drawn as Paste is; a
+  tap is a `PRESS` record (id the button's index, x the labels word), and the buttons go with the
+  lease. pi-phone's Speak, Send, Clear and Menu are such buttons. This contradicts the done-when
+  below ("the module knows nothing of buttons, captions or any program") and resembles
+  `buttons@0`: keep them in `touch@0` as approved, or give them a module of their own. A line of
+  `tasks/20261102-133353-owner-decisions`.
+- **The phone.** pi-phone ran on the owner's phone on 2026-11-03 over USB. Not tried there:
+  `fingers` with two real fingers, and the phone keyboard's own paste at the `default` prompt
+  (if it reaches the terminal, Paste could leave input@0). Both at the owner's call
+  (2026-10-24: "phone stuff - wait for my calls later").
+
+## The contract (2026-10-23): decided; went with v0.1.4
 
 Owner (2026-10-23): "I thought the buttons module got reworked? That should be included in the
 next release for sure, it should be some phone/touch input module thing?" It had waited on
@@ -189,7 +212,7 @@ Also run after step 4, in Chromium and Firefox: `imgui` (rebuilt on the new `sdl
 `terminal`, `indicators` and `default` (its last part needs `zig` in this tree's narrowed image
 list, which was not built here). The core suite as a whole was not run (the integrator's).
 
-Left (2026-10-23, 14:40):
+Left on 2026-10-23, 14:40 (today's in the State above):
 
 - The done-when's phone waits for the owner's call (2026-10-24: "phone stuff - wait for my
   calls later"); no agent connects a phone before then. On 2026-10-23 no phone was
