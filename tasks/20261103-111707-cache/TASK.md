@@ -86,3 +86,22 @@ reader of an image's packs goes through: a start (`runtime-worker.mjs`, so `/ses
 - Not stored: the runtime's own files. They are 3.0 MiB of small files that the HTTP cache keeps
   where they are cacheable (the site); only a service worker could serve the page's modules from
   a store. `dist/dolly.data` (116 MB) is read only by a root build, not by a start or a session.
+
+## After (2026-11-03 21:16, same browsers)
+
+- With the HTTP cache bypassed (Playwright's routing, `route-system.log`), `system`'s second and
+  third starts downloaded no pack in Chrome or Firefox, where Chrome had downloaded all 20 at
+  every start; the start took the same time (1.9 to 2.2 s from a local server).
+  `navigator.storage.estimate()` grew by the packs: 41.0 MiB (Chrome), 41.4 MiB (Firefox).
+- `test/pack-store-browser.mjs` (Chrome 2.6 s, Firefox 4.0 s) serves packs itself, uncacheable,
+  and counts them: a second start of `default` downloads none and removes another runtime's
+  record and pack and a pack no record names; a session saved there opens while the server
+  refuses every pack; a kept pack overwritten with other bytes of its length fails the start and
+  is removed, and the next start downloads that one pack; the sessions page's Clear empties the
+  store, and the next start downloads every pack. In Firefox, with
+  `permissions.default.persistent-storage` = 1, a save leaves the origin's storage persisted.
+- Passed in Chrome and Firefox: `core`, `custom-session`, `session-offline`, `snapshot-stream`,
+  `host-modules`, `indicators`. `nena` installed `cc` through `packages@0` (its packs through the
+  store) and then failed at `amy install libdolly-audio`, which this tree's catalog of 34 images
+  does not publish; `site` failed at `/docs/browser-boundary.md` (404), which only a catalog
+  holding `dolly-docs` serves. Neither depends on this change.

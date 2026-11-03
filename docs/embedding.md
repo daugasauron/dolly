@@ -51,7 +51,7 @@ the page's.
 
 | Option | Meaning |
 | --- | --- |
-| `images` | URL of an image directory: `dist/dolly-images.mjs`, the images' metadata and packs, their recipes. `@daugasauron/dolly-image-default`'s `index.mjs` exports its own. A page has one image directory |
+| `images` | URL of an image directory: `dist/dolly-images.mjs`, the images' metadata and packs, their recipes. `@daugasauron/dolly-image-default`'s `index.mjs` exports its own. A page has one image directory. The packs an image reads stay in the origin's private storage, so it starts again without downloading them (`src/pack-store.mjs`) |
 | `image` | The image to run, by name |
 | `modules` | URLs of the `module.json` of each host module the page has. The registry loads these and no other; an image's `REQUIRES HOST` must be among them |
 | `site` | Optional: the URL of a site that serves Dolly's own pages (`session/`, `sessions/`, `docs/`), as Dolly's site does. Given, a saved session names itself in the tab's URL as the site's session route and modules link to those pages |
