@@ -1,24 +1,18 @@
-OpenBLAS 0.3.34 for a WebAssembly that is not Emscripten, with its generic C
-kernels (ARCH=wasm, TARGET=GENERIC) and its C translation of LAPACK
-(C_LAPACK): proposed upstream, not filed.
+OpenBLAS 0.3.34's C translation of LAPACK (C_LAPACK) on WebAssembly: proposed
+upstream, not filed.
 
-- kernel/CMakeLists.txt reads KERNEL.$(TARGET_CORE) only if it exists, as
-  kernel/Makefile's -include does: kernel/wasm has no KERNEL.generic, its
-  KERNEL file is the generic set.
-- param.h gives GENERIC on ARCH_WASM the cache blocking WASM128_GENERIC uses
-  (the generic LoongArch values): the runtime sgemm_p and its kin are
-  declared for other architectures only.
 - LAPACK's subroutines return void. OpenBLAS defines the ones it implements
   (interface/lapack: getrf, getrs, gesv, potrf, lauum, trtri, laswp, laed3
-  and their unblocked forms) and 42 files of its C translation (larft,
-  larf1f, larf1l, gedmd, geqp3rk, rscl...) as returning int, and declares
-  them int where it calls them, while most of the translation and every
-  outside caller (SciPy, LAPACKE's lapack.h) declare them void. WebAssembly
-  checks each call's type: wasm-ld links a mismatched call to a trap
-  (OpenBLAS's own utest potrf:bug_695 traps, and linking every object of the
-  library warns of 108 symbols). Every `int NAME_(` of a subroutine but
-  xerbla_ becomes `void`, with its `return 0;` a `return;`, and so do
-  common_interface.h's prototypes of those routines.
+  and their unblocked forms), 42 files of its C translation (larft, larf1f,
+  larf1l, gedmd, geqp3rk, rscl...) and INSTALL's ilaver and lamc1 as
+  returning int, and declares them int where it calls them, while most of
+  the translation and every outside caller (SciPy, LAPACKE's lapack.h)
+  declare them void. WebAssembly checks each call's type: wasm-ld links a
+  mismatched call to a trap (OpenBLAS's own utest potrf:bug_695 traps, and
+  linking every object of the library warns of 108 symbols). Every
+  `int NAME_(` of a subroutine but xerbla_ becomes `void`, with its
+  `return 0;` a `return;`, and so do common_interface.h's prototypes of
+  those routines.
 - xerbla_ takes the routine name's length after INFO and returns int: the
   files of the 3.12 routines (gedmd, gedmdq, geqp3rk) and DEPRECATED's gelqs
   and geqrs declare and call it without the length, and declare it in a list
@@ -794,15 +788,148 @@ tests and utest_ext's 1535 pass.
 -  return 0;
 +  return;
  
---- a/kernel/CMakeLists.txt
-+++ b/kernel/CMakeLists.txt
-@@ -39,3 +39,5 @@
-     ParseMakefileVars("${KERNELDIR}/KERNEL")
--    ParseMakefileVars("${KERNELDIR}/KERNEL.${TARGET_CORE}")
-+    if (EXISTS "${KERNELDIR}/KERNEL.${TARGET_CORE}")
-+      ParseMakefileVars("${KERNELDIR}/KERNEL.${TARGET_CORE}")
-+    endif ()
-     SetDefaultL1()
+--- a/lapack-netlib/INSTALL/dlamch.c
++++ b/lapack-netlib/INSTALL/dlamch.c
+@@ -375,3 +375,3 @@
+     static doublereal sfmin;
+-    extern /* Subroutine */ int dlamc2_(integer *, integer *, logical *, 
++    extern /* Subroutine */ void dlamc2_(integer *, integer *, logical *, 
+ 	    doublereal *, integer *, doublereal *, integer *, doublereal *);
+@@ -497,3 +497,3 @@
+ /* > */
+-/* Subroutine */ int dlamc1_(integer *beta, integer *t, logical *rnd, logical 
++/* Subroutine */ void dlamc1_(integer *beta, integer *t, logical *rnd, logical 
+ 	*ieee1)
+@@ -646,3 +646,3 @@
+     first = FALSE_;
+-    return 0;
++    return;
+ 
+@@ -722,3 +722,3 @@
+ /* > \endverbatim */
+-/* Subroutine */ int dlamc2_(integer *beta, integer *t, logical *rnd, 
++/* Subroutine */ void dlamc2_(integer *beta, integer *t, logical *rnd, 
+ 	doublereal *eps, integer *emin, doublereal *rmin, integer *emax, 
+@@ -758,3 +758,3 @@
+     doublereal sixth;
+-    extern /* Subroutine */ int dlamc1_(integer *, integer *, logical *, 
++    extern /* Subroutine */ void dlamc1_(integer *, integer *, logical *, 
+ 	    logical *);
+@@ -762,3 +762,3 @@
+     logical lieee1;
+-    extern /* Subroutine */ int dlamc4_(integer *, doublereal *, integer *), 
++    extern /* Subroutine */ void dlamc4_(integer *, doublereal *, integer *), 
+ 	    dlamc5_(integer *, integer *, integer *, logical *, integer *, 
+@@ -960,3 +960,3 @@
+ 
+-    return 0;
++    return;
+ 
+@@ -1033,3 +1033,3 @@
+ /* > */
+-/* Subroutine */ int dlamc4_(integer *emin, doublereal *start, integer *base)
++/* Subroutine */ void dlamc4_(integer *emin, doublereal *start, integer *base)
+ {
+@@ -1095,3 +1095,3 @@
+ 
+-    return 0;
++    return;
+ 
+@@ -1148,3 +1148,3 @@
+ /* > */
+-/* Subroutine */ int dlamc5_(integer *beta, integer *p, integer *emin, 
++/* Subroutine */ void dlamc5_(integer *beta, integer *p, integer *emin, 
+ 	logical *ieee, integer *emax, doublereal *rmax)
+@@ -1269,3 +1269,3 @@
+     *rmax = y;
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/INSTALL/ilaver.c
++++ b/lapack-netlib/INSTALL/ilaver.c
+@@ -321,3 +321,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int ilaver_(integer *vers_major__, integer *vers_minor__, 
++/* Subroutine */ void ilaver_(integer *vers_major__, integer *vers_minor__, 
+ 	integer *vers_patch__)
+@@ -337,3 +337,3 @@
+ 
+-    return 0;
++    return;
+ } /* ilaver_ */
+--- a/lapack-netlib/INSTALL/secondtst.c
++++ b/lapack-netlib/INSTALL/secondtst.c
+@@ -447,3 +447,3 @@
+     real alpha, x[1000], y[1000], total;
+-    extern /* Subroutine */ int mysub_(integer *, real *, real *);
++    extern /* Subroutine */ void mysub_(integer *, real *, real *);
+     real t1, t2;
+@@ -556,3 +556,3 @@
+ 
+-/* Subroutine */ int mysub_(integer *n, real *x, real *y)
++/* Subroutine */ void mysub_(integer *n, real *x, real *y)
+ {
+@@ -563,3 +563,3 @@
+     /* Function Body */
+-    return 0;
++    return;
+ } /* mysub_ */
+--- a/lapack-netlib/INSTALL/slamch.c
++++ b/lapack-netlib/INSTALL/slamch.c
+@@ -374,3 +374,3 @@
+     static real sfmin;
+-    extern /* Subroutine */ int slamc2_(integer *, integer *, logical *, real 
++    extern /* Subroutine */ void slamc2_(integer *, integer *, logical *, real 
+ 	    *, integer *, real *, integer *, real *);
+@@ -496,3 +496,3 @@
+ /* > */
+-/* Subroutine */ int slamc1_(integer *beta, integer *t, logical *rnd, logical 
++/* Subroutine */ void slamc1_(integer *beta, integer *t, logical *rnd, logical 
+ 	*ieee1)
+@@ -645,3 +645,3 @@
+     first = FALSE_;
+-    return 0;
++    return;
+ 
+@@ -721,3 +721,3 @@
+ /* > \endverbatim */
+-/* Subroutine */ int slamc2_(integer *beta, integer *t, logical *rnd, real *
++/* Subroutine */ void slamc2_(integer *beta, integer *t, logical *rnd, real *
+ 	eps, integer *emin, real *rmin, integer *emax, real *rmax)
+@@ -757,6 +757,6 @@
+     logical lieee1;
+-    extern /* Subroutine */ int slamc1_(integer *, integer *, logical *, 
++    extern /* Subroutine */ void slamc1_(integer *, integer *, logical *, 
+ 	    logical *);
+     extern real slamc3_(real *, real *);
+-    extern /* Subroutine */ int slamc4_(integer *, real *, integer *), 
++    extern /* Subroutine */ void slamc4_(integer *, real *, integer *), 
+ 	    slamc5_(integer *, integer *, integer *, logical *, integer *, 
+@@ -958,3 +958,3 @@
+ 
+-    return 0;
++    return;
+ 
+@@ -1031,3 +1031,3 @@
+ /* > */
+-/* Subroutine */ int slamc4_(integer *emin, real *start, integer *base)
++/* Subroutine */ void slamc4_(integer *emin, real *start, integer *base)
+ {
+@@ -1093,3 +1093,3 @@
+ 
+-    return 0;
++    return;
+ 
+@@ -1146,3 +1146,3 @@
+ /* > */
+-/* Subroutine */ int slamc5_(integer *beta, integer *p, integer *emin, 
++/* Subroutine */ void slamc5_(integer *beta, integer *p, integer *emin, 
+ 	logical *ieee, integer *emax, real *rmax)
+@@ -1267,3 +1267,3 @@
+     *rmax = y;
+-    return 0;
++    return;
+ 
 --- a/lapack-netlib/SRC/DEPRECATED/cgelqs.c
 +++ b/lapack-netlib/SRC/DEPRECATED/cgelqs.c
 @@ -382,3 +382,3 @@
@@ -3812,10 +3939,3 @@ tests and utest_ext's 1535 pass.
 -    extern /* Subroutine */ int ztrtri_(char *, char *, integer *, 
 +    extern /* Subroutine */ void ztrtri_(char *, char *, integer *, 
  	    doublecomplex *, integer *, integer *);
---- a/param.h
-+++ b/param.h
-@@ -4298,3 +4298,3 @@
- #define ZGEMM_DEFAULT_R  4096
--#elif defined(ARCH_LOONGARCH64)
-+#elif defined(ARCH_LOONGARCH64) || defined(ARCH_WASM)
- #define SGEMM_DEFAULT_P 128

@@ -4,11 +4,12 @@ REQUIRES HOST runtime@0
 
 # OpenBLAS's BLAS and LAPACK from upstream's release archive, built by its
 # CMake project for programs and Python extensions the cc package builds:
-# WebAssembly (ARCH=wasm, 64-bit) with the generic C kernels (TARGET=GENERIC;
-# its wasm kernels need SIMD128, which Dolly's target does not enable), LAPACK
-# from its C translation (C_LAPACK, no Fortran), one thread, static, found by
-# pkg-config as openblas. openblas-dolly.patch is the two lines that build
-# needs (proposed upstream).
+# WebAssembly (ARCH=wasm, 64-bit, which OpenBLAS detects under Emscripten
+# alone) with its SIMD128 kernels (WASM128_GENERIC, -msimd128 on each unit),
+# LAPACK from its C translation (C_LAPACK, no Fortran), one thread, static,
+# found by pkg-config as openblas. openblas-dolly.patch makes LAPACK's
+# subroutines return void, as their callers declare them: WebAssembly traps a
+# call of another type (proposed upstream).
 FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build b2a9e6f202c89fbb0727c51ffd89556818badbc678507db9f4af6c550a525493
 REQUIRES HEADER libc
 REQUIRES TOOL cmake
@@ -20,11 +21,11 @@ REQUIRES TOOL rm
 REQUIRES TOOL tar
 
 SOURCE /v0.1.4/dist/static/openblas/OpenBLAS-0.3.34.tar.gz cd7e129868320cc2d033afa920e31202dfe0b8066a5b66661900ccc0f197dfed /tmp/openblas.tar.gz
-SOURCE /v0.1.4/dist/static/openblas/openblas-dolly.patch 17d8a953e8876d929b6b12ebafa25a9d4c8093294c16fddfed7535b983e51b9c /tmp/openblas-dolly.patch
+SOURCE /v0.1.4/dist/static/openblas/openblas-dolly.patch 551ff6898e9f1c58cb0a1b9f0d82a2421fa8f23d21321bfa0adf08e7431baf8f /tmp/openblas-dolly.patch
 SLOP gzip -dc /tmp/openblas.tar.gz | tar -xf - -C /tmp
 SLOP patch -p1 -d /tmp/OpenBLAS-0.3.34 -i /tmp/openblas-dolly.patch
-SLOP cmake -S /tmp/OpenBLAS-0.3.34 -B /tmp/openblas-build -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DARCH=wasm -DBINARY=64 -DTARGET=GENERIC \
+SLOP cmake -S /tmp/OpenBLAS-0.3.34 -B /tmp/openblas-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS=-msimd128 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DARCH=wasm -DBINARY=64 -DTARGET=WASM128_GENERIC \
   -DNOFORTRAN=1 -DC_LAPACK=1 -DNO_LAPACKE=1 -DUSE_THREAD=0 -DBUILD_SHARED_LIBS=OFF -DBUILD_STATIC_LIBS=ON \
   -DBUILD_TESTING=OFF
 SLOP cmake --build /tmp/openblas-build -j8

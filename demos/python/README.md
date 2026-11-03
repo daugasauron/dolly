@@ -9,7 +9,7 @@ builds, plus stock pip over Dolly's HTTP broker.
 - `libffi`: libffi with Dolly's target: calls and closures of signatures known at run time, through `dso@0`.
 - `python-data`: Python with NumPy, pandas, Matplotlib and seaborn, built once: a session imports them at once.
 - `python-data-build`: A build stage: NumPy, pandas, Matplotlib and what they need, compiled in Dolly from PyPI's releases, one root per library for `COPY`.
-- `openblas`: OpenBLAS's BLAS and LAPACK for wasm64, its generic C kernels and C translation of LAPACK, static, found by pkg-config as `openblas`.
+- `openblas`: OpenBLAS's BLAS and LAPACK for wasm64, its SIMD128 kernels and C translation of LAPACK, static, found by pkg-config as `openblas`.
 
 Install it with `INSTALL` or `amy install python`; build with
 `npm run image -- python`.
@@ -66,8 +66,8 @@ uninstalls what the roots hold. `python-data` takes them all.
   imports so that urllib and requests use it, in venvs too.
 - [`Dollyfile-python`](Dollyfile-python): pip and its configuration, a later image step.
 - [`Dollyfile-openblas`](Dollyfile-openblas), [`openblas-dolly.patch`](openblas-dolly.patch): OpenBLAS
-  for a wasm that is not Emscripten, with LAPACK's subroutines returning void, as their callers
-  declare them (WebAssembly traps a call of another type); the patch's head says why each change.
+  with LAPACK's subroutines returning void, as their callers declare them (WebAssembly traps a call
+  of another type); the patch's head says why each change.
 - [`Dollyfile-python-data-build`](Dollyfile-python-data-build): the data libraries, one root each,
   and why each build setting; [`Dollyfile-python-data`](Dollyfile-python-data): the image with
   them all.
@@ -84,12 +84,12 @@ uninstalls what the roots hold. `python-data` takes them all.
   and custom TLS verification fail.
 - In a session pip builds NumPy and pandas from source as python-data-build
   does; other native packages may not build.
-- python-data has no SciPy, nor scikit-learn or statsmodels, which need it:
-  SciPy 1.18 builds without Fortran but needs BLAS and LAPACK, which no
-  package holds yet (OpenBLAS's generic wasm build is the way). Matplotlib 3.11 bundles HarfBuzz, which takes Meson's
-  threads, and Dolly has no threads in an extension module; pandas 3.1 needs
-  Meson to read Clang's version from `cc --version`
-  ([task](../../tasks/20261103-110906-pydata/TASK.md)).
+- python-data has no SciPy, nor scikit-learn or statsmodels, which need it.
+  SciPy 1.18 builds without Fortran on the `openblas` package, in 5 minutes
+  in a session, but its fft, HiGHS and qmc modules take Meson's threads,
+  which `cc` refuses for an extension module, as Matplotlib 3.11's HarfBuzz
+  does; and pandas 3.1 and SciPy need Meson to read Clang's version from
+  `cc --version` ([task](../../tasks/20261103-133557-scipy/TASK.md)).
 - Matplotlib draws with Agg: `savefig` writes PNG, SVG or PDF files, and
   `show()` has no window to open.
 
