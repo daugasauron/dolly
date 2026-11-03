@@ -28,7 +28,7 @@ FILE /tmp/libjpeg/Makefile
     $J/jconfig.h: $J/jconfig.txt
     >cp $< $@
     /tmp/libjpeg/%.o: $J/%.c $J/jconfig.h
-    >cc -O1 -I$J -c $< -o $@
+    >cc -O2 -I$J -c $< -o $@
     /usr/lib/libjpeg.a: $(UNITS:%=/tmp/libjpeg/%.o)
     >ar rcs $@ $^
 SLOP make -j4 -f /tmp/libjpeg/Makefile
