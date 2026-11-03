@@ -133,6 +133,22 @@ contract and client (`DOLLY_DSO_WAIT`, `__dolly_dso_threads`, the TLS exports): 
   a barrier, an extension module and a `ctypes` callback from another thread): pass; python
   builds in 98 s. The demo's test: `python` in Chromium 32.3 s, `python on default` (pip builds
   NumPy from its sdist) in Chromium 149.8 s and Firefox 185.1 s.
+- CPython's own tests, with `python -m unittest` from the image's source tree
+  (`build/pythreads-evidence/cpython-tests.mjs`), the same in Chromium and Firefox:
+  - `test_thread`: 35 tests OK, 2 skipped (fork). `test_queue`: 162 OK, 6 skipped.
+  - `test_threading`: 228 tests, 27 skipped (fork, subinterpreters, `_thread.set_name`, the
+    2.7 GB test), 1 failure: `test_finalize_daemon_thread_hang` imports `_testcapi`, which
+    the image does not build (`--disable-test-modules`).
+  - `test_concurrent_futures` does not import: its `util.py` names
+    `futures.InterpreterPoolExecutor` at class definition, and this build has no
+    subinterpreters. With a stand-in that skips interpreter pools (Chromium): 350 tests, 275
+    skipped (process and interpreter pools: no fork, no subinterpreters), 1 error
+    (`test_interpreter_pool`: no `_interpreters`), 3 failures in `ThreadPoolShutdownTest`, each a
+    child `python -I` that cannot import the `test` package, which the image does not install
+    and `-I` will not find in the working directory: the harness's, not threads'.
+  - First run: `test_forkinthread` waited for ever, since CPython had an `os.fork` that always
+    failed (`ENOSYS`) and `test.support` took fork as working; configure now reports no fork
+    (`5d6897b6a`), and the fork tests skip.
 - `python -m test` cannot run here: regrtest spawns a worker whose arguments hold an
   undecodable directory name, and `_dolly_subprocess.spawn` encodes them as strict UTF-8
   (`UnicodeEncodeError ... surrogates not allowed`): a subprocess limit, not threads. The
@@ -141,10 +157,9 @@ contract and client (`DOLLY_DSO_WAIT`, `__dolly_dso_threads`, the TLS exports): 
 ## Findings left open
 
 - Dolly's own libc locks (`src/process/lock.h`, `dolly_lock`: the thread list, signal actions,
-  mmap's table) wait with a raw `memory.atomic.wait32`, not through `emscripten_futex_wait`: a
-  thread blocked in one counts as running, so a load waits until it has the lock. Nothing holds
-  one across `dlopen`, so no deadlock follows today; routing `dolly_lock_acquire` through
-  `emscripten_futex_wait` is a one-line seed change for the next round.
+  mmap's table) waited with a raw `memory.atomic.wait32`: a thread blocked in one counted as
+  running, so a load waited until it had the lock (nothing held one across `dlopen`, so no
+  deadlock). They wait through `emscripten_futex_wait` now, like musl's.
 - A thread that computes for long without a call or a wait delays every load, `dlsym` of a new
   function and closure preparation in its process until it makes one (Emscripten's dlopen has
   the same property). A thread spinning on a flag with no call at all would delay them for ever.
