@@ -21,13 +21,14 @@ Done when: every recipe that builds with Zig uses 0.17.0 (or the newest release 
 and pins name it, nothing pins 0.16; the catalog is rebuilt in a round, and the terminal, zig's
 own demo test and the images built with it pass their tests in Chromium and Firefox.
 
-## State (2026-11-03 21:00 JST)
+## State (2026-11-03 22:20 JST)
 
 Branch `zig/0.17` in `work/sdl2`. Pins, patches, recipes and docs name Zig 0.17.0, Ghostty
 v1.4.0 and LLVM 22.1.8; nothing pins 0.16 or LLVM 21. Built and tested in this tree: the core
-chain (below, Measurements). Prepared, not built: `llvm22-tablegen`, `llvm22`, `zig-llvm-build`,
-`zig-llvm` (waiting for the large slots) and `demos/ghostty-gtk` (needs Mesa's EGL,
-`tasks/20261103-110119-ghostty-egl`). Left: those builds, then the catalog round.
+chain (Measurements, Tests). Building since 22:15 in a 9 GB `bigbuild` slot (unit
+`dolly-zig017-llvm22b`, `build/zig017-evidence/image-llvm22.log`): `llvm22-tablegen`, `llvm22`,
+`zig-llvm-build`, `zig-llvm`; then `npm run test:demos -- zig`. `demos/ghostty-gtk` is staged for
+v1.4.0 but needs Mesa's EGL (`tasks/20261103-110119-ghostty-egl`). Left: those, then the round.
 
 ## Findings (2026-11-03, with evidence)
 
@@ -173,6 +174,11 @@ a blobless clone `ghostty-git/`).
 (21:02 to 21:23; 229 MB of C, as a host Zig 0.17 writes it, against the core's 65 MB), then `cc -c`
 of it was killed by the slot's OOM killer after 7 min ("Target crashed"). It needs the 9 GB slot,
 as `llvm21`'s chain had (`tasks/20261014-234000-zig-llvm`).
+
+LLVM 22 in a 9 GB `bigbuild` slot (Chrome, 2026-11-03 22:15 to 23:34): `llvm22-tablegen` 218 s
+(255.8 MB); `llvm22` 4500 s, its `make -k -j4` 4450 s, 448.0 MB, `llvm-config` 22.1.8 with Zig's
+20 targets, no failed unit. (`llvm21`'s make took 3797 s in the round of 3 November; its image
+was 426.6 MB.)
 
 Staging the whole `ghostty-x11` closure (`prepare-image-sources.sh`, every `has_image` of
 `ghostty-gtk`, `mesa-build`, `llvm22`, `zig-llvm-build`) runs, 22 s with the trees prepared.
