@@ -82,7 +82,11 @@ a blobless clone `ghostty-git/`).
   program also works without `-target`. The spawn hunks stay in the core: programs built with the
   `zig` package now start processes (a `std.process.spawn` of `echo` printed `hello child`).
   Proposal (a seed change, the compiler's driver): `-Wp,ARG` passes ARG to the preprocessor as in
-  GCC and Clang; then Zig finds the libc by itself and the file goes.
+  GCC and Clang; then Zig finds the libc by itself and the file goes. The smallest diff, in
+  `src/compiler.cpp`'s option loop: exclude `-Wp,` from the `-W` branch beside `-Wl,`, and add
+  `else if (starts_with(argument, "-Wp,"))` pushing each comma-separated part onto
+  `options.frontend_options` (cc1 takes `-v` there, as `cc -E -v` shows). It needs a new seed
+  compiler (`llvm-cc`), so it waits for the owner and a seed round.
 - A host Zig 0.17 compiles the patched compiler to C (`zig build-exe … -ofmt=c` of
   `src/main.zig` with `src/zig/config.zig`) in 2.3 s on this machine, so a source error shows in
   seconds instead of after a 5-minute image build.
@@ -165,6 +169,14 @@ a blobless clone `ghostty-git/`).
 | `zig` (package) | 7 s, 62.8 MB | |
 | the chain from `zig-build` to `default` and `system` | 865 s | |
 
+`zig-llvm-build` in a 6 GB `build` slot: zig1 made the LLVM-enabled compiler's C in 21 min
+(21:02 to 21:23; 229 MB of C, as a host Zig 0.17 writes it, against the core's 65 MB), then `cc -c`
+of it was killed by the slot's OOM killer after 7 min ("Target crashed"). It needs the 9 GB slot,
+as `llvm21`'s chain had (`tasks/20261014-234000-zig-llvm`).
+
+Staging the whole `ghostty-x11` closure (`prepare-image-sources.sh`, every `has_image` of
+`ghostty-gtk`, `mesa-build`, `llvm22`, `zig-llvm-build`) runs, 22 s with the trees prepared.
+
 In a `default` session (Chromium): `amy install zig` 3.4–4.6 s; `zig build-exe hello.zig` of
 the man page's program, its `cc` and its run 4.7 s.
 
@@ -182,3 +194,22 @@ the man page's program, its `cc` and its run 4.7 s.
 - Source suite: 470 passed.
 - Not run: `npm run test:demos -- zig` (needs `zig-llvm`, so LLVM 22), the ghostty-gtk demo
   tests, the artifact tests and `amy-browser.mjs` (both need the whole catalog).
+
+## Lessons
+
+- A host Zig of the pinned version is the fast loop for a Zig upgrade: it compiles the patched
+  compiler to C in 2.3 s and Ghostty's VT library in 8.5 s, with the recipe's module graph, and
+  shows every source error at once; the image build shows one per 5 to 10 minutes.
+- A green image build is not a working one: the wasm64 float-comparison mismatch appeared only as
+  seven wasm-ld warnings in a build that succeeded, and wasm-ld makes such calls traps. Read the
+  link lines of every rebuilt compiler.
+- Generated inputs take their context from where the generator runs: Ghostty's build took its
+  version from Dolly's Git and kept it in Zig 0.17's cached configuration, and the documented
+  `wasm64-freestanding` target would have dropped kitty graphics silently. Run upstream's build in
+  its own checkout, uncached, for the target Dolly builds.
+- A pin that several demos stage breaks the whole catalog's source preparation if one of them
+  patches with `--fuzz=0` (ghostty-gtk did): run every `has_image` staging that reads the pin,
+  not only the images being built.
+- amy applies a package's environment from the next session load, so a package whose tool needs
+  a variable right after `amy install` (ZIG_LIBC) fails the install-then-use check; the root cause
+  here was Dolly's cc ignoring `-Wp,-v`.

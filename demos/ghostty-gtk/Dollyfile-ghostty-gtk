@@ -94,7 +94,7 @@ SLOP cc -O1 /tmp/ghostty-cc/cc.c -o /tmp/ghostty-cc/cc
 # Ghostty's build finds libdolly-sockets and libdolly-pty under a prefix's lib.
 SLOP mkdir -p /tmp/ghostty-prefix && ln -s /usr/lib/dolly/process /tmp/ghostty-prefix/lib
 
-SOURCE /v0.1.4/dist/static/ghostty-gtk/ghostty.tar.gz b3bd58bf3734ae0d7b5c509082f2a00f99658d292bbfeb0a2f5a8daf474adb22 /tmp/ghostty.tar.gz
+SOURCE /v0.1.4/dist/static/ghostty-gtk/ghostty.tar.gz e1bca57cb68de609d75a8743036aa36dc592cabee8f5b0db6b0271d435222aa4 /tmp/ghostty.tar.gz
 SLOP gzip -dc /tmp/ghostty.tar.gz | tar -xf - -C /
 # Without xmllint, GLib's resource compiler keeps the blanks of the interface
 # files (it says so): it would run xmllint by fork.
