@@ -321,6 +321,10 @@ buttons to be different [...] Rethink it from first principles". Then approved a
   images, so it waits for the next full round.
 - Signed out, Pi's menu says so and opens on Sign in (Pi's placeholder model, "unknown", is no
   provider's).
+- On the owner's phone the keyboard is Traditional T9, whose strip ("[ Abc / en ]") lies over
+  the page's bottom while the terminal has the focus, and Chrome kept the page's height under
+  it. The terminal page's viewport resizes with the keyboard (`interactive-widget=
+  resizes-content`): the bar sits above the strip (screenshot over USB, 14:30).
 
 ## Parked (2026-10-10, 23:55)
 
