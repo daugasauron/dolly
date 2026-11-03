@@ -26,6 +26,9 @@ unsigned __default_guardsize = 0;
 extern unsigned char __stack_high, __stack_low;
 void __wasm_init_tls(void *);
 void __do_orphaned_stdio_locks(void);
+/* A host of libraries (dso@0's client, host/dso/client.c) waits through the
+ * loader, which places in this thread's Worker what the other threads loaded. */
+weak int __dolly_dso_wait(volatile void *address, uint32_t value, int64_t timeout);
 
 void __tl_lock(void) { dolly_lock_acquire(&thread_list_lock); }
 void __tl_unlock(void) { dolly_lock_release(&thread_list_lock); }
@@ -227,6 +230,7 @@ uint64_t __dolly_pthread_start(uint32_t tid, uint64_t argument) {
   __wasm_init_tls(item->tls);
   initialize_thread(item, tid, 0);
   pthread_sigmask(SIG_SETMASK, &item->mask, NULL);
+  if (__dolly_dso_wait) __dolly_dso_wait(NULL, 0, 0);
   void *result = item->c11 ? (void *)(intptr_t)((int (*)(void *))item->entry)(item->argument)
       : item->entry(item->argument);
   pthread_exit(result);
@@ -236,6 +240,7 @@ int emscripten_futex_wait(volatile void *address, uint32_t value, double millise
   if ((uintptr_t)address % 4 || !address || isnan(milliseconds)) return -EINVAL;
   int64_t timeout = !isfinite(milliseconds) ? -1 : milliseconds <= 0 ? 0 :
       milliseconds >= (double)INT64_MAX / 1000000 ? INT64_MAX : (int64_t)(milliseconds * 1000000);
+  if (__dolly_dso_wait) return __dolly_dso_wait(address, value, timeout);
   int result = __builtin_wasm_memory_atomic_wait32((int *)address, value, timeout);
   return result == 0 ? 0 : result == 1 ? -EAGAIN : -ETIMEDOUT;
 }

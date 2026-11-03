@@ -20,6 +20,20 @@ _Static_assert(sizeof(dolly_dso_open_request) == 16, "DSO open packet");
 _Static_assert(sizeof(dolly_dso_symbol_request) == 16, "DSO symbol packet");
 _Static_assert(sizeof(dolly_dso_close_request) == 8, "DSO close packet");
 _Static_assert(sizeof(dolly_dso_response) == 16 + DOLLY_DSO_ERROR_CAPACITY, "DSO response packet");
+_Static_assert(sizeof(dolly_dso_wait_request) == 24, "DSO wait packet");
+
+/* In a host using threads@0, what the loader placed in one thread's Worker for
+ * the others (host/dso/threads.mjs). -rdynamic exports it. */
+__attribute__((visibility("default"), aligned(8)))
+unsigned char __dolly_dso_threads[DOLLY_DSO_THREADS_SIZE];
+
+/* libc's futex wait in a host using threads@0, which places what the other
+ * threads loaded; with no address it places them only (src/process/threads.c). */
+__attribute__((visibility("hidden")))
+int __dolly_dso_wait(volatile void *address, uint32_t value, int64_t timeout) {
+  const dolly_dso_wait_request request = {(uint64_t)(uintptr_t)address, value, 0, timeout};
+  return (int)dolly_process_call(DOLLY_DSO_WAIT, &request, sizeof(request), NULL, 0);
+}
 
 static _Thread_local char dso_error[DOLLY_DSO_ERROR_CAPACITY + 1];
 static _Thread_local int dso_error_pending;

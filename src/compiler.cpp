@@ -997,6 +997,12 @@ bool link_process_shared_object(const std::string &output,
       // implementation details do not become imports from the executable.
       // Truly undefined libc, Python, and C++ ABI symbols remain imports.
       "-Bsymbolic",
+      // The thread that loads a library uses the copy of its thread-locals
+      // its start function initialises; in a -pthread host the loader gives
+      // every other thread a block of __tls_size bytes for __wasm_init_tls.
+      "--export-if-defined=__wasm_init_tls",
+      "--export-if-defined=__tls_size",
+      "--export-if-defined=__tls_align",
       "--stack-first",
       "--max-memory=8589934592",
       "--extra-features=extended-const",
@@ -1659,8 +1665,8 @@ int compile_only(const DriverOptions &options, int default_language) {
 }
 
 int compile_and_link(const DriverOptions &options, int default_language) {
-  if (options.pthread && (options.shared_library || options.kernel_plugin || options.export_dynamic)) {
-    std::fputs("dolly-cc: -pthread requires a static process; shared libraries and -rdynamic are unsupported\n", stderr);
+  if (options.pthread && options.kernel_plugin) {
+    std::fputs("dolly-cc: -pthread builds processes, not kernel plugins\n", stderr);
     return 64;
   }
   if (options.kernel_plugin &&

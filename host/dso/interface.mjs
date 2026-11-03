@@ -52,7 +52,7 @@ export function validateDsoInterface(contract, dso, digest) {
       throw new TypeError(`shared-object import is outside the process namespace: ${entry.module}.${entry.name}`);
     }
   }
-  for (const name of ["__wasm_apply_data_relocs", "__wasm_call_ctors"]) {
+  for (const name of ["__wasm_apply_data_relocs", "__wasm_call_ctors", "__wasm_init_tls", "__tls_size", "__tls_align"]) {
     if (exports.has(name)) requireDsoType(exports.get(name).type,
       contract.exports.find(entry => entry.name === name).type, name);
   }

@@ -141,6 +141,8 @@ function typedWasmFunction(function_, parameters, result) {
   }).exports.closure;
 }
 
+// change(operation, values, apply) makes a closure change, apply(): a host
+// using threads@0 makes it in every thread's table (threads.mjs).
 export function createProcessFfi({
   memory,
   getInstance,
@@ -148,6 +150,7 @@ export function createProcessFfi({
   growTable,
   setTable,
   castEmulationParameters = 0,
+  change = (operation, values, apply) => apply(),
 }) {
   if (!(memory instanceof WebAssembly.Memory) ||
       typeof getInstance !== "function" || typeof getTable !== "function" ||
@@ -668,15 +671,44 @@ export function createProcessFfi({
     }, parameters, result);
   }
 
+  // The changes to the table, from their packets' values. Each checks its
+  // values before it changes anything; a thread that repeats another's
+  // change gets the same table index.
+  const closureChanges = {
+    [FFI_CLOSURE_ALLOC](closure) {
+      address(closure, 32, "FFI closure");
+      if (closures.has(closure)) throw new TypeError("FFI closure is allocated");
+      const index = freeTableIndices.length === 0
+        ? growTable(1n) : freeTableIndices.pop();
+      closures.set(closure, { index, prepared: false });
+      return index;
+    },
+    [FFI_CLOSURE_FREE](closure) {
+      const record = closures.get(closure);
+      if (!record) throw new TypeError("FFI closure is not allocated");
+      setTable(record.index, null);
+      freeTableIndices.push(record.index);
+      closures.delete(closure);
+      return record.index;
+    },
+    [FFI_CLOSURE_PREP](closure, cifPointer, callbackIndex, userData, code) {
+      const record = closures.get(closure);
+      if (!record || code !== record.index) throw new TypeError("FFI closure is not allocated");
+      setTable(record.index, prepareClosure(closure, cifInfo(cifPointer), callbackIndex, userData));
+      record.prepared = true;
+      return record.index;
+    },
+  };
+
+  function changeClosure(operation, values) {
+    return change(operation, values, () => closureChanges[operation](...values));
+  }
+
   function allocateClosure(request, response) {
     if (request.size !== 8 || response.size < 8) return -BigInt(DOLLY_ERRNO.EINVAL);
     const closure = view(request.address, 8, "FFI closure allocation request")
       .getBigUint64(0, true);
-    address(closure, 32, "FFI closure");
-    if (closures.has(closure)) return -BigInt(DOLLY_ERRNO.EINVAL);
-    const index = freeTableIndices.length === 0
-      ? growTable(1n) : freeTableIndices.pop();
-    closures.set(closure, { index, prepared: false });
+    const index = changeClosure(FFI_CLOSURE_ALLOC, [closure]);
     view(response.address, 8, "FFI closure allocation response")
       .setBigUint64(0, index, true);
     return 8n;
@@ -684,38 +716,29 @@ export function createProcessFfi({
 
   function freeClosure(request) {
     if (request.size !== 8) return -BigInt(DOLLY_ERRNO.EINVAL);
-    const closure = view(request.address, 8, "FFI closure free request")
-      .getBigUint64(0, true);
-    const record = closures.get(closure);
-    if (!record) return -BigInt(DOLLY_ERRNO.EINVAL);
-    setTable(record.index, null);
-    freeTableIndices.push(record.index);
-    closures.delete(closure);
+    changeClosure(FFI_CLOSURE_FREE, [view(request.address, 8, "FFI closure free request")
+      .getBigUint64(0, true)]);
     return 0n;
   }
 
   function configureClosure(request) {
     if (request.size !== 40) return -BigInt(DOLLY_ERRNO.EINVAL);
     const packet = view(request.address, 40, "FFI closure preparation request");
-    const closure = packet.getBigUint64(0, true);
-    const cifPointer = packet.getBigUint64(8, true);
-    const callbackIndex = packet.getBigUint64(16, true);
-    const userData = packet.getBigUint64(24, true);
-    const code = packet.getBigUint64(32, true);
-    const record = closures.get(closure);
-    if (!record || code !== record.index) return -BigInt(DOLLY_ERRNO.EINVAL);
-    const cif = cifInfo(cifPointer);
-    const wrapper = prepareClosure(closure, cif, callbackIndex, userData);
-    setTable(record.index, wrapper);
-    writePointer(closure, 0, record.index);
+    const values = [0, 8, 16, 24, 32].map(offset => packet.getBigUint64(offset, true));
+    const [closure, cifPointer, callbackIndex, userData] = values;
+    const index = changeClosure(FFI_CLOSURE_PREP, values);
+    writePointer(closure, 0, index);
     writePointer(closure, 8, cifPointer);
     writePointer(closure, 16, callbackIndex);
     writePointer(closure, 24, userData);
-    record.prepared = true;
     return BigInt(FFI_OK);
   }
 
   return Object.freeze({
+    // Repeats another thread's closure change: the table index it gave.
+    repeat(operation, values) {
+      return closureChanges[operation](...values);
+    },
     handles(operation) {
       return localOperations.has(operation);
     },

@@ -423,8 +423,8 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   of the size, which another thread's growth updates late. Firefox charges that
   maximum to Linux's commit limit; a reservation the browser refuses fails
   `pthread_create` with `EAGAIN`. Handlers run on the
-  main thread, also while it waits in `pthread_join`. FFI calls work in every
-  thread; no DSOs, FFI closures, cancellation or directed signals.
+  main thread, also while it waits in `pthread_join`. A host of libraries
+  loads them in every thread (below); no cancellation or directed signals.
 - `dso@0` ([`host/dso/dolly-dso-0.wat`](../host/dso/dolly-dso-0.wat),
   [`host/dso/process.mjs`](../host/dso/process.mjs)): process-local DSOs and
   FFI, served in the Worker of an executable that records the module
@@ -436,9 +436,22 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
     `__wasm_lpad_context`, which its catch clauses need) at the address the
     variable's `_ZTW` wrapper returns; a C `_Thread_local` it cannot reach.
   - FFI calls and closures (`dolly_ffi_*`, `<dolly/dso.h>`) stay in the process
-    Worker; libffi supports CPython `_ctypes`. In a program using `threads@0`
-    each thread's Worker serves its calls, and loading or a closure, which
-    would add a table entry to one Worker only, is refused with `ENOTSUP`.
+    Worker; libffi supports CPython `_ctypes`.
+  - In a program using `threads@0` each thread's Worker has a function table
+    of its own. In a host (`cc -pthread -rdynamic`) what the loader or a
+    closure adds to one table, every thread adds to its own in the same order,
+    so at the same indices (`host/dso/threads.mjs`):
+    the change goes into a record in the host's `__dolly_dso_threads`, and a
+    thread applies the records it has not before it runs on: at its start,
+    after a call that waited for the kernel, around a futex wait (libc's go
+    through `DOLLY_DSO_WAIT`). `dlopen`, `dlsym` and a closure's preparation
+    return once every other thread has applied the change or waits in the
+    host, which it leaves only through the records; a thread that computes
+    without a call delays them until it makes one. The library's data is
+    relocated and its constructors run once; each other thread gets a block
+    for its thread-locals (`__wasm_init_tls`, which `cc -shared` exports) and
+    resolves its own `GOT.mem` entries. A threaded program that is not a host
+    calls functions only: closures are refused with `ENOTSUP`.
   - A program passed through Binaryen's cast emulation (`wasm-opt
     --fpcast-emu`), whose table holds nothing but thunks of one signature,
     sixteen or more `i64` parameters and an `i64` result, is called in it; loading and
