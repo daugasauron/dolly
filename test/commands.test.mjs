@@ -269,6 +269,14 @@ test("diff reports 0/1/2 and patch reads the patch, never a file operand", async
   assert.equal(run(patch, ["-p1", "-i", "../change.patch"], inside).status, 0);
   assert.equal(await readFile(join(work, "a/file"), "utf8"), "one\nTWO\n");
   assert.equal(run(patch, ["-p1"], { ...inside, input: unified.stdout }).status, 1);
+  // Meson applies a wrap's diff files with patch -l -f -p1 -i FILE: -l ignores whitespace in context.
+  await mkdir(join(work, "c"));
+  await writeFile(join(work, "c/file"), "head  line\nold\n");
+  await writeFile(join(work, "loose.patch"), "--- a/file\n+++ b/file\n@@ -1,2 +1,2 @@\n head line\n-old\n+new\n");
+  const loose = { cwd: join(work, "c") };
+  assert.equal(run(patch, ["-p1", "-i", "../loose.patch"], loose).status, 1);
+  assert.equal(run(patch, ["-l", "-f", "-p1", "-i", "../loose.patch"], loose).status, 0);
+  assert.equal(await readFile(join(work, "c/file"), "utf8"), "head  line\nnew\n");
 });
 
 test("file recognizes UTF-8 text and stat reports modes or rejects unknown formats", async () => {

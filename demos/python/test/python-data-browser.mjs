@@ -43,6 +43,14 @@ label = Image.new("L", (80, 30))
 ImageDraw.Draw(label).text((2, 2), "Dolly", font=ImageFont.load_default(size=20), fill=255)
 assert (numpy.asarray(label) > 128).sum() > 50
 print("MATPLOTLIB-OK", red)`,
+  // Every extension module loads (its imports are the host's exports), but the
+  // two bindings of Tk, which Dolly has not.
+  extensions: `import importlib, pathlib
+root = pathlib.Path("/usr/lib/python3.14/site-packages")
+modules = [".".join(path.relative_to(root).parts[:-1] + (path.name.split(".")[0],)) for path in root.rglob("*.so")
+           if not path.name.startswith(("_imagingtk.", "_tkagg."))]
+for name in modules: importlib.import_module(name)
+print("EXTENSIONS-OK", len(modules))`,
 };
 const runScript = async (run, name) => {
   await run(writeCommand(`/tmp/check-${name}.py`, scripts[name]));
