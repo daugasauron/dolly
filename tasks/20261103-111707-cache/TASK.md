@@ -1,6 +1,6 @@
 # The page keeps the runtime and an image's packs in the browser, so a start reloads nothing
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 340
 - TAGS: browser,images,snapshots,performance,sessions
 
@@ -100,8 +100,46 @@ reader of an image's packs goes through: a start (`runtime-worker.mjs`, so `/ses
   is removed, and the next start downloads that one pack; the sessions page's Clear empties the
   store, and the next start downloads every pack. In Firefox, with
   `permissions.default.persistent-storage` = 1, a save leaves the origin's storage persisted.
+- Over a slow link (`slow-system.log`: `system`'s packs served uncacheable at 5 MiB/s, the
+  page's other files local): before, every start took 9.3 to 9.8 s; after, the first 9.6 s
+  (Chrome) and 10.0 s (Firefox), the second 2.3 s and 2.1 s, downloading no pack. Writing the
+  store costs the first start about 0.2 s here.
+- `boot({ session })` on a page of one's own (`own-session.log`): Save named the session
+  `?session=own`, and the reload opened it with every pack refused, the saved file there, in
+  both browsers.
 - Passed in Chrome and Firefox: `core`, `custom-session`, `session-offline`, `snapshot-stream`,
-  `host-modules`, `indicators`. `nena` installed `cc` through `packages@0` (its packs through the
-  store) and then failed at `amy install libdolly-audio`, which this tree's catalog of 34 images
-  does not publish; `site` failed at `/docs/browser-boundary.md` (404), which only a catalog
-  holding `dolly-docs` serves. Neither depends on this change.
+  `host-modules`, `indicators`, `image` (whose rebuild now downloads a pack two of its inputs
+  hold once, not twice), the first `amy` test (packages through `packages@0`, their packs
+  through the store), and `site` and `nena` once `dolly-docs`, `libdolly-audio` and
+  `libdolly-microphone` were added to this tree's catalog (37 images). `amy programs` needs
+  `sdl2`, which this catalog lacks.
+- Not run: `test/npm-browser.mjs`. It packages `pi-minimal`, whose closure on this branch
+  rebuilds the Rust toolchain (`rust-llvm`, `rust-build`: the `git` and `ghostty-build` recipes
+  changed on integrate), which no build slot holds; a start of it here stopped at `rust-llvm`
+  and was killed. The round after the merge runs it.
+
+## Lessons
+
+- Measure where the owner is, not where the code runs: on this desktop both browsers' HTTP
+  caches kept every pack (600 MiB returned whole), so a second start already downloaded no
+  pack; the slowness was the phone's Chrome evicting 367 MiB. The fix had to stop relying on
+  the HTTP cache, and its test had to make the HTTP cache unable to help: a server that answers
+  packs uncacheable. Playwright's routing is no such server: Firefox's routing does not see a
+  Worker's requests, and its HTTP cache answered them.
+- `navigator.locks.request` releases a lock only after its callback's promise has settled, a
+  turn later: an `ifAvailable` request made right after resolving it finds the lock still held,
+  and the prune never ran until the release waited for the request's own promise.
+- A pack is checked by its reader as it streams, so "keep only what was checked" needs a store
+  that commits after the stream: OPFS's writable (`close()` commits, `abort()` drops) does it,
+  Cache Storage's `put` commits when the body ends, before the check. Packs reach 2 GB, so
+  buffering one to check it first was never an option.
+- Every edit of a document `dolly-docs` pins (the review map among them) repins `dolly-docs`,
+  `pi-dolly` and nine demo recipes on them: a page-only change that documents itself asks for
+  their rebuild in the next round.
+
+## Closed 2026-11-03
+
+Commits `b3faca044` (the pack store), `c0bc7e0a5`, `a92c5d21c` (docs), `83efbf4b1` (the image
+test) on `core/pack-cache`; `test/pack-store-browser.mjs` in Chrome 156 and Firefox 155. The
+phone was not measured: it is served from `work/phone`, which gets the store when it carries
+this branch.
