@@ -44,11 +44,13 @@ working; the image is an npm image package that an npm-only project boots and bu
 `demos/python/README.md` and the npm docs (`README.md`'s npm section, `docs/embedding.md`) say how
 to use it.
 
-## State (2026-11-03 22:20, branch `demo/pydata`)
+## State (2026-11-03 23:20, branch `demo/pydata`)
 
-Ready to merge: `6a0b03b77` (python's sysconfig and pip.conf) and `c085280fb` (thread pools).
-In progress: the DSO loader's thread_local fix (verified in a session, test written), the two
-images, their demo test and the npm package.
+Ready to merge: the python fixes (`6a0b03b77`, `c085280fb`), the DSO loader's (`4e992e97a`) and
+the two images with their demo test. `python-data-browser.mjs` passed in Chromium (24.8 s) and
+Firefox (28.3 s), and its recipe that COPYs only NumPy's root in Chromium (22.0 s). In
+progress: the npm package. Not done here: the catalog round; `demo/pydata-seed` holds the
+seed fixes for `cc --version` and `patch -l -f` (below), unbuilt.
 
 ## Decisions
 
@@ -83,9 +85,35 @@ images, their demo test and the npm package.
   admits.
 - Sources: PyPI's sdists for the native libraries, wheels for the pure-Python ones and the
   tools, each a pin in `config/source-pins.sh`, a row of `config/upstreams.json` and a
-  `SOURCE` of its own (as `demos/tools` stages Meson's wheel); Matplotlib's bundled FreeType,
-  HarfBuzz, libraqm, SheenBidi and Qhull at its `subprojects/*.wrap` pins, given to Meson as its
-  package cache (`MESON_PACKAGE_CACHE_DIR`), so its wraps build offline from them, unchanged.
+  `SOURCE` of its own (as `demos/tools` stages Meson's wheel); the Qhull Matplotlib bundles at
+  its `subprojects/qhull.wrap` pin, given to Meson as its package cache
+  (`MESON_PACKAGE_CACHE_DIR`), so its wrap builds offline from it, unchanged. Packages of other
+  demos: `libjpeg` (xonotic) for Pillow, `freetype` and `pkgconf` (zero-ad) for Matplotlib.
+
+## Measurements (2026-11-03 23:12, this tree)
+
+| Root `/opt/python-data/NAME` | Bytes | Files | Of them tests | Of them `.so` |
+| --- | --- | --- | --- | --- |
+| `pandas` 3.0.5 | 38.3 MB | 1523 | 13.1 MB | 16.7 MB |
+| `numpy` 2.5.4 | 22.3 MB | 927 | 6.9 MB | 9.6 MB |
+| `matplotlib` 3.10.9 | 22.3 MB | 600 | 2.0 MB | 5.3 MB |
+| `fonttools` 4.68.0 | 4.9 MB | 368 | | |
+| `pillow` 13.0.0 | 2.7 MB | 119 | | 1.5 MB |
+| `kiwisolver` 1.5.1 | 1.9 MB | 12 | | 1.9 MB |
+| `contourpy` 1.4.0 | 1.1 MB | 26 | | 0.9 MB |
+| `seaborn` 0.13.2 | 1.0 MB | 60 | | |
+| `tzdata`, `packaging`, `pyparsing`, `python-dateutil`, `cycler` | 1.9 MB | 728 | | |
+
+- All roots: 96.4 MB. The tests are upstream's: their wheels install them (NumPy's
+  `--tags=…,tests`), 22 MB of the 96.
+- `python-data-build`: snapshot 315.2 MB, 9049 paths, packs 86.4 MB compressed; built in
+  557 s in a `build` slot (its packages reused). `python-data`: 299.9 MB, 8528 paths, packs
+  81.7 MB compressed (`default` 19.0 MB, `python` 49.7 MB, `cc` 134.4 MB, the roots), built in
+  27 s from the toolchain.
+- A recipe that COPYs only NumPy gets 22.3 MB in 927 files beside `default` and `python`.
+- In a session (Chromium): NumPy builds in 141 s, pandas 237 s, Matplotlib 62-70 s, Pillow
+  24 s; `import matplotlib.pyplot` takes 8.7 s the first time (the font cache) and 2.9 s
+  after.
 
 ## Findings (2026-11-03 evening, exploration session in Chromium)
 
@@ -140,6 +168,13 @@ is 1, so Ninja runs three jobs).
   in a DSO (process model, "Threads, DSOs and FFI"). Matplotlib 3.10.9, the maintained 3.10
   line, bundles only FreeType 2.6.1 and Qhull, with overlay directories and no diff files: it
   is the pin.
+- Matplotlib 3.10.9's bundled FreeType 2.6.1 traps in Wasm ("function signature mismatch" in
+  `af_autofitter_load_glyph` on the first text drawn): it calls the dummy writing system's
+  `af_dummy_hints_apply`, which takes two parameters, through a pointer type of three; later
+  FreeTypes fixed it. Matplotlib links the `freetype` package's FreeType 2.14.3 (zero-ad demo,
+  with libpng and zlib) instead: `-Dsystem-freetype=true -Dprefer_static=true`, found by the
+  `pkgconf` package's pkg-config, as distributions build it. Its figures then render: a 400 x
+  300 PNG with the line drawn, in a session; first import 8.7 s (the font cache), then 2.9 s.
 - contourpy builds with `werror=true` by default, and Clang 24 reports `-Wunused-template` in
   pybind11 3.1's headers: `-Dwerror=false`, as a distribution builds it.
 - Matplotlib's default `b_lto=true` asks for `-flto`, which Dolly's compiler refuses (it links
@@ -147,16 +182,18 @@ is 1, so Ninja runs three jobs).
 - NumPy 2.5.4 release build 141 s, root 21.8 MB; pandas 3.0.5 release build 237 s, root
   37.4 MB; fontTools 4.8 MB; seaborn 1.0 MB.
 - SciPy 1.18.1 no longer needs Fortran: `-D_without-fortran=true` builds it without
-  `scipy.odr`. It needs BLAS and LAPACK (OpenBLAS by default): OpenBLAS has no wasm64 kernels
-  (its generic C ones and `C_LAPACK=1`, `NOFORTRAN=1` would be the port), and its Pythran
-  modules (or `-Duse-pythran=false`). scikit-learn and statsmodels need SciPy.
+  `scipy.odr`. It needs BLAS and LAPACK (OpenBLAS by default) and Pythran (or
+  `-Duse-pythran=false`). OpenBLAS's `c_check` knows wasm (`ARCH_WASM`, its generic C
+  kernels, which Pyodide builds for wasm32): what it would take is an OpenBLAS package built
+  with `TARGET=GENERIC NOFORTRAN=1 C_LAPACK=1` for wasm64, found by pkg-config, then SciPy as
+  pandas is built here. scikit-learn and statsmodels need SciPy: [scipy](../20261103-133557-scipy/TASK.md).
 
 ## Lessons
 
-- Four Dolly bugs stood behind "pip builds NumPy and pandas": CPython's sysconfig still held
-  Emscripten's flags, a thread pool deadlocked under serial threads, a DSO's catch clauses
-  never matched, and patch lacked Meson's options. Each had a check that passed because it did
-  not take the path real software takes: the extension check module was built by a literal
+- Three Dolly bugs stood behind "pip builds NumPy and pandas": CPython's sysconfig still held
+  Emscripten's flags, a thread pool deadlocked under serial threads, and a DSO's catch clauses
+  never matched. Each had a check that passed because it did not take the path real software
+  takes: the extension check module was built by a literal
   `cc` line instead of sysconfig's, the DSO C++ test threw from the library and caught in the
   host, never inside the library. Build a check the way its real consumer builds it.
 - A long-lived session driven by numbered command files (the output posted back over the

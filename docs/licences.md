@@ -37,7 +37,7 @@ entry.
 | Family | Shipped as binaries | Obligation | Status |
 | --- | --- | --- | --- |
 | GPL-2.0/3.0 | Git, Make, less (through GNU termcap), Emacs, tree, dte, the lz4 program, Seven Kingdoms, 0 A.D. engine, Xonotic (engine, game logic, data, fonts), Dolly's GPL files | Complete corresponding source, including build scripts, or a written offer | Met: the prepared source archives and the recipe that builds them are served beside the images, for 0 A.D. and Xonotic too (below) |
-| IJG | libjpeg in Xonotic | Source: the unaltered `README` with it; binaries: the documentation states that the software is based in part on the work of the Independent JPEG Group | `README` kept as `/usr/share/licenses/libjpeg/README`; the statement is in the Xonotic section below and on `/licences/` |
+| IJG | libjpeg in Xonotic and Pillow (`python-data`) | Source: the unaltered `README` with it; binaries: the documentation states that the software is based in part on the work of the Independent JPEG Group | `README` kept as `/usr/share/licenses/libjpeg/README`; the statement is in the Xonotic section below, under combined binaries and on `/licences/` |
 | LGPL-2.0+ | OpenAL Soft, static in the 0 A.D. engine; FFmpeg (LGPL-2.1-or-later), static in `ffmpeg` and `ffprobe` | Source, and the means to relink | Source served (`openal/source.tar`, `ffmpeg/ffmpeg-9.0.2.tar.gz` as released), and the engine's (below), so it can be relinked; the `ffmpeg` package holds its libraries' archives |
 | MPL-2.0 | SpiderMonkey in 0 A.D.; MPL crates vendored by Codex | Source of the MPL files available; tell recipients where | Codex sources served; SpiderMonkey's pinned tarball is served (below); its MPL text is in `zero-ad` |
 | Apache-2.0 | LLVM (with exception), Mojo (with exception), TypeScript, Neovim, luv, Codex, WAMR, Meson, WABT, Droid Sans Fallback, crates, npm packages | Licence copy, NOTICE files, modified files marked | Codex `NOTICE`, crates' notices and TypeScript notices shipped; the Android fonts' `NOTICE`, the licence's text, is in `display`. LLVM's text is in every compiler image as `/usr/share/licenses/libcxx`; its exception covers runtime code compiled into programs. The Mojo compiler's patched files are those of `mojo-dolly.patch` and the target's patches, served with its source |
@@ -82,6 +82,19 @@ entry.
   (BSD-2-Clause).
 - `python` links SQLite, bzip2 and XZ Utils statically, and `git` libcurl; each
   package carries their licence files.
+- `python-data` and the roots of `python-data-build` hold NumPy (BSD-3-Clause,
+  with 0BSD, MIT, Zlib and CC0-1.0 parts), pandas, contourpy, kiwisolver,
+  cycler, seaborn and python-dateutil (BSD-3-Clause), Pillow (MIT-CMU), fontTools
+  and pyparsing (MIT), packaging (Apache-2.0 OR BSD-2-Clause), tzdata (Apache-2.0)
+  and Matplotlib (its PSF-style licence; OFL-1.1 and Bitstream Vera fonts), whose
+  extensions link FreeType (under the FTL: portions of this software are
+  copyright The FreeType Project, www.freetype.org), libpng, zlib and Qhull
+  statically. Pillow
+  links zlib and IJG libjpeg: this software is based in part on the work of the
+  Independent JPEG Group. Each library's licence files
+  are in its `*.dist-info/licenses/`, as its wheel installs them (Matplotlib's
+  include its bundled fonts'); FreeType's, libpng's and Qhull's are in
+  Matplotlib's root under `usr/share/licenses`, and libjpeg's `README` in Pillow's.
 - less links GNU termcap (GPL-2.0-or-later) statically, so the program is a
   GPL one. less itself is taken under its own two-clause licence, which the
   GPL admits; its `LICENSE` and termcap's `COPYING` are in the package.

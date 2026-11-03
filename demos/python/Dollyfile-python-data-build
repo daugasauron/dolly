@@ -1,0 +1,119 @@
+DOLLY 7
+TOOLCHAIN python-data-build
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST download@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
+
+# NumPy, Pandas, Matplotlib and what they need, built once from their PyPI
+# releases as upstream builds its wheels, each installed in a root of its own,
+# /opt/python-data/NAME, laid out as / is (usr/lib/python3.14/site-packages,
+# usr/bin), so that one row takes one library into an image:
+#   COPY RECIPE SHA256 /opt/python-data/numpy /
+# README.md lists the roots each library needs beside it. The build tools
+# (Meson, meson-python, Cython, pybind11, setuptools) serve this build alone.
+FROM /v0.1.4/Dollyfile-system 03f140fb3ed97157f3f45f3626724bce234733e0493058bac068d9b7f093b112
+INSTALL /v0.1.4/demos/python/Dollyfile-python a075bc42b0a47e873dd0d894a55f866d0336f7968a6f9e2a1fe6875b74d05fcd
+INSTALL /v0.1.4/demos/tools/Dollyfile-meson f1cf404926bc0572a496d61415299fa120f3d1604ee9e6de18c193c1748130bc
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype 56aa252db2f6c3a9be25bf56aebb81f31afae94dfb1a82069cc4185682905eea
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 3be7c9efdebd7eef451223743a770a1514e4bd205a981012e8e57d1af0f77a0a
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-libjpeg d988bfab02fa739c7e1c4b1f68ad42208075fa54faf0f074f8baf0c94f2139d7
+REQUIRES HEADER freetype2
+REQUIRES HEADER jpeglib
+REQUIRES HEADER zlib
+REQUIRES LIB    freetype
+REQUIRES LIB    jpeg
+REQUIRES LIB    z
+REQUIRES TOOL   cp
+REQUIRES TOOL   gzip
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   meson
+REQUIRES TOOL   ninja
+REQUIRES TOOL   pkg-config
+REQUIRES TOOL   pip
+REQUIRES TOOL   python
+REQUIRES TOOL   tar
+
+SOURCE /v0.1.4/dist/static/python-data/numpy-2.5.4.tar.gz 9a94cf751c9ad8ebaa835bcd3d40dacf8534ad086b88c38029b65123c7999d2a /tmp/python-data/numpy-2.5.4.tar.gz
+SOURCE /v0.1.4/dist/static/python-data/pandas-3.0.5.tar.gz dca3734d6ab7c906e6730f0788b0a1dbb9f2467731f9711f77995c8e9d62d712 /tmp/python-data/pandas-3.0.5.tar.gz
+SOURCE /v0.1.4/dist/static/python-data/matplotlib-3.10.9.tar.gz fd66508e8c6877d98e586654b608a0456db8d7e8a546eb1e2600efd957302358 /tmp/python-data/matplotlib-3.10.9.tar.gz
+SOURCE /v0.1.4/dist/static/python-data/pillow-13.0.0.tar.gz cdcd1ba258178f7356d74170c9a81ba4eab6a5d55748bc402a5a2a6fe6be3510 /tmp/python-data/pillow-13.0.0.tar.gz
+SOURCE /v0.1.4/dist/static/python-data/kiwisolver-1.5.1.tar.gz f1303ef2eec81262a4b708c3e858afe58d7c75ad91c1c05266eda7673369859a /tmp/python-data/kiwisolver-1.5.1.tar.gz
+SOURCE /v0.1.4/dist/static/python-data/contourpy-1.4.0.tar.gz 20156f5a1ac4f8ce02656e39a61e82164a3d359796dc8026f75b062783d500e1 /tmp/python-data/contourpy-1.4.0.tar.gz
+SOURCE /v0.1.4/dist/static/python-data/cycler-0.12.1-py3-none-any.whl 85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30 /tmp/python-data/cycler-0.12.1-py3-none-any.whl
+SOURCE /v0.1.4/dist/static/python-data/fonttools-4.68.0-py3-none-any.whl d76f8fdcb6936f5e1045a0c9dd721a4bf11112e60d1e243bfa1d39f06a8b3104 /tmp/python-data/fonttools-4.68.0-py3-none-any.whl
+SOURCE /v0.1.4/dist/static/python-data/pyparsing-3.3.3-py3-none-any.whl ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4 /tmp/python-data/pyparsing-3.3.3-py3-none-any.whl
+SOURCE /v0.1.4/dist/static/python-data/packaging-26.3-py3-none-any.whl d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c /tmp/python-data/packaging-26.3-py3-none-any.whl
+SOURCE /v0.1.4/dist/static/python-data/python_dateutil-4.0.0-py3-none-any.whl a5e246f79eb80475e691bf93862cead98decd8a498cf53ba0516fcdc0f50dc1c /tmp/python-data/python_dateutil-4.0.0-py3-none-any.whl
+SOURCE /v0.1.4/dist/static/python-data/tzdata-2026.6-py2.py3-none-any.whl 0a10eec6e13ef16b627fabed9a5f2ba61a62b1c67f327305f4e7e412a70b4aec /tmp/python-data/tzdata-2026.6-py2.py3-none-any.whl
+SOURCE /v0.1.4/dist/static/python-data/seaborn-0.13.2-py3-none-any.whl 636f8336facf092165e27924f223d3c62ca560b1f2bb5dff7ab7fad265361987 /tmp/python-data/seaborn-0.13.2-py3-none-any.whl
+SOURCE /v0.1.4/dist/static/python-data/meson_python-0.22.1-py3-none-any.whl 258fde948cf45aab5df23fcc9e17a9050ee73d4e1002fe6cf86519f61c414778 /tmp/python-data/meson_python-0.22.1-py3-none-any.whl
+SOURCE /v0.1.4/dist/static/python-data/cython-3.3.1-py3-none-any.whl 61abc7feedd20dac6c4ff7ab3a30e17136a067b242ab9253e2b4a6d9a72c2b61 /tmp/python-data/cython-3.3.1-py3-none-any.whl
+SOURCE /v0.1.4/dist/static/python-data/pyproject_metadata-0.12.1-py3-none-any.whl f7162d580a96386a8eb096da06215f981f547d1490f03055ef99e323bc2da427 /tmp/python-data/pyproject_metadata-0.12.1-py3-none-any.whl
+SOURCE /v0.1.4/dist/static/python-data/pybind11-3.1.0-py3-none-any.whl b8488090f8acffbcb6b5d6a85571a6827a0a2981ffb75e5a0b27b87c4a6b7dd0 /tmp/python-data/pybind11-3.1.0-py3-none-any.whl
+SOURCE /v0.1.4/dist/static/python-data/setuptools-84.2.1-py3-none-any.whl ca140b45d5325a9478f880e351484f62fef15f336462e449ca0c03c873d589c2 /tmp/python-data/setuptools-84.2.1-py3-none-any.whl
+SOURCE /v0.1.4/dist/static/python-data/setuptools_scm-9.2.2-py3-none-any.whl 30e8f84d2ab1ba7cb0e653429b179395d0c33775d54807fc5f1dd6671801aef7 /tmp/python-data/setuptools_scm-9.2.2-py3-none-any.whl
+SOURCE /v0.1.4/dist/static/python-data/cppy-1.3.1-py3-none-any.whl 7ca132b6ef6187384738804bd3a453d4eab7e3274df6dcd35e5d92aae3404717 /tmp/python-data/cppy-1.3.1-py3-none-any.whl
+SOURCE /v0.1.4/dist/static/python-data/versioneer-0.29-py3-none-any.whl 0f1a137bb5d6811e96a79bb0486798aeae9b9c6efc24b389659cebb0ee396cb9 /tmp/python-data/versioneer-0.29-py3-none-any.whl
+# Qhull, which Matplotlib builds into its extensions, as Meson's package cache:
+# its wrap builds it offline, unchanged.
+SOURCE /v0.1.4/dist/static/python-data/qhull-8.0.2.tar.gz 8774e9a12c70b0180b95d6b0b563c5aa4bea8d5960c15e18ae3b6d2521d64f8b /tmp/python-data/packagecache/qhull-8.0.2.tgz
+
+# The build tools, for this build alone: the site-packages FOLDER of the
+# python package is not repeated, so nothing installed there now is kept.
+SLOP pip install --no-index --no-deps --no-compile --find-links /tmp/python-data \
+  meson-python cython pyproject-metadata packaging pybind11 setuptools setuptools-scm cppy versioneer
+
+# install NAME VERSION [PIP-OPTION…]: NAME==VERSION from the staged files into
+# /opt/python-data/NAME, whatever / holds (--ignore-installed), then into /
+# for the libraries built after it.
+FILE /tmp/python-data/install
+    name="$1" version="$2"
+    shift 2
+    pip install --no-index --find-links /tmp/python-data --no-build-isolation --no-deps --no-compile \
+      --no-cache-dir --ignore-installed --no-warn-script-location --root "/opt/python-data/$name" "$@" \
+      "$name==$version" || exit 1
+    cp -R "/opt/python-data/$name/." /
+
+SLOP slop /tmp/python-data/install numpy 2.5.4
+SLOP slop /tmp/python-data/install tzdata 2026.6
+SLOP slop /tmp/python-data/install python-dateutil 4.0.0
+SLOP slop /tmp/python-data/install pandas 3.0.5
+SLOP slop /tmp/python-data/install packaging 26.3
+SLOP slop /tmp/python-data/install pyparsing 3.3.3
+SLOP slop /tmp/python-data/install cycler 0.12.1
+SLOP slop /tmp/python-data/install fonttools 4.68.0
+SLOP slop /tmp/python-data/install kiwisolver 1.5.1
+# contourpy's default werror=true fails on what Clang 24 reports in pybind11's
+# headers (-Wunused-template).
+SLOP slop /tmp/python-data/install contourpy 1.4.0 --config-settings=setup-args=-Dwerror=false
+SLOP slop /tmp/python-data/install pillow 13.0.0
+# Pillow links libjpeg, whose licence asks for its README beside the program.
+SLOP mkdir -p /opt/python-data/pillow/usr/share/licenses/libjpeg
+SLOP cp /usr/share/licenses/libjpeg/README /opt/python-data/pillow/usr/share/licenses/libjpeg/README
+# Matplotlib's own FreeType, 2.6.1, calls its autofitter through a function
+# pointer of another signature (af_dummy_hints_apply takes two parameters, the
+# call passes three), which Wasm traps: it links the freetype package's 2.14.3
+# instead, statically (prefer_static), with the libpng and zlib that one reads.
+# Dolly's compiler links no LTO bitcode: Matplotlib's default b_lto is refused.
+SLOP MESON_PACKAGE_CACHE_DIR=/tmp/python-data/packagecache slop /tmp/python-data/install matplotlib 3.10.9 \
+  --config-settings=setup-args=-Db_lto=false --config-settings=setup-args=-Dsystem-freetype=true \
+  --config-settings=setup-args=-Dprefer_static=true
+# Its extensions link FreeType, libpng and Qhull, whose licences its wheel does not carry.
+SLOP gzip -dc /tmp/python-data/packagecache/qhull-8.0.2.tgz | tar -xf - -C /tmp/python-data
+SLOP mkdir -p /opt/python-data/matplotlib/usr/share/licenses/qhull /opt/python-data/matplotlib/usr/share/licenses/libpng
+SLOP cp -R /usr/share/licenses/freetype /opt/python-data/matplotlib/usr/share/licenses/freetype
+SLOP cp /usr/share/licenses/libpng/LICENSE /opt/python-data/matplotlib/usr/share/licenses/libpng/LICENSE
+SLOP cp /tmp/python-data/qhull-8.0.2/COPYING.txt /opt/python-data/matplotlib/usr/share/licenses/qhull/COPYING.txt
+SLOP slop /tmp/python-data/install seaborn 0.13.2
+SLOP python -c 'import numpy, pandas, seaborn, matplotlib.pyplot as plt; plt.plot([0, 1], [1, 0]); plt.title("Dolly"); plt.savefig("/tmp/python-data/check.png")'
+
+FOLDER /opt/python-data
+
+ENTRY /bin/foreground -i /bin/slop

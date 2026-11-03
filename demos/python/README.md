@@ -7,6 +7,8 @@ builds, plus stock pip over Dolly's HTTP broker.
 
 - `python`: `python3` and `pip` (CPython), with the `cc` package pip builds native packages with.
 - `libffi`: libffi with Dolly's target: calls and closures of signatures known at run time, through `dso@0`.
+- `python-data`: Python with NumPy, pandas, Matplotlib and seaborn, built once: a session imports them at once.
+- `python-data-build`: A build stage: NumPy, pandas, Matplotlib and what they need, compiled in Dolly from PyPI's releases, one root per library for `COPY`.
 
 Install it with `INSTALL` or `amy install python`; build with
 `npm run image -- python`.
@@ -20,7 +22,36 @@ Install it with `INSTALL` or `amy install python`; build with
 - `urllib.request` and `requests`, including pip's vendored copy, send
   through `env.dolly_http_dispatch` and its browser policy.
 - `sys.platform` is `"dolly"`. Emscripten/Pyodide wheels are not compatible.
-- Build settings for every sdist live in `/etc/pip.conf` ([`Dollyfile-python`](Dollyfile-python)).
+- pip's settings live in `/etc/pip.conf` ([`Dollyfile-python`](Dollyfile-python)); sdists build
+  as upstream builds its wheels.
+
+## The data libraries
+
+`python-data-build` compiles each native library in Dolly from its PyPI sdist,
+at the settings of upstream's wheels (meson-python's `buildtype=release`), and
+installs every library,
+native or pure Python, into a root of its own, `/opt/python-data/NAME`, laid out
+as `/` is. One row takes one library into an image, and the libraries it needs
+are rows of their own:
+
+```text
+FROM /vX.Y.Z/Dollyfile SHA256
+INSTALL /vX.Y.Z/demos/python/Dollyfile-python SHA256
+COPY /vX.Y.Z/demos/python/Dollyfile-python-data-build SHA256 /opt/python-data/numpy /
+```
+
+| Root | Version | Needs the roots |
+| --- | --- | --- |
+| `numpy` | 2.5.4 | |
+| `pandas` | 3.0.5 | `numpy`, `python-dateutil`, `tzdata` |
+| `matplotlib` | 3.10.9, with the `freetype` package's FreeType 2.14.3 and its Qhull | `numpy`, `pillow`, `kiwisolver`, `contourpy`, `cycler`, `fonttools`, `pyparsing`, `packaging`, `python-dateutil`, `tzdata` |
+| `seaborn` | 0.13.2 | `pandas` and `matplotlib`, with theirs |
+| `pillow` | 13.0.0, with zlib and libjpeg | |
+| `contourpy` | 1.4.0 | `numpy` |
+| `kiwisolver`, `cycler`, `fonttools`, `pyparsing`, `packaging`, `python-dateutil`, `tzdata` | 1.5.1, 0.12.1, 4.68.0, 3.3.3, 26.3, 4.0.0, 2026.6 | `python-dateutil` needs `tzdata` |
+
+Every image that takes a root needs `python` installed; pip lists and
+uninstalls what the roots hold. `python-data` takes them all.
 
 ## Key files
 
@@ -43,7 +74,15 @@ Install it with `INSTALL` or `amy install python`; build with
   absent; `threading.Thread` targets run serially.
 - The browser owns TLS, redirects and content decoding: client certificates
   and custom TLS verification fail.
-- NumPy 2.5.2 and Pandas 3.0.5 build from source with Meson's debug build;
-  other native packages may not.
+- In a session pip builds NumPy and pandas from source as python-data-build
+  does; other native packages may not build.
+- python-data has no SciPy, nor scikit-learn or statsmodels, which need it:
+  SciPy 1.18 builds without Fortran but needs BLAS and LAPACK, which no
+  package holds yet (OpenBLAS's generic wasm build is the way). Matplotlib 3.11 bundles HarfBuzz, which takes Meson's
+  threads, and Dolly has no threads in an extension module; pandas 3.1 needs
+  Meson to read Clang's version from `cc --version`
+  ([task](../../tasks/20261103-110906-pydata/TASK.md)).
+- Matplotlib draws with Agg: `savefig` writes PNG, SVG or PDF files, and
+  `show()` has no window to open.
 
 Test: `npm run test:demos -- python` ([`test/`](test/)).
