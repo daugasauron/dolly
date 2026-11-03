@@ -163,8 +163,11 @@ contract and client (`DOLLY_DSO_WAIT`, `__dolly_dso_threads`, the TLS exports): 
 - A thread that computes for long without a call or a wait delays every load, `dlsym` of a new
   function and closure preparation in its process until it makes one (Emscripten's dlopen has
   the same property). A thread spinning on a flag with no call at all would delay them for ever.
-- `_dolly_subprocess.spawn` refuses arguments and environment values with surrogate escapes
-  (undecodable bytes), as regrtest's worker command has; `python -m test` fails at once.
+- `_dolly_subprocess.spawn` refused arguments and environment values with surrogate escapes
+  (undecodable bytes), as regrtest's worker command has, so `python -m test` failed at once. It
+  encodes them as `os.fsencode` does now, as CPython's `_posixsubprocess` does: `python -m test
+  test_thread test_threading test_queue` runs 425 tests, 35 skipped, 1 failure (the `_testcapi`
+  one), in Chromium (42.2 s) and Firefox (57.1 s).
 
 ## Lessons
 
