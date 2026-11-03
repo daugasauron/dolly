@@ -109,6 +109,8 @@ Done when each line is decided: merged, scheduled or declined.
   source lines. Droid Sans Fallback (CJK) as a package `system-tools` installs: `default` 1.66 MB
   less gzip, its CJK cells boxes until the package is installed and the terminal restarted. Python's
   `libpython3.14.a` split from `python` (13.1 MB, 4.5 MB gzip, 28% of the package), as Debian's -dev.
+  Owner (2026-11-04): "I think these sounds too complex and would cause issue. Lets leave it for
+  now." Declined for now; the branches stay unmerged.
 
 ## Added 2026-11-04 (the night of 3 to 4 November)
 
@@ -119,6 +121,8 @@ Done when each line is decided: merged, scheduled or declined.
   the dso@0 contract (`DOLLY_DSO_WAIT`, the 272-byte `__dolly_dso_threads` a host exports,
   libraries exporting their TLS initialiser). A thread's start with 61 libraries loaded takes
   125 ms in Chromium and 250 ms in Firefox (about 20 ms before). Approve before `main`.
+  Owner (2026-11-04): "Focus on getting everything merged, including python threads etc. and
+  reconciling everything to a stable version on main." Approved: to `main` with the next green round.
 - **The runtime's own files are not in the pack store** (`tasks/20261103-111707-cache`): 3 MiB
   of small files the HTTP cache keeps; storing them too needs a service worker. Packs are stored.
 - **Rust: let the images' programs unwind too** (`tasks/20261009-110500-rust-followups`): one
