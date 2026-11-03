@@ -123,7 +123,9 @@ Chrome (headless, 10 to 30 s; `--browser firefox` after `npx playwright-core ins
 and `serve.mjs` serves the page. Open the address it prints: Pi asks for your
 OpenRouter key at a prompt that does not show it, and starts in `/workspace`
 with Git, a C compiler and the project's files. `curl https://example.com` in
-Pi's shell fails: the policy refuses it.
+Pi's shell fails: the policy refuses it. Save (Ctrl+Shift+S) keeps the sandbox,
+files and all, in this browser and names it in the address (`?session=NAME`):
+that address opens it again as it was.
 
 | File | What it declares | After a change |
 | --- | --- | --- |

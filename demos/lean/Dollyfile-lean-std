@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # from the release's sources: each module's .olean files and its C, which cc
 # compiles into libInit.a and libStd.a (lean-dolly.mk). Every Lean file
 # imports Init.
-FROM /v0.1.4/demos/lean/Dollyfile-lean-stage0 ac2ee8a289454afd79ce1dce3453092f9b489af45c731bdd2827faab85e6323d
+FROM /v0.1.4/demos/lean/Dollyfile-lean-stage0 0000000000000000000000000000000000000000000000000000000000000000
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL find

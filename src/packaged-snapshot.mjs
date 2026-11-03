@@ -9,6 +9,7 @@ import { hostRequirements } from "../host/requirements.mjs";
 import { siteReference, sitePath, decodeStaticAsset, sha256 } from "./static-asset.mjs";
 import { decodeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 import { unretainedPath } from "./image-names.mjs";
+import { openPackStore } from "./pack-store.mjs";
 import { Sha256 } from "./sha256.mjs";
 const definitionOf = image => DOLLY_IMAGES.find(definition => definition.image === image);
 const encoder = new TextEncoder();
@@ -123,19 +124,39 @@ function checkedMetadata(image, metadata, checked) {
 }
 
 // An image is the records of its packs, each a gzip-compressed snapshot named
-// by its digest, which images that hold the same files share.
-// Each pack's compressed body, checked against its declared length.
+// by its digest, which images that hold the same files share. Each pack's
+// compressed body, kept in this browser (pack-store.mjs) or downloaded and
+// checked against its declared length. The consumer checks each part against
+// its digest and then calls its verified(), which keeps a downloaded pack; a
+// part it does not verify is not kept, or no longer.
 async function* packagedSnapshotParts(metadata, signal) {
-  for (const pack of validateSnapshotPacks(metadata)) {
-    signal?.throwIfAborted();
-    const url = new URL(`dist/packs/${pack.sha256}.snapshot.gz`, imageBase);
-    const init = { cache: "force-cache", credentials: "same-origin", redirect: "error", signal };
-    const response = await decodeStaticAsset(await fetch(url, init), url, init, pack.encodedByteLength);
-    if (!response.ok || !response.body) throw new Error(`snapshot returned HTTP ${response.status}`);
-    const declared = response.headers.get("content-length");
-    if (declared !== null && Number(declared) !== pack.encodedByteLength) throw new Error("snapshot HTTP content length mismatch");
-    yield { ...pack, body: response.body };
+  const packs = validateSnapshotPacks(metadata), store = await openPackStore(metadata.image, packs);
+  let complete = false;
+  try {
+    for (const pack of packs) {
+      signal?.throwIfAborted();
+      const part = await store.kept(pack) ?? await store.keeping(pack, await downloadedPack(pack, signal));
+      let verified = false;
+      try {
+        yield { ...pack, body: part.body, verified: () => { verified = true; return part.keep(); } };
+      } finally {
+        if (!verified) await part.discard();
+      }
+    }
+    complete = true;
+  } finally {
+    store.close(complete);
   }
+}
+
+async function downloadedPack(pack, signal) {
+  const url = new URL(`dist/packs/${pack.sha256}.snapshot.gz`, imageBase);
+  const init = { cache: "force-cache", credentials: "same-origin", redirect: "error", signal };
+  const response = await decodeStaticAsset(await fetch(url, init), url, init, pack.encodedByteLength);
+  if (!response.ok || !response.body) throw new Error(`snapshot returned HTTP ${response.status}`);
+  const declared = response.headers.get("content-length");
+  if (declared !== null && Number(declared) !== pack.encodedByteLength) throw new Error("snapshot HTTP content length mismatch");
+  return response.body;
 }
 
 const gunzip = body => body.pipeThrough(new DecompressionStream("gzip"));
@@ -195,6 +216,7 @@ export async function streamPackagedSystemSnapshot(metadata, write, endPart, sig
       size += chunk.length;
     }
     if (size !== part.byteLength || await endPart() !== part.sha256) throw new Error("snapshot integrity mismatch");
+    await part.verified();
   }
 }
 
@@ -258,6 +280,7 @@ async function packedRecords(metadata, signal) {
     const pack = { compressed: await readBytes(part.body, part.encodedByteLength, signal), unread: 0 };
     const bytes = await readBytes(gunzip(streamOf(pack.compressed)), part.byteLength, signal);
     if (await sha256(bytes) !== part.sha256) throw new Error("snapshot integrity mismatch");
+    await part.verified();
     for (const [path, { kind, data }] of decodeSnapshotRecords(bytes)) {
       records.push({ pack, kind, path: encoder.encode(path), offset: data.byteOffset, size: data.length });
       pack.unread += 1;

@@ -11,7 +11,8 @@
 //   test, start Pi with the extension, the skill, the instructions, the tools (the
 //   template's and a C program the recipe compiles) and the packages the recipe
 //   declares, the workspace and the user's theme the page writes, and a policy
-//   that refuses another origin.
+//   that refuses another origin; Save keeps a session the page opens again
+//   from its address.
 // Usage: node test/npm-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { execFile, execFileSync, spawn } from "node:child_process";
@@ -229,6 +230,19 @@ try {
       assert.equal(await shell("git --version > /dev/null"), 0);
       assert.equal(await shell("grep -q 'deepest trench' '/workspace/notes/deep sea.txt' && test -f /workspace/README.md"), 0);
       assert.notEqual(await shell("curl -fsS https://example.com > /dev/null"), 0);
+      // Save names the session in the address; a reload there opens it as it was, the
+      // workspace edit kept rather than the page's files written over it.
+      assert.equal(await shell("echo 'kept by the save' >> /workspace/README.md"), 0);
+      assert.equal(await within(pi.evaluate(() => window.dolly.saveSession("kept")), 60, "the save"), "kept");
+      const savedAt = new URL(pi.url());
+      assert.equal(savedAt.searchParams.get("session"), "kept");
+      await booted(pi, savedAt.href, /not shown\):/);
+      await pi.keyboard.type("sk-or-test");
+      await pi.keyboard.press("Enter");
+      await shows(pi, /Bash is not installed/, "Pi, restored");
+      await pi.keyboard.press("Control+d");
+      await shows(pi, /Pi exited; this is a Slop shell\.[\s\S]*\ndolly:[^\n]*\$\s*$/, "the restored shell");
+      assert.equal(await within(pi.evaluate(() => window.dolly.submit("grep -q 'kept by the save' /workspace/README.md")), 60, "the kept edit"), 0);
       console.log(`npm packages: ${name} passed in ${((performance.now() - started) / 1000).toFixed(1)}s`);
     } finally { await browser.close(); }
   }

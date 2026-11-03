@@ -51,8 +51,9 @@ const markup = `<style>
 // The Save button, its dialog and Ctrl+Shift+S. A save captures the session
 // delta through the snapshot mailbox and keeps it in this browser. The page
 // describes the running image once its ENTRY starts; restored names the
-// session this page booted from, if any. On a page with a site, a save names
-// itself in the tab's URL and the dialog links the site's list of saves.
+// session this page booted from, if any. A save names itself in the tab's URL
+// (the site's session route, or ?session= on a page of one's own), and on a
+// page with a site the dialog links the site's list of saves.
 export function mountSessionSave({ mount, keyboard, showStatus, site, indicators }, transport, restored) {
   mount.insertAdjacentHTML("beforeend", markup);
   const button = document.querySelector("#session-open");
@@ -101,6 +102,10 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
 
   async function save(requestedName) {
     if (saving) return saving;
+    // A save asks the browser to keep the origin's storage: the saves and the
+    // packs their images start from (src/pack-store.mjs). Chrome answers from
+    // the site's engagement, Firefox asks the user; the save does not wait.
+    navigator.storage.persist().catch(() => {});
     saving = (async () => {
       if (!base) throw new Error("Dolly is not ready to save a session");
       await base.verifyBase?.();
@@ -148,7 +153,11 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
       dataset.session = name;
       dataset.sessionBytes = String(encodedSize);
       dataset.sessionStatus = "saved";
-      if (site) history.replaceState(null, "", sessionLoadUrl(name, site));
+      // A reload opens the save again: the site's session route, or on a page of
+      // one's own the address's ?session=, which the page gives boot().
+      const address = new URL(location.href);
+      address.searchParams.set("session", name);
+      history.replaceState(null, "", site ? sessionLoadUrl(name, site) : address);
       showStatus(`Saved ${name} locally${site ? " · /sessions lists your saves" : ""}`);
       indicators.hold("session", false);
       update();

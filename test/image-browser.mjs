@@ -9,10 +9,11 @@ import { DOLLY_SYSTEM_SNAPSHOT as systemMetadata } from "../dist/dolly-system-sy
 // system is built FROM system-tools and installs packages: the base and child of the cache checks.
 const [system, tools] = ["system", "system-tools"].map(name => DOLLY_IMAGES.find(({ image }) => image === name));
 const packs = metadata => metadata.packs.map(({ sha256 }) => `/dist/packs/${sha256}.snapshot.gz`).sort();
-// Building system reads each image its recipe names, every one's packs.
+// Building system reads each image its recipe names, every one's packs: a pack
+// two of them hold is downloaded once and then read from the pack store.
 const inputMetadata = await Promise.all(system.artifacts.map(async ({ image }) =>
   (await import(`../dist/dolly-${image}-system-snapshot.mjs`)).DOLLY_SYSTEM_SNAPSHOT));
-const systemPacks = packs(systemMetadata), buildPacks = packs({ packs: inputMetadata.flatMap(metadata => metadata.packs) });
+const systemPacks = packs(systemMetadata), buildPacks = [...new Set(packs({ packs: inputMetadata.flatMap(metadata => metadata.packs) }))];
 const sources = { "fs-record.h": "src/fs-record.h", "fs-record.c": "test/fixtures/fs-record.c",
   "image-roundtrip.c": "test/fixtures/image-roundtrip.c", "system-snapshot.c": "src/system-snapshot.c",
   "system-snapshot.h": "src/system-snapshot.h", "dollyfile.c": "src/dollyfile.c", "sha256.h": "src/sha256.h" };
@@ -62,7 +63,7 @@ function instrument(source) {
   performance.setResourceTimingBufferSize(4000);
   const getFileHandle = FileSystemDirectoryHandle.prototype.getFileHandle;
   FileSystemDirectoryHandle.prototype.getFileHandle = function (name, options) {
-    if (!options?.create) artifactReads.push(name);
+    if (!options?.create && this.name === "dolly-images") artifactReads.push(name);
     return getFileHandle.call(this, name, options);
   };
 }

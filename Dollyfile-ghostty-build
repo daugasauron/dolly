@@ -22,7 +22,7 @@ SOURCE /v0.1.4/dist/static/default/uucode.tar               3797828ab1f665e0530d
 SOURCE /v0.1.4/dist/static/default/ghostty/display.c        574d7c0fed71b4ede39e9f1450a0df90d62130647d6bc371dd85d101b03f7108 /usr/src/dolly/ghostty/display.c
 SOURCE /v0.1.4/dist/static/default/stb_truetype.h           ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/ghostty/stb_truetype.h
 SOURCE /v0.1.4/dist/static/default/stb_image.h              594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3 /tmp/ghostty/stb_image.h
-SOURCE /v0.1.4/dist/static/default/IosevkaTerm-SemiBold.ttf 754545a4f6250efdd3d2cc916bb344c59f0c59830405307dfd44d183f919a654 /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+SOURCE /v0.1.4/dist/static/default/IosevkaTerm-SemiBold.ttf cb3fd282d86c0e7cc2829f848df5a58973db98c8369a20427a9b3d06727e5aaa /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 # What IosevkaTerm has no glyph for: Chinese, Japanese and Korean, then emoji.
 SOURCE /v0.1.4/dist/static/default/DroidSansFallback.ttf    56d3edfb377a8bc3c4b77f4476405c770173c0e31221ad7c77d0a8e1f3039a3e /usr/share/fonts/DroidSansFallback.ttf
 SOURCE /v0.1.4/dist/static/default/droid-fonts-NOTICE       38751245389e1e23f73e6f5384b5cbe7fa972cc4410c5adc9c04b082a0b9561a /usr/share/licenses/droid-fonts/NOTICE
