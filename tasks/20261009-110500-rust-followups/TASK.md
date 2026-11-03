@@ -66,20 +66,23 @@ of either strategy links it. Reasons, each read in the sources or measured:
   selects the passing test, in Chromium and Firefox.
 - rustc keeps aborting: its first generation links the seed's std, compiled to abort, and a
   crate built to unwind cannot link one that aborts (rustc's `RequiredPanicStrategy`); the
-  recipe passes `panic="abort"` for the compiler. Building the library twice was not an option
-  for `panic_abort`: Cargo refuses `panic` in a package profile, so a five-line wrapper adds
-  `-C panic=abort` for that one crate, as Rust's own build does in its rustc shim.
+  profile of the staged sources still says `panic = "abort"`, and the library's build alone
+  overrides it. Building the library twice was not an option for `panic_abort`: Cargo refuses
+  `panic` in a package profile, so a five-line wrapper adds `-C panic=abort` for that one crate,
+  as Rust's own build does in its rustc shim.
 - The new definition reaches the SDK only with a library built for it: rustc records a JSON
   target as its name and a hash of its contents (`wasm64-emscripten-probe-4841731155276814203`)
   and refuses another's crates. The first image build installed the spec before building the
   library, and std's build scripts, which run on the host, found only the seed's std ("couldn't
   find crate `std` with expected target triple"). The recipe builds the library for the spec
   in `/tmp/rustc/spec`, the host keeping the seed's until the new library and spec replace both.
-- Every Rust project the images stage built with `panic = "abort"` (`rust_sources.cargo_config`)
-  only because the SDK could do nothing else; the profile now leaves panics to the target, as
-  upstream's projects do. Tokio and Codex then see a task's panic as a `JoinError`, and a
-  procedural macro's panic as rustc's error rather than the end of the compiler (rustc warned
-  that a macro built to abort may crash it).
+- The images' own Rust programs keep building to abort (`rust_sources.cargo_config`), as rustc
+  does: a first image build that let them unwind made Cargo 34.8% larger (31,401,103 to
+  42,319,951 bytes) and ripgrep 17.5% (6,249,873), against about 1% now that only the library
+  unwinds (below). Upstream's release profiles of Codex, fd and ripgrep unwind (only ripgrep's
+  Debian profile aborts); with unwinding, Tokio in Codex would see a task's panic as a
+  `JoinError` rather than the end of the program. That is one line in `cargo_config` and a
+  rebuild of the Rust images, for the owner to weigh against the size.
 
 ### The cost, measured (2026-11-03)
 
@@ -90,14 +93,12 @@ lines, median of five runs (`build/stack-evidence/rg-ab.mjs`, not committed):
 | ripgrep | bytes | Chromium: regex, `amet$`, `-i` | Firefox: the same |
 | --- | --- | --- | --- |
 | program and std abort (before) | 5,318,491 | 79, 114, 119 ms | 118, 204, 208 ms |
-| program aborts, std unwinds (a crate's `panic = "abort"` now) | 5,384,227 (+1.2%) | 76, 113, 115 ms | 114, 207, 221 ms |
-| program and std unwind (the images now) | 6,255,232 (+17.6%) | 80, 113, 124 ms | 105, 211, 234 ms |
+| program aborts, std unwinds (the images' programs now) | 5,384,227 (+1.2%) | 76, 113, 115 ms | 114, 207, 221 ms |
+| program and std unwind (a user's crate, by default) | 6,255,232 (+17.6%) | 80, 113, 124 ms | 105, 211, 234 ms |
 
 The landing pads cost size, not speed: the times differ less than run to run. The standard
 library's rlibs (embedded bitcode, the SDK's flags) are 80,771,308 bytes aborting and
 81,286,438 unwinding; the SDK adds libtest and getopts (25 rlibs, 88,271,418 bytes).
-The images' programs could keep 1.2% by building to abort, but upstream's release profiles of
-Codex, fd and ripgrep unwind (only ripgrep's Debian profile aborts), and so do they here.
 
 Without the wrapper, an aborting program fails to link: "the crate `panic_abort` does not have
 the panic strategy `abort`"; with it, ripgrep built to abort links against the unwinding std.

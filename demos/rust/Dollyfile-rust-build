@@ -28,7 +28,7 @@ REQUIRES TOOL rm
 # rustc's and std's source as the seed's build prepared it, their locked
 # crates as Cargo's directory source, and the build's settings in
 # /tmp/rustc/.cargo/config.toml.
-SOURCE /v0.1.4/dist/static/rust/rustc.tar.gz 0d4b90aa230af31653b94ff0711d82eff9aacc5c9da5aad69cfcc1922c2f4c99 /tmp/rustc.tar.gz
+SOURCE /v0.1.4/dist/static/rust/rustc.tar.gz f0b868e4ae64c9842939247250b3e7cb0fa623aab823112994e5bd00cdc9c536 /tmp/rustc.tar.gz
 SLOP gzip -dc /tmp/rustc.tar.gz | tar -xf - -C /
 SLOP rm /tmp/rustc.tar.gz
 # The target as Dolly defines it now (panics unwind). The seed's library was
@@ -38,21 +38,21 @@ SOURCE /v0.1.4/dist/static/rust/wasm64-emscripten-probe.json 90972fb95b4f3f9abdc
 
 # One generation: the compiler, built by the rustc in /opt/rust-sdk against the
 # standard library there, replaces that rustc. It is linked as a host of
-# procedural-macro libraries, with room for its data. Its panics abort, as the
-# seed's standard library that the first generation links does.
+# procedural-macro libraries, with room for its data.
 FILE /tmp/rustc/compiler.slop
     cd /tmp/rustc/source
-    RUSTC_BOOTSTRAP=1 cargo rustc -j 4 --offline -p rustc-main --bin rustc-main --features llvm --target-dir /tmp/rustc/target --config 'profile.dev.panic="abort"' -- -C link-arg=-rdynamic -C link-arg=-Wl,--initial-memory=33554432
+    RUSTC_BOOTSTRAP=1 cargo rustc -j 4 --offline -p rustc-main --bin rustc-main --features llvm --target-dir /tmp/rustc/target -- -C link-arg=-rdynamic -C link-arg=-Wl,--initial-memory=33554432
     cp /tmp/rustc/target/debug/rustc-main /opt/rust-sdk/bin/rustc-real
     rm -rf /tmp/rustc/target
 # The standard library for that target by the rustc in /opt/rust-sdk, left in
 # /tmp/rustc/sdk-target, with libtest for cargo test; its build scripts run on
 # the host. Cargo's build-std reads the source below the sysroot and builds it
-# for a crate.
+# for a crate. The compiler aborts, as its first generation must with the
+# seed's library; the library unwinds.
 FILE /tmp/rustc/std.slop
     cd /tmp/rustc/sdk
     rm -rf /tmp/rustc/sdk-target
-    RUSTC_BOOTSTRAP=1 RUSTC_WRAPPER=/tmp/rustc/std-rustc RUSTFLAGS="-C relocation-model=pic -C embed-bitcode=yes" cargo build -j 4 --offline --lib --target /tmp/rustc/spec/wasm64-emscripten-probe.json -Z json-target-spec -Z build-std=std,panic_abort,proc_macro,test --target-dir /tmp/rustc/sdk-target
+    RUSTC_BOOTSTRAP=1 RUSTC_WRAPPER=/tmp/rustc/std-rustc RUSTFLAGS="-C relocation-model=pic -C embed-bitcode=yes" cargo build -j 4 --offline --lib --target /tmp/rustc/spec/wasm64-emscripten-probe.json -Z json-target-spec -Z build-std=std,panic_abort,proc_macro,test --target-dir /tmp/rustc/sdk-target --config 'profile.dev.panic="unwind"'
     rm /tmp/rustc/sdk-target/wasm64-emscripten-probe/debug/deps/libdolly_rust_sdk-*
 # As in Rust's own build, the library unwinds and its abort runtime aborts, so
 # a program of either strategy links them.
@@ -91,7 +91,7 @@ SLOP CWD /tmp/rustc/sdk-target/wasm64-emscripten-probe/debug/deps slop -e -c 'fo
 SLOP rm -rf /tmp/rustc /opt/rust-llvm /opt/rust-sdk/lib/rustlib/src
 
 # Cargo, by the kept compiler and library; the seed's Cargo drives its last build.
-SOURCE /v0.1.4/dist/static/rust/cargo.tar.gz bf63b4aae10694cb973b291b1e7bfb548b3e68d51ba36bb78200117cff0fa910 /tmp/cargo.tar.gz
+SOURCE /v0.1.4/dist/static/rust/cargo.tar.gz a1cfcffcac95319a5d6d161ffe6e2b71bba8465943ddd933fb31c795f83ad197 /tmp/cargo.tar.gz
 SLOP gzip -dc /tmp/cargo.tar.gz | tar -xf - -C /
 SLOP rm /tmp/cargo.tar.gz
 SLOP CWD /tmp/cargo/source cargo build -j 4 --offline --bin cargo --target-dir /tmp/cargo/build

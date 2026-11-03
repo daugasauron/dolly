@@ -72,8 +72,7 @@ compiler against `rust-llvm`'s libraries and keeps the second:
 offline build: upstream's archive, every crate its `Cargo.lock` names
 (checksum-verified, extracted to `vendor/`), the target patches applied in
 place, and a `.cargo/config.toml` that points Cargo at `vendor/` and sets the
-seed's optimization profile; panics unwind, as upstream's do. A recipe then runs
-`cargo build --offline`.
+profile the seed is built with. A recipe then runs `cargo build --offline`.
 
 ## Cargo
 
@@ -112,7 +111,9 @@ with the compiler.
 ## Limits
 
 - Panics unwind, by WebAssembly exceptions as C++ exceptions do; a crate built with
-  `panic = "abort"` links the same standard library. No dynamic Rust libraries.
+  `panic = "abort"` links the same standard library, as the images' programs and rustc are
+  built (unwinding's landing pads cost them 17% to 35% of their size). No dynamic Rust
+  libraries.
 - Executables link threaded (`cc -pthread`) and need `REQUIRES HOST threads@0`.
   The compiler loads proc macros and needs `dso@0`, which a build host enables
   and an image that keeps `rustc` declares.

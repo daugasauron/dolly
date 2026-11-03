@@ -97,11 +97,12 @@ def vendor(lock, destination, archives):
 
 
 def cargo_config(source, vendored, extra=""):
-    """From SOURCE down, Cargo takes crates from VENDORED and builds with the Rust seed's
-    profile; panics unwind, as the target's do."""
+    """From SOURCE down, Cargo takes crates from VENDORED and builds as the Rust seed is built."""
     config = source / ".cargo/config.toml"
     config.parent.mkdir(exist_ok=True)
     # Upstream's own configuration serves its developers' commands, not a build.
+    # The images' programs abort on a panic: unwinding's landing pads made ripgrep
+    # 17.6% and Cargo 34.8% larger (tasks/20261009-110500-rust-followups).
     config.write_text(f'''[source.crates-io]
 replace-with = "vendored-sources"
 
@@ -111,6 +112,7 @@ directory = "{vendored}"
 [profile.dev]
 opt-level = 1
 debug = 0
+panic = "abort"
 debug-assertions = false
 overflow-checks = false
 codegen-units = 16
