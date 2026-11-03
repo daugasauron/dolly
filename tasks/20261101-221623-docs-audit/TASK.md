@@ -1,6 +1,6 @@
 # Audit: every claim in the documentation, against the code
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 260
 - TAGS: docs,audit
 

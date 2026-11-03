@@ -1,6 +1,6 @@
 # npm packages for v0.1.4: what is left before the owner publishes them
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: packages,release,0.1.4
 

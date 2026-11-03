@@ -1,6 +1,6 @@
 # Audit: Slop, the seed commands and the Dollyfile language
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: core,audit,slop,dollyfile
 

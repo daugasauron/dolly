@@ -1,6 +1,6 @@
 # Image builds and session saves hold the image about three times: capture it as a stream
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: core,memory,snapshots
 

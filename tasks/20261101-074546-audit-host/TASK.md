@@ -1,6 +1,6 @@
 # Audit: the host modules
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: core,audit,host-modules
 

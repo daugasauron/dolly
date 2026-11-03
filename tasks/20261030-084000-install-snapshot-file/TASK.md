@@ -1,6 +1,6 @@
 # amy install holds a package's snapshot beside the files it installs
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 70
 - TAGS: amy,kernel,memory,packages
 

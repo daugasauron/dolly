@@ -1,6 +1,6 @@
 # Audit: the kernel, the process contract and the libc adapter
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: core,audit,kernel
 

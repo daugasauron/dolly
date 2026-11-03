@@ -1,6 +1,6 @@
 # Chrome traps a copy, fill or atomic into memory another thread just grew
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 280
 - TAGS: core,threads,bug
 
