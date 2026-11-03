@@ -30,9 +30,9 @@ flowchart LR
   Two fingers moving apart or together are sent as the keys Ctrl+= and
   Ctrl+-, a font size for each 20 CSS px.
 - A touchscreen has no paste chord. There the page shows its own Paste
-  button: it reads the clipboard only inside the user's press of it and
-  delivers the text as a paste, to the terminal or to a program holding the
-  lease.
+  button, in its bar below the terminal: it reads the clipboard only inside
+  the user's press of it and delivers the text as a paste, to the terminal or
+  to a program holding the lease.
 - `dolly_input_acquire` gives the foreground process or a descendant the
   lease, one at a time. It then reads every record with
   `dolly_input_next_event`, and the terminal reads none. The page sends it
@@ -67,7 +67,8 @@ flowchart LR
 ## Touch
 
 `touch@0` gives a program the fingers on a touchscreen: every finger that is
-down, each with an id from its down to its up or cancel
+down, each with an id from its down to its up or cancel, and buttons of its
+own on the page
 ([`host/touch/dolly-touch-0.wat`](../host/touch/dolly-touch-0.wat),
 [`touch.h`](../host/touch/touch.h), [`touch.mjs`](../host/touch/touch.mjs)).
 What fingers mean, a tap, a drag or two of them moving apart, is the
@@ -90,6 +91,11 @@ program's to decide.
   end of every finger that is down: a delivered finger's up or cancel is never
   lost. What is not written, a move without room, an eleventh finger or one
   whose down found no room, is counted in the next record's `dropped`.
+- `dolly_touch_buttons` shows up to 12 labels as the holder's buttons in the
+  page's bar below the terminal, before Paste, drawn as Paste is; each call
+  replaces the ones before. A press of one is a record of phase `PRESS` whose
+  id is the button's index. A press of buttons the holder has since replaced
+  is not read, and the buttons go with the lease.
 - A program at the terminal gets the terminal's frame and finds a cell by
   the cell size the terminal reports (`CSI 16 t`). The terminal's padding,
   12 by 10 CSS pixels, is not reported: a cell found so is the finger's or

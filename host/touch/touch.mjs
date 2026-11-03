@@ -5,6 +5,7 @@ const word = { read: T.DOLLY_TOUCH_WORD_READ, write: T.DOLLY_TOUCH_WORD_WRITE,
   lease: T.DOLLY_TOUCH_WORD_LEASE, enabled: T.DOLLY_TOUCH_WORD_ENABLED };
 // Moves leave room for every finger's down and its end.
 const moveReserve = 2 * T.DOLLY_TOUCH_FINGERS;
+const buttonsEnd = T.DOLLY_TOUCH_BUTTONS_OFFSET + 8 + T.DOLLY_TOUCH_BUTTON_COUNT * T.DOLLY_TOUCH_LABEL_SIZE;
 
 // The Worker's end of the touch mailbox, the one producer of its records: the
 // page sends it the fingers it took. A finger is delivered under the lease its
@@ -16,7 +17,8 @@ export class TouchTransport {
     if (!(buffer instanceof SharedArrayBuffer)) throw new Error("Dolly touch transport requires shared Wasm memory");
     if (!Number.isSafeInteger(address) || address <= 0 || address % 4 !== 0 || !Number.isSafeInteger(capacity) ||
         capacity <= moveReserve || (capacity & (capacity - 1)) !== 0 ||
-        address > buffer.byteLength - T.DOLLY_TOUCH_HEADER_SIZE - capacity * T.DOLLY_TOUCH_RECORD_SIZE) {
+        T.DOLLY_TOUCH_HEADER_SIZE + capacity * T.DOLLY_TOUCH_RECORD_SIZE > T.DOLLY_TOUCH_BUTTONS_OFFSET ||
+        address > buffer.byteLength - buttonsEnd) {
       throw new Error("Dolly supplied an invalid touch mailbox");
     }
     this.view = new DataView(buffer);
@@ -46,16 +48,23 @@ export class TouchTransport {
     Atomics.store(this.words, this.address / 4 + word.write, (write + 1) | 0);
   }
 
-  // One Pointer Event of a finger as samples ({ x, y, pressure, time }, the
-  // coalesced moves of a pointermove). Returns whether the finger is this
-  // module's, so that it is not also the pointer.
-  finger(phase, pointerId, samples) {
+  // The lease records are written under. A new one ends the fingers of the
+  // one before: they are nobody's until they end.
+  follow() {
     const lease = this.lease();
     if (lease !== this.heldLease) {
       for (const pointer of this.fingers.keys()) this.ignored.add(pointer);
       this.fingers.clear();
       this.heldLease = lease;
     }
+    return lease;
+  }
+
+  // One Pointer Event of a finger as samples ({ x, y, pressure, time }, the
+  // coalesced moves of a pointermove). Returns whether the finger is this
+  // module's, so that it is not also the pointer.
+  finger(phase, pointerId, samples) {
+    const lease = this.follow();
     const id = this.fingers.get(pointerId), ends = phase === T.DOLLY_TOUCH_UP || phase === T.DOLLY_TOUCH_CANCEL;
     if (id === undefined) {
       if (this.ignored.has(pointerId)) {
@@ -86,6 +95,31 @@ export class TouchTransport {
     return true;
   }
 
+  // The holder's labels and the labels word they were read under, or null
+  // while the kernel is changing them.
+  buttons() {
+    const at = this.address + T.DOLLY_TOUCH_BUTTONS_OFFSET;
+    const labels = Atomics.load(this.words, at / 4) >>> 0;
+    const count = Math.min(this.view.getUint32(at + 4, true), T.DOLLY_TOUCH_BUTTON_COUNT);
+    const texts = Array.from({ length: count }, (_, index) => {
+      const bytes = new Uint8Array(this.view.buffer, at + 8 + index * T.DOLLY_TOUCH_LABEL_SIZE, T.DOLLY_TOUCH_LABEL_SIZE).slice();
+      return new TextDecoder().decode(bytes.subarray(0, bytes.indexOf(0) >>> 0));
+    });
+    return Atomics.load(this.words, at / 4) >>> 0 === labels ? { labels, texts } : null;
+  }
+
+  // A press of the holder's button index, of the labels read under the word
+  // labels, while the ring keeps room for it and every finger's end.
+  press(index, labels, time) {
+    if (!this.follow()) return;
+    if (this.free() < this.fingers.size + 1) {
+      this.dropped++;
+      return;
+    }
+    this.write(index, T.DOLLY_TOUCH_PRESS, { x: labels, y: 0, pressure: 0, time });
+    Atomics.notify(this.words, this.address / 4 + word.write);
+  }
+
   // Tells the kernel whether this page listens: without it no lease is given.
   enable(enabled) {
     Atomics.store(this.words, this.address / 4 + word.enabled, enabled ? 1 : 0);
@@ -98,8 +132,9 @@ const phases = { pointerdown: T.DOLLY_TOUCH_DOWN, pointermove: T.DOLLY_TOUCH_MOV
 // The page's fingers on the canvas. They are taken before input@0's listeners
 // on the canvas see them, and only while a program holds the lease, as the
 // Worker last reported it: without one the terminal's scroll and pinch are
-// input@0's. A finger taken stays this module's until it ends.
-export function browser({ canvas, surfaceSize, send }) {
+// input@0's. A finger taken stays this module's until it ends. The holder's
+// buttons are input@0's bar's, before its Paste.
+export function browser({ canvas, surfaceSize, send, get }) {
   let started = false, lease = 0;
   const taken = new Set();
   // Positions are pixels of the frame the canvas shows, as input@0's pointer records are.
@@ -130,24 +165,36 @@ export function browser({ canvas, surfaceSize, send }) {
   canvas.addEventListener("contextmenu", menu);
   return {
     page: { get touchTransport() { return started ? { lease: () => lease } : undefined; } },
-    messages: { "touch-lease"(message) { lease = message.lease; } },
+    messages: {
+      "touch-lease"(message) { lease = message.lease; },
+      "touch-buttons"({ labels, texts }) {
+        get("input").buttons(texts, (index, event) =>
+          send({ type: "touch-press", index, labels, time: Math.floor(event.timeStamp) }));
+      },
+    },
     start() { started = true; },
     dispose() {
       for (const type of Object.keys(phases)) window.removeEventListener(type, listen, { capture: true });
       canvas.removeEventListener("contextmenu", menu);
+      get("input")?.buttons([]);
       started = false;
     },
   };
 }
 
-// The holder's lease is read at each service tick and reported when it changes.
+// The holder's lease and labels are read at each service tick and reported when they change.
 export function worker({ get, send }) {
-  let transport, stop, reported = 0;
+  let transport, stop, reported = 0, shown = 0;
   return {
-    messages: { "touch-finger"({ phase, pointerId, samples }) { transport?.finger(phase, pointerId, samples); } },
+    messages: {
+      "touch-finger"({ phase, pointerId, samples }) { transport?.finger(phase, pointerId, samples); },
+      "touch-press"({ index, labels, time }) { transport?.press(index, labels, time); },
+    },
     service() {
       const lease = transport?.lease() ?? 0;
       if (transport && lease !== reported) send({ type: "touch-lease", lease: reported = lease });
+      const buttons = transport?.buttons();
+      if (buttons && buttons.labels !== shown) send({ type: "touch-buttons", ...buttons, labels: shown = buttons.labels });
     },
     start({ kernel, memory }) {
       const address = Number(kernel.dolly_touch_mailbox_address());

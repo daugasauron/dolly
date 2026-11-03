@@ -256,10 +256,11 @@ export class FramebufferPresenter {
 // The page's display: the canvas, handed to the Worker that paints it, the
 // surface it measures, and the copy chord. What the terminal publishes (its
 // grid, geometry, cursor, the lease) the Worker reports by message.
-export function browser({ mount, canvas, keyboard, fatal, showStatus, send, ask }) {
+export function browser({ canvas, keyboard, fatal, showStatus, send, ask }) {
   const surface = canvas.transferControlToOffscreen();
   let state, resizeObserver;
-  const publishSurface = () => send({ type: "display-surface", width: mount.clientWidth, height: mount.clientHeight,
+  // The terminal is the canvas's box: what the element holds beside it (input@0's bar) is not.
+  const publishSurface = () => send({ type: "display-surface", width: canvas.clientWidth, height: canvas.clientHeight,
     devicePixelRatio });
   const copySelection = () => ask({ type: "display-copy" });
 
@@ -331,10 +332,10 @@ export function browser({ mount, canvas, keyboard, fatal, showStatus, send, ask 
     },
     // The initial surface, then every change of the terminal area.
     entryStarted() {
+      canvas.hidden = false;
       publishSurface();
       resizeObserver = new ResizeObserver(publishSurface);
-      resizeObserver.observe(mount);
-      canvas.hidden = false;
+      resizeObserver.observe(canvas);
       document.documentElement.dataset.terminal = "ghostty-rgba-wasm";
     },
     dispose() { resizeObserver?.disconnect(); },

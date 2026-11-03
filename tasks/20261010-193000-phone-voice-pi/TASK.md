@@ -292,6 +292,46 @@ and Firefox. Screenshots: `build/phone-evidence/shots.mjs`.
 
 Left: Pi's lists still want the arrow row, since the menu cannot tell when one is open.
 
+## Menu and Paste from one source (2026-11-03)
+
+Owner, on voice's drawn Menu beside the page's Paste: "I dont like how the buttons at the
+button look. Also the paste button should be next to menu (I think 2 buttons is fine, Menu &
+Paste). The height of the buttons is too much and I want some yellow border". A first attempt
+drew Menu as a box of line characters and placed Paste beside it by the display's grid (CSS
+variables, a reserved column count). The owner: "I don't want the source of the Menu and Paste
+buttons to be different [...] Rethink it from first principles". Then approved a contract change.
+
+- Paste must be the page's: only the page reads the clipboard, and only on the user's press of
+  a control the page owns; a program that drew it could read the clipboard on any tap. So Menu is
+  the page's too, drawn by the same code.
+- `touch@0` gives the lease holder up to 12 labels (`dolly_touch_buttons`, op 95; the labels
+  after the ring at byte 16400, a labels word the kernel adds one to after each change). The
+  page shows them in input@0's bar below the canvas, before Paste, with Paste's look; a tap is a
+  record of phase `PRESS` whose id is the index and x the labels word it was pressed under, and
+  READ drops presses of replaced labels. The buttons go with the lease. The module stays `@0`
+  (no module has been renumbered; the ABI digest refuses old clients).
+- The terminal element is a column: the canvas takes what the bar leaves, and the display
+  measures the canvas, not the element, so the bar never covers a row.
+- voice gives the page its page's labels, or Send, Done and Cancel while it listens, and reads
+  presses; it draws only its two caption rows (580 to 469 lines: no layout, no cell size, no tap
+  mapping). The arrow row is ↑ ↓ Enter Esc Done.
+- The display's line and block characters stop short of a row (Iosevka's full block is 1.25
+  em, a row 1.32 times its ascent and descent, so vertical lines show gaps). Fixed on branch
+  `core/display-fill` (drawn scaled to the cell, as Ghostty draws them); it rebuilds 161 of 193
+  images, so it waits for the next full round.
+- Signed out, Pi's menu says so and opens on Sign in (Pi's placeholder model, "unknown", is no
+  provider's).
+- On the owner's phone the keyboard is Traditional T9, whose strip ("[ Abc / en ]") lies over
+  the page's bottom while the terminal has the focus, and Chrome kept the page's height under
+  it. The terminal page's viewport resizes with the keyboard (`interactive-widget=
+  resizes-content`): the bar sits above the strip (screenshot over USB, 14:30).
+- Owner: "The buttons should be on the left, not right, and I also want a button to toggle
+  voice capture. And one button to send/clear that input." The bar starts at the left: Speak,
+  Send, Clear, Menu, Paste. Speak is Stop while voice listens; Stop types what was heard into
+  Pi's editor, Send types it and Enter, Clear drops it; resting, Send is Enter and Clear's F11
+  empties Pi's editor (phone-menu.js; the key goes on, so Pi draws the editor again). The
+  menu's own Speak, Send and Clear, and voice's `speak` order, are gone.
+
 ## Parked (2026-10-10, 23:55)
 
 Owner: "I think using the phone GPU for the speech to text would be a significant boost? And

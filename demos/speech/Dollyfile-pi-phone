@@ -15,13 +15,13 @@ REQUIRES HOST threads@0
 REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 0de0446f9624f6dbf462ac6c114d35039439cca00660e6a5ac494a91da37a564
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 3a8cc39dfbb9d97272d4f2b022d0c579bf1b72e8de655c6ef16ef4df3c811a85
 INSTALL /v0.1.4/Dollyfile-amy de8d4c2404adfd43bb54bc492688aa8ba6d7e7d388889cb4b965e018800bafe6
 REQUIRES TOOL foreground
 REQUIRES TOOL pi
-INSTALL /v0.1.4/demos/speech/Dollyfile-voice d68498858559840cbaf6c59462e027e2f5a905c91817d58119fce31e603b36b9
-SOURCE /v0.1.4/dist/static/speech/pi.menu 127b6d4e470a0b0c6f503c418895a84ad7180496cabb2d7c4f8506fea9570cba /etc/dolly/pi.menu
-SOURCE /v0.1.4/dist/static/speech/phone-menu.js dfc8e9d130feba2f3f2eb8a52f6ef8749316ee7e3ea1981757248c5d630ee80a /home/dolly/.pi/agent/extensions/phone-menu.js
+INSTALL /v0.1.4/demos/speech/Dollyfile-voice f75632963690ef033d4d3a0e81dfdc68a2602f3f66efd77e76f25a4b3d152855
+SOURCE /v0.1.4/dist/static/speech/pi.menu 0be56971da401fb0e0a5d82abd1d92529f078e96ab4508a3e4ca2347979e2cdd /etc/dolly/pi.menu
+SOURCE /v0.1.4/dist/static/speech/phone-menu.js 04550fc67a7b087d011c1ba408498632749984ff23d023c04c14dcfcaa157c9b /home/dolly/.pi/agent/extensions/phone-menu.js
 EXPORTS FILE pi-menu /etc/dolly/pi.menu
 FILE /home/dolly/.pi/agent/extensions/phone-menu.js
 

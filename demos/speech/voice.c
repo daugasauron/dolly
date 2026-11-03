@@ -1,11 +1,12 @@
 // voice MENU [MODEL] -- PROGRAM [ARG...]: stands in for a keyboard where
 // there is none. PROGRAM runs on a pseudo-terminal in all but the terminal's
-// last rows, where voice draws the buttons MENU names. A finger's tap on one
-// types what it says into PROGRAM's terminal, and while one of them listens,
-// what the microphone hears. The keyboard still types, and a paste reaches
-// PROGRAM as it would without voice. PROGRAM may ask the same of voice, one
-// line each, on the pipe VOICE_CONTROL_FD names: "speak", "page NAME", or
-// "type TEXT" (the menu's escapes); text it shows can ask nothing.
+// last rows, where voice shows what it hears; the buttons MENU names are the
+// page's, below the terminal (touch@0). A press of one types what it says
+// into PROGRAM's terminal, and while one of them listens, what the
+// microphone hears. The keyboard still types, and a paste reaches PROGRAM as
+// it would without voice. PROGRAM may ask the same of voice, one
+// line each, on the pipe VOICE_CONTROL_FD names: "page NAME" or "type TEXT"
+// (the menu's escapes); text it shows can ask nothing.
 #define _GNU_SOURCE
 #include <dolly/runtime.h>
 #include <dolly/touch.h>
@@ -24,7 +25,7 @@
 
 enum { PAGES = 8, KEYS = 12, LABEL = 24, CAPTION = 480, NAME = 32, TEXT = 256,
        WAIT = 0 /* the byte that stands for \w in a key's text */,
-       TALL = 3 /* terminal rows a row of buttons takes, for a finger */, CAPTION_ROWS = 2 };
+       CAPTION_ROWS = 2 };
 enum action { TYPE, SPEAK, PAGE };
 struct key {
   char label[LABEL], text[TEXT], target[NAME];
@@ -112,20 +113,19 @@ static int read_menu(const char *path) {
   return page_count > 0;
 }
 
-// The terminal and the program's part of it. The rows below `top` are
-// voice's: CAPTION_ROWS of caption, then the buttons, TALL rows each. A cell is
-// cell_width by cell_height pixels of the frame a finger's position is in.
+// The terminal and the program's part of it: the CAPTION_ROWS below `top` are voice's.
 static int master = -1, program = -1;
 // The read end of PROGRAM's pipe to voice, and its lines not yet obeyed.
 static int control = -1;
 static char orders[1024];
 static size_t ordered;
 static struct termios cooked;
-static unsigned rows, columns, top, cell_width, cell_height;
-// Each shown button's place: the row of buttons it is in and its columns.
-static struct place { unsigned row, from, to; } places[KEYS];
-static int shown_count;
-static const char *const ends[] = {"Send", "Done", "Cancel"};
+static unsigned rows, columns, top;
+// The touch lease the page's buttons are voice's under, and which buttons it
+// shows: a page's, or (-1) the three ways to end listening.
+static uint64_t lease;
+static int shown = -2;
+static const char *const ends[] = {"Stop", "Send", "Clear"};
 
 static void out(const char *bytes, size_t length) {
   while (length) {
@@ -136,36 +136,15 @@ static void out(const char *bytes, size_t length) {
     length -= (size_t)written;
   }
 }
-static void say(const char *text) { out(text, strlen(text)); }
 
-// The labels shown now: the page's, or the three ways to end listening.
-static const char *end_label(int index) { return ends[index]; }
-static const char *label(int index) { return state == RESTING ? pages[current].keys[index].label : ends[index]; }
-static int label_count(void) { return state == RESTING ? pages[current].count : 3; }
-
-// Lays out `count` labels in rows `columns` wide; returns the rows taken.
-static unsigned lay_out(int count, const char *(*name)(int), struct place *at) {
-  unsigned row = 0, column = 0;
-  for (int index = 0; index < count; ++index) {
-    const unsigned width = (unsigned)strlen(name(index)) + 4;
-    if (column && column + width > columns) ++row, column = 0;
-    if (at) at[index] = (struct place){row, column, column + width};
-    column += width + 1;
-  }
-  return count ? row + 1 : 0;
-}
-
-// The tallest page decides the rows voice keeps, so the program's size changes only with the terminal's.
-static unsigned block_rows(void) {
-  unsigned most = lay_out(3, end_label, NULL);
-  for (int at = 0; at < page_count; ++at) {
-    const int saved = current;
-    current = at;
-    const unsigned taken = lay_out(pages[at].count, label, NULL);
-    current = saved;
-    if (taken > most) most = taken;
-  }
-  return CAPTION_ROWS + most * TALL;
+// The buttons of the page or of listening, given to the page when they change.
+static void show_buttons(void) {
+  const int buttons = state == RESTING ? current : -1;
+  if (!lease || buttons == shown) return;
+  const char *labels[KEYS];
+  const int count = buttons < 0 ? 3 : pages[buttons].count;
+  for (int index = 0; index < count; ++index) labels[index] = buttons < 0 ? ends[index] : pages[buttons].keys[index].label;
+  if (dolly_touch_buttons(lease, labels, (size_t)count) == 0) shown = buttons;
 }
 
 // The caption's rows: the start of the note or the page's caption, or the end
@@ -193,9 +172,8 @@ static void caption(char rows_text[CAPTION_ROWS][CAPTION + 8]) {
 // attributes and the scroll region that keeps the program above them stay
 // the program's.
 static void draw(void) {
+  show_buttons();
   if (!rows) return;
-  shown_count = label_count();
-  lay_out(shown_count, label, places);
   char text[CAPTION_ROWS][CAPTION + 8];
   caption(text);
   char *frame = NULL;
@@ -204,50 +182,22 @@ static void draw(void) {
   fprintf(bytes, "\0337\033[1;%ur", top);
   for (int row = 0; row < CAPTION_ROWS; ++row)
     fprintf(bytes, "\033[%u;1H\033[0;2m%s\033[0m\033[K", top + 1 + row, text[row]);
-  for (unsigned row = 0; row + top + CAPTION_ROWS < rows; ++row) {
-    const unsigned line = top + CAPTION_ROWS + 1 + row;
-    fprintf(bytes, "\033[%u;1H\033[0m\033[K", line);
-    for (int index = 0; index < shown_count; ++index) {
-      if (places[index].row != row / TALL) continue;
-      const struct place *place = &places[index];
-      fprintf(bytes, "\033[%u;%uH\033[0;97;48;5;238m", line, place->from + 1);
-      if (row % TALL == TALL / 2) fprintf(bytes, "  %s  ", label(index));
-      else fprintf(bytes, "%*s", (int)(place->to - place->from), "");
-    }
-  }
   fputs("\033[0m\0338", bytes);
   fclose(bytes);
   out(frame, size);
   free(frame);
 }
 
-// The terminal's size, and the program's: all of it but voice's rows. A new
-// size may come with a new font: the cell's size is asked again, and its
-// answer taken from the keyboard's input (asked_cell).
-static int asked_cell;
+// The terminal's size, and the program's: all of it but voice's rows.
 static void measure(void) {
   struct winsize size;
   if (ioctl(1, TIOCGWINSZ, &size) != 0 || (size.ws_row == rows && size.ws_col == columns)) return;
-  if (rows) say("\033[16t"), asked_cell = 1;
   rows = size.ws_row;
   columns = size.ws_col;
-  const unsigned kept = block_rows();
-  top = rows > kept + 1 ? rows - kept : 1;
+  top = rows > CAPTION_ROWS + 1 ? rows - CAPTION_ROWS : 1;
   const struct winsize part = {(unsigned short)top, (unsigned short)columns, 0, 0};
   ioctl(master, TIOCSWINSZ, &part);
   draw();
-}
-
-// A cell's size in the frame's pixels (CSI 16 t), asked before the program runs.
-static void ask_cell_size(void) {
-  say("\033[16t");
-  char reply[32];
-  size_t length = 0;
-  struct pollfd input = {0, POLLIN, 0};
-  while (length + 1 < sizeof(reply) && poll(&input, 1, 2000) == 1 && read(0, reply + length, 1) == 1)
-    if (reply[length++] == 't') break;
-  reply[length] = 0;
-  if (sscanf(reply, "\033[6;%u;%ut", &cell_height, &cell_width) != 2) cell_width = cell_height = 0;
 }
 
 // Where the program's output may be cut for voice's rows: not inside an
@@ -315,14 +265,7 @@ static int pump(int milliseconds) {
   }
   if (ready[1].revents & POLLIN) {
     char bytes[512];
-    ssize_t count = read(0, bytes, sizeof(bytes));
-    char *reply = asked_cell && count > 0 ? memmem(bytes, (size_t)count, "\033[6;", 4) : NULL, *end;
-    if (reply && (end = memchr(reply, 't', (size_t)(bytes + count - reply)))) {
-      sscanf(reply, "\033[6;%u;%ut", &cell_height, &cell_width);
-      asked_cell = 0;
-      memmove(reply, end + 1, (size_t)(bytes + count - end - 1));
-      count -= end + 1 - reply;
-    }
+    const ssize_t count = read(0, bytes, sizeof(bytes));
     if (count > 0) for (ssize_t at = 0; at < count;) {
       const ssize_t written = write(master, bytes + at, (size_t)(count - at));
       if (written > 0) at += written;
@@ -370,12 +313,12 @@ static void listen(void) {
   draw();
 }
 
-// Send, Done or Cancel; a full line ends as Done.
+// Stop, Send or Clear; a full line ends as Stop.
 static void end(int button) {
   if (button == 2) { rest(""); return; }
   dolly_microphone_close(&microphone);
   line_end();
-  sending = button == 0;
+  sending = button == 1;
   state = ENDING;
   draw();
 }
@@ -399,7 +342,7 @@ static void capture(void) {
   int count = dolly_microphone_get_status(&microphone, &status);
   if (count == 0 && state == ASKING && status.state == DOLLY_MICROPHONE_CAPTURING) { state = LISTENING; draw(); }
   while (count == 0 && (count = microphone_read_16_khz(&microphone, samples)) > 0) {
-    if (line_add(samples, (size_t)count) < (size_t)count) { end(1); return; }
+    if (line_add(samples, (size_t)count) < (size_t)count) { end(0); return; }
     count = 0;
   }
   if (count < 0) rest(errno == EACCES ? "The browser refused the microphone." : errno == ENODEV ? "No microphone is available." : strerror(errno));
@@ -426,8 +369,7 @@ static void obey(void) {
     line[length] = 0;
     ordered -= length + 1;
     memmove(orders, newline + 1, ordered);
-    if (!strcmp(line, "speak")) { if (state == RESTING) note[0] = 0, listen(); }
-    else if (!strncmp(line, "page ", 5)) {
+    if (!strncmp(line, "page ", 5)) {
       for (int at = 0; at < page_count; ++at) if (!strcmp(pages[at].name, line + 5)) current = at, draw();
     } else if (!strncmp(line, "type ", 5)) {
       char text[TEXT];
@@ -436,36 +378,14 @@ static void obey(void) {
   }
 }
 
-// The button under a finger, or -1. The terminal does not report its padding
-// (12 by 10 CSS pixels), so a cell found by division is the finger's or the
-// one right of or below it; a column between two buttons is the left one's.
-static int button_at(int32_t x, int32_t y) {
-  if (!cell_width || !cell_height || x < 0 || y < 0) return -1;
-  const unsigned column = (unsigned)x / cell_width, row = (unsigned)y / cell_height;
-  if (row < top + CAPTION_ROWS) return -1;
-  const unsigned button_row = (row - top - CAPTION_ROWS) / TALL;
-  for (int index = shown_count - 1; index >= 0; --index)
-    if (places[index].row == button_row && column >= places[index].from && column <= places[index].to) return index;
-  return -1;
-}
-
-// A tap: a finger that goes down and up on one button.
-static void touched(uint64_t lease) {
-  static uint32_t finger;
-  static int under = -1;
+// The presses of the page's buttons. Those read after a press changed the
+// buttons were of buttons no longer shown.
+static void touched(void) {
   dolly_touch_record records[DOLLY_TOUCH_READ_RECORDS];
   const int count = dolly_touch_read(lease, records, DOLLY_TOUCH_READ_RECORDS, 0);
-  for (int index = 0; index < count; ++index) {
-    const dolly_touch_record *record = &records[index];
-    if (record->phase == DOLLY_TOUCH_DOWN && !finger) {
-      finger = record->id;
-      under = button_at(record->x, record->y);
-    } else if (record->id == finger && record->phase != DOLLY_TOUCH_MOVE) {
-      const int button = button_at(record->x, record->y);
-      if (record->phase == DOLLY_TOUCH_UP && button >= 0 && button == under) pressed(button);
-      finger = 0;
-    }
-  }
+  const int buttons = shown;
+  for (int index = 0; index < count && shown == buttons; ++index)
+    if (records[index].phase == DOLLY_TOUCH_PRESS) pressed((int)records[index].id);
 }
 
 static void *load(void *unused) {
@@ -499,7 +419,6 @@ int main(int argc, char **argv) {
   struct termios raw = cooked;
   cfmakeraw(&raw);
   tcsetattr(0, TCSANOW, &raw);
-  ask_cell_size();
   fcntl(master, F_SETFL, fcntl(master, F_GETFL) | O_NONBLOCK);
   snprintf(note, sizeof(note), "Loading the speech model.");
   measure();
@@ -524,8 +443,8 @@ int main(int argc, char **argv) {
     perror(argv[dashes + 1]);
     return leave(127);
   }
-  uint64_t lease = 0;
-  if (dolly_touch_acquire(&lease) != 0) {
+  if (dolly_touch_acquire(&lease) == 0) show_buttons();
+  else {
     lease = 0;
     snprintf(note, sizeof(note), "No touchscreen: the keyboard types.");
   }
@@ -537,7 +456,7 @@ int main(int argc, char **argv) {
       was_loading = 0;
       if (state == RESTING) rest(loaded == TRANSCRIBE_OK ? "" : "The speech model did not load.");
     }
-    if (lease) touched(lease);
+    if (lease) touched();
     obey();
     if (state == ASKING || state == LISTENING) capture();
     if (state != RESTING) heard();

@@ -12,9 +12,9 @@ REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.4/host/touch/touch.h 4f1f7c9929144a28a4cee0bdbc3c96109c8bf7e28137ac03e96de6301c88d153 /usr/include/dolly/touch.h
-SOURCE /v0.1.4/host/touch/touch-abi.h 0e1dbc12764fcc1d9a8f3dfc1181cb70d5b63c1a364c59df7205f0876b991db0 /usr/include/dolly/touch-abi.h
-SOURCE /v0.1.4/host/touch/client.c e39f327f709c37b7158fd45bc0afebb0af686d0d187dd3658cb545d8b58fe17f /tmp/libdolly-touch/client.c
+SOURCE /v0.1.4/host/touch/touch.h 95d7145097952a1d0124dd9379357642e82a748ced0153cb88a84fdcd65e9ebf /usr/include/dolly/touch.h
+SOURCE /v0.1.4/host/touch/touch-abi.h f005fc610acf97d2da85e06f334633525d97c0bf9b6c72a970a78a8fd85f099e /usr/include/dolly/touch-abi.h
+SOURCE /v0.1.4/host/touch/client.c c9f732af704b5c535fae43fde92d4c2f8cab10520f74399e03e5122618903e15 /tmp/libdolly-touch/client.c
 SLOP cc -O1 -c /tmp/libdolly-touch/client.c -o /tmp/libdolly-touch/client.o
 SLOP ar rcs /usr/lib/dolly/process/libdolly-touch.a /tmp/libdolly-touch/client.o
 

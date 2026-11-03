@@ -12,13 +12,13 @@ FROM /v0.1.4/Dollyfile-system 03687a356e2435bcb5cb6a062caed281f20c189bb051f4b914
 INSTALL /v0.1.4/demos/speech/Dollyfile-parakeet 45ac10e361a0746ba603aef41eedb00a06bd70c2a1cc76894e4dbda68995e7f5
 USE /v0.1.4/demos/speech/Dollyfile-transcribe 34de81cf9b195b1aee455abb0c313069805f7914442fab1ea642098e8f533ad9
 USE /v0.1.4/Dollyfile-libdolly-microphone 8180d09287395c191e08b034f6859e64f01aec09b3d06735db9d251ba8f28ee0
-USE /v0.1.4/Dollyfile-libdolly-touch 73dbd22d1b0bdc904b6130d2eeeba4d99e7202f2e00f35beee87172c6d5dbd8a
+USE /v0.1.4/Dollyfile-libdolly-touch 7af9966e84dc5209fcbd51c1c0564375b863cd07481913be6d43365421076295
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL tar
 REQUIRES HEADER transcribe
 REQUIRES LIB transcribe
-SOURCE /v0.1.4/dist/static/speech/programs.tar 8afe66dc13e67ab90106901c8781d57f174b0d6007c99bf013116880cd30607c /tmp/speech/programs.tar
+SOURCE /v0.1.4/dist/static/speech/programs.tar 8055dd388ad56c7462112366154bd22838a8593e76bbd275e26a598f8d9e3dcb /tmp/speech/programs.tar
 SLOP tar -xf /tmp/speech/programs.tar -C /
 SLOP cc -pthread -msimd128 -O2 -Wall -Werror -c /tmp/speech/voice.c -o /tmp/speech/voice.o
 SLOP c++ -pthread -msimd128 -O2 /tmp/speech/voice.o /usr/lib/transcribe/libtranscribe.a \
@@ -28,8 +28,9 @@ EXPORTS TOOL   voice
 EXPORTS FOLDER transcribe-licenses /usr/share/licenses/transcribe.cpp
 FILE /usr/share/man/cat1/voice.1
     voice: runs a terminal program in all but the terminal's last rows, where it
-    draws buttons that a finger taps, and types what each says, or what is
-    said, into the program: transcribe.cpp with NVIDIA's Parakeet model.
+    shows what it hears, gives the page buttons that a finger taps (touch@0),
+    and types what each says, or what is said, into the program:
+    transcribe.cpp with NVIDIA's Parakeet model.
     
       voice MENU [MODEL.gguf] -- PROGRAM [ARG...]
     
@@ -39,7 +40,7 @@ FILE /usr/share/man/cat1/voice.1
     :page NAME shows another page. pi-phone's /etc/dolly/pi.menu is one.
     PROGRAM runs on a pseudo-terminal; the keyboard and a paste still reach it,
     and PROGRAM may ask voice for the same, a line each, on the pipe
-    VOICE_CONTROL_FD names: speak, page NAME, type TEXT. It needs touch@0,
+    VOICE_CONTROL_FD names: page NAME, type TEXT. It needs touch@0,
     pty@0 and microphone@0; the
     microphone is open only while it listens, and nothing that is said leaves
     the page.

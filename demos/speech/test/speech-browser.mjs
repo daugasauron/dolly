@@ -94,23 +94,8 @@ if (browser === "chromium") await demoTest("pi-phone", { image: "pi-phone", laun
         body: answer.map(([event, data]) => `${event}data: ${JSON.stringify(data)}\n\n`).join("") + "data: [DONE]\n\n" });
     });
   } });
-  // voice's buttons are the terminal's last rows: a label's cells, tapped by a finger.
-  const tap = async label => {
-    // A row's trailing blanks are not in the text; a page of buttons is drawn after the tap that shows it.
-    const button = new RegExp(`  ${label}(  |$)`);
-    let rows, row;
-    for (const deadline = Date.now() + 30_000; (row = (rows = (await text()).split("\n")).findLastIndex(line => button.test(line))) < 0;) {
-      assert.ok(Date.now() < deadline, `no button ${label}:\n${rows.join("\n")}`);
-      await delay(100);
-    }
-    const column = rows[row].search(button) + 2 + label.length / 2;
-    const [x, y] = await page.evaluate(([column, row]) => {
-      const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry(), canvas = document.querySelector("#display");
-      const scale = canvas.clientWidth / canvas.width, box = canvas.getBoundingClientRect();
-      return [box.left + (paddingX + column * cellWidth) * scale, box.top + (paddingY + (row + 0.5) * cellHeight) * scale];
-    }, [column, row]);
-    await page.touchscreen.tap(x, y);
-  };
+  // voice's buttons are the page's, below the terminal; a finger taps one.
+  const tap = label => page.locator("#buttons button", { hasText: new RegExp(`^${label}$`) }).tap();
   // Pi's menu (phone-menu.js) is a popup of the page: Menu opens it, a finger
   // opens its sections by their names and taps a button; the popup closes.
   const popup = page.frameLocator("#html-popup iframe");
@@ -131,15 +116,16 @@ if (browser === "chromium") await demoTest("pi-phone", { image: "pi-phone", laun
     return value;
   };
   const caption = pattern => waitText(pattern, 90_000);
-  await caption(/Menu: speak/);
+  await caption(/Speak to Pi/);
   await waitText(/No models available/);
   assert.notEqual(await page.evaluate(() => __dolly.touchTransport.lease()), 0, "voice holds the fingers");
 
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.evaluate(key => navigator.clipboard.writeText(key), key);
-  await choose("Sign in", "OpenRouter");
+  // Signed out, the menu opens on Sign in.
+  await choose("OpenRouter");
   await waitText(/Select authentication method/);
-  await tap("Down");
+  await tap("↓");
   await tap("Enter");
   await waitText(/Enter OpenRouter API key/);
   await page.locator("#paste").tap();
@@ -153,10 +139,18 @@ if (browser === "chromium") await demoTest("pi-phone", { image: "pi-phone", laun
   await waitText(new RegExp(`Model: ${chosen.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
   await choose("Thinking", "high");
   await waitText(/Thinking level: high/);
+  // /session prints more than a phone's screen: its last lines stay in view.
   await choose("Commands", "Pi", "/session");
-  await waitText(/Session Info/);
+  await waitText(/Cache Warming/);
 
-  await choose("Speak");
+  // Clear empties Pi's editor; Speak is Stop while voice listens, and Send types what it heard and Enter.
+  await page.keyboard.type("a draft to clear");
+  await waitText(/a draft to clear/);
+  await tap("Clear");
+  for (const deadline = Date.now() + 10_000; /a draft to clear/.test(await text()); await delay(100))
+    assert.ok(Date.now() < deadline, "Clear left Pi's editor");
+  await tap("Speak");
+  await page.locator("#buttons button", { hasText: /^Stop$/ }).waitFor();
   await caption(/ask not what your country can do for you/i);
   await tap("Send");
   await waitText(new RegExp(said));

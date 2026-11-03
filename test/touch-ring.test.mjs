@@ -5,8 +5,9 @@ import { TouchTransport } from "../host/touch/touch.mjs";
 
 const fields = ["id", "phase", "x", "y", "pressure", "dropped", "time", "lease"];
 // A transport whose ring has 32 records, and the records it holds, oldest first.
+// The mailbox's buttons follow the contract's ring wherever a test's ends.
 function ring() {
-  const transport = new TouchTransport(new SharedArrayBuffer(4096), 64, { capacity: 32 }), words = transport.words;
+  const transport = new TouchTransport(new SharedArrayBuffer(32768), 64, { capacity: 32 }), words = transport.words;
   const word = name => 16 + T[`DOLLY_TOUCH_WORD_${name.toUpperCase()}`];
   return {
     transport,
@@ -65,4 +66,22 @@ test("moves leave room for every finger's down and end; what finds none is count
   transport.finger(T.DOLLY_TOUCH_DOWN, 200, [at(0)]);
   transport.finger(T.DOLLY_TOUCH_UP, 200, [at(0)]);
   assert.deepEqual(take().map(({ phase }) => phase), Array.from({ length: 32 }, (_, index) => index % 2 ? T.DOLLY_TOUCH_UP : T.DOLLY_TOUCH_DOWN));
+});
+
+test("a press is the holder's record, of the labels it was shown under", () => {
+  const { transport, hold, take } = ring();
+  transport.press(1, 7, 100);
+  assert.deepEqual(take(), []);
+  hold(5);
+  transport.press(1, 7, 100);
+  assert.deepEqual(take(), [{ id: 1, phase: T.DOLLY_TOUCH_PRESS, x: 7, y: 0, pressure: 0, dropped: 0, time: 100, lease: 5 }]);
+});
+
+test("the holder's labels are read with the labels word", () => {
+  const { transport } = ring(), at = 64 + T.DOLLY_TOUCH_BUTTONS_OFFSET;
+  ["Menu", "↓"].forEach((label, index) =>
+    new Uint8Array(transport.view.buffer).set(new TextEncoder().encode(label), at + 8 + index * T.DOLLY_TOUCH_LABEL_SIZE));
+  transport.view.setUint32(at + 4, 2, true);
+  Atomics.store(transport.words, at / 4, 3);
+  assert.deepEqual(transport.buttons(), { labels: 3, texts: ["Menu", "↓"] });
 });

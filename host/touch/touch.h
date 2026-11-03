@@ -15,7 +15,8 @@ extern "C" {
 // x and y are pixels of the frame the canvas shows, pressure thousandths as
 // the browser reports it (500 for a finger down where it has no sensor),
 // time milliseconds of the browser's event clock. dropped counts the records
-// the page had no room for since the record before this one.
+// the page had no room for since the record before this one. A record of
+// phase DOLLY_TOUCH_PRESS is a press of the button whose index is id.
 typedef struct {
   uint32_t id;
   uint32_t phase;
@@ -34,6 +35,9 @@ typedef struct {
   _Atomic uint32_t lease;
   _Atomic uint32_t enabled;
   dolly_touch_record records[DOLLY_TOUCH_CAPACITY];
+  _Atomic uint32_t labels;
+  uint32_t label_count;
+  char label_text[DOLLY_TOUCH_BUTTON_COUNT][DOLLY_TOUCH_LABEL_SIZE];
 } dolly_touch_mailbox;
 
 #ifdef __cplusplus
@@ -44,6 +48,8 @@ typedef struct {
 DOLLY_TOUCH_LAYOUT(sizeof(dolly_touch_record) == DOLLY_TOUCH_RECORD_SIZE, "touch record layout changed");
 DOLLY_TOUCH_LAYOUT(offsetof(dolly_touch_mailbox, records) == DOLLY_TOUCH_HEADER_SIZE,
                    "touch mailbox layout changed");
+DOLLY_TOUCH_LAYOUT(offsetof(dolly_touch_mailbox, labels) == DOLLY_TOUCH_BUTTONS_OFFSET,
+                   "touch buttons layout changed");
 
 // Only the foreground command or a descendant may hold the lease, one at a
 // time. While it does, every finger on the canvas is its record and none is
@@ -52,14 +58,19 @@ DOLLY_TOUCH_LAYOUT(offsetof(dolly_touch_mailbox, records) == DOLLY_TOUCH_HEADER_
 // EBUSY while the lease is held. read returns the number of records, at most
 // capacity, zero on timeout; it waits for the first one until the timeout
 // ends, indefinitely for a negative one. Exit releases the lease; unread
-// records are dropped.
+// records are dropped. buttons shows count labels (at most
+// DOLLY_TOUCH_BUTTON_COUNT, each shorter than DOLLY_TOUCH_LABEL_SIZE bytes and
+// not empty) as the holder's buttons, in place of those it showed; zero
+// clears them. A press of one is read as a record of phase DOLLY_TOUCH_PRESS
+// whose id is its index.
 int dolly_touch_acquire(uint64_t *generation);
 int dolly_touch_read(uint64_t generation, dolly_touch_record *records, size_t capacity,
                      double timeout_milliseconds);
 int dolly_touch_release(uint64_t generation);
+int dolly_touch_buttons(uint64_t generation, const char *const *labels, size_t count);
 
 // Process packets of the DOLLY_TOUCH_* operations. ACQUIRE has an empty
-// request and RELEASE an empty response.
+// request, RELEASE and BUTTONS an empty response.
 typedef struct {
   uint64_t generation;
 } dolly_touch_generation;
@@ -77,9 +88,17 @@ typedef struct {
   dolly_touch_record records[DOLLY_TOUCH_READ_RECORDS];
 } dolly_touch_read_response;
 
+typedef struct {
+  uint64_t generation;
+  uint32_t count;
+  uint32_t reserved;
+  char labels[DOLLY_TOUCH_BUTTON_COUNT][DOLLY_TOUCH_LABEL_SIZE];
+} dolly_touch_buttons_request;
+
 DOLLY_TOUCH_LAYOUT(sizeof(dolly_touch_generation) == 8, "dolly_touch_generation");
 DOLLY_TOUCH_LAYOUT(sizeof(dolly_touch_read_request) == 24, "dolly_touch_read_request");
 DOLLY_TOUCH_LAYOUT(offsetof(dolly_touch_read_response, records) == 8, "dolly_touch_read_response");
+DOLLY_TOUCH_LAYOUT(offsetof(dolly_touch_buttons_request, labels) == 16, "dolly_touch_buttons_request");
 #undef DOLLY_TOUCH_LAYOUT
 
 #ifdef __cplusplus
