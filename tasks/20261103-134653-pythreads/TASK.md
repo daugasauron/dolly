@@ -203,6 +203,12 @@ contract and client (`DOLLY_DSO_WAIT`, `__dolly_dso_threads`, the TLS exports): 
   loaded by the main thread draws a PNG in another, where ft2font's C++ exception is caught as
   `RuntimeError` (the `_ZTW` thread-local, resolved by that thread's Worker).
 
+- A thread's start in python-data (`build/pythreads-evidence/thread-start.mjs`): 19-23 ms before
+  NumPy, pandas and Matplotlib are imported, 119-131 ms after, with 61 extension modules for the
+  new thread's Worker to compile and place (Chromium); 25-49 ms and 241-259 ms in Firefox. A pool
+  pays it once a worker. Handing the spawned Worker the compiled modules over the channel that
+  carries its memory would save the compiling, if it ever matters.
+
 ## What remains (for the catalog round)
 
 Seed changes on this branch: the compiler (`src/compiler.cpp`; `llvm-cc` built and pinned here,
