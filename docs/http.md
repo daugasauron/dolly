@@ -21,8 +21,12 @@ flowchart LR
   [`host/http/kernel.c`](../host/http/kernel.c); browser side in
   [`host/http/http.mjs`](../host/http/http.mjs) and [`host/http/broker.mjs`](../host/http/broker.mjs).
 - The import passes span descriptors only. The broker checks them against fixed
-  caps before copying: method 32 B, URL 8 KiB, headers 64 KiB, body 8 MiB.
-  Policy can lower these caps, never raise them. Metadata is literal UTF-8
+  caps before copying: method 32 B, URL 8 KiB, headers 64 KiB, body 64 MiB.
+  Policy can lower these caps, never raise them. The body cap is above what
+  the services programs call accept (Anthropic's Messages API takes 32 MB), so
+  the service refuses an oversized request with a 413 a program can act on (an
+  agent compacts its context), not the broker with an `E2BIG` that an HTTP
+  library reports as a failed connection. Metadata is literal UTF-8
   without NUL.
 - A URL is absolute `http:` or `https:`, or a site path:
   `/vX.Y.Z/amy-index.txt` names a file of the site serving this release when

@@ -83,7 +83,7 @@ await browserTest("network", { image: "system", server: { fixtures, handle } }, 
     await run(`curl -fsS ${server.origin}/fixture/large -o /tmp/large && test "$(wc -c < /tmp/large)" = 68157457`);
     await run(`test "$(sha256sum /tmp/large | cut -d ' ' -f 1)" = ${largeDigest} && rm /tmp/large`);
     assert.notEqual(await submit(`curl -fsS ${server.origin}/fixture/http.txt -o /tmp/limited`), 0, "maxResponseBytes");
-    // Streams a 3 MiB request body through the echo fixture; 9 MiB is refused.
+    // Streams an 8 MiB request body through the echo fixture; one byte over the cap is refused.
     await run(`curl -fsS ${server.origin}/fixture/http-check.c -o /tmp/http-check.c && cc /tmp/http-check.c -o /tmp/http-check`);
     await run(`DOLLY_PROCESS_HTTP_POST_URL=${server.origin}/fixture/echo /tmp/http-check`);
 

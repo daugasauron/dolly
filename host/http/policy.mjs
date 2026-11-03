@@ -1,4 +1,4 @@
-import { DOLLY_ERRNO } from "./abi.mjs";
+import { DOLLY_ERRNO, DOLLY_HTTP_MAX_BODY } from "./abi.mjs";
 
 export class HttpError extends Error {
   constructor(errno, message) { super(message); this.errno = errno; }
@@ -38,7 +38,7 @@ export function stripDollyBrowserOwnedHeaders(headers) {
 
 const defaultLimits = Object.freeze({
   maxRequests: 256,
-  maxRequestBytes: 8 * 1024 * 1024,
+  maxRequestBytes: DOLLY_HTTP_MAX_BODY,
   maxResponseBytes: Infinity,
   timeoutMilliseconds: 600_000,
 });

@@ -20,7 +20,10 @@
   (global (export "DOLLY_HTTP_MAX_METHOD") i32 (i32.const 32))
   (global (export "DOLLY_HTTP_MAX_URL") i32 (i32.const 8192))
   (global (export "DOLLY_HTTP_MAX_HEADERS") i32 (i32.const 65536))
-  (global (export "DOLLY_HTTP_MAX_BODY") i32 (i32.const 8388608))
+  ;; A body cap above what the services programs call accept (Anthropic's
+  ;; Messages API takes 32 MB), so the service refuses an oversized request
+  ;; with an answer the program reads, not the broker with an errno.
+  (global (export "DOLLY_HTTP_MAX_BODY") i32 (i32.const 67108864))
   ;; Admission copies the request before returning. A host-only acknowledgement
   ;; bounds queued admission descriptors to one; it is NOT guest memory.
 
