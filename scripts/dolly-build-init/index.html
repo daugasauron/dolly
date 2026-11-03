@@ -36,5 +36,8 @@
   // Pi's colours: theme.json (Pi's docs/themes.md), written over the image's theme.
   files["/home/dolly/.pi/agent/themes/dolly.json"] = await (await fetch("./theme.json")).text();
 
-  await boot(document.querySelector("#dolly"), { images, image, modules, http: { policy }, files });
+  // Save (Ctrl+Shift+S) keeps the sandbox's state in this browser and names it in the
+  // address, ?session=NAME: the page then opens that save, as it was, in place of a fresh start.
+  const session = new URLSearchParams(location.search).get("session") ?? undefined;
+  await boot(document.querySelector("#dolly"), { images, image, modules, http: { policy }, files, session });
 </script>

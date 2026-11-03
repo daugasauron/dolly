@@ -41,13 +41,18 @@ function element(tag, properties, attributes = {}) {
 // written over the restored image before its ENTRY starts. `site`, given, is the
 // root of the routes a module may link to (session/, sessions/, docs/). It
 // resolves to the page's API (window.__dolly on the site) once the image's ENTRY runs.
-export function boot(mount, { images, image, modules, site, http = {}, files = {} } = {}) {
-  return run(mount, { images, modules, site, http }, async () => {
-    const definition = imageDefinition(image);
+export function boot(mount, { images, image, modules, site, http = {}, files = {}, session } = {}) {
+  return run(mount, { images, modules, site, http }, async registry => {
+    // A saved session (snapshot@0) restores its image as it was saved: files are for a fresh start.
+    const selected = session === undefined ? null
+      : await registry.selectBoot({ image, mode: "snapshot", loadSession: true, session });
+    if (session !== undefined && !selected) throw new Error("opening a saved session needs snapshot@0 among the page's modules");
+    const definition = imageDefinition(selected?.image ?? image);
     if (!definition || typeof files !== "object" || files === null) throw new Error("invalid Dolly boot options");
     if (definition.entry === null) throw new Error(`${image} has no ENTRY; it only builds`);
-    return { image, label: "PRECOMPILED SYSTEM", required: definition.hostRequirements,
-      start: () => ({ message: { files }, transfers: [] }) };
+    return { image: definition.image, label: selected?.label ?? "PRECOMPILED SYSTEM", configuration: selected?.configuration,
+      required: [...new Set([...definition.hostRequirements, ...selected ? [selected.module] : []])],
+      start: () => ({ message: { files: selected ? {} : files }, transfers: [] }) };
   });
 }
 
