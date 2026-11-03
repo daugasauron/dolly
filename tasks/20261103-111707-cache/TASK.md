@@ -113,6 +113,10 @@ reader of an image's packs goes through: a start (`runtime-worker.mjs`, so `/ses
   through the store), and `site` and `nena` once `dolly-docs`, `libdolly-audio` and
   `libdolly-microphone` were added to this tree's catalog (37 images). `amy programs` needs
   `sdl2`, which this catalog lacks.
+- The image builder's browser profile (`.cache/snapshot-browser-profile-0`) reads the inputs of
+  what it builds from packs too: after its builds of `dolly-docs`, `rust-sdk` and the start of
+  `rust-llvm`, its pack store held 61.8 MiB (44 files) beside the image cache's 1,844.9 MiB
+  (32 images), which keeps the same inputs merged.
 - Not run: `test/npm-browser.mjs`. It packages `pi-minimal`, whose closure on this branch
   rebuilds the Rust toolchain (`rust-llvm`, `rust-build`: the `git` and `ghostty-build` recipes
   changed on integrate), which no build slot holds; a start of it here stopped at `rust-llvm`

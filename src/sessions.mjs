@@ -87,7 +87,7 @@ async function refresh() {
     "No saved sessions yet. Open an image and press Ctrl+Shift+S.";
   const kept = await packStoreSize().catch(() => ({ count: 0, bytes: 0 }));
   document.querySelector("#pack-store").textContent = `Images started on this site keep their downloads in this browser, ` +
-    `so they start again without them: ${(kept.bytes / 1024 / 1024).toFixed(1)} MiB in ${kept.count} packs. ` +
+    `so they start again without downloading them: ${(kept.bytes / 1024 / 1024).toFixed(1)} MiB in ${kept.count} packs. ` +
     (await navigator.storage.persisted() ? "The browser keeps them and the saves until they are cleared."
       : "The browser may remove them and the saves when it runs short of space; a save asks it not to.");
   document.documentElement.dataset.sessionsStatus = "ready";
