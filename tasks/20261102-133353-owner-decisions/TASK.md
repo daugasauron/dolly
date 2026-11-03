@@ -79,4 +79,25 @@ tasks they came from are closed; their own work is merged on `integrate/2026-11-
 - raylib 6.0's software renderer (unchanged upstream) does nothing for blend modes, wraps additive
   colours, draws nothing for DrawPoly and reads the screen upside down: patch upstream or wait.
 
+## Added 2026-11-03
+
+- **Buttons in `touch@0`** (835fa963b, approved by you on 2026-11-03): BUTTONS (op 95) shows the
+  touch lease holder's labels in input@0's bar below the canvas, beside Paste; a tap is a `PRESS`
+  record. It contradicts the done-when you set on 2026-10-13 ("the module knows nothing of
+  buttons, captions or any program") and resembles the `buttons@0` you disliked in October: keep
+  buttons in `touch@0` as approved today, or give them a module of their own
+  (`tasks/20261013-144001-touch-module`).
+- **The phone**: pi-phone ran on your phone on 2026-11-03 over USB; `fingers` with two real
+  fingers and the phone keyboard's own paste (whether Paste can leave input@0) were not tried.
+  Both need the phone connected, at your call (`tasks/20261013-144001-touch-module`).
+- **Claude Code's real turn** (folded from `tasks/20261012-232215-owner-answers`): on 2026-10-23
+  Claude Code's first request with the key in `~/.claude-api` drew "Credit balance too low"; on
+  2026-11-03 the same key answered Pi's turns on your phone ($0.023 and $0.022), so its
+  organization now has balance. One turn of `closed-source-agent` with it, by you or by an
+  agent on your word (the agents' rules keep them out of `~/.claude*`).
+- **`boot({ session: NAME })`** (`tasks/20261102-133357-npm-agent-sandbox`): a page of one's own
+  that declares `snapshot@0` can save a session but not open one (the `/session/` route is the
+  site's). About ten lines in `browser.mjs` and `host/snapshot/snapshot.mjs`, no new browser
+  authority; it adds an option to `boot()`.
+
 Done when each line is decided: merged, scheduled or declined.
