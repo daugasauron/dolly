@@ -53,10 +53,10 @@ speech, tmux, wine, x11, xonotic, zero-ad, zsh; 80 recipes) read in full against
 | neovim | ok |
 | rts-build | ok |
 | rts-arena | ok; keeps 6.7 MiB of 7kaa source, which the agent reads |
-| sdl2 | `-O1` since 8bfcd8843 without a recorded reason, siblings at CMake's Release `-O3`: F7 |
+| sdl2 | F7 fixed: Release (`-O3`) for an `-O1` of 4b4419628 with no reason (bdf48848a) |
 | sdl2-image, sdl2-mixer, sdl2-ttf | ok |
 | imgui | ok |
-| imgui-x11 | ok; XFixes exclusion is a true trap reason |
+| imgui-x11 | ok; XFixes exclusion is a true trap reason; F7 fixed: its SDL2 at Release (fd60552c9) |
 | raylib | fix 1: `rtext.c` compiled at `-O0` for a September compiler limit; `-fno-builtin` |
 | box3d | fix 1: `-fno-builtin -U__SIZEOF_INT128__` for a September compiler limit |
 | gamedev-sdk | fix 1: a `libm.a` of double-precision wrappers (`fabsf`, `sqrtf`, `abs`…) shadowing musl's; the toolchain resolves `-lm` itself (fingers proves it) |
@@ -77,11 +77,11 @@ speech, tmux, wine, x11, xonotic, zero-ad, zsh; 80 recipes) read in full against
 | xterm, twm, xclock, xeyes | ok; the ten-line licence `FOLDER` block repeated in five recipes, each a different set: not shared |
 | x11-desktop | ok; F4 |
 | gmqcc, libogg, libvorbis | ok |
-| libjpeg | `-O1` (F7) |
+| libjpeg | F7 fixed: `-O2` for Xonotic's `-O1` (b6c539c10) |
 | xonotic-build, xonotic-shaders | ok |
 | xonotic | ok; F8 (`xonotic.slop`); the two font-source `SOURCE`s exist for the pin alone, documented |
 | boost-headers, fmt, freetype, icu, libpng, libsodium, libxml2, pkgconf, premake | ok |
-| openal | `-O1` (F7) |
+| openal | F7 fixed: Release for the 0 A.D. host build's `-O1` (a4078f0fc) |
 | spidermonkey | builds as `-D__wasi__` on `wasm64-unknown-wasi`: a detection claim of the porting rules' kind, documented (F11) |
 | zero-ad-data, zero-ad-engine | ok |
 | zero-ad-deps | copies SDL2's headers and archive and writes its own `sdl2.pc` (version 2.32.10) where `INSTALL sdl2` plus `REQUIRES HOST touch@0` would do; `audio@0`, `display@0`, `input@0` dead until then (F12) |
@@ -202,10 +202,8 @@ framebuffer (`rlCopyFramebuffer`). Only Studio's recordings are affected (not au
   A fractional `sleep` in the core would make the plain `until ...; do sleep 0.1; done` possible.
 - F5 mojo: 480 lines of C (`runtime.c`, `gpu.c`) are `FILE` bodies inside the recipe; every
   other demo stages its port files as a `SOURCE` tar. Moving them is a mojo rebuild (hours).
-- F7 optimisation levels: sdl2 and imgui-x11's SDL2 at `-O1` (8bfcd8843, no reason recorded),
-  libjpeg `-O1`, openal `-O1`, zero-ad's probes `-O1`; siblings built by CMake take Release's
-  `-O3`, hand-written makefiles `-O2`. Nothing measured says `-O1` is needed; each change is a
-  rebuild of that package and its consumers (sdl2: twelve images).
+- F7 optimisation levels: fixed for sdl2, imgui-x11, libjpeg and openal (below, "F7, the
+  optimisation levels"); zero-ad's three probes stay at `-O1` (each runs once in its build).
 - F8 ENTRY scripts: slopyard, xonotic, zero-ad and gpu-fluid name theirs `/etc/dolly/NAME.slop`;
   the other fourteen applications and docs/dollyfile.md say `init.slop`. Three of the four are
   GPU images (1-2 GiB) whose tests need a GPU window; not rebuilt tonight for a file name.
@@ -265,6 +263,71 @@ Firefox (30 s each). Measured in the same tree and image (`cmake-build`, Chromiu
 commit message's "4.3 s at -O0" came from `default` after `amy install cmake` under other load and
 overstates the gain. The recipes on cmake-build (the LLVM builds among them) are repinned: the next
 round builds them.
+
+## F7, the optimisation levels (2026-11-03 afternoon, branch `audit/sdl2-o2`)
+
+Branch from `demo/phone-menu` (edaca025c), in `work/sdl2` with `work/phone`'s images; image
+inputs as built there. Evidence in `build/sdl2-evidence/` (not committed): the logs, the
+benchmarks (`sdl2-bench.c`, `jpeg-bench.c`, `openal-bench.cpp`), their drivers
+(`sdl2-levels-browser.mjs`, `lib-levels-browser.mjs`) and each level's archive.
+
+Origin. No commit, task or comment gives a reason for any of the four `-O1`s:
+
+- sdl2: `-DCMAKE_C_FLAGS_RELEASE=-O1` came with SDL2's first recipe (`Dollyfile-sdl2-build`,
+  4b4419628, 2026-09-08, the Seven Kingdoms arena), in the commit that also built the game and
+  its viewer at `-O1`; 8bfcd8843 only renamed the toolchain to the package. The low levels of
+  that month were chosen for cold-build time (`tasks/20260930-100000-audit-41`, section 3,
+  which also measured `-O1` "not a cheaper middle: same speed as -O2 at nearly the same compile
+  cost"). imgui-x11 copied the line with its "as the sdl2 package configures it" (8fdbb347e).
+- libjpeg: the level of Xonotic's makefile (`CFLAGS := -O1`, `demos/xonotic/Makefile`), carried
+  when libjpeg became a package (3377665e7).
+- openal: the `common` CMake flags of the 0 A.D. host build (2fd9966c0, 2026-09-23, Emscripten
+  outside Dolly), carried into the Dolly recipe (d45c3c398).
+
+Method. Each package was built at its old level and the new one in this tree; the archives
+were taken out of the snapshots and served to one session (`installProbe`: system plus the
+package), which linked one benchmark against each and ran them in alternation, so the
+machine's load (the evening round in `work/integrate`) fell on every level alike. Every
+benchmark prints a checksum of its output: it was the same at every level (no miscompile).
+
+| Package | Change | Archive bytes | Measured (median, same session) |
+| --- | --- | --- | --- |
+| sdl2 | `-O1` -> Release (`-O3 -DNDEBUG`) | 1,249,210 -> 1,246,294 (`-O2`: 1,214,574) | 1280x720 ARGB8888 to RGB565 conversion 1.34-1.75 ms -> 0.95-1.25 ms per frame (every round); textured geometry, scaled sprites and ImGui's frames/s within the noise (pooled ImGui medians: Chromium 141/150/145 frames/s at -O1/-O2/-O3, Firefox 164/174/161; eight O2/O3 rounds 163/156, spread 97-211) |
+| imgui-x11 | `-O1` -> Release | `imgui-x11` 3,074,348 -> 3,061,394 | x11 test, twice per browser: drag 48-52 -> 46-51 frames/s, ImGui 54-57 -> 52-56: at the display's rate, and the page's own ready time rose by the same share (load) |
+| libjpeg | `-O1` -> `-O2` | 288,672 -> 297,962 | 1600x900 at quality 90: encode 23.7/24.3 ms, decode 12.5/11.8 ms (Chromium), 24.2/24.3 and 11.6/12.3 (Firefox): no difference |
+| openal | `-O1` -> Release | 3,148,334 -> 3,125,126 | sixteen sources over a loopback device: 2.49/2.61 ms per second of audio (Chromium), 4.22/3.18 (Firefox) |
+
+Decision: sdl2, imgui-x11 and openal take CMake's Release flags, like the eleven other CMake
+packages that set no override (sdl2-image, sdl2-mixer, sdl2-ttf, freetype, libpng, fmt,
+libxml2, libogg, libvorbis, binaryen, cmake); `-O2` measured no faster than `-O3` and 2.6%
+smaller, too little to justify an override line of its own. libjpeg takes `-O2`, the level of
+every other hand-written package makefile; it buys nothing measured and costs 9 KB, and an
+`-O1` would need a reason in the recipe, which nothing gives. Build times did not change
+(sdl2 64-74 s at every level; openal 168 s). A `CMAKE_C_FLAGS_RELEASE` override also drops Release's
+`-DNDEBUG`: OpenAL's `assert`s ran in the `-O1` build and are compiled out now, as in upstream's
+release builds (SDL2's `SDL_assert` does not read `NDEBUG`).
+
+Commits and checks:
+
+- bdf48848a sdl2 at Release. `npm run test:demos -- sdl2`: sdl2 (Chromium, 12.5 s), imgui and
+  sdl2 audio in Chromium and Firefox (10.1/12.5 s, 15.8/15.4 s).
+- fd60552c9 imgui-x11 at Release: x11-desktop, xorg-server (Xsdl on the new sdl2) and
+  imgui-x11 rebuilt; `demos/x11/test/x11-browser.mjs chromium firefox chromium firefox` passed
+  on both levels.
+- b6c539c10 libjpeg at `-O2`; a4078f0fc openal at Release (its recipe's loopback check passed in
+  the build).
+
+Left at `-O1`: zero-ad-deps' ENet and OpenAL probes and zero-ad-engine's SpiderMonkey probe
+(each compiled and run once in its build; the level does not reach a shipped program), and,
+outside these four packages, Xonotic's engine (`demos/xonotic/Makefile`, where libjpeg's came
+from), gmqcc, wabt and llama-cpp: the same unrecorded pattern, each a rebuild of a GPU or
+large image, for a round that measures them.
+
+For the next catalog round: every consumer of the four packages. Built and tested here: sdl2,
+sdl2-mixer, imgui, imgui-x11, xorg-server, x11-desktop, libjpeg, openal (and the CPU games in
+the run below). Not built here, GPU stage: xonotic-build, xonotic (libjpeg, sdl2),
+zero-ad-deps, zero-ad-engine, zero-ad (openal, sdl2; zero-ad-deps copies SDL2's archive, F12),
+ghostty-x11 (on x11-desktop's chain). zero-ad's builds exceed a 9 GB slot (above).
 
 ## Shared findings (recorded by both audits)
 
@@ -339,3 +402,22 @@ gpu-fluid, xonotic, zero-ad (no display number in the brief).
   carried no reason in the recipe; `git log -S` found the checkpoint commits, and the
   measurement that retired them was a four-minute rebuild. A flag that works around a compiler
   of the day needs its reason and the condition for removing it next to it.
+
+- A level comparison is only readable inside one session: the evening round's load moved
+  every number by up to 25% between runs, more than any `-O` level did. Taking each level's
+  archive out of its snapshot (`resolveSnapshotFile`, ten lines), serving the archives as test
+  fixtures and linking one benchmark against each in the same session, run in alternation, made
+  the levels comparable; a checksum of each benchmark's output made the same runs the
+  miscompile check.
+- Display-paced numbers cannot show a library's level: the x11 test's drag and ImGui frames sit
+  at the display's rate at `-O1` and `-O3` alike. A program that outruns the display
+  (imgui-demo, 140-200 frames/s on Dolly's display) or an offscreen benchmark can. The page's
+  own ready time is a free load gauge: it rose by the same share as the frames fell.
+- All four `-O1`s were copies (the Seven Kingdoms commit, Xonotic's makefile, the 0 A.D.
+  Emscripten build); `git log -S` to the first commit found each in minutes. A level with no
+  reason beside it is usually a line that travelled.
+- A tree made from another's images cannot build its whole list until the Rust staging is
+  restored: `prepare-rustc-sources.py` keys its outputs on `build/rustc-port/prepare.inputs`,
+  which the slim tree lacks, and a missed key deletes the outputs' `.inputs` records. Copying the
+  65-byte file and the two records from `work/phone` (outputs byte-identical, `cmp`) restored
+  it; the tree setup should copy them.
