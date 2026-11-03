@@ -102,6 +102,10 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
 
   async function save(requestedName) {
     if (saving) return saving;
+    // A save asks the browser to keep the origin's storage: the saves and the
+    // packs their images start from (src/pack-store.mjs). Chrome answers from
+    // the site's engagement, Firefox asks the user; the save does not wait.
+    navigator.storage.persist().catch(() => {});
     saving = (async () => {
       if (!base) throw new Error("Dolly is not ready to save a session");
       await base.verifyBase?.();

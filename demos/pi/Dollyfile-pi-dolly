@@ -15,7 +15,7 @@ REQUIRES HOST threads@0
 INSTALL /v0.1.4/demos/pi/Dollyfile-pi ce8254d547eca222f23878dd756074f8dc0afbbb4eb43eb8fcd1ee8fe7142b64
 INSTALL /v0.1.4/demos/closed-source-agent/Dollyfile-secretenv 701ddc0027381762b1ef37920361ff89f42a20c6783b10c76644cfd7896eac16
 INSTALL /v0.1.4/Dollyfile-html a221aaa60ba0bb2a9dba05e72b9d73d3bcea46d19c90c8ff69485614762ea562
-INSTALL /v0.1.4/Dollyfile-dolly-docs 991e172d75880996a37ff754cd26641517348cceaf7017caa8cc3172e390ef1d
+INSTALL /v0.1.4/Dollyfile-dolly-docs ec8aabed53df4ccba4816fed90cced0da7d0c4ccb864a250db73775802577fa5
 
 SOURCE /v0.1.4/dist/static/default/pi/dolly-tools.js                    b2d5ecb9788c9f701d4892a23d0c0b8b17adb6309278de9876aefc8d8ca4b6a8 /home/dolly/.pi/agent/extensions/dolly-tools.js
 SOURCE /v0.1.4/dist/static/default/pi/ask-user.js                       aea9f9f4bbddd68d759d31d36fac3e5eac3079aeb94c181add468cc23e81c3b3 /home/dolly/.pi/agent/extensions/ask-user.js

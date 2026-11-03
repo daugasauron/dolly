@@ -59,6 +59,14 @@ flowchart LR
   `dolly-sessions-vX.Y.Z`, so the pages under `/vX.Y.Z/` list, load, export
   and import only their own saves. An exported file records its version, and
   another version refuses it, naming the version it belongs to.
+- Opening a session reads its image's packs as a second start of the image
+  does: from the browser's pack store, which keeps every pack an image read,
+  checked against its digest at each use, and removes what no image of this
+  runtime names any more ([`pack-store.mjs`](../src/pack-store.mjs)). The
+  sessions page shows its size and clears it. A save asks the browser to keep
+  the origin's storage, the saves and the packs, when it runs short of space
+  (`navigator.storage.persist()`): Chrome answers from the site's engagement
+  without asking, Firefox asks the user.
 - The image cache is one database for every version on the origin. It holds
   rebuildable images only, never a save: an entry is keyed by the runtime's
   image build ID and the recipe's SHA-256, and its bytes are checked against

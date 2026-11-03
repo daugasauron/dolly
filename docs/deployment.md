@@ -43,8 +43,9 @@ flowchart LR
 - GitHub Pages serves `PREFIX/vX.Y.Z/` and an `index.html` at `PREFIX/` that
   leads there; each deploy replaces the whole site. Pages find their files
   relative to themselves, so an export knows no prefix.
-- Saved sessions belong to a version; the image cache is shared
-  ([sessions](sessions.md)).
+- Saved sessions belong to a version; the image cache and the pack store are
+  shared, and a version's page removes the packs no image of its runtime
+  names ([sessions](sessions.md)).
 - [`llms.txt`](../llms.txt) is the one text that says what the site is and
   how to use it, for a person or an agent that fetches it first. Every
   version carries it, its links relative to itself, so it is true wherever
