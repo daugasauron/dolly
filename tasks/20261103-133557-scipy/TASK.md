@@ -5,7 +5,7 @@
 - TAGS: python,packages
 
 
-## State (2026-11-04 05:05, branch `demo/scipy`)
+## State (2026-11-04 05:15, branch `demo/scipy`)
 
 The `openblas` package is built and tested (`bea193eee`, `bd7329ca4`): OpenBLAS's SIMD128
 kernels, 6 to 11 times NumPy's fallback for a product. SciPy builds on it in a session and its
@@ -13,7 +13,8 @@ linalg works; python-data does not take it yet, as changes outside this branch s
 way: `cc --version` and the `__small_` exports (on `demo/pydata-seed`, built, awaiting a round)
 and `-pthread` for a DSO (a compiler proposal). Fixed here: the DSO loader's weak GOT entries,
 which HiGHS needed (`5548dbdd8`), and CPython's thread stubs, which stopped at a key destructor.
-With those two emulated, linalg, optimize and stats import and compute in a session.
+With those two emulated, linalg, optimize and stats import and compute in a session, in Chromium
+and Firefox.
 
 Found while building python-data ([pydata](../20261103-110906-pydata/TASK.md)). SciPy 1.18.1
 builds without Fortran (`-D_without-fortran=true`, no `scipy.odr`) but needs BLAS and LAPACK.
@@ -127,7 +128,8 @@ With items 1 to 3 emulated and 4 to 6 fixed, in Chromium (python rebuilt with th
 Cholesky, `eigh`, SVD, `lstsq`, `expm`, `minimize` (BFGS, and trust-krylov through trlib's
 `dlagtm`), `linprog` (HiGHS, serial), `brentq`, `curve_fit`, `norm`, `ttest_ind`, `linregress`,
 `quad`, `CubicSpline`, `signal.convolve`, `fft`, `special`, `sparse.linalg.spsolve`,
-`spatial.KDTree` and `ndimage` give the right answers. So python-data waits for
+`spatial.KDTree` and `ndimage` give the right answers; in Firefox the same (SciPy built there in
+5 min 27 s with `-j8`, the import in 4.2 s). So python-data waits for
 `demo/pydata-seed` and the compiler proposal alone. What the recipe will hold then,
 as the session ran it: python-data-build `INSTALL`s `openblas`, stages the sdist and the patch,
 patches and installs it with `--config-settings=setup-args=-D_without-fortran=true` and
@@ -159,6 +161,13 @@ Python. Not measured: Pythran's build in Dolly.
   With it (emulated) SciPy builds. Not measured: whether HiGHS's thread pool fails cleanly when
   `pthread_create` refuses, since `import scipy.optimize` stops at the next proposal first.
 
+## Found, not acted on (the compiler's, each an `llvm-cc` round)
+
+- Dolly's `ar` refuses the `u` modifier (`ar -ru`, OpenBLAS's Makefiles); GNU and LLVM `ar`
+  accept it and ignore it in deterministic mode.
+- `cc` refuses `-S`, `-dumpversion` (OpenBLAS's `c_check` and `Makefile.system` probe with them)
+  and `-fno-builtin-NAME` (Clang takes it per function); `-fno-builtin` alone is accepted.
+
 ## Lessons
 
 - WebAssembly checks every call's type, and native ABIs forgive what it does not: an `int`
@@ -177,6 +186,10 @@ Python. Not measured: Pythran's build in Dolly.
 - The browser broker caps uploads, so a session cannot post a 10 MB library back: inspect a
   binary inside the session (a 40-line Python reader of the import and dylink sections found the
   GOT entry's missing weak flag).
+- An edited recipe stops every new session of the checkout server ("stale recipe pin", "recipe
+  changed") until its image is rebuilt, which the shared build slots made a half-hour wait. Boot
+  the sessions an experiment needs before editing the recipes they serve, or keep the edit for
+  after.
 - The browser tests rebuild the loader's bundle from source before each run: a "before" run with
   the new test and the old `dist` bundle used the fixed source and passed. To see a test fail,
   revert the source.
