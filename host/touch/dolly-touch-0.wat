@@ -1,8 +1,8 @@
 (module
-  ;; Fingers on a touchscreen. No callable host import: the page copies the
-  ;; Pointer Events of pointerType "touch" on the canvas into bounded records;
-  ;; what fingers mean (a tap, a drag, two fingers moving apart) is decided in
-  ;; Wasm.
+  ;; Fingers on a touchscreen, and the buttons a program shows there. No
+  ;; callable host import: the page copies the Pointer Events of pointerType
+  ;; "touch" on the canvas into bounded records; what fingers mean (a tap, a
+  ;; drag, two fingers moving apart) is decided in Wasm.
   (import "env" "memory" (memory i64 1024 131072 shared))
 
   ;; The mailbox starts with four atomic little-endian u32 words (touch.h
@@ -19,7 +19,10 @@
   ;; the browser's, in thousandths. Dropped counts the records the page had no
   ;; room for since the one before. Time is milliseconds of the browser's
   ;; event clock, wrapping. Lease is the lease word the page wrote it under:
-  ;; READ returns only the holder's.
+  ;; READ returns only the holder's. A press of one of the holder's buttons
+  ;; (below) is a record too: its id is the button's index and x the labels
+  ;; word it was pressed under; y and pressure are zero. READ returns only the
+  ;; presses of the holder's current labels.
   (global (export "DOLLY_TOUCH_HEADER_SIZE") i32 (i32.const 16))
   (global (export "DOLLY_TOUCH_RECORD_SIZE") i32 (i32.const 32))
   (global (export "DOLLY_TOUCH_CAPACITY") i32 (i32.const 512))
@@ -31,6 +34,7 @@
   (global (export "DOLLY_TOUCH_MOVE") i32 (i32.const 2))
   (global (export "DOLLY_TOUCH_UP") i32 (i32.const 3))
   (global (export "DOLLY_TOUCH_CANCEL") i32 (i32.const 4))
+  (global (export "DOLLY_TOUCH_PRESS") i32 (i32.const 5))
   (func (export "dolly_touch_mailbox_address") (result i64)
     i64.const 0)
 
@@ -43,13 +47,26 @@
   ;; in the next record's dropped.
   (global (export "DOLLY_TOUCH_FINGERS") i32 (i32.const 10))
 
+  ;; The holder's buttons follow the records, at byte 16400: an atomic u32
+  ;; labels word, the u32 count of labels, then 12 labels of 32 bytes, each
+  ;; UTF-8 ended by a zero byte. The kernel is their one writer: it adds one
+  ;; to the labels word after each change of the labels, and clears them when
+  ;; the lease ends. The page shows them as buttons in its bar below the
+  ;; canvas, before its own Paste, and writes a press for each tap while the
+  ;; ring keeps room for it and the end of every finger that is down.
+  (global (export "DOLLY_TOUCH_BUTTONS_OFFSET") i32 (i32.const 16400))
+  (global (export "DOLLY_TOUCH_BUTTON_COUNT") i32 (i32.const 12))
+  (global (export "DOLLY_TOUCH_LABEL_SIZE") i32 (i32.const 32))
+
   ;; Process operations of the touch lease; their packets are defined in
   ;; touch.h. Only the foreground command or a descendant may hold it, one at
   ;; a time. While it is held every finger on the canvas is a touch record
   ;; and none is input@0's pointer; without a holder the page's fingers are
-  ;; input@0's. READ returns up to 64 records.
+  ;; input@0's. READ returns up to 64 records; BUTTONS replaces the holder's
+  ;; labels.
   (global (export "DOLLY_TOUCH_ACQUIRE") i32 (i32.const 92))
   (global (export "DOLLY_TOUCH_READ") i32 (i32.const 93))
   (global (export "DOLLY_TOUCH_RELEASE") i32 (i32.const 94))
+  (global (export "DOLLY_TOUCH_BUTTONS") i32 (i32.const 95))
   (global (export "DOLLY_TOUCH_READ_RECORDS") i32 (i32.const 64))
 )

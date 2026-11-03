@@ -1,5 +1,5 @@
-// touch@0 kernel side: the record ring the page fills and the lease a
-// foreground program reads it under.
+// touch@0 kernel side: the record ring the page fills, the lease a
+// foreground program reads it under and the buttons it shows.
 #include "process-kernel.h"
 
 #include <dolly/touch.h>
@@ -44,6 +44,14 @@ static void discard_records(void) {
       atomic_load_explicit(&touch_mailbox.write, memory_order_acquire), memory_order_release);
 }
 
+// The labels word changes after the labels: the page reads them between two equal words.
+static void publish_labels(const char labels[][DOLLY_TOUCH_LABEL_SIZE], uint32_t count) {
+  memset(touch_mailbox.label_text, 0, sizeof(touch_mailbox.label_text));
+  if (count != 0) memcpy(touch_mailbox.label_text, labels, count * sizeof(touch_mailbox.label_text[0]));
+  touch_mailbox.label_count = count;
+  atomic_fetch_add_explicit(&touch_mailbox.labels, 1, memory_order_release);
+}
+
 static void publish_lease(uint32_t lease) {
   atomic_store_explicit(&touch_mailbox.lease, lease, memory_order_release);
   emscripten_atomic_notify((void *)&touch_mailbox.lease, EMSCRIPTEN_NOTIFY_ALL_WAITERS);
@@ -60,6 +68,7 @@ static void release_lease(int pid) {
   lease_owner = 0;
   publish_lease(0);
   discard_records();
+  if (touch_mailbox.label_count != 0) publish_labels(NULL, 0);
 }
 
 static int64_t acquire_packet(int pid, unsigned char *mailbox, uintptr_t request_size,
@@ -95,7 +104,11 @@ static int64_t read_packet(int pid, unsigned char *mailbox, uintptr_t request_si
   if (write - read > DOLLY_TOUCH_CAPACITY) return -EPROTO;
   for (; read != write && response.count < request.capacity; ++read) {
     const dolly_touch_record *record = &touch_mailbox.records[read & (DOLLY_TOUCH_CAPACITY - 1)];
-    if (record->lease == lease_word(lease_generation)) response.records[response.count++] = *record;
+    // A press of labels since replaced is a press of nothing shown.
+    const int stale = record->phase == DOLLY_TOUCH_PRESS &&
+        ((uint32_t)record->x != atomic_load_explicit(&touch_mailbox.labels, memory_order_relaxed) ||
+         record->id >= touch_mailbox.label_count);
+    if (record->lease == lease_word(lease_generation) && !stale) response.records[response.count++] = *record;
   }
   atomic_store_explicit(&touch_mailbox.read, read, memory_order_release);
   if (response.count == 0 && dolly_kernel_deadline_pending(request.deadline_nanoseconds))
@@ -115,6 +128,22 @@ static int64_t release_packet(int pid, unsigned char *mailbox, uintptr_t request
   return 0;
 }
 
+static int64_t buttons_packet(int pid, unsigned char *mailbox, uintptr_t request_size,
+                              uintptr_t response_capacity) {
+  if (request_size != sizeof(dolly_touch_buttons_request) || response_capacity != 0) return -EINVAL;
+  dolly_touch_buttons_request request;
+  memcpy(&request, mailbox, sizeof(request));
+  if (request.count > DOLLY_TOUCH_BUTTON_COUNT || request.reserved != 0) return -EINVAL;
+  for (uint32_t index = 0; index < request.count; ++index) {
+    const char *label = request.labels[index];
+    if (label[0] == 0 || memchr(label, 0, DOLLY_TOUCH_LABEL_SIZE) == NULL) return -EINVAL;
+  }
+  const int status = validate_lease(pid, request.generation);
+  if (status != 0) return status;
+  publish_labels(request.labels, request.count);
+  return 0;
+}
+
 static int64_t touch_call(int pid, int tid, uint32_t operation, unsigned char *mailbox,
                           uintptr_t request_size, uintptr_t response_capacity) {
   switch (operation) {
@@ -124,6 +153,8 @@ static int64_t touch_call(int pid, int tid, uint32_t operation, unsigned char *m
       return read_packet(pid, mailbox, request_size, response_capacity);
     case DOLLY_TOUCH_RELEASE:
       return release_packet(pid, mailbox, request_size, response_capacity);
+    case DOLLY_TOUCH_BUTTONS:
+      return buttons_packet(pid, mailbox, request_size, response_capacity);
   }
   return -EINVAL;
 }
@@ -133,4 +164,4 @@ static void touch_release(int pid, int tid) {
 }
 
 const dolly_kernel_module dolly_touch_kernel = {
-    DOLLY_TOUCH_ACQUIRE, DOLLY_TOUCH_RELEASE, touch_call, touch_release};
+    DOLLY_TOUCH_ACQUIRE, DOLLY_TOUCH_BUTTONS, touch_call, touch_release};

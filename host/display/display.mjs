@@ -256,10 +256,11 @@ export class FramebufferPresenter {
 // The page's display: the canvas, handed to the Worker that paints it, the
 // surface it measures, and the copy chord. What the terminal publishes (its
 // grid, geometry, cursor, the lease) the Worker reports by message.
-export function browser({ mount, canvas, keyboard, fatal, showStatus, send, ask }) {
+export function browser({ canvas, keyboard, fatal, showStatus, send, ask }) {
   const surface = canvas.transferControlToOffscreen();
-  let state, resizeObserver, grid;
-  const publishSurface = () => send({ type: "display-surface", width: mount.clientWidth, height: mount.clientHeight,
+  let state, resizeObserver;
+  // The terminal is the canvas's box: what the element holds beside it (input@0's bar) is not.
+  const publishSurface = () => send({ type: "display-surface", width: canvas.clientWidth, height: canvas.clientHeight,
     devicePixelRatio });
   const copySelection = () => ask({ type: "display-copy" });
 
@@ -316,14 +317,6 @@ export function browser({ mount, canvas, keyboard, fatal, showStatus, send, ask 
         if (message.frame !== state?.frame) dataset.frameSequence = message.frame;
         if (message.cols !== state?.cols) dataset.terminalCols = message.cols;
         if (message.rows !== state?.rows) dataset.terminalRows = message.rows;
-        // The grid in CSS pixels, for the page's own controls laid over it (Paste).
-        const { cellWidth, cellHeight, paddingX, paddingY } = message.geometry, pixels = value => `${value / devicePixelRatio}px`;
-        const layout = { cols: message.cols, rows: message.rows, "cell-width": pixels(cellWidth),
-          "cell-height": pixels(cellHeight), "padding-x": pixels(paddingX), "padding-y": pixels(paddingY) };
-        if (JSON.stringify(layout) !== grid) {
-          grid = JSON.stringify(layout);
-          for (const [name, value] of Object.entries(layout)) mount.style.setProperty(`--dolly-${name}`, value);
-        }
         state = message;
       },
       "display-failed"({ message }) { fatal(message); },
@@ -339,10 +332,10 @@ export function browser({ mount, canvas, keyboard, fatal, showStatus, send, ask 
     },
     // The initial surface, then every change of the terminal area.
     entryStarted() {
+      canvas.hidden = false;
       publishSurface();
       resizeObserver = new ResizeObserver(publishSurface);
-      resizeObserver.observe(mount);
-      canvas.hidden = false;
+      resizeObserver.observe(canvas);
       document.documentElement.dataset.terminal = "ghostty-rgba-wasm";
     },
     dispose() { resizeObserver?.disconnect(); },

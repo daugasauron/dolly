@@ -55,3 +55,15 @@ int dolly_touch_release(uint64_t generation) {
   const int64_t result = dolly_process_call(DOLLY_TOUCH_RELEASE, &request, sizeof(request), NULL, 0);
   return result < 0 ? (int)result : result == 0 ? 0 : -EIO;
 }
+
+int dolly_touch_buttons(uint64_t generation, const char *const *labels, size_t count) {
+  if (count > DOLLY_TOUCH_BUTTON_COUNT || (count != 0 && labels == NULL)) return -EINVAL;
+  dolly_touch_buttons_request request = {generation, (uint32_t)count, 0, {{0}}};
+  for (size_t index = 0; index < count; ++index) {
+    const size_t length = labels[index] == NULL ? 0 : strlen(labels[index]);
+    if (length == 0 || length >= DOLLY_TOUCH_LABEL_SIZE) return -EINVAL;
+    memcpy(request.labels[index], labels[index], length);
+  }
+  const int64_t result = dolly_process_call(DOLLY_TOUCH_BUTTONS, &request, sizeof(request), NULL, 0);
+  return result < 0 ? (int)result : result == 0 ? 0 : -EIO;
+}

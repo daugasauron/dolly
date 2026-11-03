@@ -1,6 +1,8 @@
 // touch@0: a foreground program that holds the lease reads two fingers, each
 // with its own id from its down to its up, in the frame's pixels: Chromium's
-// own touch events (CDP), touch PointerEvents dispatched in Firefox. While it
+// own touch events (CDP), touch PointerEvents dispatched in Firefox. Its
+// buttons are the page's, below the terminal, and a press of one is read as
+// its record. While it
 // holds the lease no finger is the pointer; without a holder a finger still
 // scrolls the terminal and two change its font. A process beside the
 // foreground program is refused. On a phone (Chromium's Pixel 7) the terminal
@@ -39,6 +41,21 @@ await browserTest("touch", { image: "system", server: { fixtures }, timeout: 300
   await run(`curl -fsS ${server.origin}/fixture/touch.c -o /tmp/touch.c && cc /tmp/touch.c -o /tmp/touch`);
   await run("/tmp/touch refuse");
   assert.match(await text(), /TOUCH_REFUSALS_OK/);
+
+  // The holder's buttons are the page's, below the canvas: a press is read as
+  // that button's, and its buttons go with the lease.
+  const pressing = submit("/tmp/touch buttons");
+  pressing.catch(() => {});
+  const button = label => page.locator("#buttons button", { hasText: label });
+  await button("Two").waitFor();
+  const [display, bar] = await Promise.all(["#display", "#buttons"].map(selector =>
+    page.locator(selector).evaluate(node => node.getBoundingClientRect().toJSON())));
+  assert.ok(bar.height > 0 && bar.top >= display.bottom - 1, JSON.stringify({ display, bar }));
+  await button("Two").click();
+  await button("Three").click();
+  assert.equal(await pressing, 0, await text());
+  assert.match(await text(), /TOUCH-PRESS Two\nTOUCH-PRESS Three/);
+  await page.waitForFunction(() => !document.querySelector("#buttons button:not(#paste)"));
 
   // Where a CSS point on the canvas is in the frame's pixels.
   const canvas = await page.evaluate(() => {

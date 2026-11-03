@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM /v0.1.4/Dollyfile-system 03687a356e2435bcb5cb6a062caed281f20c189bb051f4b91405abef805a7ee6
-INSTALL /v0.1.4/demos/speech/Dollyfile-speech-to-text 1314ca41b618eb9a45a1e899e6fd1505b0e10425e2325ea5f7594ea1c083b689
+INSTALL /v0.1.4/demos/speech/Dollyfile-speech-to-text b8f128584b1b655b61b6e3456906e179e5d21a22506c8b5ed3d53d086f56db6c
 
 FILE /etc/dolly/init.slop
     /bin/foreground -i /usr/bin/speech-to-text

@@ -558,28 +558,37 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, surfac
     event.preventDefault();
     void deliverPaste(event.clipboardData?.getData("text/plain") ?? "");
   });
-  // A touchscreen has no paste chord: there the page shows its own Paste
-  // button and reads the clipboard only inside the user's press of it. It
-  // takes the right end of the terminal's last three rows (the grid the
-  // display publishes), as a box of line characters nine columns wide would.
-  const pasteButton = mount.appendChild(document.createElement("button"));
-  pasteButton.id = "paste";
-  pasteButton.type = "button";
-  pasteButton.textContent = "Paste";
-  pasteButton.style.cssText = "position:absolute;z-index:6;box-sizing:border-box;padding:0;" +
-    "left:calc(var(--dolly-padding-x) + (var(--dolly-cols) - 8.5) * var(--dolly-cell-width));" +
-    "width:calc(8 * var(--dolly-cell-width));height:calc(2 * var(--dolly-cell-height));" +
-    "top:calc(var(--dolly-padding-y) + (var(--dolly-rows) - 2.5) * var(--dolly-cell-height));color:inherit;" +
-    "background:#333;border:1px solid #f2d45c;border-radius:6px;font:inherit;font-size:15px;touch-action:none";
-  const touchscreen = matchMedia("(pointer: coarse)"), placePaste = () => { pasteButton.hidden = !touchscreen.matches; };
-  placePaste();
-  touchscreen.addEventListener("change", placePaste);
+  // The page's bar below the canvas: the buttons of the program holding the
+  // touch lease (touch@0) and, on a touchscreen, which has no paste chord,
+  // Paste, which reads the clipboard only inside the user's press of it.
+  const bar = mount.appendChild(document.createElement("div"));
+  bar.id = "buttons";
+  bar.style.cssText = "display:none;flex-wrap:wrap;justify-content:flex-end;gap:0.5rem;padding:0.4rem";
+  const button = (label, press) => {
+    const node = document.createElement("button");
+    node.type = "button";
+    node.textContent = label;
+    node.style.cssText = "padding:0.35rem 0.6rem;color:inherit;background:#333;border:1px solid #f2d45c;" +
+      "border-radius:6px;font:inherit;font-size:15px;touch-action:none";
+    node.addEventListener("click", press);
+    return node;
+  };
   // The keys that follow are the terminal's again, as after any panel's button.
-  pasteButton.addEventListener("click", () => {
+  const pasteButton = button("Paste", () => {
     keyboard.focus({ preventScroll: true });
     void navigator.clipboard.readText()
       .then(deliverPaste, () => showStatus("Paste refused: the browser did not let the page read the clipboard"));
   });
+  pasteButton.id = "paste";
+  const touchscreen = matchMedia("(pointer: coarse)");
+  let programButtons = [];
+  const showBar = () => {
+    pasteButton.hidden = !touchscreen.matches;
+    bar.replaceChildren(...programButtons, pasteButton);
+    bar.style.display = programButtons.length || touchscreen.matches ? "flex" : "none";
+  };
+  showBar();
+  touchscreen.addEventListener("change", showBar);
 
   return {
     page: {
@@ -588,6 +597,16 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, surfac
       input: data => client.pushText(data),
       paste: data => client.pushPaste(data),
       key: (key, code, modifiers = 0) => client.pushSyntheticKey(key, code, modifiers),
+    },
+    // touch@0's: the holder's labels, each a button that calls press(index,
+    // event); a press keeps the focus where it was.
+    buttons(labels, press) {
+      programButtons = labels.map((label, index) => {
+        const node = button(label, event => press(index, event));
+        node.addEventListener("pointerdown", event => event.preventDefault());
+        return node;
+      });
+      showBar();
     },
     messages: {
       // The kernel's lease and pointer request, as the Worker saw them change.
@@ -605,8 +624,8 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, surfac
     dispose() {
       started = false;
       endStaleCapture();
-      touchscreen.removeEventListener("change", placePaste);
-      pasteButton.remove();
+      touchscreen.removeEventListener("change", showBar);
+      bar.remove();
     },
   };
 }

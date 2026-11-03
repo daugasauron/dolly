@@ -94,23 +94,8 @@ if (browser === "chromium") await demoTest("pi-phone", { image: "pi-phone", laun
         body: answer.map(([event, data]) => `${event}data: ${JSON.stringify(data)}\n\n`).join("") + "data: [DONE]\n\n" });
     });
   } });
-  // voice's buttons are boxes in the terminal's last rows: a label's cells, tapped by a finger.
-  const tap = async label => {
-    // A page of buttons is drawn after the tap that shows it.
-    const button = new RegExp(`│ ${label} │`);
-    let rows, row;
-    for (const deadline = Date.now() + 30_000; (row = (rows = (await text()).split("\n")).findLastIndex(line => button.test(line))) < 0;) {
-      assert.ok(Date.now() < deadline, `no button ${label}:\n${rows.join("\n")}`);
-      await delay(100);
-    }
-    const column = rows[row].search(button) + 2 + label.length / 2;
-    const [x, y] = await page.evaluate(([column, row]) => {
-      const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry(), canvas = document.querySelector("#display");
-      const scale = canvas.clientWidth / canvas.width, box = canvas.getBoundingClientRect();
-      return [box.left + (paddingX + column * cellWidth) * scale, box.top + (paddingY + (row + 0.5) * cellHeight) * scale];
-    }, [column, row]);
-    await page.touchscreen.tap(x, y);
-  };
+  // voice's buttons are the page's, below the terminal; a finger taps one.
+  const tap = label => page.locator("#buttons button", { hasText: new RegExp(`^${label}$`) }).tap();
   // Pi's menu (phone-menu.js) is a popup of the page: Menu opens it, a finger
   // opens its sections by their names and taps a button; the popup closes.
   const popup = page.frameLocator("#html-popup iframe");
@@ -154,8 +139,9 @@ if (browser === "chromium") await demoTest("pi-phone", { image: "pi-phone", laun
   await waitText(new RegExp(`Model: ${chosen.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
   await choose("Thinking", "high");
   await waitText(/Thinking level: high/);
+  // /session prints more than a phone's screen: its last lines stay in view.
   await choose("Commands", "Pi", "/session");
-  await waitText(/Session Info/);
+  await waitText(/Cache Warming/);
 
   await choose("Speak");
   await caption(/ask not what your country can do for you/i);

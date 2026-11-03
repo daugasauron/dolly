@@ -11,8 +11,9 @@ import * as processConstants from "./process-constants.mjs";
 // page. A host module brings the look of what it adds; the page, the boot log's
 // font (the site's is Iosevka, dist/IosevkaTerm-SemiBold.woff2).
 const style = `
-  .dolly-terminal { position: relative; overflow: hidden; outline: none; caret-color: transparent; }
-  .dolly-terminal #display { display: block; width: 100%; height: 100%; cursor: text; touch-action: none; }
+  .dolly-terminal { position: relative; overflow: hidden; outline: none; caret-color: transparent;
+    display: flex; flex-direction: column; }
+  .dolly-terminal #display { display: block; width: 100%; flex: 1 1 0; min-height: 0; cursor: text; touch-action: none; }
   .dolly-terminal #display[hidden] { display: none; }
   .dolly-terminal #keyboard { position: fixed; left: -10000px; top: 0; width: 1px; height: 1px; opacity: 0; caret-color: transparent; }
   .dolly-terminal #bootstrap-log { position: absolute; inset: 0; z-index: 1; margin: 0; padding: 1rem 1.15rem; overflow: auto;
@@ -117,7 +118,8 @@ export async function run(mount, { images, modules, site, http }, route) {
       Object.assign(document.createElement("a"), { textContent: text, href, style: "color:#f2d45c;margin-left:1.5ch" }));
     notice.append(`This image has ended: its program ${how}.`, ...links);
     // The notice takes the element's bottom strip; the last frame and the log keep the rest.
-    Object.assign(canvas.style, { height: `calc(100% - ${notice.offsetHeight}px)`, objectFit: "contain", objectPosition: "left top" });
+    Object.assign(canvas.style, { flex: "none", height: `calc(100% - ${notice.offsetHeight}px)`, objectFit: "contain",
+      objectPosition: "left top" });
     bootstrapLog.style.bottom = `${notice.offsetHeight}px`;
     links[0].focus();
     document.documentElement.dataset.dollyStatus = "exited";
