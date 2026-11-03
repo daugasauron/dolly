@@ -1,0 +1,11 @@
+--- a/compiler/rustc_session/src/filesearch.rs
++++ b/compiler/rustc_session/src/filesearch.rs
+@@ -253,7 +253,7 @@
+         // Look for the target rustlib directory in the suspected sysroot.
+         let mut rustlib_path = rustc_target::relative_target_rustlib_path(&p, "dummy");
+         rustlib_path.pop(); // pop off the dummy target.
+-        rustlib_path.exists().then_some(p)
++        p.join(rustlib_path).exists().then_some(p)
+     }
+ 
+     from_env_args_next()

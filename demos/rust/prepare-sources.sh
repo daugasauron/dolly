@@ -16,7 +16,11 @@ stage_rust_project() {
   python3 demos/rust/prepare-rust-sources.py "$1"
   copy_static "build/rust-sources/$1.tar.gz" "rust/$1.tar.gz"
 }
-if has_image rust-build; then stage_rust_project cargo; fi
+if has_image rust-build; then
+  stage_rust_project cargo
+  copy_static demos/rust/toolchain/wasm64-emscripten-probe.json rust/wasm64-emscripten-probe.json
+  copy_static demos/rust/config/patches/rustc-sysroot.patch rust/rustc-sysroot.patch
+fi
 if has_image vendor-crates; then
   copy_static demos/rust/vendor-crates.mjs rust/vendor-crates.mjs
   copy_static demos/rust/vendor-crates.c rust/vendor-crates.c

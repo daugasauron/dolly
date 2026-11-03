@@ -78,8 +78,8 @@ def lock_sdk_libc(lock):
 
 def vendor(lock, destination, archives):
     """Extract LOCK's registry crates to DESTINATION/NAME-VERSION, as Cargo's directory source reads them."""
-    archives.mkdir()
-    destination.mkdir()
+    archives.mkdir(exist_ok=True)
+    destination.mkdir(exist_ok=True)
     for package in tomllib.loads(lock.read_text())["package"]:
         if "checksum" not in package:
             continue
@@ -101,6 +101,8 @@ def cargo_config(source, vendored, extra=""):
     config = source / ".cargo/config.toml"
     config.parent.mkdir(exist_ok=True)
     # Upstream's own configuration serves its developers' commands, not a build.
+    # The images' programs abort on a panic: unwinding's landing pads made ripgrep
+    # 17.6% and Cargo 34.8% larger (tasks/20261009-110500-rust-followups).
     config.write_text(f'''[source.crates-io]
 replace-with = "vendored-sources"
 

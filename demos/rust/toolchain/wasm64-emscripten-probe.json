@@ -41,7 +41,8 @@
   ],
   "target-pointer-width": 64,
   "tls-model": "local-exec",
-  "panic-strategy": "abort",
+  "panic-strategy": "unwind",
+  "llvm-args": ["-wasm-use-legacy-eh=false"],
   "entry-name": "__main_argc_argv",
   "features": "+atomics,+bulk-memory,+mutable-globals,+reference-types"
 }
