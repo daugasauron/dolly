@@ -48,3 +48,22 @@ three cases included); `docs/http.md` and `docs/browser-boundary.md` say what th
   crate is `tasks/20261009-110500-rust-followups`, s8b's exit is
   `tasks/20261104-074502-terminal-mode`, the 6 GB capture is audit-runtime finding 21 (closed),
   bhop's pad 3 is a game-design question.
+- `default` and `system` with their closure (23 images, the display's chain and `zig-build`
+  included) rebuilt on this branch at one job in 17.5 min (`build/http-evidence/images.log`).
+  The build's staging rewrote six source pins that integrate had changed without them (Ghostty's
+  tarballs and font, patch.c, cc.c, cxx.c), the values the round's tree holds: `9bcb1c32`.
+- The source suite passes (472). `test/http-broker.test.mjs`'s new case fails on the old broker
+  (`unit-before.log`), `test/http-policy.test.mjs`'s on the old policy.
+- In Chromium and Firefox on these images: `test/network-browser.mjs` passes (44.7 s, 46.3 s),
+  its 8 MiB + 17 upload, the cap + 1 refusal and the 2 s rule's three cases included;
+  `test/core-browser.mjs` (27.2 s, 37.7 s) and `test/boundary-browser.mjs` (2.4 s, 3.2 s) pass.
+- The 2 s rule's three cases timed (`timeout-cases.mjs`, a line every 500 ms):
+
+  | Case | Chromium | Firefox |
+  | --- | --- | --- |
+  | 12 lines in 6 s, then the end | curl 0 after 6,548 ms, 12 lines | curl 0 after 6,562 ms, 12 lines |
+  | 12 lines in 6 s, then silence | curl 28, 12 lines, closed 2,001 ms after the last | curl 28, 12 lines, closed 2,009 ms after the last |
+  | no headers | curl 28, closed 2,000 ms after the request | curl 28, closed 1,999 ms after the request |
+- Under the default policy (no policy object, as in the recording), a stream of a line every 10 s
+  for 630 s (`long-stream.mjs`): curl 0 after 640.0 s with all 63 lines in Chromium, after
+  640.1 s in Firefox, the connection closed (`long-stream.log`).
