@@ -6,17 +6,19 @@ import { DOLLY_IMAGES } from "../../src/images.mjs";
 import { DOLLY_SESSION_FORMAT_VERSION, decodeSessionSnapshot, loadStoredSession, sessionCompatible,
   sessionLoadUrl, validSessionName, DOLLY_SESSION_MAX_BYTES } from "../../src/session-store.mjs";
 
-// A session route (/session/?name=NAME) boots the saved session's image and
-// restores its delta; with recover=1 it unpacks the files into a fresh system
-// image instead.
+// A session route (/session/?name=NAME), or boot()'s session option on a page
+// of one's own, boots the saved session's image and restores its delta; with
+// recover=1 the site's route unpacks the files into a fresh system image instead.
 export async function boot(route) {
   if (!route.loadSession) return undefined;
   if (route.mode !== "snapshot") throw new Error("invalid Dolly route configuration");
   const query = new URL(location.href).searchParams;
-  const name = query.get("name"), recovering = query.get("recover") === "1";
-  if (!validSessionName(name)) throw new Error("The Dolly session URL has an invalid name. Open /sessions to see saved sessions.");
+  const name = route.session ?? query.get("name"), recovering = route.session === undefined && query.get("recover") === "1";
+  // The site lists its saves; a page of one's own has no such page.
+  const listed = route.session === undefined ? " Open /sessions to see saved sessions." : "";
+  if (!validSessionName(name)) throw new Error(`The Dolly session name is invalid.${listed}`);
   const record = await loadStoredSession(name);
-  if (record === null) throw new Error(`Session '${name}' was not found in this browser. Open /sessions to see saved sessions.`);
+  if (record === null) throw new Error(`Session '${name}' was not found in this browser.${listed}`);
   if (record.name !== name) throw new Error("Stored session name does not match its key");
   let image = record.image;
   if (recovering) {
@@ -24,7 +26,7 @@ export async function boot(route) {
     if (!DOLLY_IMAGES.some(definition => definition.image === "system")) throw new Error("File recovery needs the system image in this distribution");
     image = "system";
   } else if (!sessionCompatible(record, DOLLY_IMAGES, DOLLY_BUILD_ID, DOLLY_IMAGE_BUILD_ID)) {
-    throw new Error("This save belongs to an older runtime or image recipe. It has not been deleted or overwritten. Open /sessions to see saved sessions.");
+    throw new Error(`This save belongs to an older runtime or image recipe. It has not been deleted or overwritten.${listed}`);
   }
   const bytes = await decodeSessionSnapshot(record);
   record.bytes.transfer(0);

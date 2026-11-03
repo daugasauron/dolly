@@ -54,9 +54,10 @@ the page's.
 | `images` | URL of an image directory: `dist/dolly-images.mjs`, the images' metadata and packs, their recipes. `@daugasauron/dolly-image-default`'s `index.mjs` exports its own. A page has one image directory |
 | `image` | The image to run, by name |
 | `modules` | URLs of the `module.json` of each host module the page has. The registry loads these and no other; an image's `REQUIRES HOST` must be among them |
-| `site` | Optional: the URL of a site that serves Dolly's own pages (`session/`, `sessions/`, `docs/`), as Dolly's site does. Given, a saved session names itself in the tab's URL and modules link to those pages |
+| `site` | Optional: the URL of a site that serves Dolly's own pages (`session/`, `sessions/`, `docs/`), as Dolly's site does. Given, a saved session names itself in the tab's URL as the site's session route and modules link to those pages |
 | `http` | Optional `{ policy, relays }` for the HTTP broker, the page's one network edge (docs/http.md). Without a policy a program may fetch any HTTPS URL |
 | `files` | Optional `{ "/absolute/path": text or Uint8Array }`, written over the image before its program starts: Pi's instructions and skills (`docs/agent-frontend.md`), a start script. Programs can read them; they are not for secrets |
+| `session` | Optional: the name of a session saved in this browser, opened as it was saved in place of a fresh start (`files` are not written over it). It needs `snapshot@0`, whose Save (Ctrl+Shift+S) keeps a session in the browser's storage for the page's origin and, on a page without a `site`, names it in the tab's address as `?session=NAME` for the page to give back here |
 
 The page, not the image, chooses the modules and the policy, before anything of
 the image runs. A program reaches nothing of the browser but through them.

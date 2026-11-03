@@ -84,7 +84,8 @@ async function scaffold(name, packages) {
   if (!validName(name)) fail(`${name}: a name is lowercase letters, digits and dashes, at most 32 bytes`);
   const base = definitionOf(installed("pi-minimal", "image"));
   const installs = packages.map(image => definitionOf(installed(image, "package")));
-  const hosts = [...new Set([base, ...installs].flatMap(definition => definition.hostRequirements))].sort();
+  // snapshot@0 is the page's Save: a save is kept in the browser, and the page opens it again.
+  const hosts = [...new Set([base, ...installs].flatMap(definition => definition.hostRequirements).concat("snapshot@0"))].sort();
   const row = (operation, definition) => `${operation} ${siteReference(definition.dollyfile)} ${definition.sha256}\n`;
   const template = async file => (await readFile(join(import.meta.dirname, "dolly-build-init", file), "utf8")).replaceAll("__NAME__", name);
   const files = {
