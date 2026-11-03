@@ -19,3 +19,22 @@ other, which deadlocks under serial threads), CPython's own threading tests (`te
 `test_thread`, `test_queue`, `concurrent.futures`) pass or each failure is explained, pip's progress
 workaround is gone, the Python demo's test passes in Chromium and Firefox, and the images built on
 Python (`demo/pydata`'s among them) rebuild on it in a round.
+
+## What stands in the way (2026-11-03, 23:30)
+
+CPython is configured on the host with Emscripten's `configure`, and `prepare-cpython.sh` then
+edits `pyconfig.h` to CPython's pthread stubs (`HAVE_PTHREAD_STUBS`, no `HAVE_PTHREAD_H`): that is
+the switch. But CPython loads its C extensions with `dlopen` (`dynload_shlib.o`, `dso@0`), and
+`ctypes` callbacks are libffi closures, and both are refused in a program using `threads@0`
+(`host/dso/process.mjs`: every thread's Worker has a table of its own, and a library or closure
+added in one would be missing in the others; `docs/process-model.md`, "Threads, DSOs and FFI").
+A threaded CPython could therefore import no NumPy, Pandas or Matplotlib.
+
+So the first step is in the core: DSOs and FFI closures in threaded programs. A load (or a
+closure) must reach every thread's table at the same indices, with the library's data initialised
+once in the shared memory, and a thread started later must replay what was loaded before it.
+A thread running Wasm reads no message until it calls into the runtime, so the load waits until
+every other thread has synchronised at its next call (or is blocked in one): Emscripten's
+`_emscripten_dlsync_threads` solves the same problem the same way. Then CPython with pthreads,
+`-pthread` in its build and in the flags sysconfig gives extensions, `REQUIRES HOST threads@0` in
+Python and the images that install it.
