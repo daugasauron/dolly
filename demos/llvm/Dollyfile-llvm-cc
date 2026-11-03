@@ -12,8 +12,8 @@ REQUIRES HOST threads@0
 # the seed compiler and installed in its place: this image's cc is built by Dolly.
 # The archives come by COPY, so the rest of LLVM that llvm-build installed for
 # the llvm package stays out of this image.
-FROM /v0.1.4/demos/llvm/Dollyfile-llvm-tablegen 0000000000000000000000000000000000000000000000000000000000000000
-COPY /v0.1.4/demos/llvm/Dollyfile-llvm-build 0000000000000000000000000000000000000000000000000000000000000000 /usr/lib/llvm-build /usr/lib/llvm-build
+FROM /v0.1.4/demos/llvm/Dollyfile-llvm-tablegen 8c4ff2cd3f68d5a8d6252b071793e20b55572d0c0ef629596b7f9af449c898ab
+COPY /v0.1.4/demos/llvm/Dollyfile-llvm-build 0c89197de9678d182301f7c27862dd02ea3ff84fe96f1ca77b038d85176f87e9 /usr/lib/llvm-build /usr/lib/llvm-build
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL gzip
