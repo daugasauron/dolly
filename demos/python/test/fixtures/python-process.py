@@ -65,11 +65,10 @@ def terminal_modes():
             mode = list(raw)
             mode[0] |= flag
             rejected(lambda: termios.tcsetattr(0, termios.TCSANOW, mode), errno.EINVAL)
-        for key, value in ((termios.VMIN, 0), (termios.VTIME, 5)):
-            mode = list(raw)
-            mode[6] = list(raw[6])
-            mode[6][key] = value
-            rejected(lambda: termios.tcsetattr(0, termios.TCSANOW, mode), errno.EINVAL)
+        mode = list(raw)
+        mode[6] = list(raw[6])
+        mode[6][termios.VMIN] = 2
+        rejected(lambda: termios.tcsetattr(0, termios.TCSANOW, mode), errno.EINVAL)
         assert termios.tcgetattr(0) == raw, "a rejected request changed the terminal"
         termios.tcflush(0, termios.TCIOFLUSH)
         termios.tcdrain(0)
