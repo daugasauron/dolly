@@ -17,9 +17,9 @@ REQUIRES HOST upload@0
 
 # packages, threads and dso are for what amy installs into a pane, as in default.
 
-FROM /v0.1.4/Dollyfile-system 03687a356e2435bcb5cb6a062caed281f20c189bb051f4b91405abef805a7ee6
+FROM /v0.1.4/Dollyfile-system 03f140fb3ed97157f3f45f3626724bce234733e0493058bac068d9b7f093b112
 INSTALL /v0.1.4/Dollyfile-amy de8d4c2404adfd43bb54bc492688aa8ba6d7e7d388889cb4b965e018800bafe6
-INSTALL /v0.1.4/demos/tmux/Dollyfile-tmux 95f7af138a11fa9fb2695b3bce95b8e0cc10ce89a16aa55075db20281fc432d0
+INSTALL /v0.1.4/demos/tmux/Dollyfile-tmux b75a0deef4a72eae2c21fae24c5e22d11df2b7efc6f5e06c0890543b48561424
 
 FILE /usr/share/tmux/welcome.txt
     tmux inside Dolly: two shells, each on a pseudo-terminal.
