@@ -21,14 +21,14 @@ Done when: every recipe that builds with Zig uses 0.17.0 (or the newest release 
 and pins name it, nothing pins 0.16; the catalog is rebuilt in a round, and the terminal, zig's
 own demo test and the images built with it pass their tests in Chromium and Firefox.
 
-## State (2026-11-03 22:20 JST)
+## State (2026-11-04 01:10 JST)
 
 Branch `zig/0.17` in `work/sdl2`. Pins, patches, recipes and docs name Zig 0.17.0, Ghostty
 v1.4.0 and LLVM 22.1.8; nothing pins 0.16 or LLVM 21. Built and tested in this tree: the core
-chain (Measurements, Tests). Building since 22:15 in a 9 GB `bigbuild` slot (unit
-`dolly-zig017-llvm22b`, `build/zig017-evidence/image-llvm22.log`): `llvm22-tablegen`, `llvm22`,
-`zig-llvm-build`, `zig-llvm`; then `npm run test:demos -- zig`. `demos/ghostty-gtk` is staged for
-v1.4.0 but needs Mesa's EGL (`tasks/20261103-110119-ghostty-egl`). Left: those, then the round.
+chain, and `llvm22`, `zig-llvm-build` and `zig-llvm` in a 9 GB slot (Measurements, Tests): the
+terminal's and zig's own tests pass in Chromium and Firefox. `demos/ghostty-gtk` is staged for
+v1.4.0 but needs Mesa's EGL (`tasks/20261103-110119-ghostty-egl`). Left: the catalog round
+(every image holds the new display), then closing this task.
 
 ## Findings (2026-11-03, with evidence)
 
@@ -213,8 +213,13 @@ the man page's program, its `cc` and its run 4.7 s.
   `echo`; and a program comparing two `f128`, linked with Zig's own compiler_rt, whose link printed
   no signature mismatch and which printed `truefalse`. Passed in Chromium and Firefox.
 - Source suite: 470 passed.
-- Not run: `npm run test:demos -- zig` (needs `zig-llvm`, so LLVM 22), the ghostty-gtk demo
-  tests, the artifact tests and `amy-browser.mjs` (both need the whole catalog).
+- `npm run test:demos -- zig` (zig-llvm in `default`: `zig build-exe` of a program that spawns
+  a child, a threaded one, one listing a directory, `zig translate-c -lc`, and `zig build` of a
+  project): passed in Chromium (202.7 s) and Firefox (234.0 s), 2026-11-04 01:08, with the maker
+  fixes; without them `zig build` failed at `Maker.zig:2476`. (Zig 0.16's run took 34.6 s and
+  45.8 s: 0.17's `zig build` compiles a larger maker in the session.)
+- Not run: the ghostty-gtk demo tests (need Mesa's EGL), the artifact tests and
+  `amy-browser.mjs` (both need the whole catalog).
 
 ## Lessons
 

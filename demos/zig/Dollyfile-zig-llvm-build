@@ -14,7 +14,7 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   cp
 REQUIRES TOOL   rm
 
-SOURCE /v0.1.4/dist/static/zig-llvm/zig.tar 2aeaa942d764ad7bfbd34773bcf0ce0702865db0d31610e2fd7eedc41a850ffc /tmp/zig.tar
+SOURCE /v0.1.4/dist/static/zig-llvm/zig.tar 96a613af69e31fc30958f0c578cce4f4581b5373b7bb9f4f6ae590d2cd12ad65 /tmp/zig.tar
 SOURCE /v0.1.4/dist/static/zig-llvm/wamr.tar d5d0e05cf074e3f4167bc0430342a39f69666d3e27ee09c748f2a2a22299dfea /tmp/wamr.tar
 SLOP tar -xf /tmp/zig.tar -C /
 SLOP tar -xf /tmp/wamr.tar -C /

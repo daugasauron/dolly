@@ -20,9 +20,10 @@ such a host has none. Zig 0.17 links libc for Emscripten by itself.
 
 zig2 is built with every command (`dev = .full`): upstream builds the full
 compiler with zig2, and here zig2 is the compiler. A program for Dolly is
-`NAME.wasm`. In a session (2026-10-15), `zig build-exe hello.zig` took 7.8 s
-and `zig build` of a one-program project 13.5 s; zig1 makes the compiler's C
-in about 16 minutes, and `llvm21` builds in 75.
+`NAME.wasm`. In a session (Chromium, 2026-11-04) the first `zig build` of a
+one-program project took 103 s, most of it compiling Zig's maker; zig1 makes
+the compiler's C in about 20 minutes, `cc` compiles it in 8 in a 9 GB slot (6
+GB is not enough), and `llvm22` builds in 75.
 
 ## Images
 
