@@ -6,7 +6,7 @@
 
 ## State (2026-11-03): taken up again on the owner's phone
 
-No longer parked: on 2026-11-03 the owner had pi-phone sign in to `claude-opus-5` on his phone,
+No longer parked: on 2026-11-03 the owner had pi-phone sign in to `claude-opus-5` on the owner's phone,
 its session saved and restored (529fb7c27), then reshaped it there: Pi's menu as an `html@0`
 popup built from Pi (4cf7c7757); one bar of the page's buttons below the canvas, Speak, Send,
 Clear, Menu and Paste, from `touch@0`'s BUTTONS (835fa963b, edaca025c); the page resized by the
