@@ -5,9 +5,14 @@
 - TAGS: python,packages
 
 
-## State (2026-11-04 04:40, branch `demo/scipy`)
+## State (2026-11-04 04:50, branch `demo/scipy`)
 
-The `openblas` package is built and tested (below). SciPy: in progress.
+The `openblas` package is built and tested (`bea193eee`, `bd7329ca4`): OpenBLAS's SIMD128
+kernels, 6 to 11 times NumPy's fallback for a product. SciPy builds on it in a session and its
+linalg works; python-data does not take it yet, as three changes outside this branch stand in the
+way: `cc --version` (on `demo/pydata-seed`, built, awaiting a round), `-pthread` for a DSO (a
+compiler proposal) and CPython's thread stubs refusing a key destructor (a proposal). The DSO
+loader's weak GOT entries, which HiGHS needed, are fixed (`5548dbdd8`).
 
 Found while building python-data ([pydata](../20261103-110906-pydata/TASK.md)). SciPy 1.18.1
 builds without Fortran (`-D_without-fortran=true`, no `scipy.odr`) but needs BLAS and LAPACK.
@@ -70,16 +75,20 @@ arrays through `numpy` and through SciPy's OpenBLAS (`scipy.linalg.blas.dgemm`,
 | 500 | 0.171 s | 0.016 s (10.7x) | 0.022 s | 0.016 s (1.4x) |
 | 1000 | 0.509 s | 0.083 s (6.1x) | 0.094 s | 0.039 s (2.4x) |
 
-NumPy built on the package would take its products and solves too (`-Dblas=openblas`); not done:
-NumPy's own LAPACK declarations would need the same check first.
+NumPy built on the package would take its products and solves too (`-Dblas=openblas
+-Dlapack=openblas`, as its PyPI wheels link OpenBLAS); not done: `numpy/linalg/umath_linalg.cpp`
+declares its 48 LAPACK routines `fortran_int`, f2c's convention for its own lapack_lite, so on
+OpenBLAS each would trap as SciPy's two did, and needs the same one-word change first.
 
 ## SciPy 1.18.1 (explored in a session, `build/scipy-evidence/explore2.mjs`, `explore4.mjs`)
 
-A session of `system`, `python`, `meson`, `pkgconf`, `openblas` and python-data-build's NumPy root
-(`COPY`) builds SciPy's sdist with pip as python-data-build builds the others
-(`--no-build-isolation`, meson-python's release build, `-D_without-fortran=true`,
-`-Duse-pythran=false`): 1144 Ninja steps in 5 min (`-j8`), a 21.0 MB wheel, an 88 MB root of
-102 extension modules. What it took, in the order met:
+A session of `system`, `python`, `meson`, `pkgconf`, `cmake` and python-data-build's NumPy root
+(`COPY`), with this branch's OpenBLAS built in it, builds SciPy's sdist with pip as
+python-data-build builds the others (`--no-build-isolation`, meson-python's release build,
+`-D_without-fortran=true`, `-Duse-pythran=false`): 1144 Ninja steps in 13 min 17 s at Ninja's
+default jobs (5 min with `-j8`), a 21.0 MB wheel; the root is 93.8 MB in 1420 files (tests
+17.1 MB, 102 extension modules 63.3 MB), 21.3 MB as a tar.gz at level 6, what it would add to
+python-data's packs. What it took, in the order met:
 
 1. `c_std=c17` (SciPy's `project()`): Meson grants Clang C17 from version 6 and reads no version
    from Dolly's `cc --version`. Fixed on `demo/pydata-seed` (`src/commands/cc.c`, a seed input,
@@ -91,20 +100,35 @@ A session of `system`, `python`, `meson`, `pkgconf`, `openblas` and python-data-
    `-pthread` from `-shared` links.
 3. `__small_fprintf` (`scipy.optimize._trlib`): LLVM's printf rewrite, which a `-rdynamic` host
    does not export. Fixed on `demo/pydata-seed`; emulated by `-fno-builtin`.
-4. Two SciPy declarations wasm-ld links to traps (`scipy-dolly.patch`, 10 lines, proposed
-   upstream): `_common_array_utils.hh` declares `?getrf` and `?getri` returning `CBLAS_INT`, while
-   SciPy's other declarations and LAPACK make them subroutines (`scipy.linalg.inv` and `det`
-   trapped); trlib passes `dlagtm` a hidden string length that no other SciPy call passes and
-   OpenBLAS's C LAPACK does not take. The link log's 12 mismatches are then 3, all in
-   `cython_lapack`'s exports of `ilaver` (OpenBLAS: `int`, fixed in openblas-dolly.patch with
-   INSTALL's routines), `xerbla_array` and `chla_transtype` (a hidden length, a CHARACTER
-   result), which SciPy itself never calls.
+4. Two SciPy declarations wasm-ld links to traps ([`scipy-dolly.patch`](scipy-dolly.patch), kept
+   here until SciPy has a recipe; proposed upstream, not filed): `_common_array_utils.hh`
+   declares `?getrf` and `?getri` returning `CBLAS_INT`, while SciPy's other declarations and
+   LAPACK make them subroutines (`scipy.linalg.inv` and `det` trapped); trlib passes `dlagtm` a
+   hidden string length that no other SciPy call passes and OpenBLAS's C LAPACK does not take. The
+   link log's 12 mismatches are then 3, all `cython_lapack` exports SciPy itself never calls:
+   `ilaver` (OpenBLAS's `int`, void since `bd7329ca4`), `xerbla_array` and `chla_transtype` (a
+   hidden length, a CHARACTER result).
 5. A weak `_ZTH` (HiGHS's `thread_local`) failed `import scipy.optimize` with "undefined symbol":
    fixed in the DSO loader (`5548dbdd8`).
-6. `import scipy.fft` stops CPython: `_uarray`'s `thread_local` maps have destructors, so
-   libc++abi registers them with `pthread_key_create(key, destructor)`, and the thread stubs
-   Dolly's CPython is built with (`Python/thread_pthread_stubs.h`) call `Py_FatalError` for any
-   destructor. Below.
+6. `import scipy.optimize` (and `stats`, `integrate`, `interpolate`, `signal`) then stops
+   CPython: `_uarray`'s `thread_local` maps have destructors, so libc++abi registers them with
+   `pthread_key_create(key, destructor)`, and the thread stubs Dolly's CPython is built with
+   (`Python/thread_pthread_stubs.h`) call `Py_FatalError` for any destructor. A proposal (below).
+
+With the emulations, in Chromium: `scipy.linalg` imports in 2.4 s and solves, inverts, takes a
+determinant, Cholesky, QR, `eigh`, SVD, `lstsq` and `expm` correctly; `scipy.special` (`gamma`,
+`erf`), `scipy.sparse.linalg.spsolve`, `scipy.spatial.KDTree` and `scipy.ndimage` work; the five
+packages of item 6 stop at import. So python-data does not take SciPy yet: the done criteria wait
+for `demo/pydata-seed`, the compiler proposal and the CPython one. What the recipe will hold then,
+as the session ran it: python-data-build `INSTALL`s `openblas`, stages the sdist and the patch,
+patches and installs it with `--config-settings=setup-args=-D_without-fortran=true` and
+`-Duse-pythran=false` into `/opt/python-data/scipy`, and python-data `COPY`s that root.
+
+Pythran: off. Its six modules in SciPy 1.18 (`_group_columns`, `_linalg_pythran`,
+`_rbfinterp_pythran`, `_stats_pythran`, `_max_len_seq_inner`, and `_matfuncs_sqrtm_triu`) are
+plain Python files that SciPy installs as they are without it; Pythran would add four build-only
+wheels (pythran, gast, beniget, ply) and SciPy's heaviest C++ for loops these files run in
+Python. Not measured: Pythran's build in Dolly.
 
 ## Proposals (the owner's)
 
@@ -123,7 +147,8 @@ A session of `system`, `python`, `meson`, `pkgconf`, `openblas` and python-data-
   +  if (options.pthread && (options.kernel_plugin || options.export_dynamic)) {
   +    std::fputs("dolly-cc: -pthread requires a static process; -rdynamic is unsupported\n", stderr);
   ```
-  With it (emulated), SciPy builds; HiGHS's `linprog` runs its serial path (below).
+  With it (emulated) SciPy builds. Not measured: whether HiGHS's thread pool fails cleanly when
+  `pthread_create` refuses, since `import scipy.optimize` stops at the next proposal first.
 - **CPython's thread stubs accept a key destructor.** `pthread_key_create` with a destructor is
   `Py_FatalError` in `Python/thread_pthread_stubs.h`; the stubs serve the main thread alone, and
   POSIX runs no key destructor when the process exits, so storing none is exact. One line of
