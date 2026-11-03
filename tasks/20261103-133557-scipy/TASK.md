@@ -5,14 +5,15 @@
 - TAGS: python,packages
 
 
-## State (2026-11-04 04:50, branch `demo/scipy`)
+## State (2026-11-04 05:05, branch `demo/scipy`)
 
 The `openblas` package is built and tested (`bea193eee`, `bd7329ca4`): OpenBLAS's SIMD128
 kernels, 6 to 11 times NumPy's fallback for a product. SciPy builds on it in a session and its
-linalg works; python-data does not take it yet, as three changes outside this branch stand in the
-way: `cc --version` (on `demo/pydata-seed`, built, awaiting a round), `-pthread` for a DSO (a
-compiler proposal) and CPython's thread stubs refusing a key destructor (a proposal). The DSO
-loader's weak GOT entries, which HiGHS needed, are fixed (`5548dbdd8`).
+linalg works; python-data does not take it yet, as changes outside this branch stand in the
+way: `cc --version` and the `__small_` exports (on `demo/pydata-seed`, built, awaiting a round)
+and `-pthread` for a DSO (a compiler proposal). Fixed here: the DSO loader's weak GOT entries,
+which HiGHS needed (`5548dbdd8`), and CPython's thread stubs, which stopped at a key destructor.
+With those two emulated, linalg, optimize and stats import and compute in a session.
 
 Found while building python-data ([pydata](../20261103-110906-pydata/TASK.md)). SciPy 1.18.1
 builds without Fortran (`-D_without-fortran=true`, no `scipy.odr`) but needs BLAS and LAPACK.
@@ -77,8 +78,9 @@ arrays through `numpy` and through SciPy's OpenBLAS (`scipy.linalg.blas.dgemm`,
 
 NumPy built on the package would take its products and solves too (`-Dblas=openblas
 -Dlapack=openblas`, as its PyPI wheels link OpenBLAS); not done: `numpy/linalg/umath_linalg.cpp`
-declares its 48 LAPACK routines `fortran_int`, f2c's convention for its own lapack_lite, so on
-OpenBLAS each would trap as SciPy's two did, and needs the same one-word change first.
+declares its 48 LAPACK routines and BLAS copies `fortran_int`, f2c's convention for its own
+lapack_lite (and returns the copies' value), `lapack_litemodule.c` 7 more, so on OpenBLAS each
+would trap as SciPy's two did: a NumPy patch of its own first.
 
 ## SciPy 1.18.1 (explored in a session, `build/scipy-evidence/explore2.mjs`, `explore4.mjs`)
 
@@ -113,13 +115,20 @@ python-data's packs. What it took, in the order met:
 6. `import scipy.optimize` (and `stats`, `integrate`, `interpolate`, `signal`) then stops
    CPython: `_uarray`'s `thread_local` maps have destructors, so libc++abi registers them with
    `pthread_key_create(key, destructor)`, and the thread stubs Dolly's CPython is built with
-   (`Python/thread_pthread_stubs.h`) call `Py_FatalError` for any destructor. A proposal (below).
+   (`Python/thread_pthread_stubs.h`) call `Py_FatalError` for any destructor. Fixed in
+   `cpython-dolly.patch`: the stubs serve one thread, which exits with the process, and POSIX runs
+   no key destructor then, so there is none to keep. The python recipe's new check (a C++ library
+   whose `thread_local std::string` ctypes loads) stopped Python before, in a session of the old
+   python-data ("pthread_key_create destructor is not supported", status 134). Real threads
+   ([pythreads](../20261103-134653-pythreads/TASK.md)) replace the stubs and keep the check.
 
-With the emulations, in Chromium: `scipy.linalg` imports in 2.4 s and solves, inverts, takes a
-determinant, Cholesky, QR, `eigh`, SVD, `lstsq` and `expm` correctly; `scipy.special` (`gamma`,
-`erf`), `scipy.sparse.linalg.spsolve`, `scipy.spatial.KDTree` and `scipy.ndimage` work; the five
-packages of item 6 stop at import. So python-data does not take SciPy yet: the done criteria wait
-for `demo/pydata-seed`, the compiler proposal and the CPython one. What the recipe will hold then,
+With items 1 to 3 emulated and 4 to 6 fixed, in Chromium (python rebuilt with the stub fix):
+`import scipy, scipy.linalg, scipy.optimize, scipy.stats` takes 3.7 s, and `solve`, `inv`, `det`,
+Cholesky, `eigh`, SVD, `lstsq`, `expm`, `minimize` (BFGS, and trust-krylov through trlib's
+`dlagtm`), `linprog` (HiGHS, serial), `brentq`, `curve_fit`, `norm`, `ttest_ind`, `linregress`,
+`quad`, `CubicSpline`, `signal.convolve`, `fft`, `special`, `sparse.linalg.spsolve`,
+`spatial.KDTree` and `ndimage` give the right answers. So python-data waits for
+`demo/pydata-seed` and the compiler proposal alone. What the recipe will hold then,
 as the session ran it: python-data-build `INSTALL`s `openblas`, stages the sdist and the patch,
 patches and installs it with `--config-settings=setup-args=-D_without-fortran=true` and
 `-Duse-pythran=false` into `/opt/python-data/scipy`, and python-data `COPY`s that root.
@@ -149,11 +158,6 @@ Python. Not measured: Pythran's build in Dolly.
   ```
   With it (emulated) SciPy builds. Not measured: whether HiGHS's thread pool fails cleanly when
   `pthread_create` refuses, since `import scipy.optimize` stops at the next proposal first.
-- **CPython's thread stubs accept a key destructor.** `pthread_key_create` with a destructor is
-  `Py_FatalError` in `Python/thread_pthread_stubs.h`; the stubs serve the main thread alone, and
-  POSIX runs no key destructor when the process exits, so storing none is exact. One line of
-  `cpython-dolly.patch`, or gone with real threads ([pythreads](../20261103-134653-pythreads/TASK.md)):
-  `import scipy.fft` needs one of the two.
 
 ## Lessons
 

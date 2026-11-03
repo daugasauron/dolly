@@ -18,7 +18,7 @@ FROM /v0.1.4/Dollyfile-system 03f140fb3ed97157f3f45f3626724bce234733e0493058bac0
 INSTALL /v0.1.4/Dollyfile-amy de8d4c2404adfd43bb54bc492688aa8ba6d7e7d388889cb4b965e018800bafe6
 INSTALL /v0.1.4/demos/javascript/Dollyfile-janis-install 23d6d65323aff44276238f387b3df13165e6f5313719b429773722c68292b339
 INSTALL /v0.1.4/demos/closed-source-agent/Dollyfile-secretenv 701ddc0027381762b1ef37920361ff89f42a20c6783b10c76644cfd7896eac16
-INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 75b3b3c1dc389a36223a96cc9a54da7201fd2481f40eddf0bfc724c3b53e4f31
+INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 17a69369bcee8b2ef25e16c2004a12bb05c37fe35ea306e90fb5b3eaf396b396
 REQUIRES TOOL cc
 REQUIRES TOOL foreground
 REQUIRES TOOL janis

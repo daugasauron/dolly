@@ -59,7 +59,7 @@ EXPORTS ENV PYTHONDONTWRITEBYTECODE 1
 # The target is configured outside the browser, but every target object and
 # executable is compiled here. Dolly-owned adapters remain independent pinned
 # inputs instead of being hidden inside the upstream archive.
-SOURCE /v0.1.4/dist/static/python/cpython.tar.gz 32f0d3544b004ea533bb50fdfe73a0c1ca6d205ab90c99ca2888807a91727760 /tmp/cpython.tar.gz
+SOURCE /v0.1.4/dist/static/python/cpython.tar.gz 4d0403a968b83c164fbabc642e21618308d83f62d56dbe50cb78fa6821a2c5a4 /tmp/cpython.tar.gz
 
 SLOP gzip -dc /tmp/cpython.tar.gz | tar -xf - -C /
 
@@ -306,6 +306,12 @@ SLOP c++ \
   -o /tmp/python-header-check/check.o
 SLOP python \
   -c 'import os, sys, termios, tty; assert not os.isatty(0); assert sys.stdin.buffer.read(1) == b""'
+# A C++ thread_local with a destructor registers it through pthread_key_create
+# (SciPy's _uarray), which the thread stubs refused with a fatal error.
+SLOP python \
+  -c 'from pathlib import Path; p = Path("/tmp/python-tls/tls.cpp"); p.parent.mkdir(); p.write_text("#include <string>\nstatic thread_local std::string name(\"dolly\");\nextern \"C\" int tls_length() { return int(name.size()); }\n", encoding="utf-8")'
+SLOP c++ -shared /tmp/python-tls/tls.cpp -o /tmp/python-tls/tls.so
+SLOP python -c 'import ctypes; assert ctypes.CDLL("/tmp/python-tls/tls.so").tls_length() == 5'
 
 FILE /usr/share/licenses/cpython/LICENSE
 # The PSF License Agreement asks derivatives to summarize their changes.

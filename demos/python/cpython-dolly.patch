@@ -264,3 +264,16 @@
  pthread_exit(void *retval)
  {
      exit(0);
+@@ -144,9 +144,9 @@
+     if (!key) {
+         return EINVAL;
+     }
+-    if (destr_function != NULL) {
+-        Py_FatalError("pthread_key_create destructor is not supported");
+-    }
++    // The one thread exits with the process, and POSIX runs no key destructor
++    // then: nothing to keep. C++ registers one for each thread_local it destroys.
++    (void)destr_function;
+     for (pthread_key_t idx = 0; idx < PTHREAD_KEYS_MAX; idx++) {
+         if (!py_tls_entries[idx].in_use) {
+             py_tls_entries[idx].in_use = true;
