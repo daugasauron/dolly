@@ -5,16 +5,16 @@
 - TAGS: python,packages
 
 
-## State (2026-11-04 05:15, branch `demo/scipy`)
+## State (2026-11-04 05:25, branch `demo/scipy`)
 
 The `openblas` package is built and tested (`bea193eee`, `bd7329ca4`): OpenBLAS's SIMD128
-kernels, 6 to 11 times NumPy's fallback for a product. SciPy builds on it in a session and its
-linalg works; python-data does not take it yet, as changes outside this branch stand in the
-way: `cc --version` and the `__small_` exports (on `demo/pydata-seed`, built, awaiting a round)
-and `-pthread` for a DSO (a compiler proposal). Fixed here: the DSO loader's weak GOT entries,
-which HiGHS needed (`5548dbdd8`), and CPython's thread stubs, which stopped at a key destructor.
-With those two emulated, linalg, optimize and stats import and compute in a session, in Chromium
-and Firefox.
+kernels, 6 to 11 times NumPy's fallback for a product. SciPy builds on it in a session; with
+two changes of other branches emulated, its linalg, optimize and stats import and compute in
+Chromium and Firefox. Those two keep it out of python-data: `cc --version` and the `__small_`
+exports (`demo/pydata-seed`, built, awaiting a round) and `-pthread` for a DSO (the compiler
+change on `demo/python-threads`). Fixed here on the way: the DSO loader's weak GOT entries, which
+HiGHS needed (`5548dbdd8`), and CPython's thread stubs, which stopped at a key destructor
+(`bb74313ca`, moot once `demo/python-threads` drops the stubs).
 
 Found while building python-data ([pydata](../20261103-110906-pydata/TASK.md)). SciPy 1.18.1
 builds without Fortran (`-D_without-fortran=true`, no `scipy.odr`) but needs BLAS and LAPACK.
@@ -99,8 +99,8 @@ python-data's packs. What it took, in the order met:
 2. `-pthread` with `-shared`: `scipy.fft`'s duccfft, `scipy.optimize`'s HiGHS and `scipy.stats`'
    `_qmc_cy` take Meson's `dependency('threads')`, which Meson gives every POSIX compiler as
    `-pthread`, and Dolly's compiler refuses it for a DSO ("-pthread requires a static process").
-   Matplotlib 3.11's HarfBuzz met the same. A proposal (below); emulated by the wrapper dropping
-   `-pthread` from `-shared` links.
+   Matplotlib 3.11's HarfBuzz met the same. Changed on `demo/python-threads` (below); emulated
+   by the wrapper dropping `-pthread` from `-shared` links.
 3. `__small_fprintf` (`scipy.optimize._trlib`): LLVM's printf rewrite, which a `-rdynamic` host
    does not export. Fixed on `demo/pydata-seed`; emulated by `-fno-builtin`.
 4. Two SciPy declarations wasm-ld links to traps ([`scipy-dolly.patch`](scipy-dolly.patch), kept
@@ -130,7 +130,7 @@ Cholesky, `eigh`, SVD, `lstsq`, `expm`, `minimize` (BFGS, and trust-krylov throu
 `quad`, `CubicSpline`, `signal.convolve`, `fft`, `special`, `sparse.linalg.spsolve`,
 `spatial.KDTree` and `ndimage` give the right answers; in Firefox the same (SciPy built there in
 5 min 27 s with `-j8`, the import in 4.2 s). So python-data waits for
-`demo/pydata-seed` and the compiler proposal alone. What the recipe will hold then,
+`demo/pydata-seed` and the compiler change alone. What the recipe will hold then,
 as the session ran it: python-data-build `INSTALL`s `openblas`, stages the sdist and the patch,
 patches and installs it with `--config-settings=setup-args=-D_without-fortran=true` and
 `-Duse-pythran=false` into `/opt/python-data/scipy`, and python-data `COPY`s that root.
@@ -141,25 +141,29 @@ plain Python files that SciPy installs as they are without it; Pythran would add
 wheels (pythran, gast, beniget, ply) and SciPy's heaviest C++ for loops these files run in
 Python. Not measured: Pythran's build in Dolly.
 
-## Proposals (the owner's)
+## `-pthread` with `-shared` (the compiler's)
 
-- **`cc -shared -pthread` links as `cc -shared`** (`src/compiler.cpp`, the seed compiler: an
-  `llvm-cc` round). A DSO has no thread runtime of its own: it shares its host's libc, and every
-  DSO host is a single-thread process (threads@0 has no DSOs), whose `pthread_create` fails with
-  `EAGAIN`. So `-pthread` adds nothing to a DSO, as `-lpthread` adds nothing to any link; the
-  objects compile alike with and without it (atomics and bulk memory are always on). Meson gives
-  `-pthread` to every `dependency('threads')`, required or not: SciPy (fft, HiGHS, qmc) and
-  Matplotlib 3.11 (HarfBuzz) cannot link a module without it. The diff:
-  ```diff
-  -  if (options.pthread && (options.shared_library || options.kernel_plugin || options.export_dynamic)) {
-  -    std::fputs("dolly-cc: -pthread requires a static process; shared libraries and -rdynamic are unsupported\n", stderr);
-  +  // A DSO takes its host's libc and threads: -pthread adds nothing to it, as -lpthread.
-  +  if (options.shared_library && !options.kernel_plugin) options.pthread = false;
-  +  if (options.pthread && (options.kernel_plugin || options.export_dynamic)) {
-  +    std::fputs("dolly-cc: -pthread requires a static process; -rdynamic is unsupported\n", stderr);
-  ```
-  With it (emulated) SciPy builds. Not measured: whether HiGHS's thread pool fails cleanly when
-  `pthread_create` refuses, since `import scipy.optimize` stops at the next proposal first.
+`demo/python-threads` (read 05:20) already changes the compiler to take `-pthread` with `-shared`
+and `-rdynamic`, with DSOs in threaded processes, `llvm-cc` built and pinned there, for a catalog
+round; it also drops CPython's thread stubs, so `bb74313ca`'s stub hunk is moot once it lands
+(resolve `cpython-dolly.patch` to that branch's and keep the python recipe's thread_local check,
+which then tests libc's key destructors in a DSO). The smaller change this task would have
+proposed alone, for single-thread hosts:
+```diff
+-  if (options.pthread && (options.shared_library || options.kernel_plugin || options.export_dynamic)) {
+-    std::fputs("dolly-cc: -pthread requires a static process; shared libraries and -rdynamic are unsupported\n", stderr);
++  // A DSO takes its host's libc and threads: -pthread adds nothing to it, as -lpthread.
++  if (options.shared_library && !options.kernel_plugin) options.pthread = false;
++  if (options.pthread && (options.kernel_plugin || options.export_dynamic)) {
++    std::fputs("dolly-cc: -pthread requires a static process; -rdynamic is unsupported\n", stderr);
+```
+Meson gives `-pthread` to every `dependency('threads')`, required or not: SciPy (fft, HiGHS, qmc)
+and Matplotlib 3.11 (HarfBuzz) cannot link a module without one of the two. With the flag
+dropped (emulated), HiGHS's `linprog` runs serially.
+
+So SciPy in python-data waits for `demo/pydata-seed` and `demo/python-threads` and their round;
+then the recipe rows above, `scipy-dolly.patch` and a demo-test script (one computation each of
+linalg, optimize and stats, as `build/scipy-evidence/files/scipy-check.py` runs) finish it.
 
 ## Found, not acted on (the compiler's, each an `llvm-cc` round)
 
