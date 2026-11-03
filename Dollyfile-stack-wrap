@@ -11,7 +11,7 @@ REQUIRES TOOL cc
 REQUIRES TOOL rm
 
 SOURCE /v0.1.4/host/stack/stack-abi.h 220793655506ef3b506ea83f1cd50afeb3f4517f6e47a8d9a3baa3558a2a9c08 /tmp/stack-wrap/dolly/stack-abi.h
-SOURCE /v0.1.4/host/stack/stack-wrap.c b0c850f6a839eaf2f96664ab9e6861f61971a5431cdc934655adfe0564bb8c21 /tmp/stack-wrap/stack-wrap.c
+SOURCE /v0.1.4/host/stack/stack-wrap.c 408da54d01388d0a1c18d941719b4ab7e02c9f22e295365ebd86fba2f3a65c14 /tmp/stack-wrap/stack-wrap.c
 SLOP cc -O2 -I/tmp/stack-wrap /tmp/stack-wrap/stack-wrap.c -o /usr/bin/stack-wrap
 # A program it rewrote recurses deeper than one browser stack, in a build too.
 FILE /tmp/stack-wrap/deep.c

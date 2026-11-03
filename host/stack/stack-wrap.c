@@ -5,11 +5,13 @@
  * Each function that makes calls begins by charging an estimate of its frame
  * against dolly_stack_room and restores the room when it returns: its body is
  * wrapped in a block, so a branch to the function's end passes the restore,
- * and each return restores first. A function that finds too little room
- * stashes its arguments and itself in globals and a table of its own and calls
- * DOLLY_STACK_CONTINUE: the provider runs dolly_stack_continue on a fresh stack,
- * which unpacks the stash and calls the function again. A function that makes
- * no calls is left as it is: every check keeps room for the largest of them.
+ * and each return restores first. Where an exception lands in it, its frame is
+ * charged again: the frames the exception unwound gave none of theirs back. A
+ * function that finds too little room stashes its arguments and itself in
+ * globals and a table of its own and calls DOLLY_STACK_CONTINUE: the provider
+ * runs dolly_stack_continue on a fresh stack, which unpacks the stash and calls
+ * the function again. A function that makes no calls is left as it is: every
+ * check keeps room for the largest of them.
  */
 #include <errno.h>
 #include <stdarg.h>
@@ -338,6 +340,28 @@ static void survey(uint32_t function, reader body) {
 
 static void restore(buffer *out, uint32_t saved) { op(out, 0x20, saved); op(out, 0x24, room); }
 
+/* The room while the function runs: set on entry and where an exception lands
+ * in it, as LLVM sets __stack_pointer at a landing pad. */
+static void charge(buffer *out, uint32_t saved, int64_t slots) {
+  op(out, 0x20, saved); i32_const(out, slots); byte(out, 0x6b); op(out, 0x24, room);
+}
+
+/* The body's open blocks, one byte each; the first is the function's own. */
+enum { LOOP = 1, LANDING = 2 };
+
+/* A try_table's catches land after the blocks they name. */
+static void mark_landings(buffer *blocks, reader catches, uint32_t function) {
+  skip_block_type(&catches);
+  for (uint32_t count = read_u32(&catches); count; --count) {
+    if (read_byte(&catches) < 2) read_u32(&catches);
+    uint32_t label = read_u32(&catches);
+    if (label >= blocks->size) fail("function %u catches to no block", function);
+    uint8_t *block = &blocks->data[blocks->size - 1 - label];
+    if (*block & LOOP) fail("function %u catches into a loop", function);
+    *block |= LANDING;
+  }
+}
+
 static void instrument(buffer *code, uint32_t function, reader body) {
   const signature *type = &types[function_types[function]];
   buffer out = { 0 };
@@ -381,18 +405,27 @@ static void instrument(buffer *code, uint32_t function, reader body) {
   }
   byte(&out, 0x0f);
   byte(&out, 0x0b);
-  op(&out, 0x20, saved); i32_const(&out, slots); byte(&out, 0x6b); op(&out, 0x24, room);
+  charge(&out, saved, slots);
 
   /* The body in a block of the function's results; the body's own end closes it. */
   byte(&out, 0x02);
   if (type->results == 0) byte(&out, 0x40);
   else if (type->results == 1) byte(&out, kind_code[type->kinds[type->params]]);
   else sleb(&out, result_block_type[function_types[function]]);
+  buffer blocks = { 0 };
+  byte(&blocks, 0);
   while (locals.at < locals.end) {
     const uint8_t *start = locals.at;
-    if (instruction(&locals, function) == 0x0f) restore(&out, saved);
+    uint32_t next = instruction(&locals, function);
+    if (next == 0x0f) restore(&out, saved);
     put(&out, start, (size_t)(locals.at - start));
+    if (next == 0x1f) mark_landings(&blocks, (reader){ start + 1, locals.at }, function);
+    if (next == 0x02 || next == 0x03 || next == 0x04 || next == 0x06 || next == 0x1f) byte(&blocks, next == 0x03 ? LOOP : 0);
+    /* A legacy handler begins at its catch; a try_table's after the block its catch names. */
+    if (next == 0x07 || next == 0x19) charge(&out, saved, slots);
+    if ((next == 0x0b || next == 0x18) && blocks.size && --blocks.size && blocks.data[blocks.size] & LANDING) charge(&out, saved, slots);
   }
+  free(blocks.data);
   restore(&out, saved);
   byte(&out, 0x0b);
   uleb(code, out.size);

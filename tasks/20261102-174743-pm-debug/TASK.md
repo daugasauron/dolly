@@ -27,3 +27,61 @@ stack-wrap and the images that record stack@0.
 
 Done-when: a C++ program that throws through 100,000 charged frames and then recurses 1,000
 deep makes no continuation for the recursion (`test/stack-browser.mjs`), in Chromium and Firefox.
+
+## Fix (2026-11-03, branch core/stack-unwind)
+
+The room is a stack pointer kept in a global, and LLVM keeps the C stack pointer
+(`__stack_pointer`) the same way: an exception leaves it wrong in every frame it unwinds, and
+each landing pad sets it from its own frame again. `stack-wrap` now does that for the room:
+where an exception lands in a charged function (after the block a `try_table` catch names, or
+after a legacy `catch`/`catch_all`), the function charges its frame again from the local that
+holds its entry room. The frames between give nothing back and need not.
+
+Not the proposed `try_table (catch_all_ref)` around every charged body, for two measured reasons:
+
+- It would catch and rethrow every exception, `exit`'s JavaScript one included, in every frame.
+  Firefox 155 pays about 80 µs for each rethrow deep in a stack: `dive(100000)` with a
+  destructor in each frame (a `catch_all_ref` and `throw_ref` per frame, as the proposal would
+  add) takes 8.2 s in Firefox and 58 ms in Chrome, the same unwrapped. `./deep 200000 exit`
+  would pay that per frame.
+- Only frames that catch need anything. A C program that catches nothing is rewritten byte for
+  byte as before (`fib.c` rewritten by both tools: `cmp` equal).
+
+A catch whose label names a `loop` (a branch back to its start) is refused, as tail calls are:
+the landing would come before the instruction that names it. LLVM puts every landing pad after
+a `block`. A trap cannot be caught and ends the process anyway.
+
+## Evidence (build/stack-evidence/ in work/stack)
+
+`test/stack-browser.mjs`'s `throw.cpp` now also climbs 1,000 levels, each catching a throw
+from 3,000 frames below. With the frames' room kept, each level had to continue on a fresh
+stack, so the recursion needed 1,000 nested ones:
+
+| | Chrome 156 | Firefox 155 |
+| --- | --- | --- |
+| `./throw` with the old `stack-wrap` package | status 126, `Maximum call stack size exceeded` | status 126, `too much recursion` |
+| with the fix | status 0; whole test 8.0 s | status 0; whole test 25.4 s |
+| fresh stacks that nest (old tool, one per level) | 400 fit, 500 do not | 250 fit, 400 do not |
+| climb of 100 levels, old and new tool | 49 and 48 ms | 741 and 747 ms |
+
+The done-when's own shape (one throw through 100,000 frames, then a recursion 1,000 deep) makes
+one continuation before the fix and none after, which nothing outside the provider can see; the
+nesting limit makes the same leak a failure in both browsers.
+
+## Found on the way: Firefox and exceptions across fresh stacks
+
+- Memory: in Firefox each C++ exception thrown across a fresh stack keeps about 0.4 to 0.65 MB
+  while the process runs (browser peak 2.27 GB idle, 2.92 GB after 1,000 such throws, 3.76 GB
+  after 3,000; 10,000 had the content process killed at 5.8 GB by the 6 GB scope). Chrome stays
+  at 1.32 GB for 10,000. 6,000 continuations without an exception keep nothing in Firefox
+  (2.27 GB). Pre-existing: the fix changes nothing on that path.
+- Time: a C++ throw through frames with destructors costs Firefox 32 µs a frame 1,000 deep and
+  about 80 µs from 3,000 deep, with or without stack-wrap (`plain-guard`: 3.2 s for 100 throws
+  through 1,000 frames, Chrome 48 ms). The old test's `dive(100000)` alone takes 8.2 s there.
+
+## Catalog
+
+`stack-wrap` changed: rebuilt here (snapshot bb1ba75d). lean-stage0 and lean declare
+`stack@0` and run `stack-wrap`; lean-std and lean-meta are built on lean-stage0. None of the four
+was rebuilt: the next catalog round. The doc's new line repins `dolly-docs` and what installs it
+(pi-dolly, pi-runtime, pi-phone and the pi demos built on them).
