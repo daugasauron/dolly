@@ -86,6 +86,32 @@
          return self._started.is_set() and not self._os_thread_handle.is_done()
  
      @property
+--- a/Lib/concurrent/futures/thread.py
++++ b/Lib/concurrent/futures/thread.py
+@@ -12,6 +12,7 @@
+ import types
+ import weakref
+ import os
++import sys
+ 
+ 
+ _threads_queues = weakref.WeakKeyDictionary()
+@@ -211,6 +212,15 @@
+             task = self._resolve_work_item_task(fn, args, kwargs)
+             w = _WorkItem(f, task)
+ 
++            if sys.platform == "dolly":
++                # Dolly runs a thread's target when the thread starts, so a
++                # worker would wait forever for the items submitted after it:
++                # run each item now, in a worker context of its own.
++                ctx = self._create_worker_context()
++                ctx.initialize()
++                w.run(ctx)
++                ctx.finalize()
++                return f
+             self._work_queue.put(w)
+             self._adjust_thread_count()
+             return f
 --- a/Lib/uuid.py
 +++ b/Lib/uuid.py
 @@ -66,7 +66,7 @@

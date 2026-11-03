@@ -13,12 +13,12 @@ REQUIRES HOST upload@0
 REQUIRES HOST threads@0
 
 FROM /v0.1.4/Dollyfile-system 03f140fb3ed97157f3f45f3626724bce234733e0493058bac068d9b7f093b112
-COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 3e6ef4fbff260f3dee1736878b7499984c2e45a0fe8ff7f388b05d2f26caf9c6 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
-INSTALL /v0.1.4/demos/xonotic/Dollyfile-xonotic-shaders 97f4476e1114b38d1457b6c6b82068be3953dce3e7eaee327070473633167531
-COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 3e6ef4fbff260f3dee1736878b7499984c2e45a0fe8ff7f388b05d2f26caf9c6 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build d4c9dd80f463bbe98fde147d7a1db560ab118341a28989ac0c49c6e8431ccc58 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-xonotic-shaders 33811790414065ba7e67e14872534a73ed7b43329278311744cec76d2b89abb0
+COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build d4c9dd80f463bbe98fde147d7a1db560ab118341a28989ac0c49c6e8431ccc58 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
 COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 2f056c204e6ade96e6699f97a11f41765c75ace2653ccc338a865006af994f82 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
-COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 3e6ef4fbff260f3dee1736878b7499984c2e45a0fe8ff7f388b05d2f26caf9c6 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
+COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build d4c9dd80f463bbe98fde147d7a1db560ab118341a28989ac0c49c6e8431ccc58 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
 COPY /v0.1.4/demos/zero-ad/Dollyfile-freetype 56aa252db2f6c3a9be25bf56aebb81f31afae94dfb1a82069cc4185682905eea /usr/share/licenses/freetype /usr/share/licenses/freetype
 COPY /v0.1.4/demos/zero-ad/Dollyfile-libpng fe8f974547355d91070c82685fe91c45c894d09dba329195e5e8cd6c31a9c56b /usr/share/licenses/libpng /usr/share/licenses/libpng
 COPY /v0.1.4/demos/xonotic/Dollyfile-libogg bec7d7b03a73ba0cd6d48f8db68b09a8eeb5a163f27fcd2ea4e01222b39bf812 /usr/share/licenses/libogg /usr/share/licenses/libogg

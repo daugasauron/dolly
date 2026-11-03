@@ -205,6 +205,16 @@ sed -i \
   -e 's|^LIBPL=.*|LIBPL=\t\t$(prefix)/lib/python3.14/config-3.14-dolly_0_wasm64|' \
   "${temporary}/Makefile"
 
+# Emscripten's configure also leaves its settings (-sMEMORY64=1, -sUSE_ZLIB),
+# emcc and its JavaScript file systems in the flags that sysconfig gives
+# extension builds: setuptools compiles with CFLAGS and links with LDSHARED and
+# LDCXXSHARED. Dolly's cc takes neither; drop the settings and name its own.
+sed -i -E \
+  -e 's/(^|[ =\t])-s[A-Z][A-Z0-9_]{2,}(=[^ ]*)?/\1/g' \
+  -e 's|^LDCXXSHARED=.*|LDCXXSHARED=\tc++ -shared $(PY_LDFLAGS)|' \
+  -e 's|^LINKFORSHARED=.*|LINKFORSHARED=\t-rdynamic|' \
+  "${temporary}/Makefile"
+
 # CPython's stub type declarations already defer to libc on WASI. Dolly's
 # musl-derived alltypes.h has the same __NEED_* mechanism, so use that path
 # instead of redeclaring types that sys/types.h may have exposed first.

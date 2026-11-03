@@ -1,0 +1,54 @@
+DOLLY 7
+APPLICATION python-data
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST audio@0
+REQUIRES HOST download@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST nena@0
+REQUIRES HOST packages@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+REQUIRES HOST touch@0
+REQUIRES HOST upload@0
+
+# default with Python and the libraries python-data-build compiled: a session
+# imports NumPy, pandas, Matplotlib and seaborn at once, with nothing to build
+# or fetch. Each COPY row is one library's root (README.md).
+FROM /v0.1.4/Dollyfile bf5ffe5cd954e39fcd3344325183b93718e2b30949816b1c13723a1a3ef6454c
+INSTALL /v0.1.4/demos/python/Dollyfile-python a075bc42b0a47e873dd0d894a55f866d0336f7968a6f9e2a1fe6875b74d05fcd
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac6c63b7899a02531760fdb58f02b1a53e6a65ff /opt/python-data/numpy /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac6c63b7899a02531760fdb58f02b1a53e6a65ff /opt/python-data/tzdata /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac6c63b7899a02531760fdb58f02b1a53e6a65ff /opt/python-data/python-dateutil /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac6c63b7899a02531760fdb58f02b1a53e6a65ff /opt/python-data/pandas /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac6c63b7899a02531760fdb58f02b1a53e6a65ff /opt/python-data/packaging /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac6c63b7899a02531760fdb58f02b1a53e6a65ff /opt/python-data/pyparsing /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac6c63b7899a02531760fdb58f02b1a53e6a65ff /opt/python-data/cycler /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac6c63b7899a02531760fdb58f02b1a53e6a65ff /opt/python-data/fonttools /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac6c63b7899a02531760fdb58f02b1a53e6a65ff /opt/python-data/kiwisolver /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac6c63b7899a02531760fdb58f02b1a53e6a65ff /opt/python-data/contourpy /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac6c63b7899a02531760fdb58f02b1a53e6a65ff /opt/python-data/pillow /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac6c63b7899a02531760fdb58f02b1a53e6a65ff /opt/python-data/matplotlib /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac6c63b7899a02531760fdb58f02b1a53e6a65ff /opt/python-data/seaborn /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac6c63b7899a02531760fdb58f02b1a53e6a65ff /opt/python-data/markupsafe /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac6c63b7899a02531760fdb58f02b1a53e6a65ff /opt/python-data/jinja2 /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac6c63b7899a02531760fdb58f02b1a53e6a65ff /opt/python-data/et-xmlfile /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac6c63b7899a02531760fdb58f02b1a53e6a65ff /opt/python-data/openpyxl /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac6c63b7899a02531760fdb58f02b1a53e6a65ff /opt/python-data/tabulate /
+REQUIRES TOOL python
+
+SLOP python -c 'import numpy, pandas, matplotlib.pyplot, seaborn, jinja2, openpyxl, tabulate'
+# The font list Matplotlib writes on its first import, which takes 6 s, kept
+# for every session.
+FOLDER /home/dolly/.matplotlib
+
+FILE /home/dolly/.dollyrc
+    echo 'DOLLY: Python 3.14 with NumPy, pandas, Matplotlib and seaborn, in this tab.'
+    echo 'python3 runs a script; savefig writes a figure to a file, download FILE saves it.'
+    echo 'pip install builds what else a script needs; amy list shows the packages.'
+    echo
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
