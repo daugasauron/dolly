@@ -93,3 +93,28 @@ Seed changes: the compiler (`-pthread` with `-rdynamic` and `-shared`; side modu
 their TLS initialiser), the libc adapter (`src/process/threads.c`: the wait hook), the dso@0
 contract and client (`DOLLY_DSO_WAIT`, `__dolly_dso_threads`, the TLS exports): a compiler round
 (`llvm-cc`, pinned) and every image.
+
+### The compiler round (2026-11-04 01:30-02:40)
+
+- `llvm-cc` with the new driver: its chain rebuilt from `llvm-tablegen` (the display change of
+  integrate reached it through Python, which `llvm-tablegen` installs): `llvm-build` 2,360 s for
+  the compiler's libraries plus about 12 minutes for the rest of LLVM, `llvm-cc` 183 s for the
+  link, 247 s in all. Pinned: `DOLLY_SEED_COMPILER_SHA256=aa17d632…`; image inputs `a8928037…`.
+- Two mistakes cost 40 minutes, both from editing while a build ran (Lessons).
+
+## Python on threads@0 (2026-11-04, after the merge of `demo/pydata`)
+
+- `prepare-cpython.sh` no longer switches `pyconfig.h` to CPython's thread stubs, nor makes
+  `_Py_thread_local` an ordinary global (the main program's TLS is per thread now:
+  `__wasm_init_tls` of each thread's block). `pthread_getattr_np` stays (musl's, from the
+  thread record Dolly fills): CPython reads each thread's real stack, 2 MiB for a thread and
+  8 MiB for the main one, instead of assuming 4 MB, which on a 2 MiB thread stack would have let
+  a deep recursion run into the heap (linear memory has no guard page). `pthread_condattr_setclock`
+  is configure's again (timed waits on the monotonic clock); thread CPU clocks and
+  `pthread_kill` stay undefined, as Dolly has neither.
+- `-pthread` compiles and links python, and sysconfig's `CONFIGURE_CFLAGS`/`CONFIGURE_LDFLAGS`
+  carry it, so setuptools and meson-python build extensions with it (`cc -pthread -shared`).
+- The patch loses five files' hunks: threading's serial `start`/`join`/`is_alive`, the thread
+  pool's run at submission (pydata's stopgap, `c085280fb`), and the two stub headers.
+  `/etc/pip.conf` loses `progress-bar = off`. Recipes that install python declare `threads@0`
+  (the lint named meson's).
