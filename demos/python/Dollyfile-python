@@ -59,7 +59,7 @@ EXPORTS ENV PYTHONDONTWRITEBYTECODE 1
 # The target is configured outside the browser, but every target object and
 # executable is compiled here. Dolly-owned adapters remain independent pinned
 # inputs instead of being hidden inside the upstream archive.
-SOURCE /v0.1.4/dist/static/python/cpython.tar.gz 38f44baef9ba2b84a735170ab06b207f24f3c46e74e1cc5e6edc3ea561238ca7 /tmp/cpython.tar.gz
+SOURCE /v0.1.4/dist/static/python/cpython.tar.gz 32f0d3544b004ea533bb50fdfe73a0c1ca6d205ab90c99ca2888807a91727760 /tmp/cpython.tar.gz
 
 SLOP gzip -dc /tmp/cpython.tar.gz | tar -xf - -C /
 
@@ -289,6 +289,8 @@ SLOP python \
 SLOP python \
   -c 'import threading; seen = []; worker = threading.Thread(target=seen.append, args=(42,)); worker.start(); worker.join(); assert seen == [42] and not worker.is_alive()'
 SLOP python \
+  -c 'from concurrent.futures import ThreadPoolExecutor; pool = ThreadPoolExecutor(1); assert [item.result() for item in [pool.submit(pow, 2, n) for n in range(3)]] == [1, 2, 4]; pool.shutdown()'
+SLOP python \
   -c 'import hashlib; assert hashlib.md5(b"abc", usedforsecurity=False).hexdigest() == "900150983cd24fb0d6963f7d28e17f72"'
 SLOP python \
   -c 'import ctypes; libc = ctypes.CDLL(None); libc.strlen.argtypes = [ctypes.c_char_p]; libc.strlen.restype = ctypes.c_size_t; assert libc.strlen(b"dolly") == 5; callback_type = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int); callback = callback_type(lambda value: value + 1); assert callback(41) == 42'
@@ -309,10 +311,10 @@ FILE /usr/share/licenses/cpython/LICENSE
 # The PSF License Agreement asks derivatives to summarize their changes.
 FILE /usr/share/licenses/cpython/DOLLY-CHANGES
     Dolly's changes to CPython: cpython-dolly.patch ports posixmodule, getpath,
-    faulthandler, the thread stubs, subprocess, threading, site, platform,
-    sysconfig, uuid, ctypes.util and the pager to sys.platform "dolly", where
-    processes use Dolly's spawn and wait, there is no fork and thread targets
-    run serially. Built-in modules added by Dolly carry HTTP through the
+    faulthandler, the thread stubs, subprocess, threading, concurrent.futures,
+    site, platform, sysconfig, uuid, ctypes.util and the pager to sys.platform
+    "dolly", where processes use Dolly's spawn and wait, there is no fork and
+    thread targets and thread pools' items run serially. Built-in modules added by Dolly carry HTTP through the
     browser's broker (_dolly_http, _dolly_transport), fail name resolution
     and ssl explicitly, and run libffi over process-local calls. The patched source is
     published beside this image as dist/static/python/cpython.tar.gz.

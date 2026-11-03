@@ -3,7 +3,7 @@ PACKAGE cbindgen
 REQUIRES HOST runtime@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/demos/rust/Dollyfile-rust-build f8f962eed62323413488f6974a9af05848d1477499967b15e4ce39cd0c3cb73a
+FROM /v0.1.4/demos/rust/Dollyfile-rust-build 99c4d7373fc0c5e7818b8fc3391101d1dde8b26153e330b0907190563df078ed
 REQUIRES TOOL cargo
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
