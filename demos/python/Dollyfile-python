@@ -5,11 +5,11 @@ REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST sockets@0
 
-FROM /v0.1.4/Dollyfile-system 03687a356e2435bcb5cb6a062caed281f20c189bb051f4b91405abef805a7ee6
+FROM /v0.1.4/Dollyfile-system 03f140fb3ed97157f3f45f3626724bce234733e0493058bac068d9b7f093b112
 USE /v0.1.4/Dollyfile-libdolly-sockets b2e86570181578165b21cd1af0dd5bb7657613fe766f729b32ef686a362ee09b
-USE /v0.1.4/demos/tools/Dollyfile-sqlite 7d747ed9c3542bb66cc6731b60f299c7e02908374c1bc6f2e05d9e3a818b2313
-USE /v0.1.4/demos/tools/Dollyfile-bzip2 5c93302615723b27003b2da83c75466945966398e0b7bcf1da64bd345e9e31d9
-USE /v0.1.4/demos/tools/Dollyfile-xz acc1adb31d703179be455351a3123b46926869a0a611dd6c922520604d7c9fcc
+USE /v0.1.4/demos/tools/Dollyfile-sqlite 29a0814c0d932fb4ab8aaeea15290f32bc080a8b238632cd830b343478e5b525
+USE /v0.1.4/demos/tools/Dollyfile-bzip2 11dc96bcf18a867f2f562b637fa71300eac57b0562786df622fe45068b51fee8
+USE /v0.1.4/demos/tools/Dollyfile-xz 26c8894e661e5a3bc41fff50de43d7ef29b07e5b9600bf82a04c9d2168c8103c
 # Build the Python runtime and native extension SDK; pip.dm adds pip.
 REQUIRES HEADER curl
 REQUIRES HEADER dso
@@ -36,7 +36,7 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   touch
 
-INSTALL /v0.1.4/demos/python/Dollyfile-libffi eecbdc4133c1484b8681ce7fc1bc1f0c4931f2b18d47b7056a5e7de0c791f387
+INSTALL /v0.1.4/demos/python/Dollyfile-libffi 95379268eae395e6b6abb6b0e0bcc2d4f2f2c0b28df413c4553435f1c5bbbbc9
 EXPORTS LIB    ffi       /usr/lib/libffi.a
 EXPORTS HEADER ffi       /usr/include/ffi.h
 EXPORTS HEADER ffitarget /usr/include/ffitarget.h
@@ -59,7 +59,7 @@ EXPORTS ENV PYTHONDONTWRITEBYTECODE 1
 # The target is configured outside the browser, but every target object and
 # executable is compiled here. Dolly-owned adapters remain independent pinned
 # inputs instead of being hidden inside the upstream archive.
-SOURCE /v0.1.4/dist/static/python/cpython.tar.gz 144cb80ac66c69736e4c9c387df6f2fb3c51e70a6e27cfdfe1ad50f20e989c71 /tmp/cpython.tar.gz
+SOURCE /v0.1.4/dist/static/python/cpython.tar.gz 38f44baef9ba2b84a735170ab06b207f24f3c46e74e1cc5e6edc3ea561238ca7 /tmp/cpython.tar.gz
 
 SLOP gzip -dc /tmp/cpython.tar.gz | tar -xf - -C /
 
@@ -262,13 +262,11 @@ SLOP mkdir \
 SLOP cp \
   /usr/src/python/Makefile \
   /usr/lib/python3.14/config-3.14-dolly_0_wasm64/Makefile
-SLOP cc \
-  -shared \
-  -O0 \
-  -std=c17 \
-  -I/usr/include/python3.14 \
-  /usr/src/python/Modules/dolly_extension_check.c \
-  -o /usr/lib/python3.14/lib-dynload/dolly_extension_check.cpython-314-dolly_0_wasm64.so
+# The check module is built as setuptools builds an extension: sysconfig's CC
+# and CFLAGS compile it, its LDSHARED links it.
+SLOP python -c 'import shlex, subprocess, sysconfig; flags = lambda name: shlex.split(sysconfig.get_config_var(name)); \
+  subprocess.run(flags("CC") + flags("CFLAGS") + ["-I/usr/include/python3.14", "-c", "/usr/src/python/Modules/dolly_extension_check.c", "-o", "/tmp/dolly_extension_check.o"], check=True); \
+  subprocess.run(flags("LDSHARED") + ["/tmp/dolly_extension_check.o", "-o", "/usr/lib/python3.14/lib-dynload/dolly_extension_check.cpython-314-dolly_0_wasm64.so"], check=True)'
 
 EXPORTS TOOL   python
 EXPORTS TOOL   python3
@@ -350,15 +348,14 @@ INSTALL /v0.1.4/Dollyfile-cc f2ad329c95b14b45404c070414c0e48330c769adb810501ae1e
 
 # The browser policy decides which indexes are reachable; skip pip's own
 # PyPI version check. Dolly has one user, uid 0. Progress bars refresh from a
-# thread, which would never yield under Dolly's serial threading. Meson's debug
-# build keeps sdists such as NumPy (which adds -O3 otherwise) and Pandas within
-# the compiler budget; pip reads one config setting from this file.
+# thread, which would never yield under Dolly's serial threading. sdists build
+# as upstream builds its wheels: NumPy's release build takes as long as its
+# debug build (141 s, 2026-11-03).
 FILE /etc/pip.conf
     [global]
     disable-pip-version-check = true
     root-user-action = ignore
     progress-bar = off
-    config-settings = setup-args=-Dbuildtype=debug
 
 SLOP python \
   -c 'import urllib.request; assert urllib.request.HTTPHandler.__module__ == "_dolly_transport"'
@@ -372,7 +369,7 @@ FILE /usr/share/man/cat1/python3.1
       pip install PACKAGE     installs a wheel or builds an sdist
     
     An sdist with C code is compiled by cc. One built with Meson (NumPy,
-    Pandas) needs Ninja too: amy install ninja. Its settings for every sdist are
-    in /etc/pip.conf. urllib.request and requests send through the page's HTTP
+    Pandas) needs Ninja too: amy install ninja. pip's settings are in
+    /etc/pip.conf. urllib.request and requests send through the page's HTTP
     broker and its policy. sys.platform is "dolly"; Emscripten and Pyodide
     wheels do not fit it. Upstream's documentation: https://docs.python.org/3/
