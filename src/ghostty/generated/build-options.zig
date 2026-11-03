@@ -21,10 +21,9 @@ pub const @"src.font.backend.Backend" = enum (u3) {
     web_canvas = 7,
 };
 pub const font_backend: @"src.font.backend.Backend" = .fontconfig_freetype;
-pub const @"src.renderer.backend.Backend" = enum (u2) {
+pub const @"src.renderer.backend.Backend" = enum (u1) {
     opengl = 0,
     metal = 1,
-    webgl = 2,
 };
 pub const renderer: @"src.renderer.backend.Backend" = .opengl;
 pub const @"src.build.Config.ExeEntrypoint" = enum (u3) {
@@ -44,12 +43,10 @@ pub const wasm_target: @"src.os.wasm.target.Target" = .browser;
 pub const wasm_shared: bool = true;
 pub const app_version: @import("std").SemanticVersion = .{
     .major = 1,
-    .minor = 3,
-    .patch = 2,
-    .pre = "HEAD-",
-    .build = "4540d49",
+    .minor = 4,
+    .patch = 0,
 };
-pub const app_version_string: [:0]const u8 = "1.3.2-HEAD-+4540d49";
+pub const app_version_string: [:0]const u8 = "1.4.0";
 pub const lib_version: @import("std").SemanticVersion = .{
     .major = 0,
     .minor = 1,
@@ -61,4 +58,4 @@ pub const @"src.build.Config.ReleaseChannel" = enum (u1) {
     tip = 0,
     stable = 1,
 };
-pub const release_channel: @"src.build.Config.ReleaseChannel" = .tip;
+pub const release_channel: @"src.build.Config.ReleaseChannel" = .stable;

@@ -25,8 +25,8 @@ seed's own `cc`.
   LLVM's sources, and installs it for `cc`, `c++`, `ld` and `ar`.
 - `llvm`: LLVM's tools (`llvm-objdump`, `llvm-nm`, `llvm-ar`, `opt`, `llc` and others), its libraries, headers and `llvm-config`, from the tree whose archives the seed's compiler links.
 - `llvm-runtimes`: libc++, libc++abi, libunwind and the compiler-rt builtins as compiled in Dolly, in `/usr/lib/llvm-runtimes`; a link takes them with `-L`.
-- `llvm21-tablegen`: a build stage: LLVM 21 with every default target, configured by CMake inside Dolly, and its TableGen tools.
-- `llvm21`: LLVM 21 with every default target, Clang and LLD as libraries and headers, and `llvm-config`, in `/usr/lib/llvm21`: what Zig 0.16 links.
+- `llvm22-tablegen`: a build stage: LLVM 22 with every default target, configured by CMake inside Dolly, and its TableGen tools.
+- `llvm22`: LLVM 22 with every default target, Clang and LLD as libraries and headers, and `llvm-config`, in `/usr/lib/llvm22`: what Zig 0.17 links.
 
   libc++, libc++abi, libunwind and the compiler-rt builtins from the pinned
   Emscripten sources, as Emscripten's container builds them, DWARF included.

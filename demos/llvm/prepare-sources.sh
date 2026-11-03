@@ -44,16 +44,15 @@ if has_image llvm-tablegen; then
   stage_llvm "${llvm_dir}" "${static_dir}/llvm/llvm-project.tar.gz"
   copy_static demos/llvm/llvm-host-triple.patch llvm/llvm-host-triple.patch
 fi
-if has_image llvm21-tablegen; then
-  llvm21_archive="$(bash scripts/fetch-pinned-archive.sh llvm21)"
-  llvm21_dir="build/generated/llvm-project-$(source config/source-pins.sh && echo "${DOLLY_LLVM21_VERSION}").src"
-  if [[ ! -d "${llvm21_dir}" ]]; then mkdir -p build/generated && tar -xJf "${llvm21_archive}" -C build/generated; fi
-  # Clang 21 always configures its examples directory.
-  stage_llvm "${llvm21_dir}" "${static_dir}/llvm21/llvm-project.tar.gz" \
-    "${llvm21_dir}/clang/examples" /tmp/llvm-project/clang/examples
-  copy_static demos/llvm/llvm-host-triple.patch llvm21/llvm-host-triple.patch
-  copy_static demos/llvm/llvm21-std-specializations.patch llvm21/llvm21-std-specializations.patch
-  for project in llvm clang lld; do copy_static "${llvm21_dir}/${project}/LICENSE.TXT" "llvm21/licenses/${project}"; done
+if has_image llvm22-tablegen; then
+  llvm22_archive="$(bash scripts/fetch-pinned-archive.sh llvm22)"
+  llvm22_dir="build/generated/llvm-project-$(source config/source-pins.sh && echo "${DOLLY_LLVM22_VERSION}").src"
+  if [[ ! -d "${llvm22_dir}" ]]; then mkdir -p build/generated && tar -xJf "${llvm22_archive}" -C build/generated; fi
+  # Clang 22 always configures its examples directory.
+  stage_llvm "${llvm22_dir}" "${static_dir}/llvm22/llvm-project.tar.gz" \
+    "${llvm22_dir}/clang/examples" /tmp/llvm-project/clang/examples
+  copy_static demos/llvm/llvm-host-triple.patch llvm22/llvm-host-triple.patch
+  for project in llvm clang lld; do copy_static "${llvm22_dir}/${project}/LICENSE.TXT" "llvm22/licenses/${project}"; done
 fi
 if has_image llvm-cc; then
   # The seed's driver and the contract digests npm run build:runtime generates.

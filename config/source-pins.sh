@@ -7,10 +7,10 @@ DOLLY_EMSCRIPTEN_COMMIT=aeb67926e7de656da38bc807d83050af93578758
 DOLLY_EMSCRIPTEN_URL='https://github.com/emscripten-core/emscripten.git'
 
 DOLLY_LLVM_COMMIT=4bfd08c2d769736841ae4f5705d76fa6daa39027
-# LLVM 21, the version Zig 0.16 links (the llvm21 package), from its release archive.
-DOLLY_LLVM21_VERSION=21.1.8
-DOLLY_LLVM21_URL='https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.8/llvm-project-21.1.8.src.tar.xz'
-DOLLY_LLVM21_SHA256=4633a23617fa31a3ea51242586ea7fb1da7140e426bd62fc164261fe036aa142
+# LLVM 22, the version Zig 0.17 links (the llvm22 package), from its release archive.
+DOLLY_LLVM22_VERSION=22.1.8
+DOLLY_LLVM22_URL='https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/llvm-project-22.1.8.src.tar.xz'
+DOLLY_LLVM22_SHA256=922f1817a0df7b1489272d18134ee0087a8b068828f87ac63b9861b1a9965888
 DOLLY_LLVM_URL='https://github.com/llvm/llvm-project.git'
 # The seed's compiler and Clang's resource headers, as the llvm-cc image built
 # them from DOLLY_LLVM_COMMIT (demos/llvm/pin-seed-compiler.mjs writes both lines).
@@ -35,27 +35,27 @@ DOLLY_CPYTHON_VERSION=3.14.7
 DOLLY_CPYTHON_COMMIT=823f0323ee6ec1402088b73bce1a38473cac36dc
 DOLLY_CPYTHON_URL='https://github.com/python/cpython.git'
 
-DOLLY_ZIG_VERSION=0.16.0
-DOLLY_ZIG_URL='https://ziglang.org/download/0.16.0/zig-0.16.0.tar.xz'
-DOLLY_ZIG_SHA256=43186959edc87d5c7a1be7b7d2a25efffd22ce5807c7af99067f86f99641bfdf
+DOLLY_ZIG_VERSION=0.17.0
+DOLLY_ZIG_URL='https://ziglang.org/download/0.17.0/zig-0.17.0.tar.xz'
+DOLLY_ZIG_SHA256=b6c7f1728f043700d6529bac980800792f824256a9d2f1839b3d62beed0b8abd
 
 DOLLY_WAMR_COMMIT=68b8ed3892b857218cb2d0fb7369431fae6fc801
 DOLLY_WAMR_URL='https://github.com/bytecodealliance/wasm-micro-runtime.git'
 
-DOLLY_GHOSTTY_COMMIT=4540d499ae463ad7b90f28f6f852f64f844c160f
+DOLLY_GHOSTTY_COMMIT=83fb95624b0439ee660c2679b43b38c8b63769cd
 DOLLY_GHOSTTY_URL='https://github.com/ghostty-org/ghostty.git'
 # Wuffs, which Ghostty's terminal library takes for kitty graphics, and the
 # support files of translate-c's output: Ghostty's own pins of them
-# (pkg/wuffs/build.zig.zon, build.zig.zon).
+# (pkg/wuffs/build.zig.zon, pkg/translate-c/build.zig.zon).
 DOLLY_WUFFS_URL='https://deps.files.ghostty.org/wuffs-7411f488fe2e2c205c3d3b3d28638b7356522930.tar.gz'
 DOLLY_WUFFS_SHA256=17877d346f7988651d6c62e45b2e3b05c86809a6442c5e34612374b2a9719a1c
-DOLLY_TRANSLATE_C_URL='https://deps.files.ghostty.org/translate_c-80f8b6e4f45a303268717d8e5f4f91d7837138bb.tar.gz'
-DOLLY_TRANSLATE_C_SHA256=38c9e59d58f36e3481f6fa38f11fe59c63c12492fccf399ca56f3dfcce17b53e
+DOLLY_TRANSLATE_C_URL='https://deps.files.ghostty.org/translate_c-02ff0c523fb92a38939b04d0145c4a9602a74d56.tar.gz'
+DOLLY_TRANSLATE_C_SHA256=e344433bcce14759529e58ea600e67d7c39846b1775b122f88db7cb4dad58591
 
 DOLLY_UUCODE_VERSION=0.2.0
-DOLLY_UUCODE_COMMIT=2826a37a4562284fdacd8fa029d49509cc9bffcd
-DOLLY_UUCODE_URL='https://deps.files.ghostty.org/uucode-2826a37a4562284fdacd8fa029d49509cc9bffcd.tar.gz'
-DOLLY_UUCODE_SHA256=7e76fc7fab1e7ac728c52b35bbb3e5b8c639841abfc7fe1a4bcb13050594bc9e
+DOLLY_UUCODE_COMMIT=ea62149739404a73c202b48a33bf6dd2af4bd9b0
+DOLLY_UUCODE_URL='https://deps.files.ghostty.org/uucode-ea62149739404a73c202b48a33bf6dd2af4bd9b0.tar.gz'
+DOLLY_UUCODE_SHA256=f37c4071a217853450d084cb9c12b6d4b68f887eb9cb42fe77a84f86056eacbf
 
 DOLLY_CURL_VERSION=8.21.0
 DOLLY_CURL_COMMIT=68720b4837284335b2d63cb358f8f6ce65f5bc55
@@ -520,8 +520,8 @@ DOLLY_LIBADWAITA_SHA256=b1bf56239269d101a6391ad4553c910eff9cc6170b803916405477ef
 DOLLY_BLUEPRINT_COMPILER_VERSION=0.18.0
 DOLLY_BLUEPRINT_COMPILER_URL='https://gitlab.gnome.org/GNOME/blueprint-compiler/-/archive/v0.18.0/blueprint-compiler-v0.18.0.tar.gz'
 DOLLY_BLUEPRINT_COMPILER_SHA256=703c7ccd23cb6f77a8fe9c8cae0f91de9274910ca953de77135b6e79dbff1fc3
-DOLLY_ZIG_HOST_URL='https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz'
-DOLLY_ZIG_HOST_SHA256=70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00
+DOLLY_ZIG_HOST_URL='https://ziglang.org/download/0.17.0/zig-x86_64-linux-0.17.0.tar.xz'
+DOLLY_ZIG_HOST_SHA256=1cbe9df9f27e6b78d14ccbca43b6703a404ef79ef1c463de901d7f088d4e2026
 DOLLY_BINARYEN_VERSION=133
 DOLLY_BINARYEN_URL='https://github.com/WebAssembly/binaryen/archive/refs/tags/version_133.tar.gz'
 DOLLY_BINARYEN_SHA256=2f3e3d9edc56751499571da073a8a81943ca3fcbc08a945d2c619a7a1d4eb88b

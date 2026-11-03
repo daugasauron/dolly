@@ -10,8 +10,8 @@ REQUIRES HOST threads@0
 # mesa-build: libadwaita, blueprint-compiler for its interface files, and
 # Ghostty's own build.zig
 # (ghostty-dolly.patch; its packages fetched on the host, prepare-ghostty.sh).
-FROM /v0.1.4/demos/ghostty-gtk/Dollyfile-mesa-build fcd9eccb544c06ea9e39479a016579d966a12baffc40eefa77c2dcd64b0f44c7
-USE /v0.1.4/demos/zig/Dollyfile-zig-llvm a37a6323bb7bd42a58e2de0aa4e5cb9d2949bc0e97d203dfa3eca0b5a31e401c
+FROM /v0.1.4/demos/ghostty-gtk/Dollyfile-mesa-build 0000000000000000000000000000000000000000000000000000000000000000
+USE /v0.1.4/demos/zig/Dollyfile-zig-llvm 0000000000000000000000000000000000000000000000000000000000000000
 
 REQUIRES TOOL   c++
 REQUIRES TOOL   cc
@@ -94,16 +94,16 @@ SLOP cc -O1 /tmp/ghostty-cc/cc.c -o /tmp/ghostty-cc/cc
 # Ghostty's build finds libdolly-sockets and libdolly-pty under a prefix's lib.
 SLOP mkdir -p /tmp/ghostty-prefix && ln -s /usr/lib/dolly/process /tmp/ghostty-prefix/lib
 
-SOURCE /v0.1.4/dist/static/ghostty-gtk/ghostty.tar.gz b3bd58bf3734ae0d7b5c509082f2a00f99658d292bbfeb0a2f5a8daf474adb22 /tmp/ghostty.tar.gz
+SOURCE /v0.1.4/dist/static/ghostty-gtk/ghostty.tar.gz e1bca57cb68de609d75a8743036aa36dc592cabee8f5b0db6b0271d435222aa4 /tmp/ghostty.tar.gz
 SLOP gzip -dc /tmp/ghostty.tar.gz | tar -xf - -C /
 # Without xmllint, GLib's resource compiler keeps the blanks of the interface
 # files (it says so): it would run xmllint by fork.
 SLOP CWD /tmp/ghostty PATH=/tmp/ghostty-cc:$PATH ZIG_LIBC=/usr/lib/zig/libc.txt zig build -Dapp-runtime=gtk -Doptimize=ReleaseFast \
   -Dgtk-wayland=false -Dsentry=false -Di18n=false -Demit-docs=false -Demit-terminfo=false -Demit-termcap=false \
-  -Dversion-string=1.3.2-dev -fsys=freetype -fsys=harfbuzz -fsys=fontconfig -fsys=libpng -fsys=zlib \
+  -Dversion-string=1.4.0 -fsys=freetype -fsys=harfbuzz -fsys=fontconfig -fsys=libpng -fsys=zlib \
   --search-prefix /tmp/ghostty-prefix --summary none
 SLOP cp /tmp/ghostty/zig-out/bin/ghostty.wasm /usr/bin/ghostty
-SLOP ghostty +version | grep -q 'Ghostty 1.3.2-dev'
+SLOP ghostty +version | grep -q 'Ghostty 1.4.0'
 
 SLOP mkdir -p /usr/share/licenses/ghostty-gtk
 SLOP cp /tmp/ghostty/LICENSE /usr/share/licenses/ghostty-gtk/ghostty-LICENSE

@@ -1,0 +1,297 @@
+--- a/lib/compiler_rt/comparef.zig
++++ b/lib/compiler_rt/comparef.zig
+@@ -6,7 +6,8 @@
+ 
+ const Unordered = if (builtin.cpu.arch == .avr)
+     i8
+-else if (builtin.cpu.arch.isAARCH64())
++else if (builtin.cpu.arch.isAARCH64() or builtin.cpu.arch.isWasm())
++    // As LLVM's compiler-rt and its WebAssembly libcalls: i32 on wasm64 too.
+     i32
+ else if (builtin.target.cTypeBitSize(.long).? >= builtin.target.ptrBitWidth())
+     c_long
+--- a/lib/std/Io/Threaded.zig
++++ b/lib/std/Io/Threaded.zig
+@@ -5392,7 +5392,9 @@
+         },
+     };
+ 
+-    if (@hasField(posix.O, "PATH") and !options.iterate)
++    // Emscripten declares O_PATH for source compatibility, but WasmFS does
++    // not implement it and rejects directory opens with EINVAL.
++    if (native_os != .emscripten and @hasField(posix.O, "PATH") and !options.iterate)
+         flags.PATH = true;
+ 
+     const mode: posix.mode_t = 0;
+@@ -5560,7 +5562,7 @@
+ }
+ 
+ const dirRead = switch (native_os) {
+-    .linux => dirReadLinux,
++    .linux, .emscripten => dirReadLinux,
+     .driverkit, .ios, .maccatalyst, .macos, .tvos, .visionos, .watchos => dirReadDarwin,
+     .freebsd, .netbsd, .dragonfly, .openbsd => dirReadBsd,
+     .illumos => dirReadIllumos,
+@@ -5588,12 +5590,16 @@
+                 dr.state = .reading;
+             }
+             const syscall: Syscall = try .start();
+-            const n = while (true) {
+-                const rc = linux.getdents64(dr.dir.handle, dr.buffer.ptr, @min(dr.buffer.len, std.math.maxInt(c_uint)));
+-                switch (linux.errno(rc)) {
++            const n: usize = while (true) {
++                // Emscripten's libc, musl, has Linux's getdents and entries.
++                const rc = if (native_os == .emscripten)
++                    posix.system.getdents(dr.dir.handle, dr.buffer.ptr, @min(dr.buffer.len, std.math.maxInt(c_uint)))
++                else
++                    linux.getdents64(dr.dir.handle, dr.buffer.ptr, @min(dr.buffer.len, std.math.maxInt(c_uint)));
++                switch (if (native_os == .emscripten) posix.errno(rc) else linux.errno(rc)) {
+                     .SUCCESS => {
+                         syscall.finish();
+-                        break rc;
++                        break @intCast(rc);
+                     },
+                     .INTR => {
+                         try syscall.checkCancel();
+@@ -15259,7 +15265,7 @@
+ }
+ 
+ const processSpawn = switch (native_os) {
+-    .wasi, .emscripten, .ios, .tvos, .visionos, .watchos => processSpawnUnsupported,
++    .wasi, .ios, .tvos, .visionos, .watchos => processSpawnUnsupported,
+     .windows => processSpawnWindows,
+     .driverkit, .maccatalyst, .macos => processSpawnDarwin,
+     else => processSpawnPosix,
+@@ -15354,7 +15360,15 @@
+     t.scanEnviron(); // for PATH
+     const PATH = t.environ.string.PATH orelse default_PATH;
+ 
+-    const pid_result: posix.pid_t = fork: {
++    const pid_result: posix.pid_t = if (native_os == .emscripten) try spawnEmscripten(
++        arena,
++        options,
++        argv_buf,
++        env_block,
++        .{ stdin_pipe[0], stdout_pipe[1], stderr_pipe[1] },
++        dev_null_fd,
++        prog_pipe[1],
++    ) else fork: {
+         const rc = posix.system.fork();
+         switch (posix.errno(rc)) {
+             .SUCCESS => break :fork @intCast(rc),
+@@ -15365,7 +15379,7 @@
+         }
+     };
+ 
+-    if (pid_result == 0) {
++    if (native_os != .emscripten and pid_result == 0) {
+         defer comptime unreachable; // We are the child.
+         if (Thread.current) |current_thread| current_thread.cancel_protection = .blocked;
+         const ep1 = err_pipe[1];
+@@ -15479,6 +15493,83 @@
+     };
+ }
+ 
++/// Emscripten's libc, as Dolly runs it, starts a process with posix_spawn and
++/// has no fork; its file actions are dup2 and chdir.
++const emscripten_spawn = struct {
++    /// musl's posix_spawn_file_actions_t.
++    const FileActions = extern struct { pad0: [2]c_int, actions: ?*anyopaque, pad: [16]c_int };
++    const Argv = [*:null]const ?[*:0]const u8;
++    extern "c" fn posix_spawn_file_actions_init(actions: *FileActions) c_int;
++    extern "c" fn posix_spawn_file_actions_destroy(actions: *FileActions) c_int;
++    extern "c" fn posix_spawn_file_actions_adddup2(actions: *FileActions, source: posix.fd_t, target: posix.fd_t) c_int;
++    extern "c" fn posix_spawn_file_actions_addclose(actions: *FileActions, fd: posix.fd_t) c_int;
++    extern "c" fn posix_spawn_file_actions_addchdir_np(actions: *FileActions, path: [*:0]const u8) c_int;
++    extern "c" fn posix_spawn_file_actions_addfchdir_np(actions: *FileActions, fd: posix.fd_t) c_int;
++    extern "c" fn posix_spawn(pid: *posix.pid_t, path: [*:0]const u8, actions: *const FileActions, attributes: ?*const anyopaque, argv: Argv, envp: Argv) c_int;
++    extern "c" fn posix_spawnp(pid: *posix.pid_t, file: [*:0]const u8, actions: *const FileActions, attributes: ?*const anyopaque, argv: Argv, envp: Argv) c_int;
++};
++
++fn spawnEmscripten(
++    arena: Allocator,
++    options: process.SpawnOptions,
++    argv: [:null]?[*:0]const u8,
++    env_block: process.Environ.PosixBlock,
++    std_pipe_fds: [3]posix.fd_t,
++    dev_null_fd: posix.fd_t,
++    prog_fd: posix.fd_t,
++) process.SpawnError!posix.pid_t {
++    const spawn = emscripten_spawn;
++    if (options.uid != null or options.gid != null or options.pgid != null or options.start_suspended)
++        return error.OperationUnsupported;
++    var actions: spawn.FileActions = undefined;
++    try spawnEmscriptenResult(spawn.posix_spawn_file_actions_init(&actions));
++    defer _ = spawn.posix_spawn_file_actions_destroy(&actions);
++    for ([_]process.SpawnOptions.StdIo{ options.stdin, options.stdout, options.stderr }, std_pipe_fds, 0..) |stdio, pipe_fd, std_fileno| {
++        const target: posix.fd_t = @intCast(std_fileno);
++        try spawnEmscriptenResult(switch (stdio) {
++            .pipe => spawn.posix_spawn_file_actions_adddup2(&actions, pipe_fd, target),
++            .close => spawn.posix_spawn_file_actions_addclose(&actions, target),
++            .inherit => 0,
++            .ignore => spawn.posix_spawn_file_actions_adddup2(&actions, dev_null_fd, target),
++            .file => |file| spawn.posix_spawn_file_actions_adddup2(&actions, file.handle, target),
++        });
++    }
++    try spawnEmscriptenResult(switch (options.cwd) {
++        .inherit => 0,
++        .dir => |cwd| spawn.posix_spawn_file_actions_addfchdir_np(&actions, cwd.handle),
++        .path => |cwd| spawn.posix_spawn_file_actions_addchdir_np(&actions, try arena.dupeSentinel(u8, cwd, 0)),
++    });
++    // After the directory, as spawnPosix orders its dup2 after fchdir.
++    if (prog_fd != -1) try spawnEmscriptenResult(spawn.posix_spawn_file_actions_adddup2(&actions, prog_fd, 3));
++    const file = argv[0].?;
++    var pid: posix.pid_t = undefined;
++    try spawnEmscriptenResult(if (std.mem.findScalar(u8, std.mem.sliceTo(file, 0), '/') == null)
++        spawn.posix_spawnp(&pid, file, &actions, null, argv.ptr, env_block.slice.ptr)
++    else
++        spawn.posix_spawn(&pid, file, &actions, null, argv.ptr, env_block.slice.ptr));
++    return pid;
++}
++
++/// posix_spawn and its file actions return an errno value.
++fn spawnEmscriptenResult(rc: c_int) process.SpawnError!void {
++    return switch (@as(posix.E, @enumFromInt(rc))) {
++        .SUCCESS => {},
++        .AGAIN, .NOMEM => error.SystemResources,
++        .OPNOTSUPP => error.OperationUnsupported,
++        .ACCES => error.AccessDenied,
++        .PERM => error.PermissionDenied,
++        .NOENT => error.FileNotFound,
++        .NOTDIR => error.NotDir,
++        .ISDIR => error.IsDir,
++        .NOEXEC => error.InvalidExe,
++        .LOOP => error.SymLinkLoop,
++        .NAMETOOLONG => error.NameTooLong,
++        .MFILE => error.ProcessFdQuotaExceeded,
++        .NFILE => error.SystemFdQuotaExceeded,
++        else => |err| posix.unexpectedErrno(err),
++    };
++}
++
+ fn getDevNullFd(t: *Threaded) !posix.fd_t {
+     {
+         try mutexLock(&t.mutex);
+--- a/lib/std/Thread.zig
++++ b/lib/std/Thread.zig
+@@ -765,7 +765,8 @@
+         // Use the same set of parameters used by the libc-less impl.
+         const stack_size = @max(config.stack_size, 16 * 1024);
+         assert(c.pthread_attr_setstacksize(&attr, stack_size) == .SUCCESS);
+-        assert(c.pthread_attr_setguardsize(&attr, std.heap.pageSize()) == .SUCCESS);
++        // WebAssembly's linear memory has no page protection for a guard.
++        if (!builtin.cpu.arch.isWasm()) assert(c.pthread_attr_setguardsize(&attr, std.heap.pageSize()) == .SUCCESS);
+ 
+         var handle: c.pthread_t = undefined;
+         switch (c.pthread_create(
+@@ -1747,7 +1748,8 @@
+         // TODO: Windows vectored exception handlers always run on the main stack, but we could use
+         // some target-specific inline assembly to swap the stack pointer.
+         .windows => return,
+-        .wasi => return,
++        // A WebAssembly program's handler runs on the stack it interrupts.
++        .wasi, .emscripten => return,
+         else => {},
+     }
+     const global = struct {
+--- a/lib/std/c.zig
++++ b/lib/std/c.zig
+@@ -1314,7 +1314,7 @@
+ pub const HOST_NAME_MAX = switch (native_os) {
+     .linux => linux.HOST_NAME_MAX,
+     .driverkit, .ios, .maccatalyst, .macos, .tvos, .visionos, .watchos => 72,
+-    .openbsd, .haiku, .dragonfly, .netbsd, .illumos, .freebsd => 255,
++    .openbsd, .haiku, .dragonfly, .netbsd, .illumos, .freebsd, .emscripten => 255,
+     // https://github.com/SerenityOS/serenity/blob/c87557e9c1865fa1a6440de34ff6ce6fc858a2b7/Kernel/API/POSIX/sys/limits.h#L22
+     .serenity => 64,
+     else => {},
+@@ -2700,6 +2700,10 @@
+     .linux => enum(c_int) {
+         PAGESIZE = 30,
+     },
++    // musl's numbers.
++    .emscripten => enum(c_int) {
++        PAGESIZE = 30,
++    },
+     .netbsd => enum(c_int) {
+         PAGESIZE = 28,
+     },
+@@ -3476,7 +3480,8 @@
+     else => void,
+ };
+ pub const T = switch (native_os) {
+-    .linux => linux.T,
++    // Emscripten's libc has Linux's ioctl numbers.
++    .linux, .emscripten => linux.T,
+     .driverkit, .ios, .maccatalyst, .macos, .tvos, .visionos, .watchos => struct {
+         pub const IOCGWINSZ = ior(0x40000000, 't', 104, @sizeOf(winsize));
+ 
+--- a/lib/std/heap.zig
++++ b/lib/std/heap.zig
+@@ -340,6 +340,10 @@
+     @hasDecl(root.os, "heap") and
+     @hasDecl(root.os.heap, "page_allocator"))
+     root.os.heap.page_allocator
++else if (builtin.target.cpu.arch.isWasm() and builtin.link_libc and !builtin.single_threaded)
++    // WasmAllocator is single-threaded; a threaded program with libc has
++    // libc's allocator, which is thread-safe.
++    c_allocator
+ else if (builtin.target.cpu.arch.isWasm()) .{
+     .ptr = undefined,
+     .vtable = &WasmAllocator.vtable,
+--- a/lib/std/os/emscripten.zig
++++ b/lib/std/os/emscripten.zig
+@@ -479,7 +479,9 @@
+     restorer: ?*const fn () callconv(.c) void = null,
+ };
+ 
+-pub const sigset_t = [1024 / 32]u32;
++// Emscripten's libc has 65 signals in two longs, not musl's 128 bytes
++// (bits/alltypes.h).
++pub const sigset_t = [2]c_ulong;
+ pub fn sigemptyset() sigset_t {
+     return @splat(0);
+ }
+@@ -712,7 +714,9 @@
+ pub const sockaddr = c.sockaddr;
+ 
+ pub const blksize_t = i32;
+-pub const nlink_t = u32;
++// Emscripten defines nlink_t as unsigned _Reg, which follows pointer width.
++// Keeping this u32 shifts every struct stat field after st_nlink on wasm64.
++pub const nlink_t = usize;
+ // https://github.com/emscripten-core/emscripten/blob/946ab574ae39401b51e75cd5257d894ae732ab54/system/lib/libc/musl/arch/emscripten/bits/alltypes.h#L140
+ pub const time_t = c_longlong;
+ pub const mode_t = u32;
+@@ -737,7 +741,9 @@
+ pub const msghdr = std.c.msghdr;
+ pub const msghdr_const = std.c.msghdr;
+ 
+-pub const nfds_t = usize;
++// Emscripten defines nfds_t as unsigned int under MEMORY64. Using usize here
++// produces a wasm64 function type that does not match libc's poll().
++pub const nfds_t = u32;
+ pub const pollfd = extern struct {
+     fd: fd_t,
+     events: i16,
+--- a/lib/zig.h
++++ b/lib/zig.h
+@@ -5926,7 +5926,7 @@
+ 
+ #if __AVR__
+ typedef signed char zig_FloatCompareResult;
+-#elif defined(zig_aarch64)
++#elif defined(zig_aarch64) || defined(zig_wasm)
+ typedef signed int zig_FloatCompareResult;
+ #elif __SIZEOF_LONG__ >= __SIZEOF_POINTER__
+ typedef signed long zig_FloatCompareResult;
+--- a/src/main.zig
++++ b/src/main.zig
+@@ -3310,6 +3310,7 @@
+ 
+     const self_exe_path = switch (native_os) {
+         .wasi => {},
++        .emscripten => "/usr/bin/zig",
+         else => process.executablePathAlloc(io, arena) catch |err| fatal("unable to find zig self exe path: {t}", .{err}),
+     };
+ 

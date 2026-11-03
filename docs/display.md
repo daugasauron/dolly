@@ -114,7 +114,7 @@ flowchart LR
 
 ## Zig and the Ghostty build
 
-- `zig-build` ([`Dollyfile-zig-build`](../Dollyfile-zig-build)) builds Zig 0.16 from its source archive with
+- `zig-build` ([`Dollyfile-zig-build`](../Dollyfile-zig-build)) builds Zig 0.17 from its source archive with
   Dolly `cc`, as upstream `bootstrap.c` does with two substitutions. WAMR, built
   by `cc` ([`zig1.c`](../src/zig/zig1.c)), interprets upstream `zig1.wasm`
   because wasm2c's translation overflows a browser Worker's native stack. zig1
@@ -125,9 +125,13 @@ flowchart LR
   The `display` package copies only that plugin, the fonts and their licenses.
 - This Zig has no LLVM: it emits only C, so there is no `zig build` or `zig cc`.
   Host preparation only patches the pinned tree for Emscripten's wasm64 layouts,
-  WasmFS and threads ([`zig-0.16.0-dolly-native.patch`](../config/zig-0.16.0-dolly-native.patch));
+  WasmFS, threads, `posix_spawn` and wasm64's float comparisons
+  ([`zig-0.17.0-dolly-native.patch`](../config/zig-0.17.0-dolly-native.patch));
   the SDK files are listed in [`zig-sdk-files.txt`](../config/zig-sdk-files.txt).
 - Ghostty's generated options and Wuffs bindings are checked-in source inputs
   ([`src/ghostty/generated/`](../src/ghostty/generated/README.md)); its Unicode
   tables are generated in the build, from uucode's UCD files, by programs of this Zig;
   [`ghostty-dolly.patch`](../config/ghostty-dolly.patch) zeroes page-pool buffers.
+  [`ghostty-source-manifest.txt`](../config/ghostty-source-manifest.txt) lists
+  the files of Ghostty's tree that Zig reads compiling Ghostty VT (`strace -e openat`
+  of that `zig build-obj`), which `ghostty.tar` holds.

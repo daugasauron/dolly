@@ -1,5 +1,9 @@
 # Ghostty's GTK application on X11
 
+Ghostty 1.4, which the terminal now pins for Zig 0.17, renders through EGL; this
+demo's Mesa is GLX only, so the application does not run until Mesa's EGL is
+built ([task](../../tasks/20261103-110119-ghostty-egl/TASK.md)).
+
 Ghostty's own window, renderer and shell on Dolly's X server
 ([task](../../tasks/20261014-232500-ghostty-x11/TASK.md)), over the GTK 4
 stack of [the GTK demo](../gtk/README.md), every part built inside Dolly by
@@ -31,11 +35,10 @@ terminal's.
   [`ghostty-dolly.patch`](../../config/ghostty-dolly.patch): Emscripten next to Linux
   where Ghostty's code names platforms (home directory, keycodes, links);
   the shell started by `posix_spawn`, Dolly having no fork, with the signal
-  reset Ghostty's post-fork hook does as spawn attributes; GTK's GL context
-  loaded through the linked `glXGetProcAddressARB`, there being no libGL to
-  open; Dear ImGui's GL backend built for desktop GL, which it assumes is
-  WebGL on Emscripten. Softpipe runs a shader per pixel in its interpreter,
-  so the renderer clears to the background color instead of shading it and
+  reset Ghostty's post-fork hook does as spawn attributes; Dear ImGui's GL
+  backend built for desktop GL, which it assumes is WebGL on Emscripten.
+  Softpipe runs a shader per pixel in its interpreter, so the renderer clears
+  to the background color instead of shading it and
   shades cell backgrounds only over the rows that have one: a frame of a
   shell took 410 ms, now 51 ms, and a key's echo appears 65 ms after the key
   instead of 0.7 s (Chromium, 2026-10-16).

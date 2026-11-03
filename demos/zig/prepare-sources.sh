@@ -6,7 +6,7 @@ if has_image zig-llvm-build; then
   mkdir "${zig_llvm_dir}"
   cp -al "$("${project_dir}/scripts/prepare-zig-native.sh")/." "${zig_llvm_dir}/"
   patch --batch --forward --no-backup-if-mismatch --directory="${zig_llvm_dir}" --strip=1 \
-    --input="${project_dir}/demos/zig/zig-0.16.0-dolly-llvm.patch" >&2
+    --input="${project_dir}/demos/zig/zig-0.17.0-dolly-llvm.patch" >&2
   zig_llvm_wamr="$("${project_dir}/scripts/fetch-pinned-checkout.sh" wamr)"
   # Upstream's configuration of zig2 for an LLVM build, at this version, as its
   # CMake writes it, with every command: upstream builds the full compiler

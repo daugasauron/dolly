@@ -11,6 +11,7 @@ pub const tmux_control_mode: bool = false;
 pub const snapshot: bool = true;
 pub const formatter: bool = true;
 pub const selection: bool = true;
+pub const search: bool = true;
 pub const render_state: bool = true;
 pub const input_encode: bool = true;
 pub const color: bool = true;

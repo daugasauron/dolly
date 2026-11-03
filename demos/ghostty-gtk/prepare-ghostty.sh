@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Ghostty at the pinned commit with the core's patch and the application's
 # (ghostty-dolly.patch here), and the packages its build.zig.zon names,
-# fetched into zig-pkg by the host's Zig 0.16 (a session reaches no network
+# fetched into zig-pkg by the host's Zig 0.17 (a session reaches no network
 # but the broker); libxev and translate-c are patched there. Prints the tree.
 set -euo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
