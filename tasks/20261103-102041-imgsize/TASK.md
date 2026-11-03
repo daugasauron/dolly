@@ -89,8 +89,7 @@ What a page downloads, packs shared: `default` 7.1 MB; `system` 46.1 MB cold, 39
    compiler-rt's builtins are Emscripten's archives as `embuilder` makes them, with debug
    information, copied by `scripts/prepare-process-sysroot.sh` and
    `scripts/build-process-threads.sh`. Programs linked without `-g` carry none of it (Git,
-   the compiler).
-   Proposal 1.
+   the compiler). Proposal 1.
 3. **The compiler**, `/usr/libexec/dolly/process-bin/compiler`: 96.1 MB (26.6 gzip), 60% of
    `system`, already Release with only the WebAssembly target and its names stripped.
    Smaller would mean MinSizeRel or LTO in `demos/llvm` (a multi-hour bootstrap build),
@@ -167,8 +166,8 @@ Measured on this tree's builds (seed `fe5261db`), bytes uncompressed / packs' gz
    `emstrip --strip-debug` over Emscripten's archives in `prepare-process-sysroot.sh` and
    over the seed's compiler-rt in `build.sh`, and `-Oz` instead of `-Oz -g` for libc++,
    libc++abi and libunwind in `Dollyfile-system-build`; the sysroot's source test gives its
-   fake toolchain an `emstrip`. Programs link without
-   `-g`, so none of that DWARF reached a program. Measured on top of the font and Git
+   fake toolchain an `emstrip`. Programs link without `-g`, so none of that DWARF reached a
+   program. Measured on top of the font and Git
    changes: the seed 116.20 to 110.16 MB; `system` 153.17 to 139.78 MB (42.94 to 38.11 MB
    gzip, 11% less to download); `cc` 134.39 to 120.99 MB (35.40 to 30.56 MB gzip, 14%);
    `zig-build` 195.41 to 182.02 MB; every compiler image the same 13.4 MB and 4.84 MB gzip.
@@ -183,8 +182,8 @@ Measured on this tree's builds (seed `fe5261db`), bytes uncompressed / packs' gz
    gzip: `default` after the Iosevka subset 5.2 to 3.6 MB gzip, a third less. There those
    characters are boxes until `amy install cjk-fonts`, and stay boxes in the open tab:
    `display.c` remembers a missing fallback for as long as the terminal runs
-   (`loaded = -1`), so it would have to look again for the install to help at once. The amy test's list gains the package, used by
-   `terminal-browser.mjs` through `system`.
+   (`loaded = -1`), so it would have to look again for the install to help at once. The
+   amy test's list gains the package, used by `terminal-browser.mjs` through `system`.
 3. **A package's build files apart from its programs.** `python` carries `libpython3.14.a`
    (13.1 MB, 4.5 MB gzip, 28% of the package) for programs that embed CPython; nothing in
    the catalog links it. `pi-minimal` carries QuickJS's archive and headers (1.9 MB, 0.7
