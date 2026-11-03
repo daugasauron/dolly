@@ -7,7 +7,7 @@
 Owner (2026-11-03): "I also want an audit of what is making the images so large, I think it's
 fonts mainly? I think a lot of that can be stripped."
 
-## State (2026-11-03 20:40 JST)
+## State (2026-11-03 21:00 JST)
 
 Done on `audit/image-size` (below): the terminal's font subset to the glyphs a program can
 draw (7.7 MB to 0.9 MB, no drawn pixel changes) and Git's HTTPS helper as a script instead
@@ -25,7 +25,9 @@ each a snapshot of 2 to 4 MiB, with `cache: "force-cache"`. Packaging a site
 (`scripts/share-pages-snapshots.mjs`) puts each identical record (same path, same bytes) into
 exactly one pack, grouped by the images that hold it, so a browser that opened `default`
 downloads only what `system` holds beyond it. The kernel restores the records into Wasm
-memory: the uncompressed size is memory, the compressed size is download.
+memory: the uncompressed size is memory, the compressed size is download. Beside the
+image, a page loads the runtime: 0.24 MB of Wasm and at most 0.6 MB of JavaScript (`src/`,
+`host/`), 0.25 MB gzip together; the 116 MB seed (`dist/dolly.data`) only for a root build.
 
 ## What the images hold (2026-11-03, before the changes below)
 
@@ -101,7 +103,14 @@ What a page downloads, packs shared: `default` 7.1 MB; `system` 46.1 MB cold, 39
    reads to write extensions: they stay.
 6. **Duplicates**: `git-remote-https` was a second copy of `git-remote-http` (1.3 MB, 0.5
    gzip) in every image with Git, because `system-build` has no `ln` (fixed below);
-   compiler-rt's builtins are in three archives (two identical, 0.81 MB each).
+   compiler-rt's builtins are in three archives (two identical, 0.81 MB each). In
+   `pi-minimal`, `/usr/bin/pi`, `janis` and `janis-install` are one 1.37 MB QuickJS runtime
+   linked three times (`demos/pi/pi.c`, `demos/javascript/janis.c`, `janis-install.c`
+   differ only in the module `dolly_quickjs_run` starts; the binaries differ in 80
+   bytes). As Slop scripts that run `janis -m MODULE "$@"`, as `git-remote-https` now does,
+   the image would hold one: 2.75 MB and 0.99 MB gzip less (3% of its download), and the
+   packages would install `janis`. Not done: Pi's tests need the Rust chain rebuilt, and
+   `process.argv[0]` would name `janis` where it names `pi`.
 7. **Clang's resource headers for other targets** (x86 3.36 MB, GPU 1.35, PowerPC and s390
    1.16, Hexagon 0.81, LoongArch 0.30) are 7.1 MB but 0.66 MB gzip in every compiler image;
    they are Clang's install as upstream ships it. `prepare-kernel-seed.sh` already drops
@@ -144,7 +153,9 @@ Measured on this tree's builds (seed `fe5261db`), bytes uncompressed / packs' gz
   dashed builtins beside it already are; remote-curl reads its URL, not its name.
 - Tested in Chromium and Firefox: `terminal` (its CJK, emoji and box cells among them),
   `core`, `display`, `shell` (the HTTPS helper lists a fixture's refs, a new line),
-  `network` (clones through the relay), `default`.
+  `network` (clones through the relay), `default` (with `python` and `zig` in the catalog),
+  `man` (`amy install git` into `default`), `display-cursor`, `pty`, `slop`,
+  `snapshot-stream`, `session-offline`.
 - Not rebuilt here: everything else built on `display` or `system-tools`, which the next
   catalog round rebuilds. `pi-minimal`'s closure includes the Rust toolchain (ripgrep and fd
   are built FROM `rust-build`, which takes `display` through `rust-sdk` and through
