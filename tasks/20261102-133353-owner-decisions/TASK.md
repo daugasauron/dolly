@@ -102,3 +102,10 @@ tasks they came from are closed; their own work is merged on `integrate/2026-11-
   authority; it adds an option to `boot()`.
 
 Done when each line is decided: merged, scheduled or declined.
+- **Image size: three proposals** (`tasks/20261103-102041-imgsize`, measured on
+  `audit/image-size`, which cut the terminal's font to 0.9 MB losslessly). Strip the C runtime
+  libraries' debug information (`proposal/image-size-dwarf`, 27eeb83f6): `system` and `cc` each
+  13.4 MB smaller, 4.84 MB less to download (-11% and -14%); a debugger loses libc's and libc++'s
+  source lines. Droid Sans Fallback (CJK) as a package `system-tools` installs: `default` 1.66 MB
+  less gzip, its CJK cells boxes until the package is installed and the terminal restarted. Python's
+  `libpython3.14.a` split from `python` (13.1 MB, 4.5 MB gzip, 28% of the package), as Debian's -dev.
