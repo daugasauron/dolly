@@ -14,7 +14,7 @@ INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 248d6cf4331c4cbfb48a267cb929e8926449ea
 # FreeType (with its libpng) for the client's fonts, libjpeg for its textures,
 # Vorbis (with its Ogg) for its sounds.
 INSTALL /v0.1.4/demos/xonotic/Dollyfile-libvorbis 1ea01bc9f9e7770bb653a879d5fa8b7286f048bff428a2c1fbbb036363238365
-INSTALL /v0.1.4/demos/xonotic/Dollyfile-libjpeg 917798754344426b6c3e00373e26203cd29882a62fadc4531d1780a0a04105eb
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-libjpeg fd11b5dbc801e7d3df7ed87270e647b708cb1e7c8453a5871bdf900aafc5e486
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype 82c62f2a7013b642fd378987f27235ff94e0ce6fddfa4a1fe97dc159379a012a
 # gmqcc, which compiles the game logic.
 INSTALL /v0.1.4/demos/xonotic/Dollyfile-gmqcc 83965ba17da7d36de56d47d9c6076c17c4c8c4bf2fd758657ad857da60765738
