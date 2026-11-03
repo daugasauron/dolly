@@ -38,3 +38,15 @@ every other thread has synchronised at its next call (or is blocked in one): Ems
 `_emscripten_dlsync_threads` solves the same problem the same way. Then CPython with pthreads,
 `-pthread` in its build and in the flags sysconfig gives extensions, `REQUIRES HOST threads@0` in
 Python and the images that install it.
+
+What the code says, for the design (read 23:00): `emscripten_futex_wait` in the libc adapter
+(`src/process/threads.c`) is a bare `memory.atomic.wait32`, so a waiting thread runs no
+JavaScript; a library's bytes reach `dso@0` in the process's memory (`DSO_OPEN`'s packet, from the
+adapter's `dlopen`), and `instantiateDso` places it at a table base after the current table, with
+`GOT.func` entries appended as pointers are taken. The design this suggests: the adapter keeps
+each loaded library's bytes and a record (bytes, memory base, table base, flags) in a registry in
+shared memory with a generation counter; a thread's Worker replays what it has not placed (same
+order, so the same table indices, without relocating data or running constructors again) at each
+kernel call, between slices of a futex wait (which then waits in slices), and at a thread's
+start; the loading thread's `dlopen` returns once every live thread has acknowledged the
+generation. FFI closures the same way. The adapter is a seed input: every image rebuilds.
