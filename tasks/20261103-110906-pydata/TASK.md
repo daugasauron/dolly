@@ -127,8 +127,9 @@ slot. Close this task when a round's python-data passes its test.
   27 s from the toolchain.
 - A recipe that COPYs only NumPy gets 22.3 MB in 927 files beside `default` and `python`.
 - In a session (Chromium): NumPy builds in 141 s, pandas 237 s, Matplotlib 62-70 s, Pillow
-  24 s; `import matplotlib.pyplot` takes 8.7 s the first time (the font cache) and 2.9 s
-  after.
+  24 s; `import matplotlib.pyplot` took 8.7 s the first time (it writes its font list) and
+  2.9 s after. python-data keeps the font list its build writes (`FOLDER
+  /home/dolly/.matplotlib`): a session's first import takes 2.6 s.
 
 ## npm
 

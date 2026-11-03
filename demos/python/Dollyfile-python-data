@@ -41,6 +41,9 @@ COPY /v0.1.4/demos/python/Dollyfile-python-data-build 41377c3153638dbac4a51832ac
 REQUIRES TOOL python
 
 SLOP python -c 'import numpy, pandas, matplotlib.pyplot, seaborn, jinja2, openpyxl, tabulate'
+# The font list Matplotlib writes on its first import, which takes 6 s, kept
+# for every session.
+FOLDER /home/dolly/.matplotlib
 
 FILE /home/dolly/.dollyrc
     echo 'DOLLY: Python 3.14 with NumPy, pandas, Matplotlib and seaborn, in this tab.'
