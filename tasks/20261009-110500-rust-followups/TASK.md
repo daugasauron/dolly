@@ -133,6 +133,11 @@ variable. Rust is not affected (its pads catch all and call no personality).
 
 ## Closed from this list (2026-11-03)
 
+- A third rustc equals the second with the recipe's commands (2026-11-04): a scratch recipe on
+  this branch's `rust-build`, with `rust-llvm`'s libraries and the same `cargo rustc` line, built
+  rustc with the kept rustc in 9 min 29 s, and `cmp` found it equal to `/opt/rust-sdk/bin/rustc-real`
+  (249,167,527 bytes). The recipe still checks the library, not the compiler, on every build.
+
 - `libc` for a user's project: crates.io's `libc` has wasm32 layouts for this target, and the
   SDK's patched copy is what a project builds against; `vendor-crates`, the one way a session
   gets crates.io crates, writes that `[patch]`, and the README says so. Nothing in Dolly is left
@@ -158,9 +163,7 @@ variable. Rust is not affected (its pads catch all and call no personality).
   it through the broker; Cargo's own libgit2 opened a socket ("failed to connect to 127.0.0.1:
   Function not implemented"). A host without CORS on its Git endpoints needs a relay, as for
   `git clone`.
-- **Not measured**: that a third rustc equals the second with the recipe's commands (needs LLVM
-  in the image; `Dollyfile-rust-build` drops it), and that Cargo's parallel Codex build equals a
-  serial one byte for byte.
+- **Not measured**: that Cargo's parallel Codex build equals a serial one byte for byte.
 - **`libdisplay.so` is 1,863,775 bytes** (`default`, 2026-11-03; 1,644,503 on 2026-10-13,
   before kitty graphics and Wuffs), against an LLVM Zig's 1,007,438 then, since Ghostty is
   emitted as C. Measured by its sections and name section (`build/stack-evidence/wasm-sizes.mjs`):
