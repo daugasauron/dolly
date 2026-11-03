@@ -7,13 +7,14 @@
 Owner (2026-11-03): "I also want an audit of what is making the images so large, I think it's
 fonts mainly? I think a lot of that can be stripped."
 
-## State (2026-11-03 20:10 JST)
+## State (2026-11-03 20:40 JST)
 
 Done on `audit/image-size` (below): the terminal's font subset to the glyphs a program can
 draw (7.7 MB to 0.9 MB, no drawn pixel changes) and Git's HTTPS helper as a script instead
 of a second copy; `default` and `system` rebuilt and tested, the rest of the catalog waits
 for the next round. Waiting for the owner: the three proposals (what `system`, `default`,
-`cc` and the packages contain).
+`cc` and the packages contain); the first is prototyped and measured on
+`proposal/image-size-dwarf` (27eeb83f6).
 
 ## How an image reaches a page
 
@@ -76,7 +77,9 @@ What a page downloads, packs shared: `default` 7.1 MB; `system` 46.1 MB cold, 39
    - NotoEmoji-Regular.ttf: 0.88 MB (0.58 gzip); lossless subset 0.79 MB (0.53): 41 KB
      gzip, not worth a step.
    - The page's own `IosevkaTerm-SemiBold.woff2` (1.07 MB) loads only on the menu,
-     sessions and recipe pages, once per browser; not an image cost.
+     sessions and recipe pages, once per browser; not an image cost. The same subset as
+     WOFF2 is 0.24 MB, but writing WOFF2 takes Brotli, a compiled module for fontTools,
+     and the file is part of the npm packages' interface (`docs/embedding.md`): left.
 2. **DWARF in the C runtime's archives**: 13.84 MB of the 19.4 MB of static archives in
    `cc`, `system` and every toolchain; whole-file gzip 6.45 MB to 1.60 MB without it, 4.85
    MB per compiler image (10% of `system`'s download, 13% of `cc`'s). libc++, libc++abi and
@@ -143,24 +146,34 @@ Measured on this tree's builds (seed `fe5261db`), bytes uncompressed / packs' gz
   `core`, `display`, `shell` (the HTTPS helper lists a fixture's refs, a new line),
   `network` (clones through the relay), `default`.
 - Not rebuilt here: everything else built on `display` or `system-tools`, which the next
-  catalog round rebuilds. `pi-minimal`'s closure includes the Rust toolchain (`rust-sdk`
-  installs `display`, and ripgrep and fd are built FROM `rust-build`), a `hugebuild`.
+  catalog round rebuilds. `pi-minimal`'s closure includes the Rust toolchain (ripgrep and fd
+  are built FROM `rust-build`, which takes `display` through `rust-sdk` and through
+  `rust-llvm`'s `system-tools`), a `hugebuild`.
 
 ## Proposals for the owner
 
-1. **The C runtime's archives without DWARF.** `-Oz` instead of `-Oz -g` in
-   `Dollyfile-system-build`'s libc++ flags, and `llvm-strip --strip-debug` over the archives
-   `prepare-process-sysroot.sh` stages (Emscripten's libc and compiler-rt, both builds) and
-   over `prepare-compiler-rt.sh`'s. Saves 13.8 MB of memory and 4.85 MB of download in
-   `cc`, `system` and every toolchain (`system` 10%, `cc` 13%); costs the source lines of
-   libc and libc++ in a debugger for a program built with `-g` (its own stay). A seed and
-   base change: a catalog round.
+1. **The C runtime's archives without DWARF** (prototype on `proposal/image-size-dwarf`).
+   `emstrip --strip-debug` over Emscripten's archives in `prepare-process-sysroot.sh` and
+   over the seed's compiler-rt in `build.sh`, and `-Oz` instead of `-Oz -g` for libc++,
+   libc++abi and libunwind in `Dollyfile-system-build`; the sysroot's source test gives its
+   fake toolchain an `emstrip`. Programs link without
+   `-g`, so none of that DWARF reached a program. Measured on top of the font and Git
+   changes: the seed 116.20 to 110.16 MB; `system` 153.17 to 139.78 MB (42.94 to 38.11 MB
+   gzip, 11% less to download); `cc` 134.39 to 120.99 MB (35.40 to 30.56 MB gzip, 14%);
+   `zig-build` 195.41 to 182.02 MB; every compiler image the same 13.4 MB and 4.84 MB gzip.
+   Chromium and Firefox pass `cpp` (its `-g` programs among them), `dso`, `threads`,
+   `process` and `core`. It costs the source lines of libc and libc++ in a debugger for a
+   program built with `-g` (the program's own stay). A seed change: every image rebuilds.
 2. **Chinese, Japanese and Korean in a package.** A `cjk-fonts` package holding Droid Sans
-   Fallback and its NOTICE (two `COPY` rows moved out of `Dollyfile-display`), which
-   `amy install cjk-fonts` adds; Noto Emoji stays in `display`, since agents print emoji.
-   Saves 3.45 MB and 1.66 MB gzip in every image with the terminal: `default` after the
-   Iosevka subset 5.2 to 3.6 MB gzip, a third. Without the package those characters are
-   boxes; the terminal test's CJK cells would install it first. `display.c` needs no change.
+   Fallback and its NOTICE (the two `COPY` rows moved out of `Dollyfile-display`), installed
+   by `system-tools` beside `display`, so `system` and every image built on it draw them as
+   now; Noto Emoji stays in `display`, since agents print emoji. `default`, `pi-minimal`,
+   `fingers` and `zero-ad`, which install `display` themselves, save 3.45 MB and 1.66 MB
+   gzip: `default` after the Iosevka subset 5.2 to 3.6 MB gzip, a third less. There those
+   characters are boxes until `amy install cjk-fonts`, and stay boxes in the open tab:
+   `display.c` remembers a missing fallback for as long as the terminal runs
+   (`loaded = -1`), so it would have to look again for the install to help at once. The amy test's list gains the package, used by
+   `terminal-browser.mjs` through `system`.
 3. **A package's build files apart from its programs.** `python` carries `libpython3.14.a`
    (13.1 MB, 4.5 MB gzip, 28% of the package) for programs that embed CPython; nothing in
    the catalog links it. `pi-minimal` carries QuickJS's archive and headers (1.9 MB, 0.7
@@ -171,13 +184,19 @@ Measured on this tree's builds (seed `fe5261db`), bytes uncompressed / packs' gz
 ## Lessons
 
 - Rank by compressed bytes, not file size: headers shrink six times in gzip, PNGs and
-  model weights not at all, and the owner's guess (fonts) holds for `default` (63%) while
-  `system` is the compiler (60%) and debug information nobody links (10%).
+  model weights not at all. The owner's guess (fonts) holds for `default` (63%); `system`
+  is the compiler (60%) and debug information that no program links (10%).
 - A font carries what its users never reach: Iosevka has six glyphs per mapped character
-  for the variants that OpenType features select. Rendering every glyph of both fonts with
-  the terminal's own rasterizer turns "lossless" from a claim into a 0.3-second check.
+  for the variants OpenType features select. Rendering every glyph of both fonts with the
+  terminal's own rasterizer turns "lossless" from a claim into a 0.3-second check.
+- Simulate before rebuilding a seed: dropping the DWARF sections from the decoded
+  snapshot's archives in Node predicted 4.85 MB gzip; the rebuilt seed and images saved
+  4.84. The simulation took a minute, the prototype an hour.
 - Plan before building: `DOLLY_BUILD_IMAGES=… npm run image -- --plan` shows the closure.
   `default` and `system` rebuild in 3.5 minutes, but `pi-minimal` reaches the Rust
-  toolchain through `rust-sdk`'s `INSTALL display`, so a font change is a `hugebuild`.
-- A narrowed catalog narrows `amy-index.txt` too: `test/default-browser.mjs` fails when
-  `python` is not in it, which says nothing about the change under test.
+  toolchain (ripgrep, fd), and `system-tools` installs `display` as `architecture.md`
+  says: a font change is a `hugebuild` for an image with a 0.9 MB font in it.
+- A narrowed catalog narrows `amy-index.txt` and the packages tests compose:
+  `default-browser.mjs` needs `python` and `zig` in it, `dso-browser.mjs` `libdolly-gpu`.
+  Their failures then say nothing about the change under test; name them in
+  `DOLLY_BUILD_IMAGES` (a reused image costs seconds).
