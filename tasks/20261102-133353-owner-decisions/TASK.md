@@ -109,3 +109,21 @@ Done when each line is decided: merged, scheduled or declined.
   source lines. Droid Sans Fallback (CJK) as a package `system-tools` installs: `default` 1.66 MB
   less gzip, its CJK cells boxes until the package is installed and the terminal restarted. Python's
   `libpython3.14.a` split from `python` (13.1 MB, 4.5 MB gzip, 28% of the package), as Debian's -dev.
+
+## Added 2026-11-04 (the night of 3 to 4 November)
+
+- **Python threads: the compiler round and dso@0's growth** (`tasks/20261103-134653-pythreads`,
+  merged into `integrate/2026-11-03`, in the night round): libraries and FFI closures now reach
+  every thread of a host using threads@0, which needed a new seed compiler (`llvm-cc`
+  aa17d632…, pinned), the libc adapter's futex wait through the loader, and three additions to
+  the dso@0 contract (`DOLLY_DSO_WAIT`, the 272-byte `__dolly_dso_threads` a host exports,
+  libraries exporting their TLS initialiser). A thread's start with 61 libraries loaded takes
+  125 ms in Chromium and 250 ms in Firefox (about 20 ms before). Approve before `main`.
+- **The runtime's own files are not in the pack store** (`tasks/20261103-111707-cache`): 3 MiB
+  of small files the HTTP cache keeps; storing them too needs a service worker. Packs are stored.
+- **Rust: let the images' programs unwind too** (`tasks/20261009-110500-rust-followups`): one
+  line, programs 17–35% larger, no speed change measured; today only users' crates unwind.
+- **The display at `-Oz`**: `libdisplay.so` 19.4% smaller, speed not measured, rebuilds every
+  image.
+- **`cc` passes `-Wp,ARG` to the preprocessor** (`tasks/20261103-102041-zig017`): Zig would find
+  libc itself and the zig package's `libc.txt` could go; a seed change.
