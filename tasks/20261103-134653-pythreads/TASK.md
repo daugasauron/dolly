@@ -137,3 +137,33 @@ contract and client (`DOLLY_DSO_WAIT`, `__dolly_dso_threads`, the TLS exports): 
   undecodable directory name, and `_dolly_subprocess.spawn` encodes them as strict UTF-8
   (`UnicodeEncodeError ... surrogates not allowed`): a subprocess limit, not threads. The
   thread tests run with `python -m unittest` instead (below).
+
+## Findings left open
+
+- Dolly's own libc locks (`src/process/lock.h`, `dolly_lock`: the thread list, signal actions,
+  mmap's table) wait with a raw `memory.atomic.wait32`, not through `emscripten_futex_wait`: a
+  thread blocked in one counts as running, so a load waits until it has the lock. Nothing holds
+  one across `dlopen`, so no deadlock follows today; routing `dolly_lock_acquire` through
+  `emscripten_futex_wait` is a one-line seed change for the next round.
+- A thread that computes for long without a call or a wait delays every load, `dlsym` of a new
+  function and closure preparation in its process until it makes one (Emscripten's dlopen has
+  the same property). A thread spinning on a flag with no call at all would delay them for ever.
+- `_dolly_subprocess.spawn` refuses arguments and environment values with surrogate escapes
+  (undecodable bytes), as regrtest's worker command has; `python -m test` fails at once.
+
+## Lessons
+
+- A build reads the working tree while it runs: each image's snapshot browser bundles the page
+  and Worker code from it, and `npm run image`'s source pinning re-pins a recipe to a host
+  header edited since. Editing `host/dso/process.mjs` during the llvm-cc chain failed llvm-cc
+  (an import the runtime build had not generated yet), and editing `dso.h` restarted
+  `system-build` with the old seed; 40 minutes went to it and to restoring snapshots by hard
+  link from other trees (each with its metadata module copied). Hold back seed and page edits
+  until a build ends, or make them in a scratch copy.
+- The design on paper (futex slices, a registry of loads) did not survive the code: what makes
+  tables diverge is every table change (`dlsym` and `GOT.func` take indices too), and what
+  blocks a load is a thread waiting in the kernel, which no slice reaches. Reading
+  `functionIndex` and process-worker's call path first saved an iteration.
+- Mutation checks are cheap once a browser test exists: disabling the replay and then the TLS
+  blocks showed the new test fails for each, and which threads (exit status 30) — evidence a
+  passing run alone does not give.
