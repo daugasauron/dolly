@@ -69,6 +69,12 @@ of either strategy links it. Reasons, each read in the sources or measured:
   recipe passes `panic="abort"` for the compiler. Building the library twice was not an option
   for `panic_abort`: Cargo refuses `panic` in a package profile, so a five-line wrapper adds
   `-C panic=abort` for that one crate, as Rust's own build does in its rustc shim.
+- The new definition reaches the SDK only with a library built for it: rustc records a JSON
+  target as its name and a hash of its contents (`wasm64-emscripten-probe-4841731155276814203`)
+  and refuses another's crates. The first image build installed the spec before building the
+  library, and std's build scripts, which run on the host, found only the seed's std ("couldn't
+  find crate `std` with expected target triple"). The recipe builds the library for the spec
+  in `/tmp/rustc/spec`, the host keeping the seed's until the new library and spec replace both.
 - Every Rust project the images stage built with `panic = "abort"` (`rust_sources.cargo_config`)
   only because the SDK could do nothing else; the profile now leaves panics to the target, as
   upstream's projects do. Tokio and Codex then see a task's panic as a `JoinError`, and a
@@ -156,3 +162,19 @@ Each is fixed or has its own task.
   generators, which then ran in under an hour of trying and gave identical bytes.
 - A generated module's file name reaches the C Zig emits (its identifiers): generating the same
   tables under other names changed 16 MB of Ghostty VT's C, so compare outputs, not inputs.
+- The panic strategy was settled by reading Cargo and rustc, not by trying flags: Cargo never
+  passes `-C panic=unwind`, so the target's own strategy decides what `cargo test` builds, and
+  only the target spec could make stable `cargo test` work.
+- The seed build's native rustc, the same 1.98.1, cross-compiles for Dolly's target in seconds;
+  recording a link's inputs and replaying them with Dolly's `cc` in a page tested the runtime
+  half of a change (libtest's report, status 101) and measured its size three ways before a
+  two-hour image chain. The compile-time half it does not test: the host is x86 there, so the
+  spec-hash failure of the first image build (host and target are one in Dolly) showed only in
+  Dolly.
+- An experiment meant to de-risk Rust (C++ exceptions across `dlopen`) found a `dso@0` bug Rust
+  does not hit; reading the Rust objects' undefined symbols first would have said which parts
+  of the C++ machinery Rust uses at all.
+- Changing anything in `demos/rust/toolchain/` or `config/` re-keys the rustc archive, whose
+  staging reads the seed's prepared tree (`build/rustc-port/{rust,llvm-source,toolchain/lib}`):
+  a tree with only the seed's tarball cannot stage it, and copying those 1.6 GB from a tree that
+  built the seed was the way.

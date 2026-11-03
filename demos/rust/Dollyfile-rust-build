@@ -31,6 +31,10 @@ REQUIRES TOOL rm
 SOURCE /v0.1.4/dist/static/rust/rustc.tar.gz 0d4b90aa230af31653b94ff0711d82eff9aacc5c9da5aad69cfcc1922c2f4c99 /tmp/rustc.tar.gz
 SLOP gzip -dc /tmp/rustc.tar.gz | tar -xf - -C /
 SLOP rm /tmp/rustc.tar.gz
+# The target as Dolly defines it now (panics unwind). The seed's library was
+# built for the seed's definition, which stays the host's until a library for
+# this one replaces it: a crate built for one cannot link the other's.
+SOURCE /v0.1.4/dist/static/rust/wasm64-emscripten-probe.json 90972fb95b4f3f9abdc5a4483d284afc349095f504fa5febf3612c69cd93d053 /tmp/rustc/spec/wasm64-emscripten-probe.json
 
 # One generation: the compiler, built by the rustc in /opt/rust-sdk against the
 # standard library there, replaces that rustc. It is linked as a host of
@@ -41,13 +45,14 @@ FILE /tmp/rustc/compiler.slop
     RUSTC_BOOTSTRAP=1 cargo rustc -j 4 --offline -p rustc-main --bin rustc-main --features llvm --target-dir /tmp/rustc/target --config 'profile.dev.panic="abort"' -- -C link-arg=-rdynamic -C link-arg=-Wl,--initial-memory=33554432
     cp /tmp/rustc/target/debug/rustc-main /opt/rust-sdk/bin/rustc-real
     rm -rf /tmp/rustc/target
-# The standard library by the rustc in /opt/rust-sdk, left in
-# /tmp/rustc/sdk-target, with libtest for cargo test. Cargo's build-std reads
-# the source below the sysroot and builds it for a crate.
+# The standard library for that target by the rustc in /opt/rust-sdk, left in
+# /tmp/rustc/sdk-target, with libtest for cargo test; its build scripts run on
+# the host. Cargo's build-std reads the source below the sysroot and builds it
+# for a crate.
 FILE /tmp/rustc/std.slop
     cd /tmp/rustc/sdk
     rm -rf /tmp/rustc/sdk-target
-    RUSTC_BOOTSTRAP=1 RUSTC_WRAPPER=/tmp/rustc/std-rustc RUSTFLAGS="-C relocation-model=pic -C embed-bitcode=yes" cargo build -j 4 --offline --lib --target /opt/rust-sdk/wasm64-emscripten-probe.json -Z json-target-spec -Z build-std=std,panic_abort,proc_macro,test --target-dir /tmp/rustc/sdk-target
+    RUSTC_BOOTSTRAP=1 RUSTC_WRAPPER=/tmp/rustc/std-rustc RUSTFLAGS="-C relocation-model=pic -C embed-bitcode=yes" cargo build -j 4 --offline --lib --target /tmp/rustc/spec/wasm64-emscripten-probe.json -Z json-target-spec -Z build-std=std,panic_abort,proc_macro,test --target-dir /tmp/rustc/sdk-target
     rm /tmp/rustc/sdk-target/wasm64-emscripten-probe/debug/deps/libdolly_rust_sdk-*
 # As in Rust's own build, the library unwinds and its abort runtime aborts, so
 # a program of either strategy links them.
@@ -69,14 +74,14 @@ SLOP mkdir -p /opt/rust-sdk/lib/rustlib/src/rust
 SLOP cp -R /tmp/rustc/source/library /opt/rust-sdk/lib/rustlib/src/rust/library
 
 # The first generation is the seed's work and links the seed's standard
-# library. Its own standard library, for the target as Dolly defines it now
-# (panics unwind), replaces the seed's.
+# library. Its own standard library replaces the seed's, and the target's
+# definition with it.
 SLOP slop -e /tmp/rustc/compiler.slop
-SOURCE /v0.1.4/dist/static/rust/wasm64-emscripten-probe.json 90972fb95b4f3f9abdc5a4483d284afc349095f504fa5febf3612c69cd93d053 /opt/rust-sdk/wasm64-emscripten-probe.json
-SLOP cp /opt/rust-sdk/wasm64-emscripten-probe.json /opt/rust-sdk/lib/rustlib/wasm64-emscripten-probe/target.json
 SLOP slop -e /tmp/rustc/std.slop
 SLOP slop -c 'rm /opt/rust-sdk/lib/rustlib/wasm64-emscripten-probe/lib/*.rlib'
 SLOP slop -c 'cp /tmp/rustc/sdk-target/wasm64-emscripten-probe/debug/deps/*.rlib /opt/rust-sdk/lib/rustlib/wasm64-emscripten-probe/lib'
+SLOP cp /tmp/rustc/spec/wasm64-emscripten-probe.json /opt/rust-sdk/wasm64-emscripten-probe.json
+SLOP cp /tmp/rustc/spec/wasm64-emscripten-probe.json /opt/rust-sdk/lib/rustlib/wasm64-emscripten-probe/target.json
 # The second generation is built by the first from the same source and holds
 # nothing of the seed: it is the rustc this image keeps. The standard library
 # it builds must be, byte for byte, the one installed.
