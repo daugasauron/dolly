@@ -1,19 +1,20 @@
 # Zig with LLVM
 
-Zig 0.16 with its LLVM backend, built inside Dolly the way upstream's CMake
-build makes zig2, against LLVM, Clang and LLD 21 (the `llvm21` package of
+Zig 0.17 with its LLVM backend, built inside Dolly the way upstream's CMake
+build makes zig2, against LLVM, Clang and LLD 22 (the `llvm22` package of
 [the LLVM demo](../llvm/README.md)). The `zig` package of the core has only the
 C backend; this one is the compiler upstream ships, with `zig build`
 (task `tasks/20261014-234000-zig-llvm`).
 
-[`zig-0.16.0-dolly-llvm.patch`](zig-0.16.0-dolly-llvm.patch), over the core's
-(`config/zig-0.16.0-dolly-native.patch`), starts processes with `posix_spawn`,
-since Dolly has no `fork`; hands an Emscripten program's link to `cc`, which
+[`zig-0.17.0-dolly-llvm.patch`](zig-0.17.0-dolly-llvm.patch), over the core's
+(`config/zig-0.17.0-dolly-native.patch`, which starts processes with
+`posix_spawn`, Dolly having no `fork`), hands an Emscripten program's link to `cc`, which
 adds the libc and the process records; takes the host's CPU as the one the
 compiler was built for (Zig's fallback has no atomics, and a Dolly program
-shares its memory); reads `/proc/self/exe`; links libc by default, as for
-FreeBSD; and lets `zig build`'s runner read `ZIG_LIBC`, which names the libc's
-directories.
+shares its memory); reads `/proc/self/exe`; and lets the tools Zig compiles
+for itself (`zig build`'s maker among them) read `ZIG_LIBC`, which names the
+libc's directories, as `zig build-exe` does. Zig 0.17 links libc for
+Emscripten by itself.
 
 zig2 is built with every command (`dev = .full`): upstream builds the full
 compiler with zig2, and here zig2 is the compiler. A program for Dolly is

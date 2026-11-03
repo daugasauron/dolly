@@ -2,30 +2,24 @@ const __root = @This();
 pub const __builtin = @import("c_builtins");
 pub const __helpers = @import("helpers");
 
+pub const int_least64_t = i64;
+pub const uint_least64_t = u64;
+pub const int_fast64_t = i64;
+pub const uint_fast64_t = u64;
+pub const int_least32_t = i32;
+pub const uint_least32_t = u32;
+pub const int_fast32_t = i32;
+pub const uint_fast32_t = u32;
+pub const int_least16_t = i16;
+pub const uint_least16_t = u16;
+pub const int_fast16_t = i16;
+pub const uint_fast16_t = u16;
+pub const int_least8_t = i8;
+pub const uint_least8_t = u8;
+pub const int_fast8_t = i8;
+pub const uint_fast8_t = u8;
 pub const intmax_t = c_longlong;
 pub const uintmax_t = c_ulonglong;
-pub const int_least64_t = c_longlong;
-pub const int_least32_t = c_int;
-pub const int_least16_t = c_short;
-pub const int_least8_t = i8;
-pub const uint_least64_t = c_ulonglong;
-pub const uint_least32_t = c_uint;
-pub const uint_least16_t = c_ushort;
-pub const uint_least8_t = u8;
-pub const int_fast64_t = c_longlong;
-pub const int_fast32_t = c_int;
-pub const int_fast16_t = c_short;
-pub const int_fast8_t = i8;
-pub const uint_fast64_t = c_ulonglong;
-pub const uint_fast32_t = c_uint;
-pub const uint_fast16_t = c_ushort;
-pub const uint_fast8_t = u8;
-pub const int128_t = i128;
-pub const uint128_t = u128;
-pub const int_fast128_t = i128;
-pub const uint_fast128_t = u128;
-pub const int_least128_t = i128;
-pub const uint_least128_t = u128;
 pub const ptrdiff_t = c_long;
 pub const wchar_t = c_int;
 pub const max_align_t = extern struct {
@@ -657,9 +651,9 @@ pub fn wuffs_base__optional_u63__value_or(arg_o: [*c]const wuffs_base__optional_
     _ = &default_value;
     return if (o.*.repr != 0) o.*.repr >> @intCast(@as(u64, 1)) else default_value;
 }
-// /tmp/claude-1000/-home-daug-dev-dolly/86b87808-da65-4872-b669-6778327e525c/scratchpad/vtgen/ghostty/zig-pkg/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI/release/c/wuffs-v0.4.c:1325:26: warning: TODO implement function '__builtin_clzl' in std.zig.c_builtins
+// zig-pkg/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI/release/c/wuffs-v0.4.c:1325:26: warning: TODO implement function '__builtin_clzl' in std.zig.c_builtins
 
-// /tmp/claude-1000/-home-daug-dev-dolly/86b87808-da65-4872-b669-6778327e525c/scratchpad/vtgen/ghostty/zig-pkg/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI/release/c/wuffs-v0.4.c:1324:1: warning: unable to translate function, demoted to extern
+// zig-pkg/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI/release/c/wuffs-v0.4.c:1324:1: warning: unable to translate function, demoted to extern
 pub extern fn wuffs_base__count_leading_zeroes_u64(arg_u: u64) callconv(.c) u32;
 pub fn wuffs_base__peek_u8__no_bounds_check(arg_p: [*c]const u8) callconv(.c) u8 {
     var p = arg_p;
@@ -2180,43 +2174,42 @@ pub fn wuffs_base__more_information__metadata_parsed__chrm(arg_m: [*c]const wuff
     _ = &component;
     var u: u32 = 0;
     _ = &u;
-    while (true) {
+    blk: {
         switch (component & @as(u32, 7)) {
             @as(u32, 0) => {
                 u = @as(u32, @truncate(m.*.x >> @intCast(@as(u64, 0))));
-                break;
+                break :blk;
             },
             @as(u32, 1) => {
                 u = @as(u32, @truncate(m.*.x >> @intCast(@as(u64, 24))));
-                break;
+                break :blk;
             },
             @as(u32, 2) => {
                 u = @as(u32, @truncate((m.*.x >> @intCast(@as(u64, 48))) | (m.*.y << @intCast(@as(u64, 16)))));
-                break;
+                break :blk;
             },
             @as(u32, 3) => {
                 u = @as(u32, @truncate(m.*.y >> @intCast(@as(u64, 8))));
-                break;
+                break :blk;
             },
             @as(u32, 4) => {
                 u = @as(u32, @truncate(m.*.y >> @intCast(@as(u64, 32))));
-                break;
+                break :blk;
             },
             @as(u32, 5) => {
                 u = @as(u32, @truncate((m.*.y >> @intCast(@as(u64, 56))) | (m.*.z << @intCast(@as(u64, 8)))));
-                break;
+                break :blk;
             },
             @as(u32, 6) => {
                 u = @as(u32, @truncate(m.*.z >> @intCast(@as(u64, 16))));
-                break;
+                break :blk;
             },
             @as(u32, 7) => {
                 u = @as(u32, @truncate(m.*.z >> @intCast(@as(u64, 40))));
-                break;
+                break :blk;
             },
             else => {},
         }
-        break;
     }
     return @as(i32, @bitCast(@as(c_uint, @truncate(u << @intCast(@as(u32, 8)))))) >> @intCast(@as(c_int, 8));
 }
@@ -4087,7 +4080,7 @@ pub fn wuffs_base__utf_8__next__output__is_valid(arg_o: [*c]const wuffs_base__ut
     if (o != null) {
         var cp: u32 = o.*.code_point;
         _ = &cp;
-        while (true) {
+        {
             switch (o.*.byte_length) {
                 @as(u32, 1) => {
                     return cp <= @as(u32, 127);
@@ -4103,7 +4096,6 @@ pub fn wuffs_base__utf_8__next__output__is_valid(arg_o: [*c]const wuffs_base__ut
                 },
                 else => {},
             }
-            break;
         }
     }
     return @"false" != 0;
@@ -4717,7 +4709,7 @@ pub extern fn wuffs_png__decoder__workbuf_len(self: ?*const wuffs_png__decoder) 
 pub const __VERSION__ = "Aro 0.0.0";
 pub const __Aro__ = "";
 pub const __STDC__ = @as(c_int, 1);
-pub const __STDC_HOSTED__ = @as(c_int, 0);
+pub const __STDC_HOSTED__ = @as(c_int, 1);
 pub const __STDC_UTF_16__ = @as(c_int, 1);
 pub const __STDC_UTF_32__ = @as(c_int, 1);
 pub const __STDC_EMBED_NOT_FOUND__ = @as(c_int, 0);
@@ -4738,16 +4730,40 @@ pub inline fn __building_module(x: anytype) @TypeOf(@as(c_int, 0)) {
 }
 pub const __OPTIMIZE__ = @as(c_int, 1);
 pub const __OPTIMIZE_SIZE__ = @as(c_int, 1);
+pub const TARGET_OS_WIN32 = @as(c_int, 0);
+pub const TARGET_OS_WINDOWS = @as(c_int, 0);
+pub const TARGET_OS_LINUX = @as(c_int, 0);
+pub const TARGET_OS_UNIX = @as(c_int, 0);
+pub const TARGET_OS_MAC = @as(c_int, 0);
+pub const TARGET_OS_OSX = @as(c_int, 0);
+pub const TARGET_OS_IPHONE = @as(c_int, 0);
+pub const TARGET_OS_IOS = @as(c_int, 0);
+pub const TARGET_OS_TV = @as(c_int, 0);
+pub const TARGET_OS_WATCH = @as(c_int, 0);
+pub const TARGET_OS_VISION = @as(c_int, 0);
+pub const TARGET_OS_DRIVERKIT = @as(c_int, 0);
+pub const TARGET_OS_MACCATALYST = @as(c_int, 0);
+pub const TARGET_OS_SIMULATOR = @as(c_int, 0);
+pub const TARGET_OS_EMBEDDED = @as(c_int, 0);
+pub const TARGET_OS_NANO = @as(c_int, 0);
+pub const TARGET_IPHONE_SIMULATOR = @as(c_int, 0);
+pub const TARGET_OS_UIKITFORMAC = @as(c_int, 0);
+pub const TARGET_OS_UEFI = @as(c_int, 0);
+pub const __EMSCRIPTEN__ = @as(c_int, 1);
+pub const unix = @as(c_int, 1);
+pub const __unix = @as(c_int, 1);
+pub const __unix__ = @as(c_int, 1);
 pub const __wasm = @as(c_int, 1);
 pub const __wasm__ = @as(c_int, 1);
 pub const __wasm64 = @as(c_int, 1);
 pub const __wasm64__ = @as(c_int, 1);
+pub const __wasm_bulk_memory__ = @as(c_int, 1);
 pub const __wasm_bulk_memory_opt__ = @as(c_int, 1);
 pub const __wasm_call_indirect_overlong__ = @as(c_int, 1);
-pub const __wasm_extended_const__ = @as(c_int, 1);
 pub const __wasm_multivalue__ = @as(c_int, 1);
 pub const __wasm_mutable_globals__ = @as(c_int, 1);
 pub const __wasm_nontrapping_fptoint__ = @as(c_int, 1);
+pub const __wasm_reference_types__ = @as(c_int, 1);
 pub const __wasm_sign_ext__ = @as(c_int, 1);
 pub const _LP64 = @as(c_int, 1);
 pub const __LP64__ = @as(c_int, 1);
@@ -4822,11 +4838,11 @@ pub const __INTPTR_TYPE__ = c_long;
 pub const __UINTPTR_TYPE__ = c_ulong;
 pub const __INTMAX_TYPE__ = c_longlong;
 pub const __INTMAX_C_SUFFIX__ = @compileError("unable to translate macro: undefined identifier `L`");
-// <builtin>:105:9
+// <builtin>:129:9
 pub const __INTMAX_C = __helpers.L_SUFFIX;
 pub const __UINTMAX_TYPE__ = c_ulonglong;
 pub const __UINTMAX_C_SUFFIX__ = @compileError("unable to translate macro: undefined identifier `UL`");
-// <builtin>:108:9
+// <builtin>:132:9
 pub const __UINTMAX_C = __helpers.UL_SUFFIX;
 pub const __PTRDIFF_TYPE__ = c_long;
 pub const __SIZE_TYPE__ = c_ulong;
@@ -4862,7 +4878,7 @@ pub const __INT64_TYPE__ = c_longlong;
 pub const __INT64_FMTd__ = "lld";
 pub const __INT64_FMTi__ = "lli";
 pub const __INT64_C_SUFFIX__ = @compileError("unable to translate macro: undefined identifier `LL`");
-// <builtin>:134:9
+// <builtin>:158:9
 pub const __INT64_C = __helpers.LL_SUFFIX;
 pub const __UINT8_TYPE__ = u8;
 pub const __UINT8_FMTo__ = "hho";
@@ -4894,7 +4910,7 @@ pub const __UINT32_FMTu__ = "u";
 pub const __UINT32_FMTx__ = "x";
 pub const __UINT32_FMTX__ = "X";
 pub const __UINT32_C_SUFFIX__ = @compileError("unable to translate macro: undefined identifier `U`");
-// <builtin>:159:9
+// <builtin>:183:9
 pub const __UINT32_C = __helpers.U_SUFFIX;
 pub const __UINT32_MAX__ = __helpers.promoteIntLiteral(c_uint, 4294967295, .decimal);
 pub const __INT32_MAX__ = __helpers.promoteIntLiteral(c_int, 2147483647, .decimal);
@@ -4904,7 +4920,7 @@ pub const __UINT64_FMTu__ = "llu";
 pub const __UINT64_FMTx__ = "llx";
 pub const __UINT64_FMTX__ = "llX";
 pub const __UINT64_C_SUFFIX__ = @compileError("unable to translate macro: undefined identifier `ULL`");
-// <builtin>:168:9
+// <builtin>:192:9
 pub const __UINT64_C = __helpers.ULL_SUFFIX;
 pub const __UINT64_MAX__ = @as(c_ulonglong, 18446744073709551615);
 pub const __INT64_MAX__ = @as(c_longlong, 9223372036854775807);
@@ -5041,31 +5057,128 @@ pub const __LDBL_MIN__ = @as(c_longdouble, 3.36210314311209350626267781732175260
 pub const __FLT_EVAL_METHOD__ = @as(c_int, 0);
 pub const __FLT_RADIX__ = @as(c_int, 2);
 pub const __DECIMAL_DIG__ = __LDBL_DECIMAL_DIG__;
+pub const WUFFS_CONFIG__MODULES = @as(c_int, 1);
+pub const WUFFS_CONFIG__MODULE__AUX__BASE = @as(c_int, 1);
+pub const WUFFS_CONFIG__MODULE__AUX__IMAGE = @as(c_int, 1);
+pub const WUFFS_CONFIG__MODULE__BASE = @as(c_int, 1);
+pub const WUFFS_CONFIG__MODULE__ADLER32 = @as(c_int, 1);
+pub const WUFFS_CONFIG__MODULE__CRC32 = @as(c_int, 1);
+pub const WUFFS_CONFIG__MODULE__DEFLATE = @as(c_int, 1);
+pub const WUFFS_CONFIG__MODULE__JPEG = @as(c_int, 1);
+pub const WUFFS_CONFIG__MODULE__PNG = @as(c_int, 1);
+pub const WUFFS_CONFIG__MODULE__ZLIB = @as(c_int, 1);
 pub const NDEBUG = @as(c_int, 1);
-pub const WUFFS_CONFIG__MODULES = "";
-pub const WUFFS_CONFIG__MODULE__AUX__BASE = "";
-pub const WUFFS_CONFIG__MODULE__AUX__IMAGE = "";
-pub const WUFFS_CONFIG__MODULE__BASE = "";
-pub const WUFFS_CONFIG__MODULE__ADLER32 = "";
-pub const WUFFS_CONFIG__MODULE__CRC32 = "";
-pub const WUFFS_CONFIG__MODULE__DEFLATE = "";
-pub const WUFFS_CONFIG__MODULE__JPEG = "";
-pub const WUFFS_CONFIG__MODULE__PNG = "";
-pub const WUFFS_CONFIG__MODULE__ZLIB = "";
 pub const WUFFS_INCLUDE_GUARD = "";
 pub const @"bool" = bool;
 pub const @"true" = @as(c_int, 1);
 pub const @"false" = @as(c_int, 0);
 pub const __bool_true_false_are_defined = @as(c_int, 1);
-pub const __stdint_int_c_cat = @compileError("unable to translate C expr: unexpected token '##'");
-// /tmp/claude-1000/-home-daug-dev-dolly/86b87808-da65-4872-b669-6778327e525c/scratchpad/vtgen/ghostty/zig-pkg/aro-0.0.0-JSD1Qk8rOQDnuVcD4jAwMpHitA6pADRKzQ7M7hKRwxvD/include/stdint.h:12:9
-pub inline fn __stdint_int_c(V: anytype, SUFFIX: anytype) @TypeOf(__stdint_int_c_cat(V, SUFFIX)) {
-    _ = &V;
-    _ = &SUFFIX;
-    return __stdint_int_c_cat(V, SUFFIX);
+pub const __CLANG_STDINT_H = "";
+pub const __int_least64_t = i64;
+pub const __uint_least64_t = u64;
+pub const __uint32_t_defined = "";
+pub const __int_least32_t = i32;
+pub const __uint_least32_t = u32;
+pub const __int_least16_t = i16;
+pub const __uint_least16_t = u16;
+pub const __int_least8_t = i8;
+pub const __uint_least8_t = u8;
+pub const __int8_t_defined = "";
+pub const __stdint_join3 = @compileError("unable to translate C expr: unexpected token '##'");
+// /home/daug/dev/dolly/work/sdl2/build/zig017-evidence/hostzig/lib/include/stdint.h:291:9
+pub const __intptr_t_defined = "";
+pub const _INTPTR_T = "";
+pub const _UINTPTR_T = "";
+pub inline fn INT64_C(v: anytype) @TypeOf(__INT64_C(v)) {
+    _ = &v;
+    return __INT64_C(v);
 }
-pub const __stdint_uint_c = @compileError("unable to translate macro: undefined identifier `U`");
-// /tmp/claude-1000/-home-daug-dev-dolly/86b87808-da65-4872-b669-6778327e525c/scratchpad/vtgen/ghostty/zig-pkg/aro-0.0.0-JSD1Qk8rOQDnuVcD4jAwMpHitA6pADRKzQ7M7hKRwxvD/include/stdint.h:14:9
+pub inline fn UINT64_C(v: anytype) @TypeOf(__UINT64_C(v)) {
+    _ = &v;
+    return __UINT64_C(v);
+}
+pub inline fn INT32_C(v: anytype) @TypeOf(__INT32_C(v)) {
+    _ = &v;
+    return __INT32_C(v);
+}
+pub inline fn UINT32_C(v: anytype) @TypeOf(__UINT32_C(v)) {
+    _ = &v;
+    return __UINT32_C(v);
+}
+pub inline fn INT16_C(v: anytype) @TypeOf(__INT16_C(v)) {
+    _ = &v;
+    return __INT16_C(v);
+}
+pub inline fn UINT16_C(v: anytype) @TypeOf(__UINT16_C(v)) {
+    _ = &v;
+    return __UINT16_C(v);
+}
+pub inline fn INT8_C(v: anytype) @TypeOf(__INT8_C(v)) {
+    _ = &v;
+    return __INT8_C(v);
+}
+pub inline fn UINT8_C(v: anytype) @TypeOf(__UINT8_C(v)) {
+    _ = &v;
+    return __UINT8_C(v);
+}
+pub const INT64_MAX = INT64_C(__helpers.promoteIntLiteral(c_int, 9223372036854775807, .decimal));
+pub const INT64_MIN = -INT64_C(__helpers.promoteIntLiteral(c_int, 9223372036854775807, .decimal)) - @as(c_int, 1);
+pub const UINT64_MAX = UINT64_C(__helpers.promoteIntLiteral(c_int, 18446744073709551615, .decimal));
+pub const __INT_LEAST64_MIN = INT64_MIN;
+pub const __INT_LEAST64_MAX = INT64_MAX;
+pub const __UINT_LEAST64_MAX = UINT64_MAX;
+pub const INT_LEAST64_MIN = __INT_LEAST64_MIN;
+pub const INT_LEAST64_MAX = __INT_LEAST64_MAX;
+pub const UINT_LEAST64_MAX = __UINT_LEAST64_MAX;
+pub const INT_FAST64_MIN = __INT_LEAST64_MIN;
+pub const INT_FAST64_MAX = __INT_LEAST64_MAX;
+pub const UINT_FAST64_MAX = __UINT_LEAST64_MAX;
+pub const INT32_MAX = INT32_C(__helpers.promoteIntLiteral(c_int, 2147483647, .decimal));
+pub const INT32_MIN = -INT32_C(__helpers.promoteIntLiteral(c_int, 2147483647, .decimal)) - @as(c_int, 1);
+pub const UINT32_MAX = UINT32_C(__helpers.promoteIntLiteral(c_int, 4294967295, .decimal));
+pub const __INT_LEAST32_MIN = INT32_MIN;
+pub const __INT_LEAST32_MAX = INT32_MAX;
+pub const __UINT_LEAST32_MAX = UINT32_MAX;
+pub const INT_LEAST32_MIN = __INT_LEAST32_MIN;
+pub const INT_LEAST32_MAX = __INT_LEAST32_MAX;
+pub const UINT_LEAST32_MAX = __UINT_LEAST32_MAX;
+pub const INT_FAST32_MIN = __INT_LEAST32_MIN;
+pub const INT_FAST32_MAX = __INT_LEAST32_MAX;
+pub const UINT_FAST32_MAX = __UINT_LEAST32_MAX;
+pub const INT16_MAX = INT16_C(@as(c_int, 32767));
+pub const INT16_MIN = -INT16_C(@as(c_int, 32767)) - @as(c_int, 1);
+pub const UINT16_MAX = UINT16_C(__helpers.promoteIntLiteral(c_int, 65535, .decimal));
+pub const __INT_LEAST16_MIN = INT16_MIN;
+pub const __INT_LEAST16_MAX = INT16_MAX;
+pub const __UINT_LEAST16_MAX = UINT16_MAX;
+pub const INT_LEAST16_MIN = __INT_LEAST16_MIN;
+pub const INT_LEAST16_MAX = __INT_LEAST16_MAX;
+pub const UINT_LEAST16_MAX = __UINT_LEAST16_MAX;
+pub const INT_FAST16_MIN = __INT_LEAST16_MIN;
+pub const INT_FAST16_MAX = __INT_LEAST16_MAX;
+pub const UINT_FAST16_MAX = __UINT_LEAST16_MAX;
+pub const INT8_MAX = INT8_C(@as(c_int, 127));
+pub const INT8_MIN = -INT8_C(@as(c_int, 127)) - @as(c_int, 1);
+pub const UINT8_MAX = UINT8_C(@as(c_int, 255));
+pub const __INT_LEAST8_MIN = INT8_MIN;
+pub const __INT_LEAST8_MAX = INT8_MAX;
+pub const __UINT_LEAST8_MAX = UINT8_MAX;
+pub const INT_LEAST8_MIN = __INT_LEAST8_MIN;
+pub const INT_LEAST8_MAX = __INT_LEAST8_MAX;
+pub const UINT_LEAST8_MAX = __UINT_LEAST8_MAX;
+pub const INT_FAST8_MIN = __INT_LEAST8_MIN;
+pub const INT_FAST8_MAX = __INT_LEAST8_MAX;
+pub const UINT_FAST8_MAX = __UINT_LEAST8_MAX;
+pub const __INTN_MIN = @compileError("unable to translate macro: undefined identifier `INT`");
+// /home/daug/dev/dolly/work/sdl2/build/zig017-evidence/hostzig/lib/include/stdint.h:764:10
+pub const __INTN_MAX = @compileError("unable to translate macro: undefined identifier `INT`");
+// /home/daug/dev/dolly/work/sdl2/build/zig017-evidence/hostzig/lib/include/stdint.h:765:10
+pub const __UINTN_MAX = @compileError("unable to translate macro: undefined identifier `UINT`");
+// /home/daug/dev/dolly/work/sdl2/build/zig017-evidence/hostzig/lib/include/stdint.h:766:9
+pub const __INTN_C = @compileError("unable to translate macro: undefined identifier `INT`");
+// /home/daug/dev/dolly/work/sdl2/build/zig017-evidence/hostzig/lib/include/stdint.h:767:10
+pub const __UINTN_C = @compileError("unable to translate macro: undefined identifier `UINT`");
+// /home/daug/dev/dolly/work/sdl2/build/zig017-evidence/hostzig/lib/include/stdint.h:768:9
 pub const INTPTR_MIN = -__INTPTR_MAX__ - @as(c_int, 1);
 pub const INTPTR_MAX = __INTPTR_MAX__;
 pub const UINTPTR_MAX = __UINTPTR_MAX__;
@@ -5075,105 +5188,25 @@ pub const SIZE_MAX = __SIZE_MAX__;
 pub const INTMAX_MIN = -__INTMAX_MAX__ - @as(c_int, 1);
 pub const INTMAX_MAX = __INTMAX_MAX__;
 pub const UINTMAX_MAX = __UINTMAX_MAX__;
-pub const __intptr_t_defined = "";
-pub const _INTPTR_T = "";
-pub const _UINTPTR_T = "";
-pub const __int64_c_suffix = __INT64_C_SUFFIX__;
-pub inline fn INT64_C(v: anytype) @TypeOf(__stdint_int_c(v, __int64_c_suffix)) {
+pub const SIG_ATOMIC_MIN = __INTN_MIN(__SIG_ATOMIC_WIDTH__);
+pub const SIG_ATOMIC_MAX = __INTN_MAX(__SIG_ATOMIC_WIDTH__);
+pub const WINT_MIN = __INTN_MIN(__WINT_WIDTH__);
+pub const WINT_MAX = __INTN_MAX(__WINT_WIDTH__);
+pub const WCHAR_MAX = __WCHAR_MAX__;
+pub const WCHAR_MIN = __INTN_MIN(__WCHAR_WIDTH__);
+pub inline fn INTMAX_C(v: anytype) @TypeOf(__INTMAX_C(v)) {
     _ = &v;
-    return __stdint_int_c(v, __int64_c_suffix);
+    return __INTMAX_C(v);
 }
-pub inline fn UINT64_C(v: anytype) @TypeOf(__stdint_uint_c(v, __int64_c_suffix)) {
+pub inline fn UINTMAX_C(v: anytype) @TypeOf(__UINTMAX_C(v)) {
     _ = &v;
-    return __stdint_uint_c(v, __int64_c_suffix);
+    return __UINTMAX_C(v);
 }
-pub const INT64_MAX = INT64_C(__helpers.promoteIntLiteral(c_int, 9223372036854775807, .decimal));
-pub const INT64_MIN = -INT64_C(__helpers.promoteIntLiteral(c_int, 9223372036854775807, .decimal)) - @as(c_int, 1);
-pub const UINT64_MAX = UINT64_C(__helpers.promoteIntLiteral(c_int, 18446744073709551615, .decimal));
-pub const __int32_c_suffix = "";
-pub inline fn INT32_C(v: anytype) @TypeOf(__stdint_int_c(v, __int32_c_suffix)) {
-    _ = &v;
-    return __stdint_int_c(v, __int32_c_suffix);
-}
-pub inline fn UINT32_C(v: anytype) @TypeOf(__stdint_uint_c(v, __int32_c_suffix)) {
-    _ = &v;
-    return __stdint_uint_c(v, __int32_c_suffix);
-}
-pub const INT32_MAX = INT32_C(__helpers.promoteIntLiteral(c_int, 2147483647, .decimal));
-pub const INT32_MIN = -INT32_C(__helpers.promoteIntLiteral(c_int, 2147483647, .decimal)) - @as(c_int, 1);
-pub const UINT32_MAX = UINT32_C(__helpers.promoteIntLiteral(c_int, 4294967295, .decimal));
-pub const __int16_c_suffix = "";
-pub inline fn INT16_C(v: anytype) @TypeOf(__stdint_int_c(v, __int16_c_suffix)) {
-    _ = &v;
-    return __stdint_int_c(v, __int16_c_suffix);
-}
-pub inline fn UINT16_C(v: anytype) @TypeOf(__stdint_uint_c(v, __int16_c_suffix)) {
-    _ = &v;
-    return __stdint_uint_c(v, __int16_c_suffix);
-}
-pub const INT16_MAX = INT16_C(@as(c_int, 32767));
-pub const INT16_MIN = -INT16_C(@as(c_int, 32767)) - @as(c_int, 1);
-pub const UINT16_MAX = UINT16_C(__helpers.promoteIntLiteral(c_int, 65535, .decimal));
-pub const __int8_c_suffix = "";
-pub inline fn INT8_C(v: anytype) @TypeOf(__stdint_int_c(v, __int8_c_suffix)) {
-    _ = &v;
-    return __stdint_int_c(v, __int8_c_suffix);
-}
-pub inline fn UINT8_C(v: anytype) @TypeOf(__stdint_uint_c(v, __int8_c_suffix)) {
-    _ = &v;
-    return __stdint_uint_c(v, __int8_c_suffix);
-}
-pub const INT8_MAX = INT8_C(@as(c_int, 127));
-pub const INT8_MIN = -INT8_C(@as(c_int, 127)) - @as(c_int, 1);
-pub const UINT8_MAX = UINT8_C(@as(c_int, 255));
-pub const INT_LEAST8_MAX = __INT_LEAST8_MAX__;
-pub const INT_LEAST8_MIN = -__INT_LEAST8_MAX__ - @as(c_int, 1);
-pub const UINT_LEAST8_MAX = __UINT_LEAST8_MAX__;
-pub const INT_LEAST16_MAX = __INT_LEAST16_MAX__;
-pub const INT_LEAST16_MIN = -__INT_LEAST16_MAX__ - @as(c_int, 1);
-pub const UINT_LEAST16_MAX = __UINT_LEAST16_MAX__;
-pub const INT_LEAST32_MAX = __INT_LEAST32_MAX__;
-pub const INT_LEAST32_MIN = -__INT_LEAST32_MAX__ - @as(c_int, 1);
-pub const UINT_LEAST32_MAX = __UINT_LEAST32_MAX__;
-pub const INT_LEAST64_MAX = __INT_LEAST64_MAX__;
-pub const INT_LEAST64_MIN = -__INT_LEAST64_MAX__ - @as(c_int, 1);
-pub const UINT_LEAST64_MAX = __UINT_LEAST64_MAX__;
-pub const INT_FAST8_MAX = __INT_FAST8_MAX__;
-pub const INT_FAST8_MIN = -__INT_FAST8_MAX__ - @as(c_int, 1);
-pub const UINT_FAST8_MAX = __UINT_FAST8_MAX__;
-pub const INT_FAST16_MAX = __INT_FAST16_MAX__;
-pub const INT_FAST16_MIN = -__INT_FAST16_MAX__ - @as(c_int, 1);
-pub const UINT_FAST16_MAX = __UINT_FAST16_MAX__;
-pub const INT_FAST32_MAX = __INT_FAST32_MAX__;
-pub const INT_FAST32_MIN = -__INT_FAST32_MAX__ - @as(c_int, 1);
-pub const UINT_FAST32_MAX = __UINT_FAST32_MAX__;
-pub const INT_FAST64_MAX = __INT_FAST64_MAX__;
-pub const INT_FAST64_MIN = -__INT_FAST64_MAX__ - @as(c_int, 1);
-pub const UINT_FAST64_MAX = __UINT_FAST64_MAX__;
-pub const UINT128_MAX = __helpers.cast(uint128_t, -@as(c_int, 1));
-pub const INT128_MAX = __helpers.cast(int128_t, __helpers.div(UINT128_MAX, @as(c_int, 2)));
-pub const INT128_MIN = -INT128_MAX - @as(c_int, 1);
-pub const UINT_LEAST128_MAX = UINT128_MAX;
-pub const INT_LEAST128_MAX = INT128_MAX;
-pub const INT_LEAST128_MIN = INT128_MIN;
-pub const UINT_FAST128_MAX = UINT128_MAX;
-pub const INT_FAST128_MAX = INT128_MAX;
-pub const INT_FAST128_MIN = INT128_MIN;
-pub const INT128_WIDTH = @as(c_int, 128);
-pub const UINT128_WIDTH = @as(c_int, 128);
-pub const INT_LEAST128_WIDTH = @as(c_int, 128);
-pub const UINT_LEAST128_WIDTH = @as(c_int, 128);
-pub const INT_FAST128_WIDTH = @as(c_int, 128);
-pub const UINT_FAST128_WIDTH = @as(c_int, 128);
-pub const INT128_C = @compileError("unable to translate macro: undefined identifier `WB`");
-// /tmp/claude-1000/-home-daug-dev-dolly/86b87808-da65-4872-b669-6778327e525c/scratchpad/vtgen/ghostty/zig-pkg/aro-0.0.0-JSD1Qk8rOQDnuVcD4jAwMpHitA6pADRKzQ7M7hKRwxvD/include/stdint.h:281:11
-pub const UINT128_C = @compileError("unable to translate macro: undefined identifier `WBU`");
-// /tmp/claude-1000/-home-daug-dev-dolly/86b87808-da65-4872-b669-6778327e525c/scratchpad/vtgen/ghostty/zig-pkg/aro-0.0.0-JSD1Qk8rOQDnuVcD4jAwMpHitA6pADRKzQ7M7hKRwxvD/include/stdint.h:282:11
 pub const GHOSTTY_WUFFS_STDLIB_H = "";
 pub const __STDC_VERSION_STDDEF_H__ = @as(c_long, 202311);
 pub const NULL = __helpers.cast(?*anyopaque, @as(c_int, 0));
 pub const offsetof = @compileError("unable to translate macro: undefined identifier `__builtin_offsetof`");
-// /tmp/claude-1000/-home-daug-dev-dolly/86b87808-da65-4872-b669-6778327e525c/scratchpad/vtgen/ghostty/zig-pkg/aro-0.0.0-JSD1Qk8rOQDnuVcD4jAwMpHitA6pADRKzQ7M7hKRwxvD/include/stddef.h:18:9
+// zig-pkg/aro-0.0.0-JSD1QtuBNwCASyBtNF3pqTl_W3oAJQGEVyFAtrBSE_Pa/include/stddef.h:18:9
 pub const GHOSTTY_WUFFS_STRING_H = "";
 pub const WUFFS_VERSION = __helpers.promoteIntLiteral(c_int, 0x000040000, .hex);
 pub const WUFFS_VERSION_MAJOR = @as(c_int, 0);
@@ -5184,20 +5217,20 @@ pub const WUFFS_VERSION_BUILD_METADATA_COMMIT_COUNT = @as(c_int, 3966);
 pub const WUFFS_VERSION_BUILD_METADATA_COMMIT_DATE = __helpers.promoteIntLiteral(c_int, 20260623, .decimal);
 pub const WUFFS_VERSION_STRING = "0.4.0-alpha.10+3966.20260623";
 pub const WUFFS_BASE__MAYBE_ATTRIBUTE_TARGET = @compileError("unable to translate macro: undefined identifier `target`");
-// /tmp/claude-1000/-home-daug-dev-dolly/86b87808-da65-4872-b669-6778327e525c/scratchpad/vtgen/ghostty/zig-pkg/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI/release/c/wuffs-v0.4.c:137:9
+// zig-pkg/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI/release/c/wuffs-v0.4.c:137:9
 pub const WUFFS_BASE__MAYBE_STATIC = "";
 pub const WUFFS_BASE__FORCE_INLINE = @compileError("unable to translate macro: undefined identifier `__always_inline__`");
-// /tmp/claude-1000/-home-daug-dev-dolly/86b87808-da65-4872-b669-6778327e525c/scratchpad/vtgen/ghostty/zig-pkg/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI/release/c/wuffs-v0.4.c:425:9
+// zig-pkg/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI/release/c/wuffs-v0.4.c:425:9
 pub const WUFFS_BASE__POTENTIALLY_UNUSED = @compileError("unable to translate macro: undefined identifier `unused`");
-// /tmp/claude-1000/-home-daug-dev-dolly/86b87808-da65-4872-b669-6778327e525c/scratchpad/vtgen/ghostty/zig-pkg/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI/release/c/wuffs-v0.4.c:426:9
+// zig-pkg/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI/release/c/wuffs-v0.4.c:426:9
 pub const WUFFS_BASE__WARN_UNUSED_RESULT = @compileError("unable to translate macro: undefined identifier `warn_unused_result`");
-// /tmp/claude-1000/-home-daug-dev-dolly/86b87808-da65-4872-b669-6778327e525c/scratchpad/vtgen/ghostty/zig-pkg/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI/release/c/wuffs-v0.4.c:427:9
+// zig-pkg/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI/release/c/wuffs-v0.4.c:427:9
 pub const WUFFS_BASE__GENERATED_C_CODE = "";
 pub const WUFFS_INITIALIZE__DEFAULT_OPTIONS = __helpers.cast(u32, @as(c_int, 0x00000000));
 pub const WUFFS_INITIALIZE__ALREADY_ZEROED = __helpers.cast(u32, @as(c_int, 0x00000001));
 pub const WUFFS_INITIALIZE__LEAVE_INTERNAL_BUFFERS_UNINITIALIZED = __helpers.cast(u32, @as(c_int, 0x00000002));
 pub const WUFFS_BASE__RESULT = @compileError("unable to translate macro: undefined identifier `status`");
-// /tmp/claude-1000/-home-daug-dev-dolly/86b87808-da65-4872-b669-6778327e525c/scratchpad/vtgen/ghostty/zig-pkg/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI/release/c/wuffs-v0.4.c:728:9
+// zig-pkg/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI/release/c/wuffs-v0.4.c:728:9
 pub const WUFFS_BASE__FOURCC__ABXR = __helpers.promoteIntLiteral(c_int, 0x41425852, .hex);
 pub const WUFFS_BASE__FOURCC__ABXS = __helpers.promoteIntLiteral(c_int, 0x41425853, .hex);
 pub const WUFFS_BASE__FOURCC__BGCL = __helpers.promoteIntLiteral(c_int, 0x4247434C, .hex);
@@ -5276,9 +5309,9 @@ pub const wuffs_base__peek_u8le__no_bounds_check = wuffs_base__peek_u8__no_bound
 pub const wuffs_base__poke_u8be__no_bounds_check = wuffs_base__poke_u8__no_bounds_check;
 pub const wuffs_base__poke_u8le__no_bounds_check = wuffs_base__poke_u8__no_bounds_check;
 pub const WUFFS_BASE__SLICE = @compileError("unable to translate macro: undefined identifier `ptr`");
-// /tmp/claude-1000/-home-daug-dev-dolly/86b87808-da65-4872-b669-6778327e525c/scratchpad/vtgen/ghostty/zig-pkg/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI/release/c/wuffs-v0.4.c:1691:9
+// zig-pkg/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI/release/c/wuffs-v0.4.c:1691:9
 pub const WUFFS_BASE__TABLE = @compileError("unable to translate macro: undefined identifier `ptr`");
-// /tmp/claude-1000/-home-daug-dev-dolly/86b87808-da65-4872-b669-6778327e525c/scratchpad/vtgen/ghostty/zig-pkg/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI/release/c/wuffs-v0.4.c:1703:9
+// zig-pkg/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI/release/c/wuffs-v0.4.c:1703:9
 pub const WUFFS_BASE__QUIRK_QUALITY__VALUE__LOWER_QUALITY = UINT64_MAX;
 pub const WUFFS_BASE__QUIRK_QUALITY__VALUE__HIGHER_QUALITY = __helpers.cast(u64, @as(c_int, 1));
 pub const WUFFS_BASE__MORE_INFORMATION__FLAVOR__IO_REDIRECT = @as(c_int, 1);

@@ -1,6 +1,6 @@
 --- a/src/lib_vt.zig
 +++ b/src/lib_vt.zig
-@@ -410,7 +410,7 @@
+@@ -432,7 +432,7 @@
          @export(&c.alloc_free, .{ .name = "ghostty_free" });
  
          // On Wasm we need to export our allocator convenience functions.
@@ -21,9 +21,9 @@
      std.heap.wasm_allocator;
 --- a/src/terminal/PageList.zig
 +++ b/src/terminal/PageList.zig
-@@ -313,7 +313,9 @@
+@@ -330,7 +330,9 @@
  ///
- /// Test builds use the std pool even on wasm so that pool memory goes
+ /// Test builds use the native pool even on wasm so that pool memory goes
  /// through the testing allocator and participates in leak detection.
 -const wasm_page_pool = builtin.target.cpu.arch.isWasm() and !builtin.is_test;
 +const wasm_page_pool = builtin.target.cpu.arch.isWasm() and
@@ -32,9 +32,9 @@
  
  /// The memory pool we use for page memory buffers. We use a separate pool
  /// so we can allocate these with a page allocator. We have to use a page
-@@ -544,6 +546,10 @@
-     // In tests we use our testing allocator so we can detect leaks.
-     if (builtin.is_test) return std.testing.allocator;
+@@ -576,6 +578,10 @@
+     // the allocator provided by the embedder.
+     if (native_freestanding) return alloc;
  
 +    // Dolly links libc into its shared wasm64 userspace. Its allocator must
 +    // own all memory growth instead of Zig's standalone wasm page allocator.
@@ -43,29 +43,29 @@
      // On non-macOS we use our standard Zig page allocator.
      if (!builtin.target.os.tag.isDarwin()) return std.heap.page_allocator;
  
-@@ -730,7 +736,8 @@
+@@ -764,7 +770,8 @@
          // (WASM), the WasmAllocator reuses freed slots without zeroing since
          // only fresh memory.grow pages are guaranteed zero by the WASM spec.
          // On native, the OS page allocator (mmap) returns zeroed pages.
--        if (comptime std.debug.runtime_safety or builtin.os.tag == .freestanding)
-+        if (comptime std.debug.runtime_safety or builtin.os.tag == .freestanding or
+-        if (comptime std.debug.runtime_safety or builtin.target.os.tag == .freestanding)
++        if (comptime std.debug.runtime_safety or builtin.target.os.tag == .freestanding or
 +            (builtin.target.cpu.arch.isWasm() and builtin.link_libc))
              @memset(page_buf, 0);
  
          // Initialize the first set of pages to contain our viewport so that
-@@ -4583,7 +4590,8 @@
-     // free list node while a buffer is in the free list; initBuf below
-     // always overwrites those since the page rows start at offset 0
-     // (comptime-asserted in Page).
--    if (comptime std.debug.runtime_safety or builtin.os.tag == .freestanding)
-+    if (comptime std.debug.runtime_safety or builtin.os.tag == .freestanding or
+@@ -4645,7 +4652,8 @@
+     // come from the OS page allocator (zeroed pages), destroyNodeExt
+     // zeroes buffers before returning them to the pool, and the pool
+     // never writes into its items (see PagePool).
+-    if (comptime std.debug.runtime_safety or builtin.target.os.tag == .freestanding)
++    if (comptime std.debug.runtime_safety or builtin.target.os.tag == .freestanding or
 +        (builtin.target.cpu.arch.isWasm() and builtin.link_libc))
          @memset(page_buf, 0);
  
      page.* = .{
 --- a/src/terminal/kitty/graphics_image.zig
 +++ b/src/terminal/kitty/graphics_image.zig
-@@ -199,9 +199,12 @@
+@@ -201,9 +201,12 @@
          t: command.Transmission,
          path: []const u8,
      ) !void {
@@ -73,8 +73,8 @@
 +        // android does not support POSIX shared memory, nor does Dolly
 +        // (emscripten), whose processes share no memory.
          // windows is currently unsupported, does it support shm?
--        if (comptime builtin.abi.isAndroid() or builtin.target.os.tag == .windows) {
-+        if (comptime builtin.abi.isAndroid() or builtin.target.os.tag == .windows or
+-        if (comptime builtin.target.abi.isAndroid() or builtin.target.os.tag == .windows) {
++        if (comptime builtin.target.abi.isAndroid() or builtin.target.os.tag == .windows or
 +            builtin.target.os.tag == .emscripten)
 +        {
              return error.UnsupportedMedium;

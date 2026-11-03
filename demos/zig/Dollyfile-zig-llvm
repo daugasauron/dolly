@@ -4,31 +4,31 @@ REQUIRES HOST runtime@0
 # What Zig builds runs threads unless it is single-threaded: zig build's runner.
 REQUIRES HOST threads@0
 
-# Zig 0.16 with its LLVM backend: zig-llvm-build's objects linked, as
+# Zig 0.17 with its LLVM backend: zig-llvm-build's objects linked, as
 # upstream's CMake build links zig2, with Zig's C++ glue (zigcpp) and LLVM,
-# Clang and LLD 21, which the build uses and installers do not get.
-FROM /v0.1.4/demos/zig/Dollyfile-zig-llvm-build ec4bd425fea81451fd0b1fcc443265f8d79a4cc902d6b0ad7593f5d13003212d
-USE /v0.1.4/demos/llvm/Dollyfile-llvm21 84936f924def79f78f4d207487ada6062466c8449fc3f1c59ea11f66adca87e9
-# Zig links a program for this target with cc (config/zig-0.16.0-dolly-native.patch).
+# Clang and LLD 22, which the build uses and installers do not get.
+FROM /v0.1.4/demos/zig/Dollyfile-zig-llvm-build ba5830b4c93ded24a424ee762a84bbbbb13660e7a742b7bd69ccd2f49f95f949
+USE /v0.1.4/demos/llvm/Dollyfile-llvm22 94122d78971616a05254b241fb18f7719c53007e4d715404d00be6811ae7c7cd
+# Zig links a program for this target with cc (zig-0.17.0-dolly-llvm.patch).
 INSTALL /v0.1.4/Dollyfile-cc f2ad329c95b14b45404c070414c0e48330c769adb810501ae1e122b326d8117f
 REQUIRES TOOL   c++
 REQUIRES TOOL   ar
 
 # zigcpp, with upstream's flags (CMakeLists.txt, "zigcpp target"), LLVM's
 # headers where its llvm-config says (cmake/Findllvm.cmake), and the endian.h
-# that llvm21's build includes for them.
+# that llvm22's build includes for them.
 SLOP CWD /usr/lib/zig-llvm-build slop -c 'for unit in zig_llvm zig_llvm-ar zig_clang_driver zig_clang_cc1_main zig_clang_cc1as_main; do \
   c++ -c -O2 -std=c++17 -fno-exceptions -fno-rtti -fvisibility-inlines-hidden \
   -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -D_GNU_SOURCE \
-  -DLLVM_BUILD_STATIC -DCLANG_BUILD_STATIC -include endian.h -I $(/usr/lib/llvm21/bin/llvm-config --includedir) $unit.cpp -o $unit.o; done'
+  -DLLVM_BUILD_STATIC -DCLANG_BUILD_STATIC -include endian.h -I $(/usr/lib/llvm22/bin/llvm-config --includedir) $unit.cpp -o $unit.o; done'
 SLOP CWD /usr/lib/zig-llvm-build ar rcs libzigcpp.a zig_llvm.o zig_llvm-ar.o zig_clang_driver.o zig_clang_cc1_main.o zig_clang_cc1as_main.o
 # Clang's and LLD's libraries by name and LLVM's as its llvm-config lists them,
 # as upstream's Findclang, Findlld and Findllvm do. The stack is what upstream
 # gives the compiler it ships (46 MB, build.zig) rounded up; with 58 MB of data
 # that is 128 MB of initial memory.
-SLOP CWD /usr/lib/zig-llvm-build slop -c 'c++ -o /usr/bin/zig -Wl,-z,stack-size=50331648 -Wl,--initial-memory=134217728 zig2.o compiler_rt.o libzigcpp.a -L $(/usr/lib/llvm21/bin/llvm-config --libdir) \
-  -lclangFrontendTool -lclangCodeGen -lclangFrontend -lclangDriver -lclangSerialization -lclangSema -lclangStaticAnalyzerFrontend -lclangStaticAnalyzerCheckers -lclangStaticAnalyzerCore -lclangAnalysis -lclangASTMatchers -lclangAST -lclangParse -lclangAPINotes -lclangBasic -lclangEdit -lclangLex -lclangRewriteFrontend -lclangRewrite -lclangCrossTU -lclangIndex -lclangToolingCore -lclangExtractAPI -lclangSupport -lclangInstallAPI -llldMinGW -llldELF -llldCOFF -llldWasm -llldMachO -llldCommon \
-  $(/usr/lib/llvm21/bin/llvm-config --link-static --libs) $(/usr/lib/llvm21/bin/llvm-config --link-static --system-libs)'
+SLOP CWD /usr/lib/zig-llvm-build slop -c 'c++ -o /usr/bin/zig -Wl,-z,stack-size=50331648 -Wl,--initial-memory=134217728 zig2.o compiler_rt.o libzigcpp.a -L $(/usr/lib/llvm22/bin/llvm-config --libdir) \
+  -lclangFrontendTool -lclangCodeGen -lclangStaticAnalyzerFrontend -lclangStaticAnalyzerCheckers -lclangStaticAnalyzerCore -lclangCrossTU -lclangFrontend -lclangDriver -lclangOptions -lclangSerialization -lclangSema -lclangAnalysisLifetimeSafety -lclangAnalysis -lclangASTMatchers -lclangParse -lclangAPINotes -lclangEdit -lclangLex -lclangRewriteFrontend -lclangRewrite -lclangIndex -lclangFormat -lclangToolingInclusions -lclangToolingCore -lclangExtractAPI -lclangSupport -lclangInstallAPI -lclangAST -lclangBasic -llldMinGW -llldELF -llldCOFF -llldWasm -llldMachO -llldCommon \
+  $(/usr/lib/llvm22/bin/llvm-config --link-static --libs) $(/usr/lib/llvm22/bin/llvm-config --link-static --system-libs)'
 SLOP zig version
 
 EXPORTS TOOL   zig
@@ -42,7 +42,8 @@ FILE /usr/lib/zig/libc.txt
     crt_dir=/usr/lib/dolly/process
     msvc_lib_dir=
     kernel32_lib_dir=
-    gcc_dir=
+    cc_dir=
+    darwin_sdk_dir=
 EXPORTS ENV    ZIG_LIBC    /usr/lib/zig/libc.txt
 # Emscripten's headers for that target (demos/zig/prepare-sources.sh).
 SOURCE /v0.1.4/dist/static/zig-llvm/emscripten-headers.tar 4249acab21ed33264dd5a0bde210003c8b1f47b2c6938ff60a7c8766bc0d2484 /tmp/emscripten-headers.tar

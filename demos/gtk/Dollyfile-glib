@@ -11,14 +11,14 @@ REQUIRES HOST threads@0
 # which traps in WebAssembly: GObject's pkg-config file asks cc for
 # --dolly-cast-emulation (Binaryen's wasm-opt --fpcast-emu after the link),
 # and this package's own programs are passed through it here.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build ca83974a0dfe50608d9a295ba47c2ea083fcf21b5a513e1cde1f5cfe67e2a9be
-USE /v0.1.4/demos/tools/Dollyfile-meson 8d9f09d6528b7c8dc19b23e2027d2f09a83dd167d8cd691cadbae903acec7010
-USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf e63308c24ad362f57df661a9c5198837df0f55847f563248fb41e759ffa3dd1a
-USE /v0.1.4/demos/tools/Dollyfile-xz acc1adb31d703179be455351a3123b46926869a0a611dd6c922520604d7c9fcc
-USE /v0.1.4/demos/tools/Dollyfile-tar 3e5b536a03cb6b88ee7413c63eb575a448129e4e3083bad1b1b46d741e5d595f
-USE /v0.1.4/demos/tools/Dollyfile-binaryen 2df798c01e45aa6e5d3c9fdadac77f202c37a299238619df0a4cab831a83525a
-INSTALL /v0.1.4/demos/python/Dollyfile-libffi eecbdc4133c1484b8681ce7fc1bc1f0c4931f2b18d47b7056a5e7de0c791f387
-INSTALL /v0.1.4/demos/gtk/Dollyfile-pcre2 5bc38eb5777df7216489b62111576077bf882dedea3b30febbb8055bfec585fc
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 014e08e5c2cbecbb465ef60ddbd182cc303a1654d980d728e77320c4f9fb1253
+USE /v0.1.4/demos/tools/Dollyfile-meson 32958df81d32c119536a9116f7dad664bdee94e5493bcad6c0d3761aee99f36c
+USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf bc5aa57943c8c8c82f30fead07afec5cdb30cde8f98ec77bb9ad090a14ef28a0
+USE /v0.1.4/demos/tools/Dollyfile-xz e17df3304849dd5a9e9ebe38e131e36ca4032d8d9f96e026da90bb81a44a155b
+USE /v0.1.4/demos/tools/Dollyfile-tar 1004106b11b740ee8325e306f01010d737994624a6f9d182c964820f6d6960fa
+USE /v0.1.4/demos/tools/Dollyfile-binaryen 9e763fe4870a5fcf94978664e338340a4468ee48b0483f37fb7508ae76c6d2c4
+INSTALL /v0.1.4/demos/python/Dollyfile-libffi 5465f9e26989aa87ce961e87ccec1b1290fe4d3fe866264f567ad50f587013b5
+INSTALL /v0.1.4/demos/gtk/Dollyfile-pcre2 85457d9538d1792df09d6d514cc04af0062d4493766cda5c4769f557da598110
 INSTALL /v0.1.4/Dollyfile-zlib 9cfec80035841129241b745ef516b95e26d86e5fa3b1272a3fd8b63274464b71
 
 REQUIRES HEADER ffi

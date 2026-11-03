@@ -3,6 +3,7 @@ pkg/wuffs/src/jpeg.zig
 pkg/wuffs/src/main.zig
 pkg/wuffs/src/png.zig
 pkg/wuffs/src/swizzle.zig
+pkg/wuffs/src/zlib.zig
 src/App.zig
 src/Command.zig
 src/Surface.zig
@@ -18,6 +19,7 @@ src/apprt/gtk/build/gresource.zig
 src/apprt/gtk/build/info.zig
 src/apprt/gtk/cgroup.zig
 src/apprt/gtk/class.zig
+src/apprt/gtk/class/Overrides.zig
 src/apprt/gtk/class/application.zig
 src/apprt/gtk/class/clipboard_confirmation_dialog.zig
 src/apprt/gtk/class/close_confirmation_dialog.zig
@@ -25,12 +27,12 @@ src/apprt/gtk/class/command_palette.zig
 src/apprt/gtk/class/config.zig
 src/apprt/gtk/class/config_errors_dialog.zig
 src/apprt/gtk/class/debug_warning.zig
-src/apprt/gtk/class/dialog.zig
 src/apprt/gtk/class/global_shortcuts.zig
 src/apprt/gtk/class/imgui_widget.zig
 src/apprt/gtk/class/inspector_widget.zig
 src/apprt/gtk/class/inspector_window.zig
 src/apprt/gtk/class/key_state_overlay.zig
+src/apprt/gtk/class/render_surface.zig
 src/apprt/gtk/class/resize_overlay.zig
 src/apprt/gtk/class/search_overlay.zig
 src/apprt/gtk/class/split_tree.zig
@@ -40,6 +42,7 @@ src/apprt/gtk/class/surface_scrolled_window.zig
 src/apprt/gtk/class/tab.zig
 src/apprt/gtk/class/title_dialog.zig
 src/apprt/gtk/class/window.zig
+src/apprt/gtk/desktop_notifications.zig
 src/apprt/gtk/ext.zig
 src/apprt/gtk/ext/actions.zig
 src/apprt/gtk/ext/slice.zig
@@ -56,6 +59,7 @@ src/apprt/gtk/portal.zig
 src/apprt/gtk/portal/OpenURI.zig
 src/apprt/gtk/post_fork.zig
 src/apprt/gtk/pre_exec.zig
+src/apprt/gtk/scale.zig
 src/apprt/gtk/weak_ref.zig
 src/apprt/gtk/winproto.zig
 src/apprt/gtk/winproto/BlurRegion.zig
@@ -152,12 +156,14 @@ src/datastruct/blocking_queue.zig
 src/datastruct/cache_table.zig
 src/datastruct/circ_buf.zig
 src/datastruct/comparison.zig
+src/datastruct/comptime_int_set.zig
 src/datastruct/intrusive_linked_list.zig
 src/datastruct/limited_allocator.zig
 src/datastruct/main.zig
 src/datastruct/message_data.zig
 src/datastruct/segmented_list.zig
 src/datastruct/split_tree.zig
+src/datastruct/untouched_pool.zig
 src/datastruct/wasm_page_pool.zig
 src/extra/bash.zig
 src/extra/fish.zig
@@ -188,6 +194,7 @@ src/font/glyf_rasterize_png_test.zig
 src/font/library.zig
 src/font/main.zig
 src/font/nerd_font_attributes.zig
+src/font/nerd_font_tables.zig
 src/font/opentype.zig
 src/font/opentype/glyf.zig
 src/font/opentype/head.zig
@@ -261,10 +268,15 @@ src/lib/compat/thread.zig
 src/lib/enum.zig
 src/lib/main.zig
 src/lib/packed.zig
+src/lib/parse_int.zig
 src/lib/struct.zig
 src/lib/target.zig
+src/lib/tinyio/posix.zig
+src/lib/tinyio/test.zig
+src/lib/tinyio/windows.zig
 src/lib/types.zig
 src/lib/union.zig
+src/lib/windows_dll.zig
 src/lib_vt.zig
 src/main_c.zig
 src/main_ghostty.zig
@@ -306,13 +318,14 @@ src/pty.zig
 src/quirks.zig
 src/quirks_memset.zig
 src/renderer.zig
+src/renderer/DisplayLink.zig
+src/renderer/Dmabuf.zig
 src/renderer/Metal.zig
 src/renderer/OpenGL.zig
 src/renderer/Options.zig
 src/renderer/Overlay.zig
 src/renderer/State.zig
 src/renderer/Thread.zig
-src/renderer/WebGL.zig
 src/renderer/backend.zig
 src/renderer/cell.zig
 src/renderer/cursor.zig
@@ -320,6 +333,7 @@ src/renderer/generic.zig
 src/renderer/image.zig
 src/renderer/link.zig
 src/renderer/message.zig
+src/renderer/metal/Device.zig
 src/renderer/metal/Frame.zig
 src/renderer/metal/IOSurfaceLayer.zig
 src/renderer/metal/Pipeline.zig
@@ -330,6 +344,7 @@ src/renderer/metal/Texture.zig
 src/renderer/metal/api.zig
 src/renderer/metal/buffer.zig
 src/renderer/metal/shaders.zig
+src/renderer/opengl/Device.zig
 src/renderer/opengl/Frame.zig
 src/renderer/opengl/Pipeline.zig
 src/renderer/opengl/RenderPass.zig
@@ -402,6 +417,7 @@ src/terminal/c/paste.zig
 src/terminal/c/render.zig
 src/terminal/c/result.zig
 src/terminal/c/row.zig
+src/terminal/c/search.zig
 src/terminal/c/selection.zig
 src/terminal/c/selection_gesture.zig
 src/terminal/c/sgr.zig
@@ -452,6 +468,7 @@ src/terminal/kitty/graphics_render.zig
 src/terminal/kitty/graphics_storage.zig
 src/terminal/kitty/graphics_unicode.zig
 src/terminal/kitty/key.zig
+src/terminal/kitty/windows.zig
 src/terminal/lib.zig
 src/terminal/main.zig
 src/terminal/mem.zig
@@ -465,7 +482,7 @@ src/terminal/osc/parsers/change_window_icon.zig
 src/terminal/osc/parsers/change_window_title.zig
 src/terminal/osc/parsers/clipboard_operation.zig
 src/terminal/osc/parsers/color.zig
-src/terminal/osc/parsers/context_signal.zig
+src/terminal/osc/parsers/hierarchical_context.zig
 src/terminal/osc/parsers/hyperlink.zig
 src/terminal/osc/parsers/iterm2.zig
 src/terminal/osc/parsers/kitty_clipboard_protocol.zig
@@ -475,9 +492,11 @@ src/terminal/osc/parsers/kitty_dnd_protocol.zig
 src/terminal/osc/parsers/kitty_text_sizing.zig
 src/terminal/osc/parsers/mouse_shape.zig
 src/terminal/osc/parsers/osc9.zig
+src/terminal/osc/parsers/program_status.zig
 src/terminal/osc/parsers/report_pwd.zig
 src/terminal/osc/parsers/rxvt_extension.zig
 src/terminal/osc/parsers/semantic_prompt.zig
+src/terminal/osc/parsers/unknown.zig
 src/terminal/page.zig
 src/terminal/parse_table.zig
 src/terminal/paste.zig
@@ -491,6 +510,7 @@ src/terminal/search/active.zig
 src/terminal/search/pagelist.zig
 src/terminal/search/screen.zig
 src/terminal/search/sliding_window.zig
+src/terminal/search/terminal.zig
 src/terminal/search/viewport.zig
 src/terminal/selection_codepoints.zig
 src/terminal/sgr.zig
@@ -504,6 +524,7 @@ src/terminal/snapshot/grid.zig
 src/terminal/snapshot/history.zig
 src/terminal/snapshot/hyperlink.zig
 src/terminal/snapshot/io.zig
+src/terminal/snapshot/kitty.zig
 src/terminal/snapshot/main.zig
 src/terminal/snapshot/page.zig
 src/terminal/snapshot/record.zig
@@ -522,6 +543,7 @@ src/terminal/tmux/layout.zig
 src/terminal/tmux/output.zig
 src/terminal/tmux/viewer.zig
 src/terminal/x11_color.zig
+src/terminal/xt_checksum.zig
 src/terminfo/Source.zig
 src/terminfo/ghostty.zig
 src/terminfo/main.zig

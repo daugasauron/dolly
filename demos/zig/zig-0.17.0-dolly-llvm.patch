@@ -1,0 +1,174 @@
+--- a/lib/std/Io/Dir.zig
++++ b/lib/std/Io/Dir.zig
+@@ -63,6 +63,7 @@
+     // as large as the largest max_name_bytes (Windows) in order to work on any host OS.
+     // TODO determine if this is a reasonable approach
+     .wasi => std.os.windows.NAME_MAX * 3,
++    .emscripten => std.os.emscripten.NAME_MAX,
+     else => if (@hasDecl(root, "os") and @hasDecl(root.os, "NAME_MAX"))
+         root.os.NAME_MAX
+     else
+--- a/lib/std/Io/Threaded.zig
++++ b/lib/std/Io/Threaded.zig
+@@ -7648,6 +7648,14 @@
+     if (is_windows) return dirRenameWindowsInner(old_dir, old_sub_path, new_dir, new_sub_path, false);
+     if (is_darwin) return dirRenamePreserveDarwin(old_dir, old_sub_path, new_dir, new_sub_path);
+     if (native_os == .linux) return dirRenamePreserveLinux(old_dir, old_sub_path, new_dir, new_sub_path);
++    // Dolly, Emscripten's libc in a browser, has no hard links: refuse a
++    // destination that exists, then rename (not atomic against a second writer).
++    if (native_os == .emscripten) {
++        if (dirAccess(userdata, new_dir, new_sub_path, .{ .follow_symlinks = false })) |_| {
++            return error.PathAlreadyExists;
++        } else |_| {}
++        return dirRename(userdata, old_dir, old_sub_path, new_dir, new_sub_path);
++    }
+     // Make a hard link then delete the original.
+     try dirHardLink(t, old_dir, old_sub_path, new_dir, new_sub_path, .{ .follow_symlinks = false });
+     const prev = swapCancelProtection(t, .blocked);
+@@ -10592,7 +10600,7 @@
+                 else => |e| return e,
+             };
+         },
+-        .linux, .serenity => return Io.Dir.readLinkAbsolute(io(t), "/proc/self/exe", out_buffer) catch |err| switch (err) {
++        .linux, .serenity, .emscripten => return Io.Dir.readLinkAbsolute(io(t), "/proc/self/exe", out_buffer) catch |err| switch (err) {
+             error.UnsupportedReparsePointType => unreachable, // Windows-only
+             error.NetworkNotFound => unreachable, // Windows-only
+             error.FileBusy => unreachable, // Windows-only
+--- a/lib/std/zig/system.zig
++++ b/lib/std/zig/system.zig
+@@ -507,6 +507,9 @@
+     switch (family) {
+         .loongarch => return @import("system/loongarch.zig").detectNativeCpuAndFeatures(cpu_arch),
+         .x86 => return @import("system/x86.zig").detectNativeCpuAndFeatures(cpu_arch),
++        // A WebAssembly host cannot be asked; it runs this compiler, so it
++        // has the features the compiler was built with.
++        .wasm => return builtin.cpu,
+         else => {},
+     }
+ 
+--- a/src/Compilation.zig
++++ b/src/Compilation.zig
+@@ -2522,10 +2522,12 @@
+                 }
+             }
+ 
+-            if (comp.wantBuildLibUnwindFromSource()) {
++            // Emscripten's libc is the system's, whose cc links the C++ runtime.
++            const system_cxx_runtime = target.os.tag == .emscripten;
++            if (!system_cxx_runtime and comp.wantBuildLibUnwindFromSource()) {
+                 comp.queued_jobs.libunwind = true;
+             }
+-            if (build_options.have_llvm and is_exe_or_dyn_lib and comp.config.link_libcpp) {
++            if (!system_cxx_runtime and build_options.have_llvm and is_exe_or_dyn_lib and comp.config.link_libcpp) {
+                 comp.queued_jobs.libcxx = true;
+                 comp.queued_jobs.libcxxabi = true;
+             }
+--- a/src/link/Lld.zig
++++ b/src/link/Lld.zig
+@@ -1440,6 +1440,9 @@
+         // Create an LLD command line and invoke it.
+         var argv = std.array_list.Managed([]const u8).init(gpa);
+         defer argv.deinit();
++        if (target.os.tag == .emscripten) {
++            return emscriptenLink(lld, arena, full_out_path, zcu_obj_path, compiler_rt_path, ubsan_rt_path);
++        }
+         // We will invoke ourselves as a child process to gain access to LLD.
+         // This is necessary because LLD does not behave properly as a library -
+         // it calls exit() and does not reset all global data between invocations.
+@@ -1639,6 +1642,56 @@
+     }
+ }
+ 
++/// Emscripten's libc is the system's, and so is its link: the system's cc
++/// adds the libc, its start file and what the system records in a program.
++fn emscriptenLink(
++    lld: *Lld,
++    arena: Allocator,
++    full_out_path: []const u8,
++    zcu_obj_path: ?Cache.Path,
++    compiler_rt_path: ?Cache.Path,
++    ubsan_rt_path: ?Cache.Path,
++) !void {
++    const comp = lld.base.comp;
++    var argv: std.ArrayList([]const u8) = .empty;
++    try argv.appendSlice(arena, &.{ "cc", "-o", full_out_path });
++    if (comp.config.output_mode == .Lib) try argv.append(arena, "-shared");
++    if (comp.config.rdynamic) try argv.append(arena, "-rdynamic");
++    if (comp.config.any_non_single_threaded) try argv.append(arena, "-pthread");
++    if (comp.config.link_libcpp) try argv.append(arena, "-lc++");
++    for (comp.link_inputs) |link_input| switch (link_input) {
++        .object, .archive => |obj| {
++            const path = try obj.path.toString(arena);
++            try argv.appendSlice(arena, if (obj.must_link) &.{ "-Wl,--whole-archive", path, "-Wl,--no-whole-archive" } else &.{path});
++        },
++        .dso => |dso| try argv.append(arena, try dso.path.toString(arena)),
++        .res, .tbd => unreachable,
++    };
++    for (comp.c_objects.items) |c_object| {
++        try argv.append(arena, try c_object.status.success.object_path.toString(arena));
++    }
++    for ([_]?Cache.Path{ zcu_obj_path, compiler_rt_path, ubsan_rt_path }) |optional| {
++        if (optional) |p| try argv.append(arena, try p.toString(arena));
++    }
++    if (comp.verbose_link) try Compilation.dumpArgv(comp.io, argv.items);
++
++    // cc speaks for itself and for the linker it runs, so its whole stderr is
++    // the error; spawnLld's parser keeps only lines that begin with LLD's name.
++    const io = comp.io;
++    const diags = &comp.link_diags;
++    var child = std.process.spawn(io, .{ .argv = argv.items, .stdin = .ignore, .stdout = .ignore, .stderr = .pipe }) catch |err|
++        return diags.fail("unable to spawn cc: {t}", .{err});
++    var stderr_reader = child.stderr.?.readerStreaming(io, &.{});
++    const stderr = stderr_reader.interface.allocRemaining(arena, .unlimited) catch |err|
++        return diags.fail("unable to read cc's stderr: {t}", .{err});
++    const term = child.wait(io) catch |err| return diags.fail("unable to wait for cc: {t}", .{err});
++    switch (term) {
++        .exited => |code| if (code == 0) return,
++        else => {},
++    }
++    return diags.fail("cc failed ({any}):\n{s}", .{ term, stderr });
++}
++
+ fn spawnLld(comp: *Compilation, arena: Allocator, argv: []const []const u8) !void {
+     const io = comp.io;
+ 
+--- a/src/main.zig
++++ b/src/main.zig
+@@ -5142,6 +5142,14 @@
+             try root_mod.deps.put(arena, "aro", aro_mod);
+         }
+ 
++        // Emscripten's libc is the system's, which ZIG_LIBC names, as for `zig build-exe`.
++        const libc_installation: ?*const LibCInstallation = if (native_os == .emscripten) lci: {
++            const paths_file = EnvVar.ZIG_LIBC.get(environ_map) orelse break :lci null;
++            const lci = try arena.create(LibCInstallation);
++            lci.* = try .parse(arena, io, paths_file, &resolved_target.result);
++            break :lci lci;
++        } else null;
++
+         var create_diag: Compilation.CreateDiagnostic = undefined;
+         const comp = Compilation.create(gpa, arena, io, &create_diag, .{
+             .dirs = dirs,
+@@ -5154,6 +5162,7 @@
+             .thread_limit = thread_limit,
+             .cache_mode = .whole,
+             .environ_map = environ_map,
++            .libc_installation = libc_installation,
+         }) catch |err| switch (err) {
+             error.CreateFail => fatal("failed to create compilation: {f}", .{create_diag}),
+             else => fatal("failed to create compilation: {t}", .{err}),
+--- a/src/zig_clang_driver.cpp
++++ b/src/zig_clang_driver.cpp
+@@ -74,7 +74,11 @@
+   // This just needs to be some symbol in the binary; C++ doesn't
+   // allow taking the address of ::main however.
+   void *P = (void*) (intptr_t) GetExecutablePath;
+-  return llvm::sys::fs::getMainExecutable(Argv0, P);
++  std::string Path = llvm::sys::fs::getMainExecutable(Argv0, P);
++  // Where LLVM finds no path of its own (Dolly: Emscripten's libc has no
++  // dladdr), the program is the one it was started as, which runs the
++  // assembler (-cc1as) as a process of its own.
++  return Path.empty() ? GetExecutablePath(Argv0, false) : Path;
+ }
+ 
+ static const char *GetStableCStr(llvm::StringSet<> &SavedStrings, StringRef S) {

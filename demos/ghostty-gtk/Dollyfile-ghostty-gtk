@@ -10,8 +10,8 @@ REQUIRES HOST threads@0
 # mesa-build: libadwaita, blueprint-compiler for its interface files, and
 # Ghostty's own build.zig
 # (ghostty-dolly.patch; its packages fetched on the host, prepare-ghostty.sh).
-FROM /v0.1.4/demos/ghostty-gtk/Dollyfile-mesa-build 4f04964c0013167e31df1e0f5d8ee7c2aa9179236c17eb5a9b6e4d339bc64c67
-USE /v0.1.4/demos/zig/Dollyfile-zig-llvm f6086c2bc98ef21613abd297b8cddd9f0eb5a35a7c4546614d4f2a547d3cd7a2
+FROM /v0.1.4/demos/ghostty-gtk/Dollyfile-mesa-build 5f41befc2e7f5825745cc33e0b1fe2dcba79c8159fb25ae0787f0dae434d0c41
+USE /v0.1.4/demos/zig/Dollyfile-zig-llvm fa63a0b13cd8a6c51ee7d28b601a93333c0cca3e4ee42e6d146c847f22f8aeb9
 
 REQUIRES TOOL   c++
 REQUIRES TOOL   cc
@@ -100,10 +100,10 @@ SLOP gzip -dc /tmp/ghostty.tar.gz | tar -xf - -C /
 # files (it says so): it would run xmllint by fork.
 SLOP CWD /tmp/ghostty PATH=/tmp/ghostty-cc:$PATH ZIG_LIBC=/usr/lib/zig/libc.txt zig build -Dapp-runtime=gtk -Doptimize=ReleaseFast \
   -Dgtk-wayland=false -Dsentry=false -Di18n=false -Demit-docs=false -Demit-terminfo=false -Demit-termcap=false \
-  -Dversion-string=1.3.2-dev -fsys=freetype -fsys=harfbuzz -fsys=fontconfig -fsys=libpng -fsys=zlib \
+  -Dversion-string=1.4.0 -fsys=freetype -fsys=harfbuzz -fsys=fontconfig -fsys=libpng -fsys=zlib \
   --search-prefix /tmp/ghostty-prefix --summary none
 SLOP cp /tmp/ghostty/zig-out/bin/ghostty.wasm /usr/bin/ghostty
-SLOP ghostty +version | grep -q 'Ghostty 1.3.2-dev'
+SLOP ghostty +version | grep -q 'Ghostty 1.4.0'
 
 SLOP mkdir -p /usr/share/licenses/ghostty-gtk
 SLOP cp /tmp/ghostty/LICENSE /usr/share/licenses/ghostty-gtk/ghostty-LICENSE

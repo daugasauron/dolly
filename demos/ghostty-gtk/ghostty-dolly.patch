@@ -1,35 +1,34 @@
 --- a/build.zig
 +++ b/build.zig
-@@ -138,7 +138,8 @@
-             &mod,
-         );
-     };
--    libghostty_vt_shared.install(b.getInstallStep());
-+    // Dolly (Emscripten) links no shared library, and the wasm one is the browser's.
-+    if (config.target.result.os.tag != .emscripten) libghostty_vt_shared.install(b.getInstallStep());
- 
-     const type_schema_test = b.addSystemCommand(&.{"python3"});
-     type_schema_test.addFileArg(b.path("src/terminal/c/types-schema-verify.py"));
+@@ -129,6 +129,8 @@
+     const native_freestanding = config.target.result.os.tag == .freestanding and
+         !config.target.result.cpu.arch.isWasm();
+     const libghostty_vt_shared: ?buildpkg.GhosttyLibVt = shared: {
++        // Dolly (Emscripten) links no shared library, and the wasm one is the browser's.
++        if (config.target.result.os.tag == .emscripten) break :shared null;
+         if (config.target.result.cpu.arch.isWasm()) {
+             break :shared try buildpkg.GhosttyLibVt.initWasm(
+                 b,
 --- a/pkg/dcimgui/build.zig
 +++ b/pkg/dcimgui/build.zig
-@@ -153,10 +153,13 @@
+@@ -157,10 +157,13 @@
              );
          }
          if (backend_opengl3) {
 +            // To imgui, Emscripten means WebGL; Dolly's GL is Mesa's desktop GL.
-+            var opengl3_flags = try flags.clone(b.allocator);
++            var opengl3_flags = try all_flags.clone(b.allocator);
 +            if (target.result.os.tag == .emscripten) try opengl3_flags.append(b.allocator, "-U__EMSCRIPTEN__");
              lib.root_module.addCSourceFiles(.{
                  .root = upstream.path("backends"),
                  .files = &.{"imgui_impl_opengl3.cpp"},
--                .flags = flags.items,
+-                .flags = all_flags.items,
 +                .flags = opengl3_flags.items,
              });
              lib.installHeadersDirectory(
                  upstream.path("backends"),
 --- a/pkg/glslang/build.zig
 +++ b/pkg/glslang/build.zig
-@@ -54,6 +54,8 @@
+@@ -59,6 +59,8 @@
              // headers. The MSVC SDK include directories (added via linkLibC)
              // contain both C and C++ headers, so linkLibCpp is not needed.
              .link_libcpp = target.result.abi != .msvc,
@@ -40,7 +39,7 @@
      });
 --- a/src/App.zig
 +++ b/src/App.zig
-@@ -625,7 +625,7 @@
+@@ -603,7 +603,7 @@
  };
  
  // Wasm API.
@@ -53,7 +52,7 @@
 +++ b/src/Command.zig
 @@ -171,10 +171,79 @@
  
-     switch (builtin.os.tag) {
+     switch (builtin.target.os.tag) {
          .windows => try self.startWindows(arena),
 +        .emscripten => try self.startSpawn(arena),
          else => try self.startPosix(arena),
@@ -157,24 +156,23 @@
          // install it. The resulting value here is the termcap source in case
 --- a/src/build/SharedDeps.zig
 +++ b/src/build/SharedDeps.zig
-@@ -211,6 +211,7 @@
+@@ -203,12 +203,15 @@
          .freebsd,
          .linux,
          .macos,
 +        .emscripten,
          => {
-             const c = b.addTranslateC(.{
-                 .root_source_file = b.path("src/pty.c"),
-@@ -233,6 +234,8 @@
-                 else => {},
-             }
-             step.root_module.addImport("pty-c", c.createModule());
+             try translate_c.addImportToModule(b, "pty-c", step.root_module, .{
+                 .source = .{ .file = b.path("src/pty.c") },
+                 .target = target,
+                 .optimize = optimize,
+             });
 +            // Dolly's openpty is pty@0's client.
 +            if (target.result.os.tag == .emscripten) step.root_module.linkSystemLibrary("dolly-pty", .{});
          },
          else => {},
      }
-@@ -251,7 +254,8 @@
+@@ -242,7 +245,8 @@
          );
  
          if (b.systemIntegrationOption("freetype", .{})) {
@@ -209,7 +207,7 @@
      @import("std").testing.refAllDecls(@This());
 --- a/src/config/Config.zig
 +++ b/src/config/Config.zig
-@@ -4725,7 +4725,7 @@
+@@ -4807,7 +4807,7 @@
      // If we are missing either a command or home directory, we need
      // to look up defaults which is kind of expensive. We only do this
      // on desktop.
@@ -244,7 +242,7 @@
 --- a/src/input/keycodes.zig
 +++ b/src/input/keycodes.zig
 @@ -11,7 +11,7 @@
-     const native_idx = switch (builtin.os.tag) {
+     const native_idx = switch (builtin.target.os.tag) {
          .ios, .macos => 4, // mac
          .windows => 3, // win
 -        .freebsd, .linux => 2, // xkb
@@ -257,7 +255,7 @@
 @@ -12,7 +12,7 @@
  /// is generally an expensive process so the value should be cached.
  pub inline fn home(io: std.Io, environ_map: *const std.process.Environ.Map, buf: []u8) !?[]const u8 {
-     return switch (builtin.os.tag) {
+     return switch (builtin.target.os.tag) {
 -        .linux, .freebsd, .macos => try homeUnix(io, environ_map, buf),
 +        .linux, .freebsd, .macos, .emscripten => try homeUnix(io, environ_map, buf),
          .windows => homeWindows(environ_map, buf) catch return error.BufferTooSmall,
@@ -266,7 +264,7 @@
 @@ -104,7 +104,7 @@
      buf: []u8,
  ) ExpandError![]const u8 {
-     return switch (builtin.os.tag) {
+     return switch (builtin.target.os.tag) {
 -        .linux, .freebsd, .macos => try expandHomeUnix(io, environ_map, path, buf),
 +        .linux, .freebsd, .macos, .emscripten => try expandHomeUnix(io, environ_map, path, buf),
  
@@ -274,10 +272,10 @@
          .windows => return path,
 --- a/src/os/open.zig
 +++ b/src/os/open.zig
-@@ -28,7 +28,7 @@
+@@ -32,7 +32,7 @@
      }
  
-     var spawn_opts: std.process.SpawnOptions = switch (builtin.os.tag) {
+     var spawn_opts: std.process.SpawnOptions = switch (builtin.target.os.tag) {
 -        .linux, .freebsd => .{ .argv = &.{ "xdg-open", url } },
 +        .linux, .freebsd, .emscripten => .{ .argv = &.{ "xdg-open", url } },
          .windows => .{ .argv = &.{ "rundll32", "url.dll,FileProtocolHandler", url } },
@@ -302,7 +300,7 @@
  /// Our specific target platform.
 -pub const target: ?Target = if (!builtin.target.cpu.arch.isWasm()) null else target: {
 +pub const target: ?Target = if (!builtin.target.cpu.arch.isWasm() or builtin.link_libc) null else target: {
-     const result = @as(Target, @enumFromInt(@intFromEnum(options.wasm_target)));
+     const result = @as(Target, @fromBackingInt(@backingInt(options.wasm_target)));
      // This maybe isn't necessary but I don't know if enums without a specific
      // tag type and value are guaranteed to be the same between build.zig
 --- a/src/pty.c
@@ -316,41 +314,9 @@
  
    #define _GNU_SOURCE // ptsname_r
    #include <pty.h> // openpty
---- a/src/renderer/OpenGL.zig
-+++ b/src/renderer/OpenGL.zig
-@@ -129,6 +129,11 @@
-     });
- }
- 
-+/// GTK's context, loaded by glad from the libGL it opens; Emscripten's
-+/// (Dolly's) GL is linked into the program, and GLX resolves its functions.
-+const gtk_get_proc_address = if (builtin.os.tag == .emscripten) &glXGetProcAddressARB else null;
-+extern "c" fn glXGetProcAddressARB(name: [*:0]const u8) ?*const fn () callconv(.c) void;
-+
- /// Prepares the provided GL context, loading it with glad.
- fn prepareContext(getProcAddress: anytype) !void {
-     const version = try gl.glad.load(getProcAddress);
-@@ -167,7 +172,7 @@
- 
-         // GTK uses global OpenGL context so we load from null.
-         apprt.gtk,
--        => try prepareContext(null),
-+        => try prepareContext(gtk_get_proc_address),
- 
-         apprt.embedded => {
-             // TODO(mitchellh): this does nothing today to allow libghostty
-@@ -238,7 +243,7 @@
-     _ = self;
- 
-     switch (apprt.runtime) {
--        apprt.gtk => prepareContext(null) catch |err| {
-+        apprt.gtk => prepareContext(gtk_get_proc_address) catch |err| {
-             log.warn(
-                 "Error preparing GL context in displayRealized, err={}",
-                 .{err},
 --- a/src/renderer/generic.zig
 +++ b/src/renderer/generic.zig
-@@ -1788,13 +1788,37 @@
+@@ -1908,13 +1908,37 @@
              var frame_ctx = try self.api.beginFrame(self, &frame.target);
              defer frame_ctx.complete(sync);
  
@@ -389,7 +355,7 @@
                  }});
                  defer pass.complete();
  
-@@ -1818,11 +1842,12 @@
+@@ -1939,11 +1963,12 @@
                      }),
                      else => {},
                  } else {
@@ -403,7 +369,7 @@
                      });
                  }
  
-@@ -1836,7 +1861,15 @@
+@@ -1957,7 +1982,15 @@
                  );
  
                  // Then we draw any opaque cell backgrounds.
@@ -420,7 +386,7 @@
                      .pipeline = self.shaders.pipelines.cell_bg,
                      .uniforms = frame.uniforms.buffer,
                      .buffers = &.{ null, frame.cells_bg.buffer },
-@@ -2177,6 +2210,38 @@
+@@ -2303,6 +2336,38 @@
              };
          }
  
@@ -487,7 +453,7 @@
          0,
 --- a/src/termio/Exec.zig
 +++ b/src/termio/Exec.zig
-@@ -1052,7 +1052,8 @@
+@@ -1053,7 +1053,8 @@
                      break :f f.callback;
                  },
              },

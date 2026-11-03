@@ -1,5 +1,5 @@
 DOLLY 7
-TOOLCHAIN llvm21-tablegen
+TOOLCHAIN llvm22-tablegen
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
@@ -8,11 +8,11 @@ REQUIRES HOST http@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
-# Build-only: LLVM 21 with every default target, the version Zig 0.16 links,
+# Build-only: LLVM 22 with every default target, the version Zig 0.17 links,
 # configured by CMake inside Dolly, and its TableGen tools.
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 60f904de4d5d42d74b3d11c1228b081afbcece27719a81b13bf8930977d46a83
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build d3549ef060a35f50aa1c7c18a8cfed2b3aebda05e912394866b3e5f24d33eb97
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL /v0.1.4/demos/python/Dollyfile-python a3ae00b53626377b0b5754732d3fc7a3cea03dbaeca7f1502f29139836e0d99f
+INSTALL /v0.1.4/demos/python/Dollyfile-python 3f78c7663ac979e5c684fea2a5540d09a71c2746d2501c857dcc0790cabdd3b3
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python
@@ -25,22 +25,22 @@ REQUIRES TOOL time
 REQUIRES TOOL cp
 REQUIRES TOOL rm
 
-SOURCE /v0.1.4/dist/static/llvm21/llvm-project.tar.gz 3042fa04776a40e02e800b71105d7c8199b9c5dd7b951a715d0edd208238daed /tmp/llvm-project.tar.gz
+SOURCE /v0.1.4/dist/static/llvm22/llvm-project.tar.gz 3042fa04776a40e02e800b71105d7c8199b9c5dd7b951a715d0edd208238daed /tmp/llvm-project.tar.gz
 SLOP time slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
 # LLVM runs config.guess even when LLVM_HOST_TRIPLE is given; it knows no Dolly host.
-SOURCE /v0.1.4/dist/static/llvm21/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
+SOURCE /v0.1.4/dist/static/llvm22/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/llvm-project -i /tmp/llvm-host-triple.patch
 
 # As the seed's LLVM is configured (llvm-tablegen), with every target Zig
-# requires (its cmake/Findllvm.cmake) and installed under /usr/lib/llvm21.
-FILE /usr/lib/llvm21-build/Dolly.cmake
+# requires (its cmake/Findllvm.cmake) and installed under /usr/lib/llvm22.
+FILE /usr/lib/llvm22-build/Dolly.cmake
     set(CMAKE_BUILD_TYPE Release CACHE STRING "")
     set(CMAKE_C_FLAGS "-std=gnu17" CACHE STRING "")
     set(CMAKE_CXX_FLAGS "-include endian.h -DCLANG_BUILD_STATIC" CACHE STRING "")
     set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON CACHE BOOL "")
     set(CMAKE_RULE_MESSAGES OFF CACHE BOOL "")
-    set(CMAKE_INSTALL_PREFIX /usr/lib/llvm21 CACHE STRING "")
+    set(CMAKE_INSTALL_PREFIX /usr/lib/llvm22 CACHE STRING "")
     set(LLVM_ENABLE_WARNINGS OFF CACHE BOOL "")
     set(LLVM_ENABLE_PROJECTS "clang;lld" CACHE STRING "")
     set(LLVM_TARGETS_TO_BUILD "AArch64;AMDGPU;ARM;AVR;BPF;Hexagon;Lanai;LoongArch;Mips;MSP430;NVPTX;PowerPC;RISCV;SPIRV;Sparc;SystemZ;VE;WebAssembly;X86;XCore" CACHE STRING "")
@@ -54,7 +54,7 @@ FILE /usr/lib/llvm21-build/Dolly.cmake
     endforeach()
     set(LLVM_BUILD_LLVM_DYLIB OFF CACHE BOOL "")
     set(LLVM_LINK_LLVM_DYLIB OFF CACHE BOOL "")
-SLOP time cmake -C /usr/lib/llvm21-build/Dolly.cmake -S /tmp/llvm-project/llvm -B /tmp/llvm-build
+SLOP time cmake -C /usr/lib/llvm22-build/Dolly.cmake -S /tmp/llvm-project/llvm -B /tmp/llvm-build
 
 # Each job is three processes (Slop, c++, compiler); -j8 exceeds the 32-process cap.
 SLOP CWD /tmp/llvm-build time make -j4 llvm-min-tblgen llvm-tblgen clang-tblgen
@@ -64,7 +64,7 @@ SLOP rm -rf /tmp/llvm-build /tmp/llvm-project
 EXPORTS TOOL llvm-min-tblgen
 EXPORTS TOOL llvm-tblgen
 EXPORTS TOOL clang-tblgen
-FOLDER /usr/lib/llvm21-build
+FOLDER /usr/lib/llvm22-build
 SLOP llvm-tblgen --version
 
 ENTRY /bin/foreground -i /bin/slop

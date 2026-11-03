@@ -3,7 +3,7 @@ TOOLCHAIN zig-llvm-build
 REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 
-# Build-only: Zig 0.16 compiled to C as upstream's CMake build makes zig2 for
+# Build-only: Zig 0.17 compiled to C as upstream's CMake build makes zig2 for
 # LLVM, zig1 (upstream's zig1.wasm, run by WAMR as in zig-build) with
 # upstream's stage1/config.zig.in, and cc's objects of it. zig-llvm links
 # them with LLVM.
@@ -105,10 +105,8 @@ SLOP CWD / /tmp/zig/zig1 \
   --name zig2 \
   -femit-bin=tmp/zig/zig2.c \
   --dep build_options \
-  --dep aro \
   -Mroot=tmp/zig/src/main.zig \
-  -Mbuild_options=tmp/zig/config.zig \
-  -Maro=usr/lib/zig/compiler/aro/aro.zig
+  -Mbuild_options=tmp/zig/config.zig
 SLOP CWD / /tmp/zig/zig1 \
   /tmp/zig/stage1/zig1.wasm \
   /usr/lib/zig \

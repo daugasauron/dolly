@@ -14,7 +14,7 @@ REQUIRES HEADER libc
 REQUIRES TOOL   cc
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.4/dist/static/default/zig.tar  ecb90770bd24a400120a74903557134642902eb4656d1f7dd3fe5a9eebb11943 /tmp/zig.tar
+SOURCE /v0.1.4/dist/static/default/zig.tar  4cec52ed75d44c9fcbf52f9c61594c7be1f7ae5dd48b1c74d8c64fb773c670d8 /tmp/zig.tar
 SOURCE /v0.1.4/dist/static/default/wamr.tar d35ec64a48e61f6a65397d3d9f13823735a94623a9dcd007b093279e5e0e3615 /tmp/wamr.tar
 SLOP tar \
   -xf /tmp/zig.tar \
@@ -107,10 +107,8 @@ SLOP CWD / /tmp/zig/zig1 \
   --name zig2 \
   -femit-bin=tmp/zig/zig2.c \
   --dep build_options \
-  --dep aro \
   -Mroot=tmp/zig/src/main.zig \
-  -Mbuild_options=tmp/zig/config.zig \
-  -Maro=usr/lib/zig/compiler/aro/aro.zig
+  -Mbuild_options=tmp/zig/config.zig
 SLOP CWD / /tmp/zig/zig1 \
   /tmp/zig/stage1/zig1.wasm \
   /usr/lib/zig \

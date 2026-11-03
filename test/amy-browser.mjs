@@ -407,7 +407,8 @@ const tools = {
   "pi-dolly": ["pi", "pi --version > /dev/null && ! cc --version 2> /dev/null && amy installed | grep -q '^pi ' && " +
     "test -s /home/dolly/.pi/agent/SYSTEM.md && test -s /home/dolly/.pi/agent/extensions/dolly-tools.js && test -s /usr/share/doc/dolly/docs/slop.md"],
   // The two ways its manual page gives: a function for a C program, and a program with the standard library.
-  zig: ["zig", "mkdir /tmp/amy-zig && cd /tmp/amy-zig && printf 'export fn answer() c_int { return 42; }\\n' > answer.zig && " +
+  // A package's environment applies from the next session load: ZIG_LIBC is named here.
+  zig: ["zig", "export ZIG_LIBC=/usr/lib/zig/libc.txt && mkdir /tmp/amy-zig && cd /tmp/amy-zig && printf 'export fn answer() c_int { return 42; }\\n' > answer.zig && " +
     "printf 'int answer(void); int main(void) { return answer(); }\\n' > main.c && zig build-obj -ofmt=c -femit-bin=answer.c answer.zig && " +
     "cc -I /usr/lib/zig main.c answer.c -o answer && man zig > /dev/null && ./answer; test $? = 42 && " +
     "printf 'const std = @import(\"std\");\\npub fn main() void { std.debug.print(\"{d}\", .{6 * 7}); }\\n' > hello.zig && " +
@@ -536,7 +537,7 @@ const elsewhere = {
   "libdolly-touch": "touch-browser.mjs", "stack-wrap": "stack-browser.mjs", html: "html-browser.mjs",
   libjpeg: "demos/xonotic", "xonotic-shaders": "demos/xonotic: xonotic-build installs it", spidermonkey: "demos/zero-ad",
   "xorg-server": "demos/x11", twm: "demos/x11", xclock: "demos/x11", xeyes: "demos/x11", xterm: "demos/x11",
-  imgui: "demos/sdl2", "imgui-x11": "demos/x11", llvm21: "demos/zig: zig-llvm uses it", "zig-llvm": "demos/zig",
+  imgui: "demos/sdl2", "imgui-x11": "demos/x11", llvm22: "demos/zig: zig-llvm uses it", "zig-llvm": "demos/zig",
   ffmpeg: "demos/ffmpeg", zsh: "demos/zsh", binaryen: "demos/zsh: zsh's build uses it", "ghostty-gtk": "demos/ghostty-gtk", ocaml: "demos/ocaml", lean: "demos/lean",
   "lean-std": "demos/lean: lean installs it", "lean-meta": "demos/lean: lean installs it",
   glib: "demos/ghostty-gtk: gtk-build installs it", pcre2: "demos/ghostty-gtk: glib uses it", libffi: "demos/ghostty-gtk: glib uses it",
