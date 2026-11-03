@@ -209,11 +209,17 @@ Worker URL.
   slot until the provider settles, so forged slot state or repeated cancellation
   cannot grow a host queue. The kernel acknowledges records by compare-exchange,
   so a late acknowledgement cannot erase a terminal failure.
+- A transfer holds its slot while it waits, so the policy's timeout bounds each
+  wait: for the response's headers, its next bytes, or the guest reading the
+  record before. A server that stops and a reader that never reads both free
+  the slot a timeout later. A transfer that keeps moving has no total limit; it
+  carries out only the body admission judged whole, and brings in at most
+  `maxResponseBytes`.
 - Multipart reassembly ([`static-asset.mjs`](../src/static-asset.mjs)) applies
   only to exact bootstrap sources (every inherited policy must agree), pinned
   snapshot packs and user-clicked source links. The manifest holds sizes and
   hashes, never destinations; parts are fixed `.part-N` siblings fetched without
-  guest headers, credentials, queries or redirects, within the original deadline
+  guest headers, credentials, queries or redirects, under the original timeout
   and byte bound (parts of 20 MiB, at most the largest snapshot, 2 GiB). A remote
   response cannot activate it.
 

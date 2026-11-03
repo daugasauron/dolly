@@ -6,7 +6,7 @@ REQUIRES HOST upload@0
 
 # The page's file exchange: download offers a file of the session to the
 # browser, upload takes one the user chooses.
-FROM /v0.1.4/Dollyfile-system-build 0779895ea18cb0f147556425e6bf4fb95275ebb1fb305317b60b681e3917ccda
+FROM /v0.1.4/Dollyfile-system-build 43f287debc874e19ff48c75af2b1e8a92caad16e736f3bebfce1127299f55737
 REQUIRES HEADER libc
 REQUIRES HEADER download
 REQUIRES HEADER upload

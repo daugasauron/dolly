@@ -216,6 +216,24 @@ test("a provider ignoring abort cannot hide a deadline or release its occupied s
   assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.ETIMEDOUT);
 });
 
+test("a response lasts as long as it moves and times out once it stops", async () => {
+  for (const stops of [false, true]) {
+    let sent = 0, last;
+    const f = fixture({ timeoutMilliseconds: 100 }, async () => new Response(new ReadableStream({ async pull(stream) {
+      await new Promise(resolve => setTimeout(resolve, 10));
+      if (sent < 30) { stream.enqueue(Uint8Array.of(sent++)); last = performance.now(); }
+      else if (stops) await new Promise(() => {});
+      else stream.close();
+    } })));
+    const records = await consume(f, f.request());
+    const body = records.filter(record => record.kind === 3).map(record => [...record.bytes]).flat();
+    assert.deepEqual(body, Array.from({ length: 30 }, (_, index) => index), "every byte of three timeouts' stream arrives");
+    if (!stops) { assert.equal(records.at(-1).eof, 1); continue; }
+    assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.ETIMEDOUT);
+    assert.ok(performance.now() - last >= 100, "cut no sooner than the timeout after its last bytes");
+  }
+});
+
 test("interrupting an old HTTP request does not abort or overwrite its successor", async () => {
   const signals = [];
   const f = fixture({}, async (_url, options) => {

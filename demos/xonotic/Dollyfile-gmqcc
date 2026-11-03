@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # gmqcc, the QuakeC compiler Xonotic's game logic is written for, from the
 # source of the pinned Xonotic release, compiled as upstream's Makefile does.
-FROM /v0.1.4/Dollyfile-system 4836e35d2e6479aedd132fbf76c08b05fcd3614e9be8e8b8892d6096854d71d9
+FROM /v0.1.4/Dollyfile-system 2cfa8e624fa3fc9bb57c13d2b6e1b93c490ab4e419b3ce45cfd2ebbb6018db7d
 REQUIRES TOOL c++
 REQUIRES TOOL tar
 

@@ -2,8 +2,8 @@ DOLLY 7
 PACKAGE gzip
 REQUIRES HOST runtime@0
 
-FROM /v0.1.4/Dollyfile-system-build 0779895ea18cb0f147556425e6bf4fb95275ebb1fb305317b60b681e3917ccda
-USE /v0.1.4/Dollyfile-zlib 96d6d2e8d0a24654203b03801ab8234e4f8c2e8ffce6197d1174a3c6dc81fb7a
+FROM /v0.1.4/Dollyfile-system-build 43f287debc874e19ff48c75af2b1e8a92caad16e736f3bebfce1127299f55737
+USE /v0.1.4/Dollyfile-zlib 224ec95baa86a51244920eb48a51d8f0476164f9700e739c7d7e7f5eaf77e268
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib

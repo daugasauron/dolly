@@ -4,8 +4,10 @@ import { browserTest } from "./browser.mjs";
 import { createGitTransportFixture, runGitTransport } from "./fixtures/git-transport.mjs";
 
 const fixtures = { "libcurl-contract.c": "test/fixtures/libcurl-contract.c" };
-let contractRequests, cancelledRequests, git, relayed;
+let contractRequests, cancelledRequests, git, relayed, streams;
 const overlapping = new Map();
+// The rule for /fixture/timeout/ times out after this many milliseconds.
+const timeout = 2000;
 // A relay as an embedding would run one: same origin as the page, an exact
 // upstream allowlist, the request passed on and the response returned.
 async function relay(request, response, url, headers) {
@@ -25,6 +27,19 @@ async function relay(request, response, url, headers) {
 async function handle(request, response, path, headers) {
   const url = new URL(request.url, "http://127.0.0.1");
   if (path.startsWith("/fixture/relay/")) { await relay(request, response, url, headers); return true; }
+  if (path.startsWith("/fixture/timeout/")) {
+    // A line every quarter timeout for three timeouts, then the end or
+    // silence; or silence before the headers.
+    const stream = { path, lines: 0, last: Date.now(), closed: null };
+    streams.push(stream);
+    const timer = path.endsWith("/silent") ? undefined : setInterval(() => {
+      if (stream.lines < 12) { response.write(`line ${++stream.lines}\n`); stream.last = Date.now(); }
+      else if (path.endsWith("/end")) response.end();
+    }, timeout / 4);
+    if (timer) response.writeHead(200, { ...headers, "content-type": "text/plain" });
+    response.once("close", () => { clearInterval(timer); stream.closed = Date.now(); });
+    return true;
+  }
   if (path === "/fixture/libcurl-contract" && url.searchParams.has("cancel")) {
     // The probe rejects this response in a callback; its connection must close.
     const record = { phase: url.searchParams.get("cancel"), finished: false, closed: false };
@@ -77,6 +92,7 @@ await browserTest("network", { image: "system", server: { fixtures, handle } }, 
       { origin: blocked, pathPrefix: "/fixture/", methods: ["GET"] },
       { origin: server.origin, path: "/fixture/http.txt", methods: ["GET"], maxResponseBytes: 8 },
       { origin: server.origin, path: "/fixture/libcurl-contract", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },
+      { origin: server.origin, pathPrefix: "/fixture/timeout/", methods: ["GET"], timeoutMilliseconds: timeout },
       { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"] },
     ] } });
     const run = async command => assert.equal(await submit(command), 0, command);
@@ -86,6 +102,19 @@ await browserTest("network", { image: "system", server: { fixtures, handle } }, 
     // Streams an 8 MiB request body through the echo fixture; one byte over the cap is refused.
     await run(`curl -fsS ${server.origin}/fixture/http-check.c -o /tmp/http-check.c && cc /tmp/http-check.c -o /tmp/http-check`);
     await run(`DOLLY_PROCESS_HTTP_POST_URL=${server.origin}/fixture/echo /tmp/http-check`);
+
+    // A transfer lasts as long as it moves: a stream of three timeouts
+    // completes. One that then stops, and a server that never answers, are cut
+    // a timeout after their last bytes (curl's status 28).
+    streams = [];
+    await run(`curl -fsS ${server.origin}/fixture/timeout/end -o /tmp/end && test "$(wc -l < /tmp/end)" = 12`);
+    assert.equal(await submit(`curl -sS ${server.origin}/fixture/timeout/stall -o /tmp/stall`), 28);
+    await run(`test "$(wc -l < /tmp/stall)" = 12 && rm /tmp/end /tmp/stall`);
+    assert.equal(await submit(`curl -sS ${server.origin}/fixture/timeout/silent`), 28);
+    assert.deepEqual(streams.map(stream => stream.path.slice(17)), ["end", "stall", "silent"]);
+    for (const { path, last, closed } of streams.slice(1)) {
+      assert.ok(closed - last > timeout - 250 && closed - last < timeout + 2000, `${path} was cut ${closed - last} ms after its last bytes`);
+    }
 
     await run(`curl -fsS ${server.origin}/fixture/libcurl-contract.c -o /tmp/libcurl-contract.c`);
     await run(`cc -O0 /tmp/libcurl-contract.c -lcurl -o /tmp/libcurl-contract && timeout 20 /tmp/libcurl-contract ${server.origin}/fixture/libcurl-contract`);

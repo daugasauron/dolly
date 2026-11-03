@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # name: it reads the .pc files that libraries install into /usr/lib/pkgconfig.
 # Upstream builds it with Meson; config.h holds the values its configure step
 # finds here.
-FROM /v0.1.4/Dollyfile-system-tools 27e00e550a0382f01c795764d3803229c11b2a153b778168564c81796f005c8b
+FROM /v0.1.4/Dollyfile-system-tools c087231f543b620a42c09e9faacc215814c229365b4c71a242f87bb54ea0bea4
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL ln

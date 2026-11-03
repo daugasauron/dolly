@@ -44,7 +44,10 @@
   ;; compare-exchange, so a concurrent failure cannot be lost.
   ;; The error word is written BEFORE state 3: a positive dolly_process_error
   ;; (include/dolly/process.h). EACCES: policy,
-  ;; EDQUOT: request quota, E2BIG: byte cap, ETIMEDOUT: deadline, ECANCELED:
+  ;; EDQUOT: request quota, E2BIG: byte cap, ETIMEDOUT: the policy's timeout
+  ;; passed while the transfer waited for its next record (the response's
+  ;; headers, its next bytes, or Wasm acknowledging the record before; a
+  ;; transfer that moves has no total limit), ECANCELED:
   ;; cancellation, EIO: transport. EINVAL/EFAULT/EPROTONOSUPPORT describe invalid
   ;; requests. No URL, headers, credentials, or inferred CORS cause is returned.
   (global (export "DOLLY_HTTP_HEADER_SIZE") i32 (i32.const 64))
