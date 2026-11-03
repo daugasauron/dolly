@@ -176,8 +176,8 @@ variable. Rust is not affected (its pads catch all and call no personality).
   tables are data). The emitted C is compiled `-O2` where an LLVM Zig's ReleaseSmall optimizes
   for size: a scratch ghostty-build at `-Oz` (its three `-O2`, 2026-11-04) made it 1,501,870
   bytes (−19.4%; code 1,107,496, −25.5%); rebuilt at `-O2`, it is byte for byte the shipped one.
-  Not measured: the terminal's speed at `-Oz`. A packs store keeps one copy for every image,
-  so this saves about 360 KB once per browser, for a change that rebuilds every image.
+  Not measured: the terminal's speed at `-Oz`, and how many copies of the display package a
+  browser holds (each saves about 360 KB); the change rebuilds every image.
 - **`wuffs-c.zig` and the two options modules stay committed** (`src/ghostty/generated/`,
   5,610 lines): translate-c is not built inside Dolly.
 
