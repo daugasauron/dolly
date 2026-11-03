@@ -1,4 +1,4 @@
-# Decisions for the owner from the audits of 1 and 2 November
+# Decisions for the owner, 1 to 3 November
 
 - STATUS: OPEN
 - PRIORITY: 400
@@ -7,7 +7,8 @@
 Every change the audits of 1 and 2 November found worth making but could not make alone: the
 Dollyfile language, the process contract (`abi/`, `include/dolly/`), what a base image contains, a
 browser's authority. One line each, with the evidence's place and a recommendation. The audit
-tasks they came from are closed; their own work is merged on `integrate/2026-11-02`.
+tasks they came from are closed; their own work is merged on `integrate/2026-11-02`. Since
+2026-11-03 the other tasks' questions only the owner can answer are here too (the last section).
 
 ## Recommended yes
 
