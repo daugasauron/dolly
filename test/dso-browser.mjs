@@ -7,7 +7,7 @@ import { runCppDsoCase } from "./fixtures/cpp-sdk.mjs";
 
 const fixtures = Object.fromEntries(["dso-check.c", "dso-library.c", "dso-cpp-check.cpp", "dso-cpp-library.cpp"]
   .map(name => [name, `src/process/${name}`]));
-fixtures["process-signals.c"] = "test/fixtures/process-signals.c";
+for (const name of ["process-signals.c", "dso-threads.c", "dso-threads-library.cpp"]) fixtures[name] = `test/fixtures/${name}`;
 const sources = {
   // A library that records a module this image does not declare.
   "denied.c": `#include <dolly/host.h>
@@ -71,9 +71,8 @@ int main(void) {
   return dolly_process_call(DOLLY_DSO_OPEN, packet, sizeof(packet), reply, sizeof(reply)) != -ENOSYS;
 }
 `,
-  // In a program using threads@0 each thread's Worker has a table of its own:
-  // a call works from any thread, and a closure, which would add an entry to
-  // one Worker's table only, is refused.
+  // A program using threads@0 that hosts no libraries calls functions from any
+  // thread, and makes no closure.
   "threaded.c": `#include <errno.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -133,5 +132,8 @@ await browserTest("dso", { image: "system", timeout: 300_000, server: { fixtures
   // A program that records nothing is served nothing, in this image too.
   await run("cc -O1 caller.c -o caller && ./caller");
   await run("cc -O1 -pthread threaded.c -o threaded && ./threaded");
+  // A host using threads@0 places a library and a closure in every thread.
+  await run("c++ -O1 -shared dso-threads-library.cpp -o dso-threads-library.so && " +
+    "cc -O1 -pthread -rdynamic dso-threads.c -o dso-threads && ./dso-threads /tmp/dso/dso-threads-library.so");
   assert.equal(loaderFetches(), fetched, "a program fetched the loader");
 });

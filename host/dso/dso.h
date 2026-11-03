@@ -10,7 +10,8 @@ extern "C" {
  * add no kernel or browser capability. A program uses them when built to
  * (cc -rdynamic for a host of modules, linking dolly_ffi_* for FFI) and run in
  * an image that declares REQUIRES HOST dso@0 (grep HOST /etc/dolly/Dollyfile).
- * Not with -pthread. */
+ * With -pthread too: a library or closure placed in one thread is placed in
+ * every thread before that thread runs on. */
 
 /* For DSO_OPEN, image_size bytes follow this header. A zero-sized image
  * selects the process executable itself. */
@@ -30,6 +31,13 @@ typedef struct {
 typedef struct {
   uint64_t handle;
 } dolly_dso_close_request;
+
+typedef struct {
+  uint64_t address;
+  uint32_t value;
+  uint32_t reserved;
+  int64_t timeout;
+} dolly_dso_wait_request;
 
 typedef struct {
   uint64_t value;

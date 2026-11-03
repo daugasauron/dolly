@@ -62,8 +62,6 @@ await browserTest("threads", { image: "system", server: { fixtures, sourceOverri
   // runs the new program.
   await run(`curl -fsS ${server.origin}/fixture/process-exec.c -o /tmp/process-exec.c && cc -O0 -pthread /tmp/process-exec.c -o /tmp/exec`);
   assert.equal(await submit("/tmp/exec thread"), 43);
-  assert.notEqual(await submit("cc -pthread -shared /tmp/threads-pthread.c -o /tmp/unsupported.so"), 0);
-  assert.notEqual(await submit("cc -pthread -rdynamic /tmp/threads-pthread.c -o /tmp/unsupported"), 0);
 
   // What cc links, the loader runs: the raw thread interface needs a thread
   // entry, so linking it without one fails instead of producing a refused program.

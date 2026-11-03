@@ -5,6 +5,8 @@
 #include <limits.h>
 #include <string.h>
 
+/* Each item as os.fsencode gives it, as CPython's own _posixsubprocess passes
+ * arguments: a surrogate escape is the byte it stands for. */
 static int string_vector(PyObject *value, char ***result, PyObject **owner) {
     PyObject *sequence = PySequence_Fast(value, "expected a sequence of strings");
     if (sequence == NULL) return -1;
@@ -14,43 +16,49 @@ static int string_vector(PyObject *value, char ***result, PyObject **owner) {
         PyErr_SetString(PyExc_OverflowError, "process argument list is too large");
         return -1;
     }
+    PyObject *encoded = PyList_New(count);
     char **items = PyMem_Calloc((size_t)count + 1, sizeof(*items));
-    if (items == NULL) {
-        Py_DECREF(sequence);
-        PyErr_NoMemory();
-        return -1;
+    if (encoded == NULL || items == NULL) {
+        if (encoded != NULL) PyErr_NoMemory();
+        goto error;
     }
     for (Py_ssize_t index = 0; index < count; ++index) {
-        PyObject *item = PySequence_Fast_GET_ITEM(sequence, index);
-        if (!PyUnicode_Check(item)) {
-            PyErr_SetString(PyExc_TypeError, "process arguments must be strings");
-            goto error;
-        }
-        Py_ssize_t size;
-        items[index] = (char *)PyUnicode_AsUTF8AndSize(item, &size);
-        if (items[index] == NULL) goto error;
-        if (memchr(items[index], 0, (size_t)size) != NULL) {
-            PyErr_SetString(PyExc_ValueError, "embedded null byte");
-            goto error;
-        }
+        PyObject *bytes = NULL;
+        if (!PyUnicode_FSConverter(PySequence_Fast_GET_ITEM(sequence, index), &bytes)) goto error;
+        PyList_SET_ITEM(encoded, index, bytes);
+        items[index] = PyBytes_AS_STRING(bytes);
     }
+    Py_DECREF(sequence);
     *result = items;
-    *owner = sequence;
+    *owner = encoded;
     return (int)count;
 error:
     PyMem_Free(items);
+    Py_XDECREF(encoded);
     Py_DECREF(sequence);
     return -1;
 }
 
+static int optional_path(PyObject *value, PyObject **result) {
+    if (value != Py_None) return PyUnicode_FSConverter(value, result);
+    *result = NULL;
+    return 1;
+}
+
 static PyObject *process_spawn(PyObject *module, PyObject *arguments) {
     (void)module;
-    const char *path, *cwd;
+    PyObject *path_object = NULL, *cwd_object = NULL;
     PyObject *argv_object, *environment_object, *mappings_object;
     int close_fds;
-    if (!PyArg_ParseTuple(arguments, "sOOzpO:spawn", &path,
-                          &argv_object, &environment_object, &cwd,
-                          &close_fds, &mappings_object)) return NULL;
+    if (!PyArg_ParseTuple(arguments, "O&OOO&pO:spawn", PyUnicode_FSConverter, &path_object,
+                          &argv_object, &environment_object, optional_path, &cwd_object,
+                          &close_fds, &mappings_object)) {
+        Py_XDECREF(path_object);
+        Py_XDECREF(cwd_object);
+        return NULL;
+    }
+    const char *path = PyBytes_AS_STRING(path_object);
+    const char *cwd = cwd_object == NULL ? NULL : PyBytes_AS_STRING(cwd_object);
 
     char **argv = NULL, **environment = NULL;
     PyObject *argv_owner = NULL, *environment_owner = NULL, *result = NULL;
@@ -106,6 +114,8 @@ done:
     Py_XDECREF(environment_owner);
     PyMem_Free(argv);
     Py_XDECREF(argv_owner);
+    Py_XDECREF(cwd_object);
+    Py_DECREF(path_object);
     return result;
 }
 

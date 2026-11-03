@@ -58,6 +58,9 @@ let memory, gate;
 // Host modules the executable records that are served in this Worker, without
 // entering the kernel (configuration.local: the loader and FFI of dso@0).
 let localModules = [];
+// A module that keeps this thread's Worker in step with the others' (dso@0 in a
+// host using threads@0) runs each wait for the supervisor's answer.
+let awaitHost = wait => wait();
 // The channels this Worker sent a thread's memory on, each with the word the
 // thread's Worker sets once it has the memory. Firefox drops what was posted
 // on a port whose sender closes it, or ends, before the receiver has started
@@ -208,31 +211,33 @@ function call(operation, requestAddressValue, requestSizeValue,
     if (!reserveMaximum()) return -BigInt(DOLLY_ERRNO.EAGAIN);
     channel = new MessageChannel();
   }
-  // Positive 31-bit sequences wrap from 2^31 - 1 back to one.
-  const sequence = Atomics.load(control, 0) % 0x7fffffff + 1;
-  Atomics.store(control, 0, sequence);
-  copyRequest(request);
-  self.postMessage({
-    type: "syscall",
-    pid: configuration.pid, tid: configuration.tid,
-    sequence,
-    operation,
-    requestAddress: request.address,
-    requestSize: request.size,
-    responseAddress: response.address,
-    responseCapacity: response.size,
-    memoryBytes,
-    port: channel?.port1,
-  }, channel ? [channel.port1] : []);
-  for (;;) {
-    const observed = Atomics.load(control, 1);
-    if (observed === sequence) break;
-    // Wait for exactly the value we observed. If the supervisor responds
-    // between the load and this call, Atomics.wait returns "not-equal"
-    // instead of sleeping after the notification has already happened.
-    Atomics.wait(control, 1, observed);
-  }
-  const result = decodeResult();
+  const result = awaitHost(() => {
+    // Positive 31-bit sequences wrap from 2^31 - 1 back to one.
+    const sequence = Atomics.load(control, 0) % 0x7fffffff + 1;
+    Atomics.store(control, 0, sequence);
+    copyRequest(request);
+    self.postMessage({
+      type: "syscall",
+      pid: configuration.pid, tid: configuration.tid,
+      sequence,
+      operation,
+      requestAddress: request.address,
+      requestSize: request.size,
+      responseAddress: response.address,
+      responseCapacity: response.size,
+      memoryBytes,
+      port: channel?.port1,
+    }, channel ? [channel.port1] : []);
+    for (;;) {
+      const observed = Atomics.load(control, 1);
+      if (observed === sequence) break;
+      // Wait for exactly the value we observed. If the supervisor responds
+      // between the load and this call, Atomics.wait returns "not-equal"
+      // instead of sleeping after the notification has already happened.
+      Atomics.wait(control, 1, observed);
+    }
+    return decodeResult();
+  });
   if (channel) {
     if (result < 0n) channel.port2.close();
     else {
@@ -246,6 +251,7 @@ function call(operation, requestAddressValue, requestSizeValue,
   lastSignalCheck = result === -BigInt(DOLLY_ERRNO.EINTR) ? -Infinity : performance.now();
   if (operation === DOLLY_THREAD_EXIT && result >= 0n) {
     threadResult = exitingResult;
+    for (const module of localModules) module.leaving?.();
     throw THREAD_EXIT;
   }
   // Sample the same clock after kernel checks too: Firefox rounds Worker
@@ -276,6 +282,7 @@ try {
         stack: { promisingEntry: configuration.promisingEntry, depths: configuration.stackDepths } });
     } finally { URL.revokeObjectURL(url); }
   }));
+  awaitHost = localModules.find(module => module.awaitHost)?.awaitHost ?? awaitHost;
   self.postMessage({ type: "started", pid: configuration.pid, tid: configuration.tid });
   // Through JSPI where that stack is the larger one (src/process-supervisor.mjs).
   const enter = configuration.promisingEntry ? WebAssembly.promising : entry => entry;

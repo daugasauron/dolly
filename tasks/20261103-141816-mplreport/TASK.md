@@ -76,6 +76,8 @@ Blocking:
    setuptools' `build_ext` has no serial path once `parallel` is set, and the patch's serial
    `start()` serves callers that drain spooled subprocess output. `multiprocessing.pool.
    ThreadPool` still waits for ever; real threads are `20261103-134653-pythreads`.
+   Done on `demo/python-threads` (2026-11-04): CPython runs on threads@0 and the stopgap is
+   gone; the python recipe checks three pool workers meeting at a barrier.
 
 Frictions:
 
@@ -86,8 +88,9 @@ Frictions:
   would mean `cc -flto` emitting bitcode and the driver running wasm-ld's LTO (a seed change);
   no image needs it.
 - `-pthread -shared`: a library cannot link the thread runtime while threads@0 refuses DSOs;
-  only Matplotlib 3.11's HarfBuzz asks (Meson grants `threads` everywhere). Belongs to
-  pythreads.
+  only Matplotlib 3.11's HarfBuzz asks (Meson grants `threads` everywhere). Done on
+  `demo/python-threads`: `cc` links `-pthread -shared` and `-pthread -rdynamic`, and a threaded
+  host places a library in every thread.
 - `patch -l -f`: fixed on `demo/pydata-seed` (`src/commands/patch.c`, a seed input; a native
   test that failed before). Matplotlib 3.10.9 needs no diff files, so python-data does not wait
   for it.

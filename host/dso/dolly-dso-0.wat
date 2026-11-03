@@ -16,10 +16,20 @@
   (export "__indirect_function_table" (table $table))
   (export "__stack_pointer" (global $stack))
   (func (export "__dolly_dso_allocate") (param i64 i64) (result i64) unreachable)
+  ;; One using threads@0 also exports THREADS_SIZE zeroed bytes, where the
+  ;; loader keeps what it placed in one thread's Worker for the others to place
+  ;; in theirs, in the same order and so at the same table indices.
+  (global (export "__dolly_dso_threads") i64 (i64.const 0))
 
   ;; Optional library initialization hooks, called only after link checks.
   (func (export "__wasm_apply_data_relocs"))
   (func (export "__wasm_call_ctors"))
+  ;; The thread that loads a library uses the copy of its thread-locals its
+  ;; start function initialised; in a host using threads@0 every other thread
+  ;; gets __tls_size bytes aligned to __tls_align, which __wasm_init_tls fills.
+  (func (export "__wasm_init_tls") (param i64))
+  (global (export "__tls_size") i64 (i64.const 0))
+  (global (export "__tls_align") i64 (i64.const 0))
 
   ;; Process operations, called through dolly_process_0.call and served inside
   ;; the process Worker of an executable that records dso@0: they reach neither
@@ -32,9 +42,17 @@
   (global (export "DOLLY_DSO_OPEN") i32 (i32.const 112))
   (global (export "DOLLY_DSO_SYMBOL") i32 (i32.const 113))
   (global (export "DOLLY_DSO_CLOSE") i32 (i32.const 114))
+  ;; WAIT: dolly_dso_wait_request -> empty: libc's futex wait in a host using
+  ;; threads@0. Zero when woken, EAGAIN when the word at address is not value,
+  ;; ETIMEDOUT after timeout nanoseconds (negative: none). While it waits a
+  ;; thread that loads a library need not wait for this one, which places what
+  ;; the others placed before it returns; address zero places them without
+  ;; waiting, as a thread does before its entry.
+  (global (export "DOLLY_DSO_WAIT") i32 (i32.const 115))
   (global (export "DOLLY_DSO_GLOBAL") i32 (i32.const 1))
   (global (export "DOLLY_DSO_LIMIT") i32 (i32.const 536870912))
   (global (export "DOLLY_DSO_ERROR_CAPACITY") i32 (i32.const 240))
+  (global (export "DOLLY_DSO_THREADS_SIZE") i32 (i32.const 272))
   ;; Calls and callbacks whose signature is known only at run time, in libffi's
   ;; wasm64 layouts. The packets carry addresses and table indices of the
   ;; calling process; a wild one is EFAULT or EINVAL.
