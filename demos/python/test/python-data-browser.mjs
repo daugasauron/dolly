@@ -1,7 +1,8 @@
 // python-data in Chromium and Firefox: a script per library, with nothing to
 // build or fetch (a NumPy computation, a pandas frame, a Matplotlib figure saved
-// as PNG and read back), and a recipe that COPYs NumPy's root alone from
-// python-data-build, which gets NumPy and no other library.
+// as PNG and read back, text drawn with Pillow's FreeType), and a recipe that
+// COPYs NumPy's root alone from python-data-build, which gets NumPy and no other
+// library.
 // Usage: node demos/python/test/python-data-browser.mjs
 import { demoTest, shellPrompt, writeCommand } from "../../browser.mjs";
 import { siteReference } from "../../../src/static-asset.mjs";
@@ -23,7 +24,7 @@ frame.to_csv("/tmp/frame.csv", index=False)
 assert pd.read_csv("/tmp/frame.csv").equals(frame)
 print("PANDAS-OK", pd.__version__)`,
   matplotlib: `import matplotlib.pyplot as plt, numpy, seaborn
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 assert plt.get_backend().lower() == "agg", plt.get_backend()
 figure, axes = plt.subplots(figsize=(4, 3), dpi=100)
 axes.plot([0, 1, 2], [0, 1, 0], color="red", linewidth=4)
@@ -35,6 +36,9 @@ assert image.size == (400, 300), image.size
 pixels = numpy.asarray(image)
 red = int(((pixels[..., 0] > 200) & (pixels[..., 1] < 60) & (pixels[..., 2] < 60)).sum())
 assert red > 300, red
+label = Image.new("L", (80, 30))
+ImageDraw.Draw(label).text((2, 2), "Dolly", font=ImageFont.load_default(size=20), fill=255)
+assert (numpy.asarray(label) > 128).sum() > 50
 print("MATPLOTLIB-OK", red)`,
 };
 const runScript = async (run, name) => {

@@ -93,7 +93,10 @@ SLOP slop /tmp/python-data/install kiwisolver 1.5.1
 # contourpy's default werror=true fails on what Clang 24 reports in pybind11's
 # headers (-Wunused-template).
 SLOP slop /tmp/python-data/install contourpy 1.4.0 --config-settings=setup-args=-Dwerror=false
-SLOP slop /tmp/python-data/install pillow 13.0.0
+# Pillow's FreeType module links -lfreetype alone, and the freetype package's
+# static library needs libpng and zlib, which its freetype2.pc requires: the
+# linker takes them from LDFLAGS.
+SLOP LDFLAGS='-lpng16 -lz' slop /tmp/python-data/install pillow 13.0.0
 # Pillow links libjpeg, whose licence asks for its README beside the program.
 SLOP mkdir -p /opt/python-data/pillow/usr/share/licenses/libjpeg
 SLOP cp /usr/share/licenses/libjpeg/README /opt/python-data/pillow/usr/share/licenses/libjpeg/README

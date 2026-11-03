@@ -175,6 +175,16 @@ is 1, so Ninja runs three jobs).
   with libpng and zlib) instead: `-Dsystem-freetype=true -Dprefer_static=true`, found by the
   `pkgconf` package's pkg-config, as distributions build it. Its figures then render: a 400 x
   300 PNG with the line drawn, in a session; first import 8.7 s (the font cache), then 2.9 s.
+- Every extension module's imports checked against what `/usr/bin/python` exports
+  (`build/pydata-evidence/wheelhouse/dsocheck.py`): two refused. Pillow's `_imagingft` needs
+  libpng (`png_create_read_struct`…): Pillow links `-lfreetype` alone and the freetype
+  package's static library needs libpng and zlib, which its `freetype2.pc` requires; the build
+  passes them in `LDFLAGS` (wasm-ld takes archives in any order). Matplotlib's `_qhull` needs
+  `__small_sprintf`: LLVM rewrites `sprintf` calls without a floating-point conversion to it,
+  and a `-rdynamic` host exports only `config/process-libc-provider.symbols`' reserved names.
+  Fixed on `demo/pydata-seed` (a seed input); until a round builds it, `matplotlib.tri` fails
+  to import in python-data. The owner's report met both
+  ([mplreport](../20261103-141816-mplreport/TASK.md)).
 - contourpy builds with `werror=true` by default, and Clang 24 reports `-Wunused-template` in
   pybind11 3.1's headers: `-Dwerror=false`, as a distribution builds it.
 - Matplotlib's default `b_lto=true` asks for `-flto`, which Dolly's compiler refuses (it links
