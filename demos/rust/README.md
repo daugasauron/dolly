@@ -82,6 +82,8 @@ with the compiler.
 - `cargo new`, `cargo build`, `cargo rustc` and `cargo metadata` work with path and
   vendored dependencies, build scripts and procedural macros.
 - `cargo run` builds the program and replaces Cargo with it (`exec`).
+- `cargo test` runs a crate's tests in the test program's process, with libtest's report and
+  Cargo's status (101 when one fails). Doc tests need `rustdoc`, which is not built.
 - crates.io: its index sends CORS headers only for files its cache does not
   hold, so Cargo cannot resolve there from a page, and Dolly hosts no relay.
   `vendor-crates` (its own package) resolves a project's dependencies over the
@@ -108,7 +110,8 @@ with the compiler.
 
 ## Limits
 
-- Programs are compiled with panics that abort; no dynamic Rust libraries.
+- Panics unwind, by WebAssembly exceptions as C++ exceptions do; a crate built with
+  `panic = "abort"` links the same standard library. No dynamic Rust libraries.
 - Executables link threaded (`cc -pthread`) and need `REQUIRES HOST threads@0`.
   The compiler loads proc macros and needs `dso@0`, which a build host enables
   and an image that keeps `rustc` declares.

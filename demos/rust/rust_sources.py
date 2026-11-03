@@ -97,7 +97,8 @@ def vendor(lock, destination, archives):
 
 
 def cargo_config(source, vendored, extra=""):
-    """From SOURCE down, Cargo takes crates from VENDORED and builds as the Rust seed is built."""
+    """From SOURCE down, Cargo takes crates from VENDORED and builds with the Rust seed's
+    profile; panics unwind, as the target's do."""
     config = source / ".cargo/config.toml"
     config.parent.mkdir(exist_ok=True)
     # Upstream's own configuration serves its developers' commands, not a build.
@@ -110,7 +111,6 @@ directory = "{vendored}"
 [profile.dev]
 opt-level = 1
 debug = 0
-panic = "abort"
 debug-assertions = false
 overflow-checks = false
 codegen-units = 16

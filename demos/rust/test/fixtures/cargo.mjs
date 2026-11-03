@@ -62,3 +62,55 @@ export async function runCargo(submit, origin, registry) {
     await submit(`cd /workspace; rm -rf ${root}`);
   }
 }
+
+const unwinding = `struct Noisy;
+impl Drop for Noisy {
+    fn drop(&mut self) { println!("dropped"); }
+}
+
+fn index(values: &[u8], at: usize) -> u8 { values[at] }
+
+fn main() {
+    let caught = std::panic::catch_unwind(|| { let _noisy = Noisy; index(&[], 0) });
+    println!("caught: {}", caught.is_err());
+    println!("joined: {}", std::thread::spawn(|| index(&[], 1)).join().is_err());
+    let _noisy = Noisy;
+    index(&[7], 2);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn passes() { assert_eq!(index(&[7], 0), 7); }
+    #[test]
+    fn fails() { assert_eq!(index(&[7], 0), 8); }
+    #[test]
+    #[should_panic(expected = "index out of bounds")]
+    fn panics() { index(&[], 0); }
+}
+`;
+
+// Panics unwind, as on every native target: cargo test runs each test in the
+// process and reports a failure with status 101, catch_unwind and a thread's
+// join see a panic, and a panic that ends main runs its drops first.
+export async function runCargoTest(submit) {
+  const root = "/tmp/dolly-cargo-test";
+  const run = async command => assert.equal(await submit(command), 0, command);
+  await run(`mkdir -p ${root}/src && cd ${root}`);
+  try {
+    await run(writeCommand("Cargo.toml", '[package]\nname = "unwinds"\nversion = "0.1.0"\nedition = "2024"\n'));
+    await run(writeCommand("src/main.rs", unwinding));
+    assert.equal(await submit("cargo test --offline > test.txt 2>&1"), 101);
+    await run("grep -qx 'test tests::passes ... ok' test.txt && grep -qx 'test tests::fails ... FAILED' test.txt && " +
+      "grep -qx 'test tests::panics - should panic ... ok' test.txt && grep -q '^test result: FAILED. 2 passed; 1 failed;' test.txt");
+    await run("cargo test --offline passes > test.txt 2>&1 && grep -q '^test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out' test.txt");
+    assert.equal(await submit("cargo run --offline > run.txt 2>/dev/null"), 101);
+    await run(`test "$(cat run.txt)" = "$(printf 'dropped\\ncaught: true\\njoined: true\\ndropped')"`);
+    // A program built to abort links the same library and ends at its first panic.
+    assert.equal(await submit("CARGO_PROFILE_DEV_PANIC=abort cargo run --offline > run.txt 2>/dev/null"), 134);
+    await run("test ! -s run.txt");
+  } finally {
+    await submit(`cd /workspace; rm -rf ${root}`);
+  }
+}

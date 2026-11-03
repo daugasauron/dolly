@@ -31,12 +31,82 @@ Cargo by that rustc (v0.1.1, `2370dc85`); Zig since 2026-10-01, emitting Ghostty
   `libdisplay.so` (sha256 `64f8bc2b…`) are byte for byte those of the committed tables; the image
   build takes 110 s instead of 77.
 
+## `cargo test`: the target unwinds (2026-11-03 night)
+
+`cargo test` failed with `error[E0463]: can't find crate for 'test'` (2026-10-27): the SDK had
+no libtest, and the target's panics aborted.
+
+Decision: panics unwind (`"panic-strategy": "unwind"` in the target spec), the standard library
+is built to unwind with libtest beside it, and its `panic_abort` is built to abort, so a program
+of either strategy links it. Reasons, each read in the sources or measured:
+
+- On a target whose panics abort, stable Cargo cannot run tests. Cargo passes `-C panic` only
+  for a strategy other than unwind and builds tests "always unwind" (`PanicSetting::AlwaysUnwind`
+  in Cargo's `profiles.rs`), so rustc builds them with the target's abort and asks for the
+  unstable `-Zpanic-abort-tests`. With that flag libtest runs each test as a child of
+  `current_exe`: a fresh process per test, and every `cargo test` needs a `-Z` flag or an
+  `[unstable]` table.
+- Upstream's own Emscripten target unwinds (`wasm32_unknown_emscripten.rs`: `panic_strategy:
+  Unwind`), with Wasm exceptions (`wants_wasm_eh` is `is_like_wasm`), and libtest runs tests in
+  the test process there, one after another, on no thread of their own.
+- Dolly has everything unwinding needs. The objects of an unwinding std and libtest reference
+  only `_Unwind_RaiseException`, `_Unwind_DeleteException` and the `__cpp_exception` tag, which
+  `cc` links from libunwind into every program; `catch_unwind` catches all, so there is no
+  personality call and no `__wasm_lpad_context`, and libc++abi is not needed. The spec asks for
+  the exnref instructions (`-wasm-use-legacy-eh=false`, upstream's base Wasm choice), the
+  encoding Dolly's C and C++ use: std's objects hold `try_table` and `throw_ref`, no legacy `try`.
+  A procedural macro (a `dso@0` library) imports the tag and the two functions, which rustc
+  exports as provider symbols. `stack@0` takes no part: it serves programs `stack-wrap`
+  rewrote, and already throws an exception again across its stacks.
+- Measured before the image build: the native rustc 1.98.1 of the seed's build compiled std
+  (with `panic_unwind`) and libtest for the new spec, and a three-test crate (one passing, one
+  failing, one `#[should_panic]`); Dolly's own `cc` in `default` linked the recorded inputs
+  (1,292,783 bytes, 0.35 s Chromium, 0.67 s Firefox), and the program printed libtest's report
+  (`test result: FAILED. 2 passed; 1 failed`) with status 101, and status 0 for a filter that
+  selects the passing test, in Chromium and Firefox.
+- rustc keeps aborting: its first generation links the seed's std, compiled to abort, and a
+  crate built to unwind cannot link one that aborts (rustc's `RequiredPanicStrategy`); the
+  recipe passes `panic="abort"` for the compiler. Building the library twice was not an option
+  for `panic_abort`: Cargo refuses `panic` in a package profile, so a five-line wrapper adds
+  `-C panic=abort` for that one crate, as Rust's own build does in its rustc shim.
+- Every Rust project the images stage built with `panic = "abort"` (`rust_sources.cargo_config`)
+  only because the SDK could do nothing else; the profile now leaves panics to the target, as
+  upstream's projects do. Tokio and Codex then see a task's panic as a `JoinError`, and a
+  procedural macro's panic as rustc's error rather than the end of the compiler (rustc warned
+  that a macro built to abort may crash it).
+
+### The cost, measured (2026-11-03)
+
+ripgrep 15.1.0 with the images' profile, compiled natively three ways by the seed build's
+rustc 1.98.1 and linked by Dolly's `cc` in `default`; `rg -c` over a 33 MB file of a million
+lines, median of five runs (`build/stack-evidence/rg-ab.mjs`, not committed):
+
+| ripgrep | bytes | Chromium: regex, `amet$`, `-i` | Firefox: the same |
+| --- | --- | --- | --- |
+| program and std abort (before) | 5,318,491 | 79, 114, 119 ms | 118, 204, 208 ms |
+| program aborts, std unwinds (a crate's `panic = "abort"` now) | 5,384,227 (+1.2%) | 76, 113, 115 ms | 114, 207, 221 ms |
+| program and std unwind (the images now) | 6,255,232 (+17.6%) | 80, 113, 124 ms | 105, 211, 234 ms |
+
+The landing pads cost size, not speed: the times differ less than run to run. The standard
+library's rlibs (embedded bitcode, the SDK's flags) are 80,771,308 bytes aborting and
+81,286,438 unwinding; the SDK adds libtest and getopts (25 rlibs, 88,271,418 bytes).
+The images' programs could keep 1.2% by building to abort, but upstream's release profiles of
+Codex, fd and ripgrep unwind (only ripgrep's Debian profile aborts), and so do they here.
+
+Without the wrapper, an aborting program fails to link: "the crate `panic_abort` does not have
+the panic strategy `abort`"; with it, ripgrep built to abort links against the unwinding std.
+
+### Found on the way: a C++ `catch` in a shared object does not catch
+
+A C++ library loaded with `dlopen` that throws and catches an `int` itself runs the cleanup and
+then fails the process with an uncaught `WebAssembly.Exception` (`default`, Chromium, 2026-11-03).
+The library imports `GOT.mem.__wasm_lpad_context`, and the executable exports that thread-local
+variable as its offset in the TLS block (88), not its address (`__tls_base + 88`): the landing
+pad writes its index and LSDA to address 88 while libc++abi's personality reads the real
+variable. Rust is not affected (its pads catch all and call no personality).
+
 ## Still open
 
-- **`cargo test`**: `error[E0463]: can't find crate for 'test'` (2026-10-27). The SDK needs the
-  `test` crate, and a panic-abort target needs `-Zpanic-abort-tests`; unwinding panics
-  (`libpanic_unwind` is in the sysroot, C++ has Wasm exceptions) is the stable route. Either
-  rebuilds `rust-build` (four rustc at once: the integrator's `hugebuild`) and all built with it.
 - **Network Cargo**: a git dependency over HTTPS needs libgit2's curl transport, which Cargo
   registers only with a non-default `[http]` setting; `cargo search`, `publish` and `login` need
   `CONNECTTIMEOUT`, `LOW_SPEED_*` and `PUT` in Dolly's libcurl. `vendor-crates` covers crates.io.

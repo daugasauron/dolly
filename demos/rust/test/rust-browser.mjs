@@ -3,7 +3,7 @@
 // python3 demos/codex/prepare-codex-sources.py)
 import { execFileSync } from "node:child_process";
 import { demoTest } from "../../browser.mjs";
-import { createCargoRegistry, runCargo } from "./fixtures/cargo.mjs";
+import { createCargoRegistry, runCargo, runCargoTest } from "./fixtures/cargo.mjs";
 import { rustToolSources, runRustTools } from "./fixtures/rust-tools.mjs";
 import { createTokioFixture } from "./fixtures/tokio.mjs";
 
@@ -21,5 +21,6 @@ async ({ server, open }) => {
   ] } });
   await runRustTools(submit, server.origin);
   await runCargo(submit, server.origin, registry);
+  await runCargoTest(submit);
   await tokio.run(submit, server.origin, run => waitText(new RegExp(`TOKIO-HTTP-FIRST-${run}`)));
 });

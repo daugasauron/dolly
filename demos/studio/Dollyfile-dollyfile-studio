@@ -17,7 +17,7 @@ REQUIRES HOST threads@0
 REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/local-llm/Dollyfile-pi-local e5672d18fbd4b6bdc441ef4d4654cd1e01e14363bb3eac5946c950f12a6eb760
+FROM /v0.1.4/demos/local-llm/Dollyfile-pi-local 91319a239980dd3e22982add613c962eb785c7f0c5b1acff72c210bb16b216b8
 INSTALL /v0.1.4/demos/neovim/Dollyfile-nvim 697f6bce18f257490d7f00d88fddb9ce64d2e82564bb807bc97eb4686e8d3049
 REQUIRES TOOL pi
 REQUIRES TOOL nvim

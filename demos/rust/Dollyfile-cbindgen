@@ -3,7 +3,7 @@ PACKAGE cbindgen
 REQUIRES HOST runtime@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/demos/rust/Dollyfile-rust-build a6e1e485f8c574a1e7820cbef53521d35a5ebf5177850899eb4fbd5e841ef894
+FROM /v0.1.4/demos/rust/Dollyfile-rust-build 3c8e804d3c5863387c763dd986a3c7647469b78e22b031a1147f61511b2d7667
 REQUIRES TOOL cargo
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
@@ -14,7 +14,7 @@ REQUIRES TOOL rm
 # The tool SpiderMonkey's configure requires. The archive holds cbindgen's
 # source at its pinned tag and its locked crates, checksum-verified, laid out
 # as Cargo's directory source.
-SOURCE /v0.1.4/dist/static/rust/cbindgen.tar.gz 210cd82eabf3f46fe4de03eb1c2131ffcce069574ffa41889dc19d412680f59c /tmp/cbindgen.tar.gz
+SOURCE /v0.1.4/dist/static/rust/cbindgen.tar.gz 0b424dd6df201e486b6d1bd6614fd54ce717213c3e93884bf1f353d08a48a080 /tmp/cbindgen.tar.gz
 SLOP gzip -dc /tmp/cbindgen.tar.gz | tar -xf - -C /
 SLOP CWD /tmp/cbindgen/source cargo build -j 4 --offline --bin cbindgen --target-dir /tmp/cbindgen/build
 SLOP cp /tmp/cbindgen/build/debug/cbindgen /usr/bin/cbindgen
