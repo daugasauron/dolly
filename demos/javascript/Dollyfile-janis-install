@@ -9,7 +9,7 @@ REQUIRES HOST http@0
 # launcher for each command it names. It is one Janis script linked with the
 # runner, as tsc is, and checks and decompresses tarballs with sha512sum and gzip.
 FROM /v0.1.4/Dollyfile-system-tools a9c4bdc82c44a1a64fdcac03a6b4997851d55df3b19bd161760215d7038a38e7
-INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 385dc685c9503e8b9ab64fda87262c2523a230b35bfd7f36cb8474e7d5ab9740
+INSTALL /v0.1.4/demos/javascript/Dollyfile-janis a861fde4cbdc945bded89011fe9d53492d01abc54a51a1486f4c917d4ff647a2
 INSTALL /v0.1.4/Dollyfile-gzip 230ec21d6b62a486d6f1537719a9c706f9d0665a364d33915c0ee2b267e0c93f
 INSTALL /v0.1.4/demos/tools/Dollyfile-sbase 9c8147eb665b0232d3596bbc15ee58410b82511c166eddbd865d9981b69efbf6
 

@@ -37,7 +37,7 @@ await demoTest("neovim", { image: "neovim", timeout: 600_000 }, async ({ open })
   const mode = "#include <dolly/runtime.h>\nint main(void) { return dolly_terminal_mode_get(0); }\n";
   await run(`mkdir ${scratch} && ${writeCommand(`${scratch}/mode.c`, mode)} && cc ${scratch}/mode.c -o ${scratch}/mode`);
   const terminalMode = await submit(`${scratch}/mode`);
-  assert.ok(terminalMode >= 0 && terminalMode <= 31);
+  assert.ok(terminalMode >= 0 && terminalMode < 128);
   await run(`printf 'DOLLY-NVIM-READY\\n' > ${scratch}/edit.txt && clear`);
   let editor = start(`nvim --clean ${scratch}/edit.txt`);
   await waitText(/DOLLY-NVIM-READY/);

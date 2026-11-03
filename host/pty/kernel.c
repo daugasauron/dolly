@@ -247,8 +247,7 @@ static int64_t pty_open(int pid, const dolly_pty_request *request, unsigned char
   pty->master.shared.kind = pty->slave.shared.kind = &pty_kind;
   pty->master.pty = pty->slave.pty = pty;
   pty->master.shared.nonblocking = (request->flags & DOLLY_PTY_NONBLOCK) != 0;
-  pty->mode = DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO | DOLLY_TERMINAL_OPOST |
-      DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG;
+  pty->mode = DOLLY_KERNEL_TERMINAL_INITIAL_MODE;
   pty->rows = request->rows;
   pty->columns = request->columns;
   dolly_kernel_socket *const ends[2] = {&pty->master.shared, &pty->slave.shared};

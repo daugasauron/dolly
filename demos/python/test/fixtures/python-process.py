@@ -49,7 +49,7 @@ def terminal_modes():
     before = termios.tcgetattr(0)
     try:
         assert len(termios.tcgetwinsize(0)) == 2
-        assert before[0] & (termios.ICRNL | termios.IXON) == 0, "reported input mapping"
+        assert before[0] & (termios.ICRNL | termios.IXON) == termios.ICRNL, "Enter is read as LF, no flow control"
         for index, flag in ((0, termios.ICRNL), (0, termios.INLCR), (1, termios.OPOST),
                             (1, termios.ONLCR), (3, termios.ICANON), (3, termios.ECHO),
                             (3, termios.ISIG)):

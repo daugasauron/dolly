@@ -18,9 +18,7 @@
 #include "process-kernel.h"
 #include "system-snapshot.h"
 
-static uint32_t terminal_mode_flags =
-    DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO |
-    DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG;
+static uint32_t terminal_mode_flags = DOLLY_KERNEL_TERMINAL_INITIAL_MODE;
 
 // The page's terminal mailbox (abi/dolly-supervisor-0.wat), with or without a
 // display. The process kernel owns foreground policy: the page only reads it

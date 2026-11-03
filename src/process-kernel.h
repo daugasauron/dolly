@@ -113,6 +113,11 @@ int dolly_kernel_terminal_input_service(void);
 void dolly_terminal_discard_pending_input(void);
 
 /* The terminal line discipline and the page's terminal mailbox, src/dolly.c. */
+/* The mode a terminal starts in, the display's and a pseudo-terminal's slave,
+ * as `stty sane` leaves one: lines edited and echoed, Enter read as LF
+ * (ICRNL), LF shown as CRLF, the interrupt key. */
+#define DOLLY_KERNEL_TERMINAL_INITIAL_MODE (DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO | \
+    DOLLY_TERMINAL_ICRNL | DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG)
 uint32_t dolly_kernel_terminal_mode(void);
 int dolly_kernel_terminal_set_mode(uint32_t flags);
 /* A terminal's line while its mode is canonical: what was typed and edited,

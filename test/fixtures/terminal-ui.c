@@ -55,11 +55,11 @@ static int check_discipline(void) {
         row != 2 || column != expected) { status = 13; break; }
   }
   if (tcsetattr(0, TCSANOW, &saved) != 0) return 14;
-  /* No input mapping or flow control exists, so neither is reported or set. */
+  /* The terminal starts reading Enter as LF (ICRNL); no flow control exists. */
   mode = saved;
   mode.c_iflag |= IXON;
-  if (status == 0 && (saved.c_iflag != 0 || tcsetattr(0, TCSANOW, &mode) != -1 ||
-      errno != EINVAL || tcgetattr(0, &observed) || observed.c_iflag != 0)) status = 22;
+  if (status == 0 && (saved.c_iflag != ICRNL || tcsetattr(0, TCSANOW, &mode) != -1 ||
+      errno != EINVAL || tcgetattr(0, &observed) || observed.c_iflag != ICRNL)) status = 22;
   return status;
 }
 

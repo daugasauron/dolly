@@ -97,7 +97,7 @@ static int pair(void) {
   CHECK(ioctl(ends[0], TIOCGWINSZ, &size) == 0 && size.ws_row == 24 && size.ws_col == 80);
   /* A terminal emulator sets the slave's mode through the master (Ghostty's
    * IUTF8, which Dolly's discipline has without asking). */
-  CHECK(tcgetattr(ends[0], &mode) == 0 && (mode.c_lflag & ECHO));
+  CHECK(tcgetattr(ends[0], &mode) == 0 && (mode.c_lflag & ECHO) && mode.c_iflag == ICRNL);
   mode.c_iflag |= IUTF8;
   mode.c_lflag &= ~(tcflag_t)ECHO;
   CHECK(tcsetattr(ends[0], TCSANOW, &mode) == 0);

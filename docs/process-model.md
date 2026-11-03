@@ -132,26 +132,27 @@ sequenceDiagram
   terminal's foreground: `tcgetpgrp` and `tcsetpgrp` fail `ENOTTY`, as for a
   process without a controlling terminal, so a shell runs without job control.
 - `poll` covers files, pipes, sockets, pseudo-terminals and the terminal; signals wake it with `EINTR`.
-- A terminal edits a line while `ICANON` is set (the default): a read waits for
-  Enter, which arrives as LF, and returns one line; Backspace and Ctrl+U erase,
-  Ctrl+D ends a line without LF or, on an empty one, is end of file; `ECHO`
-  shows what is typed. With `ICANON` clear a read returns the bytes as typed.
-  The raw read of `runtime.h` (`dolly_terminal_read_raw_timeout`), Slop's and
-  Janis's, takes one byte unedited in either mode. `OPOST`/`ONLCR` map LF to
-  CRLF on output. While `ISIG` is set (the default), the interrupt key, `VINTR`,
+- A terminal starts in the mode `stty sane` leaves: `ICANON`, `ECHO`, `ICRNL`,
+  `OPOST` with `ONLCR`, and `ISIG`. It edits a line while `ICANON` is set: a
+  read waits for Enter, which arrives as LF, and returns one line; Backspace
+  and Ctrl+U erase, Ctrl+D ends a line without LF or, on an empty one, is end
+  of file; `ECHO` shows what is typed. With `ICANON` clear a read returns the
+  bytes as typed. The raw read of `runtime.h` (`dolly_terminal_read_raw_timeout`),
+  Slop's and Janis's, takes one byte unedited in either mode. `OPOST`/`ONLCR`
+  map LF to CRLF on output. While `ISIG` is set, the interrupt key, `VINTR`,
   sends SIGINT to the foreground: Ctrl+C unless a program sets another (Emacs
   sets C-g, and `VQUIT` to the same key); a program that clears `ISIG` (raw
   mode) reads that key as its byte. Under `ISIG` there is always a key, no quit
   key of its own and no job control, so `VINTR` is on, `VQUIT` off or `VINTR`'s
   key and `VSUSP` off.
-  `ICRNL` reads an input CR as LF and `INLCR` an LF as CR, when a program sets
-  them (a line editor such as zsh's does). A non-canonical read returns the
-  bytes queued, at least one (`VMIN` 1), or with `VMIN` 0 returns without a
-  byte, at once or after `VTIME` tenths of a second (kilo's raw mode). termios
-  reports no other input mapping, no flow control or other signal keys, and
-  no `VMIN` above 1; `tcsetattr` rejects anything else with `EINVAL`.
-  `TCSAFLUSH` and `tcflush` discard unread input; break and flow control fail
-  with `ENOTSUP`.
+  `ICRNL` reads an input CR as LF, so Enter arrives as LF until a program
+  clears it (raw mode does), and `INLCR` an LF as CR. A non-canonical read
+  returns the bytes queued, at least one (`VMIN` 1), or with `VMIN` 0 returns
+  without a byte, at once or after `VTIME` tenths of a second (kilo's raw
+  mode). termios reports no other input mapping, no flow control or other
+  signal keys, and no `VMIN` above 1; `tcsetattr` rejects anything else with
+  `EINVAL`. `TCSAFLUSH` and `tcflush` discard unread input; break and flow
+  control fail with `ENOTSUP`.
 - There is one user and no permission bits: `chmod`, `chown` and `access` only
   check that the file exists, and nothing changes a file's mode
   ([why](architecture.md#decisions)).

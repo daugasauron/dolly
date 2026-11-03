@@ -21,7 +21,7 @@ REQUIRES TOOL   ar
 REQUIRES TOOL   cc
 REQUIRES TOOL   mkdir
 
-SOURCE /v0.1.4/dist/static/default/runtimes/quickjs-main.c   d8d0b1c931c5c1932c630b2fa4d51be7a3f9f392c3d19e954b66280a4a9ecb62 /tmp/janis/quickjs-main.c
+SOURCE /v0.1.4/dist/static/default/runtimes/quickjs-main.c   4cd295e542c1280630fd9e4185cd94822193b928c4b88ac05e1a4c38ba163715 /tmp/janis/quickjs-main.c
 SOURCE /v0.1.4/dist/static/default/runtimes/quickjs-runner.h cb2ae27cc02ed3d90b43eeb924f474b01fa8d7598f1e5989b0de3fcd12c2a97f /usr/include/dolly/quickjs-runner.h
 SOURCE /v0.1.4/dist/static/default/runtimes/dolly-node.js    d7e19c4bb4f46cce32ccbe2130e5f5e9203c1ba185cf0d0a9952f5d1b1ecabd3 /usr/lib/dolly/node.js
 SOURCE /v0.1.4/dist/static/default/runtimes/janis.js         15c3714d0cb57b7a20daad2e775604c26af47868f999be3c922005c36171b47f /usr/lib/janis/runtime.js
