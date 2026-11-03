@@ -30,6 +30,16 @@ The shape to build:
 - Sizes measured (each library's tree, the images' packs), build times, and what a recipe that
   `COPY`s only NumPy gets.
 
+The owner, the same evening: "This image should also be available on npm so the python image can
+be used for external systems that use npm only to run custom images locally." `scripts/package-npm.mjs`
+packs images as `@daugasauron/dolly-image-NAME` (`default`, `pi-minimal`) and `dolly-build` builds a
+recipe FROM an installed image package: the data image is packed so too, and a project made with npm
+alone boots it and builds a recipe of its own on it (and, if the build image is packed, takes one
+library from it), as `test/npm-browser.mjs` proves for `pi-minimal`. Nothing is published: the
+owner publishes.
+
 Done when: both images are in the catalog, built in a round; the demo test passes in Chromium and
 Firefox; a recipe in the repository (or the test) shows `COPY` of one library from the build image
-working; `demos/python/README.md` says how to use it.
+working; the image is an npm image package that an npm-only project boots and builds on, tested;
+`demos/python/README.md` and the npm docs (`README.md`'s npm section, `docs/embedding.md`) say how
+to use it.
