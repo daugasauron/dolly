@@ -58,7 +58,11 @@ function dylinkRequirements(module) {
         // WebAssembly dynamic-linking symbol flags use the low two bits for
         // binding and 1 for weak binding. Preserve the import namespace in the
         // key instead of assuming that equal spellings from env and GOT agree.
-        if ((flags & 3n) === 1n) weakImports.add(`${moduleName}\0${symbolName}`);
+        // wasm-ld lists a weak symbol's env import alone; the GOT.func and
+        // GOT.mem entries that take its address are the same symbol, named so.
+        if ((flags & 3n) !== 1n) continue;
+        weakImports.add(`${moduleName}\0${symbolName}`);
+        if (moduleName === "env") for (const got of ["GOT.func", "GOT.mem"]) weakImports.add(`${got}\0${symbolName}`);
       }
     }
   }
