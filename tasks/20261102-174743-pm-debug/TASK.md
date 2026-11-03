@@ -1,6 +1,6 @@
 # stack-wrap keeps a frame's room charged when an exception unwinds it
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: core,stack
 
@@ -70,11 +70,15 @@ nesting limit makes the same leak a failure in both browsers.
 
 ## Found on the way: Firefox and exceptions across fresh stacks
 
-- Memory: in Firefox each C++ exception thrown across a fresh stack keeps about 0.4 to 0.65 MB
-  while the process runs (browser peak 2.27 GB idle, 2.92 GB after 1,000 such throws, 3.76 GB
-  after 3,000; 10,000 had the content process killed at 5.8 GB by the 6 GB scope). Chrome stays
-  at 1.32 GB for 10,000. 6,000 continuations without an exception keep nothing in Firefox
-  (2.27 GB). Pre-existing: the fix changes nothing on that path.
+- Memory: in Firefox a caught C++ exception that was thrown on a fresh stack keeps about 0.4 to
+  0.65 MB for as long as the program holds it, and LLVM holds it in a local of the catching
+  frame until that frame returns. The climb holds one per level: browser peak 2.27 GB idle,
+  2.92 GB at 1,000 levels, 3.76 GB at 3,000; 10,000 had the content process killed at 5.8 GB
+  by the 6 GB scope. Chrome stays at 1.32 GB for 10,000. Firefox keeps nothing for 3,000 held
+  exceptions that never left their stack (2.16 GB), for 3,000 that crossed a stack but were
+  caught in one loop (2.28 GB), or for 6,000 continuations without one (2.27 GB). The provider
+  cannot give the program another exception to hold, so this is described, not fixed;
+  pre-existing, and the fix changes nothing on that path.
 - Time: a C++ throw through frames with destructors costs Firefox 32 µs a frame 1,000 deep and
   about 80 µs from 3,000 deep, with or without stack-wrap (`plain-guard`: 3.2 s for 100 throws
   through 1,000 frames, Chrome 48 ms). The old test's `dive(100000)` alone takes 8.2 s there.
@@ -85,3 +89,29 @@ nesting limit makes the same leak a failure in both browsers.
 `stack@0` and run `stack-wrap`; lean-std and lean-meta are built on lean-stage0. None of the four
 was rebuilt: the next catalog round. The doc's new line repins `dolly-docs` and what installs it
 (pi-dolly, pi-runtime, pi-phone and the pi demos built on them).
+
+## Closed 2026-11-03
+
+Done-when met in Chromium (Chrome 156) and Firefox 155: `test/stack-browser.mjs`'s `throw.cpp`
+fails with status 126 in both with the old tool and passes with the fix (commit 852716b4f, docs
+d0f106816), and passes again on work/stack's whole catalog (56 images and stack-wrap). Left for
+the next catalog round: lean-stage0, lean, lean-std and lean-meta, whose programs the old tool
+rewrote.
+
+## Lessons
+
+- Ask what a mechanism is before copying a nearby pattern. The provider catches once per stack;
+  the same catch in every frame would have charged Firefox about 80 µs a frame on every throw
+  and exit. The room is a stack pointer, and LLVM had already solved keeping one right after an
+  exception: at the landing pad.
+- A leak nobody can see (one 0.7 µs continuation) becomes a test when it is multiplied: one per
+  recursion level against how many fresh stacks nest (Chrome under 500, Firefox under 400),
+  measured first, then sized at twice that.
+- Time a new test in the slow browser before committing it: the first draft, with a destructor in
+  each of 3,000 frames per level, passed Firefox in 270 s, 30 s from its deadline; without the
+  destructors it takes 25 s.
+- Measure a browser's memory with its own scope's `memory.peak`; `ps` over every Firefox process
+  summed other agents' browsers into 13 GB.
+- A tree made from another tree's images lacks its keyed `build/` staging: the full catalog build
+  failed on `build/rustc-port/prepare.inputs` and two rustc archives (87 MB, copied from
+  work/phone), not on any image.
