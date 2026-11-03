@@ -329,14 +329,19 @@ closure, in 257 s for the eleven that changed): `npm run test:demos -- fingers b
 rts` passed (bhop 186 s, rts 289 s, classicube 290 s in Chromium, as those tests run; fingers in
 Chromium and Firefox); `test/amy-browser.mjs`'s sdl2-ttf, sdl2-image and openal rows, run alone
 in `default` after `amy install cmake pkgconf` and each package (`sdl2-packages-browser.mjs`),
-passed in Chromium and Firefox.
+passed in Chromium and Firefox. xonotic-build (libjpeg, sdl2) and zero-ad-deps (openal) rebuilt too (106 s):
+`demos/xonotic/test/xonotic-browser.mjs` headless, the client in the engine's software
+rasterizer (gpu@0 has no adapter there), passed in Chromium (512 s: the server benchmark, the
+menu, a bot match, its timedemo at 12.5 frames/s, sound); `0ad-openal-browser.mjs` ran
+zero-ad-deps' OpenAL probe in Chromium (34 and 17 ms).
 
 For the next catalog round: every consumer of the four packages. Built and tested here: sdl2,
 sdl2-mixer, sdl2-image, sdl2-ttf, imgui, imgui-x11, xorg-server, x11-desktop, libjpeg, openal,
 raylib, gamedev-sdk, bhop, classicube-build, classicube, rts-build, rts-arena, fingers-build,
-fingers. Not built here, GPU stage: xonotic-build, xonotic (libjpeg, sdl2),
-zero-ad-deps, zero-ad-engine, zero-ad (openal, sdl2; zero-ad-deps copies SDL2's archive, F12),
-ghostty-x11 (on x11-desktop's chain). zero-ad's builds exceed a 9 GB slot (above).
+fingers, xonotic-build, zero-ad-deps. Not built here, with the GPU stage: xonotic (on
+xonotic-build), zero-ad-engine and zero-ad (on zero-ad-deps; zero-ad-deps copies SDL2's archive,
+F12), and ghostty-gtk and ghostty-x11, stale in this tree from the branch's own base; zero-ad's
+and ghostty-gtk's builds exceed a 9 GB slot (above).
 
 ## Shared findings (recorded by both audits)
 
