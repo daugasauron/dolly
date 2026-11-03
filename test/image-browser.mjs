@@ -138,8 +138,9 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
   await page.evaluate(source => sessionStorage.setItem("dolly-custom-source", source), iterationRecipe(system, "iteration-two"));
   assert.notEqual((await boot(page, "iteration-two")).digest, published.digest);
 
-  // Changing base bytes without changing its recipe invalidates cached and published children.
-  assert.deepEqual(await page.evaluate(async ({ system, child }) => {
+  // Changing base bytes without changing its recipe invalidates cached and published children:
+  // building on system rebuilds an image built FROM system-tools.
+  const stale = await page.evaluate(async ({ system, child }) => {
     const { loadImageArtifactDescriptor, loadImageArtifact, describeImageArtifact, saveImageArtifact } =
       await import("/src/image-artifact.mjs");
     const { loadPackagedSnapshotMetadata, packagedSystemSnapshot } = await import("/src/packaged-snapshot.mjs");
@@ -172,7 +173,10 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
     } finally {
       if (!await saveImageArtifact(original, `/${system.dollyfile}`)) throw new Error("cache restoration failed");
     }
-  }, { system: tools, child: system }), { changedBytes: true, staleHit: false, requested: "session-recover", failure: "EXPECTED_REBUILD" });
+  }, { system: tools, child: system });
+  const children = DOLLY_IMAGES.filter(({ artifacts }) => artifacts.some(({ image }) => image === tools.image));
+  assert.deepEqual({ ...stale, requested: children.some(({ image }) => image === stale.requested) },
+    { changedBytes: true, staleHit: false, requested: true, failure: "EXPECTED_REBUILD" });
 
   // IndexedDB rollback under an injected quota failure, stale and corrupt
   // payload rejection, atomic concurrent publication, recovery of the exact
