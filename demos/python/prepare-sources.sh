@@ -34,6 +34,12 @@ if has_image python; then
     "${cpython_dir}/configure" /usr/src/python/configure \
     "${cpython_dir}/LICENSE" /usr/share/licenses/cpython/LICENSE
 fi
+# The openblas package's: upstream's release archive and the two lines its
+# build needs.
+if has_image openblas; then
+  copy_static "$(bash scripts/fetch-pinned-archive.sh openblas)" openblas/OpenBLAS-0.3.34.tar.gz
+  copy_static demos/python/openblas-dolly.patch openblas/openblas-dolly.patch
+fi
 # python-data-build's inputs as PyPI and Qhull publish them (source pin, file
 # name).
 if has_image python-data-build; then

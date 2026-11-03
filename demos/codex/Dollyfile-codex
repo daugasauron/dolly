@@ -8,11 +8,11 @@ REQUIRES HOST threads@0
 # Codex compiled by Cargo from its pinned sources, offline, with the launcher
 # that seeds CODEX_HOME and the search tools Codex runs. The lock file is kept
 # as the build's record.
-FROM /v0.1.4/demos/rust/Dollyfile-rust-build 177b94577abb27ccdc2fb9509b12be2421b7e15554ccacbd035a8ff6d4f30772
-USE /v0.1.4/Dollyfile-libdolly-sockets a487461d8c18802dd175e2ca15776f5f7a66a0010889b5091b13434e7e3081f0
-USE /v0.1.4/demos/rust/Dollyfile-protox 96b980047582fe58e52eb8d8b0569344523eacfb227d49335a690c21000a72b7
-INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep dfac9ef77cb51db74c1a38cf52b27cbc4069ecc5eeebf38d265f9af603a57a55
-INSTALL /v0.1.4/demos/rust/Dollyfile-fd 1e8cbf5aac166cd2df7605e860b8f4f5f270457bc6cd9609aaa1b09fd8a7f16c
+FROM /v0.1.4/demos/rust/Dollyfile-rust-build 0000000000000000000000000000000000000000000000000000000000000000
+USE /v0.1.4/Dollyfile-libdolly-sockets 0000000000000000000000000000000000000000000000000000000000000000
+USE /v0.1.4/demos/rust/Dollyfile-protox 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/demos/rust/Dollyfile-fd 0000000000000000000000000000000000000000000000000000000000000000
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL cargo

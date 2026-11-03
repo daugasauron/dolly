@@ -1,0 +1,3941 @@
+OpenBLAS 0.3.34's C translation of LAPACK (C_LAPACK) on WebAssembly: proposed
+upstream, not filed.
+
+- LAPACK's subroutines return void. OpenBLAS defines the ones it implements
+  (interface/lapack: getrf, getrs, gesv, potrf, lauum, trtri, laswp, laed3
+  and their unblocked forms), 42 files of its C translation (larft, larf1f,
+  larf1l, gedmd, geqp3rk, rscl...) and INSTALL's ilaver and lamc1 as
+  returning int, and declares them int where it calls them, while most of
+  the translation and every outside caller (SciPy, LAPACKE's lapack.h)
+  declare them void. WebAssembly checks each call's type: wasm-ld links a
+  mismatched call to a trap (OpenBLAS's own utest potrf:bug_695 traps, and
+  linking every object of the library warns of 108 symbols). Every
+  `int NAME_(` of a subroutine but xerbla_ becomes `void`, with its
+  `return 0;` a `return;`, and so do common_interface.h's prototypes of
+  those routines.
+- xerbla_ takes the routine name's length after INFO and returns int: the
+  files of the 3.12 routines (gedmd, gedmdq, geqp3rk) and DEPRECATED's gelqs
+  and geqrs declare and call it without the length, and declare it in a list
+  with the subroutines they call, so it gets a declaration of its own.
+
+Afterwards no call in the library mismatches its definition, and utest's 124
+tests and utest_ext's 1535 pass.
+
+--- a/common_interface.h
++++ b/common_interface.h
+@@ -686,92 +686,92 @@
+ 
+-int BLASFUNC(sgetf2)(blasint *, blasint *, float  *, blasint *, blasint *, blasint *);
+-int BLASFUNC(dgetf2)(blasint *, blasint *, double *, blasint *, blasint *, blasint *);
+-int BLASFUNC(qgetf2)(blasint *, blasint *, xdouble *, blasint *, blasint *, blasint *);
+-int BLASFUNC(cgetf2)(blasint *, blasint *, float  *, blasint *, blasint *, blasint *);
+-int BLASFUNC(zgetf2)(blasint *, blasint *, double *, blasint *, blasint *, blasint *);
+-int BLASFUNC(xgetf2)(blasint *, blasint *, xdouble *, blasint *, blasint *, blasint *);
+-
+-int BLASFUNC(sgetrf)(blasint *, blasint *, float  *, blasint *, blasint *, blasint *);
+-int BLASFUNC(dgetrf)(blasint *, blasint *, double *, blasint *, blasint *, blasint *);
+-int BLASFUNC(qgetrf)(blasint *, blasint *, xdouble *, blasint *, blasint *, blasint *);
+-int BLASFUNC(cgetrf)(blasint *, blasint *, float  *, blasint *, blasint *, blasint *);
+-int BLASFUNC(zgetrf)(blasint *, blasint *, double *, blasint *, blasint *, blasint *);
+-int BLASFUNC(xgetrf)(blasint *, blasint *, xdouble *, blasint *, blasint *, blasint *);
+-
+-int BLASFUNC(slaswp)(blasint *, float  *, blasint *, blasint *, blasint *, blasint *, blasint *);
+-int BLASFUNC(dlaswp)(blasint *, double *, blasint *, blasint *, blasint *, blasint *, blasint *);
+-int BLASFUNC(qlaswp)(blasint *, xdouble *, blasint *, blasint *, blasint *, blasint *, blasint *);
+-int BLASFUNC(claswp)(blasint *, float  *, blasint *, blasint *, blasint *, blasint *, blasint *);
+-int BLASFUNC(zlaswp)(blasint *, double *, blasint *, blasint *, blasint *, blasint *, blasint *);
+-int BLASFUNC(xlaswp)(blasint *, xdouble *, blasint *, blasint *, blasint *, blasint *, blasint *);
+-
+-int BLASFUNC(sgetrs)(char *, blasint *, blasint *, float  *, blasint *, blasint *, float  *, blasint *, blasint *);
+-int BLASFUNC(dgetrs)(char *, blasint *, blasint *, double *, blasint *, blasint *, double *, blasint *, blasint *);
+-int BLASFUNC(qgetrs)(char *, blasint *, blasint *, xdouble *, blasint *, blasint *, xdouble *, blasint *, blasint *);
+-int BLASFUNC(cgetrs)(char *, blasint *, blasint *, float  *, blasint *, blasint *, float  *, blasint *, blasint *);
+-int BLASFUNC(zgetrs)(char *, blasint *, blasint *, double *, blasint *, blasint *, double *, blasint *, blasint *);
+-int BLASFUNC(xgetrs)(char *, blasint *, blasint *, xdouble *, blasint *, blasint *, xdouble *, blasint *, blasint *);
+-
+-int BLASFUNC(sgesv)(blasint *, blasint *, float  *, blasint *, blasint *, float *, blasint *, blasint *);
+-int BLASFUNC(dgesv)(blasint *, blasint *, double *, blasint *, blasint *, double*, blasint *, blasint *);
+-int BLASFUNC(qgesv)(blasint *, blasint *, xdouble *, blasint *, blasint *, xdouble*, blasint *, blasint *);
+-int BLASFUNC(cgesv)(blasint *, blasint *, float  *, blasint *, blasint *, float *, blasint *, blasint *);
+-int BLASFUNC(zgesv)(blasint *, blasint *, double *, blasint *, blasint *, double*, blasint *, blasint *);
+-int BLASFUNC(xgesv)(blasint *, blasint *, xdouble *, blasint *, blasint *, xdouble*, blasint *, blasint *);
+-
+-int BLASFUNC(spotf2)(char *, blasint *, float  *, blasint *, blasint *);
+-int BLASFUNC(dpotf2)(char *, blasint *, double *, blasint *, blasint *);
+-int BLASFUNC(qpotf2)(char *, blasint *, xdouble *, blasint *, blasint *);
+-int BLASFUNC(cpotf2)(char *, blasint *, float  *, blasint *, blasint *);
+-int BLASFUNC(zpotf2)(char *, blasint *, double *, blasint *, blasint *);
+-int BLASFUNC(xpotf2)(char *, blasint *, xdouble *, blasint *, blasint *);
+-
+-int BLASFUNC(spotrf)(char *, blasint *, float  *, blasint *, blasint *);
+-int BLASFUNC(dpotrf)(char *, blasint *, double *, blasint *, blasint *);
+-int BLASFUNC(qpotrf)(char *, blasint *, xdouble *, blasint *, blasint *);
+-int BLASFUNC(cpotrf)(char *, blasint *, float  *, blasint *, blasint *);
+-int BLASFUNC(zpotrf)(char *, blasint *, double *, blasint *, blasint *);
+-int BLASFUNC(xpotrf)(char *, blasint *, xdouble *, blasint *, blasint *);
+-
+-int BLASFUNC(spotri)(char *, blasint *, float  *, blasint *, blasint *);
+-int BLASFUNC(dpotri)(char *, blasint *, double *, blasint *, blasint *);
+-int BLASFUNC(qpotri)(char *, blasint *, xdouble *, blasint *, blasint *);
+-int BLASFUNC(cpotri)(char *, blasint *, float  *, blasint *, blasint *);
+-int BLASFUNC(zpotri)(char *, blasint *, double *, blasint *, blasint *);
+-int BLASFUNC(xpotri)(char *, blasint *, xdouble *, blasint *, blasint *);
+-
+-int BLASFUNC(spotrs)(char *, blasint *, blasint *, float   *, blasint *, float   *, blasint *, blasint *);
+-int BLASFUNC(dpotrs)(char *, blasint *, blasint *, double  *, blasint *, double  *, blasint *, blasint *);
+-int BLASFUNC(qpotrs)(char *, blasint *, blasint *, xdouble *, blasint *, xdouble *, blasint *, blasint *);
+-int BLASFUNC(cpotrs)(char *, blasint *, blasint *, float   *, blasint *, float   *, blasint *, blasint *);
+-int BLASFUNC(zpotrs)(char *, blasint *, blasint *, double  *, blasint *, double  *, blasint *, blasint *);
+-int BLASFUNC(xpotrs)(char *, blasint *, blasint *, xdouble *, blasint *, xdouble *, blasint *, blasint *);
+-
+-int BLASFUNC(slauu2)(char *, blasint *, float  *, blasint *, blasint *);
+-int BLASFUNC(dlauu2)(char *, blasint *, double *, blasint *, blasint *);
+-int BLASFUNC(qlauu2)(char *, blasint *, xdouble *, blasint *, blasint *);
+-int BLASFUNC(clauu2)(char *, blasint *, float  *, blasint *, blasint *);
+-int BLASFUNC(zlauu2)(char *, blasint *, double *, blasint *, blasint *);
+-int BLASFUNC(xlauu2)(char *, blasint *, xdouble *, blasint *, blasint *);
+-
+-int BLASFUNC(slauum)(char *, blasint *, float  *, blasint *, blasint *);
+-int BLASFUNC(dlauum)(char *, blasint *, double *, blasint *, blasint *);
+-int BLASFUNC(qlauum)(char *, blasint *, xdouble *, blasint *, blasint *);
+-int BLASFUNC(clauum)(char *, blasint *, float  *, blasint *, blasint *);
+-int BLASFUNC(zlauum)(char *, blasint *, double *, blasint *, blasint *);
+-int BLASFUNC(xlauum)(char *, blasint *, xdouble *, blasint *, blasint *);
+-
+-int BLASFUNC(strti2)(char *, char *, blasint *, float  *, blasint *, blasint *);
+-int BLASFUNC(dtrti2)(char *, char *, blasint *, double *, blasint *, blasint *);
+-int BLASFUNC(qtrti2)(char *, char *, blasint *, xdouble *, blasint *, blasint *);
+-int BLASFUNC(ctrti2)(char *, char *, blasint *, float  *, blasint *, blasint *);
+-int BLASFUNC(ztrti2)(char *, char *, blasint *, double *, blasint *, blasint *);
+-int BLASFUNC(xtrti2)(char *, char *, blasint *, xdouble *, blasint *, blasint *);
+-
+-int BLASFUNC(strtri)(char *, char *, blasint *, float  *, blasint *, blasint *);
+-int BLASFUNC(dtrtri)(char *, char *, blasint *, double *, blasint *, blasint *);
+-int BLASFUNC(qtrtri)(char *, char *, blasint *, xdouble *, blasint *, blasint *);
+-int BLASFUNC(ctrtri)(char *, char *, blasint *, float  *, blasint *, blasint *);
+-int BLASFUNC(ztrtri)(char *, char *, blasint *, double *, blasint *, blasint *);
+-int BLASFUNC(xtrtri)(char *, char *, blasint *, xdouble *, blasint *, blasint *);
++void BLASFUNC(sgetf2)(blasint *, blasint *, float  *, blasint *, blasint *, blasint *);
++void BLASFUNC(dgetf2)(blasint *, blasint *, double *, blasint *, blasint *, blasint *);
++void BLASFUNC(qgetf2)(blasint *, blasint *, xdouble *, blasint *, blasint *, blasint *);
++void BLASFUNC(cgetf2)(blasint *, blasint *, float  *, blasint *, blasint *, blasint *);
++void BLASFUNC(zgetf2)(blasint *, blasint *, double *, blasint *, blasint *, blasint *);
++void BLASFUNC(xgetf2)(blasint *, blasint *, xdouble *, blasint *, blasint *, blasint *);
++
++void BLASFUNC(sgetrf)(blasint *, blasint *, float  *, blasint *, blasint *, blasint *);
++void BLASFUNC(dgetrf)(blasint *, blasint *, double *, blasint *, blasint *, blasint *);
++void BLASFUNC(qgetrf)(blasint *, blasint *, xdouble *, blasint *, blasint *, blasint *);
++void BLASFUNC(cgetrf)(blasint *, blasint *, float  *, blasint *, blasint *, blasint *);
++void BLASFUNC(zgetrf)(blasint *, blasint *, double *, blasint *, blasint *, blasint *);
++void BLASFUNC(xgetrf)(blasint *, blasint *, xdouble *, blasint *, blasint *, blasint *);
++
++void BLASFUNC(slaswp)(blasint *, float  *, blasint *, blasint *, blasint *, blasint *, blasint *);
++void BLASFUNC(dlaswp)(blasint *, double *, blasint *, blasint *, blasint *, blasint *, blasint *);
++void BLASFUNC(qlaswp)(blasint *, xdouble *, blasint *, blasint *, blasint *, blasint *, blasint *);
++void BLASFUNC(claswp)(blasint *, float  *, blasint *, blasint *, blasint *, blasint *, blasint *);
++void BLASFUNC(zlaswp)(blasint *, double *, blasint *, blasint *, blasint *, blasint *, blasint *);
++void BLASFUNC(xlaswp)(blasint *, xdouble *, blasint *, blasint *, blasint *, blasint *, blasint *);
++
++void BLASFUNC(sgetrs)(char *, blasint *, blasint *, float  *, blasint *, blasint *, float  *, blasint *, blasint *);
++void BLASFUNC(dgetrs)(char *, blasint *, blasint *, double *, blasint *, blasint *, double *, blasint *, blasint *);
++void BLASFUNC(qgetrs)(char *, blasint *, blasint *, xdouble *, blasint *, blasint *, xdouble *, blasint *, blasint *);
++void BLASFUNC(cgetrs)(char *, blasint *, blasint *, float  *, blasint *, blasint *, float  *, blasint *, blasint *);
++void BLASFUNC(zgetrs)(char *, blasint *, blasint *, double *, blasint *, blasint *, double *, blasint *, blasint *);
++void BLASFUNC(xgetrs)(char *, blasint *, blasint *, xdouble *, blasint *, blasint *, xdouble *, blasint *, blasint *);
++
++void BLASFUNC(sgesv)(blasint *, blasint *, float  *, blasint *, blasint *, float *, blasint *, blasint *);
++void BLASFUNC(dgesv)(blasint *, blasint *, double *, blasint *, blasint *, double*, blasint *, blasint *);
++void BLASFUNC(qgesv)(blasint *, blasint *, xdouble *, blasint *, blasint *, xdouble*, blasint *, blasint *);
++void BLASFUNC(cgesv)(blasint *, blasint *, float  *, blasint *, blasint *, float *, blasint *, blasint *);
++void BLASFUNC(zgesv)(blasint *, blasint *, double *, blasint *, blasint *, double*, blasint *, blasint *);
++void BLASFUNC(xgesv)(blasint *, blasint *, xdouble *, blasint *, blasint *, xdouble*, blasint *, blasint *);
++
++void BLASFUNC(spotf2)(char *, blasint *, float  *, blasint *, blasint *);
++void BLASFUNC(dpotf2)(char *, blasint *, double *, blasint *, blasint *);
++void BLASFUNC(qpotf2)(char *, blasint *, xdouble *, blasint *, blasint *);
++void BLASFUNC(cpotf2)(char *, blasint *, float  *, blasint *, blasint *);
++void BLASFUNC(zpotf2)(char *, blasint *, double *, blasint *, blasint *);
++void BLASFUNC(xpotf2)(char *, blasint *, xdouble *, blasint *, blasint *);
++
++void BLASFUNC(spotrf)(char *, blasint *, float  *, blasint *, blasint *);
++void BLASFUNC(dpotrf)(char *, blasint *, double *, blasint *, blasint *);
++void BLASFUNC(qpotrf)(char *, blasint *, xdouble *, blasint *, blasint *);
++void BLASFUNC(cpotrf)(char *, blasint *, float  *, blasint *, blasint *);
++void BLASFUNC(zpotrf)(char *, blasint *, double *, blasint *, blasint *);
++void BLASFUNC(xpotrf)(char *, blasint *, xdouble *, blasint *, blasint *);
++
++void BLASFUNC(spotri)(char *, blasint *, float  *, blasint *, blasint *);
++void BLASFUNC(dpotri)(char *, blasint *, double *, blasint *, blasint *);
++void BLASFUNC(qpotri)(char *, blasint *, xdouble *, blasint *, blasint *);
++void BLASFUNC(cpotri)(char *, blasint *, float  *, blasint *, blasint *);
++void BLASFUNC(zpotri)(char *, blasint *, double *, blasint *, blasint *);
++void BLASFUNC(xpotri)(char *, blasint *, xdouble *, blasint *, blasint *);
++
++void BLASFUNC(spotrs)(char *, blasint *, blasint *, float   *, blasint *, float   *, blasint *, blasint *);
++void BLASFUNC(dpotrs)(char *, blasint *, blasint *, double  *, blasint *, double  *, blasint *, blasint *);
++void BLASFUNC(qpotrs)(char *, blasint *, blasint *, xdouble *, blasint *, xdouble *, blasint *, blasint *);
++void BLASFUNC(cpotrs)(char *, blasint *, blasint *, float   *, blasint *, float   *, blasint *, blasint *);
++void BLASFUNC(zpotrs)(char *, blasint *, blasint *, double  *, blasint *, double  *, blasint *, blasint *);
++void BLASFUNC(xpotrs)(char *, blasint *, blasint *, xdouble *, blasint *, xdouble *, blasint *, blasint *);
++
++void BLASFUNC(slauu2)(char *, blasint *, float  *, blasint *, blasint *);
++void BLASFUNC(dlauu2)(char *, blasint *, double *, blasint *, blasint *);
++void BLASFUNC(qlauu2)(char *, blasint *, xdouble *, blasint *, blasint *);
++void BLASFUNC(clauu2)(char *, blasint *, float  *, blasint *, blasint *);
++void BLASFUNC(zlauu2)(char *, blasint *, double *, blasint *, blasint *);
++void BLASFUNC(xlauu2)(char *, blasint *, xdouble *, blasint *, blasint *);
++
++void BLASFUNC(slauum)(char *, blasint *, float  *, blasint *, blasint *);
++void BLASFUNC(dlauum)(char *, blasint *, double *, blasint *, blasint *);
++void BLASFUNC(qlauum)(char *, blasint *, xdouble *, blasint *, blasint *);
++void BLASFUNC(clauum)(char *, blasint *, float  *, blasint *, blasint *);
++void BLASFUNC(zlauum)(char *, blasint *, double *, blasint *, blasint *);
++void BLASFUNC(xlauum)(char *, blasint *, xdouble *, blasint *, blasint *);
++
++void BLASFUNC(strti2)(char *, char *, blasint *, float  *, blasint *, blasint *);
++void BLASFUNC(dtrti2)(char *, char *, blasint *, double *, blasint *, blasint *);
++void BLASFUNC(qtrti2)(char *, char *, blasint *, xdouble *, blasint *, blasint *);
++void BLASFUNC(ctrti2)(char *, char *, blasint *, float  *, blasint *, blasint *);
++void BLASFUNC(ztrti2)(char *, char *, blasint *, double *, blasint *, blasint *);
++void BLASFUNC(xtrti2)(char *, char *, blasint *, xdouble *, blasint *, blasint *);
++
++void BLASFUNC(strtri)(char *, char *, blasint *, float  *, blasint *, blasint *);
++void BLASFUNC(dtrtri)(char *, char *, blasint *, double *, blasint *, blasint *);
++void BLASFUNC(qtrtri)(char *, char *, blasint *, xdouble *, blasint *, blasint *);
++void BLASFUNC(ctrtri)(char *, char *, blasint *, float  *, blasint *, blasint *);
++void BLASFUNC(ztrtri)(char *, char *, blasint *, double *, blasint *, blasint *);
++void BLASFUNC(xtrtri)(char *, char *, blasint *, xdouble *, blasint *, blasint *);
+ 
+--- a/interface/lapack/gesv.c
++++ b/interface/lapack/gesv.c
+@@ -62,3 +62,3 @@
+ 
+-int NAME(blasint *N, blasint *NRHS, FLOAT *a, blasint *ldA, blasint *ipiv,
++void NAME(blasint *N, blasint *NRHS, FLOAT *a, blasint *ldA, blasint *ipiv,
+          FLOAT *b, blasint *ldB, blasint *Info){
+@@ -93,3 +93,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -101,3 +101,3 @@
+ 
+-  if (args.m == 0) return 0;
++  if (args.m == 0) return;
+ 
+@@ -173,3 +173,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/getf2.c
++++ b/interface/lapack/getf2.c
+@@ -52,3 +52,3 @@
+ 
+-int NAME(blasint *M, blasint *N, FLOAT *a, blasint *ldA, blasint *ipiv, blasint *Info){
++void NAME(blasint *M, blasint *N, FLOAT *a, blasint *ldA, blasint *ipiv, blasint *Info){
+ 
+@@ -78,3 +78,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -82,3 +82,3 @@
+   *Info = 0;
+-  if (args.m == 0 || args.n == 0) return 0;
++  if (args.m == 0 || args.n == 0) return;
+ 
+@@ -107,3 +107,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/getrf.c
++++ b/interface/lapack/getrf.c
+@@ -52,3 +52,3 @@
+ 
+-int NAME(blasint *M, blasint *N, FLOAT *a, blasint *ldA, blasint *ipiv, blasint *Info){
++void NAME(blasint *M, blasint *N, FLOAT *a, blasint *ldA, blasint *ipiv, blasint *Info){
+ 
+@@ -78,3 +78,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -82,3 +82,3 @@
+   *Info = 0;
+-  if (args.m == 0 || args.n == 0) return 0;
++  if (args.m == 0 || args.n == 0) return;
+ 
+@@ -131,3 +131,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/getrs.c
++++ b/interface/lapack/getrs.c
+@@ -62,3 +62,3 @@
+ 
+-int NAME(char *TRANS, blasint *N, blasint *NRHS, FLOAT *a, blasint *ldA,
++void NAME(char *TRANS, blasint *N, blasint *NRHS, FLOAT *a, blasint *ldA,
+   blasint *ipiv, FLOAT *b, blasint *ldB, blasint *Info){
+@@ -105,3 +105,3 @@
+     BLASFUNC(xerbla)(ERROR_NAME, &info, sizeof(ERROR_NAME) - 1);
+-    return 0;
++    return;
+   }
+@@ -113,3 +113,3 @@
+ 
+-  if (args.m == 0 || args.n == 0) return 0;
++  if (args.m == 0 || args.n == 0) return;
+ 
+@@ -153,3 +153,3 @@
+ 
+-  return 0;
++  return;
+ 
+--- a/interface/lapack/laed3.c
++++ b/interface/lapack/laed3.c
+@@ -42,3 +42,3 @@
+ /* ===================================================================== */
+-int NAME(blasint *k, blasint *n, blasint *n1, FLOAT *d, 
++void NAME(blasint *k, blasint *n, blasint *n1, FLOAT *d, 
+         FLOAT *q, blasint *ldq, FLOAT *rho, FLOAT *dlamda,
+@@ -65,3 +65,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -71,3 +71,3 @@
+   *Info = 0;
+-  if (kval == 0) return 0;
++  if (kval == 0) return;
+ 
+@@ -86,3 +86,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/laswp.c
++++ b/interface/lapack/laswp.c
+@@ -54,3 +54,3 @@
+ 
+-int NAME(blasint *N, FLOAT *a, blasint *LDA, blasint *K1, blasint *K2, blasint *ipiv, blasint *INCX){
++void NAME(blasint *N, FLOAT *a, blasint *LDA, blasint *K1, blasint *K2, blasint *ipiv, blasint *INCX){
+ 
+@@ -70,3 +70,3 @@
+ 
+-  if (incx == 0 || n <= 0) return 0;
++  if (incx == 0 || n <= 0) return;
+ 
+@@ -111,3 +111,3 @@
+ 
+-  return 0;
++  return;
+ 
+--- a/interface/lapack/lauu2.c
++++ b/interface/lapack/lauu2.c
+@@ -62,3 +62,3 @@
+ 
+-int NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
++void NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
+ 
+@@ -94,3 +94,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -99,3 +99,3 @@
+ 
+-  if (args.n <= 0) return 0;
++  if (args.n <= 0) return;
+ 
+@@ -126,3 +126,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/lauum.c
++++ b/interface/lapack/lauum.c
+@@ -62,3 +62,3 @@
+ 
+-int NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
++void NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
+ 
+@@ -94,3 +94,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -99,3 +99,3 @@
+ 
+-  if (args.n == 0) return 0;
++  if (args.n == 0) return;
+ 
+@@ -141,3 +141,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/potf2.c
++++ b/interface/lapack/potf2.c
+@@ -62,3 +62,3 @@
+ 
+-int NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
++void NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
+ 
+@@ -94,3 +94,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -99,3 +99,3 @@
+ 
+-  if (args.n <= 0) return 0;
++  if (args.n <= 0) return;
+ 
+@@ -126,3 +126,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/potrf.c
++++ b/interface/lapack/potrf.c
+@@ -62,3 +62,3 @@
+ 
+-int NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
++void NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
+ 
+@@ -94,3 +94,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -99,3 +99,3 @@
+ 
+-  if (args.n == 0) return 0;
++  if (args.n == 0) return;
+ 
+@@ -148,3 +148,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/potri.c
++++ b/interface/lapack/potri.c
+@@ -70,3 +70,3 @@
+ 
+-int NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
++void NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
+ 
+@@ -103,3 +103,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -108,3 +108,3 @@
+ 
+-  if (args.n == 0) return 0;
++  if (args.n == 0) return;
+ 
+@@ -161,3 +161,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/trti2.c
++++ b/interface/lapack/trti2.c
+@@ -62,3 +62,3 @@
+ 
+-int NAME(char *UPLO, char *DIAG, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
++void NAME(char *UPLO, char *DIAG, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
+ 
+@@ -100,3 +100,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -105,3 +105,3 @@
+ 
+-  if (args.n <= 0) return 0;
++  if (args.n <= 0) return;
+ 
+@@ -132,3 +132,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/trtri.c
++++ b/interface/lapack/trtri.c
+@@ -63,3 +63,3 @@
+ 
+-int NAME(char *UPLO, char *DIAG, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
++void NAME(char *UPLO, char *DIAG, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
+ 
+@@ -103,3 +103,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -108,3 +108,3 @@
+ 
+-  if (args.n == 0) return 0;
++  if (args.n == 0) return;
+ 
+@@ -113,3 +113,3 @@
+       *Info = IAMIN_K(args.n, args.a, args.lda + 1);
+-      return 0;
++      return;
+     }
+@@ -157,3 +157,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/trtrs.c
++++ b/interface/lapack/trtrs.c
+@@ -62,3 +62,3 @@
+ 
+-int NAME(char *UPLO, char* TRANS, char* DIAG, blasint *N, blasint *NRHS, FLOAT *a, blasint *ldA,
++void NAME(char *UPLO, char* TRANS, char* DIAG, blasint *N, blasint *NRHS, FLOAT *a, blasint *ldA,
+   FLOAT *b, blasint *ldB, blasint *Info){
+@@ -118,3 +118,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -126,3 +126,3 @@
+ 
+-  if (args.m == 0) return 0;
++  if (args.m == 0) return;
+ 
+@@ -131,3 +131,3 @@
+       *Info = IAMIN_K(args.m, args.a, args.lda + 1);
+-      return 0;
++      return;
+     }
+@@ -174,3 +174,3 @@
+ 
+-  return 0;
++  return;
+ 
+--- a/interface/lapack/zgetf2.c
++++ b/interface/lapack/zgetf2.c
+@@ -52,3 +52,3 @@
+ 
+-int NAME(blasint *M, blasint *N, FLOAT *a, blasint *ldA, blasint *ipiv, blasint *Info){
++void NAME(blasint *M, blasint *N, FLOAT *a, blasint *ldA, blasint *ipiv, blasint *Info){
+ 
+@@ -78,3 +78,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -82,3 +82,3 @@
+   *Info = 0;
+-  if (args.m == 0 || args.n == 0) return 0;
++  if (args.m == 0 || args.n == 0) return;
+ 
+@@ -107,3 +107,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/zgetrf.c
++++ b/interface/lapack/zgetrf.c
+@@ -52,3 +52,3 @@
+ 
+-int NAME(blasint *M, blasint *N, FLOAT *a, blasint *ldA, blasint *ipiv, blasint *Info){
++void NAME(blasint *M, blasint *N, FLOAT *a, blasint *ldA, blasint *ipiv, blasint *Info){
+ 
+@@ -78,3 +78,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -82,3 +82,3 @@
+   *Info = 0;
+-  if (args.m == 0 || args.n == 0) return 0;
++  if (args.m == 0 || args.n == 0) return;
+ 
+@@ -123,3 +123,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/zgetrs.c
++++ b/interface/lapack/zgetrs.c
+@@ -62,3 +62,3 @@
+ 
+-int NAME(char *TRANS, blasint *N, blasint *NRHS, FLOAT *a, blasint *ldA,
++void NAME(char *TRANS, blasint *N, blasint *NRHS, FLOAT *a, blasint *ldA,
+ 	    blasint *ipiv, FLOAT *b, blasint *ldB, blasint *Info){
+@@ -105,3 +105,3 @@
+     BLASFUNC(xerbla)(ERROR_NAME, &info, sizeof(ERROR_NAME) - 1);
+-    return 0;
++    return;
+   }
+@@ -113,3 +113,3 @@
+ 
+-  if (args.m == 0 || args.n == 0) return 0;
++  if (args.m == 0 || args.n == 0) return;
+ 
+@@ -154,3 +154,3 @@
+ 
+-  return 0;
++  return;
+ 
+--- a/interface/lapack/zlaswp.c
++++ b/interface/lapack/zlaswp.c
+@@ -54,3 +54,3 @@
+ 
+-int NAME(blasint *N, FLOAT *a, blasint *LDA, blasint *K1, blasint *K2, blasint *ipiv, blasint *INCX){
++void NAME(blasint *N, FLOAT *a, blasint *LDA, blasint *K1, blasint *K2, blasint *ipiv, blasint *INCX){
+ 
+@@ -71,3 +71,3 @@
+ 
+-  if (incx == 0 || n <= 0) return 0;
++  if (incx == 0 || n <= 0) return;
+ 
+@@ -110,3 +110,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/zlauu2.c
++++ b/interface/lapack/zlauu2.c
+@@ -63,3 +63,3 @@
+ 
+-int NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
++void NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
+ 
+@@ -95,3 +95,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -100,3 +100,3 @@
+ 
+-  if (args.n <= 0) return 0;
++  if (args.n <= 0) return;
+ 
+@@ -127,3 +127,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/zlauum.c
++++ b/interface/lapack/zlauum.c
+@@ -62,3 +62,3 @@
+ 
+-int NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
++void NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
+ 
+@@ -94,3 +94,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -99,3 +99,3 @@
+ 
+-  if (args.n == 0) return 0;
++  if (args.n == 0) return;
+ 
+@@ -143,3 +143,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/zpotf2.c
++++ b/interface/lapack/zpotf2.c
+@@ -63,3 +63,3 @@
+ 
+-int NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
++void NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
+ 
+@@ -95,3 +95,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -100,3 +100,3 @@
+ 
+-  if (args.n <= 0) return 0;
++  if (args.n <= 0) return;
+ 
+@@ -127,3 +127,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/zpotrf.c
++++ b/interface/lapack/zpotrf.c
+@@ -62,3 +62,3 @@
+ 
+-int NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
++void NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
+ 
+@@ -94,3 +94,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -99,3 +99,3 @@
+ 
+-  if (args.n == 0) return 0;
++  if (args.n == 0) return;
+ 
+@@ -146,3 +146,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/zpotri.c
++++ b/interface/lapack/zpotri.c
+@@ -70,3 +70,3 @@
+ 
+-int NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
++void NAME(char *UPLO, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
+ 
+@@ -103,3 +103,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -108,3 +108,3 @@
+ 
+-  if (args.n == 0) return 0;
++  if (args.n == 0) return;
+ 
+@@ -167,3 +167,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/ztrti2.c
++++ b/interface/lapack/ztrti2.c
+@@ -62,3 +62,3 @@
+ 
+-int NAME(char *UPLO, char *DIAG, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
++void NAME(char *UPLO, char *DIAG, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
+ 
+@@ -100,3 +100,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -105,3 +105,3 @@
+ 
+-  if (args.n <= 0) return 0;
++  if (args.n <= 0) return;
+ 
+@@ -132,3 +132,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/ztrtri.c
++++ b/interface/lapack/ztrtri.c
+@@ -62,3 +62,3 @@
+ 
+-int NAME(char *UPLO, char *DIAG, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
++void NAME(char *UPLO, char *DIAG, blasint *N, FLOAT *a, blasint *ldA, blasint *Info){
+ 
+@@ -100,3 +100,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -105,3 +105,3 @@
+ 
+-  if (args.n == 0) return 0;
++  if (args.n == 0) return;
+ 
+@@ -110,3 +110,3 @@
+       *Info = IAMIN_K(args.n, args.a, args.lda + 1);
+-      return 0;
++      return;
+     }
+@@ -156,3 +156,3 @@
+ 
+-  return 0;
++  return;
+ }
+--- a/interface/lapack/ztrtrs.c
++++ b/interface/lapack/ztrtrs.c
+@@ -62,3 +62,3 @@
+ 
+-int NAME(char *UPLO, char* TRANS, char* DIAG, blasint *N, blasint *NRHS, FLOAT *a, blasint *ldA,
++void NAME(char *UPLO, char* TRANS, char* DIAG, blasint *N, blasint *NRHS, FLOAT *a, blasint *ldA,
+   FLOAT *b, blasint *ldB, blasint *Info){
+@@ -118,3 +118,3 @@
+     *Info = - info;
+-    return 0;
++    return;
+   }
+@@ -126,3 +126,3 @@
+ 
+-  if (args.m == 0) return 0;
++  if (args.m == 0) return;
+ 
+@@ -131,3 +131,3 @@
+       *Info = IAMIN_K(args.m, args.a, args.lda + 1);
+-      return 0;
++      return;
+     }
+@@ -174,3 +174,3 @@
+ 
+-  return 0;
++  return;
+ 
+--- a/lapack-netlib/INSTALL/dlamch.c
++++ b/lapack-netlib/INSTALL/dlamch.c
+@@ -375,3 +375,3 @@
+     static doublereal sfmin;
+-    extern /* Subroutine */ int dlamc2_(integer *, integer *, logical *, 
++    extern /* Subroutine */ void dlamc2_(integer *, integer *, logical *, 
+ 	    doublereal *, integer *, doublereal *, integer *, doublereal *);
+@@ -497,3 +497,3 @@
+ /* > */
+-/* Subroutine */ int dlamc1_(integer *beta, integer *t, logical *rnd, logical 
++/* Subroutine */ void dlamc1_(integer *beta, integer *t, logical *rnd, logical 
+ 	*ieee1)
+@@ -646,3 +646,3 @@
+     first = FALSE_;
+-    return 0;
++    return;
+ 
+@@ -722,3 +722,3 @@
+ /* > \endverbatim */
+-/* Subroutine */ int dlamc2_(integer *beta, integer *t, logical *rnd, 
++/* Subroutine */ void dlamc2_(integer *beta, integer *t, logical *rnd, 
+ 	doublereal *eps, integer *emin, doublereal *rmin, integer *emax, 
+@@ -758,3 +758,3 @@
+     doublereal sixth;
+-    extern /* Subroutine */ int dlamc1_(integer *, integer *, logical *, 
++    extern /* Subroutine */ void dlamc1_(integer *, integer *, logical *, 
+ 	    logical *);
+@@ -762,3 +762,3 @@
+     logical lieee1;
+-    extern /* Subroutine */ int dlamc4_(integer *, doublereal *, integer *), 
++    extern /* Subroutine */ void dlamc4_(integer *, doublereal *, integer *), 
+ 	    dlamc5_(integer *, integer *, integer *, logical *, integer *, 
+@@ -960,3 +960,3 @@
+ 
+-    return 0;
++    return;
+ 
+@@ -1033,3 +1033,3 @@
+ /* > */
+-/* Subroutine */ int dlamc4_(integer *emin, doublereal *start, integer *base)
++/* Subroutine */ void dlamc4_(integer *emin, doublereal *start, integer *base)
+ {
+@@ -1095,3 +1095,3 @@
+ 
+-    return 0;
++    return;
+ 
+@@ -1148,3 +1148,3 @@
+ /* > */
+-/* Subroutine */ int dlamc5_(integer *beta, integer *p, integer *emin, 
++/* Subroutine */ void dlamc5_(integer *beta, integer *p, integer *emin, 
+ 	logical *ieee, integer *emax, doublereal *rmax)
+@@ -1269,3 +1269,3 @@
+     *rmax = y;
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/INSTALL/ilaver.c
++++ b/lapack-netlib/INSTALL/ilaver.c
+@@ -321,3 +321,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int ilaver_(integer *vers_major__, integer *vers_minor__, 
++/* Subroutine */ void ilaver_(integer *vers_major__, integer *vers_minor__, 
+ 	integer *vers_patch__)
+@@ -337,3 +337,3 @@
+ 
+-    return 0;
++    return;
+ } /* ilaver_ */
+--- a/lapack-netlib/INSTALL/secondtst.c
++++ b/lapack-netlib/INSTALL/secondtst.c
+@@ -447,3 +447,3 @@
+     real alpha, x[1000], y[1000], total;
+-    extern /* Subroutine */ int mysub_(integer *, real *, real *);
++    extern /* Subroutine */ void mysub_(integer *, real *, real *);
+     real t1, t2;
+@@ -556,3 +556,3 @@
+ 
+-/* Subroutine */ int mysub_(integer *n, real *x, real *y)
++/* Subroutine */ void mysub_(integer *n, real *x, real *y)
+ {
+@@ -563,3 +563,3 @@
+     /* Function Body */
+-    return 0;
++    return;
+ } /* mysub_ */
+--- a/lapack-netlib/INSTALL/slamch.c
++++ b/lapack-netlib/INSTALL/slamch.c
+@@ -374,3 +374,3 @@
+     static real sfmin;
+-    extern /* Subroutine */ int slamc2_(integer *, integer *, logical *, real 
++    extern /* Subroutine */ void slamc2_(integer *, integer *, logical *, real 
+ 	    *, integer *, real *, integer *, real *);
+@@ -496,3 +496,3 @@
+ /* > */
+-/* Subroutine */ int slamc1_(integer *beta, integer *t, logical *rnd, logical 
++/* Subroutine */ void slamc1_(integer *beta, integer *t, logical *rnd, logical 
+ 	*ieee1)
+@@ -645,3 +645,3 @@
+     first = FALSE_;
+-    return 0;
++    return;
+ 
+@@ -721,3 +721,3 @@
+ /* > \endverbatim */
+-/* Subroutine */ int slamc2_(integer *beta, integer *t, logical *rnd, real *
++/* Subroutine */ void slamc2_(integer *beta, integer *t, logical *rnd, real *
+ 	eps, integer *emin, real *rmin, integer *emax, real *rmax)
+@@ -757,6 +757,6 @@
+     logical lieee1;
+-    extern /* Subroutine */ int slamc1_(integer *, integer *, logical *, 
++    extern /* Subroutine */ void slamc1_(integer *, integer *, logical *, 
+ 	    logical *);
+     extern real slamc3_(real *, real *);
+-    extern /* Subroutine */ int slamc4_(integer *, real *, integer *), 
++    extern /* Subroutine */ void slamc4_(integer *, real *, integer *), 
+ 	    slamc5_(integer *, integer *, integer *, logical *, integer *, 
+@@ -958,3 +958,3 @@
+ 
+-    return 0;
++    return;
+ 
+@@ -1031,3 +1031,3 @@
+ /* > */
+-/* Subroutine */ int slamc4_(integer *emin, real *start, integer *base)
++/* Subroutine */ void slamc4_(integer *emin, real *start, integer *base)
+ {
+@@ -1093,3 +1093,3 @@
+ 
+-    return 0;
++    return;
+ 
+@@ -1146,3 +1146,3 @@
+ /* > */
+-/* Subroutine */ int slamc5_(integer *beta, integer *p, integer *emin, 
++/* Subroutine */ void slamc5_(integer *beta, integer *p, integer *emin, 
+ 	logical *ieee, integer *emax, real *rmax)
+@@ -1267,3 +1267,3 @@
+     *rmax = y;
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/DEPRECATED/cgelqs.c
++++ b/lapack-netlib/SRC/DEPRECATED/cgelqs.c
+@@ -382,3 +382,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int cgelqs_(integer *m, integer *n, integer *nrhs, complex *
++/* Subroutine */ void cgelqs_(integer *m, integer *n, integer *nrhs, complex *
+ 	a, integer *lda, complex *tau, complex *b, integer *ldb, complex *
+@@ -390,8 +390,9 @@
+     /* Local variables */
+-    extern /* Subroutine */ int ctrsm_(char *, char *, char *, char *, 
++    extern /* Subroutine */ void ctrsm_(char *, char *, char *, char *, 
+ 	    integer *, integer *, complex *, complex *, integer *, complex *, 
+ 	    integer *), claset_(char *, 
+-	    integer *, integer *, complex *, complex *, complex *, integer *), xerbla_(char *, integer *), cunmlq_(char *, char 
++	    integer *, integer *, complex *, complex *, complex *, integer *), cunmlq_(char *, char 
+ 	    *, integer *, integer *, integer *, complex *, integer *, complex 
+ 	    *, complex *, integer *, complex *, integer *, integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+ 
+@@ -435,4 +436,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("CGELQS", &i__1);
+-	return 0;
++	xerbla_("CGELQS", &i__1, (ftnlen)6);
++	return;
+     }
+@@ -442,3 +443,3 @@
+     if (*n == 0 || *nrhs == 0 || *m == 0) {
+-	return 0;
++	return;
+     }
+@@ -462,3 +463,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/DEPRECATED/cgeqrs.c
++++ b/lapack-netlib/SRC/DEPRECATED/cgeqrs.c
+@@ -380,3 +380,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int cgeqrs_(integer *m, integer *n, integer *nrhs, complex *
++/* Subroutine */ void cgeqrs_(integer *m, integer *n, integer *nrhs, complex *
+ 	a, integer *lda, complex *tau, complex *b, integer *ldb, complex *
+@@ -388,5 +388,4 @@
+     /* Local variables */
+-    extern /* Subroutine */ int ctrsm_(char *, char *, char *, char *, 
++    extern /* Subroutine */ void ctrsm_(char *, char *, char *, char *, 
+ 	    integer *, integer *, complex *, complex *, integer *, complex *, 
+-	    integer *), xerbla_(char *, 
+ 	    integer *), cunmqr_(char *, char *, integer *, integer *, 
+@@ -394,2 +393,3 @@
+ 	    complex *, integer *, integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+ 
+@@ -433,4 +433,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("CGEQRS", &i__1);
+-	return 0;
++	xerbla_("CGEQRS", &i__1, (ftnlen)6);
++	return;
+     }
+@@ -440,3 +440,3 @@
+     if (*n == 0 || *nrhs == 0 || *m == 0) {
+-	return 0;
++	return;
+     }
+@@ -453,3 +453,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/DEPRECATED/dgelqs.c
++++ b/lapack-netlib/SRC/DEPRECATED/dgelqs.c
+@@ -381,3 +381,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int dgelqs_(integer *m, integer *n, integer *nrhs, 
++/* Subroutine */ void dgelqs_(integer *m, integer *n, integer *nrhs, 
+ 	doublereal *a, integer *lda, doublereal *tau, doublereal *b, integer *
+@@ -389,3 +389,3 @@
+     /* Local variables */
+-    extern /* Subroutine */ int dtrsm_(char *, char *, char *, char *, 
++    extern /* Subroutine */ void dtrsm_(char *, char *, char *, char *, 
+ 	    integer *, integer *, doublereal *, doublereal *, integer *, 
+@@ -393,5 +393,6 @@
+ 	    char *, integer *, integer *, doublereal *, doublereal *, 
+-	    doublereal *, integer *), xerbla_(char *, integer *), dormlq_(char *, char *, integer *, integer *, integer *, 
++	    doublereal *, integer *), dormlq_(char *, char *, integer *, integer *, integer *, 
+ 	    doublereal *, integer *, doublereal *, doublereal *, integer *, 
+ 	    doublereal *, integer *, integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+ 
+@@ -435,4 +436,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("DGELQS", &i__1);
+-	return 0;
++	xerbla_("DGELQS", &i__1, (ftnlen)6);
++	return;
+     }
+@@ -442,3 +443,3 @@
+     if (*n == 0 || *nrhs == 0 || *m == 0) {
+-	return 0;
++	return;
+     }
+@@ -462,3 +463,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/DEPRECATED/dgeqrs.c
++++ b/lapack-netlib/SRC/DEPRECATED/dgeqrs.c
+@@ -380,3 +380,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int dgeqrs_(integer *m, integer *n, integer *nrhs, 
++/* Subroutine */ void dgeqrs_(integer *m, integer *n, integer *nrhs, 
+ 	doublereal *a, integer *lda, doublereal *tau, doublereal *b, integer *
+@@ -388,8 +388,8 @@
+     /* Local variables */
+-    extern /* Subroutine */ int dtrsm_(char *, char *, char *, char *, 
++    extern /* Subroutine */ void dtrsm_(char *, char *, char *, char *, 
+ 	    integer *, integer *, doublereal *, doublereal *, integer *, 
+-	    doublereal *, integer *), xerbla_(
+-	    char *, integer *), dormqr_(char *, char *, integer *, 
++	    doublereal *, integer *), dormqr_(char *, char *, integer *, 
+ 	    integer *, integer *, doublereal *, integer *, doublereal *, 
+ 	    doublereal *, integer *, doublereal *, integer *, integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+ 
+@@ -433,4 +433,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("DGEQRS", &i__1);
+-	return 0;
++	xerbla_("DGEQRS", &i__1, (ftnlen)6);
++	return;
+     }
+@@ -440,3 +440,3 @@
+     if (*n == 0 || *nrhs == 0 || *m == 0) {
+-	return 0;
++	return;
+     }
+@@ -453,3 +453,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/DEPRECATED/sgelqs.c
++++ b/lapack-netlib/SRC/DEPRECATED/sgelqs.c
+@@ -376,3 +376,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int sgelqs_(integer *m, integer *n, integer *nrhs, real *a, 
++/* Subroutine */ void sgelqs_(integer *m, integer *n, integer *nrhs, real *a, 
+ 	integer *lda, real *tau, real *b, integer *ldb, real *work, integer *
+@@ -384,5 +384,5 @@
+     /* Local variables */
+-    extern /* Subroutine */ int strsm_(char *, char *, char *, char *, 
++    extern /* Subroutine */ void strsm_(char *, char *, char *, char *, 
+ 	    integer *, integer *, real *, real *, integer *, real *, integer *
+-	    ), xerbla_(char *, integer *), slaset_(char *, integer *, integer *, real *, real *, 
++	    ), slaset_(char *, integer *, integer *, real *, real *, 
+ 	    real *, integer *), sormlq_(char *, char *, integer *, 
+@@ -390,2 +390,3 @@
+ 	    , real *, integer *, integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+ 
+@@ -429,4 +430,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("SGELQS", &i__1);
+-	return 0;
++	xerbla_("SGELQS", &i__1, (ftnlen)6);
++	return;
+     }
+@@ -436,3 +437,3 @@
+     if (*n == 0 || *nrhs == 0 || *m == 0) {
+-	return 0;
++	return;
+     }
+@@ -456,3 +457,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/DEPRECATED/sgeqrs.c
++++ b/lapack-netlib/SRC/DEPRECATED/sgeqrs.c
+@@ -380,3 +380,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int sgeqrs_(integer *m, integer *n, integer *nrhs, real *a, 
++/* Subroutine */ void sgeqrs_(integer *m, integer *n, integer *nrhs, real *a, 
+ 	integer *lda, real *tau, real *b, integer *ldb, real *work, integer *
+@@ -388,7 +388,8 @@
+     /* Local variables */
+-    extern /* Subroutine */ int strsm_(char *, char *, char *, char *, 
++    extern /* Subroutine */ void strsm_(char *, char *, char *, char *, 
+ 	    integer *, integer *, real *, real *, integer *, real *, integer *
+-	    ), xerbla_(char *, integer *), sormqr_(char *, char *, integer *, integer *, integer *, 
++	    ), sormqr_(char *, char *, integer *, integer *, integer *, 
+ 	    real *, integer *, real *, real *, integer *, real *, integer *, 
+ 	    integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+ 
+@@ -432,4 +433,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("SGEQRS", &i__1);
+-	return 0;
++	xerbla_("SGEQRS", &i__1, (ftnlen)6);
++	return;
+     }
+@@ -439,3 +440,3 @@
+     if (*n == 0 || *nrhs == 0 || *m == 0) {
+-	return 0;
++	return;
+     }
+@@ -452,3 +453,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/DEPRECATED/zgelqs.c
++++ b/lapack-netlib/SRC/DEPRECATED/zgelqs.c
+@@ -381,3 +381,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int zgelqs_(integer *m, integer *n, integer *nrhs, 
++/* Subroutine */ void zgelqs_(integer *m, integer *n, integer *nrhs, 
+ 	doublecomplex *a, integer *lda, doublecomplex *tau, doublecomplex *b, 
+@@ -389,6 +389,5 @@
+     /* Local variables */
+-    extern /* Subroutine */ int ztrsm_(char *, char *, char *, char *, 
++    extern /* Subroutine */ void ztrsm_(char *, char *, char *, char *, 
+ 	    integer *, integer *, doublecomplex *, doublecomplex *, integer *,
+-	     doublecomplex *, integer *), 
+-	    xerbla_(char *, integer *), zlaset_(char *, integer *, 
++	     doublecomplex *, integer *), zlaset_(char *, integer *, 
+ 	    integer *, doublecomplex *, doublecomplex *, doublecomplex *, 
+@@ -397,2 +396,3 @@
+ 	    doublecomplex *, integer *, doublecomplex *, integer *, integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+ 
+@@ -436,4 +436,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("ZGELQS", &i__1);
+-	return 0;
++	xerbla_("ZGELQS", &i__1, (ftnlen)6);
++	return;
+     }
+@@ -443,3 +443,3 @@
+     if (*n == 0 || *nrhs == 0 || *m == 0) {
+-	return 0;
++	return;
+     }
+@@ -463,3 +463,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/DEPRECATED/zgeqrs.c
++++ b/lapack-netlib/SRC/DEPRECATED/zgeqrs.c
+@@ -380,3 +380,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int zgeqrs_(integer *m, integer *n, integer *nrhs, 
++/* Subroutine */ void zgeqrs_(integer *m, integer *n, integer *nrhs, 
+ 	doublecomplex *a, integer *lda, doublecomplex *tau, doublecomplex *b, 
+@@ -388,6 +388,5 @@
+     /* Local variables */
+-    extern /* Subroutine */ int ztrsm_(char *, char *, char *, char *, 
++    extern /* Subroutine */ void ztrsm_(char *, char *, char *, char *, 
+ 	    integer *, integer *, doublecomplex *, doublecomplex *, integer *,
+-	     doublecomplex *, integer *), 
+-	    xerbla_(char *, integer *), zunmqr_(char *, char *, 
++	     doublecomplex *, integer *), zunmqr_(char *, char *, 
+ 	    integer *, integer *, integer *, doublecomplex *, integer *, 
+@@ -395,2 +394,3 @@
+ 	    integer *, integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+ 
+@@ -434,4 +434,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("ZGEQRS", &i__1);
+-	return 0;
++	xerbla_("ZGEQRS", &i__1, (ftnlen)6);
++	return;
+     }
+@@ -441,3 +441,3 @@
+     if (*n == 0 || *nrhs == 0 || *m == 0) {
+-	return 0;
++	return;
+     }
+@@ -454,3 +454,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/cgbtrf.c
++++ b/lapack-netlib/SRC/cgbtrf.c
+@@ -722,3 +722,3 @@
+ 	    integer *, integer *, ftnlen, ftnlen);
+-    extern /* Subroutine */ int claswp_(integer *, complex *, integer *, 
++    extern /* Subroutine */ void claswp_(integer *, complex *, integer *, 
+ 	    integer *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/cgedmd.c
++++ b/lapack-netlib/SRC/cgedmd.c
+@@ -541,3 +541,3 @@
+ 
+-/* Subroutine */ int cgedmd_(char *jobs, char *jobz, char *jobr, char *jobf, 
++/* Subroutine */ void cgedmd_(char *jobs, char *jobz, char *jobr, char *jobf, 
+ 	integer *whtsvd, integer *m, integer *n, complex *x, integer *ldx, 
+@@ -563,3 +563,3 @@
+     real scale;
+-    extern /* Subroutine */ int cgemm_(char *, char *, integer *, integer *, 
++    extern /* Subroutine */ void cgemm_(char *, char *, integer *, integer *, 
+ 	    integer *, complex *, complex *, integer *, complex *, integer *, 
+@@ -573,3 +573,3 @@
+     char jobzl[1];
+-    extern /* Subroutine */ int caxpy_(integer *, complex *, complex *, 
++    extern /* Subroutine */ void caxpy_(integer *, complex *, complex *, 
+ 	    integer *, complex *, integer *);
+@@ -578,3 +578,3 @@
+     extern real scnrm2_(integer *, complex *, integer *);
+-    extern /* Subroutine */ int cgesdd_(char *, integer *, integer *, complex 
++    extern /* Subroutine */ void cgesdd_(char *, integer *, integer *, complex 
+ 	    *, integer *, real *, complex *, integer *, complex *, integer *, 
+@@ -585,3 +585,3 @@
+     extern real slamch_(char *);
+-    extern /* Subroutine */ int csscal_(integer *, real *, complex *, integer 
++    extern /* Subroutine */ void csscal_(integer *, real *, complex *, integer 
+ 	    *), cgesvd_(char *, char *, integer *, integer *, complex *, 
+@@ -590,5 +590,6 @@
+ 	    char *, integer *, integer *, complex *, integer *, complex *, 
+-	    integer *), xerbla_(char *, integer *);
++	    integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+     char t_or_n__[1];
+-    extern /* Subroutine */ int cgejsv_(char *, char *, char *, char *, char *
++    extern /* Subroutine */ void cgejsv_(char *, char *, char *, char *, char *
+ 	    , char *, integer *, integer *, complex *, integer *, real *, 
+@@ -607,6 +608,6 @@
+     real rdummy[2];
+-    extern /* Subroutine */ int mecago_();
++    extern /* Subroutine */ void mecago_();
+     integer lwrsvq, mwrsvq;
+     real ofl, one;
+-    extern /* Subroutine */ int cgesvdq_(char *, char *, char *, char *, char 
++    extern /* Subroutine */ void cgesvdq_(char *, char *, char *, char *, char 
+ 	    *, integer *, integer *, complex *, integer *, real *, complex *, 
+@@ -1084,3 +1085,3 @@
+ 	    *info = 1;
+-	    return 0;
++	    return;
+ 	}
+@@ -1207,4 +1208,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("CGEDMD", &i__1);
+-	return 0;
++	xerbla_("CGEDMD", &i__1, (ftnlen)6);
++	return;
+     } else if (lquery) {
+@@ -1215,3 +1216,3 @@
+ 	zwork[2].r = (real) olwork, zwork[2].i = 0.f;
+-	return 0;
++	return;
+     }
+@@ -1239,3 +1240,3 @@
+ 		i__2 = -(*info);
+-		xerbla_("CGEDMD", &i__2);
++		xerbla_("CGEDMD", &i__2, (ftnlen)6);
+ 	    }
+@@ -1277,4 +1278,4 @@
+ 	    i__1 = -(*info);
+-	    xerbla_("CGEDMD", &i__1);
+-	    return 0;
++	    xerbla_("CGEDMD", &i__1, (ftnlen)6);
++	    return;
+ 	}
+@@ -1325,3 +1326,3 @@
+ 		i__2 = -(*info);
+-		xerbla_("CGEDMD", &i__2);
++		xerbla_("CGEDMD", &i__2, (ftnlen)6);
+ 	    }
+@@ -1437,3 +1438,3 @@
+ 	*info = 2;
+-	return 0;
++	return;
+     }
+@@ -1447,4 +1448,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("CGEDMD", &i__1);
+-	return 0;
++	xerbla_("CGEDMD", &i__1, (ftnlen)6);
++	return;
+     }
+@@ -1593,3 +1594,3 @@
+ 	*info = 3;
+-	return 0;
++	return;
+     }
+@@ -1683,3 +1684,3 @@
+ /* ............................................................ */
+-    return 0;
++    return;
+ /*     ...... */
+--- a/lapack-netlib/SRC/cgedmdq.c
++++ b/lapack-netlib/SRC/cgedmdq.c
+@@ -539,3 +539,3 @@
+ 
+-/* Subroutine */ int cgedmdq_(char *jobs, char *jobz, char *jobr, char *jobq, 
++/* Subroutine */ void cgedmdq_(char *jobs, char *jobz, char *jobr, char *jobq, 
+ 	char *jobt, char *jobf, integer *whtsvd, integer *m, integer *n, 
+@@ -563,3 +563,3 @@
+     complex zzero;
+-    extern /* Subroutine */ int cgedmd_(char *, char *, char *, char *, 
++    extern /* Subroutine */ void cgedmd_(char *, char *, char *, char *, 
+ 	    integer *, integer *, integer *, complex *, integer *, complex *, 
+@@ -573,6 +573,7 @@
+ 	    claset_(char *, integer *, integer *, complex *, complex *, 
+-	    complex *, integer *), xerbla_(char *, integer *);
++	    complex *, integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+     integer mlwdmd, olwdmd;
+     logical sccolx, sccoly;
+-    extern /* Subroutine */ int cungqr_(integer *, integer *, integer *, 
++    extern /* Subroutine */ void cungqr_(integer *, integer *, integer *, 
+ 	    complex *, integer *, complex *, complex *, integer *, integer *);
+@@ -584,3 +585,3 @@
+     logical lquery, wntres, wnttrf, wntvcq;
+-    extern /* Subroutine */ int cunmqr_(char *, char *, integer *, integer *, 
++    extern /* Subroutine */ void cunmqr_(char *, char *, integer *, integer *, 
+ 	    integer *, complex *, integer *, complex *, complex *, integer *, 
+@@ -1117,3 +1118,3 @@
+ 	    *info = 1;
+-	    return 0;
++	    return;
+ 	}
+@@ -1196,4 +1197,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("CGEDMDQ", &i__1);
+-	return 0;
++	xerbla_("CGEDMDQ", &i__1, (ftnlen)7);
++	return;
+     } else if (lquery) {
+@@ -1205,3 +1206,3 @@
+ 	work[2] = (real) mlrwrk;
+-	return 0;
++	return;
+     }
+@@ -1244,3 +1245,3 @@
+ 	*info = info1;
+-	return 0;
++	return;
+     } else {
+@@ -1302,3 +1303,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/cgejsv.c
++++ b/lapack-netlib/SRC/cgejsv.c
+@@ -1183,3 +1183,3 @@
+ 	    integer *, real *, integer *, integer *); 
+-    extern int claswp_(integer *, complex *, integer *, integer *, integer *, 
++    extern void claswp_(integer *, complex *, integer *, integer *, integer *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/cgeqp3rk.c
++++ b/lapack-netlib/SRC/cgeqp3rk.c
+@@ -542,3 +542,3 @@
+ 
+-/* Subroutine */ int cgeqp3rk_(integer *m, integer *n, integer *nrhs, integer 
++/* Subroutine */ void cgeqp3rk_(integer *m, integer *n, integer *nrhs, integer 
+ 	*kmax, real *abstol, real *reltol, complex *a, integer *lda, integer *
+@@ -554,3 +554,3 @@
+     /* Local variables */
+-    extern /* Subroutine */ int claqp3rk_(integer *, integer *, integer *, 
++    extern /* Subroutine */ void claqp3rk_(integer *, integer *, integer *, 
+ 	    integer *, integer *, real *, real *, integer *, real *, complex *
+@@ -567,3 +567,3 @@
+     real safmin;
+-    extern /* Subroutine */ int xerbla_(char *, integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+     extern integer ilaenv_(integer *, char *, char *, integer *, integer *, 
+@@ -577,3 +577,3 @@
+     integer iws, ioffset;
+-    extern /* Subroutine */ int claqp2rk_(integer *, integer *, integer *, 
++    extern /* Subroutine */ void claqp2rk_(integer *, integer *, integer *, 
+ 	    integer *, integer *, real *, real *, integer *, real *, complex *
+@@ -684,6 +684,6 @@
+ 	i__1 = -(*info);
+-	xerbla_("CGEQP3RK", &i__1);
+-	return 0;
++	xerbla_("CGEQP3RK", &i__1, (ftnlen)8);
++	return;
+     } else if (lquery) {
+-	return 0;
++	return;
+     }
+@@ -698,3 +698,3 @@
+ 	work[1].r = q__1.r, work[1].i = q__1.i;
+-	return 0;
++	return;
+     }
+@@ -753,3 +753,3 @@
+ 	work[1].r = q__1.r, work[1].i = q__1.i;
+-	return 0;
++	return;
+     }
+@@ -775,3 +775,3 @@
+ 	work[1].r = q__1.r, work[1].i = q__1.i;
+-	return 0;
++	return;
+ 
+@@ -809,3 +809,3 @@
+ 	work[1].r = q__1.r, work[1].i = q__1.i;
+-	return 0;
++	return;
+     }
+@@ -859,3 +859,3 @@
+ 	work[1].r = q__1.r, work[1].i = q__1.i;
+-	return 0;
++	return;
+     }
+@@ -987,3 +987,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -1082,3 +1082,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/cgerfs.c
++++ b/lapack-netlib/SRC/cgerfs.c
+@@ -750,3 +750,3 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int cgetrs_(
++    extern void cgetrs_(
+ 	    char *, integer *, integer *, complex *, integer *, integer *, 
+--- a/lapack-netlib/SRC/cgesc2.c
++++ b/lapack-netlib/SRC/cgesc2.c
+@@ -666,3 +666,3 @@
+     real bignum;
+-    extern /* Subroutine */ int claswp_(integer *, complex *, integer *, 
++    extern /* Subroutine */ void claswp_(integer *, complex *, integer *, 
+ 	    integer *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/cgesv.c
++++ b/lapack-netlib/SRC/cgesv.c
+@@ -651,3 +651,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int cgesv_(integer *n, integer *nrhs, complex *a, integer *
++/* Subroutine */ void cgesv_(integer *n, integer *nrhs, complex *a, integer *
+ 	lda, integer *ipiv, complex *b, integer *ldb, integer *info)
+@@ -699,3 +699,3 @@
+ 	xerbla_("CGESV ", &i__1, (ftnlen)6);
+-	return 0;
++	return;
+     }
+@@ -712,3 +712,3 @@
+     }
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/cgesvdq.c
++++ b/lapack-netlib/SRC/cgesvdq.c
+@@ -1014,3 +1014,3 @@
+     extern integer isamax_(integer *, real *, integer *);
+-    extern /* Subroutine */ int claswp_(integer *, complex *, integer *, 
++    extern /* Subroutine */ void claswp_(integer *, complex *, integer *, 
+ 	    integer *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/cgesvx.c
++++ b/lapack-netlib/SRC/cgesvx.c
+@@ -910,3 +910,3 @@
+ 	    integer *);
+-    extern int cgetrf_(integer *, integer *, complex *, 
++    extern void cgetrf_(integer *, integer *, complex *, 
+ 	    integer *, integer *, integer *);
+@@ -920,3 +920,3 @@
+     logical colequ;
+-    extern /* Subroutine */ int cgetrs_(char *, integer *, integer *, complex 
++    extern /* Subroutine */ void cgetrs_(char *, integer *, integer *, complex 
+ 	    *, integer *, integer *, complex *, integer *, integer *);
+--- a/lapack-netlib/SRC/cgetrf2.c
++++ b/lapack-netlib/SRC/cgetrf2.c
+@@ -666,3 +666,3 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int claswp_(
++    extern void claswp_(
+ 	    integer *, complex *, integer *, integer *, integer *, integer *, 
+--- a/lapack-netlib/SRC/cgetri.c
++++ b/lapack-netlib/SRC/cgetri.c
+@@ -673,3 +673,3 @@
+     integer ldwork;
+-    extern /* Subroutine */ int ctrtri_(char *, char *, integer *, complex *, 
++    extern /* Subroutine */ void ctrtri_(char *, char *, integer *, complex *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/chegv.c
++++ b/lapack-netlib/SRC/chegv.c
+@@ -740,3 +740,3 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int cpotrf_(
++    extern void cpotrf_(
+ 	    char *, integer *, complex *, integer *, integer *);
+--- a/lapack-netlib/SRC/chegv_2stage.c
++++ b/lapack-netlib/SRC/chegv_2stage.c
+@@ -797,3 +797,3 @@
+ 	    integer *, integer *);
+-    extern int cpotrf_(char *, integer *, complex 
++    extern void cpotrf_(char *, integer *, complex 
+ 	    *, integer *, integer *);
+--- a/lapack-netlib/SRC/chegvd.c
++++ b/lapack-netlib/SRC/chegvd.c
+@@ -810,3 +810,3 @@
+     extern int xerbla_(char *, integer *, ftnlen);
+-    extern int cpotrf_(
++    extern void cpotrf_(
+ 	    char *, integer *, complex *, integer *, integer *);
+--- a/lapack-netlib/SRC/chegvx.c
++++ b/lapack-netlib/SRC/chegvx.c
+@@ -870,3 +870,3 @@
+ 	    integer *);
+-    extern int cpotrf_(char *, integer *, 
++    extern void cpotrf_(char *, integer *, 
+ 	    complex *, integer *, integer *);
+--- a/lapack-netlib/SRC/chetrf_aa_2stage.c
++++ b/lapack-netlib/SRC/chetrf_aa_2stage.c
+@@ -722,3 +722,3 @@
+ 	    integer *, complex *, integer *, integer *, integer *);
+-    extern int cgetrf_(
++    extern void cgetrf_(
+ 	    integer *, integer *, complex *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/chetri2x.c
++++ b/lapack-netlib/SRC/chetri2x.c
+@@ -684,3 +684,3 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int ctrtri_(
++    extern void ctrtri_(
+ 	    char *, char *, integer *, complex *, integer *, integer *);
+--- a/lapack-netlib/SRC/chetri_3x.c
++++ b/lapack-netlib/SRC/chetri_3x.c
+@@ -724,3 +724,3 @@
+     integer icount;
+-    extern /* Subroutine */ int ctrtri_(char *, char *, integer *, complex *, 
++    extern /* Subroutine */ void ctrtri_(char *, char *, integer *, complex *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/chetrs_aa_2stage.c
++++ b/lapack-netlib/SRC/chetrs_aa_2stage.c
+@@ -693,3 +693,3 @@
+ 	    integer *, integer *, complex *, integer *, integer *); 
+-    extern int claswp_(integer *, complex *, integer *, integer *, integer *, 
++    extern void claswp_(integer *, complex *, integer *, integer *, integer *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/claqp2rk.c
++++ b/lapack-netlib/SRC/claqp2rk.c
+@@ -539,3 +539,3 @@
+ 
+-/* Subroutine */ int claqp2rk_(integer *m, integer *n, integer *nrhs, integer 
++/* Subroutine */ void claqp2rk_(integer *m, integer *n, integer *nrhs, integer 
+ 	*ioffset, integer *kmax, real *abstol, real *reltol, integer *kp1, 
+@@ -556,3 +556,3 @@
+     integer jmaxc2nrm;
+-    extern /* Subroutine */ int clarf_(char *, integer *, integer *, complex *
++    extern /* Subroutine */ void clarf_(char *, integer *, integer *, complex *
+ 	    , integer *, complex *, complex *, integer *, complex *), 
+@@ -564,3 +564,3 @@
+     integer kk, kp;
+-    extern /* Subroutine */ int clarfg_(integer *, complex *, complex *, 
++    extern /* Subroutine */ void clarfg_(integer *, complex *, complex *, 
+ 	    integer *, complex *);
+@@ -675,3 +675,3 @@
+ 
+-		return 0;
++		return;
+ 	    }
+@@ -706,3 +706,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -755,3 +755,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -837,3 +837,3 @@
+ 
+-	    return 0;
++	    return;
+ 	}
+@@ -954,3 +954,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/claqp3rk.c
++++ b/lapack-netlib/SRC/claqp3rk.c
+@@ -541,3 +541,3 @@
+ 
+-/* Subroutine */ int claqp3rk_(integer *m, integer *n, integer *nrhs, integer 
++/* Subroutine */ void claqp3rk_(integer *m, integer *n, integer *nrhs, integer 
+ 	*ioffset, integer *nb, real *abstol, real *reltol, integer *kp1, real 
+@@ -557,3 +557,3 @@
+     real tol3z;
+-    extern /* Subroutine */ int cgemm_(char *, char *, integer *, integer *, 
++    extern /* Subroutine */ void cgemm_(char *, char *, integer *, integer *, 
+ 	    integer *, complex *, complex *, integer *, complex *, integer *, 
+@@ -568,3 +568,3 @@
+     integer if__, kp;
+-    extern /* Subroutine */ int clarfg_(integer *, complex *, complex *, 
++    extern /* Subroutine */ void clarfg_(integer *, complex *, complex *, 
+ 	    integer *, complex *);
+@@ -708,3 +708,3 @@
+ 
+-		return 0;
++		return;
+ 	    }
+@@ -767,3 +767,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -849,3 +849,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -991,3 +991,3 @@
+ 
+-	    return 0;
++	    return;
+ 	}
+@@ -1163,3 +1163,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/clarf1f.c
++++ b/lapack-netlib/SRC/clarf1f.c
+@@ -384,3 +384,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int clarf1f_(char *side, integer *m, integer *n, complex *v, 
++/* Subroutine */ void clarf1f_(char *side, integer *m, integer *n, complex *v, 
+ 	integer *incv, complex *tau, complex *c__, integer *ldc, complex *
+@@ -395,3 +395,3 @@
+     logical applyleft;
+-    extern /* Subroutine */ int cgerc_(integer *, integer *, complex *, 
++    extern /* Subroutine */ void cgerc_(integer *, integer *, complex *, 
+ 	    complex *, integer *, complex *, integer *, complex *, integer *),
+@@ -402,3 +402,3 @@
+     integer lastc;
+-    extern /* Subroutine */ int caxpy_(integer *, complex *, complex *, 
++    extern /* Subroutine */ void caxpy_(integer *, complex *, complex *, 
+ 	    integer *, complex *, integer *);
+@@ -458,3 +458,3 @@
+     if (lastc == 0) {
+-	return 0;
++	return;
+     }
+@@ -545,3 +545,3 @@
+     }
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/clarf1l.c
++++ b/lapack-netlib/SRC/clarf1l.c
+@@ -385,3 +385,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int clarf1l_(char *side, integer *m, integer *n, complex *v, 
++/* Subroutine */ void clarf1l_(char *side, integer *m, integer *n, complex *v, 
+ 	integer *incv, complex *tau, complex *c__, integer *ldc, complex *
+@@ -396,3 +396,3 @@
+     logical applyleft;
+-    extern /* Subroutine */ int cgerc_(integer *, integer *, complex *, 
++    extern /* Subroutine */ void cgerc_(integer *, integer *, complex *, 
+ 	    complex *, integer *, complex *, integer *, complex *, integer *),
+@@ -403,3 +403,3 @@
+     integer lastc;
+-    extern /* Subroutine */ int caxpy_(integer *, complex *, complex *, 
++    extern /* Subroutine */ void caxpy_(integer *, complex *, complex *, 
+ 	    integer *, complex *, integer *);
+@@ -456,3 +456,3 @@
+     if (lastc == 0) {
+-	return 0;
++	return;
+     }
+@@ -545,3 +545,3 @@
+     }
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/clarft.c
++++ b/lapack-netlib/SRC/clarft.c
+@@ -692,3 +692,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int clarft_(char *direct, char *storev, integer *n, integer *
++/* Subroutine */ void clarft_(char *direct, char *storev, integer *n, integer *
+ 	k, complex *v, integer *ldv, complex *tau, complex *t, integer *ldt)
+@@ -705,6 +705,6 @@
+     integer nx;
+-    extern /* Subroutine */ int clarft_lvl2__(char *, char *, integer *, 
++    extern /* Subroutine */ void clarft_lvl2__(char *, char *, integer *, 
+ 	    integer *, complex *, integer *, complex *, complex *, integer *);
+     logical dirf, colv;
+-    extern /* Subroutine */ int cgemm_(char *, char *, integer *, integer *, 
++    extern /* Subroutine */ void cgemm_(char *, char *, integer *, integer *, 
+ 	    integer *, complex *, complex *, integer *, complex *, integer *, 
+@@ -712,3 +712,3 @@
+     extern logical lsame_(char *, char *);
+-    extern /* Subroutine */ int ctrmm_(char *, char *, char *, char *, 
++    extern /* Subroutine */ void ctrmm_(char *, char *, char *, char *, 
+ 	    integer *, integer *, complex *, complex *, integer *, complex *, 
+@@ -755,3 +755,3 @@
+     if (*n == 0 || *k == 0) {
+-	return 0;
++	return;
+     }
+@@ -763,3 +763,3 @@
+ 	t[i__1].r = tau[1].r, t[i__1].i = tau[1].i;
+-	return 0;
++	return;
+     }
+@@ -777,3 +777,3 @@
+ 		t_offset], ldt);
+-	return 0;
++	return;
+     }
+@@ -1225,3 +1225,3 @@
+     }
+-    return 0;
++    return;
+ } /* clarft_ */
+--- a/lapack-netlib/SRC/clarft_lvl2.c
++++ b/lapack-netlib/SRC/clarft_lvl2.c
+@@ -685,3 +685,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int clarft_lvl2__(char *direct, char *storev, integer *n, 
++/* Subroutine */ void clarft_lvl2__(char *direct, char *storev, integer *n, 
+ 	integer *k, complex *v, integer *ldv, complex *tau, complex *t, 
+@@ -695,3 +695,3 @@
+     integer i__, j, prevlastv;
+-    extern /* Subroutine */ int cgemm_(char *, char *, integer *, integer *, 
++    extern /* Subroutine */ void cgemm_(char *, char *, integer *, integer *, 
+ 	    integer *, complex *, complex *, integer *, complex *, integer *, 
+@@ -702,3 +702,3 @@
+     integer lastv;
+-    extern /* Subroutine */ int ctrmv_(char *, char *, char *, integer *, 
++    extern /* Subroutine */ void ctrmv_(char *, char *, char *, integer *, 
+ 	    complex *, integer *, complex *, integer *), mecago_();
+@@ -727,3 +727,3 @@
+     if (*n == 0) {
+-	return 0;
++	return;
+     }
+@@ -929,3 +929,3 @@
+     }
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/clatdf.c
++++ b/lapack-netlib/SRC/clatdf.c
+@@ -622,3 +622,3 @@
+ 	    *, real *);
+-    extern int claswp_(integer *, complex *, integer *, integer *, 
++    extern void claswp_(integer *, complex *, integer *, integer *, 
+ 	    integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/cpbtrf.c
++++ b/lapack-netlib/SRC/cpbtrf.c
+@@ -701,3 +701,3 @@
+ 	    *, integer *, integer *);
+-    extern int cpotf2_(char *, integer *, 
++    extern void cpotf2_(char *, integer *, 
+ 	    complex *, integer *, integer *);
+--- a/lapack-netlib/SRC/cpftrf.c
++++ b/lapack-netlib/SRC/cpftrf.c
+@@ -765,3 +765,3 @@
+     logical nisodd;
+-    extern /* Subroutine */ int cpotrf_(char *, integer *, complex *, integer 
++    extern /* Subroutine */ void cpotrf_(char *, integer *, complex *, integer 
+ 	    *, integer *);
+--- a/lapack-netlib/SRC/cpftri.c
++++ b/lapack-netlib/SRC/cpftri.c
+@@ -765,3 +765,3 @@
+     logical nisodd;
+-    extern /* Subroutine */ int clauum_(char *, integer *, complex *, integer 
++    extern /* Subroutine */ void clauum_(char *, integer *, complex *, integer 
+ 	    *, integer *);
+--- a/lapack-netlib/SRC/cposv.c
++++ b/lapack-netlib/SRC/cposv.c
+@@ -667,3 +667,3 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int cpotrf_(
++    extern void cpotrf_(
+ 	    char *, integer *, complex *, integer *, integer *); 
+--- a/lapack-netlib/SRC/cposvx.c
++++ b/lapack-netlib/SRC/cposvx.c
+@@ -868,3 +868,3 @@
+ 	    integer *);
+-    extern int cpotrf_(char *, integer *, complex *, integer 
++    extern void cpotrf_(char *, integer *, complex *, integer 
+ 	    *, integer *);
+--- a/lapack-netlib/SRC/cpotri.c
++++ b/lapack-netlib/SRC/cpotri.c
+@@ -632,5 +632,5 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int clauum_(
++    extern void clauum_(
+ 	    char *, integer *, complex *, integer *, integer *); 
+-    extern int ctrtri_(char *, char *, integer *, complex *, integer *, integer *
++    extern void ctrtri_(char *, char *, integer *, complex *, integer *, integer *
+ 	    );
+--- a/lapack-netlib/SRC/crscl.c
++++ b/lapack-netlib/SRC/crscl.c
+@@ -616,3 +616,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int crscl_(integer *n, complex *a, complex *x, integer *incx)
++/* Subroutine */ void crscl_(integer *n, complex *a, complex *x, integer *incx)
+ {
+@@ -624,3 +624,3 @@
+     real absi, absr;
+-    extern /* Subroutine */ int cscal_(integer *, complex *, complex *, 
++    extern /* Subroutine */ void cscal_(integer *, complex *, complex *, 
+ 	    integer *);
+@@ -628,6 +628,6 @@
+     extern real slamch_(char *);
+-    extern /* Subroutine */ int csscal_(integer *, real *, complex *, integer 
++    extern /* Subroutine */ void csscal_(integer *, real *, complex *, integer 
+ 	    *);
+     real safmin, safmax;
+-    extern /* Subroutine */ int csrscl_(integer *, real *, complex *, integer 
++    extern /* Subroutine */ void csrscl_(integer *, real *, complex *, integer 
+ 	    *);
+@@ -650,3 +650,3 @@
+     if (*n <= 0) {
+-	return 0;
++	return;
+     }
+@@ -746,3 +746,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/csytrf_aa_2stage.c
++++ b/lapack-netlib/SRC/csytrf_aa_2stage.c
+@@ -719,3 +719,3 @@
+ 	    integer *, complex *, integer *, integer *, integer *);
+-    extern int cgetrf_(
++    extern void cgetrf_(
+ 	    integer *, integer *, complex *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/csytri2x.c
++++ b/lapack-netlib/SRC/csytri2x.c
+@@ -684,3 +684,3 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int ctrtri_(
++    extern void ctrtri_(
+ 	    char *, char *, integer *, complex *, integer *, integer *);
+--- a/lapack-netlib/SRC/csytri_3x.c
++++ b/lapack-netlib/SRC/csytri_3x.c
+@@ -723,3 +723,3 @@
+     integer icount;
+-    extern /* Subroutine */ int ctrtri_(char *, char *, integer *, complex *, 
++    extern /* Subroutine */ void ctrtri_(char *, char *, integer *, complex *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/csytrs_aa_2stage.c
++++ b/lapack-netlib/SRC/csytrs_aa_2stage.c
+@@ -691,3 +691,3 @@
+ 	    integer *, integer *, complex *, integer *, integer *); 
+-    extern int claswp_(integer *, complex *, integer *, integer *, integer *, 
++    extern void claswp_(integer *, complex *, integer *, integer *, integer *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/ctftri.c
++++ b/lapack-netlib/SRC/ctftri.c
+@@ -771,3 +771,3 @@
+     logical nisodd;
+-    extern /* Subroutine */ int ctrtri_(char *, char *, integer *, complex *, 
++    extern /* Subroutine */ void ctrtri_(char *, char *, integer *, complex *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/dgbtrf.c
++++ b/lapack-netlib/SRC/dgbtrf.c
+@@ -696,3 +696,3 @@
+ 	    integer *, integer *, ftnlen, ftnlen);
+-    extern /* Subroutine */ int dlaswp_(integer *, doublereal *, integer *, 
++    extern /* Subroutine */ void dlaswp_(integer *, doublereal *, integer *, 
+ 	    integer *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/dgedmd.c
++++ b/lapack-netlib/SRC/dgedmd.c
+@@ -525,3 +525,3 @@
+ 
+-/* Subroutine */ int dgedmd_(char *jobs, char *jobz, char *jobr, char *jobf, 
++/* Subroutine */ void dgedmd_(char *jobs, char *jobz, char *jobr, char *jobf, 
+ 	integer *whtsvd, integer *m, integer *n, doublereal *x, integer *ldx, 
+@@ -544,6 +544,6 @@
+     integer i__, j;
+-    extern /* Subroutine */ int dscal_(integer *, doublereal *, doublereal *, 
++    extern /* Subroutine */ void dscal_(integer *, doublereal *, doublereal *, 
+ 	    integer *);
+     doublereal scale;
+-    extern /* Subroutine */ int dgemm_(char *, char *, integer *, integer *, 
++    extern /* Subroutine */ void dgemm_(char *, char *, integer *, integer *, 
+ 	    integer *, doublereal *, doublereal *, integer *, doublereal *, 
+@@ -557,3 +557,3 @@
+     char jobzl[1];
+-    extern /* Subroutine */ int daxpy_(integer *, doublereal *, doublereal *, 
++    extern /* Subroutine */ void daxpy_(integer *, doublereal *, doublereal *, 
+ 	    integer *, doublereal *, integer *);
+@@ -563,3 +563,3 @@
+ 	    integer *, doublereal *, integer *, doublereal *);
+-    extern /* Subroutine */ int dgesdd_(char *, integer *, integer *, 
++    extern /* Subroutine */ void dgesdd_(char *, integer *, integer *, 
+ 	    doublereal *, integer *, doublereal *, doublereal *, integer *, 
+@@ -571,9 +571,9 @@
+     extern logical disnan_(doublereal *);
+-    extern /* Subroutine */ int dgesvd_(char *, char *, integer *, integer *, 
++    extern /* Subroutine */ void dgesvd_(char *, char *, integer *, integer *, 
+ 	    doublereal *, integer *, doublereal *, doublereal *, integer *, 
+ 	    doublereal *, integer *, doublereal *, integer *, integer *), dlacpy_(char *, integer *, integer *, doublereal 
+-	    *, integer *, doublereal *, integer *), xerbla_(char *, 
+-	    integer *);
++	    *, integer *, doublereal *, integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+     char t_or_n__[1];
+-    extern /* Subroutine */ int dgejsv_(char *, char *, char *, char *, char *
++    extern /* Subroutine */ void dgejsv_(char *, char *, char *, char *, char *
+ 	    , char *, integer *, integer *, doublereal *, integer *, 
+@@ -591,6 +591,6 @@
+     char jsvopt[1];
+-    extern /* Subroutine */ int mecago_();
++    extern /* Subroutine */ void mecago_();
+     integer mwrsvj, lwrsvq, mwrsvq;
+     doublereal rdummy2[2], ofl, one;
+-    extern /* Subroutine */ int dgesvdq_(char *, char *, char *, char *, char 
++    extern /* Subroutine */ void dgesvdq_(char *, char *, char *, char *, char 
+ 	    *, integer *, integer *, doublereal *, integer *, doublereal *, 
+@@ -1104,3 +1104,3 @@
+ 	    *info = 1;
+-	    return 0;
++	    return;
+ 	}
+@@ -1240,4 +1240,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("DGEDMD", &i__1);
+-	return 0;
++	xerbla_("DGEDMD", &i__1, (ftnlen)6);
++	return;
+     } else if (lquery) {
+@@ -1247,3 +1247,3 @@
+ 	work[2] = (doublereal) olwork;
+-	return 0;
++	return;
+     }
+@@ -1271,3 +1271,3 @@
+ 		i__2 = -(*info);
+-		xerbla_("DGEDMD", &i__2);
++		xerbla_("DGEDMD", &i__2, (ftnlen)6);
+ 	    }
+@@ -1309,4 +1309,4 @@
+ 	    i__1 = -(*info);
+-	    xerbla_("DGEDMD", &i__1);
+-	    return 0;
++	    xerbla_("DGEDMD", &i__1, (ftnlen)6);
++	    return;
+ 	}
+@@ -1357,3 +1357,3 @@
+ 		i__2 = -(*info);
+-		xerbla_("DGEDMD", &i__2);
++		xerbla_("DGEDMD", &i__2, (ftnlen)6);
+ 	    }
+@@ -1472,3 +1472,3 @@
+ 	*info = 2;
+-	return 0;
++	return;
+     }
+@@ -1482,4 +1482,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("DGEDMD", &i__1);
+-	return 0;
++	xerbla_("DGEDMD", &i__1, (ftnlen)6);
++	return;
+     }
+@@ -1633,3 +1633,3 @@
+ 	*info = 3;
+-	return 0;
++	return;
+     }
+@@ -1749,3 +1749,3 @@
+ /* ............................................................ */
+-    return 0;
++    return;
+ /*     ...... */
+--- a/lapack-netlib/SRC/dgedmdq.c
++++ b/lapack-netlib/SRC/dgedmdq.c
+@@ -522,3 +522,3 @@
+ 
+-/* Subroutine */ int dgedmdq_(char *jobs, char *jobz, char *jobr, char *jobq, 
++/* Subroutine */ void dgedmdq_(char *jobs, char *jobz, char *jobr, char *jobq, 
+ 	char *jobt, char *jobf, integer *whtsvd, integer *m, integer *n, 
+@@ -545,3 +545,3 @@
+     logical wntex;
+-    extern /* Subroutine */ int dgedmd_(char *, char *, char *, char *, 
++    extern /* Subroutine */ void dgedmd_(char *, char *, char *, char *, 
+ 	    integer *, integer *, integer *, doublereal *, integer *, 
+@@ -556,6 +556,7 @@
+ 	    integer *, integer *, doublereal *, doublereal *, doublereal *, 
+-	    integer *), xerbla_(char *, integer *);
++	    integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+     integer mlwdmd, olwdmd;
+     logical sccolx, sccoly;
+-    extern /* Subroutine */ int dorgqr_(integer *, integer *, integer *, 
++    extern /* Subroutine */ void dorgqr_(integer *, integer *, integer *, 
+ 	    doublereal *, integer *, doublereal *, doublereal *, integer *, 
+@@ -1126,3 +1127,3 @@
+ 	    *info = 1;
+-	    return 0;
++	    return;
+ 	}
+@@ -1192,4 +1193,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("DGEDMDQ", &i__1);
+-	return 0;
++	xerbla_("DGEDMDQ", &i__1, (ftnlen)7);
++	return;
+     } else if (lquery) {
+@@ -1199,3 +1200,3 @@
+ 	work[2] = (doublereal) olwork;
+-	return 0;
++	return;
+     }
+@@ -1238,3 +1239,3 @@
+ 	*info = info1;
+-	return 0;
++	return;
+     } else {
+@@ -1296,3 +1297,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/dgejsv.c
++++ b/lapack-netlib/SRC/dgejsv.c
+@@ -1060,3 +1060,3 @@
+ 	    *, doublereal *, doublereal *);
+-    extern int dlaswp_(integer *, doublereal *, 
++    extern void dlaswp_(integer *, doublereal *, 
+ 	    integer *, integer *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/dgeqp3rk.c
++++ b/lapack-netlib/SRC/dgeqp3rk.c
+@@ -525,3 +525,3 @@
+ 
+-/* Subroutine */ int dgeqp3rk_(integer *m, integer *n, integer *nrhs, integer 
++/* Subroutine */ void dgeqp3rk_(integer *m, integer *n, integer *nrhs, integer 
+ 	*kmax, doublereal *abstol, doublereal *reltol, doublereal *a, integer 
+@@ -536,3 +536,3 @@
+     /* Local variables */
+-    extern /* Subroutine */ int dlaqp2rk_(integer *, integer *, integer *, 
++    extern /* Subroutine */ void dlaqp2rk_(integer *, integer *, integer *, 
+ 	    integer *, integer *, doublereal *, doublereal *, integer *, 
+@@ -557,3 +557,3 @@
+     doublereal safmin;
+-    extern /* Subroutine */ int xerbla_(char *, integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+     extern logical disnan_(doublereal *);
+@@ -669,6 +669,6 @@
+ 	i__1 = -(*info);
+-	xerbla_("DGEQP3RK", &i__1);
+-	return 0;
++	xerbla_("DGEQP3RK", &i__1, (ftnlen)8);
++	return;
+     } else if (lquery) {
+-	return 0;
++	return;
+     }
+@@ -682,3 +682,3 @@
+ 	work[1] = (doublereal) lwkopt;
+-	return 0;
++	return;
+     }
+@@ -737,3 +737,3 @@
+ 	work[1] = (doublereal) lwkopt;
+-	return 0;
++	return;
+     }
+@@ -757,3 +757,3 @@
+ 	work[1] = (doublereal) lwkopt;
+-	return 0;
++	return;
+ 
+@@ -789,3 +789,3 @@
+ 	work[1] = (doublereal) lwkopt;
+-	return 0;
++	return;
+     }
+@@ -837,3 +837,3 @@
+ 	work[1] = (doublereal) lwkopt;
+-	return 0;
++	return;
+     }
+@@ -964,3 +964,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -1053,3 +1053,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/dgerfs.c
++++ b/lapack-netlib/SRC/dgerfs.c
+@@ -733,3 +733,3 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int dgetrs_(
++    extern void dgetrs_(
+ 	    char *, integer *, integer *, doublereal *, integer *, integer *, 
+--- a/lapack-netlib/SRC/dgesc2.c
++++ b/lapack-netlib/SRC/dgesc2.c
+@@ -646,3 +646,3 @@
+     doublereal bignum;
+-    extern /* Subroutine */ int dlaswp_(integer *, doublereal *, integer *, 
++    extern /* Subroutine */ void dlaswp_(integer *, doublereal *, integer *, 
+ 	    integer *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/dgesv.c
++++ b/lapack-netlib/SRC/dgesv.c
+@@ -633,3 +633,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int dgesv_(integer *n, integer *nrhs, doublereal *a, integer 
++/* Subroutine */ void dgesv_(integer *n, integer *nrhs, doublereal *a, integer 
+ 	*lda, integer *ipiv, doublereal *b, integer *ldb, integer *info)
+@@ -681,3 +681,3 @@
+ 	xerbla_("DGESV ", &i__1, (ftnlen)6);
+-	return 0;
++	return;
+     }
+@@ -694,3 +694,3 @@
+     }
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/dgesvdq.c
++++ b/lapack-netlib/SRC/dgesvdq.c
+@@ -993,3 +993,3 @@
+ 	    doublereal *, doublereal *, integer *, integer *); 
+-    extern int dlaswp_(integer *, doublereal *, integer *, integer *, integer *, 
++    extern void dlaswp_(integer *, doublereal *, integer *, integer *, integer *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/dgesvx.c
++++ b/lapack-netlib/SRC/dgesvx.c
+@@ -892,3 +892,3 @@
+ 	    doublereal *, doublereal *, integer *, integer *); 
+-    extern int dgetrf_(integer *, integer *, doublereal *, integer *, integer *,
++    extern void dgetrf_(integer *, integer *, doublereal *, integer *, integer *,
+ 	    integer *);
+@@ -902,3 +902,3 @@
+     logical colequ;
+-    extern /* Subroutine */ int dgetrs_(char *, integer *, integer *, 
++    extern /* Subroutine */ void dgetrs_(char *, integer *, integer *, 
+ 	    doublereal *, integer *, integer *, doublereal *, integer *, 
+--- a/lapack-netlib/SRC/dgetrf2.c
++++ b/lapack-netlib/SRC/dgetrf2.c
+@@ -650,3 +650,3 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int dlaswp_(
++    extern void dlaswp_(
+ 	    integer *, doublereal *, integer *, integer *, integer *, integer 
+--- a/lapack-netlib/SRC/dgetri.c
++++ b/lapack-netlib/SRC/dgetri.c
+@@ -657,3 +657,3 @@
+     integer ldwork;
+-    extern /* Subroutine */ int dtrtri_(char *, char *, integer *, doublereal 
++    extern /* Subroutine */ void dtrtri_(char *, char *, integer *, doublereal 
+ 	    *, integer *, integer *);
+--- a/lapack-netlib/SRC/dgglse.c
++++ b/lapack-netlib/SRC/dgglse.c
+@@ -730,3 +730,3 @@
+     logical lquery;
+-    extern /* Subroutine */ int dtrtrs_(char *, char *, char *, integer *, 
++    extern /* Subroutine */ void dtrtrs_(char *, char *, char *, integer *, 
+ 	    integer *, doublereal *, integer *, doublereal *, integer *, 
+--- a/lapack-netlib/SRC/dlaqp2rk.c
++++ b/lapack-netlib/SRC/dlaqp2rk.c
+@@ -522,3 +522,3 @@
+ 
+-/* Subroutine */ int dlaqp2rk_(integer *m, integer *n, integer *nrhs, integer 
++/* Subroutine */ void dlaqp2rk_(integer *m, integer *n, integer *nrhs, integer 
+ 	*ioffset, integer *kmax, doublereal *abstol, doublereal *reltol, 
+@@ -540,3 +540,3 @@
+     integer jmaxc2nrm;
+-    extern /* Subroutine */ int dlarf_(char *, integer *, integer *, 
++    extern /* Subroutine */ void dlarf_(char *, integer *, integer *, 
+ 	    doublereal *, integer *, doublereal *, doublereal *, integer *, 
+@@ -544,3 +544,3 @@
+     integer itemp;
+-    extern /* Subroutine */ int dswap_(integer *, doublereal *, integer *, 
++    extern /* Subroutine */ void dswap_(integer *, doublereal *, integer *, 
+ 	    doublereal *, integer *);
+@@ -551,3 +551,3 @@
+     integer kp;
+-    extern /* Subroutine */ int dlarfg_(integer *, doublereal *, doublereal *,
++    extern /* Subroutine */ void dlarfg_(integer *, doublereal *, doublereal *,
+ 	     integer *, doublereal *);
+@@ -660,3 +660,3 @@
+ 
+-		return 0;
++		return;
+ 	    }
+@@ -690,3 +690,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -738,3 +738,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -805,3 +805,3 @@
+ 
+-	    return 0;
++	    return;
+ 	}
+@@ -917,3 +917,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/dlaqp3rk.c
++++ b/lapack-netlib/SRC/dlaqp3rk.c
+@@ -525,3 +525,3 @@
+ 
+-/* Subroutine */ int dlaqp3rk_(integer *m, integer *n, integer *nrhs, integer 
++/* Subroutine */ void dlaqp3rk_(integer *m, integer *n, integer *nrhs, integer 
+ 	*ioffset, integer *nb, doublereal *abstol, doublereal *reltol, 
+@@ -543,3 +543,3 @@
+     doublereal tol3z;
+-    extern /* Subroutine */ int dgemm_(char *, char *, integer *, integer *, 
++    extern /* Subroutine */ void dgemm_(char *, char *, integer *, integer *, 
+ 	    integer *, doublereal *, doublereal *, integer *, doublereal *, 
+@@ -550,3 +550,3 @@
+     integer itemp;
+-    extern /* Subroutine */ int dswap_(integer *, doublereal *, integer *, 
++    extern /* Subroutine */ void dswap_(integer *, doublereal *, integer *, 
+ 	    doublereal *, integer *);
+@@ -557,3 +557,3 @@
+     integer kp;
+-    extern /* Subroutine */ int dlarfg_(integer *, doublereal *, doublereal *,
++    extern /* Subroutine */ void dlarfg_(integer *, doublereal *, doublereal *,
+ 	     integer *, doublereal *);
+@@ -694,3 +694,3 @@
+ 
+-		return 0;
++		return;
+ 	    }
+@@ -751,3 +751,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -831,3 +831,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -943,3 +943,3 @@
+ 
+-	    return 0;
++	    return;
+ 	}
+@@ -1107,3 +1107,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/dlarf1f.c
++++ b/lapack-netlib/SRC/dlarf1f.c
+@@ -415,3 +415,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int dlarf1f_(char *side, integer *m, integer *n, doublereal *
++/* Subroutine */ void dlarf1f_(char *side, integer *m, integer *n, doublereal *
+ 	v, integer *incv, doublereal *tau, doublereal *c__, integer *ldc, 
+@@ -426,3 +426,3 @@
+     logical applyleft;
+-    extern /* Subroutine */ int dger_(integer *, integer *, doublereal *, 
++    extern /* Subroutine */ void dger_(integer *, integer *, doublereal *, 
+ 	    doublereal *, integer *, doublereal *, integer *, doublereal *, 
+@@ -431,3 +431,3 @@
+     extern logical lsame_(char *, char *);
+-    extern /* Subroutine */ int dgemv_(char *, integer *, integer *, 
++    extern /* Subroutine */ void dgemv_(char *, integer *, integer *, 
+ 	    doublereal *, doublereal *, integer *, doublereal *, integer *, 
+@@ -435,3 +435,3 @@
+     integer lastc;
+-    extern /* Subroutine */ int daxpy_(integer *, doublereal *, doublereal *, 
++    extern /* Subroutine */ void daxpy_(integer *, doublereal *, doublereal *, 
+ 	    integer *, doublereal *, integer *);
+@@ -490,3 +490,3 @@
+     if (lastc == 0) {
+-	return 0;
++	return;
+     }
+@@ -563,3 +563,3 @@
+     }
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/dlarf1l.c
++++ b/lapack-netlib/SRC/dlarf1l.c
+@@ -382,3 +382,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int dlarf1l_(char *side, integer *m, integer *n, doublereal *
++/* Subroutine */ void dlarf1l_(char *side, integer *m, integer *n, doublereal *
+ 	v, integer *incv, doublereal *tau, doublereal *c__, integer *ldc, 
+@@ -393,3 +393,3 @@
+     logical applyleft;
+-    extern /* Subroutine */ int dger_(integer *, integer *, doublereal *, 
++    extern /* Subroutine */ void dger_(integer *, integer *, doublereal *, 
+ 	    doublereal *, integer *, doublereal *, integer *, doublereal *, 
+@@ -398,3 +398,3 @@
+     extern logical lsame_(char *, char *);
+-    extern /* Subroutine */ int dgemv_(char *, integer *, integer *, 
++    extern /* Subroutine */ void dgemv_(char *, integer *, integer *, 
+ 	    doublereal *, doublereal *, integer *, doublereal *, integer *, 
+@@ -402,3 +402,3 @@
+     integer lastc;
+-    extern /* Subroutine */ int daxpy_(integer *, doublereal *, doublereal *, 
++    extern /* Subroutine */ void daxpy_(integer *, doublereal *, doublereal *, 
+ 	    integer *, doublereal *, integer *);
+@@ -452,3 +452,3 @@
+     if (lastc == 0) {
+-	return 0;
++	return;
+     }
+@@ -528,3 +528,3 @@
+     }
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/dlarft.c
++++ b/lapack-netlib/SRC/dlarft.c
+@@ -692,3 +692,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int dlarft_(char *direct, char *storev, integer *n, integer *
++/* Subroutine */ void dlarft_(char *direct, char *storev, integer *n, integer *
+ 	k, doublereal *v, integer *ldv, doublereal *tau, doublereal *t, 
+@@ -705,3 +705,3 @@
+     integer nx;
+-    extern /* Subroutine */ int dlarft_lvl2__(char *, char *, integer *, 
++    extern /* Subroutine */ void dlarft_lvl2__(char *, char *, integer *, 
+ 	    integer *, doublereal *, integer *, doublereal *, doublereal *, 
+@@ -709,3 +709,3 @@
+     logical dirf, colv;
+-    extern /* Subroutine */ int dgemm_(char *, char *, integer *, integer *, 
++    extern /* Subroutine */ void dgemm_(char *, char *, integer *, integer *, 
+ 	    integer *, doublereal *, doublereal *, integer *, doublereal *, 
+@@ -713,3 +713,3 @@
+     extern logical lsame_(char *, char *);
+-    extern /* Subroutine */ int dtrmm_(char *, char *, char *, char *, 
++    extern /* Subroutine */ void dtrmm_(char *, char *, char *, char *, 
+ 	    integer *, integer *, doublereal *, doublereal *, integer *, 
+@@ -755,3 +755,3 @@
+     if (*n == 0 || *k == 0) {
+-	return 0;
++	return;
+     }
+@@ -762,3 +762,3 @@
+ 	t[t_dim1 + 1] = tau[1];
+-	return 0;
++	return;
+     }
+@@ -776,3 +776,3 @@
+ 		t_offset], ldt);
+-	return 0;
++	return;
+     }
+@@ -1222,3 +1222,3 @@
+     }
+-    return 0;
++    return;
+ } /* dlarft_ */
+--- a/lapack-netlib/SRC/dlarft_lvl2.c
++++ b/lapack-netlib/SRC/dlarft_lvl2.c
+@@ -688,3 +688,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int dlarft_lvl2__(char *direct, char *storev, integer *n, 
++/* Subroutine */ void dlarft_lvl2__(char *direct, char *storev, integer *n, 
+ 	integer *k, doublereal *v, integer *ldv, doublereal *tau, doublereal *
+@@ -699,3 +699,3 @@
+     extern logical lsame_(char *, char *);
+-    extern /* Subroutine */ int dgemv_(char *, integer *, integer *, 
++    extern /* Subroutine */ void dgemv_(char *, integer *, integer *, 
+ 	    doublereal *, doublereal *, integer *, doublereal *, integer *, 
+@@ -703,3 +703,3 @@
+     integer lastv;
+-    extern /* Subroutine */ int dtrmv_(char *, char *, char *, integer *, 
++    extern /* Subroutine */ void dtrmv_(char *, char *, char *, integer *, 
+ 	    doublereal *, integer *, doublereal *, integer *), mecago_();
+@@ -728,3 +728,3 @@
+     if (*n == 0) {
+-	return 0;
++	return;
+     }
+@@ -889,3 +889,3 @@
+     }
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/dlatdf.c
++++ b/lapack-netlib/SRC/dlatdf.c
+@@ -722,3 +722,3 @@
+ 	    doublereal *, doublereal *);
+-    extern int dlaswp_(integer *, doublereal *, 
++    extern void dlaswp_(integer *, doublereal *, 
+ 	    integer *, integer *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/dpbtrf.c
++++ b/lapack-netlib/SRC/dpbtrf.c
+@@ -682,3 +682,3 @@
+ 	     doublereal *, integer *, integer *);
+-    extern int dpotf2_(char *, 
++    extern void dpotf2_(char *, 
+ 	    integer *, doublereal *, integer *, integer *);
+--- a/lapack-netlib/SRC/dpftrf.c
++++ b/lapack-netlib/SRC/dpftrf.c
+@@ -734,3 +734,3 @@
+     logical nisodd;
+-    extern /* Subroutine */ int dpotrf_(char *, integer *, doublereal *, 
++    extern /* Subroutine */ void dpotrf_(char *, integer *, doublereal *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/dpftri.c
++++ b/lapack-netlib/SRC/dpftri.c
+@@ -727,3 +727,3 @@
+     logical nisodd;
+-    extern /* Subroutine */ int dlauum_(char *, integer *, doublereal *, 
++    extern /* Subroutine */ void dlauum_(char *, integer *, doublereal *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/dposv.c
++++ b/lapack-netlib/SRC/dposv.c
+@@ -650,3 +650,3 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int dpotrf_(
++    extern void dpotrf_(
+ 	    char *, integer *, doublereal *, integer *, integer *); 
+--- a/lapack-netlib/SRC/dposvx.c
++++ b/lapack-netlib/SRC/dposvx.c
+@@ -851,3 +851,3 @@
+ 	    doublereal *, doublereal *, doublereal *, integer *, integer *);
+-    extern int dpotrf_(char *, integer *, doublereal *, integer *, 
++    extern void dpotrf_(char *, integer *, doublereal *, integer *, 
+ 	    integer *);
+--- a/lapack-netlib/SRC/dpotri.c
++++ b/lapack-netlib/SRC/dpotri.c
+@@ -615,5 +615,5 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int dlauum_(
++    extern void dlauum_(
+ 	    char *, integer *, doublereal *, integer *, integer *); 
+-    extern int dtrtri_(char *, char *, integer *, doublereal *, integer *, 
++    extern void dtrtri_(char *, char *, integer *, doublereal *, integer *, 
+ 	    integer *);
+--- a/lapack-netlib/SRC/dsgesv.c
++++ b/lapack-netlib/SRC/dsgesv.c
+@@ -741,11 +741,11 @@
+ 	    doublereal *, integer *, doublereal *, integer *); 
+-    extern int dgetrf_(integer *, integer *, doublereal *, integer *, integer *, 
++    extern void dgetrf_(integer *, integer *, doublereal *, integer *, integer *, 
+ 	    integer *); 
+     extern int xerbla_(char *, integer *, ftnlen);
+-    extern int dgetrs_(char *, 
++    extern void dgetrs_(char *, 
+ 	    integer *, integer *, doublereal *, integer *, integer *, 
+ 	    doublereal *, integer *, integer *);
+-    extern int sgetrf_(integer *, 
++    extern void sgetrf_(integer *, 
+ 	    integer *, real *, integer *, integer *, integer *);
+-    extern int sgetrs_(char 
++    extern void sgetrs_(char 
+ 	    *, integer *, integer *, real *, integer *, integer *, real *, 
+--- a/lapack-netlib/SRC/dsposv.c
++++ b/lapack-netlib/SRC/dsposv.c
+@@ -747,3 +747,3 @@
+ 	    integer *, doublereal *);
+-    extern /* Subroutine */ int dpotrf_(char *, integer *, doublereal *, 
++    extern /* Subroutine */ void dpotrf_(char *, integer *, doublereal *, 
+ 	    integer *, integer *);
+@@ -751,3 +751,3 @@
+ 	    *, doublereal *, integer *, doublereal *, integer *, integer *);
+-    extern int spotrf_(char *, integer *, real *, integer *, integer *);
++    extern void spotrf_(char *, integer *, real *, integer *, integer *);
+     extern void spotrs_(char *, integer *, integer *, real *, integer *, 
+--- a/lapack-netlib/SRC/dsygv.c
++++ b/lapack-netlib/SRC/dsygv.c
+@@ -716,3 +716,3 @@
+ 	    integer *, integer *, ftnlen, ftnlen);
+-    extern /* Subroutine */ int dpotrf_(char *, integer *, doublereal *, 
++    extern /* Subroutine */ void dpotrf_(char *, integer *, doublereal *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/dsygv_2stage.c
++++ b/lapack-netlib/SRC/dsygv_2stage.c
+@@ -774,3 +774,3 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int dpotrf_(
++    extern void dpotrf_(
+ 	    char *, integer *, doublereal *, integer *, integer *); 
+--- a/lapack-netlib/SRC/dsygvd.c
++++ b/lapack-netlib/SRC/dsygvd.c
+@@ -764,3 +764,3 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int dpotrf_(
++    extern void dpotrf_(
+ 	    char *, integer *, doublereal *, integer *, integer *);
+--- a/lapack-netlib/SRC/dsygvx.c
++++ b/lapack-netlib/SRC/dsygvx.c
+@@ -837,3 +837,3 @@
+ 	    integer *, integer *, ftnlen, ftnlen);
+-    extern /* Subroutine */ int dpotrf_(char *, integer *, doublereal *, 
++    extern /* Subroutine */ void dpotrf_(char *, integer *, doublereal *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/dsytrf_aa_2stage.c
++++ b/lapack-netlib/SRC/dsytrf_aa_2stage.c
+@@ -702,3 +702,3 @@
+ 	    integer *, doublereal *, integer *, integer *, integer *); 
+-    extern int dgetrf_(integer *, integer *, doublereal *, integer *, integer *, 
++    extern void dgetrf_(integer *, integer *, doublereal *, integer *, integer *, 
+ 	    integer *);
+--- a/lapack-netlib/SRC/dsytri2x.c
++++ b/lapack-netlib/SRC/dsytri2x.c
+@@ -665,3 +665,3 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int dtrtri_(
++    extern void dtrtri_(
+ 	    char *, char *, integer *, doublereal *, integer *, integer *);
+--- a/lapack-netlib/SRC/dsytri_3x.c
++++ b/lapack-netlib/SRC/dsytri_3x.c
+@@ -704,3 +704,3 @@
+     integer icount;
+-    extern /* Subroutine */ int dtrtri_(char *, char *, integer *, doublereal 
++    extern /* Subroutine */ void dtrtri_(char *, char *, integer *, doublereal 
+ 	    *, integer *, integer *);
+--- a/lapack-netlib/SRC/dsytrs_aa_2stage.c
++++ b/lapack-netlib/SRC/dsytrs_aa_2stage.c
+@@ -674,3 +674,3 @@
+ 	    integer *, integer *, doublereal *, integer *, integer *);
+-    extern int dlaswp_(integer *, doublereal *, integer *, integer *, integer *,
++    extern void dlaswp_(integer *, doublereal *, integer *, integer *, integer *,
+ 	     integer *, integer *);
+--- a/lapack-netlib/SRC/dtftri.c
++++ b/lapack-netlib/SRC/dtftri.c
+@@ -734,3 +734,3 @@
+     logical nisodd;
+-    extern /* Subroutine */ int dtrtri_(char *, char *, integer *, doublereal 
++    extern /* Subroutine */ void dtrtri_(char *, char *, integer *, doublereal 
+ 	    *, integer *, integer *);
+--- a/lapack-netlib/SRC/sgbtrf.c
++++ b/lapack-netlib/SRC/sgbtrf.c
+@@ -438,3 +438,3 @@
+ 	    integer *);
+-    extern /* Subroutine */ int slaswp_(integer *, real *, integer *, integer 
++    extern /* Subroutine */ void slaswp_(integer *, real *, integer *, integer 
+ 	    *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/sgedmd.c
++++ b/lapack-netlib/SRC/sgedmd.c
+@@ -525,3 +525,3 @@
+ 
+-/* Subroutine */ int sgedmd_(char *jobs, char *jobz, char *jobr, char *jobf, 
++/* Subroutine */ void sgedmd_(char *jobs, char *jobz, char *jobr, char *jobf, 
+ 	integer *whtsvd, integer *m, integer *n, real *x, integer *ldx, real *
+@@ -545,6 +545,6 @@
+     extern logical lsame_(char *, char *);
+-    extern /* Subroutine */ int sscal_(integer *, real *, real *, integer *);
++    extern /* Subroutine */ void sscal_(integer *, real *, real *, integer *);
+     logical badxy;
+     real small;
+-    extern /* Subroutine */ int sgemm_(char *, char *, integer *, integer *, 
++    extern /* Subroutine */ void sgemm_(char *, char *, integer *, integer *, 
+ 	    integer *, real *, real *, integer *, real *, integer *, real *, 
+@@ -554,3 +554,3 @@
+     char jobzl[1];
+-    extern /* Subroutine */ int saxpy_(integer *, real *, real *, integer *, 
++    extern /* Subroutine */ void saxpy_(integer *, real *, real *, integer *, 
+ 	    real *, integer *);
+@@ -560,8 +560,8 @@
+ 	     real *, integer *, real *);
+-    extern /* Subroutine */ int sgesdd_(char *, integer *, integer *, real *, 
++    extern /* Subroutine */ void sgesdd_(char *, integer *, integer *, real *, 
+ 	    integer *, real *, real *, integer *, real *, integer *, real *, 
+-	    integer *, integer *, integer *), xerbla_(char *, integer 
+-	    *);
++	    integer *, integer *, integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+     char t_or_n__[1];
+-    extern /* Subroutine */ int slascl_(char *, integer *, integer *, real *, 
++    extern /* Subroutine */ void slascl_(char *, integer *, integer *, real *, 
+ 	    real *, integer *, integer *, real *, integer *, integer *);
+@@ -570,3 +570,3 @@
+     extern logical sisnan_(real *);
+-    extern /* Subroutine */ int sgesvd_(char *, char *, integer *, integer *, 
++    extern /* Subroutine */ void sgesvd_(char *, char *, integer *, integer *, 
+ 	    real *, integer *, real *, real *, integer *, real *, integer *, 
+@@ -574,3 +574,3 @@
+     integer lwrsdd, mwrsdd;
+-    extern /* Subroutine */ int sgejsv_(char *, char *, char *, char *, char *
++    extern /* Subroutine */ void sgejsv_(char *, char *, char *, char *, char *
+ 	    , char *, integer *, integer *, real *, integer *, real *, real *,
+@@ -588,3 +588,3 @@
+     char jsvopt[1];
+-    extern /* Subroutine */ int slassq_(integer *, real *, integer *, real *, 
++    extern /* Subroutine */ void slassq_(integer *, real *, integer *, real *, 
+ 	    real *), mecago_();
+@@ -592,3 +592,3 @@
+     real rdummy2[2], ofl, one;
+-    extern /* Subroutine */ int sgesvdq_(char *, char *, char *, char *, char 
++    extern /* Subroutine */ void sgesvdq_(char *, char *, char *, char *, char 
+ 	    *, integer *, integer *, real *, integer *, real *, real *, 
+@@ -1100,3 +1100,3 @@
+ 	    *info = 1;
+-	    return 0;
++	    return;
+ 	}
+@@ -1234,4 +1234,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("SGEDMD", &i__1);
+-	return 0;
++	xerbla_("SGEDMD", &i__1, (ftnlen)6);
++	return;
+     } else if (lquery) {
+@@ -1241,3 +1241,3 @@
+ 	work[2] = (real) olwork;
+-	return 0;
++	return;
+     }
+@@ -1265,3 +1265,3 @@
+ 		i__2 = -(*info);
+-		xerbla_("SGEDMD", &i__2);
++		xerbla_("SGEDMD", &i__2, (ftnlen)6);
+ 	    }
+@@ -1303,4 +1303,4 @@
+ 	    i__1 = -(*info);
+-	    xerbla_("SGEDMD", &i__1);
+-	    return 0;
++	    xerbla_("SGEDMD", &i__1, (ftnlen)6);
++	    return;
+ 	}
+@@ -1351,3 +1351,3 @@
+ 		i__2 = -(*info);
+-		xerbla_("SGEDMD", &i__2);
++		xerbla_("SGEDMD", &i__2, (ftnlen)6);
+ 	    }
+@@ -1466,3 +1466,3 @@
+ 	*info = 2;
+-	return 0;
++	return;
+     }
+@@ -1476,4 +1476,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("SGEDMD", &i__1);
+-	return 0;
++	xerbla_("SGEDMD", &i__1, (ftnlen)6);
++	return;
+     }
+@@ -1627,3 +1627,3 @@
+ 	*info = 3;
+-	return 0;
++	return;
+     }
+@@ -1742,3 +1742,3 @@
+ /* ............................................................ */
+-    return 0;
++    return;
+ /*     ...... */
+--- a/lapack-netlib/SRC/sgedmdq.c
++++ b/lapack-netlib/SRC/sgedmdq.c
+@@ -522,3 +522,3 @@
+ 
+-/* Subroutine */ int sgedmdq_(char *jobs, char *jobz, char *jobr, char *jobq, 
++/* Subroutine */ void sgedmdq_(char *jobs, char *jobz, char *jobr, char *jobq, 
+ 	char *jobt, char *jobf, integer *whtsvd, integer *m, integer *n, real 
+@@ -544,3 +544,3 @@
+     logical wntex;
+-    extern /* Subroutine */ int sgedmd_(char *, char *, char *, char *, 
++    extern /* Subroutine */ void sgedmd_(char *, char *, char *, char *, 
+ 	    integer *, integer *, integer *, real *, integer *, real *, 
+@@ -548,8 +548,9 @@
+ 	    integer *, real *, real *, integer *, real *, integer *, real *, 
+-	    integer *, real *, integer *, integer *, integer *, integer *), xerbla_(char *, integer *);
++	    integer *, real *, integer *, integer *, integer *, integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+     integer mlwdmd, olwdmd;
+-    extern /* Subroutine */ int sgeqrf_(integer *, integer *, real *, integer 
++    extern /* Subroutine */ void sgeqrf_(integer *, integer *, real *, integer 
+ 	    *, real *, real *, integer *, integer *);
+     logical sccolx, sccoly;
+-    extern /* Subroutine */ int slacpy_(char *, integer *, integer *, real *, 
++    extern /* Subroutine */ void slacpy_(char *, integer *, integer *, real *, 
+ 	    integer *, real *, integer *), slaset_(char *, integer *, 
+@@ -564,3 +565,3 @@
+     logical lquery, wntres, wnttrf, wntvcq;
+-    extern /* Subroutine */ int sorgqr_(integer *, integer *, integer *, real 
++    extern /* Subroutine */ void sorgqr_(integer *, integer *, integer *, real 
+ 	    *, integer *, real *, real *, integer *, integer *), sormqr_(char 
+@@ -1122,3 +1123,3 @@
+ 	    *info = 1;
+-	    return 0;
++	    return;
+ 	}
+@@ -1188,4 +1189,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("SGEDMDQ", &i__1);
+-	return 0;
++	xerbla_("SGEDMDQ", &i__1, (ftnlen)7);
++	return;
+     } else if (lquery) {
+@@ -1195,3 +1196,3 @@
+ 	work[2] = (real) olwork;
+-	return 0;
++	return;
+     }
+@@ -1234,3 +1235,3 @@
+ 	*info = info1;
+-	return 0;
++	return;
+     } else {
+@@ -1292,3 +1293,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/sgejsv.c
++++ b/lapack-netlib/SRC/sgejsv.c
+@@ -1059,3 +1059,3 @@
+     logical transp;
+-    extern /* Subroutine */ int slaswp_(integer *, real *, integer *, integer 
++    extern /* Subroutine */ void slaswp_(integer *, real *, integer *, integer 
+ 	    *, integer *, integer *, integer *); 
+--- a/lapack-netlib/SRC/sgeqp3rk.c
++++ b/lapack-netlib/SRC/sgeqp3rk.c
+@@ -266,3 +266,3 @@
+ 
+-/* Subroutine */ int sgeqp3rk_(integer *m, integer *n, integer *nrhs, integer 
++/* Subroutine */ void sgeqp3rk_(integer *m, integer *n, integer *nrhs, integer 
+ 	*kmax, real *abstol, real *reltol, real *a, integer *lda, integer *k, 
+@@ -277,3 +277,3 @@
+     real maxc2nrm;
+-    extern /* Subroutine */ int slaqp2rk_(integer *, integer *, integer *, 
++    extern /* Subroutine */ void slaqp2rk_(integer *, integer *, integer *, 
+ 	    integer *, integer *, real *, real *, integer *, real *, real *, 
+@@ -293,3 +293,3 @@
+     real safmin;
+-    extern /* Subroutine */ int xerbla_(char *, integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+     extern integer ilaenv_(integer *, char *, char *, integer *, integer *, 
+@@ -406,6 +406,6 @@
+ 	i__1 = -(*info);
+-	xerbla_("SGEQP3RK", &i__1);
+-	return 0;
++	xerbla_("SGEQP3RK", &i__1, (ftnlen)8);
++	return;
+     } else if (lquery) {
+-	return 0;
++	return;
+     }
+@@ -419,3 +419,3 @@
+ 	work[1] = (real) lwkopt;
+-	return 0;
++	return;
+     }
+@@ -474,3 +474,3 @@
+ 	work[1] = (real) lwkopt;
+-	return 0;
++	return;
+     }
+@@ -494,3 +494,3 @@
+ 	work[1] = (real) lwkopt;
+-	return 0;
++	return;
+ 
+@@ -526,3 +526,3 @@
+ 	work[1] = (real) lwkopt;
+-	return 0;
++	return;
+     }
+@@ -574,3 +574,3 @@
+ 	work[1] = (real) lwkopt;
+-	return 0;
++	return;
+     }
+@@ -701,3 +701,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -790,3 +790,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/sgerfs.c
++++ b/lapack-netlib/SRC/sgerfs.c
+@@ -479,3 +479,3 @@
+     logical notran;
+-    extern /* Subroutine */ int sgetrs_(char *, integer *, integer *, real *, 
++    extern /* Subroutine */ void sgetrs_(char *, integer *, integer *, real *, 
+ 	    integer *, integer *, real *, integer *, integer *);
+--- a/lapack-netlib/SRC/sgesc2.c
++++ b/lapack-netlib/SRC/sgesc2.c
+@@ -391,3 +391,3 @@
+     extern integer isamax_(integer *, real *, integer *);
+-    extern /* Subroutine */ int slaswp_(integer *, real *, integer *, integer 
++    extern /* Subroutine */ void slaswp_(integer *, real *, integer *, integer 
+ 	    *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/sgesv.c
++++ b/lapack-netlib/SRC/sgesv.c
+@@ -634,3 +634,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int sgesv_(integer *n, integer *nrhs, real *a, integer *lda, 
++/* Subroutine */ void sgesv_(integer *n, integer *nrhs, real *a, integer *lda, 
+ 	integer *ipiv, real *b, integer *ldb, integer *info)
+@@ -682,3 +682,3 @@
+ 	xerbla_("SGESV ", &i__1, (ftnlen)5);
+-	return 0;
++	return;
+     }
+@@ -695,3 +695,3 @@
+     }
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/sgesvdq.c
++++ b/lapack-netlib/SRC/sgesvdq.c
+@@ -990,3 +990,3 @@
+     logical rtrans;
+-    extern /* Subroutine */ int slaswp_(integer *, real *, integer *, integer 
++    extern /* Subroutine */ void slaswp_(integer *, real *, integer *, integer 
+ 	    *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/sgesvx.c
++++ b/lapack-netlib/SRC/sgesvx.c
+@@ -641,3 +641,3 @@
+ 	     real *, integer *, integer *);
+-    extern int sgetrf_(integer *, 
++    extern void sgetrf_(integer *, 
+ 	    integer *, real *, integer *, integer *, integer *);
+@@ -649,3 +649,3 @@
+ 	    integer *, real *);
+-    extern /* Subroutine */ int sgetrs_(char *, integer *, integer *, real *, 
++    extern /* Subroutine */ void sgetrs_(char *, integer *, integer *, real *, 
+ 	    integer *, integer *, real *, integer *, integer *);
+--- a/lapack-netlib/SRC/sgetrf2.c
++++ b/lapack-netlib/SRC/sgetrf2.c
+@@ -397,3 +397,3 @@
+     extern integer isamax_(integer *, real *, integer *);
+-    extern /* Subroutine */ int slaswp_(integer *, real *, integer *, integer 
++    extern /* Subroutine */ void slaswp_(integer *, real *, integer *, integer 
+ 	    *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/sgetri.c
++++ b/lapack-netlib/SRC/sgetri.c
+@@ -403,3 +403,3 @@
+     logical lquery;
+-    extern /* Subroutine */ int strtri_(char *, char *, integer *, real *, 
++    extern /* Subroutine */ void strtri_(char *, char *, integer *, real *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/slaqp2rk.c
++++ b/lapack-netlib/SRC/slaqp2rk.c
+@@ -522,3 +522,3 @@
+ 
+-/* Subroutine */ int slaqp2rk_(integer *m, integer *n, integer *nrhs, integer 
++/* Subroutine */ void slaqp2rk_(integer *m, integer *n, integer *nrhs, integer 
+ 	*ioffset, integer *kmax, real *abstol, real *reltol, integer *kp1, 
+@@ -538,6 +538,6 @@
+     integer jmaxc2nrm;
+-    extern /* Subroutine */ int slarf_(char *, integer *, integer *, real *, 
++    extern /* Subroutine */ void slarf_(char *, integer *, integer *, real *, 
+ 	    integer *, real *, real *, integer *, real *);
+     integer itemp, minmnfact;
+-    extern /* Subroutine */ int sswap_(integer *, real *, integer *, real *, 
++    extern /* Subroutine */ void sswap_(integer *, real *, integer *, real *, 
+ 	    integer *);
+@@ -546,3 +546,3 @@
+     extern real slamch_(char *);
+-    extern /* Subroutine */ int slarfg_(integer *, real *, real *, integer *, 
++    extern /* Subroutine */ void slarfg_(integer *, real *, real *, integer *, 
+ 	    real *);
+@@ -655,3 +655,3 @@
+ 
+-		return 0;
++		return;
+ 	    }
+@@ -685,3 +685,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -733,3 +733,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -800,3 +800,3 @@
+ 
+-	    return 0;
++	    return;
+ 	}
+@@ -912,3 +912,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/slaqp3rk.c
++++ b/lapack-netlib/SRC/slaqp3rk.c
+@@ -525,3 +525,3 @@
+ 
+-/* Subroutine */ int slaqp3rk_(integer *m, integer *n, integer *nrhs, integer 
++/* Subroutine */ void slaqp3rk_(integer *m, integer *n, integer *nrhs, integer 
+ 	*ioffset, integer *nb, real *abstol, real *reltol, integer *kp1, real 
+@@ -541,3 +541,3 @@
+     real tol3z;
+-    extern /* Subroutine */ int sgemm_(char *, char *, integer *, integer *, 
++    extern /* Subroutine */ void sgemm_(char *, char *, integer *, integer *, 
+ 	    integer *, real *, real *, integer *, real *, integer *, real *, 
+@@ -545,6 +545,6 @@
+     integer itemp;
+-    extern /* Subroutine */ int sgemv_(char *, integer *, integer *, real *, 
++    extern /* Subroutine */ void sgemv_(char *, integer *, integer *, real *, 
+ 	    real *, integer *, real *, integer *, real *, real *, integer *);
+     integer minmnfact;
+-    extern /* Subroutine */ int sswap_(integer *, real *, integer *, real *, 
++    extern /* Subroutine */ void sswap_(integer *, real *, integer *, real *, 
+ 	    integer *);
+@@ -553,3 +553,3 @@
+     extern real slamch_(char *);
+-    extern /* Subroutine */ int slarfg_(integer *, real *, real *, integer *, 
++    extern /* Subroutine */ void slarfg_(integer *, real *, real *, integer *, 
+ 	    real *);
+@@ -690,3 +690,3 @@
+ 
+-		return 0;
++		return;
+ 	    }
+@@ -747,3 +747,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -827,3 +827,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -939,3 +939,3 @@
+ 
+-	    return 0;
++	    return;
+ 	}
+@@ -1103,3 +1103,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/slarf1f.c
++++ b/lapack-netlib/SRC/slarf1f.c
+@@ -381,3 +381,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int slarf1f_(char *side, integer *m, integer *n, real *v, 
++/* Subroutine */ void slarf1f_(char *side, integer *m, integer *n, real *v, 
+ 	integer *incv, real *tau, real *c__, integer *ldc, real *work)
+@@ -391,11 +391,11 @@
+     logical applyleft;
+-    extern /* Subroutine */ int sger_(integer *, integer *, real *, real *, 
++    extern /* Subroutine */ void sger_(integer *, integer *, real *, real *, 
+ 	    integer *, real *, integer *, real *, integer *);
+     extern logical lsame_(char *, char *);
+-    extern /* Subroutine */ int sscal_(integer *, real *, real *, integer *);
++    extern /* Subroutine */ void sscal_(integer *, real *, real *, integer *);
+     integer lastc;
+-    extern /* Subroutine */ int sgemv_(char *, integer *, integer *, real *, 
++    extern /* Subroutine */ void sgemv_(char *, integer *, integer *, real *, 
+ 	    real *, integer *, real *, integer *, real *, real *, integer *);
+     integer lastv;
+-    extern /* Subroutine */ int saxpy_(integer *, real *, real *, integer *, 
++    extern /* Subroutine */ void saxpy_(integer *, real *, real *, integer *, 
+ 	    real *, integer *);
+@@ -451,3 +451,3 @@
+     if (lastc == 0) {
+-	return 0;
++	return;
+     }
+@@ -522,3 +522,3 @@
+     }
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/slarf1l.c
++++ b/lapack-netlib/SRC/slarf1l.c
+@@ -384,3 +384,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int slarf1l_(char *side, integer *m, integer *n, real *v, 
++/* Subroutine */ void slarf1l_(char *side, integer *m, integer *n, real *v, 
+ 	integer *incv, real *tau, real *c__, integer *ldc, real *work)
+@@ -394,11 +394,11 @@
+     logical applyleft;
+-    extern /* Subroutine */ int sger_(integer *, integer *, real *, real *, 
++    extern /* Subroutine */ void sger_(integer *, integer *, real *, real *, 
+ 	    integer *, real *, integer *, real *, integer *);
+     extern logical lsame_(char *, char *);
+-    extern /* Subroutine */ int sscal_(integer *, real *, real *, integer *);
++    extern /* Subroutine */ void sscal_(integer *, real *, real *, integer *);
+     integer lastc;
+-    extern /* Subroutine */ int sgemv_(char *, integer *, integer *, real *, 
++    extern /* Subroutine */ void sgemv_(char *, integer *, integer *, real *, 
+ 	    real *, integer *, real *, integer *, real *, real *, integer *);
+     integer lastv;
+-    extern /* Subroutine */ int saxpy_(integer *, real *, real *, integer *, 
++    extern /* Subroutine */ void saxpy_(integer *, real *, real *, integer *, 
+ 	    real *, integer *);
+@@ -451,3 +451,3 @@
+     if (lastc == 0) {
+-	return 0;
++	return;
+     }
+@@ -524,3 +524,3 @@
+     }
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/slarft.c
++++ b/lapack-netlib/SRC/slarft.c
+@@ -692,3 +692,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int slarft_(char *direct, char *storev, integer *n, integer *
++/* Subroutine */ void slarft_(char *direct, char *storev, integer *n, integer *
+ 	k, real *v, integer *ldv, real *tau, real *t, integer *ldt)
+@@ -704,3 +704,3 @@
+     integer nx;
+-    extern /* Subroutine */ int slarft_lvl2__(char *, char *, integer *, 
++    extern /* Subroutine */ void slarft_lvl2__(char *, char *, integer *, 
+ 	    integer *, real *, integer *, real *, real *, integer *);
+@@ -708,3 +708,3 @@
+     extern logical lsame_(char *, char *);
+-    extern /* Subroutine */ int sgemm_(char *, char *, integer *, integer *, 
++    extern /* Subroutine */ void sgemm_(char *, char *, integer *, integer *, 
+ 	    integer *, real *, real *, integer *, real *, integer *, real *, 
+@@ -715,3 +715,3 @@
+ 	    integer *, integer *, ftnlen, ftnlen);
+-    extern /* Subroutine */ int slacpy_(char *, integer *, integer *, real *, 
++    extern /* Subroutine */ void slacpy_(char *, integer *, integer *, real *, 
+ 	    integer *, real *, integer *);
+@@ -752,3 +752,3 @@
+     if (*n == 0 || *k == 0) {
+-	return 0;
++	return;
+     }
+@@ -759,3 +759,3 @@
+ 	t[t_dim1 + 1] = tau[1];
+-	return 0;
++	return;
+     }
+@@ -773,3 +773,3 @@
+ 		t_offset], ldt);
+-	return 0;
++	return;
+     }
+@@ -1219,3 +1219,3 @@
+     }
+-    return 0;
++    return;
+ } /* slarft_ */
+--- a/lapack-netlib/SRC/slarft_lvl2.c
++++ b/lapack-netlib/SRC/slarft_lvl2.c
+@@ -690,3 +690,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int slarft_lvl2__(char *direct, char *storev, integer *n, 
++/* Subroutine */ void slarft_lvl2__(char *direct, char *storev, integer *n, 
+ 	integer *k, real *v, integer *ldv, real *tau, real *t, integer *ldt)
+@@ -700,6 +700,6 @@
+     extern logical lsame_(char *, char *);
+-    extern /* Subroutine */ int sgemv_(char *, integer *, integer *, real *, 
++    extern /* Subroutine */ void sgemv_(char *, integer *, integer *, real *, 
+ 	    real *, integer *, real *, integer *, real *, real *, integer *);
+     integer lastv;
+-    extern /* Subroutine */ int strmv_(char *, char *, char *, integer *, 
++    extern /* Subroutine */ void strmv_(char *, char *, char *, integer *, 
+ 	    real *, integer *, real *, integer *), 
+@@ -729,3 +729,3 @@
+     if (*n == 0) {
+-	return 0;
++	return;
+     }
+@@ -890,3 +890,3 @@
+     }
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/slatdf.c
++++ b/lapack-netlib/SRC/slatdf.c
+@@ -718,3 +718,3 @@
+ 	    integer *, real *, integer *, real *, real *);
+-    extern int slaswp_(integer *, 
++    extern void slaswp_(integer *, 
+ 	    real *, integer *, integer *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/spbtrf.c
++++ b/lapack-netlib/SRC/spbtrf.c
+@@ -682,3 +682,3 @@
+     integer ib;
+-    extern /* Subroutine */ int spotf2_(char *, integer *, real *, integer *, 
++    extern /* Subroutine */ void spotf2_(char *, integer *, real *, integer *, 
+ 	    integer *);
+--- a/lapack-netlib/SRC/spftrf.c
++++ b/lapack-netlib/SRC/spftrf.c
+@@ -734,3 +734,3 @@
+     logical nisodd;
+-    extern /* Subroutine */ int spotrf_(char *, integer *, real *, integer *, 
++    extern /* Subroutine */ void spotrf_(char *, integer *, real *, integer *, 
+ 	    integer *);
+--- a/lapack-netlib/SRC/spftri.c
++++ b/lapack-netlib/SRC/spftri.c
+@@ -726,3 +726,3 @@
+     logical nisodd;
+-    extern /* Subroutine */ int slauum_(char *, integer *, real *, integer *, 
++    extern /* Subroutine */ void slauum_(char *, integer *, real *, integer *, 
+ 	    integer *);
+--- a/lapack-netlib/SRC/sposv.c
++++ b/lapack-netlib/SRC/sposv.c
+@@ -650,3 +650,3 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int spotrf_(
++    extern void spotrf_(
+ 	    char *, integer *, real *, integer *, integer *);
+--- a/lapack-netlib/SRC/sposvx.c
++++ b/lapack-netlib/SRC/sposvx.c
+@@ -848,3 +848,3 @@
+ 	    integer *, integer *);
+-    extern int spotrf_(char *, integer *, real *, 
++    extern void spotrf_(char *, integer *, real *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/spotri.c
++++ b/lapack-netlib/SRC/spotri.c
+@@ -615,5 +615,5 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int slauum_(
++    extern void slauum_(
+ 	    char *, integer *, real *, integer *, integer *);
+-    extern int strtri_(
++    extern void strtri_(
+ 	    char *, char *, integer *, real *, integer *, integer *);
+--- a/lapack-netlib/SRC/ssygv.c
++++ b/lapack-netlib/SRC/ssygv.c
+@@ -716,3 +716,3 @@
+     integer lwkmin;
+-    extern /* Subroutine */ int spotrf_(char *, integer *, real *, integer *, 
++    extern /* Subroutine */ void spotrf_(char *, integer *, real *, integer *, 
+ 	    integer *);
+--- a/lapack-netlib/SRC/ssygv_2stage.c
++++ b/lapack-netlib/SRC/ssygv_2stage.c
+@@ -772,3 +772,3 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int spotrf_(
++    extern void spotrf_(
+ 	    char *, integer *, real *, integer *, integer *);
+--- a/lapack-netlib/SRC/ssygvd.c
++++ b/lapack-netlib/SRC/ssygvd.c
+@@ -765,3 +765,3 @@
+     integer liwmin;
+-    extern /* Subroutine */ int spotrf_(char *, integer *, real *, integer *, 
++    extern /* Subroutine */ void spotrf_(char *, integer *, real *, integer *, 
+ 	    integer *);
+--- a/lapack-netlib/SRC/ssygvx.c
++++ b/lapack-netlib/SRC/ssygvx.c
+@@ -838,3 +838,3 @@
+     integer lwkmin;
+-    extern /* Subroutine */ int spotrf_(char *, integer *, real *, integer *, 
++    extern /* Subroutine */ void spotrf_(char *, integer *, real *, integer *, 
+ 	    integer *);
+--- a/lapack-netlib/SRC/ssytrf_aa_2stage.c
++++ b/lapack-netlib/SRC/ssytrf_aa_2stage.c
+@@ -705,3 +705,3 @@
+ 	    integer *, real *, integer *, integer *, integer *);
+-    extern int sgetrf_(
++    extern void sgetrf_(
+ 	    integer *, integer *, real *, integer *, integer *, integer *); 
+--- a/lapack-netlib/SRC/ssytri2x.c
++++ b/lapack-netlib/SRC/ssytri2x.c
+@@ -664,3 +664,3 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int strtri_(
++    extern void strtri_(
+ 	    char *, char *, integer *, real *, integer *, integer *);
+--- a/lapack-netlib/SRC/ssytri_3x.c
++++ b/lapack-netlib/SRC/ssytri_3x.c
+@@ -702,3 +702,3 @@
+     integer icount;
+-    extern /* Subroutine */ int strtri_(char *, char *, integer *, real *, 
++    extern /* Subroutine */ void strtri_(char *, char *, integer *, real *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/ssytrs_aa_2stage.c
++++ b/lapack-netlib/SRC/ssytrs_aa_2stage.c
+@@ -674,3 +674,3 @@
+ 	    integer *, integer *, real *, integer *, integer *); 
+-    extern int slaswp_(integer *, real *, integer *, integer *, integer *, 
++    extern void slaswp_(integer *, real *, integer *, integer *, integer *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/stftri.c
++++ b/lapack-netlib/SRC/stftri.c
+@@ -734,3 +734,3 @@
+     logical nisodd;
+-    extern /* Subroutine */ int strtri_(char *, char *, integer *, real *, 
++    extern /* Subroutine */ void strtri_(char *, char *, integer *, real *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/zcgesv.c
++++ b/lapack-netlib/SRC/zcgesv.c
+@@ -759,3 +759,3 @@
+     extern doublereal dlamch_(char *);
+-    extern /* Subroutine */ int cgetrf_(integer *, integer *, complex *, 
++    extern /* Subroutine */ void cgetrf_(integer *, integer *, complex *, 
+ 	    integer *, integer *, integer *);
+@@ -764,3 +764,3 @@
+ 	    integer *, doublereal *);
+-    extern /* Subroutine */ int cgetrs_(char *, integer *, integer *, complex 
++    extern /* Subroutine */ void cgetrs_(char *, integer *, integer *, complex 
+ 	    *, integer *, integer *, complex *, integer *, integer *);
+@@ -769,5 +769,5 @@
+ 	    doublecomplex *, integer *, doublecomplex *, integer *); 
+-    extern int zgetrf_(integer *, integer *, doublecomplex *, integer *, integer 
++    extern void zgetrf_(integer *, integer *, doublecomplex *, integer *, integer 
+ 	    *, integer *);
+-    extern int zgetrs_(char *, integer *, integer *, 
++    extern void zgetrs_(char *, integer *, integer *, 
+ 	    doublecomplex *, integer *, integer *, doublecomplex *, integer *,
+--- a/lapack-netlib/SRC/zcposv.c
++++ b/lapack-netlib/SRC/zcposv.c
+@@ -772,3 +772,3 @@
+     extern integer izamax_(integer *, doublecomplex *, integer *);
+-    extern /* Subroutine */ int cpotrf_(char *, integer *, complex *, integer 
++    extern /* Subroutine */ void cpotrf_(char *, integer *, complex *, integer 
+ 	    *, integer *);
+@@ -778,3 +778,3 @@
+ 	    complex *, integer *, integer *);
+-    extern int zpotrf_(char *, integer 
++    extern void zpotrf_(char *, integer 
+ 	    *, doublecomplex *, integer *, integer *);
+--- a/lapack-netlib/SRC/zgbtrf.c
++++ b/lapack-netlib/SRC/zgbtrf.c
+@@ -711,3 +711,3 @@
+ 	    doublecomplex *, integer *);
+-    extern /* Subroutine */ int zlaswp_(integer *, doublecomplex *, integer *,
++    extern /* Subroutine */ void zlaswp_(integer *, doublecomplex *, integer *,
+ 	     integer *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/zgedmd.c
++++ b/lapack-netlib/SRC/zgedmd.c
+@@ -541,3 +541,3 @@
+ 
+-/* Subroutine */ int zgedmd_(char *jobs, char *jobz, char *jobr, char *jobf, 
++/* Subroutine */ void zgedmd_(char *jobs, char *jobz, char *jobr, char *jobf, 
+ 	integer *whtsvd, integer *m, integer *n, doublecomplex *x, integer *
+@@ -567,3 +567,3 @@
+     doublereal small;
+-    extern /* Subroutine */ int zgemm_(char *, char *, integer *, integer *, 
++    extern /* Subroutine */ void zgemm_(char *, char *, integer *, integer *, 
+ 	    integer *, doublecomplex *, doublecomplex *, integer *, 
+@@ -572,3 +572,3 @@
+     char jobzl[1];
+-    extern /* Subroutine */ int zgeev_(char *, char *, integer *, 
++    extern /* Subroutine */ void zgeev_(char *, char *, integer *, 
+ 	    doublecomplex *, integer *, doublecomplex *, doublecomplex *, 
+@@ -578,3 +578,3 @@
+     doublecomplex zzero;
+-    extern /* Subroutine */ int zaxpy_(integer *, doublecomplex *, 
++    extern /* Subroutine */ void zaxpy_(integer *, doublecomplex *, 
+ 	    doublecomplex *, integer *, doublecomplex *, integer *);
+@@ -583,5 +583,5 @@
+     extern logical disnan_(doublereal *);
+-    extern /* Subroutine */ int xerbla_(char *, integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+     char t_or_n__[1];
+-    extern /* Subroutine */ int zdscal_(integer *, doublereal *, 
++    extern /* Subroutine */ void zdscal_(integer *, doublereal *, 
+ 	    doublecomplex *, integer *), zgesdd_(char *, integer *, integer *,
+@@ -595,3 +595,3 @@
+     integer lwrsdd, mwrsdd;
+-    extern /* Subroutine */ int zgesvd_(char *, char *, integer *, integer *, 
++    extern /* Subroutine */ void zgesvd_(char *, char *, integer *, integer *, 
+ 	    doublecomplex *, integer *, doublereal *, doublecomplex *, 
+@@ -609,3 +609,3 @@
+     doublereal rdummy[2];
+-    extern /* Subroutine */ int zgejsv_(char *, char *, char *, char *, char *
++    extern /* Subroutine */ void zgejsv_(char *, char *, char *, char *, char *
+ 	    , char *, integer *, integer *, doublecomplex *, integer *, 
+@@ -617,3 +617,3 @@
+     doublereal ofl, one;
+-    extern /* Subroutine */ int zgesvdq_(char *, char *, char *, char *, char 
++    extern /* Subroutine */ void zgesvdq_(char *, char *, char *, char *, char 
+ 	    *, integer *, integer *, doublecomplex *, integer *, doublereal *,
+@@ -1092,3 +1092,3 @@
+ 	    *info = 1;
+-	    return 0;
++	    return;
+ 	}
+@@ -1214,4 +1214,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("ZGEDMD", &i__1);
+-	return 0;
++	xerbla_("ZGEDMD", &i__1, (ftnlen)6);
++	return;
+     } else if (lquery) {
+@@ -1222,3 +1222,3 @@
+ 	zwork[2].r = (doublereal) olwork, zwork[2].i = 0.;
+-	return 0;
++	return;
+     }
+@@ -1246,3 +1246,3 @@
+ 		i__2 = -(*info);
+-		xerbla_("ZGEDMD", &i__2);
++		xerbla_("ZGEDMD", &i__2, (ftnlen)6);
+ 	    }
+@@ -1284,4 +1284,4 @@
+ 	    i__1 = -(*info);
+-	    xerbla_("ZGEDMD", &i__1);
+-	    return 0;
++	    xerbla_("ZGEDMD", &i__1, (ftnlen)6);
++	    return;
+ 	}
+@@ -1332,3 +1332,3 @@
+ 		i__2 = -(*info);
+-		xerbla_("ZGEDMD", &i__2);
++		xerbla_("ZGEDMD", &i__2, (ftnlen)6);
+ 	    }
+@@ -1444,3 +1444,3 @@
+ 	*info = 2;
+-	return 0;
++	return;
+     }
+@@ -1454,4 +1454,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("ZGEDMD", &i__1);
+-	return 0;
++	xerbla_("ZGEDMD", &i__1, (ftnlen)6);
++	return;
+     }
+@@ -1599,3 +1599,3 @@
+ 	*info = 3;
+-	return 0;
++	return;
+     }
+@@ -1689,3 +1689,3 @@
+ /* ............................................................ */
+-    return 0;
++    return;
+ /*     ...... */
+--- a/lapack-netlib/SRC/zgedmdq.c
++++ b/lapack-netlib/SRC/zgedmdq.c
+@@ -539,3 +539,3 @@
+ 
+-/* Subroutine */ int zgedmdq_(char *jobs, char *jobz, char *jobr, char *jobq, 
++/* Subroutine */ void zgedmdq_(char *jobs, char *jobz, char *jobr, char *jobq, 
+ 	char *jobt, char *jobf, integer *whtsvd, integer *m, integer *n, 
+@@ -564,3 +564,3 @@
+     doublecomplex zzero;
+-    extern /* Subroutine */ int zgedmd_(char *, char *, char *, char *, 
++    extern /* Subroutine */ void zgedmd_(char *, char *, char *, char *, 
+ 	    integer *, integer *, integer *, doublecomplex *, integer *, 
+@@ -570,6 +570,7 @@
+ 	    doublecomplex *, integer *, doublecomplex *, integer *, 
+-	    doublereal *, integer *, integer *, integer *, integer *), xerbla_(char *, integer *);
++	    doublereal *, integer *, integer *, integer *, integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+     integer mlwdmd, olwdmd;
+     logical sccolx, sccoly;
+-    extern /* Subroutine */ int zgeqrf_(integer *, integer *, doublecomplex *,
++    extern /* Subroutine */ void zgeqrf_(integer *, integer *, doublecomplex *,
+ 	     integer *, doublecomplex *, doublecomplex *, integer *, integer *
+@@ -585,3 +586,3 @@
+     logical lquery, wntres, wnttrf, wntvcq;
+-    extern /* Subroutine */ int zungqr_(integer *, integer *, integer *, 
++    extern /* Subroutine */ void zungqr_(integer *, integer *, integer *, 
+ 	    doublecomplex *, integer *, doublecomplex *, doublecomplex *, 
+@@ -1121,3 +1122,3 @@
+ 	    *info = 1;
+-	    return 0;
++	    return;
+ 	}
+@@ -1200,4 +1201,4 @@
+ 	i__1 = -(*info);
+-	xerbla_("ZGEDMDQ", &i__1);
+-	return 0;
++	xerbla_("ZGEDMDQ", &i__1, (ftnlen)7);
++	return;
+     } else if (lquery) {
+@@ -1209,3 +1210,3 @@
+ 	work[2] = (doublereal) mlrwrk;
+-	return 0;
++	return;
+     }
+@@ -1248,3 +1249,3 @@
+ 	*info = info1;
+-	return 0;
++	return;
+     } else {
+@@ -1306,3 +1307,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/zgejsv.c
++++ b/lapack-netlib/SRC/zgejsv.c
+@@ -1202,3 +1202,3 @@
+     logical lquery;
+-    extern /* Subroutine */ int zlaswp_(integer *, doublecomplex *, integer *,
++    extern /* Subroutine */ void zlaswp_(integer *, doublecomplex *, integer *,
+ 	     integer *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/zgeqp3rk.c
++++ b/lapack-netlib/SRC/zgeqp3rk.c
+@@ -542,3 +542,3 @@
+ 
+-/* Subroutine */ int zgeqp3rk_(integer *m, integer *n, integer *nrhs, integer 
++/* Subroutine */ void zgeqp3rk_(integer *m, integer *n, integer *nrhs, integer 
+ 	*kmax, doublereal *abstol, doublereal *reltol, doublecomplex *a, 
+@@ -556,3 +556,3 @@
+     logical done;
+-    extern /* Subroutine */ int zlaqp2rk_(integer *, integer *, integer *, 
++    extern /* Subroutine */ void zlaqp2rk_(integer *, integer *, integer *, 
+ 	    integer *, integer *, doublereal *, doublereal *, integer *, 
+@@ -575,3 +575,3 @@
+     doublereal safmin;
+-    extern /* Subroutine */ int xerbla_(char *, integer *);
++    extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+     extern logical disnan_(doublereal *);
+@@ -687,6 +687,6 @@
+ 	i__1 = -(*info);
+-	xerbla_("ZGEQP3RK", &i__1);
+-	return 0;
++	xerbla_("ZGEQP3RK", &i__1, (ftnlen)8);
++	return;
+     } else if (lquery) {
+-	return 0;
++	return;
+     }
+@@ -701,3 +701,3 @@
+ 	work[1].r = z__1.r, work[1].i = z__1.i;
+-	return 0;
++	return;
+     }
+@@ -756,3 +756,3 @@
+ 	work[1].r = z__1.r, work[1].i = z__1.i;
+-	return 0;
++	return;
+     }
+@@ -778,3 +778,3 @@
+ 	work[1].r = z__1.r, work[1].i = z__1.i;
+-	return 0;
++	return;
+ 
+@@ -812,3 +812,3 @@
+ 	work[1].r = z__1.r, work[1].i = z__1.i;
+-	return 0;
++	return;
+     }
+@@ -862,3 +862,3 @@
+ 	work[1].r = z__1.r, work[1].i = z__1.i;
+-	return 0;
++	return;
+     }
+@@ -990,3 +990,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -1085,3 +1085,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/zgerfs.c
++++ b/lapack-netlib/SRC/zgerfs.c
+@@ -753,3 +753,3 @@
+     doublereal lstres;
+-    extern /* Subroutine */ int zgetrs_(char *, integer *, integer *, 
++    extern /* Subroutine */ void zgetrs_(char *, integer *, integer *, 
+ 	    doublecomplex *, integer *, integer *, doublecomplex *, integer *,
+--- a/lapack-netlib/SRC/zgesc2.c
++++ b/lapack-netlib/SRC/zgesc2.c
+@@ -667,3 +667,3 @@
+     doublereal smlnum;
+-    extern /* Subroutine */ int zlaswp_(integer *, doublecomplex *, integer *,
++    extern /* Subroutine */ void zlaswp_(integer *, doublecomplex *, integer *,
+ 	     integer *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/zgesv.c
++++ b/lapack-netlib/SRC/zgesv.c
+@@ -651,3 +651,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int zgesv_(integer *n, integer *nrhs, doublecomplex *a, 
++/* Subroutine */ void zgesv_(integer *n, integer *nrhs, doublecomplex *a, 
+ 	integer *lda, integer *ipiv, doublecomplex *b, integer *ldb, integer *
+@@ -700,3 +700,3 @@
+ 	xerbla_("ZGESV ", &i__1, (ftnlen)6);
+-	return 0;
++	return;
+     }
+@@ -713,3 +713,3 @@
+     }
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/zgesvdq.c
++++ b/lapack-netlib/SRC/zgesvdq.c
+@@ -1028,3 +1028,3 @@
+     integer lwunlq;
+-    extern /* Subroutine */ int zlaswp_(integer *, doublecomplex *, integer *,
++    extern /* Subroutine */ void zlaswp_(integer *, doublecomplex *, integer *,
+ 	     integer *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/zgesvx.c
++++ b/lapack-netlib/SRC/zgesvx.c
+@@ -920,3 +920,3 @@
+ 	    integer *);
+-    extern int zgetrf_(integer *, integer *, doublecomplex *,
++    extern void zgetrf_(integer *, integer *, doublecomplex *,
+ 	     integer *, integer *, integer *);
+@@ -927,3 +927,3 @@
+     doublereal smlnum;
+-    extern /* Subroutine */ int zgetrs_(char *, integer *, integer *, 
++    extern /* Subroutine */ void zgetrs_(char *, integer *, integer *, 
+ 	    doublecomplex *, integer *, integer *, doublecomplex *, integer *,
+--- a/lapack-netlib/SRC/zgetrf2.c
++++ b/lapack-netlib/SRC/zgetrf2.c
+@@ -667,3 +667,3 @@
+     extern integer izamax_(integer *, doublecomplex *, integer *);
+-    extern /* Subroutine */ int zlaswp_(integer *, doublecomplex *, integer *,
++    extern /* Subroutine */ void zlaswp_(integer *, doublecomplex *, integer *,
+ 	     integer *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/zgetri.c
++++ b/lapack-netlib/SRC/zgetri.c
+@@ -674,3 +674,3 @@
+     logical lquery;
+-    extern /* Subroutine */ int ztrtri_(char *, char *, integer *, 
++    extern /* Subroutine */ void ztrtri_(char *, char *, integer *, 
+ 	    doublecomplex *, integer *, integer *);
+--- a/lapack-netlib/SRC/zhegv.c
++++ b/lapack-netlib/SRC/zhegv.c
+@@ -744,3 +744,3 @@
+     logical lquery;
+-    extern /* Subroutine */ int zpotrf_(char *, integer *, doublecomplex *, 
++    extern /* Subroutine */ void zpotrf_(char *, integer *, doublecomplex *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/zhegv_2stage.c
++++ b/lapack-netlib/SRC/zhegv_2stage.c
+@@ -801,3 +801,3 @@
+     logical lquery;
+-    extern /* Subroutine */ int zpotrf_(char *, integer *, doublecomplex *, 
++    extern /* Subroutine */ void zpotrf_(char *, integer *, doublecomplex *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/zhegvd.c
++++ b/lapack-netlib/SRC/zhegvd.c
+@@ -814,3 +814,3 @@
+     logical lquery;
+-    extern /* Subroutine */ int zpotrf_(char *, integer *, doublecomplex *, 
++    extern /* Subroutine */ void zpotrf_(char *, integer *, doublecomplex *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/zhegvx.c
++++ b/lapack-netlib/SRC/zhegvx.c
+@@ -872,3 +872,3 @@
+     logical lquery;
+-    extern /* Subroutine */ int zpotrf_(char *, integer *, doublecomplex *, 
++    extern /* Subroutine */ void zpotrf_(char *, integer *, doublecomplex *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/zhetrf_aa_2stage.c
++++ b/lapack-netlib/SRC/zhetrf_aa_2stage.c
+@@ -727,3 +727,3 @@
+ 	    doublecomplex *, integer *, integer *, integer *);
+-    extern int zgetrf_(
++    extern void zgetrf_(
+ 	    integer *, integer *, doublecomplex *, integer *, integer *, 
+--- a/lapack-netlib/SRC/zhetri2x.c
++++ b/lapack-netlib/SRC/zhetri2x.c
+@@ -688,3 +688,3 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int ztrtri_(
++    extern void ztrtri_(
+ 	    char *, char *, integer *, doublecomplex *, integer *, integer *);
+--- a/lapack-netlib/SRC/zhetri_3x.c
++++ b/lapack-netlib/SRC/zhetri_3x.c
+@@ -727,3 +727,3 @@
+     integer icount;
+-    extern /* Subroutine */ int ztrtri_(char *, char *, integer *, 
++    extern /* Subroutine */ void ztrtri_(char *, char *, integer *, 
+ 	    doublecomplex *, integer *, integer *);
+--- a/lapack-netlib/SRC/zhetrs_aa_2stage.c
++++ b/lapack-netlib/SRC/zhetrs_aa_2stage.c
+@@ -695,3 +695,3 @@
+ 	    *, integer *, integer *, doublecomplex *, integer *, integer *);
+-    extern int zlaswp_(integer *, doublecomplex *, integer *, integer *,
++    extern void zlaswp_(integer *, doublecomplex *, integer *, integer *,
+ 	     integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/zlaqp2rk.c
++++ b/lapack-netlib/SRC/zlaqp2rk.c
+@@ -539,3 +539,3 @@
+ 
+-/* Subroutine */ int zlaqp2rk_(integer *m, integer *n, integer *nrhs, integer 
++/* Subroutine */ void zlaqp2rk_(integer *m, integer *n, integer *nrhs, integer 
+ 	*ioffset, integer *kmax, doublereal *abstol, doublereal *reltol, 
+@@ -557,3 +557,3 @@
+     integer jmaxc2nrm, itemp;
+-    extern /* Subroutine */ int zlarf_(char *, integer *, integer *, 
++    extern /* Subroutine */ void zlarf_(char *, integer *, integer *, 
+ 	    doublecomplex *, integer *, doublecomplex *, doublecomplex *, 
+@@ -561,3 +561,3 @@
+     integer minmnfact;
+-    extern /* Subroutine */ int zswap_(integer *, doublecomplex *, integer *, 
++    extern /* Subroutine */ void zswap_(integer *, doublecomplex *, integer *, 
+ 	    doublecomplex *, integer *);
+@@ -571,3 +571,3 @@
+     extern logical disnan_(doublereal *);
+-    extern /* Subroutine */ int zlarfg_(integer *, doublecomplex *, 
++    extern /* Subroutine */ void zlarfg_(integer *, doublecomplex *, 
+ 	    doublecomplex *, integer *, doublecomplex *);
+@@ -679,3 +679,3 @@
+ 
+-		return 0;
++		return;
+ 	    }
+@@ -710,3 +710,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -759,3 +759,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -841,3 +841,3 @@
+ 
+-	    return 0;
++	    return;
+ 	}
+@@ -958,3 +958,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/zlaqp3rk.c
++++ b/lapack-netlib/SRC/zlaqp3rk.c
+@@ -541,3 +541,3 @@
+ 
+-/* Subroutine */ int zlaqp3rk_(integer *m, integer *n, integer *nrhs, integer 
++/* Subroutine */ void zlaqp3rk_(integer *m, integer *n, integer *nrhs, integer 
+ 	*ioffset, integer *nb, doublereal *abstol, doublereal *reltol, 
+@@ -559,3 +559,3 @@
+     integer itemp;
+-    extern /* Subroutine */ int zgemm_(char *, char *, integer *, integer *, 
++    extern /* Subroutine */ void zgemm_(char *, char *, integer *, integer *, 
+ 	    integer *, doublecomplex *, doublecomplex *, integer *, 
+@@ -566,3 +566,3 @@
+     integer minmnfact;
+-    extern /* Subroutine */ int zswap_(integer *, doublecomplex *, integer *, 
++    extern /* Subroutine */ void zswap_(integer *, doublecomplex *, integer *, 
+ 	    doublecomplex *, integer *);
+@@ -577,3 +577,3 @@
+     integer lsticc;
+-    extern /* Subroutine */ int zlarfg_(integer *, doublecomplex *, 
++    extern /* Subroutine */ void zlarfg_(integer *, doublecomplex *, 
+ 	    doublecomplex *, integer *, doublecomplex *);
+@@ -713,3 +713,3 @@
+ 
+-		return 0;
++		return;
+ 	    }
+@@ -772,3 +772,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -854,3 +854,3 @@
+ 
+-		return 0;
++		return;
+ 
+@@ -996,3 +996,3 @@
+ 
+-	    return 0;
++	    return;
+ 	}
+@@ -1168,3 +1168,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/zlarf1f.c
++++ b/lapack-netlib/SRC/zlarf1f.c
+@@ -415,3 +415,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int zlarf1f_(char *side, integer *m, integer *n, 
++/* Subroutine */ void zlarf1f_(char *side, integer *m, integer *n, 
+ 	doublecomplex *v, integer *incv, doublecomplex *tau, doublecomplex *
+@@ -428,3 +428,3 @@
+     integer lastc;
+-    extern /* Subroutine */ int zgerc_(integer *, integer *, doublecomplex *, 
++    extern /* Subroutine */ void zgerc_(integer *, integer *, doublecomplex *, 
+ 	    doublecomplex *, integer *, doublecomplex *, integer *, 
+@@ -435,3 +435,3 @@
+     integer lastv;
+-    extern /* Subroutine */ int zaxpy_(integer *, doublecomplex *, 
++    extern /* Subroutine */ void zaxpy_(integer *, doublecomplex *, 
+ 	    doublecomplex *, integer *, doublecomplex *, integer *);
+@@ -492,3 +492,3 @@
+     if (lastc == 0) {
+-	return 0;
++	return;
+     }
+@@ -584,3 +584,3 @@
+     }
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/zlarf1l.c
++++ b/lapack-netlib/SRC/zlarf1l.c
+@@ -388,3 +388,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int zlarf1l_(char *side, integer *m, integer *n, 
++/* Subroutine */ void zlarf1l_(char *side, integer *m, integer *n, 
+ 	doublecomplex *v, integer *incv, doublecomplex *tau, doublecomplex *
+@@ -401,3 +401,3 @@
+     integer lastc;
+-    extern /* Subroutine */ int zgerc_(integer *, integer *, doublecomplex *, 
++    extern /* Subroutine */ void zgerc_(integer *, integer *, doublecomplex *, 
+ 	    doublecomplex *, integer *, doublecomplex *, integer *, 
+@@ -408,3 +408,3 @@
+     integer lastv;
+-    extern /* Subroutine */ int zaxpy_(integer *, doublecomplex *, 
++    extern /* Subroutine */ void zaxpy_(integer *, doublecomplex *, 
+ 	    doublecomplex *, integer *, doublecomplex *, integer *);
+@@ -460,3 +460,3 @@
+     if (lastc == 0) {
+-	return 0;
++	return;
+     }
+@@ -549,3 +549,3 @@
+     }
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/zlarft.c
++++ b/lapack-netlib/SRC/zlarft.c
+@@ -692,3 +692,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int zlarft_(char *direct, char *storev, integer *n, integer *
++/* Subroutine */ void zlarft_(char *direct, char *storev, integer *n, integer *
+ 	k, doublecomplex *v, integer *ldv, doublecomplex *tau, doublecomplex *
+@@ -706,3 +706,3 @@
+     integer nx;
+-    extern /* Subroutine */ int zlarft_lvl2__(char *, char *, integer *, 
++    extern /* Subroutine */ void zlarft_lvl2__(char *, char *, integer *, 
+ 	    integer *, doublecomplex *, integer *, doublecomplex *, 
+@@ -711,3 +711,3 @@
+     extern logical lsame_(char *, char *);
+-    extern /* Subroutine */ int zgemm_(char *, char *, integer *, integer *, 
++    extern /* Subroutine */ void zgemm_(char *, char *, integer *, integer *, 
+ 	    integer *, doublecomplex *, doublecomplex *, integer *, 
+@@ -719,3 +719,3 @@
+ 	    integer *, integer *, ftnlen, ftnlen);
+-    extern /* Subroutine */ int zlacpy_(char *, integer *, integer *, 
++    extern /* Subroutine */ void zlacpy_(char *, integer *, integer *, 
+ 	    doublecomplex *, integer *, doublecomplex *, integer *);
+@@ -758,3 +758,3 @@
+     if (*n == 0 || *k == 0) {
+-	return 0;
++	return;
+     }
+@@ -766,3 +766,3 @@
+ 	t[i__1].r = tau[1].r, t[i__1].i = tau[1].i;
+-	return 0;
++	return;
+     }
+@@ -780,3 +780,3 @@
+ 		t_offset], ldt);
+-	return 0;
++	return;
+     }
+@@ -1228,3 +1228,3 @@
+     }
+-    return 0;
++    return;
+ } /* zlarft_ */
+--- a/lapack-netlib/SRC/zlarft_lvl2.c
++++ b/lapack-netlib/SRC/zlarft_lvl2.c
+@@ -690,3 +690,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int zlarft_lvl2__(char *direct, char *storev, integer *n, 
++/* Subroutine */ void zlarft_lvl2__(char *direct, char *storev, integer *n, 
+ 	integer *k, doublecomplex *v, integer *ldv, doublecomplex *tau, 
+@@ -701,3 +701,3 @@
+     extern logical lsame_(char *, char *);
+-    extern /* Subroutine */ int zgemm_(char *, char *, integer *, integer *, 
++    extern /* Subroutine */ void zgemm_(char *, char *, integer *, integer *, 
+ 	    integer *, doublecomplex *, doublecomplex *, integer *, 
+@@ -708,3 +708,3 @@
+     integer lastv;
+-    extern /* Subroutine */ int ztrmv_(char *, char *, char *, integer *, 
++    extern /* Subroutine */ void ztrmv_(char *, char *, char *, integer *, 
+ 	    doublecomplex *, integer *, doublecomplex *, integer *), mecago_();
+@@ -733,3 +733,3 @@
+     if (*n == 0) {
+-	return 0;
++	return;
+     }
+@@ -935,3 +935,3 @@
+     }
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/zlatdf.c
++++ b/lapack-netlib/SRC/zlatdf.c
+@@ -737,3 +737,3 @@
+ 	     doublereal *, doublereal *);
+-    extern int zlaswp_(integer *, doublecomplex *, 
++    extern void zlaswp_(integer *, doublecomplex *, 
+ 	    integer *, integer *, integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/zpbtrf.c
++++ b/lapack-netlib/SRC/zpbtrf.c
+@@ -703,3 +703,3 @@
+     integer ib, nb, ii, jj;
+-    extern /* Subroutine */ int zpotf2_(char *, integer *, doublecomplex *, 
++    extern /* Subroutine */ void zpotf2_(char *, integer *, doublecomplex *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/zpftrf.c
++++ b/lapack-netlib/SRC/zpftrf.c
+@@ -766,3 +766,3 @@
+     logical nisodd;
+-    extern /* Subroutine */ int zpotrf_(char *, integer *, doublecomplex *, 
++    extern /* Subroutine */ void zpotrf_(char *, integer *, doublecomplex *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/zpftri.c
++++ b/lapack-netlib/SRC/zpftri.c
+@@ -766,3 +766,3 @@
+     logical nisodd;
+-    extern /* Subroutine */ int zlauum_(char *, integer *, doublecomplex *, 
++    extern /* Subroutine */ void zlauum_(char *, integer *, doublecomplex *, 
+ 	    integer *, integer *);
+--- a/lapack-netlib/SRC/zposv.c
++++ b/lapack-netlib/SRC/zposv.c
+@@ -668,3 +668,3 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int zpotrf_(
++    extern void zpotrf_(
+ 	    char *, integer *, doublecomplex *, integer *, integer *);
+--- a/lapack-netlib/SRC/zposvx.c
++++ b/lapack-netlib/SRC/zposvx.c
+@@ -872,3 +872,3 @@
+ 	    doublecomplex *, doublereal *, integer *);
+-    extern int zpotrf_(char *,
++    extern void zpotrf_(char *,
+ 	     integer *, doublecomplex *, integer *, integer *); 
+--- a/lapack-netlib/SRC/zpotri.c
++++ b/lapack-netlib/SRC/zpotri.c
+@@ -632,5 +632,5 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int zlauum_(
++    extern void zlauum_(
+ 	    char *, integer *, doublecomplex *, integer *, integer *);
+-    extern int ztrtri_(char *, char *, integer *, doublecomplex *, integer *, 
++    extern void ztrtri_(char *, char *, integer *, doublecomplex *, integer *, 
+ 	    integer *);
+--- a/lapack-netlib/SRC/zrscl.c
++++ b/lapack-netlib/SRC/zrscl.c
+@@ -616,3 +616,3 @@
+ /*  ===================================================================== */
+-/* Subroutine */ int zrscl_(integer *n, doublecomplex *a, doublecomplex *x, 
++/* Subroutine */ void zrscl_(integer *n, doublecomplex *a, doublecomplex *x, 
+ 	integer *incx)
+@@ -625,3 +625,3 @@
+     doublereal absi, absr;
+-    extern /* Subroutine */ int zscal_(integer *, doublecomplex *, 
++    extern /* Subroutine */ void zscal_(integer *, doublecomplex *, 
+ 	    doublecomplex *, integer *);
+@@ -630,3 +630,3 @@
+     doublereal ui, ov, ur, safmin, safmax;
+-    extern /* Subroutine */ int zdscal_(integer *, doublereal *, 
++    extern /* Subroutine */ void zdscal_(integer *, doublereal *, 
+ 	    doublecomplex *, integer *), zdrscl_(integer *, doublereal *, 
+@@ -650,3 +650,3 @@
+     if (*n <= 0) {
+-	return 0;
++	return;
+     }
+@@ -746,3 +746,3 @@
+ 
+-    return 0;
++    return;
+ 
+--- a/lapack-netlib/SRC/zsytrf_aa_2stage.c
++++ b/lapack-netlib/SRC/zsytrf_aa_2stage.c
+@@ -724,3 +724,3 @@
+ 	    integer *, doublecomplex *, integer *, integer *, integer *); 
+-    extern int zgetrf_(integer *, integer *, doublecomplex *, integer *, integer 
++    extern void zgetrf_(integer *, integer *, doublecomplex *, integer *, integer 
+ 	    *, integer *);
+--- a/lapack-netlib/SRC/zsytri2x.c
++++ b/lapack-netlib/SRC/zsytri2x.c
+@@ -685,3 +685,3 @@
+     extern /* Subroutine */ int xerbla_(char *, integer *, ftnlen);
+-    extern int ztrtri_(
++    extern void ztrtri_(
+ 	    char *, char *, integer *, doublecomplex *, integer *, integer *);
+--- a/lapack-netlib/SRC/zsytri_3x.c
++++ b/lapack-netlib/SRC/zsytri_3x.c
+@@ -723,3 +723,3 @@
+     integer icount;
+-    extern /* Subroutine */ int ztrtri_(char *, char *, integer *, 
++    extern /* Subroutine */ void ztrtri_(char *, char *, integer *, 
+ 	    doublecomplex *, integer *, integer *);
+--- a/lapack-netlib/SRC/zsytrs_aa_2stage.c
++++ b/lapack-netlib/SRC/zsytrs_aa_2stage.c
+@@ -692,3 +692,3 @@
+ 	    *, integer *, integer *, doublecomplex *, integer *, integer *);
+-    extern int zlaswp_(integer *, doublecomplex *, integer *, integer *,
++    extern void zlaswp_(integer *, doublecomplex *, integer *, integer *,
+ 	     integer *, integer *, integer *);
+--- a/lapack-netlib/SRC/ztftri.c
++++ b/lapack-netlib/SRC/ztftri.c
+@@ -771,3 +771,3 @@
+     logical nisodd;
+-    extern /* Subroutine */ int ztrtri_(char *, char *, integer *, 
++    extern /* Subroutine */ void ztrtri_(char *, char *, integer *, 
+ 	    doublecomplex *, integer *, integer *);

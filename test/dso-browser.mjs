@@ -34,6 +34,17 @@ int main(void) {
   return dolly_process_call(DOLLY_DSO_CLOSE, &request, sizeof(request), &response, 1) != -ENOBUFS;
 }
 `,
+  // A weak function nothing defines: its address is null, and the library loads.
+  "weak.c": `extern int absent(void) __attribute__((weak));
+int present(void) { return absent ? absent() : 37; }
+`,
+  "weak-host.c": `#include <dlfcn.h>
+int main(void) {
+  void *library = dlopen("/tmp/dso/weak.so", RTLD_NOW);
+  int (*present)(void) = library ? (int (*)(void))dlsym(library, "present") : 0;
+  return present == 0 || present() != 37;
+}
+`,
   "ffi.c": `#include <errno.h>
 #include <stdint.h>
 #include <dolly/dso.h>
@@ -125,6 +136,7 @@ await browserTest("dso", { image: "system", timeout: 300_000, server: { fixtures
   await runCppDsoCase(submit);
   // A library's own records are checked before it is entered, and packets are bounded.
   await run("cc -O1 -shared denied.c -o denied.so && cc -O1 -rdynamic host.c -o host && ./host && test ! -e /tmp/dso/entered");
+  await run("cc -O1 -shared weak.c -o weak.so && cc -O1 -rdynamic weak-host.c -o weak-host && ./weak-host");
   // FFI needs no host: a program that links its client is served.
   await run("cc -O1 ffi.c -o ffi && ./ffi");
   // A host keeps one owner of signal state although -rdynamic roots all of libc.
