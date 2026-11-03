@@ -10,7 +10,7 @@ REQUIRES HOST runtime@0
 # every file of C is compiled here, unchanged but for three lines (below).
 # NOMMU in that configuration says there is no fork; neither command starts
 # a program.
-FROM /v0.1.4/Dollyfile-system-tools 3ff30242114bd7946a06705e2d2dfd79d8db364116fe47d111c3325039aad204
+FROM /v0.1.4/Dollyfile-system-tools 69751f3ce694702a7013b432f15c708c73b3a41608519c0514642e9e3fa0361e
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc

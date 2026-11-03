@@ -74,16 +74,15 @@ uninstalls what the roots hold. `python-data` takes them all.
 - Network sockets and `ssl` fail explicitly (`socket.socket()` raises
   `EAFNOSUPPORT`), so do httpx, aiohttp and other network clients. `asyncio`
   runs, and `AF_UNIX` stream sockets connect processes inside Dolly. Fork is
-  absent; `threading.Thread` targets run serially, and a `ThreadPoolExecutor` runs
-  each item when it is submitted.
+  absent. Threads are Dolly's (`threads@0`), a Worker each, at most 32 a process; an
+  extension module and a `ctypes` callback work in every thread.
 - The browser owns TLS, redirects and content decoding: client certificates
   and custom TLS verification fail.
 - In a session pip builds NumPy and pandas from source as python-data-build
   does; other native packages may not build.
 - python-data has no SciPy, nor scikit-learn or statsmodels, which need it:
   SciPy 1.18 builds without Fortran but needs BLAS and LAPACK, which no
-  package holds yet (OpenBLAS's generic wasm build is the way). Matplotlib 3.11 bundles HarfBuzz, which takes Meson's
-  threads, and Dolly has no threads in an extension module; pandas 3.1 needs
+  package holds yet (OpenBLAS's generic wasm build is the way). pandas 3.1 needs
   Meson to read Clang's version from `cc --version`
   ([task](../../tasks/20261103-110906-pydata/TASK.md)).
 - Matplotlib draws with Agg: `savefig` writes PNG, SVG or PDF files, and

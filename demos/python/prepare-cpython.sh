@@ -94,7 +94,6 @@ fi
   ac_cv_func_grantpt=no ac_cv_func_unlockpt=no ac_cv_func_ptsname_r=no \
   ac_cv_func_login_tty=no \
   ac_cv_func_setrlimit=no ac_cv_func_pthread_sigmask=no \
-  ac_cv_func_pthread_condattr_setclock=no \
   ac_cv_func_ptsname=no \
   /emsdk/upstream/emscripten/emconfigure ./configure \
     --host=wasm64-unknown-emscripten \
@@ -172,19 +171,10 @@ sed -i \
   -e 's/^\/\* #undef HAVE_SHUTDOWN \*\/$/#define HAVE_SHUTDOWN 1/' \
   "${temporary}/pyconfig.h"
 
-# A non-threaded Emscripten libc still advertises pthread.h and supplies its
-# own compatibility symbols. Dolly deliberately uses CPython's smaller,
-# explicit single-thread implementation instead: pthread_create() returns
-# EAGAIN while locks and thread-local storage remain useful in one runtime.
-# In particular, do not retain Emscripten's pthread_condattr_setclock result.
-# Its declaration has a different wasm64 signature, and keeping the result
-# makes CPython's private _PyRuntimeState layout depend on whether a translation
-# unit happened to include <time.h> before pycore_pythread.h.
+# Python runs on Dolly's threads (threads@0), whose runtime has no thread CPU
+# clocks and delivers no signal to one thread: configure, which inspected
+# Emscripten's libc, found both.
 sed -i \
-  -e 's/^#define HAVE_PTHREAD_H 1$/\/\* #undef HAVE_PTHREAD_H \*\//' \
-  -e 's/^\/\* #undef HAVE_PTHREAD_STUBS \*\//#define HAVE_PTHREAD_STUBS 1/' \
-  -e 's/^#define HAVE_PTHREAD_CONDATTR_SETCLOCK 1$/\/\* #undef HAVE_PTHREAD_CONDATTR_SETCLOCK \*\//' \
-  -e 's/^#define HAVE_PTHREAD_GETATTR_NP 1$/\/\* #undef HAVE_PTHREAD_GETATTR_NP \*\//' \
   -e 's/^#define HAVE_PTHREAD_GETCPUCLOCKID 1$/\/\* #undef HAVE_PTHREAD_GETCPUCLOCKID \*\//' \
   -e 's/^#define HAVE_PTHREAD_KILL 1$/\/\* #undef HAVE_PTHREAD_KILL \*\//' \
   "${temporary}/pyconfig.h"
@@ -208,29 +198,14 @@ sed -i \
 # Emscripten's configure also leaves its settings (-sMEMORY64=1, -sUSE_ZLIB),
 # emcc and its JavaScript file systems in the flags that sysconfig gives
 # extension builds: setuptools compiles with CFLAGS and links with LDSHARED and
-# LDCXXSHARED. Dolly's cc takes neither; drop the settings and name its own.
+# LDCXXSHARED. Dolly's cc takes neither; drop the settings and name its own,
+# and -pthread, with which python is compiled and linked.
 sed -i -E \
   -e 's/(^|[ =\t])-s[A-Z][A-Z0-9_]{2,}(=[^ ]*)?/\1/g' \
   -e 's|^LDCXXSHARED=.*|LDCXXSHARED=\tc++ -shared $(PY_LDFLAGS)|' \
   -e 's|^LINKFORSHARED=.*|LINKFORSHARED=\t-rdynamic|' \
+  -e 's/^(CONFIGURE_(C|LD)FLAGS=\t)/\1-pthread /' \
   "${temporary}/Makefile"
-
-# CPython's stub type declarations already defer to libc on WASI. Dolly's
-# musl-derived alltypes.h has the same __NEED_* mechanism, so use that path
-# instead of redeclaring types that sys/types.h may have exposed first.
-sed -i \
-  's/^#ifdef __wasi__$/#if defined(__wasi__) || defined(__dolly__)/' \
-  "${temporary}/Include/cpython/pthread_stubs.h"
-
-# Dolly's initial process substrate is deliberately single-threaded. A shared
-# memory Emscripten side module still lowers C thread-local variables to Wasm
-# TLS, whose relocation setup is only supplied by Emscripten's pthread runtime.
-# Make CPython's two fast-path thread-local pointers ordinary module globals;
-# command execution is serialized, so they retain the required semantics.
-sed -i \
-  -e '/#    define HAVE_THREAD_LOCAL 1/a\#    ifdef __dolly__\n#      define _Py_thread_local' \
-  -e 's/^#    ifdef thread_local$/#    elif defined(thread_local)/' \
-  "${temporary}/Include/pyport.h"
 
 # Isolated interpreters cannot be created in this build (measured with the
 # _interpreters modules built in: "sub-interpreter creation failed"), and
