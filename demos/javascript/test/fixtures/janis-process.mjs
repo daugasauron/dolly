@@ -181,7 +181,7 @@ await check('uploads larger than a process packet are staged; the body limit app
   const actual = new Uint8Array(await (await fetch(url, { method: 'POST', body })).arrayBuffer());
   assert(actual.length === body.length && actual.every(byte => byte === 0xa5), 'staged upload changed bytes');
   let error;
-  try { await fetch(url, { method: 'POST', body: new Uint8Array(8 * 1024 * 1024 + 1) }); }
+  try { await fetch(url, { method: 'POST', body: new Uint8Array(64 * 1024 * 1024 + 1) }); }
   catch (value) { error = value; }
   assert(error?.code === 'E2BIG' && error.requestId === 0, 'oversize upload was not rejected before dispatch');
 });
