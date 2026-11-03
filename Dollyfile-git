@@ -157,7 +157,7 @@ FILE /usr/share/man/cat1/git.1
 # build systems that run them.
 SOURCE /v0.1.4/dist/static/default/commands/run-program.h e73415ba149e8dcb9944313c36d8d2319202d699c810e02a26d5a94caa8f3a9f /tmp/git-tools/run-program.h
 SOURCE /v0.1.4/dist/static/default/commands/diff.c cda06a2a94c9d7c5f1ccab54f847011e35379f7cc452b7d4a0d7046ae61b7de9 /tmp/git-tools/diff.c
-SOURCE /v0.1.4/dist/static/default/commands/patch.c 01a81c0b50df26223772e568bdc951db73d0be59b71251a1b023234c10a1b63e /tmp/git-tools/patch.c
+SOURCE /v0.1.4/dist/static/default/commands/patch.c bd5ec1cb0224099738b9f12f9b30896c134989dbebd7ecdb652e255c2ad29236 /tmp/git-tools/patch.c
 SLOP cc -O2 /tmp/git-tools/diff.c -o /bin/diff
 SLOP cc -O2 /tmp/git-tools/patch.c -o /bin/patch
 EXPORTS TOOL diff

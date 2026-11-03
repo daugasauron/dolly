@@ -15,10 +15,10 @@ REQUIRES HOST threads@0
 # lets an npm user build an image FROM it (dolly-build).
 INSTALL /v0.1.4/Dollyfile-core b19501552a16f3d3bfc8d28d02b1628e78d5e8b053549482a2929f75a13f073e
 INSTALL /v0.1.4/Dollyfile-dollyfile 7ffb4eb7d6d86883718950cbfcc3140a6b82a2f059fa6fc15d5f937e44146f8c
-INSTALL /v0.1.4/Dollyfile-posix 815de586b0b9d7dfa6fb0d34d986b34b104f54ea27fb2cbe6024ba076d391942
-INSTALL /v0.1.4/Dollyfile-display 0867342bc295d306cc00fbc3ec8f22b7401d1d35ae3835362b6841ae328cc08f
+INSTALL /v0.1.4/Dollyfile-posix e34c4b2da6a7b205ef998f15858a047af71385f1182d5ae52e2652d8b85b2824
+INSTALL /v0.1.4/Dollyfile-display aaa3ab174135876816e29af332a9e8dd91a993ed98005daed209fb623c3b3adc
 INSTALL /v0.1.4/Dollyfile-curl d5aafc0ab7b9d8af30b714a3d728c91603b4a8d2ae75c1ddef2f191076767c23
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 8b79f1a1063bdc9ed83a8721d56c35d47daf4e7545edb06dc3f9fc0d24e5d44b
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly edd409cad9c5b32885ac00a4b9511cdf66cc81e7364f0581b574256997fa6807
 REQUIRES TOOL foreground
 REQUIRES TOOL printf
 REQUIRES TOOL pi

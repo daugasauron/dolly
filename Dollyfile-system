@@ -9,7 +9,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/Dollyfile-system-tools a9c4bdc82c44a1a64fdcac03a6b4997851d55df3b19bd161760215d7038a38e7
+FROM /v0.1.4/Dollyfile-system-tools 2c2f88153b86937019eab414e08b6c5b78cf2d96ed3049e2b8219c6fcfaf678b
 # The page's file exchange, here and in the images built on this one.
 INSTALL /v0.1.4/Dollyfile-transfer e0b8f7d9f73196c984707162d52839a2c35d1d446f7e14c03377605ee234025c
 INSTALL /v0.1.4/Dollyfile-session-recover 1763d52a26f010c7d6e0486df90a34e6b26c2f0234fba273fb67aa14be050d49
@@ -18,7 +18,7 @@ INSTALL /v0.1.4/Dollyfile-session-recover 1763d52a26f010c7d6e0486df90a34e6b26c2f
 INSTALL /v0.1.4/Dollyfile-core b19501552a16f3d3bfc8d28d02b1628e78d5e8b053549482a2929f75a13f073e
 INSTALL /v0.1.4/Dollyfile-cc 9bdb5e3c920d18e3312adfd1e606bc00bcb8154a5a6913f8aae45f4d09a88059
 INSTALL /v0.1.4/Dollyfile-make 98ac65a4a964de3fc09d5fdee17064cabb32557279b4bc91d2c1d8c4cfa0475c
-INSTALL /v0.1.4/Dollyfile-posix 815de586b0b9d7dfa6fb0d34d986b34b104f54ea27fb2cbe6024ba076d391942
-INSTALL /v0.1.4/Dollyfile-ninja 7163dc8d5a5dffbdb7204994d18721e82ae05f6f47ab06da92727235a79c9526
+INSTALL /v0.1.4/Dollyfile-posix e34c4b2da6a7b205ef998f15858a047af71385f1182d5ae52e2652d8b85b2824
+INSTALL /v0.1.4/Dollyfile-ninja 52ae6882137c20003e80ac3d4c7416cc5c07fa837d0482b039e8443c4ee0d119
 
 ENTRY /bin/foreground -i /bin/slop

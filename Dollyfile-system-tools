@@ -118,7 +118,7 @@ SLOP rm \
 INSTALL /v0.1.4/Dollyfile-zlib 64639cfcf68b518327544bbce5afcbb4a330776905967c3e3d7e0f5f1b4e5c99
 INSTALL /v0.1.4/Dollyfile-gzip 230ec21d6b62a486d6f1537719a9c706f9d0665a364d33915c0ee2b267e0c93f
 INSTALL /v0.1.4/Dollyfile-curl d5aafc0ab7b9d8af30b714a3d728c91603b4a8d2ae75c1ddef2f191076767c23
-INSTALL /v0.1.4/Dollyfile-git dd0736f7a6bc228370b2c330e0076b7371c16520467e9f700ecafcce73f8bcc4
+INSTALL /v0.1.4/Dollyfile-git 7ab175e0de1f30ac0f258186ff146c3349a73ccad1369390a9eba3e3ba99e2b4
 SOURCE /v0.1.4/dist/static/default/awk.tar f28cae177fa60793a70066d10667e8d06775d979f2262be1c48f8eb941090015 /tmp/awk.tar
 SLOP tar \
   -xf /tmp/awk.tar \
@@ -200,6 +200,6 @@ SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
 SLOP cp /usr/share/man/cat1/slop.1 /usr/share/man/cat1/sh.1
 FOLDER /usr/share/man
-INSTALL /v0.1.4/Dollyfile-display 0867342bc295d306cc00fbc3ec8f22b7401d1d35ae3835362b6841ae328cc08f
+INSTALL /v0.1.4/Dollyfile-display aaa3ab174135876816e29af332a9e8dd91a993ed98005daed209fb623c3b3adc
 
 ENTRY /bin/foreground -i /bin/slop

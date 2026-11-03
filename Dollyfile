@@ -20,8 +20,8 @@ REQUIRES HOST upload@0
 # It holds no compiler; amy installs what a session needs, and nena enables
 # the host modules a package needs beyond these (nena@0).
 INSTALL /v0.1.4/Dollyfile-core b19501552a16f3d3bfc8d28d02b1628e78d5e8b053549482a2929f75a13f073e
-INSTALL /v0.1.4/Dollyfile-posix 815de586b0b9d7dfa6fb0d34d986b34b104f54ea27fb2cbe6024ba076d391942
-INSTALL /v0.1.4/Dollyfile-display 0867342bc295d306cc00fbc3ec8f22b7401d1d35ae3835362b6841ae328cc08f
+INSTALL /v0.1.4/Dollyfile-posix e34c4b2da6a7b205ef998f15858a047af71385f1182d5ae52e2652d8b85b2824
+INSTALL /v0.1.4/Dollyfile-display aaa3ab174135876816e29af332a9e8dd91a993ed98005daed209fb623c3b3adc
 INSTALL /v0.1.4/Dollyfile-curl d5aafc0ab7b9d8af30b714a3d728c91603b4a8d2ae75c1ddef2f191076767c23
 INSTALL /v0.1.4/Dollyfile-amy d5d09761650f0bc0b89787b38fa72100e73bc43c8b9bdcb886f9e999be6c6bee
 INSTALL /v0.1.4/Dollyfile-nena 56676a95c83f9c3d83dc7368a18a3f82390082996501fafff45afbb425d11cd1
