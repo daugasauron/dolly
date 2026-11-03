@@ -13,6 +13,9 @@ COPY /v0.1.4/demos/rust/Dollyfile-rust-build b71d8025a4bec6a93df0db62f485da8082c
 INSTALL /v0.1.4/demos/rust/Dollyfile-rust 854f0cc0e7b1f830955ff4cf5d813fb257cdcc1af5d9fb1cd1d4f9fddf6b5f85
 # The cc crate's default flags name a target; Dolly's cc has one.
 EXPORTS ENV CRATE_CC_NO_DEFAULTS 1
+# A Git dependency is fetched by git, which reaches HTTP hosts through the
+# broker; Cargo's own Git opens sockets, which a program has none of.
+EXPORTS ENV CARGO_NET_GIT_FETCH_WITH_CLI true
 EXPORTS TOOL cargo
 EXPORTS FOLDER cargo-licenses /usr/share/licenses/cargo
 FILE /usr/share/dolly/builds/cargo.lock
@@ -29,6 +32,7 @@ FILE /usr/share/man/cat1/cargo.1
     come through the page's HTTP broker; crates.io's index sends no CORS headers,
     so a project's crates are vendored: amy install vendor-crates, then
     vendor-crates in the project and cargo build --offline. A crate that uses
-    libc needs the SDK's copy, which vendor-crates patches in.
+    libc needs the SDK's copy, which vendor-crates patches in. A Git dependency
+    is fetched by git (amy install git), from a host that sends CORS headers.
     There is no cargo search, publish or login.
     Upstream's book: https://doc.rust-lang.org/cargo/

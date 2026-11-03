@@ -10,7 +10,7 @@ REQUIRES HOST runtime@0
 FROM /v0.1.4/Dollyfile-system-tools af05a27e8d5bd5418d948c87befbd83907dbe91df8b4375f7f9c766e1c681fec
 INSTALL /v0.1.4/Dollyfile-zlib 9cfec80035841129241b745ef516b95e26d86e5fa3b1272a3fd8b63274464b71
 USE /v0.1.4/demos/python/Dollyfile-python 6117836da671777fe682a498daa94ec6d6455f54cdfdda594d34afa11493a2bb
-USE /v0.1.4/demos/rust/Dollyfile-cargo 8aa33a8ad996cf9a1bb5d029207f2e3735eabf6a06fb1d0ac08216aca60c4aa8
+USE /v0.1.4/demos/rust/Dollyfile-cargo 19255b352599ea8a29bdcf8665d8cf8b8c5e7efbe68bfee720600f49bc355101
 USE /v0.1.4/demos/rust/Dollyfile-cbindgen 2de18958656eb8db70c58f6597eb799c5ba0d7b860879dc34492a25dff68192d
 USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf b1fe14e53de9cf9cd6be9d1eb5805552bebb3bcf52e2566ec5217144d736b247
 REQUIRES HEADER zlib

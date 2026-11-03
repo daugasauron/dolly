@@ -3,20 +3,22 @@
 // python3 demos/codex/prepare-codex-sources.py)
 import { execFileSync } from "node:child_process";
 import { demoTest } from "../../browser.mjs";
-import { createCargoRegistry, runCargo, runCargoTest } from "./fixtures/cargo.mjs";
+import { createCargoGitRepository, createCargoRegistry, runCargo, runCargoTest } from "./fixtures/cargo.mjs";
 import { rustToolSources, runRustTools } from "./fixtures/rust-tools.mjs";
 import { createTokioFixture } from "./fixtures/tokio.mjs";
 
 execFileSync("python3", ["demos/rust/test/fixtures/prepare-tokio.py"], { cwd: new URL("../../..", import.meta.url), stdio: "inherit" });
-const tokio = createTokioFixture(), registry = createCargoRegistry();
+const tokio = createTokioFixture(), registry = createCargoRegistry(), repository = createCargoGitRepository();
 await demoTest("rust", { image: "rust-tools", timeout: 900_000, server: { fixtures: rustToolSources,
-  handle: (request, response, path, headers) => {
+  handle: async (request, response, path, headers) => {
     const url = new URL(request.url, "http://fixture");
-    return registry.handle(request, response, url, headers) || tokio.handle(request, response, url);
+    return registry.handle(request, response, url, headers) || await tokio.handle(request, response, url) ||
+      repository.handle(request, response, url);
   } } },
 async ({ server, open }) => {
   const { submit, waitText } = await open({ policy: { maxRequests: 256, rules: [
     { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] },
+    { origin: server.origin, pathPrefix: "/fixture/cargo-git/", methods: ["POST"] },
     ...["/tokio/stream", "/tokio/slow"].map(path => ({ origin: server.origin, path, methods: ["GET"] })),
   ] } });
   await runRustTools(submit, server.origin);

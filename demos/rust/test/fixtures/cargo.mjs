@@ -1,6 +1,10 @@
 // Cargo against a sparse registry that holds one crate, served by the test server.
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { writeCommand } from "../../../browser.mjs";
 
@@ -41,6 +45,41 @@ export function createCargoRegistry() {
   };
 }
 
+// A crate in a Git repository, which native Git serves over smart HTTP.
+export function createCargoGitRepository() {
+  const directory = mkdtempSync(join(tmpdir(), "dolly-cargo-git-"));
+  const environment = { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null",
+    GIT_AUTHOR_NAME: "Dolly", GIT_AUTHOR_EMAIL: "fixture@example.invalid", GIT_AUTHOR_DATE: "2000-01-01T00:00:00Z",
+    GIT_COMMITTER_NAME: "Dolly", GIT_COMMITTER_EMAIL: "fixture@example.invalid", GIT_COMMITTER_DATE: "2000-01-01T00:00:00Z" };
+  const git = (args, input, protocol = "") => {
+    const result = spawnSync("git", args, { cwd: directory, env: { ...environment, GIT_PROTOCOL: protocol }, input });
+    assert.equal(result.status, 0, `git ${args.join(" ")}: ${result.stderr}`);
+    return result.stdout;
+  };
+  mkdirSync(join(directory, "src"));
+  writeFileSync(join(directory, "Cargo.toml"), '[package]\nname = "dolly-git-greeting"\nversion = "0.1.0"\nedition = "2021"\n');
+  writeFileSync(join(directory, "src/lib.rs"), 'pub fn greeting() -> &\'static str { "CARGO-GIT-OK" }\n');
+  git(["init", "-q", "-b", "main"]);
+  git(["add", "."]);
+  git(["commit", "-q", "-m", "crate"]);
+  return {
+    async handle(request, response, url) {
+      const operation = /^\/fixture\/cargo-git\/greeting\.git\/(info\/refs|git-upload-pack)$/.exec(url.pathname)?.[1];
+      if (!operation) return false;
+      const chunks = [];
+      for await (const chunk of request) chunks.push(chunk);
+      const advertisement = operation === "info/refs", protocol = request.headers["git-protocol"] ?? "";
+      const body = git(["upload-pack", "--stateless-rpc", ...(advertisement ? ["--advertise-refs"] : []), "."],
+        Buffer.concat(chunks), protocol);
+      response.writeHead(200, { "cache-control": "no-store",
+        "content-type": `application/x-git-upload-pack-${advertisement ? "advertisement" : "result"}` });
+      if (advertisement && protocol !== "version=2") response.write("001e# service=git-upload-pack\n0000");
+      response.end(body);
+      return true;
+    },
+  };
+}
+
 // What SpiderMonkey's configure asks first, then builds without and with the registry.
 export async function runCargo(submit, origin, registry) {
   const root = "/tmp/dolly-cargo-check";
@@ -58,6 +97,11 @@ export async function runCargo(submit, origin, registry) {
     await run('cargo build && test "$(target/debug/cargo-check)" = CARGO-REGISTRY-OK');
     assert.deepEqual(registry.requests.sort(), ["GET /fixture/cargo/crates/dolly-greeting/1.0.0/download",
       "GET /fixture/cargo/index/config.json", "GET /fixture/cargo/index/do/ll/dolly-greeting"]);
+    // A Git dependency comes through git and the broker.
+    await run(writeCommand("Cargo.toml", '[package]\nname = "cargo-check"\nversion = "0.1.0"\nedition = "2021"\n[dependencies]\n' +
+      `dolly-git-greeting = { git = "${origin}/fixture/cargo-git/greeting.git" }\n`));
+    await run(writeCommand("src/main.rs", 'fn main() { println!("{}", dolly_git_greeting::greeting()); }\n'));
+    await run('cargo build && test "$(target/debug/cargo-check)" = CARGO-GIT-OK');
   } finally {
     await submit(`cd /workspace; rm -rf ${root}`);
   }

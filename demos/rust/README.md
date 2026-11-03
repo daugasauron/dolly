@@ -96,6 +96,10 @@ with the compiler.
   `vendor-crates` writes when `libc` is among the crates.
 - A build script that compiles C needs `CRATE_CC_NO_DEFAULTS=1`, which the
   package sets: the `cc` crate's default flags name a target.
+- A Git dependency is fetched by `git`, which reaches HTTP hosts through the broker
+  (`CARGO_NET_GIT_FETCH_WITH_CLI=true`, which the package sets); Cargo's own Git opens
+  sockets. A host that sends no CORS headers on its Git endpoints, as `github.com`, needs
+  a relay, as `git clone` does.
 - A session's builds are incremental, as upstream's default: each warns that
   rustc copies its incremental cache, since there are no hard links. Image
   recipes build with `rust-sdk`, which sets `CARGO_INCREMENTAL=0`: a build that

@@ -84,6 +84,25 @@ of either strategy links it. Reasons, each read in the sources or measured:
   `JoinError` rather than the end of the program. That is one line in `cargo_config` and a
   rebuild of the Rust images, for the owner to weigh against the size.
 
+### Verified in the images (2026-11-04, `f8e8533a1` and after)
+
+- `rust-build` builds in 35 min (`hugebuild`); the standard library takes 56 s with libtest,
+  and the second generation's 25 rlibs equal the first's byte for byte. Procedural macros built
+  to unwind load into rustc as `dso@0` libraries (rustc's own 250 crates and the recipe's
+  check); `cbindgen`, `fd`, `naga`, `protox` and `ripgrep` build on it.
+- The Rust demo test (`rust-tools`) in Chromium, and its rustc and Cargo fixtures in Firefox:
+  `cargo test` of a crate with a passing, a failing and a `#[should_panic]` test prints libtest's
+  report and Cargo's `error: test failed, to rerun pass --bin unwinds`, status 101 (a first build
+  4.1 s, a second 0.1 s in Chromium; the fixture takes 11 to 13 s in Firefox); a filter that
+  keeps the passing test exits 0; `catch_unwind`, a thread's `join` and a panicking `main` see
+  the panic and run its drops (status 101); `CARGO_PROFILE_DEV_PANIC=abort` links and aborts at
+  the first panic (status 134).
+- A library's `cargo test`: its tests pass, then `Doc-tests` fails with "could not execute
+  process `rustdoc ...` (never executed)", status 101; `cargo test --lib --tests` exits 0.
+- Sizes against the integration round's images: the SDK 334,337,294 to 341,547,381 bytes
+  (+2.2%: libtest, getopts and std's landing pads; rustc +0.4%), Cargo +0.86%, ripgrep +1.23%,
+  fd +1.52%, protox +0.83%, cbindgen +3.19%, naga +0.75%.
+
 ### The cost, measured (2026-11-03)
 
 ripgrep 15.1.0 with the images' profile, compiled natively three ways by the seed build's
@@ -132,9 +151,13 @@ variable. Rust is not affected (its pads catch all and call no personality).
   statically it carries another rustc_driver and LLVM (the 251 MB `rustc` is mostly that); natively
   the two share `librustc_driver.so`. Not built tonight: its size is the owner's question
   (a `rustdoc` package, or one executable for both), and it needs one more `rust-build` round.
-- **Network Cargo**: a git dependency over HTTPS needs libgit2's curl transport, which Cargo
-  registers only with a non-default `[http]` setting; `cargo search`, `publish` and `login` need
-  `CONNECTTIMEOUT`, `LOW_SPEED_*` and `PUT` in Dolly's libcurl. `vendor-crates` covers crates.io.
+- **Network Cargo**: `cargo search`, `publish` and `login` need `CONNECTTIMEOUT`, `LOW_SPEED_*`
+  and `PUT` in Dolly's libcurl. `vendor-crates` covers crates.io. A Git dependency now works
+  (2026-11-03, Chromium and Firefox, `demos/rust/test/fixtures/cargo.mjs`): the cargo package
+  sets Cargo's `net.git-fetch-with-cli` (`CARGO_NET_GIT_FETCH_WITH_CLI=true`), so `git` fetches
+  it through the broker; Cargo's own libgit2 opened a socket ("failed to connect to 127.0.0.1:
+  Function not implemented"). A host without CORS on its Git endpoints needs a relay, as for
+  `git clone`.
 - **Not measured**: that a third rustc equals the second with the recipe's commands (needs LLVM
   in the image; `Dollyfile-rust-build` drops it), and that Cargo's parallel Codex build equals a
   serial one byte for byte.
