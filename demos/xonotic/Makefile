@@ -30,9 +30,10 @@ DPSOFTRAST_CALLS := Init Shutdown Flush Finish Texture_New Texture_Free Texture_
   DepthRange PolygonOffset CullFace Color4f GetPixelsBGRA CopyRectangleToTexture SetTexture SetVertexPointer \
   SetColorPointer SetColorPointer4ub SetTexCoordPointer SetShader Uniform4f Uniform4fv UniformMatrix4fv Uniform1i \
   DrawTriangles
-# makefile.inc's CFLAGS_COMMON at -O1 (Dolly's cc takes no -fno-math-errno or
-# -fno-trapping-math), zlib linked statically since there is no dlopen.
-CFLAGS := -O1 -fno-strict-aliasing -D_FILE_OFFSET_BITS=64 -D__KERNEL_STRICT_NAMES -DLINK_TO_ZLIB -I$(SOURCE)
+# makefile.inc's OPTIM_RELEASE and CFLAGS_COMMON (its -fno-math-errno and
+# -fno-trapping-math are the compiler's defaults here), zlib linked statically
+# since there is no dlopen.
+CFLAGS := -O3 -fno-strict-aliasing -D_FILE_OFFSET_BITS=64 -D__KERNEL_STRICT_NAMES -DLINK_TO_ZLIB -I$(SOURCE)
 # SSE_PRESENT and SSE2_PRESENT make quakedef.h take the x86 SSE2 paths
 # (Sys_HaveSSE2 answers yes without cpuid, vid_soft is registered); the two
 # units with intrinsics compile as Wasm SIMD through simd-unit.c.

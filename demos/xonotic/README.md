@@ -118,7 +118,7 @@ and is printed once (`dpgpurast: no WGSL for shader mode M permutation P`).
   `-msimd128` (`core/cc-simd`); the client is built with `-DSSE_PRESENT
   -DSSE2_PRESENT` so the engine takes its SSE2 paths and registers `vid_soft`.
 - [`Makefile`](Makefile) builds DarkPlaces' `OBJ_SV` unit list (the `*_null.c`
-  video, thread and sound units) at `-O1` with 64 MiB of initial memory for
+  video, thread and sound units) at upstream's release `-O3` with 64 MiB of initial memory for
   the engine's static data, the SDL client from `OBJ_SDL` with the null
   thread and CD units and its SDL sound, gmqcc with `-std=c++11`, and the QuakeC programs
   the way `qcsrc/Makefile` and `tools/qcc.sh` do: `cc -xc -E`, the line
