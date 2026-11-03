@@ -90,8 +90,9 @@ Frictions:
 - `patch -l -f`: fixed on `demo/pydata-seed` (`src/commands/patch.c`, a seed input; a native
   test that failed before). Matplotlib 3.10.9 needs no diff files, so python-data does not wait
   for it.
-- `tar`: python-data-build stages the sdists as files and pip unpacks them with Python's
-  tarfile, so it meets neither pax headers nor `-z`. Not checked further tonight.
+- `tar`: fixed after v0.1.4, on this branch already: `dbf389652` and `705de0883` (2026-11-02)
+  read pax and GNU long-name headers, and `src/commands/tar.c` takes `-z` (and `--gzip`) through
+  gzip. The report's session ran the published v0.1.4.
 - Pillow's `_imagingft` (`png_create_read_struct`): met here too. Pillow links `-lfreetype`
   alone and the freetype package's static library needs libpng and zlib (its `freetype2.pc`
   requires both); python-data-build passes them in `LDFLAGS`, and the demo test draws text with
@@ -102,8 +103,9 @@ Frictions:
   and `__small_*` are not among them. Fixed on `demo/pydata-seed` (the three `__small_` names
   LLVM emits added to the list; the process sysroot is a seed input). Verified in a session: a
   library calling `__small_sprintf` fails to load in a host linked with the old list and runs
-  in one linked with the new. Until a round builds it, `matplotlib.tri` and `tricontour` fail
-  to import `_qhull` in python-data.
+  in one linked with the new; on the seed branch's images, built here, `matplotlib.tri`
+  triangulates and `tricontourf` draws. Until a round builds it, they fail to import `_qhull`
+  in python-data.
 - `amy install python` asking for `nena enable dso sockets` in `default`: on this branch
   `default` declares both modules and python's demo test ("python on default") installs it
   without nena, in Chromium and Firefox. The published v0.1.4 was not checked.

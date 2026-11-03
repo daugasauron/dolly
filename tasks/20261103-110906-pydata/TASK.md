@@ -44,15 +44,22 @@ working; the image is an npm image package that an npm-only project boots and bu
 `demos/python/README.md` and the npm docs (`README.md`'s npm section, `docs/embedding.md`) say how
 to use it.
 
-## State (2026-11-04 00:05, branch `demo/pydata`)
+## State (2026-11-04 00:50, branch `demo/pydata`)
 
 Done but the catalog round: both images, their demo test (Chromium, Firefox, the NumPy-only
 COPY), the npm package and its test (without its Pi part, see npm), the python fixes
 (`6a0b03b77`, `c085280fb`), the DSO exception fix (`4e992e97a`), Pillow's FreeType
-(`72a523d85`). `demo/pydata-seed` holds the seed fixes (`cc --version`, `patch -l -f`, the
-`__small_` exports that Matplotlib's `_qhull` needs), unbuilt: with them, python-data's test
-imports every extension module. Left after the round: close this task when the round's
-python-data passes its test with `_qhull`.
+(`72a523d85`).
+
+`demo/pydata-seed` is one commit on top: the seed fixes (`cc --version`, `patch -l -f`, the
+`__small_` exports that Matplotlib's `_qhull` needs) and a demo-test step that imports every
+extension module but the two Tk bindings. Built here from a fresh runtime (`system-build` to
+python-data, 1911 s in a `bigbuild` slot): `core-browser.mjs` passes in Chromium and Firefox,
+`cpp-browser.mjs` and `shell-browser.mjs` in Chromium, python-data's demo test in Chromium
+(21.5 s) and Firefox (28.3 s) with the extensions step, and `matplotlib.tri` triangulates and
+`tricontourf` draws. Not built there: the Rust, LLVM, Mojo, Pi, 0 A.D. and other chains, and
+FFmpeg (whose test names `cc --version`'s line). Close this task when a round's python-data
+passes its test.
 
 ## Decisions
 
@@ -192,6 +199,9 @@ is 1, so Ninja runs three jobs).
   with libpng and zlib) instead: `-Dsystem-freetype=true -Dprefer_static=true`, found by the
   `pkgconf` package's pkg-config, as distributions build it. Its figures then render: a 400 x
   300 PNG with the line drawn, in a session; first import 8.7 s (the font cache), then 2.9 s.
+- With the seed fixes every extension module imports but Pillow's `_imagingtk`, which traps
+  (a function signature mismatch: it looks up Tcl/Tk functions Dolly's python does not have),
+  and Matplotlib's `_tkagg`, which raises ImportError: Dolly has no Tk.
 - Every extension module's imports checked against what `/usr/bin/python` exports
   (`build/pydata-evidence/wheelhouse/dsocheck.py`): two refused. Pillow's `_imagingft` needs
   libpng (`png_create_read_struct`…): Pillow links `-lfreetype` alone and the freetype
@@ -217,20 +227,26 @@ is 1, so Ninja runs three jobs).
 
 ## Lessons
 
-- Three Dolly bugs stood behind "pip builds NumPy and pandas": CPython's sysconfig still held
-  Emscripten's flags, a thread pool deadlocked under serial threads, and a DSO's catch clauses
-  never matched. Each had a check that passed because it did not take the path real software
-  takes: the extension check module was built by a literal
-  `cc` line instead of sysconfig's, the DSO C++ test threw from the library and caught in the
-  host, never inside the library. Build a check the way its real consumer builds it.
+- Four Dolly bugs stood behind "pip builds NumPy and pandas": CPython's sysconfig still held
+  Emscripten's flags, a thread pool deadlocked under serial threads, a DSO's catch clauses
+  never matched, and a `-rdynamic` host did not export what LLVM's code calls. Each check
+  passed because it did not take the path real software takes: the extension check module
+  was built by a literal `cc` line instead of sysconfig's, and the DSO C++ test threw in the
+  library and caught in the host, never inside the library. Build a check the way its real
+  consumer builds it; one script that compares every extension's imports with the host's
+  exports found the last two refusals at once.
 - A long-lived session driven by numbered command files (the output posted back over the
   broker, `build/pydata-evidence/explore.mjs`) turned each experiment into seconds to minutes;
-  an image build reruns every earlier step and hides pip's output behind its spinner. Explore
-  in a session, then write the recipe once.
+  an image build reruns every earlier step, hides pip's output behind its spinner, and
+  waited up to an hour for a slot tonight. Explore in a session, then write the recipe once,
+  and build several images in one command so one slot wait serves them.
 - A comment's reason is a measurement waiting to be repeated: "Meson's debug build keeps NumPy
   within the compiler budget" dated from Bonnie; NumPy's release build now takes as long and
   makes a smaller tree. `pip --isolated` does not skip `/etc/pip.conf` either: read the
   command a tool actually runs (here the `meson setup` line) before trusting a flag.
-- Version choice is where Dolly's gaps surface: the newest pandas and Matplotlib needed
-  capabilities Dolly reports wrongly or lacks (Clang's version, threads in a DSO). Pinning the
-  previous release line is fine when the gap is written down with its cause.
+- Version choice is where Dolly's gaps surface: the newest pandas and Matplotlib needed what
+  Dolly reports wrongly or lacks (Clang's version, threads in a DSO, xsimd without SIMD128),
+  and the older Matplotlib's FreeType had a function-pointer bug Wasm traps on. Pin the
+  release line that builds and write the gap down with its cause.
+- The owner's report and this task met the same four bugs independently, hours apart: a
+  session with stock tools finds what a recipe author would hit, and it is cheap to run one.
