@@ -72,7 +72,8 @@ compiler against `rust-llvm`'s libraries and keeps the second:
 offline build: upstream's archive, every crate its `Cargo.lock` names
 (checksum-verified, extracted to `vendor/`), the target patches applied in
 place, and a `.cargo/config.toml` that points Cargo at `vendor/` and sets the
-profile the seed is built with. A recipe then runs `cargo build --offline`.
+seed's optimization profile; panics unwind, as upstream's do. A recipe then runs
+`cargo build --offline`.
 
 ## Cargo
 

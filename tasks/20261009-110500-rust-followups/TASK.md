@@ -105,19 +105,43 @@ variable as its offset in the TLS block (88), not its address (`__tls_base + 88`
 pad writes its index and LSDA to address 88 while libc++abi's personality reads the real
 variable. Rust is not affected (its pads catch all and call no personality).
 
+## Closed from this list (2026-11-03)
+
+- `libc` for a user's project: crates.io's `libc` has wasm32 layouts for this target, and the
+  SDK's patched copy is what a project builds against; `vendor-crates`, the one way a session
+  gets crates.io crates, writes that `[patch]`, and the README says so. Nothing in Dolly is left
+  to do: the layouts are crates.io's.
+
 ## Still open
 
+- **Doc tests**: a library's `cargo test` runs `rustdoc --test` after its unit tests pass, and
+  rustdoc is not built. What it takes, read and tried natively (2026-11-03): librustdoc names the
+  compiler's crates with `extern crate` (rustc_private), so it builds against the compiler's own
+  rlibs on its search path (`-L /tmp/rustc/target/debug/deps` after a generation), not as a Cargo
+  dependency; checked that way against the seed build's rlibs, it compiles for this target except
+  for `extern crate test`, which the SDK now has. Its workspace member adds 47 crates to the
+  seed's lock and changes none (`askama`, `minifier`, `stringdex`, `threadpool`...). It runs each
+  doc test by spawning the sysroot's `rustc` and then the test program, which Dolly does. Linked
+  statically it carries another rustc_driver and LLVM (the 251 MB `rustc` is mostly that); natively
+  the two share `librustc_driver.so`. Not built tonight: its size is the owner's question
+  (a `rustdoc` package, or one executable for both), and it needs one more `rust-build` round.
 - **Network Cargo**: a git dependency over HTTPS needs libgit2's curl transport, which Cargo
   registers only with a non-default `[http]` setting; `cargo search`, `publish` and `login` need
   `CONNECTTIMEOUT`, `LOW_SPEED_*` and `PUT` in Dolly's libcurl. `vendor-crates` covers crates.io.
-- **`libc` for a user's project**: crates.io's `libc` has wasm32 layouts for this target, so a
-  project patches it to `/opt/rust-sdk/src/libc` (`vendor-crates` writes the patch).
 - **Not measured**: that a third rustc equals the second with the recipe's commands (needs LLVM
   in the image; `Dollyfile-rust-build` drops it), and that Cargo's parallel Codex build equals a
   serial one byte for byte.
-- **`libdisplay.so` is 1,862,935 bytes** (2026-11-01; 1,644,503 on 2026-10-13, before kitty
-  graphics and Wuffs), against an LLVM Zig's 1,007,438 then, since Ghostty is emitted as C.
-  Where the size comes from is not measured.
+- **`libdisplay.so` is 1,863,775 bytes** (`default`, 2026-11-03; 1,644,503 on 2026-10-13,
+  before kitty graphics and Wuffs), against an LLVM Zig's 1,007,438 then, since Ghostty is
+  emitted as C. Measured by its sections and name section (`build/stack-evidence/wasm-sizes.mjs`):
+  code 1,486,839 bytes in 1,572 functions, data 301,636, names 60,198. The largest function is
+  `__wasm_apply_data_relocs` (57,551: a shared object relocates each pointer in its data in
+  code). By Ghostty's modules: the stream parser 146 KB, session snapshots 128 KB, the page
+  list 113 KB, kitty graphics 97 KB with Wuffs 49 KB, PNG 20 KB and inflate 15 KB (about the
+  219 KB that came with them), `Io.Writer` 71 KB, the formatter 68 KB, stb_truetype 21 KB. The
+  uucode modules compiled at `-ODebug` contribute no function of their own (inlined; their
+  tables are data). Left: the emitted C is compiled `-O2` where an LLVM Zig's ReleaseSmall
+  optimizes for size; `-Oz` is a ghostty-build change that rebuilds every image, not measured.
 - **`wuffs-c.zig` and the two options modules stay committed** (`src/ghostty/generated/`,
   5,610 lines): translate-c is not built inside Dolly.
 
