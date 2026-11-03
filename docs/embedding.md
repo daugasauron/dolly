@@ -11,6 +11,7 @@ an agent in place of a web frontend (`docs/agent-frontend.md` in the repository)
 | `@daugasauron/dolly-host-NAME` | One device host module each: `display` (Ghostty's terminal and programs' frames), `input`, `gpu`, `audio`, `microphone`, `touch`, `download` (as `dolly-host-save`: npm takes no new name with the word), `upload`, `html`, `sockets`, `pty` |
 | `@daugasauron/dolly-image-default` | The `default` image alone: a shell, its text tools, the terminal, curl, `amy`, `nena`, `ps`. The package holds no package index, so `amy installed` lists what the image holds and `amy list` and `amy install` fail naming the index |
 | `@daugasauron/dolly-image-pi-minimal` | The `pi-minimal` image alone: the Pi coding agent with JavaScript (Janis), a shell, POSIX tools, curl, ripgrep and fd, on `display`, `input`, `download` and `html` alone. The README's "Pi with npm" serves it with a policy |
+| `@daugasauron/dolly-image-python-data` | The `python-data` image: `default` with Python 3.14, pip and the C compiler, NumPy, pandas, Matplotlib (Agg) and seaborn, built in Dolly from their PyPI releases. Its README gives the install line (it declares `sockets` too) and the `FROM` row of a recipe built on it |
 | `@daugasauron/dolly-package-NAME` | A package for an image of your own: `git` (with diff and patch), `python` (3.14 with pip; it brings `cc`) or `cc` (the C and C++ compiler with Make). Its directory holds its catalog, metadata, packs and recipes, as an image package does, and nothing to boot |
 | `@daugasauron/dolly-build` | The `dolly-build` command: a project with an image of your own, `FROM` `pi-minimal` with the packages it `INSTALL`s, built in a browser ("Your own image" below) |
 
@@ -158,6 +159,10 @@ npx dolly-build Dollyfile-my-pi my-pi
   Both commands run where the packages are installed: the directory whose
   `node_modules/@daugasauron/` holds them (npm, pnpm and Yarn 1 alike). A row
   that names an image no installed package holds at that pin fails naming the row.
+- A recipe may start `FROM` another installed image instead, `python-data` say: its
+  package's README gives the `FROM` row, and the recipe repeats the image's `REQUIRES HOST`
+  rows (a FILE of the project's own script and a SLOP that runs it at build time, for
+  example). `init` writes Pi's project only.
 - Import `images`, `image` and `modules` from `OUT/index.mjs` as from an image
   package. Its modules are found in the packages under `node_modules/@daugasauron/`,
   so serve `OUT` beside them, from where it was built.

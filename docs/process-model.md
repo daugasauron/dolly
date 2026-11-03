@@ -432,7 +432,9 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   - `cc -rdynamic` builds a host: it exports the program's symbols and links
     the loader behind `dlopen`. A DSO (`cc -shared`) shares its owner's
     memory, table and allocator; the loader checks exact import types before
-    instantiation.
+    instantiation. A DSO reaches a C++ `thread_local` of the process (libunwind's
+    `__wasm_lpad_context`, which its catch clauses need) at the address the
+    variable's `_ZTW` wrapper returns; a C `_Thread_local` it cannot reach.
   - FFI calls and closures (`dolly_ffi_*`, `<dolly/dso.h>`) stay in the process
     Worker; libffi supports CPython `_ctypes`. In a program using `threads@0`
     each thread's Worker serves its calls, and loading or a closure, which

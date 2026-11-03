@@ -16,6 +16,7 @@ extern "C" int cpp_sdk_check() {
     catch (const std::exception &error) { if (std::string(error.what()) != "checked") return 2; }
     if (destroyed != 1) return 3;
     try { (void)words.at(9); return 4; } catch (const std::out_of_range &) {}
+    try { throw 42; } catch (int thrown) { if (thrown != 42) return 6; }
     Derived derived;
     Base *base = &derived;
     auto *value = dynamic_cast<Derived *>(base);
@@ -39,7 +40,10 @@ int main(int argc, char **argv) {
     if (!module) return 2;
     auto get_handler = reinterpret_cast<std::new_handler (*)()>(dolly_dlsym(module, "cpp_sdk_handler"));
     auto throw_error = reinterpret_cast<void (*)()>(dolly_dlsym(module, "cpp_sdk_throw"));
-    if (!get_handler || !throw_error) return 3;
+    auto check = reinterpret_cast<int (*)()>(dolly_dlsym(module, "cpp_sdk_check"));
+    if (!get_handler || !throw_error || !check) return 3;
+    // The library's own catch clauses match the exceptions thrown in it.
+    if (check() != 42) return 7;
     std::set_new_handler(handler);
     if (get_handler() != handler) return 4;
     try { throw_error(); return 5; }

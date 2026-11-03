@@ -123,6 +123,22 @@ function symbolAddress({ value }) {
   throw new TypeError("symbol is not a callable or data address");
 }
 
+// A GOT entry's address. A C++ thread_local of the process is exported as its
+// offset in the thread's TLS block, which a DSO cannot add the process's
+// __tls_base to; its Itanium ABI wrapper (_ZTW…) returns its address in the
+// thread whose Worker instantiates the DSO, as each instance has GOT globals of
+// its own. libunwind's __wasm_lpad_context is one: through it the
+// code a DSO's catch compiles to hands the process's personality routine its
+// exception table, and without it no catch clause but catch (...) matches.
+function gotAddress(relocation, symbol) {
+  if (relocation.module === "GOT.mem" && processSymbols.get(relocation.name) === symbol) {
+    const name = relocation.name;
+    const wrapper = processSymbols.get(name.startsWith("_Z") ? `_ZTW${name.slice(2)}` : `_ZTW${name.length}${name}`);
+    if (typeof wrapper?.value === "function") return BigInt(wrapper.value());
+  }
+  return symbolAddress(symbol);
+}
+
 function aligned(value, power) {
   const alignment = 1n << power;
   return (value + alignment - 1n) & -alignment;
@@ -241,7 +257,7 @@ function instantiateDso(bytes, flags) {
   for (const relocation of relocations) {
     if (parsed.exports.has(relocation.name)) continue;
     const existing = globalSymbol(relocation.name);
-    if (existing !== undefined) relocation.global.value = symbolAddress(existing);
+    if (existing !== undefined) relocation.global.value = gotAddress(relocation, existing);
   }
   dsoInstance = new WebAssembly.Instance(module, imports);
   dsoSymbols = typedSymbols(parsed.exports.values(), dsoInstance.exports, memoryBase);
@@ -251,7 +267,7 @@ function instantiateDso(bytes, flags) {
   }
   for (const relocation of relocations) {
     const symbol = dsoSymbols.get(relocation.name) ?? globalSymbol(relocation.name);
-    if (symbol !== undefined) relocation.global.value = symbolAddress(symbol);
+    if (symbol !== undefined) relocation.global.value = gotAddress(relocation, symbol);
     else if (relocation.weak) {
       relocation.global.value = 0n;
     } else {

@@ -13,6 +13,9 @@
 //   declares, the workspace and the user's theme the page writes, and a policy
 //   that refuses another origin; Save keeps a session the page opens again
 //   from its address.
+// - python-data as its package's README has it: installed as the README says, its
+//   page runs NumPy, pandas and Matplotlib, and a recipe of the project's own on the
+//   README's FROM row, whose build runs Python with them, boots with its result.
 // Usage: node test/npm-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { execFile, execFileSync, spawn } from "node:child_process";
@@ -139,8 +142,25 @@ try {
   await mkdir(join(app, "refused"));
   await writeFile(join(app, "refused/note.txt"), "a program never sees this\n");
 
-  const serve = isolated => listen(createServer(async (request, response) => {
-    const path = join(app, decodeURIComponent(new URL(request.url, "http://x").pathname));
+  // python-data's project: the install line and the FROM row of the package's README,
+  // a page for the image and one for the project's own image, built on it below.
+  const dataReadme = execFileSync("tar", ["-xzOf", join(packs, published.get("@daugasauron/dolly-image-python-data").file),
+    "package/README.md"], { encoding: "utf8" });
+  const dataApp = join(work, "data-app");
+  await mkdir(dataApp);
+  await npm(dataApp, "npm init --yes");
+  await npm(dataApp, `${/```sh\n([\s\S]*?)```/.exec(dataReadme)[1].trim()} @daugasauron/dolly-build`);
+  await writeFile(join(dataApp, "Dollyfile-my-data"), ["DOLLY 7", "APPLICATION my-data",
+    ...declared("python-data").map(host => `REQUIRES HOST ${host}`), /^FROM .*$/m.exec(dataReadme)[0],
+    "FILE /home/dolly/mean.py", "    import numpy, pandas", "    print('MEAN', pandas.Series(numpy.arange(10)).mean())",
+    "SLOP python /home/dolly/mean.py > /home/dolly/mean.txt", "FILE /home/dolly/mean.txt",
+    "ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop", ""].join("\n"));
+  const dataPage = image => page.replace(/\.\/node_modules\/@daugasauron\/dolly-image-default\/index\.mjs/, image);
+  await writeFile(join(dataApp, "index.html"), dataPage("./node_modules/@daugasauron/dolly-image-python-data/index.mjs"));
+  await writeFile(join(dataApp, "mine.html"), dataPage("./my-data/index.mjs"));
+
+  const serve = (isolated, root = app) => listen(createServer(async (request, response) => {
+    const path = join(root, decodeURIComponent(new URL(request.url, "http://x").pathname));
     try {
       const body = await readFile(path.endsWith("/") ? join(path, "index.html") : path);
       response.writeHead(200, { "content-type": mimeTypes.get(extname(path) || ".html") ?? "application/octet-stream",
@@ -148,8 +168,8 @@ try {
       response.end(body);
     } catch { response.writeHead(404).end(); }
   }));
-  const [isolated, plain] = await Promise.all([serve(true), serve(false)]);
-  servers.push(isolated, plain);
+  const [isolated, plain, dataServer] = await Promise.all([serve(true), serve(false), serve(true, dataApp)]);
+  servers.push(isolated, plain, dataServer);
   const booted = async (tab, url, started = /dolly:[^\n]*\$\s*$/) => {
     const errors = [];
     tab.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
@@ -243,6 +263,12 @@ try {
       await pi.keyboard.press("Control+d");
       await shows(pi, /Pi exited; this is a Slop shell\.[\s\S]*\ndolly:[^\n]*\$\s*$/, "the restored shell");
       assert.equal(await within(pi.evaluate(() => window.dolly.submit("grep -q 'kept by the save' /workspace/README.md")), 60, "the kept edit"), 0);
+      const data = await browser.newPage(), python = await booted(data, `${origin(dataServer)}/`);
+      assert.equal(await python("python -c 'import numpy, pandas, matplotlib.pyplot; " +
+        "assert int(pandas.DataFrame({\"v\": numpy.arange(4)})[\"v\"].sum()) == 6'"), 0);
+      await npm(dataApp, `npx dolly-build Dollyfile-my-data my-data --browser ${name === "chromium" ? "chrome" : name}`);
+      const mine = await browser.newPage(), own = await booted(mine, `${origin(dataServer)}/mine.html`);
+      assert.equal(await own("grep -qx 'MEAN 4.5' /home/dolly/mean.txt && python /home/dolly/mean.py | grep -qx 'MEAN 4.5'"), 0);
       console.log(`npm packages: ${name} passed in ${((performance.now() - started) / 1000).toFixed(1)}s`);
     } finally { await browser.close(); }
   }
