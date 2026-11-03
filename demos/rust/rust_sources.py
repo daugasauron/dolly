@@ -78,8 +78,8 @@ def lock_sdk_libc(lock):
 
 def vendor(lock, destination, archives):
     """Extract LOCK's registry crates to DESTINATION/NAME-VERSION, as Cargo's directory source reads them."""
-    archives.mkdir()
-    destination.mkdir()
+    archives.mkdir(exist_ok=True)
+    destination.mkdir(exist_ok=True)
     for package in tomllib.loads(lock.read_text())["package"]:
         if "checksum" not in package:
             continue

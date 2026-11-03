@@ -10,7 +10,7 @@ Rust in the catalog is built by the result with Cargo.
 - `rust-llvm`: the LLVM 22 libraries rustc links, built by Dolly's `c++`.
 - `rust-build`: rustc, the standard library and Cargo built from source, the kept rustc by the first one built here; the base of every Rust build.
 - `rust-tools`: interactive shell: `system` with the `rust` and `cargo` packages.
-- `rust`: `rustc` and the Rust standard library, built inside Dolly, with the `cc` package it links through.
+- `rust`: `rustc`, `rustdoc` and the Rust standard library, built inside Dolly, with the `cc` package it links through.
 - `cargo`: `cargo`, built inside Dolly, with the `rust` package it compiles with.
 - `vendor-crates`: `vendor-crates`, which writes the crates.io crates a Cargo project depends on to `vendor/` for `cargo build --offline`: crates.io's index sends no CORS headers a page can use.
 - `ripgrep`: `rg`, which searches files by regular expression.
@@ -44,24 +44,29 @@ compiler against `rust-llvm`'s libraries and keeps the second:
    seed's standard library, so it still holds code compiled outside Dolly.
 2. The first rustc compiles the standard library (`-Z build-std`), which
    replaces the seed's.
-3. The first rustc compiles rustc again, against that library. This second
-   rustc is the one the `rust` package carries.
+3. The first rustc compiles rustc again, against that library, and rustdoc
+   against that rustc's crates, into one executable that is both, as natively
+   both link one `librustc_driver`. This second rustc is the one the `rust`
+   package carries.
 4. The second rustc compiles the standard library once more, and the build
-   fails unless all 22 libraries are, byte for byte, those of step 2.
+   fails unless all 25 libraries are, byte for byte, those of step 2.
 5. The second rustc compiles Cargo.
 
 - So nothing of the seed is in the `rust` or `cargo` package: every Rust
   crate in them was compiled inside Dolly. Like every program here they link
   Dolly's libc, which is built with the kernel, outside.
-- A third rustc would be the second again: measured once in a Chrome
-  session, 264 files (the 251.3 MiB `rustc` and 263 libraries) were the same
-  between the second and third generation
-  ([task](../../tasks/20260930-231100-self-host-rust/TASK.md)). The recipe
-  checks the standard library on every build, not the compiler.
+- A third rustc is the second again: measured in a Chrome session, 264 files
+  (the 251.3 MiB `rustc` and 263 libraries) were the same between the second
+  and third generation ([task](../../tasks/20260930-231100-self-host-rust/TASK.md)),
+  and with the recipe's own command on 2026-11-04. The recipe checks the
+  standard library on every build, not the compiler.
 - The sources are the seed's: the pinned Rust archive with the same patches,
   the `rust-src` component for the standard library, and each locked crate
   extracted as Cargo's directory source
-  ([`prepare-rustc-sources.py`](prepare-rustc-sources.py)).
+  ([`prepare-rustc-sources.py`](prepare-rustc-sources.py)), with rustdoc's 44
+  crates ([`rustdoc.lock`](config/rustdoc.lock)). The recipe applies one patch
+  the seed has not: rustdoc finds its sysroot by its symlinked name
+  ([`rustc-sysroot.patch`](config/patches/rustc-sysroot.patch)).
 - `rustc` is linked as a host of procedural-macro libraries (`cc -rdynamic`),
   so it has no threads; [`rust-linker.c`](rust-linker.c) adds the loader names
   Rust binds and what std in a loaded library imports.
@@ -83,7 +88,10 @@ with the compiler.
   vendored dependencies, build scripts and procedural macros.
 - `cargo run` builds the program and replaces Cargo with it (`exec`).
 - `cargo test` runs a crate's tests in the test program's process, with libtest's report and
-  Cargo's status (101 when one fails). Doc tests need `rustdoc`, which is not built.
+  Cargo's status (101 when one fails), and a library's doc tests with `rustdoc`. rustdoc
+  reports a failed doc test by unwinding and aborts like rustc (unwinding made the compiler
+  1.5 to 3 times slower), so before edition 2024, where each doc test is a program of its own,
+  the first failure ends it; edition 2024's merged doc tests report as native ones do.
 - crates.io: its index sends CORS headers only for files its cache does not
   hold, so Cargo cannot resolve there from a page, and Dolly hosts no relay.
   `vendor-crates` (its own package) resolves a project's dependencies over the
@@ -115,9 +123,8 @@ with the compiler.
 ## Limits
 
 - Panics unwind, by WebAssembly exceptions as C++ exceptions do; a crate built with
-  `panic = "abort"` links the same standard library, as the images' programs and rustc are
-  built (unwinding's landing pads cost them 17% to 35% of their size). No dynamic Rust
-  libraries.
+  `panic = "abort"` links the same standard library, as the images' programs are built
+  (unwinding's landing pads cost them 17% to 35% of their size). No dynamic Rust libraries.
 - Executables link threaded (`cc -pthread`) and need `REQUIRES HOST threads@0`.
   The compiler loads proc macros and needs `dso@0`, which a build host enables
   and an image that keeps `rustc` declares.

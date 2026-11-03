@@ -6,14 +6,18 @@ REQUIRES HOST threads@0
 
 # The Rust SDK as rust-build built it. Its rustc finds its sysroot beside
 # itself, so /usr/bin/rustc starts it by its own path.
-COPY /v0.1.4/demos/rust/Dollyfile-rust-build b71d8025a4bec6a93df0db62f485da8082cc1fe19f4fd8565446067e35c61ba0 /opt/rust-sdk /opt/rust-sdk
-COPY /v0.1.4/demos/rust/Dollyfile-rust-build b71d8025a4bec6a93df0db62f485da8082cc1fe19f4fd8565446067e35c61ba0 /usr/share/licenses/rust /usr/share/licenses/rust
+COPY /v0.1.4/demos/rust/Dollyfile-rust-build c663022617a911ed344883e4354813288e4482fe420531af7f04c06c0a7b38e2 /opt/rust-sdk /opt/rust-sdk
+COPY /v0.1.4/demos/rust/Dollyfile-rust-build c663022617a911ed344883e4354813288e4482fe420531af7f04c06c0a7b38e2 /usr/share/licenses/rust /usr/share/licenses/rust
 # rustc links what it compiles with the C toolchain.
 INSTALL /v0.1.4/Dollyfile-cc f2ad329c95b14b45404c070414c0e48330c769adb810501ae1e122b326d8117f
 FILE /usr/bin/rustc
     #!/bin/slop
     /opt/rust-sdk/bin/rustc "$@"
+FILE /usr/bin/rustdoc
+    #!/bin/slop
+    /opt/rust-sdk/bin/rustdoc "$@"
 EXPORTS TOOL rustc
+EXPORTS TOOL rustdoc
 EXPORTS FOLDER rust-sdk /opt/rust-sdk
 EXPORTS FOLDER rust-licenses /usr/share/licenses/rust
 FILE /usr/share/man/cat1/rustc.1
@@ -21,9 +25,10 @@ FILE /usr/share/man/cat1/rustc.1
     pinned sources (Rust 1.98.1, its LLVM 22.1.8).
     
       rustc main.rs -o main     compiles a program; cc links it
+      rustdoc --test lib.rs     runs a library's doc tests
       cargo build               builds a crate (the cargo package)
     
-    Programs are compiled with panics that abort, and there are no dynamic Rust
-    libraries. Executables link threaded and need threads@0 in the image that
-    runs them. The compiler loads procedural macros, so an image that keeps
+    Panics unwind, by WebAssembly exceptions; a crate built with panic = "abort"
+    links the same library. There are no dynamic Rust libraries. Executables
+    link threaded and need threads@0 in the image that runs them. The compiler loads procedural macros, so an image that keeps
     rustc declares dso@0. Upstream's documentation: https://doc.rust-lang.org/

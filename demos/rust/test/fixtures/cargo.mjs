@@ -155,6 +155,19 @@ export async function runCargoTest(submit) {
     // A program built to abort links the same library and ends at its first panic.
     assert.equal(await submit("CARGO_PROFILE_DEV_PANIC=abort cargo run --offline > run.txt 2>/dev/null"), 134);
     await run("test ! -s run.txt");
+    // A library's doc tests run after its tests.
+    await run(`mkdir -p ${root}/doubles/src && cd ${root}/doubles`);
+    await run(writeCommand("Cargo.toml", '[package]\nname = "doubles"\nversion = "0.1.0"\nedition = "2024"\n'));
+    await run(writeCommand("src/lib.rs", "/// ```\n/// assert_eq!(doubles::twice(2), 4);\n/// ```\npub fn twice(value: u8) -> u8 { value * 2 }\n"));
+    await run("cargo test --offline > test.txt 2>&1 && grep -q '^   Doc-tests doubles' test.txt && " +
+      "grep -q '^test src/lib.rs - twice (line 1) ... ok' test.txt");
+    await run(writeCommand("src/lib.rs", "/// ```\n/// assert_eq!(doubles::twice(2), 5);\n/// ```\npub fn twice(value: u8) -> u8 { value * 2 }\n"));
+    assert.equal(await submit("cargo test --offline > test.txt 2>&1"), 101);
+    await run("grep -q '^test src/lib.rs - twice (line 1) ... FAILED' test.txt");
+    // Before edition 2024 each doc test is a program of its own.
+    await run(writeCommand("Cargo.toml", '[package]\nname = "doubles"\nversion = "0.1.0"\nedition = "2021"\n'));
+    await run(writeCommand("src/lib.rs", "/// ```\n/// assert_eq!(doubles::twice(2), 4);\n/// ```\npub fn twice(value: u8) -> u8 { value * 2 }\n"));
+    await run("cargo test --offline > test.txt 2>&1 && grep -q '^test src/lib.rs - twice (line 1) ... ok' test.txt");
   } finally {
     await submit(`cd /workspace; rm -rf ${root}`);
   }

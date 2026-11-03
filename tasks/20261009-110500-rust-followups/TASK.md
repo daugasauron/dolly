@@ -84,7 +84,7 @@ of either strategy links it. Reasons, each read in the sources or measured:
   `JoinError` rather than the end of the program. That is one line in `cargo_config` and a
   rebuild of the Rust images, for the owner to weigh against the size.
 
-### Verified in the images (2026-11-04, `f8e8533a1` and after)
+### Verified in the images (2026-11-04)
 
 - `rust-build` builds in 35 min (`hugebuild`); the standard library takes 56 s with libtest,
   and the second generation's 25 rlibs equal the first's byte for byte. Procedural macros built
@@ -97,11 +97,56 @@ of either strategy links it. Reasons, each read in the sources or measured:
   keeps the passing test exits 0; `catch_unwind`, a thread's `join` and a panicking `main` see
   the panic and run its drops (status 101); `CARGO_PROFILE_DEV_PANIC=abort` links and aborts at
   the first panic (status 134).
-- A library's `cargo test`: its tests pass, then `Doc-tests` fails with "could not execute
-  process `rustdoc ...` (never executed)", status 101; `cargo test --lib --tests` exits 0.
-- Sizes against the integration round's images: the SDK 334,337,294 to 341,547,381 bytes
-  (+2.2%: libtest, getopts and std's landing pads; rustc +0.4%), Cargo +0.86%, ripgrep +1.23%,
-  fd +1.52%, protox +0.83%, cbindgen +3.19%, naga +0.75%.
+- Sizes against the integration round's images: the SDK 334,337,294 to 359,282,590 bytes
+  (+7.5%: libtest, getopts and std's landing pads 6.2 MB, rustdoc in rustc 17.7 MB; rustc
+  266,902,572), Cargo +0.86%, ripgrep +1.23%, fd +1.52%, protox +0.83%, cbindgen +3.19%,
+  naga +0.75%.
+- Doc tests (2026-11-04, the final images, Chromium and Firefox): a library's `cargo test` runs
+  its doc tests; an edition 2024 failure reports as natively with status 101, and an edition
+  2021 doc test that passes runs as a program of its own.
+
+### Doc tests: rustc and rustdoc are one executable (2026-11-04)
+
+A library's `cargo test` ran its tests and then failed at `Doc-tests`: "could not execute
+process `rustdoc ...` (never executed)", status 101. Natively rustc and rustdoc are small
+executables over one `librustc_driver.so` (upstream's x86 build: `rustdoc` 12.8 MB, the
+library 150.8 MB); Dolly has no dynamic Rust libraries, and a second static executable would
+carry another rustc_driver and LLVM (about 270 MB). So `rust-build` links one executable for
+both: a five-line main (`dolly-rustc`, in the recipe) calls rustdoc when it runs as
+`rustdoc-real`, a symlink to `rustc-real`, and rustc otherwise; `rustc.sh` runs
+`${0##*/}-real`, so `/opt/rust-sdk/bin/rustdoc` is a symlink to the launcher.
+
+- librustdoc names the compiler's crates itself (`extern crate`, rustc_private), so it builds
+  against the libraries the second generation leaves in `/tmp/rustc/target/debug/deps`
+  (`-L`), in a workspace of its own whose crates Cargo resolves offline from the vendored ones;
+  rustdoc as a member of the compiler's workspace adds 44 crates to the seed's lock and changes
+  none (`config/rustdoc.lock`, resolved natively once).
+- Built to abort, the combined executable was 266,902,411 bytes against rustc's 249,167,527
+  (+17,734,884, +7.1%), linked in 2 min 47 s after the compiler; the standard library it builds
+  equals the first generation's, byte for byte.
+- rustdoc builds its sessions with `..Options::default()`, whose `Sysroot::new(None)` asks for
+  the default sysroot, which the static compiler has none of ("Failed finding sysroot: the
+  static Dolly compiler requires --sysroot", status 134, though the launcher passed
+  `--sysroot`). Upstream finds it from a symlinked `argv[0]`, but checks `lib/rustlib` against
+  the working directory instead of the sysroot it derived (`filesearch.rs`), so that path never
+  succeeds; `config/patches/rustc-sysroot.patch` joins the two, and `rust-build` applies it
+  (with git's `patch`) until the seed's `rust.patch` carries it.
+- rustdoc passes `--sysroot` to the rustc it runs for a doc test, and the launcher added its
+  own ("Option 'sysroot' given more than once"); `rustc.sh` adds one only when none is given,
+  as it does for `--target`.
+- rustdoc reports a failed standalone doc test by `panic::resume_unwind` (`doctest.rs`), and
+  the compiler, rustdoc with it, aborts: a failing doc test of a crate before edition 2024
+  (each doc test a program of its own) ends rustdoc at that test, its report lost: Cargo
+  prints the test's name and "doctest failed ... exited abnormally" and exits with rustdoc's
+  status, 134 (Dolly reports an abort as that status, not a signal). Edition 2024 merges a
+  crate's doc tests into one program, whose libtest reports them as natively (the assertion,
+  `test result: FAILED`, status 101), and rustdoc exits with its status.
+  Measured once the other way (2026-11-04): with the second generation built to unwind
+  (`CARGO_PROFILE_DEV_PANIC=unwind`; it links the unwinding library), rustc was 287,637,721
+  bytes (+20.7 MB) and compiled 1.5 to 3 times slower: cbindgen 1 min 15 s to 2 min 8 s, fd
+  57 s to 1 min 53 s, naga 1 min 51 s to 3 min 29 s, protox 59 s to 2 min 56 s, ripgrep 50 s to
+  1 min 19 s (three aborting builds agreed within 15%). Not measured: why; ripgrep built to
+  unwind ran no slower. So the compiler aborts.
 
 ### The cost, measured (2026-11-03)
 
@@ -145,17 +190,6 @@ variable. Rust is not affected (its pads catch all and call no personality).
 
 ## Still open
 
-- **Doc tests**: a library's `cargo test` runs `rustdoc --test` after its unit tests pass, and
-  rustdoc is not built. What it takes, read and tried natively (2026-11-03): librustdoc names the
-  compiler's crates with `extern crate` (rustc_private), so it builds against the compiler's own
-  rlibs on its search path (`-L /tmp/rustc/target/debug/deps` after a generation), not as a Cargo
-  dependency; checked that way against the seed build's rlibs, it compiles for this target except
-  for `extern crate test`, which the SDK now has. Its workspace member adds 47 crates to the
-  seed's lock and changes none (`askama`, `minifier`, `stringdex`, `threadpool`...). It runs each
-  doc test by spawning the sysroot's `rustc` and then the test program, which Dolly does. Linked
-  statically it carries another rustc_driver and LLVM (the 251 MB `rustc` is mostly that); natively
-  the two share `librustc_driver.so`. Not built tonight: its size is the owner's question
-  (a `rustdoc` package, or one executable for both), and it needs one more `rust-build` round.
 - **Network Cargo**: `cargo search`, `publish` and `login` need `CONNECTTIMEOUT`, `LOW_SPEED_*`
   and `PUT` in Dolly's libcurl. `vendor-crates` covers crates.io. A Git dependency now works
   (2026-11-03, Chromium and Firefox, `demos/rust/test/fixtures/cargo.mjs`): the cargo package
@@ -193,18 +227,19 @@ Each is fixed or has its own task.
 - A generated module's file name reaches the C Zig emits (its identifiers): generating the same
   tables under other names changed 16 MB of Ghostty VT's C, so compare outputs, not inputs.
 - The panic strategy was settled by reading Cargo and rustc, not by trying flags: Cargo never
-  passes `-C panic=unwind`, so the target's own strategy decides what `cargo test` builds, and
-  only the target spec could make stable `cargo test` work.
-- The seed build's native rustc, the same 1.98.1, cross-compiles for Dolly's target in seconds;
-  recording a link's inputs and replaying them with Dolly's `cc` in a page tested the runtime
-  half of a change (libtest's report, status 101) and measured its size three ways before a
-  two-hour image chain. The compile-time half it does not test: the host is x86 there, so the
-  spec-hash failure of the first image build (host and target are one in Dolly) showed only in
-  Dolly.
-- An experiment meant to de-risk Rust (C++ exceptions across `dlopen`) found a `dso@0` bug Rust
-  does not hit; reading the Rust objects' undefined symbols first would have said which parts
-  of the C++ machinery Rust uses at all.
+  passes `-C panic=unwind`, so the target's own strategy decides what `cargo test` builds.
+- The seed build's native rustc 1.98.1 cross-compiles for Dolly's target in seconds; replaying
+  a recorded link with Dolly's `cc` in a page tested the runtime half of a change and measured
+  its size three ways before any image chain. It cannot test the compile-time half: there the
+  host is x86, and both failures of the night's image builds (std's build scripts after the
+  spec changed, rustdoc's default sysroot) exist only where host and target are one.
+- Measure the program a change touches, not a proxy: ripgrep built to unwind ran no slower,
+  but rustc built to unwind compiled 1.5 to 3 times slower; and upstream's native layout
+  (`rustdoc` 12.8 MB over a 150.8 MB `librustc_driver.so`) predicted the cost of one executable
+  for both, 17.7 MB, within 20%.
+- rustdoc builds sessions with `..Options::default()`, which evaluates a default sysroot rustc
+  never asks for, and upstream's argv[0] lookup of it had been broken all along (a relative
+  path checked against the working directory), hidden natively by the library-path fallback.
 - Changing anything in `demos/rust/toolchain/` or `config/` re-keys the rustc archive, whose
-  staging reads the seed's prepared tree (`build/rustc-port/{rust,llvm-source,toolchain/lib}`):
-  a tree with only the seed's tarball cannot stage it, and copying those 1.6 GB from a tree that
-  built the seed was the way.
+  staging reads the seed's prepared tree (`build/rustc-port`): a tree with only the seed's
+  tarball cannot stage it.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage the sources of rustc, its standard library and its LLVM as the seed's build prepared them; compile nothing."""
+"""Stage the sources of rustc, rustdoc, the standard library and LLVM as the seed's build prepared them; compile nothing."""
 from pathlib import Path
 import shutil
 import subprocess
@@ -23,6 +23,7 @@ stage.mkdir(parents=True)
 # the backtrace submodule and std's own crates.
 library = port / "toolchain/lib/rustlib/src/rust/library"
 archives = vendor(port / "rust/Cargo.lock", stage / "vendor", stage / "archives")
+vendor(project / "demos/rust/config/rustdoc.lock", stage / "vendor", archives)
 for crate in sorted((library / "vendor").iterdir()):
     if not (stage / "vendor" / crate.name).exists():
         shutil.copytree(crate, stage / "vendor" / crate.name)
@@ -33,6 +34,8 @@ identity = subprocess.run(
 cargo_config(stage, "/tmp/rustc/vendor", (project / "demos/rust/config/rustc.toml").read_text() + identity)
 mappings = [stage / ".cargo", "/tmp/rustc/.cargo", stage / "vendor", "/tmp/rustc/vendor",
             port / "rust/compiler", "/tmp/rustc/source/compiler",
+            port / "rust/src/librustdoc", "/tmp/rustc/source/src/librustdoc",
+            port / "rust/src/rustdoc-json-types", "/tmp/rustc/source/src/rustdoc-json-types",
             port / "rust/Cargo.toml", "/tmp/rustc/source/Cargo.toml",
             port / "rust/Cargo.lock", "/tmp/rustc/source/Cargo.lock",
             *crate_licences(archives, stage, "/usr/share/licenses/rust/crates")]
