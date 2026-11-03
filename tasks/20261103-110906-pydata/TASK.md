@@ -44,7 +44,7 @@ working; the image is an npm image package that an npm-only project boots and bu
 `demos/python/README.md` and the npm docs (`README.md`'s npm section, `docs/embedding.md`) say how
 to use it.
 
-## State (2026-11-04 00:50, branch `demo/pydata`)
+## State (2026-11-04 01:20, branch `demo/pydata`)
 
 Done but the catalog round: both images, their demo test (Chromium, Firefox, the NumPy-only
 COPY), the npm package and its test (without its Pi part, see npm), the python fixes
@@ -58,8 +58,10 @@ python-data, 1911 s in a `bigbuild` slot): `core-browser.mjs` passes in Chromium
 `cpp-browser.mjs` and `shell-browser.mjs` in Chromium, python-data's demo test in Chromium
 (21.5 s) and Firefox (28.3 s) with the extensions step, and `matplotlib.tri` triangulates and
 `tricontourf` draws. Not built there: the Rust, LLVM, Mojo, Pi, 0 A.D. and other chains, and
-FFmpeg (whose test names `cc --version`'s line). Close this task when a round's python-data
-passes its test.
+FFmpeg (whose test names `cc --version`'s line). This tree's dist holds `demo/pydata`'s
+images again (rebuilt after the seed check, demo test passed); its catalog is narrowed to
+python-data, default and libdolly-gpu, since the Rust chain cannot be rebuilt in a `build`
+slot. Close this task when a round's python-data passes its test.
 
 ## Decisions
 

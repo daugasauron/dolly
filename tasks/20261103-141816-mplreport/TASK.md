@@ -61,7 +61,8 @@ Blocking:
    It now gives a `GOT.mem` import of a process C++ `thread_local` the address its `_ZTW`
    wrapper returns, called in the Worker that instantiates the library (each instance has GOT
    globals of its own, so this holds for threads too). `test/fixtures/cpp-sdk.mjs`'s library
-   now throws and catches inside itself (`cpp_sdk_check`: `std::exception`, `out_of_range`);
+   now throws and catches inside itself (`cpp_sdk_check`: `std::exception`, `out_of_range`,
+  `int`, `f751f3480`);
    with the old loader the host dies of the uncaught exception. `dso-browser.mjs` passes in
    Chromium and Firefox; in a session the report's matrix (`int`, the same type, a base, a
    type of the library) returns all four from a `-shared` pybind11 module, and Matplotlib
