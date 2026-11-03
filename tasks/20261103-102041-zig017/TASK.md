@@ -236,6 +236,10 @@ the man page's program, its `cc` and its run 4.7 s.
 - A pin that several demos stage breaks the whole catalog's source preparation if one of them
   patches with `--fuzz=0` (ghostty-gtk did): run every `has_image` staging that reads the pin,
   not only the images being built.
+- WebAssembly's defaults put Dolly on upstream code paths nobody runs: Zig compiles its own tools
+  single-threaded for wasm, and 0.17's maker had never compiled single-threaded or without a file
+  watcher. A host Zig compile of the tool for `wasm64-emscripten` in both modes found all of it
+  in seconds; trying the fix with `sed` in a session before the 28-minute rebuild proved it.
 - amy applies a package's environment from the next session load, so a package whose tool needs
   a variable right after `amy install` (ZIG_LIBC) fails the install-then-use check; the root cause
   here was Dolly's cc ignoring `-Wp,-v`.
