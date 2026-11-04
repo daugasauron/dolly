@@ -26,7 +26,8 @@ export function worker({ get }) {
       workers.set(worker, pid);
       return worker;
     },
-    release(worker) { worker.terminate(); workers.delete(worker); },
+    // A Worker the supervisor leaves to end itself is not terminated.
+    release(worker, terminate = true) { if (terminate) worker.terminate(); workers.delete(worker); },
     dispose() { for (const worker of workers.keys()) worker.terminate(); workers.clear(); },
     // The runtime goes on without the module: the programs on its Workers end.
     disabled() { get("runtime").setThreadProvider(undefined); },

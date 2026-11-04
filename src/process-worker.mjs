@@ -9,6 +9,7 @@ import {
 
 const PROCESS_EXIT = Symbol("Dolly process exit");
 const THREAD_EXIT = Symbol("Dolly thread exit");
+const UNSTARTED = Symbol("Dolly thread ended before it started");
 // The supervisor's answer to a call whose process it is ending, and this
 // Worker's to the gate for a call that ended its thread, on which the gate
 // traps (abi/dolly-process-gate-0.wat).
@@ -100,9 +101,13 @@ function reportThreadFinished() {
 // that spawned the thread (tasks/20261101-102515-retained-process-memory).
 async function processMemory() {
   if (configuration.port) {
+    // A thread's start word (control word 5): the supervisor sets 2 when it ends
+    // the thread before the program runs here, and this Worker ends.
+    const ended = Atomics.waitAsync(control, 5, 0);
     const { memory, received } = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error("the process memory was not provided")), 10_000);
       configuration.port.onmessage = ({ data }) => { clearTimeout(timeout); resolve(data ?? {}); };
+      Promise.resolve(ended.value).then(() => { clearTimeout(timeout); reject(UNSTARTED); });
     });
     configuration.port.close();
     if (!(memory instanceof WebAssembly.Memory) || !(received instanceof Int32Array)) {
@@ -269,6 +274,8 @@ function call(operation, requestAddressValue, requestSizeValue,
 
 try {
   memory = await processMemory();
+  // The start word is 1 from here, unless the supervisor has just set 2.
+  if (configuration.port && Atomics.compareExchange(control, 5, 0, 1) !== 0) throw UNSTARTED;
   // The trusted copier between this memory and the mailbox, and the program's
   // call import (abi/dolly-process-gate-0.wat).
   gate = new WebAssembly.Instance(configuration.gateModule, {
@@ -301,7 +308,9 @@ try {
     self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
   }
 } catch (caught) {
-  if (ending === THREAD_EXIT && configuration.threaded && typeof threadResult === "bigint") {
+  if (caught === UNSTARTED) {
+    // Nobody waits for a thread ended before it started.
+  } else if (ending === THREAD_EXIT && configuration.threaded && typeof threadResult === "bigint") {
     reportThreadFinished();
   } else if (ending === PROCESS_EXIT) {
     self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });

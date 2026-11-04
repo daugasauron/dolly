@@ -317,7 +317,9 @@ nothing and declares nothing: any program built for Dolly runs on one.
   foreground ancestor.
 - Retirement ends the Worker before the child is waitable, and the memory and
   gate with it: they live in the process's Workers alone, so the pages go when
-  the Workers do, not when the runtime Worker next collects garbage.
+  the Workers do, not when the runtime Worker next collects garbage. A thread's
+  Worker that has not started takes the memory posted to it and ends itself:
+  Chrome keeps what was posted to a Worker terminated before it runs.
 - A child outlives a parent that exits, as on POSIX: a child still running
   loses it (its parent is 0) and is reaped when it ends, as init reaps
   orphans. The terminal goes back to the parent's foreground ancestor, as a
