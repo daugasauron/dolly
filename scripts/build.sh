@@ -158,6 +158,7 @@ ${checked} -c src/process/mmap.c -o build/process-mmap.o
 ${checked} -c src/process/time.c -o build/process-time.o
 ${checked} -c src/process/poll.c -o build/process-poll.o
 ${checked} -c src/process/signal.c -o build/process-signal.o
+${checked} -c src/process/abort.c -o build/process-abort.o
 ${emcc} ${libc_internal} -c ${emscripten_libc}/pthread/pthread_self_stub.c -o build/process-pthread-self.o
 ${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/default_attr.c -o build/process-default-attr.o
 ${emcc} ${libc_internal} -c src/process/pthread-stubs.c -o build/process-pthread-stub.o
@@ -172,6 +173,7 @@ rm -f -- build/libdolly-process.a.new
   build/process-time.o \
   build/process-poll.o \
   build/process-signal.o \
+  build/process-abort.o \
   build/process-pthread-self.o \
   build/process-default-attr.o \
   build/process-pthread-stub.o \
@@ -214,7 +216,7 @@ build_process() {
   shift
   "${container[@]}" /emsdk/upstream/emscripten/emcc \
     "${process_compile_flags[@]}" "${process_link_flags[@]}" "$@" \
-    -Wl,--whole-archive build/libdolly-process.a -Wl,--no-whole-archive \
+    build/libdolly-process.a \
     -Lbuild "${client_links[@]}" \
     -o "${staged}"
   mv -- "${staged}" "${output}"
@@ -226,7 +228,7 @@ build_process_cxx() {
   shift
   "${container[@]}" /emsdk/upstream/emscripten/em++ \
     "${process_compile_flags[@]}" "${process_link_flags[@]}" "$@" \
-    -Wl,--whole-archive build/libdolly-process.a -Wl,--no-whole-archive \
+    build/libdolly-process.a \
     -Lbuild "${client_links[@]}" \
     -o "${staged}"
   mv -- "${staged}" "${output}"
