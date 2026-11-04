@@ -329,10 +329,10 @@ nothing and declares nothing: any program built for Dolly runs on one.
   process group.
 - Worker termination has no completion event, so a large interactive process
   gets 500 ms of reclamation before its exit is acknowledged, sparing the
-  recovery shell. A Worker ended while it waits in a call leaves Wasm and
-  closes itself; a program that catches that (a C++ `catch (...)`, a
-  destructor) and calls again waits for the termination, since nothing
-  JavaScript throws into Wasm is uncatchable. Nothing guarantees against browser memory pressure; this is
+  recovery shell. A thread whose call ends it (its EXIT or THREAD_EXIT, or any
+  call once the supervisor ends its Worker) leaves Wasm by a trap in the gate
+  and its Worker closes itself: no destructor or landing pad of the program
+  runs, as a JavaScript exception thrown into Wasm would let them. Nothing guarantees against browser memory pressure; this is
   one reason Slop itself is [serial](architecture.md#decisions) and parallel
   builds need a modest `-jN`.
 

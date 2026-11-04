@@ -86,7 +86,9 @@ sequenceDiagram
 - Packets are at most 1 MiB, use fixed-width little-endian fields and relative
   ranges, never pointers ([`process.h`](../include/dolly/process.h)).
 - The gate ([`dolly-process-gate-0.wat`](../abi/dolly-process-gate-0.wat)) is a
-  policy-free multi-memory copier; bounds failures trap. Each Worker holds its
+  policy-free multi-memory copier; bounds failures trap. It is also the
+  program's call import, which traps once the Worker answers that the call
+  ended its thread, so the program runs no further. Each Worker holds its
   own instance and a 1 MiB mailbox in kernel memory, registered with the kernel
   when the Worker starts (`dolly_process_worker_mailbox`), so a process's
   memory is held by its Workers alone and goes when they end; the runtime
