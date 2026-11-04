@@ -55,7 +55,7 @@ Item numbers are this task's. Evidence in `work/slop/build/slop-evidence/`.
 - **1, the utilities in the shell** (`5fb057d2`): the proposal's commit, with `printf` added
   the same way. `/bin/printf` was sbase's, whose code exits on errors and edits its operands,
   so it cannot run inside the shell; the builtin and the program share a source only if the
-  program is Dolly's: `src/commands/printf.c` (POSIX's printf, 230 lines), compiled for
+  program is Dolly's: `src/commands/printf.c` (POSIX's printf, 208 lines), compiled for
   `/bin/printf` in `system-build` beside `echo` and exported by `core`; sbase's leaves
   `system-tools` and `posix`. `test/commands.test.mjs` compares its output and status with the
   host's coreutils printf on 17 cases (flags, widths, `*`, `%b` and `\c`, octal and hex escapes,
@@ -82,7 +82,7 @@ Item numbers are this task's. Evidence in `work/slop/build/slop-evidence/`.
   2,313 lines of `src/dollyfile.c` to 2,123. The engine guards the field counts it indexes
   (EXPORTS read `words[0]` before counting them in the proposal). `scripts/image-inventory.c`
   allows `/etc/dolly/recipe.rows` in a build beside `recipe.locator`. Why each piece of the
-  engine's parser existed: The tokenizer
+  engine's parser existed: the tokenizer
   (`strip_comment`, `next_word`, `split_words`, `trim`), the line assembly in `execute_recipe`
   and the syntax and order checks of `process_line` date from the first engine (`9e013dd9`,
   2026-08-31), when it was the recipe's only reader. The page's parser came for views, host
@@ -124,8 +124,8 @@ Item numbers are this task's. Evidence in `work/slop/build/slop-evidence/`.
   check (`default` opens in `/workspace`; `cd /tmp && slop` stays in `/tmp`) first timed out
   waiting for a new foreground PID: a shell typed at the prompt is not an interactive
   foreground program as `foreground -i` makes one; the nested shell already showed
-  `dolly:/tmp$`. It now waits for that prompt (`0b7c0696`); with round 1's Slop it fails, the
-  nested prompt being `dolly:/workspace$`. In `system`, `/bin/cd` is absent, `type cd` names
+  `dolly:/tmp$`. It now waits for that prompt (`0b7c0696`); round 1's Slop could not pass it (its
+  `interactive()` changed into `/workspace`; reasoned, not run). In `system`, `/bin/cd` is absent, `type cd` names
   the builtin and `printf`'s page is installed. 200 iterations, a quieter machine than round
   1: the four in the shell 0.076 to 0.081 s (Chromium) and 0.095 s (Firefox); as programs
   2.65 to 2.75 s and 4.34 to 4.35 s, the 2.4 to 2.8 s the task names for three of them.
@@ -134,13 +134,11 @@ Item numbers are this task's. Evidence in `work/slop/build/slop-evidence/`.
   which `system` lacks): **19.1 s** with `PATH` as it is, **331.2 s** with copies of `test`,
   `[`, `echo`, `printf`, `true` and `false` earlier on `PATH`, which Slop starts as processes.
   Both ran to the end of configure.
-
 - **More suites on round 2's images**, Chromium and Firefox: `custom-session-browser`,
   `pty-browser`, `threads-browser`, `sockets-browser`, `terminal-browser`,
   `embedding-browser`, `upload-browser` (custom images built in the tab from the page's rows)
   and `nena-browser` (live installs, which now read the image's receipt) pass; `nena` and
   `sockets` once the three `libdolly-*` packages they install were built (18 s).
-
 - **Make 4.4.1's configure natively** (`src/slop.c` with `test/fixtures/native-spawn.c`, so
   `/bin`'s six utilities run as the shell's code, Dolly's `printf` among them) against Bash:
   its 196 checks print the same 197 lines; then Slop stops at `config.status`, whose
