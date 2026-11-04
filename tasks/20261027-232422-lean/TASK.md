@@ -23,32 +23,46 @@ exception the demo's README states.
 - A demo test passes in Chromium and Firefox; the package has its row in `test/amy-browser.mjs`;
   sources are pinned, with licence rows.
 
-## State (2026-11-03): Firefox, a 6 GB Chromium and the domain are left
+## State (2026-11-05 night): the 6 GB browsers measured on the night round's images
 
 Tagged `0.1.5` (it was `0.1.4`, which shipped without it): the done-when names the domain's
 catalog, which only a release publishes.
 
-Done, on `integrate/2026-11-03` (`demo/lean-3` merged): the four images, `amy install lean` on
-`default`, `lean --run`, the four theorems and the false one, `lake new` and `lake build`, and
-`demos/lean/test/lean-browser.mjs` in Chromium (65.4 s in a 12 GB scope, on the reverted runtime,
-the integrator's note at the end); the `test/amy-browser.mjs` row (`lean`, `lean-std`,
-`lean-meta`: `demos/lean`), the pin (`config/source-pins.sh`) and the licence row
-(`config/upstreams.json`).
+Done: the four images, `amy install lean` on `default`, `lean --run`, the four theorems and the
+false one, `lake new` and `lake build`; `demos/lean/test/lean-browser.mjs` in Chromium (40.8 s) and
+Firefox (56.5 s) in the round of 2026-11-04 (`round-1104b`, its 36 GB scope); the
+`test/amy-browser.mjs` row, the pin and the licence row; the staging comment
+(`demos/lean/prepare-sources.sh`: the plain tar is for the archive's seven symlinks, 2af0c32c3).
 
-Left:
+Left: the demo test in a 6 GB slot (below, measured on the night round's images), and the
+release's checks of the domain's catalog (below).
 
-- The demo test in Firefox and in a 6 GB Chromium. Both waited for the process-memory change,
-  which is back since 2026-11-03 (`core/process-memory-2`: fc98e6c98 and the seal fix 697ef27da,
-  merged c89b87060; `tasks/20261101-102515-retained-process-memory`, closed). Not measured since:
-  for the next catalog round, which builds the Lean chain on that runtime.
-- The domain's catalog: `config/domain-pages-images.txt` lists `lean-std`, `lean-meta` and
-  `lean`; the next release publishes them.
-- `demos/lean/prepare-sources.sh`'s comment gives "a pax header" as the reason for its plain tar;
-  measured with the core tar, the reason is the archive's seven symlinks (`AGENTS.md`, `tests/`;
-  moved here from `tasks/20261102-004436-workaround-removal`). One line, with the next change of
-  that file.
-- stack-wrap keeps a frame's room charged when an exception unwinds it:
-  `tasks/20261102-174743-pm-debug`.
+## The domain's catalog: what the release must check (2026-11-04)
+
+`config/domain-pages-images.txt` lists `lean-std`, `lean-meta` and `lean`, and `default`, `cc`
+and `libuv`; the build's closure (`selectImageDefinitions`) adds `lean-stage0`, `stack-wrap` and
+the rest of the chain. `amy install lean` reads only package snapshots: `lean`'s records name
+`lean-std`, `lean-meta`, `cc` and `libuv`, all packages of that closure, and `amy-index.txt`
+lists every package the closure holds. So the list is complete. The release checks:
+
+1. The domain build registers the three packages: `grep -E '^lean(-std|-meta)? '` on the sealed
+   release's `amy-index.txt` prints three rows whose pins are those `Dollyfile-lean`'s
+   `INSTALL` rows name.
+2. `export-cloudflare-pages.mjs` stays within Pages' limits; it fails, naming the versions, when
+   it does not. Lean adds about 670 files (packs: `lean-std` 217, `lean-meta` 387, `lean` 42,
+   `lean-stage0` 22, 15 of them shared with other images; four packs over 25 MiB in 20 MiB parts; the
+   74 MB `lean.tar.gz` in four parts) and five `_headers` rules: one per split file
+   (`libLean.a` 39.5 MiB gzipped, `lake` 33.0, `lean` 30.9, stage 0's `lean` 30.9, and the
+   source). Measured on 2026-11-02, five versions needed 92 of the 100 rules and 0.1.4 alone 55
+   (6 per version, 37 large sources, 12 large packs); a compiler round changes every large
+   pack's bytes, so 0.1.5's large packs are all new rules, Lean's among them. Count them before
+   packaging (`build/lean-evidence/night/large-records.log` has Lean's; the method is
+   `pagesAsset`'s 25 MiB test on each pack): the limit is likely exceeded, and what to do then
+   (fewer versions, or a rule scheme that does not grow with packs) is the release's decision.
+3. On the packaged candidate (`npm run serve build/domain-releases`), in `default`:
+   `nena enable stack && amy install lean && lean --version`. No test runs `amy` against a
+   sealed release (`published-version.mjs boot` boots `default` only), so this is by hand, in
+   one browser.
 
 ## Measured (2026-11-02): `demo/lean-3`, on `integrate/2026-11-02`
 
