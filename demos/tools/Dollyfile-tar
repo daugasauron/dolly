@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # tar of the core package does not, and it takes that one's place: /bin
 # comes first on PATH. Its -z, -j and -J start gzip, bzip2 or xz from PATH,
 # by posix_spawn instead of fork (sbase-tar-spawn.patch), and tar waits for it.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 595b1e82d2ac8eb9707667c854aa7bf40c61bbf4d9a03caa7e76a5467af9745d
+FROM /v0.1.5/demos/tools/Dollyfile-tools-build 9f9cfa93f7bc4ddd5fc5cbd9ced4d2100cd41349f9f2b6f75ab9d8e26a57da62
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -22,8 +22,8 @@ REQUIRES TOOL   readlink
 REQUIRES TOOL   test
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.4/dist/static/default/sbase.tar 23daa7bd6d5169ba5ad4a9801fe039ba28b103e3dbb74583fccb48f3333253eb /tmp/sbase.tar
-SOURCE /v0.1.4/dist/static/tools/sbase-tar-spawn.patch 3c7c19e521a33229eb18435f81af7f47160a03c97f61e3e6c508b41648487463 /tmp/sbase-tar-spawn.patch
+SOURCE /v0.1.5/dist/static/default/sbase.tar 23daa7bd6d5169ba5ad4a9801fe039ba28b103e3dbb74583fccb48f3333253eb /tmp/sbase.tar
+SOURCE /v0.1.5/dist/static/tools/sbase-tar-spawn.patch 3c7c19e521a33229eb18435f81af7f47160a03c97f61e3e6c508b41648487463 /tmp/sbase-tar-spawn.patch
 SLOP tar -xf /tmp/sbase.tar -C /
 SLOP patch -p1 -d /tmp/sbase -i /tmp/sbase-tar-spawn.patch
 

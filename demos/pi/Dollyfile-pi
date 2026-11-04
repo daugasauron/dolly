@@ -10,10 +10,10 @@ REQUIRES HOST threads@0
 # their registry files the site serves (prepare-pi-npm.mjs). The pi command runs
 # dist/cli.js in its own process; npm's bin, dist/bundle/cli.js, would need
 # Node's require of ES modules and runs the undici it bundles.
-FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
-INSTALL /v0.1.4/demos/javascript/Dollyfile-janis-install 045633379195c3b9f59e464f0f802f8289a7e2d302fff7bb2da03f683cd820a1
-INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 0d81ed847a4a7913c8288d720fcfaeacd4e74f9c260e9602f815395db4495e25
-INSTALL /v0.1.4/demos/rust/Dollyfile-fd fe7d6e76ed1023da97acd4441e638f237da54bd41b4f805da6bce9172879b958
+FROM /v0.1.5/Dollyfile-system 87fe1e350c90556f41ae3e45343f9122ea9eca8cc488ae18b8a3ec08f1af0989
+INSTALL /v0.1.5/demos/javascript/Dollyfile-janis-install 3fa76b57d73d9c651629b27c946b1678f435fe1927b6d55c6aa229c514ee1ff4
+INSTALL /v0.1.5/demos/rust/Dollyfile-ripgrep 7fc773ddb232a265e76eff97b24a2a66c7ebb139084356c307b3031c2c7679bb
+INSTALL /v0.1.5/demos/rust/Dollyfile-fd 2ce8ee7d225128e77805a85a02ea4fbf8846bace3b76de11f723c2852fa1eaad
 REQUIRES HEADER quickjs-runner
 REQUIRES LIB    dolly-js
 REQUIRES LIB    quickjs
@@ -23,8 +23,8 @@ REQUIRES TOOL   janis-install
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.4/dist/static/default/pi-npm.tar     6ebb57dbb6755bce129249e8e3c5cad349139979a4a8aff6c9520a8e16650c1f /tmp/pi-npm.tar
-SOURCE /v0.1.4/dist/static/default/commands/pi.c  2296ec09e6b95b0d0dd065f806138e48eaad855d77d6366adfdfc33d720da98e /tmp/pi.c
+SOURCE /v0.1.5/dist/static/default/pi-npm.tar     6ebb57dbb6755bce129249e8e3c5cad349139979a4a8aff6c9520a8e16650c1f /tmp/pi-npm.tar
+SOURCE /v0.1.5/dist/static/default/commands/pi.c  2296ec09e6b95b0d0dd065f806138e48eaad855d77d6366adfdfc33d720da98e /tmp/pi.c
 SLOP tar -xf /tmp/pi-npm.tar -C /
 SLOP janis-install --registry /tmp/pi-npm @earendil-works/pi-coding-agent@1.0.3
 # Pi is an application nothing compiles against: its tree's source maps and

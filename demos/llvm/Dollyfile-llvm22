@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # LLVM 22 with every default target, Clang and LLD as libraries and headers,
 # and llvm-config, under /usr/lib/llvm22: what Zig 0.17 links. Built by its
 # CMake inside Dolly with the TableGen tools of llvm22-tablegen.
-FROM /v0.1.4/demos/llvm/Dollyfile-llvm22-tablegen 7c59d4a419dfe99e219fe6a1aa9f2deeb0b9295b3bb16ce80f211db12a19ec6a
+FROM /v0.1.5/demos/llvm/Dollyfile-llvm22-tablegen 9e803392dd1580e2d33521993fe14d380af722d8e39b597de39692a67bef4200
 REQUIRES TOOL llvm-tblgen
 REQUIRES TOOL clang-tblgen
 REQUIRES TOOL cmake
@@ -17,15 +17,15 @@ REQUIRES TOOL gzip
 REQUIRES TOOL tar
 REQUIRES TOOL patch
 
-SOURCE /v0.1.4/dist/static/llvm22/llvm-project.tar.gz d2b6b682f06a79130bd7a2de9a88f45a80a81abb44b37bad57f018c0d2c8f9ed /tmp/llvm-project.tar.gz
+SOURCE /v0.1.5/dist/static/llvm22/llvm-project.tar.gz d2b6b682f06a79130bd7a2de9a88f45a80a81abb44b37bad57f018c0d2c8f9ed /tmp/llvm-project.tar.gz
 SLOP time slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
-SOURCE /v0.1.4/dist/static/llvm22/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
+SOURCE /v0.1.5/dist/static/llvm22/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/llvm-project -i /tmp/llvm-host-triple.patch
 # Licences of the three projects whose libraries this package holds.
-SOURCE /v0.1.4/dist/static/llvm22/licenses/llvm 8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee /usr/share/licenses/llvm22/llvm/LICENSE.TXT
-SOURCE /v0.1.4/dist/static/llvm22/licenses/clang ebcd9bbf783a73d05c53ba4d586b8d5813dcdf3bbec50265860ccc885e606f47 /usr/share/licenses/llvm22/clang/LICENSE.TXT
-SOURCE /v0.1.4/dist/static/llvm22/licenses/lld f7891568956e34643eb6a0db1462db30820d40d7266e2a78063f2fe233ece5a0 /usr/share/licenses/llvm22/lld/LICENSE.TXT
+SOURCE /v0.1.5/dist/static/llvm22/licenses/llvm 8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee /usr/share/licenses/llvm22/llvm/LICENSE.TXT
+SOURCE /v0.1.5/dist/static/llvm22/licenses/clang ebcd9bbf783a73d05c53ba4d586b8d5813dcdf3bbec50265860ccc885e606f47 /usr/share/licenses/llvm22/clang/LICENSE.TXT
+SOURCE /v0.1.5/dist/static/llvm22/licenses/lld f7891568956e34643eb6a0db1462db30820d40d7266e2a78063f2fe233ece5a0 /usr/share/licenses/llvm22/lld/LICENSE.TXT
 FOLDER /usr/share/licenses/llvm22
 
 # The TableGen tools llvm22-tablegen built run again here: a snapshot keeps no

@@ -11,25 +11,25 @@ execFileSync(process.execPath,[resolve(root,"scripts/build-source-tar.mjs"),outp
 const hash=bytes=>createHash("sha256").update(bytes).digest("hex");
 const pin=async path=>`${siteReference(path)} ${hash(await readFile(resolve(root,path)))}`;
 // The Lua archive pin is refreshed by update-recipe-pins --sources.
-const luaPin=(/lua-5\.5\.1\.tar\.gz ([0-9a-f]{64})/.exec(await readFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),"utf8").catch(()=>""))??[,"0".repeat(64)])[1];
-await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),`DOLLY 7
-APPLICATION slopyard
+const luaPin=(/lua-5\.5\.1\.tar\.gz ([0-9a-f]{64})/.exec(await readFile(resolve(root,"demos/slopyard/Dollyfile-slopyard-build"),"utf8").catch(()=>""))??[,"0".repeat(64)])[1];
+await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard-build"),`DOLLY 7
+TOOLCHAIN slopyard-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
-REQUIRES HOST html@0
 REQUIRES HOST input@0
 REQUIRES HOST touch@0
 REQUIRES HOST download@0
+REQUIRES HOST upload@0
+REQUIRES HOST html@0
 REQUIRES HOST gpu@0
 REQUIRES HOST http@0
-REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
-REQUIRES HOST upload@0
 
+# Where Slopyard is compiled: its Lua 5.5, its Box3D build, the game and its
+# sources. slopyard-game keeps the game; the game's tests compile here.
 FROM ${await pin("demos/slopyard/Dollyfile-gamedev-sdk")}
 INSTALL ${await pin("Dollyfile-libdolly-gpu")}
 INSTALL ${await pin("demos/javascript/Dollyfile-janis")}
-INSTALL ${await pin("demos/pi/Dollyfile-pi-dolly")}
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make
@@ -79,6 +79,53 @@ SLOP rm -rf /tmp/slopyard-box3d
 EXPORTS TOOL slopyard
 EXPORTS LIB slopyard-box3d /usr/lib/libslopyard-box3d.a
 EXPORTS FOLDER slopyard-source /usr/src/dolly/slopyard
+
+ENTRY /bin/foreground -i /bin/slop
+`);
+await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard-game"),`DOLLY 7
+PACKAGE slopyard-game
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST touch@0
+REQUIRES HOST download@0
+REQUIRES HOST gpu@0
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
+
+# Slopyard as slopyard-build compiled it, with the sources it reads when it
+# runs: the game the slopyard application opens.
+FROM ${await pin("demos/slopyard/Dollyfile-slopyard-build")}
+EXPORTS TOOL slopyard
+EXPORTS FOLDER slopyard-source /usr/src/dolly/slopyard
+FILE /usr/share/licenses/lua5.5/readme.html
+FILE /usr/share/man/cat1/slopyard.1
+    slopyard: build walkers, boats, cranes and aircraft from boxes and servo
+    joints, program them in Lua and let an embedded Pi agent drive them, in a
+    coastal scrapyard where two teams deliver cargo.
+    slopyard --check runs the game's own checks.
+`);
+await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),`DOLLY 7
+APPLICATION slopyard
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST touch@0
+REQUIRES HOST gpu@0
+REQUIRES HOST download@0
+REQUIRES HOST upload@0
+REQUIRES HOST html@0
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
+
+INSTALL ${await pin("Dollyfile-core")}
+INSTALL ${await pin("Dollyfile-posix")}
+INSTALL ${await pin("Dollyfile-display")}
+# download and upload, which the game runs to export and import designs (transfer).
+INSTALL ${await pin("Dollyfile-transfer")}
+INSTALL ${await pin("demos/pi/Dollyfile-pi-dolly")}
+INSTALL ${await pin("demos/slopyard/Dollyfile-slopyard-game")}
 
 FILE /etc/dolly/init.slop
     /bin/foreground /usr/bin/slopyard

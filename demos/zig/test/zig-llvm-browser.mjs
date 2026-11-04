@@ -1,7 +1,8 @@
 // Zig with LLVM installed into a default session: build-exe links through cc,
 // the program starts a child, a threaded program starts a thread, a program
 // lists a directory, translate-c reads libc's headers, and zig build runs a
-// project's build.zig. Zig names a WebAssembly program NAME.wasm.
+// project's build.zig, both with the tools the package compiled. Zig names a
+// WebAssembly program NAME.wasm.
 // Usage: node demos/zig/test/zig-llvm-browser.mjs
 import { demoTest, writeCommand } from "../../browser.mjs";
 
@@ -68,6 +69,8 @@ for (const browser of ["chromium", "firefox"]) {
     await run("printf '#include <stdio.h>\\nint answer(void);\\n' > answer.h && zig translate-c -lc answer.h | grep -q 'pub extern fn answer'");
     await run(writeCommand("build.zig", build));
     await run('zig build && test "$(zig-out/bin/hello.wasm 2>&1)" = "hello child"');
+    // The package compiled Zig's maker and translator (its first-time setup): none was compiled again.
+    await run('test "$(ls /home/dolly/.cache/zig/o/*/maker.wasm /home/dolly/.cache/zig/o/*/translate-c.wasm | wc -l)" = 2');
     await run("cd / && rm -r /tmp/zig-test");
   });
 }

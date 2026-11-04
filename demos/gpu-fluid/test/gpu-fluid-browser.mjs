@@ -2,16 +2,15 @@ import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {chromium,firefox} from 'playwright-core';
 import {startBrowserServer} from '../../../test/browser-server.mjs';
-import {acceptDownload} from '../../browser.mjs';
 
 if(!process.env.DISPLAY){console.log('gpu-fluid: skipped: needs DISPLAY: a GPU window');process.exit(77);}
 
-// fluid writes the gpu@0 packets it sends to FLUID_RECORD; the page offers the
-// file (download@0), and the direct replay reads it from this server.
+// fluid writes the gpu@0 packets it sends to FLUID_RECORD; the direct replay
+// reads the file from a save of the session (snapshot@0).
 const output=new URL('../../../build/fluid-proof/',import.meta.url),results=[];
 await mkdir(output,{recursive:true});
 const site=await startBrowserServer(new URL('../../../',import.meta.url).pathname,'gpu-fluid',{
-  fixtures:{'fluid-direct.mjs':'demos/gpu-fluid/test/fixtures/fluid-direct.mjs','fluid.packets':'build/fluid-proof/fluid.packets'}});
+  fixtures:{'fluid-direct.mjs':'demos/gpu-fluid/test/fixtures/fluid-direct.mjs'}});
 try {
  for(const name of process.argv.length>2?process.argv.slice(2):['chromium','firefox']) {
   const browser=await ({chromium,firefox})[name].launch(name==='chromium'
@@ -56,22 +55,28 @@ try {
    const measurements=[];
    for(const command of ['fluid --check','fluid --bench 128 720 120','fluid --bench 256 720 120','fluid --bench 512 1080 120','fluid --bench 512 1080 120 shaded']) {
     assert.equal(await submit(`FLUID_RECORD=/tmp/fluid.packets ${command}`),0,await page.evaluate(()=>__dolly.visibleTerminalText()));
-    const offered=submit('download /tmp/fluid.packets');
-    await (await acceptDownload(page,()=>offered)).saveAs(new URL('fluid.packets',output).pathname);assert.equal(await offered,0);
     assert.equal(await submit(command),0);
     const terminal=await page.evaluate(()=>__dolly.visibleTerminalText());
     const matches=[...terminal.matchAll(/FLUID_BENCH (\{[^\r\n]+\})/g)];assert.ok(matches.length,terminal);
     const dolly=JSON.parse(matches.at(-1)[1]);
-    const replay=await page.evaluate(()=>new Promise((resolve,reject)=>{
-     const canvas=document.createElement('canvas');canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none';document.querySelector('#terminal').append(canvas);
-     const worker=new Worker('/fixture/fluid-direct.mjs',{type:'module'}),close=()=>{worker.terminate();canvas.remove();};
-     worker.onmessage=({data})=>{close();data.error?reject(Error(data.error)):resolve(data.result);};worker.onerror=e=>{close();reject(Error(e.message));};
-     fetch('/fixture/fluid.packets',{cache:'no-store'}).then(response=>response.arrayBuffer()).then(buffer=>{
-      const packets=[],view=new DataView(buffer);
-      for(let at=0;at<buffer.byteLength;at+=4+view.getUint32(at,true))packets.push(new Uint8Array(buffer,at+4,view.getUint32(at,true)));
+    const replay=await page.evaluate(async()=>{
+     await __dolly.saveSession('fluid-packets');
+     const store=await import(new URL('session-store.mjs',performance.getEntriesByType('resource').find(e=>e.name.endsWith('/src/browser.mjs')).name));
+     const session=(await store.decodeSessionSnapshot(await store.loadStoredSession('fluid-packets'))).slice(0),files=new DataView(session);let buffer;
+     await store.deleteStoredSession('fluid-packets');
+     for(let i=0,at=16;i<files.getUint32(12,true);i++){
+      const length=files.getUint32(at+4,true),size=Number(files.getBigUint64(at+8,true)),path=new TextDecoder().decode(new Uint8Array(session,at+24,length));
+      at+=24+length;if(path==='/tmp/fluid.packets')buffer=session.slice(at,at+size);at+=size;
+     }
+     const packets=[],view=new DataView(buffer);
+     for(let at=0;at<buffer.byteLength;at+=4+view.getUint32(at,true))packets.push(new Uint8Array(buffer,at+4,view.getUint32(at,true)));
+     return new Promise((resolve,reject)=>{
+      const canvas=document.createElement('canvas');canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none';document.querySelector('#terminal').append(canvas);
+      const worker=new Worker('/fixture/fluid-direct.mjs',{type:'module'}),close=()=>{worker.terminate();canvas.remove();};
+      worker.onmessage=({data})=>{close();data.error?reject(Error(data.error)):resolve(data.result);};worker.onerror=e=>{close();reject(Error(e.message));};
       const offscreen=canvas.transferControlToOffscreen();worker.postMessage({packets,canvas:offscreen},[offscreen]);
-     },reject);
-    }));
+     });
+    });
     assert.equal(replay.steps,dolly.steps);assert.ok(dolly.wall_ms>0&&replay.wall_ms>0);
     if(command.includes('--check')) {
      const proof=[...terminal.matchAll(/Fluid compute PASS: nonzero=(\d+) sum=([\d.]+)/g)].at(-1);assert.ok(proof,terminal);

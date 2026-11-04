@@ -7,7 +7,6 @@ import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { shareSnapshots } from "../scripts/share-pages-snapshots.mjs";
-import { parseGeneratedConstant } from "../scripts/image-directory.mjs";
 import { decodeSnapshotRecords, encodeSnapshotRecords } from "../src/snapshot-records.mjs";
 import { loadImages } from "../src/images.mjs";
 import { packagedSystemSnapshot } from "../src/packaged-snapshot.mjs";
@@ -42,14 +41,13 @@ test("a package's snapshot is merged from its packs as it is read, and checked w
       const bytes = encodeSnapshotRecords(records);
       await writeFile(resolve(inputs, `dolly-${image}-system.snapshot`), bytes);
       await mkdir(dist, { recursive: true });
-      await writeFile(resolve(dist, `dolly-${image}-system-snapshot.mjs`),
-        `export const DOLLY_SYSTEM_SNAPSHOT = Object.freeze(${JSON.stringify({ image, byteLength: bytes.length, sha256: digest(bytes) })});\n`);
+      await writeFile(resolve(dist, `dolly-${image}-system-snapshot.json`), JSON.stringify({ image, byteLength: bytes.length, sha256: digest(bytes) }));
     }
     await shareSnapshots(dist, inputs);
-    await writeFile(resolve(dist, "dolly-images.mjs"), "export const DOLLY_IMAGES = [], DOLLY_STATIC_SOURCES = [];\n");
+    await writeFile(resolve(dist, "dolly-images.json"), JSON.stringify({ images: [], staticSources: [] }));
     await loadImages(pathToFileURL(`${directory}/`));
     globalThis.fetch = async url => new Response(await readFile(fileURLToPath(url)));
-    const metadata = parseGeneratedConstant(await readFile(resolve(dist, "dolly-own-system-snapshot.mjs"), "utf8"), "DOLLY_SYSTEM_SNAPSHOT");
+    const metadata = JSON.parse(await readFile(resolve(dist, "dolly-own-system-snapshot.json"), "utf8"));
     assert.ok(metadata.packs.length >= 3);
     const read = async metadata => {
       const chunks = [];

@@ -1,6 +1,6 @@
 # Zig 0.17 across the board: zig, its LLVM, Ghostty's build and every image built with them
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 220
 - TAGS: zig,toolchain,display,0.1.5
 
@@ -21,16 +21,152 @@ Done when: every recipe that builds with Zig uses 0.17.0 (or the newest release 
 and pins name it, nothing pins 0.16; the catalog is rebuilt in a round, and the terminal, zig's
 own demo test and the images built with it pass their tests in Chromium and Firefox.
 
-## State (2026-11-04 01:10 JST)
+## Closed (2026-11-05 04:15 JST)
 
-Branch `zig/0.17` in `work/sdl2`. Pins, patches, recipes and docs name Zig 0.17.0, Ghostty
-v1.4.0 and LLVM 22.1.8; nothing pins 0.16 or LLVM 21. Built and tested in this tree: the core
-chain, and `llvm22`, `zig-llvm-build` and `zig-llvm` in a 9 GB slot (Measurements, Tests): the
-terminal's and zig's own tests pass in Chromium and Firefox. `demos/ghostty-gtk` is staged for
-v1.4.0 but needs Mesa's EGL (`tasks/20261103-110119-ghostty-egl`). Left: the catalog round
-(every image holds the new display), then closing this task; and a regression to explain before
-closing: `zig build` in a session took 103 s on its first run on 0.17 against 13.5 s on 0.16
-(the agent's report, 2026-11-04 01:10), not measured apart from the build system's cache.
+The upgrade is on `main` (`ebffaaad8`, the round of 4 November): pins, patches, recipes and docs
+name Zig 0.17.0, Ghostty v1.4.0 and LLVM 22.1.8, and the catalog was rebuilt and tested with
+them. The one item left, `zig build`'s first run in a session, is explained and fixed on
+`zig/build-speed` (`faf71c265` and the README commits after it): Zig 0.17 compiles its maker and
+translator on first use, by design; the `zig-llvm` package now does that when it is built. The
+first `zig build` of the demo's project in a session: 16.9 s in Chromium and 18.2 s in Firefox,
+against 95.6 s and 101.9 s before and 26-34 s and 36-42 s on Zig 0.16; the zig demo test passes
+in both (section "zig build's first run"). The merge's round rebuilds `zig-llvm`, `ghostty-gtk`
+and `ghostty-x11`. `demos/ghostty-gtk`'s EGL is `tasks/20261103-110119-ghostty-egl`; LLVM's
+per-relocation kernel calls are `tasks/20261104-131850-llvm-relocation-calls`.
+
+## zig build's first run (2026-11-04/05 night, `work/zigperf`)
+
+Evidence under `build/zigperf-evidence/` of `work/zigperf`: the measuring script
+(`tools/measure.mjs`, one session, each command timed from Playwright), its step lists
+(`steps-*.json`), logs, results and Chrome traces (CPU profiler only; `tools/trace-*.mjs` split
+them), and the native runs (`native/`). The project is the demo test's: `build.zig` installing
+`hello.zig`, which spawns `echo`. Zig 0.16 runs on v0.1.4's own runtime and images, served from
+the published archive (`work/locks/published/v0.1.4`, `tools/serve-published.mjs`, read-only);
+0.17 on this branch's runtime with the round's `zig-llvm` (image inputs `88959af6`).
+
+### Measured
+
+| Seconds | first `zig build` in a session | new project, global cache warm | rerun | `zig build-exe hello.zig` | first `zig translate-c` |
+| --- | --- | --- | --- | --- | --- |
+| 0.16, Chromium 156 | 25.9, 29.5, 30.8, 33.0, 33.5 | 19.2, 21.9, 23.9 | 0.8, 0.8 | 4.5, 5.5 | (in the compiler) |
+| 0.16, Firefox 155 | 36.3, 42.3 | 27.9 | (killed) | | |
+| 0.17, Chromium | 95.6 | 10.3 | 0.5 | 2.7 | 43.2 |
+| 0.17, Firefox | 101.9 | 14.0 | | | |
+| 0.17 with the setup done, Chromium | 17.0 | 11.5 | 0.6 | 2.9 | 0.6 |
+| 0.17 with the setup done, Firefox | 19.1 | 15.4 | | | |
+| 0.17, the package built with it, Chromium | 16.9 | 10.7 | 0.7 | 2.7 | 0.7 |
+| 0.17, the package built with it, Firefox | 18.2 | 16.8 | | | |
+| 0.16, native x86_64, one core | 5.3 | 2.2 | 0.02 | 3.1 | |
+| 0.17, native x86_64, one core | 72.2 (10.5 with `ZIG_DEBUG_CMD`) | 1.7 | 0.01 | 3.7 | 52.8 |
+
+"With the setup done": in the session, the package's new recipe steps by hand (`zig init
+--help`, `zig translate-c` of an empty header, the `rm`), the cache copied (`cp -r`: new inodes
+and modification times, as an install gives), then the same steps as before. In 0.17 the first
+`zig init --help` alone took 81.5 s (76.9, 98.7 s in later sessions; Firefox 90.6, 96.7 s), the
+first `zig translate-c` after it 43.2 s (39.9, 49.3; Firefox 47.7, 49.3), and a first `zig
+build` with `ZIG_DEBUG_CMD` 46.9 s. The same maker compile natively (host Zig 0.17, the patched
+`lib/`, `build-obj -target wasm64-emscripten -mcpu=generic+atomics`, one core) takes 44.3 s in
+ReleaseSafe and 14.4 s in Debug.
+
+The demo test's own commands (`demos/zig/test/zig-llvm-browser.mjs`, the new check included) in one
+session after `amy install zig-llvm`, on the round's package, without and with the setup done by
+hand first (`steps-demo-*.json`), in seconds:
+
+| | first `zig build-exe` | two more | `zig translate-c -lc` | `zig build` | in all |
+| --- | --- | --- | --- | --- | --- |
+| Chromium, without | 10.2 | 7.4 | 53.0 | 97.9 | 169 |
+| Chromium, with | 9.8 | 7.5 | 0.6 | 11.8 | 30 |
+| Firefox, without | 12.8 | 9.9 | 69.5 | 114.7 | 208 |
+| Firefox, with | 11.4 | 11.0 | 1.4 | 16.7 | 41 |
+
+With the setup the new check passed in both: after those commands the cache holds one maker and
+one translator, so `-lc` does not change the translator's key. The night round's own run of the
+demo test on its package (before the fix) took 148.7 s in Chromium and 186.7 s in Firefox
+(`work/integrate`, `round-1105-evidence/demos.log`; 34.6 s and 45.8 s on Zig 0.16).
+
+The machine is shared with the night round (three image builds), so a run varies by several
+seconds; the 13.5 s of the upgrade's report was not reproduced for 0.16. Firefox's second or third
+`zig build` in one v0.1.4 session ended the run both times: the 6 GB browser slot's OOM killer
+(journal, 22:21), so Firefox runs measure one or two builds.
+
+Where the first `zig build` goes (Chromium traces):
+- 0.16 (33.5 s): the zig process compiles the build runner with `build.zig`, and compiler_rt,
+  until 28.0 s (LLVM's codegen 14.1 s, the object writer's kernel calls 8.1 s, Sema 2.2 s,
+  AstGen 1.5 s, malloc 1.1 s); `cc` and `wasm-ld` link the runner in 0.4 s; the runner starts
+  `zig build-exe hello.zig` 0.6 s later, which compiles it in 4.5 s and links it in 0.4 s.
+- 0.17 (95.6 s): the zig process compiles the maker and compiler_rt until 79.6 s (LLVM's codegen
+  and optimization 65.2 s, malloc 6.6 s, Sema 3.5 s, the object writer's calls 1.8 s); the link
+  takes 0.3 s; the maker compiles the configurer (`build.zig` with `configurer.zig`, Debug) from
+  80.0 to 91.9 s (codegen 6.5 s, the writer's calls 2.9 s, Sema 0.9 s), links and runs it, then
+  compiles `hello.zig` from 92.4 to 95.6 s.
+- 0.17 with the setup done (17.0 s): the zig process finds the maker in 0.5 s (its cache hit,
+  rehashing the inputs whose stat changed); the configurer compiles from 0.5 to 13.2 s, hello
+  from 13.8 to 17.0 s. With the built package (16.9 s): the maker in 0.3 s, the configurer until
+  13.3 s, hello from 13.9 s.
+
+### Cause: Zig 0.17 compiles its tools on first use, by design
+
+- 0.16's `zig build` (`cmdBuild`) compiles `lib/compiler/build_runner.zig` with the project's
+  `build.zig` in Debug, per project, and translate-c was in the compiler (Aro linked in). 0.17's
+  `zig build`, `zig init`, `zig fetch` and `zig libc` are a `jitCmd` of `lib/compiler/Maker.zig`
+  with `.release_mode = .safe`, and `zig translate-c` (and `@cImport`) one of
+  `lib/compiler/translate-c/main.zig` with Aro, `.release_mode = .fast` (`src/main.zig`), each
+  compiled for the native target into the global cache the first time ("Compiling maker (first
+  time setup)"); the maker then compiles the project's configurer in Debug. `ZIG_DEBUG_CMD`
+  makes the tools Debug. Upstream pays this once a machine; a Dolly session starts from the
+  package, so every session paid it: the whole 7.6-fold regression. Per project, 0.17 is faster
+  than 0.16 (10.3 s against 19-24 s in Chromium, and natively 1.7 s against 2.2 s), so neither
+  LLVM 22, the CPU features nor Dolly's patch costs anything measurable.
+- The cache entry survives an install: a copy of the zig installation with new inodes and
+  modification times, and a cache of only `h/`, `b/` and `o/` without the `_zcu.o` objects,
+  hits in 15 ms natively (Zig rehashes the inputs whose stat changed; without `b/` it misses;
+  `ZIG_LIB_DIR` does not change the key). In sessions the maker's and translator's digests are
+  the same each time (`6b48a6ea…`, `4e7afa28…`). Zig accepts a cached source (`z/`) only for a
+  file of the same size, modification time and inode (`loadZirZoirCache`), so those are rebuilt
+  after an install anyway (60 MB, as the session's `du` showed).
+- In a session the setup writes 95 MB: `z/` 75 MB, the two tools' objects 11 MB, `maker.wasm`
+  4.8 MB, `translate-c.wasm` 3.7 MB, compiler_rt 0.5 MB, manifests and builtin modules 0.15 MB.
+
+### Fix: the package does the first-time setup
+
+`demos/zig/Dollyfile-zig-llvm` runs `zig init --help` and `zig translate-c` of an empty header
+(the translation in a cache of its own) when it is built, removes `z/`, `tmp/` and the `_zcu.o`
+objects, and retains `/home/dolly/.cache/zig` (9 MB): HOME is `/home/dolly` for every process
+(`src/dolly.c`), so this is the cache Zig opens in a session and in a recipe, with no variable to
+set (`git` keeps `~/.gitconfig` the same way). The demo test checks that, after `zig build-exe`,
+`zig translate-c` and `zig build`, the cache still holds one maker and one translator.
+`ghostty-gtk` and `ghostty-x11` are repinned; `ghostty-gtk` runs `zig build` in its recipe, which
+no longer compiles the maker there.
+
+The package does not build in a 6 GB `build` slot: Chrome was killed by the slot's OOM killer
+while the builder restored `zig-llvm-build`, `llvm22` and `cc` (2026-11-04 23:56, before any of
+the new steps ran). In a 9 GB slot after the night round it built in 251.5 s (2026-11-05 04:02,
+the round's `zig-llvm-build`, `llvm22` and `cc` linked in): 458,230,208 bytes, 9.0 MB more, and
+20,991 retained paths. In a session its maker and translator are the cache's (`6b48a6ea…`,
+`4e7afa28…`), and the first `zig build` compiles neither.
+
+Tests (2026-11-05, this tree, the package above): `npm run test:demos -- zig`, the new check
+included, passed in Chromium (54.6 s) and Firefox (70.1 s); the night round's run on its package
+took 148.7 s and 186.7 s, Zig 0.16's 34.6 s and 45.8 s. Source suite: 476 passed.
+
+### Kernel calls (both versions, not the regression)
+
+- LLVM's wasm object writer patches each relocation with `raw_fd_ostream::pwrite_impl`, which is
+  `lseek`, `write`, `lseek` (`WasmObjectWriter::applyRelocations`): in 0.16's first `zig build`
+  8.1 s of the 28 s compile, in 0.17's configurer 2.9 s of 11.9 s. Natively `zig build-obj
+  hello.zig -target wasm64-emscripten` makes 63,294 `lseek` and 31,970 `write` calls.
+- A C program timing 100,000 calls in a `default` session (`bench.c`): `lseek` 10.7 µs,
+  `pwrite` 10.7 µs, the writer's three calls 34 µs in Chromium; 21 µs, 22 µs and 63 µs in
+  Firefox (native: 0.06 µs, 0.47 µs, 0.6 µs). Each call is a `postMessage` to the supervisor
+  and an `Atomics.wait` (`src/process-worker.mjs`). Dolly's own `cc` makes the same calls (one
+  `cc -O2 -c` of a generated file: 104,008 `lseek` and 52,371 `write`, about 1.7 s of 4.5 s).
+  Filed as `tasks/20261104-131850-llvm-relocation-calls`.
+- `amy install zig-llvm` installs 19,660 files, 446,356,421 bytes, after `cc`'s 134,168,966:
+  580 MB, more than the 512 MiB a session save holds (`docs/sessions.md`): saving a `default`
+  session right after `amy install zig-llvm` fails with "Dolly session exceeds its 512 MiB limit"
+  (Chromium, 2026-11-05, `tools/save-check.mjs`), with or without the 9 MB of the setup. For the
+  image-size audit (`tasks/20261103-102041-imgsize`): `/usr/lib/zig` is 206.8 MB of it, 137.6 MB
+  of that `lib/libc` (the libcs Zig builds for other targets; Dolly's is the system's, `ZIG_LIBC`).
 
 ## Findings (2026-11-03, with evidence)
 
@@ -245,3 +381,23 @@ the man page's program, its `cc` and its run 4.7 s.
 - amy applies a package's environment from the next session load, so a package whose tool needs
   a variable right after `amy install` (ZIG_LIBC) fails the install-then-use check; the root cause
   here was Dolly's cc ignoring `-Wp,-v`.
+- A fresh session is a fresh machine: whatever upstream does once a machine (Zig 0.17's
+  "first time setup" of its maker and translator) a Dolly session repeats, and an image build is
+  the place to do it once. When a tool is upgraded, read its first-run paths (`jitCmd` here), not
+  only its per-build ones: per project 0.17 was faster than 0.16; only the first run regressed.
+- The old version's published bytes are a free baseline: `work/locks/published/v0.1.4` served
+  read-only gave Zig 0.16 on its own runtime and images in minutes, with no build.
+- Playwright's `startTracing(page, { categories })` still records Chrome's default categories
+  unless the list starts with `-*`: 787 MB in 22 s and a truncated trace without it, 62 MB for
+  the whole build with it. A trace's `call` frames are the kernel round trips; grouping their
+  callers found LLVM's per-relocation `lseek`/`write`/`lseek` (a quarter of a Debug compile).
+- A tool's cache can ship in a package when its key does not hold paths or inodes: test the
+  relocation natively first (a copy with new inodes and mtimes, then time the hit), and see which
+  parts are keyed by inode (Zig's `z/`) and drop them.
+- Count what a 6 GB `build` slot can restore: `zig-llvm`'s builder (zig-llvm-build, llvm22, cc)
+  is killed before its first step, so a one-line recipe change waits for a 9 GB slot. Measure the
+  change by hand in a session first; that gave the numbers hours before the slot.
+- To know what a program asks of the kernel, count it: a two-line count by operation in the
+  supervisor's message handler, printed when a process exits and caught by Playwright's worker
+  console, answered in one run what a trace without function names could not (the seed `cc`
+  makes three calls per relocation too), then was reverted.

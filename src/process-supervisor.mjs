@@ -45,6 +45,35 @@ const compiledModuleCacheBytes = 256 * 1024 * 1024;
 // File versions known to hold a cached module's bytes (dolly_process_image_version).
 const compiledVersionEntries = 1024;
 const compilationNoticeMilliseconds = 250;
+// A large executable's module is compiled and held in a Worker of its own,
+// which goes once neither the cache nor a process holds the module: a Module
+// held here would go only at this Worker's next collection, which compiled
+// code does not hasten. Four 96 MB executables launched in turn kept five
+// compiled in Firefox, where the cache held two. An idle Worker costs about
+// 2.5 MB, so a small module is compiled and held here.
+const heldModuleBytes = 16 * 1024 * 1024;
+const holderUrl = URL.createObjectURL(new Blob([`let module;
+onmessage = async ({ data: { bytes, port } }) => {
+  if (port) return port.postMessage(module);
+  try {
+    module = await WebAssembly.compile(bytes);
+    postMessage(null);
+  } catch (error) {
+    postMessage(String(error?.message ?? error));
+  } finally {
+    bytes.transfer(0);
+  }
+};`], { type: "text/javascript" }));
+// The Worker holding the module compiled from BYTES, which it takes.
+function compileHeld(bytes) {
+  const holder = new Worker(holderUrl, { name: "dolly-module" });
+  return new Promise((resolve, reject) => {
+    const fail = message => { holder.terminate(); reject(new Error(message)); };
+    holder.onmessage = ({ data }) => data === null ? resolve(holder) : fail(data);
+    holder.onerror = event => { event.preventDefault(); fail(event.message || "module Worker failed"); };
+    holder.postMessage({ bytes: bytes.buffer }, [bytes.buffer]);
+  });
+}
 const largeInteractiveProcessBytes = 128 * 1024 * 1024;
 const workerReclamationMilliseconds = 500;
 
@@ -397,15 +426,18 @@ export class DollyProcessSupervisor {
   }
 
   async #compileProcess(bytes) {
+    const byteLength = bytes.byteLength;
     const digest = hex(await crypto.subtle.digest("SHA-256", bytes));
-    const key = `${bytes.byteLength}:${digest}`;
+    const key = `${byteLength}:${digest}`;
     if (this.compiledModules.has(key)) return this.#cachedModule(key);
+    // What this module will replace in the cache goes before it is compiled.
+    if (byteLength <= compiledModuleCacheBytes) this.#evict(byteLength);
 
     const started = performance.now();
     let noticeShown = false;
     const notice = setTimeout(() => {
       noticeShown = true;
-      const mebibytes = (bytes.byteLength / (1024 * 1024)).toFixed(1);
+      const mebibytes = (byteLength / (1024 * 1024)).toFixed(1);
       this.#writeTerminal(
         `\r\ndolly: preparing ${mebibytes} MiB WebAssembly executable for this session...\r\n`,
       );
@@ -424,7 +456,7 @@ export class DollyProcessSupervisor {
       checkHostAbi(requirements, this.hostAbi);
       threaded = validateThreadProfile(parsed, requirements, this.threadContract);
       largeStack = parsed.customSections.includes("dolly.process.stack");
-      module = await WebAssembly.compile(bytes);
+      module = byteLength >= heldModuleBytes ? await compileHeld(bytes) : await WebAssembly.compile(bytes);
       processInterface = { imports: parsed.imports, exports: parsed.exports,
         castEmulationParameters: parsed.castEmulationParameters };
       prepared = true;
@@ -438,19 +470,33 @@ export class DollyProcessSupervisor {
         );
       }
     }
-    const compiled = { key, module, memoryRequirements, processInterface, threaded, largeStack, requirements, byteLength: bytes.byteLength };
-    if (bytes.byteLength <= compiledModuleCacheBytes) {
+    const compiled = { key, module, memoryRequirements, processInterface, threaded, largeStack, requirements, byteLength };
+    if (byteLength <= compiledModuleCacheBytes) {
+      // An exec's compile may have run beside this one.
+      this.#evict(byteLength);
       this.compiledModules.set(key, compiled);
-      this.compiledModuleBytes += bytes.byteLength;
-      while (this.compiledModules.size > compiledModuleCacheEntries ||
-             this.compiledModuleBytes > compiledModuleCacheBytes) {
-        const oldestKey = this.compiledModules.keys().next().value;
-        const oldest = this.compiledModules.get(oldestKey);
-        this.compiledModules.delete(oldestKey);
-        this.compiledModuleBytes -= oldest.byteLength;
-      }
+      this.compiledModuleBytes += byteLength;
     }
     return compiled;
+  }
+
+  // Evicts the least recently used modules until one of byteLength fits.
+  #evict(byteLength) {
+    while (this.compiledModules.size && (this.compiledModules.size >= compiledModuleCacheEntries ||
+           this.compiledModuleBytes + byteLength > compiledModuleCacheBytes)) {
+      const [oldestKey, oldest] = this.compiledModules.entries().next().value;
+      this.compiledModules.delete(oldestKey);
+      this.compiledModuleBytes -= oldest.byteLength;
+      this.#release(oldest);
+    }
+  }
+
+  // Ends the Worker of a held module (heldModuleBytes) that neither the cache
+  // nor a process holds.
+  #release(compiled) {
+    if (!(compiled.module instanceof Worker) || this.compiledModules.get(compiled.key) === compiled) return;
+    for (const process of this.processes.values()) if (process.compiled === compiled) return;
+    compiled.module.terminate();
   }
 
   #writeTerminal(text) {
@@ -472,16 +518,18 @@ export class DollyProcessSupervisor {
   async #launchPending() {
     for (let pid; (pid = this.kernel.dolly_process_next_launch()) !== 0;) {
       const process = this.processes.get(pid);
+      let compiled;
       try {
         if (!process) throw new Error(`kernel supplied unregistered process ${pid}`);
-        const compiled = await this.#compiledImage(pid);
-        if (!this.#canLaunch(process)) continue;
-        this.#start(process, compiled, this.#admit(compiled));
+        compiled = await this.#compiledImage(pid);
+        if (this.#canLaunch(process)) this.#start(process, compiled, this.#admit(compiled));
       } catch (error) {
         // A failed launch ends only its own process; exiting it in the kernel
         // also stops next_launch from naming it again.
         if (process) this.#fail(process, error);
         else this.kernel.dolly_process_worker_exited(pid, 126, 0);
+      } finally {
+        if (compiled) this.#release(compiled);
       }
     }
   }
@@ -518,9 +566,10 @@ export class DollyProcessSupervisor {
     return local;
   }
 
-  #start(process, { module, memoryRequirements, processInterface, threaded, largeStack }, local) {
+  #start(process, compiled, local) {
+    const { memoryRequirements, processInterface, threaded, largeStack } = compiled;
     Object.assign(process, { memoryRequirements, memoryBytes: Number(memoryRequirements.initial) * 65536,
-      maximumBytes: Number(memoryRequirements.maximum) * 65536, module, processInterface, threaded, largeStack, local });
+      maximumBytes: Number(memoryRequirements.maximum) * 65536, compiled, processInterface, threaded, largeStack, local });
     if (threaded) {
       const tid = this.kernel.dolly_threads_attach(process.pid);
       if (tid <= 0) throw new Error(`kernel could not reserve main thread: ${tid}`);
@@ -539,10 +588,12 @@ export class DollyProcessSupervisor {
     const execution = { thread, message };
     process.execution = execution;
     let compiled, local;
+    const unused = () => compiled && this.#release(compiled);
     try {
       compiled = await this.#compiledImage(process.pid);
       if (process.execution === execution) local = this.#admit(compiled);
     } catch (error) {
+      unused();
       if (process.execution !== execution) return;
       process.execution = null;
       const line = encoder.encode(`dolly: process ${process.pid} cannot run its new program: ` +
@@ -552,10 +603,11 @@ export class DollyProcessSupervisor {
       this.#signal(thread, message.sequence, -BigInt(DOLLY_ERRNO.ENOEXEC));
       return;
     }
-    if (process.execution !== execution) return;
+    if (process.execution !== execution) return unused();
     process.execution = null;
     const signalAtStart = this.kernel.dolly_process_exec_commit(process.pid);
     if (signalAtStart < 0) {
+      unused();
       this.#fail(process, new Error(`kernel rejected process ${process.pid} exec: ${signalAtStart}`));
       return;
     }
@@ -565,14 +617,15 @@ export class DollyProcessSupervisor {
     const delay = this.#reclamationDeadline(process) - performance.now();
     if (process.interruptTimer !== null) clearTimeout(process.interruptTimer);
     process.interruptTimer = null;
-    this.#disposeWorker(process);
+    this.#disposeWorker(process, compiled);
     Object.assign(process, { started: false, threaded: false, tid: 0, threads: new Map(), signalAtStart });
     // Its descriptors with CLOEXEC are closed: a reader of their pipes goes on now.
     this.#deliverRaised();
     if (this.kernel.dolly_process_take_wakeup()) this.serviceDeferred();
     const start = () => {
-      if (!this.#canLaunch(process)) return;
-      try { this.#start(process, compiled, local); } catch (error) { this.#fail(process, error); }
+      try {
+        if (this.#canLaunch(process)) this.#start(process, compiled, local);
+      } catch (error) { this.#fail(process, error); } finally { this.#release(compiled); }
     };
     if (delay > 0) setTimeout(start, delay);
     else start();
@@ -580,7 +633,7 @@ export class DollyProcessSupervisor {
 
   // port: for a thread, the channel the spawning Worker sends the memory on.
   #launchWorker(process, thread, argument = undefined, port = undefined) {
-    const { pid, module, memoryRequirements, processInterface, threaded, local } = process;
+    const { pid, compiled: { module }, memoryRequirements, processInterface, threaded, local } = process;
     const name = `dolly-process-${pid}-thread-${thread.tid}`;
     const worker = threaded ? this.threadHost.create(pid, this.workerUrl, name)
       : new Worker(this.workerUrl, { type: "module", name });
@@ -609,11 +662,15 @@ export class DollyProcessSupervisor {
     worker.addEventListener("messageerror", thread.messageErrorHandler, { once: true });
     // local: the modules this executable records that are served in its own
     // Worker (host/dso), each as the bundle it imports and its configuration.
-    worker.postMessage({ type: "configure", pid, tid: thread.tid, argument, threaded, module, control,
+    // A held module comes from its Worker, on a channel of this Worker's own.
+    const channel = module instanceof Worker ? new MessageChannel() : null;
+    channel && module.postMessage({ port: channel.port1 }, [channel.port1]);
+    worker.postMessage({ type: "configure", pid, tid: thread.tid, argument, threaded, control,
+      module: channel ? channel.port2 : module,
       memory: memoryRequirements, port, mailbox: thread.mailbox, kernelMemory: this.kernelMemory, gateModule: this.gateModule,
       promisingEntry: this.promisingEntry && process.largeStack, stackDepths: this.stackDepths,
       clockOrigin: performance.timeOrigin, processInterface, local: local.map(requirement => this.processModules.get(requirement)) },
-    port ? [port] : []);
+    [port, channel?.port2].filter(Boolean));
   }
 
   #canLaunch(process) {
@@ -988,10 +1045,13 @@ export class DollyProcessSupervisor {
     this.#disposeWorker(process);
   }
 
-  #disposeWorker(process) {
+  // next: the module an exec starts next, which stays even if it is this one.
+  #disposeWorker(process, next = null) {
     for (const thread of [...process.threads.values()]) this.#disposeThread(process, thread);
     this.#disposeThread(process, process);
-    process.module = process.processInterface = null;
+    const { compiled } = process;
+    process.compiled = process.processInterface = null;
+    if (compiled && compiled !== next) this.#release(compiled);
   }
 
   serviceDeferred() {
@@ -1014,6 +1074,7 @@ export class DollyProcessSupervisor {
     }
     this.processes.clear();
     this.deferred.clear();
+    for (const compiled of this.compiledModules.values()) if (compiled.module instanceof Worker) compiled.module.terminate();
     this.compiledModules.clear();
     this.compiledModuleBytes = 0;
     this.compiledVersions.clear();

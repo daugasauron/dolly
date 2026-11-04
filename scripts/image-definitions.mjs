@@ -5,7 +5,7 @@ import { basename, resolve } from "node:path";
 import { inspectDollyfile, imageFileName } from "../src/dollyfile-view.mjs";
 import { validName } from "../src/image-names.mjs";
 import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
-import { catalogRecord, catalogSource } from "./image-directory.mjs";
+import { catalogJson, catalogRecord } from "./image-directory.mjs";
 import { recipeFiles } from "./recipe-files.mjs";
 import { publishedHostFiles, publishedDocument } from "./host-modules.mjs";
 import { siteReference, sitePath } from "../src/static-asset.mjs";
@@ -122,13 +122,13 @@ export async function inspectStaticSources(projectDir, definitions) {
     left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
 }
 
-export async function imageRegistrySource(projectDir, definitions, staticSources = []) {
+export async function imageRegistryJson(projectDir, definitions, staticSources = []) {
   const loadGraph = createDollyfileGraphLoader(projectDir);
-  return catalogSource(await Promise.all(definitions.map(async definition =>
+  return catalogJson(await Promise.all(definitions.map(async definition =>
     catalogRecord(definition, await loadGraph(definition.filename)))), staticSources);
 }
 
 export async function writeImageRegistry(projectDir, definitions, staticSources = []) {
-  await writeFile(resolve(projectDir, "dist/dolly-images.mjs"),
-    await imageRegistrySource(projectDir, definitions, staticSources));
+  await writeFile(resolve(projectDir, "dist/dolly-images.json"),
+    await imageRegistryJson(projectDir, definitions, staticSources));
 }

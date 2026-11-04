@@ -67,6 +67,11 @@ export async function lintDollyfiles(projectDir) {
     if (definition.parsed.role === "application" && !graph.root.hostRequirements.includes("display@0")) {
       throw new Error(`${definition.filename}: an APPLICATION needs display@0 to be opened`);
     }
+    // An application keeps no toolchain, nor the modules its programs stamp:
+    // it installs the packages of what it is for.
+    if (definition.parsed.role === "application" && graph.root.artifactTargets.some(({ reference }) => reference.operation === "from")) {
+      throw new Error(`${definition.filename}: an APPLICATION has no FROM: INSTALL core, posix, display and the packages it is for`);
+    }
     const problem = entryProblem(graph.root);
     if (problem) throw new Error(`${definition.filename}: ${problem}`);
   }

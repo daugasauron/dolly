@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 import { browserTest } from "./browser.mjs";
 import { decodeSnapshotRecords, encodeSnapshotRecords } from "../src/snapshot-records.mjs";
-import { DOLLY_SYSTEM_SNAPSHOT as original } from "../dist/dolly-default-system-snapshot.mjs";
+import original from "../dist/dolly-default-system-snapshot.json" with { type: "json" };
 
 // Interleaved records and reversed parts require the canonical image hash, not
 // the digest of a concatenation or the last successful download.
@@ -30,7 +30,7 @@ await browserTest("snapshot stream", { server: { sourceOverrides } }, async ({ b
     else sourceOverrides.delete("/Dollyfile");
     if (scenario === "wrong-image-digest") candidate.sha256 = "0".repeat(64);
     if (scenario === "wrong-pack-digest") candidate.packs[0].sha256 = "f".repeat(64);
-    sourceOverrides.set("/dist/dolly-default-system-snapshot.mjs", `export const DOLLY_SYSTEM_SNAPSHOT = ${JSON.stringify(candidate)};`);
+    sourceOverrides.set("/dist/dolly-default-system-snapshot.json", JSON.stringify(candidate));
     const page = await browser.newPage();
     page.setDefaultTimeout(45_000);
     // The runtime must never start (post "ready") from an unverified image.

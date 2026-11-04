@@ -69,8 +69,6 @@ const settle = () => new Promise(resolve => setTimeout(resolve, 200));
 await browserTest("process", { image: "system", server: { fixtures, handle } }, async ({ server, open }) => {
   const { page, submit, text, waitForText } = await open({
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
-  // The page's Workers while the shell waits for a line: the runtime's and one per process.
-  const idleWorkers = page.workers().length;
   const run = async command => assert.equal(await submit(command), 0, command);
   // An orphan ends in its own time.
   const eventually = async command => {
@@ -104,6 +102,10 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   assert.equal(await cancelled, 0, "an interrupted process sleep returns EINTR after the handler runs");
 
   for (const name of ["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-dispositions.c", "process-interrupt.c", "process-exec.c", "input.tgz"]) await fetchFixture(name);
+  // The page's Workers while the shell waits for a line: the runtime's, one per
+  // process, and one per large executable compiled, here the compiler's.
+  await settle();
+  const idleWorkers = page.workers().length;
   // A parent that ends without a say leaves its running child and grandchild,
   // as on POSIX: on a trap, on a call through a null pointer, and when Ctrl-C,
   // which they ignore, ends its Worker in a loop that never enters the kernel.

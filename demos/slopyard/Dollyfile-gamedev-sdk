@@ -9,15 +9,16 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 REQUIRES HOST threads@0
+REQUIRES HOST html@0
 
-FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
-INSTALL /v0.1.4/demos/slopyard/Dollyfile-raylib e86041d9e3dcb43f7a884604570d659e694c6871735da7aa43702606086cc882
-INSTALL /v0.1.4/demos/slopyard/Dollyfile-box3d a84eb15f22d227ad3ab164f1bdbd51d7604e969ff3453aa950abb6799f1ad070
+FROM /v0.1.5/Dollyfile-system 87fe1e350c90556f41ae3e45343f9122ea9eca8cc488ae18b8a3ec08f1af0989
+INSTALL /v0.1.5/demos/slopyard/Dollyfile-raylib a0922d8e6f13878e779dba51bbba5d25db69dfbd4502be3579a65948c00ce702
+INSTALL /v0.1.5/demos/slopyard/Dollyfile-box3d 9d98f4dced460bc5111cb9d5f62b755f9c3a7f5b32346af9595bec2d9b9fe506
 REQUIRES TOOL   tar
 
 # raylib and Box3D are the packages'. Box3D's sources stay here for Slopyard,
 # which compiles them a second time with threads and SIMD.
-SOURCE /v0.1.4/dist/static/gamedev/box3d.tar 5a502138e8f7b47c5994bdd279e9dcddeae0b8e147e3b92ab79b723bd07e4377 /tmp/box3d.tar
+SOURCE /v0.1.5/dist/static/gamedev/box3d.tar 5a502138e8f7b47c5994bdd279e9dcddeae0b8e147e3b92ab79b723bd07e4377 /tmp/box3d.tar
 SLOP tar -xf /tmp/box3d.tar -C /
 FOLDER /usr/src/box3d
 

@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # tree from the files of upstream's release archive, unchanged, by the rules of its
 # Makefile; the paths it keeps for Linux alone are not taken.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 595b1e82d2ac8eb9707667c854aa7bf40c61bbf4d9a03caa7e76a5467af9745d
+FROM /v0.1.5/demos/tools/Dollyfile-tools-build 9f9cfa93f7bc4ddd5fc5cbd9ced4d2100cd41349f9f2b6f75ab9d8e26a57da62
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
@@ -18,7 +18,7 @@ REQUIRES TOOL   test
 REQUIRES TOOL   wc
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.4/dist/static/tools/unix-tree-2.3.2.tar.gz 513a53cbc42ca1f4ea06af2bab1f5283524a3848266b1d162416f8033afc4985 /tmp/tree.tar.gz
+SOURCE /v0.1.5/dist/static/tools/unix-tree-2.3.2.tar.gz 513a53cbc42ca1f4ea06af2bab1f5283524a3848266b1d162416f8033afc4985 /tmp/tree.tar.gz
 SLOP gzip -dc /tmp/tree.tar.gz | tar -xf - -C /tmp && mv /tmp/unix-tree-2.3.2 /tmp/tree
 
 FILE /tmp/tree.mk

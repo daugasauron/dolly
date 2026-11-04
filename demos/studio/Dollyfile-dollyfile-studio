@@ -1,24 +1,35 @@
 DOLLY 7
 APPLICATION dollyfile-studio
 REQUIRES HOST runtime@0
-REQUIRES HOST audio@0
-REQUIRES HOST build@0
 REQUIRES HOST display@0
-REQUIRES HOST html@0
 REQUIRES HOST input@0
-REQUIRES HOST download@0
-REQUIRES HOST dso@0
-REQUIRES HOST gpu@0
-REQUIRES HOST http@0
-REQUIRES HOST nena@0
-REQUIRES HOST packages@0
 REQUIRES HOST snapshot@0
-REQUIRES HOST threads@0
-REQUIRES HOST touch@0
+REQUIRES HOST download@0
 REQUIRES HOST upload@0
+REQUIRES HOST html@0
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
+REQUIRES HOST packages@0
+REQUIRES HOST nena@0
+REQUIRES HOST gpu@0
+REQUIRES HOST dso@0
+REQUIRES HOST build@0
 
-FROM /v0.1.4/demos/local-llm/Dollyfile-pi-local 2171725c10abbfc0a3cc508f99328edf37e0c0bddef7b0608b3bf2cdd2d91377
-INSTALL /v0.1.4/demos/neovim/Dollyfile-nvim 616f281cd544a5c704dd8bbcd03af0f716b9f7a816a3e3b4bf1d8cd6ebe399d5
+INSTALL /v0.1.5/Dollyfile-core 7205c35aed897514d3094f14a194669f73c295b4dd0213619d90155da8467cde
+INSTALL /v0.1.5/Dollyfile-posix a98de8b50ce0a29e867194e9fe9c44a54c0ea48ccf25a0f1353431daf827cf9e
+INSTALL /v0.1.5/Dollyfile-display 2032dbc473505507c7419267f43fdb2fe76b16b0907ca27f2b157a0ec54bda35
+# The tools Pi's dolly skill teaches: cc and make, Git, curl.
+INSTALL /v0.1.5/Dollyfile-cc afd89a983721972cb610d1d03ea39d5e6123d50b7b1a2b6922f1265657cc286a
+INSTALL /v0.1.5/Dollyfile-git 36cca7d2496d2af13507047e0ede8d2122334c1888dfec31c86d28a3e036ea16
+INSTALL /v0.1.5/Dollyfile-curl f31998555b9cca60e8ad5d7e6b5d8476aa119ecefbdc186f04461edad59f9e7d
+# download and upload, which Pi's prompt teaches (transfer).
+INSTALL /v0.1.5/Dollyfile-transfer 5ba6da77866030da273e49a2e8867ca6ef7441fa2024e90025da2239801dfe52
+INSTALL /v0.1.5/demos/pi/Dollyfile-pi-dolly 31f5728ec96e9391d1cf055292c041290e26f6036c415243d7f401add6fa59f8
+INSTALL /v0.1.5/Dollyfile-amy 2ec05a37cc6a08ef3ad14a7741f5b4e6b6a8627781cda2d509f6410f1ffecb45
+# nena enables the host modules a package needs beyond these.
+INSTALL /v0.1.5/Dollyfile-nena c02109a066ce2bf5c791ae4805fae4a29130b029a23276738069bde61be08175
+INSTALL /v0.1.5/demos/local-llm/Dollyfile-pi-llm 752c69f0934b2b98819ae8ef1395ac46d8d36fe2bc621644c30b69c595a3c39b
+INSTALL /v0.1.5/demos/neovim/Dollyfile-nvim f3a2ff1431b8c5b0b8eae58a7698352b731a652eb259bec76d0ec65a4433cf1c
 REQUIRES TOOL pi
 REQUIRES TOOL nvim
 REQUIRES TOOL janis
@@ -27,7 +38,7 @@ REQUIRES TOOL sha256sum
 REQUIRES TOOL sed
 # dollyfile-build starts disposable image builds through the page.
 
-SOURCE /v0.1.4/dist/static/studio/studio.tar cb59fc903a0d28e9f52e05b3578c104aba1b5a4d6d2a012fded5e63f0bff9a09 /tmp/dollyfile-studio/source.tar
+SOURCE /v0.1.5/dist/static/studio/studio.tar 00e6fe0adb6edd5f3fd4bb96b661a8217d02443b20364406cf176e7d23fd52a2 /tmp/dollyfile-studio/source.tar
 SLOP tar -xf /tmp/dollyfile-studio/source.tar -C /
 SLOP slop -e /usr/share/dollyfile-studio/install.slop
 SLOP dollyfile-lint /usr/share/dollyfile-studio/examples/Dollyfile-hello
@@ -41,6 +52,26 @@ FOLDER /home/dolly/.pi/agent/skills/dollyfiles
 FOLDER /home/dolly/.pi/agent/prompts
 FILE /home/dolly/.pi/agent/extensions/dollyfile-studio.js
 FOLDER /home/dolly/.config/nvim
+
+FILE /etc/dolly/init.slop
+    if test -f "$HOME/.dollyrc"; then
+      /bin/foreground /bin/slop -e "$HOME/.dollyrc"
+      status=$?
+      case "$status" in
+        0|130) ;;
+        *) printf 'Dolly: %s exited with status %s; continuing.\n' "$HOME/.dollyrc" "$status" >&2 ;;
+      esac
+    fi
+    for attempt in 1 2 3; do
+      /bin/foreground -i /usr/bin/pi
+      status=$?
+      case "$status" in 0|130) break ;; esac
+      if test "$attempt" -lt 3; then
+        printf '\nDolly: restarting Pi after unexpected status %s (%s/2).\n' "$status" "$attempt"
+      fi
+    done
+    printf '\nDolly: image entry exited; entering the recovery Slop shell.\n'
+    /bin/foreground -i /bin/slop
 
 FILE /home/dolly/.dollyrc
     if test ! -f /workspace/Dollyfile; then

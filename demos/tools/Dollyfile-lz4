@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # with the files and flags of upstream's Makefiles for one thread (a -pthread
 # program would need threads@0). unlz4 and lz4cat are lz4 under the names it
 # looks for. The library is BSD-licensed and the program GPL-2.0-or-later.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 595b1e82d2ac8eb9707667c854aa7bf40c61bbf4d9a03caa7e76a5467af9745d
+FROM /v0.1.5/demos/tools/Dollyfile-tools-build 9f9cfa93f7bc4ddd5fc5cbd9ced4d2100cd41349f9f2b6f75ab9d8e26a57da62
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -21,7 +21,7 @@ REQUIRES TOOL   mv
 REQUIRES TOOL   tar
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.4/dist/static/tools/lz4-1.10.0.tar.gz 537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b /tmp/lz4.tar.gz
+SOURCE /v0.1.5/dist/static/tools/lz4-1.10.0.tar.gz 537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b /tmp/lz4.tar.gz
 SLOP gzip -dc /tmp/lz4.tar.gz | tar -xf - -C /tmp && mv /tmp/lz4-1.10.0 /tmp/lz4
 
 FILE /tmp/lz4.mk

@@ -4,11 +4,11 @@ REQUIRES HOST runtime@0
 
 # gmqcc, the QuakeC compiler Xonotic's game logic is written for, from the
 # source of the pinned Xonotic release, compiled as upstream's Makefile does.
-FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
+FROM /v0.1.5/Dollyfile-system 87fe1e350c90556f41ae3e45343f9122ea9eca8cc488ae18b8a3ec08f1af0989
 REQUIRES TOOL c++
 REQUIRES TOOL tar
 
-SOURCE /v0.1.4/dist/static/xonotic/gmqcc.tar c2519d5c292708aa1628631ddb241aa06c1c8b0238a622429f5754142fde524a /tmp/gmqcc.tar
+SOURCE /v0.1.5/dist/static/xonotic/gmqcc.tar c2519d5c292708aa1628631ddb241aa06c1c8b0238a622429f5754142fde524a /tmp/gmqcc.tar
 SLOP tar -xf /tmp/gmqcc.tar -C /
 # __DATE__ and __TIME__ are the newest file time of Xonotic 0.8.6's source release, for reproducible builds.
 SLOP CWD /tmp/gmqcc SOURCE_DATE_EPOCH=1687230584 slop -c 'for unit in ast code conout fold ftepp intrin ir lexer main opts parser stat utf8 util; do c++ -O3 -std=c++11 -c $unit.cpp -o $unit.o || exit 1; done'

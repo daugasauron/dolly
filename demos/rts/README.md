@@ -7,6 +7,7 @@ between two vision-model Pi players and replays of recorded matches.
 
 - `rts-arena`: Watch a Seven Kingdoms replay or start a vision-model match.
 - `rts-build`: Seven Kingdoms and its local multiplayer adapter.
+- `seven-kingdoms`: the game as `rts-build` compiled it and its arena: `rts-arena` runs matches between agents, `rts-viewer` shows one.
 
 Open `/rts-arena/`; build with `npm run image -- rts-arena`.
 

@@ -432,7 +432,11 @@ int dolly_interrupt_poll(void) {
   return response == SIGINT ? response : 0;
 }
 
+/* threads.c's, in a program with threads. */
+__attribute__((__weak__)) void __dolly_threads_end(void);
+
 void dolly_exit_signal(int signal_number) {
+  if (__dolly_threads_end) __dolly_threads_end();
   const dolly_process_exit_request request = {
       (uint32_t)(128 + signal_number), (uint32_t)signal_number,
   };

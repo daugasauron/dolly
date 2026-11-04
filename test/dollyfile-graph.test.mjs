@@ -60,10 +60,12 @@ test("lint refuses an ENTRY program that no recipe of the image declares", async
     // Lint also wants each image described, in the checkout's README.
     await mkdir(resolve(directory, "demos"));
     await writeFile(resolve(directory, "README.md"), ["default", "core", "base", "pkg"].map(name => `- \`${name}\`: a fixture\n`).join(""));
-    const lint = async rows => {
-      await writeFile(resolve(directory, "Dollyfile"), `DOLLY 7\nAPPLICATION default\n${hosts}${rows}`);
+    // A toolchain people open: an application has no FROM.
+    const lint = async (rows, role = "TOOLCHAIN") => {
+      await writeFile(resolve(directory, "Dollyfile"), `DOLLY 7\n${role} default\n${hosts}${rows}`);
       return lintDollyfiles(directory);
     };
+    await assert.rejects(lint(`${from}ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop\n`, "APPLICATION"), /APPLICATION has no FROM/);
     const game = "SLOP cc /tmp/game.c -o /usr/bin/game\n";
     for (const rows of [
       `${from}ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop\n`,

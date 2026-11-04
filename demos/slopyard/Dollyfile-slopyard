@@ -2,69 +2,23 @@ DOLLY 7
 APPLICATION slopyard
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
-REQUIRES HOST html@0
 REQUIRES HOST input@0
-REQUIRES HOST touch@0
-REQUIRES HOST download@0
-REQUIRES HOST gpu@0
-REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
-REQUIRES HOST threads@0
+REQUIRES HOST touch@0
+REQUIRES HOST gpu@0
+REQUIRES HOST download@0
 REQUIRES HOST upload@0
+REQUIRES HOST html@0
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
 
-FROM /v0.1.4/demos/slopyard/Dollyfile-gamedev-sdk 885966218f4055de1c83c756b30e7c2bd64b8015eca245463a67ddb7e39a712a
-INSTALL /v0.1.4/Dollyfile-libdolly-gpu fbba6693c59593c76291f9dbbbe49ce3f922af6e5e0d2efd7d6b0ff2ff925ad0
-INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 82b168fd25180b51031ab96a8132407a7c6d9827f319bc42d289cd7fea0eb715
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly b73fc07f72bca4e34f01fad6aca39b8def8ea06ffe214355ead792490baa2190
-REQUIRES TOOL cc
-REQUIRES TOOL ar
-REQUIRES TOOL make
-REQUIRES TOOL gzip
-REQUIRES TOOL tar
-REQUIRES TOOL cp
-REQUIRES TOOL mkdir
-REQUIRES TOOL rm
-REQUIRES HEADER libc
-
-SOURCE /v0.1.4/dist/static/slopyard/lua-5.5.1.tar.gz 1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373dce /tmp/lua55/source.tar.gz
-SLOP gzip -dc /tmp/lua55/source.tar.gz > /tmp/lua55/source.tar
-SLOP tar -xf /tmp/lua55/source.tar -C /tmp/lua55
-FILE /tmp/lua55/Makefile
-    SOURCE := /tmp/lua55/lua-5.5.1/src
-    FILES := $(filter-out $(SOURCE)/lua.c,$(wildcard $(SOURCE)/*.c))
-    OBJECTS := $(patsubst $(SOURCE)/%.c,/tmp/lua55/%.o,$(FILES))
-    /usr/lib/liblua5.5.a: $(OBJECTS)
-    	ar rcs $@ $^
-    /tmp/lua55/%.o: $(SOURCE)/%.c
-    	cc -std=c17 -O2 -DLUA_USE_C89 -I $(SOURCE) -c $< -o $@
-SLOP make -f /tmp/lua55/Makefile
-SLOP mkdir -p /usr/include/lua5.5 /usr/share/licenses/lua5.5
-SLOP cp /tmp/lua55/lua-5.5.1/src/lua.h /tmp/lua55/lua-5.5.1/src/luaconf.h /tmp/lua55/lua-5.5.1/src/lauxlib.h /tmp/lua55/lua-5.5.1/src/lualib.h /usr/include/lua5.5
-SLOP cp /tmp/lua55/lua-5.5.1/doc/readme.html /usr/share/licenses/lua5.5/readme.html
-SLOP rm -rf /tmp/lua55
-EXPORTS LIB lua55 /usr/lib/liblua5.5.a
-EXPORTS HEADER lua55 /usr/include/lua5.5
-FILE /usr/share/licenses/lua5.5/readme.html
-REQUIRES LIB raylib
-REQUIRES LIB box3d
-REQUIRES LIB dolly-raylib
-REQUIRES LIB dolly-js
-REQUIRES LIB quickjs
-REQUIRES LIB lua55
-REQUIRES HEADER lua55
-REQUIRES HEADER gpu
-REQUIRES HEADER quickjs
-REQUIRES HEADER quickjs-runner
-
-SOURCE /v0.1.4/dist/static/slopyard/source.tar 2df9107d64587a5f208778c52cf03167348b2e4950d658af0b69860cf07a8e09 /tmp/slopyard.tar
-SLOP tar -xf /tmp/slopyard.tar -C / && rm /tmp/slopyard.tar
-SLOP make -f /usr/src/dolly/slopyard/box3d.mk
-SLOP cc -std=c17 -O2 -pthread -I/usr/include/lua5.5 /usr/src/dolly/slopyard/main.c /usr/src/dolly/slopyard/data.c /usr/src/dolly/slopyard/pi.c /usr/src/dolly/slopyard/character.c /usr/src/dolly/slopyard/render.c /usr/src/dolly/slopyard/world.c /usr/src/dolly/slopyard/terrain.c /usr/src/dolly/slopyard/magnet.c -ldolly-gpu -llua5.5 -ldolly-js -lquickjs -ldolly-raylib -lraylib -lslopyard-box3d -lm -o /usr/bin/slopyard
-SLOP /usr/bin/slopyard --check
-SLOP rm -rf /tmp/slopyard-box3d
-EXPORTS TOOL slopyard
-EXPORTS LIB slopyard-box3d /usr/lib/libslopyard-box3d.a
-EXPORTS FOLDER slopyard-source /usr/src/dolly/slopyard
+INSTALL /v0.1.5/Dollyfile-core 7205c35aed897514d3094f14a194669f73c295b4dd0213619d90155da8467cde
+INSTALL /v0.1.5/Dollyfile-posix a98de8b50ce0a29e867194e9fe9c44a54c0ea48ccf25a0f1353431daf827cf9e
+INSTALL /v0.1.5/Dollyfile-display 2032dbc473505507c7419267f43fdb2fe76b16b0907ca27f2b157a0ec54bda35
+# download and upload, which the game runs to export and import designs (transfer).
+INSTALL /v0.1.5/Dollyfile-transfer 5ba6da77866030da273e49a2e8867ca6ef7441fa2024e90025da2239801dfe52
+INSTALL /v0.1.5/demos/pi/Dollyfile-pi-dolly 31f5728ec96e9391d1cf055292c041290e26f6036c415243d7f401add6fa59f8
+INSTALL /v0.1.5/demos/slopyard/Dollyfile-slopyard-game 9d4742454ac90101d99bcb5db90db7a93d695956dbf42a65169447019c945450
 
 FILE /etc/dolly/init.slop
     /bin/foreground /usr/bin/slopyard

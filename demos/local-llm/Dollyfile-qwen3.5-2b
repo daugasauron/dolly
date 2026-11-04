@@ -3,7 +3,7 @@ PACKAGE qwen3.5-2b
 REQUIRES HOST runtime@0
 
 # Qwen3.5-2B Q4_K_M, the exact upstream GGUF assembled from parts SOURCE accepts, its description and its license.
-FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
+FROM /v0.1.5/Dollyfile-system 87fe1e350c90556f41ae3e45343f9122ea9eca8cc488ae18b8a3ec08f1af0989
 REQUIRES TOOL cat
 REQUIRES TOOL cut
 REQUIRES TOOL mkdir
@@ -11,10 +11,10 @@ REQUIRES TOOL rm
 REQUIRES TOOL sha256sum
 REQUIRES TOOL test
 
-SOURCE /v0.1.4/dist/static/llm/qwen3.5-2b/0.part d49c138cdbb01620bd5912d636e952e8525e7616e36442281ee60bc7d647b560 /tmp/llm/0.part
-SOURCE /v0.1.4/dist/static/llm/qwen3.5-2b/1.part 1ed4f36687871e49f58433733848d1786f75021124e9ce94a81c5d106e39bbad /tmp/llm/1.part
-SOURCE /v0.1.4/dist/static/llm/qwen3.5-2b/qwen3.5-2b.json abe15045f24cda3af8633d97dea841a798b93e3f120bce3270bb3394b87fbfe2 /usr/share/dolly/llm/qwen3.5-2b.json
-SOURCE /v0.1.4/dist/static/llm/qwen3.5-2b/LICENSE bbedc3fda3305820b977265f01b8619d87570a6739de3a5582c3464840f1e57a /usr/share/licenses/qwen3.5-2b/LICENSE
+SOURCE /v0.1.5/dist/static/llm/qwen3.5-2b/0.part d49c138cdbb01620bd5912d636e952e8525e7616e36442281ee60bc7d647b560 /tmp/llm/0.part
+SOURCE /v0.1.5/dist/static/llm/qwen3.5-2b/1.part 1ed4f36687871e49f58433733848d1786f75021124e9ce94a81c5d106e39bbad /tmp/llm/1.part
+SOURCE /v0.1.5/dist/static/llm/qwen3.5-2b/qwen3.5-2b.json abe15045f24cda3af8633d97dea841a798b93e3f120bce3270bb3394b87fbfe2 /usr/share/dolly/llm/qwen3.5-2b.json
+SOURCE /v0.1.5/dist/static/llm/qwen3.5-2b/LICENSE bbedc3fda3305820b977265f01b8619d87570a6739de3a5582c3464840f1e57a /usr/share/licenses/qwen3.5-2b/LICENSE
 SLOP mkdir -p /usr/share/dolly/llm
 SLOP cat /tmp/llm/0.part /tmp/llm/1.part > /usr/share/dolly/llm/qwen3.5-2b.gguf
 # The parts go before the capture, which copies the image twice.

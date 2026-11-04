@@ -11,9 +11,9 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { browserTest } from "./browser.mjs";
-import { DOLLY_SYSTEM_SNAPSHOT } from "../dist/dolly-default-system-snapshot.mjs";
+import metadata from "../dist/dolly-default-system-snapshot.json" with { type: "json" };
 
-const projectDir = new URL("..", import.meta.url).pathname, packs = DOLLY_SYSTEM_SNAPSHOT.packs;
+const projectDir = new URL("..", import.meta.url).pathname, packs = metadata.packs;
 let refusing = false, downloads = 0;
 const handle = async (request, response, path, headers) => {
   if (!/^\/dist\/packs\/[0-9a-f]{64}\.snapshot\.gz$/.test(path)) return false;

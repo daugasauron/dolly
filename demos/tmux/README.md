@@ -13,8 +13,10 @@ pseudo-terminal of `pty@0`
 
 Open `/tmux-panes/`; build with `npm run image -- tmux-panes`. `Ctrl+B d`
 detaches to Slop, the shells keep running, and `tmux attach` returns. `amy`
-installs into a pane what it installs into `default`: `amy install nvim`
-puts an editor beside a shell.
+installs into a pane a package whose host modules the image declares:
+`amy install vi` puts an editor beside a shell. The image declares no
+`nena@0`, so a package that needs another module, such as `nvim`'s `dso@0`,
+is refused there.
 
 ## Use
 
@@ -37,8 +39,7 @@ puts an editor beside a shell.
   spawns `tmux -D` and serves it its first command over a socket pair. The
   server outlives the client and ends with its last session.
 - `INSTALL` the package into an image that declares `pty@0` and `sockets@0`.
-  `default` does not declare `pty@0`: `amy install tmux` is refused there
-  until `nena enable pty` gives the session the module.
+  `default` declares neither: `amy install tmux` has `nena` enable them.
 - `/etc/tmux.conf` sets `default-terminal` to `xterm-256color`: Dolly's
   termcap programs, `less` among them, know that one terminal (`/etc/termcap`).
 

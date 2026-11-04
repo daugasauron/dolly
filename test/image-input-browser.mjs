@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { browserTest } from "./browser.mjs";
 import { buildTwice } from "./fixtures/image-build-browser.mjs";
 import { largePublishedInput, LARGE_INPUT_BYTES, LARGE_INPUT_PATH } from "./fixtures/large-published-input.mjs";
-import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import catalog from "../dist/dolly-images.json" with { type: "json" };
 import { siteReference } from "../src/static-asset.mjs";
-import { DOLLY_SYSTEM_SNAPSHOT as systemMetadata } from "../dist/dolly-system-system-snapshot.mjs";
+import systemMetadata from "../dist/dolly-system-system-snapshot.json" with { type: "json" };
 
 // A build whose input is a published image over 512 MB, as fd's is the 527 MB
 // rust-build: the page reads it from its packs and hands it to the build
@@ -12,7 +12,7 @@ import { DOLLY_SYSTEM_SNAPSHOT as systemMetadata } from "../dist/dolly-system-sy
 // second build reads both from the image cache. Built first thing after the
 // browser starts, as the catalog's build page does. The input stands in for
 // ps, a package nothing else the build reads is built from.
-const [system, ps] = ["system", "ps"].map(name => DOLLY_IMAGES.find(({ image }) => image === name));
+const [system, ps] = ["system", "ps"].map(name => catalog.images.find(({ image }) => image === name));
 const large = await largePublishedInput("ps");
 const recipe = `DOLLY 7
 APPLICATION large-input

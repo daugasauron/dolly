@@ -6,7 +6,7 @@ REQUIRES HOST dso@0
 # libffi from upstream's release with Dolly's target (libffi-dolly.c): calls
 # and closures go through dso@0's FFI in the process's own Worker, so a
 # program that links it records dso@0. CPython's ctypes and GObject use it.
-FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
+FROM /v0.1.5/Dollyfile-system 87fe1e350c90556f41ae3e45343f9122ea9eca8cc488ae18b8a3ec08f1af0989
 REQUIRES HEADER dso
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -15,12 +15,12 @@ REQUIRES TOOL   make
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.4/dist/static/python/libffi.tar f1edc3a00490ab6d673adb1202b0d779fdbff33bd28ab8382e39847e64109bce /tmp/libffi.tar
+SOURCE /v0.1.5/dist/static/python/libffi.tar f1edc3a00490ab6d673adb1202b0d779fdbff33bd28ab8382e39847e64109bce /tmp/libffi.tar
 SLOP tar \
   -xf /tmp/libffi.tar \
   -C /
 
-SOURCE /v0.1.4/dist/static/python/runtimes/libffi-dolly.c d5a180a210d829268b9686620fbfa2e5a5e439a2b0fe46ca55b12555f4b6f0d8 /usr/src/libffi/src/dolly.c
+SOURCE /v0.1.5/dist/static/python/runtimes/libffi-dolly.c d5a180a210d829268b9686620fbfa2e5a5e439a2b0fe46ca55b12555f4b6f0d8 /usr/src/libffi/src/dolly.c
 
 FILE /tmp/libffi/Makefile
     .RECIPEPREFIX := >

@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { delay, demoTest } from "../../browser.mjs";
 import { siteReference } from "../../../src/static-asset.mjs";
-import { DOLLY_IMAGES } from "../../../dist/dolly-images.mjs";
+import catalog from "../../../dist/dolly-images.json" with { type: "json" };
 
 let pageOrigin;
 const cors = request => ({ "access-control-allow-origin": pageOrigin, vary: "origin", "access-control-allow-methods": "POST",
@@ -55,7 +55,7 @@ const provider = createServer(async (request, response) => {
 await new Promise(resolve => provider.listen(0, "127.0.0.1", resolve));
 const llm = `http://127.0.0.1:${provider.address().port}`;
 
-const base = DOLLY_IMAGES.find(({ image }) => image === "pi-runtime");
+const base = catalog.images.find(({ image }) => image === "pi-runtime");
 const file = (path, text) => [`FILE ${path}`, ...text.trim().split("\n").map(line => `    ${line}`)];
 const recipe = ["DOLLY 7", "APPLICATION trip-agent", ...base.hostRequirements.map(module => `REQUIRES HOST ${module}`),
   `FROM ${siteReference(base.dollyfile)} ${base.sha256}`,

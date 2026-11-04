@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 # A build stage over gtk-build: Mesa's OpenGL through EGL's surfaceless
 # platform, drawing with softpipe in the program itself (mesa-dolly.patch; its
 # parsers are made on the host, prepare-mesa.sh). Static libraries in /usr/lib.
-FROM /v0.1.4/demos/gtk/Dollyfile-gtk-build 5a95edf545e8bad36b349457071c092fe8a875758aed79089235f5333b6a590b
+FROM /v0.1.5/demos/gtk/Dollyfile-gtk-build dd68287712c458dcbed6e5002b7ebc29b9388cc5661c6f5a4b9297919c66340d
 
 REQUIRES TOOL   ar
 REQUIRES TOOL   c++
@@ -25,16 +25,16 @@ REQUIRES TOOL   python3
 REQUIRES TOOL   tar
 
 # The Python modules Mesa's build runs, pure Python as published.
-SOURCE /v0.1.4/dist/static/ghostty-gtk/mako-1.4.3-py3-none-any.whl 723296007c870bfd6b3f0c3230dba7198096e5269297ebf5e4eff9e7ffa39d4f /tmp/mesa/mako.whl
-SOURCE /v0.1.4/dist/static/ghostty-gtk/packaging-26.3-py3-none-any.whl d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c /tmp/mesa/packaging.whl
-SOURCE /v0.1.4/dist/static/ghostty-gtk/markupsafe-3.0.3.tar.gz 722695808f4b6457b320fdc131280796bdceb04ab50fe1795cd540799ebe1698 /tmp/mesa/markupsafe.tar.gz
-SOURCE /v0.1.4/dist/static/ghostty-gtk/pyyaml-6.0.3.tar.gz d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f /tmp/mesa/pyyaml.tar.gz
+SOURCE /v0.1.5/dist/static/ghostty-gtk/mako-1.4.3-py3-none-any.whl 723296007c870bfd6b3f0c3230dba7198096e5269297ebf5e4eff9e7ffa39d4f /tmp/mesa/mako.whl
+SOURCE /v0.1.5/dist/static/ghostty-gtk/packaging-26.3-py3-none-any.whl d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c /tmp/mesa/packaging.whl
+SOURCE /v0.1.5/dist/static/ghostty-gtk/markupsafe-3.0.3.tar.gz 722695808f4b6457b320fdc131280796bdceb04ab50fe1795cd540799ebe1698 /tmp/mesa/markupsafe.tar.gz
+SOURCE /v0.1.5/dist/static/ghostty-gtk/pyyaml-6.0.3.tar.gz d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f /tmp/mesa/pyyaml.tar.gz
 SLOP CWD /tmp/mesa gzip -dc markupsafe.tar.gz | tar -xf -
 SLOP CWD /tmp/mesa gzip -dc pyyaml.tar.gz | tar -xf -
 SLOP CWD /tmp/mesa python3 -c "import shutil, sysconfig, zipfile; site = sysconfig.get_paths()['purelib']; [zipfile.ZipFile(wheel).extractall(site) for wheel in ('mako.whl', 'packaging.whl')]; shutil.copytree('markupsafe-3.0.3/src/markupsafe', site + '/markupsafe'); shutil.copytree('pyyaml-6.0.3/lib/yaml', site + '/yaml')"
 SLOP python3 -c 'import mako, markupsafe, packaging, yaml'
 
-SOURCE /v0.1.4/dist/static/ghostty-gtk/mesa.tar.gz 5aea83f47775edd9ed4b01b6d898b0560f0f1566bf8e595ded2c63f8aa17adfa /tmp/mesa/mesa.tar.gz
+SOURCE /v0.1.5/dist/static/ghostty-gtk/mesa.tar.gz 5aea83f47775edd9ed4b01b6d898b0560f0f1566bf8e595ded2c63f8aa17adfa /tmp/mesa/mesa.tar.gz
 SLOP CWD /tmp/mesa gzip -dc mesa.tar.gz | tar -xf - -C /
 SLOP CWD /tmp/mesa meson setup build mesa --wrap-mode=nodownload --prefix=/usr --libdir=lib --buildtype=release \
   -Ddefault_library=static -Dplatforms= -Dglx=disabled -Dgallium-drivers=softpipe -Dvulkan-drivers= \

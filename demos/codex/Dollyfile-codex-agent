@@ -3,15 +3,15 @@ APPLICATION codex-agent
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
-REQUIRES HOST download@0
-REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
+REQUIRES HOST http@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
-REQUIRES HOST upload@0
 
-FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
-INSTALL /v0.1.4/demos/codex/Dollyfile-codex 19d717eeb840a05ccbfbbfecd8cc607d0e3a9a58c8161f7e4da344ee0d579baf
+INSTALL /v0.1.5/Dollyfile-core 7205c35aed897514d3094f14a194669f73c295b4dd0213619d90155da8467cde
+INSTALL /v0.1.5/Dollyfile-posix a98de8b50ce0a29e867194e9fe9c44a54c0ea48ccf25a0f1353431daf827cf9e
+INSTALL /v0.1.5/Dollyfile-display 2032dbc473505507c7419267f43fdb2fe76b16b0907ca27f2b157a0ec54bda35
+INSTALL /v0.1.5/demos/codex/Dollyfile-codex dd91ebd830f7178d86eb98ace8979157d4d4bfd6174e6562aa20abdff63b08fd
 REQUIRES TOOL codex
 REQUIRES TOOL sh
 

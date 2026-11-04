@@ -495,8 +495,9 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   it runs; any other image's list is fixed, and nothing in Wasm changes it
   ([browser boundary](browser-boundary.md#host-modules)).
 - `nena` lists every module of the page with its state and what it gives;
-  `nena enable NAME...` and `nena disable NAME...` switch them. The loader's
-  refusal of a program and the engine's refusal of a package name the command:
+  `nena enable NAME...` and `nena disable NAME...` switch them; `amy install`
+  runs `nena enable` for the modules a package needs. The loader's refusal of
+  a program and the engine's refusal of a package name the command:
   `host module gpu@0 is not enabled: nena enable gpu`.
 - Enabling starts the module as at boot: a device module is enabled also
   where the browser has no such device, and its programs' OPEN fails with

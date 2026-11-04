@@ -2,19 +2,19 @@ import assert from "node:assert/strict";
 import { browserTest } from "./browser.mjs";
 import { dollyfileCases } from "./fixtures/dollyfile-cases.mjs";
 import { buildInputReuse, buildLogProof } from "./fixtures/image-build-browser.mjs";
-import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import catalog from "../dist/dolly-images.json" with { type: "json" };
 import { createHash } from "node:crypto";
 import { inspectDollyfile, recipeRows } from "../src/dollyfile-view.mjs";
 import { siteReference } from "../src/static-asset.mjs";
-import { DOLLY_SYSTEM_SNAPSHOT as systemMetadata } from "../dist/dolly-system-system-snapshot.mjs";
+import systemMetadata from "../dist/dolly-system-system-snapshot.json" with { type: "json" };
 
 // system is built FROM system-tools and installs packages: the base and child of the cache checks.
-const [system, tools] = ["system", "system-tools"].map(name => DOLLY_IMAGES.find(({ image }) => image === name));
+const [system, tools] = ["system", "system-tools"].map(name => catalog.images.find(({ image }) => image === name));
 const packs = metadata => metadata.packs.map(({ sha256 }) => `/dist/packs/${sha256}.snapshot.gz`).sort();
 // Building system reads each image its recipe names, every one's packs: a pack
 // two of them hold is downloaded once and then read from the pack store.
 const inputMetadata = await Promise.all(system.artifacts.map(async ({ image }) =>
-  (await import(`../dist/dolly-${image}-system-snapshot.mjs`)).DOLLY_SYSTEM_SNAPSHOT));
+  (await import(`../dist/dolly-${image}-system-snapshot.json`, { with: { type: "json" } })).default));
 const systemPacks = packs(systemMetadata), buildPacks = [...new Set(packs({ packs: inputMetadata.flatMap(metadata => metadata.packs) }))];
 const sources = { "fs-record.h": "src/fs-record.h", "fs-record.c": "test/fixtures/fs-record.c",
   "image-roundtrip.c": "test/fixtures/image-roundtrip.c", "system-snapshot.c": "src/system-snapshot.c",
@@ -31,7 +31,7 @@ for (const [name, source] of [["entry-missing", "DOLLY 7\nAPPLICATION entry-miss
   engineRecipes.set(`/fixture/${name}.rows`, recipeRows(inspectDollyfile(source), createHash("sha256").update(source).digest("hex")));
 }
 function handle(request, response, path, headers) {
-  if (hideSystemMetadata && path === "/dist/dolly-system-system-snapshot.mjs") response.writeHead(404, headers).end();
+  if (hideSystemMetadata && path === "/dist/dolly-system-system-snapshot.json") response.writeHead(404, headers).end();
   else if (parserRecipes.has(path)) response.writeHead(200, { ...headers, "content-type": "text/plain" }).end(parserRecipes.get(path));
   else if (engineRecipes.has(path)) response.writeHead(200, { ...headers, "content-type": "text/plain" }).end(engineRecipes.get(path));
   else return false;
@@ -187,7 +187,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
       if (!await saveImageArtifact(original, `/${system.dollyfile}`)) throw new Error("cache restoration failed");
     }
   }, { system: tools, child: system });
-  const children = DOLLY_IMAGES.filter(({ artifacts }) => artifacts.some(({ image }) => image === tools.image));
+  const children = catalog.images.filter(({ artifacts }) => artifacts.some(({ image }) => image === tools.image));
   assert.deepEqual({ ...stale, requested: children.some(({ image }) => image === stale.requested) },
     { changedBytes: true, staleHit: false, requested: true, failure: "EXPECTED_REBUILD" });
 
@@ -201,7 +201,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
     const { prepareImageArtifacts } = await import("/src/image-build.mjs");
     const { siteReference } = await import("/src/static-asset.mjs");
     const { DOLLY_SESSION_FORMAT_VERSION, saveStoredSession, loadStoredSession } = await import("/src/session-store.mjs");
-    const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import("/dist/dolly-system-system-snapshot.mjs");
+    const { default: metadata } = await import("/dist/dolly-system-system-snapshot.json", { with: { type: "json" } });
     const make = async (name, value) => {
       const source = new TextEncoder().encode(`DOLLY 7\nAPPLICATION ${name}\nENTRY /bin/slop\n`);
       return describeImageArtifact(new Blob([encodeSnapshotRecords(new Map([
@@ -284,7 +284,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
   await missing.addInitScript(instrument, iterationRecipe(system, "iteration-one"));
   try {
     const built = await boot(missing, "iteration-one", "/dist/static/session-recovery/");
-    assert.ok(server.requests.has("/dist/dolly-system-system-snapshot.mjs"));
+    assert.ok(server.requests.has("/dist/dolly-system-system-snapshot.json"));
     assert.deepEqual([built.payloadReads, built.downloads], [[], buildPacks]);
   } finally { hideSystemMetadata = false; }
 });

@@ -1,5 +1,5 @@
 import { inspectDollyfile, MAX_DOLLYFILE_BYTES } from "./dollyfile-view.mjs";
-import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import catalog from "../dist/dolly-images.json" with { type: "json" };
 import { siteReference } from "./static-asset.mjs";
 
 const form = document.querySelector("#custom-dollyfile");
@@ -7,7 +7,7 @@ const source = document.querySelector("#source");
 const status = document.querySelector("#status");
 const fileInput = document.querySelector("#dollyfile-upload");
 const storageKey = "dolly-custom-source";
-const base = DOLLY_IMAGES.find(image => image.image === "system") ?? DOLLY_IMAGES[0];
+const base = catalog.images.find(image => image.image === "system") ?? catalog.images[0];
 try {
   source.value = sessionStorage.getItem(storageKey) ?? `DOLLY 7
 APPLICATION custom

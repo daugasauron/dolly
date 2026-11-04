@@ -8,10 +8,10 @@ REQUIRES HOST http@0
 # the packages it depends on into /usr/lib/node_modules, with a /usr/bin
 # launcher for each command it names. It is one Janis script linked with the
 # runner, as tsc is, and checks and decompresses tarballs with sha512sum and gzip.
-FROM /v0.1.4/Dollyfile-system-tools 6002e88282bb0d520134235725b6082f5ad15644ad92c5dfe9f8c1f5808dfaa7
-INSTALL /v0.1.4/demos/javascript/Dollyfile-janis 82b168fd25180b51031ab96a8132407a7c6d9827f319bc42d289cd7fea0eb715
-INSTALL /v0.1.4/Dollyfile-gzip 4deb6aa5025dbebafa7085ec3c02244f15034903d021acd9d105362270773c2d
-INSTALL /v0.1.4/demos/tools/Dollyfile-sbase 1a749d27d01f852aec1be3fb82b1e46d3818eb0333223c34928807e3492a9bc5
+FROM /v0.1.5/Dollyfile-system-tools 39e8ad7c80d06b7a0c420bbeaae2e6b2423e7e633d38640e82d72a73c20e232a
+INSTALL /v0.1.5/demos/javascript/Dollyfile-janis 03999557889df193c09f4d7e46e79fe9cc1002cd355a795d08bd019136da0ae5
+INSTALL /v0.1.5/Dollyfile-gzip 013b863f06050c17395a8dbe2cb5590076108aac06a86b594c32415d890cb099
+INSTALL /v0.1.5/demos/tools/Dollyfile-sbase 89ba3487d849d74ba9c27f3c9a9c392678d5bc6c5f2ebeabf955967c83af3d45
 
 REQUIRES HEADER libc
 REQUIRES HEADER quickjs-runner
@@ -22,8 +22,8 @@ REQUIRES TOOL   gzip
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   sha512sum
 
-SOURCE /v0.1.4/dist/static/default/runtimes/janis-install.mjs bd49ed1516ea935601a6ab9b4fc0d03e386524a39a7ee13e5bddc66d2e6c0722 /usr/lib/janis-install/janis-install.mjs
-SOURCE /v0.1.4/dist/static/default/commands/janis-install.c   3a9eeafa19aea3b722e725072b5296d63511a1e0a4859b057e1b6cb03befedb6 /tmp/janis-install/janis-install.c
+SOURCE /v0.1.5/dist/static/default/runtimes/janis-install.mjs bd49ed1516ea935601a6ab9b4fc0d03e386524a39a7ee13e5bddc66d2e6c0722 /usr/lib/janis-install/janis-install.mjs
+SOURCE /v0.1.5/dist/static/default/commands/janis-install.c   3a9eeafa19aea3b722e725072b5296d63511a1e0a4859b057e1b6cb03befedb6 /tmp/janis-install/janis-install.c
 SLOP cc -I /usr/include/dolly /tmp/janis-install/janis-install.c -ldolly-js -lquickjs -o /usr/bin/janis-install
 
 SLOP janis-install --help > /usr/share/man/cat1/janis-install.1

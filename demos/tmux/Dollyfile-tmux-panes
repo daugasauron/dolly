@@ -3,23 +3,17 @@ APPLICATION tmux-panes
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
-REQUIRES HOST audio@0
-REQUIRES HOST download@0
-REQUIRES HOST dso@0
+REQUIRES HOST snapshot@0
 REQUIRES HOST http@0
 REQUIRES HOST packages@0
 REQUIRES HOST pty@0
-REQUIRES HOST snapshot@0
 REQUIRES HOST sockets@0
-REQUIRES HOST threads@0
-REQUIRES HOST touch@0
-REQUIRES HOST upload@0
 
-# packages, threads and dso are for what amy installs into a pane, as in default.
-
-FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
-INSTALL /v0.1.4/Dollyfile-amy c2e5f10354cb7098b459d45b44989553c558b786f12f360bfc87b70a1f34be19
-INSTALL /v0.1.4/demos/tmux/Dollyfile-tmux be567d6dd966ff2761216ec8840afdc995e35dee97eeb6cfdddb1594c4953b2a
+INSTALL /v0.1.5/Dollyfile-core 7205c35aed897514d3094f14a194669f73c295b4dd0213619d90155da8467cde
+INSTALL /v0.1.5/Dollyfile-posix a98de8b50ce0a29e867194e9fe9c44a54c0ea48ccf25a0f1353431daf827cf9e
+INSTALL /v0.1.5/Dollyfile-display 2032dbc473505507c7419267f43fdb2fe76b16b0907ca27f2b157a0ec54bda35
+INSTALL /v0.1.5/Dollyfile-amy 2ec05a37cc6a08ef3ad14a7741f5b4e6b6a8627781cda2d509f6410f1ffecb45
+INSTALL /v0.1.5/demos/tmux/Dollyfile-tmux 5f6b9c5e3f3b942cfb7f7c25a51b742dc0f29a416cd6e866f71dd8f54b460fca
 
 FILE /usr/share/tmux/welcome.txt
     tmux inside Dolly: two shells, each on a pseudo-terminal.

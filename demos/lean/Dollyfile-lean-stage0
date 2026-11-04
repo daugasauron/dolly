@@ -11,9 +11,9 @@ REQUIRES HOST threads@0
 # C++ runtime and the C the release before emitted, compiled inside Dolly
 # (lean-dolly.mk, lean-dolly.patch) and rewritten by stack-wrap; lean-std,
 # lean-meta and lean compile the release with it.
-FROM /v0.1.4/Dollyfile-system-tools 6002e88282bb0d520134235725b6082f5ad15644ad92c5dfe9f8c1f5808dfaa7
-INSTALL /v0.1.4/Dollyfile-stack-wrap fadd16fffd8694ef2d236bcb82e8b25c6f449dee096a82ed91093d7e16c34acc
-INSTALL /v0.1.4/demos/cmake/Dollyfile-libuv 30926ab0cc80ec205c9099fdeb9b2ad0040322a3ffb63a9bf836b4b1b7237a2c
+FROM /v0.1.5/Dollyfile-system-tools 39e8ad7c80d06b7a0c420bbeaae2e6b2423e7e633d38640e82d72a73c20e232a
+INSTALL /v0.1.5/Dollyfile-stack-wrap d5685e9304b556ce1a035dd269ddf0aeb30cd9b310183847118bcff0c276505e
+INSTALL /v0.1.5/demos/cmake/Dollyfile-libuv 066e772a7a8c660560af765731d055c77bac33cb8fbcb22b034f5df2d24b6525
 
 REQUIRES HEADER libc
 REQUIRES HEADER uv
@@ -29,8 +29,8 @@ REQUIRES TOOL sed
 REQUIRES TOOL stack-wrap
 REQUIRES TOOL tar
 
-SOURCE /v0.1.4/dist/static/lean/lean.tar.gz ef83239912f7c218c5f0e937de704b7da807b9802b05216414b59b9dec42e0da /tmp/lean.tar.gz
-SOURCE /v0.1.4/dist/static/lean/port.tar 1716710f88ccdd478709b75533ef1686ff39e381ad7d66ff65caff992e2dd1a6 /tmp/lean-port.tar
+SOURCE /v0.1.5/dist/static/lean/lean.tar.gz ef83239912f7c218c5f0e937de704b7da807b9802b05216414b59b9dec42e0da /tmp/lean.tar.gz
+SOURCE /v0.1.5/dist/static/lean/port.tar 1716710f88ccdd478709b75533ef1686ff39e381ad7d66ff65caff992e2dd1a6 /tmp/lean-port.tar
 SLOP gzip -dc /tmp/lean.tar.gz | tar -xf - -C / && rm /tmp/lean.tar.gz
 SLOP tar -xf /tmp/lean-port.tar -C /
 SLOP CWD /tmp/lean/stage0 patch -p1 < ../dolly/lean-dolly.patch

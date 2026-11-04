@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # base64 by Alfred Klomp from the files of upstream's tagged archive,
 # unchanged: the base64 program and libbase64, by the rules of its Makefile
 # with none of the codecs written for x86 and ARM vector instructions.
-FROM /v0.1.4/Dollyfile-system-tools 6002e88282bb0d520134235725b6082f5ad15644ad92c5dfe9f8c1f5808dfaa7
+FROM /v0.1.5/Dollyfile-system-tools 39e8ad7c80d06b7a0c420bbeaae2e6b2423e7e633d38640e82d72a73c20e232a
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -19,7 +19,7 @@ REQUIRES TOOL   mv
 REQUIRES TOOL   tar
 REQUIRES TOOL   test
 
-SOURCE /v0.1.4/dist/static/tools/base64-0.5.2.tar.gz 723a0f9f4cf44cf79e97bcc315ec8f85e52eb104c8882942c3f2fba95acc080d /tmp/base64.tar.gz
+SOURCE /v0.1.5/dist/static/tools/base64-0.5.2.tar.gz 723a0f9f4cf44cf79e97bcc315ec8f85e52eb104c8882942c3f2fba95acc080d /tmp/base64.tar.gz
 SLOP gzip -dc /tmp/base64.tar.gz | tar -xf - -C /tmp && mv /tmp/base64-0.5.2 /tmp/base64
 
 # As upstream's Makefile writes it when no codec is asked for.

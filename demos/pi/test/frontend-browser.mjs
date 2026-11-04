@@ -9,7 +9,7 @@ import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { delay, demoTest } from "../../browser.mjs";
 import { siteReference } from "../../../src/static-asset.mjs";
-import { DOLLY_IMAGES } from "../../../dist/dolly-images.mjs";
+import catalog from "../../../dist/dolly-images.json" with { type: "json" };
 
 const token = `ord_${randomUUID().replaceAll("-", "")}`, key = `llm_${randomUUID().replaceAll("-", "")}`;
 const shown = text => [token, key].some(secret => Array.from({ length: secret.length - 5 }, (_, at) => secret.slice(at, at + 6))
@@ -73,7 +73,7 @@ const llm = await listen(provider);
 
 // The deployer's recipe: Pi's prompt and skill, the provider, and an entry that
 // reads the user's token and the model's key without showing them.
-const base = DOLLY_IMAGES.find(({ image }) => image === "pi-runtime");
+const base = catalog.images.find(({ image }) => image === "pi-runtime");
 const file = (path, text) => [`FILE ${path}`, ...text.trim().split("\n").map(line => `    ${line}`)];
 const recipe = ["DOLLY 7", "APPLICATION orders-agent", ...base.hostRequirements.map(module => `REQUIRES HOST ${module}`),
   `FROM ${siteReference(base.dollyfile)} ${base.sha256}`,

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import test from "node:test";
-import { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } from "../../../dist/dolly-images.mjs";
+import catalog from "../../../dist/dolly-images.json" with { type: "json" };
 
 test("prepared CPython configuration keeps bootstrap paths independent of the builder's home", {
-  skip: !DOLLY_STATIC_SOURCES.some(source => source.path === "/dist/static/python/cpython.tar.gz"),
+  skip: !catalog.staticSources.some(source => source.path === "/dist/static/python/cpython.tar.gz"),
 }, () => {
   const archive = new URL("../../../dist/static/python/cpython.tar.gz", import.meta.url).pathname;
   for (const name of ["Makefile", "Makefile.pre", "config.status"]) {
@@ -15,9 +15,9 @@ test("prepared CPython configuration keeps bootstrap paths independent of the bu
 });
 
 test("images retain neither CPython's test suite nor build-time bytecode", async () => {
-  for (const { image } of DOLLY_IMAGES) {
-    const { DOLLY_SYSTEM_SNAPSHOT: { manifest } } = await import(
-      new URL(`../../../dist/dolly-${image}-system-snapshot.mjs`, import.meta.url));
+  for (const { image } of catalog.images) {
+    const { default: { manifest } } = await import(
+      new URL(`../../../dist/dolly-${image}-system-snapshot.json`, import.meta.url), { with: { type: "json" } });
     assert.equal(manifest.some(path => path.startsWith("/usr/lib/python3.14/") &&
       (path.startsWith("/usr/lib/python3.14/test/") || /\/__pycache__(?:\/|$)|\.pyc$/.test(path))), false, image);
   }

@@ -78,14 +78,14 @@ for (const browser of ["chromium", "firefox"]) {
 import { readFile } from "node:fs/promises";
 import { inspectDollyfile } from "../../../src/dollyfile-view.mjs";
 import { siteReference } from "../../../src/static-asset.mjs";
-import { DOLLY_IMAGES } from "../../../dist/dolly-images.mjs";
+import catalog from "../../../dist/dolly-images.json" with { type: "json" };
 
 const pin = name => {
-  const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
+  const { dollyfile, sha256 } = catalog.images.find(definition => definition.image === name);
   return `${siteReference(dollyfile)} ${sha256}`;
 };
 // llvm-cc with the terminal display, the runtime package and threads.
-const hosts = [...new Set([...DOLLY_IMAGES.find(({ image }) => image === "llvm-cc").hostRequirements, "threads@0"])].sort();
+const hosts = [...new Set([...catalog.images.find(({ image }) => image === "llvm-cc").hostRequirements, "threads@0"])].sort();
 const recipe = ["DOLLY 7", "APPLICATION llvm-runtimes-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin("llvm-cc")}`,
   ...["/usr/lib/libdisplay.so", "/usr/share/fonts/IosevkaTerm-SemiBold.ttf"].map(path => `COPY ${pin("ghostty-build")} ${path} ${path}`),
   `INSTALL ${pin("llvm-runtimes")}`, "EXPORTS LIB display /usr/lib/libdisplay.so", "EXPORTS ENV DISPLAY /usr/lib/libdisplay.so",

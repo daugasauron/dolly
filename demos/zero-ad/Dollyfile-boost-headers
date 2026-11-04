@@ -5,12 +5,12 @@ REQUIRES HOST runtime@0
 # Boost's header-only libraries, as Emscripten's port packs Boost 1.83.0's
 # headers, with the Boost Software License from Boost's repository at that
 # release, for programs the cc package builds; nothing is compiled.
-FROM /v0.1.4/Dollyfile-system-tools 6002e88282bb0d520134235725b6082f5ad15644ad92c5dfe9f8c1f5808dfaa7
+FROM /v0.1.5/Dollyfile-system-tools 39e8ad7c80d06b7a0c420bbeaae2e6b2423e7e633d38640e82d72a73c20e232a
 REQUIRES TOOL gzip
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.4/dist/static/boost-headers/source.tar.gz 1282930222d16b3b7df0697a1632f6631e79efa7437e8ab50a690d3e91ea9e7c /tmp/boost-headers.tar.gz
+SOURCE /v0.1.5/dist/static/boost-headers/source.tar.gz 1282930222d16b3b7df0697a1632f6631e79efa7437e8ab50a690d3e91ea9e7c /tmp/boost-headers.tar.gz
 SLOP gzip -dc /tmp/boost-headers.tar.gz | tar -xf - -C /
 
 EXPORTS HEADER boost /usr/include/boost

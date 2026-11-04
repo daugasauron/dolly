@@ -4926,7 +4926,7 @@ new file mode 100644
 index 00000000..4c6653d6
 --- /dev/null
 +++ b/src/syscall/exec_dolly.go
-@@ -0,0 +1,234 @@
+@@ -0,0 +1,237 @@
 +// Copyright 2026 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -4971,6 +4971,8 @@ index 00000000..4c6653d6
 +	argumentBytes         uint64
 +	environmentBytes      uint64
 +	deadline              uint64
++	// What the child starts with: the signals this process ignores, as EXEC.
++	blocked, ignored, pending, reserved2 uint32
 +}
 +
 +// StartProcess starts argv0, relative to attr.Dir when it is relative, with
@@ -5010,6 +5012,7 @@ index 00000000..4c6653d6
 +		cwdSize:          uint32(len(dir)),
 +		pathSize:         uint32(len(path)),
 +		deadline:         ^uint64(0),
++		ignored:          dollyIgnoredSignals() &^ 1,
 +	}
 +	var mappings []byte
 +	for target, source := range attr.Files {

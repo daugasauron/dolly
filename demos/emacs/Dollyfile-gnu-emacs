@@ -3,14 +3,12 @@ APPLICATION gnu-emacs
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
-REQUIRES HOST download@0
-REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
-REQUIRES HOST upload@0
-REQUIRES HOST threads@0
 
-FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
-INSTALL /v0.1.4/demos/emacs/Dollyfile-emacs 9486fc954c4298a4d6aeb4ed3d9d8e548981cf2b08fd3490cd69b0ee2d072658
+INSTALL /v0.1.5/Dollyfile-core 7205c35aed897514d3094f14a194669f73c295b4dd0213619d90155da8467cde
+INSTALL /v0.1.5/Dollyfile-posix a98de8b50ce0a29e867194e9fe9c44a54c0ea48ccf25a0f1353431daf827cf9e
+INSTALL /v0.1.5/Dollyfile-display 2032dbc473505507c7419267f43fdb2fe76b16b0907ca27f2b157a0ec54bda35
+INSTALL /v0.1.5/demos/emacs/Dollyfile-emacs 2e1d177c95f82f816b4dce316791a455d9a8e120af3b47b938d4e28b3b4138eb
 
 FILE /usr/share/emacs/welcome.txt
     GNU Emacs inside Dolly

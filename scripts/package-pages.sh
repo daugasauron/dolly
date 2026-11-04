@@ -35,7 +35,7 @@ done
 for image_name in "${image_names[@]}"; do
   for required in \
     "dist/dolly-${image_name}-system.snapshot" \
-    "dist/dolly-${image_name}-system-snapshot.mjs"; do
+    "dist/dolly-${image_name}-system-snapshot.json"; do
     [[ -f "${project_dir}/${required}" ]] || {
       echo "dolly: Pages artifact is missing ${required}" >&2
       exit 1
@@ -63,7 +63,7 @@ cp \
   "${project_dir}/dist/IosevkaTerm-SemiBold.woff2" \
   "${project_dir}/dist/dolly-build-id.mjs" \
   "${project_dir}/dist/dolly-image-build-id.mjs" \
-  "${project_dir}/dist/dolly-images.mjs" \
+  "${project_dir}/dist/dolly-images.json" \
   "${project_dir}/dist/dolly.data" \
   "${project_dir}/dist/dolly.wasm" \
   "${project_dir}/dist/dolly-process-abi.mjs" \
@@ -75,7 +75,7 @@ cp \
   "${staging}/site/dist/"
 for image_name in "${image_names[@]}"; do
   cp \
-    "${project_dir}/dist/dolly-${image_name}-system-snapshot.mjs" \
+    "${project_dir}/dist/dolly-${image_name}-system-snapshot.json" \
     "${staging}/site/dist/"
 done
 node "${project_dir}/scripts/share-pages-snapshots.mjs" "${staging}/site/dist" "${project_dir}/dist"

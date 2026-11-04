@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # libevent's core from upstream's release archive, unchanged: the event loop
 # over poll, buffers and listeners, for programs the cc package builds
 # (-levent_core). A program that gives it sockets links -ldolly-sockets too.
-FROM /v0.1.4/Dollyfile-system-tools 6002e88282bb0d520134235725b6082f5ad15644ad92c5dfe9f8c1f5808dfaa7
+FROM /v0.1.5/Dollyfile-system-tools 39e8ad7c80d06b7a0c420bbeaae2e6b2423e7e633d38640e82d72a73c20e232a
 
 REQUIRES HEADER libc
 REQUIRES TOOL ar
@@ -16,7 +16,7 @@ REQUIRES TOOL make
 REQUIRES TOOL mkdir
 REQUIRES TOOL tar
 
-SOURCE /v0.1.4/dist/static/tmux/libevent-2.1.13-stable.tar.gz f7e9383b8c0baa81b687e5b5eecc01beefaf1b19b64151d95ed61647fe7a315c /tmp/libevent.tar.gz
+SOURCE /v0.1.5/dist/static/tmux/libevent-2.1.13-stable.tar.gz f7e9383b8c0baa81b687e5b5eecc01beefaf1b19b64151d95ed61647fe7a315c /tmp/libevent.tar.gz
 SLOP gzip -dc /tmp/libevent.tar.gz | tar -xf - -C /tmp
 
 # Slop does not run upstream's configure script, so these say what it would

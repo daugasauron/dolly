@@ -58,7 +58,7 @@ function inputClosure(image, order = [], path = []) {
 
 async function importMetadata(image) {
   try {
-    return (await import(new URL(`dist/dolly-${image}-system-snapshot.mjs`, imageBase).href)).DOLLY_SYSTEM_SNAPSHOT;
+    return (await import(new URL(`dist/dolly-${image}-system-snapshot.json`, imageBase).href, { with: { type: "json" } })).default;
   } catch {
     throw new Error(`The packaged ${image} snapshot is missing. Run npm run image -- ${image} first.`);
   }

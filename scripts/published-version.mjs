@@ -104,6 +104,12 @@ export async function verifyDeployment(site, deployment, name) {
   return names;
 }
 
+// In the page, the files a version's catalog names by site path: from its
+// dist/dolly-images.json, or the module that held them before v0.1.5.
+const catalogStaticSources = async ([root, module]) => module
+  ? (await import(new URL("dist/dolly-images.mjs", root).href)).DOLLY_STATIC_SOURCES
+  : (await import(new URL("dist/dolly-images.json", root).href, { with: { type: "json" } })).default.staticSources;
+
 async function bootVersions(site, names, browsers) {
   const { chromium, firefox } = await import("playwright-core");
   const root = siteRoot(site), newest = [...names].sort(compareVersions).at(-1);
@@ -149,21 +155,20 @@ async function bootVersions(site, names, browsers) {
         assert.equal(await page.evaluate(async () => (await fetch(new URL("missing.mjs", document.baseURI))).status), 404);
         // A reference a recipe writes, /vX.Y.Z/PATH, is that file here: each recipe
         // and source of at most 1 MiB the version publishes returns its pinned bytes.
-        assert.deepEqual(await page.evaluate(async root => {
-          const { DOLLY_STATIC_SOURCES } = await import(new URL("dist/dolly-images.mjs", root).href);
+        const sources = await page.evaluate(catalogStaticSources, [version.href, compareVersions(name, "v0.1.5") < 0]);
+        assert.deepEqual(await page.evaluate(async ([root, sources]) => {
           const wrong = [];
-          for (const { path, sha256, byteLength } of DOLLY_STATIC_SOURCES) if (byteLength <= 1048576) {
+          for (const { path, sha256, byteLength } of sources) if (byteLength <= 1048576) {
             const response = await fetch(new URL(path.slice(1), root));
             const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", await response.arrayBuffer()));
             if (!response.ok || Array.from(digest, byte => byte.toString(16).padStart(2, "0")).join("") !== sha256) wrong.push(path);
           }
           return wrong;
-        }, version.href), [], `${name}: references that do not return their pinned bytes`);
+        }, [version.href, sources]), [], `${name}: references that do not return their pinned bytes`);
         // The rules keep a crawler out of this version's bulk and off none of its pages.
         if (rules.length) {
-          const sources = await page.evaluate(async root => (await import(new URL("dist/dolly-images.mjs", root).href))
-            .DOLLY_STATIC_SOURCES.map(({ path }) => path).filter(path => path.startsWith("/dist/")), version.href);
-          for (const path of ["/dist/dolly.wasm", "/dist/dolly.data", "/dist/packs/", ...sources]) {
+          const bulk = sources.map(({ path }) => path).filter(path => path.startsWith("/dist/"));
+          for (const path of ["/dist/dolly.wasm", "/dist/dolly.data", "/dist/packs/", ...bulk]) {
             assert.ok(blocked(version.pathname + path.slice(1)), `${name}: robots.txt leaves ${path} to crawlers`);
           }
           await page.goto(version.href);

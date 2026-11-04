@@ -7,6 +7,7 @@ to four players, each optionally driven by its own Pi agent.
 
 - `classicube`: Explore and build in a block world, with an optional agent.
 - `classicube-build`: ClassiCube with the Dolly SDL2 software renderer.
+- `classicube-agent`: the world's agent, its viewer and `classicube-pack`, with their sources.
 
 Open `/classicube/`; build with `npm run image -- classicube`.
 

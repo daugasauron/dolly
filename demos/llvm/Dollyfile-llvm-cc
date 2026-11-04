@@ -12,8 +12,8 @@ REQUIRES HOST threads@0
 # the seed compiler and installed in its place: this image's cc is built by Dolly.
 # The archives come by COPY, so the rest of LLVM that llvm-build installed for
 # the llvm package stays out of this image.
-FROM /v0.1.4/demos/llvm/Dollyfile-llvm-tablegen c3d9bb3844c63646e6b77f406c53c7cc8a0c653b30d662f995aaeee9eab8b7eb
-COPY /v0.1.4/demos/llvm/Dollyfile-llvm-build 2f39ba9020ed5e4b1005e8781f13574abc9c7a1bfa72f78e7c1932c6a839e574 /usr/lib/llvm-build /usr/lib/llvm-build
+FROM /v0.1.5/demos/llvm/Dollyfile-llvm-tablegen ea7fedd02ed27db50b5ff5a54395655183fe9d6a5879f4efa8e4a8ca5d87bf9d
+COPY /v0.1.5/demos/llvm/Dollyfile-llvm-build 0e435dff476c20f5a4a2f10dfd0b32015be89f49460ad7460ba86bb1deb2bf73 /usr/lib/llvm-build /usr/lib/llvm-build
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL gzip
@@ -28,15 +28,15 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
 # LLVM's source headers again; llvm-build kept the configured and generated ones.
-SOURCE /v0.1.4/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
+SOURCE /v0.1.5/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
 SLOP slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
 # The driver the seed compiler is (src/compiler.cpp), with the two contract
 # digests the runtime build generates.
-SOURCE /v0.1.4/dist/static/llvm/compiler.cpp 36a1b101c09778ad226de3828d708f96481207f59dd6d63bd993964d6b3e6b07 /tmp/dolly-compiler/compiler.cpp
-SOURCE /v0.1.4/dist/static/llvm/compiler-main.c 104ebf5d2862d51f9a67d4e7dd6a71e0f5beb1898310f74d6b331e9f154a2f8c /tmp/dolly-compiler/compiler-main.c
-SOURCE /v0.1.4/dist/static/llvm/dolly-process-abi-digest.h b4e679e98d73388d193504b6cb5ff82dfd4d37ea6f60232d464a144b97ca2aa9 /tmp/dolly-compiler/dolly-process-abi-digest.h
-SOURCE /v0.1.4/dist/static/llvm/dolly-kernel-plugin-abi-digest.h a680157985ef34465efdfce079749799bb3cc7e1c119867c34730d8669bc669e /tmp/dolly-compiler/dolly-kernel-plugin-abi-digest.h
+SOURCE /v0.1.5/dist/static/llvm/compiler.cpp 36a1b101c09778ad226de3828d708f96481207f59dd6d63bd993964d6b3e6b07 /tmp/dolly-compiler/compiler.cpp
+SOURCE /v0.1.5/dist/static/llvm/compiler-main.c 104ebf5d2862d51f9a67d4e7dd6a71e0f5beb1898310f74d6b331e9f154a2f8c /tmp/dolly-compiler/compiler-main.c
+SOURCE /v0.1.5/dist/static/llvm/dolly-process-abi-digest.h b4e679e98d73388d193504b6cb5ff82dfd4d37ea6f60232d464a144b97ca2aa9 /tmp/dolly-compiler/dolly-process-abi-digest.h
+SOURCE /v0.1.5/dist/static/llvm/dolly-kernel-plugin-abi-digest.h a680157985ef34465efdfce079749799bb3cc7e1c119867c34730d8669bc669e /tmp/dolly-compiler/dolly-kernel-plugin-abi-digest.h
 
 # Compiles the driver and links ./compiler without its names: the seed's
 # compiler (docs/sources.md). ROOT holds lib/*.a and the generated headers by

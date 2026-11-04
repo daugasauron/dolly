@@ -1,0 +1,22 @@
+DOLLY 7
+PACKAGE slopyard-game
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST touch@0
+REQUIRES HOST download@0
+REQUIRES HOST gpu@0
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
+
+# Slopyard as slopyard-build compiled it, with the sources it reads when it
+# runs: the game the slopyard application opens.
+FROM /v0.1.5/demos/slopyard/Dollyfile-slopyard-build 31eb529a8de689c122a6395671ac7b43d86541dd30c3661ff1fbc7bd915417b2
+EXPORTS TOOL slopyard
+EXPORTS FOLDER slopyard-source /usr/src/dolly/slopyard
+FILE /usr/share/licenses/lua5.5/readme.html
+FILE /usr/share/man/cat1/slopyard.1
+    slopyard: build walkers, boats, cranes and aircraft from boxes and servo
+    joints, program them in Lua and let an embedded Pi agent drive them, in a
+    coastal scrapyard where two teams deliver cargo.
+    slopyard --check runs the game's own checks.

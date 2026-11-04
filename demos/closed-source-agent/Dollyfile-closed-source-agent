@@ -2,53 +2,27 @@ DOLLY 7
 APPLICATION closed-source-agent
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
-REQUIRES HOST audio@0
+REQUIRES HOST input@0
+REQUIRES HOST snapshot@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
-REQUIRES HOST input@0
 REQUIRES HOST packages@0
-REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
-REQUIRES HOST touch@0
-REQUIRES HOST upload@0
 
 # Runs Claude Code, which the launcher downloads from the npm registry into
 # the session after the notice: the image holds nothing of it.
-FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
-INSTALL /v0.1.4/Dollyfile-amy c2e5f10354cb7098b459d45b44989553c558b786f12f360bfc87b70a1f34be19
-INSTALL /v0.1.4/demos/javascript/Dollyfile-janis-install 045633379195c3b9f59e464f0f802f8289a7e2d302fff7bb2da03f683cd820a1
-INSTALL /v0.1.4/demos/closed-source-agent/Dollyfile-secretenv cf09706d75b7415c4f2bfc08e116ded4d15481a6baf53a5abdc52116abe55a5a
-INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 0d81ed847a4a7913c8288d720fcfaeacd4e74f9c260e9602f815395db4495e25
-REQUIRES TOOL cc
+INSTALL /v0.1.5/Dollyfile-core 7205c35aed897514d3094f14a194669f73c295b4dd0213619d90155da8467cde
+INSTALL /v0.1.5/Dollyfile-posix a98de8b50ce0a29e867194e9fe9c44a54c0ea48ccf25a0f1353431daf827cf9e
+INSTALL /v0.1.5/Dollyfile-display 2032dbc473505507c7419267f43fdb2fe76b16b0907ca27f2b157a0ec54bda35
+INSTALL /v0.1.5/Dollyfile-amy 2ec05a37cc6a08ef3ad14a7741f5b4e6b6a8627781cda2d509f6410f1ffecb45
+INSTALL /v0.1.5/demos/javascript/Dollyfile-janis-install 3fa76b57d73d9c651629b27c946b1678f435fe1927b6d55c6aa229c514ee1ff4
+INSTALL /v0.1.5/demos/closed-source-agent/Dollyfile-secretenv c462499510f173d0ae019fa851ba91c4df4acf7804621dcfa6a25b8966b0649b
+INSTALL /v0.1.5/demos/closed-source-agent/Dollyfile-anykey 9c34b57184e6e9d15022bec92debb5fbc2cc486859698fc99b6f7973e4f83865
+INSTALL /v0.1.5/demos/rust/Dollyfile-ripgrep 7fc773ddb232a265e76eff97b24a2a66c7ebb139084356c307b3031c2c7679bb
 REQUIRES TOOL foreground
 REQUIRES TOOL janis
 REQUIRES TOOL janis-install
 REQUIRES TOOL rg
-
-# anykey PROMPT discards earlier input, shows PROMPT and prints the one key it
-# then reads from the terminal; Ctrl+C is status 130.
-FILE /tmp/anykey.c
-    #include <string.h>
-    #include <termios.h>
-    #include <unistd.h>
-    int main(int argc, char **argv) {
-      struct termios cooked, raw;
-      if (argc != 2 || tcgetattr(0, &cooked) != 0) return 2;
-      raw = cooked;
-      raw.c_lflag &= ~(ICANON | ECHO | ISIG);
-      raw.c_cc[VMIN] = 1;
-      raw.c_cc[VTIME] = 0;
-      if (tcsetattr(0, TCSAFLUSH, &raw) != 0) return 1;
-      write(2, argv[1], strlen(argv[1]));
-      char key;
-      const long count = read(0, &key, 1);
-      tcsetattr(0, TCSAFLUSH, &cooked);
-      if (count != 1) return 1;
-      if (key == 3) return 130;
-      return write(1, &key, 1) == 1 ? 0 : 1;
-    }
-SLOP cc -O1 /tmp/anykey.c -o /usr/bin/anykey
-EXPORTS TOOL anykey
 
 FILE /usr/share/doc/closed-source-agent/NOTICE
     THIS IMAGE RUNS CLAUDE CODE
