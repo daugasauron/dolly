@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # upstream's release archive, unchanged. It draws with its own escape
 # sequences and reads no terminal database. Its makefile asks the compiler ten
 # questions through a shell that Slop is not; feature.h holds the answers.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 0000000000000000000000000000000000000000000000000000000000000000
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 595b1e82d2ac8eb9707667c854aa7bf40c61bbf4d9a03caa7e76a5467af9745d
 
 REQUIRES HEADER libc
 REQUIRES TOOL   awk
