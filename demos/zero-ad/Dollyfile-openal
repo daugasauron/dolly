@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # installs neither. It has no playback backend: a program renders through a
 # loopback device and plays the samples itself (<dolly/audio.h>, audio@0), as
 # 0 A.D. does, so the library asks for no host module.
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build b2e30c5983992408ee2eae25d47d6cd4230fbef9c3ca5d8bb418ddba886c00e6
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build de93cd9491d39efa2325110748370ff35888d6db2ef101bebcdd1d77f4dc1d2b
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES LIB c++

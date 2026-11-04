@@ -4,11 +4,15 @@ export async function audioBoundaryProof() {
     import("../../src/process-constants.mjs")]);
   const check = (ok, message) => { if (!ok) throw Error(message); };
   let sequence = 0;
-  function packet(op, scope = 1, frames = 0) {
-    const bytes = new Uint8Array(frames ? 40 + frames * 8 : 32), v = new DataView(bytes.buffer);
+  // A request as the lease bridge hands it on, and the packet a process writes.
+  function request(operation, scope = 1, frames = 0) {
+    const body = new Uint8Array(frames ? 8 + frames * 8 : 0);
+    if (frames) new DataView(body.buffer).setUint32(0, frames, true);
+    return { operation, scope, sequence: ++sequence, body };
+  }
+  function packet(op, scope = 1) {
+    const bytes = new Uint8Array(32), v = new DataView(bytes.buffer);
     v.setUint32(4, op, true); v.setUint32(8, scope, true); v.setUint32(16, ++sequence, true);
-    v.setUint32(24, bytes.length - 32, true);
-    if (frames) v.setUint32(32, frames, true);
     return bytes;
   }
   const provider = createAudioProvider();
@@ -17,12 +21,12 @@ export async function audioBoundaryProof() {
   globalThis.AudioContext = new Proxy(NativeAudioContext, {construct(target, args) {
     return context = Reflect.construct(target, args);
   }});
-  try { check(provider.dispatch(packet(1)).error === 0, "Audio open failed"); }
+  try { check(provider.dispatch(request(1)).error === 0, "Audio open failed"); }
   finally { globalThis.AudioContext = NativeAudioContext; }
   try {
-    for (let scope = 2; scope <= 4; ++scope) check(provider.dispatch(packet(1, scope)).error === 0, "Four audio leases unavailable");
-    check(provider.dispatch(packet(1, 5)).error === E.EBUSY, "Audio slot quota bypassed");
-    check(provider.dispatch(packet(1)).error === E.ESTALE, "Audio lease reused");
+    for (let scope = 2; scope <= 4; ++scope) check(provider.dispatch(request(1, scope)).error === 0, "Four audio leases unavailable");
+    check(provider.dispatch(request(1, 5)).error === E.EBUSY, "Audio slot quota bypassed");
+    check(provider.dispatch(request(1)).error === E.ESTALE, "Audio lease reused");
     await context.resume(); await context.suspend();
     const nativeResume = context.resume;
     let resumeCalls = 0, settleResume;
@@ -31,28 +35,28 @@ export async function audioBoundaryProof() {
     check(resumeCalls === 1, "Repeated gestures queued unbounded resume requests");
     settleResume(); await Promise.resolve();
     context.resume = nativeResume;
-    const invalid = packet(2, 1, 128);
-    new DataView(invalid.buffer).setFloat32(40, NaN, true);
+    const invalid = request(2, 1, 128);
+    new DataView(invalid.body.buffer).setFloat32(8, NaN, true);
     check(provider.dispatch(invalid).error === E.EINVAL, "Nonfinite PCM accepted");
     check(provider.status().buffers === 0, "Rejected PCM allocated a buffer");
-    const oversized = packet(2, 1, 4097);
+    const oversized = request(2, 1, 4097);
     check(provider.dispatch(oversized).error === E.EINVAL, "Oversized PCM accepted");
-    const stale = packet(3);
+    const stale = request(3);
     check(provider.dispatch(stale).error === 0 && provider.dispatch(stale).error === E.ESTALE, "Sequence replay accepted");
-    for (let i = 0; i < 11; ++i) check(provider.dispatch(packet(2, 1, 4096)).error === 0, "PCM quota prematurely exhausted");
-    check(provider.dispatch(packet(2, 1, 2944)).error === 0, "Final PCM quota chunk rejected");
-    check(provider.dispatch(packet(2, 1, 128)).error === E.EAGAIN, "PCM frame quota bypassed");
-    for (let i = 0; i < 64; ++i) check(provider.dispatch(packet(2, 2, 128)).error === 0, "Buffer quota prematurely exhausted");
-    check(provider.dispatch(packet(2, 2, 128)).error === E.EAGAIN, "PCM buffer quota bypassed");
+    for (let i = 0; i < 11; ++i) check(provider.dispatch(request(2, 1, 4096)).error === 0, "PCM quota prematurely exhausted");
+    check(provider.dispatch(request(2, 1, 2944)).error === 0, "Final PCM quota chunk rejected");
+    check(provider.dispatch(request(2, 1, 128)).error === E.EAGAIN, "PCM frame quota bypassed");
+    for (let i = 0; i < 64; ++i) check(provider.dispatch(request(2, 2, 128)).error === 0, "Buffer quota prematurely exhausted");
+    check(provider.dispatch(request(2, 2, 128)).error === E.EAGAIN, "PCM buffer quota bypassed");
     const bounded = provider.status();
     check(bounded.queuedFrames === 56192 && bounded.buffers === 76, "PCM quota accounting differs");
     provider.release(1); provider.release(2);
     check(provider.status().buffers === 0 && provider.status().queuedFrames === 0, "Revoked output retained buffers");
-    check(provider.dispatch(packet(2, 1, 128)).error === E.EBADF, "Revoked stream accepted PCM");
-    check(provider.dispatch(packet(1, 5)).error === 0, "New audio generation rejected");
+    check(provider.dispatch(request(2, 1, 128)).error === E.EBADF, "Revoked stream accepted PCM");
+    check(provider.dispatch(request(1, 5)).error === 0, "New audio generation rejected");
     provider.release(1);
-    check(provider.dispatch(packet(3, 5)).error === 0, "Stale revocation killed a new lease");
-    check(provider.dispatch(packet(4, 5)).error === 0, "Audio close failed");
+    check(provider.dispatch(request(3, 5)).error === 0, "Stale revocation killed a new lease");
+    check(provider.dispatch(request(4, 5)).error === 0, "Audio close failed");
   } finally { await provider.close(); }
 
   const memory = new WebAssembly.Memory({initial: 1, maximum: 2, shared: true});
@@ -65,7 +69,7 @@ export async function audioBoundaryProof() {
   }
   check(send(packet(1)) === 0, "Bridge open failed");
   new Uint8Array(memory.buffer, address, 32).fill(255);
-  check(new DataView(messages[0].packet.buffer).getUint32(4, true) === 1, "Bridge retained mutable guest packet");
+  check(new DataView(messages[0].body.buffer).getUint32(4, true) === 1, "Bridge retained mutable guest packet");
   Atomics.store(new Int32Array(memory.buffer, mailbox), 0, 1);
   check(send(packet(1, 5)) === -E.EBUSY, "Forged guest completion bypassed admission");
   bridge.acknowledge({scope: 1, sequence: messages[0].sequence + 1, error: 0, bytes: new Uint8Array()});

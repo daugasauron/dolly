@@ -133,4 +133,16 @@
   (export "dolly_process_exit_signal" (func $exit_signal))
   (export "dolly_terminal_mailbox_address" (func $terminal_mailbox_address))
   (export "dolly_process_take_interrupt" (func $take_interrupt))
+
+  ;; A device leased per process (gpu@0, audio@0, microphone@0, nena@0): a
+  ;; process calls the device's operation with a packet, a
+  ;; dolly_device_header (runtime.h) and the operation's body; the
+  ;; kernel binds scope 0 of an OPEN to a lease it owns, one outstanding call a
+  ;; lease, and calls the device's import with the packet's span, copied or
+  ;; refused before it returns. The import with a null span and a scope in its
+  ;; size revokes exactly that lease (process exit and CLOSE). The page answers
+  ;; in the device's reply slots, each 64 bytes of five atomic little-endian
+  ;; u32 words (state, scope, sequence, errno, length) and padding, then the
+  ;; device's reply bytes; it writes them and publishes state 1 last, and the
+  ;; kernel reads them only for the lease and sequence it waits for.
 )

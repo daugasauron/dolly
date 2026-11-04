@@ -45,9 +45,7 @@ async function queueBeforeActivation(origin) {
   let resumeCalls = 0;
   const resume = AudioContext.prototype.resume;
   AudioContext.prototype.resume = function() { ++resumeCalls; return resume.call(this); };
-  const packet = new Uint8Array(32), view = new DataView(packet.buffer);
-  view.setUint32(4, 1, true); view.setUint32(8, 1, true); view.setUint32(16, 1, true);
-  provider.messages["audio-request"]({ packet, scope: 1, sequence: 1 });
+  provider.messages["audio-request"]({ operation: 1, scope: 1, sequence: 1, body: new Uint8Array() });
   reportAutoplay({ error: completed.error, activated: navigator.userActivation.hasBeenActive, resumeCalls });
 }
 

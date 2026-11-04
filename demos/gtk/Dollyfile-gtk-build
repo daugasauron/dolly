@@ -16,16 +16,16 @@ REQUIRES HOST threads@0
 # extension libraries GTK's X11 backend links. Static libraries in /usr/lib,
 # as a GTK program links them; GLib's pkg-config file has cc cast-emulate
 # every GObject program, those these builds run among them.
-FROM /v0.1.4/demos/x11/Dollyfile-x11-build 799dda7c9d2a8ac32ab95ccb1c4e444f4ad9bc2c084421c9fb048110fe965b85
-INSTALL /v0.1.4/demos/tools/Dollyfile-meson 06e166a6e345f6da7fcfdd16b474338eb2a615ec55938a71209cf5d725c32cfa
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf d3a2a8b58413fe815ed88c0042b9c887dbadb6932dc56e56d45b41117bfc0f26
-INSTALL /v0.1.4/demos/tools/Dollyfile-xz 2f1d11ce34dc521cb813897a0cfad86c55334ea3e1e44e806b7790bc9907d6ac
-INSTALL /v0.1.4/demos/tools/Dollyfile-tar db64604b75bd61cad6d9ca4885be6e6343ec7d3cb893f432761ee8b4c3851ec9
-INSTALL /v0.1.4/demos/tools/Dollyfile-binaryen 9644556ca8fdec56dcee4839b32b51a0160cf7f08d65aac55c8ef64ae7dcc5fb
-INSTALL /v0.1.4/demos/python/Dollyfile-libffi 8d2fc64fd7816534de5a01f146b423a55ca02c5f4564593ed18d8ba49f6a5ed7
-INSTALL /v0.1.4/demos/gtk/Dollyfile-pcre2 783dbb6e152bdff52a910388793bc882433a7dbb478e841343f7884e1878f97f
-INSTALL /v0.1.4/demos/gtk/Dollyfile-glib 25e89fec88ce66ce723e85096aa9bf66a647d96bf98d34073c18be988482e8cb
-INSTALL /v0.1.4/Dollyfile-zlib 7e309cfa1cd127b146437685f2da2da15793ab412da37c06d8eaff2001398bde
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build 3be1de0a0f10edebb7f81ef22b64b3026ac77096ba670196bd2ece3695c2b243
+INSTALL /v0.1.4/demos/tools/Dollyfile-meson 019eb96b8b392b2d0cd7376f68449540751d44d6c502cbbb55b6f0a4c75cb36d
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 09d770b114113840e3f3172e0f263e53edaf94a59a140733c88c148f3534f00e
+INSTALL /v0.1.4/demos/tools/Dollyfile-xz ef4588565915014dc4e3d2ed37f30c8e4819c74dff20f359043277c4313019a5
+INSTALL /v0.1.4/demos/tools/Dollyfile-tar 4d9756cae295e11052c7bce855cb75ecd93db6450fa32f7f940afc1e96108c06
+INSTALL /v0.1.4/demos/tools/Dollyfile-binaryen f5db633eb4852835c71901c4cff13bbcbc74dd77f50fa0c8cc7979783a7cbe40
+INSTALL /v0.1.4/demos/python/Dollyfile-libffi 89be66fb5b2da5ade4f8f37555d0ecffbb2da3ee2fb43ca652473d81ca814903
+INSTALL /v0.1.4/demos/gtk/Dollyfile-pcre2 65e5afc0e1cd505a2609f1f139f824e25a1d6ad42111eda4fa252af3b1560a46
+INSTALL /v0.1.4/demos/gtk/Dollyfile-glib 5d8f90a9eb9ba1aca97eca08a25c6e4bfd18f47a72fba479304850ca04a64655
+INSTALL /v0.1.4/Dollyfile-zlib 585d2c2f036cfff6f0f41394681d4925a0c607d4cd29b5ccca65be6fc4b95ebd
 
 REQUIRES HEADER glib
 REQUIRES HEADER zlib

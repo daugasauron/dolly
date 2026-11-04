@@ -2,7 +2,7 @@
 #include <dolly/host.h>
 
 DOLLY_HOST_REQUIRE(gpu, 0, DOLLY_GPU_ABI_DIGEST);
-#include <dolly/process.h>
+#include <dolly/runtime.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,10 +11,8 @@ DOLLY_HOST_REQUIRE(gpu, 0, DOLLY_GPU_ABI_DIGEST);
 static void u32(void *p, size_t at, uint32_t n) { memcpy((char *)p+at,&n,4); }
 static void u64(void *p, size_t at, uint64_t n) { memcpy((char *)p+at,&n,8); }
 static int call(dolly_gpu *g, unsigned operation, size_t bytes) {
-  u32(g->packet,0,DOLLY_GPU_VERSION);u32(g->packet,4,operation);
-  u64(g->packet,8,g->scope);u64(g->packet,16,++g->sequence);
-  u32(g->packet,24,bytes-32);u32(g->packet,28,0);
-  int64_t result=dolly_process_call(DOLLY_GPU_PROCESS_OP,g->packet,bytes,g->reply,sizeof(g->reply));
+  int64_t result=dolly_device_request(DOLLY_GPU_PROCESS_OP,DOLLY_GPU_VERSION,operation,DOLLY_GPU_CLOSE,
+    g->scope,&g->sequence,g->packet,bytes,g->reply,sizeof(g->reply));
   if(result<0) { errno=(int)-result;return -1; }
   return (int)result;
 }

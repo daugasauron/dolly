@@ -8,8 +8,8 @@ REQUIRES HOST touch@0
 
 # fingers, an SDL2 program that reads SDL's finger events and nothing of
 # Dolly's: SDL2 is linked into it and needed by no one who installs it.
-FROM /v0.1.4/Dollyfile-system-tools f58db4c4e5b97d3426b7ba2c98323ca4143992f66a188a2706b718eeae24272b
-USE /v0.1.4/demos/sdl2/Dollyfile-sdl2 61510ab1dde2d995de187ae84d6332f59045b1ae7162279028b64b9a633266e9
+FROM /v0.1.4/Dollyfile-system-tools e9e7a8c2795aa56fd68f5222422fc6765f3df57d1eaa2704b00ac19b7acfca9a
+USE /v0.1.4/demos/sdl2/Dollyfile-sdl2 c975cb5eba4e6419e329dba66bd783d6128cb8deacdff21ff9572f7a03b58773
 REQUIRES HEADER libc
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2
@@ -28,5 +28,5 @@ FILE /usr/share/man/cat1/fingers.1
     
     It draws at the terminal's size in pixels, or WIDTH by HEIGHT, and reads
     SDL2's finger events, which Dolly's SDL2 makes of touch@0's records.
-COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 61510ab1dde2d995de187ae84d6332f59045b1ae7162279028b64b9a633266e9 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 c975cb5eba4e6419e329dba66bd783d6128cb8deacdff21ff9572f7a03b58773 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 SLOP rm -rf /tmp/fingers
