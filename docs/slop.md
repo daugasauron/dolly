@@ -53,7 +53,10 @@ slop [-efnux] script [arg ...]
   plain file `$HISTFILE` (default `/home/dolly/.slop_history`); the editor
   and the file keep its last 1,000 entries.
 - `PATH` defaults to `/bin:/usr/bin`. Lookup finds regular files; execute bits
-  are ignored. Each tool is a separate executable.
+  are ignored. Each tool is a separate executable; the shell runs the code of
+  `/bin`'s `test`, `[`, `echo`, `printf`, `true` and `false` itself when `PATH`
+  finds them there, as other shells have them built in. A name with a slash, one
+  found earlier on `PATH` or a background stage starts the program.
 
 ## Language
 

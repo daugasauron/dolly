@@ -5,7 +5,7 @@ REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST http@0
 
-FROM /v0.1.4/Dollyfile-zig-build 5fdb384cf43d2a14eaac6cf2541a2f25419992b571130a8607425d490a7b3674
+FROM /v0.1.4/Dollyfile-zig-build 33f3f6f429d4e85968644c3023c651aa15694b2996c278dba14b6f8c3c17875c
 
 REQUIRES HEADER libc
 REQUIRES HEADER display
@@ -17,12 +17,12 @@ REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 REQUIRES TOOL   zig
 
-SOURCE /v0.1.4/dist/static/default/ghostty.tar              1c5ff99a4ca1ec62957b8c57efe0c03bea415525c037653b603f644873a043d0 /tmp/ghostty.tar
-SOURCE /v0.1.4/dist/static/default/uucode.tar               3797828ab1f665e0530d2720a547f7848b5dda404067117018630315cf2b3d08 /tmp/uucode.tar
+SOURCE /v0.1.4/dist/static/default/ghostty.tar              a5a438df0dd2248918a6527212f9e6500081326accdd20949771e30c17a2f1ec /tmp/ghostty.tar
+SOURCE /v0.1.4/dist/static/default/uucode.tar               be9d52ab9c0f49deb5fd8baa54b4b14f490f8e29e200d044e908d7adad54e3d0 /tmp/uucode.tar
 SOURCE /v0.1.4/dist/static/default/ghostty/display.c        574d7c0fed71b4ede39e9f1450a0df90d62130647d6bc371dd85d101b03f7108 /usr/src/dolly/ghostty/display.c
 SOURCE /v0.1.4/dist/static/default/stb_truetype.h           ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/ghostty/stb_truetype.h
 SOURCE /v0.1.4/dist/static/default/stb_image.h              594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3 /tmp/ghostty/stb_image.h
-SOURCE /v0.1.4/dist/static/default/IosevkaTerm-SemiBold.ttf 754545a4f6250efdd3d2cc916bb344c59f0c59830405307dfd44d183f919a654 /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+SOURCE /v0.1.4/dist/static/default/IosevkaTerm-SemiBold.ttf cb3fd282d86c0e7cc2829f848df5a58973db98c8369a20427a9b3d06727e5aaa /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 # What IosevkaTerm has no glyph for: Chinese, Japanese and Korean, then emoji.
 SOURCE /v0.1.4/dist/static/default/DroidSansFallback.ttf    56d3edfb377a8bc3c4b77f4476405c770173c0e31221ad7c77d0a8e1f3039a3e /usr/share/fonts/DroidSansFallback.ttf
 SOURCE /v0.1.4/dist/static/default/droid-fonts-NOTICE       38751245389e1e23f73e6f5384b5cbe7fa972cc4410c5adc9c04b082a0b9561a /usr/share/licenses/droid-fonts/NOTICE

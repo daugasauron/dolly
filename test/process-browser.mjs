@@ -348,7 +348,8 @@ await browserTest("process budget", { image: "system" }, async ({ open }) => {
       assert.ok(Date.now() < deadline, await text());
     }
     const started = performance.now();
-    const status = await submit("true");
+    // A program, by its path: the shell runs the system's true itself.
+    const status = await submit("/bin/true");
     const elapsed = Math.round(performance.now() - started);
     await run("wait");
     return { status, elapsed };
@@ -358,7 +359,7 @@ await browserTest("process budget", { image: "system" }, async ({ open }) => {
   const waited = { status: await submit("/tmp/budget 7 > /tmp/waited"), elapsed: Math.round(performance.now() - waitStarted) };
   // A signal ends the wait as it ends any blocking call: a shell with no
   // handler for SIGINT ends at Ctrl+C, beside a holder that ignores it.
-  const ended = submit("slop -c '/tmp/hold 4200 9 > /tmp/held & until read line < /tmp/held; do :; done; type :; true'");
+  const ended = submit("slop -c '/tmp/hold 4200 9 > /tmp/held & until read line < /tmp/held; do :; done; type :; /bin/true'");
   await waitForText(/: is a shell builtin/);
   await page.locator("#keyboard").focus();
   const pressed = performance.now();
