@@ -19,13 +19,13 @@ REQUIRES HOST upload@0
 # and the page's file exchange.
 # It holds no compiler; amy installs what a session needs, and nena enables
 # the host modules a package needs beyond these (nena@0).
-INSTALL /v0.1.4/Dollyfile-core 015db9951f7d42c6fc82e3baa4e5e3117268757411c27e3c3567e6a9328dec02
-INSTALL /v0.1.4/Dollyfile-posix 21099a3cdb077f33ccf57d81f0c10bb4688d1fed851a4e6ffb3e8b677b85ce7a
-INSTALL /v0.1.4/Dollyfile-display cf2324b4382fc717d66c33fa83c1025d9027fee911982d1c2454e23e0c55a145
-INSTALL /v0.1.4/Dollyfile-curl 6d1ea4145f7a551672910e0bb49cd139f91b823ffadd48e4956a400c67034bef
-INSTALL /v0.1.4/Dollyfile-amy 9d5158f0cf6619720fb39e12d5558631ece48a5562644f21f6b80c80ed2f5c7b
-INSTALL /v0.1.4/Dollyfile-nena d79d6535ef5f9a1334c7b9693564496ea482dec7101b89c35649fb77b7c502d8
-INSTALL /v0.1.4/Dollyfile-transfer 7c3415a75b7f8e5db2537f9d5e6cc4e216609f5876e0df35c4b1bf0ae12b55ac
+INSTALL /v0.1.4/Dollyfile-core 563a63e2105c57361dee073333471588559e2d0e0da6dbc9047cd6b7a066fc32
+INSTALL /v0.1.4/Dollyfile-posix 3301750f545f28a9ea44a30dacc21adaa4ed6b2163a1e41e81bfabd621260d83
+INSTALL /v0.1.4/Dollyfile-display c0429f7e9f403f4d2a65d8f5b90606eb815420a550d18936bedffd90c4fc702b
+INSTALL /v0.1.4/Dollyfile-curl 5a3882d265b20fc066d1f8262b656f1266497e4644e8c7564437ac2e38ea99a1
+INSTALL /v0.1.4/Dollyfile-amy d738871e279b7d1e353ff035b74dc4c6e1c35e41cc214abe87b7ca83411869d3
+INSTALL /v0.1.4/Dollyfile-nena 185627a69b65d5dcfa35af587973025e4bf6603f616dc7a9f1ea1c6ed553c859
+INSTALL /v0.1.4/Dollyfile-transfer 57887d9f78f8525a7db1cb2e7ba0b90a662f48480388e55b3e012d9156506346
 INSTALL /v0.1.4/Dollyfile-ps 39cdf2bfaa3fb52f3c161672634f9600381754e6f006971896d6f79b6b345b77
 REQUIRES TOOL foreground
 REQUIRES TOOL test

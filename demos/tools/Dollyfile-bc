@@ -8,7 +8,7 @@ REQUIRES HOST runtime@0
 # editing its own lines as bc does (-s dc.tty_mode): the terminal has no line
 # discipline, so a program that leaves a line to it never gets one. dc is bc
 # under the name it looks for.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 8757dcd2737f1eaa6b844418e57f198a1fa64bb9e632ca58650409d0de9f61fe
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build f4eae91274566671a27d9081cab32c9c3efc41dcff4e8318c31e6baa5c5d2eed
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
