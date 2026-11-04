@@ -1,15 +1,21 @@
 # Codex hangs at a run in its demo test
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: codex,rust,threads,bug
 
-## State (2026-11-04 16:10 JST)
+## Closed (2026-11-04 16:40 JST)
 
-Reproduced, explained and fixed on `fix/codex-hang` (from `integrate/2026-11-03`, 01880a300); the
-fix is in verification. Not a seed change: the image inputs stay `e7867504…`. The gate's WAT and
-three docs are pinned in `Dollyfile-dolly-docs`, so the next catalog round rebuilds `dolly-docs`
-and the eleven recipes on it (`pi-dolly` and the ten built on it).
+Fixed on `fix/codex-hang` (from `integrate/2026-11-03`, 01880a300): c89b6aec (an ending call leaves
+the program by the gate's trap) and 027644b2 (a thread ended before it started ends its own Worker).
+On 027644b2 `node demos/codex/test/codex-browser.mjs` passes in Chromium (31.1 s), and 102 codex
+runs back-to-back in one session hang none in Chromium or Firefox (`build/codex-evidence/final/`).
+
+Not a seed change: the image inputs stay `e7867504…`, and no image's programs change. The gate's WAT
+and three docs are pinned in `Dollyfile-dolly-docs`, so the next catalog round rebuilds
+`dolly-docs` and the eleven recipes built on it: `pi-dolly`, `pi-runtime`, `pi-agent`,
+`pi-minimal`, `pi-local`, `pi-phone`, `bhop`, `classicube`, `rts-arena`, `slopyard`,
+`dollyfile-studio`.
 
 ## Report
 
@@ -87,6 +93,11 @@ thread, each under `timeout 20`, must return 37 within 10 s.
   (`threads-old-chromium.log`). Chromium 9.2 s and Firefox 10.9 s after.
 - `test/ended-worker-browser.mjs` (the seal's test): Chromium 8,057 mappings before twenty runs,
   7,933 after; Firefox 7,512 and 7,374.
+- On 027644b2, in Chromium and Firefox: `core`, `process`, `ending`, `threads`, `ended-worker`,
+  `stack`, `dso`, `cpp` and `process-memory` browser tests pass (`final/`, `process-memory-v2-*`);
+  the source suite passes (470).
+- Not measured: an exit from inside a dso@0 FFI callback, where the trap crosses a JavaScript frame
+  before it reaches the program's outer frames; the Codex demo test in Firefox.
 
 ## Found on the way: Chromium keeps the memory of a thread ended before it started
 
