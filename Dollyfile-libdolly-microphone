@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # default input), for programs the cc package builds: cc links every client
 # archive in /usr/lib/dolly/process, and a program records microphone@0 only
 # when it calls the client.
-FROM /v0.1.4/Dollyfile-system-build 0000000000000000000000000000000000000000000000000000000000000000
+FROM /v0.1.4/Dollyfile-system-build 60740b8340ef750bc49e969add76d04099722f2bda053f20ca5ed4d7db4f581a
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
