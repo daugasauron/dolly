@@ -77,8 +77,10 @@ Work on `core/seed-commands` (`work/signals`), on `integrate/2026-11-03` (image 
   (`.cache/dolly-seed-compiler-ad88241f….tar`, moved to the root `.cache`); image inputs
   `4839725b…`. Rebuilt on it: `default`, `system`, `zig`, `emacs`, `gnu-emacs`.
   `test/cpp-browser.mjs` now checks `cc -E -Wp,-v -x c /dev/null` lists ` /usr/include`
-  (Chromium 9.5 s, Firefox 10.9 s); `core-browser.mjs` (25.3 s, 36.1 s) and `demos/emacs`
-  pass on it.
+  (Chromium 9.5 s, Firefox 10.9 s); `core-browser.mjs` (25.3 s, 36.1 s), `demos/emacs`, the
+  x11 test (first window 2.4 s in Chromium, 9.5 s in Firefox, whose page took 9.3 s) and
+  `demos/python/test/python-browser.mjs` (python 28.1 s; on default 110.3 s and 132.3 s) pass
+  on it, with `x11-desktop`, `tmux` and `python` rebuilt too.
 - **What `-Wp` removes, measured.** Zig 0.17's `LibCInstallation.findNative` on an Emscripten
   host (Zig in Dolly is one) asks cc only `-E -Wp,-v`, for the headers; `-print-file-name` (the
   crt directory) it asks on Linux, Haiku and Serenity alone, so cc needs nothing for it (it still
