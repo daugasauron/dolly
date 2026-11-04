@@ -175,9 +175,9 @@ enum dolly_process_operation {
   /* dolly_process_alarm -> the previous dolly_process_alarm; an empty request
    * only reads the timer. */
   DOLLY_PROCESS_ALARM = 70,
-  /* i32 1 while userspace handles or ignores SIGALRM, else 0 -> no response.
-   * A due SIGALRM's default action ends even a process making no system call. */
-  DOLLY_PROCESS_ALARM_HANDLED = 71,
+  /* dolly_process_signal_dispositions, after every change -> nothing; it is
+   * never interrupted. */
+  DOLLY_PROCESS_SIGNAL_DISPOSITIONS = 71,
 };
 
 enum dolly_process_spawn_flags {
@@ -307,6 +307,8 @@ enum dolly_process_terminal_operation {
   DOLLY_PROCESS_TERMINAL_MODE_SET = 4,
   DOLLY_PROCESS_TERMINAL_SIZE = 5,
   DOLLY_PROCESS_TERMINAL_PUBLISH_RESULT = 6,
+  /* value: the terminal's foreground process group, ENOTTY for another file. */
+  DOLLY_PROCESS_TERMINAL_FOREGROUND = 7,
 };
 
 typedef struct {
@@ -503,6 +505,16 @@ typedef struct {
   uint64_t deadline_nanoseconds;
 } dolly_process_clock_sleep_request;
 
+/* Signals, a bit each (1u << DOLLY_PROCESS_SIG*): those a program leaves
+ * blocked, ignored and pending to the program EXEC or SPAWN runs, which starts
+ * with them; every other signal starts at its default action. */
+typedef struct {
+  uint32_t blocked_signals;
+  uint32_t ignored_signals;
+  uint32_t pending_signals;
+  uint32_t reserved;
+} dolly_process_exec_state;
+
 /* A mapping source: the child does not have the target descriptor, whatever
  * it would inherit. */
 #define DOLLY_PROCESS_FD_MAPPING_CLOSED UINT32_MAX
@@ -538,22 +550,14 @@ typedef struct {
   /* Absolute monotonic time at most 24 hours after the SPAWN call (EINVAL
    * otherwise), or UINT64_MAX when no deadline is active. */
   uint64_t deadline_nanoseconds;
+  /* What the child starts with; it has no pending signals. */
+  dolly_process_exec_state signals;
 } dolly_process_spawn_request;
 
 typedef struct {
   uint32_t pid;
   uint32_t reserved;
 } dolly_process_spawn_response;
-
-/* Signals, a bit each (1u << DOLLY_PROCESS_SIG*): those a program leaves
- * blocked, ignored and pending to the program EXEC runs, which starts with
- * them; every other signal starts at its default action. Zero after SPAWN. */
-typedef struct {
-  uint32_t blocked_signals;
-  uint32_t ignored_signals;
-  uint32_t pending_signals;
-  uint32_t reserved;
-} dolly_process_exec_state;
 
 /*
  * The header is followed by path_size raw bytes of an absolute path,
@@ -600,6 +604,15 @@ typedef struct {
   uint32_t pid;
   uint32_t signal_number;
 } dolly_process_signal_request;
+
+/* Signals a program ignores and those it handles, a bit each. An ignored
+ * signal is discarded when it is sent, and an ignored SIGCHLD leaves no child
+ * to wait for: each is reaped when it ends. A handled one is delivered; any
+ * other has its default action. */
+typedef struct {
+  uint32_t ignored_signals;
+  uint32_t handled_signals;
+} dolly_process_signal_dispositions;
 
 /* The ITIMER_REAL timer: SIGALRM after value_nanoseconds of monotonic time
  * (zero disarms), then every interval_nanoseconds unless that is zero. */
@@ -716,7 +729,7 @@ DOLLY_PROCESS_LAYOUT(dolly_process_directory_entry, 24);
 DOLLY_PROCESS_LAYOUT(dolly_process_directory_request, 24);
 DOLLY_PROCESS_LAYOUT(dolly_process_stat_response, 88);
 DOLLY_PROCESS_LAYOUT(dolly_process_filesystem_stat_response, 96);
-DOLLY_PROCESS_LAYOUT(dolly_process_spawn_request, 56);
+DOLLY_PROCESS_LAYOUT(dolly_process_spawn_request, 72);
 DOLLY_PROCESS_LAYOUT(dolly_process_fd_mapping, 8);
 DOLLY_PROCESS_LAYOUT(dolly_process_exec_state, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_exec_request, 48);
@@ -731,6 +744,7 @@ DOLLY_PROCESS_LAYOUT(dolly_process_wait_request, 8);
 DOLLY_PROCESS_LAYOUT(dolly_process_wait_response, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_signal_request, 8);
 DOLLY_PROCESS_LAYOUT(dolly_process_alarm, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_signal_dispositions, 8);
 DOLLY_PROCESS_LAYOUT(dolly_process_fd_seek_request, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_clock_request, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_path_request, 16);

@@ -14,8 +14,8 @@ DOLLY_LLVM22_SHA256=922f1817a0df7b1489272d18134ee0087a8b068828f87ac63b9861b1a996
 DOLLY_LLVM_URL='https://github.com/llvm/llvm-project.git'
 # The seed's compiler and Clang's resource headers, as the llvm-cc image built
 # them from DOLLY_LLVM_COMMIT (demos/llvm/pin-seed-compiler.mjs writes both lines).
-DOLLY_SEED_COMPILER_URL='https://github.com/daugasauron/dolly/releases/download/v0.1.4/dolly-seed-compiler-aa17d63243e399d80296c0f86f683a9cec93141ee8eeb19c71afa977f0b8a875.tar'
-DOLLY_SEED_COMPILER_SHA256=aa17d63243e399d80296c0f86f683a9cec93141ee8eeb19c71afa977f0b8a875
+DOLLY_SEED_COMPILER_URL='https://github.com/daugasauron/dolly/releases/download/v0.1.4/dolly-seed-compiler-a2c771b8ba411a27f422261fc9f46257a9ec49544aa7c77eb813de23b5cbfa74.tar'
+DOLLY_SEED_COMPILER_SHA256=a2c771b8ba411a27f422261fc9f46257a9ec49544aa7c77eb813de23b5cbfa74
 
 DOLLY_SBASE_COMMIT=c546c3a5724c81cee9a11d816a38ccdf17472129
 DOLLY_SBASE_URL='https://git.suckless.org/sbase'

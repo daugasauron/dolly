@@ -40,7 +40,9 @@ int dolly_spawn_env_cwd(const char *path, int argc, char **argv,
                         int stdout_fd, int stderr_fd, double timeout_milliseconds);
 
 // Inherit eligible descriptors, then apply explicit parent-to-child mappings.
-// The stdio convenience forms above use NONE and three explicit mappings.
+// The stdio convenience forms above use NONE and three explicit mappings. A
+// child of these starts with every signal unblocked at its default action;
+// posix_spawn's keeps the caller's mask and ignored signals.
 int dolly_spawn_mapped(const char *path, int argc, char **argv,
                         char *const envp[], const char *cwd,
                         uint32_t descriptor_inheritance,

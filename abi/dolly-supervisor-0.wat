@@ -59,11 +59,14 @@
   ;; A child becomes waitable only after its Worker references are retired.
   (func $worker_retired (param i32) (result i32) i32.const 0)
   (func $spawn_flags (param i32) (result i32) i32.const 0)
+  ;; PID and signal: 0 once it is pending or has ended the process, 1 when
+  ;; the process ignores it and it is discarded, or a negated errno.
   (func $signal (param i32 i32) (result i32) i32.const 0)
   ;; Milliseconds until the spawn deadline, or -1 when none applies.
   (func $deadline_remaining (param i32) (result f64) f64.const -1)
   ;; Raise due SIGALRM timers: a PID whose default action must be delivered
-  ;; like a kill, or zero. Handled alarms only become pending.
+  ;; like a kill, or zero. Handled alarms only become pending, ignored ones
+  ;; nothing.
   (func $take_alarm (result i32) i32.const 0)
   ;; EXEC read a program for a running process, whose image the image exports
   ;; then name. Once the supervisor has compiled and admitted it, commit makes

@@ -325,7 +325,8 @@ export class DollyProcessSupervisor {
       return;
     }
     // A program not yet entered has no call to interrupt; what the kernel
-    // keeps for it, it takes when it starts.
+    // keeps for it, it takes when it starts. One that ignores the signal
+    // (result 1) has nothing to answer.
     if (result !== 0 || !process.started) return;
     const receiver = process.threaded
       ? [...process.threads.values()].sort((a, b) => a.tid - b.tid)[0] : process;

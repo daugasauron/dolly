@@ -25,6 +25,8 @@ _Static_assert(SIGHUP == DOLLY_PROCESS_SIGHUP && SIGINT == DOLLY_PROCESS_SIGINT 
 static struct sigaction actions[_NSIG];
 static _Thread_local sigset_t blocked, pending;
 static dolly_lock action_lock;
+/* What the kernel was last told of the actions. */
+static dolly_process_signal_dispositions reported;
 /* The signal the kernel has handed over. It delivers no other, and the
  * supervisor ends the process 500 ms after a terminating one, until it hears
  * that this one's handler is over. */
@@ -57,10 +59,21 @@ static int valid_signal(int signal_number) {
   return signal_number > 0 && signal_number < _NSIG;
 }
 
-/* The kernel forces SIGALRM's default action, even on a process that makes no
- * system call, unless userspace handles or ignores the signal. */
-static int64_t report_alarm_handled(int32_t handled) {
-  return dolly_process_call(DOLLY_PROCESS_ALARM_HANDLED, &handled, sizeof(handled), NULL, 0);
+/* The kernel acts on the dispositions of the signals it numbers: it discards
+ * an ignored signal, reaps for an ignored SIGCHLD and ends a process by a
+ * signal it does not handle. Told after each change, under action_lock: the
+ * call is never interrupted, so no handler runs inside it. */
+static int64_t report_dispositions(void) {
+  dolly_process_signal_dispositions dispositions = {0};
+  for (int number = 1; number < 32; ++number) {
+    if (actions[number].sa_handler == SIG_IGN) dispositions.ignored_signals |= 1u << number;
+    else if (actions[number].sa_handler != SIG_DFL) dispositions.handled_signals |= 1u << number;
+  }
+  if (!memcmp(&dispositions, &reported, sizeof(reported))) return 0;
+  const int64_t result = raw_process_call(DOLLY_PROCESS_SIGNAL_DISPOSITIONS,
+                                          &dispositions, sizeof(dispositions), NULL, 0);
+  if (result == 0) reported = dispositions;
+  return result;
 }
 
 int __sigaction(int signal_number, const struct sigaction *restrict action,
@@ -74,14 +87,14 @@ int __sigaction(int signal_number, const struct sigaction *restrict action,
     errno = ENOTSUP;
     return -1;
   }
-  if (action && signal_number == SIGALRM) {
-    const int64_t result = report_alarm_handled(action->sa_handler != SIG_DFL);
-    if (result < 0) { errno = (int)-result; return -1; }
-  }
   dolly_lock_acquire(&action_lock);
-  if (previous) *previous = actions[signal_number];
+  const struct sigaction kept = actions[signal_number];
   if (action) actions[signal_number] = *action;
+  const int64_t result = report_dispositions();
+  if (result < 0) actions[signal_number] = kept;
+  else if (previous) *previous = kept;
   dolly_lock_release(&action_lock);
+  if (result < 0) { errno = (int)-result; return -1; }
   return 0;
 }
 
@@ -101,9 +114,9 @@ static int deliver_pending(void) {
     if (action.sa_flags & SA_RESETHAND) {
       actions[number].sa_handler = SIG_DFL;
       actions[number].sa_flags &= ~SA_SIGINFO;
+      report_dispositions();
     }
     dolly_lock_release(&action_lock);
-    if (number == SIGALRM && (action.sa_flags & SA_RESETHAND)) report_alarm_handled(0);
     if (action.sa_handler == SIG_IGN) continue;
     if (action.sa_handler == SIG_DFL) {
       if (number == SIGCHLD || number == SIGURG || number == SIGWINCH) continue;
@@ -355,11 +368,13 @@ int64_t __dolly_process_exec(dolly_process_exec_request *request, uint64_t size)
   }
 }
 
-/* The signal state the program that exec replaced left this one, read before
- * any call a pending signal could interrupt: crt1.c's first. */
+/* The signal state the program that exec replaced, or the spawning one, left
+ * this one, read before any call a pending signal could interrupt: crt1.c's
+ * first. The kernel knows these ignored signals already. */
 void __dolly_signal_start(void) {
   dolly_process_exec_state state;
   if (raw_process_call(DOLLY_PROCESS_EXEC, NULL, 0, &state, sizeof(state)) != sizeof(state)) return;
+  reported.ignored_signals = state.ignored_signals;
   for (int number = 1; number < 32; ++number) {
     const uint32_t bit = 1u << number;
     if (number == SIGKILL || number == SIGSTOP) continue;

@@ -35,3 +35,62 @@ not fill); a program that ignores SIGHUP is not ended by the grace under hang-up
 builds without its sed line; `test/process-browser.mjs`, `core`, `shell` and `pty` pass in
 Chromium and Firefox on the round's images; `docs/process-model.md` says the kernel knows the
 dispositions and what `tcgetpgrp` answers.
+
+## State (2026-11-04, branch `core/process-signals`)
+
+Implemented as decided, with two choices recorded under Decisions; verification in progress.
+
+## The change
+
+- `process.h`: op 71 is `DOLLY_PROCESS_SIGNAL_DISPOSITIONS` (`dolly_process_signal_dispositions`,
+  the ignored and the handled masks, 8 bytes, no response, never interrupted); `ALARM_HANDLED`
+  is gone. `dolly_process_spawn_request` ends with `dolly_process_exec_state signals` (56 to 72
+  bytes; pending must be zero). Terminal operation 7, `DOLLY_PROCESS_TERMINAL_FOREGROUND`.
+- Kernel: an ignored signal is discarded when sent (`dolly_process_signal` returns 1, so the
+  supervisor interrupts nothing and arms no grace); a parent that ignores SIGCHLD has each child
+  reaped when its Worker retires; `take_alarm` reads the masks; SPAWN starts the child with the
+  request's state, as EXEC does; exec commit drops pending signals the new program ignores.
+- libc: `sigaction` and `SA_RESETHAND` report the masks under `action_lock` when they change
+  (the call is never interrupted, so no handler runs inside the lock); `posix_spawn` computes
+  the child's mask and ignored set from the caller and the attributes; `spawn_signals_supported`
+  is gone. `runtime.h`'s spawns start children at defaults, as before. `TIOCGPGRP` asks the kernel.
+- dte builds from upstream's files unchanged (the sed line, and `grep`/`sed` it needed, are gone).
+
+## Decisions
+
+- **`tcsetpgrp` keeps failing `ENOTTY`, not `ENOTSUP`.** The decision says it "stays"; what it
+  is today is `ENOTTY` (the ioctl default). zsh takes `ENOTTY` from `tcsetpgrp` silently for no
+  job control and warns for any other errno: `attachtty` (`Src/utils.c:4748-4760`, zsh 5.9.2)
+  runs at every interactive line (`hist.c:1158`), so `ENOTSUP` would print "can't set tty pgrp"
+  at the first prompt of every zsh. A no-op success for the caller's own group would be truer
+  but turns zsh's MONITOR on, and with it job notices and `fg` warnings: a change of zsh's
+  behaviour nobody asked for.
+- **What `tcgetpgrp` answers.** The caller's pid when it is in the terminal's foreground: at the
+  display, the foreground owner and what descends from it (or anyone while there is no owner);
+  on a pseudo-terminal's slave every holder, as the slave's interrupt key reaches them all. Any
+  other process gets the owner's pid, so a program that lost the terminal (an orphan) learns it
+  is in the background. `ENOTTY` for a file that is not a terminal.
+- **`runtime.h`'s spawns keep starting children at defaults.** Their callers reset anyway on
+  Linux: CPython's `restore_signals` and libuv set SIG_DFL in the child; `system`/`popen` want
+  SIGINT and SIGQUIT at their defaults. Only `posix_spawn` promises POSIX's inheritance.
+- **The restamped seed compiler.** Its own libc is the old contract's. The one SPAWN it makes is
+  `wasm-opt` for `--dolly-cast-emulation` (`src/compiler.cpp:966`), and an old 56-byte header is
+  refused (`EINVAL`) by the new kernel. Nothing in `llvm-cc`'s closure (tablegen, cmake-build,
+  python) uses cast emulation (zsh, glib and ghostty-gtk do), so the round builds and pins
+  `llvm-cc` before those three.
+
+## Before (2026-11-04 08:47, Chromium, `system` built at the old seed `e7867504`)
+
+The new fixtures, run at the prompt on images of the old seed (`build/signals-evidence/before-chromium.log`):
+
+- `process-dispositions`: the child of a parent with SIGPIPE ignored and SIGHUP blocked is
+  refused (`-ENOTSUP`); with SIGPIPE and SIGCHLD ignored "0 of 80 spawned, then error 138"
+  (`ENOTSUP`); after SIGCHLD back at default, a spawn is still refused for SIGPIPE.
+- A child that ignores SIGHUP and spins 1.5 s without a system call, sent SIGHUP by `kill`:
+  "signal 1 after 0.50 s", the supervisor's grace.
+- `pty deaf`, the same child on a slave whose master closes: ended by SIGHUP. `pty program`:
+  `tcgetpgrp(0)` on the slave is not the program's pid.
+- `tcgetpgrp(0)` at the display's terminal: -1, `ENOTTY` (the lifecycle fixture asserted that).
+- Found on the way: `isatty` and `tcgetattr` of a pipe failed with `ESPIPE`, not `ENOTTY`: the
+  terminal request checked its descriptor with `descriptor_for`, which answers `ESPIPE` for a
+  descriptor without a host file (`880804655` meant it as the bad-descriptor check only).
