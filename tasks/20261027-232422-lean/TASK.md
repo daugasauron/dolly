@@ -196,8 +196,10 @@ by name (Firefox names `wasm-reserved`, `js-executable-memory`, `jemalloc`; Chro
 
 - Compiling `lean` (214 MB) in a page Worker, outside Dolly (`probe/compile-ways.mjs`):
   Firefox peaks 0.8 to 1.4 GB above its floor and retains about 0.5 GB; Chromium peaks
-  0.2 GB and retains nothing until functions run (lazy compilation). `compile`,
-  `compileStreaming` and the synchronous `Module` differ by less than runs do.
+  0.2 GB and retains nothing until functions run (lazy compilation). The synchronous `Module`
+  peaks about 0.1 GB lower in Firefox (0.93 to 0.97 GB against `compile`'s 1.02 to 1.07, three
+  runs each; `compile-ways-2.log`), `compileStreaming` no lower: too little to change Lean's
+  numbers, so the holder compiles as the supervisor did.
 - A dropped Module goes only at its realm's next collection: in Firefox `lean`'s, dropped
   before `lake` was compiled, was still resident 30 s later (`probe/compile-memory.mjs`).
   Compiled code does not count toward a collection; ending the Worker frees it at once.
@@ -237,7 +239,11 @@ by name (Firefox names `wasm-reserved`, `js-executable-memory`, `jemalloc`; Chro
   released it before the new one started, which would have ended the Worker of a held module
   the cache does not hold (none tonight: every executable is under its 256 MiB). After it
   `process` and `threads` pass in both browsers; `threads` five times and `core` three times in
-  a row in Firefox, no stall like the night's two (`repeat.log`).
+  a row in Firefox, no stall like the night's two (`repeat.log`). `image` (page-built images,
+  whose builds run their programs through the same supervisor) and `shell` pass in both;
+  `default` fails here only because this tree's `amy-index.txt` lists the narrowed catalog,
+  without `git` and `python`, which its welcome text names. The images this tree built tonight
+  (`default`'s closure three times, `zig-build` and the compiler among them) were built by it.
 - `test/process-memory-browser.mjs` now launches four distinct copies of the compiler in turn,
   twice, and fails when a launch leaves 256 MiB over the level the first four left. Before the
   change it failed in Firefox (629 MiB over; after each launch 1824 to 2435 MiB against 1806);
