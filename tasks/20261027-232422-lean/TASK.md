@@ -1,10 +1,11 @@
 # Lean 4 as an amy package, built inside Dolly from upstream's stage0
 
 - STATUS: OPEN
-- PRIORITY: 60
+- PRIORITY: 390
 - TAGS: packages,demo,lean,0.1.5
 
-Owner (2026-10-28): "I want to add lean to amy."
+Owner (2026-10-28): "I want to add lean to amy." Owner (2026-11-04): "I absolutely want to include
+lean in 0.1.5."
 
 Lean 4 (`leanprover/lean4`, upstream's newest stable release) as a package: `amy install lean`
 gives `lean` and `lake` with Lean's own library (`Init`, `Std`, `Lean`), built inside Dolly
