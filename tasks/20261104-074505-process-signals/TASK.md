@@ -39,9 +39,10 @@ dispositions and what `tcgetpgrp` answers.
 ## State (2026-11-04, branch `core/process-signals`)
 
 Done in this tree, waiting for the catalog round: `d20e6e491` (the contract), `f53451810`
-(`ENOTTY` for pipes), `028bebeee` (dte unchanged), `186f22960` (pins). Verified on `default`,
-`system` and `dte` rebuilt on the new seed (image inputs `bc911e0f`): this tree's dist registers
-their 28 images only. Close after the round's suites pass on its images.
+(`ENOTTY` for pipes), `028bebeee` (dte unchanged), `186f22960` (pins), `735e6d84d` (Emacs's
+`tcgetpgrp` hunk gone). Verified on `default`, `system`, `dte` and `gnu-emacs` rebuilt on the
+new seed (image inputs `bc911e0f`): this tree's dist registers their 30 images only. Close
+after the round's suites pass on its images.
 
 ## The change
 
@@ -116,16 +117,35 @@ The new fixtures, run at the prompt on images of the old seed (`build/signals-ev
   room`); a rerun with the values printed and a second full run in both browsers passed (52 of
   52). The check counts `/proc/processes`, which lists no exited process, so a record not yet
   collected when `room` is read makes the table full early; nothing in this change touches those
-  records unless a parent ignores SIGCHLD, which nothing before the check does.
+  records unless a parent ignores SIGCHLD, which nothing before the check does. Two more runs
+  in both browsers, beside an image build, passed too: one failure in six Chromium runs.
 
 ## For the round
 
 - Every image: `process.h`, `runtime.h` and the libc changed. Rerun
   `scripts/restamp-seed-compiler.mjs` after merging any other `process.h` change (the archive
-  here is `.cache/dolly-seed-compiler-a2c771b8…tar`, digest `36d9bdf9…`), relink the Rust seed,
+  is the root `.cache/dolly-seed-compiler-a2c771b8…tar`, digest `36d9bdf9…`; neither other branch
+  of today changes `process.h`), relink the Rust seed,
   and build and pin `llvm-cc` before zsh, glib and ghostty-gtk (cast emulation, above).
 - `core/terminal-mode` changes the lines around both kernel edits in `process_dispatch` (its
   `read_deadline` reset on `-EINTR`, next to the new exemption) and the process record (its
   `read_deadline` after `mailbox`, near `alarm_handled`'s replacement): keep both.
-- Emacs's patch can drop its `tcgetpgrp` hunk (`emacs.c:3111`, "No process groups: Emacs
-  controls the one terminal"): upstream's test now holds in the foreground.
+- Emacs: `demos/emacs/test` passed in Chromium and Firefox on the rebuilt `gnu-emacs`, and the
+  package in `default` (Chromium), without the hunk.
+
+## Lessons
+
+- An image build reads the tree's own headers as recipe `SOURCE`s when it pins: a build of the
+  old seed started after `process.h` was edited pinned the edited header into old-seed images.
+  Build the "before" images before touching any seed input, or measure "before" first.
+- The restamp is sound only for the operations the seed compiler's own old libc makes; `grep
+  posix_spawn src/compiler.cpp` before changing an operation's layout. Here it is one spawn
+  (`wasm-opt`), outside `llvm-cc`'s closure, so the round's order carries it.
+- An errno is behaviour: zsh takes `ENOTTY` from `tcsetpgrp` silently and prints a warning for
+  any other, and dte and Emacs test `tcgetpgrp` against `getpgrp`. Read the programs that call a
+  function before choosing what it fails with; the decision's "stays ENOTSUP" was a misremembered
+  `ENOTTY`.
+- The kernel's existing answer was enough to stop the grace: `dolly_process_signal` returning 1
+  for "discarded" needed no new export, since the supervisor already stopped at a nonzero result.
+- A check that counts `/proc/processes` against a limit sees no exited record; when it fails, print
+  the counts at once, since a rerun may not show it again.
