@@ -4,7 +4,7 @@
 - PRIORITY: 120
 - TAGS: catalog,site,npm,cleanup,0.1.5
 
-## State (2026-11-04, 23:00): implemented on `core/catalog-json`; demo checks running
+## State (2026-11-04, 23:30): implemented on `core/catalog-json`; the round runs the rest
 
 `de5db691a` writes and reads `dist/dolly-images.json` (`{ images, staticSources }`) and
 `dist/dolly-IMAGE-system-snapshot.json`; `218ea702e` makes the verifier check the runtime's own
@@ -43,6 +43,7 @@ await rm("dist/dolly-images.mjs", { force: true });
 | emacs demo (gnu-emacs rebuilt) | passed | passed |
 | tmux demo (tmux-panes and vi rebuilt) | passed | passed |
 | python-data demo (python-data and openblas rebuilt) | passed | passed |
+| studio demo (its chain rebuilt): fails before the changed lines, on `dollyfile-build` of `examples/tool.in`, which declares system's host modules by hand without html@0 (as do `hello.in` and `skills/dollyfiles/SKILL.md`); reported to the integrator with the html@0 fix | failed | |
 | `tools`, `cpython` and `gamedev` artifact tests, `zig-sdk.artifacts.mjs`, and dolly.artifacts' three catalog tests | passed (Node) | |
 
 `published-version.mjs boot` checks every published version after a deployment (checklist
@@ -50,9 +51,17 @@ step 7), and v0.1.0 to v0.1.4 keep their modules: it reads a version's catalog b
 the module before v0.1.5, the JSON since. A local candidate of this layout must therefore be
 named v0.1.5, which the checklist demands anyway (step 1 refuses v0.1.4, published).
 
-Not run here, for the round: `test/amy-browser.mjs` (77 of the 138 packages are not yet built
+Left for the round (the done-when's other checks pass above): the studio demo once its examples
+declare html@0, `test/amy-browser.mjs` (77 of the 138 packages are not yet built
 with the new seed), the llvm demo (llvm-build and llvm-runtimes), and dolly.artifacts' sealing
 test over every snapshot. Their changes are the same catalog and metadata reads that pass above.
+
+The release: this task is tagged 0.1.5, so `tatr ls :0.1.5` lists it with that release's scope.
+`release-checklist.sh` takes its version from package.json, which still says 0.1.4. Step 8 of
+0.1.4's checklist ("move package.json and src/version.mjs to the next version") has not been
+done, and every recipe reference names /v0.1.4/. Until the version moves (a full repin and
+rebuild, best done in a round that rebuilds everything), the checklist names v0.1.4 and stops
+at step 1, since v0.1.4 is published, so this layout cannot ship under 0.1.4.
 
 `docs/browser-boundary.md` changes with the boundary, and `Dollyfile-dolly-docs` pins it: the
 next round rebuilds dolly-docs and the 11 images built on it (pi-dolly, pi-minimal, pi-runtime,
