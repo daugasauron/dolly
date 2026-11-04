@@ -8,8 +8,9 @@
 
 Fixed on `fix/codex-hang` (from `integrate/2026-11-03`, 01880a300): c89b6aec (an ending call leaves
 the program by the gate's trap) and 027644b2 (a thread ended before it started ends its own Worker).
-On 027644b2 `node demos/codex/test/codex-browser.mjs` passes in Chromium (31.1 s), and 102 codex
-runs back-to-back in one session hang none in Chromium or Firefox (`build/codex-evidence/final/`).
+On 027644b2 `node demos/codex/test/codex-browser.mjs` passes in Chromium, four runs of four (31.1
+to 31.3 s), and 102 codex runs back-to-back in one session hang none in Chromium or Firefox
+(`build/codex-evidence/final/`).
 
 Not a seed change: the image inputs stay `e7867504…`, and no image's programs change. The gate's WAT
 and three docs are pinned in `Dollyfile-dolly-docs`, so the next catalog round rebuilds
