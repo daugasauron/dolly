@@ -1,6 +1,7 @@
-// Seven Kingdoms and the RTS arena in the rts-arena image: the launcher, the
-// real game and replays, two Pi players against a scripted provider, the
-// included split replay, and offscreen player input.
+// Seven Kingdoms and the RTS arena. In rts-build, where the game is compiled
+// against its headers, SDL2 and zlib: the replay layout and offscreen player
+// input. In the rts-arena image: the launcher, the real game and replays, two
+// Pi players against a scripted provider and the included split replay.
 // Usage: node demos/rts/test/rts-browser.mjs
 // DOLLY_RTS_LIVE=1 instead plays a live match between DOLLY_RTS_MODELS (two
 // comma-separated OpenRouter models, key piped on stdin) or through the Codex
@@ -16,7 +17,7 @@ import { rtsProvider } from "./fixtures/rts-provider.mjs";
 
 const provider = rtsProvider();
 // The scripts the session runs, written into it: rts-arena holds no curl.
-const scripts = ["rts-match.mjs", "rts-history.mjs", "rts-split-replay.mjs", "rts-input-probe.cpp"];
+const scripts = ["rts-match.mjs", "rts-history.mjs", "rts-split-replay.mjs"];
 const fixture = name => readFile(new URL(`fixtures/${name}`, import.meta.url), "utf8");
 const live = process.env.DOLLY_RTS_LIVE === "1";
 const relay = live && process.env.DOLLY_RTS_MODELS_FILE ? JSON.parse(await readFile(process.env.DOLLY_RTS_MODELS_FILE, "utf8")) : null;
@@ -34,6 +35,20 @@ const handle = async (request, response, path, headers) => {
 };
 const scratch = await mkdtemp(join(tmpdir(), "dolly-rts-"));
 try {
+  // In rts-build: the replay layout the game's headers give, and offscreen
+  // player input, which is ordered and never acquires the browser display.
+  let layout;
+  if (!live) await demoTest("rts layout and input", { image: "rts-build", timeout: 300_000 }, async ({ open }) => {
+    const { page, run, waitText } = await open();
+    await run(writeCommand("/tmp/rts-layout.cpp", "#include <OGF_REC.h>\n#include <OREMOTE.h>\n#include <cstdio>\n" +
+      'int main() { printf("RTS-LAYOUT %zu %u %u %u %u\\n", sizeof(ConfigGF), MSG_QUEUE_HEADER, MSG_QUEUE_TRAILER, MSG_TOWN_RECRUIT, MSG_COMPARE_CRC); }\n'));
+    await run("c++ -std=c++11 -I/usr/src/dolly/rts -I/usr/src/7kaa/include -I/usr/include/SDL2 -include /usr/src/dolly/rts/config.h " +
+      "/tmp/rts-layout.cpp -o /tmp/rts-layout && /tmp/rts-layout");
+    layout = /RTS-LAYOUT ([\d ]+)\n/.exec(await waitText(/RTS-LAYOUT [\d ]+\n/))[1].trim();
+    await run(writeCommand("/tmp/rts-input-probe.cpp", await fixture("rts-input-probe.cpp")));
+    await run("mkdir -p /tmp/dolly-sdl2/player && c++ -O0 -I/usr/include/SDL2 -I/usr/src/dolly/rts /usr/src/dolly/rts/input.cpp /tmp/rts-input-probe.cpp -o /tmp/rts-input-probe -lSDL2 -lz -lm && /tmp/rts-input-probe");
+    await page.waitForFunction(() => !__dolly.graphicsActive);
+  });
   await demoTest("rts", { image: "rts-arena", timeout: live ? (seconds + 600) * 1000 : 1_800_000,
     server: { handle, port: Number(process.env.DOLLY_BROWSER_PORT ?? 0) } }, async ({ server, open }) => {
     if (live) return liveMatch(await open({ prompt: /Type to search/, policy: { maxRequests: 1024, rules: [
@@ -181,7 +196,7 @@ try {
     assert.equal(game.status, null, "the game must remain live before interruption");
     await page.keyboard.press("Control+c");
     assert.ok([0, 130].includes(await game.done), "SDL may handle interrupted event polling as a clean quit");
-    const match = start(`janis -m /tmp/rts-match.mjs ${test}`);
+    const match = start(`janis -m /tmp/rts-match.mjs ${test} '${layout}'`);
     await graphics(true);
     await page.waitForFunction(() => { const canvas = document.querySelector("canvas"); return canvas.width === 1600 && canvas.height === 972; });
     assert.equal(await match.done, 0);
@@ -267,10 +282,7 @@ try {
     // The viewer takes the same Ctrl-C, which SDL makes its quit event.
     await page.waitForFunction(() => !__dolly.graphicsActive, null, { timeout: 10_000 });
 
-    // Offscreen player input is ordered and never acquires the browser display.
-    await run("mkdir -p /tmp/dolly-sdl2/player && c++ -O0 -I/usr/include/SDL2 -I/usr/src/dolly/rts /usr/src/dolly/rts/input.cpp /tmp/rts-input-probe.cpp -o /tmp/rts-input-probe -lSDL2 -lz -lm && /tmp/rts-input-probe");
-    await page.waitForFunction(() => !__dolly.graphicsActive);
-    await run(`rm -rf ${test} /tmp/rts-pi-agent /tmp/dolly-sdl2 /tmp/rts-input-probe ${scripts.map(name => `/tmp/${name}`).join(" ")}`);
+    await run(`rm -rf ${test} /tmp/rts-pi-agent ${scripts.map(name => `/tmp/${name}`).join(" ")}`);
   });
 } finally {
   await rm(scratch, { recursive: true, force: true });

@@ -439,10 +439,10 @@ What each built for itself is a package; the application installs it with `core`
   built and would have broken those; reading what the programs spawn, not only what they
   stamp, found it.
 - bhop installs `cc` and `raylib` besides `airtime`: its `.dollyrc` tells the player to edit
-  `bhop.c` and `make -f bhop.mk`. rts-arena installs `cc`, `sdl2` and `zlib`: its test compiles against
-  the game's headers in the session (`demos/rts/test/fixtures/rts-match.mjs` learns the replay
-  layout so, and `rts-input-probe.cpp` links the input adapter with SDL2). Neither adds a
-  module; a layout file written when `seven-kingdoms` is built would let rts-arena drop them.
+  `bhop.c` and `make -f bhop.mk`. rts-arena's test compiled in the session (the replay layout
+  from the game's headers, and an input probe with SDL2 and zlib); those two steps now run in
+  `rts-build`, where the game is compiled, and pass the layout to `rts-match.mjs` as an
+  argument, so rts-arena holds no compiler (353 MB with one, 215 MB without).
 - Studio's examples (`demos/studio/examples/*.in`) are applications of `core`, `posix`,
   `display` (and `cc` for the tool), their rows taken from the image's `/etc/dolly/installed`
   (an application FROM none has no `recipes.lock` until it is sealed); the skill teaches that
@@ -513,7 +513,7 @@ It is gone from gnu-emacs, neovim, speech-to-text-mic, gpu-fluid, mojo-gpu and x
 | mojo demo: mojo-gpu on the software adapter | passed | (GPU window only) |
 | local-llm demo: pi-local and dollyfile-studio start screens | passed | |
 | wine demo: wine | passed | passed alone; failed twice, at GIMP's second start ("the saved stroke in the image opened again"), each time while an image build ran beside it. The image before R1 (FROM system, built for the A/B) passed alone too: load, not R1 |
-| rts demo: rts-arena (its scripts written into the session; cc, SDL2 and zlib for its probes) | passed | |
+| rts demo: the replay layout and input probe in rts-build, then rts-arena (no compiler; its scripts written into the session) | passed | |
 | xonotic: a smoke run (scratch script, not committed) opens `/xonotic/` on the software adapter: the client takes the display and sends 299 `gpu@0` packets (156 MB) in 5 s | passed | |
 | ghostty-gtk demo, after the round's `ghostty-gtk`: ghostty-x11 (229 to 87 MB) | passed | passed |
 | studio demo: dollyfile-studio, its shipped tool example (core, posix, display, cc) built by `dollyfile-build` | passed | |
