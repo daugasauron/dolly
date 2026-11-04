@@ -141,6 +141,11 @@ Item numbers are this task's. Evidence in `work/slop/build/slop-evidence/`.
   and `nena-browser` (live installs, which now read the image's receipt) pass; `nena` and
   `sockets` once the three `libdolly-*` packages they install were built (18 s).
 
+- **Make 4.4.1's configure natively** (`src/slop.c` with `test/fixtures/native-spawn.c`, so
+  `/bin`'s six utilities run as the shell's code, Dolly's `printf` among them) against Bash:
+  its 196 checks print the same 197 lines; then Slop stops at `config.status`, whose
+  `(umask 077 && mkdir …)` it refuses natively as in Dolly, where Bash goes on.
+
 ## State (2026-11-04 10:55)
 
 All six items are on `core/slop-language` and verified on `default`, `system` and `ffmpeg`
