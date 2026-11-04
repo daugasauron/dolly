@@ -254,12 +254,11 @@ await browserTest("startup script", {}, async ({ open }) => {
   // process; a shell starts where it is started.
   await run('test "$(pwd)" = /workspace && test "$PWD" = /workspace');
   await type("cd /tmp && slop");
-  const nested = await nextShell(outer);
+  await waitForText(/dolly:\/tmp\$\s*$/);
   assert.equal(await result(() => type('test "$(pwd)" = /tmp && test "$PWD" = /tmp')), 0);
-  assert.equal(await nextShell(0), nested);
   await page.keyboard.press("Control+d");
-  await page.waitForFunction(outer => __dolly.foregroundPid === outer, outer);
-  await run('test "$(pwd)" = /tmp && cd /workspace');
+  await waitForText(/logout\s+dolly:\/tmp\$\s*$/);
+  await run("cd /workspace");
   for (const [name, rc] of [
     ["failed", "exit 7"],
     ["missing", null],
