@@ -94,5 +94,23 @@ await browserTest("process memory", { image: "system", timeout: 600_000 }, async
     `peak ${inMebibytes(peak)} MiB, two seconds after ${inMebibytes(after)} MiB`);
   if (peak - baseline >= buildBound) failures.push(`${inMebibytes(peak - baseline)} MiB over the baseline during make -j4`);
   if (after - baseline >= retainedBound) failures.push(`${inMebibytes(after - baseline)} MiB over the baseline two seconds after make -j4`);
+  // Four distinct 96 MB executables in turn, of which the cache holds two: the
+  // module the cache lets go goes too.
+  const compilers = ["/usr/libexec/dolly/process-bin/compiler", "/tmp/compiler2", "/tmp/compiler3", "/tmp/compiler4"];
+  await run(`for n in 2 3 4; do cp ${compilers[0]} /tmp/compiler$n && printf '\\000\\003\\002x'$n >> /tmp/compiler$n; done`);
+  const launch = program => run(`${program} --dolly-toolchain-mode=c --version > /dev/null`);
+  for (const program of compilers) await launch(program);
+  await settle();
+  const cached = residentAnonymous();
+  const launches = [];
+  for (const program of [...compilers, ...compilers]) {
+    await launch(program);
+    launches.push(await settledSample(cached));
+  }
+  console.log(`process memory (${name}, four compilers in turn): baseline ${inMebibytes(cached)} MiB, after each ` +
+    `${launches.map(inMebibytes).join(" ")}`);
+  if (Math.max(...launches) - cached >= retainedBound) {
+    failures.push(`${inMebibytes(Math.max(...launches) - cached)} MiB over the baseline after a compiler the cache let go`);
+  }
   assert.deepEqual(failures, [], "dead processes stayed resident");
 });

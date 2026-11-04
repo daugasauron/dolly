@@ -106,6 +106,10 @@ by name (Firefox names `wasm-reserved`, `js-executable-memory`, `jemalloc`; Chro
   4 ms (`probe/worker-cost.mjs`), so the threshold keeps small programs as they were.
   `stack` and `ended-worker` (an image with `stack-wrap`) passed in both on the night round's
   `stack-wrap`; on the previous round's they time out at boot, the supervisor unchanged too.
+- `test/process-memory-browser.mjs` now launches four distinct copies of the compiler in turn,
+  twice, and fails when a launch leaves 256 MiB over the level the first four left. Before the
+  change it failed in Firefox (629 MiB over; after each launch 1824 to 2435 MiB against 1806);
+  after it, it passes in Chromium (at most +2 MiB) and Firefox (+48).
 
 ## Measured (2026-11-02): `demo/lean-3`, on `integrate/2026-11-02`
 
