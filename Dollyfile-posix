@@ -6,8 +6,8 @@ REQUIRES HOST runtime@0
 # that builds them: sbase, awk, Dolly's find, xargs and the like, and sh.
 # Upstream's pages, of mdoc and man macros, are kept as the text mandoc
 # formats, which man prints as it is.
-FROM /v0.1.4/Dollyfile-system-tools 33a73992c254588bbb19b9bc775f0e197ee31946c6406999621f7b255da8419f
-USE /v0.1.4/Dollyfile-mandoc 5e06ca78eb5b94e72de954aab2a69c8cf53048c0f71c5b841c95c8bc76a1b27f
+FROM /v0.1.4/Dollyfile-system-tools d543b7ee9bdf6728949208626247c99dc7c7447a28f486f9272d491b5959b2dc
+USE /v0.1.4/Dollyfile-mandoc bfefe0964990b977fa0f5c9a92292202c145729c63624c87a416e090f0562a05
 
 REQUIRES TOOL text-page
 SLOP text-page /usr/share/man/man1/*.1

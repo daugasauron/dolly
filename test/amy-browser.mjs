@@ -53,7 +53,7 @@ async function sealed(name, body, needed = [], hosts = [], environment = {}) {
   const pin = sha256(source), chain = [...needed, { name, url, sha256: pin, source }];
   const receipt = [encoder.encode("DOLLYART"), u32(5), u32(chain.length),
     ...chain.flatMap(recipe => ["PACKAGE", recipe.name, recipe.url, recipe.sha256, recipe.source].flatMap(text)),
-    u32(hosts.length), ...hosts.flatMap(text), u32(1 + variables.length), ...text("FILE"), ...text(name), ...text(`/usr/share/${name}`), u32(1),
+    u32(hosts.length), ...hosts.flatMap(text), u32(1 + variables.length), ...text("LIB"), ...text(name), ...text(`/usr/share/${name}`), u32(1),
     ...text(`/usr/share/${name}`), ...variables.flatMap(([variable, value]) => [...text("ENV"), ...text(variable), ...text(value), u32(0)])];
   const records = new Map([["/etc/dolly/Dollyfile", file(source)], ["/etc/dolly/artifact", { kind: 2, data: bytes(receipt) }],
     ...rows ? [["/etc/dolly/installed", file(rows)]] : [], [`/usr/share/${name}`, file(`${body}\n`)]]);
@@ -634,7 +634,7 @@ await browserTest("USE", { image: "system", server: { fixtures } }, async ({ ser
   const recorded = "grep '^INSTALL ' /etc/dolly/installed | grep -v -x -f record | sed 's/ [0-9a-f]*$//' | tr '\\n' ' '";
   const kept = `test "$(${recorded})" = 'INSTALL ${newer.url} INSTALL ${shared.url} ' && ! grep -q /usr/share/library /etc/dolly/image.manifest && ` +
     "! grep -q LIBRARY_BUILT /etc/dolly/environment && test -z \"$(ls /etc/dolly/artifacts)\"";
-  await build([used, "REQUIRES FILE library", 'SLOP test "$LIBRARY_BUILT" = used && test "$(cat /usr/share/needed)" = two', installed]);
+  await build([used, "REQUIRES LIB library", 'SLOP test "$LIBRARY_BUILT" = used && test "$(cat /usr/share/needed)" = two', installed]);
   await run(kept);
   await build([installed, used]);
   await run(kept);

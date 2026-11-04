@@ -1602,8 +1602,8 @@ static int process_line(Engine *engine, const char *locator,
       result = 2;
     } else if (host) {
       result = valid_host_requirement(words[1]) ? require_host(engine, words[1]) : 2;
-    } else if (result == 0 && (count != 2 || !valid_object_type(words[0]) ||
-        (strcmp(words[0], "ENV") == 0 ? !valid_environment_name(words[1]) : !valid_object_name(words[1])))) result = 2;
+    } else if (result == 0 && (count != 2 || !valid_object_name(words[1]) || (strcmp(words[0], "TOOL") != 0 &&
+        strcmp(words[0], "LIB") != 0 && strcmp(words[0], "HEADER") != 0))) result = 2;
     else if (result == 0 && strcmp(words[0], "TOOL") == 0 && strcmp(words[1], "slop") == 0) {
       fputs("dollyfile: SLOP depends on /bin/slop by definition; REQUIRES TOOL slop says nothing\n", stderr);
       result = 2;
@@ -1611,8 +1611,7 @@ static int process_line(Engine *engine, const char *locator,
     // HOST describes the completed image. Its provider is checked by the host
     // loader, not by the headless userspace that compiles this recipe.
     if (result == 0 && execute && !host) {
-      if (strcmp(words[0], "ENV") == 0) result = getenv(words[1]) == NULL ? -ENOENT : 0;
-      else if (strcmp(words[0], "TOOL") == 0) {
+      if (strcmp(words[0], "TOOL") == 0) {
         char *path = NULL;
         result = resolve_tool(words[1], &path);
         free(path);

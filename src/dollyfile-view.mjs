@@ -226,6 +226,7 @@ function inspectRecipe(source, label, rows) {
           try { hostRequirement(tokens[1]); } catch (error) { fail(label, item.line, error.message); }
         } else {
           assertObject(tokens, label, item, "REQUIRES");
+          if (!["TOOL", "LIB", "HEADER"].includes(tokens[0])) fail(label, item.line, "REQUIRES takes HOST, TOOL, LIB or HEADER");
           operations += 1;
         }
         if (tokens.length !== 2) fail(label, item.line, "invalid REQUIRES");

@@ -94,7 +94,7 @@ mounted, and reads no other version's.
 | `FILE /path` | Write the body, if any, and retain the file. |
 | `FOLDER /path` | Retain the directory and the members it has at this row. |
 | `EXPORTS TYPE name …` | Offer an object when the recipe finishes. |
-| `REQUIRES TYPE name` | Assert that an object is available here. |
+| `REQUIRES TOOL\|LIB\|HEADER name` | Assert that an object is available here. |
 | `ENTRY /program [word…]` | Last declaration: the program the image runs when opened. |
 
 - Paths are absolute and normalized: no trailing `/`, `//`, `.`, `..`,
@@ -201,9 +201,8 @@ mounted, and reads no other version's.
 - An application or toolchain exports its own objects, those of the packages
   it installs and those of its base; a package exports its own. An image
   retains every object it exports.
-- `REQUIRES TOOL` checks `PATH`, `REQUIRES ENV` the environment, other types an
-  earlier visible export of that kind: the recipe's own, a package's or the
-  base's.
+- `REQUIRES TOOL` checks `PATH`, `LIB` and `HEADER` an earlier visible export
+  of that kind: the recipe's own, a package's or the base's.
 - The image keeps only `FILE` and `FOLDER` paths, exported objects, `FROM`,
   `INSTALL` and `COPY` results, and its recipes; a package keeps `COPY`
   results and neither of the other two. Scratch needs no cleanup. ENTRY

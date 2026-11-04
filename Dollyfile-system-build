@@ -329,7 +329,6 @@ SLOP rm \
 # -ww-wasmexcept; its -mt-wasmexcept build is the same bytes) for the headers
 # installed beside them. Every C++ link takes them, including explicit
 # -lc++/-lc++abi; the links above this point are C and need none.
-REQUIRES FOLDER process-sdk
 REQUIRES TOOL   c++
 REQUIRES TOOL   cc
 REQUIRES TOOL   ar

@@ -13,12 +13,12 @@ REQUIRES HOST threads@0
 # the download tool of Pi's Dolly extension (Janis links its client), and html
 # for its ask_user and show_html tools (the html command). The recipe engine
 # lets an npm user build an image FROM it (dolly-build).
-INSTALL /v0.1.4/Dollyfile-core f373d2f1ca80c85a249c96e388203dad804525f1679ee0641e30e9977816b928
-INSTALL /v0.1.4/Dollyfile-dollyfile 6391f8f0b1d57ffc145de7c63233f94e17127ea80a4fbd5cf8536f50ec3fb20a
-INSTALL /v0.1.4/Dollyfile-posix 30ff06553fc4288a42c95ad1c4de0203739133190658902100f887211383d279
-INSTALL /v0.1.4/Dollyfile-display d463923c16e85a0499e2cfb8c169fd1e67cab9b923f85d7a841cfc53f8f14e5d
-INSTALL /v0.1.4/Dollyfile-curl d4614e0e20923a5233fefc53a575bbbf3456ec9812dbb535fa26866ac568bafd
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 1f4aec83eb9dfd181035629d7f017e7b8fa8324e2b78c379e786770891bf3e5d
+INSTALL /v0.1.4/Dollyfile-core 4a902bd69fb257d259d144a032320b285a6e4ad4410ef26c4ab547d781190ec1
+INSTALL /v0.1.4/Dollyfile-dollyfile ffff3926a5b8159654d4be1c33992eb20633ccf9f7f228417dc1b2caed8590cf
+INSTALL /v0.1.4/Dollyfile-posix 4a734cc0eeb94fb934cda219dacc0bc88e6ed6fbfb4b78754cfe53d003f35281
+INSTALL /v0.1.4/Dollyfile-display 979b7e2948be20dc8ffdd882734debebf653b4ad55b65985faf40360a25bba57
+INSTALL /v0.1.4/Dollyfile-curl 299bddc0268585456c1f8169e77fc62aa2e308a629ee82d7b0be34ce2ef0e1fc
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 86780712f46ce604f50bcbb4b9fa1cd003b3a42eb66e5ca3142b5af41fca38ac
 REQUIRES TOOL foreground
 REQUIRES TOOL printf
 REQUIRES TOOL pi
