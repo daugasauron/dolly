@@ -102,3 +102,8 @@ it would have been `system` and everything on it (`session-recover`'s sources ch
   round has them anyway. A change to `session-records.h` alone rebuilt `system` in 25 seconds.
 - The checkout serves `src/` live, so a running browser test freezes the tree: the waits went to
   the task file and to reading the restore paths, edits only between runs.
+
+Integrator (2026-11-04): the fixed image time stays. An image's bytes are reproducible, so its
+files cannot carry the build's times; one fixed time for every image path is the reproducible-builds
+answer, and 1980-01-02 is the earliest a ZIP entry holds in every timezone (Python's `zipfile`
+refuses older).
