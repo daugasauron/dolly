@@ -77,7 +77,9 @@ hand first (`steps-demo-*.json`), in seconds:
 | Firefox, with | 11.4 | 11.0 | 1.4 | 16.7 | 41 |
 
 With the setup the new check passed in both: after those commands the cache holds one maker and
-one translator, so `-lc` does not change the translator's key.
+one translator, so `-lc` does not change the translator's key. The night round's own run of the
+demo test on its package (before the fix) took 148.7 s in Chromium and 186.7 s in Firefox
+(`work/integrate`, `round-1105-evidence/demos.log`; 34.6 s and 45.8 s on Zig 0.16).
 
 The machine is shared with the night round (three image builds), so a run varies by several
 seconds; the 13.5 s of the upgrade's report was not reproduced for 0.16. Firefox's second or third
