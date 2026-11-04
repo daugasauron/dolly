@@ -1,12 +1,13 @@
 // python-data in Chromium and Firefox: a script per library, with nothing to
 // build or fetch (a NumPy computation, a pandas frame, a Matplotlib figure saved
-// as PNG and read back, text drawn with Pillow's FreeType), and a recipe that
-// COPYs NumPy's root alone from python-data-build, which gets NumPy and no other
-// library.
+// as PNG and read back, text drawn with Pillow's FreeType, a plot shown in the
+// terminal), and a recipe that COPYs NumPy's root alone from python-data-build,
+// which gets NumPy and no other library.
 // The openblas package alone links a C program that calls it as SciPy does.
 // Usage: node demos/python/test/python-data-browser.mjs
+import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { demoTest, installProbe, shellPrompt, writeCommand } from "../../browser.mjs";
+import { demoTest, installProbe, shellPrompt, waitForDisplay, writeCommand } from "../../browser.mjs";
 import { siteReference } from "../../../src/static-asset.mjs";
 
 const scripts = {
@@ -54,6 +55,31 @@ modules = [".".join(path.relative_to(root).parts[:-1] + (path.name.split(".")[0]
 for name in modules: importlib.import_module(name)
 print("EXTENSIONS-OK", len(modules))`,
 };
+// The README's snippet: savefig, then the PNG written to the terminal as one
+// kitty graphics escape. The 640x480 figure lands at the cursor, its line in
+// Matplotlib's first colour, and the prompt returns below it.
+const plot = `import base64, matplotlib.pyplot as plt
+plt.plot([1, 3, 2]); plt.savefig("/tmp/plot.png")
+print(f"\\033_Ga=T,f=100;{base64.b64encode(open('/tmp/plot.png', 'rb').read()).decode()}\\033\\\\")`;
+async function showPlot({ page, run, text }) {
+  await run(writeCommand("/tmp/plot.py", plot));
+  await run("clear; python /tmp/plot.py");
+  await waitForDisplay(page, () => {
+    const { paddingX, paddingY } = __dolly.transport.geometry();
+    const context = displaySnapshot.getContext("2d");
+    const white = (x, y) => context.getImageData(paddingX + x, paddingY + y, 1, 1).data.every(value => value === 255);
+    const pixels = context.getImageData(paddingX, paddingY, 640, 480).data;
+    let line = 0;
+    for (let index = 0; index < pixels.length; index += 4) {
+      line += Math.abs(pixels[index] - 31) + Math.abs(pixels[index + 1] - 119) + Math.abs(pixels[index + 2] - 180) < 30;
+    }
+    return white(1, 1) && white(638, 478) && !white(642, 1) && line > 300;
+  });
+  const { cellHeight } = await page.evaluate(() => __dolly.transport.geometry());
+  const rows = (await text()).split("\n");
+  assert(rows.findLastIndex(row => shellPrompt.test(row)) >= Math.ceil(480 / cellHeight), rows.join("\n"));
+}
+
 const runScript = async (run, name) => {
   await run(writeCommand(`/tmp/check-${name}.py`, scripts[name]));
   await run(`python /tmp/check-${name}.py`);
@@ -61,8 +87,9 @@ const runScript = async (run, name) => {
 
 for (const browser of ["chromium", "firefox"]) {
   await demoTest("python-data", { image: "python-data", browser, timeout: 900_000 }, async ({ open }) => {
-    const { run } = await open();
+    const { page, run, text } = await open();
     for (const name of Object.keys(scripts)) await runScript(run, name);
+    await showPlot({ page, run, text });
   });
 }
 
