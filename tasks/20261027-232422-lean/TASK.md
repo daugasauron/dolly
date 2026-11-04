@@ -233,6 +233,11 @@ by name (Firefox names `wasm-reserved`, `js-executable-memory`, `jemalloc`; Chro
   is killed at `lake build` instead (`lean-room-firefox.log`). `process`, `core` and `threads`
   pass in both browsers with it; `process-memory` passes in Firefox, and in Chromium all but its
   idle case, which the old libc of the images it ran on fails (above).
+- An exec of the program a process already runs keeps its module: disposing the old program
+  released it before the new one started, which would have ended the Worker of a held module
+  the cache does not hold (none tonight: every executable is under its 256 MiB). After it
+  `process` and `threads` pass in both browsers; `threads` five times and `core` three times in
+  a row in Firefox, no stall like the night's two (`repeat.log`).
 - `test/process-memory-browser.mjs` now launches four distinct copies of the compiler in turn,
   twice, and fails when a launch leaves 256 MiB over the level the first four left. Before the
   change it failed in Firefox (629 MiB over; after each launch 1824 to 2435 MiB against 1806);

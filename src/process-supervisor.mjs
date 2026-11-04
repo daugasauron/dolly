@@ -617,7 +617,7 @@ export class DollyProcessSupervisor {
     const delay = this.#reclamationDeadline(process) - performance.now();
     if (process.interruptTimer !== null) clearTimeout(process.interruptTimer);
     process.interruptTimer = null;
-    this.#disposeWorker(process);
+    this.#disposeWorker(process, compiled);
     Object.assign(process, { started: false, threaded: false, tid: 0, threads: new Map(), signalAtStart });
     // Its descriptors with CLOEXEC are closed: a reader of their pipes goes on now.
     this.#deliverRaised();
@@ -1045,12 +1045,13 @@ export class DollyProcessSupervisor {
     this.#disposeWorker(process);
   }
 
-  #disposeWorker(process) {
+  // next: the module an exec starts next, which stays even if it is this one.
+  #disposeWorker(process, next = null) {
     for (const thread of [...process.threads.values()]) this.#disposeThread(process, thread);
     this.#disposeThread(process, process);
     const { compiled } = process;
     process.compiled = process.processInterface = null;
-    if (compiled) this.#release(compiled);
+    if (compiled && compiled !== next) this.#release(compiled);
   }
 
   serviceDeferred() {
