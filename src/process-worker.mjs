@@ -33,7 +33,7 @@ const configuration = await new Promise((resolve, reject) => {
   });
 });
 
-if (!(configuration.module instanceof WebAssembly.Module) ||
+if (!(configuration.module instanceof WebAssembly.Module || configuration.module instanceof MessagePort) ||
     !(configuration.gateModule instanceof WebAssembly.Module) ||
     !(configuration.kernelMemory instanceof WebAssembly.Memory) ||
     !(configuration.control instanceof SharedArrayBuffer) ||
@@ -126,6 +126,19 @@ async function processMemory() {
     }
     await new Promise(resolve => setTimeout(resolve, reservationRetryMilliseconds));
   }
+}
+// The program's module, or the channel its Worker sends it on
+// (src/process-supervisor.mjs heldModuleBytes).
+async function programModule() {
+  const { module } = configuration;
+  if (module instanceof WebAssembly.Module) return module;
+  const received = await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error("the program's module was not provided")), 10_000);
+    module.onmessage = ({ data }) => { clearTimeout(timeout); resolve(data); };
+  });
+  module.close();
+  if (!(received instanceof WebAssembly.Module)) throw new TypeError("Dolly process received an invalid module");
+  return received;
 }
 // A packet range inside the process's memory, or null.
 function packetRange(addressValue, sizeValue) {
@@ -281,7 +294,7 @@ try {
   gate = new WebAssembly.Instance(configuration.gateModule, {
     process: { memory, call }, kernel: { memory: configuration.kernelMemory },
   });
-  instance = await WebAssembly.instantiate(configuration.module, {
+  instance = await WebAssembly.instantiate(await programModule(), {
     env: { memory },
     dolly_process_0: { call: gate.exports.call },
   });

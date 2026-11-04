@@ -64,6 +64,47 @@ lists every package the closure holds. So the list is complete. The release chec
    sealed release (`published-version.mjs boot` boots `default` only), so this is by hand, in
    one browser.
 
+## Compiled modules wait for a collection (2026-11-04 night)
+
+Measured on the night round's runtime (image inputs `88959af6`) before its Lean images were
+packaged, with `build/lean-evidence/night/lean-measure.mjs`: each step's highest scope memory
+(sampled every 250 ms), each browser process's anonymous memory, and the largest one's mappings
+by name (Firefox names `wasm-reserved`, `js-executable-memory`, `jemalloc`; Chromium
+`v8-sandbox`, `partition_alloc`).
+
+- Compiling `lean` (214 MB) in a page Worker, outside Dolly (`probe/compile-ways.mjs`):
+  Firefox peaks 0.8 to 1.4 GB above its floor and retains about 0.5 GB; Chromium peaks
+  0.2 GB and retains nothing until functions run (lazy compilation). `compile`,
+  `compileStreaming` and the synchronous `Module` differ by less than runs do.
+- A dropped Module goes only at its realm's next collection: in Firefox `lean`'s, dropped
+  before `lake` was compiled, was still resident 30 s later (`probe/compile-memory.mjs`).
+  Compiled code does not count toward a collection; ending the Worker frees it at once.
+- In Dolly the supervisor compiled every executable in the runtime Worker and held the Module
+  there. Four distinct 96 MB executables launched in turn three times (`thrash5.sh`; the cache
+  holds two): Firefox kept up to five compiled (`js-executable-memory` 1.32 GB, where two are
+  0.53), the steps' highs reached 3.6 GB and the scope peaked at 3.63 to 3.88 GB; idle 40 s
+  later it was 1.82. Freeing the supervisor's copy of the bytes at once (`transfer(0)`, which
+  measured frees a buffer at once in both browsers) did not lower that: fewer malloc'd bytes
+  made the collection later (peak 3.88).
+- Now a module of 16 MiB or more is compiled in a Worker of its own, which posts it to each
+  process Worker on a channel, and which the supervisor ends once neither the cache nor a
+  process holds the module. The same run: Firefox holds exactly the two cached
+  (`js-executable-memory` 0.53 throughout), the steps end at 1.90 to 2.01 GB instead of 2.02 to
+  3.35, the scope peaks at 2.99 GB instead of 3.63; Chromium is unchanged (peak 1.79 against
+  1.77). A cold launch takes 0.1 to 0.2 s longer in Firefox (a fresh Worker), the same in
+  Chromium. `test/process-browser.mjs` counted the page's Workers from its start; it now counts
+  them once the compiler has run, whose Worker stays while the cache holds its module.
+  Passed in Chromium and Firefox: `process`, `threads`, `core`, `process-memory`, `ending`,
+  `dso`. With every module held (`heldModuleBytes` 0, a check, which sends threads' modules on
+  channels too), `threads` passed, then in the same run `core` exceeded its 120 s in Firefox
+  and `process-memory`'s Firefox half printed nothing for six minutes; alone, each passed in
+  Firefox (63 and 64 s), and `core` again in both (26.5 and 44.3 s). Not attributed: the machine
+  was building the round's LLVM beside it. An idle Worker costs 2.2 to 2.5 MB and starts in
+  4 ms (`probe/worker-cost.mjs`), so the threshold keeps small programs as they were.
+  `stack` and `ended-worker` open an image with `stack-wrap`, whose snapshot in this tree is the
+  previous round's: they time out at boot with the supervisor unchanged as well; the night
+  round rebuilds it.
+
 ## Measured (2026-11-02): `demo/lean-3`, on `integrate/2026-11-02`
 
 Against the done-when, 12:45: met in Chromium, in a 6 GB slot: `amy install lean` on `default`
