@@ -123,8 +123,9 @@ processes are resident when `lake build` starts its own. Firefox frees them at o
 With 4 s between the steps (`spaced-chromium.log`, the old libc), each dead `lean` is gone by
 the next step (`v8-sandbox` 3.80, 3.77 after the wait, 4.32, 3.58, 4.09, 3.58), `lake new` ends at
 4.54 GB, and `lake build` is still killed (peak at the cap, 5.67 at the last sample): inside it
-Lake starts its `lean` and compiler processes one after another, each kept two seconds. Whether
-it fits once they are not is the round's measurement; on 2026-11-02 `lake build` peaked at 5.58.
+Lake starts a `lean` for each module, one after another, each kept two seconds (not measured
+apart). Whether it fits once they are not is the round's measurement; on 2026-11-02 `lake build`
+peaked at 5.58.
 
 **The fix: an ending process wakes its waiting threads** (`src/process/threads.c`, a seed input).
 Each thread records the futex word it waits on; `exit` (`__wasi_proc_exit`) and an exit by a
@@ -132,11 +133,11 @@ signal (`dolly_exit_signal`) first call `__dolly_threads_end`, which marks the p
 and wakes every recorded word; a thread that wakes, or is about to wait, in an ending process
 leaves by `dolly_thread_exit`, whose Worker ends at once. The ending thread does not wait for
 the thread list's lock (it may hold it, in a call a signal ends: `pthread_create` spawns under
-it); if another thread holds it, nobody is woken and Chrome's delay stays. A thread that is computing, not
-waiting, at the end still takes Chrome's two seconds, and so does every thread of a process
-killed by a trap or by the supervisor. On the changed seed (image inputs `411082a5`, then
-`878b1cb7` with the lock not waited for; `default`,
-`cc`, `system` and their closure rebuilt in this tree, 951 s), the same `probe/cond.c` runs
+it); if another thread holds it, nobody is woken and Chrome's delay stays. A thread that is
+computing, not waiting, at the end still takes Chrome's two seconds, and so does every thread of
+a process killed by a trap or by the supervisor. On the changed seed (image inputs `411082a5`,
+then `878b1cb7` with the lock not waited for; `default`, `cc`, `system` and their closure
+rebuilt in this tree, 951 s), the same `probe/cond.c` runs
 leave nothing: `v8-sandbox` 0.40 to 0.41 GB after each, where it was 0.96, 1.52 and 2.08
 (`cond-fixed.log`); Firefox unchanged. `test/process-memory-browser.mjs` gains the case
 (`process-touch.c idle`, twenty in a row): on the old libc it fails in Chromium (559 MiB over
