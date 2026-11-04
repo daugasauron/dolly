@@ -20,10 +20,12 @@ such a host has none. Zig 0.17 links libc for Emscripten by itself.
 
 zig2 is built with every command (`dev = .full`): upstream builds the full
 compiler with zig2, and here zig2 is the compiler. A program for Dolly is
-`NAME.wasm`. In a session (Chromium, 2026-11-04) the first `zig build` of a
-one-program project took 103 s, most of it compiling Zig's maker; zig1 makes
-the compiler's C in about 20 minutes, `cc` compiles it in 8 in a 9 GB slot (6
-GB is not enough), and `llvm22` builds in 75.
+`NAME.wasm`. Zig 0.17 compiles the program behind `zig build`, `init`, `fetch`
+and `libc` (its maker) in ReleaseSafe, and `translate-c`'s in ReleaseFast, the
+first time each runs, into the global cache: upstream's first-time setup, which
+the package does when it is built and keeps in `~/.cache/zig`. zig1 makes the
+compiler's C in about 20 minutes, `cc` compiles it in 8 in a 9 GB slot (6 GB is
+not enough), and `llvm22` builds in 75.
 
 ## Images
 

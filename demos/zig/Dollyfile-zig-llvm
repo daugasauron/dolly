@@ -54,3 +54,16 @@ FOLDER /usr/include/wasm64-emscripten
 FILE /usr/share/licenses/zig/LICENSE
 SLOP zig --help > /usr/share/man/cat1/zig.1
 FILE /usr/share/man/cat1/zig.1
+# Zig compiles the tools it runs as programs of their own into its global
+# cache, HOME's, the first time each runs: zig build, init, fetch and libc's
+# maker (lib/compiler/Maker.zig) in ReleaseSafe, translate-c's (and
+# @cImport's) translator in ReleaseFast. That is upstream's first-time setup,
+# once a machine, which every session would repeat; it is done here, the
+# translation itself in a cache of its own. A session needs the manifests (h),
+# builtin modules (b) and outputs (o): Zig reads a cached source (z) only for a
+# file of the same inode, which an installed file is not, and the objects
+# (_zcu.o) went into the links.
+SLOP zig init --help > /dev/null
+SLOP CWD /tmp : > zig-setup.h && zig translate-c --cache-dir zig-setup zig-setup.h > /dev/null
+SLOP rm -r /home/dolly/.cache/zig/z /home/dolly/.cache/zig/tmp /home/dolly/.cache/zig/o/*/*_zcu.o
+FOLDER /home/dolly/.cache/zig

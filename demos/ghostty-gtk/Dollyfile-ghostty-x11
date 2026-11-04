@@ -22,7 +22,7 @@ REQUIRES HOST upload@0
 # widgets with cairo. GTK's text is fontconfig's, from the terminal's font.
 FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
 INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server a1a4a5b15e5f8f8b778f3573a01f1b5a729510cee3e2263ea8427c450e1007b9
-INSTALL /v0.1.4/demos/ghostty-gtk/Dollyfile-ghostty-gtk f447f383db90df76d38e06e7a1206ab750818a5232b036187440df88bb3cdf7a
+INSTALL /v0.1.4/demos/ghostty-gtk/Dollyfile-ghostty-gtk 103eec2826f388c945873a031092569b8d5f33cf2750340f55b2688c47c5ef36
 # amy installs packages into the session (tmux, nvim and the rest), with the
 # modules default declares for them; nena enables another.
 INSTALL /v0.1.4/Dollyfile-amy c2e5f10354cb7098b459d45b44989553c558b786f12f360bfc87b70a1f34be19
