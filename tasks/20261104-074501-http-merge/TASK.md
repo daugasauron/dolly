@@ -67,3 +67,35 @@ three cases included); `docs/http.md` and `docs/browser-boundary.md` say what th
 - Under the default policy (no policy object, as in the recording), a stream of a line every 10 s
   for 630 s (`long-stream.mjs`): curl 0 after 640.0 s with all 63 lines in Chromium, after
   640.1 s in Firefox, the connection closed (`long-stream.log`).
+- `typescript` with its closure (quickjs, janis) rebuilt; `demos/javascript/test/javascript-browser.mjs`
+  passes in Chromium (37.7 s) and Firefox (40.0 s) with the fixture's 64 MiB + 1, and fails in
+  Chromium with its old 8 MiB + 1 ("oversize upload was not rejected before dispatch"): `905ca004`.
+- Not run: `test/default-browser.mjs` stops at its first check on this tree, which compares the
+  welcome text with `amy-index.txt`, generated from the narrowed catalog (no `python` built here);
+  not this change. The tree's catalog stays narrowed to `default`, `system` and `typescript`: with
+  the seed changed, a plain `npm run image` rebuilds every image, which is the round's.
+
+## What the round must do
+
+- Rebuild every image: `host/http/http.h` and `http-abi.h` are in `system-build`'s sysroot (the
+  digest changes) and `dolly-docs` holds the docs and the WAT.
+- Run `test/network-browser.mjs` and `demos/javascript/test/javascript-browser.mjs` in Chromium and
+  Firefox on the round's images, then close this task and `tasks/20261101-222946-http-limits`.
+
+## Lessons
+
+- A limit's value is asserted in more places than its contract's tests. The proposal raised the
+  body cap and changed `http-check.c` and `network-browser.mjs`, but Janis's demo fixture posted
+  `8 * 1024 * 1024 + 1` to prove the refusal; only running that demo on rebuilt images showed it.
+  Before changing a constant, grep for its value written out (`8 * 1024 * 1024`, `8388608`) in
+  demos too, not only for its name.
+- Cherry-picking a contract change onto a newer base works best without its recipe pins: restore
+  the recipes, refresh only the source pins of the recipes that SOURCE the changed files
+  (`DOLLY_BUILD_IMAGES=system-build,dolly-docs update-recipe-pins.mjs --sources`), and undo what
+  that refresh takes from stale `dist/static/` copies. The image build's staging then wrote the
+  base's own unpinned changes, kept as their own commit with the values the round's tree holds.
+- The integration branch was unpinned again (six sources changed without their recipes), as on
+  2 November. A branch from it needs that repin to build; the round's merge script repins anyway,
+  so the cost is only confusion in a contract commit's diff, avoided by keeping the two apart.
+- Harness: a foreground command is moved to the background after 180 s; an until-loop of at most
+  175 s on the background job's output file, repeated, is a wait that keeps the agent's turn.
