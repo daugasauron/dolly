@@ -4,7 +4,7 @@
 - PRIORITY: 300
 - TAGS: host-modules,audit,images,0.1.5
 
-## State (2026-11-05 02:00 JST): R1 and R2 done on `core/modules-r1`; close after the round
+## State (2026-11-05 02:30 JST): R1 and R2 done on `core/modules-r1`; close after the round
 
 R1 and R2 are implemented and built in this tree (image inputs `88959af6`): all 25
 applications are FROM none and the lint refuses an APPLICATION with FROM; amy has nena enable
@@ -521,6 +521,7 @@ It is gone from gnu-emacs, neovim, speech-to-text-mic, gpu-fluid, mojo-gpu and x
 | bhop demo (the same parser fix) | passed | |
 | pi demo, speech demo (pi-phone), studio demo, local-llm start screens: after transfer was added | passed | |
 | `test/default-browser.mjs` (default's modules are its recipe's ten) | passed | passed |
+| `test/npm-browser.mjs`: the guide's install line and page, a page lacking `upload@0` refused, python-data's project | passed | passed |
 
 ## Lessons
 
