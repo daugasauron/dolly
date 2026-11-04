@@ -138,17 +138,18 @@ test("the C++ runtime built by system-build defines the names the seed lists for
   assert.deepEqual([...listed].filter(symbol => symbol.startsWith("_Z") && !built.includes(symbol)), []);
 });
 
-test("the process gate can only copy between one process and kernel memory", async () => {
+test("the process gate can only copy between one process and kernel memory and pass its call", async () => {
   const gate = await readWasmInterface(artifact("dolly-process-gate-0.wasm"));
   assert.deepEqual(
     gate.imports.map((entry) => `${entry.module}.${entry.name}`),
-    ["process.memory", "kernel.memory"],
+    ["process.memory", "kernel.memory", "process.call"],
   );
   assert.deepEqual(
     gate.exports.map((entry) => `${entry.name}:${formatWasmType(entry.type)}`),
     [
       "request:func(i64,i64,i64)->()",
       "response:func(i64,i64,i64)->()",
+      "call:func(i32,i64,i64,i64,i64)->(i64)",
     ],
   );
 });

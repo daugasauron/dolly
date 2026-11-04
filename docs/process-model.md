@@ -317,7 +317,9 @@ nothing and declares nothing: any program built for Dolly runs on one.
   foreground ancestor.
 - Retirement ends the Worker before the child is waitable, and the memory and
   gate with it: they live in the process's Workers alone, so the pages go when
-  the Workers do, not when the runtime Worker next collects garbage.
+  the Workers do, not when the runtime Worker next collects garbage. A thread's
+  Worker that has not started takes the memory posted to it and ends itself:
+  Chrome keeps what was posted to a Worker terminated before it runs.
 - A child outlives a parent that exits, as on POSIX: a child still running
   loses it (its parent is 0) and is reaped when it ends, as init reaps
   orphans. The terminal goes back to the parent's foreground ancestor, as a
@@ -329,10 +331,10 @@ nothing and declares nothing: any program built for Dolly runs on one.
   process group.
 - Worker termination has no completion event, so a large interactive process
   gets 500 ms of reclamation before its exit is acknowledged, sparing the
-  recovery shell. A Worker ended while it waits in a call leaves Wasm and
-  closes itself; a program that catches that (a C++ `catch (...)`, a
-  destructor) and calls again waits for the termination, since nothing
-  JavaScript throws into Wasm is uncatchable. Nothing guarantees against browser memory pressure; this is
+  recovery shell. A thread whose call ends it (its EXIT or THREAD_EXIT, or any
+  call once the supervisor ends its Worker) leaves Wasm by a trap in the gate
+  and its Worker closes itself: no destructor or landing pad of the program
+  runs, as a JavaScript exception thrown into Wasm would let them. Nothing guarantees against browser memory pressure; this is
   one reason Slop itself is [serial](architecture.md#decisions) and parallel
   builds need a modest `-jN`.
 

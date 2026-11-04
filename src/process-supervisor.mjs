@@ -580,7 +580,8 @@ export class DollyProcessSupervisor {
       : new Worker(this.workerUrl, { type: "module", name });
     if (!worker) throw new Error("thread Worker capacity exhausted");
     // Words: the call sequence, the answered sequence, the result's two
-    // halves, and the copy word (src/process-worker.mjs copyRequest).
+    // halves, the copy word (src/process-worker.mjs copyRequest) and a
+    // thread's start word (#disposeThread).
     const control = new SharedArrayBuffer(32);
     thread.mailbox = Number(this.kernel.malloc(BigInt(packetLimit)));
     if (!thread.mailbox) { worker.terminate(); throw new Error("kernel memory for a process mailbox"); }
@@ -946,8 +947,14 @@ export class DollyProcessSupervisor {
       // for two seconds. Answered with the deferred result, which no program
       // is handed, a waiting Worker leaves Wasm and closes itself.
       if (thread.control) this.#signal(thread, Atomics.load(thread.control, 0), deferredResult);
+      // Chrome keeps what was posted to a Worker terminated before it runs, the
+      // memory a thread's Worker is sent among it, until this Worker collects
+      // garbage. One that has not started (control word 5 still 0) is told so
+      // and ends itself (src/process-worker.mjs processMemory).
+      const unstarted = thread !== process && Atomics.compareExchange(thread.control, 5, 0, 2) === 0;
+      if (unstarted) Atomics.notify(thread.control, 5);
       // threads@0 disabled since has already terminated its Workers.
-      if (process.threaded && this.threadHost) this.threadHost.release(thread.worker);
+      if (process.threaded && this.threadHost) this.threadHost.release(thread.worker, !unstarted);
       else thread.worker.terminate();
     }
     // The Worker copies a request into its mailbox under control word 4

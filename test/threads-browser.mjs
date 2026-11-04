@@ -85,6 +85,23 @@ await browserTest("threads", { image: "system", server: { fixtures, sourceOverri
   assert.notEqual(await submit("/tmp/ending"), 0);
   await run("printf alive > /tmp/alive && test $(cat /tmp/alive) = alive");
 
+  // An exit runs no destructor of the frames it leaves, which the landing pads of
+  // C++ and of Rust's unwinding library would run for an exception: on a thread
+  // whose main thread joins it, and on the main thread of an unthreaded program.
+  sourceOverrides.set(probe, "#include <pthread.h>\n#include <stdlib.h>\n#include <unistd.h>\n" +
+    "struct guard { ~guard() { for (;;) pause(); } };\n" +
+    "static void *body(void *) { guard left; exit(37); }\n" +
+    "int main(int argc, char **) { pthread_t thread; if (argc > 1) body(0);\n" +
+    "  pthread_create(&thread, 0, body, 0); pthread_join(thread, 0); return 0; }\n");
+  await run(`curl -fsS ${server.origin}${probe} -o /tmp/caught.cpp && c++ -O1 -pthread /tmp/caught.cpp -o /tmp/caught` +
+    " && c++ -O1 -x c++ /tmp/caught.cpp -o /tmp/caught-unthreaded");
+  // A program the exit left running is ended by timeout's deadline, with the status it exited with.
+  for (const command of ["/tmp/caught", "/tmp/caught-unthreaded main"]) {
+    const started = performance.now();
+    assert.equal(await submit(`timeout 20 ${command}`), 37, command);
+    assert.ok(performance.now() - started < 10_000, `${command} ran on after its exit`);
+  }
+
   // Threads that finish while their process exits leave the exit status intact.
   sourceOverrides.set(probe, "#include <pthread.h>\n#include <stdlib.h>\n" +
     "static void *body(void *unused) { return unused; }\n" +

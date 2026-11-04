@@ -9,7 +9,10 @@ import {
 
 const PROCESS_EXIT = Symbol("Dolly process exit");
 const THREAD_EXIT = Symbol("Dolly thread exit");
-// The supervisor's answer to a call whose process it is ending.
+const UNSTARTED = Symbol("Dolly thread ended before it started");
+// The supervisor's answer to a call whose process it is ending, and this
+// Worker's to the gate for a call that ended its thread, on which the gate
+// traps (abi/dolly-process-gate-0.wat).
 const deferredResult = -(1n << 63n);
 // Chromium releases the address space of a terminated Worker's memory some
 // time after terminate(): a memory it cannot reserve is asked for again for
@@ -53,6 +56,13 @@ const clockOffset = performance.timeOrigin - configuration.clockOrigin;
 // and a pending signal waits for the next kernel entry.
 let lastSignalCheck = -Infinity;
 let threadResult;
+// PROCESS_EXIT or THREAD_EXIT once a call has ended this thread. The program is
+// left by the gate's trap, not by an exception thrown into it: Wasm exception
+// handling catches a JavaScript one, and a destructor, a noexcept frame or the
+// landing pads of Rust's unwinding library would run the program on after its
+// exit, its other threads gone.
+let ending = null;
+const ended = how => { ending = how; return deferredResult; };
 let instance;
 let memory, gate;
 // Host modules the executable records that are served in this Worker, without
@@ -91,9 +101,13 @@ function reportThreadFinished() {
 // that spawned the thread (tasks/20261101-102515-retained-process-memory).
 async function processMemory() {
   if (configuration.port) {
+    // A thread's start word (control word 5): the supervisor sets 2 when it ends
+    // the thread before the program runs here, and this Worker ends.
+    const ended = Atomics.waitAsync(control, 5, 0);
     const { memory, received } = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error("the process memory was not provided")), 10_000);
       configuration.port.onmessage = ({ data }) => { clearTimeout(timeout); resolve(data ?? {}); };
+      Promise.resolve(ended.value).then(() => { clearTimeout(timeout); reject(UNSTARTED); });
     });
     configuration.port.close();
     if (!(memory instanceof WebAssembly.Memory) || !(received instanceof Int32Array)) {
@@ -140,19 +154,16 @@ function clockResponse(clock, response, now) {
 // The request goes into the mailbox under control word 4, which the
 // supervisor seals (2) before it frees the mailbox of a Worker it ends: a
 // Worker ended mid-copy cannot write into memory the kernel has reused. A
-// sealed Worker is being terminated and the program must not run on; an
-// exception thrown into it is caught by a C++ catch (...) or turns a noexcept
-// frame into abort, exit and this call again, each round deeper (Lean's main
-// thread nested 508 fresh stacks that way, tasks/20261101-102515-retained-
-// process-memory). So the thread waits here for its termination.
+// sealed Worker is being terminated: false, and the call ends its thread.
 function copyRequest(request) {
-  while (Atomics.compareExchange(control, 4, 0, 1) !== 0) Atomics.wait(control, 4, 2);
+  if (Atomics.compareExchange(control, 4, 0, 1) !== 0) return false;
   try {
     gate.exports.request(BigInt(request.address), mailbox, BigInt(request.size));
   } finally {
     Atomics.store(control, 4, 0);
     Atomics.notify(control, 4);
   }
+  return true;
 }
 
 // Chrome checks a copy, fill or atomic access of a shared memory against each
@@ -215,7 +226,7 @@ function call(operation, requestAddressValue, requestSizeValue,
     // Positive 31-bit sequences wrap from 2^31 - 1 back to one.
     const sequence = Atomics.load(control, 0) % 0x7fffffff + 1;
     Atomics.store(control, 0, sequence);
-    copyRequest(request);
+    if (!copyRequest(request)) return deferredResult;
     self.postMessage({
       type: "syscall",
       pid: configuration.pid, tid: configuration.tid,
@@ -246,30 +257,33 @@ function call(operation, requestAddressValue, requestSizeValue,
       openChannels.push({ port: channel.port2, received });
     }
   }
-  if (result === deferredResult) throw PROCESS_EXIT;
+  if (result === deferredResult) return ended(PROCESS_EXIT);
   if (result > 0n) gate.exports.response(mailbox, BigInt(response.address), result);
   lastSignalCheck = result === -BigInt(DOLLY_ERRNO.EINTR) ? -Infinity : performance.now();
   if (operation === DOLLY_THREAD_EXIT && result >= 0n) {
     threadResult = exitingResult;
     for (const module of localModules) module.leaving?.();
-    throw THREAD_EXIT;
+    return ended(THREAD_EXIT);
   }
   // Sample the same clock after kernel checks too: Firefox rounds Worker
   // time origins, so alternating the two clocks can otherwise move backwards.
   if (clock !== undefined && result === 8n) return clockResponse(clock, response, lastSignalCheck);
-  if (operation === DOLLY_PROCESS_EXIT && result >= 0n) throw PROCESS_EXIT;
+  if (operation === DOLLY_PROCESS_EXIT && result >= 0n) return ended(PROCESS_EXIT);
   return result;
 }
 
 try {
   memory = await processMemory();
-  // The trusted copier between this memory and the mailbox (abi/dolly-process-gate-0.wat).
+  // The start word is 1 from here, unless the supervisor has just set 2.
+  if (configuration.port && Atomics.compareExchange(control, 5, 0, 1) !== 0) throw UNSTARTED;
+  // The trusted copier between this memory and the mailbox, and the program's
+  // call import (abi/dolly-process-gate-0.wat).
   gate = new WebAssembly.Instance(configuration.gateModule, {
-    process: { memory }, kernel: { memory: configuration.kernelMemory },
+    process: { memory, call }, kernel: { memory: configuration.kernelMemory },
   });
   instance = await WebAssembly.instantiate(configuration.module, {
     env: { memory },
-    dolly_process_0: { call },
+    dolly_process_0: { call: gate.exports.call },
   });
   if (typeof instance.exports._start !== "function") {
     throw new TypeError("Dolly process does not export _start");
@@ -294,9 +308,11 @@ try {
     self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
   }
 } catch (caught) {
-  if (caught === THREAD_EXIT && configuration.threaded && typeof threadResult === "bigint") {
+  if (caught === UNSTARTED) {
+    // Nobody waits for a thread ended before it started.
+  } else if (ending === THREAD_EXIT && configuration.threaded && typeof threadResult === "bigint") {
     reportThreadFinished();
-  } else if (caught === PROCESS_EXIT) {
+  } else if (ending === PROCESS_EXIT) {
     self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
   } else {
     // A trap on a stack stack@0 made ends its caller with a trap of its own;
