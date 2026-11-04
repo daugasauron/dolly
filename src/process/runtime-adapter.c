@@ -37,7 +37,7 @@ static int spawn_mapped(const char *path, int argc, char **argv,
                         uint32_t descriptor_inheritance,
                         const dolly_process_fd_mapping *mappings,
                         uint32_t mapping_count, double timeout_milliseconds,
-                        uint32_t flags) {
+                        uint32_t flags, dolly_process_exec_state signals) {
   /* A timeout is -1 (none) or a delay the kernel accepts, at most one day. */
   if (path == NULL || argv == NULL || argc <= 0 ||
       descriptor_inheritance > DOLLY_PROCESS_INHERIT_FDS_ALL ||
@@ -96,6 +96,7 @@ static int spawn_mapped(const char *path, int argc, char **argv,
       argument_bytes,
       environment_bytes,
       deadline,
+      signals,
   };
   memcpy(packet, &request, sizeof(request));
   size_t offset = sizeof(request);
@@ -129,7 +130,8 @@ int dolly_spawn_mapped(const char *path, int argc, char **argv,
                         const dolly_process_fd_mapping *mappings,
                         uint32_t mapping_count, double timeout_milliseconds) {
   return spawn_mapped(path, argc, argv, envp, cwd, descriptor_inheritance,
-                      mappings, mapping_count, timeout_milliseconds, 0);
+                      mappings, mapping_count, timeout_milliseconds, 0,
+                      (dolly_process_exec_state){0});
 }
 
 int dolly_spawn_foreground(const char *path, int argc, char **argv,
@@ -139,7 +141,8 @@ int dolly_spawn_foreground(const char *path, int argc, char **argv,
   return spawn_mapped(path, argc, argv, environ, NULL,
       DOLLY_PROCESS_INHERIT_FDS_NONE, mappings, 3, -1,
       DOLLY_PROCESS_SPAWN_FOREGROUND |
-          (interactive ? DOLLY_PROCESS_SPAWN_INTERACTIVE : 0));
+          (interactive ? DOLLY_PROCESS_SPAWN_INTERACTIVE : 0),
+      (dolly_process_exec_state){0});
 }
 
 static int spawn_process(const char *path, int argc, char **argv,
@@ -465,21 +468,24 @@ struct fdop {
 };
 enum { FDOP_CLOSE = 1, FDOP_DUP2 = 2, FDOP_OPEN = 3, FDOP_CHDIR = 4 };
 
-/* A child starts with default dispositions and an empty mask, so a signal the
- * caller blocks or ignores without resetting it cannot be honoured. */
-static int spawn_signals_supported(short flags, const posix_spawnattr_t *attributes) {
+/* What a child starts with, as after fork and exec: the caller's mask, or the
+ * attributes', and the signals it ignores but those the attributes reset.
+ * Signals from 32 up, which nothing sends, start unblocked at their default. */
+static dolly_process_exec_state spawn_signals(short flags, const posix_spawnattr_t *attributes) {
   sigset_t mask, defaults;
   if (flags & POSIX_SPAWN_SETSIGMASK) posix_spawnattr_getsigmask(attributes, &mask);
   else pthread_sigmask(SIG_BLOCK, NULL, &mask);
   sigemptyset(&defaults);
   if (flags & POSIX_SPAWN_SETSIGDEF) posix_spawnattr_getsigdefault(attributes, &defaults);
-  for (int number = 1; number < _NSIG; ++number) {
-    if (number == SIGKILL || number == SIGSTOP) continue;
+  dolly_process_exec_state state = {0};
+  for (int number = 1; number < 32; ++number) {
     struct sigaction action;
-    if (sigismember(&mask, number) == 1 || sigaction(number, NULL, &action) != 0 ||
-        (action.sa_handler == SIG_IGN && sigismember(&defaults, number) != 1)) return 0;
+    if (number == SIGKILL || number == SIGSTOP) continue;
+    if (sigismember(&mask, number) == 1) state.blocked_signals |= 1u << number;
+    if (sigismember(&defaults, number) != 1 && sigaction(number, NULL, &action) == 0 &&
+        action.sa_handler == SIG_IGN) state.ignored_signals |= 1u << number;
   }
-  return 1;
+  return state;
 }
 
 /* Dup2 and close actions replay as parent-to-child descriptor mappings over
@@ -493,7 +499,8 @@ static int spawn(pid_t *pid, const char *program, const posix_spawn_file_actions
       POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_USEVFORK;
   short flags = 0;
   if (attributes != NULL) posix_spawnattr_getflags(attributes, &flags);
-  if ((flags & ~honored) != 0 || !spawn_signals_supported(flags, attributes)) return ENOTSUP;
+  if ((flags & ~honored) != 0) return ENOTSUP;
+  const dolly_process_exec_state signals = spawn_signals(flags, attributes);
   if (program[0] == '\0') return ENOENT;
   const struct fdop *oldest = NULL;
   size_t count = 0;
@@ -563,8 +570,8 @@ static int spawn(pid_t *pid, const char *program, const posix_spawn_file_actions
       error = ENAMETOOLONG;
       break;
     }
-    const int child = dolly_spawn_mapped(path[0] == '/' ? path : absolute, argc,
-        (char **)argv, envp, cwd, DOLLY_PROCESS_INHERIT_FDS_ALL, mappings, mapped, -1);
+    const int child = spawn_mapped(path[0] == '/' ? path : absolute, argc,
+        (char **)argv, envp, cwd, DOLLY_PROCESS_INHERIT_FDS_ALL, mappings, mapped, -1, 0, signals);
     if (child > 0) {
       if (pid != NULL) *pid = child;
       break;

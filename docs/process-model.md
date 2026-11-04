@@ -128,9 +128,13 @@ sequenceDiagram
   descriptor 0, 1 or 2.
 - `/dev/tty` opens the terminal for reading and writing, for every process
   but one on a [pseudo-terminal](#pseudo-terminals), which opens that.
-  `ttyname` fails: a terminal has no name of its own. No process group is a
-  terminal's foreground: `tcgetpgrp` and `tcsetpgrp` fail `ENOTTY`, as for a
-  process without a controlling terminal, so a shell runs without job control.
+  `ttyname` fails: a terminal has no name of its own. Every process is its
+  own group: `tcgetpgrp` on a terminal gives the caller's PID while it is in
+  the terminal's foreground (the foreground owner and what descends from it,
+  every process that holds a pseudo-terminal's slave), the owner's PID to
+  another, and `ENOTTY` for any other file. Nothing gives the terminal to
+  another group: `tcsetpgrp` fails `ENOTTY`, which a shell such as zsh takes,
+  without a word, for running without job control.
 - `poll` covers files, pipes, sockets, pseudo-terminals and the terminal; signals wake it with `EINTR`.
 - A terminal starts in the mode `stty sane` leaves: `ICANON`, `ECHO`, `ICRNL`,
   `OPOST` with `ONLCR`, and `ISIG`. It edits a line while `ICANON` is set: a
@@ -271,7 +275,8 @@ nothing and declares nothing: any program built for Dolly runs on one.
   read.
 - The supervisor delivers these signals as it delivers a kill
   ([`dolly-pty-supervisor-0.wat`](../host/pty/dolly-pty-supervisor-0.wat)):
-  a program that does not answer `SIGINT` or `SIGHUP` within 500 ms is ended.
+  a program that does not answer `SIGINT` or `SIGHUP` within 500 ms is ended,
+  unless it ignores the signal.
 - The kernel holds at most 32 pseudo-terminals; one more fails with `ENFILE`.
   One goes with the last descriptor of its two ends, so exit, a kill and a
   failed Worker release what a process held.
@@ -291,9 +296,12 @@ nothing and declares nothing: any program built for Dolly runs on one.
   `adddup2` and `addclose` as mappings, a closed one keeping the child from
   inheriting the descriptor; `addchdir_np` chooses the child's directory, and
   `addopen` opens the file in the parent, from that directory, for the child.
-  A child starts with default dispositions and an empty signal mask; a
-  session, process group or scheduler, and a mask or an ignored signal the
-  child would keep return `ENOTSUP`. There is no `fork`: it fails with `ENOSYS`.
+  The child starts with the caller's signal mask and the signals it ignores,
+  as after `fork` and `exec`, less what `POSIX_SPAWN_SETSIGMASK` and
+  `POSIX_SPAWN_SETSIGDEF` reset; every handled signal is at its default
+  action. A session, process group or scheduler returns `ENOTSUP`. A child of
+  `runtime.h`'s spawns starts with every signal unblocked at its default
+  action. There is no `fork`: it fails with `ENOSYS`.
 - Each process is its own process group and its own session, which it leads:
   `getpgid`, `getpgrp` and `getsid` give its PID (the caller's for 0, `ESRCH`
   for none), `setpgid` of a process to itself succeeds and any other fails
@@ -379,6 +387,10 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   with masks, `SA_RESTART`, `SA_RESETHAND`, `SA_NODEFER` and `SA_SIGINFO`.
   Alternate stacks, `sigwait`, asynchronous preemption and `SA_NOCLDWAIT` are
   unsupported.
+- The kernel knows what each program does with each signal: libc tells it
+  the ignored and the handled ones after every change
+  (`DOLLY_PROCESS_SIGNAL_DISPOSITIONS`). An ignored signal is discarded when
+  it is sent; it interrupts no call and ends no process.
 - A process that does not finish a delivered signal within 500 ms is terminated.
   The filesystem and the shell survive; kernel or supervisor failure is outside
   this guarantee. Until a handler is finished the kernel delivers the process
@@ -400,13 +412,14 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   way to wait for a descriptor or a blocked signal: a pending signal its mask
   unblocks interrupts it before the wait; `sigsuspend` is that wait without
   descriptors, and `select` the wait without a mask.
-- `SIGCHLD` is queued once a child is waitable. `SIGWINCH` follows terminal
+- `SIGCHLD` is queued once a child is waitable. While a parent ignores
+  `SIGCHLD` its children are reaped as they end, as POSIX says: `wait`
+  returns once none is left, with `ECHILD`. `SIGWINCH` follows terminal
   resizes and never forces termination.
 - `alarm`, `setitimer` and `getitimer` support only `ITIMER_REAL` (others fail
   with `EINVAL`); the supervisor raises due timers on its 16 ms tick. A
-  default-action SIGALRM is delivered like `kill`, ending even a CPU loop. libc
-  tells the kernel while SIGALRM is handled or ignored; it then only becomes
-  pending and never forces termination.
+  default-action SIGALRM is delivered like `kill`, ending even a CPU loop; a
+  handled one only becomes pending and never forces termination.
 - Clock reads use the Worker's clock aligned to the kernel's origin, but enter the
   kernel at least once per millisecond so signals arrive in clock-only loops.
 - CPU time is not accounted: `clock()`, `CLOCK_PROCESS_CPUTIME_ID`,

@@ -1547,6 +1547,23 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
       memcpy((void *)argument, &size, sizeof(size));
       return 0;
     }
+    /* Every process is its own group (docs/process-model.md): the kernel
+     * names the caller's while it has the terminal. Nothing gives a terminal
+     * to another group, so TIOCSPGRP (tcsetpgrp) fails ENOTTY below. */
+    case TIOCGPGRP: {
+      if (argument == 0) return -EFAULT;
+      const dolly_process_terminal_request request = {
+          DOLLY_PROCESS_TERMINAL_FOREGROUND, (uint32_t)descriptor, 0, 0, 0,
+      };
+      dolly_process_terminal_response response;
+      const int64_t result = dolly_process_call(
+          DOLLY_PROCESS_TERMINAL, &request, sizeof(request), &response, sizeof(response));
+      if (result < 0) return (int)result;
+      if ((uint64_t)result != sizeof(response)) return -EIO;
+      const pid_t group = (pid_t)response.value;
+      memcpy((void *)argument, &group, sizeof(group));
+      return 0;
+    }
     /* A pseudo-terminal's master takes a size (pty@0, host/pty). The
      * display's terminal is the page's to size. */
     case TIOCSWINSZ: {
