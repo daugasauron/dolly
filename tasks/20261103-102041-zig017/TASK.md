@@ -162,8 +162,10 @@ took 148.7 s and 186.7 s, Zig 0.16's 34.6 s and 45.8 s. Source suite: 476 passed
   `cc -O2 -c` of a generated file: 104,008 `lseek` and 52,371 `write`, about 1.7 s of 4.5 s).
   Filed as `tasks/20261104-131850-llvm-relocation-calls`.
 - `amy install zig-llvm` installs 19,660 files, 446,356,421 bytes, after `cc`'s 134,168,966:
-  580 MB, more than the 512 MiB a session save holds (`docs/sessions.md`), so by that limit such a
-  session cannot be saved, with or without the 9 MB of the setup (not tried).
+  580 MB, more than the 512 MiB a session save holds (`docs/sessions.md`): saving a `default`
+  session right after `amy install zig-llvm` fails with "Dolly session exceeds its 512 MiB limit"
+  (Chromium, 2026-11-05, `tools/save-check.mjs`), with or without the 9 MB of the setup. For the
+  image-size audit (`tasks/20261103-102041-imgsize`): Zig's `lib/` is most of the package.
 
 ## Findings (2026-11-03, with evidence)
 
