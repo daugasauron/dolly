@@ -108,10 +108,11 @@ try {
   await writeFile(join(piApp, "index.html"), piPageSource.replace("await boot(", "window.dolly = await boot("));
   await mkdir(join(piApp, "workspace/notes"));
   await writeFile(join(piApp, "workspace/notes/deep sea.txt"), "the deepest trench\n");
-  // The user's own colour, and a C tool of their own as the recipe's comment describes it.
+  // The user's own colours, Pi's and the terminal's, and a C tool of their own as the
+  // recipe's comment describes it.
   const theme = await readFile(join(piApp, "theme.json"), "utf8");
-  assert.ok(theme.includes('"#f2d45c"'));
-  await writeFile(join(piApp, "theme.json"), theme.replace('"#f2d45c"', '"#0fa9e6"'));
+  assert.ok(theme.includes('"#f2d45c"') && theme.includes('"#262626"'));
+  await writeFile(join(piApp, "theme.json"), theme.replace('"#f2d45c"', '"#0fa9e6"').replace('"#262626"', '"#102030"'));
   const recipe = (await readFile(join(piApp, "Dollyfile-my-pi"), "utf8")).replace("\nENTRY ",
     "\nFILE /tmp/count-lines.c\n    #include <stdio.h>\n    int main(void) { int c, n = 0; while ((c = getchar()) != EOF) n += c == '\\n'; printf(\"%d lines\\n\", n); }\n" +
     "SLOP cc /tmp/count-lines.c -o /usr/bin/count-lines\nEXPORTS TOOL count-lines\n\nENTRY ");
@@ -246,6 +247,8 @@ try {
       })();
       assert.equal(await shell("grep -q 'coding agent' ~/.pi/agent/AGENTS.md && command -v todo > /dev/null"), 0);
       assert.equal(await shell("grep -q '#0fa9e6' ~/.pi/agent/themes/dolly.json && grep -q '\"theme\": \"dolly\"' ~/.pi/agent/settings.json"), 0);
+      assert.deepEqual(await pi.evaluate(async () => [...(await window.dolly.frame()).data.subarray(0, 3)]), [0x10, 0x20, 0x30],
+        "the terminal's background is theme.json's");
       assert.equal(await shell("test \"$(printf 'a\\nb\\n' | count-lines)\" = '2 lines'"), 0);
       assert.equal(await shell("git --version > /dev/null"), 0);
       assert.equal(await shell("grep -q 'deepest trench' '/workspace/notes/deep sea.txt' && test -f /workspace/README.md"), 0);
