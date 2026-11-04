@@ -8,7 +8,7 @@ REQUIRES HOST threads@0
 # its ggml, for programs the cc package links (speech-to-text, voice). Threads
 # and SIMD are what let the model keep up with speech. The archives are in a
 # directory of their own, beside llama.cpp's ggml in /usr/lib/dolly-llm.
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 193a9c226842808a3504f4d30fca09dad7b0f4f5cb973d420efd434683dcb4a6
+FROM /v0.1.5/demos/cmake/Dollyfile-cmake-build a187c93a214051fbafe68c92538f26f28d6cc36c2a0461369f067be8f3f1873b
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL cmake
@@ -17,7 +17,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL mkdir
 REQUIRES TOOL cp
 
-SOURCE /v0.1.4/dist/static/speech/source.tar da5d07ef53db3cf0f2147db7488a06e76b17e0698f23825ebd62752a14dae4ac /tmp/speech-source.tar
+SOURCE /v0.1.5/dist/static/speech/source.tar da5d07ef53db3cf0f2147db7488a06e76b17e0698f23825ebd62752a14dae4ac /tmp/speech-source.tar
 SLOP tar -xf /tmp/speech-source.tar -C /
 # ggml's precompiled header is not built by cc.
 SLOP cmake -S /tmp/transcribe -B /tmp/transcribe/build \

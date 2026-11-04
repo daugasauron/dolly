@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # unchanged, configured by its own CMake: the tools that read, write and
 # check a module. Dolly's programs are such modules. Its interpreter, wasm2c
 # and their runtime are not built.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 595b1e82d2ac8eb9707667c854aa7bf40c61bbf4d9a03caa7e76a5467af9745d
+FROM /v0.1.5/demos/tools/Dollyfile-tools-build 9f9cfa93f7bc4ddd5fc5cbd9ced4d2100cd41349f9f2b6f75ab9d8e26a57da62
 
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
@@ -21,7 +21,7 @@ REQUIRES TOOL   make
 REQUIRES TOOL   tar
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.4/dist/static/tools/wabt.tar 9432dcf5b4c875fd6948cbb0b66a94f36709b4021cb66502fd1220f8ce27994c /tmp/wabt.tar
+SOURCE /v0.1.5/dist/static/tools/wabt.tar 9432dcf5b4c875fd6948cbb0b66a94f36709b4021cb66502fd1220f8ce27994c /tmp/wabt.tar
 SLOP tar -xf /tmp/wabt.tar -C /
 SLOP cmake -S /tmp/wabt -B /tmp/wabt/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \

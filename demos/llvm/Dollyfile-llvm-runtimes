@@ -8,7 +8,7 @@ REQUIRES HOST runtime@0
 # seed ships the container's builtins; Dollyfile-system-build compiles the
 # other three itself. A process link takes these instead only when it names
 # the directory: -L/usr/lib/llvm-runtimes.
-FROM /v0.1.4/Dollyfile-system-tools 6002e88282bb0d520134235725b6082f5ad15644ad92c5dfe9f8c1f5808dfaa7
+FROM /v0.1.5/Dollyfile-system-tools 39e8ad7c80d06b7a0c420bbeaae2e6b2423e7e633d38640e82d72a73c20e232a
 REQUIRES TOOL c++
 REQUIRES TOOL cc
 REQUIRES TOOL ar
@@ -18,7 +18,7 @@ REQUIRES TOOL ln
 REQUIRES TOOL tar
 REQUIRES TOOL time
 
-SOURCE /v0.1.4/dist/static/llvm/runtimes.tar 9e84195766c7c4f79a1d7a9600e1d71e427873b7db7b9e9a7b9f2bee136a94f3 /tmp/runtimes.tar
+SOURCE /v0.1.5/dist/static/llvm/runtimes.tar 9e84195766c7c4f79a1d7a9600e1d71e427873b7db7b9e9a7b9f2bee136a94f3 /tmp/runtimes.tar
 SLOP tar -xf /tmp/runtimes.tar -C /
 
 # Sources, flags and member order of the -ww-wasmexcept, -wasmsjlj-ww and pic

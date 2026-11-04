@@ -6,9 +6,9 @@ REQUIRES HOST input@0
 REQUIRES HOST audio@0
 REQUIRES HOST touch@0
 
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 193a9c226842808a3504f4d30fca09dad7b0f4f5cb973d420efd434683dcb4a6
-INSTALL /v0.1.4/Dollyfile-libdolly-audio cf119dd5a0ac898089fa161ede7ee57114077311af0f0f251bfd45c2885588c3
-INSTALL /v0.1.4/Dollyfile-libdolly-touch 5cf197ef5bca45eb0069a5aec97ec64d4e3c329be42db691be7051d50d6b38db
+FROM /v0.1.5/demos/cmake/Dollyfile-cmake-build a187c93a214051fbafe68c92538f26f28d6cc36c2a0461369f067be8f3f1873b
+INSTALL /v0.1.5/Dollyfile-libdolly-audio 0ae7c79f2ef8ad23f08f71a338b9f3bb7b732d3ede1527b6c8f4636a3b498660
+INSTALL /v0.1.5/Dollyfile-libdolly-touch 2810a525d52ba9031edc8225550e62f33479d5e27599b0f3668fdf3db7f6f67a
 REQUIRES HEADER libc
 REQUIRES HEADER audio
 REQUIRES HEADER display
@@ -20,7 +20,7 @@ REQUIRES TOOL make
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE /v0.1.4/dist/static/sdl2/source.tar fcd2ae74c5a7324eacd403d8cd4d719092268df8b470e3e552df5aebf54f3ce0 /tmp/sdl2/source.tar
+SOURCE /v0.1.5/dist/static/sdl2/source.tar fcd2ae74c5a7324eacd403d8cd4d719092268df8b470e3e552df5aebf54f3ce0 /tmp/sdl2/source.tar
 SLOP tar -xf /tmp/sdl2/source.tar -C /
 SLOP cmake -S /tmp/sdl2/source -B /tmp/sdl2/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \

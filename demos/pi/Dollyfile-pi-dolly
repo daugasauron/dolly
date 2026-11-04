@@ -12,17 +12,17 @@ REQUIRES HOST threads@0
 # command), the settings and the theme; with Pi, and the platform's documents
 # that the prompt and the skill name. pi-key starts Pi with an API
 # key it reads without showing it: Pi's own /login shows a key as it is typed.
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi d77cb1671fec421ba04c51450426301d7b12f9ad333f526e4d2c8eb12cdaca5d
-INSTALL /v0.1.4/demos/closed-source-agent/Dollyfile-secretenv cf09706d75b7415c4f2bfc08e116ded4d15481a6baf53a5abdc52116abe55a5a
-INSTALL /v0.1.4/Dollyfile-html 0f59357b68e30b2b4e66796d75929c46952cea26d68459678cd97dab7e986f29
-INSTALL /v0.1.4/Dollyfile-dolly-docs 0141a982859509a83bfae1df9114729324fcbeb1e32dc7e251e2df26e48aca93
+INSTALL /v0.1.5/demos/pi/Dollyfile-pi ebfb34bee669a3e7083634e3072cf442f332db3960ce4c5a4e0a83b2922d2000
+INSTALL /v0.1.5/demos/closed-source-agent/Dollyfile-secretenv c462499510f173d0ae019fa851ba91c4df4acf7804621dcfa6a25b8966b0649b
+INSTALL /v0.1.5/Dollyfile-html f25853f4c8e54144dddb7337e78e174ea587a23c00ae9414fc2edb71244942c9
+INSTALL /v0.1.5/Dollyfile-dolly-docs a0301b3025323898f14e7d0508a5743c9c120f0d55b725358c9482e7a4d42f2a
 
-SOURCE /v0.1.4/dist/static/default/pi/dolly-tools.js                    b2d5ecb9788c9f701d4892a23d0c0b8b17adb6309278de9876aefc8d8ca4b6a8 /home/dolly/.pi/agent/extensions/dolly-tools.js
-SOURCE /v0.1.4/dist/static/default/pi/ask-user.js                       aea9f9f4bbddd68d759d31d36fac3e5eac3079aeb94c181add468cc23e81c3b3 /home/dolly/.pi/agent/extensions/ask-user.js
-SOURCE /v0.1.4/dist/static/default/pi/SYSTEM.md                         70ed91e73f66d65e71eb6d220fedea0cf1ce5ec1ce7bbac3a5b6a849c8ef0628 /home/dolly/.pi/agent/SYSTEM.md
-SOURCE /v0.1.4/dist/static/default/pi/settings.json                     852b78af9b490d627858723c8b67f24e55e58d9f621ce4afbc7424b872917c1f /home/dolly/.pi/agent/settings.json
-SOURCE /v0.1.4/dist/static/default/pi/dolly-theme.json                  ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297 /home/dolly/.pi/agent/themes/dolly.json
-SOURCE /v0.1.4/dist/static/default/pi/dolly-skill.md                    75752eda1db044da82d8daaa50e2eff3e932e37132934b77031c30d2e4c1065a /home/dolly/.pi/agent/skills/dolly/SKILL.md
+SOURCE /v0.1.5/dist/static/default/pi/dolly-tools.js                    b2d5ecb9788c9f701d4892a23d0c0b8b17adb6309278de9876aefc8d8ca4b6a8 /home/dolly/.pi/agent/extensions/dolly-tools.js
+SOURCE /v0.1.5/dist/static/default/pi/ask-user.js                       aea9f9f4bbddd68d759d31d36fac3e5eac3079aeb94c181add468cc23e81c3b3 /home/dolly/.pi/agent/extensions/ask-user.js
+SOURCE /v0.1.5/dist/static/default/pi/SYSTEM.md                         70ed91e73f66d65e71eb6d220fedea0cf1ce5ec1ce7bbac3a5b6a849c8ef0628 /home/dolly/.pi/agent/SYSTEM.md
+SOURCE /v0.1.5/dist/static/default/pi/settings.json                     852b78af9b490d627858723c8b67f24e55e58d9f621ce4afbc7424b872917c1f /home/dolly/.pi/agent/settings.json
+SOURCE /v0.1.5/dist/static/default/pi/dolly-theme.json                  ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297 /home/dolly/.pi/agent/themes/dolly.json
+SOURCE /v0.1.5/dist/static/default/pi/dolly-skill.md                    75752eda1db044da82d8daaa50e2eff3e932e37132934b77031c30d2e4c1065a /home/dolly/.pi/agent/skills/dolly/SKILL.md
 
 FILE /home/dolly/.pi/agent/extensions/dolly-tools.js
 FILE /home/dolly/.pi/agent/extensions/ask-user.js

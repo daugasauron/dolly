@@ -5,13 +5,13 @@ REQUIRES HOST runtime@0
 # stack-wrap, which makes a program continue deep recursion on fresh browser
 # stacks (host/stack, docs/browser-stack.md). A program it has rewritten
 # records stack@0, which an image that holds one declares.
-FROM /v0.1.4/Dollyfile-system-build 2c496ce31180dd5b04f8b4f6e4c89b0400b2103fd3aae9e1198bc627eaaccda3
+FROM /v0.1.5/Dollyfile-system-build cf9cf053fb5debc080062e6e44c1b139175739f6158fa8a825b0255ba2063aee
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.4/host/stack/stack-abi.h 220793655506ef3b506ea83f1cd50afeb3f4517f6e47a8d9a3baa3558a2a9c08 /tmp/stack-wrap/dolly/stack-abi.h
-SOURCE /v0.1.4/host/stack/stack-wrap.c 408da54d01388d0a1c18d941719b4ab7e02c9f22e295365ebd86fba2f3a65c14 /tmp/stack-wrap/stack-wrap.c
+SOURCE /v0.1.5/host/stack/stack-abi.h 220793655506ef3b506ea83f1cd50afeb3f4517f6e47a8d9a3baa3558a2a9c08 /tmp/stack-wrap/dolly/stack-abi.h
+SOURCE /v0.1.5/host/stack/stack-wrap.c 408da54d01388d0a1c18d941719b4ab7e02c9f22e295365ebd86fba2f3a65c14 /tmp/stack-wrap/stack-wrap.c
 SLOP cc -O2 -I/tmp/stack-wrap /tmp/stack-wrap/stack-wrap.c -o /usr/bin/stack-wrap
 # A program it rewrote recurses deeper than one browser stack, in a build too.
 FILE /tmp/stack-wrap/deep.c

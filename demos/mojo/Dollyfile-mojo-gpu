@@ -8,17 +8,17 @@ REQUIRES HOST gpu@0
 
 # A shell with the Mojo compiler built in Dolly (the mojo package) and what its
 # programs link against, in an image with a GPU: kernels run here.
-INSTALL /v0.1.4/Dollyfile-core 74fabeb7587e54b39bb59351ed5e8146d3eb77cb526c65c00c2d90f11495b775
-INSTALL /v0.1.4/Dollyfile-posix 4edbe26685a71e67d5360b567b708c1cb373b124d4143c680cf0a6a1ba90ebae
-INSTALL /v0.1.4/Dollyfile-display 2be7cbca13647b99084a669132428169b2d5a6bde7a291642efc5c584f9ffd63
-INSTALL /v0.1.4/demos/mojo/Dollyfile-mojo 8202e13058d72626f70dbc094cb9603e80e55f5ba8ae4d990cf6be0db90f8c47
+INSTALL /v0.1.5/Dollyfile-core 7205c35aed897514d3094f14a194669f73c295b4dd0213619d90155da8467cde
+INSTALL /v0.1.5/Dollyfile-posix a98de8b50ce0a29e867194e9fe9c44a54c0ea48ccf25a0f1353431daf827cf9e
+INSTALL /v0.1.5/Dollyfile-display 2032dbc473505507c7419267f43fdb2fe76b16b0907ca27f2b157a0ec54bda35
+INSTALL /v0.1.5/demos/mojo/Dollyfile-mojo 9087f67ba4c8f66d88678536c45e2cd85188a1311ccae26ae79f31cd0715e07f
 REQUIRES TOOL mojo
 REQUIRES LIB dolly-gpu
 
 # Programs to start from: the target's test programs, as they are tested.
-SOURCE /v0.1.4/dist/static/mojo/examples/hello.mojo d4e226386de30b33dba73929f423f9c820f482edc771bdd2b0a625b204fd25e5 /home/dolly/mojo/hello.mojo
-SOURCE /v0.1.4/dist/static/mojo/examples/saxpy.mojo 15035ff21b6e8a5c00ba7f7ac62ab28f33663fa1df00e54ab7ecf0c6cee4d891 /home/dolly/mojo/saxpy.mojo
-SOURCE /v0.1.4/dist/static/mojo/examples/mandelbrot.mojo 08b7af85c9f3ee75311940c02c7392d327622faa3741b51ee5b627dbdbb16d6c /home/dolly/mojo/mandelbrot.mojo
+SOURCE /v0.1.5/dist/static/mojo/examples/hello.mojo d4e226386de30b33dba73929f423f9c820f482edc771bdd2b0a625b204fd25e5 /home/dolly/mojo/hello.mojo
+SOURCE /v0.1.5/dist/static/mojo/examples/saxpy.mojo 15035ff21b6e8a5c00ba7f7ac62ab28f33663fa1df00e54ab7ecf0c6cee4d891 /home/dolly/mojo/saxpy.mojo
+SOURCE /v0.1.5/dist/static/mojo/examples/mandelbrot.mojo 08b7af85c9f3ee75311940c02c7392d327622faa3741b51ee5b627dbdbb16d6c /home/dolly/mojo/mandelbrot.mojo
 FOLDER /home/dolly/mojo
 FILE /home/dolly/.dollyrc
     echo 'DOLLY / MOJO-GPU: the Mojo compiler, compiled inside Dolly, and WebGPU.'

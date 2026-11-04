@@ -6,14 +6,14 @@ REQUIRES HOST runtime@0
 # name: it reads the .pc files that libraries install into /usr/lib/pkgconfig.
 # Upstream builds it with Meson; config.h holds the values its configure step
 # finds here.
-FROM /v0.1.4/Dollyfile-system-tools 6002e88282bb0d520134235725b6082f5ad15644ad92c5dfe9f8c1f5808dfaa7
+FROM /v0.1.5/Dollyfile-system-tools 39e8ad7c80d06b7a0c420bbeaae2e6b2423e7e633d38640e82d72a73c20e232a
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL ln
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.4/dist/static/pkgconf/source.tar a7c0d52c654cfc78fd44135cae21b9cf6464c1758bde76cf4270a5cd3e0e4e66 /tmp/pkgconf.tar
+SOURCE /v0.1.5/dist/static/pkgconf/source.tar a7c0d52c654cfc78fd44135cae21b9cf6464c1758bde76cf4270a5cd3e0e4e66 /tmp/pkgconf.tar
 SLOP tar -xf /tmp/pkgconf.tar -C /
 FILE /tmp/pkgconf/libpkgconf/config.h
     #define HAVE_STRLCAT 1

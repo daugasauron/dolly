@@ -10,9 +10,9 @@ REQUIRES HOST http@0
 
 # Airtime: Foundry, its agent overlay and viewer, with their sources and the
 # makefile that builds the game again (cc and raylib).
-FROM /v0.1.4/demos/slopyard/Dollyfile-gamedev-sdk f04fcd0c3c2f6e16f3b21d7484d0cdb3e63edec8af79fd2c638189e13f5d2d67
-USE /v0.1.4/demos/javascript/Dollyfile-janis 82b168fd25180b51031ab96a8132407a7c6d9827f319bc42d289cd7fea0eb715
-USE /v0.1.4/demos/sdl2/Dollyfile-sdl2 adf88beda7f41cbd97b32fe0f27906f8c4893f10bef9e1bb18f670ceb7c05584
+FROM /v0.1.5/demos/slopyard/Dollyfile-gamedev-sdk f90577bcd0d5c3eb3cd989913f41cdd3685f769522066bd205ee89e22a26b6d1
+USE /v0.1.5/demos/javascript/Dollyfile-janis 03999557889df193c09f4d7e46e79fe9cc1002cd355a795d08bd019136da0ae5
+USE /v0.1.5/demos/sdl2/Dollyfile-sdl2 cd864c7c3220d915822ca58199fe4df7c7f2e5fb21d34c77a6aa86f77ed466dc
 REQUIRES TOOL cc
 REQUIRES TOOL make
 REQUIRES TOOL c++
@@ -25,8 +25,8 @@ REQUIRES LIB dolly-js
 REQUIRES LIB quickjs
 REQUIRES LIB SDL2
 
-SOURCE /v0.1.4/dist/static/bhop/source.tar ec72dcd9268eaad9d386b9e877b3773e419c0cc4eac66e03bc727e17036afdc4 /tmp/bhop-source.tar
-SOURCE /v0.1.4/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/bhop-stb/stb_truetype.h
+SOURCE /v0.1.5/dist/static/bhop/source.tar ec72dcd9268eaad9d386b9e877b3773e419c0cc4eac66e03bc727e17036afdc4 /tmp/bhop-source.tar
+SOURCE /v0.1.5/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/bhop-stb/stb_truetype.h
 SLOP tar -xf /tmp/bhop-source.tar -C /
 
 FILE /usr/src/dolly/bhop/bhop-movement.h

@@ -19,12 +19,12 @@ REQUIRES HOST html@0
 #   COPY RECIPE SHA256 /opt/python-data/numpy /
 # README.md lists the roots each library needs beside it. The build tools
 # (Meson, meson-python, Cython, pybind11, setuptools) serve this build alone.
-FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
-INSTALL /v0.1.4/demos/python/Dollyfile-python 2e148fac3c069590b8b0df6759d234d3922da318bb594f1131d0e8ffbd8931b4
-INSTALL /v0.1.4/demos/tools/Dollyfile-meson 449da87534a1d25f82d8f87cb5395d106b9edf5652f423897cfaa1fd357ad9e5
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype f58a119619c042debd360ccb2c34a2f1785c4c31b20045ce0b35448ad11386b5
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 370e8f8f643dfd9e25b68efc0ff08d921e133be9fb218146441cec4308d49f0b
-INSTALL /v0.1.4/demos/xonotic/Dollyfile-libjpeg fe9a13984b31309373544c1509c9d7962dacc4ef453409f0d1579bb820f9c624
+FROM /v0.1.5/Dollyfile-system 87fe1e350c90556f41ae3e45343f9122ea9eca8cc488ae18b8a3ec08f1af0989
+INSTALL /v0.1.5/demos/python/Dollyfile-python 5909c3743aee62ae30b4bc1bfc3b0b221ac5458e2ed4dfb4b6767d8b072fc9ea
+INSTALL /v0.1.5/demos/tools/Dollyfile-meson 890d47e5587fb00a6ae468c7658415826862536b7390fd7fd1cb26abffa3dac6
+INSTALL /v0.1.5/demos/zero-ad/Dollyfile-freetype 678cbfa3ebea858fe30f962853897958e256d1adf145fb8062fc0c5fc390ec6d
+INSTALL /v0.1.5/demos/zero-ad/Dollyfile-pkgconf 093ecdba243fbc62c20fd1c9c51aef92ed4a8f256f5500944e8011c832a95258
+INSTALL /v0.1.5/demos/xonotic/Dollyfile-libjpeg dedda688da3e0efdc464d7ae8ce223df539d2a4c32641cab821cdcd4e32d2a8c
 REQUIRES HEADER freetype2
 REQUIRES HEADER jpeglib
 REQUIRES HEADER zlib
@@ -41,35 +41,35 @@ REQUIRES TOOL   pip
 REQUIRES TOOL   python
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.4/dist/static/python-data/numpy-2.5.4.tar.gz 9a94cf751c9ad8ebaa835bcd3d40dacf8534ad086b88c38029b65123c7999d2a /tmp/python-data/numpy-2.5.4.tar.gz
-SOURCE /v0.1.4/dist/static/python-data/pandas-3.0.5.tar.gz dca3734d6ab7c906e6730f0788b0a1dbb9f2467731f9711f77995c8e9d62d712 /tmp/python-data/pandas-3.0.5.tar.gz
-SOURCE /v0.1.4/dist/static/python-data/matplotlib-3.10.9.tar.gz fd66508e8c6877d98e586654b608a0456db8d7e8a546eb1e2600efd957302358 /tmp/python-data/matplotlib-3.10.9.tar.gz
-SOURCE /v0.1.4/dist/static/python-data/pillow-13.0.0.tar.gz cdcd1ba258178f7356d74170c9a81ba4eab6a5d55748bc402a5a2a6fe6be3510 /tmp/python-data/pillow-13.0.0.tar.gz
-SOURCE /v0.1.4/dist/static/python-data/kiwisolver-1.5.1.tar.gz f1303ef2eec81262a4b708c3e858afe58d7c75ad91c1c05266eda7673369859a /tmp/python-data/kiwisolver-1.5.1.tar.gz
-SOURCE /v0.1.4/dist/static/python-data/contourpy-1.4.0.tar.gz 20156f5a1ac4f8ce02656e39a61e82164a3d359796dc8026f75b062783d500e1 /tmp/python-data/contourpy-1.4.0.tar.gz
-SOURCE /v0.1.4/dist/static/python-data/cycler-0.12.1-py3-none-any.whl 85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30 /tmp/python-data/cycler-0.12.1-py3-none-any.whl
-SOURCE /v0.1.4/dist/static/python-data/fonttools-4.68.0-py3-none-any.whl d76f8fdcb6936f5e1045a0c9dd721a4bf11112e60d1e243bfa1d39f06a8b3104 /tmp/python-data/fonttools-4.68.0-py3-none-any.whl
-SOURCE /v0.1.4/dist/static/python-data/pyparsing-3.3.3-py3-none-any.whl ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4 /tmp/python-data/pyparsing-3.3.3-py3-none-any.whl
-SOURCE /v0.1.4/dist/static/python-data/packaging-26.3-py3-none-any.whl d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c /tmp/python-data/packaging-26.3-py3-none-any.whl
-SOURCE /v0.1.4/dist/static/python-data/python_dateutil-4.0.0-py3-none-any.whl a5e246f79eb80475e691bf93862cead98decd8a498cf53ba0516fcdc0f50dc1c /tmp/python-data/python_dateutil-4.0.0-py3-none-any.whl
-SOURCE /v0.1.4/dist/static/python-data/tzdata-2026.6-py2.py3-none-any.whl 0a10eec6e13ef16b627fabed9a5f2ba61a62b1c67f327305f4e7e412a70b4aec /tmp/python-data/tzdata-2026.6-py2.py3-none-any.whl
-SOURCE /v0.1.4/dist/static/python-data/seaborn-0.13.2-py3-none-any.whl 636f8336facf092165e27924f223d3c62ca560b1f2bb5dff7ab7fad265361987 /tmp/python-data/seaborn-0.13.2-py3-none-any.whl
-SOURCE /v0.1.4/dist/static/python-data/markupsafe-3.0.3.tar.gz 722695808f4b6457b320fdc131280796bdceb04ab50fe1795cd540799ebe1698 /tmp/python-data/markupsafe-3.0.3.tar.gz
-SOURCE /v0.1.4/dist/static/python-data/jinja2-3.1.6-py3-none-any.whl 85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67 /tmp/python-data/jinja2-3.1.6-py3-none-any.whl
-SOURCE /v0.1.4/dist/static/python-data/et_xmlfile-2.0.0-py3-none-any.whl 7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa /tmp/python-data/et_xmlfile-2.0.0-py3-none-any.whl
-SOURCE /v0.1.4/dist/static/python-data/openpyxl-3.1.5-py2.py3-none-any.whl 5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2 /tmp/python-data/openpyxl-3.1.5-py2.py3-none-any.whl
-SOURCE /v0.1.4/dist/static/python-data/tabulate-0.10.0-py3-none-any.whl f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3 /tmp/python-data/tabulate-0.10.0-py3-none-any.whl
-SOURCE /v0.1.4/dist/static/python-data/meson_python-0.22.1-py3-none-any.whl 258fde948cf45aab5df23fcc9e17a9050ee73d4e1002fe6cf86519f61c414778 /tmp/python-data/meson_python-0.22.1-py3-none-any.whl
-SOURCE /v0.1.4/dist/static/python-data/cython-3.3.1-py3-none-any.whl 61abc7feedd20dac6c4ff7ab3a30e17136a067b242ab9253e2b4a6d9a72c2b61 /tmp/python-data/cython-3.3.1-py3-none-any.whl
-SOURCE /v0.1.4/dist/static/python-data/pyproject_metadata-0.12.1-py3-none-any.whl f7162d580a96386a8eb096da06215f981f547d1490f03055ef99e323bc2da427 /tmp/python-data/pyproject_metadata-0.12.1-py3-none-any.whl
-SOURCE /v0.1.4/dist/static/python-data/pybind11-3.1.0-py3-none-any.whl b8488090f8acffbcb6b5d6a85571a6827a0a2981ffb75e5a0b27b87c4a6b7dd0 /tmp/python-data/pybind11-3.1.0-py3-none-any.whl
-SOURCE /v0.1.4/dist/static/python-data/setuptools-84.2.1-py3-none-any.whl ca140b45d5325a9478f880e351484f62fef15f336462e449ca0c03c873d589c2 /tmp/python-data/setuptools-84.2.1-py3-none-any.whl
-SOURCE /v0.1.4/dist/static/python-data/setuptools_scm-9.2.2-py3-none-any.whl 30e8f84d2ab1ba7cb0e653429b179395d0c33775d54807fc5f1dd6671801aef7 /tmp/python-data/setuptools_scm-9.2.2-py3-none-any.whl
-SOURCE /v0.1.4/dist/static/python-data/cppy-1.3.1-py3-none-any.whl 7ca132b6ef6187384738804bd3a453d4eab7e3274df6dcd35e5d92aae3404717 /tmp/python-data/cppy-1.3.1-py3-none-any.whl
-SOURCE /v0.1.4/dist/static/python-data/versioneer-0.29-py3-none-any.whl 0f1a137bb5d6811e96a79bb0486798aeae9b9c6efc24b389659cebb0ee396cb9 /tmp/python-data/versioneer-0.29-py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/numpy-2.5.4.tar.gz 9a94cf751c9ad8ebaa835bcd3d40dacf8534ad086b88c38029b65123c7999d2a /tmp/python-data/numpy-2.5.4.tar.gz
+SOURCE /v0.1.5/dist/static/python-data/pandas-3.0.5.tar.gz dca3734d6ab7c906e6730f0788b0a1dbb9f2467731f9711f77995c8e9d62d712 /tmp/python-data/pandas-3.0.5.tar.gz
+SOURCE /v0.1.5/dist/static/python-data/matplotlib-3.10.9.tar.gz fd66508e8c6877d98e586654b608a0456db8d7e8a546eb1e2600efd957302358 /tmp/python-data/matplotlib-3.10.9.tar.gz
+SOURCE /v0.1.5/dist/static/python-data/pillow-13.0.0.tar.gz cdcd1ba258178f7356d74170c9a81ba4eab6a5d55748bc402a5a2a6fe6be3510 /tmp/python-data/pillow-13.0.0.tar.gz
+SOURCE /v0.1.5/dist/static/python-data/kiwisolver-1.5.1.tar.gz f1303ef2eec81262a4b708c3e858afe58d7c75ad91c1c05266eda7673369859a /tmp/python-data/kiwisolver-1.5.1.tar.gz
+SOURCE /v0.1.5/dist/static/python-data/contourpy-1.4.0.tar.gz 20156f5a1ac4f8ce02656e39a61e82164a3d359796dc8026f75b062783d500e1 /tmp/python-data/contourpy-1.4.0.tar.gz
+SOURCE /v0.1.5/dist/static/python-data/cycler-0.12.1-py3-none-any.whl 85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30 /tmp/python-data/cycler-0.12.1-py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/fonttools-4.68.0-py3-none-any.whl d76f8fdcb6936f5e1045a0c9dd721a4bf11112e60d1e243bfa1d39f06a8b3104 /tmp/python-data/fonttools-4.68.0-py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/pyparsing-3.3.3-py3-none-any.whl ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4 /tmp/python-data/pyparsing-3.3.3-py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/packaging-26.3-py3-none-any.whl d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c /tmp/python-data/packaging-26.3-py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/python_dateutil-4.0.0-py3-none-any.whl a5e246f79eb80475e691bf93862cead98decd8a498cf53ba0516fcdc0f50dc1c /tmp/python-data/python_dateutil-4.0.0-py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/tzdata-2026.6-py2.py3-none-any.whl 0a10eec6e13ef16b627fabed9a5f2ba61a62b1c67f327305f4e7e412a70b4aec /tmp/python-data/tzdata-2026.6-py2.py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/seaborn-0.13.2-py3-none-any.whl 636f8336facf092165e27924f223d3c62ca560b1f2bb5dff7ab7fad265361987 /tmp/python-data/seaborn-0.13.2-py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/markupsafe-3.0.3.tar.gz 722695808f4b6457b320fdc131280796bdceb04ab50fe1795cd540799ebe1698 /tmp/python-data/markupsafe-3.0.3.tar.gz
+SOURCE /v0.1.5/dist/static/python-data/jinja2-3.1.6-py3-none-any.whl 85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67 /tmp/python-data/jinja2-3.1.6-py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/et_xmlfile-2.0.0-py3-none-any.whl 7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa /tmp/python-data/et_xmlfile-2.0.0-py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/openpyxl-3.1.5-py2.py3-none-any.whl 5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2 /tmp/python-data/openpyxl-3.1.5-py2.py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/tabulate-0.10.0-py3-none-any.whl f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3 /tmp/python-data/tabulate-0.10.0-py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/meson_python-0.22.1-py3-none-any.whl 258fde948cf45aab5df23fcc9e17a9050ee73d4e1002fe6cf86519f61c414778 /tmp/python-data/meson_python-0.22.1-py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/cython-3.3.1-py3-none-any.whl 61abc7feedd20dac6c4ff7ab3a30e17136a067b242ab9253e2b4a6d9a72c2b61 /tmp/python-data/cython-3.3.1-py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/pyproject_metadata-0.12.1-py3-none-any.whl f7162d580a96386a8eb096da06215f981f547d1490f03055ef99e323bc2da427 /tmp/python-data/pyproject_metadata-0.12.1-py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/pybind11-3.1.0-py3-none-any.whl b8488090f8acffbcb6b5d6a85571a6827a0a2981ffb75e5a0b27b87c4a6b7dd0 /tmp/python-data/pybind11-3.1.0-py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/setuptools-84.2.1-py3-none-any.whl ca140b45d5325a9478f880e351484f62fef15f336462e449ca0c03c873d589c2 /tmp/python-data/setuptools-84.2.1-py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/setuptools_scm-9.2.2-py3-none-any.whl 30e8f84d2ab1ba7cb0e653429b179395d0c33775d54807fc5f1dd6671801aef7 /tmp/python-data/setuptools_scm-9.2.2-py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/cppy-1.3.1-py3-none-any.whl 7ca132b6ef6187384738804bd3a453d4eab7e3274df6dcd35e5d92aae3404717 /tmp/python-data/cppy-1.3.1-py3-none-any.whl
+SOURCE /v0.1.5/dist/static/python-data/versioneer-0.29-py3-none-any.whl 0f1a137bb5d6811e96a79bb0486798aeae9b9c6efc24b389659cebb0ee396cb9 /tmp/python-data/versioneer-0.29-py3-none-any.whl
 # Qhull, which Matplotlib builds into its extensions, as Meson's package cache:
 # its wrap builds it offline, unchanged.
-SOURCE /v0.1.4/dist/static/python-data/qhull-8.0.2.tar.gz 8774e9a12c70b0180b95d6b0b563c5aa4bea8d5960c15e18ae3b6d2521d64f8b /tmp/python-data/packagecache/qhull-8.0.2.tgz
+SOURCE /v0.1.5/dist/static/python-data/qhull-8.0.2.tar.gz 8774e9a12c70b0180b95d6b0b563c5aa4bea8d5960c15e18ae3b6d2521d64f8b /tmp/python-data/packagecache/qhull-8.0.2.tgz
 
 # The build tools, for this build alone: the site-packages FOLDER of the
 # python package is not repeated, so nothing installed there now is kept.

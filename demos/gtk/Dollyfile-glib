@@ -11,15 +11,15 @@ REQUIRES HOST threads@0
 # which traps in WebAssembly: GObject's pkg-config file asks cc for
 # --dolly-cast-emulation (Binaryen's wasm-opt --fpcast-emu after the link),
 # and this package's own programs are passed through it here.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 595b1e82d2ac8eb9707667c854aa7bf40c61bbf4d9a03caa7e76a5467af9745d
-USE /v0.1.4/demos/tools/Dollyfile-meson 449da87534a1d25f82d8f87cb5395d106b9edf5652f423897cfaa1fd357ad9e5
-USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 370e8f8f643dfd9e25b68efc0ff08d921e133be9fb218146441cec4308d49f0b
-USE /v0.1.4/demos/tools/Dollyfile-xz ba49e8f31b252b5784c56fb39fe3ea6f1e76dd33e64bf4ea0f561bf3fc2bc5ec
-USE /v0.1.4/demos/tools/Dollyfile-tar 8d677b38a4cdef0bfe6119bc34bd64e78027b551ce52451f7031f01f4e34d591
-USE /v0.1.4/demos/tools/Dollyfile-binaryen 3cd43e9651137d8076b4c1fffe023db6cc60a78ba931bb059e0bee4de0a4a901
-INSTALL /v0.1.4/demos/python/Dollyfile-libffi 513253ef3ac606558862d25117e16d06bf0301e192a261d53e9d1985e3f9dae6
-INSTALL /v0.1.4/demos/gtk/Dollyfile-pcre2 1da438955ec18565a126248918a1dc447b326cfa1be900103ea791479d42dee6
-INSTALL /v0.1.4/Dollyfile-zlib 399ec19ff4bc5880534ca1bf6edd026bc623103362a0c94fa36473245ca78ecc
+FROM /v0.1.5/demos/tools/Dollyfile-tools-build 9f9cfa93f7bc4ddd5fc5cbd9ced4d2100cd41349f9f2b6f75ab9d8e26a57da62
+USE /v0.1.5/demos/tools/Dollyfile-meson 890d47e5587fb00a6ae468c7658415826862536b7390fd7fd1cb26abffa3dac6
+USE /v0.1.5/demos/zero-ad/Dollyfile-pkgconf 093ecdba243fbc62c20fd1c9c51aef92ed4a8f256f5500944e8011c832a95258
+USE /v0.1.5/demos/tools/Dollyfile-xz 81e23252e1f473a7ea097b4c0cd9fcd460af14ab79499417ce8bdcac5b33061e
+USE /v0.1.5/demos/tools/Dollyfile-tar 295eba689217629e18a9798ecc95ff30230161a0341c68d095fa4e23df51d9df
+USE /v0.1.5/demos/tools/Dollyfile-binaryen 480e8afc4a00c4024e5ab9d5597c40b621cc58f1a4dad5c2e887d52048e7c74a
+INSTALL /v0.1.5/demos/python/Dollyfile-libffi d8a7cebc28dc2c4ea4127c3eb866080a02bf4c817f425602567bff2a5acfed5f
+INSTALL /v0.1.5/demos/gtk/Dollyfile-pcre2 109809537a9c2206d1283eed9097b16bcf6d0556b9996c35d1b5c35942a91db7
+INSTALL /v0.1.5/Dollyfile-zlib 0b706df4c643faf419bd9089995b97d13ff7237493d9bb9727f8d3df91cbe033
 
 REQUIRES HEADER ffi
 REQUIRES HEADER pcre2
@@ -38,8 +38,8 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   wasm-opt
 REQUIRES TOOL   xz
 
-SOURCE /v0.1.4/dist/static/gtk/glib-2.90.1.tar.xz 93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396 /tmp/glib.tar.xz
-SOURCE /v0.1.4/dist/static/gtk/glib-dolly.patch f7cf8e258bd3cedd3ed89eeecd2b4cd98e9d90f6d308857895b843e9684d1d54 /tmp/glib-dolly.patch
+SOURCE /v0.1.5/dist/static/gtk/glib-2.90.1.tar.xz 93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396 /tmp/glib.tar.xz
+SOURCE /v0.1.5/dist/static/gtk/glib-dolly.patch f7cf8e258bd3cedd3ed89eeecd2b4cd98e9d90f6d308857895b843e9684d1d54 /tmp/glib-dolly.patch
 SLOP CWD /tmp xz -dc glib.tar.xz | tar -xf -
 SLOP patch -p1 -d /tmp/glib-2.90.1 -i /tmp/glib-dolly.patch
 # No tests, translations, introspection data or kernel facilities Dolly has

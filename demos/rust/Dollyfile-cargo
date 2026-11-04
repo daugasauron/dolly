@@ -6,11 +6,11 @@ REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
 # Cargo as rust-build built it.
-COPY /v0.1.4/demos/rust/Dollyfile-rust-build 77f66887ae4d9c72395c2330ef3a0df0dfd1a62c84dd67288b304bca00a40945 /usr/bin/cargo /usr/bin/cargo
-COPY /v0.1.4/demos/rust/Dollyfile-rust-build 77f66887ae4d9c72395c2330ef3a0df0dfd1a62c84dd67288b304bca00a40945 /usr/share/licenses/cargo /usr/share/licenses/cargo
-COPY /v0.1.4/demos/rust/Dollyfile-rust-build 77f66887ae4d9c72395c2330ef3a0df0dfd1a62c84dd67288b304bca00a40945 /usr/share/dolly/builds/cargo.lock /usr/share/dolly/builds/cargo.lock
+COPY /v0.1.5/demos/rust/Dollyfile-rust-build c38e0ee1ec30a41cf3286931af14d5cc46a9739c8b3daa1ac1d6e7a6f260c911 /usr/bin/cargo /usr/bin/cargo
+COPY /v0.1.5/demos/rust/Dollyfile-rust-build c38e0ee1ec30a41cf3286931af14d5cc46a9739c8b3daa1ac1d6e7a6f260c911 /usr/share/licenses/cargo /usr/share/licenses/cargo
+COPY /v0.1.5/demos/rust/Dollyfile-rust-build c38e0ee1ec30a41cf3286931af14d5cc46a9739c8b3daa1ac1d6e7a6f260c911 /usr/share/dolly/builds/cargo.lock /usr/share/dolly/builds/cargo.lock
 # Cargo runs rustc: the package brings the compiler it was built with.
-INSTALL /v0.1.4/demos/rust/Dollyfile-rust 7e65cf4025743d5849ae44c1cda8149406e1c6396bc341bebe8b80df589116f9
+INSTALL /v0.1.5/demos/rust/Dollyfile-rust 6d6d4154470a6ec1f0c433bc3fee0e2f7d2a3420b9c06e9f007d487e434697d0
 # The cc crate's default flags name a target; Dolly's cc has one.
 EXPORTS ENV CRATE_CC_NO_DEFAULTS 1
 # A Git dependency is fetched by git, which reaches HTTP hosts through the

@@ -3,7 +3,7 @@ PACKAGE lfm2.5
 REQUIRES HOST runtime@0
 
 # LFM2.5-2.6B Q4_K_M, the exact upstream GGUF assembled from parts SOURCE accepts, its description and its license.
-FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
+FROM /v0.1.5/Dollyfile-system 87fe1e350c90556f41ae3e45343f9122ea9eca8cc488ae18b8a3ec08f1af0989
 REQUIRES TOOL cat
 REQUIRES TOOL cut
 REQUIRES TOOL mkdir
@@ -11,10 +11,10 @@ REQUIRES TOOL rm
 REQUIRES TOOL sha256sum
 REQUIRES TOOL test
 
-SOURCE /v0.1.4/dist/static/llm/lfm2.5/0.part 7b727f9ff9483298a0331ff62680fd3a7289388ab657ecd271cb73022731b464 /tmp/llm/0.part
-SOURCE /v0.1.4/dist/static/llm/lfm2.5/1.part 2f6641fc9bb6e2d1002aa73d6538713163dac70fb0fba56cc691c907fa172bb5 /tmp/llm/1.part
-SOURCE /v0.1.4/dist/static/llm/lfm2.5/lfm2.5.json cd4e62c05c0a6b38274849f14bf80101f46e0c19e4327f7d9c6bc3590c132e08 /usr/share/dolly/llm/lfm2.5.json
-SOURCE /v0.1.4/dist/static/llm/lfm2.5/LICENSE 30adf9d6478191fb87f2424f63ba0728598335aaf99cd2848ef17e8e545fe94b /usr/share/licenses/lfm2.5/LICENSE
+SOURCE /v0.1.5/dist/static/llm/lfm2.5/0.part 7b727f9ff9483298a0331ff62680fd3a7289388ab657ecd271cb73022731b464 /tmp/llm/0.part
+SOURCE /v0.1.5/dist/static/llm/lfm2.5/1.part 2f6641fc9bb6e2d1002aa73d6538713163dac70fb0fba56cc691c907fa172bb5 /tmp/llm/1.part
+SOURCE /v0.1.5/dist/static/llm/lfm2.5/lfm2.5.json cd4e62c05c0a6b38274849f14bf80101f46e0c19e4327f7d9c6bc3590c132e08 /usr/share/dolly/llm/lfm2.5.json
+SOURCE /v0.1.5/dist/static/llm/lfm2.5/LICENSE 30adf9d6478191fb87f2424f63ba0728598335aaf99cd2848ef17e8e545fe94b /usr/share/licenses/lfm2.5/LICENSE
 SLOP mkdir -p /usr/share/dolly/llm
 SLOP cat /tmp/llm/0.part /tmp/llm/1.part > /usr/share/dolly/llm/lfm2.5.gguf
 # The parts go before the capture, which copies the image twice.

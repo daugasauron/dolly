@@ -8,8 +8,8 @@ REQUIRES HOST dso@0
 # every library, the headers and llvm-config, as llvm-build installed them
 # under /usr/lib/llvm. The package keeps only the exports below. Programs that
 # build against LLVM compile with cc and c++.
-FROM /v0.1.4/demos/llvm/Dollyfile-llvm-build 2f39ba9020ed5e4b1005e8781f13574abc9c7a1bfa72f78e7c1932c6a839e574
-INSTALL /v0.1.4/Dollyfile-cc 53efa9fa48567501751d60f4172407b9bd62ea6dfa65eca475d0f6d62f6fef2e
+FROM /v0.1.5/demos/llvm/Dollyfile-llvm-build 0e435dff476c20f5a4a2f10dfd0b32015be89f49460ad7460ba86bb1deb2bf73
+INSTALL /v0.1.5/Dollyfile-cc afd89a983721972cb610d1d03ea39d5e6123d50b7b1a2b6922f1265657cc286a
 SLOP slop -c 'for tool in llvm-ar llvm-ranlib llvm-nm llvm-objdump llvm-readobj llvm-readelf llvm-objcopy llvm-strip \
   llvm-size llvm-strings llvm-symbolizer llvm-addr2line llvm-dwarfdump llvm-cxxfilt llvm-mc llvm-as llvm-dis llvm-link \
   opt llc llvm-config; do ln -s ../lib/llvm/bin/$tool /usr/bin/$tool; done'
@@ -35,7 +35,7 @@ EXPORTS TOOL llvm-link
 EXPORTS TOOL opt
 EXPORTS TOOL llc
 EXPORTS TOOL llvm-config
-SOURCE /v0.1.4/dist/static/llvm/licenses/llvm 8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee /usr/share/licenses/llvm/LICENSE.TXT
+SOURCE /v0.1.5/dist/static/llvm/licenses/llvm 8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee /usr/share/licenses/llvm/LICENSE.TXT
 FILE /usr/share/licenses/llvm/LICENSE.TXT
 FILE /usr/share/man/cat1/llvm.1
     llvm: LLVM 24 as built inside Dolly, from the sources and the tree whose

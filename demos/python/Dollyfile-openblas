@@ -10,7 +10,7 @@ REQUIRES HOST runtime@0
 # found by pkg-config as openblas. openblas-dolly.patch makes LAPACK's
 # subroutines return void, as their callers declare them: WebAssembly traps a
 # call of another type (proposed upstream).
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 193a9c226842808a3504f4d30fca09dad7b0f4f5cb973d420efd434683dcb4a6
+FROM /v0.1.5/demos/cmake/Dollyfile-cmake-build a187c93a214051fbafe68c92538f26f28d6cc36c2a0461369f067be8f3f1873b
 REQUIRES HEADER libc
 REQUIRES TOOL cmake
 REQUIRES TOOL cp
@@ -20,8 +20,8 @@ REQUIRES TOOL patch
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.4/dist/static/openblas/OpenBLAS-0.3.34.tar.gz cd7e129868320cc2d033afa920e31202dfe0b8066a5b66661900ccc0f197dfed /tmp/openblas.tar.gz
-SOURCE /v0.1.4/dist/static/openblas/openblas-dolly.patch 551ff6898e9f1c58cb0a1b9f0d82a2421fa8f23d21321bfa0adf08e7431baf8f /tmp/openblas-dolly.patch
+SOURCE /v0.1.5/dist/static/openblas/OpenBLAS-0.3.34.tar.gz cd7e129868320cc2d033afa920e31202dfe0b8066a5b66661900ccc0f197dfed /tmp/openblas.tar.gz
+SOURCE /v0.1.5/dist/static/openblas/openblas-dolly.patch 551ff6898e9f1c58cb0a1b9f0d82a2421fa8f23d21321bfa0adf08e7431baf8f /tmp/openblas-dolly.patch
 SLOP gzip -dc /tmp/openblas.tar.gz | tar -xf - -C /tmp
 SLOP patch -p1 -d /tmp/OpenBLAS-0.3.34 -i /tmp/openblas-dolly.patch
 SLOP cmake -S /tmp/OpenBLAS-0.3.34 -B /tmp/openblas-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS=-msimd128 \
