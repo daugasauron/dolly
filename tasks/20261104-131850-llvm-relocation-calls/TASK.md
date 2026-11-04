@@ -22,11 +22,13 @@ behind `zig cc`.
 - Cost per call in a `default` session (`bench.c`, 100,000 calls, `-O2`): `lseek` 10.7 µs and the
   writer's three calls 34 µs in Chromium 156; 21 µs and 63 µs in Firefox 155 (native: 0.06 µs and
   0.6 µs).
-- Dolly's own `cc` is less clear: a generated file of 4,000 small functions (`native/gen.sh`), for
-  which `zig cc -O2 -target wasm32-wasi` natively makes 490,721 `lseek` and 246,322 `write`
-  calls, compiles with `cc -O2` in 6.0-8.4 s in Chromium (8.6-8.9 s in Firefox), and its compiler
-  thread spends 0.34 s in `postMessage` (Chromium trace; the seed compiler has no function names,
-  so its calls are not attributed). Count its calls before counting it in.
+- Clang does it in a session too: for a generated file of 4,000 small functions
+  (`native/gen.sh`; natively `zig cc -O2 -target wasm32-wasi` makes 490,721 `lseek` and 246,322
+  `write` calls), `zig cc -O2 -c` in a `default` session with `zig-llvm` took 7.8 s, and its
+  Clang spent 2.7 s of 7.3 s under `raw_fd_ostream::pwrite_impl` (Chromium trace). Dolly's own
+  `cc -O2` compiles the same file in 4.1-8.4 s in Chromium (8.6-8.9 s in Firefox) to an object
+  of 1.48 MB, against `zig cc`'s 3.75 MB, so with fewer relocations; the seed compiler has no
+  function names, so its calls are not attributed. Count them before counting `cc` in.
 - In Zig 0.16's first `zig build` (Chromium trace), the zig process spent 8.1 s of its 28 s
   compile of the build runner and compiler_rt in them (LLVM's codegen 14.1 s, Sema 2.2 s).
 
