@@ -61,7 +61,7 @@ Verified: `slopyard-browser.mjs` passes in Chromium on a GPU window (own Xvfb `:
 GPU lock): the 17 fixtures in `slopyard-build` (2.5 to 11.3 s each), then in `slopyard` the
 driven car (moved 10.5 m), steering, the Eyes camera, import, export of an edited program,
 the invalid import kept out, world restore, no HTTP request, no page error
-(`build/tests-r1-evidence/gpu-slopyard-1.log`). Source suite, lint and the slopyard artifact
+(`build/tests-r1-evidence/gpu-slopyard-1.log`); a second run passed too (`gpu-slopyard-2.log`). Source suite, lint and the slopyard artifact
 check pass.
 
 ## 2. http-broker's moving stream depended on wall-clock scheduling
