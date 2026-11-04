@@ -163,6 +163,9 @@ uint64_t dolly_fs_version(int descriptor);
 /* The address of block `index` of those bytes (DOLLY_FS_BLOCK_SIZE each, the
  * last short), or 0 past them or for no regular file. */
 uintptr_t dolly_fs_block(int descriptor, uintptr_t index);
+/* Makes PATH, whose parents exist, the build's input image INPUT of SIZE
+ * bytes, which the Worker holds: 0 or a negative errno. */
+int dolly_fs_input_file(const char *path, uint32_t input, uint64_t size);
 /* The supervisor's words about the executable it prepares, src/process-kernel.c. */
 int dolly_kernel_launch_diagnostic(const unsigned char *bytes, size_t size);
 void dolly_terminal_publish_result(int status);

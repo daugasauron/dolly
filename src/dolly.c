@@ -220,13 +220,12 @@ _Noreturn void dolly_assert_fail(const char *condition, const char *file,
   abort();
 }
 
-// The Worker's boot files (abi/dolly-image-0.wat, abi/dolly-supervisor-0.wat):
-// a file written whole, or begun and appended to in pieces.
-static int write_file(const char *path, const void *bytes, size_t length, int disposition) {
+// The Worker's boot files (abi/dolly-image-0.wat, abi/dolly-supervisor-0.wat).
+int dolly_write_file(const char *path, const void *bytes, size_t length) {
   if (path == NULL || !dolly_fs_valid_path(path) ||
       (bytes == NULL && length != 0)) return -EINVAL;
   if (dolly_fs_parents(path, 1) != 0) return -errno;
-  int fd = open(path, O_WRONLY | O_CREAT | disposition, 0666);
+  int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
   if (fd < 0) return -errno;
 
   const unsigned char *cursor = bytes;
@@ -249,12 +248,11 @@ static int write_file(const char *path, const void *bytes, size_t length, int di
   return status;
 }
 
-int dolly_write_file(const char *path, const void *bytes, size_t length) {
-  return write_file(path, bytes, length, O_TRUNC);
-}
-
-int dolly_append_file(const char *path, const void *bytes, size_t length) {
-  return write_file(path, bytes, length, O_APPEND);
+// A build's input image, whose bytes stay in the Worker (abi/dolly-image-0.wat).
+int dolly_build_input(const char *path, uint32_t input, uint64_t size) {
+  if (path == NULL || !dolly_fs_valid_path(path)) return -EINVAL;
+  if (dolly_fs_parents(path, 1) != 0) return -errno;
+  return dolly_fs_input_file(path, input, size);
 }
 
 int dolly_read_file(const char *path, void *bytes, size_t capacity) {

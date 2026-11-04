@@ -17,6 +17,8 @@ export function check() {
 const maxBootstrapMessage = 1024 * 1024;
 // What crypto.getRandomValues fills in one call.
 const maxEntropy = 65536;
+// What the kernel reads of a build's input in one call: its window.
+const maxBuildInputRead = 8 * 1024 * 1024;
 
 // The terminal mailbox (abi/dolly-supervisor-0.wat), the Worker's end: the
 // foreground command, shell results and the page's interrupt request, with or
@@ -126,6 +128,9 @@ export function worker({ send, runtimeBase, abi, service }) {
     return old;
   };
   let supervisor, threadProvider, terminal, reported = "";
+  // The Blobs of a build's input images, which the build Worker sets: the
+  // kernel reads them as files (dolly_build_input), never anything else.
+  let buildInputs = [];
   // The foreground program, sent to the page when it changes.
   function reportForeground() {
     if (!terminal) return;
@@ -175,7 +180,16 @@ export function worker({ send, runtimeBase, abi, service }) {
         bytes.set(crypto.getRandomValues(new Uint8Array(bytes.length)));
         return 0;
       },
+      // Synchronous: the kernel reads inside a system call.
+      "env.dolly_build_input_read": (input, offset, address, length) => {
+        const blob = buildInputs[input], bytes = span(address, length, maxBuildInputRead), start = Number(offset);
+        if (!blob || !bytes || start < 0 || start > blob.size - bytes.length) return -E.EINVAL;
+        try { bytes.set(new Uint8Array(new FileReaderSync().readAsArrayBuffer(blob.slice(start, start + bytes.length)))); }
+        catch { return -E.EIO; }
+        return 0;
+      },
     },
+    setBuildInputs(blobs) { buildInputs = blobs; },
     // Both follow their modules, which nena@0 may enable or disable while the
     // supervisor runs: undefined takes the provider or the module away.
     setThreadProvider(provider) {

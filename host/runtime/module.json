@@ -6,7 +6,7 @@
   "provides": "kernel",
   "dependencies": [],
   "phase": "kernel",
-  "imports": ["env.memory", "env.dolly_bootstrap_write_bytes", "env.dolly_clock_realtime", "env.dolly_clock_monotonic", "env.dolly_entropy", "env.dolly_memory_grow"],
+  "imports": ["env.memory", "env.dolly_bootstrap_write_bytes", "env.dolly_clock_realtime", "env.dolly_clock_monotonic", "env.dolly_entropy", "env.dolly_memory_grow", "env.dolly_build_input_read"],
   "host": "runtime.mjs",
   "contracts": ["../../abi/dolly-supervisor-0.wat", "../../abi/dolly-image-0.wat"],
   "process": ["../../abi/dolly-process-0.wat", "../../abi/dolly-process-gate-0.wat"],

@@ -45,11 +45,15 @@
 
   ;; The Worker stages fixed boot-control records in the in-Wasm filesystem.
   ;; This is a memory-to-WasmFS copy, not a browser filesystem capability.
-  ;; Append adds to a file write began, so an input of an image's size
-  ;; crosses in pieces.
   (func (export "dolly_write_file") (param i64 i64 i64) (result i32)
     i32.const 0)
-  (func (export "dolly_append_file") (param i64 i64 i64) (result i32)
+  ;; A build's input images stay in the Worker, which numbers them from 0.
+  ;; This makes a path (its parents are created) a file of the size given,
+  ;; whose reads copy that input's bytes into kernel memory a window at a time
+  ;; through env.dolly_build_input_read (dolly-browser-0.wat): the engine
+  ;; restores an input without the kernel holding its snapshot. Truncating the
+  ;; file shortens it; writing or growing it fails with EROFS.
+  (func (export "dolly_build_input") (param i64 i32 i64) (result i32)
     i32.const 0)
 
   ;; A build asks Wasm to capture the retained files as one snapshot through
