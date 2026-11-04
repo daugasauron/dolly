@@ -32,3 +32,48 @@ are current after the build (make rebuilds nothing); `sleep 0.1` returns within 
 Chromium and Firefox and the two X loops use it; `cc -E -Wp,-v -x c /dev/null` prints the include
 directories; `libc.txt` and `ZIG_LIBC` are gone from `Dollyfile-zig-llvm` and
 `demos/zig/test/zig-llvm-browser.mjs` passes in both browsers on the rebuilt zig.
+
+## State (2026-11-04)
+
+Work on `core/seed-commands` (`work/signals`), on `integrate/2026-11-03` (seed `e7867504…`).
+
+- **tar** (94955e0f1) restores each member's modification time from its ustar header (access
+  times left as GNU tar leaves them), a directory's after the members created in it; Emacs's
+  `utimensat` helper is gone. Every `scripts/build-source-tar.mjs` archive records time 0, so a
+  tree extracts with one time, which is what the helper gave Emacs. A malformed time field is
+  refused as a malformed size is; every tar writes one, so the test fixture now does too.
+  Checked: `test/tar.test.mjs` (fails on the old tar: 1793753995 s, the extraction time, for
+  1200000000), `test/core-browser.mjs` in Chromium (23.7 s) and Firefox (34.0 s), a file's and its
+  directory's recorded times through `stat -c %Y`. Emacs rebuilt without the helper compiles the
+  same 163 units and generates the same 31 files (`GEN` lines) as this morning's build with it:
+  no Lisp is bootstrapped. `demos/emacs` tests pass (Chromium 6.3 s, Firefox 8.3 s, the package
+  on default 7.5 s).
+- **sleep** (2f990d503, check fixed in 995a8c0f1) is a core command (`src/commands/sleep.c`,
+  built in `system-build` beside `test` and `echo`, exported by `core`): a decimal number of
+  seconds read to the nanosecond, then `nanosleep` until it has passed; anything else is refused
+  (status 2). sbase's goes from `system-tools` and `posix`. Measured, ten runs each through
+  Slop's `time`: `sleep 0.1` 105–108 ms in Chromium, 109–115 ms in Firefox; `sleep 0` (process
+  start) 4–5 and 8–11 ms; `sleep 1` 1005–1006 and 1009–1015 ms.
+- **The X loops** become `until test -e /tmp/.X11-unix/X0 || test $tries = 600; do sleep 0.1;
+  …; done`: a minute at most (9f262cbce). They need it beyond the spawns: with `test` a Slop
+  builtin (`core/slop-language`) the old loop would end in milliseconds, before the server has
+  its socket. `demos/x11/test/x11-browser.mjs` passes in Chromium (first window 3.0 s after
+  navigation; 2.4–2.6 s in the rounds of 3 November, on a less loaded machine: page ready 2.8 s
+  against 2.2–2.4 s) and Firefox (4.2 s). ghostty-x11 is not rebuilt here (zig-llvm-build takes
+  the 9 GB slot): the round's step.
+- **cc -Wp,ARG** (3e10e208e): the option parser is the driver, `src/compiler.cpp` (`cc.c` only
+  forwards to it), so the fix is there, beside `-Wl,`: each comma-separated ARG goes to cc1. It
+  reaches images only with a new seed compiler (`llvm-cc` built and pinned).
+- **The `libc.txt` files stay: `-Wp` was only one of their reasons.** Zig 0.17's
+  `LibCInstallation.findNative` on an Emscripten host (Zig in Dolly is one) asks cc only
+  `-E -Wp,-v`, for the headers; `-print-file-name` (the crt directory) it asks on Linux, Haiku and
+  Serenity alone, so cc needs nothing for it (it still refuses it as an unknown option). Without a
+  file, `crt_dir` stays empty, and `Compilation.create` then refuses every executable that links
+  libc ("libc installation is missing crt directory", `resolveCrtPaths`): a native
+  `zig build-exe`, which `zig-llvm-browser.mjs` runs. And zig-llvm's file names a second thing
+  detection cannot: `sys_include_dir=/usr/include/wasm64-emscripten`, Emscripten's headers, which
+  Ghostty's `imgui_demo.cpp` includes under the `__EMSCRIPTEN__` Zig defines (`emscripten/version.h`;
+  detection takes the last search directory holding `stdlib.h` and the last holding
+  `sys/errno.h`, `/usr/include` for both). What `-Wp` makes work: Zig's own header detection, so
+  a `zig build-obj` needs no `ZIG_LIBC` right after `amy install` (zig017's install-then-use
+  failure), and any other tool that passes `-Wp,`.
