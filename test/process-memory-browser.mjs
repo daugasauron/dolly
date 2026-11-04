@@ -1,5 +1,6 @@
 // A process's memory goes when the process ends: twenty processes of 512 MiB
-// in a row, with and without a thread or ending as their threads start, and a
+// in a row, with and without a thread, ending as their threads start or as
+// they wait on a condition variable, and a
 // build of thirty-two compiler processes leave the browser where it started,
 // without waiting for a collector (tasks/20261101-102515-retained-process-memory).
 import assert from "node:assert/strict";
@@ -60,7 +61,7 @@ await browserTest("process memory", { image: "system", timeout: 600_000 }, async
     "m[%s].push_back(%s); return std::regex_search(s, std::regex(\"a+b*\")) + m.size(); }\\n' $i $i $i > f$i.cpp && " +
     "printf ' f%s.o' $i >> Makefile; done && echo >> Makefile");
   const failures = [];
-  for (const variant of ["", " thread", " spawn"]) {
+  for (const variant of ["", " thread", " spawn", " idle"]) {
     const command = `/tmp/touch 512${variant}`;
     await run(command);
     await settle();

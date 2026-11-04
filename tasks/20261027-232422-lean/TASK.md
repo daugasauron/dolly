@@ -106,6 +106,22 @@ holds. In the test the steps follow each other within a second, so two or three 
 processes are resident when `lake build` starts its own. Firefox frees them at once
 (`wasm-reserved` stays 3.46 through the steps).
 
+**The fix: an ending process wakes its waiting threads** (`src/process/threads.c`, a seed input).
+Each thread records the futex word it waits on; `exit` (`__wasi_proc_exit`) and an exit by a
+signal (`dolly_exit_signal`) first call `__dolly_threads_end`, which marks the process ending
+and wakes every recorded word; a thread that wakes, or is about to wait, in an ending process
+leaves by `dolly_thread_exit`, whose Worker ends at once. A thread that is computing, not
+waiting, at the end still takes Chrome's two seconds, and so does every thread of a process
+killed by a trap or by the supervisor. On the changed seed (image inputs `411082a5`; `default`,
+`cc`, `system` and their closure rebuilt in this tree, 951 s), the same `probe/cond.c` runs
+leave nothing: `v8-sandbox` 0.40 to 0.41 GB after each, where it was 0.96, 1.52 and 2.08
+(`cond-fixed.log`); Firefox unchanged. `test/process-memory-browser.mjs` gains the case
+(`process-touch.c idle`, twenty in a row). On the changed seed `process-memory`, `process`,
+`core` and `ending` pass in Chromium and Firefox, and `threads` passed in both twice; once,
+in the run with the others, its Firefox half exceeded 120 s (not attributed, as on 2026-11-04 at
+23:05). Lean's images carry the old libc: their next build, the catalog round's, is what shows
+it on Lean.
+
 **Firefox: the floor.** 4.4 to 4.9 GB after the install, and compiling `lean` peaks 1.0 GB above
 it (`stage0` probe: 1.09 to 2.09 GB), and retains 0.43 of compiled code and 0.25 of `jemalloc`;
 a running `lean` adds about 0.5. That is the cap already at the first `lean` or the third.

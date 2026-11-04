@@ -16,6 +16,8 @@ typedef struct dolly_pthread {
   sigset_t mask;
   int host_tid, detached, finished, joining, c11;
   struct dolly_pthread *garbage_next;
+  /* The futex word this thread waits on, or NULL (__dolly_threads_end). */
+  volatile void *volatile waiting;
 } dolly_pthread;
 
 static dolly_pthread main_thread;
@@ -236,12 +238,34 @@ uint64_t __dolly_pthread_start(uint32_t tid, uint64_t argument) {
   pthread_exit(result);
 }
 
+/* A process that ends wakes its threads that wait on a futex, and they end
+ * at once: Chrome ends a Worker it terminates inside a wait, and frees the
+ * process's memory, two seconds later, so a program whose idle threads wait
+ * (a task pool's) held its memory past its end and into its successor's. */
+static volatile int ending;
+
+void __dolly_threads_end(void) {
+  pthread_t self = __pthread_self();
+  __tl_lock();
+  __atomic_store_n(&ending, 1, __ATOMIC_SEQ_CST);
+  for (pthread_t thread = self->next; thread != self; thread = thread->next) {
+    volatile void *address = __atomic_load_n(&record(thread)->waiting, __ATOMIC_SEQ_CST);
+    if (address) __builtin_wasm_memory_atomic_notify((int *)address, -1);
+  }
+  __tl_unlock();
+}
+
 int emscripten_futex_wait(volatile void *address, uint32_t value, double milliseconds) {
   if ((uintptr_t)address % 4 || !address || isnan(milliseconds)) return -EINVAL;
   int64_t timeout = !isfinite(milliseconds) ? -1 : milliseconds <= 0 ? 0 :
       milliseconds >= (double)INT64_MAX / 1000000 ? INT64_MAX : (int64_t)(milliseconds * 1000000);
   if (__dolly_dso_wait) return __dolly_dso_wait(address, value, timeout);
-  int result = __builtin_wasm_memory_atomic_wait32((int *)address, value, timeout);
+  dolly_pthread *self = record(__pthread_self());
+  __atomic_store_n(&self->waiting, address, __ATOMIC_SEQ_CST);
+  int result = __atomic_load_n(&ending, __ATOMIC_SEQ_CST) ? 0
+      : __builtin_wasm_memory_atomic_wait32((int *)address, value, timeout);
+  __atomic_store_n(&self->waiting, NULL, __ATOMIC_SEQ_CST);
+  if (__atomic_load_n(&ending, __ATOMIC_SEQ_CST)) dolly_thread_exit(0);
   return result == 0 ? 0 : result == 1 ? -EAGAIN : -ETIMEDOUT;
 }
 int emscripten_futex_wake(volatile void *address, int count) {
