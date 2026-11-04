@@ -37,8 +37,8 @@ Firefox (56.5 s) in the round of 2026-11-04 (`round-1104b`, its 36 GB scope); th
 In a 6 GB slot the test fails in both browsers on the night round's images (below):
 
 - Chromium is killed at `lake build`: each dead `lean` kept its memory two seconds, with threads
-  waiting on a futex. Fixed in the libc (1b4eb49b1 and the commit after it, a seed input: image
-  inputs `878b1cb7`), measured on a C program in both browsers, not yet on Lean, whose images
+  waiting on a futex. Fixed in the libc (1b4eb49b1 and the two commits after it, a seed input:
+  image inputs `4ae12d73`), measured on a C program in both browsers, not yet on Lean, whose images
   carry the old libc. The next catalog round builds them; then run the test in a 6 GB Chromium.
 - Firefox was killed at `lake new` (once at the first `lean`), now at `lake build`: its floor
   after the install is 4.4 to 4.9 GB, 3.46 of it the package's files in the kernel's memory,
@@ -127,29 +127,33 @@ Lake starts a `lean` for each module, one after another, each kept two seconds (
 apart). Whether it fits once they are not is the round's measurement; on 2026-11-02 `lake build`
 peaked at 5.58.
 
-**The fix: an ending process wakes its waiting threads** (`src/process/threads.c`, a seed input).
-Each thread records the futex word it waits on; `exit` (`__wasi_proc_exit`) and an exit by a
-signal (`dolly_exit_signal`) first call `__dolly_threads_end`, which marks the process ending
-and wakes every recorded word; a thread that wakes, or is about to wait, in an ending process
-leaves by `dolly_thread_exit`, whose Worker ends at once. The ending thread does not wait for
-the thread list's lock (it may hold it, in a call a signal ends: `pthread_create` spawns under
-it); if another thread holds it, nobody is woken and Chrome's delay stays. A thread that is
-computing, not waiting, at the end still takes Chrome's two seconds, and so does every thread of
-a process killed by a trap or by the supervisor. On the changed seed (image inputs `411082a5`,
-then `878b1cb7` with the lock not waited for; `default`, `cc`, `system` and their closure
-rebuilt in this tree, 951 s), the same `probe/cond.c` runs
-leave nothing: `v8-sandbox` 0.40 to 0.41 GB after each, where it was 0.96, 1.52 and 2.08
-(`cond-fixed.log`); Firefox unchanged. `test/process-memory-browser.mjs` gains the case
-(`process-touch.c idle`, twenty in a row): on the old libc it fails in Chromium (559 MiB over
-the baseline, each run still resident a second after it), on the changed one it passes in both
-(Chromium +31 MiB over twenty runs). On `411082a5` `process-memory`, `process`, `core` and
-`ending` passed in Chromium and Firefox, and `threads` in both twice; once, in the run with the
-others, its Firefox half exceeded 120 s (not attributed, as on 2026-11-04 at 23:05). On
-`878b1cb7` (`default`, `cc`, `system`, `stack-wrap` and `libdolly-gpu` rebuilt, 950 s) the probe
-again leaves nothing in either browser (`cond-trylock.log`), and `process-memory`, `threads`,
-`process`, `core`, `ending`, `stack`, `ended-worker` and `dso` pass in both, in one run
-(`supervisor-tests-trylock.log`). Lean's images carry the old libc: their next build, the catalog round's, is what shows
-it on Lean.
+**The fix: an ending process wakes its waiting threads** (`src/process/threads.c`, a seed
+input). Each thread records the futex word it waits on; `exit` (`__wasi_proc_exit`) and an exit
+by a signal (`dolly_exit_signal`) first call `__dolly_threads_end`, which marks the process
+ending and wakes every recorded word; a thread that wakes, or is about to wait, in an ending
+process waits in the kernel for the end (a sleep without a deadline, through the gate's own
+call, so no handler runs), whose answer ends its Worker at once. It does not exit: a first form
+that left by `dolly_thread_exit` could let a thread joining it return and run on before the exit
+landed (not observed; a joiner must not see a thread end that never would). The ending thread
+does not wait for the thread list's lock (it may hold it, in a call a signal ends:
+`pthread_create` spawns under it); if another thread holds it, nobody is woken and Chrome's
+delay stays. A thread that is computing, not waiting, at the end still takes Chrome's two
+seconds, and so does every thread of a process killed by a trap or by the supervisor. On the
+changed seed (image inputs `411082a5`, then `878b1cb7` with the lock not waited for, then
+`4ae12d73` with the wait in the kernel; `default`, `cc`, `system` and their closure rebuilt in
+this tree, 951 s), the same `probe/cond.c` runs leave nothing: `v8-sandbox` 0.40 to 0.41 GB
+after each, where it was 0.96, 1.52 and 2.08 (`cond-fixed.log`); Firefox unchanged.
+`test/process-memory-browser.mjs` gains the case (`process-touch.c idle`, twenty in a row): on
+the old libc it fails in Chromium (559 MiB over the baseline, each run still resident a second
+after it), on the changed one it passes in both (Chromium +31 MiB over twenty runs). On
+`411082a5` `process-memory`, `process`, `core` and `ending` passed in Chromium and Firefox, and
+`threads` in both twice; once, in the run with the others, its Firefox half exceeded 120 s (not
+attributed, as on 2026-11-04 at 23:05). On `878b1cb7` (`default`, `cc`, `system`, `stack-wrap`
+and `libdolly-gpu` rebuilt, 950 s) the probe again leaves nothing in either browser
+(`cond-trylock.log`), and `process-memory`, `threads`, `process`, `core`, `ending`, `stack`,
+`ended-worker` and `dso` pass in both, in one run (`supervisor-tests-trylock.log`); on
+`4ae12d73` the same again (`cond-await.log`, `supervisor-tests-cond-await.log`). Lean's images
+carry the old libc: their next build, the catalog round's, is what shows it on Lean.
 
 **Firefox: the floor.** 4.4 to 4.9 GB after the install, and compiling `lean` peaks 1.0 GB above
 it (`stage0` probe: 1.09 to 2.09 GB), and retains 0.43 of compiled code and 0.25 of `jemalloc`;
