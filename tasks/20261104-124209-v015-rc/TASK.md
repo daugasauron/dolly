@@ -27,6 +27,11 @@ published or deployed until the owner says so (as for `tasks/20261029-230000-v01
 3. `DOLLY_VERSION` 0.1.5 (`src/version.mjs`, `package.json`, the npm packages); every recipe's
    site reference moves to `/v0.1.5/` (`node scripts/update-recipe-pins.mjs`), so every image
    rebuilds: the candidate round, with the suites, the demos and the GPU stage.
-4. The two sites packaged and checked (`scripts/release-checklist.sh`, `docs/deployment.md`), the
+4. Before packaging: the domain's Cloudflare header rules. The Lean agent counted about 108 of
+   the account's 100 for this release (Lean adds 5; the new compiler changes the bytes of every
+   large binary, so their rules are new). Decide from the rule scheme in `docs/deployment.md`:
+   fewer rules per file (one per directory or per content type) or older versions' rules retired;
+   not a version dropped from the site.
+5. The two sites packaged and checked (`scripts/release-checklist.sh`, `docs/deployment.md`), the
    candidate served locally and booted in Chromium and Firefox, as for v0.1.4.
-5. The owner reviews; tag, push, publish and deploy on the owner's word.
+6. The owner reviews; tag, push, publish and deploy on the owner's word.
