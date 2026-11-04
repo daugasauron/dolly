@@ -55,10 +55,13 @@ lists every package the closure holds. So the list is complete. The release chec
    (`libLean.a` 39.5 MiB gzipped, `lake` 33.0, `lean` 30.9, stage 0's `lean` 30.9, and the
    source). Measured on 2026-11-02, five versions needed 92 of the 100 rules and 0.1.4 alone 55
    (6 per version, 37 large sources, 12 large packs); a compiler round changes every large
-   pack's bytes, so 0.1.5's large packs are all new rules, Lean's among them. Count them before
-   packaging (`build/lean-evidence/night/large-records.log` has Lean's; the method is
-   `pagesAsset`'s 25 MiB test on each pack): the limit is likely exceeded, and what to do then
-   (fewer versions, or a rule scheme that does not grow with packs) is the release's decision.
+   pack's bytes. Counted on this tree's snapshots of the domain's 188 images
+   (`build/lean-evidence/night/large-packs-domain.log`, a record over 25 MiB gzipped is a pack
+   of its own): the compiled programs among them (the compiler, `codex`, `rustc`, `zig` and
+   Lean's four) get new bytes in 0.1.5, so new rules; the eight data files (five models,
+   parakeet, Xonotic's two `.pk3`) keep their bytes and the rules they have. That is about 92 + 6
+   + 8 or 9 + 1 (`lean.tar.gz`) = 108 rules: over the 100, unless a version is removed or the
+   rules stop growing with packs, which is the release's decision.
 3. On the packaged candidate (`npm run serve build/domain-releases`), in `default`:
    `nena enable stack && amy install lean && lean --version`. No test runs `amy` against a
    sealed release (`published-version.mjs boot` boots `default` only), so this is by hand, in
