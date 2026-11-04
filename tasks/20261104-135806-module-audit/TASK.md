@@ -448,7 +448,7 @@ What each built for itself is a package; the application installs it with `core`
   (an application FROM none has no `recipes.lock` until it is sealed); the skill teaches that
   an application has no `FROM`.
 
-## Counts after (2026-11-05, `core/modules-r1` b6bd7c18c)
+## Counts after (2026-11-05, `core/modules-r1` as the night left it)
 
 Recounted by section 2's method from this branch's recipes (203 recipes: 25 applications, 33
 toolchains, 145 packages; seven packages are new): 726 declarations, of which applications
