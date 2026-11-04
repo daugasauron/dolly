@@ -20,10 +20,23 @@ decompressed instead of whole (`core/install-copy`). Firefox, with that change
 
 Reproduce: `bash build/install-copy-evidence/install-measured.sh firefox NAME prepare` in that
 tree (`install-measured.mjs`), or any page build that reads a published input of that size.
-Suspects, unmeasured: the `cache: "force-cache"` fetch of a 1.3 GB pack, the pack store's
-`createWritable` while the response is read, `DecompressionStream`'s output in Firefox and when
-Firefox collects it. Firefox's own memory report (`about:memory`) of the content process at the
-jump would tell which.
+
+The two steps of `packedRecords` alone, in a bare page with no store, on the model's pack
+(1,366,893,825 bytes compressed, 1,396,198,564 decompressed; `firefox-sinks.mjs`,
+`sinks-*.log`), the slot's anonymous memory in MB:
+
+| step | Firefox | Firefox, `cache: "no-store"` | Chromium |
+| --- | --- | --- | --- |
+| fetch the pack into one `Uint8Array` (1.1 s) | 463 -> 4198 | 449 -> 3864 | 1711 -> 2593, then 1810 |
+| 3 s idle | up to 4886, then 4269 | up to 5046, then 3973 | 1810 |
+| decompress it in 16 KiB pieces, dropping every output chunk (3 to 4.5 s) | 4281 -> 5681 | 3812 -> 5624 | 1820 -> 2243 |
+
+So it is not the HTTP cache: Firefox keeps about 2.5 GB of the response's chunks beyond the array
+it copies them into, and all 1.4 GB of the decompressed chunks, uncollected for seconds; the memory
+falls later, when idle. Under the cap the content process dies first. Holding less (the merge
+re-reading the kept pack from the store instead of holding its compressed bytes) would lower the
+floor by 1.37 GB but not the garbage; whether Firefox collects sooner under pressure in a page
+that is not capped, and what `about:memory` attributes it to, is not measured.
 
 Done when: the preparation above completes in Firefox under the 6 GB cap with its peak measured,
 and the install of `tasks/20261104-012434-install-copy` is measured in Firefox.
