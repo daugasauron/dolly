@@ -124,7 +124,12 @@ fixture compiled in Dolly captures through a 17-byte window), `test/image-input-
 58 s; a 520 MiB input written into the build's filesystem in pieces), `test/process-memory-browser.mjs`
 (50 s, 61 s), `test/process-browser.mjs` (62 s, 69 s), `test/core-browser.mjs` (32 s, 52 s),
 `test/custom-session-browser.mjs` (73 s, 86 s; custom images built in the page) and
-`test/session-offline-browser.mjs` (5 s, 6 s) passed. `module-cost.mjs` once more: the compiler's first launch +210 highest and +204 retained in
+`test/session-offline-browser.mjs` (5 s, 6 s) passed; `test/default-browser.mjs` passed in both
+(`capture-default.log`: `default`, and images the page composes from packages, among them one that
+installs `zig`, rebuilt here with the new code: `40dbfd00…`, the day round's digest). Its welcome
+check needs `python` registered, so the tree's registry is the closure of `system`, `default`,
+`qwen3.5-2b`, `zig` and `python` (`generate-routes.mjs`, nothing of python's built): a plain
+`npm run image` would rebuild the whole catalog on the new image inputs. `module-cost.mjs` once more: the compiler's first launch +210 highest and +204 retained in
 Chromium, +591 and +298 in Firefox. What a first launch retains after 3 s depends on when the
 collector takes the supervisor's copy (96 MB of garbage once compiled): +112 and +204 in two
 Chromium runs of the same code. The highest is steadier: +310 before, +201 and +210 after.
