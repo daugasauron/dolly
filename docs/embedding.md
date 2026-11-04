@@ -9,7 +9,7 @@ an agent in place of a web frontend (`docs/agent-frontend.md` in the repository)
 | --- | --- |
 | `@daugasauron/dolly` | The runtime: `boot()`, the kernel, the process runtime, its image builder, and the host modules that are its own machinery (`runtime`, `http`, `threads`, `dso`, `stack`, `nena`, `snapshot`, `packages`) |
 | `@daugasauron/dolly-host-NAME` | One device host module each: `display` (Ghostty's terminal and programs' frames), `input`, `gpu`, `audio`, `microphone`, `touch`, `download` (as `dolly-host-save`: npm takes no new name with the word), `upload`, `html`, `sockets`, `pty` |
-| `@daugasauron/dolly-image-default` | The `default` image alone: a shell, its text tools, the terminal, curl, `amy`, `nena`, `ps`. The package holds no package index, so `amy installed` lists what the image holds and `amy list` and `amy install` fail naming the index |
+| `@daugasauron/dolly-image-default` | The `default` image alone: a shell, its text tools, the terminal, curl, `amy`, `nena`, `ps`, `html`. The package holds no package index, so `amy installed` lists what the image holds and `amy list` and `amy install` fail naming the index |
 | `@daugasauron/dolly-image-pi-minimal` | The `pi-minimal` image alone: the Pi coding agent with JavaScript (Janis), a shell, POSIX tools, curl, ripgrep and fd, on `display`, `input`, `download` and `html` alone. The README's "Pi with npm" serves it with a policy |
 | `@daugasauron/dolly-image-python-data` | The `python-data` image: `default` with Python 3.14, pip and the C compiler, NumPy, pandas, Matplotlib (Agg) and seaborn, built in Dolly from their PyPI releases. Its README gives the install line (it declares `sockets` too) and the `FROM` row of a recipe built on it |
 | `@daugasauron/dolly-package-NAME` | A package for an image of your own: `git` (with diff and patch), `python` (3.14 with pip; it brings `cc`) or `cc` (the C and C++ compiler with Make). Its directory holds its catalog, metadata, packs and recipes, as an image package does, and nothing to boot |
@@ -19,7 +19,7 @@ an agent in place of a web frontend (`docs/agent-frontend.md` in the repository)
 npm install @daugasauron/dolly @daugasauron/dolly-image-default \
   @daugasauron/dolly-host-display @daugasauron/dolly-host-input @daugasauron/dolly-host-audio \
   @daugasauron/dolly-host-touch @daugasauron/dolly-host-save @daugasauron/dolly-host-upload \
-  @daugasauron/dolly-host-sockets
+  @daugasauron/dolly-host-html @daugasauron/dolly-host-sockets
 ```
 
 Each host module and image depends on the runtime alone, at its own version. An

@@ -56,8 +56,8 @@ const question = "<h1>One question</h1><form><input name=answer required><button
 await browserTest("html", { image: "system", timeout: 300_000 }, async ({ name, open }) => {
   requests.length = 0;
   connections.length = 0;
-  // boot()'s element is a part of the window, as an embedding's would be.
-  const { page, submit, text } = await open(await composed(["html"], ["html"], { base: "system",
+  // system with the two documents; boot()'s element is a part of the window, as an embedding's would be.
+  const { page, submit, text } = await open(await composed([], [], { base: "system",
     files: { "/home/dolly/hostile.html": hostile, "/home/dolly/question.html": question },
     setup: page => page.addInitScript(() => document.addEventListener("DOMContentLoaded", () =>
       document.head.append(Object.assign(document.createElement("style"), {

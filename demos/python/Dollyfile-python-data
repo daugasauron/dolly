@@ -6,6 +6,7 @@ REQUIRES HOST input@0
 REQUIRES HOST audio@0
 REQUIRES HOST download@0
 REQUIRES HOST dso@0
+REQUIRES HOST html@0
 REQUIRES HOST http@0
 REQUIRES HOST nena@0
 REQUIRES HOST packages@0
@@ -18,26 +19,26 @@ REQUIRES HOST upload@0
 # default with Python and the libraries python-data-build compiled: a session
 # imports NumPy, pandas, Matplotlib and seaborn at once, with nothing to build
 # or fetch. Each COPY row is one library's root (README.md).
-FROM /v0.1.4/Dollyfile e592356d23b4f3f6814763df2e2a83da8eb2c928e7ced3c7c7d4cba6c17c9fd5
-INSTALL /v0.1.4/demos/python/Dollyfile-python 4d75d7f13f16d7ca731a1ef93750ad266f99803d4b1dcc3791b285ea354f3103
-COPY /v0.1.4/demos/python/Dollyfile-python-data-build 3f23009cfc69912e556971a34aec004e60007e015ab1d5dd84b3684afb1d25a8 /opt/python-data/numpy /
-COPY /v0.1.4/demos/python/Dollyfile-python-data-build 3f23009cfc69912e556971a34aec004e60007e015ab1d5dd84b3684afb1d25a8 /opt/python-data/tzdata /
-COPY /v0.1.4/demos/python/Dollyfile-python-data-build 3f23009cfc69912e556971a34aec004e60007e015ab1d5dd84b3684afb1d25a8 /opt/python-data/python-dateutil /
-COPY /v0.1.4/demos/python/Dollyfile-python-data-build 3f23009cfc69912e556971a34aec004e60007e015ab1d5dd84b3684afb1d25a8 /opt/python-data/pandas /
-COPY /v0.1.4/demos/python/Dollyfile-python-data-build 3f23009cfc69912e556971a34aec004e60007e015ab1d5dd84b3684afb1d25a8 /opt/python-data/packaging /
-COPY /v0.1.4/demos/python/Dollyfile-python-data-build 3f23009cfc69912e556971a34aec004e60007e015ab1d5dd84b3684afb1d25a8 /opt/python-data/pyparsing /
-COPY /v0.1.4/demos/python/Dollyfile-python-data-build 3f23009cfc69912e556971a34aec004e60007e015ab1d5dd84b3684afb1d25a8 /opt/python-data/cycler /
-COPY /v0.1.4/demos/python/Dollyfile-python-data-build 3f23009cfc69912e556971a34aec004e60007e015ab1d5dd84b3684afb1d25a8 /opt/python-data/fonttools /
-COPY /v0.1.4/demos/python/Dollyfile-python-data-build 3f23009cfc69912e556971a34aec004e60007e015ab1d5dd84b3684afb1d25a8 /opt/python-data/kiwisolver /
-COPY /v0.1.4/demos/python/Dollyfile-python-data-build 3f23009cfc69912e556971a34aec004e60007e015ab1d5dd84b3684afb1d25a8 /opt/python-data/contourpy /
-COPY /v0.1.4/demos/python/Dollyfile-python-data-build 3f23009cfc69912e556971a34aec004e60007e015ab1d5dd84b3684afb1d25a8 /opt/python-data/pillow /
-COPY /v0.1.4/demos/python/Dollyfile-python-data-build 3f23009cfc69912e556971a34aec004e60007e015ab1d5dd84b3684afb1d25a8 /opt/python-data/matplotlib /
-COPY /v0.1.4/demos/python/Dollyfile-python-data-build 3f23009cfc69912e556971a34aec004e60007e015ab1d5dd84b3684afb1d25a8 /opt/python-data/seaborn /
-COPY /v0.1.4/demos/python/Dollyfile-python-data-build 3f23009cfc69912e556971a34aec004e60007e015ab1d5dd84b3684afb1d25a8 /opt/python-data/markupsafe /
-COPY /v0.1.4/demos/python/Dollyfile-python-data-build 3f23009cfc69912e556971a34aec004e60007e015ab1d5dd84b3684afb1d25a8 /opt/python-data/jinja2 /
-COPY /v0.1.4/demos/python/Dollyfile-python-data-build 3f23009cfc69912e556971a34aec004e60007e015ab1d5dd84b3684afb1d25a8 /opt/python-data/et-xmlfile /
-COPY /v0.1.4/demos/python/Dollyfile-python-data-build 3f23009cfc69912e556971a34aec004e60007e015ab1d5dd84b3684afb1d25a8 /opt/python-data/openpyxl /
-COPY /v0.1.4/demos/python/Dollyfile-python-data-build 3f23009cfc69912e556971a34aec004e60007e015ab1d5dd84b3684afb1d25a8 /opt/python-data/tabulate /
+FROM /v0.1.4/Dollyfile 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/demos/python/Dollyfile-python 0000000000000000000000000000000000000000000000000000000000000000
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 0000000000000000000000000000000000000000000000000000000000000000 /opt/python-data/numpy /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 0000000000000000000000000000000000000000000000000000000000000000 /opt/python-data/tzdata /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 0000000000000000000000000000000000000000000000000000000000000000 /opt/python-data/python-dateutil /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 0000000000000000000000000000000000000000000000000000000000000000 /opt/python-data/pandas /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 0000000000000000000000000000000000000000000000000000000000000000 /opt/python-data/packaging /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 0000000000000000000000000000000000000000000000000000000000000000 /opt/python-data/pyparsing /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 0000000000000000000000000000000000000000000000000000000000000000 /opt/python-data/cycler /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 0000000000000000000000000000000000000000000000000000000000000000 /opt/python-data/fonttools /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 0000000000000000000000000000000000000000000000000000000000000000 /opt/python-data/kiwisolver /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 0000000000000000000000000000000000000000000000000000000000000000 /opt/python-data/contourpy /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 0000000000000000000000000000000000000000000000000000000000000000 /opt/python-data/pillow /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 0000000000000000000000000000000000000000000000000000000000000000 /opt/python-data/matplotlib /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 0000000000000000000000000000000000000000000000000000000000000000 /opt/python-data/seaborn /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 0000000000000000000000000000000000000000000000000000000000000000 /opt/python-data/markupsafe /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 0000000000000000000000000000000000000000000000000000000000000000 /opt/python-data/jinja2 /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 0000000000000000000000000000000000000000000000000000000000000000 /opt/python-data/et-xmlfile /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 0000000000000000000000000000000000000000000000000000000000000000 /opt/python-data/openpyxl /
+COPY /v0.1.4/demos/python/Dollyfile-python-data-build 0000000000000000000000000000000000000000000000000000000000000000 /opt/python-data/tabulate /
 REQUIRES TOOL python
 
 SLOP python -c 'import numpy, pandas, matplotlib.pyplot, seaborn, jinja2, openpyxl, tabulate'

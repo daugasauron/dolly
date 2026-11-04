@@ -107,7 +107,7 @@ for (const name of deviceModules) {
 // INSTALLed by a recipe dolly-build builds, and holds the same directory without it.
 const definitions = await discoverImageDefinitions(projectDir);
 const publishedImages = {
-  default: "a shell, its text tools, Ghostty's terminal, curl, `amy`, `nena` and `ps`",
+  default: "a shell, its text tools, Ghostty's terminal, curl, `amy`, `nena`, `ps` and `html`",
   "pi-minimal": "the Pi coding agent, with JavaScript (Janis), a shell, POSIX tools, curl, ripgrep and fd",
   "python-data": "`default` with Python 3.14, pip, the C compiler, NumPy, pandas, Matplotlib and seaborn",
 };
