@@ -105,21 +105,6 @@
  				    | POSIX_SPAWN_SETSIGMASK);
    if (error != 0)
      goto out;
---- a/src/emacs.c
-+++ b/src/emacs.c
-@@ -3111,8 +3111,12 @@
- 
-   /* If we are controlling the terminal, reset terminal modes.  */
- #if !defined DOS_NT && !(defined HAVE_ANDROID && !defined ANDROID_STUBIFY)
-+#ifdef __dolly__ /* No process groups: Emacs controls the one terminal.  */
-+  if (true)
-+#else
-   pid_t tpgrp = tcgetpgrp (STDIN_FILENO);
-   if (tpgrp != -1 && tpgrp == getpgrp ())
-+#endif
-     {
-       reset_all_sys_modes ();
-       if (sig && sig != SIGTERM)
 --- a/src/keyboard.c
 +++ b/src/keyboard.c
 @@ -8250,7 +8250,7 @@
