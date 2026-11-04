@@ -68,8 +68,6 @@ What the platform decides ([process model](../../docs/process-model.md)):
   and `sed` alone, and the recipe compiles the C. It is the one build step of
   this demo that does not run in Dolly. The recipe takes three `#error`
   lines out of the source and says why.
-- There are no process groups, and `dte` asks `tcgetpgrp` whether a stream
-  is the terminal: its recipe changes that line to `isatty`.
 
 Test: the `amy tools` case of [`test/amy-browser.mjs`](../../test/amy-browser.mjs)
 installs each into `default`, uses it, links a program with each library and
