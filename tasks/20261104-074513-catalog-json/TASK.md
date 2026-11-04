@@ -36,6 +36,10 @@ await rm("dist/dolly-images.mjs", { force: true });
 | image, image-input, snapshot-stream, pack-store, custom-session, core | passed | passed |
 | `published-version.mjs boot` of the archived v0.1.4 (`work/locks/published/v0.1.4`, served by `serve.mjs`): the module branch | passed | passed |
 | pi ask-user and frontend (pi-runtime rebuilt for the docs pin) | passed | (Chrome only) |
+| ending, host-compute, nena, pty, shell-env, sockets, threads | passed | passed |
+| `package-pages.sh` of default's closure (`DOLLY_BUILD_IMAGES=default`): 19 images, 87 packs, acceptance of default, ghostty-build, system-build, system-tools and zig-build; then `site-release.mjs verify` and `export-static.mjs` | release `fc74ab53...` | |
+| `published-version.mjs boot` of that release, the JSON branch (the boundary moved to v0.1.4 for the run, not committed) | passed | passed |
+| `npm-browser.mjs`, up to python-data: the guide's page, the devices and lacking pages, the README's Pi project that `dolly-build` builds in Chrome (catalog, metadata, packs and `index.mjs` in the new layout), Pi, Save and reopen | passed | not reached |
 
 `published-version.mjs boot` checks every published version after a deployment (checklist
 step 7), and v0.1.0 to v0.1.4 keep their modules: it reads a version's catalog by its name,
