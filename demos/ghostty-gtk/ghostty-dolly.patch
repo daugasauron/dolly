@@ -328,6 +328,17 @@
  
    #define _GNU_SOURCE // ptsname_r
    #include <pty.h> // openpty
+--- a/src/renderer/OpenGL.zig
++++ b/src/renderer/OpenGL.zig
+@@ -281,7 +281,7 @@
+ ) !ExportedFrame {
+     // We only export DMABUFs when the apprt can present them.
+     // Otherwise, use CPU buffers.
+-    if (presentation_health == .healthy) {
++    if (presentation_health == .healthy and self.device.dmabuf_export) {
+         if (target.exportDmabuf(self.device.display, self.egl_context)) |dmabuf| {
+             return .{ .dmabuf = dmabuf };
+         } else |_| {
 --- a/src/renderer/generic.zig
 +++ b/src/renderer/generic.zig
 @@ -1908,13 +1908,37 @@
@@ -439,6 +450,31 @@
          /// Update the background image vertex buffer (CPU-side).
          ///
          /// This should be called if and when configs change that
+--- a/src/renderer/opengl/Device.zig
++++ b/src/renderer/opengl/Device.zig
+@@ -34,6 +34,11 @@
+ /// once here so that all contexts share compatible capabilities.
+ config: *egl.Config,
+ 
++/// Whether the display exports images as dmabufs: a Mesa without libdrm,
++/// as Dolly's, lacks EGL_MESA_image_dma_buf_export, and calling its
++/// functions there calls a null driver function.
++dmabuf_export: bool,
++
+ pub fn init(alloc: Allocator, options: Options) !*Device {
+     const self = try alloc.create(Device);
+     errdefer alloc.destroy(self);
+@@ -69,6 +74,10 @@
+     self.* = .{
+         .display = display,
+         .config = config,
++        .dmabuf_export = egl.hasExtension(
++            display.queryString(.extensions) orelse "",
++            "EGL_MESA_image_dma_buf_export",
++        ),
+     };
+     return self;
+ }
 --- a/src/renderer/opengl/RenderPass.zig
 +++ b/src/renderer/opengl/RenderPass.zig
 @@ -35,6 +35,10 @@

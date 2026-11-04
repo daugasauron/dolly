@@ -38,7 +38,8 @@ terminal's.
   to the background color instead of shading it and
   shades cell backgrounds only over the rows that have one: a frame of a
   shell took 410 ms, now 51 ms, and a key's echo appears 65 ms after the key
-  instead of 0.7 s (Chromium, 2026-10-16).
+  instead of 0.7 s (Chromium, 2026-10-16). On Ghostty 1.4, through EGL, the
+  echo takes 46 ms in Chromium and 44 ms in Firefox (median of 15, 2026-11-04).
 - [`mesa-dolly.patch`](mesa-dolly.patch): Mesa's EGL and its gallium driver
   (softpipe) as static libraries linked into the program, and DRI, which EGL
   needs, without kernel modesetting. Ghostty renders each surface in its own

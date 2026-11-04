@@ -77,7 +77,7 @@ SLOP cc -O1 /tmp/ghostty-cc/cc.c -o /tmp/ghostty-cc/cc
 # Ghostty's build finds libdolly-sockets and libdolly-pty under a prefix's lib.
 SLOP mkdir -p /tmp/ghostty-prefix && ln -s /usr/lib/dolly/process /tmp/ghostty-prefix/lib
 
-SOURCE /v0.1.4/dist/static/ghostty-gtk/ghostty.tar.gz c48bd0a61fc36aa9981d5c8b362dd7e1871812c76c03bc5286b94be1aa89f41f /tmp/ghostty.tar.gz
+SOURCE /v0.1.4/dist/static/ghostty-gtk/ghostty.tar.gz 6c5d144628a8bc6b7800e3b264628ea357877cff42c60f6845936b5a327c335a /tmp/ghostty.tar.gz
 SLOP gzip -dc /tmp/ghostty.tar.gz | tar -xf - -C /
 # Ghostty's threads share the program's memory, so its code needs wasm's
 # atomics, which Zig's baseline for Emscripten lacks: the CPU Dolly's cc
