@@ -1,8 +1,29 @@
 # The slopyard test without a compiler in its image; http-broker's moving stream without timing
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: tests,0.1.5
+
+## Closed (2026-11-05)
+
+`fix/tests-r1` is on `main` (693b9842f: 35393ee3c, 715e89990, 096865870). The confirming round of
+2026-11-05 ran on 693b9842f (now `main` 943019e6d, image inputs `88959af6…`) and built
+`slopyard-build`, `slopyard-game` and `slopyard`. Evidence in
+`work/integrate/build/round-1105b-evidence/`:
+- **Slopyard:** `demos/slopyard/test/slopyard-browser.mjs` on the GPU window, in the round's
+  images, passed twice (`slopyard-rerun-1.log`, `-2.log`, `slopyard-rerun.sh`). All 17 fixtures
+  compiled and ran in `slopyard-build` (2.2 to 9.7 s each). In `slopyard` the car moved 10.4 m
+  and 10.2 m, the invalid import kept the program, the world was restored, and there were no
+  errors.
+- The stage's first run hung after eight fixtures (`gpu-slopyard.log`, exit 124). That hang is
+  not this change's fixtures, which then passed; it is `tasks/20261104-213210-slopyard-hang`.
+- **http-broker:** the source suite passed 475 of 475 (`source.log`), with "a response lasts as
+  long as it moves and times out once it stops".
+- **gpu-fluid:** the round's GPU stage now runs `gpu-fluid-browser.mjs`. It passed: `fluid
+  --check` and four benches, each replay equal to Dolly's run (`gpu-gpu-fluid.log`).
+- **local-llm:** passed on the GPU window in Chromium and Firefox (`gpu-local-llm.log`).
+- Go, the "Not done" failure, passed in the round's demos in both browsers (47.0 s, 48.5 s)
+  after `fix/go-spawn-request` (f800e40b0).
 
 ## State (2026-11-05 03:20 JST): both done on `fix/tests-r1`, and gpu-fluid's test; close after the round
 

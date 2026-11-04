@@ -1,8 +1,20 @@
 # http@0's limits sit above the services they reach
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: core,http
+
+## Closed (2026-11-05)
+
+The owner decided yes to both (2026-11-04). The branch is on `main`: `core/http-limits-2`
+(74371f945) carries a85477e3, 8519d689 and f22cb90e as 45e67191, 30765d48 and cd29b091. The
+catalog round is the confirming round of 2026-11-05 (`integrate/2026-11-05` at 693b9842f, now
+`main` 943019e6d, image inputs `88959af6…`; `work/integrate/build/round-1105b.log`), which built
+every image. In `round-1105b-evidence/`: `test/network-browser.mjs` passed in Chromium (41.8 s)
+and Firefox (44.1 s) (`browser.log`), with the 2 s rule's three cases. The source suite passed
+475 of 475 (`source.log`); `http-broker.test.mjs`'s "a response lasts as long as it moves and
+times out once it stops" was test 139. The merge's record is `tasks/20261104-074501-http-merge`,
+which closes with this task.
 
 Decided 2026-11-04 (`tasks/20261102-133353-owner-decisions`): yes, both. Carried onto
 `core/http-limits-2`; its merge in a catalog round is `tasks/20261104-074501-http-merge`, which

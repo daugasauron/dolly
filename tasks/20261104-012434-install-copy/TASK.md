@@ -12,9 +12,35 @@ it: 1.4 GB twice for `pi-local`'s model. The fix is the engine restoring from th
 
 Done when: an install's rise is measured before and after on `qwen3.5-2b` and `pi-local` (the
 capture's method in `work/evidence-2026-11-04/http/kernel-copies-evidence/`), the second copy is gone, and `test/image-browser.mjs` and `test/image-input-browser.mjs`
-pass in Chromium and Firefox with byte-identical snapshots.
+pass in Chromium and Firefox with byte-identical snapshots. Moved here from
+`tasks/20261104-074503-kernel-copies` (2026-11-05): `pi-local` builds under `slot.sh bigbuild`'s
+9 GB cap, with its capture-phase rise measured against the image store's 5.55 GB peak
+(`tasks/20261101-221415-stream-capture`). One measured build of `pi-local` gives both.
 
-## State (2026-11-04): `core/install-copy`, done but for `pi-local`'s measurement (the round's)
+## State (2026-11-05)
+
+Done but for `pi-local`'s measured build. The change is on `main` (92cf87ca4: 699c24fa1,
+a77f5a85f, 3b4666db2). The confirming round of 2026-11-05 (`integrate/2026-11-05` at 693b9842f,
+now `main` 943019e6d, image inputs `88959af6…`) rebuilt every image. Evidence in
+`work/integrate/build/round-1105b-evidence/`:
+- `test/image-browser.mjs` passed in Chromium (91.9 s) and Firefox (96.9 s), and
+  `test/image-input-browser.mjs` in Chromium (42.6 s) and Firefox (46.5 s) (`browser.log`).
+- The second copy is gone. With `qwen3.5-2b` installed, the kernel's memory at the capture went
+  from 2974 MB before to 1585 MB after (Measured, below). The 24 snapshots built before and after
+  the change are byte-identical (Verified, below).
+- The round's `pi-local` (`catalog-heavy.log`): "capturing userspace image (kernel memory 1602
+  MiB)" for a 1,640,990,203-byte snapshot, 1.02 times the image. The branch's `qwen3.5-2b`
+  application after the change has the same ratio, so the model is in the kernel once. This was
+  not a measured build: no sampler ran, and no 9 GB slot.
+
+Left: `pi-local` built under `slot.sh bigbuild`'s 9 GB cap with the capture's method
+(`build-measured.sh` and `phases.mjs` in `work/evidence-2026-11-04/http/kernel-copies-evidence/`,
+`install-measured.sh` in `work/evidence-2026-11-04/ghostty/install-copy-evidence/`). It must give:
+- the install's rise after the change;
+- the same rise on a runtime before 699c24fa1;
+- the capture-phase rise against the image store's 5.55 GB peak (moved from kernel-copies).
+
+## Work (2026-11-04): `core/install-copy`, done but for `pi-local`'s measurement (the round's)
 
 A build's inputs no longer enter the kernel's memory (699c24fa1; the capture's log line gives the
 kernel's memory, a77f5a85f; the page's own copy, 3b4666db2). The build Worker keeps each input image's

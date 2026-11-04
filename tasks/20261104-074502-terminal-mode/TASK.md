@@ -1,8 +1,34 @@
 # The terminal starts in POSIX's mode: ICRNL on, VMIN 0 and VTIME honoured
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 240
 - TAGS: core,terminal,kernel,libc
+
+## Closed (2026-11-05)
+
+`core/terminal-mode` is on `main` (be576525d). It includes `fix/video-findings` (f701e633f:
+ab51b690, 588a5ebd) and ICRNL (1c725ae7). The confirming round of 2026-11-05
+(`integrate/2026-11-05` at 693b9842f, now `main` 943019e6d, image inputs `88959af6…`) rebuilt
+every image. Evidence in `work/integrate/build/round-1105b-evidence/`:
+- `test/terminal-browser.mjs` passed in Chromium (31.8 s) and Firefox (32.3 s) (`browser.log`),
+  with its `discipline` and `vmin0` cases. So did `test/pty-browser.mjs` (15.0 s, 16.2 s) and
+  `test/core-browser.mjs` (24.4 s, 35.6 s).
+- vi: `Dollyfile-vi` has no `read` wrapper. In `default`, `test/amy-browser.mjs`'s "amy tools"
+  installs vi and types `ione`, Enter, `two`, Escape, `:wq`, Enter into `vi /tmp/amy-vi`. vi
+  ends with status 0 and the file holds the two lines `one` and `two`. It passed in Chromium
+  (34.8 s) and Firefox (47.6 s).
+- The other consumers of the mode word passed in the round: the neovim demo (Chromium), the
+  javascript demo with Janis's raw-mode Enter check (Chromium, `demos.log`) and `python on
+  default` (Chromium and Firefox).
+- `DOLLY_TERMINAL_ICRNL` is in `DOLLY_KERNEL_TERMINAL_INITIAL_MODE` (`src/process-kernel.h`),
+  the initial mode of `src/dolly.c` and of `host/pty/kernel.c`. `terminal-ui.c discipline` reads
+  it back through `tcgetattr`. Before the change it failed with status 22
+  (`work/evidence-2026-11-04/termmode/termmode-evidence/before-*-chromium.log`).
+- `docs/process-model.md` lists the initial mode (`ICANON`, `ECHO`, `ICRNL`, …).
+
+`tasks/20261102-023648-video-findings` stays open with its own two boxes: the garden driver's
+`run` and `thread` variants, and finding 2. The VMIN 0 fix this task shares with it is the part
+measured above.
 
 ## State (2026-11-04, branch `core/terminal-mode`)
 
