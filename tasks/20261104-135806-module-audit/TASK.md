@@ -4,14 +4,21 @@
 - PRIORITY: 300
 - TAGS: host-modules,audit,images,0.1.5
 
-## State (2026-11-05 00:45 JST): R1 and R2 done on `core/modules-r1`; the round rebuilds
+## State (2026-11-05 02:00 JST): R1 and R2 done on `core/modules-r1`; close after the round
 
-R1 and R2 are implemented (0d69b4743, e639ef32b, b6bd7c18c): all 25 applications are FROM
-none, the lint refuses an APPLICATION with FROM, amy has nena enable what a package needs and
-`default` declares 10 modules. Application rows 293 to 225; counts in "Counts after" below.
-R3, R4 and R5 are `tasks/20261104-143110-modules-r3`, `-r4`, `-r5`. Left for the round: the
-images that need a GPU window to test (gpu-fluid, slopyard), xonotic (no test opens it),
-and the rebuild of dolly-docs and the 11 images on it for the last docs commit.
+R1 and R2 are implemented and built in this tree (image inputs `88959af6`): all 25
+applications are FROM none and the lint refuses an APPLICATION with FROM; amy has nena enable
+what a package needs, and `default` declares 10 modules. Application rows 293 to 225; counts
+in "Counts after" below, checks in "Checks". Done-when 2 to 4 hold here; the round confirms
+them over the whole catalog. R3, R4 and R5 are `tasks/20261104-143110-modules-r3`, `-r4`, `-r5`.
+
+Applications not proven in a browser tonight, for the round:
+- gpu-fluid and slopyard: their tests need a GPU window. slopyard's test also compiles C
+  fixtures and uploads files in the slopyard image, which holds no compiler now: its compile
+  steps belong in a toolchain image (gamedev-sdk with slopyard-game's libraries).
+- xonotic: no test opens the application (`demos/xonotic/test` opens xonotic-build); a smoke
+  run saw its client take the display (see "Checks").
+- wine in Firefox: passes alone, failed twice beside an image build (GIMP's second start).
 
 Owner (2026-11-04 22:30 JST): "I feel like the modularity of the host modules have been
 lost somewhere along the way, and it's now ended up in a place where all images declare
@@ -485,6 +492,36 @@ agents on Pi), `default`, `python-data` and `zero-ad` (curl, amy, pip), wine (Ne
 `tmux-panes`, `x11-desktop`, `ghostty-x11` for amy alone: R5 would take it from those three.
 It is gone from gnu-emacs, neovim, speech-to-text-mic, gpu-fluid, mojo-gpu and xonotic.
 
+## Checks (2026-11-05 night, this tree, image inputs `88959af6`)
+
+| Check | Chromium | Firefox |
+| --- | --- | --- |
+| lint (203 recipes, the APPLICATION-without-FROM rule) and its test | passed (Node) | |
+| source suite | 474 of 475; `http-broker.test.mjs` "a response lasts as long as it moves" fails under the night's load, alone too; no broker code changed | |
+| tmux demo: tmux-panes (`amy install cc` in a pane), the tmux package in default (amy enables pty and sockets), tmux in ps | passed | passed |
+| emacs demo: gnu-emacs (4 modules), the emacs package | passed | passed |
+| neovim demo: neovim (5 modules), Ctrl+C after nvim | passed | passed |
+| `test/amy-browser.mjs`: every case; SDL2's audio and touch enabled by amy in default, llama's gpu, cmake, rust, codex, python | passed | passed |
+| `test/nena-browser.mjs` (audio and threads enabled, not declared) | passed | passed |
+| speech demo: speech-to-text-mic, default's `amy install speech-to-text` (microphone enabled) | passed | passed |
+| speech demo: pi-phone | passed | (Chrome only) |
+| x11 demo: x11-desktop, amy installs tmux from xterm | passed | passed |
+| pi demo: pi-agent (cc, make, curl, git as the skill teaches) | passed | passed |
+| codex demo: codex-agent | passed | |
+| python demo: python-data, its NumPy probe on default and python | passed | passed |
+| closed-source-agent demo | passed | passed |
+| mojo demo: mojo-gpu on the software adapter | passed | (GPU window only) |
+| local-llm demo: pi-local and dollyfile-studio start screens | passed | |
+| wine demo: wine | passed | passed alone; failed twice, at GIMP's second start ("the saved stroke in the image opened again"), each time while an image build ran beside it. The image before R1 (FROM system, built for the A/B) passed alone too: load, not R1 |
+| rts demo: rts-arena (its scripts written into the session; cc, SDL2 and zlib for its probes) | passed | |
+| xonotic: a smoke run (scratch script, not committed) opens `/xonotic/` on the software adapter: the client takes the display and sends 299 `gpu@0` packets (156 MB) in 5 s | passed | |
+| ghostty-gtk demo, after the round's `ghostty-gtk`: ghostty-x11 (229 to 87 MB) | passed | passed |
+| studio demo: dollyfile-studio, its shipped tool example (core, posix, display, cc) built by `dollyfile-build` | passed | |
+| classicube demo (its session parsers read the 24-byte records of 0cf7cb6dc) | passed | |
+| bhop demo (the same parser fix) | passed | |
+| pi demo, speech demo (pi-phone), studio demo, local-llm start screens: after transfer was added | passed | |
+| `test/default-browser.mjs` (default's modules are its recipe's ten) | passed | passed |
+
 ## Lessons
 
 - The leak was the base, not the modules: `FROM` keeps every file of a toolchain, and sealing
@@ -509,32 +546,3 @@ It is gone from gnu-emacs, neovim, speech-to-text-mic, gpu-fluid, mojo-gpu and x
   preparation nearly rebuilt the Pi chain. Batch docs edits and make them between builds. An
   application holding a 1.4 GB package (pi-llm) builds at the edge of the 6 GB build slot:
   studio was killed once by the cap and built on the retry.
-
-## Checks (2026-11-05 night, this tree, image inputs `88959af6`)
-
-| Check | Chromium | Firefox |
-| --- | --- | --- |
-| lint (203 recipes, the APPLICATION-without-FROM rule) and its test | passed (Node) | |
-| source suite | 474 of 475; `http-broker.test.mjs` "a response lasts as long as it moves" fails under the night's load, alone too; no broker code changed | |
-| tmux demo: tmux-panes (`amy install cc` in a pane), the tmux package in default (amy enables pty and sockets), tmux in ps | passed | passed |
-| emacs demo: gnu-emacs (4 modules), the emacs package | passed | passed |
-| neovim demo: neovim (5 modules), Ctrl+C after nvim | passed | passed |
-| `test/amy-browser.mjs`: every case; SDL2's audio and touch enabled by amy in default, llama's gpu, cmake, rust, codex, python | passed | passed |
-| `test/nena-browser.mjs` (audio and threads enabled, not declared) | passed | passed |
-| speech demo: speech-to-text-mic, default's `amy install speech-to-text` (microphone enabled) | passed | passed |
-| speech demo: pi-phone | passed | (Chrome only) |
-| x11 demo: x11-desktop, amy installs tmux from xterm | passed | passed |
-| pi demo: pi-agent (cc, make, curl, git as the skill teaches) | passed | passed |
-| codex demo: codex-agent | passed | |
-| python demo: python-data, its NumPy probe on default and python | passed | passed |
-| closed-source-agent demo | passed | passed |
-| mojo demo: mojo-gpu on the software adapter | passed | (GPU window only) |
-| local-llm demo: pi-local and dollyfile-studio start screens | passed | |
-| wine demo: wine | passed | passed alone; failed twice, at GIMP's second start ("the saved stroke in the image opened again"), each time while an image build ran beside it. The image before R1 (FROM system, built for the A/B) passed alone too: load, not R1 |
-| rts demo: rts-arena (its scripts written into the session; cc, SDL2 and zlib for its probes) | passed | |
-| ghostty-gtk demo, after the round's `ghostty-gtk`: ghostty-x11 (229 to 87 MB) | passed | passed |
-| studio demo: dollyfile-studio, its shipped tool example (core, posix, display, cc) built by `dollyfile-build` | passed | |
-| classicube demo (its session parsers read the 24-byte records of 0cf7cb6dc) | passed | |
-| bhop demo (the same parser fix) | passed | |
-| pi demo, speech demo (pi-phone), studio demo, local-llm start screens: after transfer was added | passed | |
-| `test/default-browser.mjs` (default's modules are its recipe's ten) | passed | passed |
