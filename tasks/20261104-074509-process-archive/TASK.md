@@ -117,3 +117,29 @@ pulled in and `--export-dynamic` exported; the provider list leaves Emscripten's
 
 Found on the way: C11 `thrd_sleep` (libc-mt) reaches libc's `__clock_nanosleep`, which calls
 `emscripten_thread_sleep`, not Dolly's `clock_nanosleep`, with or without the flag.
+
+## Verified (2026-11-04)
+
+- Seed of `c8bc358c` (the flag gone, `abort` its own weak member, the stub member left out, the new
+  digests; image inputs `e3d18f2f…`), `default`, `system`, `stack-wrap` and `libdolly-gpu` rebuilt
+  (1,087 s): `process` (the own-`abort` case and the new `protects` program), `threads`, `dso`,
+  `stack`, `pty` and `core` pass in Chromium and Firefox. The pinned compiler still links
+  `libdolly-process.a` whole; `build.sh`'s `bootstrap` and probes are linked as an archive.
+- Seed of the strong `abort` (sysroot `1b8e548a…`, the one measured above; image inputs
+  `fd2cf6e9…`): the same four images build under the pinned compiler (937 s); `threads` passes in
+  Chromium and Firefox; `process` fails at the own-`abort` case alone, `wasm-ld: error: duplicate
+  symbol: abort`, which is the whole archive's doing and what the container measured.
+- The seed compiler's line without the flag: in the seed container (above), not in a browser. A
+  browser needs the `llvm-cc` this round builds.
+- Not run: the rust suite (it needs the Rust chain, a `hugebuild`): the round's step.
+
+## The round
+
+- `src/compiler.cpp` changed (`llvm-cc`'s pinned source): build `llvm-cc` with the current seed
+  and pin it before any image that defines `abort` (`zero-ad-engine`'s `spidermonkey-check`) and
+  before `process-browser`, whose own-`abort` case fails under a compiler that links the archive
+  whole (`duplicate symbol: abort`). The images `llvm-cc` is built from define none (the
+  2026-11-02 round, strong `abort` under the whole archive, failed `zero-ad-engine` alone).
+- The seed (adapter, sysroot, every kernel-boundary module's digest): every image.
+- `demos/rust/toolchain/link.sh` runs only when the Rust seed is rebuilt; `rustc` linked both ways
+  is equal (above).
