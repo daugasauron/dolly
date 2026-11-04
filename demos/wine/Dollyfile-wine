@@ -9,6 +9,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
+REQUIRES HOST html@0
 
 FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
 COPY /v0.1.4/demos/wine/Dollyfile-wine-build 98a5f15ae4e3109f798c5e407ea8c8ed7f772affce4c8267db3095884ddda61a /usr/bin/wine /usr/bin/wine

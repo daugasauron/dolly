@@ -9,6 +9,7 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 REQUIRES HOST threads@0
+REQUIRES HOST html@0
 
 FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
 INSTALL /v0.1.4/Dollyfile-libdolly-gpu fbba6693c59593c76291f9dbbbe49ce3f922af6e5e0d2efd7d6b0ff2ff925ad0

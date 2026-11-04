@@ -10,6 +10,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
+REQUIRES HOST html@0
 
 FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
 INSTALL /v0.1.4/Dollyfile-libdolly-sockets d96a436f2494179a9f0a91e7dbf1b3c1cd392da255ca914fe3bdf78cbcf21c19

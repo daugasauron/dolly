@@ -11,6 +11,7 @@ REQUIRES HOST touch@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 REQUIRES HOST threads@0
+REQUIRES HOST html@0
 
 FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
 COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 413fd78a6589d660b0d15ff21a51d4aed43afd69ec3b6abcdd2cd6ea3fc97373 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl

@@ -9,6 +9,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
+REQUIRES HOST html@0
 
 FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
 INSTALL /v0.1.4/demos/codex/Dollyfile-codex d8ccfc5a71c1779afac26a6f837201e53f812f646a60cf366a9ded12986357d4

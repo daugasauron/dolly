@@ -15,6 +15,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
+REQUIRES HOST html@0
 
 # Ghostty's GTK window on Dolly's X server, with Slop in it: the Xsdl server
 # takes the display, and Ghostty draws its terminal with Mesa's OpenGL
