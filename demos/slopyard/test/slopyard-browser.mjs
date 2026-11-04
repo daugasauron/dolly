@@ -1,7 +1,8 @@
 // Slopyard needs a GPU window; run it with DISPLAY set:
 //   node demos/slopyard/test/slopyard-browser.mjs [fixtures/NAME.c ...]
-// Compiles the checkout's game sources inside Dolly, runs every C fixture (each
-// includes world.c), then drives the starter car with a real keyboard.
+// In slopyard-build, where the game is compiled, compiles and runs every C
+// fixture (each includes world.c) against the checkout's game sources; then, in
+// the slopyard image, drives the starter car with a real keyboard.
 import {compileCommand,parseLua,writeLua} from './slopyard-data.mjs';
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
@@ -15,7 +16,8 @@ const fixtures=process.argv.length>2?process.argv.slice(2):(await fs.readdir(fix
 execFileSync(process.execPath,['scripts/build-source-tar.mjs',output+'/source.tar','demos/slopyard/src','/usr/src/dolly/slopyard']);
 const site=await startBrowserServer(process.cwd(),'slopyard');
 const browser=await chromium.launch({channel:'chrome',headless:false,args:['--no-sandbox','--ozone-platform=x11','--enable-unsafe-webgpu','--use-angle=vulkan','--enable-features=Vulkan,VulkanFromANGLE']});
-const page=await browser.newPage({viewport:{width:1280,height:720},acceptDownloads:true}),errors=[];page.setDefaultTimeout(60000);page.on('pageerror',e=>errors.push(e.message));
+const errors=[];let page;
+async function open(image){page=await browser.newPage({viewport:{width:1280,height:720},acceptDownloads:true});page.setDefaultTimeout(60000);page.on('pageerror',e=>errors.push(e.message));await page.goto(`${site.origin}/${image}/`);}
 const command=s=>page.evaluate(s=>__dolly.submit(s),s),shell=()=>page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
 async function run(text){assert.equal(await command(text),0,text);}
 async function upload(path,dest){const running=command('upload '+dest);await page.waitForSelector('#file-upload[open]');await page.locator('#file-upload input').setInputFiles(path);assert.equal(await running,0);}
@@ -27,7 +29,7 @@ async function hold(keys,ms){for(const k of keys)await page.keyboard.down(k);con
 async function importProgram(file){await page.mouse.click(845,170);await page.waitForSelector('#file-upload[open]');await page.locator('#file-upload input').setInputFiles(file);await frames();}
 async function exportProgram(name){const event=acceptDownload(page,()=>page.mouse.click(700,170));await(await event).saveAs(output+'/'+name);await frames();return fs.readFile(output+'/'+name,'utf8');}
 try{
- await page.goto(site.origin+'/slopyard/');await page.waitForFunction(()=>globalThis.__dolly?.gpu?.stats?.frames>20);await page.keyboard.press('Escape');await shell();
+ await open('slopyard-build');await page.waitForFunction(()=>document.documentElement.dataset.dollyStatus==='ready',null,{timeout:180000});await shell();
  await upload(output+'/source.tar','/tmp/slopyard-source.tar');await run('tar -xf /tmp/slopyard-source.tar -C /');
  const game=await compileCommand();
  for(const [index,fixture] of fixtures.entries()){
@@ -35,7 +37,9 @@ try{
   await run(game.replace('/usr/src/dolly/slopyard/main.c','-I /usr/src/dolly/slopyard '+source).replace(' /usr/src/dolly/slopyard/world.c','').replace('-o /usr/bin/slopyard','-o /tmp/fixture'));
   await run('/tmp/fixture');console.log(`${fixture}: passed in ${((Date.now()-started)/1000).toFixed(1)} s`);
  }
- await run(game);await run('rm -f /workspace/slopyard-world.lua /workspace/slopyard.character');
+ await page.close();
+ await open('slopyard');await page.waitForFunction(()=>globalThis.__dolly?.gpu?.stats?.frames>20);await page.keyboard.press('Escape');await shell();
+ await run('rm -f /workspace/slopyard-world.lua /workspace/slopyard.character');
  await upload(fixtureDir+'slopyard-driver.mjs','/tmp/driver-check.mjs');await run('cp /tmp/driver-check.mjs /usr/src/dolly/slopyard/check.mjs');
  const driving=await start();await page.mouse.click(120,564);await frames();await page.screenshot({path:output+'/car-builder.png'});
  await page.mouse.click(120,300);await frames();await page.screenshot({path:output+'/eyes-start.png'});

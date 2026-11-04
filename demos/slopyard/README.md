@@ -7,7 +7,8 @@ a shared coastal scrapyard where two teams compete to deliver cargo.
 ## Images
 
 - `slopyard`: Build machines, haul cargo and compete across a coastal scrapyard. Requires WebGPU.
-- `slopyard-game`: the game the `slopyard` image opens, with its Lua 5.5, its Box3D build and its sources.
+- `slopyard-game`: the game the `slopyard` image opens, with the sources it reads when it runs.
+- `slopyard-build`: where the game is compiled: `gamedev-sdk`, Lua 5.5, its Box3D build, the game and its sources. Its tests compile here.
 - `gamedev-sdk`: the `raylib` and `box3d` packages, Box3D's sources (Slopyard compiles them again with threads and SIMD) and the float math functions.
 - `raylib`: raylib 6.0 with its software renderer and a Dolly platform backend: `InitWindow` shows the frames through `display@0`, keys, text and the pointer come from `input@0`, `GetTime` runs. A hidden window, or a program holding the display itself (`<dolly/raylib.h>`), renders to memory. For programs the `cc` package builds; it brings no compiler.
 - `box3d`: libbox3d, the Box3D physics library, for programs the `cc` package builds; it brings no compiler.
@@ -37,7 +38,8 @@ Open `/slopyard/`; build with `npm run image -- slopyard`. Slopyard needs
   draws the editor panels in software.
 - Controllers run at 20 Hz by default in separate Lua 5.5 states with no I/O.
 - Buoyancy samples each block's volume; it is not a fluid simulation.
-- Key files: [`Dollyfile-slopyard`](Dollyfile-slopyard), [`Dollyfile-gamedev-sdk`](Dollyfile-gamedev-sdk),
+- Key files: [`prepare-slopyard.mjs`](prepare-slopyard.mjs), which writes the `slopyard`, `slopyard-game`
+  and `slopyard-build` recipes, [`Dollyfile-gamedev-sdk`](Dollyfile-gamedev-sdk),
   [`src/main.c`](src/main.c),
   [`src/pi.mjs`](src/pi.mjs), catalog programs in [`src/programs/`](src/programs/);
   tests in [`test/`](test/).
