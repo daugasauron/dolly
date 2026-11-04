@@ -52,7 +52,9 @@ await browserTest("core", { image }, async ({ server, open }) => {
   }
   await page.waitForFunction(() => !__dolly.httpActive);
   assert.equal(server.cancelledRequests, cancelledBefore + 1, "cancelled HTTP response stayed open");
-  assert.equal(await submit(`mkdir /tmp/core-tar; curl -fsS ${server.origin}/fixture/root.tar -o /tmp/core.tar && tar -xf /tmp/core.tar -C /tmp/core-tar && test "$(cat /tmp/core-tar/file)" = 'root preserved' && rm -rf /tmp/core-tar /tmp/core.tar`), 0);
+  assert.equal(await submit(`mkdir /tmp/core-tar; curl -fsS ${server.origin}/fixture/root.tar -o /tmp/core.tar && tar -xf /tmp/core.tar -C /tmp/core-tar && test "$(cat /tmp/core-tar/dated/file)" = 'root preserved' && ` +
+    // Members get their recorded times, a directory after the file created in it.
+    `test "$(stat -c %Y /tmp/core-tar/dated/file)" = 1200000000 && test "$(stat -c %Y /tmp/core-tar/dated)" = 1000000000 && rm -rf /tmp/core-tar /tmp/core.tar`), 0);
   // A file that is no tar archive is refused; gzip data, short or not, is refused with
   // the command that reads it here, and a file that is neither gets no such command.
   const reads = file => `gzip -dc ${file} | tar -xf -`;

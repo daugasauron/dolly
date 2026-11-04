@@ -67,8 +67,8 @@ FILE /usr/share/licenses/emscripten/LICENSE
 
 # cc, c++, ld and ar forward to the seed compiler. Only that compiler exists at
 # this point, so RUN starts it for them; every later recipe step uses SLOP.
-SOURCE /v0.1.4/dist/static/default/commands/cc.c 958c1fe58f6c656d4d979dfff14ff2cc5ea277dd79fbf104b23678697bc263e7 /tmp/process-tools/cc.c
-SOURCE /v0.1.4/dist/static/default/commands/cxx.c 8dae924b3982afcc9bb957ef23e34b2beefc8f3055cc2715f9969629b15d84a9 /tmp/process-tools/cxx.c
+SOURCE /v0.1.4/dist/static/default/commands/cc.c a282fe564c0387114321839e30a5f66e5ae964d014f206baa7d742f9698d1026 /tmp/process-tools/cc.c
+SOURCE /v0.1.4/dist/static/default/commands/cxx.c 0fd83199b0d1063bf5e81b8e762f7105b013e83eb1c2953967e51db34dd94524 /tmp/process-tools/cxx.c
 SOURCE /v0.1.4/dist/static/default/commands/ld.c d12309353aeb2a80e3766e87c3e9936ac9fb434114e36287a1acbf3339bf104b /tmp/process-tools/ld.c
 SOURCE /v0.1.4/dist/static/default/commands/ar.c f3007ddb171959a587b62d840253144198749acd8dbe0212b2cbd73a55dd83bd /tmp/process-tools/ar.c
 RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/process-tools/cc.c -o /bin/cc
@@ -259,7 +259,7 @@ SLOP rm \
 REQUIRES TOOL   rm
 
 # Dolly's deliberately small ustar extractor.
-SOURCE /v0.1.4/dist/static/default/commands/tar.c c64a227afda1ba2bc3450f6beb895b157c91bcda442597888c9d4a0e57e81673 /tmp/bootstrap/tar.c
+SOURCE /v0.1.4/dist/static/default/commands/tar.c 9e01d3df0905b893afe02232c713d5feafbead706392f7fc62967bdffad1779f /tmp/bootstrap/tar.c
 SLOP cc \
   /tmp/bootstrap/tar.c \
   -o /bin/tar

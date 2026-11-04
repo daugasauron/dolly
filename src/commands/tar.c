@@ -139,6 +139,19 @@ static int pax_path(const unsigned char *records, size_t size, char **path) {
   return 0;
 }
 
+// A member's modification time, as every tar restores it; access times are
+// left alone, as GNU tar leaves them.
+static int set_time(const char *path, uint64_t seconds) {
+  const struct timespec times[2] = {{0, UTIME_OMIT}, {(time_t)seconds, 0}};
+  return utimensat(AT_FDCWD, path, times, 0);
+}
+
+// Directories get their times after their members, whose creation changes them.
+struct directory_time {
+  char *path;
+  uint64_t seconds;
+};
+
 // Prints why it failed, once.
 static int extract(const char *archive_path, const char *directory) {
   int archive = strcmp(archive_path, "-") == 0 ? dup(STDIN_FILENO) : open(archive_path, O_RDONLY);
@@ -153,6 +166,8 @@ static int extract(const char *archive_path, const char *directory) {
   char active_member[PATH_BYTES + 1] = "";
   // The next member's path, from a pax or GNU long-name header before it.
   char *long_path = NULL;
+  struct directory_time *directories = NULL;
+  size_t directory_count = 0;
   for (;;) {
     stage = "read header";
     if (read_exact(archive, header, sizeof(header)) != 0) {
@@ -162,9 +177,11 @@ static int extract(const char *archive_path, const char *directory) {
     if (all_zero(header, sizeof(header))) break;
     uint64_t declared_checksum;
     uint64_t size;
+    uint64_t modified;
     stage = "parse header";
     if (parse_octal(header + 148, 8, &declared_checksum) != 0 ||
-        parse_octal(header + 124, 12, &size) != 0) {
+        parse_octal(header + 124, 12, &size) != 0 ||
+        parse_octal(header + 136, 12, &modified) != 0) {
       errno = EINVAL;
       status = -1;
       break;
@@ -255,7 +272,14 @@ static int extract(const char *archive_path, const char *directory) {
     int target = -1;
     if (type == '5') {
       stage = "create directory";
-      if (size != 0 || mkdir_parents(output, 1) != 0) status = -1;
+      struct directory_time *grown = realloc(directories, (directory_count + 1) * sizeof(*directories));
+      if (grown != NULL) directories = grown;
+      if (size != 0 || grown == NULL || mkdir_parents(output, 1) != 0) {
+        status = -1;
+      } else {
+        directories[directory_count++] = (struct directory_time){output, modified};
+        output = NULL;
+      }
     } else if (type == '\0' || type == '0') {
       stage = "create parents";
       if (size > SIZE_MAX || mkdir_parents(output, 0) != 0) {
@@ -286,9 +310,22 @@ static int extract(const char *archive_path, const char *directory) {
       remaining -= count;
     }
     if (target >= 0 && close(target) != 0 && status == 0) status = -1;
+    if (target >= 0 && status == 0) {
+      stage = "set time";
+      status = set_time(output, modified);
+    }
     free(output);
     if (status != 0) break;
   }
+  for (size_t index = directory_count; index-- > 0;) {
+    if (status == 0 && set_time(directories[index].path, directories[index].seconds) != 0) {
+      stage = "set time";
+      snprintf(active_member, sizeof(active_member), "%s", directories[index].path);
+      status = -1;
+    }
+    free(directories[index].path);
+  }
+  free(directories);
   // A first block that is no header is no tar archive; gzip's starts 1f 8b.
   if (status != 0 && *active_member == '\0' && (strcmp(stage, "read header") == 0 ||
                                                 strcmp(stage, "parse header") == 0)) {

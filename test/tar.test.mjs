@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -62,7 +62,7 @@ test("tar extracts paths and stdin, preserves block padding, and rejects damaged
     assert.equal(spawnSync(binary, ["-xf", "-", "-C", directory], { input: archive }).status, 1);
     // What git archive and GNU tar write: a pax global header, and a member whose path
     // is longer than ustar holds, named by a pax record or a GNU long-name block.
-    const entry = (name, contents, type) => tarArchive(name, contents, type).subarray(0, -1024);
+    const entry = (name, contents, type, modified) => tarArchive(name, contents, type, modified).subarray(0, -1024);
     const record = (key, value) => {
       const text = ` ${key}=${value}\n`;
       let length = text.length + 2;
@@ -80,6 +80,15 @@ test("tar extracts paths and stdin, preserves block padding, and rejects damaged
       assert.equal(result.status, 0, result.stderr.toString());
       assert.equal(await readFile(join(output, deep), "utf8"), label);
     }
+    // Members get their recorded times, a directory after the members created in it.
+    const dated = Buffer.concat([entry("dated/", Buffer.alloc(0), "5", 1000000000),
+      entry("dated/file", Buffer.from("old"), "0", 1200000000), Buffer.alloc(1024)]);
+    const datedOutput = join(directory, "dated-output");
+    await mkdir(datedOutput);
+    const datedResult = spawnSync(binary, ["-xf", "-", "-C", datedOutput], { input: dated });
+    assert.equal(datedResult.status, 0, datedResult.stderr.toString());
+    assert.equal((await stat(join(datedOutput, "dated/file"))).mtimeMs, 1200000000000);
+    assert.equal((await stat(join(datedOutput, "dated"))).mtimeMs, 1000000000000);
     const escape = Buffer.concat([entry("PaxHeader", Buffer.from(record("path", "../outside")), "x"),
       entry("inside", Buffer.from("changed")), Buffer.alloc(1024)]);
     assert.equal(spawnSync(binary, ["-xf", "-", "-C", outputDirectory], { input: escape }).status, 1);

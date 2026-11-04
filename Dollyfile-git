@@ -8,9 +8,9 @@ REQUIRES HOST threads@0
 # links zlib and its helpers libcurl too; both serve the build and are not
 # installed with it. Git runs its asyncs, a side band's reader among them, as
 # threads; without threads it would fork them.
-FROM /v0.1.4/Dollyfile-system-build 49255f32cac51279278fdf24bfd00d2dcb9733092350c781813f759cd10e70a1
-USE /v0.1.4/Dollyfile-zlib e58241eeb6520f5a87d015bc4f19fc12898abf6e291278a9e3d22f5d936bb6e3
-USE /v0.1.4/Dollyfile-curl 6d1ea4145f7a551672910e0bb49cd139f91b823ffadd48e4956a400c67034bef
+FROM /v0.1.4/Dollyfile-system-build 2588c74877aed4d3d20240e539e186b84ee832998793d308a006010d4b46f32c
+USE /v0.1.4/Dollyfile-zlib 55fca45557dc645f95e4cff7ab38e4685ed618e3d4b74e027d9f4ab7ac830b94
+USE /v0.1.4/Dollyfile-curl ccf5c3675ef38dfa3abbecfc760b2f901cb0d7a39c834f1bc448f38e08c6ca20
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES HEADER curl
@@ -157,7 +157,7 @@ FILE /usr/share/man/cat1/git.1
 # build systems that run them.
 SOURCE /v0.1.4/dist/static/default/commands/run-program.h e73415ba149e8dcb9944313c36d8d2319202d699c810e02a26d5a94caa8f3a9f /tmp/git-tools/run-program.h
 SOURCE /v0.1.4/dist/static/default/commands/diff.c cda06a2a94c9d7c5f1ccab54f847011e35379f7cc452b7d4a0d7046ae61b7de9 /tmp/git-tools/diff.c
-SOURCE /v0.1.4/dist/static/default/commands/patch.c 01a81c0b50df26223772e568bdc951db73d0be59b71251a1b023234c10a1b63e /tmp/git-tools/patch.c
+SOURCE /v0.1.4/dist/static/default/commands/patch.c bd5ec1cb0224099738b9f12f9b30896c134989dbebd7ecdb652e255c2ad29236 /tmp/git-tools/patch.c
 SLOP cc -O2 /tmp/git-tools/diff.c -o /bin/diff
 SLOP cc -O2 /tmp/git-tools/patch.c -o /bin/patch
 EXPORTS TOOL diff
