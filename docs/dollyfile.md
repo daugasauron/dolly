@@ -12,21 +12,33 @@ order.
 
 ```text
 DOLLY 7
-APPLICATION example
+PACKAGE example
 REQUIRES HOST runtime@0
-REQUIRES HOST display@0
-REQUIRES HOST input@0
 
 FROM /vX.Y.Z/Dollyfile-system <sha256>
-INSTALL /vX.Y.Z/demos/javascript/Dollyfile-janis <sha256>
-
 FILE /tmp/example.c
     #include <stdio.h>
     int main(void) { puts("hello"); }
 SLOP cc /tmp/example.c -o /usr/bin/example
 EXPORTS TOOL example
+```
 
-ENTRY /bin/foreground -i /bin/slop
+```text
+DOLLY 7
+APPLICATION example-app
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+
+INSTALL /vX.Y.Z/Dollyfile-core <sha256>
+INSTALL /vX.Y.Z/Dollyfile-posix <sha256>
+INSTALL /vX.Y.Z/Dollyfile-display <sha256>
+INSTALL /vX.Y.Z/demos/example/Dollyfile-example <sha256>
+
+FILE /etc/dolly/init.slop
+    /bin/foreground /usr/bin/example
+    /bin/foreground -i /bin/slop
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
 ```
 
 Recipes name every image and file they read with its SHA-256. A file the
@@ -142,6 +154,10 @@ mounted, and reads no other version's.
   and declares: `default` is `core`, `posix`, `display`, `curl`, `amy`, `nena`,
   `transfer`, `html`, `ps`, its start-up script and an ENTRY, with no compiler. It opens, and `amy` installs
   into it, but it is not a base to compile on: `FROM` a toolchain for that.
+  Every application of the catalog is built so
+  ([`lint-dollyfiles.mjs`](../scripts/lint-dollyfiles.mjs) refuses one with
+  `FROM`): it installs `core`, `posix`, `display` and the packages of what it
+  is for, and a program it builds for itself is a package first.
 - `INSTALL` restores a package's retained files, applies and exports its
   environment and exports its objects. It may appear anywhere and names only a
   package. A package holds its own files and names the packages its recipe
@@ -236,12 +252,14 @@ mounted, and reads no other version's.
   embedding lacks one, and the loader refuses an executable whose stamped
   module is not declared. Requirements grant nothing: the embedding enables
   modules and the HTTP broker decides network access
-  ([browser boundary](browser-boundary.md)). `system` declares the runtime,
-  display, input, http, download, upload, html, snapshot and threads (Git runs
-  threads, the `html` command shows popups); `default` adds packages, nena, dso, sockets, touch and audio, because the packages people
-  install into it need them (`python` and `nvim` load modules, every SDL2
-  program records `touch@0` and `audio@0`); a declared module costs a program that
-  does not record it nothing. A terminal draws with `display@0` and reads keys
+  ([browser boundary](browser-boundary.md)). An application declares the
+  kernel, the terminal (`display@0`, `input@0`), the session's save
+  (`snapshot@0`) and what its packages need: `gnu-emacs` the first four,
+  `tmux-panes` also `pty@0`, `sockets@0` and `amy`'s `http@0` and
+  `packages@0`. `default` declares no module for a package it does not hold:
+  where an image declares `nena@0`, `amy install` has `nena` enable what a
+  package needs beyond the image's list (`python` loads modules, `dso@0`;
+  every SDL2 program records `touch@0` and `audio@0`). A terminal draws with `display@0` and reads keys
   with `input@0`; the `display` package asks only for the first, so an image
   may show one without reading.
 - Linked client libraries (`-ldolly-gpu`, `-ldolly-audio`) stamp their module
@@ -277,10 +295,10 @@ exports and environment it declares, built in a toolchain (`FROM`) or from
 nothing, and installed by recipes and sessions with the same row.
 
 Software is a package when a session would install it (`amy install cmake`)
-or more than one image uses it. An application, or a toolchain people open,
-is then a base, `INSTALL` rows and its own entry and configuration
-(`codex-agent`, `neovim`, `rust-tools`); a toolchain remains where software is
-built. The same `COPY` rows in two recipes are a missing package. The core
+or more than one image uses it. An application is then `core`, `posix`,
+`display`, its packages and its own entry and configuration (`codex-agent`,
+`neovim`); a toolchain people open is a base and `INSTALL` rows
+(`rust-tools`); a toolchain remains where software is built. The same `COPY` rows in two recipes are a missing package. The core
 is packaged the same way: `core` (Slop and its commands), `cc` (the C/C++
 toolchain) and `dollyfile` (the recipe engine, which `amy` installs) are kept
 from the toolchain that builds them; `amy`, `git` and `transfer` hold their
@@ -338,9 +356,11 @@ EXPORTS TOOL rg
   row's snapshot and installs it the same way: `amy install cmake` installs
   `cc` and then `cmake`, and says so. No solver chooses anything: the rows
   are the pins of the recipe. The check is the recipe's: a package whose
-  host modules the booted image does not declare is refused by name, and
-  where the image declares `nena@0` the session may have enabled them
-  (`/etc/dolly/enabled`) or is told the command: `nena enable pty`. Looking
+  host modules the booted image does not declare is refused by name. Where
+  the image declares `nena@0`, `amy` first has `nena` enable those the
+  session lacks (it reads them from the package's receipt, the image's and
+  `/etc/dolly/enabled`) and says so: `amy install tmux` in `default` enables
+  `pty@0` and `sockets@0`; the page makes each switch. Looking
   a name up in the index is the only unpinned step. The index describes the
   site's newest release and the service serves the release the tab runs: a
   pin that release does not publish fails by name, asking for a reload, and

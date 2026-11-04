@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
 import { decodeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
-import { metadataSource, parseGeneratedConstant } from "./image-directory.mjs";
+import { metadataJson } from "./image-directory.mjs";
 
 // A record is either decoded (`data`) or indexed in a snapshot file on disk
 // (`byteLength`, `source`, `offset`); the catalog is never held in memory.
@@ -171,8 +171,8 @@ export async function shareSnapshots(directory, snapshots) {
   const images = [], identical = new Map();
   try {
     for (const name of (await readdir(directory)).sort()) {
-      if (!/^dolly-.+-system-snapshot\.mjs$/.test(name)) continue;
-      const metadata = parseGeneratedConstant(await readFile(resolve(directory, name), "utf8"), "DOLLY_SYSTEM_SNAPSHOT");
+      if (!/^dolly-.+-system-snapshot\.json$/.test(name)) continue;
+      const metadata = JSON.parse(await readFile(resolve(directory, name), "utf8"));
       const image = { metadata, name, packs: [], records: 0, packed: 0,
         handle: await open(resolve(snapshots, `dolly-${metadata.image}-system.snapshot`)) };
       images.push(image);
@@ -210,7 +210,7 @@ export async function shareSnapshots(directory, snapshots) {
       image.packs.sort((left, right) => left.sha256.localeCompare(right.sha256));
       const metadata = { ...image.metadata, encoding: "packs", packs: image.packs };
       validateSnapshotPacks(metadata);
-      await writeFile(resolve(directory, image.name), metadataSource(metadata));
+      await writeFile(resolve(directory, image.name), metadataJson(metadata));
     }
     console.log(`dolly: ${images.length} images share ${packs.size} packs (${packedBytes} compressed bytes)`);
     return { images: images.length, packs: packs.size, packedBytes };

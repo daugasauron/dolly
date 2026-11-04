@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { browserTest, composed } from "./browser.mjs";
 import { siteReference } from "../src/static-asset.mjs";
-import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import catalog from "../dist/dolly-images.json" with { type: "json" };
 
 const fixtures = { "pty.c": "test/fixtures/pty.c" };
 
@@ -47,7 +47,7 @@ await browserTest("pty not declared", { image: "system", server: { fixtures } },
   assert.equal(await submit("/tmp/pty pair 2> /tmp/refused"), 126);
   await run("grep -q 'pty@0' /tmp/refused");
 
-  const { dollyfile, sha256, hostRequirements } = DOLLY_IMAGES.find(({ image }) => image === "system");
+  const { dollyfile, sha256, hostRequirements } = catalog.images.find(({ image }) => image === "system");
   const recipe = ["DOLLY 7", "APPLICATION unsealed", ...hostRequirements.map(module => `REQUIRES HOST ${module}`),
     `FROM ${siteReference(dollyfile)} ${sha256}`, "REQUIRES TOOL cc", "FILE /tmp/asked.c", "    #include <pty.h>",
     "    int main(void) { int master, slave; return openpty(&master, &slave, 0, 0, 0); }",

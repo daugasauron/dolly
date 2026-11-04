@@ -8,7 +8,6 @@ import { gunzipSync } from "node:zlib";
 import test from "node:test";
 import { promisify } from "node:util";
 import { ensureSnapshotPacks, shareSnapshots, splitSnapshotRecords } from "../scripts/share-pages-snapshots.mjs";
-import { parseGeneratedConstant } from "../scripts/image-directory.mjs";
 import { decodeSnapshotRecords, encodeSnapshotRecords, mergeSnapshotRecords, scanSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 
 const digest = value => createHash("sha256").update(value).digest("hex");
@@ -66,15 +65,14 @@ async function packImages(directory, inputs) {
   for (const [image, records] of inputs) {
     const bytes = encodeSnapshotRecords(records);
     await writeFile(resolve(snapshots, `dolly-${image}-system.snapshot`), bytes);
-    await writeFile(resolve(directory, `dolly-${image}-system-snapshot.mjs`),
-      `export const DOLLY_SYSTEM_SNAPSHOT = Object.freeze(${JSON.stringify({ image, byteLength: bytes.length, sha256: digest(bytes) })});\n`);
+    await writeFile(resolve(directory, `dolly-${image}-system-snapshot.json`), JSON.stringify({ image, byteLength: bytes.length, sha256: digest(bytes) }));
   }
   await shareSnapshots(directory, snapshots);
   for (const [image, records] of inputs) {
     assert.deepEqual(new Uint8Array(await readFile(resolve(snapshots, `dolly-${image}-system.snapshot`))), encodeSnapshotRecords(records));
   }
   return new Map(await Promise.all([...inputs.keys()].map(async image => [image,
-    parseGeneratedConstant(await readFile(resolve(directory, `dolly-${image}-system-snapshot.mjs`), "utf8"), "DOLLY_SYSTEM_SNAPSHOT")])));
+    JSON.parse(await readFile(resolve(directory, `dolly-${image}-system-snapshot.json`), "utf8"))])));
 }
 
 test("bounded record packs isolate large files and stabilize after small edits", () => {
@@ -109,7 +107,7 @@ test("shared packs reconstruct every image exactly, including type changes and U
     await packImages(directory, inputs);
     const allPacks = new Map();
     for (const [image, records] of inputs) {
-      const metadata = parseGeneratedConstant(await readFile(resolve(directory, `dolly-${image}-system-snapshot.mjs`), "utf8"), "DOLLY_SYSTEM_SNAPSHOT");
+      const metadata = JSON.parse(await readFile(resolve(directory, `dolly-${image}-system-snapshot.json`), "utf8"));
       const parts = [];
       for (const pack of validateSnapshotPacks(metadata)) {
         const bytes = gunzipSync(await readFile(resolve(directory, `packs/${pack.sha256}.snapshot.gz`)));
@@ -146,8 +144,8 @@ test("sharing a catalog peaks below the catalog's size", async () => {
       const bytes = encodeSnapshotRecords(records);
       catalogBytes += bytes.length;
       await writeFile(resolve(snapshots, `dolly-image${image}-system.snapshot`), bytes);
-      await writeFile(resolve(directory, `dolly-image${image}-system-snapshot.mjs`),
-        `export const DOLLY_SYSTEM_SNAPSHOT = Object.freeze(${JSON.stringify({ image: `image${image}`, byteLength: bytes.length, sha256: digest(bytes) })});\n`);
+      await writeFile(resolve(directory, `dolly-image${image}-system-snapshot.json`),
+        JSON.stringify({ image: `image${image}`, byteLength: bytes.length, sha256: digest(bytes) }));
     }
     const { stdout } = await execFile(process.execPath, ["--input-type=module", "-e", `
       const { shareSnapshots } = await import(${JSON.stringify(new URL("../scripts/share-pages-snapshots.mjs", import.meta.url).href)});

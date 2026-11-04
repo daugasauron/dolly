@@ -17,14 +17,14 @@ import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
 import { discoverImageDefinitions, selectImageDefinitions } from "./image-definitions.mjs";
 import { buildImageInPage, savePageSnapshot } from "./page-image-build.mjs";
 import { startCheckoutServer } from "./serve-checkout.mjs";
-import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import catalog from "../dist/dolly-images.json" with { type: "json" };
 import { sitePath } from "../src/static-asset.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const { positionals: [image, outputArgument], values: { unpackaged } } = parseArgs({
   allowPositionals: true, options: { unpackaged: { type: "string" } },
 });
-const definition = DOLLY_IMAGES.find(candidate => candidate.image === image);
+const definition = catalog.images.find(candidate => candidate.image === image);
 if (!definition || !outputArgument || ![undefined, "cold", "warm"].includes(unpackaged)) {
   throw new Error("usage: build-snapshot-browser.mjs IMAGE OUTPUT [--unpackaged cold|warm]");
 }
@@ -38,7 +38,7 @@ const rules = graph.records.flatMap(record => record.sources.filter(source => si
   .map(source => ({ origin: new URL(source.location).origin, path: new URL(source.location).pathname, methods: ["GET"] }));
 
 async function handle(request, response, path, headers) {
-  if (!unpackaged || !/^\/dist\/(?:packs\/|dolly-.+-system-snapshot\.mjs$)/.test(path)) return false;
+  if (!unpackaged || !/^\/dist\/(?:packs\/|dolly-.+-system-snapshot\.json$)/.test(path)) return false;
   response.writeHead(404, headers).end();
   return true;
 }

@@ -2,21 +2,28 @@ DOLLY 7
 APPLICATION pi-agent
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
-REQUIRES HOST html@0
 REQUIRES HOST input@0
-REQUIRES HOST audio@0
-REQUIRES HOST download@0
-REQUIRES HOST http@0
-REQUIRES HOST nena@0
-REQUIRES HOST packages@0
 REQUIRES HOST snapshot@0
-REQUIRES HOST threads@0
-REQUIRES HOST touch@0
+REQUIRES HOST download@0
 REQUIRES HOST upload@0
+REQUIRES HOST html@0
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
+REQUIRES HOST packages@0
+REQUIRES HOST nena@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime ebd00976f1906b675d1e4457f19ec081d6218d74c4e009bb0efeeacf8e41384b
-INSTALL /v0.1.4/Dollyfile-amy c2e5f10354cb7098b459d45b44989553c558b786f12f360bfc87b70a1f34be19
-# nena enables the host modules a package needs beyond these, as in default.
+INSTALL /v0.1.4/Dollyfile-core 74fabeb7587e54b39bb59351ed5e8146d3eb77cb526c65c00c2d90f11495b775
+INSTALL /v0.1.4/Dollyfile-posix 4edbe26685a71e67d5360b567b708c1cb373b124d4143c680cf0a6a1ba90ebae
+INSTALL /v0.1.4/Dollyfile-display 2be7cbca13647b99084a669132428169b2d5a6bde7a291642efc5c584f9ffd63
+# The tools Pi's dolly skill teaches: cc and make, Git, curl.
+INSTALL /v0.1.4/Dollyfile-cc 53efa9fa48567501751d60f4172407b9bd62ea6dfa65eca475d0f6d62f6fef2e
+INSTALL /v0.1.4/Dollyfile-git 21db13252f06105787c8b7fcffeec1c113cf0df32c6bd01f7d195f44145a29ec
+INSTALL /v0.1.4/Dollyfile-curl 813064b0e97cd158ee8d116a3c7abf7553561cdffcc66d5761a0ef27edad0821
+# download and upload, which Pi's prompt teaches (transfer).
+INSTALL /v0.1.4/Dollyfile-transfer 2d667f4f6ce328336579aeb172cc87c211fae513c9d4c6ba8883607f7a9ec368
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly f6ace78255325beb786fed199b394a5d1956dd60373e4fcef4b19f068efd8992
+INSTALL /v0.1.4/Dollyfile-amy 1111b191cee58a7d1265a0f5eb1710af0cefc65d4a39410cabd8601b3366edd7
+# nena enables the host modules a package needs beyond these.
 INSTALL /v0.1.4/Dollyfile-nena 8548d299c850256330e33fabf531461f13dc4c2e087064c6864bce30a01ec2b7
 REQUIRES TOOL foreground
 REQUIRES TOOL test

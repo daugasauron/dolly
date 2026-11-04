@@ -1,11 +1,13 @@
 // Runs under Janis in the browser, using the real source-built game engines.
 import { connectPlayer } from "/usr/src/dolly/rts/player.js";
 const fs = globalThis.__janisBuiltin("fs");
-const { spawn, spawnSync } = globalThis.__janisBuiltin("child_process");
+const { spawn } = globalThis.__janisBuiltin("child_process");
 function assert(value, message = "RTS assertion failed") { if (!value) throw Error(message); }
 function equal(actual, expected, message) { assert(actual === expected, `${message ?? "Values differ"}: ${actual} !== ${expected}`); }
 const scratch = fs.mkdtempSync("/tmp/dolly-rts-match-test-");
-const replayRoot = process.argv[2];
+// The replay layout the game's headers give, as rts-build printed it: sizeof(ConfigGF)
+// and four message ids.
+const [replayRoot, layout] = process.argv.slice(2);
 const engines = [], closed = [];
 let viewer, viewerClosed;
 let failed, completed = false, replayCommands;
@@ -32,17 +34,7 @@ async function until(test, description, timeout = 90000) {
 }
 try {
   assert(replayRoot === "/tmp/rts-replay-test", "test requires its owned replay output directory");
-  fs.writeFileSync(`${scratch}/layout.cpp`, `#include <OGF_REC.h>
-    #include <OREMOTE.h>
-    #include <cstdio>
-    int main() { printf("%zu %u %u %u %u\\n", sizeof(ConfigGF), MSG_QUEUE_HEADER, MSG_QUEUE_TRAILER, MSG_TOWN_RECRUIT, MSG_COMPARE_CRC); }`);
-  const compilation = spawnSync("c++", ["-std=c++11", "-I/usr/src/dolly/rts", "-I/usr/src/7kaa/include",
-    "-I/usr/include/SDL2", "-include", "/usr/src/dolly/rts/config.h", `${scratch}/layout.cpp`, "-o", `${scratch}/layout`],
-    { encoding: "utf8" });
-  equal(compilation.status, 0, compilation.stderr);
-  const layout = spawnSync(`${scratch}/layout`, [], { encoding: "utf8" });
-  equal(layout.status, 0, layout.stderr);
-  const [configSize, queueHeader, queueTrailer, recruitId, crcId] = layout.stdout.trim().split(" ").map(Number);
+  const [configSize, queueHeader, queueTrailer, recruitId, crcId] = layout.split(" ").map(Number);
   replayCommands = bytes => {
     equal(bytes.subarray(0, 4).toString(), "7KRP");
     equal(bytes.readUInt32LE(4), 1, "replay format version");

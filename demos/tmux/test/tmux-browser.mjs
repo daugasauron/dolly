@@ -3,7 +3,8 @@
 // active pane; Ctrl+C ends the program in a pane and not its shell; a resize
 // of the window reaches the program in a pane; detached, the shells keep
 // running, and attach returns to them. Then, in Chrome, the tmux package:
-// refused by default, and installed into a default that declares pty@0.
+// installed into default, whose amy has nena enable pty@0 and sockets@0, and
+// into an image built on default that declares them.
 // Usage: node demos/tmux/test/tmux-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { demoTest, shellPrompt, writeCommand } from "../../browser.mjs";
@@ -100,10 +101,11 @@ for (const browser of browsers) {
     await input("echo INTERRUPTED-$?\r");
     await waitText(right("INTERRUPTED-130"));
 
-    // The session's first cc: the runtime says that it prepares the compiler,
-    // in the pane that asked. The other pane's screen is not written on.
-    await input(`${writeCommand("/tmp/size.c", sizeProgram)} && cc /tmp/size.c -o /tmp/size; echo BUILT-$?-\r`);
-    const built = await waitText(right("BUILT-0-"));
+    // The session's first cc, which amy installs into the pane: the runtime
+    // says that it prepares the compiler, in the pane that asked. The other
+    // pane's screen is not written on.
+    await input(`amy install cc > /dev/null 2>&1 && ${writeCommand("/tmp/size.c", sizeProgram)} && cc /tmp/size.c -o /tmp/size; echo BUILT-$?-\r`);
+    const built = await waitText(right("BUILT-0-"), 180_000);
     assert.match(built, right("dolly: preparing [^\\n]* executable"), built);
     assert.doesNotMatch(built, /^[^│\n]*dolly: [^\n]*│/m, built);
 
@@ -184,21 +186,20 @@ for (const browser of browsers) {
 }
 
 if (browsers.includes("chromium")) {
-  const { DOLLY_IMAGES } = await import("../../../dist/dolly-images.mjs");
+  const { default: catalog } = await import("../../../dist/dolly-images.json", { with: { type: "json" } });
   const pin = name => {
-    const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
+    const { dollyfile, sha256 } = catalog.images.find(definition => definition.image === name);
     return `${siteReference(dollyfile)} ${sha256}`;
   };
   // Host requirements are never inherited: the probe restates default's, and
-  // adds the one tmux needs that default does not declare.
-  const hosts = [...DOLLY_IMAGES.find(definition => definition.image === "default").hostRequirements, "pty@0"];
+  // adds the two tmux needs that default does not declare.
+  const hosts = [...catalog.images.find(definition => definition.image === "default").hostRequirements, "pty@0", "sockets@0"];
   const recipe = ["DOLLY 7", "APPLICATION tmux-probe", ...hosts.map(host => `REQUIRES HOST ${host}`),
     `FROM ${pin("default")}`, `INSTALL ${pin("tmux")}`, "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
   await demoTest("tmux package", { image: "default", timeout: 300_000 }, async ({ open }) => {
-    // default declares no pty@0: amy refuses the package there, naming the module.
+    // default declares neither pty@0 nor sockets@0: amy has nena enable them.
     const session = await open();
-    assert.notEqual(await session.submit("amy install tmux 2> /tmp/refused"), 0, await session.text());
-    await session.run("grep -q 'needs pty@0' /tmp/refused && ! command -v tmux");
+    await session.run("amy install tmux && grep -qx pty@0 /etc/dolly/enabled && grep -qx sockets@0 /etc/dolly/enabled && command -v tmux");
 
     const { run } = await open({ path: "/custom/rebuild/", prompt: shellPrompt,
       setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) });
@@ -211,13 +212,12 @@ if (browsers.includes("chromium")) {
   });
 }
 
-// In default, as a person installs it: nena gives the session pty@0, and ps
-// lists the server tmux starts, with no parent once its client has ended,
-// until tmux has ended it.
+// In default, as a person installs it, and ps lists the server tmux starts,
+// with no parent once its client has ended, until tmux has ended it.
 for (const browser of browsers) {
   await demoTest("tmux in ps", { image: "default", timeout: 300_000, browser }, async ({ open }) => {
     const { run } = await open();
-    await run("nena enable pty && amy install tmux");
+    await run("amy install tmux");
     const server = "'^[0-9]* 0 running [^ ]*tmux -D -S /tmp/tmux-0/default$'";
     await run(`tmux new-session -d && ps | grep -q ${server}`);
     await run(`tmux kill-server; while ps | grep -q ${server}; do sleep 1; done`);

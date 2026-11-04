@@ -8,7 +8,7 @@ import { DOLLY_AUDIO_SLOTS } from "../host/audio/abi.mjs";
 import { hostManifests } from "../host/manifests.mjs";
 import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
 import { siteReference } from "../src/static-asset.mjs";
-import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import catalog from "../dist/dolly-images.json" with { type: "json" };
 
 // A sealed package that needs microphone@0, as the engine would build it: the
 // retained recipe plus its receipt (recipe chain, host requirements, exports).
@@ -119,27 +119,27 @@ await browserTest("nena", { image: "default", timeout: 300_000, server: { fixtur
   for (const [name, [, flags]] of Object.entries(programs)) {
     await run(`curl -fsS ${server.origin}/fixture/${name}.c -o /tmp/${name}.c && cc ${flags} /tmp/${name}.c -o $HOME/${name}`);
   }
-  // audio@0 is default's (SDL2 programs play sound); it gives playback and no
-  // capture: the microphone's operation is ENOSYS beside it.
-  await run("$HOME/sound && $HOME/direct-microphone");
+  // audio@0, which default does not declare, gives playback and no capture:
+  // the microphone's operation is ENOSYS beside it.
+  await run("nena enable audio && $HOME/sound && $HOME/direct-microphone");
   assert.equal(await page.evaluate(() => __dolly.audio.activeScopes), 0);
-  // microphone@0 is not default's: its program is refused, the operation itself
-  // is ENOSYS, and a package that needs it is not installed. Each refusal names the command.
+  // Without microphone@0 its program is refused, the operation itself is
+  // ENOSYS, and a package that needs it is not installed. Each refusal names the command.
   await refused("$HOME/listen", "microphone");
   await run(`mkdir -p /etc/dolly/artifacts && curl -fsS ${server.origin}/fixture/listener.snapshot -o ${artifact}`);
   assert.notEqual(await submit(`${install} 2> /tmp/needs`), 0);
   await run("grep -q 'nena enable microphone' /tmp/needs && test ! -e /usr/share/listener");
   // Enabled, the page has its provider, the program runs and the package installs.
-  await run("nena enable microphone && test \"$(cat /etc/dolly/enabled)\" = microphone@0");
+  await run("nena enable microphone && grep -qx microphone@0 /etc/dolly/enabled");
   assert.ok((await enabled()).includes("microphone@0"));
   await state("microphone", "enabled");
   await run(`$HOME/listen && ${install} && test ! -e ${artifact} && test "$(cat /usr/share/listener)" = 'needs the microphone'`);
   // Disabled, it is gone for programs that record it and for those that do not.
-  await run("nena disable microphone && test ! -e /etc/dolly/enabled");
+  await run("nena disable microphone && ! grep -q microphone /etc/dolly/enabled");
   assert.ok(!(await enabled()).includes("microphone@0"));
   await refused("$HOME/listen", "microphone");
   await run("$HOME/direct-microphone");
-  // A module the image declares goes the same way: disabled, audio@0 is gone too.
+  // audio@0 goes the same way: disabled, it is gone too.
   await run("nena disable audio");
   assert.ok(!(await enabled()).includes("audio@0"));
   assert.equal(await page.evaluate(() => "audio" in __dolly), false);
@@ -165,12 +165,13 @@ await browserTest("nena", { image: "default", timeout: 300_000, server: { fixtur
   await run("nena enable microphone && $HOME/capture");
   assert.deepEqual(await page.evaluate(() => [givenStreams.length, givenStreams.flatMap(stream => stream.getTracks()).filter(track => track.readyState === "live").length,
     document.querySelector("#microphone-status").hidden]), [1, 0, true]);
-  // A module the image declares is switched the same way.
-  await run("$HOME/threaded && nena disable threads");
+  // threads@0 is switched the same way.
+  await refused("$HOME/threaded", "threads");
+  await run("nena enable threads && $HOME/threaded && nena disable threads");
   await refused("$HOME/threaded", "threads");
   await state("threads", "available");
   await run("nena enable threads && $HOME/threaded");
-  await state("threads", "declared");
+  await state("threads", "enabled");
   // A threaded program running when the module is disabled ends, told why.
   assert.equal(await submit("$HOME/spinner 2> /tmp/withdrawn"), 126);
   await run("grep -q 'threads@0' /tmp/withdrawn && nena enable threads && $HOME/threaded");
@@ -229,7 +230,7 @@ await browserTest("nena", { image: "default", timeout: 300_000, server: { fixtur
   assert.deepEqual((await enabled()).filter(module => /^(audio|microphone|gpu)@/.test(module)), ["audio@0", "microphone@0"]);
   await run("$HOME/sound && $HOME/listen");
   assert.match(await said(page), /microphone@0.*nena enable gpu/);
-  await run("test \"$(cat /etc/dolly/enabled)\" = microphone@0");
+  await run("grep -qx microphone@0 /etc/dolly/enabled && ! grep -q gpu /etc/dolly/enabled");
 
   // nena disable nena gives the privilege up: the command and the operation
   // are refused, nothing more can be enabled, and what is enabled stays.
@@ -262,9 +263,9 @@ await browserTest("nena", { image: "default", timeout: 300_000, server: { fixtur
 
   // An embedding that names the page's modules bounds what nena enables.
   const bounded = await open({ setup: page => page.addInitScript(modules => { globalThis.DOLLY_HOST_MODULES = modules; },
-    DOLLY_IMAGES.find(({ image }) => image === "default").hostRequirements) });
+    catalog.images.find(({ image }) => image === "default").hostRequirements) });
   assert.equal(await bounded.submit("nena enable microphone 2> /dev/null"), 1);
-  assert.equal(await bounded.submit("nena disable threads && nena enable threads"), 0);
+  assert.equal(await bounded.submit("nena disable upload && nena enable upload"), 0);
   assert.ok(!(await bounded.page.evaluate(() => __dolly.hostModules)).includes("microphone@0"));
 });
 } finally { await rm(scratch, { recursive: true, force: true }); }

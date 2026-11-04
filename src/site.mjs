@@ -106,7 +106,7 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
         let verified = false;
         return { page, context: { async verifyBase() {
           if (verified) return;
-          const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(new URL(`dist/dolly-${image}-system-snapshot.mjs`, imageBase).href);
+          const { default: metadata } = await import(new URL(`dist/dolly-${image}-system-snapshot.json`, imageBase).href, { with: { type: "json" } });
           if (metadata.image !== image || metadata.buildId !== rebuilt.buildId ||
               metadata.byteLength !== rebuilt.byteLength || metadata.sha256 !== rebuilt.sha256) {
             throw new Error("Rebuilt filesystem differs from the prebuilt session base; no session was saved");

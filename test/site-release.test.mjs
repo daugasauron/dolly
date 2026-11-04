@@ -6,7 +6,6 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
 import { fileManifest, publishRelease, siteManifest, sourceManifest, verifyRelease } from "../scripts/site-release.mjs";
-import { parseGeneratedConstant } from "../scripts/image-directory.mjs";
 import { createReleaseServer } from "../scripts/serve.mjs";
 import { sha256 } from "../scripts/snapshot-identity.mjs";
 import { exportVersionedSite } from "../scripts/export-static.mjs";
@@ -63,20 +62,6 @@ test("static export refuses existing destinations and unverified releases", asyn
   await writeFile(resolve(root, "unverified/src/version.mjs"), 'export const DOLLY_VERSION = "0.1.0";\n');
   await assert.rejects(exportVersionedSite(resolve(root, "unverified"), resolve(root, "output")), /ENOENT/);
   assert.deepEqual((await readdir(root)).sort(), ["keep", "unverified"]);
-});
-
-test("release metadata accepts generated JSON constants, never JavaScript", () => {
-  assert.deepEqual(parseGeneratedConstant('// Generated.\nexport const TEST = Object.freeze({"value":1});\n', "TEST"), { value: 1 });
-  assert.equal(parseGeneratedConstant('export const TEST = "digest";\n', "TEST"), "digest");
-  for (const source of [
-    'export const TEST = (globalThis.releaseCodeRan = true);',
-    'export const TEST = {}; globalThis.releaseCodeRan = true;',
-    'globalThis.releaseCodeRan = true; export const TEST = {};',
-    'export const TEST = Object.freeze({get value() {return 1}});',
-    'export const TEST = Object.freeze({"value": Infinity});',
-    'export const WRONG = {};',
-  ]) assert.throws(() => parseGeneratedConstant(source, "TEST"));
-  assert.equal(globalThis.releaseCodeRan, undefined);
 });
 
 test("release seal covers complete file contents, rejects changes and symlinks", async t => {

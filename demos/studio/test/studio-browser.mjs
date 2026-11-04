@@ -43,8 +43,8 @@ await demoTest("studio", { image: "dollyfile-studio", webgpu: true, timeout: 900
 
   // dollyfile-build streams a build in the page without approval; only clicking
   // Open image opens the result, which has neither parent files nor build services.
-  const { DOLLY_IMAGES } = await import("../../../dist/dolly-images.mjs");
-  const system = DOLLY_IMAGES.find(definition => definition.image === "system");
+  const { default: catalog } = await import("../../../dist/dolly-images.json", { with: { type: "json" } });
+  const system = catalog.images.find(definition => definition.image === "system");
   const recipe = `DOLLY 7
 APPLICATION build-proof
 ${system.hostRequirements.map(module => `REQUIRES HOST ${module}\n`).join("")}FROM ${siteReference("Dollyfile-system")} ${system.sha256}

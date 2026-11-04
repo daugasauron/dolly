@@ -12,21 +12,16 @@ for(const [source,path] of entries){const content=await readFile(new URL(source,
 for(const [path,include] of [["cglm/cglm.h","../platform.h"],["webgpu/wgpu_common.h","../platform.h"],["webgpu/imgui_overlay.h","../without-imgui.h"],["cimgui.h","without-imgui.h"],["sokol_time.h","platform.h"]])files+=`FILE /usr/src/dolly/fluid/${path}\n    #include "${include}"\n\n`;
 const headers=JSON.parse(await readFile(new URL("demos/gpu-fluid/fluid-cglm-headers.json",root),"utf8"));
 const cglm=headers.map(({path,sha256})=>`SOURCE https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476cc95248559c/include/${path} ${sha256} /usr/src/dolly/fluid/${path}`).join("\n");
-const parent=hash(await readFile(new URL("Dollyfile-system",root)));
-await writeFile(new URL("demos/gpu-fluid/Dollyfile-gpu-fluid",root),`DOLLY 7
-APPLICATION gpu-fluid
+const pin=async recipe=>`${siteReference(recipe)} ${hash(await readFile(new URL(recipe,root)))}`;
+await writeFile(new URL("demos/gpu-fluid/Dollyfile-fluid",root),`DOLLY 7
+PACKAGE fluid
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
-REQUIRES HOST download@0
 REQUIRES HOST gpu@0
-REQUIRES HOST http@0
-REQUIRES HOST snapshot@0
-REQUIRES HOST upload@0
-REQUIRES HOST threads@0
 
-FROM ${siteReference("Dollyfile-system")} ${parent}
-INSTALL ${siteReference("Dollyfile-libdolly-gpu")} ${hash(await readFile(new URL("Dollyfile-libdolly-gpu",root)))}
+FROM ${await pin("Dollyfile-system")}
+USE ${await pin("Dollyfile-libdolly-gpu")}
 REQUIRES TOOL cc
 REQUIRES HEADER gpu
 REQUIRES LIB dolly-gpu
@@ -41,10 +36,30 @@ SOURCE https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476
 ${cglm}
 SLOP cc -std=gnu11 -O2 -I/usr/src/dolly/fluid /usr/src/dolly/fluid/app.c /usr/src/dolly/fluid/webgpu.c -ldolly-gpu -lm -o /usr/bin/fluid
 EXPORTS TOOL fluid
+FILE /usr/share/man/cat1/fluid.1
+    fluid: liquid ink and volumetric smoke on gpu@0, stirred with the pointer.
+    H toggles the controls, Space pauses, R resets, A toggles automatic stirring,
+    Q or Escape quits.
+    fluid --check                                    verifies the solver
+    fluid --bench SIZE HEIGHT STEPS [smoke|shaded]   times STEPS steps
+    FLUID_RECORD=FILE writes each gpu@0 packet fluid sends to FILE.
 EXPORTS FOLDER fluid-sources /usr/src/dolly/fluid
 EXPORTS FOLDER fluid-upstream-license /usr/share/licenses/webgpu-native-examples
 EXPORTS FOLDER fluid-cglm-license /usr/share/licenses/cglm
 EXPORTS FOLDER fluid-webgpu-headers-license /usr/share/licenses/webgpu-headers
+`);
+await writeFile(new URL("demos/gpu-fluid/Dollyfile-gpu-fluid",root),`DOLLY 7
+APPLICATION gpu-fluid
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST gpu@0
+
+INSTALL ${await pin("Dollyfile-core")}
+INSTALL ${await pin("Dollyfile-posix")}
+INSTALL ${await pin("Dollyfile-display")}
+INSTALL ${await pin("demos/gpu-fluid/Dollyfile-fluid")}
 
 FILE /etc/dolly/init.slop
     /bin/foreground /usr/bin/fluid
@@ -52,4 +67,4 @@ FILE /etc/dolly/init.slop
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
 `);
-console.log("dolly: prepared GPU fluid sources and recipe");
+console.log("dolly: prepared GPU fluid sources and recipes");

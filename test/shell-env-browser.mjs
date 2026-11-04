@@ -4,8 +4,8 @@ import assert from "node:assert/strict";
 import { browserTest } from "./browser.mjs";
 import { siteReference } from "../src/static-asset.mjs";
 
-const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
-const display = DOLLY_IMAGES.find(({ image }) => image === "display");
+const { default: catalog } = await import("../dist/dolly-images.json", { with: { type: "json" } });
+const display = catalog.images.find(({ image }) => image === "display");
 const recipe = ["DOLLY 7", "APPLICATION no-shell", "REQUIRES HOST runtime@0", "REQUIRES HOST display@0", "REQUIRES HOST input@0",
   `INSTALL ${siteReference(display.dollyfile)} ${display.sha256}`,
   "FILE /tmp/shell.c", "    #include <stdio.h>", "    #include <stdlib.h>",

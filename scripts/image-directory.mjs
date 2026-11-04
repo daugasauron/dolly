@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
 import { recipeRecords } from "./dollyfile-graph.mjs";
 
-// The generated modules of an image directory (src/images.mjs): its catalog,
-// dist/dolly-images.mjs, and each image's metadata, dist/dolly-IMAGE-system-snapshot.mjs.
-// The catalog's build and dolly-build (an npm user's image) write them here.
+// The generated files of an image directory (src/images.mjs): its catalog,
+// dist/dolly-images.json, each image's metadata, dist/dolly-IMAGE-system-snapshot.json,
+// and the index.mjs of a directory boot() loads. The catalog's build and
+// dolly-build (an npm user's image) write them here.
 
 const sha256 = bytes => createHash("sha256").update(bytes).digest("hex");
 
@@ -23,10 +24,8 @@ export function catalogRecord({ image, filename, source, parsed }, graph) {
   };
 }
 
-export const catalogSource = (records, staticSources = []) =>
-  "// Generated from source-visible Dollyfiles. Do not edit.\n" +
-  `export const DOLLY_IMAGES = Object.freeze(${JSON.stringify(records, null, 2)});\n` +
-  `export const DOLLY_STATIC_SOURCES = Object.freeze(${JSON.stringify(staticSources, null, 2)});\n`;
+// The catalog: its images' records and the files their recipes read by site path.
+export const catalogJson = (images, staticSources = []) => `${JSON.stringify({ images, staticSources }, null, 2)}\n`;
 
 // An image's metadata before it is packed: the snapshot SNAPSHOT (its bytes,
 // decoded as PARSED, with the ENTRY it was checked for), built from GRAPH on
@@ -48,8 +47,7 @@ export function snapshotMetadata(image, graph, inputs, snapshot, parsed, entry, 
   };
 }
 
-export const metadataSource = metadata =>
-  `// Generated snapshot manifest.\nexport const DOLLY_SYSTEM_SNAPSHOT = Object.freeze(${JSON.stringify(metadata, null, 2)});\n`;
+export const metadataJson = metadata => `${JSON.stringify(metadata, null, 2)}\n`;
 
 // An image directory's index.mjs, for boot(): the directory, IMAGE, and the
 // manifests of the host modules it declares at PATHS, relative to the directory.
@@ -60,17 +58,3 @@ export const image = ${JSON.stringify(image)};
 export const modules = ${JSON.stringify(paths)}
   .map(path => new URL(path, import.meta.url).href);
 `;
-
-// The value of `export const NAME = …` in a generated module, read as data
-// (JSON, optionally inside Object.freeze()): generated metadata is not
-// executable input to the release verifier or the builds.
-export function parseGeneratedConstant(source, name) {
-  if (!/^[A-Z][A-Z0-9_]*$/.test(name)) throw new Error("invalid constant name");
-  const prefix = new RegExp(`^(?://[^\\n]*\\n)*export const ${name} = `);
-  if (!prefix.test(source)) throw new Error(`invalid generated ${name}`);
-  let value = source.replace(prefix, "").trim();
-  if (!value.endsWith(";")) throw new Error(`invalid generated ${name}`);
-  value = value.slice(0, -1);
-  if (value.startsWith("Object.freeze(") && value.endsWith(")")) value = value.slice(14, -1);
-  return JSON.parse(value);
-}

@@ -1,5 +1,8 @@
-# The row that names system in this image's record of its recipes: site path and pin.
-system=$(grep '/Dollyfile-system ' /etc/dolly/recipes.lock)
+# The rows that installed these packages into this image, as a recipe writes them.
+core=$(grep '/Dollyfile-core ' /etc/dolly/installed)
+posix=$(grep '/Dollyfile-posix ' /etc/dolly/installed)
+display=$(grep '/Dollyfile-display ' /etc/dolly/installed)
+cc=$(grep '/Dollyfile-cc ' /etc/dolly/installed)
 for name in hello tool; do
-  sed "s|@SYSTEM@|$system|" "/usr/share/dollyfile-studio/examples/$name.in" > "/usr/share/dollyfile-studio/examples/Dollyfile-$name"
+  sed -e "s|@CORE@|$core|" -e "s|@POSIX@|$posix|" -e "s|@DISPLAY@|$display|" -e "s|@CC@|$cc|" "/usr/share/dollyfile-studio/examples/$name.in" > "/usr/share/dollyfile-studio/examples/Dollyfile-$name"
 done

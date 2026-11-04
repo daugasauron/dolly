@@ -2,58 +2,25 @@ DOLLY 7
 APPLICATION rts-arena
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
-REQUIRES HOST html@0
 REQUIRES HOST input@0
+REQUIRES HOST snapshot@0
 REQUIRES HOST audio@0
 REQUIRES HOST touch@0
 REQUIRES HOST download@0
-REQUIRES HOST http@0
-REQUIRES HOST snapshot@0
-REQUIRES HOST threads@0
 REQUIRES HOST upload@0
+REQUIRES HOST html@0
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime ebd00976f1906b675d1e4457f19ec081d6218d74c4e009bb0efeeacf8e41384b
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 adf88beda7f41cbd97b32fe0f27906f8c4893f10bef9e1bb18f670ceb7c05584
-COPY /v0.1.4/demos/rts/Dollyfile-rts-build 9e12afa6401b1e5177d26ed8b896d67b8327f37073acbf663e20d7182f528409 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
-COPY /v0.1.4/demos/rts/Dollyfile-rts-build 9e12afa6401b1e5177d26ed8b896d67b8327f37073acbf663e20d7182f528409 /usr/share/7kaa /usr/share/7kaa
-COPY /v0.1.4/demos/rts/Dollyfile-rts-build 9e12afa6401b1e5177d26ed8b896d67b8327f37073acbf663e20d7182f528409 /usr/src/7kaa /usr/src/7kaa
-COPY /v0.1.4/demos/rts/Dollyfile-rts-build 9e12afa6401b1e5177d26ed8b896d67b8327f37073acbf663e20d7182f528409 /usr/src/dolly/rts /usr/src/dolly/rts
-COPY /v0.1.4/demos/rts/Dollyfile-rts-build 9e12afa6401b1e5177d26ed8b896d67b8327f37073acbf663e20d7182f528409 /usr/share/licenses/7kaa /usr/share/licenses/7kaa
-EXPORTS TOOL seven-kingdoms
-REQUIRES HEADER cpp
-REQUIRES HEADER quickjs-runner
-REQUIRES HEADER sdl2
-REQUIRES LIB dolly-js
-REQUIRES LIB quickjs
-REQUIRES LIB SDL2
-REQUIRES TOOL cc
-REQUIRES TOOL c++
+INSTALL /v0.1.4/Dollyfile-core 74fabeb7587e54b39bb59351ed5e8146d3eb77cb526c65c00c2d90f11495b775
+INSTALL /v0.1.4/Dollyfile-posix 4edbe26685a71e67d5360b567b708c1cb373b124d4143c680cf0a6a1ba90ebae
+INSTALL /v0.1.4/Dollyfile-display 2be7cbca13647b99084a669132428169b2d5a6bde7a291642efc5c584f9ffd63
+INSTALL /v0.1.4/Dollyfile-transfer 2d667f4f6ce328336579aeb172cc87c211fae513c9d4c6ba8883607f7a9ec368
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly f6ace78255325beb786fed199b394a5d1956dd60373e4fcef4b19f068efd8992
+INSTALL /v0.1.4/demos/rts/Dollyfile-seven-kingdoms 24c8ee9e76d4681121cbf4efb19e23ff047d2751a13f4cc746c4d3ae4dc71beb
 REQUIRES TOOL pi
-REQUIRES TOOL seven-kingdoms
-REQUIRES TOOL rm
-REQUIRES TOOL printf
-REQUIRES TOOL foreground
-REQUIRES TOOL test
-REQUIRES TOOL tar
-REQUIRES TOOL gzip
 REQUIRES TOOL upload
-REQUIRES TOOL mkdir
-
-SOURCE /v0.1.4/dist/static/rts/arena.tar c80826279f631eb735d2e76e0109a2ee6f94e9a6985295f77075aec0ac7b328e /tmp/rts-arena/source.tar
-SOURCE /v0.1.4/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/rts-arena/stb_truetype.h
-SLOP tar -xf /tmp/rts-arena/source.tar -C /
-SLOP mkdir -p /usr/share/dolly/rts
-SLOP gzip -dc /tmp/rts-arena/demo.tar.gz | tar -xf - -C /usr/share/dolly/rts
-FOLDER /usr/share/dolly/rts
-SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/rts-arena \
-  /usr/src/dolly/rts/spectator/viewer.cpp -o /usr/bin/rts-viewer -lSDL2 -lm
-SLOP cc -std=gnu11 -I/usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE \
-  -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char \
-  /usr/src/dolly/rts/spectator/launch.c -ldolly-js -lquickjs -o /usr/bin/rts-arena
-
-EXPORTS TOOL rts-viewer
-EXPORTS TOOL rts-arena
-FOLDER /usr/src/dolly/rts
+REQUIRES TOOL rts-arena
 FILE /etc/dolly/init.slop
     if test -f "$HOME/.dollyrc"; then
       /bin/slop -e "$HOME/.dollyrc"
@@ -62,6 +29,5 @@ FILE /etc/dolly/init.slop
     /bin/foreground -i /bin/slop
 FILE /home/dolly/.dollyrc
     printf 'Shell commands: rts-arena (launcher), seven-kingdoms -noaudio -win (play yourself).\n\n'
-SLOP rm -rf /tmp/rts-arena
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

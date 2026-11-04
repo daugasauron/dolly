@@ -128,13 +128,13 @@ export const redirectFetch = (origin, target) => page => page.addInitScript(([or
 // modules of programs the test builds there (dso@0 for a -rdynamic host) and
 // packages what it installs for them.
 export async function displayProbe(image, more = [], packages = []) {
-  const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
+  const { default: catalog } = await import("../dist/dolly-images.json", { with: { type: "json" } });
   const pin = name => {
-    const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
+    const { dollyfile, sha256 } = catalog.images.find(definition => definition.image === name);
     return `${siteReference(dollyfile)} ${sha256}`;
   };
   // Host requirements are never inherited: restate the base's, plus the terminal's.
-  const hosts = [...new Set([...DOLLY_IMAGES.find(definition => definition.image === image).hostRequirements,
+  const hosts = [...new Set([...catalog.images.find(definition => definition.image === image).hostRequirements,
     "display@0", "input@0", ...more])].sort();
   const recipe = ["DOLLY 7", "APPLICATION display-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin(image)}`,
     ...packages.map(name => `INSTALL ${pin(name)}`),
@@ -149,14 +149,14 @@ export async function displayProbe(image, more = [], packages = []) {
 // open() options for an application built in the page from `system` plus the
 // named packages, as `amy install` composes a session.
 export async function installProbe(...packages) {
-  const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
+  const { default: catalog } = await import("../dist/dolly-images.json", { with: { type: "json" } });
   const pin = name => {
-    const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
+    const { dollyfile, sha256 } = catalog.images.find(definition => definition.image === name);
     return `${siteReference(dollyfile)} ${sha256}`;
   };
   // system's modules and those the packages need: nothing is inherited.
   const hosts = [...new Set(["system", ...packages].flatMap(name =>
-    DOLLY_IMAGES.find(definition => definition.image === name).hostRequirements))].sort();
+    catalog.images.find(definition => definition.image === name).hostRequirements))].sort();
   const recipe = ["DOLLY 7", "APPLICATION install-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin("system")}`,
     ...packages.map(name => `INSTALL ${pin(name)}`), "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
   return { path: "/custom/rebuild/",

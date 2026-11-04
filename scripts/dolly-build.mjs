@@ -17,7 +17,7 @@ import { basename, dirname, extname, join, relative, resolve, sep } from "node:p
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { chromium, firefox } from "playwright-core";
-import { catalogRecord, catalogSource, indexSource, metadataSource, snapshotMetadata } from "./image-directory.mjs";
+import { catalogJson, catalogRecord, indexSource, metadataJson, snapshotMetadata } from "./image-directory.mjs";
 import { buildImageInPage, savePageSnapshot } from "./page-image-build.mjs";
 import { isolationHeaders, mimeTypes } from "./serve.mjs";
 import { ensureSnapshotPacks } from "./share-pages-snapshots.mjs";
@@ -52,8 +52,9 @@ if (!browsers[browserName] || (init ? positionals.length < 2 : positionals.lengt
 // each holds its own image's packs, and the catalog and metadata of that image's closure.
 const directories = await Promise.all((await readdir(scope)).filter(name => /^dolly-(image|package)-/.test(name))
   .map(async name => ({ directory: await realpath(join(scope, name)), package: `@daugasauron/${name}`,
-    image: name.replace(/^dolly-(image|package)-/, ""), ...await load(join(scope, name, "dist/dolly-images.mjs")) })));
-const definitionOf = ({ DOLLY_IMAGES, image }) => DOLLY_IMAGES.find(candidate => candidate.image === image);
+    image: name.replace(/^dolly-(image|package)-/, ""),
+    catalog: JSON.parse(await readFile(join(scope, name, "dist/dolly-images.json"), "utf8")) })));
+const definitionOf = ({ catalog, image }) => catalog.images.find(candidate => candidate.image === image);
 const installed = (image, kind) => directories.find(candidate => candidate.image === image)
   ?? fail(`${image} is not installed: npm install @daugasauron/dolly-${kind}-${image}`);
 // The directory whose own image a row names, at the row's pin.
@@ -116,7 +117,7 @@ async function build(recipePath, outArgument) {
   if (imageFileName(filename) !== image) fail(`${filename}: name it Dollyfile-${image}`);
   if (!parsed.from) fail(`${filename}: FROM an installed image`);
   // A rebuild replaces the image directory it wrote before, and nothing else.
-  if (existsSync(outArgument) && !existsSync(join(outArgument, "dist/dolly-images.mjs"))) {
+  if (existsSync(outArgument) && !existsSync(join(outArgument, "dist/dolly-images.json"))) {
     fail(`${outArgument} exists and is not an image directory`);
   }
   // Every row that names an image names one of the installed directories at its pin.
@@ -125,14 +126,14 @@ async function build(recipePath, outArgument) {
   // One catalog of their closures: the same image at the same pin in each.
   const records = new Map(), staticSources = new Map(), first = new Map();
   for (const directory of holders) {
-    for (const record of directory.DOLLY_IMAGES) {
+    for (const record of directory.catalog.images) {
       if (records.has(record.image) && records.get(record.image).sha256 !== record.sha256) {
         fail(`${directory.package} holds ${record.image} at another pin than ${first.get(record.image)}: install packages of one version`);
       }
       records.set(record.image, record);
       first.set(record.image, first.get(record.image) ?? directory.package);
     }
-    for (const entry of directory.DOLLY_STATIC_SOURCES) staticSources.set(entry.path, entry);
+    for (const entry of directory.catalog.staticSources) staticSources.set(entry.path, entry);
   }
   if (records.has(image)) fail(`${image} is already an image of ${first.get(image)}`);
   const declared = parsed.hostRequirements.map(requirement => requirement.split("@")[0]);
@@ -145,12 +146,12 @@ async function build(recipePath, outArgument) {
   try {
     for (const { directory } of new Set(holders)) {
       await cp(directory, staging, { recursive: true, filter: path => ![
-        join(directory, "dist/packs"), join(directory, "dist/dolly-images.mjs"), join(directory, "index.mjs"),
+        join(directory, "dist/packs"), join(directory, "dist/dolly-images.json"), join(directory, "index.mjs"),
         join(directory, "package.json"), join(directory, "README.md")].includes(path) });
     }
     await writeFile(join(staging, filename), source);
     const graph = await loadRecipeGraph(reference => readFile(join(staging, sitePath(reference).slice(1))), siteReference(filename));
-    await writeFile(join(staging, "dist/dolly-images.mjs"), catalogSource([...records.values(),
+    await writeFile(join(staging, "dist/dolly-images.json"), catalogJson([...records.values(),
       catalogRecord({ image, filename, source, parsed }, graph)], [...staticSources.values()]));
 
     const page = "<!doctype html><title>dolly-build</title>";
@@ -202,7 +203,7 @@ async function build(recipePath, outArgument) {
       imageBuildId: (await load(join(runtime, "dolly-image-build-id.mjs"))).DOLLY_IMAGE_BUILD_ID };
     const packed = await ensureSnapshotPacks(join(staging, "dist"),
       snapshotMetadata(image, graph, imageInputs(inputs), snapshot, decoded, entry, build));
-    await writeFile(join(staging, `dist/dolly-${image}-system-snapshot.mjs`), metadataSource(packed));
+    await writeFile(join(staging, `dist/dolly-${image}-system-snapshot.json`), metadataJson(packed));
     await rm(snapshotPath);
 
     await writeFile(join(staging, "index.mjs"), indexSource(image,

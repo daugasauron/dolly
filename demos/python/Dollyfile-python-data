@@ -3,23 +3,29 @@ APPLICATION python-data
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
-REQUIRES HOST audio@0
+REQUIRES HOST snapshot@0
 REQUIRES HOST download@0
-REQUIRES HOST dso@0
+REQUIRES HOST upload@0
 REQUIRES HOST html@0
 REQUIRES HOST http@0
-REQUIRES HOST nena@0
 REQUIRES HOST packages@0
-REQUIRES HOST snapshot@0
+REQUIRES HOST nena@0
+REQUIRES HOST dso@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
-REQUIRES HOST touch@0
-REQUIRES HOST upload@0
 
-# default with Python and the libraries python-data-build compiled: a session
+# default's packages, Python and the libraries python-data-build compiled: a session
 # imports NumPy, pandas, Matplotlib and seaborn at once, with nothing to build
 # or fetch. Each COPY row is one library's root (README.md).
-FROM /v0.1.4/Dollyfile e072ff5f65aaba7ee4202511154904bc121f4f2202169a31ef35e6b58aab23a0
+INSTALL /v0.1.4/Dollyfile-core 74fabeb7587e54b39bb59351ed5e8146d3eb77cb526c65c00c2d90f11495b775
+INSTALL /v0.1.4/Dollyfile-posix 4edbe26685a71e67d5360b567b708c1cb373b124d4143c680cf0a6a1ba90ebae
+INSTALL /v0.1.4/Dollyfile-display 2be7cbca13647b99084a669132428169b2d5a6bde7a291642efc5c584f9ffd63
+INSTALL /v0.1.4/Dollyfile-curl 813064b0e97cd158ee8d116a3c7abf7553561cdffcc66d5761a0ef27edad0821
+INSTALL /v0.1.4/Dollyfile-amy 1111b191cee58a7d1265a0f5eb1710af0cefc65d4a39410cabd8601b3366edd7
+INSTALL /v0.1.4/Dollyfile-nena 8548d299c850256330e33fabf531461f13dc4c2e087064c6864bce30a01ec2b7
+INSTALL /v0.1.4/Dollyfile-transfer 2d667f4f6ce328336579aeb172cc87c211fae513c9d4c6ba8883607f7a9ec368
+INSTALL /v0.1.4/Dollyfile-html 0f59357b68e30b2b4e66796d75929c46952cea26d68459678cd97dab7e986f29
+INSTALL /v0.1.4/Dollyfile-ps 39cdf2bfaa3fb52f3c161672634f9600381754e6f006971896d6f79b6b345b77
 INSTALL /v0.1.4/demos/python/Dollyfile-python 2e148fac3c069590b8b0df6759d234d3922da318bb594f1131d0e8ffbd8931b4
 COPY /v0.1.4/demos/python/Dollyfile-python-data-build 1f480c1e43ca6889cdf88aeaa4504754f114c987abb32cdba99f0aa332986054 /opt/python-data/numpy /
 COPY /v0.1.4/demos/python/Dollyfile-python-data-build 1f480c1e43ca6889cdf88aeaa4504754f114c987abb32cdba99f0aa332986054 /opt/python-data/tzdata /
@@ -45,6 +51,20 @@ SLOP python -c 'import numpy, pandas, matplotlib.pyplot, seaborn, jinja2, openpy
 # The font list Matplotlib writes on its first import, which takes 6 s, kept
 # for every session.
 FOLDER /home/dolly/.matplotlib
+
+FILE /etc/dolly/init.slop
+    if test -f "$HOME/.dollyrc"; then
+      /bin/foreground /bin/slop -e "$HOME/.dollyrc"
+      status=$?
+      case "$status" in
+        0|130) ;;
+        *) echo "Dolly: $HOME/.dollyrc exited with status $status; continuing." >&2 ;;
+      esac
+    fi
+    /bin/foreground -i /bin/slop
+    echo
+    echo 'Dolly: image entry exited; entering the recovery Slop shell.'
+    /bin/foreground -i /bin/slop
 
 FILE /home/dolly/.dollyrc
     echo 'DOLLY: Python 3.14 with NumPy, pandas, Matplotlib and seaborn, in this tab.'

@@ -1,0 +1,49 @@
+DOLLY 7
+PACKAGE classicube-agent
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST audio@0
+REQUIRES HOST touch@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+
+# The agent of ClassiCube's world, its viewer and the world packer, with their sources.
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime a011b050bc1f85a1a0dcee0202ed5e122fe37d02258625757f6c0c9d942914a6
+USE /v0.1.4/demos/sdl2/Dollyfile-sdl2 adf88beda7f41cbd97b32fe0f27906f8c4893f10bef9e1bb18f670ceb7c05584
+REQUIRES HEADER cpp
+REQUIRES HEADER quickjs-runner
+REQUIRES HEADER sdl2
+REQUIRES LIB dolly-js
+REQUIRES LIB quickjs
+REQUIRES LIB SDL2
+REQUIRES LIB z
+REQUIRES HEADER zlib
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL tar
+REQUIRES TOOL rm
+
+SOURCE /v0.1.4/dist/static/classicube/agent.tar a575c5c5354cb8210464a4577204ed3169a31838ad981acac4cba3adaa30e60e /tmp/classicube-agent/source.tar
+SOURCE /v0.1.4/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/classicube-agent/stb_truetype.h
+SLOP tar -xf /tmp/classicube-agent/source.tar -C /
+SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/classicube-agent \
+  /usr/src/dolly/classicube/agent/viewer.cpp -o /usr/bin/classicube-viewer -lSDL2 -lm
+SLOP cc -O2 /usr/src/dolly/classicube/agent/pack.c -o /usr/bin/classicube-pack -lz
+SLOP cc -std=gnu11 -I/usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE \
+  -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char \
+  /usr/src/dolly/classicube/agent/launch.c -ldolly-js -lquickjs -o /usr/bin/classicube-agent
+
+EXPORTS TOOL classicube-agent
+EXPORTS TOOL classicube-viewer
+EXPORTS TOOL classicube-pack
+FILE /usr/share/man/cat1/classicube-agent.1
+    classicube-agent: ClassiCube in a shared block world with up to four players,
+    each optionally driven by its own Pi agent. Backtick switches between you and
+    the agent, [ and ] switch players, Enter writes an instruction, Ctrl+, opens
+    the settings.
+    classicube-viewer and classicube-pack are its viewer and its world packer.
+EXPORTS FOLDER classicube-agent-source /usr/src/dolly/classicube/agent
+EXPORTS FOLDER game-agent-source /usr/src/dolly/game-agent
+EXPORTS FOLDER game-input-source /usr/src/dolly/rts
+SLOP rm -rf /tmp/classicube-agent

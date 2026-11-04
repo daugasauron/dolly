@@ -3,17 +3,14 @@ APPLICATION mojo-gpu
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
-REQUIRES HOST download@0
-REQUIRES HOST gpu@0
-REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
-REQUIRES HOST upload@0
-REQUIRES HOST threads@0
-REQUIRES HOST html@0
+REQUIRES HOST gpu@0
 
 # A shell with the Mojo compiler built in Dolly (the mojo package) and what its
 # programs link against, in an image with a GPU: kernels run here.
-FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
+INSTALL /v0.1.4/Dollyfile-core 74fabeb7587e54b39bb59351ed5e8146d3eb77cb526c65c00c2d90f11495b775
+INSTALL /v0.1.4/Dollyfile-posix 4edbe26685a71e67d5360b567b708c1cb373b124d4143c680cf0a6a1ba90ebae
+INSTALL /v0.1.4/Dollyfile-display 2be7cbca13647b99084a669132428169b2d5a6bde7a291642efc5c584f9ffd63
 INSTALL /v0.1.4/demos/mojo/Dollyfile-mojo 8202e13058d72626f70dbc094cb9603e80e55f5ba8ae4d990cf6be0db90f8c47
 REQUIRES TOOL mojo
 REQUIRES LIB dolly-gpu

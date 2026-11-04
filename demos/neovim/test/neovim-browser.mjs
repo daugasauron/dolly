@@ -1,11 +1,11 @@
 // Neovim in the neovim image: the editor entry, keys, :w, :! and :q recovery,
 // then a Unicode paste, resize, terminal modes after exit and Ctrl-C as input.
-// Usage: node demos/neovim/test/neovim-browser.mjs
+// Usage: [DOLLY_BROWSER=firefox] node demos/neovim/test/neovim-browser.mjs
 import assert from "node:assert/strict";
-import { delay, demoTest, recoveryPrompt, snapshotDisplay, writeCommand } from "../../browser.mjs";
+import { delay, demoTest, recoveryPrompt, snapshotDisplay } from "../../browser.mjs";
 
-await demoTest("neovim", { image: "neovim", timeout: 600_000 }, async ({ open }) => {
-  const { page, submit, run, start, prompt, waitText, input } = await open({ prompt: null });
+await demoTest("neovim", { image: "neovim", timeout: 600_000, browser: process.env.DOLLY_BROWSER ?? "chromium" }, async ({ open }) => {
+  const { page, run, start, prompt, waitText, input } = await open({ prompt: null });
   const ex = async command => {
     await page.keyboard.type(":");
     await input(command);
@@ -34,11 +34,7 @@ await demoTest("neovim", { image: "neovim", timeout: 600_000 }, async ({ open })
   await prompt(recoveryPrompt);
 
   const scratch = "/tmp/dolly-neovim-test";
-  const mode = "#include <dolly/runtime.h>\nint main(void) { return dolly_terminal_mode_get(0); }\n";
-  await run(`mkdir ${scratch} && ${writeCommand(`${scratch}/mode.c`, mode)} && cc ${scratch}/mode.c -o ${scratch}/mode`);
-  const terminalMode = await submit(`${scratch}/mode`);
-  assert.ok(terminalMode >= 0 && terminalMode < 128);
-  await run(`printf 'DOLLY-NVIM-READY\\n' > ${scratch}/edit.txt && clear`);
+  await run(`mkdir ${scratch} && printf 'DOLLY-NVIM-READY\\n' > ${scratch}/edit.txt && clear`);
   let editor = start(`nvim --clean ${scratch}/edit.txt`);
   await waitText(/DOLLY-NVIM-READY/);
   await page.keyboard.type("ggi");
@@ -70,7 +66,11 @@ await demoTest("neovim", { image: "neovim", timeout: 600_000 }, async ({ open })
   assert.equal(await editor.done, 0);
   await run(`test "$(cat ${scratch}/size)" = '${dimensions.cols}x${dimensions.rows}' && grep -q '^Dolly 日本語$' ${scratch}/edit.txt`);
   await run(`timeout 30 nvim --clean --headless ${scratch}/edit.txt -c 'lua assert(vim.api.nvim_get_current_line() == "Dolly 日本語")' -c quit`);
-  assert.equal(await submit(`${scratch}/mode`), terminalMode, "normal exit restores terminal discipline");
+  // A normal exit restores the terminal's discipline: Ctrl+C interrupts a command again.
+  const sleeping = start("sleep 30");
+  await waitText(/\$ sleep 30\s*$/);
+  await page.keyboard.press("Control+c");
+  assert.equal(await sleeping.done, 130, "normal exit restores terminal discipline");
   await run(`timeout 30 nvim --headless -c 'lua assert(vim.o.shell == "/bin/slop"); assert(vim.fn.system("printf SLOP-NVIM") == "SLOP-NVIM")' -c quit`);
   await run("clear");
   editor = start(`nvim --clean ${scratch}/edit.txt`);

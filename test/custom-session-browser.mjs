@@ -208,9 +208,9 @@ async function namedSessions(context, server, name) {
   // A rebuilt base carries a named save only when it is the packaged snapshot:
   // where the packaged one says another digest, the save is refused.
   const differing = await newPage(context);
-  await differing.route("**/dist/dolly-system-system-snapshot.mjs", async route => {
+  await differing.route("**/dist/dolly-system-system-snapshot.json", async route => {
     const response = await route.fetch();
-    await route.fulfill({ response, body: (await response.text()).replace(/\n  "sha256": "[0-9a-f]{64}"/, `\n  "sha256": "${"0".repeat(64)}"`) });
+    await route.fulfill({ response, json: { ...await response.json(), sha256: "0".repeat(64) } });
   });
   await differing.goto(server.origin + "/system/rebuild/");
   await boot(differing);
@@ -222,8 +222,8 @@ async function namedSessions(context, server, name) {
   const page = await newPage(context);
   await page.goto(server.origin + "/system/rebuild/");
   await boot(page);
-  assert.equal(await page.evaluate(async () => (await import("/dist/dolly-system-system-snapshot.mjs"))
-    .DOLLY_SYSTEM_SNAPSHOT.sha256 === __dolly.builtImage.sha256), true, "rebuilt session base differs from the packaged snapshot");
+  assert.equal(await page.evaluate(async () => (await import("/dist/dolly-system-system-snapshot.json", { with: { type: "json" } }))
+    .default.sha256 === __dolly.builtImage.sha256), true, "rebuilt session base differs from the packaged snapshot");
   await check(page, [
     "echo SESSION-WORKSPACE > /workspace/session-proof.txt",
     "echo SESSION-HOME > /home/dolly/session-proof.txt",

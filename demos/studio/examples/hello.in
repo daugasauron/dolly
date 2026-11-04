@@ -3,13 +3,11 @@ APPLICATION hello
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
-REQUIRES HOST download@0
-REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
-REQUIRES HOST upload@0
-REQUIRES HOST threads@0
 
-FROM @SYSTEM@
+@CORE@
+@POSIX@
+@DISPLAY@
 
 FILE /usr/share/hello.txt
     Hello from my custom Dolly image!

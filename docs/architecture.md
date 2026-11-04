@@ -132,8 +132,9 @@ flowchart TD
   [`Dollyfile-display`](../Dollyfile-display),
   [`Dollyfile-system`](../Dollyfile-system), [`Dollyfile`](../Dollyfile) (default);
 - An edit rebuilds its descendants: each builder starts from the smallest
-  image with its tools. `default` has no base: it installs packages, each
-  built in `system-build` or `system-tools`. `system-tools` installs the
+  image with its tools. `default` has no base, nor has any application: it
+  installs packages, each built in a toolchain such as `system-build` or
+  `system-tools`, and declares only the host modules they need. `system-tools` installs the
   `display` package, so Zig and Ghostty are inputs to everything built from
   it (CMake, Neovim, SDL), and the `git` package, since builds patch with it;
   `rust-sdk` starts from `system-build` and installs `display` as well.
@@ -145,7 +146,8 @@ flowchart TD
   ([Dollyfile](dollyfile.md#building)).
 - Prebuilt boot restores a sealed snapshot without downloading the compiler seed
   or compiling anything.
-- Demos build `FROM` core images; the core never uses a demo.
+- Demos' toolchains and packages build `FROM` core images, and their
+  applications install packages; the core never uses a demo.
 - The kernel's WasmFS is the only filesystem. Browser storage holds only opaque
   image snapshots, the packs images were read from and [sessions](sessions.md);
   nothing is mounted but a build's inputs: each image the build reads is a

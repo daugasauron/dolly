@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { browserTest, composed } from "./browser.mjs";
 import { siteReference } from "../src/static-asset.mjs";
-import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import catalog from "../dist/dolly-images.json" with { type: "json" };
 
 const fixtures = { "sockets.c": "test/fixtures/sockets.c" };
 
@@ -61,8 +61,8 @@ await browserTest("sockets not declared", { image: "system", server: { fixtures 
   assert.equal(await submit("/tmp/sockets pair 2> /tmp/refused"), 126);
   await run("grep -q 'sockets@0' /tmp/refused");
 
-  const pin = name => { const { dollyfile, sha256 } = DOLLY_IMAGES.find(({ image }) => image === name); return `${siteReference(dollyfile)} ${sha256}`; };
-  const { hostRequirements } = DOLLY_IMAGES.find(({ image }) => image === "system");
+  const pin = name => { const { dollyfile, sha256 } = catalog.images.find(({ image }) => image === name); return `${siteReference(dollyfile)} ${sha256}`; };
+  const { hostRequirements } = catalog.images.find(({ image }) => image === "system");
   const recipe = ["DOLLY 7", "APPLICATION unsealed", ...hostRequirements.map(module => `REQUIRES HOST ${module}`),
     `FROM ${pin("system")}`, `INSTALL ${pin("libdolly-sockets")}`, "REQUIRES TOOL cc", "FILE /tmp/asked.c", "    #include <sys/socket.h>",
     "    int main(void) { int ends[2]; return socketpair(AF_UNIX, SOCK_STREAM, 0, ends); }",

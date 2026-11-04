@@ -15,7 +15,7 @@ if has_image classicube-build; then
     demos/game-agent/control.h /usr/src/dolly/game-agent/control.h \
     "${classicube_port_inputs[@]}"
 fi
-if has_image classicube; then
+if has_image classicube-agent; then
   classicube_agent_inputs=()
   for entry in auth.mjs control.h mission.mjs settings.mjs viewer.cpp; do
     classicube_agent_inputs+=("demos/game-agent/${entry}" "/usr/src/dolly/game-agent/${entry}")

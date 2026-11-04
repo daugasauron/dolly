@@ -28,12 +28,13 @@ export async function startCheckoutServer(projectDir, image = "default",
   { port = 0, files: extraFiles = new Map(), sourceOverrides = new Map(), responseHeaders = {}, handle } = {}) {
   await bundleProcessWorker(projectDir);
   const rebuild = image ? `npm run image -- ${image}` : "npm run image -- IMAGE";
-  await Promise.all(["dolly-images.mjs", "dolly.wasm", "dolly.data", ...image ? [`dolly-${image}-system-snapshot.mjs`] : []]
+  await Promise.all(["dolly-images.json", "dolly.wasm", "dolly.data", ...image ? [`dolly-${image}-system-snapshot.json`] : []]
     .map(path => access(resolve(projectDir, "dist", path)))).catch(error => {
       throw new Error(`Browser checks need a built runtime and image. Run npm run build:runtime once, then ${rebuild}.`, { cause: error });
     });
-  const { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } = await import(pathToFileURL(resolve(projectDir, "dist/dolly-images.mjs")));
-  if (image && !DOLLY_IMAGES.some(definition => definition.image === image)) {
+  const json = async file => JSON.parse(await readFile(resolve(projectDir, "dist", file), "utf8"));
+  const { images, staticSources } = await json("dolly-images.json");
+  if (image && !images.some(definition => definition.image === image)) {
     throw new Error(`Build ${image} once with npm run image -- ${image}, then retry the browser check.`);
   }
   try {
@@ -46,13 +47,13 @@ export async function startCheckoutServer(projectDir, image = "default",
     const checked = new Map();
     async function check(definition) {
       if (checked.has(definition.image)) return checked.get(definition.image);
-      const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await load(`dolly-${definition.image}-system-snapshot.mjs`);
+      const metadata = await json(`dolly-${definition.image}-system-snapshot.json`);
       if (metadata.buildId !== DOLLY_IMAGE_BUILD_ID ||
           JSON.stringify(metadata.recipes) !== JSON.stringify(definition.recipes)) throw new Error(`${definition.image} inputs are stale`);
       checked.set(definition.image, metadata);
       const inputs = [];
       for (const reference of definition.artifacts) {
-        const parent = DOLLY_IMAGES.find(candidate =>
+        const parent = images.find(candidate =>
           siteReference(candidate.dollyfile) === reference.location && candidate.sha256 === reference.sha256);
         if (!parent) throw new Error(`${reference.location} is missing from the registry`);
         inputs.push({ recipeSha256: reference.sha256, sha256: (await check(parent)).sha256 });
@@ -60,7 +61,7 @@ export async function startCheckoutServer(projectDir, image = "default",
       if (!imageInputsMatch(metadata.inputs, inputs)) throw new Error(`${definition.image} has stale dependency outputs`);
       return metadata;
     }
-    if (image) for (const recipe of (await check(DOLLY_IMAGES.find(definition => definition.image === image))).recipes) {
+    if (image) for (const recipe of (await check(images.find(definition => definition.image === image))).recipes) {
       const bytes = await readFile(resolve(projectDir, sitePath(recipe.sourcePath).slice(1)));
       if (createHash("sha256").update(bytes).digest("hex") !== recipe.sha256) throw new Error(`${recipe.sourcePath} changed`);
     }
@@ -74,14 +75,15 @@ export async function startCheckoutServer(projectDir, image = "default",
     ...await listed("host/", /\.(?:mjs|json)$/),
     "coi-serviceworker.js", "llms.txt", "index.html", "licences/index.html", "custom/index.html", "sessions/index.html",
     "amy-index.txt",
-    ...pageRoutes(DOLLY_IMAGES.map(definition => ({ image: definition.image, openable: opens(definition) })), image)
+    ...pageRoutes(images.map(definition => ({ image: definition.image, openable: opens(definition) })), image)
       .map(route => route.path),
-    ...DOLLY_STATIC_SOURCES.map(source => source.path.slice(1)),
+    ...staticSources.map(source => source.path.slice(1)),
+    "dist/dolly-images.json",
   ]);
-  for (const definition of DOLLY_IMAGES) {
+  for (const definition of images) {
     paths.add(definition.dollyfile);
     paths.add(`view/${definition.image}/index.html`);
-    paths.add(`dist/dolly-${definition.image}-system-snapshot.mjs`);
+    paths.add(`dist/dolly-${definition.image}-system-snapshot.json`);
   }
   for (const name of await readdir(resolve(projectDir, "dist"))) {
     if (/^dolly(?:-[a-z0-9-]+)?\.(?:wasm|mjs|data)$/.test(name) || name === "IosevkaTerm-SemiBold.woff2") paths.add(`dist/${name}`);

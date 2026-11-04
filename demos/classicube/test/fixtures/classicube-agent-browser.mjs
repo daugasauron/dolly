@@ -47,7 +47,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, snaps
     await store.deleteStoredSession(name);
     const view=new DataView(buffer), bytes=new Uint8Array(buffer), result={players:{},agentEvents:{}}; let offset=16;
     for(let i=0;i<view.getUint32(12,true);i++) {
-      const length=view.getUint32(offset+4,true), size=Number(view.getBigUint64(offset+8,true)); offset+=16;
+      const length=view.getUint32(offset+4,true), size=Number(view.getBigUint64(offset+8,true)); offset+=24;
       const path=new TextDecoder().decode(bytes.subarray(offset,offset+length)); offset+=length;
       const data=bytes.subarray(offset,offset+size); offset+=size;
       const player=path.match(/\\/players\\/(\\d+)\\/([^/]+)$/);

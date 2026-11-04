@@ -333,17 +333,20 @@ async function emitDigestHeader(
   console.log(`dolly-abi: wrote contract digest header to ${outputPath}`);
 }
 
-async function emitDigestModule(contractPath, outputPath, exportName) {
+// The module that names CONTRACT's digest EXPORT_NAME. A contract importing
+// functions from env also names them for its loader.
+export function digestModuleSource(contract, exportName) {
   if (!/^[A-Z][A-Z0-9_]*$/.test(exportName)) {
     throw new Error(`invalid digest export name ${exportName}`);
   }
-  const contract = await readWasmInterface(contractPath);
-  const digest = hex(contractDigest(contract));
-  // A contract importing functions from env also names them for its loader.
   const functions = contract.imports.filter(entry => entry.module === "env" && entry.type.kind === "func")
     .map(entry => entry.name);
-  const source = `export const ${exportName} = "${digest}";\n` + (functions.length === 0 ? "" :
+  return `export const ${exportName} = "${hex(contractDigest(contract))}";\n` + (functions.length === 0 ? "" :
     `export const ${exportName.replace(/_ABI_DIGEST$/, "")}_IMPORTS = Object.freeze(${JSON.stringify(functions)});\n`);
+}
+
+async function emitDigestModule(contractPath, outputPath, exportName) {
+  const source = digestModuleSource(await readWasmInterface(contractPath), exportName);
   try {
     if (await readFile(outputPath, "utf8") === source) {
       console.log(`dolly-abi: contract digest module is current at ${outputPath}`);

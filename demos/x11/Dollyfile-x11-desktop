@@ -3,33 +3,30 @@ APPLICATION x11-desktop
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
+REQUIRES HOST snapshot@0
 REQUIRES HOST audio@0
 REQUIRES HOST touch@0
-REQUIRES HOST pty@0
-REQUIRES HOST download@0
-REQUIRES HOST dso@0
-REQUIRES HOST http@0
-REQUIRES HOST nena@0
-REQUIRES HOST packages@0
-REQUIRES HOST snapshot@0
 REQUIRES HOST sockets@0
-REQUIRES HOST threads@0
-REQUIRES HOST upload@0
-REQUIRES HOST html@0
+REQUIRES HOST pty@0
+REQUIRES HOST http@0
+REQUIRES HOST packages@0
+REQUIRES HOST nena@0
 
 # An X session on Dolly's display: the Xsdl server, twm managing the
 # windows, and three of X's own clients in theirs: a clock, eyes that follow
 # the pointer and a terminal with a shell, where imgui-x11 starts Dear ImGui's
 # example in a window of its own.
-FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
+INSTALL /v0.1.4/Dollyfile-core 74fabeb7587e54b39bb59351ed5e8146d3eb77cb526c65c00c2d90f11495b775
+INSTALL /v0.1.4/Dollyfile-posix 4edbe26685a71e67d5360b567b708c1cb373b124d4143c680cf0a6a1ba90ebae
+INSTALL /v0.1.4/Dollyfile-display 2be7cbca13647b99084a669132428169b2d5a6bde7a291642efc5c584f9ffd63
 INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server a1a4a5b15e5f8f8b778f3573a01f1b5a729510cee3e2263ea8427c450e1007b9
 INSTALL /v0.1.4/demos/x11/Dollyfile-twm eba1b95abb2765f2a5423f9c30112d22cd12e86db6711ba38c2041f6e90ee384
 INSTALL /v0.1.4/demos/x11/Dollyfile-xclock 53272a0637f9ea7071b9d6fc0ed643ab41db857978824b3fac26d23f61c19176
 INSTALL /v0.1.4/demos/x11/Dollyfile-xeyes f2a6f3244ae63ae1d3f345d236ae0c6c40134864b38237e6ca00f9591fdb2c73
 INSTALL /v0.1.4/demos/x11/Dollyfile-xterm 12a0adb3f738e5018f1cce83de6b5e25f361fbbb1b4583f7f78ea5555181164d
-# amy installs packages into the session (tmux, nvim and the rest), with the
-# modules default declares for them; nena enables another.
-INSTALL /v0.1.4/Dollyfile-amy c2e5f10354cb7098b459d45b44989553c558b786f12f360bfc87b70a1f34be19
+# amy installs packages into the session (tmux, nvim and the rest); nena
+# enables the host modules they need.
+INSTALL /v0.1.4/Dollyfile-amy 1111b191cee58a7d1265a0f5eb1710af0cefc65d4a39410cabd8601b3366edd7
 INSTALL /v0.1.4/Dollyfile-nena 8548d299c850256330e33fabf531461f13dc4c2e087064c6864bce30a01ec2b7
 INSTALL /v0.1.4/demos/sdl2/Dollyfile-imgui-x11 0e25fc4ccebec8dee25a6a0e251b88e5b82a2fe239ff9db713d8f89a678dd1ed
 

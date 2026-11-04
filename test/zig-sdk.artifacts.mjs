@@ -6,9 +6,9 @@ import { decodeSystemSnapshot, decodeSnapshotEnvironment } from "../scripts/syst
 import { readWasmInterface } from "../scripts/wasm-interface.mjs";
 import { validateProcessInterface } from "../src/process-abi.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
-import { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } from "../dist/dolly-images.mjs";
+import catalog from "../dist/dolly-images.json" with { type: "json" };
 
-const selected = new Set(DOLLY_IMAGES.map(({ image }) => image));
+const selected = new Set(catalog.images.map(({ image }) => image));
 
 test("the compiler executable obeys the process ABI", async () => {
   const contract = await readWasmInterface(new URL("../dist/dolly-process-0.wasm", import.meta.url));
@@ -39,7 +39,7 @@ test("default copies Ghostty runtime bytes without its compiler or development f
 });
 
 test("the Zig archive installs exactly its supported-target SDK roots", {
-  skip: !DOLLY_STATIC_SOURCES.some(source => source.path === "/dist/static/default/zig.tar"),
+  skip: !catalog.staticSources.some(source => source.path === "/dist/static/default/zig.tar"),
 }, async () => {
   const roots = (await readFile(new URL("../config/zig-sdk-files.txt", import.meta.url), "utf8"))
     .split("\n").filter(line => line && !line.startsWith("#"));

@@ -25,6 +25,7 @@ import { loadDollyfileGraph, recipeRecords } from "../scripts/dollyfile-graph.mj
 import { siteReference, sitePath } from "../src/static-asset.mjs";
 
 const artifact = (name) => new URL(`../dist/${name}`, import.meta.url);
+const json = async name => JSON.parse(await readFile(artifact(name), "utf8"));
 const contractArtifact = file => artifact(`${basename(file, ".wat")}.wasm`);
 const kernelPluginContractPath = new URL(
   "../dist/dolly-kernel-plugin-0.wasm",
@@ -231,7 +232,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   const { DOLLY_PROCESS_ABI_DIGEST } = await import(artifact("dolly-process-abi.mjs"));
   const processContract = await readWasmInterface(processContractPath);
   const { DOLLY_IMAGE_BUILD_ID } = await import(artifact("dolly-image-build-id.mjs"));
-  const { DOLLY_IMAGES } = await import(artifact("dolly-images.mjs"));
+  const { images } = await json("dolly-images.json");
   const projectDir = new URL("..", import.meta.url).pathname;
   const definitions = await discoverImageDefinitions(projectDir);
   // Demo images prove their programs in their own browser tests.
@@ -272,11 +273,9 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   ]);
   assert.deepEqual([...corePrograms.keys()].sort(), definitions
     .filter(definition => !definition.filename.startsWith("demos/")).map(definition => definition.image).sort());
-  for (const image of DOLLY_IMAGES.map(({ image }) => image)) {
+  for (const image of images.map(({ image }) => image)) {
     const snapshot = await readFile(artifact(`dolly-${image}-system.snapshot`));
-    const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(
-      artifact(`dolly-${image}-system-snapshot.mjs`)
-    );
+    const metadata = await json(`dolly-${image}-system-snapshot.json`);
     const graph = await loadDollyfileGraph(
       projectDir,
       definitions.find((definition) => definition.image === image).filename,
@@ -298,12 +297,11 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
       "/usr/lib/clang/24/include/stddef.h", "/usr/lib/dolly/dolly-kernel-plugin-0.wasm"];
     const base = graph.root.role === "package" || graph.root.from === null ? undefined : definitions.find(
       definition => definition.filename === sitePath(graph.root.from.location).slice(1)).image;
-    const inherited = base === undefined ? [] : (await import(
-      artifact(`dolly-${base}-system-snapshot.mjs`))).DOLLY_SYSTEM_SNAPSHOT.manifest;
+    const inherited = base === undefined ? [] : (await json(`dolly-${base}-system-snapshot.json`)).manifest;
     // An application or toolchain holds the packages its recipe installs and
     // the ones those name; a package names them and holds none of their files.
     const installed = graph.root.role === "package" ? [] : (await Promise.all(graph.root.installTargets.map(async target =>
-      (await import(artifact(`dolly-${target.image}-system-snapshot.mjs`))).DOLLY_SYSTEM_SNAPSHOT.manifest))).flat();
+      (await json(`dolly-${target.image}-system-snapshot.json`)).manifest))).flat();
     const declared = { dollyfile: ["/bin/dollyfile"], cc: toolchain, core: ["/bin/foreground"] }[image] ?? [];
     for (const path of ["/bin/dollyfile", "/bin/foreground", ...toolchain]) {
       assert.equal(metadata.manifest.includes(path), image === "system-build" || inherited.includes(path) ||
@@ -338,8 +336,8 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
 // npm run image -- NAME registers NAME's closure alone, and the checks below
 // then read a part of the catalog: that is no full pass.
 test("dist registers every image of the catalog", async () => {
-  const { DOLLY_IMAGES } = await import(artifact("dolly-images.mjs"));
-  const registered = new Set(DOLLY_IMAGES.map(({ image }) => image));
+  const { images } = await json("dolly-images.json");
+  const registered = new Set(images.map(({ image }) => image));
   const missing = (await discoverImageDefinitions(new URL("..", import.meta.url).pathname))
     .map(({ image }) => image).filter(image => !registered.has(image));
   assert.deepEqual(missing, [], `dist registers ${registered.size} images, ${missing.length} fewer than the catalog: ` +
@@ -348,12 +346,12 @@ test("dist registers every image of the catalog", async () => {
 
 test("published inputs are independent exact pinned files", async () => {
   const projectDir = new URL("..", import.meta.url).pathname;
-  const { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } = await import(artifact("dolly-images.mjs"));
-  const selected = new Set(DOLLY_IMAGES.map(({ image }) => image));
+  const { images, staticSources } = await json("dolly-images.json");
+  const selected = new Set(images.map(({ image }) => image));
   const definitions = (await discoverImageDefinitions(projectDir))
     .filter(({ image }) => selected.has(image));
   const sources = await inspectStaticSources(projectDir, definitions);
-  assert.deepEqual(DOLLY_STATIC_SOURCES, sources);
+  assert.deepEqual(staticSources, sources);
   assert.ok(sources.every((item) =>
     ["/Dollyfile", "/modules/", "/demos/", "/include/dolly/", "/host/", "/docs/", "/abi/", "/dist/static/"].some((prefix) =>
       item.path.startsWith(prefix)) &&
@@ -363,16 +361,16 @@ test("published inputs are independent exact pinned files", async () => {
 
 test("registry, routes, and source viewer derive from Dollyfiles", async () => {
   const projectDir = new URL("..", import.meta.url).pathname;
-  const { DOLLY_IMAGES } = await import(artifact("dolly-images.mjs"));
+  const { images } = await json("dolly-images.json");
   const knownImages = (await discoverImageDefinitions(projectDir))
     .map(({ image, filename }) => ({ image, dollyfile: filename }));
-  const selected = new Set(DOLLY_IMAGES.map(({ image }) => image));
-  assert.ok(DOLLY_IMAGES.length > 0);
+  const selected = new Set(images.map(({ image }) => image));
+  assert.ok(images.length > 0);
   assert.deepEqual(
-    DOLLY_IMAGES.map(({ image, dollyfile }) => ({ image, dollyfile })),
+    images.map(({ image, dollyfile }) => ({ image, dollyfile })),
     knownImages.filter(({ image }) => selected.has(image)),
   );
-  for (const image of DOLLY_IMAGES) {
+  for (const image of images) {
     // Images without ENTRY or display only build: no boot route.
     const bootRoute = access(new URL(`../${image.image}/index.html`, import.meta.url)).then(() => true, () => false);
     assert.equal(await bootRoute, image.entry !== null && image.hostRequirements.includes("display@0"), `${image.image}: boot route`);
@@ -383,7 +381,7 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
   }
   // The package index names every package of the registry by its pinned recipe, then describes it.
   const index = (await readFile(new URL("../amy-index.txt", import.meta.url), "utf8")).trimEnd().split("\n").filter(Boolean);
-  assert.deepEqual(index.map(row => row.split(" ").slice(0, 3).join(" ")), DOLLY_IMAGES.filter(({ role }) => role === "package")
+  assert.deepEqual(index.map(row => row.split(" ").slice(0, 3).join(" ")), images.filter(({ role }) => role === "package")
     .map(({ image, dollyfile, sha256 }) => `${image} ${siteReference(dollyfile)} ${sha256}`));
   assert.ok(index.every(row => row.split(" ").length > 3), "a package without a description");
 });
