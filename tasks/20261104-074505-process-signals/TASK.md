@@ -82,6 +82,9 @@ after the round's suites pass on its images.
   refused (`EINVAL`) by the new kernel. Nothing in `llvm-cc`'s closure (tablegen, cmake-build,
   python) uses cast emulation (zsh, glib and ghostty-gtk do), so the round builds and pins
   `llvm-cc` before those three.
+- **Decided by the integrator (2026-11-04), the two questions this branch left:** `tcsetpgrp` keeps
+  answering ENOTTY: POSIX lists no ENOTSUP for it, and zsh reads ENOTTY as "no job control", which
+  is the truth. `runtime.h`'s spawns keep starting children at defaults, for the reasons above.
 
 ## Before (2026-11-04 08:47, Chromium, `system` built at the old seed `e7867504`)
 
