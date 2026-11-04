@@ -6,14 +6,14 @@ REQUIRES HOST runtime@0
 # for programs the cc package builds: cc links every client archive in
 # /usr/lib/dolly/process, and a program records gpu@0 only when it calls the
 # client.
-FROM /v0.1.4/Dollyfile-system-build 49255f32cac51279278fdf24bfd00d2dcb9733092350c781813f759cd10e70a1
+FROM /v0.1.4/Dollyfile-system-build 18efa6e607295aa3dca6dceaf34c4eeae1234e2c6b41a9eb4b0e579cc7130467
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
 SOURCE /v0.1.4/host/gpu/gpu.h 4c77c750144fb65eba1de4694ae3b78522a2162810fd83f72dda1592f1578000 /usr/include/dolly/gpu.h
-SOURCE /v0.1.4/host/gpu/gpu-abi.h 01e97fc225cda01fb5e295819ceb230252d45fb211b64262d5a2c63e9e065be2 /usr/include/dolly/gpu-abi.h
+SOURCE /v0.1.4/host/gpu/gpu-abi.h c72a9e5a3b0194d4f21f42856da0b05820305e34644bce2c977b47776fe8ac24 /usr/include/dolly/gpu-abi.h
 SOURCE /v0.1.4/host/gpu/client.c 57a3100dbb267e0c50fa440ceab55615ac18dcddb7cbec223e0e73a8821e9414 /tmp/libdolly-gpu/client.c
 SLOP cc -O1 -c /tmp/libdolly-gpu/client.c -o /tmp/libdolly-gpu/client.o
 SLOP ar rcs /usr/lib/dolly/process/libdolly-gpu.a /tmp/libdolly-gpu/client.o

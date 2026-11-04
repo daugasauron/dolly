@@ -8,9 +8,9 @@ REQUIRES HOST threads@0
 # links zlib and its helpers libcurl too; both serve the build and are not
 # installed with it. Git runs its asyncs, a side band's reader among them, as
 # threads; without threads it would fork them.
-FROM /v0.1.4/Dollyfile-system-build 49255f32cac51279278fdf24bfd00d2dcb9733092350c781813f759cd10e70a1
-USE /v0.1.4/Dollyfile-zlib e58241eeb6520f5a87d015bc4f19fc12898abf6e291278a9e3d22f5d936bb6e3
-USE /v0.1.4/Dollyfile-curl 6d1ea4145f7a551672910e0bb49cd139f91b823ffadd48e4956a400c67034bef
+FROM /v0.1.4/Dollyfile-system-build 18efa6e607295aa3dca6dceaf34c4eeae1234e2c6b41a9eb4b0e579cc7130467
+USE /v0.1.4/Dollyfile-zlib 1b824909ed8d21f32c11b54c953edf4b41a4c38df92716a75d5804ff31f09192
+USE /v0.1.4/Dollyfile-curl 8286e63aa4eb04fa1e49de708bbf86fbf20081d1d751e71f7ac135ac801018eb
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES HEADER curl

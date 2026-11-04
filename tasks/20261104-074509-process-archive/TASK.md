@@ -38,3 +38,20 @@ gone, or the table says which definition needs them; the digest covers the proce
 and an edit to a supervisor WAT's comment leaves `npm run build:runtime`'s image inputs unchanged
 (measured); process, threads, dso, stack, pty and rust suites pass in Chromium and Firefox on the
 round's images, `process-browser`'s own-`abort` case among them.
+
+## The digest (2026-11-04, `core/process-archive`)
+
+`scripts/generate-abi-constants.mjs` hashes what an executable compiles against: the bytes of the
+module's process WAT and hand-written headers, and the constants its kernel-boundary contracts give
+`NAME-abi.h`. Not the contracts' bytes: for thirteen modules (http, display, audio, …) the contract is
+their only WAT and the source of the constants their clients compile with, so `files("process")` and
+the headers alone would have dropped those constants from identity; their comments and types are
+between the kernel and the host, which ship together.
+
+- Measured with `npm run build:runtime`: image inputs `62485550…` before and after a comment edit in
+  `dolly-threads-supervisor-0.wat` and `dolly-http-0.wat`. The old generator on the same edit:
+  threads `fcbd4fc0…` → `734e387a…`, http `55184f83…` → `db0f6033…`; the new one keeps both. A changed
+  constant (`DOLLY_HTTP_SLOT_COUNT`) still changes http's digest.
+- Every module with a kernel-boundary contract changes its digest once (the thirteen and pty and
+  threads); dso, sockets and stack, which have none, keep theirs. The headers' recipe pins
+  (`system-build`, the `libdolly-*` packages, `html`) are replaced by hand, the references repinned.
