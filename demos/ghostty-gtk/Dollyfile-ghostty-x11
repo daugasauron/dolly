@@ -20,14 +20,14 @@ REQUIRES HOST upload@0
 # takes the display, and Ghostty draws its terminal with Mesa's OpenGL
 # (softpipe, GLX over Xlib, OpenGL 4.3 as Ghostty asks) and its window's
 # widgets with cairo. GTK's text is fontconfig's, from the terminal's font.
-FROM /v0.1.4/Dollyfile-system 7e9e71cc67cac92a750b7a2428d651614dd2e0b751fe6af3c2ff4cf1ca663bf6
-INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server cbd511e40b4917c678a00bdf0dd6b807b123cd955c8a2a664393186eb988a7bf
-INSTALL /v0.1.4/demos/ghostty-gtk/Dollyfile-ghostty-gtk 9640d2224382c8922cd7f772377d6ba10fcf14c4b5fec06a8c57a97fd84c235f
+FROM /v0.1.4/Dollyfile-system 7137d61eae37e04fa5588b688d67ec3194445704dc3c2a633038086a799cc67f
+INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server 6b3f43899f304d2033985c92069b88fd16c0bc45a19ed7cc443dd5e2b89e61e8
+INSTALL /v0.1.4/demos/ghostty-gtk/Dollyfile-ghostty-gtk 76a533ca010f3ea57ccc330659dc2d230a2717a450d9c57eecec927d36350094
 # amy installs packages into the session (tmux, nvim and the rest), with the
 # modules default declares for them; nena enables another.
-INSTALL /v0.1.4/Dollyfile-amy 76b0570b94ec36db5cdf82ed041d5f431af5991a6ea2dc6628d878fb43b195d3
-INSTALL /v0.1.4/Dollyfile-nena a0b97f4c78c9b458692d29cf1af8f0c08de5f54d640e72b208ed32a728ec4d03
-COPY /v0.1.4/Dollyfile-ghostty-build 69d31bfcf1bc6c008b60c9bd8fa9fefdda074a8aecb274b7f99a153645b211e4 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+INSTALL /v0.1.4/Dollyfile-amy c4a358ed6973e4f579d0cccaf0c18b4e04c2ddd8d53bd406e1327ac9113efe8f
+INSTALL /v0.1.4/Dollyfile-nena 468baa70f699ccc2af5f534c7ce8b0987043ca68639ac6564952a2b4451102ab
+COPY /v0.1.4/Dollyfile-ghostty-build ba5ac2c7ca64beb0782beb79f1f76f698651b2c0e92dc28354e5a125742d1f21 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 FILE /etc/fonts/fonts.conf
     <?xml version="1.0"?>
     <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
@@ -45,7 +45,7 @@ FILE /etc/dolly/init.slop
     server=$!
     echo $server > /tmp/.X0-pid
     tries=0
-    until test -e /tmp/.X11-unix/X0 || test $tries = 3000; do tries=$((tries + 1)); done
+    until test -e /tmp/.X11-unix/X0 || test $tries = 600; do sleep 0.1; tries=$((tries + 1)); done
     GDK_DEBUG=gl-glx GSK_RENDERER=cairo MESA_GL_VERSION_OVERRIDE=4.3 MESA_GLSL_VERSION_OVERRIDE=430 ghostty --command=direct:/bin/slop --shell-integration=none --gtk-single-instance=false --term=xterm-256color &
     wait $server
     printf 'The X server has ended.\n'
