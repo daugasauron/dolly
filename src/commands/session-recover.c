@@ -21,9 +21,7 @@ int main(int argc, char **argv) {
   }
   int status = 1, created = 0;
   unsigned char *bytes = NULL;
-  dolly_fs_record *records = NULL, *copies = NULL;
-  uint32_t count = 0;
-  size_t copied = 0;
+  dolly_session_delta saved = {0}, copies = {0};
   struct stat metadata;
   if (lstat(argv[2], &metadata) == 0) { errno = EEXIST; goto done; }
   if (errno != ENOENT || dolly_fs_parents(argv[2], 0) != 0) goto done;
@@ -39,32 +37,34 @@ int main(int argc, char **argv) {
   const int complete = bytes != NULL && fread(bytes, 1, size, input) == size;
   const int closed = fclose(input);
   if (!complete || closed != 0) { errno = bytes == NULL ? ENOMEM : EIO; goto done; }
-  if (dolly_session_decode(bytes, size, &records, &count) != 0) { errno = EINVAL; goto done; }
-  copies = calloc(count == 0 ? 1 : count, sizeof(*copies));
-  if (copies == NULL) goto done;
-  for (uint32_t index = 0; index < count; ++index) {
-    if (!recoverable(&records[index])) continue;
-    const size_t length = strlen(argv[2]) + strlen(records[index].path) + 1;
+  if (dolly_session_decode(bytes, size, &saved) != 0) { errno = EINVAL; goto done; }
+  copies.records = calloc(saved.count == 0 ? 1 : saved.count, sizeof(*copies.records));
+  copies.modified = calloc(saved.count == 0 ? 1 : saved.count, sizeof(*copies.modified));
+  if (copies.records == NULL || copies.modified == NULL) goto done;
+  for (uint32_t index = 0; index < saved.count; ++index) {
+    if (!recoverable(&saved.records[index])) continue;
+    const size_t length = strlen(argv[2]) + strlen(saved.records[index].path) + 1;
     if (length > PATH_MAX) { errno = ENAMETOOLONG; goto done; }
     char *path = malloc(length);
     if (path == NULL) goto done;
-    snprintf(path, length, "%s%s", argv[2], records[index].path);
-    copies[copied] = records[index];
-    copies[copied++].path = path;
+    snprintf(path, length, "%s%s", argv[2], saved.records[index].path);
+    copies.records[copies.count] = saved.records[index];
+    copies.records[copies.count].path = path;
+    copies.modified[copies.count++] = saved.modified[index];
   }
-  if (dolly_fs_validate_restore(copies, copied, 1) != 0 || mkdir(argv[2], 0755) != 0) goto done;
+  if (dolly_fs_validate_restore(copies.records, copies.count, 1) != 0 || mkdir(argv[2], 0755) != 0) goto done;
   created = 1;
-  if (dolly_fs_restore(copies, copied, 1) != 0) goto done;
-  printf("Recovered %zu saved paths to %s; skipped %zu system, deletion or symlink records.\n",
-    copied, argv[2], (size_t)count - copied);
+  if (dolly_session_restore_delta(&copies, 1) != 0) goto done;
+  printf("Recovered %u saved paths to %s; skipped %u system, deletion or symlink records.\n",
+    copies.count, argv[2], saved.count - copies.count);
   status = 0;
 done:
   if (status != 0) {
     fprintf(stderr, "session-recover: %s\n", strerror(errno));
     if (created) dolly_fs_remove_tree(argv[2]);
   }
-  dolly_session_free_records(copies, copied);
-  dolly_session_free_records(records, count);
+  dolly_session_free(&copies);
+  dolly_session_free(&saved);
   free(bytes);
   return status;
 }

@@ -11,8 +11,8 @@ REQUIRES HOST touch@0
 # text, the pointer and the wheel come from input@0, fingers from touch@0, and
 # GetTime reads the monotonic clock. <dolly/raylib.h> serves a program that holds the display
 # itself. For programs the cc package builds.
-FROM /v0.1.4/Dollyfile-system 5c6c21135126940715c839c3ec9f7ae46a3db0f45b221095c293aacea1f50a39
-INSTALL /v0.1.4/Dollyfile-libdolly-touch d2be08e0e59aa88677ab729740780f7713a9460b22e0bca346fd4f7345081476
+FROM /v0.1.4/Dollyfile-system 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/Dollyfile-libdolly-touch 0000000000000000000000000000000000000000000000000000000000000000
 REQUIRES HEADER libc
 REQUIRES HEADER display
 REQUIRES HEADER input

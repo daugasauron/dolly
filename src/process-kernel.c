@@ -48,7 +48,7 @@ typedef struct {
 
 /* What a process runs: the executable, its arguments and its environment.
  * The executable stays open until the supervisor takes it (-1 then); the image
- * is its bytes, read only when the supervisor asks for them. */
+ * is its head, read to find a Wasm header or a #! line. */
 typedef struct {
   char *path;
   char **arguments;
@@ -2711,14 +2711,23 @@ int dolly_process_next_launch(void) {
   return 0;
 }
 
-uintptr_t dolly_process_image_address(int pid) {
+/* The size of the executable's bytes, or a negative errno: -EFBIG past what
+ * the supervisor compiles. */
+int64_t dolly_process_image_size(int pid) {
   const dolly_kernel_program *program = program_to_launch(find_process(pid));
-  return program != NULL ? (uintptr_t)program->image : 0;
+  if (program == NULL || program->image_descriptor < 0) return -EINVAL;
+  struct stat metadata;
+  if (fstat(program->image_descriptor, &metadata) != 0) return -errno;
+  if (metadata.st_size > DOLLY_KERNEL_EXECUTABLE_LIMIT) return -EFBIG;
+  return metadata.st_size;
 }
 
-uintptr_t dolly_process_image_size(int pid) {
+/* The address of block `index` of the executable's bytes, in the file's own
+ * blocks (DOLLY_FS_BLOCK_SIZE each, the last short): no copy. 0 past them. */
+uintptr_t dolly_process_image_block(int pid, uintptr_t index) {
   const dolly_kernel_program *program = program_to_launch(find_process(pid));
-  return program != NULL ? program->image_size : 0;
+  if (program == NULL || program->image_descriptor < 0) return 0;
+  return dolly_fs_block(program->image_descriptor, index);
 }
 
 /* The version of the executable's bytes as they are now (dolly_fs_version):
@@ -2730,33 +2739,9 @@ uint64_t dolly_process_image_version(int pid) {
       ? dolly_fs_version(program->image_descriptor) : 0;
 }
 
-/* Reads the executable's bytes as the image, for image_address and image_size. */
-int dolly_process_image_read(int pid) {
-  dolly_kernel_program *program = program_to_launch(find_process(pid));
-  if (program == NULL || program->image_descriptor < 0) return -EINVAL;
-  if (program->image != NULL) return 0;
-  struct stat metadata;
-  if (fstat(program->image_descriptor, &metadata) != 0) return -errno;
-  if (metadata.st_size > DOLLY_KERNEL_EXECUTABLE_LIMIT) return -EFBIG;
-  unsigned char *bytes = malloc((size_t)metadata.st_size + 1);
-  if (bytes == NULL) return -ENOMEM;
-  if (lseek(program->image_descriptor, 0, SEEK_SET) != 0 ||
-      dolly_fs_read_exact(program->image_descriptor, bytes, (uintptr_t)metadata.st_size) != 0) {
-    const int error = errno;
-    free(bytes);
-    return -error;
-  }
-  program->image = bytes;
-  program->image_size = (size_t)metadata.st_size;
-  return 0;
-}
-
 int dolly_process_image_consumed(int pid) {
   dolly_kernel_program *program = program_to_launch(find_process(pid));
   if (program == NULL || program->image_descriptor < 0) return -EINVAL;
-  free(program->image);
-  program->image = NULL;
-  program->image_size = 0;
   close(program->image_descriptor);
   program->image_descriptor = -1;
   launching_pid = pid;

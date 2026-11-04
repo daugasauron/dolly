@@ -4,7 +4,7 @@ import { imageInputs } from "./image-inputs.mjs";
 import { MAX_SNAPSHOT_BYTES } from "./snapshot-records.mjs";
 import { DOLLY_VERSION } from "./version.mjs";
 
-export const DOLLY_SESSION_FORMAT_VERSION = 2;
+export const DOLLY_SESSION_FORMAT_VERSION = 3;
 export const DOLLY_SESSION_MAX_BYTES = 512 * 1024 * 1024;
 export const DOLLY_SESSION_METADATA_MAX_BYTES = 1024 * 1024;
 

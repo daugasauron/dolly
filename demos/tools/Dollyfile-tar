@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # tar of the core package does not, and it takes that one's place: /bin
 # comes first on PATH. Its -z, -j and -J start gzip, bzip2 or xz from PATH,
 # by posix_spawn instead of fork (sbase-tar-spawn.patch), and tar waits for it.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 01ab650505519c8f15bbd537f44a6c21d24bb2a0afcce34de30cc35a0860f835
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 0000000000000000000000000000000000000000000000000000000000000000
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar

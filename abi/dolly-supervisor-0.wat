@@ -34,16 +34,18 @@
   ;; 1 when a pipe changed since the last call, so deferred calls may now
   ;; complete: retry them instead of waiting for the next service tick.
   (func $take_wakeup (result i32) i32.const 0)
-  ;; The kernel opens the executable of a process to launch and reads its
+  ;; The kernel opens the executable of a process to launch and shows its
   ;; bytes only when asked. image_version is the version of those bytes as
   ;; they are now, which every write of the file renews, or zero: a module
-  ;; compiled from that version runs without them. image_read reads them for
-  ;; image_address and image_size; image_consumed closes the executable.
+  ;; compiled from that version runs without them. image_size is their size,
+  ;; or a negative errno; they lie in the file's own blocks of
+  ;; DOLLY_FS_BLOCK_SIZE bytes, the last short, each at image_block's address
+  ;; (zero past the end): the kernel makes no copy. image_consumed closes
+  ;; the executable.
   (func $next_launch (result i32) i32.const 0)
   (func $image_version (param i32) (result i64) i64.const 0)
-  (func $image_read (param i32) (result i32) i32.const 0)
-  (func $image_address (param i32) (result i64) i64.const 0)
   (func $image_size (param i32) (result i64) i64.const 0)
+  (func $image_block (param i32 i64) (result i64) i64.const 0)
   (func $image_consumed (param i32) (result i32) i32.const 0)
   (func $worker_started (param i32) (result i32) i32.const 0)
   ;; A Worker returned, failed or was stopped: PID, status and termination
@@ -97,6 +99,8 @@
   (global (export "DOLLY_TERMINAL_WORD_FOREGROUND_INTERRUPTIBLE") i32 (i32.const 3))
   (global (export "DOLLY_TERMINAL_WORD_INTERRUPT_SEQUENCE") i32 (i32.const 4))
   (global (export "DOLLY_TERMINAL_WORD_INTERRUPT_TARGET_PID") i32 (i32.const 5))
+  ;; A file's bytes lie in blocks of this size (src/file-blocks.cpp kBlockSize).
+  (global (export "DOLLY_FS_BLOCK_SIZE") i32 (i32.const 1048576))
   (func $terminal_mailbox_address (result i64) i64.const 0)
   ;; Consume the page's latest interrupt request: the targeted PID when it is
   ;; still the interruptible foreground owner, otherwise zero.
@@ -116,9 +120,8 @@
   (export "dolly_process_take_wakeup" (func $take_wakeup))
   (export "dolly_process_next_launch" (func $next_launch))
   (export "dolly_process_image_version" (func $image_version))
-  (export "dolly_process_image_read" (func $image_read))
-  (export "dolly_process_image_address" (func $image_address))
   (export "dolly_process_image_size" (func $image_size))
+  (export "dolly_process_image_block" (func $image_block))
   (export "dolly_process_image_consumed" (func $image_consumed))
   (export "dolly_process_worker_started" (func $worker_started))
   (export "dolly_process_worker_exited" (func $worker_exited))

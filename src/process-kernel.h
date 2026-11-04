@@ -157,6 +157,9 @@ int dolly_kernel_terminal_write(const unsigned char *bytes, uintptr_t length);
 int dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length);
 /* The version of the bytes a kernel descriptor reads, src/file-blocks.cpp. */
 uint64_t dolly_fs_version(int descriptor);
+/* The address of block `index` of those bytes (DOLLY_FS_BLOCK_SIZE each, the
+ * last short), or 0 past them or for no regular file. */
+uintptr_t dolly_fs_block(int descriptor, uintptr_t index);
 /* The supervisor's words about the executable it prepares, src/process-kernel.c. */
 int dolly_kernel_launch_diagnostic(const unsigned char *bytes, size_t size);
 void dolly_terminal_publish_result(int status);

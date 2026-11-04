@@ -7,11 +7,11 @@ REQUIRES HOST sockets@0
 # xkbcomp, X.Org's XKB keymap compiler, which the X server runs for its
 # keymap: from its release archive, built by its Meson project against the
 # libxkbfile package, which it links statically.
-FROM /v0.1.4/demos/x11/Dollyfile-x11-build 136a177796ee716cc58a16f4fd157f1e67baeb42af20ba4c2a0e3ff4461fb23b
-USE /v0.1.4/demos/tools/Dollyfile-meson 233fd8675b79214c001f7d479bc8756e6918f5e76780cf645fb3236030fd4598
-USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 98c0a9df548a4c83f25df442e594366788f4ce289c4136c029a8493c63a1f2ee
-USE /v0.1.4/demos/x11/Dollyfile-libxkbfile 0615e5c38d1b8bca74ad9001f5ea68afd205c35f15460b251df7ecb27f62f64a
-USE /v0.1.4/demos/tools/Dollyfile-yacc 0201935fec592bb2d2b3b75941cf32ecd25a99bf88fde63711df6168e3896bca
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build 0000000000000000000000000000000000000000000000000000000000000000
+USE /v0.1.4/demos/tools/Dollyfile-meson 0000000000000000000000000000000000000000000000000000000000000000
+USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 0000000000000000000000000000000000000000000000000000000000000000
+USE /v0.1.4/demos/x11/Dollyfile-libxkbfile 0000000000000000000000000000000000000000000000000000000000000000
+USE /v0.1.4/demos/tools/Dollyfile-yacc 0000000000000000000000000000000000000000000000000000000000000000
 REQUIRES TOOL meson
 REQUIRES TOOL byacc
 REQUIRES TOOL gzip

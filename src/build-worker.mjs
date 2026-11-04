@@ -17,11 +17,19 @@ import { checkedMemoryRange, kernelArtifact, runImage } from "./worker-image.mjs
 const encoder = new TextEncoder();
 const PIECE = 8 * 1024 * 1024;
 
-// The captured range as unshared copies of at most PIECE bytes each.
-function* capturedPieces(memory, { address, size }) {
-  for (let offset = 0; offset < size; offset += PIECE) {
-    yield new Uint8Array(memory.buffer, address + offset, Math.min(PIECE, size - offset)).slice();
+// The kernel's capture of the image, TOTAL bytes, as unshared copies of the
+// pieces it reads into the staging window of PIECE bytes.
+function* capturedPieces(kernel, memory, total) {
+  const window = checkedMemoryRange(memory, kernel.dolly_snapshot_restore_address(BigInt(PIECE)), PIECE);
+  let produced = 0;
+  for (;;) {
+    const size = Number(kernel.dolly_snapshot_capture_read());
+    if (size === 0) break;
+    if (size > window.size || size > total - produced) throw new Error("Wasm published an invalid system snapshot piece");
+    produced += size;
+    yield new Uint8Array(memory.buffer, window.address, size).slice();
   }
+  if (produced !== total) throw new Error("Dolly system snapshot capture failed");
 }
 
 await runImage(async (config, host) => {
@@ -106,7 +114,11 @@ await runImage(async (config, host) => {
       }
       prepareRecipe(files);
       for (const artifact of artifacts.values()) {
-        files.write(`/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`, new Uint8Array(await artifact.bytes.arrayBuffer()));
+        const path = `/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`;
+        for (let offset = 0; offset === 0 || offset < artifact.bytes.size; offset += PIECE) {
+          const piece = new Uint8Array(await artifact.bytes.slice(offset, offset + PIECE).arrayBuffer());
+          if (offset === 0) files.write(path, piece); else files.append(path, piece);
+        }
         if (artifact !== base) artifact.bytes = null;
       }
       // The kernel restores a snapshot against the list of its paths.
@@ -133,10 +145,9 @@ await runImage(async (config, host) => {
       artifacts.clear();
       if (status !== 0) return { status };
       stage("capturing userspace image...");
-      if (kernel.dolly_snapshot_capture() !== 0) throw new Error("Dolly system snapshot capture failed");
-      const range = checkedMemoryRange(memory, kernel.dolly_snapshot_address(), kernel.dolly_snapshot_size());
-      stage("verifying completed image...");
-      const artifact = await describeImageArtifact(capturedPieces(memory, range), recipeSha256, inputs);
+      const total = Number(kernel.dolly_snapshot_capture_begin());
+      if (total === 0 || total > snapshotSizeLimit) throw new Error("Dolly system snapshot capture failed");
+      const artifact = await describeImageArtifact(capturedPieces(kernel, memory, total), recipeSha256, inputs);
       stage("caching completed image...");
       const saved = await saveImageArtifact(artifact, custom ? `custom:${recipe.image}` : `/${definition.dollyfile}`);
       stage(saved ? "saved completed image artifact" : "image built; local cache unavailable");

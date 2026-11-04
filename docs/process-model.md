@@ -77,7 +77,8 @@ sequenceDiagram
   A start does not read an executable whose module is cached: the kernel opens the
   file and gives its version (`dolly_process_image_version`, a number every write and
   size change of the file renews), and only a version the supervisor has not compiled
-  is read (`dolly_process_image_read`) and hashed.
+  is copied out of the file's own blocks (`dolly_process_image_block`; the kernel makes
+  no copy of its own) and hashed.
 - A refusal is reported to the program that asked, not to the person at the
   page. An executable the loader refuses (a wrong stamp or import, a host module
   the session does not have or whose layout differs, a thread client without
@@ -160,6 +161,10 @@ sequenceDiagram
 - There is one user and no permission bits: `chmod`, `chown` and `access` only
   check that the file exists, and nothing changes a file's mode
   ([why](architecture.md#decisions)).
+- An image holds no times: at every boot each of its paths is dated
+  1980-01-02 UTC, older than anything a session makes, so make never rebuilds
+  for an image file, after a [session](sessions.md) restores its own times too
+  ([`system-snapshot.c`](../src/system-snapshot.c)).
 - `statvfs` reports kernel memory: its maximum as capacity, unallocated memory
   as free, and no inode limit (zero files).
 - The cwd is an open directory handle: it follows renames, `getcwd` fails with

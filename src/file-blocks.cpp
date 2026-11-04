@@ -23,9 +23,10 @@ namespace {
 using namespace wasmfs;
 
 constexpr size_t kBlockSize = size_t{1} << 20;
-// File bytes never take the kernel's last memory: starting a command the
-// supervisor has not compiled reads its executable into kernel memory, and the
-// compiler is 78 MB.
+// File bytes never take the kernel's last memory: once files fill it, the
+// kernel's own allocations (a process's arguments and environment, its pipes,
+// a file's block table, the staging range of a capture or a restore) still
+// succeed, and a full filesystem fails a write with ENOSPC instead.
 constexpr size_t kKernelReserve = size_t{128} << 20;
 
 // The last version number given, of any file; none is given twice.
@@ -156,6 +157,11 @@ public:
   uint64_t version = ++lastVersion;
   BlockFile(mode_t mode, backend_t backend) : DataFile(mode, backend) {}
   ~BlockFile() override { release(0); }
+
+  // The block holding the file's bytes from index * kBlockSize, or nullptr past the end.
+  const uint8_t *block(size_t index) const {
+    return index * kBlockSize < size ? blocks[index] : nullptr;
+  }
 };
 
 // A character device whose writes render on the terminal (src/dolly.c), which
@@ -222,13 +228,25 @@ public:
 
 } // namespace
 
+static std::shared_ptr<BlockFile> blockFile(int descriptor) {
+  auto open = wasmFS.getFileTable().locked().getEntry(descriptor);
+  if (open == nullptr) return nullptr;
+  return std::dynamic_pointer_cast<BlockFile>(open->locked().getFile());
+}
+
 // The version of the bytes a kernel descriptor reads, or 0 when it reads no
 // regular file.
 extern "C" uint64_t dolly_fs_version(int descriptor) {
-  auto open = wasmFS.getFileTable().locked().getEntry(descriptor);
-  if (open == nullptr) return 0;
-  auto file = std::dynamic_pointer_cast<BlockFile>(open->locked().getFile());
+  auto file = blockFile(descriptor);
   return file == nullptr ? 0 : file->version;
+}
+
+// The address of block `index` of the bytes a kernel descriptor reads
+// (kBlockSize each, the last short), or 0 past them or for no regular file:
+// the supervisor copies an executable from its blocks (abi/dolly-supervisor-0.wat).
+extern "C" uintptr_t dolly_fs_block(int descriptor, uintptr_t index) {
+  auto file = blockFile(descriptor);
+  return file == nullptr ? 0 : reinterpret_cast<uintptr_t>(file->block(index));
 }
 
 // Replaces WasmFS's weak default root, its memory backend.
