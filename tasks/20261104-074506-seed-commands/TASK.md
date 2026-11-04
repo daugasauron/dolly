@@ -48,6 +48,12 @@ Work on `core/seed-commands` (`work/signals`), on `integrate/2026-11-03` (seed `
   same 163 units and generates the same 31 files (`GEN` lines) as this morning's build with it:
   no Lisp is bootstrapped. `demos/emacs` tests pass (Chromium 6.3 s, Firefox 8.3 s, the package
   on default 7.5 s).
+- **Python's recipe** had a second tar-time workaround, `touch Python/frozen_modules/*.h`
+  (since its first commit, 2c9a3fcb9): the headers' prerequisites are `Lib` modules and
+  `Programs/_freeze_module.py`, from the same archive. It goes (c81eab3bc): CPython built
+  without it compiles the same 261 outputs, and `demos/python`'s tests pass (python 37.5 s in
+  Chromium; python on default 156.9 s and 209.8 s in Chromium and Firefox; python-data not
+  built here).
 - **sleep** (2f990d503, check fixed in 995a8c0f1) is a core command (`src/commands/sleep.c`,
   built in `system-build` beside `test` and `echo`, exported by `core`): a decimal number of
   seconds read to the nanosecond, then `nanosleep` until it has passed; anything else is refused
@@ -64,16 +70,40 @@ Work on `core/seed-commands` (`work/signals`), on `integrate/2026-11-03` (seed `
 - **cc -Wp,ARG** (3e10e208e): the option parser is the driver, `src/compiler.cpp` (`cc.c` only
   forwards to it), so the fix is there, beside `-Wl,`: each comma-separated ARG goes to cc1. It
   reaches images only with a new seed compiler (`llvm-cc` built and pinned).
-- **The `libc.txt` files stay: `-Wp` was only one of their reasons.** Zig 0.17's
-  `LibCInstallation.findNative` on an Emscripten host (Zig in Dolly is one) asks cc only
-  `-E -Wp,-v`, for the headers; `-print-file-name` (the crt directory) it asks on Linux, Haiku and
-  Serenity alone, so cc needs nothing for it (it still refuses it as an unknown option). Without a
-  file, `crt_dir` stays empty, and `Compilation.create` then refuses every executable that links
-  libc ("libc installation is missing crt directory", `resolveCrtPaths`): a native
-  `zig build-exe`, which `zig-llvm-browser.mjs` runs. And zig-llvm's file names a second thing
-  detection cannot: `sys_include_dir=/usr/include/wasm64-emscripten`, Emscripten's headers, which
-  Ghostty's `imgui_demo.cpp` includes under the `__EMSCRIPTEN__` Zig defines (`emscripten/version.h`;
-  detection takes the last search directory holding `stdlib.h` and the last holding
-  `sys/errno.h`, `/usr/include` for both). What `-Wp` makes work: Zig's own header detection, so
-  a `zig build-obj` needs no `ZIG_LIBC` right after `amy install` (zig017's install-then-use
-  failure), and any other tool that passes `-Wp,`.
+- **What `-Wp` removes, measured.** Zig 0.17's `LibCInstallation.findNative` on an Emscripten
+  host (Zig in Dolly is one) asks cc only `-E -Wp,-v`, for the headers; `-print-file-name` (the
+  crt directory) it asks on Linux, Haiku and Serenity alone, so cc needs nothing for it (it still
+  refuses it as an unknown option). A probe in default after `amy install zig`, with no
+  `ZIG_LIBC` (it applies from the next load), in Chromium and Firefox alike
+  (`build/signals-evidence/zig-probe.mjs`): with today's cc, `cc -E -Wp,-v` lists no
+  `/usr/include` and `zig build-obj -ofmt=c` fails; with a cc that passes `-Wp,-v` on as `-v`
+  (what 3e10e208e's driver does), both `zig build-obj -ofmt=c` and a native
+  `zig build-exe -ofmt=c` succeed. The C backend returns before Zig's crt step
+  (`Compilation.zig:2376`), so **the `zig` package's `libc.txt` and `ZIG_LIBC` can go once the
+  seed compiler has the driver.**
+- **zig-llvm's file stays.** It names what detection cannot: `sys_include_dir=
+  /usr/include/wasm64-emscripten`, Emscripten's headers, which Ghostty's `imgui_demo.cpp`
+  includes under the `__EMSCRIPTEN__` Zig defines (`emscripten/version.h`; detection takes the
+  last search directory holding `stdlib.h` and the last holding `sys/errno.h`, `/usr/include` for
+  both). And its backend links: `Compilation.create` resolves crt paths for an executable that
+  links libc and refuses an empty `crt_dir` ("libc installation is missing crt directory",
+  `resolveCrtPaths`), which `zig-llvm-browser.mjs`'s native `zig build-exe` would hit (read in
+  the source, not measured: zig-llvm-build needs the 9 GB slot).
+
+## What the round does
+
+- **Rebuild everything**: `system-build` changed (tar.c, sleep.c), so every image does; and
+  check `ghostty-x11` (not built here: `zig-llvm-build` needs the 9 GB slot) with
+  `demos/ghostty-gtk/test/ghostty-x11-browser.mjs`.
+- **The compiler round for `-Wp`.** `llvm-cc` built from this branch links the new driver; the
+  round's `pin-seed-compiler.mjs` records it (`seed-compiler-next.diff`), and pinning it makes
+  `-Wp` real. Not done here: `llvm-cc` needs this seed's `llvm-build`, which the day round had
+  not reached (it comes after the Lean chain in its heavy stage), and building it here takes about
+  an hour beyond a 6 GB slot's likely memory. Once pinned:
+  - `test/cpp-browser.mjs`'s build-system probes get
+    `"cc -E -Wp,-v -x c /dev/null 2>&1 > /dev/null | grep -qx ' /usr/include'"`;
+  - `Dollyfile-zig` drops `/usr/lib/zig/libc.txt` and `ZIG_LIBC` (its page says Zig asks cc
+    for the headers), and the amy test's zig row its `export ZIG_LIBC=…` and comment;
+  - `demos/ghostty-gtk`'s cc wrapper drops its `-Wp,-v` → `-v` mapping;
+  - zig-llvm's `libc.txt` comment says what it is for: Emscripten's headers and the crt
+    directory Zig does not look for on this host.
