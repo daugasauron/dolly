@@ -108,7 +108,6 @@ FILE /usr/bin/closed-source-agent
 EXPORTS TOOL closed-source-agent
 
 FILE /etc/dolly/init.slop
-    cd /workspace
     /bin/foreground -i /usr/bin/closed-source-agent
     printf '\nDolly: image entry exited; entering the recovery Slop shell. closed-source-agent starts it again.\n'
     /bin/foreground -i /bin/slop

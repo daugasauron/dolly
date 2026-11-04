@@ -28,7 +28,6 @@ FILE /home/dolly/.pi/agent/extensions/phone-menu.js
 # voice runs Pi above its one button, Menu, and types into Pi's terminal;
 # phone-menu.js, Pi's extension, shows the menu and tells voice what it needs.
 FILE /etc/dolly/init.slop
-    cd /workspace
     for attempt in 1 2 3; do
       /bin/foreground -i /usr/bin/voice /etc/dolly/pi.menu -- /usr/bin/pi
       status=$?

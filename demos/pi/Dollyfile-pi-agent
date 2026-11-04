@@ -24,7 +24,6 @@ REQUIRES TOOL printf
 REQUIRES TOOL pi
 
 FILE /etc/dolly/init.slop
-    cd /workspace
     if test -f "$HOME/.dollyrc"; then
       /bin/foreground /bin/slop -e "$HOME/.dollyrc"
       status=$?

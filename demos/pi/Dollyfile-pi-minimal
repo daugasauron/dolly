@@ -24,7 +24,6 @@ REQUIRES TOOL printf
 REQUIRES TOOL pi
 
 FILE /etc/dolly/init.slop
-    cd /workspace
     /bin/foreground -i /usr/bin/pi
     printf '\nDolly: image entry exited; entering the recovery Slop shell.\n'
     /bin/foreground -i /bin/slop
