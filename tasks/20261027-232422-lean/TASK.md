@@ -124,8 +124,11 @@ With 4 s between the steps (`spaced-chromium.log`, the old libc), each dead `lea
 the next step (`v8-sandbox` 3.80, 3.77 after the wait, 4.32, 3.58, 4.09, 3.58), `lake new` ends at
 4.54 GB, and `lake build` is still killed (peak at the cap, 5.67 at the last sample): inside it
 Lake starts a `lean` for each module, one after another, each kept two seconds (not measured
-apart). Whether it fits once they are not is the round's measurement; on 2026-11-02 `lake build`
-peaked at 5.58.
+apart). At the last sample the scope held 5.67 GB anonymous and 0.74 of page cache (the test
+server's reads and the pack store's writes), the renderer 5.37 (`v8-sandbox` 4.19,
+`partition_alloc` 0.82, where `lake`, `lean` and the compiler keep their wire bytes). Whether it
+fits once the dead `lean` processes go at once is the round's measurement; on 2026-11-02
+`lake build` peaked at 5.58.
 
 **The fix: an ending process wakes its waiting threads** (`src/process/threads.c`, a seed
 input). Each thread records the futex word it waits on; `exit` (`__wasi_proc_exit`) and an exit
