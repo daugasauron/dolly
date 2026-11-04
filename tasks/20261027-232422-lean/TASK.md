@@ -504,13 +504,26 @@ Chromium is killed at `lake new` and `lake build`, as before the change. Firefox
 - A large program's first run leaves its compiled module behind (most likely; 0.8 GB for
   `lean`'s 214 MB in Firefox, 0.3 in Chromium): a browser slot's budget for a test of big
   programs is the session plus each one's compiled code, which differs by browser.
+- (2026-11-05 night) A process's memory goes with its Workers only as fast as the browser ends
+  them, and Chrome ends a running Worker two seconds after `terminate()`; a futex wait inside
+  WebAssembly counts as running. The supervisor can make a thread leave only from a call it
+  answers; a wait in the program's own memory needs the program (its libc) to wake it.
+- (2026-11-05 night) Probes sized like the workload found real but secondary costs (compiled
+  modules piling up); the cause that killed the tab appeared only once the real images ran, at
+  01:40. When the real workload is not available, reproduce its structure (a task pool's idle
+  threads at exit), not only its sizes, and measure the gap between steps as well as the steps.
 - (2026-11-04 night) A browser frees what JavaScript drops only at a collection, and compiled
   code does not count toward one: a Module dropped in Firefox stayed 30 s, and the evicted ones
-  of a cache piled up to five. `ArrayBuffer.prototype.transfer(0)` frees a buffer at once, and
-  ending a Worker frees what it alone holds at once: put what must go at a known time in
-  something that can be ended. Freeing less garbage can make the rest stay longer: removing the
-  supervisor's 96 MB copies alone made the next collection later and the peak higher.
-- (2026-11-04 night) Per-mapping memory makes attribution cheap: Firefox names its mappings
-  (`wasm-reserved` for a Wasm memory, `js-executable-memory` for compiled code, `jemalloc`),
-  so `smaps` summed by name says which allocation a step's high-water is. Chromium's are all in
-  `v8-sandbox` and `partition_alloc`.
+  of a cache piled up to five. Ending a Worker frees what it alone holds at once, and
+  `ArrayBuffer.prototype.transfer(0)` a buffer: put what must go at a known time where it can
+  be ended. Freeing less garbage can make the rest stay longer: removing the supervisor's 96 MB
+  copies alone made the next collection later and the peak higher.
+- (2026-11-04 night) Firefox names its mappings (`wasm-reserved` for a Wasm memory,
+  `js-executable-memory` for compiled code, `jemalloc`), so `smaps` summed by name says which
+  allocation a step's high-water is; Chromium's are all `v8-sandbox` and `partition_alloc`.
+  Two identical Firefox runs differed by 0.3 to 0.5 GB at the floor: run twice before
+  attributing a difference to a change.
+- (2026-11-05 night) `git checkout REV -- FILE` stages FILE: a later `git add OTHER && git
+  commit` committed the staged revert of tonight's libc fix too (amended at once). Set files
+  aside for a measurement with `git restore --source=REV --worktree FILE`, which leaves the
+  index alone.
