@@ -16,8 +16,8 @@ INSTALL /v0.1.4/Dollyfile-core 74fabeb7587e54b39bb59351ed5e8146d3eb77cb526c65c00
 INSTALL /v0.1.4/Dollyfile-posix 4edbe26685a71e67d5360b567b708c1cb373b124d4143c680cf0a6a1ba90ebae
 INSTALL /v0.1.4/Dollyfile-display 2be7cbca13647b99084a669132428169b2d5a6bde7a291642efc5c584f9ffd63
 INSTALL /v0.1.4/Dollyfile-transfer 2d667f4f6ce328336579aeb172cc87c211fae513c9d4c6ba8883607f7a9ec368
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 1670b41411b0499d8c817566415f61651b7f0a34ae0507af097abd688bc13351
-INSTALL /v0.1.4/demos/rts/Dollyfile-seven-kingdoms a2c73d1bc5974541119d7eb762cde8bb7bc9e35fd306aefb180b4dba4df9ab53
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly f6ace78255325beb786fed199b394a5d1956dd60373e4fcef4b19f068efd8992
+INSTALL /v0.1.4/demos/rts/Dollyfile-seven-kingdoms 24c8ee9e76d4681121cbf4efb19e23ff047d2751a13f4cc746c4d3ae4dc71beb
 # cc, SDL2 and zlib: the arena's checks compile against the game's headers in
 # the session (demos/rts/test).
 INSTALL /v0.1.4/Dollyfile-cc 53efa9fa48567501751d60f4172407b9bd62ea6dfa65eca475d0f6d62f6fef2e
