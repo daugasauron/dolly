@@ -169,6 +169,13 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
     "cc -c own-abort.c -o own-abort.o && ar rcs libown-abort.a own-abort.o && " +
     "printf '%s\\n' '#include <stdlib.h>' 'int main(void) { abort(); }' > calls-abort.c && " +
     "cc calls-abort.c -L. -lown-abort -o calls-abort && (./calls-abort; test $? = 7)");
+  // mprotect is the adapter's in a program that maps nothing and first reaches
+  // the system calls Emscripten's stubs answered (sync, getgroups).
+  await run(`cd ${scratch} && printf '%s\\n' '#include <errno.h>' '#include <sys/mman.h>' '#include <unistd.h>' ` +
+    "'static char page[65536];' 'int main(void) { gid_t group; sync();' " +
+    "'  if (getgroups(0, NULL) != 1 || getgroups(1, &group) != 1 || group != 0) return 1;' " +
+    "'  return mprotect(page, sizeof page, PROT_READ) == -1 && errno == ENOTSUP ? 0 : 2; }' > protects.c && " +
+    "cc protects.c -o protects && ./protects");
   // Ninja runs its jobs at once: each of the two waits for the other to start.
   const ninja = ["rule a", "  command = touch a-started; until test -e b-started; do sleep 1; done; touch $out",
     "rule b", "  command = touch b-started; until test -e a-started; do sleep 1; done; touch $out",
