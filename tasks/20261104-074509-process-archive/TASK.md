@@ -156,7 +156,7 @@ Found on the way: C11 `thrd_sleep` (libc-mt only) did not link: it calls libc's
 
 ## Lessons
 
-- Fifteen sampled programs linked the same with and without the flag; the one that did not was
+- Fourteen sampled programs linked the same with and without the flag; the one that did not was
   found by listing, with `llvm-nm`, every name the adapter defines that a later archive member also
   defines, and then writing the program for it. A link-model change is checked by its overlaps,
   not by the programs at hand.
