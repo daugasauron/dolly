@@ -245,9 +245,11 @@ uint64_t __dolly_pthread_start(uint32_t tid, uint64_t argument) {
 static volatile int ending;
 
 void __dolly_threads_end(void) {
-  pthread_t self = __pthread_self();
-  __tl_lock();
   __atomic_store_n(&ending, 1, __ATOMIC_SEQ_CST);
+  /* The ending thread may hold the list's lock, in a call a signal ends: it
+   * does not wait for it, and wakes no one if another holds it. */
+  if (__atomic_exchange_n(&thread_list_lock, 1, __ATOMIC_ACQUIRE)) return;
+  pthread_t self = __pthread_self();
   for (pthread_t thread = self->next; thread != self; thread = thread->next) {
     volatile void *address = __atomic_load_n(&record(thread)->waiting, __ATOMIC_SEQ_CST);
     if (address) __builtin_wasm_memory_atomic_notify((int *)address, -1);

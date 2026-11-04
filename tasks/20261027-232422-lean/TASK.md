@@ -37,14 +37,15 @@ Firefox (56.5 s) in the round of 2026-11-04 (`round-1104b`, its 36 GB scope); th
 In a 6 GB slot the test fails in both browsers on the night round's images (below):
 
 - Chromium is killed at `lake build`: each dead `lean` kept its memory two seconds, with threads
-  waiting on a futex. Fixed in the libc (1b4eb49b1, a seed input: image inputs `411082a5`);
-  measured on a C program in both browsers, not yet on Lean, whose images carry the old libc.
-  The next catalog round builds them; then run the test in a 6 GB Chromium.
-- Firefox is killed at `lake new` (once at the first `lean`): its floor after the install is
-  4.4 to 4.9 GB, 3.46 of it the package's files in the kernel's memory, and compiling `lake`
-  needs 1 GB more. No change of tonight's reaches that; the proposal below does.
-- Large executables' compiled modules now go when nothing holds them (d130c6c45): a cache
-  thrash no longer piles modules up in Firefox; it does not change Lean's numbers.
+  waiting on a futex. Fixed in the libc (1b4eb49b1 and the commit after it, a seed input: image
+  inputs `878b1cb7`), measured on a C program in both browsers, not yet on Lean, whose images
+  carry the old libc. The next catalog round builds them; then run the test in a 6 GB Chromium.
+- Firefox was killed at `lake new` (once at the first `lean`), now at `lake build`: its floor
+  after the install is 4.4 to 4.9 GB, 3.46 of it the package's files in the kernel's memory,
+  and compiling `lean` beside a running `lake` needs 1.5 GB more. The proposal below is what
+  reaches that.
+- Large executables' compiled modules now go when nothing holds them (d130c6c45), and the cache
+  evicts what a module replaces before compiling it (676bdb3ee): `lake new` passes in Firefox.
 
 Left: the test in a 6 GB Chromium after the round; Firefox at 6 GB (the proposal, the
 owner's); the release's checks of the domain's catalog (below).
@@ -123,18 +124,24 @@ processes are resident when `lake build` starts its own. Firefox frees them at o
 Each thread records the futex word it waits on; `exit` (`__wasi_proc_exit`) and an exit by a
 signal (`dolly_exit_signal`) first call `__dolly_threads_end`, which marks the process ending
 and wakes every recorded word; a thread that wakes, or is about to wait, in an ending process
-leaves by `dolly_thread_exit`, whose Worker ends at once. A thread that is computing, not
+leaves by `dolly_thread_exit`, whose Worker ends at once. The ending thread does not wait for
+the thread list's lock (it may hold it, in a call a signal ends: `pthread_create` spawns under
+it); if another thread holds it, nobody is woken and Chrome's delay stays. A thread that is computing, not
 waiting, at the end still takes Chrome's two seconds, and so does every thread of a process
-killed by a trap or by the supervisor. On the changed seed (image inputs `411082a5`; `default`,
+killed by a trap or by the supervisor. On the changed seed (image inputs `411082a5`, then
+`878b1cb7` with the lock not waited for; `default`,
 `cc`, `system` and their closure rebuilt in this tree, 951 s), the same `probe/cond.c` runs
 leave nothing: `v8-sandbox` 0.40 to 0.41 GB after each, where it was 0.96, 1.52 and 2.08
 (`cond-fixed.log`); Firefox unchanged. `test/process-memory-browser.mjs` gains the case
 (`process-touch.c idle`, twenty in a row): on the old libc it fails in Chromium (559 MiB over
 the baseline, each run still resident a second after it), on the changed one it passes in both
-(Chromium +31 MiB over twenty runs). On the changed seed `process-memory`, `process`,
-`core` and `ending` pass in Chromium and Firefox, and `threads` passed in both twice; once,
-in the run with the others, its Firefox half exceeded 120 s (not attributed, as on 2026-11-04 at
-23:05). Lean's images carry the old libc: their next build, the catalog round's, is what shows
+(Chromium +31 MiB over twenty runs). On `411082a5` `process-memory`, `process`, `core` and
+`ending` passed in Chromium and Firefox, and `threads` in both twice; once, in the run with the
+others, its Firefox half exceeded 120 s (not attributed, as on 2026-11-04 at 23:05). On
+`878b1cb7` (`default`, `cc`, `system`, `stack-wrap` and `libdolly-gpu` rebuilt, 950 s) the probe
+again leaves nothing in either browser (`cond-trylock.log`), and `process-memory`, `threads`,
+`process`, `core`, `ending`, `stack`, `ended-worker` and `dso` pass in both, in one run
+(`supervisor-tests-trylock.log`). Lean's images carry the old libc: their next build, the catalog round's, is what shows
 it on Lean.
 
 **Firefox: the floor.** 4.4 to 4.9 GB after the install, and compiling `lean` peaks 1.0 GB above
