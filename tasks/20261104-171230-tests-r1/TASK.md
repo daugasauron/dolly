@@ -4,7 +4,7 @@
 - PRIORITY: 250
 - TAGS: tests,0.1.5
 
-## State (2026-11-05 02:50 JST): both done on `fix/tests-r1`, and gpu-fluid's test; close after the round
+## State (2026-11-05 03:20 JST): both done on `fix/tests-r1`, and gpu-fluid's test; close after the round
 
 Both fixes are committed and verified in this tree (image inputs `88959af6`), and a third of
 the same kind found on the way (section 3). The round must build `slopyard-build` (new),
@@ -108,10 +108,20 @@ Chromium on the GPU window: `fluid --check` and four benches, each replay equal 
 run, two interrupts and the boundary proof pass (`gpu-fluid-4.log`). Firefox gets no WebGPU
 adapter on this Xvfb, before any step, as before (f75eddfc8 proved Chromium only).
 
+## 4. The round's other GPU test on R1's images
+
+`demos/local-llm/test/local-llm-browser.mjs`, in the round's GPU block, opens `pi-local` and
+`dollyfile-studio`, which R1 reassembled (`pi-llm`); R1 proved their start screens only.
+On this tree's images (`minicpm5-2b`, the model it installs, built here for it) it passes on
+the GPU window in Chromium and Firefox: bundled inference, reuse, cancellation, session restore
+and fresh boot; in both images a task, `minicpm5-2b` installed and chosen with `/local`, its
+temperature and context changed, the task again, external requests denied
+(`gpu-local-llm.log`).
+
 ## Not done
 
-- This tree's catalog registers 186 images: 18 (`go`, `go-build`, `go-tools`, `esbuild`, the
-  four Lean images, `llvm`, `llvm-build`, `llvm-cc`, `lfm2.5`, `minicpm5-2b`, `qwen3.5-4b`,
+- This tree's catalog registers 187 images: 17 (`go`, `go-build`, `go-tools`, `esbuild`, the
+  four Lean images, `llvm`, `llvm-build`, `llvm-cc`, `lfm2.5`, `qwen3.5-4b`,
   `rust-tools`, the three 0 A.D. images) were never built for this seed here; a plain `npm run
   image` started them and was stopped at `lean-stage0` (Lean and LLVM do not fit a 6 GB build
   slot). `go` failed in it: "fork/exec /usr/lib/go/pkg/tool/dolly_wasm64/compile: Invalid
