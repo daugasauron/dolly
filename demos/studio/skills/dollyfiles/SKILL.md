@@ -13,7 +13,7 @@ describes the machine itself (network, shell, compilers).
 
 1. Start from a copy of an example in `/usr/share/dollyfile-studio/examples/`:
    `Dollyfile-tool` compiles a C command, `Dollyfile-hello` only adds files.
-   Their `FROM` lines carry correct pins; keep them.
+   Their `INSTALL` lines carry correct pins; keep them.
 2. Write the recipe in `/workspace` with Pi's write and edit tools.
 3. `dollyfile-lint RECIPE` checks this one file's syntax; it reads no other
    recipe and runs nothing.
@@ -32,20 +32,22 @@ Never run `/bin/dollyfile` here: it replaces the running image.
 - Line 1 `DOLLY 7`, line 2 the role: `APPLICATION name` (opened by people;
   needs `ENTRY`), `TOOLCHAIN name` (a base to build on) or `PACKAGE name`
   (installed with `INSTALL` or `amy`; no `ENTRY`).
+- An application is made of packages and has no `FROM`: it installs `core`
+  (Slop and its commands), `posix` (the text tools), `display` (the
+  terminal) and the packages it is for, as the examples do; `cc` compiles
+  (`amy list` names the rest). A `TOOLCHAIN` or a `PACKAGE` may start
+  `FROM` a base, as its first operation, and a package's build keeps only
+  what it exports.
 - `REQUIRES HOST name@0` lines come right after the role and list every host
   module the image uses, `runtime@0` first: every image and package names the
-  runtime it is built on. Nothing is inherited from `FROM` or `INSTALL`: an
-  application on `system` repeats every line of system's own (runtime, display,
-  input, download, http, snapshot, upload, threads: `grep '^REQUIRES HOST'
-  /etc/dolly/recipes/Dollyfile-system` prints them), or the build fails on
-  `FROM`, naming a program that uses a missing one (Git uses `threads@0`).
-  Installing a package means declaring every module that package declares
-  (ripgrep and fd need `http@0` and `threads@0`). Read the package's recipe first; otherwise
-  the build fails on the `INSTALL` row, naming the missing line.
-- `FROM PATH SHA256` is the first operation. `INSTALL PATH SHA256` adds a
-  package anywhere after it. In a `PACKAGE`, `USE PATH SHA256` installs one
-  for the build only; what installs the package does not get it. `COPY`
-  takes files out of another image.
+  runtime it is built on. Nothing is inherited from `FROM` or `INSTALL`. An
+  application declares `runtime@0`, `display@0`, `input@0` and `snapshot@0`
+  (Ctrl+Shift+S) and every module its packages declare (ripgrep and fd need
+  `http@0` and `threads@0`). Read each package's recipe first; otherwise the
+  build fails on the `INSTALL` row, naming the missing line.
+- `INSTALL PATH SHA256` adds a package anywhere. In a `PACKAGE`,
+  `USE PATH SHA256` installs one for the build only; what installs the
+  package does not get it. `COPY` takes files out of another image.
 - `SLOP command` runs one shell command line in `/`; each is a fresh shell, so
   use `SLOP CWD /dir ...` instead of `cd`. `RUN /program args` runs a program
   without a shell. Any failure stops the build.
@@ -69,8 +71,9 @@ also be a full URL of another site.
 
 - Packages: `amy list` names and describes them; `amy info NAME` prints the
   `INSTALL PATH SHA256` row.
-- Recipes this image was built from (system among them):
-  `grep NAME /etc/dolly/recipes.lock` prints each one's path and pin.
+- Packages this image holds (core, posix, display and cc among them):
+  `grep NAME /etc/dolly/installed` prints each one's `INSTALL` row;
+  `/etc/dolly/recipes.lock` names every recipe it was built from, with its pin.
 - Any published recipe or file: `curl -fsS PATH -o /tmp/x && sha256sum /tmp/x`
   with its path as another recipe writes it; the page serves its own copy.
 - Builds may only use images this release publishes. Upstream sources that

@@ -11,25 +11,23 @@ execFileSync(process.execPath,[resolve(root,"scripts/build-source-tar.mjs"),outp
 const hash=bytes=>createHash("sha256").update(bytes).digest("hex");
 const pin=async path=>`${siteReference(path)} ${hash(await readFile(resolve(root,path)))}`;
 // The Lua archive pin is refreshed by update-recipe-pins --sources.
-const luaPin=(/lua-5\.5\.1\.tar\.gz ([0-9a-f]{64})/.exec(await readFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),"utf8").catch(()=>""))??[,"0".repeat(64)])[1];
-await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),`DOLLY 7
-APPLICATION slopyard
+const luaPin=(/lua-5\.5\.1\.tar\.gz ([0-9a-f]{64})/.exec(await readFile(resolve(root,"demos/slopyard/Dollyfile-slopyard-game"),"utf8").catch(()=>""))??[,"0".repeat(64)])[1];
+await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard-game"),`DOLLY 7
+PACKAGE slopyard-game
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
-REQUIRES HOST html@0
 REQUIRES HOST input@0
 REQUIRES HOST touch@0
 REQUIRES HOST download@0
 REQUIRES HOST gpu@0
 REQUIRES HOST http@0
-REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
-REQUIRES HOST upload@0
 
+# Slopyard, its Lua 5.5 and its Box3D build, with its sources: the game the
+# slopyard application opens.
 FROM ${await pin("demos/slopyard/Dollyfile-gamedev-sdk")}
-INSTALL ${await pin("Dollyfile-libdolly-gpu")}
-INSTALL ${await pin("demos/javascript/Dollyfile-janis")}
-INSTALL ${await pin("demos/pi/Dollyfile-pi-dolly")}
+USE ${await pin("Dollyfile-libdolly-gpu")}
+USE ${await pin("demos/javascript/Dollyfile-janis")}
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make
@@ -77,8 +75,32 @@ SLOP cc -std=c17 -O2 -pthread -I/usr/include/lua5.5 /usr/src/dolly/slopyard/main
 SLOP /usr/bin/slopyard --check
 SLOP rm -rf /tmp/slopyard-box3d
 EXPORTS TOOL slopyard
+FILE /usr/share/man/cat1/slopyard.1
+    slopyard: build walkers, boats, cranes and aircraft from boxes and servo
+    joints, program them in Lua and let an embedded Pi agent drive them, in a
+    coastal scrapyard where two teams deliver cargo.
+    slopyard --check runs the game's own checks.
 EXPORTS LIB slopyard-box3d /usr/lib/libslopyard-box3d.a
 EXPORTS FOLDER slopyard-source /usr/src/dolly/slopyard
+`);
+await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),`DOLLY 7
+APPLICATION slopyard
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST touch@0
+REQUIRES HOST gpu@0
+REQUIRES HOST download@0
+REQUIRES HOST html@0
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
+
+INSTALL ${await pin("Dollyfile-core")}
+INSTALL ${await pin("Dollyfile-posix")}
+INSTALL ${await pin("Dollyfile-display")}
+INSTALL ${await pin("demos/pi/Dollyfile-pi-dolly")}
+INSTALL ${await pin("demos/slopyard/Dollyfile-slopyard-game")}
 
 FILE /etc/dolly/init.slop
     /bin/foreground /usr/bin/slopyard

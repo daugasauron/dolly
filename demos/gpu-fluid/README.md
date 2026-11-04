@@ -6,6 +6,7 @@ Dolly over the core `gpu@0` interface, with liquid ink and volumetric smoke.
 ## Images
 
 - `gpu-fluid`: Stir liquid ink and volumetric smoke. Requires WebGPU.
+- `fluid`: `fluid`, the solver and its renderer, with their sources; it needs `display@0`, `input@0` and `gpu@0`.
 
 Open `/gpu-fluid/`; build with `npm run image -- gpu-fluid`.
 

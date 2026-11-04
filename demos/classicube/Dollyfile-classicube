@@ -2,54 +2,26 @@ DOLLY 7
 APPLICATION classicube
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
-REQUIRES HOST html@0
 REQUIRES HOST input@0
+REQUIRES HOST snapshot@0
 REQUIRES HOST audio@0
 REQUIRES HOST touch@0
 REQUIRES HOST download@0
+REQUIRES HOST html@0
 REQUIRES HOST http@0
-REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
-REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime aa2d51897b0ec36358e884cfe95eef2a5378aadacd102677ad42e68e9fc5a473
+INSTALL /v0.1.4/Dollyfile-core 74fabeb7587e54b39bb59351ed5e8146d3eb77cb526c65c00c2d90f11495b775
+INSTALL /v0.1.4/Dollyfile-posix 4edbe26685a71e67d5360b567b708c1cb373b124d4143c680cf0a6a1ba90ebae
+INSTALL /v0.1.4/Dollyfile-display 2be7cbca13647b99084a669132428169b2d5a6bde7a291642efc5c584f9ffd63
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 1670b41411b0499d8c817566415f61651b7f0a34ae0507af097abd688bc13351
+INSTALL /v0.1.4/demos/classicube/Dollyfile-classicube-agent 069394e93d2c8de7bb048d8a1afa4e3da78ee52899818ce28c17a039b1d7fb5f
 COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 9ebcce3a856c2196d73bf64e3dc2f6bf8309c6b105a9f817f9b6cf1499098ac0 /usr/bin/classicube /usr/bin/classicube
 COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 9ebcce3a856c2196d73bf64e3dc2f6bf8309c6b105a9f817f9b6cf1499098ac0 /usr/share/classicube /home/dolly/classicube
 COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 9ebcce3a856c2196d73bf64e3dc2f6bf8309c6b105a9f817f9b6cf1499098ac0 /usr/share/licenses/classicube /usr/share/licenses/classicube
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 adf88beda7f41cbd97b32fe0f27906f8c4893f10bef9e1bb18f670ceb7c05584
 EXPORTS TOOL classicube
-REQUIRES HEADER cpp
-REQUIRES HEADER quickjs-runner
-REQUIRES HEADER sdl2
-REQUIRES LIB dolly-js
-REQUIRES LIB quickjs
-REQUIRES LIB SDL2
-REQUIRES LIB z
-REQUIRES HEADER zlib
-REQUIRES TOOL cc
-REQUIRES TOOL c++
 REQUIRES TOOL pi
-REQUIRES TOOL classicube
-REQUIRES TOOL tar
-REQUIRES TOOL rm
-
-SOURCE /v0.1.4/dist/static/classicube/agent.tar a575c5c5354cb8210464a4577204ed3169a31838ad981acac4cba3adaa30e60e /tmp/classicube-agent/source.tar
-SOURCE /v0.1.4/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/classicube-agent/stb_truetype.h
-SLOP tar -xf /tmp/classicube-agent/source.tar -C /
-SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/classicube-agent \
-  /usr/src/dolly/classicube/agent/viewer.cpp -o /usr/bin/classicube-viewer -lSDL2 -lm
-SLOP cc -O2 /usr/src/dolly/classicube/agent/pack.c -o /usr/bin/classicube-pack -lz
-SLOP cc -std=gnu11 -I/usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE \
-  -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char \
-  /usr/src/dolly/classicube/agent/launch.c -ldolly-js -lquickjs -o /usr/bin/classicube-agent
-
-EXPORTS TOOL classicube-agent
-EXPORTS TOOL classicube-viewer
-EXPORTS TOOL classicube-pack
-EXPORTS FOLDER classicube-agent-source /usr/src/dolly/classicube/agent
-EXPORTS FOLDER game-agent-source /usr/src/dolly/game-agent
-EXPORTS FOLDER game-input-source /usr/src/dolly/rts
-SLOP rm -rf /tmp/classicube-agent
+REQUIRES TOOL classicube-agent
 
 FILE /home/dolly/classicube/options.txt
     window-width=640

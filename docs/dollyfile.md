@@ -12,21 +12,33 @@ order.
 
 ```text
 DOLLY 7
-APPLICATION example
+PACKAGE example
 REQUIRES HOST runtime@0
-REQUIRES HOST display@0
-REQUIRES HOST input@0
 
 FROM /vX.Y.Z/Dollyfile-system <sha256>
-INSTALL /vX.Y.Z/demos/javascript/Dollyfile-janis <sha256>
-
 FILE /tmp/example.c
     #include <stdio.h>
     int main(void) { puts("hello"); }
 SLOP cc /tmp/example.c -o /usr/bin/example
 EXPORTS TOOL example
+```
 
-ENTRY /bin/foreground -i /bin/slop
+```text
+DOLLY 7
+APPLICATION example-app
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+
+INSTALL /vX.Y.Z/Dollyfile-core <sha256>
+INSTALL /vX.Y.Z/Dollyfile-posix <sha256>
+INSTALL /vX.Y.Z/Dollyfile-display <sha256>
+INSTALL /vX.Y.Z/demos/example/Dollyfile-example <sha256>
+
+FILE /etc/dolly/init.slop
+    /bin/foreground /usr/bin/example
+    /bin/foreground -i /bin/slop
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
 ```
 
 Recipes name every image and file they read with its SHA-256. A file the
@@ -142,6 +154,10 @@ mounted, and reads no other version's.
   and declares: `default` is `core`, `posix`, `display`, `curl`, `amy`, `nena`,
   `transfer`, `html`, `ps`, its start-up script and an ENTRY, with no compiler. It opens, and `amy` installs
   into it, but it is not a base to compile on: `FROM` a toolchain for that.
+  Every application of the catalog is built so
+  ([`lint-dollyfiles.mjs`](../scripts/lint-dollyfiles.mjs) refuses one with
+  `FROM`): it installs `core`, `posix`, `display` and the packages of what it
+  is for, and a program it builds for itself is a package first.
 - `INSTALL` restores a package's retained files, applies and exports its
   environment and exports its objects. It may appear anywhere and names only a
   package. A package holds its own files and names the packages its recipe
@@ -279,10 +295,10 @@ exports and environment it declares, built in a toolchain (`FROM`) or from
 nothing, and installed by recipes and sessions with the same row.
 
 Software is a package when a session would install it (`amy install cmake`)
-or more than one image uses it. An application, or a toolchain people open,
-is then a base, `INSTALL` rows and its own entry and configuration
-(`codex-agent`, `neovim`, `rust-tools`); a toolchain remains where software is
-built. The same `COPY` rows in two recipes are a missing package. The core
+or more than one image uses it. An application is then `core`, `posix`,
+`display`, its packages and its own entry and configuration (`codex-agent`,
+`neovim`); a toolchain people open is a base and `INSTALL` rows
+(`rust-tools`); a toolchain remains where software is built. The same `COPY` rows in two recipes are a missing package. The core
 is packaged the same way: `core` (Slop and its commands), `cc` (the C/C++
 toolchain) and `dollyfile` (the recipe engine, which `amy` installs) are kept
 from the toolchain that builds them; `amy`, `git` and `transfer` hold their

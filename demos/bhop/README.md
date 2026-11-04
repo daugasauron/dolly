@@ -6,6 +6,7 @@ agent overlay. The game, physics and rendering are unchanged by the agent.
 ## Images
 
 - `bhop`: Airtime: Foundry — strafe trials and scroll jumping.
+- `airtime`: the game (`bhop`), its agent overlay (`bhop-agent`) and viewer, with the sources and makefile that build the game again.
 
 Open `/bhop/`; build with `npm run image -- bhop`.
 

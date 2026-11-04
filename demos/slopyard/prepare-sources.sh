@@ -1,9 +1,9 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_image slopyard; then
+if has_image slopyard-game; then
   lua55_archive="$(bash scripts/fetch-pinned-archive.sh lua55)"
   copy_static "${lua55_archive}" slopyard/lua-5.5.1.tar.gz
 fi
-if has_image slopyard; then
+if has_image slopyard-game; then
   node demos/slopyard/prepare-slopyard.mjs "${static_dir}/slopyard/source.tar"
 fi
 if has_image raylib; then

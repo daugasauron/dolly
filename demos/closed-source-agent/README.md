@@ -1,8 +1,8 @@
 # closed-source-agent
 
 Runs Claude Code, Anthropic's command-line coding agent, unchanged under
-Janis ([JavaScript](../javascript/README.md)) in a session of `system`,
-`janis-install` and `ripgrep`. Claude Code is Anthropic's software under its
+Janis ([JavaScript](../javascript/README.md)) in a session of `core`, `posix`,
+`amy`, `janis-install` and `ripgrep`. Claude Code is Anthropic's software under its
 [Commercial Terms](https://code.claude.com/docs/en/legal-and-compliance), not
 part of Dolly, which is not affiliated with Anthropic: nothing of it is in
 this repository, in the image or on the sites ([licences](../../docs/licences.md)).
@@ -10,6 +10,7 @@ this repository, in the image or on the sites ([licences](../../docs/licences.md
 ## Images
 
 - `closed-source-agent`: runs Claude Code, downloaded from npm into the session after a notice of its terms.
+- `anykey`: `anykey PROMPT` shows PROMPT and prints the one key then pressed; Ctrl+C is status 130.
 - `secretenv`: `secretenv NAME PROMPT COMMAND`, which reads a secret without showing it into one command's environment.
 
 Open `/closed-source-agent/`; build with `npm run image -- closed-source-agent`.

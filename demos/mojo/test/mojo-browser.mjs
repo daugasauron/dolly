@@ -6,7 +6,7 @@
 // Headless Chrome has a software adapter. With a GPU window on DISPLAY, Chrome
 // and the installed Firefox run it on the GPU as well.
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
 import { shellPrompt, writeCommand } from "../../browser.mjs";
@@ -15,8 +15,9 @@ import { sourcePins } from "../../../scripts/upstreams.mjs";
 const root = new URL("../../../", import.meta.url);
 const programs = ["hello", "library", "tasks", "saxpy", "kernels", "mandelbrot", "output", "shared"], upstream = ["hello_writing", "gpu_hello"];
 const notebooks = `.cache/modular-${(await sourcePins(root.pathname)).get("MODULAR").commit}/Mojo/docs/site/code/tools/notebooks`;
-const fixtures = { ...Object.fromEntries(upstream.map(name => [`${name}.mojo`, `${notebooks}/${name}.mojo`])),
-  ...Object.fromEntries(programs.map(name => [`${name}.mojo`, `demos/mojo/target/test/fixtures/${name}.mojo`])) };
+// The image has no network edge: the programs are written into the session.
+const sources = Object.fromEntries(await Promise.all([...upstream.map(name => [name, `${notebooks}/${name}.mojo`]),
+  ...programs.map(name => [name, `demos/mojo/target/test/fixtures/${name}.mojo`])].map(async ([name, path]) => [name, await readFile(new URL(path, root), "utf8")])));
 // The installed Firefox is a snap with a private /tmp: its profile must live under $HOME.
 process.env.TMPDIR = new URL("build/mojo-test/", root).pathname;
 await mkdir(process.env.TMPDIR, { recursive: true });
@@ -28,14 +29,12 @@ if (process.env.DISPLAY) {
   launches.firefox = () => firefox.launch({ channel: "moz-firefox", headless: false, firefoxUserPrefs: { "dom.webgpu.enabled": true } });
 }
 
-const server = await startBrowserServer(root.pathname, "mojo-gpu", { fixtures });
+const server = await startBrowserServer(root.pathname, "mojo-gpu");
 try {
   for (const [name, launch] of Object.entries(launches)) {
     const browser = await launch();
     try {
       const page = await (await browser.newContext()).newPage();
-      await page.addInitScript(policy => { globalThis.DOLLY_HTTP_POLICY = policy; },
-        { maxRequests: 16, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] });
       await page.goto(`${server.origin}/mojo-gpu/`);
       await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null, { timeout: 180_000 });
       assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready", await page.locator("#bootstrap-log").textContent());
@@ -45,7 +44,7 @@ try {
         `${name}: ${command}\n${await page.evaluate(() => __dolly.visibleTerminalText())}\n${await page.evaluate(() => __dolly.gpu.error ?? "")}`);
       await run("mojo --version | grep -q '^Mojo 1\\.1\\.0 ' && mkdir /tmp/mojo-test && cd /tmp/mojo-test");
       for (const program of programs) {
-        await run(`curl -fsS ${server.origin}/fixture/${program}.mojo -o ${program}.mojo && mojo build ${program}.mojo`);
+        await run(`${writeCommand(`${program}.mojo`, sources[program])} && mojo build ${program}.mojo`);
       }
       await run("./hello | grep -qx 'hello from mojo'");
       await run("./library one | grep -qx 'MOJO-LIBRARY 6 5 29 True 2 7.25 True'");
@@ -53,7 +52,8 @@ try {
       await run("./saxpy | grep -qx 'MOJO-GPU webgpu 1000 1998.5'");
       await run("./kernels | grep -qx 'MOJO-KERNELS wrong: 0 0 0 0 4898230'");
       for (const program of upstream) {
-        await run(`curl -fsS ${server.origin}/fixture/${program}.mojo | sed 's/^from max\\.gpu\\.host import/from gpu.host import/' > ${program}.mojo && mojo build ${program}.mojo`);
+        const source = sources[program].replaceAll(/^from max\.gpu\.host import/gm, "from gpu.host import");
+        await run(`${writeCommand(`${program}.mojo`, source)} && mojo build ${program}.mojo`);
       }
       await run("./hello_writing | grep -qx 'GPU responded: 👋, 🔥'");
       await run("./gpu_hello | grep -qx 'Hello from the GPU'");

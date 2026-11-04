@@ -395,3 +395,36 @@ it onto every image that installs amy (tmux-panes).
 `default` declares 10 modules (15 before): runtime, display, input, snapshot, http, packages,
 nena, download, upload, html. The five rows for packages amy might install (audio, dso,
 sockets, threads, touch) are gone.
+
+### R1, the eleven that build a program first
+
+What each built for itself is a package; the application installs it with `core`, `posix`,
+`display` and what it is for. Generated recipes are changed in their generators
+(`demos/gpu-fluid/prepare-gpu-fluid.mjs`, `demos/slopyard/prepare-slopyard.mjs`), and each demo's
+`prepare-sources.sh` stages for the package now.
+
+| Application | New package | Modules before | After |
+| --- | --- | ---: | ---: |
+| python-data | (default's packages and `python`, restated) | 15 | 13 |
+| pi-local | `pi-llm`: the provider, dolly-llama and Qwen3.5-2B, Pi's settings | 14 | 11 |
+| dollyfile-studio | (`pi-llm`, `nvim`) | 16 | 13 |
+| closed-source-agent | `anykey` | 12 | 8 |
+| gpu-fluid | `fluid` | 10 | 5 |
+| mojo-gpu | (none: its check builds into `/tmp`) | 10 | 5 |
+| xonotic | (none: it copies the client, its launcher is a FILE) | 12 | 7 |
+| classicube | `classicube-agent` | 11 | 10 |
+| rts-arena | `seven-kingdoms` | 11 | 11 |
+| bhop | `airtime` | 11 | 10 |
+| slopyard | `slopyard-game` | 11 | 10 |
+
+- The game applications lose only `upload@0` (system's transfer): their agents are Pi
+  (`pi-dolly`: download, html, http, threads) and their programs stamp SDL2's or raylib's modules
+  (scanned: `classicube-agent`, `bhop-agent` and `rts-arena` stamp download and http; the viewers
+  audio, display, input and touch; `slopyard` gpu, display, download, http, input, threads and
+  touch). rts-arena keeps `upload@0`: it runs `upload` (transfer).
+- bhop installs `cc` and `raylib` besides `airtime`: its `.dollyrc` tells the player to edit
+  `bhop.c` and `make -f bhop.mk`.
+- Studio's examples (`demos/studio/examples/*.in`) are applications of `core`, `posix`,
+  `display` (and `cc` for the tool), their rows taken from the image's `/etc/dolly/installed`
+  (an application FROM none has no `recipes.lock` until it is sealed); the skill teaches that
+  an application has no `FROM`.

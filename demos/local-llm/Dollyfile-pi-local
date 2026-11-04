@@ -2,35 +2,53 @@ DOLLY 7
 APPLICATION pi-local
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
-REQUIRES HOST html@0
 REQUIRES HOST input@0
-REQUIRES HOST audio@0
-REQUIRES HOST download@0
-REQUIRES HOST gpu@0
-REQUIRES HOST http@0
-REQUIRES HOST nena@0
-REQUIRES HOST packages@0
 REQUIRES HOST snapshot@0
+REQUIRES HOST download@0
+REQUIRES HOST html@0
+REQUIRES HOST http@0
 REQUIRES HOST threads@0
-REQUIRES HOST touch@0
-REQUIRES HOST upload@0
+REQUIRES HOST packages@0
+REQUIRES HOST nena@0
+REQUIRES HOST gpu@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-agent 086acbd6e013c5de15c7af5148e24dff0a03bdc2bf59f866f6b125e107767302
-INSTALL /v0.1.4/demos/local-llm/Dollyfile-llama 6f047ba8e6d3087bf367048a88c91056ae69112cebe92953e9fcb0bce402b61c
-INSTALL /v0.1.4/demos/local-llm/Dollyfile-qwen3.5-2b c12a097d4954bcf924f321992ccf9c41efd4ef1ac219faff8b6e5d279e9c4f69
+INSTALL /v0.1.4/Dollyfile-core 74fabeb7587e54b39bb59351ed5e8146d3eb77cb526c65c00c2d90f11495b775
+INSTALL /v0.1.4/Dollyfile-posix 4edbe26685a71e67d5360b567b708c1cb373b124d4143c680cf0a6a1ba90ebae
+INSTALL /v0.1.4/Dollyfile-display 2be7cbca13647b99084a669132428169b2d5a6bde7a291642efc5c584f9ffd63
+# The tools Pi's dolly skill teaches: cc and make, Git, curl.
+INSTALL /v0.1.4/Dollyfile-cc 53efa9fa48567501751d60f4172407b9bd62ea6dfa65eca475d0f6d62f6fef2e
+INSTALL /v0.1.4/Dollyfile-git 21db13252f06105787c8b7fcffeec1c113cf0df32c6bd01f7d195f44145a29ec
+INSTALL /v0.1.4/Dollyfile-curl 813064b0e97cd158ee8d116a3c7abf7553561cdffcc66d5761a0ef27edad0821
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 1670b41411b0499d8c817566415f61651b7f0a34ae0507af097abd688bc13351
+INSTALL /v0.1.4/Dollyfile-amy 1111b191cee58a7d1265a0f5eb1710af0cefc65d4a39410cabd8601b3366edd7
+# nena enables the host modules a package needs beyond these.
+INSTALL /v0.1.4/Dollyfile-nena 8548d299c850256330e33fabf531461f13dc4c2e087064c6864bce30a01ec2b7
+# A model Pi runs in the tab: the provider, dolly-llama and Qwen3.5-2B.
+INSTALL /v0.1.4/demos/local-llm/Dollyfile-pi-llm c69abfb3cb48dbb1d4a6e920c28aa8f05248430721f33fdd2a4372c5af1e450c
 
-REQUIRES TOOL janis
-REQUIRES TOOL tar
-REQUIRES TOOL dolly-llama
+FILE /etc/dolly/init.slop
+    if test -f "$HOME/.dollyrc"; then
+      /bin/foreground /bin/slop -e "$HOME/.dollyrc"
+      status=$?
+      case "$status" in
+        0|130) ;;
+        *) printf 'Dolly: %s exited with status %s; continuing.\n' "$HOME/.dollyrc" "$status" >&2 ;;
+      esac
+    fi
+    for attempt in 1 2 3; do
+      /bin/foreground -i /usr/bin/pi
+      status=$?
+      case "$status" in 0|130) break ;; esac
+      if test "$attempt" -lt 3; then
+        printf '\nDolly: restarting Pi after unexpected status %s (%s/2).\n' "$status" "$attempt"
+      fi
+    done
+    printf '\nDolly: image entry exited; entering the recovery Slop shell.\n'
+    /bin/foreground -i /bin/slop
 
-SOURCE /v0.1.4/dist/static/llama/provider.tar 68b75b1b327c2c3000ef964e4a1f00ec7fb4536abae00baa7622d6734aaecce2 /tmp/llm-provider.tar
-SLOP tar -xf /tmp/llm-provider.tar -C /
-
-FILE /home/dolly/.pi/agent/settings.json
-    {"enableInstallTelemetry":false,"images":{"autoResize":false},"shellPath":"/bin/slop","theme":"dolly","tuiMode":"regular","defaultProvider":"webgpu","defaultModel":"qwen3.5-2b","defaultThinkingLevel":"off","compaction":{"reserveTokens":4096,"keepRecentTokens":6144}}
-
-EXPORTS FOLDER local-llm /usr/lib/dolly-llm
-EXPORTS FOLDER local-llm-models /usr/share/dolly/llm
-EXPORTS FILE local-model-provider /home/dolly/.pi/agent/extensions/local-model-provider.js
+FILE /home/dolly/.dollyrc
+    printf '\033[33mDOLLY / PI\033[0m\n'
+    printf 'Pi and every command run inside the browser Wasm sandbox.\n'
+    printf 'Try: ask Pi about /workspace | ! ls | ! git status | /help\n\n'
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

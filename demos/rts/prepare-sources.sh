@@ -13,7 +13,7 @@ if has_image rts-build; then
     "${seven_kingdoms_dir}/COPYING" /usr/src/7kaa/COPYING \
     "${rts_port_inputs[@]}"
 fi
-if has_image rts-arena; then
+if has_image seven-kingdoms; then
   node scripts/build-source-tar.mjs "${static_dir}/rts/arena.tar" \
     demos/rts/player.js /usr/src/dolly/rts/player.js \
     demos/rts/codec.mjs /usr/src/dolly/rts/codec.mjs \

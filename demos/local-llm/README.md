@@ -7,6 +7,7 @@ or remote fallback.
 ## Images
 
 - `pi-local`: Pi with the bundled Qwen3.5-2B; `/local` installs and switches models. Requires WebGPU.
+- `pi-llm`: Pi's provider for the models `dolly-llama` runs in the tab, with the bundled Qwen3.5-2B, which Pi's settings choose; it needs `gpu@0`.
 - `llama-cpp`: llama.cpp's libraries with ggml's WebGPU backend over the GPU interface, for programs the `cc` package builds; they need `gpu@0`.
 - `llama`: `dolly-llama`, linked on `llama-cpp`, serving a GGUF over stdin and stdout; it needs `gpu@0`.
 - `qwen3.5-2b`: Model package: Qwen3.5-2B weights, description and license.
