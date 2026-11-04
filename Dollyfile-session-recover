@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # session-recover copies the files a saved session holds under /home and
 # /workspace into a new directory.
-FROM /v0.1.4/Dollyfile-system-build e89da1ce0d453e6efce9f173d9e13f780fb0288d9dee42b70b143355048c9ae1
+FROM /v0.1.4/Dollyfile-system-build 0000000000000000000000000000000000000000000000000000000000000000
 
 REQUIRES HEADER libc
 REQUIRES TOOL cc

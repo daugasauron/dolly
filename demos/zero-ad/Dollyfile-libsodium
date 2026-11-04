@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # package builds. Upstream builds it with autotools, which Slop cannot run, or
 # Zig; as its build.zig does, every C file of src/libsodium is compiled, with
 # the results of its configure step as flags and its MSVC build's version.h.
-FROM /v0.1.4/Dollyfile-system-tools 2c2f88153b86937019eab414e08b6c5b78cf2d96ed3049e2b8219c6fcfaf678b
+FROM /v0.1.4/Dollyfile-system-tools 0000000000000000000000000000000000000000000000000000000000000000
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc

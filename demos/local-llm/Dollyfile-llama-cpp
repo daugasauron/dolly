@@ -9,8 +9,8 @@ REQUIRES HOST gpu@0
 # webgpu.cpp, the WebGPU C API that backend calls, over gpu@0. For programs the
 # cc package builds: they link the archives in /usr/lib/dolly-llm with
 # -ldolly-gpu, which the package brings, and need gpu@0.
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 334c8b3968814dda787ffe4f2f46488a19d77a988a34fb49901043b3c648cd75
-INSTALL /v0.1.4/Dollyfile-libdolly-gpu 1bf0ec0c021f42bf954fdb9579830324b399d120a984240f2047922792337018
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/Dollyfile-libdolly-gpu 0000000000000000000000000000000000000000000000000000000000000000
 REQUIRES HEADER gpu
 REQUIRES LIB dolly-gpu
 REQUIRES TOOL ar

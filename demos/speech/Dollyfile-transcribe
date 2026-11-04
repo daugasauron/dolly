@@ -8,7 +8,7 @@ REQUIRES HOST threads@0
 # its ggml, for programs the cc package links (speech-to-text, voice). Threads
 # and SIMD are what let the model keep up with speech. The archives are in a
 # directory of their own, beside llama.cpp's ggml in /usr/lib/dolly-llm.
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 334c8b3968814dda787ffe4f2f46488a19d77a988a34fb49901043b3c648cd75
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build 0000000000000000000000000000000000000000000000000000000000000000
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL cmake

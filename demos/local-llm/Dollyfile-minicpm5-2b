@@ -3,7 +3,7 @@ PACKAGE minicpm5-2b
 REQUIRES HOST runtime@0
 
 # MiniCPM5-2B Q4_K_M, the exact upstream GGUF assembled from parts SOURCE accepts, its description and its license.
-FROM /v0.1.4/Dollyfile-system dd2ac3fcfffbb1310680438e23c840f565cc8ebfee14ef2c0bc44c82ad4790ba
+FROM /v0.1.4/Dollyfile-system 0000000000000000000000000000000000000000000000000000000000000000
 REQUIRES TOOL cat
 REQUIRES TOOL cut
 REQUIRES TOOL mkdir

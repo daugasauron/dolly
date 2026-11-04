@@ -9,8 +9,8 @@ REQUIRES HOST http@0
 SOURCE /v0.1.4/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415 /usr/include/dolly/toolchain.h
 SOURCE /v0.1.4/include/dolly/runtime.h   7622bc15389bd2f6d0de291355f7d379245e9d51733e1887608d4ed8979d33c8 /usr/include/dolly/runtime.h
 SOURCE /v0.1.4/include/dolly/process.h   6919b5de21efa877d73ea8d004d88b66ec00b5a883bdbeece12e2ed14dc370b5 /usr/include/dolly/process.h
-SOURCE /v0.1.4/host/http/http.h      d09f57cda4a6cde89106653f12366ac95554c21d37d05a69c15764d4254b70a5 /usr/include/dolly/http.h
-SOURCE /v0.1.4/host/http/http-abi.h eb672b697efb8e9b13f5ef35a65e1b7fbb1b23dfc3da96827195401abe2b3863 /usr/include/dolly/http-abi.h
+SOURCE /v0.1.4/host/http/http.h      818c79d767ebb7ccc0c6afe33d57ef1a57c7b9ccadeaa106511c9c07fedbaee7 /usr/include/dolly/http.h
+SOURCE /v0.1.4/host/http/http-abi.h dfb111890f08ff87ebf8cee6ad6117e579c243b34d2d6df08847ccc7455834cc /usr/include/dolly/http-abi.h
 SOURCE /v0.1.4/host/display/display.h   912b820d44d2c42cf6bbac3971892a9efef2918401ac97ed518926d31bc37f77 /usr/include/dolly/display.h
 SOURCE /v0.1.4/host/display/display-abi.h ccced92565fafc5cbb1ba00f80e8c8709fadd3dfb5079b33d9fc401dc1fa50e4 /usr/include/dolly/display-abi.h
 SOURCE /v0.1.4/host/input/input.h   c380e2c168061ebd22785cbbcd6f7c7e05be2df187115ae1054c24cf39042a41 /usr/include/dolly/input.h

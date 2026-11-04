@@ -14,11 +14,11 @@ REQUIRES HOST upload@0
 
 # Runs Claude Code, which the launcher downloads from the npm registry into
 # the session after the notice: the image holds nothing of it.
-FROM /v0.1.4/Dollyfile-system dd2ac3fcfffbb1310680438e23c840f565cc8ebfee14ef2c0bc44c82ad4790ba
-INSTALL /v0.1.4/Dollyfile-amy d5d09761650f0bc0b89787b38fa72100e73bc43c8b9bdcb886f9e999be6c6bee
-INSTALL /v0.1.4/demos/javascript/Dollyfile-janis-install 9145a4f1e825fbd7c4cbf0f4d47d868fcaab04fcf2cbcf2ba0643d543d4bea58
-INSTALL /v0.1.4/demos/closed-source-agent/Dollyfile-secretenv 0b9bc2512aa231424c1d7691f218889cd7b2de0ae2c19e1ad1022612e2ad3a85
-INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep c18a485963c8808feb47e07d2d4b230ed67a417d26821b9fdb35573df8075cac
+FROM /v0.1.4/Dollyfile-system 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/Dollyfile-amy 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/demos/javascript/Dollyfile-janis-install 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/demos/closed-source-agent/Dollyfile-secretenv 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 0000000000000000000000000000000000000000000000000000000000000000
 REQUIRES TOOL cc
 REQUIRES TOOL foreground
 REQUIRES TOOL janis
