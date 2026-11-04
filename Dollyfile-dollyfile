@@ -5,7 +5,7 @@ REQUIRES HOST http@0
 
 # The recipe engine alone. An image that installs it can be built FROM: the
 # build runs the base's own /bin/dollyfile (docs/dollyfile.md).
-FROM /v0.1.4/Dollyfile-system-build 2588c74877aed4d3d20240e539e186b84ee832998793d308a006010d4b46f32c
+FROM /v0.1.4/Dollyfile-system-build 14b38b82ed61042a4e30f589ec9aeca19947dd9d711dd3e2b6f4777b24da8b62
 
 EXPORTS TOOL dollyfile
 FILE /usr/share/man/cat1/dollyfile.1

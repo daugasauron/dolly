@@ -12,7 +12,7 @@ REQUIRES HOST threads@0
 # softpipe in the program itself (mesa-dolly.patch; its parsers are made on the
 # host, prepare-mesa.sh), and libepoxy taking that GLX from the program
 # (epoxy-dolly.patch). Static libraries in /usr/lib.
-FROM /v0.1.4/demos/gtk/Dollyfile-gtk-build b3c3f36450596175111763cf6e1a11df4c2c76e5c3a0173d2845a38b57d02167
+FROM /v0.1.4/demos/gtk/Dollyfile-gtk-build 9f88c5333fa9b9bcbc956d20b7ecaeadb9305d7e1784cf0b437646d9052e15a7
 
 REQUIRES TOOL   ar
 REQUIRES TOOL   c++

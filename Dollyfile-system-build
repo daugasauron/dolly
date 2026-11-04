@@ -121,6 +121,7 @@ SOURCE /v0.1.4/dist/static/default/commands/test.c 7da0427461396c06ac8d11e62250f
 SOURCE /v0.1.4/dist/static/default/commands/bracket.c 5dadee574cc128d583fe337e68b271cebbb3220dcd7e307fac08d4b5e9d73e4c /tmp/core-tools/bracket.c
 SOURCE /v0.1.4/dist/static/default/commands/mv.c 326b21d8de8cd70652ec1ae1d42356095ee792c2608dfe362bba7ec05eacc9c3 /tmp/core-tools/mv.c
 SOURCE /v0.1.4/dist/static/default/commands/cp.c 0598cc06e13171dc95314d644f7dc0adb0419d78e776745d430225639ca5b123 /tmp/core-tools/cp.c
+SOURCE /v0.1.4/dist/static/default/commands/sleep.c 7723af4c2a4feb4a3393482fe3e58beaba36b2b0d83fcc67787b339a87e031e6 /tmp/core-tools/sleep.c
 SLOP cc \
   -O2 \
   /tmp/core-tools/foreground.c \
@@ -194,6 +195,10 @@ SLOP cc \
   -O2 \
   /tmp/core-tools/rm.c \
   -o /bin/rm
+SLOP cc \
+  -O2 \
+  /tmp/core-tools/sleep.c \
+  -o /bin/sleep
 EXPORTS TOOL mkdir
 EXPORTS TOOL rm
 EXPORTS TOOL foreground
@@ -212,6 +217,7 @@ EXPORTS TOOL test
 EXPORTS TOOL [
 EXPORTS TOOL mv
 EXPORTS TOOL cp
+EXPORTS TOOL sleep
 
 # A page is a file under /usr/share/man. One of Dolly's own commands has a
 # single text: the page is what NAME --help prints, captured when it is built.
@@ -219,7 +225,7 @@ SLOP mkdir \
   -p \
   /usr/share/man/cat1 \
   /usr/share/man/man1
-SLOP for name in ar c++ cat cc cd clear cp dollyfile file foreground help ld ls man mkdir mv pwd rm slop stat touch; do \
+SLOP for name in ar c++ cat cc cd clear cp dollyfile file foreground help ld ls man mkdir mv pwd rm sleep slop stat touch; do \
   "/bin/$name" --help > "/usr/share/man/cat1/$name.1"; \
   done
 SLOP help >> /usr/share/man/cat1/slop.1

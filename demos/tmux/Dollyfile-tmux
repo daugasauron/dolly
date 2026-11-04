@@ -7,10 +7,10 @@ REQUIRES HOST sockets@0
 # tmux from upstream's release archive over the libevent and libterminfo
 # packages. tmux takes Dolly's port (README.md): a patch and its operating
 # system file.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 31227e29f2c621b1c9ecedf9f53b2aaaa9069bfb11d8035dce6d57ceeb99ecaa
-USE /v0.1.4/Dollyfile-libdolly-sockets 004c26edfceaf1c4e4eaf98cd837d79b5d50175858fc073b3003a3f852fd4a7e
-USE /v0.1.4/demos/tmux/Dollyfile-libevent 77419886dd645f7d74da2df7262358681ed628bff3e558eb45b588555fb62cb7
-USE /v0.1.4/demos/tmux/Dollyfile-libterminfo 0dd05c036c55d9de2487b60ae8d2add022028ca5900bfaf0c485106c2d7cbf40
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 291525bf8a11415cb8a1994f61f8ba985cf0be98b0e0a295f570a5653cfa4e75
+USE /v0.1.4/Dollyfile-libdolly-sockets a5f000a4754dad187bf28ced71fd7bf12e8fd6b4e28c906b26533b706c5867d8
+USE /v0.1.4/demos/tmux/Dollyfile-libevent c13dcafb516709f0065a7cddb6e2d8c40f2306da914c8c75fb48767d10cab0fe
+USE /v0.1.4/demos/tmux/Dollyfile-libterminfo 193b761021b1a3014a850a0f8cbee1607404654cd3ea2abff4f69b4bdb3c393a
 
 REQUIRES HEADER libc
 REQUIRES HEADER event

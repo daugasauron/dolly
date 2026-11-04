@@ -5,7 +5,7 @@ REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST http@0
 
-FROM /v0.1.4/Dollyfile-zig-build 625fac11f579b4f75d2c9c04e1a7fbc9f3e216749ccc95219e693c276692ef10
+FROM /v0.1.4/Dollyfile-zig-build 8e7aee21ffee967d0905b58074d13fef24a06931f26ce8f3f5a343442cd70a7c
 
 REQUIRES HEADER libc
 REQUIRES HEADER display

@@ -6,8 +6,8 @@ REQUIRES HOST gpu@0
 # dolly-llama, linked on the llama-cpp package: llama.cpp with its WebGPU
 # backend, serving the model it is given over stdin and stdout. A model package
 # brings the GGUF.
-FROM /v0.1.4/Dollyfile-system-tools 9eacc2ba76a3e499b5938ed0c70b33eb5adffe144de20f4f3d381fb78247a768
-USE /v0.1.4/demos/local-llm/Dollyfile-llama-cpp 79ad4ae025baafde9ead4c933603623fafcd6aa2a239bdfe76a084ba320aebd6
+FROM /v0.1.4/Dollyfile-system-tools c78d6ea65e5056cc697f1c220bcd0f41de9b429db92216624ebde53a35b8af70
+USE /v0.1.4/demos/local-llm/Dollyfile-llama-cpp b9b871af447c39c830392b47adb4d7f581749feddbed2e50fe215ad1588ae2d0
 REQUIRES HEADER llama
 REQUIRES LIB llama
 REQUIRES LIB llama-common

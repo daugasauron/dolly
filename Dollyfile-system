@@ -9,16 +9,16 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/Dollyfile-system-tools 9eacc2ba76a3e499b5938ed0c70b33eb5adffe144de20f4f3d381fb78247a768
+FROM /v0.1.4/Dollyfile-system-tools c78d6ea65e5056cc697f1c220bcd0f41de9b429db92216624ebde53a35b8af70
 # The page's file exchange, here and in the images built on this one.
-INSTALL /v0.1.4/Dollyfile-transfer 283ec840cc6a5c07a61bf14f8e9857c454e45af5d38506f014af67cf8b3c6f1d
-INSTALL /v0.1.4/Dollyfile-session-recover 75294a0d3c8d0e7ad916ebe1a52c1582023ed722f3a5256d2c6d3ee763b36909
+INSTALL /v0.1.4/Dollyfile-transfer 856f68051ea8552010772b70519cba7cd96be1827cc9c274e9998fd3a821ab65
+INSTALL /v0.1.4/Dollyfile-session-recover 846a57c50288aa05e045828a8f9a6c82dd5b879fcbeb400e500c4943fa0d64dd
 # The packages made of what system-build and system-tools built: this image
 # holds their files, and its record says so, as it does for every INSTALL.
-INSTALL /v0.1.4/Dollyfile-core 2aa517f6e32e2fc858d5450e845da2abe976c9cc20dc1257cc854d95a41fb552
-INSTALL /v0.1.4/Dollyfile-cc d84ac9e974b50e7dcb2a4e3a9ddbc1290f0c00f137bdb79802df10daf9f000df
-INSTALL /v0.1.4/Dollyfile-make 0b88f64c7bebd3d47e3ad58fc2508cc4822308e98d138c3dae0c3c3dbadc90d1
-INSTALL /v0.1.4/Dollyfile-posix bec76a3c42936e563ee9c9c22439e757503efad6791e32c7569fbbe3ef857ef8
-INSTALL /v0.1.4/Dollyfile-ninja 0e74958f1768651646be5d7ee03f83fece26af489533718be346d9afb9de175e
+INSTALL /v0.1.4/Dollyfile-core e68adcf83a11a7fb80b3db20fb1e5676a1cf117c4bd2371128402e06bee15572
+INSTALL /v0.1.4/Dollyfile-cc c0fa834ab045e5b09344c9ac12c8c29ab3b4e249727232ca3d9519c0c3338ed3
+INSTALL /v0.1.4/Dollyfile-make 9e7bd5632655e42d02c7c1a77693329cbcbbd844d059500b52de28db159b321e
+INSTALL /v0.1.4/Dollyfile-posix 8687b459b47064010ca3afc8708405c76b6aa2ea2e0a9170e50d277dea8f5b7b
+INSTALL /v0.1.4/Dollyfile-ninja 6da545250555e8c43e385399c54abdf5097165b040778fbf507d3a8467757ff3
 
 ENTRY /bin/foreground -i /bin/slop
