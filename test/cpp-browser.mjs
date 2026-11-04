@@ -51,6 +51,8 @@ await browserTest("cpp", { image: "system" }, async ({ name, open }) => {
     "c++ -x c++ -E -dM - < /dev/null | grep -q __cplusplus",
     "echo '#include <stddef.h>' > pre.cpp && c++ -xc++ -E -P -fpermissive pre.cpp | grep -q size_t",
     "c++ -xc++ -E -v - < /dev/null > /dev/null",
+    // -Wp passes options to the preprocessor: Zig reads the include search so.
+    "cc -E -Wp,-v -x c /dev/null 2>&1 > /dev/null | grep -qx ' /usr/include'",
     "c++ -Wl,--version && c++ -Wl,-v",
     // Bare cc uses Clang's gnu17 default, so POSIX and BSD declarations are visible.
     "printf '#include <math.h>\\n#include <stdio.h>\\n#include <string.h>\\n#include <time.h>\\n" +

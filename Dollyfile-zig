@@ -11,17 +11,6 @@ INSTALL /v0.1.4/Dollyfile-cc c0fa834ab045e5b09344c9ac12c8c29ab3b4e249727232ca3d9
 EXPORTS TOOL   zig
 EXPORTS FOLDER zig-lib     /usr/lib/zig
 EXPORTS ENV    ZIG_LIB_DIR /usr/lib/zig
-# The libc's directories. Zig links libc for every Emscripten program; without
-# this file it asks cc for them with GCC's -Wp,-v, which Dolly's cc ignores.
-FILE /usr/lib/zig/libc.txt
-    include_dir=/usr/include
-    sys_include_dir=/usr/include
-    crt_dir=/usr/lib/dolly/process
-    msvc_lib_dir=
-    kernel32_lib_dir=
-    cc_dir=
-    darwin_sdk_dir=
-EXPORTS ENV    ZIG_LIBC    /usr/lib/zig/libc.txt
 FILE /usr/share/licenses/zig/LICENSE
 FILE /usr/share/man/cat1/zig.1
     zig: the Zig compiler with its C backend only. It writes C and cc compiles it.
@@ -31,8 +20,8 @@ FILE /usr/share/man/cat1/zig.1
       zig build-obj -ofmt=c -femit-bin=answer.c answer.zig
       cc -I /usr/lib/zig main.c answer.c -o answer
     
-    Zig links every program here with libc, whose directories ZIG_LIBC names
-    (/usr/lib/zig/libc.txt). A program that uses the standard library:
+    Zig links every program here with libc, whose headers it asks cc for
+    (cc -E -Wp,-v). A program that uses the standard library:
       zig build-exe -target wasm64-emscripten -fsingle-threaded -ofmt=c -lc \
         -femit-bin=hello.c hello.zig
       cc -Wno-incompatible-pointer-types '-Dzig_unimplemented()=(__builtin_trap(),0)' \
