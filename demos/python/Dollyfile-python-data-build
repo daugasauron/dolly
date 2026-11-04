@@ -19,8 +19,8 @@ REQUIRES HOST upload@0
 # README.md lists the roots each library needs beside it. The build tools
 # (Meson, meson-python, Cython, pybind11, setuptools) serve this build alone.
 FROM /v0.1.4/Dollyfile-system 7137d61eae37e04fa5588b688d67ec3194445704dc3c2a633038086a799cc67f
-INSTALL /v0.1.4/demos/python/Dollyfile-python 014a8f8e747e2767d410c511a6f119a1ea6d66c44392c10b6e9604d72622fa02
-INSTALL /v0.1.4/demos/tools/Dollyfile-meson 23597150ff518e1b0f99baf67e978f3298dcce4e7ba09c8033535a9723c76441
+INSTALL /v0.1.4/demos/python/Dollyfile-python 67abf4200df4dec897e91303ad455d960bf862695a9b684e8e83ea53052cd372
+INSTALL /v0.1.4/demos/tools/Dollyfile-meson c032af13a17652fe64293f83b5f4dac6bb92d8429e29003b323bee7d636e66fd
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-freetype 28255857104db934892b17aae87b665792b124a7122bdc5e360e386013e5deea
 INSTALL /v0.1.4/demos/zero-ad/Dollyfile-pkgconf dcd479d9f5a29de8f680dda05a0cfce7a8d5000e738b4d5e6da0c54ed4c9ce01
 INSTALL /v0.1.4/demos/xonotic/Dollyfile-libjpeg 6fba83bed7bf02e873b2c3d8fe29c11c869ad5be5bccd16eef37c918e68f3714

@@ -9,9 +9,9 @@ REQUIRES HOST runtime@0
 # -ljs_static -ljsrust -lz.
 FROM /v0.1.4/Dollyfile-system-tools c78d6ea65e5056cc697f1c220bcd0f41de9b429db92216624ebde53a35b8af70
 INSTALL /v0.1.4/Dollyfile-zlib a46d2b4a474737062c74c131bfd83a51734f7071ffe3d671e51711f2c23ce10d
-USE /v0.1.4/demos/python/Dollyfile-python 014a8f8e747e2767d410c511a6f119a1ea6d66c44392c10b6e9604d72622fa02
-USE /v0.1.4/demos/rust/Dollyfile-cargo 2da11348f5ae1840126b27c9175db037fa2ec734d333f3983a7a85f8f954d8a4
-USE /v0.1.4/demos/rust/Dollyfile-cbindgen f0cb98c7b458c39de618f5fbcf552b995b2848dc88ac7df31eef3558308400a8
+USE /v0.1.4/demos/python/Dollyfile-python 67abf4200df4dec897e91303ad455d960bf862695a9b684e8e83ea53052cd372
+USE /v0.1.4/demos/rust/Dollyfile-cargo 44455272570e9e090a55c5e356e703b1b2212a42abd69d95762d5e4f24126b20
+USE /v0.1.4/demos/rust/Dollyfile-cbindgen 04b8f30c868d6ae26586d97d22cb82117f6af2203efbdddbb8af528810f2216d
 USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf dcd479d9f5a29de8f680dda05a0cfce7a8d5000e738b4d5e6da0c54ed4c9ce01
 REQUIRES HEADER zlib
 REQUIRES LIB z

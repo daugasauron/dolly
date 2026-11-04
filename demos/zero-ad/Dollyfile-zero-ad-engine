@@ -36,7 +36,7 @@ SLOP gzip -dc /tmp/0ad.tar.gz | tar -xf - -C /
 SLOP patch -p1 -d /tmp/0ad -i /tmp/0ad-patches/engine.patch
 
 # SpiderMonkey: its headers, the two archives, its pkg-config file and licences.
-INSTALL /v0.1.4/demos/zero-ad/Dollyfile-spidermonkey e9ea05e78d278794c8da1069d6b71d1848bd14e80cbde5eb61e38f64562c4813
+INSTALL /v0.1.4/demos/zero-ad/Dollyfile-spidermonkey 85fd91241fc2cc2227d6a001350b141385f3274c9714a4ae3f64a8fe5140223c
 
 # Probe for test/0ad-spidermonkey-browser.mjs.
 SLOP mkdir -p /usr/libexec/zero-ad

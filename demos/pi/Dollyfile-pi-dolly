@@ -12,7 +12,7 @@ REQUIRES HOST threads@0
 # command), the settings and the theme; with Pi, and the platform's documents
 # that the prompt and the skill name. pi-key starts Pi with an API
 # key it reads without showing it: Pi's own /login shows a key as it is typed.
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi aab90fcf323bc44b7d3be6c037c16b9e3b5669e2d58ede04882fee11efb70bf6
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi 7f6b36ade5ff52e7716da0dc7494b3bcdf1e240d47d95b65a02ee789d8eb5e6c
 INSTALL /v0.1.4/demos/closed-source-agent/Dollyfile-secretenv 23a23f21bdf3204071e8cc0e208bc6636bc7b4ff139b3f75cfbd0cfaa75ababd
 INSTALL /v0.1.4/Dollyfile-html cf6f5d13432d5e8a12914e95e2909bc1251fee73a83317d3fae6c30c6b7f8a8b
 INSTALL /v0.1.4/Dollyfile-dolly-docs 43a0dcaf81ded495e81beef1bad626aaea99e703a9b2929e001ea407de761e79

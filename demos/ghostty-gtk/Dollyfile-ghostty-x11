@@ -21,8 +21,8 @@ REQUIRES HOST upload@0
 # (softpipe, GLX over Xlib, OpenGL 4.3 as Ghostty asks) and its window's
 # widgets with cairo. GTK's text is fontconfig's, from the terminal's font.
 FROM /v0.1.4/Dollyfile-system 7137d61eae37e04fa5588b688d67ec3194445704dc3c2a633038086a799cc67f
-INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server 6b3f43899f304d2033985c92069b88fd16c0bc45a19ed7cc443dd5e2b89e61e8
-INSTALL /v0.1.4/demos/ghostty-gtk/Dollyfile-ghostty-gtk 76a533ca010f3ea57ccc330659dc2d230a2717a450d9c57eecec927d36350094
+INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server 932c769672b0faed685d5293b46276f4ee298782958b54d4bc23264c71558ae7
+INSTALL /v0.1.4/demos/ghostty-gtk/Dollyfile-ghostty-gtk 97a1a12f5dd63d9ecfa642a1bf59a0824a893bb902b278af625adc3d8ddf54a7
 # amy installs packages into the session (tmux, nvim and the rest), with the
 # modules default declares for them; nena enables another.
 INSTALL /v0.1.4/Dollyfile-amy c4a358ed6973e4f579d0cccaf0c18b4e04c2ddd8d53bd406e1327ac9113efe8f

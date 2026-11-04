@@ -12,8 +12,8 @@ REQUIRES HOST threads@0
 # Node's require of ES modules and runs the undici it bundles.
 FROM /v0.1.4/Dollyfile-system 7137d61eae37e04fa5588b688d67ec3194445704dc3c2a633038086a799cc67f
 INSTALL /v0.1.4/demos/javascript/Dollyfile-janis-install b7a6600443b019dd0cce5d29151e3a4a58d614f0407b0989ac9c94d9043964a3
-INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 611b067c608ba066abc9867a7c73d4c197d289cc9085c320891c0f0c08f52fc0
-INSTALL /v0.1.4/demos/rust/Dollyfile-fd 466005ecd2f99a52d6eb8f151e283145c38d12a9e0f0d52479db8c9028cab260
+INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 3b6f1892fe7983e5ddf71771a1c2022df54b8f27d3facbfd979c0b93aaf40467
+INSTALL /v0.1.4/demos/rust/Dollyfile-fd ce418414f04a426fe17bc8f2b065edc54c2d6d37d3046d8248b457cf10f71c74
 REQUIRES HEADER quickjs-runner
 REQUIRES LIB    dolly-js
 REQUIRES LIB    quickjs

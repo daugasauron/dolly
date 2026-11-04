@@ -72,9 +72,6 @@ SOURCE /v0.1.4/dist/static/python/runtimes/cpython-transport.py 4567a855ff8459f6
 SOURCE /v0.1.4/dist/static/python/runtimes/cpython-process.c         354dd7a01f1d16276d8478fdcb41bcb07da3078d6860ba52b423e059a32dd389 /usr/src/python/Modules/dolly_process.c
 SOURCE /v0.1.4/dist/static/python/runtimes/cpython-subprocess.py     cabc2b4eb15e61332c2b63454724c3b390c5f2a2f0effa2889861e123835b785 /usr/src/python/Lib/_dolly_subprocess.py
 
-SLOP CWD /usr/src/python touch \
-  Python/frozen_modules/*.h
-
 # The embedded LLVM optimizer spends minutes on a small measured set of
 # translation units. Compile only those outliers at -O0 and let upstream Make
 # preserve the prepared objects; the rest of CPython is substantially faster
