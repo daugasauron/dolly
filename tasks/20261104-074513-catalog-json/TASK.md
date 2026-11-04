@@ -4,7 +4,7 @@
 - PRIORITY: 120
 - TAGS: catalog,site,npm,cleanup,0.1.5
 
-## State (2026-11-04, 22:30): implemented on `core/catalog-json`; browser checks running
+## State (2026-11-04, 23:00): implemented on `core/catalog-json`; demo checks running
 
 `de5db691a` writes and reads `dist/dolly-images.json` (`{ images, staticSources }`) and
 `dist/dolly-IMAGE-system-snapshot.json`; `218ea702e` makes the verifier check the runtime's own
@@ -39,7 +39,8 @@ await rm("dist/dolly-images.mjs", { force: true });
 | ending, host-compute, nena, pty, shell-env, sockets, threads | passed | passed |
 | `package-pages.sh` of default's closure (`DOLLY_BUILD_IMAGES=default`): 19 images, 87 packs, acceptance of default, ghostty-build, system-build, system-tools and zig-build; then `site-release.mjs verify` and `export-static.mjs` | release `fc74ab53...` | |
 | `published-version.mjs boot` of that release, the JSON branch (the boundary moved to v0.1.4 for the run, not committed) | passed | passed |
-| `npm-browser.mjs`, up to python-data: the guide's page, the devices and lacking pages, the README's Pi project that `dolly-build` builds in Chrome (catalog, metadata, packs and `index.mjs` in the new layout), Pi, Save and reopen | passed | not reached |
+| `npm-browser.mjs` (after merging integrate's html@0 fix and building python-data): the guide's page, the devices and lacking pages, the README's Pi project and python-data's own recipe, each built by `dolly-build` in that browser into the new layout and booted | passed (226 s) | passed (191 s) |
+| emacs demo (gnu-emacs rebuilt) | passed | passed |
 
 `published-version.mjs boot` checks every published version after a deployment (checklist
 step 7), and v0.1.0 to v0.1.4 keep their modules: it reads a version's catalog by its name,
