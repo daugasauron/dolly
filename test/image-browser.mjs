@@ -188,7 +188,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
     const { encodeSnapshotRecords } = await import("/src/snapshot-records.mjs");
     const { prepareImageArtifacts } = await import("/src/image-build.mjs");
     const { siteReference } = await import("/src/static-asset.mjs");
-    const { saveStoredSession, loadStoredSession } = await import("/src/session-store.mjs");
+    const { DOLLY_SESSION_FORMAT_VERSION, saveStoredSession, loadStoredSession } = await import("/src/session-store.mjs");
     const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import("/dist/dolly-system-system-snapshot.mjs");
     const make = async (name, value) => {
       const source = new TextEncoder().encode(`DOLLY 7\nAPPLICATION ${name}\nENTRY /bin/slop\n`);
@@ -237,7 +237,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
         async () => { throw new Error("corruption must recover the exact published bytes, not rebuild"); }, () => {});
       recovered = artifact.sha256 === base.sha256 && artifact.bytes.size === base.bytes.size;
     } finally { await saveImageArtifact(base, `/${system.dollyfile}`); }
-    await saveStoredSession({ name: "cache-migration-proof", formatVersion: 2, buildId: first.buildId,
+    await saveStoredSession({ name: "cache-migration-proof", formatVersion: DOLLY_SESSION_FORMAT_VERSION, buildId: first.buildId,
       image: "system", imageIdentity: `system:${system.sha256}`, updatedAt: 0, encoding: "gzip", bytes: await first.bytes.arrayBuffer() });
     await new Promise((resolve, reject) => {
       const request = indexedDB.deleteDatabase("dolly-image-artifacts-v3");

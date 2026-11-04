@@ -1,17 +1,19 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { access, mkdtemp, readFile, rm, truncate, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm, stat, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 
+// Records are [kind, path, data, modified nanoseconds since the epoch].
 function delta(records) {
   const header = Buffer.alloc(16);
-  header.write("DOLLYSES"); header.writeUInt32LE(2, 8); header.writeUInt32LE(records.length, 12);
-  return Buffer.concat([header, ...records.flatMap(([kind, path, value = ""]) => {
-    const name = Buffer.from(path), data = Buffer.from(value), record = Buffer.alloc(16);
+  header.write("DOLLYSES"); header.writeUInt32LE(3, 8); header.writeUInt32LE(records.length, 12);
+  return Buffer.concat([header, ...records.flatMap(([kind, path, value = "", modified = 0n]) => {
+    const name = Buffer.from(path), data = Buffer.from(value), record = Buffer.alloc(24);
     record.writeUInt32LE(kind); record.writeUInt32LE(name.length, 4); record.writeBigUInt64LE(BigInt(data.length), 8);
+    record.writeBigInt64LE(modified, 16);
     return [record, name, data];
   })]);
 }
@@ -24,12 +26,17 @@ test("file recovery preserves the source, excludes live configuration, and rejec
   const project = new URL("..", import.meta.url).pathname;
   await run("cc", ["-std=c11", "-Wall", "-Wextra", "-Werror", "-fsanitize=address,undefined",
     "-Isrc", "src/commands/session-recover.c", "-o", program], { cwd: project });
+  // A directory keeps its time with paths made in it; one before 1970 too.
+  const directoryTime = -1_500_000_000n, fileTime = 1_000_000_000_123_456_789n;
   const saved = delta([[2, "/etc/system", "old system"], [2, "/home/dolly/.dollyrc", "old startup"],
-    [4, "/workspace/deleted"], [1, "/workspace/empty"], [3, "/workspace/link", "/etc"],
-    [2, "/workspace/project.txt", "saved work"]]);
+    [1, "/workspace", "", directoryTime], [4, "/workspace/deleted"], [1, "/workspace/empty"],
+    [3, "/workspace/link", "/etc"], [2, "/workspace/project.txt", "saved work", fileTime]]);
   await writeFile(input, saved);
   await run(program, [input, output]);
   assert.equal(await readFile(join(output, "workspace/project.txt"), "utf8"), "saved work");
+  const modified = async path => (await stat(join(output, path), { bigint: true })).mtimeNs;
+  assert.equal(await modified("workspace"), directoryTime);
+  assert.equal(await modified("workspace/project.txt"), fileTime);
   assert.equal(await readFile(join(output, "home/dolly/.dollyrc"), "utf8"), "old startup");
   await access(join(output, "workspace/empty"));
   for (const path of ["etc", "workspace/link", "workspace/deleted"])
@@ -38,9 +45,10 @@ test("file recovery preserves the source, excludes live configuration, and rejec
   assert.deepEqual(await readFile(input), saved);
   assert.equal(await readFile(join(output, "workspace/project.txt"), "utf8"), "saved work");
   await writeFile(join(root, "sentinel"), "unchanged");
-  const wrongVersion = Buffer.from(saved); wrongVersion.writeUInt32LE(3, 8);
+  const wrongVersion = Buffer.from(saved); wrongVersion.writeUInt32LE(2, 8);
   const invalid = [saved.subarray(0, 8), saved.subarray(0, saved.length - 1), wrongVersion,
     delta([[0, "/workspace/file"]]), delta([[1, "/workspace/directory", "invalid data"]]),
+    delta([[4, "/workspace/deleted", "", 1n]]),
     delta([[2, "/workspace/../../sentinel", "overwrite"]]), delta([[2, "/dev/file"]]), delta([[2, "/run/file"]]),
     delta([[2, "/workspace/file"], [2, "/workspace/file"]]),
     delta([[2, "/workspace/file"], [2, "/workspace/file/child"]]),

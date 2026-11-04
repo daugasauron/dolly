@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { exportSessionFile, importSessionFile } from "../src/session-file.mjs";
-import { DOLLY_SESSION_MAX_BYTES, DOLLY_SESSION_METADATA_MAX_BYTES,
+import { DOLLY_SESSION_FORMAT_VERSION, DOLLY_SESSION_MAX_BYTES, DOLLY_SESSION_METADATA_MAX_BYTES,
   customSessionIdentity, sessionCompatible, encodeSessionStream, decodeSessionSnapshot } from "../src/session-store.mjs";
 import { createHash, randomBytes } from "node:crypto";
 import { MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 
 const bytes = new TextEncoder().encode("DOLLYSES-opaque-\uFEFF日本語-credential").buffer;
 const encodeSessionSnapshot = input => encodeSessionStream(write => write(new Uint8Array(input)));
-const record = { name: "work.1", formatVersion: 2, buildId: "fixture-build",
+const record = { name: "work.1", formatVersion: DOLLY_SESSION_FORMAT_VERSION, buildId: "fixture-build",
   image: "default", imageIdentity: "default:fixture", updatedAt: 123, ...await encodeSessionSnapshot(bytes) };
 
 async function edit(file, change) {

@@ -22,10 +22,11 @@ flowchart LR
   program's own controls in that corner stay reachable. `Ctrl+Shift+S` saves
   while it is hidden. A save in progress or a failed one shows it until the
   save succeeds; a download offer shows it until every offer is answered.
-- A save holds files, directories, symlinks and deletions, including credentials,
-  Pi conversations (`~/.pi/agent/sessions`) and packages installed with `amy`
+- A save holds files, directories, symlinks and deletions, each with its
+  modification time, including credentials, Pi conversations
+  (`~/.pi/agent/sessions`) and packages installed with `amy`
   ([Dollyfile](dollyfile.md#packages-and-amy)). It does not hold processes,
-  descriptors, scrollback, environment, cwd, hard links, timestamps or modes;
+  descriptors, scrollback, environment, cwd, hard links, access times or modes;
   `/etc/dolly/environment` is a file, loaded after the replay, so installed
   variables apply when the session loads.
 - `/run`, `/dev` and `/proc` are excluded ([`session-records.h`](../src/session-records.h));

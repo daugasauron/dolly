@@ -10,8 +10,8 @@ REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.4/dist/static/session-recovery/session-recover.c 5f1c6511cc7e23b6714da04b5e52734460a584d530df4585ee0625ecf07c0ffb /tmp/session-recovery/session-recover.c
-SOURCE /v0.1.4/dist/static/session-recovery/session-records.h 22546db4c90c893af00e7b34be3def89d066c634a1b6c3422a55825d422dbab8 /tmp/session-recovery/session-records.h
+SOURCE /v0.1.4/dist/static/session-recovery/session-recover.c c401619a8a3642b8cf72221bff35fa906a3f33ddbb208f485dcea2028a284ee1 /tmp/session-recovery/session-recover.c
+SOURCE /v0.1.4/dist/static/session-recovery/session-records.h 2ed107133fae1ad98412a5b47c19e5ae16c72f2a7875b26723431a3b644f29bd /tmp/session-recovery/session-records.h
 SOURCE /v0.1.4/dist/static/session-recovery/fs-record.h 585989ac06fab7f4ba0325aa1faefa414b45f96d72b3525838cea7cdffe80e3c /tmp/session-recovery/fs-record.h
 
 SLOP cc -O1 -I/tmp/session-recovery /tmp/session-recovery/session-recover.c -o /usr/bin/session-recover
