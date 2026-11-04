@@ -5,8 +5,8 @@ REQUIRES HOST runtime@0
 # The shader permutations of the normal preset as WGSL, which the client's
 # gpu@0 path (dpgpurast.c) reads: dpshaders.c rewrites DarkPlaces' GLSL as
 # naga's GLSL front end reads it, and naga translates it.
-FROM /v0.1.4/Dollyfile-system-tools 8d77b709f1f8b842fa8c8ab6ceff38e29dc028da2d2abe15a92de18a0c1e5c23
-USE /v0.1.4/demos/rust/Dollyfile-naga aac7234becba39d343f2f4a4789e02f116e11bc1c575a1c8bf86349b35d13986
+FROM /v0.1.4/Dollyfile-system-tools 9232327feee4ad79987f1346e4edb56f6e6fc20300bc0e555943fadb1fe5d609
+USE /v0.1.4/demos/rust/Dollyfile-naga 11c2174722b12a45170ba002e61673a90264656e482bc7c4d5e543b0d04db0ba
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL make
