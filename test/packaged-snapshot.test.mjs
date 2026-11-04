@@ -5,10 +5,10 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { gzipSync } from "node:zlib";
+import { gunzipSync, gzipSync } from "node:zlib";
 import { shareSnapshots } from "../scripts/share-pages-snapshots.mjs";
 import { parseGeneratedConstant } from "../scripts/image-directory.mjs";
-import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
+import { decodeSnapshotRecords, encodeSnapshotRecords } from "../src/snapshot-records.mjs";
 import { loadImages } from "../src/images.mjs";
 import { packagedSystemSnapshot } from "../src/packaged-snapshot.mjs";
 import { Sha256 } from "../src/sha256.mjs";
@@ -58,9 +58,12 @@ test("a package's snapshot is merged from its packs as it is read, and checked w
     };
     assert.deepEqual(new Uint8Array(await read(metadata)), encodeSnapshotRecords(own));
     await assert.rejects(read({ ...metadata, sha256: "0".repeat(64) }), /packed snapshot integrity mismatch/);
-    // A pack of the declared sizes whose bytes are not the ones its hash names.
-    const [first, ...rest] = metadata.packs, wrong = gzipSync(new Uint8Array(first.byteLength));
-    await writeFile(resolve(dist, "packs", `${first.sha256}.snapshot.gz`), wrong);
+    // A pack of the declared sizes whose bytes are not the ones its hash names: one byte of a file differs.
+    const [first, ...rest] = metadata.packs, packPath = resolve(dist, "packs", `${first.sha256}.snapshot.gz`);
+    const changed = gunzipSync(await readFile(packPath));
+    changed[[...decodeSnapshotRecords(changed).values()].find(({ kind, data }) => kind === 2 && data.length).data.byteOffset] ^= 1;
+    const wrong = gzipSync(changed);
+    await writeFile(packPath, wrong);
     await assert.rejects(read({ ...metadata, packs: [{ ...first, encodedByteLength: wrong.length }, ...rest] }), /^Error: snapshot integrity mismatch$/);
   } finally {
     globalThis.fetch = nodeFetch;
