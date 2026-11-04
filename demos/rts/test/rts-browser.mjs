@@ -11,12 +11,13 @@ import { readFileSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { acceptDownload, delay, demoTest, shellPrompt, shellQuote, snapshotDisplay } from "../../browser.mjs";
+import { acceptDownload, delay, demoTest, shellPrompt, shellQuote, snapshotDisplay, writeCommand } from "../../browser.mjs";
 import { rtsProvider } from "./fixtures/rts-provider.mjs";
 
 const provider = rtsProvider();
-const fixtures = Object.fromEntries(["rts-match.mjs", "rts-history.mjs", "rts-split-replay.mjs", "rts-input-probe.cpp", "rts-live.mjs"]
-  .map(name => [name, `demos/rts/test/fixtures/${name}`]));
+// The scripts the session runs, written into it: rts-arena holds no curl.
+const scripts = ["rts-match.mjs", "rts-history.mjs", "rts-split-replay.mjs", "rts-input-probe.cpp"];
+const fixture = name => readFile(new URL(`fixtures/${name}`, import.meta.url), "utf8");
 const live = process.env.DOLLY_RTS_LIVE === "1";
 const relay = live && process.env.DOLLY_RTS_MODELS_FILE ? JSON.parse(await readFile(process.env.DOLLY_RTS_MODELS_FILE, "utf8")) : null;
 const secret = live && !relay ? readFileSync(0, "utf8").trim() : "";
@@ -34,7 +35,7 @@ const handle = async (request, response, path, headers) => {
 const scratch = await mkdtemp(join(tmpdir(), "dolly-rts-"));
 try {
   await demoTest("rts", { image: "rts-arena", timeout: live ? (seconds + 600) * 1000 : 1_800_000,
-    server: { fixtures, handle, port: Number(process.env.DOLLY_BROWSER_PORT ?? 0) } }, async ({ server, open }) => {
+    server: { handle, port: Number(process.env.DOLLY_BROWSER_PORT ?? 0) } }, async ({ server, open }) => {
     if (live) return liveMatch(await open({ prompt: /Type to search/, policy: { maxRequests: 1024, rules: [
       { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] },
       ...relay ? Object.values(relay.providers).map(({ baseUrl }) => ({ origin: new URL(baseUrl).origin, path: "/codex/responses",
@@ -171,7 +172,8 @@ try {
     // The real game, then a two-player match recorded by both engines whose
     // upstream replays play back to EOF.
     const test = "/tmp/rts-replay-test";
-    await run(`mkdir ${test} && cd /tmp && for name in ${Object.keys(fixtures).join(" ")}; do curl -fsS ${server.origin}/fixture/$name -o $name || exit 1; done`);
+    await run(`mkdir ${test} && cd /tmp`);
+    for (const name of scripts) await run(writeCommand(`/tmp/${name}`, await fixture(name)));
     await run("rts-arena --help", 64);
     let game = start("seven-kingdoms -demo -noaudio -win -rnd 12345");
     await graphics(true);
@@ -268,7 +270,7 @@ try {
     // Offscreen player input is ordered and never acquires the browser display.
     await run("mkdir -p /tmp/dolly-sdl2/player && c++ -O0 -I/usr/include/SDL2 -I/usr/src/dolly/rts /usr/src/dolly/rts/input.cpp /tmp/rts-input-probe.cpp -o /tmp/rts-input-probe -lSDL2 -lz -lm && /tmp/rts-input-probe");
     await page.waitForFunction(() => !__dolly.graphicsActive);
-    await run(`rm -rf ${test} /tmp/rts-pi-agent /tmp/dolly-sdl2 /tmp/rts-input-probe ${Object.keys(fixtures).map(name => `/tmp/${name}`).join(" ")}`);
+    await run(`rm -rf ${test} /tmp/rts-pi-agent /tmp/dolly-sdl2 /tmp/rts-input-probe ${scripts.map(name => `/tmp/${name}`).join(" ")}`);
   });
 } finally {
   await rm(scratch, { recursive: true, force: true });
@@ -281,7 +283,7 @@ async function liveMatch({ page, run, start, text, submit, prompt }, origin) {
   await prompt(shellPrompt);
   const settings = { ...relay ? { transport: "sse" } : {}, images: { autoResize: false } };
   await run(`mkdir /tmp/rts-live-agent && printf %s ${shellQuote(JSON.stringify(settings))} > /tmp/rts-live-agent/settings.json && ` +
-    `curl -fsS ${origin}/fixture/rts-live.mjs -o /tmp/rts-live.mjs`);
+    writeCommand("/tmp/rts-live.mjs", await fixture("rts-live.mjs")));
   assert.equal(await submit(`printf %s ${shellQuote(JSON.stringify(relay ? {} : { openrouter: { type: "api_key", key: secret } }))} > /tmp/rts-live-agent/auth.json`), 0);
   if (relay) await run(`printf %s ${shellQuote(JSON.stringify(relay))} > /tmp/rts-live-agent/models.json`);
   else await run(`janis -m /tmp/rts-live.mjs prepare ${models.map(model => shellQuote(model.replace(/:[a-z]+$/, ""))).join(" ")}`);
