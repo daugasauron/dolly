@@ -37,7 +37,99 @@ Also found by the audit, not on a branch: `host/{audio,gpu,microphone,nena}/kern
 28 lines but for names; a context pointer in `dolly_kernel_module` could serve all four. Judge once
 1 is in: if the four files are then identical but for their export's name, do it in the same round.
 
+State (2026-11-04 13:45): all four done and verified on `core/host-contracts` (c0745b24,
+ad5cc953, 246f0325, 90c3b89b); what remains is the done-when's round on integrate, which
+rebuilds every image (image inputs change).
+
 Done when: the three are on integrate in one round; the suites above and `test/audio-host.test.mjs`
 pass in Chromium and Firefox, hardware gpu-render in Chrome; `scripts/generate-abi-constants.mjs`
 is the one source of the values in C and JavaScript (no literal record type, flag or cursor style
 in `host/input/*.mjs` or `host/display/*.mjs`).
+
+## Work on core/host-contracts (2026-11-04)
+
+Built on `core/process-archive` (3ed3fd98, image inputs `badb9a41`). Each proposal was
+brought over as its code diff, the generated files regenerated and the recipes repinned;
+none conflicted with the 510 commits since 12c7fbd9.
+
+1. **Leased device**, 246f0325. As proposed, plus: the GPU Worker checks the version by
+   `DOLLY_GPU_VERSION` (it compared with 0); gpu's client now refuses a spent sequence, as the
+   other three did; `host/README.md` says what a digest covers since 4512e2f8 (process WAT,
+   other headers, contract constants: it still said "the exact bytes of its WAT contracts").
+   157 lines in, 164 out outside tests and generated files. Digests: gpu changes (gpu.h);
+   audio's and microphone's do not, their wire format being unchanged; runtime.h and nena's
+   client (in the seed, no package) are seed inputs.
+2. **Mailbox values**, ad5cc953. As proposed, plus: `src/terminal-text.mjs` (the page's
+   handle) pushed pointer actions 1, 2, 0; display.mjs compared the frame index with 1 and
+   listed the frames as `[0, 1]` (now `DOLLY_DISPLAY_FRAME_COUNT`); the input WAT's prose
+   names LEASED and POINTER_RELATIVE where it said bit 0 and bit 1, and keeps input.h's
+   "Escape ends the capture". touch@0's BUTTONS (95), PRESS and labels geometry were already
+   WAT globals; the block's count and labels were `BUTTONS_OFFSET + 4` and `+ 8` in touch.mjs
+   and its test: now `DOLLY_TOUCH_LABEL_COUNT_OFFSET` and `DOLLY_TOUCH_LABELS_OFFSET`, checked
+   by touch.h's layout assert. touch's digest changes too. Left as they are, being layout or
+   booleans rather than record types, flags or cursor styles: a record's field offsets in
+   `writeRecord`, the pointer button in `flags >> 8` (read so by Ghostty, SDL2, Wine and
+   slopyard), the FOCUS/CAPTURE/PRESENCE actions and the enabled word (1 or 0).
+3. **Snapshot**, c0745b24. As proposed; it touches other hunks of kernel.c, snapshot.mjs and
+   ui.mjs than `core/session-mtimes` does: a trial merge (`git merge-tree`) conflicts only in
+   recipe pins. Not an image input (image inputs `badb9a41` before and after).
+4. **The four kernel.c files**, 90c3b89b. After 1 they were still identical but for names
+   and gpu's `reopen_busy`: each defined a call and a release that only forwarded to
+   `dolly_device_call/release` with its device. `dolly_kernel_module` now has a `device`
+   member that the kernel's module table calls directly; the four files keep only their
+   slots, import, mailbox export and numbers (19 lines in, 54 out). A typed member rather than
+   a `void *` context, which would have changed the call signature of all fifteen kernel
+   modules.
+
+Finding, not changed: `dolly_device_header` and `dolly_device_request()` sit in runtime.h,
+which no module digest covers; a change of the header's layout would show only as a device
+version, which the kernel and the bridge check. Bump the four versions with such a change.
+
+### Measured (2026-11-04, on 90c3b89b)
+
+- Image inputs `badb9a41` (base) to `56f681bc`; runtime `3e6dbff8`. The 30 images of this
+  tree (`default`, `system`, `system-build`, the five `libdolly-*` packages, `stack-wrap`,
+  `less`, `ghostty-build` and `zig-build` among them) rebuilt in 1,014 s.
+- Pass in Chromium and Firefox on them: audio, microphone, nena, gpu-indicator,
+  host-compute, dso, host-modules, boundary, custom-session, session-offline,
+  snapshot-stream, indicators, terminal, display, display-cursor, touch (the holder's
+  buttons included), shell, upload, pager, pty, network, sockets, stack, threads, embedding
+  and core. `test/audio-host.test.mjs` (the bridge's whole-header checks) passes in the
+  source suite (470 tests).
+- Hardware gpu-render passes in Chrome 156 on Xvfb :142 (adapter "nvidia blackwell", 11 s),
+  the fixture compiled in the guest against the rebuilt libdolly-gpu.
+- Item 3 alone, before 1 and 2 (c0745b24, on the branch's images): custom-session,
+  session-offline, snapshot-stream, indicators and boundary pass in both browsers.
+- `default` passes in both browsers once the tree also publishes `python` (its start-up text
+  names it; python's closure brings cmake, sqlite, xz and bzip2: 877 s) and `zig` (its
+  "composed dependency" case): a narrowed catalog without them fails the test, not the image.
+
+For the round: the seed changes (runtime.h, input.h, display.h, nena's client), so every
+image rebuilds; programs linked with the input, display, touch or gpu client are refused
+until they are, being stamped with the old digests. Not built here and so first measured by
+the round: the demos that read input@0 or touch@0 records in C (Ghostty's display.c is in
+`ghostty-build`, built here; SDL2, Wine's winedolly.drv, slopyard, bhop, gpu-fluid and
+pi-phone's buttons are not), whose headers' values are now unsigned macros where they were
+enums.
+
+## Lessons
+
+- A proposal that keeps its code apart from its recipe pins travels. Three prototypes from
+  12c7fbd9, 510 commits back, came over as `git show BRANCH -- CODE | git apply` without one
+  conflict, then a regeneration and a repin; a trial merge with `core/session-mtimes`
+  conflicts only in pins. Never carry a proposal's Dollyfiles.
+- `update-recipe-pins.mjs` without `--sources` rewrites FROM/INSTALL pins only, and the source
+  suite checks only `Dollyfile-dolly-docs`'s SOURCE pins: a header edit leaves
+  `system-build`'s and the `libdolly-*` packages' SOURCE pins stale until an image build
+  meets them. After editing a header or client, run it with `--sources` and
+  `DOLLY_BUILD_IMAGES` naming those recipes.
+- Since 4512e2f8 a digest follows the contract, not the code that writes it: moving the
+  header's filling into runtime.h left audio's and microphone's digests, and so every program
+  built before, as they were, while gpu's moved with gpu.h's struct. `git diff '*-abi.h'`
+  tells which programs a change refuses before any image is built.
+- A tree that verifies a seed change needs `python` and `zig` in its catalog for
+  `test/default-browser.mjs`; name them in the first image build rather than after the
+  suites (it cost a second build of 877 s here).
+- Splitting one working tree into per-item commits needs no stash: back up the changed files,
+  check out HEAD for the other items' files, regenerate, repin, run the suite, commit,
+  restore. The generated files follow their sources.
