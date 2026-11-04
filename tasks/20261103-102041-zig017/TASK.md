@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 220
-- TAGS: zig,toolchain,display
+- TAGS: zig,toolchain,display,0.1.5
 
 Owner (2026-11-03): "I think a new version of zig was released, I want you to upgrade to that
 across the board."
@@ -21,16 +21,14 @@ Done when: every recipe that builds with Zig uses 0.17.0 (or the newest release 
 and pins name it, nothing pins 0.16; the catalog is rebuilt in a round, and the terminal, zig's
 own demo test and the images built with it pass their tests in Chromium and Firefox.
 
-## State (2026-11-04 01:10 JST)
+## State (2026-11-04 22:00 JST)
 
-Branch `zig/0.17` in `work/sdl2`. Pins, patches, recipes and docs name Zig 0.17.0, Ghostty
-v1.4.0 and LLVM 22.1.8; nothing pins 0.16 or LLVM 21. Built and tested in this tree: the core
-chain, and `llvm22`, `zig-llvm-build` and `zig-llvm` in a 9 GB slot (Measurements, Tests): the
-terminal's and zig's own tests pass in Chromium and Firefox. `demos/ghostty-gtk` is staged for
-v1.4.0 but needs Mesa's EGL (`tasks/20261103-110119-ghostty-egl`). Left: the catalog round
-(every image holds the new display), then closing this task; and a regression to explain before
-closing: `zig build` in a session took 103 s on its first run on 0.17 against 13.5 s on 0.16
-(the agent's report, 2026-11-04 01:10), not measured apart from the build system's cache.
+The upgrade is merged and on `main` (`ebffaaad8`, the round of 4 November): pins, patches, recipes
+and docs name Zig 0.17.0, Ghostty v1.4.0 and LLVM 22.1.8, and the catalog was rebuilt with them.
+`demos/ghostty-gtk` waits for Mesa's EGL (`tasks/20261103-110119-ghostty-egl`). Left before
+closing: `zig build`'s first run in a session, 103 s on 0.17 against 13.5 s on 0.16 (the upgrade's
+report, 2026-11-04 01:10); branch `zig/build-speed` in `work/zigperf` measures and fixes it
+(section "zig build's first run").
 
 ## Findings (2026-11-03, with evidence)
 
