@@ -1,13 +1,8 @@
 # A session save keeps modification times
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 170
 - TAGS: core,sessions,snapshots,filesystem
-
-## State (2026-11-04)
-
-Done on `core/session-mtimes`: format 3 of a save carries each path's modification time
-(`0cf7cb6dc`). Left: the session and core browser tests, the base images' times (below).
 
 A save holds no timestamps (`docs/sessions.md:28`; a record of `session-records.h` is a path and
 its data), so after a restore every file is as old as the restore and make compares the replay's
@@ -73,3 +68,37 @@ restore in both browsers; the snapshot end at boot (verification and prune, `sys
 took 471-599 ms before and 476-545 ms after over five boots in each browser, no difference
 beyond noise. `test/session-times-browser.mjs` makes its rule depend on `/usr/bin/make` too:
 without the image time it fails at its make check (Chromium: `b.out` rebuilt as well).
+
+## Closed 2026-11-04
+
+On `core/session-mtimes`: `0cf7cb6dc` (format 3, a time per record), `5ac1c041a` (the image's
+fixed time at boot), `e0fe324e7` (the seed's envelope comment, `docs/sessions.md`'s wording).
+`test/session-times-browser.mjs` saves two files dated 2000 and 2010 and a make project edited
+after its build, restores the session, and checks both times with `stat` and that `make` runs
+exactly `cp a.in a.out`: before, it failed at its `stat` check in Chromium and Firefox; on the
+final runtime (`sha256:1084cd14…`, image inputs `ff1bd22a…`, `default` and `system` rebuilt on
+them) it passes in both, as do `session-offline`, `custom-session` (recovery included),
+`snapshot-stream`, `pack-store`, `image`, `host-modules`, `nena` and `core`.
+`test/session-recovery.test.mjs` checks the recovered copy's times natively (one before 1970) and
+that a format-2 save is refused. `docs/sessions.md` lists modification times among what a save
+holds; `docs/process-model.md` says what an image's times are.
+
+The catalog round rebuilds every image: `src/fs-record.h` is a seed input. Without that comment
+it would have been `system` and everything on it (`session-recover`'s sources changed).
+
+## Lessons
+
+- Keeping one layer's times exposed the layer under it. Faithful session times were older than
+  the image's files after every reload, because the image had the boot's time: the first
+  version, correct by its own test, turned a rare stale target into a rebuild of every target on
+  an image header. Measure the consumer's invariant (make's order between image and session
+  files) across both layers, not only the layer being changed.
+- A throwaway `browserTest` in `build/http-evidence/` that prints the terminal (`probe-*.mjs`)
+  gave each before and after in both browsers in under a minute, with the harness the real test
+  uses; it found the image's times before any reasoning about them did.
+- A comment in a seed header cost a 21-minute rebuild of `system` and `default` here (zig-build
+  13 of it), and `system-build`'s snapshot came out byte-identical under a new identity: the
+  catalog has no early cutoff, so a seed comment belongs with other seed changes, as tonight's
+  round has them anyway. A change to `session-records.h` alone rebuilt `system` in 25 seconds.
+- The checkout serves `src/` live, so a running browser test freezes the tree: the waits went to
+  the task file and to reading the restore paths, edits only between runs.
