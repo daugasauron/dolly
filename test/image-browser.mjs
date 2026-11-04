@@ -47,7 +47,7 @@ FILE /tmp/iteration.c
 SLOP cc /tmp/iteration.c -o /usr/bin/iteration
 EXPORTS TOOL iteration
 EXPORTS ENV DOLLY_ITERATION first
-EXPORTS ENV DOLLY_ITERATION APPEND second
+EXPORTS ENV DOLLY_ITERATION first:second
 FILE /usr/share/iteration-entry.slop
     test "$1" = '\uFEFFargument' || exit 87
     /bin/foreground -i /bin/slop

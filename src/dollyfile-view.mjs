@@ -239,7 +239,7 @@ function inspectRecipe(source, label, rows) {
         if (type === "TOOL") {
           if (details.length !== 0) fail(label, item.line, "invalid TOOL export");
         } else if (type === "ENV") {
-          if (!(details.length === 1 || (details.length === 2 && details[0] === "APPEND"))) {
+          if (details.length !== 1) {
             fail(label, item.line, "invalid ENV export");
           }
         } else if (details.length !== 1 || !validAbsolutePath(details[0]) || unretainedPath(details[0])) {

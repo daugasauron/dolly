@@ -181,8 +181,7 @@ mounted, and reads no other version's.
   allows them. A recipe never grants itself network access. Upstream hosts
   often send no CORS headers, so upstream archives are staged and published
   by the site ([sources](sources.md#pins-and-identity)).
-- `EXPORTS ENV NAME VALUE` sets the variable now; `EXPORTS ENV NAME APPEND VALUE`
-  appends `:VALUE` (or sets it when empty). Final values are stored in the image.
+- `EXPORTS ENV NAME VALUE` sets the variable now. Final values are stored in the image.
 
 ## Exports, assertions and retention
 
@@ -192,7 +191,7 @@ mounted, and reads no other version's.
 | `EXPORTS FILE name /path`, `EXPORTS LIB name /path` | A regular file. |
 | `EXPORTS FOLDER name /path` | A directory and its members. |
 | `EXPORTS HEADER name /path` | A file or directory. |
-| `EXPORTS ENV NAME [APPEND] VALUE` | An environment variable. |
+| `EXPORTS ENV NAME VALUE` | An environment variable. |
 
 - ENV names match `[A-Za-z_][A-Za-z0-9_]*`; other names match
   `[A-Za-z][A-Za-z0-9._+-]*` or are `[`; at most 128 bytes.

@@ -38,8 +38,8 @@ FILE ${outputs}/owned
 FILE ${outputs}/owned
     overwritten`, check: `test "$(cat ${outputs}/owned)" = overwritten` },
     { name: "environment", rows: `EXPORTS ENV DOLLY_V3_ENV first
-EXPORTS ENV DOLLY_V3_ENV APPEND second
-SLOP test "$DOLLY_V3_ENV" = first:second` },
+EXPORTS ENV DOLLY_V3_ENV second
+SLOP test "$DOLLY_V3_ENV" = second` },
     { name: "deletion", rows: `FILE ${outputs}/deleted
     old
 SLOP rm ${outputs}/deleted`,

@@ -764,20 +764,8 @@ static int collect_tree(Engine *engine, const char *path) {
                        &engine->keep_capacity, path);
 }
 
-static int apply_environment(const char *name, const char *detail, int append) {
-  if (!append) {
-    return setenv(name, detail, 1) == 0 ? 0 : -errno;
-  }
-  const char *value = detail;
-  const char *current = getenv(name);
-  if (current == NULL || *current == '\0') return setenv(name, value, 1) == 0 ? 0 : -errno;
-  const size_t length = strlen(current) + strlen(value) + 2;
-  char *combined = malloc(length);
-  if (combined == NULL) return -ENOMEM;
-  snprintf(combined, length, "%s:%s", current, value);
-  const int result = setenv(name, combined, 1) == 0 ? 0 : -errno;
-  free(combined);
-  return result;
+static int apply_environment(const char *name, const char *detail) {
+  return setenv(name, detail, 1) == 0 ? 0 : -errno;
 }
 
 static int resolve_export_path(const char *type, const char *name,
@@ -1485,7 +1473,7 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   for (size_t index = 0; result == 0 && mode != IMPORT_COPY && index < imported.count; ++index) {
     const Object *object = &imported.items[index];
     if (strcmp(object->type, "ENV") != 0) continue;
-    result = apply_environment(object->name, object->detail, 0);
+    result = apply_environment(object->name, object->detail);
     if (result == 0 && keep) result = append_string(&engine->environment_names,
         &engine->environment_name_count, &engine->environment_name_capacity, object->name);
   }
@@ -1641,13 +1629,11 @@ static int process_line(Engine *engine, const char *locator,
     if (result == 0 && (count < 2 || !valid_object_type(words[0]) ||
         (strcmp(words[0], "ENV") == 0 ? !valid_environment_name(words[1]) : !valid_object_name(words[1])))) result = 2;
     const char *detail = NULL;
-    int append = 0;
     if (result == 0) {
       if (strcmp(words[0], "TOOL") == 0) {
         if (count != 2) result = 2;
       } else if (strcmp(words[0], "ENV") == 0) {
         if (count == 3) detail = words[2];
-        else if (count == 4 && strcmp(words[2], "APPEND") == 0) { detail = words[3]; append = 1; }
         else result = 2;
       } else {
         if (count != 3 || !valid_absolute_path(words[2]) || dolly_fs_unretained_path(words[2])) result = 2;
@@ -1655,7 +1641,7 @@ static int process_line(Engine *engine, const char *locator,
       }
     }
     if (result == 0 && strcmp(words[0], "ENV") == 0) {
-      result = apply_environment(words[1], detail, append);
+      result = apply_environment(words[1], detail);
       if (result == 0) result = append_string(&engine->environment_names, &engine->environment_name_count,
                                                &engine->environment_name_capacity, words[1]);
       detail = getenv(words[1]);
@@ -2224,7 +2210,7 @@ static int read_environment_file(Engine *engine) {
     char *name = strndup((const char *)name_bytes, name_length);
     char *value = strndup((const char *)value_bytes, value_length);
     result = name == NULL || value == NULL ? -ENOMEM : !valid_environment_name(name) ? -EINVAL
-        : apply_environment(name, value, 0);
+        : apply_environment(name, value);
     if (result == 0) result = append_string(&engine->environment_names, &engine->environment_name_count,
                                              &engine->environment_name_capacity, name);
     free(name);

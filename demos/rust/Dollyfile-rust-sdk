@@ -41,7 +41,7 @@ SLOP mkdir -p /usr/share/licenses/rust
 SLOP cp -R /opt/rust-sdk/licenses/. /usr/share/licenses/rust
 SLOP rm /tmp/rust-sdk.tar.gz /tmp/rust-linker.c
 
-EXPORTS ENV PATH APPEND /opt/rust-sdk/bin
+EXPORTS ENV PATH /bin:/usr/bin:/opt/rust-sdk/bin
 EXPORTS TOOL rustc
 EXPORTS TOOL cargo
 # Images build once, so rustc's incremental sessions would only be a second
