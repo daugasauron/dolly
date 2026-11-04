@@ -1,6 +1,6 @@
 # Zig 0.17 across the board: zig, its LLVM, Ghostty's build and every image built with them
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 220
 - TAGS: zig,toolchain,display,0.1.5
 
@@ -21,17 +21,18 @@ Done when: every recipe that builds with Zig uses 0.17.0 (or the newest release 
 and pins name it, nothing pins 0.16; the catalog is rebuilt in a round, and the terminal, zig's
 own demo test and the images built with it pass their tests in Chromium and Firefox.
 
-## State (2026-11-05 00:30 JST)
+## Closed (2026-11-05 04:15 JST)
 
-The upgrade is merged and on `main` (`ebffaaad8`, the round of 4 November): pins, patches, recipes
-and docs name Zig 0.17.0, Ghostty v1.4.0 and LLVM 22.1.8, and the catalog was rebuilt with them.
-`demos/ghostty-gtk` waits for Mesa's EGL (`tasks/20261103-110119-ghostty-egl`). The one item left,
-`zig build`'s first run in a session (103 s on 0.17 against 13.5 s on 0.16 in the upgrade's
-report), is explained and fixed on `zig/build-speed` in `work/zigperf` (section "zig build's first
-run"): 0.17 compiles its maker and translator on first use, by design, and the `zig-llvm` package
-now does that when it is built. Measured with the setup done by hand in a session: 17.0 s in
-Chromium and 19.1 s in Firefox, against 95.6 s and 101.9 s. Left: the package built (a 9 GB slot,
-so after the night round) and the demo test on it in both browsers.
+The upgrade is on `main` (`ebffaaad8`, the round of 4 November): pins, patches, recipes and docs
+name Zig 0.17.0, Ghostty v1.4.0 and LLVM 22.1.8, and the catalog was rebuilt and tested with
+them. The one item left, `zig build`'s first run in a session, is explained and fixed on
+`zig/build-speed` (`faf71c265` and the README commits after it): Zig 0.17 compiles its maker and
+translator on first use, by design; the `zig-llvm` package now does that when it is built. The
+first `zig build` of the demo's project in a session: 16.9 s in Chromium and 18.2 s in Firefox,
+against 95.6 s and 101.9 s before and 26-34 s and 36-42 s on Zig 0.16; the zig demo test passes
+in both (section "zig build's first run"). The merge's round rebuilds `zig-llvm`, `ghostty-gtk`
+and `ghostty-x11`. `demos/ghostty-gtk`'s EGL is `tasks/20261103-110119-ghostty-egl`; LLVM's
+per-relocation kernel calls are `tasks/20261104-131850-llvm-relocation-calls`.
 
 ## zig build's first run (2026-11-04/05 night, `work/zigperf`)
 
@@ -53,6 +54,8 @@ the published archive (`work/locks/published/v0.1.4`, `tools/serve-published.mjs
 | 0.17, Firefox | 101.9 | 14.0 | | | |
 | 0.17 with the setup done, Chromium | 17.0 | 11.5 | 0.6 | 2.9 | 0.6 |
 | 0.17 with the setup done, Firefox | 19.1 | 15.4 | | | |
+| 0.17, the package built with it, Chromium | 16.9 | 10.7 | 0.7 | 2.7 | 0.7 |
+| 0.17, the package built with it, Firefox | 18.2 | 16.8 | | | |
 | 0.16, native x86_64, one core | 5.3 | 2.2 | 0.02 | 3.1 | |
 | 0.17, native x86_64, one core | 72.2 (10.5 with `ZIG_DEBUG_CMD`) | 1.7 | 0.01 | 3.7 | 52.8 |
 
@@ -136,7 +139,14 @@ no longer compiles the maker there.
 
 The package does not build in a 6 GB `build` slot: Chrome was killed by the slot's OOM killer
 while the builder restored `zig-llvm-build`, `llvm22` and `cc` (2026-11-04 23:56, before any of
-the new steps ran), as for the upgrade, which built it in a 9 GB slot.
+the new steps ran). In a 9 GB slot after the night round it built in 251.5 s (2026-11-05 04:02,
+the round's `zig-llvm-build`, `llvm22` and `cc` linked in): 458,230,208 bytes, 9.0 MB more, and
+20,991 retained paths. In a session its maker and translator are the cache's (`6b48a6ea…`,
+`4e7afa28…`), and the first `zig build` compiles neither.
+
+Tests (2026-11-05, this tree, the package above): `npm run test:demos -- zig`, the new check
+included, passed in Chromium (54.6 s) and Firefox (70.1 s); the night round's run on its package
+took 148.7 s and 186.7 s, Zig 0.16's 34.6 s and 45.8 s. Source suite: 476 passed.
 
 ### Kernel calls (both versions, not the regression)
 
