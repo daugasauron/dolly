@@ -203,7 +203,11 @@ __wasi_errno_t __wasi_environ_get(uint8_t **vector, uint8_t *buffer) {
       : error;
 }
 
+/* threads.c's, in a program with threads. */
+__attribute__((__weak__)) void __dolly_threads_end(void);
+
 _Noreturn void __wasi_proc_exit(__wasi_exitcode_t status) {
+  if (__dolly_threads_end) __dolly_threads_end();
   const dolly_process_exit_request request = {status & 255u, 0};
   (void)dolly_process_call(
       DOLLY_PROCESS_EXIT, &request, sizeof(request), NULL, 0);

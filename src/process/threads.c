@@ -2,6 +2,7 @@
 #include "pthread_impl.h"
 #include "stdio_impl.h"
 #include "lock.h"
+#include <dolly/process.h>
 #include <dolly/threads.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,6 +17,8 @@ typedef struct dolly_pthread {
   sigset_t mask;
   int host_tid, detached, finished, joining, c11;
   struct dolly_pthread *garbage_next;
+  /* The futex word this thread waits on, or NULL (__dolly_threads_end). */
+  volatile void *volatile waiting;
 } dolly_pthread;
 
 static dolly_pthread main_thread;
@@ -236,12 +239,48 @@ uint64_t __dolly_pthread_start(uint32_t tid, uint64_t argument) {
   pthread_exit(result);
 }
 
+/* A process that ends wakes its threads that wait on a futex, and they end
+ * at once: Chrome ends a Worker it terminates inside a wait, and frees the
+ * process's memory, two seconds later, so a program whose idle threads wait
+ * (a task pool's) held its memory past its end and into its successor's. */
+static volatile int ending;
+
+__attribute__((import_module("dolly_process_0"), import_name("call")))
+int64_t raw_process_call(uint32_t operation, const void *request,
+                         uint64_t request_size, void *response, uint64_t capacity);
+
+/* A thread of an ending process waits in the kernel for the end, whose
+ * answer ends its Worker at once. It does not exit: no joiner sees it return,
+ * and no handler runs (a signal's EINTR asks again). */
+static _Noreturn void await_end(void) {
+  const dolly_process_clock_sleep_request forever = {DOLLY_PROCESS_CLOCK_MONOTONIC, 0, UINT64_MAX};
+  for (;;) raw_process_call(DOLLY_PROCESS_CLOCK_SLEEP, &forever, sizeof(forever), NULL, 0);
+}
+
+void __dolly_threads_end(void) {
+  __atomic_store_n(&ending, 1, __ATOMIC_SEQ_CST);
+  /* The ending thread may hold the list's lock, in a call a signal ends: it
+   * does not wait for it, and wakes no one if another holds it. */
+  if (__atomic_exchange_n(&thread_list_lock, 1, __ATOMIC_ACQUIRE)) return;
+  pthread_t self = __pthread_self();
+  for (pthread_t thread = self->next; thread != self; thread = thread->next) {
+    volatile void *address = __atomic_load_n(&record(thread)->waiting, __ATOMIC_SEQ_CST);
+    if (address) __builtin_wasm_memory_atomic_notify((int *)address, -1);
+  }
+  __tl_unlock();
+}
+
 int emscripten_futex_wait(volatile void *address, uint32_t value, double milliseconds) {
   if ((uintptr_t)address % 4 || !address || isnan(milliseconds)) return -EINVAL;
   int64_t timeout = !isfinite(milliseconds) ? -1 : milliseconds <= 0 ? 0 :
       milliseconds >= (double)INT64_MAX / 1000000 ? INT64_MAX : (int64_t)(milliseconds * 1000000);
   if (__dolly_dso_wait) return __dolly_dso_wait(address, value, timeout);
-  int result = __builtin_wasm_memory_atomic_wait32((int *)address, value, timeout);
+  dolly_pthread *self = record(__pthread_self());
+  __atomic_store_n(&self->waiting, address, __ATOMIC_SEQ_CST);
+  int result = __atomic_load_n(&ending, __ATOMIC_SEQ_CST) ? 0
+      : __builtin_wasm_memory_atomic_wait32((int *)address, value, timeout);
+  __atomic_store_n(&self->waiting, NULL, __ATOMIC_SEQ_CST);
+  if (__atomic_load_n(&ending, __ATOMIC_SEQ_CST)) await_end();
   return result == 0 ? 0 : result == 1 ? -EAGAIN : -ETIMEDOUT;
 }
 int emscripten_futex_wake(volatile void *address, int count) {
