@@ -23,7 +23,7 @@ compiler with zig2, and here zig2 is the compiler. A program for Dolly is
 `NAME.wasm`. Zig 0.17 compiles the program behind `zig build`, `init`, `fetch`
 and `libc` (its maker) in ReleaseSafe, and `translate-c`'s in ReleaseFast, the
 first time each runs, into the global cache: upstream's first-time setup, which
-the package does when it is built and keeps in `~/.cache/zig`: a session's
+the package does when it is built and keeps in `~/.cache/zig`. A session's
 first `zig build` of a one-program project then takes 17 s in Chromium and 19
 in Firefox instead of 96 and 102 (2026-11-05). zig1 makes the compiler's C in
 about 20 minutes, `cc` compiles it in 8 in a 9 GB slot (6 GB is not enough),
