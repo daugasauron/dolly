@@ -43,13 +43,21 @@ so Zig 0.16 runs on its own runtime and images.
 
 | Run (seconds) | `zig build`, first in a session | new project, global cache warm | rerun | `zig build-exe hello.zig` |
 | --- | --- | --- | --- | --- |
-| 0.16, Chromium 156 | 25.9, 29.5, 33.5 | 19.2, 23.9 | 0.8 | 4.5 |
-| 0.16, Firefox 155 | 36.3 | 27.9 | (tab crashed) | |
+| 0.16, Chromium 156 | 25.9, 29.5, 30.8, 33.0, 33.5 | 19.2, 21.9, 23.9 | 0.8, 0.8 | 4.5, 5.5 |
+| 0.16, Firefox 155 | 36.3, 42.3 | 27.9 | (killed) | |
 | 0.16, native x86_64, one core | 5.3 | 2.2 | 0.02 | 3.1 |
 | 0.17, native x86_64, one core | 72.2 (10.5 with `ZIG_DEBUG_CMD`) | 1.7 | 0.01 | 3.7 |
 
 The machine is shared with the night round (three image builds), so a run varies by a few
-seconds; the 13.5 s of the upgrade's report was not reproduced for 0.16.
+seconds; the 13.5 s of the upgrade's report was not reproduced for 0.16. Firefox's second or
+third `zig build` in one session ended the run both times: the 6 GB browser slot's OOM killer
+(journal, 22:21), so Firefox runs measure one or two builds.
+
+Where 0.16's first `zig build` goes (Chromium trace, 33.5 s): the zig process compiles the build
+runner and compiler_rt until 28.0 s (LLVM's codegen 14.1 s, the object writer's kernel calls
+8.1 s, Sema 2.2 s, AstGen 1.5 s, malloc 1.1 s, other calls 1.0 s); `cc` and `wasm-ld` link the
+runner in 0.4 s; the runner starts `zig build-exe hello.zig` 0.6 s later, which compiles it in
+4.5 s (2.0 s of it in kernel calls) and links it in 0.4 s.
 
 ### Cause: Zig 0.17 compiles its maker in ReleaseSafe the first time, by design
 
