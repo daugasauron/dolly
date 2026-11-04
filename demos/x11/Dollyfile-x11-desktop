@@ -15,6 +15,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
+REQUIRES HOST html@0
 
 # An X session on Dolly's display: the Xsdl server, twm managing the
 # windows, and three of X's own clients in theirs: a clock, eyes that follow

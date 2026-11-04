@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 # here from their pinned sources. The seed builds the first rustc; that one
 # builds the rustc kept. Every Rust program in the catalog is built by this
 # image's toolchain.
-FROM /v0.1.4/demos/rust/Dollyfile-rust-sdk d32683e95cb2395eedec354be1bf8d80ba7891bea496c4e00c137b3b8cdf6cb8
+FROM /v0.1.4/demos/rust/Dollyfile-rust-sdk 5c741fefe4a731cfc26ed9068015a6d2d54699b0be79ab4c656a40b70eaac2c3
 COPY /v0.1.4/demos/rust/Dollyfile-rust-llvm 09e018feefb34f9b41c623c265407eca9e8cbebb634e2d418cfcfdccd4183f4a /opt/rust-llvm /opt/rust-llvm
 # patch, for the compiler's patch below.
 INSTALL /v0.1.4/Dollyfile-git 21db13252f06105787c8b7fcffeec1c113cf0df32c6bd01f7d195f44145a29ec

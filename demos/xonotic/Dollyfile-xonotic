@@ -11,14 +11,15 @@ REQUIRES HOST touch@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 REQUIRES HOST threads@0
+REQUIRES HOST html@0
 
 FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
-COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 92f92dad106938a61eee4295ad0c4bbc9a80e4416f5193ad68b120346e04c226 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
-INSTALL /v0.1.4/demos/xonotic/Dollyfile-xonotic-shaders 97625b4d9e118f83df86e975c4cbe615effbb48cc1954d8eefcac3cdfc6155d0
-COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 92f92dad106938a61eee4295ad0c4bbc9a80e4416f5193ad68b120346e04c226 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 413fd78a6589d660b0d15ff21a51d4aed43afd69ec3b6abcdd2cd6ea3fc97373 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+INSTALL /v0.1.4/demos/xonotic/Dollyfile-xonotic-shaders 0244628446d5c192ded6e6b7bec9a72530b5e139d7deadf592627a7c2612c4f7
+COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 413fd78a6589d660b0d15ff21a51d4aed43afd69ec3b6abcdd2cd6ea3fc97373 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
 COPY /v0.1.4/demos/sdl2/Dollyfile-sdl2 adf88beda7f41cbd97b32fe0f27906f8c4893f10bef9e1bb18f670ceb7c05584 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
-COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 92f92dad106938a61eee4295ad0c4bbc9a80e4416f5193ad68b120346e04c226 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
+COPY /v0.1.4/demos/xonotic/Dollyfile-xonotic-build 413fd78a6589d660b0d15ff21a51d4aed43afd69ec3b6abcdd2cd6ea3fc97373 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
 COPY /v0.1.4/demos/zero-ad/Dollyfile-freetype f58a119619c042debd360ccb2c34a2f1785c4c31b20045ce0b35448ad11386b5 /usr/share/licenses/freetype /usr/share/licenses/freetype
 COPY /v0.1.4/demos/zero-ad/Dollyfile-libpng 2c5b31c2352ab7789522c83cf9e7d2820fb7b0e300744177343fcc8ed889efd9 /usr/share/licenses/libpng /usr/share/licenses/libpng
 COPY /v0.1.4/demos/xonotic/Dollyfile-libogg af3a8617e1c7c14a60fe9ac7c8f00f6a697e155d10d95d9cafc1ea1bc063a541 /usr/share/licenses/libogg /usr/share/licenses/libogg
