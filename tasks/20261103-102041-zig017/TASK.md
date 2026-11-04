@@ -30,6 +30,60 @@ closing: `zig build`'s first run in a session, 103 s on 0.17 against 13.5 s on 0
 report, 2026-11-04 01:10); branch `zig/build-speed` in `work/zigperf` measures and fixes it
 (section "zig build's first run").
 
+## zig build's first run (2026-11-04/05 night, `work/zigperf`)
+
+Evidence under `build/zigperf-evidence/` of `work/zigperf`: the measuring script
+(`tools/measure.mjs`, one session, each command timed from Playwright), its step lists, logs,
+results and Chrome traces (CPU profiler only), and the native runs (`native/`). The project is
+the demo test's: `build.zig` installing `hello.zig`, which spawns `echo`. v0.1.4 is served from
+the published archive (`work/locks/published/v0.1.4`, `tools/serve-published.mjs`, read-only),
+so Zig 0.16 runs on its own runtime and images.
+
+### Measured
+
+| Run (seconds) | `zig build`, first in a session | new project, global cache warm | rerun | `zig build-exe hello.zig` |
+| --- | --- | --- | --- | --- |
+| 0.16, Chromium 156 | 25.9, 29.5, 33.5 | 19.2, 23.9 | 0.8 | 4.5 |
+| 0.16, Firefox 155 | 36.3 | 27.9 | (tab crashed) | |
+| 0.16, native x86_64, one core | 5.3 | 2.2 | 0.02 | 3.1 |
+| 0.17, native x86_64, one core | 72.2 (10.5 with `ZIG_DEBUG_CMD`) | 1.7 | 0.01 | 3.7 |
+
+The machine is shared with the night round (three image builds), so a run varies by a few
+seconds; the 13.5 s of the upgrade's report was not reproduced for 0.16.
+
+### Cause: Zig 0.17 compiles its maker in ReleaseSafe the first time, by design
+
+- 0.16's `zig build` (`cmdBuild`) compiles `lib/compiler/build_runner.zig` with the project's
+  `build.zig` in Debug, per project. 0.17's `zig build`, `zig init`, `zig fetch` and `zig libc`
+  are a `jitCmd` of `lib/compiler/Maker.zig` with `.release_mode = .safe` (`src/main.zig`),
+  compiled for the native target into the global cache ("Compiling maker (first time setup)");
+  the maker then compiles the project's configurer (`configurer.zig` with `build.zig`) in
+  Debug. `ZIG_DEBUG_CMD` makes the maker Debug.
+- Native, one core: the first `zig init --help` (the maker alone) takes 71 s and writes 57 MB
+  to the global cache: 46 MB of source caches (`z/`, 725 files), the maker (4.6 MB) and its
+  object, compiler_rt for the target (0.4 MB), two builtin modules (`b/`) and two manifests
+  (`h/`). With the maker cached, 0.17 builds a new project faster than 0.16 (1.7 s against
+  2.2 s). Upstream pays the setup once per machine; a Dolly session starts from the package,
+  so every session pays it.
+- The maker's cache entry survives relocation: a copy of the zig installation with new inodes
+  and modification times and a cache of only `h/`, `b/` and `o/` (5 MB, without the `_zcu.o`
+  objects) hits in 15 ms (Zig rehashes the inputs whose stat changed). Without `b/` it misses.
+  The source caches are useless after an install: Zig accepts one only for a file of the same
+  size, modification time and inode (`loadZirZoirCache`), and a session save keeps no inodes.
+
+### Kernel calls (both versions, not the regression)
+
+- In 0.16's first `zig build` (Chromium trace), the zig process compiling the build runner and
+  compiler_rt spent 14.1 s in LLVM's codegen and 8.1 s in the kernel calls of LLVM's wasm
+  object writer: `WasmObjectWriter::applyRelocations` patches each relocation with
+  `raw_fd_ostream::pwrite_impl`, which is `lseek`, `write`, `lseek`. Natively `zig build-obj
+  hello.zig -target wasm64-emscripten` makes 63,294 `lseek` and 31,970 `write` calls; the
+  ReleaseSafe maker for wasm64, 190,946 and 96,801.
+- A C program timing 100,000 calls in a `default` session (`bench.c`): `lseek` 10.7 µs,
+  `pwrite` 10.7 µs, the writer's three calls 34 µs in Chromium; 21 µs, 22 µs and 63 µs in
+  Firefox (native: 0.06 µs, 0.47 µs, 0.6 µs). Each call is a `postMessage` to the supervisor
+  and an `Atomics.wait` (`src/process-worker.mjs`).
+
 ## Findings (2026-11-03, with evidence)
 
 Evidence under `build/zig017-evidence/` of `work/sdl2` (downloads in `dl/`, Ghostty's history in
