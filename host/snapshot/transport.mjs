@@ -1,4 +1,4 @@
-import { DOLLY_SESSION_MAX_BYTES, validSessionName } from "../../src/session-store.mjs";
+import { DOLLY_SESSION_MAX_BYTES } from "../../src/session-store.mjs";
 import { DOLLY_ERRNO } from "./abi.mjs";
 import * as A from "./abi.mjs";
 
@@ -10,7 +10,6 @@ export class SessionTransport {
   static requestSequence = A.DOLLY_SESSION_WORD_REQUEST_SEQUENCE;
   static completedSequence = A.DOLLY_SESSION_WORD_COMPLETED_SEQUENCE;
   static status = A.DOLLY_SESSION_WORD_STATUS;
-  static nameLength = A.DOLLY_SESSION_WORD_NAME_LENGTH;
   static chunkSequence = A.DOLLY_SESSION_WORD_CHUNK_SEQUENCE;
   static chunkConsumedSequence = A.DOLLY_SESSION_WORD_CHUNK_CONSUMED_SEQUENCE;
   static chunkLength = A.DOLLY_SESSION_WORD_CHUNK_LENGTH;
@@ -19,16 +18,14 @@ export class SessionTransport {
   static totalSizeHigh = A.DOLLY_SESSION_WORD_TOTAL_SIZE_HIGH;
   static cancelledSequence = A.DOLLY_SESSION_WORD_CANCELLED_SEQUENCE;
 
-  constructor(buffer, address, nameAddress, transferAddress, wake) {
+  constructor(buffer, address, transferAddress, wake) {
     const range = (start, size) => Number.isSafeInteger(start) && start > 0 && start <= buffer.byteLength - size;
     if (!(buffer instanceof SharedArrayBuffer) || !range(address, A.DOLLY_SESSION_HEADER_SIZE) || address % 4 ||
-        !range(nameAddress, A.DOLLY_SESSION_NAME_CAPACITY) || !range(transferAddress, A.DOLLY_SESSION_TRANSFER_CAPACITY)) {
+        !range(transferAddress, A.DOLLY_SESSION_TRANSFER_CAPACITY)) {
       throw new Error("Dolly supplied an invalid session mailbox");
     }
     this.bytes = new Uint8Array(buffer);
     this.words = new Int32Array(buffer, address, A.DOLLY_SESSION_HEADER_SIZE / 4);
-    this.nameAddress = nameAddress;
-    this.nameCapacity = A.DOLLY_SESSION_NAME_CAPACITY;
     this.transferAddress = transferAddress;
     this.transferCapacity = A.DOLLY_SESSION_TRANSFER_CAPACITY;
     this.wake = wake;
@@ -36,8 +33,7 @@ export class SessionTransport {
     this.cancel = null;
   }
 
-  async capture(name, { signal, timeoutMilliseconds = 30000, onChunk } = {}) {
-    if (!validSessionName(name)) throw new TypeError("invalid Dolly session name");
+  async capture({ signal, timeoutMilliseconds = 30000, onChunk } = {}) {
     if (onChunk !== undefined && typeof onChunk !== "function") throw new TypeError("invalid session consumer");
     signal?.throwIfAborted();
     if (this.closed) throw new Error("Snapshot provider closed");
@@ -77,10 +73,6 @@ export class SessionTransport {
     signal?.addEventListener("abort", cancel, { once: true });
     let complete = false;
     try {
-      const nameBytes = new TextEncoder().encode(name);
-      this.bytes.fill(0, this.nameAddress, this.nameAddress + this.nameCapacity);
-      this.bytes.set(nameBytes, this.nameAddress);
-      Atomics.store(words, SessionTransport.nameLength, nameBytes.length);
       Atomics.store(words, SessionTransport.requestSequence, requested);
       this.wake();
       let snapshot;

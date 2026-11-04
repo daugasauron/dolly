@@ -2,28 +2,18 @@
 #include <dolly/host.h>
 
 DOLLY_HOST_REQUIRE(audio, 0, DOLLY_AUDIO_ABI_DIGEST);
-#include <dolly/process.h>
+#include <dolly/runtime.h>
 #include <errno.h>
 #include <string.h>
 
 static int fail(int error) { errno = error; return -1; }
 static void u32(void *data, size_t offset, uint32_t n) { memcpy((char *)data + offset, &n, 4); }
-static void u64(void *data, size_t offset, uint64_t n) { memcpy((char *)data + offset, &n, 8); }
 
 static int call(dolly_audio *audio, unsigned operation, size_t bytes, size_t reply_bytes) {
   if (!audio) return fail(EINVAL);
   if (operation != DOLLY_AUDIO_OPEN && !audio->scope) return fail(EBADF);
-  /* Reserve the last sequence for CLOSE so an exhausted stream can be reopened. */
-  if (audio->sequence >= UINT32_MAX - (operation != DOLLY_AUDIO_CLOSE))
-    return fail(EOVERFLOW);
-  u32(audio->packet, 0, DOLLY_AUDIO_VERSION);
-  u32(audio->packet, 4, operation);
-  u64(audio->packet, 8, audio->scope);
-  u64(audio->packet, 16, ++audio->sequence);
-  u32(audio->packet, 24, bytes - 32);
-  u32(audio->packet, 28, 0);
-  int64_t result = dolly_process_call(DOLLY_AUDIO_PROCESS_OP, audio->packet, bytes,
-                                    audio->reply, sizeof(audio->reply));
+  int64_t result = dolly_device_request(DOLLY_AUDIO_PROCESS_OP, DOLLY_AUDIO_VERSION, operation, DOLLY_AUDIO_CLOSE,
+                                        audio->scope, &audio->sequence, audio->packet, bytes, audio->reply, sizeof(audio->reply));
   if (result < 0 && result >= -4095) return fail((int)-result);
   return result == (int64_t)reply_bytes ? 0 : fail(EPROTO);
 }

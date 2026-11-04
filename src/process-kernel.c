@@ -1,3 +1,4 @@
+#include "device-lease.h"
 #include "fs-record.h"
 #include "process-kernel.h"
 
@@ -146,14 +147,17 @@ static const dolly_kernel_module *const kernel_modules[] = {
 #undef DOLLY_KERNEL_MODULE
 
 static void release_modules(int pid, int tid) {
-  for (size_t index = 0; index < sizeof(kernel_modules) / sizeof(*kernel_modules); ++index)
-    if (kernel_modules[index]->release) kernel_modules[index]->release(pid, tid);
+  for (size_t index = 0; index < sizeof(kernel_modules) / sizeof(*kernel_modules); ++index) {
+    const dolly_kernel_module *module = kernel_modules[index];
+    if (module->release) module->release(pid, tid);
+    if (module->device && tid == 0) dolly_device_release(module->device, pid);
+  }
 }
 
 static const dolly_kernel_module *module_for(uint32_t operation) {
   for (size_t index = 0; index < sizeof(kernel_modules) / sizeof(*kernel_modules); ++index) {
     const dolly_kernel_module *module = kernel_modules[index];
-    if (module->call && operation >= module->first_operation &&
+    if ((module->call || module->device) && operation >= module->first_operation &&
         operation <= module->last_operation) return module;
   }
   return NULL;
@@ -1931,6 +1935,9 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
     return -EINTR;
   }
   const dolly_kernel_module *module = module_for(operation);
+  if (module && module->device) {
+    return dolly_device_call(module->device, pid, process_mailbox, request_size, response_capacity);
+  }
   if (module) return module->call(pid, tid, operation, process_mailbox, request_size, response_capacity);
   switch (operation) {
     case DOLLY_PROCESS_ARGUMENT_SIZES:

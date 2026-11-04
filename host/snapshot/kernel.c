@@ -35,8 +35,6 @@ typedef struct {
 
 _Alignas(64) static dolly_session_mailbox session_mailbox;
 _Alignas(64) static unsigned char
-    session_name[DOLLY_SESSION_NAME_CAPACITY];
-_Alignas(64) static unsigned char
     session_transfer[DOLLY_SESSION_TRANSFER_CAPACITY];
 static unsigned char *capture_bytes;
 static uintptr_t capture_size;
@@ -316,26 +314,8 @@ static int capture_filesystem(void) {
   return 0;
 }
 
-static int valid_session_name(const unsigned char *name, uint32_t length) {
-  if (length == 0 || length > 64) return 0;
-  for (uint32_t index = 0; index < length; ++index) {
-    const unsigned char byte = name[index];
-    if (!((byte >= 'a' && byte <= 'z') || (byte >= 'A' && byte <= 'Z') ||
-          (byte >= '0' && byte <= '9') || byte == '-' || byte == '_' ||
-          byte == '.')) {
-      return 0;
-    }
-  }
-  return strcmp((const char *)name, ".") != 0 &&
-         strcmp((const char *)name, "..") != 0;
-}
-
 uintptr_t dolly_session_mailbox_address(void) {
   return (uintptr_t)&session_mailbox;
-}
-
-uintptr_t dolly_session_name_address(void) {
-  return (uintptr_t)session_name;
 }
 
 uintptr_t dolly_session_transfer_address(void) {
@@ -448,17 +428,10 @@ void dolly_session_service(void) {
     return;
   }
   int status = 0;
-  const uint32_t length = atomic_load_explicit(
-      &session_mailbox.name_length, memory_order_relaxed);
-  if (length >= DOLLY_SESSION_NAME_CAPACITY) {
-    status = -EINVAL;
-  } else {
-    session_name[length] = '\0';
-    if (!valid_session_name(session_name, length) || capture_filesystem() != 0) {
-      status = -(errno == 0 ? EIO : errno);
-    }
+  if (capture_filesystem() != 0) {
+    status = -(errno == 0 ? EIO : errno);
+    capture_size = 0;
   }
-  if (status != 0) capture_size = 0;
   const uint64_t size = status == 0 ? (uint64_t)capture_size : 0;
   atomic_store_explicit(&session_mailbox.total_size_low,
                         (uint32_t)size, memory_order_relaxed);

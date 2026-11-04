@@ -4,14 +4,12 @@ export async function microphoneBoundaryProof() {
     import("../../host/microphone/provider.mjs"), import("../../host/microphone/abi.mjs"), import("../../src/process-constants.mjs")]);
   const check = (ok, message) => { if (!ok) throw Error(message); };
   let sequence = 0, asked = 0;
-  function packet(op, scope = 1, frames) {
-    const bytes = new Uint8Array(frames === undefined ? 32 : 40), v = new DataView(bytes.buffer);
-    v.setUint32(4, op, true); v.setUint32(8, scope, true); v.setUint32(16, ++sequence, true);
-    v.setUint32(24, bytes.length - 32, true);
-    if (frames !== undefined) v.setUint32(32, frames, true);
-    return bytes;
+  // A request as the lease bridge hands it on: the bridge checks the header.
+  function packet(operation, scope = 1, frames) {
+    const body = new Uint8Array(frames === undefined ? 0 : 8);
+    if (frames !== undefined) new DataView(body.buffer).setUint32(0, frames, true);
+    return { operation, scope, sequence: ++sequence, body };
   }
-  const altered = (bytes, offset, value) => { new DataView(bytes.buffer).setUint32(offset, value, true); return bytes; };
   const devices = navigator.mediaDevices, native = devices.getUserMedia;
   devices.getUserMedia = function(constraints) {
     ++asked;
@@ -22,10 +20,7 @@ export async function microphoneBoundaryProof() {
   try {
     check(provider.dispatch(packet(M.DOLLY_MICROPHONE_READ, 1, 128)).error === E.EBADF, "A read without a lease");
     check(provider.dispatch(packet(M.DOLLY_MICROPHONE_STATUS)).error === E.EBADF, "A status without a lease");
-    for (const [offset, value] of [[0, 1], [12, 1], [20, 1], [24, 4], [28, 1]]) {
-      check(provider.dispatch(altered(packet(M.DOLLY_MICROPHONE_OPEN), offset, value)).error === E.EINVAL, `A malformed open at ${offset}`);
-    }
-    check(provider.dispatch(new Uint8Array(41)).error === E.EINVAL, "An oversized packet");
+    check(provider.dispatch({ ...packet(M.DOLLY_MICROPHONE_OPEN), body: new Uint8Array(4) }).error === E.EINVAL, "An open with a body");
     check(provider.dispatch(packet(9)).error === E.EBADF, "An unknown operation without a lease");
     check(asked === 0, "The browser was asked before a valid open");
     check(provider.dispatch(packet(M.DOLLY_MICROPHONE_OPEN)).error === 0 && asked === 1, "Open failed");

@@ -3,7 +3,7 @@
 One canvas has two producers: the resident Ghostty terminal and, while it holds a
 lease, one foreground graphics process. Terminal parsing and rasterization stay
 in Wasm; the browser only checks and blits RGBA frames and publishes the size of
-the surface it shows them on
+the surface it shows them on and the colours of the terminal
 ([`host/display/dolly-display-0.wat`](../host/display/dolly-display-0.wat),
 [`host/display/display.mjs`](../host/display/display.mjs)). Keys and the pointer are
 another module, [`input@0`](input.md): an image that only draws declares no
@@ -11,7 +11,7 @@ input.
 
 ```mermaid
 flowchart LR
-  surface["Surface size and scale"] -- "mailbox words" --> ghostty["Ghostty plugin: VT, scrollback, selection, font"]
+  surface["Surface size and scale, colours"] -- "mailbox words" --> ghostty["Ghostty plugin: VT, scrollback, selection, font"]
   input["input@0 records"] -- "decoder" --> ghostty
   ghostty -- "RGBA frame" --> fb["Two kernel framebuffers"]
   app["Foreground process holding the lease"] -- "dolly_display_present" --> fb
@@ -33,6 +33,15 @@ flowchart LR
   which the Worker writes into the mailbox, whenever they change. The kernel hands them to the driver
   on its tick, lease or not, and sends SIGWINCH when the grid changes, also
   when Ctrl+= or Ctrl+- changed the font size.
+- The terminal's colours are the page's: its background, text, cursor and the
+  16 colours programs name, which an embedding sets as CSS properties of
+  boot()'s element (`docs/embedding.md`, "Colours"); the popups of
+  [`html@0`](../host/html/module.json) take the first three. The page reads
+  them from the canvas at boot and whenever they change (a change ends a
+  transition of them on the canvas, which shows nothing), and the Worker
+  writes them into the mailbox, before the driver is installed and then as
+  the surface. The kernel hands them to the driver on its tick; the plugin
+  holds no colours of its own.
 
 ## Terminal
 

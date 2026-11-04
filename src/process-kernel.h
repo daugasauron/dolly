@@ -22,13 +22,16 @@
  * release() runs when a thread retires and, with tid 0, when a process exits.
  * mailbox(), which a module that runs a process on several threads defines,
  * keeps the mailbox of each thread's Worker (dolly_process_worker_mailbox):
- * zero, or -ESRCH for a thread it does not know. */
+ * zero, or -ESRCH for a thread it does not know. A device leased per process
+ * (src/device-lease.c) is a module with a device in place of call and release. */
+struct dolly_leased_device;
 typedef struct {
   uint32_t first_operation, last_operation;
   int64_t (*call)(int pid, int tid, uint32_t operation, unsigned char *mailbox,
                   uintptr_t request_size, uintptr_t response_capacity);
   void (*release)(int pid, int tid);
   int (*mailbox)(int pid, int tid, uintptr_t address);
+  const struct dolly_leased_device *device;
 } dolly_kernel_module;
 
 static inline int64_t dolly_kernel_respond(unsigned char *mailbox,

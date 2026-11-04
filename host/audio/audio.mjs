@@ -4,7 +4,7 @@ import { DOLLY_ERRNO as E } from "./abi.mjs";
 export { DOLLY_AUDIO_ABI_DIGEST as digest } from "./abi.mjs";
 
 // The device as the lease bridge sees it.
-export const lease = { type: "audio", slots: A.DOLLY_AUDIO_SLOTS, packetBytes: A.DOLLY_AUDIO_PACKET_BYTES,
+export const lease = { type: "audio", version: A.DOLLY_AUDIO_VERSION, slots: A.DOLLY_AUDIO_SLOTS, packetBytes: A.DOLLY_AUDIO_PACKET_BYTES,
   replyBytes: A.DOLLY_AUDIO_REPLY_BYTES, open: A.DOLLY_AUDIO_OPEN, close: A.DOLLY_AUDIO_CLOSE };
 
 export function browser({ send }) {
@@ -16,7 +16,7 @@ export function browser({ send }) {
     page: { get audio() { return provider.status(); } },
     messages: {
       "audio-request"(message) {
-        const result = provider.dispatch(message.packet);
+        const result = provider.dispatch(message);
         send({ type: "audio-complete", scope: message.scope, sequence: message.sequence, ...result },
           [result.bytes.buffer]);
       },

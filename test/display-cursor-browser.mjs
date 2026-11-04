@@ -2,21 +2,7 @@
 // number; the page shows each and takes nothing else for one. Its frame, gray
 // 0x60 in all four bytes, shows opaque: the fourth byte is not shown.
 import assert from "node:assert/strict";
-import { browserTest } from "./browser.mjs";
-
-// The color the page shows at the middle of the display, read from a screenshot.
-async function shown(page) {
-  const png = (await page.locator("#display").screenshot()).toString("base64");
-  return page.evaluate(async png => {
-    const image = new Image();
-    image.src = `data:image/png;base64,${png}`;
-    await image.decode();
-    const context = Object.assign(document.createElement("canvas"), { width: image.width, height: image.height })
-      .getContext("2d", { willReadFrequently: true });
-    context.drawImage(image, 0, 0);
-    return [...context.getImageData(image.width >> 1, image.height >> 1, 1, 1).data.subarray(0, 3)];
-  }, png);
-}
+import { browserTest, shownColor } from "./browser.mjs";
 
 const cursors = ["text", "default", "crosshair", "pointer", "none", "ns-resize", "ew-resize", "nwse-resize",
   "nesw-resize", "move", "wait", "progress", "not-allowed", "help"];
@@ -31,7 +17,8 @@ await browserTest("display cursors", { image: "system", server }, async ({ serve
   await page.evaluate(async () => {
     while ((await __dolly.frame())?.data[0] !== 0x60) await new Promise(resolve => setTimeout(resolve, 20));
   });
-  const color = await shown(page);
+  const { x, y, width, height } = await page.locator("#display").boundingBox();
+  const color = await shownColor(page, Math.round(x + width / 2), Math.round(y + height / 2));
   assert.ok(color.every(channel => Math.abs(channel - 0x60) <= 2), `the frame shows as ${color}`);
   for (const [value, cursor] of cursors.entries()) {
     await page.waitForFunction(([value, cursor]) => __dolly.transport.cursorStyle() === value &&

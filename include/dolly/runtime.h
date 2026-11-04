@@ -10,6 +10,45 @@
 extern "C" {
 #endif
 
+// A device leased per process (gpu@0, audio@0, microphone@0, nena@0): each
+// call of the device's own operation is one packet, this header and then the
+// operation's body, answered in the device's reply slot
+// (dolly-supervisor-0.wat). version is the device's. scope names the lease
+// and is never reused: it is 0 in the OPEN that asks for one, whose reply
+// begins with the u64 scope. sequence starts at 1 and only increases.
+// body_bytes is the length of what follows; reserved and the upper halves of
+// scope and sequence are zero.
+typedef struct {
+  uint32_t version;
+  uint32_t operation;
+  uint64_t scope;
+  uint64_t sequence;
+  uint32_t body_bytes;
+  uint32_t reserved;
+} dolly_device_header;
+#ifdef __cplusplus
+static_assert(sizeof(dolly_device_header) == 32, "dolly_device_header");
+#else
+_Static_assert(sizeof(dolly_device_header) == 32, "dolly_device_header");
+#endif
+
+// One call of a leased device (dolly_device_header): fills the header at the
+// start of packet, `bytes` long in all, for scope with the lease's next
+// sequence, and calls the device's process operation. The last sequence is
+// kept for close_operation, so a lease whose sequences are spent can still
+// close; any other call fails with -EOVERFLOW. Returns the reply's length or a
+// negative errno.
+static inline int64_t dolly_device_request(uint32_t process_operation, uint32_t version,
+                                           uint32_t operation, uint32_t close_operation,
+                                           uint64_t scope, uint64_t *sequence, void *packet,
+                                           size_t bytes, void *reply, size_t reply_capacity) {
+  if (*sequence >= UINT32_MAX - (operation != close_operation)) return -DOLLY_PROCESS_EOVERFLOW;
+  const dolly_device_header header = {
+      version, operation, scope, ++*sequence, (uint32_t)(bytes - sizeof(header)), 0};
+  __builtin_memcpy(packet, &header, sizeof(header));
+  return dolly_process_call(process_operation, packet, bytes, reply, reply_capacity);
+}
+
 // Starts a filesystem-resident Dolly command with explicitly routed standard
 // descriptors. It returns a positive in-Wasm pid once the kernel accepts the
 // child; dolly_wait() collects its eventual status. Errors are negative errno.

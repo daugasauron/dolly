@@ -18,7 +18,8 @@ function appendString(value, length) {
 const clampMotion = value => Math.max(-32_768_000, Math.min(32_768_000, value));
 
 function modifiers(event) {
-  return (event.shiftKey ? 1 : 0) | (event.ctrlKey ? 2 : 0) | (event.altKey ? 4 : 0) | (event.metaKey ? 8 : 0);
+  return (event.shiftKey ? A.DOLLY_INPUT_MOD_SHIFT : 0) | (event.ctrlKey ? A.DOLLY_INPUT_MOD_CONTROL : 0) |
+    (event.altKey ? A.DOLLY_INPUT_MOD_ALT : 0) | (event.metaKey ? A.DOLLY_INPUT_MOD_META : 0);
 }
 
 // The Worker's end of the input mailbox, the one producer of its records:
@@ -33,16 +34,16 @@ export class InputTransport {
   static pasteLength = A.DOLLY_INPUT_WORD_PASTE_LENGTH;
   static enabled = A.DOLLY_INPUT_WORD_ENABLED;
 
-  static keyEvent = 1;
-  static textEvent = 2;
-  static focusEvent = 4;
-  static pasteEvent = 5;
-  static pointerEvent = 6;
-  static scrollEvent = 7;
-  static pointerMotionEvent = 8;
-  static pointerCaptureEvent = 9;
-  static pointerPresenceEvent = 10;
-  static droppedEvent = 11;
+  static keyEvent = A.DOLLY_INPUT_EVENT_KEY;
+  static textEvent = A.DOLLY_INPUT_EVENT_TEXT;
+  static focusEvent = A.DOLLY_INPUT_EVENT_FOCUS;
+  static pasteEvent = A.DOLLY_INPUT_EVENT_PASTE;
+  static pointerEvent = A.DOLLY_INPUT_EVENT_POINTER;
+  static scrollEvent = A.DOLLY_INPUT_EVENT_SCROLL;
+  static pointerMotionEvent = A.DOLLY_INPUT_EVENT_POINTER_MOTION;
+  static pointerCaptureEvent = A.DOLLY_INPUT_EVENT_POINTER_CAPTURE;
+  static pointerPresenceEvent = A.DOLLY_INPUT_EVENT_POINTER_PRESENCE;
+  static droppedEvent = A.DOLLY_INPUT_EVENT_DROPPED;
 
   // The ring and paste sizes are the contract's; a test may shrink them.
   // dropped(count) reports every record the ring had no room for.
@@ -156,7 +157,7 @@ export class InputTransport {
     return this.movementX !== 0 || this.movementY !== 0 || this.position !== null;
   }
 
-  pushSyntheticKey(key, code, modifiers = 0, action = 1, flags = 0) {
+  pushSyntheticKey(key, code, modifiers = 0, action = A.DOLLY_KEY_ACTION_PRESS, flags = 0) {
     return this.pushRecord({ type: InputTransport.keyEvent, action, modifiers, flags, key, code });
   }
 
@@ -205,7 +206,7 @@ export class InputTransport {
       x: Math.max(0, Math.round(x)),
       y: Math.max(0, Math.round(y)),
     };
-    if (action !== 2) return this.pushRecord(record);
+    if (action !== A.DOLLY_POINTER_ACTION_DRAG) return this.pushRecord(record);
     this.position = record;
     return true;
   }
@@ -242,7 +243,7 @@ export class InputTransport {
 
   // A foreground program holds the lease and reads every record.
   leased() {
-    return (Atomics.load(this.words, this.word + InputTransport.flags) & 1) !== 0;
+    return (Atomics.load(this.words, this.word + InputTransport.flags) & A.DOLLY_INPUT_LEASED) !== 0;
   }
 
   // Tells the kernel whether this page listens: without it no lease is given.
@@ -254,8 +255,11 @@ export class InputTransport {
 // The record of a key event, as pushSyntheticKey takes it.
 function keyRecord(event) {
   return { key: event.key, code: event.code, modifiers: modifiers(event) |
-    (event.getModifierState?.("CapsLock") ? 16 : 0) | (event.getModifierState?.("NumLock") ? 32 : 0),
-    action: event.type === "keyup" ? 0 : event.repeat ? 2 : 1, flags: event.isComposing ? 1 : 0 };
+    (event.getModifierState?.("CapsLock") ? A.DOLLY_INPUT_MOD_CAPS_LOCK : 0) |
+    (event.getModifierState?.("NumLock") ? A.DOLLY_INPUT_MOD_NUM_LOCK : 0),
+    action: event.type === "keyup" ? A.DOLLY_KEY_ACTION_RELEASE
+      : event.repeat ? A.DOLLY_KEY_ACTION_REPEAT : A.DOLLY_KEY_ACTION_PRESS,
+    flags: event.isComposing ? A.DOLLY_INPUT_FLAG_COMPOSING : 0 };
 }
 
 // What a pointer record keeps of its event.
@@ -276,8 +280,8 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, surfac
   // Worker reports its ring empty after the last of them.
   let sent = 0, idleThrough = 0;
   const heldKeys = new Map();
-  const leased = () => (flags & 1) !== 0;
-  const relativePointerRequested = () => (flags & 3) === 3;
+  const leased = () => (flags & A.DOLLY_INPUT_LEASED) !== 0;
+  const relativePointerRequested = () => leased() && (flags & A.DOLLY_INPUT_POINTER_RELATIVE) !== 0;
   // Pointer motion and the newest position wait for the next animation frame,
   // and go ahead of any other record.
   let movementX = 0, movementY = 0, position = null, motionScheduled = false;
@@ -305,12 +309,14 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, surfac
   }
   const client = {
     pushKey: event => tell({ type: "input-key", ...keyRecord(event) }),
-    pushSyntheticKey: (key, code, modifiers = 0, action = 1, flags = 0) =>
+    pushSyntheticKey: (key, code, modifiers = 0, action = A.DOLLY_KEY_ACTION_PRESS, flags = 0) =>
       tell({ type: "input-key", key, code, modifiers, action, flags }),
     pushText: text => tell({ type: "input-text", text }),
     pushPaste: text => tell({ type: "input-paste", text }),
     pushPointer(x, y, action, event) {
-      if (action !== 2) return tell({ type: "input-pointer", x, y, action, event: pointerEvent(event) });
+      if (action !== A.DOLLY_POINTER_ACTION_DRAG) {
+        return tell({ type: "input-pointer", x, y, action, event: pointerEvent(event) });
+      }
       if (started) {
         position = { x, y, event: pointerEvent(event) };
         scheduleMotion();
@@ -459,7 +465,7 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, surfac
         // Browsers may refuse capture; the program then keeps absolute pointer input.
         try { void Promise.resolve(canvas.requestPointerLock()).catch(() => {}); } catch {}
       } else {
-        pushPointer(event, 1);
+        pushPointer(event, A.DOLLY_POINTER_ACTION_PRESS);
       }
       return;
     }
@@ -468,7 +474,7 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, surfac
     else keyboard.focus({ preventScroll: true });
     if (event.button === 0) selecting = true;
     else held = event.button;
-    pushPointer(event, 1);
+    pushPointer(event, A.DOLLY_POINTER_ACTION_PRESS);
     event.preventDefault();
   });
   canvas.addEventListener("pointermove", (event) => {
@@ -481,12 +487,13 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, surfac
       fingers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (fingers.size === 2) {
         for (const now = spread(); Math.abs(now - span) >= 20; span += now > span ? 20 : -20) {
-          void client.pushSyntheticKey(now > span ? "=" : "-", now > span ? "Equal" : "Minus", 2);
+          void client.pushSyntheticKey(now > span ? "=" : "-", now > span ? "Equal" : "Minus", A.DOLLY_INPUT_MOD_CONTROL);
         }
       } else if (touch?.id === event.pointerId) {
         // The wheel is reported where the finger is, as where the mouse is.
-        pushPointer(event, 2);
-        post({ type: "input-scroll", delta: (touch.y - event.clientY) * canvas.height / canvas.clientHeight, unit: 0 });
+        pushPointer(event, A.DOLLY_POINTER_ACTION_DRAG);
+        post({ type: "input-scroll", delta: (touch.y - event.clientY) * canvas.height / canvas.clientHeight,
+          unit: A.DOLLY_SCROLL_UNIT_PIXEL });
         touch.y = event.clientY;
       }
       event.preventDefault();
@@ -496,9 +503,9 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, surfac
     // A release the page did not see, outside the window, comes before the move.
     if (selecting && !leased() && (event.buttons & 1) === 0) {
       selecting = false;
-      pushPointer(event, 0);
+      pushPointer(event, A.DOLLY_POINTER_ACTION_RELEASE);
     }
-    pushPointer(event, 2);
+    pushPointer(event, A.DOLLY_POINTER_ACTION_DRAG);
     if (selecting || leased()) event.preventDefault();
   });
   canvas.addEventListener("pointerup", (event) => {
@@ -506,7 +513,7 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, surfac
     if (!started || (!leased() && !(event.button === 0 ? selecting : event.button === held))) return;
     if (event.button === 0) selecting = false;
     else held = -1;
-    pushPointer(event, 0);
+    pushPointer(event, A.DOLLY_POINTER_ACTION_RELEASE);
     if (canvas.hasPointerCapture(event.pointerId)) {
       canvas.releasePointerCapture(event.pointerId);
     }
@@ -527,7 +534,7 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, surfac
     if (selecting || held >= 0) {
       selecting = false;
       held = -1;
-      pushPointer(event, 0);
+      pushPointer(event, A.DOLLY_POINTER_ACTION_RELEASE);
     }
   });
   // A capture ends when its program stops asking, also one granted late.
@@ -652,7 +659,7 @@ export function worker({ get, send }) {
       "input-scroll": record(({ delta, unit }) => transport.pushScroll(delta, unit)),
       "input-motion": record(({ movementX, movementY, position }) => {
         transport.pushPointerMotion({ movementX, movementY });
-        if (position) transport.pushPointer(position.x, position.y, 2, position.event);
+        if (position) transport.pushPointer(position.x, position.y, A.DOLLY_POINTER_ACTION_DRAG, position.event);
         transport.flushMotion(transport.eventCapacity / 2);
         return true;
       }),

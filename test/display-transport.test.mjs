@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DisplayTransport as Display, FramebufferPresenter } from "../host/display/display.mjs";
+import { DOLLY_DISPLAY_COPY_AVAILABLE } from "../host/display/abi.mjs";
 
 test("copied selections preserve literal UTF-8", () => {
   const buffer = new SharedArrayBuffer(4096);
@@ -9,7 +10,7 @@ test("copied selections preserve literal UTF-8", () => {
   const text = "﻿日本語😀";
   const bytes = Buffer.from(text);
   transport.bytes.set(bytes, transport.copyAddress);
-  transport.words[word(Display.copyFlags)] = Display.copyAvailable;
+  transport.words[word(Display.copyFlags)] = DOLLY_DISPLAY_COPY_AVAILABLE;
   transport.words[word(Display.copyLength)] = bytes.length;
   assert.equal(transport.copySelection(), text, "selection text must remain literal");
   for (const [address, copyAddress] of [[0, 3072], [66, 3072], [4096 - 64, 3072], [64, 3073]]) {

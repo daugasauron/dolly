@@ -56,10 +56,10 @@
   (global (export "DOLLY_GPU_DRAW_MESH") i32 (i32.const 25))
   (global (export "DOLLY_GPU_VIEWPORT") i32 (i32.const 26))
 
-  ;; All fields LE. Header: u32 version/op, u64 scope/sequence, u32 body/reserved.
-  ;; Scope is a non-reused u32 lease, slot=(scope-1)%8; upper bits are zero.
-  ;; OPEN starts with scope=0; kernel binds a process-owned lease before dispatch.
-  ;; Sequence is nonzero u32, monotonically increasing per lease, never reused.
+  ;; A device leased per process: each call is a packet, a
+  ;; dolly_device_header (runtime.h) and the body below, answered in a
+  ;; reply slot of dolly-supervisor-0.wat. Sizes in brackets are of bodies.
+  ;; A lease is in slot (scope-1)%8. All fields are little-endian.
   ;; OPEN body: u32 width,height. Reply: u64 scope, u32 width,height, then
   ;; at most 240 UTF-8 bytes of provider name (no terminating NUL). Browsers
   ;; return the fixed name "WebGPU", never the adapter's vendor or description.
@@ -169,13 +169,7 @@
   ;; rollback: structural rejection precedes execution; later GPU errors can
   ;; leave earlier writes/resources alive. Returned diagnostics are bounded.
   ;;
-  ;; Eight reply slots, each a 64 B header followed by 65536 bytes:
-  ;; atomic u32 state,scope,sequence,error,length; 44 reserved bytes.
-  ;; Browser writes payload and fields before release-publishing state=1.
-  ;; Kernel acquire-reads state, checks lease/sequence and copies before clearing.
   ;; The provider has private admission/resource limits, independent of state.
-  ;; One outstanding operation per lease. Dispatch copies or rejects before
-  ;; returning; asynchronous completion wakes the supervisor without polling RAF.
-  ;; Zero pointer + scope in the size argument revokes exactly that lease on exit.
+  ;; Asynchronous completion wakes the supervisor without polling RAF.
   ;; Revocation does not release host credits until outstanding GPU work settles.
 )

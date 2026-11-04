@@ -7,7 +7,8 @@
  * Test FEATURE_LARGE_BATCH before recording more than 256 commands. */
 typedef struct {
   uint64_t scope;
-  uint32_t sequence, count;
+  uint64_t sequence;
+  uint32_t count;
   size_t length;
   unsigned char packet[DOLLY_GPU_PACKET_BYTES];
   unsigned char reply[DOLLY_GPU_REPLY_BYTES];

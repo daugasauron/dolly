@@ -7,25 +7,26 @@ export { DOLLY_HTML_ABI_DIGEST as digest } from "./abi.mjs";
 const quietMilliseconds = 2000;
 
 // The popup's look is the page's: an embedding sets these on boot()'s element
-// (or above it) in its own style sheet; unset, they are Dolly's. A font file,
+// (or above it) in its own style sheet; unset, they are Dolly's. The first
+// three are the terminal's colours too (display@0). A font file,
 // --dolly-html-font-file: url(…), is the font the first family names.
 const themeProperties = Object.freeze({
-  "--dolly-html-background": "#262626",
-  "--dolly-html-color": "#e8e3d7",
-  "--dolly-html-accent": "#f2d45c",
+  "--dolly-background": "#262626",
+  "--dolly-color": "#e8e3d7",
+  "--dolly-accent": "#f2d45c",
   "--dolly-html-font": "ui-monospace, monospace",
   "--dolly-html-color-scheme": "dark",
 });
 
 // The popup's document: a program's styles are left out, so this is all of it.
 const popupStyle = `
-  :root { color-scheme: var(--dolly-html-color-scheme); accent-color: var(--dolly-html-accent);
-    --line: color-mix(in srgb, var(--dolly-html-color) 35%, var(--dolly-html-background));
-    --panel: color-mix(in srgb, var(--dolly-html-color) 9%, var(--dolly-html-background));
-    color: var(--dolly-html-color); background: var(--dolly-html-background); font: 16px/1.5 var(--dolly-html-font); }
+  :root { color-scheme: var(--dolly-html-color-scheme); accent-color: var(--dolly-accent);
+    --line: color-mix(in srgb, var(--dolly-color) 35%, var(--dolly-background));
+    --panel: color-mix(in srgb, var(--dolly-color) 9%, var(--dolly-background));
+    color: var(--dolly-color); background: var(--dolly-background); font: 16px/1.5 var(--dolly-html-font); }
   body { margin: 0; padding: 1.25rem 1.5rem; overflow-wrap: anywhere; }
   body > :first-child { margin-top: 0; }
-  h1, h2, h3, h4, h5, h6 { margin: 1.4em 0 0.5em; color: var(--dolly-html-accent); font-size: 1rem; line-height: 1.3; }
+  h1, h2, h3, h4, h5, h6 { margin: 1.4em 0 0.5em; color: var(--dolly-accent); font-size: 1rem; line-height: 1.3; }
   h1 { font-size: 1.5rem; } h2 { font-size: 1.25rem; } h3 { font-size: 1.1rem; }
   p, ul, ol, dl, pre, blockquote, table, fieldset, details, figure { margin: 0 0 1rem; }
   ul, ol { padding-left: 1.6rem; } dt { font-weight: bold; } dd { margin-left: 1.6rem; }
@@ -35,10 +36,10 @@ const popupStyle = `
   pre, code, kbd, samp { font-family: inherit; } pre { padding: 0.7rem 0.9rem; overflow: auto; background: var(--panel); }
   blockquote { margin-left: 0; padding-left: 1rem; border-left: 3px solid var(--line); }
   hr { border: 0; border-top: 1px solid var(--line); }
-  mark { color: var(--dolly-html-background); background: var(--dolly-html-accent); }
+  mark { color: var(--dolly-background); background: var(--dolly-accent); }
   summary { cursor: pointer; }
   details { margin: 0; border-top: 1px solid var(--line); } details details { margin-left: 0.75rem; }
-  details > summary { padding: 0.75rem 0; color: var(--dolly-html-accent); }
+  details > summary { padding: 0.75rem 0; color: var(--dolly-accent); }
   /* A nav of buttons is a menu: a grid of buttons a finger can hit. */
   nav { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(12rem, 100%), 1fr)); gap: 0.5rem; margin: 0 0 1rem; }
   nav > button { min-height: 2.75rem; margin: 0; text-align: left; }
@@ -50,8 +51,8 @@ const popupStyle = `
   input[type=checkbox], input[type=radio], input[type=range], input[type=color] { padding: 0; }
   textarea { display: block; width: 100%; box-sizing: border-box; }
   button, input[type=submit], input[type=reset] { padding: 0.35rem 1.1rem; cursor: pointer; }
-  button:not([type=reset]):not([type=button]), input[type=submit] { border-color: var(--dolly-html-accent); }
-  :focus-visible { outline: 2px solid var(--dolly-html-accent); outline-offset: 1px; }
+  button:not([type=reset]):not([type=button]), input[type=submit] { border-color: var(--dolly-accent); }
+  :focus-visible { outline: 2px solid var(--dolly-accent); outline-offset: 1px; }
   :user-invalid { border-color: #e07a5f; }
 `;
 
@@ -132,10 +133,10 @@ const pageStyle = `
   #html-popup { position: absolute; inset: 0; z-index: 8; display: flex; align-items: center; justify-content: center;
     padding: 1rem; background: rgb(0 0 0 / 0.55); }
   #html-popup > div { display: flex; flex-direction: column; width: min(56rem, 100%); height: 100%; max-height: 48rem;
-    background: var(--dolly-html-background, ${themeProperties["--dolly-html-background"]});
-    border: 1px solid var(--dolly-html-accent, ${themeProperties["--dolly-html-accent"]}); }
+    background: var(--dolly-background, ${themeProperties["--dolly-background"]});
+    border: 1px solid var(--dolly-accent, ${themeProperties["--dolly-accent"]}); }
   #html-popup button { align-self: flex-end; margin: 0.3rem; padding: 0.2rem 0.9rem;
-    color: var(--dolly-html-color, ${themeProperties["--dolly-html-color"]}); background: transparent;
+    color: var(--dolly-color, ${themeProperties["--dolly-color"]}); background: transparent;
     border: 1px solid currentColor; font: 14px/1.5 var(--dolly-html-font, ${themeProperties["--dolly-html-font"]}); cursor: pointer; }
   #html-popup iframe { flex: 1; width: 100%; border: 0; }
 `;

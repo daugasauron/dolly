@@ -117,7 +117,7 @@ function header(bytes) {
   ensure(bytes.length >= 32, "Short GPU packet");
   const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const scope = integer(v, 8), sequence = integer(v, 16);
-  ensure(v.getUint32(0, true) === 0 && v.getUint32(28, true) === 0 &&
+  ensure(v.getUint32(0, true) === A.DOLLY_GPU_VERSION && v.getUint32(28, true) === 0 &&
     v.getUint32(24, true) === bytes.length - 32 && scope > 0 && scope <= 0xffffffff &&
     sequence > 0 && sequence <= 0xffffffff, "Invalid GPU header");
   return { op: v.getUint32(4, true), scope, sequence, index: (scope - 1) % slots.length, bytes, v };

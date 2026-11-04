@@ -2,30 +2,21 @@
 #include <dolly/host.h>
 
 DOLLY_HOST_REQUIRE(microphone, 0, DOLLY_MICROPHONE_ABI_DIGEST);
-#include <dolly/process.h>
+#include <dolly/runtime.h>
 #include <errno.h>
 #include <string.h>
 
 static int fail(int error) { errno = error; return -1; }
 static void u32(void *data, size_t offset, uint32_t n) { memcpy((char *)data + offset, &n, 4); }
-static void u64(void *data, size_t offset, uint64_t n) { memcpy((char *)data + offset, &n, 8); }
 static int known(uint32_t state) { return state >= DOLLY_MICROPHONE_WAITING && state <= DOLLY_MICROPHONE_UNAVAILABLE; }
 
 /* Returns the reply's length. */
 static int64_t call(dolly_microphone *microphone, unsigned operation, size_t bytes) {
   if (!microphone) return fail(EINVAL);
   if (operation != DOLLY_MICROPHONE_OPEN && !microphone->scope) return fail(EBADF);
-  /* Reserve the last sequence for CLOSE so an exhausted capture can be reopened. */
-  if (microphone->sequence >= UINT32_MAX - (operation != DOLLY_MICROPHONE_CLOSE))
-    return fail(EOVERFLOW);
-  u32(microphone->packet, 0, DOLLY_MICROPHONE_VERSION);
-  u32(microphone->packet, 4, operation);
-  u64(microphone->packet, 8, microphone->scope);
-  u64(microphone->packet, 16, ++microphone->sequence);
-  u32(microphone->packet, 24, bytes - 32);
-  u32(microphone->packet, 28, 0);
-  int64_t result = dolly_process_call(DOLLY_MICROPHONE_PROCESS_OP, microphone->packet, bytes,
-                                      microphone->reply, sizeof(microphone->reply));
+  int64_t result = dolly_device_request(DOLLY_MICROPHONE_PROCESS_OP, DOLLY_MICROPHONE_VERSION, operation,
+                                        DOLLY_MICROPHONE_CLOSE, microphone->scope, &microphone->sequence,
+                                        microphone->packet, bytes, microphone->reply, sizeof(microphone->reply));
   return result < 0 && result >= -4095 ? fail((int)-result) : result;
 }
 

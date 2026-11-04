@@ -48,7 +48,9 @@ typedef struct {
 DOLLY_TOUCH_LAYOUT(sizeof(dolly_touch_record) == DOLLY_TOUCH_RECORD_SIZE, "touch record layout changed");
 DOLLY_TOUCH_LAYOUT(offsetof(dolly_touch_mailbox, records) == DOLLY_TOUCH_HEADER_SIZE,
                    "touch mailbox layout changed");
-DOLLY_TOUCH_LAYOUT(offsetof(dolly_touch_mailbox, labels) == DOLLY_TOUCH_BUTTONS_OFFSET,
+DOLLY_TOUCH_LAYOUT(offsetof(dolly_touch_mailbox, labels) == DOLLY_TOUCH_BUTTONS_OFFSET &&
+                       offsetof(dolly_touch_mailbox, label_count) == DOLLY_TOUCH_LABEL_COUNT_OFFSET &&
+                       offsetof(dolly_touch_mailbox, label_text) == DOLLY_TOUCH_LABELS_OFFSET,
                    "touch buttons layout changed");
 
 // Only the foreground command or a descendant may hold the lease, one at a

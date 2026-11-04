@@ -1,15 +1,10 @@
 #include "device-lease.h"
 #include "process-kernel.h"
 
+#include <dolly/runtime.h>
 #include <errno.h>
 #include <string.h>
 
-typedef struct {
-  uint32_t version, operation;
-  uint64_t scope, sequence;
-  uint32_t bytes, reserved;
-} dolly_device_header;
-_Static_assert(sizeof(dolly_device_header) == 32, "device packet header");
 _Static_assert(offsetof(dolly_device_reply, bytes) == 64, "device reply header");
 
 static dolly_device_reply *reply_at(const dolly_leased_device *device, unsigned index) {
@@ -31,7 +26,7 @@ int64_t dolly_device_call(const dolly_leased_device *device, int pid, unsigned c
   if (size < sizeof(dolly_device_header) || size > device->packet_bytes) return -EINVAL;
   dolly_device_header h;
   memcpy(&h, packet, sizeof(h));
-  if (h.version != device->version || h.reserved || h.bytes != size - sizeof(h) ||
+  if (h.version != device->version || h.reserved || h.body_bytes != size - sizeof(h) ||
       !h.sequence || h.sequence > UINT32_MAX || h.scope > UINT32_MAX) return -EINVAL;
   unsigned i;
   for (i = 0; i < device->slots && device->leases[i].pid != pid; ++i) {}

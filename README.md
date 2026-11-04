@@ -131,8 +131,8 @@ that address opens it again as it was.
 | File | What it declares | After a change |
 | --- | --- | --- |
 | `Dollyfile-my-pi` | The sandbox, a [recipe](docs/dollyfile.md) `FROM` `pi-minimal`: `INSTALL` rows for the packages you named (`git`, `python`, `cc`), `FILE` rows with Pi's `AGENTS.md`, a skill, an extension with a `/hello` command, a `todo` tool (a C program or a file of an npm package are tools too, as its comments say), and the script that starts Pi with its provider and model: OpenRouter, or Anthropic's API with your key on the next line | Build again |
-| `index.html` | The hosts the agent may reach ([HTTP policy](docs/http.md)): one rule per host, OpenRouter's API to begin with. The popups' colours. The files written into `/workspace` | Reload |
-| `theme.json` | Pi's colours: five values, in Pi's theme format | Reload |
+| `index.html` | The hosts the agent may reach ([HTTP policy](docs/http.md)): one rule per host, OpenRouter's API to begin with. The popups' font. The files written into `/workspace` | Reload |
+| `theme.json` | The sandbox's colours: five values in Pi's theme format, whose background, text, accent and muted are the terminal's and the popups' too | Reload |
 | `workspace/` | The project the agent works on, written into `/workspace` at each boot | Reload |
 | `serve.mjs` | Serving with cross-origin isolation and the listing of `workspace/` (`workspace.json`); the hosts it relays for programs that need one without CORS headers ([relays](docs/http.md#cors-and-relays)). A static host sends the two headers ([Embedding](docs/embedding.md), "Serving") and holds the listing as a file | Restart |
 

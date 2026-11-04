@@ -81,8 +81,10 @@ image, a bootstrap label, the custom image record it restores and its own
 configuration, as the snapshot module does for `/session/`.
 
 A module's operations and packets are its own: op numbers are globals in its WAT
-contract, packets are in its header. `DOLLY_NAME_ABI_DIGEST` is the SHA-256 of
-the exact bytes of its WAT contracts and other headers, so any edit to them
+contract, packets are in its header; a device leased per process frames each
+in a `dolly_device_header` (`<dolly/runtime.h>`). `DOLLY_NAME_ABI_DIGEST` is
+the SHA-256 of what an executable compiles against: its process WAT, its other
+headers and the constants its contracts give `NAME-abi.h`, so any edit to them
 changes the identity its client stamps. The loader refuses an executable whose
 digest differs from the provider's, as it refuses a wrong `dolly.process` stamp
 ([`requirements.mjs`](requirements.mjs)).

@@ -1,10 +1,12 @@
 import { DOLLY_ERRNO as E } from "./abi.mjs";
 
 // The Worker side of a device leased per process (src/device-lease.c). Each
-// packet a process submits goes to the page as `TYPE-request`; the page's
+// packet a process submits (dolly_device_header, runtime.h, then the
+// operation's body) is checked whole here and goes to the page as
+// `TYPE-request` with its operation, scope, sequence and body; the page's
 // `TYPE-complete` is published in the lease's reply slot, a 64-byte header and
-// `replyBytes`. `open` and `close` are the device's operation numbers.
-export function createLeaseBridge({ type, slots: count, packetBytes, replyBytes, open, close }, memory, mailbox, send, complete) {
+// `replyBytes`. `version`, `open` and `close` are the device's.
+export function createLeaseBridge({ type, version, slots: count, packetBytes, replyBytes, open, close }, memory, mailbox, send, complete) {
   const slots = new Array(count), stride = 64 + replyBytes;
   if (!Number.isSafeInteger(mailbox) || mailbox <= 0 || mailbox % 4 ||
       mailbox > memory.buffer.byteLength - count * stride) throw new Error(`Invalid ${type} mailbox`);
@@ -50,7 +52,8 @@ export function createLeaseBridge({ type, slots: count, packetBytes, replyBytes,
     const packet = new Uint8Array(memory.buffer, address, size).slice();
     const view = new DataView(packet.buffer), scope = view.getUint32(8, true), sequence = view.getUint32(16, true);
     const operation = view.getUint32(4, true);
-    if (!scope || !sequence || view.getUint32(12, true) || view.getUint32(20, true)) return -E.EINVAL;
+    if (view.getUint32(0, true) !== version || !scope || !sequence || view.getUint32(12, true) || view.getUint32(20, true) ||
+        view.getUint32(24, true) !== size - 32 || view.getUint32(28, true)) return -E.EINVAL;
     const slot = (scope - 1) % count, entry = slots[slot];
     if (entry?.pending || entry?.released) return -E.EBUSY;
     if (entry && operation === open) return -E.EBUSY;
@@ -58,7 +61,7 @@ export function createLeaseBridge({ type, slots: count, packetBytes, replyBytes,
     if (!entry && operation !== open) return -E.EBADF;
     if (entry && sequence <= entry.sequence) return -E.ESTALE;
     slots[slot] = {scope, sequence, operation, pending: true, released: false};
-    send({type: `${type}-request`, scope, sequence, packet}, [packet.buffer]);
+    send({type: `${type}-request`, operation, scope, sequence, body: packet.subarray(32)}, [packet.buffer]);
     return 0;
   }
   return {dispatch, acknowledge, dispose};

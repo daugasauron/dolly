@@ -10,77 +10,28 @@
 extern "C" {
 #endif
 
-typedef enum {
-  DOLLY_INPUT_EVENT_KEY = 1,
-  DOLLY_INPUT_EVENT_TEXT = 2,
-  DOLLY_INPUT_EVENT_FOCUS = 4,
-  DOLLY_INPUT_EVENT_PASTE = 5,
-  DOLLY_INPUT_EVENT_POINTER = 6,
-  DOLLY_INPUT_EVENT_SCROLL = 7,
-  DOLLY_INPUT_EVENT_POINTER_MOTION = 8,
-  DOLLY_INPUT_EVENT_POINTER_CAPTURE = 9,
-  DOLLY_INPUT_EVENT_POINTER_PRESENCE = 10,
-  // Records were lost here: the ring was full. Let go of held keys and buttons.
-  DOLLY_INPUT_EVENT_DROPPED = 11,
-} dolly_input_event_type;
-
-typedef enum {
-  DOLLY_POINTER_ACTION_RELEASE = 0,
-  DOLLY_POINTER_ACTION_PRESS = 1,
-  DOLLY_POINTER_ACTION_DRAG = 2,
-} dolly_pointer_action;
-
-typedef enum {
-  DOLLY_KEY_ACTION_RELEASE = 0,
-  DOLLY_KEY_ACTION_PRESS = 1,
-  DOLLY_KEY_ACTION_REPEAT = 2,
-} dolly_key_action;
-
-// The unit of a scroll record's delta, as a browser WheelEvent reports it.
-typedef enum {
-  DOLLY_SCROLL_UNIT_PIXEL = 0,
-  DOLLY_SCROLL_UNIT_LINE = 1,
-  DOLLY_SCROLL_UNIT_PAGE = 2,
-} dolly_scroll_unit;
-
-enum {
-  DOLLY_INPUT_MOD_SHIFT = 1u << 0,
-  DOLLY_INPUT_MOD_CONTROL = 1u << 1,
-  DOLLY_INPUT_MOD_ALT = 1u << 2,
-  DOLLY_INPUT_MOD_META = 1u << 3,
-  DOLLY_INPUT_MOD_CAPS_LOCK = 1u << 4,
-  DOLLY_INPUT_MOD_NUM_LOCK = 1u << 5,
-};
-
-enum {
-  DOLLY_INPUT_FLAG_COMPOSING = 1u << 0,
-};
-
-enum {
-  // A foreground command holds the input lease and reads every record.
-  DOLLY_INPUT_LEASED = 1u << 0,
-  // It asks for relative pointer motion. The page may capture the pointer
-  // only after a user's press on the canvas; Escape releases the capture.
-  DOLLY_INPUT_POINTER_RELATIVE = 1u << 1,
-};
-
+// The mailbox flags, record types, actions, scroll units, modifiers and the
+// composing flag are DOLLY_INPUT_* constants of dolly-input-0.wat
+// (<dolly/input-abi.h>).
+//
 // One record of every type; a type uses the fields listed and leaves the rest
 // zero. data holds key, code and text back to back as UTF-8 without
 // terminators.
-//   KEY      action (dolly_key_action), modifiers, flags COMPOSING; key and
+//   KEY      action (DOLLY_KEY_ACTION_*), modifiers, flags COMPOSING; key and
 //            code as in a browser KeyboardEvent
 //   TEXT     text: typed, composed or pasted, split on character boundaries
 //   FOCUS    action 1 while the window has focus, 0 after it lost it
 //   PASTE    the terminal's paste buffer holds one paste
-//   POINTER  action (dolly_pointer_action), modifiers, button 0 to 4 in
+//   POINTER  action (DOLLY_POINTER_ACTION_*), modifiers, button 0 to 4 in
 //            flags >> 8, x and y in canvas pixels
-//   SCROLL   action (dolly_scroll_unit), y: delta in thousandths of that
+//   SCROLL   action (DOLLY_SCROLL_UNIT_*), y: delta in thousandths of that
 //            unit, positive toward later content
 //   POINTER_MOTION    x and y: relative motion in thousandths of a CSS pixel,
 //                     each within +-32,768,000
 //   POINTER_CAPTURE   action 1 while the pointer is captured, 0 after
 //   POINTER_PRESENCE  action 1 while the pointer is over the canvas, 0 after
-//   DROPPED  action: records lost since the page loaded
+//   DROPPED  action: records lost since the page loaded. The ring was full
+//            here: let go of held keys and buttons
 typedef struct {
   uint32_t type;
   uint32_t action;
