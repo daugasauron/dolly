@@ -313,7 +313,7 @@ test("file recognizes UTF-8 text and stat reports modes or rejects unknown forma
 });
 
 test("Dolly's own commands answer --help with their usage and status 0; man reports a missing page", async () => {
-  const core = ["cat", "cd", "clear", "cp", "file", "help", "ls", "man", "mkdir", "mv", "pwd", "rm", "stat", "touch"];
+  const core = ["cat", "clear", "cp", "file", "help", "ls", "man", "mkdir", "mv", "pwd", "rm", "stat", "touch"];
   const sources = ["command", "diff", "du", "env", "find", "hostname", "install", "nproc", "patch", "realpath", "rev",
     "time", "timeout", "tty", "xargs"];
   const programs = [...core.map(name => build(name)), ...sources.map(name => build(name))];

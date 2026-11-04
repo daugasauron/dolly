@@ -14,28 +14,28 @@ REQUIRES HOST upload@0
 # The shell, its tools, the terminal, curl and the file exchange, as default
 # installs them. Not FROM default: a change to the image people open then
 # rebuilds no game, and this page holds none of default's amy or nena.
-INSTALL /v0.1.4/Dollyfile-core 4a902bd69fb257d259d144a032320b285a6e4ad4410ef26c4ab547d781190ec1
-INSTALL /v0.1.4/Dollyfile-posix 4a734cc0eeb94fb934cda219dacc0bc88e6ed6fbfb4b78754cfe53d003f35281
-INSTALL /v0.1.4/Dollyfile-display 979b7e2948be20dc8ffdd882734debebf653b4ad55b65985faf40360a25bba57
-INSTALL /v0.1.4/Dollyfile-curl 299bddc0268585456c1f8169e77fc62aa2e308a629ee82d7b0be34ce2ef0e1fc
-INSTALL /v0.1.4/Dollyfile-transfer 494ad8fabc36f95dbd68d6c0cf2278bee94b3eeadd026dde48f28ef43dd8376e
-COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine e8f2a92d3f82f7873880614d29dd3356bec1e181da8535e673f9d1fe334de3da /opt/0ad/system/pyrogenesis /opt/0ad/system/pyrogenesis
+INSTALL /v0.1.4/Dollyfile-core 443c35e787403938c5b201b8e871f6eb3c2730ae9513d99859c699879bb3142e
+INSTALL /v0.1.4/Dollyfile-posix 275f4eebb750bbed48534d92c9e969683c3e73de161890ea9d032bd6ba627700
+INSTALL /v0.1.4/Dollyfile-display 960bb0ccf6e4fb12f00927e0383504c45f8da51650dbc95ace7c2cb11896dd3f
+INSTALL /v0.1.4/Dollyfile-curl 2d513e30d6c24594e59a137d3e48593d1aa242de0556bd263d4009eee3e839ad
+INSTALL /v0.1.4/Dollyfile-transfer e30201067650086a59f1802f4cd2eb3b498f7452b99498121ee9895139c7298e
+COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine 4b6b5b800e2d02965ae27263539e2699602e7a8da98807118c57cfb9b2e4ded3 /opt/0ad/system/pyrogenesis /opt/0ad/system/pyrogenesis
 # Licences of the libraries statically linked into the engine.
-COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine e8f2a92d3f82f7873880614d29dd3356bec1e181da8535e673f9d1fe334de3da /usr/share/licenses/OpenAL /usr/share/licenses/OpenAL
-COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine e8f2a92d3f82f7873880614d29dd3356bec1e181da8535e673f9d1fe334de3da /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
-COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine e8f2a92d3f82f7873880614d29dd3356bec1e181da8535e673f9d1fe334de3da /usr/share/licenses/enet /usr/share/licenses/enet
-COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine e8f2a92d3f82f7873880614d29dd3356bec1e181da8535e673f9d1fe334de3da /usr/share/licenses/fmt /usr/share/licenses/fmt
-COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine e8f2a92d3f82f7873880614d29dd3356bec1e181da8535e673f9d1fe334de3da /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine e8f2a92d3f82f7873880614d29dd3356bec1e181da8535e673f9d1fe334de3da /usr/share/licenses/icu /usr/share/licenses/icu
-COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine e8f2a92d3f82f7873880614d29dd3356bec1e181da8535e673f9d1fe334de3da /usr/share/licenses/libogg /usr/share/licenses/libogg
-COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine e8f2a92d3f82f7873880614d29dd3356bec1e181da8535e673f9d1fe334de3da /usr/share/licenses/libpng /usr/share/licenses/libpng
-COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine e8f2a92d3f82f7873880614d29dd3356bec1e181da8535e673f9d1fe334de3da /usr/share/licenses/libsodium /usr/share/licenses/libsodium
-COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine e8f2a92d3f82f7873880614d29dd3356bec1e181da8535e673f9d1fe334de3da /usr/share/licenses/libvorbis /usr/share/licenses/libvorbis
-COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine e8f2a92d3f82f7873880614d29dd3356bec1e181da8535e673f9d1fe334de3da /usr/share/licenses/libxml2 /usr/share/licenses/libxml2
-COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine e8f2a92d3f82f7873880614d29dd3356bec1e181da8535e673f9d1fe334de3da /usr/share/licenses/spidermonkey /usr/share/licenses/spidermonkey
+COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine 4b6b5b800e2d02965ae27263539e2699602e7a8da98807118c57cfb9b2e4ded3 /usr/share/licenses/OpenAL /usr/share/licenses/OpenAL
+COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine 4b6b5b800e2d02965ae27263539e2699602e7a8da98807118c57cfb9b2e4ded3 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine 4b6b5b800e2d02965ae27263539e2699602e7a8da98807118c57cfb9b2e4ded3 /usr/share/licenses/enet /usr/share/licenses/enet
+COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine 4b6b5b800e2d02965ae27263539e2699602e7a8da98807118c57cfb9b2e4ded3 /usr/share/licenses/fmt /usr/share/licenses/fmt
+COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine 4b6b5b800e2d02965ae27263539e2699602e7a8da98807118c57cfb9b2e4ded3 /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine 4b6b5b800e2d02965ae27263539e2699602e7a8da98807118c57cfb9b2e4ded3 /usr/share/licenses/icu /usr/share/licenses/icu
+COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine 4b6b5b800e2d02965ae27263539e2699602e7a8da98807118c57cfb9b2e4ded3 /usr/share/licenses/libogg /usr/share/licenses/libogg
+COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine 4b6b5b800e2d02965ae27263539e2699602e7a8da98807118c57cfb9b2e4ded3 /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine 4b6b5b800e2d02965ae27263539e2699602e7a8da98807118c57cfb9b2e4ded3 /usr/share/licenses/libsodium /usr/share/licenses/libsodium
+COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine 4b6b5b800e2d02965ae27263539e2699602e7a8da98807118c57cfb9b2e4ded3 /usr/share/licenses/libvorbis /usr/share/licenses/libvorbis
+COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine 4b6b5b800e2d02965ae27263539e2699602e7a8da98807118c57cfb9b2e4ded3 /usr/share/licenses/libxml2 /usr/share/licenses/libxml2
+COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-engine 4b6b5b800e2d02965ae27263539e2699602e7a8da98807118c57cfb9b2e4ded3 /usr/share/licenses/spidermonkey /usr/share/licenses/spidermonkey
 # Game content and configuration, made by zero-ad-data.
-COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-data e9f2c3b26f50d774fea347b31253237b622262f4a1a3ce4f131fd6eb649000b9 /opt/0ad/data /opt/0ad/data
-COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-data e9f2c3b26f50d774fea347b31253237b622262f4a1a3ce4f131fd6eb649000b9 /opt/0ad/licenses /opt/0ad/licenses
+COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-data ad40f594d5a5e965424a0dfe76974b5d16ba99fb3885509edbb0fc97b4571df3 /opt/0ad/data /opt/0ad/data
+COPY /v0.1.4/demos/zero-ad/Dollyfile-zero-ad-data ad40f594d5a5e965424a0dfe76974b5d16ba99fb3885509edbb0fc97b4571df3 /opt/0ad/licenses /opt/0ad/licenses
 
 FILE /usr/bin/zero-ad
     #!/bin/slop

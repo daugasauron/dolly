@@ -8,8 +8,8 @@ REQUIRES HOST dso@0
 # every library, the headers and llvm-config, as llvm-build installed them
 # under /usr/lib/llvm. The package keeps only the exports below. Programs that
 # build against LLVM compile with cc and c++.
-FROM /v0.1.4/demos/llvm/Dollyfile-llvm-build 983bd21572e6270abd2c05268bf442b76aa75a3bbeeab44e1b042307539358ea
-INSTALL /v0.1.4/Dollyfile-cc 83e063218d32e8bc91a07a85190c3287b8399da7b4de314987e024bf6d79d6c5
+FROM /v0.1.4/demos/llvm/Dollyfile-llvm-build 2c1c9d6aebbe0a6df1f18f8c4649c39dae3c6d9582734f13700f96c08cdae578
+INSTALL /v0.1.4/Dollyfile-cc 9689b0cb8663bb536776109a54406a39d3acd35fd9b71fe07d3de3672d9d665e
 SLOP slop -c 'for tool in llvm-ar llvm-ranlib llvm-nm llvm-objdump llvm-readobj llvm-readelf llvm-objcopy llvm-strip \
   llvm-size llvm-strings llvm-symbolizer llvm-addr2line llvm-dwarfdump llvm-cxxfilt llvm-mc llvm-as llvm-dis llvm-link \
   opt llc llvm-config; do ln -s ../lib/llvm/bin/$tool /usr/bin/$tool; done'

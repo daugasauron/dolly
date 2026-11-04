@@ -8,7 +8,7 @@ REQUIRES HOST runtime@0
 # lchmod. The sources are C of 1990, which -std=gnu89 compiles; they call
 # read, write and lseek without their header unless the system says it is
 # BSD 4.4 or System V, and a call through the wrong type traps in Wasm.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build cdf5078d1983d2ee3da53a4e1d7a3f98350aa16a6bc0a507a7d0caf85f0046bd
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build a767bc54c6beb12d5d8f1248ebc6b6ad0344b171499535738b2238fc7806aecb
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc

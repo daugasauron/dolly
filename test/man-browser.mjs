@@ -10,7 +10,7 @@ const everyCommandHasAPage = "rm -f /tmp/pageless; for file in /bin/* /usr/bin/*
   "! cat /tmp/pageless 2> /dev/null";
 // Dolly's own pages are their --help, where upstream's begin with their title,
 // NAME(1); test and [ take --help as an expression, echo as an operand. The program is run by its
-// path: cd, command and time are also Slop's own.
+// path: command and time are also Slop's own.
 const everyOwnCommandAnswersHelp = "rm -f /tmp/helpless; for file in /bin/* /usr/bin/*; do name=${file##*/}; " +
   "if test -e \"/usr/share/man/cat1/$name.1\" && ! sed 1q \"/usr/share/man/cat1/$name.1\" | grep -q '^[A-Z].*([1-9])' && " +
   "test \"$name\" != test && test \"$name\" != \"[\" && test \"$name\" != echo; then " +

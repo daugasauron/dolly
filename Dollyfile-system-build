@@ -113,7 +113,6 @@ SOURCE /v0.1.4/dist/static/default/commands/foreground.c e926c3c87764e44064744fc
 SOURCE /v0.1.4/dist/static/default/commands/help.c 2cf1323f34d0130fe518a9da768594c6549a78ce72c53cc04d54d6f2207890f7 /tmp/core-tools/help.c
 SOURCE /v0.1.4/dist/static/default/commands/man.c cd13cdece7706188e083a1754187cb19b7627e9cb8d2b294ba21cd2f88ff39d8 /tmp/core-tools/man.c
 SOURCE /v0.1.4/dist/static/default/commands/pwd.c 61b2840bfba274f511c3777f5b800bcdfff1947bef13b771c5d9a98eb5d03d3d /tmp/core-tools/pwd.c
-SOURCE /v0.1.4/dist/static/default/commands/cd.c 36d4c7708b332be6df90105bbc61cf8eb70556e3ed0f9f24756016eebec3d622 /tmp/core-tools/cd.c
 SOURCE /v0.1.4/dist/static/default/commands/cat.c 43eabd1e83f6c56cd5b5a7d8e5f9621e214c35e9407dea6bbce34120cb9da723 /tmp/core-tools/cat.c
 SOURCE /v0.1.4/dist/static/default/commands/echo.c b452aa1e2e101d11bc6ac27052d116a8b9e1792cb3ad3406dc23f31f218adb56 /tmp/core-tools/echo.c
 SOURCE /v0.1.4/dist/static/default/commands/printf.c 7188ef27e1c62707313cb627b7d75865a28b1b186bba1180a8913b61c07ed5d7 /tmp/core-tools/printf.c
@@ -141,10 +140,6 @@ SLOP cc \
   -O2 \
   /tmp/core-tools/pwd.c \
   -o /bin/pwd
-SLOP cc \
-  -O2 \
-  /tmp/core-tools/cd.c \
-  -o /bin/cd
 SLOP cc \
   -O2 \
   /tmp/core-tools/cat.c \
@@ -207,7 +202,6 @@ EXPORTS TOOL foreground
 EXPORTS TOOL help
 EXPORTS TOOL man
 EXPORTS TOOL pwd
-EXPORTS TOOL cd
 EXPORTS TOOL cat
 EXPORTS TOOL echo
 EXPORTS TOOL printf
@@ -227,7 +221,7 @@ SLOP mkdir \
   -p \
   /usr/share/man/cat1 \
   /usr/share/man/man1
-SLOP for name in ar c++ cat cc cd clear cp dollyfile file foreground help ld ls man mkdir mv pwd rm slop stat touch; do \
+SLOP for name in ar c++ cat cc clear cp dollyfile file foreground help ld ls man mkdir mv pwd rm slop stat touch; do \
   "/bin/$name" --help > "/usr/share/man/cat1/$name.1"; \
   done
 SLOP help >> /usr/share/man/cat1/slop.1
