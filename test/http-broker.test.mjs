@@ -45,17 +45,29 @@ async function settled(f) {
   while (f.broker.active) await new Promise(resolve => setTimeout(resolve, 1));
 }
 
+// The program's read of a readable record: it takes the bytes and hands the slot back.
+function takeRecord(f) {
+  const length = f.load(DOLLY_HTTP_WORD_LENGTH);
+  const eof = f.load(DOLLY_HTTP_WORD_EOF);
+  const record = { kind: f.load(DOLLY_HTTP_WORD_KIND), eof,
+    bytes: f.mailbox.bytes.slice(f.address + 64, f.address + 64 + length) };
+  Atomics.compareExchange(f.mailbox.words, f.word, 2, eof ? 0 : 1);
+  Atomics.notify(f.mailbox.words, f.word);
+  return record;
+}
+
+// The next record, once the broker's notify says it is there; null once the transfer has ended.
+async function nextRecord(f) {
+  for (let state; (state = f.load(DOLLY_HTTP_WORD_STATE)) !== 2;) {
+    if (state !== 1) return null;
+    await Atomics.waitAsync(f.mailbox.words, f.word, state).value;
+  }
+  return takeRecord(f);
+}
+
 async function consume(f, request) {
   const records = [];
-  const drain = () => {
-    if (f.load(DOLLY_HTTP_WORD_STATE) !== 2) return;
-    const length = f.load(DOLLY_HTTP_WORD_LENGTH);
-    const eof = f.load(DOLLY_HTTP_WORD_EOF);
-    records.push({ kind: f.load(DOLLY_HTTP_WORD_KIND), eof,
-      bytes: f.mailbox.bytes.slice(f.address + 64, f.address + 64 + length) });
-    Atomics.compareExchange(f.mailbox.words, f.word, 2, eof ? 0 : 1);
-    Atomics.notify(f.mailbox.words, f.word);
-  };
+  const drain = () => { if (f.load(DOLLY_HTTP_WORD_STATE) === 2) records.push(takeRecord(f)); };
   const interval = setInterval(drain, 1);
   try { await bounded(request); drain(); return records; }
   finally { clearInterval(interval); }
@@ -216,21 +228,38 @@ test("a provider ignoring abort cannot hide a deadline or release its occupied s
   assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.ETIMEDOUT);
 });
 
-test("a response lasts as long as it moves and times out once it stops", async () => {
+test("a response lasts as long as it moves and times out once it stops", async t => {
+  // Time is the test's: the server sends and the program reads only when told.
+  const timeout = 300;
+  let clock = 0;
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  t.mock.method(performance, "now", () => clock);
+  const pass = milliseconds => { clock += milliseconds; t.mock.timers.tick(milliseconds); };
   for (const stops of [false, true]) {
-    let sent = 0, last;
-    const f = fixture({ timeoutMilliseconds: 300 }, async () => new Response(new ReadableStream({ async pull(stream) {
-      await new Promise(resolve => setTimeout(resolve, 30));
-      if (sent < 30) { stream.enqueue(Uint8Array.of(sent++)); last = performance.now(); }
-      else if (stops) await new Promise(() => {});
-      else stream.close();
-    } })));
-    const records = await consume(f, f.request());
-    const body = records.filter(record => record.kind === 3).map(record => [...record.bytes]).flat();
-    assert.deepEqual(body, Array.from({ length: 30 }, (_, index) => index), "every byte of three timeouts' stream arrives");
-    if (!stops) { assert.equal(records.at(-1).eof, 1); continue; }
-    assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.ETIMEDOUT);
-    assert.ok(performance.now() - last >= 300, "cut no sooner than the timeout after its last bytes");
+    let server;
+    const f = fixture({ timeoutMilliseconds: timeout },
+      async () => new Response(new ReadableStream({ start(controller) { server = controller; } })));
+    const pending = f.request();
+    while (String.fromCharCode(...(await nextRecord(f)).bytes) !== "\r\n");
+    const body = [];
+    for (let byte = 0; byte < 5; byte++) {
+      pass(timeout - 1);
+      server.enqueue(Uint8Array.of(byte));
+      body.push(...(await nextRecord(f)).bytes);
+    }
+    assert.deepEqual(body, [0, 1, 2, 3, 4], "a stream five timeouts long arrives whole while it moves");
+    if (!stops) {
+      server.close();
+      assert.equal((await nextRecord(f)).eof, 1);
+    } else {
+      pass(timeout - 1);
+      assert.equal(f.load(DOLLY_HTTP_WORD_STATE), 1, "not cut before the timeout after its last byte");
+      pass(1);
+      assert.equal(f.load(DOLLY_HTTP_WORD_STATE), 3, "cut once the timeout after its last byte has passed");
+      assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.ETIMEDOUT);
+    }
+    await pending;
+    assert.equal(f.broker.active, false);
   }
 });
 
