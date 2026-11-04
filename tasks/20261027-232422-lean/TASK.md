@@ -207,6 +207,14 @@ by name (Firefox names `wasm-reserved`, `js-executable-memory`, `jemalloc`; Chro
   4 ms (`probe/worker-cost.mjs`), so the threshold keeps small programs as they were.
   `stack` and `ended-worker` (an image with `stack-wrap`) passed in both on the night round's
   `stack-wrap`; on the previous round's they time out at boot, the supervisor unchanged too.
+- Since a held module goes at once, the order of eviction matters: the cache now evicts what a
+  module will replace before compiling it, not after. The same four executables in turn:
+  Firefox's step highs 2.02 to 2.39 GB where they were 2.43 to 2.74, its peak 2.59 where it was
+  2.99; Chromium's peak 1.62 where it was 1.79 (`thrash5-room.log`). On Lean in Firefox `lake new`
+  now passes (5.64 GB high, 5.15 after; `lean`'s module went before `lake`'s compile) and the tab
+  is killed at `lake build` instead (`lean-room-firefox.log`). `process`, `core` and `threads`
+  pass in both browsers with it; `process-memory` passes in Firefox, and in Chromium all but its
+  idle case, which the old libc of the images it ran on fails (above).
 - `test/process-memory-browser.mjs` now launches four distinct copies of the compiler in turn,
   twice, and fails when a launch leaves 256 MiB over the level the first four left. Before the
   change it failed in Firefox (629 MiB over; after each launch 1824 to 2435 MiB against 1806);

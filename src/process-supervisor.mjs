@@ -430,6 +430,8 @@ export class DollyProcessSupervisor {
     const digest = hex(await crypto.subtle.digest("SHA-256", bytes));
     const key = `${byteLength}:${digest}`;
     if (this.compiledModules.has(key)) return this.#cachedModule(key);
+    // What this module will replace in the cache goes before it is compiled.
+    if (byteLength <= compiledModuleCacheBytes) this.#evict(byteLength);
 
     const started = performance.now();
     let noticeShown = false;
@@ -470,18 +472,23 @@ export class DollyProcessSupervisor {
     }
     const compiled = { key, module, memoryRequirements, processInterface, threaded, largeStack, requirements, byteLength };
     if (byteLength <= compiledModuleCacheBytes) {
+      // An exec's compile may have run beside this one.
+      this.#evict(byteLength);
       this.compiledModules.set(key, compiled);
       this.compiledModuleBytes += byteLength;
-      while (this.compiledModules.size > compiledModuleCacheEntries ||
-             this.compiledModuleBytes > compiledModuleCacheBytes) {
-        const oldestKey = this.compiledModules.keys().next().value;
-        const oldest = this.compiledModules.get(oldestKey);
-        this.compiledModules.delete(oldestKey);
-        this.compiledModuleBytes -= oldest.byteLength;
-        this.#release(oldest);
-      }
     }
     return compiled;
+  }
+
+  // Evicts the least recently used modules until one of byteLength fits.
+  #evict(byteLength) {
+    while (this.compiledModules.size && (this.compiledModules.size >= compiledModuleCacheEntries ||
+           this.compiledModuleBytes + byteLength > compiledModuleCacheBytes)) {
+      const [oldestKey, oldest] = this.compiledModules.entries().next().value;
+      this.compiledModules.delete(oldestKey);
+      this.compiledModuleBytes -= oldest.byteLength;
+      this.#release(oldest);
+    }
   }
 
   // Ends the Worker of a held module (heldModuleBytes) that neither the cache
