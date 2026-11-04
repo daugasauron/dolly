@@ -65,6 +65,20 @@ build` with `ZIG_DEBUG_CMD` 46.9 s. The same maker compile natively (host Zig 0.
 `lib/`, `build-obj -target wasm64-emscripten -mcpu=generic+atomics`, one core) takes 44.3 s in
 ReleaseSafe and 14.4 s in Debug.
 
+The demo test's own commands (`demos/zig/test/zig-llvm-browser.mjs`, the new check included) in one
+session after `amy install zig-llvm`, on the round's package, without and with the setup done by
+hand first (`steps-demo-*.json`), in seconds:
+
+| | first `zig build-exe` | two more | `zig translate-c -lc` | `zig build` | in all |
+| --- | --- | --- | --- | --- | --- |
+| Chromium, without | 10.2 | 7.4 | 53.0 | 97.9 | 169 |
+| Chromium, with | 9.8 | 7.5 | 0.6 | 11.8 | 30 |
+| Firefox, without | 12.8 | 9.9 | 69.5 | 114.7 | 208 |
+| Firefox, with | 11.4 | 11.0 | 1.4 | 16.7 | 41 |
+
+With the setup the new check passed in both: after those commands the cache holds one maker and
+one translator, so `-lc` does not change the translator's key.
+
 The machine is shared with the night round (three image builds), so a run varies by several
 seconds; the 13.5 s of the upgrade's report was not reproduced for 0.16. Firefox's second or third
 `zig build` in one v0.1.4 session ended the run both times: the 6 GB browser slot's OOM killer
