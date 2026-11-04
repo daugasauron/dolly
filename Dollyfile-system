@@ -4,14 +4,16 @@ REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST download@0
+REQUIRES HOST html@0
 REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 REQUIRES HOST threads@0
 
 FROM /v0.1.4/Dollyfile-system-tools 4545b7374a6a980cb31375eaffac3f5a99330ced0a1f93e8c77bb18cde64d95f
-# The page's file exchange, here and in the images built on this one.
+# The page's file exchange and its popups, here and in the images built on this one.
 INSTALL /v0.1.4/Dollyfile-transfer 946f6e21d5eef2ee487b0a92c7b9b25560dfad78a258b2386267eb877563d9e9
+INSTALL /v0.1.4/Dollyfile-html f8666c0f556bb0357c642a3df677cd537cdc01b0a9f33ba05959c2cce4fc9d5f
 INSTALL /v0.1.4/Dollyfile-session-recover 9d488bf67e10fa80055489f7f13e3b4bad4a370d917d32e398cf57940a1afea8
 # The packages made of what system-build and system-tools built: this image
 # holds their files, and its record says so, as it does for every INSTALL.

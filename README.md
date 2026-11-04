@@ -49,8 +49,8 @@ Every image declares its role: an `APPLICATION` people open, a `TOOLCHAIN`
 recipes build on, or a `PACKAGE` recipes and sessions install
 ([Dollyfile](docs/dollyfile.md#roles-and-names)).
 
-- `default`: A shell, its text tools, curl, ps, amy, which installs the rest, and nena, which enables the host modules they need.
-- `system`: `system-tools` with saved sessions (`snapshot@0`, `session-recover`).
+- `default`: A shell, its text tools, curl, ps, html, amy, which installs the rest, and nena, which enables the host modules they need.
+- `system`: `system-tools` with saved sessions (`snapshot@0`, `session-recover`) and popups (`html`).
 - `system-tools`: Shell, display, Git, curl, Make and POSIX tools.
 - `system-build`: C/C++ compiler, headers and basic build tools.
 - `zig-build`: Zig built from source by the C/C++ compiler; emits C.

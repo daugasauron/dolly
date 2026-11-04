@@ -14,7 +14,7 @@ REQUIRES HOST threads@0
 # Athena toolkit's stack. Static libraries in /usr/lib, as the packages and
 # programs of this demo link them. Python serves xcb's generator.
 FROM /v0.1.4/demos/tools/Dollyfile-tools-build 5d02b8dee018def57cdded1b92a2c79e59fa057eba06c959660d8d496e59e57c
-INSTALL /v0.1.4/demos/python/Dollyfile-python 12900cd809eb9c2f6023c36a48d0ab0003a092cd4f68f39caf8593efdb682e92
+INSTALL /v0.1.4/demos/python/Dollyfile-python 68583bffa520a349ab84a8b7697e40e11ffd4ce0b2041248624cfc159f6699d5
 # sockets@0's client, which every X program here links (pkg-config names it).
 INSTALL /v0.1.4/Dollyfile-libdolly-sockets 2ae0c98a9c07487d3a0c1d051107a90cfbc7267104172bab88ed6b6c983f9511
 

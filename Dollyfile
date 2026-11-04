@@ -6,6 +6,7 @@ REQUIRES HOST input@0
 REQUIRES HOST audio@0
 REQUIRES HOST download@0
 REQUIRES HOST dso@0
+REQUIRES HOST html@0
 REQUIRES HOST http@0
 REQUIRES HOST nena@0
 REQUIRES HOST packages@0
@@ -15,8 +16,8 @@ REQUIRES HOST threads@0
 REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
-# The image people open: a shell, its text tools, the terminal, curl, amy, ps
-# and the page's file exchange.
+# The image people open: a shell, its text tools, the terminal, curl, amy, ps,
+# the page's file exchange and its popups (html).
 # It holds no compiler; amy installs what a session needs, and nena enables
 # the host modules a package needs beyond these (nena@0).
 INSTALL /v0.1.4/Dollyfile-core 9c7938379920773932685c3daadd93b6d560b0a189582fdb73006d2c48a2c009
@@ -26,6 +27,7 @@ INSTALL /v0.1.4/Dollyfile-curl 8af1f8fc48e59e8d5b3a156bf043333a8b53d489e498a2e47
 INSTALL /v0.1.4/Dollyfile-amy 18a346724d1ce80867fdc7ae3375921c0b0cda24bb5bfef32d5fc3a7faecd053
 INSTALL /v0.1.4/Dollyfile-nena 5841c957aafee5dc9473c7f08802ec178d2bdf59a1206d51674180eea2252384
 INSTALL /v0.1.4/Dollyfile-transfer 946f6e21d5eef2ee487b0a92c7b9b25560dfad78a258b2386267eb877563d9e9
+INSTALL /v0.1.4/Dollyfile-html f8666c0f556bb0357c642a3df677cd537cdc01b0a9f33ba05959c2cce4fc9d5f
 INSTALL /v0.1.4/Dollyfile-ps 39cdf2bfaa3fb52f3c161672634f9600381754e6f006971896d6f79b6b345b77
 REQUIRES TOOL foreground
 REQUIRES TOOL test

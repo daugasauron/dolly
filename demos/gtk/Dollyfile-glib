@@ -12,12 +12,12 @@ REQUIRES HOST threads@0
 # --dolly-cast-emulation (Binaryen's wasm-opt --fpcast-emu after the link),
 # and this package's own programs are passed through it here.
 FROM /v0.1.4/demos/tools/Dollyfile-tools-build 5d02b8dee018def57cdded1b92a2c79e59fa057eba06c959660d8d496e59e57c
-USE /v0.1.4/demos/tools/Dollyfile-meson 0f912a0355adeaa3651df023153be8ea874cf0f5baf4c93b94cbf2009d802766
+USE /v0.1.4/demos/tools/Dollyfile-meson 5f842f25b444f918625581389287021b85f77fe30ca531249e7278daba45da93
 USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 82c7b029c11f430ad2a737aff89724924b75e646a2b531747640903400384de6
 USE /v0.1.4/demos/tools/Dollyfile-xz bc766753e56ac20a9c521907093940943372e83e915e8e548d386517b711d1d5
 USE /v0.1.4/demos/tools/Dollyfile-tar 52338324df74cd7820e5ba3b7554a854f155b52df6094b07904594e97b9ef99e
 USE /v0.1.4/demos/tools/Dollyfile-binaryen 1d115cedacd134300d3c567293742cb9c085d6383939fce0f3da7f9b0cb5b229
-INSTALL /v0.1.4/demos/python/Dollyfile-libffi 3254be3dbdfe5d984354e112c98ac854276d2a76758c332ecf248735bd4fabc4
+INSTALL /v0.1.4/demos/python/Dollyfile-libffi 824f362a70eb53567e11668a9d0f3b2e994a647b1aea74bad2d124213ce84b96
 INSTALL /v0.1.4/demos/gtk/Dollyfile-pcre2 3a7547a63e6282fb25c41b9cdc4262c4e224f82121e50f071e2ad912736c3986
 INSTALL /v0.1.4/Dollyfile-zlib d91bacbcddaa4f91d07244cd4d558fb7623ecafe75a4ac07f20c1caa9231321f
 

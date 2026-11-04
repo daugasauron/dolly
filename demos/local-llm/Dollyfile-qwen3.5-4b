@@ -3,7 +3,7 @@ PACKAGE qwen3.5-4b
 REQUIRES HOST runtime@0
 
 # Qwen3.5-4B Q3_K_S, the exact upstream GGUF assembled from parts SOURCE accepts, its description and its license.
-FROM /v0.1.4/Dollyfile-system 49c8a2a1219574aa572ca8424b6f88338ecc3ff04ecf99946dcc6bbdcbc2d0dd
+FROM /v0.1.4/Dollyfile-system e2416f7734ba0e15eb5c6c917ae5c43b4a015cd4867cf1727b3238690884dd10
 REQUIRES TOOL cat
 REQUIRES TOOL cut
 REQUIRES TOOL mkdir

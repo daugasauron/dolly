@@ -1,4 +1,4 @@
-// The image people open: a shell, its text tools, curl and amy, and no
+// The image people open: a shell, its text tools, curl, amy and html, and no
 // compiler. Its start-up text is printed once and names only packages the
 // site publishes. An image composed from packages holds what it installs and
 // reaches only the host modules it declares.
@@ -27,8 +27,16 @@ await browserTest("default", {}, async ({ open }) => {
   assert.deepEqual(await session.page.evaluate(() => [...__dolly.hostModules].sort()), recipe.hostRequirements.toSorted());
   await run("mkdir /tmp/made && echo kept > /tmp/made/file && test \"$(grep -c kept /tmp/made/file | sed 's/1/one/')\" = one");
   await run("curl --version > /dev/null && amy list | grep -q '^cc '");
-  // The image declares download@0 and upload@0; their commands must be in it.
+  // The image declares download@0, upload@0 and html@0; their commands must be in it.
   await run("download --help | grep -q '^usage: download' && test -x /bin/upload && man download | grep -qi download");
+  // html shows a form in a popup of the page and prints the field the user submits.
+  const answered = session.submit("echo '<form><input name=answer><button>Send</button></form>' | html > /tmp/answer");
+  answered.catch(() => {}); // A failing test closes the page under it.
+  const popup = session.page.frameLocator("#html-popup iframe");
+  await popup.locator("input").fill("forty two");
+  await popup.getByRole("button", { name: "Send" }).click();
+  assert.equal(await answered, 0);
+  await run("test \"$(cat /tmp/answer)\" = answer=forty+two");
   for (const absent of ["cc --version", "make --version", "git --version"]) assert.equal(await session.submit(absent), 127, absent);
 });
 

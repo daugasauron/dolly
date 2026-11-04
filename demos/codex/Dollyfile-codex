@@ -8,11 +8,11 @@ REQUIRES HOST threads@0
 # Codex compiled by Cargo from its pinned sources, offline, with the launcher
 # that seeds CODEX_HOME and the search tools Codex runs. The lock file is kept
 # as the build's record.
-FROM /v0.1.4/demos/rust/Dollyfile-rust-build ed01f72c0579ce1e900be1093f718456c29d176500ae6c553a44c4c6726b16fe
+FROM /v0.1.4/demos/rust/Dollyfile-rust-build bfa2fe574c70dc22cb40ffd364fd6a2647eb8c3b53c7e3a72fc41b114e904de4
 USE /v0.1.4/Dollyfile-libdolly-sockets 2ae0c98a9c07487d3a0c1d051107a90cfbc7267104172bab88ed6b6c983f9511
-USE /v0.1.4/demos/rust/Dollyfile-protox aae9cf7484bef010ac70f6db6ba9a0cd7f9376b3ddba57b12d9b17b735af2fa5
-INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 086d243deb3144e3a107da4ee0f952f9aab4302f20cffdbc1ba53e41a9089bcf
-INSTALL /v0.1.4/demos/rust/Dollyfile-fd bf7e696ba87085785083cab098e51b46def317dd5fcfe94b57f80efdd37c7434
+USE /v0.1.4/demos/rust/Dollyfile-protox 0de08058cbad6dd795f09e04e8f169ab6caf2f1253b9989610202c3e228be10a
+INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep cee77a30012c971de45672a607f0f7dc24c698d590f42b6003e8ea2052f55b34
+INSTALL /v0.1.4/demos/rust/Dollyfile-fd 6060e36f6503b6b5fd7f29f333c355c077ee9c175cb065db2b12b5c4b23a72f4
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL cargo
