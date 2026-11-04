@@ -2,6 +2,9 @@
 
 A Dollyfile is an ordered recipe that `/bin/dollyfile`
 ([`dollyfile.c`](../src/dollyfile.c)) executes inside Wasm to build an image.
+The page reads the recipe ([`dollyfile-view.mjs`](../src/dollyfile-view.mjs),
+the language's one parser) and gives the engine its rows, the words of each
+line, in `/etc/dolly/recipe.rows`: the engine parses no recipe text.
 A recipe declares its role on its second line: an `APPLICATION` that people
 open, a `TOOLCHAIN` that other recipes build on, or a `PACKAGE` that recipes
 and sessions install. Steps share one filesystem and environment and run in

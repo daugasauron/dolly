@@ -3,6 +3,8 @@ import { browserTest } from "./browser.mjs";
 import { dollyfileCases } from "./fixtures/dollyfile-cases.mjs";
 import { buildInputReuse, buildLogProof } from "./fixtures/image-build-browser.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import { createHash } from "node:crypto";
+import { inspectDollyfile, recipeRows } from "../src/dollyfile-view.mjs";
 import { siteReference } from "../src/static-asset.mjs";
 import { DOLLY_SYSTEM_SNAPSHOT as systemMetadata } from "../dist/dolly-system-system-snapshot.mjs";
 
@@ -21,9 +23,17 @@ const fixtures = { ...sources, "parser-dollyfile.c": "src/dollyfile.c", "parser-
   "parser-sha256.h": "src/sha256.h" };
 let hideSystemMetadata = false;
 let parserRecipes = new Map();
+// A recipe the engine built from this checkout runs, and its rows.
+const engineRecipes = new Map();
+for (const [name, source] of [["entry-missing", "DOLLY 7\nAPPLICATION entry-missing\nENTRY /bin/slop\n"],
+  ["order", "DOLLY 7\nPACKAGE order\nEXPORTS FOLDER order /usr/share/order\n"]]) {
+  engineRecipes.set(`/fixture/${name}.Dollyfile`, source);
+  engineRecipes.set(`/fixture/${name}.rows`, recipeRows(inspectDollyfile(source), createHash("sha256").update(source).digest("hex")));
+}
 function handle(request, response, path, headers) {
   if (hideSystemMetadata && path === "/dist/dolly-system-system-snapshot.mjs") response.writeHead(404, headers).end();
   else if (parserRecipes.has(path)) response.writeHead(200, { ...headers, "content-type": "text/plain" }).end(parserRecipes.get(path));
+  else if (engineRecipes.has(path)) response.writeHead(200, { ...headers, "content-type": "text/plain" }).end(engineRecipes.get(path));
   else return false;
   return true;
 }
@@ -92,12 +102,14 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
     await run(`cc -O0 -I. ${source} -o ${name} && ./${name} /tmp/retention`);
   }
   // Sealing fails when ENTRY names an executable the image does not retain.
-  await run("cc -O0 dollyfile.c -o dollyfile && printf 'DOLLY 7\\nAPPLICATION entry-missing\\nENTRY /bin/slop\\n' > Dollyfile");
+  const fetchRecipe = (name, path) => `curl -fsS ${server.origin}/fixture/${name}.Dollyfile -o ${path} && ` +
+    `curl -fsS ${server.origin}/fixture/${name}.rows -o /etc/dolly/recipe.rows`;
+  await run(`cc -O0 dollyfile.c -o dollyfile && ${fetchRecipe("entry-missing", "Dollyfile")}`);
   assert.equal(await submit("./dollyfile FILE:/tmp/retention/Dollyfile 2> error"), 1);
   await run("grep -q 'ENTRY needs /bin/slop' error && cp dollyfile /tmp/dollyfile && cd / && rm -rf /tmp/retention");
   await parser.run(submit);
   // A receipt lists an export's members in path order, whatever order created them.
-  await run("printf 'DOLLY 7\\nPACKAGE order\\nEXPORTS FOLDER order /usr/share/order\\n' > /tmp/Dollyfile-order");
+  await run(fetchRecipe("order", "/tmp/Dollyfile-order"));
   for (const [index, create] of ["touch c a-b && mkdir a && touch a/b", "mkdir a && touch a/b a-b c"].entries()) {
     await run(`rm -rf /usr/share/order && mkdir /usr/share/order && cd /usr/share/order && ${create} && cd /`);
     await run(`/tmp/dollyfile FILE:/tmp/Dollyfile-order > /dev/null && cp /etc/dolly/artifact /tmp/receipt-${index}`);

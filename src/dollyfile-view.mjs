@@ -40,13 +40,15 @@ function stripComment(value) {
   return value;
 }
 
-function words(value, label, line) {
+// The words of a row; `ends` receives the offset after each.
+function words(value, label, line, ends = []) {
   const result = [];
   let word = "";
   let quote = "";
   let escaped = false;
   let started = false;
-  for (const character of value) {
+  for (let offset = 0; offset < value.length; offset += 1) {
+    const character = value[offset];
     if (escaped) {
       if (quote === '"' && !['$', '`', '"', "\\"].includes(character)) word += "\\";
       word += character;
@@ -65,6 +67,7 @@ function words(value, label, line) {
     } else if (whitespace.test(character)) {
       if (started) {
         result.push(word);
+        ends.push(offset);
         word = "";
         started = false;
       }
@@ -74,7 +77,10 @@ function words(value, label, line) {
     }
   }
   if (escaped || quote) fail(label, line, "unterminated quoted word");
-  if (started) result.push(word);
+  if (started) {
+    result.push(word);
+    ends.push(value.length);
+  }
   return result;
 }
 
@@ -177,7 +183,10 @@ function inspectRecipe(source, label, rows) {
   let operations = 0;
 
   for (const item of rows.slice(1)) {
-    const tokens = words(item.args, label, item.line);
+    const ends = [];
+    const tokens = words(item.args, label, item.line, ends);
+    // What /bin/dollyfile executes for the row (recipeRows).
+    item.fields = [item.directive, ...tokens];
     if (role === null && !(item.directive in roles)) {
       fail(label, item.line, "expected APPLICATION, TOOLCHAIN or PACKAGE");
     }
@@ -256,6 +265,7 @@ function inspectRecipe(source, label, rows) {
           fail(label, item.line, "FILE cannot retain mutable session state");
         }
         files.push({ path: tokens[0], body: item.body, line: item.line, endLine: item.endLine });
+        if (item.body !== null) item.fields.push(item.body);
         break;
       case "FOLDER":
         operations += 1;
@@ -275,10 +285,13 @@ function inspectRecipe(source, label, rows) {
           cwd = tokens[1];
           command = tokens.slice(2);
         }
-        if (item.directive === "RUN") programWords(command, label, item);
-        else {
+        if (item.directive === "RUN") {
+          item.fields = ["RUN", cwd, ...programWords(command, label, item)];
+        } else {
           if (!command[0]) fail(label, item.line, "empty SLOP");
           slops.push({ cwd, command, line: item.line });
+          // Slop reads the command as written, quoting and all.
+          item.fields = ["SLOP", cwd, trim(tokens[0] === "CWD" ? item.args.slice(ends[1]) : item.args)];
         }
         break;
       }
@@ -303,6 +316,15 @@ function inspectRecipe(source, label, rows) {
     requirements, exports, artifacts, from, sources, slops, files, folders, rows, source,
   };
 }
+
+// The rows /bin/dollyfile executes, which the page writes to
+// /etc/dolly/recipe.rows: the engine parses no recipe text, so this file is the
+// language's one parser. Every field ends with NUL, which no recipe holds:
+// "DOLLY 7 SHA256" of the recipe's text, then for each row after DOLLY
+// "LINE COUNT" and that many fields, the directive first.
+export const recipeRows = (recipe, sha256) => [`DOLLY 7 ${sha256}`,
+  ...recipe.rows.slice(1).flatMap(row => [`${row.line} ${row.fields.length}`, ...row.fields])]
+  .map(field => `${field}\0`).join("");
 
 export function inspectDollyfile(source, label = "Dollyfile") {
   const rows = directives(physicalLines(source, label), label);

@@ -21,7 +21,6 @@
 
 enum {
   MAX_RECIPE_BYTES = 128 * 1024,
-  MAX_LOGICAL_LINE_BYTES = 64 * 1024,
   MAX_SOURCE_BYTES = 1024 * 1024 * 1024,
   MAX_MANIFEST_FILES = 100000,
 };
@@ -510,87 +509,39 @@ done:
   return status;
 }
 
-static char *trim(char *value) {
-  while (isspace((unsigned char)*value)) ++value;
-  char *end = value + strlen(value);
-  while (end != value && isspace((unsigned char)end[-1])) --end;
-  *end = '\0';
-  return value;
+// The page compiles a recipe into rows (recipeRows in src/dollyfile-view.mjs,
+// the language's one parser) and writes them here: the engine reads fields,
+// not recipe text. Every field ends with NUL: "DOLLY 7 SHA256" of the recipe
+// text, then for each row "LINE COUNT" and that many fields, the directive
+// first. A FILE row's last field is its body; RUN and SLOP rows start with
+// their directory, and SLOP's command is the text Slop reads.
+static const char *rows_path = "/etc/dolly/recipe.rows";
+
+typedef struct {
+  char **items;
+  size_t count;
+} Fields;
+
+static int read_rows(const char *path, const char digest[65], Buffer *bytes, Fields *fields) {
+  bytes->limit = 4 * MAX_RECIPE_BYTES;
+  int result = read_file_buffer(path, bytes);
+  if (result != 0) return result;
+  if (bytes->length == 0 || bytes->data[bytes->length - 1] != '\0') return -EINVAL;
+  for (size_t offset = 0; offset < bytes->length; offset += strlen((char *)bytes->data + offset) + 1) ++fields->count;
+  fields->items = calloc(fields->count, sizeof(*fields->items));
+  if (fields->items == NULL) return -ENOMEM;
+  size_t index = 0;
+  for (size_t offset = 0; offset < bytes->length; ++index) {
+    fields->items[index] = (char *)bytes->data + offset;
+    offset += strlen(fields->items[index]) + 1;
+  }
+  return strncmp(fields->items[0], "DOLLY 7 ", 8) == 0 && strcmp(fields->items[0] + 8, digest) == 0 ? 0 : -EBADMSG;
 }
 
-static void strip_comment(char *line) {
-  int quote = 0;
-  int escaped = 0;
-  for (size_t index = 0; line[index] != '\0'; ++index) {
-    const unsigned char character = (unsigned char)line[index];
-    if (escaped) {
-      escaped = 0;
-    } else if (character == '\\' && quote != '\'') {
-      escaped = 1;
-    } else if (quote != 0) {
-      if (character == quote) quote = 0;
-    } else if (character == '\'' || character == '"') {
-      quote = character;
-    } else if (character == '#' && (index == 0 || isspace((unsigned char)line[index - 1]))) {
-      line[index] = '\0';
-      return;
-    }
+static int fields_hold(const Fields *fields, const char *value) {
+  for (size_t index = 0; index < fields->count; ++index) {
+    if (strcmp(fields->items[index], value) == 0) return 1;
   }
-}
-
-// Decode one recipe word in place. The read cursor also identifies the raw
-// shell tail, which must keep its quoting when SLOP passes it to the shell.
-static int next_word(char **input, char **output, char **word) {
-  while (isspace((unsigned char)**input)) ++*input;
-  *word = **input == '\0' ? NULL : *output;
-  if (*word == NULL) return 0;
-  int quote = 0, escaped = 0;
-  while (**input != '\0') {
-    const unsigned char character = (unsigned char)*(*input)++;
-    if (escaped) {
-      if (quote == '"' && character != '$' && character != '`' &&
-          character != '"' && character != '\\') *(*output)++ = '\\';
-      *(*output)++ = (char)character;
-      escaped = 0;
-    }
-    else if (character == '\\' && quote != '\'') escaped = 1;
-    else if (quote != 0) {
-      if (character == quote) quote = 0;
-      else *(*output)++ = (char)character;
-    } else if (character == '\'' || character == '"') quote = character;
-    else if (isspace(character)) break;
-    else *(*output)++ = (char)character;
-  }
-  if (escaped || quote != 0) return -EINVAL;
-  *(*output)++ = '\0';
-  return 0;
-}
-
-static int split_words(char *value, char ***words_out, size_t *count_out) {
-  size_t capacity = 8;
-  size_t count = 0;
-  char **words = calloc(capacity, sizeof(*words));
-  if (words == NULL) return -ENOMEM;
-  char *read_cursor = value;
-  char *write_cursor = value;
-  for (;;) {
-    char *word = NULL;
-    const int result = next_word(&read_cursor, &write_cursor, &word);
-    if (result != 0) { free(words); return result; }
-    if (word == NULL) break;
-    if (count == capacity) {
-      capacity *= 2;
-      char **replacement = realloc(words, capacity * sizeof(*words));
-      if (replacement == NULL) {
-        free(words);
-        return -ENOMEM;
-      }
-      words = replacement;
-    }
-    words[count++] = word;
-  }
-  *words_out = words;
-  *count_out = count;
   return 0;
 }
 
@@ -900,58 +851,19 @@ static int run_slop(const char *cwd, const char *command) {
   return status;
 }
 
-// RUN [CWD /dir] /program [word…]: the program's argv, no shell, stdin
-// /dev/null. The words follow the ENTRY record limits.
-static int execute_run(char *arguments, int execute) {
-  char **words = NULL;
-  size_t count = 0, first = 0, size = 16;
-  const char *cwd = "/";
-  int result = split_words(arguments, &words, &count);
-  if (result == 0 && count != 0 && strcmp(words[0], "CWD") == 0) {
-    if (count < 2 || (strcmp(words[1], "/") != 0 && !valid_absolute_path(words[1]))) result = 2;
-    cwd = count < 2 ? cwd : words[1];
-    first = 2;
+// RUN: the program's argv, no shell, stdin /dev/null.
+static int execute_run(const char *cwd, char **words, size_t count) {
+  char **argv = calloc(count + 1, sizeof(*argv));
+  if (argv == NULL) return -ENOMEM;
+  int result = chdir(cwd) != 0 ? -errno : 0;
+  if (result == 0) {
+    memcpy(argv, words, count * sizeof(*argv));
+    printf("+ RUN CWD %s %s\n", cwd, words[0]);
+    fflush(stdout);
+    result = run_program(words[0], (int)count, argv);
+    if (chdir("/") != 0 && result == 0) result = -errno;
   }
-  if (result == 0 && (count <= first || count - first > 256 || !valid_absolute_path(words[first]))) result = 2;
-  for (size_t index = first; result == 0 && index < count; ++index) {
-    const size_t length = strlen(words[index]);
-    if (length > 4096 || size + 4 + length > 64 * 1024) result = 2;
-    size += 4 + length;
-  }
-  if (result == 0 && execute) {
-    char **argv = calloc(count - first + 1, sizeof(*argv));
-    if (argv == NULL) result = -ENOMEM;
-    else if (chdir(cwd) != 0) result = -errno;
-    else {
-      memcpy(argv, words + first, (count - first) * sizeof(*argv));
-      printf("+ RUN CWD %s %s\n", cwd, words[first]);
-      fflush(stdout);
-      result = run_program(words[first], (int)(count - first), argv);
-      if (chdir("/") != 0 && result == 0) result = -errno;
-    }
-    free(argv);
-  }
-  free(words);
-  return result;
-}
-
-static int execute_slop(char *arguments, int execute) {
-  char *command = trim(arguments);
-  char *copy = strdup(command);
-  if (copy == NULL) return -ENOMEM;
-  char *input = copy, *output = copy, *word = NULL, *cwd = "/";
-  int result = next_word(&input, &output, &word);
-  if (result == 0 && word != NULL && strcmp(word, "CWD") == 0) {
-    result = next_word(&input, &output, &cwd);
-    if (result == 0 && (cwd == NULL ||
-        (strcmp(cwd, "/") != 0 && !valid_absolute_path(cwd)))) result = 2;
-    command = trim(command + (input - copy));
-    if (result == 0) result = next_word(&input, &output, &word);
-  }
-  if (result == 0 && (word == NULL || *word == '\0')) result = 2;
-  while (result == 0 && word != NULL) result = next_word(&input, &output, &word);
-  if (result == 0 && execute) result = run_slop(cwd, command);
-  free(copy);
+  free(argv);
   return result;
 }
 
@@ -1061,10 +973,14 @@ static int host_enabled(const Engine *engine, const char *requirement) {
   return 0;
 }
 
+static int require_host(Engine *engine, const char *value);
+
 // Reads the receipt's recipe chain into the engine, its exports into `exports`
 // when given, and the imported image's role into `kind_out`. An installed
 // package's host modules must already be declared: nothing is inherited. A
 // session with nena@0 may have enabled them instead, and is told the command.
+// Without a locator it is the image's own receipt, whose host modules are the
+// engine's.
 static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
                                  size_t length, const char *locator,
                                  const char *expected, Scope *exports,
@@ -1087,7 +1003,7 @@ static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
           !valid_sha256(digest) || strcmp(actual, digest) != 0 ||
           strlen(source) > MAX_RECIPE_BYTES) result = -EBADMSG;
     }
-    if (result == 0 && index + 1 == count) {
+    if (result == 0 && index + 1 == count && locator != NULL) {
       if (strcmp(location, locator) != 0 || strcmp(digest, expected) != 0) result = -EBADMSG;
       else *kind_out = recipe_kind(kind);
     }
@@ -1102,7 +1018,8 @@ static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
     char *host = NULL;
     result = take_text(&cursor, end, &host);
     if (result == 0 && !valid_host_requirement(host)) result = -EINVAL;
-    if (result == 0 && install && !host_declared(engine, host) && !host_enabled(engine, host)) {
+    if (result == 0 && locator == NULL) result = require_host(engine, host);
+    else if (result == 0 && install && !host_declared(engine, host) && !host_enabled(engine, host)) {
       const char *joint = *missing != '\0' ? " and " : "";
       snprintf(missing + strlen(missing), sizeof(missing) - strlen(missing), "%s%s", joint, host);
       snprintf(enable + strlen(enable), sizeof(enable) - strlen(enable), " %.*s", (int)strcspn(host, "@"), host);
@@ -1328,7 +1245,7 @@ static int image_control_file(const char *path) {
 static int load_artifact(Engine *engine, const char *locator, const char *expected,
                          ImportMode mode, int package_recipe, const char *source,
                          const char *destination, Scope *visible, Scope *exports, const Scope *own,
-                         const char *rest);
+                         const Fields *later);
 
 // A package's record names the packages its recipe installed, dependencies
 // first. Installs the rows this filesystem's record lacks, for `locator`. A
@@ -1338,7 +1255,7 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
 enum { ROW_FIRST = 3 };
 static int install_rows(Engine *engine, const char *locator, const unsigned char *rows, size_t size,
                         ImportMode mode, int package_recipe, Scope *visible, Scope *exports, const Scope *own,
-                        const char *rest) {
+                        const Fields *later) {
   char *text = strndup((const char *)rows, size);
   int result = text == NULL ? -ENOMEM : 0;
   for (char *row = text, *next; result == 0 && row != NULL && *row != '\0'; row = next) {
@@ -1356,7 +1273,7 @@ static int install_rows(Engine *engine, const char *locator, const unsigned char
     if (access(artifact_path, F_OK) != 0) {
       fprintf(stderr, "dollyfile: %s installs %s first\n", locator, row + 8);
       result = ROW_FIRST;
-    } else result = load_artifact(engine, row + 8, sha256, mode, package_recipe, NULL, NULL, visible, exports, own, rest);
+    } else result = load_artifact(engine, row + 8, sha256, mode, package_recipe, NULL, NULL, visible, exports, own, later);
   }
   free(text);
   return result;
@@ -1368,12 +1285,12 @@ static int install_rows(Engine *engine, const char *locator, const unsigned char
 // the build, and its record names the packages for whoever installs it. USE
 // installs a package for a package recipe's build alone: nothing of it is
 // kept or recorded, and the build admits its host modules.
-// `rest` is the recipe after this line, or NULL when the caller reads the
-// snapshot afterwards.
+// `later` holds the recipe's rows after this one, or is NULL when the caller
+// reads the snapshot afterwards.
 static int load_artifact(Engine *engine, const char *locator, const char *expected,
                          ImportMode mode, int package_recipe, const char *source,
                          const char *destination, Scope *visible, Scope *exports, const Scope *own,
-                         const char *rest) {
+                         const Fields *later) {
   Artifact *artifact = &engine->artifact;
   char artifact_path[128];
   snprintf(artifact_path, sizeof(artifact_path), "/etc/dolly/artifacts/%s.snapshot", expected);
@@ -1413,7 +1330,7 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   const dolly_fs_record *needs = result == 0 && installs ? artifact_file(artifact, installed_path) : NULL;
   if (needs != NULL) {
     // Installing a row reads another artifact; this one is read again after.
-    result = install_rows(engine, locator, needs->data, needs->size, mode, package_recipe, visible, exports, own, rest);
+    result = install_rows(engine, locator, needs->data, needs->size, mode, package_recipe, visible, exports, own, later);
     if (result == 0) result = read_artifact(artifact, artifact_path, expected);
   }
   const int keep = mode != IMPORT_USE && !(package_recipe && mode != IMPORT_COPY);
@@ -1448,7 +1365,7 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   // A snapshot is as large as its image: it leaves with the recipe's last line
   // that names it, and that line moves its files out of it, from its end, so
   // that the kernel never holds them twice.
-  const int last = rest != NULL && strstr(rest, expected) == NULL;
+  const int last = later != NULL && !fields_hold(later, expected);
   for (size_t index = count; result == 0 && index-- > 0;) {
     if (selected[index].kind != DOLLY_FS_FILE) continue;
     result = copy_artifact_file(artifact, indices[index], selected[index].path);
@@ -1532,85 +1449,45 @@ static int require_host(Engine *engine, const char *value) {
   return result == 0 && engine->host_requirement_count > DOLLY_HOST_MAX_RECORDS ? 2 : result;
 }
 
-static int process_line(Engine *engine, const char *locator,
-                        size_t line_number, char *line, const char *rest,
-                        const unsigned char *body, size_t body_length,
-                        Scope *visible, Scope *exports, Scope *own, char **kind, char **name,
-                        int *header_seen, size_t *operations, int execute) {
-  char *text = trim(line);
-  if (*text == '\0') return 0;
-  char *separator = text;
-  while (*separator != '\0' && !isspace((unsigned char)*separator)) ++separator;
-  char *arguments = separator;
-  if (*separator != '\0') { *separator++ = '\0'; arguments = trim(separator); }
+// One row: its directive and words. The page checked the recipe against the
+// language; the engine checks only what it indexes.
+static int process_row(Engine *engine, const char *locator, size_t line_number,
+                       char **fields, size_t count, const Fields *later,
+                       Scope *visible, Scope *exports, Scope *own, char **kind, char **name,
+                       int execute) {
+  const char *text = fields[0];
+  char **words = fields + 1;
+  const size_t word_count = count - 1;
   // Consecutive COPY rows share one decoded input, released before any other
   // operation can mutate files or start a memory-intensive compiler process.
   if (strcmp(text, "COPY") != 0) dispose_artifact(&engine->artifact);
-  if (!*header_seen) {
-    if (strcmp(text, "DOLLY") != 0 || strcmp(arguments, "7") != 0) {
-      fprintf(stderr, "dollyfile: %s:%zu: first declaration must be DOLLY 7\n", locator, line_number);
-      return 2;
-    }
-    *header_seen = 1;
-    return 0;
-  }
   if (*kind == NULL) {
-    char **identity = NULL;
-    size_t count = 0;
-    const int parsed = split_words(arguments, &identity, &count);
-    const char *value = parsed == 0 && count == 1 ? identity[0] : "";
-    free(identity);
-    if (recipe_kind(text) == NULL || !valid_name(value)) {
-      fprintf(stderr, "dollyfile: %s:%zu: expected APPLICATION, TOOLCHAIN or PACKAGE with a valid name\n",
-              locator, line_number);
+    if (recipe_kind(text) == NULL || word_count != 1) {
+      fprintf(stderr, "dollyfile: %s:%zu: expected APPLICATION, TOOLCHAIN or PACKAGE\n", locator, line_number);
       return 2;
     }
     *kind = strdup(text);
-    *name = strdup(value);
+    *name = strdup(words[0]);
     return *kind == NULL || *name == NULL ? -ENOMEM : 0;
   }
   int result = 0;
-  char **words = NULL;
-  size_t count = 0;
   const int package = strcmp(*kind, "PACKAGE") == 0;
-  if (engine->entry_count != 0) result = 2;
-  else if (strcmp(text, "FROM") == 0 || strcmp(text, "INSTALL") == 0 || strcmp(text, "USE") == 0) {
+  if (strcmp(text, "FROM") == 0 || strcmp(text, "INSTALL") == 0 || strcmp(text, "USE") == 0) {
     const ImportMode mode = strcmp(text, "FROM") == 0 ? IMPORT_FROM : strcmp(text, "USE") == 0 ? IMPORT_USE : IMPORT_INSTALL;
-    result = split_words(arguments, &words, &count);
-    if (result == 0 && (count != 2 || (mode == IMPORT_FROM && *operations != 0) ||
-        !valid_image_reference(words[0]) || !valid_sha256(words[1]))) result = 2;
-    if (result == 0 && mode == IMPORT_USE && !package) {
-      fprintf(stderr, "dollyfile: %s:%zu: USE is for a PACKAGE recipe, which keeps nothing it installs\n",
-              locator, line_number);
-      result = 2;
-    }
-    if (result == 0 && execute) result = load_artifact(engine, words[0], words[1], mode, package,
-                                                       NULL, NULL, visible, exports, own, rest);
+    if (word_count != 2) result = 2;
+    else if (execute) result = load_artifact(engine, words[0], words[1], mode, package,
+                                             NULL, NULL, visible, exports, own, later);
   } else if (strcmp(text, "COPY") == 0) {
-    result = split_words(arguments, &words, &count);
-    if (result == 0 && (count != 4 || !valid_image_reference(words[0]) || !valid_sha256(words[1]) ||
-        (strcmp(words[2], "/") != 0 && !valid_absolute_path(words[2])) ||
-        (strcmp(words[3], "/") != 0 && !valid_absolute_path(words[3])))) result = 2;
-    if (result == 0 && execute) result = load_artifact(engine, words[0], words[1], IMPORT_COPY, package,
-                                                       words[2], words[3], visible, exports, own, rest);
+    if (word_count != 4) result = 2;
+    else if (execute) result = load_artifact(engine, words[0], words[1], IMPORT_COPY, package,
+                                             words[2], words[3], visible, exports, own, later);
   } else if (strcmp(text, "REQUIRES") == 0) {
-    result = split_words(arguments, &words, &count);
-    const int host = result == 0 && count == 2 && strcmp(words[0], "HOST") == 0;
-    if (host && *operations != 0) {
-      fprintf(stderr, "dollyfile: %s:%zu: REQUIRES HOST lines follow the role line, before every other declaration\n",
-              locator, line_number);
-      result = 2;
-    } else if (host) {
-      result = valid_host_requirement(words[1]) ? require_host(engine, words[1]) : 2;
-    } else if (result == 0 && (count != 2 || !valid_object_name(words[1]) || (strcmp(words[0], "TOOL") != 0 &&
-        strcmp(words[0], "LIB") != 0 && strcmp(words[0], "HEADER") != 0))) result = 2;
-    else if (result == 0 && strcmp(words[0], "TOOL") == 0 && strcmp(words[1], "slop") == 0) {
-      fputs("dollyfile: SLOP depends on /bin/slop by definition; REQUIRES TOOL slop says nothing\n", stderr);
-      result = 2;
-    }
+    const int host = word_count == 2 && strcmp(words[0], "HOST") == 0;
+    if (word_count != 2) result = 2;
+    else if (host) result = valid_host_requirement(words[1]) ? require_host(engine, words[1]) : 2;
     // HOST describes the completed image. Its provider is checked by the host
     // loader, not by the headless userspace that compiles this recipe.
-    if (result == 0 && execute && !host) {
+    else if (execute) {
       if (strcmp(words[0], "TOOL") == 0) {
         char *path = NULL;
         result = resolve_tool(words[1], &path);
@@ -1624,21 +1501,9 @@ static int process_line(Engine *engine, const char *locator,
       if (result != 0) fprintf(stderr, "dollyfile: required %s %s is unavailable\n", words[0], words[1]);
     }
   } else if (strcmp(text, "EXPORTS") == 0) {
-    result = split_words(arguments, &words, &count);
-    if (result == 0 && (count < 2 || !valid_object_type(words[0]) ||
-        (strcmp(words[0], "ENV") == 0 ? !valid_environment_name(words[1]) : !valid_object_name(words[1])))) result = 2;
     const char *detail = NULL;
-    if (result == 0) {
-      if (strcmp(words[0], "TOOL") == 0) {
-        if (count != 2) result = 2;
-      } else if (strcmp(words[0], "ENV") == 0) {
-        if (count == 3) detail = words[2];
-        else result = 2;
-      } else {
-        if (count != 3 || !valid_absolute_path(words[2]) || dolly_fs_unretained_path(words[2])) result = 2;
-        else detail = words[2];
-      }
-    }
+    if (word_count < 2 || word_count != (strcmp(words[0], "TOOL") == 0 ? 2 : 3)) result = 2;
+    else if (word_count == 3) detail = words[2];
     if (result == 0 && strcmp(words[0], "ENV") == 0) {
       result = apply_environment(words[1], detail);
       if (result == 0) result = append_string(&engine->environment_names, &engine->environment_name_count,
@@ -1648,35 +1513,30 @@ static int process_line(Engine *engine, const char *locator,
     if (result == 0) result = scope_add(own, words[0], words[1], detail);
     if (result == 0) result = scope_add(exports, words[0], words[1], detail);
   } else if (strcmp(text, "SOURCE") == 0) {
-    result = split_words(arguments, &words, &count);
-    if (result == 0 && (count != 3 || !source_reference(words[0]) || !valid_sha256(words[1]) ||
-        !valid_absolute_path(words[2]))) result = 2;
-    if (result == 0 && execute) result = fetch_source(words[0], words[1], words[2]);
+    if (word_count != 3) result = 2;
+    else if (execute) result = fetch_source(words[0], words[1], words[2]);
   } else if (strcmp(text, "SLOP") == 0) {
-    result = execute_slop(arguments, execute);
+    if (word_count != 2) result = 2;
+    else if (execute) result = run_slop(words[0], words[1]);
   } else if (strcmp(text, "RUN") == 0) {
-    result = execute_run(arguments, execute);
+    if (word_count < 2) result = 2;
+    else if (execute) result = execute_run(words[0], words + 1, word_count - 1);
   } else if (strcmp(text, "FILE") == 0) {
-    result = split_words(arguments, &words, &count);
-    if (result == 0 && (count != 1 || !valid_absolute_path(words[0]) ||
-        (dolly_fs_unretained_path(words[0]) && strncmp(words[0], "/tmp/", 5) != 0))) result = 2;
-    if (result == 0 && execute && body != NULL) result = write_inline_file(words[0], body, body_length);
+    const char *body = word_count == 2 ? words[1] : NULL;
+    if (word_count != 1 && word_count != 2) result = 2;
+    if (result == 0 && execute && body != NULL) {
+      result = write_inline_file(words[0], (const unsigned char *)body, strlen(body));
+    }
     if (result == 0 && execute) result = validate_export("FILE", "FILE", words[0]);
     if (result == 0 && !dolly_fs_unretained_path(words[0])) result = append_string(&engine->keep,
         &engine->keep_count, &engine->keep_capacity, words[0]);
   } else if (strcmp(text, "FOLDER") == 0) {
-    result = split_words(arguments, &words, &count);
-    if (result == 0 && (count != 1 || !valid_absolute_path(words[0]) || dolly_fs_unretained_path(words[0]))) result = 2;
+    if (word_count != 1) result = 2;
     if (result == 0 && execute) result = validate_export("FOLDER", "FOLDER", words[0]);
     if (result == 0 && execute) result = collect_tree(engine, words[0]);
   } else if (strcmp(text, "ENTRY") == 0) {
-    result = split_words(arguments, &words, &count);
-    if (result == 0 && (package || count == 0 || !valid_absolute_path(words[0]))) result = 2;
-    if (result == 0) result = set_entry(engine, words, count);
+    result = word_count == 0 ? 2 : set_entry(engine, words, word_count);
   } else result = 2;
-  // REQUIRES HOST lines are the image's manifest and may precede FROM.
-  if (!(strcmp(text, "REQUIRES") == 0 && count == 2 && strcmp(words[0], "HOST") == 0)) ++*operations;
-  free(words);
   if (result != 0) fprintf(stderr, "dollyfile: %s:%zu: %s failed (%d)\n", locator, line_number, text, result);
   return result;
 }
@@ -1736,20 +1596,10 @@ static int append_recipe(Engine *engine, const char *kind, const char *name,
          record->locator != NULL && record->source != NULL ? 0 : -ENOMEM;
 }
 
-// Returns the end of the physical line at *cursor and moves *cursor past its
-// LF, CRLF or CR terminator.
-static size_t next_line(const Buffer *recipe, size_t *cursor) {
-  size_t end = *cursor;
-  while (end < recipe->length && recipe->data[end] != '\n' && recipe->data[end] != '\r') ++end;
-  size_t next = end;
-  if (next + 1 < recipe->length && recipe->data[next] == '\r' && recipe->data[next + 1] == '\n') ++next;
-  *cursor = next < recipe->length ? next + 1 : next;
-  return end;
-}
-
-// Executes the image recipe at `locator`; with execute = 0 it only parses.
+// Executes the image recipe at `locator`, as the rows the page compiled from
+// it; with execute = 0 it only reads them.
 static int execute_recipe(Engine *engine, const char *locator, int execute, Scope *exports_out) {
-  Buffer recipe = {.limit = MAX_RECIPE_BYTES};
+  Buffer recipe = {.limit = MAX_RECIPE_BYTES}, bytes = {0};
   char digest[65];
   int result = fetch_recipe(locator, &recipe, digest);
   if (result != 0) {
@@ -1757,76 +1607,34 @@ static int execute_recipe(Engine *engine, const char *locator, int execute, Scop
     free(recipe.data);
     return 1;
   }
+  Fields rows = {0};
+  result = read_rows(rows_path, digest, &bytes, &rows);
+  if (result != 0) {
+    fprintf(stderr, "dollyfile: %s holds no rows of %s (%d): the page compiles a recipe into them\n",
+            rows_path, locator, result);
+    result = 2;
+  }
   char *kind = NULL;
   char *name = NULL;
-  int header_seen = 0;
-  size_t operations = 0;
   Scope visible = {0}, own = {0};
-  size_t physical_line = 1;
-  size_t cursor = 0;
-  while (result == 0 && cursor < recipe.length) {
-    const size_t logical_line = physical_line;
-    Buffer logical = {.limit = MAX_LOGICAL_LINE_BYTES};
-    int continued = 0;
-    do {
-      const size_t start = cursor;
-      const size_t end = next_line(&recipe, &cursor);
-      char *physical = strndup((char *)recipe.data + start, end - start);
-      if (physical == NULL) { result = -ENOMEM; break; }
-      strip_comment(physical);
-      size_t length = strlen(physical);
-      while (length != 0 && (physical[length - 1] == ' ' || physical[length - 1] == '\t')) --length;
-      continued = length != 0 && physical[length - 1] == '\\';
-      if (continued) --length;
-      if (logical.length != 0 && append_buffer(" ", 1, &logical) != 1) result = -ENOMEM;
-      if (result == 0 && append_buffer(physical, length, &logical) != length) result = -EFBIG;
-      free(physical);
-      ++physical_line;
-      if (continued && cursor >= recipe.length) {
-        fprintf(stderr, "dollyfile: %s:%zu: unterminated continuation\n",
-                locator, logical_line);
-        result = 2;
-      }
-    } while (result == 0 && continued);
-    if (result != 0) {
-      free(logical.data);
+  for (size_t index = 1; result == 0 && index < rows.count;) {
+    char *end = NULL;
+    const unsigned long line = strtoul(rows.items[index], &end, 10);
+    const unsigned long count = *end == ' ' ? strtoul(end + 1, &end, 10) : 0;
+    if (*end != '\0' || count == 0 || count > rows.count - index - 1) {
+      fprintf(stderr, "dollyfile: %s: malformed row at field %zu\n", rows_path, index);
+      result = 2;
       break;
     }
-    if (logical.data == NULL) {
-      logical.data = calloc(1, 1);
-      if (logical.data == NULL) {
-        result = 1;
-        break;
-      }
-    }
-    const char *directive = (const char *)logical.data;
-    while (isspace((unsigned char)*directive)) ++directive;
-    Buffer body = {.limit = MAX_RECIPE_BYTES};
-    if (strncmp(directive, "FILE", 4) == 0 && isspace((unsigned char)directive[4])) {
-      while (cursor < recipe.length) {
-        size_t next = cursor;
-        const size_t end = next_line(&recipe, &next);
-        if (end - cursor < 4 || memcmp(recipe.data + cursor, "    ", 4) != 0) break;
-        if (append_buffer(recipe.data + cursor + 4, end - cursor - 4, &body) !=
-                end - cursor - 4 ||
-            append_buffer("\n", 1, &body) != 1) {
-          result = 1;
-          break;
-        }
-        cursor = next;
-        ++physical_line;
-      }
-    }
-    if (result == 0) {
-      result = process_line(engine, locator, logical_line,
-                            (char *)logical.data, (const char *)recipe.data + cursor,
-                            body.data, body.length, &visible, exports_out, &own,
-                            &kind, &name, &header_seen, &operations, execute);
-    }
-    free(body.data);
-    free(logical.data);
+    char **fields = rows.items + index + 1;
+    index += 1 + count;
+    const Fields later = {rows.items + index, rows.count - index};
+    result = process_row(engine, locator, line, fields, count, &later,
+                         &visible, exports_out, &own, &kind, &name, execute);
   }
-  if (result == 0 && (!header_seen || kind == NULL || name == NULL)) {
+  free(rows.items);
+  free(bytes.data);
+  if (result == 0 && (kind == NULL || name == NULL)) {
     fprintf(stderr, "dollyfile: %s: missing APPLICATION, TOOLCHAIN or PACKAGE\n", locator);
     result = 2;
   }
@@ -2227,10 +2035,11 @@ static int read_environment_file(Engine *engine) {
 // the row; nothing is sealed.
 static int install_live(Engine *engine, const char *locator, const char *expected) {
   Scope exports = {0}, visible = {0}, own = {0};
-  int result = execute_recipe(engine, "FILE:/etc/dolly/Dollyfile", 0, &exports);
-  dispose_scope(&exports);
-  // Parsing applied the recipe's own ENV declarations; the file holds the final values.
-  dispose_environment_names(engine);
+  // The image's own receipt names its recipes and host modules.
+  Buffer receipt = {.limit = MAX_SOURCE_BYTES};
+  int result = read_file_buffer("/etc/dolly/artifact", &receipt);
+  if (result == 0) result = read_artifact_receipt(engine, receipt.data, receipt.length, NULL, NULL, NULL, NULL, 0);
+  free(receipt.data);
   if (result == 0) result = read_environment_file(engine);
   if (result == 0 && host_declared(engine, "nena@0")) {
     Buffer record = {.limit = 4096};
@@ -2245,7 +2054,8 @@ static int install_live(Engine *engine, const char *locator, const char *expecte
     result = 2;
   }
   // Nothing follows the row: its snapshot, which amy fetched, is used for the last time.
-  if (result == 0) result = load_artifact(engine, locator, expected, IMPORT_INSTALL, 0, NULL, NULL, &visible, &exports, &own, "");
+  const Fields nothing_later = {0};
+  if (result == 0) result = load_artifact(engine, locator, expected, IMPORT_INSTALL, 0, NULL, NULL, &visible, &exports, &own, &nothing_later);
   if (result == 0) result = write_environment_file(engine);
   dispose_scope(&exports);
   dispose_scope(&visible);
