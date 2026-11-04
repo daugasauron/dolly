@@ -453,6 +453,14 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
       options.debug_info = DebugInfoKind::LineTables;
     } else if (argument == "-g0") {
       options.debug_info = DebugInfoKind::None;
+    } else if (starts_with(argument, "-Wp,")) {
+      // As GCC and Clang: each comma-separated ARG goes to the preprocessor,
+      // cc1 here. Zig asks `cc -E -Wp,-v` for the libc's include directories.
+      for (size_t begin = 4; begin < argument.size();) {
+        const size_t end = std::min(argument.find(',', begin), argument.size());
+        if (end > begin) options.frontend_options.push_back(argument.substr(begin, end - begin));
+        begin = end + 1;
+      }
     } else if (argument == "-pedantic" ||
                argument == "-pedantic-errors" ||
                argument == "-w" ||
