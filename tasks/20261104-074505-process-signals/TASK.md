@@ -38,7 +38,10 @@ dispositions and what `tcgetpgrp` answers.
 
 ## State (2026-11-04, branch `core/process-signals`)
 
-Implemented as decided, with two choices recorded under Decisions; verification in progress.
+Done in this tree, waiting for the catalog round: `d20e6e491` (the contract), `f53451810`
+(`ENOTTY` for pipes), `028bebeee` (dte unchanged), `186f22960` (pins). Verified on `default`,
+`system` and `dte` rebuilt on the new seed (image inputs `bc911e0f`): this tree's dist registers
+their 28 images only. Close after the round's suites pass on its images.
 
 ## The change
 
@@ -94,3 +97,35 @@ The new fixtures, run at the prompt on images of the old seed (`build/signals-ev
 - Found on the way: `isatty` and `tcgetattr` of a pipe failed with `ESPIPE`, not `ENOTTY`: the
   terminal request checked its descriptor with `descriptor_for`, which answers `ESPIPE` for a
   descriptor without a host file (`880804655` meant it as the bad-descriptor check only).
+
+## After (2026-11-04 09:24-09:32, image inputs `bc911e0f`, runtime `3e539cb5`)
+
+- The same probes, Chromium (`after-chromium.log`): process-dispositions passes (80 of 80
+  spawned and each said it ran, `wait` then `ECHILD`, the table usable after); the SIGHUP child
+  "exit 0 after 1.34 s"; `pty deaf` and `pty program` pass; `tcgetpgrp(0)` is the pid; `isatty`,
+  `tcgetattr` and `tcgetpgrp` of a pipe are `ENOTTY`. The dispositions fixture passes on Linux
+  too (under `script`).
+- `test/process-browser.mjs`, `test/pty-browser.mjs`, `test/core-browser.mjs`,
+  `test/shell-browser.mjs`: pass in Chromium and Firefox.
+- dte (`build/signals-evidence/dte-probe.mjs`, the amy tools steps for dte alone): `amy install
+  dte`, its syntax dump, then at the terminal it shows its status line, saves and quits, and with
+  standard input from `/dev/null` (it opens `/dev/tty` and asks `tcgetpgrp` of it) it starts and
+  quits; Chromium and Firefox.
+- Not attributed: the first `process-browser` run (Chromium, beside the pty run and two other
+  agents' builds) failed lifecycle's limit check in both rounds (`spawned == -EAGAIN && count ==
+  room`); a rerun with the values printed and a second full run in both browsers passed (52 of
+  52). The check counts `/proc/processes`, which lists no exited process, so a record not yet
+  collected when `room` is read makes the table full early; nothing in this change touches those
+  records unless a parent ignores SIGCHLD, which nothing before the check does.
+
+## For the round
+
+- Every image: `process.h`, `runtime.h` and the libc changed. Rerun
+  `scripts/restamp-seed-compiler.mjs` after merging any other `process.h` change (the archive
+  here is `.cache/dolly-seed-compiler-a2c771b8…tar`, digest `36d9bdf9…`), relink the Rust seed,
+  and build and pin `llvm-cc` before zsh, glib and ghostty-gtk (cast emulation, above).
+- `core/terminal-mode` changes the lines around both kernel edits in `process_dispatch` (its
+  `read_deadline` reset on `-EINTR`, next to the new exemption) and the process record (its
+  `read_deadline` after `mailbox`, near `alarm_handled`'s replacement): keep both.
+- Emacs's patch can drop its `tcgetpgrp` hunk (`emacs.c:3111`, "No process groups: Emacs
+  controls the one terminal"): upstream's test now holds in the foreground.
