@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
-# Ghostty at the pinned commit with the core's patch and the application's
-# (ghostty-dolly.patch here), and the packages its build.zig.zon names,
-# fetched into zig-pkg by the host's Zig 0.17 (a session reaches no network
-# but the broker); libxev and translate-c are patched there. Prints the tree.
+# Ghostty's release tarball, the pinned commit with the GTK resources its
+# build would otherwise compile with blueprint-compiler, with the core's patch
+# and the application's (ghostty-dolly.patch here), and the packages its
+# build.zig.zon names, fetched into zig-pkg by the host's Zig 0.17 (a session
+# reaches no network but the broker); libxev and translate-c are patched
+# there. Prints the tree.
 set -euo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 demo_dir="${project_dir}/demos/ghostty-gtk"
 source "${project_dir}/config/source-pins.sh"
-checkout="$(bash "${project_dir}/scripts/fetch-pinned-checkout.sh" ghostty)"
+release="$(bash "${project_dir}/scripts/fetch-pinned-archive.sh" ghostty_release)"
 recipe_hash="$(cd "${project_dir}" && sha256sum demos/ghostty-gtk/prepare-ghostty.sh config/ghostty-dolly.patch \
   demos/ghostty-gtk/ghostty-dolly.patch demos/ghostty-gtk/libxev-dolly.patch \
   demos/ghostty-gtk/translate-c-dolly.patch demos/ghostty-gtk/zig-packages.txt | sha256sum | cut -c1-16)"
-output="${project_dir}/build/generated/ghostty-gtk-${DOLLY_GHOSTTY_COMMIT:0:16}-${recipe_hash}"
+output="${project_dir}/build/generated/ghostty-gtk-${DOLLY_GHOSTTY_RELEASE_SHA256:0:16}-${recipe_hash}"
 if [[ -d "${output}" ]]; then
   printf '%s\n' "${output}"
   exit 0
@@ -24,11 +26,9 @@ temporary="$(mktemp -d "${project_dir}/build/generated/.ghostty-gtk.XXXXXX")"
 trap 'rm -rf -- "${temporary}"' EXIT
 mkdir "${temporary}/zig" "${temporary}/tree"
 tar -xJf "${zig_archive}" --strip-components=1 -C "${temporary}/zig"
-# The checkout is shared: its files are copied, never written.
-cp -a "${checkout}/." "${temporary}/tree/"
-rm -rf "${temporary}/tree/.git"
+tar -xzf "${release}" --strip-components=1 -C "${temporary}/tree"
 tree="${temporary}/tree"
-# The core's patch first, applied as for Dolly's terminal
+# The core's patch first, applied as for Dolly's terminal to the same commit
 # (scripts/prepare-ghostty-source.sh), then the application's.
 patch --silent --no-backup-if-mismatch -d "${tree}" -p1 < "${project_dir}/config/ghostty-dolly.patch"
 patch --silent --fuzz=0 --no-backup-if-mismatch -d "${tree}" -p1 < "${demo_dir}/ghostty-dolly.patch"
@@ -49,7 +49,7 @@ rm -rf "${tree}/macos" "${tree}/flatpak" "${tree}/snap" "${tree}/nix"
 # archive: Ghostty's fuzzing corpus and SPIRV-Cross's test shaders.
 spirv_cross="${tree}/zig-pkg/N-V-__8AANb6pwD7O1WG6L5nvD_rNMvnSc9Cpg1ijSlTYywv"
 rm -rf "${tree}/test/fuzz-libghostty" "${spirv_cross}/reference" "${spirv_cross}"/shaders*
-# Source archives hold files only (the checkout links CLAUDE.md to AGENTS.md).
+# Source archives hold files only.
 find "${tree}" -type l -delete
 patch --silent --fuzz=0 --no-backup-if-mismatch -d "${tree}"/zig-pkg/libxev-* -p1 < "${demo_dir}/libxev-dolly.patch"
 patch --silent --fuzz=0 --no-backup-if-mismatch -d "${tree}"/zig-pkg/translate_c-* -p1 < "${demo_dir}/translate-c-dolly.patch"

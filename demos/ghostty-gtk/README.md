@@ -1,9 +1,5 @@
 # Ghostty's GTK application on X11
 
-Ghostty 1.4, which the terminal now pins for Zig 0.17, renders through EGL; this
-demo's Mesa is GLX only, so the application does not run until Mesa's EGL is
-built ([task](../../tasks/20261103-110119-ghostty-egl/TASK.md)).
-
 Ghostty's own window, renderer and shell on Dolly's X server
 ([task](../../tasks/20261014-232500-ghostty-x11/TASK.md)), over the GTK 4
 stack of [the GTK demo](../gtk/README.md), every part built inside Dolly by
@@ -12,7 +8,7 @@ with Zig and LLVM built in Dolly ([zig](../zig/README.md)).
 
 ## Images
 
-- `mesa-build`: A build stage: Mesa's OpenGL with GLX over Xlib, drawing with softpipe, and libepoxy taking it from the program, over `gtk-build`.
+- `mesa-build`: A build stage: Mesa's OpenGL through EGL's surfaceless platform, drawing with softpipe, over `gtk-build`.
 - `ghostty-gtk`: Ghostty's GTK application, a package; it needs an X server.
 - `ghostty-x11`: An application: Ghostty's window on Dolly's X server, with Slop and amy in its terminal.
 
@@ -36,19 +32,20 @@ terminal's.
   where Ghostty's code names platforms (home directory, keycodes, links);
   the shell started by `posix_spawn`, Dolly having no fork, with the signal
   reset Ghostty's post-fork hook does as spawn attributes; Dear ImGui's GL
-  backend built for desktop GL, which it assumes is WebGL on Emscripten.
-  Softpipe runs a shader per pixel in its interpreter, so the renderer clears
+  backend built for desktop GL, which it assumes is WebGL on Emscripten, and
+  EGL's native types as pointers where its header would take Emscripten's
+  integers. Softpipe runs a shader per pixel in its interpreter, so the renderer clears
   to the background color instead of shading it and
   shades cell backgrounds only over the rows that have one: a frame of a
   shell took 410 ms, now 51 ms, and a key's echo appears 65 ms after the key
-  instead of 0.7 s (Chromium, 2026-10-16).
-- [`mesa-dolly.patch`](mesa-dolly.patch), [`epoxy-dolly.patch`](epoxy-dolly.patch):
-  Mesa's GLX over Xlib with softpipe, linked into the program, and libepoxy
-  finding it by a weak symbol. libepoxy keeps EGL too (GTK refers to it; it
-  only probes for libEGL).
-- [`translate-c-dolly.patch`](translate-c-dolly.patch),
-  [`blueprint-compiler-dolly.patch`](blueprint-compiler-dolly.patch): the
-  build's tools.
+  instead of 0.7 s (Chromium, 2026-10-16). On Ghostty 1.4, through EGL, the
+  echo takes 46 ms in Chromium and 44 ms in Firefox (median of 15, 2026-11-04).
+- [`mesa-dolly.patch`](mesa-dolly.patch): Mesa's EGL and its gallium driver
+  (softpipe) as static libraries linked into the program, and DRI, which EGL
+  needs, without kernel modesetting. Ghostty renders each surface in its own
+  EGL context on the surfaceless platform and hands GTK the pixels, which GTK
+  draws with cairo: GTK finds no EGL or GLX library to open, so it uses no GL.
+- [`translate-c-dolly.patch`](translate-c-dolly.patch): the build's tool.
 
 - [`Dollyfile-mesa-build`](Dollyfile-mesa-build), [`Dollyfile-ghostty-gtk`](Dollyfile-ghostty-gtk),
   [`Dollyfile-ghostty-x11`](Dollyfile-ghostty-x11): the build. libadwaita
@@ -56,10 +53,13 @@ terminal's.
   program exports `adw_get_resource` and `adw_stylesheet_get_resource`, without
   which wasm-ld drops the constructors that register its resources. Zig hands
   its link to `cc` without the program's flags: the recipe's `cc` adds them
-  (cast emulation, Mesa's GLX, the X libraries).
+  (cast emulation, Mesa's driver, the X libraries). Ghostty's packages build
+  with debug information unless they strip it: glslang's is stripped, as
+  Ghostty strips its program, since clang 22 took over 8 GiB for its
+  `SPIRV/doc.cpp` with it ([task](../../tasks/20261103-110119-ghostty-egl/TASK.md)).
 - Made outside Dolly, as bootstrap exceptions: Mesa's parsers and scanners by
   the host's Bison and flex ([`prepare-mesa.sh`](prepare-mesa.sh)); Ghostty's
   Zig packages, fetched by the host's Zig
   ([`prepare-ghostty.sh`](prepare-ghostty.sh), [`zig-packages.txt`](zig-packages.txt));
-  the typelibs blueprint-compiler reads, from Arch Linux's packages
-  ([`prepare-typelibs.sh`](prepare-typelibs.sh), [`typelib-packages.txt`](typelib-packages.txt)).
+  Ghostty's interface files, compiled by upstream into its signed release
+  tarball, which its packaging guide asks distributions to build from.
