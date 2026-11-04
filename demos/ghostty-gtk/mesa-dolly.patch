@@ -1,6 +1,38 @@
+--- a/include/drm-uapi/drm.h
++++ b/include/drm-uapi/drm.h
+@@ -45,7 +45,8 @@
+ 
+ #include <stdint.h>
+ #include <sys/types.h>
+-#if defined(__GNU__)
++/* Dolly: musl has the ioctl encoding in sys/ioctl.h, as GNU has. */
++#if defined(__GNU__) || !__has_include(<sys/ioccom.h>)
+ #include <sys/ioctl.h>
+ #else
+ #include <sys/ioccom.h>
 --- a/meson.build
 +++ b/meson.build
-@@ -2186,7 +2186,8 @@
+@@ -361,7 +361,8 @@
+ ].contains(true)
+ 
+ with_dri = false
+-if with_gallium and (system_has_kms_drm or (with_gallium_zink and (freedreno_kmds.contains('kgsl') or host_machine.system() == 'darwin')))
++# Dolly: a software driver draws without kernel modesetting.
++if with_gallium and (system_has_kms_drm or with_gallium_swrast or (with_gallium_zink and (freedreno_kmds.contains('kgsl') or host_machine.system() == 'darwin')))
+   _glx = get_option('glx')
+   _egl = get_option('egl')
+   if _glx == 'dri' or _egl.enabled() or (_glx == 'disabled' and _egl.allowed())
+@@ -422,7 +423,8 @@
+   with_dri_platform = 'windows'
+ elif system_has_kms_drm
+   with_dri_platform = 'drm'
+-elif host_machine.system() == 'gnu' or (freedreno_kmds.contains('kgsl') and with_gallium_zink)
++# Dolly, as GNU: DRI without the kernel's DRM.
++elif ['gnu', 'dolly'].contains(host_machine.system()) or (freedreno_kmds.contains('kgsl') and with_gallium_zink)
+   with_dri_platform = 'pseudo-drm'
+ else
+   # FIXME: haiku doesn't use dri, and xlib doesn't use dri, probably should
+@@ -2186,7 +2188,8 @@
  endif
  
  yacc_is_bison = true
@@ -10,7 +42,7 @@
  
  if build_machine.system() == 'windows'
    # Prefer the winflexbison versions, they're much easier to install and have
-@@ -2508,7 +2509,7 @@
+@@ -2508,7 +2511,7 @@
      symbols_check_args = ['--gendef', prog_gendef.full_path()]
    endif
  else
@@ -71,17 +103,38 @@
  
  ir_expression_operation_constant_h = custom_target(
    'ir_expression_operation_constant.h',
---- a/src/gallium/targets/libgl-xlib/meson.build
-+++ b/src/gallium/targets/libgl-xlib/meson.build
-@@ -13,7 +13,7 @@
-   gallium_xlib_link_depends += files('libgl-xlib.sym')
+--- a/src/egl/meson.build
++++ b/src/egl/meson.build
+@@ -204,7 +204,8 @@
+   c_args_for_egl += '-D_EGL_NATIVE_PLATFORM=_EGL_PLATFORM_@0@'.format(egl_native_platform.to_upper())
  endif
  
--libgl = shared_library(
-+libgl = library(
-   'GL',
-   files('xlib.c'),
+-libegl = shared_library(
++# Dolly links a program's libraries into it.
++libegl = library(
+   egl_lib_name,
+   files_egl,
+   c_args : [
+--- a/src/gallium/targets/dri/meson.build
++++ b/src/gallium/targets/dri/meson.build
+@@ -39,7 +39,8 @@
+   libgallium_name = 'gallium-@0@'.format(meson.project_version())
+ endif
+ 
+-libgallium_dri = shared_library(
++# Dolly links a program's libraries into it, and EGL links this one.
++libgallium_dri = library(
+   libgallium_name,
+   files('dri_target.c'),
    include_directories : [
+@@ -64,7 +65,6 @@
+     driver_asahi, driver_crocus, driver_rocket, driver_ethosu
+   ],
+   install : true,
+-  name_suffix : libname_suffix,
+ )
+ 
+ shared_glapi_lib = libgallium_dri
 --- a/src/mesa/program/meson.build
 +++ b/src/mesa/program/meson.build
 @@ -8,16 +8,7 @@
@@ -105,18 +158,6 @@
 +# the parser and the scanner beside their sources.
 +mesa_lex = files('lex.yy.c')
 +program_parse_tab = files('program_parse.tab.c', 'program_parse.tab.h')
---- a/src/meson.build
-+++ b/src/meson.build
-@@ -161,7 +161,8 @@
-   subdir('egl')
- endif
- if with_gallium
--  if with_glx == 'dri' or with_platform_x11
-+  # dril loads drivers through DRM, which only a system with KMS has.
-+  if (with_glx == 'dri' or with_platform_x11) and system_has_kms_drm
-     subdir('gallium/targets/dril')
-   endif
- endif
 --- a/src/util/detect_os.h
 +++ b/src/util/detect_os.h
 @@ -91,6 +91,11 @@

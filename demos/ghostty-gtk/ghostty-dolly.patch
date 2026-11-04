@@ -28,15 +28,29 @@
                  upstream.path("backends"),
 --- a/pkg/glslang/build.zig
 +++ b/pkg/glslang/build.zig
-@@ -59,6 +59,8 @@
+@@ -59,6 +59,11 @@
              // headers. The MSVC SDK include directories (added via linkLibC)
              // contain both C and C++ headers, so linkLibCpp is not needed.
              .link_libcpp = target.result.abi != .msvc,
 +            // It locks a std::mutex; Zig makes a wasm library single-threaded by default.
 +            .single_threaded = false,
++            // Stripped where Ghostty strips its program (src/build/Config.zig): clang 22
++            // took over 8 GiB for the variable locations of SPIRV/doc.cpp at -O2.
++            .strip = optimize == .fast or optimize == .small,
          }),
          .linkage = .static,
      });
+--- a/pkg/opengl/build.zig
++++ b/pkg/opengl/build.zig
+@@ -19,5 +19,8 @@
+         .target = target,
+         .optimize = optimize,
+         .include_paths = &.{b.path("../../vendor/glad/include")},
++        // EGL's native types as the pointers Ghostty passes, also where
++        // eglplatform.h would take Emscripten's integers (Dolly's EGL is Mesa's).
++        .extra_args = &.{"-DEGL_NO_PLATFORM_SPECIFIC_TYPES"},
+     });
+ }
 --- a/src/App.zig
 +++ b/src/App.zig
 @@ -603,7 +603,7 @@
