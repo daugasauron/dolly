@@ -158,11 +158,12 @@ took 148.7 s and 186.7 s, Zig 0.16's 34.6 s and 45.8 s. Source suite: 476 passed
 - A C program timing 100,000 calls in a `default` session (`bench.c`): `lseek` 10.7 µs,
   `pwrite` 10.7 µs, the writer's three calls 34 µs in Chromium; 21 µs, 22 µs and 63 µs in
   Firefox (native: 0.06 µs, 0.47 µs, 0.6 µs). Each call is a `postMessage` to the supervisor
-  and an `Atomics.wait` (`src/process-worker.mjs`). Filed as
-  `tasks/20261104-131850-llvm-relocation-calls`.
+  and an `Atomics.wait` (`src/process-worker.mjs`). Dolly's own `cc` makes the same calls (one
+  `cc -O2 -c` of a generated file: 104,008 `lseek` and 52,371 `write`, about 1.7 s of 4.5 s).
+  Filed as `tasks/20261104-131850-llvm-relocation-calls`.
 - `amy install zig-llvm` installs 19,660 files, 446,356,421 bytes, after `cc`'s 134,168,966:
-  580 MB, more than the 512 MiB a session save holds (`docs/sessions.md`), so such a session
-  cannot be saved, with or without the 9 MB of the setup.
+  580 MB, more than the 512 MiB a session save holds (`docs/sessions.md`), so by that limit such a
+  session cannot be saved, with or without the 9 MB of the setup (not tried).
 
 ## Findings (2026-11-03, with evidence)
 
@@ -393,3 +394,7 @@ the man page's program, its `cc` and its run 4.7 s.
 - Count what a 6 GB `build` slot can restore: `zig-llvm`'s builder (zig-llvm-build, llvm22, cc)
   is killed before its first step, so a one-line recipe change waits for a 9 GB slot. Measure the
   change by hand in a session first; that gave the numbers hours before the slot.
+- To know what a program asks of the kernel, count it: a two-line count by operation in the
+  supervisor's message handler, printed when a process exits and caught by Playwright's worker
+  console, answered in one run what a trace without function names could not (the seed `cc`
+  makes three calls per relocation too), then was reverted.
