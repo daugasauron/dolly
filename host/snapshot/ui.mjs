@@ -127,7 +127,7 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
       button.disabled = nameField.disabled = saveButton.disabled = true;
       controller = new AbortController();
       const capture = async onChunk => {
-        const result = await transport().capture(name, { signal: controller.signal, onChunk });
+        const result = await transport().capture({ signal: controller.signal, onChunk });
         dataset.sessionUncompressedBytes = String(onChunk ? result : result.byteLength);
         dataset.sessionStatus = "compressing";
         return result;

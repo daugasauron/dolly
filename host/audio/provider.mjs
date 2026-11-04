@@ -42,18 +42,15 @@ export function createAudioProvider() {
     for (const node of stream.nodes) { node.source.onended = null; node.source.stop(); node.source.disconnect(); }
     stream.nodes.clear();
   }
-  function dispatch(packet) {
+  // A request the lease bridge checked: the packet's operation, scope and
+  // sequence (dolly_device_header) and its body.
+  function dispatch({ operation: op, scope, sequence, body }) {
     try {
-      if (!(packet instanceof Uint8Array) || packet.byteLength < 32 || packet.byteLength > A.DOLLY_AUDIO_PACKET_BYTES) fail(E.EINVAL);
-      packet = packet.slice();
-      const view = new DataView(packet.buffer, packet.byteOffset, packet.byteLength);
-      const op = view.getUint32(4, true), scope = view.getUint32(8, true), sequence = view.getUint32(16, true);
-      if (view.getUint32(0, true) !== A.DOLLY_AUDIO_VERSION || view.getUint32(12, true) || view.getUint32(20, true) ||
-          !scope || !sequence || view.getUint32(24, true) !== packet.length - 32 || view.getUint32(28, true)) fail(E.EINVAL);
+      const view = new DataView(body.buffer, body.byteOffset, body.byteLength);
       const slot = (scope - 1) % A.DOLLY_AUDIO_SLOTS;
       let stream = streams.get(scope), result;
       if (op === A.DOLLY_AUDIO_OPEN) {
-        if (packet.length !== 32) fail(E.EINVAL);
+        if (body.length) fail(E.EINVAL);
         if (scope <= generations[slot]) fail(E.ESTALE);
         if ([...streams.keys()].some(key => (key - 1) % A.DOLLY_AUDIO_SLOTS === slot)) fail(E.EBUSY);
         if (!context) {
@@ -73,17 +70,17 @@ export function createAudioProvider() {
         if (sequence <= stream.sequence) fail(E.ESTALE);
         stream.sequence = sequence;
         if (op === A.DOLLY_AUDIO_WRITE) {
-          if (packet.length < 40) fail(E.EINVAL);
-          const frames = view.getUint32(32, true);
+          if (body.length < 8) fail(E.EINVAL);
+          const frames = view.getUint32(0, true);
           if (frames < A.DOLLY_AUDIO_MIN_FRAMES || frames > A.DOLLY_AUDIO_MAX_FRAMES ||
-              view.getUint32(36, true) || packet.length !== 40 + frames * 8) fail(E.EINVAL);
-          for (let at = 40; at < packet.length; at += 4) if (!Number.isFinite(view.getFloat32(at, true))) fail(E.EINVAL);
+              view.getUint32(4, true) || body.length !== 8 + frames * 8) fail(E.EINVAL);
+          for (let at = 8; at < body.length; at += 4) if (!Number.isFinite(view.getFloat32(at, true))) fail(E.EINVAL);
           const pending = queued(stream);
           if (pending + frames > A.DOLLY_AUDIO_QUEUE_FRAMES || stream.nodes.size >= A.DOLLY_AUDIO_MAX_BUFFERS) fail(E.EAGAIN);
           const buffer = context.createBuffer(A.DOLLY_AUDIO_CHANNELS, frames, A.DOLLY_AUDIO_RATE);
           for (let channel = 0; channel < A.DOLLY_AUDIO_CHANNELS; ++channel) {
             const data = buffer.getChannelData(channel);
-            for (let i = 0; i < frames; ++i) data[i] = Math.max(-1, Math.min(1, view.getFloat32(40 + (i * 2 + channel) * 4, true)));
+            for (let i = 0; i < frames; ++i) data[i] = Math.max(-1, Math.min(1, view.getFloat32(8 + (i * 2 + channel) * 4, true)));
           }
           const source = context.createBufferSource(); source.buffer = buffer;
           source.connect(context.destination);
@@ -93,7 +90,7 @@ export function createAudioProvider() {
           source.start(start); stream.end = node.end; stream.nodes.add(node);
           result = response(4); new DataView(result.buffer).setUint32(0, frames, true);
         } else if (op === A.DOLLY_AUDIO_STATUS) {
-          if (packet.length !== 32) fail(E.EINVAL);
+          if (body.length) fail(E.EINVAL);
           const pending = queued(stream);
           let played = stream.played;
           for (const node of stream.nodes) played += Math.min(node.frames, Math.max(0, Math.floor((context.currentTime - node.start) * A.DOLLY_AUDIO_RATE)));
@@ -102,7 +99,7 @@ export function createAudioProvider() {
           output.setUint32(0, pending, true); output.setUint32(4, context.state === "running" ? 1 : 2, true);
           output.setBigUint64(8, BigInt(played), true);
         } else if (op === A.DOLLY_AUDIO_CLOSE) {
-          if (packet.length !== 32) fail(E.EINVAL);
+          if (body.length) fail(E.EINVAL);
           release(scope); result = response(0);
         } else fail(E.ENOSYS);
       }

@@ -138,8 +138,9 @@ class PieceReader {
 
 // The records of a snapshot that arrives in pieces, checked as
 // decodeSnapshotRecords checks them without holding the snapshot: every path
-// with its kind, and the data of the paths KEEP selects (symlink targets
-// always). Resolves to the records and the snapshot's size.
+// with its kind, where its data lies (offset, size), and the data of the paths
+// KEEP selects (symlink targets always). Resolves to the records and the
+// snapshot's size.
 export async function scanSnapshotRecords(pieces, keep) {
   const reader = new PieceReader(pieces);
   const count = decodeHeader(await reader.take(16));
@@ -150,12 +151,13 @@ export async function scanSnapshotRecords(pieces, keep) {
     const pathBytes = await reader.take(pathLength);
     const path = decodePath(pathBytes, previous);
     previous = pathBytes;
+    const offset = reader.position;
     let data;
     if (kind === 3 || (kind === 2 && keep(path))) {
       data = await reader.take(size);
       if (kind === 3 && data.includes(0)) throw new Error("invalid snapshot symlink");
     } else await reader.skip(size);
-    records.set(path, { kind, data });
+    records.set(path, { kind, data, offset, size });
   }
   if (!await reader.ended()) throw new Error("trailing snapshot bytes");
   checkParents(records);

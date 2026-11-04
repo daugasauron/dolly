@@ -5,23 +5,12 @@ REQUIRES HOST runtime@0
 # Zig as zig-build bootstraps it, with its standard library. This zig has only
 # the C backend (-ofmt=c) and no `zig build` or `zig cc`: cc compiles what it
 # emits, so the package brings the compiler.
-FROM /v0.1.4/Dollyfile-zig-build e32b8c801064001d606689c623fff3a01901fca43bcfb1fab7c6bf4272c6953c
-INSTALL /v0.1.4/Dollyfile-cc 0bd19561fbc6e8e7b43888bfd26c575ce64ed7e6769092f7a784a1f31a411cf8
+FROM /v0.1.4/Dollyfile-zig-build 4ea569c860e50521842f95a088d33c931c11955fd2af4980bbe2a3197c9757de
+INSTALL /v0.1.4/Dollyfile-cc 53efa9fa48567501751d60f4172407b9bd62ea6dfa65eca475d0f6d62f6fef2e
 
 EXPORTS TOOL   zig
 EXPORTS FOLDER zig-lib     /usr/lib/zig
 EXPORTS ENV    ZIG_LIB_DIR /usr/lib/zig
-# The libc's directories. Zig links libc for every Emscripten program; without
-# this file it asks cc for them with GCC's -Wp,-v, which Dolly's cc ignores.
-FILE /usr/lib/zig/libc.txt
-    include_dir=/usr/include
-    sys_include_dir=/usr/include
-    crt_dir=/usr/lib/dolly/process
-    msvc_lib_dir=
-    kernel32_lib_dir=
-    cc_dir=
-    darwin_sdk_dir=
-EXPORTS ENV    ZIG_LIBC    /usr/lib/zig/libc.txt
 FILE /usr/share/licenses/zig/LICENSE
 FILE /usr/share/man/cat1/zig.1
     zig: the Zig compiler with its C backend only. It writes C and cc compiles it.
@@ -31,8 +20,8 @@ FILE /usr/share/man/cat1/zig.1
       zig build-obj -ofmt=c -femit-bin=answer.c answer.zig
       cc -I /usr/lib/zig main.c answer.c -o answer
     
-    Zig links every program here with libc, whose directories ZIG_LIBC names
-    (/usr/lib/zig/libc.txt). A program that uses the standard library:
+    Zig links every program here with libc, whose headers it asks cc for
+    (cc -E -Wp,-v). A program that uses the standard library:
       zig build-exe -target wasm64-emscripten -fsingle-threaded -ofmt=c -lc \
         -femit-bin=hello.c hello.zig
       cc -Wno-incompatible-pointer-types '-Dzig_unimplemented()=(__builtin_trap(),0)' \

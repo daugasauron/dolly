@@ -2,7 +2,7 @@
 #include <dolly/host.h>
 
 DOLLY_HOST_REQUIRE(nena, 0, DOLLY_NENA_ABI_DIGEST);
-#include <dolly/process.h>
+#include <dolly/runtime.h>
 #include <errno.h>
 #include <string.h>
 
@@ -10,20 +10,12 @@ _Static_assert(sizeof(dolly_nena_module) == DOLLY_NENA_REPLY_BYTES, "nena module
 
 static int fail(int error) { errno = error; return -1; }
 static void u32(void *data, size_t offset, uint32_t n) { memcpy((char *)data + offset, &n, 4); }
-static void u64(void *data, size_t offset, uint64_t n) { memcpy((char *)data + offset, &n, 8); }
 
 static int call(dolly_nena *nena, unsigned operation, size_t bytes, size_t reply_bytes) {
   if (!nena) return fail(EINVAL);
   if (operation != DOLLY_NENA_OPEN && !nena->scope) return fail(EBADF);
-  /* Reserve the last sequence for CLOSE so an exhausted lease can be reopened. */
-  if (nena->sequence >= UINT32_MAX - (operation != DOLLY_NENA_CLOSE)) return fail(EOVERFLOW);
-  u32(nena->packet, 0, DOLLY_NENA_VERSION);
-  u32(nena->packet, 4, operation);
-  u64(nena->packet, 8, nena->scope);
-  u64(nena->packet, 16, ++nena->sequence);
-  u32(nena->packet, 24, bytes - 32);
-  u32(nena->packet, 28, 0);
-  int64_t result = dolly_process_call(DOLLY_NENA_PROCESS_OP, nena->packet, bytes, nena->reply, sizeof(nena->reply));
+  int64_t result = dolly_device_request(DOLLY_NENA_PROCESS_OP, DOLLY_NENA_VERSION, operation, DOLLY_NENA_CLOSE,
+                                        nena->scope, &nena->sequence, nena->packet, bytes, nena->reply, sizeof(nena->reply));
   if (result < 0 && result >= -4095) return fail((int)-result);
   return result == (int64_t)reply_bytes ? 0 : fail(EPROTO);
 }

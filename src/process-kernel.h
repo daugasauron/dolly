@@ -22,13 +22,16 @@
  * release() runs when a thread retires and, with tid 0, when a process exits.
  * mailbox(), which a module that runs a process on several threads defines,
  * keeps the mailbox of each thread's Worker (dolly_process_worker_mailbox):
- * zero, or -ESRCH for a thread it does not know. */
+ * zero, or -ESRCH for a thread it does not know. A device leased per process
+ * (src/device-lease.c) is a module with a device in place of call and release. */
+struct dolly_leased_device;
 typedef struct {
   uint32_t first_operation, last_operation;
   int64_t (*call)(int pid, int tid, uint32_t operation, unsigned char *mailbox,
                   uintptr_t request_size, uintptr_t response_capacity);
   void (*release)(int pid, int tid);
   int (*mailbox)(int pid, int tid, uintptr_t address);
+  const struct dolly_leased_device *device;
 } dolly_kernel_module;
 
 static inline int64_t dolly_kernel_respond(unsigned char *mailbox,
@@ -113,6 +116,11 @@ int dolly_kernel_terminal_input_service(void);
 void dolly_terminal_discard_pending_input(void);
 
 /* The terminal line discipline and the page's terminal mailbox, src/dolly.c. */
+/* The mode a terminal starts in, the display's and a pseudo-terminal's slave,
+ * as `stty sane` leaves one: lines edited and echoed, Enter read as LF
+ * (ICRNL), LF shown as CRLF, the interrupt key. */
+#define DOLLY_KERNEL_TERMINAL_INITIAL_MODE (DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO | \
+    DOLLY_TERMINAL_ICRNL | DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG)
 uint32_t dolly_kernel_terminal_mode(void);
 int dolly_kernel_terminal_set_mode(uint32_t flags);
 /* A terminal's line while its mode is canonical: what was typed and edited,
@@ -152,6 +160,12 @@ int dolly_kernel_terminal_write(const unsigned char *bytes, uintptr_t length);
 int dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length);
 /* The version of the bytes a kernel descriptor reads, src/file-blocks.cpp. */
 uint64_t dolly_fs_version(int descriptor);
+/* The address of block `index` of those bytes (DOLLY_FS_BLOCK_SIZE each, the
+ * last short), or 0 past them or for no regular file. */
+uintptr_t dolly_fs_block(int descriptor, uintptr_t index);
+/* Makes PATH, whose parents exist, the build's input image INPUT of SIZE
+ * bytes, which the Worker holds: 0 or a negative errno. */
+int dolly_fs_input_file(const char *path, uint32_t input, uint64_t size);
 /* The supervisor's words about the executable it prepares, src/process-kernel.c. */
 int dolly_kernel_launch_diagnostic(const unsigned char *bytes, size_t size);
 void dolly_terminal_publish_result(int status);

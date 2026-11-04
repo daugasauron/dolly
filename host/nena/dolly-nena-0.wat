@@ -18,19 +18,18 @@
   (global (export "DOLLY_NENA_ENABLED") i32 (i32.const 1))
   (global (export "DOLLY_NENA_DECLARED") i32 (i32.const 2))
   (global (export "DOLLY_NENA_FIXED") i32 (i32.const 4))
-  ;; LE header [32]: u32 version,operation; u64 scope,sequence; u32 body,reserved.
-  ;; Scope is a non-reused u32 lease; slot=(scope-1)%2. OPEN begins with scope=0;
-  ;; the kernel binds its process-owned lease before dispatch. Sequence is a
-  ;; nonzero, increasing u32. Each process owns at most one lease. All reserved
-  ;; fields and upper u64 bits are zero.
-  ;; OPEN [32] reply [8]: u64 scope.
-  ;; MODULE [40]: u32 index,reserved. Reply [256], the index-th host module of
+  ;; A device leased per process: each call is a packet, a
+  ;; dolly_device_header (runtime.h) and the body below, answered in a
+  ;; reply slot of dolly-supervisor-0.wat. Sizes in brackets are of bodies.
+  ;; Each process owns at most one lease, in slot (scope-1)%2.
+  ;; OPEN [0] reply [8]: u64 scope.
+  ;; MODULE [8]: u32 index,reserved. Reply [256], the index-th host module of
   ;; the page: char name[32]; u32 version,state; char gives[120]; char
   ;; reason[96]. Texts are NUL-terminated UTF-8. State is a set of ENABLED (the
   ;; session has the module now), DECLARED (the page started with it: the image
   ;; declares it) and FIXED (it cannot be switched; reason says why). gives is
   ;; one line of what the module gives a session. ENOENT past the last module.
-  ;; ENABLE, DISABLE [72]: char name[32]; u32 version,reserved. Reply [256]: the
+  ;; ENABLE, DISABLE [40]: char name[32]; u32 version,reserved. Reply [256]: the
   ;; module as MODULE gives it, after the switch. A refused switch leaves the
   ;; state and says why in reason. ENOENT for a module the page does not have.
   ;; Enabling an enabled module and disabling a disabled one change nothing.
@@ -38,11 +37,7 @@
   ;; kernel imports answer ENOSYS, to a running process too.
   ;; DISABLE of nena itself is answered before it takes effect; afterwards
   ;; every call, CLOSE among them, is ENOSYS for the rest of the page's life.
-  ;; CLOSE [32] retires the lease; empty reply. Reaping a process revokes it.
-  ;; Dispatch(NULL,scope) is revocation. Other calls use copied bounded packets.
-  ;; Reply mailbox: two 320-byte slots at a 64-byte-aligned base plus slot*320.
-  ;; Five atomic u32 fields: state,scope,sequence,errno,length; 44 padding
-  ;; bytes; 256 reply bytes. Provider publishes state=1 last, with release ordering.
+  ;; CLOSE [0] retires the lease; empty reply. Reaping a process revokes it.
   ;; The page holds the set of modules and makes every switch; an image that
   ;; does not declare nena@0 has no provider, and its set is the image's list.
   ;; The provider records what a session enabled beyond that list in

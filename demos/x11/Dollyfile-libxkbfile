@@ -5,10 +5,10 @@ REQUIRES HOST runtime@0
 # libxkbfile, X.Org's library of XKB keymap files, from its release archive,
 # built by its Meson project as a static library: xkbcomp and the X server
 # link it.
-FROM /v0.1.4/demos/x11/Dollyfile-x11-build 753ec34e06d9164f757d6dc1af3d1bd3ea32b0be4bc80524782eedf2edbc134e
-USE /v0.1.4/demos/tools/Dollyfile-xz bc766753e56ac20a9c521907093940943372e83e915e8e548d386517b711d1d5
-USE /v0.1.4/demos/tools/Dollyfile-meson 0f912a0355adeaa3651df023153be8ea874cf0f5baf4c93b94cbf2009d802766
-USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 82c7b029c11f430ad2a737aff89724924b75e646a2b531747640903400384de6
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build 5b47e01a38033331f27523f2822f2998e68254231b7b38a2f84f2a4af8f81c22
+USE /v0.1.4/demos/tools/Dollyfile-xz ba49e8f31b252b5784c56fb39fe3ea6f1e76dd33e64bf4ea0f561bf3fc2bc5ec
+USE /v0.1.4/demos/tools/Dollyfile-meson 449da87534a1d25f82d8f87cb5395d106b9edf5652f423897cfaa1fd357ad9e5
+USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 370e8f8f643dfd9e25b68efc0ff08d921e133be9fb218146441cec4308d49f0b
 REQUIRES TOOL meson
 REQUIRES TOOL xz
 REQUIRES TOOL tar

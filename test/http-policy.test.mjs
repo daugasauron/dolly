@@ -20,6 +20,12 @@ test("response quotas are optional and finite inherited quotas cannot be widened
   }
 });
 
+test("a timeout longer than a browser timer can wait is refused with the policy", () => {
+  const rule = timeoutMilliseconds => ({ rules: [{ origin: "https://models.example", timeoutMilliseconds }] });
+  assert.equal(new DollyHttpPolicy(rule(2 ** 31 - 1)).rules[0].timeoutMilliseconds, 2 ** 31 - 1);
+  assert.throws(() => new DollyHttpPolicy(rule(2 ** 31)), TypeError);
+});
+
 test("the browser HTTP policy owns destination authority while credentials stay in Wasm", () => {
   const policy = new DollyHttpPolicy({
     maxRequests: 2,

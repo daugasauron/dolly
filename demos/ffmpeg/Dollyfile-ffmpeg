@@ -17,9 +17,9 @@ REQUIRES HOST threads@0
 # - pthreads, required: every program linked with these needs threads@0.
 # It knows Clang by the banner of cc -v and compresses its resources with the
 # gzip package, which also unpacks the archive here.
-FROM /v0.1.4/Dollyfile-system-tools 4545b7374a6a980cb31375eaffac3f5a99330ced0a1f93e8c77bb18cde64d95f
-USE /v0.1.4/Dollyfile-gzip ed1e20a4f02b4406a502500328ffa67ea68772c0a52db4641ff22ec96931f0ac
-INSTALL /v0.1.4/Dollyfile-zlib d91bacbcddaa4f91d07244cd4d558fb7623ecafe75a4ac07f20c1caa9231321f
+FROM /v0.1.4/Dollyfile-system-tools 6002e88282bb0d520134235725b6082f5ad15644ad92c5dfe9f8c1f5808dfaa7
+USE /v0.1.4/Dollyfile-gzip 4deb6aa5025dbebafa7085ec3c02244f15034903d021acd9d105362270773c2d
+INSTALL /v0.1.4/Dollyfile-zlib 399ec19ff4bc5880534ca1bf6edd026bc623103362a0c94fa36473245ca78ecc
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib

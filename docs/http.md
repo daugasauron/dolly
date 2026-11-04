@@ -21,8 +21,12 @@ flowchart LR
   [`host/http/kernel.c`](../host/http/kernel.c); browser side in
   [`host/http/http.mjs`](../host/http/http.mjs) and [`host/http/broker.mjs`](../host/http/broker.mjs).
 - The import passes span descriptors only. The broker checks them against fixed
-  caps before copying: method 32 B, URL 8 KiB, headers 64 KiB, body 8 MiB.
-  Policy can lower these caps, never raise them. Metadata is literal UTF-8
+  caps before copying: method 32 B, URL 8 KiB, headers 64 KiB, body 64 MiB.
+  Policy can lower these caps, never raise them. The body cap is above what
+  the services programs call accept (Anthropic's Messages API takes 32 MB), so
+  the service refuses an oversized request with a 413 a program can act on (an
+  agent compacts its context), not the broker with an `E2BIG` that an HTTP
+  library reports as a failed connection. Metadata is literal UTF-8
   without NUL.
 - A URL is absolute `http:` or `https:`, or a site path:
   `/vX.Y.Z/amy-index.txt` names a file of the site serving this release when
@@ -36,15 +40,21 @@ flowchart LR
 - A private host acknowledgement admits one request at a time; transfers then run
   concurrently in 16 fixed slots. A handle encodes slot and generation, so stale
   handles never touch a successor. `EBUSY` means the slot is occupied.
+- A transfer lasts as long as it moves. It fails with `ETIMEDOUT` once it has
+  waited the policy's timeout for its next record: the response's headers, its
+  next bytes, or the program reading the record before. A server that never
+  answers or stops sending is cut; a stream that keeps sending, such as a
+  model's answer of many minutes, is not. `maxResponseBytes` bounds what it
+  delivers, and a client keeps its own deadline (`curl -m`, an SDK's timeout).
 - Terminal errors are `process.h` error numbers: `EACCES` policy, `EDQUOT` quota, `E2BIG`
-  size, `ETIMEDOUT` deadline (which includes guest backpressure), `ECANCELED`,
-  `EIO` transport. Errors never echo URLs, headers or credentials. `EIO` is one
-  class: the browser could not fetch, because the response was blocked (no
-  CORS headers, a redirect) or the host was unreachable (DNS, TLS, offline).
+  size, `ETIMEDOUT` timeout, `ECANCELED`, `EIO` transport. Errors never echo
+  URLs, headers or credentials. `EIO` is one class: the browser could not
+  fetch, because the response was blocked (no CORS headers, a redirect) or the
+  host was unreachable (DNS, TLS, offline).
   Fetch does not tell these apart, and every client's message says so
   ([`dolly_http_error_message`](../host/http/http.h)); a policy refusal reads
   differently. `curl` exits with curl's own status: 7 for `EIO`, 9 for a
-  policy refusal, 28 for a deadline.
+  policy refusal, 28 for a timeout.
 - Process exit, signal termination and forced termination cancel only that
   process's requests.
 - Processes stage request bodies in the kernel with `HTTP_BODY_WRITE` packets of
@@ -55,9 +65,9 @@ flowchart LR
 
 Without a policy object (the public demo) the broker permits any HTTP(S) URL,
 the app's own origin included, keeps caller credential headers, follows redirects
-on request, and applies a 10-minute deadline (so reasoning and conversation
-summaries can finish), no request quota and no response cap. **This does not
-prevent exfiltration.** A restricted embedding gives `boot()` a policy
+on request, and applies a 10-minute timeout (an answer a model does not stream
+can take that long to its headers), no request quota and no response cap.
+**This does not prevent exfiltration.** A restricted embedding gives `boot()` a policy
 (`http: { policy }`); the site's own page reads
 it from `globalThis.DOLLY_HTTP_POLICY`, set before the page loads, and deletes
 the global:
@@ -72,7 +82,7 @@ const policy = {
     credentialHeaders: ["authorization"],
     maxRequestBytes: 2 * 1024 * 1024,
     maxResponseBytes: 16 * 1024 * 1024,
-    timeoutMilliseconds: 120_000,
+    timeoutMilliseconds: 120_000,        // longest wait for the next bytes
   }],
 };
 ```

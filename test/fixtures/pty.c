@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 #include <dolly/process.h>
 #include <dolly/pty.h>
@@ -96,7 +97,7 @@ static int pair(void) {
   CHECK(ioctl(ends[0], TIOCGWINSZ, &size) == 0 && size.ws_row == 24 && size.ws_col == 80);
   /* A terminal emulator sets the slave's mode through the master (Ghostty's
    * IUTF8, which Dolly's discipline has without asking). */
-  CHECK(tcgetattr(ends[0], &mode) == 0 && (mode.c_lflag & ECHO));
+  CHECK(tcgetattr(ends[0], &mode) == 0 && (mode.c_lflag & ECHO) && mode.c_iflag == ICRNL);
   mode.c_iflag |= IUTF8;
   mode.c_lflag &= ~(tcflag_t)ECHO;
   CHECK(tcsetattr(ends[0], TCSANOW, &mode) == 0);
@@ -136,6 +137,24 @@ static int pair(void) {
   CHECK(tcsetattr(ends[1], TCSANOW, &mode) == 0);
   CHECK(write(ends[1], "raw\n", 4) == 4);
   expect(ends[0], "raw\n");
+  /* Non-canonical VMIN 0: the slave's read ends without a byte, at once or
+   * after VTIME tenths of a second, and with the byte typed meanwhile. */
+  unsigned char key = 0;
+  struct timespec before, after;
+  mode.c_lflag &= ~(tcflag_t)(ICANON | ECHO);
+  mode.c_cc[VMIN] = 0;
+  mode.c_cc[VTIME] = 0;
+  CHECK(tcsetattr(ends[1], TCSANOW, &mode) == 0 && tcgetattr(ends[1], &mode) == 0 && mode.c_cc[VMIN] == 0);
+  CHECK(read(ends[1], &key, 1) == 0);
+  mode.c_cc[VTIME] = 2;
+  CHECK(tcsetattr(ends[1], TCSANOW, &mode) == 0 && clock_gettime(CLOCK_MONOTONIC, &before) == 0);
+  CHECK(read(ends[1], &key, 1) == 0 && clock_gettime(CLOCK_MONOTONIC, &after) == 0);
+  CHECK((after.tv_sec - before.tv_sec) * 1000 + (after.tv_nsec - before.tv_nsec) / 1000000 >= 150);
+  CHECK(write(ends[0], "k", 1) == 1 && read(ends[1], &key, 1) == 1 && key == 'k');
+  mode.c_lflag |= ICANON | ECHO;
+  mode.c_cc[VMIN] = 1;
+  mode.c_cc[VTIME] = 0;
+  CHECK(tcsetattr(ends[1], TCSANOW, &mode) == 0);
 
   CHECK(pty_call(DOLLY_PTY_RESIZE, ends[0], 0, 30, 100, NULL) == 0);
   CHECK(ioctl(ends[1], TIOCGWINSZ, &size) == 0 && size.ws_row == 30 && size.ws_col == 100);
@@ -194,6 +213,9 @@ static int terminal(void) {
     if (bytes[0] == 't') {
       const int own = open("/dev/tty", O_RDWR);
       if (own < 0 || !isatty(own) || write(own, "own\n", 4) != 4 || close(own) != 0) return 7;
+    } else if (bytes[0] == 'g') {
+      if (tcgetpgrp(0) != getpid()) return 8;
+      write(1, "group\n", 6);
     } else if (bytes[0] == 'r') {
       if (tcgetattr(0, &mode) != 0) return 5;
       mode.c_lflag &= ~(tcflag_t)ISIG;
@@ -206,7 +228,8 @@ static int terminal(void) {
 }
 
 /* A program on the slave reads what the master writes, opens the slave as
- * /dev/tty, hears a resize as SIGWINCH and byte 3 as SIGINT until it clears
+ * /dev/tty, is its foreground (tcgetpgrp names the program's own group),
+ * hears a resize as SIGWINCH and byte 3 as SIGINT until it clears
  * ISIG, and ends with SIGHUP when the master closes. One that exits is EIO
  * to the master, as on Linux. */
 static int program(void) {
@@ -220,6 +243,8 @@ static int program(void) {
   expect(ends[0], "pong\r\n");
   CHECK(write(ends[0], "t", 1) == 1);
   expect(ends[0], "own\r\n");
+  CHECK(write(ends[0], "g", 1) == 1);
+  expect(ends[0], "group\r\n");
   CHECK(pty_call(DOLLY_PTY_RESIZE, ends[0], 0, 40, 132, NULL) == 0);
   expect(ends[0], "size 132x40\r\n");
   CHECK(write(ends[0], "\3", 1) == 1);
@@ -242,7 +267,8 @@ static int program(void) {
 }
 
 /* A program that makes no system call hears no signal: the interrupt key
- * and the hang-up end it all the same, as they do at the display's terminal. */
+ * and the hang-up end it all the same, as they do at the display's terminal,
+ * but for a signal it ignores. */
 static int deaf(void) {
   int ends[2], status;
   const int signals[] = {SIGINT, SIGHUP};
@@ -255,6 +281,33 @@ static int deaf(void) {
     CHECK(waitpid(child, &status, 0) == child && WIFSIGNALED(status) && WTERMSIG(status) == signals[round]);
     if (round == 0) CHECK(close(ends[0]) == 0);
   }
+  CHECK(pty_open(DOLLY_PTY_CLOEXEC, ends) == 0);
+  const pid_t child = spawn_on(ends[1], "spin-unhearing");
+  CHECK(close(ends[1]) == 0);
+  expect(ends[0], "spinning\r\n");
+  CHECK(close(ends[0]) == 0);
+  CHECK(waitpid(child, &status, 0) == child && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+  return 0;
+}
+
+static double seconds(void) {
+  struct timespec now;
+  clock_gettime(CLOCK_MONOTONIC, &now);
+  return now.tv_sec + now.tv_nsec / 1e9;
+}
+
+static void spin(unsigned long rounds) {
+  for (volatile unsigned long round = 0; round < rounds; ++round) {}
+}
+
+/* On a slave: ignores SIGHUP, then spins about 1.5 s without a system call,
+ * well past the 500 ms in which a program answers a signal it is sent. */
+static int unhearing(void) {
+  unsigned long rounds = 0;
+  if (signal(SIGHUP, SIG_IGN) == SIG_ERR) return 3;
+  for (const double started = seconds(); seconds() - started < 0.1; rounds += 100000) spin(100000);
+  write(1, "spinning\n", 9);
+  spin(rounds * 15);
   return 0;
 }
 
@@ -398,6 +451,7 @@ int main(int argc, char **argv) {
   if (strcmp(mode, "sleeper") == 0) return write(1, "sleeping\n", 9), sleep(30), 5;
   if (strcmp(mode, "deaf") == 0) return deaf();
   if (strcmp(mode, "spin") == 0) for (write(1, "spinning\n", 9);;) {}
+  if (strcmp(mode, "spin-unhearing") == 0) return unhearing();
   if (strcmp(mode, "quota") == 0 && argc > 2) return quota(argv[2]);
   return 2;
 }

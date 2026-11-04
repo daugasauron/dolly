@@ -5,7 +5,7 @@ import { DOLLY_ERRNO as E } from "./abi.mjs";
 export { DOLLY_NENA_ABI_DIGEST as digest } from "./abi.mjs";
 
 // The device as the lease bridge sees it.
-export const lease = { type: "nena", slots: N.DOLLY_NENA_SLOTS, packetBytes: N.DOLLY_NENA_PACKET_BYTES,
+export const lease = { type: "nena", version: N.DOLLY_NENA_VERSION, slots: N.DOLLY_NENA_SLOTS, packetBytes: N.DOLLY_NENA_PACKET_BYTES,
   replyBytes: N.DOLLY_NENA_REPLY_BYTES, open: N.DOLLY_NENA_OPEN, close: N.DOLLY_NENA_CLOSE };
 // The session's own record of the modules it enabled, one name@version a line.
 // The Worker writes it after every switch and the page enables what it lists
@@ -36,32 +36,30 @@ export function browser({ send, modules, showStatus }) {
   }
   // What the session enabled beyond what the page started with: its record.
   const enabledSince = () => modules.list().filter(module => module.enabled && !module.declared).map(requirement);
-  async function dispatch(packet) {
-    if (!(packet instanceof Uint8Array) || packet.byteLength < 32 || packet.byteLength > N.DOLLY_NENA_PACKET_BYTES) fail(E.EINVAL);
-    const view = new DataView(packet.buffer, packet.byteOffset, packet.byteLength);
-    const operation = view.getUint32(4, true), scope = view.getUint32(8, true);
-    if (view.getUint32(0, true) !== N.DOLLY_NENA_VERSION || view.getUint32(12, true) || view.getUint32(20, true) ||
-        !scope || view.getUint32(24, true) !== packet.length - 32 || view.getUint32(28, true)) fail(E.EINVAL);
-    const sized = bytes => { if (packet.length !== bytes) fail(E.EINVAL); };
+  // A request the lease bridge checked: the packet's operation and scope
+  // (dolly_device_header) and its body.
+  async function dispatch({ operation, scope, body }) {
+    const view = new DataView(body.buffer, body.byteOffset, body.byteLength);
+    const sized = bytes => { if (body.length !== bytes) fail(E.EINVAL); };
     if (operation === N.DOLLY_NENA_OPEN) {
-      sized(32);
+      sized(0);
       const reply = new Uint8Array(8);
       new DataView(reply.buffer).setBigUint64(0, BigInt(scope), true);
       return { bytes: reply };
     }
-    if (operation === N.DOLLY_NENA_CLOSE) { sized(32); return { bytes: new Uint8Array() }; }
+    if (operation === N.DOLLY_NENA_CLOSE) { sized(0); return { bytes: new Uint8Array() }; }
     if (operation === N.DOLLY_NENA_MODULE) {
-      sized(40);
-      if (view.getUint32(36, true)) fail(E.EINVAL);
-      return { bytes: moduleRecord(modules.list()[view.getUint32(32, true)] ?? fail(E.ENOENT)) };
+      sized(8);
+      if (view.getUint32(4, true)) fail(E.EINVAL);
+      return { bytes: moduleRecord(modules.list()[view.getUint32(0, true)] ?? fail(E.ENOENT)) };
     }
     if (operation !== N.DOLLY_NENA_ENABLE && operation !== N.DOLLY_NENA_DISABLE) fail(E.EINVAL);
-    sized(72);
-    const field = packet.subarray(32, 32 + N.DOLLY_NENA_NAME_BYTES), end = field.indexOf(0);
-    if (end < 1 || field.subarray(end).some(byte => byte) || view.getUint32(68, true)) fail(E.EINVAL);
+    sized(40);
+    const field = body.subarray(0, N.DOLLY_NENA_NAME_BYTES), end = field.indexOf(0);
+    if (end < 1 || field.subarray(end).some(byte => byte) || view.getUint32(36, true)) fail(E.EINVAL);
     let name;
     try { name = decoder.decode(field.subarray(0, end)); } catch { fail(E.EINVAL); }
-    const version = view.getUint32(64, true), enabling = operation === N.DOLLY_NENA_ENABLE;
+    const version = view.getUint32(32, true), enabling = operation === N.DOLLY_NENA_ENABLE;
     const found = () => modules.list().find(module => module.name === name && module.version === version) ?? fail(E.ENOENT);
     const value = requirement(found());
     // The session gives the privilege up: answered first, since the answer
@@ -74,7 +72,7 @@ export function browser({ send, modules, showStatus }) {
     messages: {
       async "nena-request"(message) {
         let result;
-        try { result = await dispatch(message.packet); }
+        try { result = await dispatch(message); }
         catch (error) { result = { error: error.errno ?? E.EIO, bytes: new Uint8Array() }; }
         if (result.enabled) send({ type: "nena-record", enabled: result.enabled });
         send({ type: "nena-complete", scope: message.scope, sequence: message.sequence, error: result.error ?? 0,

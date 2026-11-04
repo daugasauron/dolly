@@ -181,6 +181,7 @@ int main(int argc, char **argv) {
   int result;
   assert(thrd_create(&thread, c11, (void *)123) == thrd_success);
   assert(thrd_join(thread, &result) == thrd_success && result == 123);
+  assert(thrd_sleep(&(struct timespec){.tv_nsec = 1000000}, NULL) == 0);
   struct sigaction action = {.sa_handler = caught};
   assert(sigaction(SIGTERM, &action, NULL) == 0);
   pthread_t sender;

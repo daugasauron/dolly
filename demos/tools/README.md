@@ -50,9 +50,7 @@ What the platform decides ([process model](../../docs/process-model.md)):
   is a private copy; in this mode its index is on the heap. SQLite loads no
   extension.
 - `sqlite3` is built with linenoise and `dc` edits its lines as `bc` does,
-  from before the terminal edited a line itself. `vi` reads Enter through a
-  few lines the recipe adds, a change to an upstream source with its reason
-  there: Neatvi reads unedited and leaves Enter's mapping to the terminal.
+  from before the terminal edited a line itself.
 - Dolly's `tar` reads files, directories and pax headers, and refuses links.
   `jq`'s, `zstd`'s and `bc`'s archives hold links, `wabt`'s is xz, and
   `toybox`'s headers are generated: their builds read plain tars of the files they need
@@ -68,8 +66,6 @@ What the platform decides ([process model](../../docs/process-model.md)):
   and `sed` alone, and the recipe compiles the C. It is the one build step of
   this demo that does not run in Dolly. The recipe takes three `#error`
   lines out of the source and says why.
-- There are no process groups, and `dte` asks `tcgetpgrp` whether a stream
-  is the terminal: its recipe changes that line to `isatty`.
 
 Test: the `amy tools` case of [`test/amy-browser.mjs`](../../test/amy-browser.mjs)
 installs each into `default`, uses it, links a program with each library and

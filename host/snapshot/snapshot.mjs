@@ -40,13 +40,13 @@ export async function boot(route) {
 function sessionCapture({ send, ask }) {
   let consume = null;
   return {
-    async capture(name, { signal, onChunk }) {
+    async capture({ signal, onChunk }) {
       signal?.throwIfAborted();
       if (consume) throw new Error("A Dolly session save is already active");
       const cancel = () => send({ type: "snapshot-cancel" });
       consume = onChunk;
       signal?.addEventListener("abort", cancel, { once: true });
-      try { return await ask({ type: "snapshot-capture", name }); }
+      try { return await ask({ type: "snapshot-capture" }); }
       finally {
         consume = null;
         signal?.removeEventListener("abort", cancel);
@@ -120,9 +120,9 @@ export function worker({ get, ask, configuration: { bytes, recover } }) {
     },
     service() { kernel?.dolly_session_service(); },
     messages: {
-      "snapshot-capture"({ name }) {
+      "snapshot-capture"() {
         const controller = cancelled = new AbortController();
-        return transport.capture(name, { signal: controller.signal,
+        return transport.capture({ signal: controller.signal,
           onChunk: chunk => ask({ type: "snapshot-chunk", bytes: chunk }, [chunk.buffer]) });
       },
       "snapshot-cancel"() { cancelled?.abort(); },
@@ -132,7 +132,7 @@ export function worker({ get, ask, configuration: { bytes, recover } }) {
       // The kernel serves the mailbox on a request, after each consumed chunk
       // and on cancellation, in a task of its own.
       transport = new SessionTransport(memory.buffer, Number(kernel.dolly_session_mailbox_address()),
-        Number(kernel.dolly_session_name_address()), Number(kernel.dolly_session_transfer_address()),
+        Number(kernel.dolly_session_transfer_address()),
         () => setTimeout(() => kernel?.dolly_session_service()));
     },
     dispose() { transport?.close(); },

@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # unchanged, by the rules of its Makefile. It draws with escape sequences of
 # its own and reads no terminal database. Its ! commands and language servers
 # start by fork, which fails here, and it says so.
-FROM /v0.1.4/Dollyfile-system-tools 4545b7374a6a980cb31375eaffac3f5a99330ced0a1f93e8c77bb18cde64d95f
+FROM /v0.1.4/Dollyfile-system-tools 6002e88282bb0d520134235725b6082f5ad15644ad92c5dfe9f8c1f5808dfaa7
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
@@ -24,18 +24,6 @@ REQUIRES TOOL   test
 SOURCE /v0.1.4/dist/static/tools/neatvi-20.tar.gz e1d9a89d770aa5bb60da472be1a526eb1d99be9267c4d6067fc625f10efc8fe5 /tmp/neatvi.tar.gz
 SLOP gzip -dc /tmp/neatvi.tar.gz | tar -xf - -C /tmp && mv /tmp/neatvi-20 /tmp/neatvi
 
-# Neatvi leaves it to the terminal to turn Enter, a carriage return, into a
-# newline (ICRNL). Dolly's terminal maps no input, so term.c reads through this.
-FILE /tmp/neatvi/enter.h
-    #include <unistd.h>
-    static ssize_t read_enter(int fd, void *bytes, size_t size) {
-      ssize_t count = read(fd, bytes, size);
-      for (ssize_t at = 0; at < count; at++) {
-        if (((char *)bytes)[at] == '\r') ((char *)bytes)[at] = '\n';
-      }
-      return count;
-    }
-    #define read read_enter
 FILE /tmp/vi.mk
     .RECIPEPREFIX := >
     S := /tmp/neatvi
@@ -43,9 +31,8 @@ FILE /tmp/vi.mk
     NAMES := vi ex lbuf mot sbuf ren dir syn reg led uc term rset rstr regex cmd tag conf lsp json
     $(BIN)/vi: $(addprefix $S/,$(addsuffix .o,$(NAMES)))
     >cc $^ -o $@
-    $S/term.o: CFLAGS := -include $S/enter.h
     $S/%.o: $S/%.c $S/vi.h $S/conf.h $S/kmap.h
-    >cc -O2 $(CFLAGS) -c $< -o $@
+    >cc -O2 -c $< -o $@
 SLOP make -j4 -f /tmp/vi.mk
 SLOP ln -s vi /usr/bin/ex
 # Neatvi ships no licence file or manual page: its sources open with the

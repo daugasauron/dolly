@@ -10,6 +10,45 @@
 extern "C" {
 #endif
 
+// A device leased per process (gpu@0, audio@0, microphone@0, nena@0): each
+// call of the device's own operation is one packet, this header and then the
+// operation's body, answered in the device's reply slot
+// (dolly-supervisor-0.wat). version is the device's. scope names the lease
+// and is never reused: it is 0 in the OPEN that asks for one, whose reply
+// begins with the u64 scope. sequence starts at 1 and only increases.
+// body_bytes is the length of what follows; reserved and the upper halves of
+// scope and sequence are zero.
+typedef struct {
+  uint32_t version;
+  uint32_t operation;
+  uint64_t scope;
+  uint64_t sequence;
+  uint32_t body_bytes;
+  uint32_t reserved;
+} dolly_device_header;
+#ifdef __cplusplus
+static_assert(sizeof(dolly_device_header) == 32, "dolly_device_header");
+#else
+_Static_assert(sizeof(dolly_device_header) == 32, "dolly_device_header");
+#endif
+
+// One call of a leased device (dolly_device_header): fills the header at the
+// start of packet, `bytes` long in all, for scope with the lease's next
+// sequence, and calls the device's process operation. The last sequence is
+// kept for close_operation, so a lease whose sequences are spent can still
+// close; any other call fails with -EOVERFLOW. Returns the reply's length or a
+// negative errno.
+static inline int64_t dolly_device_request(uint32_t process_operation, uint32_t version,
+                                           uint32_t operation, uint32_t close_operation,
+                                           uint64_t scope, uint64_t *sequence, void *packet,
+                                           size_t bytes, void *reply, size_t reply_capacity) {
+  if (*sequence >= UINT32_MAX - (operation != close_operation)) return -DOLLY_PROCESS_EOVERFLOW;
+  const dolly_device_header header = {
+      version, operation, scope, ++*sequence, (uint32_t)(bytes - sizeof(header)), 0};
+  __builtin_memcpy(packet, &header, sizeof(header));
+  return dolly_process_call(process_operation, packet, bytes, reply, reply_capacity);
+}
+
 // Starts a filesystem-resident Dolly command with explicitly routed standard
 // descriptors. It returns a positive in-Wasm pid once the kernel accepts the
 // child; dolly_wait() collects its eventual status. Errors are negative errno.
@@ -40,7 +79,9 @@ int dolly_spawn_env_cwd(const char *path, int argc, char **argv,
                         int stdout_fd, int stderr_fd, double timeout_milliseconds);
 
 // Inherit eligible descriptors, then apply explicit parent-to-child mappings.
-// The stdio convenience forms above use NONE and three explicit mappings.
+// The stdio convenience forms above use NONE and three explicit mappings. A
+// child of these starts with every signal unblocked at its default action;
+// posix_spawn's keeps the caller's mask and ignored signals.
 int dolly_spawn_mapped(const char *path, int argc, char **argv,
                         char *const envp[], const char *cwd,
                         uint32_t descriptor_inheritance,
@@ -72,7 +113,9 @@ uint32_t dolly_terminal_rows(void);
 // (3), or the one INTERRUPT holds when it is not 0, as Emacs sets C-g; once a
 // program clears ISIG (raw mode), it reaches that program as input. ICRNL reads
 // an input CR as LF and INLCR an input LF as CR (both: they swap); a canonical
-// line ends at either.
+// line ends at either. A non-canonical read returns the bytes queued, at
+// least one, unless VMIN_ZERO is set (termios VMIN 0): then it returns without
+// a byte, at once or once VTIME tenths of a second have passed since it began.
 enum {
   DOLLY_TERMINAL_CANONICAL = 1u << 0,
   DOLLY_TERMINAL_ECHO = 1u << 1,
@@ -81,8 +124,14 @@ enum {
   DOLLY_TERMINAL_ISIG = 1u << 4,
   DOLLY_TERMINAL_ICRNL = 1u << 5,
   DOLLY_TERMINAL_INLCR = 1u << 6,
+  DOLLY_TERMINAL_VMIN_ZERO = 1u << 7,
   DOLLY_TERMINAL_INTERRUPT_SHIFT = 8,
   DOLLY_TERMINAL_INTERRUPT = 0xffu << DOLLY_TERMINAL_INTERRUPT_SHIFT,
+  DOLLY_TERMINAL_VTIME_SHIFT = 16,
+  DOLLY_TERMINAL_VTIME = 0xffu << DOLLY_TERMINAL_VTIME_SHIFT,
+  DOLLY_TERMINAL_MODE_BITS = DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO | DOLLY_TERMINAL_OPOST |
+      DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG | DOLLY_TERMINAL_ICRNL | DOLLY_TERMINAL_INLCR |
+      DOLLY_TERMINAL_VMIN_ZERO | DOLLY_TERMINAL_INTERRUPT | DOLLY_TERMINAL_VTIME,
 };
 
 // The character that interrupts the foreground under this mode, or 0.

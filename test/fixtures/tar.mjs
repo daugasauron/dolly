@@ -1,10 +1,11 @@
-export function tarArchive(name, contents, type = "0") {
+export function tarArchive(name, contents, type = "0", modified = 0) {
   const header = Buffer.alloc(512);
   header.write(name);
   header.write("0000644\0", 100);
   header.write("0000000\0", 108);
   header.write("0000000\0", 116);
   header.write(contents.length.toString(8).padStart(11, "0") + "\0", 124);
+  header.write(modified.toString(8).padStart(11, "0") + "\0", 136);
   header.fill(32, 148, 156);
   header.write(type, 156);
   header.write("ustar\0" + "00", 257);

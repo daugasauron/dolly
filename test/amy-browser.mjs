@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { browserTest } from "./browser.mjs";
 import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
 import { siteReference } from "../src/static-asset.mjs";
+import { inspectDollyfile, recipeRows } from "../src/dollyfile-view.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 
 const packages = DOLLY_IMAGES.filter(definition => definition.role === "package").map(({ image }) => image).sort();
@@ -53,7 +54,7 @@ async function sealed(name, body, needed = [], hosts = [], environment = {}) {
   const pin = sha256(source), chain = [...needed, { name, url, sha256: pin, source }];
   const receipt = [encoder.encode("DOLLYART"), u32(5), u32(chain.length),
     ...chain.flatMap(recipe => ["PACKAGE", recipe.name, recipe.url, recipe.sha256, recipe.source].flatMap(text)),
-    u32(hosts.length), ...hosts.flatMap(text), u32(1 + variables.length), ...text("FILE"), ...text(name), ...text(`/usr/share/${name}`), u32(1),
+    u32(hosts.length), ...hosts.flatMap(text), u32(1 + variables.length), ...text("LIB"), ...text(name), ...text(`/usr/share/${name}`), u32(1),
     ...text(`/usr/share/${name}`), ...variables.flatMap(([variable, value]) => [...text("ENV"), ...text(variable), ...text(value), u32(0)])];
   const records = new Map([["/etc/dolly/Dollyfile", file(source)], ["/etc/dolly/artifact", { kind: 2, data: bytes(receipt) }],
     ...rows ? [["/etc/dolly/installed", file(rows)]] : [], [`/usr/share/${name}`, file(`${body}\n`)]]);
@@ -407,8 +408,7 @@ const tools = {
   "pi-dolly": ["pi", "pi --version > /dev/null && ! cc --version 2> /dev/null && amy installed | grep -q '^pi ' && " +
     "test -s /home/dolly/.pi/agent/SYSTEM.md && test -s /home/dolly/.pi/agent/extensions/dolly-tools.js && test -s /usr/share/doc/dolly/docs/slop.md"],
   // The two ways its manual page gives: a function for a C program, and a program with the standard library.
-  // A package's environment applies from the next session load: ZIG_LIBC is named here.
-  zig: ["zig", "export ZIG_LIBC=/usr/lib/zig/libc.txt && mkdir /tmp/amy-zig && cd /tmp/amy-zig && printf 'export fn answer() c_int { return 42; }\\n' > answer.zig && " +
+  zig: ["zig", "mkdir /tmp/amy-zig && cd /tmp/amy-zig && printf 'export fn answer() c_int { return 42; }\\n' > answer.zig && " +
     "printf 'int answer(void); int main(void) { return answer(); }\\n' > main.c && zig build-obj -ofmt=c -femit-bin=answer.c answer.zig && " +
     "cc -I /usr/lib/zig main.c answer.c -o answer && man zig > /dev/null && ./answer; test $? = 42 && " +
     "printf 'const std = @import(\"std\");\\npub fn main() void { std.debug.print(\"{d}\", .{6 * 7}); }\\n' > hello.zig && " +
@@ -479,14 +479,10 @@ const typed = {
   // Its status line is up; Ctrl+S saves and Ctrl+Q quits.
   "dte /tmp/amy-dte": [[/INS +UTF-8/, "one\ntwo\x13\x11"]],
 };
-// A package whose recipe requires a host module the image has not enabled is refused until the
-// user enables it (pi-dolly's html@0 popups).
-const enables = { "pi-dolly": "html" };
 await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ open }) => {
   const session = await open(), run = check(session);
   for (const [name, [command, use]] of Object.entries(tools)) {
     await run(`! command -v ${command}`);
-    if (enables[name]) await run(`nena enable ${enables[name]}`);
     console.log(`amy install ${name}: ${await timed(run, `amy install ${name}`)} ms`);
     await run(use);
     for (const read of reads(name)) await run(read);
@@ -534,7 +530,7 @@ const elsewhere = {
   "lfm2.5": "demos/local-llm",
   "libdolly-audio": "audio-browser.mjs", "libdolly-gpu": "gpu-render-browser.mjs",
   "libdolly-microphone": "microphone-browser.mjs", "libdolly-sockets": "sockets-browser.mjs",
-  "libdolly-touch": "touch-browser.mjs", "stack-wrap": "stack-browser.mjs", html: "html-browser.mjs",
+  "libdolly-touch": "touch-browser.mjs", "stack-wrap": "stack-browser.mjs",
   openblas: "demos/python", libjpeg: "demos/xonotic", "xonotic-shaders": "demos/xonotic: xonotic-build installs it", spidermonkey: "demos/zero-ad",
   "xorg-server": "demos/x11", twm: "demos/x11", xclock: "demos/x11", xeyes: "demos/x11", xterm: "demos/x11",
   imgui: "demos/sdl2", "imgui-x11": "demos/x11", llvm22: "demos/zig: zig-llvm uses it", "zig-llvm": "demos/zig",
@@ -617,7 +613,11 @@ await browserTest("amy refusal", { image: "system", server: { fixtures } }, asyn
 // USE, by the engine built from this checkout: the library and the row it
 // needs are restored for the build and kept by nothing; an INSTALL after it
 // skips the used row, whose snapshot has gone, and records it.
-await browserTest("USE", { image: "system", server: { fixtures } }, async ({ server, open }) => {
+// The recipe the USE test builds, and the rows the page would give the engine.
+const uses = new Map();
+const serveUses = (request, response, path, headers) =>
+  uses.has(path) && (response.writeHead(200, { ...headers, "content-type": "text/plain" }).end(uses.get(path)), true);
+await browserTest("USE", { image: "system", server: { fixtures, handle: serveUses } }, async ({ server, open }) => {
   const system = await open({ policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   const run = check(system);
   const fetch = names => names.map(name => `curl -fsS ${server.origin}/fixture/${name} -o ${name}`).join(" && ");
@@ -627,14 +627,17 @@ await browserTest("USE", { image: "system", server: { fixtures } }, async ({ ser
   const build = async (rows, fails = false) => {
     await run(`cp record /etc/dolly/installed && cd /etc/dolly/artifacts && ${fetch([library, shared, newer,
       ...rows.some(item => item.includes(older.sha256)) ? [older] : []].map(({ sha256 }) => `${sha256}.snapshot`))} && cd /tmp/use`);
-    await run(`printf '%s\\n' 'DOLLY 7' 'PACKAGE uses' 'REQUIRES HOST runtime@0' ${rows.map(item => `'${item}'`).join(" ")} > Dollyfile-uses`);
+    const source = ["DOLLY 7", "PACKAGE uses", "REQUIRES HOST runtime@0", ...rows].map(line => `${line}\n`).join("");
+    uses.set("/fixture/uses.Dollyfile", source).set("/fixture/uses.rows", recipeRows(inspectDollyfile(source), sha256(source)));
+    await run(`curl -fsS ${server.origin}/fixture/uses.Dollyfile -o Dollyfile-uses && ` +
+      `curl -fsS ${server.origin}/fixture/uses.rows -o /etc/dolly/recipe.rows`);
     assert.equal(await system.submit("./dollyfile FILE:/tmp/use/Dollyfile-uses > log 2>&1") !== 0, fails, await system.text());
   };
   const used = `USE ${row(library)}`, installed = `INSTALL ${row(shared)}`;
   const recorded = "grep '^INSTALL ' /etc/dolly/installed | grep -v -x -f record | sed 's/ [0-9a-f]*$//' | tr '\\n' ' '";
   const kept = `test "$(${recorded})" = 'INSTALL ${newer.url} INSTALL ${shared.url} ' && ! grep -q /usr/share/library /etc/dolly/image.manifest && ` +
     "! grep -q LIBRARY_BUILT /etc/dolly/environment && test -z \"$(ls /etc/dolly/artifacts)\"";
-  await build([used, "REQUIRES FILE library", 'SLOP test "$LIBRARY_BUILT" = used && test "$(cat /usr/share/needed)" = two', installed]);
+  await build([used, "REQUIRES LIB library", 'SLOP test "$LIBRARY_BUILT" = used && test "$(cat /usr/share/needed)" = two', installed]);
   await run(kept);
   await build([installed, used]);
   await run(kept);

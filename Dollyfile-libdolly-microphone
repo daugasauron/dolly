@@ -6,15 +6,15 @@ REQUIRES HOST runtime@0
 # default input), for programs the cc package builds: cc links every client
 # archive in /usr/lib/dolly/process, and a program records microphone@0 only
 # when it calls the client.
-FROM /v0.1.4/Dollyfile-system-build 7fdc2d67daa3a1e8667818645b9c9d0d4efab6013cc0f366a0bf615045fa4fe9
+FROM /v0.1.4/Dollyfile-system-build 2c496ce31180dd5b04f8b4f6e4c89b0400b2103fd3aae9e1198bc627eaaccda3
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
 SOURCE /v0.1.4/host/microphone/microphone.h bb9f2c4cebd342ef527d6243ed17d03a599afc4e55bb901dc50f40219bead2ec /usr/include/dolly/microphone.h
-SOURCE /v0.1.4/host/microphone/microphone-abi.h 105a734a9511db9957c0e6166181e8d6ed7a6f57483e2c2c0c612a0574afb6b0 /usr/include/dolly/microphone-abi.h
-SOURCE /v0.1.4/host/microphone/client.c fd455eca484a97945a5f3359b879fbfd0d19815407a80c91f49ae9417306cbc8 /tmp/libdolly-microphone/client.c
+SOURCE /v0.1.4/host/microphone/microphone-abi.h 21950369024bb7359fa2a3c2a5fbfe79d709359cd9c6847bd5d7efc324090090 /usr/include/dolly/microphone-abi.h
+SOURCE /v0.1.4/host/microphone/client.c e053084eaa72764a5084c858c05d7b3118f0afa283318d6a9349681469668ceb /tmp/libdolly-microphone/client.c
 SLOP cc -O1 -c /tmp/libdolly-microphone/client.c -o /tmp/libdolly-microphone/client.o
 SLOP ar rcs /usr/lib/dolly/process/libdolly-microphone.a /tmp/libdolly-microphone/client.o
 

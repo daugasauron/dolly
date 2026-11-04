@@ -72,17 +72,14 @@ export function createMicrophoneProvider(changed = () => {}) {
       queuedFrames: capture?.length ?? 0, capturedFrames: capture?.captured ?? 0, droppedFrames: capture?.dropped ?? 0,
       liveTracks: capture?.stream?.getTracks().filter(track => track.readyState === "live").length ?? 0 };
   }
-  function dispatch(packet) {
+  // A request the lease bridge checked: the packet's operation, scope and
+  // sequence (dolly_device_header) and its body.
+  function dispatch({ operation: op, scope, sequence, body }) {
     try {
-      if (!(packet instanceof Uint8Array) || packet.byteLength < 32 || packet.byteLength > M.DOLLY_MICROPHONE_PACKET_BYTES) fail(E.EINVAL);
-      packet = packet.slice();
-      const view = new DataView(packet.buffer, packet.byteOffset, packet.byteLength);
-      const op = view.getUint32(4, true), scope = view.getUint32(8, true), sequence = view.getUint32(16, true);
-      if (view.getUint32(0, true) !== M.DOLLY_MICROPHONE_VERSION || view.getUint32(12, true) || view.getUint32(20, true) ||
-          !scope || !sequence || view.getUint32(24, true) !== packet.length - 32 || view.getUint32(28, true)) fail(E.EINVAL);
+      const view = new DataView(body.buffer, body.byteOffset, body.byteLength);
       let result;
       if (op === M.DOLLY_MICROPHONE_OPEN) {
-        if (packet.length !== 32) fail(E.EINVAL);
+        if (body.length) fail(E.EINVAL);
         if (scope <= generation) fail(E.ESTALE);
         if (capture) fail(E.EBUSY);
         if (typeof navigator.mediaDevices?.getUserMedia !== "function" || typeof AudioWorkletNode !== "function") fail(E.ENODEV);
@@ -100,9 +97,9 @@ export function createMicrophoneProvider(changed = () => {}) {
         if (sequence <= capture.sequence) fail(E.ESTALE);
         capture.sequence = sequence;
         if (op === M.DOLLY_MICROPHONE_READ) {
-          if (packet.length !== 40) fail(E.EINVAL);
-          const frames = view.getUint32(32, true);
-          if (!frames || frames > M.DOLLY_MICROPHONE_MAX_FRAMES || view.getUint32(36, true)) fail(E.EINVAL);
+          if (body.length !== 8) fail(E.EINVAL);
+          const frames = view.getUint32(0, true);
+          if (!frames || frames > M.DOLLY_MICROPHONE_MAX_FRAMES || view.getUint32(4, true)) fail(E.EINVAL);
           const count = Math.min(frames, capture.length), size = capture.samples.length;
           if (!count && capture.state === M.DOLLY_MICROPHONE_DENIED) fail(E.EACCES);
           if (!count && capture.state === M.DOLLY_MICROPHONE_UNAVAILABLE) fail(E.ENODEV);
@@ -112,13 +109,13 @@ export function createMicrophoneProvider(changed = () => {}) {
           for (let i = 0; i < count; ++i) output.setFloat32(8 + i * 4, capture.samples[(capture.start + i) % size], true);
           capture.start = (capture.start + count) % size; capture.length -= count;
         } else if (op === M.DOLLY_MICROPHONE_STATUS) {
-          if (packet.length !== 32) fail(E.EINVAL);
+          if (body.length) fail(E.EINVAL);
           result = response(24);
           const output = new DataView(result.buffer);
           output.setUint32(0, capture.length, true); output.setUint32(4, capture.state, true);
           output.setBigUint64(8, BigInt(capture.captured), true); output.setBigUint64(16, BigInt(capture.dropped), true);
         } else if (op === M.DOLLY_MICROPHONE_CLOSE) {
-          if (packet.length !== 32) fail(E.EINVAL);
+          if (body.length) fail(E.EINVAL);
           release(scope); result = response(0);
         } else fail(E.ENOSYS);
       }

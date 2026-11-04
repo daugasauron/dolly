@@ -187,9 +187,10 @@ test("a snapshot read in pieces decodes as the whole does, holding only the sele
     const { records: scanned, byteLength } = await scanSnapshotRecords(pieces(size), path => path.startsWith("/etc/dolly/"));
     assert.equal(byteLength, bytes.length);
     assert.deepEqual([...scanned.keys()], [...decodeSnapshotRecords(bytes).keys()]);
-    assert.deepEqual(scanned.get("/etc/dolly/Dollyfile"), records.get("/etc/dolly/Dollyfile"));
+    const whole = decodeSnapshotRecords(bytes), at = path => ({ offset: whole.get(path).data.byteOffset, size: whole.get(path).data.length });
+    assert.deepEqual(scanned.get("/etc/dolly/Dollyfile"), { ...records.get("/etc/dolly/Dollyfile"), ...at("/etc/dolly/Dollyfile") });
     assert.deepEqual(scanned.get("/link").data, records.get("/link").data);
-    assert.deepEqual(scanned.get("/usr/large"), { kind: 2, data: undefined });
+    assert.deepEqual(scanned.get("/usr/large"), { kind: 2, data: undefined, ...at("/usr/large") });
   }
   assert.equal((await scanSnapshotRecords([bytes, new Uint8Array(0)], () => false)).byteLength, bytes.length);
   await assert.rejects(scanSnapshotRecords([bytes.subarray(0, -1)], () => false), /truncated/);

@@ -10,43 +10,8 @@
 extern "C" {
 #endif
 
-typedef enum {
-  // Four consecutive bytes per pixel: red, green, blue and a fourth the page
-  // does not show, for a frame is opaque as a window is. Rows are
-  // top-to-bottom and pixels are left-to-right.
-  DOLLY_DISPLAY_PIXEL_RGBA8 = 1,
-} dolly_display_pixel_format;
-
-typedef enum {
-  DOLLY_DISPLAY_CURSOR_TEXT = 0,
-  DOLLY_DISPLAY_CURSOR_DEFAULT = 1,
-  DOLLY_DISPLAY_CURSOR_CROSSHAIR = 2,
-  DOLLY_DISPLAY_CURSOR_POINTER = 3,
-  DOLLY_DISPLAY_CURSOR_HIDDEN = 4,
-  // What a window system shows over an edge, a corner, something being moved,
-  // work in progress, a refusal and help.
-  DOLLY_DISPLAY_CURSOR_NS_RESIZE = 5,
-  DOLLY_DISPLAY_CURSOR_EW_RESIZE = 6,
-  DOLLY_DISPLAY_CURSOR_NWSE_RESIZE = 7,
-  DOLLY_DISPLAY_CURSOR_NESW_RESIZE = 8,
-  DOLLY_DISPLAY_CURSOR_MOVE = 9,
-  DOLLY_DISPLAY_CURSOR_WAIT = 10,
-  DOLLY_DISPLAY_CURSOR_PROGRESS = 11,
-  DOLLY_DISPLAY_CURSOR_NOT_ALLOWED = 12,
-  DOLLY_DISPLAY_CURSOR_HELP = 13,
-} dolly_display_cursor;
-
-enum {
-  DOLLY_DISPLAY_COPY_AVAILABLE = 1u << 0,
-  DOLLY_DISPLAY_COPY_TRUNCATED = 1u << 1,
-};
-
-enum {
-  // A foreground command has exclusively leased the framebuffer. This bit is
-  // observable by the browser presenter, but ownership and policy remain
-  // entirely inside Dolly.
-  DOLLY_DISPLAY_GRAPHICS_ACTIVE = 1u << 0,
-};
+// The pixel format, cursor styles, copy flags and the graphics flag are
+// DOLLY_DISPLAY_* constants of dolly-display-0.wat (<dolly/display-abi.h>).
 
 // Every field is a little-endian atomic u32. Frame pixels live in two
 // separately allocated, fixed-address buffers returned by the runtime
@@ -85,6 +50,13 @@ typedef struct {
   _Atomic uint32_t surface_width;
   _Atomic uint32_t surface_height;
   _Atomic uint32_t surface_scale_milli;
+  // The browser writes the terminal's colours (dolly_display_palette) so too,
+  // before the driver is installed and whenever they change.
+  _Atomic uint32_t palette_sequence;
+  _Atomic uint32_t palette_background;
+  _Atomic uint32_t palette_foreground;
+  _Atomic uint32_t palette_cursor;
+  _Atomic uint32_t palette_colors[16];
 } dolly_display_mailbox;
 
 #ifdef __cplusplus
@@ -216,6 +188,16 @@ DOLLY_DISPLAY_LAYOUT(dolly_display_wait_response, 8);
 DOLLY_DISPLAY_LAYOUT(dolly_display_cursor_request, 16);
 #undef DOLLY_DISPLAY_LAYOUT
 
+// The terminal's colours, 0xRRGGBB, which the page chooses (docs/display.md):
+// its background, its text, its cursor and the selection, and the 16 colours
+// programs name.
+typedef struct {
+  uint32_t background;
+  uint32_t foreground;
+  uint32_t cursor;
+  uint32_t colors[16];
+} dolly_display_palette;
+
 // A display driver is a resident shared library, not an executable. DISPLAY
 // names the selected library. It is loaded once and remains in the shared Wasm
 // address space for the lifetime of the runtime; it finds its own font.
@@ -239,9 +221,12 @@ typedef struct {
   // Pausing preserves terminal parser/grid state while suppressing frame
   // publication. Resuming immediately publishes a complete terminal frame.
   void (*set_suspended)(int suspended);
-} dolly_display_driver_v5;
+  // The colours the terminal draws in: given after initialize, before the
+  // first present, and whenever the page changes them.
+  void (*set_palette)(const dolly_display_palette *palette);
+} dolly_display_driver_v6;
 
-typedef const dolly_display_driver_v5 *(*dolly_display_driver_getter_v5)(void);
+typedef const dolly_display_driver_v6 *(*dolly_display_driver_getter_v6)(void);
 
 #ifdef __cplusplus
 }

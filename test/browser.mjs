@@ -73,6 +73,21 @@ export async function snapshotDisplay(page) {
   });
 }
 
+// The colour the page shows at (x, y), in CSS pixels, read from a screenshot:
+// [red, green, blue].
+export async function shownColor(page, x, y) {
+  const png = (await page.screenshot({ clip: { x, y, width: 1, height: 1 } })).toString("base64");
+  return page.evaluate(async png => {
+    const image = new Image();
+    image.src = `data:image/png;base64,${png}`;
+    await image.decode();
+    const context = Object.assign(document.createElement("canvas"), { width: image.width, height: image.height })
+      .getContext("2d", { willReadFrequently: true });
+    context.drawImage(image, 0, 0);
+    return [...context.getImageData(0, 0, 1, 1).data.subarray(0, 3)];
+  }, png);
+}
+
 // Resolves to what predicate(arg), run in the page, returns once it is truthy of a new snapshot.
 export async function waitForDisplay(page, predicate, arg, { timeout = 30000 } = {}) {
   for (const deadline = Date.now() + timeout; ;) {

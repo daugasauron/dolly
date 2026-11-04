@@ -7,14 +7,14 @@ REQUIRES HOST html@0
 # the user an HTML page or form in a popup of the page and prints the fields
 # of the form they submit. cc links every client archive in
 # /usr/lib/dolly/process; a program records html@0 when it calls the client.
-FROM /v0.1.4/Dollyfile-system-build 7fdc2d67daa3a1e8667818645b9c9d0d4efab6013cc0f366a0bf615045fa4fe9
+FROM /v0.1.4/Dollyfile-system-build 2c496ce31180dd5b04f8b4f6e4c89b0400b2103fd3aae9e1198bc627eaaccda3
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
 SOURCE /v0.1.4/host/html/html.h b5d3905d3cb6d70cb4b019f9f5c6375cb92ce241608ccaf02fc13278ebb08261 /usr/include/dolly/html.h
-SOURCE /v0.1.4/host/html/html-abi.h 0a8f41deb7c332d02f856177f886978df80a1f0486839ddd77564953706e0264 /usr/include/dolly/html-abi.h
+SOURCE /v0.1.4/host/html/html-abi.h ba5cbfcad4170d47d079b4221005994a051152ebf7db8cc011e18cdd6aff512b /usr/include/dolly/html-abi.h
 SOURCE /v0.1.4/host/html/client.c 4c907d8a84cad64fc4e6433b057f4ac9a413e2454f20c7579129dc34c9afc202 /tmp/html/client.c
 SLOP cc -O1 -c /tmp/html/client.c -o /tmp/html/client.o
 SLOP ar rcs /usr/lib/dolly/process/libdolly-html.a /tmp/html/client.o

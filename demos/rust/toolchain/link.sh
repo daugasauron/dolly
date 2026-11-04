@@ -36,7 +36,7 @@ done < "${sysroot}/dynamic-provider.symbols"
   "${port_dir}/package/rust-link/rustc-main.o" \
   "${port_dir}/package/rust-link/allocator.o" \
   "${port_dir}"/package/rust-link/*.a \
-  --whole-archive "${sysroot}/libdolly-process.a" --no-whole-archive \
+  "${sysroot}/libdolly-process.a" \
   "${sysroot}/crt1.o" -L"${sysroot}" \
   -ldolly-runtime -ldolly-http -ldolly-display -ldolly-download -ldolly-upload -ldolly-dso \
   -lstandalonewasm-ww-memgrow -lstubs -lc-ww -ldlmalloc-ww \

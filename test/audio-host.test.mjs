@@ -16,12 +16,18 @@ test("audio module binds the bridge, acknowledges replies, revokes and disposes"
   module.start({ kernel: { dolly_audio_mailbox_address: () => BigInt(mailbox) }, memory });
   const packet = new Uint8Array(memory.buffer, address, 32), view = new DataView(packet.buffer, address, 32);
   view.setUint32(4, 1, true); view.setUint32(8, 1, true); view.setUint32(16, 1, true);
+  // The whole header is checked here: version, body length and the reserved words.
+  for (const [offset, value] of [[0, 1], [12, 1], [20, 1], [24, 4], [28, 1]]) {
+    view.setUint32(offset, value, true);
+    assert.equal(dispatch(BigInt(address), 32n), -E.EINVAL, `a header altered at ${offset}`);
+    view.setUint32(offset, 0, true);
+  }
   assert.equal(dispatch(BigInt(address), 32n), 0);
   const { message, transfer } = sent[0];
-  assert.equal(message.type, "audio-request");
-  assert.deepEqual(transfer, [message.packet.buffer]);
+  assert.deepEqual([message.type, message.operation, message.body.length], ["audio-request", 1, 0]);
+  assert.deepEqual(transfer, [message.body.buffer]);
   packet.fill(255);
-  assert.equal(new DataView(message.packet.buffer).getUint32(4, true), 1);
+  assert.equal(new DataView(message.body.buffer).getUint32(4, true), 1);
   const words = new Int32Array(memory.buffer, mailbox, 16);
   module.messages["audio-complete"]({ scope: 1, sequence: 2, error: 0, bytes: new Uint8Array(16) });
   assert.equal(Atomics.load(words, 0), 0, "a stale reply must not complete a request");

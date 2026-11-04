@@ -4,21 +4,23 @@ REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST download@0
+REQUIRES HOST html@0
 REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/Dollyfile-system-tools 4545b7374a6a980cb31375eaffac3f5a99330ced0a1f93e8c77bb18cde64d95f
-# The page's file exchange, here and in the images built on this one.
-INSTALL /v0.1.4/Dollyfile-transfer 946f6e21d5eef2ee487b0a92c7b9b25560dfad78a258b2386267eb877563d9e9
-INSTALL /v0.1.4/Dollyfile-session-recover 9d488bf67e10fa80055489f7f13e3b4bad4a370d917d32e398cf57940a1afea8
+FROM /v0.1.4/Dollyfile-system-tools 6002e88282bb0d520134235725b6082f5ad15644ad92c5dfe9f8c1f5808dfaa7
+# The page's file exchange and its popups, here and in the images built on this one.
+INSTALL /v0.1.4/Dollyfile-transfer 2d667f4f6ce328336579aeb172cc87c211fae513c9d4c6ba8883607f7a9ec368
+INSTALL /v0.1.4/Dollyfile-html 0f59357b68e30b2b4e66796d75929c46952cea26d68459678cd97dab7e986f29
+INSTALL /v0.1.4/Dollyfile-session-recover b3960e26c44326b5188d33c7dec0c9dcf8ce7defa42c1f8fb11eedea1ea28f79
 # The packages made of what system-build and system-tools built: this image
 # holds their files, and its record says so, as it does for every INSTALL.
-INSTALL /v0.1.4/Dollyfile-core 9c7938379920773932685c3daadd93b6d560b0a189582fdb73006d2c48a2c009
-INSTALL /v0.1.4/Dollyfile-cc 0bd19561fbc6e8e7b43888bfd26c575ce64ed7e6769092f7a784a1f31a411cf8
-INSTALL /v0.1.4/Dollyfile-make 2679fc8288abdf823eb25433d481402344a89fdb501d4616bfe9ec5f7f922c1e
-INSTALL /v0.1.4/Dollyfile-posix e45e234cebebfa8c7f751a57a2c9d76b09388527a2216b109bbdcabf2d97aca2
-INSTALL /v0.1.4/Dollyfile-ninja be0b2f2f6ec895d993244400e04ef2482e66e723f430def67a697ad401f1a1a8
+INSTALL /v0.1.4/Dollyfile-core 74fabeb7587e54b39bb59351ed5e8146d3eb77cb526c65c00c2d90f11495b775
+INSTALL /v0.1.4/Dollyfile-cc 53efa9fa48567501751d60f4172407b9bd62ea6dfa65eca475d0f6d62f6fef2e
+INSTALL /v0.1.4/Dollyfile-make 5baa17828daf91a1ef176481382932f474dfa629235dd64cd6578674cf58d23f
+INSTALL /v0.1.4/Dollyfile-posix 4edbe26685a71e67d5360b567b708c1cb373b124d4143c680cf0a6a1ba90ebae
+INSTALL /v0.1.4/Dollyfile-ninja e2598f68f7c1c0c5c9ec830db9c9bff4d0363c2621a4045e9dacc2bb34f87812
 
 ENTRY /bin/foreground -i /bin/slop

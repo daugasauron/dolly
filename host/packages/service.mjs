@@ -18,7 +18,7 @@ function reply(body, status, type = "text/plain; charset=utf-8") {
 // GET /v1/packages/SHA256 is the exact snapshot of the package whose recipe
 // has that pin, verified from the published packs and merged as the guest
 // reads it. One snapshot is served at a time, until the guest has read it or
-// the broker's deadline cancels it.
+// the broker's timeout cancels it.
 export class PackageService {
   constructor() {
     this.active = false;

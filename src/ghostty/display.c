@@ -23,7 +23,7 @@
 #include <dolly/input.h>
 
 enum {
-  DRIVER_ABI_VERSION = 5,
+  DRIVER_ABI_VERSION = 6,
   MIN_FONT_MILLI = 8000,
   MAX_FONT_MILLI = 32000,
   DEFAULT_FONT_MILLI = 20000,
@@ -207,10 +207,10 @@ static bool suspended;
 static bool frame_dirty;
 static GhosttyKittyGraphicsPlacementIterator placements;
 
-static const GhosttyColorRgb background = {0x26, 0x26, 0x26};
-static const GhosttyColorRgb foreground = {0xe8, 0xe3, 0xd7};
-static const GhosttyColorRgb accent = {0xf2, 0xd4, 0x5c};
-static const GhosttyColorRgb dim = {0x77, 0x73, 0x6c};
+// The page's colours (set_palette); the 240 beyond the 16 are Ghostty's.
+static GhosttyColorRgb background;
+static GhosttyColorRgb foreground;
+static GhosttyColorRgb cursor_color;
 static GhosttyColorRgb terminal_palette[256];
 
 static uint32_t clamp_u32(uint32_t value, uint32_t low, uint32_t high) {
@@ -236,25 +236,27 @@ static int load_font(const char *path, stbtt_fontinfo *info) {
   return -1;
 }
 
-static void configure_theme(void) {
-  ghostty_color_palette_default(terminal_palette);
+static GhosttyColorRgb rgb_of(uint32_t value) {
+  return (GhosttyColorRgb){(uint8_t)(value >> 16), (uint8_t)(value >> 8), (uint8_t)value};
+}
+
+// The colours the page gives (docs/display.md), which Ghostty's terminal holds
+// as its defaults too.
+static void set_palette(const dolly_display_palette *palette) {
+  background = rgb_of(palette->background);
+  foreground = rgb_of(palette->foreground);
+  cursor_color = rgb_of(palette->cursor);
   for (size_t index = 0; index < 16; ++index) {
-    terminal_palette[index] = foreground;
+    terminal_palette[index] = rgb_of(palette->colors[index]);
   }
-  terminal_palette[0] = background;
-  terminal_palette[3] = accent;
-  terminal_palette[8] = dim;
-  terminal_palette[11] = accent;
   ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_FOREGROUND,
                        &foreground);
   ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_BACKGROUND,
                        &background);
-  ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_CURSOR, &accent);
+  ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_CURSOR, &cursor_color);
   ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_PALETTE,
                        terminal_palette);
-  size_t scrollback_bytes = 16u * 1024u * 1024u;
-  ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_SCROLLBACK_MAX_BYTES,
-                       &scrollback_bytes);
+  frame_dirty = true;
 }
 
 // XTWINOPS size queries (CSI 14/16/18 t) and in-band size reports: the grid
@@ -735,7 +737,7 @@ static void render_frame(void) {
       const bool cursor_here = cursor_visible && cursor_x == column &&
                                cursor_y == row;
       if (selected || cursor_here) {
-        bg = accent;
+        bg = cursor_color;
         fg = background;
         fill_rect(frame, x, y, (int)cell_width, (int)cell_height, bg);
       }
@@ -832,7 +834,10 @@ static int initialize(dolly_display_mailbox *shared_mailbox,
   int ignored;
   stbtt_GetGlyphBox(&font, stbtt_FindGlyphIndex(&font, 0x2588), &ignored, &block_bottom, &ignored, &block_top);
   stbtt_GetCodepointHMetrics(&font, 0x2588, &block_advance, &ignored);
-  configure_theme();
+  ghostty_color_palette_default(terminal_palette);
+  size_t scrollback_bytes = 16u * 1024u * 1024u;
+  ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_SCROLLBACK_MAX_BYTES,
+                       &scrollback_bytes);
   ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_KITTY_IMAGE_STORAGE_LIMIT,
                        &kitty_image_storage_limit);
   ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_USERDATA, NULL);
@@ -841,7 +846,8 @@ static int initialize(dolly_display_mailbox *shared_mailbox,
   ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_SIZE, terminal_size);
   if (set_layout(viewport_width_css, viewport_height_css,
                  device_scale_milli) != 0) return -1;
-  render_frame();
+  // The first frame waits for the palette.
+  frame_dirty = true;
   return dolly_input_decoder_install(&decoder);
 }
 
@@ -1248,18 +1254,19 @@ static const dolly_input_decoder decoder = {
     .paste = decode_paste,
 };
 
-static const dolly_display_driver_v5 driver = {
+static const dolly_display_driver_v6 driver = {
     .abi_version = DRIVER_ABI_VERSION,
-    .struct_size = sizeof(dolly_display_driver_v5),
+    .struct_size = sizeof(dolly_display_driver_v6),
     .initialize = initialize,
     .write = write_terminal,
     .read = read_replies,
     .resize = resize,
     .present = present,
     .set_suspended = set_suspended,
+    .set_palette = set_palette,
 };
 
-__attribute__((export_name("dolly_display_driver_get_v5")))
-const dolly_display_driver_v5 *dolly_display_driver_export(void) {
+__attribute__((export_name("dolly_display_driver_get_v6")))
+const dolly_display_driver_v6 *dolly_display_driver_export(void) {
   return &driver;
 }

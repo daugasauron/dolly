@@ -5,7 +5,6 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <poll.h>
-#include <signal.h>
 #include <spawn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -264,18 +263,13 @@ static void posix_spawning(char *self) {
   CHECK(posix_spawn(&pid, "/no-such-spawn-fixture", NULL, NULL, arguments, environ) == ENOENT);
   CHECK(posix_spawn_file_actions_destroy(&actions) == 0);
 #ifdef __dolly__
-  /* A fresh Dolly process cannot honor fchdir actions, sessions or a blocked mask. */
+  /* A fresh Dolly process cannot honor fchdir actions or sessions. */
   posix_spawnattr_t attributes;
-  sigset_t mask;
   CHECK(posix_spawn_file_actions_init(&actions) == 0);
   CHECK(posix_spawn_file_actions_addfchdir_np(&actions, 21) == 0);
   CHECK(posix_spawn(&pid, self, &actions, NULL, arguments, environ) == ENOTSUP);
   CHECK(posix_spawnattr_init(&attributes) == 0);
   CHECK(posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSID) == 0);
-  CHECK(posix_spawn(&pid, self, NULL, &attributes, arguments, environ) == ENOTSUP);
-  CHECK(sigemptyset(&mask) == 0 && sigaddset(&mask, SIGINT) == 0);
-  CHECK(posix_spawnattr_setsigmask(&attributes, &mask) == 0);
-  CHECK(posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSIGMASK) == 0);
   CHECK(posix_spawn(&pid, self, NULL, &attributes, arguments, environ) == ENOTSUP);
   CHECK(posix_spawnattr_destroy(&attributes) == 0 && posix_spawn_file_actions_destroy(&actions) == 0);
 #endif
@@ -299,7 +293,7 @@ static void rejected_packets(const char *path, int writer) {
   memcpy(packet + sizeof(header), path, path_size);
   memcpy(packet + sizeof(header) + path_size, path, path_size + 1);
   memcpy(packet + sizeof(header) + 2 * path_size + 1, arguments, sizeof(arguments));
-  for (int variant = -1; variant < 6; ++variant) {
+  for (int variant = -1; variant < 7; ++variant) {
     dolly_process_spawn_request request = header;
     dolly_process_fd_mapping mappings[] = {{(uint32_t)writer, 22}, {20, 23}};
     if (variant == 1) request.descriptor_inheritance = UINT32_MAX;
@@ -307,6 +301,7 @@ static void rejected_packets(const char *path, int writer) {
     if (variant == 3) request.mapping_count = 1025;
     if (variant == 4) mappings[1].target_descriptor = 1024;
     if (variant == 5) mappings[1].target_descriptor = 22;
+    if (variant == 6) request.signals.pending_signals = 1u << DOLLY_PROCESS_SIGTERM;
     memcpy(packet, &request, sizeof(request));
     memcpy(packet + size - sizeof(mappings), mappings, sizeof(mappings));
     dolly_process_spawn_response response;

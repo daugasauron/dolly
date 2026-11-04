@@ -7,10 +7,10 @@ REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/Dollyfile-system-build 7fdc2d67daa3a1e8667818645b9c9d0d4efab6013cc0f366a0bf615045fa4fe9
-INSTALL /v0.1.4/Dollyfile-zlib d91bacbcddaa4f91d07244cd4d558fb7623ecafe75a4ac07f20c1caa9231321f
-INSTALL /v0.1.4/Dollyfile-gzip ed1e20a4f02b4406a502500328ffa67ea68772c0a52db4641ff22ec96931f0ac
-INSTALL /v0.1.4/Dollyfile-curl 8af1f8fc48e59e8d5b3a156bf043333a8b53d489e498a2e47f394b292563d723
+FROM /v0.1.4/Dollyfile-system-build 2c496ce31180dd5b04f8b4f6e4c89b0400b2103fd3aae9e1198bc627eaaccda3
+INSTALL /v0.1.4/Dollyfile-zlib 399ec19ff4bc5880534ca1bf6edd026bc623103362a0c94fa36473245ca78ecc
+INSTALL /v0.1.4/Dollyfile-gzip 4deb6aa5025dbebafa7085ec3c02244f15034903d021acd9d105362270773c2d
+INSTALL /v0.1.4/Dollyfile-curl 813064b0e97cd158ee8d116a3c7abf7553561cdffcc66d5761a0ef27edad0821
 REQUIRES LIB z
 REQUIRES LIB curl
 REQUIRES TOOL cc
@@ -41,7 +41,7 @@ SLOP mkdir -p /usr/share/licenses/rust
 SLOP cp -R /opt/rust-sdk/licenses/. /usr/share/licenses/rust
 SLOP rm /tmp/rust-sdk.tar.gz /tmp/rust-linker.c
 
-EXPORTS ENV PATH APPEND /opt/rust-sdk/bin
+EXPORTS ENV PATH /bin:/usr/bin:/opt/rust-sdk/bin
 EXPORTS TOOL rustc
 EXPORTS TOOL cargo
 # Images build once, so rustc's incremental sessions would only be a second
@@ -55,6 +55,6 @@ EXPORTS FOLDER rust-sdk /opt/rust-sdk
 EXPORTS FOLDER rust-licenses /usr/share/licenses/rust
 SLOP rustc --version --verbose
 SLOP cargo --version
-INSTALL /v0.1.4/Dollyfile-display 22eb1f82429c1f01806dfae95a323cd581f10934af401cfcd717aad659abd3f2
+INSTALL /v0.1.4/Dollyfile-display 2be7cbca13647b99084a669132428169b2d5a6bde7a291642efc5c584f9ffd63
 
 ENTRY /bin/foreground -i /bin/slop

@@ -56,7 +56,7 @@ static inline const char *dolly_http_error_message(int error) {
     case EACCES: return "Browser HTTP policy denied the request";
     case EDQUOT: return "Browser HTTP request quota exceeded";
     case E2BIG: return "Browser HTTP byte limit exceeded";
-    case ETIMEDOUT: return "Browser HTTP deadline exceeded";
+    case ETIMEDOUT: return "Browser HTTP request timed out";
     case ECANCELED: return "Browser HTTP request cancelled";
     case EPROTONOSUPPORT: return "Browser HTTP requires HTTP(S)";
     case EINVAL: return "Invalid browser HTTP request";

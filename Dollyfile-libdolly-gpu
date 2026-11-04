@@ -6,15 +6,15 @@ REQUIRES HOST runtime@0
 # for programs the cc package builds: cc links every client archive in
 # /usr/lib/dolly/process, and a program records gpu@0 only when it calls the
 # client.
-FROM /v0.1.4/Dollyfile-system-build 7fdc2d67daa3a1e8667818645b9c9d0d4efab6013cc0f366a0bf615045fa4fe9
+FROM /v0.1.4/Dollyfile-system-build 2c496ce31180dd5b04f8b4f6e4c89b0400b2103fd3aae9e1198bc627eaaccda3
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.4/host/gpu/gpu.h 4c77c750144fb65eba1de4694ae3b78522a2162810fd83f72dda1592f1578000 /usr/include/dolly/gpu.h
-SOURCE /v0.1.4/host/gpu/gpu-abi.h 01e97fc225cda01fb5e295819ceb230252d45fb211b64262d5a2c63e9e065be2 /usr/include/dolly/gpu-abi.h
-SOURCE /v0.1.4/host/gpu/client.c 57a3100dbb267e0c50fa440ceab55615ac18dcddb7cbec223e0e73a8821e9414 /tmp/libdolly-gpu/client.c
+SOURCE /v0.1.4/host/gpu/gpu.h 31f3aa190bd9bec32a1aedde6777212650442cd21d24c4d23a8f863833f38ebd /usr/include/dolly/gpu.h
+SOURCE /v0.1.4/host/gpu/gpu-abi.h 823bb6eee64dc3dd1ad3ec88a04c00cca65caf7e4b20c4a70c7e0df1840029e1 /usr/include/dolly/gpu-abi.h
+SOURCE /v0.1.4/host/gpu/client.c d66a5030cc20d6fdb2a5e74631f418e4db9c79ac0073f24fbf9e663bbe8bd824 /tmp/libdolly-gpu/client.c
 SLOP cc -O1 -c /tmp/libdolly-gpu/client.c -o /tmp/libdolly-gpu/client.o
 SLOP ar rcs /usr/lib/dolly/process/libdolly-gpu.a /tmp/libdolly-gpu/client.o
 

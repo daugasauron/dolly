@@ -2,6 +2,9 @@
 
 A Dollyfile is an ordered recipe that `/bin/dollyfile`
 ([`dollyfile.c`](../src/dollyfile.c)) executes inside Wasm to build an image.
+The page reads the recipe ([`dollyfile-view.mjs`](../src/dollyfile-view.mjs),
+the language's one parser) and gives the engine its rows, the words of each
+line, in `/etc/dolly/recipe.rows`: the engine parses no recipe text.
 A recipe declares its role on its second line: an `APPLICATION` that people
 open, a `TOOLCHAIN` that other recipes build on, or a `PACKAGE` that recipes
 and sessions install. Steps share one filesystem and environment and run in
@@ -94,7 +97,7 @@ mounted, and reads no other version's.
 | `FILE /path` | Write the body, if any, and retain the file. |
 | `FOLDER /path` | Retain the directory and the members it has at this row. |
 | `EXPORTS TYPE name …` | Offer an object when the recipe finishes. |
-| `REQUIRES TYPE name` | Assert that an object is available here. |
+| `REQUIRES TOOL\|LIB\|HEADER name` | Assert that an object is available here. |
 | `ENTRY /program [word…]` | Last declaration: the program the image runs when opened. |
 
 - Paths are absolute and normalized: no trailing `/`, `//`, `.`, `..`,
@@ -137,7 +140,7 @@ mounted, and reads no other version's.
   built in. The build runs the base's `/bin/dollyfile`.
 - A recipe without `FROM` starts from nothing and keeps only what it installs
   and declares: `default` is `core`, `posix`, `display`, `curl`, `amy`, `nena`,
-  `transfer`, `ps`, its start-up script and an ENTRY, with no compiler. It opens, and `amy` installs
+  `transfer`, `html`, `ps`, its start-up script and an ENTRY, with no compiler. It opens, and `amy` installs
   into it, but it is not a base to compile on: `FROM` a toolchain for that.
 - `INSTALL` restores a package's retained files, applies and exports its
   environment and exports its objects. It may appear anywhere and names only a
@@ -181,8 +184,7 @@ mounted, and reads no other version's.
   allows them. A recipe never grants itself network access. Upstream hosts
   often send no CORS headers, so upstream archives are staged and published
   by the site ([sources](sources.md#pins-and-identity)).
-- `EXPORTS ENV NAME VALUE` sets the variable now; `EXPORTS ENV NAME APPEND VALUE`
-  appends `:VALUE` (or sets it when empty). Final values are stored in the image.
+- `EXPORTS ENV NAME VALUE` sets the variable now. Final values are stored in the image.
 
 ## Exports, assertions and retention
 
@@ -192,7 +194,7 @@ mounted, and reads no other version's.
 | `EXPORTS FILE name /path`, `EXPORTS LIB name /path` | A regular file. |
 | `EXPORTS FOLDER name /path` | A directory and its members. |
 | `EXPORTS HEADER name /path` | A file or directory. |
-| `EXPORTS ENV NAME [APPEND] VALUE` | An environment variable. |
+| `EXPORTS ENV NAME VALUE` | An environment variable. |
 
 - ENV names match `[A-Za-z_][A-Za-z0-9_]*`; other names match
   `[A-Za-z][A-Za-z0-9._+-]*` or are `[`; at most 128 bytes.
@@ -202,9 +204,8 @@ mounted, and reads no other version's.
 - An application or toolchain exports its own objects, those of the packages
   it installs and those of its base; a package exports its own. An image
   retains every object it exports.
-- `REQUIRES TOOL` checks `PATH`, `REQUIRES ENV` the environment, other types an
-  earlier visible export of that kind: the recipe's own, a package's or the
-  base's.
+- `REQUIRES TOOL` checks `PATH`, `LIB` and `HEADER` an earlier visible export
+  of that kind: the recipe's own, a package's or the base's.
 - The image keeps only `FILE` and `FOLDER` paths, exported objects, `FROM`,
   `INSTALL` and `COPY` results, and its recipes; a package keeps `COPY`
   results and neither of the other two. Scratch needs no cleanup. ENTRY
@@ -236,8 +237,8 @@ mounted, and reads no other version's.
   module is not declared. Requirements grant nothing: the embedding enables
   modules and the HTTP broker decides network access
   ([browser boundary](browser-boundary.md)). `system` declares the runtime,
-  display, input, http, download, upload, snapshot and threads (Git runs
-  threads); `default` adds packages, nena, dso, sockets, touch and audio, because the packages people
+  display, input, http, download, upload, html, snapshot and threads (Git runs
+  threads, the `html` command shows popups); `default` adds packages, nena, dso, sockets, touch and audio, because the packages people
   install into it need them (`python` and `nvim` load modules, every SDL2
   program records `touch@0` and `audio@0`); a declared module costs a program that
   does not record it nothing. A terminal draws with `display@0` and reads keys
@@ -254,8 +255,8 @@ mounted, and reads no other version's.
 
 ## Entry and startup
 
-The browser runs the retained ENTRY once, and only an image with ENTRY and
-`display@0` can be opened. Applications enter
+The browser runs the retained ENTRY once, in `/workspace` (`PWD` says so),
+and only an image with ENTRY and `display@0` can be opened. Applications enter
 `/bin/foreground -i /bin/slop /etc/dolly/init.slop`, which starts the program
 and then a recovery shell; toolchains that can be opened enter
 `/bin/foreground -i /bin/slop`. The image ends when its ENTRY process does:

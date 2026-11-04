@@ -20,7 +20,7 @@ commands run Slop through `posix_spawn` over pipes.
 - [`emacs-dolly.patch`](emacs-dolly.patch): names the `dolly` system type
   (`wasm64-unknown-emscripten`) and builds Emacs's own termcap without PTYs.
   Under `DOLLY` it skips what Dolly lacks: the versioned hard link, a spawn
-  session, job-control wait options, `FIONREAD` and process groups. `C-g` is
+  session, job-control wait options and `FIONREAD`. `C-g` is
   the terminal's interrupt key, as Emacs sets it on any Unix (`VINTR`). It
   fixes one bug of the release: a terminal read stored inside `while-no-input`
   (eager completion at the first prompt) quit after two bytes and lost the rest.

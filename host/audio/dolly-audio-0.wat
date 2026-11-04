@@ -17,25 +17,19 @@
   (global (export "DOLLY_AUDIO_WRITE") i32 (i32.const 2))
   (global (export "DOLLY_AUDIO_STATUS") i32 (i32.const 3))
   (global (export "DOLLY_AUDIO_CLOSE") i32 (i32.const 4))
-  ;; LE header [32]: u32 version,operation; u64 scope,sequence; u32 body,reserved.
-  ;; Scope is a non-reused u32 lease; slot=(scope-1)%4. OPEN begins with scope=0;
-  ;; the kernel binds its process-owned lease before dispatch. Sequence is a
-  ;; nonzero, increasing u32; it must not wrap. Close/reopen before exhaustion.
-  ;; Each process owns at most one lease. All reserved fields and upper u64 bits
-  ;; are zero.
-  ;; OPEN [32] reply [16]: u64 scope; u32 sample_rate,channels.
-  ;; WRITE [40+frames*8]: u32 frames,reserved; interleaved stereo f32 PCM.
+  ;; A device leased per process: each call is a packet, a
+  ;; dolly_device_header (runtime.h) and the body below, answered in a
+  ;; reply slot of dolly-supervisor-0.wat. Sizes in brackets are of bodies.
+  ;; Each process owns at most one lease, in slot (scope-1)%4.
+  ;; OPEN [0] reply [16]: u64 scope; u32 sample_rate,channels.
+  ;; WRITE [8+frames*8]: u32 frames,reserved; interleaved stereo f32 PCM.
   ;; Frames are 128..4096 at 48 kHz. Nonfinite samples fail EINVAL; finite samples
   ;; are clamped to [-1,1]. Reply [4]: u32 accepted_frames. Admission is atomic;
   ;; EAGAIN means none accepted. Each lease queues at most 48000 frames/64 buffers.
-  ;; STATUS [32] reply [16]: u32 queued_frames,state; u64 played_frames.
+  ;; STATUS [0] reply [16]: u32 queued_frames,state; u64 played_frames.
   ;; State: 1 running, 2 suspended (browser interaction may be needed to resume).
-  ;; CLOSE [32] stops queued playback and retires the lease; empty reply.
+  ;; CLOSE [0] stops queued playback and retires the lease; empty reply.
   ;; Reaping a process revokes its lease, including pending requests/playback.
-  ;; Dispatch(NULL,scope) is revocation. Other calls use copied bounded packets.
-  ;; Reply mailbox: four 80-byte slots at a 64-byte-aligned base plus slot*80.
-  ;; Five atomic u32 fields: state,scope,sequence,errno,length; 44 padding
-  ;; bytes; 16 reply bytes. Provider publishes state=1 last, with release ordering.
   ;; PCM playback is an explicit external device resource. It grants no capture,
   ;; microphone, file, URL, DOM or network authority. Mixing/state remain in Wasm.
 )

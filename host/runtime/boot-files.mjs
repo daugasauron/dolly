@@ -2,8 +2,9 @@ import { DOLLY_ERRNO } from "./abi.mjs";
 
 const encoder = new TextEncoder();
 
-// Boot files cross between the Worker and the in-Wasm filesystem through three
-// kernel exports, which take paths and bytes copied into kernel memory.
+// Boot files cross between the Worker and the in-Wasm filesystem through four
+// kernel exports, which take paths and bytes copied into kernel memory; one
+// makes a build's input image a file whose bytes stay in the Worker.
 export function bootFiles(kernel, memory) {
   const allocate = size => {
     const address = Number(kernel.malloc(BigInt(Math.max(1, size))));
@@ -25,6 +26,11 @@ export function bootFiles(kernel, memory) {
       const status = withPath(path, pathAddress => withBytes(bytes, address =>
         kernel.dolly_write_file(pathAddress, address, BigInt(bytes.length))));
       if (status !== 0) throw new Error(`Dolly could not write ${path}: status ${status}`);
+    },
+    // The build's input INPUT (the runtime's setBuildInputs), SIZE bytes, as PATH.
+    input(path, input, size) {
+      const status = withPath(path, pathAddress => kernel.dolly_build_input(pathAddress, input, BigInt(size)));
+      if (status !== 0) throw new Error(`Dolly could not place ${path}: status ${status}`);
     },
     // Guest-writable files are bounded before trusted code copies them.
     read(path, limit) {

@@ -7,10 +7,10 @@ REQUIRES HOST threads@0
 # Zig 0.17 with its LLVM backend: zig-llvm-build's objects linked, as
 # upstream's CMake build links zig2, with Zig's C++ glue (zigcpp) and LLVM,
 # Clang and LLD 22, which the build uses and installers do not get.
-FROM /v0.1.4/demos/zig/Dollyfile-zig-llvm-build 3f180ae2b0707779ff18ccd5f6e2c877fd988764f7c4c0b09766680e8e20da54
-USE /v0.1.4/demos/llvm/Dollyfile-llvm22 8fe0529a969d745afa4a4e89ecc89c2c6e491024361d06a19888a94ad0cc117f
+FROM /v0.1.4/demos/zig/Dollyfile-zig-llvm-build a3e740cd030729ddee8838105c3872390202d969080fa2dc39f4524da5e5cf42
+USE /v0.1.4/demos/llvm/Dollyfile-llvm22 dbfa7fbadec6704317962bc544a3ac820156f65277b19684bf378768bc0eecdb
 # Zig links a program for this target with cc (zig-0.17.0-dolly-llvm.patch).
-INSTALL /v0.1.4/Dollyfile-cc 0bd19561fbc6e8e7b43888bfd26c575ce64ed7e6769092f7a784a1f31a411cf8
+INSTALL /v0.1.4/Dollyfile-cc 53efa9fa48567501751d60f4172407b9bd62ea6dfa65eca475d0f6d62f6fef2e
 REQUIRES TOOL   c++
 REQUIRES TOOL   ar
 
@@ -34,8 +34,10 @@ SLOP zig version
 EXPORTS TOOL   zig
 EXPORTS FOLDER zig-lib     /usr/lib/zig
 EXPORTS ENV    ZIG_LIB_DIR /usr/lib/zig
-# The libc's directories, which Zig would otherwise ask cc for (cc -E -Wp,-v,
-# cc -print-file-name); cc's link adds the libc itself.
+# The libc Zig links for this target, which it does not find by asking cc:
+# Emscripten's headers (below), which C compiled for Emscripten includes, and
+# the crt directory, which Zig does not look for on this host; cc's link adds
+# the libc itself.
 FILE /usr/lib/zig/libc.txt
     include_dir=/usr/include
     sys_include_dir=/usr/include/wasm64-emscripten

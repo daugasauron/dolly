@@ -9,7 +9,7 @@ an agent in place of a web frontend (`docs/agent-frontend.md` in the repository)
 | --- | --- |
 | `@daugasauron/dolly` | The runtime: `boot()`, the kernel, the process runtime, its image builder, and the host modules that are its own machinery (`runtime`, `http`, `threads`, `dso`, `stack`, `nena`, `snapshot`, `packages`) |
 | `@daugasauron/dolly-host-NAME` | One device host module each: `display` (Ghostty's terminal and programs' frames), `input`, `gpu`, `audio`, `microphone`, `touch`, `download` (as `dolly-host-save`: npm takes no new name with the word), `upload`, `html`, `sockets`, `pty` |
-| `@daugasauron/dolly-image-default` | The `default` image alone: a shell, its text tools, the terminal, curl, `amy`, `nena`, `ps`. The package holds no package index, so `amy installed` lists what the image holds and `amy list` and `amy install` fail naming the index |
+| `@daugasauron/dolly-image-default` | The `default` image alone: a shell, its text tools, the terminal, curl, `amy`, `nena`, `ps`, `html`. The package holds no package index, so `amy installed` lists what the image holds and `amy list` and `amy install` fail naming the index |
 | `@daugasauron/dolly-image-pi-minimal` | The `pi-minimal` image alone: the Pi coding agent with JavaScript (Janis), a shell, POSIX tools, curl, ripgrep and fd, on `display`, `input`, `download` and `html` alone. The README's "Pi with npm" serves it with a policy |
 | `@daugasauron/dolly-image-python-data` | The `python-data` image: `default` with Python 3.14, pip and the C compiler, NumPy, pandas, Matplotlib (Agg) and seaborn, built in Dolly from their PyPI releases. Its README gives the install line (it declares `sockets` too) and the `FROM` row of a recipe built on it |
 | `@daugasauron/dolly-package-NAME` | A package for an image of your own: `git` (with diff and patch), `python` (3.14 with pip; it brings `cc`) or `cc` (the C and C++ compiler with Make). Its directory holds its catalog, metadata, packs and recipes, as an image package does, and nothing to boot |
@@ -19,7 +19,7 @@ an agent in place of a web frontend (`docs/agent-frontend.md` in the repository)
 npm install @daugasauron/dolly @daugasauron/dolly-image-default \
   @daugasauron/dolly-host-display @daugasauron/dolly-host-input @daugasauron/dolly-host-audio \
   @daugasauron/dolly-host-touch @daugasauron/dolly-host-save @daugasauron/dolly-host-upload \
-  @daugasauron/dolly-host-sockets
+  @daugasauron/dolly-host-html @daugasauron/dolly-host-sockets
 ```
 
 Each host module and image depends on the runtime alone, at its own version. An
@@ -80,20 +80,38 @@ const dolly = await boot(element, { images, image, modules: [...modules, gpu] })
 `nena enable gpu` then gives a program the GPU, or, where the browser has no
 WebGPU adapter, a device that fails to open with `ENODEV`.
 
+## Colours
+
+The terminal's colours and the popups' are the page's, not the image's. Set
+these on the element (or above it) in your style sheet to match your page;
+unset, they are Dolly's:
+
+```css
+#dolly {
+  --dolly-background: #262626;          /* the terminal's and the popups' */
+  --dolly-color: #e8e3d7;               /* their text */
+  --dolly-accent: #f2d45c;              /* the cursor and the selection; the popups' headings, buttons, focus */
+  --dolly-display-palette-1: #e8e3d7;   /* -0 to -15: the 16 colours programs name */
+}
+```
+
+Unset, of the 16 colours programs name, black (`-0`) is the background, yellow
+and bright yellow (`-3`, `-11`) the accent, bright black (`-8`) `#77736c` and
+the others the text's colour, so a program's red shows as its text does. A
+value may be any CSS colour; one that is not counts as unset. The terminal
+takes them at boot and whenever they change, by any rule or media query; a
+popup as it opens.
+
 ## Popups
 
 `html@0` shows a program's HTML document in a popup over the terminal, in
 boot()'s element: a report, or a form whose submitted fields go back to the
 program (Pi's `ask_user` and `show_html`). The popup takes the document's text,
 headings, lists, tables and forms and nothing else of it; its look is the
-page's. Set these on the element (or above it) in your style sheet to match
-your page; unset, they are Dolly's:
+page's: the colours above and these, unset Dolly's:
 
 ```css
 #dolly {
-  --dolly-html-background: #262626;
-  --dolly-html-color: #e8e3d7;
-  --dolly-html-accent: #f2d45c;          /* headings, buttons, focus */
   --dolly-html-font: ui-monospace, monospace;
   --dolly-html-color-scheme: dark;       /* the form controls' own colours */
   --dolly-html-font-file: none;          /* or url(…): the font of the first family above */
@@ -137,9 +155,10 @@ npx dolly-build Dollyfile-my-pi my-pi
   of `pi-minimal` and of each package, `FROM` `pi-minimal` and `INSTALL` of each
   package at the installed pins, rows for Pi's instructions, a skill, an extension,
   a tool and the script that starts Pi, and `pi-minimal`'s `ENTRY`), `index.html`
-  (the policy, the popups' colours, and the files of `workspace/` and `theme.json`
-  for `boot()`'s `files`, listed by `workspace.json`), `theme.json` (Pi's colours,
-  written over the image's theme at boot), `serve.mjs` (isolation, the listing,
+  (the policy, the popups' font, and the files of `workspace/` and `theme.json`
+  for `boot()`'s `files`, listed by `workspace.json`), `theme.json` (the sandbox's
+  colours: Pi's theme, written over the image's at boot, whose background, text,
+  accent and muted the page sets as the terminal's and the popups'), `serve.mjs` (isolation, the listing,
   relays), `workspace/README.md` and, unless the project has one, a
   `.gitignore` for `node_modules/` and the image directory. It names the host module
   package to install when a package needs one the page lacks (`python`'s `sockets`).

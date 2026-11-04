@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { inspectDollyfile } from "../../src/dollyfile-view.mjs";
+import { inspectDollyfile, recipeRows } from "../../src/dollyfile-view.mjs";
 import { shellQuote } from "./slop-cases.mjs";
 
 const scratch = "/workspace/dollyfile-parser-test";
 const outputs = "/usr/share/dollyfile-parser-test";
 const digest = value => createHash("sha256").update(value).digest("hex");
-// Recipes the in-sandbox executor runs against the live filesystem; sources
-// come from the test server's origin, which serves `recipes` by path.
+// Recipes the in-sandbox executor runs against the live filesystem, with the
+// rows the page would give it; sources come from the test server's origin,
+// which serves `recipes` by path.
 export function dollyfileCases(origin) {
   const recipes = new Map();
   const cases = [
@@ -38,8 +39,8 @@ FILE ${outputs}/owned
 FILE ${outputs}/owned
     overwritten`, check: `test "$(cat ${outputs}/owned)" = overwritten` },
     { name: "environment", rows: `EXPORTS ENV DOLLY_V3_ENV first
-EXPORTS ENV DOLLY_V3_ENV APPEND second
-SLOP test "$DOLLY_V3_ENV" = first:second` },
+EXPORTS ENV DOLLY_V3_ENV second
+SLOP test "$DOLLY_V3_ENV" = second` },
     { name: "deletion", rows: `FILE ${outputs}/deleted
     old
 SLOP rm ${outputs}/deleted`,
@@ -63,8 +64,8 @@ SLOP rm ${outputs}/deleted`,
   ];
   for (const item of cases) {
     const source = `DOLLY 7\nAPPLICATION parser-test\nEXPORTS TOOL slop\n${item.rows}\nENTRY ${item.entry ?? '/bin/slop ""'}\n`;
-    inspectDollyfile(source);
     recipes.set(`/fixture/parser-${item.name}.Dollyfile`, source);
+    recipes.set(`/fixture/parser-${item.name}.rows`, recipeRows(inspectDollyfile(source), digest(source)));
   }
   recipes.set("/fixture/parser-before.txt", "before");
   recipes.set("/fixture/parser-after.txt", "after");
@@ -84,6 +85,7 @@ async function runDollyfileCases(submit, origin, cases) {
     await run(`cc -O0 ${scratch}/dollyfile.c -o ${scratch}/dollyfile`);
     for (const item of cases) {
       await run(`curl -fsS ${origin}/fixture/parser-${item.name}.Dollyfile -o ${scratch}/Dollyfile`);
+      if (item.name !== "nul") await run(`curl -fsS ${origin}/fixture/parser-${item.name}.rows -o /etc/dolly/recipe.rows`);
       const status = await submit(`${scratch}/dollyfile FILE:${scratch}/Dollyfile 2> ${scratch}/error`);
       if ((status === 0) !== !item.error) await submit(`cat ${scratch}/error`);
       assert.equal(status === 0, !item.error, `Dollyfile ${item.name}: status ${status}`);

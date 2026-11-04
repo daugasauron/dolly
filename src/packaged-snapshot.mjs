@@ -7,7 +7,7 @@ import { DOLLY_IMAGES, imageBase } from "./images.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
 import { hostRequirements } from "../host/requirements.mjs";
 import { siteReference, sitePath, decodeStaticAsset, sha256 } from "./static-asset.mjs";
-import { decodeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
+import { scanSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 import { unretainedPath } from "./image-names.mjs";
 import { openPackStore } from "./pack-store.mjs";
 import { Sha256 } from "./sha256.mjs";
@@ -271,18 +271,24 @@ class PackReader {
   close() { return this.chunks.return(); }
 }
 
-// Checks every pack against its hash, keeping only its compressed bytes and
-// where its records lie; returns the image's records in path order, each
-// pack's read from its bytes decompressed once more.
+// Checks every pack against its hash as it decompresses, keeping only its
+// compressed bytes and where its records lie; returns the image's records in
+// path order, each pack's read from its bytes decompressed once more.
 async function packedRecords(metadata, signal) {
   const records = [];
   for await (const part of packagedSnapshotParts(metadata, signal)) {
     const pack = { compressed: await readBytes(part.body, part.encodedByteLength, signal), unread: 0 };
-    const bytes = await readBytes(gunzip(streamOf(pack.compressed)), part.byteLength, signal);
-    if (await sha256(bytes) !== part.sha256) throw new Error("snapshot integrity mismatch");
+    const hash = new Sha256();
+    const scanned = await scanSnapshotRecords((async function* () {
+      for await (const chunk of chunksOf(gunzip(streamOf(pack.compressed)), signal)) {
+        hash.update(chunk);
+        yield chunk;
+      }
+    })(), () => false);
+    if (scanned.byteLength !== part.byteLength || hash.hex() !== part.sha256) throw new Error("snapshot integrity mismatch");
     await part.verified();
-    for (const [path, { kind, data }] of decodeSnapshotRecords(bytes)) {
-      records.push({ pack, kind, path: encoder.encode(path), offset: data.byteOffset, size: data.length });
+    for (const [path, { kind, offset, size }] of scanned.records) {
+      records.push({ pack, kind, path: encoder.encode(path), offset, size });
       pack.unread += 1;
     }
   }

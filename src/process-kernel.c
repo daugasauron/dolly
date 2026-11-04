@@ -1,3 +1,4 @@
+#include "device-lease.h"
 #include "fs-record.h"
 #include "process-kernel.h"
 
@@ -48,7 +49,7 @@ typedef struct {
 
 /* What a process runs: the executable, its arguments and its environment.
  * The executable stays open until the supervisor takes it (-1 then); the image
- * is its bytes, read only when the supervisor asks for them. */
+ * is its head, read to find a Wasm header or a #! line. */
 typedef struct {
   char *path;
   char **arguments;
@@ -92,9 +93,12 @@ typedef struct {
   int handling_signal;
   uint64_t alarm_deadline; /* Monotonic SIGALRM time; zero while disarmed. */
   uint64_t alarm_interval;
-  int alarm_handled;
+  /* What the program does with each signal (dolly_process_signal_dispositions). */
+  uint32_t ignored_signals;
+  uint32_t handled_signals;
   /* The mailbox of the Worker of a process without threads (dolly_process_worker_mailbox). */
   uintptr_t mailbox;
+  uint64_t read_deadline; /* When a VMIN 0 terminal read gives up; zero between reads. */
 } dolly_kernel_process;
 
 /* The supervisor's own packets: the page's spawn, a refusal or failure line. */
@@ -143,14 +147,17 @@ static const dolly_kernel_module *const kernel_modules[] = {
 #undef DOLLY_KERNEL_MODULE
 
 static void release_modules(int pid, int tid) {
-  for (size_t index = 0; index < sizeof(kernel_modules) / sizeof(*kernel_modules); ++index)
-    if (kernel_modules[index]->release) kernel_modules[index]->release(pid, tid);
+  for (size_t index = 0; index < sizeof(kernel_modules) / sizeof(*kernel_modules); ++index) {
+    const dolly_kernel_module *module = kernel_modules[index];
+    if (module->release) module->release(pid, tid);
+    if (module->device && tid == 0) dolly_device_release(module->device, pid);
+  }
 }
 
 static const dolly_kernel_module *module_for(uint32_t operation) {
   for (size_t index = 0; index < sizeof(kernel_modules) / sizeof(*kernel_modules); ++index) {
     const dolly_kernel_module *module = kernel_modules[index];
-    if (module->call && operation >= module->first_operation &&
+    if ((module->call || module->device) && operation >= module->first_operation &&
         operation <= module->last_operation) return module;
   }
   return NULL;
@@ -354,7 +361,7 @@ static int supported_signal(uint32_t signal_number) {
 /* Signals whose delivery does not end the process. */
 static uint32_t notification_signals(const dolly_kernel_process *process) {
   return 1u << DOLLY_PROCESS_SIGCHLD | 1u << DOLLY_PROCESS_SIGWINCH |
-      (process->alarm_handled ? 1u << DOLLY_PROCESS_SIGALRM : 0);
+      process->ignored_signals | process->handled_signals;
 }
 
 void dolly_kernel_terminal_resized(void) {
@@ -754,7 +761,9 @@ static int spawn_packet(int parent_pid, size_t size) {
       ((request.flags & DOLLY_PROCESS_SPAWN_INTERACTIVE) != 0 &&
        (request.flags & DOLLY_PROCESS_SPAWN_FOREGROUND) == 0) ||
       request.argument_bytes > SIZE_MAX || request.environment_bytes > SIZE_MAX ||
-      !valid_spawn_deadline(request.deadline_nanoseconds)) {
+      !valid_spawn_deadline(request.deadline_nanoseconds) ||
+      request.signals.pending_signals != 0 || request.signals.reserved != 0 ||
+      ((request.signals.blocked_signals | request.signals.ignored_signals) & 1u) != 0) {
     return -EINVAL;
   }
   const size_t path_size = request.path_size;
@@ -779,6 +788,8 @@ static int spawn_packet(int parent_pid, size_t size) {
   process->parent_pid = parent_pid;
   process->spawn_flags = request.flags;
   process->deadline_nanoseconds = request.deadline_nanoseconds;
+  process->start_signals = request.signals;
+  process->ignored_signals = request.signals.ignored_signals;
   dolly_kernel_process *parent = parent_pid == 0 ? NULL : find_process(parent_pid);
   int result = 0;
   if (parent_pid != 0 && parent == NULL) result = -ESRCH;
@@ -1288,6 +1299,46 @@ static int open_flags(uint32_t flags) {
   return result;
 }
 
+/* A terminal read that found no byte, under the terminal's MODE: deferred
+ * until one arrives, unless termios VMIN is 0 (DOLLY_TERMINAL_VMIN_ZERO):
+ * then it ends with none, at once or once VTIME tenths of a second have
+ * passed since the read began (dolly_kernel_deadline_pending wakes it). */
+static int64_t terminal_read_waits(dolly_kernel_process *process, uint32_t mode) {
+  if ((mode & (DOLLY_TERMINAL_VMIN_ZERO | DOLLY_TERMINAL_CANONICAL)) != DOLLY_TERMINAL_VMIN_ZERO) {
+    return DOLLY_PROCESS_DISPATCH_DEFERRED;
+  }
+  const uint64_t tenths = (mode & DOLLY_TERMINAL_VTIME) >> DOLLY_TERMINAL_VTIME_SHIFT;
+  if (process->read_deadline == 0 && tenths != 0) {
+    process->read_deadline = saturating_add(clock_nanoseconds(CLOCK_MONOTONIC), tenths * UINT64_C(100000000));
+  }
+  if (process->read_deadline != 0 && dolly_kernel_deadline_pending(process->read_deadline)) {
+    return DOLLY_PROCESS_DISPATCH_DEFERRED;
+  }
+  process->read_deadline = 0;
+  return 0;
+}
+
+/* A terminal read that ended, with bytes or an error: the next one begins anew. */
+static int64_t terminal_read_ended(dolly_kernel_process *process, int64_t result) {
+  if (result != DOLLY_PROCESS_DISPATCH_DEFERRED) process->read_deadline = 0;
+  return result;
+}
+
+static int64_t socket_read(dolly_kernel_process *process, dolly_kernel_socket *socket,
+                           uint32_t descriptor, size_t size) {
+  const int64_t count = socket->kind->receive(socket, process_mailbox, size, 1);
+  if (count != DOLLY_PROCESS_DISPATCH_DEFERRED || socket->kind->terminal == NULL) {
+    return terminal_read_ended(process, count);
+  }
+  /* A pseudo-terminal's slave waits as its mode says; its master is no terminal. */
+  dolly_process_terminal_request ask = {DOLLY_PROCESS_TERMINAL_ISATTY, descriptor, 0, 0, 0};
+  dolly_process_terminal_response answer = {0};
+  if (socket->kind->terminal(socket, &ask, &answer) < 0 || answer.value == 0) return count;
+  ask.operation = DOLLY_PROCESS_TERMINAL_MODE_GET;
+  if (socket->kind->terminal(socket, &ask, &answer) < 0) return count;
+  return terminal_read_waits(process, (uint32_t)answer.value);
+}
+
 static int64_t fd_read_packet(dolly_kernel_process *process,
                               uintptr_t request_size,
                               uintptr_t response_capacity) {
@@ -1318,18 +1369,18 @@ static int64_t fd_read_packet(dolly_kernel_process *process,
     return (int64_t)count;
   }
   if (process->sockets[request.descriptor] != NULL) {
-    dolly_kernel_socket *socket = process->sockets[request.descriptor];
-    return socket->kind->receive(socket, process_mailbox, (size_t)request.size, 1);
+    return socket_read(process, process->sockets[request.descriptor], request.descriptor, (size_t)request.size);
   }
   int descriptor = descriptor_for(process, request.descriptor);
   if (descriptor < 0) return descriptor;
   if (process->terminal_descriptors[request.descriptor]) {
     if (request.size == 0) return 0;
     const int64_t count = dolly_kernel_terminal_receive(process_mailbox, (size_t)request.size);
-    if (count != -EAGAIN) return count;
+    if (count != -EAGAIN) return terminal_read_ended(process, count);
     const int flags = fcntl(descriptor, F_GETFL);
     if (flags < 0) return -errno;
-    return flags & O_NONBLOCK ? -EAGAIN : DOLLY_PROCESS_DISPATCH_DEFERRED;
+    if (flags & O_NONBLOCK) return terminal_read_ended(process, -EAGAIN);
+    return terminal_read_waits(process, dolly_kernel_terminal_mode());
   }
   for (;;) {
     ssize_t count = read(descriptor, process_mailbox, (size_t)request.size);
@@ -1648,6 +1699,25 @@ static int64_t fd_lock_packet(dolly_kernel_process *process, uintptr_t request_s
 
 static double deferred_milliseconds = -1;
 
+/* tcgetpgrp: every process is its own group. A pseudo-terminal's slave is
+ * the foreground of the processes that hold it, as its interrupt key is. The
+ * display's terminal is that of its foreground owner and the processes that
+ * descend from it, or of every process while it has none; any other is told
+ * the owner's. */
+static int64_t terminal_foreground(const dolly_kernel_process *process,
+                                   dolly_kernel_socket *stream, uint32_t descriptor) {
+  if (!descriptor_is_open(process, descriptor)) return -EBADF;
+  if (stream != NULL) {
+    const dolly_process_terminal_request request = {DOLLY_PROCESS_TERMINAL_ISATTY, descriptor, 0, 0, 0};
+    dolly_process_terminal_response response = {0};
+    const int64_t result = stream->kind->terminal(stream, &request, &response);
+    return result < 0 ? result : response.value == 1 ? process->pid : -ENOTTY;
+  }
+  if (!process->terminal_descriptors[descriptor]) return -ENOTTY;
+  return foreground_pid == 0 || dolly_process_descends_from(process->pid, foreground_pid)
+      ? process->pid : foreground_pid;
+}
+
 static int64_t terminal_packet(dolly_kernel_process *process,
                                uintptr_t request_size,
                                uintptr_t response_capacity) {
@@ -1665,6 +1735,10 @@ static int64_t terminal_packet(dolly_kernel_process *process,
     if (stream == NULL) dolly_terminal_publish_result((int)request.flags);
     return respond(&response, sizeof(response));
   }
+  if (request.operation == DOLLY_PROCESS_TERMINAL_FOREGROUND) {
+    response.value = terminal_foreground(process, stream, request.descriptor);
+    return response.value < 0 ? response.value : respond(&response, sizeof(response));
+  }
   if (request.operation != DOLLY_PROCESS_TERMINAL_READ &&
       request.operation != DOLLY_PROCESS_TERMINAL_ISATTY &&
       request.operation != DOLLY_PROCESS_TERMINAL_MODE_GET &&
@@ -1674,8 +1748,7 @@ static int64_t terminal_packet(dolly_kernel_process *process,
     const int64_t result = stream->kind->terminal(stream, &request, &response);
     return result < 0 ? result : respond(&response, sizeof(response));
   }
-  const int descriptor = descriptor_for(process, request.descriptor);
-  if (descriptor < 0) return descriptor;
+  if (!descriptor_is_open(process, request.descriptor)) return -EBADF;
   const int terminal = process->terminal_descriptors[request.descriptor] != 0;
   if (request.operation == DOLLY_PROCESS_TERMINAL_ISATTY) {
     response.value = terminal;
@@ -1855,8 +1928,16 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       operation != DOLLY_PROCESS_INTERRUPT_POLL &&
       operation != DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE &&
       operation != DOLLY_PROCESS_EXIT &&
-      !(operation == DOLLY_PROCESS_EXEC && request_size == 0)) return -EINTR;
+      operation != DOLLY_PROCESS_SIGNAL_DISPOSITIONS &&
+      !(operation == DOLLY_PROCESS_EXEC && request_size == 0)) {
+    /* A VMIN 0 read the signal interrupts begins anew when made again. */
+    process->read_deadline = 0;
+    return -EINTR;
+  }
   const dolly_kernel_module *module = module_for(operation);
+  if (module && module->device) {
+    return dolly_device_call(module->device, pid, process_mailbox, request_size, response_capacity);
+  }
   if (module) return module->call(pid, tid, operation, process_mailbox, request_size, response_capacity);
   switch (operation) {
     case DOLLY_PROCESS_ARGUMENT_SIZES:
@@ -2407,7 +2488,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       if (request.pid == 0 || request.pid > INT32_MAX ||
           !supported_signal(request.signal_number)) return -ENOTSUP;
       const int result = dolly_process_signal((int)request.pid, (int)request.signal_number);
-      if (result != 0) return result;
+      if (result < 0) return result;
       return respond(&request, sizeof(request));
     }
     case DOLLY_PROCESS_INTERRUPT_POLL: {
@@ -2448,12 +2529,14 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       }
       return respond(&previous, sizeof(previous));
     }
-    case DOLLY_PROCESS_ALARM_HANDLED: {
-      int32_t handled;
-      if (request_size != sizeof(handled) || response_capacity != 0) return -EINVAL;
-      memcpy(&handled, process_mailbox, sizeof(handled));
-      if (handled != 0 && handled != 1) return -EINVAL;
-      process->alarm_handled = handled;
+    case DOLLY_PROCESS_SIGNAL_DISPOSITIONS: {
+      dolly_process_signal_dispositions request;
+      if (request_size != sizeof(request) || response_capacity != 0) return -EINVAL;
+      memcpy(&request, process_mailbox, sizeof(request));
+      if (((request.ignored_signals | request.handled_signals) & 1u) != 0 ||
+          (request.ignored_signals & request.handled_signals) != 0) return -EINVAL;
+      process->ignored_signals = request.ignored_signals;
+      process->handled_signals = request.handled_signals;
       return 0;
     }
     case DOLLY_PROCESS_TERMINAL:
@@ -2635,14 +2718,23 @@ int dolly_process_next_launch(void) {
   return 0;
 }
 
-uintptr_t dolly_process_image_address(int pid) {
+/* The size of the executable's bytes, or a negative errno: -EFBIG past what
+ * the supervisor compiles. */
+int64_t dolly_process_image_size(int pid) {
   const dolly_kernel_program *program = program_to_launch(find_process(pid));
-  return program != NULL ? (uintptr_t)program->image : 0;
+  if (program == NULL || program->image_descriptor < 0) return -EINVAL;
+  struct stat metadata;
+  if (fstat(program->image_descriptor, &metadata) != 0) return -errno;
+  if (metadata.st_size > DOLLY_KERNEL_EXECUTABLE_LIMIT) return -EFBIG;
+  return metadata.st_size;
 }
 
-uintptr_t dolly_process_image_size(int pid) {
+/* The address of block `index` of the executable's bytes, in the file's own
+ * blocks (DOLLY_FS_BLOCK_SIZE each, the last short): no copy. 0 past them. */
+uintptr_t dolly_process_image_block(int pid, uintptr_t index) {
   const dolly_kernel_program *program = program_to_launch(find_process(pid));
-  return program != NULL ? program->image_size : 0;
+  if (program == NULL || program->image_descriptor < 0) return 0;
+  return dolly_fs_block(program->image_descriptor, index);
 }
 
 /* The version of the executable's bytes as they are now (dolly_fs_version):
@@ -2654,33 +2746,9 @@ uint64_t dolly_process_image_version(int pid) {
       ? dolly_fs_version(program->image_descriptor) : 0;
 }
 
-/* Reads the executable's bytes as the image, for image_address and image_size. */
-int dolly_process_image_read(int pid) {
-  dolly_kernel_program *program = program_to_launch(find_process(pid));
-  if (program == NULL || program->image_descriptor < 0) return -EINVAL;
-  if (program->image != NULL) return 0;
-  struct stat metadata;
-  if (fstat(program->image_descriptor, &metadata) != 0) return -errno;
-  if (metadata.st_size > DOLLY_KERNEL_EXECUTABLE_LIMIT) return -EFBIG;
-  unsigned char *bytes = malloc((size_t)metadata.st_size + 1);
-  if (bytes == NULL) return -ENOMEM;
-  if (lseek(program->image_descriptor, 0, SEEK_SET) != 0 ||
-      dolly_fs_read_exact(program->image_descriptor, bytes, (uintptr_t)metadata.st_size) != 0) {
-    const int error = errno;
-    free(bytes);
-    return -error;
-  }
-  program->image = bytes;
-  program->image_size = (size_t)metadata.st_size;
-  return 0;
-}
-
 int dolly_process_image_consumed(int pid) {
   dolly_kernel_program *program = program_to_launch(find_process(pid));
   if (program == NULL || program->image_descriptor < 0) return -EINVAL;
-  free(program->image);
-  program->image = NULL;
-  program->image_size = 0;
   close(program->image_descriptor);
   program->image_descriptor = -1;
   launching_pid = pid;
@@ -2717,8 +2785,9 @@ int dolly_process_exec_commit(int pid) {
   process->start_signals = process->staged_signals;
   memset(&process->staged_signals, 0, sizeof(process->staged_signals));
   process->handling_signal = 0;
-  process->alarm_handled =
-      (process->start_signals.ignored_signals >> DOLLY_PROCESS_SIGALRM) & 1u;
+  process->ignored_signals = process->start_signals.ignored_signals;
+  process->handled_signals = 0;
+  process->pending_signals &= ~process->ignored_signals;
   process->state = DOLLY_KERNEL_PROCESS_PENDING;
   const uint32_t answered = process->pending_signals & ~notification_signals(process);
   return answered ? __builtin_ctz(answered) : 0;
@@ -2786,11 +2855,16 @@ int dolly_process_worker_retired(int pid) {
     }
   }
   process->worker_retired = 1;
-  /* WAIT must see the child as waitable before its parent's handler runs. */
+  /* WAIT must see the child as waitable before its parent's handler runs. A
+   * parent that ignores SIGCHLD waits for none: the child is reaped now, once
+   * the terminal has gone back up past it. */
   dolly_kernel_process *parent = find_process(process->parent_pid);
-  if (parent != NULL && parent->state != DOLLY_KERNEL_PROCESS_EXITED)
-    parent->pending_signals |= 1u << DOLLY_PROCESS_SIGCHLD;
+  const uint32_t child_signal = 1u << DOLLY_PROCESS_SIGCHLD;
+  const int reaped = parent != NULL && (parent->ignored_signals & child_signal) != 0;
+  if (parent != NULL && parent->state != DOLLY_KERNEL_PROCESS_EXITED && !reaped)
+    parent->pending_signals |= child_signal;
   refresh_foreground();
+  if (reaped) dispose_process(process);
   return 0;
 }
 
@@ -2799,6 +2873,8 @@ int dolly_process_spawn_flags(int pid) {
   return process == NULL ? -ESRCH : (int)process->spawn_flags;
 }
 
+/* 1 when the process ignores the signal, which is then discarded: there is
+ * nothing to deliver. */
 int dolly_process_signal(int pid, int signal_number) {
   dolly_kernel_process *process = find_process(pid);
   if (process == NULL) return -ESRCH;
@@ -2806,15 +2882,16 @@ int dolly_process_signal(int pid, int signal_number) {
   /* One that has exited is there until it is waited for, and takes nothing. */
   if (signal_number == 0 || process->state == DOLLY_KERNEL_PROCESS_EXITED) return 0;
   const uint32_t signal = 1u << signal_number;
-  const dolly_process_exec_state *start = &process->start_signals;
   if (signal_number == DOLLY_PROCESS_SIGKILL) {
     mark_process_exited(process, 128 + signal_number, signal_number);
-  } else if (process->state == DOLLY_KERNEL_PROCESS_RUNNING || (start->blocked_signals & signal) != 0) {
+  } else if (process->ignored_signals & signal) {
+    return 1;
+  } else if (process->state == DOLLY_KERNEL_PROCESS_RUNNING ||
+             (process->start_signals.blocked_signals & signal) != 0) {
     process->pending_signals |= signal;
-  } else if ((start->ignored_signals & signal) == 0 && signal_number != DOLLY_PROCESS_SIGWINCH) {
-    /* A program not yet entered runs no handler. It ignores and blocks what
-     * the program exec replaced left it, and ignores a resize; any other
-     * signal ends it. */
+  } else if (signal_number != DOLLY_PROCESS_SIGWINCH) {
+    /* A program not yet entered runs no handler. It blocks what it starts
+     * with blocked, and ignores a resize; any other signal ends it. */
     mark_process_exited(process, 128 + signal_number, signal_number);
   }
   return 0;
@@ -2830,8 +2907,10 @@ int dolly_process_take_alarm(void) {
     const uint64_t interval = process->alarm_interval;
     process->alarm_deadline = interval == 0 ? 0
         : saturating_add(now, interval - (now - process->alarm_deadline) % interval);
-    if (!process->alarm_handled) return process->pid;
-    process->pending_signals |= 1u << DOLLY_PROCESS_SIGALRM;
+    const uint32_t alarm = 1u << DOLLY_PROCESS_SIGALRM;
+    if (process->ignored_signals & alarm) continue;
+    if (!(process->handled_signals & alarm)) return process->pid;
+    process->pending_signals |= alarm;
   }
   return 0;
 }

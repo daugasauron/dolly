@@ -4,32 +4,24 @@ REQUIRES HOST runtime@0
 
 # dte, a small full-screen editor with the keys of a desktop one (Ctrl+S
 # saves, Ctrl+Q quits, Ctrl+Z undoes, Ctrl+F searches), from the files of
-# upstream's release archive, one line of them changed (below). It draws
-# with its own escape sequences and reads no terminal database. Its makefile
-# asks the compiler ten questions through a shell that Slop is not;
-# feature.h holds the answers.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 5d02b8dee018def57cdded1b92a2c79e59fa057eba06c959660d8d496e59e57c
+# upstream's release archive, unchanged. It draws with its own escape
+# sequences and reads no terminal database. Its makefile asks the compiler ten
+# questions through a shell that Slop is not; feature.h holds the answers.
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 595b1e82d2ac8eb9707667c854aa7bf40c61bbf4d9a03caa7e76a5467af9745d
 
 REQUIRES HEADER libc
 REQUIRES TOOL   awk
 REQUIRES TOOL   cc
 REQUIRES TOOL   cp
-REQUIRES TOOL   grep
 REQUIRES TOOL   gzip
 REQUIRES TOOL   make
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   mv
-REQUIRES TOOL   sed
 REQUIRES TOOL   tar
 REQUIRES TOOL   text-page
 
 SOURCE /v0.1.4/dist/static/tools/dte-1.11.1.tar.gz 3d7d0d375fd31906ed436de20161dddc42d97f969a93d22b02aecfc3451e6c39 /tmp/dte.tar.gz
 SLOP gzip -dc /tmp/dte.tar.gz | tar -xf - -C /tmp && mv /tmp/dte-1.11.1 /tmp/dte
-
-# dte takes a stream for the terminal when tcgetpgrp answers for it. There
-# are no process groups here and it answers for none; isatty answers what is
-# asked. This line is the one change to the source.
-SLOP CWD /tmp/dte sed 's/tcgetpgrp(fd) != -1/isatty(fd)/' src/util/fd.h > fd.h && mv fd.h src/util/fd.h && grep -q 'isatty(fd)' src/util/fd.h
 
 # Not found here: sig2str, sigabbrev_np, and a controlling terminal to leave
 # (TIOCNOTTY).

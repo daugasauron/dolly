@@ -4,7 +4,7 @@ import { DOLLY_ERRNO as E } from "./abi.mjs";
 export { DOLLY_MICROPHONE_ABI_DIGEST as digest } from "./abi.mjs";
 
 // The device as the lease bridge sees it.
-export const lease = { type: "microphone", slots: M.DOLLY_MICROPHONE_SLOTS, packetBytes: M.DOLLY_MICROPHONE_PACKET_BYTES,
+export const lease = { type: "microphone", version: M.DOLLY_MICROPHONE_VERSION, slots: M.DOLLY_MICROPHONE_SLOTS, packetBytes: M.DOLLY_MICROPHONE_PACKET_BYTES,
   replyBytes: M.DOLLY_MICROPHONE_REPLY_BYTES, open: M.DOLLY_MICROPHONE_OPEN, close: M.DOLLY_MICROPHONE_CLOSE };
 
 // Trusted page DOM over the display, beside the browser's own recording mark:
@@ -31,7 +31,7 @@ export function browser({ mount, send, indicators }) {
     page: { get microphone() { return provider.status(); } },
     messages: {
       "microphone-request"(message) {
-        const result = provider.dispatch(message.packet);
+        const result = provider.dispatch(message);
         send({ type: "microphone-complete", scope: message.scope, sequence: message.sequence, ...result },
           [result.bytes.buffer]);
       },

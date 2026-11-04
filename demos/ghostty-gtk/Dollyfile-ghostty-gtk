@@ -10,8 +10,8 @@ REQUIRES HOST threads@0
 # compiled interface files, built by Zig in Dolly over mesa-build: libadwaita
 # and Ghostty's own build.zig
 # (ghostty-dolly.patch; its packages fetched on the host, prepare-ghostty.sh).
-FROM /v0.1.4/demos/ghostty-gtk/Dollyfile-mesa-build c81eaee590cffa3159d0791c73903a95e72863842c7b15fe0068be4e998cd76e
-USE /v0.1.4/demos/zig/Dollyfile-zig-llvm 3d30406e53386ddca6528562a39b8a1946784d6333e837eb4c3474eb66c4756e
+FROM /v0.1.4/demos/ghostty-gtk/Dollyfile-mesa-build ed1570cd5b4648346ec0d9273af63f6b8b8883a7473090eed5dd7eccf0f2d497
+USE /v0.1.4/demos/zig/Dollyfile-zig-llvm 98117b0164df533dccabe5c7fb34a914333aaec6a662e6e162619b3a34d5881e
 
 REQUIRES TOOL   c++
 REQUIRES TOOL   cc
@@ -36,8 +36,7 @@ SLOP CWD /tmp/ghostty-gtk meson setup build-adw libadwaita-1.10.0 --wrap-mode=no
   -Dexamples=false -Ddocumentation=false "-Dc_args=-D_gtk_builder_check_parent=adw_gtk_builder_check_parent -D_gtk_builder_prefix_error=adw_gtk_builder_prefix_error -D_gtk_builder_error_unhandled_tag=adw_gtk_builder_error_unhandled_tag -D_gtk_builder_parser_translate=adw_gtk_builder_parser_translate -Dgtk_buildable_child_deprecation_warning=adwgtk_buildable_child_deprecation_warning"
 SLOP meson compile -C /tmp/ghostty-gtk/build-adw && meson install --no-rebuild -C /tmp/ghostty-gtk/build-adw
 
-# Zig hands a link to cc without the program's own flags, and asks cc for
-# libc's headers with -Wp,-v, which Dolly's cc answers to -v. This cc passes
+# Zig hands a link to cc without the program's own flags. This cc passes
 # all of it to Dolly's and gives Ghostty's link the rest: Binaryen's cast
 # emulation (GObject calls through pointers of other types), the X libraries,
 # Mesa's driver, which its EGL links, and libadwaita's resources, registered
@@ -65,7 +64,7 @@ FILE /tmp/ghostty-cc/cc.c
       char **args = calloc((size_t)argc + sizeof(ghostty) / sizeof(*ghostty) + 1, sizeof(char *));
       size_t n = 0;
       args[n++] = link && program ? "/bin/c++" : "/bin/cc";
-      for (int i = 1; i < argc; i++) args[n++] = strcmp(argv[i], "-Wp,-v") ? argv[i] : "-v";
+      for (int i = 1; i < argc; i++) args[n++] = argv[i];
       if (link && program) for (size_t i = 0; i < sizeof(ghostty) / sizeof(*ghostty); i++) args[n++] = (char *)ghostty[i];
       pid_t pid;
       int status;
