@@ -165,7 +165,8 @@ took 148.7 s and 186.7 s, Zig 0.16's 34.6 s and 45.8 s. Source suite: 476 passed
   580 MB, more than the 512 MiB a session save holds (`docs/sessions.md`): saving a `default`
   session right after `amy install zig-llvm` fails with "Dolly session exceeds its 512 MiB limit"
   (Chromium, 2026-11-05, `tools/save-check.mjs`), with or without the 9 MB of the setup. For the
-  image-size audit (`tasks/20261103-102041-imgsize`): Zig's `lib/` is most of the package.
+  image-size audit (`tasks/20261103-102041-imgsize`): `/usr/lib/zig` is 206.8 MB of it, 137.6 MB
+  of that `lib/libc` (the libcs Zig builds for other targets; Dolly's is the system's, `ZIG_LIBC`).
 
 ## Findings (2026-11-03, with evidence)
 
