@@ -74,8 +74,8 @@ await browserTest("core", { image }, async ({ server, open }) => {
     "printf abcdef > dd.txt && printf XY | dd of=dd.txt bs=1 seek=2 conv=notrunc && test \"$(cat dd.txt)\" = abXYef",
     "printf XY | dd of=dd.txt bs=1 seek=1 && test \"$(cat dd.txt)\" = aXY && test \"$(tail -c 2 dd.txt)\" = XY && test \"$(hostname)\" = dolly",
     "timeout 0 sleep 1",
-    // sleep takes a fraction of a second.
-    "time sleep 0.1 2> sleep-time && awk '$1 == \"real\" { exit !($2 >= 0.1 && $2 < 1) }' sleep-time",
+    // sleep takes a fraction of a second; Slop's time reports on the shell's stderr.
+    "slop -c 'time sleep 0.1' 2> sleep-time && awk '$1 == \"real\" { seconds = $2 } END { exit !(seconds >= 0.1 && seconds < 1) }' sleep-time",
     "timeout 60 sh -c 'echo x >&3' 3> fd3 && test \"$(cat fd3)\" = x",
     "printf 'one\\n' > a/file && printf 'two\\n' > b/file && { diff -u a/file b/file > change.patch; test $? -eq 1; }",
     "cd a && ! patch file < ../change.patch && test \"$(cat file)\" = one && patch -p1 < ../change.patch && test \"$(cat file)\" = two && cd ..",
