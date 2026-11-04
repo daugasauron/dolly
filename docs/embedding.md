@@ -97,9 +97,10 @@ unset, they are Dolly's:
 
 Unset, of the 16 colours programs name, black (`-0`) is the background, yellow
 and bright yellow (`-3`, `-11`) the accent, bright black (`-8`) `#77736c` and
-the others the text's colour: a program's red shows as text. A value may be any
-CSS colour; one that is not counts as unset. The terminal takes them at boot and
-whenever they change, by any rule or media query; a popup as it opens.
+the others the text's colour, so a program's red shows as its text does. A
+value may be any CSS colour; one that is not counts as unset. The terminal
+takes them at boot and whenever they change, by any rule or media query; a
+popup as it opens.
 
 ## Popups
 

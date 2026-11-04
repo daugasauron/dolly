@@ -28,7 +28,10 @@ lists the properties and `docs/display.md` says where the palette comes from.
 
 ## State (2026-11-04, core/terminal-palette)
 
-Implemented on `core/terminal-palette` (from `core/host-contracts`); verification below.
+Done on `core/terminal-palette` (from `core/host-contracts`: fa28750ae, b2686db23, d95abe8b8)
+and verified in Chrome and Firefox on this tree's 42 rebuilt images, except the init project's
+page in a browser: `test/npm-browser.mjs` checks it and needs `pi-minimal`'s chain, which the
+round builds. Left: that run, then close.
 
 ### Why display.c held the palette
 
@@ -67,7 +70,8 @@ two yellows and bright black), set once at `initialize` in `configure_theme()`.
   the 16 following the three. It hands them to the Worker in its configuration (written before
   `dolly_display_install`) and again when they change: a change ends a 1 ms discrete transition
   of the properties on the canvas (`transition-behavior: allow-discrete`), measured in Chrome
-  156 and Firefox 155 for a class on an ancestor, an added style sheet and an inline property;
+  156 and Firefox 155 for a class on an ancestor, an added style sheet, an inline property and
+  a `prefers-color-scheme` change, both ways;
   and once at `entryStarted`, since a hidden canvas transitions nothing.
 - `html@0`: `--dolly-html-background`, `-color` and `-accent` are `--dolly-background`,
   `--dolly-color` and `--dolly-accent`; `--dolly-html-font`, `-font-file` and `-color-scheme`
@@ -93,3 +97,44 @@ two yellows and bright black), set once at `initialize` in `configure_theme()`.
   name are the terminal's, the canvas and the popup show the same background pixel, and an
   inline change of `--dolly-background` reaches the terminal without output and the next
   popup.
+- Also passing in both browsers on those images: html, display, display-cursor, embedding,
+  core, and terminal (its counts of the default background, text and accent pixels). Then,
+  with the tree's other 38 images rebuilt (665 s of snapshots): theme again, default, docs,
+  shell, pager, pty, indicators, custom-session, session-offline, touch, gpu-indicator (Chrome
+  software and unavailable, Firefox unavailable), upload, image-input, slop, nena, ending,
+  ended-worker, boundary and host-modules. Source suite 470/470.
+- `test/npm-browser.mjs` now changes theme.json's background too and reads it back as the
+  terminal's background pixel. Not run here: it needs `pi-minimal`'s chain, which this tree
+  does not build; the round runs it.
+
+### Left, described (not done here)
+
+- The rest of what Dolly shows in boot()'s element keeps Dolly's colours in its own CSS: the
+  boot log, the status line and the ended notice (`src/browser.mjs`), snapshot's Save and
+  dialog, download's offers, the upload and build dialogs, the gpu and microphone indicators
+  and input's bar. With a light theme the terminal and popups follow and these stay dark.
+  `var(--dolly-background, #262626)` and its two siblings would take the three; their greys
+  (`#77736c` borders, `#333` and `#191919` panels) need a rule of their own first (a muted
+  property, or the popup's `color-mix`, which is not today's `#333`).
+- The renderer draws from its own arrays, not the terminal's effective colours: a program's
+  OSC 4, 10, 11 or 12 changes what Ghostty holds but not what it shows. Drawing from
+  `GHOSTTY_TERMINAL_DATA_COLOR_*` would honour them; a behaviour change, not measured.
+- `demos/pi/dolly-theme.json` is the image's copy of init's theme (its accent var still named
+  `yellow`); an init project writes over it at boot.
+
+## Lessons
+
+- The brief expected the plugin's contract to be internal (no round). Reading what reaches the
+  plugin settled it in minutes: `initialize`'s arguments and the driver struct, both in
+  `display.h`, which the seed installs. A plugin's contract is internal to programs, not to
+  the seed: any new channel into it is a seed round, and its source is an image input anyway.
+- CSS has no change event for custom properties. A 1 ms `allow-discrete` transition of them
+  is one, with no idle cost, but only after measuring it: two 30-line Playwright probes in the
+  scratchpad (class, style sheet, inline, colour scheme; both browsers) took four minutes and
+  decided the design before any code.
+- Writing the browser test first and running it on the old images gave the "before" pixels
+  of Dolly's page and the failing embedding case in one run; the "after" is the same test.
+- Build what the tests open first (`default,system,html,dolly-docs`, 901 s): the plugin
+  compiled and the main tests passed before the rest of the catalog (another 665 s) was built.
+- A shipped document (Dollyfile-dolly-docs) may link only to shipped ones: `display.md`
+  cites `docs/embedding.md` as a path. Docs pins there are by hand; the source suite says so.
