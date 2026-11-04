@@ -40,7 +40,10 @@ rise measured against the image store's 5.55 GB peak; a cold launch of `compiler
 `module-cost.mjs` measures it; the round's snapshots are byte-identical to the previous round's
 where the recipes did not change.
 
-## State (2026-11-04): `core/kernel-copies`
+## State (2026-11-04): `core/kernel-copies`, done but for the round
+
+Both changes are on the branch, verified on rebuilt images in both browsers; what is left is the
+round's (below: every image rebuilds, pi-local under the 9 GB cap, the catalog's byte comparison).
 
 ### The launch (c7f486d36)
 
@@ -119,8 +122,9 @@ On the final runtime (`75cf5331`, image inputs `7fc896aa`, the rebuilt closure),
 Firefox, 6 GB browser slot (`capture-*.log`): `test/image-browser.mjs` (76 s, 98 s; the roundtrip
 fixture compiled in Dolly captures through a 17-byte window), `test/image-input-browser.mjs` (49 s,
 58 s; a 520 MiB input written into the build's filesystem in pieces), `test/process-memory-browser.mjs`
-(50 s, 61 s), `test/process-browser.mjs` (62 s, 69 s) and `test/core-browser.mjs` (32 s, 52 s)
-passed. `module-cost.mjs` once more: the compiler's first launch +210 highest and +204 retained in
+(50 s, 61 s), `test/process-browser.mjs` (62 s, 69 s), `test/core-browser.mjs` (32 s, 52 s),
+`test/custom-session-browser.mjs` (73 s, 86 s; custom images built in the page) and
+`test/session-offline-browser.mjs` (5 s, 6 s) passed. `module-cost.mjs` once more: the compiler's first launch +210 highest and +204 retained in
 Chromium, +591 and +298 in Firefox. What a first launch retains after 3 s depends on when the
 collector takes the supervisor's copy (96 MB of garbage once compiled): +112 and +204 in two
 Chromium runs of the same code. The highest is steadier: +310 before, +201 and +210 after.
@@ -136,3 +140,21 @@ Chromium runs of the same code. The highest is steadier: +310 before, +201 and +
   5.55 GB peak (`tasks/20261101-221415-stream-capture`): not measured today (the round and three
   agents leave no room for a 9 GB build). It is the round's measurement: `build-measured.sh` and
   `phases.mjs` in `build/kernel-copies-evidence/` do it with `pi-local pi-local bigbuild NAME`.
+
+## Lessons
+
+- Freed kernel memory hides a copy. `system`'s and `cc`'s capture malloc fit the base's staging
+  range the restore had just freed, so streaming moved their capture phase by 10 MB; the copy cost
+  1.3 GB only where the image outgrew what was free (`qwen3.5-2b`, 1.4 GB on a 154 MB base). To
+  measure a copy, pick a case where it cannot land in memory the same Worker freed before.
+- A rise over a floor misleads when the change also lowers the floor: `system`'s capture-to-export
+  rise read 1.28 times the image before and 2.67 after, until the export (the catalog page's 16 MiB
+  pieces, the same code in both) was split from the capture and the absolute peaks compared.
+- What a first launch retains after 3 s is the collector's timing: the same code gave +112 and +204
+  MB in Chromium. Its highest is the measure to compare.
+- Cherry-picking a commit that repins recipes conflicts in every pin: take ours, set the hand pins
+  of `Dollyfile-dolly-docs` to the changed files' digests, run `update-recipe-pins.mjs`. Linking the
+  round's 98 current images (snapshots and packs linked, metadata copied by rename) gave a valid
+  baseline in seconds, once the base's stale source pins were the round's.
+- The checkout serves `src/` live to tests and image builds: while one runs, the working tree is
+  pinned. Plan the order (measure before, then change) instead of preparing the next step beside it.
