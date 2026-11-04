@@ -13,8 +13,10 @@ pseudo-terminal of `pty@0`
 
 Open `/tmux-panes/`; build with `npm run image -- tmux-panes`. `Ctrl+B d`
 detaches to Slop, the shells keep running, and `tmux attach` returns. `amy`
-installs into a pane what it installs into `default`: `amy install nvim`
-puts an editor beside a shell.
+installs into a pane a package whose host modules the image declares:
+`amy install vi` puts an editor beside a shell. The image declares no
+`nena@0`, so a package that needs another module, such as `nvim`'s `dso@0`,
+is refused there.
 
 ## Use
 

@@ -100,10 +100,11 @@ for (const browser of browsers) {
     await input("echo INTERRUPTED-$?\r");
     await waitText(right("INTERRUPTED-130"));
 
-    // The session's first cc: the runtime says that it prepares the compiler,
-    // in the pane that asked. The other pane's screen is not written on.
-    await input(`${writeCommand("/tmp/size.c", sizeProgram)} && cc /tmp/size.c -o /tmp/size; echo BUILT-$?-\r`);
-    const built = await waitText(right("BUILT-0-"));
+    // The session's first cc, which amy installs into the pane: the runtime
+    // says that it prepares the compiler, in the pane that asked. The other
+    // pane's screen is not written on.
+    await input(`amy install cc > /dev/null 2>&1 && ${writeCommand("/tmp/size.c", sizeProgram)} && cc /tmp/size.c -o /tmp/size; echo BUILT-$?-\r`);
+    const built = await waitText(right("BUILT-0-"), 180_000);
     assert.match(built, right("dolly: preparing [^\\n]* executable"), built);
     assert.doesNotMatch(built, /^[^│\n]*dolly: [^\n]*│/m, built);
 

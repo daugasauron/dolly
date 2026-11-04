@@ -3,22 +3,15 @@ APPLICATION tmux-panes
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
-REQUIRES HOST audio@0
-REQUIRES HOST download@0
-REQUIRES HOST dso@0
+REQUIRES HOST snapshot@0
 REQUIRES HOST http@0
 REQUIRES HOST packages@0
 REQUIRES HOST pty@0
-REQUIRES HOST snapshot@0
 REQUIRES HOST sockets@0
-REQUIRES HOST threads@0
-REQUIRES HOST touch@0
-REQUIRES HOST upload@0
-REQUIRES HOST html@0
 
-# packages, threads and dso are for what amy installs into a pane, as in default.
-
-FROM /v0.1.4/Dollyfile-system 946b3f1cd6d784acda00ec334d96a6367936024e2e887a9d9be7f1bc2b6d5072
+INSTALL /v0.1.4/Dollyfile-core 74fabeb7587e54b39bb59351ed5e8146d3eb77cb526c65c00c2d90f11495b775
+INSTALL /v0.1.4/Dollyfile-posix 4edbe26685a71e67d5360b567b708c1cb373b124d4143c680cf0a6a1ba90ebae
+INSTALL /v0.1.4/Dollyfile-display 2be7cbca13647b99084a669132428169b2d5a6bde7a291642efc5c584f9ffd63
 INSTALL /v0.1.4/Dollyfile-amy c2e5f10354cb7098b459d45b44989553c558b786f12f360bfc87b70a1f34be19
 INSTALL /v0.1.4/demos/tmux/Dollyfile-tmux be567d6dd966ff2761216ec8840afdc995e35dee97eeb6cfdddb1594c4953b2a
 
