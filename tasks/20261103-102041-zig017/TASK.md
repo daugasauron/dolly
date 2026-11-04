@@ -348,3 +348,19 @@ the man page's program, its `cc` and its run 4.7 s.
 - amy applies a package's environment from the next session load, so a package whose tool needs
   a variable right after `amy install` (ZIG_LIBC) fails the install-then-use check; the root cause
   here was Dolly's cc ignoring `-Wp,-v`.
+- A fresh session is a fresh machine: whatever upstream does once a machine (Zig 0.17's
+  "first time setup" of its maker and translator) a Dolly session repeats, and an image build is
+  the place to do it once. When a tool is upgraded, read its first-run paths (`jitCmd` here), not
+  only its per-build ones: per project 0.17 was faster than 0.16; only the first run regressed.
+- The old version's published bytes are a free baseline: `work/locks/published/v0.1.4` served
+  read-only gave Zig 0.16 on its own runtime and images in minutes, with no build.
+- Playwright's `startTracing(page, { categories })` still records Chrome's default categories
+  unless the list starts with `-*`: 787 MB in 22 s and a truncated trace without it, 62 MB for
+  the whole build with it. A trace's `call` frames are the kernel round trips; grouping their
+  callers found LLVM's per-relocation `lseek`/`write`/`lseek` (a quarter of a Debug compile).
+- A tool's cache can ship in a package when its key does not hold paths or inodes: test the
+  relocation natively first (a copy with new inodes and mtimes, then time the hit), and see which
+  parts are keyed by inode (Zig's `z/`) and drop them.
+- Count what a 6 GB `build` slot can restore: `zig-llvm`'s builder (zig-llvm-build, llvm22, cc)
+  is killed before its first step, so a one-line recipe change waits for a 9 GB slot. Measure the
+  change by hand in a session first; that gave the numbers hours before the slot.
