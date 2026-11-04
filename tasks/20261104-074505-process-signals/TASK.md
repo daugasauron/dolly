@@ -107,7 +107,8 @@ The new fixtures, run at the prompt on images of the old seed (`build/signals-ev
   `tcgetattr` and `tcgetpgrp` of a pipe are `ENOTTY`. The dispositions fixture passes on Linux
   too (under `script`).
 - `test/process-browser.mjs`, `test/pty-browser.mjs`, `test/core-browser.mjs`,
-  `test/shell-browser.mjs`: pass in Chromium and Firefox.
+  `test/shell-browser.mjs`, and also `test/threads-browser.mjs` and `test/terminal-browser.mjs`:
+  pass in Chromium and Firefox.
 - dte (`build/signals-evidence/dte-probe.mjs`, the amy tools steps for dte alone): `amy install
   dte`, its syntax dump, then at the terminal it shows its status line, saves and quits, and with
   standard input from `/dev/null` (it opens `/dev/tty` and asks `tcgetpgrp` of it) it starts and
