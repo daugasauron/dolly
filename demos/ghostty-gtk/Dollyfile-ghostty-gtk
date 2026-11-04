@@ -52,8 +52,7 @@ SLOP CWD /tmp/ghostty-gtk/blueprint-compiler-v0.18.0 sed -e 's/@VERSION@/0.18.0/
 SLOP tar -xf /tmp/ghostty-gtk/typelibs.tar -C /
 SLOP blueprint-compiler --version
 
-# Zig hands a link to cc without the program's own flags, and asks cc for
-# libc's headers with -Wp,-v, which Dolly's cc answers to -v. This cc passes
+# Zig hands a link to cc without the program's own flags. This cc passes
 # all of it to Dolly's and gives Ghostty's link the rest: Binaryen's cast
 # emulation (GObject calls through pointers of other types), the X libraries
 # and Mesa's GLX, which libepoxy takes by a weak symbol, and libadwaita's
@@ -82,7 +81,7 @@ FILE /tmp/ghostty-cc/cc.c
       char **args = calloc((size_t)argc + sizeof(ghostty) / sizeof(*ghostty) + 1, sizeof(char *));
       size_t n = 0;
       args[n++] = link && program ? "/bin/c++" : "/bin/cc";
-      for (int i = 1; i < argc; i++) args[n++] = strcmp(argv[i], "-Wp,-v") ? argv[i] : "-v";
+      for (int i = 1; i < argc; i++) args[n++] = argv[i];
       if (link && program) for (size_t i = 0; i < sizeof(ghostty) / sizeof(*ghostty); i++) args[n++] = (char *)ghostty[i];
       pid_t pid;
       int status;
