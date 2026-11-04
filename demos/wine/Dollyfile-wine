@@ -10,7 +10,7 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/Dollyfile-system 4cc2a5e3ae8a68bfdd258b7f90cfe841a9fc39d0a3397283602b7beee147af34
+FROM /v0.1.4/Dollyfile-system f78bfca3e0e44121467f64387d57e494585fed02ecfac8f18e4ef34d5e331fb6
 COPY /v0.1.4/demos/wine/Dollyfile-wine-build a78d6461b1012ad77bcca003dae125dc61232b6204f208b5c7a27340366d4efa /usr/bin/wine /usr/bin/wine
 COPY /v0.1.4/demos/wine/Dollyfile-wine-build a78d6461b1012ad77bcca003dae125dc61232b6204f208b5c7a27340366d4efa /usr/share/wine /usr/share/wine
 # Wine is LGPL; FreeType (under its GPL option) and libpng are linked into it. TinyCC (LGPL) is under /usr/share/wine/x86.

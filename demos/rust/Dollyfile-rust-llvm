@@ -12,7 +12,7 @@ REQUIRES HOST threads@0
 # compiled inside Dolly by its own c++.
 FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build bb554955788323c67741cff547f57d55a73321d49485790b20bd707b7157166e
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL /v0.1.4/demos/python/Dollyfile-python d25f1f5da7c39cedd85378dec9c08b45aec958b0f05abe3f861e171403217713
+INSTALL /v0.1.4/demos/python/Dollyfile-python 2bfc95d0d8472d1084dd63706730c5a471f528623bf5f2ce38b68a89888fa214
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python
