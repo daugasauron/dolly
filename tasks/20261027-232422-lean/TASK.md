@@ -120,6 +120,12 @@ holds. In the test the steps follow each other within a second, so two or three 
 processes are resident when `lake build` starts its own. Firefox frees them at once
 (`wasm-reserved` stays 3.46 through the steps).
 
+With 4 s between the steps (`spaced-chromium.log`, the old libc), each dead `lean` is gone by
+the next step (`v8-sandbox` 3.80, 3.77 after the wait, 4.32, 3.58, 4.09, 3.58), `lake new` ends at
+4.54 GB, and `lake build` is still killed (peak at the cap, 5.67 at the last sample): inside it
+Lake starts its `lean` and compiler processes one after another, each kept two seconds. Whether
+it fits once they are not is the round's measurement; on 2026-11-02 `lake build` peaked at 5.58.
+
 **The fix: an ending process wakes its waiting threads** (`src/process/threads.c`, a seed input).
 Each thread records the futex word it waits on; `exit` (`__wasi_proc_exit`) and an exit by a
 signal (`dolly_exit_signal`) first call `__dolly_threads_end`, which marks the process ending
