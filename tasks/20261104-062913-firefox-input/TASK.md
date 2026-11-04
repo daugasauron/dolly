@@ -35,8 +35,11 @@ So it is not the HTTP cache: Firefox keeps about 2.5 GB of the response's chunks
 it copies them into, and all 1.4 GB of the decompressed chunks, uncollected for seconds; the memory
 falls later, when idle. Under the cap the content process dies first. Holding less (the merge
 re-reading the kept pack from the store instead of holding its compressed bytes) would lower the
-floor by 1.37 GB but not the garbage; whether Firefox collects sooner under pressure in a page
-that is not capped, and what `about:memory` attributes it to, is not measured.
+floor by 1.37 GB but not the garbage. Turning the event loop every 64 MiB (`YIELD_MIB=64`, a
+`setTimeout` in both loops) leaves the fetch at 452 -> 3923 and the decompression at
+4028 -> 5045: the loops' microtasks are not what keeps Firefox from collecting. Whether Firefox
+collects sooner under pressure in a page that is not capped, and what `about:memory` attributes
+the memory to, is not measured.
 
 Done when: the preparation above completes in Firefox under the 6 GB cap with its peak measured,
 and the install of `tasks/20261104-012434-install-copy` is measured in Firefox.
