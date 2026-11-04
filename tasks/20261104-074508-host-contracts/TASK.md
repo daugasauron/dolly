@@ -104,6 +104,12 @@ version, which the kernel and the bridge check. Bump the four versions with such
   names it; python's closure brings cmake, sqlite, xz and bzip2: 877 s) and `zig` (its
   "composed dependency" case): a narrowed catalog without them fails the test, not the image.
 
+- Also with `dolly-docs` and `html` added to the catalog: docs, slop, html, image-input, ending
+  and ended-worker pass in both browsers. process fails in both at its own-abort case only
+  (`duplicate symbol: abort`), as e815be85 records on the base: the pinned compiler links
+  libdolly-process.a whole until the round pins this branch's llvm-cc. amy needs `sdl2`, which
+  this tree does not publish.
+
 For the round: the seed changes (runtime.h, input.h, display.h, nena's client), so every
 image rebuilds; programs linked with the input, display, touch or gpu client are refused
 until they are, being stamped with the old digests. Not built here and so first measured by
