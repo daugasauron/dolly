@@ -1,30 +1,8 @@
 # Ghostty's GTK application on Ghostty 1.4: its OpenGL renderer needs Mesa's EGL
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 90
 - TAGS: graphics,demo,zig
-
-## State (2026-11-04 13:15 JST)
-
-On `demo/ghostty-egl`, not yet run as an application:
-
-- The clang out-of-memory of the round (glslang's `SPIRV/doc.cpp`): cause found and fixed,
-  below. In Dolly, the next `zig build` reported only the executable's own compile errors;
-  whether glslang's compile had finished by then `--summary none` does not show.
-- blueprint-compiler 0.20, the same build's second failure: gone with it; Ghostty is built from
-  its signed release tarball, which carries the compiled interface files.
-- `mesa-build` builds Mesa's EGL on the surfaceless platform with softpipe, static, and its
-  check draws through it and reads the pixel back (`build/ghostty-evidence/build-5.log`, 12:36).
-- Ghostty's executable then failed to compile with three errors (atomics, EGL's native display
-  type), fixed below and checked with the host's Zig. The next build, in a 6 GB build slot, was
-  killed: at 13:04:36 the kernel's OOM killer ended the builder's Chrome, its scope at 6.26 GB
-  of anonymous memory (4.3 GB at 12:56), ten minutes into `zig build`, past the compile errors
-  (`build/ghostty-evidence/build-6.log`); the run that stopped at those errors peaked at 4.4 GB.
-  `ghostty-gtk` is a heavy-stage image; it needs a larger scope than a build slot.
-- Left: build `ghostty-gtk` and `ghostty-x11` in a larger scope, then
-  `node demos/ghostty-gtk/test/ghostty-x11-browser.mjs chromium firefox`; then measure a frame,
-  since Ghostty 1.4 tries a dmabuf export (a blit) before each CPU frame
-  (`OpenGL.present`), and softpipe pays for every full-screen pass.
 
 Found by the Zig 0.17 upgrade (`tasks/20261103-102041-zig017`), which moves Dolly's terminal to
 Ghostty v1.4.0, the first release that builds with Zig 0.17 (no Ghostty commit builds with both
@@ -151,20 +129,56 @@ With Mesa's EGL in place, the executable's Zig compile failed with three errors 
 - `std/Io/Threaded.zig:960`: `comptime assert(builtin.cpu.has(.wasm, .atomics))`. On Emscripten
   Zig 0.17 waits on a futex with wasm's `memory.atomic.wait32`, so threaded code needs the
   `atomics` feature; without it Zig would also lower atomic operations to plain ones in a
-  program whose threads share memory. Dolly's `native` CPU is the one `zig` was built for
-  (`zig-0.17.0-dolly-llvm.patch`), and glslang's flags show it without atomics (zig2 is
-  generated `-mcpu=generic+atomics -fsingle-threaded`). Dolly's `cc` compiles every program for
-  LLVM's `generic` plus `atomics` (`src/compiler.cpp`), since every process imports a shared
-  memory; the recipe asks Zig for the same, `-Dcpu=generic+atomics+simd128`, with the
-  `simd128` Ghostty adds only when no CPU is named (`src/build/Config.zig`).
+  program whose threads share memory. The executable's modules were compiled
+  `-mcpu baseline+simd128`: Ghostty adds `simd128` to the query when none names a CPU
+  (`src/build/Config.zig`), and that resolves Zig's wasm baseline, `lime1`, without atomics.
+  Dolly's `native` is the CPU `zig` itself was built for (`zig-0.17.0-dolly-llvm.patch`;
+  zig2 is generated `-mcpu=generic+atomics`), which is why plain `zig build-exe
+  -fno-single-threaded` works: the zig-llvm demo's test, threaded program included, passed on
+  Zig 0.17 in Chromium (199.7 s) and Firefox (241.2 s), 2026-11-04. Dolly's `cc` compiles every
+  program for LLVM's `generic` plus `atomics` (`src/compiler.cpp`), since every process
+  imports a shared memory; the recipe asks Zig for the same with Ghostty's addition,
+  `-Dcpu=generic+atomics+simd128`.
 - `pkg/opengl/egl.zig:99`: `EGL_DEFAULT_DISPLAY` is a `c_int`: Khronos's `eglplatform.h` gives
   `__EMSCRIPTEN__` the browser's integer handles, and Dolly's toolchain defines it (Emscripten's
   libc) though its EGL is Mesa's. `EGL_NO_PLATFORM_SPECIFIC_TYPES`, which the header checks first,
   makes them `void *`, the pointers Ghostty passes: one `extra_args` define in the translation of
   `pkg/opengl` (`ghostty-dolly.patch`).
-- Not measured: whether `zig build-exe -fno-single-threaded` with Dolly's `native` CPU reaches
-  the same assertion. The host's Zig 0.17 stops at it for the zig-llvm demo's threaded program
-  (`wasm64-emscripten`, no `-mcpu`), and that test's recorded passes are from Zig 0.16 rounds.
+
+## Built in 9 GB; Ghostty's frame called a null function (2026-11-04)
+
+The integrator gave `bigbuild` (9 GB). `ghostty-gtk` built in 710 s (`build-7.log`, its scope's
+`memory.peak` 7.21 GB with page cache, anonymous memory sampled every 10 s from 13:21 at most
+5.68 GB; the 6 GB slot had killed it at 6.26 GB), `ghostty +version` printing 1.4.0, so
+glslang compiles in Dolly with the fix. `ghostty-x11` then opened its window, but no prompt came.
+
+A temporary image whose init kept Ghostty's output in a file showed EGL and OpenGL up (`EGL
+vendor=Mesa Project`, `loaded OpenGL 4.3`, the shell started), then `dolly: process 106 failed:
+null function`: Ghostty itself. A C program in `mesa-build` doing what Ghostty does for a frame
+(`OpenGL.present`: blit, `eglCreateImage` of the texture, `eglExportDMABUFImageQueryMESA`) traps
+at the query. Mesa built without libdrm, as Dolly's and GNU Hurd's are, neither advertises
+`EGL_MESA_image_dma_buf_export` nor gives its dri2 driver the functions (`egl_dri2.c`, under
+`HAVE_LIBDRM`), and the entry point only `assert`s the extension (compiled out) before calling
+`disp->Driver->ExportDMABUFImageQueryMESA`. Ghostty calls it on every frame without checking
+the display's extensions, which EGL leaves to the application. The fix is Ghostty's: the
+device records whether its display has the extension, and `present` exports only then
+(`ghostty-dolly.patch`, `Device.zig` and `OpenGL.zig`). Without the export Ghostty also skips
+the full-frame blit it made before each attempt, which softpipe shades pixel by pixel.
+
+## Closed (2026-11-04)
+
+Done when `ghostty-x11` opens Ghostty 1.4's window on Dolly's X server with a shell in it, in
+Chromium and Firefox, drawing through Mesa's EGL and softpipe, with no GLX context loaded by
+hand: on `demo/ghostty-egl` at `6e572f129`,
+`node demos/ghostty-gtk/test/ghostty-x11-browser.mjs chromium firefox` passed (window and Slop's
+prompt in 4 s and 6 s, the typed command run, amy found) and `npm run test:demos -- ghostty-gtk`
+passed in Chromium. Ghostty logged `EGL vendor=Mesa Project` and `loaded OpenGL 4.3` on the
+surfaceless display; Mesa is built with softpipe alone and no GLX. A key's echo takes 46 ms in
+Chromium and 44 ms in Firefox (median of 15). Both failures of the round of 4 November are
+fixed: the clang out-of-memory (glslang stripped) and blueprint-compiler (the release tarball).
+The round must rebuild `mesa-build`, `ghostty-gtk` and `ghostty-x11`; `ghostty-gtk` needs more
+than a 6 GB build slot (killed at 6.26 GB of anonymous memory) and built in a 9 GB one in 710 and
+752 s, sampled anonymous peak 5.68 GB.
 
 ## Lessons
 
@@ -182,4 +196,9 @@ With Mesa's EGL in place, the executable's Zig compile failed with three errors 
   tarball removed blueprint-compiler, its patch and the typelibs taken from Arch Linux, where
   blueprint-compiler 0.20 would have needed PyGObject and libgirepository.
 - A scope's `memory.peak` counts page cache: Mesa's build reached the slot's 6 GiB with 2.8 GB
-  of anonymous memory and lived. Sample `memory.stat`'s `anon` to know what a build needs.
+  of anonymous memory and lived. Sample `memory.stat`'s `anon` to know what a build needs, and
+  find the scope by its processes' working directory: a browser test in the same tree is a
+  second scope that the sampler latched onto once.
+- When a program dies with `null function` and its binary has no names, reproduce its calls in
+  a small C program in the build stage, printing before each: Ghostty's per-frame EGL sequence
+  pointed at one call in two minutes, where mapping function indices was hopeless.
