@@ -6,8 +6,8 @@ REQUIRES HOST runtime@0
 # by the rules of its Makefile, with the Zopfli it vendors and on one thread
 # (its NOTHREAD: a -pthread program would need threads@0). unpigz is pigz
 # under the name it looks for.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 0000000000000000000000000000000000000000000000000000000000000000
-USE /v0.1.4/Dollyfile-zlib 0000000000000000000000000000000000000000000000000000000000000000
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 01ab650505519c8f15bbd537f44a6c21d24bb2a0afcce34de30cc35a0860f835
+USE /v0.1.4/Dollyfile-zlib 0d47155917696678e3d71131375c04d6c1ad3b6618eb5a34657fcd3f47a6d3fc
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib

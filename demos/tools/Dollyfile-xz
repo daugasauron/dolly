@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # XZ Utils from upstream's release archive, unchanged: the xz program and
 # liblzma. unxz and xzcat are xz under the names it looks for.
-FROM /v0.1.4/demos/tools/Dollyfile-tools-build 0000000000000000000000000000000000000000000000000000000000000000
+FROM /v0.1.4/demos/tools/Dollyfile-tools-build 01ab650505519c8f15bbd537f44a6c21d24bb2a0afcce34de30cc35a0860f835
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
