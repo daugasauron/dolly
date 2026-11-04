@@ -156,7 +156,7 @@ that run inside the shell stay serial.
   `cat [-nu]`, which writes what it reads at once, `cp`, `mv`, `ls [--color]`, `echo`,
   `touch`, `pwd`, `mkdir`, `rm`, `test`/`[` (up to four arguments decided by
   their number, as POSIX says), `foreground`, `help`, `clear`,
-  `stat`, `file`.
+  `stat`, `file`, `sleep` (a decimal number of seconds: `sleep 0.1`).
   There are no permission bits: `test -x` means a regular file or a directory,
   `-r`/`-w` that the path exists. `ls -l` is the POSIX long format: the fixed modes `stat`
   reports, numeric owner and group (there is no name database) and a `total`
@@ -181,7 +181,8 @@ that run inside the shell stay serial.
   `chmod`, `chown`, `id`, `whoami` or `df`: one user without modes to
   change or a name database, and no mount list to read; the `ps` package
   prints `/proc/processes`. `tar` only extracts, regular files and directories
-  of ustar, pax and GNU archives (what `git archive` and GitHub's tarballs are);
+  of ustar, pax and GNU archives (what `git archive` and GitHub's tarballs are),
+  with their modification times;
   `gzip` stores no name or time (`-n`); Git creates archives of any directory:
   `git init -q . && git add -A && git archive -o out.tar.gz $(git write-tree)`
   (`.tar`, `.tar.gz` and `.zip`).
