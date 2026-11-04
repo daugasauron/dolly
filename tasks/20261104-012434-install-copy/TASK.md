@@ -104,7 +104,10 @@ The whole run (page and build, the slot's highest anonymous memory), the same im
   3b4666db2: `test/image-input-browser.mjs` (38 s, 42 s), `test/image-browser.mjs` (76 s, 143 s;
   then 123 and 95 s against the old code's 93 and 92) and `test/man-browser.mjs` (6 s, 10 s; amy
   installs `git` through the package service) passed (`packs-chain.txt`, `ab.txt`), and
-  `test/boundary-browser.mjs` (the page's check that the kernel's imports equal the contract).
+  `test/boundary-browser.mjs` (the page's check that the kernel's imports equal the contract), and
+  `test/default-browser.mjs` (24 s, 30 s; images the page composes from `core`, `display`, `cc`
+  and `zig`, rebuilt here; its welcome check needs `python` registered, so the tree's catalog is
+  the 35 images of that closure, `generate-routes.mjs`, nothing of python's built).
 
 ### Seen, not changed
 
