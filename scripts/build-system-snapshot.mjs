@@ -17,7 +17,7 @@ import { sha256 as digest, verifySnapshotIdentity } from "./snapshot-identity.mj
 import { readWasmInterface } from "./wasm-interface.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
 import { imageInputs, imageInputsMatch } from "../src/image-inputs.mjs";
-import { metadataSource, parseGeneratedConstant, snapshotMetadata } from "./image-directory.mjs";
+import { metadataJson, snapshotMetadata } from "./image-directory.mjs";
 import { ensureSnapshotPacks } from "./share-pages-snapshots.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
@@ -87,8 +87,8 @@ function verifyImage(image, parsed) {
     processContract, DOLLY_PROCESS_ABI_DIGEST);
 }
 
-const metadataPath = image => resolve(projectDir, `dist/dolly-${image}-system-snapshot.mjs`);
-const readMetadata = async image => parseGeneratedConstant(await readFile(metadataPath(image), "utf8"), "DOLLY_SYSTEM_SNAPSHOT");
+const metadataPath = image => resolve(projectDir, `dist/dolly-${image}-system-snapshot.json`);
+const readMetadata = async image => JSON.parse(await readFile(metadataPath(image), "utf8"));
 
 // The snapshots this tree has checked against their metadata, each by its file's
 // identity (size, modification time, inode) and the metadata's text: a plan reads
@@ -149,7 +149,7 @@ async function buildImage(image, inputs, builder) {
     projectDir, `dist/.dolly-${image}-system.snapshot.${process.pid}.tmp`,
   );
   const temporaryMetadataPath = resolve(
-    projectDir, `dist/.dolly-${image}-system-snapshot.${process.pid}.mjs.tmp`,
+    projectDir, `dist/.dolly-${image}-system-snapshot.${process.pid}.json.tmp`,
   );
   await Promise.all([
     rm(temporarySnapshotPath, { force: true }),
@@ -164,7 +164,7 @@ async function buildImage(image, inputs, builder) {
     const parsed = decodeSystemSnapshot(snapshot);
     const metadata = snapshotMetadata(image, graphs.get(image), inputs, snapshot, parsed, verifyImage(image, parsed),
       { buildId: DOLLY_BUILD_ID, imageBuildId: DOLLY_IMAGE_BUILD_ID });
-    await writeFile(temporaryMetadataPath, metadataSource(metadata));
+    await writeFile(temporaryMetadataPath, metadataJson(metadata));
     await rename(temporarySnapshotPath, snapshotPath);
     await rename(temporaryMetadataPath, metadataPath(image));
     console.log(
@@ -214,7 +214,7 @@ async function produce(image, builder) {
   if (packed !== metadata) {
     const temporary = `${metadataPath(image)}.${process.pid}.tmp`;
     try {
-      await writeFile(temporary, metadataSource(packed));
+      await writeFile(temporary, metadataJson(packed));
       await rename(temporary, metadataPath(image));
     } finally { await rm(temporary, { force: true }); }
   }

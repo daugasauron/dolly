@@ -77,12 +77,12 @@ for (const browser of ["chromium", "firefox"]) {
   });
 }
 
-const { DOLLY_IMAGES } = await import("../../../dist/dolly-images.mjs");
+const { default: catalog } = await import("../../../dist/dolly-images.json", { with: { type: "json" } });
 const pin = name => {
-  const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
+  const { dollyfile, sha256 } = catalog.images.find(definition => definition.image === name);
   return `${siteReference(dollyfile)} ${sha256}`;
 };
-const hosts = DOLLY_IMAGES.find(definition => definition.image === "default").hostRequirements;
+const hosts = catalog.images.find(definition => definition.image === "default").hostRequirements;
 const recipe = ["DOLLY 7", "APPLICATION numpy-probe", ...hosts.map(host => `REQUIRES HOST ${host}`),
   `FROM ${pin("default")}`, `INSTALL ${pin("python")}`,
   `COPY ${pin("python-data-build")} /opt/python-data/numpy /`,

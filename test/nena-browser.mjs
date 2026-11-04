@@ -8,7 +8,7 @@ import { DOLLY_AUDIO_SLOTS } from "../host/audio/abi.mjs";
 import { hostManifests } from "../host/manifests.mjs";
 import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
 import { siteReference } from "../src/static-asset.mjs";
-import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import catalog from "../dist/dolly-images.json" with { type: "json" };
 
 // A sealed package that needs microphone@0, as the engine would build it: the
 // retained recipe plus its receipt (recipe chain, host requirements, exports).
@@ -262,7 +262,7 @@ await browserTest("nena", { image: "default", timeout: 300_000, server: { fixtur
 
   // An embedding that names the page's modules bounds what nena enables.
   const bounded = await open({ setup: page => page.addInitScript(modules => { globalThis.DOLLY_HOST_MODULES = modules; },
-    DOLLY_IMAGES.find(({ image }) => image === "default").hostRequirements) });
+    catalog.images.find(({ image }) => image === "default").hostRequirements) });
   assert.equal(await bounded.submit("nena enable microphone 2> /dev/null"), 1);
   assert.equal(await bounded.submit("nena disable threads && nena enable threads"), 0);
   assert.ok(!(await bounded.page.evaluate(() => __dolly.hostModules)).includes("microphone@0"));

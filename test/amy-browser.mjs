@@ -7,17 +7,17 @@ import { browserTest } from "./browser.mjs";
 import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
 import { siteReference } from "../src/static-asset.mjs";
 import { inspectDollyfile, recipeRows } from "../src/dollyfile-view.mjs";
-import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import catalog from "../dist/dolly-images.json" with { type: "json" };
 
-const packages = DOLLY_IMAGES.filter(definition => definition.role === "package").map(({ image }) => image).sort();
+const packages = catalog.images.filter(definition => definition.role === "package").map(({ image }) => image).sort();
 // The packages default's recipe installs, and those they install (amy's dollyfile).
-const preinstalled = [...new Set(DOLLY_IMAGES.find(definition => definition.image === "default").artifacts
+const preinstalled = [...new Set(catalog.images.find(definition => definition.image === "default").artifacts
   .filter(artifact => artifact.operation === "install").map(artifact => artifact.image))].sort();
 // The site's index, as generated: NAME RECIPE SHA256 DESCRIPTION.
 const index = await readFile(new URL("../amy-index.txt", import.meta.url), "utf8");
 const indexed = name => index.split("\n").find(row => row.startsWith(`${name} `)).split(" ");
 const pin = name => {
-  const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
+  const { dollyfile, sha256 } = catalog.images.find(definition => definition.image === name);
   return `${siteReference(dollyfile)} ${sha256}`;
 };
 const sha256 = text => createHash("sha256").update(text).digest("hex");

@@ -22,7 +22,7 @@
 import { execFileSync } from "node:child_process";
 import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
-import { discoverImageDefinitions, imageRegistrySource, selectImageDefinitions } from "./image-definitions.mjs";
+import { discoverImageDefinitions, imageRegistryJson, selectImageDefinitions } from "./image-definitions.mjs";
 import { indexSource } from "./image-directory.mjs";
 import { siteReference, sitePath } from "../src/static-asset.mjs";
 import { hostManifests } from "../host/manifests.mjs";
@@ -122,15 +122,14 @@ const licensed = "The image holds programs built inside Dolly from their upstrea
   "(https://github.com/daugasauron/dolly).\n";
 async function writeImageDirectory(image, holds, bootable) {
   const closureOfImage = await selectImageDefinitions(definitions, image);
-  const registry = await imageRegistrySource(projectDir, closureOfImage);
-  const { DOLLY_IMAGES } = await import(`data:text/javascript,${encodeURIComponent(registry)}`);
-  const record = DOLLY_IMAGES.find(entry => entry.image === image);
+  const registry = await imageRegistryJson(projectDir, closureOfImage);
+  const record = JSON.parse(registry).images.find(entry => entry.image === image);
   if ((record.role === "package") === bootable) throw new Error(`${image} is a ${record.role}`);
   // A package arrives with the packages its recipe installs, each from its own snapshot.
   const held = bootable ? [image] : [image, ...record.artifacts.filter(artifact => artifact.operation === "install").map(artifact => artifact.image)];
   const packs = new Set();
   for (const name of held) {
-    const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(resolve(projectDir, `dist/dolly-${name}-system-snapshot.mjs`));
+    const metadata = JSON.parse(await readFile(resolve(projectDir, `dist/dolly-${name}-system-snapshot.json`), "utf8"));
     for (const pack of metadata.packs) packs.add(`dist/packs/${pack.sha256}.snapshot.gz`);
   }
   const recipes = new Set(closureOfImage.map(definition => definition.filename));
@@ -138,7 +137,7 @@ async function writeImageDirectory(image, holds, bootable) {
   const declared = record.hostRequirements.map(value => value.split("@")[0]);
   const name = `dolly-${bootable ? "image" : "package"}-${image}`, directory = join(out, name);
   await mkdir(join(directory, "dist"), { recursive: true });
-  await writeFile(join(directory, "dist/dolly-images.mjs"), registry);
+  await writeFile(join(directory, "dist/dolly-images.json"), registry);
   if (bootable) {
     await writeFile(join(directory, "index.mjs"), indexSource(image, declared.map(name =>
       runtimeModules.includes(name) ? `../dolly/host/${name}/module.json` : `../${hostPackage(name)}/module.json`)));
@@ -146,7 +145,7 @@ async function writeImageDirectory(image, holds, bootable) {
   const install = [`${scope}/dolly`, ...bootable ? [`${scope}/${name}`] : [`${scope}/dolly-image-pi-minimal`, `${scope}/dolly-build`, `${scope}/${name}`],
     ...declared.filter(name => deviceModules.includes(name)).map(name => `${scope}/${hostPackage(name)}`)].join(" ");
   return writePackage(directory, [
-    ...closureOfImage.map(definition => `dist/dolly-${definition.image}-system-snapshot.mjs`),
+    ...closureOfImage.map(definition => `dist/dolly-${definition.image}-system-snapshot.json`),
     ...packs,
     ...recipes,
   ].map(file => [file, file]), {

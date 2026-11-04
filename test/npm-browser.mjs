@@ -30,8 +30,8 @@ import { isolationHeaders, mimeTypes } from "../scripts/serve.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 // What an image's recipe declares, which its page enables and nothing more.
-const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
-const declared = image => DOLLY_IMAGES.find(definition => definition.image === image).hostRequirements.toSorted();
+const { default: catalog } = await import("../dist/dolly-images.json", { with: { type: "json" } });
+const declared = image => catalog.images.find(definition => definition.image === image).hostRequirements.toSorted();
 const names = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 // page.evaluate has no deadline of its own.
 const within = (promise, seconds, what) => Promise.race([promise, new Promise((_, reject) =>

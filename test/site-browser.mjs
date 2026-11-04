@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import catalog from "../dist/dolly-images.json" with { type: "json" };
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 import { DOLLY_VERSION } from "../src/version.mjs";
 import { browserTest } from "./browser.mjs";
@@ -50,9 +50,9 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   assert.equal(await page.locator("script").count(), 0);
   const images = await page.$$eval("tr.image", rows => rows.map(row => ({ image: row.dataset.image,
     links: [...row.querySelectorAll(".image-links a")].map(link => new URL(link.href).pathname) })));
-  assert.deepEqual(images.map(row => row.image).sort(), DOLLY_IMAGES.map(definition => definition.image).sort());
+  assert.deepEqual(images.map(row => row.image).sort(), catalog.images.map(definition => definition.image).sort());
   for (const { image, links } of images) {
-    const definition = DOLLY_IMAGES.find(definition => definition.image === image);
+    const definition = catalog.images.find(definition => definition.image === image);
     const displayed = definition.entry !== null && definition.hostRequirements.includes("display@0");
     assert.deepEqual(links.sort(), [...displayed ? [`${prefix}/${image}/`] : [], `${prefix}/${image}/rebuild/`,
       `${prefix}/view/${image}/`].sort(), image);
@@ -77,7 +77,7 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   const index = await fetch(await page.locator('a[href="./amy-index.txt"]').evaluate(link => link.href));
   assert.match(index.headers.get("content-type"), /^text\/plain/);
   const packages = (await index.text()).trimEnd().split("\n").map(row => row.split(" ")[0]);
-  assert.deepEqual([...packages].sort(), DOLLY_IMAGES.filter(definition => definition.role === "package").map(definition => definition.image).sort());
+  assert.deepEqual([...packages].sort(), catalog.images.filter(definition => definition.role === "package").map(definition => definition.image).sort());
   inOrder(packages, "the package index");
   await page.click('a[href="#shortcuts"]');
   assert.equal(await page.evaluate(() => location.hash), "#shortcuts");
@@ -87,7 +87,7 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   // downloads sources and links each attribution to an existing view.
   await page.click('a[href="./licences/"]');
   const attributed = await page.$$eval(".inventory td:last-child a", links => links.map(link => new URL(link.href).pathname));
-  const registered = new Set(DOLLY_IMAGES.map(definition => definition.image));
+  const registered = new Set(catalog.images.map(definition => definition.image));
   for (const { image, parsed } of await discoverImageDefinitions(root)) {
     if (registered.has(image) && parsed.sources.length) assert.ok(attributed.includes(`${prefix}/view/${image}/`), image);
   }

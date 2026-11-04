@@ -26,8 +26,9 @@ export async function acceptImage(browser, server, image) {
   await page.exposeFunction("dollyBuildLog", text => { log = (log + text).slice(-8192); });
   await page.goto(`${server.origin}/__dolly_build_page`);
   const { definition, manifestHash, base } = await page.evaluate(async image => {
-    const definition = (await import("/dist/dolly-images.mjs")).DOLLY_IMAGES.find(item => item.image === image);
-    const { DOLLY_SYSTEM_SNAPSHOT: { manifest } } = await import(`/dist/dolly-${image}-system-snapshot.mjs`);
+    const json = async path => (await import(path, { with: { type: "json" } })).default;
+    const definition = (await json("/dist/dolly-images.json")).images.find(item => item.image === image);
+    const { manifest } = await json(`/dist/dolly-${image}-system-snapshot.json`);
     const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(manifest.join("\n") + "\n"));
     return { definition, base: manifest.includes("/bin/dollyfile") && manifest.includes("/bin/cc"),
       manifestHash: [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("") };

@@ -52,7 +52,7 @@ the page's.
 
 | Option | Meaning |
 | --- | --- |
-| `images` | URL of an image directory: `dist/dolly-images.mjs`, the images' metadata and packs, their recipes. `@daugasauron/dolly-image-default`'s `index.mjs` exports its own. A page has one image directory. The packs an image reads stay in the origin's private storage, so it starts again without downloading them (`src/pack-store.mjs`) |
+| `images` | URL of an image directory: `dist/dolly-images.json`, the images' metadata and packs, their recipes, all data. `@daugasauron/dolly-image-default`'s `index.mjs` exports its own. A page has one image directory. The packs an image reads stay in the origin's private storage, so it starts again without downloading them (`src/pack-store.mjs`) |
 | `image` | The image to run, by name |
 | `modules` | URLs of the `module.json` of each host module the page has. The registry loads these and no other; an image's `REQUIRES HOST` must be among them |
 | `site` | Optional: the URL of a site that serves Dolly's own pages (`session/`, `sessions/`, `docs/`), as Dolly's site does. Given, a saved session names itself in the tab's URL as the site's session route and modules link to those pages |
@@ -131,7 +131,9 @@ properties each time a popup opens. Dolly's site sets
 - Send `Cross-Origin-Opener-Policy: same-origin` and
   `Cross-Origin-Embedder-Policy: require-corp` with the page: Dolly needs shared
   memory, which a browser gives only to a cross-origin isolated page.
-- Serve `.wasm` as `application/wasm` and `.mjs` as `text/javascript`.
+- Serve `.wasm` as `application/wasm`, `.mjs` as `text/javascript` and `.json`
+  as `application/json`: a browser imports a host module's manifest and an image
+  directory's catalog and metadata only with that type.
 - No bundler is needed: these are ES modules, Workers and Wasm files.
 
 ## Your own image

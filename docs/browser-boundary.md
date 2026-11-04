@@ -245,15 +245,16 @@ Worker URL.
 ## Trusted files
 
 Beside the host modules (each one's directory, named by its manifest), these
-are the trusted files a page and its runtime Worker load; a process Worker
+are the trusted files a page and its runtime Worker load, with the build
+identities and ABI constants the runtime's build writes (`dist/dolly-build-id.mjs`,
+`dist/dolly-image-build-id.mjs`, `dist/dolly-process-abi.mjs`); a process Worker
 loads the bundle of [`process-worker.mjs`](../src/process-worker.mjs) and the
-modules it serves. An image directory's catalog (`dist/dolly-images.mjs`) and
-image metadata (`dist/dolly-IMAGE-system-snapshot.mjs`) are modules its build
-writes, which the page and the Worker import: the embedding trusts the image
-directory it names as it trusts the runtime, whose build writes the build
-identities and ABI constants they import (`dist/dolly-build-id.mjs`,
-`dist/dolly-image-build-id.mjs`, `dist/dolly-process-abi.mjs`). The rest of what a page fetches is
-data checked against them: packs, recipes and sources.
+modules it serves. An image directory is data: the page and the Worker import its catalog
+(`dist/dolly-images.json`) and image metadata
+(`dist/dolly-IMAGE-system-snapshot.json`) as JSON, and check its packs, recipes
+and sources against them. A page runs none of its code, so an embedding may
+boot a directory it does not trust: its programs get only the host modules the
+embedding lists.
 
 | Part | Files |
 | --- | --- |

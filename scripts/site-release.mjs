@@ -11,13 +11,12 @@ import { mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from 
 import { imageInputsMatch } from "../src/image-inputs.mjs";
 import { contractDigest, digestModuleSource, validateBrowserImports } from "./dolly-abi.mjs";
 import { createDollyfileGraphLoader, recipeRecords } from "./dollyfile-graph.mjs";
-import { discoverImageDefinitions, imageRegistrySource, inspectStaticSources, selectImageDefinitions } from "./image-definitions.mjs";
+import { discoverImageDefinitions, imageRegistryJson, inspectStaticSources, selectImageDefinitions } from "./image-definitions.mjs";
 import { sha256, verifySnapshotIdentity } from "./snapshot-identity.mjs";
 import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
 import { readWasmInterface } from "./wasm-interface.mjs";
 import { verifyDocumentationLinks } from "./package-documentation.mjs";
 import { buildIdentities, buildIdModules } from "./write-build-id.mjs";
-import { parseGeneratedConstant } from "./image-directory.mjs";
 
 export function safePath(path) {
   if (!path || /[\\\r\n\0]/.test(path) || path.split("/").some(part => !part || part === "." || part === "..")) {
@@ -64,8 +63,8 @@ export async function sourceManifest(root) {
 async function verifySite(site) {
   const loadGraph = createDollyfileGraphLoader(site);
   await verifyDocumentationLinks(site);
-  const constant = async (file, name) => parseGeneratedConstant(await readFile(resolve(site, "dist", file), "utf8"), name);
   const distText = file => readFile(resolve(site, "dist", file), "utf8");
+  const json = async file => JSON.parse(await distText(file));
   // The runtime's generated modules are code: each must be the bytes its build writes.
   const identity = await buildIdentities(resolve(site, "dist/dolly.wasm"), resolve(site, "dist/dolly.data"));
   for (const [file, text] of Object.entries(buildIdModules(identity))) {
@@ -81,20 +80,18 @@ async function verifySite(site) {
   const runtime = await readWasmInterface(resolve(site, "dist/dolly.wasm"));
   validateBrowserImports(browserContract.imports, runtime.imports);
   // Documentation may include recipe text for images outside this release.
-  const registrySource = await readFile(resolve(site, "dist/dolly-images.mjs"), "utf8");
-  const registry = parseGeneratedConstant(registrySource.split("\nexport const DOLLY_STATIC_SOURCES =", 1)[0], "DOLLY_IMAGES");
+  const registry = await distText("dolly-images.json");
   const definitions = await selectImageDefinitions(await discoverImageDefinitions(site),
-    registry.map(({ image }) => image).join(","));
+    JSON.parse(registry).images.map(({ image }) => image).join(","));
   const sources = await inspectStaticSources(site, definitions);
-  if (await readFile(resolve(site, "dist/dolly-images.mjs"), "utf8") !==
-      await imageRegistrySource(site, definitions, sources)) throw new Error("release image registry mismatch");
+  if (registry !== await imageRegistryJson(site, definitions, sources)) throw new Error("release image registry mismatch");
   for (const definition of definitions) {
     const image = definition.image;
     const graph = await loadGraph(definition.filename);
-    const metadata = await constant(`dolly-${image}-system-snapshot.mjs`, "DOLLY_SYSTEM_SNAPSHOT");
+    const metadata = await json(`dolly-${image}-system-snapshot.json`);
     const inputs = await Promise.all(graph.artifacts.map(async reference => ({
       recipeSha256: reference.sha256,
-      sha256: (await constant(`dolly-${reference.image}-system-snapshot.mjs`, "DOLLY_SYSTEM_SNAPSHOT")).sha256,
+      sha256: (await json(`dolly-${reference.image}-system-snapshot.json`)).sha256,
     })));
     if (!imageInputsMatch(metadata.inputs, inputs)) throw new Error(`${image}: release image inputs mismatch`);
     if (metadata.image !== image || metadata.buildId !== imageBuildId ||

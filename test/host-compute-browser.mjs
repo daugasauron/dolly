@@ -54,15 +54,15 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
     // (leading REQUIRES HOST rows go after the role line) and resolves to its
     // artifact and configuration.
     globalThis.buildCustom = async (name, rows, packages = []) => {
-      const { DOLLY_IMAGES } = await import("/dist/dolly-images.mjs");
+      const { default: catalog } = await import("/dist/dolly-images.json", { with: { type: "json" } });
       const { buildImage } = await import("/src/image-builder.mjs");
       const { hostModuleUrls: modules } = await import("/host/manifests.mjs");
       const { prepareImageArtifacts } = await import("/src/image-build.mjs");
       const { siteReference } = await import("/src/static-asset.mjs");
       const builders = { http: { network: await headlessNetwork() } };
-      const base = DOLLY_IMAGES.find(d => d.image === "system-build");
+      const base = catalog.images.find(d => d.image === "system-build");
       const hosts = rows.match(/^(?:REQUIRES HOST [^\n]*\n)*/)[0];
-      const installs = packages.map(image => DOLLY_IMAGES.find(d => d.image === image))
+      const installs = packages.map(image => catalog.images.find(d => d.image === image))
         .map(d => `INSTALL ${siteReference(d.dollyfile)} ${d.sha256}\n`).join("");
       const recipe = `DOLLY 7\nAPPLICATION ${name}\n${hosts}FROM ${siteReference(base.dollyfile)} ${base.sha256}\n${installs}${rows.slice(hosts.length)}`;
       const report = () => {};
