@@ -23,6 +23,7 @@ typedef struct {
   char *path;
   uint32_t kind;
   uintptr_t size;
+  int64_t modified;
   unsigned char digest[32];
 } dolly_session_record;
 
@@ -57,7 +58,7 @@ static void dispose_records(dolly_session_records *records) {
 }
 
 static int append_record(dolly_session_records *records, const char *path,
-                         uint32_t kind, uintptr_t size) {
+                         uint32_t kind, uintptr_t size, int64_t modified) {
   if (records->count == DOLLY_SESSION_MAX_RECORDS) {
     errno = E2BIG;
     return -1;
@@ -79,14 +80,26 @@ static int append_record(dolly_session_records *records, const char *path,
       .path = copy,
       .kind = kind,
       .size = size,
+      .modified = modified,
   };
+  return 0;
+}
+
+// Nanoseconds since the epoch, which a signed 64-bit count holds from 1677 to 2262.
+static int modification_time(const struct stat *metadata, int64_t *modified) {
+  if (__builtin_mul_overflow((int64_t)metadata->st_mtim.tv_sec, 1000000000, modified) ||
+      __builtin_add_overflow(*modified, (int64_t)metadata->st_mtim.tv_nsec, modified)) {
+    errno = EOVERFLOW;
+    return -1;
+  }
   return 0;
 }
 
 static int collect_tree(const char *path, dolly_session_records *records) {
   if (dolly_session_excluded_path(path)) return 0;
   struct stat metadata = {0};
-  if (lstat(path, &metadata) != 0) return -1;
+  int64_t modified;
+  if (lstat(path, &metadata) != 0 || modification_time(&metadata, &modified) != 0) return -1;
   if (S_ISREG(metadata.st_mode)) {
     if (metadata.st_size < 0 ||
         (uint64_t)metadata.st_size > UINTPTR_MAX) {
@@ -94,7 +107,7 @@ static int collect_tree(const char *path, dolly_session_records *records) {
       return -1;
     }
     return append_record(records, path, DOLLY_SESSION_FILE,
-                         (uintptr_t)metadata.st_size);
+                         (uintptr_t)metadata.st_size, modified);
   }
   if (S_ISLNK(metadata.st_mode)) {
     char target[PATH_MAX];
@@ -104,14 +117,14 @@ static int collect_tree(const char *path, dolly_session_records *records) {
       return -1;
     }
     return append_record(records, path, DOLLY_SESSION_SYMLINK,
-                         (uintptr_t)length);
+                         (uintptr_t)length, modified);
   }
   if (!S_ISDIR(metadata.st_mode)) {
     errno = ENOTSUP;
     return -1;
   }
   if (strcmp(path, "/") != 0 &&
-      append_record(records, path, DOLLY_SESSION_DIRECTORY, 0) != 0) {
+      append_record(records, path, DOLLY_SESSION_DIRECTORY, 0, modified) != 0) {
     return -1;
   }
 
@@ -220,6 +233,7 @@ static int capture_filesystem(void) {
         strcmp(records.records[current].path, base->path) == 0) {
       dolly_session_record *record = &records.records[current++];
       if (record->kind == base->kind && record->size == base->size &&
+          record->modified == base->modified &&
           memcmp(record->digest, base->digest, sizeof(base->digest)) == 0) {
         record->kind = 0;
       }
@@ -232,7 +246,7 @@ static int capture_filesystem(void) {
     const char *path = base_records.records[index].path;
     while (current < present_count && strcmp(records.records[current].path, path) < 0) ++current;
     if (current == present_count || strcmp(records.records[current].path, path) != 0) {
-      if (append_record(&records, path, DOLLY_SESSION_DELETED, 0) != 0) {
+      if (append_record(&records, path, DOLLY_SESSION_DELETED, 0, 0) != 0) {
         dispose_records(&records);
         return -1;
       }
@@ -272,6 +286,7 @@ static int capture_filesystem(void) {
     dolly_fs_put_u32(&cursor, record->kind);
     dolly_fs_put_u32(&cursor, path_length);
     dolly_fs_put_u64(&cursor, record->size);
+    dolly_fs_put_u64(&cursor, (uint64_t)record->modified);
     memcpy(cursor, record->path, path_length);
     cursor += path_length;
     if (record->kind == DOLLY_SESSION_FILE) {
@@ -342,11 +357,10 @@ uintptr_t dolly_session_restore_address(uintptr_t size) {
 
 static int restore_filesystem(uintptr_t size) {
   if (!base_ready || size > restore_capacity) return 1;
-  dolly_fs_record *records;
-  uint32_t count;
-  if (dolly_session_decode(restore_bytes, size, &records, &count) != 0) return 1;
-  const int result = dolly_fs_restore(records, count, 0);
-  dolly_session_free_records(records, count);
+  dolly_session_delta delta;
+  if (dolly_session_decode(restore_bytes, size, &delta) != 0) return 1;
+  const int result = dolly_session_restore_delta(&delta, 0);
+  dolly_session_free(&delta);
   return result != 0;
 }
 

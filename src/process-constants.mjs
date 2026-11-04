@@ -50,7 +50,7 @@ export const DOLLY_PROCESS_INFO = 67;
 export const DOLLY_PROCESS_SIGNAL = 68;
 export const DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE = 69;
 export const DOLLY_PROCESS_ALARM = 70;
-export const DOLLY_PROCESS_ALARM_HANDLED = 71;
+export const DOLLY_PROCESS_SIGNAL_DISPOSITIONS = 71;
 export const DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT = 1;
 export const DOLLY_PROCESS_SPAWN_FOREGROUND = 2;
 export const DOLLY_PROCESS_SPAWN_INTERACTIVE = 4;
@@ -116,6 +116,7 @@ export const DOLLY_PROCESS_TERMINAL_MODE_GET = 3;
 export const DOLLY_PROCESS_TERMINAL_MODE_SET = 4;
 export const DOLLY_PROCESS_TERMINAL_SIZE = 5;
 export const DOLLY_PROCESS_TERMINAL_PUBLISH_RESULT = 6;
+export const DOLLY_PROCESS_TERMINAL_FOREGROUND = 7;
 export const DOLLY_PROCESS_LOCK_SHARED = 0;
 export const DOLLY_PROCESS_LOCK_EXCLUSIVE = 1;
 export const DOLLY_PROCESS_LOCK_UNLOCK = 2;
@@ -221,7 +222,7 @@ export const DOLLY_PROCESS_SIZEOF = Object.freeze({
   dolly_process_directory_request: 24,
   dolly_process_stat_response: 88,
   dolly_process_filesystem_stat_response: 96,
-  dolly_process_spawn_request: 56,
+  dolly_process_spawn_request: 72,
   dolly_process_fd_mapping: 8,
   dolly_process_exec_state: 16,
   dolly_process_exec_request: 48,
@@ -236,6 +237,7 @@ export const DOLLY_PROCESS_SIZEOF = Object.freeze({
   dolly_process_wait_response: 16,
   dolly_process_signal_request: 8,
   dolly_process_alarm: 16,
+  dolly_process_signal_dispositions: 8,
   dolly_process_fd_seek_request: 16,
   dolly_process_clock_request: 16,
   dolly_process_path_request: 16,

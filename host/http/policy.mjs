@@ -1,4 +1,4 @@
-import { DOLLY_ERRNO } from "./abi.mjs";
+import { DOLLY_ERRNO, DOLLY_HTTP_MAX_BODY } from "./abi.mjs";
 
 export class HttpError extends Error {
   constructor(errno, message) { super(message); this.errno = errno; }
@@ -38,14 +38,17 @@ export function stripDollyBrowserOwnedHeaders(headers) {
 
 const defaultLimits = Object.freeze({
   maxRequests: 256,
-  maxRequestBytes: 8 * 1024 * 1024,
+  maxRequestBytes: DOLLY_HTTP_MAX_BODY,
   maxResponseBytes: Infinity,
   timeoutMilliseconds: 600_000,
 });
 
-function positiveInteger(value, fallback, name) {
+// Timers wait at most this long; a longer timeout would fire early.
+const longestTimeout = 2 ** 31 - 1;
+
+function positiveInteger(value, fallback, name, maximum = Number.MAX_SAFE_INTEGER) {
   const result = value ?? fallback;
-  if (!Number.isSafeInteger(result) || result <= 0) {
+  if (!Number.isSafeInteger(result) || result <= 0 || result > maximum) {
     throw new TypeError(`invalid Dolly HTTP policy ${name}`);
   }
   return result;
@@ -105,6 +108,7 @@ function normalizeRule(rule) {
       rule.timeoutMilliseconds,
       defaultLimits.timeoutMilliseconds,
       "timeoutMilliseconds",
+      longestTimeout,
     ),
   });
 }

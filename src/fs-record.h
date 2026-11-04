@@ -13,7 +13,8 @@
 #include <unistd.h>
 
 // Shared path kinds for images, cached modules, and session deltas. Their
-// versioned envelopes carry: kind:u32, path_bytes:u32, data_bytes:u64, path, data.
+// versioned envelopes carry kind:u32, path_bytes:u32, data_bytes:u64, path and
+// data; a session's adds each path's time (session-records.h).
 enum {
   DOLLY_FS_DIRECTORY = 1,
   DOLLY_FS_FILE = 2,

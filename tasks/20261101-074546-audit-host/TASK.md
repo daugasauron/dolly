@@ -263,7 +263,9 @@ Described, not changed (each moot or another workstream's, as it says):
   (`http-size-after.log`, `janis-size.log`): 8 MiB + 1 and 64 MiB reach the server, and
   64 MiB + 1 fails as before. A 64 MiB curl POST to the local server takes 1.9 s in
   Chromium and 0.5 s in Firefox.
-  A seed change (the http contract): it needs a catalog round.
+  A seed change (the http contract): it needs a catalog round. 2026-11-02: carried onto
+  `integrate/2026-11-02` on `proposal/http-limits` with the broker's timeout, which now
+  bounds a wait rather than a whole request; the record is `tasks/20261101-222946-http-limits`.
 
 ## Lessons
 

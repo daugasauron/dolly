@@ -48,7 +48,6 @@ FILE /home/dolly/.pi/agent/models.json
 # changes the model for a session; --offline keeps Pi from requests the policy
 # refuses. Ctrl+D leaves Pi for a shell.
 FILE /etc/dolly/init.slop
-    cd /workspace
     pi-key OPENROUTER_API_KEY --offline --provider openrouter --model anthropic/claude-sonnet-5.5
     # pi-key ANTHROPIC_API_KEY --offline --provider anthropic --model claude-sonnet-5-5
     printf '\nPi exited; this is a Slop shell.\n'

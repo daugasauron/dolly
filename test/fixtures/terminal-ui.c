@@ -10,6 +10,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 
 static int check_discipline(void) {
@@ -54,11 +55,11 @@ static int check_discipline(void) {
         row != 2 || column != expected) { status = 13; break; }
   }
   if (tcsetattr(0, TCSANOW, &saved) != 0) return 14;
-  /* No input mapping or flow control exists, so neither is reported or set. */
+  /* The terminal starts reading Enter as LF (ICRNL); no flow control exists. */
   mode = saved;
   mode.c_iflag |= IXON;
-  if (status == 0 && (saved.c_iflag != 0 || tcsetattr(0, TCSANOW, &mode) != -1 ||
-      errno != EINVAL || tcgetattr(0, &observed) || observed.c_iflag != 0)) status = 22;
+  if (status == 0 && (saved.c_iflag != ICRNL || tcsetattr(0, TCSANOW, &mode) != -1 ||
+      errno != EINVAL || tcgetattr(0, &observed) || observed.c_iflag != ICRNL)) status = 22;
   return status;
 }
 
@@ -124,6 +125,35 @@ int main(int argc, char **argv) {
     char byte = 0;
     const int status = read(0, &byte, 1) == 1 && byte == 3 ? 0 : 20;
     return tcsetattr(0, TCSANOW, &saved) != 0 ? 21 : status;
+  }
+  if (argc > 1 && strcmp(argv[1], "vmin0") == 0) {
+    // Non-canonical VMIN 0, as kilo's raw mode reads keys: a read without
+    // input returns 0 at once (VTIME 0) or after VTIME tenths of a second,
+    // tcgetattr reports both, and a key typed within VTIME ends the read.
+    struct termios saved, mode, observed;
+    struct timespec before, after;
+    char byte = 0;
+    if (tcgetattr(0, &saved) != 0) return 24;
+    mode = saved;
+    mode.c_lflag &= ~(ICANON | ECHO);
+    mode.c_cc[VMIN] = 0;
+    mode.c_cc[VTIME] = 0;
+    if (tcsetattr(0, TCSANOW, &mode) != 0 || tcgetattr(0, &observed) != 0 ||
+        observed.c_cc[VMIN] != 0 || observed.c_cc[VTIME] != 0 || read(0, &byte, 1) != 0) return 25;
+    mode.c_cc[VTIME] = 3;
+    if (tcsetattr(0, TCSANOW, &mode) != 0 || tcgetattr(0, &observed) != 0 || observed.c_cc[VTIME] != 3) return 26;
+    clock_gettime(CLOCK_MONOTONIC, &before);
+    if (read(0, &byte, 1) != 0) return 27;
+    clock_gettime(CLOCK_MONOTONIC, &after);
+    const double waited = (after.tv_sec - before.tv_sec) * 1000.0 + (after.tv_nsec - before.tv_nsec) / 1e6;
+    if (waited < 250 || waited > 2000) return 28;
+    mode.c_cc[VTIME] = 100;
+    if (tcsetattr(0, TCSANOW, &mode) != 0) return 29;
+    puts("DOLLY-VMIN-READY");
+    fflush(stdout);
+    const ssize_t count = read(0, &byte, 1);
+    if (tcsetattr(0, TCSANOW, &saved) != 0) return 30;
+    return count == 1 && byte == 'k' ? 0 : 31;
   }
   if (argc > 1 && strcmp(argv[1], "mouse") == 0) {
     // Asks for every motion in SGR form and reads, in this order and in one

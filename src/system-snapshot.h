@@ -16,14 +16,15 @@ int dolly_snapshot_restore_staged(uintptr_t size, const char *only_path);
 int dolly_snapshot_stream_begin(uintptr_t size);
 int dolly_snapshot_stream_write(uintptr_t size, uint32_t end_part);
 int dolly_snapshot_stream_finish(void);
-// A new capture invalidates the old range; failed capture leaves no range.
-int dolly_snapshot_capture(void);
-uintptr_t dolly_snapshot_address(void);
-uintptr_t dolly_snapshot_size(void);
+// A capture streams the snapshot through the staging range: begin returns its
+// size (0 fails), each read fills the range and returns how many bytes, 0 at
+// the end. A new begin replaces an unfinished capture.
+uintptr_t dolly_snapshot_capture_begin(void);
+uintptr_t dolly_snapshot_capture_read(void);
 uint32_t dolly_snapshot_format_version(void);
 
-// Boot-only: release captured bytes and discard unretained build inputs.
-// The worker must copy the capture before finishing boot. Not a host export.
+// Boot-only: discard an unfinished capture and unretained build inputs.
+// Not a host export.
 int dolly_snapshot_prune(void);
 
 #endif

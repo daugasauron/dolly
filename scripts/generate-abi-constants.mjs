@@ -23,12 +23,13 @@ const errors = [...errorNumbers.matchAll(/DOLLY_PROCESS_(E[A-Z0-9]+) = (\d+)/g)]
 // contracts export any gets abi.mjs beside its manifest, and NAME-abi.h when the
 // manifest lists it. The host record header is stringified into assembly and
 // therefore keeps unsuffixed integers.
+const constantDefines = async (sources, suffix) => (await Promise.all(sources.map(read))).flatMap(text =>
+  [...text.matchAll(/\(global \(export "(DOLLY_[A-Z0-9_]+)"\) i32 \(i32.const (\d+)\)\)/g)])
+  .map(([, constant, value]) => [constant, value, `#define ${constant} ${value}${suffix}\n`]);
 async function emitConstants(sources, module, header, suffix, digest, errno = false) {
-  const constants = [];
-  for (const source of sources) constants.push(...(await read(source)).matchAll(
-    /\(global \(export "(DOLLY_[A-Z0-9_]+)"\) i32 \(i32.const (\d+)\)\)/g));
-  const c = constants.map(([, constant, value]) => `#define ${constant} ${value}${suffix}\n`);
-  const js = constants.map(([, constant, value]) => `export const ${constant} = ${value};\n`);
+  const constants = await constantDefines(sources, suffix);
+  const c = constants.map(([, , define]) => define);
+  const js = constants.map(([constant, value]) => `export const ${constant} = ${value};\n`);
   // A module answers its calls with the process contract's errno numbers, as its C
   // includes <dolly/process.h>: its JavaScript then imports nothing of the runtime's.
   if (errno && js.length) js.push(`export const DOLLY_ERRNO = Object.freeze({ ${errors.map(([, name, value]) => `${name}: ${value}`).join(", ")} });\n`);
@@ -42,9 +43,12 @@ async function emitConstants(sources, module, header, suffix, digest, errno = fa
   await write(module, `// Generated from ${origin}${errno ? ", include/dolly/process.h" : ""}.\n${js.join("")}`);
 }
 await emitConstants(["abi/dolly-host-0.wat"], "host/abi.mjs", "include/dolly/host-abi.h", "");
-// A module with NAME-abi.h also gets DOLLY_NAME_ABI_DIGEST, the SHA-256 of the
-// exact bytes of its contracts and other headers. Its client records the digest
-// in executables (abi/dolly-host-0.wat), so any edit to them changes identity.
+// A module with NAME-abi.h also gets DOLLY_NAME_ABI_DIGEST, the SHA-256 of what
+// an executable compiles against: the exact bytes of its process WAT and other
+// headers, and the constants its kernel-boundary contracts give NAME-abi.h. Its
+// client records the digest in executables (abi/dolly-host-0.wat), so any edit to
+// them changes identity. The rest of those contracts is between the kernel and
+// the host, which ship together: an edit there leaves executables as they were.
 for (const { name } of hostManifests) {
   const files = field => hostFiles(field).filter(entry => entry.name === name).map(entry => entry.file);
   const contracts = [...files("contracts"), ...files("process")];
@@ -53,7 +57,8 @@ for (const { name } of hostManifests) {
   if (header) {
     const sources = files("headers").filter(file => file !== header);
     const hash = createHash("sha256");
-    for (const file of [...contracts, ...sources]) hash.update(await readFile(new URL(file, root)));
+    for (const file of [...files("process"), ...sources]) hash.update(await readFile(new URL(file, root)));
+    for (const [, , define] of await constantDefines(files("contracts"), "u")) hash.update(define);
     digest = { name: `DOLLY_${name.toUpperCase().replaceAll("-", "_")}_ABI_DIGEST`, sources, bytes: hash.digest() };
   }
   await emitConstants(contracts, `host/${name}/abi.mjs`, header, "u", digest, true);

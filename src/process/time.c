@@ -68,6 +68,12 @@ int clock_nanosleep(clockid_t clock, int flags,
   return result == 0 ? 0 : EIO;
 }
 
+/* musl's own name for it, which C11's thrd_sleep calls. */
+int __clock_nanosleep(clockid_t clock, int flags, const struct timespec *request,
+                      struct timespec *remaining) {
+  return clock_nanosleep(clock, flags, request, remaining);
+}
+
 int nanosleep(const struct timespec *request, struct timespec *remaining) {
   const int error = clock_nanosleep(
       CLOCK_MONOTONIC, 0, request, remaining);

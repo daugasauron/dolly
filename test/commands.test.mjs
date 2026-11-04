@@ -12,8 +12,7 @@ const project = resolve(import.meta.dirname, "..");
 const scratch = await mkdtemp(join(tmpdir(), "dolly-commands-"));
 test.after(() => rm(scratch, { recursive: true, force: true }));
 
-function build(name) {
-  const output = join(scratch, name);
+function build(name, output = join(scratch, name)) {
   execFileSync("cc", ["-std=c17", "-Wall", "-Wextra", "-Werror", `-I${includeDirectory}`, `src/commands/${name}.c`,
     "test/fixtures/native-spawn.c", "-o", output, "-lm"], { cwd: project, stdio: "pipe" });
   return output;
@@ -79,8 +78,22 @@ test("timeout 0 disables the deadline", () => {
   assert.equal(run(timeout, ["0.05", "sleep", "5"]).status, 124);
 });
 
+test("printf writes what the host's printf writes", () => {
+  const printf = build("printf");
+  for (const args of [["%s-%s\\n", "a", "b", "c"], ["plain\\n"], ["%5s|%-5s|%.2s|%10.3s|\\n", "ab", "cd", "efgh", "abcdef"],
+    ["%05d|%-5d|%+d|% d|%x|%X|%o|%#x|%#o|%u|%i\\n", "42", "42", "42", "42", "255", "255", "8", "255", "8", "-1", "-12"],
+    ["%d %d %d %d %d\\n", "0x1f", "010", "'A", '"B', ""], ["%c%c%c\\n", "abc", "d", ""], ["%b|%b\\n", "a\\tb\\0101c", "\\0"],
+    ["%b", "x\\cy", "z"], ["a\\101\\102\\n\\\\\\t|\\x41\\x4a\\n"], ["%*d|%-*d|%.*f|%.3d\\n", "6", "42", "6", "42", "2", "3.14159", "5"],
+    ["%e %g %f\\n", "1.5", "1e10", "2"], ["%d|\\n", "12abc"], ["%z", "1"], ["%%|%s|%d\\n"], ["%s %s %s\\n", "1", "2"],
+    ["--", "%s\\n", "x"], ["\\q\\n"]]) {
+    const own = run(printf, args), host = run("printf", args);
+    assert.deepEqual([own.stdout, own.status], [host.stdout, host.status], args.join(" "));
+  }
+});
+
 test("Dolly's own core tools keep their no-permission and finite semantics", async () => {
-  const testTool = build("test"), bracket = build("bracket");
+  // [ is test's program called by that name.
+  const testTool = build("test"), bracket = build("test", join(scratch, "["));
   const status = (program, args) => run(program, args).status;
   assert.equal(status(testTool, ["-x", "."]), 0, "a directory can be searched");
   assert.equal(status(testTool, ["-x", testTool]), 0);
@@ -300,7 +313,7 @@ test("file recognizes UTF-8 text and stat reports modes or rejects unknown forma
 });
 
 test("Dolly's own commands answer --help with their usage and status 0; man reports a missing page", async () => {
-  const core = ["cat", "cd", "clear", "cp", "file", "help", "ls", "man", "mkdir", "mv", "pwd", "rm", "stat", "touch"];
+  const core = ["cat", "clear", "cp", "file", "help", "ls", "man", "mkdir", "mv", "pwd", "rm", "stat", "touch"];
   const sources = ["command", "diff", "du", "env", "find", "hostname", "install", "nproc", "patch", "realpath", "rev",
     "time", "timeout", "tty", "xargs"];
   const programs = [...core.map(name => build(name)), ...sources.map(name => build(name))];

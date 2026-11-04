@@ -1,8 +1,9 @@
-// What Emscripten's emscripten_libc_stubs.o defined, which the process sysroot
-// leaves out (scripts/prepare-process-sysroot.sh): the same answers where they
-// are true for Dolly, honest ones where they claimed what did not happen.
-// execve, fork, vfork, posix_spawn, popen, pclose and flock are Dolly's own
-// elsewhere; getdate is musl's (scripts/build.sh).
+// What Emscripten's emscripten_libc_stubs.o and emscripten_syscall_stubs.o
+// defined, which the process sysroot leaves out (scripts/prepare-process-sysroot.sh):
+// the same answers where they are true for Dolly, honest ones where they claimed
+// what did not happen. execve, fork, vfork, posix_spawn, popen, pclose and flock,
+// and the system calls of process ids, priorities, waits, limits, madvise and
+// mprotect are Dolly's own elsewhere; getdate is musl's (scripts/build.sh).
 #define _GNU_SOURCE
 #include <errno.h>
 #include <grp.h>
@@ -158,4 +159,65 @@ void *dlopen(const char *path, int flags) {
   (void)path; (void)flags;
   __dl_seterr("dynamic loading needs a program linked with -rdynamic and host module dso@0");
   return NULL;
+}
+
+// Nothing waits to be written: the filesystem is kernel memory.
+int __syscall_sync(void) { return 0; }
+
+// The one user's ids are 0, and its one group is 0.
+int __syscall_getgroups32(int count, gid_t list[]) {
+  if (count < 0) return -EINVAL;
+  if (count > 0) list[0] = 0;
+  return 1;
+}
+
+int __syscall_getresuid32(uid_t *real, uid_t *effective, uid_t *saved) {
+  *real = *effective = *saved = 0;
+  return 0;
+}
+
+int __syscall_getresgid32(gid_t *real, gid_t *effective, gid_t *saved) {
+  *real = *effective = *saved = 0;
+  return 0;
+}
+
+// No page of a process's memory is ever written out: locked is how it always is.
+int __syscall_mlock(const void *address, size_t length) {
+  (void)address; (void)length;
+  return 0;
+}
+
+int __syscall_munlock(const void *address, size_t length) {
+  (void)address; (void)length;
+  return 0;
+}
+
+int __syscall_mlockall(int flags) {
+  (void)flags;
+  return 0;
+}
+
+int __syscall_munlockall(void) { return 0; }
+
+// A mapping neither moves nor grows: realloc copies.
+int __syscall_mremap(void *address, size_t size, size_t new_size, int flags, void *new_address) {
+  (void)address; (void)size; (void)new_size; (void)flags; (void)new_address;
+  return -ENOMEM;
+}
+
+// No process accounting is kept, and no page is ever out of memory to report.
+int __syscall_acct(const char *path) {
+  (void)path;
+  return -ENOSYS;
+}
+
+int __syscall_mincore(void *address, size_t length, unsigned char *residency) {
+  (void)address; (void)length; (void)residency;
+  return -ENOSYS;
+}
+
+// The one user holds no privilege to name the domain.
+int __syscall_setdomainname(const char *name, size_t length) {
+  (void)name; (void)length;
+  return -EPERM;
 }

@@ -182,6 +182,13 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
   await keyboard.focus();
   await page.keyboard.press("Control+c");
   assert.equal(await raw, 0);
+  // A program that reads keys with VMIN 0 (kilo's raw mode) gets none at once
+  // or after VTIME, and the key typed within it.
+  const vmin = start(`${probe} vmin0`);
+  await waitForText(/DOLLY-VMIN-READY/);
+  await keyboard.focus();
+  await page.keyboard.press("k");
+  assert.equal(await vmin, 0);
 
   // A program that asks for the mouse reads the pointer's motion, its
   // buttons and the wheel where the pointer is, while Shift and a drag still

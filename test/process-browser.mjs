@@ -7,7 +7,7 @@ import { shellQuote } from "./fixtures/slop-cases.mjs";
 import { DOLLY_ERRNO } from "../src/process-constants.mjs";
 
 const scratch = "/tmp/dolly-process-test";
-const fixtures = Object.fromEntries(["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c", "process-exec.c"]
+const fixtures = Object.fromEntries(["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-dispositions.c", "process-interrupt.c", "process-exec.c"]
   .map(name => [name, `test/fixtures/${name}`]));
 for (const name of await readdir(new URL("../build", import.meta.url))) {
   if (/^(?:process|dso)-.+\.wasm$/.test(name)) fixtures[name] = `build/${name}`;
@@ -103,7 +103,7 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   await interrupt();
   assert.equal(await cancelled, 0, "an interrupted process sleep returns EINTR after the handler runs");
 
-  for (const name of ["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c", "process-exec.c", "input.tgz"]) await fetchFixture(name);
+  for (const name of ["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-dispositions.c", "process-interrupt.c", "process-exec.c", "input.tgz"]) await fetchFixture(name);
   // A parent that ends without a say leaves its running child and grandchild,
   // as on POSIX: on a trap, on a call through a null pointer, and when Ctrl-C,
   // which they ignore, ends its Worker in a loop that never enters the kernel.
@@ -140,6 +140,7 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   // sigsetjmp, and later signals arrive.
   await run(`cc -O0 ${scratch}/process-jump.c -o ${scratch}/jump && timeout 30 ${scratch}/jump`);
   await run(`cc -O0 ${scratch}/process-sigchld.c -o ${scratch}/sigchld && timeout 5 ${scratch}/sigchld`);
+  await run(`cc -O0 ${scratch}/process-dispositions.c -o ${scratch}/dispositions && timeout 120 ${scratch}/dispositions`);
   await run(`gzip -dc ${scratch}/input.tgz | tar -xf - -C ${scratch} && test "$(cat ${scratch}/nested/message)" = TAR-STDIN-OK`);
 
   // exec replaces a process's program and keeps the process. What cannot run
@@ -169,6 +170,13 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
     "cc -c own-abort.c -o own-abort.o && ar rcs libown-abort.a own-abort.o && " +
     "printf '%s\\n' '#include <stdlib.h>' 'int main(void) { abort(); }' > calls-abort.c && " +
     "cc calls-abort.c -L. -lown-abort -o calls-abort && (./calls-abort; test $? = 7)");
+  // mprotect is the adapter's in a program that maps nothing and first reaches
+  // the system calls Emscripten's stubs answered (sync, getgroups).
+  await run(`cd ${scratch} && printf '%s\\n' '#include <errno.h>' '#include <sys/mman.h>' '#include <unistd.h>' ` +
+    "'static char page[65536];' 'int main(void) { gid_t group; sync();' " +
+    "'  if (getgroups(0, NULL) != 1 || getgroups(1, &group) != 1 || group != 0) return 1;' " +
+    "'  return mprotect(page, sizeof page, PROT_READ) == -1 && errno == ENOTSUP ? 0 : 2; }' > protects.c && " +
+    "cc protects.c -o protects && ./protects");
   // Ninja runs its jobs at once: each of the two waits for the other to start.
   const ninja = ["rule a", "  command = touch a-started; until test -e b-started; do sleep 1; done; touch $out",
     "rule b", "  command = touch b-started; until test -e a-started; do sleep 1; done; touch $out",
@@ -250,6 +258,15 @@ await browserTest("startup script", {}, async ({ open }) => {
   const nextShell = previous => page.evaluate(({ source, previous }) =>
     __dolly.waitForInteractiveTerminal(new RegExp(source), "nested shell", previous), { source: prompt.source, previous });
   const type = text => page.evaluate(async line => { if (!await __dolly.input(line)) throw new Error("input mailbox full"); }, `${text}\r`);
+  // default opens in /workspace, where the boot starts the image's first
+  // process; a shell starts where it is started.
+  await run('test "$(pwd)" = /workspace && test "$PWD" = /workspace');
+  await type("cd /tmp && slop");
+  await waitForText(/dolly:\/tmp\$\s*$/);
+  assert.equal(await result(() => type('test "$(pwd)" = /tmp && test "$PWD" = /tmp')), 0);
+  await page.keyboard.press("Control+d");
+  await waitForText(/logout\s+dolly:\/tmp\$\s*$/);
+  await run("cd /workspace");
   for (const [name, rc] of [
     ["failed", "exit 7"],
     ["missing", null],
@@ -348,7 +365,8 @@ await browserTest("process budget", { image: "system" }, async ({ open }) => {
       assert.ok(Date.now() < deadline, await text());
     }
     const started = performance.now();
-    const status = await submit("true");
+    // A program, by its path: the shell runs the system's true itself.
+    const status = await submit("/bin/true");
     const elapsed = Math.round(performance.now() - started);
     await run("wait");
     return { status, elapsed };
@@ -358,7 +376,7 @@ await browserTest("process budget", { image: "system" }, async ({ open }) => {
   const waited = { status: await submit("/tmp/budget 7 > /tmp/waited"), elapsed: Math.round(performance.now() - waitStarted) };
   // A signal ends the wait as it ends any blocking call: a shell with no
   // handler for SIGINT ends at Ctrl+C, beside a holder that ignores it.
-  const ended = submit("slop -c '/tmp/hold 4200 9 > /tmp/held & until read line < /tmp/held; do :; done; type :; true'");
+  const ended = submit("slop -c '/tmp/hold 4200 9 > /tmp/held & until read line < /tmp/held; do :; done; type :; /bin/true'");
   await waitForText(/: is a shell builtin/);
   await page.locator("#keyboard").focus();
   const pressed = performance.now();

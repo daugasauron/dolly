@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
 import { siteReference as site } from "../../src/static-asset.mjs";
 
-// Recipes that /bin/dollyfile and the JavaScript recipe graph must both accept
-// or both reject. Each case maps paths of the site to text; /Dollyfile is the
-// root. PIN(/path) stands for the SHA-256 of that file once its own pins
-// resolve.
-// C imports FROM/INSTALL/COPY targets as built artifacts and checks their
-// roles then; every target here is valid syntactically.
+// Recipes the language accepts or rejects: the JavaScript recipe graph decides,
+// and /bin/dollyfile reads the rows of each accepted root. Each case maps paths
+// of the site to text; /Dollyfile is the root. PIN(/path) stands for the
+// SHA-256 of that file once its own pins resolve. The engine imports
+// FROM/INSTALL/COPY targets as built artifacts and checks their roles then;
+// every target here is valid syntactically.
 const zeros = "0".repeat(64);
 const image = (rows = "") => `DOLLY 7\nAPPLICATION default\n${rows}ENTRY /bin/slop\n`;
 const root = (text, files = {}) => ({ "/Dollyfile": text, ...files });
@@ -144,8 +144,7 @@ export const syntaxCases = [
   [true, probe('EXPORTS ENV DOLLY_TEST_VALUE "APPEND literal"')],
   [true, probe("EXPORTS ENV DOLLY_TEST_VALUE APPEND")],
   [false, probe("EXPORTS ENV DOLLY_TEST_VALUE")],
-  [true, probe("EXPORTS ENV PATH APPEND /opt/probe/bin")],
-  [false, probe("EXPORTS ENV DOLLY_TEST_VALUE APPEND extra words")],
+  [false, probe("EXPORTS ENV PATH APPEND /opt/probe/bin")],
   [false, probe("EXPORTS ENV DOLLY_TEST_VALUE one two")],
   [false, probe("EXPORTS ENV 1BAD value")],
   [true, probe("EXPORTS TOOL cc")],
@@ -165,7 +164,8 @@ export const syntaxCases = [
   [false, probe("EXPORTS HOST gpu@0")],
   [true, probe("REQUIRES TOOL cc")],
   [true, probe("REQUIRES TOOL linecount")],
-  [true, probe("REQUIRES ENV PATH")],
+  [false, probe("REQUIRES ENV PATH")],
+  [false, probe("EXPORTS FILE probe /usr/bin/probe\nREQUIRES FILE probe")],
   [false, probe("REQUIRES TOOL slop")],
   [false, probe("REQUIRES cc")],
   [false, probe("REQUIRES linecount linecount")],

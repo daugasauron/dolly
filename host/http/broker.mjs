@@ -218,7 +218,19 @@ class HttpTransfer {
   check() {
     if (this.terminalError) throw new HttpError(this.terminalError, "HTTP transfer ended");
     if (this.controller.signal.aborted || performance.now() >= this.deadline)
-      throw new HttpError(errno.ETIMEDOUT, "HTTP deadline exceeded");
+      throw new HttpError(errno.ETIMEDOUT, "HTTP request timed out");
+  }
+
+  // A transfer lasts as long as it moves. It times out when it has waited the
+  // rule's timeout for its next record: the response's headers, its next bytes
+  // or the guest's reading of the record before.
+  moved() {
+    clearTimeout(this.timer);
+    this.deadline = performance.now() + this.timeout;
+    this.timer = setTimeout(() => {
+      this.fail(errno.ETIMEDOUT);
+      this.controller.abort();
+    }, this.timeout);
   }
 
   // The mailbox ends the slot's transfer once, and only while the guest's
@@ -242,10 +254,11 @@ class HttpTransfer {
     const error = await this.broker.mailbox.publish({ index: this.index, transfer: this.id, sequence: this.sequence,
       bytes: bytes.slice(), status, eof, kind, deadline: now() + this.deadline - performance.now() });
     if (error) throw new HttpError(error, "HTTP transfer ended");
+    this.moved();
   }
 
   async run({ method, url, headers: headerBlock, body, flags }) {
-    let timeout, failure = errno.EINVAL;
+    let failure = errno.EINVAL;
     try {
       this.check();
       const target = this.broker.target(url);
@@ -266,11 +279,8 @@ class HttpTransfer {
       stripDollyBrowserOwnedHeaders(headers);
       const upperMethod = method.toUpperCase();
       const rule = this.broker.policy.authorize(target, upperMethod, headers, body?.byteLength ?? 0);
-      this.deadline = performance.now() + rule.timeoutMilliseconds;
-      timeout = setTimeout(() => {
-        this.fail(errno.ETIMEDOUT);
-        this.controller.abort();
-      }, rule.timeoutMilliseconds);
+      this.timeout = rule.timeoutMilliseconds;
+      this.moved();
       failure = errno.EIO;
       const init = {
         method: upperMethod, headers,
@@ -318,7 +328,7 @@ class HttpTransfer {
       this.fail(error instanceof HttpError ? error.errno :
         this.controller.signal.aborted ? errno.ETIMEDOUT : failure);
     } finally {
-      clearTimeout(timeout);
+      clearTimeout(this.timer);
       this.controller.abort();
     }
   }

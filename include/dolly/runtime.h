@@ -40,7 +40,9 @@ int dolly_spawn_env_cwd(const char *path, int argc, char **argv,
                         int stdout_fd, int stderr_fd, double timeout_milliseconds);
 
 // Inherit eligible descriptors, then apply explicit parent-to-child mappings.
-// The stdio convenience forms above use NONE and three explicit mappings.
+// The stdio convenience forms above use NONE and three explicit mappings. A
+// child of these starts with every signal unblocked at its default action;
+// posix_spawn's keeps the caller's mask and ignored signals.
 int dolly_spawn_mapped(const char *path, int argc, char **argv,
                         char *const envp[], const char *cwd,
                         uint32_t descriptor_inheritance,
@@ -72,7 +74,9 @@ uint32_t dolly_terminal_rows(void);
 // (3), or the one INTERRUPT holds when it is not 0, as Emacs sets C-g; once a
 // program clears ISIG (raw mode), it reaches that program as input. ICRNL reads
 // an input CR as LF and INLCR an input LF as CR (both: they swap); a canonical
-// line ends at either.
+// line ends at either. A non-canonical read returns the bytes queued, at
+// least one, unless VMIN_ZERO is set (termios VMIN 0): then it returns without
+// a byte, at once or once VTIME tenths of a second have passed since it began.
 enum {
   DOLLY_TERMINAL_CANONICAL = 1u << 0,
   DOLLY_TERMINAL_ECHO = 1u << 1,
@@ -81,8 +85,14 @@ enum {
   DOLLY_TERMINAL_ISIG = 1u << 4,
   DOLLY_TERMINAL_ICRNL = 1u << 5,
   DOLLY_TERMINAL_INLCR = 1u << 6,
+  DOLLY_TERMINAL_VMIN_ZERO = 1u << 7,
   DOLLY_TERMINAL_INTERRUPT_SHIFT = 8,
   DOLLY_TERMINAL_INTERRUPT = 0xffu << DOLLY_TERMINAL_INTERRUPT_SHIFT,
+  DOLLY_TERMINAL_VTIME_SHIFT = 16,
+  DOLLY_TERMINAL_VTIME = 0xffu << DOLLY_TERMINAL_VTIME_SHIFT,
+  DOLLY_TERMINAL_MODE_BITS = DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO | DOLLY_TERMINAL_OPOST |
+      DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG | DOLLY_TERMINAL_ICRNL | DOLLY_TERMINAL_INLCR |
+      DOLLY_TERMINAL_VMIN_ZERO | DOLLY_TERMINAL_INTERRUPT | DOLLY_TERMINAL_VTIME,
 };
 
 // The character that interrupts the foreground under this mode, or 0.

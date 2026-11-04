@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
-import { inspectDollyfile } from "../src/dollyfile-view.mjs";
+import { inspectDollyfile, recipeRows } from "../src/dollyfile-view.mjs";
 import { loadRecipeGraph } from "../src/dollyfile-graph.mjs";
 import { resolvePins, syntaxCases } from "./fixtures/dollyfile-syntax.mjs";
 import { stagedIncludeDirectory } from "../scripts/host-modules.mjs";
@@ -25,40 +26,60 @@ async function withParser(body) {
   }
 }
 
-// Writes one case and checks it with /bin/dollyfile's parser and the JavaScript graph.
-async function checkBoth(scratch, run, files, name = "case") {
+// Writes one case: the JavaScript graph checks it and, where it accepts the
+// root, compiles the rows /bin/dollyfile reads, which the engine executes.
+async function checkCase(scratch, run, files, name = "case") {
   const directory = resolve(scratch, name);
   await rm(directory, { recursive: true, force: true });
   for (const [path, text] of Object.entries(resolvePins(files))) {
     await mkdir(dirname(resolve(directory, path.slice(1))), { recursive: true });
     await writeFile(resolve(directory, path.slice(1)), text);
   }
-  const native = run("check", directory);
   let javascript = null;
   try {
     await loadRecipeGraph(reference => readFile(resolve(directory, reference === "Dollyfile" ? reference : sitePath(reference).slice(1))), "Dollyfile");
+    const text = await readFile(resolve(directory, "Dollyfile"));
+    await writeFile(resolve(directory, "Dollyfile.rows"),
+      recipeRows(inspectDollyfile(text.toString()), createHash("sha256").update(text).digest("hex")));
   } catch (error) { javascript = error; }
+  const native = run("check", directory);
   return { native, nativeAccepted: native.status === 0, javascriptAccepted: javascript === null, javascript };
 }
 
-test("the C executor and the JavaScript recipe graph accept exactly the same recipes", async () => {
+// The page's parser is the language's one: the engine reads its rows.
+test("the JavaScript graph accepts the recipes the language allows, and the engine reads their rows", async () => {
   await withParser(async (scratch, run) => {
     for (const [expected, files] of syntaxCases) {
       const label = JSON.stringify(files).slice(0, 300);
-      const result = await checkBoth(scratch, run, files);
-      assert.equal(result.nativeAccepted, expected, `C: ${label}\n${result.native.stderr}`);
+      const result = await checkCase(scratch, run, files);
       assert.equal(result.javascriptAccepted, expected, `JS: ${label}\n${result.javascript?.message}`);
+      if (expected) assert.ok(result.nativeAccepted, `engine: ${label}\n${result.native.stderr}`);
     }
   });
 });
 
-test("the C and JavaScript parsers decode the same words and values", async () => {
+test("the engine refuses rows that are not of the recipe it was given", async () => {
+  await withParser(async (scratch, run) => {
+    const recipe = "DOLLY 7\nAPPLICATION default\nENTRY /bin/slop\n";
+    const directory = resolve(scratch, "stale");
+    await mkdir(directory, { recursive: true });
+    await writeFile(resolve(directory, "Dollyfile"), recipe);
+    await writeFile(resolve(directory, "Dollyfile.rows"), recipeRows(inspectDollyfile(recipe), "0".repeat(64)));
+    assert.equal(run("check", directory).status, 1);
+    await writeFile(resolve(directory, "Dollyfile.rows"),
+      `DOLLY 7 ${createHash("sha256").update(recipe).digest("hex")}\0` + "2 3\0APPLICATION\0default\0");
+    assert.equal(run("check", directory).status, 1, "a row holds as many fields as it says");
+  });
+});
+
+test("words and values decode as the language says", async () => {
   await withParser(async (scratch, run) => {
     const prefix = "DOLLY 7\nPACKAGE probe\n";
-    for (const raw of ['cc "" "a b" c\\ d', "'cc' 'a\\b' \"東京\"", "cc input name.c",
-      '"a\\$b" "a\\xb" "a\\\\b" "a\\"b"', "a\\#b 'a#b' \"#\""]) {
-      const expected = inspectDollyfile(prefix + "SLOP " + raw + "\n").slops[0].command;
-      assert.deepEqual(run("words", raw).stdout.split("\0").slice(0, -1), expected, raw);
+    for (const [raw, expected] of [['cc "" "a b" c\\ d', ["cc", "", "a b", "c d"]],
+      ["'cc' 'a\\b' \"東京\"", ["cc", "a\\b", "東京"]], ["cc input name.c", ["cc", "input", "name.c"]],
+      ['"a\\$b" "a\\xb" "a\\\\b" "a\\"b"', ["a$b", "a\\xb", "a\\b", 'a"b']],
+      ["a\\#b 'a#b' \"#\"", ["a#b", "a#b", "#"]]]) {
+      assert.deepEqual(inspectDollyfile(prefix + "SLOP " + raw + "\n").slops[0].command, expected, raw);
     }
     for (const [reference, expected] of [["/v1.2.3/Dollyfile", true], ["/v0.0.0/a/Dollyfile-pi-local", true],
       ["/v10.20.30/Dollyfile-pi", true], [`/v1.2.3/Dollyfile-${"a".repeat(32)}`, true],
@@ -74,19 +95,19 @@ test("the C and JavaScript parsers decode the same words and values", async () =
       assert.equal(run("image-reference", reference).status === 0, expected, reference);
     }
     const image = rows => `DOLLY 7\nAPPLICATION default\n${rows}ENTRY /bin/slop\n`;
-    const values = async (files) => (await checkBoth(scratch, run, files)).native.stdout;
+    const values = async (files) => (await checkCase(scratch, run, files)).native.stdout;
     assert.match(await values({ "/Dollyfile": image('EXPORTS ENV DOLLY_TEST_VALUE "APPEND literal"\n') }),
       /ENV-VALUE:APPEND literal\n/);
     assert.match(await values({ "/Dollyfile": image('EXPORTS ENV DOLLY_TEST_VALUE "a\\nb"\n') }), /ENV-VALUE:a\\nb\n/);
     assert.equal(await values({
       "/Dollyfile": image("EXPORTS ENV DOLLY_TEST_VALUE old\nEXPORTS ENV DOLLY_TEST_VALUE new\n"),
     }), "ENV-VALUE:new\nENV-EXPORT:new\n");
-    const nul = await checkBoth(scratch, run, { "/Dollyfile": image("EXPORTS ENV DOLLY_TEST_VALUE changed\n# \0\n") });
+    const nul = await checkCase(scratch, run, { "/Dollyfile": image("EXPORTS ENV DOLLY_TEST_VALUE changed\n# \0\n") });
     assert.equal(nul.native.stdout, "", "NUL bytes are rejected before executing any declaration");
   });
 });
 
-test("the C executor keeps paths, kinds, commands and recipe names exact", async () => {
+test("the engine keeps paths, kinds, commands and recipe names exact", async () => {
   await withParser(async (scratch, run) => {
     for (const path of ["/", "/usr", "/usr/bin", "/usr/bin/tool", "/explicit"]) {
       assert.equal(run("artifact-path", path).status, 0, path);
@@ -95,7 +116,8 @@ test("the C executor keeps paths, kinds, commands and recipe names exact", async
     const directory = resolve(scratch, "space dir");
     await mkdir(directory);
     for (const command of ['"cc" "a b.c"', "cc 'a b.c' ; cc second.c"]) {
-      const result = spawnSync(resolve(scratch, "parser"), ["slop", `CWD "${directory}" ${command}`],
+      const [, cwd, text] = inspectDollyfile(`DOLLY 7\nPACKAGE probe\nSLOP CWD "${directory}" ${command}\n`).rows[2].fields;
+      const result = spawnSync(resolve(scratch, "parser"), ["slop", cwd, text],
         { encoding: "utf8", input: "caller input must not reach recipe commands" });
       assert.equal(result.status, 0, result.stderr);
       assert.ok(result.stdout.includes(`RAW-CWD:${directory}\nRAW-COMMAND:${command}\n`));

@@ -6,14 +6,14 @@ REQUIRES HOST runtime@0
 # the cc package builds: cc links every client archive in
 # /usr/lib/dolly/process, and a program records audio@0 only when it calls the
 # client.
-FROM /v0.1.4/Dollyfile-system-build 7fdc2d67daa3a1e8667818645b9c9d0d4efab6013cc0f366a0bf615045fa4fe9
+FROM /v0.1.4/Dollyfile-system-build 0000000000000000000000000000000000000000000000000000000000000000
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
 SOURCE /v0.1.4/host/audio/audio.h 9d291eeb25345a75bb21dbd4c422beb15f30700a5f96d5f665ca52a5d8948b65 /usr/include/dolly/audio.h
-SOURCE /v0.1.4/host/audio/audio-abi.h 4eb1f6e8f948ec1371fd5bb0bf4e904c438504e0cbccc4380cca9c98280eea30 /usr/include/dolly/audio-abi.h
+SOURCE /v0.1.4/host/audio/audio-abi.h 4d9884ddd96d0f399094349cc43607c3861245e636da435516e28e27749241c2 /usr/include/dolly/audio-abi.h
 SOURCE /v0.1.4/host/audio/client.c b4d0d9ae8cb8a2084fb59a5912bc84b32ed440b8de2e12265a23b54bfb062f36 /tmp/libdolly-audio/client.c
 SLOP cc -O1 -c /tmp/libdolly-audio/client.c -o /tmp/libdolly-audio/client.o
 SLOP ar rcs /usr/lib/dolly/process/libdolly-audio.a /tmp/libdolly-audio/client.o

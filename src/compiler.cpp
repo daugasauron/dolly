@@ -904,9 +904,7 @@ bool link_process_executable(const std::string &output,
   }
   arguments.insert(arguments.end(), inputs.begin(), inputs.end());
   arguments.insert(arguments.end(), {
-      "--whole-archive",
       sysroot + "/libdolly-process.a",
-      "--no-whole-archive",
       sysroot + "/crt1.o",
       "-L" + sysroot,
       "-L" + std::string(kProcessSysroot),

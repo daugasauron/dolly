@@ -15,6 +15,7 @@
 #include <sys/resource.h>
 #include <sys/times.h>
 #include <sys/wait.h>
+#include <termios.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -224,7 +225,8 @@ int main(int argc, char **argv) {
   }
   CHECK(gettid() == getpid());
   /* Each process is its own group and its own session, which it leads, and
-   * no terminal is a session's: there is no other group to join or name. */
+   * the terminal's foreground while it has the terminal: there is no other
+   * group to join or to give the terminal to. */
   const pid_t own = getpid();
   CHECK(getpgrp() == own && getpgid(0) == own && getpgid(own) == own && getsid(0) == own);
   CHECK(setpgid(0, 0) == 0 && setpgid(own, own) == 0 && kill(0, 0) == 0);
@@ -234,8 +236,18 @@ int main(int argc, char **argv) {
   CHECK(setsid() == -1 && errno == EPERM);
   errno = 0;
   CHECK(getpgid(INT32_MAX) == -1 && errno == ESRCH);
+  int ends[2];
+  struct termios mode;
+  CHECK(tcgetpgrp(0) == own && pipe(ends) == 0);
   errno = 0;
-  CHECK(tcgetpgrp(0) == -1 && errno == ENOTTY);
+  CHECK(tcgetpgrp(ends[0]) == -1 && errno == ENOTTY);
+  errno = 0;
+  CHECK(!isatty(ends[0]) && errno == ENOTTY);
+  errno = 0;
+  CHECK(tcgetattr(ends[1], &mode) == -1 && errno == ENOTTY);
+  errno = 0;
+  CHECK(tcsetpgrp(0, own) == -1 && errno == ENOTTY);
+  CHECK(close(ends[0]) == 0 && close(ends[1]) == 0);
   /* Memory is readable and writable and never executable: mprotect grants
    * that and nothing else, and a shared mapping granted write writes back. */
   char *page = aligned_alloc(65536, 65536);

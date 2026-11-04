@@ -17,6 +17,7 @@ static int retained(const char *path, int directory) {
       (strcmp(path, build_artifact) == 0 ||
        strcmp(path, "/etc/dolly/artifacts") == 0 ||
        strcmp(path, "/etc/dolly/recipe.locator") == 0 ||
+       strcmp(path, "/etc/dolly/recipe.rows") == 0 ||
        strcmp(path, "/etc/dolly/upload.Dollyfile") == 0)) return 1;
   for (size_t index = 0; index < path_count; ++index) {
     if (strcmp(path, paths[index]) == 0 ||

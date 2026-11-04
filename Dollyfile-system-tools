@@ -6,7 +6,7 @@ REQUIRES HOST input@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/Dollyfile-system-build 7fdc2d67daa3a1e8667818645b9c9d0d4efab6013cc0f366a0bf615045fa4fe9
+FROM /v0.1.4/Dollyfile-system-build 0000000000000000000000000000000000000000000000000000000000000000
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -24,7 +24,7 @@ SLOP tar \
 FILE /tmp/sbase/dolly.mk
     TOOLS = basename cksum cmp comm cut date dd dirname expand expr false fold \
             grep head join kill ln md5sum mktemp nl od paste pathchk \
-            printenv printf readlink rmdir sed seq sha256sum sleep sort split \
+            printenv readlink rmdir sed seq sha256sum sleep sort split \
             strings tail tee tr true \
             tsort uname unexpand uniq wc which
     .RECIPEPREFIX := >
@@ -64,7 +64,6 @@ EXPORTS TOOL od
 EXPORTS TOOL paste
 EXPORTS TOOL pathchk
 EXPORTS TOOL printenv
-EXPORTS TOOL printf
 EXPORTS TOOL readlink
 EXPORTS TOOL rmdir
 EXPORTS TOOL sed
@@ -115,10 +114,10 @@ SLOP rm \
   -rf \
   /tmp/ninja
 # zlib, gzip and curl for builds, and Git, which Dolly's patch and diff run.
-INSTALL /v0.1.4/Dollyfile-zlib d91bacbcddaa4f91d07244cd4d558fb7623ecafe75a4ac07f20c1caa9231321f
-INSTALL /v0.1.4/Dollyfile-gzip ed1e20a4f02b4406a502500328ffa67ea68772c0a52db4641ff22ec96931f0ac
-INSTALL /v0.1.4/Dollyfile-curl 8af1f8fc48e59e8d5b3a156bf043333a8b53d489e498a2e47f394b292563d723
-INSTALL /v0.1.4/Dollyfile-git 170b41085e99e7d58237979ab4af32540544d05aa9fc0787fce672a26db56161
+INSTALL /v0.1.4/Dollyfile-zlib 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/Dollyfile-gzip 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/Dollyfile-curl 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/Dollyfile-git 0000000000000000000000000000000000000000000000000000000000000000
 SOURCE /v0.1.4/dist/static/default/awk.tar f28cae177fa60793a70066d10667e8d06775d979f2262be1c48f8eb941090015 /tmp/awk.tar
 SLOP tar \
   -xf /tmp/awk.tar \
@@ -200,6 +199,6 @@ SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
 SLOP cp /usr/share/man/cat1/slop.1 /usr/share/man/cat1/sh.1
 FOLDER /usr/share/man
-INSTALL /v0.1.4/Dollyfile-display 22eb1f82429c1f01806dfae95a323cd581f10934af401cfcd717aad659abd3f2
+INSTALL /v0.1.4/Dollyfile-display 0000000000000000000000000000000000000000000000000000000000000000
 
 ENTRY /bin/foreground -i /bin/slop

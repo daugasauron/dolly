@@ -18,9 +18,7 @@
 #include "process-kernel.h"
 #include "system-snapshot.h"
 
-static uint32_t terminal_mode_flags =
-    DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO |
-    DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG;
+static uint32_t terminal_mode_flags = DOLLY_KERNEL_TERMINAL_INITIAL_MODE;
 
 // The page's terminal mailbox (abi/dolly-supervisor-0.wat), with or without a
 // display. The process kernel owns foreground policy: the page only reads it
@@ -79,10 +77,7 @@ uint32_t dolly_kernel_terminal_mode(void) {
 }
 
 int dolly_kernel_terminal_set_mode(uint32_t flags) {
-  const uint32_t valid = DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO |
-      DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG |
-      DOLLY_TERMINAL_ICRNL | DOLLY_TERMINAL_INLCR | DOLLY_TERMINAL_INTERRUPT;
-  if ((flags & ~valid) != 0) return -EINVAL;
+  if ((flags & ~DOLLY_TERMINAL_MODE_BITS) != 0) return -EINVAL;
   terminal_mode_flags = flags;
   return 0;
 }
@@ -225,12 +220,13 @@ _Noreturn void dolly_assert_fail(const char *condition, const char *file,
   abort();
 }
 
-// The Worker's boot files (abi/dolly-image-0.wat, abi/dolly-supervisor-0.wat).
-int dolly_write_file(const char *path, const void *bytes, size_t length) {
+// The Worker's boot files (abi/dolly-image-0.wat, abi/dolly-supervisor-0.wat):
+// a file written whole, or begun and appended to in pieces.
+static int write_file(const char *path, const void *bytes, size_t length, int disposition) {
   if (path == NULL || !dolly_fs_valid_path(path) ||
       (bytes == NULL && length != 0)) return -EINVAL;
   if (dolly_fs_parents(path, 1) != 0) return -errno;
-  int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+  int fd = open(path, O_WRONLY | O_CREAT | disposition, 0666);
   if (fd < 0) return -errno;
 
   const unsigned char *cursor = bytes;
@@ -251,6 +247,14 @@ int dolly_write_file(const char *path, const void *bytes, size_t length) {
   }
   if (close(fd) != 0 && status == 0) status = -errno;
   return status;
+}
+
+int dolly_write_file(const char *path, const void *bytes, size_t length) {
+  return write_file(path, bytes, length, O_TRUNC);
+}
+
+int dolly_append_file(const char *path, const void *bytes, size_t length) {
+  return write_file(path, bytes, length, O_APPEND);
 }
 
 int dolly_read_file(const char *path, void *bytes, size_t capacity) {
@@ -360,9 +364,14 @@ int dolly_bootstrap_finish(void) {
 
 // Once the filesystem is final: after the image is restored and a saved
 // session has replayed its files, so an installed environment survives a reload.
+// The image's first process starts in /workspace, the scratch no image retains.
 int dolly_bootstrap_environment(void) {
   if (load_image_environment() != 0) {
     fprintf(stderr, "dolly: invalid image environment: %s\n", strerror(errno));
+    return 1;
+  }
+  if (chdir("/workspace") != 0 || setenv("PWD", "/workspace", 1) != 0) {
+    fprintf(stderr, "dolly: /workspace: %s\n", strerror(errno));
     return 1;
   }
   return 0;

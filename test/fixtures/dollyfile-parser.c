@@ -53,27 +53,22 @@ int main(int argc, char **argv) {
   Engine engine = {0};
 
   if (strcmp(argv[1], "check") == 0) {
-    // Parse DIR/Dollyfile as a custom root, fetching its modules from DIR.
+    // Read DIR/Dollyfile as a custom root with the rows DIR/Dollyfile.rows,
+    // fetching its modules from DIR.
     fixture_directory = argv[2];
-    char root[PATH_MAX];
+    char root[PATH_MAX], rows[PATH_MAX];
     snprintf(root, sizeof(root), "FILE:%s/Dollyfile", argv[2]);
+    snprintf(rows, sizeof(rows), "%s/Dollyfile.rows", argv[2]);
+    rows_path = rows;
     unsetenv("DOLLY_TEST_VALUE");
     result = execute_recipe(&engine, root, 0, &exports);
     const char *value = getenv("DOLLY_TEST_VALUE");
     if (value != NULL) printf("ENV-VALUE:%s\n", value);
     const Object *exported = scope_find(&engine.exports, "ENV", "DOLLY_TEST_VALUE");
     if (exported != NULL) printf("ENV-EXPORT:%s\n", exported->detail);
-  } else if (strcmp(argv[1], "words") == 0) {
-    char **words = NULL;
-    size_t count = 0;
-    result = split_words(argv[2], &words, &count);
-    for (size_t index = 0; result == 0 && index < count; ++index) {
-      fwrite(words[index], 1, strlen(words[index]) + 1, stdout);
-    }
-    free(words);
-  } else if (strcmp(argv[1], "slop") == 0) {
+  } else if (strcmp(argv[1], "slop") == 0 && argc == 4) {
     capture_shell = 1;
-    result = execute_slop(argv[2], 1);
+    result = run_slop(argv[2], argv[3]);
   } else if (strcmp(argv[1], "artifact-path") == 0) {
     dolly_fs_record records[] = {{.path = "/usr/bin/tool"}, {.path = "/explicit"}};
     Artifact artifact = {.records = records, .count = 2};
@@ -85,15 +80,12 @@ int main(int argc, char **argv) {
     // There is no corresponding host file: this call must use the decoded input.
     result = read_artifact(&engine.artifact, "unused", pin);
     char *kind = NULL, *name = NULL;
-    int header = 0;
-    size_t operations = 0;
-    char blank[] = "  ", declaration[] = "DOLLY 7";
-    if (result == 0) result = process_line(&engine, "probe", 1, blank, NULL,
-        NULL, 0, &tools, &exports, &own, &kind, &name, &header, &operations, 0);
-    if (engine.artifact.stream == NULL) result = 2;
-    if (result == 0) result = process_line(&engine, "probe", 2, declaration, NULL,
-        NULL, 0, &tools, &exports, &own, &kind, &name, &header, &operations, 0);
+    char *role[] = {"PACKAGE", "probe"};
+    if (result == 0) result = process_row(&engine, "probe", 2, role, 2, NULL,
+        &tools, &exports, &own, &kind, &name, 0);
     if (engine.artifact.stream != NULL || engine.artifact.recipe_sha256[0]) result = 2;
+    free(kind);
+    free(name);
     engine.artifact.stream = tmpfile();
     strcpy(engine.artifact.recipe_sha256, pin);
     if (read_artifact(&engine.artifact, "/absent-dolly-fixture", "different") != -ENOENT ||

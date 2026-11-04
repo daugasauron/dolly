@@ -40,10 +40,11 @@ static int upload_check(const char *url) {
   if (dolly_process_call(DOLLY_HTTP_BODY_WRITE, &packet,
       sizeof(packet.header) + 4, NULL, 0) != -EINVAL) return 105;
   if (dolly_process_call(DOLLY_HTTP_BODY_WRITE, NULL, 0, NULL, 0)) return 106;
-  const size_t length = 3 * 1024 * 1024 + 17;
-  unsigned char *body = malloc(9 * 1024 * 1024);
+  // More than 8 MiB passes, as services take 32 MB; one byte over the cap does not.
+  const size_t length = 8 * 1024 * 1024 + 17, refused = DOLLY_HTTP_MAX_BODY + 1;
+  unsigned char *body = malloc(refused);
   if (!body) return 107;
-  for (size_t i = 0; i < 9 * 1024 * 1024; ++i) body[i] = (unsigned char)i;
+  for (size_t i = 0; i < refused; ++i) body[i] = (unsigned char)i;
   size_t received = 0;
   dolly_http_request request = {.method = "POST", .url = url, .body = body,
       .body_size = length, .write = verify_body, .write_context = &received};
@@ -51,7 +52,7 @@ static int upload_check(const char *url) {
   int result = dolly_http_perform(&request, &response);
   const int valid = result == 0 && response.status == 200 && received == length;
   dolly_http_response_dispose(&response);
-  request.body_size = 9 * 1024 * 1024;
+  request.body_size = refused;
   result = dolly_http_perform(&request, &response);
   dolly_http_response_dispose(&response);
   free(body);
