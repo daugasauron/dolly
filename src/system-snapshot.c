@@ -107,6 +107,15 @@ static int compare_paths(const void *left, const void *right) {
   return strcmp(*(const char *const *)left, *(const char *const *)right);
 }
 
+// An image holds no times, so every path it keeps gets one at each boot, the
+// same each time and older than anything a session makes: make rebuilds nothing
+// for an image file, and a restored session's times keep their order against
+// the image's. 1980-01-02 is a date ZIP holds in every timezone.
+static int stamp_image_time(const char *path) {
+  static const struct timespec image_time[2] = {{315619200, 0}, {315619200, 0}};
+  return utimensat(AT_FDCWD, path, image_time, AT_SYMLINK_NOFOLLOW) == 0 ? 1 : -1;
+}
+
 // Only boot calls this, after every builder process has exited and before any
 // entry or saved session starts. Runtime devices are not image contents;
 // everything else must be retained or contain a kept path.
@@ -117,7 +126,7 @@ static int prune_path(const dolly_snapshot_manifest *manifest, const char *path)
   int keep = bsearch(&path, manifest->paths, manifest->count,
                     sizeof(*manifest->paths), compare_paths) != NULL ||
              strcmp(path, "/etc/dolly/image.manifest") == 0;
-  if (!S_ISDIR(metadata.st_mode)) return keep ? 1 : (unlink(path) == 0 ? 0 : -1);
+  if (!S_ISDIR(metadata.st_mode)) return keep ? stamp_image_time(path) : (unlink(path) == 0 ? 0 : -1);
   if (strcmp(path, "/") == 0 || strcmp(path, "/tmp") == 0 ||
       strcmp(path, "/workspace") == 0 || strcmp(path, "/home/dolly") == 0) keep = 1;
   struct dirent **entries = NULL;
@@ -142,7 +151,7 @@ static int prune_path(const dolly_snapshot_manifest *manifest, const char *path)
   }
   free(entries);
   if (error != 0) { errno = error; return -1; }
-  return keep ? 1 : (rmdir(path) == 0 ? 0 : -1);
+  return keep ? stamp_image_time(path) : (rmdir(path) == 0 ? 0 : -1);
 }
 
 int dolly_snapshot_prune(void) {
