@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # The sockets@0 module's header and client (local sockets between processes),
 # for programs the cc package builds: cc links it when a program asks with
 # -ldolly-sockets, since it defines libc's socket functions.
-FROM /v0.1.4/Dollyfile-system-build 0000000000000000000000000000000000000000000000000000000000000000
+FROM /v0.1.4/Dollyfile-system-build 5b771dda11825be323a25f6e51a7d5b306fc1c67628c5f10e79433b2d73f7925
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
