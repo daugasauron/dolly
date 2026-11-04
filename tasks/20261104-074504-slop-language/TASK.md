@@ -135,7 +135,13 @@ Item numbers are this task's. Evidence in `work/slop/build/slop-evidence/`.
   `[`, `echo`, `printf`, `true` and `false` earlier on `PATH`, which Slop starts as processes.
   Both ran to the end of configure.
 
-## State (2026-11-04 10:40)
+- **More suites on round 2's images**, Chromium and Firefox: `custom-session-browser`,
+  `pty-browser`, `threads-browser`, `sockets-browser`, `terminal-browser`,
+  `embedding-browser`, `upload-browser` (custom images built in the tab from the page's rows)
+  and `nena-browser` (live installs, which now read the image's receipt) pass; `nena` and
+  `sockets` once the three `libdolly-*` packages they install were built (18 s).
+
+## State (2026-11-04 10:55)
 
 All six items are on `core/slop-language` and verified on `default`, `system` and `ffmpeg`
 built from it. Open until the catalog round: every image's seed changed (`src/slop.c`,
