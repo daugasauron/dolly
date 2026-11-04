@@ -61,7 +61,9 @@ the published archive (`work/locks/published/v0.1.4`, `tools/serve-published.mjs
 and modification times, as an install gives), then the same steps as before. In 0.17 the first
 `zig init --help` alone took 81.5 s (76.9, 98.7 s in later sessions; Firefox 90.6, 96.7 s), the
 first `zig translate-c` after it 43.2 s (39.9, 49.3; Firefox 47.7, 49.3), and a first `zig
-build` with `ZIG_DEBUG_CMD` 46.9 s.
+build` with `ZIG_DEBUG_CMD` 46.9 s. The same maker compile natively (host Zig 0.17, the patched
+`lib/`, `build-obj -target wasm64-emscripten -mcpu=generic+atomics`, one core) takes 44.3 s in
+ReleaseSafe and 14.4 s in Debug.
 
 The machine is shared with the night round (three image builds), so a run varies by several
 seconds; the 13.5 s of the upgrade's report was not reproduced for 0.16. Firefox's second or third
