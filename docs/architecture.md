@@ -147,7 +147,8 @@ flowchart TD
 - The kernel's WasmFS is the only filesystem. Browser storage holds only opaque
   image snapshots, the packs images were read from and [sessions](sessions.md);
   nothing is mounted but a build's inputs: each image the build reads is a
-  read-only file of `/etc/dolly/artifacts` whose bytes stay in the Worker.
+  file of `/etc/dolly/artifacts` that takes no write and whose bytes stay in
+  the Worker.
 - File bytes live in kernel memory in 1 MiB blocks. A write that memory cannot
   hold fails with `ENOSPC` and leaves 128 MiB for the kernel to keep working.
 
