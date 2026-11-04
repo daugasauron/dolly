@@ -23,7 +23,7 @@ exception the demo's README states.
 - A demo test passes in Chromium and Firefox; the package has its row in `test/amy-browser.mjs`;
   sources are pinned, with licence rows.
 
-## State (2026-11-05 night): the 6 GB browsers measured on the night round's images
+## State (2026-11-05 night): 6 GB not met; Chromium's cause fixed for the next round
 
 Tagged `0.1.5` (it was `0.1.4`, which shipped without it): the done-when names the domain's
 catalog, which only a release publishes.
@@ -34,8 +34,20 @@ Firefox (56.5 s) in the round of 2026-11-04 (`round-1104b`, its 36 GB scope); th
 `test/amy-browser.mjs` row, the pin and the licence row; the staging comment
 (`demos/lean/prepare-sources.sh`: the plain tar is for the archive's seven symlinks, 2af0c32c3).
 
-Left: the demo test in a 6 GB slot (below, measured on the night round's images), and the
-release's checks of the domain's catalog (below).
+In a 6 GB slot the test fails in both browsers on the night round's images (below):
+
+- Chromium is killed at `lake build`: each dead `lean` kept its memory two seconds, with threads
+  waiting on a futex. Fixed in the libc (1b4eb49b1, a seed input: image inputs `411082a5`);
+  measured on a C program in both browsers, not yet on Lean, whose images carry the old libc.
+  The next catalog round builds them; then run the test in a 6 GB Chromium.
+- Firefox is killed at `lake new` (once at the first `lean`): its floor after the install is
+  4.4 to 4.9 GB, 3.46 of it the package's files in the kernel's memory, and compiling `lake`
+  needs 1 GB more. No change of tonight's reaches that; the proposal below does.
+- Large executables' compiled modules now go when nothing holds them (d130c6c45): a cache
+  thrash no longer piles modules up in Firefox; it does not change Lean's numbers.
+
+Left: the test in a 6 GB Chromium after the round; Firefox at 6 GB (the proposal, the
+owner's); the release's checks of the domain's catalog (below).
 
 ## The domain's catalog: what the release must check (2026-11-04)
 
@@ -88,8 +100,9 @@ test's steps (GB, anonymous memory of the scope, the step's highest then after i
 After the install the kernel's memory is 3.46 GB in Firefox (`wasm-reserved`; the package's
 files are 3.2 GB) and Chromium's `v8-sandbox`, which holds it, 3.53. Firefox's floor beside it is
 the browser's: `jemalloc` 0.39 to 0.55, the main process 0.25, the test's node 0.15. The two
-Firefox runs differ by 0.5 GB at the floor (and 24 s of install) on the same images: not
-attributed; nothing of the held modules runs during the install but the engine's own programs.
+Firefox runs with modules held differ by 0.3 GB at the floor (4.92 and 4.60): a second run
+passed `lean --run`, the theorems and the false one and was killed at `lake new`, as the run
+before the change was.
 
 **Chromium: a dead `lean` keeps its memory two seconds.** `v8-sandbox` grows by about 0.53 GB
 with each `lean` that checks theorems and does not shrink at its end: 3.53 after the install,
@@ -116,7 +129,9 @@ killed by a trap or by the supervisor. On the changed seed (image inputs `411082
 `cc`, `system` and their closure rebuilt in this tree, 951 s), the same `probe/cond.c` runs
 leave nothing: `v8-sandbox` 0.40 to 0.41 GB after each, where it was 0.96, 1.52 and 2.08
 (`cond-fixed.log`); Firefox unchanged. `test/process-memory-browser.mjs` gains the case
-(`process-touch.c idle`, twenty in a row). On the changed seed `process-memory`, `process`,
+(`process-touch.c idle`, twenty in a row): on the old libc it fails in Chromium (559 MiB over
+the baseline, each run still resident a second after it), on the changed one it passes in both
+(Chromium +31 MiB over twenty runs). On the changed seed `process-memory`, `process`,
 `core` and `ending` pass in Chromium and Firefox, and `threads` passed in both twice; once,
 in the run with the others, its Firefox half exceeded 120 s (not attributed, as on 2026-11-04 at
 23:05). Lean's images carry the old libc: their next build, the catalog round's, is what shows
