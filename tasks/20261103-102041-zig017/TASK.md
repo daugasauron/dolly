@@ -101,7 +101,8 @@ Where the first `zig build` goes (Chromium traces):
   compiles `hello.zig` from 92.4 to 95.6 s.
 - 0.17 with the setup done (17.0 s): the zig process finds the maker in 0.5 s (its cache hit,
   rehashing the inputs whose stat changed); the configurer compiles from 0.5 to 13.2 s, hello
-  from 13.8 to 17.0 s.
+  from 13.8 to 17.0 s. With the built package (16.9 s): the maker in 0.3 s, the configurer until
+  13.3 s, hello from 13.9 s.
 
 ### Cause: Zig 0.17 compiles its tools on first use, by design
 
