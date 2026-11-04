@@ -11,6 +11,5 @@ it: 1.4 GB twice for `pi-local`'s model. The fix is the engine restoring from th
 8 MiB pieces (`dolly_append_file`, the image store) instead of from a whole snapshot file.
 
 Done when: an install's rise is measured before and after on `qwen3.5-2b` and `pi-local` (the
-capture's method in `work/http/build/kernel-copies-evidence/`, moved to the evidence store after
-the merge), the second copy is gone, and `test/image-browser.mjs` and `test/image-input-browser.mjs`
+capture's method in `work/evidence-2026-11-04/http/kernel-copies-evidence/`), the second copy is gone, and `test/image-browser.mjs` and `test/image-input-browser.mjs`
 pass in Chromium and Firefox with byte-identical snapshots.
