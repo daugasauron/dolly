@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 220
-- TAGS: zig,toolchain,display
+- TAGS: zig,toolchain,display,0.1.5
 
 Owner (2026-11-03): "I think a new version of zig was released, I want you to upgrade to that
 across the board."

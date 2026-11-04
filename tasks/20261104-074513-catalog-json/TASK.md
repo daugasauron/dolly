@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 120
-- TAGS: catalog,site,npm,cleanup
+- TAGS: catalog,site,npm,cleanup,0.1.5
 
 `dist/dolly-images.mjs` and `dist/dolly-IMAGE-system-snapshot.mjs` are JavaScript modules
 (`export const X = Object.freeze(…)`): a page runs the code of any image directory it boots, and
