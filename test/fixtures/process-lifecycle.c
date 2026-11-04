@@ -15,6 +15,7 @@
 #include <sys/resource.h>
 #include <sys/times.h>
 #include <sys/wait.h>
+#include <termios.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -236,9 +237,14 @@ int main(int argc, char **argv) {
   errno = 0;
   CHECK(getpgid(INT32_MAX) == -1 && errno == ESRCH);
   int ends[2];
+  struct termios mode;
   CHECK(tcgetpgrp(0) == own && pipe(ends) == 0);
   errno = 0;
   CHECK(tcgetpgrp(ends[0]) == -1 && errno == ENOTTY);
+  errno = 0;
+  CHECK(!isatty(ends[0]) && errno == ENOTTY);
+  errno = 0;
+  CHECK(tcgetattr(ends[1], &mode) == -1 && errno == ENOTTY);
   errno = 0;
   CHECK(tcsetpgrp(0, own) == -1 && errno == ENOTTY);
   CHECK(close(ends[0]) == 0 && close(ends[1]) == 0);

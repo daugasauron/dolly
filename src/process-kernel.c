@@ -1703,8 +1703,7 @@ static int64_t terminal_packet(dolly_kernel_process *process,
     const int64_t result = stream->kind->terminal(stream, &request, &response);
     return result < 0 ? result : respond(&response, sizeof(response));
   }
-  const int descriptor = descriptor_for(process, request.descriptor);
-  if (descriptor < 0) return descriptor;
+  if (!descriptor_is_open(process, request.descriptor)) return -EBADF;
   const int terminal = process->terminal_descriptors[request.descriptor] != 0;
   if (request.operation == DOLLY_PROCESS_TERMINAL_ISATTY) {
     response.value = terminal;
