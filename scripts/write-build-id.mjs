@@ -24,14 +24,20 @@ export async function buildIdentities(wasmPath, dataPath) {
   return { buildId: `sha256:${runtime.digest("hex")}`, imageBuildId };
 }
 
+// The modules beside the runtime that name its identities, by file name.
+export const buildIdModules = ({ buildId, imageBuildId }) => ({
+  "dolly-build-id.mjs": `export const DOLLY_BUILD_ID = ${JSON.stringify(buildId)};\n`,
+  "dolly-image-build-id.mjs": `export const DOLLY_IMAGE_BUILD_ID = ${JSON.stringify(imageBuildId)};\n`,
+});
+
 if (process.argv[1] === import.meta.filename) {
   const [wasmPath, dataPath, outputPath] = process.argv.slice(2);
   if (!wasmPath || !dataPath || !outputPath || process.argv.length !== 5) {
     throw new Error("usage: write-build-id.mjs RUNTIME.wasm RUNTIME.data OUTPUT.mjs");
   }
-  const { buildId, imageBuildId } = await buildIdentities(wasmPath, dataPath);
-  await writeFile(outputPath, `export const DOLLY_BUILD_ID = ${JSON.stringify(buildId)};\n`);
-  await writeFile(resolve(dirname(outputPath), "dolly-image-build-id.mjs"),
-    `export const DOLLY_IMAGE_BUILD_ID = ${JSON.stringify(imageBuildId)};\n`);
-  console.log(`dolly: runtime ${buildId}; image inputs ${imageBuildId}`);
+  const identities = await buildIdentities(wasmPath, dataPath);
+  const modules = buildIdModules(identities);
+  await writeFile(outputPath, modules["dolly-build-id.mjs"]);
+  await writeFile(resolve(dirname(outputPath), "dolly-image-build-id.mjs"), modules["dolly-image-build-id.mjs"]);
+  console.log(`dolly: runtime ${identities.buildId}; image inputs ${identities.imageBuildId}`);
 }
