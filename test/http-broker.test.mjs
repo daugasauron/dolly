@@ -230,7 +230,8 @@ test("a response lasts as long as it moves and times out once it stops", async (
     assert.deepEqual(body, Array.from({ length: 30 }, (_, index) => index), "every byte of three timeouts' stream arrives");
     if (!stops) { assert.equal(records.at(-1).eof, 1); continue; }
     assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.ETIMEDOUT);
-    assert.ok(performance.now() - last >= 300, "cut no sooner than the timeout after its last bytes");
+    // Node's timers count whole milliseconds: one fired 299.73 ms after the bytes it follows.
+    assert.ok(performance.now() - last >= 299, "cut no sooner than the timeout after its last bytes");
   }
 });
 
