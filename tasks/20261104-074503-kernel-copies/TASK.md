@@ -71,3 +71,68 @@ compile dominates its peak; the `cp` now grows by the file's size, since it no l
 kernel's freed copy. `test/process-memory-browser.mjs` (69 s, 83 s), `test/process-browser.mjs`
 (76 s, 71 s) and `test/core-browser.mjs` (37 s, 63 s) passed in Chromium and Firefox
 (`launch-*.log`).
+
+### The capture (ab95a35dc, 3b25d52c3)
+
+5952d104 and 3dbf32ba re-applied: their source files applied cleanly, since neither the kernel's
+capture, the Worker's capture loop nor `boot-files.mjs` changed since their parent (14b36c24);
+the image store (34870df49) sits behind `describeImageArtifact`, which takes the pieces as it took
+the copied range's. The contract `abi/dolly-image-0.wat` is an image input: image inputs
+`e7867504` -> `7fc896aa` (runtime `75cf5331`), so every image rebuilds.
+
+Measured with `build-measured.sh` (a 6 GB build slot, the scope's anonymous memory every 0.2 s,
+each build-log line timed; `phases.mjs` reads them), one image rebuilt from its published inputs.
+Before: integrate's code (`system`, `cc`) or the launch commit's (`qwen3.5-2b`, whose build launches
+no large executable), image inputs `e7867504`; the rebuilt snapshots were byte-identical to the
+day round's. "Rise" is the highest anonymous memory from the capture to the export over the
+memory at the capture.
+
+Anonymous memory in MB at each phase of the image's build ("capture" to "caching" is the kernel's
+capture with the Worker's digest and its write into the image store; "caching" to "exported" is
+the catalog page reading the stored file out in 16 MiB pieces, the same code before and after):
+
+| image (size) | before: highest, kernel to capture | after | before: at capture, highest to caching | after | before: highest, caching to export | after |
+| --- | --- | --- | --- | --- | --- | --- |
+| `system` (154 MB; FROM system-tools, INSTALLs cc) | 1424 | 930 | 1181, 1254 (+73) | 920, 983 (+63) | 1377 | 1331 |
+| `cc` (134 MB; FROM system-build) | 848 | 731 | 848, 909 (+61) | 731, 785 (+54) | 1244 | 1162 |
+| `qwen3.5-2b` (1396 MB; FROM system) | 3574 | 3784 | 3564, 4877 (+1313) | 3771, 3771 (+0) | 5199 | 4038 |
+
+- The capture's copy shows where the image outgrows what the kernel had freed: `qwen3.5-2b`'s
+  build deletes its two source parts before the capture, and the 1.4 GB malloc still grew the
+  scope by 1.3 GB; streamed, the capture adds nothing measurable. Its build's anonymous peak goes
+  from 5199 to 4038 MB (the scope's current, with page cache, touched the 6 GiB cap both times).
+- For `system` and `cc` the capture's malloc fit the base's staging range the restore had freed, so
+  the capture itself moved little (+73 to +63, +61 to +54); what the inputs in pieces saved is the
+  restore: `system`'s highest before the capture is 494 MB lower (a whole ArrayBuffer and a malloc
+  of each input: the 154 MB base and the 134 MB cc, now 8 MiB at a time).
+- `qwen3.5-2b`'s highest before the capture (3574, 3784) falls in both runs at the end of its
+  `sha256sum` of the 1.4 GB model, a process reading the file, which this change does not touch.
+- The after column is one build of the closure (`after-closure.*`, the 24 images of `system`,
+  `default` and `qwen3.5-2b`, 25 min) in one browser, so its floors sit higher than a single
+  image's; the before columns are single-image builds.
+
+Every one of the 24 snapshots the new code built has the digest and size the base's code built
+(`digests-before.txt`, `digests-after.txt`): system-build `f6436078…`, zig-build `988eb648…`,
+ghostty-build `e920dfdb…`, system `9eeb9236…`, default `96b6222a…`, qwen3.5-2b `a2783bdb…` among them.
+
+On the final runtime (`75cf5331`, image inputs `7fc896aa`, the rebuilt closure), in Chromium and
+Firefox, 6 GB browser slot (`capture-*.log`): `test/image-browser.mjs` (76 s, 98 s; the roundtrip
+fixture compiled in Dolly captures through a 17-byte window), `test/image-input-browser.mjs` (49 s,
+58 s; a 520 MiB input written into the build's filesystem in pieces), `test/process-memory-browser.mjs`
+(50 s, 61 s), `test/process-browser.mjs` (62 s, 69 s) and `test/core-browser.mjs` (32 s, 52 s)
+passed. `module-cost.mjs` once more: the compiler's first launch +210 highest and +204 retained in
+Chromium, +591 and +298 in Firefox. What a first launch retains after 3 s depends on when the
+collector takes the supervisor's copy (96 MB of garbage once compiled): +112 and +204 in two
+Chromium runs of the same code. The highest is steadier: +310 before, +201 and +210 after.
+
+### For the round
+
+- Every image rebuilds: `abi/dolly-image-0.wat` is an image input (`7fc896aa` with this branch
+  alone; the merged round's hash differs with the other branches' seed changes). The docs recipe
+  pins both contracts and `docs/process-model.md`; its dependents follow.
+- Byte-identical where recipes did not change: checked here for the 24 images of `system`,
+  `default` and `qwen3.5-2b`; the round's own comparison against this round's catalog covers the rest.
+- `pi-local` under `slot.sh bigbuild`'s 9 GB cap, its capture-phase rise against the image store's
+  5.55 GB peak (`tasks/20261101-221415-stream-capture`): not measured today (the round and three
+  agents leave no room for a 9 GB build). It is the round's measurement: `build-measured.sh` and
+  `phases.mjs` in `build/kernel-copies-evidence/` do it with `pi-local pi-local bigbuild NAME`.

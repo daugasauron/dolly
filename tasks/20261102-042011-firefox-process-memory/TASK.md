@@ -1,6 +1,6 @@
 # Firefox: a process costs 1.4 GB where Chromium's costs 0.85
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 180
 - TAGS: core,memory,firefox
 
@@ -9,6 +9,16 @@ Chromium's session holds 3.98 GB and a running `lean` adds about 0.85 GB, the fi
 0.3 GB behind; Firefox's holds 4.52 GB, a `lean` adds about 1.4 GB, the first leaves 0.8 GB behind
 and the cap kills the tab at `lake new`. Where does Firefox's extra memory go, and is any of it
 Dolly's doing?
+
+## Closed (2026-11-04)
+
+The question is answered (below) and the one copy that was Dolly's, the kernel's contiguous read
+of the executable at every cold launch, is gone: b59e558e8 cherry-picked onto `core/kernel-copies`
+(c7f486d36) and measured again there on integrate's code (`tasks/20261104-074503-kernel-copies`).
+The compiled-module cache's bound stays at 256 MiB: at the 6 GB cap the browser tests run with,
+caching Lean's executables costs more than recompiling them (measured below). The proposal of a
+bound that follows the session's memory stays described below; only Chromium tells a page its
+memory (`navigator.deviceMemory`).
 
 ## State (2026-11-02): answered and one copy removed, `core/firefox-process-memory`
 
