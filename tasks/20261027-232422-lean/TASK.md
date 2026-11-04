@@ -104,9 +104,8 @@ by name (Firefox names `wasm-reserved`, `js-executable-memory`, `jemalloc`; Chro
   Firefox (63 and 64 s), and `core` again in both (26.5 and 44.3 s). Not attributed: the machine
   was building the round's LLVM beside it. An idle Worker costs 2.2 to 2.5 MB and starts in
   4 ms (`probe/worker-cost.mjs`), so the threshold keeps small programs as they were.
-  `stack` and `ended-worker` open an image with `stack-wrap`, whose snapshot in this tree is the
-  previous round's: they time out at boot with the supervisor unchanged as well; the night
-  round rebuilds it.
+  `stack` and `ended-worker` (an image with `stack-wrap`) passed in both on the night round's
+  `stack-wrap`; on the previous round's they time out at boot, the supervisor unchanged too.
 
 ## Measured (2026-11-02): `demo/lean-3`, on `integrate/2026-11-02`
 
