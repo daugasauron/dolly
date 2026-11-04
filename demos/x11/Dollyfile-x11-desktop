@@ -26,7 +26,7 @@ INSTALL /v0.1.4/demos/x11/Dollyfile-xeyes f2a6f3244ae63ae1d3f345d236ae0c6c401348
 INSTALL /v0.1.4/demos/x11/Dollyfile-xterm 12a0adb3f738e5018f1cce83de6b5e25f361fbbb1b4583f7f78ea5555181164d
 # amy installs packages into the session (tmux, nvim and the rest); nena
 # enables the host modules they need.
-INSTALL /v0.1.4/Dollyfile-amy c2e5f10354cb7098b459d45b44989553c558b786f12f360bfc87b70a1f34be19
+INSTALL /v0.1.4/Dollyfile-amy 1111b191cee58a7d1265a0f5eb1710af0cefc65d4a39410cabd8601b3366edd7
 INSTALL /v0.1.4/Dollyfile-nena 8548d299c850256330e33fabf531461f13dc4c2e087064c6864bce30a01ec2b7
 INSTALL /v0.1.4/demos/sdl2/Dollyfile-imgui-x11 0e25fc4ccebec8dee25a6a0e251b88e5b82a2fe239ff9db713d8f89a678dd1ed
 

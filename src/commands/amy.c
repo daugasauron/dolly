@@ -4,7 +4,9 @@
 // the Dollyfile row INSTALL PATH SHA256, executed against the live filesystem
 // by /bin/dollyfile and recorded in /etc/dolly/installed; the page's
 // packages@0 service hands over the verified package snapshot. A package's
-// snapshot records the INSTALL rows of its own recipe: those come first.
+// snapshot records the INSTALL rows of its own recipe: those come first. In an
+// image that declares nena@0, amy has nena enable the host modules a package
+// needs that the session lacks; elsewhere the engine refuses the row.
 #define _POSIX_C_SOURCE 200809L
 
 #include <errno.h>
@@ -16,6 +18,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <dolly/host-abi.h>
 #include <dolly/http.h>
 #include <dolly/runtime.h>
 
@@ -25,9 +28,13 @@
 static const char index_url[] = "/v" DOLLY_VERSION "/amy-index.txt";
 static const char service[] = "https://packages.dolly.invalid/v1/packages/";
 static const char installed_path[] = "/etc/dolly/installed";
+// The engine's receipt of an image, which names its host modules, and the
+// modules the session enabled since, one name@version a line.
+static const char receipt_path[] = "/etc/dolly/artifact";
+static const char enabled_path[] = "/etc/dolly/enabled";
 static const char artifacts_dir[] = "/etc/dolly/artifacts";
 static const char files_dir[] = "/etc/dolly/files";
-enum { MAX_INDEX_BYTES = 64 * 1024 };
+enum { MAX_INDEX_BYTES = 64 * 1024, MAX_RECEIPT_BYTES = 16 * 1024 * 1024 };
 
 typedef struct { char *name, *recipe, *sha256, *description; } Package;
 typedef struct { Package *items; size_t count; char *text; } Packages;
@@ -192,8 +199,9 @@ static int list_files(const char *snapshot, FILE *list, Summary *summary) {
   return valid && fflush(list) == 0 ? 0 : -1;
 }
 
-// The rows a package's snapshot records: the packages its recipe installs, dependencies first.
-static int snapshot_rows(const char *snapshot, Packages *rows) {
+// One file of a snapshot, read whole and NUL-terminated into `*bytes`, which
+// stays NULL when the snapshot holds no such file.
+static int snapshot_file(const char *snapshot, const char *member, size_t limit, char **bytes, size_t *size) {
   FILE *stream = fopen(snapshot, "rb");
   unsigned char header[16];
   char path[4096];
@@ -201,20 +209,115 @@ static int snapshot_rows(const char *snapshot, Packages *rows) {
       memcmp(header, "DOLLYSNP", 8) == 0;
   for (uint64_t records = valid ? little_endian(header + 12, 4) : 0; valid && records != 0; --records) {
     valid = fread(header, 1, sizeof(header), stream) == sizeof(header);
-    const uint64_t length = little_endian(header + 4, 4), size = little_endian(header + 8, 8);
+    const uint64_t length = little_endian(header + 4, 4), stored = little_endian(header + 8, 8);
     valid = valid && length < sizeof(path) && fread(path, 1, length, stream) == length;
     if (!valid) break;
     path[length] = '\0';
-    if (strcmp(path, installed_path) != 0) {
-      valid = fseeko(stream, (off_t)size, SEEK_CUR) == 0;
+    if (strcmp(path, member) != 0) {
+      valid = fseeko(stream, (off_t)stored, SEEK_CUR) == 0;
       continue;
     }
-    rows->text = size < MAX_INDEX_BYTES ? calloc(1, size + 1) : NULL;
-    valid = rows->text != NULL && fread(rows->text, 1, size, stream) == size;
+    *bytes = stored < limit ? calloc(1, stored + 1) : NULL;
+    valid = *bytes != NULL && fread(*bytes, 1, stored, stream) == stored;
+    *size = stored;
     break;
   }
   if (stream != NULL) fclose(stream);
-  return valid ? parse_rows(rows, snapshot) : -1;
+  return valid ? 0 : -1;
+}
+
+// The rows a package's snapshot records: the packages its recipe installs, dependencies first.
+static int snapshot_rows(const char *snapshot, Packages *rows) {
+  size_t size;
+  return snapshot_file(snapshot, installed_path, MAX_INDEX_BYTES, &rows->text, &size) == 0 ? parse_rows(rows, snapshot) : -1;
+}
+
+// A file of the session read whole and NUL-terminated; NULL when it cannot be.
+static char *read_file(const char *path, size_t *size) {
+  struct stat metadata;
+  FILE *stream = stat(path, &metadata) == 0 && metadata.st_size < MAX_RECEIPT_BYTES ? fopen(path, "rb") : NULL;
+  char *bytes = stream != NULL ? calloc(1, (size_t)metadata.st_size + 1) : NULL;
+  const int whole = bytes != NULL && fread(bytes, 1, (size_t)metadata.st_size, stream) == (size_t)metadata.st_size;
+  if (stream != NULL) fclose(stream);
+  if (!whole) {
+    free(bytes);
+    return NULL;
+  }
+  *size = (size_t)metadata.st_size;
+  return bytes;
+}
+
+// The host modules an engine receipt names, appended to `hosts` one a line.
+// A receipt (src/dollyfile.c, DOLLYART 5) holds the recipe chain, five texts
+// a recipe, then the modules; a text is its length and its bytes.
+static int receipt_hosts(const char *receipt, size_t size, char *hosts, size_t capacity) {
+  const unsigned char *at = (const unsigned char *)receipt, *end = at + size;
+  if (size < 16 || memcmp(at, "DOLLYART", 8) != 0 || little_endian(at + 8, 4) != 5) return -1;
+  const uint64_t texts = little_endian(at + 12, 4) * 5;
+  at += 16;
+  for (uint64_t index = 0; index < texts; ++index) {
+    if (end - at < 4 || (uint64_t)(end - at - 4) < little_endian(at, 4)) return -1;
+    at += 4 + little_endian(at, 4);
+  }
+  if (end - at < 4 || little_endian(at, 4) > DOLLY_HOST_MAX_RECORDS) return -1;
+  const uint64_t count = little_endian(at, 4);
+  at += 4;
+  for (uint64_t index = 0; index < count; ++index) {
+    const size_t used = strlen(hosts);
+    if (end - at < 4) return -1;
+    const uint64_t length = little_endian(at, 4);
+    if ((uint64_t)(end - at - 4) < length || length + 2 > capacity - used) return -1;
+    memcpy(hosts + used, at + 4, length);
+    memcpy(hosts + used + length, "\n", 2);
+    at += 4 + length;
+  }
+  return 0;
+}
+
+// Whether `line` is one of the lines of `lines`.
+static int holds_line(const char *lines, const char *line) {
+  const size_t length = strlen(line);
+  for (const char *at = lines; at != NULL && *at != '\0';) {
+    if (strncmp(at, line, length) == 0 && (at[length] == '\n' || at[length] == '\0')) return 1;
+    at = strchr(at, '\n');
+    if (at != NULL) ++at;
+  }
+  return 0;
+}
+
+// Enables the host modules the package in `snapshot` needs that the session
+// neither declares nor has enabled, where the image declares nena@0: nena
+// asks the page for each switch and says what it enabled. Elsewhere the
+// engine refuses the row, naming them. -1 when nena did not enable them all.
+static int enable_needed(const char *name, const char *snapshot) {
+  char needed[4096] = "", declared[4096] = "", *arguments[DOLLY_HOST_MAX_RECORDS + 3] = {"/bin/nena", "enable"};
+  char *receipt = NULL, *cursor = NULL;
+  size_t size = 0, own_size = 0, enabled_size = 0;
+  char *own = read_file(receipt_path, &own_size), *enabled = read_file(enabled_path, &enabled_size);
+  int status = own != NULL && receipt_hosts(own, own_size, declared, sizeof(declared)) == 0 &&
+      snapshot_file(snapshot, receipt_path, MAX_RECEIPT_BYTES, &receipt, &size) == 0 && receipt != NULL &&
+      receipt_hosts(receipt, size, needed, sizeof(needed)) == 0 ? 0 : -1;
+  if (status != 0) fprintf(stderr, "amy: %s: cannot read the host modules it needs\n", name);
+  int count = 2;
+  for (char *module = status == 0 ? strtok_r(needed, "\n", &cursor) : NULL; module != NULL; module = strtok_r(NULL, "\n", &cursor)) {
+    if (!holds_line(declared, module) && !holds_line(enabled, module)) arguments[count++] = module;
+  }
+  arguments[count] = NULL;
+  if (status == 0 && count > 2 && holds_line(declared, "nena@0")) {
+    printf("amy: %s needs", name);
+    for (int index = 2; index < count; ++index) printf("%s%s", index == 2 ? " " : index + 1 == count ? " and " : ", ", arguments[index]);
+    printf(": nena enables %s\n", count == 3 ? "it" : "them");
+    fflush(stdout);
+    int exit_status = 126;
+    const int pid = dolly_spawn(arguments[0], count, arguments, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
+    const int waited = pid < 0 ? pid : dolly_wait(pid, &exit_status);
+    if (waited < 0) fprintf(stderr, "amy: %s: %s\n", arguments[0], strerror(-waited));
+    status = waited >= 0 && exit_status == 0 ? 0 : -1;
+  }
+  free(receipt);
+  free(own);
+  free(enabled);
+  return status;
 }
 
 // Fetches a package's verified snapshot to `path`; the caller removes it.
@@ -275,6 +378,7 @@ static int install_row(const char *name, const char *recipe, const char *sha256)
   Summary summary = {0};
   int status = fetch_snapshot(&package, path);
   if (status == 0) status = snapshot_files(&package, path, 1, &summary);
+  if (status == 0) status = enable_needed(name, path);
   if (status == 0 && (status = engine_install(&package)) == 3) {
     Packages needs = {0};
     if ((status = snapshot_rows(path, &needs)) != 0) fprintf(stderr, "amy: %s: cannot read its record\n", name);

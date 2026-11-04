@@ -2,7 +2,13 @@
 
 - STATUS: OPEN
 - PRIORITY: 300
-- TAGS: host-modules,audit,images
+- TAGS: host-modules,audit,images,0.1.5
+
+## State (2026-11-05 00:10 JST): R1 and R2 for 0.1.5, on `core/modules-r1`
+
+The integrator chose R1 and R2 for 0.1.5 on 2026-11-04 (the owner may still redirect); R3, R4
+and R5 are `tasks/20261104-143110-modules-r3`, `-r4`, `-r5`. Work in progress; see "R1 and R2:
+the work" below.
 
 Owner (2026-11-04 22:30 JST): "I feel like the modularity of the host modules have been
 lost somewhere along the way, and it's now ended up in a place where all images declare
@@ -331,3 +337,61 @@ area (inventory, classification by the rules of section 2); the code paths cited
 that reference a client and the recipes' link lines, not from built images, except
 `libdisplay.so`. Not measured: whether every Rust or Python executable stamps `threads@0`;
 whether `go` stamps `http@0` on every Go program.
+
+## R1 and R2: the work (2026-11-05 night, `core/modules-r1`)
+
+### R1, the ten that only install packages
+
+Each is `core`, `posix`, `display` and the packages it is for; it declares the kernel, the
+terminal, the session and what those packages declare. Measured on the built images
+(`dist/dolly-images.json`, image inputs `88959af6`):
+
+| Application | Modules before | After | Snapshot before, after |
+| --- | ---: | ---: | --- |
+| tmux-panes | 15 | 8 | 156, 14 MB |
+| gnu-emacs | 9 | 4 | 299, 158 MB |
+| neovim | 10 | 5 | 187, 46 MB |
+| codex-agent | 10 | 7 | 375, 234 MB |
+| speech-to-text-mic | 10 | 6 | 294, 152 MB |
+| wine | 10 | 7 | 194, 53 MB |
+| x11-desktop | 16 | 11 | 172, 30 MB |
+| ghostty-x11 | 16 | 13 | not built: `ghostty-gtk` waits for the round's `llvm22` and `zig-llvm` |
+| pi-agent | 13 | 10 | 234, 234 MB |
+| pi-phone | 14 | 12 | 374, 373 MB |
+
+- pi-agent and pi-phone install `cc`, `git` and `curl`: Pi's dolly skill teaches `cc`, `make -j`
+  with `curl` and `git status`, and pi-agent's test compiles. They lose `audio@0`, `touch@0`
+  (pre-declared for amy) and `upload@0` (from `system`'s transfer).
+- wine keeps `http@0`: `/usr/bin/wine` stamps it (scanned in wine-build's snapshot: threads,
+  sockets, display, input, http; NetSurf fetches). The audit's class D counted it as
+  "no network program of its own"; it has one.
+- tmux-panes holds no compiler now: its test runs `amy install cc` in the pane before the
+  session's first `cc`. It declares no `nena@0` (at most 8), so `amy install nvim` (`dso@0`) is
+  refused there; the README says so and its example is `vi`.
+- neovim's test compiled a probe with `cc` to read the terminal's mode after nvim; it now proves
+  the same by behaviour: Ctrl+C ends `sleep 30` with 130 after nvim exits.
+- `work/integrate` note: `demos/gpu-fluid/prepare-gpu-fluid.mjs` writes `Dollyfile-gpu-fluid`
+  without the `html@0` that f0f5aff9c added by hand, so a build that selects gpu-fluid rewrites
+  the recipe and sealing then refuses `/usr/bin/html` from `system` (`work/integrate` shows the
+  recipe modified). R1 removes the cause (gpu-fluid no longer keeps `system`).
+
+### R2, amy enables at install
+
+`amy` (`src/commands/amy.c`, not a seed input: the `amy` package compiles it) reads the host
+modules the package's snapshot receipt names (`/etc/dolly/artifact`, DOLLYART 5), those the
+image's own receipt declares and those `/etc/dolly/enabled` lists; where the image declares
+`nena@0`, it says which the session lacks and runs `/bin/nena enable` for them, whose lines
+say what it enabled; then the engine installs the row as before and still checks. Without
+`nena@0` the engine refuses the row as before, naming the line to add.
+
+Why before the engine and not on its refusal: the refusal is a line of prose on stderr and
+an exit status 2 shared with every other failure, so acting on it would mean parsing the
+message; a typed status or list from the engine is a change to `src/dollyfile.c`, a seed input
+(every image), not possible tonight. Reading the two receipts is what the engine itself does
+(`install_live`, `host_declared`, `host_enabled`), and the engine stays the check. Spawning
+`/bin/nena` keeps amy from linking nena's client, which would stamp `nena@0` on amy and force
+it onto every image that installs amy (tmux-panes).
+
+`default` declares 10 modules (15 before): runtime, display, input, snapshot, http, packages,
+nena, download, upload, html. The five rows for packages amy might install (audio, dso,
+sockets, threads, touch) are gone.

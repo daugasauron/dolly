@@ -82,8 +82,9 @@ const pin = name => {
   const { dollyfile, sha256 } = catalog.images.find(definition => definition.image === name);
   return `${siteReference(dollyfile)} ${sha256}`;
 };
-const hosts = catalog.images.find(definition => definition.image === "default").hostRequirements;
-const recipe = ["DOLLY 7", "APPLICATION numpy-probe", ...hosts.map(host => `REQUIRES HOST ${host}`),
+// Host requirements are never inherited: the probe restates default's and python's.
+const hosts = new Set(["default", "python"].flatMap(name => catalog.images.find(definition => definition.image === name).hostRequirements));
+const recipe = ["DOLLY 7", "APPLICATION numpy-probe", ...[...hosts].map(host => `REQUIRES HOST ${host}`),
   `FROM ${pin("default")}`, `INSTALL ${pin("python")}`,
   `COPY ${pin("python-data-build")} /opt/python-data/numpy /`,
   "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");

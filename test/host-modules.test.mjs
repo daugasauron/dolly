@@ -22,11 +22,10 @@ test("every image declares its complete host set itself", async () => {
   // and the html command with html, both of which system installs; a terminal
   // draws with display@0 and reads keys with input@0, which the display package
   // alone does not ask for; Git, which system-tools holds, runs threads; default
-  // installs packages with amy and runs what they bring: threaded tools,
-  // programs that load modules and SDL2's, which read fingers and play sound;
-  // nena enables what else they need.
+  // installs packages with amy, which has nena enable what a package needs
+  // beyond these.
   const core = {
-    default: [...interactive, "packages@0", "threads@0", "dso@0", "sockets@0", "touch@0", "audio@0", "nena@0"],
+    default: [...interactive, "packages@0", "nena@0"],
     system: [...interactive, "threads@0"],
     "system-build": ["runtime@0", "http@0"], "zig-build": ["runtime@0", "http@0"],
     "ghostty-build": [...terminal, "http@0"],

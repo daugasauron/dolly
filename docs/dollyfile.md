@@ -236,12 +236,14 @@ mounted, and reads no other version's.
   embedding lacks one, and the loader refuses an executable whose stamped
   module is not declared. Requirements grant nothing: the embedding enables
   modules and the HTTP broker decides network access
-  ([browser boundary](browser-boundary.md)). `system` declares the runtime,
-  display, input, http, download, upload, html, snapshot and threads (Git runs
-  threads, the `html` command shows popups); `default` adds packages, nena, dso, sockets, touch and audio, because the packages people
-  install into it need them (`python` and `nvim` load modules, every SDL2
-  program records `touch@0` and `audio@0`); a declared module costs a program that
-  does not record it nothing. A terminal draws with `display@0` and reads keys
+  ([browser boundary](browser-boundary.md)). An application declares the
+  kernel, the terminal (`display@0`, `input@0`), the session's save
+  (`snapshot@0`) and what its packages need: `gnu-emacs` the first four,
+  `tmux-panes` also `pty@0`, `sockets@0` and `amy`'s `http@0` and
+  `packages@0`. `default` declares no module for a package it does not hold:
+  where an image declares `nena@0`, `amy install` has `nena` enable what a
+  package needs beyond the image's list (`python` loads modules, `dso@0`;
+  every SDL2 program records `touch@0` and `audio@0`). A terminal draws with `display@0` and reads keys
   with `input@0`; the `display` package asks only for the first, so an image
   may show one without reading.
 - Linked client libraries (`-ldolly-gpu`, `-ldolly-audio`) stamp their module
@@ -338,9 +340,11 @@ EXPORTS TOOL rg
   row's snapshot and installs it the same way: `amy install cmake` installs
   `cc` and then `cmake`, and says so. No solver chooses anything: the rows
   are the pins of the recipe. The check is the recipe's: a package whose
-  host modules the booted image does not declare is refused by name, and
-  where the image declares `nena@0` the session may have enabled them
-  (`/etc/dolly/enabled`) or is told the command: `nena enable pty`. Looking
+  host modules the booted image does not declare is refused by name. Where
+  the image declares `nena@0`, `amy` first has `nena` enable those the
+  session lacks (it reads them from the package's receipt, the image's and
+  `/etc/dolly/enabled`) and says so: `amy install tmux` in `default` enables
+  `pty@0` and `sockets@0`; the page makes each switch. Looking
   a name up in the index is the only unpinned step. The index describes the
   site's newest release and the service serves the release the tab runs: a
   pin that release does not publish fails by name, asking for a reload, and

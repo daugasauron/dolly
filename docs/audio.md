@@ -58,5 +58,6 @@ default input, through process operation 130.
 - C SDK: [`host/microphone/microphone.h`](../host/microphone/microphone.h) and
   `libdolly-microphone.a`, from the `libdolly-microphone` package, as for
   playback; calling it stamps `microphone@0`
-  into the executable. No core image declares it: a session of `default`
-  enables it with `nena enable microphone`.
+  into the executable. No core image declares it: in a session of `default`,
+  `amy` has `nena` enable it for a package that needs it, or
+  `nena enable microphone` does.

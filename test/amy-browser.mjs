@@ -131,9 +131,9 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   await run("grep -q '^amy: gzip: ' /tmp/amy-stale && ! amy installed | grep -q '^gzip '");
   site.index = null;
   // An install is the engine's INSTALL row: a package whose host modules the
-  // image declares installs and is recorded, so amy lists it.
+  // session has, sockets@0 enabled here, installs and is recorded, so amy lists it.
   await run(`mkdir -p /etc/dolly/artifacts && curl -fsS ${server.origin}/fixture/connects.snapshot -o ${artifact}`);
-  await run(`dollyfile install ${connects.url} ${connects.sha256} && test ! -e ${artifact}`);
+  await run(`nena enable sockets && dollyfile install ${connects.url} ${connects.sha256} && test ! -e ${artifact}`);
   await run(`test "$(cat /usr/share/connects)" = 'needs sockets' && grep -qx '${row}' /etc/dolly/installed`);
   await run(`test "$(amy installed | tail -n 1)" = "connects ${connects.url} ${connects.sha256}"`);
   // A package names the packages its recipe installs and holds none of their
@@ -295,10 +295,15 @@ const programs = {
     "for (int step = 0; step < 60; ++step) b3World_Step(id, 1.0f / 60.0f, 4); int fell = b3Body_GetPosition(ball).y < -1.0f; b3DestroyWorld(id); return !fell; }' " +
     "> /tmp/amy-box3d.c && cc -O0 -U__SIZEOF_INT128__ /tmp/amy-box3d.c -lbox3d -o /tmp/amy-box3d && /tmp/amy-box3d",
 };
+// default declares no module for a package it does not hold: amy has nena
+// enable what each needs, as SDL2's audio@0 and touch@0.
+const declared = catalog.images.find(definition => definition.image === "default").hostRequirements;
+assert.ok(!declared.includes("audio@0") && !declared.includes("touch@0"), declared.join(" "));
 await browserTest("amy programs", { image: "default", timeout: 600_000 }, async ({ name, open }) => {
   const session = await open(), run = check(session);
   for (const [name, program] of Object.entries(programs)) {
     console.log(`amy install ${name}: ${await timed(run, `amy install ${name}`)} ms`);
+    if (name === "sdl2") await run("grep -qx audio@0 /etc/dolly/enabled && grep -qx touch@0 /etc/dolly/enabled");
     await run(program);
   }
   // The program holds the display, so its line does not show: press Space once it runs.
@@ -514,17 +519,16 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
     "tar -cjf in.tbz in && tar -tjf in.tbz | grep -qx in/link && tar -cf - in | pigz > in.tgz && tar -tzf in.tgz | grep -qx in/link");
   for (const read of reads("tar")) await run(read);
   // dolly-llama computes on the GPU, a host module default does not declare:
-  // the package is refused by the module's name and nothing of it is installed.
-  assert.notEqual(await session.submit("amy install llama 2> /tmp/refused"), 0);
-  await run("grep -q gpu /tmp/refused && ! command -v dolly-llama");
+  // amy has nena enable gpu@0, which a page admits with or without WebGPU.
+  await run("amy install llama && grep -qx gpu@0 /etc/dolly/enabled && command -v dolly-llama");
 });
 
 // Every package of the catalog is installed into default and used: by a case
 // of this file, or where this says.
 const elsewhere = {
   git: "man-browser.mjs, pager-browser.mjs", less: "pager-browser.mjs", llvm: "demos/llvm",
-  parakeet: "demos/speech", "speech-to-text": "demos/speech: default refuses it", voice: "demos/speech, in pi-phone",
-  tmux: "demos/tmux: default refuses it",
+  parakeet: "demos/speech", "speech-to-text": "demos/speech", voice: "demos/speech, in pi-phone",
+  tmux: "demos/tmux",
   pi: "the pi-dolly row installs it", secretenv: "demos/closed-source-agent and demos/pi: their key prompts",
   "llvm-runtimes": "a build stage", "llama-cpp": "a build stage: llama links it", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm", "qwen3.5-4b": "demos/local-llm",
   "lfm2.5": "demos/local-llm",
@@ -538,7 +542,8 @@ const elsewhere = {
   "lean-std": "demos/lean: lean installs it", "lean-meta": "demos/lean: lean installs it",
   glib: "demos/ghostty-gtk: gtk-build installs it", pcre2: "demos/ghostty-gtk: glib uses it", libffi: "demos/ghostty-gtk: glib uses it",
   go: "demos/go", esbuild: "demos/go", naga: "demos/zero-ad: zero-ad-data uses it", "zero-ad-data": "demos/zero-ad: zero-ad copies it",
-  "fingers-build": "demos/fingers: fingers installs it", "vendor-crates": "demos/rust/test/vendor-crates-browser.mjs",
+  "fingers-build": "demos/fingers: fingers installs it", fluid: "demos/gpu-fluid: gpu-fluid installs it",
+  anykey: "demos/closed-source-agent: closed-source-agent installs it", "pi-llm": "demos/local-llm: pi-local installs it", "vendor-crates": "demos/rust/test/vendor-crates-browser.mjs",
   fmt: "demos/zero-ad: zero-ad-deps installs it", libxml2: "demos/zero-ad: zero-ad-deps installs it",
   libsodium: "demos/zero-ad: zero-ad-deps installs it", "boost-headers": "demos/zero-ad: zero-ad-deps installs it",
   premake: "demos/zero-ad: zero-ad-engine's build uses it",
