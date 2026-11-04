@@ -20,7 +20,7 @@ typedef struct {
   int pending;
 } dolly_device_lease;
 
-typedef struct {
+typedef struct dolly_leased_device {
   uint32_t version, open, close, slots;
   size_t packet_bytes, reply_bytes;
   int reopen_busy; /* OPEN on an open, idle lease fails with EBUSY. */
