@@ -31,7 +31,7 @@ unchanged. Kernel C, page JavaScript and two contracts:
   `docs/browser-boundary.md`'s `runtime@0` row and `test/sockets-browser.mjs`'s exact import list
   name it.
 - `src/file-blocks.cpp`: `InputFile`, mounted like `/dev`'s files: reads fill an 8 MiB window
-  (freed when the last descriptor closes); `write` and growing fail with `EROFS`; truncating it
+  (freed when a descriptor of it closes); `write` and growing fail with `EROFS`; truncating it
   shortens it. The engine moves files out of a snapshot by truncating it from its end (for amy's
   fetched snapshots this still frees kernel memory), and a process's `truncate(path)` opens the
   file for writing, so the file takes a write-open and a shortening, and nothing else.
@@ -103,7 +103,8 @@ The whole run (page and build, the slot's highest anonymous memory), the same im
   (72 s, 81 s; custom images built in the page) passed; the source suite passes (470). With
   3b4666db2: `test/image-input-browser.mjs` (38 s, 42 s), `test/image-browser.mjs` (76 s, 143 s;
   then 123 and 95 s against the old code's 93 and 92) and `test/man-browser.mjs` (6 s, 10 s; amy
-  installs `git` through the package service) passed (`packs-chain.txt`, `ab.txt`).
+  installs `git` through the package service) passed (`packs-chain.txt`, `ab.txt`), and
+  `test/boundary-browser.mjs` (the page's check that the kernel's imports equal the contract).
 
 ### Seen, not changed
 
