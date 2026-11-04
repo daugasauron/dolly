@@ -5,15 +5,15 @@ REQUIRES HOST http@0
 
 # The external seed (build-go-toolchain.sh): Go's GOROOT for dolly/wasm64,
 # cross-built on Linux. go-build rebuilds its toolchain here.
-FROM /v0.1.4/Dollyfile-system-build 5b771dda11825be323a25f6e51a7d5b306fc1c67628c5f10e79433b2d73f7925
-INSTALL /v0.1.4/Dollyfile-gzip 3b5694224faf230390063287268f17380000500b5c03485f9de333adad0c5e7b
+FROM /v0.1.4/Dollyfile-system-build 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/Dollyfile-gzip 0000000000000000000000000000000000000000000000000000000000000000
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
 SOURCE /v0.1.4/dist/static/go/go-sdk.tar.gz ac1e44ffd626cf1931d14df840256a33157a909252b914bd39f4861bdbe0cc97 /tmp/go-sdk.tar.gz
 SLOP gzip -dc /tmp/go-sdk.tar.gz | tar -xf - -C /usr/lib
 SLOP rm /tmp/go-sdk.tar.gz
 
-EXPORTS ENV PATH APPEND /usr/lib/go/bin
+EXPORTS ENV PATH /bin:/usr/bin:/usr/lib/go/bin
 # go.env's GOTOOLCHAIN=auto would fetch newer toolchains, which do not run here.
 EXPORTS ENV GOTOOLCHAIN local
 EXPORTS TOOL go

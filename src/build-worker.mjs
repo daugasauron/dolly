@@ -5,11 +5,11 @@
 // image the site built before. Images cross to and from Wasm memory a piece
 // at a time: the page holds them as Blobs, never in a JS heap.
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
-import { imageDefinition } from "./images.mjs";
+import { imageBase, imageDefinition } from "./images.mjs";
 import { scanSnapshotRecords, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256 } from "./image-artifact.mjs";
 import { imageInputs } from "./image-inputs.mjs";
-import { inspectDollyfile, MAX_DOLLYFILE_BYTES } from "./dollyfile-view.mjs";
+import { inspectDollyfile, MAX_DOLLYFILE_BYTES, recipeRows } from "./dollyfile-view.mjs";
 import { checkedCustomArtifact } from "./custom-image.mjs";
 import { siteReference, decodeStaticAsset } from "./static-asset.mjs";
 import { checkedMemoryRange, kernelArtifact, runImage } from "./worker-image.mjs";
@@ -32,6 +32,14 @@ function* capturedPieces(kernel, memory, total) {
   if (produced !== total) throw new Error("Dolly system snapshot capture failed");
 }
 
+// A catalog recipe as this site publishes it, checked against its pin.
+async function catalogRecipe(definition) {
+  const response = await fetch(new URL(definition.dollyfile, imageBase), { credentials: "same-origin", redirect: "error" });
+  const bytes = response.ok ? await response.arrayBuffer() : new ArrayBuffer(0);
+  if (await sha256(bytes) !== definition.sha256) throw new Error(`${definition.dollyfile} does not match its pin`);
+  return inspectDollyfile(new TextDecoder().decode(bytes), definition.dollyfile);
+}
+
 await runImage(async (config, host) => {
   const { image, mode, customSource } = config;
   const definition = imageDefinition(image);
@@ -45,9 +53,10 @@ await runImage(async (config, host) => {
   }
   const recipe = custom ? inspectDollyfile(customSource) : definition;
   const locator = custom ? "FILE:/etc/dolly/upload.Dollyfile" : siteReference(definition.dollyfile);
-  const prepareRecipe = files => {
+  const prepareRecipe = (files, rows) => {
     files.write("/etc/dolly/recipe.locator", locator);
     if (custom) files.write("/etc/dolly/upload.Dollyfile", customSource);
+    if (rows !== undefined) files.write("/etc/dolly/recipe.rows", rows);
   };
   // Copies a whole snapshot, a Blob, into the kernel's checked staging range a
   // piece at a time; its size.
@@ -81,6 +90,8 @@ await runImage(async (config, host) => {
 
   const declared = recipe.hostRequirements;
   const recipeSha256 = custom ? await sha256(encoder.encode(customSource)) : definition.sha256;
+  // /bin/dollyfile executes the rows this page's parser compiles.
+  const rows = recipeRows(custom ? recipe : await catalogRecipe(definition), recipeSha256);
   const baseReference = custom ? recipe.from : definition.artifacts.find(reference => reference.operation === "from");
   const artifacts = new Map();
   if (config.artifacts !== undefined && (!Array.isArray(config.artifacts) || config.artifacts.length > 256)) {
@@ -112,7 +123,7 @@ await runImage(async (config, host) => {
         const url = kernelArtifact("dolly.data");
         seed = await (await decodeStaticAsset(await fetch(url), url, {}, snapshotSizeLimit)).blob();
       }
-      prepareRecipe(files);
+      prepareRecipe(files, rows);
       for (const artifact of artifacts.values()) {
         const path = `/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`;
         for (let offset = 0; offset === 0 || offset < artifact.bytes.size; offset += PIECE) {

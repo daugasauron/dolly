@@ -94,7 +94,11 @@ EXPORTS TOOL dollyfile
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 
-SOURCE /v0.1.4/dist/static/default/slop.c d966be3bd259e916868e4a457e108fbf8485ac44e4ae0741084f2c7739a41d1a /tmp/slop/slop.c
+SOURCE /v0.1.4/dist/static/default/slop.c 307f9ccf561345702323f982764c75776525b13264442c4c960b9003bcb9d309 /tmp/slop/slop.c
+# Slop runs the code of the system's test, [, echo and printf itself.
+SOURCE /v0.1.4/dist/static/default/commands/test.c 3b21b6855f7495f8e6dca7b46bc8b9ce54f4f589570c30339b1ea5e869471edd /tmp/slop/commands/test.c
+SOURCE /v0.1.4/dist/static/default/commands/echo.c b452aa1e2e101d11bc6ac27052d116a8b9e1792cb3ad3406dc23f31f218adb56 /tmp/slop/commands/echo.c
+SOURCE /v0.1.4/dist/static/default/commands/printf.c 7188ef27e1c62707313cb627b7d75865a28b1b186bba1180a8913b61c07ed5d7 /tmp/slop/commands/printf.c
 RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/slop/slop.c -o /bin/slop
 
 EXPORTS TOOL slop
@@ -109,16 +113,15 @@ SOURCE /v0.1.4/dist/static/default/commands/foreground.c e926c3c87764e44064744fc
 SOURCE /v0.1.4/dist/static/default/commands/help.c 2cf1323f34d0130fe518a9da768594c6549a78ce72c53cc04d54d6f2207890f7 /tmp/core-tools/help.c
 SOURCE /v0.1.4/dist/static/default/commands/man.c cd13cdece7706188e083a1754187cb19b7627e9cb8d2b294ba21cd2f88ff39d8 /tmp/core-tools/man.c
 SOURCE /v0.1.4/dist/static/default/commands/pwd.c 61b2840bfba274f511c3777f5b800bcdfff1947bef13b771c5d9a98eb5d03d3d /tmp/core-tools/pwd.c
-SOURCE /v0.1.4/dist/static/default/commands/cd.c 36d4c7708b332be6df90105bbc61cf8eb70556e3ed0f9f24756016eebec3d622 /tmp/core-tools/cd.c
 SOURCE /v0.1.4/dist/static/default/commands/cat.c 43eabd1e83f6c56cd5b5a7d8e5f9621e214c35e9407dea6bbce34120cb9da723 /tmp/core-tools/cat.c
-SOURCE /v0.1.4/dist/static/default/commands/echo.c 85e649c88b7d75cf7ebbac50bf8015a548c79affcc79f955d51bd02d75833cde /tmp/core-tools/echo.c
+SOURCE /v0.1.4/dist/static/default/commands/echo.c b452aa1e2e101d11bc6ac27052d116a8b9e1792cb3ad3406dc23f31f218adb56 /tmp/core-tools/echo.c
+SOURCE /v0.1.4/dist/static/default/commands/printf.c 7188ef27e1c62707313cb627b7d75865a28b1b186bba1180a8913b61c07ed5d7 /tmp/core-tools/printf.c
 SOURCE /v0.1.4/dist/static/default/commands/touch.c 1eb3737abe39d9efe0c66d9e84a7bf6445fa2c07c12b46ad107cd799f2f0747c /tmp/core-tools/touch.c
 SOURCE /v0.1.4/dist/static/default/commands/clear.c f2e6915b3fe34393087ec7d04e61d090c0d62e551b86b36e8c3ff6bfff72598d /tmp/core-tools/clear.c
 SOURCE /v0.1.4/dist/static/default/commands/ls.c 9a1ad375e4e1688b3ed8a27a3d9e9220be6780a279559e8032e6b15c45611a5e /tmp/core-tools/ls.c
 SOURCE /v0.1.4/dist/static/default/commands/stat.c 716e40d4db491a766b738e21c780d4f386641be93daccc4481b4d71b603110c2 /tmp/core-tools/stat.c
 SOURCE /v0.1.4/dist/static/default/commands/file.c 3fd871ab9da0233ab738683f3ae45ab8cac3b37df3be92359575448137b4ec37 /tmp/core-tools/file.c
-SOURCE /v0.1.4/dist/static/default/commands/test.c 7da0427461396c06ac8d11e62250f5b0d20a110aa67b6b7dbfe94967bb6290ba /tmp/core-tools/test.c
-SOURCE /v0.1.4/dist/static/default/commands/bracket.c 5dadee574cc128d583fe337e68b271cebbb3220dcd7e307fac08d4b5e9d73e4c /tmp/core-tools/bracket.c
+SOURCE /v0.1.4/dist/static/default/commands/test.c 3b21b6855f7495f8e6dca7b46bc8b9ce54f4f589570c30339b1ea5e869471edd /tmp/core-tools/test.c
 SOURCE /v0.1.4/dist/static/default/commands/mv.c 326b21d8de8cd70652ec1ae1d42356095ee792c2608dfe362bba7ec05eacc9c3 /tmp/core-tools/mv.c
 SOURCE /v0.1.4/dist/static/default/commands/cp.c 0598cc06e13171dc95314d644f7dc0adb0419d78e776745d430225639ca5b123 /tmp/core-tools/cp.c
 SLOP cc \
@@ -139,16 +142,16 @@ SLOP cc \
   -o /bin/pwd
 SLOP cc \
   -O2 \
-  /tmp/core-tools/cd.c \
-  -o /bin/cd
-SLOP cc \
-  -O2 \
   /tmp/core-tools/cat.c \
   -o /bin/cat
 SLOP cc \
   -O2 \
   /tmp/core-tools/echo.c \
   -o /bin/echo
+SLOP cc \
+  -O2 \
+  /tmp/core-tools/printf.c \
+  -o /bin/printf
 SLOP cc \
   -O2 \
   /tmp/core-tools/touch.c \
@@ -175,8 +178,7 @@ SLOP cc \
   -o /bin/test
 SLOP cc \
   -O2 \
-  -I /tmp/core-tools \
-  /tmp/core-tools/bracket.c \
+  /tmp/core-tools/test.c \
   -o /bin/[
 SLOP cc \
   -O2 \
@@ -200,9 +202,9 @@ EXPORTS TOOL foreground
 EXPORTS TOOL help
 EXPORTS TOOL man
 EXPORTS TOOL pwd
-EXPORTS TOOL cd
 EXPORTS TOOL cat
 EXPORTS TOOL echo
+EXPORTS TOOL printf
 EXPORTS TOOL touch
 EXPORTS TOOL clear
 EXPORTS TOOL ls
@@ -219,7 +221,7 @@ SLOP mkdir \
   -p \
   /usr/share/man/cat1 \
   /usr/share/man/man1
-SLOP for name in ar c++ cat cc cd clear cp dollyfile file foreground help ld ls man mkdir mv pwd rm slop stat touch; do \
+SLOP for name in ar c++ cat cc clear cp dollyfile file foreground help ld ls man mkdir mv pwd rm slop stat touch; do \
   "/bin/$name" --help > "/usr/share/man/cat1/$name.1"; \
   done
 SLOP help >> /usr/share/man/cat1/slop.1
@@ -228,6 +230,14 @@ FILE /usr/share/man/cat1/echo.1
     usage: echo [-n] [ARG ...]
     Print the ARGs separated by spaces and a newline; -n as the first ARG omits the newline.
     Backslashes are printed as they are: printf interprets escapes.
+# printf takes a FORMAT, so --help is one too.
+FILE /usr/share/man/cat1/printf.1
+    usage: printf FORMAT [ARG ...]
+    Write FORMAT, reused while ARGs remain. FORMAT's escapes are \\ \a \b \f \n \r \t \v,
+    \e, \xHH and \NNN in octal; \c ends the output. Each conversion takes the next ARG,
+    or an empty one: %s, %c, %b (the ARG's escapes, octal as \0NNN), %d %i %o %u %x %X,
+    whose ARG is a C integer constant or a quote and a character, and %e %f %g %a and
+    their capitals; flags - + space # 0, a width and a .precision, each may be *. %% is %.
 FILE /usr/share/man/cat1/test.1
     usage: test EXPRESSION
            [ EXPRESSION ]
@@ -313,7 +323,6 @@ SLOP rm \
 # -ww-wasmexcept; its -mt-wasmexcept build is the same bytes) for the headers
 # installed beside them. Every C++ link takes them, including explicit
 # -lc++/-lc++abi; the links above this point are C and need none.
-REQUIRES FOLDER process-sdk
 REQUIRES TOOL   c++
 REQUIRES TOOL   cc
 REQUIRES TOOL   ar

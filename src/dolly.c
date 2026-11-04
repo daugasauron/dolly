@@ -364,9 +364,14 @@ int dolly_bootstrap_finish(void) {
 
 // Once the filesystem is final: after the image is restored and a saved
 // session has replayed its files, so an installed environment survives a reload.
+// The image's first process starts in /workspace, the scratch no image retains.
 int dolly_bootstrap_environment(void) {
   if (load_image_environment() != 0) {
     fprintf(stderr, "dolly: invalid image environment: %s\n", strerror(errno));
+    return 1;
+  }
+  if (chdir("/workspace") != 0 || setenv("PWD", "/workspace", 1) != 0) {
+    fprintf(stderr, "dolly: /workspace: %s\n", strerror(errno));
     return 1;
   }
   return 0;

@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { browserTest } from "./browser.mjs";
 import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
 import { siteReference } from "../src/static-asset.mjs";
+import { inspectDollyfile, recipeRows } from "../src/dollyfile-view.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 
 const packages = DOLLY_IMAGES.filter(definition => definition.role === "package").map(({ image }) => image).sort();
@@ -53,7 +54,7 @@ async function sealed(name, body, needed = [], hosts = [], environment = {}) {
   const pin = sha256(source), chain = [...needed, { name, url, sha256: pin, source }];
   const receipt = [encoder.encode("DOLLYART"), u32(5), u32(chain.length),
     ...chain.flatMap(recipe => ["PACKAGE", recipe.name, recipe.url, recipe.sha256, recipe.source].flatMap(text)),
-    u32(hosts.length), ...hosts.flatMap(text), u32(1 + variables.length), ...text("FILE"), ...text(name), ...text(`/usr/share/${name}`), u32(1),
+    u32(hosts.length), ...hosts.flatMap(text), u32(1 + variables.length), ...text("LIB"), ...text(name), ...text(`/usr/share/${name}`), u32(1),
     ...text(`/usr/share/${name}`), ...variables.flatMap(([variable, value]) => [...text("ENV"), ...text(variable), ...text(value), u32(0)])];
   const records = new Map([["/etc/dolly/Dollyfile", file(source)], ["/etc/dolly/artifact", { kind: 2, data: bytes(receipt) }],
     ...rows ? [["/etc/dolly/installed", file(rows)]] : [], [`/usr/share/${name}`, file(`${body}\n`)]]);
@@ -617,7 +618,11 @@ await browserTest("amy refusal", { image: "system", server: { fixtures } }, asyn
 // USE, by the engine built from this checkout: the library and the row it
 // needs are restored for the build and kept by nothing; an INSTALL after it
 // skips the used row, whose snapshot has gone, and records it.
-await browserTest("USE", { image: "system", server: { fixtures } }, async ({ server, open }) => {
+// The recipe the USE test builds, and the rows the page would give the engine.
+const uses = new Map();
+const serveUses = (request, response, path, headers) =>
+  uses.has(path) && (response.writeHead(200, { ...headers, "content-type": "text/plain" }).end(uses.get(path)), true);
+await browserTest("USE", { image: "system", server: { fixtures, handle: serveUses } }, async ({ server, open }) => {
   const system = await open({ policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   const run = check(system);
   const fetch = names => names.map(name => `curl -fsS ${server.origin}/fixture/${name} -o ${name}`).join(" && ");
@@ -627,14 +632,17 @@ await browserTest("USE", { image: "system", server: { fixtures } }, async ({ ser
   const build = async (rows, fails = false) => {
     await run(`cp record /etc/dolly/installed && cd /etc/dolly/artifacts && ${fetch([library, shared, newer,
       ...rows.some(item => item.includes(older.sha256)) ? [older] : []].map(({ sha256 }) => `${sha256}.snapshot`))} && cd /tmp/use`);
-    await run(`printf '%s\\n' 'DOLLY 7' 'PACKAGE uses' 'REQUIRES HOST runtime@0' ${rows.map(item => `'${item}'`).join(" ")} > Dollyfile-uses`);
+    const source = ["DOLLY 7", "PACKAGE uses", "REQUIRES HOST runtime@0", ...rows].map(line => `${line}\n`).join("");
+    uses.set("/fixture/uses.Dollyfile", source).set("/fixture/uses.rows", recipeRows(inspectDollyfile(source), sha256(source)));
+    await run(`curl -fsS ${server.origin}/fixture/uses.Dollyfile -o Dollyfile-uses && ` +
+      `curl -fsS ${server.origin}/fixture/uses.rows -o /etc/dolly/recipe.rows`);
     assert.equal(await system.submit("./dollyfile FILE:/tmp/use/Dollyfile-uses > log 2>&1") !== 0, fails, await system.text());
   };
   const used = `USE ${row(library)}`, installed = `INSTALL ${row(shared)}`;
   const recorded = "grep '^INSTALL ' /etc/dolly/installed | grep -v -x -f record | sed 's/ [0-9a-f]*$//' | tr '\\n' ' '";
   const kept = `test "$(${recorded})" = 'INSTALL ${newer.url} INSTALL ${shared.url} ' && ! grep -q /usr/share/library /etc/dolly/image.manifest && ` +
     "! grep -q LIBRARY_BUILT /etc/dolly/environment && test -z \"$(ls /etc/dolly/artifacts)\"";
-  await build([used, "REQUIRES FILE library", 'SLOP test "$LIBRARY_BUILT" = used && test "$(cat /usr/share/needed)" = two', installed]);
+  await build([used, "REQUIRES LIB library", 'SLOP test "$LIBRARY_BUILT" = used && test "$(cat /usr/share/needed)" = two', installed]);
   await run(kept);
   await build([installed, used]);
   await run(kept);

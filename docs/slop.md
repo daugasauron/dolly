@@ -53,7 +53,10 @@ slop [-efnux] script [arg ...]
   plain file `$HISTFILE` (default `/home/dolly/.slop_history`); the editor
   and the file keep its last 1,000 entries.
 - `PATH` defaults to `/bin:/usr/bin`. Lookup finds regular files; execute bits
-  are ignored. Each tool is a separate executable.
+  are ignored. Each tool is a separate executable; the shell runs the code of
+  `/bin`'s `test`, `[`, `echo`, `printf`, `true` and `false` itself when `PATH`
+  finds them there, as other shells have them built in. A name with a slash, one
+  found earlier on `PATH` or a background stage starts the program.
 
 ## Language
 
@@ -154,14 +157,13 @@ that run inside the shell stay serial.
 - Core tools are Dolly's own ([`Dollyfile-system-build`](../Dollyfile-system-build)),
   compiled with plain `cc` in `system-build` before Make, whose recipes need `cp`:
   `cat [-nu]`, which writes what it reads at once, `cp`, `mv`, `ls [--color]`, `echo`,
-  `touch`, `pwd`, `mkdir`, `rm`, `test`/`[` (up to four arguments decided by
+  POSIX's `printf`, `touch`, `pwd`, `mkdir`, `rm`, `test`/`[` (up to four arguments decided by
   their number, as POSIX says), `foreground`, `help`, `clear`,
   `stat`, `file`.
   There are no permission bits: `test -x` means a regular file or a directory,
   `-r`/`-w` that the path exists. `ls -l` is the POSIX long format: the fixed modes `stat`
   reports, numeric owner and group (there is no name database) and a `total`
   of the listed sizes in KiB (there are no disk blocks).
-  `/bin/cd` is a compatibility command; plain `cd` is the builtin.
 - [`Dollyfile-system-tools`](../Dollyfile-system-tools) (sources in `src/commands/`) adds
   `command` and `env`, which `exec` the program they name, and `find`, `time`,
   `timeout`, `xargs` (`-P N` runs N commands at once), which run programs

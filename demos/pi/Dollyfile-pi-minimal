@@ -13,18 +13,17 @@ REQUIRES HOST threads@0
 # the download tool of Pi's Dolly extension (Janis links its client), and html
 # for its ask_user and show_html tools (the html command). The recipe engine
 # lets an npm user build an image FROM it (dolly-build).
-INSTALL /v0.1.4/Dollyfile-core 75c812a20c3374426d65e5fede171c6441c967a3caee3506c2235df1ae848797
-INSTALL /v0.1.4/Dollyfile-dollyfile 665a92bda19e36ea6f28eee72a24fbd091abf4d93df9650fda88b1c35ad1bb0e
-INSTALL /v0.1.4/Dollyfile-posix 475b8d5b788428f7cee1a506d4a9f39ede91bf0be43fd40409e9b2d79031402c
-INSTALL /v0.1.4/Dollyfile-display 653802a4f4723c5352017e7b61b460aaf6e8503874d1de513197492529a8ed39
-INSTALL /v0.1.4/Dollyfile-curl f2345f557692c727d9fcb2237e1cf0438056a0b6af4f68f7b0f53302f0218325
-INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly c65e5f0aff15bf27f2154d07871f50b326eaabf09061f15070e3415fca7fa987
+INSTALL /v0.1.4/Dollyfile-core 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/Dollyfile-dollyfile 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/Dollyfile-posix 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/Dollyfile-display 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/Dollyfile-curl 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.4/demos/pi/Dollyfile-pi-dolly 0000000000000000000000000000000000000000000000000000000000000000
 REQUIRES TOOL foreground
 REQUIRES TOOL printf
 REQUIRES TOOL pi
 
 FILE /etc/dolly/init.slop
-    cd /workspace
     /bin/foreground -i /usr/bin/pi
     printf '\nDolly: image entry exited; entering the recovery Slop shell.\n'
     /bin/foreground -i /bin/slop
