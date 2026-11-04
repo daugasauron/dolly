@@ -44,4 +44,9 @@
   ;; Grows env.memory by a number of 64 KiB pages, up to its maximum: the old
   ;; size in pages, or -1. The runtime grows it in a Worker of its own.
   (import "env" "dolly_memory_grow" (func (param i64) (result i64)))
+  ;; Copies bytes of a build's input image, which the page handed the build
+  ;; Worker, into kernel memory: (input, offset, address, size), at most
+  ;; 8 MiB a call, for a file of dolly_build_input (dolly-image-0.wat). It
+  ;; names no other Blob, file or URL; a Worker that builds nothing has none.
+  (import "env" "dolly_build_input_read" (func (param i32 i64 i64 i64) (result i32)))
 )

@@ -2,7 +2,8 @@
 // in blocks. WasmFS keeps a file in one std::vector: growing it copies the file
 // into a buffer twice its size, and an allocation failure aborts the kernel.
 // Here growth allocates only the new blocks, and growth that memory cannot
-// hold fails with ENOSPC. The root also holds the terminal's output devices.
+// hold fails with ENOSPC. The root also holds the terminal's output devices,
+// and a build's input images, whose bytes stay in the Worker.
 // Each version of a file's bytes has a number of its own, which every write
 // and size change renews: the kernel names an executable by it without
 // reading it (dolly_fs_version).
@@ -14,9 +15,14 @@
 #include <unistd.h>
 
 #include "memory_backend.h"
+#include "paths.h"
 #include "wasmfs.h"
 
 extern "C" int dolly_kernel_terminal_write(const unsigned char *bytes, uintptr_t length);
+// Copies `length` bytes at `offset` of the build's input image `input` to
+// `bytes`: 0 or a negative errno (abi/dolly-browser-0.wat).
+extern "C" __attribute__((import_module("env"), import_name("dolly_build_input_read")))
+int dolly_build_input_read(uint32_t input, uint64_t offset, uint8_t *bytes, uintptr_t length);
 
 namespace {
 
@@ -202,6 +208,63 @@ public:
   ZeroFile() : DataFile(0666, NullBackend, S_IFCHR) {}
 };
 
+// A build's input image (abi/dolly-image-0.wat): its bytes stay in the Worker,
+// and reads copy them into kernel memory a window at a time. Truncating it
+// shortens it, as the engine shortens a snapshot it moves files out of; it
+// takes no write and does not grow.
+class InputFile : public DataFile {
+  static constexpr size_t kWindowSize = size_t{8} << 20;
+  const uint32_t input;
+  size_t size, windowStart = 0, windowLength = 0;
+  uint8_t *window = nullptr;
+
+  int open(oflags_t) override { return 0; }
+  // The window is a cache: a file nobody reads holds none.
+  int close() override {
+    free(window);
+    window = nullptr;
+    windowLength = 0;
+    return 0;
+  }
+  int flush() override { return 0; }
+  off_t getSize() override { return size; }
+  ssize_t write(const uint8_t *, size_t, off_t) override { return -EROFS; }
+
+  int setSize(off_t newSize) override {
+    if (size_t(newSize) > size) return -EROFS;
+    size = newSize;
+    return 0;
+  }
+
+  ssize_t read(uint8_t *buf, size_t len, off_t offset) override {
+    if (size_t(offset) >= size) return 0;
+    len = std::min(len, size - size_t(offset));
+    for (size_t done = 0; done < len;) {
+      const size_t at = offset + done;
+      if (at < windowStart || at >= windowStart + windowLength) {
+        if (int error = fill(at - at % kWindowSize)) return error;
+      }
+      const size_t count = std::min(len - done, windowStart + windowLength - at);
+      memcpy(buf + done, window + (at - windowStart), count);
+      done += count;
+    }
+    return len;
+  }
+
+  int fill(size_t start) {
+    windowLength = 0;
+    if (window == nullptr && (window = static_cast<uint8_t *>(malloc(kWindowSize))) == nullptr) return -ENOMEM;
+    const size_t length = std::min(kWindowSize, size - start);
+    if (int error = dolly_build_input_read(input, start, window, length)) return error;
+    windowStart = start;
+    windowLength = length;
+    return 0;
+  }
+
+public:
+  InputFile(uint32_t input, size_t size) : DataFile(0644, NullBackend), input(input), size(size) {}
+};
+
 class BlockBackend : public Backend {
   // WasmFS's memory backend only populates the root with /dev and /tmp.
   backend_t memory = createMemoryBackend();
@@ -247,6 +310,16 @@ extern "C" uint64_t dolly_fs_version(int descriptor) {
 extern "C" uintptr_t dolly_fs_block(int descriptor, uintptr_t index) {
   auto file = blockFile(descriptor);
   return file == nullptr ? 0 : reinterpret_cast<uintptr_t>(file->block(index));
+}
+
+extern "C" int dolly_fs_input_file(const char *path, uint32_t input, uint64_t size) {
+  auto parsed = path::parseParent(path);
+  if (long error = parsed.getError()) return error;
+  auto &[parent, name] = parsed.getParentChild();
+  auto directory = parent->locked();
+  const std::string child(name);
+  if (directory.getChild(child) != nullptr) return -EEXIST;
+  return directory.mountChild(child, std::make_shared<InputFile>(input, size)) ? 0 : -ENOENT;
 }
 
 // Replaces WasmFS's weak default root, its memory backend.

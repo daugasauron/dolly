@@ -113,14 +113,10 @@ await runImage(async (config, host) => {
         seed = await (await decodeStaticAsset(await fetch(url), url, {}, snapshotSizeLimit)).blob();
       }
       prepareRecipe(files);
-      for (const artifact of artifacts.values()) {
-        const path = `/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`;
-        for (let offset = 0; offset === 0 || offset < artifact.bytes.size; offset += PIECE) {
-          const piece = new Uint8Array(await artifact.bytes.slice(offset, offset + PIECE).arrayBuffer());
-          if (offset === 0) files.write(path, piece); else files.append(path, piece);
-        }
-        if (artifact !== base) artifact.bytes = null;
-      }
+      // The engine reads each input from its Blob as it restores it: the kernel never holds an input's snapshot.
+      host.kernel.setBuildInputs([...artifacts.values()].map(artifact => artifact.bytes));
+      [...artifacts.values()].forEach((artifact, input) =>
+        files.input(`/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`, input, artifact.bytes.size));
       // The kernel restores a snapshot against the list of its paths.
       const manifest = base?.manifest ?? [...(await scanSnapshotRecords(seed.stream(), () => false)).records.keys()];
       files.write("/etc/dolly/image.manifest", `${manifest.join("\n")}\n`);
@@ -131,7 +127,6 @@ await runImage(async (config, host) => {
       if (base) {
         stage(`loading builder from ${baseReference.location}...`);
         status = kernel.dolly_process_bootstrap_resume_prepare(BigInt(await stageSnapshot(kernel, memory, base.bytes)), 1);
-        base.bytes = null;
       } else {
         status = kernel.dolly_process_bootstrap_prepare(BigInt(await stageSnapshot(kernel, memory, seed)));
         seed = null;
@@ -143,6 +138,7 @@ await runImage(async (config, host) => {
       }
       for (const artifact of artifacts.values()) files.remove(`/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`);
       artifacts.clear();
+      host.kernel.setBuildInputs([]);
       if (status !== 0) return { status };
       stage("capturing userspace image...");
       const total = Number(kernel.dolly_snapshot_capture_begin());
