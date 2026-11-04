@@ -146,6 +146,15 @@ Chromium runs of the same code. The highest is steadier: +310 before, +201 and +
   agents leave no room for a 9 GB build). It is the round's measurement: `build-measured.sh` and
   `phases.mjs` in `build/kernel-copies-evidence/` do it with `pi-local pi-local bigbuild NAME`.
 
+### Seen, not changed
+
+- A build's input still exists twice while the engine installs it: as its snapshot file in
+  `/etc/dolly/artifacts` (now written 8 MiB at a time) and as the files restored from it, until its
+  last use unlinks the file (`load_artifact`, `src/dollyfile.c`, which reads it as a stream). For
+  `pi-local` that is qwen3.5-2b's 1.4 GB twice at its INSTALL. Ending it means the engine restores
+  from the Worker's pieces rather than a file, which changes how a build receives its inputs; not
+  measured today.
+
 ## Lessons
 
 - Freed kernel memory hides a copy. `system`'s and `cc`'s capture malloc fit the base's staging
