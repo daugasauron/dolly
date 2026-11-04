@@ -39,3 +39,35 @@ Chromium and Firefox; `pi-local` builds under `slot.sh bigbuild`'s 9 GB cap with
 rise measured against the image store's 5.55 GB peak; a cold launch of `compiler` is measured as
 `module-cost.mjs` measures it; the round's snapshots are byte-identical to the previous round's
 where the recipes did not change.
+
+## State (2026-11-04): `core/kernel-copies`
+
+### The launch (c7f486d36)
+
+b59e558e8 cherry-picked with its task (155538144, `tasks/20261102-042011-firefox-process-memory`):
+the source files applied cleanly onto integrate; the docs recipe and its dependents are repinned.
+`kKernelReserve` keeps its 128 MiB; its comment says what it protects now (the kernel's own
+allocations once files fill its memory: arguments and environments, pipes, block tables, the
+staging range of a capture or a restore). The struct comment of `dolly_kernel_program` said the
+image was the executable's bytes; it is its head, read for the Wasm header or the `#!` line. Kernel
+C and page JavaScript: image inputs unchanged (`e7867504`), runtime `7c83d1cd` -> `911031d3`.
+The base's recipes needed 9bcb1c323's source pins (cc.c, cxx.c, patch.c, Ghostty's tarballs and
+font): applied as the same pin values and repinned (2282453cc), so the core recipes are the
+day round's and its `system` closure (98 images at `e7867504`) links into this tree.
+
+`module-cost.mjs` (`build/kernel-copies-evidence/`, from `core/firefox-process-memory`'s evidence),
+`system`, a 6 GB browser slot, the scope's anonymous memory in MB; before is the base's runtime
+(`7c83d1cd`), after this commit's, one run each:
+
+| step | Chromium before | Chromium after | Firefox before | Firefox after |
+| --- | --- | --- | --- | --- |
+| `compiler` (96 MB), first launch: highest, retained after 3 s | +310, +305 | +201, +112 | +769, +641 | +762, +557 |
+| `cp compiler /tmp/compiler2` | +13 | +105 | +15 | +113 |
+| `compiler2`, first launch: highest, retained | +307, +307 | +211, +211 | +786, +550 | +738, +441 |
+| the run's peak (memory.peak) | 1148 | 1087 | 2260 | 2248 |
+
+The first launch retains 193 MB less in Chromium and 84 MB less in Firefox, whose own two-tier
+compile dominates its peak; the `cp` now grows by the file's size, since it no longer lands in the
+kernel's freed copy. `test/process-memory-browser.mjs` (69 s, 83 s), `test/process-browser.mjs`
+(76 s, 71 s) and `test/core-browser.mjs` (37 s, 63 s) passed in Chromium and Firefox
+(`launch-*.log`).
