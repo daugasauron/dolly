@@ -14,6 +14,27 @@ const cursorStyles = new Map([[A.DOLLY_DISPLAY_CURSOR_TEXT, "text"], [A.DOLLY_DI
 // frame, so the next one is painted on the frame after it is published.
 const lingerMilliseconds = 250;
 
+// The terminal's colours are the page's: an embedding sets these on boot()'s
+// element or above it (docs/embedding.md), and the canvas inherits them. The
+// first three are the popups' too. Unset, they are Dolly's, and of the 16
+// colours programs name, black is the background, yellow and bright yellow the
+// accent, bright black #77736c and the rest the text's colour.
+const shared = { background: "--dolly-background", color: "--dolly-color", accent: "--dolly-accent" };
+const paletteProperties = Array.from({ length: 16 }, (_, index) => `--dolly-display-palette-${index}`);
+const themeProperties = [...Object.values(shared), ...paletteProperties];
+function readPalette(style, rgb) {
+  const read = (name, fallback) => {
+    const value = style.getPropertyValue(name).trim();
+    return CSS.supports("color", value) ? value : fallback;
+  };
+  const background = read(shared.background, "#262626"), color = read(shared.color, "#e8e3d7"),
+    accent = read(shared.accent, "#f2d45c");
+  const unset = [background, color, color, accent, color, color, color, color,
+    "#77736c", color, color, accent, color, color, color, color];
+  return { background: rgb(background), foreground: rgb(color), cursor: rgb(accent),
+    colors: paletteProperties.map((name, index) => rgb(read(name, unset[index]))) };
+}
+
 // The Worker's end of the display mailbox: it reads frames, the terminal's
 // geometry and its selection, and writes the surface and the animation frame.
 export class DisplayTransport {
@@ -41,6 +62,7 @@ export class DisplayTransport {
   static surfaceWidth = A.DOLLY_DISPLAY_WORD_SURFACE_WIDTH;
   static surfaceHeight = A.DOLLY_DISPLAY_WORD_SURFACE_HEIGHT;
   static surfaceScaleMilli = A.DOLLY_DISPLAY_WORD_SURFACE_SCALE_MILLI;
+  static paletteSequence = A.DOLLY_DISPLAY_WORD_PALETTE_SEQUENCE;
 
   // The copy buffer's size is the contract's; a test may shrink it.
   constructor(buffer, address, copyAddress, { copyCapacity = A.DOLLY_DISPLAY_COPY_CAPACITY } = {}) {
@@ -99,6 +121,19 @@ export class DisplayTransport {
     Atomics.store(this.words, this.word + DisplayTransport.surfaceScaleMilli,
       Math.max(500, Math.min(4000, Math.round(devicePixelRatio * 1000))));
     Atomics.add(this.words, this.word + DisplayTransport.surfaceSequence, 1);
+  }
+
+  // The terminal's colours, 0xRRGGBB each: { background, foreground, cursor, colors: [16] }.
+  publishPalette({ background, foreground, cursor, colors }) {
+    const words = [background, foreground, cursor, ...colors];
+    if (colors.length !== 16 || !words.every(word => Number.isInteger(word) && word >= 0 && word <= 0xffffff)) {
+      throw new Error("Dolly display palette must be 19 colours of 0xRRGGBB");
+    }
+    Atomics.add(this.words, this.word + DisplayTransport.paletteSequence, 1);
+    for (const [index, word] of words.entries()) {
+      Atomics.store(this.words, this.word + A.DOLLY_DISPLAY_WORD_PALETTE_BACKGROUND + index, word);
+    }
+    Atomics.add(this.words, this.word + DisplayTransport.paletteSequence, 1);
   }
 
   graphicsActive() {
@@ -256,11 +291,32 @@ export class FramebufferPresenter {
 }
 
 // The page's display: the canvas, handed to the Worker that paints it, the
-// surface it measures, and the copy chord. What the terminal publishes (its
-// grid, geometry, cursor, the lease) the Worker reports by message.
+// surface it measures, the colours it reads, and the copy chord. What the
+// terminal publishes (its grid, geometry, cursor, the lease) the Worker
+// reports by message.
 export function browser({ canvas, keyboard, fatal, showStatus, send, ask }) {
   const surface = canvas.transferControlToOffscreen();
   let state, resizeObserver;
+  // A CSS colour as 0xRRGGBB, as the page paints it.
+  const probe = new OffscreenCanvas(1, 1).getContext("2d", { willReadFrequently: true });
+  const rgb = color => {
+    probe.clearRect(0, 0, 1, 1);
+    probe.fillStyle = color;
+    probe.fillRect(0, 0, 1, 1);
+    const [red, green, blue] = probe.getImageData(0, 0, 1, 1).data;
+    return red << 16 | green << 8 | blue;
+  };
+  let palette = readPalette(getComputedStyle(canvas), rgb);
+  const publishPalette = () => {
+    const read = readPalette(getComputedStyle(canvas), rgb);
+    if (JSON.stringify(read) === JSON.stringify(palette)) return;
+    palette = read;
+    send({ type: "display-palette", palette });
+  };
+  // A change of the properties, by whatever rule or media query, ends a
+  // transition of them on the canvas, which shows nothing.
+  canvas.style.transition = themeProperties.map(name => `${name} 1ms allow-discrete`).join(", ");
+  canvas.addEventListener("transitionend", publishPalette);
   // The terminal is the canvas's box: what the element holds beside it (input@0's bar) is not.
   const publishSurface = () => send({ type: "display-surface", width: canvas.clientWidth, height: canvas.clientHeight,
     devicePixelRatio });
@@ -293,7 +349,7 @@ export function browser({ canvas, keyboard, fatal, showStatus, send, ask }) {
     copySelection,
   };
   return {
-    configuration: { canvas: surface }, transfers: [surface],
+    configuration: { canvas: surface, palette }, transfers: [surface],
     page: {
       get transport() { return state && transport; },
       get graphicsActive() { return state.graphicsActive; },
@@ -332,10 +388,12 @@ export function browser({ canvas, keyboard, fatal, showStatus, send, ask }) {
         });
       },
     },
-    // The initial surface, then every change of the terminal area.
+    // The initial surface, then every change of the terminal area; the colours
+    // as they are now, for a hidden canvas transitions nothing.
     entryStarted() {
       canvas.hidden = false;
       publishSurface();
+      publishPalette();
       resizeObserver = new ResizeObserver(publishSurface);
       resizeObserver.observe(canvas);
       document.documentElement.dataset.terminal = "ghostty-rgba-wasm";
@@ -374,6 +432,7 @@ export function worker({ get, send, configuration }) {
     },
     messages: {
       "display-surface"({ width, height, devicePixelRatio }) { transport?.publishSurface(width, height, devicePixelRatio); },
+      "display-palette"({ palette }) { transport?.publishPalette(palette); },
       "display-copy"() { return transport.copySelection(); },
       "display-frame"() { return presenter?.image ?? null; },
     },
@@ -386,12 +445,14 @@ export function worker({ get, send, configuration }) {
         throw new Error("invalid resident display plugin range");
       }
       const display = get("runtime").kernelPlugin(new Uint8Array(memory.buffer, address, size).slice(), kernel);
-      const getDriver = display.exports.dolly_display_driver_get_v5;
+      const getDriver = display.exports.dolly_display_driver_get_v6;
+      const mailbox = Number(kernel.dolly_display_mailbox_address());
+      transport = new DisplayTransport(memory.buffer, mailbox, Number(kernel.dolly_display_copy_buffer_address()));
+      // The driver draws its first frame in the page's colours.
+      transport.publishPalette(configuration.palette);
       if (typeof getDriver !== "function" || kernel.dolly_display_install(getDriver()) !== 0) {
         throw new Error("Dolly display installation failed");
       }
-      const mailbox = Number(kernel.dolly_display_mailbox_address());
-      transport = new DisplayTransport(memory.buffer, mailbox, Number(kernel.dolly_display_copy_buffer_address()));
       words = transport.words;
       word = transport.word;
       const capacity = A.DOLLY_DISPLAY_MAX_WIDTH * A.DOLLY_DISPLAY_MAX_HEIGHT * 4, limit = memory.buffer.byteLength;

@@ -14,11 +14,11 @@ REQUIRES HOST upload@0
 
 # Runs Claude Code, which the launcher downloads from the npm registry into
 # the session after the notice: the image holds nothing of it.
-FROM /v0.1.4/Dollyfile-system 4fa63c95277c04090c4143393819949ff807218819c94d10845bce7808bd6bad
-INSTALL /v0.1.4/Dollyfile-amy 7b51dc334b6473828c141837e9bb039e79b67a064f97b092876d886507482fdb
-INSTALL /v0.1.4/demos/javascript/Dollyfile-janis-install 62105212a39c4005295a316e63fdd57a718b141a1364a129eefd3d03cc12e4e6
-INSTALL /v0.1.4/demos/closed-source-agent/Dollyfile-secretenv 425520c976a78e5dcd54f3f962a8d68207ac7a7a0270422b15a790f7987204eb
-INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep e2364ae42516fa48eecfaf5736b5a68ba20c0825ffd6412dd0e0af3a313cdfa9
+FROM /v0.1.4/Dollyfile-system e89f4989b774937a794c31384b90d18851243256a146ebc05e58e3dd047aa946
+INSTALL /v0.1.4/Dollyfile-amy c97c6acb2f236932a27e127591775fec61934eb861996ee586f154163b6fbedf
+INSTALL /v0.1.4/demos/javascript/Dollyfile-janis-install ff360eda34ebe364677b63d1dfcd2da1563b2d06b7d71e917e69f1df0461f89e
+INSTALL /v0.1.4/demos/closed-source-agent/Dollyfile-secretenv b2ab1401c7fa63856a7d35a6f947fd78754f1e539cd6bc54d490a3adf90891fa
+INSTALL /v0.1.4/demos/rust/Dollyfile-ripgrep 2f189896abe0878804dea109f0b2edfb4666ec6651f8dbf6f6591efd764cc741
 REQUIRES TOOL cc
 REQUIRES TOOL foreground
 REQUIRES TOOL janis

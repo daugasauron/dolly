@@ -50,6 +50,13 @@ typedef struct {
   _Atomic uint32_t surface_width;
   _Atomic uint32_t surface_height;
   _Atomic uint32_t surface_scale_milli;
+  // The browser writes the terminal's colours (dolly_display_palette) so too,
+  // before the driver is installed and whenever they change.
+  _Atomic uint32_t palette_sequence;
+  _Atomic uint32_t palette_background;
+  _Atomic uint32_t palette_foreground;
+  _Atomic uint32_t palette_cursor;
+  _Atomic uint32_t palette_colors[16];
 } dolly_display_mailbox;
 
 #ifdef __cplusplus
@@ -181,6 +188,16 @@ DOLLY_DISPLAY_LAYOUT(dolly_display_wait_response, 8);
 DOLLY_DISPLAY_LAYOUT(dolly_display_cursor_request, 16);
 #undef DOLLY_DISPLAY_LAYOUT
 
+// The terminal's colours, 0xRRGGBB, which the page chooses (docs/display.md):
+// its background, its text, its cursor and the selection, and the 16 colours
+// programs name.
+typedef struct {
+  uint32_t background;
+  uint32_t foreground;
+  uint32_t cursor;
+  uint32_t colors[16];
+} dolly_display_palette;
+
 // A display driver is a resident shared library, not an executable. DISPLAY
 // names the selected library. It is loaded once and remains in the shared Wasm
 // address space for the lifetime of the runtime; it finds its own font.
@@ -204,9 +221,12 @@ typedef struct {
   // Pausing preserves terminal parser/grid state while suppressing frame
   // publication. Resuming immediately publishes a complete terminal frame.
   void (*set_suspended)(int suspended);
-} dolly_display_driver_v5;
+  // The colours the terminal draws in: given after initialize, before the
+  // first present, and whenever the page changes them.
+  void (*set_palette)(const dolly_display_palette *palette);
+} dolly_display_driver_v6;
 
-typedef const dolly_display_driver_v5 *(*dolly_display_driver_getter_v5)(void);
+typedef const dolly_display_driver_v6 *(*dolly_display_driver_getter_v6)(void);
 
 #ifdef __cplusplus
 }

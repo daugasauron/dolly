@@ -15,11 +15,11 @@ REQUIRES HOST threads@0
 REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime e7badbb5db6842469a63736bfe5fd315c3970d4b4405efb739702e26becb6c4c
-INSTALL /v0.1.4/Dollyfile-amy 7b51dc334b6473828c141837e9bb039e79b67a064f97b092876d886507482fdb
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 5046da59a4aa3dd694f74f955b8b3c6aad28c4bbf4c45d70b7fbbe295ac29a76
+INSTALL /v0.1.4/Dollyfile-amy c97c6acb2f236932a27e127591775fec61934eb861996ee586f154163b6fbedf
 REQUIRES TOOL foreground
 REQUIRES TOOL pi
-INSTALL /v0.1.4/demos/speech/Dollyfile-voice 66bac6bbf55fcfc23f5a36b708bcb00ebb22088292c77817429ff292737e3cbb
+INSTALL /v0.1.4/demos/speech/Dollyfile-voice 8d6743b556a5e62967830cae0bef09e96df66bac9d254ea983b19c27309eac0e
 SOURCE /v0.1.4/dist/static/speech/pi.menu 0be56971da401fb0e0a5d82abd1d92529f078e96ab4508a3e4ca2347979e2cdd /etc/dolly/pi.menu
 SOURCE /v0.1.4/dist/static/speech/phone-menu.js 04550fc67a7b087d011c1ba408498632749984ff23d023c04c14dcfcaa157c9b /home/dolly/.pi/agent/extensions/phone-menu.js
 EXPORTS FILE pi-menu /etc/dolly/pi.menu

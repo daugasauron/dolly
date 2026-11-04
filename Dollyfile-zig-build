@@ -3,7 +3,7 @@ TOOLCHAIN zig-build
 REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 
-FROM /v0.1.4/Dollyfile-system-build bd0273bf907d18139ee1a0df8a2d548e290348f70339169472cd9a22085be90a
+FROM /v0.1.4/Dollyfile-system-build bd246944450081bf7d29405560412136a7d1bf6c14e21489f7bd342a871048ff
 
 # Zig from its source archive with only Dolly's cc, following upstream
 # bootstrap.c with two substitutions. WAMR runs the zig1.wasm seed instead of

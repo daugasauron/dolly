@@ -6,21 +6,24 @@
 
   ;; Boot-only, host-initiated display installation. Wasm reads DISPLAY from
   ;; its own filesystem and exposes bytes; the browser instantiates those
-  ;; bytes with Wasm-only imports, then returns the v5 driver structure address.
+  ;; bytes with Wasm-only imports, then returns the v6 driver structure address.
   ;; There is deliberately no guest-callable browser loader import.
   (func (export "dolly_display_prepare") (result i32) i32.const 0)
   (func (export "dolly_display_module_address") (result i64) i64.const 0)
   (func (export "dolly_display_module_size") (result i64) i64.const 0)
   (func (export "dolly_display_install") (param i64) (result i32) i32.const 0)
 
-  ;; The mailbox is 24 atomic little-endian u32 words (display.h mirrors them;
-  ;; kernel.c checks the offsets). The kernel and its driver write all but the
-  ;; last five. The page advances the animation-frame sequence once per frame
-  ;; it draws while a program holds the display, and publishes the surface it
+  ;; The mailbox is 44 atomic little-endian u32 words (display.h mirrors them;
+  ;; kernel.c checks the offsets). The kernel and its driver write the first
+  ;; 19. The page advances the animation-frame sequence once per frame it
+  ;; draws while a program holds the display, and publishes the surface it
   ;; shows frames on: width and height in CSS pixels and the device scale in
   ;; thousandths, between two steps of the surface sequence, which is odd
-  ;; while they change. The cursor style is Dolly's closed enum.
-  (global (export "DOLLY_DISPLAY_MAILBOX_SIZE") i32 (i32.const 96))
+  ;; while they change. It publishes the terminal's colours so too, before
+  ;; the driver is installed and whenever they change: the background, the
+  ;; text, the cursor, then the 16 colours programs name, each 0xRRGGBB. The
+  ;; cursor style is Dolly's closed enum.
+  (global (export "DOLLY_DISPLAY_MAILBOX_SIZE") i32 (i32.const 176))
   (global (export "DOLLY_DISPLAY_WORD_FLAGS") i32 (i32.const 0))
   (global (export "DOLLY_DISPLAY_WORD_FRAME_SEQUENCE") i32 (i32.const 1))
   (global (export "DOLLY_DISPLAY_WORD_FRAME_INDEX") i32 (i32.const 2))
@@ -45,6 +48,11 @@
   (global (export "DOLLY_DISPLAY_WORD_SURFACE_WIDTH") i32 (i32.const 21))
   (global (export "DOLLY_DISPLAY_WORD_SURFACE_HEIGHT") i32 (i32.const 22))
   (global (export "DOLLY_DISPLAY_WORD_SURFACE_SCALE_MILLI") i32 (i32.const 23))
+  (global (export "DOLLY_DISPLAY_WORD_PALETTE_SEQUENCE") i32 (i32.const 24))
+  (global (export "DOLLY_DISPLAY_WORD_PALETTE_BACKGROUND") i32 (i32.const 25))
+  (global (export "DOLLY_DISPLAY_WORD_PALETTE_FOREGROUND") i32 (i32.const 26))
+  (global (export "DOLLY_DISPLAY_WORD_PALETTE_CURSOR") i32 (i32.const 27))
+  (global (export "DOLLY_DISPLAY_WORD_PALETTE_COLORS") i32 (i32.const 28))
   (func (export "dolly_display_mailbox_address") (result i64)
     i64.const 0)
   ;; The flags' bit while a foreground command holds the framebuffer lease.
@@ -90,9 +98,9 @@
   (func (export "dolly_display_copy_buffer_address") (result i64)
     i64.const 0)
 
-  ;; The terminal's tick: apply a newly published surface and the pointer and
-  ;; scroll input that is the terminal's own, then publish at most one dirty
-  ;; frame. Returns zero or a negative errno.
+  ;; The terminal's tick: apply a newly published surface and palette and the
+  ;; pointer and scroll input that is the terminal's own, then publish at most
+  ;; one dirty frame. Returns zero or a negative errno.
   (func (export "dolly_terminal_present_pending") (result i32) i32.const 0)
 
   ;; Process operations of a foreground command's framebuffer lease; their

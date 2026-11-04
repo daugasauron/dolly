@@ -3,9 +3,9 @@
 <title>__NAME__</title>
 <link rel="icon" href="data:,">
 <style>
-  /* The popups of Pi's ask_user and show_html take the page's colours and font. */
-  #dolly { --dolly-html-background: #262626; --dolly-html-color: #e8e3d7; --dolly-html-accent: #f2d45c;
-    --dolly-html-font: ui-monospace, monospace; --dolly-html-color-scheme: dark; }
+  /* The font of the popups of Pi's ask_user and show_html, and the scheme of their
+     form controls. Their colours and the terminal's are theme.json's. */
+  #dolly { --dolly-html-font: ui-monospace, monospace; --dolly-html-color-scheme: dark; }
 </style>
 <main id="dolly" style="position:fixed;inset:0"></main>
 <script type="module">
@@ -33,8 +33,16 @@
     const url = `./workspace/${path.split("/").map(encodeURIComponent).join("/")}`;
     files[`/workspace/${path}`] = new Uint8Array(await (await fetch(url)).arrayBuffer());
   }));
-  // Pi's colours: theme.json (Pi's docs/themes.md), written over the image's theme.
-  files["/home/dolly/.pi/agent/themes/dolly.json"] = await (await fetch("./theme.json")).text();
+  // The sandbox's colours, all in theme.json: Pi's theme (Pi's docs/themes.md), written
+  // over the image's, whose background, text, accent and muted the terminal and the
+  // popups take too (docs/embedding.md in @daugasauron/dolly).
+  const theme = await (await fetch("./theme.json")).text();
+  files["/home/dolly/.pi/agent/themes/dolly.json"] = theme;
+  const { vars } = JSON.parse(theme), look = document.querySelector("#dolly").style;
+  look.setProperty("--dolly-background", vars.background);
+  look.setProperty("--dolly-color", vars.text);
+  look.setProperty("--dolly-accent", vars.accent);
+  look.setProperty("--dolly-display-palette-8", vars.muted);
 
   // Save (Ctrl+Shift+S) keeps the sandbox's state in this browser and names it in the
   // address, ?session=NAME: the page then opens that save, as it was, in place of a fresh start.

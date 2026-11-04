@@ -20,17 +20,17 @@ REQUIRES HOST upload@0
 # windows, and three of X's own clients in theirs: a clock, eyes that follow
 # the pointer and a terminal with a shell, where imgui-x11 starts Dear ImGui's
 # example in a window of its own.
-FROM /v0.1.4/Dollyfile-system 4fa63c95277c04090c4143393819949ff807218819c94d10845bce7808bd6bad
-INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server 5301f8507158d7855e81c0263e05d2b15225dc4ffc0af978a9fe051c50b64118
-INSTALL /v0.1.4/demos/x11/Dollyfile-twm d28ed7f31009dfe79f757c9a596d8a61df5c3fa2e03899bd2759474cf79ab9bb
-INSTALL /v0.1.4/demos/x11/Dollyfile-xclock b85a875823ec0928edadad55a92e19fe90358499f2236999a50fe4c8537dcee4
-INSTALL /v0.1.4/demos/x11/Dollyfile-xeyes b30af3c39906e491bea6c991653dc562a3daf5cb5d82adab58a2947d7908f683
-INSTALL /v0.1.4/demos/x11/Dollyfile-xterm 79a2210152bfdb699a8058907411b467cf550f16264564616a8db101ec71ecb6
+FROM /v0.1.4/Dollyfile-system e89f4989b774937a794c31384b90d18851243256a146ebc05e58e3dd047aa946
+INSTALL /v0.1.4/demos/x11/Dollyfile-xorg-server 4a2de90d4f424ba3cd56da8ca97e617ffa367f8942cd93f770b04a94938aae49
+INSTALL /v0.1.4/demos/x11/Dollyfile-twm e335d2415141a96d4c4b1058cfdc3047bfe8f4f4555cb577d5e0d06ba0e8c795
+INSTALL /v0.1.4/demos/x11/Dollyfile-xclock 99b5649cfd852147c8c8520015420b6ff63b89f685d41a7a2a65c0ed57719175
+INSTALL /v0.1.4/demos/x11/Dollyfile-xeyes f274454e94aabe30925a92fa75654197ed0d71b0ef53b7bd283df566df7003d5
+INSTALL /v0.1.4/demos/x11/Dollyfile-xterm fc720b48896bc4eec23a76d8fbdf913709381bd7735e7ab794487e121693253f
 # amy installs packages into the session (tmux, nvim and the rest), with the
 # modules default declares for them; nena enables another.
-INSTALL /v0.1.4/Dollyfile-amy 7b51dc334b6473828c141837e9bb039e79b67a064f97b092876d886507482fdb
-INSTALL /v0.1.4/Dollyfile-nena ac1fca1f83eb64290bfc69db77e32e91b5d8b58b0d9d3dd267da97e78663c436
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-imgui-x11 ff2cd537d507534b73e43b1c66d4a2b38494535b4dac5c7b7c69e598b937d401
+INSTALL /v0.1.4/Dollyfile-amy c97c6acb2f236932a27e127591775fec61934eb861996ee586f154163b6fbedf
+INSTALL /v0.1.4/Dollyfile-nena fa855eb4aa2a9ea44544d2e0fd817bf6036d1000b7257c896c59729fe8a34242
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-imgui-x11 9b68cc2817d10f62fbef2fe86d415fa18966cbd3ccdb394058fee0fe1193edd2
 
 # The server takes the display, the keyboard and the pointer until it ends
 # (kill $(cat /tmp/.X0-pid) in the terminal); its clients end with it, and

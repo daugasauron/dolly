@@ -75,7 +75,7 @@ await browserTest("html", { image: "system", timeout: 300_000 }, async ({ name, 
   const colour = selector => frame.locator(selector).evaluate(element => getComputedStyle(element).color);
 
   // The embedding's theme, set on boot()'s element, is the popup's.
-  await page.evaluate(() => document.querySelector("#terminal").style.setProperty("--dolly-html-accent", "rgb(1, 2, 3)"));
+  await page.evaluate(() => document.querySelector("#terminal").style.setProperty("--dolly-accent", "rgb(1, 2, 3)"));
   let [status] = await show("html /home/dolly/hostile.html > /tmp/fields");
   assert.ok(await popup.evaluate(element => {
     const box = document.querySelector("#terminal").getBoundingClientRect(), { left, top, right, bottom } = element.getBoundingClientRect();

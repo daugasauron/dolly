@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # libogg from upstream's release archive, unchanged, built by its CMake project:
 # the Ogg container under Vorbis, for programs the cc package builds.
-FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build de93cd9491d39efa2325110748370ff35888d6db2ef101bebcdd1d77f4dc1d2b
+FROM /v0.1.4/demos/cmake/Dollyfile-cmake-build c8020d4f4169c2ae7b7c4e5ead5be244dc322e5623e99bd980190cedb45b39b4
 REQUIRES HEADER libc
 REQUIRES TOOL cmake
 REQUIRES TOOL gzip

@@ -9,11 +9,11 @@ REQUIRES HOST threads@0
 # (lean-meta), and here Lake's and LeanExport's, as upstream links them
 # (lean-dolly.mk), with the C++ runtime compiled again from src/. Lake
 # compiles a package's C with cc and links it with libuv.
-FROM /v0.1.4/demos/lean/Dollyfile-lean-stage0 84f39e147fc2f3aedc958bafbfbcdf5e6a321acb118514ab685cb26155996f46
-INSTALL /v0.1.4/demos/lean/Dollyfile-lean-std 76cd719b56ced2c09c12bd346ed80fff93215d67be14a6b6bf41bd956afa538d
-INSTALL /v0.1.4/demos/lean/Dollyfile-lean-meta 796acd8c8a53368afb470c0ffff9b1b99ac3ad7a864c1e0153245556f3888db9
-INSTALL /v0.1.4/Dollyfile-cc dd49936458ab384ec7ce20e10f4c71d46f265a779a54c28ab941ccf057231b79
-INSTALL /v0.1.4/demos/cmake/Dollyfile-libuv 9d5c71e871b37a76a91aecf9ea94c753f912a01d4288b7d84371c15417adc5e6
+FROM /v0.1.4/demos/lean/Dollyfile-lean-stage0 c4b7823c1869bc5ed13261d05809e7fad336a85a0c844d67f2943101ce17d696
+INSTALL /v0.1.4/demos/lean/Dollyfile-lean-std f1f7c338a57e0e8798001f39e2edf57538551a3f373b161cf56a20260f36ca2e
+INSTALL /v0.1.4/demos/lean/Dollyfile-lean-meta 8182428ffa2feacb5c8111149151c6b39c562b02be7c7928d7006da95114e9ed
+INSTALL /v0.1.4/Dollyfile-cc e7461a9d802c5541fdca340f5804eb0f12b002c8c7c58660011bf96fab23e100
+INSTALL /v0.1.4/demos/cmake/Dollyfile-libuv 0c4fe9c5f0c2e5bec005bbc8deb90165edb168f1e77f83305831abe861a0626c
 
 REQUIRES HEADER libc
 REQUIRES HEADER uv

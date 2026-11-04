@@ -39,11 +39,16 @@ _Static_assert(
     offsetof(dolly_display_mailbox, surface_sequence) == 4 * DOLLY_DISPLAY_WORD_SURFACE_SEQUENCE &&
     offsetof(dolly_display_mailbox, surface_width) == 4 * DOLLY_DISPLAY_WORD_SURFACE_WIDTH &&
     offsetof(dolly_display_mailbox, surface_height) == 4 * DOLLY_DISPLAY_WORD_SURFACE_HEIGHT &&
-    offsetof(dolly_display_mailbox, surface_scale_milli) == 4 * DOLLY_DISPLAY_WORD_SURFACE_SCALE_MILLI,
+    offsetof(dolly_display_mailbox, surface_scale_milli) == 4 * DOLLY_DISPLAY_WORD_SURFACE_SCALE_MILLI &&
+    offsetof(dolly_display_mailbox, palette_sequence) == 4 * DOLLY_DISPLAY_WORD_PALETTE_SEQUENCE &&
+    offsetof(dolly_display_mailbox, palette_background) == 4 * DOLLY_DISPLAY_WORD_PALETTE_BACKGROUND &&
+    offsetof(dolly_display_mailbox, palette_foreground) == 4 * DOLLY_DISPLAY_WORD_PALETTE_FOREGROUND &&
+    offsetof(dolly_display_mailbox, palette_cursor) == 4 * DOLLY_DISPLAY_WORD_PALETTE_CURSOR &&
+    offsetof(dolly_display_mailbox, palette_colors) == 4 * DOLLY_DISPLAY_WORD_PALETTE_COLORS,
     "display mailbox words differ from dolly-display-0.wat");
 
 _Alignas(64) static dolly_display_mailbox display_mailbox;
-static const dolly_display_driver_v5 *driver;
+static const dolly_display_driver_v6 *driver;
 static unsigned char *display_module_bytes;
 static uintptr_t display_module_length;
 static unsigned char *display_frames[DOLLY_DISPLAY_FRAME_COUNT];
@@ -66,9 +71,9 @@ typedef struct {
 static dolly_display_lease display_lease;
 static uint64_t next_display_generation = 1;
 
-// The surface sequence the driver was last resized for, and the terminal grid
-// its programs were last told of.
-static uint32_t applied_surface;
+// The surface and palette sequences the driver was last given, and the
+// terminal grid its programs were last told of.
+static uint32_t applied_surface, applied_palette;
 static uint32_t notified_cols, notified_rows;
 
 static int validate_display_lease(int owner_pid, uint64_t generation) {
@@ -120,6 +125,24 @@ static void apply_surface(void) {
   (void)driver->resize(width, height, scale);
 }
 
+// Gives the driver the colours the page last published, as apply_surface
+// does the surface.
+static void apply_palette(void) {
+  const uint32_t sequence = atomic_load_explicit(&display_mailbox.palette_sequence, memory_order_acquire);
+  if (sequence == applied_palette || (sequence & 1u) != 0) return;
+  dolly_display_palette palette = {
+      .background = atomic_load_explicit(&display_mailbox.palette_background, memory_order_relaxed),
+      .foreground = atomic_load_explicit(&display_mailbox.palette_foreground, memory_order_relaxed),
+      .cursor = atomic_load_explicit(&display_mailbox.palette_cursor, memory_order_relaxed),
+  };
+  for (size_t index = 0; index < 16; ++index) {
+    palette.colors[index] = atomic_load_explicit(&display_mailbox.palette_colors[index], memory_order_relaxed);
+  }
+  if (sequence != atomic_load_explicit(&display_mailbox.palette_sequence, memory_order_acquire)) return;
+  applied_palette = sequence;
+  driver->set_palette(&palette);
+}
+
 // Tells the terminal's programs of a grid a new surface or font size made.
 static void notify_grid(void) {
   const uint32_t cols = dolly_terminal_columns(), rows = dolly_terminal_rows();
@@ -166,6 +189,7 @@ size_t dolly_kernel_terminal_replies(unsigned char *output, size_t capacity) {
 int dolly_terminal_present_pending(void) {
   if (driver == NULL) return 0;
   apply_surface();
+  apply_palette();
   const int status = dolly_kernel_terminal_input_service();
   driver->present();
   notify_grid();
@@ -203,13 +227,18 @@ uintptr_t dolly_display_module_size(void) {
   return display_module_length;
 }
 
-int dolly_display_install(const dolly_display_driver_v5 *candidate) {
-  if (driver != NULL || candidate == NULL || candidate->abi_version != 5 ||
+int dolly_display_install(const dolly_display_driver_v6 *candidate) {
+  if (driver != NULL || candidate == NULL || candidate->abi_version != 6 ||
       candidate->struct_size < sizeof(*candidate) ||
       candidate->initialize == NULL || candidate->write == NULL ||
       candidate->read == NULL || candidate->resize == NULL ||
-      candidate->present == NULL || candidate->set_suspended == NULL) {
+      candidate->present == NULL || candidate->set_suspended == NULL ||
+      candidate->set_palette == NULL) {
     fputs("dolly: incompatible sandbox display driver\n", stderr);
+    return 1;
+  }
+  if (atomic_load_explicit(&display_mailbox.palette_sequence, memory_order_acquire) == 0) {
+    fputs("dolly: the page gave the display no colours\n", stderr);
     return 1;
   }
   free(display_module_bytes);
@@ -235,6 +264,7 @@ int dolly_display_install(const dolly_display_driver_v5 *candidate) {
   puts("dolly: sandbox display ready");
   fflush(stdout);
   driver = candidate;
+  apply_palette();
   notified_cols = dolly_terminal_columns();
   notified_rows = dolly_terminal_rows();
   return 0;
