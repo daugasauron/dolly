@@ -97,8 +97,10 @@ are never fetched; `libc-adapter.o`, `signal.o` (crt1's `__dolly_signal_start`),
 pthread stubs are fetched before any library is read; `threads.o` is fetched by
 `--export=dolly_thread_start` in every `-pthread` link and its strong names replace libc-mt's weak
 `__tl_lock`, `__do_cleanup_push`; a DSO host's provider list names `mmap`, `nanosleep`, so `mmap.o`
-and `time.o` are fetched there. `time.o`'s `clock_nanosleep` against libc's weak one remains only as
-a static libc has it: no libc, libc++ or dlmalloc member names `clock_nanosleep`.
+and `time.o` are fetched there. `time.o`'s `clock_nanosleep` against libc's weak one in
+`clock_nanosleep.o`, fetched for `__clock_nanosleep`, could differ only as a static libc does (no
+libc, libc++ or dlmalloc member names `clock_nanosleep`); `time.o` now defines `__clock_nanosleep`
+too (below), so that member is never fetched.
 
 So the cause is the stub member, not the archive: `prepare-process-sysroot.sh` leaves
 `emscripten_syscall_stubs.o` out as it does `emscripten_libc_stubs.o`, and `libc-stubs.c` defines
@@ -115,8 +117,12 @@ and fail whole with `duplicate symbol: abort`, which is why the weak attribute g
 DSO hosts lose five incidental exports, `emscripten_stack_*`, which the stub member's `prlimit64`
 pulled in and `--export-dynamic` exported; the provider list leaves Emscripten's own API out.
 
-Found on the way: C11 `thrd_sleep` (libc-mt) reaches libc's `__clock_nanosleep`, which calls
-`emscripten_thread_sleep`, not Dolly's `clock_nanosleep`, with or without the flag.
+Found on the way: C11 `thrd_sleep` (libc-mt only) did not link: it calls libc's
+`__clock_nanosleep`, which needs `emscripten_thread_sleep`, and `build-process-threads.sh` removes
+`library_pthread.o` (`undefined symbol: emscripten_thread_sleep`, measured). `time.c` defines
+`__clock_nanosleep`, musl's own name for `clock_nanosleep`, so `thrd_sleep` sleeps on Dolly's clock;
+`threads-pthread.c` sleeps by it. Measured again on that sysroot (`c2febe78…`): every row equal, the
+`-pthread` program 423 definitions both ways.
 
 ## Verified (2026-11-04)
 
@@ -129,6 +135,10 @@ Found on the way: C11 `thrd_sleep` (libc-mt) reaches libc's `__clock_nanosleep`,
   `fd2cf6e9…`): the same four images build under the pinned compiler (937 s); `threads` passes in
   Chromium and Firefox; `process` fails at the own-`abort` case alone, `wasm-ld: error: duplicate
   symbol: abort`, which is the whole archive's doing and what the container measured.
+- Seed of `__clock_nanosleep` (sysroot `c2febe78…`, image inputs `badb9a41…`), the branch's last:
+  the four images rebuilt (944 s); `threads` (`thrd_sleep`), `dso`, `stack`, `pty` and `core` pass
+  in Chromium and Firefox; `process` passes in both with its own-`abort` case left out of one local
+  run, and fails at that case alone as above.
 - The seed compiler's line without the flag: in the seed container (above), not in a browser. A
   browser needs the `llvm-cc` this round builds.
 - Not run: the rust suite (it needs the Rust chain, a `hugebuild`): the round's step.
@@ -143,3 +153,22 @@ Found on the way: C11 `thrd_sleep` (libc-mt) reaches libc's `__clock_nanosleep`,
 - The seed (adapter, sysroot, every kernel-boundary module's digest): every image.
 - `demos/rust/toolchain/link.sh` runs only when the Rust seed is rebuilt; `rustc` linked both ways
   is equal (above).
+
+## Lessons
+
+- Fifteen sampled programs linked the same with and without the flag; the one that did not was
+  found by listing, with `llvm-nm`, every name the adapter defines that a later archive member also
+  defines, and then writing the program for it. A link-model change is checked by its overlaps,
+  not by the programs at hand.
+- A closed task's reason ("every one of its definitions is weak, so an adapter definition replaces
+  it", getrusage) held only under a link flag no one had written down. A reason that depends on
+  how something is linked should name the link line.
+- The seed container's `wasm-ld` is the seed compiler's own LLVM commit: a question about what the
+  in-Dolly compiler links is answered there in seconds, maps and `--why-extract` included, without
+  a compiler round.
+- "Hash the process WAT and the headers" would have dropped from the digest the constants that
+  http, display and the other device modules' programs compile with: the generated header is
+  built from the contract it was meant to leave out. Read what the manifest fields mean
+  (`host/README.md`) before taking a one-line instruction literally.
+- The image builder repins the working tree when it starts: after a build, `git status` shows the
+  base's stale pins (here six staged sources), which belong in a commit of their own.
