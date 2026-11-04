@@ -32,6 +32,8 @@ published or deployed until the owner says so (as for `tasks/20261029-230000-v01
    large binary, so their rules are new). Decide from the rule scheme in `docs/deployment.md`:
    fewer rules per file (one per directory or per content type) or older versions' rules retired;
    not a version dropped from the site.
-5. The two sites packaged and checked (`scripts/release-checklist.sh`, `docs/deployment.md`), the
+5. The domain's catalog lists `lean-std`, `lean-meta` and `lean` (`config/domain-pages-images.txt`), and
+   `amy install lean` works from the domain's catalog on the served candidate.
+6. The two sites packaged and checked (`scripts/release-checklist.sh`, `docs/deployment.md`), the
    candidate served locally and booted in Chromium and Firefox, as for v0.1.4.
-6. The owner reviews; tag, push, publish and deploy on the owner's word.
+7. The owner reviews; tag, push, publish and deploy on the owner's word.
