@@ -17,9 +17,8 @@ an agent in place of a web frontend (`docs/agent-frontend.md` in the repository)
 
 ```sh
 npm install @daugasauron/dolly @daugasauron/dolly-image-default \
-  @daugasauron/dolly-host-display @daugasauron/dolly-host-input @daugasauron/dolly-host-audio \
-  @daugasauron/dolly-host-touch @daugasauron/dolly-host-save @daugasauron/dolly-host-upload \
-  @daugasauron/dolly-host-html @daugasauron/dolly-host-sockets
+  @daugasauron/dolly-host-display @daugasauron/dolly-host-input @daugasauron/dolly-host-save \
+  @daugasauron/dolly-host-upload @daugasauron/dolly-host-html
 ```
 
 Each host module and image depends on the runtime alone, at its own version. An

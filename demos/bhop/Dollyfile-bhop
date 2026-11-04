@@ -7,6 +7,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST audio@0
 REQUIRES HOST touch@0
 REQUIRES HOST download@0
+REQUIRES HOST upload@0
 REQUIRES HOST html@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
@@ -14,6 +15,8 @@ REQUIRES HOST threads@0
 INSTALL /v0.1.4/Dollyfile-core 74fabeb7587e54b39bb59351ed5e8146d3eb77cb526c65c00c2d90f11495b775
 INSTALL /v0.1.4/Dollyfile-posix 4edbe26685a71e67d5360b567b708c1cb373b124d4143c680cf0a6a1ba90ebae
 INSTALL /v0.1.4/Dollyfile-display 2be7cbca13647b99084a669132428169b2d5a6bde7a291642efc5c584f9ffd63
+# download and upload, which the agent's settings and relay run (transfer).
+INSTALL /v0.1.4/Dollyfile-transfer 2d667f4f6ce328336579aeb172cc87c211fae513c9d4c6ba8883607f7a9ec368
 # cc and raylib build the game again, as .dollyrc says.
 INSTALL /v0.1.4/Dollyfile-cc 53efa9fa48567501751d60f4172407b9bd62ea6dfa65eca475d0f6d62f6fef2e
 INSTALL /v0.1.4/demos/slopyard/Dollyfile-raylib e86041d9e3dcb43f7a884604570d659e694c6871735da7aa43702606086cc882

@@ -22,7 +22,7 @@ export async function runClassiCubeMultiplayer({page, modelsFile, projectDir}) {
     document.querySelector('#session-status').style.display='none';
     const bytes=new Uint8Array(buffer),view=new DataView(buffer),decode=new TextDecoder(),result={players:{},events:[],profiles:{},agentEvents:{}};let offset=16;
     for(let n=0;n<view.getUint32(12,true);n++){
-      const length=view.getUint32(offset+4,true),size=Number(view.getBigUint64(offset+8,true));offset+=16;
+      const length=view.getUint32(offset+4,true),size=Number(view.getBigUint64(offset+8,true));offset+=24;
       const path=decode.decode(bytes.subarray(offset,offset+length));offset+=length;
       const data=bytes.subarray(offset,offset+size);offset+=size;
       const match=path.match(/\/tmp\/classicube-agent-[^/]+\/players\/(\d+)\/([^/]+)$/);

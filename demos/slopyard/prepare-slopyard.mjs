@@ -92,6 +92,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST touch@0
 REQUIRES HOST gpu@0
 REQUIRES HOST download@0
+REQUIRES HOST upload@0
 REQUIRES HOST html@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
@@ -99,6 +100,8 @@ REQUIRES HOST threads@0
 INSTALL ${await pin("Dollyfile-core")}
 INSTALL ${await pin("Dollyfile-posix")}
 INSTALL ${await pin("Dollyfile-display")}
+# download and upload, which the game runs to export and import designs (transfer).
+INSTALL ${await pin("Dollyfile-transfer")}
 INSTALL ${await pin("demos/pi/Dollyfile-pi-dolly")}
 INSTALL ${await pin("demos/slopyard/Dollyfile-slopyard-game")}
 

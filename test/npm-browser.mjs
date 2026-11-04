@@ -126,7 +126,7 @@ try {
   });
 
   // The guide's page, which also keeps the handle for the test; the same page
-  // with every other device module, a policy and files; and one that lacks touch@0.
+  // with every other device module, a policy and files; and one that lacks upload@0.
   const page = blocks("html")[0].replace("const dolly = await boot(", "const dolly = window.dolly = await boot(");
   await writeFile(join(app, "index.html"), page);
   const options = 'document.querySelector("#dolly"), { images, image, modules }';
@@ -137,7 +137,7 @@ try {
     files: { "/home/dolly/.pi/agent/AGENTS.md": "Answer in French.\\n", "/etc/bytes": new Uint8Array([104, 105, 10]) } }`);
   await writeFile(join(app, "devices.html"), extended);
   await writeFile(join(app, "lacking.html"), page.replace(options,
-    'document.querySelector("#dolly"), { images, image, modules: modules.filter(url => !url.includes("/dolly-host-touch/")) }'));
+    'document.querySelector("#dolly"), { images, image, modules: modules.filter(url => !url.includes("/dolly-host-upload/")) }'));
   await mkdir(join(app, "allowed"));
   await writeFile(join(app, "allowed/note.txt"), "fetched through the policy\n");
   await mkdir(join(app, "refused"));
@@ -217,7 +217,7 @@ try {
       const lacking = await browser.newPage();
       await lacking.goto(`${origin(isolated)}/lacking.html`);
       await lacking.waitForFunction(() => document.documentElement.dataset.dollyStatus === "failed", null, { timeout: 60_000 });
-      assert.match(await lacking.locator("#bootstrap-log").textContent(), /touch@0 is unavailable/);
+      assert.match(await lacking.locator("#bootstrap-log").textContent(), /upload@0 is unavailable/);
       const bare = await browser.newPage();
       await bare.goto(`${origin(plain)}/`);
       await bare.waitForFunction(() => document.documentElement.dataset.dollyStatus === "failed", null, { timeout: 60_000 });
