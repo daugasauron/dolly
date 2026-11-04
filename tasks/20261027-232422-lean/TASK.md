@@ -67,6 +67,76 @@ lists every package the closure holds. So the list is complete. The release chec
    sealed release (`published-version.mjs boot` boots `default` only), so this is by hand, in
    one browser.
 
+## Measured in 6 GB slots on the night round's images (2026-11-05, 01:40)
+
+The round's Lean images (image inputs `88959af6`; `lean-std` 789,739,261 bytes, `lean-meta`
+1,581,465,456, `lean` 684,993,196) taken into this tree as the rules say. In a 6 GB browser slot
+`demos/lean/test/lean-browser.mjs` fails in both browsers: the tab is killed (`Target crashed`)
+at 50 s in Chromium and at 140 s in Firefox. `build/lean-evidence/night/lean-measure.mjs`, the
+test's steps (GB, anonymous memory of the scope, the step's highest then after it; the cap is
+6 GiB, 6.44 GB):
+
+| Step | Chromium, modules held | Chromium, before | Firefox, modules held | Firefox, before |
+| --- | --- | --- | --- | --- |
+| install | 51.5 s, 4.02, 3.99 | 47.2 s, 3.97, 3.95 | 112 s, 5.04, 4.92 | 88 s, 4.47, 4.44 |
+| `lean --run` | 1.9 s, 5.16, 4.61 | 1.7 s, 4.86, 4.35 | killed | 2.2 s, 5.15, 5.15 |
+| theorems | 1.1 s, 5.17, 5.15 | 0.9 s, 4.87, 4.91 | | 1.3 s, 5.65, 5.16 |
+| false theorem | 0.9 s, 5.66, 5.69 | 0.9 s, 5.42, 5.46 | | 1.2 s, 5.68, 5.27 |
+| `lake new` | 1.0 s, 6.11, 5.47 | 0.8 s, 5.91, 5.76 | | killed |
+| `lake build` | killed | killed | | |
+
+After the install the kernel's memory is 3.46 GB in Firefox (`wasm-reserved`; the package's
+files are 3.2 GB) and Chromium's `v8-sandbox`, which holds it, 3.53. Firefox's floor beside it is
+the browser's: `jemalloc` 0.39 to 0.55, the main process 0.25, the test's node 0.15. The two
+Firefox runs differ by 0.5 GB at the floor (and 24 s of install) on the same images: not
+attributed; nothing of the held modules runs during the install but the engine's own programs.
+
+**Chromium: a dead `lean` keeps its memory two seconds.** `v8-sandbox` grows by about 0.53 GB
+with each `lean` that checks theorems and does not shrink at its end: 3.53 after the install,
+4.31, 4.84 after two `lean theorems.lean`; with `sleep 5` between them it returns each time
+(4.29, 3.76, 4.28, 3.54; `retention2-chromium.log`). Lean's idle task threads wait on a condition
+variable, a futex wait inside WebAssembly, when `lean` exits. `probe/cond.c`, eight threads
+waiting on a condition variable and 512 MiB touched, in `default` with `cc`: its memory stays
+resident 0.5 and 1.5 s after it exits and is gone at 3.5 s; three in a row hold 2.08 GB where
+one holds 0.96 (`cond-chromium.log`). Chrome terminates a Worker that runs (a wait inside
+WebAssembly is running) only after its forcible-termination delay of two seconds; the
+supervisor ends a thread waiting in a kernel call at once (it answers the call and the Worker
+leaves), but it cannot reach one waiting on a futex in the process's memory, which it never
+holds. In the test the steps follow each other within a second, so two or three dead `lean`
+processes are resident when `lake build` starts its own. Firefox frees them at once
+(`wasm-reserved` stays 3.46 through the steps).
+
+**Firefox: the floor.** 4.4 to 4.9 GB after the install, and compiling `lean` peaks 1.0 GB above
+it (`stage0` probe: 1.09 to 2.09 GB), and retains 0.43 of compiled code and 0.25 of `jemalloc`;
+a running `lean` adds about 0.5. That is the cap already at the first `lean` or the third.
+
+## Proposal: an installed package's files stay in the image store until written
+
+The floor of a Lean session is the package: `amy install lean` restores 3.2 GB of files into the
+kernel's memory (3.46 GB measured, `lean-std` 0.79, `lean-meta` 1.58, `lean` 0.68, `cc` 0.13),
+and a Wasm memory never gives them back. In a 6 GiB tab that leaves Firefox about 1.5 GB beside
+its own floor, and one `lean` takes 1.5 while it compiles and runs.
+
+The bytes are immutable distribution bytes the browser already keeps (the pack store, on disk). A
+build's inputs already work this way: `InputFile` (`src/file-blocks.cpp`) reads a Blob through an
+8 MiB window with `env.dolly_build_input_read`, and the kernel never holds the image. The same for
+a session's packages:
+
+- The engine restores a package's regular files as extents of its snapshot (path, offset, size),
+  not as copies; the kernel keeps their metadata and a window while a file is open.
+- The first write, truncation or growth of such a file copies it into blocks: mutable state stays
+  in Wasm memory, as the hard constraint asks.
+- An executable among them is read by the supervisor straight from the Blob, not through kernel
+  memory.
+- A saved session records the extents by package pin, or copies them (the owner's choice).
+
+Contracts: `abi/dolly-browser-0.wat` gains a package read beside the build's (or the build's
+becomes one read of an installed image), and `src/dollyfile.c` restores extents: a seed change,
+so a catalog round. No new authority: the guest reads only bytes of packages the page installed.
+The gain, from tonight's numbers: the session floor after `amy install lean` drops by the
+package's 3.2 GB in both browsers (not measured: no prototype); each `lean` still reads Init's
+366 MB of `.olean` into its own memory, as natively through `mmap`.
+
 ## Compiled modules wait for a collection (2026-11-04 night)
 
 Measured on the night round's runtime (image inputs `88959af6`) before its Lean images were
