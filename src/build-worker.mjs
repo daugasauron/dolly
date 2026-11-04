@@ -140,7 +140,8 @@ await runImage(async (config, host) => {
       artifacts.clear();
       host.kernel.setBuildInputs([]);
       if (status !== 0) return { status };
-      stage("capturing userspace image...");
+      // Kernel memory never shrinks: its size now is the build's high-water mark.
+      stage(`capturing userspace image (kernel memory ${Math.round(memory.buffer.byteLength / 2 ** 20)} MiB)...`);
       const total = Number(kernel.dolly_snapshot_capture_begin());
       if (total === 0 || total > snapshotSizeLimit) throw new Error("Dolly system snapshot capture failed");
       const artifact = await describeImageArtifact(capturedPieces(kernel, memory, total), recipeSha256, inputs);
