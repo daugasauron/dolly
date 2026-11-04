@@ -47,14 +47,16 @@
   ;; in the next record's dropped.
   (global (export "DOLLY_TOUCH_FINGERS") i32 (i32.const 10))
 
-  ;; The holder's buttons follow the records, at byte 16400: an atomic u32
-  ;; labels word, the u32 count of labels, then 12 labels of 32 bytes, each
-  ;; UTF-8 ended by a zero byte. The kernel is their one writer: it adds one
+  ;; The holder's buttons follow the records: an atomic u32 labels word at
+  ;; byte 16400, the u32 count of labels at 16404, then 12 labels of 32 bytes
+  ;; at 16408, each UTF-8 ended by a zero byte. The kernel is their one writer: it adds one
   ;; to the labels word after each change of the labels, and clears them when
   ;; the lease ends. The page shows them as buttons in its bar below the
   ;; canvas, before its own Paste, and writes a press for each tap while the
   ;; ring keeps room for it and the end of every finger that is down.
   (global (export "DOLLY_TOUCH_BUTTONS_OFFSET") i32 (i32.const 16400))
+  (global (export "DOLLY_TOUCH_LABEL_COUNT_OFFSET") i32 (i32.const 16404))
+  (global (export "DOLLY_TOUCH_LABELS_OFFSET") i32 (i32.const 16408))
   (global (export "DOLLY_TOUCH_BUTTON_COUNT") i32 (i32.const 12))
   (global (export "DOLLY_TOUCH_LABEL_SIZE") i32 (i32.const 32))
 

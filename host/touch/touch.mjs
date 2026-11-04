@@ -5,7 +5,7 @@ const word = { read: T.DOLLY_TOUCH_WORD_READ, write: T.DOLLY_TOUCH_WORD_WRITE,
   lease: T.DOLLY_TOUCH_WORD_LEASE, enabled: T.DOLLY_TOUCH_WORD_ENABLED };
 // Moves leave room for every finger's down and its end.
 const moveReserve = 2 * T.DOLLY_TOUCH_FINGERS;
-const buttonsEnd = T.DOLLY_TOUCH_BUTTONS_OFFSET + 8 + T.DOLLY_TOUCH_BUTTON_COUNT * T.DOLLY_TOUCH_LABEL_SIZE;
+const buttonsEnd = T.DOLLY_TOUCH_LABELS_OFFSET + T.DOLLY_TOUCH_BUTTON_COUNT * T.DOLLY_TOUCH_LABEL_SIZE;
 
 // The Worker's end of the touch mailbox, the one producer of its records: the
 // page sends it the fingers it took. A finger is delivered under the lease its
@@ -98,14 +98,16 @@ export class TouchTransport {
   // The holder's labels and the labels word they were read under, or null
   // while the kernel is changing them.
   buttons() {
-    const at = this.address + T.DOLLY_TOUCH_BUTTONS_OFFSET;
-    const labels = Atomics.load(this.words, at / 4) >>> 0;
-    const count = Math.min(this.view.getUint32(at + 4, true), T.DOLLY_TOUCH_BUTTON_COUNT);
+    const word = (this.address + T.DOLLY_TOUCH_BUTTONS_OFFSET) / 4;
+    const labels = Atomics.load(this.words, word) >>> 0;
+    const count = Math.min(this.view.getUint32(this.address + T.DOLLY_TOUCH_LABEL_COUNT_OFFSET, true),
+      T.DOLLY_TOUCH_BUTTON_COUNT);
     const texts = Array.from({ length: count }, (_, index) => {
-      const bytes = new Uint8Array(this.view.buffer, at + 8 + index * T.DOLLY_TOUCH_LABEL_SIZE, T.DOLLY_TOUCH_LABEL_SIZE).slice();
+      const at = this.address + T.DOLLY_TOUCH_LABELS_OFFSET + index * T.DOLLY_TOUCH_LABEL_SIZE;
+      const bytes = new Uint8Array(this.view.buffer, at, T.DOLLY_TOUCH_LABEL_SIZE).slice();
       return new TextDecoder().decode(bytes.subarray(0, bytes.indexOf(0) >>> 0));
     });
-    return Atomics.load(this.words, at / 4) >>> 0 === labels ? { labels, texts } : null;
+    return Atomics.load(this.words, word) >>> 0 === labels ? { labels, texts } : null;
   }
 
   // A press of the holder's button index, of the labels read under the word

@@ -2,9 +2,14 @@ import * as A from "./abi.mjs";
 export { DOLLY_DISPLAY_ABI_DIGEST as digest } from "./abi.mjs";
 
 const textDecoder = new TextDecoder("utf-8", { ignoreBOM: true });
-// dolly_display_cursor (display.h), by value: the page's own cursors, nothing a guest draws.
-const cursorStyles = ["text", "default", "crosshair", "pointer", "none", "ns-resize", "ew-resize", "nwse-resize",
-  "nesw-resize", "move", "wait", "progress", "not-allowed", "help"];
+// The cursor styles of dolly-display-0.wat: the page's own cursors, nothing a guest draws.
+const cursorStyles = new Map([[A.DOLLY_DISPLAY_CURSOR_TEXT, "text"], [A.DOLLY_DISPLAY_CURSOR_DEFAULT, "default"],
+  [A.DOLLY_DISPLAY_CURSOR_CROSSHAIR, "crosshair"], [A.DOLLY_DISPLAY_CURSOR_POINTER, "pointer"],
+  [A.DOLLY_DISPLAY_CURSOR_HIDDEN, "none"], [A.DOLLY_DISPLAY_CURSOR_NS_RESIZE, "ns-resize"],
+  [A.DOLLY_DISPLAY_CURSOR_EW_RESIZE, "ew-resize"], [A.DOLLY_DISPLAY_CURSOR_NWSE_RESIZE, "nwse-resize"],
+  [A.DOLLY_DISPLAY_CURSOR_NESW_RESIZE, "nesw-resize"], [A.DOLLY_DISPLAY_CURSOR_MOVE, "move"],
+  [A.DOLLY_DISPLAY_CURSOR_WAIT, "wait"], [A.DOLLY_DISPLAY_CURSOR_PROGRESS, "progress"],
+  [A.DOLLY_DISPLAY_CURSOR_NOT_ALLOWED, "not-allowed"], [A.DOLLY_DISPLAY_CURSOR_HELP, "help"]]);
 // The presenter keeps requesting animation frames this long after the last
 // frame, so the next one is painted on the frame after it is published.
 const lingerMilliseconds = 250;
@@ -36,9 +41,6 @@ export class DisplayTransport {
   static surfaceWidth = A.DOLLY_DISPLAY_WORD_SURFACE_WIDTH;
   static surfaceHeight = A.DOLLY_DISPLAY_WORD_SURFACE_HEIGHT;
   static surfaceScaleMilli = A.DOLLY_DISPLAY_WORD_SURFACE_SCALE_MILLI;
-
-  static copyAvailable = 1;
-  static copyTruncated = 2;
 
   // The copy buffer's size is the contract's; a test may shrink it.
   constructor(buffer, address, copyAddress, { copyCapacity = A.DOLLY_DISPLAY_COPY_CAPACITY } = {}) {
@@ -72,8 +74,8 @@ export class DisplayTransport {
         this.words,
         this.word + DisplayTransport.copyLength,
       ) >>> 0;
-      if ((flags & DisplayTransport.copyAvailable) === 0) return null;
-      if ((flags & DisplayTransport.copyTruncated) !== 0 ||
+      if ((flags & A.DOLLY_DISPLAY_COPY_AVAILABLE) === 0) return null;
+      if ((flags & A.DOLLY_DISPLAY_COPY_TRUNCATED) !== 0 ||
           length > this.copyCapacity) {
         throw new Error("Dolly selection exceeds the clipboard bridge capacity");
       }
@@ -100,7 +102,7 @@ export class DisplayTransport {
   }
 
   graphicsActive() {
-    return (Atomics.load(this.words, this.word + DisplayTransport.flags) & 1) !== 0;
+    return (Atomics.load(this.words, this.word + DisplayTransport.flags) & A.DOLLY_DISPLAY_GRAPHICS_ACTIVE) !== 0;
   }
 
   publishAnimationFrame() {
@@ -224,7 +226,7 @@ export class FramebufferPresenter {
       const stride = Atomics.load(words, word + DisplayTransport.frameStride) >>> 0;
       const length = stride * height;
       const address = this.frameAddresses[index];
-      if (index > 1 || width === 0 || height === 0 || stride !== width * 4 ||
+      if (index >= A.DOLLY_DISPLAY_FRAME_COUNT || width === 0 || height === 0 || stride !== width * 4 ||
           length > this.capacity || address + length > this.buffer.byteLength) {
         throw new Error("Dolly published an invalid framebuffer");
       }
@@ -313,7 +315,7 @@ export function browser({ canvas, keyboard, fatal, showStatus, send, ask }) {
     messages: {
       "display-state"(message) {
         const dataset = document.documentElement.dataset;
-        if (message.cursor !== state?.cursor) canvas.style.cursor = cursorStyles[message.cursor] ?? "default";
+        if (message.cursor !== state?.cursor) canvas.style.cursor = cursorStyles.get(message.cursor) ?? "default";
         if (message.frame !== state?.frame) dataset.frameSequence = message.frame;
         if (message.cols !== state?.cols) dataset.terminalCols = message.cols;
         if (message.rows !== state?.rows) dataset.terminalRows = message.rows;
@@ -393,7 +395,8 @@ export function worker({ get, send, configuration }) {
       words = transport.words;
       word = transport.word;
       const capacity = A.DOLLY_DISPLAY_MAX_WIDTH * A.DOLLY_DISPLAY_MAX_HEIGHT * 4, limit = memory.buffer.byteLength;
-      const frameAddresses = [0, 1].map(index => Number(kernel.dolly_display_framebuffer_address(index)));
+      const frameAddresses = Array.from({ length: A.DOLLY_DISPLAY_FRAME_COUNT },
+        (_, index) => Number(kernel.dolly_display_framebuffer_address(index)));
       if (frameAddresses.some(address => !Number.isSafeInteger(address) || address <= 0 || address > limit - capacity)) {
         throw new Error("invalid display framebuffer range");
       }

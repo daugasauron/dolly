@@ -1,3 +1,6 @@
+import { DOLLY_POINTER_ACTION_DRAG as drag, DOLLY_POINTER_ACTION_PRESS as press,
+  DOLLY_POINTER_ACTION_RELEASE as release } from "../host/input/abi.mjs";
+
 // How the page's handle (docs/embedding.md) reads the terminal, over the page APIs of
 // display@0, input@0 and the runtime: the screen's text is the terminal's own
 // selection of every cell, made with pointer records.
@@ -36,10 +39,10 @@ export function terminalText(page) {
       const y = geometry.paddingY + Math.floor(geometry.cellHeight / 2);
       const endX = x + (dimensions.cols - 1) * geometry.cellWidth, endY = y + (dimensions.rows - 1) * geometry.cellHeight;
       let selected;
-      await inputTransport.pushPointer(x, y, 1, shifted);
+      await inputTransport.pushPointer(x, y, press, shifted);
       await waitFor(async () => await transport.copySelection() === null, "terminal selection reset");
-      await inputTransport.pushPointer(endX, endY, 2, shifted);
-      await inputTransport.pushPointer(endX, endY, 0, shifted);
+      await inputTransport.pushPointer(endX, endY, drag, shifted);
+      await inputTransport.pushPointer(endX, endY, release, shifted);
       if (await waitFor(async () => (selected = await transport.copySelection()) !== null, null, attempts)) {
         return selected.split("\n").slice(-dimensions.rows).join("\n");
       }
@@ -62,8 +65,8 @@ export function terminalText(page) {
     const geometry = transport.geometry();
     const x = geometry.paddingX + Math.floor(geometry.cellWidth / 2);
     const y = geometry.paddingY + Math.floor(geometry.cellHeight / 2);
-    await inputTransport.pushPointer(x, y, 1, shifted);
-    await inputTransport.pushPointer(x, y, 0, shifted);
+    await inputTransport.pushPointer(x, y, press, shifted);
+    await inputTransport.pushPointer(x, y, release, shifted);
     await waitFor(() => inputTransport.inputIdle(), "terminal selection cleanup");
     return pid;
   }

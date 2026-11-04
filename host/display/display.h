@@ -10,43 +10,8 @@
 extern "C" {
 #endif
 
-typedef enum {
-  // Four consecutive bytes per pixel: red, green, blue and a fourth the page
-  // does not show, for a frame is opaque as a window is. Rows are
-  // top-to-bottom and pixels are left-to-right.
-  DOLLY_DISPLAY_PIXEL_RGBA8 = 1,
-} dolly_display_pixel_format;
-
-typedef enum {
-  DOLLY_DISPLAY_CURSOR_TEXT = 0,
-  DOLLY_DISPLAY_CURSOR_DEFAULT = 1,
-  DOLLY_DISPLAY_CURSOR_CROSSHAIR = 2,
-  DOLLY_DISPLAY_CURSOR_POINTER = 3,
-  DOLLY_DISPLAY_CURSOR_HIDDEN = 4,
-  // What a window system shows over an edge, a corner, something being moved,
-  // work in progress, a refusal and help.
-  DOLLY_DISPLAY_CURSOR_NS_RESIZE = 5,
-  DOLLY_DISPLAY_CURSOR_EW_RESIZE = 6,
-  DOLLY_DISPLAY_CURSOR_NWSE_RESIZE = 7,
-  DOLLY_DISPLAY_CURSOR_NESW_RESIZE = 8,
-  DOLLY_DISPLAY_CURSOR_MOVE = 9,
-  DOLLY_DISPLAY_CURSOR_WAIT = 10,
-  DOLLY_DISPLAY_CURSOR_PROGRESS = 11,
-  DOLLY_DISPLAY_CURSOR_NOT_ALLOWED = 12,
-  DOLLY_DISPLAY_CURSOR_HELP = 13,
-} dolly_display_cursor;
-
-enum {
-  DOLLY_DISPLAY_COPY_AVAILABLE = 1u << 0,
-  DOLLY_DISPLAY_COPY_TRUNCATED = 1u << 1,
-};
-
-enum {
-  // A foreground command has exclusively leased the framebuffer. This bit is
-  // observable by the browser presenter, but ownership and policy remain
-  // entirely inside Dolly.
-  DOLLY_DISPLAY_GRAPHICS_ACTIVE = 1u << 0,
-};
+// The pixel format, cursor styles, copy flags and the graphics flag are
+// DOLLY_DISPLAY_* constants of dolly-display-0.wat (<dolly/display-abi.h>).
 
 // Every field is a little-endian atomic u32. Frame pixels live in two
 // separately allocated, fixed-address buffers returned by the runtime

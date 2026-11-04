@@ -47,10 +47,33 @@
   (global (export "DOLLY_DISPLAY_WORD_SURFACE_SCALE_MILLI") i32 (i32.const 23))
   (func (export "dolly_display_mailbox_address") (result i64)
     i64.const 0)
+  ;; The flags' bit while a foreground command holds the framebuffer lease.
+  (global (export "DOLLY_DISPLAY_GRAPHICS_ACTIVE") i32 (i32.const 1))
+  ;; The cursor styles: the page's own cursors, what a window system shows
+  ;; over an edge, a corner, something being moved, work in progress, a
+  ;; refusal and help.
+  (global (export "DOLLY_DISPLAY_CURSOR_TEXT") i32 (i32.const 0))
+  (global (export "DOLLY_DISPLAY_CURSOR_DEFAULT") i32 (i32.const 1))
+  (global (export "DOLLY_DISPLAY_CURSOR_CROSSHAIR") i32 (i32.const 2))
+  (global (export "DOLLY_DISPLAY_CURSOR_POINTER") i32 (i32.const 3))
+  (global (export "DOLLY_DISPLAY_CURSOR_HIDDEN") i32 (i32.const 4))
+  (global (export "DOLLY_DISPLAY_CURSOR_NS_RESIZE") i32 (i32.const 5))
+  (global (export "DOLLY_DISPLAY_CURSOR_EW_RESIZE") i32 (i32.const 6))
+  (global (export "DOLLY_DISPLAY_CURSOR_NWSE_RESIZE") i32 (i32.const 7))
+  (global (export "DOLLY_DISPLAY_CURSOR_NESW_RESIZE") i32 (i32.const 8))
+  (global (export "DOLLY_DISPLAY_CURSOR_MOVE") i32 (i32.const 9))
+  (global (export "DOLLY_DISPLAY_CURSOR_WAIT") i32 (i32.const 10))
+  (global (export "DOLLY_DISPLAY_CURSOR_PROGRESS") i32 (i32.const 11))
+  (global (export "DOLLY_DISPLAY_CURSOR_NOT_ALLOWED") i32 (i32.const 12))
+  (global (export "DOLLY_DISPLAY_CURSOR_HELP") i32 (i32.const 13))
 
   ;; Two fixed-address RGBA buffers of MAX_WIDTH * MAX_HEIGHT * 4 bytes are
   ;; allocated in Wasm memory. The mailbox atomically publishes which one
   ;; contains the latest complete frame and its checked dimensions and stride.
+  ;; Its pixels are four bytes each, red, green, blue and a fourth the page
+  ;; does not show, for a frame is opaque as a window is; left to right in rows
+  ;; top to bottom.
+  (global (export "DOLLY_DISPLAY_PIXEL_RGBA8") i32 (i32.const 1))
   (global (export "DOLLY_DISPLAY_MAX_WIDTH") i32 (i32.const 4096))
   (global (export "DOLLY_DISPLAY_MAX_HEIGHT") i32 (i32.const 2304))
   (global (export "DOLLY_DISPLAY_FRAME_COUNT") i32 (i32.const 2))
@@ -59,8 +82,11 @@
 
   ;; Dolly continuously publishes the active terminal selection into the copy
   ;; buffer: bytes, then length, flags and sequence, so the page's snapshot
-  ;; around the sequence is never torn.
+  ;; around the sequence is never torn. The flags: a selection is available,
+  ;; and it was longer than the buffer.
   (global (export "DOLLY_DISPLAY_COPY_CAPACITY") i32 (i32.const 262144))
+  (global (export "DOLLY_DISPLAY_COPY_AVAILABLE") i32 (i32.const 1))
+  (global (export "DOLLY_DISPLAY_COPY_TRUNCATED") i32 (i32.const 2))
   (func (export "dolly_display_copy_buffer_address") (result i64)
     i64.const 0)
 

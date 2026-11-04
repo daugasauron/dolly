@@ -11,12 +11,12 @@ REQUIRES HOST threads@0
 # here from their pinned sources. The seed builds the first rustc; that one
 # builds the rustc kept. Every Rust program in the catalog is built by this
 # image's toolchain.
-FROM /v0.1.4/demos/rust/Dollyfile-rust-sdk 4e0eb946c5d1892ceb777ea279a0d9d45165a584674690cf20ceac931957b7bb
-COPY /v0.1.4/demos/rust/Dollyfile-rust-llvm 151e7ff82ef743d763b823478ac823c961770e9cb942178b61baa87a36d5b19b /opt/rust-llvm /opt/rust-llvm
+FROM /v0.1.4/demos/rust/Dollyfile-rust-sdk 0eedd91ceac7c734488505440b08b8f406fed5abf77a4ff7873d54a88fbe81c1
+COPY /v0.1.4/demos/rust/Dollyfile-rust-llvm fe0a09d471ad075ab1b4a29a8374ed30af7ea8d62aaba4c20373bb4d8f5dff44 /opt/rust-llvm /opt/rust-llvm
 # patch, for the compiler's patch below.
-INSTALL /v0.1.4/Dollyfile-git b485ad00a8bd56d4b1f4f12cb9f10d5333af2912f4c8726201ebb3951b07e254
+INSTALL /v0.1.4/Dollyfile-git 33c76f7697b4b263c459bae06f9f71340ba983d25c346573dd1c6704ade6aa9c
 # cmp, for the check that the second generation rebuilds the same library.
-INSTALL /v0.1.4/Dollyfile-posix a61075dc335040c249a0a09e81339fee3bc9c95932be2e9665a2620799b6eb6a
+INSTALL /v0.1.4/Dollyfile-posix 2a897c976c198b2ce7a3592e9f0142edcaa4a912b962e2fbf2bafdeef98bc737
 REQUIRES TOOL cargo
 REQUIRES TOOL rustc
 REQUIRES TOOL cc

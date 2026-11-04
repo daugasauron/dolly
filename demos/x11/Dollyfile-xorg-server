@@ -14,17 +14,17 @@ REQUIRES HOST sockets@0
 # bitmap fonts) and libmd's SHA-1 are built by the Makefile below for the
 # server alone: libXfont2 with the server's own protocol types, and of libmd
 # only the hash the server takes.
-FROM /v0.1.4/demos/x11/Dollyfile-x11-build 95c655b41983436da0c52e67ff8b6331b72b550eed9247bd8debba0784ab036e
-USE /v0.1.4/demos/tools/Dollyfile-meson 3b615c29ec600328199110a14356637c5e947538280e9480082fc0696ba076c2
-USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf 8cdb9d3cd34e07c3602e2d86472ce108a1d171be12b4c9393921c876ec87f6fc
-USE /v0.1.4/demos/sdl2/Dollyfile-sdl2 3187a4f73b5b1849dc1593366e64365001094108fb5ed61a0b4f7fcff9fab310
-USE /v0.1.4/demos/x11/Dollyfile-pixman 47e649e0cf7a14770f9dffe832a9d983d82c01f01fe5b7bb4557ef49a1d23de7
-USE /v0.1.4/demos/x11/Dollyfile-libxkbfile 81c64139c660f7e5e51c0954d5697eb85b85655360b7073123c67c6f634b1cc7
-USE /v0.1.4/Dollyfile-zlib 452a10d1f7bf8b597c6e44e8c04e4849d5f3f182eed22f7796881518e8cd17b4
-USE /v0.1.4/demos/tools/Dollyfile-xz 5a398d69fe5758c566a8c11449e362c567511d0b86ff60c5c1ad02d2088abe9f
-USE /v0.1.4/demos/tools/Dollyfile-yacc ac9a3fd752c00215394c9c7cea56ead85fa1c0def9c70b00b19c55e603e0ed4f
-INSTALL /v0.1.4/demos/x11/Dollyfile-xkbcomp 9c2362db08b65b48c3b8526f5e8d54f80f421a16090223b515f141b0e0d772b3
-INSTALL /v0.1.4/demos/x11/Dollyfile-xkeyboard-config faab17815fe3a61c7f411f5ac07a279e2454c912e4a200b45195d123c04fb5f6
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build 799dda7c9d2a8ac32ab95ccb1c4e444f4ad9bc2c084421c9fb048110fe965b85
+USE /v0.1.4/demos/tools/Dollyfile-meson 06e166a6e345f6da7fcfdd16b474338eb2a615ec55938a71209cf5d725c32cfa
+USE /v0.1.4/demos/zero-ad/Dollyfile-pkgconf d3a2a8b58413fe815ed88c0042b9c887dbadb6932dc56e56d45b41117bfc0f26
+USE /v0.1.4/demos/sdl2/Dollyfile-sdl2 61510ab1dde2d995de187ae84d6332f59045b1ae7162279028b64b9a633266e9
+USE /v0.1.4/demos/x11/Dollyfile-pixman f497468a2854231107a226a69b0709f069bf6afd8695ea060d501f32ce57d313
+USE /v0.1.4/demos/x11/Dollyfile-libxkbfile 82ef345f1dd6c07eb77c492f1fd5464945bc967e5f9b6888dde3f5efc5fc0289
+USE /v0.1.4/Dollyfile-zlib 7e309cfa1cd127b146437685f2da2da15793ab412da37c06d8eaff2001398bde
+USE /v0.1.4/demos/tools/Dollyfile-xz 2f1d11ce34dc521cb813897a0cfad86c55334ea3e1e44e806b7790bc9907d6ac
+USE /v0.1.4/demos/tools/Dollyfile-yacc 5bee21aa9bea857b28f7e4add6286c6a1a0c818d20036116125b3ad0bde10b52
+INSTALL /v0.1.4/demos/x11/Dollyfile-xkbcomp 6a49ef48195452c055dceeed024aab7a27b5213c0026e52ad34310185b43f3a6
+INSTALL /v0.1.4/demos/x11/Dollyfile-xkeyboard-config ddbdcbcea641b302c573f69c142f553b98c724b132b369e46d53bab791fb8c25
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2
 REQUIRES LIB z

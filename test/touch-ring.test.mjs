@@ -78,10 +78,10 @@ test("a press is the holder's record, of the labels it was shown under", () => {
 });
 
 test("the holder's labels are read with the labels word", () => {
-  const { transport } = ring(), at = 64 + T.DOLLY_TOUCH_BUTTONS_OFFSET;
-  ["Menu", "↓"].forEach((label, index) =>
-    new Uint8Array(transport.view.buffer).set(new TextEncoder().encode(label), at + 8 + index * T.DOLLY_TOUCH_LABEL_SIZE));
-  transport.view.setUint32(at + 4, 2, true);
-  Atomics.store(transport.words, at / 4, 3);
+  const { transport } = ring(), at = offset => 64 + offset;
+  ["Menu", "↓"].forEach((label, index) => new Uint8Array(transport.view.buffer)
+    .set(new TextEncoder().encode(label), at(T.DOLLY_TOUCH_LABELS_OFFSET) + index * T.DOLLY_TOUCH_LABEL_SIZE));
+  transport.view.setUint32(at(T.DOLLY_TOUCH_LABEL_COUNT_OFFSET), 2, true);
+  Atomics.store(transport.words, at(T.DOLLY_TOUCH_BUTTONS_OFFSET) / 4, 3);
   assert.deepEqual(transport.buttons(), { labels: 3, texts: ["Menu", "↓"] });
 });
