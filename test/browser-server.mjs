@@ -55,7 +55,8 @@ export async function startBrowserServer(projectDir, image = "default", { fixtur
       response.writeHead(200, { ...headers, "content-type": "application/octet-stream" });
       response.end(request.method === "HEAD" ? undefined : Buffer.concat([
         tarArchive("./", Buffer.alloc(0), "5").subarray(0, 512),
-        tarArchive("./file", Buffer.from("root preserved")),
+        tarArchive("./dated/", Buffer.alloc(0), "5", 1000000000).subarray(0, 512),
+        tarArchive("./dated/file", Buffer.from("root preserved"), "0", 1200000000),
       ]));
     } else return false;
     return true;

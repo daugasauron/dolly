@@ -36,8 +36,7 @@ SLOP CWD /tmp/ghostty-gtk meson setup build-adw libadwaita-1.10.0 --wrap-mode=no
   -Dexamples=false -Ddocumentation=false "-Dc_args=-D_gtk_builder_check_parent=adw_gtk_builder_check_parent -D_gtk_builder_prefix_error=adw_gtk_builder_prefix_error -D_gtk_builder_error_unhandled_tag=adw_gtk_builder_error_unhandled_tag -D_gtk_builder_parser_translate=adw_gtk_builder_parser_translate -Dgtk_buildable_child_deprecation_warning=adwgtk_buildable_child_deprecation_warning"
 SLOP meson compile -C /tmp/ghostty-gtk/build-adw && meson install --no-rebuild -C /tmp/ghostty-gtk/build-adw
 
-# Zig hands a link to cc without the program's own flags, and asks cc for
-# libc's headers with -Wp,-v, which Dolly's cc answers to -v. This cc passes
+# Zig hands a link to cc without the program's own flags. This cc passes
 # all of it to Dolly's and gives Ghostty's link the rest: Binaryen's cast
 # emulation (GObject calls through pointers of other types), the X libraries,
 # Mesa's driver, which its EGL links, and libadwaita's resources, registered
@@ -65,7 +64,7 @@ FILE /tmp/ghostty-cc/cc.c
       char **args = calloc((size_t)argc + sizeof(ghostty) / sizeof(*ghostty) + 1, sizeof(char *));
       size_t n = 0;
       args[n++] = link && program ? "/bin/c++" : "/bin/cc";
-      for (int i = 1; i < argc; i++) args[n++] = strcmp(argv[i], "-Wp,-v") ? argv[i] : "-v";
+      for (int i = 1; i < argc; i++) args[n++] = argv[i];
       if (link && program) for (size_t i = 0; i < sizeof(ghostty) / sizeof(*ghostty); i++) args[n++] = (char *)ghostty[i];
       pid_t pid;
       int status;

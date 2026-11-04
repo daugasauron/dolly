@@ -45,7 +45,7 @@ FILE /etc/dolly/init.slop
     server=$!
     echo $server > /tmp/.X0-pid
     tries=0
-    until test -e /tmp/.X11-unix/X0 || test $tries = 3000; do tries=$((tries + 1)); done
+    until test -e /tmp/.X11-unix/X0 || test $tries = 600; do sleep 0.1; tries=$((tries + 1)); done
     GSK_RENDERER=cairo MESA_GL_VERSION_OVERRIDE=4.3 MESA_GLSL_VERSION_OVERRIDE=430 ghostty --command=direct:/bin/slop --shell-integration=none --gtk-single-instance=false --term=xterm-256color &
     wait $server
     printf 'The X server has ended.\n'

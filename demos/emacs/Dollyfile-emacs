@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # GNU Emacs 31.1 for the terminal. demos/emacs/prepare-emacs.sh patches and
 # configures the release outside; Dolly compiles every object and dumps it.
-FROM /v0.1.4/Dollyfile-system c70f3b842963a6101ae2699d788d6a747556ccc478af760696bf50c27043f342
+FROM /v0.1.4/Dollyfile-system 0000000000000000000000000000000000000000000000000000000000000000
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
 REQUIRES TOOL   ar
@@ -28,26 +28,6 @@ SLOP gzip -dc /tmp/emacs.tar.gz | tar -xf - -C /
 FILE /tmp/emacs-stack.c
     __asm__(".section .custom_section.dolly.process.stack,\"\",@\n.byte 1\n");
 SLOP cat /tmp/emacs-stack.c >> /tmp/emacs/src/emacs.c
-
-# Dolly's tar does not restore archive times. One time for every file lets
-# Make treat the generated files the release ships as current.
-FILE /tmp/emacs-release-time.c
-    #include <fcntl.h>
-    #include <stdio.h>
-    #include <sys/stat.h>
-    
-    int main(int argc, char **argv) {
-      const struct timespec release[2] = {{1787529600, 0}, {1787529600, 0}};
-      for (int index = 1; index < argc; index++) {
-        if (utimensat(AT_FDCWD, argv[index], release, 0) != 0) {
-          perror(argv[index]);
-          return 1;
-        }
-      }
-      return 0;
-    }
-SLOP cc /tmp/emacs-release-time.c -o /tmp/emacs-release-time
-SLOP find /tmp/emacs -type f -exec /tmp/emacs-release-time {} +
 
 # The release's byte-compiled Lisp is used as shipped: bootstrapping it from
 # source interprets the loadup files and overflows a browser Worker's stack.

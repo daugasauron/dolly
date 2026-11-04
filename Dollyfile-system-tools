@@ -24,7 +24,7 @@ SLOP tar \
 FILE /tmp/sbase/dolly.mk
     TOOLS = basename cksum cmp comm cut date dd dirname expand expr false fold \
             grep head join kill ln md5sum mktemp nl od paste pathchk \
-            printenv readlink rmdir sed seq sha256sum sleep sort split \
+            printenv readlink rmdir sed seq sha256sum sort split \
             strings tail tee tr true \
             tsort uname unexpand uniq wc which
     .RECIPEPREFIX := >
@@ -69,7 +69,6 @@ EXPORTS TOOL rmdir
 EXPORTS TOOL sed
 EXPORTS TOOL seq
 EXPORTS TOOL sha256sum
-EXPORTS TOOL sleep
 EXPORTS TOOL sort
 EXPORTS TOOL split
 EXPORTS TOOL strings

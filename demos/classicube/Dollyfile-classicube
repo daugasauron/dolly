@@ -12,11 +12,11 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 6ec930b3f3b791d8829b2ba5be09118cbe0cf9bc7ccb3c6a7c9428e4b591b66f
-COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 4ff0c9acb940faaaea93f3aa71795bcabfefb23b1f90b4cd7c367491d45954f2 /usr/bin/classicube /usr/bin/classicube
-COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 4ff0c9acb940faaaea93f3aa71795bcabfefb23b1f90b4cd7c367491d45954f2 /usr/share/classicube /home/dolly/classicube
-COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 4ff0c9acb940faaaea93f3aa71795bcabfefb23b1f90b4cd7c367491d45954f2 /usr/share/licenses/classicube /usr/share/licenses/classicube
-INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 8eaf362ca1f0bc961c414e173412c6948df2e0fab546f778deb22edb3e114993
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 0000000000000000000000000000000000000000000000000000000000000000
+COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 0000000000000000000000000000000000000000000000000000000000000000 /usr/bin/classicube /usr/bin/classicube
+COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 0000000000000000000000000000000000000000000000000000000000000000 /usr/share/classicube /home/dolly/classicube
+COPY /v0.1.4/demos/classicube/Dollyfile-classicube-build 0000000000000000000000000000000000000000000000000000000000000000 /usr/share/licenses/classicube /usr/share/licenses/classicube
+INSTALL /v0.1.4/demos/sdl2/Dollyfile-sdl2 0000000000000000000000000000000000000000000000000000000000000000
 EXPORTS TOOL classicube
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner

@@ -14,8 +14,8 @@ DOLLY_LLVM22_SHA256=922f1817a0df7b1489272d18134ee0087a8b068828f87ac63b9861b1a996
 DOLLY_LLVM_URL='https://github.com/llvm/llvm-project.git'
 # The seed's compiler and Clang's resource headers, as the llvm-cc image built
 # them from DOLLY_LLVM_COMMIT (demos/llvm/pin-seed-compiler.mjs writes both lines).
-DOLLY_SEED_COMPILER_URL='https://github.com/daugasauron/dolly/releases/download/v0.1.4/dolly-seed-compiler-a2c771b8ba411a27f422261fc9f46257a9ec49544aa7c77eb813de23b5cbfa74.tar'
-DOLLY_SEED_COMPILER_SHA256=a2c771b8ba411a27f422261fc9f46257a9ec49544aa7c77eb813de23b5cbfa74
+DOLLY_SEED_COMPILER_URL='https://github.com/daugasauron/dolly/releases/download/v0.1.4/dolly-seed-compiler-ad88241f579232edfc1d127ddb4ceb5aa209df7520a1b8065665004bfbf85762.tar'
+DOLLY_SEED_COMPILER_SHA256=ad88241f579232edfc1d127ddb4ceb5aa209df7520a1b8065665004bfbf85762
 
 DOLLY_SBASE_COMMIT=c546c3a5724c81cee9a11d816a38ccdf17472129
 DOLLY_SBASE_URL='https://git.suckless.org/sbase'
@@ -503,12 +503,9 @@ DOLLY_MESA_VERSION=26.2.5
 DOLLY_MESA_URL='https://archive.mesa3d.org/mesa-26.2.5.tar.xz'
 DOLLY_MESA_SHA256=794b3d1729075dae7ebd47c7283b7ca0cdb5dec668f7f11cc0a5d82f6138a0a5
 
-# Ghostty's GTK application (demos/ghostty-gtk): Ghostty's signed release
-# tarball of DOLLY_GHOSTTY_COMMIT (PACKAGING.md; minisign key
-# RWQlAjJC23149WL2sEpT/l0QKy7hMIFhYdQOFy0Z7z7PbneUgvlsnYcV), Mesa's Python
-# modules, libadwaita, and the host's Zig, which fetches Ghostty's packages.
-DOLLY_GHOSTTY_RELEASE_URL='https://release.files.ghostty.org/1.4.0/ghostty-1.4.0.tar.gz'
-DOLLY_GHOSTTY_RELEASE_SHA256=cb188ac6c3a8278d5fd7bfef15d8c017104c87f638b5560eb38024a71ae0f005
+# Ghostty's GTK application (demos/ghostty-gtk): Mesa's Python modules,
+# libadwaita, blueprint-compiler, and the host's Zig, which fetches Ghostty's
+# packages.
 DOLLY_MAKO_URL='https://files.pythonhosted.org/packages/6d/a0/053d6af3e8f871e0073b4a36732d9e65be77a72e5434c31b94f6af78a6bb/mako-1.4.3-py3-none-any.whl'
 DOLLY_MAKO_SHA256=723296007c870bfd6b3f0c3230dba7198096e5269297ebf5e4eff9e7ffa39d4f
 DOLLY_MARKUPSAFE_URL='https://files.pythonhosted.org/packages/7e/99/7690b6d4034fffd95959cbe0c02de8deb3098cc577c67bb6a24fe5d7caa7/markupsafe-3.0.3.tar.gz'
@@ -520,6 +517,9 @@ DOLLY_PACKAGING_SHA256=d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339
 DOLLY_LIBADWAITA_VERSION=1.10.0
 DOLLY_LIBADWAITA_URL='https://download.gnome.org/sources/libadwaita/1.10/libadwaita-1.10.0.tar.xz'
 DOLLY_LIBADWAITA_SHA256=b1bf56239269d101a6391ad4553c910eff9cc6170b803916405477ef60a66c84
+DOLLY_BLUEPRINT_COMPILER_VERSION=0.18.0
+DOLLY_BLUEPRINT_COMPILER_URL='https://gitlab.gnome.org/GNOME/blueprint-compiler/-/archive/v0.18.0/blueprint-compiler-v0.18.0.tar.gz'
+DOLLY_BLUEPRINT_COMPILER_SHA256=703c7ccd23cb6f77a8fe9c8cae0f91de9274910ca953de77135b6e79dbff1fc3
 DOLLY_ZIG_HOST_URL='https://ziglang.org/download/0.17.0/zig-x86_64-linux-0.17.0.tar.xz'
 DOLLY_ZIG_HOST_SHA256=1cbe9df9f27e6b78d14ccbca43b6703a404ef79ef1c463de901d7f088d4e2026
 DOLLY_BINARYEN_VERSION=133

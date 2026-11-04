@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
 SOURCE /v0.1.4/docs/process-model.md 11651b55eebec4b98cd9ed1a1fae3f231b36747f61e2093a333aaa8d89b0791c /usr/share/doc/dolly/docs/process-model.md
 SOURCE /v0.1.4/docs/browser-stack.md 510aedea0f483190faf6f8fd775378e99b8d39aebdf62e5b0cb1210e443c20f3 /usr/share/doc/dolly/docs/browser-stack.md
-SOURCE /v0.1.4/docs/slop.md d9709260ed57c37871810a4873ca1e827ed6240283ea1949f0145cff5178230a /usr/share/doc/dolly/docs/slop.md
+SOURCE /v0.1.4/docs/slop.md 3bf0f2e98f398631925760c807b04341e51016c753c678d75b8a59c4cee73ce7 /usr/share/doc/dolly/docs/slop.md
 SOURCE /v0.1.4/docs/display.md 28a918810fa5a95b55c3ac05196d39cd4a8c21a38beffb93eef6dbaad198d248 /usr/share/doc/dolly/docs/display.md
 SOURCE /v0.1.4/docs/gpu.md bfd3b4ce7c8b29cf58fa33d3faa1b3a315892808ed7e2d5b19415589d48836b3 /usr/share/doc/dolly/docs/gpu.md
 SOURCE /v0.1.4/docs/audio.md 2380b483c106b884e3e97ed3de8eaac9467e8e2a0307b878bddf620401d43e9f /usr/share/doc/dolly/docs/audio.md
