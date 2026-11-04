@@ -9,8 +9,8 @@ REQUIRES HOST sockets@0
 # no fork, so xterm runs in its own slave mode (-S): xterm-pty, Dolly's part,
 # opens the pseudo-terminal, starts xterm on its master and the shell on its
 # slave. It is installed as xterm; upstream's program is /usr/libexec/xterm.
-FROM /v0.1.4/demos/x11/Dollyfile-x11-build 340f897be52f067dc1726aaca63bf78350b10b9a62faa41ad44de3dbd7535571
-USE /v0.1.4/demos/tmux/Dollyfile-libterminfo 90f59896770f884d9c8e46523c5a36db6ed1fc9a5e90f296f7db5156de347eaf
+FROM /v0.1.4/demos/x11/Dollyfile-x11-build 7c14af5a66f4fd85fd8442e0189b432a457836b9ae6e23abbcd7beba38dfc2f4
+USE /v0.1.4/demos/tmux/Dollyfile-libterminfo 4f2647b64287927aa0767301c4bbf400942f2cb64889fc380cf3f5e34cc95189
 
 REQUIRES HEADER term
 REQUIRES LIB terminfo

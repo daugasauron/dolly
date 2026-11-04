@@ -5,8 +5,8 @@ REQUIRES HOST runtime@0
 # less over GNU termcap, both from upstream's release archives, unchanged.
 # The terminal's entry is /etc/termcap, which the display package holds. less
 # is used under its own licence; termcap makes the program a GPL one.
-FROM /v0.1.4/Dollyfile-system-tools 9fd1929bbf586e2a15e3e4d2248e89273df2185b214b5e590e3b6f82549a89d9
-USE /v0.1.4/Dollyfile-mandoc cf1c51470fd360d80260e5f0d99eab5c41445997c40d7af3131afc2646113e14
+FROM /v0.1.4/Dollyfile-system-tools 24f71dd82efe856bb13fa9b8776182b9dcf4474844aa0a700751ab43338e29a8
+USE /v0.1.4/Dollyfile-mandoc 81bb150f66b4b4bdea4d02994741d801292be8765a34aa10bb618ec39bcfe7a7
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc

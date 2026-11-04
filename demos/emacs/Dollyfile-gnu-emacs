@@ -9,8 +9,8 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/Dollyfile-system 0e41a43bd5c339eba2157cc3b47c588a203bffa712b1f6462f220fff0b980978
-INSTALL /v0.1.4/demos/emacs/Dollyfile-emacs 44af3220ceac66d488a733c7fbfb7d8df0e654d463686be3b0716a380bc85806
+FROM /v0.1.4/Dollyfile-system c70f3b842963a6101ae2699d788d6a747556ccc478af760696bf50c27043f342
+INSTALL /v0.1.4/demos/emacs/Dollyfile-emacs 9191cf12537ba1f7ffee0630f6ae49c8a917daa04d7216f378eed40721c6d446
 
 FILE /usr/share/emacs/welcome.txt
     GNU Emacs inside Dolly
