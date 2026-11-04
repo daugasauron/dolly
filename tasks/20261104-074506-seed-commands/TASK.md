@@ -107,3 +107,25 @@ Work on `core/seed-commands` (`work/signals`), on `integrate/2026-11-03` (seed `
   - `demos/ghostty-gtk`'s cc wrapper drops its `-Wp,-v` → `-v` mapping;
   - zig-llvm's `libc.txt` comment says what it is for: Emscripten's headers and the crt
     directory Zig does not look for on this host.
+
+## Lessons
+
+- The brief and the task named `src/commands/cc.c` for `-Wp`; `cc.c` is 17 lines that forward
+  every option to the driver in `src/compiler.cpp`. Reading the 17 lines first turned "a seed
+  command change" into "a compiler round", which changes what can be verified in a day.
+- "A hand-written libc.txt is a workaround the driver's missing option caused" was half true.
+  Zig's own source (`LibCInstallation.findNative`, `Compilation.create`) and one probe with a
+  10-line cc wrapper that does what the driver change will do settled it in minutes, before any
+  compiler round: the C-backend package's file goes, zig-llvm's carries two other things. A
+  wrapper that emulates an unbuilt fix is a cheap way to test a decision's premise.
+- A check must fail when its input is missing. The first sleep check redirected the output of
+  Slop's `time` keyword, which reports on the shell's stderr, so awk read an empty file and
+  passed. tar's check was run against the old tar first and failed as it should; the sleep check
+  was not, and only a probe that printed the numbers showed it measured nothing.
+- The checkout server refuses to start when a recipe differs from the built catalog: editing
+  recipes to split commits while browser tests ran failed all three. Split commits before or
+  after a browser run, never during one.
+- A demo test that installs a package needs that package in the narrowed catalog: x11's test
+  types into xterm after `amy install tmux`; without tmux the keystrokes went to a plain shell
+  and the test failed at its last step, far from the cause. Read a failing test's screenshot
+  before suspecting the change.
