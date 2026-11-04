@@ -4,12 +4,14 @@
 - PRIORITY: 250
 - TAGS: tests,0.1.5
 
-## State (2026-11-05 02:45 JST): both done on `fix/tests-r1`; close after the round
+## State (2026-11-05 02:50 JST): both done on `fix/tests-r1`, and gpu-fluid's test; close after the round
 
-Both fixes are committed and verified in this tree (image inputs `88959af6`). The round must
-build `slopyard-build` (new), `slopyard-game` and `slopyard`, then run
-`demos/slopyard/test/slopyard-browser.mjs` on a GPU window as before (one command, one
-server). Close when the round's run passes.
+Both fixes are committed and verified in this tree (image inputs `88959af6`), and a third of
+the same kind found on the way (section 3). The round must build `slopyard-build` (new),
+`slopyard-game` and `slopyard`, then run `demos/slopyard/test/slopyard-browser.mjs` on a GPU
+window as before (one command, one server). Its GPU block does not run
+`demos/gpu-fluid/test/gpu-fluid-browser.mjs chromium`; adding it would have caught section 3.
+Close when the round's slopyard run passes.
 
 ## 1. Slopyard's test compiled in an image without a compiler
 
@@ -90,7 +92,21 @@ and the mailbox, which runs in the Worker, could not share it.
 Verified: source suite 475 of 475 three runs in a row while image builds ran (go, fingers,
 lean-stage0 in a build slot; the old test beside them failed 1 of those 3), and three runs of
 three suites at once (`build/tests-r1-evidence/suite-load-*.log`, `suite-heavy-*.log`). The new
-test takes 15 ms.
+test takes 15 ms. It fails on a broker whose timeout bounds the whole request (the rule before
+cd29b091d) and on one that cuts a millisecond early (two mutants of a scratch copy of the broker).
+
+## 3. gpu-fluid's test ran `download`, which gpu-fluid no longer has
+
+Run on the same GPU window to prove the other R1 application the module-audit task left
+unproven: `gpu-fluid-browser.mjs` timed out waiting for a download (`gpu-fluid.log`). R1 made
+gpu-fluid `core`, `posix`, `display` and `fluid`, five modules without `download@0`; the test
+ran `download /tmp/fluid.packets` to carry the gpu@0 packets fluid records (`FLUID_RECORD`) to
+its server for the direct replay. The application needs no download; the test needs the file.
+gpu-fluid declares `snapshot@0`, so the page now saves the session and the replay takes
+`/tmp/fluid.packets` from it, as the classicube and bhop tests read their files (096865870).
+Chromium on the GPU window: `fluid --check` and four benches, each replay equal to Dolly's
+run, two interrupts and the boundary proof pass (`gpu-fluid-4.log`). Firefox gets no WebGPU
+adapter on this Xvfb, before any step, as before (f75eddfc8 proved Chromium only).
 
 ## Not done
 
@@ -108,6 +124,10 @@ test takes 15 ms.
   removed the compiler from the application; the fix was not to put one back but to give the
   game's build an image of its own (the toolchain), which also took the static archives out of
   the application. Before choosing where a test step runs, ask which image is for that step.
+- When R1 changes what an application holds, grep its tests for the commands they run, not only
+  its programs: gpu-fluid's test ran `download` and failed the first time it was run after R1.
+  No round runs it (the GPU block runs slopyard, local-llm and 0 A.D.), so it would have stayed
+  broken until someone opened it by hand.
 - A flaky bound is worth measuring before widening: e0951149c widened the margins against the
   drain's lag, but tonight's three failures were all the lower bound, off by under a
   millisecond, which no margin on the same clock fixes. Controlled time (Node's mock timers and

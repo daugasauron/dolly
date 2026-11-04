@@ -13,9 +13,9 @@ in "Counts after" below, checks in "Checks". Done-when 2 to 4 hold here; the rou
 them over the whole catalog. R3, R4 and R5 are `tasks/20261104-143110-modules-r3`, `-r4`, `-r5`.
 
 Applications not proven in a browser tonight, for the round:
-- gpu-fluid and slopyard: their tests need a GPU window. slopyard's test also compiles C
-  fixtures and uploads files in the slopyard image, which holds no compiler now: its compile
-  steps belong in a toolchain image (gamedev-sdk with slopyard-game's libraries).
+- gpu-fluid and slopyard: pass on a GPU window in Chromium on `fix/tests-r1`
+  (`tasks/20261104-171230-tests-r1`): slopyard's fixtures compile in the new `slopyard-build`,
+  and gpu-fluid's test reads fluid's packet record from a session save instead of `download`.
 - xonotic: no test opens the application (`demos/xonotic/test` opens xonotic-build); a smoke
   run saw its client take the display (see "Checks").
 - wine in Firefox: passes alone, failed twice beside an image build (GIMP's second start).
