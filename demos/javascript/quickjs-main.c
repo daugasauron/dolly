@@ -896,8 +896,9 @@ static JSValue js_dolly_read_raw(JSContext *context, JSValueConst this_value,
   return JS_NewUint8ArrayCopy(context, bytes, length);
 }
 
-// Node's raw mode clears line editing, echo and ISIG, so Ctrl+C arrives as
-// input; leaving raw mode restores the mode it replaced.
+// Node's raw mode (libuv's) clears line editing, echo, ISIG and ICRNL, so
+// Ctrl+C and Enter arrive as typed; leaving raw mode restores the mode it
+// replaced.
 static int janis_cooked_mode = -1;
 
 static JSValue js_dolly_set_raw_mode(JSContext *context, JSValueConst this_value,
@@ -905,10 +906,11 @@ static JSValue js_dolly_set_raw_mode(JSContext *context, JSValueConst this_value
   (void)this_value;
   const int raw = argc >= 1 && JS_ToBool(context, argv[0]) == 1;
   if (raw == (janis_cooked_mode >= 0)) return JS_UNDEFINED;
-  const uint32_t line = DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO | DOLLY_TERMINAL_ISIG;
+  const uint32_t cleared = DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO | DOLLY_TERMINAL_ISIG |
+      DOLLY_TERMINAL_ICRNL;
   const int mode = raw ? dolly_terminal_mode_get(STDIN_FILENO) : janis_cooked_mode;
   const int result = mode < 0 ? mode : dolly_terminal_mode_set(
-      STDIN_FILENO, raw ? (uint32_t)mode & ~line : (uint32_t)mode);
+      STDIN_FILENO, raw ? (uint32_t)mode & ~cleared : (uint32_t)mode);
   if (result < 0) {
     return JS_ThrowInternalError(context, "setRawMode failed: %s", strerror(-result));
   }

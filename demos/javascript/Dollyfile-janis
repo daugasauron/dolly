@@ -8,8 +8,8 @@ REQUIRES HOST http@0
 # a finite node:* surface over Dolly's files, processes and HTTP. The runner
 # is a library too: a program that is one script (tsc, pi, a game's agent)
 # links -ldolly-js -lquickjs and reads the two scripts kept here when it starts.
-FROM /v0.1.4/Dollyfile-system-tools d1d2bdd35dda6ee66cd117f4d7a26d6a2addb44ea803b80f30fed665cca1475a
-INSTALL /v0.1.4/demos/javascript/Dollyfile-quickjs af6df04087e93558679353a5cf320747c5503bd38c25419fa16db2b5027ae0f5
+FROM /v0.1.4/Dollyfile-system-tools 2c2f88153b86937019eab414e08b6c5b78cf2d96ed3049e2b8219c6fcfaf678b
+INSTALL /v0.1.4/demos/javascript/Dollyfile-quickjs d2e82eb539088bdee226c8f43b23f3a62494a802d8ffa244f30d8ba345a7f043
 
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
@@ -21,7 +21,7 @@ REQUIRES TOOL   ar
 REQUIRES TOOL   cc
 REQUIRES TOOL   mkdir
 
-SOURCE /v0.1.4/dist/static/default/runtimes/quickjs-main.c   d8d0b1c931c5c1932c630b2fa4d51be7a3f9f392c3d19e954b66280a4a9ecb62 /tmp/janis/quickjs-main.c
+SOURCE /v0.1.4/dist/static/default/runtimes/quickjs-main.c   4cd295e542c1280630fd9e4185cd94822193b928c4b88ac05e1a4c38ba163715 /tmp/janis/quickjs-main.c
 SOURCE /v0.1.4/dist/static/default/runtimes/quickjs-runner.h cb2ae27cc02ed3d90b43eeb924f474b01fa8d7598f1e5989b0de3fcd12c2a97f /usr/include/dolly/quickjs-runner.h
 SOURCE /v0.1.4/dist/static/default/runtimes/dolly-node.js    d7e19c4bb4f46cce32ccbe2130e5f5e9203c1ba185cf0d0a9952f5d1b1ecabd3 /usr/lib/dolly/node.js
 SOURCE /v0.1.4/dist/static/default/runtimes/janis.js         15c3714d0cb57b7a20daad2e775604c26af47868f999be3c922005c36171b47f /usr/lib/janis/runtime.js

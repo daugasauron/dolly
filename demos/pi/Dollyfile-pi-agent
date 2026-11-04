@@ -14,10 +14,10 @@ REQUIRES HOST threads@0
 REQUIRES HOST touch@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime c2ed7f061e7404c153fa7a5142cbdbb836bafaf1b5ce060820667b77533aae38
-INSTALL /v0.1.4/Dollyfile-amy 9d5158f0cf6619720fb39e12d5558631ece48a5562644f21f6b80c80ed2f5c7b
+FROM /v0.1.4/demos/pi/Dollyfile-pi-runtime 7666fae2e3f771bf0eecb3f80f9c52faa33b27e7fdab9c1df2a5603ccd7756b0
+INSTALL /v0.1.4/Dollyfile-amy d5d09761650f0bc0b89787b38fa72100e73bc43c8b9bdcb886f9e999be6c6bee
 # nena enables the host modules a package needs beyond these, as in default.
-INSTALL /v0.1.4/Dollyfile-nena d79d6535ef5f9a1334c7b9693564496ea482dec7101b89c35649fb77b7c502d8
+INSTALL /v0.1.4/Dollyfile-nena 56676a95c83f9c3d83dc7368a18a3f82390082996501fafff45afbb425d11cd1
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL printf

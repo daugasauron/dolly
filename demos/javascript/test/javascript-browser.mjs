@@ -147,5 +147,13 @@ await demoTest("javascript", { image: "typescript", timeout: 600_000, browser: p
   const [, first] = /READS-(\d+)[-\d]*-END/.exec(await waitText(/READS-[-\d]*-END/));
   assert.ok(Number(first) > 256, `the first read took ${first} bytes`);
   assert.equal(await late.done, 0);
+  // Raw mode reads Enter as CR, as Node's does: it clears the terminal's ICRNL.
+  const enter = start("janis -e '" + [
+    "process.stdin.setRawMode(true); process.stdout.write([\"ENTER\", \"NOW\"].join(\"-\") + \"\\n\");",
+    "process.stdin.once(\"data\", chunk => { process.stdin.setRawMode(false); process.exit(chunk[0] === 13 ? 0 : 1); }); process.stdin.resume();",
+  ].join(" ") + "'");
+  await waitText(/ENTER-NOW/);
+  await page.keyboard.press("Enter");
+  assert.equal(await enter.done, 0);
   await run(`cd /workspace && rm -rf ${scratch}`);
 });
