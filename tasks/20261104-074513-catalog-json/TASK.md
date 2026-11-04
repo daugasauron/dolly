@@ -43,7 +43,7 @@ await rm("dist/dolly-images.mjs", { force: true });
 | emacs demo (gnu-emacs rebuilt) | passed | passed |
 | tmux demo (tmux-panes and vi rebuilt) | passed | passed |
 | python-data demo (python-data and openblas rebuilt) | passed | passed |
-| studio demo (its chain rebuilt): fails before the changed lines, on `dollyfile-build` of `examples/tool.in`, which declares system's host modules by hand without html@0 (as do `hello.in` and `skills/dollyfiles/SKILL.md`); reported to the integrator with the html@0 fix | failed | |
+| studio demo (its chain rebuilt): fails before the changed lines, on `dollyfile-build` of `examples/tool.in`, which declares system's host modules by hand without html@0 (as do `hello.in` and `skills/dollyfiles/SKILL.md`). The integrator fixes them on integrate after the night round, then rebuilds dollyfile-studio and reruns the demo | failed | |
 | `tools`, `cpython` and `gamedev` artifact tests, `zig-sdk.artifacts.mjs`, and dolly.artifacts' three catalog tests | passed (Node) | |
 
 `published-version.mjs boot` checks every published version after a deployment (checklist
