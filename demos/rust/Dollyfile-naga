@@ -3,7 +3,7 @@ PACKAGE naga
 REQUIRES HOST runtime@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.4/demos/rust/Dollyfile-rust-build 29cf971c0eec44dcfb526a68d2d40454aa828583ed98a596486c2dbb0d7fdb63
+FROM /v0.1.4/demos/rust/Dollyfile-rust-build 9f4d49f1170ee91db2201a0b5c91456c2e5fb8ed7b3d5fd1eb66c7e0e35b1c85
 REQUIRES TOOL cargo
 REQUIRES TOOL gzip
 REQUIRES TOOL tar

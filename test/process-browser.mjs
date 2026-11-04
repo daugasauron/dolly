@@ -250,6 +250,16 @@ await browserTest("startup script", {}, async ({ open }) => {
   const nextShell = previous => page.evaluate(({ source, previous }) =>
     __dolly.waitForInteractiveTerminal(new RegExp(source), "nested shell", previous), { source: prompt.source, previous });
   const type = text => page.evaluate(async line => { if (!await __dolly.input(line)) throw new Error("input mailbox full"); }, `${text}\r`);
+  // default opens in /workspace, where the boot starts the image's first
+  // process; a shell starts where it is started.
+  await run('test "$(pwd)" = /workspace && test "$PWD" = /workspace');
+  await type("cd /tmp && slop");
+  const nested = await nextShell(outer);
+  assert.equal(await result(() => type('test "$(pwd)" = /tmp && test "$PWD" = /tmp')), 0);
+  assert.equal(await nextShell(0), nested);
+  await page.keyboard.press("Control+d");
+  await page.waitForFunction(outer => __dolly.foregroundPid === outer, outer);
+  await run('test "$(pwd)" = /tmp && cd /workspace');
   for (const [name, rc] of [
     ["failed", "exit 7"],
     ["missing", null],

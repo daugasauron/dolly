@@ -252,8 +252,8 @@ mounted, and reads no other version's.
 
 ## Entry and startup
 
-The browser runs the retained ENTRY once, and only an image with ENTRY and
-`display@0` can be opened. Applications enter
+The browser runs the retained ENTRY once, in `/workspace` (`PWD` says so),
+and only an image with ENTRY and `display@0` can be opened. Applications enter
 `/bin/foreground -i /bin/slop /etc/dolly/init.slop`, which starts the program
 and then a recovery shell; toolchains that can be opened enter
 `/bin/foreground -i /bin/slop`. The image ends when its ENTRY process does:

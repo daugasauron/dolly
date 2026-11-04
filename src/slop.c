@@ -5734,14 +5734,6 @@ static void print_prompt(void) {
 }
 
 static int interactive(Shell *shell) {
-  if (mkdir("/workspace", 0755) != 0 && errno != EEXIST) {
-    fprintf(stderr, "slop: /workspace: %s\n", strerror(errno)); return 1;
-  }
-  if (chdir("/workspace") != 0) { fprintf(stderr, "slop: /workspace: %s\n", strerror(errno)); return 1; }
-  if (set_variable("PWD", "/workspace") != 0) {
-    fprintf(stderr, "slop: PWD: %s\n", strerror(errno));
-    return 1;
-  }
   if (variable_value("HISTFILE") == NULL &&
       set_variable("HISTFILE", "/home/dolly/.slop_history") != 0) {
     fprintf(stderr, "slop: HISTFILE: %s\n", strerror(errno));

@@ -6,10 +6,10 @@ REQUIRES HOST threads@0
 
 # speech-to-text, linked against the transcribe package, with the model it
 # reads. Silero VAD tells speech from other sound.
-FROM /v0.1.4/Dollyfile-system ea0e4b7e9f6c5ca63cab88ea929122ee8463a78426f514094fd7af23e45f3618
+FROM /v0.1.4/Dollyfile-system ed211172d3bda75bf6bd97910d4a0860cce4dc05dbb4394bd0b03a61daf6e7d0
 INSTALL /v0.1.4/demos/speech/Dollyfile-parakeet 45ac10e361a0746ba603aef41eedb00a06bd70c2a1cc76894e4dbda68995e7f5
-USE /v0.1.4/demos/speech/Dollyfile-transcribe a8641abd87d44b983c9f4e2fc678bcc93f7a5279a9c161a44589a6fc206a35ef
-USE /v0.1.4/Dollyfile-libdolly-microphone 796bf5e08c1bdf80e79b1a4ff2f6ab20e0dbab899fe63bf350f0a2c05fa6940e
+USE /v0.1.4/demos/speech/Dollyfile-transcribe d4a21a69b2d82d80fafd77657bb546cc1cb6ae63b8e19122e2e21a510a24ad13
+USE /v0.1.4/Dollyfile-libdolly-microphone 87c58e724bbd7aaf5ecd0ca08c1737f12b645ac54e610979506f4348968866eb
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL tar
