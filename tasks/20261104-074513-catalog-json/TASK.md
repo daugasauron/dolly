@@ -1,6 +1,6 @@
 # The image catalog and metadata are JSON, not modules
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: catalog,site,npm,cleanup,0.1.5
 
@@ -114,3 +114,13 @@ boots the new layout; the release checklist names the version it goes with.
 - An edit to the review map the boundary requires is not free: `Dollyfile-dolly-docs` pins
   `docs/browser-boundary.md`, so every boundary decision rebuilds dolly-docs and the 11 images
   of the Pi chain built on it.
+
+## Closed (2026-11-05)
+
+The checks left for the round passed in the v0.1.5 candidate round on `integrate/2026-11-05`
+(`38b7254bb`, evidence `work/integrate/build/round-1105rc-evidence/`): the studio demo in
+Chromium, the browser suites (`test/amy-browser.mjs` among them) in Chromium and Firefox, the
+llvm demo (llvm-cc, llvm package, llvm-runtimes) in both browsers, and the artifacts' 26 tests,
+dolly.artifacts' sealing test over every snapshot included. `published-version.mjs boot` of
+v0.1.0 to v0.1.4 (the module catalogs) and v0.1.5 (the JSON) from one deployment served by
+`test/pages-host.mjs` passed in both browsers (`dryrun-boot.log`, the sites of `f348177dc`).

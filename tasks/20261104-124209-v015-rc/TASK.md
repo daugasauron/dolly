@@ -8,6 +8,28 @@ Owner (2026-11-04 21:40): "Ok go ahead with your plan, I want to target 0.1.5. T
 lean, I absolutely want to include lean in 0.1.5." A candidate is local: nothing is pushed,
 published or deployed until the owner says so (as for `tasks/20261029-230000-v014-rc`).
 
+## State (2026-11-05, 21:40): candidate green; waits for the npm flow
+
+Done on `integrate/2026-11-05`: steps 1 to 5. The candidate round (`work/round-1105-rc.sh`,
+log `work/integrate/build/round-1105rc.log`) pinned the compiler llvm-cc links (`4149e5c4c`),
+built every image, and reached the fixed point: llvm-cc built by that seed linked the same
+compiler. The day's branches merged after it (janis ignores SIGPIPE, the header rules, the
+plots, the tasks), and their 22 images rebuilt with the digests the branch's own build had.
+Suites on `38b7254bb`: source 475, artifacts 26, the browser suites and the npm packages in
+both browsers, every demo (Lean in both browsers), GPU stage green (local-llm's Firefox turn
+hung once, rerun green: `tasks/20261105-173501-local-llm-turn`). Both sites packaged and
+accepted; served locally (`test/pages-host.mjs`), v0.1.0 to v0.1.5 boot in both browsers,
+`amy install lean` works from the served site in both (45 s, 62 s), the deployment has 93
+header rules and 18,618 files, GitHub Pages 831 MB. Fixed on the way: acceptance in a profile
+on disk (`b78a5be95`), the checklist's AWS key pattern (`7b353f851`).
+
+Left: the owner's npm requirement of 2026-11-05 (`tasks/20261105-213000-npm-offline`, branch
+`core/npm-offline`): an image and packages from npm served, built on with dolly-build and
+packaged for a static host, with no request beyond the machine after `npm install`. The npm
+packages are this release's, so after that branch merges: rebuild what it changes, then
+`work/release-1105.sh` (packaging, the full catalog, `scripts/release-checklist.sh`), the
+served boot and Lean checks again, and step 7.
+
 ## Scope (`tatr ls :0.1.5`)
 
 - What `main` holds since v0.1.4 (576 commits at `ebffaaad8`, 2026-11-04) and the night round's
