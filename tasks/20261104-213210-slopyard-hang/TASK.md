@@ -20,10 +20,12 @@ Measured (Chrome 156, headless; scratch harnesses in `build/hangs-evidence/`, no
 | the same with the reader in a global set | 30 of 30 read |
 | an in-memory `Blob`; an origin-private file | 20 of 20, 20 of 20 never end |
 | a `fetch` body | 20 of 20 read |
+| a default reader (not BYOB) on a posted `File`, on an in-memory `Blob`; `for await` over a `Blob`'s stream; a `Blob` through a `DecompressionStream` | 10 of 10 read in each |
 | `upload-loop.mjs`: `upload` in `system`, as slopyard's test makes it, with `--expose-gc` and four `gc()` 0-5 ms after the read starts (a probe line in transport.mjs) | the first upload hangs, 2 of 2 runs: the dialog says "Uploading slopyard-controller-arguments.c", "0.0 of 0.0 MiB", as in the hang below |
 | the same with the fix | 30 of 30 uploads |
 
-A `gc()` in the same task as the read's start does not hang it: the stream is collectable once
+So the defect is Chrome's BYOB read of a `Blob`'s stream, and Dolly has one BYOB reader, this
+one. A `gc()` in the same task as the read's start does not hang it: the stream is collectable once
 its read waits on the browser. So the hang needs a full collection in the runtime Worker within
 the milliseconds the read waits, which is why it came about once in 1,770 uploads and never with
 the earlier tracing.
