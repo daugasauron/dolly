@@ -140,7 +140,10 @@ for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local,dollyfile-studio').s
           for(let attempt=1;;attempt++) {
             await type(`Create /workspace/${file} containing the word dolly, then show it with cat.`);
             await until(/Working/,'working model',60000);
-            for(let quiet=0;quiet<4;await page.waitForTimeout(500))quiet=/Working/.test(await text().catch(()=>'Working'))?0:quiet+1;
+            for(let quiet=0,end=Date.now()+600000;quiet<4;await page.waitForTimeout(500)) {
+              quiet=/Working/.test(await text().catch(()=>'Working'))?0:quiet+1;
+              assert.ok(Date.now()<end,`${image} ${name}: the turn on ${file} did not end:\n${await text().catch(()=>'')}`);
+            }
             await type(`! grep -q dolly /workspace/${file} && printf 'FILE${attempt}-%s\\n' WRITTEN || printf 'FILE${attempt}-%s\\n' MISSING`);
             if((await until(new RegExp(`FILE${attempt}-(WRITTEN|MISSING)`),'file check')).includes(`FILE${attempt}-WRITTEN`))return;
             assert.ok(attempt<3,`${image} ${name}: ${file} was not written:\n${await text()}`);
