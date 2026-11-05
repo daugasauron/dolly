@@ -16,13 +16,28 @@ The owner, 2026-11-05:
 
 The integrator moved it from 0.1.5 to 0.1.6 (2026-11-05 22:10): 0.1.5 ships without it.
 
-## State (2026-11-05 22:40 JST)
+## State (2026-11-05 23:30 JST)
 
 Done on `core/npm-offline`: the data libraries are packages; npm packaging reads
 `config/npm-images.txt`, a package depends on the packages it installs, and every directory
 carries an amy-index.txt; `dolly-build` writes a static site; `test/npm-browser.mjs` runs the
 flow offline and passed in Chromium and Firefox with an empty record; the python demo's
-python-data test passed in both and its new numpy case in Chromium. Left: the merge (below).
+python-data test passed in both and its new numpy case in Chromium. Left: the merge (below),
+and then publishing the list at 0.1.6, the owner's step.
+
+## Merge notes
+
+- `git merge-tree` against `integrate/2026-11-05` at 15929916a: no conflicts (README.md changed
+  on both sides, apart). Integrate's repins (dolly-docs and its dependents) touch no recipe of
+  this branch, and this branch's pins (python, python-data-build) are integrate's.
+- Images: `numpy`, `python-dateutil`, `pandas`, `matplotlib`, `seaborn` (new, COPYs of
+  python-data-build, under a minute each) and `python-data` (rebuilt); nothing is built on
+  python-data. No seed, runtime or page change: `dist/` runtime files are as they were.
+- `test/npm-browser.mjs` needs `unshare` with user and network namespaces, `ip`, `iptables`,
+  `ip6tables` and `python3` on the machine that runs it (the release checklist's step 3).
+- For 0.1.6's notes: a 0.1.5 `dolly-build` project moves `index.html`, `theme.json` and
+  `workspace/` into `public/`, imports `./dolly/src/browser.mjs` and `./image/index.mjs` with
+  init's isolation lines, drops `serve.mjs`, and removes its old image directory once.
 
 ## The flow as a user runs it
 
@@ -148,6 +163,9 @@ Under `build/npmflow-evidence/` in `work/npmflow`.
   site booted in Chrome from Python's server: Pi, then NumPy and Matplotlib, no 404.
 - `npm-5.log`, with that: Chromium passed in 115.7 s, Firefox in 92.1 s, the record empty, the
   same five Google hosts refused at the test browsers' proxy, and the test exited.
+
+- `npm-6.log` (`npm-both-pass-head.log`), at b6dd82384: Chromium passed in 114.0 s, Firefox in
+  88.2 s; requests beyond the machine: none.
 
 ## Lessons
 
