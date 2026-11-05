@@ -70,8 +70,10 @@ export class UploadTransport {
       else if (!(file instanceof Blob) || file.size > DOLLY_UPLOAD_MAX_SIZE) {
         await publish(new Uint8Array(), true, errno.EFBIG);
       } else {
-        // One reused staging buffer: reading allocates nothing per chunk.
-        const reader = file.stream().getReader({ mode: "byob" });
+        // One reused staging buffer: reading allocates nothing per chunk. The
+        // transfer holds its reader: Chrome collects a Blob's stream that only
+        // its pending read reaches, and that read never ends.
+        const reader = this.active.reader = file.stream().getReader({ mode: "byob" });
         let staging = new ArrayBuffer(chunkCapacity), sent = 0;
         size = file.size;
         do {
