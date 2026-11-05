@@ -4,7 +4,7 @@ set -euo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 releases="${1:-${project_dir}/build/releases}"
 site="${2:-}"
-if [[ -n "${site}" && "${site}" != "slopshare.dev" && "${site}" != "github-pages" ]]; then
+if [[ -n "${site}" && "${site}" != "slopshare.dev" ]]; then
   echo "dolly: unknown site: ${site}" >&2
   exit 1
 fi
@@ -53,8 +53,6 @@ mapfile -t sources < <(node "${project_dir}/scripts/list-images.mjs" --sources |
   custom/index.html custom/rebuild custom/run session sessions "${staging}/site/")
 if [[ "${site}" == "slopshare.dev" ]]; then
   node "${project_dir}/scripts/package-domain.mjs" "${staging}/site"
-elif [[ "${site}" == "github-pages" ]]; then
-  node "${project_dir}/scripts/package-github-pages.mjs" "${staging}/site"
 fi
 documents=("${project_dir}"/docs/*.md)
 node "${project_dir}/scripts/package-documentation.mjs" "${project_dir}" "${staging}/site" \

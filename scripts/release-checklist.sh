@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
 # The release checklist of docs/deployment.md, as far as a script can check it,
-# for the two sites packaged from HEAD:
-#   scripts/release-checklist.sh DOMAIN_RELEASES GITHUB_RELEASES [ARCHIVE]
-# It verifies, runs the Pages workflow's steps and assembles the deployment.
+# for the site packaged from HEAD:
+#   scripts/release-checklist.sh RELEASES [ARCHIVE]
+# It verifies and assembles the deployment.
 # It never tags, pushes, uploads or deploys: it ends by printing the commands
 # that do, for the owner to run.
 set -euo pipefail
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-[[ $# -ge 2 ]] || { echo "usage: release-checklist.sh DOMAIN_RELEASES GITHUB_RELEASES [ARCHIVE]" >&2; exit 64; }
+[[ $# -ge 1 ]] || { echo "usage: release-checklist.sh RELEASES [ARCHIVE]" >&2; exit 64; }
 domain="$(realpath -- "$1")/current"
-github="$(realpath -- "$2")/current"
-archive="$(realpath -- "${3:-${project_dir}/published}")"
+archive="$(realpath -- "${2:-${project_dir}/published}")"
 cd "${project_dir}"
 version="v$(node -p "require('./package.json').version")"
 commit="$(git rev-parse HEAD)"
@@ -53,20 +52,8 @@ for snapshot in dist/dolly-*-system.snapshot; do
   done < <(/usr/bin/grep -a -b -o -E -- "${pem}" "${snapshot}" || true)
 done
 
-step "3 both sites are sealed from ${commit:0:8}, accepted, and are ${version}"
-for site in "${domain}" "${github}"; do
-  node scripts/site-release.mjs verify "${site}" . || stop "${site} is not packaged from this tree: bash scripts/package-pages.sh RELEASES slopshare.dev|github-pages"
-done
-
-step "3 the Pages workflow's steps: export, under 1 GB"
-static="$(mktemp -d build/github-static-XXXXXX)"
-node scripts/export-static.mjs "${github}" "${static}/site"
-[[ -f "${static}/site/${version}/index.html" ]] || stop "the GitHub Pages site is not ${version}"
-github_bytes="$(du -sb "${static}/site" | cut -f1)"
-rm -rf -- "${static}"
-(( github_bytes <= 1000000000 )) || stop "the GitHub Pages site is ${github_bytes} bytes, over 1 GB"
-tar -C "${github}" -czf build/dolly-pages.tar.gz .
-tarball_sha256="$(sha256sum build/dolly-pages.tar.gz | cut -d' ' -f1)"
+step "3 the site is sealed from ${commit:0:8}, accepted, and is ${version}"
+node scripts/site-release.mjs verify "${domain}" . || stop "${domain} is not packaged from this tree: bash scripts/package-pages.sh RELEASES slopshare.dev"
 
 step "3 the npm packages: packed from ${commit:0:8}, installed into an empty app and booted"
 npm_dir="build/npm-${version}"
@@ -82,12 +69,11 @@ node scripts/export-cloudflare-pages.mjs "${archive}" "${deployment}" "${domain}
 versions="$(cd "${deployment}" && echo v*)"
 
 cat <<COMMANDS
-== checked at ${commit}: GitHub Pages ${github_bytes} bytes, deployment $(find "${deployment}" -type f | wc -l) files.
+== checked at ${commit}: deployment $(find "${deployment}" -type f | wc -l) files.
    Nothing was tagged, pushed, uploaded or deployed. The owner runs:
 4  git tag -a ${version} -m "Dolly ${version#v}" ${commit}
    git push origin main ${version}
-5  gh release create ${version} build/dolly-pages.tar.gz ${seed_compiler} --verify-tag --notes-file NOTES
-   gh workflow run pages.yml -f release_tag=${version} -f artifact_sha256=${tarball_sha256}
+5  gh release create ${version} ${seed_compiler} --verify-tag --notes-file NOTES
    for tarball in ${npm_dir}/*.tgz; do npm publish "\${tarball}" --access public; done
 6  node test/pages-host.mjs ${deployment} 8790, and while it serves:
    node scripts/published-version.mjs boot http://127.0.0.1:8790 ${versions}
@@ -95,7 +81,7 @@ cat <<COMMANDS
    (detached: an interrupted upload keeps nothing, so never restart it)
 7  node scripts/published-version.mjs verify https://slopshare.dev ${deployment} ${version}
    node scripts/published-version.mjs boot https://slopshare.dev ${versions}
-   node scripts/published-version.mjs boot https://daugasauron.github.io/dolly ${version}
+   node scripts/published-version.mjs boot https://daugasauron.com ${versions}
 8  mv ${deployment}/${version} ${archive}/ && rm -rf ${deployment}
    then move package.json and src/version.mjs to the next version
    ${version}'s list, for the release notes: $(sha256sum "${deployment}/${version}/deployment.sha256" | cut -d' ' -f1)

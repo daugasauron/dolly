@@ -15,7 +15,7 @@ import { get as getHttp } from "node:http";
 import { get as getHttps } from "node:https";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { refuseExisting } from "./export-static.mjs";
+import { refuseExisting } from "./export-cloudflare-pages.mjs";
 import { compareVersions, versionName } from "./release-layout.mjs";
 import { safePath } from "./site-release.mjs";
 import { sha256 } from "./snapshot-identity.mjs";

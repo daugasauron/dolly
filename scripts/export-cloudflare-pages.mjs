@@ -5,17 +5,26 @@
 import { MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 import { PARTS_MANIFEST_START, STATIC_PART_BYTES, staticMaxParts } from "../src/static-asset.mjs";
 
-import { link, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
+import { link, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { brotliCompress, constants } from "node:zlib";
-import { refuseExisting } from "./export-static.mjs";
 import { compareVersions, releaseVersion, robotsText, versionName } from "./release-layout.mjs";
 import { fileManifest, releaseFiles } from "./site-release.mjs";
 import { sha256 } from "./snapshot-identity.mjs";
 
 const compress = promisify(brotliCompress);
+
+export async function refuseExisting(output) {
+  try {
+    await lstat(output);
+  } catch (error) {
+    if (error.code === "ENOENT") return;
+    throw error;
+  }
+  throw new Error(`export destination already exists: ${output}`);
+}
 // Pages' documented limits: 25 MiB a file, 20,000 files a deployment, and
 // 100 rules of 2,000-character lines in _headers.
 const fileLimit = 25 * 1024 * 1024;

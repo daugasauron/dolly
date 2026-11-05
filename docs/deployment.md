@@ -3,17 +3,15 @@
 Dolly deploys as static files: no server code, Functions or proxy. A release is
 a version `X.Y.Z` ([`version.mjs`](../src/version.mjs), equal to
 `package.json`): the git tag `vX.Y.Z`, the GitHub release of that name and the
-site path `/vX.Y.Z/`. [slopshare.dev](https://slopshare.dev/) (Cloudflare
-Pages project `dolly`, full catalog) keeps every published version;
-[GitHub Pages](https://daugasauron.github.io/dolly/) (a smaller catalog within
-its 1 GB limit) carries the newest only.
+site path `/vX.Y.Z/`. The Cloudflare Pages project `dolly` keeps every
+published version and serves one deployment at both of its domains,
+[slopshare.dev](https://slopshare.dev/) and daugasauron.com.
 
 ```mermaid
 flowchart LR
   images["dist/ snapshots"] --> pkg["package-pages.sh: sealed release"]
   pkg --> rel["RELEASES/ID"]
   rel --> serve["npm run serve (local)"]
-  rel --> static["export-static.mjs: vX.Y.Z/ for any static host"]
   rel --> cf["export-cloudflare-pages.mjs"]
   archive["published/: every deployed version"] --> cf
   cf --> deployment["one deployment: root files and a directory per version"]
@@ -40,9 +38,6 @@ flowchart LR
 - A published version never changes. A fix is a new version, and `/` then
   leads to it. Removing a version is the owner's explicit act: delete its
   directory from the archive and deploy; its paths return 404.
-- GitHub Pages serves `PREFIX/vX.Y.Z/` and an `index.html` at `PREFIX/` that
-  leads there; each deploy replaces the whole site. Pages find their files
-  relative to themselves, so an export knows no prefix.
 - Saved sessions belong to a version; the image cache and the pack store are
   shared, and a version's page removes the packs no image of its runtime
   names ([sessions](sessions.md)).
@@ -56,8 +51,6 @@ flowchart LR
   `Disallow: /vX.Y.Z/dist/` once per published version. A rule per version is
   an exact prefix: every crawler reads it, and unlike a wildcard it cannot
   match a page. `dist/` holds the bulk: packs, sources and the runtime.
-  GitHub Pages serves the version under a prefix, where no crawler looks, so
-  it has `llms.txt` and no `robots.txt`.
 
 ## Package and export
 
@@ -68,20 +61,12 @@ export DOLLY_BUILD_IMAGES="$(paste -sd, config/domain-pages-images.txt)"
 npm run image
 bash scripts/package-pages.sh build/domain-releases slopshare.dev
 npm run serve build/domain-releases     # the candidate as it will be deployed
-
-export DOLLY_BUILD_IMAGES="$(paste -sd, config/github-pages-images.txt)"
-npm run image
-bash scripts/package-pages.sh build/github-releases github-pages
 ```
 
-- Catalogs: [`domain-pages-images.txt`](../config/domain-pages-images.txt) and
-  [`github-pages-images.txt`](../config/github-pages-images.txt); dependencies are
-  included automatically.
-- The second packaging argument selects the site: `slopshare.dev` adds the
-  `/agents/` showcase ([`package-domain.mjs`](../scripts/package-domain.mjs));
-  `github-pages` links every application that only the domain publishes to
-  it, as a group of the menu
-  ([`package-github-pages.mjs`](../scripts/package-github-pages.mjs)).
+- The catalog: [`domain-pages-images.txt`](../config/domain-pages-images.txt);
+  dependencies are included automatically.
+- The second packaging argument, `slopshare.dev`, adds the `/agents/` showcase
+  ([`package-domain.mjs`](../scripts/package-domain.mjs)).
 - [`package-pages.sh`](../scripts/package-pages.sh) `RELEASES SITE` seals a
   release into `RELEASES/ID` and points `RELEASES/current` at it (default
   `build/releases`); [`site-release.mjs`](../scripts/site-release.mjs)
@@ -90,11 +75,6 @@ bash scripts/package-pages.sh build/github-releases github-pages
 - `npm run serve [RELEASES]` serves that directory's current release as it
   will be deployed: `/` redirects to its version, the site is under
   `/vX.Y.Z/`, every other path is 404.
-- [`export-static.mjs`](../scripts/export-static.mjs) `RELEASE OUT` writes
-  the release as `OUT/vX.Y.Z/` and the `index.html` that leads there;
-  `.github/workflows/pages.yml` runs it for the version tag it is given,
-  after checking the artifact's digest and that the release was packaged from
-  the tag's commit.
 - [`export-cloudflare-pages.mjs`](../scripts/export-cloudflare-pages.mjs)
   `ARCHIVE OUT RELEASE` assembles the deployment: every version in the
   archive, the new one exported from its sealed release, and the root files.
@@ -102,7 +82,7 @@ bash scripts/package-pages.sh build/github-releases github-pages
   version leaves the site.
 - Exporters verify the sealed input, refuse an existing destination, publish
   atomically and upload nothing. A version's directory carries its seal:
-  `sha256sum --check release/files.sha256` checks a static export, and
+  `sha256sum --check release/files.sha256` checks the release, and
   `deployment.sha256` what Cloudflare stores.
 - A release build needs disk for the catalog twice (snapshots in `dist/` and
   their packs) and little memory: sharing the catalog into packs streams one
@@ -142,7 +122,7 @@ bash scripts/package-pages.sh build/github-releases github-pages
 ## Release
 
 [`release-checklist.sh`](../scripts/release-checklist.sh)
-`DOMAIN_RELEASES GITHUB_RELEASES` checks steps 1 to 3 and assembles the
+`RELEASES [ARCHIVE]` checks steps 1 to 3 and assembles the
 deployment of step 6, then prints the commands of the others. It never tags,
 pushes, uploads or deploys.
 
@@ -151,21 +131,19 @@ pushes, uploads or deploys.
 2. No credential in the commits to push or in `dist/dolly-*-system.snapshot`;
    an image may ship an upstream's public test key, listed by its PEM block's
    SHA-256 in `config/public-test-keys.txt`.
-3. Both sites packaged from that commit and accepted; the Pages workflow's
-   steps pass locally, under 1 GB; the npm packages ([embedding](embedding.md))
-   packed from it boot from an empty app (`test/npm-browser.mjs`).
+3. The site packaged from that commit and accepted; the npm packages
+   ([embedding](embedding.md)) packed from it boot from an empty app
+   (`test/npm-browser.mjs`).
 4. Tag `vX.Y.Z` on the commit; push `main` and the tag.
-5. GitHub release `vX.Y.Z` with notes, `dolly-pages.tar.gz` (the GitHub
-   Pages release, packed) and the seed's compiler, pinned to that asset
-   ([sources](sources.md#the-seeds-compiler)); run `pages.yml` with the tag
-   and the tarball's SHA-256; `npm publish` each package of step 3 under
-   `@daugasauron`.
+5. GitHub release `vX.Y.Z` with notes and the seed's compiler, pinned to that
+   asset ([sources](sources.md#the-seeds-compiler)); `npm publish` each package
+   of step 3 under `@daugasauron`.
 6. Assemble the deployment from the archive and the new release; boot every
    version from it, served by [`pages-host.mjs`](../test/pages-host.mjs), in
    Chromium and Firefox (`published-version.mjs boot`); upload it with
    `wrangler pages deploy` as a detached job. An interrupted upload keeps
    nothing: never restart it.
-7. Live, in Chromium and Firefox: `published-version.mjs boot SITE vX.Y.Z…`
+7. Live at both domains, in Chromium and Firefox: `published-version.mjs boot SITE vX.Y.Z…`
    (`/` leads to the newest version, an unversioned path is 404, every
    version boots `default` from its own files) and
    `published-version.mjs verify SITE OUT vX.Y.Z` (every file of the new
@@ -184,8 +162,7 @@ pushes, uploads or deploys.
   release ID, which is the SHA-256 of `release/files.sha256`. Files are
   immutable because a published version never changes; pages are not, so a
   removed version stops loading. `npm run serve` sends no-store for
-  everything, since a candidate keeps its version while it changes, and
-  GitHub Pages sets its own caching.
+  everything, since a candidate keeps its version while it changes.
 - Every URL is a file at its checkout path below the version (directories
   serve `index.html`; [`generate-routes.mjs`](../scripts/generate-routes.mjs)
   writes the menu, image routes and recipe views), so no host needs rewrite

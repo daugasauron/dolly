@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, mkdir, readFile, readdir, readlink, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readlink, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { once } from "node:events";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -8,23 +8,16 @@ import test from "node:test";
 import { fileManifest, publishRelease, siteManifest, sourceManifest, verifyRelease } from "../scripts/site-release.mjs";
 import { createReleaseServer } from "../scripts/serve.mjs";
 import { sha256 } from "../scripts/snapshot-identity.mjs";
-import { exportVersionedSite } from "../scripts/export-static.mjs";
 import { packageDomain } from "../scripts/package-domain.mjs";
-import { packageGithubPages } from "../scripts/package-github-pages.mjs";
 import { DOLLY_VERSION } from "../src/version.mjs";
 
-test("domain packaging adds the showcase only to its selected site, with public navigation and pinned media", async t => {
+test("domain packaging adds the showcase, with public navigation and pinned media", async t => {
   const root = await mkdtemp(resolve(tmpdir(), "dolly-domain-test-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const source = await readFile(new URL("../menu.html", import.meta.url), "utf8");
-  for (const name of ["domain", "github"]) {
-    await mkdir(resolve(root, name));
-    await writeFile(resolve(root, name, "index.html"), source);
-  }
+  await mkdir(resolve(root, "domain"));
+  await writeFile(resolve(root, "domain/index.html"), await readFile(new URL("../menu.html", import.meta.url), "utf8"));
   await packageDomain(resolve(root, "domain"));
   assert.match(await readFile(resolve(root, "domain/index.html"), "utf8"), /href="\.\/agents\/"/);
-  assert.equal(await readFile(resolve(root, "github/index.html"), "utf8"), source);
-  await assert.rejects(readFile(resolve(root, "github/agents/index.html")), { code: "ENOENT" });
   const page = await readFile(resolve(root, "domain/agents/index.html"), "utf8");
   // Its links are relative, so they lead to this site's pages wherever it is mounted.
   const links = [...page.matchAll(/<a href="([^"]+)"/g)].map(([, link]) => new URL(link, "https://site.example/v0.1.0/agents/").pathname);
@@ -33,35 +26,6 @@ test("domain packaging adds the showcase only to its selected site, with public 
     const bytes = await readFile(resolve(root, "domain/agents", path));
     assert.ok(bytes.length > 0 && bytes.length <= 25 * 1024 * 1024, `${path} must fit a Pages asset`);
   }
-});
-
-test("GitHub Pages leads to the domain's applications under the version released with it", async t => {
-  const site = await mkdtemp(resolve(tmpdir(), "dolly-github-test-"));
-  t.after(() => rm(site, { recursive: true, force: true }));
-  await writeFile(resolve(site, "index.html"), "<table><tbody>\n</tbody></table>");
-  await packageGithubPages(site);
-  const domain = `https://slopshare.dev/v${DOLLY_VERSION}/`;
-  const links = [...(await readFile(resolve(site, "index.html"), "utf8")).matchAll(/href="([^"]+)"/g)].map(([, link]) => link);
-  assert.ok(links.length > 0);
-  for (const link of links) {
-    assert.ok(link.startsWith(domain), link);
-    // The path the menu links exists here too, and sends its visitor on.
-    assert.ok((await readFile(resolve(site, link.slice(domain.length), "index.html"), "utf8")).includes(JSON.stringify(link)), link);
-  }
-});
-
-test("static export refuses existing destinations and unverified releases", async t => {
-  const root = await mkdtemp(resolve(tmpdir(), "dolly-static-test-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
-  await writeFile(resolve(root, "keep"), "owned data");
-  await assert.rejects(exportVersionedSite(root, root), /destination already exists/);
-  assert.equal(await readFile(resolve(root, "keep"), "utf8"), "owned data");
-  await assert.rejects(exportVersionedSite(root, resolve(root, "output")), /cannot modify its source/);
-  await mkdir(resolve(root, "unverified/src"), { recursive: true });
-  await assert.rejects(exportVersionedSite(resolve(root, "unverified"), resolve(root, "output")), /ENOENT/);
-  await writeFile(resolve(root, "unverified/src/version.mjs"), 'export const DOLLY_VERSION = "0.1.0";\n');
-  await assert.rejects(exportVersionedSite(resolve(root, "unverified"), resolve(root, "output")), /ENOENT/);
-  assert.deepEqual((await readdir(root)).sort(), ["keep", "unverified"]);
 });
 
 test("release seal covers complete file contents, rejects changes and symlinks", async t => {

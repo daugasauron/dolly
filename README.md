@@ -85,8 +85,7 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 
 ## Try it
 
-Open [slopshare.dev](https://slopshare.dev/) or
-[GitHub Pages](https://daugasauron.github.io/dolly/). The menu lists every image.
+Open [slopshare.dev](https://slopshare.dev/). The menu lists every image.
 
 In a page of your own: `npm install @daugasauron/dolly @daugasauron/dolly-image-default`
 and [Embedding](docs/embedding.md), or [Pi with npm](#pi-with-npm) below;

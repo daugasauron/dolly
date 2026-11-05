@@ -13,7 +13,6 @@
     "test": "npm run test:source && node test/core-browser.mjs",
     "test:source": "node --test 'test/*.test.mjs' 'demos/**/*.test.mjs'",
     "publish": "./scripts/package-pages.sh",
-    "export:static": "node scripts/export-static.mjs",
     "export:pages": "node scripts/export-cloudflare-pages.mjs",
     "serve": "node scripts/serve.mjs",
     "dev": "node scripts/serve-checkout.mjs",
