@@ -16,7 +16,7 @@ The owner, 2026-11-05:
 
 The integrator moved it from 0.1.5 to 0.1.6 (2026-11-05 22:10): 0.1.5 ships without it.
 
-## State (2026-11-05 23:30 JST)
+## State (2026-11-05 22:45 JST)
 
 Done on `core/npm-offline`: the data libraries are packages; npm packaging reads
 `config/npm-images.txt`, a package depends on the packages it installs, and every directory
