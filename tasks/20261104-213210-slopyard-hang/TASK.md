@@ -4,7 +4,7 @@
 - PRIORITY: 255
 - TAGS: bug,slopyard,0.1.5
 
-## State (2026-11-05 13:20, branch `fix/intermittent-1105`)
+## State (2026-11-05 14:05, branch `fix/intermittent-1105`)
 
 Reproduced once, at an upload; not reproduced again with the upload module traced. Cause not
 named; nothing changed. The hang is the upload's: the test waits on `upload` without a limit.
@@ -14,10 +14,11 @@ Counts (image inputs `b9e16e76`, the candidate's; `build/flaky-evidence/`):
 | run | uploads | hangs |
 | --- | --- | --- |
 | `slopyard-loop.mjs`, headful Chrome with Vulkan on Xvfb :145 in the GPU lock: upload, compile, run per fixture, 300 s a step | 243 | 1 |
-| the same with the upload module traced | 850 | 0 |
+| the same with the upload module traced | 1105 | 0 |
 | `slopyard-browser.mjs`, 20 runs in a row, traced (18 uploads a run and the game's imports) | 420 | 0 (20 of 20 passed) |
 | the loop in headless Chrome (software WebGPU) | 935 | 0 |
 | `upload-loop.mjs`, headless: an upload after a short threaded fixture | 2305 | 0 |
+| `upload-loop.mjs` in the GPU window, traced | 4005 | 0 |
 
 The one hang (page 1, pass 6, `upload /tmp/fixture-4.c`, the page's 91st upload): the page
 showed one dialog, "Uploading slopyard-controller-arguments.c, 0.0 of 0.0 MiB": the test's file
@@ -57,7 +58,7 @@ round's GPU stage), its cause named and fixed, and the test passes 20 times in a
 - A step with no limit turns one lost message into 40 minutes of a round and no evidence. The
   loop's 300 s limit per step, with the process table and the page's state captured at it, is
   what made the one occurrence readable; the test itself waits forever.
-- The rate decides the method: 1 in about 1,500 uploads on the GPU path, 0 in about 3,200
-  headless. Tracing must be in place before the long loop starts, and saved whole at the
+- The rate decides the method: 1 in about 1,770 uploads with the test's steps on the GPU path,
+  0 in about 3,200 headless and 0 in 4,005 bare uploads in the GPU window. Tracing must be in place before the long loop starts, and saved whole at the
   failure: the first hang's full trace was printed only in part and the run was gone.
 

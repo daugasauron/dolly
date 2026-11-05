@@ -36,8 +36,8 @@ recurs.
   and `stdout.write`) and 20 children ended while their stdin is written: the second is the
   probe's case, which ended a janis parent in every round before.
 - Verified on this tree's images (image inputs `b9e16e76`, the candidate's): `rts-browser.mjs`
-  20 of 20 in a row in Chromium (270-325 s each, 40 matches); 20 matches of 20 in Firefox
-  (`rts-loop.mjs`); `javascript-browser.mjs` in Chromium and Firefox; `pi-browser.mjs` (its
+  20 of 20 in a row in Chromium (270-325 s each, 40 matches); `rts-loop.mjs`, 25 s matches beside
+  the Slopyard loops: 40 of 40 in Chromium, 50 of 50 in Firefox; `javascript-browser.mjs` in Chromium and Firefox; `pi-browser.mjs` (its
   `pi --list-models | grep -q` pipelines write to a closed pipe) in Chromium; the source suite.
 
 Seen in the confirming round of 2026-11-05 (`work/round-1105-main.sh`, `integrate/2026-11-05` at
