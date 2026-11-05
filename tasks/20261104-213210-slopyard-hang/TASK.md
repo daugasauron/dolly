@@ -9,8 +9,8 @@
 Closed: cause named, fixed in af4fe8756, and the test passed 20 times in a row under load
 (below). The upload's Worker side read the chosen file through a reader that only its own
 pending read reached, and Chrome collects such a Blob stream: the read never ends, so no chunk
-reaches the kernel and `upload`
-waits forever. The transfer now holds its reader (`this.active.reader`, `host/upload/transport.mjs`).
+reaches the kernel and `upload` waits forever. The transfer now holds its reader
+(`this.active.reader`, `host/upload/transport.mjs`).
 
 Measured (Chrome 156, headless; scratch harnesses in `build/hangs-evidence/`, not kept):
 
