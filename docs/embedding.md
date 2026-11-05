@@ -195,7 +195,10 @@ npx dolly-build Dollyfile-my-pi my-pi
 - A recipe may start `FROM` another installed image instead, `python-data` say: its
   package's README gives the `FROM` row, and the recipe repeats the image's `REQUIRES HOST`
   rows (a FILE of the project's own script and a SLOP that runs it at build time, for
-  example). `init` writes Pi's project only.
+  example). `init` writes Pi's project only; the page in `public/index.html` is then one
+  as in "A page" above that imports `./dolly/src/browser.mjs` and `./image/index.mjs`,
+  with the lines of `init`'s page that register `coi-serviceworker.js` for a host
+  without the headers.
 - An image is built for the installed versions: after the packages update, the
   rows' pins are others (`init` in an empty directory writes the new ones), and it
   is built again. Packages of two versions in one `node_modules` fail the build,

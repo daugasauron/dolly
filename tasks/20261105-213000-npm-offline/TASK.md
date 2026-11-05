@@ -139,6 +139,8 @@ Under `build/npmflow-evidence/` in `work/npmflow`.
 - `python-data-pass-1.log`: `python-data` in Chromium (19.1 s) and Firefox (20.4 s), `openblas`
   in both, and `amy install numpy` into `default` (6.4 s, Chromium), which imports NumPy and not
   pandas.
+- `core-1.log`: `test/core-browser.mjs` (generate-routes.mjs and image-directory.mjs changed)
+  passed in Chromium (22.1 s) and Firefox (30.8 s).
 - pnpm 12.16.1, by hand (`pnpm-app/`, `pnpm-build.log`): the README's install line from a
   registry of the packed packages puts only the ten named packages in `node_modules/@daugasauron/`
   (numpy, python-dateutil, python, libffi and cc sit beside matplotlib's and python's real paths
