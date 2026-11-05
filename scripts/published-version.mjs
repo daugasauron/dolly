@@ -110,6 +110,30 @@ const catalogStaticSources = async ([root, module]) => module
   ? (await import(new URL("dist/dolly-images.mjs", root).href)).DOLLY_STATIC_SOURCES
   : (await import(new URL("dist/dolly-images.json", root).href, { with: { type: "json" } })).default.staticSources;
 
+// Whether robots.txt keeps a crawler it names in no group off a path (RFC 9309):
+// the rules of every "User-agent: *" group, the longest match deciding, Allow on
+// a tie. A host may add groups of its own, as Cloudflare's managed robots.txt
+// does on daugasauron.com.
+function blockedForEveryCrawler(robots) {
+  const rules = [];
+  let agents = [], inRules = false;
+  for (const line of robots.split("\n")) {
+    const [, field, value] = line.replace(/#.*/, "").trim().match(/^([A-Za-z-]+)\s*:\s*(\S*)$/) ?? [];
+    if (/^user-agent$/i.test(field)) {
+      if (inRules) [agents, inRules] = [[], false];
+      agents.push(value);
+    } else if (/^(allow|disallow)$/i.test(field)) {
+      inRules = true;
+      if (agents.includes("*") && value) rules.push({ allow: /^allow$/i.test(field), path: value });
+    }
+  }
+  return path => {
+    const matching = rules.filter(rule => path.startsWith(rule.path));
+    const longest = Math.max(0, ...matching.map(rule => rule.path.length));
+    return longest > 0 && !matching.some(rule => rule.allow && rule.path.length === longest);
+  };
+}
+
 async function bootVersions(site, names, browsers) {
   const { chromium, firefox } = await import("playwright-core");
   const root = siteRoot(site), newest = [...names].sort(compareVersions).at(-1);
@@ -130,16 +154,15 @@ async function bootVersions(site, names, browsers) {
       assert.equal((await page.request.get(new URL("default/", root).href)).status(), 404, "an unversioned path is served");
       // At a host's root, robots.txt speaks for the newest version: each path it
       // names is served, and /llms.txt leads to that version's own.
-      const rules = [];
+      let blocked;
       if (root.pathname === "/") {
         const robots = await (await page.request.get(new URL("robots.txt", root).href)).text();
         const named = [...robots.matchAll(/^#.* (\/v\d+\.\d+\.\d+\/[^\s:]*)/gm)].map(([, path]) => path);
         assert.ok(named.length && named.every(path => path.startsWith(`/${newest}/`)), "robots.txt does not name the newest version's paths");
         for (const path of named) assert.equal((await page.request.get(new URL(path, root).href)).status(), 200, `robots.txt names ${path}`);
         assert.equal(new URL((await page.request.get(new URL("llms.txt", root).href)).url()).pathname, `/${newest}/llms.txt`);
-        rules.push(...[...robots.matchAll(/^Disallow: (\S+)$/gm)].map(([, rule]) => rule));
+        blocked = blockedForEveryCrawler(robots);
       }
-      const blocked = path => rules.some(rule => path.startsWith(rule));
       for (const name of names) {
         const version = versionURL(site, name);
         requested.length = 0;
@@ -166,7 +189,7 @@ async function bootVersions(site, names, browsers) {
           return wrong;
         }, [version.href, sources]), [], `${name}: references that do not return their pinned bytes`);
         // The rules keep a crawler out of this version's bulk and off none of its pages.
-        if (rules.length) {
+        if (blocked) {
           const bulk = sources.map(({ path }) => path).filter(path => path.startsWith("/dist/"));
           for (const path of ["/dist/dolly.wasm", "/dist/dolly.data", "/dist/packs/", ...bulk]) {
             assert.ok(blocked(version.pathname + path.slice(1)), `${name}: robots.txt leaves ${path} to crawlers`);
