@@ -21,8 +21,8 @@ The integrator moved it from 0.1.5 to 0.1.6 (2026-11-05 22:10): 0.1.5 ships with
 Done on `core/npm-offline`: the data libraries are packages; npm packaging reads
 `config/npm-images.txt`, a package depends on the packages it installs, and every directory
 carries an amy-index.txt; `dolly-build` writes a static site; `test/npm-browser.mjs` runs the
-flow offline and passed in Chromium and Firefox with an empty record. Left: the python-data
-demo test in both browsers (its numpy case is new), and the merge onto integrate's repins.
+flow offline and passed in Chromium and Firefox with an empty record; the python demo's
+python-data test passed in both and its new numpy case in Chromium. Left: the merge (below).
 
 ## The flow as a user runs it
 
@@ -136,5 +136,26 @@ Under `build/npmflow-evidence/` in `work/npmflow`.
   `content-autofill.googleapis.com`, `update.googleapis.com`, `www.google.com`, `www.gstatic.com`
   (Chrome); none from Firefox. The test then did not exit: `sh -c` left Python's server
   running, holding its pipes; it now `exec`s the README's command.
+- `python-data-pass-1.log`: `python-data` in Chromium (19.1 s) and Firefox (20.4 s), `openblas`
+  in both, and `amy install numpy` into `default` (6.4 s, Chromium), which imports NumPy and not
+  pandas.
+- pnpm 12.16.1, by hand (`pnpm-app/`, `pnpm-build.log`): the README's install line from a
+  registry of the packed packages puts only the ten named packages in `node_modules/@daugasauron/`
+  (numpy, python-dateutil, python, libffi and cc sit beside matplotlib's and python's real paths
+  under `.pnpm/`); `init my-pi git python numpy matplotlib` and the build found them, and the
+  site booted in Chrome from Python's server: Pi, then NumPy and Matplotlib, no 404.
 - `npm-5.log`, with that: Chromium passed in 115.7 s, Firefox in 92.1 s, the record empty, the
   same five Google hosts refused at the test browsers' proxy, and the test exited.
+
+## Lessons
+
+- An empty record proves nothing until the recorder has been seen to record: the test fetches a
+  name and an address first and checks both are noted. The first full run then caught what no
+  page-level check would have: Google Chrome, with Playwright's own "no background networking"
+  switches, still asks five Google hosts for updates, the clock and autofill.
+- A browser's own traffic is the vendor's, and switches chase it version by version; a proxy
+  that refuses everything but loopback ends it in one place. Firefox resolves names for one
+  updater even behind a proxy, which only a namespace-level recorder showed.
+- A test that keeps every page open runs out of a 6 GB scope once an image grows: close each
+  page when its checks end. And `spawn("sh", ["-c", command])` leaves the command running after
+  the kill; `exec` it.
