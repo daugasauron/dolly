@@ -419,6 +419,8 @@ static JSValue js_print_error(JSContext *context, JSValueConst this_value,
   return write_arguments(context, stderr, argc, argv);
 }
 
+static JSValue fs_error(JSContext *context, const char *operation, int number);
+
 static JSValue js_dolly_write(JSContext *context, JSValueConst this_value,
                               int argc, JSValueConst *argv, int magic) {
   (void)this_value;
@@ -432,10 +434,7 @@ static JSValue js_dolly_write(JSContext *context, JSValueConst this_value,
   if (text == NULL) return JS_EXCEPTION;
   const size_t written = fwrite(text, 1, length, stream);
   if (!binary) JS_FreeCString(context, text);
-  if (written != length || fflush(stream) != 0) {
-    return JS_ThrowInternalError(context, "terminal write failed: %s",
-                                 strerror(errno));
-  }
+  if (written != length || fflush(stream) != 0) return fs_error(context, "write", errno);
   return JS_NewInt32(context, 1);
 }
 
@@ -1869,6 +1868,10 @@ int dolly_quickjs_embed(int argc, char **argv, const char *default_module,
   int argument_index = 1;
   int module_mode = 0;
   janis_interrupted = 0;
+  // As Node at its start: a write to a pipe nobody reads fails with EPIPE where
+  // it was made, and the stream reports it. Children start at the default
+  // again (runtime.h's spawns), as libuv resets it in them.
+  signal(SIGPIPE, SIG_IGN);
 
   if (default_module != NULL) {
     name = default_module;
