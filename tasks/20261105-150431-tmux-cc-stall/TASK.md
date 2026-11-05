@@ -27,7 +27,7 @@ tasks):
 | --- | --- |
 | holder held only by its handlers, baseline compiles (0.3 s) | 0 of 40 |
 | the same, Ion-only compiles (`wasm_baselinejit` off, 3.7-4.0 s) | 2 of 10, 1 of 25, 4 of 40 |
-| the same with the holder in a global set | 0 of 10 |
+| the same with the holder in a global set, as the fix holds it | 0 of 10, 0 of 75 |
 | a nested Worker that answers at once, held only by its handler | 2 of 100 |
 | the same in a global set | 0 of 100 |
 | an idle nested Worker, held only by its handler, answering after 3 s | 7 of 20 (rooted: 0 of 20) |
