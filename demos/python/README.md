@@ -8,7 +8,12 @@ builds, plus stock pip over Dolly's HTTP broker.
 - `python`: `python3` and `pip` (CPython), with the `cc` package pip builds native packages with.
 - `libffi`: libffi with Dolly's target: calls and closures of signatures known at run time, through `dso@0`.
 - `python-data`: Python with NumPy, pandas, Matplotlib and seaborn, built once: a session imports them at once.
-- `python-data-build`: A build stage: NumPy, pandas, Matplotlib and what they need, compiled in Dolly from PyPI's releases, one root per library for `COPY`.
+- `numpy`: NumPy 2.5.4, the arrays and numerical routines of Python, compiled in Dolly.
+- `pandas`: pandas 3.0.5 with NumPy, python-dateutil and tzdata, and Jinja, openpyxl and tabulate for its HTML, Excel and Markdown.
+- `matplotlib`: Matplotlib 3.10.9, which draws with Agg into PNG, SVG and PDF files, with NumPy and Pillow.
+- `seaborn`: seaborn 0.13.2, statistical plots on pandas and Matplotlib.
+- `python-dateutil`: python-dateutil 4.0.0 and the IANA time zones of tzdata, for pandas and Matplotlib.
+- `python-data-build`: A build stage: NumPy, pandas, Matplotlib and what they need, compiled in Dolly from PyPI's releases, one root per library for their packages' `COPY`.
 - `openblas`: OpenBLAS's BLAS and LAPACK for wasm64, its SIMD128 kernels and C translation of LAPACK, static, found by pkg-config as `openblas`.
 
 Install it with `INSTALL` or `amy install python`; build with
@@ -31,28 +36,25 @@ Install it with `INSTALL` or `amy install python`; build with
 `python-data-build` compiles each native library in Dolly from its PyPI sdist,
 at the settings of upstream's wheels (meson-python's `buildtype=release`), and
 installs every library, native or pure Python, into a root of its own,
-`/opt/python-data/NAME`, laid out as `/` is. One row takes one library into an
-image, and the libraries it needs are rows of their own:
+`/opt/python-data/NAME`, laid out as `/` is. The packages `numpy`,
+`python-dateutil`, `pandas`, `matplotlib` and `seaborn` each `COPY` their roots
+and `INSTALL` the packages they need, so one row takes a library into an image
+with what it needs (`python` among them), and `amy install matplotlib` into a
+session:
 
 ```text
-FROM /vX.Y.Z/Dollyfile SHA256
-INSTALL /vX.Y.Z/demos/python/Dollyfile-python SHA256
-COPY /vX.Y.Z/demos/python/Dollyfile-python-data-build SHA256 /opt/python-data/numpy /
+INSTALL /vX.Y.Z/demos/python/Dollyfile-matplotlib SHA256
 ```
 
-| Root | Version | Needs the roots |
+| Package | Its roots, at their versions | It installs |
 | --- | --- | --- |
-| `numpy` | 2.5.4 | |
-| `pandas` | 3.0.5 | `numpy`, `python-dateutil`, `tzdata` |
-| `matplotlib` | 3.10.9, with the `freetype` package's FreeType 2.14.3 and its Qhull | `numpy`, `pillow`, `kiwisolver`, `contourpy`, `cycler`, `fonttools`, `pyparsing`, `packaging`, `python-dateutil`, `tzdata` |
-| `seaborn` | 0.13.2 | `pandas` and `matplotlib`, with theirs |
-| `pillow` | 13.0.0, with zlib, libjpeg and the `freetype` package | |
-| `contourpy` | 1.4.0 | `numpy` |
-| `kiwisolver`, `cycler`, `fonttools`, `pyparsing`, `packaging`, `python-dateutil`, `tzdata` | 1.5.1, 0.12.1, 4.68.0, 3.3.3, 26.3, 4.0.0, 2026.6 | `python-dateutil` needs `tzdata` |
-| `markupsafe`, `jinja2`, `et-xmlfile`, `openpyxl`, `tabulate` (pandas' HTML, Excel and Markdown) | 3.0.3, 3.1.6, 2.0.0, 3.1.5, 0.10.0 | `jinja2` needs `markupsafe`, `openpyxl` `et-xmlfile` |
+| `numpy` | `numpy` 2.5.4 | `python` |
+| `python-dateutil` | `python-dateutil` 4.0.0, `tzdata` 2026.6 | `python` |
+| `pandas` | `pandas` 3.0.5; for its HTML, Excel and Markdown `markupsafe` 3.0.3, `jinja2` 3.1.6, `et-xmlfile` 2.0.0, `openpyxl` 3.1.5, `tabulate` 0.10.0 | `numpy`, `python-dateutil` |
+| `matplotlib` | `matplotlib` 3.10.9 (with the `freetype` package's FreeType 2.14.3 and its Qhull), `pillow` 13.0.0 (with zlib, libjpeg and FreeType), `kiwisolver` 1.5.1, `contourpy` 1.4.0, `cycler` 0.12.1, `fonttools` 4.68.0, `pyparsing` 3.3.3, `packaging` 26.3 | `numpy`, `python-dateutil` |
+| `seaborn` | `seaborn` 0.13.2 | `pandas`, `matplotlib` |
 
-Every image that takes a root needs `python` installed; pip lists and
-uninstalls what the roots hold. `python-data` takes them all.
+pip lists and uninstalls what the packages hold. `python-data` installs them all.
 
 Matplotlib draws with Agg: `savefig` writes PNG, SVG or PDF files, and
 `plt.show()` has no window. A PNG written to the terminal as one kitty graphics
@@ -80,8 +82,10 @@ print(f"\033_Ga=T,f=100;{base64.b64encode(open('/tmp/plot.png', 'rb').read()).de
   with LAPACK's subroutines returning void, as their callers declare them (WebAssembly traps a call
   of another type); the patch's head says why each change.
 - [`Dollyfile-python-data-build`](Dollyfile-python-data-build): the data libraries, one root each,
-  and why each build setting; [`Dollyfile-python-data`](Dollyfile-python-data): the image with
-  them all.
+  and why each build setting; their packages ([`Dollyfile-numpy`](Dollyfile-numpy),
+  [`Dollyfile-pandas`](Dollyfile-pandas), [`Dollyfile-matplotlib`](Dollyfile-matplotlib),
+  [`Dollyfile-seaborn`](Dollyfile-seaborn), [`Dollyfile-python-dateutil`](Dollyfile-python-dateutil));
+  [`Dollyfile-python-data`](Dollyfile-python-data): the image with them all.
 - Tests: [`test/`](test/).
 
 ## Limits

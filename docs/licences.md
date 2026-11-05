@@ -82,7 +82,8 @@ entry.
   (BSD-2-Clause).
 - `python` links SQLite, bzip2 and XZ Utils statically, and `git` libcurl; each
   package carries their licence files.
-- `python-data` and the roots of `python-data-build` hold NumPy (BSD-3-Clause,
+- `python-data`, the roots of `python-data-build` and the packages that copy them
+  (`numpy`, `python-dateutil`, `pandas`, `matplotlib`, `seaborn`) hold NumPy (BSD-3-Clause,
   with 0BSD, MIT, Zlib and CC0-1.0 parts), pandas, contourpy, kiwisolver,
   cycler, seaborn, python-dateutil, Jinja and MarkupSafe (BSD-3-Clause), Pillow
   (MIT-CMU), fontTools, pyparsing, openpyxl, et_xmlfile and tabulate (MIT),

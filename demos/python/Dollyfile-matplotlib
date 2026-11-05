@@ -1,0 +1,20 @@
+DOLLY 7
+PACKAGE matplotlib
+REQUIRES HOST runtime@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+
+# Matplotlib (Agg) and the libraries it imports, Pillow among them: their roots
+# of python-data-build (README.md).
+INSTALL /v0.1.5/demos/python/Dollyfile-numpy a7c3f451dd2143316c4f22735d6159d4387a627391188378f6578b863d02c87a
+INSTALL /v0.1.5/demos/python/Dollyfile-python-dateutil 220a95487ba091e047759383c1493c5aa29505aae793e32ddaf74385f2d97430
+COPY /v0.1.5/demos/python/Dollyfile-python-data-build 7ac079efd7f47a562c51f2223d1a69f6b9934bb9c240458e81cf95319edbb91e /opt/python-data/matplotlib /
+COPY /v0.1.5/demos/python/Dollyfile-python-data-build 7ac079efd7f47a562c51f2223d1a69f6b9934bb9c240458e81cf95319edbb91e /opt/python-data/pillow /
+COPY /v0.1.5/demos/python/Dollyfile-python-data-build 7ac079efd7f47a562c51f2223d1a69f6b9934bb9c240458e81cf95319edbb91e /opt/python-data/kiwisolver /
+COPY /v0.1.5/demos/python/Dollyfile-python-data-build 7ac079efd7f47a562c51f2223d1a69f6b9934bb9c240458e81cf95319edbb91e /opt/python-data/contourpy /
+COPY /v0.1.5/demos/python/Dollyfile-python-data-build 7ac079efd7f47a562c51f2223d1a69f6b9934bb9c240458e81cf95319edbb91e /opt/python-data/cycler /
+COPY /v0.1.5/demos/python/Dollyfile-python-data-build 7ac079efd7f47a562c51f2223d1a69f6b9934bb9c240458e81cf95319edbb91e /opt/python-data/fonttools /
+COPY /v0.1.5/demos/python/Dollyfile-python-data-build 7ac079efd7f47a562c51f2223d1a69f6b9934bb9c240458e81cf95319edbb91e /opt/python-data/pyparsing /
+COPY /v0.1.5/demos/python/Dollyfile-python-data-build 7ac079efd7f47a562c51f2223d1a69f6b9934bb9c240458e81cf95319edbb91e /opt/python-data/packaging /
