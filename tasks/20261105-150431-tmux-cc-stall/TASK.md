@@ -1,13 +1,14 @@
 # Firefox: a session's first cc stalled at preparing its 91.6 MiB executable
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: bug,tmux,firefox,0.1.6
 
-## State (2026-11-06 01:40, branch `fix/hangs-1105`)
+## State (2026-11-06 01:55, branch `fix/hangs-1105`)
 
-Cause named and fixed; the 20 runs of the test under load are next. The supervisor now holds each
-holder in a set until it answers (`compiling`, `src/process-supervisor.mjs`).
+Closed: cause named, fixed in 35e4b325d (the supervisor holds each holder in a set until it
+answers, `compiling` in `src/process-supervisor.mjs`), and the test passed 20 times in a row
+under load (below).
 
 The cause: the Worker holding a large executable's module (`compileHeld`,
 `src/process-supervisor.mjs`, since d130c6c45) is reachable only through its own handlers until
@@ -67,3 +68,10 @@ Evidence: `work/integrate/build/round-1105rc-evidence/demos.log` (lines 60-115),
 
 Done when the stall is reproduced, its cause named and fixed, and the test passes 20 times in a
 row under a round's load.
+
+## Closing (2026-11-06)
+
+`node demos/tmux/test/tmux-browser.mjs` (Chrome and Firefox), 20 runs in a row at 01:39-01:54
+beside slopyard's GPU test in a loop and the Firefox `cc-loop.mjs` (fresh tmux-panes pages, the
+first cc in each): 20 of 20 passed, Firefox's part in 11.6-20.8 s; the load loop's 153 rounds
+meanwhile all built. Logs: `build/hangs-evidence/tmux-after*.log` in `work/npmflow`.
