@@ -48,9 +48,12 @@ program linked with it reads Janis's two scripts when it starts.
 - Buffers, encodings, paths, URLs, events, timers, crypto helpers, tty streams
   and stateful UTF-8 decoders ([`dolly-node.js`](dolly-node.js)).
 - `child_process` with pipe-backed stdio, exit codes versus signals, kill and
-  timeouts; `fetch()` over the HTTP broker with streaming bodies and abort;
-  WHATWG streams with `pipeTo`, `pipeThrough` and transformers. One
-  cooperative event pump serves promises, timers, HTTP and child pipes.
+  timeouts. As in Node, SIGPIPE is ignored (children start with the default):
+  a write to a pipe nobody reads fails with `EPIPE`, which the stream reports
+  as `error` and `console` drops. `fetch()` over the HTTP broker with
+  streaming bodies and abort; WHATWG streams with `pipeTo`, `pipeThrough` and
+  transformers. One cooperative event pump serves promises, timers, HTTP and
+  child pipes.
 
 ## janis-install
 

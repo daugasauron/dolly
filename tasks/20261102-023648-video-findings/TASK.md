@@ -4,12 +4,24 @@
 - PRIORITY: 150
 - TAGS: bug,rust,demo
 
-## State (2026-11-04)
+## State (2026-11-05)
 
-The branch is merged into `core/terminal-mode` (f701e633; `tasks/20261104-074502-terminal-mode`),
-where `terminal`, `pty` and `core` passed again in Chromium and Firefox on that branch's seed
-(`3bc72763…`). Left here: the catalog round and the garden driver's `run` and `thread` variants on
-rebuilt Rust images; finding 2's cause (Pi's RPC latency around a failed request).
+The fix is on `main`: f701e633 into `core/terminal-mode`, merged as be576525d; that task is
+closed. The confirming round of 2026-11-05 (`integrate/2026-11-05` at 693b9842f, now `main`
+943019e6d, image inputs `88959af6…`) was the catalog round for the seed change. It rebuilt every
+image, the Rust ones included. In `work/integrate/build/round-1105b-evidence/`:
+- `terminal` (with `vmin0`), `pty` and `core` passed in Chromium and Firefox (`browser.log`).
+- The rust demo passed on the rebuilt `rust-tools` in Chromium (`demos.log`).
+- The javascript demo, with Janis's pump check in `janis-process.mjs`, passed in Chromium.
+- classicube's injected provider timeout, with automatic retry, exhausted retries and Retry task
+  with a fresh Pi process, passed in Chromium.
+
+Left:
+- The garden driver's `run` and `thread` variants on the rebuilt Rust images. The driver and its
+  recipes are in `work/evidence-2026-11-02/audit-host/video-findings-evidence/`
+  (`garden-browser.mjs`, `Dollyfile-garden-*`).
+- Finding 2's cause: Pi's RPC latency around a failed request, measured as section 2 says. The
+  classicube run above passed, but it recorded no latency.
 
 Two findings from the recordings of 2026-11-01 (Claude Opus 5.5 working in
 Dolly), each a claim until reproduced. Evidence in
@@ -167,8 +179,9 @@ Read in `demos/game-agent/mission.mjs` and `viewer.cpp`:
   all passed (`build/video-findings-evidence/*-browser.log`, 12:17 JST).
 - [x] Studio's skill says a program that reads keys or sets the terminal's
   mode is proven only in the opened image (`88f27845`).
-- [ ] A catalog round for the seed change; then the garden driver's `run`
-  and `thread` variants on the rebuilt Rust images.
+- [x] A catalog round for the seed change (the confirming round of 2026-11-05,
+  `work/integrate/build/round-1105b-evidence/`).
+- [ ] The garden driver's `run` and `thread` variants on the rebuilt Rust images.
 - [x] Janis's pump change measured: `demos/javascript/test/javascript-browser.mjs`
   passed in Chromium and Firefox on the rebuilt `typescript` (its
   `janis-process.mjs` check included; `build/video-findings-evidence/

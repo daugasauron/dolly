@@ -1,6 +1,6 @@
 # npm: a page of one's own saves sessions and opens them again
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 380
 - TAGS: npm,sessions,snapshots
 
@@ -26,3 +26,7 @@ Done (2026-11-03, branch `npm/sessions`):
 
 Left: the done-when of `tasks/20261103-111707-cache` (a reopened session still fetches its image's
 packs), and the next catalog round's `dolly-docs` (the two documents changed).
+
+## Closed (2026-11-04)
+
+Both leftovers are done: `tasks/20261103-111707-cache` is closed, and `dolly-docs` was rebuilt with the two documents. Evidence: today's confirming round on `integrate/2026-11-03` at `ebffaaad8` (`work/round-1104-main.sh`, evidence `work/integrate/build/round-1104b-evidence/`), now `main`: source 470/470, artifacts 26/26, every browser test, npm packages in Chromium and Firefox, 36 demos and the GPU stage passed; `test/npm-browser.mjs`'s save-and-reload passed in both browsers.

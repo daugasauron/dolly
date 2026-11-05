@@ -1,8 +1,26 @@
 # default and system install the html package
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 140
 - TAGS: images,html,packages
+
+## Closed (2026-11-05)
+
+`core/base-html` is on `main` (274b97dc0). On 693b9842f, `Dollyfile` and `Dollyfile-system` declare
+`REQUIRES HOST html@0` and `INSTALL` `Dollyfile-html`. `default` is now assembled from packages
+(`tasks/20261104-135806-module-audit`) and keeps html among its ten modules. The confirming round
+of 2026-11-05 (`integrate/2026-11-05` at 693b9842f, now `main` 943019e6d, image inputs
+`88959af6…`) rebuilt every image. Evidence in
+`work/integrate/build/round-1105b-evidence/browser.log`:
+- `test/default-browser.mjs` passed in Chromium and Firefox: `default`, composed toolchain and
+  composed dependency. In `default`, `html` of a one-field form shows the popup and prints the
+  field.
+- `test/html-browser.mjs` passed in Chromium (16.1 s) and Firefox (17.8 s).
+- `amy install pi-dolly` in `default`, without `nena enable html`: `test/amy-browser.mjs`'s "amy
+  tools" installs it (3349 ms, 6947 ms) and runs `pi --version`. It passed in Chromium (34.8 s) and
+  Firefox (47.6 s) against the whole catalog. Its `enables` table and note are gone; no test,
+  doc or Pi file on 693b9842f says `nena enable html`.
+- The npm packages passed in both browsers (`npm.log`).
 
 `html@0` is a package (`Dollyfile-html`; `tasks/20261101-124237-html-popups`, closed). `default`
 declares every module the packages amy installs may need (`Dollyfile:6-16`: audio, dso, http,

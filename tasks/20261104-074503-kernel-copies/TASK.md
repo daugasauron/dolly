@@ -1,8 +1,30 @@
 # The kernel holds no copy of what it hands the page: executables and captured images stream
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: core,kernel,memory,snapshots,abi
+
+## Closed (2026-11-05)
+
+Both changes are on `main` (c7f486d36, ab95a35dc, 3b25d52c3). They came in with
+`core/session-mtimes` (850abe9df) on 2026-11-04, with the night round's other seed changes. The
+image inputs changed once, to `88959af6…`. The night round and the confirming round of
+2026-11-05 (`integrate/2026-11-05` at 693b9842f, now `main` 943019e6d) built every image on them.
+Evidence in `work/integrate/build/round-1105b-evidence/browser.log`, Chromium and Firefox:
+- image: 91.9 s and 96.9 s; process memory: 47.5 s and 54.1 s.
+- process: 41.7 s and 42.7 s; core: 24.4 s and 35.6 s; image input: 42.6 s and 46.5 s.
+
+The cold launch of `compiler` was measured with `module-cost.mjs` on the branch (above). Its
+highest rise went from +310 to +201 and +210 MB in Chromium, and from +769 to +762 and +591 MB
+in Firefox. The byte comparison is the branch's too: 24 snapshots built by the new code
+(`system`, `default`, `qwen3.5-2b` and their closure) have the digests the old code gave. The
+round itself has no unchanged recipe to compare, since the image inputs changed every pin.
+
+In the round, `pi-local` built in the heavy stage (`catalog-heavy.log`: "capturing userspace image
+(kernel memory 1602 MiB)", a 1,640,990,203-byte snapshot), but not in a measured 9 GB build slot.
+Its capture-phase rise against the image store's 5.55 GB peak is still wanted. It needs the same
+measured `pi-local` build as the install's rise, so it moved to
+`tasks/20261104-012434-install-copy`, which this task's "Seen, not changed" became.
 
 Two measured copies in the kernel's Wasm memory, which never shrinks. Decided 2026-11-04
 (`tasks/20261102-133353-owner-decisions`): yes to both; each is a build's or a launch's high-water

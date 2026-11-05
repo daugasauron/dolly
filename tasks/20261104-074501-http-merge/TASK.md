@@ -1,8 +1,28 @@
 # http@0's limits sit above the services' own: merge proposal/http-limits
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: core,http,network
+
+## Closed (2026-11-05)
+
+`core/http-limits-2` was merged on 2026-11-04 (74371f945). The confirming round of 2026-11-05
+(`integrate/2026-11-05` at 693b9842f, now `main` 943019e6d, image inputs `88959af6…`) built every
+image. Evidence in `work/integrate/build/round-1105b-evidence/`:
+- `test/network-browser.mjs` passed in Chromium (41.8 s) and Firefox (44.1 s) on the round's
+  images (`browser.log`). It includes the 2 s rule's three cases: the moving stream `end`
+  completes, while `stall` and `silent` end in curl's 28 a timeout after their last bytes.
+- `test/http-broker.test.mjs` passed in the source suite (475 of 475, `source.log`). Since
+  715e89990 (`tasks/20261104-171230-tests-r1`), its moving-stream case runs on the test's own
+  clock.
+- Janis's demo fixture with the 64 MiB + 1 upload: `demos/javascript/test/javascript-browser.mjs`
+  passed in Chromium (37.1 s, `demos.log`). The round's demo runner opens it in Chromium only;
+  this branch's images ran it in Firefox too (40.0 s, above).
+
+`docs/http.md` (the timeout as the "longest wait for the next bytes", the 64 MiB body) and
+`docs/browser-boundary.md`'s Network section (a transfer holds its slot while it waits; the
+timeout bounds each wait) say what the timeout bounds. `tasks/20261101-222946-http-limits`
+closes with this task.
 
 Two recorded Studio takes died on today's limits: Pi's request with ten PNG frames never left
 the page (the broker's 8 MiB body cap, which the Anthropic SDK reports as "Connection error."

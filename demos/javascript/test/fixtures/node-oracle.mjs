@@ -1,7 +1,7 @@
 // Node API cases whose observations must be identical in Node and Janis.
 // The browser test runs observe() in Node and serves the result; Janis runs
 // `janis -m node-oracle.mjs ROOT ORIGIN` and compares its own observations.
-import { execSync, spawnSync } from "node:child_process";
+import { execSync, spawn, spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import EventEmitter from "node:events";
 import fs from "node:fs";
@@ -154,6 +154,29 @@ export async function observe(root) {
       "while ((chunk = process.stdin.read()) !== null) console.log('read', JSON.stringify(chunk)); }); process.stdin.on('end', () => console.log('end'))"], "typed\n"),
     node(["-e", "process.stdin.unref(); process.stdin.on('data', () => console.log('data')); console.log('unreferenced')"], ""),
   ];
+  // Node ignores SIGPIPE: a write to a pipe nobody reads fails with EPIPE where it
+  // was made (console's quietly), and a child ended while its input is being
+  // written fails only its stdin, as rts-arena's Pi players are ended.
+  const unread = await new Promise(resolve => {
+    const child = spawn(process.execPath, ["-e", "setTimeout(() => { console.log('quiet'); let thrown = null; " +
+      "try { require('node:fs').writeSync(1, 'x'); } catch (error) { thrown = error.code; } " +
+      "process.stdout.on('error', error => console.error(thrown, error.code)); process.stdout.write('y'); }, 200)"],
+    { stdio: ["ignore", "pipe", "pipe"] });
+    child.stdout.destroy();
+    let stderr = "";
+    child.stderr.on("data", chunk => { stderr += chunk; });
+    child.on("close", (status, signal) => resolve([status, signal, stderr]));
+  });
+  const killed = [];
+  for (let run = 0; run < 20; run++) killed.push(await new Promise(resolve => {
+    const child = spawn(process.execPath, ["-e", "process.stdin.on('data', () => {})"], { stdio: ["pipe", "ignore", "inherit"] });
+    const chunk = Buffer.alloc(16384, 65), more = () => { while (child.stdin.write(chunk)); child.stdin.once("drain", more); };
+    child.stdin.on("error", () => {});
+    more();
+    setTimeout(() => child.kill("SIGTERM"), 100 + 5 * run);
+    child.on("close", (status, signal) => resolve([status, signal]));
+  }));
+  cases.brokenPipe = [unread, killed];
   const watched = `${root}/watched`;
   fs.mkdirSync(watched);
   const watchEvents = [], fileChanges = [];

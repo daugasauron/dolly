@@ -1,8 +1,41 @@
 # Host contracts said once: the leased-device protocol, input's and display's values, snapshot's mailbox
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 160
 - TAGS: core,host-modules,abi,cleanup
+
+## Closed (2026-11-05)
+
+All four commits (c0745b24, ad5cc953, 246f0325, 90c3b89b) are on `main`, through
+`core/terminal-palette` (950caf5c1), which was built on this branch. The confirming round of
+2026-11-05 (`integrate/2026-11-05` at 693b9842f, now `main` 943019e6d, image inputs `88959af6…`)
+rebuilt every image. Evidence in `work/integrate/build/round-1105b-evidence/browser.log`; every
+suite passed in Chromium and Firefox:
+- Item 1: audio, microphone and microphone denied, nena, host compute, dso, host modules, core
+  and boundary. gpu indicator passed in Chrome (software, without a Worker adapter, unavailable)
+  and Firefox (unavailable).
+- Item 3: custom session, session without http (`session-offline-browser.mjs`), snapshot stream
+  and indicators.
+- Item 2's others: terminal, display, display cursors, touch, shell, upload, pager, pty,
+  network, sockets, stack, threads and embedding.
+- `test/audio-host.test.mjs` passed in the source suite (475 of 475, `source.log`, test 82).
+- Hardware gpu-render passed in Chrome 156 on the branch's images (90c3b89b, adapter "nvidia
+  blackwell", the fixture compiled in the guest;
+  `work/evidence-2026-11-04/slop/host-contracts-evidence/gpu-render-chrome.log`). The round
+  leaves that test out, since it needs a hardware adapter (`test/browser-tests.mjs`). The
+  round's GPU stage ran programs that link the rebuilt gpu client on that adapter in Chromium:
+  gpu-fluid (each replay equal to Dolly's run, `gpu-gpu-fluid.log`), 0 A.D.'s graphics, pi-local
+  and dollyfile-studio's inference (Chromium and Firefox, `gpu-local-llm.log`), and Slopyard on
+  rerun.
+- The C clients the branch could not build passed in the round: SDL2 and its audio, imgui,
+  bhop, classicube, gpu-fluid, Slopyard and pi-phone. Wine's `winedolly.drv` is not in the
+  round's demos. It passed on `core/modules-r1` at the same image inputs, in Chromium and
+  Firefox (`work/evidence-2026-11-05/catalog/modules-evidence/wine-chromium.log`,
+  `wine-firefox-debug.log`).
+
+`host/input/input.mjs` and `host/display/display.mjs` take their values from `abi.mjs`
+(`scripts/generate-abi-constants.mjs`). A grep of 693b9842f finds none of the literals ad5cc953
+replaced (`keyEvent = 1`, `(flags & 3) === 3`, the locks' `16` and `32`, cursor styles by index).
 
 Three proposals of `tasks/20261101-074546-audit-host`, each prototyped and measured on a branch
 from 12c7fbd9 (its fix 10, merged on `integrate/2026-11-02`). Decided 2026-11-04

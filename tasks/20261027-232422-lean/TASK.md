@@ -1,10 +1,11 @@
 # Lean 4 as an amy package, built inside Dolly from upstream's stage0
 
-- STATUS: OPEN
-- PRIORITY: 60
+- STATUS: CLOSED
+- PRIORITY: 390
 - TAGS: packages,demo,lean,0.1.5
 
-Owner (2026-10-28): "I want to add lean to amy."
+Owner (2026-10-28): "I want to add lean to amy." Owner (2026-11-04): "I absolutely want to include
+lean in 0.1.5."
 
 Lean 4 (`leanprover/lean4`, upstream's newest stable release) as a package: `amy install lean`
 gives `lean` and `lake` with Lean's own library (`Init`, `Std`, `Lean`), built inside Dolly
@@ -559,3 +560,17 @@ Chromium is killed at `lake new` and `lake build`, as before the change. Firefox
   commit` committed the staged revert of tonight's libc fix too (amended at once). Set files
   aside for a measurement with `git restore --source=REV --worktree FILE`, which leaves the
   index alone.
+
+## Closed (2026-11-05)
+
+Owner (2026-11-05): "That is fine for now, then just close the lean task." Lean is in 0.1.5:
+`amy install lean` on `default`, `lean --run`, the theorems and the false one, `lake new` and
+`lake build` pass in `demos/lean/test/lean-browser.mjs` in Chromium (47.5 s) and Firefox (63.1 s)
+in the night round of 2026-11-05 (`work/integrate/build/round-1105-evidence/demos.log`), and again
+in the confirming round (`round-1105b-evidence`). Moved, not dropped:
+
+- A 6 GB tab: the package's files copied into the kernel's memory are the floor;
+  [20261104-191927-package-store](../20261104-191927-package-store/TASK.md) keeps them in the image store. The libc fix for Chromium (an ending
+  process wakes its futex waiters) is in the v0.1.5 candidate round, whose demos run Lean again.
+- The domain's catalog listing Lean (`config/domain-pages-images.txt`): the release's check, in
+  [20261104-124209-v015-rc](../20261104-124209-v015-rc/TASK.md).

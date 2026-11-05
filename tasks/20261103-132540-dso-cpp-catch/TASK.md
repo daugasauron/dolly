@@ -1,6 +1,6 @@
 # A C++ catch in a dso@0 library does not catch: the host's TLS exports are offsets
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: bug,host-modules,compiler
 
@@ -53,3 +53,7 @@ through it, in Chromium and Firefox, with a test in `test/dso-browser.mjs`. The 
 know which of the executable's exports are TLS offsets and its `__tls_base` (the executable's
 processes that host libraries are single-threaded); wasm-ld records that only in a PIC output's
 `dylink.0`, so the executable has to say it some other way.
+
+## Closed (2026-11-04)
+
+Fixed by 4e992e97a and f751f3480; `test/dso-browser.mjs` (a library that throws and catches inside itself) passed in both browsers. Evidence: today's confirming round on `integrate/2026-11-03` at `ebffaaad8` (`work/round-1104-main.sh`, evidence `work/integrate/build/round-1104b-evidence/`), now `main`: source 470/470, artifacts 26/26, every browser test, npm packages in Chromium and Firefox, 36 demos and the GPU stage passed. The C `_Thread_local` case is `tasks/20261104-124135-c-thread-local`.

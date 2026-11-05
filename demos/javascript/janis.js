@@ -698,11 +698,18 @@ class JanisOutput extends JanisEventEmitter {
   get isTTY() { return Boolean(Dolly.isatty(this.#error ? 2 : 1)); }
   get columns() { return Dolly.terminalSize().columns || 80; }
   get rows() { return Dolly.terminalSize().rows || 24; }
-  write(value, _encoding, callback) {
+  write(value, encoding, callback) {
+    if (typeof encoding === "function") callback = encoding;
     const bytes = value instanceof Uint8Array ? value : String(value);
-    const status = this.#error ? Dolly.stderr(bytes) : Dolly.stdout(bytes);
-    if (typeof _encoding === "function") _encoding();
-    else callback?.();
+    let status;
+    try { status = this.#error ? Dolly.stderr(bytes) : Dolly.stdout(bytes); }
+    catch (error) {
+      // As Node's: a write that fails, as one to a pipe nobody reads does, is the stream's error.
+      if (typeof error.code !== "string") throw error;
+      queueMicrotask(() => { callback?.(error); this.emit("error", error); });
+      return false;
+    }
+    callback?.();
     return Boolean(status);
   }
   end(value, encoding, callback) {
@@ -1701,17 +1708,19 @@ function pumpChildren() {
         }
       }
       if (record.fds[0] !== null) {
-        if (ready[0] & (Dolly.fsConstants.POLLERR | Dolly.fsConstants.POLLHUP)) {
-          const error = record.input.length ? Object.assign(new Error("child closed stdin"), { code: "EPIPE" }) : undefined;
-          child.stdin.destroy(error);
-        } else if (record.input.length && ready[0]) {
+        let closed = (ready[0] & (Dolly.fsConstants.POLLERR | Dolly.fsConstants.POLLHUP)) !== 0;
+        if (!closed && record.input.length && ready[0]) {
           const entry = record.input[0];
-          const count = Dolly.fsWrite(record.fds[0], entry.bytes, entry.offset, Math.min(16384, entry.bytes.length - entry.offset));
+          let count = 0;
+          // The child may have closed its end since the poll.
+          try { count = Dolly.fsWrite(record.fds[0], entry.bytes, entry.offset, Math.min(16384, entry.bytes.length - entry.offset)); }
+          catch (error) { if (error.code !== "EPIPE") throw error; closed = true; }
           entry.offset += count;
           child.stdin.writableLength -= count;
           if (entry.offset === entry.bytes.length) { record.input.shift(); entry.callback?.(); }
           if (!record.input.length) child.stdin.emit("drain");
         }
+        if (closed) child.stdin.destroy(record.input.length ? Object.assign(new Error("child closed stdin"), { code: "EPIPE" }) : undefined);
         if (record.fds[0] !== null && record.inputEnded && !record.input.length) {
           closeChildFd(record, 0);
           child.stdin.emit("finish");

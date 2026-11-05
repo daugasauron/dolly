@@ -12,16 +12,16 @@ REQUIRES HOST html@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-INSTALL /v0.1.5/Dollyfile-core 7205c35aed897514d3094f14a194669f73c295b4dd0213619d90155da8467cde
-INSTALL /v0.1.5/Dollyfile-posix a98de8b50ce0a29e867194e9fe9c44a54c0ea48ccf25a0f1353431daf827cf9e
-INSTALL /v0.1.5/Dollyfile-display 2032dbc473505507c7419267f43fdb2fe76b16b0907ca27f2b157a0ec54bda35
+INSTALL /v0.1.5/Dollyfile-core 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.5/Dollyfile-posix 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.5/Dollyfile-display 0000000000000000000000000000000000000000000000000000000000000000
 # download and upload, which the agent's settings and relay run (transfer).
-INSTALL /v0.1.5/Dollyfile-transfer 5ba6da77866030da273e49a2e8867ca6ef7441fa2024e90025da2239801dfe52
-INSTALL /v0.1.5/demos/pi/Dollyfile-pi-dolly 908ac93780bd0303a47fcd599bd999c842313b5e49fc5d8f5ccf1db162a5855d
-INSTALL /v0.1.5/demos/classicube/Dollyfile-classicube-agent 4a0b8fee514bfa1db767bd2f19c2634e9f767ac7a303f12fb012faa49a5e1572
-COPY /v0.1.5/demos/classicube/Dollyfile-classicube-build 89de7c92d25bd9096d6e97208eb8688ccf656f35f7aebf4ac6b7b760c8d4eb90 /usr/bin/classicube /usr/bin/classicube
-COPY /v0.1.5/demos/classicube/Dollyfile-classicube-build 89de7c92d25bd9096d6e97208eb8688ccf656f35f7aebf4ac6b7b760c8d4eb90 /usr/share/classicube /home/dolly/classicube
-COPY /v0.1.5/demos/classicube/Dollyfile-classicube-build 89de7c92d25bd9096d6e97208eb8688ccf656f35f7aebf4ac6b7b760c8d4eb90 /usr/share/licenses/classicube /usr/share/licenses/classicube
+INSTALL /v0.1.5/Dollyfile-transfer 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.5/demos/pi/Dollyfile-pi-dolly 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.5/demos/classicube/Dollyfile-classicube-agent 0000000000000000000000000000000000000000000000000000000000000000
+COPY /v0.1.5/demos/classicube/Dollyfile-classicube-build 0000000000000000000000000000000000000000000000000000000000000000 /usr/bin/classicube /usr/bin/classicube
+COPY /v0.1.5/demos/classicube/Dollyfile-classicube-build 0000000000000000000000000000000000000000000000000000000000000000 /usr/share/classicube /home/dolly/classicube
+COPY /v0.1.5/demos/classicube/Dollyfile-classicube-build 0000000000000000000000000000000000000000000000000000000000000000 /usr/share/licenses/classicube /usr/share/licenses/classicube
 EXPORTS TOOL classicube
 REQUIRES TOOL pi
 REQUIRES TOOL classicube-agent

@@ -1,6 +1,6 @@
 # Matplotlib built inside Dolly: C++ exceptions in shared libraries, Python's thread stubs, and the build's frictions (the owner's report)
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 370
 - TAGS: python,toolchain,dso,packages
 
@@ -116,3 +116,7 @@ Frictions:
 - Hosts without CORS headers: python-data-build stages every source on the site (pins in
   `config/source-pins.sh`); a session building Matplotlib 3.11 from PyPI still meets them.
   That is the HTTP policy's and the relays' domain (`docs/http.md`), not changed here.
+
+## Closed (2026-11-04)
+
+Each item is fixed or decided: the loader's C++ exceptions in shared libraries (4e992e97a, f751f3480), real threads in place of the thread-pool stopgap (`tasks/20261103-134653-pythreads`), and every friction above. What stays wanted moved to tasks of its own: `cc -flto` (`tasks/20261104-124135-cc-flto`) and a C `_Thread_local` reached from a library (`tasks/20261104-124135-c-thread-local`); hosts without CORS headers are the HTTP policy's (`docs/http.md`). Evidence: today's confirming round on `integrate/2026-11-03` at `ebffaaad8` (`work/round-1104-main.sh`, evidence `work/integrate/build/round-1104b-evidence/`), now `main`: source 470/470, artifacts 26/26, every browser test, npm packages in Chromium and Firefox, 36 demos and the GPU stage passed, python, python-data, its NumPy COPY and openblas among the demos.
