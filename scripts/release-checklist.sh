@@ -30,7 +30,8 @@ seed_compiler=".cache/dolly-seed-compiler-${DOLLY_SEED_COMPILER_SHA256}.tar"
    -f "${seed_compiler}" ]] || stop "the seed compiler is not pinned to this release's asset (docs/sources.md)"
 
 step "2 no token-shaped string in the unpushed commits or the image snapshots"
-tokens='sk-ant-[A-Za-z0-9_-]{20,}|sk-or-v1-[0-9a-f]{32,}|sk-proj-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{20,}'
+# An AWS access key ID is AKIA and 16 base32 characters; Pillow's ImageFont.py has AKIA in base64.
+tokens='sk-ant-[A-Za-z0-9_-]{20,}|sk-or-v1-[0-9a-f]{32,}|sk-proj-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,}|AKIA[A-Z2-7]{16}|xox[baprs]-[A-Za-z0-9-]{20,}'
 # A key's PEM header ends its line; GLib's parser keeps one as a string that ends in NUL.
 pem='-----BEGIN [A-Z ]*PRIVATE KEY-----[[:cntrl:]]?$'
 git rev-parse -q --verify origin/main > /dev/null || stop "origin/main is unknown, so nothing says which commits a push would publish"
