@@ -160,8 +160,10 @@ pushes, uploads or deploys.
    ([sources](sources.md#the-seeds-compiler)); run `pages.yml` with the tag
    and the tarball's SHA-256; `npm publish` each package of step 3 under
    `@daugasauron`.
-6. Assemble the deployment from the archive and the new release; upload it
-   with `wrangler pages deploy` as a detached job. An interrupted upload keeps
+6. Assemble the deployment from the archive and the new release; boot every
+   version from it, served by [`pages-host.mjs`](../test/pages-host.mjs), in
+   Chromium and Firefox (`published-version.mjs boot`); upload it with
+   `wrangler pages deploy` as a detached job. An interrupted upload keeps
    nothing: never restart it.
 7. Live, in Chromium and Firefox: `published-version.mjs boot SITE vX.Y.Z…`
    (`/` leads to the newest version, an unversioned path is 404, every
