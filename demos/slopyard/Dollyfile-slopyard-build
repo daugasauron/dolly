@@ -15,7 +15,7 @@ REQUIRES HOST threads@0
 # sources. slopyard-game keeps the game; the game's tests compile here.
 FROM /v0.1.5/demos/slopyard/Dollyfile-gamedev-sdk f90577bcd0d5c3eb3cd989913f41cdd3685f769522066bd205ee89e22a26b6d1
 INSTALL /v0.1.5/Dollyfile-libdolly-gpu 420bb03b5364f4c9f63191cada32fdbf27a0bca02265ff614493fe7b700d42f5
-INSTALL /v0.1.5/demos/javascript/Dollyfile-janis 03999557889df193c09f4d7e46e79fe9cc1002cd355a795d08bd019136da0ae5
+INSTALL /v0.1.5/demos/javascript/Dollyfile-janis 11d808dce535176b226c70d32e33b6050969f00ace9b0c22578d93a91a3744e8
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make
