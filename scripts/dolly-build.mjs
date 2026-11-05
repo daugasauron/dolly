@@ -115,7 +115,7 @@ async function scaffold(name, packages) {
   if (present.length) fail(`${present.join(", ")}: already here`);
   await mkdir("public/workspace", { recursive: true });
   for (const [file, text] of Object.entries(files)) await writeFile(file, text);
-  // The image directory and node_modules are built, not kept: a .gitignore, unless the project has one.
+  // The site and node_modules are built, not kept: a .gitignore, unless the project has one.
   if (!existsSync(".gitignore")) await writeFile(".gitignore", `node_modules/\n${name}/\n`);
   const missing = hosts.map(host => host.split("@")[0]).filter(name => !modules.has(name));
   console.log(`dolly-build: wrote ${Object.keys(files).join(", ")}\n` +
@@ -133,7 +133,7 @@ async function build(recipePath, outArgument) {
   // A rebuild replaces the site it wrote before, and nothing else.
   const previous = join(outArgument, "image");
   if (existsSync(outArgument) && !existsSync(join(previous, "dist/dolly-images.json"))) {
-    fail(`${outArgument} exists and is not a site dolly-build wrote`);
+    fail(`${outArgument} exists and is not a site dolly-build wrote: remove it, or name another`);
   }
   // Every row that names an image names one of the installed directories at its pin.
   const holders = parsed.artifacts.map(reference => holder(reference) ?? fail(`${filename}:${reference.line}: no installed ` +
