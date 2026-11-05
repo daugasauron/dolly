@@ -1,8 +1,43 @@
 # Host modules: why images declare what they declare
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: host-modules,audit,images,0.1.5
+
+## Closed (2026-11-05)
+
+1. **Chosen.** The integrator chose R1 and R2 for 0.1.5 on 2026-11-04, under the owner's rule to
+   decide. R3, R4 and R5 are `tasks/20261104-143110-modules-r3`, `-r4` and `-r5`.
+2. **R1** is on `main` with `fix/tests-r1` (693b9842f: 0d69b4743, b6bd7c18c, f5c4e3357,
+   1ea2bc6a3, 35393ee3c).
+   - None of the 25 `APPLICATION` recipes on 693b9842f has a `FROM`. The lint refuses one
+     (`scripts/lint-dollyfiles.mjs`): the round's lint passed for 204 recipes
+     (`round-1105b-evidence/lint.log`).
+   - The catalog built: "all images ready" (`round-1105b.log`).
+   - `demos/tmux/Dollyfile-tmux-panes` declares 8 modules.
+3. **R2** (e639ef32b): `default` declares 10 modules, none for a package it does not hold. In
+   `test/amy-browser.mjs`'s "amy programs", `amy install sdl2` in that `default` has amy enable
+   `audio@0` and `touch@0`, and the program runs. It passed in Chromium (35.4 s) and Firefox
+   (44.2 s), as did every other amy case (`browser.log`).
+4. **Counts after** are recorded below ("Counts after", against section 2).
+
+The confirming round of 2026-11-05 (`integrate/2026-11-05` at 693b9842f, now `main` 943019e6d,
+image inputs `88959af6…`) also ran the applications R1 rebuilt. In `round-1105b-evidence/`:
+- `demos.log`, in Chromium, and in Firefox too where the demo runs there: tmux, emacs, neovim,
+  python-data, pi, codex, closed-source-agent, speech and pi-phone, x11, studio, bhop, classicube,
+  the pi-local and dollyfile-studio start screens.
+- `rts` failed once with SIGPIPE and passed on rerun (`rts-rerun.log`); it is
+  `tasks/20261104-212342-rts-sigpipe`.
+- The GPU stage: gpu-fluid (`gpu-gpu-fluid.log`), and pi-local and dollyfile-studio's inference
+  in Chromium and Firefox (`gpu-local-llm.log`).
+- Slopyard hung once and passed twice on rerun (`slopyard-rerun-*.log`); it is
+  `tasks/20261104-213210-slopyard-hang`.
+- ghostty-x11 passed in both browsers (`ghostty-x11.log`).
+
+Not in the round's demos: wine and xonotic. Wine passed on `core/modules-r1` at the same image
+inputs in Chromium and Firefox. Its two Firefox failures came while an image build ran beside it;
+alone it passed, as did the image from before R1 (Checks). xonotic has no test that opens the
+application; its smoke run is in Checks.
 
 ## State (2026-11-05 02:30 JST): R1 and R2 done on `core/modules-r1`; close after the round
 

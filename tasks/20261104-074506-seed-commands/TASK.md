@@ -4,6 +4,43 @@
 - PRIORITY: 180
 - TAGS: core,commands,seed
 
+## State (2026-11-05)
+
+Every part is met except one: zig-llvm's `libc.txt` and `ZIG_LIBC`. The branch is on `main`
+(f0a509a8e). The pinned seed compiler, 2e38984f (061a02318), is the one `llvm-cc` built from a
+`src/compiler.cpp` with the `-Wp,` driver change. The confirming round of 2026-11-05
+(`integrate/2026-11-05` at 693b9842f, now `main` 943019e6d, image inputs `88959af6…`) rebuilt
+every image. Evidence in `work/integrate/build/round-1105b-evidence/`:
+- **tar:** `test/tar.test.mjs` passed in the source suite (475 of 475, `source.log`, test 251;
+  its dated members check 1200000000 and 1000000000). `test/core-browser.mjs` reads a file's and
+  its directory's recorded times through `stat -c %Y`; it passed in Chromium (24.4 s) and Firefox
+  (35.6 s) (`browser.log`).
+- **Emacs:** `demos/emacs` has no `utimensat` helper. The branch's build without it compiles the
+  same 163 units and generates the same 31 files (Work, below). In the round, the emacs demo
+  passed in Chromium (4.7 s) and Firefox (5.7 s), and the emacs package in Chromium (`demos.log`).
+- **sleep:** `sleep 0.1` took 105–108 ms in Chromium and 109–115 ms in Firefox on the branch. The
+  two X loops use it (`Dollyfile-x11-desktop:42`, `Dollyfile-ghostty-x11:48`). In the round, x11
+  passed in Chromium (37.4 s, `demos.log`), and ghostty-x11 in Chromium (3.7 s) and Firefox
+  (4.4 s) (`ghostty-x11.log`).
+- **cc -Wp:** `test/cpp-browser.mjs` checks that `cc -E -Wp,-v -x c /dev/null` lists
+  ` /usr/include`. It passed in Chromium (9.9 s) and Firefox (12.5 s).
+- **zig:** `demos/zig/test/zig-llvm-browser.mjs` passed on the rebuilt zig-llvm in Chromium
+  (144.4 s) and Firefox (172.3 s). The `zig` package's `libc.txt` and `ZIG_LIBC` are gone
+  (813eda990). amy's zig row passes without them in both browsers ("amy tools").
+
+Left:
+- `libc.txt` and `ZIG_LIBC` are still in `demos/zig/Dollyfile-zig-llvm`. The branch found that
+  this file is not the missing option's workaround (Work, "zig-llvm's `libc.txt` stays"). It
+  names Emscripten's headers, `sys_include_dir`, which Zig's detection does not choose, and the
+  crt directory, which `Compilation.create` requires to link libc. Both were read in Zig's
+  source, not measured.
+- What closes it: a `zig-llvm-build` (9 GB slot) without the file, run with
+  `zig-llvm-browser.mjs`. If it fails there, the part is dropped as answered; otherwise the
+  file goes.
+
+No fixed point yet: the round's `llvm-cc` built b32cd0f8, not the pinned compiler
+(`seed-compiler-next.diff`). `docs/sources.md` says such a compiler is pinned for another round.
+
 Three workarounds in recipes that a seed command's missing behaviour caused. Decided 2026-11-04
 (`tasks/20261102-133353-owner-decisions`): yes to all three; each is a workaround the mechanism
 deletes. One seed change, one round (with the Zig 0.17 round of `tasks/20261103-102041-zig017` if
@@ -33,7 +70,7 @@ Chromium and Firefox and the two X loops use it; `cc -E -Wp,-v -x c /dev/null` p
 directories; `libc.txt` and `ZIG_LIBC` are gone from `Dollyfile-zig-llvm` and
 `demos/zig/test/zig-llvm-browser.mjs` passes in both browsers on the rebuilt zig.
 
-## State (2026-11-04)
+## Work (2026-11-04)
 
 Work on `core/seed-commands` (`work/signals`), on `integrate/2026-11-03` (image inputs
 `e7867504…`). Results before 813eda990 are on that seed; from it on, on the new seed compiler

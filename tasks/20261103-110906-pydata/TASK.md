@@ -1,6 +1,6 @@
 # A Python image with NumPy, Pandas, Matplotlib and the common libraries, built once, that other recipes COPY from
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 350
 - TAGS: python,image,demo,packages
 
@@ -258,3 +258,7 @@ is 1, so Ninja runs three jobs).
   release line that builds and write the gap down with its cause.
 - The owner's report and this task met the same four bugs independently, hours apart: a
   session with stock tools finds what a recipe author would hit, and it is cheap to run one.
+
+## Closed (2026-11-04)
+
+Both images are in the catalog and built in a round; the demo test, the NumPy-only COPY and the npm image package passed in Chromium and Firefox. Evidence: today's confirming round on `integrate/2026-11-03` at `ebffaaad8` (`work/round-1104-main.sh`, evidence `work/integrate/build/round-1104b-evidence/`), now `main`: source 470/470, artifacts 26/26, every browser test, npm packages in Chromium and Firefox, 36 demos and the GPU stage passed. SciPy is `tasks/20261103-133557-scipy`.

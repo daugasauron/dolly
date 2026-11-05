@@ -4,6 +4,35 @@
 - PRIORITY: 150
 - TAGS: core,libc,abi,build,investigation
 
+## State (2026-11-05)
+
+Every part is met except the rust suite in Firefox. The branch is on `main` (838b4e1ee). The
+pinned seed compiler, 2e38984f (061a02318), is the `llvm-cc` built from this branch's
+`src/compiler.cpp` and pinned before the catalog. The confirming round of 2026-11-05
+(`integrate/2026-11-05` at 693b9842f, now `main` 943019e6d, image inputs `88959af6…`) rebuilt
+every image. Evidence in `work/integrate/build/round-1105b-evidence/`:
+- **The archive:** the measurement's table is below. On 693b9842f, `--whole-archive` is in none
+  of `src/compiler.cpp`, `scripts/build.sh` and `demos/rust/toolchain/link.sh`, and `abort` is a
+  strong member of its own (`src/process/abort.c`).
+- **The digest:** measured on the branch (below). The image inputs stayed `62485550…` after a
+  comment edit in two contracts.
+- **process:** passed in Chromium (41.7 s) and Firefox (42.7 s) (`browser.log`). Its own-`abort`
+  case is included: `calls-abort` links a program's `abort` from an archive and exits 7. Under a
+  compiler that links the archive whole it fails with `duplicate symbol: abort`.
+- threads (9.9 s, 11.5 s), dso (24.0 s, 25.6 s), stack (11.9 s, 26.2 s) and pty (15.0 s, 16.2 s)
+  passed in both browsers. `zero-ad-engine`, whose `spidermonkey-check` defines `abort`, built,
+  and its GPU-stage tests passed (`gpu-0ad-*.log`).
+- **rust:** `demos/rust/test/rust-browser.mjs` passed on the rebuilt `rust-tools` in Chromium
+  (97.0 s, `demos.log`).
+- In Firefox, `rustc` compiled and ran a program in amy's "amy programs" and "amy rust alone",
+  and `cargo` in "amy cargo alone" (`browser.log`).
+- `link.sh` was not rerun: the round reused the cached Rust seed. `rustc` linked both ways is
+  equal (the table).
+
+Left: the rust suite in Firefox. `rust-browser.mjs` passes no `browser` to `demoTest`, which
+then opens Chromium, so no round runs it in Firefox. Run it once in Firefox on the round's
+`rust-tools`, then close.
+
 Two findings about how an executable is linked and identified. Decided 2026-11-04
 (`tasks/20261102-133353-owner-decisions`): yes to the digest; yes to the archive if its measurement
 holds. Both are toolchain and seed changes: one round.

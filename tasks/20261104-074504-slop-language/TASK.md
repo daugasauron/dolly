@@ -1,8 +1,32 @@
 # Slop and the Dollyfile language: one parser, the utilities in the shell, and what nothing uses
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 230
 - TAGS: core,slop,dollyfile,cleanup
+
+## Closed (2026-11-05)
+
+All six items are on `main` in one merge, `core/slop-language` (9777e6994: 5fb057d2, 73486c95,
+11d0cfe4, 76720e7e, c2ac96db, da086a4c, 0b7c0696). The confirming round of 2026-11-05
+(`integrate/2026-11-05` at 693b9842f, now `main` 943019e6d, image inputs `88959af6…`) rebuilt
+every image from the page's rows. Evidence in
+`work/integrate/build/round-1105b-evidence/browser.log`, Chromium and Firefox:
+- slop: 11.9 s and 15.6 s; shell: 7.9 s and 8.8 s, with shell environment; core: 24.4 s and 35.6 s.
+- process: 41.7 s and 42.7 s, with its check that `default` opens in `/workspace` and that
+  `cd /tmp && slop` stays in `/tmp`.
+- image: 91.9 s and 96.9 s.
+- The whole of `amy-browser.mjs` against the full catalog: `amy`, `amy programs`, `amy tools`,
+  the six `alone` cases, `amy cc`, `amy refusal` and `USE`.
+- `default` and `man and --help` passed too.
+- The source suite passed 475 of 475, including "printf writes what the host's printf writes"
+  and "the test, [, echo, printf, true and false that PATH finds in /bin run in the shell".
+
+The measurements were made on the branch (Work above). 200 iterations of the four utilities
+took 0.076 to 0.081 s in the shell against 2.65 to 2.75 s as programs, in Chromium. FFmpeg's
+configure in the `ffmpeg` build took 30.6 s against 225.2 s. No image has `/bin/cd`:
+`src/commands/cd.c` is gone, and no recipe, test or script on 693b9842f names it.
+`docs/slop.md` names the six utilities the shell runs itself; `docs/dollyfile.md` keeps
+`REQUIRES TOOL|LIB|HEADER` and has no `APPEND`.
 
 Six items of `tasks/20261101-074424-audit-slop`, decided 2026-11-04
 (`tasks/20261102-133353-owner-decisions`). Every one changes Slop or the engine, which are in
