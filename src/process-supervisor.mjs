@@ -64,15 +64,20 @@ onmessage = async ({ data: { bytes, port } }) => {
     bytes.transfer(0);
   }
 };`], { type: "text/javascript" }));
+// Each holder until it answers: Firefox ends a Worker that only its own
+// handlers reach once its loop is idle, as after it posts its answer, and
+// that answer is lost.
+const compiling = new Set();
 // The Worker holding the module compiled from BYTES, which it takes.
 function compileHeld(bytes) {
   const holder = new Worker(holderUrl, { name: "dolly-module" });
+  compiling.add(holder);
   return new Promise((resolve, reject) => {
     const fail = message => { holder.terminate(); reject(new Error(message)); };
     holder.onmessage = ({ data }) => data === null ? resolve(holder) : fail(data);
     holder.onerror = event => { event.preventDefault(); fail(event.message || "module Worker failed"); };
     holder.postMessage({ bytes: bytes.buffer }, [bytes.buffer]);
-  });
+  }).finally(() => compiling.delete(holder));
 }
 const largeInteractiveProcessBytes = 128 * 1024 * 1024;
 const workerReclamationMilliseconds = 500;
