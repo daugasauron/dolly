@@ -1,14 +1,15 @@
 # Slopyard's test hung after eight fixtures once, in the confirming round
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 255
 - TAGS: bug,slopyard,0.1.6
 
-## State (2026-11-06 01:00, branch `fix/hangs-1105`)
+## State (2026-11-06 02:20, branch `fix/hangs-1105`)
 
-Cause named and fixed; the 20 runs of the test under load are next. The upload's Worker side
-read the chosen file through a reader that only its own pending read reached, and Chrome
-collects such a Blob stream: the read never ends, so no chunk reaches the kernel and `upload`
+Closed: cause named, fixed in af4fe8756, and the test passed 20 times in a row under load
+(below). The upload's Worker side read the chosen file through a reader that only its own
+pending read reached, and Chrome collects such a Blob stream: the read never ends, so no chunk
+reaches the kernel and `upload`
 waits forever. The transfer now holds its reader (`this.active.reader`, `host/upload/transport.mjs`).
 
 Measured (Chrome 156, headless; scratch harnesses in `build/hangs-evidence/`, not kept):
@@ -78,3 +79,9 @@ round's GPU stage), its cause named and fixed, and the test passes 20 times in a
   0 in about 3,200 headless and 0 in 4,005 bare uploads in the GPU window. Tracing must be in place before the long loop starts, and saved whole at the
   failure: the first hang's full trace was printed only in part and the run was gone.
 
+## Closing (2026-11-06)
+
+`DISPLAY=:145 node demos/slopyard/test/slopyard-browser.mjs` (headful Chrome with Vulkan on a
+private Xvfb, each run in the GPU lock), 20 runs in a row at 01:39-02:19: 20 of 20 passed,
+115-170 s each (19 `upload` commands and 2 imports a run, 420 transfers in all), beside tmux's
+test 20 times and a Firefox loop of tmux-panes' first cc. Logs: `build/hangs-evidence/slopyard-after*.log` in `work/npmflow`.
