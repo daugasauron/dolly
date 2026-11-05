@@ -3,7 +3,7 @@
 // published version from the archive, the new version exported from its sealed
 // release, and the root files. Nothing is uploaded here.
 import { MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
-import { STATIC_PART_BYTES, staticMaxParts } from "../src/static-asset.mjs";
+import { PARTS_MANIFEST_START, STATIC_PART_BYTES, staticMaxParts } from "../src/static-asset.mjs";
 
 import { link, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve, sep } from "node:path";
@@ -21,6 +21,9 @@ const compress = promisify(brotliCompress);
 const fileLimit = 25 * 1024 * 1024;
 
 export async function pagesAsset(bytes, path) {
+  if (bytes.subarray(0, PARTS_MANIFEST_START.length).toString("latin1") === PARTS_MANIFEST_START) {
+    throw new Error(`a page would read this file as a parts manifest: ${path}`);
+  }
   if (bytes.length <= fileLimit) return { bytes, compressed: false };
   const snapshot = /^dist\/packs\/[0-9a-f]{64}\.snapshot\.gz$/.test(path);
   if (!snapshot && !path.startsWith("dist/static/") && path !== "dist/dolly.data") {
@@ -37,22 +40,21 @@ export async function pagesAsset(bytes, path) {
     parts: parts.map(part => ({ byteLength: part.length, sha256: sha256(part) })) })) };
 }
 
-// A version's deployment.headers: the headers its compressed and split files
-// need, as _headers rules with paths relative to the version.
-export function versionHeaders(compressed, multipart) {
-  return [
-    ...[...compressed].sort().map(path => {
-      if (!/^dist\/(static\/[a-zA-Z0-9_./-]+|dolly\.data)$/.test(path)) throw new Error(`invalid Pages header path: ${path}`);
-      // SOURCE artifacts are opaque downloads, not streaming browser modules.
-      return `/${path}\n  Content-Encoding: br` +
-        (path.startsWith("dist/static/") ? "\n  Content-Type: application/octet-stream" : "");
-    }),
-    ...[...multipart].sort().map(path => {
-      if (!/^dist\/(static\/[a-zA-Z0-9_./-]+|dolly\.data|packs\/[a-f0-9]{64}\.snapshot\.gz)$/.test(path)) throw new Error(`invalid Pages multipart path: ${path}`);
-      return `/${path}\n  X-Dolly-Parts: 1\n  Content-Type: application/octet-stream`;
-    }),
-  ].map(rule => `${rule}\n`).join("\n");
+// A version's deployment.headers: the headers its compressed files need, as
+// _headers rules with paths relative to the version. A file in parts needs
+// none: the page knows its manifest by its content.
+export function versionHeaders(compressed) {
+  return [...compressed].sort().map(path => {
+    if (!/^dist\/(static\/[a-zA-Z0-9_./-]+|dolly\.data)$/.test(path)) throw new Error(`invalid Pages header path: ${path}`);
+    // SOURCE artifacts are opaque downloads, not streaming browser modules.
+    return `/${path}\n  Content-Encoding: br` +
+      (path.startsWith("dist/static/") ? "\n  Content-Type: application/octet-stream" : "") + "\n";
+  }).join("\n");
 }
+
+// The rule pages before v0.1.5 need for a file in parts, as their
+// deployment.headers name it.
+const partsRule = path => `${path}\n  X-Dolly-Parts: 1\n  Content-Type: application/octet-stream`;
 
 // The root _headers for VERSIONS, each { name, paths, headers }: its files and
 // its deployment.headers.
@@ -66,19 +68,28 @@ export function pagesHeaders(versions) {
     "/:version/Dollyfile*\n  Content-Type: text/plain; charset=utf-8",
     "/:version/demos/*\n  Content-Type: text/plain; charset=utf-8",
   ];
-  const wanting = new Map(), holding = new Map();
+  // Each rule a version needs, and how each version holding a file stores it:
+  // by the rule its deployment.headers names, in parts (beside its .part-0),
+  // or whole.
+  const wanting = new Map(), storing = new Map();
   for (const { name, paths, headers } of versions) {
-    for (const path of paths) holding.set(`/${path}`, (holding.get(`/${path}`) ?? 0) + 1);
+    const named = new Map(), held = new Set(paths);
     for (const rule of headers.trimEnd().split("\n\n").filter(Boolean)) {
       // No splat or placeholder: a rule names one file.
       if (!/^\/[A-Za-z0-9_.\/-]+(\n  [A-Za-z-]+: [A-Za-z0-9\/ -]+)+$/.test(rule)) throw new Error(`${name}: invalid deployment.headers`);
       wanting.set(rule, [...wanting.get(rule) ?? [], name]);
+      named.set(rule.slice(0, rule.indexOf("\n")), rule);
+    }
+    for (const path of paths) {
+      const stored = named.get(`/${path}`) ?? (held.has(`${path}.part-0`) ? partsRule(`/${path}`) : "whole");
+      storing.set(`/${path}`, [...storing.get(`/${path}`) ?? [], stored]);
     }
   }
-  // One rule serves a file in every version when all that hold the file need
-  // the same headers; otherwise each version names its own.
+  // One rule serves a file in every version when all that hold the file store
+  // it the same way (X-Dolly-Parts is true for a newer page's manifest too,
+  // which ignores it); otherwise each version that needs the rule names its own.
   for (const [rule, names] of [...wanting].sort()) {
-    const everyHolder = names.length === holding.get(rule.slice(0, rule.indexOf("\n")));
+    const everyHolder = storing.get(rule.slice(0, rule.indexOf("\n")))?.every(stored => stored === rule);
     rules.push(...everyHolder ? [`/:version${rule}`] : names.map(name => `/${name}${rule}`));
   }
   const text = rules.join("\n\n") + "\n";
@@ -92,7 +103,7 @@ export function pagesHeaders(versions) {
 // A sealed release as Pages stores it: every file at its own path, those over
 // 25 MiB compressed or in parts, the headers those need, and the list of all.
 async function exportVersion(site, directory) {
-  const written = [], compressed = [], multipart = [];
+  const written = [], compressed = [];
   async function write(path, bytes) {
     await mkdir(dirname(resolve(directory, path)), { recursive: true });
     await writeFile(resolve(directory, path), bytes, { flag: "wx" });
@@ -101,13 +112,10 @@ async function exportVersion(site, directory) {
   for await (const [path, bytes] of releaseFiles(site)) {
     const asset = await pagesAsset(bytes, path);
     if (asset.compressed) compressed.push(path);
-    if (asset.parts) {
-      multipart.push(path);
-      for (const [index, part] of asset.parts.entries()) await write(`${path}.part-${index}`, part);
-    }
+    for (const [index, part] of asset.parts?.entries() ?? []) await write(`${path}.part-${index}`, part);
     await write(path, asset.bytes);
   }
-  await write("deployment.headers", versionHeaders(compressed, multipart));
+  await write("deployment.headers", versionHeaders(compressed));
   await writeFile(resolve(directory, "deployment.sha256"), await fileManifest(directory, written), { flag: "wx" });
   return written;
 }

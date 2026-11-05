@@ -115,7 +115,7 @@ test("multipart delivery is restricted to embedding-selected sources, including 
       calls.push(url.href);
       assert.equal(init.credentials, "omit");
       assert.equal(init.redirect, "error");
-      if (calls.length === 1) return new Response(manifest, { headers: { "x-dolly-parts": "1" } });
+      if (calls.length === 1) return new Response(manifest);
       assert.equal(init.headers, undefined);
       return new Response(parts[calls.length - 2]);
     });
@@ -130,7 +130,7 @@ test("multipart delivery is restricted to embedding-selected sources, including 
   let calls = 0;
   const remote = fixture({}, async () => { calls++; return new Response(manifest, { headers: { "x-dolly-parts": "1" } }); });
   const records = await consume(remote, remote.request());
-  assert.equal(calls, 1, "remote response headers cannot request additional destinations");
+  assert.equal(calls, 1, "a remote response cannot request additional destinations");
   assert.equal(Buffer.concat(records.filter(record => record.kind === 3).map(record => record.bytes)).toString(), manifest);
 });
 
