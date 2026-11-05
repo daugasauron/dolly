@@ -1,6 +1,6 @@
 # Pages headers for every published version within Cloudflare's 100 rules
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 380
 - TAGS: release,deployment,0.1.5
 
@@ -60,6 +60,39 @@ header is true and harmless for the newer page).
 - Not image inputs: page JavaScript and scripts. `npm run build:runtime` prints image inputs
   `b9e16e76`, the candidate round's.
 
-## State, 2026-11-05
+## Closed, 2026-11-05
 
-Implemented; verification below.
+Commits `7da9b05e6` (the scheme, its tests and `docs/deployment.md`) and `0369484ad` (release
+step 6 boots every version from the assembled deployment before the upload). Verified on a v0.1.5
+domain site packaged from this tree with `default`'s closure (19 images, built with image inputs
+`b9e16e76`; evidence in `build/pages-rules-evidence/`):
+
+- `site-release.mjs verify` passes. `export-cloudflare-pages.mjs` of the archive and that site:
+  14,652 files, 92 rules; v0.1.5's `deployment.headers` names `dist/dolly.data` and
+  `default/zig.tar`, both covered by the older versions' `/:version/` rules; its one pack in parts
+  (26.6 MB, 2 parts) has no rule. The archive is unchanged (every file checked against its list
+  by the export; nothing in it is newer than this task).
+- Served by `test/pages-host.mjs`: `published-version.mjs verify` passes, and
+  `published-version.mjs boot` boots `default` of v0.1.0, v0.1.1, v0.1.2, v0.1.3, v0.1.4 and
+  v0.1.5 in Chromium and Firefox. In both browsers v0.1.5's page reassembles that pack from its
+  parts with no `X-Dolly-Parts` header, to the release's bytes.
+- `test/boundary-browser.mjs` (a source in parts through the HTTP broker, served without the
+  header) passes in Chromium and Firefox; the source suite passes (475).
+- The whole domain catalog of the candidate is counted by the synthetic measurement above (93);
+  the release checklist's step 6 exports it and prints `headerRules`, and boots every version
+  from it before the upload.
+
+Next limit: files, `tasks/20261105-005808-pages-files`.
+
+## Lessons
+
+- Count before choosing: the old versions' 86 file rules are fixed by their pages, so only what
+  a new version adds could move, and that was 15 of the 107. The scheme followed from that.
+- A rule shared by versions breaks when one version stores the path differently, so the new
+  scheme had to keep the older storage decisions and treat a newer manifest as matching the old
+  parts rule; dropping the new version's rules without that splits the shared rules per version
+  (measured: 183 rules).
+- `Response.clone()` has a trap: cancelling one branch of a tee settles only when the other is
+  read or cancelled too. Awaiting it hung the unit tests; the cancel is fired and not awaited.
+- The task's estimate (about 108) was 107 measured: a synthetic version entry from the catalog's
+  metadata and `pagesAsset` answers this kind of question in minutes, without the full package.
