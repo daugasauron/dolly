@@ -2,7 +2,7 @@
 
 - STATUS: CLOSED
 - PRIORITY: 250
-- TAGS: bug,tmux,firefox,0.1.6
+- TAGS: bug,tmux,firefox,0.1.5
 
 ## State (2026-11-06 01:55, branch `fix/hangs-1105`)
 

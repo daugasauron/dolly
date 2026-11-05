@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 300
-- TAGS: npm,packaging,0.1.6
+- TAGS: npm,packaging,0.1.5
 
 The owner, 2026-11-05:
 
@@ -14,7 +14,8 @@ The owner, 2026-11-05:
 
 > This is just an example, the soluition should be generic.
 
-The integrator moved it from 0.1.5 to 0.1.6 (2026-11-05 22:10): 0.1.5 ships without it.
+The integrator moved it from 0.1.5 to 0.1.6 (2026-11-05 22:10); the owner (2026-11-06 07:00):
+"That SHOULD be a part of 0.1.5". Merged into `integrate/2026-11-05` at `12d3164de`.
 
 ## State (2026-11-05 22:45 JST)
 
@@ -23,7 +24,7 @@ Done on `core/npm-offline`: the data libraries are packages; npm packaging reads
 carries an amy-index.txt; `dolly-build` writes a static site; `test/npm-browser.mjs` runs the
 flow offline and passed in Chromium and Firefox with an empty record; the python demo's
 python-data test passed in both and its new numpy case in Chromium. Left: the merge (below),
-and then publishing the list at 0.1.6, the owner's step.
+and then publishing the list at 0.1.5-rc.0.
 
 ## Merge notes
 
@@ -35,7 +36,7 @@ and then publishing the list at 0.1.6, the owner's step.
   python-data. No seed, runtime or page change: `dist/` runtime files are as they were.
 - `test/npm-browser.mjs` needs `unshare` with user and network namespaces, `ip`, `iptables`,
   `ip6tables` and `python3` on the machine that runs it (the release checklist's step 3).
-- For 0.1.6's notes: a 0.1.5 `dolly-build` project moves `index.html`, `theme.json` and
+- For 0.1.5's notes: a 0.1.4 `dolly-build` project moves `index.html`, `theme.json` and
   `workspace/` into `public/`, imports `./dolly/src/browser.mjs` and `./image/index.mjs` with
   init's isolation lines, drops `serve.mjs`, and removes its old image directory once.
 

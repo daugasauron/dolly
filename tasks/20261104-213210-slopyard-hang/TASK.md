@@ -2,7 +2,7 @@
 
 - STATUS: CLOSED
 - PRIORITY: 255
-- TAGS: bug,slopyard,0.1.6
+- TAGS: bug,slopyard,0.1.5
 
 ## State (2026-11-06 02:20, branch `fix/hangs-1105`)
 

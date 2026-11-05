@@ -10,7 +10,9 @@
 README's path runs only from packed tarballs.
 
 Owner (2026-11-04): "leave it until next version, 0.1.5." Publishing is the owner's step at that
-release; no agent publishes. From 0.1.6 the images and packages on npm are the list
+release; no agent publishes. Owner (2026-11-06), on the npm flow going with 0.1.5: "That SHOULD
+be a part of 0.1.5", a `0.1.5-rc` tag deployed and pushed, and the integrator publishes once it is
+green. From 0.1.5 the images and packages on npm are the list
 `config/npm-images.txt` (`tasks/20261105-213000-npm-offline`), which adds `libffi` and Python's
 data libraries as packages and packs each package with its own snapshot alone.
 
