@@ -1,6 +1,6 @@
 # Audit: what makes the images large, and what can be stripped
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 230
 - TAGS: images,audit
 
@@ -213,3 +213,7 @@ leave it for now."
   `default-browser.mjs` needs `python` and `zig` in it, `dso-browser.mjs` `libdolly-gpu`.
   Their failures then say nothing about the change under test; name them in
   `DOLLY_BUILD_IMAGES` (a reused image costs seconds).
+
+## Closed (2026-11-04)
+
+The audit is above; its fixes (the terminal font's subset, Git's HTTPS helper as a script) are on `main` (`ebffaaad8`), measured in its table. The owner left the three proposals (2026-11-04: "too complex and would cause issue. Lets leave it for now."); `proposal/image-size-dwarf` stays as the record of the first.

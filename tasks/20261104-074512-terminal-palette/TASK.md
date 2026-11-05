@@ -1,8 +1,30 @@
 # The terminal's colours come from the page, as the popups' do
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 130
 - TAGS: display,page,configuration,npm
+
+## Closed (2026-11-05)
+
+`core/terminal-palette` is on `main` (950caf5c1: fa28750ae, b2686db23, d95abe8b8). The confirming
+round of 2026-11-05 (`integrate/2026-11-05` at 693b9842f, now `main` 943019e6d, image inputs
+`88959af6…`) rebuilt every image. Evidence in `work/integrate/build/round-1105b-evidence/`:
+- `test/theme-browser.mjs` passed in Chromium (17.0 s) and Firefox (18.3 s) (`browser.log`). An
+  embedding's properties give the terminal and the popup the same background pixel, and Dolly's
+  own page shows today's palette.
+- display, display cursors, html, embedding and terminal passed in both browsers. terminal counts
+  the default background, text and accent pixels.
+- `test/npm-browser.mjs` ("npm packages") passed in Chromium and Firefox, in the browser stage
+  (104.4 s, 118.4 s) and the npm stage (85.5 s, 96.3 s, `npm.log`). That is the run the branch
+  could not make: the init project's `theme.json` with its background changed reaches the
+  terminal's background pixel (0x102030) and Pi's theme, so `theme.json` is the one place.
+- `docs/embedding.md` lists the properties and their defaults (`--dolly-background`, …,
+  `--dolly-display-palette-0` to `-15`). `docs/display.md` says the terminal's colours are the
+  page's and that the plugin holds none.
+
+The page's other chrome, and OSC colours in the renderer, stay as described under "Left,
+described". They are `tasks/20261104-061531-page-ui-colours` and
+`tasks/20261104-061531-osc-colours`.
 
 The terminal's palette is compiled into `src/ghostty/display.c`, a seed input. `html@0`'s popups
 take the page's CSS custom properties (`--dolly-html-background`, `-color`, `-accent`, `-font`,

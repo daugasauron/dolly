@@ -1,6 +1,6 @@
 # Python with real threads: CPython on threads@0 in place of its thread stubs
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 360
 - TAGS: python,threads
 
@@ -217,3 +217,7 @@ Seed changes on this branch: the compiler (`src/compiler.cpp`; `llvm-cc` built a
 `llvm-build` and `llvm-cc` with the new seed and pins `llvm-cc` again unless it gives the same
 bytes. Recipes that install python now declare `threads@0`. Close this task when the round has
 built the images on python (python-data's, meson's, the LLVM chains') and their tests pass.
+
+## Closed (2026-11-04)
+
+The round built every image on Python with threads@0 and their tests passed: python, python on default, python-data, its COPY of NumPy, openblas, meson's users. Evidence: today's confirming round on `integrate/2026-11-03` at `ebffaaad8` (`work/round-1104-main.sh`, evidence `work/integrate/build/round-1104b-evidence/`), now `main`: source 470/470, artifacts 26/26, every browser test, npm packages in Chromium and Firefox, 36 demos and the GPU stage passed. The findings above stay as they are recorded: a thread computing without a call delays loads in its process, as Emscripten's dlopen does.

@@ -1,8 +1,32 @@
 # The kernel knows each signal's disposition, and answers tcgetpgrp for the terminal
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 220
 - TAGS: core,process,libc,signals,kernel
+
+## Closed (2026-11-05)
+
+`core/process-signals` is on `main` (c464738e1). The seed compiler was restamped (a894a435e), and
+the `llvm-cc` built under the new contract is pinned (061a02318) before the catalog. The
+confirming round of 2026-11-05 (`integrate/2026-11-05` at 693b9842f, now `main` 943019e6d, image
+inputs `88959af6…`) rebuilt every image, zsh, glib and ghostty-gtk among them. In
+`work/integrate/build/round-1105b-evidence/browser.log`, Chromium and Firefox:
+- `test/process-browser.mjs`: 41.7 s and 42.7 s. The dispositions fixture runs there: 80 of 80
+  spawns with SIGPIPE and SIGCHLD ignored, and the children reaped.
+- `test/pty-browser.mjs`: 15.0 s and 16.2 s, with `pty deaf` and `pty program`.
+- `test/core-browser.mjs`: 24.4 s and 35.6 s; `test/shell-browser.mjs`: 7.9 s and 8.8 s.
+- threads and terminal passed too.
+- dte, built from upstream's files without the sed line: `amy install dte`, then typed
+  through its status line, Ctrl+S and Ctrl+Q, in "amy tools" (34.8 s, 47.6 s). zsh passed
+  (`demos.log`).
+
+Before the change each new check failed, on the old seed
+(`work/evidence-2026-11-04/signals/signals-evidence/before-chromium.log`, above).
+`docs/process-model.md` says the kernel knows the dispositions (`DOLLY_PROCESS_SIGNAL_DISPOSITIONS`)
+and what `tcgetpgrp` answers.
+
+One intermittent failure in the same round is not attributed: rts-arena ended once by SIGPIPE.
+It passed on rerun and is `tasks/20261104-212342-rts-sigpipe`.
 
 Two process-contract changes, decided 2026-11-04 (`tasks/20261102-133353-owner-decisions`): yes to
 both, in one seed round (`process.h` changes, the seed compiler restamps, every image rebuilds).
