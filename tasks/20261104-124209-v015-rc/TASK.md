@@ -8,27 +8,33 @@ Owner (2026-11-04 21:40): "Ok go ahead with your plan, I want to target 0.1.5. T
 lean, I absolutely want to include lean in 0.1.5." A candidate is local: nothing is pushed,
 published or deployed until the owner says so (as for `tasks/20261029-230000-v014-rc`).
 
-## State (2026-11-05, 21:40): candidate green; waits for the npm flow
+## State (2026-11-06, 03:40): deployed and verified; the owner's tag and GitHub release left
 
-Done on `integrate/2026-11-05`: steps 1 to 5. The candidate round (`work/round-1105-rc.sh`,
-log `work/integrate/build/round-1105rc.log`) pinned the compiler llvm-cc links (`4149e5c4c`),
-built every image, and reached the fixed point: llvm-cc built by that seed linked the same
-compiler. The day's branches merged after it (janis ignores SIGPIPE, the header rules, the
-plots, the tasks), and their 22 images rebuilt with the digests the branch's own build had.
-Suites on `38b7254bb`: source 475, artifacts 26, the browser suites and the npm packages in
-both browsers, every demo (Lean in both browsers), GPU stage green (local-llm's Firefox turn
-hung once, rerun green: `tasks/20261105-173501-local-llm-turn`). Both sites packaged and
-accepted; served locally (`test/pages-host.mjs`), v0.1.0 to v0.1.5 boot in both browsers,
-`amy install lean` works from the served site in both (45 s, 62 s), the deployment has 93
-header rules and 18,618 files, GitHub Pages 831 MB. Fixed on the way: acceptance in a profile
-on disk (`b78a5be95`), the checklist's AWS key pattern (`7b353f851`).
+v0.1.5 is `15929916a`, deployed on the owner's word (2026-11-05: "I want something deployed
+tomorrow morning that I can verify") to the Cloudflare project `dolly`, which serves
+slopshare.dev and daugasauron.com; GitHub Pages is no longer deployed (`7e2d338c5`). The last
+round (`work/round-1105-rc3.sh`, evidence `work/integrate/build/round-1105rc-evidence/`): 14
+images rebuilt with unchanged pins; source 472, artifacts 26, browser and npm suites in both
+browsers; 35 of 36 demos and every GPU test but one. The two failures were hangs, each passing
+twice on rerun and since found and fixed on `fix/hangs-1105` for 0.1.6: tmux's first cc in
+Firefox (the cycle collector ended the Worker compiling it) and slopyard's upload in Chrome (the
+collector took the file's reader mid-read; `tasks/20261104-213210-slopyard-hang`). Packaged and
+checked by `scripts/release-checklist.sh`: 18,615 files, 93 header rules; served locally,
+v0.1.0 to v0.1.5 boot in both browsers and `amy install lean` proves from the served site (45 s,
+68 s). Deployed 00:50 to 01:07 (wrangler uploaded only new files). Live: every file of v0.1.5
+and every version's list on slopshare.dev; v0.1.0 to v0.1.5 boot in both browsers on both
+domains, once the check read robots.txt by its groups (`60d1ed5b8`: daugasauron.com's zone
+adds Cloudflare's managed robots.txt); `amy install lean` proves from slopshare.dev (138 s, 154 s).
+v0.1.5 is archived in `work/locks/published`; its list's SHA-256 is
+`9b18b2454dd46372de6d32d506fb24fba2049f615722ff8302831feb24397b96`.
 
-Left: the owner's npm requirement of 2026-11-05 (`tasks/20261105-213000-npm-offline`, branch
-`core/npm-offline`): an image and packages from npm served, built on with dolly-build and
-packaged for a static host, with no request beyond the machine after `npm install`. The npm
-packages are this release's, so after that branch merges: rebuild what it changes, then
-`work/release-1105.sh` (packaging, the full catalog, `scripts/release-checklist.sh`), the
-served boot and Lean checks again, and step 7.
+Left, the owner's: `git tag -a v0.1.5 -m "Dolly 0.1.5" 15929916a`, `git push origin main v0.1.5`,
+`gh release create v0.1.5 .cache/dolly-seed-compiler-0ceba5af9bed3f258fd0c635f3ad5f21c813b6ccb8eef7e236169428a74a4d3d.tar
+--verify-tag --notes-file NOTES` (`DOLLY_SEED_COMPILER_URL` names that asset). npm stays at 0.1.4's packages: the owner's
+requirement of 2026-11-05 (`core/npm-offline`, no request beyond the machine after `npm
+install`) goes with 0.1.6, whose candidate also moves the version and every recipe's site
+references, as `69930dc2f` did for this one. Not on the site: python-data, ffmpeg and openblas
+(`tasks/20261105-181900-domain-catalog`).
 
 ## Scope (`tatr ls :0.1.5`)
 
