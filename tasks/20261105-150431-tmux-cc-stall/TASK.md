@@ -31,9 +31,11 @@ tasks):
 | a nested Worker that answers at once, held only by its handler | 2 of 100 |
 | the same in a global set | 0 of 100 |
 | an idle nested Worker, held only by its handler, answering after 3 s | 7 of 20 (rooted: 0 of 20) |
+| a page's Worker, held only by its handler, answering at once and closing amid the page's garbage | 0 of 100 |
 
 Each lost holder of the last run had started and begun compiling; it was finalized as its compile
-ended, without an answer.
+ended, without an answer. The other Workers the runtime Worker makes are held by their owners
+(processes, threads, the memory grower); a page's Worker (the image builder makes one) lost none.
 
 Reproduced in Dolly (`cc-loop.mjs`: a fresh tmux-panes page, then `amy install cc && cc`, as the
 test types it; probe lines in the supervisor, not kept: a `FinalizationRegistry` on each holder
