@@ -1,14 +1,13 @@
 // python-data in Chromium and Firefox: a script per library, with nothing to
 // build or fetch (a NumPy computation, a pandas frame, a Matplotlib figure saved
 // as PNG and read back, text drawn with Pillow's FreeType, a plot shown in the
-// terminal), and a recipe that COPYs NumPy's root alone from python-data-build,
-// which gets NumPy and no other library.
+// terminal), and the numpy package installed alone, which brings NumPy and no
+// other library.
 // The openblas package alone links a C program that calls it as SciPy does.
 // Usage: node demos/python/test/python-data-browser.mjs
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { demoTest, installProbe, shellPrompt, waitForDisplay, writeCommand } from "../../browser.mjs";
-import { siteReference } from "../../../src/static-asset.mjs";
 
 const scripts = {
   numpy: `import numpy as np
@@ -104,21 +103,11 @@ for (const browser of ["chromium", "firefox"]) {
   });
 }
 
-const { default: catalog } = await import("../../../dist/dolly-images.json", { with: { type: "json" } });
-const pin = name => {
-  const { dollyfile, sha256 } = catalog.images.find(definition => definition.image === name);
-  return `${siteReference(dollyfile)} ${sha256}`;
-};
-// Host requirements are never inherited: the probe restates default's and python's.
-const hosts = new Set(["default", "python"].flatMap(name => catalog.images.find(definition => definition.image === name).hostRequirements));
-const recipe = ["DOLLY 7", "APPLICATION numpy-probe", ...[...hosts].map(host => `REQUIRES HOST ${host}`),
-  `FROM ${pin("default")}`, `INSTALL ${pin("python")}`,
-  `COPY ${pin("python-data-build")} /opt/python-data/numpy /`,
-  "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
-await demoTest("python-data COPY of NumPy", { image: "default", timeout: 900_000 }, async ({ open }) => {
-  const { run } = await open({ path: "/custom/rebuild/", prompt: shellPrompt,
-    setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) });
+// The numpy package alone, in default: NumPy and Python, and no other library.
+await demoTest("numpy", { image: "default", timeout: 900_000 }, async ({ open }) => {
+  const { run } = await open();
+  await run("amy install numpy");
   await runScript(run, "numpy");
   await run("python -c 'import pandas'", 1);
-  await run("test ! -e /opt/python-data && pip list | grep -q '^numpy '");
+  await run("pip list | grep -q '^numpy '");
 });

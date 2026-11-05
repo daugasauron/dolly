@@ -104,36 +104,43 @@ and [Embedding](docs/embedding.md), or [Pi with npm](#pi-with-npm) below;
 
 ## Pi with npm
 
-A page of your own that runs the Pi coding agent on your project, served from
-your machine, whose requests the browser admits to the model's provider and
-nowhere else. In an empty directory, with Node.js, npm and Chrome:
+A site of your own that runs the Pi coding agent on your project, with Git,
+Python, NumPy and Matplotlib, whose requests the browser admits to the model's
+provider and nowhere else. In an empty directory, with Node.js, npm, Chrome and
+Python (for its static file server):
 
 ```sh
 npm init --yes
 npm install @daugasauron/dolly @daugasauron/dolly-image-pi-minimal @daugasauron/dolly-build \
   @daugasauron/dolly-host-display @daugasauron/dolly-host-input @daugasauron/dolly-host-save \
-  @daugasauron/dolly-host-html @daugasauron/dolly-package-git @daugasauron/dolly-package-cc
-npx dolly-build init my-pi git cc
+  @daugasauron/dolly-host-html @daugasauron/dolly-host-sockets \
+  @daugasauron/dolly-package-git @daugasauron/dolly-package-matplotlib
+npx dolly-build init my-pi git python numpy matplotlib
 npx dolly-build Dollyfile-my-pi my-pi
-node serve.mjs
+python3 -m http.server -d my-pi -b 127.0.0.1 8080
 ```
 
-`init` writes the project; the second `dolly-build` builds its image in your
-Chrome (headless, 10 to 30 s; `--browser firefox` after `npx playwright-core install firefox`),
-and `serve.mjs` serves the page. Open the address it prints: Pi asks for your
-OpenRouter key at a prompt that does not show it, and starts in `/workspace`
-with Git, a C compiler and the project's files. `curl https://example.com` in
-Pi's shell fails: the policy refuses it. Save (Ctrl+Shift+S) keeps the sandbox,
-files and all, in this browser and names it in the address (`?session=NAME`):
-that address opens it again as it was.
+`npm install` is the only step that downloads anything (`matplotlib` brings the
+packages it installs: `numpy`, `python`, the C compiler); after it, the build
+reaches only the URLs of the recipe's own `SOURCE` rows, and `init`'s recipe has
+none. `init` writes the
+project; the second `dolly-build` builds its image in your Chrome (headless, 10
+to 60 s; `--browser firefox` after `npx playwright-core install firefox`) into
+`my-pi/`, a site any static host serves as it lies, and Python's server serves
+it. Open <http://127.0.0.1:8080/>: Pi asks for your OpenRouter key at a prompt
+that does not show it, and starts in `/workspace` with Git, Python with NumPy
+and Matplotlib, a C compiler and the project's files. `curl https://example.com`
+in Pi's shell fails: the policy refuses it. Save (Ctrl+Shift+S) keeps the
+sandbox, files and all, in this browser and names it in the address
+(`?session=NAME`): that address opens it again as it was.
 
 | File | What it declares | After a change |
 | --- | --- | --- |
-| `Dollyfile-my-pi` | The sandbox, a [recipe](docs/dollyfile.md) `FROM` `pi-minimal`: `INSTALL` rows for the packages you named (`git`, `python`, `cc`), `FILE` rows with Pi's `AGENTS.md`, a skill, an extension with a `/hello` command, a `todo` tool (a C program or a file of an npm package are tools too, as its comments say), and the script that starts Pi with its provider and model: OpenRouter, or Anthropic's API with your key on the next line | Build again |
-| `index.html` | The hosts the agent may reach ([HTTP policy](docs/http.md)): one rule per host, OpenRouter's API to begin with. The popups' font. The files written into `/workspace` | Reload |
-| `theme.json` | The sandbox's colours: five values in Pi's theme format, whose background, text, accent and muted are the terminal's and the popups' too | Reload |
-| `workspace/` | The project the agent works on, written into `/workspace` at each boot | Reload |
-| `serve.mjs` | Serving with cross-origin isolation and the listing of `workspace/` (`workspace.json`); the hosts it relays for programs that need one without CORS headers ([relays](docs/http.md#cors-and-relays)). A static host sends the two headers ([Embedding](docs/embedding.md), "Serving") and holds the listing as a file | Restart |
+| `Dollyfile-my-pi` | The sandbox, a [recipe](docs/dollyfile.md) `FROM` `pi-minimal`: `INSTALL` rows for the packages you named (`git`, `python`, `numpy`, `matplotlib`), `FILE` rows with Pi's `AGENTS.md`, a skill, an extension with a `/hello` command, a `todo` tool (a C program or a file of an npm package are tools too, as its comments say), and the script that starts Pi with its provider and model: OpenRouter, or Anthropic's API with your key on the next line | Build again |
+| `public/index.html` | The hosts the agent may reach ([HTTP policy](docs/http.md)): one rule per host, OpenRouter's API to begin with. The popups' font. The files written into `/workspace` | Build again (the image is kept) |
+| `public/theme.json` | The sandbox's colours: five values in Pi's theme format, whose background, text, accent and muted are the terminal's and the popups' too | Build again (the image is kept) |
+| `public/workspace/` | The project the agent works on, written into `/workspace` at each boot | Build again (the image is kept) |
+| `my-pi/` | The site `dolly-build` writes: `public/`, the listing of its workspace, the runtime, the host modules the recipe declares, the image and `coi-serviceworker.js`, which isolates the page where the host sends no isolation headers ([Embedding](docs/embedding.md), "Your own image") | Reload |
 
 `pi-minimal` is Pi with a shell, POSIX tools, curl, ripgrep and fd; the page gives
 it a terminal (`display`), a keyboard (`input`), Pi's download tool (`save`) and the

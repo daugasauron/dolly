@@ -19,8 +19,7 @@ import { renderDollyfilePage } from "./render-dollyfile-view.mjs";
 import { imageDescriptions, menuBody, menuGroup, opens, pageRoutes } from "./image-menu.mjs";
 import { bundleProcessWorker } from "./bundle-process-worker.mjs";
 import { renderLicencesPage, upstreamInventory } from "./upstreams.mjs";
-import { alphabetical } from "../src/alphabetical.mjs";
-import { siteReference } from "../src/static-asset.mjs";
+import { amyIndex } from "./image-directory.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 await bundleProcessWorker(projectDir);
@@ -50,15 +49,9 @@ await writeFile(resolve(projectDir, "index.html"),
 await mkdir(resolve(projectDir, "licences"), { recursive: true });
 await writeFile(resolve(projectDir, "licences/index.html"),
   renderLicencesPage(menu, await upstreamInventory(projectDir, definitions)));
-// The package index people and amy read: "NAME PATH SHA256 DESCRIPTION" per
-// package, the INSTALL row's operands and the description the menu shows.
-// amy prints a description in a terminal: a README's Markdown link becomes its text.
-const plainText = description => description.replaceAll("`", "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");
-await writeFile(resolve(projectDir, "amy-index.txt"), definitions
-  .filter(({ parsed }) => parsed.role === "package").sort((left, right) => alphabetical(left.image, right.image))
-  .map(({ image, filename, source }) => `${image} ${siteReference(filename)} ` +
-    `${createHash("sha256").update(source).digest("hex")} ${plainText(descriptions.get(image))}\n`)
-  .join(""));
+await writeFile(resolve(projectDir, "amy-index.txt"), amyIndex(definitions.filter(({ parsed }) => parsed.role === "package")
+  .map(({ image, filename, source }) => ({ image, dollyfile: filename, sha256: createHash("sha256").update(source).digest("hex") })),
+  descriptions));
 const routes = pageRoutes(definitions.map(({ image }) => ({ image, openable: openable.has(image) })), primaryImage);
 for (const route of routes) {
   const output = resolve(projectDir, route.path);

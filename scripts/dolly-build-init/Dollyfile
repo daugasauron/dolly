@@ -32,7 +32,7 @@ FILE /usr/bin/todo
     rg -n 'TODO|FIXME' "${1:-.}"
 EXPORTS TOOL todo
 
-# Pi's colours are theme.json beside the page, which writes it at boot.
+# Pi's colours are public/theme.json, which the page writes at boot.
 
 # Pi sends OpenRouter's Claude models through Anthropic's Messages API, whose
 # browser header OpenRouter's CORS refuses: this entry sends them through Chat

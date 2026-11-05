@@ -9,25 +9,35 @@
 </style>
 <main id="dolly" style="position:fixed;inset:0"></main>
 <script type="module">
-  import { boot } from "./node_modules/@daugasauron/dolly/src/browser.mjs";
-  import { images, image, modules } from "./__NAME__/index.mjs";
+  // Dolly needs cross-origin isolation. Where the host sends no COOP and COEP
+  // headers, coi-serviceworker.js adds them: the page registers it and loads again
+  // under it, once; boot() says so if that did not isolate it.
+  if (!crossOriginIsolated && navigator.serviceWorker && !sessionStorage.getItem("dolly-isolation-retry")) {
+    sessionStorage.setItem("dolly-isolation-retry", "1");
+    await navigator.serviceWorker.register("./coi-serviceworker.js");
+    await navigator.serviceWorker.ready;
+    location.reload();
+    await new Promise(() => {});
+  }
+  sessionStorage.removeItem("dolly-isolation-retry");
+  const { boot } = await import("./dolly/src/browser.mjs");
+  const { images, image, modules } = await import("./image/index.mjs");
 
   // The hosts the agent may reach, and nothing else: the model's provider here,
   // one rule per host the agent needs (api.github.com, pypi.org). A rule names an
   // origin, its paths and methods, and the header that carries the key (docs/http.md
-  // in @daugasauron/dolly). Hosts without CORS headers go through serve.mjs's relay
-  // (docs/agent-frontend.md).
+  // in @daugasauron/dolly). Hosts without CORS headers go through a relay of your
+  // own (docs/agent-frontend.md).
   const policy = { rules: [
     { origin: "https://openrouter.ai", pathPrefix: "/api/v1/", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },
     // { origin: "https://api.anthropic.com", pathPrefix: "/v1/", methods: ["POST"], credentialHeaders: ["x-api-key"] },
   ] };
 
-  // The project: workspace/ is written into /workspace at each boot, so an edit
-  // there is a reload. serve.mjs answers workspace.json, the paths under workspace/;
-  // a static host holds that file. Pi's tools can read these files; they are not
-  // for secrets.
+  // The project: workspace/ is written into /workspace at each boot. dolly-build
+  // lists its files in workspace.json beside this page. Pi's tools can read these
+  // files; they are not for secrets.
   const listing = await fetch("./workspace.json");
-  if (!listing.ok) throw new Error("workspace.json must list the files under workspace/, as serve.mjs does");
+  if (!listing.ok) throw new Error("workspace.json must list the files under workspace/, as dolly-build writes it");
   const files = {};
   await Promise.all((await listing.json()).map(async path => {
     const url = `./workspace/${path.split("/").map(encodeURIComponent).join("/")}`;

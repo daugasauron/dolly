@@ -9,11 +9,9 @@ an agent in place of a web frontend (`docs/agent-frontend.md` in the repository)
 | --- | --- |
 | `@daugasauron/dolly` | The runtime: `boot()`, the kernel, the process runtime, its image builder, and the host modules that are its own machinery (`runtime`, `http`, `threads`, `dso`, `stack`, `nena`, `snapshot`, `packages`) |
 | `@daugasauron/dolly-host-NAME` | One device host module each: `display` (Ghostty's terminal and programs' frames), `input`, `gpu`, `audio`, `microphone`, `touch`, `download` (as `dolly-host-save`: npm takes no new name with the word), `upload`, `html`, `sockets`, `pty` |
-| `@daugasauron/dolly-image-default` | The `default` image alone: a shell, its text tools, the terminal, curl, `amy`, `nena`, `ps`, `html`. The package holds no package index, so `amy installed` lists what the image holds and `amy list` and `amy install` fail naming the index |
-| `@daugasauron/dolly-image-pi-minimal` | The `pi-minimal` image alone: the Pi coding agent with JavaScript (Janis), a shell, POSIX tools, curl, ripgrep and fd, on `display`, `input`, `download` and `html` alone. The README's "Pi with npm" serves it with a policy |
-| `@daugasauron/dolly-image-python-data` | The `python-data` image: `default` with Python 3.14, pip and the C compiler, NumPy, pandas, Matplotlib (Agg) and seaborn, built in Dolly from their PyPI releases. Its README gives the install line (it declares `sockets` too) and the `FROM` row of a recipe built on it |
-| `@daugasauron/dolly-package-NAME` | A package for an image of your own: `git` (with diff and patch), `python` (3.14 with pip; it brings `cc`) or `cc` (the C and C++ compiler with Make). Its directory holds its catalog, metadata, packs and recipes, as an image package does, and nothing to boot |
-| `@daugasauron/dolly-build` | The `dolly-build` command: a project with an image of your own, `FROM` `pi-minimal` with the packages it `INSTALL`s, built in a browser ("Your own image" below) |
+| `@daugasauron/dolly-image-NAME` | An image's directory for `boot()`: `default` (a shell, its text tools, the terminal, curl, `amy`, `nena`, `ps`, `html`), `pi-minimal` (the Pi coding agent with JavaScript, a shell, POSIX tools, curl, ripgrep and fd, on `display`, `input`, `download` and `html` alone: the README's "Pi with npm"), `python-data` (`default` with Python 3.14, pip, the C compiler, NumPy, pandas, Matplotlib and seaborn). Its README gives the install line and the `FROM` row of a recipe built on it. Its `amy-index.txt` lists the packages the image holds, so `amy list` and `amy info` describe them |
+| `@daugasauron/dolly-package-NAME` | A package for an image of your own: `git` (with diff and patch), `cc` (the C and C++ compiler with Make), `python` (3.14 with pip; it brings `libffi` and `cc`), `numpy`, `pandas`, `matplotlib`, `seaborn` and `python-dateutil`. Its directory holds its catalog, metadata, packs and recipes, as an image's does, and nothing to boot; it depends on the packages it installs, so npm installs them with it |
+| `@daugasauron/dolly-build` | The `dolly-build` command: a project with an image of your own, `FROM` `pi-minimal` with the packages it `INSTALL`s, built in a browser into a site a static host serves ("Your own image" below) |
 
 ```sh
 npm install @daugasauron/dolly @daugasauron/dolly-image-default \
@@ -21,9 +19,10 @@ npm install @daugasauron/dolly @daugasauron/dolly-image-default \
   @daugasauron/dolly-host-upload @daugasauron/dolly-host-html
 ```
 
-Each host module and image depends on the runtime alone, at its own version. An
-image does not depend on the host modules it declares: install them with it (its
-README names them), so that all lie side by side under `node_modules/@daugasauron/`.
+Each host module and image depends on the runtime alone, at its own version, and
+a package also on the packages it installs. An image or package does not depend on
+the host modules it declares: install them with it (its README names them), so
+that all lie side by side under `node_modules/@daugasauron/`.
 npm, pnpm and Yarn 1 install them so. Yarn 2 and later need `nodeLinker: node-modules`
 in `.yarnrc.yml`: Plug'n'Play leaves no files to serve.
 
@@ -139,11 +138,14 @@ properties each time a popup opens. Dolly's site sets
 
 `dolly-build` builds a Dollyfile (`docs/dollyfile.md` in the repository)
 `FROM` the installed `pi-minimal`, with the packages whose directories are
-installed beside it, into a directory laid out as an image package: its catalog,
-its metadata and packs, the recipes it was built from and an `index.mjs`. The
-build runs in a headless browser, with the installed runtime's own builder, as
-the catalog's images are built; the command serves the packages to it on
-127.0.0.1 and writes what it hands back.
+installed beside it, into a site: a directory that any static host serves as it
+lies. The build runs in a headless browser, with the installed runtime's own
+builder, as the catalog's images are built; the command serves the packages to
+it on 127.0.0.1 and writes what it hands back. Nothing of it, nor of the site,
+the page or the image, fetches from the network: after `npm install`, the
+packages hold every file. The build's browser reaches that server and the URLs
+of the recipe's own `SOURCE` rows alone; its own requests (its vendor's updates,
+clock and autofill) go to a proxy of the command's that refuses them.
 
 ```sh
 npm install @daugasauron/dolly-build @daugasauron/dolly-package-git
@@ -155,13 +157,13 @@ npx dolly-build Dollyfile-my-pi my-pi
   installed, and refuses to write over a file: `Dollyfile-NAME` (the host modules
   of `pi-minimal` and of each package, `FROM` `pi-minimal` and `INSTALL` of each
   package at the installed pins, rows for Pi's instructions, a skill, an extension,
-  a tool and the script that starts Pi, and `pi-minimal`'s `ENTRY`), `index.html`
-  (the policy, the popups' font, and the files of `workspace/` and `theme.json`
-  for `boot()`'s `files`, listed by `workspace.json`), `theme.json` (the sandbox's
-  colours: Pi's theme, written over the image's at boot, whose background, text,
-  accent and muted the page sets as the terminal's and the popups'), `serve.mjs` (isolation, the listing,
-  relays), `workspace/README.md` and, unless the project has one, a
-  `.gitignore` for `node_modules/` and the image directory. It names the host module
+  a tool and the script that starts Pi, and `pi-minimal`'s `ENTRY`) and `public/`,
+  the page's files: `index.html` (the policy, the popups' font, and the files of
+  `workspace/` and `theme.json` for `boot()`'s `files`, listed by `workspace.json`),
+  `theme.json` (the sandbox's colours: Pi's theme, written over the image's at
+  boot, whose background, text, accent and muted the page sets as the terminal's
+  and the popups') and `workspace/README.md`; and, unless the project has one, a
+  `.gitignore` for `node_modules/` and the site. It names the host module
   package to install when a package needs one the page lacks (`python`'s `sockets`).
   The repository README's "Pi with npm" says what each file is for.
 - The recipe is the one place that declares the sandbox. Add rows before `ENTRY`:
@@ -172,20 +174,31 @@ npx dolly-build Dollyfile-my-pi my-pi
   recipe repeats those; a package's `REQUIRES HOST` rows must be among the recipe's,
   and the build names a missing one. A recipe is at most 128 KiB; `/workspace` is
   never part of an image (`boot()`'s `files` writes the project at each boot).
-- `dolly-build Dollyfile-NAME OUT` builds it into `OUT`, replacing the image
-  directory a build wrote there before:
+- `dolly-build Dollyfile-NAME OUT` writes the site `OUT`, replacing the one it
+  wrote there before: the files of `public/`, `workspace.json` (the files under
+  `public/workspace/`), the runtime (`dolly/`), the device host modules the recipe
+  declares (`dolly-host-NAME/`), `coi-serviceworker.js` and `image/`, the image's
+  directory as an image package lays it out (its catalog, metadata and packs, the
+  recipes it was built from, its `amy-index.txt` and an `index.mjs`). The page
+  imports `./dolly/src/browser.mjs` and `./image/index.mjs`. An image this recipe
+  built on this runtime is kept, so a change to `public/` alone takes seconds.
   `--browser chrome` (the default: your Chrome), `chromium` or `firefox`
   (Playwright's, after `npx playwright-core install chromium` or `firefox`).
   Both commands run where the packages are installed: the directory whose
   `node_modules/@daugasauron/` holds them (npm, pnpm and Yarn 1 alike). A row
   that names an image no installed package holds at that pin fails naming the row.
+- Serve `OUT` with any static file server, `python3 -m http.server -d OUT` on
+  your machine. Where the host sends the isolation headers ("Serving" above) the
+  page is isolated; where it does not, `init`'s page registers
+  `coi-serviceworker.js`, which adds them to the site's own responses, and loads
+  again under it.
 - A recipe may start `FROM` another installed image instead, `python-data` say: its
   package's README gives the `FROM` row, and the recipe repeats the image's `REQUIRES HOST`
   rows (a FILE of the project's own script and a SLOP that runs it at build time, for
-  example). `init` writes Pi's project only.
-- Import `images`, `image` and `modules` from `OUT/index.mjs` as from an image
-  package. Its modules are found in the packages under `node_modules/@daugasauron/`,
-  so serve `OUT` beside them, from where it was built.
+  example). `init` writes Pi's project only; the page in `public/index.html` is then one
+  as in "A page" above that imports `./dolly/src/browser.mjs` and `./image/index.mjs`,
+  with the lines of `init`'s page that register `coi-serviceworker.js` for a host
+  without the headers.
 - An image is built for the installed versions: after the packages update, the
   rows' pins are others (`init` in an empty directory writes the new ones), and it
   is built again. Packages of two versions in one `node_modules` fail the build,

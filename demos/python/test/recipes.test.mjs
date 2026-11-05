@@ -27,3 +27,24 @@ test("the python package builds CPython, libffi and pip with their licenses and 
   }
   assert.deepEqual(recipe.hostRequirements, ["dso@0", "http@0", "runtime@0", "sockets@0", "threads@0"]);
 });
+
+test("the data packages copy each root python-data-build installs, once, and python-data installs them all", async () => {
+  const build = (await loadProjectGraph("demos/python/Dollyfile-python-data-build")).root;
+  const roots = build.slops.filter(({ command }) => command.includes("/tmp/python-data/install"))
+    .map(({ command }) => command[command.indexOf("/tmp/python-data/install") + 1]).sort();
+  const packages = ["numpy", "python-dateutil", "pandas", "matplotlib", "seaborn"];
+  const copied = [];
+  for (const name of packages) {
+    const recipe = (await loadProjectGraph(`demos/python/Dollyfile-${name}`)).root;
+    assert.equal(recipe.role, "package");
+    for (const { location, source } of recipe.artifacts.filter(({ operation }) => operation === "copy")) {
+      assert.ok(location.endsWith("/demos/python/Dollyfile-python-data-build"), name);
+      copied.push(source.slice("/opt/python-data/".length));
+    }
+  }
+  assert.deepEqual(copied.sort(), roots);
+  const data = (await loadProjectGraph("demos/python/Dollyfile-python-data")).root;
+  assert.equal(data.artifacts.filter(({ operation }) => operation === "copy").length, 0);
+  assert.deepEqual(data.installs.map(({ location }) => location.split("Dollyfile-")[1]).filter(name => packages.includes(name)).sort(),
+    [...packages].sort());
+});

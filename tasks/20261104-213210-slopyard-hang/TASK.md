@@ -1,15 +1,37 @@
 # Slopyard's test hung after eight fixtures once, in the confirming round
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 255
-- TAGS: bug,slopyard,0.1.5
+- TAGS: bug,slopyard,0.1.6
 
-## State (2026-11-05 14:05, branch `fix/intermittent-1105`)
+## State (2026-11-06 02:20, branch `fix/hangs-1105`)
 
-Reproduced once, at an upload; not reproduced again with the upload module traced. Cause not
-named; nothing changed. The hang is the upload's: the test waits on `upload` without a limit.
+Closed: cause named, fixed in af4fe8756, and the test passed 20 times in a row under load
+(below). The upload's Worker side read the chosen file through a reader that only its own
+pending read reached, and Chrome collects such a Blob stream: the read never ends, so no chunk
+reaches the kernel and `upload` waits forever. The transfer now holds its reader
+(`this.active.reader`, `host/upload/transport.mjs`).
 
-Counts (image inputs `b9e16e76`, the candidate's; `build/flaky-evidence/`):
+Measured (Chrome 156, headless; scratch harnesses in `build/hangs-evidence/`, not kept):
+
+| run | result |
+| --- | --- |
+| a Worker reads a posted `File` with a BYOB reader nothing else holds, five `gc()` while the read is pending | 30 of 30 reads never end |
+| the same without `gc()` | 30 of 30 read |
+| the same with the reader in a global set | 30 of 30 read |
+| an in-memory `Blob`; an origin-private file | 20 of 20, 20 of 20 never end |
+| a `fetch` body | 20 of 20 read |
+| a default reader (not BYOB) on a posted `File`, on an in-memory `Blob`; `for await` over a `Blob`'s stream; a `Blob` through a `DecompressionStream` | 10 of 10 read in each |
+| `upload-loop.mjs`: `upload` in `system`, as slopyard's test makes it, with `--expose-gc` and four `gc()` 0-5 ms after the read starts (a probe line in transport.mjs) | the first upload hangs, 2 of 2 runs: the dialog says "Uploading slopyard-controller-arguments.c", "0.0 of 0.0 MiB", as in the hang below |
+| the same with the fix | 30 of 30 uploads |
+
+So the defect is Chrome's BYOB read of a `Blob`'s stream, and Dolly has one BYOB reader, this
+one. A `gc()` in the same task as the read's start does not hang it: the stream is collectable once
+its read waits on the browser. So the hang needs a full collection in the runtime Worker within
+the milliseconds the read waits, which is why it came about once in 1,770 uploads and never with
+the earlier tracing.
+
+Counts before the cause was known (image inputs `b9e16e76`; `work/evidence-2026-11-05/flaky-evidence/`):
 
 | run | uploads | hangs |
 | --- | --- | --- |
@@ -35,18 +57,13 @@ drives `upload.mjs`'s Worker side against a kernel modelled on `kernel.c` and a 
 order: 1000 transfers, none lost. Out of order (a late `upload-close` reaching the next dialog) it
 cancels transfers but never hangs them; postMessage keeps that order.
 
-Next time: trace these lines (they were in this tree, uncommitted): the Worker's `service()`
-request and cancel changes; `poll()` start, the chosen file, each `reader.read()` and `publish()`
-with the mailbox words, `finally`; the page's `upload-choose` (open dialogs, previous controller),
-the input's `change`, `upload-close`; the supervisor's deferred calls by process. They tell
-whether the answer or the read is lost.
-
 Seen in the confirming round of 2026-11-05 (`integrate/2026-11-05` at 693b9842f, GPU stage,
 `work/integrate/build/round-1105b-evidence/gpu-slopyard.log`): the first eight fixtures passed in
 seconds each (air-traffic to dock-courier), then nothing until the stage's 2,400 s limit ended the
 test. In the same images at 06:24 and 06:26 the test passed twice, 107 s each
-(`slopyard-rerun-1.log`, `-2.log`), as it did in the tests branch's tree. Not attributed yet; not
-retried away. The same round's other intermittent failure is [rts-arena's SIGPIPE](../20261104-212342-rts-sigpipe/TASK.md):
+(`slopyard-rerun-1.log`, `-2.log`), as it did in the tests branch's tree. Seen again in the
+v0.1.5 candidate's last round (15929916a, `round-1105rc-evidence/gpu-slopyard.log`): six fixtures
+passed, then nothing until the stage's limit; two reruns passed in 107 s. The same round's other intermittent failure is [rts-arena's SIGPIPE](../20261104-212342-rts-sigpipe/TASK.md):
 both appeared once in a round whose new parts are the kernel's signal dispositions, the
 spawn request's signal state and applications assembled from packages.
 
@@ -62,3 +79,9 @@ round's GPU stage), its cause named and fixed, and the test passes 20 times in a
   0 in about 3,200 headless and 0 in 4,005 bare uploads in the GPU window. Tracing must be in place before the long loop starts, and saved whole at the
   failure: the first hang's full trace was printed only in part and the run was gone.
 
+## Closing (2026-11-06)
+
+`DISPLAY=:145 node demos/slopyard/test/slopyard-browser.mjs` (headful Chrome with Vulkan on a
+private Xvfb, each run in the GPU lock), 20 runs in a row at 01:39-02:19: 20 of 20 passed,
+115-170 s each (19 `upload` commands and 2 imports a run, 420 transfers in all), beside tmux's
+test 20 times and a Firefox loop of tmux-panes' first cc. Logs: `build/hangs-evidence/slopyard-after*.log` in `work/npmflow`.
