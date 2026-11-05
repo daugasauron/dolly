@@ -88,7 +88,9 @@ cat <<COMMANDS
 5  gh release create ${version} build/dolly-pages.tar.gz ${seed_compiler} --verify-tag --notes-file NOTES
    gh workflow run pages.yml -f release_tag=${version} -f artifact_sha256=${tarball_sha256}
    for tarball in ${npm_dir}/*.tgz; do npm publish "\${tarball}" --access public; done
-6  systemd-run --user --unit dolly-deploy-${version} --working-directory=${project_dir} --setenv=PATH="\$PATH" bash -c 'npx wrangler@4.129.1 pages deploy ${project_dir}/${deployment} --project-name dolly --branch main > ${project_dir}/build/deploy-${version}.log 2>&1'
+6  node test/pages-host.mjs ${deployment} 8790, and while it serves:
+   node scripts/published-version.mjs boot http://127.0.0.1:8790 ${versions}
+   systemd-run --user --unit dolly-deploy-${version} --working-directory=${project_dir} --setenv=PATH="\$PATH" bash -c 'npx wrangler@4.129.1 pages deploy ${project_dir}/${deployment} --project-name dolly --branch main > ${project_dir}/build/deploy-${version}.log 2>&1'
    (detached: an interrupted upload keeps nothing, so never restart it)
 7  node scripts/published-version.mjs verify https://slopshare.dev ${deployment} ${version}
    node scripts/published-version.mjs boot https://slopshare.dev ${versions}

@@ -126,12 +126,18 @@ bash scripts/package-pages.sh build/github-releases github-pages
   in the version's release notes.
 - Cloudflare Pages takes 20,000 files, 25 MiB each, and 100 `_headers` rules.
   The exporter fails at either limit, naming the versions; nothing is dropped
-  automatically. One rule covers a file in every version that stores it the
-  same way, so rules grow with distinct large files, not with versions.
+  automatically. A version needs a rule for each file it stores compressed;
+  one before v0.1.5 also for each file in parts (`X-Dolly-Parts`), while a
+  page since then knows a manifest by its content. One rule covers a file in
+  every version that stores it the same way, so rules grow with distinct
+  compressed files and with files whose storage changed, not with versions.
 - Measured on 2026-11-02 on the archive of v0.1.0 to v0.1.4: v0.1.4 is
   3,785 files and 21.9 GB and alone needs 55 rules: 6 for every version, 37
   for large sources by path and 12 for large packs by content. The five
-  versions are 14,037 files and need 92 rules.
+  versions are 14,037 files and need 92 rules. On 2026-11-05 a v0.1.5 domain
+  site would have added 15 with a rule per file in parts (107); it adds 1:
+  its 5 compressed files are stored as older versions store them, and
+  `zig-llvm/zig.tar`, compressed in v0.1.4, is in parts in v0.1.5.
 
 ## Release
 
@@ -154,8 +160,10 @@ pushes, uploads or deploys.
    ([sources](sources.md#the-seeds-compiler)); run `pages.yml` with the tag
    and the tarball's SHA-256; `npm publish` each package of step 3 under
    `@daugasauron`.
-6. Assemble the deployment from the archive and the new release; upload it
-   with `wrangler pages deploy` as a detached job. An interrupted upload keeps
+6. Assemble the deployment from the archive and the new release; boot every
+   version from it, served by [`pages-host.mjs`](../test/pages-host.mjs), in
+   Chromium and Firefox (`published-version.mjs boot`); upload it with
+   `wrangler pages deploy` as a detached job. An interrupted upload keeps
    nothing: never restart it.
 7. Live, in Chromium and Firefox: `published-version.mjs boot SITE vX.Y.Z…`
    (`/` leads to the newest version, an unversioned path is 404, every
@@ -192,8 +200,9 @@ pushes, uploads or deploys.
 - Snapshot `.gz` files are application payloads: never mark them
   `Content-Encoding: gzip`.
 - The Cloudflare exporter splits oversized sources, packs and the compiler seed
-  `dist/dolly.data` into verified 20 MiB parts
-  ([`static-asset.mjs`](../src/static-asset.mjs)) and Brotli-compresses large
+  `dist/dolly.data` into verified 20 MiB parts, listed by a manifest at the
+  file's path that the page knows by its first bytes
+  ([`static-asset.mjs`](../src/static-asset.mjs)), and Brotli-compresses large
   downloads as `application/octet-stream`: the tested Pages runtime overwrites
   the encoding of Wasm MIME types. Do not substitute Workers Static Assets; its
   tested encoding behavior differs. Runtime JavaScript and Wasm are never

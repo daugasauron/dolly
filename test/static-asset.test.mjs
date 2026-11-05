@@ -8,7 +8,8 @@ const parts = [Buffer.from("part one"), Buffer.from(" and part two")];
 const bytes = Buffer.concat(parts);
 const manifest = () => ({ byteLength: bytes.length, sha256: digest(bytes),
   parts: parts.map(part => ({ byteLength: part.length, sha256: digest(part) })) });
-const response = value => new Response(JSON.stringify(value), { headers: { "x-dolly-parts": "1" } });
+// A manifest says what it is; the header pages before v0.1.5 needed changes nothing.
+const response = (value, headers = {}) => new Response(JSON.stringify(value), { headers });
 const target = "https://fixture.example/_dolly/release/static/sdk.tar.gz";
 
 test("multipart delivery uses only fixed sibling URLs and verifies original bytes", async () => {
@@ -26,16 +27,25 @@ test("multipart delivery uses only fixed sibling URLs and verifies original byte
     });
   assert.deepEqual(Buffer.from(await decoded.arrayBuffer()), bytes);
   assert.equal(decoded.headers.get("content-length"), String(bytes.length));
-  assert.equal(decoded.headers.has("x-dolly-parts"), false);
-  const ordinary = new Response("ordinary");
-  assert.equal(await decodeStaticAsset(ordinary, target, {}, 100), ordinary);
+  const labelled = await decodeStaticAsset(response(manifest(), { "x-dolly-parts": "1" }), target, {}, bytes.length,
+    async url => new Response(parts[Number(url.href.at(-1))]));
+  assert.deepEqual(Buffer.from(await labelled.arrayBuffer()), bytes);
+  assert.equal(labelled.headers.has("x-dolly-parts"), false);
+  for (const body of ["ordinary", '{"byteLengt', "", JSON.stringify({ sha256: digest(bytes), byteLength: bytes.length })]) {
+    const ordinary = new Response(body);
+    assert.equal(await decodeStaticAsset(ordinary, target, {}, 100, () => assert.fail("not a manifest")), ordinary);
+    assert.equal(await ordinary.text(), body);
+  }
+  const missing = new Response(JSON.stringify(manifest()), { status: 404 });
+  assert.equal(await decodeStaticAsset(missing, target, {}, bytes.length, () => assert.fail("not a file")), missing);
 });
 
 test("multipart delivery rejects malformed sizes and hashes before following any part", async () => {
-  const invalid = [null, {}, { ...manifest(), byteLength: bytes.length + 1 }, { ...manifest(), parts: [] },
+  const invalid = [{ byteLength: null }, { byteLength: bytes.length }, { ...manifest(), byteLength: bytes.length + 1 }, { ...manifest(), parts: [] },
     { ...manifest(), parts: [{ byteLength: -1, sha256: digest(bytes) }] }];
   for (const value of invalid) await assert.rejects(decodeStaticAsset(response(value), target, {}, bytes.length,
     () => assert.fail("invalid manifest must not fetch")));
+  await assert.rejects(decodeStaticAsset(new Response('{"byteLength":'), target, {}, bytes.length, () => assert.fail("truncated")), SyntaxError);
   await assert.rejects(decodeStaticAsset(response(manifest()), target, {}, bytes.length - 1,
     () => assert.fail("quota exceeded before fetch")), /manifest/);
   await assert.rejects(decodeStaticAsset(response(manifest()), target + "?guest=value", {}, bytes.length), /request/);

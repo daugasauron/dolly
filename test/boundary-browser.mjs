@@ -6,7 +6,7 @@ import { createHttpRedirectFixture } from "./fixtures/http-redirect-server.mjs";
 import { siteReference } from "../src/static-asset.mjs";
 
 // One source served the way the Pages export delivers oversized static assets:
-// a manifest (x-dolly-parts: 1) plus fixed sibling .part-N files.
+// a manifest, known by its content, plus fixed sibling .part-N files.
 const source = "/dist/static/default/commands/curl.c";
 const bytes = await readFile(new URL(`..${source}`, import.meta.url));
 const half = Math.ceil(bytes.length / 2), parts = [bytes.subarray(0, half), bytes.subarray(half)];
@@ -19,7 +19,7 @@ const redirects = createHttpRedirectFixture();
 async function handle(request, response, path, headers) {
   if (await redirects(request, response, new URL(request.url, "http://127.0.0.1"))) return true;
   if (path === source) {
-    response.writeHead(200, { ...headers, "content-type": "application/octet-stream", "x-dolly-parts": "1" });
+    response.writeHead(200, { ...headers, "content-type": "application/octet-stream" });
     response.end(manifest);
     return true;
   }

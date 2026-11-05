@@ -31,7 +31,8 @@ published or deployed until the owner says so (as for `tasks/20261029-230000-v01
    the account's 100 for this release (Lean adds 5; the new compiler changes the bytes of every
    large binary, so their rules are new). Decide from the rule scheme in `docs/deployment.md`:
    fewer rules per file (one per directory or per content type) or older versions' rules retired;
-   not a version dropped from the site.
+   not a version dropped from the site. Done in `tasks/20261105-003331-pages-rules`: the page
+   knows a split file's manifest by its content, so v0.1.5 adds 1 rule (93 of 100).
 5. The domain's catalog lists `lean-std`, `lean-meta` and `lean` (`config/domain-pages-images.txt`), and
    `amy install lean` works from the domain's catalog on the served candidate.
 6. The two sites packaged and checked (`scripts/release-checklist.sh`, `docs/deployment.md`), the

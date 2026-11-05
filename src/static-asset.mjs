@@ -55,12 +55,39 @@ export async function boundedAssetBody(response, limit, signal) {
   return bytes;
 }
 
+// A file a host stores in parts is a JSON manifest at its path that begins
+// with these bytes, and no file stored whole does (the Pages exporter checks),
+// so the page knows a manifest by its content: a host needs no header for it.
+// Pages before v0.1.5 read the X-Dolly-Parts header instead.
+export const PARTS_MANIFEST_START = '{"byteLength":';
+
+// Whether a whole response's body begins as a manifest, read from a copy of it.
+async function isPartsManifest(response) {
+  if (response.status !== 200 || !response.body) return false;
+  const start = new TextEncoder().encode(PARTS_MANIFEST_START), reader = response.clone().body.getReader();
+  const head = new Uint8Array(start.length);
+  let size = 0;
+  try {
+    while (size < start.length) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const taken = value.subarray(0, start.length - size);
+      head.set(taken, size);
+      size += taken.length;
+    }
+  } finally {
+    // Not awaited: cancelling a copy settles only once the response is read too.
+    reader.cancel().catch(() => {});
+  }
+  return size === start.length && head.every((byte, index) => byte === start[index]);
+}
+
 // Streams verified parts, holding at most one 20 MiB part per request. Each
 // part matches the manifest hash before any of its bytes are delivered.
 export async function decodeStaticAsset(response, target, init, maximumBytes, fetchRequest = globalThis.fetch.bind(globalThis)) {
-  if (response.headers.get("x-dolly-parts") !== "1") return response;
+  if (!await isPartsManifest(response)) return response;
   const url = new URL(target);
-  if (response.status !== 200 || (init.method ?? "GET") !== "GET" || url.search || url.hash ||
+  if ((init.method ?? "GET") !== "GET" || url.search || url.hash ||
       url.username || url.password || !/^https?:$/.test(url.protocol)) throw new Error("invalid multipart asset request");
   const manifest = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await boundedAssetBody(response, 65536, init.signal)));
   if (!Number.isSafeInteger(manifest.byteLength) || manifest.byteLength <= 0 ||
