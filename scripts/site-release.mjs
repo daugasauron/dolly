@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { lstat, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { gunzipSync } from "node:zlib";
@@ -198,8 +199,12 @@ async function acceptSite(site, project) {
   const server = await startSiteServer(site);
   try {
     for (const image of images) {
-      // A new browser per image: only the release can supply its artifacts.
-      const browser = await chromium.launch({ channel: "chrome", headless: true,
+      // A new profile per image: only the release can supply its artifacts. Its
+      // origin-private storage is on disk, as a person's is; an off-the-record
+      // context holds it in memory, under a limit (3.8 GB on 2026-11-05) that
+      // a build on dollyfile-studio's 1.6 GB image exceeds.
+      const profile = await mkdtemp(resolve(tmpdir(), "dolly-acceptance-"));
+      const browser = await chromium.launchPersistentContext(profile, { channel: "chrome", headless: true,
         args: ["--no-sandbox", "--disable-gpu", "--enable-unsafe-webgpu"] });
       const deadline = setTimeout(() => void browser.close(), 900_000);
       try {
@@ -209,6 +214,7 @@ async function acceptSite(site, project) {
       } finally {
         clearTimeout(deadline);
         await browser.close();
+        await rm(profile, { recursive: true, force: true });
       }
       console.log(`dolly: accepted ${image}`);
     }
