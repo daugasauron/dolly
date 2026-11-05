@@ -54,6 +54,17 @@ COPY /vX.Y.Z/demos/python/Dollyfile-python-data-build SHA256 /opt/python-data/nu
 Every image that takes a root needs `python` installed; pip lists and
 uninstalls what the roots hold. `python-data` takes them all.
 
+Matplotlib draws with Agg: `savefig` writes PNG, SVG or PDF files, and
+`plt.show()` has no window. A PNG written to the terminal as one kitty graphics
+escape shows at the cursor, at its own size in the screen's pixels; `c=N` after
+`f=100` scales it to N columns:
+
+```python
+import base64, matplotlib.pyplot as plt
+plt.plot([1, 3, 2]); plt.savefig("/tmp/plot.png")
+print(f"\033_Ga=T,f=100;{base64.b64encode(open('/tmp/plot.png', 'rb').read()).decode()}\033\\")
+```
+
 ## Key files
 
 - [`Dollyfile-python`](Dollyfile-python), [`cpython-dolly.patch`](cpython-dolly.patch),
@@ -88,7 +99,5 @@ uninstalls what the roots hold. `python-data` takes them all.
   SciPy 1.18 builds without Fortran on the `openblas` package, in 5 minutes in
   a session; python-data-build does not build it yet
   ([task](../../tasks/20261103-133557-scipy/TASK.md)).
-- Matplotlib draws with Agg: `savefig` writes PNG, SVG or PDF files, and
-  `show()` has no window to open.
 
 Test: `npm run test:demos -- python` ([`test/`](test/)).
