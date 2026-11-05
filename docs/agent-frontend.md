@@ -15,9 +15,9 @@ its image. This guide changes its files:
 
 ```
 Dollyfile-my-pi               the sandbox: Pi's instructions, skills, extensions, tools, how Pi starts
-index.html                    the page: the policy, relays, and the files it writes at boot
-serve.mjs                     serves the directory; relays hosts without CORS
-workspace/                    the project Pi works on, written into /workspace at each boot
+public/index.html             the page: the policy, relays, and the files it writes at boot
+public/workspace/             the project Pi works on, written into /workspace at each boot
+my-pi/                        the site dolly-build writes, for a static host
 ```
 
 ## Pi's files
@@ -55,8 +55,8 @@ part of the image the page serves; a change is a rebuild (10 s).
   name (below).
 - `FILE /etc/dolly/init.slop`: how Pi starts (below).
 
-A file the page writes at boot instead, as it writes `workspace/`, is a reload
-rather than a rebuild: `boot()`'s `files` takes `{ "/home/dolly/.pi/agent/AGENTS.md": text }`
+A file the page writes at boot instead, as it writes `workspace/`, is a build that
+keeps the image (seconds) rather than a rebuild: `boot()`'s `files` takes `{ "/home/dolly/.pi/agent/AGENTS.md": text }`
 beside the workspace's ([Embedding](embedding.md)). Files are not secrets: Pi's
 tools can read them, and so can its model.
 
@@ -118,21 +118,21 @@ Bedrock and Copilot refuse the CORS preflight of the headers Pi's clients send
 
 ## Hosts without CORS: relays
 
-`serve.mjs` relays the hosts in its `relayed` set: `METHOD /relay/HOST/PATH` is
-sent on to `https://HOST/PATH` with the request's headers and body. The page
-maps the origin to it next to the policy:
+A static host relays nothing: a host without CORS headers is reached through a
+relay of your own, a route of your server that sends `METHOD /relay/HOST/PATH` on
+to `https://HOST/PATH` with the request's headers and body
+([CORS and relays](http.md#cors-and-relays)). The page maps the origin to it next
+to the policy:
 
 ```js
 const relays = [{ origin: "https://api.individual.githubcopilot.com",
-  through: new URL("./relay/", location.href).href, credentialHeaders: ["authorization"] }];
+  through: "https://relay.example.com/relay/", credentialHeaders: ["authorization"] }];
 await boot(document.querySelector("#dolly"), { images, image, modules, http: { policy, relays }, files });
 ```
 
-and `serve.mjs` lists the host: `const relayed = new Set(["api.individual.githubcopilot.com"]);`.
 The policy still judges the real URL, so it needs its rule as before. The relay
 sees each request whole, its credentials among them (`credentialHeaders` lists
-the ones it may see). In production it is a route of your own server, with the
-same protocol ([CORS and relays](http.md#cors-and-relays)).
+the ones it may see).
 
 ## How Pi starts
 
@@ -178,8 +178,9 @@ agent a short-lived token that allows what the frontend allowed.
 
 ## Not there yet
 
-- npm ships two images, `default` and `pi-minimal`, and three packages, `git`,
-  `python` and `cc`. Another program needs an image built in a Dolly checkout
+- npm ships the images and packages of the repository's `config/npm-images.txt`
+  (`default`, `pi-minimal`, `python-data`; `git`, `cc`, `python` and Python's data
+  libraries). Another program needs an image built in a Dolly checkout
   (`npm run image`), whose `dist/` the page then serves as `images`.
 - `pi-minimal` is 27.5 MB compressed on first load.
 - The interface is Pi's terminal UI.

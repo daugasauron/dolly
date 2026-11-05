@@ -1,0 +1,12 @@
+default
+pi-minimal
+python-data
+cc
+git
+libffi
+python
+numpy
+python-dateutil
+pandas
+matplotlib
+seaborn
