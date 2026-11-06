@@ -19,3 +19,10 @@ data libraries as packages and packs each package with its own snapshot alone.
 Done when: the three packages are on npm at 0.1.5 by the release checklist's npm step, run by the
 owner; `npm install @daugasauron/dolly-package-git@0.1.5` resolves; `test/npm-browser.mjs`'s path
 runs from the registry's packages, not packed tarballs, in Chromium and Firefox.
+
+## State (2026-11-06 10:30): at 0.1.5-rc.0
+
+The three, with the rest of `config/npm-images.txt` (25 packages), are on npm at 0.1.5-rc.0
+under `rc` and `latest`, published by the integrator on the owner's word, each registry integrity
+the tested tarball's; `npm install` of the README's line from npmjs.com resolves them
+(`tasks/20261105-213000-npm-offline`). Left: 0.1.5 itself.

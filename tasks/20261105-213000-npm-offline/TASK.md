@@ -1,6 +1,6 @@
 # npm: installed packages to a static site of one's own, with nothing fetched after npm install
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: npm,packaging,0.1.5
 
@@ -17,14 +17,16 @@ The owner, 2026-11-05:
 The integrator moved it from 0.1.5 to 0.1.6 (2026-11-05 22:10); the owner (2026-11-06 07:00):
 "That SHOULD be a part of 0.1.5". Merged into `integrate/2026-11-05` at `12d3164de`.
 
-## State (2026-11-05 22:45 JST)
+## State (2026-11-06 10:30): closed, released in v0.1.5-rc.0
 
-Done on `core/npm-offline`: the data libraries are packages; npm packaging reads
-`config/npm-images.txt`, a package depends on the packages it installs, and every directory
-carries an amy-index.txt; `dolly-build` writes a static site; `test/npm-browser.mjs` runs the
-flow offline and passed in Chromium and Firefox with an empty record; the python demo's
-python-data test passed in both and its new numpy case in Chromium. Left: the merge (below),
-and then publishing the list at 0.1.5-rc.0.
+Merged at `12d3164de`; v0.1.5-rc.0 is `fcfe756f1`. The round's npm suite passed in Chromium
+(110.4 s) and Firefox (87.0 s). The 25 packages packed at 0.1.5-rc.0 passed the same test as
+tarballs (`work/rc-npm-1106.sh`, `build/round-1106rc-evidence/npm-rc-offline.log`): Chromium
+115.9 s, Firefox 95.1 s; requests beyond the machine: none. Published under `rc` and `latest`,
+each registry integrity the tested tarball's (`build/npm-publish-1106.log`). From npmjs.com, the
+README's install line in an empty app added 16 packages at 0.1.5-rc.0 in 19 s, and `npx
+dolly-build init my-pi git python numpy matplotlib` and the build, in a network namespace with
+only loopback, wrote a 99 MB site in 43 s.
 
 ## Merge notes
 
