@@ -1,3 +1,10 @@
+// Before <atomic>, as a C++ program includes them.
+#include <dolly/display.h>
+#include <dolly/input.h>
+#include <dolly/touch.h>
+#include <dolly/upload.h>
+
+#include <atomic>
 #include <cstdio>
 #include <iostream>
 #include <locale>
@@ -14,6 +21,7 @@ int main() {
   wide.imbue(startup_locale);
   wide << L"Dolly " << 42;
   if (wide.str() != L"Dolly 42" || startup_text != "private") return 2;
+  std::atomic_signal_fence(std::memory_order_seq_cst);
   std::vector<std::string> values = {"private", "c++23", "process"};
   try {
     if (values.size() != 3) throw std::runtime_error("bad C++ process state");

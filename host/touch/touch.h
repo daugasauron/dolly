@@ -2,7 +2,11 @@
 #define DOLLY_TOUCH_H
 
 #include <stddef.h>
+// The mailboxes' _Atomic needs nothing in C++ (Clang), where before C++23
+// <stdatomic.h> would cover std::atomic's functions with C's macros.
+#ifndef __cplusplus
 #include <stdatomic.h>
+#endif
 #include <stdint.h>
 #include <dolly/touch-abi.h>
 

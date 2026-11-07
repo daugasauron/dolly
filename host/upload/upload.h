@@ -1,6 +1,10 @@
 #pragma once
 #include <stdint.h>
+// The mailboxes' _Atomic needs nothing in C++ (Clang), where before C++23
+// <stdatomic.h> would cover std::atomic's functions with C's macros.
+#ifndef __cplusplus
 #include <stdatomic.h>
+#endif
 #include <dolly/upload-abi.h>
 
 /* Host mailbox layout; dolly-upload-0.wat owns its version and semantics. */
