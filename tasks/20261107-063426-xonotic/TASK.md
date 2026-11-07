@@ -9,6 +9,18 @@ broken, create a task to fix that too." Not yet recorded: the browser and system
 whether the page drew on `gpu@0` or in the engine's software rasterizer (no WebGPU adapter), and
 what "broken" looks like (a screenshot settles most of it).
 
+## State (2026-11-07): not reproduced on this machine
+
+The published deployment exported from `work/locks/published` and served by
+`test/pages-host.mjs` (as Pages serves it), `/v0.1.5/xonotic/` opened, the menu left to draw, then
+`map stormkeep` from the engine's console (`work/xonotic-repro/repro.mjs`, `repro2.mjs`;
+screenshots under `work/xonotic-repro/out*`): the menu and the map draw correctly in Chrome with a
+WebGPU adapter (`gpu@0`, NVIDIA Blackwell through Vulkan, on Xvfb), in headless Chrome without one
+and in headless Firefox (the software rasterizer); `/v0.1.4/xonotic/` the same in Chrome on
+`gpu@0`. The frames are behind the server's welcome dialog: the Join click did not register.
+Needed from the owner: the browser and system, and a screenshot. Paths not reachable here:
+WebGPU on Metal (macOS), D3D12 (Windows) or Android.
+
 ## What is deployed
 
 v0.1.5 (`fcfe756f1`) on slopshare.dev and daugasauron.com; `xonotic` is in the domain's catalog
