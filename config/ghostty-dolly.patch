@@ -1,6 +1,6 @@
 --- a/src/lib_vt.zig
 +++ b/src/lib_vt.zig
-@@ -432,7 +432,7 @@
+@@ -405,7 +405,7 @@
          @export(&c.alloc_free, .{ .name = "ghostty_free" });
  
          // On Wasm we need to export our allocator convenience functions.
@@ -32,7 +32,7 @@
  
  /// The memory pool we use for page memory buffers. We use a separate pool
  /// so we can allocate these with a page allocator. We have to use a page
-@@ -576,6 +578,10 @@
+@@ -589,6 +591,10 @@
      // the allocator provided by the embedder.
      if (native_freestanding) return alloc;
  
@@ -43,7 +43,7 @@
      // On non-macOS we use our standard Zig page allocator.
      if (!builtin.target.os.tag.isDarwin()) return std.heap.page_allocator;
  
-@@ -764,7 +770,8 @@
+@@ -777,7 +783,8 @@
          // (WASM), the WasmAllocator reuses freed slots without zeroing since
          // only fresh memory.grow pages are guaranteed zero by the WASM spec.
          // On native, the OS page allocator (mmap) returns zeroed pages.
@@ -53,7 +53,7 @@
              @memset(page_buf, 0);
  
          // Initialize the first set of pages to contain our viewport so that
-@@ -4645,7 +4652,8 @@
+@@ -5155,7 +5162,8 @@
      // come from the OS page allocator (zeroed pages), destroyNodeExt
      // zeroes buffers before returning them to the pool, and the pool
      // never writes into its items (see PagePool).

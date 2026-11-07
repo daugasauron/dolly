@@ -5,8 +5,8 @@ REQUIRES HOST runtime@0
 # libvorbis from upstream's release archive, unchanged, built by its CMake
 # project on the libogg package: the Vorbis decoder, encoder and vorbisfile,
 # for programs the cc package builds.
-FROM /v0.1.5/demos/cmake/Dollyfile-cmake-build a187c93a214051fbafe68c92538f26f28d6cc36c2a0461369f067be8f3f1873b
-INSTALL /v0.1.5/demos/xonotic/Dollyfile-libogg 249525f70c1b01d494aa700e02515d7581f3d51919a5f96fe52597b6b409a1ac
+FROM /v0.1.5/demos/cmake/Dollyfile-cmake-build 144f011cb3fd7afc52ccbc9ee25935afa6b9ec5f708de792332581841aa8c7d7
+INSTALL /v0.1.5/demos/xonotic/Dollyfile-libogg b607190a2a5c8d95618fc8a07c409694f473b60eb933ceea4a7e2884befb6b6c
 REQUIRES HEADER libc
 REQUIRES HEADER ogg
 REQUIRES LIB ogg

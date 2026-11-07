@@ -136,6 +136,9 @@ static const key_mapping key_mappings[] = {
 };
 
 static GhosttyTerminal terminal;
+// Copies the selection as Ghostty copies it to the clipboard: plain text,
+// wrapped lines joined, trailing spaces trimmed.
+static GhosttyFormatter selection_formatter;
 static GhosttyKeyEncoder key_encoder;
 static GhosttyKeyEvent key_event;
 static dolly_display_mailbox *mailbox;
@@ -296,27 +299,23 @@ static GhosttyColorRgb theme_color(const GhosttyStyleColor *value,
   return is_background ? background : foreground;
 }
 
-static void publish_selection(void) {
+static void publish_selection(const GhosttySelection *selection) {
   uint32_t flags = 0;
   uint32_t length = 0;
-  if (terminal != NULL && copy_buffer != NULL && copy_capacity != 0) {
-    GhosttyTerminalSelectionFormatOptions options =
-        GHOSTTY_INIT_SIZED(GhosttyTerminalSelectionFormatOptions);
-    options.emit = GHOSTTY_FORMATTER_FORMAT_PLAIN;
-    options.unwrap = true;
-    options.trim = true;
-    options.selection = NULL;
+  if (selection != NULL && copy_buffer != NULL && copy_capacity != 0 &&
+      ghostty_formatter_set(selection_formatter, GHOSTTY_FORMATTER_OPT_SELECTION,
+                            selection) == GHOSTTY_SUCCESS) {
     size_t required = 0;
-    GhosttyResult result = ghostty_terminal_selection_format_buf(
-        terminal, options, NULL, 0, &required);
+    GhosttyResult result = ghostty_formatter_format_buf(
+        selection_formatter, NULL, 0, &required);
     if (result == GHOSTTY_SUCCESS || result == GHOSTTY_OUT_OF_SPACE) {
       flags = DOLLY_DISPLAY_COPY_AVAILABLE;
       if (required > copy_capacity) {
         flags |= DOLLY_DISPLAY_COPY_TRUNCATED;
       } else if (required != 0) {
         size_t written = 0;
-        if (ghostty_terminal_selection_format_buf(
-                terminal, options, copy_buffer, copy_capacity,
+        if (ghostty_formatter_format_buf(
+                selection_formatter, copy_buffer, copy_capacity,
                 &written) == GHOSTTY_SUCCESS) {
           length = (uint32_t)written;
         } else {
@@ -368,21 +367,22 @@ static bool decode_png(void *userdata, const GhosttyAllocator *allocator,
   return true;
 }
 
-// The kitty graphics placements of one layer, each scaled to its cells by
-// the nearest source pixel and blended over the frame.
-static void draw_images(unsigned char *frame, GhosttyKittyPlacementLayer layer) {
+// The kitty graphics placements of the layers in a GHOSTTY_IMAGE_LAYER_MASK_*
+// mask, each scaled to its cells by the nearest source pixel and blended over
+// the frame.
+static void draw_images(unsigned char *frame, uint32_t layers) {
   GhosttyKittyGraphics graphics = NULL;
   if (ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_KITTY_GRAPHICS,
                            &graphics) != GHOSTTY_SUCCESS || graphics == NULL ||
       ghostty_kitty_graphics_placement_iterator_set(
-          placements, GHOSTTY_KITTY_GRAPHICS_PLACEMENT_ITERATOR_OPTION_LAYER,
-          &layer) != GHOSTTY_SUCCESS ||
+          placements, GHOSTTY_KITTY_GRAPHICS_PLACEMENT_ITERATOR_OPT_LAYER,
+          &layers) != GHOSTTY_SUCCESS ||
       ghostty_kitty_graphics_get(graphics, GHOSTTY_KITTY_GRAPHICS_DATA_PLACEMENT_ITERATOR,
                                  &placements) != GHOSTTY_SUCCESS) return;
   while (ghostty_kitty_graphics_placement_next(placements)) {
     uint32_t id = 0, x_offset = 0, y_offset = 0, width = 0, height = 0;
     GhosttyKittyImageFormat format = GHOSTTY_KITTY_IMAGE_FORMAT_RGBA;
-    const uint8_t *pixels = NULL;
+    GhosttyString pixels = {0};
     GhosttyKittyGraphicsPlacementRenderInfo info =
         GHOSTTY_INIT_SIZED(GhosttyKittyGraphicsPlacementRenderInfo);
     if (ghostty_kitty_graphics_placement_get_multi(placements, 3,
@@ -395,12 +395,12 @@ static void draw_images(unsigned char *frame, GhosttyKittyPlacementLayer layer) 
     if (image == NULL ||
         ghostty_kitty_graphics_image_get_multi(image, 4,
             (GhosttyKittyGraphicsImageData[]){
-                GHOSTTY_KITTY_IMAGE_DATA_WIDTH, GHOSTTY_KITTY_IMAGE_DATA_HEIGHT,
-                GHOSTTY_KITTY_IMAGE_DATA_FORMAT, GHOSTTY_KITTY_IMAGE_DATA_DATA_PTR},
+                GHOSTTY_KITTY_GRAPHICS_IMAGE_DATA_WIDTH, GHOSTTY_KITTY_GRAPHICS_IMAGE_DATA_HEIGHT,
+                GHOSTTY_KITTY_GRAPHICS_IMAGE_DATA_FORMAT, GHOSTTY_KITTY_GRAPHICS_IMAGE_DATA_PIXELS},
             (void *[]){&width, &height, &format, &pixels}, NULL) != GHOSTTY_SUCCESS ||
         ghostty_kitty_graphics_placement_render_info(placements, image, terminal,
                                                      &info) != GHOSTTY_SUCCESS ||
-        !info.viewport_visible || pixels == NULL || info.pixel_width == 0 ||
+        !info.viewport_visible || pixels.ptr == NULL || info.pixel_width == 0 ||
         info.pixel_height == 0) continue;
     // Stored pixels are decoded and decompressed: one of four layouts.
     const size_t channels = format == GHOSTTY_KITTY_IMAGE_FORMAT_RGBA ? 4
@@ -419,7 +419,7 @@ static void draw_images(unsigned char *frame, GhosttyKittyPlacementLayer layer) 
         const int64_t x = left + dx;
         const uint64_t sx = info.source_x + (uint64_t)dx * info.source_width / info.pixel_width;
         if (x < 0 || x >= framebuffer_width || sx >= width) continue;
-        const uint8_t *source = pixels + ((size_t)sy * width + sx) * channels;
+        const uint8_t *source = pixels.ptr + ((size_t)sy * width + sx) * channels;
         const unsigned red = source[0];
         const unsigned green = channels >= 3 ? source[1] : red;
         const unsigned blue = channels >= 3 ? source[2] : red;
@@ -674,10 +674,10 @@ static void render_frame(void) {
       scrollbar.len >= scrollbar.total - scrollbar.offset;
   cursor_visible = cursor_visible && viewport_at_bottom;
 
-  GhosttySelection selection = GHOSTTY_INIT_SIZED(GhosttySelection);
+  GhosttySelection selection = {0};
   const bool has_selection = ghostty_terminal_get(
       terminal, GHOSTTY_TERMINAL_DATA_SELECTION, &selection) == GHOSTTY_SUCCESS;
-  publish_selection();
+  publish_selection(has_selection ? &selection : NULL);
 
   const uint32_t active = __c11_atomic_load(&mailbox->frame_index,
                                              __ATOMIC_ACQUIRE) & 1u;
@@ -687,19 +687,19 @@ static void render_frame(void) {
             background);
   // Images below the text lie under the cells' own backgrounds too (kitty
   // keeps those of z below -1073741824 only beneath them).
-  draw_images(frame, GHOSTTY_KITTY_PLACEMENT_LAYER_BELOW_BG);
-  draw_images(frame, GHOSTTY_KITTY_PLACEMENT_LAYER_BELOW_TEXT);
+  draw_images(frame, GHOSTTY_IMAGE_LAYER_MASK_BELOW_BACKGROUND);
+  draw_images(frame, GHOSTTY_IMAGE_LAYER_MASK_BELOW_TEXT);
 
   for (uint16_t row = 0; row < rows; ++row) {
     for (uint16_t column = 0; column < cols; ++column) {
-      GhosttyGridRef ref = GHOSTTY_INIT_SIZED(GhosttyGridRef);
+      GhosttyGridRef ref = {0};
       const GhosttyPoint point = {
           .tag = GHOSTTY_POINT_TAG_VIEWPORT,
           .value = {.coordinate = {.x = column, .y = row}},
       };
       if (ghostty_terminal_grid_ref(terminal, point, &ref) != GHOSTTY_SUCCESS) continue;
       GhosttyCell cell = 0;
-      GhosttyStyle style = GHOSTTY_INIT_SIZED(GhosttyStyle);
+      GhosttyStyle style = {0};
       GhosttyCellContentTag content = GHOSTTY_CELL_CONTENT_CODEPOINT;
       bool has_text = false;
       GhosttyCellWide wide = GHOSTTY_CELL_WIDE_NARROW;
@@ -719,7 +719,7 @@ static void render_frame(void) {
         (void)ghostty_cell_get(cell, GHOSTTY_CELL_DATA_COLOR_PALETTE, &index);
         bg = terminal_palette[index];
       }
-      if (style.inverse) {
+      if (style.flags & GHOSTTY_STYLE_FLAG_INVERSE) {
         GhosttyColorRgb temporary = fg;
         fg = bg;
         bg = temporary;
@@ -741,12 +741,12 @@ static void render_frame(void) {
         fg = background;
         fill_rect(frame, x, y, (int)cell_width, (int)cell_height, bg);
       }
-      if (style.faint) {
+      if (style.flags & GHOSTTY_STYLE_FLAG_FAINT) {
         fg.r = (uint8_t)((fg.r + background.r) / 2);
         fg.g = (uint8_t)((fg.g + background.g) / 2);
         fg.b = (uint8_t)((fg.b + background.b) / 2);
       }
-      if (has_text && !style.invisible &&
+      if (has_text && !(style.flags & GHOSTTY_STYLE_FLAG_INVISIBLE) &&
           wide != GHOSTTY_CELL_WIDE_SPACER_TAIL) {
         const int span = wide == GHOSTTY_CELL_WIDE_WIDE ? 2 : 1;
         uint32_t codepoints[MAX_GRAPHEME_CODEPOINTS];
@@ -765,18 +765,18 @@ static void render_frame(void) {
           }
         }
       }
-      if (style.underline != 0) {
+      if (GHOSTTY_STYLE_UNDERLINE(style) != GHOSTTY_SGR_UNDERLINE_NONE) {
         fill_rect(frame, x, y + (int)cell_height - 2,
                   (int)cell_width, 1, fg);
       }
-      if (style.strikethrough) {
+      if (style.flags & GHOSTTY_STYLE_FLAG_STRIKETHROUGH) {
         fill_rect(frame, x, y + (int)cell_height / 2,
                   (int)cell_width, 1, fg);
       }
     }
   }
 
-  draw_images(frame, GHOSTTY_KITTY_PLACEMENT_LAYER_ABOVE_TEXT);
+  draw_images(frame, GHOSTTY_IMAGE_LAYER_MASK_ABOVE_TEXT);
 
   __c11_atomic_store(&mailbox->frame_width, framebuffer_width, __ATOMIC_RELAXED);
   __c11_atomic_store(&mailbox->frame_height, framebuffer_height, __ATOMIC_RELAXED);
@@ -813,6 +813,10 @@ static int initialize(dolly_display_mailbox *shared_mailbox,
   ghostty_sys_set(GHOSTTY_SYS_OPT_DECODE_PNG, (const void *)decode_png);
   if (load_font(font_path, &font) != 0 ||
       ghostty_terminal_new(NULL, &terminal, 100, 30) != GHOSTTY_SUCCESS ||
+      ghostty_formatter_terminal_new(NULL, &selection_formatter, terminal) !=
+          GHOSTTY_SUCCESS ||
+      ghostty_formatter_set(selection_formatter, GHOSTTY_FORMATTER_OPT_UNWRAP,
+                            &(bool){true}) != GHOSTTY_SUCCESS ||
       ghostty_kitty_graphics_placement_iterator_new(NULL, &placements) != GHOSTTY_SUCCESS ||
       ghostty_key_encoder_new(NULL, &key_encoder) != GHOSTTY_SUCCESS ||
       ghostty_key_event_new(NULL, &key_event) != GHOSTTY_SUCCESS ||
@@ -1001,21 +1005,21 @@ static void report_mouse(GhosttyMouseAction action, GhosttyMouseButton button,
       .padding_left = padding_x,
   };
   const bool pressed = held_button != GHOSTTY_MOUSE_BUTTON_UNKNOWN || action == GHOSTTY_MOUSE_ACTION_PRESS;
-  ghostty_mouse_encoder_setopt_from_terminal(mouse_encoder, terminal);
-  ghostty_mouse_encoder_setopt(mouse_encoder, GHOSTTY_MOUSE_ENCODER_OPT_SIZE, &size);
-  ghostty_mouse_encoder_setopt(mouse_encoder,
-                               GHOSTTY_MOUSE_ENCODER_OPT_ANY_BUTTON_PRESSED, &pressed);
+  ghostty_mouse_encoder_set_from_terminal(mouse_encoder, terminal);
+  ghostty_mouse_encoder_set(mouse_encoder, GHOSTTY_MOUSE_ENCODER_OPT_SIZE, &size);
+  ghostty_mouse_encoder_set(mouse_encoder,
+                            GHOSTTY_MOUSE_ENCODER_OPT_ANY_BUTTON_PRESSED, &pressed);
   ghostty_mouse_event_set_action(mouse_event, action);
   if (button == GHOSTTY_MOUSE_BUTTON_UNKNOWN) ghostty_mouse_event_clear_button(mouse_event);
   else ghostty_mouse_event_set_button(mouse_event, button);
   ghostty_mouse_event_set_mods(mouse_event, ghostty_mods(modifiers));
   ghostty_mouse_event_set_position(mouse_event, pointer_position);
-  char report[64];
+  uint8_t report[64];
   size_t length = 0;
   if (ghostty_mouse_encoder_encode(mouse_encoder, mouse_event, report,
                                    sizeof(report), &length) != GHOSTTY_SUCCESS ||
       length == 0) return;
-  terminal_write_pty(terminal, NULL, (const uint8_t *)report, length);
+  terminal_write_pty(terminal, NULL, report, length);
   reported_column = column;
   reported_row = row;
 }
@@ -1081,7 +1085,7 @@ static int handle_pointer(const dolly_input_event *event) {
       .tag = GHOSTTY_POINT_TAG_VIEWPORT,
       .value = {.coordinate = {.x = (uint16_t)column, .y = row}},
   };
-  GhosttyGridRef ref = GHOSTTY_INIT_SIZED(GhosttyGridRef);
+  GhosttyGridRef ref = {0};
   if (ghostty_terminal_grid_ref(terminal, point, &ref) != GHOSTTY_SUCCESS) {
     return -1;
   }
@@ -1118,7 +1122,7 @@ static int handle_pointer(const dolly_input_event *event) {
            gesture_event, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_GEOMETRY,
            &geometry) != GHOSTTY_SUCCESS)) return -1;
 
-  GhosttySelection selection = GHOSTTY_INIT_SIZED(GhosttySelection);
+  GhosttySelection selection = {0};
   GhosttyResult result = ghostty_selection_gesture_event(
       selection_gesture, terminal, gesture_event,
       event->action == DOLLY_POINTER_ACTION_DRAG ? &selection : NULL);
@@ -1170,7 +1174,7 @@ static int handle_scroll(const dolly_input_event *event) {
     return 0;
   }
   const GhosttyTerminalScrollViewport viewport = {
-      .tag = GHOSTTY_SCROLL_VIEWPORT_DELTA,
+      .tag = GHOSTTY_TERMINAL_SCROLL_VIEWPORT_DELTA,
       .value = {.delta = rows},
   };
   ghostty_terminal_scroll_viewport(terminal, viewport);
@@ -1234,16 +1238,17 @@ static int decode_record(const dolly_input_event *event,
   ghostty_key_event_set_composing(
       key_event, (event->flags & DOLLY_INPUT_FLAG_COMPOSING) != 0);
   if (printable) {
-    ghostty_key_event_set_utf8(key_event, key, event->key_length);
+    ghostty_key_event_set_utf8(
+        key_event, (GhosttyString){.ptr = (const uint8_t *)key, .len = event->key_length});
   } else {
-    ghostty_key_event_set_utf8(key_event, NULL, 0);
+    ghostty_key_event_set_utf8(key_event, (GhosttyString){0});
   }
   ghostty_key_event_set_unshifted_codepoint(key_event,
                                             unshifted_codepoint(code));
-  ghostty_key_encoder_setopt_from_terminal(key_encoder, terminal);
+  ghostty_key_encoder_set_from_terminal(key_encoder, terminal);
   size_t written = 0;
   GhosttyResult result = ghostty_key_encoder_encode(
-      key_encoder, key_event, (char *)output, output_capacity, &written);
+      key_encoder, key_event, output, output_capacity, &written);
   if (result != GHOSTTY_SUCCESS) return -1;
   *output_length = written;
   return 0;

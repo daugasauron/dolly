@@ -198,6 +198,6 @@ SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
 SLOP cp /usr/share/man/cat1/slop.1 /usr/share/man/cat1/sh.1
 FOLDER /usr/share/man
-INSTALL /v0.1.5/Dollyfile-display 2032dbc473505507c7419267f43fdb2fe76b16b0907ca27f2b157a0ec54bda35
+INSTALL /v0.1.5/Dollyfile-display 656b938d470bb5b42aae1ef4b39382e86755a65726fdb1be20c7b20b3e014694
 
 ENTRY /bin/foreground -i /bin/slop

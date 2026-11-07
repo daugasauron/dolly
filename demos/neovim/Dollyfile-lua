@@ -7,8 +7,8 @@ REQUIRES HOST dso@0
 # headers, and the LPeg and luv modules built for it, which programs that
 # embed Lua (nvim) link as static libraries. -rdynamic lets source-built Lua C
 # modules share the interpreter's API.
-FROM /v0.1.5/demos/cmake/Dollyfile-cmake-build a187c93a214051fbafe68c92538f26f28d6cc36c2a0461369f067be8f3f1873b
-USE /v0.1.5/Dollyfile-mandoc f175a02b3df6d4fc836307aee318cd3bae8ab4d6afebe64a472bb0197af49144
+FROM /v0.1.5/demos/cmake/Dollyfile-cmake-build 144f011cb3fd7afc52ccbc9ee25935afa6b9ec5f708de792332581841aa8c7d7
+USE /v0.1.5/Dollyfile-mandoc b6d212488c8399d8b4f32ecbc330dc76b5124d54548f54bfd6c301f9d338f6f5
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL ar

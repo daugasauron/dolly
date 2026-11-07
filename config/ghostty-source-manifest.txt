@@ -84,6 +84,7 @@ src/benchmark/OscParser.zig
 src/benchmark/PageCompression.zig
 src/benchmark/ScreenClone.zig
 src/benchmark/ScrollbackCompression.zig
+src/benchmark/ShaperRows.zig
 src/benchmark/TerminalFormatter.zig
 src/benchmark/TerminalParser.zig
 src/benchmark/TerminalResize.zig
@@ -269,6 +270,7 @@ src/lib/enum.zig
 src/lib/main.zig
 src/lib/packed.zig
 src/lib/parse_int.zig
+src/lib/std_enums.zig
 src/lib/struct.zig
 src/lib/target.zig
 src/lib/tinyio/posix.zig
@@ -371,6 +373,8 @@ src/synthetic/Osc.zig
 src/synthetic/Utf8.zig
 src/synthetic/cli.zig
 src/synthetic/cli/Ascii.zig
+src/synthetic/cli/Erase.zig
+src/synthetic/cli/Hyperlink.zig
 src/synthetic/cli/Kitty.zig
 src/synthetic/cli/Osc.zig
 src/synthetic/cli/Styled.zig
@@ -395,6 +399,7 @@ src/terminal/apc/glyph/request.zig
 src/terminal/apc/glyph/response.zig
 src/terminal/bitmap_allocator.zig
 src/terminal/build_options.zig
+src/terminal/c/abi_test.zig
 src/terminal/c/allocator.zig
 src/terminal/c/build_info.zig
 src/terminal/c/cell.zig

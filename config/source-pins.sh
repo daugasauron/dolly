@@ -42,7 +42,8 @@ DOLLY_ZIG_SHA256=b6c7f1728f043700d6529bac980800792f824256a9d2f1839b3d62beed0b8ab
 DOLLY_WAMR_COMMIT=68b8ed3892b857218cb2d0fb7369431fae6fc801
 DOLLY_WAMR_URL='https://github.com/bytecodealliance/wasm-micro-runtime.git'
 
-DOLLY_GHOSTTY_COMMIT=83fb95624b0439ee660c2679b43b38c8b63769cd
+# libghostty-vt 1.0.0 (tag vt-1.0.0), the terminal's VT library.
+DOLLY_GHOSTTY_COMMIT=0fa3d577a5614150ff8e2c152de5fb9d5c6d2dec
 DOLLY_GHOSTTY_URL='https://github.com/ghostty-org/ghostty.git'
 # Wuffs, which Ghostty's terminal library takes for kitty graphics, and the
 # support files of translate-c's output: Ghostty's own pins of them
@@ -53,9 +54,9 @@ DOLLY_TRANSLATE_C_URL='https://deps.files.ghostty.org/translate_c-02ff0c523fb92a
 DOLLY_TRANSLATE_C_SHA256=e344433bcce14759529e58ea600e67d7c39846b1775b122f88db7cb4dad58591
 
 DOLLY_UUCODE_VERSION=0.2.0
-DOLLY_UUCODE_COMMIT=ea62149739404a73c202b48a33bf6dd2af4bd9b0
-DOLLY_UUCODE_URL='https://deps.files.ghostty.org/uucode-ea62149739404a73c202b48a33bf6dd2af4bd9b0.tar.gz'
-DOLLY_UUCODE_SHA256=f37c4071a217853450d084cb9c12b6d4b68f887eb9cb42fe77a84f86056eacbf
+DOLLY_UUCODE_COMMIT=1fb73433bba5d93366c57f23ff2e9d7939746500
+DOLLY_UUCODE_URL='https://deps.files.ghostty.org/uucode-1fb73433bba5d93366c57f23ff2e9d7939746500.tar.gz'
+DOLLY_UUCODE_SHA256=9e574f5b72c07f426eb31e2604860f22ba0fc5f9ccb44ef44e3212a5e9001828
 
 DOLLY_CURL_VERSION=8.21.0
 DOLLY_CURL_COMMIT=68720b4837284335b2d63cb358f8f6ce65f5bc55
@@ -503,8 +504,8 @@ DOLLY_MESA_VERSION=26.2.5
 DOLLY_MESA_URL='https://archive.mesa3d.org/mesa-26.2.5.tar.xz'
 DOLLY_MESA_SHA256=794b3d1729075dae7ebd47c7283b7ca0cdb5dec668f7f11cc0a5d82f6138a0a5
 
-# Ghostty's GTK application (demos/ghostty-gtk): Ghostty's signed release
-# tarball of DOLLY_GHOSTTY_COMMIT (PACKAGING.md; minisign key
+# Ghostty's GTK application (demos/ghostty-gtk): Ghostty's signed 1.4.0
+# release tarball, the application's newest release (PACKAGING.md; minisign key
 # RWQlAjJC23149WL2sEpT/l0QKy7hMIFhYdQOFy0Z7z7PbneUgvlsnYcV), Mesa's Python
 # modules, libadwaita, and the host's Zig, which fetches Ghostty's packages.
 DOLLY_GHOSTTY_RELEASE_URL='https://release.files.ghostty.org/1.4.0/ghostty-1.4.0.tar.gz'

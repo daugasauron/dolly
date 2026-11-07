@@ -7,9 +7,9 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST gpu@0
 
 INSTALL /v0.1.5/Dollyfile-core 7205c35aed897514d3094f14a194669f73c295b4dd0213619d90155da8467cde
-INSTALL /v0.1.5/Dollyfile-posix a98de8b50ce0a29e867194e9fe9c44a54c0ea48ccf25a0f1353431daf827cf9e
-INSTALL /v0.1.5/Dollyfile-display 2032dbc473505507c7419267f43fdb2fe76b16b0907ca27f2b157a0ec54bda35
-INSTALL /v0.1.5/demos/gpu-fluid/Dollyfile-fluid 5f01499174073253f94b74ea7cedca1df12a9fc57254c3c6a41182ee5bac60e8
+INSTALL /v0.1.5/Dollyfile-posix 50b5060f38addea1f5eca4b3a5afdbc976335da59d74d08b08aeb725637804ca
+INSTALL /v0.1.5/Dollyfile-display 656b938d470bb5b42aae1ef4b39382e86755a65726fdb1be20c7b20b3e014694
+INSTALL /v0.1.5/demos/gpu-fluid/Dollyfile-fluid c430c016592b9094efc76425597bd08fea12df7172e7f7023a161c03315d3ccc
 
 FILE /etc/dolly/init.slop
     /bin/foreground /usr/bin/fluid

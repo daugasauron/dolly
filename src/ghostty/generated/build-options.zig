@@ -44,18 +44,19 @@ pub const wasm_shared: bool = true;
 pub const app_version: @import("std").SemanticVersion = .{
     .major = 1,
     .minor = 4,
-    .patch = 0,
+    .patch = 1,
+    .pre = "HEAD",
+    .build = "0fa3d57",
 };
-pub const app_version_string: [:0]const u8 = "1.4.0";
+pub const app_version_string: [:0]const u8 = "1.4.1-HEAD+0fa3d57";
 pub const lib_version: @import("std").SemanticVersion = .{
-    .major = 0,
-    .minor = 1,
+    .major = 1,
+    .minor = 0,
     .patch = 0,
-    .pre = "dev",
 };
-pub const lib_version_string: [:0]const u8 = "0.1.0-dev";
+pub const lib_version_string: [:0]const u8 = "1.0.0";
 pub const @"src.build.Config.ReleaseChannel" = enum (u1) {
     tip = 0,
     stable = 1,
 };
-pub const release_channel: @"src.build.Config.ReleaseChannel" = .stable;
+pub const release_channel: @"src.build.Config.ReleaseChannel" = .tip;

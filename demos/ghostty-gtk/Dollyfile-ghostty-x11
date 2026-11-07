@@ -19,15 +19,15 @@ REQUIRES HOST nena@0
 # (softpipe through EGL, OpenGL 4.3 as Ghostty asks) and its window's
 # widgets with cairo. GTK's text is fontconfig's, from the terminal's font.
 INSTALL /v0.1.5/Dollyfile-core 7205c35aed897514d3094f14a194669f73c295b4dd0213619d90155da8467cde
-INSTALL /v0.1.5/Dollyfile-posix a98de8b50ce0a29e867194e9fe9c44a54c0ea48ccf25a0f1353431daf827cf9e
-INSTALL /v0.1.5/Dollyfile-display 2032dbc473505507c7419267f43fdb2fe76b16b0907ca27f2b157a0ec54bda35
-INSTALL /v0.1.5/demos/x11/Dollyfile-xorg-server 3bf185540204059ae4b94f6ccbc21c73ae3044f1c5be3663708980c7539b4133
-INSTALL /v0.1.5/demos/ghostty-gtk/Dollyfile-ghostty-gtk 72b78f6eeb34922f7aab6cb4eb62aee1b4caccf9eb35725c6e0cfba55f6e73d5
+INSTALL /v0.1.5/Dollyfile-posix 50b5060f38addea1f5eca4b3a5afdbc976335da59d74d08b08aeb725637804ca
+INSTALL /v0.1.5/Dollyfile-display 656b938d470bb5b42aae1ef4b39382e86755a65726fdb1be20c7b20b3e014694
+INSTALL /v0.1.5/demos/x11/Dollyfile-xorg-server a503f0481d01638b7486ee82b9e2a790da0184864608fb772c6b6b9ddb4062bc
+INSTALL /v0.1.5/demos/ghostty-gtk/Dollyfile-ghostty-gtk 5f96fa283f1f70647987943e938c35efb57089268b3461047c02d3522b608bf6
 # amy installs packages into the session (tmux, nvim and the rest); nena
 # enables the host modules they need.
 INSTALL /v0.1.5/Dollyfile-amy e028eb4c7768642948f7adb64ed5932d36bf85c8c0879b0203c5e59ccc1d2d39
 INSTALL /v0.1.5/Dollyfile-nena c02109a066ce2bf5c791ae4805fae4a29130b029a23276738069bde61be08175
-COPY /v0.1.5/Dollyfile-ghostty-build 18cb9b323955f362b932cece8b8d6f340193a998c02e569e1ed901be29c5f253 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+COPY /v0.1.5/Dollyfile-ghostty-build 90a72d9e39af0f3b5315eedf41bab96bc517defdb74e923c22e25e743c9cc9b3 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 FILE /etc/fonts/fonts.conf
     <?xml version="1.0"?>
     <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">

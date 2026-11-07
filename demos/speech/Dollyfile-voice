@@ -8,9 +8,9 @@ REQUIRES HOST threads@0
 
 # voice, linked against the transcribe package, with the model it reads:
 # buttons and speech in the place of a keyboard, for a terminal program.
-FROM /v0.1.5/Dollyfile-system 87fe1e350c90556f41ae3e45343f9122ea9eca8cc488ae18b8a3ec08f1af0989
+FROM /v0.1.5/Dollyfile-system 3c1b572e82cfa41fc0f82800a3827334fe475570d4972c8c6b479e453927e930
 INSTALL /v0.1.5/demos/speech/Dollyfile-parakeet 519daa8147c1bbf0a722d61b639cd8b278ad846d93789ecbb737b2b2698cf647
-USE /v0.1.5/demos/speech/Dollyfile-transcribe 638d4fc459fdc788cc75077ef9f43eb614dd2b48fdc5fde5686f0e2c406d6fd6
+USE /v0.1.5/demos/speech/Dollyfile-transcribe 1be3838d6c9d4c678f6043c9faa5bee066e45ae5c59ecae50d448e44e8e31f1b
 USE /v0.1.5/Dollyfile-libdolly-microphone 969e9f8116d05d54f8e04b38221c7e9cda41cb6d4b381fe19501a20194581c0b
 USE /v0.1.5/Dollyfile-libdolly-touch 2810a525d52ba9031edc8225550e62f33479d5e27599b0f3668fdf3db7f6f67a
 REQUIRES TOOL cc

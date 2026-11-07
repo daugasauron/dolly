@@ -8,6 +8,6 @@ REQUIRES HOST threads@0
 
 # python-dateutil and the IANA time zones it reads (tzdata): their roots of
 # python-data-build (README.md).
-INSTALL /v0.1.5/demos/python/Dollyfile-python 5909c3743aee62ae30b4bc1bfc3b0b221ac5458e2ed4dfb4b6767d8b072fc9ea
-COPY /v0.1.5/demos/python/Dollyfile-python-data-build 7ac079efd7f47a562c51f2223d1a69f6b9934bb9c240458e81cf95319edbb91e /opt/python-data/python-dateutil /
-COPY /v0.1.5/demos/python/Dollyfile-python-data-build 7ac079efd7f47a562c51f2223d1a69f6b9934bb9c240458e81cf95319edbb91e /opt/python-data/tzdata /
+INSTALL /v0.1.5/demos/python/Dollyfile-python 96cd672acc962686708d97e074d70795cfcf06fa4cb3a578cae48df5c07390e0
+COPY /v0.1.5/demos/python/Dollyfile-python-data-build 9f352b4ca28ecbf024ba8cb7ec66002fa923b83722a1f549808b49a908e5f8b4 /opt/python-data/python-dateutil /
+COPY /v0.1.5/demos/python/Dollyfile-python-data-build 9f352b4ca28ecbf024ba8cb7ec66002fa923b83722a1f549808b49a908e5f8b4 /opt/python-data/tzdata /

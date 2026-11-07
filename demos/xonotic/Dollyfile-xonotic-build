@@ -9,18 +9,18 @@ REQUIRES HOST input@0
 REQUIRES HOST touch@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.5/Dollyfile-system-tools 39e8ad7c80d06b7a0c420bbeaae2e6b2423e7e633d38640e82d72a73c20e232a
-INSTALL /v0.1.5/demos/sdl2/Dollyfile-sdl2 cd864c7c3220d915822ca58199fe4df7c7f2e5fb21d34c77a6aa86f77ed466dc
+FROM /v0.1.5/Dollyfile-system-tools e45f4762017fb1ce740df1350a5c451d34642bbf1c24e0752f8e841fb109f20c
+INSTALL /v0.1.5/demos/sdl2/Dollyfile-sdl2 0d035348a3bc6a5461070b7ebf0b2d76f439b2f66f8114e05abb0fc9c369b938
 # FreeType (with its libpng) for the client's fonts, libjpeg for its textures,
 # Vorbis (with its Ogg) for its sounds.
-INSTALL /v0.1.5/demos/xonotic/Dollyfile-libvorbis ab7723d060e33e116f8fc93bc2a67c50b5a9bff4959a9c81104ace47ac8889b1
-INSTALL /v0.1.5/demos/xonotic/Dollyfile-libjpeg dedda688da3e0efdc464d7ae8ce223df539d2a4c32641cab821cdcd4e32d2a8c
-INSTALL /v0.1.5/demos/zero-ad/Dollyfile-freetype 678cbfa3ebea858fe30f962853897958e256d1adf145fb8062fc0c5fc390ec6d
+INSTALL /v0.1.5/demos/xonotic/Dollyfile-libvorbis fe9302b9e98921f066c7e9129082a082a2c32257b5c7d5d6bb0fc68c924d41fe
+INSTALL /v0.1.5/demos/xonotic/Dollyfile-libjpeg 3e34c62ed5b29e9add440c674bbafdb1da433fe46804b603c554de14f6f7c396
+INSTALL /v0.1.5/demos/zero-ad/Dollyfile-freetype 95eb87fcf3d4d53daad753cea7becdfff2e839932e0ce149962fe7afc2ceffc3
 # gmqcc, which compiles the game logic.
-INSTALL /v0.1.5/demos/xonotic/Dollyfile-gmqcc c074d5a556d9c53341f51e89b9855582f63020330ad9d333178a82e0728890c3
+INSTALL /v0.1.5/demos/xonotic/Dollyfile-gmqcc 8755884a459ad67c3ec8637102f3912ef9b71da6c30e88c6d39f5330bc1a8681
 # The gpu@0 client the render path draws with, and its shaders.
 INSTALL /v0.1.5/Dollyfile-libdolly-gpu 420bb03b5364f4c9f63191cada32fdbf27a0bca02265ff614493fe7b700d42f5
-INSTALL /v0.1.5/demos/xonotic/Dollyfile-xonotic-shaders e17ce43efc59f1b8ed1462864e8d9bf7c3e2c45ee3010b5397e01a3da3d9a381
+INSTALL /v0.1.5/demos/xonotic/Dollyfile-xonotic-shaders 24a998ff5428af3096094a2921384b08f70fa97dcef48820802e681aa0c4779e
 REQUIRES HEADER cpp
 REQUIRES HEADER gpu
 REQUIRES HEADER sdl2
