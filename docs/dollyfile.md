@@ -318,7 +318,7 @@ EXPORTS TOOL rg
 - A recipe installs it with `INSTALL RECIPE SHA256`, anywhere.
 - A package holds its build (`FROM` a toolchain, then steps: `zlib`,
   `ripgrep`, `sdl2`) or keeps the outputs of the toolchain that built them,
-  with `FROM` and only `EXPORTS` (`cc`, `zig`) or with `COPY`
+  with `FROM` and `EXPORTS` (`cc`; `zig`, which also `INSTALL`s `cc`) or with `COPY`
   rows (`display`, `rust`, `cargo`), which leaves an expensive builder as it
   is.
 - Packages install into standard paths (`/usr/bin`, `/usr/lib`, `/usr/share`)
@@ -338,8 +338,9 @@ EXPORTS TOOL rg
   change the image's identity and rebuild what depends on it).
 - `amy` ([`amy.c`](../src/commands/amy.c)) reads the index as the site path
   `/vX.Y.Z/amy-index.txt`, with the version it was built for, through the
-  [HTTP broker](http.md#transport) and keeps no copy: the site's cache headers
-  decide (Dolly's servers send `no-store`), and without the site `amy list`,
+  [HTTP broker](http.md#transport) and keeps no copy: a published version
+  serves it, as all its files, as immutable (`npm run serve` sends `no-store`),
+  and without the site `amy list`,
   `info` and `install` fail naming the index. `amy list` prints each name,
   whether the record holds it (the image's packages among them) and the
   description; `amy info NAME` adds the `INSTALL` row.
@@ -361,10 +362,10 @@ EXPORTS TOOL rg
   session lacks (it reads them from the package's receipt, the image's and
   `/etc/dolly/enabled`) and says so: `amy install tmux` in `default` enables
   `pty@0` and `sockets@0`; the page makes each switch. Looking
-  a name up in the index is the only unpinned step. The index describes the
-  site's newest release and the service serves the release the tab runs: a
-  pin that release does not publish fails by name, asking for a reload, and
-  installs nothing.
+  a name up in the index is the only unpinned step. The index is the one of
+  the release `amy` was built for and the service serves the release the page
+  runs: where they differ, a pin the page's release does not publish fails by
+  name and installs nothing.
 - `amy install` then says what it added (files, bytes and the commands now in
   `/bin` or `/usr/bin`) and keeps the list in `/etc/dolly/files/NAME`, one
   `SIZE PATH` line per file or link the snapshot holds outside `/etc/dolly`,

@@ -178,7 +178,8 @@ Worker URL.
   it does not prevent exfiltration.** An allowlist bounds destinations, not what
   an allowed destination does with the data.
 - The default includes the app's own origin (same-origin requests need no CORS).
-  URLs must be absolute; the page URL is no implicit base. Restrict it with a policy.
+  A URL is absolute or a site path (below); the page URL is no implicit base.
+  Restrict it with a policy.
 - Bootstrap sources are the exact files the release publishes, named by their
   site paths; the page fetches the copy its own release holds
   ([`policy.mjs`](../host/http/policy.mjs)). The guest cannot choose where that
@@ -239,7 +240,7 @@ Worker URL.
 | Image cache | Verified artifacts: each image's snapshot a file of origin-private storage, indexed in IndexedDB, 32 images and 8 GiB ([`image-artifact.mjs`](../src/image-artifact.mjs)) |
 | Pack store | The packs of the images this browser has read, so a start or a saved session reads none of them again: each a file of origin-private storage named by its SHA-256, kept only once its reader has checked it against that digest, checked so again at every use and removed when it fails. Each image read records its packs; when no image is being read on the origin (a Web Lock), the records of another runtime's images and of images the catalog no longer has go, then every pack no record names. Only the page and its Workers write it, from trusted metadata: a program that installs a package (`packages@0`) or builds an image (`build@0`) makes it keep that image's packs, bytes of the catalog and nothing else. The sessions page shows its size and clears it. A save asks the browser to keep the origin's storage (`navigator.storage.persist()`) ([`pack-store.mjs`](../src/pack-store.mjs)) |
 | Boot and code loading | Fixed kernel artifacts only ([`worker-image.mjs`](../src/worker-image.mjs)): the kernel and, for a root build, the compiler seed, a snapshot the kernel restores itself; one bundled process Worker; the plugin loader links an explicit kernel export map and fetches nothing |
-| Process entry | The supervisor measures, with a recursion of its own, whether `WebAssembly.promising` gives a stack half again as deep; where it does, the process Worker calls through it the entry of an executable that carries a `dolly.process.stack` section (the compiler alone), only for that stack ([browser stack](browser-stack.md)). No import is `Suspending`, so the call still runs to completion before the Worker handles anything else ([`process-supervisor.mjs`](../src/process-supervisor.mjs), [`process-worker.mjs`](../src/process-worker.mjs)) |
+| Process entry | The supervisor measures, with a recursion of its own, whether `WebAssembly.promising` gives a stack half again as deep; where it does, the process Worker calls through it the entry of an executable that carries a `dolly.process.stack` section (the compiler and Emacs), only for that stack ([browser stack](browser-stack.md)). No import is `Suspending`, so the call still runs to completion before the Worker handles anything else ([`process-supervisor.mjs`](../src/process-supervisor.mjs), [`process-worker.mjs`](../src/process-worker.mjs)) |
 | Clocks, entropy, CPU and memory use | Inputs and availability effects only; the kernel grows its own memory up to its declared maximum, and its abort is a Wasm trap |
 
 ## Trusted files

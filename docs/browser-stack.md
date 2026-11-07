@@ -118,7 +118,7 @@ found (the demo is `demos/llvm`):
 | | Chrome | Firefox |
 | --- | --- | --- |
 | Build the compiler's 2,559 units (`llvm-build`, 44 minutes at four jobs) | yes: this is how the image is built | the two deepest units compile; the whole build has not been run |
-| Rebuild it with itself (`stage2-browser.mjs`, on demand) | yes, identical to the first | not run |
+| Rebuild it with itself ([`stage2-browser.mjs`](../demos/llvm/test/stage2-browser.mjs), on demand) | yes, identical to the first | not run |
 | Use the built compiler: the `llvm-cc` image, `amy install llvm` | yes | yes |
 
 Images are built by a Chromium-based browser and are the same bytes for
@@ -132,8 +132,8 @@ it runs on is nearly used ([`host/stack`](../host/stack/dolly-stack-0.wat)).
 WebAssembly cannot read a browser stack's depth, so the program keeps count:
 
 - Each function that makes calls charges an estimate of its frame against a
-  global, the room, on entry and gives it back on return: 16 slots of 8 bytes
-  plus one for each parameter and local. A function that makes none is left
+  global, the room, on entry and gives it back on return: 17 slots of 8 bytes
+  plus one for each parameter and local (two for a `v128`). A function that makes none is left
   as it was; every check keeps room for the largest of those.
 - The frames an exception unwinds give nothing back, so the function that
   catches it sets the room to its own again, as LLVM sets the stack pointer

@@ -615,10 +615,10 @@ bool run_clang(const std::string &source, const std::string &language,
   if (const char *epoch = std::getenv("SOURCE_DATE_EPOCH")) {
     arguments.insert(arguments.end(), {"-source-date-epoch", epoch});
   }
-  // A kernel plugin is the sole resident dynamic object. The kernel implements
-  // __assert_fail in JavaScript, so a plugin's assertions reach the kernel's C
-  // reporter instead; ordinary output targets the private process runtime and
-  // its process-local dynamic namespace.
+  // A kernel plugin is the sole resident dynamic object: its assertions reach
+  // the kernel's own reporter (dolly_assert_fail, src/dolly.c), not a process
+  // runtime's __assert_fail; ordinary output targets the private process
+  // runtime and its process-local dynamic namespace.
   if (options.kernel_plugin) {
     arguments.insert(arguments.end(), {
       "-D", "__assert_fail=dolly_assert_fail",

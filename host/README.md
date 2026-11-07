@@ -23,7 +23,7 @@ a page of the site names those its route uses ([`site.mjs`](../src/site.mjs)).
 | `provides` | `"kernel"` on a runtime (below); absent otherwise |
 | `switches` | `true` on the one module whose page side is given the registry's `list`, `enable` and `disable` (`nena`); absent otherwise |
 | `dependencies` | Modules this one uses through `get(name)` |
-| `phase` | When the Worker side starts: after the kernel loads (`kernel`) or after the image is restored (`image`) |
+| `phase` | When the Worker side's `start` runs: after the kernel loads (`kernel`) or after the image is restored (`image`); absent on a module whose Worker side needs no `start` |
 | `imports` | Kernel Wasm imports this module provides; `abi/dolly-browser-0.wat` is their reviewed allowlist |
 | `host` | Trusted JavaScript: `check()`, `browser()` and `worker()` sides ([`modules.mjs`](modules.mjs)); a module with a client exports the `digest` it implements |
 | `processWorker` | Trusted JavaScript served inside the process Worker, bundled as `dist/dolly-process-NAME.mjs`; `dso` and `stack` have one (below) |

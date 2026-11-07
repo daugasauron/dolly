@@ -112,7 +112,7 @@ typedef struct {
   uint64_t body_size;
 } dolly_http_start_request;
 
-/* One staged body per process. Writes are sequential; offset=0 replaces any
+/* One staged body per thread of a process. Writes are sequential; offset=0 replaces any
  * previous body. A zero-byte packet discards it. Exit also discards it.
  * Nonempty writes contain this header followed by bytes; every write must
  * agree on total_size and continue at the exact next offset. */
