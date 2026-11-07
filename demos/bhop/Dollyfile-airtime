@@ -10,9 +10,9 @@ REQUIRES HOST http@0
 
 # Airtime: Foundry, its agent overlay and viewer, with their sources and the
 # makefile that builds the game again (cc and raylib).
-FROM /v0.1.5/demos/slopyard/Dollyfile-gamedev-sdk 2c85b662a91dc98ce4b64da582b437f16a73de137f6cb65ed96d2e54f399bdc5
-USE /v0.1.5/demos/javascript/Dollyfile-janis ed11838236451016377009924d1fe8944dc38f0c3e08a4eb1639f50c17bc5e00
-USE /v0.1.5/demos/sdl2/Dollyfile-sdl2 e947adfe97f2905086db3a211fbb6755b91c71a90622dcbf71a9a4256c99a3e7
+FROM /v0.1.5/demos/slopyard/Dollyfile-gamedev-sdk aa7ed891af3de867afbfbe2c88322c12a962190cb86800a7cc82b94b310df5ac
+USE /v0.1.5/demos/javascript/Dollyfile-janis e23707ae6a2153ea765228b62420f6e334b98208389a5300d9d6340599237dd1
+USE /v0.1.5/demos/sdl2/Dollyfile-sdl2 9b1aa0b7c4ebe188812b78b2af3eff7b06601a272913041e7eb737b7a5293cd3
 REQUIRES TOOL cc
 REQUIRES TOOL make
 REQUIRES TOOL c++

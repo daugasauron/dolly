@@ -11,14 +11,14 @@ REQUIRES HOST threads@0
 
 # Runs Claude Code, which the launcher downloads from the npm registry into
 # the session after the notice: the image holds nothing of it.
-INSTALL /v0.1.5/Dollyfile-core 2f8f0daacf0fc5f8ce3d5a6bfcbe6576e434db8146b7ba01f0e4928336f80cf6
-INSTALL /v0.1.5/Dollyfile-posix 92f9c9b8f9d3298d60446c8351d7b6ce7717f41145a36ee238418bf16f0f6cd9
-INSTALL /v0.1.5/Dollyfile-display c6a0bde3cbb5e1f8888cc3d35312cfed170977d1a315d23811c075ebd23ff008
-INSTALL /v0.1.5/Dollyfile-amy 5dbdc3779aa7ee926ffec16f0ec1058a4506bed05e793aa49a7bb4f91928ab2a
-INSTALL /v0.1.5/demos/javascript/Dollyfile-janis-install bc7de54927b59378f7d13c871bd71caa41c73a5121c2492897db7b98b96fd5b5
-INSTALL /v0.1.5/demos/closed-source-agent/Dollyfile-secretenv 8e03a7fd0ed9e6b1d050366a7c0288e5a18859a0d4122f58848df7c6fe95e1a3
-INSTALL /v0.1.5/demos/closed-source-agent/Dollyfile-anykey 0963ce22c4c84f0c259fdb1983c51321f041941a3e3486add1bf893a2293be59
-INSTALL /v0.1.5/demos/rust/Dollyfile-ripgrep a21b0ab03c90287cb2bb1a0e6313695747487aa240b5ff490e32a62d1b60b236
+INSTALL /v0.1.5/Dollyfile-core ba71669ba7bd50ecab1497691cf784bb263a532435b36f5f1783ea2d1dc7f5ac
+INSTALL /v0.1.5/Dollyfile-posix ec580400fe2f6dc4186b44a563a238456c525def4fcdf16a3242938886b9aaaa
+INSTALL /v0.1.5/Dollyfile-display 215807de7ce4ec5f1b2025eb491005f3b4b515079b1f14ba947b46c2091fea52
+INSTALL /v0.1.5/Dollyfile-amy 796a9e37c762c51f134b59347f8a4db35665f77aaac110bba88fdd0e9a0500e6
+INSTALL /v0.1.5/demos/javascript/Dollyfile-janis-install ceedf24b8fcec5c6c8e0da8b60252552e61c356b129f828286fe5a8ffeb30f66
+INSTALL /v0.1.5/demos/closed-source-agent/Dollyfile-secretenv 84a8d6af58a1c3a54c43fd9e6be0a69027b211d10326214c371a58bf6848bce3
+INSTALL /v0.1.5/demos/closed-source-agent/Dollyfile-anykey 09f6168bb37b746c814d2732453476c107f9c152e0c2f44a0b73f8bfdb5166d0
+INSTALL /v0.1.5/demos/rust/Dollyfile-ripgrep 99d8544a9de08ec4c06ec800a2ae7883f36af61044977714469acd1125457828
 REQUIRES TOOL foreground
 REQUIRES TOOL janis
 REQUIRES TOOL janis-install

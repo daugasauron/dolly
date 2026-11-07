@@ -10,17 +10,17 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.5/Dollyfile-system-tools 4b89318f917cc0948de99a5d61986d58e7d589d41905af6d4cee49454feb3d3f
+FROM /v0.1.5/Dollyfile-system-tools 9bc38034f4d331f3175758f9e8d606d9fc3a34061657e0a43951c9ba828e8eb3
 # The page's file exchange and its popups, here and in the images built on this one.
-INSTALL /v0.1.5/Dollyfile-transfer 2a9f1a1c6023a4c15cd514a3882fbab429565212d180b645bca73fb64feced49
-INSTALL /v0.1.5/Dollyfile-html ff1195b233b4dbf02a343e48f3eaba4b03ddf6a9062df94e0ed8c2156e27f102
-INSTALL /v0.1.5/Dollyfile-session-recover 7d4415276859992432da79d097c542bbd505e7d1a7c760bd56dadf948ad6fa82
+INSTALL /v0.1.5/Dollyfile-transfer 61c1d33b36ec96451aea74ba9bdc915033a5701d3d02e9e4f8a409bee3fd8a04
+INSTALL /v0.1.5/Dollyfile-html 8d76d3942c2b0a72ac85b452835518882058cbce7feddb648c67a667a84056b7
+INSTALL /v0.1.5/Dollyfile-session-recover 6bbd16612f3638b75923af85a9582d7789e06cc77d0ffdfb2000f106e9a44d85
 # The packages made of what system-build and system-tools built: this image
 # holds their files, and its record says so, as it does for every INSTALL.
-INSTALL /v0.1.5/Dollyfile-core 2f8f0daacf0fc5f8ce3d5a6bfcbe6576e434db8146b7ba01f0e4928336f80cf6
-INSTALL /v0.1.5/Dollyfile-cc 88d6cae1d49f3fc82409ec222ea8aa0e746a077f48978df263a11ff81a9597af
-INSTALL /v0.1.5/Dollyfile-make c9f4e6e322a42967d1eb8f248383c4c8ad8b941e573a1ede6eee7dd1410196f8
-INSTALL /v0.1.5/Dollyfile-posix 92f9c9b8f9d3298d60446c8351d7b6ce7717f41145a36ee238418bf16f0f6cd9
-INSTALL /v0.1.5/Dollyfile-ninja 3a284f4c924fc76f1f810daf804f4d623226078b0400040247172fa0c14222a8
+INSTALL /v0.1.5/Dollyfile-core ba71669ba7bd50ecab1497691cf784bb263a532435b36f5f1783ea2d1dc7f5ac
+INSTALL /v0.1.5/Dollyfile-cc 29e8907b6b0f1fae23e87de7b9f84d0c58fc118b31dffe5d024a8a67b0f43ba4
+INSTALL /v0.1.5/Dollyfile-make e55d4db5630918d349d5c8d22e69271573994316d95a898a3c05c897b3018237
+INSTALL /v0.1.5/Dollyfile-posix ec580400fe2f6dc4186b44a563a238456c525def4fcdf16a3242938886b9aaaa
+INSTALL /v0.1.5/Dollyfile-ninja ea40e65b2fa056bbc36f50323df843e443c6aa0458531c2075a16d4ac0fd09d9
 
 ENTRY /bin/foreground -i /bin/slop

@@ -11,9 +11,9 @@ REQUIRES HOST upload@0
 REQUIRES HOST threads@0
 REQUIRES HOST html@0
 
-FROM /v0.1.5/Dollyfile-system 5bca00e22021da9f44db912d7a3cf3bd51c0d11253934ec70f0dee1979a7e596
-INSTALL /v0.1.5/demos/slopyard/Dollyfile-raylib 54bc93f0939104fec09f43c1d990ba6c5f34bc946d972c7cb75db3a497b68b56
-INSTALL /v0.1.5/demos/slopyard/Dollyfile-box3d 07b8944d538ed15e45b7ebd18325b2255c132b3f9cad0c96255f16f5419427b7
+FROM /v0.1.5/Dollyfile-system fdf722558fc23bbce3ce51534f860b83e11ef157c6237cdf22f5f8da591c42ac
+INSTALL /v0.1.5/demos/slopyard/Dollyfile-raylib 18e639f5694b4083460d2ad79db6ee4b4252b36bc6e472332c9407387f596f77
+INSTALL /v0.1.5/demos/slopyard/Dollyfile-box3d 65b7d3464a727ec95ed88b4a8fb48c30ee9adc92929532eb89a8da5607ea862c
 REQUIRES TOOL   tar
 
 # raylib and Box3D are the packages'. Box3D's sources stay here for Slopyard,

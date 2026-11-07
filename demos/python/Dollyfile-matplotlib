@@ -8,13 +8,13 @@ REQUIRES HOST threads@0
 
 # Matplotlib (Agg) and the libraries it imports, Pillow among them: their roots
 # of python-data-build (README.md).
-INSTALL /v0.1.5/demos/python/Dollyfile-numpy 9640a13e60192c2f152dc376e5dbb701928e5bd2c90c8ebfcfe853b9ca53a5d4
-INSTALL /v0.1.5/demos/python/Dollyfile-python-dateutil de31cbe6347f797ae2ac12cf8c5887a8fa1da3dd42df59dcde7fb748398ca368
-COPY /v0.1.5/demos/python/Dollyfile-python-data-build b81ee5c085d21db3b2b3ccd1db3d0b67a8341b51241812ca04763897ad8eaaad /opt/python-data/matplotlib /
-COPY /v0.1.5/demos/python/Dollyfile-python-data-build b81ee5c085d21db3b2b3ccd1db3d0b67a8341b51241812ca04763897ad8eaaad /opt/python-data/pillow /
-COPY /v0.1.5/demos/python/Dollyfile-python-data-build b81ee5c085d21db3b2b3ccd1db3d0b67a8341b51241812ca04763897ad8eaaad /opt/python-data/kiwisolver /
-COPY /v0.1.5/demos/python/Dollyfile-python-data-build b81ee5c085d21db3b2b3ccd1db3d0b67a8341b51241812ca04763897ad8eaaad /opt/python-data/contourpy /
-COPY /v0.1.5/demos/python/Dollyfile-python-data-build b81ee5c085d21db3b2b3ccd1db3d0b67a8341b51241812ca04763897ad8eaaad /opt/python-data/cycler /
-COPY /v0.1.5/demos/python/Dollyfile-python-data-build b81ee5c085d21db3b2b3ccd1db3d0b67a8341b51241812ca04763897ad8eaaad /opt/python-data/fonttools /
-COPY /v0.1.5/demos/python/Dollyfile-python-data-build b81ee5c085d21db3b2b3ccd1db3d0b67a8341b51241812ca04763897ad8eaaad /opt/python-data/pyparsing /
-COPY /v0.1.5/demos/python/Dollyfile-python-data-build b81ee5c085d21db3b2b3ccd1db3d0b67a8341b51241812ca04763897ad8eaaad /opt/python-data/packaging /
+INSTALL /v0.1.5/demos/python/Dollyfile-numpy 8abc728625b502937d68d991abe25304022c7bac0c7cbc3072c23da74637a16e
+INSTALL /v0.1.5/demos/python/Dollyfile-python-dateutil ff4e04f5a0febe1a3782b9245c4554b5fe9917e0b71a5e8a0837ba024675b502
+COPY /v0.1.5/demos/python/Dollyfile-python-data-build a0c47c8c5f23d6bed60db78266d22a44edf4383ad1a89f3001be725805823797 /opt/python-data/matplotlib /
+COPY /v0.1.5/demos/python/Dollyfile-python-data-build a0c47c8c5f23d6bed60db78266d22a44edf4383ad1a89f3001be725805823797 /opt/python-data/pillow /
+COPY /v0.1.5/demos/python/Dollyfile-python-data-build a0c47c8c5f23d6bed60db78266d22a44edf4383ad1a89f3001be725805823797 /opt/python-data/kiwisolver /
+COPY /v0.1.5/demos/python/Dollyfile-python-data-build a0c47c8c5f23d6bed60db78266d22a44edf4383ad1a89f3001be725805823797 /opt/python-data/contourpy /
+COPY /v0.1.5/demos/python/Dollyfile-python-data-build a0c47c8c5f23d6bed60db78266d22a44edf4383ad1a89f3001be725805823797 /opt/python-data/cycler /
+COPY /v0.1.5/demos/python/Dollyfile-python-data-build a0c47c8c5f23d6bed60db78266d22a44edf4383ad1a89f3001be725805823797 /opt/python-data/fonttools /
+COPY /v0.1.5/demos/python/Dollyfile-python-data-build a0c47c8c5f23d6bed60db78266d22a44edf4383ad1a89f3001be725805823797 /opt/python-data/pyparsing /
+COPY /v0.1.5/demos/python/Dollyfile-python-data-build a0c47c8c5f23d6bed60db78266d22a44edf4383ad1a89f3001be725805823797 /opt/python-data/packaging /
