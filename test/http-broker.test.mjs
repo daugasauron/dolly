@@ -385,10 +385,17 @@ test("HTTP terminal errors distinguish quota, timeout, cancellation, and opaque 
   f.broker.policy.maxRequests = 100;
   f.broker.fetchRequest = async () => new Response("cancel me");
   const cancelled = f.request({}, 3);
-  await f.dispatch(cancelMessage(3));
+  // The kernel admits the cancellation, then ends the handle and idles the slot
+  // (http_cancel); the page's failure reaches the Worker after that, as a message.
+  const fail = f.mailbox.fail.bind(f.mailbox), late = [];
+  f.mailbox.fail = record => late.push(record);
+  assert.equal(await f.dispatch(cancelMessage(3)), 0);
+  f.store(DOLLY_HTTP_WORD_SEQUENCE, 3 + DOLLY_HTTP_SLOT_COUNT);
+  f.store(DOLLY_HTTP_WORD_STATE, 0);
   await bounded(cancelled);
-  assert.equal(f.load(DOLLY_HTTP_WORD_STATE), 3);
-  assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.ECANCELED);
+  for (const record of late) fail(record);
+  assert.deepEqual(late.map(({ error }) => error), [errno.ECANCELED]);
+  assert.equal(f.load(DOLLY_HTTP_WORD_STATE), 0);
 });
 
 function channel({ broker, mailbox }, sequence) {

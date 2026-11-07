@@ -87,6 +87,11 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
     [`curl -f ${server.origin}/fixture/missing`, 22],
     // curl exits with curl's own status for each class of failure.
     [`curl -sS -m 0.3 ${server.origin}/fixture/slow -o slow.txt`, 28],
+    // A cancelled transfer frees its slot: more cancellations than the kernel has
+    // slots (16), by a timeout and by a closed pipe, then a request that completes.
+    [`i=0; while [ $i -lt 17 ]; do curl -sS -m 0.3 ${server.origin}/fixture/slow -o /dev/null; ` +
+      `curl -sS ${server.origin}/fixture/large | head -c 1 > /dev/null; i=$((i + 1)); done; ` +
+      `curl -fsS ${server.origin}/fixture/http.txt | grep -q FETCHED-THROUGH-BROWSER`],
     [`curl -sS ${server.origin}/outside-the-policy`, 9],
     [`curl -sS --retry 2 ${server.origin}/fixture/http.txt`, 2],
     ["git --version && git config --global --get user.name && git config --global user.email asdf && test \"$(git config --global --get user.email)\" = asdf"],
