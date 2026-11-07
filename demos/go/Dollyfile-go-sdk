@@ -9,7 +9,7 @@ FROM /v0.1.5/Dollyfile-system-build 002b7468fa89512eda7356eb5b489253f40e3a44a406
 INSTALL /v0.1.5/Dollyfile-gzip 63931bb8773b8079a4ce1b619372e24b304ca5fb0585302cf8d2d80edc3e37c8
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
-SOURCE /v0.1.5/dist/static/go/go-sdk.tar.gz 8279523e7ff6de541ad8e91318304fbe43643821b7f3b035619964e28bc951aa /tmp/go-sdk.tar.gz
+SOURCE /v0.1.5/dist/static/go/go-sdk.tar.gz 90d087124331f5d00b68db3b473f1705e3e7964fd7d8867846087bccda693f7e /tmp/go-sdk.tar.gz
 SLOP gzip -dc /tmp/go-sdk.tar.gz | tar -xf - -C /usr/lib
 SLOP rm /tmp/go-sdk.tar.gz
 
