@@ -8,6 +8,20 @@ Owner (2026-11-04 21:40): "Ok go ahead with your plan, I want to target 0.1.5. T
 lean, I absolutely want to include lean in 0.1.5." A candidate is local: nothing is pushed,
 published or deployed until the owner says so (as for `tasks/20261029-230000-v014-rc`).
 
+## State (2026-11-07, later): the demo videos added to v0.1.5 in place
+
+The 34 recordings of 2026-11-01 and 02 (`work/videos-2026-11-01/cuts`) had never reached the demos
+page. The owner chose to add them to the published v0.1.5 rather than wait for a version.
+`work/locks/published/v0.1.5/agents/` holds the new page (sections, titles and descriptions of the
+preview page, without costs), a poster per video and the videos, `fractal` and `city` re-encoded
+under Pages' 25 MiB (`work/videos-2026-11-01/stage-site.sh`, `make-page.py`); its `release/` seal
+still names `fcfe756f1`. Its list grew from 4,568 to 4,636 files, SHA-256
+`f51552e808f035645ac0806c5b1899bb2638b5dc314c81a241fc3b8054ef1444` (the GitHub release's notes
+say so); the version as first deployed is `work/evidence-2026-11-07/v0.1.5-before-videos`.
+Deployed from the archive alone (`build/pages-v0.1.5-videos`, 18,683 files, 93 rules). The videos
+(471 MB) stay out of git: `sites/slopshare.dev/agents/` still has the October page, so the next
+version's packaging needs them from outside the repository, as the seed compiler is.
+
 ## State (2026-11-07): v0.1.5 released
 
 The owner (2026-11-07): "go ahead with the 0.1.5 release commit, tag, push everything". v0.1.5 is
