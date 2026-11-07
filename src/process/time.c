@@ -11,6 +11,42 @@
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
+#include <wasi/api.h>
+
+/* Linux names more clocks than Dolly's, and the headers define them, so
+ * programs ask for them (Godot reads CLOCK_MONOTONIC_RAW). Three are clocks
+ * Dolly has: its monotonic clock is never slewed and neither has a cheaper,
+ * coarser reading. libc refuses any other, as it refused these. */
+int __clock_gettime(clockid_t clock, struct timespec *now);
+
+static clockid_t served_clock(clockid_t clock) {
+  if (clock == CLOCK_MONOTONIC_RAW || clock == CLOCK_MONOTONIC_COARSE) return CLOCK_MONOTONIC;
+  if (clock == CLOCK_REALTIME_COARSE) return CLOCK_REALTIME;
+  return clock;
+}
+
+int clock_gettime(clockid_t clock, struct timespec *now) {
+  return __clock_gettime(served_clock(clock), now);
+}
+
+int clock_getres(clockid_t clock, struct timespec *resolution) {
+  clock = served_clock(clock);
+  if (clock < 0 || clock > CLOCK_THREAD_CPUTIME_ID) {
+    errno = EINVAL;
+    return -1;
+  }
+  __wasi_timestamp_t nanoseconds = 0;
+  const __wasi_errno_t error = __wasi_clock_res_get((__wasi_clockid_t)clock, &nanoseconds);
+  if (error != 0) {
+    errno = error;
+    return -1;
+  }
+  if (resolution != NULL) {
+    resolution->tv_sec = (time_t)(nanoseconds / 1000000000u);
+    resolution->tv_nsec = (long)(nanoseconds % 1000000000u);
+  }
+  return 0;
+}
 
 static int timespec_nanoseconds(const struct timespec *value, uint64_t *result) {
   if (value == NULL || value->tv_sec < 0 || value->tv_nsec < 0 ||
