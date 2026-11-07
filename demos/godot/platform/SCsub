@@ -1,0 +1,9 @@
+#!/usr/bin/env python
+from misc.utility.scons_hints import *
+
+Import("env")
+
+# Godot strips a release with -s, which the seed's cc does not take yet
+# (tasks/20261107-134832-cc-strip); it writes no debug information without -g.
+env["LINKFLAGS"] = [flag for flag in env["LINKFLAGS"] if flag != "-s"]
+env.add_program("#bin/godot", ["os_dolly.cpp", "godot_dolly.cpp"])

@@ -1,0 +1,48 @@
+DOLLY 7
+PACKAGE godot
+REQUIRES HOST runtime@0
+
+# Godot from its release, unchanged, built by SCons with Dolly's cc on a
+# platform of Dolly's own (platform/dolly, from demos/godot/platform): the
+# engine with GDScript, 2D physics and the fallback text server, without 3D or
+# a renderer, which runs a project with --headless.
+FROM /v0.1.5/Dollyfile-system 5bca00e22021da9f44db912d7a3cf3bd51c0d11253934ec70f0dee1979a7e596
+USE /v0.1.5/demos/tools/Dollyfile-scons 46d651606ebda9ba1ce1605dd2d5f017e1f9ad89d82872a44f2d8585386090de
+
+REQUIRES TOOL cp
+REQUIRES TOOL grep
+REQUIRES TOOL gzip
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+REQUIRES TOOL scons
+REQUIRES TOOL tar
+
+SOURCE /v0.1.5/dist/static/godot/source.tar.gz db59c68582446ec4650b936b63bfe815f5bdcdf15f4a66bb912869021c17d79f /tmp/godot-source.tar.gz
+SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
+SLOP CWD /usr/src/godot scons -j4 platform=dolly disable_3d=yes modules_enabled_by_default=no \
+  module_gdscript_enabled=yes module_text_server_fb_enabled=yes module_freetype_enabled=yes \
+  module_godot_physics_2d_enabled=yes
+SLOP cp /usr/src/godot/bin/godot.dolly.template_release.wasm64.nothreads /usr/bin/godot
+SLOP mkdir -p /usr/share/licenses/godot
+SLOP cp /usr/src/godot/LICENSE.txt /usr/src/godot/COPYRIGHT.txt /usr/share/licenses/godot
+SLOP rm -rf /usr/src/godot /tmp/godot-source.tar.gz
+
+FILE /tmp/godot-check/project.godot
+    config_version=5
+    [application]
+    run/main_scene="res://main.tscn"
+FILE /tmp/godot-check/main.tscn
+    [gd_scene format=3]
+    [ext_resource type="Script" path="res://main.gd" id="1"]
+    [node name="Main" type="Node"]
+    script = ExtResource("1")
+FILE /tmp/godot-check/main.gd
+    extends Node
+    func _ready() -> void:
+        print("GODOT ", OS.get_name())
+        get_tree().quit()
+SLOP godot --headless --path /tmp/godot-check | grep -qx 'GODOT Dolly'
+
+EXPORTS TOOL godot
+FILE /usr/share/licenses/godot/LICENSE.txt
+FILE /usr/share/licenses/godot/COPYRIGHT.txt
