@@ -2,12 +2,30 @@
 
 - STATUS: OPEN
 - PRIORITY: 300
-- TAGS: demo,gpu,bug
+- TAGS: demo,gpu,bug,firefox
 
 Owner (2026-11-07): "I just tested xonotic on the deploy and the graphics in game are completely
 broken, create a task to fix that too." Not yet recorded: the browser and system, the domain,
 whether the page drew on `gpu@0` or in the engine's software rasterizer (no WebGPU adapter), and
 what "broken" looks like (a screenshot settles most of it).
+
+## State (2026-11-07, later): Firefox's WebGPU
+
+The owner's screenshot (`~/Screenshots/Screenshot from 2026-11-07 22-05-43.png`, Firefox on the
+owner's desktop, a match on v0.1.5): whole walls missing, the sky showing through them, and the
+rest drawn flat, without textures. Chrome on `gpu@0` draws the same kind of surfaces textured
+(below). The owner's Firefox has a hardware GL display, so it has a WebGPU adapter and the client
+draws on `gpu@0` through Firefox's WebGPU (wgpu); headless Firefox here has none and drew in
+software, which is why it looked right. So Firefox most likely refuses some of the world's shader
+modules or pipelines that Chrome (Dawn) takes, and `dpgpurast.c` skips their draws.
+
+Firefox 155 gives no adapter on this machine without the owner's display: headless, and headed
+on a private Xvfb, `navigator.gpu.requestAdapter()` resolves to null even with
+`dom.webgpu.enabled`, `gfx.webgpu.force-enabled`, `gfx.webgpu.ignore-blocklist` and
+`gfx.webrender.all` (`work/xonotic-repro/ff-adapter.mjs`). Next: the engine's console in the
+owner's Firefox (Shift+Esc, the `dpgpurast:` lines, which carry each refused batch's WebGPU
+message); the xonotic-shaders' WGSL validated with the naga of Firefox 155's wgpu; and a display
+with hardware GL for Firefox tests that is not the owner's.
 
 ## State (2026-11-07): not reproduced on this machine
 
