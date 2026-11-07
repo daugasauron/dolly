@@ -9,8 +9,8 @@ REQUIRES HOST http@0
 SOURCE /v0.1.5/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415 /usr/include/dolly/toolchain.h
 SOURCE /v0.1.5/include/dolly/runtime.h   20bd9bfd7cb18340bfd44350b92ff54959ce0e68acb24b95c270308625d0e8cf /usr/include/dolly/runtime.h
 SOURCE /v0.1.5/include/dolly/process.h   f6df6b3369b7ebae8d222e28c3d5dfc5697ba85e2db65f98399611740c3fa77a /usr/include/dolly/process.h
-SOURCE /v0.1.5/host/http/http.h      818c79d767ebb7ccc0c6afe33d57ef1a57c7b9ccadeaa106511c9c07fedbaee7 /usr/include/dolly/http.h
-SOURCE /v0.1.5/host/http/http-abi.h b6c8e68ee13daf0a47a2cdee15282608fb2f1c6c81c46d0815007c683bb7ca7e /usr/include/dolly/http-abi.h
+SOURCE /v0.1.5/host/http/http.h      66067135d3d280b5ac48bf0ac2e1ba60663aa7e3b01a72ffc875826c7df387a3 /usr/include/dolly/http.h
+SOURCE /v0.1.5/host/http/http-abi.h 155a414b30cc83bdebf755d68bbde4bd97a728079112c724a04e87701ea3f953 /usr/include/dolly/http-abi.h
 SOURCE /v0.1.5/host/display/display.h   65fca62d15bf911ec8beb11a4f17736c9545dc0b308097eeb8074d741a39d1cc /usr/include/dolly/display.h
 SOURCE /v0.1.5/host/display/display-abi.h 9c19f626e9bc9bdb736ea35c87a01889d9b16713841ec8e98791d3bbac7aad6e /usr/include/dolly/display-abi.h
 SOURCE /v0.1.5/host/input/input.h   970be8cc5af832bae95cdad982e6aed6ea4c607adf73ba59faf640840f4e624e /usr/include/dolly/input.h
@@ -110,7 +110,7 @@ REQUIRES TOOL   cc
 SOURCE /v0.1.5/dist/static/default/commands/mkdir.c 0713179c0b44c92e30d2fd22c87a930ca23f5417b1b3392b3997547648617ad6 /tmp/core-tools/mkdir.c
 SOURCE /v0.1.5/dist/static/default/commands/rm.c 2adb95ed560a55f22b91eda217fdbfc4108bd14ebe71b143ef706869d88a1997 /tmp/core-tools/rm.c
 SOURCE /v0.1.5/dist/static/default/commands/foreground.c e926c3c87764e44064744fc1d3cba008c46666ed7a06d351824ce67792bcdd76 /tmp/core-tools/foreground.c
-SOURCE /v0.1.5/dist/static/default/commands/help.c 2cf1323f34d0130fe518a9da768594c6549a78ce72c53cc04d54d6f2207890f7 /tmp/core-tools/help.c
+SOURCE /v0.1.5/dist/static/default/commands/help.c 5051d2894cf4733b35ee0a128bbccbc428ffd232314465123360b0fba866c70d /tmp/core-tools/help.c
 SOURCE /v0.1.5/dist/static/default/commands/man.c cd13cdece7706188e083a1754187cb19b7627e9cb8d2b294ba21cd2f88ff39d8 /tmp/core-tools/man.c
 SOURCE /v0.1.5/dist/static/default/commands/pwd.c 61b2840bfba274f511c3777f5b800bcdfff1947bef13b771c5d9a98eb5d03d3d /tmp/core-tools/pwd.c
 SOURCE /v0.1.5/dist/static/default/commands/cat.c 43eabd1e83f6c56cd5b5a7d8e5f9621e214c35e9407dea6bbce34120cb9da723 /tmp/core-tools/cat.c

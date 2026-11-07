@@ -18,16 +18,16 @@ REQUIRES HOST nena@0
 # takes the display, and Ghostty draws its terminal with Mesa's OpenGL
 # (softpipe through EGL, OpenGL 4.3 as Ghostty asks) and its window's
 # widgets with cairo. GTK's text is fontconfig's, from the terminal's font.
-INSTALL /v0.1.5/Dollyfile-core 7205c35aed897514d3094f14a194669f73c295b4dd0213619d90155da8467cde
-INSTALL /v0.1.5/Dollyfile-posix 50b5060f38addea1f5eca4b3a5afdbc976335da59d74d08b08aeb725637804ca
-INSTALL /v0.1.5/Dollyfile-display 656b938d470bb5b42aae1ef4b39382e86755a65726fdb1be20c7b20b3e014694
-INSTALL /v0.1.5/demos/x11/Dollyfile-xorg-server a503f0481d01638b7486ee82b9e2a790da0184864608fb772c6b6b9ddb4062bc
-INSTALL /v0.1.5/demos/ghostty-gtk/Dollyfile-ghostty-gtk 5f96fa283f1f70647987943e938c35efb57089268b3461047c02d3522b608bf6
+INSTALL /v0.1.5/Dollyfile-core 2f8f0daacf0fc5f8ce3d5a6bfcbe6576e434db8146b7ba01f0e4928336f80cf6
+INSTALL /v0.1.5/Dollyfile-posix 92f9c9b8f9d3298d60446c8351d7b6ce7717f41145a36ee238418bf16f0f6cd9
+INSTALL /v0.1.5/Dollyfile-display c6a0bde3cbb5e1f8888cc3d35312cfed170977d1a315d23811c075ebd23ff008
+INSTALL /v0.1.5/demos/x11/Dollyfile-xorg-server b0f0995f2d0ad9af708bc4aacfd500f8d5f829aac845d2338dc9865f2f178b3c
+INSTALL /v0.1.5/demos/ghostty-gtk/Dollyfile-ghostty-gtk cab4029a530c3fa0c8bfe4db42eecbcc6bc0a7ab1aaaea3d04740874d5052e0a
 # amy installs packages into the session (tmux, nvim and the rest); nena
 # enables the host modules they need.
-INSTALL /v0.1.5/Dollyfile-amy e028eb4c7768642948f7adb64ed5932d36bf85c8c0879b0203c5e59ccc1d2d39
-INSTALL /v0.1.5/Dollyfile-nena c02109a066ce2bf5c791ae4805fae4a29130b029a23276738069bde61be08175
-COPY /v0.1.5/Dollyfile-ghostty-build 90a72d9e39af0f3b5315eedf41bab96bc517defdb74e923c22e25e743c9cc9b3 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+INSTALL /v0.1.5/Dollyfile-amy 5dbdc3779aa7ee926ffec16f0ec1058a4506bed05e793aa49a7bb4f91928ab2a
+INSTALL /v0.1.5/Dollyfile-nena 80cf7d4a16d51b5394bac9ab6253fb63c3c42bbfcdebbefc225c2d2057ad28b8
+COPY /v0.1.5/Dollyfile-ghostty-build 59aa3f5058ccd63728ab92cbba935674b71d9dadf275945e5ca62730399f3719 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 FILE /etc/fonts/fonts.conf
     <?xml version="1.0"?>
     <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">

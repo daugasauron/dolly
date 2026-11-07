@@ -5,8 +5,8 @@ REQUIRES HOST runtime@0
 # libxml2 from upstream's release archive, unchanged, built by its CMake project
 # with zlib and without threads, iconv, LZMA, HTTP, Python or its programs, for
 # programs the cc package builds.
-FROM /v0.1.5/demos/cmake/Dollyfile-cmake-build 144f011cb3fd7afc52ccbc9ee25935afa6b9ec5f708de792332581841aa8c7d7
-INSTALL /v0.1.5/Dollyfile-zlib 0b706df4c643faf419bd9089995b97d13ff7237493d9bb9727f8d3df91cbe033
+FROM /v0.1.5/demos/cmake/Dollyfile-cmake-build 44e2b1ea2415d04b0e5ed2f1efeaeb8eec80552a5c09f5495a3993ce00994f9b
+INSTALL /v0.1.5/Dollyfile-zlib b9af882b9dec794326db0060855bb79f39ae7f3fbba0744596e353bb33ad392e
 REQUIRES HEADER libc
 REQUIRES HEADER zlib
 REQUIRES LIB z
