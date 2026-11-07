@@ -1,8 +1,17 @@
 # Installed packages stay in the image store: kernel memory and session saves hold what programs write
 
 - STATUS: OPEN
-- PRIORITY: 330
+- PRIORITY: 60
 - TAGS: kernel,memory,sessions,packages,snapshots
+
+## State (2026-11-07): paused by the owner
+
+Owner (2026-11-07): "I feel like using the browsers image store instead of kernel memory will hit
+performance? If it is only for lean I don't want that so pause it for now. At least it needs a lot
+more thought." Nothing was built. The cost the owner names is real and unmeasured: a file's first
+read of each window would be a synchronous copy from the store (as `dolly_build_input_read` reads
+a build's inputs), repeated wherever the kernel keeps no copy; a cache that avoids it holds memory
+again. Besides Lean, the same cause makes a session holding `zig-llvm` and `cc` too large to save.
 
 Two findings of the night of 4 to 5 November, one cause:
 
