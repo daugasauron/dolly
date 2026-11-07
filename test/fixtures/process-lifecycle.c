@@ -15,6 +15,7 @@
 #include <sys/resource.h>
 #include <sys/times.h>
 #include <sys/wait.h>
+#include <sys/xattr.h>
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
@@ -460,6 +461,9 @@ int main(int argc, char **argv) {
   double load[3];
   errno = 0;
   CHECK(getloadavg(load, 3) == -1 && getpwent() == NULL && getgrent() == NULL && errno == 0);
+  // Files keep no extended attributes.
+  CHECK(getxattr("/", "user.dolly", NULL, 0) == -1 && errno == ENOTSUP);
+  CHECK(fsetxattr(0, "user.dolly", "", 0, 0) == -1 && errno == ENOTSUP);
   CHECK(chroot("/") == -1 && errno == EPERM);
   // getdate reads the templates DATEMSK names, and there are none.
   CHECK(getdate("2026-10-23") == NULL && getdate_err == 1);

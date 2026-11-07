@@ -161,6 +161,8 @@ sequenceDiagram
 - There is one user and no permission bits: `chmod`, `chown` and `access` only
   check that the file exists, and nothing changes a file's mode
   ([why](architecture.md#decisions)).
+- Files keep no extended attributes: `getxattr`, `setxattr`, `listxattr`,
+  `removexattr` and their `l` and `f` forms fail with `ENOTSUP`.
 - An image holds no times: at every boot each of its paths is dated
   1980-01-02 UTC, older than anything a session makes, so make never rebuilds
   for an image file, after a [session](sessions.md) restores its own times too
