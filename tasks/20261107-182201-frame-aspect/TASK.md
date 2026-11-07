@@ -1,6 +1,6 @@
 # A graphics frame of another shape than the page is stretched to it
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 140
 - TAGS: display,input,page,bug,0.1.6
 
@@ -22,3 +22,15 @@ box onto the frame. So a frame drawn in proportion needs both:
 Done when: Dodge the Creeps shows in proportion with bars beside it, a click on the game lands
 where the frame shows it (a test that clicks a known point of a frame of another shape than the
 page), and the terminal and the SDL tests pass unchanged in Chromium and Firefox.
+
+## Closed (2026-11-08)
+
+`277ba700e` on `demo/godot`: `#display` and gpu@0's canvas fit their frame with
+`object-fit: contain`. `framePoint` in `host/modules.mjs` maps a pointer into the fitted frame,
+for `input@0` and `touch@0` alike, in place of the `surfaceSize` each module scaled by.
+Dodge the Creeps now shows in proportion, with bars beside it
+(`work/godot/build/dodge-fit-2026-11-08.png`).
+`demos/godot/test/godot-browser.mjs` clicks the frame's point (160, 90) of a 640 by 360 frame on a
+16:10 page and the script reports `CLICK 160 90`. On that commit these passed in Chromium and
+Firefox: terminal, touch, display, display-cursor, image-input, ending, embedding, html, godot,
+godot-editor, sdl2-audio and imgui; sdl2, which runs in Chromium only, passed there.
