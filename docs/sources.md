@@ -30,8 +30,8 @@ The libc's and libc++'s headers, and libc++'s sources, are staged with their
 libc's triple, `wasm64-unknown-emscripten`; a program sees neither name
 ([process model](process-model.md#executables)).
 
-Demo exceptions (the Rust compiler seed) are recorded in their demo READMEs.
-Every externally built program (the Rust seed)
+Demo exceptions (the Rust and Go compiler seeds) are recorded in their demo
+READMEs. Every externally built program (the Rust and Go seeds)
 validates against `dolly-process-0` exactly and ships without an Emscripten
 JavaScript loader. Host preparation may
 configure and patch pinned trees deterministically and reviewably, but must not

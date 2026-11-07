@@ -48,8 +48,10 @@ Architecture and authority: [architecture](../docs/architecture.md),
   normalizer decides which edits are prose.
 - Each linked host module client adds a `dolly.host` record
   ([`dolly-host-0.wat`](dolly-host-0.wat)) with its module's ABI digest: the
-  SHA-256 of the exact bytes of the module's WAT contracts and headers, generated
-  as `DOLLY_NAME_ABI_DIGEST` ([host modules](../host/README.md)). A record whose
+  SHA-256 of what an executable compiles against, the exact bytes of the
+  module's process WAT and of its headers other than `NAME-abi.h`, and the
+  constants its contracts give `NAME-abi.h`, generated as
+  `DOLLY_NAME_ABI_DIGEST` ([host modules](../host/README.md)). A record whose
   digest differs from the provider's is refused like a wrong `dolly.process` stamp.
 - [`generate-abi-constants.mjs`](../scripts/generate-abi-constants.mjs) derives
   JavaScript constants from `process.h` and from the WAT exported globals.

@@ -106,7 +106,11 @@ npm run serve build/domain-releases     # the candidate as it will be deployed
   in the version's release notes.
 - Cloudflare Pages takes 20,000 files, 25 MiB each, and 100 `_headers` rules.
   The exporter fails at either limit, naming the versions; nothing is dropped
-  automatically. A version needs a rule for each file it stores compressed;
+  automatically. When a new version does not fit, the oldest versions leave the
+  site first, one at a time until it fits (owner, 2026-11-07): the release moves
+  each from `published/` to `retired/` beside it, which keeps what was served,
+  and its notes say which versions left (the sessions saved on them no longer
+  open). A version needs a rule for each file it stores compressed;
   one before v0.1.5 also for each file in parts (`X-Dolly-Parts`), while a
   page since then knows a manifest by its content. One rule covers a file in
   every version that stores it the same way, so rules grow with distinct

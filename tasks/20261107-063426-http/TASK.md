@@ -6,8 +6,21 @@
 
 Found by reading, by two auditors independently (the core audit of 2026-11-07 at 9684c7334,
 `work/audit-core-2026-11-07/REPORT.md` 3.8, and its helper tracing `curl` to the broker); the code
-path was checked again on saving the report. Not yet reproduced by running. Owner (2026-11-07):
+path was checked again on saving the report, then reproduced (State). Owner (2026-11-07):
 "Create tasks for the bug".
+
+## State (2026-11-07)
+
+Reproduced on v0.1.5's kernel (`system` image of `integrate/0.1.6` before the fix): 17 transfers
+cancelled by `curl -m 0.3 /fixture/slow`, then `timeout 20 curl -fsS /fixture/http.txt` exits 124
+in Chromium (`work/integrate/build/http-slot-evidence/leak-before.log`): the pool is gone.
+
+Fixed on `fix/http-slot` (`def4a5773`, merged into `integrate/0.1.6`): `http_cancel` advances the
+slot's sequence with the cancellation. `test/shell-browser.mjs` gains the 17 cancellations by
+timeout and by closed pipe, then a request that completes; `test/http-broker.test.mjs` delivers
+the page's failure after the kernel's release and passes (24 of 24). Left: the 0.1.6 round, whose
+runtime carries the fix (`http.h` is in the http module's digest and its client in the seed, so
+it rebuilds every image), runs `shell-browser.mjs` in both browsers.
 
 ## The path
 

@@ -1,8 +1,7 @@
 /*
- * Dolly's version-0 process target is serialized, so Emscripten's upstream
- * non-threaded pthread implementation is the correct generic fallback.
- * Language runtimes such as CPython may provide a more useful serialized
- * implementation of part of that API.  Keep every definition in the generic
+ * Without -pthread a process is one thread, so Emscripten's upstream
+ * non-threaded pthread implementation is the generic fallback (threads@0 runs
+ * the threads of a -pthread program). Keep every definition in the generic
  * object weak so normal static-link ownership works exactly as it does for a
  * libc fallback: a runtime's strong definition wins without a special linker
  * flag or a package-specific exclusion list.

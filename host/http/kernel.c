@@ -126,6 +126,11 @@ static int http_cancel(unsigned int sequence) {
   if (atomic_load_explicit(&mailbox->sequence, memory_order_acquire) != sequence) return -ESTALE;
   const int result = dolly_http_dispatch(NULL, 0, NULL, 0, NULL, 0, NULL, 0, 0, sequence);
   if (result != 0) return result;
+  // The handle ends with the cancellation: the page's failure for it, which
+  // arrives once its fetch settles, then names no slot. http_start never
+  // issues a sequence this would wrap.
+  atomic_store_explicit(&mailbox->sequence, sequence + DOLLY_HTTP_SLOT_COUNT,
+                        memory_order_release);
   atomic_store_explicit(&mailbox->state, DOLLY_HTTP_STATE_IDLE, memory_order_release);
   emscripten_atomic_notify((void *)&mailbox->state, EMSCRIPTEN_NOTIFY_ALL_WAITERS);
   return 0;

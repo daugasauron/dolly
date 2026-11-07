@@ -88,7 +88,8 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 Open [slopshare.dev](https://slopshare.dev/). The menu lists every image.
 
 In a page of your own: `npm install @daugasauron/dolly @daugasauron/dolly-image-default`
-and [Embedding](docs/embedding.md), or [Pi with npm](#pi-with-npm) below;
+with the host modules it declares ([Embedding](docs/embedding.md) gives the line),
+or [Pi with npm](#pi-with-npm) below;
 `@daugasauron/dolly-image-python-data` is Python with NumPy, pandas and Matplotlib.
 
 - `/IMAGE/` boots the prebuilt image; `/IMAGE/rebuild/` builds it from its
@@ -214,5 +215,6 @@ Image builds rewrite SHA-256 pins in `Dollyfile*`. Check by what you changed
 
 Dolly is a prototype, not full POSIX, Node or libcurl compatibility.
 [MIT licensed](LICENSE), except the files marked
-`SPDX-License-Identifier: GPL-2.0-or-later`, which are compiled into GPL games.
+`SPDX-License-Identifier: GPL-2.0-or-later`, which are compiled into GPL games,
+and `LGPL-2.1-or-later`, which are compiled into Wine.
 Bundled upstream programs keep their own [licences](docs/licences.md).

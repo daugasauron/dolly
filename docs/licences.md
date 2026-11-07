@@ -1,7 +1,7 @@
 # Licences
 
-An engineering audit of what the sites distribute, as of 2026-10-05; not legal
-advice. **Owner** marks points that need the owner's decision.
+An engineering audit of what the sites distribute, as of 2026-10-05 (the Wine
+port's LGPL files noted 2026-11-07); not legal advice. **Owner** marks points that need the owner's decision.
 
 [`config/upstreams.json`](../config/upstreams.json) names every upstream the
 catalog builds or bundles. Packaging generates `/licences/` from it
@@ -27,7 +27,10 @@ entry.
   compiled into GPL programs: the Seven Kingdoms port in `demos/rts`
   (`Makefile`, `OAUDIO.h`, `arena.*`, `config.h`, `input.*`, built with the game),
   the 0 A.D. `engine.patch`, and the Xonotic port's `Makefile`, `dpgpurast.c`,
-  `dpshaders.c` and `simd-unit.c`. The agents, spectators and viewers are separate
+  `dpshaders.c` and `simd-unit.c`; and 4 files marked
+  `SPDX-License-Identifier: LGPL-2.1-or-later` because they are compiled into
+  Wine: the Wine port's `dlls/winedolly.drv/dolly.h`, `port/shcore/initguid.h`,
+  `port/shell32-dolly.c` and `winebuild-dolly.c`. The agents, spectators and viewers are separate
   programs that drive the games over pipes and screenshots; they are Dolly's own
   and MIT. The MIT grant covers Dolly's own files only; it does not relicense
   the upstream code an image contains.
@@ -125,18 +128,18 @@ entry.
 - Pi and the npm packages it depends on, run in QuickJS, are under MIT,
   Apache-2.0, BSD-3-Clause, ISC, BlueOak-1.0.0, Unlicense and 0BSD.
 
-## GitHub Pages and Cloudflare
+## Cloudflare
 
-Serving is distribution whatever the host: each site carries the obligations
+Serving is distribution whatever the host: the site carries the obligations
 for the binaries it serves. Packaging takes sources from the same catalog
-closure as the images, so each site serves its own catalog's sources, and
-slopshare.dev keeps every published version's sources under that version's
-path for as long as it serves the version. Each release records the Dolly commit that built
-it (`release/source.commit`); the patches and preparation scripts behind a
-prepared source are in that commit on GitHub. Neither host's terms change a
-licence. `robots.txt` works only at a host root: slopshare.dev has one,
-written by the export, and the GitHub Pages project site under `/dolly/` has
-none ([deployment](deployment.md)).
+closure as the images, so the site serves its own catalog's sources, and
+slopshare.dev (and daugasauron.com, the same deployment) keeps every published
+version's sources under that version's path for as long as it serves the
+version. Each release records the Dolly commit that built it
+(`release/source.commit`); the patches and preparation scripts behind a
+prepared source are in that commit on GitHub. The host's terms do not change a
+licence. The export writes the site's `robots.txt` at the host root
+([deployment](deployment.md)).
 
 ## 0 A.D.
 

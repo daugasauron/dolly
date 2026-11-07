@@ -55,13 +55,13 @@ flowchart LR
 - Trusted boot code copies the plugin bytes from WasmFS and links them to an
   explicit map of kernel exports ([`kernel-plugin.mjs`](../src/kernel-plugin.mjs)):
   no URLs, dependency loading or JavaScript evaluation.
-- The driver ([`ghostty/display.c`](../src/ghostty/display.c)) renders
+- The driver ([`src/ghostty/display.c`](../src/ghostty/display.c)) renders
   libghostty-vt's grid with IosevkaTerm SemiBold through stb_truetype: 0.9 MB,
   the glyphs of the characters it maps and of its default features, out of
   the release's 7.7 MB ([`fetch-iosevka.sh`](../scripts/fetch-iosevka.sh)). The
   supervisor coalesces redraws on a 16 ms tick.
 - What IosevkaTerm has no glyph for comes from Droid Sans Fallback (Chinese,
-  Japanese and Korean, 3.4 MB) or Noto Emoji (emoji in the text's colour,
+  Japanese and Korean, 3.5 MB) or Noto Emoji (emoji in the text's colour,
   0.9 MB), each read when a glyph is first needed and scaled to the cells the
   character takes. A character none of them has is a box, and joined emoji
   show their first.
@@ -95,7 +95,7 @@ flowchart LR
 | `dolly_display_acquire` | Foreground lease, generation and geometry |
 | `dolly_display_set_size` | Logical framebuffer size |
 | `dolly_display_begin_frame` | Private writable buffer and stride |
-| `dolly_display_present` | Copy and publish a complete frame |
+| `dolly_display_present` | Copy the frame in bounded `DOLLY_DISPLAY_WRITE_FRAME` chunks, then publish it |
 | `dolly_display_wait_frame` | Wait for the browser's animation frame |
 | `dolly_display_set_cursor` | One of the page's own cursors: text, default, crosshair, pointer, hidden, the four resize arrows, move, wait, progress, not-allowed, help |
 | `dolly_display_release` | Return the canvas to the terminal |

@@ -15,6 +15,14 @@ minicpm5-2b
 qwen3.5-4b
 lfm2.5
 python
+python-data
+numpy
+pandas
+matplotlib
+seaborn
+python-dateutil
+openblas
+ffmpeg
 rts-arena
 rust-tools
 zero-ad

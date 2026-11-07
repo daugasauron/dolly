@@ -84,8 +84,8 @@ slop [-efnux] script [arg ...]
 - `. FILE ARGS` restores the caller's positional parameters afterwards, even
   after `set --`.
 - Functions take precedence over regular builtins such as `cd`; the special
-  builtins (`:`, `.`, `eval`, `exec`, `exit`, `export`, `return`, `set`,
-  `shift`, `unset`, `break`, `continue`) always run.
+  builtins (`:`, `.` and its name `source`, `eval`, `exec`, `exit`, `export`,
+  `return`, `set`, `shift`, `unset`, `break`, `continue`, `trap`) always run.
 - `cd` without an operand needs `HOME`; an empty operand is a no-op. `PWD` is
   always the directory's real path, so `cd -P` is what `cd` does and `-L` is
   refused.
@@ -169,7 +169,7 @@ that run inside the shell stay serial.
   `timeout`, `xargs` (`-P N` runs N commands at once), which run programs
   with Slop's descriptors, as the `git`
   package's `diff` and `patch` do (over Git; the patch names its files, a
-  `FILE` operand is rejected); `nproc`, which prints 4, the number of jobs Dolly's own recipes give Make (libc's
+  `FILE` operand is rejected); `nproc`, which prints 4, the number of jobs most of Dolly's recipes give Make (libc's
   `sysconf` counts threads: 1 without `-pthread`); `install`, whose mode, owner
   and group options are syntax only and create no metadata; `du`, which counts
   logical in-memory bytes; UTF-8 `rev`; `realpath`, `hostname`, `tty`. Each

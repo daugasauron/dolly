@@ -24,7 +24,8 @@ int main(int argc, char **argv) {
   fputs("one user and no permission bits: the modes ls -l prints are fixed and nothing\n", stdout);
   fputs("  checks them; there is no chmod, chown, id, whoami or df, and\n", stdout);
   fputs("  install -m and mkdir -m change nothing\n", stdout);
-  fputs("processes: cat /proc/processes lists them, as ps (amy install ps) does\n", stdout);
+  fputs("processes: cat /proc/processes lists them, as ps does (in default;\n", stdout);
+  fputs("  elsewhere amy install ps)\n", stdout);
   fputs("limits: 1024 descriptors and 8 GiB of memory per process, 56 processes,\n", stdout);
   fputs("  32 threads per process (64 in all), 64 KiB pipes; getrlimit reports them\n", stdout);
   fputs("a program that exits 126 was refused or failed: its stderr says why\n", stdout);
