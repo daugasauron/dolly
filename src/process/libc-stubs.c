@@ -14,6 +14,7 @@
 #include <string.h>
 #include <sys/times.h>
 #include <sys/wait.h>
+#include <sys/xattr.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -145,6 +146,25 @@ int getloadavg(double averages[], int count) {
   (void)averages; (void)count;
   return -1;
 }
+
+// Files have no extended attributes: each call fails as on a Linux filesystem
+// that keeps none (Godot's Unix file access links them).
+static int no_attributes(void) {
+  errno = ENOTSUP;
+  return -1;
+}
+ssize_t getxattr(const char *path, const char *name, void *value, size_t size) { return no_attributes(); }
+ssize_t lgetxattr(const char *path, const char *name, void *value, size_t size) { return no_attributes(); }
+ssize_t fgetxattr(int descriptor, const char *name, void *value, size_t size) { return no_attributes(); }
+ssize_t listxattr(const char *path, char *list, size_t size) { return no_attributes(); }
+ssize_t llistxattr(const char *path, char *list, size_t size) { return no_attributes(); }
+ssize_t flistxattr(int descriptor, char *list, size_t size) { return no_attributes(); }
+int setxattr(const char *path, const char *name, const void *value, size_t size, int flags) { return no_attributes(); }
+int lsetxattr(const char *path, const char *name, const void *value, size_t size, int flags) { return no_attributes(); }
+int fsetxattr(int descriptor, const char *name, const void *value, size_t size, int flags) { return no_attributes(); }
+int removexattr(const char *path, const char *name) { return no_attributes(); }
+int lremovexattr(const char *path, const char *name) { return no_attributes(); }
+int fremovexattr(int descriptor, const char *name) { return no_attributes(); }
 
 // dlopen and dlsym of code that cc did not map to the dso@0 client's names.
 void __dl_seterr(const char *, ...);
