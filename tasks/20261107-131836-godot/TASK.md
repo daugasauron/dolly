@@ -9,9 +9,10 @@ things as tatr tasks, then start the work on godot and work on that overnight."
 
 ## State (2026-11-08)
 
-Steps 1 and 2 are done on `demo/godot`, merged into `integrate/0.1.6` (`9b95ee67f`).
-`demos/godot/test/godot-browser.mjs` passed in Chromium (6.5 s) and Firefox (7.0 s) on the
-package with the renderer and sound. That is not yet a full round.
+Steps 1 and 2 are done on `demo/godot`, and so are the editor and a game exported by it.
+`integrate/0.1.6` has the engine (`9b95ee67f`); the editor and the game follow once its round ends.
+`demos/godot/test/godot-browser.mjs` and `godot-editor-browser.mjs` passed in Chromium and Firefox
+(`2e01b91aa`). That is not yet a full round.
 
 - **Step 1, headless:** `demos/godot` builds Godot 4.7.2 from its release inside Dolly, and
   `godot --headless` runs a project.
@@ -33,6 +34,19 @@ package with the renderer and sound. That is not yet a full round.
     checks pixels of its frame.
 - **Sound:** `audio_driver_dolly.cpp` plays Godot's mix through `audio@0`. A thread keeps 100 ms
   queued ahead of the page. The test hears a tone on the right channel only.
+- **The editor:** `godot-editor` (`Dollyfile-godot-editor`) is the release with Godot's default
+  modules, 2,561 units, built in the image build in 26 minutes: 182 MB.
+  - Two modules are left out. Basis Universal's encoder names `sys/timex.h`, which Emscripten's
+    libc and Dolly's leave out. Jolt Physics knows WebAssembly only as Emscripten; 3D physics is
+    Godot's own.
+  - It imports a project's assets and exports its pack inside Dolly. Its debugger and language
+    server find no sockets and say so.
+- **A game:** `dodge-the-creeps` is the demo projects' release game (Godot's first 2D tutorial).
+  - The editor imports and exports it while the package builds; `dodge-the-creeps` plays it on the
+    page with sound.
+  - The template packages Ogg Vorbis, MP3, WebP and regular expressions for such packs.
+  - `godot-editor-browser.mjs` exports an SVG through the editor and runs the pack, then starts the
+    game and sees its score count: Chromium 18.2 s, Firefox 20.2 s.
 - **Found in the substrate**, fixed on their own branches and merged into `integrate/0.1.6`:
   - `CLOCK_MONOTONIC_RAW` and the coarse clocks were refused (`76075ee89`).
   - The extended-attribute calls were missing; they now fail with `ENOTSUP` (`6e776414b`).
@@ -40,12 +54,16 @@ package with the renderer and sound. That is not yet a full round.
   - `cc` refuses `-s` (`tasks/20261107-134832-cc-strip`, waits for the compiler round).
   - SCons finds a compiler only by its execute bit, which Dolly keeps none of; the platform
     names it.
+  - The page stretched a frame of another shape than the page; it now fits it, and the pointer maps
+    to it (`tasks/20261107-182201-frame-aspect`, closed, on `demo/godot`).
 - **Step 3, decided on these numbers: not now.** Softpipe already draws a simple 2D scene at 12
   frames a second at 640x360. A RenderingDevice driver on `gpu@0` would take weeks: Godot has no
   WebGPU backend upstream, its shaders are SPIR-V for `naga`, and core WebGPU has no push
   constants.
-- **Left:** the page's surface size and resizes, since Godot keeps the project's window size;
-  `godot` in the release round's demo list.
+- **Left:**
+  - The page's surface size and resizes, since Godot keeps the project's window size.
+  - The editor's own window on the page: run once, not yet tested.
+  - `godot` in the release round's demo list.
 
 ## What Godot needs (read 2026-11-07, not measured)
 
