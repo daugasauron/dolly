@@ -24,6 +24,11 @@ flex reflex reflex-20260131.tgz
 meson meson meson-1.12.1-py3-none-any.whl
 scons scons scons-4.10.1-py3-none-any.whl
 ARCHIVES
+# SCons' manual page, out of its source archive.
+if has_image scons; then
+  tar -xzOf "$(bash scripts/fetch-pinned-archive.sh scons_man)" scons-4.10.1/scons.1 > build/generated/scons.1
+  copy_static build/generated/scons.1 tools/scons.1
+fi
 # xxd is one file of Vim's repository, with its manual page.
 if has_image xxd; then
   copy_static "$(bash scripts/fetch-pinned-archive.sh xxd)" tools/xxd.c

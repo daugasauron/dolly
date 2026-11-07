@@ -7,7 +7,8 @@ REQUIRES HOST runtime@0
 # engine with GDScript, 2D physics and the fallback text server, without 3D or
 # a renderer, which runs a project with --headless.
 FROM /v0.1.5/Dollyfile-system 5bca00e22021da9f44db912d7a3cf3bd51c0d11253934ec70f0dee1979a7e596
-USE /v0.1.5/demos/tools/Dollyfile-scons 46d651606ebda9ba1ce1605dd2d5f017e1f9ad89d82872a44f2d8585386090de
+USE /v0.1.5/demos/tools/Dollyfile-scons b2abe1e7ee6f07440d997a9c9f62cd6dbd2202109a55c81cf372d0a5d98ea9d6
+USE /v0.1.5/Dollyfile-mandoc 29619bf63ccea21528091ff4ed54ad51918a381c7c3c26d1f38421ceaa2e3485
 
 REQUIRES TOOL cp
 REQUIRES TOOL grep
@@ -16,6 +17,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL scons
 REQUIRES TOOL tar
+REQUIRES TOOL text-page
 
 SOURCE /v0.1.5/dist/static/godot/source.tar.gz db59c68582446ec4650b936b63bfe815f5bdcdf15f4a66bb912869021c17d79f /tmp/godot-source.tar.gz
 SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
@@ -25,7 +27,10 @@ SLOP CWD /usr/src/godot scons -j4 platform=dolly disable_3d=yes modules_enabled_
 SLOP cp /usr/src/godot/bin/godot.dolly.template_release.wasm64.nothreads /usr/bin/godot
 SLOP mkdir -p /usr/share/licenses/godot
 SLOP cp /usr/src/godot/LICENSE.txt /usr/src/godot/COPYRIGHT.txt /usr/share/licenses/godot
-SLOP rm -rf /usr/src/godot /tmp/godot-source.tar.gz
+# Godot's page is in section 6, games; man reads section 1.
+SLOP cp /usr/src/godot/misc/dist/linux/godot.6 /tmp/godot.1
+SLOP text-page /tmp/godot.1
+SLOP rm -rf /usr/src/godot /tmp/godot-source.tar.gz /tmp/godot.1
 
 FILE /tmp/godot-check/project.godot
     config_version=5
@@ -46,3 +51,4 @@ SLOP godot --headless --path /tmp/godot-check | grep -qx 'GODOT Dolly'
 EXPORTS TOOL godot
 FILE /usr/share/licenses/godot/LICENSE.txt
 FILE /usr/share/licenses/godot/COPYRIGHT.txt
+FILE /usr/share/man/cat1/godot.1

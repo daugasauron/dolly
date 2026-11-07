@@ -437,6 +437,9 @@ DOLLY_MESON_SHA256=930bc7542cbd9f57009e182fd014eba48cf1a0180a7b9006d2d32d8f168d8
 DOLLY_SCONS_VERSION=4.10.1
 DOLLY_SCONS_URL='https://files.pythonhosted.org/packages/ce/bf/931fb9fbb87234c32b8b1b1c15fba23472a10777c12043336675633809a7/scons-4.10.1-py3-none-any.whl'
 DOLLY_SCONS_SHA256=bd9d1c52f908d874eba92a8c0c0a8dcf2ed9f3b88ab956d0fce1da479c4e7126
+# SCons' manual page, from its source archive: the wheel has none.
+DOLLY_SCONS_MAN_URL='https://files.pythonhosted.org/packages/7d/c9/2f430bb39e4eccba32ce8008df4a3206df651276422204e177a09e12b30b/scons-4.10.1.tar.gz'
+DOLLY_SCONS_MAN_SHA256=99c0e94a42a2c1182fa6859b0be697953db07ba936ecc9817ae0d218ced20b15
 # The WebAssembly Binary Toolkit: the source release, with its submodules.
 DOLLY_WABT_VERSION=1.0.42
 DOLLY_WABT_URL='https://github.com/WebAssembly/wabt/releases/download/1.0.42/wabt-1.0.42.tar.xz'
