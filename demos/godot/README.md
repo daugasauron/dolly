@@ -5,12 +5,12 @@ with Dolly's `cc`, as the `godot` package: `amy install godot`, then
 `godot --path DIRECTORY` runs a project on the page, drawn by Godot's
 Compatibility renderer on Mesa's OpenGL, and `godot --headless` runs one
 without drawing; `--script FILE` runs a script in the project of the
-current directory. Nothing is heard yet
+current directory. Its sound plays through `audio@0`
 ([task](../../tasks/20261107-131836-godot/TASK.md)).
 
 ## Images
 
-- `godot`: Godot 4.7's engine with GDScript, 2D physics, the fallback text server and the Compatibility renderer on Mesa, without 3D.
+- `godot`: Godot 4.7's engine with GDScript, 2D physics, the fallback text server, the Compatibility renderer on Mesa and sound, without 3D.
 
 ## Building
 
@@ -35,6 +35,9 @@ Godot's build is SCons over its own platforms, each a directory of
   a pbuffer of the window's size; each frame is read back, turned upright and
   presented, and with vsync Godot then waits for the page's next animation
   frame.
+- [`audio_driver_dolly.cpp`](platform/audio_driver_dolly.cpp) plays Godot's
+  mix as `audio@0`'s stereo float PCM at 48 kHz: a thread of its own keeps
+  100 ms queued ahead of the page, as the SDL port does.
 - [`SCsub`](platform/SCsub) links the program, with Godot's GLAD loader,
   which takes OpenGL's functions from `eglGetProcAddress`.
 
@@ -48,7 +51,8 @@ Godot's own Linux build (2026-11-07).
 
 Softpipe runs every shader in its interpreter on the CPU: a scene of a
 background, a textured sprite and a label draws at 11.7 frames a second at
-640 by 360 and 42.2 at 320 by 180, with or without vsync (Chrome, 2026-11-08).
+640 by 360 and 42.2 at 320 by 180, with or without vsync (Chrome, 2026-11-08);
+in the test, 12.0 in Chromium and 12.8 in Firefox.
 Its frame matches the one Godot's Linux build draws on llvmpipe except for
 rounding: 5,366 of 230,400 pixels differ, 111 by more than 32 levels, all in
 the label's last two words.
@@ -75,5 +79,7 @@ What the platform decides ([process model](../../docs/process-model.md)):
 Test: [`test/godot-browser.mjs`](test/godot-browser.mjs) installs the
 package into `default`, runs a project headless whose script computes,
 emits a signal, adds a node, sleeps, waits on a timer, writes and reads JSON
-under `user://` and quits with a status of its choosing, then draws a 2D
-scene on the page and checks pixels of its frame, in Chromium and Firefox.
+under `user://` and quits with a status of its choosing. Then a 2D scene
+draws on the page: the test waits for it on the canvas, hears its tone on the
+right channel only, sends a key and a click that its script reports, and the
+script checks pixels of its frame, in Chromium and Firefox.

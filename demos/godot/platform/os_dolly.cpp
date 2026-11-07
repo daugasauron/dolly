@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 OS_Dolly::OS_Dolly() {
+	AudioDriverManager::add_driver(&audio_driver);
 #ifdef GLES3_ENABLED
 	DisplayServerDolly::register_dolly_driver();
 #endif

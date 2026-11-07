@@ -1,10 +1,13 @@
 #pragma once
 
+#include "audio_driver_dolly.h"
+
 #include "drivers/unix/os_unix.h"
 
 // Godot on Dolly's POSIX: files, clocks, processes and entropy are OS_Unix's.
 class OS_Dolly : public OS_Unix {
 	MainLoop *main_loop = nullptr;
+	AudioDriverDolly audio_driver;
 
 	String xdg_directory(const String &p_variable, const String &p_under_home) const;
 
