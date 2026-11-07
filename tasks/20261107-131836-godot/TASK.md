@@ -9,8 +9,9 @@ things as tatr tasks, then start the work on godot and work on that overnight."
 
 ## State (2026-11-08)
 
-Steps 1 and 2 work on `demo/godot` (`work/godot`). The package with the renderer awaits its
-image build and test run.
+Steps 1 and 2 are done on `demo/godot`, merged into `integrate/0.1.6` (`9b95ee67f`).
+`demos/godot/test/godot-browser.mjs` passed in Chromium (6.5 s) and Firefox (7.0 s) on the
+package with the renderer and sound. That is not yet a full round.
 
 - **Step 1, headless:** `demos/godot` builds Godot 4.7.2 from its release inside Dolly, and
   `godot --headless` runs a project.
@@ -27,8 +28,11 @@ image build and test run.
     640x360, and 42.2 at 320x180, with or without vsync (Chrome headless). Softpipe bounds it.
   - Its frame matches Godot's Linux build on llvmpipe within rounding: 5,366 of 230,400 pixels
     differ, 111 by more than 32 levels, all in the label's text.
-  - The test now draws that scene, waits for it on the canvas, sends a key and a click, and checks
-    pixels of the frame in the script.
+  - The test draws that scene at 12.0 frames a second in Chromium and 12.8 in Firefox. It waits for
+    the scene on the canvas and sends a key and a click, which the script reports. The script then
+    checks pixels of its frame.
+- **Sound:** `audio_driver_dolly.cpp` plays Godot's mix through `audio@0`. A thread keeps 100 ms
+  queued ahead of the page. The test hears a tone on the right channel only.
 - **Found in the substrate**, fixed on their own branches and merged into `integrate/0.1.6`:
   - `CLOCK_MONOTONIC_RAW` and the coarse clocks were refused (`76075ee89`).
   - The extended-attribute calls were missing; they now fail with `ENOTSUP` (`6e776414b`).
@@ -40,8 +44,8 @@ image build and test run.
   frames a second at 640x360. A RenderingDevice driver on `gpu@0` would take weeks: Godot has no
   WebGPU backend upstream, its shaders are SPIR-V for `naga`, and core WebGPU has no push
   constants.
-- **Left:** sound (`audio@0`); the page's surface size and resizes, since Godot keeps the
-  project's window size.
+- **Left:** the page's surface size and resizes, since Godot keeps the project's window size;
+  `godot` in the release round's demo list.
 
 ## What Godot needs (read 2026-11-07, not measured)
 
