@@ -177,9 +177,16 @@ for (const browser of browsers) {
       return canvas.width === 640 && canvas.height === 360 &&
         JSON.stringify(pixel(5, 5)) === "[25,51,102]" && pixel(320, 180).every(value => Math.abs(value - 128) < 6);
     });
-    const box = await page.locator("canvas").boundingBox();
     await page.keyboard.press("a");
-    await page.mouse.click(box.x + box.width / 4, box.y + box.height / 4);
+    // The frame's point (160, 90): the page shows the 640 by 360 frame at its
+    // own shape in the middle of the canvas.
+    const point = await page.evaluate(([x, y]) => {
+      const canvas = document.querySelector("#display"), bounds = canvas.getBoundingClientRect();
+      const scale = Math.min(bounds.width / canvas.width, bounds.height / canvas.height);
+      return [bounds.left + (bounds.width - canvas.width * scale) / 2 + x * scale,
+        bounds.top + (bounds.height - canvas.height * scale) / 2 + y * scale];
+    }, [160, 90]);
+    await page.mouse.click(...point);
     assert.equal(await godot.done, 0);
     // The tone's RMS is .35; a meter's window spans more than the writes it sees.
     const heard = await heardAudio(page);

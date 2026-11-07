@@ -136,14 +136,13 @@ const phases = { pointerdown: T.DOLLY_TOUCH_DOWN, pointermove: T.DOLLY_TOUCH_MOV
 // Worker last reported it: without one the terminal's scroll and pinch are
 // input@0's. A finger taken stays this module's until it ends. The holder's
 // buttons are input@0's bar's, before its Paste.
-export function browser({ canvas, surfaceSize, send, get }) {
+export function browser({ canvas, framePoint, send, get }) {
   let started = false, lease = 0;
   const taken = new Set();
   // Positions are pixels of the frame the canvas shows, as input@0's pointer records are.
   function sample(event) {
-    const bounds = canvas.getBoundingClientRect(), { width, height } = surfaceSize() ?? canvas;
-    return { x: Math.round(bounds.width === 0 ? 0 : (event.clientX - bounds.left) * width / bounds.width),
-      y: Math.round(bounds.height === 0 ? 0 : (event.clientY - bounds.top) * height / bounds.height),
+    const { x, y } = framePoint(event);
+    return { x: Math.round(x), y: Math.round(y),
       pressure: Math.round(event.pressure * 1000), time: Math.floor(event.timeStamp) };
   }
   function listen(event) {

@@ -13,7 +13,8 @@ import * as processConstants from "./process-constants.mjs";
 const style = `
   .dolly-terminal { position: relative; overflow: hidden; outline: none; caret-color: transparent;
     display: flex; flex-direction: column; }
-  .dolly-terminal #display { display: block; width: 100%; flex: 1 1 0; min-height: 0; cursor: text; touch-action: none; }
+  .dolly-terminal #display { display: block; width: 100%; flex: 1 1 0; min-height: 0; cursor: text; touch-action: none;
+    object-fit: contain; }
   .dolly-terminal #display[hidden] { display: none; }
   .dolly-terminal #keyboard { position: fixed; left: -10000px; top: 0; width: 1px; height: 1px; opacity: 0; caret-color: transparent; }
   .dolly-terminal #bootstrap-log { position: absolute; inset: 0; z-index: 1; margin: 0; padding: 1rem 1.15rem; overflow: auto;

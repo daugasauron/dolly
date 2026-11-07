@@ -96,7 +96,7 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
   const get = name => instances.get(name);
   // Page UI across modules: the first module that claims a key event takes it
   // from the guest's input and may act on it; a module drawing over the
-  // display canvas reports the pixel size pointer input maps to.
+  // display canvas reports the pixel size of its frame.
   function claimsKey(event) {
     for (const instance of instances.values()) {
       const claim = instance.claimsKey?.(event);
@@ -105,6 +105,15 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
     return false;
   }
   const surfaceSize = () => [...instances.values()].find(instance => instance.surfaceSize)?.surfaceSize;
+  // A pointer's position in pixels of the frame shown, which the canvas fits
+  // within its box at the frame's own shape, centred (object-fit: contain).
+  function framePoint({ clientX, clientY }) {
+    const bounds = resources.canvas.getBoundingClientRect(), { width, height } = surfaceSize() ?? resources.canvas;
+    const scale = Math.min(bounds.width / width, bounds.height / height);
+    if (!(scale > 0)) return { x: 0, y: 0 };
+    return { x: (clientX - bounds.left - (bounds.width - width * scale) / 2) / scale,
+      y: (clientY - bounds.top - (bounds.height - height * scale) / 2) / scale };
+  }
   async function attach(value, visiting = new Set(), checked = false) {
     const { name, version } = hostRequirement(value), module = byName.get(name);
     if (instances.has(name) || reasons.has(name)) return;
@@ -129,7 +138,7 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
     };
     const instance = module[side]?.({ ...resources, send, ask, get: dependency,
       service: () => { for (const instance of instances.values()) instance.service?.(); },
-      claimsKey, surfaceSize,
+      claimsKey, framePoint,
       abi: admittedAbi, modules: module.contract.switches && side === "browser" ? { list, enable, disable } : undefined,
       configuration: configuration[name] ?? {} }) ?? {};
     instances.set(name, instance);

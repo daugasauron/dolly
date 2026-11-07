@@ -72,7 +72,7 @@ export function browser(page) {
     canvas = document.createElement("canvas");
     canvas.id = "gpu-display";
     canvas.hidden = true;
-    canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none";
+    canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none";
     mount.append(canvas);
     surface = canvas.transferControlToOffscreen();
   }

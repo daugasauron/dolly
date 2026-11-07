@@ -106,7 +106,8 @@ flowchart LR
 - Only the foreground process or a descendant can acquire the lease. Exit, trap
   or forced termination releases it, and Ghostty redraws its retained grid.
 - The lease starts at the terminal's frame size; a program picks its own with
-  `dolly_display_set_size` and the page scales the frame to the canvas. It is
+  `dolly_display_set_size` and the page fits the frame in the canvas at its own
+  shape, centred, and gives pointer positions in the frame's pixels. It is
   not told when the page's surface changes.
 - A program that also reads keys or the pointer takes the
   [input lease](input.md) beside this one. One that only draws leaves keys

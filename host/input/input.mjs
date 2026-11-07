@@ -272,7 +272,7 @@ const pointerEvent = event => ({ shiftKey: event.shiftKey, ctrlKey: event.ctrlKe
 // decides which keys the guest reads: the page's own chords are taken before
 // it (src/page-chords.mjs) and module UIs claim theirs through it. Records
 // flow once the Worker's side has started.
-export function browser({ mount, canvas, keyboard, showStatus, claimsKey, surfaceSize, send, ask, get }) {
+export function browser({ mount, canvas, keyboard, showStatus, claimsKey, framePoint, send, ask, get }) {
   // selecting: the primary button's press went to the terminal; held: the
   // middle or secondary button's.
   let started = false, selecting = false, held = -1, flags = 0;
@@ -405,10 +405,8 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, surfac
 
   // Positions are pixels of the frame the canvas shows.
   function pushPointer(event, action) {
-    const bounds = canvas.getBoundingClientRect();
-    const {width,height} = surfaceSize() ?? canvas;
-    void client.pushPointer(bounds.width === 0 ? 0 : (event.clientX - bounds.left) * width / bounds.width,
-      bounds.height === 0 ? 0 : (event.clientY - bounds.top) * height / bounds.height, action, event);
+    const { x, y } = framePoint(event);
+    void client.pushPointer(x, y, action, event);
   }
 
   function pushPointerPresence(inside) {
