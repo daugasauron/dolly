@@ -41,6 +41,10 @@ Steps 1 and 2 are done on `demo/godot`, and so are the editor and a game exporte
     Godot's own.
   - It imports a project's assets and exports its pack inside Dolly. Its debugger and language
     server find no sockets and say so.
+  - `godot-editor --editor --path DIR` opens the editor itself on the page: its scene tree, file
+    system, inspector and 2D and 3D views of the game's scene
+    (`work/godot/build/editor-2d-2026-11-08.png`). A click on the 2D or 3D tab showed its view within
+    2 s (Chrome headless, beside an image round). No test covers it.
 - **A game:** `dodge-the-creeps` is the demo projects' release game (Godot's first 2D tutorial).
   - The editor imports and exports it while the package builds; `dodge-the-creeps` plays it on the
     page with sound.
@@ -62,7 +66,7 @@ Steps 1 and 2 are done on `demo/godot`, and so are the editor and a game exporte
   constants.
 - **Left:**
   - The page's surface size and resizes, since Godot keeps the project's window size.
-  - The editor's own window on the page: run once, not yet tested.
+  - A test of the editor's own window on the page.
   - `godot` in the release round's demo list.
 
 ## What Godot needs (read 2026-11-07, not measured)
