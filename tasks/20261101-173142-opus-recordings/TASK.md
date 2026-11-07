@@ -1,6 +1,6 @@
 # What tonight's Opus 5.5 recordings found in Dolly that is still open
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: demo,studio,rust,recordings
 
@@ -37,3 +37,20 @@ Still open, each measured once (evidence under `work/videos-2026-11-01/`):
   A contract change: for the owner, with the body limit.
 
 Done when each item is fixed with its evidence or closed with its reason.
+
+## Closed (2026-11-07)
+
+This record sat on `core/release-fixes` (`dd2d78e8a`, `2a2f4f988`), never merged; brought in with
+0.1.6. Each item:
+
+- Rust's `test` crate: fixed in v0.1.5, whose notes say `cargo test` runs a crate's tests and,
+  with the `rustdoc` the `rust` package holds, a library's doc tests.
+- The Rust image that exited at once: `tasks/20261102-023648-video-findings`, still open there.
+- Studio over 6 GB for a Rust or Go image: the cause named, the capture holding the image three
+  times, is gone (`tasks/20261101-221415-stream-capture`, closed 2026-11-03); not measured again
+  for Studio.
+- bhop's pad 3: not a Dolly defect; the third take (`cuts/bhop.mp4`, on the v0.1.5 demos page)
+  chains hops at 314 units/s and still misses pad 3, by its own diagnosis its velocity lagging its
+  view: a question of the course's design.
+- http@0's deadline: fixed in v0.1.5, whose notes say the policy's timeout bounds each wait, not
+  the whole transfer, with request bodies of 64 MiB.
