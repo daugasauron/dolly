@@ -8,6 +8,18 @@ Cloudflare Pages takes 20,000 files a deployment, and every published version st
 (`docs/deployment.md`). Found while fitting v0.1.5's header rules
 (`tasks/20261105-003331-pages-rules`).
 
+## State (2026-11-07): the oldest versions leave the site
+
+Owner (2026-11-07): "You can just remove older versions, start with 0.1.0 for the cloudflare
+limit." The rule is in `docs/deployment.md`: when a new version does not fit, the oldest leave
+first, one at a time until it fits, moved from the archive (`published/`) to `retired/` beside it,
+and the release notes name them. Measured now: v0.1.0 to v0.1.5 are 18,683 files with the root's
+four (v0.1.0 2,277, v0.1.1 2,370); v0.1.6, with the catalog's python-data, FFmpeg and OpenBLAS,
+should need v0.1.0 and likely v0.1.1 retired. The shared pack store above is not pursued.
+
+Done when: the 0.1.6 export fits with the fewest oldest versions retired, they are in
+`work/locks/retired/`, the release notes say which left, and the deployed site 404s their paths.
+
 ## Measured, 2026-11-05
 
 - The archive (`work/locks/published`, v0.1.0 to v0.1.4) is 14,042 files with each version's
