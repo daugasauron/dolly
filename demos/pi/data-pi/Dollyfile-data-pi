@@ -1,0 +1,117 @@
+DOLLY 7
+APPLICATION data-pi
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST dso@0
+REQUIRES HOST html@0
+REQUIRES HOST http@0
+REQUIRES HOST input@0
+REQUIRES HOST runtime@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+
+# The Pi coding agent, and Python with NumPy, pandas and Matplotlib: images and
+# packages installed from npm, each pinned by its recipe's SHA-256. dolly-build
+# init wrote these rows; dolly-build checks that node_modules holds these pins.
+FROM /v0.1.5/demos/pi/Dollyfile-pi-minimal 05f74394560d0df8a00c0a4194c725734393327983a9e0c4dfbfc0431c6758b8
+INSTALL /v0.1.5/demos/python/Dollyfile-numpy a7c3f451dd2143316c4f22735d6159d4387a627391188378f6578b863d02c87a
+INSTALL /v0.1.5/demos/python/Dollyfile-pandas 6e4475edd755a0c856f5be824192bb6ee3f52d6df5a18d000db8531c96dfc4e6
+INSTALL /v0.1.5/demos/python/Dollyfile-matplotlib 80120c64b0a3aac9862767dde1a70e3f1ae42b874dca758f8c721ec24f2de7a9
+
+# Pi reads its instructions and skills from /home/dolly/.pi/agent/ (Pi's
+# docs/skills.md). A FILE row writes its body, each line indented four spaces.
+
+FILE /home/dolly/.pi/agent/AGENTS.md
+    You are the data analyst of this project. Its data is under /workspace/data/.
+    Work in Python with pandas, NumPy and Matplotlib: write each analysis as a
+    script under /workspace/analysis/ and run it with `python`, so that every
+    number you report can be computed again. Keep answers short and give the numbers.
+
+FILE /home/dolly/.pi/agent/skills/explore-data/SKILL.md
+    ---
+    name: explore-data
+    description: Profiles a CSV or Excel file. Use before analysing a data file you have not read yet, or when asked what a dataset holds.
+    ---
+    Run `python ~/.pi/agent/skills/explore-data/profile.py FILE...`. It prints each
+    file's size, every column's type, missing values, distinct values and range,
+    and the statistics of the numeric columns.
+    
+    Then say in a few lines what one row is, the period the data covers, which
+    columns identify a row, and anything odd: duplicates, gaps, negative amounts.
+
+FILE /home/dolly/.pi/agent/skills/explore-data/profile.py
+    import sys
+    import pandas as pd
+    
+    def load(path):
+        if path.endswith((".xlsx", ".xls")):
+            return pd.read_excel(path)
+        return pd.read_csv(path, sep=None, engine="python")
+    
+    def with_dates(table):
+        for name in table.select_dtypes(["str", "object"]):
+            parsed = pd.to_datetime(table[name], errors="coerce", format="mixed")
+            if parsed.notna().all():
+                table[name] = parsed
+        return table
+    
+    for path in sys.argv[1:]:
+        table = with_dates(load(path))
+        print(f"{path}: {len(table)} rows, {table.shape[1]} columns, {table.duplicated().sum()} duplicate rows")
+        for name, column in table.items():
+            values = column.dropna()
+            ordered = column.dtype.kind in "iufM" and len(values)
+            span = f"{values.min()} to {values.max()}" if ordered else ", ".join(map(str, values.unique()[:5]))
+            print(f"  {name}: {column.dtype}, {column.isna().sum()} missing, {column.nunique()} distinct; {span}")
+        numeric = table.select_dtypes("number")
+        if not numeric.empty:
+            print(numeric.describe().round(2).to_string())
+
+FILE /home/dolly/.pi/agent/skills/chart/SKILL.md
+    ---
+    name: chart
+    description: Draws a chart with Matplotlib and shows it. Use when asked to plot, chart or visualise data.
+    ---
+    Matplotlib has no window here: save the figure to a file, then show the file.
+    
+    1. Write /workspace/analysis/NAME.py: one figure with a title and labelled
+       axes (with units), `fig.tight_layout()`, then
+       `fig.savefig("/workspace/charts/NAME.png", dpi=100)`; create the directory first.
+    2. Run `python /workspace/analysis/NAME.py`.
+    3. Read /workspace/charts/NAME.png with the read tool: the terminal shows it
+       to the user, and you see it too. Fix what is unreadable (overlapping
+       labels, a legend over the data) and draw it again.
+    
+    A time series is a line chart, categories are bars sorted by value, two
+    measures are a scatter.
+
+FILE /home/dolly/.pi/agent/skills/report/SKILL.md
+    ---
+    name: report
+    description: Writes the findings of an analysis to /workspace/REPORT.md. Use when asked for a report, a summary or a write-up.
+    ---
+    REPORT.md starts with a summary of one paragraph, then a section for each
+    question asked: the answer with its numbers, the script that computed it
+    (`analysis/NAME.py`) and its chart (`![Title](charts/NAME.png)`) if it has one.
+    
+    Run every script again before writing, and take each number from its output,
+    never from memory.
+
+# Pi's colours are public/theme.json, which the page writes at boot.
+
+# Pi sends OpenRouter's Claude models through Anthropic's Messages API, whose
+# browser header OpenRouter's CORS refuses: this entry sends them through Chat
+# Completions.
+FILE /home/dolly/.pi/agent/models.json
+    { "providers": { "openrouter": { "baseUrl": "https://openrouter.ai/api/v1", "api": "openai-completions",
+      "apiKey": "$OPENROUTER_API_KEY", "models": [{ "id": "anthropic/claude-sonnet-5.5" }] } } }
+
+# How Pi starts: the key at a prompt that does not show it, then the provider and
+# the model. Ctrl+D leaves Pi for a shell.
+FILE /etc/dolly/init.slop
+    pi-key OPENROUTER_API_KEY --offline --provider openrouter --model anthropic/claude-sonnet-5.5
+    printf '\nPi exited; this is a Slop shell.\n'
+    /bin/foreground -i /bin/slop
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

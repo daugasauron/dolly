@@ -1,0 +1,22 @@
+{
+  "name": "data-pi",
+  "private": true,
+  "scripts": {
+    "browser": "playwright-core install chromium-headless-shell",
+    "build": "dolly-build Dollyfile-data-pi site --browser chromium",
+    "start": "python3 -m http.server -d site -b 127.0.0.1 8080"
+  },
+  "dependencies": {
+    "@daugasauron/dolly": "0.1.5",
+    "@daugasauron/dolly-build": "0.1.5",
+    "@daugasauron/dolly-host-display": "0.1.5",
+    "@daugasauron/dolly-host-html": "0.1.5",
+    "@daugasauron/dolly-host-input": "0.1.5",
+    "@daugasauron/dolly-host-save": "0.1.5",
+    "@daugasauron/dolly-host-sockets": "0.1.5",
+    "@daugasauron/dolly-image-pi-minimal": "0.1.5",
+    "@daugasauron/dolly-package-matplotlib": "0.1.5",
+    "@daugasauron/dolly-package-numpy": "0.1.5",
+    "@daugasauron/dolly-package-pandas": "0.1.5"
+  }
+}

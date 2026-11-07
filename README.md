@@ -148,6 +148,10 @@ popup its `ask_user` and `show_html` tools show (`html`), and nothing else of th
 browser. A package's host modules join the recipe's `REQUIRES HOST` rows and the
 page's install line: `python` needs `@daugasauron/dolly-host-sockets`.
 
+[Data Pi](demos/pi/data-pi/README.md) is such a project, with its CI: Pi with
+NumPy, pandas and Matplotlib, three skills of its own and a sample dataset,
+built in Playwright's Chromium by a workflow that publishes the site.
+
 [An agent in place of a web frontend](docs/agent-frontend.md) goes on from here:
 your company's instructions and skills, your backend's API, your model provider
 (Bedrock, Copilot, a gateway of your own) and how Pi starts.

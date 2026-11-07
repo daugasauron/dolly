@@ -1,12 +1,25 @@
 # v0.1.5 release candidate
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 400
 - TAGS: release,0.1.5
 
 Owner (2026-11-04 21:40): "Ok go ahead with your plan, I want to target 0.1.5. The exception is
 lean, I absolutely want to include lean in 0.1.5." A candidate is local: nothing is pushed,
 published or deployed until the owner says so (as for `tasks/20261029-230000-v014-rc`).
+
+## State (2026-11-07): v0.1.5 released
+
+The owner (2026-11-07): "go ahead with the 0.1.5 release commit, tag, push everything". v0.1.5 is
+rc.0's commit, `fcfe756f1`, which the deployed /v0.1.5/ names (`release/source.commit`): tag
+`v0.1.5` (annotated, "Dolly 0.1.5") pushed; the GitHub release "Dolly v0.1.5" (latest) holds the
+seed compiler, and `DOLLY_SEED_COMPILER_URL` serves its pinned SHA-256; its notes are
+`work/integrate/build/NOTES-v0.1.5.md`. npm: the 25 packages at 0.1.5, packed from `fcfe756f1`
+(`work/release-npm-1107.sh`), are rc.0's but for the version, passed `test/npm-browser.mjs`
+offline as tarballs in Chromium (123 s) and Firefox (94 s), and are published under `latest`,
+each registry integrity the tested tarball's (`work/release-publish-1107.sh`). `main` adds
+`demos/pi/data-pi` on 0.1.5 from the registry, built in a rootless container from Playwright's
+image with the build itself offline.
 
 ## State (2026-11-06, 10:30): v0.1.5-rc.0 deployed, tagged, pushed and on npm
 

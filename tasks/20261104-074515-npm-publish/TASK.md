@@ -1,6 +1,6 @@
 # Publish dolly-package-git, -python and -cc with 0.1.5
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: npm,packaging,release,0.1.5,owner
 
@@ -26,3 +26,10 @@ The three, with the rest of `config/npm-images.txt` (25 packages), are on npm at
 under `rc` and `latest`, published by the integrator on the owner's word, each registry integrity
 the tested tarball's; `npm install` of the README's line from npmjs.com resolves them
 (`tasks/20261105-213000-npm-offline`). Left: 0.1.5 itself.
+
+## State (2026-11-07): at 0.1.5
+
+The 25 packages are on npm at 0.1.5 under `latest`, on the owner's word ("push everything"), each
+registry integrity the tarball `test/npm-browser.mjs` passed offline in Chromium and Firefox
+(`tasks/20261104-124209-v015-rc`); the README's `npm install` line resolves 0.1.5 throughout,
+`dolly-package-git` among them.
