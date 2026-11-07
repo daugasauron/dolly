@@ -83,8 +83,8 @@ pid_t __syscall_getpid(void) {
 }
 pid_t __syscall_getppid(void) { return process_id(1); }
 
-/* One thread per private process. libc-ww's fallback TID 42 would disagree
- * with pthread_self_stub's real PID and deadlock nested stdio locks. */
+/* Without -pthread a process is one thread: libc-ww's fallback TID 42 would
+ * disagree with pthread_self_stub's real PID and deadlock nested stdio locks. */
 pid_t gettid(void) {
 #ifdef __EMSCRIPTEN_PTHREADS__
   int __dolly_thread_tid(void);
@@ -1014,10 +1014,8 @@ int res_query(const char *name, int class, int type, unsigned char *answer, int 
 }
 
 /*
- * This is the process target's serialized libc fallback.  Runtimes such as
- * CPython deliberately provide a stronger single-thread pthread facade of
- * their own; normal static-link symbol ownership must let that definition
- * replace the generic one without a runtime-specific linker exception.
+ * Weak, as every fallback here: a program's own definition replaces it at
+ * static link without a linker exception.
  */
 /* Dolly keeps no thread names, in either profile. */
 __attribute__((__weak__)) int pthread_getname_np(pthread_t thread, char *name, size_t size) {
@@ -1843,9 +1841,9 @@ int dladdr(const void *address, Dl_info *info) {
 
 /*
  * Emscripten's shared-memory libc normally obtains these from its worker JS.
- * Dolly has one execution thread per process; the pinned pthread_self_stub.c
- * supplies the real single-thread control block, while this initializes the
- * otherwise unused Wasm-Workers state lazily.
+ * Dolly runs no Emscripten workers: without -pthread the pinned
+ * pthread_self_stub.c supplies the single thread's control block, and with it
+ * threads.c sets each thread's, so there is no Wasm-Workers state to set.
  */
 void __do_set_thread_state(void) {}
 

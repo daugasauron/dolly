@@ -25,7 +25,7 @@
       (result i64)))
 
   ;; A process starts once. Returning is equivalent to exit status zero;
-  ;; ordinary Emscripten crt1 calls the EXIT operation with main's status.
+  ;; Dolly's crt1 (src/process/crt1.c) calls the EXIT operation with main's status.
   (func $_start)
   (export "_start" (func $_start))
 )

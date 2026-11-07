@@ -336,8 +336,8 @@ static int fetch_snapshot(const Package *package, const char *path) {
   if (status == -EACCES) {
     fputs("amy: the package service is unavailable: the image must declare REQUIRES HOST packages@0\n", stderr);
   } else if (status == 404) {
-    // The service serves the release this tab runs; the index is the site's newest.
-    fprintf(stderr, "amy: %s: the site has a newer release than this tab runs; reload the page\n", package->name);
+    // The service serves the release the page runs; the index is amy's own release's.
+    fprintf(stderr, "amy: %s: the release this page runs does not publish it\n", package->name);
   } else if (status != 0) report(package->name, status);
   return status;
 }

@@ -1,6 +1,6 @@
 # Docs: the sixteen statements and six comments the core audit found contradicting the code
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: docs
 
@@ -71,3 +71,33 @@ The `boot()` handle's members are documented only in `docs/browser-boundary.md:2
 
 Each item above is fixed in the document, the comment or the code, `npm run test:source` passes,
 and the commit says which side changed for each.
+
+## Closed (2026-11-07)
+
+Every item fixed on `docs/drift`; the document changed unless said:
+
+- 1 the image graph (`system` installs html, session-recover, core, cc, make, posix, ninja;
+  `default` html and the script package `ps`); 2 `amy-index.txt` is immutable where published,
+  and the index is the one of `amy`'s own release: the code changed too, `amy.c:339-340`'s
+  comment and message still said "the site has a newer release", false since `f9b2cb49b`
+  (2026-10-08) made the index per release; 3 the module digest as the generator computes it;
+  4 the four LGPL-2.1-or-later Wine files (also `README.md`); 5 one Cloudflare deployment;
+  6 the pty's interrupt is the slave's `VINTR`; 7 `-j4` is what most recipes give Make (67 rows;
+  `-j2` in 4); 8 the 14 special builtins; 9 the Go seed beside Rust's; 10 Emacs also carries
+  `dolly.process.stack`; 11 `phase` absent on a module whose Worker side needs no `start`;
+  12 `zig` also INSTALLs `cc`; 13 17 slots, two for a `v128`; 14 `present` sends
+  `WRITE_FRAME` chunks (the table lists the header's functions, which were right); 15 the 4
+  processors are a `-pthread` program's; 16 3.5 MB.
+- From the HTTP trace: `http.h`'s staged body is per thread (the header changed: it is in the
+  module's digest); the diagram has `HTTP_CANCEL` and the Worker; a URL is absolute or a site
+  path; deferred calls also retry on the 16 ms tick, and the mailbox is registered before the
+  Worker is configured.
+- Comments: `libc-adapter.c` (three), `pthread-stubs.c`, `compiler.cpp` (same line count, so a
+  plugin assertion's `__LINE__` does not move), `abi/dolly-process-0.wat`; `help.c` says `ps` is
+  in `default`.
+- Cosmetic paths fixed. Gaps: `README.md`'s install line points to the host modules
+  `docs/embedding.md` lists; `embedding.md` names `libffi`. The handle's members are in
+  `docs/embedding.md` already; the other two gaps add nothing a reader needs.
+
+`npm run test:source` in a checkout without `dist/`: the link check passes; the 7 failures are
+the tests that import `dist/` (the core audit's S4), the same on `main`.

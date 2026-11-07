@@ -95,7 +95,7 @@ sequenceDiagram
   the function an FFI call reaches ends the process like any other trap.
 - Wasm calls nest on a browser stack that a page cannot size; a program that
   exhausts it fails with 126 like any other trap. The Worker enters an
-  executable that asks for it, which only the compiler does, through
+  executable that asks for it, as the compiler and Emacs do, through
   `WebAssembly.promising` where that stack is measured half again as deep:
   in Chrome, not in Firefox ([browser stack](browser-stack.md)). A program
   `stack-wrap` rewrote records `stack@0` and continues on fresh stacks
@@ -270,8 +270,9 @@ nothing and declares nothing: any program built for Dolly runs on one.
   size, as on Linux, where a terminal emulator sets its slave's mode that way.
 - `ioctl(TIOCSWINSZ)` on the master sets the size, and the processes that
   hold the slave get `SIGWINCH`.
-- While `ISIG` is set, byte 3 written to the master is `SIGINT` for the
-  processes that hold the slave. The one the others descend from is spared
+- While `ISIG` is set, the slave's `VINTR` character (byte 3 unless a program
+  set another) written to the master is `SIGINT` for the processes that hold
+  the slave. The one the others descend from is spared
   while it has them: a shell, while its command runs. A process group is one
   process, so none names a foreground.
 - Closing the master is `SIGHUP` to the processes that hold the slave, end of
@@ -440,7 +441,8 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
 - `threads@0` ([`host/threads/dolly-threads-0.wat`](../host/threads/dolly-threads-0.wat),
   [`host/threads/threads.mjs`](../host/threads/threads.mjs)): statically linked `-pthread`
   programs, one Worker per thread sharing the process memory, at most 32 per
-  process and 64 in total; `sysconf` reports 4 processors. The memory takes its
+  process and 64 in total; `sysconf` reports 4 processors to them (1 without
+  `-pthread`). The memory takes its
   maximum, 8 GiB, before a second thread starts and never grows while two run:
   Chrome checks a copy, fill or atomic access against each thread's own record
   of the size, which another thread's growth updates late. Firefox charges that

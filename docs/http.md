@@ -7,12 +7,14 @@ sets. Authority is summarized in the [browser boundary](browser-boundary.md).
 
 ```mermaid
 flowchart LR
-  prog["Process: libcurl, Janis, Python"] -- "HTTP_BODY_WRITE, HTTP_START, HTTP_POLL" --> kernel["Kernel slot pool<br/>16 x 64 KiB"]
-  kernel -- "env.dolly_http_dispatch spans" --> broker["broker.mjs"]
+  prog["Process: libcurl, Janis, Python"] -- "HTTP_BODY_WRITE, HTTP_START, HTTP_POLL, HTTP_CANCEL" --> kernel["Kernel slot pool<br/>16 x 64 KiB"]
+  kernel -- "env.dolly_http_dispatch spans" --> worker["runtime Worker<br/>HttpMailbox: copies, writes slots"]
+  worker -- "request and cancellation messages" --> broker["page: broker.mjs"]
   broker -- "authorize" --> policy["policy.mjs"]
   broker -- "reserved *.dolly.invalid" --> local["local-services.mjs"]
   broker -- "other allowed URLs" --> fetch(("Fetch"))
-  broker -- "URL, headers, body chunks" --> kernel
+  broker -- "URL, headers, body chunks, failures" --> worker
+  worker -- "records in the slot" --> kernel
 ```
 
 ## Transport
