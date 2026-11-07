@@ -19,9 +19,9 @@ INSTALL /v0.1.5/Dollyfile-display 215807de7ce4ec5f1b2025eb491005f3b4b515079b1f14
 INSTALL /v0.1.5/Dollyfile-transfer 61c1d33b36ec96451aea74ba9bdc915033a5701d3d02e9e4f8a409bee3fd8a04
 # cc and raylib build the game again, as .dollyrc says.
 INSTALL /v0.1.5/Dollyfile-cc 29e8907b6b0f1fae23e87de7b9f84d0c58fc118b31dffe5d024a8a67b0f43ba4
-INSTALL /v0.1.5/demos/slopyard/Dollyfile-raylib 18e639f5694b4083460d2ad79db6ee4b4252b36bc6e472332c9407387f596f77
+INSTALL /v0.1.5/demos/slopyard/Dollyfile-raylib 87842ff323c6b843f0925f50154f4bbe886d4883fae487b1f742c6554fb31c02
 INSTALL /v0.1.5/demos/pi/Dollyfile-pi-dolly f61d89bfdc8e3688c9855b0c22eaf183a7f27d111fb70fb276738f78bc4185d5
-INSTALL /v0.1.5/demos/bhop/Dollyfile-airtime 18f9f53e1c6a58208a9a85d1d836ee889255cb691368973cb75eccd8c5636eaa
+INSTALL /v0.1.5/demos/bhop/Dollyfile-airtime e7b2323ef7bea38545817bca5ce6d0ab1e80032bca4583dbd411aac20ef5cbd8
 REQUIRES TOOL pi
 REQUIRES TOOL bhop-agent
 

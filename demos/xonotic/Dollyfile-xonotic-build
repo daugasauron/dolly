@@ -10,7 +10,7 @@ REQUIRES HOST touch@0
 REQUIRES HOST threads@0
 
 FROM /v0.1.5/Dollyfile-system-tools 9bc38034f4d331f3175758f9e8d606d9fc3a34061657e0a43951c9ba828e8eb3
-INSTALL /v0.1.5/demos/sdl2/Dollyfile-sdl2 9b1aa0b7c4ebe188812b78b2af3eff7b06601a272913041e7eb737b7a5293cd3
+INSTALL /v0.1.5/demos/sdl2/Dollyfile-sdl2 7ae2ca1126b0efb0f82d7a09f00f8b792b8b85ee3141074b6e20829a6fd27f45
 # FreeType (with its libpng) for the client's fonts, libjpeg for its textures,
 # Vorbis (with its Ogg) for its sounds.
 INSTALL /v0.1.5/demos/xonotic/Dollyfile-libvorbis 9d88a6cca357c3085763fdd48e501b60e2301600df0aa406f215cdbce7b6ded5

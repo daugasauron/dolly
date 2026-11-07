@@ -18,10 +18,10 @@ INSTALL /v0.1.5/Dollyfile-display 215807de7ce4ec5f1b2025eb491005f3b4b515079b1f14
 # download and upload, which the agent's settings and relay run (transfer).
 INSTALL /v0.1.5/Dollyfile-transfer 61c1d33b36ec96451aea74ba9bdc915033a5701d3d02e9e4f8a409bee3fd8a04
 INSTALL /v0.1.5/demos/pi/Dollyfile-pi-dolly f61d89bfdc8e3688c9855b0c22eaf183a7f27d111fb70fb276738f78bc4185d5
-INSTALL /v0.1.5/demos/classicube/Dollyfile-classicube-agent f82f78880ce207ca71efbdefd682153c2b3dbb06475afc4c7245f3ef4dc90019
-COPY /v0.1.5/demos/classicube/Dollyfile-classicube-build c30d803146291fc0011f511fe182bf9980c3aaf5a2833f781061051ceae04913 /usr/bin/classicube /usr/bin/classicube
-COPY /v0.1.5/demos/classicube/Dollyfile-classicube-build c30d803146291fc0011f511fe182bf9980c3aaf5a2833f781061051ceae04913 /usr/share/classicube /home/dolly/classicube
-COPY /v0.1.5/demos/classicube/Dollyfile-classicube-build c30d803146291fc0011f511fe182bf9980c3aaf5a2833f781061051ceae04913 /usr/share/licenses/classicube /usr/share/licenses/classicube
+INSTALL /v0.1.5/demos/classicube/Dollyfile-classicube-agent 5c584df80d0d1aa7e356988fb13144be6071f0f74c9cced13c30df79ff35d668
+COPY /v0.1.5/demos/classicube/Dollyfile-classicube-build 22875b37062986a1f4425a599691998e7832856f20e930d9284d9542daa2ce89 /usr/bin/classicube /usr/bin/classicube
+COPY /v0.1.5/demos/classicube/Dollyfile-classicube-build 22875b37062986a1f4425a599691998e7832856f20e930d9284d9542daa2ce89 /usr/share/classicube /home/dolly/classicube
+COPY /v0.1.5/demos/classicube/Dollyfile-classicube-build 22875b37062986a1f4425a599691998e7832856f20e930d9284d9542daa2ce89 /usr/share/licenses/classicube /usr/share/licenses/classicube
 EXPORTS TOOL classicube
 REQUIRES TOOL pi
 REQUIRES TOOL classicube-agent

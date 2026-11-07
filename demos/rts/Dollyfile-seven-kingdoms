@@ -11,12 +11,12 @@ REQUIRES HOST http@0
 # Seven Kingdoms as rts-build compiled it, and its arena: rts-arena runs matches
 # between agents, rts-viewer shows one.
 FROM /v0.1.5/demos/pi/Dollyfile-pi-runtime 6833a0da46de029806492668b64ee4933b72a23bb838d4518ef24e20b30beb64
-USE /v0.1.5/demos/sdl2/Dollyfile-sdl2 9b1aa0b7c4ebe188812b78b2af3eff7b06601a272913041e7eb737b7a5293cd3
-COPY /v0.1.5/demos/rts/Dollyfile-rts-build 565df0bb61df00fb7965acac34bec6f5f22ca42a46c703ea869c420c355e5762 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
-COPY /v0.1.5/demos/rts/Dollyfile-rts-build 565df0bb61df00fb7965acac34bec6f5f22ca42a46c703ea869c420c355e5762 /usr/share/7kaa /usr/share/7kaa
-COPY /v0.1.5/demos/rts/Dollyfile-rts-build 565df0bb61df00fb7965acac34bec6f5f22ca42a46c703ea869c420c355e5762 /usr/src/7kaa /usr/src/7kaa
-COPY /v0.1.5/demos/rts/Dollyfile-rts-build 565df0bb61df00fb7965acac34bec6f5f22ca42a46c703ea869c420c355e5762 /usr/src/dolly/rts /usr/src/dolly/rts
-COPY /v0.1.5/demos/rts/Dollyfile-rts-build 565df0bb61df00fb7965acac34bec6f5f22ca42a46c703ea869c420c355e5762 /usr/share/licenses/7kaa /usr/share/licenses/7kaa
+USE /v0.1.5/demos/sdl2/Dollyfile-sdl2 7ae2ca1126b0efb0f82d7a09f00f8b792b8b85ee3141074b6e20829a6fd27f45
+COPY /v0.1.5/demos/rts/Dollyfile-rts-build d7407657ded2dc55a8aa02f64fb793db2efbe0406fa211f75cb3151556de71ba /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
+COPY /v0.1.5/demos/rts/Dollyfile-rts-build d7407657ded2dc55a8aa02f64fb793db2efbe0406fa211f75cb3151556de71ba /usr/share/7kaa /usr/share/7kaa
+COPY /v0.1.5/demos/rts/Dollyfile-rts-build d7407657ded2dc55a8aa02f64fb793db2efbe0406fa211f75cb3151556de71ba /usr/src/7kaa /usr/src/7kaa
+COPY /v0.1.5/demos/rts/Dollyfile-rts-build d7407657ded2dc55a8aa02f64fb793db2efbe0406fa211f75cb3151556de71ba /usr/src/dolly/rts /usr/src/dolly/rts
+COPY /v0.1.5/demos/rts/Dollyfile-rts-build d7407657ded2dc55a8aa02f64fb793db2efbe0406fa211f75cb3151556de71ba /usr/share/licenses/7kaa /usr/share/licenses/7kaa
 EXPORTS TOOL seven-kingdoms
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner

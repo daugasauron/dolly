@@ -19,7 +19,7 @@ REQUIRES HOST nena@0
 INSTALL /v0.1.5/Dollyfile-core ba71669ba7bd50ecab1497691cf784bb263a532435b36f5f1783ea2d1dc7f5ac
 INSTALL /v0.1.5/Dollyfile-posix ec580400fe2f6dc4186b44a563a238456c525def4fcdf16a3242938886b9aaaa
 INSTALL /v0.1.5/Dollyfile-display 215807de7ce4ec5f1b2025eb491005f3b4b515079b1f14ba947b46c2091fea52
-INSTALL /v0.1.5/demos/x11/Dollyfile-xorg-server c825f3cfc4cfb1e5f540a9ff0a48dacac3bf03bb031111ad5299aa68d12ac247
+INSTALL /v0.1.5/demos/x11/Dollyfile-xorg-server 678cfa02fa002b5935655546364ec393c534f7153ffd31de37735de01599ea70
 INSTALL /v0.1.5/demos/x11/Dollyfile-twm 644cc0e00ea6541e6f6d94749b5d37417b506a56545e5f63a0999ac1016bc56c
 INSTALL /v0.1.5/demos/x11/Dollyfile-xclock f4c7951b311e5d9394a1fc4557c7a9313ee85d4d55e4ea4a578e56f92f30a467
 INSTALL /v0.1.5/demos/x11/Dollyfile-xeyes 478d5e436f3b98b51af5fa4369fb65ae7a1828c5de8c6995537d327ebb0da95e

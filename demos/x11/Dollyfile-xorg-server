@@ -17,7 +17,7 @@ REQUIRES HOST sockets@0
 FROM /v0.1.5/demos/x11/Dollyfile-x11-build 926ef59f349ff5cb4cfed415696d71936fc2300e5172b325d702b6aec6029b0c
 USE /v0.1.5/demos/tools/Dollyfile-meson dcd1d724cf32b73ce4ea97444a5b878c93cd8b0ae7dcc92078b07eeb5a88cc93
 USE /v0.1.5/demos/zero-ad/Dollyfile-pkgconf 401dedc81d9556dbe9213b9c5512271d2c368adc2859a6c793109637215291dc
-USE /v0.1.5/demos/sdl2/Dollyfile-sdl2 9b1aa0b7c4ebe188812b78b2af3eff7b06601a272913041e7eb737b7a5293cd3
+USE /v0.1.5/demos/sdl2/Dollyfile-sdl2 7ae2ca1126b0efb0f82d7a09f00f8b792b8b85ee3141074b6e20829a6fd27f45
 USE /v0.1.5/demos/x11/Dollyfile-pixman dc86a07efdd24273839cda48c22b836e4e252325d169887697c90fb5e6129597
 USE /v0.1.5/demos/x11/Dollyfile-libxkbfile bd415e7456b3d322f9b4297f657493e28f9edb971b887f5172fe49a53459d739
 USE /v0.1.5/Dollyfile-zlib 57a63081cc4505bf8f18360c2343eb869292c2e4b5215c7b09e456941552fc1c

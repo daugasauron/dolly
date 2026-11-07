@@ -12,7 +12,7 @@ REQUIRES HOST threads@0
 REQUIRES HOST html@0
 
 FROM /v0.1.5/Dollyfile-system fdf722558fc23bbce3ce51534f860b83e11ef157c6237cdf22f5f8da591c42ac
-INSTALL /v0.1.5/demos/slopyard/Dollyfile-raylib 18e639f5694b4083460d2ad79db6ee4b4252b36bc6e472332c9407387f596f77
+INSTALL /v0.1.5/demos/slopyard/Dollyfile-raylib 87842ff323c6b843f0925f50154f4bbe886d4883fae487b1f742c6554fb31c02
 INSTALL /v0.1.5/demos/slopyard/Dollyfile-box3d 65b7d3464a727ec95ed88b4a8fb48c30ee9adc92929532eb89a8da5607ea862c
 REQUIRES TOOL   tar
 
