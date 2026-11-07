@@ -82,8 +82,9 @@ int dolly_http_start(const char *method, const char *url, const char *headers,
 int dolly_http_poll(unsigned int sequence, dolly_http_chunk *chunk,
                     void *data, size_t capacity);
 
-// Cancels only the matching request, without waiting for the provider to settle.
-// A stale sequence fails without affecting a newer request.
+// Cancels only the matching request, without waiting for the provider to settle;
+// its sequence is stale afterwards. A stale sequence fails without affecting a
+// newer request.
 int dolly_http_cancel(unsigned int sequence);
 
 // Performs one browser-brokered HTTP request. The browser provider receives
