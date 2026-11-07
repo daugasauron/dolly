@@ -1,5 +1,5 @@
 # Sourced by scripts/prepare-image-sources.sh.
-# Release archives that Dolly's tar reads as published, and Meson's wheel
+# Release archives that Dolly's tar reads as published, and Meson's and SCons' wheels
 # (package, source pin, file name).
 while read -r tool tool_pin tool_archive; do
   if has_image "${tool}"; then
@@ -22,6 +22,7 @@ sqlite linenoise linenoise-2.0.tar.gz
 yacc byacc byacc-20260126.tgz
 flex reflex reflex-20260131.tgz
 meson meson meson-1.12.1-py3-none-any.whl
+scons scons scons-4.10.1-py3-none-any.whl
 ARCHIVES
 # xxd is one file of Vim's repository, with its manual page.
 if has_image xxd; then

@@ -433,6 +433,10 @@ DOLLY_LINENOISE_SHA256=97ad7d4041e11d7fa395819fd773c1892dea89e5292342378a8345692
 DOLLY_MESON_VERSION=1.12.1
 DOLLY_MESON_URL='https://files.pythonhosted.org/packages/57/99/36cd25f9598eef70db97577440a70a360af505f6f01c2338a18d1556079c/meson-1.12.1-py3-none-any.whl'
 DOLLY_MESON_SHA256=930bc7542cbd9f57009e182fd014eba48cf1a0180a7b9006d2d32d8f168d8b02
+# SCons from the wheel PyPI publishes (demos/tools), which builds Godot.
+DOLLY_SCONS_VERSION=4.10.1
+DOLLY_SCONS_URL='https://files.pythonhosted.org/packages/ce/bf/931fb9fbb87234c32b8b1b1c15fba23472a10777c12043336675633809a7/scons-4.10.1-py3-none-any.whl'
+DOLLY_SCONS_SHA256=bd9d1c52f908d874eba92a8c0c0a8dcf2ed9f3b88ab956d0fce1da479c4e7126
 # The WebAssembly Binary Toolkit: the source release, with its submodules.
 DOLLY_WABT_VERSION=1.0.42
 DOLLY_WABT_URL='https://github.com/WebAssembly/wabt/releases/download/1.0.42/wabt-1.0.42.tar.xz'
@@ -732,3 +736,8 @@ DOLLY_MPL_QHULL_SHA256=8774e9a12c70b0180b95d6b0b563c5aa4bea8d5960c15e18ae3b6d252
 DOLLY_OPENBLAS_VERSION=0.3.34
 DOLLY_OPENBLAS_URL='https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.34/OpenBLAS-0.3.34.tar.gz'
 DOLLY_OPENBLAS_SHA256=cd7e129868320cc2d033afa920e31202dfe0b8066a5b66661900ccc0f197dfed
+
+# Godot (demos/godot): the engine's release; SCons, which builds it, is a tools package.
+DOLLY_GODOT_VERSION=4.7.2
+DOLLY_GODOT_URL='https://github.com/godotengine/godot/releases/download/4.7.2-stable/godot-4.7.2-stable.tar.xz'
+DOLLY_GODOT_SHA256=a18ce0ccec3ecc40b0dd6c4f5132ca934e9fb7c2979717940ff32aee1eb35481

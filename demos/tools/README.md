@@ -27,6 +27,7 @@ the script would find here, in the comments beside its flags.
 - `wabt`: the WebAssembly Binary Toolkit: `wat2wasm`, `wasm2wat`, `wasm-objdump`, `wasm-strip` and `wasm-validate`.
 - `binaryen`: Binaryen's `wasm-opt`, for its function-pointer cast emulation (`--fpcast-emu`).
 - `meson`: Meson, with the `python`, `cc` and `ninja` packages it runs on.
+- `scons`: SCons, with the `python` package it runs on; it builds Godot (`demos/godot`).
 - `toybox`: toybox's `grep` and `sed`, which have `grep -r` and `sed -i`, in place of the image's.
 - `dte`: dte, a small full-screen editor with the keys of a desktop one.
 - `tools-build`: A build stage: `cmake-build` with the core's `mandoc`, what these packages are built on.
@@ -57,6 +58,9 @@ What the platform decides ([process model](../../docs/process-model.md)):
   ([`prepare-sources.sh`](prepare-sources.sh)); the rest build from the
   archive as published.
 - `fork` fails: `vi`'s `!` commands and language servers say so.
+- SCons takes a program on `PATH` for a compiler only if its execute bit is
+  set, and Dolly keeps none: a `SConstruct` names its compiler
+  (`Environment(CC="cc")`), as Godot's platform does.
 - `/bin` comes before `/usr/bin`, so `tar` installs over the core's
   `/bin/tar`, and `toybox` over `/bin/grep` and `/bin/sed` of `posix` with
   links to its one program; no other package here replaces a command.
