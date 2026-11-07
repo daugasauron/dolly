@@ -436,6 +436,14 @@ int main(int argc, char **argv) {
   CHECK(clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpu) == 0 && getrusage(RUSAGE_SELF, &usage) == 0);
   CHECK(usage.ru_stime.tv_sec == 0 && usage.ru_stime.tv_usec == 0 &&
         usage.ru_utime.tv_sec * 1000000LL + usage.ru_utime.tv_usec >= cpu.tv_sec * 1000000LL + cpu.tv_nsec / 1000);
+  // Linux's raw and coarse clocks read Dolly's monotonic and real-time clocks.
+  struct timespec monotonic, raw, coarse, resolution;
+  CHECK(clock_gettime(CLOCK_MONOTONIC, &monotonic) == 0 && clock_gettime(CLOCK_MONOTONIC_RAW, &raw) == 0 &&
+        raw.tv_sec * 1000000000LL + raw.tv_nsec >= monotonic.tv_sec * 1000000000LL + monotonic.tv_nsec);
+  CHECK(clock_gettime(CLOCK_REALTIME_COARSE, &coarse) == 0 && coarse.tv_sec > 1700000000);
+  CHECK(clock_getres(CLOCK_MONOTONIC_COARSE, &resolution) == 0 && clock_getres(CLOCK_MONOTONIC_RAW, NULL) == 0);
+  CHECK(clock_gettime(CLOCK_BOOTTIME, &raw) == -1 && errno == EINVAL);
+  CHECK(clock_getres(CLOCK_BOOTTIME, &resolution) == -1 && errno == EINVAL);
   // times counts in clock ticks what getrusage reports.
   struct tms ticks;
   const clock_t elapsed = times(&ticks);

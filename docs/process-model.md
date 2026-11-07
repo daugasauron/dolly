@@ -429,6 +429,9 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   handled one only becomes pending and never forces termination.
 - Clock reads use the Worker's clock aligned to the kernel's origin, but enter the
   kernel at least once per millisecond so signals arrive in clock-only loops.
+  Linux's `CLOCK_MONOTONIC_RAW` and `CLOCK_MONOTONIC_COARSE` read the monotonic
+  clock, which is never slewed, and `CLOCK_REALTIME_COARSE` the real-time one
+  ([`time.c`](../src/process/time.c)); other Linux clocks fail with `EINVAL`.
 - CPU time is not accounted: `clock()`, `CLOCK_PROCESS_CPUTIME_ID`,
   `getrusage` and `times` report the monotonic time since the program started
   (since its `exec`, if it was exec'd) as its user time, an upper bound that is
