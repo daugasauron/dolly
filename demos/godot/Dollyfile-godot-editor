@@ -1,0 +1,76 @@
+DOLLY 7
+PACKAGE godot-editor
+REQUIRES HOST runtime@0
+REQUIRES HOST audio@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST threads@0
+
+# Godot's editor from the same release on the same platform: it imports a
+# project's assets and exports its pack (--headless --import, --export-pack),
+# and draws its own window on the page. Without Basis Universal, whose encoder
+# names a header of Linux's that Emscripten's libc and Dolly's leave out
+# (sys/timex.h), and Jolt Physics, which knows WebAssembly only as Emscripten:
+# 3D physics is Godot's own.
+FROM /v0.1.5/demos/ghostty-gtk/Dollyfile-mesa-build c2560dd3b9782789bb0b58997815f5d6315e9ceb7529a67e13cbc2c00ba1a61b
+USE /v0.1.5/demos/tools/Dollyfile-scons 32e62646343a0caf64ad4087ce4bbf89d9c3bb35b6d8f4da24a797b033979da0
+USE /v0.1.5/Dollyfile-mandoc 83da22748d615feab08a0a774cb1f704c8d8f6cde9402b86d4b0dd8ea166e5bd
+USE /v0.1.5/Dollyfile-libdolly-audio cf506533d24804e00d1211d4008d8eb71d16747dc8563843262545be6dbca30b
+
+REQUIRES TOOL cp
+REQUIRES TOOL grep
+REQUIRES TOOL gzip
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+REQUIRES TOOL scons
+REQUIRES TOOL tar
+REQUIRES TOOL test
+REQUIRES TOOL text-page
+
+SOURCE /v0.1.5/dist/static/godot/source.tar.gz eb5de7b7fbbb7acbd9e69db536b6225f73859773f5cd6dc662fd2534d89c29f5 /tmp/godot-source.tar.gz
+SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
+SLOP CWD /usr/src/godot scons -j4 platform=dolly target=editor module_basis_universal_enabled=no \
+  module_jolt_physics_enabled=no
+SLOP cp /usr/src/godot/bin/godot.dolly.editor.wasm64 /usr/bin/godot-editor
+SLOP mkdir -p /usr/share/licenses/godot-editor
+SLOP cp /usr/src/godot/LICENSE.txt /usr/src/godot/COPYRIGHT.txt /usr/share/licenses/godot-editor
+SLOP cp /usr/share/licenses/mesa/license.rst /usr/share/licenses/godot-editor/mesa-license.rst
+# Godot's page, which describes the editor, is in section 6; man reads section 1.
+SLOP cp /usr/src/godot/misc/dist/linux/godot.6 /tmp/godot-editor.1
+SLOP text-page /tmp/godot-editor.1
+SLOP rm -rf /usr/src/godot /tmp/godot-source.tar.gz /tmp/godot-editor.1
+
+# A project whose script reads an SVG the editor imported into the pack it exported.
+FILE /tmp/godot-check/project.godot
+    config_version=5
+    [application]
+    run/main_scene="res://main.tscn"
+FILE /tmp/godot-check/export_presets.cfg
+    [preset.0]
+    name="Dolly"
+    platform="Linux"
+    runnable=true
+    export_filter="all_resources"
+    [preset.0.options]
+    custom_template/release=""
+FILE /tmp/godot-check/icon.svg
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#4080ff"/></svg>
+FILE /tmp/godot-check/main.tscn
+    [gd_scene format=3]
+    [ext_resource type="Script" path="res://main.gd" id="1"]
+    [node name="Main" type="Node"]
+    script = ExtResource("1")
+FILE /tmp/godot-check/main.gd
+    extends Node
+    func _ready() -> void:
+        print("ICON ", load("res://icon.svg").get_size())
+        get_tree().quit()
+SLOP CWD /tmp/godot-check godot-editor --headless --import
+SLOP CWD /tmp/godot-check godot-editor --headless --export-pack Dolly /tmp/godot-check.pck
+SLOP CWD /tmp godot-editor --headless --main-pack /tmp/godot-check.pck | grep -qx 'ICON (16.0, 16.0)'
+
+EXPORTS TOOL godot-editor
+FILE /usr/share/licenses/godot-editor/LICENSE.txt
+FILE /usr/share/licenses/godot-editor/COPYRIGHT.txt
+FILE /usr/share/licenses/godot-editor/mesa-license.rst
+FILE /usr/share/man/cat1/godot-editor.1

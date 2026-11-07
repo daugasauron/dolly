@@ -8,7 +8,8 @@ REQUIRES HOST threads@0
 
 # Godot from its release, unchanged, built by SCons with Dolly's cc on a
 # platform of Dolly's own (platform/dolly, from demos/godot/platform): the
-# engine with GDScript, 2D physics and the fallback text server, without 3D,
+# engine with GDScript, 2D physics, the fallback text server, Ogg Vorbis, MP3,
+# WebP and regular expressions, what an exported 2D game loads, without 3D,
 # and its Compatibility renderer on Mesa's OpenGL (EGL and softpipe, linked
 # in from mesa-build), with its sound on audio@0. It plays on the page or runs a
 # project with --headless.
@@ -30,7 +31,8 @@ SOURCE /v0.1.5/dist/static/godot/source.tar.gz eb5de7b7fbbb7acbd9e69db536b6225f7
 SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
 SLOP CWD /usr/src/godot scons -j4 platform=dolly disable_3d=yes modules_enabled_by_default=no \
   module_gdscript_enabled=yes module_text_server_fb_enabled=yes module_freetype_enabled=yes \
-  module_godot_physics_2d_enabled=yes
+  module_godot_physics_2d_enabled=yes module_ogg_enabled=yes module_vorbis_enabled=yes \
+  module_minimp3_enabled=yes module_webp_enabled=yes module_regex_enabled=yes
 SLOP cp /usr/src/godot/bin/godot.dolly.template_release.wasm64 /usr/bin/godot
 SLOP mkdir -p /usr/share/licenses/godot
 SLOP cp /usr/src/godot/LICENSE.txt /usr/src/godot/COPYRIGHT.txt /usr/share/licenses/godot

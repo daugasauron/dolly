@@ -744,3 +744,6 @@ DOLLY_OPENBLAS_SHA256=cd7e129868320cc2d033afa920e31202dfe0b8066a5b66661900ccc0f1
 DOLLY_GODOT_VERSION=4.7.2
 DOLLY_GODOT_URL='https://github.com/godotengine/godot/releases/download/4.7.2-stable/godot-4.7.2-stable.tar.xz'
 DOLLY_GODOT_SHA256=a18ce0ccec3ecc40b0dd6c4f5132ca934e9fb7c2979717940ff32aee1eb35481
+# Dodge the Creeps, Godot's first 2D game, from the demo projects' release (demos/godot).
+DOLLY_GODOT_DODGE_URL='https://github.com/godotengine/godot-demo-projects/releases/download/4.7-6ad6167/2d_dodge_the_creeps.zip'
+DOLLY_GODOT_DODGE_SHA256=cebca9d95eccd4fafa2b9c3892fd75be527c25044e6e78f91fe92b76ece29052

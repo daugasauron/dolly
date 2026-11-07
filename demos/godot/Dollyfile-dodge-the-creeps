@@ -1,0 +1,53 @@
+DOLLY 7
+PACKAGE dodge-the-creeps
+REQUIRES HOST runtime@0
+REQUIRES HOST audio@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST threads@0
+
+# Dodge the Creeps, the game of Godot's first 2D tutorial, from the demo
+# projects' release: Godot's editor imports its assets and exports its pack
+# here, and dodge-the-creeps plays the pack with godot, which installs with it.
+FROM /v0.1.5/Dollyfile-system fdf722558fc23bbce3ce51534f860b83e11ef157c6237cdf22f5f8da591c42ac
+INSTALL /v0.1.5/demos/godot/Dollyfile-godot ad6f4606b215d3327425d2809c057b60fead6f487d41858a25304d904821daf2
+USE /v0.1.5/demos/godot/Dollyfile-godot-editor 84fe18a19ab3ba18aface4d8cbf3cde87e9271e278c03a732f5423b5f2198c27
+USE /v0.1.5/demos/tools/Dollyfile-unzip a582b683dfe4ddbc7b10128d8200f7e75f9ca3badc5459020146e60f81d07719
+
+REQUIRES TOOL cp
+REQUIRES TOOL godot-editor
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+REQUIRES TOOL unzip
+
+SOURCE /v0.1.5/dist/static/godot/2d_dodge_the_creeps.zip cebca9d95eccd4fafa2b9c3892fd75be527c25044e6e78f91fe92b76ece29052 /tmp/dodge.zip
+SLOP CWD /tmp unzip -q /tmp/dodge.zip
+# The editor exports a pack for a preset; the game's own release sets none.
+FILE /tmp/dodge_the_creeps/export_presets.cfg
+    [preset.0]
+    name="Dolly"
+    platform="Linux"
+    runnable=true
+    export_filter="all_resources"
+    [preset.0.options]
+    custom_template/release=""
+SLOP CWD /tmp/dodge_the_creeps godot-editor --headless --import
+SLOP mkdir -p /usr/share/dodge-the-creeps /usr/share/licenses/dodge-the-creeps
+SLOP CWD /tmp/dodge_the_creeps godot-editor --headless --export-pack Dolly /usr/share/dodge-the-creeps/dodge-the-creeps.pck
+SLOP CWD /tmp/dodge_the_creeps cp LICENSE LICENSE.md README.md /usr/share/licenses/dodge-the-creeps
+SLOP cp /tmp/dodge_the_creeps/fonts/LICENSE.txt /usr/share/licenses/dodge-the-creeps/Xolonium-LICENSE.txt
+SLOP rm -rf /tmp/dodge_the_creeps /tmp/dodge.zip
+
+FILE /usr/bin/dodge-the-creeps
+    #!/bin/slop
+    godot --main-pack /usr/share/dodge-the-creeps/dodge-the-creeps.pck "$@"
+EXPORTS TOOL dodge-the-creeps
+FILE /usr/share/man/cat1/dodge-the-creeps.1
+    dodge-the-creeps [GODOT-OPTION...]
+    Plays Dodge the Creeps, the game of Godot's first 2D tutorial, on the page:
+    the arrow keys or WASD move, Enter or Space starts. Its options are godot's.
+FILE /usr/share/dodge-the-creeps/dodge-the-creeps.pck
+FILE /usr/share/licenses/dodge-the-creeps/LICENSE
+FILE /usr/share/licenses/dodge-the-creeps/LICENSE.md
+FILE /usr/share/licenses/dodge-the-creeps/README.md
+FILE /usr/share/licenses/dodge-the-creeps/Xolonium-LICENSE.txt

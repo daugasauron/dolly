@@ -5,12 +5,16 @@ with Dolly's `cc`, as the `godot` package: `amy install godot`, then
 `godot --path DIRECTORY` runs a project on the page, drawn by Godot's
 Compatibility renderer on Mesa's OpenGL, and `godot --headless` runs one
 without drawing; `--script FILE` runs a script in the project of the
-current directory. Its sound plays through `audio@0`
+current directory. Its sound plays through `audio@0`. `godot-editor` is
+Godot's editor: it imports a project's assets and exports its pack inside
+Dolly, as it exported Dodge the Creeps for `amy install dodge-the-creeps`
 ([task](../../tasks/20261107-131836-godot/TASK.md)).
 
 ## Images
 
-- `godot`: Godot 4.7's engine with GDScript, 2D physics, the fallback text server, the Compatibility renderer on Mesa and sound, without 3D.
+- `godot`: Godot 4.7's engine with GDScript, 2D physics, the fallback text server, the Compatibility renderer on Mesa and sound, without 3D, which runs a project or the pack the editor exported.
+- `godot-editor`: Godot 4.7's editor, which imports a project's assets and exports its pack inside Dolly, and draws its own window on the page.
+- `dodge-the-creeps`: Dodge the Creeps, the game of Godot's first 2D tutorial, which Godot's editor imported and exported here; `dodge-the-creeps` plays it.
 
 ## Building
 
@@ -57,6 +61,21 @@ Its frame matches the one Godot's Linux build draws on llvmpipe except for
 rounding: 5,366 of 230,400 pixels differ, 111 by more than 32 levels, all in
 the label's last two words.
 
+The editor ([`Dollyfile-godot-editor`](Dollyfile-godot-editor)) is the same
+release on the same platform with Godot's default modules, 2,561 units,
+less two: Basis Universal, whose encoder names a header of Linux's that
+Emscripten's libc and Dolly's leave out (`sys/timex.h`), and Jolt Physics,
+which knows WebAssembly only as Emscripten (3D physics is Godot's own). It
+compiled in 26 minutes in the image build, a 182 MB program. Its debugger and
+language server find no sockets and say so. The template packages the
+modules an exported 2D game loads beside the engine's: Ogg Vorbis, MP3, WebP
+and regular expressions.
+
+[`Dollyfile-dodge-the-creeps`](Dollyfile-dodge-the-creeps) takes the game
+from the demo projects' release as published, gives it an export preset,
+which the release does not carry, and has the editor import its assets and
+export its pack while the package builds.
+
 What the platform decides ([process model](../../docs/process-model.md)):
 
 - Threads: Mesa is built with `-pthread`, so Godot is too (`threads@0`).
@@ -83,3 +102,8 @@ under `user://` and quits with a status of its choosing. Then a 2D scene
 draws on the page: the test waits for it on the canvas, hears its tone on the
 right channel only, sends a key and a click that its script reports, and the
 script checks pixels of its frame, in Chromium and Firefox.
+
+[`test/godot-editor-browser.mjs`](test/godot-editor-browser.mjs) installs the
+editor and the game: the editor imports an SVG into a project and exports
+its pack, which `godot` runs, and the game shows its title on the page and
+starts on Enter, its score counting, in Chromium (18.2 s) and Firefox (20.2 s).

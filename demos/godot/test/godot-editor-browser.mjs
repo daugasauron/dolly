@@ -1,0 +1,63 @@
+// Godot's editor in default, as a person installs it: it imports an SVG into a
+// project and exports the project's pack, which godot runs. Then Dodge the
+// Creeps, which the editor exported when its package was built, shows its title
+// on the page and starts on Enter: its score counts.
+// Usage: node demos/godot/test/godot-editor-browser.mjs [chromium|firefox ...]
+import assert from "node:assert/strict";
+import { demoTest, waitForDisplay, writeCommand } from "../../browser.mjs";
+
+const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
+const project = {
+  "project.godot": `config_version=5
+[application]
+run/main_scene="res://main.tscn"
+`,
+  "export_presets.cfg": `[preset.0]
+name="Dolly"
+platform="Linux"
+runnable=true
+export_filter="all_resources"
+[preset.0.options]
+custom_template/release=""
+`,
+  "icon.svg": `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#4080ff"/></svg>
+`,
+  "main.tscn": `[gd_scene format=3]
+[ext_resource type="Script" path="res://main.gd" id="1"]
+[node name="Main" type="Node"]
+script = ExtResource("1")
+`,
+  // Indented with spaces: the terminal takes a typed tab for completion.
+  "main.gd": `extends Node
+func _ready() -> void:
+    var icon: Texture2D = load("res://icon.svg")
+    print("ICON ", icon.get_size(), " ", icon.get_image().get_pixel(8, 8).to_html(false))
+    get_tree().quit()
+`,
+};
+
+for (const browser of browsers) {
+  await demoTest("godot editor", { image: "default", timeout: 1_200_000, browser }, async ({ open }) => {
+    const { page, run, start } = await open();
+    await run("amy install godot-editor dodge-the-creeps && mkdir -p /tmp/editor-check");
+    for (const [name, text] of Object.entries(project)) await run(writeCommand(`/tmp/editor-check/${name}`, text));
+    await run("cd /tmp/editor-check && godot-editor --headless --import > /dev/null 2>&1 && " +
+      "godot-editor --headless --export-pack Dolly /tmp/editor-check.pck > /dev/null 2>&1");
+    await run("cd /tmp && godot --headless --main-pack /tmp/editor-check.pck > /tmp/editor-check.out 2>&1");
+    await run("grep -qx 'ICON (16.0, 16.0) 4080ff' /tmp/editor-check.out");
+
+    const game = start("dodge-the-creeps");
+    await page.waitForFunction(() => __dolly.transport.graphicsActive());
+    // The title on the game's background; then the score, at the top, counts.
+    const title = await waitForDisplay(page, () => {
+      const canvas = document.querySelector("canvas");
+      const pixels = (x, y, width, height) => [...displaySnapshot.getContext("2d").getImageData(x, y, width, height).data].join();
+      return canvas.width === 480 && canvas.height === 720 && pixels(5, 700, 1, 1) === "56,95,97,255" && pixels(200, 10, 80, 60);
+    });
+    await page.keyboard.press("Enter");
+    await waitForDisplay(page, title =>
+      [...displaySnapshot.getContext("2d").getImageData(200, 10, 80, 60).data].join() !== title, title, { timeout: 60_000 });
+    await page.keyboard.press("Control+c");
+    assert.equal(await game.done, 130);
+  });
+}
