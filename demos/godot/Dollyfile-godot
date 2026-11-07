@@ -1,12 +1,16 @@
 DOLLY 7
 PACKAGE godot
 REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST threads@0
 
 # Godot from its release, unchanged, built by SCons with Dolly's cc on a
 # platform of Dolly's own (platform/dolly, from demos/godot/platform): the
-# engine with GDScript, 2D physics and the fallback text server, without 3D or
-# a renderer, which runs a project with --headless.
-FROM /v0.1.5/Dollyfile-system 5bca00e22021da9f44db912d7a3cf3bd51c0d11253934ec70f0dee1979a7e596
+# engine with GDScript, 2D physics and the fallback text server, without 3D,
+# and its Compatibility renderer on Mesa's OpenGL (EGL and softpipe, linked
+# in from mesa-build). It draws on the page or runs a project with --headless.
+FROM /v0.1.5/demos/ghostty-gtk/Dollyfile-mesa-build 69111e26337637b4f115de7752b6ded9765ce2cd0536cd44f2872ef7d4d50813
 USE /v0.1.5/demos/tools/Dollyfile-scons b2abe1e7ee6f07440d997a9c9f62cd6dbd2202109a55c81cf372d0a5d98ea9d6
 USE /v0.1.5/Dollyfile-mandoc 29619bf63ccea21528091ff4ed54ad51918a381c7c3c26d1f38421ceaa2e3485
 
@@ -24,9 +28,10 @@ SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
 SLOP CWD /usr/src/godot scons -j4 platform=dolly disable_3d=yes modules_enabled_by_default=no \
   module_gdscript_enabled=yes module_text_server_fb_enabled=yes module_freetype_enabled=yes \
   module_godot_physics_2d_enabled=yes
-SLOP cp /usr/src/godot/bin/godot.dolly.template_release.wasm64.nothreads /usr/bin/godot
+SLOP cp /usr/src/godot/bin/godot.dolly.template_release.wasm64 /usr/bin/godot
 SLOP mkdir -p /usr/share/licenses/godot
 SLOP cp /usr/src/godot/LICENSE.txt /usr/src/godot/COPYRIGHT.txt /usr/share/licenses/godot
+SLOP cp /usr/share/licenses/mesa/license.rst /usr/share/licenses/godot/mesa-license.rst
 # Godot's page is in section 6, games; man reads section 1.
 SLOP cp /usr/src/godot/misc/dist/linux/godot.6 /tmp/godot.1
 SLOP text-page /tmp/godot.1
@@ -51,4 +56,5 @@ SLOP godot --headless --path /tmp/godot-check | grep -qx 'GODOT Dolly'
 EXPORTS TOOL godot
 FILE /usr/share/licenses/godot/LICENSE.txt
 FILE /usr/share/licenses/godot/COPYRIGHT.txt
+FILE /usr/share/licenses/godot/mesa-license.rst
 FILE /usr/share/man/cat1/godot.1

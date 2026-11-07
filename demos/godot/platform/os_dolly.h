@@ -25,4 +25,6 @@ public:
 	String get_cache_path() const override;
 
 	void run();
+
+	OS_Dolly();
 };

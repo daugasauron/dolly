@@ -37,13 +37,11 @@ def get_flags():
     return {
         "arch": "wasm64",
         "target": "template_release",
-        # One thread: with a second, threads@0 holds the memory at its maximum.
-        "threads": False,
         # godot runs the project of a directory it is given (--path), not
         # only a pack beside it.
         "disable_path_overrides": False,
         "vulkan": False,
-        "opengl3": False,
+        "opengl3": True,
         "builtin_pcre2_with_jit": False,
         "module_raycast_enabled": False,
     }
@@ -61,3 +59,10 @@ def configure(env: "SConsEnvironment"):
         env.Append(LINKFLAGS=["-pthread"])
     env.Prepend(CPPPATH=["#platform/dolly"])
     env.Append(CPPDEFINES=["DOLLY_ENABLED", "UNIX_ENABLED", ("_FILE_OFFSET_BITS", 64)])
+    if env["opengl3"]:
+        # The Compatibility renderer on Mesa's OpenGL, linked in: EGL and its
+        # gallium driver, softpipe (mesa-build). GLAD takes the functions from
+        # eglGetProcAddress.
+        env.Prepend(CPPPATH=["#thirdparty/glad"])
+        env.Append(CPPDEFINES=["GLES3_ENABLED", "GLAD_ENABLED", "GLAD_GLES2", "EGL_ENABLED", "EGL_STATIC"])
+        env.Append(LIBS=["EGL", "gallium_dri", "z", "m"])
