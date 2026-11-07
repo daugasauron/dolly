@@ -105,5 +105,7 @@ script checks pixels of its frame, in Chromium and Firefox.
 
 [`test/godot-editor-browser.mjs`](test/godot-editor-browser.mjs) installs the
 editor and the game: the editor imports an SVG into a project and exports
-its pack, which `godot` runs, and the game shows its title on the page and
-starts on Enter, its score counting, in Chromium (18.2 s) and Firefox (20.2 s).
+its pack, which `godot` runs; the game shows its title on the page and
+starts on Enter, its score counting; and the editor opens its own window on
+the page and shows its 2D view at a click on the tab, in Chromium (46.3 s)
+and Firefox (50.4 s).

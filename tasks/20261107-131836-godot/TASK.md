@@ -44,7 +44,8 @@ Steps 1 and 2 are done on `demo/godot`, and so are the editor and a game exporte
   - `godot-editor --editor --path DIR` opens the editor itself on the page: its scene tree, file
     system, inspector and 2D and 3D views of the game's scene
     (`work/godot/build/editor-2d-2026-11-08.png`). A click on the 2D or 3D tab showed its view within
-    2 s (Chrome headless, beside an image round). No test covers it.
+    2 s (Chrome headless, beside an image round). `godot-editor-browser.mjs` opens it and clicks its
+    2D tab: it draws its view before it takes clicks, so the test clicks until the view changes.
 - **A game:** `dodge-the-creeps` is the demo projects' release game (Godot's first 2D tutorial).
   - The editor imports and exports it while the package builds; `dodge-the-creeps` plays it on the
     page with sound.
@@ -66,7 +67,6 @@ Steps 1 and 2 are done on `demo/godot`, and so are the editor and a game exporte
   constants.
 - **Left:**
   - The page's surface size and resizes, since Godot keeps the project's window size.
-  - A test of the editor's own window on the page.
   - `godot` in the release round's demo list.
 
 ## What Godot needs (read 2026-11-07, not measured)
