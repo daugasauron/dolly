@@ -6,7 +6,7 @@
 
 Found by reading, by two auditors independently (the core audit of 2026-11-07 at 9684c7334,
 `work/audit-core-2026-11-07/REPORT.md` 3.8, and its helper tracing `curl` to the broker); the code
-path was checked again on saving the report. Not yet reproduced by running. Owner (2026-11-07):
+path was checked again on saving the report, then reproduced (State). Owner (2026-11-07):
 "Create tasks for the bug".
 
 ## State (2026-11-07)
