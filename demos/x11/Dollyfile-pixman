@@ -6,11 +6,11 @@ REQUIRES HOST runtime@0
 # archive, built by its Meson project as a static library: without the SIMD of
 # other machines; Dolly runs no OpenMP. The build compiles, then installs what
 # it compiled (--no-rebuild: Meson's install step would run the build again).
-FROM /v0.1.5/demos/x11/Dollyfile-x11-build 8877f3d242487b74845f401ae2387fbf0c713aa4f0be7c50a8b5577cfec04ae4
+FROM /v0.1.5/demos/x11/Dollyfile-x11-build 926ef59f349ff5cb4cfed415696d71936fc2300e5172b325d702b6aec6029b0c
 # The tar package reads the pax headers of X.Org's archives.
-USE /v0.1.5/demos/tools/Dollyfile-tar dd131047c8c0330f82c88eefff268443b48b57c427bc468e650f00aa856fa7c1
-USE /v0.1.5/demos/tools/Dollyfile-meson f9894aedacfd9594c87a3eff900d004dc6b3f64b33c31535525be2f937e465df
-USE /v0.1.5/demos/zero-ad/Dollyfile-pkgconf 330b309879d8e1859663a573a47f3ed229682d4c3a5ab478602d9f4f5108837d
+USE /v0.1.5/demos/tools/Dollyfile-tar 54097ce0ebdcc4c818a38988c2fbeeb59c9f5f194555a650142915264081c15f
+USE /v0.1.5/demos/tools/Dollyfile-meson dcd1d724cf32b73ce4ea97444a5b878c93cd8b0ae7dcc92078b07eeb5a88cc93
+USE /v0.1.5/demos/zero-ad/Dollyfile-pkgconf 401dedc81d9556dbe9213b9c5512271d2c368adc2859a6c793109637215291dc
 REQUIRES TOOL meson
 REQUIRES TOOL gzip
 REQUIRES TOOL tar

@@ -4,8 +4,19 @@
 #include "main/main.h"
 #include "servers/display/display_server.h"
 
+#ifdef GLES3_ENABLED
+#include "display_server_dolly.h"
+#endif
+
 #include <limits.h>
 #include <unistd.h>
+
+OS_Dolly::OS_Dolly() {
+	AudioDriverManager::add_driver(&audio_driver);
+#ifdef GLES3_ENABLED
+	DisplayServerDolly::register_dolly_driver();
+#endif
+}
 
 void OS_Dolly::initialize() {
 	OS_Unix::initialize_core();

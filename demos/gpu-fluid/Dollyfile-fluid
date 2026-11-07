@@ -5,8 +5,8 @@ REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST gpu@0
 
-FROM /v0.1.5/Dollyfile-system 5bca00e22021da9f44db912d7a3cf3bd51c0d11253934ec70f0dee1979a7e596
-USE /v0.1.5/Dollyfile-libdolly-gpu b1b838b1b762684733aafef12de493e4bca2833668ba96f5a79b53e0242b82ab
+FROM /v0.1.5/Dollyfile-system fdf722558fc23bbce3ce51534f860b83e11ef157c6237cdf22f5f8da591c42ac
+USE /v0.1.5/Dollyfile-libdolly-gpu 0a35e34b1b3ec3088ae41c5cf54e7d845337d9f1deac8c30d727f02c6a2572e8
 REQUIRES TOOL cc
 REQUIRES HEADER gpu
 REQUIRES LIB dolly-gpu
