@@ -1,0 +1,41 @@
+DOLLY 7
+PACKAGE scons
+REQUIRES HOST runtime@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+
+# SCons from the wheel PyPI publishes, installed by pip; Python runs it. Its base
+# holds the C compiler it starts. The host modules are Python's.
+FROM /v0.1.5/Dollyfile-system 5bca00e22021da9f44db912d7a3cf3bd51c0d11253934ec70f0dee1979a7e596
+INSTALL /v0.1.5/demos/python/Dollyfile-python facb4a931d3b29c29a7eb4593825b3a40b3c43809eb764c1f64578317d231965
+USE /v0.1.5/Dollyfile-mandoc 29619bf63ccea21528091ff4ed54ad51918a381c7c3c26d1f38421ceaa2e3485
+
+REQUIRES TOOL cc
+REQUIRES TOOL cp
+REQUIRES TOOL mkdir
+REQUIRES TOOL pip
+REQUIRES TOOL text-page
+
+SOURCE /v0.1.5/dist/static/tools/scons-4.10.1-py3-none-any.whl bd9d1c52f908d874eba92a8c0c0a8dcf2ed9f3b88ab956d0fce1da479c4e7126 /tmp/scons-4.10.1-py3-none-any.whl
+SLOP pip install --no-compile --no-index --no-deps /tmp/scons-4.10.1-py3-none-any.whl
+SLOP mkdir -p /usr/share/licenses/scons
+SLOP cp /usr/lib/python3.14/site-packages/scons-4.10.1.dist-info/licenses/LICENSE /usr/share/licenses/scons/LICENSE
+# The page from SCons' source archive: the wheel has none.
+SOURCE /v0.1.5/dist/static/tools/scons.1 b6c0c5c9997d8dc70af5bf623df08a4d9091065ae6b4046cd17019d965c07cac /tmp/scons.1
+SLOP text-page /tmp/scons.1
+
+# SCons takes a program on PATH for a compiler only if its execute bit is set,
+# and Dolly keeps none, so the SConstruct names it.
+FILE /tmp/scons-check/SConstruct
+    Environment(CC="cc").Program("check", "check.c")
+FILE /tmp/scons-check/check.c
+    int main(void) { return 0; }
+SLOP CWD /tmp/scons-check scons -Q && ./check
+
+EXPORTS TOOL scons
+FOLDER /usr/lib/python3.14/site-packages/SCons
+FOLDER /usr/lib/python3.14/site-packages/scons-4.10.1.dist-info
+FILE /usr/share/licenses/scons/LICENSE
+FILE /usr/share/man/cat1/scons.1

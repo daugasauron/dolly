@@ -12,16 +12,16 @@ REQUIRES HOST html@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-INSTALL /v0.1.5/Dollyfile-core 7205c35aed897514d3094f14a194669f73c295b4dd0213619d90155da8467cde
-INSTALL /v0.1.5/Dollyfile-posix 50b5060f38addea1f5eca4b3a5afdbc976335da59d74d08b08aeb725637804ca
-INSTALL /v0.1.5/Dollyfile-display 656b938d470bb5b42aae1ef4b39382e86755a65726fdb1be20c7b20b3e014694
+INSTALL /v0.1.5/Dollyfile-core 2f8f0daacf0fc5f8ce3d5a6bfcbe6576e434db8146b7ba01f0e4928336f80cf6
+INSTALL /v0.1.5/Dollyfile-posix 92f9c9b8f9d3298d60446c8351d7b6ce7717f41145a36ee238418bf16f0f6cd9
+INSTALL /v0.1.5/Dollyfile-display c6a0bde3cbb5e1f8888cc3d35312cfed170977d1a315d23811c075ebd23ff008
 # download and upload, which the agent's settings and relay run (transfer).
-INSTALL /v0.1.5/Dollyfile-transfer 5ba6da77866030da273e49a2e8867ca6ef7441fa2024e90025da2239801dfe52
+INSTALL /v0.1.5/Dollyfile-transfer 2a9f1a1c6023a4c15cd514a3882fbab429565212d180b645bca73fb64feced49
 # cc and raylib build the game again, as .dollyrc says.
-INSTALL /v0.1.5/Dollyfile-cc afd89a983721972cb610d1d03ea39d5e6123d50b7b1a2b6922f1265657cc286a
-INSTALL /v0.1.5/demos/slopyard/Dollyfile-raylib ee9826631dbdad942128879b650fe003d50336fec623050012a381b216e600a5
-INSTALL /v0.1.5/demos/pi/Dollyfile-pi-dolly e7b059aac4e37b3c7bf280d632647c11dbc9fd33cad36ec68f19b27b72271189
-INSTALL /v0.1.5/demos/bhop/Dollyfile-airtime 1ad106e0326192364d1a1742ab9bded756d08fc19abf52c4e1b3cc83e952917f
+INSTALL /v0.1.5/Dollyfile-cc 88d6cae1d49f3fc82409ec222ea8aa0e746a077f48978df263a11ff81a9597af
+INSTALL /v0.1.5/demos/slopyard/Dollyfile-raylib 54bc93f0939104fec09f43c1d990ba6c5f34bc946d972c7cb75db3a497b68b56
+INSTALL /v0.1.5/demos/pi/Dollyfile-pi-dolly 0c9f5f4113875e719035d39d14b56119dee8af22d27cf4d482c5774b2d6a0894
+INSTALL /v0.1.5/demos/bhop/Dollyfile-airtime e2569904fd8e869e9604b1ced2df4df91a28211dd3ec3a788bc6fe674c302646
 REQUIRES TOOL pi
 REQUIRES TOOL bhop-agent
 

@@ -13,8 +13,8 @@ REQUIRES HOST touch@0
 # music command need more than it carries and are off. It plays through the
 # sdl2 package's audio@0 driver: libSDL2_mixer.a with its header, pkg-config
 # file and CMake package, for programs the cc package builds with SDL2.
-FROM /v0.1.5/demos/cmake/Dollyfile-cmake-build 144f011cb3fd7afc52ccbc9ee25935afa6b9ec5f708de792332581841aa8c7d7
-INSTALL /v0.1.5/demos/sdl2/Dollyfile-sdl2 0d035348a3bc6a5461070b7ebf0b2d76f439b2f66f8114e05abb0fc9c369b938
+FROM /v0.1.5/demos/cmake/Dollyfile-cmake-build 44e2b1ea2415d04b0e5ed2f1efeaeb8eec80552a5c09f5495a3993ce00994f9b
+INSTALL /v0.1.5/demos/sdl2/Dollyfile-sdl2 e947adfe97f2905086db3a211fbb6755b91c71a90622dcbf71a9a4256c99a3e7
 REQUIRES HEADER libc
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2
