@@ -1,0 +1,31 @@
+--- a/main/main.cpp
++++ b/main/main.cpp
+@@ -2392,6 +2392,7 @@
+ 		GLOBAL_DEF_RST(PropertyInfo(Variant::STRING, "rendering/rendering_device/driver.ios", PROPERTY_HINT_ENUM, "metal,vulkan"), "metal");
+ 		GLOBAL_DEF_RST(PropertyInfo(Variant::STRING, "rendering/rendering_device/driver.visionos", PROPERTY_HINT_ENUM, "metal"), "metal");
+ 		GLOBAL_DEF_RST(PropertyInfo(Variant::STRING, "rendering/rendering_device/driver.macos", PROPERTY_HINT_ENUM, "metal,vulkan"), "metal");
++		GLOBAL_DEF_RST(PropertyInfo(Variant::STRING, "rendering/rendering_device/driver.dolly", PROPERTY_HINT_ENUM, "webgpu"), "webgpu");
+ 
+ 		GLOBAL_DEF_RST("rendering/rendering_device/fallback_to_vulkan", true);
+ 		GLOBAL_DEF_RST("rendering/rendering_device/fallback_to_d3d12", true);
+@@ -2607,6 +2608,9 @@
+ #ifdef METAL_ENABLED
+ 			available_drivers.push_back("metal");
+ #endif
++#ifdef WEBGPU_ENABLED
++			available_drivers.push_back("webgpu");
++#endif
+ 		}
+ #ifdef GLES3_ENABLED
+ 		if (rendering_method == "gl_compatibility") {
+--- a/modules/glslang/config.py
++++ b/modules/glslang/config.py
+@@ -1,7 +1,7 @@
+ def can_build(env, platform):
+     # glslang is only needed when Vulkan, Direct3D 12 or Metal-based renderers are available,
+     # as OpenGL doesn't use glslang.
+-    return env["vulkan"] or env["d3d12"] or env["metal"]
++    return env["vulkan"] or env["d3d12"] or env["metal"] or env.get("webgpu", False)
+ 
+ 
+ def configure(env):

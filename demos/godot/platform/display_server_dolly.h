@@ -6,10 +6,13 @@
 #include <EGL/egl.h>
 
 class NativeMenu;
+class RenderingContextDriver;
+class RenderingDevice;
 
 // One window: the page's canvas through display@0, with the keys and pointer
-// of input@0. Godot's Compatibility renderer draws with Mesa's OpenGL into a
-// pbuffer of the window's size, and each frame is read back and presented.
+// of input@0. Godot's Mobile and Forward+ renderers draw on gpu@0's surface
+// (the webgpu driver); its Compatibility renderer draws with Mesa's OpenGL into
+// a pbuffer of the window's size, and each frame is read back and presented.
 class DisplayServerDolly : public DisplayServer {
 	GDSOFTCLASS(DisplayServerDolly, DisplayServer);
 
@@ -22,6 +25,8 @@ class DisplayServerDolly : public DisplayServer {
 	EGLConfig egl_config = nullptr;
 	EGLContext egl_context = EGL_NO_CONTEXT;
 	EGLSurface egl_surface = EGL_NO_SURFACE;
+	RenderingContextDriver *rendering_context = nullptr;
+	RenderingDevice *rendering_device = nullptr;
 	LocalVector<uint8_t> pixels;
 	NativeMenu *native_menu = nullptr;
 	ObjectID instance_id;
@@ -97,6 +102,6 @@ public:
 	Point2i mouse_get_position() const override { return mouse_position; }
 	void cursor_set_shape(DisplayServerEnums::CursorShape p_shape) override;
 
-	DisplayServerDolly(const Size2i &p_size, DisplayServerEnums::VSyncMode p_vsync_mode, Error &r_error);
+	DisplayServerDolly(const String &p_rendering_driver, const Size2i &p_size, DisplayServerEnums::VSyncMode p_vsync_mode, Error &r_error);
 	~DisplayServerDolly();
 };

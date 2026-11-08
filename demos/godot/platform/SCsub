@@ -9,4 +9,6 @@ env["LINKFLAGS"] = [flag for flag in env["LINKFLAGS"] if flag != "-s"]
 sources = ["os_dolly.cpp", "godot_dolly.cpp", "audio_driver_dolly.cpp"]
 if env["opengl3"]:
     sources += ["display_server_dolly.cpp", "#thirdparty/glad/gl.c"]
+if env["webgpu"]:
+    sources += ["rendering_context_driver_webgpu.cpp", "rendering_device_driver_webgpu.cpp", "rendering_shader_container_webgpu.cpp"]
 env.add_program("#bin/godot", sources)

@@ -5,6 +5,12 @@
 #include "drivers/gles3/rasterizer_gles3.h"
 #include "servers/display/native_menu.h"
 
+#if defined(RD_ENABLED)
+#include "rendering_context_driver_webgpu.h"
+#include "servers/rendering/renderer_rd/renderer_compositor_rd.h"
+#include "servers/rendering/rendering_device.h"
+#endif
+
 #include <platform_gl.h>
 
 #include <EGL/eglext.h>
@@ -30,12 +36,15 @@ static void set_modifiers(const Ref<InputEventWithModifiers> &p_event, uint32_t 
 
 Vector<String> DisplayServerDolly::get_rendering_drivers_func() {
 	Vector<String> drivers;
+#if defined(RD_ENABLED)
+	drivers.push_back("webgpu");
+#endif
 	drivers.push_back("opengl3");
 	return drivers;
 }
 
 DisplayServer *DisplayServerDolly::create_func(const String &p_rendering_driver, DisplayServerEnums::WindowMode p_mode, DisplayServerEnums::VSyncMode p_vsync_mode, uint32_t p_flags, const Point2i *p_position, const Size2i &p_resolution, int p_screen, DisplayServerEnums::Context p_context, int64_t p_parent_window, Error &r_error) {
-	DisplayServerDolly *server = memnew(DisplayServerDolly(p_resolution, p_vsync_mode, r_error));
+	DisplayServerDolly *server = memnew(DisplayServerDolly(p_rendering_driver, p_resolution, p_vsync_mode, r_error));
 	if (r_error != OK) {
 		memdelete(server);
 		return nullptr;
@@ -107,6 +116,12 @@ void DisplayServerDolly::window_set_size(const Size2i p_size, DisplayServerEnums
 	dolly_display_surface surface;
 	ERR_FAIL_COND(dolly_display_set_size(display, p_size.width, p_size.height, &surface) != 0);
 	size = p_size;
+#if defined(RD_ENABLED)
+	if (rendering_context) {
+		rendering_context->window_set_size(DisplayServerEnums::MAIN_WINDOW_ID, size.width, size.height);
+		return;
+	}
+#endif
 	eglMakeCurrent(egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	eglDestroySurface(egl_display, egl_surface);
 	create_gl_surface();
@@ -114,7 +129,11 @@ void DisplayServerDolly::window_set_size(const Size2i p_size, DisplayServerEnums
 
 // The frame Godot drew, read back and presented; with vsync, Godot waits for
 // the page's next animation frame, at most 100 ms (a hidden tab shows none).
+// RenderingDevice presents its own frames, on gpu@0's surface.
 void DisplayServerDolly::swap_buffers() {
+	if (rendering_device) {
+		return;
+	}
 	dolly_display_frame frame;
 	if (dolly_display_begin_frame(display, &frame) != 0 ||
 			frame.width != (uint32_t)size.width || frame.height != (uint32_t)size.height) {
@@ -297,7 +316,7 @@ void DisplayServerDolly::cursor_set_shape(DisplayServerEnums::CursorShape p_shap
 	dolly_display_set_cursor(display, cursors[p_shape]);
 }
 
-DisplayServerDolly::DisplayServerDolly(const Size2i &p_size, DisplayServerEnums::VSyncMode p_vsync_mode, Error &r_error) {
+DisplayServerDolly::DisplayServerDolly(const String &p_rendering_driver, const Size2i &p_size, DisplayServerEnums::VSyncMode p_vsync_mode, Error &r_error) {
 	r_error = ERR_UNAVAILABLE;
 	native_menu = memnew(NativeMenu);
 	Input::get_singleton()->set_event_dispatch_function(dispatch_input_event);
@@ -311,12 +330,47 @@ DisplayServerDolly::DisplayServerDolly(const Size2i &p_size, DisplayServerEnums:
 	ERR_FAIL_COND_MSG(error != 0, vformat("Dolly's input: %s.", strerror(-error)));
 	error = dolly_display_set_size(display, size.width, size.height, &surface);
 	ERR_FAIL_COND_MSG(error != 0, vformat("Dolly's display at %dx%d: %s.", size.width, size.height, strerror(-error)));
+#if defined(RD_ENABLED)
+	// gpu@0 opens where the browser grants a WebGPU adapter; elsewhere Godot falls back to its
+	// Compatibility renderer, as its X11 server does when Vulkan fails.
+	if (p_rendering_driver == "webgpu") {
+		rendering_context = memnew(RenderingContextDriverWebGPU);
+		if (rendering_context->initialize() != OK) {
+			memdelete(rendering_context);
+			rendering_context = nullptr;
+			ERR_FAIL_COND_MSG(!GLOBAL_GET("rendering/rendering_device/fallback_to_opengl3"), "No WebGPU device from gpu@0.");
+			WARN_PRINT("No WebGPU device from gpu@0: switching to the Compatibility renderer.");
+			OS::get_singleton()->set_current_rendering_driver_name("opengl3", OS::RENDERING_SOURCE_FALLBACK);
+			OS::get_singleton()->set_current_rendering_method("gl_compatibility", OS::RENDERING_SOURCE_FALLBACK);
+		} else {
+			ERR_FAIL_COND(rendering_context->window_create(DisplayServerEnums::MAIN_WINDOW_ID, nullptr) != OK);
+			rendering_context->window_set_size(DisplayServerEnums::MAIN_WINDOW_ID, size.width, size.height);
+			rendering_context->window_set_vsync_mode(DisplayServerEnums::MAIN_WINDOW_ID, p_vsync_mode);
+			rendering_device = memnew(RenderingDevice);
+			ERR_FAIL_COND_MSG(rendering_device->initialize(rendering_context, DisplayServerEnums::MAIN_WINDOW_ID) != OK, "RenderingDevice did not start on gpu@0.");
+			rendering_device->screen_create(DisplayServerEnums::MAIN_WINDOW_ID);
+			RendererCompositorRD::make_current();
+			r_error = OK;
+			return;
+		}
+	}
+#endif
 	ERR_FAIL_COND_MSG(create_gl_context() != OK, "No OpenGL 3.3 context from Mesa.");
 	RasterizerGLES3::make_current(true);
 	r_error = OK;
 }
 
 DisplayServerDolly::~DisplayServerDolly() {
+#if defined(RD_ENABLED)
+	if (rendering_device) {
+		rendering_device->screen_free(DisplayServerEnums::MAIN_WINDOW_ID);
+		memdelete(rendering_device);
+	}
+	if (rendering_context) {
+		rendering_context->window_destroy(DisplayServerEnums::MAIN_WINDOW_ID);
+		memdelete(rendering_context);
+	}
+#endif
 	if (egl_display != EGL_NO_DISPLAY) {
 		eglMakeCurrent(egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 		eglTerminate(egl_display);

@@ -22,7 +22,9 @@ def get_tools(env: "SConsEnvironment"):
 
 
 def get_opts():
-    return []
+    from SCons.Variables import BoolVariable
+
+    return [BoolVariable("webgpu", "The Mobile and Forward+ renderers on gpu@0's WebGPU (RenderingDevice)", True)]
 
 
 def get_doc_classes():
@@ -59,6 +61,10 @@ def configure(env: "SConsEnvironment"):
         env.Append(LINKFLAGS=["-pthread"])
     env.Prepend(CPPPATH=["#platform/dolly"])
     env.Append(CPPDEFINES=["DOLLY_ENABLED", "UNIX_ENABLED", ("_FILE_OFFSET_BITS", 64)])
+    if env["webgpu"]:
+        # The driver on gpu@0 and its shader container, which translates with spirv-wgsl.
+        env.Append(CPPDEFINES=["RD_ENABLED", "WEBGPU_ENABLED"])
+        env.Append(LIBS=["spirv-wgsl"])
     if env["opengl3"]:
         # The Compatibility renderer on Mesa's OpenGL, linked in: EGL and its
         # gallium driver, softpipe (mesa-build). GLAD takes the functions from

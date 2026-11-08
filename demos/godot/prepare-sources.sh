@@ -5,7 +5,8 @@ if has_image godot || has_image godot-editor; then
   if [[ ! -d "${godot_dir}" ]]; then mkdir -p build/generated && tar -xf "$(bash scripts/fetch-pinned-archive.sh godot)" -C build/generated; fi
   node scripts/build-source-tar.mjs "${static_dir}/godot/source.tar.gz" \
     "${godot_dir}" /usr/src/godot \
-    demos/godot/platform /usr/src/godot/platform/dolly
+    demos/godot/platform /usr/src/godot/platform/dolly \
+    demos/godot/godot-dolly.patch /usr/src/godot/platform/dolly/godot-dolly.patch
 fi
 # The demo projects' release publishes each project as a zip.
 if has_image dodge-the-creeps; then
