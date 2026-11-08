@@ -10,10 +10,37 @@ main priority of the project right now. I want to do everything by the book, no 
 shortcuts." Then: "extend gpu@0", the order below, "Do not release 0.1.6 first", "do not use
 subagents".
 
+## Baseline (2026-11-08): the editor on Mesa's softpipe
+
+Godot's editor on Dodge the Creeps' project, in `default` on `integrate/0.1.6` (`30f7cfda7`),
+headless Chrome, a 1600 by 1000 page, the editor's frame 1152 by 648. Files under
+`work/godot/build/gpu-baseline/`.
+
+- **Where its time goes.** A 30 s Chrome trace with V8's sampling profiler while the editor
+  switched between its 2D and 3D views every 3 s (`editor-trace.json.gz`; `profile.mjs`,
+  `profile-parents.mjs`). Its main thread was never idle:
+
+  | | time | share |
+  | --- | --- | --- |
+  | Mesa's softpipe: the shader interpreter, texture filtering, pixel-format conversion | 21.2 s | 71% |
+  | Waiting on the kernel (`awaitHost`: the page's frame, sleeps) | 7.8 s | 26% |
+  | Godot's own code | 0.6 s | 2% |
+
+  - The top functions are softpipe's (`editor-main-functions.txt`): `fetch_src_file_channel`,
+    `tgsi_exec_machine_run`, `exec_vector_binary`, `img_filter_2d_linear`. Conversions of the
+    editor's 10-bit render targets (`util_format_r10g10b10a2_unorm_*`) take 2%. Presenting a frame
+    (`DisplayServerDolly::swap_buffers`, `dolly_display_present`) takes under 0.1%.
+  - Godot's other threads waited all the time.
+- **What a person feels.** From a click on the 2D or 3D tab to the new view on the page
+  (`latency.sh`, timed from 0.3 s before the click): 2D 2.25, 1.02 and 0.97 s; 3D 1.90, 1.73 and
+  2.08 s. The page received 23 frames in those six switches, about one second of rendering each.
+- **What it means.** Godot's work is 2% of the time: the editor waits on its renderer. A driver
+  that draws on the GPU removes the 71%; the measure of success is the click-to-view latency and
+  the frame time above, measured the same way.
+
 ## Plan
 
-1. Profile the editor as it is: what its frames spend on rendering (Mesa's softpipe), on Godot's
-   own work, and on presenting them. The baseline the driver is measured against.
+1. Profile the editor as it is (done: Baseline, above).
 2. A design, for the owner's review before any contract code:
    - every method of Godot's `RenderingDeviceDriver` and `RenderingContextDriver` mapped to WebGPU
      and to gpu@0;
