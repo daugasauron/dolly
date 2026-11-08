@@ -5,7 +5,7 @@
 // and finds amy, which installs packages into the session.
 // Usage: node demos/ghostty-gtk/test/ghostty-x11-browser.mjs [chromium|firefox ...]
 import { mkdir } from "node:fs/promises";
-import { delay, demoTest, shellPrompt, snapshotDisplay, waitForDisplay } from "../../browser.mjs";
+import { delay, demoTest, framePoint, shellPrompt, snapshotDisplay, waitForDisplay } from "../../browser.mjs";
 
 const evidence = new URL("../../../build/ghostty-evidence/", import.meta.url).pathname;
 const width = 1024, height = 700;
@@ -17,10 +17,8 @@ const bright = async (page, x, y, w, h) => { await snapshotDisplay(page); return
   for (let i = 0; i < data.length; i += 4) count += data[i] + data[i + 1] + data[i + 2] > 450;
   return count;
 }, [x, y, w, h]); };
-async function at(page, x, y) {
-  const box = await page.locator("#display").boundingBox();
-  return [box.x + (x + 0.5) * box.width / width, box.y + (y + 0.5) * box.height / height];
-}
+// Where the page shows the middle of the X frame's pixel (x, y).
+const at = (page, x, y) => framePoint(page, x + 0.5, y + 0.5);
 // X maps keys, not characters: a shifted character is Shift and its key.
 const shifted = { ">": "Period", "$": "Digit4", "(": "Digit9", ")": "Digit0", "*": "Digit8" };
 async function type(page, text) {

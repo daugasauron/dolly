@@ -10,7 +10,7 @@
 // Usage: node demos/x11/test/x11-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-import { delay, demoTest, shellPrompt, snapshotDisplay, waitForDisplay } from "../../browser.mjs";
+import { delay, demoTest, framePoint, shellPrompt, snapshotDisplay, waitForDisplay } from "../../browser.mjs";
 
 const evidence = new URL("../../../build/x11-evidence/", import.meta.url).pathname;
 const width = 1600, height = 900;
@@ -27,10 +27,8 @@ const region = async (page, x, y, w, h) => { await snapshotDisplay(page); return
   return { lit, digest };
 }, [x, y, w, h]); };
 // Page coordinates of a frame pixel: the canvas is scaled to the page.
-async function at(page, x, y) {
-  const box = await page.locator("#display").boundingBox();
-  return [box.x + (x + 0.5) * box.width / width, box.y + (y + 0.5) * box.height / height];
-}
+// Where the page shows the middle of the X frame's pixel (x, y).
+const at = (page, x, y) => framePoint(page, x + 0.5, y + 0.5);
 const frameSequence = page => page.evaluate(() => Number(document.documentElement.dataset.frameSequence ?? 0));
 // Types text as a person does on a US keyboard: X maps keys, not characters,
 // so a shifted character is Shift and its key.

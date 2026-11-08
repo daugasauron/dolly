@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { acceptDownload } from '../../../browser.mjs';
+import { acceptDownload, frameBox } from '../../../browser.mjs';
 import { firstAttempt } from './bhop-provider.mjs';
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
@@ -9,7 +9,7 @@ export async function runBhopAgentProof({page,projectDir,fixture,modelsFile,down
   page.setDefaultTimeout(60000);
   await page.waitForFunction(()=>document.documentElement.dataset.dollyStatus==='ready');
   await page.waitForFunction(()=>globalThis.__dolly?.graphicsActive);
-  const click=async(x,y)=>{const r=await page.locator('#display').boundingBox();await page.mouse.click(r.x+r.width*x/1280,r.y+r.height*y/960);};
+  const click=async(x,y)=>{const r=await frameBox(page);await page.mouse.click(r.x+r.width*x/1280,r.y+r.height*y/960);};
   const key=name=>page.keyboard.press(name);
   const shot=name=>page.screenshot({path:resolve(projectDir,`build/bhop-agent-${fixture?'fixture':'live'}-${name}.png`)});
   const probe=()=>page.evaluate(async()=>{

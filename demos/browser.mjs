@@ -26,14 +26,19 @@ export const shellQuote = value => `'${String(value).replaceAll("'", "'\\''")}'`
 export const writeCommand = (path, text) =>
   `printf '%s\\n' ${text.replace(/\n$/, "").split("\n").map(shellQuote).join(" ")} > ${path}`;
 export const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
-// Where the page shows a graphics frame's pixel (x, y): the canvas fits the
-// frame at its own shape, centred.
-export const framePoint = (page, x, y) => page.evaluate(([x, y]) => {
+// The box in which the page shows a graphics frame: the canvas fits the frame
+// at its own shape, centred. scale is the box's CSS pixels per frame pixel.
+export const frameBox = page => page.evaluate(() => {
   const canvas = document.querySelector("#display"), bounds = canvas.getBoundingClientRect();
   const scale = Math.min(bounds.width / canvas.width, bounds.height / canvas.height);
-  return [bounds.left + (bounds.width - canvas.width * scale) / 2 + x * scale,
-    bounds.top + (bounds.height - canvas.height * scale) / 2 + y * scale];
-}, [x, y]);
+  return { x: bounds.left + (bounds.width - canvas.width * scale) / 2, y: bounds.top + (bounds.height - canvas.height * scale) / 2,
+    width: canvas.width * scale, height: canvas.height * scale, scale };
+});
+// Where the page shows a graphics frame's pixel (x, y).
+export async function framePoint(page, x, y) {
+  const box = await frameBox(page);
+  return [box.x + x * box.scale, box.y + y * box.scale];
+}
 
 async function openImage(browser, origin, image, { policy, prompt = shellPrompt, path = `/${image}/`, setup,
   viewport = { width: 1280, height: 800 }, device } = {}) {

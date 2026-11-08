@@ -16,7 +16,7 @@
 import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
 import { createServer } from "node:http";
-import { delay, demoTest, shellPrompt, snapshotDisplay, waitForDisplay } from "../../browser.mjs";
+import { delay, demoTest, framePoint, shellPrompt, snapshotDisplay, waitForDisplay } from "../../browser.mjs";
 
 const evidence = new URL("../../../build/wine-evidence/", import.meta.url).pathname;
 const desktop = [58, 110, 165], face = [212, 208, 200], white = [255, 255, 255], black = [0, 0, 0];
@@ -34,12 +34,8 @@ const dark = (page, x, y, width, height) => snapshotDisplay(page).then(() => pag
   for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] < 200) count++;
   return count;
 }, [x, y, width, height]));
-// Page coordinates of a frame pixel: the canvas may be shown at another size than the frame.
-async function at(page, x, y) {
-  const box = await page.locator("#display").boundingBox();
-  const [width, height] = await frameSize(page);
-  return [box.x + (x + 0.5) * box.width / width, box.y + (y + 0.5) * box.height / height];
-}
+// Where the page shows the middle of a frame pixel.
+const at = (page, x, y) => framePoint(page, x + 0.5, y + 0.5);
 const click = async (page, x, y) => page.mouse.click(...await at(page, x, y));
 
 // NetSurf's pages: demos/wine/test/fixtures/netsurf, each request for them noted, and one address

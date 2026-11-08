@@ -554,6 +554,8 @@ const elsewhere = {
   transcribe: "demos/speech: speech-to-text and voice link it", gmqcc: "demos/xonotic: xonotic-build installs it",
   pixman: "demos/x11: xorg-server links it", libxkbfile: "demos/x11: xorg-server links it", xkbcomp: "demos/x11: xorg-server installs it",
   "xkeyboard-config": "demos/x11: xorg-server installs it",
+  godot: "demos/godot", "godot-editor": "demos/godot", "dodge-the-creeps": "demos/godot",
+  scons: "demos/godot: godot's build uses it",
 };
 const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "llama", "tar", "meson", "typescript", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
 assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no test installs and uses");
