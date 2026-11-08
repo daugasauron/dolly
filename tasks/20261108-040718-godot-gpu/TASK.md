@@ -242,6 +242,17 @@ the GPU contract tests (explicit records, rendering), godot-browser and the edit
 Chrome and Firefox on this machine's GPU. Frame rates in the hardware test (2D, Mobile, Forward+,
 effects): Chrome 60.1, 60.0, 59.8, 56.0; Firefox 59.0, 59.0, 59.0, 59.0.
 
+## Against the baseline again (2026-11-09, Chrome)
+
+The same measures on Dodge the Creeps' project after `1892487c0` (batches no longer wait for
+WebGPU's validation), in a session with the driver of `754c062b5`:
+
+- The editor's own time, switch to drawn frame (2D, 3D alternating, three runs): 123, 31, 5, 10,
+  6, 20; 119, 15, 5, 25, 5, 13; 119, 31, 4, 4, 4, 7 ms. Before: 2D 61, 6, 6 and 3D 33, 33, 35 ms.
+  The first switch, cold, is slower than before (119 to 123 against 61); not explained.
+- Click to view on the page: 2D 315 (cold), 128, 128 ms; 3D 80, 80, 89 ms. Before: 2D 251, 96, 97
+  and 3D 172, 166, 183 ms.
+
 ## Plan
 
 1. Profile the editor as it is (done: Baseline, above).
