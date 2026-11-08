@@ -224,7 +224,10 @@
   ;; 45 depth32float-stencil8 (its feature); FEATURE_TEXTURE_BC adds
   ;; 46 bc1-rgba-unorm-srgb,47 bc2-rgba-unorm-srgb,48 bc3-rgba-unorm-srgb,
   ;; 49 bc4-r-unorm,50 bc4-r-snorm,51 bc5-rg-unorm,52 bc5-rg-snorm,
-  ;; 53 bc6h-rgb-ufloat,54 bc6h-rgb-float,55 bc7-rgba-unorm,56 bc7-rgba-unorm-srgb.
+  ;; 53 bc6h-rgb-ufloat,54 bc6h-rgb-float,55 bc7-rgba-unorm,56 bc7-rgba-unorm-srgb;
+  ;; LIMITS feature texture-formats-tier1 adds 57 r16unorm,58 r16snorm,
+  ;; 59 rg16unorm,60 rg16snorm,61 rgba16unorm,62 rgba16snorm. A view in an sRGB
+  ;; format leaves out its texture's STORAGE_BINDING usage.
   ;; Quotas count every mip, layer, depth slice and sample at the format's
   ;; block size (stencil8 1, depth16unorm 2 and depth32float-stencil8 8 bytes).
   ;; SAMPLER[56]: SAMPLER[48], then f32 lod_min_clamp,lod_max_clamp (finite,
@@ -324,7 +327,8 @@
   ;; 2 depth32float-stencil8,4 texture-compression-bc,8 timestamp-query,
   ;; 16 indirect-first-instance,32 shader-f16,64 rg11b10ufloat-renderable,
   ;; 128 float32-filterable,256 float32-blendable,512 subgroups,
-  ;; 1024 texture-component-swizzle.
+  ;; 1024 texture-component-swizzle,2048 texture-formats-tier1,
+  ;; 4096 texture-formats-tier2.
   ;; GPU timestamps are optional, asynchronously sampled per submitted encoder;
   ;; zero samples means unavailable/pending. They include passes, not CPU work.
   ;; One encoder per batch unless continued, explicit SUBMIT. No replay or

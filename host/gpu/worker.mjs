@@ -12,11 +12,14 @@ const textureFormats = [null, "rgba8unorm", "rgba8unorm-srgb", "r8unorm", "rg8un
   "rgb9e5ufloat", "rgb10a2uint", "rgb10a2unorm", "rg11b10ufloat", "rg32uint", "rg32sint", "rg32float", "rgba16uint",
   "rgba16sint", "rgba16float", "rgba32uint", "rgba32sint", "rgba32float", "stencil8", "depth16unorm", "depth32float-stencil8",
   "bc1-rgba-unorm-srgb", "bc2-rgba-unorm-srgb", "bc3-rgba-unorm-srgb", "bc4-r-unorm", "bc4-r-snorm", "bc5-rg-unorm",
-  "bc5-rg-snorm", "bc6h-rgb-ufloat", "bc6h-rgb-float", "bc7-rgba-unorm", "bc7-rgba-unorm-srgb"];
+  "bc5-rg-snorm", "bc6h-rgb-ufloat", "bc6h-rgb-float", "bc7-rgba-unorm", "bc7-rgba-unorm-srgb",
+  "r16unorm", "r16snorm", "rg16unorm", "rg16snorm", "rgba16unorm", "rgba16snorm"];
 // Bytes of a texel, or of a 4x4 block for the block-compressed formats.
 const blockBytes = [0, 4, 4, 1, 2, 4, 4, 8, 16, 16, 1, 1, 1, 2, 2, 2, 2, 2, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-  8, 8, 8, 8, 8, 8, 16, 16, 16, 1, 2, 8, 8, 16, 16, 8, 8, 16, 16, 16, 16, 16, 16];
-const compressedFormat = type => (type >= 7 && type <= 9) || type >= 46;
+  8, 8, 8, 8, 8, 8, 16, 16, 16, 1, 2, 8, 8, 16, 16, 8, 8, 16, 16, 16, 16, 16, 16, 2, 2, 4, 4, 8, 8];
+const compressedFormat = type => (type >= 7 && type <= 9) || (type >= 46 && type <= 56);
+// The sRGB formats, which views of a texture take that has none of their usages (storage).
+const srgbFormat = type => type === 2 || type === 29 || (type >= 46 && type <= 48) || type === 56;
 const depthFormat = type => type === 5 || type === 6 || type === 44 || type === 45;
 const stencilFormat = type => type === 5 || type === 43 || type === 45;
 const viewDimensions = [undefined, "1d", "2d", "2d-array", "cube", "cube-array", "3d"];
@@ -103,7 +106,7 @@ const requestBytes = new Map([[A.DOLLY_GPU_OPEN, 40], [A.DOLLY_GPU_WAIT, 32], [A
 // for each limit, bounded by the scope quotas above where they are lower.
 const reportedFeatures = ["depth-clip-control", "depth32float-stencil8", "texture-compression-bc", "timestamp-query",
   "indirect-first-instance", "shader-f16", "rg11b10ufloat-renderable", "float32-filterable", "float32-blendable",
-  "subgroups", "texture-component-swizzle"];
+  "subgroups", "texture-component-swizzle", "texture-formats-tier1", "texture-formats-tier2"];
 const reportedLimits = ["maxTextureDimension1D", "maxTextureDimension2D", "maxTextureDimension3D", "maxTextureArrayLayers",
   "maxBindGroups", "maxBindingsPerBindGroup", "maxDynamicUniformBuffersPerPipelineLayout",
   "maxDynamicStorageBuffersPerPipelineLayout", "maxSampledTexturesPerShaderStage", "maxSamplersPerShaderStage",
@@ -721,10 +724,11 @@ async function batch(scope, commands, flags) {
           [24,28,32,36,40,44,48,52].map(at=>w.getUint32(at,true));
         const channels=[0,1,2,3].map(i=>(swizzle>>>(8*i))&255);
         ensure(format<textureFormats.length && dimension<=6 && aspect<=2 && baseMip<r.mips && mips<=r.mips-baseMip &&
-          channels.every(n=>n<=5), "View descriptor");
+          channels.every(n=>n<=5), `View descriptor: format ${format}, dimension ${dimension}, aspect ${aspect}, mips ${baseMip}+${mips} of ${r.mips}, swizzle ${swizzle.toString(16)}`);
         const descriptor={aspect:aspects[aspect],baseMipLevel:baseMip,baseArrayLayer:baseLayer,
           ...(format?{format:textureFormats[format]}:{}),...(dimension?{dimension:viewDimensions[dimension]}:{}),
-          ...(mips?{mipLevelCount:mips}:{}),...(layers?{arrayLayerCount:layers}:{})};
+          ...(mips?{mipLevelCount:mips}:{}),...(layers?{arrayLayerCount:layers}:{}),
+          ...(srgbFormat(format) && r.value.usage & GPUTextureUsage.STORAGE_BINDING?{usage:r.value.usage & ~GPUTextureUsage.STORAGE_BINDING}:{})};
         if(swizzle!==0x03020100) {
           ensure(device.features.has("texture-component-swizzle"),"Texture swizzles are unavailable",E.ENOTSUP);
           descriptor.swizzle=channels.map(n=>"rgba01"[n]).join("");

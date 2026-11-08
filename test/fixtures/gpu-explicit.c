@@ -1,8 +1,8 @@
 // gpu@0's explicit records on a real device: texture views, explicit layouts, a whole render
 // pipeline with two targets, depth and dynamic offsets, an absent attachment, a render pass
 // continued across two batches, multisample resolve, an explicit compute pass with indirect
-// dispatch into a storage texture, copies, buffer clears, timestamps, the surface as a view-pass
-// attachment, and refusals.
+// dispatch into a storage texture, copies, buffer clears, timestamps, sRGB views of storage
+// textures, tier-1 formats, the surface as a view-pass attachment, and refusals.
 #include <dolly/gpu.h>
 #include <assert.h>
 #include <errno.h>
@@ -253,6 +253,19 @@ int main(void) {
   batch();
   view(gray,0,0,0,0x05000000);
   if(features&1024)batch();else rejected(ENOTSUP);
+
+  // An sRGB view of a storage texture leaves out the storage its format lacks; under
+  // texture-formats-tier1, r16unorm is a storage format.
+  unsigned storable=id();p=dolly_gpu_record(&gpu,DOLLY_GPU_CREATE_TEXTURE,48);
+  u64(p,8,storable);u32(p,16,4);u32(p,20,4);u32(p,24,1);u32(p,28,1);u32(p,32,RGBA8);u32(p,36,T_STORAGE|T_SAMPLED);
+  u32(p,40,2);u16(p,44,1);u16(p,46,2);
+  p=dolly_gpu_record(&gpu,DOLLY_GPU_CREATE_VIEW,56);u64(p,8,id());u64(p,16,storable);u32(p,24,2);u32(p,52,0x03020100);
+  batch();
+  if(features&2048) {
+    texture(2,4,4,1,57,T_STORAGE|T_COPY_SRC,1);
+    p=dolly_gpu_record(&gpu,DOLLY_GPU_CREATE_BIND_GROUP_LAYOUT,56);u64(p,8,id());u32(p,16,1);layout_entry(p,0,0,4,8,1,2,57);
+    batch();
+  }
 
   // The surface as a view-pass attachment, captured.
   unsigned frame=buffer(NULL,256*64,COPY_DST|MAP_READ);

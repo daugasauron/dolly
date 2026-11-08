@@ -36,7 +36,7 @@ SOURCE /v0.1.5/host/download/dolly-download-0.wat 6aacfaf743af4bc16ce3099e006836
 SOURCE /v0.1.5/host/html/dolly-html-0.wat 3d2227e25d3e2972973a8698511eb4114d4f664fe4a6425a673529feca0d50ba /usr/share/doc/dolly/host/html/dolly-html-0.wat
 SOURCE /v0.1.5/host/dso/dolly-dso-0.wat 24bf62ade97f2aea68b0ecafc3fed63369c3a6b7f3a4ba9916b18119e321ec43 /usr/share/doc/dolly/host/dso/dolly-dso-0.wat
 SOURCE /v0.1.5/host/stack/dolly-stack-0.wat 60e29cb49bedc7e2b891c2837343939cab882a4ca32d03672f9e362cfcd8c1b3 /usr/share/doc/dolly/host/stack/dolly-stack-0.wat
-SOURCE /v0.1.5/host/gpu/dolly-gpu-0.wat 1cedc95be5b93064a02e80f50c45805bfa49e315816f30c11cbccb690ec876dd /usr/share/doc/dolly/host/gpu/dolly-gpu-0.wat
+SOURCE /v0.1.5/host/gpu/dolly-gpu-0.wat e110863a1b09dc2bf28d28c438895b395e9d593846ddc0a242e62341041e4fe0 /usr/share/doc/dolly/host/gpu/dolly-gpu-0.wat
 SOURCE /v0.1.5/host/http/dolly-http-0.wat c4f2179960b4acc4c77164f7cc9b6ae118045b479f1fc61ed09ea7985852a650 /usr/share/doc/dolly/host/http/dolly-http-0.wat
 SOURCE /v0.1.5/host/pty/dolly-pty-0.wat 15c26cf3f2b832b205988efecf343145dcbaa95af617f9c18d3be6e69e63610c /usr/share/doc/dolly/host/pty/dolly-pty-0.wat
 SOURCE /v0.1.5/host/pty/dolly-pty-supervisor-0.wat cce1edb921a3d4f93c3c2d94e51fc009bf659d85336349b880730df3294e2ca4 /usr/share/doc/dolly/host/pty/dolly-pty-supervisor-0.wat
