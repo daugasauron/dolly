@@ -1868,8 +1868,9 @@ RDD::PipelineID RenderingDeviceDriverWebGPU::compute_pipeline_create(ShaderID p_
 	if (!shader->unavailable.is_empty()) {
 		// Godot's release builds dispatch the pipeline they asked for and divide by its workgroup
 		// size (compute_list_dispatch_threads): a variant that cannot run here gets one that binds
-		// nothing and whose dispatches do nothing, so the effect is absent rather than the game.
-		ERR_PRINT(vformat("%s Its dispatches do nothing here.", shader->unavailable));
+		// nothing and whose dispatches do nothing, so the effect is absent rather than the game. Godot
+		// makes some of these at startup, used or not (SDFGI's, and Firefox's tier-less effects).
+		WARN_PRINT(vformat("%s Its dispatches do nothing here.", shader->unavailable));
 		if (!idle_module) {
 			const CharString wgsl = String("@compute @workgroup_size(1) fn main() {}").utf8();
 			Record m(DOLLY_GPU_CREATE_SHADER, 24 + wgsl.length());
