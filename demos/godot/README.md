@@ -1,7 +1,11 @@
 # Godot
 
-Godot 4.7 from upstream's release, unchanged, built inside Dolly by SCons
-with Dolly's `cc`, as the `godot` package: `amy install godot`, then
+Godot 4.7 from upstream's release, built inside Dolly by SCons with Dolly's
+`cc`, as the `godot` package, with one patch
+([`godot-dolly.patch`](godot-dolly.patch)): it names Dolly's WebGPU driver to
+Godot, and Forward+ starts SDFGI only where the device has image atomics,
+which WebGPU does not (SDFGI also needs more storage textures than WebGPU
+gives a shader stage). `amy install godot`, then
 `godot --path DIRECTORY` runs a project on the page, drawn by Godot's
 Mobile and Forward+ renderers through a RenderingDevice driver on `gpu@0`
 where the browser grants WebGPU, and by its Compatibility renderer on Mesa's

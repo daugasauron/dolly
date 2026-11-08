@@ -7,7 +7,7 @@ REQUIRES HOST input@0
 REQUIRES HOST threads@0
 REQUIRES HOST gpu@0
 
-# Godot from its release, unchanged, built by SCons with Dolly's cc on a
+# Godot from its release, patched below, built by SCons with Dolly's cc on a
 # platform of Dolly's own (platform/dolly, from demos/godot/platform): the
 # engine with GDScript, 2D and 3D and Godot's own physics for both, the
 # fallback text server, Ogg Vorbis, MP3, WebP and regular expressions, what an
@@ -34,7 +34,8 @@ REQUIRES TOOL text-page
 
 SOURCE /v0.1.5/dist/static/godot/source.tar.gz d9c98a50f4c2dcac3e16b96effe17f1a4ceabda8e27ab34938a06cc222c2c01e /tmp/godot-source.tar.gz
 SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
-# Godot's modern renderers take only the drivers main.cpp names; glslang builds beside them.
+# Godot's modern renderers take only the drivers main.cpp names; glslang builds beside them;
+# Forward+ starts SDFGI only on a device with image atomics, which its voxelization takes.
 SLOP CWD /usr/src/godot patch -p1 -i platform/dolly/godot-dolly.patch
 SLOP CWD /usr/src/godot scons -j4 platform=dolly modules_enabled_by_default=no \
   module_gdscript_enabled=yes module_text_server_fb_enabled=yes module_freetype_enabled=yes \

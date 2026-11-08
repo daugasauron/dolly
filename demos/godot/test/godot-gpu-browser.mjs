@@ -1,7 +1,8 @@
 // Godot's RenderingDevice on gpu@0, on a real adapter, on the private X display DISPLAY names:
 // Chrome on Vulkan, or the installed Firefox (docs/gpu.md). A 2D scene on the Mobile renderer
-// (godot), a 3D scene with a sky, light and shadow (godot-editor running it) and the editor
-// itself each read their own frame back, as Firefox under Xvfb shows no WebGPU canvas.
+// (godot), a 3D scene with a sky, light and shadow on Mobile (godot-editor running it) and on
+// Forward+ (godot), and the editor itself each read their own frame back, as Firefox under Xvfb
+// shows no WebGPU canvas.
 // Usage: node demos/godot/test/godot-gpu-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { chromium, firefox } from "playwright-core";
@@ -186,8 +187,9 @@ for (const name of browsers) {
     // Each prints what the checks read, and gpu@0 refused no batch of its.
     await run("godot --path /tmp/scene2d > /tmp/scene2d.out 2>&1");
     await run("godot-editor --path /tmp/scene3d > /tmp/scene3d.out 2>&1");
+    await run("godot --rendering-method forward_plus --path /tmp/scene3d > /tmp/forward.out 2>&1");
     await run("godot-editor -e --path /tmp/scene3d > /tmp/editor.out 2>&1");
-    await run("! grep -q 'refused a batch' /tmp/scene2d.out /tmp/scene3d.out /tmp/editor.out");
+    await run("! grep -q 'refused a batch' /tmp/scene2d.out /tmp/scene3d.out /tmp/forward.out /tmp/editor.out");
 
     const lines2d = await output("/tmp/scene2d.out | grep -E '^(ADAPTER|FPS|BACKGROUND|SPRITE|LABEL) '");
     assert.match(lines2d, /^ADAPTER WebGPU$/m);
@@ -195,19 +197,23 @@ for (const name of browsers) {
     near(color(lines2d, "SPRITE"), [0x80, 0x80, 0x7f], "the sprite's middle");
     assert.ok(Number(lines2d.match(/^LABEL (\d+)$/m)?.[1]) > 100, "the label's text is drawn");
 
-    const lines3d = await output("/tmp/scene3d.out | grep -E '^(ADAPTER|FPS|SKY|BOX|FLOOR|SHADOW) '");
-    assert.match(lines3d, /^ADAPTER WebGPU mobile$/m);
-    near(color(lines3d, "SKY"), [0x88, 0x91, 0x9c], "the sky");
-    near(color(lines3d, "BOX"), [0xcb, 0x2c, 0x30], "the box");
-    near(color(lines3d, "FLOOR"), [0xbc, 0xc1, 0xc8], "the lit floor");
-    near(color(lines3d, "SHADOW"), [0x52, 0x5e, 0x6e], "the shadow");
+    const scenes3d = [];
+    for (const [file, method] of [["scene3d", "mobile"], ["forward", "forward_plus"]]) {
+      const lines = await output(`/tmp/${file}.out | grep -E '^(ADAPTER|FPS|SKY|BOX|FLOOR|SHADOW) '`);
+      assert.match(lines, new RegExp(`^ADAPTER WebGPU ${method}$`, "m"));
+      near(color(lines, "SKY"), [0x88, 0x91, 0x9c], `${method}'s sky`);
+      near(color(lines, "BOX"), [0xcb, 0x2c, 0x30], `${method}'s box`);
+      near(color(lines, "FLOOR"), [0xbc, 0xc1, 0xc8], `${method}'s lit floor`);
+      near(color(lines, "SHADOW"), [0x52, 0x5e, 0x6e], `${method}'s shadow`);
+      scenes3d.push(lines);
+    }
 
     const editor = await output("/tmp/editor.out | grep '^EDITOR '");
     const [, red, light] = editor.match(/^EDITOR 1152x648 red (\d+) light (\d+)$/m) ?? [];
     assert.ok(Number(red) > 1000 && Number(light) > 40, `the editor draws its 3D view and text: ${editor}`);
     assert.equal(await page.evaluate(() => __dolly.gpu.isFallbackAdapter), false);
     assert.deepEqual(errors, []);
-    for (const line of `${lines2d}\n${lines3d}`.split("\n").filter(line => line.startsWith("FPS"))) console.log(name, line);
+    for (const line of [lines2d, ...scenes3d].join("\n").split("\n").filter(line => line.startsWith("FPS"))) console.log(name, line);
     console.log(`godot-gpu: ${name} passed`);
   } finally {
     clearTimeout(deadline);

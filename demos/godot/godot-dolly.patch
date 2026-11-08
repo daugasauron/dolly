@@ -29,3 +29,24 @@
  
  
  def configure(env):
+--- a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
++++ b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
+@@ -1873,7 +1873,7 @@
+ 		}
+ 
+ 		if (p_render_data->environment.is_valid()) {
+-			if (environment_get_sdfgi_enabled(p_render_data->environment) && get_debug_draw_mode() != RSE::VIEWPORT_DEBUG_DRAW_UNSHADED) {
++			if (environment_get_sdfgi_enabled(p_render_data->environment) && get_debug_draw_mode() != RSE::VIEWPORT_DEBUG_DRAW_UNSHADED && RD::get_singleton()->has_feature(RD::SUPPORTS_IMAGE_ATOMIC_32_BIT)) {
+ 				using_sdfgi = true;
+ 			}
+ 			if (environment_get_ssr_enabled(p_render_data->environment)) {
+@@ -4031,7 +4031,8 @@
+ 		sdfgi = rb->get_custom_data(RB_SCOPE_SDFGI);
+ 	}
+ 
+-	bool needs_sdfgi = p_environment.is_valid() && environment_get_sdfgi_enabled(p_environment);
++	// SDFGI's voxelization (scene_forward_clustered.glsl) takes image atomics.
++	bool needs_sdfgi = p_environment.is_valid() && environment_get_sdfgi_enabled(p_environment) && RD::get_singleton()->has_feature(RD::SUPPORTS_IMAGE_ATOMIC_32_BIT);
+ 	bool needs_reset = sdfgi.is_valid() ? sdfgi->version != gi.sdfgi_current_version : false;
+ 
+ 	if (!needs_sdfgi || needs_reset) {

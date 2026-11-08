@@ -264,6 +264,133 @@ public:
 };
 
 // WGSL storage buffers are read-only or read-write: a write-only one becomes read-write.
+// An image type of a storage image (Sampled 2), not of a subpass input.
+bool storage_image(const Instruction *type) {
+	return type->opcode() == Op::OpTypeImage && type->GetSingleWordInOperand(5) == 2 && spv::Dim(type->GetSingleWordInOperand(1)) != spv::Dim::SubpassData;
+}
+
+// --replace-desc-array-access-using-var-index copies a write to an image of a descriptor array
+// indexed by a variable into a switch over the array's elements, ending the write's block, but
+// leaves the original write, which has no result to replace: removed here, and with it the access
+// by the variable index that descriptor scalar replacement cannot split.
+class DropSwitchedImageWrites : public Pass {
+public:
+	const char *name() const override { return "dolly-drop-switched-image-writes"; }
+	Status Process() override {
+		std::vector<Instruction *> writes;
+		for (Function &function : *get_module()) {
+			for (BasicBlock &block : function) {
+				const Instruction *terminator = block.terminator();
+				if (terminator->opcode() != Op::OpSwitch) continue;
+				for (Instruction &inst : block) {
+					if (inst.opcode() != Op::OpImageWrite) continue;
+					const Instruction *image = get_def_use_mgr()->GetDef(inst.GetSingleWordInOperand(0));
+					if (image->opcode() != Op::OpLoad) continue;
+					const Instruction *access = get_def_use_mgr()->GetDef(image->GetSingleWordInOperand(0));
+					if (access->opcode() == Op::OpAccessChain && access->NumInOperands() == 2 &&
+							access->GetSingleWordInOperand(1) == terminator->GetSingleWordInOperand(0)) {
+						writes.push_back(&inst);
+					}
+				}
+			}
+		}
+		for (Instruction *write : writes) context()->KillInst(write);
+		return writes.empty() ? Status::SuccessWithoutChange : Status::SuccessWithChange;
+	}
+};
+
+// A storage image declared neither readonly nor writeonly that the shader only writes or only
+// reads gets that access: WebGPU reads and writes one storage texture only in r32 formats, and in
+// a few more with texture-formats-tier2. Images with other uses keep theirs.
+class StorageImageAccess : public Pass {
+public:
+	const char *name() const override { return "dolly-storage-image-access"; }
+	Status Process() override {
+		bool changed = false;
+		for (Instruction &variable : context()->types_values()) {
+			if (variable.opcode() != Op::OpVariable || StorageClass(variable.GetSingleWordInOperand(0)) != StorageClass::UniformConstant) continue;
+			const Instruction *type = element_type(context(), pointee(context(), variable));
+			if (!storage_image(type)) continue;
+			if (decoration(context(), variable.result_id(), Decoration::NonReadable) || decoration(context(), variable.result_id(), Decoration::NonWritable)) continue;
+			bool read = false, written = false, other = false;
+			uses(&variable, read, written, other);
+			if (other || (read && written)) continue;
+			get_decoration_mgr()->AddDecoration(variable.result_id(), uint32_t(read ? Decoration::NonWritable : Decoration::NonReadable));
+			changed = true;
+		}
+		return changed ? Status::SuccessWithChange : Status::SuccessWithoutChange;
+	}
+
+private:
+	void uses(Instruction *def, bool &read, bool &written, bool &other) {
+		get_def_use_mgr()->ForEachUser(def, [&](Instruction *user) {
+			switch (user->opcode()) {
+				case Op::OpAccessChain:
+				case Op::OpInBoundsAccessChain:
+				case Op::OpLoad:
+				case Op::OpCopyObject:
+					uses(user, read, written, other);
+					break;
+				case Op::OpImageRead:
+					read = true;
+					break;
+				case Op::OpImageWrite:
+					written = true;
+					break;
+				case Op::OpImageQuerySize:
+				case Op::OpImageQueryLevels:
+				case Op::OpImageQuerySamples:
+				case Op::OpDecorate:
+				case Op::OpName:
+				case Op::OpEntryPoint:
+					break;
+				default:
+					other = true;
+			}
+		});
+	}
+};
+
+// A storage image declared without a format (GLSL's image without a layout qualifier) takes
+// rgba16float, rgba32sint or rgba32uint by its texel type: WGSL names one, and the driver binds
+// the texture's own format through a variant of the shader (storage_variant).
+class FormatlessStorage : public Pass {
+public:
+	const char *name() const override { return "dolly-formatless-storage"; }
+	Status Process() override {
+		bool changed = false;
+		for (Instruction &type : context()->types_values()) {
+			if (!storage_image(&type) || spv::ImageFormat(type.GetSingleWordInOperand(6)) != spv::ImageFormat::Unknown) continue;
+			const Instruction *texel = get_def_use_mgr()->GetDef(type.GetSingleWordInOperand(0));
+			const bool integer = texel->opcode() == Op::OpTypeInt, sign = integer && texel->GetSingleWordInOperand(1);
+			type.SetInOperand(6, { uint32_t(!integer ? spv::ImageFormat::Rgba16f : sign ? spv::ImageFormat::Rgba32i : spv::ImageFormat::Rgba32ui) });
+			changed = true;
+		}
+		if (changed) {
+			for (spv::Capability capability : { spv::Capability::StorageImageWriteWithoutFormat, spv::Capability::StorageImageReadWithoutFormat }) {
+				context()->RemoveCapability(capability);
+			}
+		}
+		return changed ? Status::SuccessWithChange : Status::SuccessWithoutChange;
+	}
+};
+
+// GLSL's volatile buffers (Godot's volumetric fog without image atomics, whose accesses to them
+// are atomics) carry Volatile, which WGSL has no word for and Tint does not read.
+class DropVolatile : public Pass {
+public:
+	const char *name() const override { return "dolly-drop-volatile"; }
+	Status Process() override {
+		std::vector<Instruction *> found;
+		for (Instruction &d : get_module()->annotations()) {
+			const bool member = d.opcode() == Op::OpMemberDecorate;
+			if ((member || d.opcode() == Op::OpDecorate) && Decoration(d.GetSingleWordInOperand(member ? 2 : 1)) == Decoration::Volatile) found.push_back(&d);
+		}
+		for (Instruction *d : found) context()->KillInst(d);
+		return found.empty() ? Status::SuccessWithoutChange : Status::SuccessWithChange;
+	}
+};
+
 class WriteOnlyStorage : public Pass {
 public:
 	const char *name() const override { return "dolly-write-only-storage"; }
@@ -982,9 +1109,13 @@ extern "C" void spirv_wgsl_translate(const uint32_t *words, size_t word_count, c
 			.RegisterPass(spvtools::CreateEliminateDeadFunctionsPass())
 			.RegisterPass(pass<o::SinkDescriptorAccess>())
 			.RegisterPass(spvtools::CreateReplaceDescArrayAccessUsingVarIndexPass())
+			.RegisterPass(pass<o::DropSwitchedImageWrites>())
 			// The replacement leaves each original access, dead, which the next pass refuses.
 			.RegisterPass(spvtools::CreateAggressiveDCEPass())
 			.RegisterPass(spvtools::CreateDescriptorScalarReplacementPass())
+			.RegisterPass(pass<o::StorageImageAccess>())
+			.RegisterPass(pass<o::FormatlessStorage>())
+			.RegisterPass(pass<o::DropVolatile>())
 			.RegisterPass(pass<o::PushConstantsToStorage>())
 			.RegisterPass(pass<o::RemovePointSize>())
 			.RegisterPass(pass<o::MergeMemoryBarriers>())
