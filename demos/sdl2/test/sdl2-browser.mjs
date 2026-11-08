@@ -1,7 +1,7 @@
 // The sdl2 package installed on `system`: a source build, RGB565 presentation,
 // text and key input, clicks, pointer presence and blur. Usage: node demos/sdl2/test/sdl2-browser.mjs
 import assert from "node:assert/strict";
-import { demoTest, installProbe, waitForDisplay } from "../../browser.mjs";
+import { demoTest, framePoint, installProbe, waitForDisplay } from "../../browser.mjs";
 
 await demoTest("sdl2", { image: "sdl2", timeout: 600_000,
   server: { fixtures: { "sdl2-probe.c": "demos/sdl2/test/fixtures/sdl2-probe.c" } } }, async ({ server, open }) => {
@@ -26,9 +26,9 @@ await demoTest("sdl2", { image: "sdl2", timeout: 600_000,
     return JSON.stringify([[80, 60], [240, 60], [80, 180], [240, 180]].map(([x, y]) => [...context.getImageData(x, y, 1, 1).data]))
       === "[[255,0,0,255],[0,255,0,255],[0,0,255,255],[255,255,255,255]]";
   });
-  const box = await page.locator("canvas").boundingBox();
-  await page.mouse.click(box.x + box.width / 4, box.y + box.height / 4);
-  await page.mouse.click(box.x + box.width / 4, box.y + box.height / 4, { button: "right" });
+  const quarter = await framePoint(page, 80, 60);
+  await page.mouse.click(...quarter);
+  await page.mouse.click(...quarter, { button: "right" });
   await key({ key: "a", code: "KeyA", windowsVirtualKeyCode: 65 });
   for (const [text, code, modifiers] of [["B", "KeyB", 8], ["!", "Digit1", 8], ["é", "KeyE", 0], ["😀", "", 0]]) {
     await key({ key: text, code, modifiers, text });

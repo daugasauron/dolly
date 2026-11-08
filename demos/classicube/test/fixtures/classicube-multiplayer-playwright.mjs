@@ -3,14 +3,14 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { decodeWorld } from "../../agent/room.mjs";
-import { snapshotDisplay, waitForDisplay } from "../../../browser.mjs";
+import { frameBox, snapshotDisplay, waitForDisplay } from "../../../browser.mjs";
 
 export async function runClassiCubeMultiplayer({page, modelsFile, projectDir}) {
   page.setDefaultTimeout(45000);
   await page.waitForFunction(()=>document.documentElement.dataset.dollyStatus==='ready');
   await page.waitForFunction(()=>globalThis.__dolly?.graphicsActive);
   const click = async (x,y) => {
-    const r = await page.locator('#display').boundingBox();
+    const r = await frameBox(page);
     await page.mouse.click(r.x+r.width*x/1280,r.y+r.height*y/960);
   };
   const probe = () => page.evaluate(async()=>{

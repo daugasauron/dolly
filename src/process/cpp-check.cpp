@@ -1,7 +1,6 @@
-// Before <atomic>, as a C++ program includes them.
+// Before <atomic>, as a C++ program includes them: the seed's host headers.
 #include <dolly/display.h>
 #include <dolly/input.h>
-#include <dolly/touch.h>
 #include <dolly/upload.h>
 
 #include <atomic>

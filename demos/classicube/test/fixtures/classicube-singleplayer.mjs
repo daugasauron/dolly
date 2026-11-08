@@ -3,6 +3,10 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
 
+// The frame's box on the page, as an expression: the canvas fits the frame at
+// its own shape, centred.
+const frameBox = "(() => { const c = document.querySelector('#display'), b = c.getBoundingClientRect(), s = Math.min(b.width / c.width, b.height / c.height); return {x: b.x + (b.width - c.width * s) / 2, y: b.y + (b.height - c.height * s) / 2, width: c.width * s, height: c.height * s}; })()";
+
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function runClassiCubeProof({ send, evaluate, wait, key, snapshot, projectDir }) {
@@ -15,7 +19,7 @@ export async function runClassiCubeProof({ send, evaluate, wait, key, snapshot, 
     await writeFile(resolve(projectDir, `build/classicube-${name}.png`), result.data, "base64");
   };
   const point = await evaluate(`(() => {
-    const r = document.querySelector('#display').getBoundingClientRect();
+    const r = ${frameBox};
     return {x: r.x + r.width / 2, y: r.y + r.height / 2};
   })()`);
   const click = async (button = "left") => {
@@ -64,7 +68,7 @@ export async function runClassiCubeProof({ send, evaluate, wait, key, snapshot, 
   await screenshot("menu");
   const menuClick = async (x, y) => {
     const position = await evaluate(`(() => {
-      const r = document.querySelector('#display').getBoundingClientRect();
+      const r = ${frameBox};
       return {x:r.x+r.width*${x}/640, y:r.y+r.height*${y}/480};
     })()`);
     await send("Input.dispatchMouseEvent", {type:"mousePressed", ...position, button:"left", buttons:1, clickCount:1});

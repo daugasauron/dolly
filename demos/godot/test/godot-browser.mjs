@@ -8,7 +8,7 @@
 // frame it drew.
 // Usage: node demos/godot/test/godot-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
-import { demoTest, heardAudio, meterAudio, waitForDisplay, writeCommand } from "../../browser.mjs";
+import { demoTest, framePoint, heardAudio, meterAudio, waitForDisplay, writeCommand } from "../../browser.mjs";
 
 const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const project = {
@@ -178,15 +178,9 @@ for (const browser of browsers) {
         JSON.stringify(pixel(5, 5)) === "[25,51,102]" && pixel(320, 180).every(value => Math.abs(value - 128) < 6);
     });
     await page.keyboard.press("a");
-    // The frame's point (160, 90): the page shows the 640 by 360 frame at its
-    // own shape in the middle of the canvas.
-    const point = await page.evaluate(([x, y]) => {
-      const canvas = document.querySelector("#display"), bounds = canvas.getBoundingClientRect();
-      const scale = Math.min(bounds.width / canvas.width, bounds.height / canvas.height);
-      return [bounds.left + (bounds.width - canvas.width * scale) / 2 + x * scale,
-        bounds.top + (bounds.height - canvas.height * scale) / 2 + y * scale];
-    }, [160, 90]);
-    await page.mouse.click(...point);
+    // The frame's point (160, 90), where the page shows the 640 by 360 frame
+    // on a canvas of another shape.
+    await page.mouse.click(...await framePoint(page, 160, 90));
     assert.equal(await godot.done, 0);
     // The tone's RMS is .35; a meter's window spans more than the writes it sees.
     const heard = await heardAudio(page);

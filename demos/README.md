@@ -15,6 +15,7 @@ README. Demos may use each other; the core never uses a demo.
 - [game-agent](game-agent/README.md): agent code and the Codex relay shared by the games.
 - [ghostty-gtk](ghostty-gtk/README.md): Ghostty's GTK application on Dolly's X server: its window, its OpenGL renderer on Mesa and a shell.
 - [go](go/README.md): Go's toolchain, ported as `GOOS=dolly GOARCH=wasm64`, rebuilt inside Dolly from its seed; gofmt and esbuild.
+- [godot](godot/README.md): Godot 4.7 and its editor, built inside Dolly by SCons: its Compatibility renderer on Mesa, its sound on `audio@0`, and Dodge the Creeps, which the editor exported here.
 - [gpu-fluid](gpu-fluid/README.md): an upstream WebGPU fluid solver.
 - [gtk](gtk/README.md): the libraries GTK is built on, GLib and PCRE2, as packages; GObject programs pass through Binaryen's cast emulation.
 - [javascript](javascript/README.md): QuickJS-ng, Janis and TypeScript, each a package.

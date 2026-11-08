@@ -1,10 +1,11 @@
 // Godot's editor in default, as a person installs it: it imports an SVG into a
 // project and exports the project's pack, which godot runs. Then Dodge the
 // Creeps, which the editor exported when its package was built, shows its title
-// on the page and starts on Enter: its score counts.
+// on the page and starts on Enter: its score counts. Last the editor opens its
+// own window on the page and changes its view at a click.
 // Usage: node demos/godot/test/godot-editor-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
-import { demoTest, waitForDisplay, writeCommand } from "../../browser.mjs";
+import { demoTest, framePoint, waitForDisplay, writeCommand } from "../../browser.mjs";
 
 const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const project = {
@@ -59,5 +60,31 @@ for (const browser of browsers) {
       [...displaySnapshot.getContext("2d").getImageData(200, 10, 80, 60).data].join() !== title, title, { timeout: 60_000 });
     await page.keyboard.press("Control+c");
     assert.equal(await game.done, 130);
+    await page.waitForFunction(() => !__dolly.transport.graphicsActive());
+
+    // The editor's own window: the project opens in the 3D view, whose ground
+    // is brown; a click on the 2D tab, at the frame's (443, 16), shows the 2D
+    // view's grey.
+    const editor = start("cd /tmp/editor-check && godot-editor --editor --path . > /dev/null 2>&1");
+    await page.waitForFunction(() => __dolly.transport.graphicsActive());
+    const ground = () => {
+      const canvas = document.querySelector("canvas");
+      const [r, g, b] = displaySnapshot.getContext("2d").getImageData(700, 450, 1, 1).data;
+      return canvas.width === 1152 && canvas.height === 648 && r > g && g > b;
+    };
+    const grey = () => [...displaySnapshot.getContext("2d").getImageData(700, 450, 1, 1).data].slice(0, 3).join() === "77,77,77";
+    await waitForDisplay(page, ground, undefined, { timeout: 300_000 });
+    // The editor draws its view before it takes clicks, so the click repeats.
+    for (let attempt = 1; ; attempt++) {
+      await page.mouse.click(...await framePoint(page, 443, 16));
+      try {
+        await waitForDisplay(page, grey, undefined, { timeout: 10_000 });
+        break;
+      } catch (error) {
+        if (attempt === 12) throw error;
+      }
+    }
+    await page.keyboard.press("Control+c");
+    assert.equal(await editor.done, 130);
   });
 }

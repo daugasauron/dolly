@@ -3,6 +3,10 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { classicubeApiKey } from "./classicube-provider.mjs";
+
+// The frame's box on the page, as an expression: the canvas fits the frame at
+// its own shape, centred.
+const frameBox = "(() => { const c = document.querySelector('#display'), b = c.getBoundingClientRect(), s = Math.min(b.width / c.width, b.height / c.height); return {x: b.x + (b.width - c.width * s) / 2, y: b.y + (b.height - c.height * s) / 2, width: c.width * s, height: c.height * s}; })()";
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const quote = text => "'" + text.replace(/\n/g, " ").replace(/'/g, "'\\''") + "'";
 
@@ -33,7 +37,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, snaps
   const tab = () => press("Tab", "Tab", 9), handoff = () => press("`", "Backquote", 192);
   const snapshot = async name => writeFile(resolve(projectDir, `build/classicube-overlay-${name}.png`), (await send("Page.captureScreenshot", { format: "png" })).data, "base64");
   const click = async (x, y, button = "left") => {
-    const position = await evaluate(`(() => { const r=document.querySelector('#display').getBoundingClientRect(); return {x:r.x+r.width*${x}/1280,y:r.y+r.height*${y}/960}; })()`);
+    const position = await evaluate(`(() => { const r=${frameBox}; return {x:r.x+r.width*${x}/1280,y:r.y+r.height*${y}/960}; })()`);
     await send("Input.dispatchMouseEvent", { type: "mousePressed", ...position, button, buttons: button === "right" ? 2 : 1, clickCount: 1 });
     await send("Input.dispatchMouseEvent", { type: "mouseReleased", ...position, button, buttons: 0, clickCount: 1 });
   };
@@ -180,11 +184,11 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, snaps
   if(models.length>10) {
   const region=async()=>(await snapshotDisplay(),evaluate(`(() => {const d=displaySnapshot.getContext('2d').getImageData(190,292,892,480).data;let h=2166136261;for(const b of d)h=Math.imul(h^b,16777619);return h>>>0;})()`));
   const initial=await region();
-  const wheel=await evaluate("(() => {const r=document.querySelector('#display').getBoundingClientRect();return {x:r.x+r.width*600/1280,y:r.y+r.height*500/960};})()");
+  const wheel=await evaluate(`(() => {const r=${frameBox};return {x:r.x+r.width*600/1280,y:r.y+r.height*500/960};})()`);
   await send('Input.dispatchMouseEvent',{type:'mouseWheel',...wheel,deltaX:0,deltaY:180}); await delay(200);
   assert.notEqual(await region(),initial,'wheel scrolls visible models without selecting');
   assert.equal((await probe()).config.model,'');
-  const track=await evaluate("(() => {const r=document.querySelector('#display').getBoundingClientRect();return {x:r.x+r.width*1096/1280,y:r.y+r.height*300/960,end:r.y+r.height*771/960};})()");
+  const track=await evaluate(`(() => {const r=${frameBox};return {x:r.x+r.width*1096/1280,y:r.y+r.height*300/960,end:r.y+r.height*771/960};})()`);
   await send('Input.dispatchMouseEvent',{type:'mousePressed',x:track.x,y:track.y,button:'left',buttons:1,clickCount:1});
   await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:track.x,y:track.end,buttons:1});
   await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:track.x,y:track.end,button:'left',buttons:0,clickCount:1});

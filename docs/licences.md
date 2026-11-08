@@ -125,6 +125,15 @@ entry.
   into the binary: mostly MIT OR Apache-2.0; no crate is GPL-only (`self_cell`
   offers Apache-2.0, `r-efi` MIT). The compiled MPL-2.0 crates (`symphonia*`,
   `option-ext`) stay file-level copyleft; their source is served.
+- `godot` and `godot-editor` are each one executable of Godot (MIT), the
+  third-party libraries its release carries, each named with its licence in
+  Godot's `COPYRIGHT.txt` (FreeType under the FTL among them: portions of this
+  software are copyright The FreeType Project, www.freetype.org), and Mesa
+  (MIT and permissive parts), linked in: permissive throughout. Both texts and
+  Mesa's are in each package. `dodge-the-creeps`'s pack holds the demo's code
+  (MIT), Kenney's images (CC0-1.0), the Xolonium font (OFL-1.1) and HorrorPen's
+  music (CC-BY-3.0, credited in the game's `README.md`); each text is in
+  `/usr/share/licenses/dodge-the-creeps`.
 - Pi and the npm packages it depends on, run in QuickJS, are under MIT,
   Apache-2.0, BSD-3-Clause, ISC, BlueOak-1.0.0, Unlicense and 0BSD.
 
