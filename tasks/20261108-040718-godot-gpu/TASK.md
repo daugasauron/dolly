@@ -120,7 +120,10 @@ reads the editor's 1152 by 648 frame back, the same in both (1,915 red and 89 li
 sample of a quarter). It held 9,502 gpu@0 objects at its peak, beyond the 4,096 a scope held:
 a scope now holds 65,536. Under Xvfb, Firefox shows no WebGPU canvas at all, its own or ours, so
 its checks read frames back. Test: `demos/godot/test/godot-gpu-browser.mjs`, on a display with
-a hardware adapter.
+a hardware adapter. It passes in Chrome and Firefox with the godot and godot-editor packages
+built by their recipes (2D 48.0 and 59.0 frames a second, 3D 49.3 and 59.0, Chrome then
+Firefox), and so do `godot-browser.mjs` and `godot-editor-browser.mjs`, where no adapter is
+granted and Godot falls back to its Compatibility renderer.
 
 ## Plan
 
