@@ -235,12 +235,12 @@ For the demos page: `work/videos-2026-11-08/cuts/truck-town.mp4` (1:36, Chrome o
 GPU), its poster and README, and a preview of the page with it (`site-agents-preview/`). Not in
 git, like v0.1.5's videos: the release that publishes the page takes it from there.
 
-## Tests (2026-11-09, `bce9ae0fa`)
+## Tests (2026-11-09, `754c062b5`)
 
 Godot's hardware test (2D, Mobile, Forward+, the effects scene, the editor, Truck Town's menu),
 the GPU contract tests (explicit records, rendering), godot-browser and the editor test pass in
-Chrome and Firefox on this machine's GPU. Frame rates in the hardware test: Chrome 59.9, 60.2,
-60.1 and 54.8 (2D, Mobile, Forward+, effects), Firefox 59.0 for each.
+Chrome and Firefox on this machine's GPU. Frame rates in the hardware test (2D, Mobile, Forward+,
+effects): Chrome 60.1, 60.0, 59.8, 56.0; Firefox 59.0, 59.0, 59.0, 59.0.
 
 ## Plan
 
