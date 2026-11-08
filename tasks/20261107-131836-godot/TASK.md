@@ -1,6 +1,6 @@
 # Godot 4.7 in Dolly: headless first, then the Compatibility renderer on Mesa, then a driver for gpu@0
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: demo,port
 
@@ -65,9 +65,8 @@ Steps 1 and 2 are done on `demo/godot`, and so are the editor and a game exporte
   frames a second at 640x360. A RenderingDevice driver on `gpu@0` would take weeks: Godot has no
   WebGPU backend upstream, its shaders are SPIR-V for `naga`, and core WebGPU has no push
   constants.
-- **Left:**
-  - The page's surface size and resizes, since Godot keeps the project's window size.
-  - `godot` in the release round's demo list.
+- **Not done, not wanted now:** a window that follows the page's size. Godot keeps the project's
+  window size, and the page fits that frame at its own shape.
 
 ## What Godot needs (read 2026-11-07, not measured)
 
@@ -95,3 +94,11 @@ Steps 1 and 2 are done on `demo/godot`, and so are the editor and a game exporte
    runs a GDScript project there, with a browser test.
 2. A 2D project draws through the Compatibility renderer, its frame rate measured.
 3. Whether to write the `gpu@0` driver is decided on those measurements.
+
+## Closed (2026-11-08)
+
+All three points of "Done when" hold, steps 1 and 2 with their tests and step 3 decided (above).
+The 0.1.6 verification round built the whole catalog on `integrate/0.1.6` (`c1479e7ac`), and its
+demo suite ran `demos/godot`: `godot-browser.mjs` and `godot-editor-browser.mjs` passed in
+Chromium and Firefox (`work/integrate/build/round-1108-evidence/demos.log`). The editor-window
+part of the test, added after the round's start, passed on `demo/godot` (`e515c79b7`).
