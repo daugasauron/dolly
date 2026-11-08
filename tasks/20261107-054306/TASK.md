@@ -1,6 +1,6 @@
 # Move the terminal to libghostty-vt 1.0.0
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: display,terminal,upgrade
 
@@ -80,3 +80,24 @@ this for now". Not scheduled for a version.
 - The terminal's throughput before and after is measured the same way (for example `seq 1000000`
   and `cat` of a large file in `default`) and recorded here.
 - `demos/ghostty-gtk` still builds its 1.4.0 application.
+
+## Closed (2026-11-08)
+
+- `088bbc0d0` (2026-11-07) moved `DOLLY_GHOSTTY_COMMIT` to vt-1.0.0, ported `display.c` to the
+  1.0 API and rebased the patch.
+- The 0.1.6 verification round (`integrate/0.1.6` at `c1479e7ac`) passed the display, display
+  cursor, terminal (which draws a PNG through kitty graphics), pager, theme and indicators tests in
+  Chromium and Firefox. It also built `ghostty-gtk`'s 1.4.0 application, whose X11 test passed
+  (`work/integrate/build/round-1108-evidence/browser.log`, `demos.log`).
+- Throughput, measured the same way before and after (`round-1108-evidence/throughput.mjs`):
+  - `default` in a 1600 by 1000 page, `seq 1000000` and then `cat` of the same 6.9 MB, three
+    times each.
+  - Before: the published v0.1.5, served as Pages serves it. After: `integrate/0.1.6`.
+  - Neither changed beyond noise: the time goes to `seq`'s million writes, not to the terminal.
+
+| | v0.1.5 | 0.1.6 (vt-1.0.0) |
+| --- | --- | --- |
+| Chromium, `seq` | 8.36-8.54 s | 8.21-8.38 s |
+| Chromium, `cat` | 135-139 ms | 130-154 ms |
+| Firefox, `seq` | 12.33-12.46 s | 12.36-12.48 s |
+| Firefox, `cat` | 173-177 ms | 154-162 ms |
