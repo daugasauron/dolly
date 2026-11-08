@@ -14,6 +14,7 @@ Dolly, as it exported Dodge the Creeps for `amy install dodge-the-creeps`
 
 - `godot`: Godot 4.7's engine with GDScript, 2D physics, the fallback text server, the Compatibility renderer on Mesa and sound, without 3D, which runs a project or the pack the editor exported.
 - `godot-editor`: Godot 4.7's editor, which imports a project's assets and exports its pack inside Dolly, and draws its own window on the page.
+- `spirv-wgsl`: A build stage: Tint, from Dawn, and SPIRV-Tools under Dolly's passes, which translate the SPIR-V Godot compiles its shaders to into WGSL for `gpu@0`.
 - `dodge-the-creeps`: Dodge the Creeps, the game of Godot's first 2D tutorial, which Godot's editor imported and exported here; `dodge-the-creeps` plays it.
 
 ## Building

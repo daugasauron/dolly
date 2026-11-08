@@ -19,6 +19,7 @@
 #include <cstring>
 #include <map>
 #include <mutex>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -874,9 +875,19 @@ extern "C" void spirv_wgsl_translate(const uint32_t *words, size_t word_count, c
 		return;
 	}
 	tint::inspector::Inspector inspector(program.Get());
+	// A float texture no sampler reads (loads and queries alone) binds as unfilterable-float,
+	// where any float texture binds, and a depth texture too.
+	std::set<std::pair<uint32_t, uint32_t>> sampled;
+	for (const auto &pair : inspector.GetSamplerTextureUses("main")) {
+		sampled.insert({ pair.texture_binding_point.group, pair.texture_binding_point.binding });
+	}
 	std::vector<spirv_wgsl_binding> bindings;
 	for (const auto &binding : inspector.GetResourceBindings("main")) {
 		spirv_wgsl_binding entry = layout_entry(binding);
+		if (binding.resource_type == tint::inspector::ResourceBinding::ResourceType::kSampledTexture && entry.a == 1 &&
+				!sampled.count({ binding.bind_group, binding.binding })) {
+			entry.a = 2;
+		}
 		if (!entry.type) {
 			result->error = copy("binding " + std::to_string(binding.binding) + " of group " + std::to_string(binding.bind_group) +
 					" has no gpu@0 layout entry");

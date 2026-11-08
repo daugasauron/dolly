@@ -1,0 +1,66 @@
+DOLLY 7
+PACKAGE spirv-wgsl
+REQUIRES HOST runtime@0
+REQUIRES HOST threads@0
+
+# SPIR-V of Vulkan GLSL shaders to WGSL for gpu@0 (spirv-wgsl/spirv_wgsl.h), as Godot's
+# RenderingDevice driver compiles its shaders: Tint, from Dawn, and SPIRV-Tools, built by their
+# CMake, under Dolly's passes (spirv-wgsl/spirv_wgsl.cpp), in one static library.
+FROM /v0.1.5/demos/cmake/Dollyfile-cmake-build 779dad8ffeebcac57839c9d4c180003f4646881356f38c42e360dbf966501ab7
+# Dawn's CMake requires a Python 3 interpreter.
+USE /v0.1.5/demos/python/Dollyfile-python 94dd91968bc9c9fd3f5dda73ef5543e30a9fc33856ecdd95db51f0a4ad3d57bd
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL python
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL ar
+REQUIRES TOOL find
+REQUIRES TOOL patch
+REQUIRES TOOL gzip
+REQUIRES TOOL tar
+REQUIRES TOOL cp
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+
+SOURCE /v0.1.5/dist/static/godot/spirv-wgsl.tar.gz 20b1a3c83b4523dae73b5fb9ead7b9e466447ee1dfe2ed91fc9123e82e83bd37 /tmp/spirv-wgsl.tar.gz
+SLOP gzip -dc /tmp/spirv-wgsl.tar.gz | tar -xf - -C /
+SLOP rm /tmp/spirv-wgsl.tar.gz
+# Dawn's utilities know POSIX only by the systems they name, and trap on WebAssembly through
+# Emscripten's JavaScript; Dolly is POSIX, and traps as WebAssembly does.
+SLOP patch -p1 -d /usr/src/dawn -i /usr/src/spirv-wgsl/dawn-dolly.patch
+# Until the seed's cc takes -ftemplate-depth (tasks/20261107-134832-cc-strip), SPIRV-Tools passes
+# Clang's default depth without it.
+SLOP patch -p1 -d /usr/src/dawn/third_party/spirv-tools/src -i /usr/src/spirv-wgsl/spirv-tools-depth.patch
+# Tint's SPIR-V reader and WGSL writer only; no Dawn, no command-line tools.
+SLOP cmake -S /usr/src/dawn -B /tmp/tint -DCMAKE_BUILD_TYPE=Release -DCMAKE_RULE_MESSAGES=OFF \
+  -DDAWN_FETCH_DEPENDENCIES=OFF -DDAWN_BUILD_PROTOBUF=OFF -DDAWN_BUILD_SAMPLES=OFF -DDAWN_BUILD_TESTS=OFF \
+  -DDAWN_ENABLE_VULKAN=OFF -DDAWN_ENABLE_OPENGLES=OFF -DDAWN_ENABLE_DESKTOP_GL=OFF -DDAWN_ENABLE_NULL=OFF \
+  -DDAWN_USE_X11=OFF -DDAWN_USE_WAYLAND=OFF -DDAWN_USE_GLFW=OFF \
+  -DTINT_BUILD_SPV_READER=ON -DTINT_BUILD_WGSL_WRITER=ON -DTINT_BUILD_WGSL_READER=OFF \
+  -DTINT_BUILD_SPV_WRITER=OFF -DTINT_BUILD_MSL_WRITER=OFF -DTINT_BUILD_HLSL_WRITER=OFF \
+  -DTINT_BUILD_GLSL_WRITER=OFF -DTINT_BUILD_GLSL_VALIDATOR=OFF -DTINT_BUILD_CMD_TOOLS=OFF \
+  -DTINT_BUILD_TESTS=OFF -DSPIRV_SKIP_TESTS=ON -DSPIRV_SKIP_EXECUTABLES=ON
+# Each job is three processes (Slop, c++, compiler); -j8 exceeds the 32-process cap.
+SLOP CWD /tmp/tint make -j4 tint_api tint_lang_spirv_reader tint_lang_wgsl_writer tint_lang_wgsl_inspector SPIRV-Tools-opt
+SLOP c++ -std=c++20 -O2 -DNDEBUG -DDAWN_HAVE_UTILS_BUILD_CONFIG -DTINT_BUILD_SPV_READER=1 -DTINT_BUILD_WGSL_WRITER=1 \
+  -DTINT_BUILD_WGSL_READER=0 -DTINT_BUILD_SPV_WRITER=0 -DTINT_BUILD_MSL_WRITER=0 -DTINT_BUILD_HLSL_WRITER=0 \
+  -DTINT_BUILD_GLSL_WRITER=0 -DTINT_BUILD_GLSL_VALIDATOR=0 -DTINT_BUILD_NULL_WRITER=0 -DTINT_BUILD_IR_BINARY=0 \
+  -DTINT_BUILD_IS_LINUX=0 -DTINT_BUILD_IS_MAC=0 -DTINT_BUILD_IS_WIN=0 \
+  -I/usr/src/dawn -I/usr/src/dawn/include -I/usr/src/dawn/third_party/spirv-tools/src \
+  -I/usr/src/dawn/third_party/spirv-tools/src/include -I/tmp/tint/third_party/spirv-tools \
+  -I/usr/src/dawn/third_party/spirv-headers/src/include -I/usr/src/dawn/third_party/abseil-cpp \
+  -c /usr/src/spirv-wgsl/spirv_wgsl.cpp -o /tmp/tint/spirv_wgsl.o
+# One archive: the objects of Tint's, SPIRV-Tools' and Abseil's libraries, and the translator.
+SLOP find /tmp/tint -path '*/CMakeFiles/*.dir/*' -name '*.o' -exec ar cq /usr/lib/libspirv-wgsl.a {} +
+SLOP ar cqs /usr/lib/libspirv-wgsl.a /tmp/tint/spirv_wgsl.o
+SLOP cp /usr/src/spirv-wgsl/spirv_wgsl.h /usr/include/spirv_wgsl.h
+SLOP mkdir -p /usr/share/licenses/spirv-wgsl
+SLOP cp /usr/src/dawn/LICENSE /usr/share/licenses/spirv-wgsl/dawn-LICENSE
+SLOP cp /usr/src/dawn/third_party/spirv-tools/src/LICENSE /usr/share/licenses/spirv-wgsl/spirv-tools-LICENSE
+SLOP cp /usr/src/dawn/third_party/spirv-headers/src/LICENSE /usr/share/licenses/spirv-wgsl/spirv-headers-LICENSE
+SLOP cp /usr/src/dawn/third_party/abseil-cpp/LICENSE /usr/share/licenses/spirv-wgsl/abseil-LICENSE
+SLOP rm -rf /usr/src/dawn /usr/src/spirv-wgsl /tmp/tint
+
+EXPORTS HEADER spirv-wgsl /usr/include/spirv_wgsl.h
+EXPORTS LIB    spirv-wgsl /usr/lib/libspirv-wgsl.a

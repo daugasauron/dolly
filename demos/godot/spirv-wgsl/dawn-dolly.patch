@@ -1,0 +1,23 @@
+--- a/src/utils/force_crash.h
++++ b/src/utils/force_crash.h
+@@ -52,6 +52,8 @@
+ #define DAWN_DETAIL_TRAP() asm volatile(".word 0x0001");
+ #elif DAWN_PLATFORM_IS(PPC) || DAWN_PLATFORM_IS(PPC64)
+ #define DAWN_DETAIL_TRAP() asm volatile("twge 2,2");
++#elif defined(__dolly__)
++#define DAWN_DETAIL_TRAP() __builtin_trap();
+ #elif DAWN_PLATFORM_IS(WASM32) || DAWN_PLATFORM_IS(WASM64)
+ #define DAWN_DETAIL_TRAP() EM_ASM(debugger;);
+ #else
+--- a/src/utils/platform.h
++++ b/src/utils/platform.h
+@@ -90,6 +90,9 @@
+ #define DAWN_PLATFORM_IS_FUCHSIA 1
+ #define DAWN_PLATFORM_IS_POSIX 1
+ 
++#elif defined(__dolly__)
++#define DAWN_PLATFORM_IS_POSIX 1
++
+ #elif defined(__EMSCRIPTEN__)
+ #define DAWN_PLATFORM_IS_EMSCRIPTEN 1
+ #define DAWN_PLATFORM_IS_POSIX 1
