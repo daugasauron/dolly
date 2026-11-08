@@ -38,6 +38,42 @@ headless Chrome, a 1600 by 1000 page, the editor's frame 1152 by 648. Files unde
   that draws on the GPU removes the 71%; the measure of success is the click-to-view latency and
   the frame time above, measured the same way.
 
+## Shader translation (measured 2026-11-08)
+
+Every renderer shader Godot's editor compiled for two projects (a 3D scene with lights, shadows,
+fog, particles, a custom shader and text; Dodge the Creeps), in Mobile and Forward+, from its shader
+cache: 1,122 SPIR-V modules (`work/godot/build/gpu-corpus-13`, `tint-measure`). The corpus is SPIR-V
+1.3 (Vulkan 1.1), from Godot built natively with its Vulkan container asking for 1.3 instead of
+1.4: Tint reads at most 1.3, and the driver's container picks the version.
+
+| Path | Translated | Validates in Chrome / Firefox |
+| --- | --- | --- |
+| naga 30.0.1 (Dolly's package, in Dolly), SPIR-V 1.4 | 594 of 1,106 | not measured |
+| Tint (Dawn `d61d3434d`, native), as it is | 242 of 1,122 | — |
+| SPIRV-Tools passes, then Tint | 946 of 1,122 | 682 / 225 of 946 |
+
+- naga's SPIR-V front end fails on what Godot's shaders are made of: `OpCopyLogical`, spec
+  constant operations, `IsNan`, point size, unresolved ids. Tint's needs arrays of textures
+  scalarized, which SPIRV-Tools' standard passes do (`--split-combined-image-sampler`,
+  `--merge-return`, `--inline-entry-points-exhaustive`, `--replace-desc-array-access-using-var-index`,
+  `--descriptor-scalar-replacement`, dead-code elimination).
+- Of the 946, Chrome rejects only `enable f16` (Godot compiled for lavapipe's half floats; the
+  driver reports none), Firefox only Tint's `var<immediate>` push constants (the container makes
+  them a storage buffer). Each of the other 176 fails on one construct, each with a rewrite: push
+  constants, point size, `IsNan`/`IsInf`, infinite constants, a memory barrier before a control
+  barrier, a fetch from a multisampled texture through a sampler, input attachments, subgroups
+  (reported absent), helper invocations, an image without a format.
+- **Decided: Tint with SPIRV-Tools**, both linked into Godot's container, plus passes of the
+  driver's own for the constructs above.
+- **The translator** (`demos/godot/spirv-wgsl`, native harness in `tint-measure`): SPIRV-Tools'
+  standard passes and 13 of its own, then Tint. 775 of the 1,122 modules translate, and all 775
+  validate in Chrome and Firefox. Of the other 347, 330 are variants for f16 or subgroups that
+  Godot compiled because lavapipe has them; the driver reports neither, so Godot does not compile
+  them. The 16 left are Forward+'s optional effects (SSIL and the 2D SDF want `r16snorm` and
+  `rgba16unorm` storage, which only Chrome's `texture-formats-tier1` has; SSR's filter writes an
+  image without a format; an SDFGI step; volumetric fog's image atomics) and one multisampled
+  variant of Mobile's tonemapper.
+
 ## Plan
 
 1. Profile the editor as it is (done: Baseline, above).
