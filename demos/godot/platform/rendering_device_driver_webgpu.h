@@ -37,8 +37,9 @@ public:
 		uint8_t *copy = nullptr; // a CPU or persistent buffer's bytes in this process
 		uint64_t dirty_begin = UINT64_MAX, dirty_end = 0;
 	};
-	// A swizzled view's own texture where the browser has no texture-component-swizzle
-	// (Firefox): a compute pass refills it from the view's subresources after writes to them.
+	// A view's own texture for what WebGPU cannot sample from the view itself: a swizzle where the
+	// browser has no texture-component-swizzle (Firefox), or depth through a filtering sampler. A
+	// compute pass refills it from the view's subresources after writes to them (refill_shadows).
 	struct Shadow {
 		uint64_t texture = 0, view = 0, pipeline = 0;
 		LocalVector<uint64_t> groups; // per mip: its source and destination views
@@ -57,7 +58,8 @@ public:
 		uint32_t gpu_format = 0;
 		bool surface = false; // the swap chain's image: gpu@0's surface, view 0
 		TextureInfo *original = nullptr; // a view's: the one texture_create made
-		LocalVector<TextureInfo *> swizzled; // the one texture_create made: its views with shadows
+		LocalVector<TextureInfo *> shadowed; // the one texture_create made: its views with shadows
+		uint32_t dimension = 2; // the view's VIEW_DIMENSION
 		Shadow *shadow = nullptr;
 		HashMap<uint32_t, uint64_t> subresource_views; // by mip << 16 | layer, for clears and resolves
 		uint64_t depth_view = 0; // a depth-stencil texture's depth aspect, which shaders sample
@@ -202,14 +204,15 @@ private:
 	void end_passes(CommandBufferID p_cmd_buffer);
 	void compute_pass(CommandBufferID p_cmd_buffer);
 	TextureID make_view(const TextureInfo *p_original, const TextureView &p_view, uint32_t p_dimension, uint32_t p_layer, uint32_t p_layers, uint32_t p_mip, uint32_t p_mips, bool p_owns);
-	void emulate_swizzle(TextureInfo *p_view, uint32_t p_dimension, uint32_t p_swizzle);
+	void make_shadow(TextureInfo *p_view, uint32_t p_swizzle);
 	void written(CommandBufferID p_cmd_buffer, const TextureInfo *p_texture);
-	void refresh_swizzled(CommandBufferID p_cmd_buffer);
+	void refill_shadows(CommandBufferID p_cmd_buffer);
+	LocalVector<TextureInfo *> unfilled; // textures whose views have shadows no refill has filled
 	std::atomic<uint32_t> shadows = { 0 };
 	HashMap<uint64_t, uint64_t> swizzle_pipelines; // by format << 40 | dimension << 32 | swizzle
 	HashMap<uint32_t, uint64_t> swizzle_shaders; // by format << 8 | dimension
 	uint64_t subresource_view(TextureInfo *p_texture, uint32_t p_mip, uint32_t p_layer);
-	uint64_t sampled_view(TextureInfo *p_texture);
+	uint64_t sampled_view(TextureInfo *p_texture, const GroupEntry &p_entry);
 	void read_from(CommandBufferID p_cmd_buffer, BufferInfo *p_buffer, uint64_t p_begin, uint64_t p_end);
 	void copy_buffer_texture(CommandBufferID p_cmd_buffer, uint32_t p_op, BufferID p_buffer, TextureID p_texture, const BufferTextureCopyRegion &p_region);
 

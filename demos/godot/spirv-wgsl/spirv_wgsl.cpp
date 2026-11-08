@@ -750,6 +750,12 @@ uint32_t gpu_format(tint::inspector::ResourceBinding::TexelFormat format) {
 		case F::kRgba32Uint: return 40;
 		case F::kRgba32Sint: return 41;
 		case F::kRgba32Float: return 42;
+		case F::kR16Unorm: return 57;
+		case F::kR16Snorm: return 58;
+		case F::kRg16Unorm: return 59;
+		case F::kRg16Snorm: return 60;
+		case F::kRgba16Unorm: return 61;
+		case F::kRgba16Snorm: return 62;
 		default: return 0;
 	}
 }

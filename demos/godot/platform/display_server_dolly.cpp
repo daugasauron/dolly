@@ -9,6 +9,8 @@
 #include "rendering_context_driver_webgpu.h"
 #include "servers/rendering/renderer_rd/renderer_compositor_rd.h"
 #include "servers/rendering/rendering_device.h"
+#include "core/config/project_settings.h"
+#include "core/os/os.h"
 #endif
 
 #include <platform_gl.h>

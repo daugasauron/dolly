@@ -59,14 +59,6 @@ enum : uint32_t {
 	L_WORKGROUP_Z,
 	L_WORKGROUPS,
 };
-// LIMITS' feature bits.
-enum : uint64_t {
-	F_DEPTH_CLIP_CONTROL = 1,
-	F_DEPTH32_STENCIL8 = 2,
-	F_BC = 4,
-	F_TIMESTAMPS = 8,
-	F_SWIZZLE = 1024,
-};
 
 static const uint32_t PUSH_CONSTANT_BYTES = 128;
 static const uint64_t PUSH_RING_FRAME_BYTES = 4 << 20;
@@ -157,23 +149,50 @@ static uint32_t gpu_texture_format(RDD::DataFormat p_format) {
 		case RDD::DATA_FORMAT_BC6H_SFLOAT_BLOCK: return 54;
 		case RDD::DATA_FORMAT_BC7_UNORM_BLOCK: return 55;
 		case RDD::DATA_FORMAT_BC7_SRGB_BLOCK: return 56;
+		case RDD::DATA_FORMAT_R16_UNORM: return 57;
+		case RDD::DATA_FORMAT_R16_SNORM: return 58;
+		case RDD::DATA_FORMAT_R16G16_UNORM: return 59;
+		case RDD::DATA_FORMAT_R16G16_SNORM: return 60;
+		case RDD::DATA_FORMAT_R16G16B16A16_UNORM: return 61;
+		case RDD::DATA_FORMAT_R16G16B16A16_SNORM: return 62;
 		default: return 0;
 	}
 }
 
-static bool is_compressed(uint32_t p_gpu) { return (p_gpu >= 7 && p_gpu <= 9) || p_gpu >= 46; }
+static bool is_compressed(uint32_t p_gpu) { return (p_gpu >= 7 && p_gpu <= 9) || (p_gpu >= 46 && p_gpu <= 56); }
 static bool is_depth(uint32_t p_gpu) { return p_gpu == 6 || p_gpu == 44 || p_gpu == 45; }
 static bool is_stencil(uint32_t p_gpu) { return p_gpu == 43 || p_gpu == 45; }
-// WebGPU's renderable formats (rg11b10ufloat under its feature, which both browsers grant).
-static bool is_renderable(uint32_t p_gpu) {
-	return !is_compressed(p_gpu) && p_gpu != 10 && p_gpu != 16 && p_gpu != 25 && p_gpu != 30;
+// LIMITS' feature bits.
+enum : uint64_t {
+	F_DEPTH_CLIP_CONTROL = 1,
+	F_DEPTH32_STENCIL8 = 2,
+	F_BC = 4,
+	F_TIMESTAMPS = 8,
+	F_RG11B10_RENDERABLE = 64,
+	F_FLOAT32_FILTERABLE = 128,
+	F_SWIZZLE = 1024,
+	F_TIER1 = 2048,
+};
+// Whether the device has a format at all: the 16-bit normalized ones are texture-formats-tier1's.
+static bool exists(uint32_t p_gpu, uint64_t p_features) {
+	return p_gpu && (!is_compressed(p_gpu) || (p_features & F_BC)) && (p_gpu != 45 || (p_features & F_DEPTH32_STENCIL8)) &&
+			(p_gpu < 57 || (p_features & F_TIER1));
 }
-// WebGPU's core storage formats.
-static bool is_storage(uint32_t p_gpu) {
+// WebGPU's renderable formats: tier 1 adds the snorm and 16-bit normalized ones.
+static bool is_renderable(uint32_t p_gpu, uint64_t p_features) {
+	if (is_compressed(p_gpu) || p_gpu == 30) return false;
+	if (p_gpu == 33) return p_features & F_RG11B10_RENDERABLE;
+	return (p_features & F_TIER1) || !(p_gpu == 10 || p_gpu == 16 || p_gpu == 25 || p_gpu >= 57);
+}
+// WebGPU's storage formats: the core ones, and tier 1's 8- and 16-bit and packed ones.
+static bool is_storage(uint32_t p_gpu, uint64_t p_features) {
 	switch (p_gpu) {
 		case 1: case 25: case 26: case 27: case 37: case 38: case 39: case 19: case 20: case 21:
 		case 34: case 35: case 36: case 40: case 41: case 42:
 			return true;
+		case 3: case 4: case 10: case 11: case 12: case 13: case 14: case 15: case 16: case 17: case 18:
+		case 22: case 23: case 24: case 31: case 32: case 33: case 57: case 58: case 59: case 60: case 61: case 62:
+			return p_features & F_TIER1;
 		default:
 			return false;
 	}
@@ -451,9 +470,10 @@ RDD::BufferID RenderingDeviceDriverWebGPU::buffer_create(uint64_t p_size, BitFie
 	return BufferID(buffer);
 }
 
-// WebGPU has no texel buffers; Godot's renderers bind none.
+// WGSL has no texel buffers: a shader that reads one does not translate. The buffer itself is
+// one like any other (Godot makes one at startup that nothing binds).
 bool RenderingDeviceDriverWebGPU::buffer_set_texel_format(BufferID p_buffer, DataFormat p_format) {
-	return false;
+	return true;
 }
 
 void RenderingDeviceDriverWebGPU::buffer_free(BufferID p_buffer) {
@@ -464,7 +484,7 @@ void RenderingDeviceDriverWebGPU::buffer_free(BufferID p_buffer) {
 	}
 	release(buffer->handle);
 	total_memory -= buffer->stride ? buffer->stride * buffer->copies : buffer->size;
-	memfree(buffer->copy);
+	if (buffer->copy) memfree(buffer->copy);
 	memdelete(buffer);
 }
 
@@ -547,9 +567,9 @@ static uint32_t swizzle(const RDD::TextureView &p_view) {
 // (r,g,0,1), (r,g,b,a). A swizzle equal to it needs nothing.
 static uint32_t default_swizzle(uint32_t p_gpu) {
 	switch (p_gpu) {
-		case 3: case 10: case 11: case 12: case 13: case 14: case 15: case 19: case 20: case 21: case 49: case 50:
+		case 3: case 10: case 11: case 12: case 13: case 14: case 15: case 19: case 20: case 21: case 49: case 50: case 57: case 58:
 			return 0x05040400;
-		case 4: case 16: case 17: case 18: case 22: case 23: case 24: case 34: case 35: case 36: case 51: case 52:
+		case 4: case 16: case 17: case 18: case 22: case 23: case 24: case 34: case 35: case 36: case 51: case 52: case 59: case 60:
 			return 0x05040100;
 		default:
 			return 0x03020100;
@@ -588,7 +608,7 @@ static uint32_t shadow_format(uint32_t p_linear) {
 		case 1: case 3: case 4: case 7: case 8: case 9: case 28: case 49: case 51: case 55: return 1;
 		case 10: case 16: case 25: case 50: case 52: return 25;
 		case 15: case 24: case 33: case 39: case 53: case 54: return 39;
-		case 21: case 30: case 32: case 36: case 42: return 42;
+		case 21: case 30: case 32: case 36: case 42: case 57: case 58: case 59: case 60: case 61: case 62: return 42;
 		case 11: case 17: case 26: return 26;
 		case 12: case 18: case 27: return 27;
 		case 13: case 22: case 31: case 37: return 37;
@@ -600,13 +620,14 @@ static uint32_t shadow_format(uint32_t p_linear) {
 }
 
 // The WGSL that refills a shadow format's mip from the source's: each texel swizzled by
-// override constants 0..3 (gpu@0's swizzle bytes: 0 r, 1 g, 2 b, 3 a, 4 zero, 5 one).
-static String swizzle_wgsl(uint32_t p_format, uint32_t p_dimension) {
-	const char *names[] = { "rgba8unorm", "rgba8snorm", "rgba16float", "rgba32float", "rgba8uint", "rgba8sint", "rgba16uint", "rgba16sint", "rgba32uint", "rgba32sint" };
-	const uint32_t formats[] = { 1, 25, 39, 42, 26, 27, 37, 38, 40, 41 };
+// override constants 0..3 (gpu@0's swizzle bytes: 0 r, 1 g, 2 b, 3 a, 4 zero, 5 one). An r32float
+// shadow's source is depth, which samples as (d, 0, 0, 1).
+static String shadow_wgsl(uint32_t p_format, uint32_t p_dimension) {
+	const char *names[] = { "rgba8unorm", "rgba8snorm", "rgba16float", "rgba32float", "r32float", "rgba8uint", "rgba8sint", "rgba16uint", "rgba16sint", "rgba32uint", "rgba32sint" };
+	const uint32_t formats[] = { 1, 25, 39, 42, 21, 26, 27, 37, 38, 40, 41 };
 	uint32_t at = 0;
 	while (formats[at] != p_format) at++;
-	const String type = at >= 4 ? (at % 2 ? "i32" : "u32") : "f32";
+	const String type = at >= 5 ? (at % 2 ? "u32" : "i32") : "f32";
 	String source = "texture_2d_array", target = "texture_storage_2d_array", load = "textureLoad(source, id.xy, id.z, 0)",
 			store = "textureStore(shadow, id.xy, id.z, c)", outside = "any(id.xy >= textureDimensions(shadow))";
 	if (p_dimension == 1) {
@@ -616,7 +637,8 @@ static String swizzle_wgsl(uint32_t p_format, uint32_t p_dimension) {
 		source = "texture_3d", target = "texture_storage_3d", load = "textureLoad(source, id, 0)";
 		store = "textureStore(shadow, id, c)", outside = "any(id >= textureDimensions(shadow))";
 	}
-	return "@group(0) @binding(0) var source: " + source + "<" + type + ">;\n" +
+	if (p_format == 21) load = "vec4f(" + load + ", 0.0, 0.0, 1.0)";
+	return "@group(0) @binding(0) var source: " + (p_format == 21 ? String("texture_depth_2d_array") : source + "<" + type + ">") + ";\n" +
 			"@group(0) @binding(1) var shadow: " + target + "<" + names[at] + ", write>;\n" +
 			"@id(0) override r: u32;\n@id(1) override g: u32;\n@id(2) override b: u32;\n@id(3) override a: u32;\n" +
 			"fn pick(c: vec4<" + type + ">, s: u32) -> " + type + " {\n\tif (s < 4u) { return c[s]; }\n\treturn " + type + "(s - 4u);\n}\n" +
@@ -631,7 +653,7 @@ RDD::TextureID RenderingDeviceDriverWebGPU::make_view(const TextureInfo *p_origi
 	TextureInfo *view = memnew(TextureInfo(*p_original));
 	view->owner = p_owns;
 	view->original = p_owns ? nullptr : p_original->owner ? const_cast<TextureInfo *>(p_original) : p_original->original;
-	view->swizzled.clear();
+	view->shadowed.clear();
 	view->shadow = nullptr;
 	view->subresource_views.clear();
 	view->depth_view = 0;
@@ -652,24 +674,29 @@ RDD::TextureID RenderingDeviceDriverWebGPU::make_view(const TextureInfo *p_origi
 	put64(r.p(), 16, p_original->texture);
 	put32(r.p(), 24, format);
 	put32(r.p(), 28, p_dimension);
-	put32(r.p(), 32, 0);
+	// A stencil8 view of a depth-stencil texture is its stencil aspect.
+	put32(r.p(), 32, format == 43 && is_depth(p_original->gpu_format) ? 1 : 0);
 	put32(r.p(), 36, view->base_mip);
 	put32(r.p(), 40, p_mips);
 	put32(r.p(), 44, view->base_layer);
 	put32(r.p(), 48, p_layers);
 	put32(r.p(), 52, emulated ? 0x03020100 : swizzle_bytes);
 	view->view = CREATE(r);
-	if (emulated) emulate_swizzle(view, p_dimension, swizzle_bytes);
+	view->dimension = p_dimension;
+	if (emulated) make_shadow(view, swizzle_bytes);
 	return TextureID(view);
 }
 
-// The browser has no texture-component-swizzle (Firefox): the view samples its own shadow
-// texture, refilled from the view's subresources once they were written (refresh_swizzled), as
-// ANGLE's Direct3D 11 backend keeps swizzled copies of textures. The shadow reads the bytes of an
-// sRGB view through its linear partner (texture_create adds it) and samples them as sRGB.
-void RenderingDeviceDriverWebGPU::emulate_swizzle(TextureInfo *p_view, uint32_t p_dimension, uint32_t p_swizzle) {
-	const uint32_t linear = linear_format(p_view->gpu_format), format = shadow_format(linear);
-	ERR_FAIL_COND_MSG(!format || p_view->samples != TEXTURE_SAMPLES_1, "This view's swizzle needs texture-component-swizzle, which the browser lacks.");
+// A view's shadow (Shadow), refilled from its subresources once they were written
+// (refill_shadows), as ANGLE's Direct3D 11 backend keeps swizzled copies of textures. A colour
+// shadow reads the bytes of an sRGB view through its linear partner (texture_create adds it) and
+// samples them as sRGB; a depth view's is r32float, which filters under float32-filterable.
+void RenderingDeviceDriverWebGPU::make_shadow(TextureInfo *p_view, uint32_t p_swizzle) {
+	const bool depth = is_depth(p_view->gpu_format);
+	const uint32_t linear = linear_format(p_view->gpu_format), format = depth ? 21 : shadow_format(linear);
+	ERR_FAIL_COND_MSG(!format || p_view->samples != TEXTURE_SAMPLES_1, "WebGPU cannot sample this view, nor a copy of it.");
+	ERR_FAIL_COND_MSG(depth && !(features & F_FLOAT32_FILTERABLE), "Filtering depth needs float32-filterable, which the browser lacks.");
+	const uint32_t p_dimension = p_view->dimension;
 	const uint32_t dimension = p_dimension == 6 ? 6 : p_dimension == 1 ? 1 : 3; // the refill's: 3d, 1d or 2d-array
 	const uint32_t layers = dimension == 6 ? p_view->depth : dimension == 1 ? 1 : p_view->layers;
 	const uint32_t srgb = linear != p_view->gpu_format ? srgb_format(format) : 0;
@@ -692,7 +719,7 @@ void RenderingDeviceDriverWebGPU::emulate_swizzle(TextureInfo *p_view, uint32_t 
 	put32(v.p(), 52, 0x03020100);
 	shadow->view = CREATE(v);
 
-	const uint32_t sample = (format == 27 || format == 38 || format == 41) ? 4 : (format == 26 || format == 37 || format == 40) ? 5 : 2;
+	const uint32_t sample = depth ? 3 : (format == 27 || format == 38 || format == 41) ? 4 : (format == 26 || format == 37 || format == 40) ? 5 : 2;
 	LocalVector<GroupEntry> entries;
 	entries.push_back({ 0, 4, 7, sample, dimension, 0 });
 	entries.push_back({ 1, 4, 8, 1, dimension, format });
@@ -708,7 +735,7 @@ void RenderingDeviceDriverWebGPU::emulate_swizzle(TextureInfo *p_view, uint32_t 
 		if (const uint64_t *found = swizzle_shaders.getptr(format << 8 | dimension)) module = *found;
 	}
 	if (!module) {
-		const CharString text = swizzle_wgsl(format, dimension).utf8();
+		const CharString text = shadow_wgsl(format, dimension).utf8();
 		Record s(DOLLY_GPU_CREATE_SHADER, 24 + text.length());
 		put32(s.p(), 16, text.length());
 		memcpy(s.p() + 24, text.get_data(), text.length());
@@ -739,6 +766,7 @@ void RenderingDeviceDriverWebGPU::emulate_swizzle(TextureInfo *p_view, uint32_t 
 		put64(source.p(), 16, p_view->texture);
 		put32(source.p(), 24, linear);
 		put32(source.p(), 28, dimension);
+		put32(source.p(), 32, depth ? 2 : 0);
 		put32(source.p(), 36, p_view->base_mip + m);
 		put32(source.p(), 40, 1);
 		put32(source.p(), 44, dimension == 3 ? p_view->base_layer : 0);
@@ -769,7 +797,8 @@ void RenderingDeviceDriverWebGPU::emulate_swizzle(TextureInfo *p_view, uint32_t 
 	p_view->shadow = shadow;
 	TextureInfo *texture = p_view->owner ? p_view : p_view->original;
 	MutexLock lock(mutex);
-	texture->swizzled.push_back(p_view);
+	texture->shadowed.push_back(p_view);
+	if (!unfilled.has(texture)) unfilled.push_back(texture);
 	shadows++;
 }
 
@@ -779,20 +808,28 @@ void RenderingDeviceDriverWebGPU::written(CommandBufferID p_cmd_buffer, const Te
 	TextureInfo *texture = p_texture->owner ? const_cast<TextureInfo *>(p_texture) : p_texture->original;
 	CommandBufferInfo *cb = (CommandBufferInfo *)p_cmd_buffer.id;
 	MutexLock lock(mutex);
-	if (texture && !texture->swizzled.is_empty() && !cb->stale.has(texture)) cb->stale.push_back(texture);
+	if (texture && !texture->shadowed.is_empty() && !cb->stale.has(texture)) cb->stale.push_back(texture);
 }
 
 // The shadows of the textures written since they were last refilled: as a pass begins, before
 // a dispatch and as the command buffer ends, so whatever samples them next sees the writes.
-void RenderingDeviceDriverWebGPU::refresh_swizzled(CommandBufferID p_cmd_buffer) {
+void RenderingDeviceDriverWebGPU::refill_shadows(CommandBufferID p_cmd_buffer) {
+	if (!shadows.load()) return;
 	CommandBufferInfo *cb = (CommandBufferInfo *)p_cmd_buffer.id;
+	{
+		MutexLock lock(mutex);
+		for (TextureInfo *texture : unfilled) {
+			if (!cb->stale.has(texture)) cb->stale.push_back(texture);
+		}
+		unfilled.clear();
+	}
 	if (cb->stale.is_empty()) return;
 	const bool inside = cb->in_compute_pass;
 	if (!inside) command_record(p_cmd_buffer, DOLLY_GPU_BEGIN_COMPUTE_PASS, 8);
 	{
 		MutexLock lock(mutex);
 		for (const TextureInfo *texture : cb->stale) {
-			for (const TextureInfo *view : texture->swizzled) {
+			for (const TextureInfo *view : texture->shadowed) {
 				const Shadow *shadow = view->shadow;
 				put64(command_record(p_cmd_buffer, DOLLY_GPU_SET_PIPELINE, 16), 8, shadow->pipeline);
 				for (uint32_t m = 0; m < shadow->groups.size(); m++) {
@@ -817,7 +854,7 @@ void RenderingDeviceDriverWebGPU::refresh_swizzled(CommandBufferID p_cmd_buffer)
 
 RDD::TextureID RenderingDeviceDriverWebGPU::texture_create(const TextureFormat &p_format, const TextureView &p_view) {
 	const uint32_t format = gpu_texture_format(p_format.format);
-	ERR_FAIL_COND_V_MSG(!format, TextureID(), vformat("WebGPU has no format %d.", p_format.format));
+	ERR_FAIL_COND_V_MSG(!exists(format, features), TextureID(), vformat("The browser's WebGPU has no format %d.", p_format.format));
 	ERR_FAIL_COND_V_MSG((p_format.texture_type == TEXTURE_TYPE_1D || p_format.texture_type == TEXTURE_TYPE_1D_ARRAY) && (p_format.array_layers != 1 || p_format.mipmaps != 1),
 			TextureID(), "WebGPU's one-dimensional textures have no layers or mips.");
 	uint32_t usage = 0;
@@ -827,7 +864,7 @@ RDD::TextureID RenderingDeviceDriverWebGPU::texture_create(const TextureFormat &
 	if (p_format.usage_bits & (TEXTURE_USAGE_CAN_UPDATE_BIT | TEXTURE_USAGE_CAN_COPY_TO_BIT)) usage |= TEX_COPY_DST;
 	if (p_format.usage_bits & (TEXTURE_USAGE_CAN_COPY_FROM_BIT | TEXTURE_USAGE_CPU_READ_BIT)) usage |= TEX_COPY_SRC;
 	// Clears are render passes in WebGPU (command_clear_color_texture).
-	if ((p_format.usage_bits & TEXTURE_USAGE_CAN_COPY_TO_BIT) && is_renderable(format)) usage |= TEX_RENDER;
+	if ((p_format.usage_bits & TEXTURE_USAGE_CAN_COPY_TO_BIT) && is_renderable(format, features)) usage |= TEX_RENDER;
 	TextureInfo *texture = memnew(TextureInfo);
 	texture->format = p_format.format;
 	texture->gpu_format = format;
@@ -865,7 +902,7 @@ RDD::TextureID RenderingDeviceDriverWebGPU::texture_create(const TextureFormat &
 	for (const DataFormat shared : p_format.shareable_formats) {
 		if (partner && gpu_texture_format(shared) == partner) view_format = partner;
 	}
-	// A shadow reads an sRGB texture's bytes through its linear partner (emulate_swizzle).
+	// A shadow reads an sRGB texture's bytes through its linear partner (make_shadow).
 	if (!(features & F_SWIZZLE) && partner == linear_format(format)) view_format = partner;
 	Record r(DOLLY_GPU_CREATE_TEXTURE, 48);
 	put32(r.p(), 16, p_format.width);
@@ -896,7 +933,7 @@ RDD::TextureID RenderingDeviceDriverWebGPU::texture_create_shared(TextureID p_or
 RDD::TextureID RenderingDeviceDriverWebGPU::texture_create_shared_from_slice(TextureID p_original_texture, const TextureView &p_view, TextureSliceType p_slice_type, uint32_t p_layer, uint32_t p_layers, uint32_t p_mipmap, uint32_t p_mipmaps) {
 	const TextureInfo *original = (const TextureInfo *)p_original_texture.id;
 	static const uint32_t dimensions[] = { 2, 4, 6, 3 };
-	// The type first: a shadow (emulate_swizzle) is made as the view is.
+	// The type first: a shadow (make_shadow) is made as the view is.
 	TextureInfo slice = *original;
 	slice.type = p_slice_type == TEXTURE_SLICE_CUBEMAP ? TEXTURE_TYPE_CUBE : p_slice_type == TEXTURE_SLICE_3D ? TEXTURE_TYPE_3D :
 			p_slice_type == TEXTURE_SLICE_2D_ARRAY ? TEXTURE_TYPE_2D_ARRAY : TEXTURE_TYPE_2D;
@@ -921,7 +958,8 @@ void RenderingDeviceDriverWebGPU::texture_free(TextureID p_texture) {
 		memdelete(shadow);
 		TextureInfo *owner = texture->owner ? texture : texture->original;
 		MutexLock lock(mutex);
-		owner->swizzled.erase(texture);
+		owner->shadowed.erase(texture);
+		if (owner->shadowed.is_empty()) unfilled.erase(owner);
 		shadows--;
 	}
 	if (texture->owner) {
@@ -999,18 +1037,18 @@ Vector<uint8_t> RenderingDeviceDriverWebGPU::texture_get_data(TextureID p_textur
 
 BitField<RDD::TextureUsageBits> RenderingDeviceDriverWebGPU::texture_get_usages_supported_by_format(DataFormat p_format, bool p_cpu_readable) {
 	const uint32_t format = gpu_texture_format(p_format);
-	if (!format || (is_compressed(format) && !(features & F_BC)) || (format == 45 && !(features & F_DEPTH32_STENCIL8))) {
+	if (!exists(format, features)) {
 		return 0;
 	}
 	BitField<TextureUsageBits> usage = TEXTURE_USAGE_SAMPLING_BIT | TEXTURE_USAGE_CAN_UPDATE_BIT | TEXTURE_USAGE_CAN_COPY_FROM_BIT |
 			TEXTURE_USAGE_CAN_COPY_TO_BIT | TEXTURE_USAGE_CPU_READ_BIT;
 	if (is_depth(format) || is_stencil(format)) {
 		usage.set_flag(TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
-	} else if (is_renderable(format)) {
+	} else if (is_renderable(format, features)) {
 		usage.set_flag(TEXTURE_USAGE_COLOR_ATTACHMENT_BIT);
 		usage.set_flag(TEXTURE_USAGE_INPUT_ATTACHMENT_BIT);
 	}
-	if (is_storage(format)) {
+	if (is_storage(format, features)) {
 		usage.set_flag(TEXTURE_USAGE_STORAGE_BIT);
 	}
 	return usage;
@@ -1249,6 +1287,24 @@ RDD::UniformSetID RenderingDeviceDriverWebGPU::uniform_set_create(VectorView<Bou
 			for (const ID &id : u.ids) set->dynamic.push_back((BufferInfo *)id.id);
 		}
 	}
+	// A depth texture the set's shader samples through a filtering sampler gets its shadow now,
+	// before the commands that use the set are recorded (Godot records them after).
+	for (const BoundUniform &u : set->uniforms) {
+		if (p_set_index >= set->shader->sets.size()) break;
+		if (u.type != UNIFORM_TYPE_TEXTURE && u.type != UNIFORM_TYPE_SAMPLER_WITH_TEXTURE) continue;
+		for (const SetUniform &s : set->shader->sets[p_set_index]) {
+			if (s.binding != u.binding) continue;
+			for (uint32_t element = 0; element < s.length; element++) {
+				const uint32_t at = u.type == UNIFORM_TYPE_SAMPLER_WITH_TEXTURE ? element * 2 + 1 : element;
+				if (at >= u.ids.size()) break;
+				TextureInfo *texture = (TextureInfo *)u.ids[at].id;
+				if (!texture || texture->shadow || !is_depth(texture->gpu_format)) continue;
+				for (const GroupEntry &e : set->shader->layouts[p_set_index]) {
+					if (e.binding == s.first + element && e.type == 7 && e.a == 1) make_shadow(texture, 0x03020100);
+				}
+			}
+		}
+	}
 	return UniformSetID(set);
 }
 
@@ -1315,7 +1371,7 @@ const RenderingDeviceDriverWebGPU::Group &RenderingDeviceDriverWebGPU::group_for
 			ERR_FAIL_NULL_V(bound, none);
 			if (element < u->length) {
 				put32(p, 4, 2);
-				put64(p, 8, sampled_view((TextureInfo *)bound->ids[element * 2 + 1].id));
+				put64(p, 8, sampled_view((TextureInfo *)bound->ids[element * 2 + 1].id, e));
 			} else {
 				put32(p, 4, 1);
 				put64(p, 8, bound->ids[(element - u->length) * 2].id);
@@ -1324,7 +1380,7 @@ const RenderingDeviceDriverWebGPU::Group &RenderingDeviceDriverWebGPU::group_for
 			ERR_FAIL_NULL_V(bound, none);
 			put32(p, 4, 2);
 			TextureInfo *texture = (TextureInfo *)bound->ids[element].id;
-			put64(p, 8, u->type == UNIFORM_TYPE_IMAGE ? texture->view : sampled_view(texture));
+			put64(p, 8, u->type == UNIFORM_TYPE_IMAGE ? texture->view : sampled_view(texture, e));
 		} else {
 			ERR_FAIL_COND_V_MSG(!bound || bound->ids.is_empty(), none, "A buffer uniform without a buffer.");
 			const BufferInfo *buffer = (const BufferInfo *)bound->ids[0].id;
@@ -1550,7 +1606,7 @@ void RenderingDeviceDriverWebGPU::command_buffer_end(CommandBufferID p_cmd_buffe
 		command_record(p_cmd_buffer, DOLLY_GPU_END_COMPUTE_PASS, 8);
 		cb->in_compute_pass = false;
 	}
-	refresh_swizzled(p_cmd_buffer);
+	refill_shadows(p_cmd_buffer);
 }
 
 void RenderingDeviceDriverWebGPU::command_buffer_execute_secondary(CommandBufferID p_cmd_buffer, VectorView<CommandBufferID> p_secondary_cmd_buffers) {
@@ -1724,7 +1780,7 @@ void RenderingDeviceDriverWebGPU::begin_subpass(CommandBufferID p_cmd_buffer, bo
 	const FramebufferInfo *fb = cb->framebuffer;
 	const Subpass &subpass = pass->subpasses[cb->subpass];
 	const uint32_t colors = subpass.color_references.size();
-	refresh_swizzled(p_cmd_buffer);
+	refill_shadows(p_cmd_buffer);
 	uint8_t *p = command_record(p_cmd_buffer, DOLLY_GPU_BEGIN_VIEW_PASS, 64 + 40 * colors);
 	uint32_t width = 0, height = 0;
 	auto load = [&](uint32_t attachment, AttachmentLoadOp op) {
@@ -1775,6 +1831,7 @@ void RenderingDeviceDriverWebGPU::begin_subpass(CommandBufferID p_cmd_buffer, bo
 		const Attachment &a = pass->attachments[depth];
 		const bool read_only = subpass.depth_stencil_reference.layout == TEXTURE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 		put64(p, 8, texture->view);
+		if (!read_only) written(p_cmd_buffer, texture);
 		put32(p, 28, load(depth, a.load_op));
 		put32(p, 32, store(depth, a.store_op));
 		put32(p, 36, read_only);
@@ -2053,7 +2110,7 @@ void RenderingDeviceDriverWebGPU::command_bind_compute_uniform_sets(CommandBuffe
 
 void RenderingDeviceDriverWebGPU::command_compute_dispatch(CommandBufferID p_cmd_buffer, uint32_t p_x_groups, uint32_t p_y_groups, uint32_t p_z_groups) {
 	compute_pass(p_cmd_buffer);
-	refresh_swizzled(p_cmd_buffer);
+	refill_shadows(p_cmd_buffer);
 	bind_groups(p_cmd_buffer);
 	uint8_t *p = command_record(p_cmd_buffer, DOLLY_GPU_DISPATCH, 24);
 	put32(p, 8, p_x_groups);
@@ -2063,7 +2120,7 @@ void RenderingDeviceDriverWebGPU::command_compute_dispatch(CommandBufferID p_cmd
 
 void RenderingDeviceDriverWebGPU::command_compute_dispatch_indirect(CommandBufferID p_cmd_buffer, BufferID p_indirect_buffer, uint64_t p_offset) {
 	compute_pass(p_cmd_buffer);
-	refresh_swizzled(p_cmd_buffer);
+	refill_shadows(p_cmd_buffer);
 	bind_groups(p_cmd_buffer);
 	uint8_t *p = command_record(p_cmd_buffer, DOLLY_GPU_DISPATCH_INDIRECT, 24);
 	put64(p, 8, ((BufferInfo *)p_indirect_buffer.id)->handle);
@@ -2093,11 +2150,6 @@ void RenderingDeviceDriverWebGPU::command_copy_buffer(CommandBufferID p_cmd_buff
 		put64(p, 32, p_regions[i].dst_offset);
 		put64(p, 40, p_regions[i].size);
 	}
-}
-
-static uint32_t gpu_aspect(BitField<RDD::TextureAspectBits> p_aspect) {
-	return p_aspect.has_flag(RDD::TEXTURE_ASPECT_STENCIL_BIT) && !p_aspect.has_flag(RDD::TEXTURE_ASPECT_DEPTH_BIT) ? 1 :
-			p_aspect.has_flag(RDD::TEXTURE_ASPECT_DEPTH_BIT) && !p_aspect.has_flag(RDD::TEXTURE_ASPECT_STENCIL_BIT) ? 2 : 0;
 }
 
 void RenderingDeviceDriverWebGPU::command_copy_texture(CommandBufferID p_cmd_buffer, TextureID p_src_texture, TextureLayout p_src_texture_layout, TextureID p_dst_texture, TextureLayout p_dst_texture_layout, VectorView<TextureCopyRegion> p_regions) {
@@ -2167,11 +2219,22 @@ void RenderingDeviceDriverWebGPU::command_copy_texture_to_buffer(CommandBufferID
 	}
 }
 
-// What a shader samples: a shadow (emulate_swizzle), or a depth-stencil texture's depth aspect
-// alone, as WebGPU binds one aspect.
-uint64_t RenderingDeviceDriverWebGPU::sampled_view(TextureInfo *p_texture) {
-	if (p_texture->shadow) return p_texture->shadow->view;
-	if (!is_depth(p_texture->gpu_format) || !is_stencil(p_texture->gpu_format) || p_texture->surface) return p_texture->view;
+// What a shader samples at p_entry: a colour view's shadow (make_shadow) or the view; for depth
+// through a filtering sampler, its shadow; else a depth-stencil texture's depth aspect alone, as
+// WebGPU binds one aspect.
+uint64_t RenderingDeviceDriverWebGPU::sampled_view(TextureInfo *p_texture, const GroupEntry &p_entry) {
+	if (p_texture->surface) return p_texture->view;
+	if (!is_depth(p_texture->gpu_format)) return p_texture->shadow ? p_texture->shadow->view : p_texture->view;
+	if (p_entry.type == 7 && p_entry.a == 1) {
+		if (!p_texture->shadow) {
+			// uniform_set_create makes it for the set's own shader; another of its variants may
+			// filter what that one only loads. Filled at the next refill, after this frame.
+			WARN_PRINT_ONCE("A depth texture is filtered by a shader its uniform set was not made for.");
+			make_shadow(p_texture, 0x03020100);
+		}
+		return p_texture->shadow ? p_texture->shadow->view : p_texture->view;
+	}
+	if (!is_stencil(p_texture->gpu_format)) return p_texture->view;
 	if (!p_texture->depth_view) {
 		Record r(DOLLY_GPU_CREATE_VIEW, 56);
 		put64(r.p(), 16, p_texture->texture);
@@ -2206,7 +2269,7 @@ uint64_t RenderingDeviceDriverWebGPU::subresource_view(TextureInfo *p_texture, u
 void RenderingDeviceDriverWebGPU::command_clear_color_texture(CommandBufferID p_cmd_buffer, TextureID p_texture, TextureLayout p_texture_layout, const Color &p_color, const TextureSubresourceRange &p_subresources) {
 	end_passes(p_cmd_buffer);
 	TextureInfo *texture = (TextureInfo *)p_texture.id;
-	ERR_FAIL_COND_MSG(!is_renderable(texture->gpu_format), "WebGPU clears a texture as an attachment; this format is none.");
+	ERR_FAIL_COND_MSG(!is_renderable(texture->gpu_format, features), "WebGPU clears a texture as an attachment; this format is none.");
 	for (uint32_t mip = 0; mip < p_subresources.mipmap_count; mip++) {
 		for (uint32_t layer = 0; layer < p_subresources.layer_count; layer++) {
 			uint8_t *p = command_record(p_cmd_buffer, DOLLY_GPU_BEGIN_VIEW_PASS, 104);
@@ -2237,6 +2300,7 @@ void RenderingDeviceDriverWebGPU::command_clear_depth_stencil_texture(CommandBuf
 			command_record(p_cmd_buffer, DOLLY_GPU_END_RENDER_PASS, 8);
 		}
 	}
+	written(p_cmd_buffer, texture);
 }
 
 // WebGPU resolves only as a render pass ends.
