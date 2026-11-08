@@ -41,7 +41,8 @@ headless Chrome, a 1600 by 1000 page, the editor's frame 1152 by 648. Files unde
 ## Plan
 
 1. Profile the editor as it is (done: Baseline, above).
-2. A design, for the owner's review before any contract code:
+2. A design, for the owner's review before any contract code ([DESIGN.md](DESIGN.md), written
+   2026-11-08, awaiting that review):
    - every method of Godot's `RenderingDeviceDriver` and `RenderingContextDriver` mapped to WebGPU
      and to gpu@0;
    - what gpu@0 lacks, as additions to gpu@0 itself (owner: extend it, no new version), each with
