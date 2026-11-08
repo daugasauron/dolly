@@ -1537,9 +1537,10 @@ RDD::PipelineID RenderingDeviceDriverWebGPU::render_pipeline_create(ShaderID p_s
 			continue;
 		}
 		put32(p, at, gpu_texture_format(pass->attachments[attachment].format));
-		const int32_t blend_index = i < p_color_attachments.size() ? p_color_attachments[i] : int32_t(i);
-		if (blend_index < 0 || blend_index >= p_blend_state.attachments.size()) continue;
-		const PipelineColorBlendState::Attachment &blend = p_blend_state.attachments[blend_index];
+		// The blend state's attachment i is colour slot i, as Vulkan's driver reads it; Godot marks
+		// a slot it does not write ATTACHMENT_UNUSED in p_color_attachments.
+		if (i >= p_color_attachments.size() || p_color_attachments[i] == ATTACHMENT_UNUSED || i >= uint32_t(p_blend_state.attachments.size())) continue;
+		const PipelineColorBlendState::Attachment &blend = p_blend_state.attachments[i];
 		put32(p, at + 4, (blend.write_r ? 1 : 0) | (blend.write_g ? 2 : 0) | (blend.write_b ? 4 : 0) | (blend.write_a ? 8 : 0));
 		if (blend.enable_blend) {
 			uint32_t factors[4];

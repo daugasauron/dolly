@@ -98,6 +98,20 @@ frames, 46.7 in Chrome, startup included. What the first runs taught:
   (`CanvasSdfShaderRD`, rg16sint and r8 storage) and its default VRS texture (R8_UINT storage)
   are refused there, explicitly, with an error each at startup. Chrome has both tiers.
 
+## 3D on the Mobile renderer (2026-11-08)
+
+The editor, built inside Dolly in 15 minutes, runs a 3D scene on the Mobile renderer in Chrome:
+a procedural sky, a lit box on a floor and the sun's soft shadow (frame read back: sky `88919c`,
+box `cb2c30`, floor `bcc1c8`, shadow `525e6e`), 52.2 frames a second over frames 60 to 300. The
+shadow atlas is compared and filtered: the comparison reads the depth binding, the filtering a
+float twin. What it took:
+
+- The blend state's attachment *i* is colour slot *i*, as Vulkan's driver reads it; Godot's
+  `p_color_attachments` names the render pass's attachment or `ATTACHMENT_UNUSED`. The tonemap
+  subpass had no write mask.
+- Tint gives the overrides it derives (no `@id`) ids of its own; only Godot's specialization
+  constants, with explicit ids, are a pipeline's constants.
+
 ## Plan
 
 1. Profile the editor as it is (done: Baseline, above).

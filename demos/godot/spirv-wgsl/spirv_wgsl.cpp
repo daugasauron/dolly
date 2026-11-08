@@ -970,7 +970,11 @@ extern "C" void spirv_wgsl_translate(const uint32_t *words, size_t word_count, c
 		bindings.push_back(entry);
 	}
 	std::vector<uint32_t> overrides;
-	for (const auto &o : inspector.GetEntryPoint("main").overrides) overrides.push_back(o.id.value);
+	// Godot's specialization constants, by their ids; Tint numbers the overrides it derives from
+	// them too (no @id), which no pipeline sets.
+	for (const auto &o : inspector.GetEntryPoint("main").overrides) {
+		if (o.is_id_specified) overrides.push_back(o.id.value);
+	}
 	result->wgsl = copy(wgsl->wgsl);
 	result->binding_count = bindings.size();
 	result->bindings = static_cast<spirv_wgsl_binding *>(std::malloc(sizeof(spirv_wgsl_binding) * std::max<size_t>(1, bindings.size())));
