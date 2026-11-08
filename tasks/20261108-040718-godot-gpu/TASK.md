@@ -249,7 +249,8 @@ WebGPU's validation), in a session with the driver of `754c062b5`:
 
 - The editor's own time, switch to drawn frame (2D, 3D alternating, three runs): 123, 31, 5, 10,
   6, 20; 119, 15, 5, 25, 5, 13; 119, 31, 4, 4, 4, 7 ms. Before: 2D 61, 6, 6 and 3D 33, 33, 35 ms.
-  The first switch, cold, is slower than before (119 to 123 against 61); not explained.
+  The first switch, cold, is slower than before (119 to 123 against 61); with the provider of
+  before `1892487c0` it is too (121 to 124, and 3D 32 to 36 again), so it comes from elsewhere.
 - Click to view on the page: 2D 315 (cold), 128, 128 ms; 3D 80, 80, 89 ms. Before: 2D 251, 96, 97
   and 3D 172, 166, 183 ms.
 
