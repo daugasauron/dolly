@@ -114,7 +114,8 @@ export async function composed(hosts, packages, { base, files = {}, entry = "/bi
     ...Object.entries(files).map(([path, text]) => `FILE ${path}\n${text.trim().split("\n").map(line => `    ${line}`).join("\n")}`),
     `ENTRY ${entry}`, ""].join("\n");
   return { path: "/custom/rebuild/", async setup(page) {
-    await page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe);
+    // The installed Firefox also runs init scripts in a document without a location or storage.
+    await page.addInitScript(recipe => { if (location.protocol.startsWith("http")) sessionStorage.setItem("dolly-custom-source", recipe); }, recipe);
     await setup?.(page);
   } };
 }
