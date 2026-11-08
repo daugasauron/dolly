@@ -32,7 +32,7 @@ const vertexFormats = [null, "float32", "float32x2", "float32x3", "float32x4", "
   "uint8x2", "sint8x2", "unorm8x2", "snorm8x2", "sint16x2", "sint16x4", "snorm16x2", "snorm16x4", "uint32", "uint32x2", "uint32x3",
   "uint32x4", "sint32", "sint32x2", "sint32x3", "sint32x4", "unorm10-10-10-2"];
 const vertexBytes = [0, 4, 8, 12, 16, 4, 4, 4, 4, 4, 8, 4, 8, 4, 8, 2, 2, 2, 2, 4, 8, 4, 8, 4, 8, 12, 16, 4, 8, 12, 16, 4];
-const maxBytes = 4 * 1024 ** 3, bufferCeiling = 1024 ** 3, maxObjects = 4096;
+const maxBytes = 4 * 1024 ** 3, bufferCeiling = 1024 ** 3, maxObjects = 65536;
 // A surface shows one presented frame per page animation frame, as a display does, and a frame
 // retires once shown and finished by the GPU. Chrome's canvas also waits for its compositor;
 // Firefox's does not, so without this its programs draw unpaced.

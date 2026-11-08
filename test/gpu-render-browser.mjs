@@ -13,7 +13,7 @@ const server=await startBrowserServer(new URL('..',import.meta.url).pathname,'sy
 let browser,deadline;
 try {
   browser=browserName==='firefox'
-    ? await firefox.launch({headless:false,firefoxUserPrefs:{'dom.webgpu.enabled':true}})
+    ? await firefox.launch({channel:'moz-firefox',headless:false,firefoxUserPrefs:{'dom.webgpu.enabled':true}})
     : await chromium.launch({channel:'chrome',headless:false,
     args:['--no-sandbox','--ozone-platform=x11','--enable-unsafe-webgpu','--use-angle=vulkan','--enable-features=Vulkan,VulkanFromANGLE']});
   deadline=setTimeout(()=>void browser.close(),90000);

@@ -30,8 +30,9 @@ flowchart LR
   transactions: never replay one after an error.
 - Quotas: 8 scopes with one pending request each, 1 MiB packets of at most 1,024
   records (clients check `CAPABILITIES` before exceeding 256), shaders as large
-  as a packet holds, 4,096 objects per scope, 1 GiB per buffer, 4 GiB of buffers and textures in
-  total, 16 bindings in a compact record and 128 in an explicit layout, and 64
+  as a packet holds, 65,536 objects per scope (Godot's editor held 9,502), 1 GiB
+  per buffer, 4 GiB of buffers and textures in total, 16 bindings in a compact
+  record and 128 in an explicit layout, and 64
   queued submissions per scope, 3 presented frames not yet shown per surface
   scope, before the next batch waits. The page shows one frame per animation
   frame: Chrome's canvas also waits for its compositor, Firefox's does not, and
@@ -98,3 +99,6 @@ for the lavapipe software adapter), with PCI IDs from `lspci -nn`. Playwright
 drives the installed Firefox with `channel: "moz-firefox"`; its bundled Firefox
 build returns no adapter under Xvfb. A snap's Firefox has a /tmp of its own, so
 Playwright's profile must be elsewhere: set `TMPDIR` to a directory under `$HOME`.
+Under Xvfb, Firefox shows no WebGPU canvas, on the main thread or a worker's, neither
+on the X display nor in Playwright's screenshots: tests there read frames back
+(`CAPTURE_FRAME`, or a program's own readback) instead of looking at the page.

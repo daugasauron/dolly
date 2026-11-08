@@ -55,7 +55,7 @@ export async function gpuBoundaryProof({surface=true}={}) {
     check(await send(packet(7))===0,"GPU capabilities failed");
     const capabilities=new DataView(memory,mailbox+64,128);
     check(capabilities.getUint32(0,true)&128,"Large batch capability missing");
-    check(capabilities.getBigUint64(8,true)===maxBuffer && capabilities.getUint32(4,true)===4096 && capabilities.getBigUint64(16,true)===4294967296n,"GPU capability quotas differ");
+    check(capabilities.getBigUint64(8,true)===maxBuffer && capabilities.getUint32(4,true)===65536 && capabilities.getBigUint64(16,true)===4294967296n,"GPU capability quotas differ");
     check(new Uint8Array(memory,mailbox+64+96,32).every(n=>n===0),"Nonzero reserved capabilities");
     check(await send(packet(99))===E.ENOTSUP,"Unknown GPU operation accepted");
     // All records must have valid byte spans before earlier records can allocate.
