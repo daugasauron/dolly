@@ -1,5 +1,6 @@
 // The shader container of Godot's driver on gpu@0: each stage's WGSL, which spirv_wgsl makes from
-// the SPIR-V glslang compiled, with the gpu@0 layout entries and override constants it declares.
+// the SPIR-V glslang compiled, with the gpu@0 layout entries and override constants it declares;
+// or, for a stage it cannot translate, why (the driver keeps such a variant without modules).
 #pragma once
 
 #include "servers/rendering/rendering_shader_container.h"
@@ -15,7 +16,11 @@ public:
 	struct Stage {
 		LocalVector<LayoutEntry> entries;
 		LocalVector<uint32_t> overrides;  // the override constant ids its module declares
+		// A stage the translator refused has the one entry of type UNAVAILABLE, and its code holds
+		// the translator's words instead of WGSL.
+		bool unavailable() const { return entries.size() == 1 && entries[0].type == UNAVAILABLE; }
 	};
+	static const uint32_t UNAVAILABLE = UINT32_MAX;
 	// Per uniform of the reflection, in its order: its first WGSL binding (spirv_wgsl_plan).
 	LocalVector<uint32_t> first_binding;
 	LocalVector<Stage> stages;

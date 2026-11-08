@@ -32,21 +32,21 @@ bool RenderingShaderContainerWebGPU::_set_code_from_spirv(const ReflectShader &p
 		const Span<uint32_t> spirv = stage.spirv();
 		spirv_wgsl_result result;
 		spirv_wgsl_translate(spirv.ptr(), spirv.size(), uniforms.ptr(), uniforms.size(), &result);
-		if (result.error) {
-			const String error = result.error;
-			spirv_wgsl_free(&result);
-			ERR_FAIL_V_MSG(false, vformat("%s, %s stage: %s", String(shader_name.get_data()), RenderingDeviceCommons::SHADER_STAGE_NAMES[stage.shader_stage], error));
-		}
-		const uint32_t size = strlen(result.wgsl);
+		// A stage the translator refuses keeps its words: Godot compiles every variant of a shader
+		// and keeps none if one fails, though it may never use that one (FSR's half precision).
+		const CharString error = result.error ? vformat("%s, %s stage: %s", String(shader_name.get_data()), RenderingDeviceCommons::SHADER_STAGE_NAMES[stage.shader_stage], result.error).utf8() : CharString();
+		const char *code = result.error ? error.get_data() : result.wgsl;
+		const uint32_t size = strlen(code);
 		Shader &shader = shaders.ptrw()[i];
 		shader.shader_stage = stage.shader_stage;
 		shader.code_decompressed_size = size;
 		shader.code_compressed_bytes.resize(size);
 		uint32_t compressed = 0;
-		const bool done = compress_code((const uint8_t *)result.wgsl, size, shader.code_compressed_bytes.ptrw(), &compressed, &shader.code_compression_flags);
+		const bool done = compress_code((const uint8_t *)code, size, shader.code_compressed_bytes.ptrw(), &compressed, &shader.code_compression_flags);
 		shader.code_compressed_bytes.resize(compressed);
 		Stage &out = stages[i];
 		out.entries.clear();
+		if (result.error) out.entries.push_back({ 0, 0, UNAVAILABLE, 0, 0, 0 });
 		for (size_t e = 0; e < result.binding_count; e++) {
 			const spirv_wgsl_binding &b = result.bindings[e];
 			out.entries.push_back({ b.group, b.binding, b.type, b.a, b.b, b.c });

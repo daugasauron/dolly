@@ -1,8 +1,10 @@
 // Godot's RenderingDevice on gpu@0, on a real adapter, on the private X display DISPLAY names:
 // Chrome on Vulkan, or the installed Firefox (docs/gpu.md). A 2D scene on the Mobile renderer
 // (godot), a 3D scene with a sky, light and shadow on Mobile (godot-editor running it) and on
-// Forward+ (godot), and the editor itself each read their own frame back, as Firefox under Xvfb
-// shows no WebGPU canvas; Truck Town's menu, its cars turning in 3D viewports, runs 600 frames.
+// Forward+ (godot), the same scene with Forward+'s effects on (SSR, SSAO, SSIL, glow, volumetric
+// fog, depth of field, FSR 1 scaling), and the editor itself each read their own frame back, as
+// Firefox under Xvfb shows no WebGPU canvas; Truck Town's menu, its cars turning in 3D viewports,
+// runs 600 frames.
 // Usage: node demos/godot/test/godot-gpu-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { chromium, firefox } from "playwright-core";
@@ -146,6 +148,16 @@ func _process(_delta: float) -> void:
     EditorInterface.get_base_control().get_tree().quit()
 `,
 };
+// The 3D scene with its effects on, and a mirror floor that SSR reflects the sky in.
+const sceneEffects = {
+  ...scene3d,
+  "project.godot": `config_version=5\n[application]\nrun/main_scene="res://main.tscn"\n[display]\nwindow/size/viewport_width=640\nwindow/size/viewport_height=360\n[rendering]\nscaling_3d/mode=1\nscaling_3d/scale=0.77\n`,
+  "main.tscn": scene3d["main.tscn"]
+    .replace('[sub_resource type="PlaneMesh" id="plane"]', '[sub_resource type="StandardMaterial3D" id="mirror"]\nmetallic = 1.0\nroughness = 0.05\n[sub_resource type="PlaneMesh" id="plane"]')
+    .replace("sky = SubResource(\"sky\")\n", "sky = SubResource(\"sky\")\nssr_enabled = true\nssao_enabled = true\nssil_enabled = true\nglow_enabled = true\nvolumetric_fog_enabled = true\nvolumetric_fog_density = 0.02\n[sub_resource type=\"CameraAttributesPractical\" id=\"attributes\"]\ndof_blur_far_enabled = true\ndof_blur_far_distance = 6.0\n")
+    .replace('environment = SubResource("environment")\n', 'environment = SubResource("environment")\ncamera_attributes = SubResource("attributes")\n')
+    .replace('mesh = SubResource("plane")\n', 'mesh = SubResource("plane")\nsurface_material_override/0 = SubResource("mirror")\n'),
+};
 const color = (lines, key) => {
   const hex = lines.match(new RegExp(`^${key} ([0-9a-f]{6})$`, "m"))?.[1];
   assert.ok(hex, `${key} is printed`);
@@ -178,7 +190,7 @@ for (const name of browsers) {
       await run(`clear; cat ${path}`);
       return page.evaluate(() => __dolly.visibleTerminalText());
     };
-    for (const [project, files] of [["scene2d", scene2d], ["scene3d", scene3d]]) {
+    for (const [project, files] of [["scene2d", scene2d], ["scene3d", scene3d], ["effects", sceneEffects]]) {
       for (const [file, text] of Object.entries(files)) {
         await run(`mkdir -p $(dirname /tmp/${project}/${file})`);
         await run(writeCommand(`/tmp/${project}/${file}`, text));
@@ -188,9 +200,10 @@ for (const name of browsers) {
     await run("godot --path /tmp/scene2d > /tmp/scene2d.out 2>&1");
     await run("godot-editor --path /tmp/scene3d > /tmp/scene3d.out 2>&1");
     await run("godot --rendering-method forward_plus --path /tmp/scene3d > /tmp/forward.out 2>&1");
+    await run("godot --path /tmp/effects > /tmp/effects.out 2>&1");
     await run("godot-editor -e --path /tmp/scene3d > /tmp/editor.out 2>&1");
     await run("truck-town --quit-after 600 > /tmp/truck.out 2>&1");
-    await run("! grep -q 'refused a batch' /tmp/scene2d.out /tmp/scene3d.out /tmp/forward.out /tmp/editor.out /tmp/truck.out");
+    await run("! grep -q 'refused a batch' /tmp/scene2d.out /tmp/scene3d.out /tmp/forward.out /tmp/effects.out /tmp/editor.out /tmp/truck.out");
 
     const lines2d = await output("/tmp/scene2d.out | grep -E '^(ADAPTER|FPS|BACKGROUND|SPRITE|LABEL) '");
     assert.match(lines2d, /^ADAPTER WebGPU$/m);
@@ -208,6 +221,12 @@ for (const name of browsers) {
       near(color(lines, "SHADOW"), [0x52, 0x5e, 0x6e], `${method}'s shadow`);
       scenes3d.push(lines);
     }
+    // Under fog and glow the box stays red, and SSR mirrors the sky in the floor (both browsers).
+    const effects = await output("/tmp/effects.out | grep -E '^(ADAPTER|FPS|BOX|FLOOR) '");
+    assert.match(effects, /^ADAPTER WebGPU forward_plus$/m);
+    near(color(effects, "BOX"), [0xc5, 0x3b, 0x3d], "the box under the effects");
+    near(color(effects, "FLOOR"), [0x62, 0x73, 0x8a], "the mirror floor");
+    scenes3d.push(effects);
 
     const editor = await output("/tmp/editor.out | grep '^EDITOR '");
     const [, red, light] = editor.match(/^EDITOR 1152x648 red (\d+) light (\d+)$/m) ?? [];

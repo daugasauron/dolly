@@ -684,8 +684,12 @@ RDD::TextureID RenderingDeviceDriverWebGPU::make_view(const TextureInfo *p_origi
 	TextureInfo *view = memnew(TextureInfo(*p_original));
 	view->owner = p_owns;
 	view->original = p_owns ? nullptr : p_original->owner ? const_cast<TextureInfo *>(p_original) : p_original->original;
+	// A view owns none of its texture's views and shadows, nor the storage shadow (storage_view
+	// reaches the texture's through original).
 	view->shadowed.clear();
 	view->shadow = nullptr;
+	view->storage = nullptr;
+	view->storage_view = 0;
 	view->subresource_views.clear();
 	view->depth_view = 0;
 	const uint32_t format = p_view.format == DATA_FORMAT_MAX ? p_original->gpu_format : gpu_texture_format(p_view.format);
@@ -801,7 +805,8 @@ RenderingDeviceDriverWebGPU::Shadow *RenderingDeviceDriverWebGPU::make_shadow(Te
 	for (uint32_t m = 0; m < p_view->mips; m++) {
 		Record source(DOLLY_GPU_CREATE_VIEW, 56);
 		put64(source.p(), 16, p_view->texture);
-		put32(source.p(), 24, linear);
+		// A depth-stencil texture's depth aspect has a format of its own, which WebGPU picks.
+		put32(source.p(), 24, depth ? 0 : linear);
 		put32(source.p(), 28, dimension);
 		put32(source.p(), 32, depth ? 2 : 0);
 		put32(source.p(), 36, p_view->base_mip + m);
@@ -1417,21 +1422,46 @@ static const RenderingDeviceDriverWebGPU::SetUniform *uniform_at(const Rendering
 	return nullptr;
 }
 
+// A stage's code as the container keeps it: WGSL, or the translator's words for a stage it refused.
+static Vector<uint8_t> stage_code(const RenderingShaderContainerWebGPU *p_container, uint32_t p_stage) {
+	const RenderingShaderContainer::Shader &code = p_container->shaders[p_stage];
+	Vector<uint8_t> text;
+	text.resize(code.code_decompressed_size ? code.code_decompressed_size : code.code_compressed_bytes.size());
+	if (!const_cast<RenderingShaderContainerWebGPU *>(p_container)->decompress_code(code.code_compressed_bytes.ptr(), code.code_compressed_bytes.size(),
+				code.code_compression_flags, text.ptrw(), text.size())) {
+		text.clear();
+	}
+	return text;
+}
+
 RDD::ShaderID RenderingDeviceDriverWebGPU::shader_create_from_container(const Ref<RenderingShaderContainer> &p_shader_container, const Vector<ImmutableSampler> &p_immutable_samplers) {
 	const RenderingShaderContainerWebGPU *container = static_cast<const RenderingShaderContainerWebGPU *>(p_shader_container.ptr());
 	const ShaderReflection reflection = container->get_shader_reflection();
-	// A storage texture the device cannot bind, even as its widened storage shadow's format,
-	// refuses the shader here, before any record: a refused batch would lose the objects queued
-	// with it.
-	for (uint32_t i = 0; i < container->stages.size(); i++) {
-		for (const RenderingShaderContainerWebGPU::LayoutEntry &e : container->stages[i].entries) {
-			const uint32_t stored = is_storage(e.c, features) ? e.c : widened(e.c);
-			ERR_FAIL_COND_V_MSG(e.type == 8 && (!stored || !storage_access(stored, e.a, features)), ShaderID(),
-					vformat("%s: the browser's WebGPU has no storage texture of format %d with access %d (texture-formats-tier1 and tier2).", String(container->shader_name.get_data()), e.c, e.a));
+	// Why this variant cannot run here, if it cannot: the translator's words for a stage it refused,
+	// a storage texture the device cannot bind even as its storage shadow's widened format, or more
+	// of a kind than the device allows a stage. Godot compiles every variant of a shader and keeps
+	// none if one fails, though it may never use that one (FSR's half precision, whose uniform sets
+	// it makes for its fallback), and an effect whose shader is missing returns with its compute
+	// list open (bokeh_dof.cpp), failing the frame's later compute work. So such a variant is kept
+	// without modules, as Vulkan keeps a module it could not pipeline, and its pipelines are refused;
+	// before any record, as a refused batch would lose the objects queued with it.
+	String unavailable;
+	for (uint32_t i = 0; i < container->stages.size() && unavailable.is_empty(); i++) {
+		if (container->stages[i].unavailable()) {
+			const Vector<uint8_t> text = stage_code(container, i);
+			unavailable = String::utf8((const char *)text.ptr(), text.size());
 		}
 	}
-	// What each stage binds, against the device's limits for a stage: refused here too.
-	for (uint32_t i = 0; i < container->stages.size(); i++) {
+	for (uint32_t i = 0; i < container->stages.size() && unavailable.is_empty(); i++) {
+		for (const RenderingShaderContainerWebGPU::LayoutEntry &e : container->stages[i].entries) {
+			const uint32_t stored = is_storage(e.c, features) ? e.c : widened(e.c);
+			if (e.type == 8 && (!stored || !storage_access(stored, e.a, features))) {
+				unavailable = vformat("%s: the browser's WebGPU has no storage texture of format %d with access %d (texture-formats-tier1 and tier2).", String(container->shader_name.get_data()), e.c, e.a);
+				break;
+			}
+		}
+	}
+	for (uint32_t i = 0; i < container->stages.size() && unavailable.is_empty(); i++) {
 		uint32_t sampled = 0, samplers = 0, storage_buffers = 0, storage_textures = 0, uniform_buffers = 0;
 		for (const RenderingShaderContainerWebGPU::LayoutEntry &e : container->stages[i].entries) {
 			sampled += e.type == 7;
@@ -1447,11 +1477,12 @@ RDD::ShaderID RenderingDeviceDriverWebGPU::shader_create_from_container(const Re
 		const uint64_t storage_texture_limit = stage == SHADER_STAGE_VERTEX ? limits[L_STORAGE_TEXTURES_VERTEX] :
 				stage == SHADER_STAGE_FRAGMENT																	   ? limits[L_STORAGE_TEXTURES_FRAGMENT] :
 																													 limits[L_STORAGE_TEXTURES];
-		ERR_FAIL_COND_V_MSG(sampled > limits[L_SAMPLED_TEXTURES] || samplers > limits[L_SAMPLERS] || storage_buffers > storage_buffer_limit ||
-						storage_textures > storage_texture_limit || uniform_buffers > limits[L_UNIFORM_BUFFERS],
-				ShaderID(), vformat("%s: its %s stage binds %d sampled textures, %d samplers, %d storage buffers, %d storage textures and %d uniform buffers; the browser's WebGPU allows a stage %d, %d, %d, %d and %d.",
-									String(container->shader_name.get_data()), SHADER_STAGE_NAMES[stage], sampled, samplers, storage_buffers, storage_textures, uniform_buffers,
-									limits[L_SAMPLED_TEXTURES], limits[L_SAMPLERS], storage_buffer_limit, storage_texture_limit, limits[L_UNIFORM_BUFFERS]));
+		if (sampled > limits[L_SAMPLED_TEXTURES] || samplers > limits[L_SAMPLERS] || storage_buffers > storage_buffer_limit ||
+				storage_textures > storage_texture_limit || uniform_buffers > limits[L_UNIFORM_BUFFERS]) {
+			unavailable = vformat("%s: its %s stage binds %d sampled textures, %d samplers, %d storage buffers, %d storage textures and %d uniform buffers; the browser's WebGPU allows a stage %d, %d, %d, %d and %d.",
+					String(container->shader_name.get_data()), SHADER_STAGE_NAMES[stage], sampled, samplers, storage_buffers, storage_textures, uniform_buffers,
+					limits[L_SAMPLED_TEXTURES], limits[L_SAMPLERS], storage_buffer_limit, storage_texture_limit, limits[L_UNIFORM_BUFFERS]);
+		}
 	}
 	ShaderInfo *shader = memnew(ShaderInfo);
 	shader->compute = reflection.pipeline_type == PIPELINE_TYPE_COMPUTE;
@@ -1467,16 +1498,17 @@ RDD::ShaderID RenderingDeviceDriverWebGPU::shader_create_from_container(const Re
 			shader->sets[set].push_back(uniform);
 		}
 	}
+	if (!unavailable.is_empty()) {
+		shader->unavailable = unavailable;
+		return ShaderID(shader);
+	}
 	// One module per stage, and every group's entries, from what its WGSL uses.
 	LocalVector<HashMap<uint32_t, GroupEntry>> groups;
 	groups.resize(MAX(1, reflection.uniform_sets.size()));
 	for (int i = 0; i < container->shaders.size(); i++) {
 		const RenderingShaderContainer::Shader &code = container->shaders[i];
-		Vector<uint8_t> text;
-		text.resize(code.code_decompressed_size ? code.code_decompressed_size : code.code_compressed_bytes.size());
-		ERR_FAIL_COND_V(!const_cast<RenderingShaderContainerWebGPU *>(container)->decompress_code(code.code_compressed_bytes.ptr(), code.code_compressed_bytes.size(),
-								code.code_compression_flags, text.ptrw(), text.size()),
-				ShaderID());
+		Vector<uint8_t> text = stage_code(container, i);
+		ERR_FAIL_COND_V(text.is_empty(), ShaderID());
 		for (const RenderingShaderContainerWebGPU::LayoutEntry &e : container->stages[i].entries) {
 			if (e.type != 8 || is_storage(e.c, features)) continue;
 			// Stored through the texture's storage shadow, in its widened format.
@@ -1712,6 +1744,7 @@ RDD::PipelineID RenderingDeviceDriverWebGPU::render_pipeline_create(ShaderID p_s
 		PipelineColorBlendState p_blend_state, VectorView<int32_t> p_color_attachments, BitField<PipelineDynamicStateFlags> p_dynamic_state,
 		RenderPassID p_render_pass, uint32_t p_render_subpass, VectorView<PipelineSpecializationConstant> p_specialization_constants) {
 	ShaderInfo *shader = (ShaderInfo *)p_shader.id;
+	ERR_FAIL_COND_V_MSG(!shader->unavailable.is_empty(), PipelineID(), shader->unavailable);
 	const RenderPassInfo *pass = (const RenderPassInfo *)p_render_pass.id;
 	const Subpass &subpass = pass->subpasses[p_render_subpass];
 	ERR_FAIL_COND_V_MSG(p_rasterization_state.wireframe, PipelineID(), "WebGPU draws no wireframes.");
@@ -1830,6 +1863,7 @@ RDD::PipelineID RenderingDeviceDriverWebGPU::render_pipeline_create(ShaderID p_s
 
 RDD::PipelineID RenderingDeviceDriverWebGPU::compute_pipeline_create(ShaderID p_shader, VectorView<PipelineSpecializationConstant> p_specialization_constants) {
 	ShaderInfo *shader = (ShaderInfo *)p_shader.id;
+	ERR_FAIL_COND_V_MSG(!shader->unavailable.is_empty(), PipelineID(), shader->unavailable);
 	const uint32_t constants = constants_declared(shader, p_specialization_constants);
 	Record r(DOLLY_GPU_CREATE_COMPUTE_PIPELINE, 40 + 16 * constants + 4);
 	put64(r.p(), 16, shader->pipeline_layout);
@@ -2727,12 +2761,20 @@ uint64_t RenderingDeviceDriverWebGPU::subresource_view(TextureInfo *p_texture, u
 void RenderingDeviceDriverWebGPU::command_clear_color_texture(CommandBufferID p_cmd_buffer, TextureID p_texture, TextureLayout p_texture_layout, const Color &p_color, const TextureSubresourceRange &p_subresources) {
 	end_passes(p_cmd_buffer);
 	TextureInfo *texture = (TextureInfo *)p_texture.id;
+	if (image_of(texture)->type == TEXTURE_TYPE_3D) {
+		ERR_FAIL_COND_MSG(p_color != Color(0, 0, 0, 0), "gpu@0's view passes have no depth slices: a 3D texture is cleared to zero only, by a copy.");
+		clear_3d(p_cmd_buffer, image_of(texture), p_subresources);
+		written(p_cmd_buffer, texture);
+		return;
+	}
 	ERR_FAIL_COND_MSG(!is_renderable(image_of(texture)->gpu_format, features), "WebGPU clears a texture as an attachment; this format is none.");
 	for (uint32_t mip = 0; mip < p_subresources.mipmap_count; mip++) {
 		for (uint32_t layer = 0; layer < p_subresources.layer_count; layer++) {
+			const uint64_t view = subresource_view(texture, p_subresources.base_mipmap + mip, p_subresources.base_layer + layer);
+			ERR_FAIL_COND(!view); // a view pass's view 0 is the surface
 			uint8_t *p = command_record(p_cmd_buffer, DOLLY_GPU_BEGIN_VIEW_PASS, 104);
 			put32(p, 16, 1);
-			put64(p, 64, subresource_view(texture, p_subresources.base_mipmap + mip, p_subresources.base_layer + layer));
+			put64(p, 64, view);
 			put32(p, 80, 1);
 			putf(p, 88, p_color.r);
 			putf(p, 92, p_color.g);
@@ -2742,6 +2784,33 @@ void RenderingDeviceDriverWebGPU::command_clear_color_texture(CommandBufferID p_
 		}
 	}
 	written(p_cmd_buffer, texture);
+}
+
+// A 3D texture's clear: gpu@0's view passes have no depth slices, and Godot clears only textures it
+// may copy to, so each mip is copied from a buffer the GPU clears to zero first.
+void RenderingDeviceDriverWebGPU::clear_3d(CommandBufferID p_cmd_buffer, TextureInfo *p_texture, const TextureSubresourceRange &p_subresources) {
+	const uint64_t texel = get_image_format_pixel_size(p_texture->format);
+	auto extent = [&](uint32_t p_mip) {
+		return Vector3i(MAX(1u, p_texture->width >> p_mip), MAX(1u, p_texture->height >> p_mip), MAX(1u, p_texture->depth >> p_mip));
+	};
+	auto pitch = [&](uint32_t p_mip) { return STEPIFY(extent(p_mip).x * texel, uint64_t(256)); };
+	uint64_t size = 0;
+	for (uint32_t m = 0; m < p_subresources.mipmap_count; m++) {
+		const uint32_t mip = p_subresources.base_mipmap + m;
+		size = MAX(size, pitch(mip) * extent(mip).y * extent(mip).z);
+	}
+	if (clear_sources.is_empty() || ((const BufferInfo *)clear_sources[clear_sources.size() - 1].id)->size < size) {
+		clear_sources.push_back(buffer_create(STEPIFY(size, uint64_t(1 << 20)), BUFFER_USAGE_TRANSFER_FROM_BIT | BUFFER_USAGE_TRANSFER_TO_BIT, MEMORY_ALLOCATION_TYPE_GPU, 0));
+	}
+	const BufferID source = clear_sources[clear_sources.size() - 1];
+	command_clear_buffer(p_cmd_buffer, source, 0, size);
+	for (uint32_t m = 0; m < p_subresources.mipmap_count; m++) {
+		BufferTextureCopyRegion region;
+		region.texture_subresource.mipmap = p_subresources.base_mipmap + m;
+		region.row_pitch = pitch(region.texture_subresource.mipmap);
+		region.texture_region_size = extent(region.texture_subresource.mipmap);
+		copy_buffer_texture(p_cmd_buffer, DOLLY_GPU_COPY_BUFFER_TO_TEXTURE, source, TextureID(p_texture), region);
+	}
 }
 
 void RenderingDeviceDriverWebGPU::command_clear_depth_stencil_texture(CommandBufferID p_cmd_buffer, TextureID p_texture, TextureLayout p_texture_layout, float p_depth, uint8_t p_stencil, const TextureSubresourceRange &p_subresources) {
