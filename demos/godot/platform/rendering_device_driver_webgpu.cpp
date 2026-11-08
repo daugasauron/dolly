@@ -172,6 +172,7 @@ enum : uint64_t {
 	F_FLOAT32_FILTERABLE = 128,
 	F_SWIZZLE = 1024,
 	F_TIER1 = 2048,
+	F_TIER2 = 4096,
 };
 // Whether the device has a format at all: the 16-bit normalized ones are texture-formats-tier1's.
 static bool exists(uint32_t p_gpu, uint64_t p_features) {
@@ -184,6 +185,9 @@ static bool is_renderable(uint32_t p_gpu, uint64_t p_features) {
 	if (p_gpu == 33) return p_features & F_RG11B10_RENDERABLE;
 	return (p_features & F_TIER1) || !(p_gpu == 10 || p_gpu == 16 || p_gpu == 25 || p_gpu >= 57);
 }
+// Whether a storage texture of the format takes the access (1 write-only, 2 read-only, 3 read-
+// write): read-write is the 32-bit single-channel formats', and tier 2's.
+static bool storage_access(uint32_t p_gpu, uint32_t p_access, uint64_t p_features);
 // WebGPU's storage formats: the core ones, and tier 1's 8- and 16-bit and packed ones.
 static bool is_storage(uint32_t p_gpu, uint64_t p_features) {
 	switch (p_gpu) {
@@ -197,6 +201,17 @@ static bool is_storage(uint32_t p_gpu, uint64_t p_features) {
 			return false;
 	}
 }
+static bool storage_access(uint32_t p_gpu, uint32_t p_access, uint64_t p_features) {
+	if (!is_storage(p_gpu, p_features)) return false;
+	if (p_access != 3 || p_gpu == 19 || p_gpu == 20 || p_gpu == 21) return true;
+	switch (p_gpu) {
+		case 1: case 3: case 11: case 12: case 13: case 14: case 15: case 26: case 27: case 37: case 38: case 39: case 40: case 41: case 42:
+			return p_features & F_TIER2;
+		default:
+			return false;
+	}
+}
+
 static bool is_integer(uint32_t p_gpu) {
 	switch (p_gpu) {
 		case 11: case 12: case 13: case 14: case 17: case 18: case 19: case 20: case 22: case 23:
@@ -540,6 +555,12 @@ uint64_t RenderingDeviceDriverWebGPU::buffer_get_device_address(BufferID p_buffe
 /*****************/
 /**** TEXTURE ****/
 /*****************/
+
+// The texture a view is of, as texture_create made it: Godot's copies, clears, resolves and
+// layouts index its mips and layers, as Vulkan's driver indexes the image.
+static RenderingDeviceDriverWebGPU::TextureInfo *image_of(const RenderingDeviceDriverWebGPU::TextureInfo *p_texture) {
+	return const_cast<RenderingDeviceDriverWebGPU::TextureInfo *>(p_texture->owner ? p_texture : p_texture->original);
+}
 
 static uint32_t view_dimension(RDD::TextureType p_type) {
 	static const uint32_t dimensions[] = { 1, 2, 6, 4, 1, 3, 5 };
@@ -974,7 +995,7 @@ uint64_t RenderingDeviceDriverWebGPU::texture_get_allocation_size(TextureID p_te
 }
 
 void RenderingDeviceDriverWebGPU::texture_get_copyable_layout(TextureID p_texture, const TextureSubresource &p_subresource, TextureCopyableLayout *r_layout) {
-	const TextureInfo *texture = (const TextureInfo *)p_texture.id;
+	const TextureInfo *texture = image_of((const TextureInfo *)p_texture.id);
 	uint32_t block_w = 1, block_h = 1;
 	get_compressed_image_format_block_dimensions(texture->format, block_w, block_h);
 	const uint32_t width = MAX(1u, texture->width >> p_subresource.mipmap), height = MAX(1u, texture->height >> p_subresource.mipmap);
@@ -985,7 +1006,7 @@ void RenderingDeviceDriverWebGPU::texture_get_copyable_layout(TextureID p_textur
 }
 
 Vector<uint8_t> RenderingDeviceDriverWebGPU::texture_get_data(TextureID p_texture, uint32_t p_layer) {
-	const TextureInfo *texture = (const TextureInfo *)p_texture.id;
+	const TextureInfo *texture = image_of((const TextureInfo *)p_texture.id);
 	Vector<uint8_t> data;
 	uint32_t block_w = 1, block_h = 1;
 	get_compressed_image_format_block_dimensions(texture->format, block_w, block_h);
@@ -1013,8 +1034,8 @@ Vector<uint8_t> RenderingDeviceDriverWebGPU::texture_get_data(TextureID p_textur
 			put32(p, 24, layout.row_pitch);
 			put32(p, 28, (height + block_h - 1) / block_h);
 			put64(p, 32, texture->texture);
-			put32(p, 40, texture->base_mip + mip);
-			put32(p, 56, texture->type == TEXTURE_TYPE_3D ? 0 : texture->base_layer + p_layer);
+			put32(p, 40, mip);
+			put32(p, 56, texture->type == TEXTURE_TYPE_3D ? 0 : p_layer);
 			put32(p, 60, STEPIFY(width, block_w));
 			put32(p, 64, STEPIFY(height, block_h));
 			put32(p, 68, depth);
@@ -1197,6 +1218,14 @@ static const RenderingDeviceDriverWebGPU::SetUniform *uniform_at(const Rendering
 RDD::ShaderID RenderingDeviceDriverWebGPU::shader_create_from_container(const Ref<RenderingShaderContainer> &p_shader_container, const Vector<ImmutableSampler> &p_immutable_samplers) {
 	const RenderingShaderContainerWebGPU *container = static_cast<const RenderingShaderContainerWebGPU *>(p_shader_container.ptr());
 	const ShaderReflection reflection = container->get_shader_reflection();
+	// A storage texture the device cannot bind refuses the shader here, before any record: a
+	// refused batch would lose the objects queued with it.
+	for (uint32_t i = 0; i < container->stages.size(); i++) {
+		for (const RenderingShaderContainerWebGPU::LayoutEntry &e : container->stages[i].entries) {
+			ERR_FAIL_COND_V_MSG(e.type == 8 && !storage_access(e.c, e.a, features), ShaderID(),
+					vformat("%s: the browser's WebGPU has no storage texture of format %d with access %d (texture-formats-tier1 and tier2).", String(container->shader_name.get_data()), e.c, e.a));
+		}
+	}
 	ShaderInfo *shader = memnew(ShaderInfo);
 	shader->compute = reflection.pipeline_type == PIPELINE_TYPE_COMPUTE;
 	uint32_t index = 0;
@@ -2154,21 +2183,21 @@ void RenderingDeviceDriverWebGPU::command_copy_buffer(CommandBufferID p_cmd_buff
 
 void RenderingDeviceDriverWebGPU::command_copy_texture(CommandBufferID p_cmd_buffer, TextureID p_src_texture, TextureLayout p_src_texture_layout, TextureID p_dst_texture, TextureLayout p_dst_texture_layout, VectorView<TextureCopyRegion> p_regions) {
 	end_passes(p_cmd_buffer);
-	const TextureInfo *src = (const TextureInfo *)p_src_texture.id, *dst = (const TextureInfo *)p_dst_texture.id;
+	const TextureInfo *src = image_of((const TextureInfo *)p_src_texture.id), *dst = image_of((const TextureInfo *)p_dst_texture.id);
 	for (uint32_t i = 0; i < p_regions.size(); i++) {
 		const TextureCopyRegion &r = p_regions[i];
 		uint8_t *p = command_record(p_cmd_buffer, DOLLY_GPU_COPY_TEXTURE_TO_TEXTURE, 72);
 		put64(p, 8, src->texture);
 		put64(p, 16, dst->texture);
 		const bool src3d = src->type == TEXTURE_TYPE_3D, dst3d = dst->type == TEXTURE_TYPE_3D;
-		put32(p, 24, src->base_mip + r.src_subresources.mipmap);
+		put32(p, 24, r.src_subresources.mipmap);
 		put32(p, 28, r.src_offset.x);
 		put32(p, 32, r.src_offset.y);
-		put32(p, 36, src3d ? r.src_offset.z : src->base_layer + r.src_subresources.base_layer);
-		put32(p, 40, dst->base_mip + r.dst_subresources.mipmap);
+		put32(p, 36, src3d ? r.src_offset.z : r.src_subresources.base_layer);
+		put32(p, 40, r.dst_subresources.mipmap);
 		put32(p, 44, r.dst_offset.x);
 		put32(p, 48, r.dst_offset.y);
-		put32(p, 52, dst3d ? r.dst_offset.z : dst->base_layer + r.dst_subresources.base_layer);
+		put32(p, 52, dst3d ? r.dst_offset.z : r.dst_subresources.base_layer);
 		put32(p, 56, r.size.x);
 		put32(p, 60, r.size.y);
 		put32(p, 64, src3d ? r.size.z : r.src_subresources.layer_count);
@@ -2177,7 +2206,7 @@ void RenderingDeviceDriverWebGPU::command_copy_texture(CommandBufferID p_cmd_buf
 }
 
 void RenderingDeviceDriverWebGPU::copy_buffer_texture(CommandBufferID p_cmd_buffer, uint32_t p_op, BufferID p_buffer, TextureID p_texture, const BufferTextureCopyRegion &p_region) {
-	const TextureInfo *texture = (const TextureInfo *)p_texture.id;
+	const TextureInfo *texture = image_of((const TextureInfo *)p_texture.id);
 	uint32_t block_w = 1, block_h = 1;
 	get_compressed_image_format_block_dimensions(texture->format, block_w, block_h);
 	const bool volume = texture->type == TEXTURE_TYPE_3D;
@@ -2187,11 +2216,11 @@ void RenderingDeviceDriverWebGPU::copy_buffer_texture(CommandBufferID p_cmd_buff
 	put32(p, 24, p_region.row_pitch);
 	put32(p, 28, (p_region.texture_region_size.y + block_h - 1) / block_h);
 	put64(p, 32, texture->texture);
-	put32(p, 40, texture->base_mip + p_region.texture_subresource.mipmap);
+	put32(p, 40, p_region.texture_subresource.mipmap);
 	put32(p, 44, p_region.texture_subresource.aspect == TEXTURE_ASPECT_DEPTH ? 2 : p_region.texture_subresource.aspect == TEXTURE_ASPECT_STENCIL ? 1 : 0);
 	put32(p, 48, p_region.texture_offset.x);
 	put32(p, 52, p_region.texture_offset.y);
-	put32(p, 56, volume ? p_region.texture_offset.z : texture->base_layer + p_region.texture_subresource.layer);
+	put32(p, 56, volume ? p_region.texture_offset.z : p_region.texture_subresource.layer);
 	// WebGPU copies whole blocks, which Godot's sizes of a compressed mip below 4 are not.
 	put32(p, 60, STEPIFY(uint32_t(p_region.texture_region_size.x), block_w));
 	put32(p, 64, STEPIFY(uint32_t(p_region.texture_region_size.y), block_h));
@@ -2250,16 +2279,19 @@ uint64_t RenderingDeviceDriverWebGPU::sampled_view(TextureInfo *p_texture, const
 	return p_texture->depth_view;
 }
 
-// A two-dimensional view of one mip and layer, kept with the texture, for clears and resolves.
+// A two-dimensional view of one mip and layer of a view's image, kept with the image, for clears
+// and resolves.
 uint64_t RenderingDeviceDriverWebGPU::subresource_view(TextureInfo *p_texture, uint32_t p_mip, uint32_t p_layer) {
+	p_texture = image_of(p_texture);
+	ERR_FAIL_COND_V_MSG(p_texture->type == TEXTURE_TYPE_3D, 0, "gpu@0's view passes have no depth slices: a 3D texture is neither cleared nor resolved.");
 	const uint32_t key = p_mip << 16 | p_layer;
 	if (const uint64_t *found = p_texture->subresource_views.getptr(key)) return *found;
 	Record r(DOLLY_GPU_CREATE_VIEW, 56);
 	put64(r.p(), 16, p_texture->texture);
 	put32(r.p(), 28, 2);
-	put32(r.p(), 36, p_texture->base_mip + p_mip);
+	put32(r.p(), 36, p_mip);
 	put32(r.p(), 40, 1);
-	put32(r.p(), 44, p_texture->base_layer + p_layer);
+	put32(r.p(), 44, p_layer);
 	put32(r.p(), 48, 1);
 	put32(r.p(), 52, 0x03020100);
 	return p_texture->subresource_views[key] = CREATE(r);
@@ -2269,7 +2301,7 @@ uint64_t RenderingDeviceDriverWebGPU::subresource_view(TextureInfo *p_texture, u
 void RenderingDeviceDriverWebGPU::command_clear_color_texture(CommandBufferID p_cmd_buffer, TextureID p_texture, TextureLayout p_texture_layout, const Color &p_color, const TextureSubresourceRange &p_subresources) {
 	end_passes(p_cmd_buffer);
 	TextureInfo *texture = (TextureInfo *)p_texture.id;
-	ERR_FAIL_COND_MSG(!is_renderable(texture->gpu_format, features), "WebGPU clears a texture as an attachment; this format is none.");
+	ERR_FAIL_COND_MSG(!is_renderable(image_of(texture)->gpu_format, features), "WebGPU clears a texture as an attachment; this format is none.");
 	for (uint32_t mip = 0; mip < p_subresources.mipmap_count; mip++) {
 		for (uint32_t layer = 0; layer < p_subresources.layer_count; layer++) {
 			uint8_t *p = command_record(p_cmd_buffer, DOLLY_GPU_BEGIN_VIEW_PASS, 104);

@@ -74,6 +74,30 @@ cache: 1,122 SPIR-V modules (`work/godot/build/gpu-corpus-13`, `tint-measure`). 
   image without a format; an SDFGI step; volumetric fog's image atomics) and one multisampled
   variant of Mobile's tonemapper.
 
+- Since then (2026-11-08): SPIRV-Tools' duplicate-type removal after the input-attachment pass
+  translates the multisampled tonemapper and 11 more: 787 of 1,122. The rest beyond f16 and
+  subgroups: a subgroup ballot (Forward+ clustering), `Int16` (FSR), SSR's formatless image,
+  SDFGI's descriptor array ("invalid index" in the scalarization), volumetric fog's image atomics.
+  Float textures no sampler reads are `unfilterable-float`, where depth textures bind as well.
+
+## First light (2026-11-08)
+
+The debug template, built inside Dolly in 6.4 minutes (2D modules and glslang), draws a 2D scene
+on the Mobile renderer through the driver in Chrome and Firefox (`work/godot-dev`): the scene of
+`godot-browser.mjs`, which reads its own frame back. Both draw what the Compatibility renderer
+does (background `193366`, the sprite's middle `80807f`) and the label's text; on Firefox its
+font atlas comes through a swizzle shadow. 59.7 frames a second in Firefox over the first 120
+frames, 46.7 in Chrome, startup included. What the first runs taught:
+
+- Godot's copies, clears, resolves and layouts index a view's image, as Vulkan's driver does; the
+  driver had added the view's base mip and layer again.
+- One refused batch loses every object queued after the refused record, and each later batch
+  that names one fails too: the driver refuses up front what the device cannot do (a storage
+  texture of a format or access it lacks refuses its shader).
+- Firefox has neither `texture-formats-tier1` nor `tier2`: Godot's 2D signed distance field
+  (`CanvasSdfShaderRD`, rg16sint and r8 storage) and its default VRS texture (R8_UINT storage)
+  are refused there, explicitly, with an error each at startup. Chrome has both tiers.
+
 ## Plan
 
 1. Profile the editor as it is (done: Baseline, above).

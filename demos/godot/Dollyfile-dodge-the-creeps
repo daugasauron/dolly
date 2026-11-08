@@ -11,8 +11,8 @@ REQUIRES HOST gpu@0
 # projects' release: Godot's editor imports its assets and exports its pack
 # here, and dodge-the-creeps plays the pack with godot, which installs with it.
 FROM /v0.1.5/Dollyfile-system fdf722558fc23bbce3ce51534f860b83e11ef157c6237cdf22f5f8da591c42ac
-INSTALL /v0.1.5/demos/godot/Dollyfile-godot 571a15f80a0c23c54e0aa3f58d40081d1552d7432f925c03f474463a801fa60a
-USE /v0.1.5/demos/godot/Dollyfile-godot-editor 17f2e94b036839102b1cc5b317c7fc953256c790a1b3b902c37aa5faa80ca616
+INSTALL /v0.1.5/demos/godot/Dollyfile-godot fc4886dc5d53b72857b276dd53501b03e9e15b90cf696985debbb992da3b092d
+USE /v0.1.5/demos/godot/Dollyfile-godot-editor 15bc5a882b6046f474fec12fdb03fe9e681531197fe3a1f03795f97f4ef3f560
 USE /v0.1.5/demos/tools/Dollyfile-unzip a582b683dfe4ddbc7b10128d8200f7e75f9ca3badc5459020146e60f81d07719
 
 REQUIRES TOOL cp

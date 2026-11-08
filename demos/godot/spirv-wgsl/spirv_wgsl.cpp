@@ -850,6 +850,8 @@ extern "C" void spirv_wgsl_translate(const uint32_t *words, size_t word_count, c
 			.RegisterPass(pass<o::WriteOnlyStorage>())
 			.RegisterPass(pass<o::FlipVertexY>(&ours))
 			.RegisterPass(pass<o::InputAttachmentsToTextures>())
+			// An input attachment's image type, now a texture's, may repeat one the module has.
+			.RegisterPass(spvtools::CreateRemoveDuplicatesPass())
 			.RegisterPass(pass<o::NanInfTests>())
 			.RegisterPass(pass<o::RuntimeNonFinite>(&ours))
 			.RegisterPass(pass<o::MultisampleFetch>())
