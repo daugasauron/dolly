@@ -94,6 +94,8 @@ await browserTest("cpp", { image: "system" }, async ({ name, open }) => {
       "moz-flags.c -o moz-flags && ./moz-flags",
     // Meson preprocesses with -E and -c together; -E stops after preprocessing.
     "printf '%s\\n' '#define TWICE(x) x x' 'TWICE(ok)' > pp.h && cc -E -P -xc pp.h -o pp.i -c && grep -qx 'ok ok' pp.i",
+    // SPIRV-Tools' CMake raises the template depth for every Clang.
+    "echo 'int main() { return 0; }' > depth.cpp && c++ -ftemplate-depth=1024 depth.cpp -o depth && ./depth",
     // Flags Binaryen's CMake adds: Wasm has no frame pointer, and lld is the linker.
     "echo 'int main(void) { return 0; }' > byn-flags.c && cc -fno-omit-frame-pointer -fuse-ld=lld " +
       "byn-flags.c -o byn-flags && ./byn-flags",

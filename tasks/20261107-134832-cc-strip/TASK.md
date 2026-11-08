@@ -19,5 +19,10 @@ with that round.
 Until then Godot's platform (`demos/godot/platform/SCsub`) takes `-s` out of its link flags; it
 drops that once the seed's cc takes it.
 
+The same holds for `-ftemplate-depth=N` (2026-11-08), which SPIRV-Tools' CMake passes to every
+Clang: cc refused it. `src/compiler.cpp` now passes it to cc1, and `test/cpp-browser.mjs` builds
+with it; until the round, `demos/godot/Dollyfile-spirv-wgsl` takes the flag out of SPIRV-Tools'
+`CMakeLists.txt` (`spirv-tools-depth.patch`), and drops that patch once the seed's cc takes it.
+
 Done when: the 0.1.6 compiler round has pinned an `llvm-cc` built with the change, the shell test
 passes in Chromium and Firefox, and Godot's platform no longer filters `-s`.
