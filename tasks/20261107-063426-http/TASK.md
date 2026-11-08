@@ -1,6 +1,6 @@
 # HTTP: a cancelled transfer leaves its slot failed for good; after 16, every request is refused as busy
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: http,network,core,bug
 
@@ -68,3 +68,19 @@ kernel. Then the unit test asserts the outcome with the kernel's half included.
   path (`-m`, a closed pipe, Ctrl-C) and then completes a request; it fails before the fix and
   passes after, in Chromium and Firefox.
 - `test/http-broker.test.mjs` no longer asserts a FAILED slot after a cancel the kernel released.
+
+## Closed (2026-11-08)
+
+The 0.1.6 verification round (`integrate/0.1.6` at `c1479e7ac`) rebuilt every image on the
+runtime with `def4a5773`. `test/shell-browser.mjs` passed in Chromium (14.9 s) and Firefox
+(19.8 s) there (`work/integrate/build/round-1108-evidence/browser.log`). It runs 17 cancellations
+by `curl -m` and 17 by a closed pipe (`curl | head -c 1`), then a request that completes.
+
+A third path, added since: 17 Ctrl-C presses, each on a transfer the test's server has received
+and holds open (`/fixture/held`), then a request that completes. It passed in Chromium (14.3 s)
+and Firefox (15.9 s) (`shell-ctrlc.log`).
+
+The failure before the fix was measured for `-m` (`leak-before.log`); all three paths end in
+`http_cancel`.
+`test/http-broker.test.mjs` asserts the page's failure after the kernel's release (473 of 473
+source tests in the round).

@@ -32,6 +32,11 @@ async function handle(request, response, path, headers) {
     response.writeHead(201, { ...headers, "content-type": "text/plain; charset=utf-8", "x-dolly-response": "yes",
       "access-control-expose-headers": "x-dolly-response" });
     response.end("CURL-CLI-OK\n");
+  } else if (path === "/fixture/held") {
+    // Headers and one byte, then nothing until the reader goes: a live transfer.
+    recorded.held = (recorded.held ?? 0) + 1;
+    response.writeHead(200, { ...headers, "content-type": "text/plain" });
+    response.write("x");
   } else if (path === "/fixture/git/info/refs") {
     recorded.git = { method: request.method, protocol: request.headers["git-protocol"],
       service: new URL(request.url, "http://x").searchParams.get("service") };
@@ -205,5 +210,15 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
   await page.locator("#keyboard").focus();
   await page.keyboard.press("Control+c");
   assert.equal(await looping, 130);
+  // Ctrl-C cancels a live transfer too: after 17, a slot more than the
+  // kernel has, a request still completes.
+  for (let cancelled = 0; cancelled < 17; cancelled++) {
+    const arrived = recorded.held ?? 0;
+    const fetching = submit(`curl -sS ${server.origin}/fixture/held -o /dev/null`);
+    while ((recorded.held ?? 0) === arrived) await new Promise(resolve => setTimeout(resolve, 20));
+    await page.keyboard.press("Control+c");
+    assert.equal(await fetching, 130);
+  }
+  assert.equal(await submit(`curl -fsS ${server.origin}/fixture/http.txt | grep -q FETCHED-THROUGH-BROWSER`), 0);
   assert.equal(await submit("grep -q NESTED /tmp/shell/copied/nested/file && cd / && rm -rf /tmp/shell"), 0);
 });
