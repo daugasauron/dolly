@@ -31,7 +31,7 @@ REQUIRES TOOL scons
 REQUIRES TOOL tar
 REQUIRES TOOL text-page
 
-SOURCE /v0.1.5/dist/static/godot/source.tar.gz 57b4a13d84158d3e9910bf3308e2fc41e2f8b279994efe76edb81f0f375dc1d2 /tmp/godot-source.tar.gz
+SOURCE /v0.1.5/dist/static/godot/source.tar.gz 9217377c0f3e04f95607dc1c165fa418a6b668019731058b45848be68df318ea /tmp/godot-source.tar.gz
 SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
 # Godot's modern renderers take only the drivers main.cpp names; glslang builds beside them.
 SLOP CWD /usr/src/godot patch -p1 -i platform/dolly/godot-dolly.patch
