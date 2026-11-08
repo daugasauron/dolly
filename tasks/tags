@@ -63,6 +63,7 @@ gamedev, Game engine ports
 gimp, GIMP in the Wine image
 git, Git inside Dolly
 go, The Go toolchain built inside Dolly
+godot, Godot, its editor and what draws through it
 gpu, The GPU module and what renders or computes through it
 graphics, How the Slopyard world is drawn
 host, Older spelling of host-modules
