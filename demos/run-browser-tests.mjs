@@ -19,6 +19,7 @@ const limit = 4;
 const together = ["python", "rts", "bhop", "pi", "closed-source-agent", "codex", "javascript", "cmake", "tmux", "emacs", "neovim", "sdl2"];
 const window = "DISPLAY: a GPU window";
 const needs = new Map([
+  ["godot/test/godot-gpu-browser.mjs", `${window} on a hardware adapter, in Chrome and the installed Firefox`],
   ["gpu-fluid/test/gpu-fluid-browser.mjs", window],
   ["llvm/test/stage2-browser.mjs", "about 50 minutes and 7 GB: it is run on demand"],
   ["mojo/target/test/mojo-target-browser.mjs", "the objects of demos/mojo/target/cross-compile.sh, which a native Mojo compiler writes"],

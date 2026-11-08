@@ -112,6 +112,16 @@ float twin. What it took:
 - Tint gives the overrides it derives (no `@id`) ids of its own; only Godot's specialization
   constants, with explicit ids, are a pipeline's constants.
 
+## The editor (2026-11-08)
+
+Godot's editor, built inside Dolly in 15 minutes, opens the 3D project above through the driver
+in Chrome and Firefox: its docks, inspector and 3D view with the box, grid and gizmos. A plugin
+reads the editor's 1152 by 648 frame back, the same in both (1,915 red and 89 light pixels in a
+sample of a quarter). It held 9,502 gpu@0 objects at its peak, beyond the 4,096 a scope held:
+a scope now holds 65,536. Under Xvfb, Firefox shows no WebGPU canvas at all, its own or ours, so
+its checks read frames back. Test: `demos/godot/test/godot-gpu-browser.mjs`, on a display with
+a hardware adapter.
+
 ## Plan
 
 1. Profile the editor as it is (done: Baseline, above).

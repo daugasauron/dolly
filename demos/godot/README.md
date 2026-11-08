@@ -3,8 +3,9 @@
 Godot 4.7 from upstream's release, unchanged, built inside Dolly by SCons
 with Dolly's `cc`, as the `godot` package: `amy install godot`, then
 `godot --path DIRECTORY` runs a project on the page, drawn by Godot's
-Compatibility renderer on Mesa's OpenGL, and `godot --headless` runs one
-without drawing; `--script FILE` runs a script in the project of the
+Mobile and Forward+ renderers through a RenderingDevice driver on `gpu@0`
+where the browser grants WebGPU, and by its Compatibility renderer on Mesa's
+OpenGL otherwise, and `godot --headless` runs one without drawing; `--script FILE` runs a script in the project of the
 current directory. Its sound plays through `audio@0`. `godot-editor` is
 Godot's editor: it imports a project's assets and exports its pack inside
 Dolly, as it exported Dodge the Creeps for `amy install dodge-the-creeps`
@@ -12,7 +13,7 @@ Dolly, as it exported Dodge the Creeps for `amy install dodge-the-creeps`
 
 ## Images
 
-- `godot`: Godot 4.7's engine with GDScript, 2D physics, the fallback text server, the Compatibility renderer on Mesa and sound, without 3D, which runs a project or the pack the editor exported.
+- `godot`: Godot 4.7's engine with GDScript, 2D physics, the fallback text server, its renderers on `gpu@0` and the Compatibility renderer on Mesa, and sound, without 3D, which runs a project or the pack the editor exported.
 - `godot-editor`: Godot 4.7's editor, which imports a project's assets and exports its pack inside Dolly, and draws its own window on the page.
 - `spirv-wgsl`: A build stage: Tint, from Dawn, and SPIRV-Tools under Dolly's passes, which translate the SPIR-V Godot compiles its shaders to into WGSL for `gpu@0`.
 - `dodge-the-creeps`: Dodge the Creeps, the game of Godot's first 2D tutorial, which Godot's editor imported and exported here; `dodge-the-creeps` plays it.
@@ -26,7 +27,11 @@ Godot's build is SCons over its own platforms, each a directory of
 - [`detect.py`](platform/detect.py) names Dolly's `cc`, `c++` and `ar`
   (LLVM's, which writes its own index, so no ranlib), the `wasm64`
   architecture, an export template's build (`template_release`) and the
-  Compatibility renderer, with Mesa's EGL and its softpipe driver linked in.
+  Compatibility renderer, with Mesa's EGL and its softpipe driver linked in,
+  beside the RenderingDevice driver on `gpu@0`
+  ([`rendering_device_driver_webgpu.cpp`](platform/rendering_device_driver_webgpu.cpp),
+  [task](../../tasks/20261108-040718-godot-gpu/TASK.md)) and the translator of
+  Godot's SPIR-V into WGSL ([`spirv-wgsl`](spirv-wgsl)).
 - [`os_dolly.cpp`](platform/os_dolly.cpp) is the operating system as Godot
   sees it: Godot's Unix driver for files, clocks and processes, Dolly's name
   and feature (`OS.has_feature("dolly")`), the program's path from
@@ -110,3 +115,9 @@ its pack, which `godot` runs; the game shows its title on the page and
 starts on Enter, its score counting; and the editor opens its own window on
 the page and shows its 2D view at a click on the tab, in Chromium (46.3 s)
 and Firefox (50.4 s).
+
+[`test/godot-gpu-browser.mjs`](test/godot-gpu-browser.mjs) runs Godot's
+RenderingDevice on `gpu@0` (`platform/rendering_device_driver_webgpu.cpp`) on
+a hardware adapter, in Chrome and the installed Firefox on a display: a 2D
+scene on the Mobile renderer, a 3D scene with a sky, light and shadow, and
+the editor, each reading its own frame back.
