@@ -15,7 +15,7 @@ REQUIRES HOST threads@0
 # generates from upstream's scripts, with Dolly's c++.
 FROM /v0.1.5/demos/zero-ad/Dollyfile-zero-ad-deps d0731a49fdac99665178ad5bd810f814a321a1e4a2e4bd31d191b2e278203ccf
 INSTALL /v0.1.5/demos/zero-ad/Dollyfile-premake e993ba5082013c87e40bad0136d538551cd2f9cc70c73d68afed5a732f600f25
-INSTALL /v0.1.5/Dollyfile-libdolly-gpu 0a35e34b1b3ec3088ae41c5cf54e7d845337d9f1deac8c30d727f02c6a2572e8
+INSTALL /v0.1.5/Dollyfile-libdolly-gpu d860787df9ebc417e1a6464cd7d90a73ca9623dea685eb48b3d3e2da7508d1d5
 INSTALL /v0.1.5/Dollyfile-libdolly-audio cf506533d24804e00d1211d4008d8eb71d16747dc8563843262545be6dbca30b
 INSTALL /v0.1.5/Dollyfile-libdolly-touch 9b275f073225eb74183114c36a7e10d06c566179963828f2f51ffef5713c3257
 # download, which the engine's test takes its logs out with.

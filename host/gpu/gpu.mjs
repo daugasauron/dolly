@@ -76,9 +76,14 @@ export function browser(page) {
     mount.append(canvas);
     surface = canvas.transferControlToOffscreen();
   }
+  // The page's animation frames, counted while a program draws: the GPU Worker retires a
+  // presented frame at one of them, so a surface goes at the display's rate.
+  const shown = surface && new Int32Array(new SharedArrayBuffer(4));
+  let animation = 0;
+  const count = () => { Atomics.add(shown, 0, 1); Atomics.notify(shown, 0); animation = requestAnimationFrame(count); };
   let status = {};
   return {
-    configuration: { canvas: surface }, transfers: surface ? [surface] : [],
+    configuration: { canvas: surface, shown: shown?.buffer }, transfers: surface ? [surface] : [],
     page: { get gpu() { return status; } },
     get surfaceSize() { return status.active ? { width: status.width, height: status.height } : undefined; },
     // The provider reports the adapter of each device it creates, or why it has none.
@@ -87,9 +92,11 @@ export function browser(page) {
       status = { ...status, ...message };
       if (message.active) delete status.error;
       if (canvas && message.active !== undefined) canvas.hidden = !message.active;
+      if (shown && message.active && !animation) animation = requestAnimationFrame(count);
+      if (shown && message.active === false) { cancelAnimationFrame(animation); animation = 0; }
       if (message.error) console.warn("Dolly GPU:", message.error);
     } },
-    dispose() { canvas?.remove(); },
+    dispose() { cancelAnimationFrame(animation); canvas?.remove(); },
     // Disabled while the page goes on: a session without gpu@0 shows no adapter.
     disabled() {
       document.querySelector("#gpu-status")?.remove();
@@ -106,7 +113,7 @@ export function worker({ send, configuration, get }) {
       return bridge.dispatch({ address, bytes });
     } },
     async start({ kernel, memory }) {
-      bridge = await createGpuBridge(memory, Number(kernel.dolly_gpu_mailbox_address()), configuration.canvas,
+      bridge = await createGpuBridge(memory, Number(kernel.dolly_gpu_mailbox_address()), configuration.canvas, configuration.shown,
         () => get("runtime").serviceDeferred(), status => send({ ...status, type: "gpu-status" }));
     },
     dispose() { bridge?.dispose(); bridge = null; },

@@ -17,6 +17,12 @@ flowchart LR
   and JavaScript constants are generated from it. Client: [`host/gpu/gpu.h`](../host/gpu/gpu.h),
   [`host/gpu/client.c`](../host/gpu/client.c), installed by the `libdolly-gpu` package as
   `libdolly-gpu.a`, which `cc` then links by default.
+- Two kinds of records. The compact ones carry a whole draw, with layouts derived
+  from its pipeline. The explicit ones (`FEATURE_EXPLICIT`) keep WebGPU's object
+  model, for a port with one of its own such as Godot's RenderingDevice: texture
+  views, bind group and pipeline layouts, whole pipeline descriptors, copies, pass
+  state, timestamps, and batches that continue one encoder until `SUBMIT`.
+  `LIMITS` reports the features and limits the device was granted.
 - The kernel ([`host/gpu/kernel.c`](../host/gpu/kernel.c)) ties each scope to a process
   and revokes it on exit, abort or forced termination.
 - The provider copies each packet before acknowledging it and validates structure
@@ -25,12 +31,17 @@ flowchart LR
 - Quotas: 8 scopes with one pending request each, 1 MiB packets of at most 1,024
   records (clients check `CAPABILITIES` before exceeding 256), 128 KiB shaders,
   4,096 objects per scope, 1 GiB per buffer, 4 GiB of buffers and textures in
-  total, 16 bindings, and 64 queued submissions per scope, 3 queued frames per
-  surface scope, before the next batch waits. Released handles are invalid at
+  total, 16 bindings in a compact record and 128 in an explicit layout, and 64
+  queued submissions per scope, 3 presented frames not yet shown per surface
+  scope, before the next batch waits. The page shows one frame per animation
+  frame: Chrome's canvas also waits for its compositor, Firefox's does not, and
+  its frame loops ran at 1,346 frames a second before (60 since; NVIDIA RTX 5070,
+  2026-11-08). Released handles are invalid at
   once; their allocation stays charged until the GPU finishes.
 - `CAPABILITIES` returns a fixed 128-byte record of feature bits and
   device-clamped limits: frame capture (16), BGRA surfaces (32), textured
-  rendering (64), large batches (128), BC textures (256), f16 vertices (512).
+  rendering (64), large batches (128), BC textures (256), f16 vertices (512),
+  explicit records (1024).
 - Normal frames go to the compositor without readback. Explicit readback returns
   at most 64 KiB per call; `CAPTURE_FRAME` copies the caller's own surface
   rectangle into its buffer.

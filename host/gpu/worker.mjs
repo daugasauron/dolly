@@ -6,18 +6,51 @@ const encode = new TextEncoder();
 const fail = (code, message) => { throw Object.assign(new Error(message), { errno: code }); };
 const ensure = (condition, message, code = E.EINVAL) => { if (!condition) fail(code, message); };
 const textureFormats = [null, "rgba8unorm", "rgba8unorm-srgb", "r8unorm", "rg8unorm", "depth24plus-stencil8", "depth32float",
-  "bc1-rgba-unorm", "bc2-rgba-unorm", "bc3-rgba-unorm"];
-const blockBytes = [0, 4, 4, 1, 2, 4, 4, 8, 16, 16];
+  "bc1-rgba-unorm", "bc2-rgba-unorm", "bc3-rgba-unorm",
+  "r8snorm", "r8uint", "r8sint", "r16uint", "r16sint", "r16float", "rg8snorm", "rg8uint", "rg8sint", "r32uint", "r32sint",
+  "r32float", "rg16uint", "rg16sint", "rg16float", "rgba8snorm", "rgba8uint", "rgba8sint", "bgra8unorm", "bgra8unorm-srgb",
+  "rgb9e5ufloat", "rgb10a2uint", "rgb10a2unorm", "rg11b10ufloat", "rg32uint", "rg32sint", "rg32float", "rgba16uint",
+  "rgba16sint", "rgba16float", "rgba32uint", "rgba32sint", "rgba32float", "stencil8", "depth16unorm", "depth32float-stencil8",
+  "bc1-rgba-unorm-srgb", "bc2-rgba-unorm-srgb", "bc3-rgba-unorm-srgb", "bc4-r-unorm", "bc4-r-snorm", "bc5-rg-unorm",
+  "bc5-rg-snorm", "bc6h-rgb-ufloat", "bc6h-rgb-float", "bc7-rgba-unorm", "bc7-rgba-unorm-srgb"];
+// Bytes of a texel, or of a 4x4 block for the block-compressed formats.
+const blockBytes = [0, 4, 4, 1, 2, 4, 4, 8, 16, 16, 1, 1, 1, 2, 2, 2, 2, 2, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+  8, 8, 8, 8, 8, 8, 16, 16, 16, 1, 2, 8, 8, 16, 16, 8, 8, 16, 16, 16, 16, 16, 16];
+const compressedFormat = type => (type >= 7 && type <= 9) || type >= 46;
+const depthFormat = type => type === 5 || type === 6 || type === 44 || type === 45;
+const stencilFormat = type => type === 5 || type === 43 || type === 45;
+const viewDimensions = [undefined, "1d", "2d", "2d-array", "cube", "cube-array", "3d"];
+const aspects = ["all", "stencil-only", "depth-only"];
+const stencilOps = ["keep", "zero", "replace", "invert", "increment-clamp", "decrement-clamp", "increment-wrap", "decrement-wrap"];
 const compareOps = [undefined, "never", "less", "equal", "less-equal", "greater", "not-equal", "greater-equal", "always"];
 const blendOps = ["add", "subtract", "reverse-subtract", "min", "max"];
-const blendFactors = ["zero", "one", "src", "one-minus-src", "dst", "one-minus-dst", "src-alpha", "one-minus-src-alpha", "dst-alpha", "one-minus-dst-alpha", "src-alpha-saturated"];
-const vertexFormats = [null, "float32", "float32x2", "float32x3", "float32x4", "unorm8x4", "snorm8x4", "uint8x4", "sint8x4", "unorm16x2", "unorm16x4", "uint16x2", "uint16x4", "float16x2", "float16x4"];
-const vertexBytes = [0, 4, 8, 12, 16, 4, 4, 4, 4, 4, 8, 4, 8, 4, 8];
+const blendFactors = ["zero", "one", "src", "one-minus-src", "dst", "one-minus-dst", "src-alpha", "one-minus-src-alpha", "dst-alpha", "one-minus-dst-alpha", "src-alpha-saturated", "constant", "one-minus-constant"];
+const vertexFormats = [null, "float32", "float32x2", "float32x3", "float32x4", "unorm8x4", "snorm8x4", "uint8x4", "sint8x4", "unorm16x2", "unorm16x4", "uint16x2", "uint16x4", "float16x2", "float16x4",
+  "uint8x2", "sint8x2", "unorm8x2", "snorm8x2", "sint16x2", "sint16x4", "snorm16x2", "snorm16x4", "uint32", "uint32x2", "uint32x3",
+  "uint32x4", "sint32", "sint32x2", "sint32x3", "sint32x4", "unorm10-10-10-2"];
+const vertexBytes = [0, 4, 8, 12, 16, 4, 4, 4, 4, 4, 8, 4, 8, 4, 8, 2, 2, 2, 2, 4, 8, 4, 8, 4, 8, 12, 16, 4, 8, 12, 16, 4];
 const maxBytes = 4 * 1024 ** 3, bufferCeiling = 1024 ** 3, maxObjects = 4096;
+// A surface shows one presented frame per page animation frame, as a display does, and a frame
+// retires once shown and finished by the GPU. Chrome's canvas also waits for its compositor;
+// Firefox's does not, so without this its programs draw unpaced.
+function present(scope, completed) {
+  const shown = new Promise(resolve => scope.shows.push(resolve));
+  const frame = Promise.all([completed, shown]).finally(() => scope.frames.splice(scope.frames.indexOf(frame), 1));
+  scope.frames.push(frame);
+  if (scope.shows.length === 1) void show(scope);
+}
+// One frame per page animation frame; a canvas no page shows has nothing to wait for.
+async function show(scope) {
+  while (scope.shows.length) {
+    const wait = pageFrames && Atomics.waitAsync(pageFrames, 0, Atomics.load(pageFrames, 0));
+    if (wait?.async) await wait.value;
+    scope.shows.shift()();
+  }
+}
 // What a scope may have queued before its next batch waits: 64 submissions, and
-// for a surface three frames (the submissions that present: a frame may submit
-// many times). Firefox settles completions on a 100 ms timer (bug 1870699), and
-// a model token takes about 25 submissions.
+// for a surface three presented frames not yet retired (a frame may submit many
+// times). Firefox settles completions on a 100 ms timer (bug 1870699), and a
+// model token takes about 25 submissions.
 const queueFull = scope => scope.surface && scope.frames.length >= 3 ? scope.frames[0]
   : scope.submissions.length >= 64 ? scope.submissions[0] : null;
 const timestampQueries = A.DOLLY_GPU_MAX_COMMANDS * 2;
@@ -26,26 +59,67 @@ const timestampQueries = A.DOLLY_GPU_MAX_COMMANDS * 2;
 const fixedRecordBytes = new Map([[A.DOLLY_GPU_CREATE_BUFFER, 32], [A.DOLLY_GPU_RENDER, 64],
   [A.DOLLY_GPU_COMPUTE, 40], [A.DOLLY_GPU_COPY_BUFFER, 48], [A.DOLLY_GPU_MAP_READ, 32], [A.DOLLY_GPU_UNMAP, 16],
   [A.DOLLY_GPU_RELEASE, 16], [A.DOLLY_GPU_SUBMIT, 8], [A.DOLLY_GPU_RENDER_VERTEX, 88],
-  [A.DOLLY_GPU_CAPTURE_FRAME, 32], [A.DOLLY_GPU_CREATE_TEXTURE, 48], [A.DOLLY_GPU_CREATE_SAMPLER, 48],
-  [A.DOLLY_GPU_BEGIN_RENDER_PASS, 64], [A.DOLLY_GPU_END_RENDER_PASS, 8], [A.DOLLY_GPU_VIEWPORT, 48]]);
+  [A.DOLLY_GPU_CAPTURE_FRAME, 32], [A.DOLLY_GPU_CREATE_TEXTURE, 48],
+  [A.DOLLY_GPU_BEGIN_RENDER_PASS, 64], [A.DOLLY_GPU_END_RENDER_PASS, 8], [A.DOLLY_GPU_VIEWPORT, 48],
+  [A.DOLLY_GPU_CREATE_VIEW, 56], [A.DOLLY_GPU_CREATE_QUERY_SET, 24], [A.DOLLY_GPU_COPY_BUFFER_TO_TEXTURE, 72],
+  [A.DOLLY_GPU_COPY_TEXTURE_TO_BUFFER, 72], [A.DOLLY_GPU_COPY_TEXTURE_TO_TEXTURE, 72], [A.DOLLY_GPU_CLEAR_BUFFER, 32],
+  [A.DOLLY_GPU_WRITE_TIMESTAMP, 24], [A.DOLLY_GPU_RESOLVE_QUERY_SET, 40], [A.DOLLY_GPU_BEGIN_COMPUTE_PASS, 8],
+  [A.DOLLY_GPU_END_COMPUTE_PASS, 8], [A.DOLLY_GPU_SET_PIPELINE, 16], [A.DOLLY_GPU_SET_VERTEX_BUFFER, 40],
+  [A.DOLLY_GPU_SET_INDEX_BUFFER, 40], [A.DOLLY_GPU_DRAW, 24], [A.DOLLY_GPU_DRAW_INDEXED, 32],
+  [A.DOLLY_GPU_DRAW_INDIRECT, 24], [A.DOLLY_GPU_DRAW_INDEXED_INDIRECT, 24], [A.DOLLY_GPU_SET_BLEND_CONSTANT, 24],
+  [A.DOLLY_GPU_SET_STENCIL_REFERENCE, 16], [A.DOLLY_GPU_DISPATCH, 24], [A.DOLLY_GPU_DISPATCH_INDIRECT, 24]]);
 const leastRecordBytes = new Map([[A.DOLLY_GPU_WRITE_BUFFER, 32], [A.DOLLY_GPU_CREATE_SHADER, 24],
   [A.DOLLY_GPU_RENDER_PIPELINE, 40], [A.DOLLY_GPU_COMPUTE_PIPELINE, 32], [A.DOLLY_GPU_BIND_GROUP, 32],
   [A.DOLLY_GPU_VERTEX_PIPELINE, 48], [A.DOLLY_GPU_COMPUTE_CONSTANTS, 32], [A.DOLLY_GPU_WRITE_TEXTURE, 48],
-  [A.DOLLY_GPU_GRAPHICS_PIPELINE, 112], [A.DOLLY_GPU_RESOURCE_GROUP, 32], [A.DOLLY_GPU_DRAW_MESH, 80]]);
+  [A.DOLLY_GPU_GRAPHICS_PIPELINE, 112], [A.DOLLY_GPU_RESOURCE_GROUP, 32], [A.DOLLY_GPU_DRAW_MESH, 80],
+  [A.DOLLY_GPU_CREATE_SAMPLER, 48], [A.DOLLY_GPU_CREATE_BIND_GROUP_LAYOUT, 24], [A.DOLLY_GPU_CREATE_PIPELINE_LAYOUT, 24],
+  [A.DOLLY_GPU_CREATE_BIND_GROUP, 32], [A.DOLLY_GPU_CREATE_RENDER_PIPELINE, 160], [A.DOLLY_GPU_CREATE_COMPUTE_PIPELINE, 40],
+  [A.DOLLY_GPU_BEGIN_VIEW_PASS, 64], [A.DOLLY_GPU_SET_BIND_GROUP, 24]]);
+// Records whose bytes 8..15 are not a handle.
+const unhandledRecords = new Set([A.DOLLY_GPU_VIEWPORT, A.DOLLY_GPU_DRAW, A.DOLLY_GPU_DRAW_INDEXED,
+  A.DOLLY_GPU_SET_BLEND_CONSTANT, A.DOLLY_GPU_SET_STENCIL_REFERENCE, A.DOLLY_GPU_DISPATCH]);
 // The records a render pass may hold, between BEGIN_RENDER_PASS and END_RENDER_PASS.
 const renderPassRecords = new Set([A.DOLLY_GPU_CREATE_BUFFER, A.DOLLY_GPU_WRITE_BUFFER, A.DOLLY_GPU_CREATE_SHADER,
   A.DOLLY_GPU_CREATE_TEXTURE, A.DOLLY_GPU_CREATE_SAMPLER, A.DOLLY_GPU_GRAPHICS_PIPELINE, A.DOLLY_GPU_RESOURCE_GROUP,
   A.DOLLY_GPU_END_RENDER_PASS, A.DOLLY_GPU_DRAW_MESH, A.DOLLY_GPU_VIEWPORT]);
+// The records a pass begun by BEGIN_VIEW_PASS or BEGIN_COMPUTE_PASS may hold.
+const viewPassRecords = new Set([A.DOLLY_GPU_SET_PIPELINE, A.DOLLY_GPU_SET_BIND_GROUP, A.DOLLY_GPU_SET_VERTEX_BUFFER,
+  A.DOLLY_GPU_SET_INDEX_BUFFER, A.DOLLY_GPU_DRAW, A.DOLLY_GPU_DRAW_INDEXED, A.DOLLY_GPU_DRAW_INDIRECT,
+  A.DOLLY_GPU_DRAW_INDEXED_INDIRECT, A.DOLLY_GPU_VIEWPORT, A.DOLLY_GPU_SET_BLEND_CONSTANT,
+  A.DOLLY_GPU_SET_STENCIL_REFERENCE, A.DOLLY_GPU_END_RENDER_PASS]);
+const computePassRecords = new Set([A.DOLLY_GPU_SET_PIPELINE, A.DOLLY_GPU_SET_BIND_GROUP, A.DOLLY_GPU_DISPATCH,
+  A.DOLLY_GPU_DISPATCH_INDIRECT, A.DOLLY_GPU_END_COMPUTE_PASS]);
 // The records that create an object, charged to the scope's object quota before they run.
 const creatingRecords = new Set([A.DOLLY_GPU_CREATE_BUFFER, A.DOLLY_GPU_CREATE_SHADER, A.DOLLY_GPU_RENDER_PIPELINE,
   A.DOLLY_GPU_COMPUTE_PIPELINE, A.DOLLY_GPU_BIND_GROUP, A.DOLLY_GPU_VERTEX_PIPELINE, A.DOLLY_GPU_COMPUTE_CONSTANTS,
-  A.DOLLY_GPU_CREATE_TEXTURE, A.DOLLY_GPU_CREATE_SAMPLER, A.DOLLY_GPU_GRAPHICS_PIPELINE, A.DOLLY_GPU_RESOURCE_GROUP]);
+  A.DOLLY_GPU_CREATE_TEXTURE, A.DOLLY_GPU_CREATE_SAMPLER, A.DOLLY_GPU_GRAPHICS_PIPELINE, A.DOLLY_GPU_RESOURCE_GROUP,
+  A.DOLLY_GPU_CREATE_VIEW, A.DOLLY_GPU_CREATE_BIND_GROUP_LAYOUT, A.DOLLY_GPU_CREATE_PIPELINE_LAYOUT,
+  A.DOLLY_GPU_CREATE_BIND_GROUP, A.DOLLY_GPU_CREATE_RENDER_PIPELINE, A.DOLLY_GPU_CREATE_COMPUTE_PIPELINE,
+  A.DOLLY_GPU_CREATE_QUERY_SET]);
 // A request's byte length, header included; BATCH's is its records'.
 const requestBytes = new Map([[A.DOLLY_GPU_OPEN, 40], [A.DOLLY_GPU_WAIT, 32], [A.DOLLY_GPU_READ, 56],
-  [A.DOLLY_GPU_CLOSE, 32], [A.DOLLY_GPU_INFO, 32], [A.DOLLY_GPU_CAPABILITIES, 32]]);
-let maxBuffer = bufferCeiling, capabilities;
+  [A.DOLLY_GPU_CLOSE, 32], [A.DOLLY_GPU_INFO, 32], [A.DOLLY_GPU_CAPABILITIES, 32], [A.DOLLY_GPU_LIMITS, 32]]);
+// The device features and limits LIMITS reports, in its order; the GPU Worker asks the adapter
+// for each limit, bounded by the scope quotas above where they are lower.
+const reportedFeatures = ["depth-clip-control", "depth32float-stencil8", "texture-compression-bc", "timestamp-query",
+  "indirect-first-instance", "shader-f16", "rg11b10ufloat-renderable", "float32-filterable", "float32-blendable",
+  "subgroups", "texture-component-swizzle"];
+const reportedLimits = ["maxTextureDimension1D", "maxTextureDimension2D", "maxTextureDimension3D", "maxTextureArrayLayers",
+  "maxBindGroups", "maxBindingsPerBindGroup", "maxDynamicUniformBuffersPerPipelineLayout",
+  "maxDynamicStorageBuffersPerPipelineLayout", "maxSampledTexturesPerShaderStage", "maxSamplersPerShaderStage",
+  "maxStorageBuffersPerShaderStage", "maxStorageTexturesPerShaderStage", "maxUniformBuffersPerShaderStage",
+  "maxUniformBufferBindingSize", "maxStorageBufferBindingSize", "minUniformBufferOffsetAlignment",
+  "minStorageBufferOffsetAlignment", "maxVertexBuffers", "maxBufferSize", "maxVertexAttributes",
+  "maxVertexBufferArrayStride", "maxInterStageShaderVariables", "maxColorAttachments", "maxColorAttachmentBytesPerSample",
+  "maxComputeWorkgroupStorageSize", "maxComputeInvocationsPerWorkgroup", "maxComputeWorkgroupSizeX",
+  "maxComputeWorkgroupSizeY", "maxComputeWorkgroupSizeZ", "maxComputeWorkgroupsPerDimension",
+  "maxStorageBuffersInVertexStage", "maxStorageBuffersInFragmentStage", "maxStorageTexturesInVertexStage",
+  "maxStorageTexturesInFragmentStage"];
+const limitCeilings = { maxBufferSize: bufferCeiling, maxStorageBufferBindingSize: bufferCeiling,
+  maxComputeWorkgroupStorageSize: 65536 };
+let maxBuffer = bufferCeiling, capabilities, limits;
 const slots = Array(A.DOLLY_GPU_SLOTS).fill(null), generations = slots.map(() => 0);
-let heap, memory, mailbox, control, canvas, context, device, format;
+let heap, memory, mailbox, control, canvas, context, device, format, pageFrames;
 let queueProgress = {queued: 0, completed: 0};
 let usedBytes = 0, serial = Promise.resolve(), initializing;
 const stats = { packets: 0, packetBytes: 0, frames: 0, dispatches: 0, readbackBytes: 0, batchWallMilliseconds: 0 };
@@ -57,14 +131,10 @@ async function getDevice() {
     ensure(navigator.gpu, "This browser has no WebGPU provider", E.ENODEV);
     const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
     ensure(adapter, "This browser did not provide a GPU adapter", E.ENODEV);
-    const requiredFeatures = ["timestamp-query", "shader-f16", "subgroups", "texture-compression-bc"].filter(name => adapter.features.has(name));
+    const requiredFeatures = reportedFeatures.filter(name => adapter.features.has(name));
     const requiredLimits = {};
-    for (const [name, ceiling] of Object.entries({maxBufferSize: bufferCeiling,
-      maxStorageBufferBindingSize: bufferCeiling, maxStorageBuffersPerShaderStage: A.DOLLY_GPU_MAX_BINDINGS,
-      maxComputeWorkgroupStorageSize: 65536, maxComputeInvocationsPerWorkgroup: 1024,
-      maxComputeWorkgroupSizeX: 1024, maxComputeWorkgroupSizeY: 1024})) {
-      requiredLimits[name] = Math.min(adapter.limits[name], ceiling);
-    }
+    for (const name of reportedLimits) if (adapter.limits[name] !== undefined)
+      requiredLimits[name] = Math.min(adapter.limits[name], limitCeilings[name] ?? Infinity);
     const created = await adapter.requestDevice({requiredFeatures, requiredLimits});
     format = navigator.gpu.getPreferredCanvasFormat();
     maxBuffer = created.limits.maxBufferSize;
@@ -73,7 +143,7 @@ async function getDevice() {
     const v = new DataView(capabilities.buffer);
     v.setUint32(0, (created.features.has("shader-f16") ? 1 : 0) | (created.features.has("subgroups") ? 2 : 0) |
       (navigator.gpu.wgslLanguageFeatures?.has("packed_4x8_integer_dot_product") ? 4 : 0) |
-      (created.features.has("timestamp-query") ? 8 : 0) | A.DOLLY_GPU_FEATURE_CAPTURE_FRAME | A.DOLLY_GPU_FEATURE_TEXTURE_RENDER | A.DOLLY_GPU_FEATURE_LARGE_BATCH | A.DOLLY_GPU_FEATURE_VERTEX_F16 |
+      (created.features.has("timestamp-query") ? 8 : 0) | A.DOLLY_GPU_FEATURE_CAPTURE_FRAME | A.DOLLY_GPU_FEATURE_TEXTURE_RENDER | A.DOLLY_GPU_FEATURE_LARGE_BATCH | A.DOLLY_GPU_FEATURE_VERTEX_F16 | A.DOLLY_GPU_FEATURE_EXPLICIT |
       (created.features.has("texture-compression-bc") ? A.DOLLY_GPU_FEATURE_TEXTURE_BC : 0) |
       (format === "bgra8unorm" ? A.DOLLY_GPU_FEATURE_SURFACE_BGRA : 0), true);
     v.setUint32(4, maxObjects, true);
@@ -86,6 +156,10 @@ async function getDevice() {
     v.setBigUint64(80,BigInt(l.maxUniformBufferBindingSize),true);
     v.setUint32(88,adapter.info?.subgroupMinSize ?? 4,true);
     v.setUint32(92,adapter.info?.subgroupMaxSize ?? 128,true);
+    limits = new Uint8Array(8 + reportedLimits.length * 8);
+    const lv = new DataView(limits.buffer);
+    lv.setBigUint64(0, BigInt(reportedFeatures.reduce((bits, name, i) => created.features.has(name) ? bits | (1 << i) : bits, 0)), true);
+    reportedLimits.forEach((name, i) => lv.setBigUint64(8 + i * 8, BigInt(l[name] ?? 0), true));
     device = created;
     const { vendor, architecture, description, isFallbackAdapter } = adapter.info;
     postMessage({ type: "status", info: { vendor, architecture, description, isFallbackAdapter, f16: created.features.has("shader-f16") } });
@@ -130,7 +204,7 @@ function text(bytes, start, count) {
 }
 function records(request) {
   const { bytes, v } = request;
-  ensure(bytes.length >= 40 && v.getUint32(36, true) === 0, "Invalid GPU batch");
+  ensure(bytes.length >= 40 && (v.getUint32(36, true) & ~A.DOLLY_GPU_BATCH_CONTINUE) === 0, "Invalid GPU batch");
   const count = v.getUint32(32, true), result = [];
   ensure(count <= A.DOLLY_GPU_MAX_COMMANDS, "Too many GPU commands", E.E2BIG);
   let offset = 40;
@@ -217,6 +291,34 @@ function records(request) {
     } else if (opcode === A.DOLLY_GPU_DRAW_MESH) {
       const groups=w.getUint32(64,true), buffers=w.getUint32(68,true);
       ensure(groups<=4 && buffers<=8 && size===80+8*groups+24*buffers && w.getBigUint64(72,true)===0n, "Mesh layout");
+    } else if (opcode === A.DOLLY_GPU_CREATE_SAMPLER) {
+      ensure(size===48 || size===56, "Sampler layout");
+    } else if (opcode === A.DOLLY_GPU_CREATE_BIND_GROUP_LAYOUT) {
+      const n=w.getUint32(16,true);
+      ensure(n<=A.DOLLY_GPU_MAX_LAYOUT_ENTRIES && size===24+32*n && w.getUint32(20,true)===0, "Bind group layout layout");
+    } else if (opcode === A.DOLLY_GPU_CREATE_PIPELINE_LAYOUT) {
+      const n=w.getUint32(16,true);
+      ensure(n<=8 && size===24+8*n && w.getUint32(20,true)===0, "Pipeline layout layout");
+    } else if (opcode === A.DOLLY_GPU_CREATE_BIND_GROUP) {
+      const n=w.getUint32(24,true);
+      ensure(n<=A.DOLLY_GPU_MAX_LAYOUT_ENTRIES && size===32+32*n && w.getUint32(28,true)===0, "Bind group entries");
+    } else if (opcode === A.DOLLY_GPU_CREATE_RENDER_PIPELINE) {
+      const [targets,buffers,attributes,constants,vs,fs]=[136,140,144,148,152,156].map(at=>w.getUint32(at,true));
+      ensure(targets<=8 && buffers<=16 && attributes<=32 && constants<=64 && vs<=64 && fs<=64 &&
+        size===Math.ceil((160+40*targets+16*(buffers+attributes+constants)+vs+fs)/8)*8, "Render pipeline layout");
+      const names=160+40*targets+16*(buffers+attributes+constants);
+      text(b,names,vs);
+      if(fs)text(b,names+vs,fs);
+    } else if (opcode === A.DOLLY_GPU_CREATE_COMPUTE_PIPELINE) {
+      const constants=w.getUint32(32,true), entry=w.getUint32(36,true);
+      ensure(constants<=64 && entry<=64 && size===Math.ceil((40+16*constants+entry)/8)*8, "Compute pipeline layout");
+      text(b,40+16*constants,entry);
+    } else if (opcode === A.DOLLY_GPU_BEGIN_VIEW_PASS) {
+      const n=w.getUint32(16,true);
+      ensure(n<=8 && size===64+40*n && w.getUint32(60,true)===0, "View pass layout");
+    } else if (opcode === A.DOLLY_GPU_SET_BIND_GROUP) {
+      const n=w.getUint32(20,true);
+      ensure(n<=16 && size===Math.ceil((24+4*n)/8)*8, "Bind group offsets");
     }
     result.push({ opcode, b, w });
     offset += size;
@@ -284,15 +386,19 @@ function retire(scope) {
   return scope.retiring;
 }
 
-async function batch(scope, commands) {
+async function batch(scope, commands, flags) {
   const device = scope.device;
   const progress = queueProgress;
   await queueFull(scope);
-  let encoder, texture, computePass, renderPass, passWidth, passHeight, timer, queries = 0;
-  let renderPipeline, renderGroups, renderBuffers, renderIndex;
+  // A batch sent with BATCH_CONTINUE leaves its encoder and open pass to the scope's next one.
+  const continued = scope.open ?? {};
+  scope.open = null;
+  let {encoder, texture, computePass, explicitCompute = false, renderPass, viewPass = false, passWidth, passHeight,
+    timer, queries = 0, renderPipeline, renderGroups, renderBuffers, renderIndex} = continued;
+  let keepOpen = false;
   const getEncoder = () => encoder ??= device.createCommandEncoder();
-  const endCompute = () => { computePass?.end(); computePass = null; };
-  const endRender = () => { renderPass?.end(); renderPass = null; };
+  const endCompute = () => { computePass?.end(); computePass = null; explicitCompute = false; };
+  const endRender = () => { renderPass?.end(); renderPass = null; viewPass = false; };
   const timestamps = () => {
     timer ??= scope.timers?.find(t => !t.busy);
     if (!timer) return {};
@@ -303,10 +409,11 @@ async function batch(scope, commands) {
   device.pushErrorScope("validation");
   device.pushErrorScope("out-of-memory");
   try {
-    for (const { opcode: op, b, w } of commands) {
-      const id = b.length >= 16 && op !== A.DOLLY_GPU_VIEWPORT ? integer(w, 8) : 0;
-      if (op !== A.DOLLY_GPU_COMPUTE) endCompute();
-      if (renderPass) ensure(renderPassRecords.has(op), "Command is invalid inside a render pass");
+    for (const [index, { opcode: op, b, w }] of commands.entries()) try {
+      const id = b.length >= 16 && !unhandledRecords.has(op) ? integer(w, 8) : 0;
+      if (op !== A.DOLLY_GPU_COMPUTE && !explicitCompute) endCompute();
+      if (renderPass) ensure((viewPass ? viewPassRecords : renderPassRecords).has(op), "Command is invalid inside a render pass");
+      if (explicitCompute) ensure(computePassRecords.has(op), "Command is invalid inside a compute pass");
       if (creatingRecords.has(op)) ensure(id > scope.high && id <= 0xffffffff && scope.objects.size + scope.retired.size < maxObjects, "GPU object quota", E.ENOSPC);
       if (op === A.DOLLY_GPU_CREATE_BUFFER) {
         const size = integer(w, 16), usage = w.getUint32(24, true);
@@ -389,28 +496,37 @@ async function batch(scope, commands) {
         pass.draw(vertices,instances); pass.end();
       } else if (op === A.DOLLY_GPU_CREATE_TEXTURE) {
         const width=w.getUint32(16,true), height=w.getUint32(20,true), layers=w.getUint32(24,true),
-          mips=w.getUint32(28,true), type=w.getUint32(32,true), usage=w.getUint32(36,true);
-        ensure(width>0 && height>0 && width<=Math.min(8192,device.limits.maxTextureDimension2D) &&
-          height<=Math.min(8192,device.limits.maxTextureDimension2D) && (layers===1 || (layers===6 && width===height)) &&
-          mips>0 && mips<=1+Math.floor(Math.log2(Math.max(width,height))) &&
-          type>0 && type<textureFormats.length && usage>0 && (usage&~23)===0 && w.getBigUint64(40,true)===0n, "Texture descriptor");
+          mips=w.getUint32(28,true), type=w.getUint32(32,true), usage=w.getUint32(36,true),
+          dimension=w.getUint32(40,true), samples=w.getUint16(44,true)||1, viewFormat=w.getUint16(46,true);
+        const l=device.limits, largest=[0,l.maxTextureDimension1D,l.maxTextureDimension2D,l.maxTextureDimension3D][dimension];
+        ensure(width>0 && height>0 && layers>0 && mips>0 && type>0 && type<textureFormats.length && usage>0 &&
+          (usage&~31)===0 && dimension<=3 && viewFormat<textureFormats.length && (samples===1 || samples===4), "Texture descriptor");
+        if(dimension===0) ensure(width<=Math.min(8192,l.maxTextureDimension2D) && height<=Math.min(8192,l.maxTextureDimension2D) &&
+          (layers===1 || (layers===6 && width===height)) && !(usage&8), "Texture descriptor");
+        else ensure(width<=largest && height<=(dimension===1?1:largest) &&
+          layers<=(dimension===3?largest:dimension===1?1:l.maxTextureArrayLayers), "Texture dimensions");
+        ensure(mips<=1+Math.floor(Math.log2(Math.max(width,height,dimension===3?layers:1))) &&
+          (samples===1 || (dimension!==1 && dimension!==3 && mips===1 && layers===1)), "Texture mips/samples");
         let size=0;
-        const block=type>=7?4:1;
+        const block=compressedFormat(type)?4:1;
         if(block===4) {
           ensure(device.features.has("texture-compression-bc"), "BC texture compression unavailable", E.ENOSYS);
           ensure(width%block===0 && height%block===0 && !(usage&16), "BC texture descriptor");
         }
-        for(let i=0;i<mips;i++)size+=Math.ceil(Math.max(1,width>>i)/block)*Math.ceil(Math.max(1,height>>i)/block)*layers*blockBytes[type];
+        if(type===45) ensure(device.features.has("depth32float-stencil8"), "depth32float-stencil8 unavailable", E.ENOSYS);
+        for(let i=0;i<mips;i++)size+=Math.ceil(Math.max(1,width>>i)/block)*Math.ceil(Math.max(1,height>>i)/block)*
+          (dimension===3?Math.max(1,layers>>i):layers)*blockBytes[type]*samples;
         ensure(size<=bufferCeiling && size<=maxBytes-usedBytes, "Texture allocation quota", E.ENOMEM);
         const value=device.createTexture({size:{width,height,depthOrArrayLayers:layers},mipLevelCount:mips,
-          format:textureFormats[type],usage});
+          dimension:["2d","1d","2d","3d"][dimension],sampleCount:samples,format:textureFormats[type],usage,
+          viewFormats:viewFormat?[textureFormats[viewFormat]]:[]});
         insert(scope,id,"texture",value,size);usedBytes+=size;
-        Object.assign(object(scope,id),{width,height,layers,mips,type});
+        Object.assign(object(scope,id),{width,height,layers,mips,type,dimension,samples});
       } else if (op === A.DOLLY_GPU_WRITE_TEXTURE) {
         const r=object(scope,id,"texture"), mip=w.getUint32(16,true), layer=w.getUint32(20,true),
           x=w.getUint32(24,true), y=w.getUint32(28,true), width=w.getUint32(32,true), height=w.getUint32(36,true), n=w.getUint32(40,true);
-        const block=r.type>=7?4:1;
-        ensure(r.type!==5 && r.type!==6 && mip<r.mips && layer<r.layers && width>0 && height>0 &&
+        const block=compressedFormat(r.type)?4:1;
+        ensure(!depthFormat(r.type) && !stencilFormat(r.type) && r.samples===1 && mip<r.mips && layer<r.layers && width>0 && height>0 &&
           x%block===0 && y%block===0 && width%block===0 && height%block===0 &&
           x<=Math.ceil(Math.max(1,r.width>>mip)/block)*block-width &&
           y<=Math.ceil(Math.max(1,r.height>>mip)/block)*block-height &&
@@ -421,12 +537,14 @@ async function batch(scope, commands) {
       } else if (op === A.DOLLY_GPU_CREATE_SAMPLER) {
         const filters=[16,20,24].map(at=>w.getUint32(at,true)), address=[28,32,36].map(at=>w.getUint32(at,true)),
           compare=w.getUint32(40,true), maxAnisotropy=w.getUint32(44,true);
+        const [lodMinClamp,lodMaxClamp]=b.length===56?[w.getFloat32(48,true),w.getFloat32(52,true)]:[0,32];
         ensure(filters.every(n=>n<=1) && address.every(n=>n<=2) && compare<=8 && maxAnisotropy>=1 &&
-          maxAnisotropy<=16 && (maxAnisotropy===1 || filters.every(n=>n===1)), "Sampler descriptor");
+          maxAnisotropy<=16 && (maxAnisotropy===1 || filters.every(n=>n===1)) &&
+          Number.isFinite(lodMinClamp) && Number.isFinite(lodMaxClamp) && lodMinClamp>=0 && lodMinClamp<=lodMaxClamp, "Sampler descriptor");
         const addresses=["clamp-to-edge","repeat","mirror-repeat"], modes=["nearest","linear"];
         insert(scope,id,"sampler",device.createSampler({minFilter:modes[filters[0]],magFilter:modes[filters[1]],
           mipmapFilter:modes[filters[2]],addressModeU:addresses[address[0]],addressModeV:addresses[address[1]],
-          addressModeW:addresses[address[2]],compare:compareOps[compare],maxAnisotropy}));
+          addressModeW:addresses[address[2]],compare:compareOps[compare],maxAnisotropy,lodMinClamp,lodMaxClamp}));
       } else if (op === A.DOLLY_GPU_GRAPHICS_PIPELINE) {
         const color=w.getUint32(32,true), depth=w.getUint32(36,true), topology=w.getUint32(40,true),
           cull=w.getUint32(44,true), front=w.getUint32(48,true), compare=w.getUint32(52,true), write=w.getUint32(56,true),
@@ -468,6 +586,7 @@ async function batch(scope, commands) {
           } else if(kind===3)resource=r.value;
           else {
             ensure(kind!==2 || r.layers===6,"Cube binding requires six layers");
+            ensure(r.dimension===0,"Resource groups bind two-dimensional textures");
             resource=r.value.createView({dimension:kind===2?"cube":"2d",arrayLayerCount:kind===2?6:1,
               aspect:r.type===5?"depth-only":"all"});
           }
@@ -484,7 +603,7 @@ async function batch(scope, commands) {
         let colorTexture;
         if(id) {
           const r=object(scope,id,"texture");
-          ensure(r.width===width && r.height===height && r.type<=4 && r.layers===1,"Color attachment dimensions/format");
+          ensure(r.width===width && r.height===height && r.type<=4 && r.layers===1 && r.dimension===0 && r.samples===1,"Color attachment dimensions/format");
           colorTexture=r.value;
         } else {
           ensure(scope.surface && width<=4096 && height<=2304,"Surface attachment dimensions/ownership");
@@ -497,7 +616,7 @@ async function batch(scope, commands) {
         let depthStencilAttachment;
         if(depth) {
           const r=object(scope,depth,"texture");
-          ensure(r.width===width && r.height===height && r.type>=5 && r.layers===1,"Depth attachment dimensions/format");
+          ensure(r.width===width && r.height===height && (r.type===5 || r.type===6) && r.layers===1 && r.dimension===0 && r.samples===1,"Depth attachment dimensions/format");
           depthStencilAttachment={view:r.value.createView({mipLevelCount:1}),depthLoadOp:depthClear?"clear":"load",depthStoreOp:"store",depthClearValue,
             ...(r.type===5?{stencilLoadOp:depthClear?"clear":"load",stencilStoreOp:"store",stencilClearValue}:{})};
         }
@@ -591,12 +710,248 @@ async function batch(scope, commands) {
           progress.completed=Math.max(progress.completed,submittedWork);
         }).finally(()=>{
           scope.submissions.splice(scope.submissions.indexOf(completed),1);
-          if(scope.frames[0]===completed)scope.frames.shift();
+
         });
         scope.submissions.push(completed);
-        if(texture)scope.frames.push(completed);
+        if(texture)present(scope,completed);
         completed.catch(()=>{});
         if(texture){stats.frames++;postMessage({type:"status",active:true,width:canvas.width,height:canvas.height,stats:{...stats,allocatedBytes:usedBytes}});texture=null;}
+      } else if (op === A.DOLLY_GPU_CREATE_VIEW) {
+        const r=object(scope,integer(w,16),"texture"), [format,dimension,aspect,baseMip,mips,baseLayer,layers,swizzle]=
+          [24,28,32,36,40,44,48,52].map(at=>w.getUint32(at,true));
+        const channels=[0,1,2,3].map(i=>(swizzle>>>(8*i))&255);
+        ensure(format<textureFormats.length && dimension<=6 && aspect<=2 && baseMip<r.mips && mips<=r.mips-baseMip &&
+          channels.every(n=>n<=5), "View descriptor");
+        const descriptor={aspect:aspects[aspect],baseMipLevel:baseMip,baseArrayLayer:baseLayer,
+          ...(format?{format:textureFormats[format]}:{}),...(dimension?{dimension:viewDimensions[dimension]}:{}),
+          ...(mips?{mipLevelCount:mips}:{}),...(layers?{arrayLayerCount:layers}:{})};
+        if(swizzle!==0x03020100) {
+          ensure(device.features.has("texture-component-swizzle"),"Texture swizzles are unavailable",E.ENOTSUP);
+          descriptor.swizzle=channels.map(n=>"rgba01"[n]).join("");
+        }
+        insert(scope,id,"view",r.value.createView(descriptor));
+        Object.assign(object(scope,id),{texture:r,width:Math.max(1,r.width>>baseMip),height:Math.max(1,r.height>>baseMip),
+          type:format||r.type});
+      } else if (op === A.DOLLY_GPU_CREATE_BIND_GROUP_LAYOUT) {
+        const entries=[];
+        for(let i=0;i<w.getUint32(16,true);i++) {
+          const at=24+i*32, [binding,visibility,type,a,bb,c]=[0,4,8,12,16,20].map(o=>w.getUint32(at+o,true)),
+            minBindingSize=integer(w,at+24), entry={binding,visibility};
+          ensure(visibility>0 && visibility<=7 && type>=1 && type<=8, "Bind group layout entry");
+          if(type<=3) {
+            ensure(a<=1 && bb===0 && c===0, "Buffer layout entry");
+            entry.buffer={type:["uniform","storage","read-only-storage"][type-1],hasDynamicOffset:a===1,minBindingSize};
+          } else if(type<=6) {
+            ensure(a===0 && bb===0 && c===0 && minBindingSize===0, "Sampler layout entry");
+            entry.sampler={type:["filtering","non-filtering","comparison"][type-4]};
+          } else if(type===7) {
+            ensure(a>=1 && a<=5 && bb>=1 && bb<=6 && c<=1 && minBindingSize===0, "Texture layout entry");
+            entry.texture={sampleType:["float","unfilterable-float","depth","sint","uint"][a-1],viewDimension:viewDimensions[bb],multisampled:c===1};
+          } else {
+            ensure(a>=1 && a<=3 && bb>=1 && bb<=6 && c>0 && c<textureFormats.length && minBindingSize===0, "Storage texture layout entry");
+            entry.storageTexture={access:["write-only","read-only","read-write"][a-1],format:textureFormats[c],viewDimension:viewDimensions[bb]};
+          }
+          entries.push(entry);
+        }
+        insert(scope,id,"group-layout",device.createBindGroupLayout({entries}));
+      } else if (op === A.DOLLY_GPU_CREATE_PIPELINE_LAYOUT) {
+        const bindGroupLayouts=[];
+        for(let i=0;i<w.getUint32(16,true);i++)bindGroupLayouts.push(object(scope,integer(w,24+i*8),"group-layout").value);
+        insert(scope,id,"pipeline-layout",device.createPipelineLayout({bindGroupLayouts}));
+      } else if (op === A.DOLLY_GPU_CREATE_BIND_GROUP) {
+        const layout=object(scope,integer(w,16),"group-layout").value, entries=[];
+        for(let i=0;i<w.getUint32(24,true);i++) {
+          const at=32+i*32, binding=w.getUint32(at,true), kind=w.getUint32(at+4,true);
+          ensure(kind<=2, "Bind group entry kind");
+          const r=object(scope,integer(w,at+8),["buffer","sampler","view"][kind]);
+          let resource=r.value;
+          if(kind===0) {
+            const offset=integer(w,at+16), size=integer(w,at+24);range(r,offset,size);
+            ensure(size>0 && !r.mapped,"Invalid bound buffer");resource={buffer:r.value,offset,size};
+          } else ensure(w.getBigUint64(at+16,true)===0n && w.getBigUint64(at+24,true)===0n, "Bind group entry range");
+          entries.push({binding,resource});
+        }
+        insert(scope,id,"bind-group",device.createBindGroup({layout,entries}));
+      } else if (op === A.DOLLY_GPU_CREATE_RENDER_PIPELINE) {
+        const field=at=>w.getUint32(at,true);
+        const [topology,stripFormat,front,cull,unclipped,depth,depthWrite,depthCompare]=[40,44,48,52,56,60,64,68].map(field);
+        const [samples,mask,coverage,targetCount,bufferCount,attributeCount,constantCount,vs,fs]=[124,128,132,136,140,144,148,152,156].map(field);
+        const stencil=at=>{
+          const [compare,failOp,depthFailOp,passOp]=[0,4,8,12].map(o=>field(at+o));
+          ensure(compare>=1 && compare<=8 && [failOp,depthFailOp,passOp].every(n=>n<stencilOps.length), "Stencil state");
+          return {compare:compareOps[compare],failOp:stencilOps[failOp],depthFailOp:stencilOps[depthFailOp],passOp:stencilOps[passOp]};
+        };
+        const slope=w.getFloat32(116,true), clamp=w.getFloat32(120,true);
+        ensure(topology<=4 && stripFormat<=2 && (stripFormat===0 || topology===1 || topology===3) && front<=1 && cull<=2 &&
+          unclipped<=1 && [0,5,6,43,44,45].includes(depth) && depthWrite<=1 && depthCompare<=8 && (depth===0) === (depthCompare===0) &&
+          Number.isFinite(slope) && Number.isFinite(clamp) && (samples===1 || samples===4) && coverage<=1, "Render pipeline state");
+        let at=160;
+        const targets=[];
+        for(let i=0;i<targetCount;i++,at+=40) {
+          const [targetFormat,writeMask,blend]=[0,4,8].map(o=>field(at+o));
+          const component=o=>{
+            const [operation,src,dst]=[0,4,8].map(n=>field(at+o+n));
+            ensure(operation<blendOps.length && src<blendFactors.length && dst<blendFactors.length, "Blend state");
+            return {operation:blendOps[operation],srcFactor:blendFactors[src],dstFactor:blendFactors[dst]};
+          };
+          ensure(targetFormat<textureFormats.length && writeMask<=15 && blend<=1 && field(at+36)===0, "Render target");
+          targets.push({format:targetFormat?textureFormats[targetFormat]:format,writeMask,...(blend?{blend:{color:component(12),alpha:component(24)}}:{})});
+        }
+        const buffers=[];
+        for(let i=0;i<bufferCount;i++,at+=16) {
+          ensure(field(at+4)<=1 && w.getBigUint64(at+8,true)===0n, "Vertex buffer layout");
+          buffers.push({arrayStride:field(at),stepMode:field(at+4)?"instance":"vertex",attributes:[]});
+        }
+        for(let i=0;i<attributeCount;i++,at+=16) {
+          const [slot,shaderLocation,type,offset]=[0,4,8,12].map(o=>field(at+o));
+          ensure(slot<bufferCount && type>0 && type<vertexFormats.length, "Vertex attribute");
+          buffers[slot].attributes.push({shaderLocation,format:vertexFormats[type],offset});
+        }
+        const vertexConstants={}, fragmentConstants={};
+        for(let i=0;i<constantCount;i++,at+=16) {
+          const constantId=field(at), stages=field(at+4), value=w.getFloat64(at+8,true);
+          ensure(stages>0 && stages<=3 && Number.isFinite(value), "Override constant");
+          if(stages&1)vertexConstants[constantId]=value;
+          if(stages&2)fragmentConstants[constantId]=value;
+        }
+        const vertexEntry=text(b,at,vs), fragmentShader=integer(w,32);
+        const descriptor={layout:object(scope,integer(w,16),"pipeline-layout").value,
+          vertex:{module:object(scope,integer(w,24),"shader").value,entryPoint:vertexEntry,buffers,constants:vertexConstants},
+          primitive:{topology:["triangle-list","triangle-strip","line-list","line-strip","point-list"][topology],
+            ...(stripFormat?{stripIndexFormat:["","uint16","uint32"][stripFormat]}:{}),frontFace:front?"cw":"ccw",
+            cullMode:["none","front","back"][cull],...(unclipped?{unclippedDepth:true}:{})},
+          multisample:{count:samples,mask,alphaToCoverageEnabled:coverage===1}};
+        if(fragmentShader) descriptor.fragment={module:object(scope,fragmentShader,"shader").value,entryPoint:text(b,at+vs,fs),
+          targets,constants:fragmentConstants};
+        else ensure(fs===0 && targetCount===0, "Render targets without a fragment stage");
+        if(depth) descriptor.depthStencil={format:textureFormats[depth],depthWriteEnabled:depthWrite===1,
+          depthCompare:compareOps[depthCompare],stencilFront:stencil(72),stencilBack:stencil(88),
+          stencilReadMask:field(104),stencilWriteMask:field(108),depthBias:w.getInt32(112,true),
+          depthBiasSlopeScale:slope,depthBiasClamp:clamp};
+        insert(scope,id,"view-render",await device.createRenderPipelineAsync(descriptor));
+      } else if (op === A.DOLLY_GPU_CREATE_COMPUTE_PIPELINE) {
+        const constantCount=w.getUint32(32,true), constants={};
+        for(let i=0;i<constantCount;i++) {
+          const at=40+i*16, value=w.getFloat64(at+8,true);
+          ensure(w.getUint32(at+4,true)===0 && Number.isFinite(value), "Override constant");
+          constants[w.getUint32(at,true)]=value;
+        }
+        insert(scope,id,"view-compute",await device.createComputePipelineAsync({
+          layout:object(scope,integer(w,16),"pipeline-layout").value,
+          compute:{module:object(scope,integer(w,24),"shader").value,entryPoint:text(b,40+16*constantCount,w.getUint32(36,true)),constants}}));
+      } else if (op === A.DOLLY_GPU_CREATE_QUERY_SET) {
+        const count=w.getUint32(16,true);
+        ensure(device.features.has("timestamp-query"),"Timestamp queries are unavailable",E.ENOTSUP);
+        ensure(count>0 && count<=4096 && w.getUint32(20,true)===0 && count*8<=maxBytes-usedBytes, "Query set");
+        insert(scope,id,"query-set",device.createQuerySet({type:"timestamp",count}),count*8);usedBytes+=count*8;
+      } else if (op === A.DOLLY_GPU_COPY_BUFFER_TO_TEXTURE || op === A.DOLLY_GPU_COPY_TEXTURE_TO_BUFFER) {
+        const r=object(scope,id,"buffer"), t=object(scope,integer(w,32),"texture");
+        const [bytesPerRow,rowsPerImage]=[24,28].map(at=>w.getUint32(at,true)),
+          [mipLevel,aspect,x,y,z,width,height,depthOrArrayLayers]=[40,44,48,52,56,60,64,68].map(at=>w.getUint32(at,true));
+        ensure(!r.mapped && aspect<=2 && bytesPerRow%256===0, "Buffer-texture copy");
+        const buffer={buffer:r.value,offset:integer(w,16),bytesPerRow,rowsPerImage},
+          image={texture:t.value,mipLevel,origin:{x,y,z},aspect:aspects[aspect]}, extent={width,height,depthOrArrayLayers};
+        if(op===A.DOLLY_GPU_COPY_BUFFER_TO_TEXTURE)getEncoder().copyBufferToTexture(buffer,image,extent);
+        else getEncoder().copyTextureToBuffer(image,buffer,extent);
+      } else if (op === A.DOLLY_GPU_COPY_TEXTURE_TO_TEXTURE) {
+        const field=at=>w.getUint32(at,true);
+        ensure(field(68)===0, "Texture copy reserved field");
+        getEncoder().copyTextureToTexture(
+          {texture:object(scope,id,"texture").value,mipLevel:field(24),origin:{x:field(28),y:field(32),z:field(36)}},
+          {texture:object(scope,integer(w,16),"texture").value,mipLevel:field(40),origin:{x:field(44),y:field(48),z:field(52)}},
+          {width:field(56),height:field(60),depthOrArrayLayers:field(64)});
+      } else if (op === A.DOLLY_GPU_CLEAR_BUFFER) {
+        const r=object(scope,id,"buffer"), offset=integer(w,16), size=integer(w,24);
+        range(r,offset,size);ensure(!r.mapped,"Clearing a mapped buffer");
+        getEncoder().clearBuffer(r.value,offset,size);
+      } else if (op === A.DOLLY_GPU_WRITE_TIMESTAMP) {
+        const q=object(scope,id,"query-set"), index=w.getUint32(16,true);
+        ensure(w.getUint32(20,true)===0, "Timestamp reserved field");
+        getEncoder().beginComputePass({timestampWrites:{querySet:q.value,beginningOfPassWriteIndex:index}}).end();
+      } else if (op === A.DOLLY_GPU_RESOLVE_QUERY_SET) {
+        const q=object(scope,id,"query-set"), r=object(scope,integer(w,24),"buffer");
+        ensure(!r.mapped, "Resolving into a mapped buffer");
+        getEncoder().resolveQuerySet(q.value,w.getUint32(16,true),w.getUint32(20,true),r.value,integer(w,32));
+      } else if (op === A.DOLLY_GPU_BEGIN_VIEW_PASS) {
+        const field=at=>w.getUint32(at,true), count=field(16), width=field(20), height=field(24);
+        const colorAttachments=[];
+        let size;
+        for(let i=0;i<count;i++) {
+          const at=64+i*40, view=integer(w,at), resolve=integer(w,at+8), load=field(at+16), store=field(at+20),
+            clearValue=[24,28,32,36].map(o=>w.getFloat32(at+o,true));
+          ensure(load<=1 && store<=1 && clearValue.every(Number.isFinite), "Colour attachment");
+          let attachment;
+          if(view) {
+            const r=object(scope,view,"view");attachment=r.value;size??=[r.width,r.height];
+          } else {
+            ensure(scope.surface && width>0 && height>0 && width<=4096 && height<=2304,"Surface attachment dimensions/ownership");
+            if(!texture) {
+              if(canvas.width!==width || canvas.height!==height){canvas.width=width;canvas.height=height;}
+              texture=context.getCurrentTexture();
+            } else ensure(canvas.width===width && canvas.height===height,"Surface resized within batch");
+            attachment=texture.createView();size??=[width,height];
+          }
+          colorAttachments.push({view:attachment,...(resolve?{resolveTarget:object(scope,resolve,"view").value}:{}),
+            loadOp:load?"clear":"load",storeOp:store?"discard":"store",clearValue});
+        }
+        let depthStencilAttachment;
+        const depthView=integer(w,8);
+        if(depthView) {
+          const r=object(scope,depthView,"view"), [depthLoad,depthStore,depthReadOnly]=[28,32,36].map(field),
+            depthClearValue=w.getFloat32(40,true), [stencilLoad,stencilStore,stencilReadOnly,stencilClearValue]=[44,48,52,56].map(field);
+          ensure(depthLoad<=1 && depthStore<=1 && depthReadOnly<=1 && depthClearValue>=0 && depthClearValue<=1 &&
+            stencilLoad<=1 && stencilStore<=1 && stencilReadOnly<=1, "Depth attachment");
+          depthStencilAttachment={view:r.value};
+          if(depthFormat(r.type)) Object.assign(depthStencilAttachment, depthReadOnly?{depthReadOnly:true}:
+            {depthLoadOp:depthLoad?"clear":"load",depthStoreOp:depthStore?"discard":"store",depthClearValue});
+          if(stencilFormat(r.type)) Object.assign(depthStencilAttachment, stencilReadOnly?{stencilReadOnly:true}:
+            {stencilLoadOp:stencilLoad?"clear":"load",stencilStoreOp:stencilStore?"discard":"store",stencilClearValue});
+          size??=[r.width,r.height];
+        }
+        ensure(size, "A render pass needs an attachment");
+        renderPass=getEncoder().beginRenderPass({...timestamps(),colorAttachments,depthStencilAttachment});
+        viewPass=true;[passWidth,passHeight]=size;
+      } else if (op === A.DOLLY_GPU_BEGIN_COMPUTE_PASS) {
+        computePass=getEncoder().beginComputePass(timestamps());explicitCompute=true;
+      } else if (op === A.DOLLY_GPU_END_COMPUTE_PASS) {
+        ensure(explicitCompute,"No active compute pass");endCompute();
+      } else if (op === A.DOLLY_GPU_SET_PIPELINE) {
+        if(viewPass)renderPass.setPipeline(object(scope,id,"view-render").value);
+        else {ensure(explicitCompute,"Pipeline outside a pass");computePass.setPipeline(object(scope,id,"view-compute").value);}
+      } else if (op === A.DOLLY_GPU_SET_BIND_GROUP) {
+        ensure(viewPass || explicitCompute,"Bind group outside a pass");
+        const index=w.getUint32(16,true), offsets=[];
+        for(let i=0;i<w.getUint32(20,true);i++)offsets.push(w.getUint32(24+i*4,true));
+        ensure(index<8,"Bind group index");
+        (viewPass?renderPass:computePass).setBindGroup(index,object(scope,id,"bind-group").value,offsets);
+      } else if (op === A.DOLLY_GPU_SET_VERTEX_BUFFER || op === A.DOLLY_GPU_SET_INDEX_BUFFER) {
+        ensure(viewPass,"Buffer binding outside a render pass");
+        const r=object(scope,id,"buffer"), kind=w.getUint32(16,true), offset=integer(w,24), size=integer(w,32);
+        range(r,offset,size);ensure(!r.mapped && w.getUint32(20,true)===0,"Invalid vertex or index buffer");
+        if(op===A.DOLLY_GPU_SET_VERTEX_BUFFER) {ensure(kind<16,"Vertex buffer slot");renderPass.setVertexBuffer(kind,r.value,offset,size);}
+        else {ensure(kind===1 || kind===2,"Index format");renderPass.setIndexBuffer(r.value,kind===1?"uint16":"uint32",offset,size);}
+      } else if (op === A.DOLLY_GPU_DRAW) {
+        ensure(viewPass,"Draw outside a render pass");
+        renderPass.draw(...[8,12,16,20].map(at=>w.getUint32(at,true)));
+      } else if (op === A.DOLLY_GPU_DRAW_INDEXED) {
+        ensure(viewPass && w.getUint32(28,true)===0,"Draw outside a render pass");
+        renderPass.drawIndexed(w.getUint32(8,true),w.getUint32(12,true),w.getUint32(16,true),w.getInt32(20,true),w.getUint32(24,true));
+      } else if (op === A.DOLLY_GPU_DRAW_INDIRECT || op === A.DOLLY_GPU_DRAW_INDEXED_INDIRECT || op === A.DOLLY_GPU_DISPATCH_INDIRECT) {
+        const r=object(scope,id,"buffer"), offset=integer(w,16);
+        ensure(!r.mapped,"Indirect arguments in a mapped buffer");
+        if(op===A.DOLLY_GPU_DISPATCH_INDIRECT) {ensure(explicitCompute,"Dispatch outside a compute pass");computePass.dispatchWorkgroupsIndirect(r.value,offset);stats.dispatches++;}
+        else {
+          ensure(viewPass,"Draw outside a render pass");
+          if(op===A.DOLLY_GPU_DRAW_INDIRECT)renderPass.drawIndirect(r.value,offset);else renderPass.drawIndexedIndirect(r.value,offset);
+        }
+      } else if (op === A.DOLLY_GPU_SET_BLEND_CONSTANT) {
+        const color=[8,12,16,20].map(at=>w.getFloat32(at,true));
+        ensure(viewPass && color.every(Number.isFinite),"Blend constant");renderPass.setBlendConstant(color);
+      } else if (op === A.DOLLY_GPU_SET_STENCIL_REFERENCE) {
+        ensure(viewPass && w.getUint32(12,true)===0,"Stencil reference");renderPass.setStencilReference(w.getUint32(8,true));
+      } else if (op === A.DOLLY_GPU_DISPATCH) {
+        ensure(explicitCompute && w.getUint32(20,true)===0,"Dispatch outside a compute pass");
+        computePass.dispatchWorkgroups(w.getUint32(8,true),w.getUint32(12,true),w.getUint32(16,true));stats.dispatches++;
       } else if (op === A.DOLLY_GPU_MAP_READ) {
         ensure(!encoder,"Submit before mapping");
         const r=object(scope,id,"buffer"), offset=integer(w,16), size=integer(w,24);range(r,offset,size);
@@ -608,10 +963,16 @@ async function batch(scope, commands) {
         ensure(!encoder,"Submit before releasing GPU resources");
         release(scope, id, progress);
       }
+    } catch (error) {
+      // WebGPU's own errors (a GPUPipelineError, a DOMException) keep their message read-only.
+      fail(error.errno ?? (error.reason === "validation" ? E.EINVAL : E.EIO), `record ${index} (opcode ${op}): ${error.message}`);
     }
-    ensure(!encoder,"GPU batch has an unsubmitted encoder");
+    if (flags & A.DOLLY_GPU_BATCH_CONTINUE) keepOpen = true;
+    else ensure(!encoder,"GPU batch has an unsubmitted encoder");
   } finally {
-    endCompute();endRender();
+    if (keepOpen) scope.open = {encoder, texture, computePass, explicitCompute, renderPass, viewPass, passWidth, passHeight,
+      timer, queries, renderPipeline, renderGroups, renderBuffers, renderIndex};
+    else {endCompute();endRender();}
     const [oom, validation] = await Promise.all([device.popErrorScope(), device.popErrorScope()]);
     stats.batchWallMilliseconds += performance.now()-started;
     if(oom)fail(E.ENOMEM,oom.message);if(validation)fail(E.EINVAL,validation.message);
@@ -649,7 +1010,7 @@ async function execute(request, scope, parsed) {
       output.set(name,16);
     } else {
       ensure(!scope.lost && device,"GPU scope lost",E.EIO);
-      if(request.op===A.DOLLY_GPU_BATCH)await batch(scope,parsed);
+      if(request.op===A.DOLLY_GPU_BATCH)await batch(scope,parsed,request.v.getUint32(36,true));
       else if(request.op===A.DOLLY_GPU_WAIT) {
         const submitted=queueProgress.queued;
         await device.queue.onSubmittedWorkDone();
@@ -662,6 +1023,7 @@ async function execute(request, scope, parsed) {
         output=new Uint8Array(r.mapped,offset,size).slice();stats.readbackBytes+=size;
       } else if(request.op===A.DOLLY_GPU_CLOSE)await retire(scope);
       else if(request.op===A.DOLLY_GPU_CAPABILITIES)output=capabilities;
+      else if(request.op===A.DOLLY_GPU_LIMITS)output=limits;
       else if(request.op===A.DOLLY_GPU_INFO) {
         output=new Uint8Array(80);const v=new DataView(output.buffer);
         v.setUint32(0,scope.timers?1:0,true);v.setUint32(4,A.DOLLY_GPU_MAX_BINDINGS,true);
@@ -683,6 +1045,7 @@ self.onmessage = event => {
   const m=event.data;
   if(m.type==="configure") {
     heap=m.memory;memory=heap.buffer;mailbox=m.mailbox;canvas=m.canvas;control=new Int32Array(m.control);
+    pageFrames=m.shown?new Int32Array(m.shown):null;
     ensure(memory instanceof SharedArrayBuffer && Number.isSafeInteger(mailbox) && mailbox>0 && mailbox%64===0 &&
       mailbox<=memory.byteLength-slots.length*(64+A.DOLLY_GPU_REPLY_BYTES),"Invalid GPU mailbox");
     postMessage({type:"ready"});
@@ -703,13 +1066,13 @@ self.onmessage = event => {
     } else {
       ensure(Number.isSafeInteger(address)&&Number.isSafeInteger(size)&&address>0&&size>=32&&size<=A.DOLLY_GPU_PACKET_BYTES&&address<=memory.byteLength-size,"Invalid GPU request span",E.EFAULT);
       const request=header(new Uint8Array(memory,address,size).slice());
-      ensure(request.op>=A.DOLLY_GPU_OPEN&&request.op<=A.DOLLY_GPU_CAPABILITIES,"Unknown GPU operation",E.ENOTSUP);
+      ensure(request.op>=A.DOLLY_GPU_OPEN&&request.op<=A.DOLLY_GPU_LIMITS,"Unknown GPU operation",E.ENOTSUP);
       ensure(!requestBytes.has(request.op)||requestBytes.get(request.op)===size,"GPU operation layout");
       const parsed=request.op===A.DOLLY_GPU_BATCH?records(request):null;
       let scope=slots[request.index];
       if(request.op===A.DOLLY_GPU_OPEN) {
         ensure(!scope&&request.scope>generations[request.index],"GPU scope slot is busy",E.EBUSY);
-        scope={id:request.scope,index:request.index,sequence:0,objects:new Map(),retired:new Map(),high:0,submissions:[],frames:[],lost:false,surface:false};
+        scope={id:request.scope,index:request.index,sequence:0,objects:new Map(),retired:new Map(),high:0,submissions:[],frames:[],shows:[],lost:false,surface:false};
         generations[request.index]=scope.id;slots[request.index]=scope;
       }
       ensure(scope?.id===request.scope,"Stale GPU scope",E.ESTALE);

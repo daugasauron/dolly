@@ -56,6 +56,43 @@
   (global (export "DOLLY_GPU_DRAW_MESH") i32 (i32.const 25))
   (global (export "DOLLY_GPU_VIEWPORT") i32 (i32.const 26))
 
+  ;; Explicit records: texture views, bind group and pipeline layouts, whole
+  ;; pipeline descriptors, copies and pass state, for a client that keeps
+  ;; WebGPU's object model (Godot's RenderingDevice). Clients must test
+  ;; FEATURE_EXPLICIT first; LIMITS reports what the device admits.
+  (global (export "DOLLY_GPU_FEATURE_EXPLICIT") i32 (i32.const 1024))
+  (global (export "DOLLY_GPU_LIMITS") i32 (i32.const 8))
+  (global (export "DOLLY_GPU_BATCH_CONTINUE") i32 (i32.const 1))
+  (global (export "DOLLY_GPU_MAX_LAYOUT_ENTRIES") i32 (i32.const 128))
+  (global (export "DOLLY_GPU_CREATE_VIEW") i32 (i32.const 27))
+  (global (export "DOLLY_GPU_CREATE_BIND_GROUP_LAYOUT") i32 (i32.const 28))
+  (global (export "DOLLY_GPU_CREATE_PIPELINE_LAYOUT") i32 (i32.const 29))
+  (global (export "DOLLY_GPU_CREATE_BIND_GROUP") i32 (i32.const 30))
+  (global (export "DOLLY_GPU_CREATE_RENDER_PIPELINE") i32 (i32.const 31))
+  (global (export "DOLLY_GPU_CREATE_COMPUTE_PIPELINE") i32 (i32.const 32))
+  (global (export "DOLLY_GPU_CREATE_QUERY_SET") i32 (i32.const 33))
+  (global (export "DOLLY_GPU_COPY_BUFFER_TO_TEXTURE") i32 (i32.const 34))
+  (global (export "DOLLY_GPU_COPY_TEXTURE_TO_BUFFER") i32 (i32.const 35))
+  (global (export "DOLLY_GPU_COPY_TEXTURE_TO_TEXTURE") i32 (i32.const 36))
+  (global (export "DOLLY_GPU_CLEAR_BUFFER") i32 (i32.const 37))
+  (global (export "DOLLY_GPU_WRITE_TIMESTAMP") i32 (i32.const 38))
+  (global (export "DOLLY_GPU_RESOLVE_QUERY_SET") i32 (i32.const 39))
+  (global (export "DOLLY_GPU_BEGIN_VIEW_PASS") i32 (i32.const 40))
+  (global (export "DOLLY_GPU_BEGIN_COMPUTE_PASS") i32 (i32.const 41))
+  (global (export "DOLLY_GPU_END_COMPUTE_PASS") i32 (i32.const 42))
+  (global (export "DOLLY_GPU_SET_PIPELINE") i32 (i32.const 43))
+  (global (export "DOLLY_GPU_SET_BIND_GROUP") i32 (i32.const 44))
+  (global (export "DOLLY_GPU_SET_VERTEX_BUFFER") i32 (i32.const 45))
+  (global (export "DOLLY_GPU_SET_INDEX_BUFFER") i32 (i32.const 46))
+  (global (export "DOLLY_GPU_DRAW") i32 (i32.const 47))
+  (global (export "DOLLY_GPU_DRAW_INDEXED") i32 (i32.const 48))
+  (global (export "DOLLY_GPU_DRAW_INDIRECT") i32 (i32.const 49))
+  (global (export "DOLLY_GPU_DRAW_INDEXED_INDIRECT") i32 (i32.const 50))
+  (global (export "DOLLY_GPU_SET_BLEND_CONSTANT") i32 (i32.const 51))
+  (global (export "DOLLY_GPU_SET_STENCIL_REFERENCE") i32 (i32.const 52))
+  (global (export "DOLLY_GPU_DISPATCH") i32 (i32.const 53))
+  (global (export "DOLLY_GPU_DISPATCH_INDIRECT") i32 (i32.const 54))
+
   ;; A device leased per process: each call is a packet, a
   ;; dolly_device_header (runtime.h) and the body below, answered in a
   ;; reply slot of dolly-supervisor-0.wat. Sizes in brackets are of bodies.
@@ -63,7 +100,9 @@
   ;; OPEN body: u32 width,height. Reply: u64 scope, u32 width,height, then
   ;; at most 240 UTF-8 bytes of provider name (no terminating NUL). Browsers
   ;; return the fixed name "WebGPU", never the adapter's vendor or description.
-  ;; BATCH body: u32 count,reserved then count records, each 8-byte aligned.
+  ;; BATCH body: u32 count,flags then count records, each 8-byte aligned. Flag
+  ;; BATCH_CONTINUE (FEATURE_EXPLICIT) keeps the batch's encoder, and a pass open
+  ;; in it, for the scope's next BATCH; SUBMIT ends it. Other flags are zero.
   ;; Record prefix: u32 opcode,bytes including prefix. Reserved fields are zero.
   ;; BUFFER[32]: u64 id,size; u32 WebGPU usage,reserved.
   ;; WRITE[32+n]: u64 id,offset; u32 data_offset,data_bytes; inline bytes.
@@ -163,9 +202,131 @@
   ;; 256 admits BC1/BC2/BC3 compressed texture formats 7..9.
   ;; 512 admits float16 vertex formats 13..14, including conversion to f32.
   ;; Limits describe the admitted device, not native pointers.
+  ;;
+  ;; FEATURE_EXPLICIT records. Handles name only this scope's objects; the
+  ;; provider checks layouts, enumerations and handle kinds, and WebGPU
+  ;; validates the rest when it runs them, failing the batch with EINVAL.
+  ;; Enumerations shared below: VIEW_DIMENSION 1 1d,2 2d,3 2d-array,4 cube,
+  ;; 5 cube-array,6 3d; ASPECT 0 all,1 stencil-only,2 depth-only; COMPARE as
+  ;; SAMPLER's 1..8; LOAD 0 load,1 clear; STORE 0 store,1 discard.
+  ;; TEXTURE: the reserved u64 is u32 dimension (0 two-dimensional, layers 1 or
+  ;; 6, as above; 1 one-, 2 two-, 3 three-dimensional, layers then being array
+  ;; layers or depth), u16 samples (0 or 1, or 4 for a two-dimensional texture
+  ;; of one mip and layer), u16 view_format (0, or format's sRGB or linear
+  ;; partner). Usage adds STORAGE_BINDING=8 for dimensions 1..3; formats continue:
+  ;; 10 r8snorm,11 r8uint,12 r8sint,13 r16uint,14 r16sint,15 r16float,
+  ;; 16 rg8snorm,17 rg8uint,18 rg8sint,19 r32uint,20 r32sint,21 r32float,
+  ;; 22 rg16uint,23 rg16sint,24 rg16float,25 rgba8snorm,26 rgba8uint,
+  ;; 27 rgba8sint,28 bgra8unorm,29 bgra8unorm-srgb,30 rgb9e5ufloat,
+  ;; 31 rgb10a2uint,32 rgb10a2unorm,33 rg11b10ufloat,34 rg32uint,35 rg32sint,
+  ;; 36 rg32float,37 rgba16uint,38 rgba16sint,39 rgba16float,40 rgba32uint,
+  ;; 41 rgba32sint,42 rgba32float,43 stencil8,44 depth16unorm,
+  ;; 45 depth32float-stencil8 (its feature); FEATURE_TEXTURE_BC adds
+  ;; 46 bc1-rgba-unorm-srgb,47 bc2-rgba-unorm-srgb,48 bc3-rgba-unorm-srgb,
+  ;; 49 bc4-r-unorm,50 bc4-r-snorm,51 bc5-rg-unorm,52 bc5-rg-snorm,
+  ;; 53 bc6h-rgb-ufloat,54 bc6h-rgb-float,55 bc7-rgba-unorm,56 bc7-rgba-unorm-srgb.
+  ;; Quotas count every mip, layer, depth slice and sample at the format's
+  ;; block size (stencil8 1, depth16unorm 2 and depth32float-stencil8 8 bytes).
+  ;; SAMPLER[56]: SAMPLER[48], then f32 lod_min_clamp,lod_max_clamp (finite,
+  ;; 0 <= min <= max). Vertex formats continue: 15 uint8x2,16 sint8x2,
+  ;; 17 unorm8x2,18 snorm8x2,19 sint16x2,20 sint16x4,21 snorm16x2,22 snorm16x4,
+  ;; 23 uint32,24 uint32x2,25 uint32x3,26 uint32x4,27 sint32,28 sint32x2,
+  ;; 29 sint32x3,30 sint32x4,31 unorm10-10-10-2. Blend factors continue:
+  ;; 11 constant,12 one-minus-constant.
+  ;; CREATE_VIEW[56]: u64 id,texture; u32 format(0 the texture's),dimension
+  ;; (0 the texture's default, else VIEW_DIMENSION),aspect,base_mip,mip_count,
+  ;; base_layer,layer_count (counts 0: the rest),swizzle. Swizzle bytes are red,
+  ;; green,blue,alpha, each 0 r,1 g,2 b,3 a,4 zero,5 one; other than 0x03020100
+  ;; it needs LIMITS feature texture-component-swizzle.
+  ;; CREATE_BIND_GROUP_LAYOUT[24+32*n]: u64 id; u32 count<=MAX_LAYOUT_ENTRIES,
+  ;; reserved; entries: u32 binding,visibility (1 vertex,2 fragment,4 compute),
+  ;; type,a,b,c; u64 min_binding_size. Type 1 uniform, 2 storage, 3 read-only
+  ;; storage buffer (a 1: dynamic offset); 4 filtering, 5 non-filtering,
+  ;; 6 comparison sampler; 7 texture (a sample type 1 float,2 unfilterable-
+  ;; float,3 depth,4 sint,5 uint; b VIEW_DIMENSION; c 1 multisampled); 8 storage
+  ;; texture (a access 1 write-only,2 read-only,3 read-write; b VIEW_DIMENSION;
+  ;; c format). Unused fields are zero; bindings are unique.
+  ;; CREATE_PIPELINE_LAYOUT[24+8*n]: u64 id; u32 count<=8,reserved; u64
+  ;; bind group layouts, one per group index.
+  ;; CREATE_BIND_GROUP[32+32*n]: u64 id,layout; u32 count<=MAX_LAYOUT_ENTRIES,
+  ;; reserved; entries: u32 binding,kind (0 buffer,1 sampler,2 view); u64
+  ;; resource,offset,size (a buffer's range; zero otherwise).
+  ;; CREATE_RENDER_PIPELINE[160+40*t+16*(b+a+c)+n]: u64 id,layout,vertex_shader,
+  ;; fragment_shader (0 none); u32 topology (0 triangle-list,1 triangle-strip,
+  ;; 2 line-list,3 line-strip,4 point-list),strip_index_format (0 none,1 uint16,
+  ;; 2 uint32),front_face (0 ccw,1 cw),cull (0 none,1 front,2 back),
+  ;; unclipped_depth (its feature),depth_format (0 none, or 5,6,43,44,45),
+  ;; depth_write,depth_compare; stencil front then back: compare,fail_op,
+  ;; depth_fail_op,pass_op (0 keep,1 zero,2 replace,3 invert,4 increment-clamp,
+  ;; 5 decrement-clamp,6 increment-wrap,7 decrement-wrap); u32 stencil_read_mask,
+  ;; stencil_write_mask; i32 depth_bias; f32 slope,clamp; u32 samples (1 or 4),
+  ;; sample_mask,alpha_to_coverage,target_count<=8,buffer_count<=16,
+  ;; attribute_count<=32,constant_count<=64,vertex_entry_bytes,
+  ;; fragment_entry_bytes (each <=64). Then targets: u32 format (0 the surface's),
+  ;; write_mask,blend,color_op,color_src,color_dst,alpha_op,alpha_src,
+  ;; alpha_dst,reserved; vertex buffers: u32 stride,step (0 vertex,1 instance),
+  ;; reserved[2]; attributes: u32 buffer_slot,location,format,offset;
+  ;; override constants: u32 id,stages (1 vertex,2 fragment: the modules that
+  ;; declare it); f64 finite value; then the vertex and fragment entry names,
+  ;; padded to 8.
+  ;; CREATE_COMPUTE_PIPELINE[40+16*c+n]: u64 id,layout,shader; u32
+  ;; constant_count<=64,entry_bytes<=64; constants: u32 id,reserved; f64 finite
+  ;; value; entry name.
+  ;; CREATE_QUERY_SET[24]: u64 id; u32 count<=4096,reserved. Timestamps, under
+  ;; LIMITS feature timestamp-query; resolved values are nanoseconds.
+  ;; Outside passes, in an encoder:
+  ;; COPY_BUFFER_TO_TEXTURE[72] and COPY_TEXTURE_TO_BUFFER[72]: u64 buffer,
+  ;; buffer_offset; u32 bytes_per_row (a multiple of 256),rows_per_image; u64
+  ;; texture; u32 mip,aspect,x,y,z,width,height,depth (z/depth: layers or slices).
+  ;; COPY_TEXTURE_TO_TEXTURE[72]: u64 source,destination; u32 source_mip,x,y,z,
+  ;; destination_mip,x,y,z,width,height,depth,reserved.
+  ;; CLEAR_BUFFER[32]: u64 buffer,offset,size. WRITE_TIMESTAMP[24]: u64
+  ;; query_set; u32 index,reserved. RESOLVE_QUERY_SET[40]: u64 query_set; u32
+  ;; first,count; u64 destination_buffer,offset (a multiple of 256).
+  ;; BEGIN_VIEW_PASS[64+40*n]: u64 depth_view (0 none); u32 color_count<=8,
+  ;; width,height (the surface's when a colour attachment is the surface, else
+  ;; zero),depth_load,depth_store,depth_read_only; f32 depth_clear; u32
+  ;; stencil_load,stencil_store,stencil_read_only,stencil_clear,reserved. Then
+  ;; colours: u64 view (0 the surface),resolve_view (0 none); u32 load,store;
+  ;; f32 clear_rgba[4]. Read-only and stencil-less aspects ignore their ops.
+  ;; Inside it: SET_PIPELINE, SET_BIND_GROUP, SET_VERTEX_BUFFER,
+  ;; SET_INDEX_BUFFER, the four draws, VIEWPORT, SET_BLEND_CONSTANT,
+  ;; SET_STENCIL_REFERENCE and END_RENDER_PASS.
+  ;; BEGIN_COMPUTE_PASS[8] and END_COMPUTE_PASS[8]; inside: SET_PIPELINE,
+  ;; SET_BIND_GROUP, DISPATCH, DISPATCH_INDIRECT.
+  ;; SET_PIPELINE[16]: u64 pipeline (the pass's kind). SET_BIND_GROUP[24+4*n]:
+  ;; u64 group; u32 index,offset_count<=16; u32 dynamic offsets; padded to 8.
+  ;; SET_VERTEX_BUFFER[40]: u64 buffer; u32 slot,reserved; u64 offset,size.
+  ;; SET_INDEX_BUFFER[40]: u64 buffer; u32 format (1 uint16,2 uint32),reserved;
+  ;; u64 offset,size. DRAW[24]: u32 vertices,instances,first_vertex,
+  ;; first_instance. DRAW_INDEXED[32]: u32 indices,instances,first_index; i32
+  ;; base_vertex; u32 first_instance,reserved. DRAW_INDIRECT[24],
+  ;; DRAW_INDEXED_INDIRECT[24], DISPATCH_INDIRECT[24]: u64 buffer,offset.
+  ;; SET_BLEND_CONSTANT[24]: f32 rgba. SET_STENCIL_REFERENCE[16]: u32
+  ;; reference,reserved. DISPATCH[24]: u32 x,y,z,reserved.
+  ;; LIMITS body empty, 280-byte reply: u64 features, then u64 each:
+  ;; maxTextureDimension1D,2D,3D,maxTextureArrayLayers,maxBindGroups,
+  ;; maxBindingsPerBindGroup,maxDynamicUniformBuffersPerPipelineLayout,
+  ;; maxDynamicStorageBuffersPerPipelineLayout,maxSampledTexturesPerShaderStage,
+  ;; maxSamplersPerShaderStage,maxStorageBuffersPerShaderStage,
+  ;; maxStorageTexturesPerShaderStage,maxUniformBuffersPerShaderStage,
+  ;; maxUniformBufferBindingSize,maxStorageBufferBindingSize,
+  ;; minUniformBufferOffsetAlignment,minStorageBufferOffsetAlignment,
+  ;; maxVertexBuffers,maxBufferSize,maxVertexAttributes,
+  ;; maxVertexBufferArrayStride,maxInterStageShaderVariables,
+  ;; maxColorAttachments,maxColorAttachmentBytesPerSample,
+  ;; maxComputeWorkgroupStorageSize,maxComputeInvocationsPerWorkgroup,
+  ;; maxComputeWorkgroupSizeX,Y,Z,maxComputeWorkgroupsPerDimension,
+  ;; maxStorageBuffersInVertexStage,maxStorageBuffersInFragmentStage,
+  ;; maxStorageTexturesInVertexStage,maxStorageTexturesInFragmentStage, as the
+  ;; device was granted them. Features: 1 depth-clip-control,
+  ;; 2 depth32float-stencil8,4 texture-compression-bc,8 timestamp-query,
+  ;; 16 indirect-first-instance,32 shader-f16,64 rg11b10ufloat-renderable,
+  ;; 128 float32-filterable,256 float32-blendable,512 subgroups,
+  ;; 1024 texture-component-swizzle.
   ;; GPU timestamps are optional, asynchronously sampled per submitted encoder;
   ;; zero samples means unavailable/pending. They include passes, not CPU work.
-  ;; One encoder per batch, explicit SUBMIT. No replay or
+  ;; One encoder per batch unless continued, explicit SUBMIT. No replay or
   ;; rollback: structural rejection precedes execution; later GPU errors can
   ;; leave earlier writes/resources alive. Returned diagnostics are bounded.
   ;;

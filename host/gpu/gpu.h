@@ -23,10 +23,13 @@ int dolly_gpu_close(dolly_gpu *g);
 int dolly_gpu_wait(dolly_gpu *g);
 int dolly_gpu_info(dolly_gpu *g);
 int dolly_gpu_capabilities(dolly_gpu *g);
+int dolly_gpu_limits(dolly_gpu *g);
 int dolly_gpu_read(dolly_gpu *g, uint64_t buffer, uint64_t offset, uint64_t length);
 void dolly_gpu_begin(dolly_gpu *g);
 void *dolly_gpu_record(dolly_gpu *g, uint32_t opcode, size_t bytes);
 int dolly_gpu_batch(dolly_gpu *g);
+/* Sends the batch with BATCH_CONTINUE: its encoder and open pass go on in the next one. */
+int dolly_gpu_continue(dolly_gpu *g);
 void dolly_gpu_buffer(dolly_gpu *g, uint64_t id, uint64_t size, uint32_t usage);
 void dolly_gpu_write(dolly_gpu *g, uint64_t id, const void *data, uint32_t size);
 void dolly_gpu_shader(dolly_gpu *g, uint64_t id, const char *code);

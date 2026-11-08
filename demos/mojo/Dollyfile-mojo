@@ -8,7 +8,7 @@ REQUIRES HOST runtime@0
 # executable.
 FROM /v0.1.5/demos/mojo/Dollyfile-mojo-llvm 89641a33be76d5dcf3408e578c29715a87724e6e578de0c46b03955482e54c76
 # mojo build links what it compiles with the C toolchain.
-INSTALL /v0.1.5/Dollyfile-libdolly-gpu 0a35e34b1b3ec3088ae41c5cf54e7d845337d9f1deac8c30d727f02c6a2572e8
+INSTALL /v0.1.5/Dollyfile-libdolly-gpu d860787df9ebc417e1a6464cd7d90a73ca9623dea685eb48b3d3e2da7508d1d5
 INSTALL /v0.1.5/Dollyfile-cc 29e8907b6b0f1fae23e87de7b9f84d0c58fc118b31dffe5d024a8a67b0f43ba4
 REQUIRES HEADER gpu
 REQUIRES LIB    dolly-gpu

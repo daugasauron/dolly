@@ -27,6 +27,7 @@ int dolly_gpu_close(dolly_gpu *g) {return call(g,DOLLY_GPU_CLOSE,32);}
 int dolly_gpu_wait(dolly_gpu *g) {return call(g,DOLLY_GPU_WAIT,32);}
 int dolly_gpu_info(dolly_gpu *g) {return call(g,DOLLY_GPU_INFO,32);}
 int dolly_gpu_capabilities(dolly_gpu *g) {return call(g,DOLLY_GPU_CAPABILITIES,32);}
+int dolly_gpu_limits(dolly_gpu *g) {return call(g,DOLLY_GPU_LIMITS,32);}
 int dolly_gpu_read(dolly_gpu *g, uint64_t buffer, uint64_t offset, uint64_t length) {
   u64(g->packet,32,buffer);u64(g->packet,40,offset);u64(g->packet,48,length);
   return call(g,DOLLY_GPU_READ,56);
@@ -41,6 +42,7 @@ void *dolly_gpu_record(dolly_gpu *g, uint32_t opcode, size_t bytes) {
   u32(p,0,opcode);u32(p,4,bytes);return p;
 }
 int dolly_gpu_batch(dolly_gpu *g) {u32(g->packet,32,g->count);return call(g,DOLLY_GPU_BATCH,g->length);}
+int dolly_gpu_continue(dolly_gpu *g) {u32(g->packet,32,g->count);u32(g->packet,36,DOLLY_GPU_BATCH_CONTINUE);return call(g,DOLLY_GPU_BATCH,g->length);}
 void dolly_gpu_buffer(dolly_gpu *g,uint64_t id,uint64_t size,uint32_t usage) {
   void *p=dolly_gpu_record(g,DOLLY_GPU_CREATE_BUFFER,32);u64(p,8,id);u64(p,16,size);u32(p,24,usage);
 }

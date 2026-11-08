@@ -1,7 +1,7 @@
 import { DOLLY_ERRNO as E } from "./abi.mjs";
 import { DOLLY_GPU_SLOTS, DOLLY_GPU_REPLY_BYTES } from "./abi.mjs";
 
-export async function createGpuBridge(memory, mailbox, canvas, complete, status) {
+export async function createGpuBridge(memory, mailbox, canvas, shown, complete, status) {
   const worker = new Worker(new URL("./worker.mjs", import.meta.url), { type: "module", name: "dolly-gpu" });
   const control = new Int32Array(new SharedArrayBuffer(8));
   let failed = false;
@@ -28,7 +28,7 @@ export async function createGpuBridge(memory, mailbox, canvas, complete, status)
     else if (data.type === "status") status(data);
   };
   worker.onerror = () => stop("GPU provider worker failed");
-  worker.postMessage({type:"configure", memory, mailbox, canvas, control:control.buffer}, canvas ? [canvas] : []);
+  worker.postMessage({type:"configure", memory, mailbox, canvas, shown, control:control.buffer}, canvas ? [canvas] : []);
   await initialized;
   function dispatch({address, bytes}) {
     if (failed) return -E.EIO;

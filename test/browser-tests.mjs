@@ -1,6 +1,6 @@
 // Runs every core browser test (test/*-browser.mjs) and reports the failures;
-// arguments (chromium, firefox) pass through to each test. The GPU render test
-// needs a hardware adapter: DISPLAY=:1 node test/gpu-render-browser.mjs.
+// arguments (chromium, firefox) pass through to each test. The GPU render and
+// explicit-records tests need a hardware adapter on a display (docs/gpu.md).
 import { readdirSync } from "node:fs";
 import { runSideBySide } from "./side-by-side.mjs";
 
@@ -11,10 +11,11 @@ import { runSideBySide } from "./side-by-side.mjs";
 const limit = 4;
 // fs-growth fills 8 GiB of kernel memory and times its appends.
 const alone = ["fs-growth-browser.mjs"];
+const hardware = ["gpu-render-browser.mjs", "gpu-explicit-browser.mjs"];
 
 const started = performance.now();
 const names = readdirSync(import.meta.dirname)
-  .filter(name => name.endsWith("-browser.mjs") && name !== "gpu-render-browser.mjs").sort();
+  .filter(name => name.endsWith("-browser.mjs") && !hardware.includes(name)).sort();
 const path = name => `${import.meta.dirname}/${name}`;
 const statuses = await runSideBySide(names.map(path), { limit, alone: alone.map(path), arguments: process.argv.slice(2) });
 const failed = names.filter((name, index) => statuses[index] !== 0);
