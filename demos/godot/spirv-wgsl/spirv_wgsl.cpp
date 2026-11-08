@@ -765,6 +765,82 @@ public:
 	}
 };
 
+// Subgroups of one invocation: WebGPU has subgroups in Chrome alone, and a subgroup of size one
+// is one by the specification, with which Godot's algorithms keep their results (each fragment
+// walks its own light range; the cluster builder's first invocation is every invocation). The
+// operations Godot's renderers use become their value for one invocation; any other is refused.
+class SubgroupsOfOne : public Pass {
+public:
+	explicit SubgroupsOfOne(std::string *e) : error(e) {}
+	const char *name() const override { return "dolly-subgroups-of-one"; }
+	Status Process() override {
+		std::vector<Instruction *> found;
+		for (Function &function : *get_module()) {
+			for (BasicBlock &block : function) {
+				for (Instruction &inst : block) {
+					if (std::string(spvOpcodeString(inst.opcode())).rfind("GroupNonUniform", 0) == 0) found.push_back(&inst);
+				}
+			}
+		}
+		bool capabilities = false;
+		for (Instruction &c : get_module()->capabilities()) {
+			if (non_uniform(spv::Capability(c.GetSingleWordInOperand(0)))) capabilities = true;
+		}
+		if (found.empty() && !capabilities) return Status::SuccessWithoutChange;
+		analysis::ConstantManager *constants = context()->get_constant_mgr();
+		analysis::TypeManager *types = context()->get_type_mgr();
+		const uint32_t u32 = types->GetUIntTypeId();
+		auto uint_constant = [&](uint32_t value) { return constants->GetDefiningInstruction(constants->GetConstant(types->GetType(u32), { value }))->result_id(); };
+		for (Instruction *inst : found) {
+			InstructionBuilder builder(context(), inst, IRContext::kAnalysisDefUse | IRContext::kAnalysisInstrToBlockMapping);
+			uint32_t value = 0;
+			switch (inst->opcode()) {
+				case Op::OpGroupNonUniformBroadcastFirst:
+					value = inst->GetSingleWordInOperand(1);
+					break;
+				case Op::OpGroupNonUniformBitwiseOr:
+				case Op::OpGroupNonUniformUMin:
+				case Op::OpGroupNonUniformUMax: {
+					const spv::GroupOperation operation = spv::GroupOperation(inst->GetSingleWordInOperand(1));
+					if (operation != spv::GroupOperation::Reduce) break;
+					value = inst->GetSingleWordInOperand(2);
+					break;
+				}
+				case Op::OpGroupNonUniformBallot: {
+					const uint32_t bit = builder.AddSelect(u32, inst->GetSingleWordInOperand(1), uint_constant(1), uint_constant(0))->result_id();
+					value = builder.AddCompositeConstruct(inst->type_id(), { bit, uint_constant(0), uint_constant(0), uint_constant(0) })->result_id();
+					break;
+				}
+				case Op::OpGroupNonUniformBallotBitCount:
+					// Invocations before this one in the ballot: none.
+					if (spv::GroupOperation(inst->GetSingleWordInOperand(1)) == spv::GroupOperation::ExclusiveScan) value = uint_constant(0);
+					break;
+				default:
+					break;
+			}
+			if (!value) {
+				*error = std::string("no lowering of ") + spvOpcodeString(inst->opcode()) + " to a subgroup of one";
+				return Status::Failure;
+			}
+			context()->ReplaceAllUsesWith(inst->result_id(), value);
+			context()->KillInst(inst);
+		}
+		std::vector<Instruction *> dead;
+		for (Instruction &c : get_module()->capabilities()) {
+			if (non_uniform(spv::Capability(c.GetSingleWordInOperand(0)))) dead.push_back(&c);
+		}
+		for (Instruction *c : dead) context()->KillInst(c);
+		return Status::SuccessWithChange;
+	}
+
+private:
+	static bool non_uniform(spv::Capability p_capability) {
+		return p_capability == spv::Capability::GroupNonUniform || p_capability == spv::Capability::GroupNonUniformBallot ||
+				p_capability == spv::Capability::GroupNonUniformArithmetic || p_capability == spv::Capability::GroupNonUniformVote;
+	}
+	std::string *error;
+};
+
 } // namespace
 } // namespace spvtools::opt
 
@@ -923,6 +999,7 @@ extern "C" void spirv_wgsl_translate(const uint32_t *words, size_t word_count, c
 			.RegisterPass(pass<o::MultisampleFetch>())
 			.RegisterPass(pass<o::VertexReadOnlyStorage>())
 			.RegisterPass(pass<o::HelperInvocationFalse>())
+			.RegisterPass(pass<o::SubgroupsOfOne>(&ours))
 			.RegisterPass(spvtools::CreateAggressiveDCEPass())
 			.RegisterPass(spvtools::CreateDeadVariableEliminationPass())
 			.RegisterPass(spvtools::CreateEliminateDeadConstantPass());

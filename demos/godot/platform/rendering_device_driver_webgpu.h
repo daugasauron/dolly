@@ -100,6 +100,7 @@ public:
 	struct PipelineInfo {
 		uint64_t handle = 0;
 		bool compute = false;
+		uint32_t samples = 1;
 		ShaderInfo *shader = nullptr;
 		uint32_t stencil_reference = 0;
 	};
@@ -156,6 +157,7 @@ public:
 		LocalVector<Upload> uploads; // CPU buffer ranges its copies read
 		bool surface = false; // it draws on the surface
 		LocalVector<TextureInfo *> stale; // textures written since their views' shadows were refilled
+		uint32_t placeholder_at = UINT32_MAX; // a view pass without attachments awaiting its depth (place_depth)
 	};
 
 private:
@@ -212,6 +214,9 @@ private:
 	HashMap<uint64_t, uint64_t> swizzle_pipelines; // by format << 40 | dimension << 32 | swizzle
 	HashMap<uint32_t, uint64_t> swizzle_shaders; // by format << 8 | dimension
 	uint64_t subresource_view(TextureInfo *p_texture, uint32_t p_mip, uint32_t p_layer);
+	uint64_t placeholder_depth(uint32_t p_width, uint32_t p_height, uint32_t p_samples);
+	void place_depth(CommandBufferID p_cmd_buffer, uint32_t p_samples);
+	HashMap<uint64_t, uint64_t> placeholders; // by samples << 48 | width << 24 | height: views of depth textures
 	uint64_t sampled_view(TextureInfo *p_texture, const GroupEntry &p_entry);
 	void read_from(CommandBufferID p_cmd_buffer, BufferInfo *p_buffer, uint64_t p_begin, uint64_t p_end);
 	void copy_buffer_texture(CommandBufferID p_cmd_buffer, uint32_t p_op, BufferID p_buffer, TextureID p_texture, const BufferTextureCopyRegion &p_region);

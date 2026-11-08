@@ -147,6 +147,27 @@ through the driver (`--rendering-method mobile`; the project asks for Compatibil
   | Firefox, driver | 32, 9, 10 ms | 19, 18, 9 ms |
   | Firefox, softpipe | 511, 512, 494 ms | 940, 940, 927 ms |
 
+## Forward+ (2026-11-08)
+
+The 3D scene with a green omni light on Forward+ in Chrome: sky, box, shadow, and the light's
+pool on the floor (`c1ffcd`), so its clusters are built; 48.2 frames a second. What it took:
+
+- Subgroups of one invocation: Godot's Forward+ uses subgroup ballots and reductions without
+  asking (its clustering, its light loops); a subgroup of size one is one by the specification,
+  and Godot's algorithms keep their results with it. The translator lowers the six operations
+  Godot uses and refuses any other. 829 of the 1,122 modules translate.
+- Forward+ draws its light clusters into storage in a subpass with no attachments, at four
+  samples: WebGPU's passes need one, so such a pass gets a depth attachment of the first
+  pipeline's sample count, never written and always passing.
+- A shader binding more than the device allows a stage is refused before its records, as an
+  unsupported storage format already is.
+
+Refused, with an error each when Godot compiles them: volumetric fog (image atomics, which WGSL
+lacks, and a `Volatile` member), SSR's filter (an image without a format), FSR 1's upscaler
+(`Int16`), SDFGI's preprocessing (an array the translator does not scalarize; 15 storage
+textures where Chrome allows 8), and the GI shaders whose storage the device lacks. In Firefox,
+which has neither format tier, the scene draws dark: open.
+
 ## Plan
 
 1. Profile the editor as it is (done: Baseline, above).

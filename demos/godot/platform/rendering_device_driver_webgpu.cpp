@@ -58,6 +58,10 @@ enum : uint32_t {
 	L_WORKGROUP_Y,
 	L_WORKGROUP_Z,
 	L_WORKGROUPS,
+	L_STORAGE_BUFFERS_VERTEX,
+	L_STORAGE_BUFFERS_FRAGMENT,
+	L_STORAGE_TEXTURES_VERTEX,
+	L_STORAGE_TEXTURES_FRAGMENT,
 };
 
 static const uint32_t PUSH_CONSTANT_BYTES = 128;
@@ -1228,6 +1232,29 @@ RDD::ShaderID RenderingDeviceDriverWebGPU::shader_create_from_container(const Re
 					vformat("%s: the browser's WebGPU has no storage texture of format %d with access %d (texture-formats-tier1 and tier2).", String(container->shader_name.get_data()), e.c, e.a));
 		}
 	}
+	// What each stage binds, against the device's limits for a stage: refused here too.
+	for (uint32_t i = 0; i < container->stages.size(); i++) {
+		uint32_t sampled = 0, samplers = 0, storage_buffers = 0, storage_textures = 0, uniform_buffers = 0;
+		for (const RenderingShaderContainerWebGPU::LayoutEntry &e : container->stages[i].entries) {
+			sampled += e.type == 7;
+			samplers += e.type >= 4 && e.type <= 6;
+			storage_buffers += e.type == 2 || e.type == 3;
+			storage_textures += e.type == 8;
+			uniform_buffers += e.type == 1;
+		}
+		const ShaderStage stage = container->shaders[i].shader_stage;
+		const uint64_t storage_buffer_limit = stage == SHADER_STAGE_VERTEX ? limits[L_STORAGE_BUFFERS_VERTEX] :
+				stage == SHADER_STAGE_FRAGMENT																	 ? limits[L_STORAGE_BUFFERS_FRAGMENT] :
+																												   limits[L_STORAGE_BUFFERS];
+		const uint64_t storage_texture_limit = stage == SHADER_STAGE_VERTEX ? limits[L_STORAGE_TEXTURES_VERTEX] :
+				stage == SHADER_STAGE_FRAGMENT																	   ? limits[L_STORAGE_TEXTURES_FRAGMENT] :
+																													 limits[L_STORAGE_TEXTURES];
+		ERR_FAIL_COND_V_MSG(sampled > limits[L_SAMPLED_TEXTURES] || samplers > limits[L_SAMPLERS] || storage_buffers > storage_buffer_limit ||
+						storage_textures > storage_texture_limit || uniform_buffers > limits[L_UNIFORM_BUFFERS],
+				ShaderID(), vformat("%s: its %s stage binds %d sampled textures, %d samplers, %d storage buffers, %d storage textures and %d uniform buffers; the browser's WebGPU allows a stage %d, %d, %d, %d and %d.",
+									String(container->shader_name.get_data()), SHADER_STAGE_NAMES[stage], sampled, samplers, storage_buffers, storage_textures, uniform_buffers,
+									limits[L_SAMPLED_TEXTURES], limits[L_SAMPLERS], storage_buffer_limit, storage_texture_limit, limits[L_UNIFORM_BUFFERS]));
+	}
 	ShaderInfo *shader = memnew(ShaderInfo);
 	shader->compute = reflection.pipeline_type == PIPELINE_TYPE_COMPUTE;
 	uint32_t index = 0;
@@ -1497,6 +1524,13 @@ RDD::PipelineID RenderingDeviceDriverWebGPU::render_pipeline_create(ShaderID p_s
 	put32(p, 52, p_rasterization_state.cull_mode);
 	put32(p, 56, p_rasterization_state.enable_depth_clamp && (features & F_DEPTH_CLIP_CONTROL) ? 1 : 0);
 	const uint32_t depth_attachment = subpass.depth_stencil_reference.attachment;
+	if (depth_attachment == AttachmentReference::UNUSED && !targets) {
+		// begin_subpass's placeholder depth: written never, tested always.
+		put32(p, 60, 6);
+		put32(p, 68, 8);
+		put32(p, 72, 8);
+		put32(p, 88, 8);
+	}
 	if (depth_attachment != AttachmentReference::UNUSED) {
 		const uint32_t format = gpu_texture_format(pass->attachments[depth_attachment].format);
 		put32(p, 60, format);
@@ -1575,6 +1609,7 @@ RDD::PipelineID RenderingDeviceDriverWebGPU::render_pipeline_create(ShaderID p_s
 	if (shader->modules[1]) memcpy(p + at + 4, entry, 4);
 	PipelineInfo *pipeline = memnew(PipelineInfo);
 	pipeline->shader = shader;
+	pipeline->samples = p_multisample_state.sample_count >= TEXTURE_SAMPLES_4 ? 4 : 1;
 	pipeline->stencil_reference = p_depth_stencil_state.front_op.reference;
 	pipeline->handle = CREATE(r);
 	return PipelineID(pipeline);
@@ -1622,6 +1657,7 @@ bool RenderingDeviceDriverWebGPU::command_buffer_begin(CommandBufferID p_cmd_buf
 	cb->push_end = 0;
 	cb->uploads.clear();
 	cb->stale.clear();
+	cb->placeholder_at = UINT32_MAX;
 	return true;
 }
 
@@ -1861,6 +1897,15 @@ void RenderingDeviceDriverWebGPU::begin_subpass(CommandBufferID p_cmd_buffer, bo
 	put32(p, 24, height);
 	put32(p, 60, absent);
 	const uint32_t depth = subpass.depth_stencil_reference.attachment;
+	if (depth == AttachmentReference::UNUSED && !colors) {
+		// A subpass without attachments (Forward+'s light clusters, drawn into storage):
+		// WebGPU's passes need one, so a depth attachment no pipeline of it writes or tests, of
+		// the sample count of the first pipeline bound in it (place_depth).
+		cb->placeholder_at = p - cb->records.ptr();
+		put32(p, 28, 1);
+		put32(p, 32, 1);
+		putf(p, 40, 1.0f);
+	}
 	if (depth != AttachmentReference::UNUSED) {
 		const TextureInfo *texture = fb->attachments[depth];
 		const Attachment &a = pass->attachments[depth];
@@ -1901,12 +1946,14 @@ void RenderingDeviceDriverWebGPU::command_begin_render_pass(CommandBufferID p_cm
 
 void RenderingDeviceDriverWebGPU::command_end_render_pass(CommandBufferID p_cmd_buffer) {
 	CommandBufferInfo *cb = (CommandBufferInfo *)p_cmd_buffer.id;
+	if (cb->placeholder_at != UINT32_MAX) place_depth(p_cmd_buffer, 1);
 	command_record(p_cmd_buffer, DOLLY_GPU_END_RENDER_PASS, 8);
 	cb->in_render_pass = false;
 }
 
 void RenderingDeviceDriverWebGPU::command_next_render_subpass(CommandBufferID p_cmd_buffer, CommandBufferType p_cmd_buffer_type) {
 	CommandBufferInfo *cb = (CommandBufferInfo *)p_cmd_buffer.id;
+	if (cb->placeholder_at != UINT32_MAX) place_depth(p_cmd_buffer, 1);
 	command_record(p_cmd_buffer, DOLLY_GPU_END_RENDER_PASS, 8);
 	cb->subpass++;
 	begin_subpass(p_cmd_buffer, false);
@@ -1968,6 +2015,7 @@ void RenderingDeviceDriverWebGPU::bind_groups(CommandBufferID p_cmd_buffer) {
 		}
 		cb->pipeline_dirty = false;
 	}
+	if (cb->placeholder_at != UINT32_MAX) place_depth(p_cmd_buffer, cb->pipeline->samples);
 	ShaderInfo *shader = cb->pipeline->shader;
 	for (uint32_t g = 0; g < shader->group_layouts.size(); g++) {
 		if (!cb->bound.dirty[g]) continue;
@@ -2283,6 +2331,34 @@ uint64_t RenderingDeviceDriverWebGPU::sampled_view(TextureInfo *p_texture, const
 		p_texture->depth_view = CREATE(r);
 	}
 	return p_texture->depth_view;
+}
+
+// A depth32float texture of a size and sample count, kept for the driver's life: the attachment
+// of subpasses without one (begin_subpass).
+uint64_t RenderingDeviceDriverWebGPU::placeholder_depth(uint32_t p_width, uint32_t p_height, uint32_t p_samples) {
+	const uint64_t key = uint64_t(p_samples) << 48 | uint64_t(p_width) << 24 | p_height;
+	if (const uint64_t *found = placeholders.getptr(key)) return *found;
+	Record t(DOLLY_GPU_CREATE_TEXTURE, 48);
+	put32(t.p(), 16, p_width);
+	put32(t.p(), 20, p_height);
+	put32(t.p(), 24, 1);
+	put32(t.p(), 28, 1);
+	put32(t.p(), 32, 6);
+	put32(t.p(), 36, TEX_RENDER);
+	put32(t.p(), 40, 2);
+	put16(t.p(), 44, p_samples);
+	Record v(DOLLY_GPU_CREATE_VIEW, 56);
+	put64(v.p(), 16, CREATE(t));
+	put32(v.p(), 52, 0x03020100);
+	return placeholders[key] = CREATE(v);
+}
+
+// The placeholder depth of the view pass begin_subpass left without one, now that its samples are
+// known: the first pipeline's, or one where nothing draws.
+void RenderingDeviceDriverWebGPU::place_depth(CommandBufferID p_cmd_buffer, uint32_t p_samples) {
+	CommandBufferInfo *cb = (CommandBufferInfo *)p_cmd_buffer.id;
+	put64(cb->records.ptr() + cb->placeholder_at, 8, placeholder_depth(cb->framebuffer->width, cb->framebuffer->height, p_samples));
+	cb->placeholder_at = UINT32_MAX;
 }
 
 // A two-dimensional view of one mip and layer of a view's image, kept with the image, for clears
