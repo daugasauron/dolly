@@ -125,6 +125,28 @@ built by their recipes (2D 48.0 and 59.0 frames a second, 3D 49.3 and 59.0, Chro
 Firefox), and so do `godot-browser.mjs` and `godot-editor-browser.mjs`, where no adapter is
 granted and Godot falls back to its Compatibility renderer.
 
+## Against the baseline (2026-11-08)
+
+The editor on Dodge the Creeps' project, as the baseline measured it, on the Mobile renderer
+through the driver (`--rendering-method mobile`; the project asks for Compatibility):
+
+- **What a person feels**, from a click on the 2D or 3D tab to the new view on the page, in
+  Chrome (a session endpoint clicks, then reads the frame's (700, 450) from screenshots;
+  `work/godot/build/gpu-baseline/session-switch.mjs`): 2D 251, 96 and 97 ms; 3D 172, 166 and
+  183 ms. The baseline's 0.97 to 2.25 s counted from 0.3 s before the click: about 0.7 s for 2D
+  and 1.6 s for 3D once settled, so 7 and 9 times faster. The page received 326 frames in six
+  switches, where it had 23. Firefox under Xvfb shows no WebGPU canvas, so it is not measured
+  this way.
+- **The editor's own time**, from switching its main screen to the end of the next frame it
+  draws, six switches 3 s apart (`latency-plugin.gd`), the same build on the same project:
+
+  | | 2D | 3D |
+  | --- | --- | --- |
+  | Chrome, driver | 61, 6, 6 ms | 33, 33, 35 ms |
+  | Chrome, softpipe | 572, 554, 560 ms | 1,039, 1,053, 1,041 ms |
+  | Firefox, driver | 32, 9, 10 ms | 19, 18, 9 ms |
+  | Firefox, softpipe | 511, 512, 494 ms | 940, 940, 927 ms |
+
 ## Plan
 
 1. Profile the editor as it is (done: Baseline, above).
