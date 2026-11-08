@@ -205,7 +205,8 @@
   ;;
   ;; FEATURE_EXPLICIT records. Handles name only this scope's objects; the
   ;; provider checks layouts, enumerations and handle kinds, and WebGPU
-  ;; validates the rest when it runs them, failing the batch with EINVAL.
+  ;; validates the rest after the batch is answered: its first error fails the
+  ;; scope's next WAIT with EINVAL (ENOMEM when out of memory).
   ;; Enumerations shared below: VIEW_DIMENSION 1 1d,2 2d,3 2d-array,4 cube,
   ;; 5 cube-array,6 3d; ASPECT 0 all,1 stencil-only,2 depth-only; COMPARE as
   ;; SAMPLER's 1..8; LOAD 0 load,1 clear; STORE 0 store,1 discard.

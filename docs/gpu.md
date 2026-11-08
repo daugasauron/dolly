@@ -26,8 +26,12 @@ flowchart LR
 - The kernel ([`host/gpu/kernel.c`](../host/gpu/kernel.c)) ties each scope to a process
   and revokes it on exit, abort or forced termination.
 - The provider copies each packet before acknowledging it and validates structure
-  before executing; WebGPU validates WGSL and pipelines. Accepted batches are not
-  transactions: never replay one after an error.
+  before executing; WebGPU validates WGSL and pipelines. A batch is answered once
+  its records are encoded: WebGPU's validation finishes on the GPU process's
+  timeline, which in Chrome took a round trip of 3.6 ms a batch (2026-11-08), so
+  its first error reaches the page's console when known and fails the scope's
+  next `WAIT`. Accepted batches are not transactions: never replay one after an
+  error.
 - Quotas: 8 scopes with one pending request each, 1 MiB packets of at most 1,024
   records (clients check `CAPABILITIES` before exceeding 256), shaders as large
   as a packet holds, 65,536 objects per scope (Godot's editor held 9,502), 1 GiB

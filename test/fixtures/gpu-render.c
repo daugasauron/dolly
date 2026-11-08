@@ -60,7 +60,12 @@ static void *draw(unsigned pipeline,unsigned position,unsigned uv,unsigned indic
   u64(p,104,position);u64(p,120,48);u64(p,128,uv);u64(p,144,32);return p;
 }
 static void batch(void) { if(dolly_gpu_batch(&gpu)<0){perror("GPU batch");abort();}dolly_gpu_begin(&gpu); }
-static void rejected(int expected) { assert(dolly_gpu_batch(&gpu)==-1);assert(errno==expected);dolly_gpu_begin(&gpu); }
+// Refused by the provider's checks, or by WebGPU's validation, which the next WAIT reports.
+static void rejected(int expected) {
+  int status=dolly_gpu_batch(&gpu);
+  if(status!=-1)status=dolly_gpu_wait(&gpu);
+  assert(status==-1);assert(errno==expected);dolly_gpu_begin(&gpu);
+}
 static void pixel(unsigned x,unsigned y,unsigned r,unsigned g,unsigned b) {
   unsigned char *p=gpu.reply+(y*64+x)*4;
   assert(abs(p[bgra?2:0]-(int)r)<=1 && abs(p[1]-(int)g)<=1 && abs(p[bgra?0:2]-(int)b)<=1 && p[3]==255);

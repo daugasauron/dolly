@@ -165,6 +165,8 @@ for (const name of browsers) {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } }), errors = [];
     page.setDefaultTimeout(0);
     page.on("pageerror", error => errors.push(error.message));
+    // WebGPU's validation errors reach the page's console after their batch is answered.
+    page.on("console", message => { if (message.text().startsWith("Dolly GPU:")) errors.push(message.text()); });
     const image = await composed(["gpu", "audio", "display", "input", "threads"], ["godot", "godot-editor"], { base: "system" });
     await image.setup(page);
     await page.goto(server.origin + image.path);
@@ -181,7 +183,7 @@ for (const name of browsers) {
         await run(writeCommand(`/tmp/${project}/${file}`, text));
       }
     }
-    // Each prints what the checks read, and no batch of its was refused.
+    // Each prints what the checks read, and gpu@0 refused no batch of its.
     await run("godot --path /tmp/scene2d > /tmp/scene2d.out 2>&1");
     await run("godot-editor --path /tmp/scene3d > /tmp/scene3d.out 2>&1");
     await run("godot-editor -e --path /tmp/scene3d > /tmp/editor.out 2>&1");

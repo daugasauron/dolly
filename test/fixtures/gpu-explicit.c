@@ -25,8 +25,10 @@ static void u64(void *p, unsigned at, uint64_t v) { memcpy((char*)p+at,&v,8); }
 static void f32(void *p, unsigned at, float v) { memcpy((char*)p+at,&v,4); }
 static void batch(void) { if(dolly_gpu_batch(&gpu)<0){perror("GPU batch");abort();}dolly_gpu_begin(&gpu); }
 static void continued(void) { if(dolly_gpu_continue(&gpu)<0){perror("GPU continued batch");abort();}dolly_gpu_begin(&gpu); }
+// Refused by the provider's checks, or by WebGPU's validation, which the next WAIT reports.
 static void rejected(int expected) {
   int status=dolly_gpu_batch(&gpu);
+  if(status!=-1)status=dolly_gpu_wait(&gpu);
   if(status!=-1 || errno!=expected){fprintf(stderr,"expected errno %d, got status %d errno %d\n",expected,status,errno);abort();}
   dolly_gpu_begin(&gpu);
 }

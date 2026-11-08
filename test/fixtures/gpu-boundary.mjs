@@ -149,10 +149,12 @@ export async function gpuBoundaryProof({surface=true}={}) {
     }
     setScope(17);check(await send(packet(1,new Uint8Array(8)))===0,"Validation scope open failed");
     const invalidUsage=record(1,32,1);invalidUsage.v.setBigUint64(16,16n,true);invalidUsage.v.setUint32(24,129,true);
-    // MAP_READ | STORAGE passes packet checks but WebGPU rejects the combination.
-    for(const id of [1,2]){invalidUsage.v.setBigUint64(8,BigInt(id),true);check(await send(batch([invalidUsage]))===E.EINVAL,"WebGPU validation error was not reported");}
+    // MAP_READ | STORAGE passes packet checks but WebGPU rejects the combination, after the
+    // batch is answered: the next WAIT reports it, once.
+    for(const id of [1,2]){invalidUsage.v.setBigUint64(8,BigInt(id),true);check(await send(batch([invalidUsage]))===0,"Batch waited for WebGPU's validation");
+      check(await send(packet(3))===E.EINVAL,"WebGPU validation error was not reported");}
     invalidUsage.v.setBigUint64(8,3n,true);invalidUsage.v.setUint32(24,8,true);
-    check(await send(batch([invalidUsage]))===0,"Validation failure leaked into the next batch");
+    check(await send(batch([invalidUsage]))===0&&await send(packet(3))===0,"Validation failure leaked into the next batch");
     check(await send(packet(5))===0,"Validation scope close failed");
     return {largeBatch:true,commandQuota:true,integerRanges:true,memoryGrowth:true,surfaceCapture:surface,captureBounds:surface,captureOwnership:surface,headlessCompute:!surface,malformedPacket:true,vertexLayout:true,bindingLimit:true,info:true,copiedPacket:true,staleHandle:true,allocationQuota:true,capabilities:true,computeConstants:true,closedScope:true,deviceValidation:true};
   } finally {worker.terminate();}

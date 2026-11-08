@@ -988,10 +988,21 @@ async function batch(scope, commands, flags) {
     if (keepOpen) scope.open = {encoder, texture, computePass, explicitCompute, renderPass, viewPass, passWidth, passHeight,
       timer, queries, renderPipeline, renderGroups, renderBuffers, renderIndex};
     else {endCompute();endRender();}
-    const [oom, validation] = await Promise.all([device.popErrorScope(), device.popErrorScope()]);
+    validated(scope, Promise.all([device.popErrorScope(), device.popErrorScope()]));
     stats.batchWallMilliseconds += performance.now()-started;
-    if(oom)fail(E.ENOMEM,oom.message);if(validation)fail(E.EINVAL,validation.message);
   }
+}
+// WebGPU validates a batch on the GPU process's timeline, and Chrome answers an error scope only
+// after a round trip there (3.6 ms a batch, 2026-11-08), so a batch is answered without it: the
+// first error reaches the page's console when it is known and fails the scope's next WAIT.
+function validated(scope, scopes) {
+  const settled = scopes.then(([oom, validation]) => {
+    const error = oom ? [E.ENOMEM, oom.message] : validation ? [E.EINVAL, validation.message] : null;
+    if (!error || scope.lost) return;
+    postMessage({type:"status",error:error[1].slice(0,2048)});
+    scope.invalid ??= error;
+  }, () => {}).finally(() => scope.validations.splice(scope.validations.indexOf(settled), 1));
+  scope.validations.push(settled);
 }
 
 function publish(request, error, data = new Uint8Array()) {
@@ -1028,9 +1039,11 @@ async function execute(request, scope, parsed) {
       if(request.op===A.DOLLY_GPU_BATCH)await batch(scope,parsed,request.v.getUint32(36,true));
       else if(request.op===A.DOLLY_GPU_WAIT) {
         const submitted=queueProgress.queued;
-        await device.queue.onSubmittedWorkDone();
+        await Promise.all([device.queue.onSubmittedWorkDone(), ...scope.validations]);
         queueProgress.completed=Math.max(queueProgress.completed,submitted);
         collectReleased(scope,queueProgress.completed);
+        const invalid=scope.invalid;scope.invalid=null;
+        if(invalid)throw Object.assign(new Error(invalid[1]),{errno:invalid[0],reported:true});
       }
       else if(request.op===A.DOLLY_GPU_READ) {
         const r=object(scope,integer(request.v,32),"buffer"),offset=integer(request.v,40),size=integer(request.v,48);
@@ -1050,7 +1063,7 @@ async function execute(request, scope, parsed) {
     }
     publish(request,0,output);
   } catch(error) {
-    postMessage({type:"status",error:String(error.message??error).slice(0,2048)});
+    if(!error.reported)postMessage({type:"status",error:String(error.message??error).slice(0,2048)});
     if(request.op===A.DOLLY_GPU_OPEN)await retire(scope);
     publish(request,error.errno??E.EIO);
   } finally {scope.busy=false;}
@@ -1087,7 +1100,7 @@ self.onmessage = event => {
       let scope=slots[request.index];
       if(request.op===A.DOLLY_GPU_OPEN) {
         ensure(!scope&&request.scope>generations[request.index],"GPU scope slot is busy",E.EBUSY);
-        scope={id:request.scope,index:request.index,sequence:0,objects:new Map(),retired:new Map(),high:0,submissions:[],frames:[],shows:[],lost:false,surface:false};
+        scope={id:request.scope,index:request.index,sequence:0,objects:new Map(),retired:new Map(),high:0,submissions:[],frames:[],shows:[],validations:[],invalid:null,lost:false,surface:false};
         generations[request.index]=scope.id;slots[request.index]=scope;
       }
       ensure(scope?.id===request.scope,"Stale GPU scope",E.ESTALE);
