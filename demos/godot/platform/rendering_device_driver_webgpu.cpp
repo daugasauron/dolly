@@ -1443,8 +1443,8 @@ RDD::ShaderID RenderingDeviceDriverWebGPU::shader_create_from_container(const Re
 	// none if one fails, though it may never use that one (FSR's half precision, whose uniform sets
 	// it makes for its fallback), and an effect whose shader is missing returns with its compute
 	// list open (bokeh_dof.cpp), failing the frame's later compute work. So such a variant is kept
-	// without modules, as Vulkan keeps a module it could not pipeline, and its pipelines are refused;
-	// before any record, as a refused batch would lose the objects queued with it.
+	// without modules, as Vulkan keeps a module it could not pipeline (compute_pipeline_create);
+	// decided before any record, as a refused batch would lose the objects queued with it.
 	String unavailable;
 	for (uint32_t i = 0; i < container->stages.size() && unavailable.is_empty(); i++) {
 		if (container->stages[i].unavailable()) {
@@ -1863,7 +1863,29 @@ RDD::PipelineID RenderingDeviceDriverWebGPU::render_pipeline_create(ShaderID p_s
 
 RDD::PipelineID RenderingDeviceDriverWebGPU::compute_pipeline_create(ShaderID p_shader, VectorView<PipelineSpecializationConstant> p_specialization_constants) {
 	ShaderInfo *shader = (ShaderInfo *)p_shader.id;
-	ERR_FAIL_COND_V_MSG(!shader->unavailable.is_empty(), PipelineID(), shader->unavailable);
+	if (!shader->unavailable.is_empty()) {
+		// Godot's release builds dispatch the pipeline they asked for and divide by its workgroup
+		// size (compute_list_dispatch_threads): a variant that cannot run here gets one that binds
+		// nothing and whose dispatches do nothing, so the effect is absent rather than the game.
+		ERR_PRINT(vformat("%s Its dispatches do nothing here.", shader->unavailable));
+		if (!idle_module) {
+			const CharString wgsl = String("@compute @workgroup_size(1) fn main() {}").utf8();
+			Record m(DOLLY_GPU_CREATE_SHADER, 24 + wgsl.length());
+			put32(m.p(), 16, wgsl.length());
+			memcpy(m.p() + 24, wgsl.get_data(), wgsl.length());
+			idle_module = CREATE(m);
+		}
+		Record r(DOLLY_GPU_CREATE_COMPUTE_PIPELINE, 40 + 4);
+		put64(r.p(), 16, pipeline_layout(LocalVector<uint64_t>()));
+		put64(r.p(), 24, idle_module);
+		put32(r.p(), 36, 4);
+		memcpy(r.p() + 40, "main", 4);
+		PipelineInfo *pipeline = memnew(PipelineInfo);
+		pipeline->compute = true;
+		pipeline->shader = shader;
+		pipeline->handle = CREATE(r);
+		return PipelineID(pipeline);
+	}
 	const uint32_t constants = constants_declared(shader, p_specialization_constants);
 	Record r(DOLLY_GPU_CREATE_COMPUTE_PIPELINE, 40 + 16 * constants + 4);
 	put64(r.p(), 16, shader->pipeline_layout);

@@ -96,7 +96,8 @@ public:
 		LocalVector<LocalVector<SetUniform>> sets;
 		HashMap<uint32_t, ID> immutable_samplers; // by binding
 		// Why this variant cannot run here, when it cannot: kept without modules for its sets, as
-		// Vulkan keeps a module it could not pipeline, and its pipelines are refused.
+		// Vulkan keeps a module it could not pipeline; its compute pipelines do nothing, and render
+		// pipelines are refused.
 		String unavailable;
 	};
 	struct Group {
@@ -253,6 +254,7 @@ private:
 	void copy_buffer_texture(CommandBufferID p_cmd_buffer, uint32_t p_op, BufferID p_buffer, TextureID p_texture, const BufferTextureCopyRegion &p_region);
 	void clear_3d(CommandBufferID p_cmd_buffer, TextureInfo *p_texture, const TextureSubresourceRange &p_subresources);
 	LocalVector<BufferID> clear_sources; // what clear_3d copies from: only grown, as recorded commands may read the smaller
+	uint64_t idle_module = 0; // an empty compute shader, the module of the pipelines of variants that cannot run here
 
 public:
 	/*****************/
