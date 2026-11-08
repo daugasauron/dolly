@@ -61,6 +61,8 @@ enum : uint32_t {
 };
 
 static const uint32_t PUSH_CONSTANT_BYTES = 128;
+// A float twin's binding is its texture's plus this (spirv_wgsl: depth filtered and compared).
+static const uint32_t TWIN = 512;
 static const uint64_t PUSH_RING_FRAME_BYTES = 4 << 20;
 static const uint32_t UPLOAD_CHUNK = 512 << 10;
 
@@ -1329,7 +1331,10 @@ RDD::UniformSetID RenderingDeviceDriverWebGPU::uniform_set_create(VectorView<Bou
 				TextureInfo *texture = (TextureInfo *)u.ids[at].id;
 				if (!texture || texture->shadow || !is_depth(texture->gpu_format)) continue;
 				for (const GroupEntry &e : set->shader->layouts[p_set_index]) {
-					if (e.binding == s.first + element && e.type == 7 && e.a == 1) make_shadow(texture, 0x03020100);
+					if ((e.binding == s.first + element || e.binding == s.first + element + TWIN) && e.type == 7 && e.a == 1) {
+						make_shadow(texture, 0x03020100);
+						break;
+					}
 				}
 			}
 		}
@@ -1385,7 +1390,7 @@ const RenderingDeviceDriverWebGPU::Group &RenderingDeviceDriverWebGPU::group_for
 			continue;
 		}
 		uint32_t element = 0;
-		const SetUniform *u = p_set ? uniform_at(p_set->shader, p_index, e.binding, element) : nullptr;
+		const SetUniform *u = p_set ? uniform_at(p_set->shader, p_index, e.binding >= TWIN ? e.binding - TWIN : e.binding, element) : nullptr;
 		ERR_FAIL_NULL_V_MSG(u, none, vformat("Group %d binding %d has no uniform of Godot's.", p_index, e.binding));
 		const BoundUniform *bound = nullptr;
 		for (const BoundUniform &b : p_set->uniforms) {

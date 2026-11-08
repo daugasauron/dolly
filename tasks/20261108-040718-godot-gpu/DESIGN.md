@@ -329,8 +329,27 @@ What converts SPIR-V to WGSL is decided by measurement:
   - `RA_AS_RG` normal maps;
   - `RGBA4444` and `RGB565`, whose formats WebGPU lacks anyway.
 
-  Chrome has the feature. In Firefox, such a view is a texture of its own: the driver re-renders
-  it after every command that writes the source. This goes once Firefox grants the feature.
+  Chrome has the feature. In Firefox such a view samples a shadow texture of its own, as ANGLE's
+  Direct3D 11 backend keeps swizzled copies: a compute pass refills it from the view's
+  subresources when the next pass or dispatch begins after a write (copies, clears, resolves,
+  attachments, storage), and fills a new one first. An sRGB view's shadow reads the bytes
+  through the texture's linear partner. This goes once Firefox grants the feature.
+- **Depth through a filtering sampler.** Vulkan filters depth values; WebGPU binds a depth
+  texture only to comparisons and non-filtering samples. A float texture no sampler reads binds
+  as `unfilterable-float`, where depth binds too. Where a sampler filters it, the depth texture
+  is read from an `r32float` shadow (under `float32-filterable`, which both browsers grant), made
+  with the uniform set and refilled as above. A texture both compared and filtered, as Godot's
+  shadow atlases are, is two variables in the WGSL: the translator moves the filtering samples
+  to a twin 512 bindings above, where the driver binds the shadow.
+- **Formats by tier.** Godot's 2D signed distance field stores to `rg16sint`, `r8` and
+  `r16snorm`, and its default VRS texture is `R8_UINT` storage: WebGPU's
+  `texture-formats-tier1` and `tier2`, which Chrome grants and Firefox does not. The driver
+  reports a format's usages by the device's features and refuses a shader whose storage
+  textures the device cannot bind, before queueing a record of it.
+- **Indexing.** Godot's copies, clears, resolves and copyable layouts index a view's image, as
+  Vulkan's driver indexes the `VkImage`. One-dimensional arrays and mipmapped one-dimensional
+  textures are refused (WebGPU has neither); a 3D texture is not cleared or resolved until view
+  passes take depth slices.
 - **Sampler state.** WebGPU has no border colours, unnormalized coordinates or LOD bias.
   - The audit finds where Godot uses each. Godot sets LOD bias with TAA and FSR.
   - The choice comes to the owner with that evidence: refuse, or approximate in the shader.
@@ -340,7 +359,9 @@ What converts SPIR-V to WGSL is decided by measurement:
   - point size and line width;
   - image atomics, texel buffers, multi-draw and count draws;
   - ETC2 and ASTC on these adapters; Godot decompresses them.
-- **Per browser:** subgroups (Chrome) and `shader-f16` (Firefox) are reported where granted.
+- **Per browser:** subgroups (Chrome) and `shader-f16` (Firefox) are reported absent for now:
+  Godot then compiles its 32-bit variants without subgroups. The translator's passes for both
+  are still to be written.
 - **Per-stage limits.** Chrome's per-stage limits are the lower of the two (§1). The shader
   measurement counts each pipeline's bindings against them and against Firefox's.
 - **The renderers.**
@@ -396,10 +417,15 @@ Measured as the baseline was (`latency.sh`, a trace, frame times):
 2. The shader measurement of §5, then the container.
 3. The driver, in §9's order.
 
-## 11. For the owner to decide
+## 11. Decided
 
-- **§4's additions in principle.** Their byte layouts come as WAT changes, each reviewed before
-  it merges.
-- **The batch flag (§4.D),** rather than larger packets.
-- **The pacing rule (§4.E),** once Firefox's cause is known.
-- **The `main.cpp` patch (§7).**
+The owner left these to the driver's author ("Do not wait for me to approve these things. Just go
+ahead and make it work", 2026-11-08):
+
+- §4's additions, with two more the first runs needed: a view pass's absent colour attachments
+  and a pipeline's absent targets (reserved words that now say which), and
+  `texture-formats-tier1` and `tier2` with tier 1's six 16-bit normalized formats, an sRGB view
+  leaving out its texture's storage usage.
+- The batch flag (§4.D), rather than larger packets.
+- The pacing rule (§4.E): one shown frame per page animation frame, through the page's counter.
+- The `main.cpp` patch (§7).

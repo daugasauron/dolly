@@ -365,6 +365,71 @@ public:
 
 // WebGPU has no subpasses: an input attachment, which Godot's driver binds as the texture the
 // previous pass drew, is read with a fetch at the fragment's position.
+// A texture sampled both through a comparison sampler and through a filtering one, as Godot's
+// shadow atlases are: Vulkan filters depth values, and WebGPU binds a depth texture only to
+// comparisons and non-filtering samples. The filtering samples read a twin variable, 512 bindings
+// above the texture's, which Tint makes a float texture; the driver binds a depth texture's float
+// copy (its shadow) there, and any other texture as it is.
+class DepthTwins : public Pass {
+public:
+	const char *name() const override { return "dolly-depth-twins"; }
+	Status Process() override {
+		analysis::DefUseManager *uses = get_def_use_mgr();
+		std::map<uint32_t, std::vector<Instruction *>> compared, filtered;  // by variable: its sampled images
+		for (Function &function : *get_module()) {
+			for (BasicBlock &block : function) {
+				for (Instruction &inst : block) {
+					const bool dref = compares(inst.opcode()), sample = filters(inst.opcode());
+					if (!dref && !sample) continue;
+					Instruction *sampled = uses->GetDef(inst.GetSingleWordInOperand(0));
+					if (sampled->opcode() != Op::OpSampledImage) continue;
+					Instruction *image = uses->GetDef(sampled->GetSingleWordInOperand(0));
+					if (image->opcode() != Op::OpLoad) continue;
+					Instruction *variable = uses->GetDef(image->GetSingleWordInOperand(0));
+					if (variable->opcode() != Op::OpVariable) continue;
+					(dref ? compared : filtered)[variable->result_id()].push_back(sampled);
+				}
+			}
+		}
+		bool changed = false;
+		for (auto &[id, samples] : filtered) {
+			if (!compared.count(id)) continue;
+			Instruction *set = decoration(context(), id, Decoration::DescriptorSet);
+			Instruction *binding = decoration(context(), id, Decoration::Binding);
+			if (!set || !binding) continue;
+			const uint32_t twin = TakeNextId();
+			std::unique_ptr<Instruction> variable(uses->GetDef(id)->Clone(context()));
+			variable->SetResultId(twin);
+			context()->AddGlobalValue(std::move(variable));
+			get_decoration_mgr()->AddDecorationVal(twin, uint32_t(Decoration::DescriptorSet), set->GetSingleWordInOperand(2));
+			get_decoration_mgr()->AddDecorationVal(twin, uint32_t(Decoration::Binding), binding->GetSingleWordInOperand(2) + 512);
+			std::set<Instruction *> moved;
+			for (Instruction *sampled : samples) {
+				if (!moved.insert(sampled).second) continue;
+				const std::vector<Instruction *> &both = compared[id];
+				if (std::find(both.begin(), both.end(), sampled) != both.end()) continue;  // one sampled image both ways: left as it is
+				Instruction *load = uses->GetDef(sampled->GetSingleWordInOperand(0));
+				InstructionBuilder builder(context(), sampled, IRContext::kAnalysisDefUse | IRContext::kAnalysisInstrToBlockMapping);
+				Instruction *twin_load = builder.AddLoad(load->type_id(), twin);
+				sampled->SetInOperand(0, { twin_load->result_id() });
+				uses->AnalyzeInstUse(sampled);
+			}
+			changed = true;
+		}
+		return changed ? Status::SuccessWithChange : Status::SuccessWithoutChange;
+	}
+
+private:
+	static bool compares(Op p_op) {
+		return p_op == Op::OpImageSampleDrefImplicitLod || p_op == Op::OpImageSampleDrefExplicitLod || p_op == Op::OpImageSampleProjDrefImplicitLod ||
+				p_op == Op::OpImageSampleProjDrefExplicitLod || p_op == Op::OpImageDrefGather;
+	}
+	static bool filters(Op p_op) {
+		return p_op == Op::OpImageSampleImplicitLod || p_op == Op::OpImageSampleExplicitLod || p_op == Op::OpImageSampleProjImplicitLod ||
+				p_op == Op::OpImageSampleProjExplicitLod || p_op == Op::OpImageGather || p_op == Op::OpImageQueryLod;
+	}
+};
+
 class InputAttachmentsToTextures : public Pass {
 public:
 	const char *name() const override { return "dolly-input-attachments"; }
@@ -849,6 +914,7 @@ extern "C" void spirv_wgsl_translate(const uint32_t *words, size_t word_count, c
 			.RegisterPass(pass<o::MergeMemoryBarriers>())
 			.RegisterPass(pass<o::WriteOnlyStorage>())
 			.RegisterPass(pass<o::FlipVertexY>(&ours))
+			.RegisterPass(pass<o::DepthTwins>())
 			.RegisterPass(pass<o::InputAttachmentsToTextures>())
 			// An input attachment's image type, now a texture's, may repeat one the module has.
 			.RegisterPass(spvtools::CreateRemoveDuplicatesPass())

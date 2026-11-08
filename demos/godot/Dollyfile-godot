@@ -18,7 +18,7 @@ FROM /v0.1.5/demos/ghostty-gtk/Dollyfile-mesa-build c2560dd3b9782789bb0b58997815
 USE /v0.1.5/demos/tools/Dollyfile-scons 32e62646343a0caf64ad4087ce4bbf89d9c3bb35b6d8f4da24a797b033979da0
 USE /v0.1.5/Dollyfile-mandoc 83da22748d615feab08a0a774cb1f704c8d8f6cde9402b86d4b0dd8ea166e5bd
 USE /v0.1.5/Dollyfile-libdolly-gpu d860787df9ebc417e1a6464cd7d90a73ca9623dea685eb48b3d3e2da7508d1d5
-USE /v0.1.5/demos/godot/Dollyfile-spirv-wgsl 2297316f52dbc86dc7dcdcbbc6ee53d61215452e4b8dbb7a4aa788e52fadcd16
+USE /v0.1.5/demos/godot/Dollyfile-spirv-wgsl 45cce825f4d48c89c21444308d25c4b625cc71cb675e14c253d6f2167d4407d4
 USE /v0.1.5/Dollyfile-libdolly-audio cf506533d24804e00d1211d4008d8eb71d16747dc8563843262545be6dbca30b
 
 REQUIRES TOOL cp
