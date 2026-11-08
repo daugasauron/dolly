@@ -5,7 +5,9 @@ Godot 4.7 from upstream's release, built inside Dolly by SCons with Dolly's
 ([`godot-dolly.patch`](godot-dolly.patch)): it names Dolly's WebGPU driver to
 Godot, and Forward+ starts SDFGI only where the device has image atomics,
 which WebGPU does not (SDFGI also needs more storage textures than WebGPU
-gives a shader stage). `amy install godot`, then
+gives a shader stage). In Firefox, which has neither of WebGPU's texture format
+tiers, SSIL, the depth-of-field blur, VoxelGI and 2D SDFs do not draw.
+`amy install godot`, then
 `godot --path DIRECTORY` runs a project on the page, drawn by Godot's
 Mobile and Forward+ renderers through a RenderingDevice driver on `gpu@0`
 where the browser grants WebGPU, and by its Compatibility renderer on Mesa's

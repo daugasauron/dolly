@@ -166,7 +166,81 @@ Refused, with an error each when Godot compiles them: volumetric fog (image atom
 lacks, and a `Volatile` member), SSR's filter (an image without a format), FSR 1's upscaler
 (`Int16`), SDFGI's preprocessing (an array the translator does not scalarize; 15 storage
 textures where Chrome allows 8), and the GI shaders whose storage the device lacks. In Firefox,
-which has neither format tier, the scene draws dark: open.
+which has neither format tier, the scene drew dark (below).
+
+## Firefox's Forward+, Chrome's frame rate, SDFGI (2026-11-08, night)
+
+- Firefox has neither texture format tier, so shaders cannot store into r8unorm and other small
+  formats there. Such a texture is created without storage usage and shadowed by one of a wider
+  format that compute shaders bind; each mip and layer they wrote is drawn back before the texture
+  is next read (`ccbadd82a`). Forward+ in Firefox: the 3D scene reads sky `88919c`, box `cb2f31`,
+  floor `bec2c9`, shadow `535e6f` (Mobile's within 3), 58.8 frames a second.
+- Godot ran at 48 to 49 frames a second in Chrome and 59 in Firefox. An instrumented provider
+  (served in place of `host/gpu/worker.mjs`) measured five batches a frame for the 2D scene, 1.3 ms
+  in Godot between them, and 18.1 ms of each 20 ms frame in `popErrorScope`, which Chrome answers
+  after a round trip to its GPU process (3.6 ms). A batch is now answered once encoded, and
+  WebGPU's validation errors reach the page's console and fail the scope's next `WAIT`
+  (`1892487c0`, docs/gpu.md): Chrome 60.1 and 60.2 (2D, 3D), Firefox 59.0.
+- Truck Town at 1920x1080: 41 frames a second in Chrome, 59 in Firefox. Its frames finish 69 ms
+  after submission in Chrome and 16 ms in Firefox, and 15 ms in Chrome at 960x540 (60 frames a
+  second). A bare WebGPU clear of a 1080p canvas runs at 54 in the same Chrome on Xvfb (60 at
+  1152x648), and Firefox on Xvfb presents no canvas: Chrome's presentation on Xvfb, not Godot's
+  work, holds it there. Not measured on a display with a GPU.
+- Ticking SDFGI in Truck Town's menu left it on its loading screen: Godot compiled the scene
+  shader's SDFGI voxelization variants for each material, and each failed, as they take image
+  atomics; SDFGI also views a texture as R4G4B4A4 and binds 15 storage textures in one stage.
+  `godot-dolly.patch` now has Forward+ start SDFGI only where the device has 32-bit image atomics
+  (`8922daffc`); Truck Town then loads and drives with the box ticked.
+- The translator (`8922daffc`): storage images get the access their uses need (Godot declares
+  many neither readonly nor writeonly); one without a format takes a placeholder the driver's
+  storage variants replace (SSR's filter); `Volatile` goes from fog's no-atomics buffers; a write
+  to a descriptor array indexed by a variable, which SPIRV-Tools copies into a switch but keeps,
+  is removed (SDFGI's occlusion). Corpus: 830 of 1,122; the rest are f16 variants (288), FSR's
+  half variant and fog's image-atomics variant, neither of which Godot picks here.
+
+## Forward+'s effects (2026-11-09)
+
+A 3D scene with SSR, SSAO, SSIL, glow, volumetric fog, depth of field and FSR 1 scaling on drew
+nothing in either browser. Fixed in `7abbef59d`, and now in the hardware test (box `c53b3d`, mirror
+floor `62738a`, the same in both browsers):
+
+- Godot keeps no variant of a shader if one fails, and FSR's half-precision variant (16-bit
+  integers, which WGSL lacks) failed, so FSR's fallback went too, and `fsr.cpp` returned with its
+  compute list open, failing every later frame. A variant the translator or the device refuses is
+  now kept without modules, as Vulkan keeps a module it could not pipeline, and its pipelines are
+  refused. (Refusing the shader instead makes `bokeh_dof.cpp` return with its compute list open.)
+- A depth shadow read a depth-stencil texture through a depth-only view of the combined format.
+- Volumetric fog clears 3D textures, which gpu@0's view passes cannot attach: a zero clear is a
+  copy from a buffer the GPU clears.
+- A view copied its texture's storage shadow, so freeing a view in Firefox released the texture's
+  shadow under it (two refused batches at exit).
+
+In Firefox, SSIL, the depth-of-field blur, VoxelGI and 2D SDFs store formats it lacks (tier 1 and
+2). Refusing their pipelines made Godot's release builds end on an integer divide by zero
+(`compute_list_dispatch_threads` divides by the bound pipeline's workgroup size; debug builds stop
+at a check and print it each frame). Such a variant's compute pipeline now binds nothing and does
+nothing (`b63f12dfe`), reported once as Godot makes it: the effect is absent, the game runs. SDFGI's
+three pipelines are reported so at startup in both browsers (Godot makes them though SDFGI never
+runs here).
+
+Firefox's Mobile scene then drew black: the provider timed every pass of an encoder with a pair of
+timestamps, past its query set's 2,048 once a frame (one continued encoder) had more than 1,024
+passes, and WebGPU refused the frame's command buffer. They were that many because the storage
+shadows drew every mip and layer back after any store. `1ecd66489`: later passes go untimed, and
+only the subresources a storage view covered are drawn back (sky `88919c`, box `cb2c2e` again).
+
+## Truck Town's video (2026-11-08)
+
+For the demos page: `work/videos-2026-11-08/cuts/truck-town.mp4` (1:36, Chrome on this machine's
+GPU), its poster and README, and a preview of the page with it (`site-agents-preview/`). Not in
+git, like v0.1.5's videos: the release that publishes the page takes it from there.
+
+## Tests (2026-11-09, `bce9ae0fa`)
+
+Godot's hardware test (2D, Mobile, Forward+, the effects scene, the editor, Truck Town's menu),
+the GPU contract tests (explicit records, rendering), godot-browser and the editor test pass in
+Chrome and Firefox on this machine's GPU. Frame rates in the hardware test: Chrome 59.9, 60.2,
+60.1 and 54.8 (2D, Mobile, Forward+, effects), Firefox 59.0 for each.
 
 ## Plan
 
