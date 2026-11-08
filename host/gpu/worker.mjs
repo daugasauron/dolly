@@ -404,7 +404,8 @@ async function batch(scope, commands, flags) {
   const endRender = () => { renderPass?.end(); renderPass = null; viewPass = false; };
   const timestamps = () => {
     timer ??= scope.timers?.find(t => !t.busy);
-    if (!timer) return {};
+    // An encoder's passes beyond the query set's pairs go untimed.
+    if (!timer || queries + 2 > timestampQueries) return {};
     const beginningOfPassWriteIndex = queries++, endOfPassWriteIndex = queries++;
     return {timestampWrites: {querySet: timer.query, beginningOfPassWriteIndex, endOfPassWriteIndex}};
   };

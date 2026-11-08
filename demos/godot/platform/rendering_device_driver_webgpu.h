@@ -182,7 +182,13 @@ public:
 		LocalVector<Upload> uploads; // CPU buffer ranges its copies read
 		bool surface = false; // it draws on the surface
 		LocalVector<TextureInfo *> stale; // textures written since their views' shadows were refilled
-		LocalVector<TextureInfo *> stored; // textures whose storage shadows shaders stored into since
+		// Textures whose storage shadows shaders stored into since they were drawn back, and which of
+		// the shadow's subresources (Shadow::back_subresources) the storage views covered.
+		struct Stored {
+			TextureInfo *texture = nullptr;
+			LocalVector<bool> subresources;
+		};
+		LocalVector<Stored> stored;
 		uint32_t placeholder_at = UINT32_MAX; // a view pass without attachments awaiting its depth (place_depth)
 		const StorageVariant *variant = nullptr; // the bound compute pipeline's, if any
 	};

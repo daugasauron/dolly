@@ -886,7 +886,7 @@ static bool storable(uint32_t p_gpu, uint64_t p_features) {
 // A texture of a format without storage on this device, stored into through a shadow of its
 // widened format (texture-formats-tier1 aside): make_shadow's refill brings the texture's writes
 // into the shadow; flush_stored draws shaders' stores back into the texture, one pass per mip and
-// layer.
+// layer that a storage view of it covered.
 void RenderingDeviceDriverWebGPU::make_storage_shadow(TextureInfo *p_texture) {
 	const uint32_t format = widened(p_texture->gpu_format);
 	Shadow *shadow = make_shadow(p_texture, 0x03020100, format);
@@ -981,9 +981,11 @@ uint64_t RenderingDeviceDriverWebGPU::storage_view(TextureInfo *p_texture) {
 void RenderingDeviceDriverWebGPU::flush_stored(CommandBufferID p_cmd_buffer) {
 	CommandBufferInfo *cb = (CommandBufferInfo *)p_cmd_buffer.id;
 	if (cb->stored.is_empty()) return;
-	for (TextureInfo *texture : cb->stored) {
+	for (const CommandBufferInfo::Stored &stored : cb->stored) {
+		TextureInfo *texture = stored.texture;
 		const Shadow *shadow = texture->storage;
 		for (uint32_t i = 0; i < shadow->back_groups.size(); i++) {
+			if (!stored.subresources[i]) continue;
 			const Vector2i at = shadow->back_subresources[i];
 			uint8_t *p = command_record(p_cmd_buffer, DOLLY_GPU_BEGIN_VIEW_PASS, 104);
 			put32(p, 16, 1);
@@ -2395,8 +2397,25 @@ void RenderingDeviceDriverWebGPU::bind_groups(CommandBufferID p_cmd_buffer) {
 					TextureInfo *owner = texture->owner ? const_cast<TextureInfo *>(texture) : texture->original;
 					if (!owner || !owner->storage) {
 						written(p_cmd_buffer, texture);
-					} else if (!cb->stored.has(owner)) {
-						cb->stored.push_back(owner);
+						continue;
+					}
+					CommandBufferInfo::Stored *stored = nullptr;
+					for (CommandBufferInfo::Stored &s : cb->stored) {
+						if (s.texture == owner) stored = &s;
+					}
+					if (!stored) {
+						cb->stored.push_back({ owner, LocalVector<bool>() });
+						stored = &cb->stored[cb->stored.size() - 1];
+						stored->subresources.resize(owner->storage->back_groups.size());
+						for (bool &b : stored->subresources) b = false;
+					}
+					// Only what the storage view covers was stored into.
+					for (uint32_t s = 0; s < owner->storage->back_subresources.size(); s++) {
+						const Vector2i at = owner->storage->back_subresources[s];
+						if (at.x >= int(texture->base_mip) && at.x < int(texture->base_mip + texture->mips) &&
+								at.y >= int(texture->base_layer) && at.y < int(texture->base_layer + texture->layers)) {
+							stored->subresources[s] = true;
+						}
 					}
 				}
 			}
@@ -2563,7 +2582,9 @@ static bool samples_stored(const RenderingDeviceDriverWebGPU::CommandBufferInfo 
 			for (const RDD::ID &id : u.ids) {
 				const RenderingDeviceDriverWebGPU::TextureInfo *texture = (const RenderingDeviceDriverWebGPU::TextureInfo *)id.id;
 				const RenderingDeviceDriverWebGPU::TextureInfo *owner = texture && !texture->owner ? texture->original : texture;
-				if (owner && p_cb->stored.has(const_cast<RenderingDeviceDriverWebGPU::TextureInfo *>(owner))) return true;
+				for (const RenderingDeviceDriverWebGPU::CommandBufferInfo::Stored &s : p_cb->stored) {
+					if (s.texture == owner) return true;
+				}
 			}
 		}
 	}
