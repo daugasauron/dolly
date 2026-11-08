@@ -728,15 +728,15 @@ RDD::TextureID RenderingDeviceDriverWebGPU::make_view(const TextureInfo *p_origi
 // (refill_shadows), as ANGLE's Direct3D 11 backend keeps swizzled copies of textures. A colour
 // shadow reads the bytes of an sRGB view through its linear partner (texture_create adds it) and
 // samples them as sRGB; a depth view's is r32float, which filters under float32-filterable.
-void RenderingDeviceDriverWebGPU::make_shadow(TextureInfo *p_view, uint32_t p_swizzle) {
+RenderingDeviceDriverWebGPU::Shadow *RenderingDeviceDriverWebGPU::make_shadow(TextureInfo *p_view, uint32_t p_swizzle, uint32_t p_format) {
 	const bool depth = is_depth(p_view->gpu_format);
-	const uint32_t linear = linear_format(p_view->gpu_format), format = depth ? 21 : shadow_format(linear);
-	ERR_FAIL_COND_MSG(!format || p_view->samples != TEXTURE_SAMPLES_1, "WebGPU cannot sample this view, nor a copy of it.");
-	ERR_FAIL_COND_MSG(depth && !(features & F_FLOAT32_FILTERABLE), "Filtering depth needs float32-filterable, which the browser lacks.");
+	const uint32_t linear = linear_format(p_view->gpu_format), format = p_format ? p_format : depth ? 21 : shadow_format(linear);
+	ERR_FAIL_COND_V_MSG(!format || p_view->samples != TEXTURE_SAMPLES_1, nullptr, "WebGPU cannot sample this view, nor a copy of it.");
+	ERR_FAIL_COND_V_MSG(depth && !(features & F_FLOAT32_FILTERABLE), nullptr, "Filtering depth needs float32-filterable, which the browser lacks.");
 	const uint32_t p_dimension = p_view->dimension;
 	const uint32_t dimension = p_dimension == 6 ? 6 : p_dimension == 1 ? 1 : 3; // the refill's: 3d, 1d or 2d-array
 	const uint32_t layers = dimension == 6 ? p_view->depth : dimension == 1 ? 1 : p_view->layers;
-	const uint32_t srgb = linear != p_view->gpu_format ? srgb_format(format) : 0;
+	const uint32_t srgb = linear != p_view->gpu_format && !p_format ? srgb_format(format) : 0;
 	Shadow *shadow = memnew(Shadow);
 	Record t(DOLLY_GPU_CREATE_TEXTURE, 48);
 	put32(t.p(), 16, p_view->width);
@@ -831,12 +831,174 @@ void RenderingDeviceDriverWebGPU::make_shadow(TextureInfo *p_view, uint32_t p_sw
 		const uint32_t depth = dimension == 6 ? MAX(1u, p_view->depth >> m) : layers;
 		shadow->dispatches.push_back(Vector3i((width + 7) / 8, (height + 7) / 8, depth));
 	}
+	if (p_format) return shadow;
 	p_view->shadow = shadow;
 	TextureInfo *texture = p_view->owner ? p_view : p_view->original;
 	MutexLock lock(mutex);
 	texture->shadowed.push_back(p_view);
 	if (!unfilled.has(texture)) unfilled.push_back(texture);
 	shadows++;
+	return shadow;
+}
+
+// WGSL's name of a storage format, and whether its texels are float (0), uint (1) or sint (2).
+static const char *storage_format_name(uint32_t p_gpu) {
+	static const char *names[] = { nullptr, "rgba8unorm", nullptr, "r8unorm", "rg8unorm", nullptr, nullptr, nullptr, nullptr, nullptr,
+		"r8snorm", "r8uint", "r8sint", "r16uint", "r16sint", "r16float", "rg8snorm", "rg8uint", "rg8sint", "r32uint", "r32sint",
+		"r32float", "rg16uint", "rg16sint", "rg16float", "rgba8snorm", "rgba8uint", "rgba8sint", "bgra8unorm", nullptr, nullptr,
+		"rgb10a2uint", "rgb10a2unorm", "rg11b10ufloat", "rg32uint", "rg32sint", "rg32float", "rgba16uint", "rgba16sint", "rgba16float",
+		"rgba32uint", "rgba32sint", "rgba32float" };
+	if (p_gpu < sizeof(names) / sizeof(names[0])) return names[p_gpu];
+	static const char *tier1[] = { "r16unorm", "r16snorm", "rg16unorm", "rg16snorm", "rgba16unorm", "rgba16snorm" };
+	return p_gpu >= 57 && p_gpu <= 62 ? tier1[p_gpu - 57] : nullptr;
+}
+
+static uint32_t texel_kind(uint32_t p_gpu) {
+	if (!is_integer(p_gpu)) return 0;
+	return (p_gpu == 12 || p_gpu == 14 || p_gpu == 18 || p_gpu == 20 || p_gpu == 23 || p_gpu == 27 || p_gpu == 35 || p_gpu == 38 || p_gpu == 41) ? 2 : 1;
+}
+
+// The storage format a shader stores a format in where the device has no storage of it (without
+// texture-formats-tier1): four channels of the same texel type, holding it exactly (0: none).
+static uint32_t widened(uint32_t p_gpu) {
+	switch (p_gpu) {
+		case 3: case 4: return 1;
+		case 11: case 17: return 26;
+		case 12: case 18: return 27;
+		case 13: case 22: case 31: return 37;
+		case 14: case 23: return 38;
+		case 15: case 24: case 32: case 33: return 39;
+		default: return 0;
+	}
+}
+
+// Whether a texture of the format can be stored into by shaders: natively, or through a storage
+// shadow, which draws back into the texture, so the format renders.
+static bool storable(uint32_t p_gpu, uint64_t p_features) {
+	return is_storage(p_gpu, p_features) || (widened(p_gpu) && is_renderable(p_gpu, p_features));
+}
+
+// A texture of a format without storage on this device, stored into through a shadow of its
+// widened format (texture-formats-tier1 aside): make_shadow's refill brings the texture's writes
+// into the shadow; flush_stored draws shaders' stores back into the texture, one pass per mip and
+// layer.
+void RenderingDeviceDriverWebGPU::make_storage_shadow(TextureInfo *p_texture) {
+	const uint32_t format = widened(p_texture->gpu_format);
+	Shadow *shadow = make_shadow(p_texture, 0x03020100, format);
+	ERR_FAIL_NULL(shadow);
+	const uint32_t kind = texel_kind(format);
+	uint64_t pipeline = 0;
+	{
+		MutexLock lock(mutex);
+		if (const uint64_t *found = back_pipelines.getptr(p_texture->gpu_format)) pipeline = *found;
+	}
+	LocalVector<GroupEntry> entries;
+	entries.push_back({ 0, 2, 7, kind == 2 ? 4u : kind == 1 ? 5u : 2u, 2, 0 });
+	const uint64_t group = group_layout(entries);
+	if (!pipeline) {
+		const char *type = kind == 2 ? "i32" : kind == 1 ? "u32" : "f32";
+		const CharString text = (String("@group(0) @binding(0) var source: texture_2d<") + type + ">;\n" +
+				"@vertex fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {\n" +
+				"\treturn vec4f(vec2f(f32((i << 1u) & 2u), f32(i & 2u)) * 2.0 - 1.0, 0.0, 1.0);\n}\n" +
+				"@fragment fn fs(@builtin(position) p: vec4f) -> @location(0) vec4<" + type + "> {\n" +
+				"\treturn textureLoad(source, vec2i(p.xy), 0);\n}\n").utf8();
+		Record s(DOLLY_GPU_CREATE_SHADER, 24 + text.length());
+		put32(s.p(), 16, text.length());
+		memcpy(s.p() + 24, text.get_data(), text.length());
+		const uint64_t module = CREATE(s);
+		LocalVector<uint64_t> groups;
+		groups.push_back(group);
+		Record r(DOLLY_GPU_CREATE_RENDER_PIPELINE, 160 + 40 + 4);
+		put64(r.p(), 16, pipeline_layout(groups));
+		put64(r.p(), 24, module);
+		put64(r.p(), 32, module);
+		put32(r.p(), 124, 1);
+		put32(r.p(), 128, 0xffffffff);
+		put32(r.p(), 136, 1);
+		put32(r.p(), 152, 2);
+		put32(r.p(), 156, 2);
+		put32(r.p(), 160, p_texture->gpu_format);
+		put32(r.p(), 164, 15);
+		memcpy(r.p() + 200, "vsfs", 4);
+		pipeline = CREATE(r);
+		MutexLock lock(mutex);
+		back_pipelines[p_texture->gpu_format] = pipeline;
+	}
+	shadow->back_pipeline = pipeline;
+	const uint32_t layers = p_texture->dimension == 6 ? 1 : p_texture->layers;
+	for (uint32_t m = 0; m < p_texture->mips; m++) {
+		for (uint32_t l = 0; l < layers; l++) {
+			Record v(DOLLY_GPU_CREATE_VIEW, 56);
+			put64(v.p(), 16, shadow->texture);
+			put32(v.p(), 28, 2);
+			put32(v.p(), 36, m);
+			put32(v.p(), 40, 1);
+			put32(v.p(), 44, l);
+			put32(v.p(), 48, 1);
+			put32(v.p(), 52, 0x03020100);
+			const uint64_t view = CREATE(v);
+			Record g(DOLLY_GPU_CREATE_BIND_GROUP, 64);
+			put64(g.p(), 16, group);
+			put32(g.p(), 24, 1);
+			put32(g.p(), 36, 2);
+			put64(g.p(), 40, view);
+			shadow->views.push_back(view);
+			shadow->back_groups.push_back(CREATE(g));
+			shadow->back_subresources.push_back(Vector2i(m, l));
+		}
+	}
+	p_texture->storage = shadow;
+	MutexLock lock(mutex);
+	if (!p_texture->shadowed.has(p_texture)) p_texture->shadowed.push_back(p_texture);
+	if (!unfilled.has(p_texture)) unfilled.push_back(p_texture);
+	shadows++;
+}
+
+// A view's view of its texture's storage shadow, made on first use: what shaders store through.
+uint64_t RenderingDeviceDriverWebGPU::storage_view(TextureInfo *p_texture) {
+	if (!p_texture->storage_view) {
+		const TextureInfo *texture = p_texture->owner ? p_texture : p_texture->original;
+		Record v(DOLLY_GPU_CREATE_VIEW, 56);
+		put64(v.p(), 16, texture->storage->texture);
+		put32(v.p(), 28, p_texture->dimension);
+		put32(v.p(), 36, p_texture->base_mip);
+		put32(v.p(), 40, p_texture->mips);
+		put32(v.p(), 44, p_texture->base_layer);
+		put32(v.p(), 48, p_texture->dimension == 6 ? 0 : p_texture->layers);
+		put32(v.p(), 52, 0x03020100);
+		p_texture->storage_view = CREATE(v);
+	}
+	return p_texture->storage_view;
+}
+
+// The storage shadows shaders stored into, drawn back into their textures: where a compute pass
+// ends, and before a dispatch that samples one of them. Outside passes.
+void RenderingDeviceDriverWebGPU::flush_stored(CommandBufferID p_cmd_buffer) {
+	CommandBufferInfo *cb = (CommandBufferInfo *)p_cmd_buffer.id;
+	if (cb->stored.is_empty()) return;
+	for (TextureInfo *texture : cb->stored) {
+		const Shadow *shadow = texture->storage;
+		for (uint32_t i = 0; i < shadow->back_groups.size(); i++) {
+			const Vector2i at = shadow->back_subresources[i];
+			uint8_t *p = command_record(p_cmd_buffer, DOLLY_GPU_BEGIN_VIEW_PASS, 104);
+			put32(p, 16, 1);
+			put64(p, 64, subresource_view(texture, at.x, at.y));
+			put32(p, 80, 1);
+			put64(command_record(p_cmd_buffer, DOLLY_GPU_SET_PIPELINE, 16), 8, shadow->back_pipeline);
+			p = command_record(p_cmd_buffer, DOLLY_GPU_SET_BIND_GROUP, 24);
+			put64(p, 8, shadow->back_groups[i]);
+			p = command_record(p_cmd_buffer, DOLLY_GPU_DRAW, 24);
+			put32(p, 8, 3);
+			put32(p, 12, 1);
+			command_record(p_cmd_buffer, DOLLY_GPU_END_RENDER_PASS, 8);
+		}
+		texture->storage_current = true;
+		// The texture changed: its other shadows follow.
+		for (const TextureInfo *view : texture->shadowed) {
+			if (view->shadow && !cb->stale.has(texture)) cb->stale.push_back(texture);
+		}
+	}
+	cb->stored.clear();
 }
 
 // A write to p_texture: its views' shadows are refilled before anything samples them.
@@ -845,6 +1007,7 @@ void RenderingDeviceDriverWebGPU::written(CommandBufferID p_cmd_buffer, const Te
 	TextureInfo *texture = p_texture->owner ? const_cast<TextureInfo *>(p_texture) : p_texture->original;
 	CommandBufferInfo *cb = (CommandBufferInfo *)p_cmd_buffer.id;
 	MutexLock lock(mutex);
+	if (texture) texture->storage_current = false;
 	if (texture && !texture->shadowed.is_empty() && !cb->stale.has(texture)) cb->stale.push_back(texture);
 }
 
@@ -867,19 +1030,23 @@ void RenderingDeviceDriverWebGPU::refill_shadows(CommandBufferID p_cmd_buffer) {
 		MutexLock lock(mutex);
 		for (const TextureInfo *texture : cb->stale) {
 			for (const TextureInfo *view : texture->shadowed) {
-				const Shadow *shadow = view->shadow;
-				put64(command_record(p_cmd_buffer, DOLLY_GPU_SET_PIPELINE, 16), 8, shadow->pipeline);
-				for (uint32_t m = 0; m < shadow->groups.size(); m++) {
-					uint8_t *p = command_record(p_cmd_buffer, DOLLY_GPU_SET_BIND_GROUP, 24);
-					put64(p, 8, shadow->groups[m]);
-					p = command_record(p_cmd_buffer, DOLLY_GPU_DISPATCH, 24);
-					put32(p, 8, shadow->dispatches[m].x);
-					put32(p, 12, shadow->dispatches[m].y);
-					put32(p, 16, shadow->dispatches[m].z);
+				// A storage shadow that holds the texture already needs nothing.
+				for (const Shadow *shadow : { view->shadow, texture->storage_current ? nullptr : view->storage }) {
+					if (!shadow) continue;
+					put64(command_record(p_cmd_buffer, DOLLY_GPU_SET_PIPELINE, 16), 8, shadow->pipeline);
+					for (uint32_t m = 0; m < shadow->groups.size(); m++) {
+						uint8_t *p = command_record(p_cmd_buffer, DOLLY_GPU_SET_BIND_GROUP, 24);
+						put64(p, 8, shadow->groups[m]);
+						p = command_record(p_cmd_buffer, DOLLY_GPU_DISPATCH, 24);
+						put32(p, 8, shadow->dispatches[m].x);
+						put32(p, 12, shadow->dispatches[m].y);
+						put32(p, 16, shadow->dispatches[m].z);
+					}
 				}
 			}
 		}
 	}
+	for (TextureInfo *texture : cb->stale) texture->storage_current = true;
 	cb->stale.clear();
 	if (inside) {
 		cb->pipeline_dirty = true;
@@ -902,6 +1069,11 @@ RDD::TextureID RenderingDeviceDriverWebGPU::texture_create(const TextureFormat &
 	if (p_format.usage_bits & (TEXTURE_USAGE_CAN_COPY_FROM_BIT | TEXTURE_USAGE_CPU_READ_BIT)) usage |= TEX_COPY_SRC;
 	// Clears are render passes in WebGPU (command_clear_color_texture).
 	if ((p_format.usage_bits & TEXTURE_USAGE_CAN_COPY_TO_BIT) && is_renderable(format, features)) usage |= TEX_RENDER;
+	// Storage of a format the device does not store goes through a storage shadow, which draws back.
+	const bool storage_shadow = (usage & TEX_STORAGE) && !is_storage(format, features);
+	ERR_FAIL_COND_V_MSG(storage_shadow && (!storable(format, features) || p_format.texture_type == TEXTURE_TYPE_3D || p_format.samples != TEXTURE_SAMPLES_1),
+			TextureID(), vformat("The browser's WebGPU stores no texture of format %d.", p_format.format));
+	if (storage_shadow) usage = (usage & ~TEX_STORAGE) | TEX_RENDER;
 	TextureInfo *texture = memnew(TextureInfo);
 	texture->format = p_format.format;
 	texture->gpu_format = format;
@@ -955,6 +1127,7 @@ RDD::TextureID RenderingDeviceDriverWebGPU::texture_create(const TextureFormat &
 	total_memory += get_image_format_required_size(p_format.format, p_format.width, p_format.height, p_format.depth, p_format.mipmaps) * p_format.array_layers;
 	const TextureID view = make_view(texture, p_view, view_dimension(p_format.texture_type), 0, 0, 0, 0, true);
 	memdelete(texture);
+	if (storage_shadow) make_storage_shadow((TextureInfo *)view.id);
 	return view;
 }
 
@@ -987,6 +1160,19 @@ void RenderingDeviceDriverWebGPU::texture_free(TextureID p_texture) {
 	}
 	release(texture->view);
 	release(texture->depth_view);
+	release(texture->storage_view);
+	if (Shadow *shadow = texture->storage) {
+		for (const uint64_t group : shadow->groups) release(group);
+		for (const uint64_t group : shadow->back_groups) release(group);
+		for (const uint64_t view : shadow->views) release(view);
+		release(shadow->view);
+		release(shadow->texture);
+		memdelete(shadow);
+		MutexLock lock(mutex);
+		if (!texture->shadow) texture->shadowed.erase(texture);
+		if (texture->shadowed.is_empty()) unfilled.erase(texture);
+		shadows--;
+	}
 	if (Shadow *shadow = texture->shadow) {
 		for (const uint64_t group : shadow->groups) release(group);
 		for (const uint64_t view : shadow->views) release(view);
@@ -1085,7 +1271,7 @@ BitField<RDD::TextureUsageBits> RenderingDeviceDriverWebGPU::texture_get_usages_
 		usage.set_flag(TEXTURE_USAGE_COLOR_ATTACHMENT_BIT);
 		usage.set_flag(TEXTURE_USAGE_INPUT_ATTACHMENT_BIT);
 	}
-	if (is_storage(format, features)) {
+	if (storable(format, features)) {
 		usage.set_flag(TEXTURE_USAGE_STORAGE_BIT);
 	}
 	return usage;
@@ -1234,11 +1420,13 @@ static const RenderingDeviceDriverWebGPU::SetUniform *uniform_at(const Rendering
 RDD::ShaderID RenderingDeviceDriverWebGPU::shader_create_from_container(const Ref<RenderingShaderContainer> &p_shader_container, const Vector<ImmutableSampler> &p_immutable_samplers) {
 	const RenderingShaderContainerWebGPU *container = static_cast<const RenderingShaderContainerWebGPU *>(p_shader_container.ptr());
 	const ShaderReflection reflection = container->get_shader_reflection();
-	// A storage texture the device cannot bind refuses the shader here, before any record: a
-	// refused batch would lose the objects queued with it.
+	// A storage texture the device cannot bind, even as its widened storage shadow's format,
+	// refuses the shader here, before any record: a refused batch would lose the objects queued
+	// with it.
 	for (uint32_t i = 0; i < container->stages.size(); i++) {
 		for (const RenderingShaderContainerWebGPU::LayoutEntry &e : container->stages[i].entries) {
-			ERR_FAIL_COND_V_MSG(e.type == 8 && !storage_access(e.c, e.a, features), ShaderID(),
+			const uint32_t stored = is_storage(e.c, features) ? e.c : widened(e.c);
+			ERR_FAIL_COND_V_MSG(e.type == 8 && (!stored || !storage_access(stored, e.a, features)), ShaderID(),
 					vformat("%s: the browser's WebGPU has no storage texture of format %d with access %d (texture-formats-tier1 and tier2).", String(container->shader_name.get_data()), e.c, e.a));
 		}
 	}
@@ -1289,6 +1477,17 @@ RDD::ShaderID RenderingDeviceDriverWebGPU::shader_create_from_container(const Re
 		ERR_FAIL_COND_V(!const_cast<RenderingShaderContainerWebGPU *>(container)->decompress_code(code.code_compressed_bytes.ptr(), code.code_compressed_bytes.size(),
 								code.code_compression_flags, text.ptrw(), text.size()),
 				ShaderID());
+		for (const RenderingShaderContainerWebGPU::LayoutEntry &e : container->stages[i].entries) {
+			if (e.type != 8 || is_storage(e.c, features)) continue;
+			// Stored through the texture's storage shadow, in its widened format.
+			String wgsl = String::utf8((const char *)text.ptr(), text.size());
+			const int at = wgsl.find(vformat("@group(%du) @binding(%du) var ", e.group, e.binding));
+			ERR_FAIL_COND_V(at < 0, ShaderID());
+			const int open = wgsl.find("<", at), comma = wgsl.find(",", open);
+			const CharString widened_text = (wgsl.substr(0, open + 1) + storage_format_name(widened(e.c)) + wgsl.substr(comma)).utf8();
+			text.resize(widened_text.length());
+			memcpy(text.ptrw(), widened_text.get_data(), widened_text.length());
+		}
 		Record r(DOLLY_GPU_CREATE_SHADER, 24 + text.size());
 		put32(r.p(), 16, text.size());
 		memcpy(r.p() + 24, text.ptr(), text.size());
@@ -1308,7 +1507,7 @@ RDD::ShaderID RenderingDeviceDriverWebGPU::shader_create_from_container(const Re
 				if (entry->type == 7 && entry->a == 2 && e.a == 1) entry->a = 1;
 				continue;
 			}
-			GroupEntry made = { e.binding, visibility, e.type, e.a, e.b, e.c };
+			GroupEntry made = { e.binding, visibility, e.type, e.a, e.b, e.type == 8 && !is_storage(e.c, features) ? widened(e.c) : e.c };
 			uint32_t element;
 			const SetUniform *u = uniform_at(shader, e.group, e.binding, element);
 			if (e.type <= 3 && ((e.group == 0 && e.binding == 0) || (u && dynamic_type(u->type)))) {
@@ -1454,7 +1653,8 @@ const RenderingDeviceDriverWebGPU::Group &RenderingDeviceDriverWebGPU::group_for
 			ERR_FAIL_NULL_V(bound, none);
 			put32(p, 4, 2);
 			TextureInfo *texture = (TextureInfo *)bound->ids[element].id;
-			put64(p, 8, u->type == UNIFORM_TYPE_IMAGE ? texture->view : sampled_view(texture, e));
+			const TextureInfo *owner = texture->owner ? texture : texture->original;
+			put64(p, 8, u->type != UNIFORM_TYPE_IMAGE ? sampled_view(texture, e) : owner && owner->storage ? storage_view(texture) : texture->view);
 		} else {
 			ERR_FAIL_COND_V_MSG(!bound || bound->ids.is_empty(), none, "A buffer uniform without a buffer.");
 			const BufferInfo *buffer = (const BufferInfo *)bound->ids[0].id;
@@ -1677,6 +1877,7 @@ bool RenderingDeviceDriverWebGPU::command_buffer_begin(CommandBufferID p_cmd_buf
 	cb->push_end = 0;
 	cb->uploads.clear();
 	cb->stale.clear();
+	cb->stored.clear();
 	cb->placeholder_at = UINT32_MAX;
 	cb->variant = nullptr;
 	return true;
@@ -1694,10 +1895,7 @@ bool RenderingDeviceDriverWebGPU::command_buffer_begin_secondary(CommandBufferID
 
 void RenderingDeviceDriverWebGPU::command_buffer_end(CommandBufferID p_cmd_buffer) {
 	CommandBufferInfo *cb = (CommandBufferInfo *)p_cmd_buffer.id;
-	if (cb->in_compute_pass) {
-		command_record(p_cmd_buffer, DOLLY_GPU_END_COMPUTE_PASS, 8);
-		cb->in_compute_pass = false;
-	}
+	end_passes(p_cmd_buffer);
 	refill_shadows(p_cmd_buffer);
 }
 
@@ -1737,6 +1935,7 @@ void RenderingDeviceDriverWebGPU::end_passes(CommandBufferID p_cmd_buffer) {
 		command_record(p_cmd_buffer, DOLLY_GPU_END_COMPUTE_PASS, 8);
 		cb->in_compute_pass = false;
 	}
+	flush_stored(p_cmd_buffer);
 }
 
 /********************/
@@ -1970,6 +2169,7 @@ void RenderingDeviceDriverWebGPU::command_end_render_pass(CommandBufferID p_cmd_
 	if (cb->placeholder_at != UINT32_MAX) place_depth(p_cmd_buffer, 1);
 	command_record(p_cmd_buffer, DOLLY_GPU_END_RENDER_PASS, 8);
 	cb->in_render_pass = false;
+	flush_stored(p_cmd_buffer);
 }
 
 void RenderingDeviceDriverWebGPU::command_next_render_subpass(CommandBufferID p_cmd_buffer, CommandBufferType p_cmd_buffer_type) {
@@ -2026,23 +2226,6 @@ void RenderingDeviceDriverWebGPU::command_bind_render_uniform_sets(CommandBuffer
 
 // Before a draw or dispatch: the pipeline, then each of its shader's groups whose set, dynamic
 // copies or push constants changed.
-// WGSL's name of a storage format, and whether its texels are float (0), uint (1) or sint (2).
-static const char *storage_format_name(uint32_t p_gpu) {
-	static const char *names[] = { nullptr, "rgba8unorm", nullptr, "r8unorm", "rg8unorm", nullptr, nullptr, nullptr, nullptr, nullptr,
-		"r8snorm", "r8uint", "r8sint", "r16uint", "r16sint", "r16float", "rg8snorm", "rg8uint", "rg8sint", "r32uint", "r32sint",
-		"r32float", "rg16uint", "rg16sint", "rg16float", "rgba8snorm", "rgba8uint", "rgba8sint", "bgra8unorm", nullptr, nullptr,
-		"rgb10a2uint", "rgb10a2unorm", "rg11b10ufloat", "rg32uint", "rg32sint", "rg32float", "rgba16uint", "rgba16sint", "rgba16float",
-		"rgba32uint", "rgba32sint", "rgba32float" };
-	if (p_gpu < sizeof(names) / sizeof(names[0])) return names[p_gpu];
-	static const char *tier1[] = { "r16unorm", "r16snorm", "rg16unorm", "rg16snorm", "rgba16unorm", "rgba16snorm" };
-	return p_gpu >= 57 && p_gpu <= 62 ? tier1[p_gpu - 57] : nullptr;
-}
-
-static uint32_t texel_kind(uint32_t p_gpu) {
-	if (!is_integer(p_gpu)) return 0;
-	return (p_gpu == 12 || p_gpu == 14 || p_gpu == 18 || p_gpu == 20 || p_gpu == 23 || p_gpu == 27 || p_gpu == 35 || p_gpu == 38 || p_gpu == 41) ? 2 : 1;
-}
-
 // The bound compute pipeline's variant for the formats of the storage textures its sets bind,
 // where one is not the format its WGSL declares: Vulkan's drivers store in the view's format, and
 // WebGPU binds a view only to its own format, so the variant's WGSL and layouts name the bound
@@ -2057,7 +2240,10 @@ const RenderingDeviceDriverWebGPU::StorageVariant *RenderingDeviceDriverWebGPU::
 		const SetUniform *u = set ? uniform_at(set->shader, p_group, p_entry.binding, element) : nullptr;
 		if (u) {
 			for (const BoundUniform &b : set->uniforms) {
-				if (b.binding == u->binding && element < b.ids.size()) return ((const TextureInfo *)b.ids[element].id)->gpu_format;
+				if (b.binding != u->binding || element >= b.ids.size()) continue;
+				const TextureInfo *texture = (const TextureInfo *)b.ids[element].id;
+				const TextureInfo *owner = texture->owner ? texture : texture->original;
+				return owner && owner->storage ? widened(texture->gpu_format) : texture->gpu_format;
 			}
 		}
 		return p_entry.c;
@@ -2148,7 +2334,15 @@ void RenderingDeviceDriverWebGPU::bind_groups(CommandBufferID p_cmd_buffer) {
 		if (set && shadows.load()) {
 			for (const BoundUniform &u : set->uniforms) {
 				if (u.type != UNIFORM_TYPE_IMAGE) continue;
-				for (uint32_t i = 0; i < u.ids.size(); i++) written(p_cmd_buffer, (const TextureInfo *)u.ids[i].id);
+				for (uint32_t i = 0; i < u.ids.size(); i++) {
+					const TextureInfo *texture = (const TextureInfo *)u.ids[i].id;
+					TextureInfo *owner = texture->owner ? const_cast<TextureInfo *>(texture) : texture->original;
+					if (!owner || !owner->storage) {
+						written(p_cmd_buffer, texture);
+					} else if (!cb->stored.has(owner)) {
+						cb->stored.push_back(owner);
+					}
+				}
 			}
 		}
 		cb->bound.dirty[g] = false;
@@ -2302,7 +2496,26 @@ void RenderingDeviceDriverWebGPU::command_bind_compute_uniform_sets(CommandBuffe
 	bind_sets((CommandBufferInfo *)p_cmd_buffer.id, p_uniform_sets, p_first_set_index, p_set_count, p_dynamic_offsets);
 }
 
+// Before a dispatch that samples a texture shaders stored into since its storage shadow was drawn
+// back, the compute pass ends for the drawing.
+static bool samples_stored(const RenderingDeviceDriverWebGPU::CommandBufferInfo *p_cb) {
+	if (p_cb->stored.is_empty()) return false;
+	for (const RenderingDeviceDriverWebGPU::UniformSetInfo *set : p_cb->bound.sets) {
+		if (!set) continue;
+		for (const RDD::BoundUniform &u : set->uniforms) {
+			if (u.type != RDD::UNIFORM_TYPE_TEXTURE && u.type != RDD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE) continue;
+			for (const RDD::ID &id : u.ids) {
+				const RenderingDeviceDriverWebGPU::TextureInfo *texture = (const RenderingDeviceDriverWebGPU::TextureInfo *)id.id;
+				const RenderingDeviceDriverWebGPU::TextureInfo *owner = texture && !texture->owner ? texture->original : texture;
+				if (owner && p_cb->stored.has(const_cast<RenderingDeviceDriverWebGPU::TextureInfo *>(owner))) return true;
+			}
+		}
+	}
+	return false;
+}
+
 void RenderingDeviceDriverWebGPU::command_compute_dispatch(CommandBufferID p_cmd_buffer, uint32_t p_x_groups, uint32_t p_y_groups, uint32_t p_z_groups) {
+	if (samples_stored((CommandBufferInfo *)p_cmd_buffer.id)) end_passes(p_cmd_buffer);
 	compute_pass(p_cmd_buffer);
 	refill_shadows(p_cmd_buffer);
 	bind_groups(p_cmd_buffer);
@@ -2313,6 +2526,7 @@ void RenderingDeviceDriverWebGPU::command_compute_dispatch(CommandBufferID p_cmd
 }
 
 void RenderingDeviceDriverWebGPU::command_compute_dispatch_indirect(CommandBufferID p_cmd_buffer, BufferID p_indirect_buffer, uint64_t p_offset) {
+	if (samples_stored((CommandBufferInfo *)p_cmd_buffer.id)) end_passes(p_cmd_buffer);
 	compute_pass(p_cmd_buffer);
 	refill_shadows(p_cmd_buffer);
 	bind_groups(p_cmd_buffer);

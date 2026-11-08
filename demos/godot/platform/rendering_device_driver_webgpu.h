@@ -45,6 +45,11 @@ public:
 		LocalVector<uint64_t> groups; // per mip: its source and destination views
 		LocalVector<uint64_t> views;
 		LocalVector<Vector3i> dispatches; // per mip
+		// A storage shadow's way back into its texture (flush_stored): per mip and layer, a group of
+		// a view of it, drawn by back_pipeline into the texture's view of that mip and layer.
+		uint64_t back_pipeline = 0;
+		LocalVector<uint64_t> back_groups;
+		LocalVector<Vector2i> back_subresources; // mip, layer
 	};
 	struct TextureInfo {
 		uint64_t texture = 0; // shared by the views of one texture
@@ -61,6 +66,12 @@ public:
 		LocalVector<TextureInfo *> shadowed; // the one texture_create made: its views with shadows
 		uint32_t dimension = 2; // the view's VIEW_DIMENSION
 		Shadow *shadow = nullptr;
+		// A texture of a format the device stores in only with texture-formats-tier1 (Firefox), which
+		// shaders store into through a shadow of a wider format (make_storage_shadow): the texture's,
+		// the views' of it, and whether texture and shadow hold the same.
+		Shadow *storage = nullptr;
+		uint64_t storage_view = 0;
+		bool storage_current = true;
 		HashMap<uint32_t, uint64_t> subresource_views; // by mip << 16 | layer, for clears and resolves
 		uint64_t depth_view = 0; // a depth-stencil texture's depth aspect, which shaders sample
 	};
@@ -167,6 +178,7 @@ public:
 		LocalVector<Upload> uploads; // CPU buffer ranges its copies read
 		bool surface = false; // it draws on the surface
 		LocalVector<TextureInfo *> stale; // textures written since their views' shadows were refilled
+		LocalVector<TextureInfo *> stored; // textures whose storage shadows shaders stored into since
 		uint32_t placeholder_at = UINT32_MAX; // a view pass without attachments awaiting its depth (place_depth)
 		const StorageVariant *variant = nullptr; // the bound compute pipeline's, if any
 	};
@@ -218,7 +230,11 @@ private:
 	void end_passes(CommandBufferID p_cmd_buffer);
 	void compute_pass(CommandBufferID p_cmd_buffer);
 	TextureID make_view(const TextureInfo *p_original, const TextureView &p_view, uint32_t p_dimension, uint32_t p_layer, uint32_t p_layers, uint32_t p_mip, uint32_t p_mips, bool p_owns);
-	void make_shadow(TextureInfo *p_view, uint32_t p_swizzle);
+	Shadow *make_shadow(TextureInfo *p_view, uint32_t p_swizzle, uint32_t p_format = 0);
+	void make_storage_shadow(TextureInfo *p_texture);
+	uint64_t storage_view(TextureInfo *p_texture);
+	void flush_stored(CommandBufferID p_cmd_buffer);
+	HashMap<uint32_t, uint64_t> back_pipelines; // by format
 	void written(CommandBufferID p_cmd_buffer, const TextureInfo *p_texture);
 	void refill_shadows(CommandBufferID p_cmd_buffer);
 	LocalVector<TextureInfo *> unfilled; // textures whose views have shadows no refill has filled
