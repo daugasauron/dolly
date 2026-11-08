@@ -12,6 +12,9 @@ fi
 if has_image dodge-the-creeps; then
   copy_static "$(bash scripts/fetch-pinned-archive.sh godot_dodge)" godot/2d_dodge_the_creeps.zip
 fi
+if has_image truck-town; then
+  copy_static "$(bash scripts/fetch-pinned-archive.sh godot_truck)" godot/3d_truck_town.zip
+fi
 # The part of Dawn's tree Tint's CMake build reads, with SPIRV-Tools, SPIRV-Headers and Abseil
 # where Dawn's checkout keeps them, and Dolly's translator over them (spirv-wgsl).
 if has_image spirv-wgsl; then

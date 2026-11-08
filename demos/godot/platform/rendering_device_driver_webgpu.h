@@ -80,6 +80,7 @@ public:
 		LocalVector<uint32_t> overrides[2];
 		uint64_t pipeline_layout = 0;
 		LocalVector<uint64_t> group_layouts; // by group, at least group 0
+		String wgsl; // a compute shader's with storage textures, for its pipelines' variants (StorageVariant)
 		LocalVector<LocalVector<GroupEntry>> layouts;
 		LocalVector<LocalVector<SetUniform>> sets;
 		HashMap<uint32_t, ID> immutable_samplers; // by binding
@@ -97,12 +98,21 @@ public:
 		LocalVector<BufferInfo *> dynamic; // its dynamic buffers in Godot's binding order
 		HashMap<uint64_t, Group> groups; // by layout
 	};
+	// A compute pipeline for storage textures of formats other than its WGSL declares (stored
+	// in the bound view's format, as Vulkan's drivers do): its own module, layouts and pipeline.
+	struct StorageVariant {
+		uint64_t handle = 0, module = 0;
+		LocalVector<uint64_t> group_layouts;
+		LocalVector<LocalVector<GroupEntry>> layouts;
+	};
 	struct PipelineInfo {
 		uint64_t handle = 0;
 		bool compute = false;
 		uint32_t samples = 1;
 		ShaderInfo *shader = nullptr;
 		uint32_t stencil_reference = 0;
+		LocalVector<PipelineSpecializationConstant> constants; // a compute pipeline's, for its variants
+		HashMap<String, StorageVariant> variants; // by the bound formats of its storage textures
 	};
 	struct RenderPassInfo {
 		LocalVector<Attachment> attachments;
@@ -158,6 +168,7 @@ public:
 		bool surface = false; // it draws on the surface
 		LocalVector<TextureInfo *> stale; // textures written since their views' shadows were refilled
 		uint32_t placeholder_at = UINT32_MAX; // a view pass without attachments awaiting its depth (place_depth)
+		const StorageVariant *variant = nullptr; // the bound compute pipeline's, if any
 	};
 
 private:
@@ -199,7 +210,8 @@ private:
 	bool read_buffer(BufferInfo *p_buffer, uint64_t p_offset, uint64_t p_size, uint8_t *r_out);
 	void mark_dirty(BufferInfo *p_buffer, uint64_t p_begin, uint64_t p_end);
 	uint64_t group_layout(const LocalVector<GroupEntry> &p_entries);
-	const Group &group_for(UniformSetInfo *p_set, ShaderInfo *p_shader, uint32_t p_index);
+	const Group &group_for(UniformSetInfo *p_set, ShaderInfo *p_shader, uint32_t p_index, uint64_t p_layout, const LocalVector<GroupEntry> &p_entries);
+	const StorageVariant *storage_variant(CommandBufferID p_cmd_buffer);
 	uint64_t pipeline_layout(const LocalVector<uint64_t> &p_groups);
 	void bind_groups(CommandBufferID p_cmd_buffer);
 	void begin_subpass(CommandBufferID p_cmd_buffer, bool p_first);

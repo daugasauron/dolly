@@ -1,0 +1,61 @@
+DOLLY 7
+PACKAGE truck-town
+REQUIRES HOST runtime@0
+REQUIRES HOST audio@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST threads@0
+REQUIRES HOST gpu@0
+
+# Truck Town, the vehicle physics demo of Godot's demo projects: a minivan, a
+# semi-truck and a tow truck with its impound in a town at sunrise, day, sunset
+# or night, drawn by Godot's Forward+ renderer on gpu@0. Godot's editor imports
+# its assets and exports its pack here, and truck-town plays the pack with
+# godot, which installs with it. Its physics is Godot's own (Jolt's is not built).
+FROM /v0.1.5/Dollyfile-system fdf722558fc23bbce3ce51534f860b83e11ef157c6237cdf22f5f8da591c42ac
+INSTALL /v0.1.5/demos/godot/Dollyfile-godot 7e7a45ab3dc2f7b2f14ba7d7cf976e260a6f9579fdb3cf0d3c472ff0ac44a6ee
+USE /v0.1.5/demos/godot/Dollyfile-godot-editor 01e95013d0d359aa0529e260002eb0ca82fcd9aae8c79948ae17ab774d08ac43
+USE /v0.1.5/demos/tools/Dollyfile-unzip a582b683dfe4ddbc7b10128d8200f7e75f9ca3badc5459020146e60f81d07719
+
+REQUIRES TOOL cp
+REQUIRES TOOL godot-editor
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+REQUIRES TOOL unzip
+
+SOURCE /v0.1.5/dist/static/godot/3d_truck_town.zip 66f95937d190b3b551b3394d6d612c10c710a44f961f3ade058bf1fc545b374b /tmp/truck.zip
+SLOP CWD /tmp unzip -q /tmp/truck.zip
+# The editor exports a pack for a preset; the demo's own release sets none.
+FILE /tmp/truck_town/export_presets.cfg
+    [preset.0]
+    name="Dolly"
+    platform="Linux"
+    runnable=true
+    export_filter="all_resources"
+    [preset.0.options]
+    custom_template/release=""
+SLOP CWD /tmp/truck_town godot-editor --headless --import
+SLOP mkdir -p /usr/share/truck-town /usr/share/licenses/truck-town
+SLOP CWD /tmp/truck_town godot-editor --headless --export-pack Dolly /usr/share/truck-town/truck-town.pck
+SLOP CWD /tmp/truck_town cp LICENSE.md README.md /usr/share/licenses/truck-town
+SLOP cp /tmp/truck_town/town/tree/license.txt /usr/share/licenses/truck-town/tree-license.txt
+SLOP cp /tmp/truck_town/town/lamp/license.txt /usr/share/licenses/truck-town/lamp-license.txt
+SLOP cp /tmp/truck_town/car_select/icon_license.txt /usr/share/licenses/truck-town/icon-license.txt
+SLOP rm -rf /tmp/truck_town /tmp/truck.zip
+
+FILE /usr/bin/truck-town
+    #!/bin/slop
+    godot --main-pack /usr/share/truck-town/truck-town.pck "$@"
+EXPORTS TOOL truck-town
+FILE /usr/share/man/cat1/truck-town.1
+    truck-town [GODOT-OPTION...]
+    Plays Truck Town, Godot's vehicle physics demo, on the page: pick a vehicle
+    and a time of day; W or Up drives, S or Down brakes and reverses, A and D or
+    the arrows steer, C changes the camera, M the time of day, Escape goes back.
+    It draws through WebGPU (gpu@0). Its options are godot's.
+FILE /usr/share/truck-town/truck-town.pck
+FILE /usr/share/licenses/truck-town/LICENSE.md
+FILE /usr/share/licenses/truck-town/README.md
+FILE /usr/share/licenses/truck-town/tree-license.txt
+FILE /usr/share/licenses/truck-town/lamp-license.txt
+FILE /usr/share/licenses/truck-town/icon-license.txt

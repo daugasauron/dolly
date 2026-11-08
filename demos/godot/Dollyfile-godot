@@ -9,11 +9,12 @@ REQUIRES HOST gpu@0
 
 # Godot from its release, unchanged, built by SCons with Dolly's cc on a
 # platform of Dolly's own (platform/dolly, from demos/godot/platform): the
-# engine with GDScript, 2D physics, the fallback text server, Ogg Vorbis, MP3,
-# WebP and regular expressions, what an exported 2D game loads, without 3D,
-# and its Compatibility renderer on Mesa's OpenGL (EGL and softpipe, linked
-# in from mesa-build), with its sound on audio@0. It plays on the page or runs a
-# project with --headless.
+# engine with GDScript, 2D and 3D and Godot's own physics for both, the
+# fallback text server, Ogg Vorbis, MP3, WebP and regular expressions, what an
+# exported game loads; its Mobile and Forward+ renderers on gpu@0 where the
+# browser grants WebGPU, and its Compatibility renderer on Mesa's OpenGL (EGL
+# and softpipe, linked in from mesa-build) where it does not, with its sound on
+# audio@0. It plays on the page or runs a project with --headless.
 FROM /v0.1.5/demos/ghostty-gtk/Dollyfile-mesa-build c2560dd3b9782789bb0b58997815f5d6315e9ceb7529a67e13cbc2c00ba1a61b
 USE /v0.1.5/demos/tools/Dollyfile-scons 32e62646343a0caf64ad4087ce4bbf89d9c3bb35b6d8f4da24a797b033979da0
 USE /v0.1.5/Dollyfile-mandoc 83da22748d615feab08a0a774cb1f704c8d8f6cde9402b86d4b0dd8ea166e5bd
@@ -35,9 +36,9 @@ SOURCE /v0.1.5/dist/static/godot/source.tar.gz 9217377c0f3e04f95607dc1c165fa418a
 SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
 # Godot's modern renderers take only the drivers main.cpp names; glslang builds beside them.
 SLOP CWD /usr/src/godot patch -p1 -i platform/dolly/godot-dolly.patch
-SLOP CWD /usr/src/godot scons -j4 platform=dolly disable_3d=yes modules_enabled_by_default=no \
+SLOP CWD /usr/src/godot scons -j4 platform=dolly modules_enabled_by_default=no \
   module_gdscript_enabled=yes module_text_server_fb_enabled=yes module_freetype_enabled=yes \
-  module_godot_physics_2d_enabled=yes module_ogg_enabled=yes module_vorbis_enabled=yes \
+  module_godot_physics_2d_enabled=yes module_godot_physics_3d_enabled=yes module_ogg_enabled=yes module_vorbis_enabled=yes \
   module_minimp3_enabled=yes module_webp_enabled=yes module_regex_enabled=yes module_glslang_enabled=yes
 SLOP cp /usr/src/godot/bin/godot.dolly.template_release.wasm64 /usr/bin/godot
 SLOP mkdir -p /usr/share/licenses/godot

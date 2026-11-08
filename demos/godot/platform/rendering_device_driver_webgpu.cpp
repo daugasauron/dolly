@@ -105,7 +105,9 @@ static uint32_t gpu_texture_format(RDD::DataFormat p_format) {
 		case RDD::DATA_FORMAT_R8_UNORM: return 3;
 		case RDD::DATA_FORMAT_R8G8_UNORM: return 4;
 		case RDD::DATA_FORMAT_D32_SFLOAT: return 6;
-		case RDD::DATA_FORMAT_BC1_RGBA_UNORM_BLOCK: return 7;
+		case RDD::DATA_FORMAT_BC1_RGBA_UNORM_BLOCK:
+		case RDD::DATA_FORMAT_BC1_RGB_UNORM_BLOCK: // its alpha is one in every view (make_view)
+			return 7;
 		case RDD::DATA_FORMAT_BC2_UNORM_BLOCK: return 8;
 		case RDD::DATA_FORMAT_BC3_UNORM_BLOCK: return 9;
 		case RDD::DATA_FORMAT_R8_SNORM: return 10;
@@ -144,7 +146,9 @@ static uint32_t gpu_texture_format(RDD::DataFormat p_format) {
 		case RDD::DATA_FORMAT_S8_UINT: return 43;
 		case RDD::DATA_FORMAT_D16_UNORM: return 44;
 		case RDD::DATA_FORMAT_D32_SFLOAT_S8_UINT: return 45;
-		case RDD::DATA_FORMAT_BC1_RGBA_SRGB_BLOCK: return 46;
+		case RDD::DATA_FORMAT_BC1_RGBA_SRGB_BLOCK:
+		case RDD::DATA_FORMAT_BC1_RGB_SRGB_BLOCK:
+			return 46;
 		case RDD::DATA_FORMAT_BC2_SRGB_BLOCK: return 47;
 		case RDD::DATA_FORMAT_BC3_SRGB_BLOCK: return 48;
 		case RDD::DATA_FORMAT_BC4_UNORM_BLOCK: return 49;
@@ -695,6 +699,12 @@ RDD::TextureID RenderingDeviceDriverWebGPU::make_view(const TextureInfo *p_origi
 	view->mips = p_mips ? p_mips : p_original->mips - p_mip;
 	view->layers = p_layers ? p_layers : p_original->layers - p_layer;
 	uint32_t swizzle_bytes = swizzle(p_view);
+	if (view->format == DATA_FORMAT_BC1_RGB_UNORM_BLOCK || view->format == DATA_FORMAT_BC1_RGB_SRGB_BLOCK) {
+		// BC1's RGB formats decode alpha as one, where WebGPU's BC1 has the punch-through texels' zero.
+		for (uint32_t c = 0; c < 4; c++) {
+			if (((swizzle_bytes >> (8 * c)) & 255) == 3) swizzle_bytes = (swizzle_bytes & ~(255u << (8 * c))) | (5u << (8 * c));
+		}
+	}
 	if (swizzle_bytes == default_swizzle(format)) swizzle_bytes = 0x03020100;
 	const bool emulated = swizzle_bytes != 0x03020100 && !(features & F_SWIZZLE);
 	Record r(DOLLY_GPU_CREATE_VIEW, 56);
@@ -1284,6 +1294,9 @@ RDD::ShaderID RenderingDeviceDriverWebGPU::shader_create_from_container(const Re
 		memcpy(r.p() + 24, text.ptr(), text.size());
 		const uint32_t slot = code.shader_stage == SHADER_STAGE_FRAGMENT ? 1 : 0;
 		shader->modules[slot] = CREATE(r);
+		for (const RenderingShaderContainerWebGPU::LayoutEntry &e : container->stages[i].entries) {
+			if (shader->compute && e.type == 8) shader->wgsl = String::utf8((const char *)text.ptr(), text.size());
+		}
 		shader->overrides[slot] = container->stages[i].overrides;
 		const uint32_t visibility = code.shader_stage == SHADER_STAGE_VERTEX ? 1 : code.shader_stage == SHADER_STAGE_FRAGMENT ? 2 : 4;
 		for (const RenderingShaderContainerWebGPU::LayoutEntry &e : container->stages[i].entries) {
@@ -1392,15 +1405,15 @@ uint32_t RenderingDeviceDriverWebGPU::uniform_sets_get_dynamic_offsets(VectorVie
 }
 
 // The bind group of p_set (or of no set) for the shader's group p_index, made on first use.
-const RenderingDeviceDriverWebGPU::Group &RenderingDeviceDriverWebGPU::group_for(UniformSetInfo *p_set, ShaderInfo *p_shader, uint32_t p_index) {
-	const uint64_t layout = p_shader->group_layouts[p_index];
+const RenderingDeviceDriverWebGPU::Group &RenderingDeviceDriverWebGPU::group_for(UniformSetInfo *p_set, ShaderInfo *p_shader, uint32_t p_index, uint64_t p_layout, const LocalVector<GroupEntry> &p_entries) {
+	const uint64_t layout = p_layout;
 	{
 		MutexLock lock(mutex);
 		const Group *found = p_set ? p_set->groups.getptr(layout) : setless_groups.getptr(layout);
 		if (found) return *found;
 	}
 	static const Group none;
-	const LocalVector<GroupEntry> &entries = p_shader->layouts[p_index];
+	const LocalVector<GroupEntry> &entries = p_entries;
 	Group group;
 	Record r(DOLLY_GPU_CREATE_BIND_GROUP, 32 + 32 * entries.size());
 	put64(r.p(), 16, layout);
@@ -1629,11 +1642,18 @@ RDD::PipelineID RenderingDeviceDriverWebGPU::compute_pipeline_create(ShaderID p_
 	pipeline->compute = true;
 	pipeline->shader = shader;
 	pipeline->handle = CREATE(r);
+	if (!shader->wgsl.is_empty()) {
+		for (uint32_t i = 0; i < p_specialization_constants.size(); i++) pipeline->constants.push_back(p_specialization_constants[i]);
+	}
 	return PipelineID(pipeline);
 }
 
 void RenderingDeviceDriverWebGPU::pipeline_free(PipelineID p_pipeline) {
 	PipelineInfo *pipeline = (PipelineInfo *)p_pipeline.id;
+	for (const KeyValue<String, StorageVariant> &kv : pipeline->variants) {
+		release(kv.value.handle);
+		release(kv.value.module);
+	}
 	release(pipeline->handle);
 	memdelete(pipeline);
 }
@@ -1658,6 +1678,7 @@ bool RenderingDeviceDriverWebGPU::command_buffer_begin(CommandBufferID p_cmd_buf
 	cb->uploads.clear();
 	cb->stale.clear();
 	cb->placeholder_at = UINT32_MAX;
+	cb->variant = nullptr;
 	return true;
 }
 
@@ -2005,22 +2026,112 @@ void RenderingDeviceDriverWebGPU::command_bind_render_uniform_sets(CommandBuffer
 
 // Before a draw or dispatch: the pipeline, then each of its shader's groups whose set, dynamic
 // copies or push constants changed.
+// WGSL's name of a storage format, and whether its texels are float (0), uint (1) or sint (2).
+static const char *storage_format_name(uint32_t p_gpu) {
+	static const char *names[] = { nullptr, "rgba8unorm", nullptr, "r8unorm", "rg8unorm", nullptr, nullptr, nullptr, nullptr, nullptr,
+		"r8snorm", "r8uint", "r8sint", "r16uint", "r16sint", "r16float", "rg8snorm", "rg8uint", "rg8sint", "r32uint", "r32sint",
+		"r32float", "rg16uint", "rg16sint", "rg16float", "rgba8snorm", "rgba8uint", "rgba8sint", "bgra8unorm", nullptr, nullptr,
+		"rgb10a2uint", "rgb10a2unorm", "rg11b10ufloat", "rg32uint", "rg32sint", "rg32float", "rgba16uint", "rgba16sint", "rgba16float",
+		"rgba32uint", "rgba32sint", "rgba32float" };
+	if (p_gpu < sizeof(names) / sizeof(names[0])) return names[p_gpu];
+	static const char *tier1[] = { "r16unorm", "r16snorm", "rg16unorm", "rg16snorm", "rgba16unorm", "rgba16snorm" };
+	return p_gpu >= 57 && p_gpu <= 62 ? tier1[p_gpu - 57] : nullptr;
+}
+
+static uint32_t texel_kind(uint32_t p_gpu) {
+	if (!is_integer(p_gpu)) return 0;
+	return (p_gpu == 12 || p_gpu == 14 || p_gpu == 18 || p_gpu == 20 || p_gpu == 23 || p_gpu == 27 || p_gpu == 35 || p_gpu == 38 || p_gpu == 41) ? 2 : 1;
+}
+
+// The bound compute pipeline's variant for the formats of the storage textures its sets bind,
+// where one is not the format its WGSL declares: Vulkan's drivers store in the view's format, and
+// WebGPU binds a view only to its own format, so the variant's WGSL and layouts name the bound
+// one (of the same texel type). nullptr where every format is the declared one.
+const RenderingDeviceDriverWebGPU::StorageVariant *RenderingDeviceDriverWebGPU::storage_variant(CommandBufferID p_cmd_buffer) {
+	CommandBufferInfo *cb = (CommandBufferInfo *)p_cmd_buffer.id;
+	PipelineInfo *pipeline = cb->pipeline;
+	ShaderInfo *shader = pipeline->shader;
+	auto bound_format = [&](uint32_t p_group, const GroupEntry &p_entry) {
+		const UniformSetInfo *set = cb->bound.sets[p_group];
+		uint32_t element = 0;
+		const SetUniform *u = set ? uniform_at(set->shader, p_group, p_entry.binding, element) : nullptr;
+		if (u) {
+			for (const BoundUniform &b : set->uniforms) {
+				if (b.binding == u->binding && element < b.ids.size()) return ((const TextureInfo *)b.ids[element].id)->gpu_format;
+			}
+		}
+		return p_entry.c;
+	};
+	String key;
+	bool differs = false;
+	for (uint32_t g = 0; g < shader->layouts.size(); g++) {
+		for (const GroupEntry &e : shader->layouts[g]) {
+			if (e.type != 8) continue;
+			const uint32_t format = bound_format(g, e);
+			differs |= format != e.c;
+			key += itos(format) + ",";
+		}
+	}
+	if (!differs) return nullptr;
+	if (const StorageVariant *found = pipeline->variants.getptr(key)) return found;
+	StorageVariant variant;
+	variant.layouts = shader->layouts;
+	String wgsl = shader->wgsl;
+	for (uint32_t g = 0; g < variant.layouts.size(); g++) {
+		for (GroupEntry &e : variant.layouts[g]) {
+			if (e.type != 8) continue;
+			const uint32_t format = bound_format(g, e);
+			if (format == e.c) continue;
+			ERR_FAIL_COND_V_MSG(!storage_format_name(format) || texel_kind(format) != texel_kind(e.c) || !storage_access(format, e.a, features), nullptr,
+					vformat("A storage texture of format %d is bound where the shader stores format %d, which WebGPU cannot convert.", format, e.c));
+			const int at = wgsl.find(vformat("@group(%du) @binding(%du) var ", g, e.binding));
+			ERR_FAIL_COND_V(at < 0, nullptr);
+			const int open = wgsl.find("<", at), comma = wgsl.find(",", open);
+			wgsl = wgsl.substr(0, open + 1) + storage_format_name(format) + wgsl.substr(comma);
+			e.c = format;
+		}
+	}
+	for (const LocalVector<GroupEntry> &entries : variant.layouts) variant.group_layouts.push_back(group_layout(entries));
+	const CharString text = wgsl.utf8();
+	Record s(DOLLY_GPU_CREATE_SHADER, 24 + text.length());
+	put32(s.p(), 16, text.length());
+	memcpy(s.p() + 24, text.get_data(), text.length());
+	variant.module = CREATE(s);
+	const VectorView<PipelineSpecializationConstant> constants(pipeline->constants.ptr(), pipeline->constants.size());
+	const uint32_t declared = constants_declared(shader, constants);
+	Record r(DOLLY_GPU_CREATE_COMPUTE_PIPELINE, 40 + 16 * declared + 4);
+	put64(r.p(), 16, pipeline_layout(variant.group_layouts));
+	put64(r.p(), 24, variant.module);
+	put32(r.p(), 32, declared);
+	put32(r.p(), 36, 4);
+	put_constants(r.p() + 40, shader, constants, false);
+	memcpy(r.p() + 40 + 16 * declared, "main", 4);
+	variant.handle = CREATE(r);
+	return &(pipeline->variants[key] = variant);
+}
+
 void RenderingDeviceDriverWebGPU::bind_groups(CommandBufferID p_cmd_buffer) {
 	CommandBufferInfo *cb = (CommandBufferInfo *)p_cmd_buffer.id;
 	ERR_FAIL_NULL(cb->pipeline);
+	if (cb->placeholder_at != UINT32_MAX) place_depth(p_cmd_buffer, cb->pipeline->samples);
+	ShaderInfo *shader = cb->pipeline->shader;
+	const StorageVariant *variant = shader->wgsl.is_empty() ? nullptr : storage_variant(p_cmd_buffer);
+	if (variant != cb->variant) {
+		cb->variant = variant;
+		cb->pipeline_dirty = true;
+		for (bool &d : cb->bound.dirty) d = true;
+	}
 	if (cb->pipeline_dirty) {
-		put64(command_record(p_cmd_buffer, DOLLY_GPU_SET_PIPELINE, 16), 8, cb->pipeline->handle);
+		put64(command_record(p_cmd_buffer, DOLLY_GPU_SET_PIPELINE, 16), 8, variant ? variant->handle : cb->pipeline->handle);
 		if (!cb->pipeline->compute) {
 			put32(command_record(p_cmd_buffer, DOLLY_GPU_SET_STENCIL_REFERENCE, 16), 8, cb->pipeline->stencil_reference);
 		}
 		cb->pipeline_dirty = false;
 	}
-	if (cb->placeholder_at != UINT32_MAX) place_depth(p_cmd_buffer, cb->pipeline->samples);
-	ShaderInfo *shader = cb->pipeline->shader;
 	for (uint32_t g = 0; g < shader->group_layouts.size(); g++) {
 		if (!cb->bound.dirty[g]) continue;
 		UniformSetInfo *set = g < shader->sets.size() && !shader->sets[g].is_empty() ? cb->bound.sets[g] : nullptr;
-		const Group &group = group_for(set, shader, g);
+		const Group &group = variant ? group_for(set, shader, g, variant->group_layouts[g], variant->layouts[g]) : group_for(set, shader, g, shader->group_layouts[g], shader->layouts[g]);
 		if (!group.handle) continue;
 		uint8_t *p = command_record(p_cmd_buffer, DOLLY_GPU_SET_BIND_GROUP, 24 + 4 * group.dynamic.size());
 		put64(p, 8, group.handle);
@@ -2214,24 +2325,40 @@ void RenderingDeviceDriverWebGPU::command_compute_dispatch_indirect(CommandBuffe
 /**** TRANSFER ****/
 /******************/
 
+// WebGPU copies and clears buffers in whole 4-byte words. A size that is not one is rounded up
+// where the range ends at the end of the buffer, whose allocation is padded to a word; elsewhere
+// the bytes after it are the buffer's own, and the command is refused.
+static uint64_t words(const RenderingDeviceDriverWebGPU::BufferInfo *p_buffer, uint64_t p_offset, uint64_t p_size) {
+	if (p_offset % 4 || (p_size % 4 && p_offset + p_size != p_buffer->size)) return 0;
+	return STEPIFY(p_size, uint64_t(4));
+}
+
 void RenderingDeviceDriverWebGPU::command_clear_buffer(CommandBufferID p_cmd_buffer, BufferID p_buffer, uint64_t p_offset, uint64_t p_size) {
 	end_passes(p_cmd_buffer);
+	const BufferInfo *buffer = (const BufferInfo *)p_buffer.id;
+	const uint64_t size = words(buffer, p_offset, p_size);
+	ERR_FAIL_COND_MSG(!size, vformat("WebGPU clears buffers in whole words: %d bytes at %d are not.", p_size, p_offset));
 	uint8_t *p = command_record(p_cmd_buffer, DOLLY_GPU_CLEAR_BUFFER, 32);
-	put64(p, 8, ((BufferInfo *)p_buffer.id)->handle);
+	put64(p, 8, buffer->handle);
 	put64(p, 16, p_offset);
-	put64(p, 24, p_size);
+	put64(p, 24, size);
 }
 
 void RenderingDeviceDriverWebGPU::command_copy_buffer(CommandBufferID p_cmd_buffer, BufferID p_src_buffer, BufferID p_dst_buffer, VectorView<BufferCopyRegion> p_regions) {
 	end_passes(p_cmd_buffer);
+	BufferInfo *src = (BufferInfo *)p_src_buffer.id, *dst = (BufferInfo *)p_dst_buffer.id;
 	for (uint32_t i = 0; i < p_regions.size(); i++) {
-		read_from(p_cmd_buffer, (BufferInfo *)p_src_buffer.id, p_regions[i].src_offset, p_regions[i].src_offset + p_regions[i].size);
+		const BufferCopyRegion &r = p_regions[i];
+		const uint64_t size = words(dst, r.dst_offset, r.size);
+		ERR_CONTINUE_MSG(!size || r.src_offset % 4 || r.src_offset + size > allocated(src),
+				vformat("WebGPU copies buffers in whole words: %d bytes from %d to %d are not.", r.size, r.src_offset, r.dst_offset));
+		read_from(p_cmd_buffer, src, r.src_offset, r.src_offset + size);
 		uint8_t *p = command_record(p_cmd_buffer, DOLLY_GPU_COPY_BUFFER, 48);
-		put64(p, 8, ((BufferInfo *)p_src_buffer.id)->handle);
-		put64(p, 16, ((BufferInfo *)p_dst_buffer.id)->handle);
-		put64(p, 24, p_regions[i].src_offset);
-		put64(p, 32, p_regions[i].dst_offset);
-		put64(p, 40, p_regions[i].size);
+		put64(p, 8, src->handle);
+		put64(p, 16, dst->handle);
+		put64(p, 24, r.src_offset);
+		put64(p, 32, r.dst_offset);
+		put64(p, 40, size);
 	}
 }
 
@@ -2252,8 +2379,11 @@ void RenderingDeviceDriverWebGPU::command_copy_texture(CommandBufferID p_cmd_buf
 		put32(p, 44, r.dst_offset.x);
 		put32(p, 48, r.dst_offset.y);
 		put32(p, 52, dst3d ? r.dst_offset.z : r.dst_subresources.base_layer);
-		put32(p, 56, r.size.x);
-		put32(p, 60, r.size.y);
+		// WebGPU copies whole blocks, which Godot's sizes of a compressed mip below 4 are not.
+		uint32_t block_w = 1, block_h = 1;
+		get_compressed_image_format_block_dimensions(src->format, block_w, block_h);
+		put32(p, 56, STEPIFY(uint32_t(r.size.x), block_w));
+		put32(p, 60, STEPIFY(uint32_t(r.size.y), block_h));
 		put32(p, 64, src3d ? r.size.z : r.src_subresources.layer_count);
 	}
 	written(p_cmd_buffer, dst);
