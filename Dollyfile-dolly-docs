@@ -9,7 +9,7 @@ SOURCE /v0.1.5/docs/process-model.md 589b72cb716c01dfbc8f7b93d09bb4777a00fc99edc
 SOURCE /v0.1.5/docs/browser-stack.md 06764e5acb8c5a13ec19ff69c318cbdcc0a91324269f88700e6c0ea8be4f21e1 /usr/share/doc/dolly/docs/browser-stack.md
 SOURCE /v0.1.5/docs/slop.md 8bc24dafb4b07151ec6f5189bea4168e2b30281cf5809f0bae6a00380ccff061 /usr/share/doc/dolly/docs/slop.md
 SOURCE /v0.1.5/docs/display.md ceda8be2d834ec219f9fdb7ac5214482408449425180ec6a02deced3b9c7af3f /usr/share/doc/dolly/docs/display.md
-SOURCE /v0.1.5/docs/gpu.md a0d9381904e48daf52395a25f27e7972ecca30ba7404c97db0c95eeb17b6318f /usr/share/doc/dolly/docs/gpu.md
+SOURCE /v0.1.5/docs/gpu.md fd438f14d42bb04b6fba7a25983cce25c14e05beeb82fca3e79c71601b0cbbe3 /usr/share/doc/dolly/docs/gpu.md
 SOURCE /v0.1.5/docs/audio.md c3a3ee22293a34f6284b07f89a48e0a69275957c6323a6c8e7d5016b85828a2b /usr/share/doc/dolly/docs/audio.md
 SOURCE /v0.1.5/docs/http.md 31aa23f69f815d2b63dd4b4c432dea3550b8b5c9a8e51d9694797a2e9f3ff6de /usr/share/doc/dolly/docs/http.md
 SOURCE /v0.1.5/docs/sessions.md 34e4a6eb65b954816e96d4bf42a327409c5f0f70308a95b035f3914afb4e8c75 /usr/share/doc/dolly/docs/sessions.md
@@ -36,7 +36,7 @@ SOURCE /v0.1.5/host/download/dolly-download-0.wat 6aacfaf743af4bc16ce3099e006836
 SOURCE /v0.1.5/host/html/dolly-html-0.wat 3d2227e25d3e2972973a8698511eb4114d4f664fe4a6425a673529feca0d50ba /usr/share/doc/dolly/host/html/dolly-html-0.wat
 SOURCE /v0.1.5/host/dso/dolly-dso-0.wat 24bf62ade97f2aea68b0ecafc3fed63369c3a6b7f3a4ba9916b18119e321ec43 /usr/share/doc/dolly/host/dso/dolly-dso-0.wat
 SOURCE /v0.1.5/host/stack/dolly-stack-0.wat 60e29cb49bedc7e2b891c2837343939cab882a4ca32d03672f9e362cfcd8c1b3 /usr/share/doc/dolly/host/stack/dolly-stack-0.wat
-SOURCE /v0.1.5/host/gpu/dolly-gpu-0.wat e110863a1b09dc2bf28d28c438895b395e9d593846ddc0a242e62341041e4fe0 /usr/share/doc/dolly/host/gpu/dolly-gpu-0.wat
+SOURCE /v0.1.5/host/gpu/dolly-gpu-0.wat f18fddcab55cad35c43b7e834ab7ad82da36fecb759ca2e0b947d089467bd498 /usr/share/doc/dolly/host/gpu/dolly-gpu-0.wat
 SOURCE /v0.1.5/host/http/dolly-http-0.wat c4f2179960b4acc4c77164f7cc9b6ae118045b479f1fc61ed09ea7985852a650 /usr/share/doc/dolly/host/http/dolly-http-0.wat
 SOURCE /v0.1.5/host/pty/dolly-pty-0.wat 15c26cf3f2b832b205988efecf343145dcbaa95af617f9c18d3be6e69e63610c /usr/share/doc/dolly/host/pty/dolly-pty-0.wat
 SOURCE /v0.1.5/host/pty/dolly-pty-supervisor-0.wat cce1edb921a3d4f93c3c2d94e51fc009bf659d85336349b880730df3294e2ca4 /usr/share/doc/dolly/host/pty/dolly-pty-supervisor-0.wat

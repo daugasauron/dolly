@@ -19,7 +19,7 @@ FROM /v0.1.5/demos/ghostty-gtk/Dollyfile-mesa-build c2560dd3b9782789bb0b58997815
 USE /v0.1.5/demos/tools/Dollyfile-scons 32e62646343a0caf64ad4087ce4bbf89d9c3bb35b6d8f4da24a797b033979da0
 USE /v0.1.5/Dollyfile-mandoc 83da22748d615feab08a0a774cb1f704c8d8f6cde9402b86d4b0dd8ea166e5bd
 USE /v0.1.5/Dollyfile-libdolly-gpu d860787df9ebc417e1a6464cd7d90a73ca9623dea685eb48b3d3e2da7508d1d5
-USE /v0.1.5/demos/godot/Dollyfile-spirv-wgsl 38f66f6b7a1486c001952db82af985e7b5854359110743a0dde95c5b84e81045
+USE /v0.1.5/demos/godot/Dollyfile-spirv-wgsl 8ff05368fff89386cc1da3e3ea2ab3da982789ca6075017b2f3ffe17e1e48e7a
 USE /v0.1.5/Dollyfile-libdolly-audio cf506533d24804e00d1211d4008d8eb71d16747dc8563843262545be6dbca30b
 
 REQUIRES TOOL cp
@@ -32,7 +32,7 @@ REQUIRES TOOL scons
 REQUIRES TOOL tar
 REQUIRES TOOL text-page
 
-SOURCE /v0.1.5/dist/static/godot/source.tar.gz d9c98a50f4c2dcac3e16b96effe17f1a4ceabda8e27ab34938a06cc222c2c01e /tmp/godot-source.tar.gz
+SOURCE /v0.1.5/dist/static/godot/source.tar.gz 4a08dfbfd54a969bfe3375fe6a6328a615024bd96354844320a642c66a1bf2ae /tmp/godot-source.tar.gz
 SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
 # Godot's modern renderers take only the drivers main.cpp names; glslang builds beside them;
 # Forward+ starts SDFGI only on a device with image atomics, which its voxelization takes.

@@ -23,7 +23,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
-SOURCE /v0.1.5/dist/static/godot/spirv-wgsl.tar.gz c5b33fe6c231a3a8d8b9b87f99892a25a32114c888fa7bc987426599e7c8585c /tmp/spirv-wgsl.tar.gz
+SOURCE /v0.1.5/dist/static/godot/spirv-wgsl.tar.gz c0092ca6d03e292cf562eb0ccaed14f3d080ced08fd862e534db9a8a5157a132 /tmp/spirv-wgsl.tar.gz
 SLOP gzip -dc /tmp/spirv-wgsl.tar.gz | tar -xf - -C /
 SLOP rm /tmp/spirv-wgsl.tar.gz
 # Dawn's utilities know POSIX only by the systems they name, and trap on WebAssembly through

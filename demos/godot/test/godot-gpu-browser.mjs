@@ -2,7 +2,7 @@
 // Chrome on Vulkan, or the installed Firefox (docs/gpu.md). A 2D scene on the Mobile renderer
 // (godot), a 3D scene with a sky, light and shadow on Mobile (godot-editor running it) and on
 // Forward+ (godot), and the editor itself each read their own frame back, as Firefox under Xvfb
-// shows no WebGPU canvas.
+// shows no WebGPU canvas; Truck Town's menu, its cars turning in 3D viewports, runs 600 frames.
 // Usage: node demos/godot/test/godot-gpu-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { chromium, firefox } from "playwright-core";
@@ -168,7 +168,7 @@ for (const name of browsers) {
     page.on("pageerror", error => errors.push(error.message));
     // WebGPU's validation errors reach the page's console after their batch is answered.
     page.on("console", message => { if (message.text().startsWith("Dolly GPU:")) errors.push(message.text()); });
-    const image = await composed(["gpu", "audio", "display", "input", "threads"], ["godot", "godot-editor"], { base: "system" });
+    const image = await composed(["gpu", "audio", "display", "input", "threads"], ["godot", "godot-editor", "truck-town"], { base: "system" });
     await image.setup(page);
     await page.goto(server.origin + image.path);
     await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null, { timeout: 300_000 });
@@ -189,7 +189,8 @@ for (const name of browsers) {
     await run("godot-editor --path /tmp/scene3d > /tmp/scene3d.out 2>&1");
     await run("godot --rendering-method forward_plus --path /tmp/scene3d > /tmp/forward.out 2>&1");
     await run("godot-editor -e --path /tmp/scene3d > /tmp/editor.out 2>&1");
-    await run("! grep -q 'refused a batch' /tmp/scene2d.out /tmp/scene3d.out /tmp/forward.out /tmp/editor.out");
+    await run("truck-town --quit-after 600 > /tmp/truck.out 2>&1");
+    await run("! grep -q 'refused a batch' /tmp/scene2d.out /tmp/scene3d.out /tmp/forward.out /tmp/editor.out /tmp/truck.out");
 
     const lines2d = await output("/tmp/scene2d.out | grep -E '^(ADAPTER|FPS|BACKGROUND|SPRITE|LABEL) '");
     assert.match(lines2d, /^ADAPTER WebGPU$/m);
