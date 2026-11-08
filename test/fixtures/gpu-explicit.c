@@ -1,7 +1,8 @@
 // gpu@0's explicit records on a real device: texture views, explicit layouts, a whole render
-// pipeline with two targets, depth and dynamic offsets, a render pass continued across two
-// batches, multisample resolve, an explicit compute pass with indirect dispatch into a storage
-// texture, copies, buffer clears, timestamps, the surface as a view-pass attachment, and refusals.
+// pipeline with two targets, depth and dynamic offsets, an absent attachment, a render pass
+// continued across two batches, multisample resolve, an explicit compute pass with indirect
+// dispatch into a storage texture, copies, buffer clears, timestamps, the surface as a view-pass
+// attachment, and refusals.
 #include <dolly/gpu.h>
 #include <assert.h>
 #include <errno.h>
@@ -167,6 +168,27 @@ int main(void) {
   dolly_gpu_submit(&gpu);batch();
   const unsigned char *rows=readback(out,256*16);
   texel(rows,8,8,255,128,0,255);texel(rows,0,15,255,128,0,255);
+  rows=readback(out2,256*16);texel(rows,8,8,0,127,255,255);
+
+  // No attachment at location 0: the pass's colour 0 and the pipeline's target 0 are absent, and
+  // the draw writes location 1 alone, into the second texture cleared to black.
+  unsigned sparse=id();p=dolly_gpu_record(&gpu,DOLLY_GPU_CREATE_RENDER_PIPELINE,size);
+  u64(p,8,sparse);u64(p,16,layout);u64(p,24,module);u64(p,32,module);
+  u32(p,124,1);u32(p,128,0xffffffff);
+  u32(p,136,2);u32(p,140,1);u32(p,144,1);u32(p,152,2);u32(p,156,2);
+  u32(p,160+36,1);u32(p,200,RGBA8);u32(p,204,15);
+  u32(p,240,8);u32(p,264,2);
+  memcpy((char*)p+272,vs,2);memcpy((char*)p+274,fs,2);
+  p=dolly_gpu_record(&gpu,DOLLY_GPU_BEGIN_VIEW_PASS,64+2*40);
+  u32(p,16,2);u32(p,60,1);u64(p,104,second_view);u32(p,120,1);f32(p,140,1);
+  u64(dolly_gpu_record(&gpu,DOLLY_GPU_SET_PIPELINE,16),8,sparse);
+  p=dolly_gpu_record(&gpu,DOLLY_GPU_SET_BIND_GROUP,32);u64(p,8,group);u32(p,20,1);u32(p,24,0);
+  p=dolly_gpu_record(&gpu,DOLLY_GPU_SET_VERTEX_BUFFER,40);u64(p,8,vertices);u64(p,32,sizeof quad);
+  p=dolly_gpu_record(&gpu,DOLLY_GPU_SET_INDEX_BUFFER,40);u64(p,8,index);u32(p,16,1);u64(p,32,12);
+  p=dolly_gpu_record(&gpu,DOLLY_GPU_DRAW_INDEXED,32);u32(p,8,6);u32(p,12,1);
+  dolly_gpu_record(&gpu,DOLLY_GPU_END_RENDER_PASS,8);
+  copy_texture_to_buffer(second,out2,16,16);
+  dolly_gpu_submit(&gpu);batch();
   rows=readback(out2,256*16);texel(rows,8,8,0,127,255,255);
 
   // Multisample resolve: a cleared four-sample texture resolved into a single-sample one.

@@ -29,8 +29,8 @@ flowchart LR
   before executing; WebGPU validates WGSL and pipelines. Accepted batches are not
   transactions: never replay one after an error.
 - Quotas: 8 scopes with one pending request each, 1 MiB packets of at most 1,024
-  records (clients check `CAPABILITIES` before exceeding 256), 128 KiB shaders,
-  4,096 objects per scope, 1 GiB per buffer, 4 GiB of buffers and textures in
+  records (clients check `CAPABILITIES` before exceeding 256), shaders as large
+  as a packet holds, 4,096 objects per scope, 1 GiB per buffer, 4 GiB of buffers and textures in
   total, 16 bindings in a compact record and 128 in an explicit layout, and 64
   queued submissions per scope, 3 presented frames not yet shown per surface
   scope, before the next batch waits. The page shows one frame per animation
@@ -96,4 +96,5 @@ To force an adapter for a test: Chrome takes
 `MESA_VK_DEVICE_SELECT='1002:13c0!'` (or the NVIDIA `10de:2f04!`, or `10005:0!`
 for the lavapipe software adapter), with PCI IDs from `lspci -nn`. Playwright
 drives the installed Firefox with `channel: "moz-firefox"`; its bundled Firefox
-build returns no adapter under Xvfb.
+build returns no adapter under Xvfb. A snap's Firefox has a /tmp of its own, so
+Playwright's profile must be elsewhere: set `TMPDIR` to a directory under `$HOME`.

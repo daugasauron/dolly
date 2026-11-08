@@ -264,8 +264,8 @@
   ;; attribute_count<=32,constant_count<=64,vertex_entry_bytes,
   ;; fragment_entry_bytes (each <=64). Then targets: u32 format (0 the surface's),
   ;; write_mask,blend,color_op,color_src,color_dst,alpha_op,alpha_src,
-  ;; alpha_dst,reserved; vertex buffers: u32 stride,step (0 vertex,1 instance),
-  ;; reserved[2]; attributes: u32 buffer_slot,location,format,offset;
+  ;; alpha_dst,absent (1: no target at this location, its other fields zero);
+  ;; vertex buffers: u32 stride,step (0 vertex,1 instance),reserved[2]; attributes: u32 buffer_slot,location,format,offset;
   ;; override constants: u32 id,stages (1 vertex,2 fragment: the modules that
   ;; declare it); f64 finite value; then the vertex and fragment entry names,
   ;; padded to 8.
@@ -286,9 +286,10 @@
   ;; BEGIN_VIEW_PASS[64+40*n]: u64 depth_view (0 none); u32 color_count<=8,
   ;; width,height (the surface's when a colour attachment is the surface, else
   ;; zero),depth_load,depth_store,depth_read_only; f32 depth_clear; u32
-  ;; stencil_load,stencil_store,stencil_read_only,stencil_clear,reserved. Then
-  ;; colours: u64 view (0 the surface),resolve_view (0 none); u32 load,store;
-  ;; f32 clear_rgba[4]. Read-only and stencil-less aspects ignore their ops.
+  ;; stencil_load,stencil_store,stencil_read_only,stencil_clear,absent (bit i:
+  ;; colour i is none, its entry zero). Then colours: u64 view (0 the surface),
+  ;; resolve_view (0 none); u32 load,store; f32 clear_rgba[4]. Read-only and
+  ;; stencil-less aspects ignore their ops.
   ;; Inside it: SET_PIPELINE, SET_BIND_GROUP, SET_VERTEX_BUFFER,
   ;; SET_INDEX_BUFFER, the four draws, VIEWPORT, SET_BLEND_CONSTANT,
   ;; SET_STENCIL_REFERENCE and END_RENDER_PASS.

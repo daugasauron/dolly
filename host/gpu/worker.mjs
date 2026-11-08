@@ -197,7 +197,7 @@ function header(bytes) {
   return { op: v.getUint32(4, true), scope, sequence, index: (scope - 1) % slots.length, bytes, v };
 }
 function text(bytes, start, count) {
-  ensure(count > 0 && count <= 128 * 1024 && start <= bytes.length - count, "Invalid GPU text span");
+  ensure(count > 0 && start <= bytes.length - count, "Invalid GPU text span");
   const value = decode.decode(bytes.subarray(start, start + count));
   ensure(!value.includes("\0"), "NUL in GPU text");
   return value;
@@ -315,7 +315,7 @@ function records(request) {
       text(b,40+16*constants,entry);
     } else if (opcode === A.DOLLY_GPU_BEGIN_VIEW_PASS) {
       const n=w.getUint32(16,true);
-      ensure(n<=8 && size===64+40*n && w.getUint32(60,true)===0, "View pass layout");
+      ensure(n<=8 && size===64+40*n && w.getUint32(60,true)>>>n===0, "View pass layout");
     } else if (opcode === A.DOLLY_GPU_SET_BIND_GROUP) {
       const n=w.getUint32(20,true);
       ensure(n<=16 && size===Math.ceil((24+4*n)/8)*8, "Bind group offsets");
@@ -794,7 +794,13 @@ async function batch(scope, commands, flags) {
             ensure(operation<blendOps.length && src<blendFactors.length && dst<blendFactors.length, "Blend state");
             return {operation:blendOps[operation],srcFactor:blendFactors[src],dstFactor:blendFactors[dst]};
           };
-          ensure(targetFormat<textureFormats.length && writeMask<=15 && blend<=1 && field(at+36)===0, "Render target");
+          const absent=field(at+36);
+          ensure(targetFormat<textureFormats.length && writeMask<=15 && blend<=1 && absent<=1, "Render target");
+          if(absent) {
+            ensure(!targetFormat && !writeMask && !blend, "Absent render target");
+            targets.push(null);
+            continue;
+          }
           targets.push({format:targetFormat?textureFormats[targetFormat]:format,writeMask,...(blend?{blend:{color:component(12),alpha:component(24)}}:{})});
         }
         const buffers=[];
@@ -873,12 +879,17 @@ async function batch(scope, commands, flags) {
         ensure(!r.mapped, "Resolving into a mapped buffer");
         getEncoder().resolveQuerySet(q.value,w.getUint32(16,true),w.getUint32(20,true),r.value,integer(w,32));
       } else if (op === A.DOLLY_GPU_BEGIN_VIEW_PASS) {
-        const field=at=>w.getUint32(at,true), count=field(16), width=field(20), height=field(24);
+        const field=at=>w.getUint32(at,true), count=field(16), width=field(20), height=field(24), absent=field(60);
         const colorAttachments=[];
         let size;
         for(let i=0;i<count;i++) {
           const at=64+i*40, view=integer(w,at), resolve=integer(w,at+8), load=field(at+16), store=field(at+20),
             clearValue=[24,28,32,36].map(o=>w.getFloat32(at+o,true));
+          if(absent>>>i&1) {
+            ensure(!view && !resolve && !load && !store && clearValue.every(v=>v===0), "Absent colour attachment");
+            colorAttachments.push(null);
+            continue;
+          }
           ensure(load<=1 && store<=1 && clearValue.every(Number.isFinite), "Colour attachment");
           let attachment;
           if(view) {
