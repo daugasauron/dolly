@@ -282,10 +282,10 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
   const heldKeys = new Map();
   const leased = () => (flags & A.DOLLY_INPUT_LEASED) !== 0;
   const relativePointerRequested = () => leased() && (flags & A.DOLLY_INPUT_POINTER_RELATIVE) !== 0;
-  // Pointer motion and the newest position go at once after a quiet frame;
-  // more within that frame waits for the next animation frame, coalesced.
-  // Motion goes ahead of any other record.
-  let movementX = 0, movementY = 0, position = null, motionScheduled = false;
+  // Pointer motion and the newest position go at once after a frame that sent
+  // none; more waits for the next animation frame, coalesced, so continuous
+  // motion is one sample a frame. Motion goes ahead of any other record.
+  let movementX = 0, movementY = 0, position = null, motionScheduled = false, motionQuiet = true;
   function flushMotion() {
     if (!movementX && !movementY && !position) return;
     send({ type: "input-motion", movementX, movementY, position, sequence: ++sent });
@@ -306,8 +306,15 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
   function scheduleMotion() {
     if (motionScheduled) return;
     motionScheduled = true;
-    flushMotion();
-    requestAnimationFrame(() => { motionScheduled = false; if (started) flushMotion(); });
+    if (motionQuiet) flushMotion();
+    requestAnimationFrame(motionFrame);
+  }
+  // A frame that sends motion watches the next one; one without makes it quiet.
+  function motionFrame() {
+    motionQuiet = !movementX && !movementY && !position;
+    if (started) flushMotion();
+    motionScheduled = started && !motionQuiet;
+    if (motionScheduled) requestAnimationFrame(motionFrame);
   }
   const client = {
     pushKey: event => tell({ type: "input-key", ...keyRecord(event) }),

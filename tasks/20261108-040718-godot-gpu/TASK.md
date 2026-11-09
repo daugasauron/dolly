@@ -283,6 +283,11 @@ repaint its window white for 50 to 80 ms, so the probe takes none).
   reader). Chrome: Godot sees a hover 1 to 2 ms after it, presents it at 4 to 7, the screen
   shows it at 25 to 31; a click at 26 to 30. Firefox: Godot 2 to 3 ms, present 8 to 9. What is
   left above the bare canvas is Godot's own frame, 3 to 6 ms from the hover to its present.
+- A drag (the 3D view's orbit) with a raw update every 2 ms: sending the first move after each
+  frame at once as well as the frame's sample made Godot draw ahead and wait on the provider's
+  three frames for 3.7 of 3 s in Chrome (2.0 s in Firefox), its input as old when shown (p50 16
+  to 17 ms). The page now sends at once only after a frame without motion: one sample a frame,
+  waits 0.09 s in Chrome and none in Firefox, input as old.
 - Firefox settles `onSubmittedWorkDone` 1 to 137 ms after a submission (p50 8, p90 83), but no
   editor action waited on it: frames rarely queue behind it.
 - Clicks that do work, on a scene of a box, a camera, a light and a label: their last frame
