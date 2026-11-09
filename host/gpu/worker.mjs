@@ -33,7 +33,7 @@ const vertexFormats = [null, "float32", "float32x2", "float32x3", "float32x4", "
   "uint32x4", "sint32", "sint32x2", "sint32x3", "sint32x4", "unorm10-10-10-2"];
 const vertexBytes = [0, 4, 8, 12, 16, 4, 4, 4, 4, 4, 8, 4, 8, 4, 8, 2, 2, 2, 2, 4, 8, 4, 8, 4, 8, 12, 16, 4, 8, 12, 16, 4];
 const maxBytes = 4 * 1024 ** 3, bufferCeiling = 1024 ** 3, maxObjects = 65536;
-// A surface shows one presented frame per page animation frame, as a display does, and a frame
+// A surface shows one presented frame per animation frame, as a display does, and a frame
 // retires once shown and finished by the GPU. Chrome's canvas also waits for its compositor;
 // Firefox's does not, so without this its programs draw unpaced.
 function present(scope, completed) {
@@ -42,7 +42,7 @@ function present(scope, completed) {
   scope.frames.push(frame);
   if (scope.shows.length === 1) void show(scope);
 }
-// One frame per page animation frame; a canvas no page shows has nothing to wait for.
+// One frame per animation frame of the runtime Worker; a canvas no page shows waits for none.
 async function show(scope) {
   while (scope.shows.length) {
     const wait = pageFrames && Atomics.waitAsync(pageFrames, 0, Atomics.load(pageFrames, 0));
@@ -407,8 +407,9 @@ async function batch(scope, commands, flags) {
   let {encoder, texture, computePass, explicitCompute = false, renderPass, viewPass = false, passWidth, passHeight,
     timer, queries = 0, renderPipeline, renderGroups, renderBuffers, renderIndex} = continued;
   let keepOpen = false;
-  // A batch's pipelines are created together and awaited before the batch first sets one, and at
-  // its end: Chrome compiles them in parallel so, one after another when each is awaited in turn.
+  // A batch's shaders and pipelines are created together and awaited before the batch first sets
+  // a pipeline, and at its end: Chrome compiles them in parallel so, one after another when each is
+  // awaited in turn.
   const compiling = [];
   const compiled = async () => {
     const pending = compiling.splice(0);
@@ -417,12 +418,12 @@ async function batch(scope, commands, flags) {
       const { index, op, id } = pending[i], error = result.reason;
       scope.objects.delete(id);
       throw Object.assign(new Error(`record ${index} (opcode ${op}): ${error.message}`),
-        { errno: error.reason === "validation" ? E.EINVAL : E.EIO, record: true });
+        { errno: error.errno ?? (error.reason === "validation" ? E.EINVAL : E.EIO), record: true });
     }
   };
-  const compile = (index, op, id, kind, creation) => {
+  const compile = (index, op, id, kind, creation, value = null) => {
     creation.catch(() => {});
-    insert(scope, id, kind, null);
+    insert(scope, id, kind, value);
     const entry = scope.objects.get(id), promise = creation.then(value => { entry.value = value; });
     promise.catch(() => {});
     compiling.push({ index, op, id, promise });
@@ -460,11 +461,13 @@ async function batch(scope, commands, flags) {
         progress.queued++;
       } else if (op === A.DOLLY_GPU_CREATE_SHADER) {
         const shader = device.createShaderModule({ code: text(b, 24, w.getUint32(16, true)) });
-        const info = await shader.getCompilationInfo();
-        const errors = info.messages.filter(m => m.type === "error");
-        ensure(!errors.length, errors.map(m => `${m.lineNum}:${m.linePos} ${m.message}`).join("\n").slice(0,2048));
-        insert(scope, id, "shader", shader);
+        compile(index, op, id, "shader", shader.getCompilationInfo().then(info => {
+          const errors = info.messages.filter(m => m.type === "error");
+          ensure(!errors.length, errors.map(m => `${m.lineNum}:${m.linePos} ${m.message}`).join("\n").slice(0,2048));
+          return shader;
+        }), shader);
       } else if (op === A.DOLLY_GPU_RENDER_PIPELINE || op === A.DOLLY_GPU_VERTEX_PIPELINE) {
+        await compiled();
         const shader = object(scope, integer(w, 16), "shader").value;
         const topology = w.getUint32(24, true), blend = w.getUint32(28, true);
         ensure(topology <= 1 && blend <= 2, "Unsupported render state");
@@ -486,6 +489,7 @@ async function batch(scope, commands, flags) {
           primitive: { topology: topology ? "triangle-strip" : "triangle-list" } });
         insert(scope, id, "render", pipeline);
       } else if (op === A.DOLLY_GPU_COMPUTE_PIPELINE || op === A.DOLLY_GPU_COMPUTE_CONSTANTS) {
+        await compiled();
         const constants=Object.create(null);
         if(op===A.DOLLY_GPU_COMPUTE_CONSTANTS) {
           let at=(32+w.getUint32(24,true)+7)&~7;

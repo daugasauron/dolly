@@ -69,6 +69,8 @@ static const uint32_t PUSH_CONSTANT_BYTES = 128;
 static const uint32_t TWIN = 512;
 static const uint64_t PUSH_RING_FRAME_BYTES = 4 << 20;
 static const uint32_t UPLOAD_CHUNK = 512 << 10;
+// A persistent buffer's copy goes to the GPU in blocks of this size that changed.
+static const uint32_t CHANGE_BLOCK = 4 << 10;
 
 static void put16(uint8_t *p, uint32_t at, uint16_t v) { memcpy(p + at, &v, 2); }
 static uint64_t allocated(const RenderingDeviceDriverWebGPU::BufferInfo *p_buffer) {
@@ -479,6 +481,9 @@ RDD::BufferID RenderingDeviceDriverWebGPU::buffer_create(uint64_t p_size, BitFie
 		buffer->copies = frame_count;
 		size = buffer->stride * frame_count;
 		buffer->copy = (uint8_t *)memalloc(size);
+		// WebGPU's buffers start zeroed.
+		buffer->sent = (uint8_t *)memalloc(size);
+		memset(buffer->sent, 0, size);
 		usage |= GPU_COPY_DST;
 	} else if (p_allocation_type == MEMORY_ALLOCATION_TYPE_CPU) {
 		// Godot's staging and readback buffers: a copy here, uploaded when written, or a buffer
@@ -510,6 +515,7 @@ void RenderingDeviceDriverWebGPU::buffer_free(BufferID p_buffer) {
 	release(buffer->handle);
 	total_memory -= buffer->stride ? buffer->stride * buffer->copies : buffer->size;
 	if (buffer->copy) memfree(buffer->copy);
+	if (buffer->sent) memfree(buffer->sent);
 	memdelete(buffer);
 }
 
@@ -2969,8 +2975,24 @@ Error RenderingDeviceDriverWebGPU::command_queue_execute_and_present(CommandQueu
 			memcpy(p + 32, p_buffer->copy + at, n);
 		}
 	};
+	// Godot writes a persistent buffer's copy whole each frame (its canvas instances: 2 MiB) and
+	// changes little of it: only the blocks that differ from what the GPU holds are sent.
 	for (BufferInfo *buffer : dirty) {
-		upload(buffer, buffer->dirty_begin, buffer->dirty_end);
+		for (uint64_t at = buffer->dirty_begin; at < buffer->dirty_end;) {
+			uint64_t end = at;
+			while (end < buffer->dirty_end) {
+				const uint64_t n = MIN(uint64_t(CHANGE_BLOCK), buffer->dirty_end - end);
+				if (memcmp(buffer->copy + end, buffer->sent + end, n) == 0) break;
+				end += n;
+			}
+			if (end == at) {
+				at += MIN(uint64_t(CHANGE_BLOCK), buffer->dirty_end - at);
+				continue;
+			}
+			upload(buffer, at, end);
+			memcpy(buffer->sent + at, buffer->copy + at, end - at);
+			at = end;
+		}
 		buffer->dirty_begin = UINT64_MAX;
 		buffer->dirty_end = 0;
 	}

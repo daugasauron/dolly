@@ -484,27 +484,9 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
     pushPointer(event, A.DOLLY_POINTER_ACTION_PRESS);
     event.preventDefault();
   });
-  // A mouse's moves come as pointerrawupdate where the browser has it, as they
-  // happen: pointermove waits for the next animation frame.
-  const rawMoves = "onpointerrawupdate" in window;
-  function pointerMoved(event) {
+  canvas.addEventListener("pointermove", (event) => {
     if (document.pointerLockElement === canvas) {
       if (relativePointerRequested()) client.pushPointerMotion(event);
-      return;
-    }
-    if (!started) return;
-    // A release the page did not see, outside the window, comes before the move.
-    if (selecting && !leased() && (event.buttons & 1) === 0) {
-      selecting = false;
-      pushPointer(event, A.DOLLY_POINTER_ACTION_RELEASE);
-    }
-    pushPointer(event, A.DOLLY_POINTER_ACTION_DRAG);
-  }
-  if (rawMoves) canvas.addEventListener("pointerrawupdate", event => { if (event.pointerType === "mouse") pointerMoved(event); });
-  canvas.addEventListener("pointermove", (event) => {
-    const raw = rawMoves && event.pointerType === "mouse";
-    if (document.pointerLockElement === canvas) {
-      if (!raw) pointerMoved(event);
       event.preventDefault();
       return;
     }
@@ -524,7 +506,13 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
       event.preventDefault();
       return;
     }
-    if (!raw) pointerMoved(event);
+    if (!started) return;
+    // A release the page did not see, outside the window, comes before the move.
+    if (selecting && !leased() && (event.buttons & 1) === 0) {
+      selecting = false;
+      pushPointer(event, A.DOLLY_POINTER_ACTION_RELEASE);
+    }
+    pushPointer(event, A.DOLLY_POINTER_ACTION_DRAG);
     if (selecting || leased()) event.preventDefault();
   });
   canvas.addEventListener("pointerup", (event) => {

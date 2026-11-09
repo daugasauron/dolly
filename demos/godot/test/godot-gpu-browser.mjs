@@ -201,7 +201,7 @@ for (const name of browsers) {
     await run("godot-editor --path /tmp/scene3d > /tmp/scene3d.out 2>&1");
     await run("godot --rendering-method forward_plus --path /tmp/scene3d > /tmp/forward.out 2>&1");
     await run("godot --path /tmp/effects > /tmp/effects.out 2>&1");
-    await run("godot-editor -e --path /tmp/scene3d > /tmp/editor.out 2>&1");
+    await run("godot-editor -e --windowed --resolution 1152x648 --path /tmp/scene3d > /tmp/editor.out 2>&1");
     await run("truck-town --quit-after 600 > /tmp/truck.out 2>&1");
     await run("! grep -q 'refused a batch' /tmp/scene2d.out /tmp/scene3d.out /tmp/forward.out /tmp/effects.out /tmp/editor.out /tmp/truck.out");
 

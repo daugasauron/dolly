@@ -51,8 +51,7 @@ flowchart LR
 
 - The ring in Wasm memory is the only queue of input; neither the page nor
   the Worker holds a record back. Pointer motion is a sample: relative deltas
-  add up and the newest position wins. The page takes a mouse's motion from
-  `pointerrawupdate` where the browser has it and sends the first after a
+  add up and the newest position wins. The page sends the first move after a
   frame without motion at once, then one sample at each animation frame while
   it moves. The Worker writes it while half the ring is free, so it never
   takes a key's slot and a program that does not read delays it without

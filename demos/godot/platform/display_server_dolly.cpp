@@ -46,7 +46,7 @@ Vector<String> DisplayServerDolly::get_rendering_drivers_func() {
 }
 
 DisplayServer *DisplayServerDolly::create_func(const String &p_rendering_driver, DisplayServerEnums::WindowMode p_mode, DisplayServerEnums::VSyncMode p_vsync_mode, uint32_t p_flags, const Point2i *p_position, const Size2i &p_resolution, int p_screen, DisplayServerEnums::Context p_context, int64_t p_parent_window, Error &r_error) {
-	DisplayServerDolly *server = memnew(DisplayServerDolly(p_rendering_driver, p_resolution, p_vsync_mode, r_error));
+	DisplayServerDolly *server = memnew(DisplayServerDolly(p_rendering_driver, p_mode, p_resolution, p_vsync_mode, r_error));
 	if (r_error != OK) {
 		memdelete(server);
 		return nullptr;
@@ -332,16 +332,30 @@ void DisplayServerDolly::cursor_set_shape(DisplayServerEnums::CursorShape p_shap
 	dolly_display_set_cursor(display, cursors[p_shape]);
 }
 
-DisplayServerDolly::DisplayServerDolly(const String &p_rendering_driver, const Size2i &p_size, DisplayServerEnums::VSyncMode p_vsync_mode, Error &r_error) {
+static bool fills_screen(DisplayServerEnums::WindowMode p_mode) {
+	return p_mode == DisplayServerEnums::WINDOW_MODE_MAXIMIZED || p_mode == DisplayServerEnums::WINDOW_MODE_FULLSCREEN ||
+			p_mode == DisplayServerEnums::WINDOW_MODE_EXCLUSIVE_FULLSCREEN;
+}
+
+void DisplayServerDolly::window_set_mode(DisplayServerEnums::WindowMode p_mode, DisplayServerEnums::WindowID p_window) {
+	mode = p_mode;
+	if (fills_screen(p_mode)) {
+		window_set_size(screen, p_window);
+	}
+}
+
+DisplayServerDolly::DisplayServerDolly(const String &p_rendering_driver, DisplayServerEnums::WindowMode p_mode, const Size2i &p_size, DisplayServerEnums::VSyncMode p_vsync_mode, Error &r_error) {
 	r_error = ERR_UNAVAILABLE;
 	native_menu = memnew(NativeMenu);
 	Input::get_singleton()->set_event_dispatch_function(dispatch_input_event);
 	vsync_mode = p_vsync_mode;
-	size = p_size;
 	dolly_display_surface surface;
 	int error = dolly_display_acquire(&surface);
 	ERR_FAIL_COND_MSG(error != 0, vformat("Dolly's display: %s.", strerror(-error)));
 	display = surface.generation;
+	screen = Size2i(surface.width, surface.height);
+	mode = p_mode;
+	size = fills_screen(p_mode) ? screen : p_size;
 	error = dolly_input_acquire(&input);
 	ERR_FAIL_COND_MSG(error != 0, vformat("Dolly's input: %s.", strerror(-error)));
 	error = dolly_display_set_size(display, size.width, size.height, &surface);

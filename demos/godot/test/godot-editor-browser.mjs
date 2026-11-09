@@ -62,10 +62,10 @@ for (const browser of browsers) {
     assert.equal(await game.done, 130);
     await page.waitForFunction(() => !__dolly.transport.graphicsActive());
 
-    // The editor's own window: the project opens in the 3D view, whose ground
-    // is brown; a click on the 2D tab, at the frame's (443, 16), shows the 2D
-    // view's grey.
-    const editor = start("cd /tmp/editor-check && godot-editor --editor --path . > /dev/null 2>&1");
+    // The editor's own window, windowed at 1152 by 648 (maximized, it fills the
+    // page): the project opens in the 3D view, whose ground is brown; a click on
+    // the 2D tab, at the frame's (443, 16), shows the 2D view's grey.
+    const editor = start("cd /tmp/editor-check && godot-editor --editor --windowed --resolution 1152x648 --path . > /dev/null 2>&1");
     await page.waitForFunction(() => __dolly.transport.graphicsActive());
     const ground = () => {
       const canvas = document.querySelector("canvas");

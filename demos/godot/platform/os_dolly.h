@@ -8,6 +8,7 @@
 class OS_Dolly : public OS_Unix {
 	MainLoop *main_loop = nullptr;
 	AudioDriverDolly audio_driver;
+	uint64_t frame_target = 0; // when add_frame_delay's sleep ends
 
 	String xdg_directory(const String &p_variable, const String &p_under_home) const;
 

@@ -35,6 +35,7 @@ public:
 		uint32_t frame = 0; // a persistent buffer's current copy
 		bool readback = false; // a CPU buffer Godot maps to read what the GPU wrote
 		uint8_t *copy = nullptr; // a CPU or persistent buffer's bytes in this process
+		uint8_t *sent = nullptr; // a persistent buffer's bytes as the GPU holds them
 		uint64_t dirty_begin = UINT64_MAX, dirty_end = 0;
 	};
 	// A view's own texture for what WebGPU cannot sample from the view itself: a swizzle where the

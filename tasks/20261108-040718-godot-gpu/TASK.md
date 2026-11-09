@@ -315,9 +315,39 @@ repaint its window white for 50 to 80 ms, so the probe takes none).
   max 34 ms; the preview's map 5.5 ms. Whether Firefox shows a WebGPU canvas through a readback
   that waits the same way is not known here: under Xvfb it shows none.
 - Wheel: Chrome holds a wheel event a frame while the page animates, 48 to 54 ms against 31 to 35
-  on a bare canvas. The page animates while a program holds the display because display@0 counts
-  its animation frames then; only the kernel knows when a program waits for one, so counting on
-  demand needs a mailbox word from the kernel, and a kernel change rebuilds every image.
+  on a bare canvas.
+
+## The audit (2026-11-09, evening)
+
+The owner, after the changes above: "The current demo still feels incredibly sluggish in both
+firefox and chrome. I feel like it should be way closer to native." An audit by Fable
+(`work/audit-snappiness-2026-11-09/REPORT.md`) reproduced the numbers above on Xvfb and found what
+they miss. Acted on:
+
+- The page animated because of `host/gpu/gpu.mjs`'s frame counter, not display@0, whose presenter
+  runs in the runtime Worker (corrects the wheel note above). The counter is now the runtime
+  Worker's: a loop of animation frames in a Worker holds no page input (a bare canvas, hover 18
+  to 23 ms, wheel 30 to 37, against 31 to 35 and 49 to 54 with the page's loop). Chrome refuses
+  `requestAnimationFrame` in a nested Worker ("not supported in this Worker"), so the GPU Worker
+  cannot count for itself. With the page idle, `pointermove` comes 1 ms after the move in Chrome
+  as `pointerrawupdate` did, so the page takes them from `pointermove` again; Chrome's wheel still
+  comes 13 to 17 ms late, as on a bare canvas.
+- 2.1 MB went to the GPU every editor frame: Godot's canvas instances, a persistent buffer of 2 MiB
+  a copy that the driver sent whole after each `buffer_persistent_map_advance`. The driver now
+  keeps what the GPU holds and sends the 4 KiB blocks that changed: 70 to 100 KB a frame.
+- A batch's shaders were awaited one by one (`getCompilationInfo`); they are now awaited with its
+  pipelines.
+- `OS_Dolly::add_frame_delay` slept the whole low-processor delay after each frame; it ends at
+  upstream's target again, waking on input.
+- The editor was a 1152 by 648 window at the 0.75 display scale Godot picks for so small a screen,
+  stretched into the page. The screen is now the page's surface as the display lease starts, and a
+  maximized or fullscreen window (the editor's default) fills it: 1600 by 1000 at scale 1 on the
+  probe's page. The editor's tests ask for a 1152 by 648 window.
+
+Measured after, windowed at 1152 by 648 (Chrome on Xvfb): hover on screen 23 to 26 ms, a click
+25 to 32; selecting a node settles in 45 to 132 ms (Firefox 59 to 134), as before: the Inspector's
+rebuild is Godot's own work (`tasks/20261109-131500-wasm-cpu-speed`). Not measured: the owner's
+screen, which is the AMD's HDMI output of an X screen on the NVIDIA (reverse PRIME, 75 Hz).
 
 ## Plan
 
