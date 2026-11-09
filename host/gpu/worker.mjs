@@ -50,6 +50,14 @@ async function show(scope) {
     scope.shows.shift()();
   }
 }
+// Firefox settles onSubmittedWorkDone and mapAsync when its queue next submits, or on a 100 ms
+// timer (bug 1870699): while a frame, a WAIT or a map is pending, empty submissions settle it.
+function settled(device, promise) {
+  let done = false;
+  promise.then(() => { done = true; }, () => { done = true; });
+  for (const ms of [2, 5, 10, 20, 40]) setTimeout(() => { if (!done) device.queue.submit([]); }, ms);
+  return promise;
+}
 // What a scope may have queued before its next batch waits: 64 submissions, and
 // for a surface three presented frames not yet retired (a frame may submit many
 // times). Firefox settles completions on a 100 ms timer (bug 1870699), and a
@@ -730,7 +738,7 @@ async function batch(scope, commands, flags) {
           measured.read.unmap();
         }).catch(()=>{}).finally(()=>{measured.busy=false;});
         timer=null;queries=0;
-        const completed=device.queue.onSubmittedWorkDone().then(()=>{
+        const completed=settled(device,device.queue.onSubmittedWorkDone()).then(()=>{
           progress.completed=Math.max(progress.completed,submittedWork);
         }).finally(()=>{
           scope.submissions.splice(scope.submissions.indexOf(completed),1);
@@ -993,7 +1001,7 @@ async function batch(scope, commands, flags) {
         ensure(!encoder,"Submit before mapping");
         const r=object(scope,id,"buffer"), offset=integer(w,16), size=integer(w,24);range(r,offset,size);
         ensure(!r.mapped && size<=16*1024*1024,"Mapping limit",E.E2BIG);
-        await r.value.mapAsync(GPUMapMode.READ,offset,size);r.mapped=r.value.getMappedRange(offset,size);
+        await settled(device,r.value.mapAsync(GPUMapMode.READ,offset,size));r.mapped=r.value.getMappedRange(offset,size);
       } else if (op === A.DOLLY_GPU_UNMAP) {
         const r=object(scope,id,"buffer");r.value.unmap();r.mapped=null;
       } else if (op === A.DOLLY_GPU_RELEASE) {
@@ -1063,7 +1071,7 @@ async function execute(request, scope, parsed) {
       if(request.op===A.DOLLY_GPU_BATCH)await batch(scope,parsed,request.v.getUint32(36,true));
       else if(request.op===A.DOLLY_GPU_WAIT) {
         const submitted=queueProgress.queued;
-        await Promise.all([device.queue.onSubmittedWorkDone(), ...scope.validations]);
+        await Promise.all([settled(device,device.queue.onSubmittedWorkDone()), ...scope.validations]);
         queueProgress.completed=Math.max(queueProgress.completed,submitted);
         collectReleased(scope,queueProgress.completed);
         const invalid=scope.invalid;scope.invalid=null;

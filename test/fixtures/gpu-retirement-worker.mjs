@@ -10,7 +10,8 @@ GPUAdapter.prototype.requestDevice=async function(...args) {
   const device=await requestDevice.apply(this,args);
   const completed=device.queue.onSubmittedWorkDone.bind(device.queue);
   const submit=device.queue.submit.bind(device.queue);
-  device.queue.submit=(...commands)=>{submit(...commands);postMessage({type:"test-submit"});};
+  // The provider's empty submissions (Firefox settles completions at one) are not work.
+  device.queue.submit=(...commands)=>{submit(...commands);if(commands[0]?.length)postMessage({type:"test-submit"});};
   device.queue.onSubmittedWorkDone=()=>{
     postMessage({type:"test-fence",phase});
     return completed().then(()=>hold?new Promise(resolve=>{

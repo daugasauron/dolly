@@ -93,9 +93,12 @@ Without the enable step neither browser offers WebGPU. Headless Chrome with
 `--disable-gpu --enable-unsafe-webgpu`, as the core browser tests run, gets the
 SwiftShader software adapter (`isFallbackAdapter`, no `shader-f16`). Firefox
 hides every adapter name, so its indicator says `unnamed WebGPU adapter`.
-Firefox settles `mapAsync` and `onSubmittedWorkDone` on a 100 ms timer
-([bug 1870699](https://bugzilla.mozilla.org/show_bug.cgi?id=1870699)), so
-programs that wait for the GPU often run far slower there than in Chrome.
+Firefox settles `mapAsync` and `onSubmittedWorkDone` when its queue next
+submits, or on a 100 ms timer
+([bug 1870699](https://bugzilla.mozilla.org/show_bug.cgi?id=1870699)). While a
+presented frame, a `WAIT` or a map is pending, the provider makes empty
+submissions (at 2, 5, 10, 20 and 40 ms): in Godot's editor a submission's
+completion came at p90 10 ms instead of 74 (2026-11-09).
 
 To force an adapter for a test: Chrome takes
 `--use-webgpu-power-preference=force-low-power` (the integrated GPU) or
