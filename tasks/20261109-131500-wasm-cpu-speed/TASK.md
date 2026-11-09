@@ -26,13 +26,16 @@ with a box, a camera, a light and a label (warm, ms):
 On the page, with the GPU, the Inspector shows 56 to 142 ms after the click in Chrome. A Chrome
 trace (V8 sampling) of those frames: Godot's object model throughout (themes, text shaping,
 signals), no kernel calls; `emscripten_builtin_malloc` and `free` are 16% of the self time.
-Turning off Liftoff changes nothing after the first click.
 
 - LTO: Godot's production builds link with LTO; Dolly's driver refuses `-flto` ("Dolly links no
   LTO bitcode", `src/compiler.cpp`). It would take ThinLTO in the driver's compile and link steps,
   then a seed round (`docs/sources.md`, "The seed's compiler").
 - malloc: the process libc links Emscripten's `libdlmalloc-mt`
   (`scripts/prepare-process-sysroot.sh`); Emscripten also builds mimalloc.
+- Not these: the editor built with `optimize=speed ccflags=-msimd128` (`-O3`, SIMD) against
+  Godot's `-O2` measured the same, alternating runs in both browsers (Chrome 25 to 29, 21 to 25,
+  57 to 61, 41 to 46 ms; Firefox 33 to 38, 27 to 31, 69 to 78, 52 to 58 ms). Without Liftoff
+  (`--no-liftoff`) only the first click is slower: V8 has the code optimized by the second.
 
 Done when each lever is measured on this benchmark and the one that pays is in, or both are
 recorded as not paying.
