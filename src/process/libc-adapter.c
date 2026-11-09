@@ -426,6 +426,15 @@ __wasi_errno_t __wasi_fd_write(__wasi_fd_t descriptor,
   return 0;
 }
 
+// Emscripten's console line to standard error, as its standalone build writes
+// it with the WASI import Dolly does not grant. mimalloc, the allocator of
+// threaded programs, reports through it.
+void emscripten_err(const char *message) {
+  __wasi_size_t written;
+  const __wasi_ciovec_t lines[] = {{(const uint8_t *)message, strlen(message)}, {(const uint8_t *)"\n", 1}};
+  (void)__wasi_fd_write(STDERR_FILENO, lines, 2, &written);
+}
+
 /* Dolly does not account CPU time. clock(), CLOCK_PROCESS_CPUTIME_ID and
  * getrusage report the monotonic time since the process started as its user
  * time: an upper bound of its CPU time, exact while it computes without

@@ -4,7 +4,7 @@ set -euo pipefail
 # Runs inside the pinned seed toolchain, like the serial libc adapter build.
 target=build/process-threads
 mkdir -p "$target"
-embuilder --wasm64 build libc-mt libdlmalloc-mt libstandalonewasm-mt-memgrow \
+embuilder --wasm64 build libc-mt libmimalloc-mt libstandalonewasm-mt-memgrow \
   libclang_rt.builtins-wasmsjlj-mt
 flags=(-m64 -O1 -pthread -fwasm-exceptions -sSUPPORT_LONGJMP=wasm \
   -sWASM_LEGACY_EXCEPTIONS=0 -I/src/build/include)

@@ -925,7 +925,7 @@ bool link_process_executable(const std::string &output,
   arguments.insert(arguments.end(), clients.begin(), clients.end());
   if (pthread) arguments.insert(arguments.end(), {
       "-lstandalonewasm-mt-memgrow", "-lstubs", "-lc-mt",
-      "-ldlmalloc-mt", "-lclang_rt.builtins-wasmsjlj-mt",
+      "-lmimalloc-mt", "-lclang_rt.builtins-wasmsjlj-mt",
   });
   else arguments.insert(arguments.end(), {
       "-lstandalonewasm-ww-memgrow",

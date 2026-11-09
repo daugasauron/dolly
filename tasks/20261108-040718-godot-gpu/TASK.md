@@ -346,8 +346,10 @@ they miss. Acted on:
 
 Measured after, windowed at 1152 by 648 (Chrome on Xvfb): hover on screen 23 to 26 ms, a click
 25 to 32; selecting a node settles in 45 to 132 ms (Firefox 59 to 134), as before: the Inspector's
-rebuild is Godot's own work (`tasks/20261109-131500-wasm-cpu-speed`). Not measured: the owner's
-screen, which is the AMD's HDMI output of an X screen on the NVIDIA (reverse PRIME, 75 Hz).
+rebuild is Godot's own work (`tasks/20261109-131500-wasm-cpu-speed`: mimalloc leaves it as it was,
+ThinLTO takes 4 to 8% off for twice the build and is left out, memory64's bounds checks are about
+15% of it). Not measured: the owner's screen, which is the AMD's HDMI output of an X screen on the
+NVIDIA (reverse PRIME, 75 Hz).
 
 ## Plan
 
