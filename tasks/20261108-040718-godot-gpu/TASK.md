@@ -283,10 +283,18 @@ repaint its window white for 50 to 80 ms, so the probe takes none).
   reader). Chrome: Godot sees a hover 1 to 2 ms after it, presents it at 4 to 7, the screen
   shows it at 25 to 31; a click at 26 to 30. Firefox: Godot 2 to 3 ms, present 8 to 9. What is
   left above the bare canvas is Godot's own frame, 3 to 6 ms from the hover to its present.
-- Wheel motion is still held a frame in Chrome while the page animates: display@0 counts the
-  page's animation frames for a program holding the display, so the page animates while it does.
 - Firefox settles `onSubmittedWorkDone` 1 to 137 ms after a submission (p50 8, p90 83), but no
   editor action waited on it: frames rarely queue behind it.
+- Clicks that do work, on a scene of a box, a camera, a light and a label: their last frame
+  comes, in both browsers, in ms after the press: a menu 11 to 14; the Script or 3D view
+  10 to 13; Add Node 29 to 48; selecting a node 56 to 142 (142 to 238 the first time). Selecting
+  rebuilds the Inspector in one frame, Godot's own work at about half native speed
+  (`tasks/20261109-131500-wasm-cpu-speed`). A hover's frame is 3 to 6 ms of Godot's, its canvas and
+  the 3D view, and 7% of it sorts the scene tree's process list, as natively.
+- Wheel: Chrome holds a wheel event a frame while the page animates, 48 to 54 ms against 31 to 35
+  on a bare canvas. The page animates while a program holds the display because display@0 counts
+  its animation frames then; only the kernel knows when a program waits for one, so counting on
+  demand needs a mailbox word from the kernel, and a kernel change rebuilds every image.
 
 ## Plan
 
