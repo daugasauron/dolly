@@ -399,6 +399,26 @@ async function batch(scope, commands, flags) {
   let {encoder, texture, computePass, explicitCompute = false, renderPass, viewPass = false, passWidth, passHeight,
     timer, queries = 0, renderPipeline, renderGroups, renderBuffers, renderIndex} = continued;
   let keepOpen = false;
+  // A batch's pipelines are created together and awaited before the batch first sets one, and at
+  // its end: Chrome compiles them in parallel so, one after another when each is awaited in turn.
+  const compiling = [];
+  const compiled = async () => {
+    const pending = compiling.splice(0);
+    for (const [i, result] of (await Promise.allSettled(pending.map(c => c.promise))).entries()) {
+      if (result.status === "fulfilled") continue;
+      const { index, op, id } = pending[i], error = result.reason;
+      scope.objects.delete(id);
+      throw Object.assign(new Error(`record ${index} (opcode ${op}): ${error.message}`),
+        { errno: error.reason === "validation" ? E.EINVAL : E.EIO, record: true });
+    }
+  };
+  const compile = (index, op, id, kind, creation) => {
+    creation.catch(() => {});
+    insert(scope, id, kind, null);
+    const entry = scope.objects.get(id), promise = creation.then(value => { entry.value = value; });
+    promise.catch(() => {});
+    compiling.push({ index, op, id, promise });
+  };
   const getEncoder = () => encoder ??= device.createCommandEncoder();
   const endCompute = () => { computePass?.end(); computePass = null; explicitCompute = false; };
   const endRender = () => { renderPass?.end(); renderPass = null; viewPass = false; };
@@ -839,7 +859,7 @@ async function batch(scope, commands, flags) {
           depthCompare:compareOps[depthCompare],stencilFront:stencil(72),stencilBack:stencil(88),
           stencilReadMask:field(104),stencilWriteMask:field(108),depthBias:w.getInt32(112,true),
           depthBiasSlopeScale:slope,depthBiasClamp:clamp};
-        insert(scope,id,"view-render",await device.createRenderPipelineAsync(descriptor));
+        compile(index,op,id,"view-render",device.createRenderPipelineAsync(descriptor));
       } else if (op === A.DOLLY_GPU_CREATE_COMPUTE_PIPELINE) {
         const constantCount=w.getUint32(32,true), constants={};
         for(let i=0;i<constantCount;i++) {
@@ -847,7 +867,7 @@ async function batch(scope, commands, flags) {
           ensure(w.getUint32(at+4,true)===0 && Number.isFinite(value), "Override constant");
           constants[w.getUint32(at,true)]=value;
         }
-        insert(scope,id,"view-compute",await device.createComputePipelineAsync({
+        compile(index,op,id,"view-compute",device.createComputePipelineAsync({
           layout:object(scope,integer(w,16),"pipeline-layout").value,
           compute:{module:object(scope,integer(w,24),"shader").value,entryPoint:text(b,40+16*constantCount,w.getUint32(36,true)),constants}}));
       } else if (op === A.DOLLY_GPU_CREATE_QUERY_SET) {
@@ -932,6 +952,7 @@ async function batch(scope, commands, flags) {
       } else if (op === A.DOLLY_GPU_END_COMPUTE_PASS) {
         ensure(explicitCompute,"No active compute pass");endCompute();
       } else if (op === A.DOLLY_GPU_SET_PIPELINE) {
+        await compiled();
         if(viewPass)renderPass.setPipeline(object(scope,id,"view-render").value);
         else {ensure(explicitCompute,"Pipeline outside a pass");computePass.setPipeline(object(scope,id,"view-compute").value);}
       } else if (op === A.DOLLY_GPU_SET_BIND_GROUP) {
@@ -980,9 +1001,11 @@ async function batch(scope, commands, flags) {
         release(scope, id, progress);
       }
     } catch (error) {
+      if (error.record) throw error;
       // WebGPU's own errors (a GPUPipelineError, a DOMException) keep their message read-only.
       fail(error.errno ?? (error.reason === "validation" ? E.EINVAL : E.EIO), `record ${index} (opcode ${op}): ${error.message}`);
     }
+    await compiled();
     if (flags & A.DOLLY_GPU_BATCH_CONTINUE) keepOpen = true;
     else ensure(!encoder,"GPU batch has an unsubmitted encoder");
   } finally {

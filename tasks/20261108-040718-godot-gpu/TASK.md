@@ -296,6 +296,18 @@ repaint its window white for 50 to 80 ms, so the probe takes none).
   rebuilds the Inspector in one frame, Godot's own work at about half native speed
   (`tasks/20261109-131500-wasm-cpu-speed`). A hover's frame is 3 to 6 ms of Godot's, its canvas and
   the 3D view, and 7% of it sorts the scene tree's process list, as natively.
+- First-time clicks wait on pipelines: Godot compiles a specialized pipeline on a worker thread and
+  draws with its ubershader until it is made, but the driver queues the creation and returns at
+  once, so the next frame's batch creates and uses it. The provider awaited each
+  `createRenderPipelineAsync` in turn, and Chrome compiles them one after another so: the first
+  selection's batch of 10 pipelines took 87.6 ms (Firefox 7.5). Ten heavy synthetic pipelines in a
+  Worker: Chrome 726 to 743 ms awaited in turn, 137 to 152 created together; Firefox about 600
+  either way. A batch's pipelines are now created together and awaited before it first sets one
+  and at its end: that batch 39.4 ms, the first selection settled at 50 ms (99 before). Firefox
+  unchanged.
+- In Firefox a buffer read waits on the 100 ms timer too: 0.65 s after the first selection of a
+  mesh, Godot's preview of it maps a buffer, a one-record batch of 83 to 103 ms that the editor's
+  frames queue behind (one request at a time per scope).
 - Wheel: Chrome holds a wheel event a frame while the page animates, 48 to 54 ms against 31 to 35
   on a bare canvas. The page animates while a program holds the display because display@0 counts
   its animation frames then; only the kernel knows when a program waits for one, so counting on

@@ -31,7 +31,9 @@ flowchart LR
   timeline, which in Chrome took a round trip of 3.6 ms a batch (2026-11-08), so
   its first error reaches the page's console when known and fails the scope's
   next `WAIT`. Accepted batches are not transactions: never replay one after an
-  error.
+  error. A batch's pipelines are created together and awaited before it first
+  sets one: Chrome compiles them in parallel so, one after another when each is
+  awaited in turn (ten of Godot's in 39 ms against 88, 2026-11-09).
 - Quotas: 8 scopes with one pending request each, 1 MiB packets of at most 1,024
   records (clients check `CAPABILITIES` before exceeding 256), shaders as large
   as a packet holds, 65,536 objects per scope (Godot's editor held 9,502), 1 GiB
