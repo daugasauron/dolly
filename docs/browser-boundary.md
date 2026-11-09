@@ -228,7 +228,7 @@ Worker URL.
 
 | Channel | Bound |
 | --- | --- |
-| Keyboard, pointer, wheel, focus, paste (`input@0`) | Bounded records, one motion sample per animation frame; a record the ring has no room for is counted, shown and marked in the ring, never queued on the page ([input](input.md#the-ring)). Interpretation stays in Wasm. Nothing is read from the clipboard but a paste the user makes: the browser's own, or, on a touchscreen, a press of the page's Paste button. Pointer lock only after a trusted canvas press while the program holding the lease asks; Escape ends it. Without `input@0` no listener writes a record |
+| Keyboard, pointer, wheel, focus, paste (`input@0`) | Bounded records, at most two motion samples per animation frame; a record the ring has no room for is counted, shown and marked in the ring, never queued on the page ([input](input.md#the-ring)). Interpretation stays in Wasm. Nothing is read from the clipboard but a paste the user makes: the browser's own, or, on a touchscreen, a press of the page's Paste button. Pointer lock only after a trusted canvas press while the program holding the lease asks; Escape ends it. Without `input@0` no listener writes a record |
 | Surface size (`display@0`) | Three numbers the page sends: width, height, device scale |
 | Clipboard copy (`display@0`) | Bounded selection text after a user Ctrl+Shift+C |
 | Page keys | F11 (fullscreen) and Ctrl+Shift+F (indicators) are the page's own and are taken before any module or the guest reads them ([`page-chords.mjs`](../src/page-chords.mjs)); the guest cannot request fullscreen |

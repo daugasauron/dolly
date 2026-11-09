@@ -256,6 +256,38 @@ WebGPU's validation), in a session with the driver of `754c062b5`:
 - Click to view on the page: 2D 315 (cold), 128, 128 ms; 3D 80, 80, 89 ms. Before: 2D 251, 96, 97
   and 3D 172, 166, 183 ms.
 
+## The editor's input latency (2026-11-09)
+
+Owner (2026-11-09): "The editor itself is still not snappy. Neither in firefox or chrome. Just
+hovering over a button should highlight it immediately, and clicking buttons feels incredibly
+sluggish as well." Measured on the editor's toolbar (an empty project, 1600 by 1000 page, Xvfb
+`:148` at 5000 by 3000 so the X pointer is off the window), each step on one clock: the page's
+event, the record sent, Godot's hovered control (an editor plugin), Godot's `frame_post_draw`, the
+provider's present, and, in Chrome, the first change of the button's pixels in an ffmpeg
+`x11grab` at 250 frames a second (`-vsync passthrough`; Playwright screenshots make headed Chrome
+repaint its window white for 50 to 80 ms, so the probe takes none).
+
+- A bare WebGPU canvas in a Worker that recolours on a posted move shows on screen 17 to 21 ms
+  after the move; 32 to 37 while the page runs `requestAnimationFrame` every frame, as Dolly's does
+  while a program holds the display: Chrome then holds `pointermove` for the next frame.
+  `pointerrawupdate` (Chrome, Firefox 157, secure pages) is not held: 17 to 20 with the loop.
+  `COPY_SRC` usage, `object-fit` scaling, a second frame in the same task and a non-passive
+  `pointermove` listener change nothing; a delay before drawing adds itself.
+- Before, in Chrome: the move reached the Worker 15 to 17 ms after it, Godot 18 to 24 (its
+  low-processor sleep, 6.9 ms in the editor), its present 22 to 28, the screen 39 to 47; a click
+  30 to 63. In Firefox, Godot saw a hover 4 to 24 ms after it and presented it at 10 to 30.
+- Now the page sends a mouse's motion from `pointerrawupdate` where the browser has it, the
+  first move after a quiet frame at once and the rest of that frame at the next animation frame;
+  and in low-processor mode Godot's frame sleep ends at the next input record
+  (`OS_Dolly::add_frame_delay`, as Godot's Windows and macOS platforms end it for a screen
+  reader). Chrome: Godot sees a hover 1 to 2 ms after it, presents it at 4 to 7, the screen
+  shows it at 25 to 31; a click at 26 to 30. Firefox: Godot 2 to 3 ms, present 8 to 9. What is
+  left above the bare canvas is Godot's own frame, 3 to 6 ms from the hover to its present.
+- Wheel motion is still held a frame in Chrome while the page animates: display@0 counts the
+  page's animation frames for a program holding the display, so the page animates while it does.
+- Firefox settles `onSubmittedWorkDone` 1 to 137 ms after a submission (p50 8, p90 83), but no
+  editor action waited on it: frames rarely queue behind it.
+
 ## Plan
 
 1. Profile the editor as it is (done: Baseline, above).

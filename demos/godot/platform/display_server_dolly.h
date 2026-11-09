@@ -4,6 +4,7 @@
 #include "servers/display/display_server.h"
 
 #include <EGL/egl.h>
+#include <dolly/input.h>
 
 class NativeMenu;
 class RenderingContextDriver;
@@ -35,6 +36,9 @@ class DisplayServerDolly : public DisplayServer {
 	Callable window_event_callback;
 	Point2i mouse_position;
 	bool focused = true;
+	// A record that ended a frame's sleep, which the next process_events reads first.
+	dolly_input_event woken_by;
+	bool woken = false;
 
 	static Vector<String> get_rendering_drivers_func();
 	static DisplayServer *create_func(const String &p_rendering_driver, DisplayServerEnums::WindowMode p_mode, DisplayServerEnums::VSyncMode p_vsync_mode, uint32_t p_flags, const Point2i *p_position, const Size2i &p_resolution, int p_screen, DisplayServerEnums::Context p_context, int64_t p_parent_window, Error &r_error);
@@ -43,6 +47,7 @@ class DisplayServerDolly : public DisplayServer {
 	Error create_gl_context();
 	Error create_gl_surface();
 	void send_window_event(DisplayServerEnums::WindowEvent p_event) const;
+	void read_event(const dolly_input_event &p_event);
 
 public:
 	static void register_dolly_driver();
@@ -51,6 +56,8 @@ public:
 	bool has_feature(DisplayServerEnums::Feature p_feature) const override;
 
 	void process_events() override;
+	// Sleeps until an input record arrives or p_usec passes.
+	void wait_for_event(uint64_t p_usec);
 	void swap_buffers() override;
 
 	int get_screen_count() const override { return 1; }

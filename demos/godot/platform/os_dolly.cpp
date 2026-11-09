@@ -49,6 +49,20 @@ bool OS_Dolly::_check_internal_feature_support(const String &p_feature) {
 	return p_feature == "dolly";
 }
 
+// In low-processor mode, the editor's, a frame's sleep ends at the next input
+// record, as Godot's Windows and macOS platforms end it for a screen reader:
+// a hover or a press is drawn without waiting out the rest of the sleep.
+void OS_Dolly::add_frame_delay(bool p_can_draw, bool p_wake_for_events) {
+#ifdef GLES3_ENABLED
+	DisplayServerDolly *display = Object::cast_to<DisplayServerDolly>(DisplayServer::get_singleton());
+	if (display && is_in_low_processor_usage_mode()) {
+		display->wait_for_event(get_frame_delay(p_can_draw));
+		return;
+	}
+#endif
+	OS_Unix::add_frame_delay(p_can_draw, p_wake_for_events);
+}
+
 String OS_Dolly::get_executable_path() const {
 	char path[PATH_MAX];
 	const ssize_t size = readlink("/proc/self/exe", path, sizeof(path));

@@ -26,6 +26,7 @@ public:
 	String get_config_path() const override;
 	String get_data_path() const override;
 	String get_cache_path() const override;
+	void add_frame_delay(bool p_can_draw, bool p_wake_for_events) override;
 
 	void run();
 

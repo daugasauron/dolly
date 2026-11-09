@@ -282,8 +282,9 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
   const heldKeys = new Map();
   const leased = () => (flags & A.DOLLY_INPUT_LEASED) !== 0;
   const relativePointerRequested = () => leased() && (flags & A.DOLLY_INPUT_POINTER_RELATIVE) !== 0;
-  // Pointer motion and the newest position wait for the next animation frame,
-  // and go ahead of any other record.
+  // Pointer motion and the newest position go at once after a quiet frame;
+  // more within that frame waits for the next animation frame, coalesced.
+  // Motion goes ahead of any other record.
   let movementX = 0, movementY = 0, position = null, motionScheduled = false;
   function flushMotion() {
     if (!movementX && !movementY && !position) return;
@@ -305,6 +306,7 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
   function scheduleMotion() {
     if (motionScheduled) return;
     motionScheduled = true;
+    flushMotion();
     requestAnimationFrame(() => { motionScheduled = false; if (started) flushMotion(); });
   }
   const client = {
@@ -475,9 +477,27 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
     pushPointer(event, A.DOLLY_POINTER_ACTION_PRESS);
     event.preventDefault();
   });
-  canvas.addEventListener("pointermove", (event) => {
+  // A mouse's moves come as pointerrawupdate where the browser has it, as they
+  // happen: pointermove waits for the next animation frame.
+  const rawMoves = "onpointerrawupdate" in window;
+  function pointerMoved(event) {
     if (document.pointerLockElement === canvas) {
       if (relativePointerRequested()) client.pushPointerMotion(event);
+      return;
+    }
+    if (!started) return;
+    // A release the page did not see, outside the window, comes before the move.
+    if (selecting && !leased() && (event.buttons & 1) === 0) {
+      selecting = false;
+      pushPointer(event, A.DOLLY_POINTER_ACTION_RELEASE);
+    }
+    pushPointer(event, A.DOLLY_POINTER_ACTION_DRAG);
+  }
+  if (rawMoves) canvas.addEventListener("pointerrawupdate", event => { if (event.pointerType === "mouse") pointerMoved(event); });
+  canvas.addEventListener("pointermove", (event) => {
+    const raw = rawMoves && event.pointerType === "mouse";
+    if (document.pointerLockElement === canvas) {
+      if (!raw) pointerMoved(event);
       event.preventDefault();
       return;
     }
@@ -497,13 +517,7 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
       event.preventDefault();
       return;
     }
-    if (!started) return;
-    // A release the page did not see, outside the window, comes before the move.
-    if (selecting && !leased() && (event.buttons & 1) === 0) {
-      selecting = false;
-      pushPointer(event, A.DOLLY_POINTER_ACTION_RELEASE);
-    }
-    pushPointer(event, A.DOLLY_POINTER_ACTION_DRAG);
+    if (!raw) pointerMoved(event);
     if (selecting || leased()) event.preventDefault();
   });
   canvas.addEventListener("pointerup", (event) => {

@@ -268,37 +268,51 @@ static void read_scroll(const dolly_input_event &p_event, const Point2i &mouse_p
 	}
 }
 
+void DisplayServerDolly::read_event(const dolly_input_event &p_event) {
+	switch (p_event.type) {
+		case DOLLY_INPUT_EVENT_KEY:
+			read_key(p_event);
+			break;
+		case DOLLY_INPUT_EVENT_TEXT:
+			read_text(p_event);
+			break;
+		case DOLLY_INPUT_EVENT_POINTER:
+			read_pointer(p_event, mouse_position);
+			break;
+		case DOLLY_INPUT_EVENT_SCROLL:
+			read_scroll(p_event, mouse_position);
+			break;
+		case DOLLY_INPUT_EVENT_FOCUS:
+			focused = p_event.action;
+			if (!focused) {
+				Input::get_singleton()->release_pressed_events();
+			}
+			send_window_event(focused ? DisplayServerEnums::WINDOW_EVENT_FOCUS_IN : DisplayServerEnums::WINDOW_EVENT_FOCUS_OUT);
+			break;
+		case DOLLY_INPUT_EVENT_POINTER_PRESENCE:
+			send_window_event(p_event.action ? DisplayServerEnums::WINDOW_EVENT_MOUSE_ENTER : DisplayServerEnums::WINDOW_EVENT_MOUSE_EXIT);
+			break;
+		case DOLLY_INPUT_EVENT_DROPPED:
+			// Records were lost: let go of what was held.
+			Input::get_singleton()->release_pressed_events();
+			break;
+	}
+}
+
+void DisplayServerDolly::wait_for_event(uint64_t p_usec) {
+	if (!woken) {
+		woken = dolly_input_next_event(input, &woken_by, p_usec / 1000.0) > 0;
+	}
+}
+
 void DisplayServerDolly::process_events() {
+	if (woken) {
+		woken = false;
+		read_event(woken_by);
+	}
 	dolly_input_event event;
 	while (dolly_input_next_event(input, &event, 0) > 0) {
-		switch (event.type) {
-			case DOLLY_INPUT_EVENT_KEY:
-				read_key(event);
-				break;
-			case DOLLY_INPUT_EVENT_TEXT:
-				read_text(event);
-				break;
-			case DOLLY_INPUT_EVENT_POINTER:
-				read_pointer(event, mouse_position);
-				break;
-			case DOLLY_INPUT_EVENT_SCROLL:
-				read_scroll(event, mouse_position);
-				break;
-			case DOLLY_INPUT_EVENT_FOCUS:
-				focused = event.action;
-				if (!focused) {
-					Input::get_singleton()->release_pressed_events();
-				}
-				send_window_event(focused ? DisplayServerEnums::WINDOW_EVENT_FOCUS_IN : DisplayServerEnums::WINDOW_EVENT_FOCUS_OUT);
-				break;
-			case DOLLY_INPUT_EVENT_POINTER_PRESENCE:
-				send_window_event(event.action ? DisplayServerEnums::WINDOW_EVENT_MOUSE_ENTER : DisplayServerEnums::WINDOW_EVENT_MOUSE_EXIT);
-				break;
-			case DOLLY_INPUT_EVENT_DROPPED:
-				// Records were lost: let go of what was held.
-				Input::get_singleton()->release_pressed_events();
-				break;
-		}
+		read_event(event);
 	}
 	Input::get_singleton()->flush_buffered_events();
 }

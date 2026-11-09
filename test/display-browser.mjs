@@ -68,15 +68,16 @@ await browserTest("display", { image: "system", server }, async ({ server, open 
   }, count);
   const press = async count => { for (let key = 0; key < count; key++) await page.keyboard.press("k"); };
 
-  // Forty motions in a frame are one record. With half the ring unread, later
-  // motion waits on the page; the keys still arrive, and so does the motion
-  // once the program reads.
+  // Forty motions in a frame are two records: the first goes at once, the
+  // rest at the next animation frame. With half the ring unread, later motion
+  // waits on the page; the keys still arrive, and so does the motion, one
+  // record, once the program reads.
   assert.deepEqual(await unread(async () => {
     await motion(40);
     assert.equal(await scrolls(130), true);
     await motion(40);
     await press(5);
-  }), { keys: 10, motions: 2, moved: 120000, marked: 0, lost: 0 });
+  }), { keys: 10, motions: 3, moved: 120000, marked: 0, lost: 0 });
   assert.equal((await dataset()).inputDropped, undefined);
 
   // A full ring loses the key records it cannot take: each one is counted and
