@@ -9,6 +9,7 @@ import { releaseVersion, robotsText } from "./release-layout.mjs";
 
 export const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
+  [".css", "text/css; charset=utf-8"],
   [".md", "text/markdown; charset=utf-8"],
   [".txt", "text/plain; charset=utf-8"],
   [".wat", "text/plain; charset=utf-8"],

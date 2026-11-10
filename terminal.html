@@ -5,66 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
     <meta name="color-scheme" content="dark">
     <title>Dolly</title>
-    <style>
-      @font-face {
-        font-family: "Dolly IosevkaTerm SemiBold";
-        src: url("{{DOLLY_BASE}}dist/IosevkaTerm-SemiBold.woff2") format("woff2");
-        font-style: normal;
-        font-weight: 600;
-        font-display: block;
-      }
-      * { box-sizing: border-box; }
-      html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-      body {
-        background: #262626;
-        color: #e8e3d7;
-        font-family: "Dolly IosevkaTerm SemiBold", monospace;
-      }
-      #terminal { width: 100%; height: 100%; --dolly-html-font: "Dolly IosevkaTerm SemiBold", monospace;
-        --dolly-html-font-file: url("{{DOLLY_BASE}}dist/IosevkaTerm-SemiBold.woff2"); }
-      #terminal > pre { margin: 1rem; white-space: pre-wrap; font: 600 20px/1.35 monospace; }
-    </style>
+    <link rel="stylesheet" href="{{DOLLY_BASE}}src/route.css">
   </head>
   <body>
-    <main id="terminal" aria-label="Dolly shell terminal"><pre id="bootstrap-log"></pre></main>
-    <script>globalThis.DOLLY_BOOT = Object.freeze({ image: "{{DOLLY_IMAGE}}", mode: "{{DOLLY_MODE}}", loadSession: {{DOLLY_LOAD_SESSION}} });</script>
-    <script type="module">
-      const assets = new URL("{{DOLLY_BASE}}", document.baseURI);
-      const terminal = document.querySelector("#terminal");
-      const failed = text => {
-        terminal.firstElementChild.textContent = `FATAL\n${text}\n`;
-        document.documentElement.dataset.dollyStatus = "failed";
-      };
-      if (crossOriginIsolated) {
-        sessionStorage.removeItem("dolly-isolation-retry");
-        // The site is an embedding: its route names the host modules it uses
-        // (src/site.mjs), a test may name fewer before the page loads, and the
-        // test's settings are taken once.
-        const { DOLLY_BOOT: route, DOLLY_HOST_MODULES: named, DOLLY_HTTP_POLICY: policy, DOLLY_HTTP_RELAYS: relays } = globalThis;
-        for (const name of ["DOLLY_HOST_MODULES", "DOLLY_HTTP_POLICY", "DOLLY_HTTP_RELAYS"]) delete globalThis[name];
-        let bootRoute;
-        try {
-          ({ bootRoute } = await import(new URL("src/site.mjs", assets).href));
-        } catch (error) {
-          failed(`Dolly failed to load.\n${error instanceof Error ? error.stack ?? error.message : String(error)}`);
-        }
-        // The route shows its own failure in the terminal.
-        if (bootRoute) window.__dolly = await bootRoute(terminal, { ...route, images: assets.href, site: assets.href, named,
-          http: { policy, relays } }).catch(error => console.error(error));
-      } else if ("serviceWorker" in navigator) {
-        await navigator.serviceWorker.register(new URL("coi-serviceworker.js", assets), { scope: assets.pathname });
-        if (!navigator.serviceWorker.controller) {
-          await navigator.serviceWorker.ready;
-          location.reload();
-        } else if (sessionStorage.getItem("dolly-isolation-retry") !== "1") {
-          sessionStorage.setItem("dolly-isolation-retry", "1");
-          location.reload();
-        } else {
-          failed("Dolly could not establish cross-origin isolation.");
-        }
-      } else {
-        failed("Dolly requires cross-origin isolation and service workers are unavailable.");
-      }
-    </script>
+    <main id="terminal" aria-label="Dolly shell terminal" data-image="{{DOLLY_IMAGE}}" data-mode="{{DOLLY_MODE}}"
+      data-load-session="{{DOLLY_LOAD_SESSION}}"><pre id="bootstrap-log"></pre></main>
+    <script type="module" src="{{DOLLY_BASE}}src/route.mjs"></script>
   </body>
 </html>
