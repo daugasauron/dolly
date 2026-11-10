@@ -1,0 +1,11 @@
+[package]
+name = "photocraft-dolly-page"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The browser page Dolly runs in: a file the user picks there (upload@0), a file offered to it (download@0)"
+
+# Dolly's C clients, which cc links into every program: as in photocraft-tablet, only the calls
+# allow `unsafe`.
+[lints.rust]
+unsafe_code = "deny"

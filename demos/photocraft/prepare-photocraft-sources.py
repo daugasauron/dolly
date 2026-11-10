@@ -94,6 +94,11 @@ wgpu, = (stage / "vendor").glob("wgpu-[0-9]*")
 shutil.copytree(platform / "wgpu", wgpu / "src/backend/dolly")
 # The zenity those dialogs run, a member of the workspace by its place there (apps/*).
 shutil.copytree(project / "demos/photocraft/zenity", photocraft / "apps/zenity")
+# PhotoCraft's files from and to the browser page: upload@0 opens, download@0 offers saves; the
+# C calls are a crate of their own, as the workspace's one other is.
+shutil.copytree(platform / "photocraft/dolly-page", photocraft / "crates/dolly-page")
+shutil.copy(platform / "photocraft/dolly_page.rs", photocraft / "apps/photocraft/src")
+apply(photocraft, platform / "photocraft/photocraft.patch")
 # Locked on every platform and compiled on none of Dolly's: Windows bindings keep their manifest
 # and an empty library.
 for directory in (stage / "vendor").iterdir():

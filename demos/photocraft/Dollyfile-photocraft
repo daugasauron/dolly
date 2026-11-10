@@ -5,13 +5,17 @@ REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST gpu@0
 REQUIRES HOST threads@0
+REQUIRES HOST upload@0
+REQUIRES HOST download@0
 
 # PhotoCraft, the image editor, and its command line, compiled by Cargo from the pinned sources,
 # offline. The app draws on the page through Dolly's platforms in winit (display@0, input@0) and
-# wgpu (gpu@0), and its dialogs are the zenity command. The command line converts and inspects
-# images and PSD files, runs commands and batches, renders on gpu@0 where the browser grants
-# WebGPU, and serves its commands to agents over MCP. zenity, built by a run of its own so that
-# egui keeps PhotoCraft's features, is the dialogs, on the same platforms.
+# wgpu (gpu@0). File › Open takes a file the user picks in the browser (upload@0), its other
+# dialogs are the zenity command, and each file a save writes is offered to the browser too
+# (download@0). The command line converts and inspects images and PSD files, runs commands and
+# batches, renders on gpu@0 where the browser grants WebGPU, and serves its commands to agents
+# over MCP. zenity, built by a run of its own so that egui keeps PhotoCraft's features, is the
+# dialogs, on the same platforms.
 FROM /v0.1.5/demos/rust/Dollyfile-rust-build 54577a180be63db05d733131ca2f891facbb70e51525be73e721a3c3541b9511
 USE /v0.1.5/Dollyfile-libdolly-gpu d860787df9ebc417e1a6464cd7d90a73ca9623dea685eb48b3d3e2da7508d1d5
 REQUIRES TOOL cargo
@@ -23,10 +27,10 @@ REQUIRES TOOL mv
 REQUIRES TOOL cp
 REQUIRES TOOL rm
 
-SOURCE /v0.1.5/dist/static/photocraft/sources-00.part b8821304be894d17eb95e098a6c031715e73933aca6e3e84d830351f80ae1bbf /tmp/photocraft-sources-00.part
-SOURCE /v0.1.5/dist/static/photocraft/sources-01.part a4c3314b9986da41e2664c88c9b9db0909ee5a146b0ce260c93153558fd6bc9b /tmp/photocraft-sources-01.part
-SOURCE /v0.1.5/dist/static/photocraft/sources-02.part a00dfcd2cbe301b6d8dd7efe2ae41e4647c985f5bb9e88d0f96d16974013a42f /tmp/photocraft-sources-02.part
-SOURCE /v0.1.5/dist/static/photocraft/sources-03.part eb0881d291c764cc1bd8fbe97f3b98bf4f136095298b80572aa59e2a339db505 /tmp/photocraft-sources-03.part
+SOURCE /v0.1.5/dist/static/photocraft/sources-00.part 189282c7a8eaa8c42a0ec13fa534381b389d8d2ef390e4bfcf159163738aa1cc /tmp/photocraft-sources-00.part
+SOURCE /v0.1.5/dist/static/photocraft/sources-01.part bc1e21ce6dd7232095cdd42775279fc4951a8499583303d6a2a205d5e9bd56d6 /tmp/photocraft-sources-01.part
+SOURCE /v0.1.5/dist/static/photocraft/sources-02.part bc4f09b8d78ee80c27dc6abf5faac32faf7e7d5dfc45503ffc6072f191342191 /tmp/photocraft-sources-02.part
+SOURCE /v0.1.5/dist/static/photocraft/sources-03.part 91a22c4cd7d56338b349bcf10aec7a56a7fdf30ba5c85a06f5351f4230a78b63 /tmp/photocraft-sources-03.part
 SLOP cat /tmp/photocraft-sources-00.part /tmp/photocraft-sources-01.part /tmp/photocraft-sources-02.part /tmp/photocraft-sources-03.part | gzip -dc - | tar -xf - -C /
 SLOP rm /tmp/photocraft-sources-00.part /tmp/photocraft-sources-01.part /tmp/photocraft-sources-02.part /tmp/photocraft-sources-03.part 
 SLOP CWD /tmp/photocraft-sources/photocraft cargo build -j 4 --offline -p photocraft -p photocraft-cli --target-dir /tmp/photocraft-build

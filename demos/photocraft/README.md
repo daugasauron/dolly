@@ -35,7 +35,12 @@ build, and zenity in 5 more. The update check finds no network, as Dolly gives p
   WGSL; there are no automatic pipeline layouts, mapped writes are writes from a copy on unmap, and
   WebGPU's validation errors arrive with the next WAIT (`docs/gpu.md`).
 - raw-window-handle names the window between them (`raw-window-handle.patch`).
-- rfd's dialogs are the `zenity` command, as its Linux backend's are without a desktop portal
+- File › Open is the browser's file picker (`upload@0`), as in PhotoCraft's own web build: the
+  page keeps the file's name, so the document is `upload` with the extension its bytes show. Each
+  file a save writes into Dolly is offered to the browser as well (`download@0`): the page shows
+  its Save button ([`platform/photocraft`](platform/photocraft); the C calls are a crate of their
+  own, as PhotoCraft keeps its one other `unsafe` crate).
+- rfd's other dialogs are the `zenity` command, as its Linux backend's are without a desktop portal
   (`rfd.patch`); [`zenity`](zenity) is an egui program on the same platforms, which takes the page
   from PhotoCraft and gives it back when it exits.
 - A program on Dolly has no clipboard to write: arboard says so (`arboard.patch`), and a paste

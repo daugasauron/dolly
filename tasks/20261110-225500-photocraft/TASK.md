@@ -40,6 +40,14 @@ image only when a FILE row keeps it. Then PhotoCraft opens the Great Wave, Ctrl+
 quitting saves it through zenity, which takes the page and gives it back (Chrome, NVIDIA). The
 command line converts and inspects images; its GPU export reached gpu@0.
 
+Files to and from the browser (2026-11-11, morning, branch `port/photocraft-transfer`): File ›
+Open is the page's picker through `upload@0`, as in PhotoCraft's web build, which answers its Open
+with the picked file's contents; upload@0 keeps the file's name in the browser (no host name enters
+Wasm, `docs/sessions.md`), so the document is named `upload` with the extension its bytes show.
+Each file PhotoCraft's save and write services write is then offered through `download@0`. The two
+C calls are a crate of their own (`platform/photocraft/dolly-page`), as the workspace forbids
+`unsafe` outside its one helper crate.
+
 Left: Firefox's run of the test; Ctrl+Shift+S, Save As, is the page's (it saves the session), so
 Save As is the File menu's; the clipboard; HiDPI (the window is the canvas at scale 1).
 
