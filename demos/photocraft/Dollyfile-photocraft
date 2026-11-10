@@ -12,7 +12,7 @@ REQUIRES HOST threads@0
 # images and PSD files, runs commands and batches, renders on gpu@0 where the browser grants
 # WebGPU, and serves its commands to agents over MCP. zenity, built by a run of its own so that
 # egui keeps PhotoCraft's features, is the dialogs, on the same platforms.
-FROM /v0.1.5/demos/rust/Dollyfile-rust-build 578411da4e312ab602adf1d4e609513b5268b8bdb409ab66ddac847901815f68
+FROM /v0.1.5/demos/rust/Dollyfile-rust-build 54577a180be63db05d733131ca2f891facbb70e51525be73e721a3c3541b9511
 USE /v0.1.5/Dollyfile-libdolly-gpu d860787df9ebc417e1a6464cd7d90a73ca9623dea685eb48b3d3e2da7508d1d5
 REQUIRES TOOL cargo
 REQUIRES TOOL cat
