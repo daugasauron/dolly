@@ -33,6 +33,9 @@ SLOP CWD /tmp/photocraft-sources/photocraft cargo build -j 4 --offline -p photoc
 SLOP CWD /tmp/photocraft-sources/photocraft cargo build -j 4 --offline -p zenity --target-dir /tmp/photocraft-build
 SLOP mkdir -p /usr/share/licenses/photocraft /usr/share/dolly/builds
 SLOP mv /tmp/photocraft-build/debug/photocraft /tmp/photocraft-build/debug/photocraft-cli /tmp/photocraft-build/debug/zenity /usr/bin
+SLOP mkdir -p /usr/share/man/cat1
+SLOP photocraft --help > /usr/share/man/cat1/photocraft.1
+SLOP photocraft-cli --help > /usr/share/man/cat1/photocraft-cli.1
 SLOP cp /tmp/photocraft-sources/photocraft/Cargo.lock /usr/share/dolly/builds/photocraft.lock
 SLOP CWD /tmp/photocraft-sources/photocraft cp LICENSE-MIT LICENSE-APACHE NOTICE ATTRIBUTION.md /usr/share/licenses/photocraft
 SLOP rm -rf /tmp/photocraft-sources /tmp/photocraft-build
@@ -43,5 +46,14 @@ EXPORTS TOOL zenity
 FILE /usr/bin/photocraft
 FILE /usr/bin/photocraft-cli
 FILE /usr/bin/zenity
+FILE /usr/share/man/cat1/photocraft.1
+FILE /usr/share/man/cat1/photocraft-cli.1
+FILE /usr/share/man/cat1/zenity.1
+    zenity: the dialogs a program asks for by running zenity, as rfd does, drawn on the
+    page with egui: --file-selection [--save] [--directory] [--multiple]
+    [--filename PATH] [--file-filter 'NAME | *.EXT ...'], and --info, --warning,
+    --error or --question with --title, --text and the button labels. It takes the
+    page from the program that runs it and gives it back when it exits; it prints the
+    chosen paths, | between them, and exits 0 for OK and 1 for Cancel.
 FILE /usr/share/dolly/builds/photocraft.lock
 FOLDER /usr/share/licenses/photocraft
