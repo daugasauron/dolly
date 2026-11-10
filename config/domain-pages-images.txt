@@ -4,7 +4,6 @@ classicube
 codex-agent
 dollyfile-studio
 gnu-emacs
-gpu-fluid
 quickjs
 janis
 typescript

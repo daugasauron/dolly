@@ -544,7 +544,7 @@ const elsewhere = {
   "lean-std": "demos/lean: lean installs it", "lean-meta": "demos/lean: lean installs it",
   glib: "demos/ghostty-gtk: gtk-build installs it", pcre2: "demos/ghostty-gtk: glib uses it", libffi: "demos/ghostty-gtk: glib uses it",
   go: "demos/go", esbuild: "demos/go", naga: "demos/zero-ad: zero-ad-data uses it", "zero-ad-data": "demos/zero-ad: zero-ad copies it",
-  "fingers-build": "demos/fingers: fingers installs it", fluid: "demos/gpu-fluid: gpu-fluid installs it",
+  "fingers-build": "demos/fingers: fingers installs it",
   anykey: "demos/closed-source-agent: closed-source-agent installs it", "pi-llm": "demos/local-llm: pi-local installs it",
   "classicube-agent": "demos/classicube: classicube installs it", "seven-kingdoms": "demos/rts: rts-arena installs it",
   airtime: "demos/bhop: bhop installs it", "slopyard-game": "demos/slopyard: slopyard installs it", "vendor-crates": "demos/rust/test/vendor-crates-browser.mjs",

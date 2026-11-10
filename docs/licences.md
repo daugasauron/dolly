@@ -20,8 +20,7 @@ entry.
 - **Images**: snapshots of programs compiled in Dolly from pinned sources, plus
   files built outside Dolly: the Rust and Go seeds, model weights, fonts and game data.
 - **Sources**: every site-path `SOURCE` of the catalog under `dist/static/`,
-  the recipes and headers, at the same release path as the images. The gpu-fluid
-  sources come from raw.githubusercontent.com instead.
+  the recipes and headers, at the same release path as the images.
 - **Dolly's code**: MIT ([`LICENSE`](../LICENSE), `package.json`), except 12
   files marked `SPDX-License-Identifier: GPL-2.0-or-later` because they are
   compiled into GPL programs: the Seven Kingdoms port in `demos/rts`
@@ -209,8 +208,8 @@ statement for the Xonotic name and logo.
 musl's and Emscripten's notices (kept by `system-build`), WAMR's licence in its
 source archive, every vendored crate's licence files under
 `/usr/share/licenses/PROGRAM/crates/` for rg, fd, protox and codex (123 of
-Codex's crates ship none; their `Cargo.toml` names the licence), webgpu-headers'
-notice in gpu-fluid, and CPython's change summary.
+Codex's crates ship none; their `Cargo.toml` names the licence), and CPython's change
+summary.
 
 ## Decisions
 
