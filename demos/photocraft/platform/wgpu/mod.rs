@@ -415,6 +415,8 @@ impl Gpu {
 pub struct Object {
     pub(crate) gpu: Arc<Gpu>,
     pub(crate) handle: u64,
+    /// What it refers to, released after it: a view's texture, which RELEASE destroys.
+    pub(crate) parent: Option<Keep>,
 }
 
 impl Drop for Object {
@@ -757,7 +759,7 @@ pub struct DollyBlas;
 pub struct DollyTlas;
 
 fn object(gpu: &Arc<Gpu>, handle: u64) -> Arc<Object> {
-    Arc::new(Object { gpu: gpu.clone(), handle })
+    Arc::new(Object { gpu: gpu.clone(), handle, parent: None })
 }
 
 /// gpu@0 has no MAP_WRITE: such a buffer is written from its shadow when unmapped, so it
@@ -1613,7 +1615,8 @@ impl dispatch::TextureInterface for DollyTexture {
                 .u32(52, 0x03020100);
             record
         });
-        dispatch::DispatchTextureView::custom(DollyTextureView { object: object(gpu, handle), texture: info.clone(), width, height })
+        let object = Arc::new(Object { gpu: gpu.clone(), handle, parent: Some(info.clone()) });
+        dispatch::DispatchTextureView::custom(DollyTextureView { object, texture: info.clone(), width, height })
     }
 
     fn destroy(&self) {}
