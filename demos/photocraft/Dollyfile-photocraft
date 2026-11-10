@@ -26,7 +26,7 @@ REQUIRES TOOL rm
 SOURCE /v0.1.5/dist/static/photocraft/sources-00.part b8821304be894d17eb95e098a6c031715e73933aca6e3e84d830351f80ae1bbf /tmp/photocraft-sources-00.part
 SOURCE /v0.1.5/dist/static/photocraft/sources-01.part a4c3314b9986da41e2664c88c9b9db0909ee5a146b0ce260c93153558fd6bc9b /tmp/photocraft-sources-01.part
 SOURCE /v0.1.5/dist/static/photocraft/sources-02.part a00dfcd2cbe301b6d8dd7efe2ae41e4647c985f5bb9e88d0f96d16974013a42f /tmp/photocraft-sources-02.part
-SOURCE /v0.1.5/dist/static/photocraft/sources-03.part eec656a91338b9f680b16b0ab204ada49ead542190b70ee97599abd770438b7a /tmp/photocraft-sources-03.part
+SOURCE /v0.1.5/dist/static/photocraft/sources-03.part b1aac8af1889058f6b4726ed37b07fa0bb55df66a53fe5ea01086ca034b85afc /tmp/photocraft-sources-03.part
 SLOP cat /tmp/photocraft-sources-00.part /tmp/photocraft-sources-01.part /tmp/photocraft-sources-02.part /tmp/photocraft-sources-03.part | gzip -dc - | tar -xf - -C /
 SLOP rm /tmp/photocraft-sources-00.part /tmp/photocraft-sources-01.part /tmp/photocraft-sources-02.part /tmp/photocraft-sources-03.part 
 SLOP CWD /tmp/photocraft-sources/photocraft cargo build -j 4 --offline -p photocraft -p photocraft-cli --target-dir /tmp/photocraft-build

@@ -6,6 +6,12 @@ app on the page and its command line. Its window is egui's on wgpu and winit, wh
 platforms of Dolly's own, as Godot runs on its platform and RenderingDevice driver
 ([task](../../tasks/20261110-225500-photocraft/TASK.md)).
 
+In Chrome on an NVIDIA GPU (2026-11-11) the page shows PhotoCraft 4 s after it loads, the Great
+Wave (3859 by 2594) drawn by its GPU canvas on `gpu@0`; Ctrl+I inverts it, and quitting saves it
+through zenity's dialog and PhotoCraft's JPEG options
+([test](test/photocraft-gpu-browser.mjs)). Cargo compiles the package in 28 minutes in the image
+build, and zenity in 5 more. The update check finds no network, as Dolly gives programs none.
+
 ## Images
 
 - `photocraft`: PhotoCraft, its command line `photocraft-cli` (convert, inspect and batch images and

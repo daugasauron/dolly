@@ -1,6 +1,6 @@
 --- a/src/backend/dolly.rs
 +++ b/src/backend/dolly.rs
-@@ -0,0 +1,133 @@
+@@ -0,0 +1,143 @@
 +//! Dolly: each dialog is the `zenity` command, as Linux's is without its desktop portal. A
 +//! dialog program there takes the page from the program that runs it and gives it back.
 +
@@ -43,14 +43,24 @@
 +    (!paths.is_empty()).then_some(paths)
 +}
 +
++/// zenity's `--filename` takes a path, so the dialog opens in the directory it was given: a name
++/// in it, or the directory itself with a trailing `/`.
++fn in_directory(mut dialog: FileDialog) -> FileDialog {
++    if let Some(directory) = dialog.starting_directory.take() {
++        let name = dialog.file_name.take().unwrap_or_default();
++        dialog.file_name = Some(format!("{}/{name}", directory.display()));
++    }
++    dialog
++}
++
 +use crate::backend::FilePickerDialogImpl;
 +impl FilePickerDialogImpl for FileDialog {
 +    fn pick_file(self) -> Option<PathBuf> {
-+        answer("pick a file", block_on(zenity::pick_file(&self))).flatten()
++        answer("pick a file", block_on(zenity::pick_file(&in_directory(self)))).flatten()
 +    }
 +
 +    fn pick_files(self) -> Option<Vec<PathBuf>> {
-+        answer("pick files", block_on(zenity::pick_files(&self))).and_then(some)
++        answer("pick files", block_on(zenity::pick_files(&in_directory(self)))).and_then(some)
 +    }
 +}
 +
@@ -58,13 +68,13 @@
 +impl AsyncFilePickerDialogImpl for FileDialog {
 +    fn pick_file_async(self) -> DialogFutureType<Option<FileHandle>> {
 +        Box::pin(async move {
-+            answer("pick a file", zenity::pick_file(&self).await).flatten().map(FileHandle::wrap)
++            answer("pick a file", zenity::pick_file(&in_directory(self)).await).flatten().map(FileHandle::wrap)
 +        })
 +    }
 +
 +    fn pick_files_async(self) -> DialogFutureType<Option<Vec<FileHandle>>> {
 +        Box::pin(async move {
-+            let paths = answer("pick files", zenity::pick_files(&self).await).and_then(some)?;
++            let paths = answer("pick files", zenity::pick_files(&in_directory(self)).await).and_then(some)?;
 +            Some(paths.into_iter().map(FileHandle::wrap).collect())
 +        })
 +    }
@@ -73,11 +83,11 @@
 +use crate::backend::FolderPickerDialogImpl;
 +impl FolderPickerDialogImpl for FileDialog {
 +    fn pick_folder(self) -> Option<PathBuf> {
-+        answer("pick a folder", block_on(zenity::pick_folder(&self))).flatten()
++        answer("pick a folder", block_on(zenity::pick_folder(&in_directory(self)))).flatten()
 +    }
 +
 +    fn pick_folders(self) -> Option<Vec<PathBuf>> {
-+        answer("pick folders", block_on(zenity::pick_folders(&self))).and_then(some)
++        answer("pick folders", block_on(zenity::pick_folders(&in_directory(self)))).and_then(some)
 +    }
 +}
 +
@@ -85,13 +95,13 @@
 +impl AsyncFolderPickerDialogImpl for FileDialog {
 +    fn pick_folder_async(self) -> DialogFutureType<Option<FileHandle>> {
 +        Box::pin(async move {
-+            answer("pick a folder", zenity::pick_folder(&self).await).flatten().map(FileHandle::wrap)
++            answer("pick a folder", zenity::pick_folder(&in_directory(self)).await).flatten().map(FileHandle::wrap)
 +        })
 +    }
 +
 +    fn pick_folders_async(self) -> DialogFutureType<Option<Vec<FileHandle>>> {
 +        Box::pin(async move {
-+            let paths = answer("pick folders", zenity::pick_folders(&self).await).and_then(some)?;
++            let paths = answer("pick folders", zenity::pick_folders(&in_directory(self)).await).and_then(some)?;
 +            Some(paths.into_iter().map(FileHandle::wrap).collect())
 +        })
 +    }
@@ -100,7 +110,7 @@
 +use crate::backend::FileSaveDialogImpl;
 +impl FileSaveDialogImpl for FileDialog {
 +    fn save_file(self) -> Option<PathBuf> {
-+        answer("save a file", block_on(zenity::save_file(&self))).flatten()
++        answer("save a file", block_on(zenity::save_file(&in_directory(self)))).flatten()
 +    }
 +}
 +
@@ -108,7 +118,7 @@
 +impl AsyncFileSaveDialogImpl for FileDialog {
 +    fn save_file_async(self) -> DialogFutureType<Option<FileHandle>> {
 +        Box::pin(async move {
-+            answer("save a file", zenity::save_file(&self).await).flatten().map(FileHandle::wrap)
++            answer("save a file", zenity::save_file(&in_directory(self)).await).flatten().map(FileHandle::wrap)
 +        })
 +    }
 +}

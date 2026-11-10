@@ -8,21 +8,40 @@ Owner (2026-11-10, night): "I want to do a complete port of PhotoCraft, built fr
 should be another demo image. The extension work we did to make godot work should be useful for
 that too?" To start once Godot's work is on `main`.
 
-## State (2026-11-10, 23:10)
+## State (2026-11-11, night)
 
-Branch `port/photocraft` (worktree `work/photocraft`) from `main` 54e5938ba. Sources pinned
-(`demos/photocraft/config/sources.json`): PhotoCraft 0.20.1 at 331aa99d, and the git
-dependencies its lock names: craft-libs at two revisions, its egui and winit forks, winprint at two.
-`prepare-photocraft-sources.py` stages them for an offline Cargo build as Codex's script does: each
-git reference becomes a path in its checkout, the crates.io crates are vendored (4 parts, 152 MB),
-and Dolly's target is patched into the crates that lack it, for these versions
-(`config/patches`): tokio 1.54 and socket2 0.6.5 already know Emscripten (only tokio's peer
-credentials remain), cc 1.5 archives in one run of LLVM's ar with its parallel mode off, mio polls
-with poll(2), zlib-rs keeps its SIMD to wasm32. Left: build `photocraft-cli` (it waits for
-`rust-build` on the new seed, from main's round), then the application.
+Branch `port/photocraft` (worktree `work/photocraft`). The desktop app needs two platforms Dolly
+did not have, as Godot needed a platform and a RenderingDevice driver: winit on `display@0` and
+`input@0` (`platform/winit`, about 600 lines after orbital's) and wgpu on `gpu@0`'s explicit records
+(`platform/wgpu`, a custom backend of about 2,000 lines: `Instance::new` takes it for
+`BROWSER_WEBGPU`). raw-window-handle names the window between them. rfd's dialogs are `zenity`,
+an egui program on the same platforms (`zenity/`); arboard says there is no clipboard; `open` uses
+a Unix desktop's openers; tokio's refusal of `net`, `process` and `signal` on Emscripten is kept to
+wasm32, as its message says; ring takes Codex's patch. Dolly's libc named `nlink_t` `usize`, where
+musl's is `unsigned long` (`c_ulong`), so crates that widen it to u64 did not compile
+(cap-primitives): fixed in `demos/rust/toolchain/libc-0.2.18[56].patch`, which the Rust seed's next
+build takes.
 
-The CLI's closure has tokio (its MCP server, rt-multi-thread) but not reqwest, rustls or
-aws-lc-sys: those come only through Windows printing (winprint) and the app's update check.
+The staging rewrote git references only in each checkout's root manifest; a member's
+(craft-libs' `crates/print`) kept its own, so Cargo would have fetched: now every manifest.
+
+The whole app type-checked for `wasm64-unknown-emscripten` with a host nightly (`cargo check
+-Zbuild-std` with Dolly's target spec, `demos/rust/toolchain/wasm64-emscripten-probe.json`) before
+the first build in Dolly; that check is a developer's, the images build in Dolly.
+
+Built in Dolly on 2026-11-11 (`photocraft`, `photocraft-photos`), the first runs found, each fixed
+and rebuilt: wgpu-hal and wgpu-core took Emscripten's GL ES (WebGL by Emscripten's JavaScript) on
+wasm64 too (the link failed), now wasm32 only as wgpu's own crate has it; egui creates its instance
+with wgpu's WebGPU detection, which answered no off the web (now: does gpu@0 open a scope);
+Emscripten's libc numbers errno as WASI does (EPERM 63); accesskit asks whether the window was
+shown before its adapter exists; wgpu's error scopes are each thread's; a view must keep its
+texture, which RELEASE destroys once the work queued before it is done; a download stays in an
+image only when a FILE row keeps it. Then PhotoCraft opens the Great Wave, Ctrl+I inverts it, and
+quitting saves it through zenity, which takes the page and gives it back (Chrome, NVIDIA). The
+command line converts and inspects images; its GPU export reached gpu@0.
+
+Left: Firefox's run of the test; Ctrl+Shift+S, Save As, is the page's (it saves the session), so
+Save As is the File menu's; the clipboard; HiDPI (the window is the canvas at scale 1).
 
 ## What PhotoCraft is
 
