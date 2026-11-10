@@ -14,7 +14,7 @@ REQUIRES HOST download@0
 INSTALL /v0.1.5/Dollyfile-core ba71669ba7bd50ecab1497691cf784bb263a532435b36f5f1783ea2d1dc7f5ac
 INSTALL /v0.1.5/Dollyfile-posix ec580400fe2f6dc4186b44a563a238456c525def4fcdf16a3242938886b9aaaa
 INSTALL /v0.1.5/Dollyfile-display 215807de7ce4ec5f1b2025eb491005f3b4b515079b1f14ba947b46c2091fea52
-INSTALL /v0.1.5/demos/photocraft/Dollyfile-photocraft 17d87383c1bba3f34ee2fa58e43a68ce0753e84d4e166aa37b30969b4642ea8e
+INSTALL /v0.1.5/demos/photocraft/Dollyfile-photocraft ca15b6509e3b50ea339537372e9d83953a43ec33ab7899fe243a8800d79741ff
 REQUIRES TOOL photocraft
 SOURCE /v0.1.5/dist/static/photocraft/great-wave.jpg 30c170260de393f51bd592adacc6f0714b60f157c09744e9c5b6d46e6a613718 /home/dolly/Pictures/great-wave.jpg
 FILE /home/dolly/Pictures/great-wave.jpg
