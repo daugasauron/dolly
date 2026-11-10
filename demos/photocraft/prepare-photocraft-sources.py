@@ -16,7 +16,8 @@ from rust_sources import cargo_config, crate_licences, download, inputs_key, kee
 
 config = Path("demos/photocraft/config")
 parts = Path("build/photocraft-source-parts")
-key = inputs_key(Path(__file__), project / config)
+platform = project / "demos/photocraft/platform"
+key = inputs_key(Path(__file__), project / config, platform)
 if kept(parts, key):
     sys.exit()
 stage = Path("build/photocraft-sources")
@@ -49,16 +50,20 @@ git.mkdir()
 for pin in pins["git"]:
     assert pin["revision"] in revisions
     unpack(pin, git / pin["revision"])
+winit, = (git / pin["revision"] for pin in pins["git"] if "/storytold/winit/" in pin["url"])
 
 
 # Cargo fetches a git dependency even when a patch stands in for it. Each reference to a pinned
-# revision, whatever keys sit beside it, becomes its package's path in that checkout, and the lock
-# names the packages as paths.
+# revision, in any manifest and whatever keys sit beside it, becomes its package's path in that
+# checkout, and the lock names the packages as paths. Other revisions are of crates outside the
+# lock's graph.
 def checkout(match):
     entry = match["entry"]
     name = re.search(r'package = "([\w-]+)"', entry)
     name = name[1] if name else match["name"]
     revision = re.search(r'rev = "([0-9a-f]{40})"', entry)[1]
+    if not (git / revision).is_dir():
+        return match[0]
     manifest, = (path for path in (git / revision).rglob("Cargo.toml")
                  if tomllib.loads(path.read_text()).get("package", {}).get("name") == name)
     directory = "/tmp/photocraft-sources/git/" + manifest.parent.relative_to(git).as_posix()
@@ -68,7 +73,7 @@ def checkout(match):
 
 
 references = re.compile(r'^(?P<name>[\w-]+) = (?P<entry>\{[^}\n]*git = "[^"\n]+"[^}\n]*\})$', re.M)
-for manifest in [photocraft / "Cargo.toml", *sorted(git.glob("*/Cargo.toml"))]:
+for manifest in [photocraft / "Cargo.toml", *sorted(git.rglob("Cargo.toml"))]:
     manifest.write_text(references.sub(checkout, manifest.read_text()))
 assert 'git = "' not in (photocraft / "Cargo.toml").read_text()
 lock_path.write_text(re.sub(r'\nsource = "git\+[^"\n]+"| \(git\+[^)"\n]+\)', "", lock_path.read_text()))
@@ -77,10 +82,16 @@ libc = lock_sdk_libc(lock_path)
 archives = vendor(lock_path, stage / "vendor", stage / "archives")
 apply(stage / "vendor" / libc[0], project / "demos/rust" / libc[1])
 # Dolly's target in crates that do not know it yet, as Codex's are patched
-# (demos/rust/config/patches), for the versions this lock names.
-for patch in sorted((config / "patches").glob("*.patch")):
+# (demos/rust/config/patches), for the versions this lock names; ring's applies as it is.
+for patch in [*sorted((config / "patches").glob("*.patch")), project / "demos/rust/config/patches/ring.patch"]:
     directory, = (stage / "vendor").glob(f"{patch.stem}-[0-9]*")
     apply(directory, patch)
+# Dolly's platforms in winit and wgpu, as Godot's is in Godot: display@0 and input@0 for a window,
+# gpu@0 for the browser's WebGPU, and the window handle that names one to the other.
+shutil.copytree(platform / "winit", winit / "src/platform_impl/dolly", ignore=shutil.ignore_patterns("*.patch"))
+apply(winit, platform / "winit/winit.patch")
+wgpu, = (stage / "vendor").glob("wgpu-[0-9]*")
+shutil.copytree(platform / "wgpu", wgpu / "src/backend/dolly")
 # Locked on every platform and compiled on none of Dolly's: Windows bindings keep their manifest
 # and an empty library.
 for directory in (stage / "vendor").iterdir():

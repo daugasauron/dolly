@@ -1,0 +1,56 @@
+--- a/build.rs
++++ b/build.rs
+@@ -20,6 +20,8 @@
+         x11_platform: { all(feature = "x11", free_unix, not(redox)) },
+         wayland_platform: { all(feature = "wayland", free_unix, not(redox)) },
+         orbital_platform: { redox },
++        // Dolly's display@0 and input@0, the only Emscripten target winit has.
++        dolly_platform: { all(target_os = "emscripten", target_arch = "wasm64") },
+     }
+ 
+     // Winit defined cfgs.
+--- a/src/platform/mod.rs
++++ b/src/platform/mod.rs
+@@ -27,6 +27,7 @@
+     android_platform,
+     x11_platform,
+     wayland_platform,
++    dolly_platform,
+     docsrs,
+ ))]
+ pub mod run_on_demand;
+@@ -37,6 +38,7 @@
+     android_platform,
+     x11_platform,
+     wayland_platform,
++    dolly_platform,
+     docsrs,
+ ))]
+ pub mod pump_events;
+--- a/src/platform_impl/mod.rs
++++ b/src/platform_impl/mod.rs
+@@ -9,6 +9,8 @@
+ mod linux;
+ #[cfg(macos_platform)]
+ mod macos;
++#[cfg(dolly_platform)]
++mod dolly;
+ #[cfg(orbital_platform)]
+ mod orbital;
+ #[cfg(web_platform)]
+@@ -24,6 +26,8 @@
+ use linux as platform;
+ #[cfg(macos_platform)]
+ use macos as platform;
++#[cfg(dolly_platform)]
++use dolly as platform;
+ #[cfg(orbital_platform)]
+ use orbital as platform;
+ #[cfg(web_platform)]
+@@ -74,5 +78,6 @@
+     not(wayland_platform),
+     not(web_platform),
+     not(orbital_platform),
++    not(dolly_platform),
+ ))]
+ compile_error!("The platform you're compiling for is not supported by winit");

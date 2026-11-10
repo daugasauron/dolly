@@ -1,0 +1,63 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -52,7 +52,7 @@
+ test = false
+ doc = false
+ 
+-[target.'cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd", target_os = "illumos", target_os = "solaris", target_os = "aix", target_os = "hurd"))'.dependencies.is-wsl]
++[target.'cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd", target_os = "illumos", target_os = "solaris", target_os = "aix", target_os = "hurd", target_os = "emscripten"))'.dependencies.is-wsl]
+ version = "0.4.0"
+ 
+ [target."cfg(unix)".dependencies.libc]
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -125,7 +125,8 @@
+     target_os = "illumos",
+     target_os = "solaris",
+     target_os = "aix",
+-    target_os = "hurd"
++    target_os = "hurd",
++    target_os = "emscripten"
+ ))]
+ use unix as os;
+ 
+@@ -145,7 +146,8 @@
+     target_os = "haiku",
+     target_os = "redox",
+     target_os = "aix",
+-    target_os = "hurd"
++    target_os = "hurd",
++    target_os = "emscripten"
+ )))]
+ compile_error!("open is not supported on this platform");
+ 
+@@ -274,7 +276,8 @@
+         target_os = "illumos",
+         target_os = "solaris",
+         target_os = "aix",
+-        target_os = "hurd"
++        target_os = "hurd",
++        target_os = "emscripten"
+     ))]
+     return unix::launchers(path);
+ 
+@@ -647,7 +650,8 @@
+     target_os = "illumos",
+     target_os = "solaris",
+     target_os = "aix",
+-    target_os = "hurd"
++    target_os = "hurd",
++    target_os = "emscripten"
+ ))]
+ mod wsl;
+ 
+@@ -661,7 +665,8 @@
+     target_os = "illumos",
+     target_os = "solaris",
+     target_os = "aix",
+-    target_os = "hurd"
++    target_os = "hurd",
++    target_os = "emscripten"
+ ))]
+ mod unix;
+ 

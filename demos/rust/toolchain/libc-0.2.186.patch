@@ -28,7 +28,7 @@
 +pub type fsfilcnt_t = u64;
  pub type rlim_t = u64;
 -pub type nlink_t = u32;
-+pub type nlink_t = usize;
++pub type nlink_t = c_ulong;
  
  pub type ino64_t = crate::ino_t;
  pub type off64_t = off_t;
