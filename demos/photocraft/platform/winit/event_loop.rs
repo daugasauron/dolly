@@ -184,15 +184,18 @@ impl<T: 'static> EventLoop<T> {
             event_handler(event::Event::Resumed, target);
         }
 
-        while let Some(window_id) = shared.created.lock().unwrap().pop_front() {
-            if let Some(leases) = *shared.window.lock().unwrap() {
+        // A handler may create or drop the window: no lock is held while one runs.
+        while let Some(window_id) = pop(&shared.created) {
+            let leases = *shared.window.lock().unwrap();
+            if let Some(leases) = leases {
                 self.input = Input::default();
                 let event = event::WindowEvent::Resized(leases.size.into());
                 event_handler(event::Event::WindowEvent { window_id: RootWindowId(window_id), event }, target);
             }
         }
 
-        if let Some(leases) = *shared.window.lock().unwrap() {
+        let leases = *shared.window.lock().unwrap();
+        if let Some(leases) = leases {
             let window_id = RootWindowId(WindowId(leases.display));
             let woken_by = self.input.woken_by.borrow_mut().take();
             let mut send = |event| event_handler(event, target);
@@ -212,21 +215,26 @@ impl<T: 'static> EventLoop<T> {
             }
         }
 
+        let leases = *shared.window.lock().unwrap();
         if shared.redraw.swap(false, Ordering::AcqRel) {
-            if let Some(leases) = *shared.window.lock().unwrap() {
+            if let Some(leases) = leases {
                 let window_id = RootWindowId(WindowId(leases.display));
                 let event = event::WindowEvent::RedrawRequested;
                 event_handler(event::Event::WindowEvent { window_id, event }, target);
             }
         }
 
-        while let Some(window_id) = shared.destroyed.lock().unwrap().pop_front() {
+        while let Some(window_id) = pop(&shared.destroyed) {
             let event = event::WindowEvent::Destroyed;
             event_handler(event::Event::WindowEvent { window_id: RootWindowId(window_id), event }, target);
         }
 
         event_handler(event::Event::AboutToWait, target);
     }
+}
+
+fn pop(queue: &Mutex<VecDeque<WindowId>>) -> Option<WindowId> {
+    queue.lock().unwrap().pop_front()
 }
 
 /// The window's input, from its records: what is held, where the pointer is.
