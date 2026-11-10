@@ -47,6 +47,7 @@ func _ready() -> void:
             image.set_pixel(x, y, Color(x / 63.0, y / 63.0, 0.5))
     $Sprite.texture = ImageTexture.create_from_image(image)
     print("ADAPTER ", RenderingServer.get_video_adapter_name())
+    print("DEBUGGER ", EngineDebugger.is_active())
 
 func _process(_delta: float) -> void:
     frames += 1
@@ -182,7 +183,7 @@ for (const name of browsers) {
     page.on("pageerror", error => errors.push(error.message));
     // WebGPU's validation errors reach the page's console after their batch is answered.
     page.on("console", message => { if (message.text().startsWith("Dolly GPU:")) errors.push(message.text()); });
-    const image = await composed(["gpu", "audio", "display", "input", "threads"], ["godot", "godot-editor", "truck-town", "lantern-drift"], { base: "system" });
+    const image = await composed(["gpu", "audio", "display", "input", "threads", "sockets"], ["godot", "godot-editor", "truck-town", "lantern-drift"], { base: "system" });
     await image.setup(page);
     await page.goto(server.origin + image.path);
     await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null, { timeout: 300_000 });
@@ -256,8 +257,8 @@ for (const name of browsers) {
     assert.ok(Number(rings) >= 4 && Number(bright) > 50 && Number(warm) > 5000, `Lantern Drift flies and draws: ${drift}`);
 
     // The editor runs the 2D project (F5): the game's 640 by 360 window takes the page over the
-    // editor's, its output goes where the editor's does, and the editor has the page back when the
-    // game quits after its 300 frames.
+    // editor's, it reaches the editor's debugger over a local socket, its output goes where the
+    // editor's does, and the editor has the page back when the game quits after its 300 frames.
     const editing = page.evaluate(text => __dolly.submit(text), "godot-editor -e --path /tmp/scene2d > /tmp/run.out 2>&1");
     await page.waitForFunction(() => __dolly.gpu?.active && __dolly.gpu.width > 1000, null, { polling: 200, timeout: 180_000 });
     const editorWidth = await page.evaluate(() => __dolly.gpu.width);
@@ -268,8 +269,9 @@ for (const name of browsers) {
     await page.waitForFunction(width => __dolly.gpu.active && __dolly.gpu.width === width, editorWidth, { polling: 200, timeout: 180_000 });
     await page.keyboard.press("Control+c");
     assert.equal(await editing, 130);
-    const ran = await output("/tmp/run.out | grep -E '^(ADAPTER|LABEL) '");
+    const ran = await output("/tmp/run.out | grep -E '^(ADAPTER|LABEL|DEBUGGER) '");
     assert.match(ran, /^ADAPTER WebGPU$/m, `the game the editor ran printed: ${ran}`);
+    assert.match(ran, /^DEBUGGER true$/m, `the game the editor ran reached its debugger: ${ran}`);
     assert.ok(Number(ran.match(/^LABEL (\d+)$/m)?.[1]) > 100, `the game the editor ran drew its label: ${ran}`);
 
     const editor = await output("/tmp/editor.out | grep '^EDITOR '");

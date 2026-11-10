@@ -61,6 +61,8 @@ def configure(env: "SConsEnvironment"):
         env.Append(LINKFLAGS=["-pthread"])
     env.Prepend(CPPPATH=["#platform/dolly"])
     env.Append(CPPDEFINES=["DOLLY_ENABLED", "UNIX_ENABLED", ("_FILE_OFFSET_BITS", 64)])
+    # Local stream sockets (sockets@0), by path: the editor's debugger and the game it runs.
+    env.Append(LIBS=["dolly-sockets"])
     if env["webgpu"]:
         # The driver on gpu@0 and its shader container, which translates with spirv-wgsl.
         env.Append(CPPDEFINES=["RD_ENABLED", "WEBGPU_ENABLED"])
