@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { delay, demoTest, recoveryPrompt, shellQuote, writeCommand } from "../../browser.mjs";
 import { siteReference } from "../../../src/static-asset.mjs";
 
-await demoTest("studio", { image: "dollyfile-studio", webgpu: true, timeout: 900_000,
+await demoTest("studio", { image: "dollyfile-studio", timeout: 900_000,
   server: { fixtures: { "studio-nvim.lua": "demos/studio/test/fixtures/studio-nvim.lua" } } }, async ({ server, open }) => {
   const terminal = await open({ prompt: /Dollyfile Studio.*dolly-hello/,
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
@@ -21,7 +21,7 @@ await demoTest("studio", { image: "dollyfile-studio", webgpu: true, timeout: 900
   for (const label of ["Dollyfile-$&", "Dollyfile-$$", "Dollyfile-$'", "Dollyfile-$`", "Dollyfile-東京"]) {
     await run(`message=$(printf 'DOLLY 7\\n' | dollyfile-lint --stdin ${shellQuote(label)} 2>&1); test "$?" = 1 && test "$message" = ${shellQuote(`${label}:1: missing APPLICATION, TOOLCHAIN or PACKAGE`)}`);
   }
-  await run("test -f /home/dolly/.pi/agent/skills/dollyfiles/SKILL.md && test -f /home/dolly/.pi/agent/extensions/local-model-provider.js");
+  await run("test -f /home/dolly/.pi/agent/skills/dollyfiles/SKILL.md");
   // Recipes name site paths; the page serves its own copies, pinned by hash.
   await run(`curl -f ${siteReference("demos/javascript/Dollyfile-quickjs")} -o /tmp/recipe && curl -f ${siteReference("dist/static/default/quickjs.tar")} -o /tmp/source.tar && grep -q "$(sha256sum /tmp/source.tar | cut -d ' ' -f 1)" /tmp/recipe`);
   await run(`curl -f ${siteReference("dist/static/default/runtimes/quickjs-main.c")} | grep -q dolly_quickjs_run && rm /tmp/recipe /tmp/source.tar`);
@@ -53,7 +53,6 @@ FILE /tmp/proof/hello.c
     #warning BUILD-COMPILER-WARNING
     int main(void) { puts("BUILT-IN-WASM"); fputs("LIVE-BUILD-STDERR\\n", stderr); return 0; }
 FILE /tmp/proof/check.slop
-    if curl -fsS https://webgpu.dolly.invalid/v1/models; then exit 1; fi
     if download /etc/dolly/Dollyfile; then exit 1; fi
     printf 'BUILD-SERVICES-DENIED\\n'
 SLOP slop -e /tmp/proof/check.slop

@@ -1,11 +1,11 @@
 # Dollyfile Studio
 
-Write, lint and build Dollyfiles with Pi, local models and Neovim. Builds use the
+Write, lint and build Dollyfiles with Pi and Neovim. Builds use the
 core `build@0` service ([Studio builds](../../docs/image-build-service.md)).
 
 ## Images
 
-- `dollyfile-studio`: Create images with Pi, local models and Neovim.
+- `dollyfile-studio`: Create images with Pi and Neovim.
 
 Open `/dollyfile-studio/`. `dollyfile-lint FILE` checks one file's syntax;
 `dollyfile-build /workspace/Dollyfile` builds it in a disposable sandbox and

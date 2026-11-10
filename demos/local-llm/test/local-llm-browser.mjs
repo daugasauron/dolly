@@ -1,7 +1,7 @@
 // A new user's path through the local models, in Chrome and the installed Firefox on a
-// hardware GPU: pi-local's engine, sessions and offline boot, then in pi-local and in
-// Dollyfile Studio a task with the bundled model, a second model installed and chosen
-// with /local, its temperature and context size changed there, and the task again.
+// hardware GPU: pi-local's engine, sessions and offline boot, then in pi-local a task with
+// the bundled model, a second model installed and chosen with /local, its temperature and
+// context size changed there, and the task again.
 import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {chromium,firefox} from 'playwright-core';
@@ -13,31 +13,28 @@ await mkdir(output,{recursive:true});
 // The extension's hint on Pi's start screen, beside dolly-tools' sandbox line.
 const hint=/\/local chooses/;
 
-// Without a GPU, in headless Chrome on its software adapter: both images start with the
-// hint, pi-local beside dolly-tools' sandbox line (the Studio's own notice takes that line
-// there), and /local takes the hint away without loading a model.
-for(const image of ['pi-local','dollyfile-studio']) {
-  await demoTest(`${image} start screen`,{image,webgpu:true},async({open})=>{
-    const {page,text,waitText,input}=await open({prompt:null,viewport:{width:1280,height:840}});
-    if(image==='pi-local')await waitText(/sandbox/);
-    await waitText(hint);
-    await page.screenshot({path:new URL(`chromium-${image}-start.png`,output).pathname});
-    await input('/local\r');await waitText(/Local models/);
-    await input('\x1b');await page.waitForTimeout(500);
-    assert.doesNotMatch(await text(),hint);
-  });
-}
+// Without a GPU, in headless Chrome on its software adapter: pi-local starts with the hint
+// beside dolly-tools' sandbox line, and /local takes the hint away without loading a model.
+await demoTest('pi-local start screen',{image:'pi-local',webgpu:true},async({open})=>{
+  const {page,text,waitText,input}=await open({prompt:null,viewport:{width:1280,height:840}});
+  await waitText(/sandbox/);
+  await waitText(hint);
+  await page.screenshot({path:new URL('chromium-pi-local-start.png',output).pathname});
+  await input('/local\r');await waitText(/Local models/);
+  await input('\x1b');await page.waitForTimeout(500);
+  assert.doesNotMatch(await text(),hint);
+});
 
 if(!process.env.DISPLAY){console.log('local-llm: the model steps are skipped, they need a GPU window on DISPLAY');process.exit(0);}
 
 const root=new URL('../../../',import.meta.url).pathname;
-// The model both images bundle, and the one the user installs next (DOLLY_LLM_SECOND names another package).
+// The model pi-local bundles, and the one the user installs next (DOLLY_LLM_SECOND names another package).
 const model='qwen3.5-2b',weights=`/usr/share/dolly/llm/${model}.gguf`,second=process.env.DOLLY_LLM_SECOND??'minicpm5-2b';
 // Playwright drives the installed Firefox, which on Ubuntu is a snap with a
 // private /tmp: its profile and downloads must live under $HOME.
 process.env.TMPDIR=new URL('tmp/',output).pathname;await mkdir(process.env.TMPDIR,{recursive:true});
 
-for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local,dollyfile-studio').split(',')) {
+for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local').split(',')) {
   // CSP denies external model servers without disabling the browser HTTP cache.
   const site=await startBrowserServer(root,image,{responseHeaders:{'content-security-policy':"connect-src 'self'"}});
   try {

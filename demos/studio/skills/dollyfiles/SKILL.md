@@ -83,6 +83,6 @@ also be a full URL of another site.
 
 For Neovim (highlighting, inline lint, `:DollyLint`) read
 [neovim.md](neovim.md); interactive nvim needs the shell after leaving Pi with
-Ctrl+D, not Pi's tool. `/model` switches between local and remote models;
+Ctrl+D, not Pi's tool. `/model` switches models;
 `/dolly-hello`, `/dolly-tool` and `/dolly-fix` are starter prompts. `download
 RECIPE` saves a recipe to the user's device; Ctrl+Shift+S saves the session.

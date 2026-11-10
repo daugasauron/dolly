@@ -15,7 +15,7 @@ or remote fallback.
 - `minicpm5-2b`: Model package: MiniCPM5-2B weights, description and license.
 - `lfm2.5`: Model package: LFM2.5-2.6B weights, description and license.
 
-Open `/pi-local/` (or Dollyfile Studio) and ask; the first prompt loads the
+Open `/pi-local/` and ask; the first prompt loads the
 bundled model. In Pi, `/local` lists every model of the release with the GPU
 memory it needs on this adapter and its state. Choosing one that is not
 installed runs `amy install` for its packages and switches to it; choosing an
