@@ -374,3 +374,38 @@ NVIDIA (reverse PRIME, 75 Hz).
 Done when Godot's editor and a 3D project draw through the driver on `gpu@0` in Chromium and
 Firefox, their tests pass on real adapters there, and the editor's frame times are measured and
 recorded against the baseline of step 1.
+
+## The Project Manager (2026-11-10)
+
+The owner found the editor "WAY too long" on hover and click in Chrome and Firefox; the
+reference page (HTML buttons and WebGPU-in-a-Worker buttons) felt instant. Their screenshot
+showed Godot's Project Manager (`godot-editor` with no arguments), not the editor.
+
+- Upstream starts the Project Manager on the Compatibility renderer when nothing names one
+  (`main/main.cpp`, "Default to Compatibility when using the project manager"). Here that is
+  Mesa's softpipe in Wasm: a hover took 577-600 ms to show (real X pointer at 250 Hz, x11grab,
+  Chrome under Xvfb), gpu@0 idle. Forced onto Forward+ on gpu@0 it took 9-33 ms. The patch
+  keeps upstream's default only where gpu@0's driver is not built (`#ifndef WEBGPU_ENABLED`);
+  without an adapter the display server still falls back to Compatibility.
+- The Project Manager opens a project with `OS::create_instance` and quits; Godot's Unix
+  `create_process`, `execute` and `execute_with_pipe` fork, and Dolly has no `fork` (ENOSYS),
+  so no project could be opened. `OS_Dolly` now spawns with `posix_spawn`, keeps its children's
+  exit codes, and an instance asked for without its PID waits for the frame's end: if the
+  program quits, it replaces it by `execv` (same PID, so it keeps the foreground, the surface
+  and input), as Godot's web editor runs a new editor in its canvas once the old one exits
+  (`misc/dist/html/editor.html`); otherwise it is a child.
+- The GPU canvas letterbox is the terminal's background, as display@0's is (the Project
+  Manager's 1152x800 window showed the terminal beside it).
+- Verified: `godot-gpu-browser.mjs` (the Project Manager on gpu@0, Ctrl+E into the editor) in
+  Chrome and Firefox; `godot-browser.mjs` and `godot-editor-browser.mjs` in both; the Project
+  Manager started as `godot-editor` shows a hover in 5-32 ms. The snap Firefox (revision 9171,
+  refreshed 2026-11-10 05:24) cannot read a profile under `/tmp` (its private `/tmp`): run its
+  GPU tests with `TMPDIR` under `$HOME`. `Dollyfile-dolly-docs` pins an older `docs/gpu.md`
+  (since fae57f486): the catalog round repins it.
+- Left: `execute_with_pipe` still forks (fails explicitly); a game the editor runs (F5) is a
+  child that gets no surface while the editor holds the page's one (EBUSY): a second surface
+  is a gpu@0/display@0 design question.
+
+The editor itself, measured the owner's way (typed at the shell, its output in the terminal,
+real X pointer events at 250 and 1000 Hz), shows a hover 15-45 ms after the pointer enters a
+button, sweeping across rows included; the reference page 14-49 ms under the same probe.

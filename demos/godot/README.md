@@ -3,9 +3,11 @@
 Godot 4.7 from upstream's release, built inside Dolly by SCons with Dolly's
 `cc`, as the `godot` package, with one patch
 ([`godot-dolly.patch`](godot-dolly.patch)): it names Dolly's WebGPU driver to
-Godot, and Forward+ starts SDFGI only where the device has image atomics,
+Godot, Forward+ starts SDFGI only where the device has image atomics,
 which WebGPU does not (SDFGI also needs more storage textures than WebGPU
-gives a shader stage). In Firefox, which has neither of WebGPU's texture format
+gives a shader stage), and the Project Manager draws on `gpu@0` as the editor
+does, where upstream starts it on the Compatibility renderer, which here is a
+software rasterizer: a hover took 0.6 s to show on it, 9 to 33 ms on `gpu@0`. In Firefox, which has neither of WebGPU's texture format
 tiers, SSIL, the depth-of-field blur, VoxelGI and 2D SDFs do not draw.
 `amy install godot`, then
 `godot --path DIRECTORY` runs a project on the page, drawn by Godot's
@@ -94,6 +96,12 @@ What the platform decides ([process model](../../docs/process-model.md)):
 - Threads: Mesa is built with `-pthread`, so Godot is too (`threads@0`).
 - One window, the page's canvas, which scales the frame; Godot's window
   size is the project's.
+- Processes start with `posix_spawn`, as Dolly has no `fork`. An instance of
+  Godot asked for without its PID (the Project Manager opening a project,
+  the editor's restart or its return to the project list) takes the
+  program's place by `execv` when the program ends that frame, as Godot's
+  web editor runs a new editor in its canvas once the old one exits: one
+  surface and one foreground. If the program goes on, it is a child.
 - An export template runs only the pack beside it unless it is built with
   `disable_path_overrides=no`, which lets `--path` and `--script` name a
   project. A project the editor has not imported has no

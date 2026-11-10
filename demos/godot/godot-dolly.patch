@@ -8,7 +8,23 @@
  
  		GLOBAL_DEF_RST("rendering/rendering_device/fallback_to_vulkan", true);
  		GLOBAL_DEF_RST("rendering/rendering_device/fallback_to_d3d12", true);
-@@ -2607,6 +2608,9 @@
+@@ -2502,11 +2503,15 @@
+ 		default_renderer_mobile = "gl_compatibility";
+ 	}
+ 	// Default to Compatibility when using the project manager.
++	// Dolly's OpenGL is a software rasterizer: with gpu@0 the project manager draws
++	// there, as the editor does, and falls back to Compatibility without an adapter.
++#ifndef WEBGPU_ENABLED
+ 	if (rendering_driver.is_empty() && rendering_method.is_empty() && project_manager) {
+ 		rendering_driver = "opengl3";
+ 		rendering_method = "gl_compatibility";
+ 		default_renderer_mobile = "gl_compatibility";
+ 	}
++#endif
+ #endif
+ 
+ 	if (!rendering_method.is_empty()) {
+@@ -2607,6 +2612,9 @@
  #ifdef METAL_ENABLED
  			available_drivers.push_back("metal");
  #endif

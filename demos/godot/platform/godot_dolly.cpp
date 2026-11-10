@@ -21,5 +21,6 @@ int main(int argc, char *argv[]) {
 		os.set_exit_code(EXIT_FAILURE);
 	}
 	Main::cleanup();
+	os.replace_with_instance();
 	return os.get_exit_code();
 }

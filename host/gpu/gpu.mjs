@@ -72,7 +72,10 @@ export function browser(page) {
     canvas = document.createElement("canvas");
     canvas.id = "gpu-display";
     canvas.hidden = true;
-    canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none";
+    // Over the terminal: beside a smaller surface, its letterbox is the terminal's background, as
+    // display@0's is.
+    canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;" +
+      "background:var(--dolly-background,#262626)";
     mount.append(canvas);
     surface = canvas.transferControlToOffscreen();
   }

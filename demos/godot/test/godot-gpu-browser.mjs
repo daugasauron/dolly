@@ -3,8 +3,9 @@
 // (godot), a 3D scene with a sky, light and shadow on Mobile (godot-editor running it) and on
 // Forward+ (godot), the same scene with Forward+'s effects on (SSR, SSAO, SSIL, glow, volumetric
 // fog, depth of field, FSR 1 scaling), and the editor itself each read their own frame back, as
-// Firefox under Xvfb shows no WebGPU canvas; Truck Town's menu, its cars turning in 3D viewports,
-// runs 600 frames.
+// Firefox under Xvfb shows no WebGPU canvas; the Project Manager draws on gpu@0 and opens the 3D
+// project in the editor, which takes its place; Truck Town's menu, its cars turning in 3D
+// viewports, runs 600 frames.
 // Usage: node demos/godot/test/godot-gpu-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { chromium, firefox } from "playwright-core";
@@ -227,6 +228,23 @@ for (const name of browsers) {
     near(color(effects, "BOX"), [0xc5, 0x3b, 0x3d], "the box under the effects");
     near(color(effects, "FLOOR"), [0x62, 0x73, 0x8a], "the mirror floor");
     scenes3d.push(effects);
+
+    // The Project Manager (no arguments) lists the 3D project first; Ctrl+E edits it until the
+    // editor has taken the Project Manager's process and surface, at the page's size.
+    await run("mkdir -p ~/.local/share/godot && printf '[/tmp/scene3d]\\n\\nfavorite=false\\n' > ~/.local/share/godot/projects.cfg");
+    const manager = page.evaluate(text => __dolly.submit(text), "godot-editor > /tmp/manager.out 2>&1");
+    await page.waitForFunction(() => __dolly.gpu?.active, null, { polling: 200, timeout: 180_000 });
+    const managerSize = await page.evaluate(() => [__dolly.gpu.width, __dolly.gpu.height]);
+    assert.ok(managerSize[0] < 1600, `the Project Manager draws its own window on gpu@0: ${managerSize}`);
+    while (await page.evaluate(width => __dolly.gpu.active && __dolly.gpu.width === width, managerSize[0])) {
+      await page.keyboard.press("Control+e");
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+    assert.equal(await manager, 0);
+    await run("! grep -q 'refused a batch' /tmp/manager.out");
+    const opened = await output("/tmp/manager.out | grep '^EDITOR '");
+    const [, openedRed, openedLight] = opened.match(/^EDITOR \d+x\d+ red (\d+) light (\d+)$/m) ?? [];
+    assert.ok(Number(openedRed) > 1000 && Number(openedLight) > 40, `the editor the Project Manager opened draws: ${opened}`);
 
     const editor = await output("/tmp/editor.out | grep '^EDITOR '");
     const [, red, light] = editor.match(/^EDITOR 1152x648 red (\d+) light (\d+)$/m) ?? [];
