@@ -12,7 +12,7 @@ REQUIRES HOST threads@0
 # images and PSD files, runs commands and batches, renders on gpu@0 where the browser grants
 # WebGPU, and serves its commands to agents over MCP. zenity, built by a run of its own so that
 # egui keeps PhotoCraft's features, is the dialogs, on the same platforms.
-FROM /v0.1.5/demos/rust/Dollyfile-rust-build 08eef24c6ba0616729512c37892fd93b06c09c7e5f7740faf487035d56f1322f
+FROM /v0.1.5/demos/rust/Dollyfile-rust-build 578411da4e312ab602adf1d4e609513b5268b8bdb409ab66ddac847901815f68
 USE /v0.1.5/Dollyfile-libdolly-gpu d860787df9ebc417e1a6464cd7d90a73ca9623dea685eb48b3d3e2da7508d1d5
 REQUIRES TOOL cargo
 REQUIRES TOOL cat
@@ -23,10 +23,10 @@ REQUIRES TOOL mv
 REQUIRES TOOL cp
 REQUIRES TOOL rm
 
-SOURCE /v0.1.5/dist/static/photocraft/sources-00.part 4f86f475ec804f3bff04151abe280a21e0d12ec77895dff130acb5fc8896f075 /tmp/photocraft-sources-00.part
-SOURCE /v0.1.5/dist/static/photocraft/sources-01.part 82bbc6bcc76db30bf1bc99b1beaaf10cc9cb71652671b542163b6dd9d9919759 /tmp/photocraft-sources-01.part
-SOURCE /v0.1.5/dist/static/photocraft/sources-02.part e71ee9603a147f82e516e0f477683293b74b28f16b914b0274a20d639f22b67e /tmp/photocraft-sources-02.part
-SOURCE /v0.1.5/dist/static/photocraft/sources-03.part 4a8e0041e497b4463776a94f85146ec0ab815f1d587809f95e40857c65da0b47 /tmp/photocraft-sources-03.part
+SOURCE /v0.1.5/dist/static/photocraft/sources-00.part 36c8411724f940335b494ed099e3cae5751c8235a636ecbd76e6016b05ce5491 /tmp/photocraft-sources-00.part
+SOURCE /v0.1.5/dist/static/photocraft/sources-01.part 19cb3cde6749c1053f47b54107f97fb607dd56348e78388878e674c6174c3fe3 /tmp/photocraft-sources-01.part
+SOURCE /v0.1.5/dist/static/photocraft/sources-02.part 51d39599bf6238fc54a06502fd88c49ccedf4cdd527b90f5f98e9e151b9a539d /tmp/photocraft-sources-02.part
+SOURCE /v0.1.5/dist/static/photocraft/sources-03.part 75cd6cdae30cc0b4321d260370f924fcf9000b9e54b3b9da383f36ef4d20605e /tmp/photocraft-sources-03.part
 SLOP cat /tmp/photocraft-sources-00.part /tmp/photocraft-sources-01.part /tmp/photocraft-sources-02.part /tmp/photocraft-sources-03.part | gzip -dc - | tar -xf - -C /
 SLOP rm /tmp/photocraft-sources-00.part /tmp/photocraft-sources-01.part /tmp/photocraft-sources-02.part /tmp/photocraft-sources-03.part 
 SLOP CWD /tmp/photocraft-sources/photocraft cargo build -j 4 --offline -p photocraft -p photocraft-cli --target-dir /tmp/photocraft-build
