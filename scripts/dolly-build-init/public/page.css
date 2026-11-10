@@ -1,0 +1,3 @@
+/* The page: Dolly fills it. The font of the popups of Pi's ask_user and show_html, and the
+   scheme of their form controls; their colours and the terminal's are theme.json's. */
+#dolly { position: fixed; inset: 0; --dolly-html-font: ui-monospace, monospace; --dolly-html-color-scheme: dark; }

@@ -133,6 +133,15 @@ properties each time a popup opens. Dolly's site sets
   as `application/json`: a browser imports a host module's manifest and an image
   directory's catalog and metadata only with that type.
 - No bundler is needed: these are ES modules, Workers and Wasm files.
+- A Content-Security-Policy that Dolly runs under, with no `'unsafe-inline'` or
+  `'unsafe-eval'`: `default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:;
+  worker-src 'self' blob:; img-src 'self' blob:; object-src 'none'; base-uri 'none'`,
+  with `connect-src` naming the origins the HTTP policy allows (or their relay).
+  WebAssembly needs `'wasm-unsafe-eval'`; processes start in Workers from `blob:` URLs
+  of code fetched once, so a program starts without a request. Neither boot() nor a
+  host module writes a script or style element (the popup is a frame in which no
+  script runs), so the page's own script and style, as files, are all the policy
+  admits ([test](../test/csp-browser.mjs)).
 
 ## Your own image
 
@@ -158,8 +167,9 @@ npx dolly-build Dollyfile-my-pi my-pi
   of `pi-minimal` and of each package, `FROM` `pi-minimal` and `INSTALL` of each
   package at the installed pins, rows for Pi's instructions, a skill, an extension,
   a tool and the script that starts Pi, and `pi-minimal`'s `ENTRY`) and `public/`,
-  the page's files: `index.html` (the policy, the popups' font, and the files of
-  `workspace/` and `theme.json` for `boot()`'s `files`, listed by `workspace.json`),
+  the page's files: `index.html`, `page.css` (the popups' font) and `main.mjs` (the
+  policy, and the files of `workspace/` and `theme.json` for `boot()`'s `files`, listed
+  by `workspace.json`), with no inline script or style,
   `theme.json` (the sandbox's colours: Pi's theme, written over the image's at
   boot, whose background, text, accent and muted the page sets as the terminal's
   and the popups') and `workspace/README.md`; and, unless the project has one, a
@@ -195,9 +205,9 @@ npx dolly-build Dollyfile-my-pi my-pi
 - A recipe may start `FROM` another installed image instead, `python-data` say: its
   package's README gives the `FROM` row, and the recipe repeats the image's `REQUIRES HOST`
   rows (a FILE of the project's own script and a SLOP that runs it at build time, for
-  example). `init` writes Pi's project only; the page in `public/index.html` is then one
+  example). `init` writes Pi's project only; the page in `public/` is then one
   as in "A page" above that imports `./dolly/src/browser.mjs` and `./image/index.mjs`,
-  with the lines of `init`'s page that register `coi-serviceworker.js` for a host
+  with the lines of `init`'s `main.mjs` that register `coi-serviceworker.js` for a host
   without the headers.
 - An image is built for the installed versions: after the packages update, the
   rows' pins are others (`init` in an empty directory writes the new ones), and it

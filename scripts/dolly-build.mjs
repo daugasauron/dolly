@@ -108,6 +108,8 @@ async function scaffold(name, packages) {
       row("FROM", base) + installs.map(definition => row("INSTALL", definition)).join("") + "\n" + await template("Dollyfile") +
       `\nENTRY ${base.entry.join(" ")}\n`,
     "public/index.html": await template("public/index.html"),
+    "public/main.mjs": await template("public/main.mjs"),
+    "public/page.css": await template("public/page.css"),
     "public/theme.json": await template("public/theme.json"),
     "public/workspace/README.md": await template("public/workspace/README.md"),
   };

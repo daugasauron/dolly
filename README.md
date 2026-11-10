@@ -138,7 +138,8 @@ sandbox, files and all, in this browser and names it in the address
 | File | What it declares | After a change |
 | --- | --- | --- |
 | `Dollyfile-my-pi` | The sandbox, a [recipe](docs/dollyfile.md) `FROM` `pi-minimal`: `INSTALL` rows for the packages you named (`git`, `python`, `numpy`, `matplotlib`), `FILE` rows with Pi's `AGENTS.md`, a skill, an extension with a `/hello` command, a `todo` tool (a C program or a file of an npm package are tools too, as its comments say), and the script that starts Pi with its provider and model: OpenRouter, or Anthropic's API with your key on the next line | Build again |
-| `public/index.html` | The hosts the agent may reach ([HTTP policy](docs/http.md)): one rule per host, OpenRouter's API to begin with. The popups' font. The files written into `/workspace` | Build again (the image is kept) |
+| `public/main.mjs` | The hosts the agent may reach ([HTTP policy](docs/http.md)): one rule per host, OpenRouter's API to begin with. The files written into `/workspace` | Build again (the image is kept) |
+| `public/index.html`, `public/page.css` | The page, and the popups' font. No inline script or style, so the host may serve a strict Content-Security-Policy ([Embedding](docs/embedding.md)) | Build again (the image is kept) |
 | `public/theme.json` | The sandbox's colours: five values in Pi's theme format, whose background, text, accent and muted are the terminal's and the popups' too | Build again (the image is kept) |
 | `public/workspace/` | The project the agent works on, written into `/workspace` at each boot | Build again (the image is kept) |
 | `my-pi/` | The site `dolly-build` writes: `public/`, the listing of its workspace, the runtime, the host modules the recipe declares, the image and `coi-serviceworker.js`, which isolates the page where the host sends no isolation headers ([Embedding](docs/embedding.md), "Your own image") | Reload |
