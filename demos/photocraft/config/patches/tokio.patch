@@ -1,0 +1,12 @@
+--- a/src/net/unix/ucred.rs
++++ b/src/net/unix/ucred.rs
+@@ -1,4 +1,9 @@
+ use crate::net::unix;
++
++#[cfg(all(target_os = "emscripten", target_arch = "wasm64"))]
++pub(crate) fn get_peer_cred(_: &unix::UnixStream) -> std::io::Result<UCred> {
++    Err(std::io::Error::from_raw_os_error(libc::ENOSYS))
++}
+ 
+ /// Credentials of a process.
+ #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]

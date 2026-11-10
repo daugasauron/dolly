@@ -76,6 +76,11 @@ lock_path.write_text(re.sub(r'\nsource = "git\+[^"\n]+"| \(git\+[^)"\n]+\)', "",
 libc = lock_sdk_libc(lock_path)
 archives = vendor(lock_path, stage / "vendor", stage / "archives")
 apply(stage / "vendor" / libc[0], project / "demos/rust" / libc[1])
+# Dolly's target in crates that do not know it yet, as Codex's are patched
+# (demos/rust/config/patches), for the versions this lock names.
+for patch in sorted((config / "patches").glob("*.patch")):
+    directory, = (stage / "vendor").glob(f"{patch.stem}-[0-9]*")
+    apply(directory, patch)
 # Locked on every platform and compiled on none of Dolly's: Windows bindings keep their manifest
 # and an empty library.
 for directory in (stage / "vendor").iterdir():

@@ -17,9 +17,9 @@ REQUIRES TOOL cp
 REQUIRES TOOL rm
 
 SOURCE /v0.1.5/dist/static/photocraft/sources-00.part 4f86f475ec804f3bff04151abe280a21e0d12ec77895dff130acb5fc8896f075 /tmp/photocraft-sources-00.part
-SOURCE /v0.1.5/dist/static/photocraft/sources-01.part fb44d2123d66b8d9dc0f714096b0bda861cf757a0592bf5b39a241d19e49125d /tmp/photocraft-sources-01.part
-SOURCE /v0.1.5/dist/static/photocraft/sources-02.part 1fa72404717c7d560ebf537177c1afab5ed8c57de08580415dba523a0d52a662 /tmp/photocraft-sources-02.part
-SOURCE /v0.1.5/dist/static/photocraft/sources-03.part 9c7134ae0836ef773167c24ad3630513f885ce5ba4a853d4d152e173876a6f94 /tmp/photocraft-sources-03.part
+SOURCE /v0.1.5/dist/static/photocraft/sources-01.part 82bbc6bcc76db30bf1bc99b1beaaf10cc9cb71652671b542163b6dd9d9919759 /tmp/photocraft-sources-01.part
+SOURCE /v0.1.5/dist/static/photocraft/sources-02.part e71ee9603a147f82e516e0f477683293b74b28f16b914b0274a20d639f22b67e /tmp/photocraft-sources-02.part
+SOURCE /v0.1.5/dist/static/photocraft/sources-03.part 4a8e0041e497b4463776a94f85146ec0ab815f1d587809f95e40857c65da0b47 /tmp/photocraft-sources-03.part
 SLOP cat /tmp/photocraft-sources-00.part /tmp/photocraft-sources-01.part /tmp/photocraft-sources-02.part /tmp/photocraft-sources-03.part | gzip -dc - | tar -xf - -C /
 SLOP rm /tmp/photocraft-sources-00.part /tmp/photocraft-sources-01.part /tmp/photocraft-sources-02.part /tmp/photocraft-sources-03.part 
 SLOP CWD /tmp/photocraft-sources/photocraft cargo build -j 4 --offline -p photocraft-cli --no-default-features --target-dir /tmp/photocraft-build
