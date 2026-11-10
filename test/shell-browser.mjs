@@ -149,6 +149,8 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
     ["alias ll=ls", 2],
     ["echo 'int main(void) { volatile unsigned long n = 0; for (;;) n++; }' > loop.c && cc -O0 loop.c -o loop"],
     ["timeout 0.05 ./loop", 124],
+    // -s strips the names too, and the program still runs.
+    ["cc -O0 -s loop.c -o stripped && test $(wc -c < stripped) -lt $(wc -c < loop) && timeout 0.05 ./stripped", 124],
     ["mkdir -p copy/nested && echo FILE > copy/file && echo NESTED > copy/nested/file && cp -R copy copied && grep -q FILE copied/file && grep -q NESTED copied/nested/file"],
   ];
   for (const [command, expected = 0] of cases) assert.equal(await submit(command), expected, command);

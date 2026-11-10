@@ -457,6 +457,9 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
       options.debug_info = DebugInfoKind::LineTables;
     } else if (argument == "-g0") {
       options.debug_info = DebugInfoKind::None;
+    } else if (argument == "-s") {
+      // As Clang's driver passes it: the linker leaves out the name section too.
+      options.linker_options.push_back("--strip-all");
     } else if (starts_with(argument, "-Wp,")) {
       // As GCC and Clang: each comma-separated ARG goes to the preprocessor,
       // cc1 here. Zig asks `cc -E -Wp,-v` for the libc's include directories.
