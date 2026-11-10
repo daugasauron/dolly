@@ -29,9 +29,6 @@ SLOP rm /tmp/spirv-wgsl.tar.gz
 # Dawn's utilities know POSIX only by the systems they name, and trap on WebAssembly through
 # Emscripten's JavaScript; Dolly is POSIX, and traps as WebAssembly does.
 SLOP patch -p1 -d /usr/src/dawn -i /usr/src/spirv-wgsl/dawn-dolly.patch
-# Until the seed's cc takes -ftemplate-depth (tasks/20261107-134832-cc-strip), SPIRV-Tools passes
-# Clang's default depth without it.
-SLOP patch -p1 -d /usr/src/dawn/third_party/spirv-tools/src -i /usr/src/spirv-wgsl/spirv-tools-depth.patch
 # Tint's SPIR-V reader and WGSL writer only; no Dawn, no command-line tools.
 SLOP cmake -S /usr/src/dawn -B /tmp/tint -DCMAKE_BUILD_TYPE=Release -DCMAKE_RULE_MESSAGES=OFF \
   -DDAWN_FETCH_DEPENDENCIES=OFF -DDAWN_BUILD_PROTOBUF=OFF -DDAWN_BUILD_SAMPLES=OFF -DDAWN_BUILD_TESTS=OFF \

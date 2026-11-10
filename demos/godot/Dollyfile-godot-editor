@@ -19,7 +19,7 @@ USE /v0.1.5/demos/tools/Dollyfile-scons 046d8ce099a8c79dd2d7148845068e600d3ce834
 USE /v0.1.5/Dollyfile-mandoc 83da22748d615feab08a0a774cb1f704c8d8f6cde9402b86d4b0dd8ea166e5bd
 USE /v0.1.5/Dollyfile-libdolly-gpu d860787df9ebc417e1a6464cd7d90a73ca9623dea685eb48b3d3e2da7508d1d5
 USE /v0.1.5/Dollyfile-libdolly-sockets c51bcf3f7fd885811c18bbe2c2e811a833e4916512d85a3f48384e46479a37a9
-USE /v0.1.5/demos/godot/Dollyfile-spirv-wgsl 02c957a934b6531662e3501137a4506259abc53505a02657fb4dcd93d6208242
+USE /v0.1.5/demos/godot/Dollyfile-spirv-wgsl fbaac7f1112530d1bb893f3ddd32fe719a9ddba0954c57cc3d1180da1a14afd8
 USE /v0.1.5/Dollyfile-libdolly-audio cf506533d24804e00d1211d4008d8eb71d16747dc8563843262545be6dbca30b
 
 REQUIRES TOOL cp

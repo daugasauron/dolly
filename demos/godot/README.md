@@ -127,9 +127,6 @@ What the platform decides ([process model](../../docs/process-model.md)):
   project. A project the editor has not imported has no
   `.godot/global_script_class_cache.cfg`; the template says so ("Could not
   load global script cache") and runs it.
-- Godot strips a release with `-s`, which the seed's `cc` does not take yet
-  ([task](../../tasks/20261107-134832-cc-strip/TASK.md)); the platform takes
-  it out of the link flags.
 - Godot reads `CLOCK_MONOTONIC_RAW` where the headers define it, and its
   Unix file access links the extended-attribute calls: Dolly's libc reads
   that clock from the monotonic one and fails the calls with `ENOTSUP`.

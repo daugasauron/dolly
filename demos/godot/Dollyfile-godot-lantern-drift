@@ -14,9 +14,9 @@ REQUIRES HOST sockets@0
 INSTALL /v0.1.5/Dollyfile-core ba71669ba7bd50ecab1497691cf784bb263a532435b36f5f1783ea2d1dc7f5ac
 INSTALL /v0.1.5/Dollyfile-posix ec580400fe2f6dc4186b44a563a238456c525def4fcdf16a3242938886b9aaaa
 INSTALL /v0.1.5/Dollyfile-display 215807de7ce4ec5f1b2025eb491005f3b4b515079b1f14ba947b46c2091fea52
-INSTALL /v0.1.5/demos/godot/Dollyfile-lantern-drift a1a743f49f908b3e691dc253e6ce83d0eab05484a51d7be277d7a5a190f15c49
-INSTALL /v0.1.5/demos/godot/Dollyfile-godot-editor a193e140af979633d5d51310f76d12a3569df6046d9b7148bf9d91b46e1e052e
-COPY /v0.1.5/demos/godot/Dollyfile-lantern-drift a1a743f49f908b3e691dc253e6ce83d0eab05484a51d7be277d7a5a190f15c49 /usr/share/lantern-drift/project /home/dolly/lantern-drift
+INSTALL /v0.1.5/demos/godot/Dollyfile-lantern-drift 95e5a1a8dd7f86e55759ca943f730cde39e2a1bfc849a366a4efb2d9be480bc9
+INSTALL /v0.1.5/demos/godot/Dollyfile-godot-editor c1ca2b455a3fd92537eaff417eedaf400fec21f0f83fc0645bbc1904741b7021
+COPY /v0.1.5/demos/godot/Dollyfile-lantern-drift 95e5a1a8dd7f86e55759ca943f730cde39e2a1bfc849a366a4efb2d9be480bc9 /usr/share/lantern-drift/project /home/dolly/lantern-drift
 REQUIRES TOOL lantern-drift
 REQUIRES TOOL godot-editor
 
