@@ -12,9 +12,10 @@ REQUIRES HOST threads@0
 INSTALL /v0.1.5/Dollyfile-core ba71669ba7bd50ecab1497691cf784bb263a532435b36f5f1783ea2d1dc7f5ac
 INSTALL /v0.1.5/Dollyfile-posix ec580400fe2f6dc4186b44a563a238456c525def4fcdf16a3242938886b9aaaa
 INSTALL /v0.1.5/Dollyfile-display 215807de7ce4ec5f1b2025eb491005f3b4b515079b1f14ba947b46c2091fea52
-INSTALL /v0.1.5/demos/photocraft/Dollyfile-photocraft 84b7a6969ae6bbd63e53ea9f0eb85cf6e014a581fd9eb2f02245add84cc40039
+INSTALL /v0.1.5/demos/photocraft/Dollyfile-photocraft 29e3ad52747e3fcd5f9f383fc5be0d765a0b1dee0858cdcf8a51a134846aeab6
 REQUIRES TOOL photocraft
 SOURCE /v0.1.5/dist/static/photocraft/great-wave.jpg 30c170260de393f51bd592adacc6f0714b60f157c09744e9c5b6d46e6a613718 /home/dolly/Pictures/great-wave.jpg
+FILE /home/dolly/Pictures/great-wave.jpg
 
 FILE /etc/dolly/init.slop
     /bin/foreground /usr/bin/photocraft /home/dolly/Pictures/great-wave.jpg

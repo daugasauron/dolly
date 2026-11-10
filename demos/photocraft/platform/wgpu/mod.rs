@@ -318,7 +318,8 @@ impl Drop for Client {
 
 #[derive(Default)]
 struct ErrorScopes {
-    scopes: Vec<(crate::ErrorFilter, Option<crate::Error>)>,
+    /// Each thread's, as wgpu's scopes are.
+    scopes: std::collections::HashMap<std::thread::ThreadId, Vec<(crate::ErrorFilter, Option<crate::Error>)>>,
     handler: Option<Arc<dyn crate::UncapturedErrorHandler>>,
 }
 
@@ -370,7 +371,8 @@ impl Gpu {
                 crate::Error::Validation { .. } => crate::ErrorFilter::Validation,
                 crate::Error::Internal { .. } => crate::ErrorFilter::Internal,
             };
-            match errors.scopes.iter_mut().rev().find(|(scope, _)| *scope == filter) {
+            let scopes = errors.scopes.entry(std::thread::current().id()).or_default();
+            match scopes.iter_mut().rev().find(|(scope, _)| *scope == filter) {
                 Some((_, slot)) => {
                     slot.get_or_insert(error);
                     return;
@@ -1251,16 +1253,18 @@ impl dispatch::DeviceInterface for DollyDevice {
 
     fn push_error_scope(&self, filter: crate::ErrorFilter) -> u32 {
         let mut errors = self.gpu.errors.lock().unwrap();
-        errors.scopes.push((filter, None));
-        errors.scopes.len() as u32 - 1
+        let scopes = errors.scopes.entry(std::thread::current().id()).or_default();
+        scopes.push((filter, None));
+        scopes.len() as u32 - 1
     }
 
     fn pop_error_scope(&self, index: u32) -> Pin<Box<dyn dispatch::PopErrorScopeFuture>> {
         // What the scope's work did is known once the queue has finished it.
         self.gpu.with(Client::wait);
         let mut errors = self.gpu.errors.lock().unwrap();
-        assert_eq!(index as usize + 1, errors.scopes.len(), "error scopes must be popped in reverse order");
-        let (_, error) = errors.scopes.pop().unwrap();
+        let scopes = errors.scopes.entry(std::thread::current().id()).or_default();
+        assert_eq!(index as usize + 1, scopes.len(), "a thread's error scopes must be popped in reverse order");
+        let (_, error) = scopes.pop().unwrap();
         Box::pin(ready(error))
     }
 

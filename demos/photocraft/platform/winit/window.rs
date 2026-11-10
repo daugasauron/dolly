@@ -22,6 +22,8 @@ struct State {
     title: String,
     cursor: CursorIcon,
     cursor_visible: bool,
+    /// As the program asks: the page shows the canvas either way.
+    visible: bool,
 }
 
 // Emscripten's libc numbers errno as WASI does.
@@ -101,6 +103,7 @@ impl Window {
                 title: attrs.title.clone(),
                 cursor: CursorIcon::Default,
                 cursor_visible: true,
+                visible: attrs.visible,
             }),
         };
         this.set_cursor(attrs.cursor.clone());
@@ -214,11 +217,13 @@ impl Window {
     pub fn set_blur(&self, _blur: bool) {}
 
     #[inline]
-    pub fn set_visible(&self, _visible: bool) {}
+    pub fn set_visible(&self, visible: bool) {
+        self.state.lock().unwrap().visible = visible;
+    }
 
     #[inline]
     pub fn is_visible(&self) -> Option<bool> {
-        Some(true)
+        Some(self.state.lock().unwrap().visible)
     }
 
     #[inline]
