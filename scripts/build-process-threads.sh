@@ -9,6 +9,13 @@ mkdir -p "$target"
 # --force replaces an archive the cache built with the clock.
 export SOURCE_DATE_EPOCH=0
 embuilder --wasm64 build libc-mt libstandalonewasm-mt-memgrow libclang_rt.builtins-wasmsjlj-mt
+# Its overrides also define Windows' _aligned_malloc, no C or POSIX name, which programs define
+# themselves (Wine's msvcrt): this throwaway container's copy is built without it.
+override=/emsdk/upstream/emscripten/system/lib/mimalloc/src/alloc-override.c
+definition='void* _aligned_malloc(size_t size, size_t alignment)    { return mi_malloc_aligned(size,alignment); }'
+grep -qxF "$definition" "$override"
+grep -vxF "$definition" "$override" > /tmp/alloc-override.c
+cp /tmp/alloc-override.c "$override"
 embuilder --wasm64 --force build libmimalloc-mt
 flags=(-m64 -O1 -pthread -fwasm-exceptions -sSUPPORT_LONGJMP=wasm \
   -sWASM_LEGACY_EXCEPTIONS=0 -I/src/build/include)
