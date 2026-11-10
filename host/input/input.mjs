@@ -573,8 +573,10 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
     void deliverPaste(event.clipboardData?.getData("text/plain") ?? "");
   });
   // The page's bar below the canvas: the buttons of the program holding the
-  // touch lease (touch@0) and, on a touchscreen, which has no paste chord,
-  // Paste, which reads the clipboard only inside the user's press of it.
+  // touch lease (touch@0) and, where no pointer is fine (a phone or a tablet,
+  // which have no paste chord), Paste, which reads the clipboard only inside the
+  // user's press of it. A laptop whose touchscreen is its primary pointer still
+  // has its touchpad and Ctrl+V.
   const bar = mount.appendChild(document.createElement("div"));
   bar.id = "buttons";
   bar.style.cssText = "display:none;flex-wrap:wrap;gap:0.5rem;padding:0.4rem";
@@ -594,15 +596,15 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
       .then(deliverPaste, () => showStatus("Paste refused: the browser did not let the page read the clipboard"));
   });
   pasteButton.id = "paste";
-  const touchscreen = matchMedia("(pointer: coarse)");
+  const touchOnly = matchMedia("not (any-pointer: fine)");
   let programButtons = [];
   const showBar = () => {
-    pasteButton.hidden = !touchscreen.matches;
+    pasteButton.hidden = !touchOnly.matches;
     bar.replaceChildren(...programButtons, pasteButton);
-    bar.style.display = programButtons.length || touchscreen.matches ? "flex" : "none";
+    bar.style.display = programButtons.length || touchOnly.matches ? "flex" : "none";
   };
   showBar();
-  touchscreen.addEventListener("change", showBar);
+  touchOnly.addEventListener("change", showBar);
 
   return {
     page: {

@@ -11,16 +11,14 @@ The owner, 2026-11-11 07:15 JST, from a page built on the npm packages:
 
 ## State (2026-11-11)
 
-Found, not fixed. input@0's bar shows Paste when `matchMedia("(pointer: coarse)")` matches
-(`host/input/input.mjs`, `showBar`): the rule means "a touchscreen, which has no paste chord".
-That query asks about the *primary* pointer only, and a laptop with a touchscreen may report its
-touchscreen as primary although it has a keyboard and a touchpad, so the bar appears with Paste on
-a machine where Ctrl+V works.
-
-What the button is for: a device with no keyboard, where nothing can send the paste chord (a
-phone or a tablet). The nearest thing a page can ask is whether any pointer is fine:
-`(any-pointer: fine)` matches with a touchpad or mouse. Show Paste only when it does not match;
-the bar's own `display` follows the same rule.
+Fixed on `fix/npm-feedback`: the bar shows Paste where `not (any-pointer: fine)` matches
+(`host/input/input.mjs`). Chromium's emulation knows touch-only devices alone (Playwright's
+`hasTouch` takes the fine pointer away too, and CDP's `setEmulatedMedia` ignores `pointer`);
+Firefox emulates the laptop by its preferences (`ui.primaryPointerCapabilities` 1,
+`ui.allPointerCapabilities` 7: a coarse primary pointer beside a fine one). The new case of
+`test/touch-browser.mjs` failed in Firefox with the old rule (Paste shown) and passes with the
+new; the test's phone cases still tap Paste, in Chrome and Firefox. Left: the owner's phone,
+after the local deploy.
 
 Done when Paste is hidden in Chrome and Firefox with a fine pointer present, shown on a phone
 (the owner's Mode1 over adb, `pi-phone`), and a browser test emulates both (Playwright's
