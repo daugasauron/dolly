@@ -1,0 +1,20 @@
+{
+  "photocraft": {
+    "url": "https://codeload.github.com/storytold/photocraft/tar.gz/331aa99d50191d99d88de6bc0af0adc4ac7b3ff0",
+    "sha256": "482ce3436b7299b636d0db462ab31be9c6e51e49186455c7920d18a9db1e308d",
+    "directory": "photocraft-331aa99d50191d99d88de6bc0af0adc4ac7b3ff0"
+  },
+  "sample": {
+    "name": "great-wave.jpg",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/a/a5/Tsunami_by_hokusai_19th_century.jpg",
+    "sha256": "30c170260de393f51bd592adacc6f0714b60f157c09744e9c5b6d46e6a613718"
+  },
+  "git": [
+    {"url": "https://codeload.github.com/storytold/craft-libs/tar.gz/1b34eba41e62138fc2438d2734523b302840b45d", "revision": "1b34eba41e62138fc2438d2734523b302840b45d", "sha256": "3f4d53d903b6240a89e8ad73b1860316993f31cb7a66d229f4e79d30e1275142"},
+    {"url": "https://codeload.github.com/storytold/craft-libs/tar.gz/b8f7d93b00dfb8f172938f3d2d796ae62dcfe123", "revision": "b8f7d93b00dfb8f172938f3d2d796ae62dcfe123", "sha256": "247c219e3b51933d2939ffcc291fc6e1e3bb8ddca689461c1a23473bef9363f3"},
+    {"url": "https://codeload.github.com/storytold/egui/tar.gz/6d518fc799681571963842f95b55a6b68431b15a", "revision": "6d518fc799681571963842f95b55a6b68431b15a", "sha256": "0e64e59be690a971b52fb23d61d329a42f5c02721705ea77e2c02e46b7d61f75"},
+    {"url": "https://codeload.github.com/storytold/winit/tar.gz/a517b3846ee8457d84ee4975110bfda6797c44dc", "revision": "a517b3846ee8457d84ee4975110bfda6797c44dc", "sha256": "7673a257afbad31cf5c2bb5fadd8a42a3437e26fdd46d025540f71b79303dc4f"},
+    {"url": "https://codeload.github.com/storytold/winprint.rs/tar.gz/51934db382f225454cf152a8657eb03789be63c4", "revision": "51934db382f225454cf152a8657eb03789be63c4", "sha256": "4080350c2e2f57e324c6487bf8b52e1075b7729b466372c5f38e421b51b95ef1"},
+    {"url": "https://codeload.github.com/storytold/winprint.rs/tar.gz/64e7afd4d1483512385012c340ecaaaf0f3beb7f", "revision": "64e7afd4d1483512385012c340ecaaaf0f3beb7f", "sha256": "0f184c8cd0b5c0b782da312d2f4597dc5c5ac4986338c115958b7015a23b45e3"}
+  ]
+}

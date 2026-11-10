@@ -1,0 +1,87 @@
+--- a/src/dolly.rs
++++ b/src/dolly.rs
+@@ -0,0 +1,26 @@
++/// Raw display handle for Dolly, whose programs draw on one page.
++#[non_exhaustive]
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
++pub struct DollyDisplayHandle {}
++
++impl DollyDisplayHandle {
++    /// Create a new display handle.
++    pub fn new() -> Self {
++        Self {}
++    }
++}
++
++/// Raw window handle for Dolly: the page's canvas, held by a display@0 lease.
++#[non_exhaustive]
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
++pub struct DollyWindowHandle {
++    /// The display lease's generation.
++    pub generation: u64,
++}
++
++impl DollyWindowHandle {
++    /// Create a new handle for the display lease `generation`.
++    pub fn new(generation: u64) -> Self {
++        Self { generation }
++    }
++}
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -36,6 +36,7 @@
+ mod android;
+ mod appkit;
+ mod borrowed;
++mod dolly;
+ mod haiku;
+ mod ohos;
+ mod redox;
+@@ -47,6 +48,7 @@
+ pub use android::{AndroidDisplayHandle, AndroidNdkWindowHandle};
+ pub use appkit::{AppKitDisplayHandle, AppKitWindowHandle};
+ pub use borrowed::{DisplayHandle, HasDisplayHandle, HasWindowHandle, WindowHandle};
++pub use dolly::{DollyDisplayHandle, DollyWindowHandle};
+ pub use haiku::{HaikuDisplayHandle, HaikuWindowHandle};
+ pub use ohos::{OhosDisplayHandle, OhosNdkWindowHandle};
+ pub use redox::{OrbitalDisplayHandle, OrbitalWindowHandle};
+@@ -207,6 +209,11 @@
+     /// ## Availability Hints
+     /// This variant is used on HaikuOS.
+     Haiku(HaikuWindowHandle),
++    /// A raw window handle for Dolly.
++    ///
++    /// ## Availability Hints
++    /// This variant is used on Dolly (`wasm64-unknown-emscripten` in its sandbox).
++    Dolly(DollyWindowHandle),
+ }
+ 
+ /// Display that wraps around a raw display handle.
+@@ -341,6 +348,11 @@
+     /// ## Availability Hints
+     /// This variant is used on HaikuOS.
+     Haiku(HaikuDisplayHandle),
++    /// A raw display handle for Dolly.
++    ///
++    /// ## Availability Hints
++    /// This variant is used on Dolly (`wasm64-unknown-emscripten` in its sandbox).
++    Dolly(DollyDisplayHandle),
+ }
+ 
+ /// An error that can occur while fetching a display or window handle.
+@@ -413,6 +425,7 @@
+ from_impl!(RawDisplayHandle, Web, WebDisplayHandle);
+ from_impl!(RawDisplayHandle, Android, AndroidDisplayHandle);
+ from_impl!(RawDisplayHandle, Haiku, HaikuDisplayHandle);
++from_impl!(RawDisplayHandle, Dolly, DollyDisplayHandle);
+ 
+ from_impl!(RawWindowHandle, UiKit, UiKitWindowHandle);
+ from_impl!(RawWindowHandle, AppKit, AppKitWindowHandle);
+@@ -434,6 +447,7 @@
+ );
+ from_impl!(RawWindowHandle, AndroidNdk, AndroidNdkWindowHandle);
+ from_impl!(RawWindowHandle, Haiku, HaikuWindowHandle);
++from_impl!(RawWindowHandle, Dolly, DollyWindowHandle);
+ 
+ #[cfg(test)]
+ mod tests {

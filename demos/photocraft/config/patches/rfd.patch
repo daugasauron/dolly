@@ -1,0 +1,159 @@
+--- a/src/backend/dolly.rs
++++ b/src/backend/dolly.rs
+@@ -0,0 +1,143 @@
++//! Dolly: each dialog is the `zenity` command, as Linux's is without its desktop portal. A
++//! dialog program there takes the page from the program that runs it and gives it back.
++
++use std::future::Future;
++use std::path::PathBuf;
++use std::sync::Arc;
++use std::task::{Context, Poll, Wake, Waker};
++
++use log::error;
++
++use super::linux::zenity::{self, ZenityResult};
++use crate::backend::DialogFutureType;
++use crate::message_dialog::MessageDialog;
++use crate::{FileDialog, FileHandle, MessageButtons, MessageDialogResult};
++
++/// Runs a dialog's future on the calling thread, which waits for zenity's.
++fn block_on<F: Future>(future: F) -> F::Output {
++    struct Unpark(std::thread::Thread);
++    impl Wake for Unpark {
++        fn wake(self: Arc<Self>) {
++            self.0.unpark();
++        }
++    }
++    let waker = Waker::from(Arc::new(Unpark(std::thread::current())));
++    let mut context = Context::from_waker(&waker);
++    let mut future = std::pin::pin!(future);
++    loop {
++        if let Poll::Ready(output) = future.as_mut().poll(&mut context) {
++            return output;
++        }
++        std::thread::park();
++    }
++}
++
++fn answer<T>(what: &str, result: ZenityResult<T>) -> Option<T> {
++    result.map_err(|err| error!("Failed to {what} with zenity: {err}")).ok()
++}
++
++fn some<T>(paths: Vec<T>) -> Option<Vec<T>> {
++    (!paths.is_empty()).then_some(paths)
++}
++
++/// zenity's `--filename` takes a path, so the dialog opens in the directory it was given: a name
++/// in it, or the directory itself with a trailing `/`.
++fn in_directory(mut dialog: FileDialog) -> FileDialog {
++    if let Some(directory) = dialog.starting_directory.take() {
++        let name = dialog.file_name.take().unwrap_or_default();
++        dialog.file_name = Some(format!("{}/{name}", directory.display()));
++    }
++    dialog
++}
++
++use crate::backend::FilePickerDialogImpl;
++impl FilePickerDialogImpl for FileDialog {
++    fn pick_file(self) -> Option<PathBuf> {
++        answer("pick a file", block_on(zenity::pick_file(&in_directory(self)))).flatten()
++    }
++
++    fn pick_files(self) -> Option<Vec<PathBuf>> {
++        answer("pick files", block_on(zenity::pick_files(&in_directory(self)))).and_then(some)
++    }
++}
++
++use crate::backend::AsyncFilePickerDialogImpl;
++impl AsyncFilePickerDialogImpl for FileDialog {
++    fn pick_file_async(self) -> DialogFutureType<Option<FileHandle>> {
++        Box::pin(async move {
++            answer("pick a file", zenity::pick_file(&in_directory(self)).await).flatten().map(FileHandle::wrap)
++        })
++    }
++
++    fn pick_files_async(self) -> DialogFutureType<Option<Vec<FileHandle>>> {
++        Box::pin(async move {
++            let paths = answer("pick files", zenity::pick_files(&in_directory(self)).await).and_then(some)?;
++            Some(paths.into_iter().map(FileHandle::wrap).collect())
++        })
++    }
++}
++
++use crate::backend::FolderPickerDialogImpl;
++impl FolderPickerDialogImpl for FileDialog {
++    fn pick_folder(self) -> Option<PathBuf> {
++        answer("pick a folder", block_on(zenity::pick_folder(&in_directory(self)))).flatten()
++    }
++
++    fn pick_folders(self) -> Option<Vec<PathBuf>> {
++        answer("pick folders", block_on(zenity::pick_folders(&in_directory(self)))).and_then(some)
++    }
++}
++
++use crate::backend::AsyncFolderPickerDialogImpl;
++impl AsyncFolderPickerDialogImpl for FileDialog {
++    fn pick_folder_async(self) -> DialogFutureType<Option<FileHandle>> {
++        Box::pin(async move {
++            answer("pick a folder", zenity::pick_folder(&in_directory(self)).await).flatten().map(FileHandle::wrap)
++        })
++    }
++
++    fn pick_folders_async(self) -> DialogFutureType<Option<Vec<FileHandle>>> {
++        Box::pin(async move {
++            let paths = answer("pick folders", zenity::pick_folders(&in_directory(self)).await).and_then(some)?;
++            Some(paths.into_iter().map(FileHandle::wrap).collect())
++        })
++    }
++}
++
++use crate::backend::FileSaveDialogImpl;
++impl FileSaveDialogImpl for FileDialog {
++    fn save_file(self) -> Option<PathBuf> {
++        answer("save a file", block_on(zenity::save_file(&in_directory(self)))).flatten()
++    }
++}
++
++use crate::backend::AsyncFileSaveDialogImpl;
++impl AsyncFileSaveDialogImpl for FileDialog {
++    fn save_file_async(self) -> DialogFutureType<Option<FileHandle>> {
++        Box::pin(async move {
++            answer("save a file", zenity::save_file(&in_directory(self)).await).flatten().map(FileHandle::wrap)
++        })
++    }
++}
++
++use crate::backend::MessageDialogImpl;
++impl MessageDialogImpl for MessageDialog {
++    fn show(self) -> MessageDialogResult {
++        block_on(self.show_async())
++    }
++}
++
++use crate::backend::AsyncMessageDialogImpl;
++impl AsyncMessageDialogImpl for MessageDialog {
++    fn show_async(self) -> DialogFutureType<MessageDialogResult> {
++        Box::pin(async move {
++            let result = match &self.buttons {
++                MessageButtons::Ok | MessageButtons::OkCustom(_) => {
++                    zenity::message(&self.level, &self.buttons, &self.title, &self.description).await
++                },
++                _ => zenity::question(&self.buttons, &self.title, &self.description).await,
++            };
++            answer("show a message", result).unwrap_or(MessageDialogResult::Cancel)
++        })
++    }
++}
+--- a/src/backend.rs
++++ b/src/backend.rs
+@@ -28,6 +28,10 @@
+     feature = "gtk3"
+ ))]
+ mod gtk3;
++#[cfg(target_os = "emscripten")]
++mod dolly;
++#[cfg(target_os = "emscripten")]
++mod linux;
+ #[cfg(target_os = "macos")]
+ mod macos;
+ #[cfg(target_arch = "wasm32")]

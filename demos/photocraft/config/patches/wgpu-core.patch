@@ -1,0 +1,11 @@
+--- a/build.rs
++++ b/build.rs
+@@ -13,7 +13,7 @@
+         gles: { any(
+             all(windows_linux_android, feature = "gles"), // Regular GLES
+             all(webgl), // WebGL
+-            all(target_os = "emscripten", feature = "gles"), // Emscripten GLES
++            all(target_os = "emscripten", target_arch = "wasm32", feature = "gles"), // Emscripten GLES
+             all(target_vendor = "apple", feature = "angle") // ANGLE on Apple
+         ) },
+         vulkan: { any(

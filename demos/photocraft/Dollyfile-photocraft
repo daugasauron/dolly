@@ -1,0 +1,59 @@
+DOLLY 7
+PACKAGE photocraft
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST gpu@0
+REQUIRES HOST threads@0
+
+# PhotoCraft, the image editor, and its command line, compiled by Cargo from the pinned sources,
+# offline. The app draws on the page through Dolly's platforms in winit (display@0, input@0) and
+# wgpu (gpu@0), and its dialogs are the zenity command. The command line converts and inspects
+# images and PSD files, runs commands and batches, renders on gpu@0 where the browser grants
+# WebGPU, and serves its commands to agents over MCP. zenity, built by a run of its own so that
+# egui keeps PhotoCraft's features, is the dialogs, on the same platforms.
+FROM /v0.1.5/demos/rust/Dollyfile-rust-build 578411da4e312ab602adf1d4e609513b5268b8bdb409ab66ddac847901815f68
+USE /v0.1.5/Dollyfile-libdolly-gpu d860787df9ebc417e1a6464cd7d90a73ca9623dea685eb48b3d3e2da7508d1d5
+REQUIRES TOOL cargo
+REQUIRES TOOL cat
+REQUIRES TOOL gzip
+REQUIRES TOOL tar
+REQUIRES TOOL mkdir
+REQUIRES TOOL mv
+REQUIRES TOOL cp
+REQUIRES TOOL rm
+
+SOURCE /v0.1.5/dist/static/photocraft/sources-00.part b8821304be894d17eb95e098a6c031715e73933aca6e3e84d830351f80ae1bbf /tmp/photocraft-sources-00.part
+SOURCE /v0.1.5/dist/static/photocraft/sources-01.part a4c3314b9986da41e2664c88c9b9db0909ee5a146b0ce260c93153558fd6bc9b /tmp/photocraft-sources-01.part
+SOURCE /v0.1.5/dist/static/photocraft/sources-02.part a00dfcd2cbe301b6d8dd7efe2ae41e4647c985f5bb9e88d0f96d16974013a42f /tmp/photocraft-sources-02.part
+SOURCE /v0.1.5/dist/static/photocraft/sources-03.part eb0881d291c764cc1bd8fbe97f3b98bf4f136095298b80572aa59e2a339db505 /tmp/photocraft-sources-03.part
+SLOP cat /tmp/photocraft-sources-00.part /tmp/photocraft-sources-01.part /tmp/photocraft-sources-02.part /tmp/photocraft-sources-03.part | gzip -dc - | tar -xf - -C /
+SLOP rm /tmp/photocraft-sources-00.part /tmp/photocraft-sources-01.part /tmp/photocraft-sources-02.part /tmp/photocraft-sources-03.part 
+SLOP CWD /tmp/photocraft-sources/photocraft cargo build -j 4 --offline -p photocraft -p photocraft-cli --target-dir /tmp/photocraft-build
+SLOP CWD /tmp/photocraft-sources/photocraft cargo build -j 4 --offline -p zenity --target-dir /tmp/photocraft-build
+SLOP mkdir -p /usr/share/licenses/photocraft /usr/share/dolly/builds
+SLOP mv /tmp/photocraft-build/debug/photocraft /tmp/photocraft-build/debug/photocraft-cli /tmp/photocraft-build/debug/zenity /usr/bin
+SLOP mkdir -p /usr/share/man/cat1
+SLOP photocraft --help > /usr/share/man/cat1/photocraft.1
+SLOP photocraft-cli --help > /usr/share/man/cat1/photocraft-cli.1
+SLOP cp /tmp/photocraft-sources/photocraft/Cargo.lock /usr/share/dolly/builds/photocraft.lock
+SLOP CWD /tmp/photocraft-sources/photocraft cp LICENSE-MIT LICENSE-APACHE NOTICE ATTRIBUTION.md /usr/share/licenses/photocraft
+SLOP rm -rf /tmp/photocraft-sources /tmp/photocraft-build
+SLOP /usr/bin/photocraft-cli --version
+EXPORTS TOOL photocraft
+EXPORTS TOOL photocraft-cli
+EXPORTS TOOL zenity
+FILE /usr/bin/photocraft
+FILE /usr/bin/photocraft-cli
+FILE /usr/bin/zenity
+FILE /usr/share/man/cat1/photocraft.1
+FILE /usr/share/man/cat1/photocraft-cli.1
+FILE /usr/share/man/cat1/zenity.1
+    zenity: the dialogs a program asks for by running zenity, as rfd does, drawn on the
+    page with egui: --file-selection [--save] [--directory] [--multiple]
+    [--filename PATH] [--file-filter 'NAME | *.EXT ...'], and --info, --warning,
+    --error or --question with --title, --text and the button labels. It takes the
+    page from the program that runs it and gives it back when it exits; it prints the
+    chosen paths, | between them, and exits 0 for OK and 1 for Cancel.
+FILE /usr/share/dolly/builds/photocraft.lock
+FOLDER /usr/share/licenses/photocraft

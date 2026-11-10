@@ -1,0 +1,65 @@
+--- a/build.rs
++++ b/build.rs
+@@ -51,7 +51,9 @@
+         // ⚠️ Keep in sync with target.cfg() definition in wgpu-hal/Cargo.toml and cfg_alias in `wgpu-hal` crate ⚠️
+         static_dxc: { all(target_os = "windows", feature = "static-dxc", not(target_arch = "aarch64"), target_env = "msvc") },
+         supports_64bit_atomics: { target_has_atomic = "64" },
+-        custom: {any(feature = "custom")},
++        // Dolly: the browser's WebGPU through gpu@0, as a custom backend.
++        dolly: { all(target_os = "emscripten", target_arch = "wasm64") },
++        custom: {any(feature = "custom", dolly)},
+         std: { any(
+             feature = "std",
+             // TODO: Remove this when an alternative Mutex implementation is available for `no_std`.
+--- a/src/api/instance.rs
++++ b/src/api/instance.rs
+@@ -68,6 +68,13 @@
+             );
+         }
+ 
++        #[cfg(dolly)]
++        if desc.backends.contains(Backends::BROWSER_WEBGPU) {
++            return Self::from_custom(
++                <crate::backend::ContextDolly as crate::dispatch::InstanceInterface>::new(desc),
++            );
++        }
++
+         #[cfg(webgpu)]
+         {
+             let is_only_available_backend = !cfg!(wgpu_core);
+@@ -123,7 +130,7 @@
+         if cfg!(dx12) {
+             backends = backends.union(Backends::DX12);
+         }
+-        if cfg!(webgpu) {
++        if cfg!(any(webgpu, dolly)) {
+             backends = backends.union(Backends::BROWSER_WEBGPU);
+         }
+         backends
+--- a/src/backend/mod.rs
++++ b/src/backend/mod.rs
+@@ -11,3 +11,8 @@
+ 
+ #[cfg(custom)]
+ pub mod custom;
++
++#[cfg(dolly)]
++mod dolly;
++#[cfg(dolly)]
++pub(crate) use dolly::{dolly_webgpu_supported, ContextDolly};
+--- a/src/util/init.rs
++++ b/src/util/init.rs
+@@ -92,7 +92,12 @@
+             .await
+             .is_ok_and(|adapter| !adapter.is_undefined() && !adapter.is_null())
+     }
+-    #[cfg(not(webgpu))]
++    // Dolly: whether gpu@0 grants the browser's WebGPU.
++    #[cfg(dolly)]
++    {
++        crate::backend::dolly_webgpu_supported()
++    }
++    #[cfg(not(any(webgpu, dolly)))]
+     {
+         false
+     }

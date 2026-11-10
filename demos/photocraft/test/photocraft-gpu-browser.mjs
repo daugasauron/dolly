@@ -1,0 +1,61 @@
+// PhotoCraft on gpu@0, on a real adapter, on the private X display DISPLAY names: Chrome on
+// Vulkan, or the installed Firefox (docs/gpu.md). photocraft-photos opens the Great Wave and draws
+// it without WebGPU errors; Ctrl+I inverts it; Ctrl+Q asks to save, zenity's dialog takes the page
+// and gives it back, PhotoCraft writes the JPEG and quits, and the shell reads the copy back.
+// Usage: node demos/photocraft/test/photocraft-gpu-browser.mjs [chromium|firefox ...]
+import assert from "node:assert/strict";
+import { chromium, firefox } from "playwright-core";
+import { startBrowserServer } from "../../../test/browser-server.mjs";
+
+const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+for (const name of browsers) {
+  assert.ok(["chromium", "firefox"].includes(name));
+  const server = await startBrowserServer(new URL("../../..", import.meta.url).pathname, "photocraft-photos");
+  const browser = name === "firefox"
+    ? await firefox.launch({ channel: "moz-firefox", headless: false, firefoxUserPrefs: { "dom.webgpu.enabled": true } })
+    : await chromium.launch({ channel: "chrome", headless: false,
+      args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan,VulkanFromANGLE"] });
+  const deadline = setTimeout(() => void browser.close(), 600_000);
+  try {
+    const page = await browser.newPage({ viewport: { width: 1600, height: 900 } }), errors = [];
+    page.setDefaultTimeout(0);
+    page.on("pageerror", error => errors.push(error.message));
+    // WebGPU's validation errors reach the page's console after their batch is answered.
+    page.on("console", message => { if (message.text().startsWith("Dolly GPU:")) errors.push(message.text()); });
+    await page.goto(server.origin + "/photocraft-photos/");
+    await page.waitForFunction(() => window.__dolly?.gpu?.active, null, { polling: 250, timeout: 180_000 });
+    const frames = () => page.evaluate(() => __dolly.gpu.stats?.frames ?? 0);
+    // It has drawn the picture once it has decoded and uploaded it, and then idles.
+    await sleep(30_000);
+    const drawn = await frames();
+    assert.ok(drawn > 0, "PhotoCraft draws");
+    await page.mouse.click(800, 450);
+    await page.keyboard.press("Control+i");
+    await page.waitForFunction(count => __dolly.gpu.stats.frames > count, drawn, { polling: 250, timeout: 30_000 });
+    // Quitting asks to save: zenity's dialog opens in ~/Pictures on great-wave.jpg, Enter saves
+    // and then replaces it, and Enter takes PhotoCraft's JPEG options.
+    await sleep(3000);
+    await page.keyboard.press("Control+q");
+    await sleep(3000);
+    await page.keyboard.press("y");
+    await sleep(15_000);
+    for (const pause of [3000, 15_000, 0]) {
+      await page.keyboard.press("Enter");
+      await sleep(pause);
+    }
+    await page.waitForFunction(() => !__dolly.gpu.active, null, { polling: 250, timeout: 120_000 });
+    await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
+    const run = async command => assert.equal(await page.evaluate(text => __dolly.submit(text), command), 0, command);
+    // The copy PhotoCraft wrote replaces the original, of the same size in pixels.
+    await run("test $(wc -c < ~/Pictures/great-wave.jpg) -ne 2354187");
+    await run("photocraft-cli info ~/Pictures/great-wave.jpg | grep -q '\"width\": 3859'");
+    assert.deepEqual(errors, [], `${name}: no WebGPU or page errors`);
+    console.log(`photocraft-gpu: ${name} passed (${drawn} frames before the edit)`);
+  } finally {
+    clearTimeout(deadline);
+    await browser.close();
+    await server.close();
+  }
+}
