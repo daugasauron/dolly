@@ -1,0 +1,63 @@
+--- a/apps/photocraft/Cargo.toml
++++ b/apps/photocraft/Cargo.toml
+@@ -110,6 +110,10 @@
+ xcap = "=0.9.8"
+ winsafe = { version = "=0.0.29", default-features = false, features = ["user"] }
+ 
++# The browser page Dolly runs in: File › Open's picker and the saves it is offered.
++[target.'cfg(target_os = "emscripten")'.dependencies]
++photocraft-dolly-page = { path = "../../crates/dolly-page" }
++
+ # tests/mac_menu_appkit.rs: reads AppKit's menu bar back and sends it real key events.
+ [target.'cfg(target_os = "macos")'.dev-dependencies]
+ objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSString"] }
+--- a/apps/photocraft/src/main.rs
++++ b/apps/photocraft/src/main.rs
+@@ -39,6 +39,9 @@
+ mod control_server;
+ mod crash_guard;
+ mod cursor;
++// Files from and to the browser page Dolly runs in (upload@0, download@0).
++#[cfg(target_os = "emscripten")]
++mod dolly_page;
+ mod file_dialog_probe;
+ mod gpu_startup;
+ #[cfg(target_os = "linux")]
+--- a/apps/photocraft/src/services.rs
++++ b/apps/photocraft/src/services.rs
+@@ -207,6 +207,10 @@
+         dialog = dialog.set_parent(parent);
+     }
+     let answer: Pin<Box<dyn Future<Output = Option<FileDialogAnswer>> + Send>> = match request {
++        // In Dolly the browser's own picker, which hands over the file's contents.
++        #[cfg(target_os = "emscripten")]
++        FileDialogRequest::Open { multiple, extensions, .. } => Box::pin(async move { crate::dolly_page::open(multiple, extensions.as_deref()) }),
++        #[cfg(not(target_os = "emscripten"))]
+         FileDialogRequest::Open { multiple, initial_dir, extensions } => {
+             if let Some(dir) = initial_dir {
+                 dialog = dialog.set_directory(dir);
+@@ -490,8 +494,15 @@
+     ctl: &photocraft_ui_egui::jobs_ui::SaveCtl,
+ ) -> Result<Vec<String>, String> {
+     save_through(doc, path, settings, ctl, |p, encoded, progress| write_encoded_atomic(Path::new(p), encoded, progress))
++        .inspect(|_| offer(path))
+ }
+ 
++/// In Dolly each file a save writes is offered for the browser to save as well.
++#[cfg(target_os = "emscripten")]
++use crate::dolly_page::offer;
++#[cfg(not(target_os = "emscripten"))]
++fn offer(_: &str) {}
++
+ type SharedRecovery = Rc<RefCell<Option<RecoveryStore>>>;
+ 
+ /// Run `f` on the recovery store (`Err` without a config directory). The service closures never
+@@ -742,7 +753,7 @@
+         })),
+         save_file: Some(Arc::new(save_file)),
+         file_dialog: Some(Box::new(show_file_dialog)),
+-        write: Some(Box::new(|path: &str, bytes: &[u8]| write_atomic(Path::new(path), bytes))),
++        write: Some(Box::new(|path: &str, bytes: &[u8]| write_atomic(Path::new(path), bytes).inspect(|_| offer(path)))),
+         file_stamp: Some(Box::new(|path: &str| {
+             // Follows a symlink, as Save writes through it to the file it points at.
+             let meta = std::fs::metadata(path).ok()?;

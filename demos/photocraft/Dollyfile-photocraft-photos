@@ -6,6 +6,8 @@ REQUIRES HOST input@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST gpu@0
 REQUIRES HOST threads@0
+REQUIRES HOST upload@0
+REQUIRES HOST download@0
 
 # PhotoCraft on the page with Hokusai's Great Wave open; quitting it leaves a shell where
 # photocraft opens pictures again and photocraft-cli works on them without a window.
