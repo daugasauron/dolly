@@ -197,6 +197,21 @@ npx dolly-build Dollyfile-my-pi my-pi
   Both commands run where the packages are installed: the directory whose
   `node_modules/@daugasauron/` holds them (npm, pnpm and Yarn 1 alike). A row
   that names an image no installed package holds at that pin fails naming the row.
+- A build's steps reach the network as a session's programs do on Dolly's site:
+  `SLOP pip install NAME…` takes packages from PyPI. Its browser reaches only
+  `dolly-build`, which fetches each request in Node, so a host or mirror without
+  CORS headers works, and through the proxy `HTTPS_PROXY` or `HTTP_PROXY` names, as
+  on a CI runner; the log names each host a build reaches. What a step fetches is
+  not part of the image's identity: the same recipe reuses its image, and another
+  machine may fetch newer releases, so pin versions (`pip install NAME==1.2`) or
+  `SOURCE` rows where the bytes matter. Pure-Python wheels and sdists install;
+  Dolly builds NumPy, pandas and Matplotlib as packages to `INSTALL`.
+- In CI, run `npm ci`, then `dolly-build` with `--browser chromium` after
+  `npx playwright-core install chromium-headless-shell`, or in Playwright's image of
+  the version of `playwright-core` the lockfile holds; no browser switch is needed.
+  The browser needs shared WebAssembly memory64 (Chrome 133, Firefox 134 or later),
+  and the build says so first where it lacks it. [Data Pi](../demos/pi/data-pi/README.md)
+  is such a project, with its workflow.
 - Serve `OUT` with any static file server, `python3 -m http.server -d OUT` on
   your machine. Where the host sends the isolation headers ("Serving" above) the
   page is isolated; where it does not, `init`'s page registers
