@@ -19,7 +19,8 @@ flowchart LR
   `libdolly-gpu.a`, which `cc` then links by default.
 - Two kinds of records. The compact ones carry a whole draw, with layouts derived
   from its pipeline. The explicit ones (`FEATURE_EXPLICIT`) keep WebGPU's object
-  model, for a port with one of its own such as Godot's RenderingDevice: texture
+  model, for a port with one of its own such as Godot's RenderingDevice or wgpu
+  ([PhotoCraft](../demos/photocraft/README.md)'s backend): texture
   views, bind group and pipeline layouts, whole pipeline descriptors, copies, pass
   state, timestamps, and batches that continue one encoder until `SUBMIT`.
   `LIMITS` reports the features and limits the device was granted.

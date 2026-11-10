@@ -9,7 +9,8 @@ platforms of Dolly's own, as Godot runs on its platform and RenderingDevice driv
 In Chrome on an NVIDIA GPU (2026-11-11) the page shows PhotoCraft 4 s after it loads, the Great
 Wave (3859 by 2594) drawn by its GPU canvas on `gpu@0`; Ctrl+I inverts it, and quitting saves it
 through zenity's dialog and PhotoCraft's JPEG options
-([test](test/photocraft-gpu-browser.mjs)). Cargo compiles the package in 28 minutes in the image
+([test](test/photocraft-gpu-browser.mjs)); a frame follows a move of the pointer over its menus
+in 14 ms at the median, 16 at the 90th percentile (30 moves). Cargo compiles the package in 28 minutes in the image
 build, and zenity in 5 more. The update check finds no network, as Dolly gives programs none.
 
 ## Images
