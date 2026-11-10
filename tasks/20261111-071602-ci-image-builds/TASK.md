@@ -39,7 +39,10 @@ enough browser, the other a new enough one.
    PyPI itself does answer them: measured from a page on 127.0.0.1 in Chrome, `/simple/NAME/`,
    `/pypi/NAME/json` and files.pythonhosted.org's wheels are readable, and only `/simple/NAME`
    without its slash fails, on the redirect. Any index mirror or proxy in front of it decides
-   anew, and most send no CORS headers.
+   anew, and most send no CORS headers. `dolly-build` also launches the browser behind a proxy
+   of its own that refuses every host but its SOURCE rows' (for the browser's own traffic), so a
+   widened policy alone would still fail there; with the relay the page reaches only its own
+   origin, which that proxy lets through.
 2. **The snapshot leaves the page by `Uint8Array.prototype.toBase64`** (`savePageSnapshot`,
    `scripts/page-image-build.mjs`), a 2025 addition (Chrome 140, Firefox 133). A build in an older
    Chromium runs to the end and then fails. Nothing states which browsers a build needs.
