@@ -1,0 +1,46 @@
+DOLLY 7
+PACKAGE lantern-drift
+REQUIRES HOST runtime@0
+REQUIRES HOST audio@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST threads@0
+REQUIRES HOST gpu@0
+
+# Lantern Drift, Dolly's showcase for Godot: glide a paper lantern through rings of light over a
+# sky archipelago from sunset into night, drawn by Godot's Forward+ renderer on gpu@0 with
+# volumetric fog, glow, SSAO and particles, its sound made in code. Its project
+# (demos/godot/lantern-drift) is imported and exported here by Godot's editor, and lantern-drift
+# plays the pack with godot, which installs with it. The project installs too, for the editor.
+FROM /v0.1.5/Dollyfile-system fdf722558fc23bbce3ce51534f860b83e11ef157c6237cdf22f5f8da591c42ac
+INSTALL /v0.1.5/demos/godot/Dollyfile-godot 79dca53710c7ee41d20a056e8868fdbe3e25d2cfa1104314ed3c0489102986c9
+USE /v0.1.5/demos/godot/Dollyfile-godot-editor 4bedc06b57c7a018f1e77f6b40b60f51a392adbcfa439b5013ece74ad7b65cac
+
+REQUIRES TOOL cp
+REQUIRES TOOL godot-editor
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /v0.1.5/dist/static/godot/lantern-drift.tar 6bd921daead2fd43fe56ff56630c50bd61d80f61ceefe4f578e1bcdfa75631f6 /tmp/lantern-drift.tar
+SLOP CWD / tar -xf /tmp/lantern-drift.tar
+SLOP mkdir -p /usr/share/lantern-drift
+SLOP cp -r /usr/src/lantern-drift /usr/share/lantern-drift/project
+SLOP CWD /usr/src/lantern-drift godot-editor --headless --import
+SLOP CWD /usr/src/lantern-drift godot-editor --headless --export-pack Dolly /usr/share/lantern-drift/lantern-drift.pck
+SLOP rm -rf /usr/src/lantern-drift /tmp/lantern-drift.tar
+
+FILE /usr/bin/lantern-drift
+    #!/bin/slop
+    godot --main-pack /usr/share/lantern-drift/lantern-drift.pck "$@"
+EXPORTS TOOL lantern-drift
+FILE /usr/share/man/cat1/lantern-drift.1
+    lantern-drift [GODOT-OPTION...] [-- --autopilot SECONDS] [-- --nightfall DISTANCE]
+    Plays Lantern Drift on the page: fly through the rings of light to keep your
+    lantern burning, from sunset into night. Arrows or WASD steer, Space boosts,
+    Escape pauses, Q quits; Enter or a click takes off. With --autopilot it flies
+    one run by itself and prints its frame rate and score. It draws through WebGPU
+    (gpu@0). Its project is /usr/share/lantern-drift/project: copy it to edit it
+    with godot-editor.
+FILE /usr/share/lantern-drift/lantern-drift.pck
+FOLDER /usr/share/lantern-drift/project
