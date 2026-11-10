@@ -37,6 +37,10 @@ flowchart LR
   lease, one at a time. It then reads every record with
   `dolly_input_next_event`, and the terminal reads none. The page sends it
   every button, pointer presence and a paste as text records.
+- A descendant of the lessee takes the lease over it, as the display lease
+  does: the lessee's reads wait as if no record came, and when the
+  descendant's lease ends it reads again, a focus record first. Records
+  published during a lease are its owner's alone.
 - Release, exit or forced termination ends the lease; records the program had
   not read are dropped. So are the unread keys of a foreground program that
   ends without a lease, while the terminal keeps its pointer and scroll

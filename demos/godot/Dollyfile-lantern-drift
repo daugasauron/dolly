@@ -13,8 +13,8 @@ REQUIRES HOST gpu@0
 # (demos/godot/lantern-drift) is imported and exported here by Godot's editor, and lantern-drift
 # plays the pack with godot, which installs with it. The project installs too, for the editor.
 FROM /v0.1.5/Dollyfile-system fdf722558fc23bbce3ce51534f860b83e11ef157c6237cdf22f5f8da591c42ac
-INSTALL /v0.1.5/demos/godot/Dollyfile-godot 79dca53710c7ee41d20a056e8868fdbe3e25d2cfa1104314ed3c0489102986c9
-USE /v0.1.5/demos/godot/Dollyfile-godot-editor 4bedc06b57c7a018f1e77f6b40b60f51a392adbcfa439b5013ece74ad7b65cac
+INSTALL /v0.1.5/demos/godot/Dollyfile-godot 578fe0defbb42224196ab694289cac628c498848d746ce8cede55c58ed2c3356
+USE /v0.1.5/demos/godot/Dollyfile-godot-editor b776629bd0099619b1d19647eb17b26a6eb8233f09808112dc487c66533481f7
 
 REQUIRES TOOL cp
 REQUIRES TOOL godot-editor
@@ -22,7 +22,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.5/dist/static/godot/lantern-drift.tar 6bd921daead2fd43fe56ff56630c50bd61d80f61ceefe4f578e1bcdfa75631f6 /tmp/lantern-drift.tar
+SOURCE /v0.1.5/dist/static/godot/lantern-drift.tar 5e6bd354a3a3b253c40fea6032e4c8ba2b3a47a754de64b1399fe4f494fe4464 /tmp/lantern-drift.tar
 SLOP CWD / tar -xf /tmp/lantern-drift.tar
 SLOP mkdir -p /usr/share/lantern-drift
 SLOP cp -r /usr/src/lantern-drift /usr/share/lantern-drift/project

@@ -42,6 +42,28 @@ function present(scope, completed) {
   scope.frames.push(frame);
   if (scope.shows.length === 1) void show(scope);
 }
+// The texture a surface scope draws a frame into: the canvas's, or, while another scope's surface
+// covers it, a texture of its own, which the page never shows, charged to the quota.
+function surfaceTexture(scope, width, height) {
+  if (surfaces.at(-1) === scope) {
+    if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+    return context.getCurrentTexture();
+  }
+  if (scope.covered?.width !== width || scope.covered?.height !== height) {
+    dropCovered(scope);
+    ensure(width * height * 4 <= maxBytes - usedBytes, "Texture allocation quota", E.ENOMEM);
+    scope.covered = device.createTexture({ size: [width, height], format,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC });
+    usedBytes += width * height * 4;
+  }
+  return scope.covered;
+}
+function dropCovered(scope) {
+  if (!scope.covered) return;
+  usedBytes -= scope.covered.width * scope.covered.height * 4;
+  scope.covered.destroy();
+  scope.covered = null;
+}
 // One frame per animation frame of the runtime Worker; a canvas no page shows waits for none.
 async function show(scope) {
   while (scope.shows.length) {
@@ -133,6 +155,10 @@ const slots = Array(A.DOLLY_GPU_SLOTS).fill(null), generations = slots.map(() =>
 let heap, memory, mailbox, control, canvas, context, device, format, pageFrames;
 let queueProgress = {queued: 0, completed: 0};
 let usedBytes = 0, serial = Promise.resolve(), initializing;
+// The scopes with a surface, in the order they opened it: the page shows the last one's, and the
+// one below when it closes (the kernel admits a surface over another only for a descendant of its
+// process, host/gpu/kernel.c).
+const surfaces = [];
 const stats = { packets: 0, packetBytes: 0, frames: 0, dispatches: 0, readbackBytes: 0, batchWallMilliseconds: 0 };
 
 async function getDevice() {
@@ -381,13 +407,20 @@ function release(scope, id, progress) {
 function retire(scope) {
   if (scope.retiring) return scope.retiring;
   scope.lost = true;
-  if (scope.surface) postMessage({ type: "status", active: false });
+  if (scope.surface) {
+    const shown = surfaces.at(-1) === scope;
+    surfaces.splice(surfaces.indexOf(scope), 1);
+    // The surface below is shown again from its next frame.
+    const below = surfaces.at(-1);
+    if (shown) postMessage(below ? { type: "status", active: true, ...below.size } : { type: "status", active: false });
+  }
   scope.retiring = (async () => {
     try { if (scope.device) await scope.device.queue.onSubmittedWorkDone(); } catch {}
     for (const r of scope.objects.values()) {
       r.value.destroy?.();
       usedBytes -= r.size;
     }
+    dropCovered(scope);
     scope.objects.clear();
     collectReleased(scope, Infinity);
     for (const t of scope.timers ?? []) { t.query.destroy(); t.resolve.destroy(); t.read.destroy(); }
@@ -515,10 +548,8 @@ async function batch(scope, commands, flags) {
         ensure(w.getUint32(60,true)===0 && w.getUint32(56,true)<=1, "Render reserved field");
         const vertices=w.getUint32(24,true), instances=w.getUint32(28,true);
         ensure(vertices>0 && instances>0 && vertices*instances<=4*1024*1024, "Draw limit",E.E2BIG);
-        if (!texture) {
-          if(canvas.width!==width || canvas.height!==height) { canvas.width=width; canvas.height=height; }
-          texture=context.getCurrentTexture();
-        } else ensure(canvas.width===width && canvas.height===height,"Surface resized within batch");
+        if (!texture) texture=surfaceTexture(scope,width,height);
+        else ensure(texture.width===width && texture.height===height,"Surface resized within batch");
         const clearValue=[40,44,48,52].map(o=>w.getFloat32(o,true));
         ensure(clearValue.every(Number.isFinite), "Invalid clear color");
         const pass=getEncoder().beginRenderPass({...timestamps(),colorAttachments:[{view:texture.createView(),clearValue,
@@ -643,10 +674,8 @@ async function batch(scope, commands, flags) {
           colorTexture=r.value;
         } else {
           ensure(scope.surface && width<=4096 && height<=2304,"Surface attachment dimensions/ownership");
-          if(!texture) {
-            if(canvas.width!==width || canvas.height!==height){canvas.width=width;canvas.height=height;}
-            texture=context.getCurrentTexture();
-          } else ensure(canvas.width===width && canvas.height===height,"Surface resized within batch");
+          if(!texture) texture=surfaceTexture(scope,width,height);
+          else ensure(texture.width===width && texture.height===height,"Surface resized within batch");
           colorTexture=texture;
         }
         let depthStencilAttachment;
@@ -751,7 +780,11 @@ async function batch(scope, commands, flags) {
         scope.submissions.push(completed);
         if(texture)present(scope,completed);
         completed.catch(()=>{});
-        if(texture){stats.frames++;postMessage({type:"status",active:true,width:canvas.width,height:canvas.height,stats:{...stats,allocatedBytes:usedBytes}});texture=null;}
+        if(texture){
+          scope.size={width:texture.width,height:texture.height};
+          if(surfaces.at(-1)===scope){stats.frames++;postMessage({type:"status",active:true,...scope.size,stats:{...stats,allocatedBytes:usedBytes}});}
+          texture=null;
+        }
       } else if (op === A.DOLLY_GPU_CREATE_VIEW) {
         const r=object(scope,integer(w,16),"texture"), [format,dimension,aspect,baseMip,mips,baseLayer,layers,swizzle]=
           [24,28,32,36,40,44,48,52].map(at=>w.getUint32(at,true));
@@ -933,10 +966,8 @@ async function batch(scope, commands, flags) {
             const r=object(scope,view,"view");attachment=r.value;size??=[r.width,r.height];
           } else {
             ensure(scope.surface && width>0 && height>0 && width<=4096 && height<=2304,"Surface attachment dimensions/ownership");
-            if(!texture) {
-              if(canvas.width!==width || canvas.height!==height){canvas.width=width;canvas.height=height;}
-              texture=context.getCurrentTexture();
-            } else ensure(canvas.width===width && canvas.height===height,"Surface resized within batch");
+            if(!texture) texture=surfaceTexture(scope,width,height);
+            else ensure(texture.width===width && texture.height===height,"Surface resized within batch");
             attachment=texture.createView();size??=[width,height];
           }
           colorAttachments.push({view:attachment,...(resolve?{resolveTarget:object(scope,resolve,"view").value}:{}),
@@ -1056,9 +1087,9 @@ async function execute(request, scope, parsed) {
       ensure(!scope.lost,"GPU scope cancelled",E.ECANCELED);
       const width=request.v.getUint32(32,true),height=request.v.getUint32(36,true);
       ensure((width===0&&height===0)||(width>0&&height>0&&width<=4096&&height<=2304),"Invalid surface size");
-      ensure(!width || !slots.some(s=>s && s!==scope && s.surface),"GPU surface is busy",E.EBUSY);
       ensure(!width || context, "GPU presentation requires the display provider", E.ENOSYS);
       scope.surface=width>0;
+      if(scope.surface){scope.size={width,height};surfaces.push(scope);}
       scope.gpuMs=0;scope.gpuTotalMs=0;scope.gpuSamples=0;
       if(device.features.has("timestamp-query")) scope.timers=Array.from({length:3},()=>({
         query:device.createQuerySet({type:"timestamp",count:timestampQueries}),

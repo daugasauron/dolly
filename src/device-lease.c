@@ -19,6 +19,7 @@ void dolly_device_release(const dolly_leased_device *device, int pid) {
     lease->pid = 0;
     lease->pending = 0;
   }
+  if (device->released) device->released(pid);
 }
 
 int64_t dolly_device_call(const dolly_leased_device *device, int pid, unsigned char *packet,
@@ -46,6 +47,13 @@ int64_t dolly_device_call(const dolly_leased_device *device, int pid, unsigned c
   if (h.scope != lease->scope && !(h.operation == device->open && h.scope == 0)) return -EBADF;
   if (!lease->pending) {
     if (h.sequence <= lease->sequence) return -ESTALE;
+    if (h.operation == device->open && device->admit) {
+      const int admitted = device->admit(pid, packet, size);
+      if (admitted < 0) {
+        lease->pid = 0;
+        return admitted;
+      }
+    }
     h.scope = lease->scope;
     memcpy(packet, &h, sizeof(h));
     atomic_store(&reply->scope, lease->scope);
@@ -56,7 +64,10 @@ int64_t dolly_device_call(const dolly_leased_device *device, int pid, unsigned c
       /* A cancelled process can still occupy this provider slot until its
          submitted work settles. Keep the new lease and retry admission. */
       if (h.operation == device->open && status == -EBUSY) return DOLLY_PROCESS_DISPATCH_DEFERRED;
-      if (h.operation == device->open) lease->pid = 0;
+      if (h.operation == device->open) {
+        lease->pid = 0;
+        if (device->released) device->released(pid);
+      }
       return status;
     }
     lease->sequence = (uint32_t)h.sequence;

@@ -105,6 +105,11 @@ flowchart LR
   before publishing; the browser checks again.
 - Only the foreground process or a descendant can acquire the lease. Exit, trap
   or forced termination releases it, and Ghostty redraws its retained grid.
+- A descendant of the holder takes the page over it, as a program it runs to
+  show its own window (a game Godot's editor runs). The holder's lease is
+  covered: it keeps its size and cursor and waits for animation frames, and
+  its frames fail with `EAGAIN` until the descendant's lease ends and its own
+  is shown again. Four leases nest at most.
 - The lease starts at the terminal's frame size; a program picks its own with
   `dolly_display_set_size` and the page fits the frame in the canvas at its own
   shape, centred, and gives pointer positions in the frame's pixels. It is

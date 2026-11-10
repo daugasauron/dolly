@@ -4,7 +4,8 @@
 // Forward+ (godot), the same scene with Forward+'s effects on (SSR, SSAO, SSIL, glow, volumetric
 // fog, depth of field, FSR 1 scaling), and the editor itself each read their own frame back, as
 // Firefox under Xvfb shows no WebGPU canvas; the Project Manager draws on gpu@0 and opens the 3D
-// project in the editor, which takes its place; Truck Town's menu, its cars turning in 3D
+// project in the editor, which takes its place; the editor runs the 2D project (F5), whose window
+// takes the page until it quits; Truck Town's menu, its cars turning in 3D
 // viewports, runs 600 frames; Lantern Drift flies a run by itself, through its rings of light.
 // Usage: node demos/godot/test/godot-gpu-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
@@ -253,6 +254,23 @@ for (const name of browsers) {
     const [, rings] = drift.match(/^DRIFT seconds [\d.]+ frames \d+ fps [\d.]+ rings (\d+) /m) ?? [];
     const [, bright, warm] = drift.match(/^DRIFT frame \d+x\d+ bright (\d+) warm (\d+)$/m) ?? [];
     assert.ok(Number(rings) >= 4 && Number(bright) > 50 && Number(warm) > 5000, `Lantern Drift flies and draws: ${drift}`);
+
+    // The editor runs the 2D project (F5): the game's 640 by 360 window takes the page over the
+    // editor's, its output goes where the editor's does, and the editor has the page back when the
+    // game quits after its 300 frames.
+    const editing = page.evaluate(text => __dolly.submit(text), "godot-editor -e --path /tmp/scene2d > /tmp/run.out 2>&1");
+    await page.waitForFunction(() => __dolly.gpu?.active && __dolly.gpu.width > 1000, null, { polling: 200, timeout: 180_000 });
+    const editorWidth = await page.evaluate(() => __dolly.gpu.width);
+    while (await page.evaluate(() => __dolly.gpu.width) !== 640) {
+      await page.keyboard.press("F5");
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+    await page.waitForFunction(width => __dolly.gpu.active && __dolly.gpu.width === width, editorWidth, { polling: 200, timeout: 180_000 });
+    await page.keyboard.press("Control+c");
+    assert.equal(await editing, 130);
+    const ran = await output("/tmp/run.out | grep -E '^(ADAPTER|LABEL) '");
+    assert.match(ran, /^ADAPTER WebGPU$/m, `the game the editor ran printed: ${ran}`);
+    assert.ok(Number(ran.match(/^LABEL (\d+)$/m)?.[1]) > 100, `the game the editor ran drew its label: ${ran}`);
 
     const editor = await output("/tmp/editor.out | grep '^EDITOR '");
     const [, red, light] = editor.match(/^EDITOR 1152x648 red (\d+) light (\d+)$/m) ?? [];

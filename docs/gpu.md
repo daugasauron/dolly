@@ -23,6 +23,10 @@ flowchart LR
   views, bind group and pipeline layouts, whole pipeline descriptors, copies, pass
   state, timestamps, and batches that continue one encoder until `SUBMIT`.
   `LIMITS` reports the features and limits the device was granted.
+- The page shows one surface, the newest open. Any process may open the first;
+  another only a descendant of the process shown, as the display lease
+  nests, and the surface below is shown again when it closes. A covered
+  surface draws into a texture of its own, charged to the quota.
 - The kernel ([`host/gpu/kernel.c`](../host/gpu/kernel.c)) ties each scope to a process
   and revokes it on exit, abort or forced termination.
 - The provider copies each packet before acknowledging it and validates structure

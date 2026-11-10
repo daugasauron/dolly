@@ -3,6 +3,7 @@
 #include "core/input/input.h"
 #include "core/os/keyboard.h"
 #include "drivers/gles3/rasterizer_gles3.h"
+#include "main/main.h"
 #include "servers/display/native_menu.h"
 
 #if defined(RD_ENABLED)
@@ -286,6 +287,11 @@ void DisplayServerDolly::read_event(const dolly_input_event &p_event) {
 			focused = p_event.action;
 			if (!focused) {
 				Input::get_singleton()->release_pressed_events();
+			} else {
+				// After a program this one ran had the page (a game the editor
+				// runs), its last frame shows until this one draws: draw now, as
+				// Godot's X11 platform does on Expose.
+				Main::force_redraw();
 			}
 			send_window_event(focused ? DisplayServerEnums::WINDOW_EVENT_FOCUS_IN : DisplayServerEnums::WINDOW_EVENT_FOCUS_OUT);
 			break;

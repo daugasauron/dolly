@@ -177,7 +177,7 @@ int main(void) {
 `, "ring.c");
 });
 
-test("the terminal reads its replies, then records; a lease takes the ring and its end drops what was unread", async () => {
+test("the terminal reads its replies, then records; a lease takes the ring, a descendant's over it, and an end drops what was unread", async () => {
   await probe(`
 #include "process-kernel.h"
 #include <dolly/input.h>
@@ -271,6 +271,30 @@ int main(void) {
   assert(mailbox->flags == (DOLLY_INPUT_LEASED | DOLLY_INPUT_POINTER_RELATIVE));
   pointer.relative = 2;
   assert(call(101, DOLLY_INPUT_SET_POINTER, &pointer, sizeof(pointer), 0) == -EINVAL);
+  // A descendant takes the input over the lessee, whose reads wait as if no
+  // record came; when its lease ends, the lessee reads again, a focus record
+  // first, and what the descendant left unread is gone.
+  dolly_input_generation child = {0};
+  assert(call(102, DOLLY_INPUT_ACQUIRE, NULL, 0, sizeof(child)) == sizeof(child));
+  memcpy(&child, box, sizeof(child));
+  assert(child.generation != lease.generation && mailbox->flags == DOLLY_INPUT_LEASED);
+  push(DOLLY_INPUT_EVENT_KEY, 'n');
+  next.generation = lease.generation;
+  assert(call(101, DOLLY_INPUT_NEXT_EVENT, &next, sizeof(next), sizeof(got)) == DOLLY_PROCESS_DISPATCH_DEFERRED && unread() == 1);
+  dolly_input_event_request child_next = {child.generation, 0};
+  assert(call(102, DOLLY_INPUT_NEXT_EVENT, &child_next, sizeof(child_next), sizeof(got)) == sizeof(got));
+  memcpy(&got, box, sizeof(got));
+  assert(got.result == 1 && got.event.action == 'n');
+  push(DOLLY_INPUT_EVENT_KEY, 'o');
+  dolly_input_kernel.release(102, 0);
+  assert(unread() == 0 && mailbox->flags == (DOLLY_INPUT_LEASED | DOLLY_INPUT_POINTER_RELATIVE));
+  next.deadline_nanoseconds = 0;
+  assert(call(101, DOLLY_INPUT_NEXT_EVENT, &next, sizeof(next), sizeof(got)) == sizeof(got));
+  memcpy(&got, box, sizeof(got));
+  assert(got.result == 1 && got.event.type == DOLLY_INPUT_EVENT_FOCUS && got.event.action == 1);
+  assert(call(101, DOLLY_INPUT_NEXT_EVENT, &next, sizeof(next), sizeof(got)) == sizeof(got));
+  memcpy(&got, box, sizeof(got));
+  assert(got.result == 0);
   // Its exit ends the lease: what it had not read was its own, the pointer too.
   push(DOLLY_INPUT_EVENT_KEY, 'c');
   push(DOLLY_INPUT_EVENT_POINTER, 0);
