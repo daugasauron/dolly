@@ -5,6 +5,7 @@ REQUIRES HOST audio@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST threads@0
+REQUIRES HOST sockets@0
 REQUIRES HOST gpu@0
 
 # Godot from its release, patched below, built by SCons with Dolly's cc on a
@@ -19,6 +20,7 @@ FROM /v0.1.5/demos/ghostty-gtk/Dollyfile-mesa-build c2560dd3b9782789bb0b58997815
 USE /v0.1.5/demos/tools/Dollyfile-scons 32e62646343a0caf64ad4087ce4bbf89d9c3bb35b6d8f4da24a797b033979da0
 USE /v0.1.5/Dollyfile-mandoc 83da22748d615feab08a0a774cb1f704c8d8f6cde9402b86d4b0dd8ea166e5bd
 USE /v0.1.5/Dollyfile-libdolly-gpu d860787df9ebc417e1a6464cd7d90a73ca9623dea685eb48b3d3e2da7508d1d5
+USE /v0.1.5/Dollyfile-libdolly-sockets c51bcf3f7fd885811c18bbe2c2e811a833e4916512d85a3f48384e46479a37a9
 USE /v0.1.5/demos/godot/Dollyfile-spirv-wgsl 8ff05368fff89386cc1da3e3ea2ab3da982789ca6075017b2f3ffe17e1e48e7a
 USE /v0.1.5/Dollyfile-libdolly-audio cf506533d24804e00d1211d4008d8eb71d16747dc8563843262545be6dbca30b
 
@@ -32,7 +34,7 @@ REQUIRES TOOL scons
 REQUIRES TOOL tar
 REQUIRES TOOL text-page
 
-SOURCE /v0.1.5/dist/static/godot/source.tar.gz f24de0b4e76ba23ef248eeb8b4ea465d84dcf3650c50af905397e2db03e104fd /tmp/godot-source.tar.gz
+SOURCE /v0.1.5/dist/static/godot/source.tar.gz dd17f5ebabe46588a3ed90cf11943846982044d018495a5dcec486139a63a0a5 /tmp/godot-source.tar.gz
 SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
 # Godot's modern renderers take only the drivers main.cpp names; glslang builds beside them;
 # Forward+ starts SDFGI only on a device with image atomics, which its voxelization takes.

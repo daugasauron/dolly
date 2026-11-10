@@ -7,7 +7,8 @@ Godot, Forward+ starts SDFGI only where the device has image atomics,
 which WebGPU does not (SDFGI also needs more storage textures than WebGPU
 gives a shader stage), and the Project Manager draws on `gpu@0` as the editor
 does, where upstream starts it on the Compatibility renderer, which here is a
-software rasterizer: a hover took 0.6 s to show on it, 9 to 33 ms on `gpu@0`. In Firefox, which has neither of WebGPU's texture format
+software rasterizer: a hover took 0.6 s to show on it, 9 to 33 ms on `gpu@0`;
+and the editor's debugger listens on a local socket, as Dolly has no network ones. In Firefox, which has neither of WebGPU's texture format
 tiers, SSIL, the depth-of-field blur, VoxelGI and 2D SDFs do not draw.
 `amy install godot`, then
 `godot --path DIRECTORY` runs a project on the page, drawn by Godot's
@@ -96,8 +97,8 @@ release on the same platform with Godot's default modules, 2,561 units,
 less two: Basis Universal, whose encoder names a header of Linux's that
 Emscripten's libc and Dolly's leave out (`sys/timex.h`), and Jolt Physics,
 which knows WebAssembly only as Emscripten (3D physics is Godot's own). It
-compiled in 26 minutes in the image build, a 182 MB program. Its debugger and
-language server find no sockets and say so. The template packages the
+compiled in 26 minutes in the image build, a 182 MB program. Its language server finds no network
+and says so; its debugger listens on a local socket (below). The template packages the
 modules an exported 2D game loads beside the engine's: Ogg Vorbis, MP3, WebP
 and regular expressions.
 
@@ -111,6 +112,10 @@ What the platform decides ([process model](../../docs/process-model.md)):
 - Threads: Mesa is built with `-pthread`, so Godot is too (`threads@0`).
 - One window, the page's canvas, which scales the frame; Godot's window
   size is the project's.
+- Sockets: Godot links Dolly's local stream sockets (`sockets@0`). The editor's
+  debugger listens at `/tmp/godot-debugger-PID.sock` (the patch: upstream's default
+  is TCP, which has no network here), and a game the editor runs connects there:
+  its output, errors and breakpoints reach the editor.
 - Processes start with `posix_spawn`, as Dolly has no `fork`. An instance of
   Godot asked for without its PID (the Project Manager opening a project,
   the editor's restart or its return to the project list) takes the

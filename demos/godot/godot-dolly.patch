@@ -1,3 +1,27 @@
+--- a/editor/run/editor_run_bar.cpp
++++ b/editor/run/editor_run_bar.cpp
+@@ -33,6 +33,7 @@
+ #include "core/config/engine.h"
+ #include "core/config/project_settings.h"
+ #include "core/object/callable_mp.h"
++#include "core/os/os.h"
+ #include "editor/debugger/editor_debugger_node.h"
+ #include "editor/debugger/script_editor_debugger.h"
+ #include "editor/editor_node.h"
+@@ -358,7 +359,13 @@
+ 	// Use the existing URI, in case it is overridden by the CLI.
+ 	String uri = EditorDebuggerNode::get_singleton()->get_server_uri();
+ 	if (uri.is_empty()) {
++#ifdef DOLLY_ENABLED
++		// Dolly's sockets are local, by path (sockets@0): a game the editor runs
++		// reaches its debugger at a path of this editor's own.
++		uri = vformat("unix:///tmp/godot-debugger-%d.sock", OS::get_singleton()->get_process_id());
++#else
+ 		uri = "tcp://";
++#endif
+ 	}
+ 	EditorDebuggerNode::get_singleton()->start(uri);
+ 	Error error = editor_run.run(run_filename, write_movie_file, args);
 --- a/main/main.cpp
 +++ b/main/main.cpp
 @@ -2392,6 +2392,7 @@
