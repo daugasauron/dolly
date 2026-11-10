@@ -26,6 +26,21 @@ Dolly, as it exported Dodge the Creeps for `amy install dodge-the-creeps`
 - `spirv-wgsl`: A build stage: Tint, from Dawn, and SPIRV-Tools under Dolly's passes, which translate the SPIR-V Godot compiles its shaders to into WGSL for `gpu@0`.
 - `dodge-the-creeps`: Dodge the Creeps, the game of Godot's first 2D tutorial, which Godot's editor imported and exported here; `dodge-the-creeps` plays it.
 - `truck-town`: Truck Town, the demo projects' vehicle physics demo: a minivan, a semi-truck and a tow truck in a town at four times of day, drawn by Godot's Forward+ renderer on `gpu@0`; `truck-town` plays it.
+- `lantern-drift`: Lantern Drift, Dolly's showcase game for Godot: a paper lantern glides through rings of light over a sky archipelago from sunset into night, drawn by Forward+ on `gpu@0`; `lantern-drift` plays it.
+- `godot-lantern-drift`: Lantern Drift on the page at once, with Godot's editor and a copy of the game's project to open in it.
+
+## Lantern Drift
+
+[`lantern-drift/`](lantern-drift) is a Godot project made for Dolly: scenes, scripts and
+shaders, no art or sound files. Islands, pines, crystals, rings and sky lanterns are Godot's
+primitive meshes under its materials and shaders; the sky, the cloud sea and the islands' rock
+and grass are shaders; the bells, the crash and the wind are synthesised at start. It uses
+Forward+'s volumetric fog (the sun's shafts between the islands, the lantern's and the rings'
+glow in the haze), glow, SSAO, GPU particles, clustered lights and directional shadows, and the
+sky darkens from sunset into night as the run goes on. Godot's editor imports and exports it
+while the package builds. It drew 59 frames a second at 1600 by 900 in Chrome (NVIDIA RTX
+5070, 2026-11-10). `-- --autopilot SECONDS` flies a run by itself, as the title screen does, and
+prints its frame rate, rings and score.
 
 ## Building
 

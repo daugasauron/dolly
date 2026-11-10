@@ -5,7 +5,7 @@
 // fog, depth of field, FSR 1 scaling), and the editor itself each read their own frame back, as
 // Firefox under Xvfb shows no WebGPU canvas; the Project Manager draws on gpu@0 and opens the 3D
 // project in the editor, which takes its place; Truck Town's menu, its cars turning in 3D
-// viewports, runs 600 frames.
+// viewports, runs 600 frames; Lantern Drift flies a run by itself, through its rings of light.
 // Usage: node demos/godot/test/godot-gpu-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { chromium, firefox } from "playwright-core";
@@ -181,7 +181,7 @@ for (const name of browsers) {
     page.on("pageerror", error => errors.push(error.message));
     // WebGPU's validation errors reach the page's console after their batch is answered.
     page.on("console", message => { if (message.text().startsWith("Dolly GPU:")) errors.push(message.text()); });
-    const image = await composed(["gpu", "audio", "display", "input", "threads"], ["godot", "godot-editor", "truck-town"], { base: "system" });
+    const image = await composed(["gpu", "audio", "display", "input", "threads"], ["godot", "godot-editor", "truck-town", "lantern-drift"], { base: "system" });
     await image.setup(page);
     await page.goto(server.origin + image.path);
     await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null, { timeout: 300_000 });
@@ -204,7 +204,8 @@ for (const name of browsers) {
     await run("godot --path /tmp/effects > /tmp/effects.out 2>&1");
     await run("godot-editor -e --windowed --resolution 1152x648 --path /tmp/scene3d > /tmp/editor.out 2>&1");
     await run("truck-town --quit-after 600 > /tmp/truck.out 2>&1");
-    await run("! grep -q 'refused a batch' /tmp/scene2d.out /tmp/scene3d.out /tmp/forward.out /tmp/effects.out /tmp/editor.out /tmp/truck.out");
+    await run("lantern-drift -- --autopilot 20 > /tmp/drift.out 2>&1");
+    await run("! grep -q 'refused a batch' /tmp/scene2d.out /tmp/scene3d.out /tmp/forward.out /tmp/effects.out /tmp/editor.out /tmp/truck.out /tmp/drift.out");
 
     const lines2d = await output("/tmp/scene2d.out | grep -E '^(ADAPTER|FPS|BACKGROUND|SPRITE|LABEL) '");
     assert.match(lines2d, /^ADAPTER WebGPU$/m);
@@ -246,12 +247,20 @@ for (const name of browsers) {
     const [, openedRed, openedLight] = opened.match(/^EDITOR \d+x\d+ red (\d+) light (\d+)$/m) ?? [];
     assert.ok(Number(openedRed) > 1000 && Number(openedLight) > 40, `the editor the Project Manager opened draws: ${opened}`);
 
+    // Its autopilot takes rings, and its frame has the lit sky and the glowing rings.
+    const drift = await output("/tmp/drift.out | grep '^DRIFT '");
+    assert.match(drift, /^DRIFT adapter WebGPU forward_plus$/m);
+    const [, rings] = drift.match(/^DRIFT seconds [\d.]+ frames \d+ fps [\d.]+ rings (\d+) /m) ?? [];
+    const [, bright, warm] = drift.match(/^DRIFT frame \d+x\d+ bright (\d+) warm (\d+)$/m) ?? [];
+    assert.ok(Number(rings) >= 4 && Number(bright) > 50 && Number(warm) > 5000, `Lantern Drift flies and draws: ${drift}`);
+
     const editor = await output("/tmp/editor.out | grep '^EDITOR '");
     const [, red, light] = editor.match(/^EDITOR 1152x648 red (\d+) light (\d+)$/m) ?? [];
     assert.ok(Number(red) > 1000 && Number(light) > 40, `the editor draws its 3D view and text: ${editor}`);
     assert.equal(await page.evaluate(() => __dolly.gpu.isFallbackAdapter), false);
     assert.deepEqual(errors, []);
     for (const line of [lines2d, ...scenes3d].join("\n").split("\n").filter(line => line.startsWith("FPS"))) console.log(name, line);
+    console.log(name, drift.match(/^DRIFT seconds .*$/m)?.[0]);
     console.log(`godot-gpu: ${name} passed`);
   } finally {
     clearTimeout(deadline);
