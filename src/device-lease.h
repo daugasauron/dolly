@@ -27,6 +27,11 @@ typedef struct dolly_leased_device {
   int (*dispatch)(const void *packet, uintptr_t bytes);
   unsigned char *replies; /* slots * (64 + reply_bytes), 64-byte aligned. */
   dolly_device_lease *leases;
+  /* Optional: whether a process may open what its OPEN packet asks (0 or a
+   * negative errno), before the page sees it; and that a process's lease
+   * ended. */
+  int (*admit)(int pid, const unsigned char *packet, uintptr_t size);
+  void (*released)(int pid);
 } dolly_leased_device;
 
 int64_t dolly_device_call(const dolly_leased_device *device, int pid, unsigned char *packet,

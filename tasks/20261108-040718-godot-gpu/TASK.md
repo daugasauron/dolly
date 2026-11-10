@@ -409,3 +409,23 @@ showed Godot's Project Manager (`godot-editor` with no arguments), not the edito
 The editor itself, measured the owner's way (typed at the shell, its output in the terminal,
 real X pointer events at 250 and 1000 Hz), shows a hover 15-45 ms after the pointer enters a
 button, sweeping across rows included; the reference page 14-49 ms under the same probe.
+
+## Lantern Drift and the editor's Run (2026-11-10, night)
+
+- Lantern Drift (`demos/godot/lantern-drift`, packages `lantern-drift`, application
+  `godot-lantern-drift`): a game made for Dolly, built by the editor in the package build;
+  Forward+ with volumetric fog, glow, SSAO, particles, shaders for sky, clouds and islands,
+  dusk into night. 54-59 frames a second at 1600 by 900 (Chrome and Firefox, RTX 5070); the
+  hardware test flies it by its autopilot (8 rings in 20 s).
+- Run (F5) in the editor: the game is a child of the editor, and display@0, input@0 and gpu@0
+  each gave one page to one process (EBUSY). They now nest: a descendant of the holder takes
+  the page over it and gives it back when its lease ends (`docs/display.md`, `docs/input.md`,
+  `docs/gpu.md`); the covered editor waits instead of spinning and redraws on the focus record
+  that starts its input again, as Godot's X11 platform redraws on Expose. The hardware test
+  runs the 2D project from the editor with F5 and sees its 640 by 360 window take the page and
+  the editor's come back, in Chrome and Firefox. The game runs without the editor's debugger
+  (no sockets): its output goes to the editor's standard output.
+- Found on the way: two checkouts of one commit built different seeds (image inputs 7edfaae7
+  and 47fbb3e8): mimalloc's `options.c` prints `__DATE__` and `__TIME__`; fixed in 96d9d2827
+  (`SOURCE_DATE_EPOCH` for the threaded libraries).
+

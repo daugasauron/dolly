@@ -25,9 +25,24 @@ _Alignas(64) static dolly_input_mailbox input_mailbox;
 _Alignas(64) static unsigned char paste_buffer[DOLLY_INPUT_PASTE_CAPACITY];
 static dolly_input_ring ring = {&input_mailbox, NULL};
 
-static uint64_t lease_generation;
-static int lease_owner;
+// The leases held, the records the last one's: a descendant of the lessee
+// takes the input over it, as a program it runs to show its own window, and
+// the lessee reads again when the descendant's lease ends, starting with a
+// focus record. A covered lessee waits for records as if none came.
+typedef struct {
+  uint64_t generation;
+  int owner;
+  int relative;
+  int resumed;
+} input_lease;
+#define INPUT_LEASE_DEPTH 4
+static input_lease leases[INPUT_LEASE_DEPTH];
+static unsigned lease_depth;
 static uint64_t next_generation = 1;
+
+static input_lease *reading_lease(void) {
+  return lease_depth ? &leases[lease_depth - 1] : NULL;
+}
 
 static unsigned char encoded_input[256];
 static size_t encoded_input_length;
@@ -66,11 +81,11 @@ static void discard_pending_input(int terminal_ui) {
 }
 
 void dolly_terminal_discard_pending_input(void) {
-  discard_pending_input(lease_generation == 0);
+  discard_pending_input(lease_depth == 0);
 }
 
 int dolly_kernel_terminal_input_service(void) {
-  return lease_generation == 0 ? dolly_input_ring_service(&ring) : 0;
+  return lease_depth == 0 ? dolly_input_ring_service(&ring) : 0;
 }
 
 // Decodes one record for the terminal's reader into encoded_input.
@@ -99,7 +114,7 @@ static int fill_terminal_input(void) {
     // A lessee reads the records itself: no terminal reader may race it for
     // the single-consumer ring.
     dolly_input_event event;
-    if (lease_generation != 0 || ring.decoder == NULL || !dolly_input_ring_take(&ring, &event)) return -1;
+    if (lease_depth != 0 || ring.decoder == NULL || !dolly_input_ring_take(&ring, &event)) return -1;
     if (decode(&event) != 0) encoded_input_length = 0;
   }
 }
@@ -113,34 +128,60 @@ int dolly_kernel_terminal_read(void) {
   return encoded_input[encoded_input_cursor++];
 }
 
-static int validate_lease(int pid, uint64_t generation) {
-  if (generation == 0 || generation != lease_generation) return -ESTALE;
-  return pid > 0 && pid == lease_owner ? 0 : -EPERM;
+// The page follows the reading lease's pointer request, or the terminal's.
+static void publish_reader(void) {
+  const input_lease *reader = reading_lease();
+  publish_flags(reader == NULL ? 0 : DOLLY_INPUT_LEASED | (reader->relative ? DOLLY_INPUT_POINTER_RELATIVE : 0));
+}
+
+// The caller's lease of this generation, reading or covered, or NULL and why.
+static input_lease *held_lease(int pid, uint64_t generation, int *status) {
+  for (unsigned i = 0; generation != 0 && i < lease_depth; ++i) {
+    if (leases[i].generation != generation) continue;
+    if (pid > 0 && pid == leases[i].owner) return &leases[i];
+    *status = -EPERM;
+    return NULL;
+  }
+  *status = -ESTALE;
+  return NULL;
 }
 
 static void release_lease(int pid) {
-  if (lease_generation == 0 || lease_owner != pid) return;
-  lease_generation = 0;
-  lease_owner = 0;
+  unsigned i = 0;
+  while (i < lease_depth && leases[i].owner != pid) ++i;
+  if (i == lease_depth) return;
+  const int reading = i == lease_depth - 1;
+  memmove(&leases[i], &leases[i + 1], (lease_depth - i - 1) * sizeof(leases[0]));
+  memset(&leases[--lease_depth], 0, sizeof(leases[0]));
+  if (!reading) return;
   // Records published during the lease were its owner's: its pointer and
-  // scroll records are not the terminal's.
+  // scroll records are neither the terminal's nor the lessee's below it.
   discard_pending_input(0);
-  publish_flags(0);
+  input_lease *reader = reading_lease();
+  if (reader != NULL) reader->resumed = 1;
+  publish_reader();
 }
 
 static int64_t acquire_packet(int pid, unsigned char *mailbox, uintptr_t request_size,
                               uintptr_t response_capacity) {
   if (request_size != 0 || response_capacity < sizeof(dolly_input_generation)) return -EINVAL;
   if (!atomic_load_explicit(&input_mailbox.enabled, memory_order_acquire)) return -ENOSYS;
-  const int foreground = dolly_kernel_foreground();
-  if (pid <= 0 || foreground <= 0 || !dolly_process_descends_from(pid, foreground)) return -EPERM;
-  if (lease_generation != 0) return -EBUSY;
-  lease_generation = next_generation++;
-  lease_owner = pid;
-  encoded_input_cursor = 0;
-  encoded_input_length = 0;
-  publish_flags(DOLLY_INPUT_LEASED);
-  const dolly_input_generation response = {lease_generation};
+  const input_lease *reader = reading_lease();
+  if (reader == NULL) {
+    const int foreground = dolly_kernel_foreground();
+    if (pid <= 0 || foreground <= 0 || !dolly_process_descends_from(pid, foreground)) return -EPERM;
+    encoded_input_cursor = 0;
+    encoded_input_length = 0;
+  } else {
+    if (pid == reader->owner || !dolly_process_descends_from(pid, reader->owner) ||
+        lease_depth == INPUT_LEASE_DEPTH) return -EBUSY;
+    // Records published during the lessee's lease were its own.
+    discard_pending_input(0);
+  }
+  input_lease *lease = &leases[lease_depth++];
+  *lease = (input_lease){next_generation++, pid, 0, 0};
+  publish_reader();
+  const dolly_input_generation response = {lease->generation};
   return dolly_kernel_respond(mailbox, &response, sizeof(response));
 }
 
@@ -150,10 +191,18 @@ static int64_t next_event_packet(int pid, unsigned char *mailbox, uintptr_t requ
       response_capacity < sizeof(dolly_input_event_response)) return -EINVAL;
   dolly_input_event_request request;
   memcpy(&request, mailbox, sizeof(request));
-  const int status = validate_lease(pid, request.generation);
-  if (status != 0) return status;
+  int status;
+  input_lease *lease = held_lease(pid, request.generation, &status);
+  if (lease == NULL) return status;
   dolly_input_event_response response = {0};
-  if (!dolly_input_ring_take(&ring, &response.event)) {
+  if (lease->resumed) {
+    lease->resumed = 0;
+    response.event.type = DOLLY_INPUT_EVENT_FOCUS;
+    response.event.action = 1;
+    response.result = 1;
+    return dolly_kernel_respond(mailbox, &response, sizeof(response));
+  }
+  if (lease != reading_lease() || !dolly_input_ring_take(&ring, &response.event)) {
     if (dolly_kernel_deadline_pending(request.deadline_nanoseconds)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
     return dolly_kernel_respond(mailbox, &response, sizeof(response));
   }
@@ -169,9 +218,11 @@ static int64_t set_pointer_packet(int pid, unsigned char *mailbox, uintptr_t req
   dolly_input_pointer_request request;
   memcpy(&request, mailbox, sizeof(request));
   if (request.relative > 1 || request.reserved != 0) return -EINVAL;
-  const int status = validate_lease(pid, request.generation);
-  if (status != 0) return status;
-  publish_flags(DOLLY_INPUT_LEASED | (request.relative ? DOLLY_INPUT_POINTER_RELATIVE : 0));
+  int status;
+  input_lease *lease = held_lease(pid, request.generation, &status);
+  if (lease == NULL) return status;
+  lease->relative = request.relative;
+  if (lease == reading_lease()) publish_reader();
   return 0;
 }
 
@@ -180,8 +231,8 @@ static int64_t release_packet(int pid, unsigned char *mailbox, uintptr_t request
   if (request_size != sizeof(dolly_input_generation) || response_capacity != 0) return -EINVAL;
   dolly_input_generation request;
   memcpy(&request, mailbox, sizeof(request));
-  const int status = validate_lease(pid, request.generation);
-  if (status != 0) return status;
+  int status;
+  if (held_lease(pid, request.generation, &status) == NULL) return status;
   release_lease(pid);
   return 0;
 }
