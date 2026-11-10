@@ -1,12 +1,18 @@
 DOLLY 7
-PACKAGE photocraft-cli
+PACKAGE photocraft
 REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST gpu@0
 REQUIRES HOST threads@0
 
-# PhotoCraft's headless command line, compiled by Cargo from its pinned sources, offline:
-# it converts and inspects images and PSD files, runs its commands and batches, and serves them to
-# agents over MCP. Its GPU renderer, a feature, is left out: wgpu has no backend here yet.
+# PhotoCraft, the image editor, and its command line, compiled by Cargo from the pinned sources,
+# offline. The app draws on the page through Dolly's platforms in winit (display@0, input@0) and
+# wgpu (gpu@0), and its dialogs are the zenity command. The command line converts and inspects
+# images and PSD files, runs commands and batches, renders on gpu@0 where the browser grants
+# WebGPU, and serves its commands to agents over MCP.
 FROM /v0.1.5/demos/rust/Dollyfile-rust-build 08eef24c6ba0616729512c37892fd93b06c09c7e5f7740faf487035d56f1322f
+USE /v0.1.5/Dollyfile-libdolly-gpu d860787df9ebc417e1a6464cd7d90a73ca9623dea685eb48b3d3e2da7508d1d5
 REQUIRES TOOL cargo
 REQUIRES TOOL cat
 REQUIRES TOOL gzip
@@ -22,14 +28,16 @@ SOURCE /v0.1.5/dist/static/photocraft/sources-02.part e71ee9603a147f82e516e0f477
 SOURCE /v0.1.5/dist/static/photocraft/sources-03.part 4a8e0041e497b4463776a94f85146ec0ab815f1d587809f95e40857c65da0b47 /tmp/photocraft-sources-03.part
 SLOP cat /tmp/photocraft-sources-00.part /tmp/photocraft-sources-01.part /tmp/photocraft-sources-02.part /tmp/photocraft-sources-03.part | gzip -dc - | tar -xf - -C /
 SLOP rm /tmp/photocraft-sources-00.part /tmp/photocraft-sources-01.part /tmp/photocraft-sources-02.part /tmp/photocraft-sources-03.part 
-SLOP CWD /tmp/photocraft-sources/photocraft cargo build -j 4 --offline -p photocraft-cli --no-default-features --target-dir /tmp/photocraft-build
+SLOP CWD /tmp/photocraft-sources/photocraft cargo build -j 4 --offline -p photocraft -p photocraft-cli --target-dir /tmp/photocraft-build
 SLOP mkdir -p /usr/share/licenses/photocraft /usr/share/dolly/builds
-SLOP mv /tmp/photocraft-build/debug/photocraft-cli /usr/bin/photocraft-cli
+SLOP mv /tmp/photocraft-build/debug/photocraft /tmp/photocraft-build/debug/photocraft-cli /usr/bin
 SLOP cp /tmp/photocraft-sources/photocraft/Cargo.lock /usr/share/dolly/builds/photocraft.lock
 SLOP CWD /tmp/photocraft-sources/photocraft cp LICENSE-MIT LICENSE-APACHE NOTICE ATTRIBUTION.md /usr/share/licenses/photocraft
 SLOP rm -rf /tmp/photocraft-sources /tmp/photocraft-build
 SLOP /usr/bin/photocraft-cli --version
+EXPORTS TOOL photocraft
 EXPORTS TOOL photocraft-cli
+FILE /usr/bin/photocraft
 FILE /usr/bin/photocraft-cli
 FILE /usr/share/dolly/builds/photocraft.lock
 FOLDER /usr/share/licenses/photocraft

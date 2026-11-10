@@ -484,27 +484,19 @@ impl dispatch::InstanceInterface for ContextDolly {
     }
 }
 
+/// What a scope may do, read from one opened only for that: a device opens its own, and a
+/// process shows one surface (another only a descendant of it).
 #[derive(Debug)]
 pub struct DollyAdapter {
-    scope: Mutex<Option<ClientCell>>,
     surface: bool,
     features: wgt::Features,
     limits: wgt::Limits,
     surface_format: wgt::TextureFormat,
 }
 
-/// A scope opened for an adapter, until a device takes it.
-struct ClientCell(Client);
-
-impl core::fmt::Debug for ClientCell {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str("ClientCell")
-    }
-}
-
 impl DollyAdapter {
     fn open(surface: bool) -> Result<Self, i32> {
-        let mut client = Client::open(surface)?;
+        let mut client = Client::open(false)?;
         let surface_format = if client.capabilities() & ffi::FEATURE_SURFACE_BGRA != 0 {
             wgt::TextureFormat::Bgra8Unorm
         } else {
@@ -516,7 +508,6 @@ impl DollyAdapter {
             .filter(|(bit, _)| reply[0] & bit != 0)
             .fold(wgt::Features::empty(), |features, (_, feature)| features | *feature);
         Ok(Self {
-            scope: Mutex::new(Some(ClientCell(client))),
             surface,
             features,
             limits: convert::limits(&reply),
@@ -545,12 +536,9 @@ impl dispatch::AdapterInterface for DollyAdapter {
         if let Some((name, requested, allowed)) = lower {
             return refuse(alloc::format!("gpu@0's {name} is {allowed}, not {requested}"));
         }
-        let mut client = match self.scope.lock().unwrap().take() {
-            Some(ClientCell(client)) => client,
-            None => match Client::open(self.surface) {
-                Ok(client) => client,
-                Err(errno) => return refuse(alloc::format!("gpu@0 did not open (errno {errno})")),
-            },
+        let mut client = match Client::open(self.surface) {
+            Ok(client) => client,
+            Err(errno) => return refuse(alloc::format!("gpu@0 did not open (errno {errno})")),
         };
         let empty_layout = client.handle();
         let mut record = Record::new(op::CREATE_BIND_GROUP_LAYOUT, 24);
