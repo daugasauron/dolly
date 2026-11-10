@@ -26,11 +26,11 @@ INSTALL /v0.1.5/Dollyfile-nena 732cf0b604cfd6a860c8fcb885813cbf97a52b32728cae46b
 INSTALL /v0.1.5/Dollyfile-transfer 61c1d33b36ec96451aea74ba9bdc915033a5701d3d02e9e4f8a409bee3fd8a04
 INSTALL /v0.1.5/Dollyfile-html 8d76d3942c2b0a72ac85b452835518882058cbce7feddb648c67a667a84056b7
 INSTALL /v0.1.5/Dollyfile-ps 39cdf2bfaa3fb52f3c161672634f9600381754e6f006971896d6f79b6b345b77
-INSTALL /v0.1.5/demos/python/Dollyfile-python 94dd91968bc9c9fd3f5dda73ef5543e30a9fc33856ecdd95db51f0a4ad3d57bd
-INSTALL /v0.1.5/demos/python/Dollyfile-numpy 8abc728625b502937d68d991abe25304022c7bac0c7cbc3072c23da74637a16e
-INSTALL /v0.1.5/demos/python/Dollyfile-pandas 34d2608f7ed064a966dd6ea54ddc0fdc1b6f871d9379642f87218166980b17eb
-INSTALL /v0.1.5/demos/python/Dollyfile-matplotlib 934cdd571b4120a11a37ec2a2f576893c22caf9eb2389aa65cf6b6426eee6f50
-INSTALL /v0.1.5/demos/python/Dollyfile-seaborn 13b696ffd96eea235ff9e2ca930795fcb37d740f6b7103c9f21b399fafe09f49
+INSTALL /v0.1.5/demos/python/Dollyfile-python 9e47a46e78026f2c2397a6f5b53d0199e299a6c6ca5cf0e9f61ab2335fc2e9f9
+INSTALL /v0.1.5/demos/python/Dollyfile-numpy 47670c35a6be3a6f82361f8f8076776bb7908b05b8a720a2f8ce4bb62a8d7b4e
+INSTALL /v0.1.5/demos/python/Dollyfile-pandas 45b0d42542a3b18232c43717bec0fde5aa9ae6676716844cc1ca0df7cc066b4f
+INSTALL /v0.1.5/demos/python/Dollyfile-matplotlib 6deb94ef13bfcb8a8145f733154d7c0e9437b2709593c633bbeba90042795aeb
+INSTALL /v0.1.5/demos/python/Dollyfile-seaborn facb7db7852a118578a4c6c2aa4bb0b741afcc7efa0d186b0634ada26a7ca148
 REQUIRES TOOL python
 
 SLOP python -c 'import numpy, pandas, matplotlib.pyplot, seaborn, jinja2, openpyxl, tabulate'

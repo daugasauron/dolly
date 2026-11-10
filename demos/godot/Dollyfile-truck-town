@@ -13,9 +13,9 @@ REQUIRES HOST gpu@0
 # or night, drawn by Godot's Forward+ renderer on gpu@0. Godot's editor imports
 # its assets and exports its pack here, and truck-town plays the pack with
 # godot, which installs with it. Its physics is Godot's own (Jolt's is not built).
-FROM /v0.1.5/Dollyfile-system fdf722558fc23bbce3ce51534f860b83e11ef157c6237cdf22f5f8da591c42ac
-INSTALL /v0.1.5/demos/godot/Dollyfile-godot 9dbfc2f03187e24e7d28fdbb6533d6f38de999aae429df932f979a1d92ec1291
-USE /v0.1.5/demos/godot/Dollyfile-godot-editor 724db78673714ef54102cbea588faeab128a1c71dcea2b0d6c4cd8b52b0ce4c1
+FROM /v0.1.5/Dollyfile-system 93c7d8c3b04b288cb4768af3ab4a7d13e4c257f6313a57112b431c7d434999fd
+INSTALL /v0.1.5/demos/godot/Dollyfile-godot e644ac4fb12ec48d41217b7f151402993a9b9af4aed79f92c4fb8c9f2f430d64
+USE /v0.1.5/demos/godot/Dollyfile-godot-editor a193e140af979633d5d51310f76d12a3569df6046d9b7148bf9d91b46e1e052e
 USE /v0.1.5/demos/tools/Dollyfile-unzip a582b683dfe4ddbc7b10128d8200f7e75f9ca3badc5459020146e60f81d07719
 
 REQUIRES TOOL cp

@@ -6,7 +6,7 @@ REQUIRES HOST http@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.5/Dollyfile-system fdf722558fc23bbce3ce51534f860b83e11ef157c6237cdf22f5f8da591c42ac
+FROM /v0.1.5/Dollyfile-system 93c7d8c3b04b288cb4768af3ab4a7d13e4c257f6313a57112b431c7d434999fd
 USE /v0.1.5/Dollyfile-libdolly-sockets c51bcf3f7fd885811c18bbe2c2e811a833e4916512d85a3f48384e46479a37a9
 USE /v0.1.5/demos/tools/Dollyfile-sqlite 6ef3cca28e3ef85c139e37d17d083ff48022db8e4c46ee2c82dad9d04876d4a1
 USE /v0.1.5/demos/tools/Dollyfile-bzip2 6e28f5090319ccd9841a44b674003c9ac15a7abc384f206d9dde8a175eb9cd21
@@ -37,7 +37,7 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   touch
 
-INSTALL /v0.1.5/demos/python/Dollyfile-libffi 65c7e7aecf01cf9a82129e9609988f0894502eb1300b594d896b30bddfd864b6
+INSTALL /v0.1.5/demos/python/Dollyfile-libffi 511b8eb1abf04eee4a70372710c57a33c3af0d63e239309a76a5077b0ac68ed6
 EXPORTS LIB    ffi       /usr/lib/libffi.a
 EXPORTS HEADER ffi       /usr/include/ffi.h
 EXPORTS HEADER ffitarget /usr/include/ffitarget.h
