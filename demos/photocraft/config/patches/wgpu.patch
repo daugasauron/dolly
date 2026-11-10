@@ -46,4 +46,20 @@
 +#[cfg(dolly)]
 +mod dolly;
 +#[cfg(dolly)]
-+pub(crate) use dolly::ContextDolly;
++pub(crate) use dolly::{dolly_webgpu_supported, ContextDolly};
+--- a/src/util/init.rs
++++ b/src/util/init.rs
+@@ -92,7 +92,12 @@
+             .await
+             .is_ok_and(|adapter| !adapter.is_undefined() && !adapter.is_null())
+     }
+-    #[cfg(not(webgpu))]
++    // Dolly: whether gpu@0 grants the browser's WebGPU.
++    #[cfg(dolly)]
++    {
++        crate::backend::dolly_webgpu_supported()
++    }
++    #[cfg(not(any(webgpu, dolly)))]
+     {
+         false
+     }

@@ -143,6 +143,10 @@ const WRITE_CHUNK: usize = 512 * 1024;
 /// MAP_READ maps at most this much at once; READ returns at most a reply.
 const MAP_CHUNK: u64 = 16 * 1024 * 1024;
 
+// Emscripten's libc numbers errno as WASI does.
+const ENOMEM: i32 = 48;
+const ENOSYS: i32 = 52;
+
 fn errno() -> i32 {
     std::io::Error::last_os_error().raw_os_error().unwrap_or(0)
 }
@@ -160,7 +164,7 @@ fn error(errno: i32, what: &str) -> crate::Error {
         "gpu@0 {what} (errno {errno}); the page's console has WebGPU's message"
     );
     let source: crate::ErrorSource = Box::new(std::io::Error::from_raw_os_error(errno));
-    if errno == 12 {
+    if errno == ENOMEM {
         crate::Error::OutOfMemory { source }
     } else {
         crate::Error::Validation { source, description }
@@ -182,7 +186,8 @@ impl Client {
         if features & ffi::FEATURE_EXPLICIT == 0 {
             // SAFETY: g is this scope.
             unsafe { ffi::dolly_gpu_close(&mut *client.g) };
-            return Err(38); // ENOSYS: a provider without explicit records.
+            // A provider without explicit records.
+            return Err(ENOSYS);
         }
         if features & ffi::FEATURE_LARGE_BATCH != 0 {
             client.max_records = ffi::MAX_COMMANDS;
@@ -417,6 +422,11 @@ impl Drop for Object {
 }
 
 pub(crate) type Keep = Arc<dyn core::any::Any + Send + Sync>;
+
+/// Whether gpu@0 grants the browser's WebGPU: a scope opens.
+pub(crate) fn dolly_webgpu_supported() -> bool {
+    Client::open(false).is_ok()
+}
 
 #[derive(Debug)]
 pub struct ContextDolly {

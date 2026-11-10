@@ -24,9 +24,9 @@ struct State {
     cursor_visible: bool,
 }
 
-/// musl's.
-const EBUSY: i32 = 16;
-const EAGAIN: i32 = 11;
+// Emscripten's libc numbers errno as WASI does.
+const EBUSY: i32 = 10;
+const EAGAIN: i32 = 6;
 
 fn os_error(operation: &'static str, error: i32) -> RootOsError {
     os_error!(OsError(operation, error))
