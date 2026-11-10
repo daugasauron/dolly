@@ -1,0 +1,13 @@
+--- a/build.rs
++++ b/build.rs
+@@ -8,7 +8,9 @@
+         webgl: { all(target_arch = "wasm32", not(target_os = "emscripten"), gles) },
+         Emscripten: { all(target_os = "emscripten", gles) },
+         dx12: { all(target_os = "windows", feature = "dx12") },
+-        gles: { all(feature = "gles") },
++        // Emscripten's GL ES is WebGL through Emscripten's JavaScript, on wasm32 as wgpu's own crate
++        // takes it: Dolly's wasm64 programs have no such JavaScript, and no GL ES.
++        gles: { all(feature = "gles", not(all(target_os = "emscripten", not(target_arch = "wasm32")))) },
+         // Within the GL ES backend, use `std` and be Send + Sync only if we are using a target
+         // that, among the ones where the GL ES backend is supported, has `std`.
+         gles_with_std: { all(
