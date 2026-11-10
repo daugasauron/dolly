@@ -92,6 +92,8 @@ shutil.copytree(platform / "winit", winit / "src/platform_impl/dolly", ignore=sh
 apply(winit, platform / "winit/winit.patch")
 wgpu, = (stage / "vendor").glob("wgpu-[0-9]*")
 shutil.copytree(platform / "wgpu", wgpu / "src/backend/dolly")
+# The zenity those dialogs run, a member of the workspace by its place there (apps/*).
+shutil.copytree(project / "demos/photocraft/zenity", photocraft / "apps/zenity")
 # Locked on every platform and compiled on none of Dolly's: Windows bindings keep their manifest
 # and an empty library.
 for directory in (stage / "vendor").iterdir():
@@ -129,5 +131,8 @@ with compressed.open("rb") as source:
     while data := source.read(40 * 1024 * 1024):
         (parts / f"sources-{number:02d}.part").write_bytes(data)
         number += 1
+# The picture the demo opens, Hokusai's, in the public domain.
+sample = pins["sample"]
+shutil.copyfile(download(sample["url"], sample["sha256"]), parts / sample["name"])
 keep(parts, key)
 print(f"PhotoCraft sources: {number} parts, {compressed.stat().st_size} bytes")

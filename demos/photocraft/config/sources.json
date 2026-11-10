@@ -4,6 +4,11 @@
     "sha256": "482ce3436b7299b636d0db462ab31be9c6e51e49186455c7920d18a9db1e308d",
     "directory": "photocraft-331aa99d50191d99d88de6bc0af0adc4ac7b3ff0"
   },
+  "sample": {
+    "name": "great-wave.jpg",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/a/a5/Tsunami_by_hokusai_19th_century.jpg",
+    "sha256": "30c170260de393f51bd592adacc6f0714b60f157c09744e9c5b6d46e6a613718"
+  },
   "git": [
     {"url": "https://codeload.github.com/storytold/craft-libs/tar.gz/1b34eba41e62138fc2438d2734523b302840b45d", "revision": "1b34eba41e62138fc2438d2734523b302840b45d", "sha256": "3f4d53d903b6240a89e8ad73b1860316993f31cb7a66d229f4e79d30e1275142"},
     {"url": "https://codeload.github.com/storytold/craft-libs/tar.gz/b8f7d93b00dfb8f172938f3d2d796ae62dcfe123", "revision": "b8f7d93b00dfb8f172938f3d2d796ae62dcfe123", "sha256": "247c219e3b51933d2939ffcc291fc6e1e3bb8ddca689461c1a23473bef9363f3"},
