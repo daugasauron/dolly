@@ -8,7 +8,7 @@ use crate::error::{ExternalError, NotSupportedError, OsError as RootOsError};
 use crate::platform_impl::Fullscreen;
 use crate::window::{self, CursorIcon, ImePurpose};
 
-use super::event_loop::{Leases, Shared};
+use super::event_loop::{read_input, Leases, Shared};
 use super::{ffi, ActiveEventLoop, MonitorHandle, OsError, WindowId};
 
 /// The page's canvas: Dolly has one, so a second window is refused while it is open.
@@ -26,6 +26,7 @@ struct State {
 
 /// musl's.
 const EBUSY: i32 = 16;
+const EAGAIN: i32 = 11;
 
 fn os_error(operation: &'static str, error: i32) -> RootOsError {
     os_error!(OsError(operation, error))
@@ -78,6 +79,16 @@ impl Window {
             // SAFETY: display is this lease.
             unsafe { ffi::dolly_display_release(display) };
             return Err(os_error("input", error));
+        }
+        let shared = el.shared.clone();
+        let reader = std::thread::Builder::new().name("dolly input".into()).spawn(move || read_input(shared, input));
+        if let Err(error) = reader {
+            // SAFETY: these are this window's leases.
+            unsafe {
+                ffi::dolly_input_release(input);
+                ffi::dolly_display_release(display);
+            }
+            return Err(os_error("input thread", -error.raw_os_error().unwrap_or(EAGAIN)));
         }
         // The window fills the canvas, as a maximized one fills a screen.
         let leases = Leases { display, input, size: (surface.width, surface.height) };
@@ -142,6 +153,7 @@ impl Window {
     #[inline]
     pub fn request_redraw(&self) {
         self.shared.redraw.store(true, Ordering::Release);
+        self.shared.wake();
     }
 
     #[inline]
@@ -386,5 +398,6 @@ impl Drop for Window {
         }
         *self.shared.window.lock().unwrap() = None;
         self.shared.destroyed.lock().unwrap().push_back(self.id());
+        self.shared.wake();
     }
 }

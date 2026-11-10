@@ -1,8 +1,8 @@
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::collections::{HashSet, VecDeque};
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{mpsc, Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
 use crate::error::EventLoopError;
@@ -14,10 +14,6 @@ use crate::window::{CustomCursor as RootCustomCursor, CustomCursorSource, Theme,
 
 use super::ffi;
 use super::{DeviceId, KeyEventExtra, MonitorHandle, PlatformSpecificEventLoopAttributes, WindowId};
-
-/// What a waiting loop checks between waits for input: another thread's user event or redraw
-/// request cannot interrupt a wait for the next record, so a wait is at most this long.
-const WAKE_INTERVAL: Duration = Duration::from_millis(10);
 
 /// The window's leases, as the loop reads them.
 #[derive(Clone, Copy)]
@@ -35,6 +31,42 @@ pub(super) struct Shared {
     pub destroyed: Mutex<VecDeque<WindowId>>,
     pub redraw: AtomicBool,
     pub user_event: AtomicBool,
+    /// The records the window's input thread read; the loop waits on `wake` for them, for other
+    /// threads' events and redraw requests, and for its deadline.
+    pub records: Mutex<VecDeque<ffi::InputEvent>>,
+    pub wake: Condvar,
+}
+
+impl Shared {
+    /// Ends the loop's wait, under the lock it checks what is pending with.
+    pub fn wake(&self) {
+        let _records = self.records.lock().unwrap();
+        self.wake.notify_one();
+    }
+
+    fn events_pending(&self) -> bool {
+        self.redraw.load(Ordering::Acquire)
+            || self.user_event.load(Ordering::Acquire)
+            || !self.created.lock().unwrap().is_empty()
+            || !self.destroyed.lock().unwrap().is_empty()
+    }
+}
+
+/// The window's records as they come: a thread of its own waits for each, so that the loop waits
+/// on one condition. It ends when the lease does.
+pub(super) fn read_input(shared: Arc<Shared>, input: u64) {
+    loop {
+        let mut record = ffi::InputEvent::zeroed();
+        // SAFETY: record is a whole input record; a negative timeout waits for one.
+        let result = unsafe { ffi::dolly_input_next_event(input, &mut record, -1.0) };
+        if result < 0 {
+            return;
+        }
+        if result > 0 {
+            shared.records.lock().unwrap().push_back(record);
+            shared.wake.notify_one();
+        }
+    }
 }
 
 pub struct EventLoop<T: 'static> {
@@ -138,38 +170,21 @@ impl<T: 'static> EventLoop<T> {
         }
     }
 
-    fn pending(&self) -> bool {
-        let shared = &self.window_target.p.shared;
-        self.input.woken_by.borrow().is_some()
-            || shared.redraw.load(Ordering::Acquire)
-            || shared.user_event.load(Ordering::Acquire)
-            || !shared.created.lock().unwrap().is_empty()
-            || !shared.destroyed.lock().unwrap().is_empty()
-    }
-
     /// Until a record, a user event or redraw request, or the deadline.
     fn wait(&mut self, deadline: Option<Instant>) {
-        while !self.pending() {
-            let now = Instant::now();
-            let slice = match deadline {
-                Some(deadline) if deadline <= now => return,
-                Some(deadline) => (deadline - now).min(WAKE_INTERVAL),
-                None => WAKE_INTERVAL,
-            };
-            let leases = *self.window_target.p.shared.window.lock().unwrap();
-            match leases {
-                Some(leases) => {
-                    let mut record = ffi::InputEvent::zeroed();
-                    // SAFETY: record is a whole input record.
-                    let result = unsafe {
-                        ffi::dolly_input_next_event(leases.input, &mut record, slice.as_secs_f64() * 1000.0)
-                    };
-                    if result > 0 {
-                        *self.input.woken_by.borrow_mut() = Some(record);
+        let shared = self.window_target.p.shared.clone();
+        let mut records = shared.records.lock().unwrap();
+        while records.is_empty() && !shared.events_pending() {
+            records = match deadline {
+                None => shared.wake.wait(records).unwrap(),
+                Some(deadline) => {
+                    let now = Instant::now();
+                    if deadline <= now {
+                        return;
                     }
+                    shared.wake.wait_timeout(records, deadline - now).unwrap().0
                 },
-                None => std::thread::sleep(slice),
-            }
+            };
         }
     }
 
@@ -195,17 +210,12 @@ impl<T: 'static> EventLoop<T> {
         }
 
         let leases = *shared.window.lock().unwrap();
+        let records: Vec<_> = shared.records.lock().unwrap().drain(..).collect();
         if let Some(leases) = leases {
             let window_id = RootWindowId(WindowId(leases.display));
-            let woken_by = self.input.woken_by.borrow_mut().take();
             let mut send = |event| event_handler(event, target);
-            if let Some(record) = woken_by {
-                self.input.translate(window_id, &record, &mut send);
-            }
-            let mut record = ffi::InputEvent::zeroed();
-            // SAFETY: record is a whole input record.
-            while unsafe { ffi::dolly_input_next_event(leases.input, &mut record, 0.0) } > 0 {
-                self.input.translate(window_id, &record, &mut send);
+            for record in &records {
+                self.input.translate(window_id, record, &mut send);
             }
         }
 
@@ -240,7 +250,6 @@ fn pop(queue: &Mutex<VecDeque<WindowId>>) -> Option<WindowId> {
 /// The window's input, from its records: what is held, where the pointer is.
 #[derive(Default)]
 struct Input {
-    woken_by: RefCell<Option<ffi::InputEvent>>,
     modifiers: ModifiersState,
     keys: HashSet<PhysicalKey>,
     buttons: HashSet<MouseButton>,
@@ -436,6 +445,7 @@ impl<T> EventLoopProxy<T> {
     pub fn send_event(&self, event: T) -> Result<(), event_loop::EventLoopClosed<T>> {
         self.user_events_sender.send(event).map_err(|mpsc::SendError(x)| event_loop::EventLoopClosed(x))?;
         self.shared.user_event.store(true, Ordering::Release);
+        self.shared.wake();
         Ok(())
     }
 }

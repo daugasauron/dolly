@@ -18,8 +18,8 @@ platforms of Dolly's own, as Godot runs on its platform and RenderingDevice driv
 - winit ([`platform/winit`](platform/winit), selected by `winit.patch`): one window, the page's
   canvas, through the `display@0` and `input@0` leases. Records name keys as a browser's
   KeyboardEvent does, so the web platform's key tables read them; composed and pasted text is
-  committed as an input method's. A wait for input lasts at most 10 ms so that other threads'
-  repaint requests are seen: no call ends another's wait for a record.
+  committed as an input method's. A thread of the window's own waits for each record, so the
+  loop waits on one condition for records, other threads' events and its deadline.
 - wgpu ([`platform/wgpu`](platform/wgpu), installed in its `backend/dolly` by `wgpu.patch`): the
   browser's WebGPU through `gpu@0`'s explicit records, which keep WebGPU's object model as wgpu's
   API does, as a custom backend that `Instance::new` takes for `BROWSER_WEBGPU`. Creations and queue
