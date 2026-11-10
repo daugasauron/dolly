@@ -117,7 +117,7 @@ flowchart TD
   st --> sys["system<br/>sessions"]
   sb -. "packages: transfer, html, session-recover, core, cc, make" .-> sys
   st -. "packages: posix, ninja" .-> sys
-  sb -. "packages: core, curl, nena, amy, transfer, html" .-> def["default<br/>packages only"]
+  sb -. "packages: core, curl, nena, amy, transfer" .-> def["default<br/>packages only"]
   st -. "packages: posix" .-> def
   disp -. "INSTALL" .-> def
   ps["ps<br/>a script"] -. "INSTALL" .-> def

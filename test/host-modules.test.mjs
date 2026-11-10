@@ -16,10 +16,10 @@ test("every image declares its complete host set itself", async () => {
   const root = new URL("../", import.meta.url).pathname;
   const load = createDollyfileGraphLoader(root);
   const terminal = ["runtime@0", "display@0", "input@0"];
-  const interactive = [...terminal, "download@0", "html@0", "http@0", "snapshot@0", "upload@0"];
+  const interactive = [...terminal, "download@0", "http@0", "snapshot@0", "upload@0"];
   // Every image declares the runtime it is built on; the engine retained for
   // FROM builds uses http@0; download and upload tools arrive with transfer,
-  // and the html command with html, both of which system installs; a terminal
+  // which system installs; a terminal
   // draws with display@0 and reads keys with input@0, which the display package
   // alone does not ask for; Git, which system-tools holds, runs threads; default
   // installs packages with amy, which has nena enable what a package needs
