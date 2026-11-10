@@ -4,8 +4,12 @@ set -euo pipefail
 # Runs inside the pinned seed toolchain, like the serial libc adapter build.
 target=build/process-threads
 mkdir -p "$target"
-embuilder --wasm64 build libc-mt libmimalloc-mt libstandalonewasm-mt-memgrow \
-  libclang_rt.builtins-wasmsjlj-mt
+# mimalloc's options.c prints when it was built (__DATE__, __TIME__): clang takes
+# both from SOURCE_DATE_EPOCH, so the seed is the same bytes in every checkout;
+# --force replaces an archive the cache built with the clock.
+export SOURCE_DATE_EPOCH=0
+embuilder --wasm64 build libc-mt libstandalonewasm-mt-memgrow libclang_rt.builtins-wasmsjlj-mt
+embuilder --wasm64 --force build libmimalloc-mt
 flags=(-m64 -O1 -pthread -fwasm-exceptions -sSUPPORT_LONGJMP=wasm \
   -sWASM_LEGACY_EXCEPTIONS=0 -I/src/build/include)
 internal=(-I/emsdk/upstream/emscripten/system/lib/libc/musl/arch/emscripten \
