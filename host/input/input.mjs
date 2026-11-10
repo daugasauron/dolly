@@ -640,7 +640,7 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
     dispose() {
       started = false;
       endStaleCapture();
-      touchscreen.removeEventListener("change", showBar);
+      touchOnly.removeEventListener("change", showBar);
       bar.remove();
     },
   };
