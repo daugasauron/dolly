@@ -114,6 +114,8 @@ static uint32_t live_pipe_count;
 /* A pipe's or socket's bytes or ends changed or a lock went, so a deferred call
  * may now complete. */
 static int wakeup_pending;
+/* While a save runs, process calls wait (dolly_kernel_hold_calls). */
+static int calls_held;
 static int foreground_pid;
 
 /* An advisory lock on bytes [start, end) of a file. A process owns the ranges
@@ -1916,6 +1918,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
                                uintptr_t mailbox, uintptr_t request_size,
                                uintptr_t response_capacity) {
   deferred_milliseconds = -1;
+  if (calls_held && operation != DOLLY_PROCESS_EXIT) return DOLLY_PROCESS_DISPATCH_DEFERRED;
   if (mailbox == 0) return -EINVAL;
   if (request_size > DOLLY_PROCESS_PACKET_LIMIT ||
       response_capacity > DOLLY_PROCESS_PACKET_LIMIT) return -E2BIG;
@@ -2684,6 +2687,11 @@ int dolly_kernel_process_directory(int pid) {
 }
 
 void dolly_kernel_wake(void) { wakeup_pending = 1; }
+
+void dolly_kernel_hold_calls(int held) {
+  calls_held = held;
+  if (!held) dolly_kernel_wake();
+}
 
 /* A process that has not started holds what it inherits. */
 static int holds_socket(const dolly_kernel_process *process, const dolly_kernel_socket *socket) {

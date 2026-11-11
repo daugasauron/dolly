@@ -16,7 +16,7 @@ export async function runBhopAgentProof({page,projectDir,fixture,modelsFile,down
     const name='bhop-probe';await __dolly.saveSession(name);
     const url=performance.getEntriesByType('resource').find(e=>e.name.endsWith('/src/browser.mjs')).name;
     const store=await import(new URL('session-store.mjs',url));
-    const buffer=(await store.decodeSessionSnapshot(await store.loadStoredSession(name))).slice(0);await store.deleteStoredSession(name);
+    const buffer=(await store.decodeSessionSnapshot((await store.loadStoredSession(name)).bytes)).slice(0);await store.deleteStoredSession(name);
     document.querySelector('#session-status').style.display='none';
     const bytes=new Uint8Array(buffer),view=new DataView(buffer),decode=new TextDecoder(),result={events:[],attempts:{},profile:{},game:{}};let offset=16;
     for(let n=0;n<view.getUint32(12,true);n++) {
