@@ -49,6 +49,7 @@ doc, Older spelling of docs
 docs, Documents under docs/ and in images
 documentation, Older spelling of docs
 dollyfile, The recipe language and its engine
+donna, Requested by Donna, the native Rust host of Dolly's userspace in ~/dev/donna
 editor, A text editor as an image
 emacs, The Emacs port
 environment, Environment variables an image exports
