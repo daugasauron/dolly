@@ -29,26 +29,6 @@ struct dolly_pty {
 
 static dolly_pty *ptys[DOLLY_PTY_LIMIT];
 
-/* Signals for the programs on a slave wait here for the supervisor
- * (dolly-pty-supervisor-0.wat), which delivers them as it delivers a kill. */
-static struct { int pid, number; } raised[DOLLY_PTY_LIMIT * 32], taken;
-static size_t raised_count;
-
-static void raise_signal(int pid, int number) {
-  if (raised_count == sizeof(raised) / sizeof(*raised)) return;
-  raised[raised_count].pid = pid;
-  raised[raised_count++].number = number;
-}
-
-int dolly_pty_take_signal(void) {
-  if (raised_count == 0) return 0;
-  taken = raised[0];
-  memmove(raised, raised + 1, --raised_count * sizeof(*raised));
-  return taken.pid;
-}
-
-int dolly_pty_taken_signal(void) { return taken.number; }
-
 static pty_end *other_end(const pty_end *end) {
   return end == &end->pty->master ? &end->pty->slave : &end->pty->master;
 }
@@ -116,7 +96,7 @@ static void pty_close(dolly_kernel_socket *closing) {
   pty_end *end = (pty_end *)closing;
   dolly_pty *pty = end->pty;
   if (end == &pty->master && pty->slave.open) {
-    dolly_kernel_socket_holders(&pty->slave.shared, 0, raise_signal, DOLLY_PROCESS_SIGHUP);
+    dolly_kernel_socket_holders(&pty->slave.shared, 0, dolly_kernel_raise, DOLLY_PROCESS_SIGHUP);
   }
   end->open = 0;
   dolly_kernel_wake();
@@ -166,7 +146,7 @@ static int64_t pty_send(dolly_kernel_socket *shared, const unsigned char *bytes,
   for (; taken < size; ++taken) {
     const unsigned char byte = bytes[taken];
     if (input && interrupt != 0 && byte == interrupt) {
-      dolly_kernel_socket_holders(&pty->slave.shared, 1, raise_signal, DOLLY_PROCESS_SIGINT);
+      dolly_kernel_socket_holders(&pty->slave.shared, 1, dolly_kernel_raise, DOLLY_PROCESS_SIGINT);
     } else if (input) {
       if (reader->size == reader->capacity) break;
       put(reader, dolly_kernel_terminal_input(pty->mode, byte));
@@ -265,7 +245,7 @@ int dolly_pty_resize(dolly_pty *pty, uint32_t rows, uint32_t columns) {
   if (!valid_size(rows, columns)) return -EINVAL;
   pty->rows = rows;
   pty->columns = columns;
-  if (pty->slave.open) dolly_kernel_socket_holders(&pty->slave.shared, 0, raise_signal, DOLLY_PROCESS_SIGWINCH);
+  if (pty->slave.open) dolly_kernel_socket_holders(&pty->slave.shared, 0, dolly_kernel_raise, DOLLY_PROCESS_SIGWINCH);
   return 0;
 }
 

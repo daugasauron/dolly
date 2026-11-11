@@ -66,10 +66,11 @@
   (func $signal (param i32 i32) (result i32) i32.const 0)
   ;; Milliseconds until the spawn deadline, or -1 when none applies.
   (func $deadline_remaining (param i32) (result f64) f64.const -1)
-  ;; Raise due SIGALRM timers: a PID whose default action must be delivered
-  ;; like a kill, or zero. Handled alarms only become pending, ignored ones
-  ;; nothing.
-  (func $take_alarm (result i32) i32.const 0)
+  ;; The next signal raised for the supervisor to deliver as it delivers a
+  ;; kill, PID << 32 | signal, or zero: a due alarm no handler takes (handled
+  ;; ones only become pending, ignored ones nothing), and what a module raised,
+  ;; such as a pseudo-terminal's interrupt key, resize or hang-up.
+  (func $take_raised (result i64) i64.const 0)
   ;; EXEC read a program for a running process, whose image the image exports
   ;; then name. Once the supervisor has compiled and admitted it, commit makes
   ;; the process start it: state starting, the old program's CLOEXEC
@@ -131,7 +132,7 @@
   (export "dolly_process_spawn_flags" (func $spawn_flags))
   (export "dolly_process_signal" (func $signal))
   (export "dolly_process_deadline_remaining" (func $deadline_remaining))
-  (export "dolly_process_take_alarm" (func $take_alarm))
+  (export "dolly_process_take_raised" (func $take_raised))
   (export "dolly_process_exec_commit" (func $exec_commit))
   (export "dolly_process_exec_refused" (func $exec_refused))
   (export "dolly_process_collect" (func $collect))

@@ -2,11 +2,9 @@ import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
 import { DOLLY_ERRNO } from "./process-constants.mjs";
 import { parseWasmInterface } from "./wasm-interface.mjs";
 import { validateProcessInterface } from "./process-abi.mjs";
-import { validateThreadProfile } from "../host/threads/threads.mjs";
-import { DOLLY_THREAD_SPAWN } from "../host/threads/abi.mjs";
 import { executableHostRequirements, checkHostAbi } from "../host/requirements.mjs";
 import {
-  DOLLY_PROCESS_EXEC, DOLLY_PROCESS_EXIT, DOLLY_PROCESS_PACKET_LIMIT as packetLimit, DOLLY_PROCESS_SIGALRM, DOLLY_PROCESS_SIGINT,
+  DOLLY_PROCESS_EXEC, DOLLY_PROCESS_EXIT, DOLLY_PROCESS_PACKET_LIMIT as packetLimit, DOLLY_PROCESS_SIGINT,
   DOLLY_PROCESS_SIGKILL, DOLLY_PROCESS_SIGNAL, DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE,
   DOLLY_PROCESS_SIGWINCH, DOLLY_PROCESS_OFFSETOF, DOLLY_PROCESS_SIZEOF, DOLLY_PROCESS_SPAWN,
   DOLLY_PROCESS_SPAWN_FOREGROUND, DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT,
@@ -177,7 +175,7 @@ function encodeSpawn(arguments_, flags, standard = true) {
 // into a mailbox of its own in kernel memory, and the memory goes with the
 // Worker. This Worker only names that mailbox to the kernel.
 export class DollyProcessSupervisor {
-  constructor(kernel, kernelMemory, gateModule, workerUrl, processContract, hostAbi, serviceHost, threadContract, threadHost, processModules) {
+  constructor(kernel, kernelMemory, gateModule, workerUrl, processContract, hostAbi, serviceHost, threadHost, processModules) {
     if (!(kernelMemory instanceof WebAssembly.Memory) ||
         !(gateModule instanceof WebAssembly.Module) || !(workerUrl instanceof URL)) {
       throw new TypeError("invalid Dolly process supervisor configuration");
@@ -189,7 +187,6 @@ export class DollyProcessSupervisor {
     this.processContract = processContract;
     this.hostAbi = hostAbi;
     this.serviceHost = serviceHost;
-    this.threadContract = threadContract;
     this.threadHost = threadHost;
     this.processModules = processModules;
     this.processes = new Map();
@@ -208,9 +205,8 @@ export class DollyProcessSupervisor {
   }
 
   static async create(kernel, kernelMemory, runtimeBase, hostAbi, serviceHost, threadHost, processModules) {
-    const [gateBytes, contractBytes, threadBytes, workerBytes] = await Promise.all([
-      "dolly-process-gate-0.wasm", "dolly-process-0.wasm", "dolly-threads-0.wasm",
-      "dolly-process-worker.mjs",
+    const [gateBytes, contractBytes, workerBytes] = await Promise.all([
+      "dolly-process-gate-0.wasm", "dolly-process-0.wasm", "dolly-process-worker.mjs",
     ].map(async name => {
       const response = await fetch(new URL(`dist/${name}`, runtimeBase), {
         cache: "no-store", credentials: "same-origin", redirect: "error",
@@ -225,7 +221,7 @@ export class DollyProcessSupervisor {
       const supervisor = new DollyProcessSupervisor(
         kernel, kernelMemory, gateModule, workerUrl,
         parseWasmInterface(contractBytes, "dolly-process-0"),
-        hostAbi, serviceHost, parseWasmInterface(threadBytes, "dolly-threads-0"), threadHost, processModules,
+        hostAbi, serviceHost, threadHost, processModules,
       );
       supervisor.releaseWorkerSource = () => URL.revokeObjectURL(workerUrl.href);
       // Entered through JSPI (WebAssembly.promising), a process runs on a
@@ -250,12 +246,13 @@ export class DollyProcessSupervisor {
     }
   }
 
-  // threads@0 was disabled and its Workers are terminated: the programs that
-  // ran on them end here, each told why on its own stderr.
+  // The module that provides threads was disabled and its Workers are
+  // terminated: the programs that ran on them end here, each told why on its
+  // own stderr.
   withdrawThreads() {
     this.threadHost = undefined;
     for (const process of [...this.processes.values()]) {
-      if (process.threaded) this.#fail(process, new Error("threads@0 was disabled"));
+      if (process.threaded) this.#fail(process, new Error("its threads' module was disabled"));
     }
   }
 
@@ -274,17 +271,18 @@ export class DollyProcessSupervisor {
     return committed < processMemoryBudgetBytes || !fanning ? null : "budget";
   }
 
-  // A root process, on console@0's console `console` (host/console) when given.
-  spawn(arguments_, { foreground = false, console } = {}) {
+  // A root process on the standard streams of the boot, or, with `start`, on
+  // those a module gives it: start(size) spawns the packet of that size in the
+  // supervisor's mailbox, which maps no stream, and returns the PID or -errno.
+  spawn(arguments_, { foreground = false, start } = {}) {
     if (this.#spawnWait(0)) throw new Error("Dolly process limit reached");
-    const packet = encodeSpawn(arguments_, foreground ? DOLLY_PROCESS_SPAWN_FOREGROUND : 0, console === undefined);
+    const packet = encodeSpawn(arguments_, foreground ? DOLLY_PROCESS_SPAWN_FOREGROUND : 0, start === undefined);
     new Uint8Array(
       this.kernelMemory.buffer,
       this.mailboxAddress,
       packet.length,
     ).set(packet);
-    const pid = console === undefined ? this.kernel.dolly_process_spawn_serialized(BigInt(packet.length))
-      : this.kernel.dolly_console_spawn(console, BigInt(packet.length));
+    const pid = (start ?? (size => this.kernel.dolly_process_spawn_serialized(size)))(BigInt(packet.length));
     if (pid < 0) {
       const errno = Object.keys(DOLLY_ERRNO).find(name => DOLLY_ERRNO[name] === -pid) ?? `errno ${-pid}`;
       throw new Error(`cannot start ${arguments_[0]}: ${errno}`);
@@ -330,18 +328,15 @@ export class DollyProcessSupervisor {
     this.serviceHost();
     const interrupted = this.kernel.dolly_process_take_interrupt();
     if (interrupted > 0) this.#interruptForeground(interrupted);
-    for (let pid; (pid = this.kernel.dolly_process_take_alarm()) > 0;) {
-      this.#deliverSignal(this.processes.get(pid), DOLLY_PROCESS_SIGALRM);
-    }
     this.#deliverRaised();
     this.serviceDeferred();
   }
 
-  // What a pseudo-terminal raised for the programs on its slave
-  // (host/pty/dolly-pty-supervisor-0.wat): its interrupt key, resize or hang-up.
+  // What the kernel raised for delivery as a kill (dolly_process_take_raised):
+  // an alarm no handler takes, a pseudo-terminal's interrupt key, resize or hang-up.
   #deliverRaised() {
-    for (let pid; (pid = this.kernel.dolly_pty_take_signal()) > 0;) {
-      this.#deliverSignal(this.processes.get(pid), this.kernel.dolly_pty_taken_signal());
+    for (let raised; (raised = this.kernel.dolly_process_take_raised()) > 0n;) {
+      this.#deliverSignal(this.processes.get(Number(raised >> 32n)), Number(raised & 0xffffffffn));
     }
   }
 
@@ -468,7 +463,7 @@ export class DollyProcessSupervisor {
       memoryRequirements = validateProcessInterface(this.processContract, parsed, DOLLY_PROCESS_ABI_DIGEST);
       requirements = executableHostRequirements(parsed);
       checkHostAbi(requirements, this.hostAbi);
-      threaded = validateThreadProfile(parsed, requirements, this.threadContract);
+      threaded = this.threadHost?.threaded(parsed, requirements) ?? false;
       largeStack = parsed.customSections.includes("dolly.process.stack");
       module = byteLength >= heldModuleBytes ? await compileHeld(bytes) : await WebAssembly.compile(bytes);
       processInterface = { imports: parsed.imports, exports: parsed.exports,
@@ -576,7 +571,7 @@ export class DollyProcessSupervisor {
   #admit({ requirements, threaded }) {
     checkHostAbi(requirements, this.hostAbi);
     const local = [...requirements.keys()].filter(requirement => this.processModules.has(requirement));
-    if (threaded && !this.threadHost) throw new Error("threads@0 is unavailable");
+    if (threaded && !this.threadHost) throw new Error("no module provides its threads");
     return local;
   }
 
@@ -585,7 +580,7 @@ export class DollyProcessSupervisor {
     Object.assign(process, { memoryRequirements, memoryBytes: Number(memoryRequirements.initial) * 65536,
       maximumBytes: Number(memoryRequirements.maximum) * 65536, compiled, processInterface, threaded, largeStack, local });
     if (threaded) {
-      const tid = this.kernel.dolly_threads_attach(process.pid);
+      const tid = this.threadHost.attach(process.pid);
       if (tid <= 0) throw new Error(`kernel could not reserve main thread: ${tid}`);
       process.tid = tid;
       process.threads.set(tid, process);
@@ -680,6 +675,7 @@ export class DollyProcessSupervisor {
     const channel = module instanceof Worker ? new MessageChannel() : null;
     channel && module.postMessage({ port: channel.port1 }, [channel.port1]);
     worker.postMessage({ type: "configure", pid, tid: thread.tid, argument, threaded, control,
+      threadOperations: threaded ? this.threadHost.operations : undefined,
       module: channel ? channel.port2 : module,
       memory: memoryRequirements, port, mailbox: thread.mailbox, kernelMemory: this.kernelMemory, gateModule: this.gateModule,
       promisingEntry: this.promisingEntry && process.largeStack, stackDepths: this.stackDepths,
@@ -743,7 +739,7 @@ export class DollyProcessSupervisor {
       message.responseCapacity,
       message.memoryBytes,
     ];
-    const spawnsThread = process.threaded && message.operation === DOLLY_THREAD_SPAWN;
+    const spawnsThread = process.threaded && message.operation === this.threadHost?.operations.spawn;
     if (message.pid !== process.pid || message.tid !== thread.tid ||
         values.some((value) => !Number.isSafeInteger(value) || value < 0) ||
         message.requestSize > packetLimit || message.responseCapacity > packetLimit ||
@@ -764,7 +760,7 @@ export class DollyProcessSupervisor {
       // A deferred call is retried against the request still in the mailbox:
       // a handler that defers has written nothing (src/process-kernel.h).
       const mailbox = () => new DataView(this.kernelMemory.buffer, thread.mailbox, 8);
-      if (message.operation === DOLLY_THREAD_SPAWN && message.requestSize === 8)
+      if (spawnsThread && message.requestSize === 8)
         threadArgument = mailbox().getBigUint64(0, true);
       const args = [process.pid, message.operation, BigInt(message.requestSize), BigInt(message.responseCapacity)];
       if (process.threaded) args.splice(1, 0, thread.tid);
@@ -778,8 +774,7 @@ export class DollyProcessSupervisor {
       // Firefox can enter a direct Wasm call twice. Use the generic call path
       // so a completed syscall is never replayed against its response packet.
       result = exhausted ? -BigInt(DOLLY_ERRNO.EAGAIN)
-        : Reflect.apply(process.threaded ? this.kernel.dolly_threads_dispatch : this.kernel.dolly_process_dispatch,
-          this.kernel, args);
+        : process.threaded ? this.threadHost.dispatch(args) : Reflect.apply(this.kernel.dolly_process_dispatch, this.kernel, args);
       if (result === deferredResult) {
         const deferred = { process, thread, message, timer: null };
         this.deferred.set(thread, deferred);
@@ -805,7 +800,7 @@ export class DollyProcessSupervisor {
         if (result > BigInt(message.responseCapacity)) {
           throw new Error(`kernel overfilled process ${process.pid} response`);
         }
-        if (message.operation === DOLLY_THREAD_SPAWN) {
+        if (spawnsThread) {
           if (result !== 8n || threadArgument === undefined) throw new Error("invalid kernel thread response");
           const tid = mailbox().getUint32(0, true);
           if (!tid || tid > 0x7fffffff || mailbox().getUint32(4, true) || process.threads.has(tid))
@@ -815,7 +810,7 @@ export class DollyProcessSupervisor {
           try { this.#launchWorker(process, child, threadArgument, message.port); portTaken = true; }
           catch (error) {
             this.#disposeThread(process, child);
-            this.kernel.dolly_threads_unstarted(process.pid, tid);
+            this.threadHost.unstarted(process.pid, tid);
             result = -BigInt(DOLLY_ERRNO.EAGAIN);
           }
         }
@@ -883,7 +878,8 @@ export class DollyProcessSupervisor {
       // The trusted Worker wrapper has unwound Wasm and will never re-enter it.
       // Remove its event handlers/resources before making its stack joinable.
       this.#disposeThread(process, thread);
-      const last = this.kernel.dolly_threads_retired(process.pid, thread.tid, message.result);
+      // Withdrawn since, the module has ended the process already.
+      const last = this.threadHost?.retired(process.pid, thread.tid, message.result) ?? -1;
       if (last < 0) this.#fail(process, new Error("kernel rejected thread retirement"));
       else if (last) this.#forceExit(process.pid, 0);
       else this.serviceDeferred();

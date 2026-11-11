@@ -102,6 +102,9 @@ int dolly_process_spawn_serialized(uintptr_t request_size);
  * nothing changes the files being copied. Everything else runs. */
 void dolly_kernel_hold_calls(int held);
 void dolly_kernel_wake(void);
+/* Raises `number` for `pid`, which the supervisor delivers as it delivers a
+ * kill: what a module's device decides, as a pseudo-terminal's interrupt key. */
+void dolly_kernel_raise(int pid, int number);
 void dolly_kernel_socket_holders(const dolly_kernel_socket *socket, int foreground,
                                  void (*each)(int pid, int argument), int argument);
 /* WasmFS has no socket node. A path a socket was bound to is an empty regular

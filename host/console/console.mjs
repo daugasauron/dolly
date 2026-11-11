@@ -84,7 +84,7 @@ export function worker({ send, get }) {
         if (!pipes && (!Number.isInteger(columns) || !Number.isInteger(rows))) throw new Error("console@0: a size is two integers");
         const id = checked(pipes ? kernel.dolly_console_open_pipes() : kernel.dolly_console_open(columns, rows));
         let exited;
-        try { exited = supervisor.spawn(argv, { console: id }); }
+        try { exited = supervisor.spawn(argv, { start: size => kernel.dolly_console_spawn(id, size) }); }
         catch (error) { kernel.dolly_console_close(id); throw error; }
         open.set(id, new Set(pipes ? [1, 2] : [1]));
         exited.then(({ status }) => send({ type: "console-exited", id, status }),
