@@ -1,5 +1,5 @@
 // Files the zero-ad image chain built inside Dolly, written as fixture files.
-import { readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { decodeSystemSnapshot, resolveSnapshotFile } from "../../../../scripts/system-snapshot-format.mjs";
 
 const root = new URL("../../../../", import.meta.url);
@@ -7,6 +7,7 @@ const root = new URL("../../../../", import.meta.url);
 export async function imageFile(image, path, name) {
   const snapshot = decodeSystemSnapshot(await readFile(new URL(`dist/dolly-${image}-system.snapshot`, root)));
   const output = `build/0ad/${name}`;
+  await mkdir(new URL("build/0ad/", root), { recursive: true });
   await writeFile(new URL(`${output}.tmp`, root), resolveSnapshotFile(snapshot, path));
   await rename(new URL(`${output}.tmp`, root), new URL(output, root));
   return output;
