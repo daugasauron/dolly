@@ -1,13 +1,16 @@
 # Startup network audit: what an image start downloads, and what it does not need
 
 - STATUS: OPEN
-- PRIORITY: 280
+- PRIORITY: 440
 - TAGS: audit,startup,network,performance
 
 The owner's question: "is everything I see on the network tab in chrome inspector during
 startup necessary? Does it download more stuff than it needs to launch?"
 
 ## State (2026-11-12)
+
+Owner (2026-11-12): fix these after the modularity work (`20261112-074501-modules-modular`), before
+the audit's other tasks.
 
 Measured: release 0.1.6 as served on `127.0.0.1:9045` (release `a73ad906…`, 211 images,
 catalog 2,056,929 B), Chrome 156, images default, pi-agent, bhop, neovim, python-data
