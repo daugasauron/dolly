@@ -1,5 +1,6 @@
 {
   "image": "system",
+  "hosts": ["dso"],
   "directory": "/tmp/dolly-cpp-dso-test",
   "fixtures": {
     "cpp-sdk.cpp": "test/fixtures/cpp-sdk.cpp",
