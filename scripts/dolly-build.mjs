@@ -272,7 +272,10 @@ async function buildImage(directory, { filename, source, image, parsed, holders,
   const refusal = createServer((request, response) => response.writeHead(403).end()).on("connect", (request, socket) => socket.destroy());
   await Promise.all([server, refusal].map(listener => new Promise(listening => listener.listen(0, "127.0.0.1", listening))));
   const origin = `http://127.0.0.1:${server.address().port}`;
-  const browser = await browsers[browserName]({ proxy: { server: `http://127.0.0.1:${refusal.address().port}`, bypass: "127.0.0.1" } });
+  // The environment's proxy is the relay's alone: Firefox takes HTTP_PROXY from its
+  // environment over the proxy it is given and sent its page's own address there.
+  const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(?:https?|all|no)_proxy$/i.test(name)));
+  const browser = await browsers[browserName]({ env, proxy: { server: `http://127.0.0.1:${refusal.address().port}`, bypass: "127.0.0.1" } });
   let inputs;
   try {
     const tab = await browser.newPage();
