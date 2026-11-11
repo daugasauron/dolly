@@ -12,7 +12,36 @@ feel like the modularity of the host modules have been lost somewhere along the 
 
 ## State (2026-11-12)
 
-Filed; work starts today.
+Done on `fix/modular`, measured in Chromium and Firefox (threads, console, pty, terminal,
+process, nena, host-modules, ended-worker, stack, dso, sockets, display, default, shell, core all
+pass; image inputs unchanged, `16a63999…`):
+
+- The supervisor and the process Worker name no module. pty raises its signals with
+  `dolly_kernel_raise` into the kernel's one queue, which also holds alarms no handler takes, and
+  the supervisor drains `dolly_process_take_raised` (it replaces `dolly_process_take_alarm` and
+  `dolly_pty_take_signal`/`_taken_signal`). console starts its program through `start`, a callback
+  passed to `supervisor.spawn`. The threads provider (`host/threads/threads.mjs`, now with
+  `"phase": "kernel"`) owns its contract, its operation numbers and its kernel exports; the
+  supervisor and the process Worker get them from it.
+- The kernel core calls no module: the display's terminal is two hook tables in the module table,
+  `terminal_output` (display) and `terminal_input` (input), which also reach each other through
+  them.
+- The registry and the site take the build's modules and the switching rule from the manifests
+  (`build`, `switches`), not from names. console declares the `pty@0` it is built on.
+- `host/README.md` lists every point a module attaches at.
+
+Measured, still to do. A kernel built with pty and console dropped from `host/manifests.mjs`
+fails before the kernel: the core libc adapter includes `<dolly/pty.h>` for `TIOCSWINSZ`
+(`src/process/libc-adapter.c:1578-1588`). These change the seed or the process ABI, so they go
+with the next full rebuild round:
+- `TIOCSWINSZ` as a generic terminal request in `process.h`, which the kernel hands to the
+  descriptor's stream kind (`dolly_kernel_socket_kind.terminal`, as pty already answers).
+- `host/pty/dolly-pty-supervisor-0.wat`, empty now, deleted.
+- Module code in the core moves to its module: `src/process/threads.c` (libc's pthreads over
+  threads@0), `src/libcurl-fetch.c` (http@0), `src/process/http-check.c`, `dso-check.c`.
+- The browser channels converge (audit A1): html@0 (packaged) and download@0 (seed) onto the
+  leased-device packet; the mailbox modules stay mailboxes (bulk bytes, bounded).
+- Then the drop test again, for pty, console and threads, booting images that do not declare them.
 
 ## Found
 

@@ -154,6 +154,20 @@ static const dolly_kernel_module *const kernel_modules[] = {
 };
 #undef DOLLY_KERNEL_MODULE
 
+const dolly_terminal_output *dolly_kernel_terminal_output_device(void) {
+  for (size_t index = 0; index < sizeof(kernel_modules) / sizeof(*kernel_modules); ++index) {
+    if (kernel_modules[index]->terminal_output) return kernel_modules[index]->terminal_output;
+  }
+  return NULL;
+}
+
+const dolly_terminal_input *dolly_kernel_terminal_input_device(void) {
+  for (size_t index = 0; index < sizeof(kernel_modules) / sizeof(*kernel_modules); ++index) {
+    if (kernel_modules[index]->terminal_input) return kernel_modules[index]->terminal_input;
+  }
+  return NULL;
+}
+
 static void release_modules(int pid, int tid) {
   for (size_t index = 0; index < sizeof(kernel_modules) / sizeof(*kernel_modules); ++index) {
     const dolly_kernel_module *module = kernel_modules[index];
@@ -1777,8 +1791,9 @@ static int64_t terminal_packet(dolly_kernel_process *process,
     if (result < 0) return result;
     refresh_foreground();
   } else {
-    response.columns = dolly_terminal_columns();
-    response.rows = dolly_terminal_rows();
+    const dolly_terminal_output *output = dolly_kernel_terminal_output_device();
+    response.columns = output != NULL ? output->columns() : 0;
+    response.rows = output != NULL ? output->rows() : 0;
   }
   return respond(&response, sizeof(response));
 }

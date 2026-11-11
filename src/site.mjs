@@ -3,8 +3,7 @@
 // saved session (`loadSession`), which snapshot@0 selects. Building happens
 // here and in the site's runtime Worker (build-worker.mjs), never in a page
 // that only runs images.
-import { buildHost } from "../host/modules.mjs";
-import { hostManifests } from "../host/manifests.mjs";
+import { buildHost, hostManifests, switching } from "../host/manifests.mjs";
 import { run } from "./browser.mjs";
 import { imageDefinition, loadImages } from "./images.mjs";
 import { prepareImageArtifacts } from "./image-build.mjs";
@@ -15,12 +14,13 @@ import { inspectDollyfile } from "./dollyfile-view.mjs";
 // The modules a route's page has (the registry loads those alone): an image of
 // the directory run from its packs has its own and what they depend on; a route
 // that builds, one that learns its image later (a custom image, a saved
-// session) and an image that enables modules itself (nena@0) have every module
+// session) and an image that enables modules itself (a module that `switches`) have every module
 // this repository builds. A test may name fewer (named).
 async function pageModules({ image, mode, loadSession, images, named }) {
   await loadImages(images);
   const declared = imageDefinition(image)?.hostRequirements;
-  const own = mode === "snapshot" && !loadSession && declared && !declared.includes("nena@0") ? new Set(declared) : null;
+  const own = mode === "snapshot" && !loadSession && declared && !declared.some(value => switching.includes(value))
+    ? new Set(declared) : null;
   for (const value of own ?? []) {
     for (const dependency of hostManifests.find(({ name, version }) => `${name}@${version}` === value)?.dependencies ?? []) own.add(dependency);
   }

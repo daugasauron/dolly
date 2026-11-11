@@ -1,6 +1,7 @@
 {
   "name": "stack",
   "version": 0,
+  "build": true,
   "gives": "recursion deeper than one browser stack",
   "dependencies": ["runtime@0"],
   "phase": "kernel",

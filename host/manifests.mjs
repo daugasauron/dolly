@@ -16,3 +16,11 @@ export const hostManifests = Object.freeze(await Promise.all(hostModuleUrls.map(
 // declares exactly one, by the same line as any module.
 export const runtimes = Object.freeze(hostManifests.filter(manifest => manifest.provides === "kernel")
   .map(({ name, version }) => `${name}@${version}`));
+// The modules every build gets beside its recipe's (README.md, `build`): what a
+// step's programs need of the network, threads and libraries.
+export const buildHost = Object.freeze(hostManifests.filter(manifest => manifest.build)
+  .map(({ name, version }) => `${name}@${version}`));
+// An image that declares a module that `switches` (README.md) enables modules
+// itself, so its page has them all.
+export const switching = Object.freeze(hostManifests.filter(manifest => manifest.switches)
+  .map(({ name, version }) => `${name}@${version}`));

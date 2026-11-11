@@ -1,12 +1,6 @@
 import { hostRequirement, hostRequirements } from "./requirements.mjs";
 import { DOLLY_ERRNO as E } from "../src/process-constants.mjs";
 
-// What a build enables beside the runtime its image declares: the broker the
-// engine fetches sources through, the threads its toolchain uses, the
-// modules its compilers and interpreters load and the fresh stacks of the
-// tools stack-wrap rewrote.
-export const buildHost = Object.freeze(["http@0", "threads@0", "dso@0", "stack@0"]);
-
 // A page's host modules, from the URLs of their manifests. The embedding, trusted
 // code, names them; images select no JS or Worker URLs, and each module's provider
 // is the file its manifest names. A runtime is a module that provides the kernel
@@ -27,8 +21,11 @@ export async function hostRegistry(urls) {
     }
   }
   const contracts = Object.freeze(definitions.map(module => module.contract));
-  const runtimes = Object.freeze(contracts.filter(contract => contract.provides === "kernel")
-    .map(({ name, version }) => `${name}@${version}`));
+  const requirementsOf = keep => Object.freeze(contracts.filter(keep).map(({ name, version }) => `${name}@${version}`));
+  const runtimes = requirementsOf(contract => contract.provides === "kernel");
+  // What a build enables beside the runtime its image declares: the modules
+  // whose manifests say `build` (README.md).
+  const buildHost = requirementsOf(contract => contract.build);
   const registry = { byName, owners, contracts, runtimes };
   return Object.freeze({
     urls: Object.freeze([...urls]),

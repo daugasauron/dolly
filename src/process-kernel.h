@@ -32,6 +32,9 @@ typedef struct {
   void (*release)(int pid, int tid);
   int (*mailbox)(int pid, int tid, uintptr_t address);
   const struct dolly_leased_device *device;
+  /* The halves of the display's terminal a module gives (below). */
+  const struct dolly_terminal_output *terminal_output;
+  const struct dolly_terminal_input *terminal_input;
 } dolly_kernel_module;
 
 static inline int64_t dolly_kernel_respond(unsigned char *mailbox,
@@ -113,22 +116,28 @@ static inline int dolly_kernel_socket_node(mode_t mode) {
   return S_ISREG(mode) && (mode & S_ISVTX) != 0;
 }
 
-/* The terminal device, host/display/kernel.c. */
-
-/* The terminal device's output, host/display/kernel.c. replies() copies what
- * the terminal answers its program (a cursor report) and returns the count. */
-int dolly_kernel_terminal_attached(void);
-void dolly_kernel_terminal_render(const unsigned char *bytes, size_t length);
-size_t dolly_kernel_terminal_replies(unsigned char *output, size_t capacity);
-uint32_t dolly_terminal_columns(void);
-uint32_t dolly_terminal_rows(void);
-
-/* The terminal device's input, host/input/kernel.c. input_service() handles
- * the pointer and scroll input that is the terminal's own, before it draws. */
-int dolly_kernel_terminal_read(void);
-int dolly_kernel_terminal_ready(void);
-int dolly_kernel_terminal_input_service(void);
-void dolly_terminal_discard_pending_input(void);
+/* The terminal the boot's programs start on, whose halves modules give: its
+ * output (host/display/kernel.c) and its input (host/input/kernel.c). The
+ * accessors answer NULL where no module gives the half; output that is not
+ * attached (no driver yet) is no terminal either, and the boot's streams then
+ * go to the bootstrap log. replies() copies what the terminal answers its
+ * program (a cursor report) and returns the count; service() handles the
+ * pointer and scroll input that is the terminal's own, before it draws. */
+typedef struct dolly_terminal_output {
+  int (*attached)(void);
+  void (*render)(const unsigned char *bytes, size_t length);
+  size_t (*replies)(unsigned char *output, size_t capacity);
+  uint32_t (*columns)(void);
+  uint32_t (*rows)(void);
+} dolly_terminal_output;
+typedef struct dolly_terminal_input {
+  int (*read)(void);
+  int (*ready)(void);
+  int (*service)(void);
+  void (*discard)(void);
+} dolly_terminal_input;
+const dolly_terminal_output *dolly_kernel_terminal_output_device(void);
+const dolly_terminal_input *dolly_kernel_terminal_input_device(void);
 
 /* The terminal line discipline and the page's terminal mailbox, src/dolly.c. */
 /* The mode a terminal starts in, the display's and a pseudo-terminal's slave,
