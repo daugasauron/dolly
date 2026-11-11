@@ -1,15 +1,17 @@
 import { createHttpAdmission, HttpMailbox, NetworkTransport } from "./broker.mjs";
 import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "./policy.mjs";
 import { localServicesTransport } from "./local-services.mjs";
+import { refusalNotices } from "./refusals.mjs";
 export { DOLLY_HTTP_ABI_DIGEST as digest } from "./abi.mjs";
 
 // The page takes the embedding's policy once, with the image directory's
 // trusted sources and, in a custom tab, the policies it inherited; a builder or
 // headless host is given its network instead. Modules depending on http@0 add
-// their local services to `services`.
-export function browser({ applicationBase, configuration, send, ask }) {
+// their local services to `services`. Each request the policy refuses is a line in the
+// console and a notice on the page (refusals.mjs).
+export function browser({ applicationBase, configuration, mount, keyboard, send, ask }) {
   let transport, admission, network = configuration.network;
-  const services = {};
+  const services = {}, refusals = refusalNotices(mount, keyboard);
   const instance = {
     services,
     page: {
@@ -25,7 +27,8 @@ export function browser({ applicationBase, configuration, send, ask }) {
       // The Worker writes the records into the guest's slots.
       const mailbox = { publish: record => ask({ type: "http-publish", ...record }, [record.bytes.buffer]),
         fail: ending => send({ type: "http-fail", ...ending }) };
-      transport = new NetworkTransport(mailbox, network.policy, { fetchRequest: network.fetchRequest, site: network.site });
+      transport = new NetworkTransport(mailbox, network.policy, { fetchRequest: network.fetchRequest, site: network.site,
+        refused: refusals.refused });
     },
     messages: {
       async "http-request"(message) {
@@ -36,7 +39,8 @@ export function browser({ applicationBase, configuration, send, ask }) {
         Atomics.notify(admission, 0);
       },
     },
-    dispose() { transport?.close(); },
+    claimsKey: refusals.claimsKey,
+    dispose() { transport?.close(); refusals.dispose(); },
   };
   if (!network) {
     // A custom tab intersects the policy of the page that built it with its

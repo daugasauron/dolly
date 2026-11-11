@@ -113,6 +113,12 @@ const policy = {
   disagree on whether to ignore them or preflight them (Firefox preflights a
   `User-Agent`).
 
+- Each request the policy refuses (`EACCES`, or `EDQUOT` past the quota) is a
+  `console.warn` line of the page, and a notice at the top left of boot()'s element
+  that stays until its × closes it ([`refusals.mjs`](../host/http/refusals.mjs)):
+  refusals of one method and URL are one notice with a count, the five newest show
+  with a line for the rest and **Close all**, and a URL is shown without its query.
+
 ## CORS and relays
 
 Dolly cannot turn CORS off; `no-cors` gives unreadable responses. A page can
