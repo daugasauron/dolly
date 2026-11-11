@@ -202,7 +202,7 @@ mounted, and reads no other version's.
   allows them. A recipe never grants itself network access. Upstream hosts
   often send no CORS headers, so upstream archives are staged and published
   by the site ([sources](sources.md#pins-and-identity)). `dolly-build` lets a
-  build's steps reach any host, through Node ([embedding](embedding.md)), so
+  build's steps reach any host, through Node (`docs/embedding.md`), so
   `SLOP pip install NAME` works there; what a step fetches is not part of the
   image's identity, and the same recipe reuses its image.
 - `EXPORTS ENV NAME VALUE` sets the variable now. Final values are stored in the image.

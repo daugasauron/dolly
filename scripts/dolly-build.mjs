@@ -96,12 +96,6 @@ for (const name of (await readdir(scope)).filter(name => name.startsWith("dolly-
 }
 const hostPackage = name => `@daugasauron/dolly-host-${name === "download" ? "save" : name}`;
 
-try {
-  if (init) await scaffold(positionals[1], positionals.slice(2));
-  else await build(...positionals.map(path => resolve(path)));
-} catch (error) {
-  fail(error.message);
-}
 
 // A project: the recipe (FROM pi-minimal at its pin, INSTALL of each PACKAGE,
 // the template's rows, the base's ENTRY) and public/, the page's files: the page,
@@ -314,4 +308,12 @@ async function buildImage(directory, { filename, source, image, parsed, holders,
   const held = heldPackages(catalog, image);
   await writeFile(join(directory, "amy-index.txt"), amyIndex(catalog.filter(record => held.includes(record.image)), descriptions));
   await writeFile(join(directory, "index.mjs"), indexSource(image, declared.map(name => `../${modules.get(name)}`)));
+}
+
+// Last, once every constant above is initialized: the relay reads them during a build.
+try {
+  if (init) await scaffold(positionals[1], positionals.slice(2));
+  else await build(...positionals.map(path => resolve(path)));
+} catch (error) {
+  fail(error.message);
 }

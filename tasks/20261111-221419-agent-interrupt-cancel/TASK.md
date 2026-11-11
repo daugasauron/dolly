@@ -23,6 +23,14 @@ response (`interrupt cancels only the selected player`). It passed on 2026-11-08
   response closes) and `shell-browser` (17 cancellations free their slots) pass. What fails is
   a running program aborting one of its own requests.
 
+- `demos/wine/test/wine-browser.mjs` also fails since 2026-11-08: NetSurf's Back never shows
+  the first page again (`timed out waiting for the first page after Back`; passed in the same
+  round-1108 rerun), twice in a row, so not load. NetSurf drops a fetch when it navigates;
+  it may be the same: a live program's own cancellation.
+- A suspect between the passing and the failing runs: `88297891a` (2026-11-10), "Threaded
+  programs allocate with mimalloc" (`-pthread` links take `libmimalloc-mt`). Pi's runtime and
+  NetSurf are threaded programs. Not measured yet.
+
 ## Next
 
 Bisect between 2026-11-08 and the round: the runtime Pi's JavaScript runs on, the HTTP client
