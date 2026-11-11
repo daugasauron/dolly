@@ -14,14 +14,25 @@ The owner, 2026-11-11 10:00 JST, from using the npm packages:
 
 ## State (2026-11-11)
 
-Investigating. A save is the kernel's delta against the image the tab booted
-(`host/snapshot/kernel.c`); a restore loads that image again (its packs from the browser's pack
-store) and replays the delta, so the boot log shows the image loading as a fresh start does.
-Measured on the site's `system` route (Chrome): files under `~/.pi/agent/sessions` and
-`/workspace` came back after a restore; the baseline is taken before a save is replayed, so a
-second save keeps the first one's changes. Not yet reproduced: Pi's conversations missing after a
-restore on a page of the npm packages.
+Done on `fix/session-whole`, tested on images before the 0.1.6 bump:
 
-Next: reproduce the owner's flow on the 0.1.6 round's images (Pi with a fake provider, a
-conversation, Save, reload with `?session=`), find the cause, and make a save hold the whole
-filesystem and restore without the image's download, as the owner asks.
+- A save is the whole filesystem but `/dev`, `/proc` and `/run` (format 4, at most 8 GiB and
+  1,000,000 paths): the kernel lists every path and streams it through the snapshot mailbox
+  file by file (`host/snapshot/kernel.c`); a file that changes meanwhile fails the save, naming
+  it. The page keeps it as a Blob of its parts.
+- A restore boots from the save alone: the Workers ask the host modules first
+  (`restoreFilesystem`), the snapshot module empties the filesystem and streams the decompressed
+  save into the kernel, and no image is loaded. `test/custom-session-browser.mjs` asserts no pack
+  request and no image load on a restore, and that a save holds more than the image.
+- A save opens on the runtime that made it whatever became of its image's recipe (a project
+  built again); a custom one needs no cached image, its Dollyfile checked against the recipe
+  digest it was built from. The rebuilt-base checks went with the baseline.
+- Measured before the change, on the site's `system` route (Chrome): files under
+  `~/.pi/agent/sessions` and `/workspace` came back after a restore; the baseline was taken
+  before a save was replayed.
+
+Passed: session-offline, session-times, custom-session, host-modules, pack-store, indicators
+(Chrome, Firefox), the session unit tests. Left: the owner's flow on the 0.1.6 round's images
+(Pi with a fake provider, a conversation, Save, reload with `?session=`), and the suites.
+
+Done when that flow keeps Pi's conversations and loads no image, and the suites pass.
