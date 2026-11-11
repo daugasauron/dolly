@@ -17,5 +17,14 @@ reconcile round of 2026-11-11 builds `llvm-cc` with the current seed, pins it as
 compiler and rebuilds the runtime and the catalog with it; close when the shell test passes on
 that seed and Godot and spirv-wgsl build without their workarounds.
 
+2026-11-11, 14:10: the phase 1 seed (`da9a4af8…`) refused it. `c++ -ftemplate-depth=1024` in
+`system` failed with `error: unknown argument: '-ftemplate-depth'`: cc gave cc1 the depth as
+a separate argument, as for `-ferror-limit`, but the pinned LLVM defines only the joined
+`ftemplate_depth_EQ` for cc1 (`clang/include/clang/Options/Options.td`), and `c++ -Xclang
+-ftemplate-depth=1024` compiles. Fixed on `fix/cc-template-depth` (cc passes the argument as
+it is), which takes another compiler round (`work/round-1111d.sh`). Also measured: a 1,500-deep
+template instantiation exhausts the compiler's stack in Chrome (status 126) before the depth
+error; the default depth is 1024 and SPIRV-Tools does not need more.
+
 Done when: the 0.1.6 compiler round has pinned an `llvm-cc` built with the change, the shell test
 passes in Chromium and Firefox, and Godot and spirv-wgsl build without their workarounds.
