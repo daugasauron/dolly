@@ -17,8 +17,11 @@ Fixed on `fix/npm-feedback`: the bar shows Paste where `not (any-pointer: fine)`
 Firefox emulates the laptop by its preferences (`ui.primaryPointerCapabilities` 1,
 `ui.allPointerCapabilities` 7: a coarse primary pointer beside a fine one). The new case of
 `test/touch-browser.mjs` failed in Firefox with the old rule (Paste shown) and passes with the
-new; the test's phone cases still tap Paste, in Chrome and Firefox. Left: the owner's phone,
-after the local deploy.
+new; the test's phone cases still tap Paste, in Chrome and Firefox. On the 0.1.6 round's
+catalog `test/touch-browser.mjs` passed in Chromium and Firefox, its laptop case included. Left:
+the owner's phone. The release is served at `127.0.0.1:9045` (unit `dolly-serve-domain-9045`);
+on 2026-11-12 at 01:05 the phone was asleep and locked, so it was not driven. `adb reverse
+tcp:9045 tcp:9045` makes it `http://localhost:9045/v0.1.6/default/` on the phone.
 
 Done when Paste is hidden in Chrome and Firefox with a fine pointer present, shown on a phone
 (the owner's Mode1 over adb, `pi-phone`), and a browser test emulates both (Playwright's
