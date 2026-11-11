@@ -238,9 +238,9 @@ npx dolly-build Dollyfile-my-pi my-pi
 - In CI, run `npm ci`, then `dolly-build` with `--browser chromium` after
   `npx playwright-core install chromium-headless-shell`, or in Playwright's image of
   the version of `playwright-core` the lockfile holds; no browser switch is needed.
-  The browser needs Chrome 138 or Firefox 153 or later, as a page does: Chrome 136
-  runs no C++ program (it lacks Wasm's exception references) and Firefox 151 starts
-  no image. Where it lacks shared WebAssembly memory64 the build says so first. The repository's Data Pi demo
+  The browser needs Chrome 138 or Firefox 146 or later, as a page does: Chrome 136
+  runs no C++ program (it lacks Wasm's exception references) and Firefox 144 has no
+  `Atomics.waitAsync`. Where it lacks shared WebAssembly memory64 the build says so first. The repository's Data Pi demo
   (`demos/pi/data-pi`) is such a project, with its workflow.
 - Serve `OUT` with any static file server, `python3 -m http.server -d OUT` on
   your machine. Where the host sends the isolation headers ("Serving" above) the

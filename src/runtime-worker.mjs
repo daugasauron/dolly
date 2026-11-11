@@ -13,7 +13,7 @@ await runImage(async ({ image, files: given = {} }, host) => {
   const loading = host.restoresFilesystem() ? null : loadImageMetadata(image);
   loading?.catch(() => {});
   host.require(definition.hostRequirements);
-  host.admit(definition.hostRequirements);
+  await host.admit(definition.hostRequirements);
   return {
     name: image,
     prepare({ files }) {

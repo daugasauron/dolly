@@ -33,8 +33,14 @@ threads; the source suite):
   custom image.
 - Finding 9: the process files are fetched without `cache: "no-store"`.
 - Finding 10: routes and the menu name `src/icon.svg` (a `data:` icon broke the strict policy).
-Left: 8b (providers of modules a page has but does not enable), 11 (preload), 12 (the 2 s start
-from stored packs), 2 (image contents, the owner's call per image).
+- Finding 8b: a module's provider is imported when its module is attached or admitted, or, on a
+  session route, asked to select the boot (`host/modules.mjs`): a nena image or a session page
+  imports the providers it enables, not all 21.
+- Found on the way: the parts-manifest peek read a cancelled clone, which cost the original its
+  first bytes in Firefox up to 151 and in Node under the prefetch; it reads the body itself now
+  (`20261112-011500-firefox-pack-start`, closed). The oldest Firefox measured since is 146.
+Left: 11 (preload), 12 (the 2 s start from stored packs), 2 (image contents, the owner's call per
+image).
 Measured: release 0.1.6 as served on `127.0.0.1:9045` (release `a73ad906…`, 211 images,
 catalog 2,056,929 B), Chrome 156, images default, pi-agent, bhop, neovim, python-data
 (headless) and godot-lantern-drift, photocraft-photos (headed, Vulkan adapter). Every request

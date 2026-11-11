@@ -32,8 +32,8 @@ test("multipart delivery uses only fixed sibling URLs and verifies original byte
   assert.deepEqual(Buffer.from(await labelled.arrayBuffer()), bytes);
   assert.equal(labelled.headers.has("x-dolly-parts"), false);
   for (const body of ["ordinary", '{"byteLengt', "", JSON.stringify({ sha256: digest(bytes), byteLength: bytes.length })]) {
-    const ordinary = new Response(body);
-    assert.equal(await decodeStaticAsset(ordinary, target, {}, 100, () => assert.fail("not a manifest")), ordinary);
+    // An ordinary file comes back whole, the bytes read to tell it from a manifest included.
+    const ordinary = await decodeStaticAsset(new Response(body), target, {}, 100, () => assert.fail("not a manifest"));
     assert.equal(await ordinary.text(), body);
   }
   const missing = new Response(JSON.stringify(manifest()), { status: 404 });
