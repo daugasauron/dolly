@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
-import { commandCases, execCases, pipelineCases, shellCases, sourceFiles } from "./fixtures/slop-cases.mjs";
+import cases from "./cases/slop.json" with { type: "json" };
 import { stagedIncludeDirectory } from "../scripts/host-modules.mjs";
 const includeDirectory = await stagedIncludeDirectory();
 
@@ -20,7 +20,7 @@ test("Slop semantics under sanitizers against Bash", async t => {
     const spawning = resolve(scratch, "spawning");
     await mkdir(spawning);
     compile(resolve(spawning, "slop"), "test/fixtures/native-spawn.c");
-    for (const [name, source] of Object.entries(sourceFiles)) {
+    for (const [name, source] of Object.entries(cases.files)) {
       await writeFile(resolve(scratch, name), source);
     }
     const cwdResult = spawnSync(resolve(scratch, "native-slop"),
@@ -34,8 +34,10 @@ test("Slop semantics under sanitizers against Bash", async t => {
     await mkdir(reference);
     await symlink(execFileSync("bash", ["-c", "command -v bash"], { encoding: "utf8" }).trim(),
       resolve(reference, "slop"));
-    for (const [native, cases] of [["native-slop", shellCases], [null, commandCases], ["spawning/slop", pipelineCases], ["spawning/slop", execCases]]) {
-    for (const [name, source, expected, referenceStatus = expected] of cases) await t.test(name, () => {
+    // Builtin-only cases also run natively under ASan with all external spawning
+    // denied, pipelines and exec with the host's processes and pipes.
+    for (const [native, group] of [["native-slop", cases.shell], [null, cases.command], ["spawning/slop", cases.pipeline], ["spawning/slop", cases.exec]]) {
+    for (const { name, script: source, status: expected, bash: referenceStatus = expected } of group) await t.test(name, () => {
       const bash = spawnSync("bash", ["--noprofile", "--norc", "-c", source, "fixture-zero"], {
         cwd: scratch, encoding: "utf8", timeout: 5000,
         env: { ...process.env, PATH: `${reference}:${process.env.PATH}`, BASH_ENV: "" },

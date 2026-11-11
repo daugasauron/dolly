@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { inspectDollyfile, recipeRows } from "../../src/dollyfile-view.mjs";
-import { shellQuote } from "./slop-cases.mjs";
+import { shellQuote } from "../browser.mjs";
 
 const scratch = "/workspace/dollyfile-parser-test";
 const outputs = "/usr/share/dollyfile-parser-test";

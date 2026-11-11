@@ -1,34 +1,17 @@
 import assert from "node:assert/strict";
-import { browserTest, composed } from "./browser.mjs";
+import { browserTest, composed, runSteps } from "./browser.mjs";
+import pty from "./cases/pty.json" with { type: "json" };
 import { siteReference } from "../src/static-asset.mjs";
 import catalog from "../dist/dolly-images.json" with { type: "json" };
 
 const fixtures = { "pty.c": "test/fixtures/pty.c" };
 
-// pty@0: pseudo-terminals, with a program compiled in the image
-// (test/fixtures/pty.c names what each mode proves). A program asks for
-// openpty when it links, -ldolly-pty, and then records the module: the
-// suite's image is `system` with that one line more.
+// pty@0: pseudo-terminals, with a program compiled in `system` with that one
+// line more (test/cases/pty.json).
 await browserTest("pty", { image: "system", server: { fixtures } }, async ({ server, open }) => {
   const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
-  const { page, submit, text } = await open({ policy, ...await composed(["pty"], [], { base: "system" }) });
-  const status = async (command, expected = 0) => assert.equal(await submit(command), expected, `${command}\n${await text()}`);
-  await status(`curl -fsS ${server.origin}/fixture/pty.c -o /tmp/pty.c && cc -O1 /tmp/pty.c -ldolly-pty -o /tmp/pty`);
-
-  await status("/tmp/pty pair");
-  await status("/tmp/pty libc");
-  await status("/tmp/pty program");
-  await status("/tmp/pty spared");
-  await status("/tmp/pty deaf");
-  await status("/tmp/pty flow");
-
-  // One process can take every pseudo-terminal. Exit, a trap (its Worker
-  // fails) and forced termination of a CPU loop each give them back.
-  await status("/tmp/pty quota exit");
-  await status("/tmp/pty quota trap 2> /dev/null", 126);
-  await status("/tmp/pty quota exit");
-  await status("timeout 1 /tmp/pty quota spin", 124);
-  await status("/tmp/pty quota exit");
+  const { page, submit } = await open({ policy, ...await composed(pty.hosts, [], { base: pty.image }) });
+  await runSteps(submit, server.origin, pty);
 
   // The module adds no kernel import: nothing of a pseudo-terminal leaves Wasm.
   assert.equal(await page.evaluate(async () => WebAssembly.Module.imports(

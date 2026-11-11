@@ -1,0 +1,252 @@
+{
+  "image": "system",
+  "directory": "/tmp/shell",
+  "fixtures": {
+    "limits.c": "test/fixtures/limits.c"
+  },
+  "steps": [
+    {
+      "script": "printf 'alpha\\nBeta\\n' > corpus.txt && echo first > append.txt && echo second >> append.txt",
+      "status": 0
+    },
+    {
+      "script": "test \"$(cat append.txt)\" = \"$(printf 'first\\nsecond')\"",
+      "status": 0
+    },
+    {
+      "script": "test \"$(slop -c 'echo SLOP-C')\" = SLOP-C",
+      "status": 0
+    },
+    {
+      "script": "slop -c 'cat <<EOF'",
+      "status": 2
+    },
+    {
+      "script": "slop -c 'exit nope'",
+      "status": 2
+    },
+    {
+      "script": "grep -q Beta corpus.txt && grep missing corpus.txt || ! grep missing corpus.txt",
+      "status": 0
+    },
+    {
+      "script": "test \"$(VALUE=42 slop -c 'echo SLOP-VAR-$VALUE')\" = SLOP-VAR-42 && test \"$(echo SUB-$(pwd))\" = SUB-/tmp/shell",
+      "status": 0
+    },
+    {
+      "script": "test \"$(slop -e -c 'grep missing corpus.txt && echo WRONG; echo ERREXIT-AND')\" = ERREXIT-AND",
+      "status": 0
+    },
+    {
+      "script": "test \"$(grep -n -i beta corpus.txt)\" = 2:Beta && test \"$(grep -c a corpus.txt)\" = 2 && test \"$(grep -v alpha corpus.txt)\" = Beta",
+      "status": 0
+    },
+    {
+      "script": "grep missing corpus.txt",
+      "status": 1
+    },
+    {
+      "script": "grep -Z",
+      "status": 2
+    },
+    {
+      "script": "test \"$(echo PIPE-GREP | grep PIPE)\" = PIPE-GREP",
+      "status": 0
+    },
+    {
+      "script": "test \"$(sed s/Beta/Gamma/ corpus.txt | sed -n 2p)\" = Gamma && test \"$(echo SED-PIPE | sed s/SED/DOLLY/)\" = DOLLY-PIPE",
+      "status": 0
+    },
+    {
+      "script": "test \"$(head -n 1 corpus.txt)\" = alpha && test \"$(head -1 corpus.txt)\" = alpha",
+      "status": 0
+    },
+    {
+      "script": "test \"$(printf AB | od -A n -t x1 | tr -d ' ')\" = 4142 && test \"$(dd if=/dev/zero bs=4 count=1 2> /dev/null | od -A n -t x1 | tr -d ' ')\" = 0000",
+      "status": 0
+    },
+    {
+      "script": "echo discarded > /dev/zero && test \"$(dd if=/dev/zero bs=512 count=8 2> /dev/null | wc -c)\" -eq 4096",
+      "status": 0
+    },
+    {
+      "script": "test \"$(wc -l < corpus.txt)\" -eq 2 && test \"$(echo one two | wc -w)\" -eq 2",
+      "status": 0
+    },
+    {
+      "script": "echo 'key:value' > colon.txt && test \"$(awk -F: '{print $2}' colon.txt)\" = value",
+      "status": 0
+    },
+    {
+      "script": "echo 'one 2' > awk-one.txt && echo 'three 4' > awk-two.txt && test \"$(echo awk-*.txt)\" = 'awk-one.txt awk-two.txt'",
+      "status": 0
+    },
+    {
+      "script": "test \"$(cat awk-*.txt | awk '{sum += $2} END {print sum}')\" = 6 && test \"$(awk -v prefix=V '{print prefix $1}' awk-one.txt)\" = Vone",
+      "status": 0
+    },
+    {
+      "script": "echo '{print toupper($1)}' > upper.awk && test \"$(awk -f upper.awk awk-two.txt)\" = THREE && test \"$(echo 'pipe 7' | awk '{print $2 * 6}')\" = 42",
+      "status": 0
+    },
+    {
+      "script": "echo 'a,\"b,c\"' > csv.txt && test \"$(awk --csv '{print NF \":\" $2}' csv.txt)\" = 2:b,c",
+      "status": 0
+    },
+    {
+      "script": "test \"$(awk 'BEGIN {print system(\"echo SYSTEM\")}')\" = \"$(printf 'SYSTEM\\n0')\"",
+      "status": 0
+    },
+    {
+      "script": "awk 'BEGIN {status = (\"printf AWK-PIPE\" | getline value); exit status == 1 && value == \"AWK-PIPE\" ? 0 : 1}'",
+      "status": 0
+    },
+    {
+      "script": "awk -f",
+      "status": 2
+    },
+    {
+      "script": "git --version && git config --global --get user.name && git config --global user.email asdf && test \"$(git config --global --get user.email)\" = asdf",
+      "status": 0
+    },
+    {
+      "script": "mkdir repo && cd repo && git init && echo tracked > tracked.txt && git add tracked.txt && git commit -m initial && test \"$(git log --format=%s)\" = initial",
+      "status": 0
+    },
+    {
+      "why": "tar only extracts; Git creates the archive, from an index as well as a commit.",
+      "script": "cd repo && echo loose > loose.txt && git add loose.txt && git archive -o ../repo.tar.gz $(git write-tree) && mkdir ../unpacked && gzip -dc < ../repo.tar.gz | tar -xf - -C ../unpacked && grep -q tracked ../unpacked/tracked.txt && grep -q loose ../unpacked/loose.txt && gzip -dc < ../repo.tar.gz > ../repo.tar && gzip -cdf ../repo.tar.gz | cmp - ../repo.tar && gzip -nc9 ../repo.tar | gzip -dc | cmp - ../repo.tar && gzip -kf ../repo.tar && gzip -t ../repo.tar.gz",
+      "status": 0
+    },
+    {
+      "why": "A clone, a fetch and a push of a local repository: Git runs git-upload-pack or git-receive-pack for the other side.",
+      "script": "cd repo && git clone -q . ../clone && test \"$(git -C ../clone log --format=%s)\" = initial && git commit -q -m loose && git -C ../clone fetch -q && test \"$(git -C ../clone log -1 --format=%s FETCH_HEAD)\" = loose && git -C ../clone commit -q --allow-empty -m pushed && git -C ../clone push -q origin HEAD:from-clone && test \"$(git log -1 --format=%s from-clone)\" = pushed",
+      "status": 0
+    },
+    {
+      "script": "cd repo && cd .. && test \"$(pwd)\" = /tmp/shell && test \"$(pwd -P)\" = /tmp/shell",
+      "status": 0
+    },
+    {
+      "script": "mkdir -p flags/deep && mkdir -p flags/deep && touch flags/.hidden && echo visible > flags/visible",
+      "status": 0
+    },
+    {
+      "script": "test \"$(ls flags)\" = \"$(printf 'deep\\nvisible')\" && ls -a flags | grep -q '^.hidden$'",
+      "status": 0
+    },
+    {
+      "script": "echo file > not-a-directory && mkdir -p not-a-directory",
+      "status": 1
+    },
+    {
+      "why": "The POSIX long format with the modes stat reports; an empty directory is only its total.",
+      "script": "rm -f flags/missing && rm -rf flags && ls -la > listed && grep -q '^total [0-9]' listed && grep -q '^d.* \\.$' listed && grep -q \"^$(stat -c %A corpus.txt) \"' *1 [0-9][0-9]* [0-9][0-9]* *11 [A-Z][a-z][a-z] [ 0-9][0-9] [0-9][0-9]:[0-9][0-9] corpus.txt$' listed",
+      "status": 0
+    },
+    {
+      "script": "mkdir empty && test \"$(ls -l empty)\" = 'total 0' && ln -s corpus.txt link && ls -l link | grep -q '^l.* link -> corpus.txt$'",
+      "status": 0
+    },
+    {
+      "why": "A path that names nothing is reported as a path, not as a missing command.",
+      "script": "./no-such-program 2> missing; test $? = 127 && grep -q 'No such file' missing && ./ 2> dir; test $? = 126 && grep -q 'directory' dir",
+      "status": 0
+    },
+    {
+      "script": "ls flags",
+      "status": 1
+    },
+    {
+      "script": "echo shell-created > shell.txt && test \"$(stat -c '%F %s' shell.txt)\" = 'regular file 14' && file shell.txt",
+      "status": 0
+    },
+    {
+      "script": "[ -f shell.txt ] && [ ! -d shell.txt ]",
+      "status": 0
+    },
+    {
+      "script": "test -d shell.txt",
+      "status": 1
+    },
+    {
+      "script": "echo MOVED > move-source && mv move-source move-target && test ! -e move-source && grep -q MOVED move-target",
+      "status": 0
+    },
+    {
+      "script": "test \"$(printf 'PRINTF-%s' OK)\" = PRINTF-OK && touch -c absent && echo -n tight > tight.txt && test \"$(wc -c < tight.txt)\" -eq 5",
+      "status": 0
+    },
+    {
+      "script": "ls absent",
+      "status": 1
+    },
+    {
+      "script": "ls /bin /usr/bin > /dev/null && test \"$(echo /b*)\" = /bin && ls /usr/lib/libdisplay.so && test ! -e /usr/bin/ghostty-vt",
+      "status": 0
+    },
+    {
+      "script": "cc --version && c++ --version && ld --help > /dev/null && ar --version && make --version",
+      "status": 0
+    },
+    {
+      "why": "Clang's banner, as FFmpeg's configure reads it: cc -v 2>&1 | grep -q clang",
+      "script": "cc -v 2> banner && grep -q '^clang version ' banner && c++ -v 2>&1 | grep -qx 'Target: wasm64-unknown-dolly'",
+      "status": 0
+    },
+    {
+      "script": "cc --definitely-unsupported",
+      "status": 64
+    },
+    {
+      "script": "cat /bin/echo > invalid-module && echo invalid >> invalid-module",
+      "status": 0
+    },
+    {
+      "script": "./invalid-module",
+      "status": 126
+    },
+    {
+      "script": "./invalid-module 2> refused; test $? = 126 && test $(wc -l < refused) -eq 1",
+      "status": 0
+    },
+    {
+      "why": "What an agent reaches for: parallel xargs, nproc, time on a compound command, an EXIT trap, real limits and a clock() that advances.",
+      "script": "printf 'a b c' | timeout 30 xargs -P 3 -n 1 slop -c ': > started-$1; until test \"$(echo started-*)\" = \"started-a started-b started-c\"; do :; done' slop",
+      "status": 0
+    },
+    {
+      "script": "test \"$(nproc)\" -gt 1 && { time { sleep 1; (exit 4); }; } 2> timed; test $? = 4 && grep -q '^real [1-9]' timed",
+      "status": 0
+    },
+    {
+      "script": "slop -c 'trap \"echo cleaned > trap-ran\" EXIT; exit 3'; test $? = 3 && grep -q cleaned trap-ran",
+      "status": 0
+    },
+    {
+      "script": "cc limits.c -o limits && ./limits",
+      "status": 0
+    },
+    {
+      "script": "alias ll=ls",
+      "status": 2
+    },
+    {
+      "script": "echo 'int main(void) { volatile unsigned long n = 0; for (;;) n++; }' > loop.c && cc -O0 loop.c -o loop",
+      "status": 0
+    },
+    {
+      "script": "timeout 0.05 ./loop",
+      "status": 124
+    },
+    {
+      "why": "-s strips the names too, and the program still runs.",
+      "script": "cc -O0 -s loop.c -o stripped && test $(wc -c < stripped) -lt $(wc -c < loop) && timeout 0.05 ./stripped",
+      "status": 124
+    },
+    {
+      "script": "mkdir -p copy/nested && echo FILE > copy/file && echo NESTED > copy/nested/file && cp -R copy copied && grep -q FILE copied/file && grep -q NESTED copied/nested/file",
+      "status": 0
+    }
+  ]
+}

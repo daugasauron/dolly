@@ -1,5 +1,5 @@
 import { readdir, readFile } from "node:fs/promises";
-import { processSmokeSources } from "./fixtures/process-smoke.mjs";
+import toolchain from "./cases/toolchain.json" with { type: "json" };
 import { tarArchive } from "./fixtures/tar.mjs";
 import { startCheckoutServer } from "../scripts/serve-checkout.mjs";
 
@@ -19,7 +19,7 @@ export async function startBrowserServer(projectDir, image = "default", { fixtur
   for (const name of await readdir(new URL("fixtures/", import.meta.url))) {
     if (name.endsWith(".mjs")) files.set(`/test/fixtures/${name}`, `test/fixtures/${name}`);
   }
-  for (const [name, path] of Object.entries({ ...processSmokeSources, ...fixtures })) files.set(`/fixture/${name}`, path);
+  for (const [name, path] of Object.entries({ ...toolchain.fixtures, ...fixtures })) files.set(`/fixture/${name}`, path);
   for (const name of ["process-wrong-call", "process-wrong-start", "process-wrong-memory", "process-wrong-import"]) {
     files.set(`/fixture/${name}.wasm`, `build/${name}.wasm`);
   }

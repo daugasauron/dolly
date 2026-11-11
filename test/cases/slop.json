@@ -1,0 +1,1089 @@
+{
+  "image": "system",
+  "files": {
+    "replace.slop": "set -- new tail\n",
+    "shift.slop": "shift\n",
+    "return.slop": "set -- changed\nreturn 7\nexit 99\n",
+    "nested.slop": ". ./replace.slop inner\ncase $1 in outer) :;; *) exit 91;; esac\n. ./shift.slop\n",
+    "invalid.slop": "if :; then\n",
+    "Makefile": "CAPTURE := $(shell x=$$(exit 7))\nCAPTURE_STATUS := $(.SHELLSTATUS)\nall:\n\t@test '$(CAPTURE_STATUS)' = 7\n\t@set -- old; . ./replace.slop; test \"$$1\" = new; echo SLOP-MAKE-OK > make-success\nfail:\n\t@x=$$(exit 7); echo SHOULD-NOT-RUN > make-failed\n"
+  },
+  "shell": [
+    {
+      "name": "quoted directory prefix keeps unquoted glob",
+      "script": "dir=.; set -- \"$dir\"/*.slop; case $#:$1:$2 in 5:./invalid.slop:./nested.slop) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "quoted wildcard remains literal beside active glob",
+      "script": ": > \"literal*one\"; : > literalXtwo; set -- \"literal*\"*; case $#:$1 in \"1:literal*one\") :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "quoted variable wildcard remains literal",
+      "script": ": > \"variable*one\"; : > variableXtwo; prefix=\"variable*\"; set -- \"$prefix\"*; case $#:$1 in \"1:variable*one\") :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "unquoted variable wildcard expands beside quotes",
+      "script": "pattern=\"*.slop\"; set -- \"./\"$pattern; case $#:$1 in 5:./invalid.slop) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "mixed expansion protects quoted spaces",
+      "script": "value=\"a b\"; set -- \"left side\"$value\"right side\"; case $#:$1:$2 in \"2:left sidea:bright side\") :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "double quotes retain regex backslashes",
+      "script": "value=\"\\(word\\)\"; case $value in '\\(word\\)') :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "backtick removes dollar escape layer",
+      "script": "value=kept; f() { case $1 in kept) return 7;; *) return 91;; esac; }; x=`f \\$value`",
+      "status": 7
+    },
+    {
+      "name": "backtick eval indirect variable",
+      "script": "a=sample; flags_sample=kept; f() { case $1 in kept) return 8;; *) return 91;; esac; }; x=`eval f \\\\${flags_\\${a}}`",
+      "status": 8
+    },
+    {
+      "name": "backtick subshell is not arithmetic",
+      "script": "f() { return 7; }; x=`(f)`",
+      "status": 7
+    },
+    {
+      "name": "quoted backtick removes quote escape layer",
+      "script": "f() { case $#:$1 in \"1:a b\") return 9;; *) return 91;; esac; }; x=\"`f \\\"a b\\\"`\"",
+      "status": 9
+    },
+    {
+      "name": "unquoted backtick preserves escaped quotes",
+      "script": "f() { case $1 in '\"word\"') return 7;; *) return 91;; esac; }; x=`f \\\"word\\\"`",
+      "status": 7
+    },
+    {
+      "name": "braced positional arguments",
+      "script": "set -- first second; case ${1}:${2}:${0} in first:second:fixture-zero) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "braced arguments beyond nine",
+      "script": "set -- a b c d e f g h i ten; case ${10}:$10 in ten:a0) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "a quoted $@ inside a word is one field per parameter",
+      "script": "f() { n=$#; first=$1; last=$2; }; set -- \"a b\" c; f \"x$@y\"; case $n:$first:$last in \"2:xa b:cy\") :;; *) exit 91;; esac; f ${1+\"$@\"}; case $n:$first:$last in \"2:a b:c\") :;; *) exit 92;; esac; v=\"p$@q\"; case $v in \"pa b cq\") :;; *) exit 93;; esac; IFS=:; f \"x${@}y\"; case $n:$first in \"2:xa b\") :;; *) exit 94;; esac; set --; f \"x$@y\" z; case $n:$first in 2:xy) :;; *) exit 95;; esac; f ${1+\"$@\"}; exit $n",
+      "status": 0
+    },
+    {
+      "name": "LINENO is the line of the command",
+      "script": "x=$LINENO\ny=$LINENO\nf() {\n z=$LINENO\n}\nf\ncase $x:$y:$z in 1:2:4) :;; *) exit 91;; esac\nfor i in 1; do\n n=$LINENO\ndone\nexit $n",
+      "status": 9
+    },
+    {
+      "name": "defaults and alternatives of $* and $@",
+      "script": "set --; n=0; for i in ${*-one two}; do n=$((n+1)); done; case \"$n:${@:-d}:${*+s}\" in 2:d:) :;; *) exit 91;; esac; set -- a b; for i in ${*-one}; do n=$((n+1)); done; case \"$n:${*-d}:${@+s}\" in \"4:a b:s\") :;; *) exit 92;; esac",
+      "status": 0
+    },
+    {
+      "name": "arithmetic assigns and chooses",
+      "script": "x=5; : $((x+=2)) $((y=x*2)) $((x<<=1)); case $x:$y:$((x>y?x:y)):$((0?1/0:3)):$((a=b=4)):$a$b in 14:14:14:3:4:44) :;; *) exit 91;; esac; : $((x/=0)); exit 92",
+      "status": 1
+    },
+    {
+      "name": "fields split only where an expansion put an IFS byte",
+      "script": "IFS=:; x=1; y=a:b::c:; set -- a:b$x $y; case \"$#:$1:$4\" in \"5:a:b1:\") :;; *) exit 91;; esac; y=::; set -- $y; case $# in 2) :;; *) exit 92;; esac; IFS=\" :\"; y=\" a : b::c \"; set -- $y; case \"$#:$1$2$3$4\" in 4:abc) :;; *) exit 93;; esac; unset IFS; y=\" a  b \"; set -- x$y; case \"$#:$1:$2:$3\" in 3:x:a:b) :;; *) exit 94;; esac",
+      "status": 0
+    },
+    {
+      "name": "tildes expand after each colon of an assignment",
+      "script": "HOME=/h; a=~/x:~/y:~; b=$HOME:~/b; c=\"q\":~/c; d=a:\"~\"/d; e=a\\:~; f=~\"/e\"; set -- ~/\"a b\" a:~; case \"$a $b $c $d $e $f $1 $2\" in \"/h/x:/h/y:/h /h:/h/b q:/h/c a:~/d a:~ ~/e /h/a b a:~\") :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "a quoted part of a parameter word stays one field",
+      "script": "x=\"a b\"; set -- ${x:+\"$x\"} ${x:+$x}; case $#:$1 in \"3:a b\") :;; *) exit 91;; esac; unset u; set -- ${u-\"c  d\"   e} ${u-\"g h\"i j}; case \"$#:$1:$2:$3\" in \"4:c  d:e:g hi\") :;; *) exit 92;; esac; x=\"*\"; set -- ${x+\"$x\"}; case $#:$1 in \"1:*\") :;; *) exit 93;; esac",
+      "status": 0
+    },
+    {
+      "name": "what a pattern quotes matches itself",
+      "script": "x='a*b*'; y='*'; case \"${x%\"$y\"}:${x%$y}:${x%\\*}:${x#\"a*\"}:${x#a*}:${x%%'*'}\" in 'a*b:a*b*:a*b:b*:*b*:a*b') :;; *) exit 91;; esac; f=/usr/lib/libx.so; p=/usr/lib; case \"${f#\"$p\"/}:${f%\"${f##*/}\"}\" in libx.so:/usr/lib/) :;; *) exit 92;; esac",
+      "status": 0
+    },
+    {
+      "name": "unset and empty positional defaults",
+      "script": "set -- \"\"; case ${1-default}:${1:-fallback}:${2-default}:${999999999999999999999-default} in :fallback:default:default) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "a quoted $@ in a parameter word is one field per parameter",
+      "script": "f() { n=$#; first=$1; last=$2; }; set -- \"a b\" \"\" c; f ${1:+\"$@\"}; case $n:$first:$last in \"3:a b:\") :;; *) exit 91;; esac; f \"${x-$@}\"; case $n:$first in \"3:a b\") :;; *) exit 92;; esac; set -- \"\"; f ${1+\"$@\"}; case $n:$first in 1:) :;; *) exit 93;; esac; set --; f ${1+\"$@\"}; exit $n",
+      "status": 0
+    },
+    {
+      "name": "a substitution holds a here-document, a comment and a case pattern",
+      "why": "As agents write commit messages, \"$(cat <<'EOF' ... EOF\\n)\": a here-document in a substitution.",
+      "script": "x=$(read -r m <<'EOF'\nFix the parser (it didn't stop)\nEOF\ncase $m in \"Fix the parser (it didn't stop)\") exit 7;; esac); case $? in 7) :;; *) exit 91;; esac; y=$(: kept # a comment's )\n); z=$(case a in a) exit 8;; esac); case $? in 8) :;; *) exit 92;; esac",
+      "status": 0
+    },
+    {
+      "name": "positional replacement and length",
+      "script": "set -- abc \"\"; case ${1+yes}:${2:+yes}:${3+yes}:${#1}:${1#a} in yes:::3:bc) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "braced count and status",
+      "script": "set -- a b; (exit 7); case ${?}:${#} in 7:2) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "positional default shell pattern",
+      "script": "f() { value=${2-[^=]*=}; case $value in \"[^=]*=\") :;; *) exit 91;; esac; }; f first",
+      "status": 0
+    },
+    {
+      "name": "positional assignment is rejected",
+      "script": "set --; : ${1:=value}",
+      "status": 1
+    },
+    {
+      "name": "set positional assignment fallback is unused",
+      "script": "set -- kept; case ${1:=value} in kept) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "a function body is any compound command",
+      "script": "x=1; s() ( x=2; exit 4 ); s; a=$?; i() if :; then return 3; fi; i; b=$?; w()\nfor n in 1 2; do last=$n; done; w; c() case $1 in q) return 5;; esac; c q; exit $((a * 1000 + b * 100 + $? * 10 + last + x))",
+      "status": 1
+    },
+    {
+      "name": "line breaks before in",
+      "script": "case x\nin\n  x) a=1;;\nesac\nfor i\n\nin 2 3\ndo a=$a$i\ndone\nset -- 4; for i\ndo a=$a$i; done\nexit $((a - 1227))",
+      "status": 7
+    },
+    {
+      "name": "function body on the following line",
+      "script": "f()\n{ return 7; }\nf",
+      "status": 7
+    },
+    {
+      "name": "function body after comments and blank lines",
+      "script": "f ()\n# body follows\n\n{ return 8; }\nf",
+      "status": 8
+    },
+    {
+      "name": "multiline definition does not execute its body",
+      "script": "f()\n{ exit 93; }\nexit 19",
+      "status": 19
+    },
+    {
+      "name": "nested multiline function retains newlines",
+      "script": "outer() { inner()\n{ return 9; }\ninner; }; outer",
+      "status": 9
+    },
+    {
+      "name": "semicolon is not a function linebreak",
+      "script": "f(); { :; }",
+      "status": 2
+    },
+    {
+      "name": "negation after then",
+      "script": "if :; then ! :; fi",
+      "status": 1
+    },
+    {
+      "name": "negation after else",
+      "script": "if ! :; then exit 91; else ! :; fi",
+      "status": 1
+    },
+    {
+      "name": "negation in a loop body",
+      "script": "for x in one; do ! :; done",
+      "status": 1
+    },
+    {
+      "name": "negation in a group",
+      "script": "{ ! :; }",
+      "status": 1
+    },
+    {
+      "name": "negation in an if condition",
+      "script": "if ! :; then exit 91; else :; fi",
+      "status": 0
+    },
+    {
+      "name": "negated failure selects then",
+      "script": "if ! (exit 7); then :; else exit 91; fi",
+      "status": 0
+    },
+    {
+      "name": "negation suppresses errexit",
+      "script": "set -e; ! :; exit 19",
+      "status": 19
+    },
+    {
+      "name": "negated group suppresses errexit",
+      "script": "set -e; ! { (exit 7); :; }; exit 19",
+      "status": 19
+    },
+    {
+      "name": "bang within an argument is literal",
+      "script": "set -- ! foo! !foo; case $1:$2:$3 in '!':foo!:'!foo') :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "a while loop left by break has break's status",
+      "script": "i=0; while :; do i=$((i+1)); case $i in 3) break;; esac; (exit 1); done",
+      "status": 0
+    },
+    {
+      "name": "an until loop left by break after a failing test",
+      "script": "i=0; until (exit 1); do i=$((i+1)); (exit $((i != 3))) && break; done",
+      "status": 0
+    },
+    {
+      "name": "continue ends a while body with status 0",
+      "script": "i=0; while case $i in 2) (exit 1);; esac; do i=$((i+1)); case $i in 2) continue;; esac; (exit 1); done",
+      "status": 0
+    },
+    {
+      "name": "a completed failing body is the loop's status",
+      "script": "i=0; while case $i in 2) (exit 1);; esac; do i=$((i+1)); (exit 5); done",
+      "status": 5
+    },
+    {
+      "name": "break 2 from a while inside a for",
+      "script": "for a in 1 2; do i=0; while :; do i=$((i+1)); (exit $((i != 2))) && break 2; done; done; case $?:$a$i in 0:12) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "break beyond the outermost loop leaves it with status 0",
+      "script": "i=0; while :; do i=$((i+1)); for b in 1; do (exit 1); done; (exit $((i != 2))) && break 5; done",
+      "status": 0
+    },
+    {
+      "name": "return leaves while and until loops",
+      "script": "f() { while :; do return 3; done; }; f; case $? in 3) :;; *) exit 91;; esac; g() { until false; do return 4; done; }; g",
+      "status": 4
+    },
+    {
+      "name": "return leaves a for loop on the value it returned on",
+      "script": "f() { for opt; do return 3; done; }; f a b; case $?:$opt in 3:a) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "for loops keep the status of break and continue",
+      "script": "for i in 1 2; do (exit 1); continue; done || exit 91; for i in 1 2; do (exit 1) || break; done || exit 92; for i in 1 2; do (exit 1) && break; done",
+      "status": 1
+    },
+    {
+      "name": "sourcing shares replacement arguments",
+      "script": "set -- old; . ./replace.slop; case $#:$1:$2 in 2:new:tail) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "sourcing shares shifted arguments",
+      "script": "set -- old kept; . ./shift.slop; case $1 in kept) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "explicit source arguments are temporary",
+      "script": "set -- old kept; . ./replace.slop temporary; case $1:$2 in old:kept) :;; *) exit 91;; esac",
+      "status": 0,
+      "bash": 91
+    },
+    {
+      "name": "explicit source arguments can be shifted",
+      "script": "set -- old; . ./shift.slop first second; case $1 in old) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "source preserves shell name",
+      "script": "set -- old; . ./replace.slop temporary; case $0 in fixture-zero) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "nested sources preserve ownership",
+      "script": "set -- outer kept; . ./nested.slop; case $1 in kept) :;; *) exit 91;; esac",
+      "status": 0,
+      "bash": 91
+    },
+    {
+      "name": "sourced changes remain local to function arguments",
+      "script": "f() { . ./replace.slop; case $1 in new) :;; *) exit 91;; esac; }; set -- old; f arg; case $1 in old) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "source return status",
+      "script": ". ./return.slop",
+      "status": 7
+    },
+    {
+      "name": "source return does not exit caller",
+      "script": ". ./return.slop; case $?:$1 in 7:changed) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "explicit source return restores arguments",
+      "script": "set -- old; . ./return.slop temporary; case $?:$1 in 7:old) :;; *) exit 91;; esac",
+      "status": 0,
+      "bash": 91
+    },
+    {
+      "name": "source return does not return from enclosing function",
+      "script": "f() { . ./return.slop; return 9; }; f",
+      "status": 9
+    },
+    {
+      "name": "source return triggers errexit",
+      "script": "set -e; . ./return.slop; exit 19",
+      "status": 7
+    },
+    {
+      "name": "source syntax error restores explicit arguments",
+      "script": "set -- old; . ./invalid.slop temporary; case $?:$1 in 2:old) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "missing source fails",
+      "script": ". ./missing.slop",
+      "status": 1
+    },
+    {
+      "name": "last substitution is assignment status",
+      "script": "x=$(exit 7)",
+      "status": 7
+    },
+    {
+      "name": "assignment failure triggers errexit",
+      "script": "set -e; x=$(exit 7); exit 19",
+      "status": 7
+    },
+    {
+      "name": "assignment failure does not force exit without errexit",
+      "script": "x=$(exit 7); exit 19",
+      "status": 19
+    },
+    {
+      "name": "last of multiple assignments wins",
+      "script": "a=$(exit 3) b=$(exit 7)",
+      "status": 7
+    },
+    {
+      "name": "last substitution in one value wins",
+      "script": "x=$(exit 3)$(exit 8)",
+      "status": 8
+    },
+    {
+      "name": "successful last substitution clears failure",
+      "script": "a=$(exit 7) b=$(:)",
+      "status": 0
+    },
+    {
+      "name": "ordinary assignment resets substitution status",
+      "script": "a=$(exit 7); b=plain",
+      "status": 0
+    },
+    {
+      "name": "nested substitution status",
+      "script": "x=$(y=$(exit 9))",
+      "status": 9
+    },
+    {
+      "name": "empty substitution succeeds",
+      "script": "(exit 4); x=$()",
+      "status": 0
+    },
+    {
+      "name": "comment-only substitution succeeds",
+      "script": "(exit 4); x=$(# comment\n)",
+      "status": 0
+    },
+    {
+      "name": "substitution exit inherits prior status",
+      "script": "(exit 4); x=$(exit)",
+      "status": 4
+    },
+    {
+      "name": "backtick substitution status",
+      "script": "x=`exit 6`",
+      "status": 6
+    },
+    {
+      "name": "empty expanded command retains substitution status",
+      "script": "$(exit 8)",
+      "status": 8
+    },
+    {
+      "name": "ordinary command owns its status",
+      "script": ": $(exit 7)",
+      "status": 0
+    },
+    {
+      "name": "export owns its status",
+      "script": "export x=$(exit 7)",
+      "status": 0
+    },
+    {
+      "name": "function owns its status",
+      "script": "f() { return 4; }; f $(exit 7)",
+      "status": 4
+    },
+    {
+      "name": "substitution status reaches later expansions",
+      "script": "(exit 4); x=$(exit 7) y=$?; case $?:$y in 7:7) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "status expansion follows word order",
+      "script": "(exit 4); x=$?:$(exit 7):$?; case $x in 4::7) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "implicit exit uses substitution status",
+      "script": "(exit 4); exit $(exit 7)",
+      "status": 7
+    },
+    {
+      "name": "skipped parameter fallback does not substitute",
+      "script": "value=set; x=${value:-$(exit 7)}",
+      "status": 0
+    },
+    {
+      "name": "used parameter fallback retains status",
+      "script": "unset value; x=${value:-$(exit 7)}",
+      "status": 7
+    },
+    {
+      "name": "conditionals handle assignment failure",
+      "script": "set -e; if x=$(exit 7); then exit 91; else :; fi",
+      "status": 0
+    },
+    {
+      "name": "or-list handles assignment failure",
+      "script": "set -e; x=$(exit 7) || :; exit 19",
+      "status": 19
+    },
+    {
+      "name": "and-list skips after assignment failure",
+      "script": "x=$(exit 7) && exit 91",
+      "status": 7
+    },
+    {
+      "name": "outer errexit is not inherited by substitution",
+      "script": "f() { return 7; }; set -e; x=$(f; :); exit 19",
+      "status": 19
+    },
+    {
+      "name": "substitution can explicitly enable errexit",
+      "script": "x=$(set -e; y=$(exit 7); exit 19)",
+      "status": 7
+    },
+    {
+      "name": "assignment redirection preserves substitution status",
+      "script": "x=$(exit 7) > result",
+      "status": 7
+    },
+    {
+      "name": "redirection error overrides substitution status",
+      "script": "x=$(exit 7) > missing-directory/result",
+      "status": 1
+    },
+    {
+      "name": "redirection-only substitution status",
+      "script": "> $(exit 7)result",
+      "status": 7
+    },
+    {
+      "name": "heredoc-only substitution status",
+      "script": "<<EOF\n$(exit 5)\nEOF\n",
+      "status": 5
+    },
+    {
+      "name": "quoted heredoc does not substitute",
+      "script": "<<'EOF'\n$(exit 5)\nEOF\n",
+      "status": 0
+    },
+    {
+      "name": "a list continues after a here-document's body",
+      "script": "read -r a <<EOF ||\none\nEOF\n  exit 91\n: <<EOF &&\nx\nEOF\n  n=7\nread -r b <<EOF |\ntwo\nEOF\n  read -r c\ncase $a:$b:$c in one::) exit $n;; esac; exit 92",
+      "status": 7
+    },
+    {
+      "name": "tab-stripping heredoc",
+      "script": "{ IFS= read -r a; IFS= read -r b; } <<-EOF\n\tone\n\t\ttwo\n\tEOF\ncase $a:$b in one:two) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "unset options select variables or functions",
+      "script": "f() { :; }; x=1; unset -v x; unset -f f; case ${x-unset} in unset) :;; *) exit 91;; esac; command -v f && exit 92; exit 0",
+      "status": 0
+    },
+    {
+      "name": "dollar-single-quotes decode C escapes",
+      "script": "x=$'a\\tb\\n\\'\\\\\\x41\\101\\e[m $HOME'; n=${#x}; case $n in 17) :;; *) exit 91;; esac; case $x in a?b?\"'\\AA\"?'[m $HOME') :;; *) exit 92;; esac; set -- $'one two'; exit $#",
+      "status": 1
+    },
+    {
+      "name": "$! is unset until a program runs in the background",
+      "script": "case \"$!:${!}\" in :) :;; *) exit 91;; esac; set -u; : $!; exit 92",
+      "status": 1,
+      "bash": 127
+    },
+    {
+      "name": "unset parameter error exits the shell",
+      "script": "X=; : ${X:?unset}; exit 91",
+      "status": 1,
+      "bash": 127
+    },
+    {
+      "name": "arithmetic error exits the shell",
+      "script": ": $((1/0)); exit 91",
+      "status": 1
+    },
+    {
+      "name": "quoting affects only quoted case pattern parts",
+      "script": "p='*'; case ab in \"a*\"|\"$p\") exit 91;; \"a\"*) ;; *) exit 92;; esac; case ab in $p) ;; *) exit 93;; esac",
+      "status": 0
+    },
+    {
+      "name": "unsupported shell options are rejected",
+      "script": "set -o posix",
+      "status": 2,
+      "bash": 0
+    },
+    {
+      "name": "set -u exits on unset parameters but keeps defaults",
+      "script": "set -u; : \"${x-d}${x:-e}${x+f}${x:=g}\"; unset x; : $x; exit 91",
+      "status": 1,
+      "bash": 127
+    },
+    {
+      "name": "set -u covers positional and length expansions",
+      "script": "set -u; set -- a; : \"$@\" \"$*\" \"$1\" ${#1}; : $2; exit 91",
+      "status": 1,
+      "bash": 127
+    },
+    {
+      "name": "set +u restores unset expansion",
+      "script": "set -eu; set +u; : $x; set -o nounset; set +o nounset; : $x",
+      "status": 0
+    },
+    {
+      "name": "set -e is ignored in functions on the left of && and ||",
+      "script": "set -e; f() { (exit 1); x=$1; }; f a || exit 91; f b && :; case $x in b) exit 7;; esac; exit 92",
+      "status": 7
+    },
+    {
+      "name": "set -e applies in a function ending an and-or list",
+      "script": "set -e; f() { (exit 1); x=ran; }; : && f; exit 91",
+      "status": 1
+    },
+    {
+      "name": "set -e ignores the left of && in a for body",
+      "script": "set -e; for i in 1 2 3; do (exit $((i != 2))) && break; done; exit $((i + 5))",
+      "status": 7
+    },
+    {
+      "name": "set -e ignores the left of && in a while body",
+      "script": "set -e; i=0; while :; do i=$((i+1)); (exit $((i != 2))) && break; done; exit $((i + 5))",
+      "status": 7
+    },
+    {
+      "name": "set -e spares a loop whose status is an ignored failure",
+      "script": "set -e; for i in 1; do (exit 1) && :; done; i=0; until case $i in 1) :;; *) (exit 1);; esac; do i=1; (exit 1) && :; done; exit 7",
+      "status": 7
+    },
+    {
+      "name": "set -e spares a group, a conditional and a case likewise",
+      "script": "set -e; { (exit 1) && :; }; if :; then (exit 1) && :; fi; case x in x) (exit 1) && :;; esac; { ! :; }; exit 7",
+      "status": 7
+    },
+    {
+      "name": "set -e spares nested loops left by break 2",
+      "script": "set -e; for a in 1 2; do for b in 1 2; do (exit $((b != 2))) && break 2; done; done; exit $((a * 10 + b - 5))",
+      "status": 7
+    },
+    {
+      "name": "set -e ends the shell inside a for body",
+      "script": "set -e; for i in 1 2; do (exit 4); exit 91; done; exit 92",
+      "status": 4
+    },
+    {
+      "name": "set -e ends the shell inside a while body",
+      "script": "set -e; while :; do (exit 4); exit 91; done; exit 92",
+      "status": 4
+    },
+    {
+      "name": "set -e runs the EXIT trap from inside a loop",
+      "script": "set -e; trap 'exit 9' EXIT; for i in 1; do (exit 4); done; exit 91",
+      "status": 9
+    },
+    {
+      "name": "set -e applies to a function's status",
+      "script": "set -e; f() { (exit 3) && :; }; f; exit 7",
+      "status": 3
+    },
+    {
+      "name": "set -e applies to a subshell's status",
+      "script": "set -e; ( (exit 1) && : ); exit 7",
+      "status": 1
+    },
+    {
+      "name": "set -e is ignored in a loop that is a condition",
+      "script": "set -e; if for i in 1 2; do (exit 1); n=$i; done; then exit $((n + 5)); fi; exit 91",
+      "status": 7
+    },
+    {
+      "name": "set -e ignores a function called left of && in a loop",
+      "script": "set -e; f() { return 3; }; for i in 1; do f && :; done; exit 7",
+      "status": 7
+    },
+    {
+      "name": "set -e applies to a failed redirection of a loop",
+      "script": "set -e; (exit 1) && :; for i in 1; do :; done > missing-directory/result; exit 7",
+      "status": 1
+    },
+    {
+      "name": "subshell state stays outside descriptors 0-9",
+      "script": "exec 3>&-; (: <&3) 2> /dev/null && exit 91; :",
+      "status": 0
+    },
+    {
+      "name": "time reports a subshell's status",
+      "script": "time (exit 7)",
+      "status": 7
+    },
+    {
+      "name": "time runs a group and a conditional",
+      "script": "time { (exit 3); } || time if :; then (exit 4); fi",
+      "status": 4
+    },
+    {
+      "name": "time measures a negated pipeline",
+      "script": "time ! (exit 3) && exit 5",
+      "status": 5
+    },
+    {
+      "name": "EXIT trap runs after exit and may set the status",
+      "script": "trap \"exit 7\" EXIT; exit 3",
+      "status": 7
+    },
+    {
+      "name": "EXIT trap keeps the script's status",
+      "script": "trap \": cleanup\" EXIT; (exit 5)",
+      "status": 5
+    },
+    {
+      "name": "EXIT trap sees the exit status",
+      "script": "trap 'case $? in 3) exit 8;; esac' EXIT; exit 3",
+      "status": 8
+    },
+    {
+      "name": "a subshell runs its own EXIT trap",
+      "script": "x=$(trap \"exit 9\" EXIT; exit 4); exit $?",
+      "status": 9
+    },
+    {
+      "name": "a subshell does not inherit traps",
+      "script": "trap \"exit 9\" EXIT; (exit 4); status=$?; trap - EXIT; exit $status",
+      "status": 4
+    },
+    {
+      "name": "trap - and a lone condition restore the default",
+      "script": "trap \"exit 9\" EXIT; trap - EXIT; trap \"exit 9\" 0; trap EXIT; exit 3",
+      "status": 3
+    },
+    {
+      "name": "trap lists what it will run",
+      "script": "trap \": x\" TERM; trap > listed; read -r line < listed; case $line in \"trap -- ': x' \"*TERM) exit 3;; esac; exit 91",
+      "status": 3
+    },
+    {
+      "name": "an unknown trap condition is rejected",
+      "script": "trap : NOSUCH",
+      "status": 2,
+      "bash": 1
+    },
+    {
+      "name": "PIPE can be trapped by name and number",
+      "script": "trap \": a\" PIPE; trap \": b\" 13; trap > listed; read -r line < listed; case $line in *\": b\"*PIPE) exit 3;; esac; exit 91",
+      "status": 3
+    },
+    {
+      "name": "a signal cannot be ignored",
+      "script": "trap \"\" INT",
+      "status": 2,
+      "bash": 0
+    },
+    {
+      "name": "wait without background programs succeeds",
+      "script": "wait",
+      "status": 0
+    },
+    {
+      "name": "wait rejects a process the shell did not start",
+      "script": "wait 1",
+      "status": 127
+    },
+    {
+      "name": "only a program runs in the background",
+      "script": "(exit 3) & exit 7",
+      "status": 7
+    },
+    {
+      "name": "& does not take a && list",
+      "script": ": && : & exit 7",
+      "status": 2,
+      "bash": 7
+    },
+    {
+      "name": "a path that names nothing is not a missing command",
+      "script": "./no-such-program; a=$?; no-such-program; b=$?; ./; c=$?; exit $((a + b + c))",
+      "status": 124
+    },
+    {
+      "name": "the test, [, echo, printf, true and false that PATH finds in /bin run in the shell",
+      "why": "Natively no process can start here: these run in the shell, the code of /bin's.",
+      "script": "PATH=/bin; [ a = a ] && test -n x && echo > /dev/null && printf \"%s\\n\" x > /dev/null && true && ! false || exit 91; PATH=/nowhere; test x",
+      "status": 127,
+      "bash": 0
+    },
+    {
+      "name": "read gives an empty field between two separators, as POSIX splits fields",
+      "why": "A colon-separated record, as /etc/passwd's empty fields are.",
+      "script": "IFS=: read -r a b c d <<EOF\nuser::1000:x:y\nEOF\ncase \"$a|$b|$c|$d\" in \"user||1000|x:y\") :;; *) exit 91;; esac; IFS=: read -r e f <<EOF\n:g:\nEOF\ncase \"$e|$f\" in \"|g\") :;; *) exit 92;; esac",
+      "status": 0
+    },
+    {
+      "name": "OPTIND is 1 when the shell starts",
+      "why": "The usual option loop, in a script given no option.",
+      "script": "set -- file; while getopts ab o; do :; done; shift $((OPTIND - 1)); case $OPTIND:$1 in 1:file) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "command -V says what runs for a name",
+      "script": "f() { :; }; command -V f > /dev/null && command -V cd > /dev/null && ! command -V no-such-command 2> /dev/null",
+      "status": 0
+    },
+    {
+      "name": "IFS is space, tab and newline when the shell starts",
+      "script": "old=$IFS; IFS=:; IFS=$old; x=\"a b\"; set -- $x; case $#:${PPID:+set} in 2:set) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "set -f turns pathname expansion off, in this shell only",
+      "why": "automake's install-sh splits a path at / between set -f and set +f.",
+      "script": "set -f; set -- /*; case $1 in \"/*\") :;; *) exit 91;; esac; case $- in *f*) :;; *) exit 94;; esac; set +f; set -- /*; case $1 in \"/*\") exit 92;; esac; (set -o noglob); set -- /*; case $1 in \"/*\") exit 93;; esac",
+      "status": 0
+    },
+    {
+      "name": "cd takes -P: its directory is always the real path",
+      "why": "sdl2-config finds its prefix with cd -P -- DIR.",
+      "script": "cd -P -- / && case $PWD in /) exit 7;; esac",
+      "status": 7
+    },
+    {
+      "name": "Bash's ((...)) is refused before anything runs",
+      "why": "A POSIX shell would read each as something else; (( x > 3 )) would write a file named 3.",
+      "script": "exit 7; (( x > 3 ))",
+      "status": 2,
+      "bash": 7
+    },
+    {
+      "name": "Bash's <<< and <(...) are refused before anything runs",
+      "script": "exit 7; read -r x <<< word; cat <(:)",
+      "status": 2,
+      "bash": 7
+    },
+    {
+      "name": "aliases, umask and ulimit are refused",
+      "script": "alias x=y; a=$?; umask 022; b=$?; ulimit -n > /dev/null; exit $((a + b + $?))",
+      "status": 6,
+      "bash": 0
+    },
+    {
+      "name": "jobs, fg, bg and a job spec to kill are refused",
+      "script": "jobs; a=$?; fg; b=$?; bg; c=$?; kill -TERM %1; exit $((a + b + c + $?))",
+      "status": 8,
+      "bash": 3
+    }
+  ],
+  "command": [
+    {
+      "name": "bash redirections name stdout and stderr",
+      "script": "slop -c 'echo o; echo e >&2' &> both; echo x &>> both; slop -c 'echo e >&2' >& one; test \"$(cat both):$(cat one)\" = \"o\ne\nx:e\"",
+      "status": 0
+    },
+    {
+      "name": "globs expand directory components",
+      "script": "mkdir -p g/a g/b; : > g/a/x.o; : > g/b/y.o; set -- g/*/*.o; test \"$#:$1:$2\" = 2:g/a/x.o:g/b/y.o || exit 91; rm -f g/*/*.o; set -- g/*/*; test \"$#:$1\" = \"1:g/*/*\"",
+      "status": 0
+    },
+    {
+      "name": "pipeline stages are subshells",
+      "script": "x=0; exit 3 | x=1 | cd /; test \"$x\" = 0 && test \"$PWD\" != /",
+      "status": 0
+    },
+    {
+      "name": "assignments apply from left to right",
+      "script": "a=x b=$a; test \"$b\" = x || exit 91; x=1; x=2 y=$x printenv y > y; test \"$(cat y)\" = 2 || exit 92; x=2 printf %s $x > z; test \"$(cat z)\" = 1",
+      "status": 0
+    },
+    {
+      "name": "descriptors 3 through 9 reach child commands",
+      "script": "slop -c 'echo x >&3' 3> three; exec 4> four; slop -c 'echo y >&4'; exec 4>&-; test \"$(cat three)$(cat four)\" = xy",
+      "status": 0
+    },
+    {
+      "name": "argument lists are not capped at 511",
+      "script": "i=0; until case $i in 600) true;; *) false;; esac; do set -- \"$@\" x; i=$((i+1)); done; printf %s \"$@\" > many || exit 91; test $# = 600",
+      "status": 0
+    },
+    {
+      "name": "only exported variables reach children",
+      "script": "v=1; printenv v > /dev/null && exit 91; export v; printenv v > /dev/null || exit 92; unset v; v=2; printenv v > /dev/null && exit 93; w=3 printenv w > /dev/null || exit 94; (export w=4); printenv w > /dev/null && exit 95; for loop in a; do :; done; printenv loop > /dev/null && exit 96; :",
+      "status": 0
+    },
+    {
+      "name": "closed standard descriptors stay closed",
+      "script": "cat replace.slop >&- 2> /dev/null && exit 91; cat <&- 2> /dev/null && exit 92; :",
+      "status": 0
+    },
+    {
+      "name": "compound commands are pipeline stages",
+      "script": "printf 'a\\nb\\n' | while read -r l; do n=$l; echo \"x$l\"; done | cat > loop; test -z \"$n\" && test \"$(cat loop)\" = \"xa\nxb\" && echo hi | { read -r x; test \"$x\" = hi; }",
+      "status": 0
+    },
+    {
+      "name": "read consumes exactly one line",
+      "script": "printf 'a\\nb\\n' > two; { read -r x; cat; } < two > rest; test \"$x:$(cat rest)\" = a:b",
+      "status": 0
+    },
+    {
+      "name": "non-terminal standard input is a script",
+      "script": "echo 'x=4; exit $x' | slop",
+      "status": 4
+    },
+    {
+      "name": "option letters combine with -c",
+      "script": "slop -ec 'false; exit 3'",
+      "status": 1
+    },
+    {
+      "name": "pipefail reports the rightmost failing stage",
+      "script": "set -o pipefail; (exit 2) | (exit 3) | true; test $? = 3 || exit 91; slop -c \"exit 5\" | cat; test $? = 5 || exit 92; false | true | cat; test $? = 1 || exit 93; set +o pipefail; false | true",
+      "status": 0
+    },
+    {
+      "name": "set -euo pipefail stops at a failing pipeline",
+      "script": "set -euo pipefail; test \"$-\" != \"${-%u*}\" || exit 91; : \"${unset_but_defaulted:-ok}\"; true | (exit 4) | cat; exit 92",
+      "status": 4
+    },
+    {
+      "name": "compound commands take redirections",
+      "script": "n=0; while read -r l; do n=$((n+1)); done < two; for i in 1; do echo $i; done > one; if :; then echo if; fi >> one; test \"$n:$(cat one)\" = \"2:1\nif\"",
+      "status": 0
+    },
+    {
+      "name": "an unset PATH searches /bin and /usr/bin",
+      "script": "unset PATH; slop -c 'exit 7'",
+      "status": 7,
+      "bash": 127
+    },
+    {
+      "name": "command runs built-ins in the shell and skips functions",
+      "script": "ls() { return 91; }; command cd /tmp && test \"$(pwd)\" = /tmp || exit 92; command export CMD=1; test \"$CMD\" = 1 || exit 93; command ls / > /dev/null || exit 94; test \"$(command -v cd):$(command -v ls)\" = cd:ls || exit 95; case \"$(command -p -v cat)\" in /*/cat) ;; *) exit 96;; esac",
+      "status": 0
+    },
+    {
+      "name": "braced quoted positional parameters expand to fields",
+      "script": "set -- \"a b\" c; n=0; for x in \"${@}\"; do n=$((n+1)); done; case $n in 2) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "star joins with the first IFS byte",
+      "script": "set -- a b c; IFS=:; case \"$*\" in a:b:c) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "character classes match in case patterns",
+      "script": "case abc1 in [[:alpha:]]*[[:digit:]]) :;; *) exit 91;; esac",
+      "status": 0
+    },
+    {
+      "name": "functions shadow regular builtins but not special ones",
+      "script": "cd() { return 7; }; cd /; test $? = 7 || exit 91; exit() { return 8; }; exit 9",
+      "status": 9,
+      "bash": 8
+    },
+    {
+      "name": "cd without HOME is an error",
+      "script": "unset HOME; cd",
+      "status": 1
+    },
+    {
+      "name": "test -x is true of a directory, which can be searched",
+      "script": "test -x / && [ -x . ] && test ! -x ./no-such-directory",
+      "status": 0
+    },
+    {
+      "name": "test compares files by modification time and identity",
+      "script": ": > older; sleep 1; : > newer; ln -sf older link; [ newer -nt older ] && test older -ot newer && ! test older -nt newer && test older -nt missing && test missing -ot older && ! test missing -nt older && [ link -ef older ] && ! test older -ef newer",
+      "status": 0
+    },
+    {
+      "name": "ls gives configure the directory's serial number and its files in time order",
+      "script": "test \"$(ls -di .)\" = \"$(cd \"$PWD\" && ls -di .)\" || exit 91; : > older; sleep 1; : > newer; test \"$(ls -t older newer | head -n 1)\" = newer || exit 92; test \"$(ls -Lt newer older | head -n 1)\" = newer",
+      "status": 0
+    },
+    {
+      "name": "a signal trap runs once the command has finished",
+      "script": "trap \"exit 7\" TERM; kill -TERM $$; exit 3",
+      "status": 7
+    },
+    {
+      "name": "an INT trap replaces the interrupt",
+      "script": "trap \"n=1\" INT; kill -INT $$; test \"$n\" = 1 || exit 91; exit 3",
+      "status": 3
+    },
+    {
+      "name": "time runs a command the shell spawns",
+      "script": "time true && time -p slop -c 'exit 6'",
+      "status": 6
+    }
+  ],
+  "pipeline": [
+    {
+      "name": "a consumer that stops ends an endless producer",
+      "script": "test \"$(seq 1 999999999 | head -n 1)\" = 1",
+      "status": 0
+    },
+    {
+      "name": "a producer nobody reads dies of SIGPIPE",
+      "script": "set -o pipefail; seq 1 999999999 | head -n 1 > /dev/null",
+      "status": 141
+    },
+    {
+      "name": "a stage in the shell stops an endless producer",
+      "script": "seq 1 999999999 | { read -r a; read -r b; test \"$a$b\" = 12; }",
+      "status": 0
+    },
+    {
+      "name": "output streams while the producer runs",
+      "script": "rm -f go log; slop -c 'echo first; until test -e go; do sleep 1; done; echo second' | tee log > /dev/null & until test -s log; do sleep 1; done; test \"$(cat log)\" = first || exit 91; : > go; wait; test \"$(cat log)\" = \"first\nsecond\"",
+      "status": 0
+    },
+    {
+      "name": "Make's output streams through tee while its recipe runs",
+      "script": "rm -f go log; printf 'all:\\n\\t@echo first; until test -e go; do sleep 1; done; echo second\\n' > stream.mk; make -f stream.mk 2>&1 | tee log > /dev/null & until test -s log; do sleep 1; done; test \"$(cat log)\" = first || exit 91; : > go; wait; test \"$(cat log)\" = \"first\nsecond\"",
+      "status": 0
+    },
+    {
+      "name": "three programs",
+      "script": "test \"$(seq 1 5 | sed s/^/x/ | tail -n 2)\" = \"x4\nx5\"",
+      "status": 0
+    },
+    {
+      "name": "a pipeline inside a substitution",
+      "script": "x=$(seq 1 999999999 | head -n 2 | tail -n 1); test \"$x\" = 2",
+      "status": 0
+    },
+    {
+      "name": "status is the last stage's, or the rightmost failure with pipefail",
+      "script": "false | true || exit 91; set -o pipefail; false | true; test $? = 1 || exit 92; slop -c \"exit 5\" | slop -c \"exit 6\" | cat; exit $?",
+      "status": 6
+    },
+    {
+      "name": "a program stage feeds a loop that feeds a program",
+      "script": "test \"$(seq 1 3 | while read -r x; do echo \"<$x>\"; done | cat)\" = \"<1>\n<2>\n<3>\"",
+      "status": 0
+    },
+    {
+      "name": "programs start with & and wait collects them",
+      "script": "slop -c \"sleep 1; exit 7\" & first=$!; slop -c \"exit 3\" & wait $!; test $? = 3 || exit 91; wait \"$first\"; test $? = 7 || exit 92; sleep 1 & wait; test \"$first\" != \"$!\"",
+      "status": 0
+    },
+    {
+      "name": "a subshell of one program runs in the background",
+      "script": "( slop -c \"exit 7\" ) & wait $!; test $? = 7 || exit 91; ( sleep 1 ) & pid=$!; test -n \"$pid\" && wait \"$pid\"",
+      "status": 0
+    },
+    {
+      "name": "exec in a background job runs its program",
+      "script": "exec slop -c \"exit 7\" & wait $!",
+      "status": 7
+    },
+    {
+      "name": "a background pipeline is waited for",
+      "script": "seq 1 3 | tail -n 1 > last & wait; test \"$(cat last)\" = 3",
+      "status": 0
+    },
+    {
+      "name": "a background program does not read the shell's input",
+      "script": "cat & wait $!",
+      "status": 0
+    },
+    {
+      "name": "a shell whose directory was removed can still change directory",
+      "script": "start=$PWD; mkdir -p gone/sub && cd gone/sub && rm -r \"$start/gone\" || exit 91; slop -c \"cd /\" 2> /dev/null || exit 92; cd \"$start\" || exit 93; test \"$PWD:$OLDPWD\" = \"$start:$start/gone/sub\"",
+      "status": 0
+    },
+    {
+      "name": "& ends a word and follows redirections",
+      "script": "slop -c \"echo o; echo e >&2\" > both 2>&1& wait; test \"$(wc -l < both)\" -eq 2",
+      "status": 0
+    }
+  ],
+  "exec": [
+    {
+      "name": "exec runs its program in the shell's place",
+      "script": "exec slop -c 'exit 7'; exit 91",
+      "status": 7
+    },
+    {
+      "name": "exec keeps the process",
+      "script": "slop -c 'echo $$ > before; exec slop -c \"echo \\$\\$ > after\"'; test \"$(cat before)\" = \"$(cat after)\"",
+      "status": 0
+    },
+    {
+      "name": "exec gives its program the exported variables and prefix assignments",
+      "script": "export E=1; V=2 exec slop -c 'test \"$E$V\" = 12 && exit 5'",
+      "status": 5
+    },
+    {
+      "name": "exec keeps descriptors and takes its redirections",
+      "script": "slop -c 'exec 6> six; exec slop -c \"echo kept >&6\" > out'; test \"$(cat six):$(cat out)\" = kept: && test \"$(echo piped | slop -c 'exec cat')\" = piped",
+      "status": 0
+    },
+    {
+      "name": "exec in a function ends the shell, as in a libtool wrapper",
+      "script": "f() { exec slop -c 'exit $#' x ${1+\"$@\"}; echo unreachable; exit 1; }; f a b c",
+      "status": 3
+    },
+    {
+      "name": "a failed exec ends a script with 127",
+      "script": "slop -c 'exec ./no-such-program; exit 3' 2> /dev/null; a=$?; slop -c 'exec no-such-command; exit 3' 2> /dev/null; test \"$a:$?\" = 127:127",
+      "status": 0
+    },
+    {
+      "name": "exec in a subshell ends the subshell with the program's status",
+      "script": "(exec slop -c 'exit 4'; exit 9); test $? = 4 && ( : && exec slop -c 'exit 6' ) > /dev/null 2>&1; test $? = 6 && x=$(exec slop -c 'echo sub') && test \"$x\" = sub",
+      "status": 0
+    },
+    {
+      "name": "exec in a pipeline stage is the stage's program",
+      "script": "test \"$(exec slop -c 'echo a' | cat):$(echo b | exec cat)\" = a:b",
+      "status": 0
+    },
+    {
+      "name": "exec resets a trap to the default action",
+      "script": "slop -c 'trap \"exit 9\" TERM; exec slop -c \"kill -TERM \\$\\$; sleep 5; exit 3\"'; exit $?",
+      "status": 143
+    }
+  ]
+}

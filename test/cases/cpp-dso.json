@@ -1,0 +1,27 @@
+{
+  "image": "system",
+  "directory": "/tmp/dolly-cpp-dso-test",
+  "fixtures": {
+    "cpp-sdk.cpp": "test/fixtures/cpp-sdk.cpp",
+    "cpp-dso-host.cpp": "test/fixtures/cpp-dso-host.cpp"
+  },
+  "steps": [
+    {
+      "why": "A C++ host and the library it loads share one runtime: the new handler and an exception cross between them.",
+      "script": "c++ -O1 -DDOLLY_CPP_LIBRARY -c cpp-sdk.cpp -o library.o",
+      "status": 0
+    },
+    {
+      "script": "c++ -shared library.o -lc++ -lc++abi -o library.so",
+      "status": 0
+    },
+    {
+      "script": "c++ -O1 -rdynamic cpp-dso-host.cpp -o host",
+      "status": 0
+    },
+    {
+      "script": "./host /tmp/dolly-cpp-dso-test/library.so",
+      "status": 0
+    }
+  ]
+}

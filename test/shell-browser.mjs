@@ -1,30 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { browserTest } from "./browser.mjs";
+import { browserTest, runSteps } from "./browser.mjs";
+import shell from "./cases/shell.json" with { type: "json" };
 
 // Everyday shell and tool behavior with the toolchain's tools, typed input included.
 const recorded = {};
-// The limits and clock a program can ask for are the ones it has.
-const limitsSource = `#include <fcntl.h>
-#include <sys/resource.h>
-#include <time.h>
-int main(void) {
-  struct rlimit limit;
-  if (getrlimit(RLIMIT_NOFILE, &limit)) return 1;
-  rlim_t descriptors = 3;
-  while (open("/dev/null", O_RDONLY) >= 0) descriptors++;
-  if (descriptors != limit.rlim_cur) return 2;
-  volatile unsigned long sum = 0;
-  for (unsigned long index = 0; index < 20000000; index++) sum += index;
-  const clock_t used = clock();
-  return used == (clock_t)-1 || used <= 0 ? 3 : 0;
-}
-`;
 async function handle(request, response, path, headers) {
-  if (path === "/fixture/limits.c") {
-    response.writeHead(200, { ...headers, "content-type": "text/plain" }).end(limitsSource);
-    return true;
-  }
   if (path === "/fixture/curl-options" && request.method === "POST") {
     let body = "";
     for await (const chunk of request) body += chunk;
@@ -47,39 +28,15 @@ async function handle(request, response, path, headers) {
   return true;
 }
 
-await browserTest("shell", { image: "system", server: { handle } }, async ({ server, open }) => {
+await browserTest("shell", { image: "system", server: { fixtures: shell.fixtures, handle } }, async ({ server, open }) => {
   recorded.curl = []; // each browser's run, one after the other on one server
   const { page, submit, result } = await open({ policy: { maxRequests: 256,
     rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"] }] } });
   // Input mailbox: ESC [A with empty history, then help with a deleted typo.
   assert.equal(await result(() => page.evaluate(() => __dolly.input("\x1b[Ahelx\x7fp\r"))), 0);
+  // Everyday commands (test/cases/shell.json), then those that reach the test server.
+  await runSteps(submit, server.origin, shell);
   const cases = [
-    ["mkdir /tmp/shell && cd /tmp/shell"],
-    ["printf 'alpha\\nBeta\\n' > corpus.txt && echo first > append.txt && echo second >> append.txt"],
-    ["test \"$(cat append.txt)\" = \"$(printf 'first\\nsecond')\""],
-    ["test \"$(slop -c 'echo SLOP-C')\" = SLOP-C"],
-    ["slop -c 'cat <<EOF'", 2],
-    ["slop -c 'exit nope'", 2],
-    ["grep -q Beta corpus.txt && grep missing corpus.txt || ! grep missing corpus.txt"],
-    ["test \"$(VALUE=42 slop -c 'echo SLOP-VAR-$VALUE')\" = SLOP-VAR-42 && test \"$(echo SUB-$(pwd))\" = SUB-/tmp/shell"],
-    ["test \"$(slop -e -c 'grep missing corpus.txt && echo WRONG; echo ERREXIT-AND')\" = ERREXIT-AND"],
-    ["test \"$(grep -n -i beta corpus.txt)\" = 2:Beta && test \"$(grep -c a corpus.txt)\" = 2 && test \"$(grep -v alpha corpus.txt)\" = Beta"],
-    ["grep missing corpus.txt", 1],
-    ["grep -Z", 2],
-    ["test \"$(echo PIPE-GREP | grep PIPE)\" = PIPE-GREP"],
-    ["test \"$(sed s/Beta/Gamma/ corpus.txt | sed -n 2p)\" = Gamma && test \"$(echo SED-PIPE | sed s/SED/DOLLY/)\" = DOLLY-PIPE"],
-    ["test \"$(head -n 1 corpus.txt)\" = alpha && test \"$(head -1 corpus.txt)\" = alpha"],
-    ["test \"$(printf AB | od -A n -t x1 | tr -d ' ')\" = 4142 && test \"$(dd if=/dev/zero bs=4 count=1 2> /dev/null | od -A n -t x1 | tr -d ' ')\" = 0000"],
-    ["echo discarded > /dev/zero && test \"$(dd if=/dev/zero bs=512 count=8 2> /dev/null | wc -c)\" -eq 4096"],
-    ["test \"$(wc -l < corpus.txt)\" -eq 2 && test \"$(echo one two | wc -w)\" -eq 2"],
-    ["echo 'key:value' > colon.txt && test \"$(awk -F: '{print $2}' colon.txt)\" = value"],
-    ["echo 'one 2' > awk-one.txt && echo 'three 4' > awk-two.txt && test \"$(echo awk-*.txt)\" = 'awk-one.txt awk-two.txt'"],
-    ["test \"$(cat awk-*.txt | awk '{sum += $2} END {print sum}')\" = 6 && test \"$(awk -v prefix=V '{print prefix $1}' awk-one.txt)\" = Vone"],
-    ["echo '{print toupper($1)}' > upper.awk && test \"$(awk -f upper.awk awk-two.txt)\" = THREE && test \"$(echo 'pipe 7' | awk '{print $2 * 6}')\" = 42"],
-    ["echo 'a,\"b,c\"' > csv.txt && test \"$(awk --csv '{print NF \":\" $2}' csv.txt)\" = 2:b,c"],
-    ["test \"$(awk 'BEGIN {print system(\"echo SYSTEM\")}')\" = \"$(printf 'SYSTEM\\n0')\""],
-    ["awk 'BEGIN {status = (\"printf AWK-PIPE\" | getline value); exit status == 1 && value == \"AWK-PIPE\" ? 0 : 1}'"],
-    ["awk -f", 2],
     [`curl -fsSL ${server.origin}/fixture/http.txt -o fetched.txt && grep -q FETCHED-THROUGH-BROWSER fetched.txt`],
     // A cluster may end with a letter that takes a value, as agents write curl -fsSLo FILE.
     [`curl -fsSLo clustered.txt ${server.origin}/fixture/http.txt && grep -q FETCHED-THROUGH-BROWSER clustered.txt`],
@@ -99,59 +56,8 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
       `curl -fsS ${server.origin}/fixture/http.txt | grep -q FETCHED-THROUGH-BROWSER`],
     [`curl -sS ${server.origin}/outside-the-policy`, 9],
     [`curl -sS --retry 2 ${server.origin}/fixture/http.txt`, 2],
-    ["git --version && git config --global --get user.name && git config --global user.email asdf && test \"$(git config --global --get user.email)\" = asdf"],
-    ["mkdir repo && cd repo && git init && echo tracked > tracked.txt && git add tracked.txt && git commit -m initial && test \"$(git log --format=%s)\" = initial"],
     [`printf 'list\\n\\n' | /usr/libexec/dolly/git-remote-http origin ${server.origin}/fixture/git`],
     [`printf 'list\\n\\n' | /usr/libexec/dolly/git-remote-https origin ${server.origin}/fixture/git`],
-    // tar only extracts; Git creates the archive, from an index as well as a commit.
-    ["echo loose > loose.txt && git add loose.txt && git archive -o ../repo.tar.gz $(git write-tree) && mkdir ../unpacked && " +
-      "gzip -dc < ../repo.tar.gz | tar -xf - -C ../unpacked && grep -q tracked ../unpacked/tracked.txt && grep -q loose ../unpacked/loose.txt && " +
-      // as tar -z of the tar package starts it
-      "gzip -dc < ../repo.tar.gz > ../repo.tar && gzip -cdf ../repo.tar.gz | cmp - ../repo.tar && " +
-      // and compresses, as FFmpeg's Makefile does
-      "gzip -nc9 ../repo.tar | gzip -dc | cmp - ../repo.tar && gzip -kf ../repo.tar && gzip -t ../repo.tar.gz"],
-    // A clone, a fetch and a push of a local repository: Git runs git-upload-pack or git-receive-pack for the other side.
-    ["git clone -q . ../clone && test \"$(git -C ../clone log --format=%s)\" = initial && git commit -q -m loose && " +
-      "git -C ../clone fetch -q && test \"$(git -C ../clone log -1 --format=%s FETCH_HEAD)\" = loose && " +
-      "git -C ../clone commit -q --allow-empty -m pushed && git -C ../clone push -q origin HEAD:from-clone && " +
-      "test \"$(git log -1 --format=%s from-clone)\" = pushed"],
-    ["cd .. && test \"$(pwd)\" = /tmp/shell && test \"$(pwd -P)\" = /tmp/shell"],
-    ["mkdir -p flags/deep && mkdir -p flags/deep && touch flags/.hidden && echo visible > flags/visible"],
-    ["test \"$(ls flags)\" = \"$(printf 'deep\\nvisible')\" && ls -a flags | grep -q '^.hidden$'"],
-    ["echo file > not-a-directory && mkdir -p not-a-directory", 1],
-    // The POSIX long format with the modes stat reports; an empty directory is only its total.
-    ["rm -f flags/missing && rm -rf flags && ls -la > listed && grep -q '^total [0-9]' listed && grep -q '^d.* \\.$' listed && " +
-      "grep -q \"^$(stat -c %A corpus.txt) \"' *1 [0-9][0-9]* [0-9][0-9]* *11 [A-Z][a-z][a-z] [ 0-9][0-9] [0-9][0-9]:[0-9][0-9] corpus.txt$' listed"],
-    ["mkdir empty && test \"$(ls -l empty)\" = 'total 0' && ln -s corpus.txt link && ls -l link | grep -q '^l.* link -> corpus.txt$'"],
-    // A path that names nothing is reported as a path, not as a missing command.
-    ["./no-such-program 2> missing; test $? = 127 && grep -q 'No such file' missing && ./ 2> dir; test $? = 126 && grep -q 'directory' dir"],
-    ["ls flags", 1],
-    ["echo shell-created > shell.txt && test \"$(stat -c '%F %s' shell.txt)\" = 'regular file 14' && file shell.txt"],
-    ["[ -f shell.txt ] && [ ! -d shell.txt ]"],
-    ["test -d shell.txt", 1],
-    ["echo MOVED > move-source && mv move-source move-target && test ! -e move-source && grep -q MOVED move-target"],
-    ["test \"$(printf 'PRINTF-%s' OK)\" = PRINTF-OK && touch -c absent && echo -n tight > tight.txt && test \"$(wc -c < tight.txt)\" -eq 5"],
-    ["ls absent", 1],
-    ["ls /bin /usr/bin > /dev/null && test \"$(echo /b*)\" = /bin && ls /usr/lib/libdisplay.so && test ! -e /usr/bin/ghostty-vt"],
-    ["cc --version && c++ --version && ld --help > /dev/null && ar --version && make --version"],
-    // Clang's banner, as FFmpeg's configure reads it: cc -v 2>&1 | grep -q clang
-    ["cc -v 2> banner && grep -q '^clang version ' banner && c++ -v 2>&1 | grep -qx 'Target: wasm64-unknown-dolly'"],
-    ["cc --definitely-unsupported", 64],
-    ["cat /bin/echo > invalid-module && echo invalid >> invalid-module"],
-    ["./invalid-module", 126],
-    ["./invalid-module 2> refused; test $? = 126 && test $(wc -l < refused) -eq 1"],
-    // What an agent reaches for: parallel xargs, nproc, time on a compound
-    // command, an EXIT trap, real limits and a clock() that advances.
-    ["printf 'a b c' | timeout 30 xargs -P 3 -n 1 slop -c ': > started-$1; until test \"$(echo started-*)\" = \"started-a started-b started-c\"; do :; done' slop"],
-    ["test \"$(nproc)\" -gt 1 && { time { sleep 1; (exit 4); }; } 2> timed; test $? = 4 && grep -q '^real [1-9]' timed"],
-    ["slop -c 'trap \"echo cleaned > trap-ran\" EXIT; exit 3'; test $? = 3 && grep -q cleaned trap-ran"],
-    [`curl -fsS ${server.origin}/fixture/limits.c -o limits.c && cc limits.c -o limits && ./limits`],
-    ["alias ll=ls", 2],
-    ["echo 'int main(void) { volatile unsigned long n = 0; for (;;) n++; }' > loop.c && cc -O0 loop.c -o loop"],
-    ["timeout 0.05 ./loop", 124],
-    // -s strips the names too, and the program still runs.
-    ["cc -O0 -s loop.c -o stripped && test $(wc -c < stripped) -lt $(wc -c < loop) && timeout 0.05 ./stripped", 124],
-    ["mkdir -p copy/nested && echo FILE > copy/file && echo NESTED > copy/nested/file && cp -R copy copied && grep -q FILE copied/file && grep -q NESTED copied/nested/file"],
   ];
   for (const [command, expected = 0] of cases) assert.equal(await submit(command), expected, command);
   assert.deepEqual(recorded.curl.map(({ body }) => body), ["one=1&two=2", "three=3four&five=5", "three=3\r\nfour\n", "@data.txt"]);
