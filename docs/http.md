@@ -94,11 +94,12 @@ const policy = {
   embedding with a policy that wants `amy list` adds
   `{ origin: location.origin, path: "/amy-index.txt" }`, with the site's
   prefix in the path. Package snapshots come from `packages@0`, not from here.
-- Credential headers not listed for the matched rule are removed:
-  `authorization`, `cookie`, `proxy-authorization`, `x-api-key`, `api-key`
-  and `x-goog-api-key`. Any other header reaches the destination the rule
-  admits. The broker never stores, injects or rewrites credentials; they are
-  ordinary sandbox state.
+- A request under a rule carries an ordinary request's headers (`accept`,
+  `accept-language`, `content-language`, `content-type`, `range`, the
+  conditional ones, `cache-control`, `pragma`) and those its rule lists in
+  `credentialHeaders`; every other header is removed, a token under a name no
+  list knows included. The broker never stores, injects or rewrites
+  credentials; they are ordinary sandbox state.
 - Explicit rules and bootstrap sources reject redirects: Fetch hides intermediate
   destinations. `DOLLY_HTTP_FOLLOW_REDIRECTS` works only under the default policy,
   where cross-origin redirects strip `Authorization` as Fetch does, not as native

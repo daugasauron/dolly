@@ -42,6 +42,8 @@ test("the browser HTTP policy owns destination authority while credentials stay 
   const headers = new Headers({
     authorization: "Bearer compromised-wasm",
     cookie: "ambient=bad",
+    "private-token": "a token under a name no list knows",
+    "x-trace": "unnamed",
     "content-type": "application/json",
   });
   const rule = policy.authorize(
@@ -52,6 +54,9 @@ test("the browser HTTP policy owns destination authority while credentials stay 
   );
   assert.equal(headers.get("authorization"), "Bearer compromised-wasm");
   assert.equal(headers.has("cookie"), false);
+  // Under a hardened rule only an ordinary request's headers and those it names leave.
+  assert.equal(headers.has("private-token"), false);
+  assert.equal(headers.has("x-trace"), false);
   assert.equal(headers.get("content-type"), "application/json");
   assert.equal(rule.maxResponseBytes, 256);
   assert.throws(
