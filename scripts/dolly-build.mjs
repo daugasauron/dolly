@@ -115,6 +115,7 @@ async function scaffold(name, packages) {
     "public/index.html": await template("public/index.html"),
     "public/main.mjs": await template("public/main.mjs"),
     "public/page.css": await template("public/page.css"),
+    "public/icon.svg": await template("public/icon.svg"),
     "public/theme.json": await template("public/theme.json"),
     "public/workspace/README.md": await template("public/workspace/README.md"),
   };
