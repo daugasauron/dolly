@@ -10,7 +10,8 @@ import * as processConstants from "./process-constants.mjs";
 // the status line, which lie in boot()'s element and style nothing else of the
 // page. A host module brings the look of what it adds; the page, the boot log's
 // font (the site's is Iosevka, dist/IosevkaTerm-SemiBold.woff2).
-const style = `
+const pageStyle = new CSSStyleSheet();
+pageStyle.replaceSync(`
   .dolly-terminal { position: relative; overflow: hidden; outline: none; caret-color: transparent;
     display: flex; flex-direction: column; }
   .dolly-terminal #display { display: block; width: 100%; flex: 1 1 0; min-height: 0; cursor: text; touch-action: none;
@@ -26,7 +27,7 @@ const style = `
   .dolly-terminal #session-status[hidden] { display: none; }
   html[data-indicators="hidden"] .page-indicator { display: none; }
   @media (max-width: 640px) { .dolly-terminal #bootstrap-log { padding: 0.65rem 0.75rem; } }
-`;
+`);
 
 function element(tag, properties, attributes = {}) {
   const node = Object.assign(document.createElement(tag), properties);
@@ -72,9 +73,8 @@ export function boot(mount, { images, image, modules, site, http = {}, files = {
 // - running(host): the context host modules' entryStarted is given beside
 //   `image`, and members of the page's handle.
 export async function run(mount, { images, modules, site, http }, route) {
-  if (!document.querySelector("style[data-dolly]")) {
-    document.head.append(element("style", { textContent: style }, { "data-dolly": "" }));
-  }
+  // Adopted once, which a page's style-src without 'unsafe-inline' allows.
+  if (!document.adoptedStyleSheets.includes(pageStyle)) document.adoptedStyleSheets = [...document.adoptedStyleSheets, pageStyle];
   const canvas = element("canvas", { id: "display", hidden: true }, { "aria-label": "Dolly sandbox framebuffer" });
   const keyboard = element("textarea", { id: "keyboard" }, { "aria-label": "Dolly keyboard input",
     autocomplete: "off", autocapitalize: "off", spellcheck: "false" });

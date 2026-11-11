@@ -71,7 +71,7 @@ export async function startCheckoutServer(projectDir, image = "default",
   const listed = async (directory, pattern) => (await readdir(resolve(projectDir, directory), { recursive: true }))
     .filter(name => pattern.test(name)).map(name => `${directory}${name}`);
   const paths = new Set([
-    ...await listed("src/", /^[^/]+\.mjs$/),
+    ...await listed("src/", /^[^/]+\.(?:mjs|css)$/),
     ...await listed("host/", /\.(?:mjs|json)$/),
     "coi-serviceworker.js", "llms.txt", "index.html", "licences/index.html", "custom/index.html", "sessions/index.html",
     "amy-index.txt",

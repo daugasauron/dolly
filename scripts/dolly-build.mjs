@@ -14,9 +14,11 @@
 // (pnpm links there what it keeps elsewhere); the runtime runs only in the browser.
 import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { createServer } from "node:http";
 import { basename, dirname, extname, join, relative, resolve, sep } from "node:path";
+import { Readable } from "node:stream";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { chromium, firefox } from "playwright-core";
@@ -32,6 +34,15 @@ import { imageFileName, inspectDollyfile } from "../src/dollyfile-view.mjs";
 import { imageInputs } from "../src/image-inputs.mjs";
 import { validName } from "../src/image-names.mjs";
 import { siteReference, sitePath } from "../src/static-asset.mjs";
+
+// A build reaches the network through Node (relay below), and through the proxy the
+// environment names, as a CI runner's often does, which Node's fetch takes only with
+// NODE_USE_ENV_PROXY set: dolly-build runs itself again with it.
+if (["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"].some(name => process.env[name]) && !process.env.NODE_USE_ENV_PROXY) {
+  const { status } = spawnSync(process.execPath, process.argv.slice(1), { stdio: "inherit",
+    env: { ...process.env, NODE_USE_ENV_PROXY: "1" } });
+  process.exit(status ?? 1);
+}
 
 function fail(message) {
   console.error(`dolly-build: ${message}`);
@@ -108,6 +119,8 @@ async function scaffold(name, packages) {
       row("FROM", base) + installs.map(definition => row("INSTALL", definition)).join("") + "\n" + await template("Dollyfile") +
       `\nENTRY ${base.entry.join(" ")}\n`,
     "public/index.html": await template("public/index.html"),
+    "public/main.mjs": await template("public/main.mjs"),
+    "public/page.css": await template("public/page.css"),
     "public/theme.json": await template("public/theme.json"),
     "public/workspace/README.md": await template("public/workspace/README.md"),
   };
@@ -194,6 +207,35 @@ async function built(directory, image, source, identities) {
     metadata?.buildId === identities.imageBuildId && metadata?.runtimeBuildId === identities.buildId;
 }
 
+// A request of the build's, which the page's broker admitted, fetched by Node: a host
+// without CORS headers, a redirect between hosts and the environment's proxy (above)
+// work as on any machine. /relay/SCHEME/HOST/PATH?QUERY names it; a build's steps reach
+// any host, as a session's programs do on Dolly's site, and each host is named once.
+const reached = new Set();
+const unsent = new Set(["host", "connection", "origin", "referer", "cookie", "accept-encoding", "content-length"]);
+const unreturned = new Set(["connection", "content-encoding", "content-length", "transfer-encoding", "set-cookie"]);
+async function relay(request, response, url) {
+  const [scheme, ...rest] = url.pathname.slice("/relay/".length).split("/");
+  if (!["http", "https"].includes(scheme) || !rest.length) return response.writeHead(400).end();
+  const target = new URL(`${scheme}://${rest.join("/")}${url.search}`);
+  if (!reached.has(target.origin)) {
+    reached.add(target.origin);
+    process.stderr.write(`dolly-build: the build reaches ${target.origin}\n`);
+  }
+  const headers = Object.entries(request.headers).filter(([name]) => !unsent.has(name) && !name.startsWith("sec-"));
+  const chunks = [];
+  for await (const chunk of request) chunks.push(chunk);
+  try {
+    const answer = await fetch(target, { method: request.method, headers, redirect: "follow",
+      body: ["GET", "HEAD"].includes(request.method) ? undefined : Buffer.concat(chunks) });
+    response.writeHead(answer.status, { ...Object.fromEntries([...answer.headers].filter(([name]) => !unreturned.has(name))),
+      ...isolationHeaders });
+    if (answer.body) Readable.fromWeb(answer.body).pipe(response); else response.end();
+  } catch (error) {
+    response.writeHead(502, { "content-type": "text/plain" }).end(`${target.origin}: ${error.cause?.message ?? error.message}\n`);
+  }
+}
+
 // The image directory, laid out as an image package: the closures' metadata and
 // recipes, this recipe beside them, the image's metadata and packs, its package
 // index and its index.mjs. Every installed directory's packs are served for the
@@ -216,7 +258,9 @@ async function buildImage(directory, { filename, source, image, parsed, holders,
   const roots = [["/", scope], ["/image/", directory],
     ...directories.map(installed => ["/image/dist/packs/", join(installed.directory, "dist/packs")])];
   const server = createServer(async (request, response) => {
-    const path = decodeURIComponent(new URL(request.url, "http://127.0.0.1").pathname);
+    const url = new URL(request.url, "http://127.0.0.1");
+    if (url.pathname.startsWith("/relay/")) return relay(request, response, url);
+    const path = decodeURIComponent(url.pathname);
     if (path === "/") return response.writeHead(200, { ...isolationHeaders, "content-type": "text/html" }).end(page);
     for (const [prefix, root] of roots.toReversed().filter(([prefix]) => path.startsWith(prefix))) {
       const file = resolve(root, path.slice(prefix.length));
@@ -228,25 +272,20 @@ async function buildImage(directory, { filename, source, image, parsed, holders,
     response.writeHead(404).end();
   });
   // The browser's own requests (its vendor's updates, clock, autofill) go to a proxy that
-  // refuses them: it reaches this server and the recipes' sources alone.
+  // refuses them: the page reaches this server alone, the build's network through relay().
   const refusal = createServer((request, response) => response.writeHead(403).end()).on("connect", (request, socket) => socket.destroy());
   await Promise.all([server, refusal].map(listener => new Promise(listening => listener.listen(0, "127.0.0.1", listening))));
   const origin = `http://127.0.0.1:${server.address().port}`;
-  // The recipes' own upstream URLs are the only network the build may use.
-  const rules = graph.records.flatMap(record => record.sources.filter(entry => sitePath(entry.location) === null))
-    .map(entry => ({ origin: new URL(entry.location).origin, path: new URL(entry.location).pathname, methods: ["GET"] }));
-  const browser = await browsers[browserName]({ proxy: { server: `http://127.0.0.1:${refusal.address().port}`,
-    bypass: [...new Set(["127.0.0.1", ...rules.map(rule => new URL(rule.origin).hostname)])].join(",") } });
+  const browser = await browsers[browserName]({ proxy: { server: `http://127.0.0.1:${refusal.address().port}`, bypass: "127.0.0.1" } });
   let inputs;
   try {
     const tab = await browser.newPage();
     tab.setDefaultTimeout(0);
     await tab.exposeFunction("dollyBuildLog", text => void process.stderr.write(text));
-    await tab.addInitScript(rules => { globalThis.DOLLY_HTTP_POLICY = { maxRequests: 256, rules }; }, rules);
     await tab.goto(`${origin}/`);
     ({ inputs } = await tab.evaluate(`(${buildImageInPage})(${JSON.stringify(`${origin}/dolly/`)}, ` +
       `${JSON.stringify(`${origin}/image/`)}, ${JSON.stringify(image)}, undefined, ` +
-      `${JSON.stringify([...modules.values()].map(path => `${origin}/${path}`))})`));
+      `${JSON.stringify([...modules.values()].map(path => `${origin}/${path}`))}, ${JSON.stringify(`${origin}/relay/`)})`));
     await savePageSnapshot(tab, join(directory, `dist/dolly-${image}-system.snapshot`));
   } finally {
     await browser.close();

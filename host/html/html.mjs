@@ -56,13 +56,18 @@ const popupStyle = `
   :user-invalid { border-color: #e07a5f; }
 `;
 
-// The page's one script in the popup's frame, given the document as a string
-// and run before anything else there. It builds the popup from the document's
-// text and the elements and attributes below, copied into new elements of its
-// own: the document is never parsed in a page that could load or navigate,
-// and nothing else of it exists in the popup. It reports a submitted form's
-// fields and Escape to the page.
-function popup({ source, theme, font, origin }) {
+// The popup's frame: srcdoc, sandboxed without allow-scripts, so nothing runs in it,
+// and of the page's origin (allow-same-origin), so the page builds it: the document's
+// text and the elements and attributes below, copied into new elements of the frame's
+// own. DOMParser parses the document, which loads and runs nothing there, and nothing
+// else of it exists in the popup. A form's submit event reaches the page (allow-forms),
+// which takes its fields and stops the submission. Without allow-popups,
+// allow-top-navigation or allow-modals it opens nothing and navigates no other page.
+// The frame has no script or style element, which the page's policy, which a srcdoc
+// frame takes, could refuse.
+const frameSandbox = "allow-same-origin allow-forms";
+function build(frame, { source, theme, font }, answer) {
+  const view = frame.contentWindow, page = frame.contentDocument;
   const shown = new Set(("h1 h2 h3 h4 h5 h6 p br hr div span section article header footer main aside nav " +
     "blockquote pre code kbd samp var em strong b i u s small mark sub sup abbr cite q dfn time data del ins " +
     "figure figcaption address ul ol li dl dt dd table caption colgroup col thead tbody tfoot tr th td " +
@@ -96,7 +101,7 @@ function popup({ source, theme, font, origin }) {
       if (!shown.has(node.localName)) { copy(node, to); continue; }
       const type = node.getAttribute("type")?.toLowerCase();
       if (types[node.localName] && type !== undefined && !types[node.localName].has(type)) continue;
-      const element = document.createElement(node.localName);
+      const element = page.createElement(node.localName);
       for (const name of [...attributes["*"], ...attributes[node.localName] ?? []]) {
         if (node.hasAttribute(name)) element.setAttribute(name, node.getAttribute(name));
       }
@@ -104,29 +109,19 @@ function popup({ source, theme, font, origin }) {
       to.append(element);
     }
   };
-  document.currentScript.remove();
-  copy(new DOMParser().parseFromString(source, "text/html").body, document.body);
-  for (const [name, value] of Object.entries(theme)) document.documentElement.style.setProperty(name, value);
-  if (font) document.fonts.add(new FontFace(theme["--dolly-html-font"].split(",")[0].trim().replace(/^(["'])(.*)\1$/, "$2"),
-    Uint8Array.from(atob(font), character => character.charCodeAt(0))));
-  document.addEventListener("submit", event => {
+  const look = new view.CSSStyleSheet();
+  look.replaceSync(popupStyle);
+  page.adoptedStyleSheets = [look];
+  for (const [name, value] of Object.entries(theme)) page.documentElement.style.setProperty(name, value);
+  if (font) page.fonts.add(new view.FontFace(theme["--dolly-html-font"].split(",")[0].trim().replace(/^(["'])(.*)\1$/, "$2"), font));
+  copy(new DOMParser().parseFromString(source, "text/html").body, page.body);
+  page.addEventListener("submit", event => {
     event.preventDefault();
-    parent.postMessage({ fields: String(new URLSearchParams(new FormData(event.target, event.submitter))) }, origin);
+    const fields = String(new URLSearchParams(new view.FormData(event.target, event.submitter)));
+    if (fields.length <= DOLLY_HTML_FIELDS_MAX) answer(fields);
   });
-  addEventListener("keydown", event => { if (event.key === "Escape") parent.postMessage({ close: true }, origin); });
-  document.querySelector("input:not([type=hidden]), select, textarea, button")?.focus();
-}
-
-// The frame: an opaque origin (no allow-same-origin) that may run the page's
-// script (its nonce) and submit forms to it, and fetches nothing, as its
-// policy says. Without allow-popups, allow-top-navigation or allow-modals it
-// opens nothing and navigates no other page.
-function frameSource({ source, theme, font }) {
-  const nonce = crypto.randomUUID();
-  const policy = `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; form-action 'none'; base-uri 'none'`;
-  const literal = JSON.stringify({ source, theme, font, origin: location.origin }).replaceAll("<", "\\u003c");
-  return `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="${policy}">` +
-    `<style nonce="${nonce}">${popupStyle}</style></head><body><script nonce="${nonce}">(${popup})(${literal})</script></body></html>`;
+  page.addEventListener("keydown", event => { if (event.key === "Escape") answer(null); });
+  page.querySelector("input:not([type=hidden]), select, textarea, button")?.focus();
 }
 
 const pageStyle = `
@@ -141,19 +136,13 @@ const pageStyle = `
   #html-popup iframe { flex: 1; width: 100%; border: 0; }
 `;
 
-// The embedding's font file, as base64, fetched once by the page: the popup fetches nothing.
+// The embedding's font file, fetched once by the page: the popup fetches nothing.
 const fontFiles = new Map();
 function fontFile(style) {
   const location = /^url\(\s*(["']?)(.+)\1\s*\)$/.exec(style.getPropertyValue("--dolly-html-font-file").trim())?.[2];
   if (!location) return null;
   const url = new URL(location, document.baseURI).href;
-  if (!fontFiles.has(url)) fontFiles.set(url, fetch(url).then(response => response.ok ? response.arrayBuffer() : null).then(buffer => {
-    if (!buffer) return null;
-    const bytes = new Uint8Array(buffer);
-    let text = "";
-    for (let offset = 0; offset < bytes.length; offset += 32768) text += String.fromCharCode(...bytes.subarray(offset, offset + 32768));
-    return btoa(text);
-  }).catch(() => null));
+  if (!fontFiles.has(url)) fontFiles.set(url, fetch(url).then(response => response.ok ? response.arrayBuffer() : null).catch(() => null));
   return fontFiles.get(url);
 }
 
@@ -161,7 +150,10 @@ function fontFile(style) {
 // user submits a form of it or closes it (its Close button, or Escape), or
 // the program withdraws it.
 export function browser({ mount, keyboard, send }) {
-  const look = document.head.appendChild(Object.assign(document.createElement("style"), { textContent: pageStyle }));
+  // An adopted style sheet, which a page's style-src without 'unsafe-inline' allows.
+  const look = new CSSStyleSheet();
+  look.replaceSync(pageStyle);
+  document.adoptedStyleSheets = [...document.adoptedStyleSheets, look];
   let shown = null;
   function remove() {
     shown?.element?.remove();
@@ -172,13 +164,6 @@ export function browser({ mount, keyboard, send }) {
     send({ type: "html-answer", popup: shown.popup, fields });
     remove();
   }
-  function received(event) {
-    if (!shown?.frame || event.source !== shown.frame.contentWindow) return;
-    const { fields, close } = event.data ?? {};
-    if (close === true) answer(null);
-    else if (typeof fields === "string" && fields.length <= DOLLY_HTML_FIELDS_MAX) answer(fields);
-  }
-  addEventListener("message", received);
   return {
     messages: {
       async "html-show"({ popup, document: source }) {
@@ -197,8 +182,9 @@ export function browser({ mount, keyboard, send }) {
         element.id = "html-popup";
         element.setAttribute("role", "dialog");
         element.setAttribute("aria-label", "A page a program in Dolly shows");
-        frame.setAttribute("sandbox", "allow-scripts allow-forms");
-        frame.srcdoc = frameSource({ source, theme, font });
+        frame.setAttribute("sandbox", frameSandbox);
+        frame.srcdoc = "<!doctype html>";
+        frame.addEventListener("load", () => { if (shown?.frame === frame) build(frame, { source, theme, font }, answer); }, { once: true });
         close.addEventListener("click", () => answer(null));
         element.addEventListener("keydown", event => { if (event.key === "Escape") answer(null); });
         box.append(close, frame);
@@ -211,7 +197,11 @@ export function browser({ mount, keyboard, send }) {
     },
     // The popup's keys are its own; Ctrl+C there still interrupts the program.
     claimsKey: event => shown?.element?.contains(event.target) ? "interrupt" : false,
-    dispose() { shown?.element?.remove(); shown = null; look.remove(); removeEventListener("message", received); },
+    dispose() {
+      shown?.element?.remove();
+      shown = null;
+      document.adoptedStyleSheets = document.adoptedStyleSheets.filter(sheet => sheet !== look);
+    },
   };
 }
 

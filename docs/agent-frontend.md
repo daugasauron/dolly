@@ -15,7 +15,7 @@ its image. This guide changes its files:
 
 ```
 Dollyfile-my-pi               the sandbox: Pi's instructions, skills, extensions, tools, how Pi starts
-public/index.html             the page: the policy, relays, and the files it writes at boot
+public/main.mjs               the page's script: the policy, relays, and the files it writes at boot
 public/workspace/             the project Pi works on, written into /workspace at each boot
 my-pi/                        the site dolly-build writes, for a static host
 ```

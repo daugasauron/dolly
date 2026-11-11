@@ -5,18 +5,26 @@ import { MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 // directory at IMAGES, or "custom" from CUSTOM, after its missing dependencies,
 // with the builder and HTTP broker of the runtime at RUNTIME and the host
 // modules whose module.json URLs are MODULES; on Dolly's site both directories
-// are the site and the modules every one it builds (host/manifests.mjs). Logs
+// are the site and the modules every one it builds (host/manifests.mjs). With
+// RELAY, a URL prefix of the page's own origin, the broker fetches each remote
+// request it admits from RELAY + scheme/host/path?query instead. Logs
 // through the exposed dollyBuildLog(text), keeps the snapshot's Blob in
 // globalThis.dollySnapshot and returns { inputs, dependenciesBuilt }.
-export async function buildImageInPage(runtime, images, image, custom, modules) {
+export async function buildImageInPage(runtime, images, image, custom, modules, relay) {
+  // What the runtime needs of the browser, said before anything is built.
+  if (!crossOriginIsolated) throw new Error("the build page is not cross-origin isolated");
+  if (!WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 4, 1]))) {
+    throw new Error("this browser has no WebAssembly memory64, which Dolly needs (Chrome 133, Firefox 134 or later)");
+  }
   const log = text => void globalThis.dollyBuildLog(text);
   const [registry, policy, transport, builder, graph] = await Promise.all([
     "src/images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
     "src/image-builder.mjs", "src/image-build.mjs",
   ].map(path => import(new URL(path, runtime).href)));
   await registry.loadImages(images);
+  const remoteFetch = relay && ((url, init) => fetch(`${relay}${url.protocol.slice(0, -1)}/${url.host}${url.pathname}${url.search}`, init));
   const network = { ...transport.localServicesTransport(new policy.DollyHttpPolicy(globalThis.DOLLY_HTTP_POLICY,
-    registry.bootstrapSources(), new URL(images))), site: images };
+    registry.bootstrapSources(), new URL(images)), {}, remoteFetch), site: images };
   modules ??= (await import(new URL("host/manifests.mjs", runtime).href)).hostModuleUrls;
   const build = (name, artifacts) => builder.buildImage(name, artifacts, { http: { network } }, log,
     { modules, customSource: name === "custom" ? custom : undefined });
@@ -39,8 +47,13 @@ export async function savePageSnapshot(page, output) {
   const file = await open(output, "wx");
   try {
     for (let offset = 0; offset < length; offset += piece) {
-      const bytes = Buffer.from(await page.evaluate(async ([offset, piece]) =>
-        new Uint8Array(await globalThis.dollySnapshot.slice(offset, offset + piece).arrayBuffer()).toBase64(), [offset, piece]), "base64");
+      // A data URL's base64, which every browser the runtime runs in makes.
+      const bytes = Buffer.from(await page.evaluate(([offset, piece]) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.slice(reader.result.indexOf(",") + 1));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(globalThis.dollySnapshot.slice(offset, offset + piece));
+      }), [offset, piece]), "base64");
       await file.write(bytes, 0, bytes.length, offset);
     }
   } catch (error) {

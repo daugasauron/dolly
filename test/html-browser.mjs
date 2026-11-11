@@ -81,7 +81,11 @@ await browserTest("html", { image: "system", timeout: 300_000 }, async ({ name, 
     const box = document.querySelector("#terminal").getBoundingClientRect(), { left, top, right, bottom } = element.getBoundingClientRect();
     return left >= box.left && top >= box.top && right <= box.right && bottom <= box.bottom;
   }), "the popup lies inside boot()'s element");
-  assert.equal(await frame.locator("body").evaluate(() => origin), "null", "the popup's origin is opaque");
+  // Nothing runs in the popup: not the document's script, nor one put into its frame.
+  assert.equal(await frame.locator("body").evaluate(body => {
+    body.append(Object.assign(body.ownerDocument.createElement("script"), { textContent: "document.title = 'ran'" }));
+    return body.ownerDocument.title;
+  }), "", "a script in the popup ran");
   await frame.getByText("No script ran.").waitFor();
   assert.equal(await colour("h1"), "rgb(1, 2, 3)", "the page's style, not the program's");
   assert.equal(await frame.locator("body").evaluate(body => getComputedStyle(body.parentElement).backgroundColor),

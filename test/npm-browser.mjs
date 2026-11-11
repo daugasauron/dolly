@@ -25,14 +25,17 @@
 //   building the image.
 // - python-data as its package's README has it: installed as the README says, its
 //   page runs NumPy, pandas and Matplotlib, and a recipe of the project's own on the
-//   README's FROM row, whose build runs Python with them, boots with its result.
+//   README's FROM row, whose build runs Python with them and pip installs a wheel
+//   from an index that sends no CORS headers and redirects once, boots with its
+//   result; built again with HTTP_PROXY set, the build reaches the index through
+//   that proxy.
 // Usage: node test/npm-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { execFile, execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createSocket } from "node:dgram";
 import { createServer } from "node:http";
-import { createServer as createTcpServer } from "node:net";
+import { connect, createServer as createTcpServer } from "node:net";
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, join, resolve } from "node:path";
@@ -245,6 +248,35 @@ try {
   // the guide's importing the site's runtime and image.
   const dataReadme = execFileSync("tar", ["-xzOf", join(process.env.DOLLY_NPM_OFFLINE,
     published.get("@daugasauron/dolly-image-python-data").file), "package/README.md"], { encoding: "utf8" });
+  // A package index of the test's own: no CORS headers, a project page one redirect
+  // away, and the wheel it names, built here; and a proxy before it, as a CI runner's.
+  const wheel = join(work, "dolly_sample-1.0-py3-none-any.whl");
+  execFileSync("python3", ["-I", "-c", `import sys, zipfile
+info = "dolly_sample-1.0.dist-info/"
+with zipfile.ZipFile(sys.argv[1], "w") as wheel:
+    wheel.writestr("dolly_sample/__init__.py", "VALUE = 'DOLLY-SAMPLE'\\n")
+    wheel.writestr(info + "METADATA", "Metadata-Version: 2.1\\nName: dolly-sample\\nVersion: 1.0\\n")
+    wheel.writestr(info + "WHEEL", "Wheel-Version: 1.0\\nGenerator: dolly\\nRoot-Is-Purelib: true\\nTag: py3-none-any\\n")
+    wheel.writestr(info + "RECORD", "".join(name + ",,\\n" for name in ["dolly_sample/__init__.py", info + "METADATA", info + "WHEEL", info + "RECORD"]))`, wheel]);
+  const wheelBytes = await readFile(wheel), indexed = [], proxied = [];
+  const index = await listen(createServer((request, response) => {
+    indexed.push(request.url);
+    if (request.url === "/simple/dolly-sample/") return response.writeHead(302, { location: "/project/dolly-sample/" }).end();
+    if (request.url === "/project/dolly-sample/") return response.writeHead(200, { "content-type": "text/html" }).end(
+      `<a href="/files/dolly_sample-1.0-py3-none-any.whl#sha256=${createHash("sha256").update(wheelBytes).digest("hex")}">wheel</a>`);
+    if (request.url === "/files/dolly_sample-1.0-py3-none-any.whl") return response.writeHead(200).end(wheelBytes);
+    response.writeHead(404).end();
+  }));
+  const indexProxy = await listen(createServer().on("connect", (request, socket) => {
+    proxied.push(request.url);
+    const [host, port] = request.url.split(":"), upstream = connect(Number(port), host, () => {
+      socket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+      upstream.pipe(socket).on("error", () => {});
+      socket.pipe(upstream);
+    });
+    for (const end of [upstream, socket]) end.on("error", () => { upstream.destroy(); socket.destroy(); });
+  }));
+  servers.push(index, indexProxy);
   const dataApp = join(work, "data-app");
   await mkdir(join(dataApp, "public"), { recursive: true });
   await npm(dataApp, "npm init --yes");
@@ -253,6 +285,8 @@ try {
     ...declared("python-data").map(host => `REQUIRES HOST ${host}`), /^FROM .*$/m.exec(dataReadme)[0],
     "FILE /home/dolly/mean.py", "    import numpy, pandas", "    print('MEAN', pandas.Series(numpy.arange(10)).mean())",
     "SLOP python /home/dolly/mean.py > /home/dolly/mean.txt", "FILE /home/dolly/mean.txt",
+    `SLOP pip install --disable-pip-version-check --no-cache-dir --index-url ${origin(index)}/simple/ --trusted-host 127.0.0.1 dolly-sample`,
+    "SLOP python -c 'import dolly_sample; print(dolly_sample.VALUE)' > /home/dolly/sample.txt", "FILE /home/dolly/sample.txt",
     "ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop", ""].join("\n"));
   await writeFile(join(dataApp, "index.html"), page.replace("./node_modules/@daugasauron/dolly-image-default/index.mjs",
     "./node_modules/@daugasauron/dolly-image-python-data/index.mjs"));
@@ -404,6 +438,14 @@ try {
       await dollyBuild(dataApp, "npx dolly-build Dollyfile-my-data my-data", name);
       const mine = await newPage(), own = await booted(mine, `${origin(dataSite)}/`);
       assert.equal(await own("grep -qx 'MEAN 4.5' /home/dolly/mean.txt && python /home/dolly/mean.py | grep -qx 'MEAN 4.5'"), 0);
+      assert.equal(await own("grep -qx DOLLY-SAMPLE /home/dolly/sample.txt"), 0);
+      assert.ok(["/simple/dolly-sample/", "/project/dolly-sample/", "/files/dolly_sample-1.0-py3-none-any.whl"]
+        .every(path => indexed.includes(path)), `the index served ${indexed}`);
+      // Built again into a site of its own, through the proxy HTTP_PROXY names.
+      proxied.length = 0;
+      await promisify(execFile)("sh", ["-c", `npx dolly-build Dollyfile-my-data my-data-proxied-${name} --browser ${name === "chromium" ? "chrome" : name}`],
+        { cwd: dataApp, env: { ...environment, HTTP_PROXY: origin(indexProxy) } });
+      assert.ok(proxied.includes(`127.0.0.1:${index.address().port}`), `the build's proxy saw ${proxied}`);
       console.log(`npm packages: ${name} passed in ${((performance.now() - started) / 1000).toFixed(1)}s`);
     } finally { await browser.close(); }
   }

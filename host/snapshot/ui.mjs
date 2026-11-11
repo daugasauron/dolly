@@ -11,7 +11,8 @@ import {
   validSessionName,
 } from "../../src/session-store.mjs";
 
-const markup = `<style>
+// An adopted style sheet, which a page's style-src without 'unsafe-inline' allows.
+const style = `
   #session-open { position: absolute; right: 0.5rem; bottom: 0.35rem; z-index: 6;
     padding: 0.15rem 0.45rem; color: inherit; background: #262626;
     border: 1px solid #77736c; font: inherit; font-size: 13px; cursor: pointer; }
@@ -29,8 +30,8 @@ const markup = `<style>
   #session-dialog a { color: #f2d45c; }
   #session-dialog nav { display: flex; gap: 0.6rem; align-items: center; margin-top: 1rem; }
   #session-dialog nav a { margin-right: auto; font-size: 14px; }
-</style>
-<button id="session-open" class="page-indicator" type="button" aria-label="Save session" title="Save session (Ctrl+Shift+S)" hidden>Save</button>
+`;
+const markup = `<button id="session-open" class="page-indicator" type="button" aria-label="Save session" title="Save session (Ctrl+Shift+S)" hidden>Save</button>
 <dialog id="session-dialog" aria-labelledby="session-title">
   <form id="session-form">
     <h2 id="session-title">Save session</h2>
@@ -55,6 +56,9 @@ const markup = `<style>
 // (the site's session route, or ?session= on a page of one's own), and on a
 // page with a site the dialog links the site's list of saves.
 export function mountSessionSave({ mount, keyboard, showStatus, site, indicators }, transport, restored) {
+  const look = new CSSStyleSheet();
+  look.replaceSync(style);
+  document.adoptedStyleSheets = [...document.adoptedStyleSheets, look];
   mount.insertAdjacentHTML("beforeend", markup);
   const button = document.querySelector("#session-open");
   const dialog = document.querySelector("#session-dialog");

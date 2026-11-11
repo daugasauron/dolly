@@ -6,7 +6,8 @@
 // holds the lease no finger is the pointer; without a holder a finger still
 // scrolls the terminal and two change its font. A process beside the
 // foreground program is refused. On a phone (Chromium's Pixel 7) the terminal
-// fits 48 columns and the page's Paste button reads the clipboard.
+// fits 48 columns and the page's Paste button reads the clipboard; beside a fine
+// pointer, as on a laptop with a touchscreen, there is no Paste.
 // Usage: node test/touch-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { devices } from "playwright-core";
@@ -234,3 +235,14 @@ async function phone(open, server) {
   await refused.page.waitForFunction(() => /Paste refused/.test(document.querySelector("#session-status").textContent));
   assert.deepEqual(refused.errors, []);
 }
+
+// A laptop whose touchscreen is its primary pointer still has its touchpad, and Ctrl+V: no
+// Paste. Firefox emulates one by its pointer preferences (1 coarse, 2 fine, 4 hover);
+// Chromium's emulation knows touch-only devices alone, so there it is a mouse.
+await browserTest("touch: no Paste beside a fine pointer", { image: "default",
+  launch: { firefox: { "ui.primaryPointerCapabilities": 1, "ui.allPointerCapabilities": 7 } } }, async ({ name, open }) => {
+  const { page } = await open();
+  assert.equal(await page.evaluate(() => matchMedia("(pointer: coarse)").matches), name === "firefox");
+  assert.equal(await page.locator("#paste").evaluate(button => button.hidden), true);
+  assert.equal(await page.locator("#buttons").isHidden(), true);
+});

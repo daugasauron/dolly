@@ -122,10 +122,12 @@ export function chooseUploadFile(mount, controller) {
     if (signal.aborted) { resolve(null); return; }
     const dialog = document.createElement("dialog");
     dialog.id = "file-upload";
-    dialog.innerHTML = `<style>#file-upload { color: #e8e3d7; background: #262626; border: 1px solid #77736c;
+    // An adopted style sheet, which a page's style-src without 'unsafe-inline' allows.
+    const look = new CSSStyleSheet();
+    look.replaceSync(`#file-upload { color: #e8e3d7; background: #262626; border: 1px solid #77736c;
         max-width: calc(100vw - 2rem); font: inherit; } #file-upload::backdrop { background: #0008; }
-      #file-upload input, #file-upload button { font: inherit; }</style>
-      <form method="dialog"><p>Upload one file into Dolly</p>
+      #file-upload input, #file-upload button { font: inherit; }`);
+    dialog.innerHTML = `<form method="dialog"><p>Upload one file into Dolly</p>
       <p>Up to ${DOLLY_UPLOAD_MAX_SIZE / 1073741824} GiB. Only the file you choose enters the sandbox.</p>
       <input type="file" aria-label="Choose file to upload"><progress hidden></progress>
       <output></output><button>Cancel</button></form>`;
@@ -144,7 +146,13 @@ export function chooseUploadFile(mount, controller) {
       showUploadProgress(0, file.size);
       resolve(file);
     });
-    signal.addEventListener("abort", () => { dialog.close(); dialog.remove(); resolve(null); }, { once: true });
+    signal.addEventListener("abort", () => {
+      dialog.close();
+      dialog.remove();
+      document.adoptedStyleSheets = document.adoptedStyleSheets.filter(sheet => sheet !== look);
+      resolve(null);
+    }, { once: true });
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, look];
     mount.append(dialog);
     if (document.pointerLockElement) document.exitPointerLock();
     dialog.showModal();

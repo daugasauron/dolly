@@ -22,9 +22,23 @@ The owner, 2026-11-11 07:25 JST:
 > I think the problem was pip went through some proxy that didnt accept CORS, so netwoprk security
 > had to be turned off in playwright/chromium to run the build
 
-## State (2026-11-11)
+## State (2026-11-11, evening)
 
-Investigated, not fixed. Two faults pinned the build between browser versions: one needs an old
+Fixed on `fix/npm-feedback`, not yet run from packed packages: `dolly-build`'s page sends each
+remote request its broker admits to a relay on `dolly-build`'s server, which fetches it in Node
+(redirects followed); the build admits any host, as Dolly's site does for a session, and logs each
+host once; its browser reaches only `dolly-build`. With `HTTPS_PROXY` or `HTTP_PROXY` set it runs
+itself again with `NODE_USE_ENV_PROXY`, without which Node 22.22 ignores them (measured with a
+local proxy). The snapshot leaves the page as a FileReader's data URL; the build page checks for
+memory64 first. `npm run image` keeps the catalog to its pinned sources (the site's release
+reproduces). `docs/embedding.md` and `docs/dollyfile.md` say it, with a CI section.
+`test/npm-browser.mjs`'s python-data recipe pip installs a wheel from the test's index (no CORS
+headers, one redirect) and builds again through a proxy `HTTP_PROXY` names. Left: that test on
+the reconcile round's packages.
+
+What was found:
+
+Two faults pinned the build between browser versions: one needs an old
 enough browser, the other a new enough one.
 
 1. **A build may fetch only its recipes' SOURCE rows.** `dolly-build` runs the build in a
@@ -48,30 +62,8 @@ enough browser, the other a new enough one.
    Chromium runs to the end and then fails. Nothing states which browsers a build needs.
 
 Reflection: a build should need nothing of the browser beyond what the runtime itself needs, and
-no switch at all. And a recipe's ordinary steps, `pip install x y z` among them, should work as
-they do in a session. A recipe still grants itself nothing (`docs/dollyfile.md`): the builder,
-which is the build's embedding, grants the network. Fix, decided:
-
-- Every builder lets a build's steps fetch over HTTPS as a session's programs do: `dolly-build`
-  and `npm run image` admit GET and HEAD to any HTTPS origin beside the SOURCE rows, and the
-  site's `/custom/` builder keeps its page's policy. Each origin a build reaches is logged once.
-- `dolly-build` and `npm run image` give their pages a relay of their own (the broker's existing
-  `relays`, `docs/http.md`, "CORS and relays"), on the page's origin. Node fetches only what the
-  page's broker authorized, so CORS and redirects no longer matter, in any browser, with no flags.
-  The relay reaches the network as the machine does: through the environment's proxy where
-  `HTTPS_PROXY` (and `NO_PROXY`) say so, as a CI runner's often do, and pip's own index settings
-  (`PIP_INDEX_URL` in the recipe) name a mirror as on any machine.
-- What a step fetches is not part of an image's identity: the same recipe reuses its built image,
-  and another machine may fetch newer releases. `docs/dollyfile.md` says so; pinning versions
-  (`pip install x==1.2`) or SOURCE rows is how a recipe keeps its bytes.
-- The snapshot copy uses nothing newer than the runtime's own floor (a FileReader data URL, or
-  `btoa` over pieces), and `docs/embedding.md` names the oldest Chrome and Firefox a build and a
-  page support (the floor is at least memory64's: Chrome 133, Firefox 134); `dolly-build` checks
-  the browser's version first and says what it needs.
-- `docs/embedding.md`, "Your own image", gets a CI section: Playwright's image at
-  `playwright-core`'s version, `--browser chromium`, no browser flags, the network a build has,
-  and Python packages (`SLOP pip install`, or the packages Dolly builds, as
-  [Data Pi](../../demos/pi/data-pi/README.md) INSTALLs NumPy, pandas and Matplotlib).
+no switch at all; a recipe's ordinary steps, `pip install x y z` among them, should work as they
+do in a session. A recipe still grants itself nothing: the builder, the build's embedding, does.
 
 Done when a test builds, with `dolly-build` in Playwright's Chromium and in Firefox and no browser
 flags, a recipe whose `SLOP pip install` takes a package from a local index that sends no CORS
