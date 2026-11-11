@@ -290,7 +290,7 @@ nothing and declares nothing: any program built for Dolly runs on one.
   with `EIO`, as on Linux, once every descriptor of the slave is closed and its
   output is read.
 - The supervisor delivers these signals as it delivers a kill
-  ([`dolly-pty-supervisor-0.wat`](../host/pty/dolly-pty-supervisor-0.wat)):
+  (`dolly_process_take_raised`, [`dolly-supervisor-0.wat`](../abi/dolly-supervisor-0.wat)):
   a program that does not answer `SIGINT` or `SIGHUP` within 500 ms is ended,
   unless it ignores the signal.
 - The kernel holds at most 32 pseudo-terminals; one more fails with `ENFILE`.

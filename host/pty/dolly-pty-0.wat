@@ -24,7 +24,7 @@
   ;; descriptor of the master is SIGHUP to the processes holding the slave,
   ;; end of file to their reads and EIO to their writes. The supervisor
   ;; delivers a pseudo-terminal's signals as it delivers a kill
-  ;; (dolly-pty-supervisor-0.wat): a program that does not answer SIGINT or
+  ;; (dolly_process_take_raised, abi/dolly-supervisor-0.wat): a program that does not answer SIGINT or
   ;; SIGHUP within the grace is ended.
   ;;
   ;; Every request is a dolly_pty_request (pty.h).
