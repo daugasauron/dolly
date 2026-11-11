@@ -119,6 +119,7 @@ function build(frame, { source, theme, font }, answer) {
     event.preventDefault();
     const fields = String(new URLSearchParams(new view.FormData(event.target, event.submitter)));
     if (fields.length <= DOLLY_HTML_FIELDS_MAX) answer(fields);
+    else answer.tooLarge();
   });
   page.addEventListener("keydown", event => { if (event.key === "Escape") answer(null); });
   page.querySelector("input:not([type=hidden]), select, textarea, button")?.focus();
@@ -134,6 +135,8 @@ const pageStyle = `
     color: var(--dolly-color, ${themeProperties["--dolly-color"]}); background: transparent;
     border: 1px solid currentColor; font: 14px/1.5 var(--dolly-html-font, ${themeProperties["--dolly-html-font"]}); cursor: pointer; }
   #html-popup iframe { flex: 1; width: 100%; border: 0; }
+  #html-popup .html-popup-caption { margin: 0.3rem 0.6rem 0; font-size: 0.8rem; opacity: 0.75; }
+  #html-popup .html-popup-notice { margin: 0 0.6rem 0.3rem; color: #ff9b84; }
 `;
 
 // The embedding's font file, fetched once by the page: the popup fetches nothing.
@@ -178,16 +181,26 @@ export function browser({ mount, keyboard, send }) {
         if (shown?.popup !== popup) return;
         const element = document.createElement("div"), box = document.createElement("div");
         const close = Object.assign(document.createElement("button"), { type: "button", textContent: "Close" });
+        // What the page says itself, outside the program's frame: whose page it is, and
+        // why an answer did not go.
+        const caption = Object.assign(document.createElement("p"), { className: "html-popup-caption",
+          textContent: "A page a program in Dolly shows" });
+        const notice = Object.assign(document.createElement("p"), { className: "html-popup-notice", hidden: true });
+        notice.setAttribute("role", "alert");
         const frame = Object.assign(document.createElement("iframe"), { title: "A page a program in Dolly shows" });
         element.id = "html-popup";
         element.setAttribute("role", "dialog");
         element.setAttribute("aria-label", "A page a program in Dolly shows");
         frame.setAttribute("sandbox", frameSandbox);
         frame.srcdoc = "<!doctype html>";
-        frame.addEventListener("load", () => { if (shown?.frame === frame) build(frame, { source, theme, font }, answer); }, { once: true });
+        const reply = Object.assign(fields => answer(fields), { tooLarge() {
+          notice.textContent = `This answer is over ${DOLLY_HTML_FIELDS_MAX / 1024} KiB, more than a program takes: shorten it.`;
+          notice.hidden = false;
+        } });
+        frame.addEventListener("load", () => { if (shown?.frame === frame) build(frame, { source, theme, font }, reply); }, { once: true });
         close.addEventListener("click", () => answer(null));
         element.addEventListener("keydown", event => { if (event.key === "Escape") answer(null); });
-        box.append(close, frame);
+        box.append(caption, close, notice, frame);
         element.append(box);
         shown = { popup, element, frame };
         mount.append(element);
