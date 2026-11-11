@@ -10,14 +10,16 @@
     main { max-width: 1240px; margin: auto; padding: 32px 24px; }
     a { color: inherit; text-underline-offset: 4px; }
     a:focus-visible, video:focus-visible { outline: 2px solid white; outline-offset: 5px; }
-    h1 { font-size: 28px; margin: 16px 0 24px; }
-    h2 { font-size: 18px; margin: 0 0 6px; }
+    h1 { font-size: 28px; margin: 16px 0 8px; }
+    h2 { font-size: 20px; margin: 40px 0 8px; }
+    h3 { font-size: 17px; margin: 0 0 6px; }
     p { color: #bbb; margin: 0 0 10px; }
+    p.lead { max-width: 75ch; margin-bottom: 16px; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
     article { border: 1px solid #484848; border-radius: 8px; overflow: hidden; }
     article div { padding: 16px 18px; }
     video { width: 100%; aspect-ratio: 16/9; background: black; display: block; }
-    footer { color: #aaa; font-size: 13px; margin-top: 24px; }
+    footer { color: #aaa; font-size: 13px; margin-top: 32px; }
     @media (max-width: 780px) { .grid { grid-template-columns: 1fr; } main { padding: 20px 16px; } }
   </style>
 </head>
@@ -25,18 +27,282 @@
 <main>
   <a href="../">← Dolly</a>
   <h1>Demos</h1>
+  <p class="lead">Dolly in Chrome: Godot playing one of its demos on the GPU, recorded on 8 November 2026, and
+    Claude Opus 5.5 at high effort working in Dolly, recorded on 1 and 2 November 2026. Each video's caption bar
+    names its speed-ups.</p>
+  <h2>Godot: its Forward+ renderer on WebGPU</h2>
+  <p class="lead">Godot 4.7, built inside Dolly from its release, draws through gpu@0, Dolly's interface to the
+    browser's WebGPU. A script installs Truck Town with amy, starts it and drives.</p>
+  <div class="grid">
+    <article>
+      <video controls playsinline preload="none" poster="posters/truck-town.jpg" aria-label="Truck Town recording"><source src="videos/truck-town.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Truck Town</h3>
+        <p>Godot's vehicle physics demo: the minivan, the semi-truck and the tow truck with its impound, by day, at sunset, at night and at sunrise, from behind, above and the driver's seat · 1:36</p>
+      </div>
+    </article>
+  </div>
+  <h2><a href="../dollyfile-studio/">Dollyfile Studio</a>: one prompt, a working image</h2>
+  <p class="lead">Each take: Studio opens in a tab, the API key goes in at a hidden prompt, and Opus gets one prompt. It writes the program and its Dollyfile, tests it, builds the image in the browser, and the image opens in a new tab.</p>
+  <div class="grid">
+    <article>
+      <video controls playsinline preload="none" poster="posters/crystal-glide.jpg" aria-label="Crystal Glide recording"><source src="videos/crystal-glide.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Crystal Glide</h3>
+        <p>3D glider game over a generated archipelago; the recipe is saved and a fresh browser rebuilds it · 3:37</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/falling-sand.jpg" aria-label="Falling sand recording"><source src="videos/falling-sand.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Falling sand</h3>
+        <p>Ten materials; attract mode paints a volcano into a lake and a forest fire · 3:07</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/tracer.jpg" aria-label="Path tracer recording"><source src="videos/tracer.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Path tracer</h3>
+        <p>Glass, gold and a mirror, refining at about 30 passes a second on four threads · 2:27</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/fractal.jpg" aria-label="Fractal explorer recording"><source src="videos/fractal.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Fractal explorer</h3>
+        <p>Mandelbrot and Julia, a deep zoom into Seahorse Valley · 3:16</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/rubik.jpg" aria-label="Rubik's cube recording"><source src="videos/rubik.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Rubik's cube</h3>
+        <p>Scrambles and solves itself with a solver Opus wrote · 2:42</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/physics.jpg" aria-label="Physics playground recording"><source src="videos/physics.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Physics playground</h3>
+        <p>Box3D towers and walls knocked down by volleys of balls · 2:52</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/roguelike.jpg" aria-label="Depths, a roguelike recording"><source src="videos/roguelike.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Depths, a roguelike</h3>
+        <p>Terminal dungeon crawler with a bot that explores, fights and descends · 2:58</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/go-blocks.jpg" aria-label="Blocks, in Go recording"><source src="videos/go-blocks.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Blocks, in Go</h3>
+        <p>Terminal Tetris with a bot; 134 lines and level 14 while testing · 3:26</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/maze.jpg" aria-label="Maze generator and solver recording"><source src="videos/maze.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Maze generator and solver</h3>
+        <p>A glowing head carves a maze, then A* searches it with its open and closed sets in colour · 2:23</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/orbits.jpg" aria-label="Orbits recording"><source src="videos/orbits.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Orbits</h3>
+        <p>A symplectic N-body sandbox; the figure-eight three-body orbit, energy held to 2e-12 · 2:29</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/raycaster.jpg" aria-label="Raycaster recording"><source src="videos/raycaster.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Raycaster</h3>
+        <p>First-person maze with procedural textures, sliding doors and a minimap; the autopilot walks it · 2:37</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/voxels.jpg" aria-label="Voxel flyover recording"><source src="videos/voxels.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Voxel flyover</h3>
+        <p>An endless landscape drawn column by column with its own y-buffer renderer; the autopilot follows the valleys · 2:44</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/aquarium.jpg" aria-label="Aquarium, in Python recording"><source src="videos/aquarium.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Aquarium, in Python</h3>
+        <p>Flocking fish, seaweed, bubbles and a crab in the terminal · 3:00</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/city.jpg" aria-label="Night city recording"><source src="videos/city.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Night city</h3>
+        <p>A procedural city with signalled junctions and 244 cars; the attract mode weaves between the towers and follows traffic · 2:46</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/lgarden.jpg" aria-label="L-system garden recording"><source src="videos/lgarden.mp4" type="video/mp4"></video>
+      <div>
+        <h3>L-system garden</h3>
+        <p>Trees, bushes, ferns and flowers grown from their own grammars, swaying in the wind through blossom, summer, autumn and snow · 2:20</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/intro.jpg" aria-label="Demoscene intro recording"><source src="videos/intro.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Demoscene intro</h3>
+        <p>Plasma, tunnel, rotozoomer, fire, starfield and a shaded torus on the beat, with a sine scroller, every pixel by the CPU · 2:15</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/murmur.jpg" aria-label="Starling murmuration recording"><source src="videos/murmur.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Starling murmuration</h3>
+        <p>2,500 birds, each steering by its seven nearest neighbours; a falcon dives and the flock splits and rejoins. Opus tuned the forces for 40 minutes until its self-test passed · 2:35</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/ocean.jpg" aria-label="Ocean at sunset recording"><source src="videos/ocean.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Ocean at sunset</h3>
+        <p>Gerstner waves with whitecaps, a sailing boat that floats on them, gulls and the sun's glitter path; the camera follows the boat as the wind rises · 2:50</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/lenia.jpg" aria-label="Lenia recording"><source src="videos/lenia.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Lenia</h3>
+        <p>A continuous cellular automaton with an FFT convolution: Orbium gliders and other known creatures; its search for creatures in random soups found none · 2:37</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/galaxies.jpg" aria-label="Galaxy collision recording"><source src="videos/galaxies.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Galaxy collision</h3>
+        <p>Two disc galaxies with dark-matter halos on a Barnes-Hut tree: they fall together, fling out tidal tails and merge · 2:39</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/towers.jpg" aria-label="Tower defense recording"><source src="videos/towers.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Tower defense</h3>
+        <p>An original tower defense with an AI player that plans where to build; Opus tuned the waves until its AI lost near wave 30 · 2:38</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/fluid.jpg" aria-label="Smoke and dye recording"><source src="videos/fluid.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Smoke and dye</h3>
+        <p>An incompressible fluid with a multigrid-preconditioned pressure solve: vortex streets behind a cylinder, a wing and pegs · 2:24</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/ants.jpg" aria-label="Ant colonies recording"><source src="videos/ants.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Ant colonies</h3>
+        <p>Two rival colonies forage by pheromone; trails form, straighten toward the shortest path and switch as food runs out · 2:19</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/cloth.jpg" aria-label="Cloth recording"><source src="videos/cloth.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Cloth</h3>
+        <p>Verlet cloth with bending and tearing: flags rip in a gale, a curtain billows, a tablecloth drapes; the self-test made Opus add substeps, tethers and friction · 2:33</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/planet.jpg" aria-label="Procedural planet recording"><source src="videos/planet.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Procedural planet</h3>
+        <p>Continents, biomes, drifting clouds, an atmosphere glow, city lights on the night side and a moon, ray-cast on the CPU · 2:25</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/erosion.jpg" aria-label="Erosion recording"><source src="videos/erosion.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Erosion</h3>
+        <p>Rain carves a mountain range: droplet and thermal erosion form valleys, rivers, lakes and sand fans, with material conserved · 2:14</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/fireworks.jpg" aria-label="Harbour fireworks recording"><source src="videos/fireworks.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Harbour fireworks</h3>
+        <p>A choreographed show of six burst types over a night harbour; Opus probed raylib's software renderer to work around its blending · 2:24</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/turing.jpg" aria-label="Reaction-diffusion recording"><source src="videos/turing.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Reaction-diffusion</h3>
+        <p>Gray-Scott patterns that morph from dividing spots to labyrinths and stripes; Opus measured each preset's pattern before testing for it · 2:18</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/bulb.jpg" aria-label="Mandelbulb flight recording"><source src="videos/bulb.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Mandelbulb flight</h3>
+        <p>A CPU ray marcher on four threads; Opus caught its distance estimator overshooting the surface before the flight dives into the bulb · 2:10</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/sorts.jpg" aria-label="Sorting race recording"><source src="videos/sorts.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Sorting race</h3>
+        <p>Eight algorithms race on the same input, comparisons and writes counted; a deliberately broken sort fails the self-test · 1:57</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/clock.jpg" aria-label="Skeleton clock recording"><source src="videos/clock.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Skeleton clock</h3>
+        <p>A gear train with real tooth counts, a pendulum and a deadbeat escapement; the tour follows it to the hands · 2:17</p>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/rain.jpg" aria-label="Rain on a window recording"><source src="videos/rain.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Rain on a window</h3>
+        <p>Drops land, merge and slide down the glass, each lensing the night city behind it, as the rain builds to a downpour · 2:12</p>
+      </div>
+    </article>
+  </div>
+  <h2><a href="../classicube/">ClassiCube</a>: playing through screenshots, keyboard and mouse</h2>
+  <div class="grid">
+    <article>
+      <video controls playsinline preload="none" poster="posters/classicube-heart.jpg" aria-label="A pixel-art heart recording"><source src="videos/classicube-heart.mp4" type="video/mp4"></video>
+      <div>
+        <h3>A pixel-art heart</h3>
+        <p>Flies over the island, calibrates its moves, lays a 9 by 8 heart row by row and shows it from the air · 2:12</p>
+      </div>
+    </article>
+  </div>
+  <h2><a href="../bhop/">Airtime</a>: bunnyhopping through screenshots, keyboard, mouse and wheel</h2>
+  <div class="grid">
+    <article>
+      <video controls playsinline preload="none" poster="posters/bhop.jpg" aria-label="Learning to bunnyhop recording"><source src="videos/bhop.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Learning to bunnyhop</h3>
+        <p>Opus plans each try as 10 ms input ticks, learns to scroll-jump on landing and chains hops up to 314 units/s, faster than running; it never cleared pad 3 of 32 · 1:13</p>
+      </div>
+    </article>
+  </div>
+  <h2>Earlier recordings</h2>
   <div class="grid">
     <article>
       <video controls playsinline preload="none" poster="posters/studio.png" aria-label="Dollyfile Studio recording"><source src="videos/dollyfile-studio.mp4" type="video/mp4"></video>
       <div>
-        <h2><a href="../dollyfile-studio/">Dollyfile Studio</a></h2>
+        <h3>Dollyfile Studio</h3>
         <p>A visitor signs in to OpenRouter and picks a model; the agent writes a 3D game and its Dollyfile, builds it in the browser, fixes the errors and saves the recipe. A fresh browser rebuilds the same game from that file on Run a Dollyfile.</p>
       </div>
     </article>
     <article>
-      <video controls playsinline preload="none" poster="posters/rts.png" aria-label="RTS Arena recording"><source src="videos/rts-arena.mp4" type="video/mp4"></video>
+      <video controls playsinline preload="none" poster="posters/rts.png" aria-label="<a href="../rts-arena/">RTS Arena</a> recording"><source src="videos/rts-arena.mp4" type="video/mp4"></video>
       <div>
-        <h2><a href="../rts-arena/">RTS Arena</a></h2>
+        <h3><a href="../rts-arena/">RTS Arena</a></h3>
         <p>Two agents play Seven Kingdoms against each other from screenshots, each commanding its own kingdom.</p>
       </div>
     </article>
