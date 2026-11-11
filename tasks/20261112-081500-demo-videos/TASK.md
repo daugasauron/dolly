@@ -10,13 +10,10 @@ image). Make sure they are not forgotten to be included in the release."
 
 ## State (2026-11-12)
 
-Filed. The Wine video is being recorded; the Godot one waits for `20261112-075500-godot-bhop`.
-
-Found: the release's demos page is `sites/slopshare.dev/agents/` (copied by
-`scripts/package-domain.mjs`), which holds two videos in git (Dollyfile Studio, RTS Arena). v0.1.5's
-34 videos (`work/videos-2026-11-01/site-agents/`, 468 MB) were added to the deployed v0.1.5 in
-place, and Truck Town (`work/videos-2026-11-08/cuts/`, `site-agents-preview/`) was never released.
-So a 0.1.6 packaged as today would show two videos.
+Owner (2026-11-12): "Just add all the videos to git ?" Done in `92d7d3aa4`:
+`sites/slopshare.dev/agents/` is v0.1.5's page (34 videos, deployed in place then) with the Truck
+Town section, 37 videos, every file within Pages' 25 MiB (`test/site-release.test.mjs` passes). The
+Wine video is being recorded; the Godot one waits for `20261112-075500-godot-bhop`.
 
 ## Do
 
@@ -24,9 +21,7 @@ So a 0.1.6 packaged as today would show two videos.
   `x86emu`, and run.
 - Video 2: the Godot Airtime of `20261112-075500-godot-bhop` made in Godot's editor in Dolly and
   becoming the image, then played.
-- The page and packaging take every video: the v0.1.5 set, Truck Town and these two, from one
-  place outside git with each file pinned by SHA-256 in git, checked by `package-domain.mjs` (each
-  file within Pages' 25 MiB, as `test/site-release.test.mjs` checks).
+- Both go into `sites/slopshare.dev/agents/` (video, poster, a section) in git.
 
 ## Done when
 
