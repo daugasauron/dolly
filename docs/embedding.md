@@ -182,8 +182,10 @@ npx dolly-build Dollyfile-my-pi my-pi
   brings `cc`), `SLOP` to run the image's tools at build time. `FROM` carries the
   base's files, environment and exports but not its host modules or `ENTRY`, so the
   recipe repeats those; a package's `REQUIRES HOST` rows must be among the recipe's,
-  and the build names a missing one. A recipe is at most 128 KiB; `/workspace` is
-  never part of an image (`boot()`'s `files` writes the project at each boot).
+  and the build names a missing one. A recipe is at most 128 KiB. A `FILE` under
+  `/workspace` is part of the image, as Pi's `AGENTS.md` there is read when Pi
+  starts; `boot()`'s `files` (`public/workspace/`) are written over it at each
+  fresh boot.
 - `dolly-build Dollyfile-NAME OUT` writes the site `OUT`, replacing the one it
   wrote there before: the files of `public/`, `workspace.json` (the files under
   `public/workspace/`), the runtime (`dolly/`), the device host modules the recipe

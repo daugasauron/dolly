@@ -306,7 +306,7 @@ Wasm cannot reach the handle. A process can publish any status, so the one
   against the digest the image's metadata names at every use. Dolly's own versions on an origin
   keep their saves apart by database name, which separates them for the user
   and is no boundary between them ([sessions](sessions.md)).
-- Images never retain `/tmp` or `/workspace`, and otherwise only the paths their
+- Images never retain `/tmp`, and otherwise only the paths their
   recipes name. A hash proves byte identity, not that an image is benign.
 
 ## Required checks
