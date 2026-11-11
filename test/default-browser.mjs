@@ -34,9 +34,12 @@ await browserTest("default", {}, async ({ open }) => {
 
 // INSTALL cc on the base: C and C++ compile and run. The image declares no
 // http@0, so a program linked with the HTTP client is refused before it runs.
+// A FILE under /workspace, where ENTRY starts, is part of the image (Pi reads its AGENTS.md there).
 await browserTest("composed toolchain", {}, async ({ open }) => {
-  const session = await open(await composed(["runtime", "display", "input"], ["core", "display", "cc"]));
+  const session = await open(await composed(["runtime", "display", "input"], ["core", "display", "cc"],
+    { files: { "/workspace/AGENTS.md": "Kept by the image." } }));
   const run = check(session);
+  await run("test \"$(pwd)\" = /workspace && test \"$(cat AGENTS.md)\" = 'Kept by the image.'");
   await run(`${hello} && cc /tmp/hello.c -o /tmp/hello && test "$(/tmp/hello)" = HELLO`);
   await run("echo '#include <iostream>' > /tmp/hello.cpp && echo 'int main() { std::cout << 6 * 7; }' >> /tmp/hello.cpp && " +
     "c++ /tmp/hello.cpp -o /tmp/hello++ && test \"$(/tmp/hello++)\" = 42");

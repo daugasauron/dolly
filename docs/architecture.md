@@ -167,5 +167,6 @@ flowchart TD
 | `/usr/src` | Source retained by images |
 | `/etc/dolly` | Image identity, ENTRY record, startup scripts |
 | `/home/dolly` | `HOME` |
-| `/workspace`, `/tmp` | Scratch; never retained in images |
+| `/tmp` | Scratch; never retained in images |
+| `/workspace` | Where ENTRY starts; holds what the recipe put there and boot()'s `files` |
 | `/run` | Volatile files, excluded from sessions |

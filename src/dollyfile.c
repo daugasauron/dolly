@@ -1893,7 +1893,7 @@ static void report_unretained_entry(const char *path, int directory) {
   const char *name = strrchr(path, '/') + 1;
   char *tool = NULL;
   if (dolly_fs_unretained_path(path)) {
-    fprintf(stderr, "dollyfile: ENTRY needs %s, which no image retains: /tmp and /workspace start empty\n", path);
+    fprintf(stderr, "dollyfile: ENTRY needs %s, which no image retains: /tmp starts empty\n", path);
   } else if (directory) {
     fprintf(stderr, "dollyfile: ENTRY needs %s, which the image does not retain: add FOLDER %s\n", path, path);
   } else if (valid_object_name(name) && resolve_tool(name, &tool) == 0 && strcmp(tool, path) == 0) {

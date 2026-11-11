@@ -129,9 +129,11 @@ mounted, and reads no other version's.
   recipe pins, so a change anywhere changes the hash of every recipe that
   depends on it and rebuilds those images. That is intended: every image is
   completely replicable from its recipe chain.
-- Never retained: `/tmp` and `/workspace`. `FILE` may write scratch under
-  `/tmp/`; `FOLDER`, exports and `COPY` destinations may not. Retention is
-  explicit, so a recipe keeps credentials or sessions only by naming them.
+- Never retained: `/tmp`. `FILE` may write scratch under `/tmp/`; `FOLDER`,
+  exports and `COPY` destinations may not. Retention is explicit, so a recipe
+  keeps credentials or sessions only by naming them. `/workspace`, where ENTRY
+  starts, is retained as any path is: `FILE /workspace/AGENTS.md` is there when
+  Pi starts.
 
 ## Execution
 
@@ -289,7 +291,7 @@ to add: ENTRY's program and the program `/bin/foreground [-i]` starts must be
 retained regular files (`EXPORTS TOOL name` for a command on `PATH`), and so
 must every other word naming a file or directory that exists when the recipe
 finishes, link targets included. A word that names nothing then is an
-argument the engine does not judge; `/tmp` and `/workspace` start empty.
+argument the engine does not judge; `/tmp` starts empty.
 
 ## Packages and amy
 

@@ -81,7 +81,7 @@ test("lint refuses an ENTRY program that no recipe of the image declares", async
     await assert.rejects(lint(`${from}${game}ENTRY /usr/bin/game\n`), /add EXPORTS TOOL game/);
     await assert.rejects(lint(`INSTALL ${siteReference("Dollyfile-pkg")} ${digest(pkg)}\nENTRY /bin/foreground /usr/bin/rg\n`),
       /ENTRY program \/bin\/foreground /);
-    await assert.rejects(lint(`${from}ENTRY /bin/foreground -i /workspace/game\n`), /\/workspace\/game is in scratch/);
+    await assert.rejects(lint(`${from}ENTRY /bin/foreground -i /tmp/game\n`), /\/tmp\/game is in scratch/);
     await assert.rejects(lint(`${from}ENTRY /bin/foreground -i game\n`), /absolute path of a program/);
     await assert.rejects(lint(`${from}ENTRY /bin/foreground -i\n`), /absolute path of a program/);
     // An image has one description, in the README beside its recipe: a second

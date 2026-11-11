@@ -5,7 +5,7 @@
 // Dollyfile-example.txt is never a recipe.
 export const validName = name => /^[a-z][a-z0-9]*(?:-[a-z0-9]+|\.[0-9]+)*$/.test(name) && name.length <= 32;
 
-// No image retains scratch space.
+// No image retains scratch space, /tmp.
 export function unretainedPath(value) {
-  return ["/tmp", "/workspace"].some((prefix) => value === prefix || value.startsWith(`${prefix}/`));
+  return value === "/tmp" || value.startsWith("/tmp/");
 }
