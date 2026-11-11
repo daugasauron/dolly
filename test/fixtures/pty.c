@@ -156,13 +156,16 @@ static int pair(void) {
   mode.c_cc[VTIME] = 0;
   CHECK(tcsetattr(ends[1], TCSANOW, &mode) == 0);
 
-  CHECK(pty_call(DOLLY_PTY_RESIZE, ends[0], 0, 30, 100, NULL) == 0);
+  /* Either end sizes the pair, as on Linux; a size of zero and a file that is
+   * no terminal are refused. */
+  struct winsize wanted = {.ws_row = 30, .ws_col = 100};
+  CHECK(ioctl(ends[0], TIOCSWINSZ, &wanted) == 0);
   CHECK(ioctl(ends[1], TIOCGWINSZ, &size) == 0 && size.ws_row == 30 && size.ws_col == 100);
-  CHECK(pty_call(DOLLY_PTY_RESIZE, ends[1], 0, 30, 100, NULL) == -ENOTTY);
-  CHECK(pty_call(DOLLY_PTY_RESIZE, STDIN_FILENO, 0, 30, 100, NULL) == -ENOTTY);
-  CHECK(pty_call(DOLLY_PTY_RESIZE, 200, 0, 30, 100, NULL) == -EBADF);
-  CHECK(pty_call(DOLLY_PTY_RESIZE, ends[0], 0, 0, 100, NULL) == -EINVAL);
-  CHECK(pty_call(DOLLY_PTY_RESIZE, ends[0], 0, 30, 65536, NULL) == -EINVAL);
+  wanted.ws_row = 31;
+  CHECK(ioctl(ends[1], TIOCSWINSZ, &wanted) == 0 && ioctl(ends[0], TIOCGWINSZ, &size) == 0 && size.ws_row == 31);
+  CHECK(ioctl(200, TIOCSWINSZ, &wanted) == -1 && errno == EBADF);
+  wanted.ws_row = 0;
+  CHECK(ioctl(ends[0], TIOCSWINSZ, &wanted) == -1 && errno == EINVAL);
   dolly_pty_descriptors opened;
   CHECK(pty_call(DOLLY_PTY_OPEN, 0, 4, 24, 80, &opened) == -EINVAL);
   CHECK(pty_call(DOLLY_PTY_OPEN, 0, 0, 0, 80, &opened) == -EINVAL);
@@ -245,7 +248,7 @@ static int program(void) {
   expect(ends[0], "own\r\n");
   CHECK(write(ends[0], "g", 1) == 1);
   expect(ends[0], "group\r\n");
-  CHECK(pty_call(DOLLY_PTY_RESIZE, ends[0], 0, 40, 132, NULL) == 0);
+  CHECK(ioctl(ends[0], TIOCSWINSZ, &(struct winsize){.ws_row = 40, .ws_col = 132}) == 0);
   expect(ends[0], "size 132x40\r\n");
   CHECK(write(ends[0], "\3", 1) == 1);
   expect(ends[0], "interrupt\r\n");

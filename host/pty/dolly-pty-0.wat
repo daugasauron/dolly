@@ -32,11 +32,10 @@
   ;;   does not wait), rows and columns -> dolly_pty_descriptors: the master,
   ;;   the slave and the pseudo-terminal's number, which names it /dev/pts/N
   ;;   for display only. ENFILE when the kernel holds PTY_LIMIT of them.
-  ;; RESIZE: the master's descriptor, rows and columns (1 to 65535) -> empty.
-  ;;   SIGWINCH to the processes that hold the slave. ENOTTY when the
-  ;;   descriptor is not a master.
+  ;; ioctl(TIOCSWINSZ) at either end sizes the pair (rows and columns 1 to
+  ;; 65535), DOLLY_PROCESS_TERMINAL_SIZE_SET (process.h): SIGWINCH to the
+  ;; processes that hold the slave.
   (global (export "DOLLY_PTY_OPEN") i32 (i32.const 176))
-  (global (export "DOLLY_PTY_RESIZE") i32 (i32.const 177))
   (global (export "DOLLY_PTY_CLOEXEC") i32 (i32.const 1))
   (global (export "DOLLY_PTY_NONBLOCK") i32 (i32.const 2))
   (global (export "DOLLY_PTY_LIMIT") i32 (i32.const 32))

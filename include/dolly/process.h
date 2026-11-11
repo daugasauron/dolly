@@ -309,6 +309,10 @@ enum dolly_process_terminal_operation {
   DOLLY_PROCESS_TERMINAL_PUBLISH_RESULT = 6,
   /* value: the terminal's foreground process group, ENOTTY for another file. */
   DOLLY_PROCESS_TERMINAL_FOREGROUND = 7,
+  /* ioctl(TIOCSWINSZ): flags hold the rows above bit 16 and the columns below.
+   * A pseudo-terminal takes it at either end; the display's terminal is the
+   * page's to size (EPERM). */
+  DOLLY_PROCESS_TERMINAL_SIZE_SET = 8,
 };
 
 typedef struct {

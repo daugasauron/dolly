@@ -1767,7 +1767,8 @@ static int64_t terminal_packet(dolly_kernel_process *process,
       request.operation != DOLLY_PROCESS_TERMINAL_ISATTY &&
       request.operation != DOLLY_PROCESS_TERMINAL_MODE_GET &&
       request.operation != DOLLY_PROCESS_TERMINAL_MODE_SET &&
-      request.operation != DOLLY_PROCESS_TERMINAL_SIZE) return -EINVAL;
+      request.operation != DOLLY_PROCESS_TERMINAL_SIZE &&
+      request.operation != DOLLY_PROCESS_TERMINAL_SIZE_SET) return -EINVAL;
   if (stream != NULL) {
     const int64_t result = stream->kind->terminal(stream, &request, &response);
     return result < 0 ? result : respond(&response, sizeof(response));
@@ -1784,6 +1785,8 @@ static int64_t terminal_packet(dolly_kernel_process *process,
       return DOLLY_PROCESS_DISPATCH_DEFERRED;
     }
     response.value = byte;
+  } else if (request.operation == DOLLY_PROCESS_TERMINAL_SIZE_SET) {
+    return -EPERM;
   } else if (request.operation == DOLLY_PROCESS_TERMINAL_MODE_GET) {
     response.value = dolly_kernel_terminal_mode();
   } else if (request.operation == DOLLY_PROCESS_TERMINAL_MODE_SET) {
