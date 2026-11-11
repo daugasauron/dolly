@@ -14,7 +14,7 @@ import { bundleProcessWorker } from "./bundle-process-worker.mjs";
 import { opens, pageRoutes } from "./image-menu.mjs";
 import { isolationHeaders, mimeTypes } from "./serve.mjs";
 import { buildIdentities } from "./write-build-id.mjs";
-import { imageInputsMatch } from "../src/image-inputs.mjs";
+import { imageInputsMatch, recipesDigest } from "../src/image-inputs.mjs";
 import { siteReference, sitePath } from "../src/static-asset.mjs";
 
 // IMAGE's current snapshot chain is required; null requires none (the builder,
@@ -49,7 +49,9 @@ export async function startCheckoutServer(projectDir, image = "default",
       if (checked.has(definition.image)) return checked.get(definition.image);
       const metadata = await json(`dolly-${definition.image}-system-snapshot.json`);
       if (metadata.buildId !== DOLLY_IMAGE_BUILD_ID ||
-          JSON.stringify(metadata.recipes) !== JSON.stringify(definition.recipes)) throw new Error(`${definition.image} inputs are stale`);
+          recipesDigest(metadata.recipes) !== definition.recipesSha256) {
+        throw new Error(`${definition.image} inputs are stale`);
+      }
       checked.set(definition.image, metadata);
       const inputs = [];
       for (const reference of definition.artifacts) {
@@ -86,7 +88,7 @@ export async function startCheckoutServer(projectDir, image = "default",
     paths.add(`dist/dolly-${definition.image}-system-snapshot.json`);
   }
   for (const name of await readdir(resolve(projectDir, "dist"))) {
-    if (/^dolly(?:-[a-z0-9-]+)?\.(?:wasm|mjs|data)$/.test(name) || name === "IosevkaTerm-SemiBold.woff2") paths.add(`dist/${name}`);
+    if (/^dolly(?:-[a-z0-9-]+)?\.(?:wasm|mjs|data)$/.test(name) || /^(?:IosevkaTerm-SemiBold(?:\.woff2|-page\.woff)|dolly-build-id\.json)$/.test(name)) paths.add(`dist/${name}`);
   }
   for (const name of await readdir(resolve(projectDir, "dist/packs")).catch(error => {
     if (error.code === "ENOENT") return [];

@@ -284,6 +284,11 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
       for (const instance of instances.values()) if (await instance.restoreFilesystem?.(context)) return true;
       return false;
     },
+    // Whether restoreFilesystem will restore one, known from the configuration,
+    // before a kernel exists.
+    restoresFilesystem() {
+      return [...instances.values()].some(instance => instance.restoresFilesystem?.());
+    },
     // The Worker calls this after restoring the system image and before starting
     // image-phase modules, in registry order.
     async imageRestored(context) {

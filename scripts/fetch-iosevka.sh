@@ -23,3 +23,12 @@ python3 -I -c 'import sys; sys.path.insert(0, sys.argv.pop(1)); from fontTools.s
   --output-file="${temporary}"
 mv -f -- "${temporary}" "${runtime_font}"
 printf '%s\n' "${runtime_font}"
+# The page's font draws the boot log and the menu: Latin, punctuation, arrows
+# and box drawing, about 4 % of the web font's bytes; any other character
+# falls back to monospace. The html@0 popup loads the whole web font.
+page_font="${font_dir}/IosevkaTerm-SemiBold-page.woff"
+python3 -I -c 'import sys; sys.path.insert(0, sys.argv.pop(1)); from fontTools.subset import main; sys.exit(main())' \
+  "${fonttools}" "${upstream_font}" --unicodes='U+0020-007E,U+00A0-017F,U+2010-2044,U+2190-21FF,U+2500-25FF,U+2713,U+2717' \
+  --flavor=woff --output-file="${temporary}"
+mv -f -- "${temporary}" "${page_font}"
+printf '%s\n' "${page_font}"

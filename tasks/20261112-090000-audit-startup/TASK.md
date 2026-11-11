@@ -12,6 +12,29 @@ startup necessary? Does it download more stuff than it needs to launch?"
 Owner (2026-11-12): fix these after the modularity work (`20261112-074501-modules-modular`), before
 the audit's other tasks.
 
+Done on `fix/startup` (Chromium and Firefox: default, image, pack-store, snapshot-stream,
+session-offline, session-times, custom-session, site, image-inventory, html, csp, amy, indicators,
+threads; the source suite):
+- Finding 1: packs are fetched ahead of the one being read, at most 8 and 64 MiB in flight, and
+  handed over in order (`src/packaged-snapshot.mjs`); a kept pack fetched ahead and not read stays
+  kept.
+- Findings 3 and 6: a start checks only its own metadata against its catalog record
+  (`loadImageMetadata`); no closure metadata and no recipe is fetched; `verifyVisibleRecipes` is
+  gone (release acceptance checks the recipes). A saved session's restore loads no metadata
+  (`restoresFilesystem`, asked of the modules before the kernel exists).
+- Finding 4: the catalog records `recipesSha256`, a digest of the image's recipe records
+  (`recipesDigest`, one line `SHA256 BYTES PATH` each), not the records: 2,135,123 B to 507,196 B
+  (80 KB gzipped) for 217 images.
+- Finding 5: routes and the menu use a Latin subset of the page font (34,160 B WOFF from the pinned
+  fonttools), `font-display: swap`; the html@0 popup keeps the whole font, loaded when it opens.
+- Finding 7: the release server sends each file with `no-cache` and its digest as ETag, and answers
+  a matching `If-None-Match` with 304.
+- Finding 8a: the build and custom-image code is imported only by the routes that build or run a
+  custom image.
+- Finding 9: the process files are fetched without `cache: "no-store"`.
+- Finding 10: routes and the menu name `src/icon.svg` (a `data:` icon broke the strict policy).
+Left: 8b (providers of modules a page has but does not enable), 11 (preload), 12 (the 2 s start
+from stored packs), 2 (image contents, the owner's call per image).
 Measured: release 0.1.6 as served on `127.0.0.1:9045` (release `a73ad906…`, 211 images,
 catalog 2,056,929 B), Chrome 156, images default, pi-agent, bhop, neovim, python-data
 (headless) and godot-lantern-drift, photocraft-photos (headed, Vulkan adapter). Every request

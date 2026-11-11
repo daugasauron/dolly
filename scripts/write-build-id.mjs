@@ -24,10 +24,12 @@ export async function buildIdentities(wasmPath, dataPath) {
   return { buildId: `sha256:${runtime.digest("hex")}`, imageBuildId };
 }
 
-// The modules beside the runtime that name its identities, by file name.
+// The files beside the runtime that name its identities, by file name: modules
+// for the page, and the same as data for a host in another language.
 export const buildIdModules = ({ buildId, imageBuildId }) => ({
   "dolly-build-id.mjs": `export const DOLLY_BUILD_ID = ${JSON.stringify(buildId)};\n`,
   "dolly-image-build-id.mjs": `export const DOLLY_IMAGE_BUILD_ID = ${JSON.stringify(imageBuildId)};\n`,
+  "dolly-build-id.json": `${JSON.stringify({ buildId, imageBuildId })}\n`,
 });
 
 if (process.argv[1] === import.meta.filename) {
@@ -37,7 +39,6 @@ if (process.argv[1] === import.meta.filename) {
   }
   const identities = await buildIdentities(wasmPath, dataPath);
   const modules = buildIdModules(identities);
-  await writeFile(outputPath, modules["dolly-build-id.mjs"]);
-  await writeFile(resolve(dirname(outputPath), "dolly-image-build-id.mjs"), modules["dolly-image-build-id.mjs"]);
+  for (const [file, text] of Object.entries(modules)) await writeFile(resolve(dirname(outputPath), file), text);
   console.log(`dolly: runtime ${identities.buildId}; image inputs ${identities.imageBuildId}`);
 }

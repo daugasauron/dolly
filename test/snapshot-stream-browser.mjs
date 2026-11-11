@@ -23,11 +23,10 @@ const metadata = { ...original, encoding: "packs", packs: parts.reverse() };
 const sourceOverrides = new Map();
 
 await browserTest("snapshot stream", { server: { sourceOverrides } }, async ({ browser, server }) => {
-  for (const scenario of ["valid", "wrong-image-digest", "wrong-pack-digest", "truncated", "changed-recipe"]) {
+  for (const scenario of ["valid", "wrong-image-digest", "wrong-pack-digest", "truncated", "changed-recipes"]) {
     const candidate = structuredClone(metadata);
-    // The directory must serve the recipe that built the image it boots.
-    if (scenario === "changed-recipe") sourceOverrides.set("/Dollyfile", "DOLLY 7\nAPPLICATION default\n");
-    else sourceOverrides.delete("/Dollyfile");
+    // The image's recipes must be those the catalog records for it (recipesSha256).
+    if (scenario === "changed-recipes") candidate.recipes[0].sha256 = "e".repeat(64);
     if (scenario === "wrong-image-digest") candidate.sha256 = "0".repeat(64);
     if (scenario === "wrong-pack-digest") candidate.packs[0].sha256 = "f".repeat(64);
     sourceOverrides.set("/dist/dolly-default-system-snapshot.json", JSON.stringify(candidate));

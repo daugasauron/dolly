@@ -213,7 +213,7 @@ export class DollyProcessSupervisor {
       "dolly-process-worker.mjs",
     ].map(async name => {
       const response = await fetch(new URL(`dist/${name}`, runtimeBase), {
-        cache: "no-store", credentials: "same-origin", redirect: "error",
+        credentials: "same-origin", redirect: "error",
       });
       if (!response.ok) throw new Error(`Dolly ${name} returned HTTP ${response.status}`);
       return response.arrayBuffer();

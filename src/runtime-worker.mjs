@@ -2,25 +2,28 @@
 // from its packs into a new kernel, or a saved session's whole filesystem, and
 // runs its ENTRY (worker-image.mjs).
 import { imageDefinition } from "./images.mjs";
-import { loadPackagedSnapshotMetadata, streamPackagedSystemSnapshot, verifyVisibleRecipes } from "./packaged-snapshot.mjs";
+import { loadImageMetadata, streamPackagedSystemSnapshot } from "./packaged-snapshot.mjs";
 import { siteReference, hex } from "./static-asset.mjs";
 import { checkedMemoryRange, runImage } from "./worker-image.mjs";
 
 await runImage(async ({ image, files: given = {} }, host) => {
   const definition = imageDefinition(image);
   if (!definition) throw new Error("invalid Dolly image selection");
-  const [metadata] = await Promise.all([loadPackagedSnapshotMetadata(image), verifyVisibleRecipes(image)]);
+  // Fetched while the kernel compiles; a saved session restores no image.
+  const loading = host.restoresFilesystem() ? null : loadImageMetadata(image);
+  loading?.catch(() => {});
   host.require(definition.hostRequirements);
   host.admit(definition.hostRequirements);
   return {
     name: image,
     prepare({ files }) {
       files.write("/etc/dolly/recipe.locator", siteReference(definition.dollyfile));
-      // The kernel restores a snapshot against the list of its paths.
-      files.write("/etc/dolly/image.manifest", `${metadata.manifest.join("\n")}\n`);
     },
     async restore({ kernel, memory, files, stage }) {
       if (await host.restoreFilesystem({ kernel, memory, stage })) return { status: 0 };
+      const metadata = await (loading ?? loadImageMetadata(image));
+      // The kernel restores a snapshot against the list of its paths.
+      files.write("/etc/dolly/image.manifest", `${metadata.manifest.join("\n")}\n`);
       stage("loading precompiled userspace snapshot...");
       const capacity = 1024 * 1024;
       const address = kernel.dolly_snapshot_restore_address(BigInt(capacity));

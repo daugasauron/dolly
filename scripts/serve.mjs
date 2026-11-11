@@ -23,6 +23,8 @@ export const mimeTypes = new Map([
   [".js", "text/javascript; charset=utf-8"],
   [".mjs", "text/javascript; charset=utf-8"],
   [".wasm", "application/wasm"],
+  [".woff", "font/woff"],
+  [".svg", "image/svg+xml"],
   [".woff2", "font/woff2"],
   [".png", "image/png"],
   [".mp4", "video/mp4"],
@@ -37,9 +39,10 @@ const releaseDigest = /^[0-9a-f]{64}$/;
 
 // Serves RELEASES/current as it would be deployed: / leads to its version, the
 // release's files are under /vX.Y.Z/, robots.txt speaks for that version, and
-// every other path is 404. Nothing is cacheable: a candidate keeps its version
-// while it changes. dist/ and the source checkout are build inputs, never the
-// running app.
+// every other path is 404. A candidate keeps its version while it changes, so
+// a file is cached only as its digest: the browser asks again each time and
+// keeps what it has while the digest is the same (ETag). dist/ and the source
+// checkout are build inputs, never the running app.
 export function createReleaseServer(releases) {
   let current;
   async function release() {
@@ -85,10 +88,15 @@ export function createReleaseServer(releases) {
         response.writeHead(308, { ...isolationHeaders, location: `${path}/` }).end();
         return;
       }
+      const etag = `"${files.get(file)}"`;
+      if (request.headers["if-none-match"] === etag) {
+        response.writeHead(304, { ...isolationHeaders, "cache-control": "no-cache", etag }).end();
+        return;
+      }
       const body = await readFile(resolve(releases, digest, file));
       if (sha256(body) !== files.get(file)) throw new Error("published file changed");
       response.writeHead(200, {
-        ...isolationHeaders,
+        ...isolationHeaders, "cache-control": "no-cache", etag,
         "content-type": /^Dollyfile(?:-|$)/.test(basename(file)) ? "text/plain; charset=utf-8" :
           mimeTypes.get(extname(file)) ?? "application/octet-stream",
       });
