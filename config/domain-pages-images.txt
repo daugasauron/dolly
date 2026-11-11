@@ -26,6 +26,8 @@ rts-arena
 rust-tools
 zero-ad
 slopyard
+godot-lantern-drift
+photocraft-photos
 cmake
 sdl2
 rust
