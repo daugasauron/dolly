@@ -250,7 +250,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
       recovered = artifact.sha256 === base.sha256 && artifact.bytes.size === base.bytes.size;
     } finally { await saveImageArtifact(base, `/${system.dollyfile}`); }
     await saveStoredSession({ name: "cache-migration-proof", formatVersion: DOLLY_SESSION_FORMAT_VERSION, buildId: first.buildId,
-      image: "system", imageIdentity: `system:${system.sha256}`, updatedAt: 0, encoding: "gzip", bytes: await first.bytes.arrayBuffer() });
+      image: "system", imageIdentity: `system:${system.sha256}`, updatedAt: 0, encoding: "gzip", bytes: first.bytes });
     await new Promise((resolve, reject) => {
       const request = indexedDB.deleteDatabase("dolly-image-artifacts-v3");
       request.onsuccess = resolve; request.onerror = () => reject(request.error);
@@ -268,7 +268,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
     const legacyDiscarded = await loadImageArtifactDescriptor(first.recipeSha256) === null;
     const upgraded = await saveImageArtifact(first, slot) &&
       (await loadImageArtifact(await loadImageArtifactDescriptor(first.recipeSha256)))?.sha256 === first.sha256;
-    const sessionPreserved = await sha256((await loadStoredSession("cache-migration-proof")).bytes) === first.sha256;
+    const sessionPreserved = await sha256(await (await loadStoredSession("cache-migration-proof")).bytes.arrayBuffer()) === first.sha256;
     return { rejected, atomic: afterFailure?.sha256 === first.sha256, staleRejected, corruptionRejected,
       oldDescriptorGone, oldPayloadGone, concurrent, recovered, legacyDiscarded, upgraded, sessionPreserved };
   }, system), { rejected: true, atomic: true, staleRejected: true, corruptionRejected: true, oldDescriptorGone: true,

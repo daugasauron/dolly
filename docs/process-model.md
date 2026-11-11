@@ -311,9 +311,8 @@ pipe console is three pipes of 64 KiB: descriptor 0 reads what the host writes
 until the host ends it, 1 and 2 are read by the host apart, byte for byte, and
 a write the host no longer reads is `EPIPE` and `SIGPIPE`, as a kernel pipe's.
 There are at most 32 consoles. In the browser an image that declares the
-module gets `openConsole()` on boot()'s handle
-([embedding](embedding.md#a-terminal-into-the-session)); another host adds it
-to the images it runs.
+module gets `openConsole()` on boot()'s handle (`docs/embedding.md`, "A
+terminal into the session"); another host adds it to the images it runs.
 - Not there: `/dev/ptmx` and a path for a slave (`posix_openpt`, `ptsname`
   and `forkpty` fail), sessions and controlling-terminal ioctls. The name
   `openpty` returns, `/dev/pts/N`, is for display.
