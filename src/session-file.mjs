@@ -1,5 +1,5 @@
 import { DOLLY_SESSION_MAX_BYTES, DOLLY_SESSION_METADATA_MAX_BYTES as metadataLimit,
-  validateSessionRecord, decodeSessionSnapshot } from "./session-store.mjs";
+  validateSessionRecord } from "./session-store.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
 import { sha256 } from "./static-asset.mjs";
 import { DOLLY_VERSION } from "./version.mjs";
@@ -13,7 +13,7 @@ export async function exportSessionFile(record) {
   const metadata = new TextEncoder().encode(JSON.stringify({
     version: DOLLY_VERSION, name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding,
     ...(customImage === undefined ? {} : { customImage }),
-    byteLength: bytes.byteLength, sha256: await sha256(bytes),
+    byteLength: bytes.size, sha256: await sha256(await bytes.arrayBuffer()),
   }));
   if (metadata.byteLength > metadataLimit) throw new Error("Session metadata is too large");
   const header = new Uint8Array(headerSize);
@@ -22,7 +22,7 @@ export async function exportSessionFile(record) {
   return new Blob([header, metadata, bytes], { type: "application/octet-stream" });
 }
 
-// An opaque filesystem delta, never browser paths or executable browser code.
+// An opaque filesystem save, never browser paths or executable browser code.
 // Import validates the envelope; the Wasm restore validates filesystem records.
 export async function importSessionFile(file) {
   if (!(file instanceof Blob) || file.size < headerSize ||
@@ -42,13 +42,11 @@ export async function importSessionFile(file) {
     throw new Error(`This session file belongs to Dolly ${metadata.version}. Import it on that version's sessions page.`);
   }
   const { name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding, customImage } = metadata;
-  const bytes = await file.slice(headerSize + length).arrayBuffer();
+  const bytes = file.slice(headerSize + length);
   const record = { name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding, bytes,
     ...(customImage === undefined ? {} : { customImage }) };
   validateSessionRecord(record);
   if (record.customImage) inspectDollyfile(record.customImage.source);
-  if (await sha256(bytes) !== metadata.sha256) throw new Error("Session file checksum failed; the file is damaged");
-  const decoded = await decodeSessionSnapshot(record);
-  if (decoded.byteLength < 16) throw new Error("Session file contains an incomplete snapshot");
+  if (await sha256(await bytes.arrayBuffer()) !== metadata.sha256) throw new Error("Session file checksum failed; the file is damaged");
   return record;
 }

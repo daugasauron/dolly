@@ -9,7 +9,7 @@ import test from "node:test";
 // Records are [kind, path, data, modified nanoseconds since the epoch].
 function delta(records) {
   const header = Buffer.alloc(16);
-  header.write("DOLLYSES"); header.writeUInt32LE(3, 8); header.writeUInt32LE(records.length, 12);
+  header.write("DOLLYSES"); header.writeUInt32LE(4, 8); header.writeUInt32LE(records.length, 12);
   return Buffer.concat([header, ...records.flatMap(([kind, path, value = "", modified = 0n]) => {
     const name = Buffer.from(path), data = Buffer.from(value), record = Buffer.alloc(24);
     record.writeUInt32LE(kind); record.writeUInt32LE(name.length, 4); record.writeBigUInt64LE(BigInt(data.length), 8);

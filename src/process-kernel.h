@@ -49,6 +49,10 @@ int dolly_kernel_deadline_pending(uint64_t deadline_nanoseconds);
 int64_t dolly_kernel_dispatch(int pid, int tid, int takes_signals, uint32_t operation,
                               uintptr_t mailbox, uintptr_t request_size,
                               uintptr_t response_capacity);
+/* The boot's standard streams, directories, /proc/processes and environment, before a
+ * filesystem is restored into it: an image's snapshot, or a saved session's whole
+ * filesystem (host/snapshot/kernel.c). */
+int dolly_kernel_boot_environment(void);
 int dolly_kernel_process_launching(int pid);
 int dolly_kernel_process_running(int pid);
 void dolly_kernel_thread_released(int pid, int tid);

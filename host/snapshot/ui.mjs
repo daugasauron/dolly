@@ -107,12 +107,11 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
   async function save(requestedName) {
     if (saving) return saving;
     // A save asks the browser to keep the origin's storage: the saves and the
-    // packs their images start from (src/pack-store.mjs). Chrome answers from
-    // the site's engagement, Firefox asks the user; the save does not wait.
+    // packs images start from (src/pack-store.mjs). Chrome answers from the
+    // site's engagement, Firefox asks the user; the save does not wait.
     navigator.storage.persist().catch(() => {});
     saving = (async () => {
       if (!base) throw new Error("Dolly is not ready to save a session");
-      await base.verifyBase?.();
       let name = requestedName ?? sessionName;
       if (name === null) {
         name = window.prompt("Save Dolly session as:", "");
@@ -138,20 +137,18 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
       };
       const encoded = await encodeSessionStream(capture);
       dataset.sessionStatus = "storing";
-      const encodedSize = encoded.bytes.byteLength;
-      try {
-        await saveStoredSession({
-          name,
-          formatVersion: DOLLY_SESSION_FORMAT_VERSION,
-          buildId: DOLLY_BUILD_ID,
-          image: base.image,
-          imageIdentity: base.identity,
-          ...(base.custom ? { customImage: base.custom } : {}),
-          updatedAt: Date.now(),
-          encoding: encoded.encoding,
-          bytes: encoded.bytes,
-        });
-      } finally { encoded.bytes.transfer(0); }
+      const encodedSize = encoded.bytes.size;
+      await saveStoredSession({
+        name,
+        formatVersion: DOLLY_SESSION_FORMAT_VERSION,
+        buildId: DOLLY_BUILD_ID,
+        image: base.image,
+        imageIdentity: base.identity,
+        ...(base.custom ? { customImage: base.custom } : {}),
+        updatedAt: Date.now(),
+        encoding: encoded.encoding,
+        bytes: encoded.bytes,
+      });
       sessionName = name;
       lastSave = new Date();
       dataset.session = name;
@@ -199,11 +196,9 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
       return true;
     },
     // custom is the running custom image record (Dollyfile, artifact and
-    // what the tab inherited); verifyBase, given, checks before a save that
-    // the base is still the one the session restores onto (the site's routes,
-    // src/site.mjs). The identity names that base.
-    entryStarted({ image, custom, verifyBase }) {
-      base = { image, custom, verifyBase,
+    // what the tab inherited); the identity names the image the save was made on.
+    entryStarted({ image, custom }) {
+      base = { image, custom,
         identity: custom ? customSessionIdentity(custom) : sessionImageIdentity(DOLLY_IMAGES, image) };
       if (restored?.recovering) {
         dataset.sessionStatus = "recovered";

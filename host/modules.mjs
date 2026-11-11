@@ -277,6 +277,13 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
         if (module?.digest && module.contract.version === version) admittedAbi.set(value, module.digest);
       }
     },
+    // The Worker asks this before it restores the image: a module that restores
+    // the whole filesystem itself (a saved session, host/snapshot) says so, and
+    // no image is loaded.
+    async restoreFilesystem(context) {
+      for (const instance of instances.values()) if (await instance.restoreFilesystem?.(context)) return true;
+      return false;
+    },
     // The Worker calls this after restoring the system image and before starting
     // image-phase modules, in registry order.
     async imageRestored(context) {

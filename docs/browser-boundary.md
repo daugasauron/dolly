@@ -76,7 +76,7 @@ Worker URL.
 | `download@0` | `env.dolly_download_dispatch` | Stream one file (1 MiB chunks, 1 GiB) into a Blob under a checked basename; saved only by a user click; at most 4 waiting | [`host/download/`](../host/download/module.json) |
 | `html@0` | `env.dolly_html_dispatch` | Show one document of at most 1 MiB of UTF-8 in a popup in boot()'s element, and return the fields of the form of it the user submits (64 KiB, as a form posts them) or that the user closed it. The popup is a sandboxed srcdoc frame in which no script runs (forms only, no scripts, popups, modals or top navigation; of the page's origin, so the page writes into it): the page parses the document with DOMParser, which loads and runs nothing, and builds the popup from its text and an allowlist of content and form elements and attributes, copied into new elements, so no URL, style, script, link, refresh or base of it exists there. A form's submit event reaches the page, which takes its fields and stops the submission. The frame holds no script or style element, so it needs nothing of the embedding's Content-Security-Policy, which a srcdoc frame takes. The look is the embedding's (custom properties on boot()'s element; the page fetches the font file they name and hands the popup its bytes). One popup at a time; refused for 2 s after a close | [`host/html/`](../host/html/module.json) |
 | `upload@0` | mailbox | Ask for a file; the user picks it; 1 GiB of bytes in 1 MiB chunks, no name or path; refused for 2 s after a cancel | [`host/upload/`](../host/upload/module.json) |
-| `snapshot@0` | mailbox | Save and restore opaque session deltas (512 MiB) on user action | [`host/snapshot/`](../host/snapshot/module.json) |
+| `snapshot@0` | mailbox | Save and restore an opaque copy of the whole filesystem but `/dev`, `/proc` and `/run` (8 GiB) on user action | [`host/snapshot/`](../host/snapshot/module.json) |
 | `display@0` | mailbox | Publish checked RGBA frames and a closed cursor value; read the surface's size and the page's colours; load the display plugin from WasmFS; the terminal's selection reaches the clipboard on the user's Ctrl+Shift+C | [`host/display/`](../host/display/module.json) ([`kernel-plugin.mjs`](../src/kernel-plugin.mjs)) |
 | `input@0` | mailbox | Receive bounded records of keys, IME text, paste, window focus, pointer buttons and positions on the canvas, wheel; ask for pointer lock, granted only on a user's press on the canvas. On a touchscreen the page's Paste button reads the clipboard's text inside the user's press of it | [`host/input/`](../host/input/module.json) |
 | `touch@0` | mailbox | Receive bounded records of fingers on the canvas (an id from down to up, position, pressure, time), ten at once and 512 queued, while the foreground program or a descendant holds the lease; then no finger is a pointer record of `input@0`. The holder may show up to 12 labels (31 bytes of text each) as buttons in the page's bar beside its Paste; a press is only a record to the holder, and Paste stays the page's own | [`host/touch/`](../host/touch/module.json) |
@@ -123,8 +123,8 @@ Worker URL.
     in Wasm, such as local sockets, stays with the processes that hold it.
   - A module whose manifest says `fixed` is never switched: `runtime@0`,
     `http@0` (its policy is consumed once, at load), `build@0`, and
-    `display@0`, `input@0` and `snapshot@0`, which the terminal and the
-    session's baseline are built on before ENTRY; the modules others depend
+    `display@0`, `input@0` and `snapshot@0`, which the terminal and a
+    restored session are built on before ENTRY; the modules others depend
     on are among them.
   - `nena disable nena` disposes the provider itself: nothing switches a
     module again until the page is reloaded.

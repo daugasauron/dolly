@@ -6,18 +6,19 @@
 // A save is a 16-byte header (magic, version:u32, count:u32) and its records in
 // ascending path order: kind:u32, path_bytes:u32, data_bytes:u64,
 // modified:i64 (nanoseconds since the epoch, 0 for a deletion), path, data.
+// Since version 4 a save is the whole filesystem but /dev, /proc and /run.
 enum {
-  DOLLY_SESSION_VERSION = 3,
+  DOLLY_SESSION_VERSION = 4,
   DOLLY_SESSION_HEADER_SIZE = 16,
   DOLLY_SESSION_RECORD_SIZE = 24,
-  DOLLY_SESSION_MAX_RECORDS = 100000,
+  DOLLY_SESSION_MAX_RECORDS = 1000000,
   DOLLY_SESSION_DIRECTORY = DOLLY_FS_DIRECTORY,
   DOLLY_SESSION_FILE = DOLLY_FS_FILE,
   DOLLY_SESSION_SYMLINK = DOLLY_FS_SYMLINK,
   DOLLY_SESSION_DELETED = DOLLY_FS_DELETED,
 };
 
-static const uintptr_t DOLLY_SESSION_MAX_SIZE = (uintptr_t)512 * 1024 * 1024;
+static const uintptr_t DOLLY_SESSION_MAX_SIZE = (uintptr_t)8 * 1024 * 1024 * 1024;
 static const unsigned char DOLLY_SESSION_MAGIC[8] = {'D', 'O', 'L', 'L', 'Y', 'S', 'E', 'S'};
 
 // A decoded save: its records and each one's modification time.

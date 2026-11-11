@@ -1,14 +1,14 @@
 # Sessions and file transfer
 
-A session is a named, browser-local save of filesystem changes against the exact
-image the tab booted. It does not save processes. `upload` and `download` move
-single files between the user's computer and WasmFS, one user action at a time.
+A session is a named, browser-local save of the whole filesystem of a tab, but
+`/dev`, `/proc` and `/run`. It does not save processes. A restore boots from the
+save alone: the image is not loaded again. `upload` and `download` move single
+files between the user's computer and WasmFS, one user action at a time.
 
 ```mermaid
 flowchart LR
-  boot["Boot: kernel fingerprints the base image"] --> save["Save: kernel encodes changed, new and deleted paths"]
-  save -- "snapshot@0 mailbox chunks" --> gzip["Page: gzip"] --> idb[("IndexedDB, per version")]
-  idb -- "/session/?name=NAME" --> restore["Boot the same base, apply the delta, run ENTRY"]
+  save["Save: kernel lists every path and streams them"] -- "snapshot@0 mailbox chunks" --> gzip["Page: gzip"] --> idb[("IndexedDB, per version")]
+  idb -- "/session/?name=NAME" --> restore["Empty the filesystem, stream the save in, run ENTRY"]
 ```
 
 ## Save and load
@@ -22,35 +22,38 @@ flowchart LR
   program's own controls in that corner stay reachable. `Ctrl+Shift+S` saves
   while it is hidden. A save in progress or a failed one shows it until the
   save succeeds; a download offer shows it until every offer is answered.
-- A save holds files, directories and symlinks with their modification times,
-  and deletions, including credentials, Pi conversations
+- A save holds every file, directory and symlink with its modification time:
+  the image's, what the session changed, credentials, Pi conversations
   (`~/.pi/agent/sessions`) and packages installed with `amy`
   ([Dollyfile](dollyfile.md#packages-and-amy)). It does not hold processes,
   descriptors, scrollback, environment, cwd, hard links, access times or modes;
-  `/etc/dolly/environment` is a file, loaded after the replay, so installed
+  `/etc/dolly/environment` is a file, loaded after the restore, so installed
   variables apply when the session loads.
 - `/run`, `/dev` and `/proc` are excluded ([`session-records.h`](../src/session-records.h));
-  the uncompressed delta is at most 512 MiB, and exceeding it fails the save
-  visibly, naming the limit. A delta of more than 100,000 paths fails too. A
-  failed save leaves the previous record intact.
-- Hashing, encoding and restoring stay in Wasm: sessions add no Wasm import or
+  a save is at most 8 GiB and 1,000,000 paths before compression, and
+  exceeding either fails the save visibly. A file that changes while it is
+  being saved fails the save, naming it: save again. A failed save leaves the
+  previous record intact.
+- Listing, encoding and restoring stay in Wasm: sessions add no Wasm import or
   path-level browser filesystem API. The kernel serves a save in steps between
   system calls, one chunk per acknowledgement, so programs keep running while
-  the page compresses it. IndexedDB stores the encoded delta as a Blob,
-  avoiding large serialization copies.
-- Loading needs the same runtime build and image identity. Otherwise **Recover
-  files** boots `system` and copies changed regular files from `/workspace` and
+  the page compresses it; neither the kernel nor the page holds a save whole.
+  IndexedDB stores the compressed save as a Blob of its parts, and a restore
+  decompresses it as it goes, a chunk at a time into the kernel.
+- Loading needs the runtime build that made the save; the image's recipe may
+  have changed since (a `dolly-build` project built again), as the save holds
+  its files. The image's host modules are the catalog's. Otherwise **Recover
+  files** boots `system` and copies the regular files of `/workspace` and
   `/home` into `/workspace/recovered-NAME`
-  ([`session-recover.c`](../src/commands/session-recover.c)). System changes,
-  deletions and symlinks are skipped; saved startup files and credentials stay
-  in that folder for inspection without becoming live config. Recovery refuses
-  an existing destination and leaves the save unchanged.
-- On a rebuild route, the first save checks that the rebuilt base is
-  byte-identical to the prebuilt image.
+  ([`session-recover.c`](../src/commands/session-recover.c)); saved startup
+  files and credentials stay in that folder for inspection without becoming
+  live config. Recovery refuses an existing destination and leaves the save
+  unchanged.
 - Custom-image saves record the Dollyfile, image digest and HTTP restrictions;
-  the image itself must still be in this browser's image cache, so importing the
-  file into another browser does not install the image. Restoring intersects
-  the saved restrictions with the current policy; a save cannot widen it.
+  a restore checks the Dollyfile against the digest of the recipe its image
+  was built from, and needs no image in the browser's image cache. Restoring
+  intersects the saved restrictions with the current policy; a save cannot
+  widen it.
 - Saves stay in this browser profile and origin; they are never uploaded,
   synced or shared by the session URL. Exports are unencrypted
   `.dolly-session` files, checksummed but not authenticated; imports never
@@ -60,10 +63,10 @@ flowchart LR
   `dolly-sessions-vX.Y.Z`, so the pages under `/vX.Y.Z/` list, load, export
   and import only their own saves. An exported file records its version, and
   another version refuses it, naming the version it belongs to.
-- Opening a session reads its image's packs as a second start of the image
-  does: from the browser's pack store, which keeps every pack an image read,
-  checked against its digest at each use, and removes what no image of this
-  runtime names any more ([`pack-store.mjs`](../src/pack-store.mjs)). The
+- A second start of an image reads its packs from the browser's pack store,
+  which keeps every pack an image read, checked against its digest at each
+  use, and removes what no image of this runtime names any more
+  ([`pack-store.mjs`](../src/pack-store.mjs)); a restore reads none. The
   sessions page shows its size and clears it. A save asks the browser to keep
   the origin's storage, the saves and the packs, when it runs short of space
   (`navigator.storage.persist()`): Chrome answers from the site's engagement
