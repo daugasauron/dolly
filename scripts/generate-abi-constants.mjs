@@ -18,6 +18,17 @@ const header = (await read("include/dolly/process.h"))
   .replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "").replace(/\\\n/g, " ")
   .replace(/enum dolly_process_error \{([^}]*)\};/, (_, numbers) => (errorNumbers = numbers, ""));
 const errors = [...errorNumbers.matchAll(/DOLLY_PROCESS_(E[A-Z0-9]+) = (\d+)/g)];
+// The value of a C integer expression over the constants known so far.
+function integer(expression, name, constants, source) {
+  const arithmetic = expression
+    .replace(/\b[A-Z][A-Z0-9_]+\b/g, symbol => {
+      if (!constants.has(symbol)) throw new Error(`${source}: ${name} uses unknown ${symbol}`);
+      return constants.get(symbol);
+    })
+    .replace(/\b(\d+)u\b/g, "$1");
+  if (!/^[\d\s()*|<]+$/.test(arithmetic)) throw new Error(`${source}: unsupported ${name} = ${expression}`);
+  return Function(`"use strict"; return (${arithmetic}) >>> 0;`)();
+}
 
 // WAT contracts own their constants as exported i32 globals. A module whose
 // contracts export any gets abi.mjs beside its manifest, and NAME-abi.h when the
@@ -26,10 +37,10 @@ const errors = [...errorNumbers.matchAll(/DOLLY_PROCESS_(E[A-Z0-9]+) = (\d+)/g)]
 const constantDefines = async (sources, suffix) => (await Promise.all(sources.map(read))).flatMap(text =>
   [...text.matchAll(/\(global \(export "(DOLLY_[A-Z0-9_]+)"\) i32 \(i32.const (\d+)\)\)/g)])
   .map(([, constant, value]) => [constant, value, `#define ${constant} ${value}${suffix}\n`]);
-async function emitConstants(sources, module, header, suffix, digest, errno = false) {
+async function emitConstants(sources, module, header, suffix, digest, errno = false, enumerated = []) {
   const constants = await constantDefines(sources, suffix);
   const c = constants.map(([, , define]) => define);
-  const js = constants.map(([constant, value]) => `export const ${constant} = ${value};\n`);
+  const js = [...constants, ...enumerated].map(([constant, value]) => `export const ${constant} = ${value};\n`);
   // A module answers its calls with the process contract's errno numbers, as its C
   // includes <dolly/process.h>: its JavaScript then imports nothing of the runtime's.
   if (errno && js.length) js.push(`export const DOLLY_ERRNO = Object.freeze({ ${errors.map(([, name, value]) => `${name}: ${value}`).join(", ")} });\n`);
@@ -49,6 +60,21 @@ await emitConstants(["abi/dolly-host-0.wat"], "host/abi.mjs", "include/dolly/hos
 // client records the digest in executables (abi/dolly-host-0.wat), so any edit to
 // them changes identity. The rest of those contracts is between the kernel and
 // the host, which ship together: an edit there leaves executables as they were.
+// What the headers in a module's own directory enumerate a host reads too, as
+// http@0's request flags: abi.mjs carries them, the header holds them for C.
+async function headerEnumerators(headers) {
+  const known = new Map(), found = [];
+  for (const file of headers) {
+    const text = (await read(file)).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
+    for (const [, body] of text.matchAll(/\benum\s*\w*\s*\{([^}]*)\}/g)) {
+      for (const [, name, expression] of body.matchAll(/\b(DOLLY_[A-Z0-9_]+)\s*=\s*([^,]+?)\s*(?:,|$)/g)) {
+        known.set(name, integer(expression, name, known, file));
+        found.push([name, known.get(name)]);
+      }
+    }
+  }
+  return found;
+}
 for (const { name } of hostManifests) {
   const files = field => hostFiles(field).filter(entry => entry.name === name).map(entry => entry.file);
   const contracts = [...files("contracts"), ...files("process")];
@@ -61,7 +87,8 @@ for (const { name } of hostManifests) {
     for (const [, , define] of await constantDefines(files("contracts"), "u")) hash.update(define);
     digest = { name: `DOLLY_${name.toUpperCase().replaceAll("-", "_")}_ABI_DIGEST`, sources, bytes: hash.digest() };
   }
-  await emitConstants(contracts, `host/${name}/abi.mjs`, header, "u", digest, true);
+  const enumerated = await headerEnumerators(files("headers").filter(file => file !== header && file.startsWith(`host/${name}/`)));
+  await emitConstants(contracts, `host/${name}/abi.mjs`, header, "u", digest, true, enumerated);
 }
 
 // Each packet struct's size and field offsets, laid out as C lays out its
@@ -99,14 +126,7 @@ await write("build/process-abi-check.c", "#include <errno.h>\n#include <dolly/pr
 const constants = new Map([["UINT32_MAX", 0xffffffff]]);
 for (const [, name, expression] of header.matchAll(
   /^[ \t]*(?:#define[ \t]+)?(DOLLY_PROCESS_[A-Z0-9_]+)[ \t]*(?:=|[ \t])[ \t]*([^,\n]+?)[ \t]*,?[ \t]*$/gm)) {
-  const arithmetic = expression
-    .replace(/\b[A-Z][A-Z0-9_]+\b/g, symbol => {
-      if (!constants.has(symbol)) throw new Error(`process.h: ${name} uses unknown ${symbol}`);
-      return constants.get(symbol);
-    })
-    .replace(/\b(\d+)u\b/g, "$1");
-  if (!/^[\d\s()*|<]+$/.test(arithmetic)) throw new Error(`process.h: unsupported ${name} = ${expression}`);
-  constants.set(name, Function(`"use strict"; return (${arithmetic}) >>> 0;`)());
+  constants.set(name, integer(expression, name, constants, "process.h"));
 }
 constants.delete("UINT32_MAX");
 if (!constants.has("DOLLY_PROCESS_PACKET_LIMIT")) throw new Error("process.h has no packet contract");
