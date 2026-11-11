@@ -130,7 +130,7 @@ async function writeImageDirectory(image) {
   if (unlisted.length) throw new Error(`config/npm-images.txt: ${image} installs ${unlisted.join(", ")}, which it does not list`);
   const metadata = JSON.parse(await readFile(resolve(projectDir, `dist/dolly-${image}-system-snapshot.json`), "utf8"));
   const recipes = new Set(closureOfImage.map(definition => definition.filename));
-  for (const recipe of record.recipes) recipes.add(sitePath(recipe.sourcePath).slice(1));
+  for (const recipe of metadata.recipes) recipes.add(sitePath(recipe.sourcePath).slice(1));
   const held = catalog.filter(entry => [...heldPackages(catalog, image), ...bootable ? [] : [image]].includes(entry.image));
   const declared = record.hostRequirements.map(value => value.split("@")[0]);
   await mkdir(join(directory, "dist"), { recursive: true });

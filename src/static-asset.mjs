@@ -61,31 +61,47 @@ export async function boundedAssetBody(response, limit, signal) {
 // Pages before v0.1.5 read the X-Dolly-Parts header instead.
 export const PARTS_MANIFEST_START = '{"byteLength":';
 
-// Whether a whole response's body begins as a manifest, read from a copy of it.
-async function isPartsManifest(response) {
-  if (response.status !== 200 || !response.body) return false;
-  const start = new TextEncoder().encode(PARTS_MANIFEST_START), reader = response.clone().body.getReader();
-  const head = new Uint8Array(start.length);
-  let size = 0;
-  try {
-    while (size < start.length) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const taken = value.subarray(0, start.length - size);
-      head.set(taken, size);
-      size += taken.length;
-    }
-  } finally {
-    // Not awaited: cancelling a copy settles only once the response is read too.
-    reader.cancel().catch(() => {});
+// The first `length` bytes of a response's body, and a response whose body is
+// all of it again, those bytes first. It reads the body itself: reading a
+// copy of it and cancelling the copy cost the original its first bytes, in
+// Firefox up to 151 and in Node, when other bodies were read meanwhile.
+async function peeked(response, length) {
+  const reader = response.body.getReader(), chunks = [];
+  let size = 0, ended = false;
+  while (size < length) {
+    const next = await reader.read();
+    if (next.done) { ended = true; break; }
+    chunks.push(next.value);
+    size += next.value.length;
   }
-  return size === start.length && head.every((byte, index) => byte === start[index]);
+  const head = new Uint8Array(Math.min(size, length));
+  for (let offset = 0, index = 0; offset < head.length; ++index) {
+    const taken = chunks[index].subarray(0, head.length - offset);
+    head.set(taken, offset);
+    offset += taken.length;
+  }
+  const body = new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(chunk);
+      if (ended) controller.close();
+    },
+    async pull(controller) {
+      const next = await reader.read();
+      if (next.done) controller.close(); else controller.enqueue(next.value);
+    },
+    cancel: reason => reader.cancel(reason),
+  }, { highWaterMark: 0 });
+  const whole = new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
+  Object.defineProperty(whole, "url", { value: response.url });
+  return { head, whole };
 }
 
 // Streams verified parts, holding at most one 20 MiB part per request. Each
 // part matches the manifest hash before any of its bytes are delivered.
-export async function decodeStaticAsset(response, target, init, maximumBytes, fetchRequest = globalThis.fetch.bind(globalThis)) {
-  if (!await isPartsManifest(response)) return response;
+export async function decodeStaticAsset(given, target, init, maximumBytes, fetchRequest = globalThis.fetch.bind(globalThis)) {
+  if (given.status !== 200 || !given.body) return given;
+  const start = new TextEncoder().encode(PARTS_MANIFEST_START), { head, whole: response } = await peeked(given, start.length);
+  if (head.length !== start.length || head.some((byte, index) => byte !== start[index])) return response;
   const url = new URL(target);
   if ((init.method ?? "GET") !== "GET" || url.search || url.hash ||
       url.username || url.password || !/^https?:$/.test(url.protocol)) throw new Error("invalid multipart asset request");

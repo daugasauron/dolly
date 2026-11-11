@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { recipeRecords } from "./dollyfile-graph.mjs";
 import { alphabetical } from "../src/alphabetical.mjs";
 import { siteReference } from "../src/static-asset.mjs";
+import { recipesDigest } from "../src/image-inputs.mjs";
 
 // The generated files of an image directory (src/images.mjs): its catalog,
 // dist/dolly-images.json, each image's metadata, dist/dolly-IMAGE-system-snapshot.json,
@@ -21,7 +22,7 @@ export function catalogRecord({ image, filename, source, parsed }, graph) {
     dollyfile: filename,
     byteLength: Buffer.byteLength(source),
     sha256: sha256(source),
-    recipes: recipeRecords(graph),
+    recipesSha256: recipesDigest(recipeRecords(graph)),
     artifacts: graph.artifacts,
     hostRequirements: graph.root.hostRequirements,
   };

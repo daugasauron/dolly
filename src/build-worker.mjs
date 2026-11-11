@@ -74,7 +74,7 @@ await runImage(async (config, host) => {
     config.customArtifact = undefined;
     const hosts = artifact?.hostRequirements ?? recipe.hostRequirements;
     host.require(hosts);
-    host.admit(hosts);
+    await host.admit(hosts);
     return {
       name: image,
       prepare({ files }) {
@@ -112,7 +112,7 @@ await runImage(async (config, host) => {
   // A build runs the engine and its tools with the build host's modules, and
   // the programs of the images it reads with their modules: one the build host
   // does not enable answers ENOSYS.
-  host.admit([...declared, ...host.enabled, ...[...artifacts.values()].flatMap(artifact => artifact.hostRequirements)]);
+  await host.admit([...declared, ...host.enabled, ...[...artifacts.values()].flatMap(artifact => artifact.hostRequirements)]);
   const inputs = imageInputs([...artifacts.values()]);
   const base = baseReference ? artifacts.get(baseReference.sha256) : null;
   if (baseReference && !base) throw new Error("base image artifact was not provided");
@@ -170,7 +170,7 @@ await runImage(async (config, host) => {
       // The image runs here with its own modules. The page keeps its identity,
       // which a session saved on it names, not its bytes.
       host.require(artifact.hostRequirements);
-      host.admit(artifact.hostRequirements);
+      await host.admit(artifact.hostRequirements);
       const { buildId, sha256: digest, byteLength } = artifact;
       self.postMessage({ type: "image-built", artifact: { buildId, recipeSha256, sha256: digest, byteLength, inputs: artifact.inputs } });
       built = true;

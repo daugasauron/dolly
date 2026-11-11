@@ -2,14 +2,11 @@
 // recipe (mode "rebuild"), the custom images the site builds ("custom"), and a
 // saved session (`loadSession`), which snapshot@0 selects. Building happens
 // here and in the site's runtime Worker (build-worker.mjs), never in a page
-// that only runs images.
+// that only runs images: their code is imported by the routes that build or
+// run a custom image.
 import { buildHost, hostManifests, switching } from "../host/manifests.mjs";
 import { run } from "./browser.mjs";
 import { imageDefinition, loadImages } from "./images.mjs";
-import { prepareImageArtifacts } from "./image-build.mjs";
-import { buildImage } from "./image-builder.mjs";
-import { loadCustomImage, storedCustomImage } from "./custom-image.mjs";
-import { inspectDollyfile } from "./dollyfile-view.mjs";
 
 // The modules a route's page has (the registry loads those alone): an image of
 // the directory run from its packs has its own and what they depend on; a route
@@ -45,13 +42,14 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
     }
     // The custom image this tab runs: its Dollyfile and, in snapshot mode, the
     // completed artifact and what the tab inherits from the page that built it.
-    const custom = image === "custom" ? selected?.custom ?? storedCustomImage() : undefined;
+    const customImages = image === "custom" ? await import("./custom-image.mjs") : undefined;
+    const custom = image === "custom" ? selected?.custom ?? customImages.storedCustomImage() : undefined;
     if (image === "custom" && !custom) {
       throw new Error("No uploaded Dollyfile is available in this tab. Return to the Dolly menu.");
     }
     const source = custom?.source;
     const rebuild = mode === "rebuild";
-    const recipe = source === undefined ? imageDefinition(image) : inspectDollyfile(source);
+    const recipe = source === undefined ? imageDefinition(image) : (await import("./dollyfile-view.mjs")).inspectDollyfile(source);
     const runnable = recipe.entry !== null;
     if (!runnable && !rebuild) throw new Error(`${image} has no ENTRY; it only builds`);
     // An image declares its modules itself; nothing is inherited from what it is built from.
@@ -70,6 +68,9 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
       async start(host, report) {
         // The site's builds have every module it builds, whatever the page enables.
         const site = hostManifests.map(({ url }) => url);
+        // Only a rebuild builds: an image without ENTRY never runs (above).
+        const [{ buildImage }, { prepareImageArtifacts }] = rebuild
+          ? await Promise.all([import("./image-builder.mjs"), import("./image-build.mjs")]) : [{}, {}];
         const build = (name, inputs) => buildImage(name, inputs, host.builder, report, { modules: site });
         const artifacts = rebuild ? await prepareImageArtifacts(image, source, build, text => report(`${text}\n`)) : [];
         if (!runnable) {
@@ -79,7 +80,7 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
           return null;
         }
         // A saved session is the whole filesystem: its custom image is not loaded.
-        if (image === "custom" && !rebuild && !selected) customArtifact = await loadCustomImage(source, custom.artifact);
+        if (image === "custom" && !rebuild && !selected) customArtifact = await customImages.loadCustomImage(source, custom.artifact);
         return {
           message: { mode, artifacts, ...source === undefined ? {} : { customSource: source },
             ...customArtifact === undefined ? {} : { customArtifact } },

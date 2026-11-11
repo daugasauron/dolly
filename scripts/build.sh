@@ -47,7 +47,7 @@ rm -rf "${project_dir}/build/seed-compiler" && mkdir -p "${project_dir}/build/se
 tar -xf "${seed_compiler}" -C "${project_dir}/build/seed-compiler"
 
 mapfile -t font_paths < <(bash "${project_dir}/scripts/fetch-iosevka.sh")
-web_font="${font_paths[0]}"
+web_font="${font_paths[0]}" page_font="${font_paths[2]}"
 
 if [[ "${container[0]}" == "podman" ]]; then
   container=(podman run --rm --userns=keep-id \
@@ -69,7 +69,9 @@ rm -f \
   "${project_dir}/dist/dolly-abi.json" \
   "${project_dir}/dist/dolly-build-id.mjs" \
   "${project_dir}/dist/dolly-image-build-id.mjs" \
-  "${project_dir}/dist/IosevkaTerm-SemiBold.woff2"
+  "${project_dir}/dist/dolly-build-id.json" \
+  "${project_dir}/dist/IosevkaTerm-SemiBold.woff2" \
+  "${project_dir}/dist/IosevkaTerm-SemiBold-page.woff"
 
 # Every WAT contract: the core ones in abi/ and those host module manifests name.
 mapfile -t contracts < <(printf '%s\n' abi/dolly-kernel-plugin-0.wat abi/dolly-host-0.wat \
@@ -319,5 +321,6 @@ for contract in "${contracts[@]}"; do
   cp "build/$(basename "${contract}" .wat).wasm" dist/
 done
 cp "${web_font}" dist/IosevkaTerm-SemiBold.woff2
+cp "${page_font}" dist/IosevkaTerm-SemiBold-page.woff
 node scripts/bundle-process-worker.mjs
 node scripts/write-build-id.mjs dist/dolly.wasm dist/dolly.data dist/dolly-build-id.mjs

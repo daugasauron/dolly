@@ -1,6 +1,6 @@
 # Firefox 139 to 151 start no image: a pack reaches the decompressor without its first bytes
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: firefox,browser,snapshots,compatibility
 
@@ -29,3 +29,15 @@ releases (`pw-*`) and their browsers (`browsers/`), and the boot script
 
 Done when the lost bytes are explained, and either Firefox 140 starts images or the docs keep
 naming the version that does, with the reason.
+
+## Closed (2026-11-12)
+
+Explained and fixed on `fix/startup`. The lost bytes came from `isPartsManifest`
+(`src/static-asset.mjs`), which read the first chunk of a `response.clone()` and cancelled the
+clone while the original was not yet read: Firefox up to 151 dropped the original's first bytes
+then. The pack prefetch of the startup audit made Node lose them too, under the same pattern
+(`test/packaged-snapshot.test.mjs`, 2 failures in 12 runs). The peek now reads the body itself and
+hands on a response that replays those bytes first (`peeked`); 15 of 15 runs pass. Measured
+after the fix on the checkout's `default`: Firefox 146, 148 and 151 start it; Firefox 140, 142 and
+144 reach the image and stop at `Atomics.waitAsync is not a function`, which the runtime needs.
+`docs/embedding.md` and the build's message name Firefox 146.
