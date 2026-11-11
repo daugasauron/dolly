@@ -8,11 +8,11 @@ REQUIRES HOST threads@0
 # Codex compiled by Cargo from its pinned sources, offline, with the launcher
 # that seeds CODEX_HOME and the search tools Codex runs. The lock file is kept
 # as the build's record.
-FROM /v0.1.5/demos/rust/Dollyfile-rust-build 6dd2c1ebd1ce7ac9be7696969c33508cce1f8d5d2b110adf96dd746e1ede7687
-USE /v0.1.5/Dollyfile-libdolly-sockets c51bcf3f7fd885811c18bbe2c2e811a833e4916512d85a3f48384e46479a37a9
-USE /v0.1.5/demos/rust/Dollyfile-protox d7fdcc6f6a75a4ba4eb30d2b9e6d6c7207f8d721a759d0dd2ba236a3c0ac6f3b
-INSTALL /v0.1.5/demos/rust/Dollyfile-ripgrep c87313fac9bf1ac25cf9a7e4a3bf1ad9ecd780792e03a02236e416f2e462f4ab
-INSTALL /v0.1.5/demos/rust/Dollyfile-fd 2e062fa22e20a2efbcfd8c9adfc42bda44bd42282275789ec8ddb7e28a31d07f
+FROM /v0.1.6/demos/rust/Dollyfile-rust-build e27d4d09fdfecc36bf2854f0da39b7f767834161539b6c0e0bbdd75a82dee88b
+USE /v0.1.6/Dollyfile-libdolly-sockets 4636295439c4e243368efb6de237b465183368c299040efda2cce4cf2215aa48
+USE /v0.1.6/demos/rust/Dollyfile-protox 4d89f432b8774a70d0cfa27c494eb1d3b9474345eb54f2bd1b9bffce07a1f369
+INSTALL /v0.1.6/demos/rust/Dollyfile-ripgrep c0a4ca7cd91f1dcaace4731e5dffd36d0e10b74fe7872576d25523055f8ffe26
+INSTALL /v0.1.6/demos/rust/Dollyfile-fd 854999419ad3e35044e3c3d20fa4dc5f735454bdd1aba2a8b0bba3f268cbe32d
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL cargo
@@ -26,12 +26,12 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL protox
 
-SOURCE /v0.1.5/dist/static/codex/sources-00.part 75a0781c2d72eda40ac9954af6b7fecb053475d26aeaac156ff6a2cdd5a18d4d /tmp/codex-sources-00.part
-SOURCE /v0.1.5/dist/static/codex/sources-01.part 44cff0b44ce3ba92d32d847fe8e469f8722f4a37c81f4aaacf7823dc810a3cc8 /tmp/codex-sources-01.part
-SOURCE /v0.1.5/dist/static/codex/sources-02.part b7f6343a29b3f1172ad0910c3209b7d205dbc00a74d17a4b07656ecb2f1b6d08 /tmp/codex-sources-02.part
-SOURCE /v0.1.5/dist/static/codex/sources-03.part b1e566edd561ca38a6b6be6fa0b3ec127590d161df02fd766644c9c0e7229da4 /tmp/codex-sources-03.part
-SOURCE /v0.1.5/dist/static/codex/sources-04.part b11a6e3718fa12f5aa5445a8e0a3b81c1a936a01c64dd97f840fcdbfeff9d2c2 /tmp/codex-sources-04.part
-SOURCE /v0.1.5/dist/static/codex/no-js.c 5b2a995a8f36f4917f40f39af9806be9d4646d90850585fbc8bd904ff18c45fd /tmp/codex-no-js.c
+SOURCE /v0.1.6/dist/static/codex/sources-00.part 75a0781c2d72eda40ac9954af6b7fecb053475d26aeaac156ff6a2cdd5a18d4d /tmp/codex-sources-00.part
+SOURCE /v0.1.6/dist/static/codex/sources-01.part 44cff0b44ce3ba92d32d847fe8e469f8722f4a37c81f4aaacf7823dc810a3cc8 /tmp/codex-sources-01.part
+SOURCE /v0.1.6/dist/static/codex/sources-02.part b7f6343a29b3f1172ad0910c3209b7d205dbc00a74d17a4b07656ecb2f1b6d08 /tmp/codex-sources-02.part
+SOURCE /v0.1.6/dist/static/codex/sources-03.part b1e566edd561ca38a6b6be6fa0b3ec127590d161df02fd766644c9c0e7229da4 /tmp/codex-sources-03.part
+SOURCE /v0.1.6/dist/static/codex/sources-04.part b11a6e3718fa12f5aa5445a8e0a3b81c1a936a01c64dd97f840fcdbfeff9d2c2 /tmp/codex-sources-04.part
+SOURCE /v0.1.6/dist/static/codex/no-js.c 5b2a995a8f36f4917f40f39af9806be9d4646d90850585fbc8bd904ff18c45fd /tmp/codex-no-js.c
 SLOP cat /tmp/codex-sources-00.part /tmp/codex-sources-01.part /tmp/codex-sources-02.part /tmp/codex-sources-03.part /tmp/codex-sources-04.part | gzip -dc - | tar -xf - -C /
 SLOP rm /tmp/codex-sources-00.part /tmp/codex-sources-01.part /tmp/codex-sources-02.part /tmp/codex-sources-03.part /tmp/codex-sources-04.part
 SLOP cc -O1 -c /tmp/codex-no-js.c -o /tmp/codex-no-js.o
@@ -45,8 +45,8 @@ SLOP rm -rf /tmp/codex-sources /tmp/codex-build /tmp/codex-no-js.c /tmp/codex-no
 SLOP /usr/libexec/codex --version
 SLOP /usr/libexec/codex --help
 
-SOURCE /v0.1.5/dist/static/codex/launch.c 976af0443f20a29fb54d0e9b04d21138ba6d2fde269d2d6fd4a88b413ac9b04c /tmp/codex-launch.c
-SOURCE /v0.1.5/dist/static/codex/config.toml 41195a65f4ae7b2502f30cf0ed938d0746954ed5434af4a2ef99ce0e05683c97 /usr/share/codex/config.toml
+SOURCE /v0.1.6/dist/static/codex/launch.c 976af0443f20a29fb54d0e9b04d21138ba6d2fde269d2d6fd4a88b413ac9b04c /tmp/codex-launch.c
+SOURCE /v0.1.6/dist/static/codex/config.toml 41195a65f4ae7b2502f30cf0ed938d0746954ed5434af4a2ef99ce0e05683c97 /usr/share/codex/config.toml
 SLOP cc -O1 /tmp/codex-launch.c -o /usr/bin/codex
 SLOP rm /tmp/codex-launch.c
 

@@ -5,7 +5,7 @@ REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST http@0
 
-FROM /v0.1.5/Dollyfile-zig-build c304a827ea870a161be6ce34d48be408b5d5aefb676974b5e80860184ec9cfcf
+FROM /v0.1.6/Dollyfile-zig-build 8109cf1c3907f06ebf10b7cddec3aec8a54f1e56ef5138d5fa4e115c170bb870
 
 REQUIRES HEADER libc
 REQUIRES HEADER display
@@ -17,17 +17,17 @@ REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 REQUIRES TOOL   zig
 
-SOURCE /v0.1.5/dist/static/default/ghostty.tar              74835c10f3034c328c097e85cb164071a9f53af21a44688dabf0b06a6f7334cf /tmp/ghostty.tar
-SOURCE /v0.1.5/dist/static/default/uucode.tar               be9d52ab9c0f49deb5fd8baa54b4b14f490f8e29e200d044e908d7adad54e3d0 /tmp/uucode.tar
-SOURCE /v0.1.5/dist/static/default/ghostty/display.c        104db448de805ada40dbb69d50b53b2b5514be7f228c3204248781f929de411d /usr/src/dolly/ghostty/display.c
-SOURCE /v0.1.5/dist/static/default/stb_truetype.h           ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/ghostty/stb_truetype.h
-SOURCE /v0.1.5/dist/static/default/stb_image.h              594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3 /tmp/ghostty/stb_image.h
-SOURCE /v0.1.5/dist/static/default/IosevkaTerm-SemiBold.ttf cb3fd282d86c0e7cc2829f848df5a58973db98c8369a20427a9b3d06727e5aaa /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+SOURCE /v0.1.6/dist/static/default/ghostty.tar              74835c10f3034c328c097e85cb164071a9f53af21a44688dabf0b06a6f7334cf /tmp/ghostty.tar
+SOURCE /v0.1.6/dist/static/default/uucode.tar               be9d52ab9c0f49deb5fd8baa54b4b14f490f8e29e200d044e908d7adad54e3d0 /tmp/uucode.tar
+SOURCE /v0.1.6/dist/static/default/ghostty/display.c        104db448de805ada40dbb69d50b53b2b5514be7f228c3204248781f929de411d /usr/src/dolly/ghostty/display.c
+SOURCE /v0.1.6/dist/static/default/stb_truetype.h           ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/ghostty/stb_truetype.h
+SOURCE /v0.1.6/dist/static/default/stb_image.h              594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3 /tmp/ghostty/stb_image.h
+SOURCE /v0.1.6/dist/static/default/IosevkaTerm-SemiBold.ttf cb3fd282d86c0e7cc2829f848df5a58973db98c8369a20427a9b3d06727e5aaa /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 # What IosevkaTerm has no glyph for: Chinese, Japanese and Korean, then emoji.
-SOURCE /v0.1.5/dist/static/default/DroidSansFallback.ttf    56d3edfb377a8bc3c4b77f4476405c770173c0e31221ad7c77d0a8e1f3039a3e /usr/share/fonts/DroidSansFallback.ttf
-SOURCE /v0.1.5/dist/static/default/droid-fonts-NOTICE       38751245389e1e23f73e6f5384b5cbe7fa972cc4410c5adc9c04b082a0b9561a /usr/share/licenses/droid-fonts/NOTICE
-SOURCE /v0.1.5/dist/static/default/NotoEmoji-Regular.ttf    cd07743a4c93d8da929afdd28c1d368f11da478a1093146a13610081c2a58440 /usr/share/fonts/NotoEmoji-Regular.ttf
-SOURCE /v0.1.5/dist/static/default/noto-emoji-OFL.txt       fb755fa3280d1d215a20df2e64fe6a0f75f8208439b11671978214aae60d2997 /usr/share/licenses/noto-emoji/OFL.txt
+SOURCE /v0.1.6/dist/static/default/DroidSansFallback.ttf    56d3edfb377a8bc3c4b77f4476405c770173c0e31221ad7c77d0a8e1f3039a3e /usr/share/fonts/DroidSansFallback.ttf
+SOURCE /v0.1.6/dist/static/default/droid-fonts-NOTICE       38751245389e1e23f73e6f5384b5cbe7fa972cc4410c5adc9c04b082a0b9561a /usr/share/licenses/droid-fonts/NOTICE
+SOURCE /v0.1.6/dist/static/default/NotoEmoji-Regular.ttf    cd07743a4c93d8da929afdd28c1d368f11da478a1093146a13610081c2a58440 /usr/share/fonts/NotoEmoji-Regular.ttf
+SOURCE /v0.1.6/dist/static/default/noto-emoji-OFL.txt       fb755fa3280d1d215a20df2e64fe6a0f75f8208439b11671978214aae60d2997 /usr/share/licenses/noto-emoji/OFL.txt
 SLOP tar \
   -xf /tmp/ghostty.tar \
   -C /

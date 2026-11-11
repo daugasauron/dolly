@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # qjs, the engine with its own std, os and bjson modules and nothing of Node.
 # EMSCRIPTEN is upstream's switch for a target without threads: there is no
 # os.Worker, and os.exec fails because nothing here forks.
-FROM /v0.1.5/Dollyfile-system-tools 9bc38034f4d331f3175758f9e8d606d9fc3a34061657e0a43951c9ba828e8eb3
+FROM /v0.1.6/Dollyfile-system-tools feb6b8dca551cafdab66985e5518d16a983b48fd10bc8680c6715210bb2f897d
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -17,7 +17,7 @@ REQUIRES TOOL   make
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.5/dist/static/default/quickjs.tar 9fd1cf2a32d292362acf460b48b2332e1e4a8dd49e603b62ad9ba87bc1205af8 /tmp/quickjs.tar
+SOURCE /v0.1.6/dist/static/default/quickjs.tar 9fd1cf2a32d292362acf460b48b2332e1e4a8dd49e603b62ad9ba87bc1205af8 /tmp/quickjs.tar
 SLOP tar -xf /tmp/quickjs.tar -C /
 
 FILE /tmp/quickjs.mk

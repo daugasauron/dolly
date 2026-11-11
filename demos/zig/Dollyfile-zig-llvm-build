@@ -7,15 +7,15 @@ REQUIRES HOST http@0
 # LLVM, zig1 (upstream's zig1.wasm, run by WAMR as in zig-build) with
 # upstream's stage1/config.zig.in, and cc's objects of it. zig-llvm links
 # them with LLVM.
-FROM /v0.1.5/Dollyfile-system-build 002b7468fa89512eda7356eb5b489253f40e3a44a40670c36c3026c7043e7022
+FROM /v0.1.6/Dollyfile-system-build 2ff106b9223deabbae812860e276f909d55a2193f12854e2a1ed27bea3710d54
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
 REQUIRES TOOL   tar
 REQUIRES TOOL   cp
 REQUIRES TOOL   rm
 
-SOURCE /v0.1.5/dist/static/zig-llvm/zig.tar 96a613af69e31fc30958f0c578cce4f4581b5373b7bb9f4f6ae590d2cd12ad65 /tmp/zig.tar
-SOURCE /v0.1.5/dist/static/zig-llvm/wamr.tar d5d0e05cf074e3f4167bc0430342a39f69666d3e27ee09c748f2a2a22299dfea /tmp/wamr.tar
+SOURCE /v0.1.6/dist/static/zig-llvm/zig.tar 96a613af69e31fc30958f0c578cce4f4581b5373b7bb9f4f6ae590d2cd12ad65 /tmp/zig.tar
+SOURCE /v0.1.6/dist/static/zig-llvm/wamr.tar d5d0e05cf074e3f4167bc0430342a39f69666d3e27ee09c748f2a2a22299dfea /tmp/wamr.tar
 SLOP tar -xf /tmp/zig.tar -C /
 SLOP tar -xf /tmp/wamr.tar -C /
 

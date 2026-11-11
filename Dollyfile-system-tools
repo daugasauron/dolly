@@ -6,7 +6,7 @@ REQUIRES HOST input@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.5/Dollyfile-system-build 002b7468fa89512eda7356eb5b489253f40e3a44a40670c36c3026c7043e7022
+FROM /v0.1.6/Dollyfile-system-build 2ff106b9223deabbae812860e276f909d55a2193f12854e2a1ed27bea3710d54
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -16,7 +16,7 @@ REQUIRES TOOL   mv
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.5/dist/static/default/sbase.tar 23daa7bd6d5169ba5ad4a9801fe039ba28b103e3dbb74583fccb48f3333253eb /tmp/sbase.tar
+SOURCE /v0.1.6/dist/static/default/sbase.tar 23daa7bd6d5169ba5ad4a9801fe039ba28b103e3dbb74583fccb48f3333253eb /tmp/sbase.tar
 SLOP tar \
   -xf /tmp/sbase.tar \
   -C /
@@ -93,7 +93,7 @@ SLOP rm \
 # through posix_spawn.
 REQUIRES HEADER runtime
 
-SOURCE /v0.1.5/dist/static/default/samurai.tar                   df4d14af0e48a206d1ccc175f134c3c81b6601b3d243b24561b1927ecd0afc45 /tmp/ninja/samurai.tar
+SOURCE /v0.1.6/dist/static/default/samurai.tar                   df4d14af0e48a206d1ccc175f134c3c81b6601b3d243b24561b1927ecd0afc45 /tmp/ninja/samurai.tar
 
 SLOP tar \
   -xf /tmp/ninja/samurai.tar \
@@ -113,11 +113,11 @@ SLOP rm \
   -rf \
   /tmp/ninja
 # zlib, gzip and curl for builds, and Git, which Dolly's patch and diff run.
-INSTALL /v0.1.5/Dollyfile-zlib 57a63081cc4505bf8f18360c2343eb869292c2e4b5215c7b09e456941552fc1c
-INSTALL /v0.1.5/Dollyfile-gzip 63931bb8773b8079a4ce1b619372e24b304ca5fb0585302cf8d2d80edc3e37c8
-INSTALL /v0.1.5/Dollyfile-curl 4f851d7c8cca1a15fd219f5f329470c1271126bcc57cea42d93876fa2da1b041
-INSTALL /v0.1.5/Dollyfile-git 866d2b22e978a4ff11ad83168f1e772e09b7c7d6bfceaa196e59a8d56aef042e
-SOURCE /v0.1.5/dist/static/default/awk.tar f28cae177fa60793a70066d10667e8d06775d979f2262be1c48f8eb941090015 /tmp/awk.tar
+INSTALL /v0.1.6/Dollyfile-zlib 1b267c86d9fc96152c80ab95b271f50e799040724b751fc2e56cdabcc66746b5
+INSTALL /v0.1.6/Dollyfile-gzip 18d12a2ddf80f4cb83266e7faac408c65d70e9170fe4d38fea99491edf2604cc
+INSTALL /v0.1.6/Dollyfile-curl 24fb8c4a86fc84af77d1470e6685b66fae4d1bf08964a22d452c54f5bc904f1c
+INSTALL /v0.1.6/Dollyfile-git 5c3483cf0ad5dd4b89a4f6838b174178cb50c1088bb4d9854965a4b2378f8950
+SOURCE /v0.1.6/dist/static/default/awk.tar f28cae177fa60793a70066d10667e8d06775d979f2262be1c48f8eb941090015 /tmp/awk.tar
 SLOP tar \
   -xf /tmp/awk.tar \
   -C /
@@ -148,20 +148,20 @@ SLOP rm \
   /usr/libexec/dolly/awk-maketab \
   /usr/src/awk
 # Dolly's own commands beside sbase's, from src/commands.
-SOURCE /v0.1.5/dist/static/default/commands/run-program.h e73415ba149e8dcb9944313c36d8d2319202d699c810e02a26d5a94caa8f3a9f /tmp/agent-tools/run-program.h
-SOURCE /v0.1.5/dist/static/default/commands/install.c     c65b5d737e8db898e44856df2924c155595296933ca3f79c0c16ef08bee360f5 /tmp/agent-tools/install.c
-SOURCE /v0.1.5/dist/static/default/commands/du.c          79c39241876af8a479c8afe3383dca43d002b560adbd6b773fb8f0d223f2ab4a /tmp/agent-tools/du.c
-SOURCE /v0.1.5/dist/static/default/commands/rev.c         3539529d49f26629a6518437dc76631f113bcc5822ff5dbc8aa26481933f3d05 /tmp/agent-tools/rev.c
-SOURCE /v0.1.5/dist/static/default/commands/command.c     a84673243407a37f42b1a82a47fab4123c165b383761642874ba2ec081938bd3 /tmp/agent-tools/command.c
-SOURCE /v0.1.5/dist/static/default/commands/xargs.c       13a9340a4f6539e2434ef257bb2d4c5d871f4b33deeb2627002fca6752d29034 /tmp/agent-tools/xargs.c
-SOURCE /v0.1.5/dist/static/default/commands/find.c        5a4fc1a643caf82a3d0d7aa9b5343136294cac3d9d2c73e95f637d1261a23675 /tmp/agent-tools/find.c
-SOURCE /v0.1.5/dist/static/default/commands/env.c         62c71b67f4623f7b2f253c5474ff8745ed335325ed0392b992e4adc8653a6902 /tmp/agent-tools/env.c
-SOURCE /v0.1.5/dist/static/default/commands/time.c        bb49a29e708e9e32716e2d5bf4b4b4e662b07093d0e3731588ef7d41a53ad733 /tmp/agent-tools/time.c
-SOURCE /v0.1.5/dist/static/default/commands/timeout.c     29469d957ff5fb2e2f0deb5a62c8cbe84aa46a9e7afbb964690f5a9819cb9b83 /tmp/agent-tools/timeout.c
-SOURCE /v0.1.5/dist/static/default/commands/realpath.c    6ec82439ecf3ab1d21a40293ab7e585972c523d8c8e4573a60a7cef86af08250 /tmp/agent-tools/realpath.c
-SOURCE /v0.1.5/dist/static/default/commands/hostname.c    14a20a493c8559d8b28f221a6edd9b6f89f893f3e3067093b44d7235b4ae060f /tmp/agent-tools/hostname.c
-SOURCE /v0.1.5/dist/static/default/commands/tty.c         c51c9598e8245d5f651ade70995f2b03fb936c42a0e99c4c81c83749c5714c7e /tmp/agent-tools/tty.c
-SOURCE /v0.1.5/dist/static/default/commands/nproc.c       96ce7b8d1b1cee59d12193c2fa6fab5210bb7f0c9a0d0cc9bde7e0fd8d87c7ac /tmp/agent-tools/nproc.c
+SOURCE /v0.1.6/dist/static/default/commands/run-program.h e73415ba149e8dcb9944313c36d8d2319202d699c810e02a26d5a94caa8f3a9f /tmp/agent-tools/run-program.h
+SOURCE /v0.1.6/dist/static/default/commands/install.c     c65b5d737e8db898e44856df2924c155595296933ca3f79c0c16ef08bee360f5 /tmp/agent-tools/install.c
+SOURCE /v0.1.6/dist/static/default/commands/du.c          79c39241876af8a479c8afe3383dca43d002b560adbd6b773fb8f0d223f2ab4a /tmp/agent-tools/du.c
+SOURCE /v0.1.6/dist/static/default/commands/rev.c         3539529d49f26629a6518437dc76631f113bcc5822ff5dbc8aa26481933f3d05 /tmp/agent-tools/rev.c
+SOURCE /v0.1.6/dist/static/default/commands/command.c     a84673243407a37f42b1a82a47fab4123c165b383761642874ba2ec081938bd3 /tmp/agent-tools/command.c
+SOURCE /v0.1.6/dist/static/default/commands/xargs.c       13a9340a4f6539e2434ef257bb2d4c5d871f4b33deeb2627002fca6752d29034 /tmp/agent-tools/xargs.c
+SOURCE /v0.1.6/dist/static/default/commands/find.c        5a4fc1a643caf82a3d0d7aa9b5343136294cac3d9d2c73e95f637d1261a23675 /tmp/agent-tools/find.c
+SOURCE /v0.1.6/dist/static/default/commands/env.c         62c71b67f4623f7b2f253c5474ff8745ed335325ed0392b992e4adc8653a6902 /tmp/agent-tools/env.c
+SOURCE /v0.1.6/dist/static/default/commands/time.c        bb49a29e708e9e32716e2d5bf4b4b4e662b07093d0e3731588ef7d41a53ad733 /tmp/agent-tools/time.c
+SOURCE /v0.1.6/dist/static/default/commands/timeout.c     29469d957ff5fb2e2f0deb5a62c8cbe84aa46a9e7afbb964690f5a9819cb9b83 /tmp/agent-tools/timeout.c
+SOURCE /v0.1.6/dist/static/default/commands/realpath.c    6ec82439ecf3ab1d21a40293ab7e585972c523d8c8e4573a60a7cef86af08250 /tmp/agent-tools/realpath.c
+SOURCE /v0.1.6/dist/static/default/commands/hostname.c    14a20a493c8559d8b28f221a6edd9b6f89f893f3e3067093b44d7235b4ae060f /tmp/agent-tools/hostname.c
+SOURCE /v0.1.6/dist/static/default/commands/tty.c         c51c9598e8245d5f651ade70995f2b03fb936c42a0e99c4c81c83749c5714c7e /tmp/agent-tools/tty.c
+SOURCE /v0.1.6/dist/static/default/commands/nproc.c       96ce7b8d1b1cee59d12193c2fa6fab5210bb7f0c9a0d0cc9bde7e0fd8d87c7ac /tmp/agent-tools/nproc.c
 
 FILE /tmp/agent-tools/Makefile
     .RECIPEPREFIX := >
@@ -198,6 +198,6 @@ SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
 SLOP cp /usr/share/man/cat1/slop.1 /usr/share/man/cat1/sh.1
 FOLDER /usr/share/man
-INSTALL /v0.1.5/Dollyfile-display 215807de7ce4ec5f1b2025eb491005f3b4b515079b1f14ba947b46c2091fea52
+INSTALL /v0.1.6/Dollyfile-display 0ac4795910e07e891278604f39ff54f6fe81c4347384b0a6d2470ba7d1dc5bdb
 
 ENTRY /bin/foreground -i /bin/slop

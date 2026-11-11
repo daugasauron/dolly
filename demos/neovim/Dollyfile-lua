@@ -7,8 +7,8 @@ REQUIRES HOST dso@0
 # headers, and the LPeg and luv modules built for it, which programs that
 # embed Lua (nvim) link as static libraries. -rdynamic lets source-built Lua C
 # modules share the interpreter's API.
-FROM /v0.1.5/demos/cmake/Dollyfile-cmake-build 779dad8ffeebcac57839c9d4c180003f4646881356f38c42e360dbf966501ab7
-USE /v0.1.5/Dollyfile-mandoc 83da22748d615feab08a0a774cb1f704c8d8f6cde9402b86d4b0dd8ea166e5bd
+FROM /v0.1.6/demos/cmake/Dollyfile-cmake-build 0f6d032ab6c8dc5fc6cb40fc316798fa489bc2afb90429c52c9f0f6e575a25d4
+USE /v0.1.6/Dollyfile-mandoc 05e2800edcfd0600e44e6bdbd5292a5aa4577bc12a2ea456634c0b7c56258f0d
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL ar
@@ -20,7 +20,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL rm
 REQUIRES TOOL sed
 
-SOURCE /v0.1.5/dist/static/neovim/lua-5.1.5.tar.gz 2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333 /tmp/lua/source.tar.gz
+SOURCE /v0.1.6/dist/static/neovim/lua-5.1.5.tar.gz 2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333 /tmp/lua/source.tar.gz
 SLOP gzip -dc /tmp/lua/source.tar.gz > /tmp/lua/source.tar
 SLOP tar -xf /tmp/lua/source.tar -C /tmp/lua
 SLOP sed 's@"/usr/local/"@"/usr/"@' /tmp/lua/lua-5.1.5/src/luaconf.h > /tmp/lua/luaconf.h
@@ -58,7 +58,7 @@ SLOP rm -rf /tmp/lua
 REQUIRES HEADER lua
 REQUIRES TOOL lua
 
-SOURCE /v0.1.5/dist/static/neovim/lpeg.tar e8a9fd286cf0ba6b9eff1ac12680eca887e409236b34a556a5cf6e55957f83f6 /tmp/lpeg/source.tar
+SOURCE /v0.1.6/dist/static/neovim/lpeg.tar e8a9fd286cf0ba6b9eff1ac12680eca887e409236b34a556a5cf6e55957f83f6 /tmp/lpeg/source.tar
 SLOP tar -xf /tmp/lpeg/source.tar -C /
 SLOP make -C /tmp/lpeg/source CC=cc LUADIR=/usr/include/lua5.1 \
   COPT=-O2 DLLFLAGS=-shared lpeg.so
@@ -80,7 +80,7 @@ REQUIRES LIB uv
 REQUIRES LIB lua
 REQUIRES TOOL cmake
 
-SOURCE /v0.1.5/dist/static/neovim/luv.tar 576f4f861cabfd1d7313d56124e1473f724f3da09060df4dc93d59936d3b4004 /tmp/luv/source.tar
+SOURCE /v0.1.6/dist/static/neovim/luv.tar 576f4f861cabfd1d7313d56124e1473f724f3da09060df4dc93d59936d3b4004 /tmp/luv/source.tar
 SLOP tar -xf /tmp/luv/source.tar -C /
 SLOP cmake -S /tmp/luv/source -B /tmp/luv/build \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_C_FLAGS=-O2 \

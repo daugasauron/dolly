@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # libogg from upstream's release archive, unchanged, built by its CMake project:
 # the Ogg container under Vorbis, for programs the cc package builds.
-FROM /v0.1.5/demos/cmake/Dollyfile-cmake-build 779dad8ffeebcac57839c9d4c180003f4646881356f38c42e360dbf966501ab7
+FROM /v0.1.6/demos/cmake/Dollyfile-cmake-build 0f6d032ab6c8dc5fc6cb40fc316798fa489bc2afb90429c52c9f0f6e575a25d4
 REQUIRES HEADER libc
 REQUIRES TOOL cmake
 REQUIRES TOOL gzip
@@ -12,7 +12,7 @@ REQUIRES TOOL make
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.5/dist/static/libogg/source.tar.gz c3004045b65a78d52081c127251b94034d43b6755ffaf31d4a892a4344d4e2ad /tmp/libogg.tar.gz
+SOURCE /v0.1.6/dist/static/libogg/source.tar.gz c3004045b65a78d52081c127251b94034d43b6755ffaf31d4a892a4344d4e2ad /tmp/libogg.tar.gz
 SLOP gzip -dc /tmp/libogg.tar.gz | tar -xf - -C /
 SLOP cmake -S /tmp/libogg -B /tmp/libogg-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \

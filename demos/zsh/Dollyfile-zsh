@@ -7,9 +7,9 @@ REQUIRES HOST runtime@0
 # (prepare-zsh.sh); Dolly compiles every object and links in the modules
 # zsh links statically, through Binaryen's cast emulation: zsh calls its
 # hooks, builtins and callbacks through pointers of a common type.
-FROM /v0.1.5/demos/tools/Dollyfile-tools-build c3970aae486aafd7ec03ac546c8ea596688b6c3f04ce203ea70cd44de6abccc6
-USE /v0.1.5/demos/tmux/Dollyfile-libterminfo 82b536d38aab7e9a54e0834ef204e8a1e08e0ae6f24941f40e98e86ff726cc77
-USE /v0.1.5/demos/tools/Dollyfile-binaryen ca909e2f5cc264702799beb2869c2407ed7fcc74ae57b678c3c56c42bc65df1d
+FROM /v0.1.6/demos/tools/Dollyfile-tools-build df438c1978ba5ec4b5ce3d06d1d1310f98b1dbb00540a5ba48d96d2919efda30
+USE /v0.1.6/demos/tmux/Dollyfile-libterminfo 0669692016dd20e56c782f506722de79ddc11a728d41560496425d390385de99
+USE /v0.1.6/demos/tools/Dollyfile-binaryen 14cef3dc2dbca9d370cf4289a5fe0a50db5cccd0f9b413254ecb45c98cba56d2
 
 REQUIRES HEADER libc
 REQUIRES HEADER termcap
@@ -32,7 +32,7 @@ REQUIRES TOOL   text-page
 REQUIRES TOOL   tr
 REQUIRES TOOL   wasm-opt
 
-SOURCE /v0.1.5/dist/static/zsh/zsh.tar.gz 1e03835f23390df4f26923a0f60e94e611d3d659fa97711d8b37a526f856f01d /tmp/zsh.tar.gz
+SOURCE /v0.1.6/dist/static/zsh/zsh.tar.gz 1e03835f23390df4f26923a0f60e94e611d3d659fa97711d8b37a526f856f01d /tmp/zsh.tar.gz
 SLOP gzip -dc /tmp/zsh.tar.gz | tar -xf - -C /
 
 FILE /tmp/zsh.mk

@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # anykey PROMPT discards earlier input, shows PROMPT and prints the one key it
 # then reads from the terminal; Ctrl+C is status 130.
-FROM /v0.1.5/Dollyfile-system-build 002b7468fa89512eda7356eb5b489253f40e3a44a40670c36c3026c7043e7022
+FROM /v0.1.6/Dollyfile-system-build 2ff106b9223deabbae812860e276f909d55a2193f12854e2a1ed27bea3710d54
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 

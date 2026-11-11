@@ -10,9 +10,9 @@ REQUIRES HOST threads@0
 # builds the compiler, the libraries and the tools; then the compiler builds
 # itself until it reproduces itself. The runtime runs OCaml 5's domains on
 # Dolly's threads.
-FROM /v0.1.5/demos/tools/Dollyfile-tools-build c3970aae486aafd7ec03ac546c8ea596688b6c3f04ce203ea70cd44de6abccc6
+FROM /v0.1.6/demos/tools/Dollyfile-tools-build df438c1978ba5ec4b5ce3d06d1d1310f98b1dbb00540a5ba48d96d2919efda30
 # A program with C stubs (unix, str, threads) links its runtime with cc.
-INSTALL /v0.1.5/Dollyfile-cc 29e8907b6b0f1fae23e87de7b9f84d0c58fc118b31dffe5d024a8a67b0f43ba4
+INSTALL /v0.1.6/Dollyfile-cc 45c600ca65a76228e0ab426460dde1ffe5692febc849c1e139a2b84486e9e05c
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
@@ -23,7 +23,7 @@ REQUIRES TOOL   make
 REQUIRES TOOL   tar
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.5/dist/static/ocaml/ocaml.tar.gz beac076436c92b33693c3a2301c9c102749880fe7017df8ce63135e9e6cd21ab /tmp/ocaml.tar.gz
+SOURCE /v0.1.6/dist/static/ocaml/ocaml.tar.gz beac076436c92b33693c3a2301c9c102749880fe7017df8ce63135e9e6cd21ab /tmp/ocaml.tar.gz
 SLOP gzip -dc /tmp/ocaml.tar.gz | tar -xf - -C /
 SLOP CWD /tmp/ocaml make -j4 world
 # Upstream's fixpoint: the compiler that boot/ocamlc built compiles itself,

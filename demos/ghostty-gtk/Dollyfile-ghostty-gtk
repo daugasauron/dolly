@@ -10,8 +10,8 @@ REQUIRES HOST threads@0
 # compiled interface files, built by Zig in Dolly over mesa-build: libadwaita
 # and Ghostty's own build.zig
 # (ghostty-dolly.patch; its packages fetched on the host, prepare-ghostty.sh).
-FROM /v0.1.5/demos/ghostty-gtk/Dollyfile-mesa-build a1f1166d7bb23de8a50f6ca44277374a628fd2ff7e0bb176fe2c38ef45547b32
-USE /v0.1.5/demos/zig/Dollyfile-zig-llvm 96c3340818892a8205450a014672e1fab3c82e5d39702022fdc0e61b54058320
+FROM /v0.1.6/demos/ghostty-gtk/Dollyfile-mesa-build cd32c8a3a17599f986d2ff80c99a0b612cf955299b23cde6eb442554518bd6e9
+USE /v0.1.6/demos/zig/Dollyfile-zig-llvm 1b9a9b2459673ee03b7e5c825ea104a3f73befe0412da48fef5ab5a94aeebdac
 
 REQUIRES TOOL   c++
 REQUIRES TOOL   cc
@@ -29,7 +29,7 @@ REQUIRES TOOL   zig
 # libadwaita, static. It carries its own copies of five of GTK's builder
 # helpers under GTK's names, which a static link of both would hold twice:
 # its build names its copies its own.
-SOURCE /v0.1.5/dist/static/ghostty-gtk/libadwaita-1.10.0.tar.xz b1bf56239269d101a6391ad4553c910eff9cc6170b803916405477ef60a66c84 /tmp/ghostty-gtk/libadwaita.tar.xz
+SOURCE /v0.1.6/dist/static/ghostty-gtk/libadwaita-1.10.0.tar.xz b1bf56239269d101a6391ad4553c910eff9cc6170b803916405477ef60a66c84 /tmp/ghostty-gtk/libadwaita.tar.xz
 SLOP CWD /tmp/ghostty-gtk xz -dc libadwaita.tar.xz | tar -xf -
 SLOP CWD /tmp/ghostty-gtk meson setup build-adw libadwaita-1.10.0 --wrap-mode=nodownload --prefix=/usr --libdir=lib \
   --buildtype=release -Ddefault_library=static -Dintrospection=disabled -Dvapi=false -Dtests=false \
@@ -76,7 +76,7 @@ SLOP cc -O1 /tmp/ghostty-cc/cc.c -o /tmp/ghostty-cc/cc
 # Ghostty's build finds libdolly-sockets and libdolly-pty under a prefix's lib.
 SLOP mkdir -p /tmp/ghostty-prefix && ln -s /usr/lib/dolly/process /tmp/ghostty-prefix/lib
 
-SOURCE /v0.1.5/dist/static/ghostty-gtk/ghostty.tar.gz 6c5d144628a8bc6b7800e3b264628ea357877cff42c60f6845936b5a327c335a /tmp/ghostty.tar.gz
+SOURCE /v0.1.6/dist/static/ghostty-gtk/ghostty.tar.gz 6c5d144628a8bc6b7800e3b264628ea357877cff42c60f6845936b5a327c335a /tmp/ghostty.tar.gz
 SLOP gzip -dc /tmp/ghostty.tar.gz | tar -xf - -C /
 # Ghostty's threads share the program's memory, so its code needs wasm's
 # atomics, which Zig's baseline for Emscripten lacks: the CPU Dolly's cc

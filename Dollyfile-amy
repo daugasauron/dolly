@@ -7,15 +7,15 @@ REQUIRES HOST packages@0
 # amy and the recipe engine it runs (the dollyfile package): what a session needs
 # to install packages. amy asks the site for the package index of the version it
 # was built for.
-FROM /v0.1.5/Dollyfile-system-build 002b7468fa89512eda7356eb5b489253f40e3a44a40670c36c3026c7043e7022
-INSTALL /v0.1.5/Dollyfile-dollyfile 4dc7cb29198c10ceb79f24187b42dceeaee7014c40cbcd93d366ef4280b1cbab
+FROM /v0.1.6/Dollyfile-system-build 2ff106b9223deabbae812860e276f909d55a2193f12854e2a1ed27bea3710d54
+INSTALL /v0.1.6/Dollyfile-dollyfile 4286c8056e626c65f188547d9098b0858390e5608cefed55b43aebdd98b8025f
 REQUIRES HEADER libc
 REQUIRES HEADER http
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.5/dist/static/default/commands/amy.c d4f8e2ee356013b7dbab3253a95e95f4966db426af5291efaf46b091a5aac968 /tmp/amy/amy.c
-SOURCE /v0.1.5/dist/static/default/commands/version.h e98d73e95952c2782f0f2637253ea87fdf9a54344d050b789ec9cb0c6171b7a0 /tmp/amy/version.h
+SOURCE /v0.1.6/dist/static/default/commands/amy.c d4f8e2ee356013b7dbab3253a95e95f4966db426af5291efaf46b091a5aac968 /tmp/amy/amy.c
+SOURCE /v0.1.6/dist/static/default/commands/version.h e98d73e95952c2782f0f2637253ea87fdf9a54344d050b789ec9cb0c6171b7a0 /tmp/amy/version.h
 SLOP cc -O2 /tmp/amy/amy.c -o /bin/amy
 
 EXPORTS TOOL amy

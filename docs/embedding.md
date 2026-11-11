@@ -210,8 +210,8 @@ npx dolly-build Dollyfile-my-pi my-pi
   `npx playwright-core install chromium-headless-shell`, or in Playwright's image of
   the version of `playwright-core` the lockfile holds; no browser switch is needed.
   The browser needs shared WebAssembly memory64 (Chrome 133, Firefox 134 or later),
-  and the build says so first where it lacks it. [Data Pi](../demos/pi/data-pi/README.md)
-  is such a project, with its workflow.
+  and the build says so first where it lacks it. The repository's Data Pi demo
+  (`demos/pi/data-pi`) is such a project, with its workflow.
 - Serve `OUT` with any static file server, `python3 -m http.server -d OUT` on
   your machine. Where the host sends the isolation headers ("Serving" above) the
   page is isolated; where it does not, `init`'s page registers

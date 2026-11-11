@@ -3,7 +3,7 @@ PACKAGE naga
 REQUIRES HOST runtime@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.5/demos/rust/Dollyfile-rust-build 6dd2c1ebd1ce7ac9be7696969c33508cce1f8d5d2b110adf96dd746e1ede7687
+FROM /v0.1.6/demos/rust/Dollyfile-rust-build e27d4d09fdfecc36bf2854f0da39b7f767834161539b6c0e0bbdd75a82dee88b
 REQUIRES TOOL cargo
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
@@ -14,7 +14,7 @@ REQUIRES TOOL test
 
 # The archive holds upstream source and its locked crates, checksum-verified,
 # laid out as Cargo's directory source.
-SOURCE /v0.1.5/dist/static/rust/naga.tar.gz 777ef07e28c3abfe57a195f981fdef882b763b117c7ec511f9be38be15224301 /tmp/naga.tar.gz
+SOURCE /v0.1.6/dist/static/rust/naga.tar.gz 777ef07e28c3abfe57a195f981fdef882b763b117c7ec511f9be38be15224301 /tmp/naga.tar.gz
 SLOP gzip -dc /tmp/naga.tar.gz | tar -xf - -C /
 SLOP CWD /tmp/naga/source cargo build -j 4 --offline --bin naga --target-dir /tmp/naga/build
 SLOP cp /tmp/naga/build/debug/naga /usr/bin/naga

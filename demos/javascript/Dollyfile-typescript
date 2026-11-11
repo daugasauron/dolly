@@ -6,8 +6,8 @@ REQUIRES HOST http@0
 
 # TypeScript's compiler as Microsoft's npm archive holds it, unchanged, run
 # by Janis: tsc is the runner started on the archive's own compiler script.
-FROM /v0.1.5/Dollyfile-system-tools 9bc38034f4d331f3175758f9e8d606d9fc3a34061657e0a43951c9ba828e8eb3
-INSTALL /v0.1.5/demos/javascript/Dollyfile-janis e23707ae6a2153ea765228b62420f6e334b98208389a5300d9d6340599237dd1
+FROM /v0.1.6/Dollyfile-system-tools feb6b8dca551cafdab66985e5518d16a983b48fd10bc8680c6715210bb2f897d
+INSTALL /v0.1.6/demos/javascript/Dollyfile-janis f6f80c3982c2bbd9bbe3d9c522f5e6c66927b8627892c4b0f64596de3362b6e2
 
 REQUIRES HEADER libc
 REQUIRES HEADER quickjs-runner
@@ -18,9 +18,9 @@ REQUIRES TOOL   gzip
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.5/dist/static/default/typescript-5.9.3.tgz   10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3 /tmp/typescript/typescript.tgz
-SOURCE /v0.1.5/dist/static/default/runtimes/tsc-dolly.mjs c81fe4905c8a1aeb83fd8dca09f7ad05242d2975efa91c1c7f004acc23eac80d /usr/lib/typescript/tsc-dolly.mjs
-SOURCE /v0.1.5/dist/static/default/commands/tsc.c         eed8eb879762896740cec873c5ff227bc819e82b422bb2a35d32d420c0aee5eb /tmp/typescript/tsc.c
+SOURCE /v0.1.6/dist/static/default/typescript-5.9.3.tgz   10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3 /tmp/typescript/typescript.tgz
+SOURCE /v0.1.6/dist/static/default/runtimes/tsc-dolly.mjs c81fe4905c8a1aeb83fd8dca09f7ad05242d2975efa91c1c7f004acc23eac80d /usr/lib/typescript/tsc-dolly.mjs
+SOURCE /v0.1.6/dist/static/default/commands/tsc.c         eed8eb879762896740cec873c5ff227bc819e82b422bb2a35d32d420c0aee5eb /tmp/typescript/tsc.c
 
 SLOP gzip -dc /tmp/typescript/typescript.tgz | tar -xf - -C /usr/lib/typescript
 SLOP cc -I /usr/include/dolly /tmp/typescript/tsc.c -ldolly-js -lquickjs -o /usr/bin/tsc

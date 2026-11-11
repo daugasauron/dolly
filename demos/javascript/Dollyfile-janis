@@ -8,8 +8,8 @@ REQUIRES HOST http@0
 # a finite node:* surface over Dolly's files, processes and HTTP. The runner
 # is a library too: a program that is one script (tsc, pi, a game's agent)
 # links -ldolly-js -lquickjs and reads the two scripts kept here when it starts.
-FROM /v0.1.5/Dollyfile-system-tools 9bc38034f4d331f3175758f9e8d606d9fc3a34061657e0a43951c9ba828e8eb3
-INSTALL /v0.1.5/demos/javascript/Dollyfile-quickjs 222646fc2cc0b84dd77d0341cf6713882d662141ad6a16cb10b496c76db4bed6
+FROM /v0.1.6/Dollyfile-system-tools feb6b8dca551cafdab66985e5518d16a983b48fd10bc8680c6715210bb2f897d
+INSTALL /v0.1.6/demos/javascript/Dollyfile-quickjs 3d1eb0f33105bd22d438614c82113e4b1ef4146695c91389fe53c943b74cd904
 
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
@@ -21,11 +21,11 @@ REQUIRES TOOL   ar
 REQUIRES TOOL   cc
 REQUIRES TOOL   mkdir
 
-SOURCE /v0.1.5/dist/static/default/runtimes/quickjs-main.c   9d9ead69394e94723f98e89766484f7fa2a6674b64ac9d03943c6d04f2999373 /tmp/janis/quickjs-main.c
-SOURCE /v0.1.5/dist/static/default/runtimes/quickjs-runner.h cb2ae27cc02ed3d90b43eeb924f474b01fa8d7598f1e5989b0de3fcd12c2a97f /usr/include/dolly/quickjs-runner.h
-SOURCE /v0.1.5/dist/static/default/runtimes/dolly-node.js    d7e19c4bb4f46cce32ccbe2130e5f5e9203c1ba185cf0d0a9952f5d1b1ecabd3 /usr/lib/dolly/node.js
-SOURCE /v0.1.5/dist/static/default/runtimes/janis.js         938d296286745dbab9a30e33f7f78963077070427e7c8a2ddec9bc310018c89a /usr/lib/janis/runtime.js
-SOURCE /v0.1.5/dist/static/default/commands/janis.c          08c40227d11f06e851a6406fe5ed8f8d7e5f7cdd28a3dad2609c04650a7afe1b /tmp/janis/janis.c
+SOURCE /v0.1.6/dist/static/default/runtimes/quickjs-main.c   9d9ead69394e94723f98e89766484f7fa2a6674b64ac9d03943c6d04f2999373 /tmp/janis/quickjs-main.c
+SOURCE /v0.1.6/dist/static/default/runtimes/quickjs-runner.h cb2ae27cc02ed3d90b43eeb924f474b01fa8d7598f1e5989b0de3fcd12c2a97f /usr/include/dolly/quickjs-runner.h
+SOURCE /v0.1.6/dist/static/default/runtimes/dolly-node.js    d7e19c4bb4f46cce32ccbe2130e5f5e9203c1ba185cf0d0a9952f5d1b1ecabd3 /usr/lib/dolly/node.js
+SOURCE /v0.1.6/dist/static/default/runtimes/janis.js         938d296286745dbab9a30e33f7f78963077070427e7c8a2ddec9bc310018c89a /usr/lib/janis/runtime.js
+SOURCE /v0.1.6/dist/static/default/commands/janis.c          08c40227d11f06e851a6406fe5ed8f8d7e5f7cdd28a3dad2609c04650a7afe1b /tmp/janis/janis.c
 
 SLOP cc -O2 -std=gnu11 -funsigned-char -D_GNU_SOURCE -I /usr/include/dolly -c /tmp/janis/quickjs-main.c -o /tmp/janis/quickjs-main.o
 SLOP ar rcs /usr/lib/libdolly-js.a /tmp/janis/quickjs-main.o
