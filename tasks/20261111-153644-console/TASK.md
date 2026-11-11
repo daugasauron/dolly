@@ -38,9 +38,12 @@ On `fix/console`, from `939a9102f` (main before the new seed, so `work/godot`'s 
 it). `test/console-browser.mjs` passes in Chrome and Firefox: typing and echo, the size
 (100x30 by `TIOCGWINSZ`), a resize reaching the program as SIGWINCH (120x40), Ctrl+C ending the
 command (status 130) and not the shell, and `exit 3` ending the console with status 3. The pty,
-process and core tests pass on the refactored pseudo-terminal code and spawn. Left: merge after
-the 0.1.6 round, rebuild the docs image (`Dollyfile-dolly-docs` ships the contract), and Donna
-records the commit.
+process and core tests pass on the refactored pseudo-terminal code and spawn. Donna ran the same
+contract on wasmtime from this branch's `dist/dolly.wasm` (its `tests/console.rs` in `core`:
+typing and echo, Ctrl+C, a resize, `exit 3`; `donna serve ... core -- /bin/slop` with `donna
+attach` over a Unix socket; `default`'s ENTRY on a console, its recovery shell after `exit`).
+Left: the merge, which `work/round-1111-gate2.sh` makes before the round's suites with the docs
+image rebuilt (`Dollyfile-dolly-docs` ships the contract), and Donna records the commit.
 
 Done when: the test passes on main's images in both browsers, and Donna's `donna serve` runs a
 session through the same contract.
