@@ -54,7 +54,8 @@ export async function acceptImage(browser, server, image) {
   if (!hostRequirements.includes("display@0") || hostRequirements.includes("gpu@0")) return;
   server.requests.clear();
   // The default ENTRY reaches its shell without network requests.
-  const route = await browser.newPage();
+  const route = await browser.newPage(), missing = [];
+  route.on("response", response => { if (response.status() === 404) missing.push(new URL(response.url()).pathname); });
   await route.goto(`${server.origin}/${image}/`);
   await route.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null, { timeout: 120_000 });
   assert.equal(await route.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",
@@ -62,6 +63,7 @@ export async function acceptImage(browser, server, image) {
   if (image === "default") await route.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
   assert.equal(seedRequested(server.requests), false, `${image}: prebuilt boot fetched the compiler seed`);
   if (image === "default") assert.equal(await route.evaluate(() => __dolly.httpRequestCount), 0);
+  assert.deepEqual(missing, [], `${image}: the route asked for files the site lacks`);
   await route.close();
 }
 
