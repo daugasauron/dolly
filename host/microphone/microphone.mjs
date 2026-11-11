@@ -25,8 +25,30 @@ function indicate({ mount, indicators }, state) {
   indicators.hold(element, Boolean(text));
 }
 
-export function browser({ mount, send, indicators }) {
-  const provider = createMicrophoneProvider(() => indicate({ mount, indicators }, provider.status().state));
+// A session that enabled the module itself (nena@0, `switched`) captures only
+// after the user says yes on the page, once a session: the browser's own
+// prompt is per origin and remembered, so it may not ask again.
+function asked(mount) {
+  return new Promise(resolve => {
+    const element = mount.appendChild(document.createElement("div"));
+    element.setAttribute("role", "alertdialog");
+    element.style.cssText = "position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);z-index:9;padding:0.8rem 1rem;" +
+      "background:#262626;border:1px solid #e98773;color:#e8e3d7;font-size:14px;max-width:min(30rem,calc(100% - 2rem))";
+    element.textContent = "A program in this session asks to use the microphone.";
+    const choice = allowed => () => { element.remove(); resolve(allowed); };
+    for (const [label, allowed] of [["Allow", true], ["Refuse", false]]) {
+      const button = Object.assign(document.createElement("button"), { type: "button", textContent: label });
+      button.style.cssText = "margin:0.6rem 0.6rem 0 0;padding:0.2rem 0.9rem;color:inherit;background:transparent;border:1px solid currentColor";
+      button.addEventListener("click", choice(allowed));
+      element.append(button);
+    }
+  });
+}
+
+export function browser({ mount, send, indicators, switched }) {
+  let consented = !switched;
+  const consent = async () => consented ||= await asked(mount);
+  const provider = createMicrophoneProvider(() => indicate({ mount, indicators }, provider.status().state), consent);
   return {
     page: { get microphone() { return provider.status(); } },
     messages: {

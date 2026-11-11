@@ -66,6 +66,8 @@ export function browser({ send, modules, showStatus }) {
     // travels through the provider that the switch takes away.
     if (!enabling && name === "nena") return { bytes: moduleRecord({ ...found(), enabled: false }), after: () => modules.disable(value) };
     const refusal = await (enabling ? modules.enable(value) : modules.disable(value));
+    // The page says every switch: what a session gives itself is seen.
+    if (!refusal) showStatus(`This session ${enabling ? "enabled" : "disabled"} ${value}.`);
     return { bytes: moduleRecord(found(), refusal ?? undefined), enabled: enabledSince() };
   }
   return {

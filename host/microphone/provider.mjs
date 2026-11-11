@@ -8,8 +8,9 @@ const names = { [M.DOLLY_MICROPHONE_WAITING]: "waiting", [M.DOLLY_MICROPHONE_CAP
 
 // The page side of microphone@0: one capture of the browser's default input.
 // OPEN asks the browser, whose own prompt decides; nothing here grants it.
-// `changed` runs whenever the capture's state does.
-export function createMicrophoneProvider(changed = () => {}) {
+// `changed` runs whenever the capture's state does; `consent` resolves to
+// whether the user lets the capture go ahead, before the browser is asked.
+export function createMicrophoneProvider(changed = () => {}, consent = async () => true) {
   let capture, generation = 0;
 
   function set(target, state) {
@@ -36,6 +37,8 @@ export function createMicrophoneProvider(changed = () => {}) {
   }
   async function start(target) {
     try {
+      if (!await consent()) return set(target, M.DOLLY_MICROPHONE_DENIED);
+      if (target.released) return;
       target.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       if (target.released) return stop(target);
       target.context = new AudioContext({ sampleRate: M.DOLLY_MICROPHONE_RATE });

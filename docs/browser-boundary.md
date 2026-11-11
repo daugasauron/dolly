@@ -108,7 +108,10 @@ Worker URL.
   disables modules freely, by design: assume it can use every module of this
   table that is not fixed, each within its own bounds, the browser's
   permission prompts and the page's HTTP policy, none of which a switch
-  touches. In any other image the provider does not exist: the import answers
+  touches. The page's status line says each switch, and a microphone a
+  session enabled itself captures only after the user allows it on the page,
+  once a session: the browser's own prompt is per origin and remembered. In
+  any other image the provider does not exist: the import answers
   `ENOSYS`, the page handles no such request, and the set stays the recipe's
   list after total compromise of the userspace.
   - The page holds the set and makes each switch
