@@ -223,8 +223,9 @@ async function relay(request, response, url) {
   try {
     const answer = await fetch(target, { method: request.method, headers, redirect: "follow",
       body: ["GET", "HEAD"].includes(request.method) ? undefined : Buffer.concat(chunks) });
+    // x-dolly-relay-url: where the redirects followed ended, for the page (page-image-build.mjs).
     response.writeHead(answer.status, { ...Object.fromEntries([...answer.headers].filter(([name]) => !unreturned.has(name))),
-      ...isolationHeaders });
+      ...isolationHeaders, "x-dolly-relay-url": answer.url });
     if (answer.body) Readable.fromWeb(answer.body).pipe(response); else response.end();
   } catch (error) {
     response.writeHead(502, { "content-type": "text/plain" }).end(`${target.origin}: ${error.cause?.message ?? error.message}\n`);

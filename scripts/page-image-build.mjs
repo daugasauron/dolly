@@ -22,7 +22,12 @@ export async function buildImageInPage(runtime, images, image, custom, modules, 
     "src/image-builder.mjs", "src/image-build.mjs",
   ].map(path => import(new URL(path, runtime).href)));
   await registry.loadImages(images);
-  const remoteFetch = relay && ((url, init) => fetch(`${relay}${url.protocol.slice(0, -1)}/${url.host}${url.pathname}${url.search}`, init));
+  // A relayed answer is from the URL the relay reached, after its redirects: a program
+  // resolves what it links against that, as without a relay, never against the relay's.
+  const remoteFetch = relay && (async (url, init) => {
+    const response = await fetch(`${relay}${url.protocol.slice(0, -1)}/${url.host}${url.pathname}${url.search}`, init);
+    return Object.defineProperty(response, "url", { value: response.headers.get("x-dolly-relay-url") ?? url.href });
+  });
   const network = { ...transport.localServicesTransport(new policy.DollyHttpPolicy(globalThis.DOLLY_HTTP_POLICY,
     registry.bootstrapSources(), new URL(images)), {}, remoteFetch), site: images };
   modules ??= (await import(new URL("host/manifests.mjs", runtime).href)).hostModuleUrls;
