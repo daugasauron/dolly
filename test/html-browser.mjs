@@ -141,4 +141,19 @@ await browserTest("html", { image: "system", timeout: 300_000 }, async ({ name, 
   assert.deepEqual(requests, [], `${name}: the popup reached the recorder`);
   assert.deepEqual(connections, [], `${name}: the popup connected to the recorder`);
 });
+
+// default declares no html@0: a session installs the package, amy has nena
+// enable the module, and the popup answers.
+await browserTest("html in default", { image: "default", timeout: 300_000 }, async ({ open }) => {
+  const { page, submit, text } = await open();
+  const run = async command => assert.equal(await submit(command), 0, await text());
+  await run("! grep -qx html@0 /etc/dolly/enabled 2> /dev/null && amy install html && grep -qx html@0 /etc/dolly/enabled");
+  await run(`printf '%s\\n' '${question}' > /tmp/question.html`);
+  const status = submit("html < /tmp/question.html > /tmp/fields");
+  const frame = page.frameLocator("#html-popup iframe");
+  await frame.locator("input").fill("in default");
+  await frame.getByRole("button", { name: "Send" }).click();
+  assert.equal(await status, 0);
+  await run(`test "$(cat /tmp/fields)" = 'answer=in+default'`);
+});
 recorder.close();
