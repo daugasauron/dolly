@@ -69,3 +69,35 @@ await browserTest("console", { image: "system", timeout: 300_000 }, async ({ ope
   });
   assert.equal(seen.status, 3, seen.seen.join("\n---\n"));
 });
+
+// A pipe console: what is written is the program's standard input, byte for
+// byte, until its end; standard output and error come back apart.
+await browserTest("console pipes", { image: "system", timeout: 300_000 }, async ({ open }) => {
+  const { page } = await open(await composed(["console"], [], { base: "system" }));
+  const seen = await page.evaluate(async () => {
+    const read = async stream => {
+      const decoder = new TextDecoder(), reader = stream.getReader();
+      let text = "";
+      for (let chunk; !(chunk = await reader.read()).done;) text += decoder.decode(chunk.value, { stream: true });
+      return text;
+    };
+    const run = async (argv, input) => {
+      const handle = await __dolly.openConsole({ pipes: true, argv });
+      const output = read(handle.output), errors = read(handle.errors);
+      if (input !== undefined) await handle.write(input);
+      await handle.endInput();
+      return { output: await output, errors: await errors, status: await handle.exited };
+    };
+    const cat = await run(["/bin/cat"], "typed\nline two\n");
+    const split = await run(["/bin/slop", "-c", "echo out; echo err >&2; test -t 0 || echo not a terminal; exit 4"]);
+    // The host stops reading: the program's next write is EPIPE, and SIGPIPE ends it.
+    const endless = await __dolly.openConsole({ pipes: true, argv: ["/bin/slop", "-c", "while :; do echo y; done"] });
+    const reader = endless.output.getReader();
+    await reader.read();
+    await endless.close();
+    return { cat, split, endless: await endless.exited };
+  });
+  assert.deepEqual(seen.cat, { output: "typed\nline two\n", errors: "", status: 0 });
+  assert.deepEqual(seen.split, { output: "out\nnot a terminal\n", errors: "err\n", status: 4 });
+  assert.equal(seen.endless, 141);
+});

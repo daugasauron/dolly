@@ -1,7 +1,7 @@
 {
   "name": "console",
   "version": 0,
-  "gives": "terminals the host holds, each with a session started on it",
+  "gives": "the standard streams of a program the host starts: a terminal or three pipes",
   "dependencies": [
     "runtime@0"
   ],
