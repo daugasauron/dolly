@@ -94,7 +94,7 @@ export const syntaxCases = [
   [false, probe("FILE /usr/share/a b")],
   [true, probe("FILE /tmp/scratch")],
   [false, probe("FILE /tmp")],
-  [false, probe("FILE /workspace/no")],
+  [true, probe("FILE /workspace/kept")],
   [false, probe("FILE /usr/share/trailing/")],
   [false, probe("FILE /usr/./share")],
   [false, probe("FILE /usr/../share")],
@@ -158,7 +158,7 @@ export const syntaxCases = [
   ...["FILE", "FOLDER", "HEADER", "LIB"].flatMap(type => [
     [true, probe(`EXPORTS ${type} value /usr/share/value`)],
     [false, probe(`EXPORTS ${type} value`)],
-    [false, probe(`EXPORTS ${type} value /workspace/value`)],
+    [false, probe(`EXPORTS ${type} value /tmp/value`)],
   ]),
   [false, probe("EXPORTS linecount linecount")],
   [false, probe("EXPORTS HOST gpu@0")],

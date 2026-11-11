@@ -65,8 +65,11 @@ test("snapshot rejects malformed kinds, paths, parent graphs, lengths and orderi
     [["/", 1]], [["/dir/", 1]], [["/a/../b", 2]], [["/a\0b", 2]], [["/a\nb", 2]],
     [["/b", 2], ["/a", 2]], [["/a", 2], ["/a", 2]],
     [["/a", 3, "b"], ["/a/file", 2]], [["/a", 2], ["/a/file", 2]],
-    [["\uFEFF/file", 2]], [["/tmp/file", 2]], [["/workspace/file", 2]],
+    [["\uFEFF/file", 2]], [["/tmp/file", 2]],
   ]) assert.throws(() => decodeSnapshotRecords(snapshot(records)));
+  // /workspace holds what a recipe put there; /tmp alone is scratch.
+  assert.deepEqual(decodeSystemSnapshot(snapshot([["/workspace", 1], ["/workspace/AGENTS.md", 2]])).manifest,
+    ["/workspace", "/workspace/AGENTS.md"]);
   const bytes = snapshot([["/file", 2, "data"]]);
   assert.throws(() => decodeSystemSnapshot(bytes.subarray(0, -1)), /truncated/);
   assert.throws(() => decodeSystemSnapshot(Buffer.concat([bytes, Buffer.of(0)])), /trailing/);
