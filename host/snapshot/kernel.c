@@ -187,14 +187,17 @@ static struct {
 } save = {.descriptor = -1};
 
 static void save_dispose(void) {
+  dolly_kernel_hold_calls(0);
   if (save.descriptor >= 0) close(save.descriptor);
   dispose_records(&save.records);
   memset(&save, 0, sizeof(save));
   save.descriptor = -1;
 }
 
+// The save is the filesystem as it is now: processes' calls wait until it ends.
 static int save_begin(void) {
   save_dispose();
+  dolly_kernel_hold_calls(1);
   if (collect_tree("/", &save.records) != 0) return -1;
   qsort(save.records.records, save.records.count, sizeof(*save.records.records), compare_records);
   uintptr_t total = DOLLY_SESSION_HEADER_SIZE;

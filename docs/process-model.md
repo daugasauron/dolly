@@ -300,15 +300,19 @@ nothing and declares nothing: any program built for Dolly runs on one.
   follows the shell at the display's terminal.
 
 `console@0` ([`host/console/dolly-console-0.wat`](../host/console/dolly-console-0.wat),
-[`host/console/kernel.c`](../host/console/kernel.c)) gives the host a
-pseudo-terminal whose master end it holds itself: a terminal into the session
-for something outside it, a socket or a second view. The host opens one of a
-size, starts a root process whose descriptors 0, 1 and 2 are its slave, types
-into it, reads what its programs show, resizes it and hangs it up; all the
-rest is the pseudo-terminal's above. A console is one of the 32. In the
-browser an image that declares the module gets `openConsole()` on boot()'s
-handle ([embedding](embedding.md#a-terminal-into-the-session)); another host
-adds it to the images it runs.
+[`host/console/kernel.c`](../host/console/kernel.c)) gives the host the
+standard streams of a root process it starts: a terminal into the session for
+something outside it, a socket or a second view, or pipes for a program run on
+input the host has. A terminal console is a pseudo-terminal whose master end
+the host holds: the root process's descriptors 0, 1 and 2 are its slave, and
+the host types into it, reads what its programs show, resizes it and hangs it
+up; all the rest is the pseudo-terminal's above, and it is one of the 32. A
+pipe console is three pipes of 64 KiB: descriptor 0 reads what the host writes
+until the host ends it, 1 and 2 are read by the host apart, byte for byte, and
+a write the host no longer reads is `EPIPE` and `SIGPIPE`, as a kernel pipe's.
+There are at most 32 consoles. In the browser an image that declares the
+module gets `openConsole()` on boot()'s handle (`docs/embedding.md`, "A
+terminal into the session"); another host adds it to the images it runs.
 - Not there: `/dev/ptmx` and a path for a slave (`posix_openpt`, `ptsname`
   and `forkpty` fail), sessions and controlling-terminal ioctls. The name
   `openpty` returns, `/dev/pts/N`, is for display.

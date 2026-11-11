@@ -31,13 +31,16 @@ flowchart LR
   variables apply when the session loads.
 - `/run`, `/dev` and `/proc` are excluded ([`session-records.h`](../src/session-records.h));
   a save is at most 8 GiB and 1,000,000 paths before compression, and
-  exceeding either fails the save visibly. A file that changes while it is
-  being saved fails the save, naming it: save again. A failed save leaves the
-  previous record intact.
+  exceeding either fails the save visibly. A failed save leaves the previous
+  record intact.
 - Listing, encoding and restoring stay in Wasm: sessions add no Wasm import or
-  path-level browser filesystem API. The kernel serves a save in steps between
-  system calls, one chunk per acknowledgement, so programs keep running while
-  the page compresses it; neither the kernel nor the page holds a save whole.
+  path-level browser filesystem API. The kernel serves a save in steps, one
+  chunk per acknowledgement, while the page compresses it; neither the kernel
+  nor the page holds a save whole. Until the last chunk a program's change to a
+  file (its bytes or times, a removal, a rename or a truncation) waits, and
+  everything else runs: a save is the files at one moment, and a program that
+  writes all the time, a game, is saved as it was. A file that changes all the
+  same (an upload landing) fails the save, naming it: save again.
   IndexedDB stores the compressed save as a Blob of its parts, and a restore
   decompresses it as it goes, a chunk at a time into the kernel.
 - Loading needs the runtime build that made the save; the image's recipe may

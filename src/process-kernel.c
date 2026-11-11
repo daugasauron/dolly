@@ -114,6 +114,14 @@ static uint32_t live_pipe_count;
 /* A pipe's or socket's bytes or ends changed or a lock went, so a deferred call
  * may now complete. */
 static int wakeup_pending;
+/* While a save runs, changes to files wait (dolly_kernel_hold_calls). */
+static int calls_held;
+/* A change to `descriptor`'s bytes or times waits while held, a regular
+ * file's; -1 names a path's removal, rename or truncation. */
+static int change_waits(int descriptor) {
+  struct stat metadata;
+  return calls_held && (descriptor < 0 || (fstat(descriptor, &metadata) == 0 && S_ISREG(metadata.st_mode)));
+}
 static int foreground_pid;
 
 /* An advisory lock on bytes [start, end) of a file. A process owns the ranges
@@ -1422,6 +1430,7 @@ static int64_t fd_pwrite_packet(dolly_kernel_process *process,
       request.offset > INT64_MAX) return -EINVAL;
   int descriptor = descriptor_for(process, request.descriptor);
   if (descriptor < 0) return descriptor;
+  if (change_waits(descriptor)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
   const ssize_t count = pwrite(
       descriptor, process_mailbox + sizeof(request),
       (size_t)request.size, (off_t)request.offset);
@@ -1538,6 +1547,7 @@ static int64_t fd_write_packet(dolly_kernel_process *process,
   }
   const int descriptor = descriptor_for(process, request.descriptor);
   if (descriptor < 0) return descriptor;
+  if (change_waits(descriptor)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
   const unsigned char *bytes = process_mailbox + sizeof(request);
   size_t completed = 0;
   while (completed < request.size) {
@@ -2009,6 +2019,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       if (request.reserved != 0 || request.size > INT64_MAX) return -EINVAL;
       int descriptor = descriptor_for(process, request.descriptor);
       if (descriptor < 0) return descriptor == -ESPIPE ? -EINVAL : descriptor;
+      if (change_waits(descriptor)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
       /* POSIX: a descriptor open for writing; WasmFS truncates through any. */
       const int access = fcntl(descriptor, F_GETFL);
       if (access < 0) return -errno;
@@ -2037,6 +2048,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       if (request.reserved != 0) return -EINVAL;
       int descriptor = descriptor_for(process, request.descriptor);
       if (descriptor < 0) return descriptor;
+      if (change_waits(descriptor)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
       struct timespec times[2];
       int result = decode_timestamps(
           &request.access, &request.modification, times);
@@ -2209,6 +2221,10 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       int result = decode_path_request(process, request_size, UINT32_MAX,
                                        &request, &path, &directory);
       int flags = result == 0 ? open_flags(request.flags) : result;
+      if (flags >= 0 && (flags & O_TRUNC) != 0 && change_waits(-1)) {
+        free(path);
+        return DOLLY_PROCESS_DISPATCH_DEFERRED;
+      }
       if (flags < 0) result = flags;
       /* What a slash names is a directory, which open does not create. */
       else if ((request.flags & DOLLY_PROCESS_OPEN_CREATE) != 0 && path[request.path_size - 1] == '/')
@@ -2276,6 +2292,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       return result;
     }
     case DOLLY_PROCESS_PATH_REMOVE: {
+      if (change_waits(-1)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
       dolly_process_path_request request;
       char *path = NULL;
       int directory = AT_FDCWD;
@@ -2292,6 +2309,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
     }
     case DOLLY_PROCESS_PATH_RENAME:
     case DOLLY_PROCESS_PATH_LINK: {
+      if (operation == DOLLY_PROCESS_PATH_RENAME && change_waits(-1)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
       dolly_process_two_path_request request;
       const int invalid = decode_two_path_request(request_size, &request);
       if (invalid != 0) return invalid;
@@ -2413,6 +2431,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       return respond(&response, sizeof(response));
     }
     case DOLLY_PROCESS_PATH_SET_TIMES: {
+      if (change_waits(-1)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
       if (request_size < sizeof(dolly_process_path_times_request) ||
           response_capacity != 0) return -EINVAL;
       dolly_process_path_times_request request;
@@ -2684,6 +2703,11 @@ int dolly_kernel_process_directory(int pid) {
 }
 
 void dolly_kernel_wake(void) { wakeup_pending = 1; }
+
+void dolly_kernel_hold_calls(int held) {
+  calls_held = held;
+  if (!held) dolly_kernel_wake();
+}
 
 /* A process that has not started holds what it inherits. */
 static int holds_socket(const dolly_kernel_process *process, const dolly_kernel_socket *socket) {

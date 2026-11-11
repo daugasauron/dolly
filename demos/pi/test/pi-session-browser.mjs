@@ -3,7 +3,7 @@
 // the conversation again with `pi --continue`, having loaded no image.
 // Usage: node demos/pi/test/pi-session-browser.mjs (DOLLY_BROWSER=firefox runs it in Firefox).
 import assert from "node:assert/strict";
-import { demoTest, shellPrompt, shellQuote } from "../../browser.mjs";
+import { demoTest, recoveryPrompt, shellQuote } from "../../browser.mjs";
 
 async function provider(request, response, path, headers) {
   if (path !== "/fixture/pi/v1/chat/completions" || request.method !== "POST") return false;
@@ -19,7 +19,11 @@ await demoTest("pi session", { image: "pi-agent", timeout: 600_000, browser: pro
   server: { handle: provider } }, async ({ server, open }) => {
   const piStarted = /Bash is not installed/;
   const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/pi/", methods: ["POST"], credentialHeaders: ["authorization"] }] };
-  const { page, run, start, waitText, input, prompt } = await open({ policy, viewport: { width: 1280, height: 1120 } });
+  const terminal = await open({ policy, prompt: piStarted, viewport: { width: 1280, height: 1120 } });
+  const { page, run, start, waitText, input, prompt } = terminal;
+  // The image's entry starts Pi; Ctrl+D leaves it for the recovery shell.
+  await page.keyboard.press("Control+d");
+  await prompt(recoveryPrompt, terminal.pid);
   const models = { providers: { "dolly-test": { baseUrl: `${server.origin}/fixture/pi/v1`, api: "openai-completions",
     apiKey: "sandbox-placeholder", models: [{ id: "dolly-test-model", name: "Dolly session fixture", reasoning: false,
       input: ["text"], contextWindow: 32_000, maxTokens: 4_096, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } }] } } };
@@ -40,7 +44,9 @@ await demoTest("pi session", { image: "pi-agent", timeout: 600_000, browser: pro
   assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",
     await page.locator("#bootstrap-log").textContent());
   assert.deepEqual(packs, [], "a restore loads no image");
-  await prompt(shellPrompt);
+  await waitText(piStarted);
+  await page.keyboard.press("Control+d");
+  await prompt(recoveryPrompt);
   await run("grep -l OCTOPUS-IN-THE-SAVE /home/dolly/.pi/agent/sessions/*/*.jsonl && grep -q DOLLY-SAVED-REPLY /home/dolly/.pi/agent/sessions/*/*.jsonl");
   await run("clear");
   start(`${pi} --continue`);

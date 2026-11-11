@@ -199,9 +199,9 @@ try {
   await npm(piApp, piInstall);
   await npm(piApp, scaffold);
   // The project as written, with the page's handle kept for the test and a file of its own in the workspace.
-  const piPageSource = await readFile(join(piApp, "public/index.html"), "utf8");
-  assert.ok(piPageSource.includes("await boot("));
-  await writeFile(join(piApp, "public/index.html"), piPageSource.replace("await boot(", "window.dolly = await boot("));
+  const piMain = await readFile(join(piApp, "public/main.mjs"), "utf8");
+  assert.ok(piMain.includes("await boot("));
+  await writeFile(join(piApp, "public/main.mjs"), piMain.replace("await boot(", "window.dolly = await boot("));
   await mkdir(join(piApp, "public/workspace/notes"));
   await writeFile(join(piApp, "public/workspace/notes/deep sea.txt"), "the deepest trench\n");
   // The user's own colours, Pi's and the terminal's, and a C tool of their own as the

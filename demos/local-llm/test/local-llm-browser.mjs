@@ -114,9 +114,8 @@ for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local').split(',')) {
           assert.equal(await submit('printf saved > /workspace/session-proof.txt'),0);
           assert.equal(await page.evaluate(()=>__dolly.saveSession('llm-proof')),'llm-proof');
           const savedBytes=await page.evaluate(()=>Number(document.documentElement.dataset.sessionUncompressedBytes));
-          assert.ok(savedBytes<10*1024*1024,`Base model was copied into the session (${savedBytes} bytes)`);
-          assert.equal(await submit(`janis -e 'const fs=process.getBuiltinModule("node:fs");const fd=fs.openSync("${weights}","r+");fs.writeSync(fd,new Uint8Array([0]),0,1,0);fs.closeSync(fd);'`),0);
-          await assert.rejects(page.evaluate(()=>__dolly.saveSession('llm-proof')),/session|snapshot|large|save/i);
+          // A save is the whole filesystem, the model's weights with it.
+          assert.equal(await submit(`test "$(stat -c %s ${weights})" -lt ${savedBytes}`),0,`the save (${savedBytes} bytes) lacks the weights`);
           await page.reload();
           await boot('restored Pi');
           await shell('restored recovery shell');

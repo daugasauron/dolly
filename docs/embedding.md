@@ -132,11 +132,17 @@ to `{ output, write(bytes), resize(columns, rows), close(), exited }`:
 last of them lets go of the terminal; `write` takes bytes or text as typed,
 Ctrl+C included, and resolves to how many it took, fewer while the input is
 full; `exited` is the program's status. The terminal is a pseudo-terminal's
-([process model](process-model.md#pseudo-terminals)).
+([process model](process-model.md#pseudo-terminals)). With `pipes: true` in
+place of the size, the program's standard streams are pipes: `write` is its
+input byte for byte, `endInput()` ends it, and `output` and `errors` are its
+standard output and error apart.
 
 ```js
 const shell = await dolly.openConsole({ columns: 100, rows: 30, argv: ["/bin/slop"] });
 await shell.write("echo hello\r");
+const sort = await dolly.openConsole({ pipes: true, argv: ["/bin/sort"] });
+await sort.write("b\na\n");
+await sort.endInput();
 ```
 
 ## Serving
