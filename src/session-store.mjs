@@ -4,8 +4,10 @@ import { imageInputs } from "./image-inputs.mjs";
 import { MAX_SNAPSHOT_BYTES } from "./snapshot-records.mjs";
 import { DOLLY_VERSION } from "./version.mjs";
 
-export const DOLLY_SESSION_FORMAT_VERSION = 3;
-export const DOLLY_SESSION_MAX_BYTES = 512 * 1024 * 1024;
+// A save is the whole filesystem but /dev, /proc and /run (host/snapshot/kernel.c),
+// at most 8 GiB before and after compression.
+export const DOLLY_SESSION_FORMAT_VERSION = 4;
+export const DOLLY_SESSION_MAX_BYTES = 8 * 1024 * 1024 * 1024;
 export const DOLLY_SESSION_METADATA_MAX_BYTES = 1024 * 1024;
 
 // Saves belong to a version: every version's pages open their own database.
@@ -43,16 +45,15 @@ export function customSessionIdentity(custom) {
   return `custom:${artifact.recipeSha256}:${artifact.sha256}`;
 }
 
-export function sessionCompatible(record, definitions, buildId, imageBuildId) {
+// A save holds its whole filesystem, so it opens on the runtime that made it
+// whatever became of its image's recipe: the image need only still be named
+// (its host modules are the catalog's), a custom one by the recipe it carries.
+export function sessionCompatible(record, definitions, buildId) {
   if (record.formatVersion !== DOLLY_SESSION_FORMAT_VERSION || record.buildId !== buildId) return false;
   if (record.image === "custom") {
-    try {
-      return record.imageIdentity === customSessionIdentity(record.customImage) &&
-        record.customImage.artifact.buildId === imageBuildId;
-    } catch { return false; }
+    try { return record.imageIdentity === customSessionIdentity(record.customImage); } catch { return false; }
   }
-  return record.customImage === undefined && definitions.some(({ image }) => image === record.image) &&
-    record.imageIdentity === sessionImageIdentity(definitions, record.image);
+  return record.customImage === undefined && definitions.some(({ image }) => image === record.image);
 }
 
 export function sessionLoadUrl(name, applicationBase) {
@@ -92,16 +93,36 @@ async function collectStream(stream, maximum) {
   }
 }
 
+// The compressed save, a Blob of its parts: no buffer holds it whole.
+async function collectBlob(stream, maximum) {
+  const reader = stream.getReader(), parts = [];
+  let length = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      length += value.byteLength;
+      if (length > maximum) throw new Error("Dolly session exceeds its size limit");
+      parts.push(value);
+    }
+    return new Blob(parts);
+  } catch (error) {
+    await reader.cancel(error).catch(() => {});
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 export async function encodeSessionStream(produce) {
   const stream = new CompressionStream("gzip"), writer = stream.writable.getWriter();
-  const encoded = collectStream(stream.readable, DOLLY_SESSION_MAX_BYTES);
+  const encoded = collectBlob(stream.readable, DOLLY_SESSION_MAX_BYTES);
   // The reader can fail while the producer is awaiting its next mailbox chunk.
   encoded.catch(() => {});
   try {
     await produce(bytes => writer.write(bytes));
     await writer.close();
-    // Blob storage needs fixed buffers; decoded buffers transfer directly to Wasm.
-    return { encoding: "gzip", bytes: (await encoded).transferToFixedLength() };
+    return { encoding: "gzip", bytes: await encoded };
   } catch (error) {
     await writer.abort(error).catch(() => {});
     await encoded.catch(() => {});
@@ -109,22 +130,10 @@ export async function encodeSessionStream(produce) {
   }
 }
 
-export async function decodeSessionSnapshot(record) {
-  if (record === null || typeof record !== "object" ||
-      !(record.bytes instanceof ArrayBuffer) || record.bytes.byteLength === 0 ||
-      record.bytes.byteLength > DOLLY_SESSION_MAX_BYTES || record.encoding !== "gzip") {
-    throw new Error("Stored Dolly session is invalid");
-  }
-  let offset = 0;
-  const stream = new ReadableStream({
-    pull(controller) {
-      if (offset === record.bytes.byteLength) { controller.close(); return; }
-      const length = Math.min(65536, record.bytes.byteLength - offset);
-      controller.enqueue(new Uint8Array(record.bytes, offset, length));
-      offset += length;
-    },
-  }).pipeThrough(new DecompressionStream("gzip"));
-  return collectStream(stream, DOLLY_SESSION_MAX_BYTES);
+// A whole save in one buffer, which file recovery reads: at most 2 GiB.
+export async function decodeSessionSnapshot(bytes) {
+  if (!(bytes instanceof Blob) || bytes.size === 0) throw new Error("Stored Dolly session is invalid");
+  return collectStream(bytes.stream().pipeThrough(new DecompressionStream("gzip")), 2 * 1024 * 1024 * 1024);
 }
 
 function openDatabase() {
@@ -164,7 +173,6 @@ export async function loadStoredSession(name) {
   if (!(record.bytes instanceof Blob) || record.bytes.size === 0 || record.bytes.size > DOLLY_SESSION_MAX_BYTES) {
     throw new Error("Stored Dolly session is invalid");
   }
-  record.bytes = await record.bytes.arrayBuffer();
   return record;
 }
 
@@ -176,8 +184,8 @@ export function validateSessionRecord(record) {
       typeof record.image !== "string" || !validName(record.image) ||
       typeof record.imageIdentity !== "string" || record.imageIdentity.length > 256 ||
       !Number.isSafeInteger(record.updatedAt) ||
-      !(record.bytes instanceof ArrayBuffer) || record.bytes.byteLength === 0 ||
-      record.bytes.byteLength > DOLLY_SESSION_MAX_BYTES || record.encoding !== "gzip") {
+      !(record.bytes instanceof Blob) || record.bytes.size === 0 ||
+      record.bytes.size > DOLLY_SESSION_MAX_BYTES || record.encoding !== "gzip") {
     throw new TypeError("invalid Dolly session record");
   }
   if (record.image === "custom" ? record.imageIdentity !== customSessionIdentity(record.customImage)
@@ -186,8 +194,7 @@ export function validateSessionRecord(record) {
 
 export async function saveStoredSession(record, { overwrite = true } = {}) {
   validateSessionRecord(record);
-  const stored = { ...record, bytes: new Blob([record.bytes]) };
-  await transaction("readwrite", (store) => overwrite ? store.put(stored) : store.add(stored));
+  await transaction("readwrite", (store) => overwrite ? store.put(record) : store.add(record));
 }
 
 export async function deleteStoredSession(name) {

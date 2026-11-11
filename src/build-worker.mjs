@@ -69,17 +69,21 @@ await runImage(async (config, host) => {
     return range.size;
   };
   if (mode === "snapshot") {
-    const artifact = await checkedCustomArtifact(customSource, config.customArtifact);
+    // A saved session is the whole filesystem: it needs the recipe, not the image.
+    const artifact = config.customArtifact === undefined ? null : await checkedCustomArtifact(customSource, config.customArtifact);
     config.customArtifact = undefined;
-    host.require(artifact.hostRequirements);
-    host.admit(artifact.hostRequirements);
+    const hosts = artifact?.hostRequirements ?? recipe.hostRequirements;
+    host.require(hosts);
+    host.admit(hosts);
     return {
       name: image,
       prepare({ files }) {
         prepareRecipe(files);
-        files.write("/etc/dolly/image.manifest", `${artifact.manifest.join("\n")}\n`);
+        if (artifact) files.write("/etc/dolly/image.manifest", `${artifact.manifest.join("\n")}\n`);
       },
       async restore({ kernel, memory, stage }) {
+        if (await host.restoreFilesystem({ kernel, memory, stage })) return { status: 0 };
+        if (!artifact) throw new Error("invalid Dolly image selection");
         stage("loading precompiled userspace snapshot...");
         const size = await stageSnapshot(kernel, memory, artifact.bytes);
         artifact.bytes = undefined;

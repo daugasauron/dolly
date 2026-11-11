@@ -10,6 +10,8 @@ const bytes = new TextEncoder().encode("DOLLYSES-opaque-\uFEFF日本語-credenti
 const encodeSessionSnapshot = input => encodeSessionStream(write => write(new Uint8Array(input)));
 const record = { name: "work.1", formatVersion: DOLLY_SESSION_FORMAT_VERSION, buildId: "fixture-build",
   image: "default", imageIdentity: "default:fixture", updatedAt: 123, ...await encodeSessionSnapshot(bytes) };
+// A record with its save's bytes, which deepEqual compares (it takes any two Blobs for equal).
+const plain = async saved => ({ ...saved, bytes: Buffer.from(await saved.bytes.arrayBuffer()) });
 
 async function edit(file, change) {
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -24,15 +26,15 @@ async function edit(file, change) {
 
 test("session files round-trip their bytes and literal metadata", async () => {
   const restored = await importSessionFile(await exportSessionFile(record));
-  assert.deepEqual(restored, record);
-  assert.deepEqual(await decodeSessionSnapshot(restored), bytes);
+  assert.deepEqual(await plain(restored), await plain(record));
+  assert.deepEqual(await decodeSessionSnapshot(restored.bytes), bytes);
 });
 
 test("streamed compression preserves bytes across chunks and rejects an incomplete producer", async () => {
   const encoded = await encodeSessionStream(async write => {
     for (let at = 0; at < bytes.byteLength; at += 7) await write(new Uint8Array(bytes.slice(at, at + 7)));
   });
-  assert.deepEqual(await decodeSessionSnapshot(encoded), bytes);
+  assert.deepEqual(await decodeSessionSnapshot(encoded.bytes), bytes);
   await assert.rejects(encodeSessionStream(async write => {
     await write(new Uint8Array(bytes));
     throw Error("producer stopped");
@@ -40,21 +42,21 @@ test("streamed compression preserves bytes across chunks and rejects an incomple
 });
 
 test("an allocation failure cancels compression instead of stranding its producer", async () => {
-  const resize = ArrayBuffer.prototype.resize;
-  ArrayBuffer.prototype.resize = () => { throw Error("allocation failed"); };
+  const original = globalThis.Blob;
+  globalThis.Blob = class { constructor() { throw Error("allocation failed"); } };
   try {
     await assert.rejects(encodeSessionStream(async write => {
       await write(new Uint8Array(bytes));
     }), /allocation failed/);
   } finally {
-    ArrayBuffer.prototype.resize = resize;
+    globalThis.Blob = original;
   }
 });
 
 test("compression and decompression retain data across buffer growth", async () => {
   const input = randomBytes(256 * 1024 + 19);
   const encoded = await encodeSessionSnapshot(new Uint8Array(input).buffer);
-  const decoded = await decodeSessionSnapshot(encoded);
+  const decoded = await decodeSessionSnapshot(encoded.bytes);
   assert.ok(Buffer.from(decoded).equals(input));
 });
 
@@ -78,9 +80,7 @@ test("reject corrupt, truncated, oversized and unsupported session envelopes", a
   ]) await assert.rejects(importSessionFile(await edit(file, mutate)));
   // Another version's file is refused by a message naming the version it belongs to.
   await assert.rejects(importSessionFile(await edit(file, meta => { meta.version = "9.8.7"; })), /9\.8\.7/);
-  await assert.rejects(importSessionFile(await exportSessionFile({ ...record, bytes })));
-  await assert.rejects(importSessionFile(await exportSessionFile({ ...record,
-    ...await encodeSessionSnapshot(new ArrayBuffer(1)) })), /incomplete/);
+  await assert.rejects(exportSessionFile({ ...record, bytes }), /invalid Dolly session record/);
 });
 
 test("custom session files retain the exact recipe, artifact and inherited restrictions", async () => {
@@ -91,15 +91,15 @@ test("custom session files retain the exact recipe, artifact and inherited restr
     policies: [{ rules: [], maxRequests: 3 }, null] };
   const saved = { ...record, image: "custom", imageIdentity: customSessionIdentity(customImage), customImage };
   const imported = await importSessionFile(await exportSessionFile(saved));
-  assert.deepEqual(imported, saved);
-  assert.equal(sessionCompatible(imported, [], record.buildId, "image-build"), true);
-  assert.equal(sessionCompatible(imported, [], "another-runtime", "image-build"), false);
-  assert.equal(sessionCompatible(imported, [], record.buildId, "another-image-build"), false);
+  assert.deepEqual(await plain(imported), await plain(saved));
+  // A save is its whole filesystem: the runtime decides, not the image the recipe built.
+  assert.equal(sessionCompatible(imported, [], record.buildId), true);
+  assert.equal(sessionCompatible(imported, [], "another-runtime"), false);
   // An image without http@0 inherits no policies: its session is as valid.
   const { policies: _none, ...offline } = customImage;
   const quiet = { ...saved, customImage: offline };
-  assert.deepEqual(await importSessionFile(await exportSessionFile(quiet)), quiet);
-  assert.equal(sessionCompatible(quiet, [], record.buildId, "image-build"), true);
+  assert.deepEqual(await plain(await importSessionFile(await exportSessionFile(quiet))), await plain(quiet));
+  assert.equal(sessionCompatible(quiet, [], record.buildId), true);
   for (const mutate of [
     meta => { delete meta.customImage; },
     meta => { meta.image = "default"; },
@@ -114,23 +114,22 @@ test("custom session files retain the exact recipe, artifact and inherited restr
   ]) await assert.rejects(importSessionFile(await edit(await exportSessionFile(saved), mutate)));
 });
 
-// The base is an image, which may be larger than the delta a save holds.
+// The custom image a save names may be as large as any image.
 test("a session's custom image may be as large as any image", () => {
   const source = "DOLLY 7\nAPPLICATION large\nENTRY /bin/slop\n";
   const custom = byteLength => ({ source, artifact: { buildId: "image-build",
     recipeSha256: createHash("sha256").update(source).digest("hex"), sha256: "a".repeat(64), byteLength, inputs: [] } });
-  assert.match(customSessionIdentity(custom(DOLLY_SESSION_MAX_BYTES + 1)), /^custom:/);
   assert.match(customSessionIdentity(custom(MAX_SNAPSHOT_BYTES)), /^custom:/);
   assert.throws(() => customSessionIdentity(custom(MAX_SNAPSHOT_BYTES + 1)), /invalid custom session base/);
 });
 
 test("incompatible build IDs remain exportable without interpreting filesystem records", async () => {
   const old = { ...record, buildId: "older-build", imageIdentity: "older-image" };
-  assert.deepEqual(await importSessionFile(await exportSessionFile(old)), old);
+  assert.deepEqual(await plain(await importSessionFile(await exportSessionFile(old))), await plain(old));
   const file = await edit(await exportSessionFile(record), metadata => {
     Object.defineProperty(metadata, "__proto__", { value: { polluted: true }, enumerable: true });
     metadata.browserPath = "/host/path";
   });
-  assert.deepEqual(await importSessionFile(file), record);
+  assert.deepEqual(await plain(await importSessionFile(file)), await plain(record));
   assert.equal({}.polluted, undefined);
 });

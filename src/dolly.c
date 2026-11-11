@@ -270,7 +270,7 @@ int dolly_remove_file(const char *path) {
   return unlink(path) == 0 ? 0 : -errno;
 }
 
-static int initialize_boot_environment(void) {
+int dolly_kernel_boot_environment(void) {
   int output = open("/dev/dolly-stdout", O_WRONLY);
   int error = open("/dev/dolly-stderr", O_WRONLY);
   if (output < 0 || error < 0 || dup2(output, STDOUT_FILENO) < 0 ||
@@ -317,7 +317,7 @@ static int initialize_boot_environment(void) {
 static int load_image_environment(void);
 
 int dolly_process_bootstrap_prepare(uintptr_t size) {
-  if (initialize_boot_environment() != 0) return 1;
+  if (dolly_kernel_boot_environment() != 0) return 1;
   if (dolly_snapshot_restore_staged(size, NULL) != 0) {
     fprintf(stderr, "dolly: invalid compiler seed: %s\n", strerror(errno));
     return 1;
@@ -327,7 +327,7 @@ int dolly_process_bootstrap_prepare(uintptr_t size) {
 
 int dolly_process_bootstrap_resume_prepare(uintptr_t size,
                                            uint32_t resume_uses) {
-  if (resume_uses != 1 || initialize_boot_environment() != 0) return 1;
+  if (resume_uses != 1 || dolly_kernel_boot_environment() != 0) return 1;
   puts("dolly: restoring image builder");
   fflush(stdout);
   if (dolly_snapshot_restore_staged(size, "/bin/dollyfile") != 0) {
@@ -339,12 +339,12 @@ int dolly_process_bootstrap_resume_prepare(uintptr_t size,
 }
 
 int dolly_bootstrap_snapshot_begin(uintptr_t size) {
-  if (initialize_boot_environment() != 0) return 1;
+  if (dolly_kernel_boot_environment() != 0) return 1;
   return dolly_snapshot_stream_begin(size) != 0;
 }
 
 int dolly_bootstrap_snapshot(uintptr_t size) {
-  if (initialize_boot_environment() != 0) return 1;
+  if (dolly_kernel_boot_environment() != 0) return 1;
   puts("dolly: restoring precompiled system snapshot");
   fflush(stdout);
   if (dolly_snapshot_restore_staged(size, NULL) != 0) {

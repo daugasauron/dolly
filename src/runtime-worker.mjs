@@ -1,5 +1,6 @@
 // The runtime Worker boot() starts: it restores an image of the image directory
-// from its packs into a new kernel and runs its ENTRY (worker-image.mjs).
+// from its packs into a new kernel, or a saved session's whole filesystem, and
+// runs its ENTRY (worker-image.mjs).
 import { imageDefinition } from "./images.mjs";
 import { loadPackagedSnapshotMetadata, streamPackagedSystemSnapshot, verifyVisibleRecipes } from "./packaged-snapshot.mjs";
 import { siteReference, hex } from "./static-asset.mjs";
@@ -19,6 +20,7 @@ await runImage(async ({ image, files: given = {} }, host) => {
       files.write("/etc/dolly/image.manifest", `${metadata.manifest.join("\n")}\n`);
     },
     async restore({ kernel, memory, files, stage }) {
+      if (await host.restoreFilesystem({ kernel, memory, stage })) return { status: 0 };
       stage("loading precompiled userspace snapshot...");
       const capacity = 1024 * 1024;
       const address = kernel.dolly_snapshot_restore_address(BigInt(capacity));

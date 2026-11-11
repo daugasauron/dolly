@@ -22,7 +22,7 @@ async function check(page, commands) {
 // The saved IndexedDB record, with its payload reduced to a digest.
 const stored = (page, name) => page.evaluate(async name => {
   const record = await (await import("/src/session-store.mjs")).loadStoredSession(name);
-  return record && { ...record, bytes: [...new Uint8Array(await crypto.subtle.digest("SHA-256", record.bytes))] };
+  return record && { ...record, bytes: [...new Uint8Array(await crypto.subtle.digest("SHA-256", await record.bytes.arrayBuffer()))] };
 }, name);
 async function newPage(context, rules) {
   const page = await context.newPage();
@@ -170,25 +170,7 @@ ENTRY /bin/foreground -i /bin/slop
       db.close();
     }
   });
-  await page.goto(server.origin + "/session/?name=custom-imported");
-  await rejected(page);
-  assert.deepEqual(await stored(page, "custom-imported"), imported);
-  await page.goto(server.origin + "/sessions/");
-  const missing = page.locator("#sessions li").filter({ hasText: "custom-imported" });
-  await missing.getByRole("button", { name: "Recover files", exact: true }).waitFor();
-  assert.equal(await missing.locator("a").count(), 0);
-  await missing.getByRole("button", { name: "Recover files", exact: true }).click();
-  await boot(page);
-  await check(page, ["grep -q CUSTOM-SOURCE-BUILT /workspace/recovered-custom-imported/workspace/project/result"]);
-  assert.deepEqual(await stored(page, "custom-imported"), imported);
-  await page.goto(server.origin + "/custom/");
-  const recipePath = join(scratch, "Dollyfile");
-  await writeFile(recipePath, source);
-  await page.locator("#dollyfile-upload").setInputFiles(recipePath);
-  await page.waitForFunction((text) => document.querySelector("#source").value === text, source);
-  await page.locator("form button[type=submit]").click();
-  await page.waitForURL("**/custom/rebuild/");
-  await boot(page);
+  // The save is the whole filesystem: it opens without the image in the browser's cache.
   await page.goto(server.origin + "/session/?name=custom-imported");
   await boot(page);
   await verify();
@@ -205,20 +187,6 @@ ENTRY /bin/foreground -i /bin/slop
 }
 
 async function namedSessions(context, server, name) {
-  // A rebuilt base carries a named save only when it is the packaged snapshot:
-  // where the packaged one says another digest, the save is refused.
-  const differing = await newPage(context);
-  await differing.route("**/dist/dolly-system-system-snapshot.json", async route => {
-    const response = await route.fetch();
-    await route.fulfill({ response, json: { ...await response.json(), sha256: "0".repeat(64) } });
-  });
-  await differing.goto(server.origin + "/system/rebuild/");
-  await boot(differing);
-  assert.equal(await differing.evaluate(async () => {
-    try { await __dolly.saveSession("wrong-rebuilt-base"); } catch {}
-    return (await import("/src/session-store.mjs")).loadStoredSession("wrong-rebuilt-base");
-  }), null, "a rebuilt base the packaged snapshot does not name produced a named save");
-  await differing.close();
   const page = await newPage(context);
   await page.goto(server.origin + "/system/rebuild/");
   await boot(page);
@@ -239,15 +207,23 @@ async function namedSessions(context, server, name) {
   await page.waitForFunction(() => __dolly.terminal.foregroundInterruptible());
   assert.equal(await page.evaluate(() => __dolly.saveSession("browser-proof")), "browser-proof");
   assert.equal(await Promise.race([sleeping, "sleeping"]), "sleeping", "the save waited for the foreground child");
-  const delta = Number(await page.evaluate(() => document.documentElement.dataset.sessionUncompressedBytes));
-  assert.ok(delta > 8 << 20 && delta < 12 << 20, `a save holds changes, not the base image: ${delta} bytes`);
+  // A save is the whole filesystem: the image and the changes.
+  const whole = Number(await page.evaluate(() => document.documentElement.dataset.sessionUncompressedBytes));
+  const { default: { byteLength: image } } = await import("../dist/dolly-system-system-snapshot.json", { with: { type: "json" } });
+  assert.ok(whole > image * 0.9 + (8 << 20), `a save holds the whole filesystem: ${whole} bytes, the image ${image}`);
   assert.equal(page.url(), `${server.origin}/session/?name=browser-proof`);
   await page.locator("#keyboard").focus();
   await page.keyboard.press("Control+c");
   assert.equal(await sleeping, 130);
 
+  // A restore loads no image: no pack is asked for, and the boot log says so.
+  const packs = [];
+  page.on("request", request => { if (/\/dist\/packs\/|-system\.snapshot/.test(request.url())) packs.push(request.url()); });
   await page.goto(server.origin + "/session/?name=browser-proof");
   await boot(page);
+  assert.deepEqual(packs, []);
+  const log = await page.locator("#bootstrap-log").textContent();
+  assert.ok(log.includes("saved session restored") && !log.includes("loading precompiled userspace snapshot"), log);
   assert.deepEqual(await page.evaluate(() => [document.documentElement.dataset.session,
     document.documentElement.dataset.sessionStatus]), ["browser-proof", "restored"]);
   await check(page, [

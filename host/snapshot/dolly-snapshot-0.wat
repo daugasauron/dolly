@@ -1,6 +1,6 @@
 (module
-  ;; Named user sessions are opaque filesystem snapshots requested through a
-  ;; separate shared-memory mailbox. The browser may compress and persist the
+  ;; Named user sessions are opaque snapshots of the whole filesystem but /dev,
+  ;; /proc and /run, requested through a separate shared-memory mailbox. The browser may compress and persist the
   ;; bytes, but never receives path-level filesystem operations. This adds no
   ;; callable browser import and therefore no escape capability.
   (import "env" "memory" (memory i64 1024 131072 shared))
@@ -26,15 +26,17 @@
   (global (export "DOLLY_SESSION_WORD_CANCELLED_SEQUENCE") i32 (i32.const 9))
   (func (export "dolly_session_mailbox_address") (result i64)
     i64.const 0)
-  (func (export "dolly_session_base_capture") (result i32)
-    i32.const 0)
   ;; One step of a save: starts a requested capture or publishes the next
   ;; chunk once the page consumed the previous one; it never waits.
   (func (export "dolly_session_service"))
   (func (export "dolly_session_transfer_address") (result i64)
     i64.const 0)
-  (func (export "dolly_session_restore_address") (param i64) (result i64)
-    i64.const 0)
-  (func (export "dolly_session_restore") (param i64) (result i32)
+  ;; A boot that restores a save in place of an image: begin empties the
+  ;; filesystem but /dev, /proc and /run; each write takes the next bytes of the
+  ;; decompressed save from the transfer range, at most its capacity, and
+  ;; last=1 ends it, every record arrived. Nonzero fails the boot.
+  (func (export "dolly_session_restore_begin") (result i32)
+    i32.const 0)
+  (func (export "dolly_session_restore_write") (param i64 i32) (result i32)
     i32.const 0)
 )

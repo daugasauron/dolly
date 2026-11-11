@@ -6,10 +6,10 @@
 import { buildHost } from "../host/modules.mjs";
 import { hostManifests } from "../host/manifests.mjs";
 import { run } from "./browser.mjs";
-import { imageBase, imageDefinition, loadImages } from "./images.mjs";
+import { imageDefinition, loadImages } from "./images.mjs";
 import { prepareImageArtifacts } from "./image-build.mjs";
 import { buildImage } from "./image-builder.mjs";
-import { customImageCached, loadCustomImage, storedCustomImage } from "./custom-image.mjs";
+import { loadCustomImage, storedCustomImage } from "./custom-image.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
 
 // The modules a route's page has (the registry loads those alone): an image of
@@ -78,7 +78,8 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
           report(`\nBUILT ${source === undefined ? image : recipe.image} · ${(built.byteLength / 1024 / 1024).toFixed(1)} MiB · sha256 ${built.sha256}\n`);
           return null;
         }
-        if (image === "custom" && !rebuild) customArtifact = await loadCustomImage(source, custom.artifact);
+        // A saved session is the whole filesystem: its custom image is not loaded.
+        if (image === "custom" && !rebuild && !selected) customArtifact = await loadCustomImage(source, custom.artifact);
         return {
           message: { mode, artifacts, ...source === undefined ? {} : { customSource: source },
             ...customArtifact === undefined ? {} : { customArtifact } },
@@ -88,31 +89,12 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
       message(message) {
         if (message.type === "image-built") rebuilt = message.artifact;
       },
-      // A session saved here restores onto this tab's base: a custom image the
-      // browser must still hold, or a rebuilt filesystem that must equal the
-      // packaged one.
+      // A save of a custom image carries its recipe and what the tab inherited.
       async running(host) {
         const page = { get builtImage() { return rebuilt; } };
-        if (image === "custom") {
-          const { buildId, recipeSha256, sha256: digest, byteLength, inputs } = customArtifact ?? rebuilt;
-          const running = { source, artifact: { buildId, recipeSha256, sha256: digest, byteLength, inputs }, ...host.inherited };
-          return { page, context: { custom: running, async verifyBase() {
-            if (!await customImageCached(running.artifact)) {
-              throw new Error("This custom image is no longer in the browser's image cache; no session was saved");
-            }
-          } } };
-        }
-        if (rebuilt === null) return { page };
-        let verified = false;
-        return { page, context: { async verifyBase() {
-          if (verified) return;
-          const { default: metadata } = await import(new URL(`dist/dolly-${image}-system-snapshot.json`, imageBase).href, { with: { type: "json" } });
-          if (metadata.image !== image || metadata.buildId !== rebuilt.buildId ||
-              metadata.byteLength !== rebuilt.byteLength || metadata.sha256 !== rebuilt.sha256) {
-            throw new Error("Rebuilt filesystem differs from the prebuilt session base; no session was saved");
-          }
-          verified = true;
-        } } };
+        if (image !== "custom") return { page };
+        const { buildId, recipeSha256, sha256: digest, byteLength, inputs } = customArtifact ?? rebuilt ?? custom.artifact;
+        return { page, context: { custom: { source, artifact: { buildId, recipeSha256, sha256: digest, byteLength, inputs }, ...host.inherited } } };
       },
     };
   });

@@ -1,14 +1,16 @@
 import { SessionTransport } from "./transport.mjs";
+import { DOLLY_SESSION_TRANSFER_CAPACITY } from "./abi.mjs";
 import { mountSessionSave } from "./ui.mjs";
 import { DOLLY_BUILD_ID } from "../../dist/dolly-build-id.mjs";
-import { DOLLY_IMAGE_BUILD_ID } from "../../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES } from "../../src/images.mjs";
+import { sha256 } from "../../src/static-asset.mjs";
 import { DOLLY_SESSION_FORMAT_VERSION, decodeSessionSnapshot, loadStoredSession, sessionCompatible,
   sessionLoadUrl, validSessionName, DOLLY_SESSION_MAX_BYTES } from "../../src/session-store.mjs";
 
 // A session route (/session/?name=NAME), or boot()'s session option on a page
-// of one's own, boots the saved session's image and restores its delta; with
-// recover=1 the site's route unpacks the files into a fresh system image instead.
+// of one's own, boots the saved session's image from the save, which is its whole
+// filesystem: no image is loaded. With recover=1 the site's route unpacks the
+// files into a fresh system image instead.
 export async function boot(route) {
   if (!route.loadSession) return undefined;
   if (route.mode !== "snapshot") throw new Error("invalid Dolly route configuration");
@@ -25,14 +27,15 @@ export async function boot(route) {
     if (record.formatVersion !== DOLLY_SESSION_FORMAT_VERSION) throw new Error("This save uses an unsupported recovery format");
     if (!DOLLY_IMAGES.some(definition => definition.image === "system")) throw new Error("File recovery needs the system image in this distribution");
     image = "system";
-  } else if (!sessionCompatible(record, DOLLY_IMAGES, DOLLY_BUILD_ID, DOLLY_IMAGE_BUILD_ID)) {
-    throw new Error(`This save belongs to an older runtime or image recipe. It has not been deleted or overwritten.${listed}`);
+  } else if (!sessionCompatible(record, DOLLY_IMAGES, DOLLY_BUILD_ID)) {
+    throw new Error(`This save belongs to an older runtime. It has not been deleted or overwritten.${listed}`);
+  } else if (image === "custom" &&
+      await sha256(new TextEncoder().encode(record.customImage.source)) !== record.customImage.artifact.recipeSha256) {
+    // A custom save's Dollyfile names the boot's host modules: it must be its image's.
+    throw new Error(`This save's Dollyfile is not the one its image was built from.${listed}`);
   }
-  const bytes = await decodeSessionSnapshot(record);
-  record.bytes.transfer(0);
-  record.bytes = undefined;
   return { image, label: `${recovering ? "RECOVER FILES FROM" : "RESTORE SESSION"} ${name}`,
-    custom: image === "custom" ? record.customImage : undefined, configuration: { bytes, name, recovering } };
+    custom: image === "custom" ? record.customImage : undefined, configuration: { save: record.bytes, name, recovering } };
 }
 
 // The page's capture: the Worker reads the session's chunks out of the mailbox
@@ -57,11 +60,10 @@ function sessionCapture({ send, ask }) {
 }
 
 export function browser(page) {
-  const { bytes, name, recovering } = page.configuration, capture = sessionCapture(page);
+  const { save, name, recovering } = page.configuration, capture = sessionCapture(page);
   const session = mountSessionSave(page, () => capture, name === undefined ? null : { name, recovering });
   return {
-    configuration: bytes === undefined ? {} : { bytes, ...(recovering ? { recover: name } : {}) },
-    transfers: bytes ? [bytes] : [],
+    configuration: save === undefined ? {} : { save, ...(recovering ? { recover: name } : {}) },
     page: { get sessionName() { return session.name; }, saveSession: session.save },
     claimsKey: session.claimsKey,
     entryStarted: session.entryStarted,
@@ -73,28 +75,18 @@ export function browser(page) {
   };
 }
 
-export function worker({ get, ask, configuration: { bytes, recover } }) {
+export function worker({ get, ask, configuration: { save, recover } }) {
   let kernel, transport, cancelled;
-  if (bytes !== undefined && (!(bytes instanceof ArrayBuffer) || bytes.byteLength < 16 ||
-      bytes.byteLength > DOLLY_SESSION_MAX_BYTES)) throw new Error("invalid Dolly session snapshot");
-  if (recover !== undefined && (!validSessionName(recover) || bytes === undefined)) {
-    throw new Error("invalid Dolly file recovery request");
+  if (save !== undefined && (!(save instanceof Blob) || save.size === 0 || save.size > DOLLY_SESSION_MAX_BYTES)) {
+    throw new Error("invalid Dolly session snapshot");
   }
-  function restore(kernel) {
-    const memory = get("runtime").memory;
-    const address = Number(kernel.dolly_session_restore_address(BigInt(bytes.byteLength)));
-    if (!Number.isSafeInteger(address) || address <= 0 || address > memory.buffer.byteLength - bytes.byteLength) {
-      throw new Error("invalid session restore memory range");
-    }
-    new Uint8Array(memory.buffer, address, bytes.byteLength).set(new Uint8Array(bytes));
-    if (kernel.dolly_session_restore(BigInt(bytes.byteLength)) !== 0) {
-      throw new Error("Dolly session filesystem restore failed; the saved copy is unchanged");
-    }
+  if (recover !== undefined && (!validSessionName(recover) || save === undefined)) {
+    throw new Error("invalid Dolly file recovery request");
   }
   async function recoverFiles({ supervisor, stage, files }) {
     const path = "/tmp/dolly-session-recovery.delta", destination = `/workspace/recovered-${recover}`;
     stage(`recovering saved files into ${destination}...`);
-    files.write(path, new Uint8Array(bytes));
+    files.write(path, new Uint8Array(await decodeSessionSnapshot(save)));
     try {
       const program = "/usr/bin/session-recover";
       if ((await supervisor.spawn([program, path, destination])).status !== 0) {
@@ -103,20 +95,40 @@ export function worker({ get, ask, configuration: { bytes, recover } }) {
     } finally { files.remove(path); }
   }
   return {
-    async imageRestored(context) {
-      const { kernel, image, stage } = context;
-      if (kernel.dolly_session_base_capture() !== 0) throw new Error("Dolly could not index the session baseline");
-      if (bytes === undefined) return;
-      if (recover !== undefined) {
-        if (image !== "system") throw new Error("invalid Dolly file recovery request");
-        await recoverFiles(context);
-      } else {
-        stage("restoring named session filesystem...");
-        restore(kernel);
-        stage("named session filesystem restored");
+    // The save is the whole filesystem: the kernel empties the boot's and takes
+    // it a transfer range at a time as it is decompressed.
+    async restoreFilesystem({ kernel, memory, stage }) {
+      if (save === undefined || recover !== undefined) return false;
+      stage("restoring the saved session...");
+      const address = Number(kernel.dolly_session_transfer_address());
+      if (kernel.dolly_session_restore_begin() !== 0) throw new Error("Dolly could not empty the filesystem for the saved session");
+      const failed = () => new Error("Dolly session filesystem restore failed; the saved copy is unchanged");
+      const reader = save.stream().pipeThrough(new DecompressionStream("gzip")).getReader();
+      let restored = 0, reported = performance.now();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (let offset = 0; offset < value.length; offset += DOLLY_SESSION_TRANSFER_CAPACITY) {
+          const piece = value.subarray(offset, offset + DOLLY_SESSION_TRANSFER_CAPACITY);
+          new Uint8Array(memory.buffer, address, piece.length).set(piece);
+          if (kernel.dolly_session_restore_write(BigInt(piece.length), 0) !== 0) throw failed();
+        }
+        restored += value.length;
+        if (performance.now() - reported >= 1000) {
+          stage(`restoring the saved session: ${Math.floor(restored / 1024 / 1024)} MiB`);
+          reported = performance.now();
+        }
       }
-      bytes.transfer(0);
-      bytes = undefined;
+      if (kernel.dolly_session_restore_write(0n, 1) !== 0) throw failed();
+      save = undefined;
+      stage("saved session restored");
+      return true;
+    },
+    async imageRestored(context) {
+      if (recover === undefined) return;
+      if (context.image !== "system") throw new Error("invalid Dolly file recovery request");
+      await recoverFiles(context);
+      save = undefined;
     },
     service() { kernel?.dolly_session_service(); },
     messages: {
