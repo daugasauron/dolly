@@ -12,13 +12,12 @@ The owner, 2026-11-11 10:00 JST, from using the npm packages:
 
 ## State (2026-11-11)
 
-Not started. The broker refuses in the Worker (`host/http/policy.mjs`, `authorize`: `EACCES`,
-"Dolly HTTP policy denied the request"); the program sees the error, the page nothing.
-
-Plan: each refusal reaches the page with its method and URL without the query (a query may hold
-a credential), and the page logs it with `console.warn` and lists it in a panel of notices in
-boot()'s element. A notice stays until its × closes it; refusals of one method and URL are one
-notice with a count; at most a few show, with a line for the rest, and **Close all**.
+Done on `fix/http-notices`: the transport tells the page of each refusal (`host/http/broker.mjs`,
+`refused`); `host/http/refusals.mjs` logs it with `console.warn` and keeps a notice in boot()'s
+element until its × closes it, one notice and a count per method and URL, the five newest with a
+line for the rest and **Close all**, URLs without their query. `test/http-refusals-browser.mjs`
+passed in Chrome and Firefox on images before the 0.1.6 bump; `docs/http.md` says it. Left: the
+test on the round's images.
 
 Done when a browser test (Chrome, Firefox) refuses requests and sees the console lines, the
 notice with its count, the line for the ones not shown, × and **Close all**, and the docs say it.
