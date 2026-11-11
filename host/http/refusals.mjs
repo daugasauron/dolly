@@ -6,7 +6,7 @@ const shownAtOnce = 5;
 
 const style = `
   #http-refusals { position: absolute; left: 0.6rem; top: 0.6rem; z-index: 7; width: min(34rem, calc(100% - 1.2rem));
-    margin: 0; padding: 0; list-style: none; color: #e8e3d7; font-size: 14px; line-height: 1.4; }
+    margin: 0; padding: 0.35rem 0.35rem 0; list-style: none; color: #e8e3d7; background: #262626; font-size: 14px; line-height: 1.4; }
   #http-refusals[hidden] { display: none; }
   #http-refusals li { display: flex; gap: 0.5rem; align-items: baseline; margin-bottom: 0.35rem; padding: 0.4rem 0.5rem;
     background: #262626; border: 1px solid #e98773; overflow-wrap: anywhere; }

@@ -10,7 +10,7 @@ await browserTest("http refusals", {}, async ({ server, open }) => {
   const { page, submit } = await open({ policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
     setup: page => page.on("console", message => { if (message.type() === "warning") warnings.push(message.text()); }) });
   const notices = page.locator("#http-refusals li:not(.rest)");
-  const texts = () => notices.allInnerTexts();
+  const texts = () => notices.locator("span").allInnerTexts();
   assert.equal(await submit(`curl -fsS ${server.origin}/fixture/http.txt > /dev/null`), 0);
   assert.equal(await page.locator("#http-refusals").isHidden(), true);
   for (let time = 0; time < 2; time++) assert.notEqual(await submit("curl -fsS 'https://example.com/private?key=secret'"), 0);
