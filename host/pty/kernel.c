@@ -3,6 +3,7 @@
 // are read. The slave also answers the terminal request, so a program that
 // holds it has a terminal as it has the display's.
 #include "process-kernel.h"
+#include "pty-kernel.h"
 
 #include <dolly/process.h>
 #include <dolly/pty.h>
@@ -12,7 +13,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct dolly_pty dolly_pty;
 typedef struct {
   dolly_kernel_socket shared; /* First: the kernel's descriptor table names it. */
   dolly_pty *pty;
@@ -23,7 +23,7 @@ typedef struct {
 
 struct dolly_pty {
   pty_end master, slave;
-  uint32_t mode, rows, columns;
+  uint32_t number, mode, rows, columns;
   dolly_kernel_line line; /* The slave's input while its mode is canonical. */
 };
 
@@ -230,41 +230,70 @@ static int64_t pty_terminal(dolly_kernel_socket *shared, const dolly_process_ter
 static const dolly_kernel_socket_kind pty_kind = {
     DOLLY_PROCESS_FILE_CHARACTER_DEVICE, pty_close, pty_receive, pty_send, pty_poll, pty_terminal};
 
-static int64_t pty_open(int pid, const dolly_pty_request *request, unsigned char *mailbox,
-                        uintptr_t response_capacity) {
-  if (request->descriptor != 0 || (request->flags & ~(DOLLY_PTY_CLOEXEC | DOLLY_PTY_NONBLOCK)) != 0 ||
-      !valid_size(request->rows, request->columns) ||
-      response_capacity < sizeof(dolly_pty_descriptors)) return -EINVAL;
+dolly_pty *dolly_pty_pair(uint32_t rows, uint32_t columns, int *error) {
   uint32_t number = 0;
   while (number < DOLLY_PTY_LIMIT && ptys[number] != NULL) ++number;
-  if (number == DOLLY_PTY_LIMIT) return -ENFILE;
-  dolly_pty *pty = calloc(1, sizeof(*pty));
-  if (pty == NULL) return -ENOMEM;
+  *error = !valid_size(rows, columns) ? -EINVAL : number == DOLLY_PTY_LIMIT ? -ENFILE : -ENOMEM;
+  dolly_pty *pty = *error == -ENOMEM ? calloc(1, sizeof(*pty)) : NULL;
+  if (pty == NULL) return NULL;
   pty->master.capacity = DOLLY_PTY_OUTPUT_BYTES;
   pty->slave.capacity = DOLLY_PTY_INPUT_BYTES;
   pty->master.unread = malloc(pty->master.capacity);
   pty->slave.unread = malloc(pty->slave.capacity);
+  if (pty->master.unread == NULL || pty->slave.unread == NULL) {
+    free(pty->master.unread);
+    free(pty->slave.unread);
+    free(pty);
+    return NULL;
+  }
   pty->master.shared.kind = pty->slave.shared.kind = &pty_kind;
   pty->master.pty = pty->slave.pty = pty;
-  pty->master.shared.nonblocking = (request->flags & DOLLY_PTY_NONBLOCK) != 0;
+  pty->number = number;
   pty->mode = DOLLY_KERNEL_TERMINAL_INITIAL_MODE;
-  pty->rows = request->rows;
-  pty->columns = request->columns;
+  pty->rows = rows;
+  pty->columns = columns;
+  pty->master.open = pty->slave.open = 1;
+  ptys[number] = pty;
+  *error = 0;
+  return pty;
+}
+
+dolly_kernel_socket *dolly_pty_master(dolly_pty *pty) { return &pty->master.shared; }
+dolly_kernel_socket *dolly_pty_slave(dolly_pty *pty) { return &pty->slave.shared; }
+
+int dolly_pty_resize(dolly_pty *pty, uint32_t rows, uint32_t columns) {
+  if (!valid_size(rows, columns)) return -EINVAL;
+  pty->rows = rows;
+  pty->columns = columns;
+  if (pty->slave.open) dolly_kernel_socket_holders(&pty->slave.shared, 0, raise_signal, DOLLY_PROCESS_SIGWINCH);
+  return 0;
+}
+
+void dolly_pty_release(dolly_pty *pty) {
+  const int unheld = pty->slave.open && pty->slave.shared.descriptors == 0;
+  pty_close(&pty->master.shared);
+  if (unheld) pty_close(&pty->slave.shared);
+}
+
+static int64_t pty_open(int pid, const dolly_pty_request *request, unsigned char *mailbox,
+                        uintptr_t response_capacity) {
+  if (request->descriptor != 0 || (request->flags & ~(DOLLY_PTY_CLOEXEC | DOLLY_PTY_NONBLOCK)) != 0 ||
+      response_capacity < sizeof(dolly_pty_descriptors)) return -EINVAL;
+  int error;
+  dolly_pty *pty = dolly_pty_pair(request->rows, request->columns, &error);
+  if (pty == NULL) return error;
+  pty->master.shared.nonblocking = (request->flags & DOLLY_PTY_NONBLOCK) != 0;
   dolly_kernel_socket *const ends[2] = {&pty->master.shared, &pty->slave.shared};
-  dolly_pty_descriptors response = {0, 0, number, 0};
-  int result = pty->master.unread != NULL && pty->slave.unread != NULL ? 0 : -ENOMEM;
-  if (result == 0) {
-    result = dolly_kernel_socket_open(pid, ends, 2, (request->flags & DOLLY_PTY_CLOEXEC) != 0,
-                                      &response.master);
-  }
+  dolly_pty_descriptors response = {0, 0, pty->number, 0};
+  const int result = dolly_kernel_socket_open(pid, ends, 2, (request->flags & DOLLY_PTY_CLOEXEC) != 0,
+                                              &response.master);
   if (result != 0) {
+    ptys[pty->number] = NULL;
     free(pty->master.unread);
     free(pty->slave.unread);
     free(pty);
     return result;
   }
-  pty->master.open = pty->slave.open = 1;
-  ptys[number] = pty;
   return dolly_kernel_respond(mailbox, &response, sizeof(response));
 }
 
@@ -280,11 +309,8 @@ static int64_t pty_call(int pid, int tid, uint32_t operation, unsigned char *mai
   if (found != 0) return found == -ENOTSOCK ? -ENOTTY : found;
   dolly_pty *pty = ((pty_end *)shared)->pty;
   if (shared != &pty->master.shared) return -ENOTTY;
-  if (request.flags != 0 || !valid_size(request.rows, request.columns)) return -EINVAL;
-  pty->rows = request.rows;
-  pty->columns = request.columns;
-  if (pty->slave.open) dolly_kernel_socket_holders(&pty->slave.shared, 0, raise_signal, DOLLY_PROCESS_SIGWINCH);
-  return 0;
+  if (request.flags != 0) return -EINVAL;
+  return dolly_pty_resize(pty, request.rows, request.columns);
 }
 
 const dolly_kernel_module dolly_pty_kernel = {DOLLY_PTY_OPEN, DOLLY_PTY_RESIZE, pty_call, NULL};

@@ -40,6 +40,7 @@ SOURCE /v0.1.6/host/gpu/dolly-gpu-0.wat f18fddcab55cad35c43b7e834ab7ad82da36fecb
 SOURCE /v0.1.6/host/http/dolly-http-0.wat c4f2179960b4acc4c77164f7cc9b6ae118045b479f1fc61ed09ea7985852a650 /usr/share/doc/dolly/host/http/dolly-http-0.wat
 SOURCE /v0.1.6/host/pty/dolly-pty-0.wat 15c26cf3f2b832b205988efecf343145dcbaa95af617f9c18d3be6e69e63610c /usr/share/doc/dolly/host/pty/dolly-pty-0.wat
 SOURCE /v0.1.6/host/pty/dolly-pty-supervisor-0.wat cce1edb921a3d4f93c3c2d94e51fc009bf659d85336349b880730df3294e2ca4 /usr/share/doc/dolly/host/pty/dolly-pty-supervisor-0.wat
+SOURCE /v0.1.6/host/console/dolly-console-0.wat 7ead91231c8c511aa852245447f5fde1b1d846481d9660599c51e2cdacf824cc /usr/share/doc/dolly/host/console/dolly-console-0.wat
 SOURCE /v0.1.6/host/snapshot/dolly-snapshot-0.wat 9ac463344cf25921728fe44f92c10a388f9c52a4ac6057e32dd986aaedd59182 /usr/share/doc/dolly/host/snapshot/dolly-snapshot-0.wat
 SOURCE /v0.1.6/host/sockets/dolly-sockets-0.wat 9be4f7cb45d09c2e442033f8ce283c1ce5d04d1538918540740423a29443fbe4 /usr/share/doc/dolly/host/sockets/dolly-sockets-0.wat
 SOURCE /v0.1.6/host/touch/dolly-touch-0.wat 3a1f6519fa36e78f3a54b50b5e0f5fcbb054ce8d989f526be509a9ff3eb936bc /usr/share/doc/dolly/host/touch/dolly-touch-0.wat
