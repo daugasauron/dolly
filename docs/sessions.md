@@ -36,8 +36,9 @@ flowchart LR
 - Listing, encoding and restoring stay in Wasm: sessions add no Wasm import or
   path-level browser filesystem API. The kernel serves a save in steps, one
   chunk per acknowledgement, while the page compresses it; neither the kernel
-  nor the page holds a save whole. Until the last chunk every process call but
-  an exit waits, so a save is the filesystem at one moment and a program that
+  nor the page holds a save whole. Until the last chunk a program's change to a
+  file (its bytes or times, a removal, a rename or a truncation) waits, and
+  everything else runs: a save is the files at one moment, and a program that
   writes all the time, a game, is saved as it was. A file that changes all the
   same (an upload landing) fails the save, naming it: save again.
   IndexedDB stores the compressed save as a Blob of its parts, and a restore

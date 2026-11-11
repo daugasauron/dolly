@@ -97,8 +97,9 @@ int dolly_kernel_process_directory(int pid);
  * (dolly-supervisor-0.wat): the supervisor's mailbox and its spawn. */
 uintptr_t dolly_process_mailbox_address(void);
 int dolly_process_spawn_serialized(uintptr_t request_size);
-/* While held (a session's save, host/snapshot/kernel.c), every process call
- * but EXIT waits: nothing changes the files being copied. */
+/* While held (a session's save, host/snapshot/kernel.c), the process calls
+ * that change a file's bytes or times, or remove, rename or truncate one, wait:
+ * nothing changes the files being copied. Everything else runs. */
 void dolly_kernel_hold_calls(int held);
 void dolly_kernel_wake(void);
 void dolly_kernel_socket_holders(const dolly_kernel_socket *socket, int foreground,
