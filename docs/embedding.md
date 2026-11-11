@@ -121,6 +121,24 @@ the popup its bytes; without one, name fonts the system has. The page reads the
 properties each time a popup opens. Dolly's site sets
 `"Dolly IosevkaTerm SemiBold", monospace` and its font file.
 
+## A terminal into the session
+
+An image that declares `console@0` (`@daugasauron/dolly-host-console`) gives
+boot()'s handle `openConsole({ columns, rows, argv })`: a terminal the page
+holds, with `argv`'s program started on it, for something other than the
+page's own terminal to use, such as a socket to another machine. It resolves
+to `{ output, write(bytes), resize(columns, rows), close(), exited }`:
+`output` is a `ReadableStream` of what the programs show, which ends when the
+last of them lets go of the terminal; `write` takes bytes or text as typed,
+Ctrl+C included, and resolves to how many it took, fewer while the input is
+full; `exited` is the program's status. The terminal is a pseudo-terminal's
+([process model](process-model.md#pseudo-terminals)).
+
+```js
+const shell = await dolly.openConsole({ columns: 100, rows: 30, argv: ["/bin/slop"] });
+await shell.write("echo hello\r");
+```
+
 ## Serving
 
 - Serve the installed packages as they lie: the runtime finds its own files

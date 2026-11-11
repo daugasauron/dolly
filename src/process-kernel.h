@@ -93,6 +93,10 @@ int dolly_kernel_socket_descriptor(int pid, uint32_t descriptor, const dolly_ker
 int dolly_kernel_socket_open(int pid, dolly_kernel_socket *const *sockets, uint32_t count,
                              int close_on_exec, uint32_t *descriptors);
 int dolly_kernel_process_directory(int pid);
+/* For console@0, which starts a root process as the supervisor does
+ * (dolly-supervisor-0.wat): the supervisor's mailbox and its spawn. */
+uintptr_t dolly_process_mailbox_address(void);
+int dolly_process_spawn_serialized(uintptr_t request_size);
 void dolly_kernel_wake(void);
 void dolly_kernel_socket_holders(const dolly_kernel_socket *socket, int foreground,
                                  void (*each)(int pid, int argument), int argument);

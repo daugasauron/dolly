@@ -166,7 +166,9 @@ kind of the descriptor that sockets are, and the supervisor delivers the
 signals a pseudo-terminal raises for the programs on its slave
 ([process model](../docs/process-model.md#pseudo-terminals)). Its client
 defines the libc's `openpty`, so a program asks with `-ldolly-pty` as one
-asks for sockets. The libc itself forwards `ioctl(TIOCSWINSZ)` on a master.
+asks for sockets. The libc itself forwards `ioctl(TIOCSWINSZ)` on a master. `console@0` is a
+pseudo-terminal whose master the host holds: no program calls it, and its
+kernel side uses `pty@0`'s, through `host/pty/pty-kernel.h`.
 
 ## Runtimes
 

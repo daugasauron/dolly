@@ -134,7 +134,9 @@ function encodeStrings(strings, label) {
 
 // Root processes run argv[0], inherit the kernel environment and map
 // descriptors 0-2 onto themselves.
-function encodeSpawn(arguments_, flags) {
+// With `standard`, the child's descriptors 0, 1 and 2 are the kernel's own:
+// the display's terminal, or the bootstrap log without one.
+function encodeSpawn(arguments_, flags, standard = true) {
   if (!Array.isArray(arguments_) || arguments_.length === 0) {
     throw new TypeError("a process needs argv[0]");
   }
@@ -144,7 +146,8 @@ function encodeSpawn(arguments_, flags) {
   }
   const pathBytes = encoder.encode(path);
   const argumentBytes = encodeStrings(arguments_, "process arguments");
-  const size = spawnHeaderSize + pathBytes.length + argumentBytes.length + 3 * mappingSize;
+  const mappings = standard ? 3 : 0;
+  const size = spawnHeaderSize + pathBytes.length + argumentBytes.length + mappings * mappingSize;
   if (pathBytes.length > 4096 || size > packetLimit) {
     throw new RangeError("process spawn packet is too large");
   }
@@ -152,14 +155,14 @@ function encodeSpawn(arguments_, flags) {
   const view = new DataView(packet.buffer);
   view.setUint32(spawnField.flags, flags | DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT, true);
   view.setUint32(spawnField.argument_count, arguments_.length, true);
-  view.setUint32(spawnField.mapping_count, 3, true);
+  view.setUint32(spawnField.mapping_count, mappings, true);
   view.setUint32(spawnField.path_size, pathBytes.length, true);
   view.setBigUint64(spawnField.argument_bytes, BigInt(argumentBytes.length), true);
   view.setBigUint64(spawnField.deadline_nanoseconds, 0xffffffffffffffffn, true);
   packet.set(pathBytes, spawnHeaderSize);
   packet.set(argumentBytes, spawnHeaderSize + pathBytes.length);
-  for (let descriptor = 0; descriptor < 3; ++descriptor) {
-    const mapping = size - 3 * mappingSize + descriptor * mappingSize;
+  for (let descriptor = 0; descriptor < mappings; ++descriptor) {
+    const mapping = size - mappings * mappingSize + descriptor * mappingSize;
     view.setUint32(mapping + mappingField.source_descriptor, descriptor, true);
     view.setUint32(mapping + mappingField.target_descriptor, descriptor, true);
   }
@@ -271,15 +274,17 @@ export class DollyProcessSupervisor {
     return committed < processMemoryBudgetBytes || !fanning ? null : "budget";
   }
 
-  spawn(arguments_, { foreground = false } = {}) {
+  // A root process, on console@0's console `console` (host/console) when given.
+  spawn(arguments_, { foreground = false, console } = {}) {
     if (this.#spawnWait(0)) throw new Error("Dolly process limit reached");
-    const packet = encodeSpawn(arguments_, foreground ? DOLLY_PROCESS_SPAWN_FOREGROUND : 0);
+    const packet = encodeSpawn(arguments_, foreground ? DOLLY_PROCESS_SPAWN_FOREGROUND : 0, console === undefined);
     new Uint8Array(
       this.kernelMemory.buffer,
       this.mailboxAddress,
       packet.length,
     ).set(packet);
-    const pid = this.kernel.dolly_process_spawn_serialized(BigInt(packet.length));
+    const pid = console === undefined ? this.kernel.dolly_process_spawn_serialized(BigInt(packet.length))
+      : this.kernel.dolly_console_spawn(console, BigInt(packet.length));
     if (pid < 0) {
       const errno = Object.keys(DOLLY_ERRNO).find(name => DOLLY_ERRNO[name] === -pid) ?? `errno ${-pid}`;
       throw new Error(`cannot start ${arguments_[0]}: ${errno}`);

@@ -1,0 +1,19 @@
+{
+  "name": "console",
+  "version": 0,
+  "gives": "terminals the host holds, each with a session started on it",
+  "dependencies": [
+    "runtime@0"
+  ],
+  "imports": [],
+  "host": "console.mjs",
+  "contracts": [
+    "dolly-console-0.wat"
+  ],
+  "process": [],
+  "headers": [],
+  "kernel": [
+    "kernel.c"
+  ],
+  "client": []
+}

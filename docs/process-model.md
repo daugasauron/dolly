@@ -286,9 +286,9 @@ nothing and declares nothing: any program built for Dolly runs on one.
   while it has them: a shell, while its command runs. A process group is one
   process, so none names a foreground.
 - Closing the master is `SIGHUP` to the processes that hold the slave, end of
-  file to their reads and `EIO` to their writes. A read of the master returns
-  end of file once every descriptor of the slave is closed and its output is
-  read.
+  file to their reads and `EIO` to their writes. A read of the master fails
+  with `EIO`, as on Linux, once every descriptor of the slave is closed and its
+  output is read.
 - The supervisor delivers these signals as it delivers a kill
   ([`dolly-pty-supervisor-0.wat`](../host/pty/dolly-pty-supervisor-0.wat)):
   a program that does not answer `SIGINT` or `SIGHUP` within 500 ms is ended,
@@ -298,6 +298,17 @@ nothing and declares nothing: any program built for Dolly runs on one.
   failed Worker release what a process held.
 - A shell on a slave publishes no command result to the page: the page
   follows the shell at the display's terminal.
+
+`console@0` ([`host/console/dolly-console-0.wat`](../host/console/dolly-console-0.wat),
+[`host/console/kernel.c`](../host/console/kernel.c)) gives the host a
+pseudo-terminal whose master end it holds itself: a terminal into the session
+for something outside it, a socket or a second view. The host opens one of a
+size, starts a root process whose descriptors 0, 1 and 2 are its slave, types
+into it, reads what its programs show, resizes it and hangs it up; all the
+rest is the pseudo-terminal's above. A console is one of the 32. In the
+browser an image that declares the module gets `openConsole()` on boot()'s
+handle ([embedding](embedding.md#a-terminal-into-the-session)); another host
+adds it to the images it runs.
 - Not there: `/dev/ptmx` and a path for a slave (`posix_openpt`, `ptsname`
   and `forkpty` fail), sessions and controlling-terminal ioctls. The name
   `openpty` returns, `/dev/pts/N`, is for display.
