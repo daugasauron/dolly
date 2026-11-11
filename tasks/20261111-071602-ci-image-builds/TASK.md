@@ -1,6 +1,6 @@
 # Building an npm user's image in CI: CORS, a browser flag and toBase64
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 350
 - TAGS: npm,build,python,snapshots,0.1.6
 
@@ -70,3 +70,31 @@ flags, a recipe whose `SLOP pip install` takes a package from a local index that
 headers and redirects once, once directly and once through a local proxy that `HTTPS_PROXY` names; a recipe with `SLOP pip install` of PyPI packages builds by hand
 (recorded here); one build in the oldest versions the docs name succeeds (by hand, recorded
 here); and the docs say all of it.
+
+## Closed (2026-11-12)
+
+Done on `fix/npm-feedback` and in this commit. Evidence:
+
+- `test/npm-browser.mjs` on main `77c4dc578`'s packages passed in Chromium (156.8 s) and
+  Firefox (129.0 s), offline but for loopback (`build/round-1111-evidence/rerun-2/npm-5.log`):
+  the python-data recipe pip installs from an index without CORS headers that redirects once,
+  directly and through the proxy `HTTP_PROXY` names, and the booted site imports the package.
+- By hand, PyPI: a recipe `FROM` python-data's README row with `SLOP pip install requests==2.32.3
+  tabulate==0.9.0` built with `npx dolly-build ... --browser chromium` in 43 s from packed
+  packages (`/home/daug/dev/dolly-tmp/ci-hand/app`). The log names pypi.org and
+  files.pythonhosted.org, and pip installed requests, urllib3, idna, charset-normalizer,
+  certifi and tabulate. Found there: the image kept none of what pip installed (a later
+  `import requests` failed), since retention is explicit. With `FOLDER
+  /usr/lib/python3.14/site-packages` after the install, the site imports `requests` in Chrome
+  and Firefox. `docs/embedding.md` says so, and the npm test's recipe retains it.
+- Oldest browsers: the docs named Chrome 133 and Firefox 134 from memory64 alone. Measured on that
+  site: Chrome 133 and 136 boot but fail every C++ program (`invalid value type 'exn'`, Wasm's
+  exception references); Chrome 138 runs Python. Firefox 134 and 137 fail to load the
+  runtime's modules (dynamic `import(url, { with: { type: "json" } })`), and Firefox 139, 140, 142,
+  148 and 151 fail at every start (`20261112-011500-firefox-pack-start`); Firefox 153 and 155
+  run Python. `docs/embedding.md` and the build's message say Chrome 138 and Firefox 153.
+  `dolly-build` built the recipe in Chromium 138 (Playwright 1.63 launching the 138 headless
+  shell, 46 s) and in Firefox 153 (Playwright 1.62, 61 s), and each site booted in the same
+  browser with `import requests, numpy` passing. Older Playwright releases (1.50, 1.53) do not
+  run `dolly-build`: their Chromium flags send `127.0.0.1` to the build's refusing proxy despite
+  its bypass, so the page is not isolated; `dolly-build` pins Playwright 1.63.

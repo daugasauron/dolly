@@ -231,12 +231,16 @@ npx dolly-build Dollyfile-my-pi my-pi
   not part of the image's identity: the same recipe reuses its image, and another
   machine may fetch newer releases, so pin versions (`pip install NAME==1.2`) or
   `SOURCE` rows where the bytes matter. Pure-Python wheels and sdists install;
-  Dolly builds NumPy, pandas and Matplotlib as packages to `INSTALL`.
+  Dolly builds NumPy, pandas and Matplotlib as packages to `INSTALL`. The image
+  keeps what pip installed once a row retains it, `FOLDER
+  /usr/lib/python3.14/site-packages` after the install; without it a later step
+  imports the packages and the image has none.
 - In CI, run `npm ci`, then `dolly-build` with `--browser chromium` after
   `npx playwright-core install chromium-headless-shell`, or in Playwright's image of
   the version of `playwright-core` the lockfile holds; no browser switch is needed.
-  The browser needs shared WebAssembly memory64 (Chrome 133, Firefox 134 or later),
-  and the build says so first where it lacks it. The repository's Data Pi demo
+  The browser needs Chrome 138 or Firefox 153 or later, as a page does: Chrome 136
+  runs no C++ program (it lacks Wasm's exception references) and Firefox 151 starts
+  no image. Where it lacks shared WebAssembly memory64 the build says so first. The repository's Data Pi demo
   (`demos/pi/data-pi`) is such a project, with its workflow.
 - Serve `OUT` with any static file server, `python3 -m http.server -d OUT` on
   your machine. Where the host sends the isolation headers ("Serving" above) the

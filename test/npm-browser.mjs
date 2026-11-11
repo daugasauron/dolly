@@ -27,8 +27,8 @@
 //   page runs NumPy, pandas and Matplotlib, and a recipe of the project's own on the
 //   README's FROM row, whose build runs Python with them and pip installs a wheel
 //   from an index that sends no CORS headers and redirects once, boots with its
-//   result; built again with HTTP_PROXY set, the build reaches the index through
-//   that proxy.
+//   result and the package; built again with HTTP_PROXY set, the build reaches the
+//   index through that proxy.
 // Usage: node test/npm-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { execFile, execFileSync, spawn, spawnSync } from "node:child_process";
@@ -286,6 +286,7 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
     "FILE /home/dolly/mean.py", "    import numpy, pandas", "    print('MEAN', pandas.Series(numpy.arange(10)).mean())",
     "SLOP python /home/dolly/mean.py > /home/dolly/mean.txt", "FILE /home/dolly/mean.txt",
     `SLOP pip install --disable-pip-version-check --no-cache-dir --index-url ${origin(index)}/simple/ --trusted-host 127.0.0.1 dolly-sample`,
+    "FOLDER /usr/lib/python3.14/site-packages",
     "SLOP python -c 'import dolly_sample; print(dolly_sample.VALUE)' > /home/dolly/sample.txt", "FILE /home/dolly/sample.txt",
     "ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop", ""].join("\n"));
   await writeFile(join(dataApp, "index.html"), page.replace("./node_modules/@daugasauron/dolly-image-default/index.mjs",
@@ -438,7 +439,7 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
       await dollyBuild(dataApp, "npx dolly-build Dollyfile-my-data my-data", name);
       const mine = await newPage(), own = await booted(mine, `${origin(dataSite)}/`);
       assert.equal(await own("grep -qx 'MEAN 4.5' /home/dolly/mean.txt && python /home/dolly/mean.py | grep -qx 'MEAN 4.5'"), 0);
-      assert.equal(await own("grep -qx DOLLY-SAMPLE /home/dolly/sample.txt"), 0);
+      assert.equal(await own("grep -qx DOLLY-SAMPLE /home/dolly/sample.txt && python -c 'import dolly_sample'"), 0);
       assert.ok(["/simple/dolly-sample/", "/project/dolly-sample/", "/files/dolly_sample-1.0-py3-none-any.whl"]
         .every(path => indexed.includes(path)), `the index served ${indexed}`);
       // Built again into a site of its own, through the proxy HTTP_PROXY names.

@@ -14,7 +14,7 @@ export async function buildImageInPage(runtime, images, image, custom, modules, 
   // What the runtime needs of the browser, said before anything is built.
   if (!crossOriginIsolated) throw new Error("the build page is not cross-origin isolated");
   if (!WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 4, 1]))) {
-    throw new Error("this browser has no WebAssembly memory64, which Dolly needs (Chrome 133, Firefox 134 or later)");
+    throw new Error("this browser has no WebAssembly memory64, which Dolly needs (Chrome 138, Firefox 153 or later)");
   }
   const log = text => void globalThis.dollyBuildLog(text);
   const [registry, policy, transport, builder, graph] = await Promise.all([
