@@ -1,11 +1,21 @@
 # amy's package service off the broker, http@0 switchable
 
 - STATUS: OPEN
-- PRIORITY: 60
+- PRIORITY: 340
 - TAGS: host-modules,audit,amy,http
 
-From the module audit (`tasks/20261104-135806-module-audit`, R5, section 4 item 3). Only if the
-owner wants `default` without `http@0`.
+From the module audit (`tasks/20261104-135806-module-audit`, R5, section 4 item 3).
+
+## State (2026-11-12)
+
+Decided: do it. Owner (2026-11-04): "the only place I expect to see @http is on the pi-agent
+images"; the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, A5) ranks it above cleanup:
+`http@0` is on 78 of 217 recipes and 18 of 26 applications. With it, the audit's S2: since
+`0df7aa0b1` the service asks the policy about a foreign directory's URL once, then fetches its
+catalog, metadata and packs unjudged and keeps the packs in the origin's store, so
+`docs/browser-boundary.md:247` and `src/pack-store.mjs:8-9` ("nothing of the guest reaches it") are
+no longer true. Over its own channel: a foreign directory's packs are not kept, each URL fetched is
+admitted, the two JSON files are fetched with a byte bound, and the two sentences are corrected.
 
 `packages@0` rides the HTTP broker as a reserved origin (`https://packages.dolly.invalid`,
 b60b426a2; `host/packages/module.json` depends on `http@0`), so `amy` needs `http@0`, and so does

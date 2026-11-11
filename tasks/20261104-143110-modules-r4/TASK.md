@@ -1,11 +1,20 @@
 # SOURCE through the build inputs: the engine fetches nothing
 
 - STATUS: OPEN
-- PRIORITY: 120
+- PRIORITY: 220
 - TAGS: host-modules,audit,dollyfile,seed
 
 From the module audit (`tasks/20261104-135806-module-audit`, R4, section 4 item 1). A seed change:
 worth doing when the seed is next rebuilt for another reason, not alone.
+
+## State (2026-11-12)
+
+Narrowed. Owner (2026-11-11): "it should be possible to do SLOP pip install x y z in a Dollyfile to
+build something"; (2026-11-12) "Security during build isn't important". So a build keeps its network
+edge: `buildHost` keeps `http@0` for the steps. What stays is the engine's own part: `SOURCE` rows
+come through the verified build inputs, and `/bin/dollyfile` links no HTTP client, so the engine
+depends on no module but `runtime@0` (`tasks/20261112-074501-modules-modular`). The done-when's
+"declare no `http@0`" holds for the engine-only toolchains, not for builds whose steps fetch.
 
 Every base holds `/bin/dollyfile`, which links the HTTP client for one operation: `SOURCE` rows,
 fetched through the broker (`src/dollyfile.c` `fetch_source`; `scripts/build.sh` links the seed's
