@@ -66,6 +66,7 @@ rm -f \
   "${project_dir}/dist/dolly.wasm" \
   "${project_dir}"/dist/dolly-*-0.wasm \
   "${project_dir}/dist/dolly-process-abi.mjs" \
+  "${project_dir}/dist/dolly-abi.json" \
   "${project_dir}/dist/dolly-build-id.mjs" \
   "${project_dir}/dist/dolly-image-build-id.mjs" \
   "${project_dir}/dist/IosevkaTerm-SemiBold.woff2"
@@ -107,7 +108,7 @@ for fixture in "${fixtures[@]}"; do
 done
 
 "${container[@]}" /emsdk/upstream/emscripten/emcc -m64 -fsyntax-only -I/src/build/include \
-  build/process-errno-check.c
+  build/process-abi-check.c
 
 process_compile_flags=(
   -m64 -O1 -matomics -mbulk-memory -fwasm-exceptions
@@ -281,6 +282,7 @@ node scripts/dolly-abi.mjs emit-digest-module \
   build/dolly-kernel-plugin-0.wasm \
   dist/dolly-kernel-plugin-abi.mjs \
   DOLLY_KERNEL_PLUGIN_ABI_DIGEST
+node scripts/abi-data.mjs
 node scripts/dolly-abi.mjs emit-digest-header \
   build/dolly-process-0.wasm \
   build/generated/dolly-process-abi-digest.h \

@@ -3,9 +3,13 @@ import { DOLLY_ERRNO } from "./process-constants.mjs";
 import { DOLLY_THREAD_EXIT, DOLLY_THREAD_SPAWN } from "../host/threads/abi.mjs";
 import {
   DOLLY_PROCESS_CLOCK_MONOTONIC, DOLLY_PROCESS_CLOCK_REALTIME, DOLLY_PROCESS_CLOCK_TIME,
-  DOLLY_PROCESS_EXIT, DOLLY_PROCESS_INTERRUPT_POLL,
-  DOLLY_PROCESS_PACKET_LIMIT,
+  DOLLY_PROCESS_EXIT, DOLLY_PROCESS_INTERRUPT_POLL, DOLLY_PROCESS_OFFSETOF,
+  DOLLY_PROCESS_PACKET_LIMIT, DOLLY_PROCESS_SIZEOF,
 } from "./process-constants.mjs";
+
+const clockField = DOLLY_PROCESS_OFFSETOF.dolly_process_clock_request;
+const clockRequestSize = DOLLY_PROCESS_SIZEOF.dolly_process_clock_request;
+const clockResponseSize = DOLLY_PROCESS_SIZEOF.dolly_process_clock_response;
 
 const PROCESS_EXIT = Symbol("Dolly process exit");
 const THREAD_EXIT = Symbol("Dolly thread exit");
@@ -159,9 +163,9 @@ function decodeResult() {
 function clockResponse(clock, response, now) {
   const nanoseconds = Math.round(
     (clock === DOLLY_PROCESS_CLOCK_REALTIME ? Date.now() : now + clockOffset) * 1e6);
-  new DataView(memory.buffer, response.address, 8)
-    .setBigUint64(0, BigInt(nanoseconds), true);
-  return 8n;
+  new DataView(memory.buffer, response.address, clockResponseSize)
+    .setBigUint64(DOLLY_PROCESS_OFFSETOF.dolly_process_clock_response.nanoseconds, BigInt(nanoseconds), true);
+  return BigInt(clockResponseSize);
 }
 
 // The request goes into the mailbox under control word 4, which the
@@ -205,12 +209,12 @@ function call(operation, requestAddressValue, requestSizeValue,
   const exitingResult = operation === DOLLY_THREAD_EXIT && request.size === 8
     ? new DataView(memory.buffer, request.address, 8).getBigUint64(0, true) : undefined;
   let clock;
-  if (operation === DOLLY_PROCESS_CLOCK_TIME && request.size === 16 && response.size >= 8 &&
+  if (operation === DOLLY_PROCESS_CLOCK_TIME && request.size === clockRequestSize && response.size >= clockResponseSize &&
       response.size <= DOLLY_PROCESS_PACKET_LIMIT) {
-    const packet = new DataView(memory.buffer, request.address, 16);
-    const id = packet.getUint32(0, true);
+    const packet = new DataView(memory.buffer, request.address, clockRequestSize);
+    const id = packet.getUint32(clockField.clock_id, true);
     if ((id === DOLLY_PROCESS_CLOCK_REALTIME || id === DOLLY_PROCESS_CLOCK_MONOTONIC) &&
-        packet.getUint32(4, true) === 0) clock = id;
+        packet.getUint32(clockField.reserved, true) === 0) clock = id;
     const now = performance.now();
     // Frequent clock reads and interrupt polls need no worker round trip. Still
     // enter the kernel at least once per millisecond so such loops deliver

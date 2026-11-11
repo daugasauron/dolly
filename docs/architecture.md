@@ -97,6 +97,12 @@ sequenceDiagram
 - Errors are negated `dolly_process_error` numbers of `process.h`, part of the
   hashed contract; a libc maps its `errno` to them.
   A malformed packet is one of them, never the end of the process.
+- The build writes these numbers as data for a host in another language:
+  `dist/dolly-abi.json` ([`abi-data.mjs`](../scripts/abi-data.mjs)) holds
+  `process.h`'s constants, errno numbers and each packet's size and field offsets
+  (`DOLLY_PROCESS_SIZEOF`, `DOLLY_PROCESS_OFFSETOF`, which the compiler checks),
+  every contract's digest and constants, and each host module's manifest. It is
+  the generated modules the browser imports, written as JSON.
 - A pending signal turns the next call into `-EINTR`; libc then runs the handler
   ([process model](process-model.md)).
 

@@ -2,12 +2,13 @@
 // module (and threads@0) added, since a test states what its programs need.
 // What a program sees in an image without it is in host-modules-browser.mjs.
 import assert from "node:assert/strict";
-import { browserTest, composed } from "./browser.mjs";
-import { runCppDsoCase } from "./fixtures/cpp-sdk.mjs";
+import { browserTest, composed, runSteps } from "./browser.mjs";
+import cppDso from "./cases/cpp-dso.json" with { type: "json" };
 
 const fixtures = Object.fromEntries(["dso-check.c", "dso-library.c", "dso-cpp-check.cpp", "dso-cpp-library.cpp"]
   .map(name => [name, `src/process/${name}`]));
 for (const name of ["process-signals.c", "dso-threads.c", "dso-threads-library.cpp"]) fixtures[name] = `test/fixtures/${name}`;
+const served = { ...fixtures, ...cppDso.fixtures };
 const sources = {
   // A library that records a module this image does not declare.
   "denied.c": `#include <dolly/host.h>
@@ -116,7 +117,7 @@ function handle(request, response, path, headers) {
   return true;
 }
 
-await browserTest("dso", { image: "system", timeout: 300_000, server: { fixtures, handle } }, async ({ server, open }) => {
+await browserTest("dso", { image: "system", timeout: 300_000, server: { fixtures: served, handle } }, async ({ server, open }) => {
   const loaderFetches = () => server.requests.get("/dist/dolly-process-dso.mjs") ?? 0;
   const before = loaderFetches();
   const { submit, text } = await open({ policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
@@ -133,7 +134,8 @@ await browserTest("dso", { image: "system", timeout: 300_000, server: { fixtures
   await run("c++ -O0 -shared dso-cpp-library.cpp -o dso-cpp-library.so && c++ -O0 -rdynamic dso-cpp-check.cpp -o dso-cpp-check && ./dso-cpp-check /tmp/dso/dso-cpp-library.so");
   assert.equal(await submit("./dso-check /tmp/dso/dso-library.so 37"), 37,
     "a DSO exits only its owning process through the shared libc provider");
-  await runCppDsoCase(submit);
+  await runSteps(submit, server.origin, cppDso);
+  await run(`rm -rf ${cppDso.directory} && cd /tmp/dso`);
   // A library's own records are checked before it is entered, and packets are bounded.
   await run("cc -O1 -shared denied.c -o denied.so && cc -O1 -rdynamic host.c -o host && ./host && test ! -e /tmp/dso/entered");
   await run("cc -O1 -shared weak.c -o weak.so && cc -O1 -rdynamic weak-host.c -o weak-host && ./weak-host");

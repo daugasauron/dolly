@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { browserTest } from "./browser.mjs";
-import { commandCases, execCases, pipelineCases, shellCases, shellQuote, sourceFiles } from "./fixtures/slop-cases.mjs";
+import { browserTest, shellQuote } from "./browser.mjs";
+import cases from "./cases/slop.json" with { type: "json" };
 
 // The shipped /bin/slop against the cases test/slop.test.mjs runs on src/slop.c natively.
 await browserTest("slop", { image: "system" }, async ({ open }) => {
@@ -17,11 +17,11 @@ await browserTest("slop", { image: "system" }, async ({ open }) => {
   const write = (name, source) => `printf %b ${shellQuote(source.replaceAll("\\", "\\\\")
     .replaceAll("\n", "\\n").replaceAll("\t", "\\t"))} > ${scratch}/${name}`;
   assert.equal(await submit(`mkdir ${scratch}`), 0);
-  for (const [name, source] of Object.entries(sourceFiles)) assert.equal(await submit(write(name, source)), 0, name);
+  for (const [name, source] of Object.entries(cases.files)) assert.equal(await submit(write(name, source)), 0, name);
   const failures = [];
-  for (const [name, source, expected] of [...shellCases, ...commandCases, ...pipelineCases, ...execCases]) {
-    const actual = await submit(`cd ${scratch}; ${write("fixture-zero", source)}; /bin/slop fixture-zero`);
-    if (actual !== expected) failures.push({ name, expected, actual });
+  for (const { name, script, status } of [...cases.shell, ...cases.command, ...cases.pipeline, ...cases.exec]) {
+    const actual = await submit(`cd ${scratch}; ${write("fixture-zero", script)}; /bin/slop fixture-zero`);
+    if (actual !== status) failures.push({ name, expected: status, actual });
   }
   assert.deepEqual(failures, []);
   const make = `make -C ${scratch} SHELL=/bin/slop '.SHELLFLAGS=-e -c'`;

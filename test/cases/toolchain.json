@@ -1,0 +1,295 @@
+{
+  "image": "system",
+  "directory": "/tmp/dolly-process-smoke",
+  "fixtures": {
+    "process-check.c": "src/process/check.c",
+    "fs-check.c": "src/process/fs-check.c",
+    "io-stress.c": "test/fixtures/process-io-stress.c",
+    "env-driver.c": "src/process/env-driver.c",
+    "cpp-check.cpp": "src/process/cpp-check.cpp",
+    "http-check.c": "src/process/http-check.c",
+    "pipe-check.c": "src/process/pipe-check.c",
+    "pipe-driver.c": "src/process/pipe-driver.c",
+    "poll-check.c": "src/process/poll-check.c",
+    "mmap-check.c": "src/process/mmap-check.c",
+    "mmap-bounds.c": "test/fixtures/mmap-bounds.c",
+    "fd-exhaustion.c": "test/fixtures/fd-exhaustion.c",
+    "cwd-check.c": "test/fixtures/cwd-check.c",
+    "slop-interrupt.c": "test/fixtures/slop-interrupt.c",
+    "terminal-check.c": "src/process/terminal-check.c",
+    "self-exe-check.c": "src/process/self-exe-check.c",
+    "target-identity.c": "test/fixtures/target-identity.c"
+  },
+  "steps": [
+    {
+      "script": "for source in *.c; do cc -O0 \"$source\" -o \"${source%.c}\" || exit 1; done; c++ -O0 cpp-check.cpp -o cpp-check",
+      "status": 0
+    },
+    {
+      "script": "printf '%s\\n' '-O0 cpp-check.cpp -o \"response program\"' > compile.rsp",
+      "status": 0
+    },
+    {
+      "script": "printf '%s\\n' '@compile.rsp' > nested.rsp",
+      "status": 0
+    },
+    {
+      "script": "c++ @nested.rsp && './response program'",
+      "status": 0
+    },
+    {
+      "script": "printf 'int first(void) { return 1; }\\n' > first.c; printf 'int second(void) { return 2; }\\n' > second.c; cc -c first.c && cc -c second.c && ar rcs library.a first.o second.o",
+      "status": 0
+    },
+    {
+      "script": "printf 'int first(void) { return 3; }\\n' > first.c; cc -c first.c && ar rcs library.a ./first.o",
+      "status": 0
+    },
+    {
+      "script": "printf 'int third(void) { return 4; }\\n' > third.c; cc -c third.c && ar rcs library.a third.o",
+      "status": 0
+    },
+    {
+      "script": "printf 'int first(void), second(void), third(void); int main(void) { return first()!=3 || second()!=2 || third()!=4; }\\n' > archive.c; cc archive.c library.a -o archive && ./archive",
+      "status": 0
+    },
+    {
+      "script": "cp library.a saved.a",
+      "status": 0
+    },
+    {
+      "why": "a missing archive input",
+      "script": "ar rcs library.a second.o missing.o",
+      "fails": true
+    },
+    {
+      "script": "cmp library.a saved.a && ar rcs library.a && cmp library.a saved.a",
+      "status": 0
+    },
+    {
+      "script": "printf invalid > invalid.a; cp invalid.a saved.a",
+      "status": 0
+    },
+    {
+      "why": "an invalid existing archive",
+      "script": "ar rcs invalid.a first.o",
+      "fails": true
+    },
+    {
+      "script": "cmp invalid.a saved.a",
+      "status": 0
+    },
+    {
+      "script": "mkdir duplicate; cp second.o duplicate/first.o; ar rcs duplicate.a first.o duplicate/first.o third.o; cc archive.c duplicate.a -o archive && ./archive",
+      "status": 0
+    },
+    {
+      "why": "The Rust cc crate's sequence: quick appends, then the index.",
+      "script": "rm library.a; ar cqD library.a first.o second.o && ar cq library.a third.o && ar sD library.a && cc archive.c library.a -o archive && ./archive",
+      "status": 0
+    },
+    {
+      "why": "an index for a missing archive",
+      "script": "ar s missing.a",
+      "fails": true
+    },
+    {
+      "script": "printf '%s\\n' '@cycle.rsp' > cycle.rsp",
+      "status": 0
+    },
+    {
+      "why": "a recursive compiler response file",
+      "script": "cc @cycle.rsp",
+      "status": 64
+    },
+    {
+      "why": "a missing compiler response file",
+      "script": "cc @missing.rsp",
+      "fails": true
+    },
+    {
+      "script": "printf '#warning diagnostic-probe\\nint main(void) { return 0; }\\n' > warning.c",
+      "status": 0
+    },
+    {
+      "why": "warnings as errors",
+      "script": "cc -Werror warning.c -o warning",
+      "fails": true
+    },
+    {
+      "script": "cc -Werror -w warning.c -o warning && ./warning",
+      "status": 0
+    },
+    {
+      "script": "printf 'int main(void) { return ((char)-1 < 0) != EXPECT_SIGNED; }\\n' > char.c",
+      "status": 0
+    },
+    {
+      "script": "cc -O0 -funsigned-char -DEXPECT_SIGNED=0 char.c -o char && ./char",
+      "status": 0
+    },
+    {
+      "script": "cc -O0 -funsigned-char -fsigned-char -DEXPECT_SIGNED=1 char.c -o char && ./char",
+      "status": 0
+    },
+    {
+      "script": "cc -O0 -fno-unsigned-char -fno-signed-char -DEXPECT_SIGNED=0 char.c -o char && ./char",
+      "status": 0
+    },
+    {
+      "script": "printf 12345 > five && ./target-identity five && cc -pthread -c target-identity.c",
+      "status": 0
+    },
+    {
+      "script": "test \"$(cc -dumpmachine)\" = wasm64-unknown-dolly && test \"$(uname -sm)\" = \"Dolly wasm64\"",
+      "status": 0
+    },
+    {
+      "script": "printf '#include <pty.h>\\n#include <errno.h>\\nint main(void) { int master, slave; return openpty(&master, &slave, 0, 0, 0) != -1 || errno != ENOENT; }\\n' > pty.c",
+      "status": 0
+    },
+    {
+      "script": "cc -O0 pty.c -lutil -o pty && ./pty",
+      "status": 0
+    },
+    {
+      "script": "printf 'static volatile unsigned char data[20 * 1024 * 1024] = {1};\\nint main(void) { data[sizeof(data)-1]=42; return data[0]!=1 || data[sizeof(data)-1]!=42; }\\n' > memory.c",
+      "status": 0
+    },
+    {
+      "script": "cc memory.c -o memory && ./memory",
+      "status": 0
+    },
+    {
+      "why": "An explicit initial memory covers the data, the stack and cc's 8 MiB heap.",
+      "script": "cc memory.c -Wl,--initial-memory=41943040,--max-memory=67108864 -o memory && ./memory",
+      "status": 0
+    },
+    {
+      "why": "the compiler rejects memory above the process ceiling",
+      "script": "cc memory.c -Wl,--initial-memory=33554432,--max-memory=17179869184 -o memory",
+      "fails": true
+    },
+    {
+      "script": "cp self-exe-check identity-one && cp self-exe-check identity-two && ln -s self-exe-check identity-alias",
+      "status": 0
+    },
+    {
+      "script": "printf '#!/tmp/dolly-process-smoke/self-exe-check /tmp/dolly-process-smoke/self-exe-check\\n' > identity-script",
+      "status": 0
+    },
+    {
+      "script": "./self-exe-check && ./identity-script",
+      "status": 0
+    },
+    {
+      "script": "DOLLY_PROCESS_CHECK=private-memory ./process-check fresh",
+      "status": 0
+    },
+    {
+      "script": "DOLLY_PROCESS_CHECK=private-memory ./process-check fresh",
+      "status": 0
+    },
+    {
+      "script": "./fs-check write /tmp/dolly-process-smoke/data",
+      "status": 0
+    },
+    {
+      "script": "./fs-check read /tmp/dolly-process-smoke/data",
+      "status": 0
+    },
+    {
+      "script": "./io-stress",
+      "status": 0
+    },
+    {
+      "script": "./env-driver /tmp/dolly-process-smoke/process-check",
+      "status": 0
+    },
+    {
+      "script": "./cpp-check",
+      "status": 0
+    },
+    {
+      "script": "/bin/slop -c './fs-check write /tmp/dolly-process-smoke/data && ./fs-check read /tmp/dolly-process-smoke/data'",
+      "status": 0
+    },
+    {
+      "script": "/bin/slop -c 'export DOLLY_PROCESS_CHECK=private-memory; case \"$DOLLY_PROCESS_CHECK\" in private-memory) : ;; *) exit 94 ;; esac; ./process-check fresh'",
+      "status": 0
+    },
+    {
+      "script": "./pipe-driver /tmp/dolly-process-smoke/pipe-check",
+      "status": 0
+    },
+    {
+      "script": "./poll-check",
+      "status": 0
+    },
+    {
+      "script": "./mmap-check",
+      "status": 0
+    },
+    {
+      "script": "./mmap-check",
+      "status": 0
+    },
+    {
+      "script": "./mmap-bounds",
+      "status": 0
+    },
+    {
+      "script": "./fd-exhaustion",
+      "status": 0
+    },
+    {
+      "script": "./cwd-check",
+      "status": 0
+    },
+    {
+      "why": "Standard input is the session's terminal.",
+      "script": "./terminal-check",
+      "status": 0,
+      "terminal": true
+    },
+    {
+      "script": "cc --version",
+      "status": 0
+    },
+    {
+      "script": "./slop-interrupt /bin/slop",
+      "status": 0
+    },
+    {
+      "why": "The driver follows Clang's output names and input kinds.",
+      "script": "mkdir src && printf 'int main(void) { return 0; }\\n' > src/unit.c && cc -c src/unit.c && test -f unit.o && test ! -e src/unit.o",
+      "status": 0
+    },
+    {
+      "script": "cc -c -MD src/unit.c -o built.o && grep -q '^built.o: src/unit.c' built.d && cc -c -MMD src/unit.c && grep -q '^unit.o: src/unit.c' unit.d",
+      "status": 0
+    },
+    {
+      "script": "cp unit.o unit.lo && cc unit.lo -o linked && ./linked",
+      "status": 0
+    },
+    {
+      "script": "printf 'int unit(void) { return 1; }\\n' > library.c && cc -shared -Wl,-h,libunit.so.1 library.c -o soname.so",
+      "status": 0
+    },
+    {
+      "script": "printf 'int missing(void);\\nint use(void) { return missing(); }\\n' > undefined.c && cc -shared undefined.c -o undefined.so",
+      "status": 0
+    },
+    {
+      "why": "No WebAssembly assembler: guarded foreign assembly is an empty object, real assembly fails.",
+      "script": "printf '#if defined(__x86_64__)\\n  movq %%rax, %%rbx\\n#endif\\n' > guarded.S && cc -c guarded.S -o guarded.o && test -s guarded.o",
+      "status": 0
+    },
+    {
+      "why": "assembly compiled without an assembler",
+      "script": "printf 'movq %%rax, %%rbx\\n' > real.S && cc -c real.S -o real.o",
+      "fails": true
+    }
+  ]
+}

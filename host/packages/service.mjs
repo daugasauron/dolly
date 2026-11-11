@@ -1,5 +1,4 @@
-import { DOLLY_IMAGES, imageBase } from "../../src/images.mjs";
-import { loadPackagedSnapshotMetadata } from "../../src/packaged-snapshot.mjs";
+import { imageBase } from "../../src/images.mjs";
 import { MAX_SNAPSHOT_BYTES } from "../../src/snapshot-records.mjs";
 
 const PACKAGES_ORIGIN = "https://packages.dolly.invalid";
@@ -9,35 +8,59 @@ const PACKAGE_LIMITS = Object.freeze({
   // Snapshots served per page: enough for every package, not for a loop.
   maxSnapshots: 64,
 });
-const packagePath = /^\/v1\/packages\/([0-9a-f]{64})$/;
+const directoryPath = "/v1/directory";
+const packagePath = /^\/v1\/packages\/([0-9a-f]{64})\/from\/([^/]+)$/;
 
 function reply(body, status, type = "text/plain; charset=utf-8") {
   return new Response(body, { status, headers: { "content-type": type, "cache-control": "no-store" } });
 }
 
-// GET /v1/packages/SHA256 is the exact snapshot of the package whose recipe
-// has that pin, verified from the published packs and merged as the guest
-// reads it. One snapshot is served at a time, until the guest has read it or
-// the broker's timeout cancels it.
+// The image directory a path segment names, or null: an http or https URL of a
+// directory, written as the URL parser writes it, with nothing but a path.
+function directoryOf(segment) {
+  let text;
+  try { text = decodeURIComponent(segment); } catch { return null; }
+  const url = URL.parse(text);
+  return url?.href === text && /^https?:$/.test(url.protocol) && url.pathname.endsWith("/") &&
+    !url.username && !url.password && !url.search && !url.hash ? url : null;
+}
+
+// GET /v1/directory is the image directory the page loads its images from,
+// amy's server unless the session names another. GET /v1/packages/SHA256/from/
+// DIRECTORY is the exact snapshot of the package whose recipe has that pin in
+// that directory's catalog, verified from its packs and merged as the guest
+// reads it. Another directory than the page's is read only where the page's
+// HTTP policy admits a GET of it (`admit`), and only packages built for this
+// runtime pass. One snapshot is served at a time, until the guest has read it
+// or the broker's timeout cancels it.
 export class PackageService {
-  constructor() {
+  constructor(admit) {
+    this.admit = admit;
     this.active = false;
     this.served = 0;
   }
   get origin() { return PACKAGES_ORIGIN; }
   authorize(url, method, bytes) {
-    return method === "GET" && bytes === 0 && packagePath.test(url.pathname) ? PACKAGE_LIMITS : undefined;
+    return method === "GET" && bytes === 0 && (url.pathname === directoryPath || packagePath.test(url.pathname))
+      ? PACKAGE_LIMITS : undefined;
   }
   async fetch(url, init) {
-    const sha256 = packagePath.exec(url.pathname)[1];
-    const definition = DOLLY_IMAGES.find(candidate => candidate.role === "package" && candidate.sha256 === sha256);
-    if (!definition) return reply("This release publishes no package with that recipe pin\n", 404);
-    if (this.active) return reply("Another package snapshot is being served\n", 409);
-    if (this.served >= PACKAGE_LIMITS.maxSnapshots) return reply("Package snapshot quota exceeded\n", 429);
+    if (url.pathname === directoryPath) return reply(imageBase.href);
+    const [, sha256, segment] = packagePath.exec(url.pathname);
+    const directory = directoryOf(segment);
+    if (!directory) return reply("not the URL of an image directory\n", 400);
+    if (directory.href !== imageBase.href) {
+      try { this.admit(directory); } catch {
+        return reply(`this page's HTTP policy does not admit ${directory.href}\n`, 403);
+      }
+    }
+    if (this.active) return reply("another package snapshot is being served\n", 409);
+    if (this.served >= PACKAGE_LIMITS.maxSnapshots) return reply("this page's package snapshot quota is spent\n", 429);
     this.active = true;
     this.served += 1;
     // The Worker (worker.mjs) answers each message in turn: the first with the
-    // packs checked, every later one with the snapshot's next chunk.
+    // package found and its packs checked, every later one with the snapshot's
+    // next chunk.
     const worker = new Worker(new URL("./worker.mjs", import.meta.url), { type: "module", name: "dolly-packages" });
     let released = false, refuse;
     const release = () => {
@@ -56,11 +79,13 @@ export class PackageService {
       else worker.postMessage(message);
     });
     try {
-      const metadata = await loadPackagedSnapshotMetadata(definition.image);
-      await ask({ base: imageBase.href, metadata });
+      if ((await ask({ directory: directory.href, sha256 })).missing) {
+        release();
+        return reply(`${directory.href} publishes no package with that recipe pin\n`, 404);
+      }
     } catch (error) {
       release();
-      return reply(`${definition.image}: ${error.message}\n`, 502);
+      return reply(`${directory.href}: ${error.message}\n`, 502);
     }
     const body = new ReadableStream({
       async pull(controller) {

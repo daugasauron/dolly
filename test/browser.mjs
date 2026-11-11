@@ -17,11 +17,34 @@
 // latest page's terminal is printed; after timeout milliseconds the browser is
 // closed and the test fails, whatever it awaits. launch adds to how the
 // browsers start: { chromium: [argument…], firefox: { preference: value } }.
+import assert from "node:assert/strict";
 import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "./browser-server.mjs";
 import { siteReference } from "../src/static-asset.mjs";
 
 const projectDir = new URL("..", import.meta.url).pathname;
+export const shellQuote = value => `'${String(value).replaceAll("'", "'\\''")}'`;
+
+// Runs a case file's steps (test/cases/README.md) in the session's shell: its
+// files and fixtures first, the fixtures from the test server, which serves each
+// at /fixture/NAME, then each step by /bin/slop in its directory, in order.
+// Fails with the steps whose status was not their own.
+export async function runSteps(submit, origin, { directory, files = {}, fixtures = {}, steps }) {
+  assert.equal(await submit(`mkdir -p ${directory} && cd ${directory}`), 0, directory);
+  for (const [name, text] of Object.entries(files)) {
+    const bytes = text.replaceAll("\\", "\\\\").replaceAll("\n", "\\n").replaceAll("\t", "\\t");
+    assert.equal(await submit(`mkdir -p "$(dirname ${name})" && printf %b ${shellQuote(bytes)} > ${name}`), 0, name);
+  }
+  for (const name of Object.keys(fixtures)) {
+    assert.equal(await submit(`curl -fsS ${origin}/fixture/${name} -o ${name}`), 0, name);
+  }
+  const failures = [];
+  for (const { why, script, status, fails } of steps) {
+    const actual = await submit(`/bin/slop -c ${shellQuote(script)}`);
+    if (fails ? actual === 0 : actual !== status) failures.push({ why, script, expected: fails ? "a failure" : status, actual });
+  }
+  assert.deepEqual(failures, []);
+}
 const shellPrompt = /dolly:[^\n]*\$\s*$/;
 
 async function openImage(browser, origin, image, { policy, prompt = shellPrompt, path = `/${image}/`, setup, context } = {}) {

@@ -90,7 +90,7 @@ Worker URL.
 | `dso@0` | process Worker of an executable that records it, each thread's in a program using `threads@0` | Instantiate Wasm the process supplies into its own memory and function table (each thread's, in the order of the records in that memory), call its table entries with signatures chosen at run time, and wait on a word of its memory (libc's futex in a threaded host); no import, no kernel entry, nothing outside that process | [`host/dso/`](../host/dso/module.json) ([`process.mjs`](../host/dso/process.mjs)) |
 | `stack@0` | process Worker of an executable that records it, each thread's in a program using `threads@0` | Call the program's own `dolly_stack_continue` on a fresh stack (`WebAssembly.promising`, through a trusted module of three functions that catches what it throws) and set its `dolly_stack_room` global; no import, no kernel entry, nothing outside that process | [`host/stack/`](../host/stack/module.json) ([`process.mjs`](../host/stack/process.mjs)) |
 | `build@0` | reserved URL via `http@0` | Start a disposable image build that writes the image cache | [`host/build/`](../host/build/module.json) |
-| `packages@0` | reserved URL via `http@0` | Serve the verified snapshot of a published package, one at a time, 64 per page | [`host/packages/`](../host/packages/module.json) |
+| `packages@0` | reserved URL via `http@0` | Serve the verified snapshot of a package the page's image directory, or one its HTTP policy admits, publishes, one at a time, 64 per page | [`host/packages/`](../host/packages/module.json) |
 
 - `REQUIRES HOST` lines and executable `dolly.host` records
   ([`dolly-host-0.wat`](../abi/dolly-host-0.wat)) are compatibility demands, not
@@ -142,12 +142,17 @@ Worker URL.
   answer `ENOSYS`. Only Dollyfile Studio
   declares `build@0`, and the page admits it only after ENTRY starts
   ([Studio builds](image-build-service.md)). An image declaring `packages@0`
-  (`default`) may GET `https://packages.dolly.invalid/v1/packages/SHA256`
-  after ENTRY starts: the page serves a published package's snapshot, rebuilt
-  and verified from the release's packs exactly as a build input
-  ([`service.mjs`](../host/packages/service.mjs)). A pin outside the release is
-  404, a second concurrent snapshot 409, the 65th per page 429; the bytes are
-  ordinary sandbox data and grant nothing ([amy](dollyfile.md#packages-and-amy)).
+  (`default`) may GET `https://packages.dolly.invalid/v1/directory`, the page's
+  image directory, and `…/v1/packages/SHA256/from/DIRECTORY` after ENTRY starts:
+  the page serves a published package's snapshot, rebuilt and verified from that
+  directory's packs exactly as a build input
+  ([`service.mjs`](../host/packages/service.mjs)). A directory other than the
+  page's is read only where the page's HTTP policy admits a GET of its URL,
+  counted and shown as the guest's request (`admit` in
+  [`http.mjs`](../host/http/http.mjs)), else 403, and only metadata for this
+  runtime passes. A pin the directory does not publish is 404, a second
+  concurrent snapshot 409, the 65th per page 429; the bytes are ordinary
+  sandbox data and grant nothing ([amy](dollyfile.md#packages-and-amy)).
   The index of package names is not the service's: it is the site's public
   `amy-index.txt`, an ordinary request under the HTTP policy.
 - Builders ([`image-builder.mjs`](../src/image-builder.mjs)) run the build

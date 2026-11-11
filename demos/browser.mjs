@@ -15,13 +15,13 @@
 import assert from "node:assert/strict";
 import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "../test/browser-server.mjs";
-export { snapshotDisplay, waitForDisplay } from "../test/browser.mjs";
+import { shellQuote } from "../test/browser.mjs";
+export { shellQuote, snapshotDisplay, waitForDisplay } from "../test/browser.mjs";
 import { siteReference } from "../src/static-asset.mjs";
 
 const projectDir = new URL("..", import.meta.url).pathname;
 export const shellPrompt = /dolly:[^\n]*\$\s*$/;
 export const recoveryPrompt = /Dolly: image entry exited; entering the recovery Slop shell\.[\s\S]*\ndolly:[^\n]*\$\s*$/;
-export const shellQuote = value => `'${String(value).replaceAll("'", "'\\''")}'`;
 // A command writing text to path in one line; the terminal submits each line apart.
 export const writeCommand = (path, text) =>
   `printf '%s\\n' ${text.replace(/\n$/, "").split("\n").map(shellQuote).join(" ")} > ${path}`;

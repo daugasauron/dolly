@@ -74,6 +74,14 @@ sequenceDiagram
   `EAGAIN`. Either wait is a blocking call a signal interrupts. So a pipeline
   started over the budget waits forever if its first stage fills the pipe
   before the next stage is admitted; Ctrl+C ends it.
+- Which limits are the contract: the kernel's tables, which every host runs —
+  56 processes (`RLIMIT_NPROC`), 1024 descriptors a process (`RLIMIT_NOFILE`),
+  64 pipes — and what executables are linked with, an 8 GiB memory ceiling
+  (`RLIMIT_AS`) and an 8 MiB stack. The rest is the browser host's own, chosen
+  for a tab's Workers and memory: the 4 GiB budget, the 5 s wait at the count,
+  the module cache and threads@0's 32 threads a process and 64 in all. Another
+  host sets its own; programs meet them only as waits and `EAGAIN`, which any
+  spawn or `pthread_create` may return.
   A start does not read an executable whose module is cached: the kernel opens the
   file and gives its version (`dolly_process_image_version`, a number every write and
   size change of the file renews), and only a version the supervisor has not compiled

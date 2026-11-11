@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { readdir } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
-import { browserTest } from "./browser.mjs";
+import { browserTest, runSteps, shellQuote } from "./browser.mjs";
+import processCases from "./cases/process.json" with { type: "json" };
 import { tarArchive } from "./fixtures/tar.mjs";
-import { shellQuote } from "./fixtures/slop-cases.mjs";
 import { DOLLY_ERRNO } from "../src/process-constants.mjs";
 
 const scratch = "/tmp/dolly-process-test";
@@ -101,7 +101,9 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   await interrupt();
   assert.equal(await cancelled, 0, "an interrupted process sleep returns EINTR after the handler runs");
 
-  for (const name of ["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-dispositions.c", "process-interrupt.c", "process-exec.c", "input.tgz"]) await fetchFixture(name);
+  // Lifecycle, descriptors, locks, signals and exec (test/cases/process.json),
+  // which compiles the programs below too.
+  await runSteps(submit, server.origin, processCases);
   // The page's Workers while the shell waits for a line: the runtime's, one per
   // process, and one per large executable compiled, here the compiler's.
   await settle();
@@ -112,7 +114,6 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   // The shell reads its next line; the child has lost its parent (0) and the
   // grandchild keeps its own. Released, both end and are reaped; the
   // lifecycle test below counts the room they left in the table.
-  await run(`cc -O0 ${scratch}/process-tree.c -o ${scratch}/tree`);
   for (const [ending, status] of [["trap", 126], ["null", 126], ["spin", 130]]) {
     await run("rm -f /tmp/process-tree-release");
     const ended = submit(`${scratch}/tree ${ending}`);
@@ -131,27 +132,12 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   for (const deadline = Date.now() + 5000; page.workers().length !== idleWorkers; await settle()) {
     assert.ok(Date.now() < deadline, `${page.workers().length - idleWorkers} Workers of the trees are left`);
   }
-  await run(`cc -O0 ${scratch}/process-lifecycle.c -o ${scratch}/lifecycle && timeout 15 ${scratch}/lifecycle`);
-  await run(`cc -O0 ${scratch}/process-descriptors.c -o ${scratch}/descriptors && timeout 60 ${scratch}/descriptors`);
-  // Two processes contend for flock and fcntl locks; a release wakes its waiter at once.
-  await run(`cc -O0 ${scratch}/process-locks.c -o ${scratch}/locks && timeout 60 ${scratch}/locks`);
-  // One read of a regular file returns the whole request, as programs assume.
-  await run(`cc -O0 ${scratch}/process-full-read.c -o ${scratch}/full-read && timeout 60 ${scratch}/full-read`);
-  await run(`cc -O0 ${scratch}/process-signals.c -o ${scratch}/signals && timeout 30 ${scratch}/signals ${scratch}`);
-  // A handler that leaves by siglongjmp or longjmp is over: the mask follows
-  // sigsetjmp, and later signals arrive.
-  await run(`cc -O0 ${scratch}/process-jump.c -o ${scratch}/jump && timeout 30 ${scratch}/jump`);
-  await run(`cc -O0 ${scratch}/process-sigchld.c -o ${scratch}/sigchld && timeout 5 ${scratch}/sigchld`);
-  await run(`cc -O0 ${scratch}/process-dispositions.c -o ${scratch}/dispositions && timeout 120 ${scratch}/dispositions`);
+  await run(`timeout 15 ${scratch}/lifecycle`);
+  await fetchFixture("input.tgz");
   await run(`gzip -dc ${scratch}/input.tgz | tar -xf - -C ${scratch} && test "$(cat ${scratch}/nested/message)" = TAR-STDIN-OK`);
 
-  // exec replaces a process's program and keeps the process. What cannot run
-  // fails the call, the refused executable after one line on stderr.
+  // A timed spawn's deadline and Ctrl+C reach the program exec started.
   const exec = `${scratch}/exec`;
-  await run(`cc -O0 ${scratch}/process-exec.c -o ${exec}`);
-  await run(`timeout 60 ${exec} check ${scratch} ${scratch}/process-wrong-import.wasm 2> ${scratch}/exec-refused`);
-  await run(`test $(wc -l < ${scratch}/exec-refused) -eq 1 && grep -qF env.fetch ${scratch}/exec-refused`);
-  await run(`test "$(${exec} pipe | cat)" = "$(printf 'BEFORE\\nAFTER')"`);
   const timed = Date.now();
   assert.equal(await submit(`timeout 2 ${exec} deadline`), 124, "a timed spawn's deadline ends the program exec started");
   assert.ok(Date.now() - timed < 15000);
@@ -161,43 +147,15 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   await interrupt();
   assert.equal(await execInterrupted, 0, "Ctrl+C reaches the program exec started");
 
-  // A program rewritten in place runs as it now is: the supervisor reuses a
-  // compiled module only for the version of the file's bytes it came from.
-  await run(`cd ${scratch} && echo 'int main(void) { return 41; }' > again.c && cc again.c -o again && cp again again-41 && ` +
-    "(./again; test $? = 41) && echo 'int main(void) { return 42; }' > again.c && cc again.c -o again && (./again; test $? = 42) && " +
-    "cat again-41 > again && (./again; test $? = 41)");
-  // A program's own abort, here in an archive as SpiderMonkey's mozalloc has
-  // it, takes libc's place, as with a static libc.
-  await run(`cd ${scratch} && printf '%s\\n' '#include <unistd.h>' 'void abort(void) { _exit(7); }' > own-abort.c && ` +
-    "cc -c own-abort.c -o own-abort.o && ar rcs libown-abort.a own-abort.o && " +
-    "printf '%s\\n' '#include <stdlib.h>' 'int main(void) { abort(); }' > calls-abort.c && " +
-    "cc calls-abort.c -L. -lown-abort -o calls-abort && (./calls-abort; test $? = 7)");
-  // mprotect is the adapter's in a program that maps nothing and first reaches
-  // the system calls Emscripten's stubs answered (sync, getgroups).
-  await run(`cd ${scratch} && printf '%s\\n' '#include <errno.h>' '#include <sys/mman.h>' '#include <unistd.h>' ` +
-    "'static char page[65536];' 'int main(void) { gid_t group; sync();' " +
-    "'  if (getgroups(0, NULL) != 1 || getgroups(1, &group) != 1 || group != 0) return 1;' " +
-    "'  return mprotect(page, sizeof page, PROT_READ) == -1 && errno == ENOTSUP ? 0 : 2; }' > protects.c && " +
-    "cc protects.c -o protects && ./protects");
-  // Ninja runs its jobs at once: each of the two waits for the other to start.
-  const ninja = ["rule a", "  command = touch a-started; until test -e b-started; do sleep 1; done; touch $out",
-    "rule b", "  command = touch b-started; until test -e a-started; do sleep 1; done; touch $out",
-    "rule fail", "  command = exit 3", "build a: a", "build b: b", "build failed: fail"];
-  await run(`mkdir -p ${scratch}/ninja && cd ${scratch}/ninja && printf '%s\\n' ${ninja.map(shellQuote).join(" ")} > build.ninja && ` +
-    "timeout 60 ninja -j2 a b > /dev/null && test -e a && test -e b");
-  assert.equal(await submit(`cd ${scratch}/ninja && ninja failed > /dev/null`), 1, "a failed job fails Ninja");
-
   const ignored = submit(`${scratch}/signals ${scratch} ignore-loop`);
   await waitForText(/SIGNAL-IGNORE-READY\s*$/);
   await interrupt();
   await interrupt();
   assert.equal(await ignored, 99, "Ctrl-C, even pressed twice, honors SIG_IGN");
-  await run(`git config --file ${scratch}/config user.email before && timeout 5 git config --file ${scratch}/config user.email after`);
 
   // Ctrl-C wakes each blocking call, and a program that only notes the signal
   // in its handler shuts down after it, an orphan when the same Ctrl-C ends
   // its parent.
-  await run(`cc -O0 ${scratch}/process-interrupt.c -o ${scratch}/interrupt`);
   const interrupted = async command => {
     const stopped = submit(command);
     await waitForText(/INTERRUPT-READY\s*$/);

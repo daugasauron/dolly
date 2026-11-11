@@ -1,123 +1,13 @@
 import assert from "node:assert/strict";
-import { browserTest } from "./browser.mjs";
-import { runCppSdkCases } from "./fixtures/cpp-sdk.mjs";
+import { browserTest, runSteps } from "./browser.mjs";
+import cpp from "./cases/cpp.json" with { type: "json" };
 
-await browserTest("cpp", { image: "system" }, async ({ name, open }) => {
+// The C and C++ toolchain's cases (test/cases/cpp.json).
+await browserTest("cpp", { image: "system", server: { fixtures: cpp.fixtures } }, async ({ name, server, open }) => {
   const { submit } = await open();
-  const run = async command => assert.equal(await submit(command), 0, command);
-  await run("test ! -e /usr/bin/zig && test ! -e /usr/lib/zig");
-  await runCppSdkCases(submit);
-  // GNU Make builds in parallel and then reports the target up to date.
-  await run("mkdir /tmp/make && cd /tmp/make && echo 'int value(void) { return 42; }' > value.c && " +
-    "echo 'int value(void); int main(void) { return value() != 42; }' > main.c");
-  await run("printf '%b\\n' 'WHERE := $(shell pwd)' 'demo: main.o value.o' '\\t$(CC) main.o value.o -o $@' " +
-    "'%.o: %.c' '\\t$(CC) -O0 -c $< -o $@' 'where:' '\\ttest $(WHERE) = /tmp/make' > Makefile");
-  await run("make -j8 where demo && ./demo && make -q demo");
-  // Each job waits until all four have started, so only concurrent jobs finish;
-  // a recursive Make gets its four through the shared jobserver.
-  await run("printf '%b\\n' 'all: a b c d' 'a b c d:' '\\t@touch $@.started; " +
-    "until test -e a.started -a -e b.started -a -e c.started -a -e d.started; do sleep 1; done' > rendezvous.mk");
-  await run("timeout 60 make -j4 -f rendezvous.mk && rm *.started");
-  await run("printf '%b\\n' 'all:' '\\t$(MAKE) -f rendezvous.mk' > recursive.mk && timeout 60 make -j4 -f recursive.mk");
-  // A failing job starts nothing new; Make waits for the running one and exits 2.
-  await run("printf '%b\\n' 'all: failing running' '\\ttouch all' " +
-    "'failing:' '\\t@until test -e running.started; do sleep 1; done; exit 3' " +
-    "'running:' '\\t@touch running.started; sleep 2; touch running' > failing.mk");
-  assert.equal(await submit("timeout 60 make -j4 -f failing.mk"), 2);
-  await run("test -e running && test ! -e all");
-  // A rejected compile fails normally, and the next compiler runs are unaffected.
-  await run("cd /tmp/make && echo '#error deliberate' > bad.cpp");
-  assert.equal(await submit("c++ -c bad.cpp -o bad.o"), 1);
-  // Clang recurses once per call of a chain, and LLVM's sources chain 635: more
-  // than a Chrome Worker's stack holds (about 420). The compiler asks for the
-  // larger stack Chrome has (src/process/compiler-main.c).
-  await run("echo 'struct S { S &next(int); int end(); }; int chain(S &s) { return s' > chain.cpp && " +
-    "seq 640 | sed 's/.*/.next(&)/' >> chain.cpp && echo '.end(); }' >> chain.cpp && c++ -c chain.cpp -o chain.o");
-  // Only an executable that asks is entered there. 5,000 calls that each hold
-  // eight values fit on that stack and on Firefox's (7,100 do), and not on a
-  // Chrome Worker's own (3,700 do): an ordinary program is entered directly.
-  await run("printf '%s\\n' '#include <stdlib.h>' '#ifdef LARGE_STACK' " +
-    `'__asm__(".section .custom_section.dolly.process.stack,\\"\\",@\\n.byte 1\\n");' '#endif' ` +
-    "'static volatile long cell[8];' 'static long dive(long depth);' 'static long (*volatile next)(long) = dive;' " +
-    "'static long dive(long depth) {' " +
-    "'  long a = cell[0], b = cell[1], c = cell[2], d = cell[3], e = cell[4], f = cell[5], g = cell[6], h = cell[7];' " +
-    "'  return depth ? next(depth - 1) + a + b + c + d + e + f + g + h : 0; }' " +
-    "'int main(int argc, char **argv) { return (int)dive(atol(argv[argc - 1])); }' > deep.c && " +
-    "cc -O1 deep.c -o deep && cc -O1 -DLARGE_STACK deep.c -o deep-large && ./deep 1000 && ./deep-large 5000");
+  await runSteps(submit, server.origin, cpp);
+  // An ordinary program runs on its Worker's own stack, which holds 5,000 of
+  // deep.c's calls in Firefox and not in Chrome (3,700 do): the browser's.
   assert.equal(await submit("./deep 5000"), name === "chromium" ? 126 : 0);
-  // Build-system probes (Meson style).
-  for (const command of [
-    "cc --print-search-dirs | grep -q '^libraries: =/usr/lib:/usr/lib/dolly/process$'",
-    "c++ -x c++ -E -dM - < /dev/null | grep -q __cplusplus",
-    "echo '#include <stddef.h>' > pre.cpp && c++ -xc++ -E -P -fpermissive pre.cpp | grep -q size_t",
-    "c++ -xc++ -E -v - < /dev/null > /dev/null",
-    // -Wp passes options to the preprocessor: Zig reads the include search so.
-    "cc -E -Wp,-v -x c /dev/null 2>&1 > /dev/null | grep -qx ' /usr/include'",
-    "c++ -Wl,--version && c++ -Wl,-v",
-    // Bare cc uses Clang's gnu17 default, so POSIX and BSD declarations are visible.
-    "printf '#include <math.h>\\n#include <stdio.h>\\n#include <string.h>\\n#include <time.h>\\n" +
-      "int main(void) { struct timespec t; return fileno(stdin) != 0 || M_PI < 3 || !strdup(\"x\") || " +
-      "clock_gettime(CLOCK_MONOTONIC, &t); }\\n' > posix.c && cc posix.c -o posix && ./posix",
-    "echo 'int main(void) { return 0; }' > cmake-flags.c && cc -fno-common -fPIE -ffunction-sections " +
-      "-fdata-sections -funwind-tables -ftrapping-math -fno-unroll-loops -Xclang -fno-pch-timestamp " +
-      "cmake-flags.c -o cmake-flags && ./cmake-flags",
-    // -E sees the macros -c compiles with: the relocation model and the target features.
-    "cc -E -dM - < /dev/null > macros && grep -q __PIC__ macros && grep -q __wasm_exception_handling__ macros && " +
-      "test \"$(cc -fno-pic -E -dM - < /dev/null | grep -c __PIC__)\" = 0",
-    // -fno-pic is static code: a program links it.
-    "echo 'extern int counter; int *where(void) { return &counter; }' > static.c && " +
-      "echo 'int counter; int *where(void); int main(void) { return where() != &counter; }' > static-main.c && " +
-      "cc -fno-pic -c static.c -o static.o && cc static-main.c static.o -o static && ./static",
-    // -ffile-prefix-map renames the directory in __FILE__, and -g names the unit after its source.
-    "printf '%s\\n' '#include <stdio.h>' 'int main(void) { puts(__FILE__); }' > file.c && " +
-      "cc -g -ffile-prefix-map=/tmp/make=/mapped /tmp/make/file.c -o file && test \"$(./file)\" = /mapped/file.c && " +
-      "cc -g -c file.c -o file.o && test \"$(strings file.o | grep -c '<stdin>')\" = 0",
-    // -fignore-exceptions compiles a frame without cleanups: an exception passes through it.
-    "printf '%s\\n' '#include <cstdio>' 'struct Guard { ~Guard() { std::puts(\"cleanup\"); } };' 'void thrower();' " +
-      "'void middle() { Guard guard; thrower(); }' > middle.cpp && printf '%s\\n' '#include <cstdio>' 'void middle();' " +
-      "'void thrower() { throw 1; }' 'int main() { try { middle(); } catch (int) { std::puts(\"caught\"); } }' > thrower.cpp && " +
-      "c++ thrower.cpp middle.cpp -o unwinds && test \"$(./unwinds | tr '\\n' ' ')\" = 'cleanup caught ' && " +
-      "c++ -fignore-exceptions -c middle.cpp -o middle.o && c++ thrower.cpp middle.o -o passes && test \"$(./passes)\" = caught",
-    // The root build links C programs before it has built the unwinder.
-    "mv /usr/lib/dolly/process/libunwind-ww-wasmexcept.a held.a && cc cmake-flags.c -o early; status=$?; " +
-      "mv held.a /usr/lib/dolly/process/libunwind-ww-wasmexcept.a && test $status = 0 && ./early",
-    // -nostdlib++ leaves the C++ runtime to the link's own inputs.
-    "echo 'int main() { return 0; }' > plain.cpp && c++ -nostdlib++ plain.cpp -o no-runtime && ./no-runtime && " +
-      "c++ -nostdlib++ thrower.cpp middle.cpp -lc++ -o named-runtime && ./named-runtime > /dev/null",
-    "echo '__DATE__ __TIME__' > date.c && SOURCE_DATE_EPOCH=0 cc -E -P date.c | grep -q '\"Jan  1 1970\" \"00:00:00\"'",
-    // -MP adds a phony target per header, so Make survives a deleted header.
-    "echo 'int dep;' > dep.h && echo '#include \"dep.h\"' > dep.c && cc -MD -MP -MF dep.d -c dep.c -o dep.o && " +
-      "grep -q '^dep.h:' dep.d",
-    // Flags Mozilla's build system adds without probing them first.
-    "echo 'int main(void) { return 0; }' > moz-flags.c && cc -fno-math-errno -fomit-frame-pointer " +
-      "-ffp-contract=off -mthread-model single -fno-lto -fstandalone-debug -ferror-limit=0 " +
-      "moz-flags.c -o moz-flags && ./moz-flags",
-    // Meson preprocesses with -E and -c together; -E stops after preprocessing.
-    "printf '%s\\n' '#define TWICE(x) x x' 'TWICE(ok)' > pp.h && cc -E -P -xc pp.h -o pp.i -c && grep -qx 'ok ok' pp.i",
-    // SPIRV-Tools' CMake raises the template depth for every Clang.
-    "echo 'int main() { return 0; }' > depth.cpp && c++ -ftemplate-depth=1024 depth.cpp -o depth && ./depth",
-    // Flags Binaryen's CMake adds: Wasm has no frame pointer, and lld is the linker.
-    "echo 'int main(void) { return 0; }' > byn-flags.c && cc -fno-omit-frame-pointer -fuse-ld=lld " +
-      "byn-flags.c -o byn-flags && ./byn-flags",
-    // A program's static data beyond 16 MiB gets the memory for it.
-    "printf '%s\\n' 'static char data[24 << 20];' 'int main(void) { data[sizeof data - 1] = 7; " +
-      "return data[sizeof data - 1] - 7; }' > big-data.c && cc big-data.c -o big-data && ./big-data",
-    // -msimd128 turns the unit's Wasm SIMD on; the intrinsics header needs it.
-    "printf '%s\\n' '#include <wasm_simd128.h>' 'int main(void) { v128_t v = wasm_i32x4_splat(3);' " +
-      "'return wasm_i32x4_extract_lane(wasm_i32x4_add(v, v), 2) == 6 ? 0 : 1; }' > simd.c && " +
-      "cc -msimd128 simd.c -o simd && ./simd",
-    // With -g the standalone kind is what cc1 gets; the limited kind is the explicit negative.
-    "cc -g -fstandalone-debug moz-flags.c -o moz-flags-g && ./moz-flags-g && " +
-      "cc -g -fno-standalone-debug -c moz-flags.c -o moz-flags-limited.o && test -s moz-flags-limited.o",
-    "echo 'int main(int argc, char **argv) { return argc == 0; }' > sanity.cpp && " +
-      "c++ -D_FILE_OFFSET_BITS=64 -o sanity sanity.cpp -D_FILE_OFFSET_BITS=64 && ./sanity",
-    "echo 'extern int host(void); int extension(void) { return host(); }' > extension.c && " +
-      "cc -shared -fPIC -Wl,--allow-shlib-undefined extension.c -o extension.so && test -s extension.so",
-  ]) await run(command);
-  // Static code cannot go into a shared object, and a C++ program needs a C++ runtime.
-  assert.notEqual(await submit("cc -shared static.o -o static.so"), 0);
-  assert.notEqual(await submit("c++ -nostdlib++ thrower.cpp middle.cpp -o no-runtime"), 0);
-  // Clang's driver refuses a single thread model next to -pthread; so does cc.
-  assert.equal(await submit("cc -pthread -mthread-model single -c moz-flags.c -o moz-flags.o"), 64);
-  await run("cd / && rm -rf /tmp/make");
+  assert.equal(await submit("cd / && rm -rf /tmp/make"), 0);
 });

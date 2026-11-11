@@ -1,0 +1,101 @@
+{
+  "image": "system",
+  "directory": "/tmp/dolly-process-test",
+  "fixtures": {
+    "process-tree.c": "test/fixtures/process-tree.c",
+    "process-lifecycle.c": "test/fixtures/process-lifecycle.c",
+    "process-descriptors.c": "test/fixtures/process-descriptors.c",
+    "process-locks.c": "test/fixtures/process-locks.c",
+    "process-full-read.c": "test/fixtures/process-full-read.c",
+    "process-signals.c": "test/fixtures/process-signals.c",
+    "process-jump.c": "test/fixtures/process-jump.c",
+    "process-sigchld.c": "test/fixtures/process-sigchld.c",
+    "process-dispositions.c": "test/fixtures/process-dispositions.c",
+    "process-interrupt.c": "test/fixtures/process-interrupt.c",
+    "process-exec.c": "test/fixtures/process-exec.c",
+    "process-wrong-import.wasm": "build/process-wrong-import.wasm"
+  },
+  "steps": [
+    {
+      "script": "for source in process-*.c; do name=${source#process-}; cc -O0 \"$source\" -o \"${name%.c}\" || exit 1; done",
+      "status": 0
+    },
+    {
+      "script": "timeout 15 /tmp/dolly-process-test/lifecycle",
+      "status": 0
+    },
+    {
+      "script": "timeout 60 /tmp/dolly-process-test/descriptors",
+      "status": 0
+    },
+    {
+      "why": "Two processes contend for flock and fcntl locks; a release wakes its waiter at once.",
+      "script": "timeout 60 /tmp/dolly-process-test/locks",
+      "status": 0
+    },
+    {
+      "why": "One read of a regular file returns the whole request, as programs assume.",
+      "script": "timeout 60 /tmp/dolly-process-test/full-read",
+      "status": 0
+    },
+    {
+      "script": "timeout 30 /tmp/dolly-process-test/signals /tmp/dolly-process-test",
+      "status": 0
+    },
+    {
+      "why": "A handler that leaves by siglongjmp or longjmp is over: the mask follows sigsetjmp, and later signals arrive.",
+      "script": "timeout 30 /tmp/dolly-process-test/jump",
+      "status": 0
+    },
+    {
+      "script": "timeout 5 /tmp/dolly-process-test/sigchld",
+      "status": 0
+    },
+    {
+      "script": "timeout 120 /tmp/dolly-process-test/dispositions",
+      "status": 0
+    },
+    {
+      "why": "exec replaces a process's program and keeps the process. What cannot run fails the call, the refused executable after one line on stderr.",
+      "script": "timeout 60 /tmp/dolly-process-test/exec check /tmp/dolly-process-test /tmp/dolly-process-test/process-wrong-import.wasm 2> /tmp/dolly-process-test/exec-refused",
+      "status": 0
+    },
+    {
+      "script": "test $(wc -l < /tmp/dolly-process-test/exec-refused) -eq 1 && grep -qF env.fetch /tmp/dolly-process-test/exec-refused",
+      "status": 0
+    },
+    {
+      "script": "test \"$(/tmp/dolly-process-test/exec pipe | cat)\" = \"$(printf 'BEFORE\\nAFTER')\"",
+      "status": 0
+    },
+    {
+      "why": "A program rewritten in place runs as it now is: the supervisor reuses a compiled module only for the version of the file's bytes it came from.",
+      "script": "echo 'int main(void) { return 41; }' > again.c && cc again.c -o again && cp again again-41 && (./again; test $? = 41) && echo 'int main(void) { return 42; }' > again.c && cc again.c -o again && (./again; test $? = 42) && cat again-41 > again && (./again; test $? = 41)",
+      "status": 0
+    },
+    {
+      "why": "A program's own abort, here in an archive as SpiderMonkey's mozalloc has it, takes libc's place, as with a static libc.",
+      "script": "printf '%s\\n' '#include <unistd.h>' 'void abort(void) { _exit(7); }' > own-abort.c && cc -c own-abort.c -o own-abort.o && ar rcs libown-abort.a own-abort.o && printf '%s\\n' '#include <stdlib.h>' 'int main(void) { abort(); }' > calls-abort.c && cc calls-abort.c -L. -lown-abort -o calls-abort && (./calls-abort; test $? = 7)",
+      "status": 0
+    },
+    {
+      "why": "mprotect is the adapter's in a program that maps nothing and first reaches the system calls Emscripten's stubs answered (sync, getgroups).",
+      "script": "printf '%s\\n' '#include <errno.h>' '#include <sys/mman.h>' '#include <unistd.h>' 'static char page[65536];' 'int main(void) { gid_t group; sync();' '  if (getgroups(0, NULL) != 1 || getgroups(1, &group) != 1 || group != 0) return 1;' '  return mprotect(page, sizeof page, PROT_READ) == -1 && errno == ENOTSUP ? 0 : 2; }' > protects.c && cc protects.c -o protects && ./protects",
+      "status": 0
+    },
+    {
+      "why": "Ninja runs its jobs at once: each of the two waits for the other to start.",
+      "script": "mkdir -p ninja && cd ninja && printf '%s\\n' 'rule a' '  command = touch a-started; until test -e b-started; do sleep 1; done; touch $out' 'rule b' '  command = touch b-started; until test -e a-started; do sleep 1; done; touch $out' 'rule fail' '  command = exit 3' 'build a: a' 'build b: b' 'build failed: fail' > build.ninja && timeout 60 ninja -j2 a b > /dev/null && test -e a && test -e b",
+      "status": 0
+    },
+    {
+      "why": "A failed job fails Ninja.",
+      "script": "cd ninja && ninja failed > /dev/null",
+      "status": 1
+    },
+    {
+      "script": "git config --file /tmp/dolly-process-test/config user.email before && timeout 5 git config --file /tmp/dolly-process-test/config user.email after",
+      "status": 0
+    }
+  ]
+}

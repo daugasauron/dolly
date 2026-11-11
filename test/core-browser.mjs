@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { browserTest } from "./browser.mjs";
-import { runProcessSmoke } from "./fixtures/process-smoke.mjs";
+import { browserTest, runSteps } from "./browser.mjs";
+import toolchain from "./cases/toolchain.json" with { type: "json" };
 
 // Git, download and the rest of the toolchain image's tools are used below.
 const image = process.env.DOLLY_IMAGE ?? "system";
@@ -25,7 +25,10 @@ await browserTest("core", { image }, async ({ server, open }) => {
     assert.equal(await submit("/tmp/core-invalid"), 126, fixture);
   }
   assert.equal(await submit("rm /tmp/core-invalid"), 0);
-  await runProcessSmoke(submit, server.origin);
+  await runSteps(submit, server.origin, toolchain);
+  // A program's HTTP goes through the broker to the test server.
+  assert.equal(await submit(`DOLLY_PROCESS_HTTP_CHECK_URL=${server.origin}/fixture/http.txt ./http-check`), 0);
+  assert.equal(await submit(`cd /workspace && rm -rf ${toolchain.directory}`), 0);
   const cancelledBefore = server.cancelledRequests;
   for (const command of [
     "sleep 30; echo bad > /tmp/core-interrupted",
