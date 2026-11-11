@@ -127,13 +127,15 @@ export class HttpMailbox {
 // The page's broker: policy, Fetch and the slots' bookkeeping. It never reads
 // kernel memory: `mailbox` (HttpMailbox, or messages to it) writes the slots.
 export class NetworkTransport {
-  // `site` is the URL of the root of the site serving this release, if any.
-  constructor(mailbox, policy, { fetchRequest = globalThis.fetch.bind(globalThis), site } = {}) {
+  // `site` is the URL of the root of the site serving this release, if any;
+  // `refused({ method, target, reason })` hears of each request the policy refuses.
+  constructor(mailbox, policy, { fetchRequest = globalThis.fetch.bind(globalThis), site, refused } = {}) {
     this.mailbox = mailbox;
     this.capacity = DOLLY_HTTP_CHUNK_CAPACITY;
     this.policy = policy;
     this.fetchRequest = fetchRequest;
     this.site = site;
+    this.refused = refused;
     // Host bookkeeping, never derived from a guest's claimed active count.
     this.slots = Array(DOLLY_HTTP_SLOT_COUNT).fill(null);
     this.closed = false;
@@ -278,7 +280,14 @@ class HttpTransfer {
       }
       stripDollyBrowserOwnedHeaders(headers);
       const upperMethod = method.toUpperCase();
-      const rule = this.broker.policy.authorize(target, upperMethod, headers, body?.byteLength ?? 0);
+      let rule;
+      try { rule = this.broker.policy.authorize(target, upperMethod, headers, body?.byteLength ?? 0); }
+      catch (error) {
+        if (error instanceof HttpError && [errno.EACCES, errno.EDQUOT].includes(error.errno)) {
+          this.broker.refused?.({ method: upperMethod, target, reason: error.message });
+        }
+        throw error;
+      }
       this.timeout = rule.timeoutMilliseconds;
       this.moved();
       failure = errno.EIO;
