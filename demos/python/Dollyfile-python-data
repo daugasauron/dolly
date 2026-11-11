@@ -21,16 +21,16 @@ INSTALL /v0.1.6/Dollyfile-core a64f50b75a27a2701fd0dfe5576d51dbe8d2935c0d0e8d324
 INSTALL /v0.1.6/Dollyfile-posix 469ea6b54a78b9737eb5378aadb9198068c27e621558938468588f0b0d574ebf
 INSTALL /v0.1.6/Dollyfile-display 0ac4795910e07e891278604f39ff54f6fe81c4347384b0a6d2470ba7d1dc5bdb
 INSTALL /v0.1.6/Dollyfile-curl 24fb8c4a86fc84af77d1470e6685b66fae4d1bf08964a22d452c54f5bc904f1c
-INSTALL /v0.1.6/Dollyfile-amy 7b4e78c02851f3b2e42c8cbcab71294d01cbaa3053aa40e612cfd3e96768db09
+INSTALL /v0.1.6/Dollyfile-amy 721584ce3066c6a88efa126191e70647fe97eabfc074e5f7cf41ed53983c5122
 INSTALL /v0.1.6/Dollyfile-nena 5589875174e91242cb7860fb958d2c44e2029d61c382a6f0d6608366722c1852
 INSTALL /v0.1.6/Dollyfile-transfer 18537911f1c05f4538a89276bb509c7b1af9444c9faae8adef94369065f0b18d
 INSTALL /v0.1.6/Dollyfile-html 6eda3b5c3404455695a5b3cefc20abfdd5f3cb2c6c8cdbb162442edaa4ca7a99
 INSTALL /v0.1.6/Dollyfile-ps 39cdf2bfaa3fb52f3c161672634f9600381754e6f006971896d6f79b6b345b77
-INSTALL /v0.1.6/demos/python/Dollyfile-python 41fd628a063c0064b4d2e21bfd0bbcaf35413ac609d56c542fb9c90270e29696
-INSTALL /v0.1.6/demos/python/Dollyfile-numpy b575785073628e6cfd837f4a10f6b9966e184716c96f3ca792e76b7565933240
-INSTALL /v0.1.6/demos/python/Dollyfile-pandas 15786fd65e14ae3353f67bba0caf4de7979825b4ea40a6922889f72e63b2c89e
-INSTALL /v0.1.6/demos/python/Dollyfile-matplotlib 6ce5711953b7eddfd2665f6140aa7e4807702959b716ecd2394bea72a120deb6
-INSTALL /v0.1.6/demos/python/Dollyfile-seaborn a3a7fd3092eed72f2419753e7f562a53ecb11cdaedd7201b68ff8da65bc94881
+INSTALL /v0.1.6/demos/python/Dollyfile-python b9561ae6b9e2ad0fa364fba8a31337c7c151329402f1e0b3ada26f4896919bd0
+INSTALL /v0.1.6/demos/python/Dollyfile-numpy b3b023177ef1ff36be9b2effaf5100271ba1700f9599a5ede8a9cc96f787f615
+INSTALL /v0.1.6/demos/python/Dollyfile-pandas 4e7c9f185808b1703da4763be1081f77196f02ea18b131c346236697ed9661ef
+INSTALL /v0.1.6/demos/python/Dollyfile-matplotlib 75756c247b7d9c4c672dedbdfad588902d029a5afcf53faf84582e4dbce06272
+INSTALL /v0.1.6/demos/python/Dollyfile-seaborn 139b4c6c12200ac8562ea88afafd1f84d1fca65e4c345e8eed5ec3b8bcaf0c04
 REQUIRES TOOL python
 
 SLOP python -c 'import numpy, pandas, matplotlib.pyplot, seaborn, jinja2, openpyxl, tabulate'

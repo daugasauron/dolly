@@ -23,11 +23,11 @@ INSTALL /v0.1.6/Dollyfile-git 5c3483cf0ad5dd4b89a4f6838b174178cb50c1088bb4d98549
 INSTALL /v0.1.6/Dollyfile-curl 24fb8c4a86fc84af77d1470e6685b66fae4d1bf08964a22d452c54f5bc904f1c
 # download and upload, which Pi's prompt teaches (transfer).
 INSTALL /v0.1.6/Dollyfile-transfer 18537911f1c05f4538a89276bb509c7b1af9444c9faae8adef94369065f0b18d
-INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly 6969c1d06ba09f201b469110c3c3d6c400bd2ebe83a9a40f169930100b7494ff
-INSTALL /v0.1.6/Dollyfile-amy 7b4e78c02851f3b2e42c8cbcab71294d01cbaa3053aa40e612cfd3e96768db09
+INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly 998d3c90f8fa70771b3d1f8281625942b7675c603da477729cf74b949b4de8e3
+INSTALL /v0.1.6/Dollyfile-amy 721584ce3066c6a88efa126191e70647fe97eabfc074e5f7cf41ed53983c5122
 REQUIRES TOOL foreground
 REQUIRES TOOL pi
-INSTALL /v0.1.6/demos/speech/Dollyfile-voice 84fbe02ef637613497ff3e2f5950d0fd0c5e4ac0a4ebabaa02ebf0b3236d39fa
+INSTALL /v0.1.6/demos/speech/Dollyfile-voice 30b23e0e3c7ed6091bbb09bf3efa7d634348493b991c5d0aba23d4a664d263fc
 SOURCE /v0.1.6/dist/static/speech/pi.menu 0be56971da401fb0e0a5d82abd1d92529f078e96ab4508a3e4ca2347979e2cdd /etc/dolly/pi.menu
 SOURCE /v0.1.6/dist/static/speech/phone-menu.js 04550fc67a7b087d011c1ba408498632749984ff23d023c04c14dcfcaa157c9b /home/dolly/.pi/agent/extensions/phone-menu.js
 EXPORTS FILE pi-menu /etc/dolly/pi.menu

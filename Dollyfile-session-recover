@@ -11,8 +11,8 @@ REQUIRES TOOL cc
 REQUIRES TOOL rm
 
 SOURCE /v0.1.6/dist/static/session-recovery/session-recover.c c401619a8a3642b8cf72221bff35fa906a3f33ddbb208f485dcea2028a284ee1 /tmp/session-recovery/session-recover.c
-SOURCE /v0.1.6/dist/static/session-recovery/session-records.h 2ed107133fae1ad98412a5b47c19e5ae16c72f2a7875b26723431a3b644f29bd /tmp/session-recovery/session-records.h
-SOURCE /v0.1.6/dist/static/session-recovery/fs-record.h 39c5a2db21354acbafdad665ec41d339309e926a62161c4eb6da279768c5fbe8 /tmp/session-recovery/fs-record.h
+SOURCE /v0.1.6/dist/static/session-recovery/session-records.h 2a6049e03a3b92e0315915b93436f7d7cdacfd6e18cf80728ebd3f2530001597 /tmp/session-recovery/session-records.h
+SOURCE /v0.1.6/dist/static/session-recovery/fs-record.h b3b4001327c0e9bef3586303e2827cd0fc7668950c5befaf92a8d5ea550aa5a9 /tmp/session-recovery/fs-record.h
 
 SLOP cc -O1 -I/tmp/session-recovery /tmp/session-recovery/session-recover.c -o /usr/bin/session-recover
 EXPORTS TOOL session-recover

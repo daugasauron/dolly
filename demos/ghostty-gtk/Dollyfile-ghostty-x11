@@ -21,11 +21,11 @@ REQUIRES HOST nena@0
 INSTALL /v0.1.6/Dollyfile-core a64f50b75a27a2701fd0dfe5576d51dbe8d2935c0d0e8d3246dbb79a7368dd47
 INSTALL /v0.1.6/Dollyfile-posix 469ea6b54a78b9737eb5378aadb9198068c27e621558938468588f0b0d574ebf
 INSTALL /v0.1.6/Dollyfile-display 0ac4795910e07e891278604f39ff54f6fe81c4347384b0a6d2470ba7d1dc5bdb
-INSTALL /v0.1.6/demos/x11/Dollyfile-xorg-server 1559beaa1fa619dc5ac91c4f6139b6225820cabddc1e4464e0dd9c83407b0b1e
-INSTALL /v0.1.6/demos/ghostty-gtk/Dollyfile-ghostty-gtk 36f52e37a78165cbb60c0215b8c0c777733fafed4d328643c757a98c20772b90
+INSTALL /v0.1.6/demos/x11/Dollyfile-xorg-server 9aa6830f706ac02ee8c112bf5213e3176f3c59dfa1e620fdaefce3a4917cce7a
+INSTALL /v0.1.6/demos/ghostty-gtk/Dollyfile-ghostty-gtk f4ce3bb76299d04c7125586819f4222a5ec77b187082e093b0a4193b36db82fb
 # amy installs packages into the session (tmux, nvim and the rest); nena
 # enables the host modules they need.
-INSTALL /v0.1.6/Dollyfile-amy 7b4e78c02851f3b2e42c8cbcab71294d01cbaa3053aa40e612cfd3e96768db09
+INSTALL /v0.1.6/Dollyfile-amy 721584ce3066c6a88efa126191e70647fe97eabfc074e5f7cf41ed53983c5122
 INSTALL /v0.1.6/Dollyfile-nena 5589875174e91242cb7860fb958d2c44e2029d61c382a6f0d6608366722c1852
 COPY /v0.1.6/Dollyfile-ghostty-build 85428b52f98b08448dc1ac91fb6943bb6bae4e406d4eededb36d9a921a189ae6 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 FILE /etc/fonts/fonts.conf

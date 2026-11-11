@@ -13,9 +13,9 @@ REQUIRES HOST gpu@0
 # volumetric fog, glow, SSAO and particles, its sound made in code. Its project
 # (demos/godot/lantern-drift) is imported and exported here by Godot's editor, and lantern-drift
 # plays the pack with godot, which installs with it. The project installs too, for the editor.
-FROM /v0.1.6/Dollyfile-system baf2ab02a3ed9a4124fc6dc8a679b4227783342759ad5e9fc92a646355b47578
-INSTALL /v0.1.6/demos/godot/Dollyfile-godot aea6d0f0b628633213e256cb14a096bf92abaaa4f864b3100835e3c2712a3588
-USE /v0.1.6/demos/godot/Dollyfile-godot-editor ce1b13c89b9049f8f015e463adda2763fc07e60d976276b2787b0c457d4f7b07
+FROM /v0.1.6/Dollyfile-system 303452ea95491694f86ddf98e74eb579620f0274ceee0049fc1ca97c69d3124b
+INSTALL /v0.1.6/demos/godot/Dollyfile-godot ac30c3382ed95f4ed252aad521f514826eaad34de9e8c93e3f89b32470a7d496
+USE /v0.1.6/demos/godot/Dollyfile-godot-editor 958e33f24e4494455e8712e74520a53bab8934a80b118b7d01182c1e1df687e3
 
 REQUIRES TOOL cp
 REQUIRES TOOL godot-editor

@@ -17,10 +17,10 @@ INSTALL /v0.1.6/demos/xonotic/Dollyfile-libvorbis d175d58830866e76b9fda68023b35e
 INSTALL /v0.1.6/demos/xonotic/Dollyfile-libjpeg b1df817cce8c313035d4542c9c22d0cae40703ceece7fa0674345197de774386
 INSTALL /v0.1.6/demos/zero-ad/Dollyfile-freetype c2179530af3656d78b88e3839dd9ad59a8b573976d8cf0c81da9f3dd3dac620b
 # gmqcc, which compiles the game logic.
-INSTALL /v0.1.6/demos/xonotic/Dollyfile-gmqcc a17a34a3042dd54083540a6d8da7e1ccd874278a1736114bcb4a30ec87580cd5
+INSTALL /v0.1.6/demos/xonotic/Dollyfile-gmqcc 61c4df544a87a4bf12fc7276840c6d551bb07bf1fba0049375ad0304b06654a8
 # The gpu@0 client the render path draws with, and its shaders.
 INSTALL /v0.1.6/Dollyfile-libdolly-gpu 9a87750403b544f3e224006e3e114461160e2094fff2607008924aead0665ad7
-INSTALL /v0.1.6/demos/xonotic/Dollyfile-xonotic-shaders 580b9c4f0d9805423dfed9938a9904b1a6c2c91da1cd8ca58bac78dc39a75a87
+INSTALL /v0.1.6/demos/xonotic/Dollyfile-xonotic-shaders 9761641a5fa6f624a890a1eca696b45e07c381577b864045640a743cfe415751
 REQUIRES HEADER cpp
 REQUIRES HEADER gpu
 REQUIRES HEADER sdl2

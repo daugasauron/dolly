@@ -14,12 +14,12 @@ REQUIRES HOST gpu@0
 # names a header of Linux's that Emscripten's libc and Dolly's leave out
 # (sys/timex.h), and Jolt Physics, which knows WebAssembly only as Emscripten:
 # 3D physics is Godot's own.
-FROM /v0.1.6/demos/ghostty-gtk/Dollyfile-mesa-build cd32c8a3a17599f986d2ff80c99a0b612cf955299b23cde6eb442554518bd6e9
-USE /v0.1.6/demos/tools/Dollyfile-scons 4c0b542cfa245175a9f0d77173795f6f349940ed4238e88eb38f3c36720940b2
+FROM /v0.1.6/demos/ghostty-gtk/Dollyfile-mesa-build f2e3ab66911ec857a6191ac5229f0bc7fe42cd1250b9c5dca8c299b4c375cdd8
+USE /v0.1.6/demos/tools/Dollyfile-scons 79614ab35e4761e4393147fbf312ac7092cbac99c9ad077b6574f45531e2957c
 USE /v0.1.6/Dollyfile-mandoc 05e2800edcfd0600e44e6bdbd5292a5aa4577bc12a2ea456634c0b7c56258f0d
 USE /v0.1.6/Dollyfile-libdolly-gpu 9a87750403b544f3e224006e3e114461160e2094fff2607008924aead0665ad7
 USE /v0.1.6/Dollyfile-libdolly-sockets 4636295439c4e243368efb6de237b465183368c299040efda2cce4cf2215aa48
-USE /v0.1.6/demos/godot/Dollyfile-spirv-wgsl 511f1a8a51b95c41b21e38159fe9a5308310edc2482c47eedcd18f6c597a4c60
+USE /v0.1.6/demos/godot/Dollyfile-spirv-wgsl c6b85241a3358f2caf2ecd410588f61f9646b779ecd4bf00daa9903c9dff3bcf
 USE /v0.1.6/Dollyfile-libdolly-audio 697012964ba7447e65e52fae8f8e4aa87de31647a0427b703c39da194d090b3d
 
 REQUIRES TOOL cp

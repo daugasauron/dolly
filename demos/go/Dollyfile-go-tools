@@ -10,7 +10,7 @@ REQUIRES HOST upload@0
 REQUIRES HOST threads@0
 
 # An interactive shell: system with the go and esbuild packages.
-FROM /v0.1.6/Dollyfile-system baf2ab02a3ed9a4124fc6dc8a679b4227783342759ad5e9fc92a646355b47578
+FROM /v0.1.6/Dollyfile-system 303452ea95491694f86ddf98e74eb579620f0274ceee0049fc1ca97c69d3124b
 INSTALL /v0.1.6/demos/go/Dollyfile-go 0e23906d5aaf7c77b1c9c7ef42e7839af81c5a5bf47d2ccdb0856ed10708be5b
 INSTALL /v0.1.6/demos/go/Dollyfile-esbuild 4e44617b1b115ad6fd8811a0354a72f937fe1ece4374ecb37e4bc6abc4e3376c
 
