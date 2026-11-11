@@ -21,7 +21,7 @@ USE /v0.1.6/demos/tools/Dollyfile-scons 79614ab35e4761e4393147fbf312ac7092cbac99
 USE /v0.1.6/Dollyfile-mandoc 05e2800edcfd0600e44e6bdbd5292a5aa4577bc12a2ea456634c0b7c56258f0d
 USE /v0.1.6/Dollyfile-libdolly-gpu 9a87750403b544f3e224006e3e114461160e2094fff2607008924aead0665ad7
 USE /v0.1.6/Dollyfile-libdolly-sockets 4636295439c4e243368efb6de237b465183368c299040efda2cce4cf2215aa48
-USE /v0.1.6/demos/godot/Dollyfile-spirv-wgsl c6b85241a3358f2caf2ecd410588f61f9646b779ecd4bf00daa9903c9dff3bcf
+USE /v0.1.6/demos/godot/Dollyfile-spirv-wgsl 72e102b32424671beac70851e3688df39419f6ab76e2a69d8a99fce5840c15ec
 USE /v0.1.6/Dollyfile-libdolly-audio 697012964ba7447e65e52fae8f8e4aa87de31647a0427b703c39da194d090b3d
 
 REQUIRES TOOL cp
@@ -34,7 +34,7 @@ REQUIRES TOOL scons
 REQUIRES TOOL tar
 REQUIRES TOOL text-page
 
-SOURCE /v0.1.6/dist/static/godot/source.tar.gz dd17f5ebabe46588a3ed90cf11943846982044d018495a5dcec486139a63a0a5 /tmp/godot-source.tar.gz
+SOURCE /v0.1.6/dist/static/godot/source.tar.gz 7782fccc3db7ee54b7b207169f1f5facf1376a68a7e4fab97c2a06a3f3fc05fb /tmp/godot-source.tar.gz
 SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
 # Godot's modern renderers take only the drivers main.cpp names; glslang builds beside them;
 # Forward+ starts SDFGI only on a device with image atomics, which its voxelization takes.
