@@ -1,6 +1,6 @@
 # Is the admission budget (56 processes, 4 GiB) contract or the browser host's own?
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS: donna,processes,design,0.1.6
 
@@ -39,3 +39,10 @@ browser host's own (a host may give more, and `getrlimit` reports what it gives)
 `docs/process-model.md` says which limits are contract and which are the host's, and
 `RLIMIT_NPROC` reports the host's value if it is the host's. Donna's supervisor task records
 the answer.
+
+## Closed (2026-11-11)
+
+Decided in `a53be9e97` (`docs/process-model.md`, "Executables"): the kernel's tables are the
+contract and the 4 GiB budget, the 5 s wait and threads@0's counts are the browser host's own.
+`RLIMIT_NPROC` reports the kernel's table, which is the contract. Donna's
+`20261110-230235-dolly-requests` records the answer.

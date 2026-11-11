@@ -1,6 +1,6 @@
 # An interactive core image that declares no html@0
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 170
 - TAGS: donna,images,html,host-modules,0.1.6
 
@@ -38,3 +38,9 @@ interactive core image boots on Donna.
 
 `default` and `system` declare no `html@0`, their popups still work in the browser after
 `nena enable html` (or are not lost to any image that needs them), and Donna boots `default`.
+
+## Closed (2026-11-11)
+
+Done: `65a4ad70f`. On the 0.1.6 compiler round (`work/round-1111d.sh` to `round-1111i.sh`; seed and catalog pinned in `d1cb11dbc` and `6fdcad104`, image inputs `16a63999…`; logs in `build/round-1111-evidence/rerun*`)
+`test/html-browser.mjs` "html in default" (`amy install html`, then the popup answers) passed in
+Chromium and Firefox. Donna boots `default` (its `cargo test --release` against main `e13355553`).

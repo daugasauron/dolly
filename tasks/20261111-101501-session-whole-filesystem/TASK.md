@@ -1,6 +1,6 @@
 # A saved session: the whole filesystem, a restore that downloads nothing, Pi's conversations
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 365
 - TAGS: sessions,npm,pi,0.1.6
 
@@ -36,3 +36,12 @@ Passed: session-offline, session-times, custom-session, host-modules, pack-store
 (Pi with a fake provider, a conversation, Save, reload with `?session=`), and the suites.
 
 Done when that flow keeps Pi's conversations and loads no image, and the suites pass.
+
+## Closed (2026-11-11)
+
+Done: `fix/session-whole`, and the save's hold on file changes (`dolly_kernel_hold_calls`,
+`fix/suite-1111`). On the 0.1.6 compiler round (`work/round-1111d.sh` to `round-1111i.sh`; seed and catalog pinned in `d1cb11dbc` and `6fdcad104`, image inputs `16a63999…`; logs in `build/round-1111-evidence/rerun*`): `demos/pi/test/pi-session-browser.mjs` (the owner's flow: Pi on a scripted
+model, a conversation, Save while Pi runs, `/session/?name=`) passed: no pack or image request, the
+conversation file in `~/.pi/agent/sessions`, and `pi --continue` shows it. custom-session,
+session-times and session-without-http passed in Chromium and Firefox, and the source suite
+474 of 474.

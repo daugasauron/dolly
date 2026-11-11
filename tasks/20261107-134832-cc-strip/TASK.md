@@ -1,6 +1,6 @@
 # cc refuses -s, which Godot and other release builds pass to strip
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: core,compiler,0.1.6
 
@@ -28,3 +28,11 @@ error; the default depth is 1024 and SPIRV-Tools does not need more.
 
 Done when: the 0.1.6 compiler round has pinned an `llvm-cc` built with the change, the shell test
 passes in Chromium and Firefox, and Godot and spirv-wgsl build without their workarounds.
+
+## Closed (2026-11-11)
+
+Done: `96c15c96f` and `26288e504` (cc passes `-ftemplate-depth=N` as it is, merged in
+`a6c0cd24a`). On the 0.1.6 compiler round (`work/round-1111d.sh` to `round-1111i.sh`; seed and catalog pinned in `d1cb11dbc` and `6fdcad104`, image inputs `16a63999…`; logs in `build/round-1111-evidence/rerun*`), whose `llvm-cc` was built with the change and pinned as the seed's
+compiler (`d1cb11dbc`): `test/shell-browser.mjs` (which links with `-s`) passed in Chromium and
+Firefox, `godot` and `spirv-wgsl` built without their workarounds, and the Godot and PhotoCraft
+GPU tests passed.

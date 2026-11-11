@@ -1,6 +1,6 @@
 # A page with a strict Content-Security-Policy: html@0's popups need 'unsafe-inline'
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 345
 - TAGS: html,npm,boundary,0.1.6
 
@@ -35,3 +35,11 @@ init's page.
 
 Done when a browser test (Chrome, Firefox) serves a booted image and a popup (`html` and a form
 answer) under that strict policy and both work, with the policy's violations counted at zero.
+
+## Closed (2026-11-11)
+
+Done: `fix/npm-feedback`. On the 0.1.6 compiler round (`work/round-1111d.sh` to `round-1111i.sh`; seed and catalog pinned in `d1cb11dbc` and `6fdcad104`, image inputs `16a63999…`; logs in `build/round-1111-evidence/rerun*`)
+`test/csp-browser.mjs` passed in Chromium and Firefox (system with html under the strict policy, a
+popup and a form answered, a download offered, the upload dialog, zero violations), and
+`test/npm-browser.mjs`, which builds and serves a project from init's page under that policy,
+passed in Chromium (145.5 s) and Firefox (164.0 s) on main `e13355553`.

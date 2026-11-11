@@ -1,6 +1,6 @@
 # Requests the HTTP policy refuses: a notice on the page and a line in the console
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 360
 - TAGS: http,ui,npm,0.1.6
 
@@ -21,3 +21,8 @@ test on the round's images.
 
 Done when a browser test (Chrome, Firefox) refuses requests and sees the console lines, the
 notice with its count, the line for the ones not shown, × and **Close all**, and the docs say it.
+
+## Closed (2026-11-11)
+
+Done: `fix/http-notices`. On the 0.1.6 compiler round (`work/round-1111d.sh` to `round-1111i.sh`; seed and catalog pinned in `d1cb11dbc` and `6fdcad104`, image inputs `16a63999…`; logs in `build/round-1111-evidence/rerun*`)
+`test/http-refusals-browser.mjs` passed in Chromium and Firefox; `docs/http.md` says it.

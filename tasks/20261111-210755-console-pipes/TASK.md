@@ -1,6 +1,6 @@
 # console@0's pipes: a program the host starts on three pipes it holds
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 290
 - TAGS: donna,host-modules,0.1.6
 
@@ -31,3 +31,10 @@ rebuilt, which ships the contract.
 Done when: `test/console-browser.mjs` "console pipes" passes in Chrome and Firefox (`cat` byte for
 byte, output and error apart, a status, `SIGPIPE` once the host stops reading), the terminal test
 still passes, and Donna's `donna run` pipes through it.
+
+## Closed (2026-11-11)
+
+Done: `4acb28faf`, merged in `34178ba6b`. On the 0.1.6 compiler round (`work/round-1111d.sh` to `round-1111i.sh`; seed and catalog pinned in `d1cb11dbc` and `6fdcad104`, image inputs `16a63999…`; logs in `build/round-1111-evidence/rerun*`)
+`test/console-browser.mjs` "console pipes" passed in Chromium and Firefox. Donna's
+`20261111-044218-site`: `echo typed | donna run --images ... core -- /bin/cat` prints `typed`,
+and `cargo test --release` passed whole against main `e13355553`.

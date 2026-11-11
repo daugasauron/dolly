@@ -1,6 +1,6 @@
 # amy's package server is stated and configurable, and the docs say where amy reads from
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: donna,amy,packages,configuration,docs,0.1.6
 
@@ -55,3 +55,10 @@ service), and an install from a second copy of the directory, `/mirror/`.
 `amy server` prints the server in `default` on the site and in an embedding, an embedding that
 sets another directory gets its packages from there (`test/amy-browser.mjs`), the docs above
 say it, and Donna's task records the commit.
+
+## Closed (2026-11-11)
+
+Done: `0df7aa0b1`, merged in `663e782fa`. On the 0.1.6 compiler round (`work/round-1111d.sh` to `round-1111i.sh`; seed and catalog pinned in `d1cb11dbc` and `6fdcad104`, image inputs `16a63999…`; logs in `build/round-1111-evidence/rerun*`)
+`test/amy-browser.mjs` ("amy", which checks `amy server`, a refused directory and an install from
+`/mirror/`) passed in Chromium and Firefox. Donna's `20261110-230235-dolly-requests` records the
+commit, and its `20261110-230235-packages` ports the service.

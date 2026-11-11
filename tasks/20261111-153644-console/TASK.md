@@ -1,6 +1,6 @@
 # console@0: a terminal the host holds into a session, with a program on it
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: donna,host-modules,terminal,0.1.6
 
@@ -47,3 +47,10 @@ image rebuilt (`Dollyfile-dolly-docs` ships the contract), and Donna records the
 
 Done when: the test passes on main's images in both browsers, and Donna's `donna serve` runs a
 session through the same contract.
+
+## Closed (2026-11-11)
+
+Done: `311026cc6` and `5e973183d`, merged in `4188c1f33`. On the 0.1.6 compiler round (`work/round-1111d.sh` to `round-1111i.sh`; seed and catalog pinned in `d1cb11dbc` and `6fdcad104`, image inputs `16a63999…`; logs in `build/round-1111-evidence/rerun*`)
+`test/console-browser.mjs` "console" passed in Chromium and Firefox. Donna's
+`20261111-070653-console` runs it: `cargo test --release` with `tests/console.rs` passed against
+`4188c1f33` and again against main `e13355553`.

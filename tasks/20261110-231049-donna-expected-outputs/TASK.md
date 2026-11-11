@@ -1,6 +1,6 @@
 # Expected outputs as data: cases a second host runs without JavaScript
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: donna,tests,testing,0.1.6
 
@@ -54,3 +54,10 @@ run them, and transcribing their assertions into Rust drifts the day either side
 
 The userspace browser tests take their cases from the shared form, `npm run test:core` still
 passes, and Donna's conformance task runs the same cases.
+
+## Closed (2026-11-11)
+
+Done: `a9012f37b`. On the 0.1.6 compiler round (`work/round-1111d.sh` to `round-1111i.sh`; seed and catalog pinned in `d1cb11dbc` and `6fdcad104`, image inputs `16a63999…`; logs in `build/round-1111-evidence/rerun*`) the
+browser tests that read `test/cases/` (slop, shell, core, process, cpp, dso, pty) passed in
+Chromium and Firefox, and `slop.test` in `npm run test:source`. Donna's
+`20261110-230235-conformance` runs the same files.
