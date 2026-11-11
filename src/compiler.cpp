@@ -398,9 +398,8 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
       options.frontend_options.push_back("-ferror-limit");
       options.frontend_options.push_back(argument.substr(sizeof("-ferror-limit=") - 1));
     } else if (starts_with(argument, "-ftemplate-depth=")) {
-      // SPIRV-Tools' CMake passes it to every Clang; cc1 takes the depth separately.
-      options.frontend_options.push_back("-ftemplate-depth");
-      options.frontend_options.push_back(argument.substr(sizeof("-ftemplate-depth=") - 1));
+      // SPIRV-Tools' CMake passes it to every Clang; cc1 takes it as it is.
+      options.frontend_options.push_back(argument);
     } else if (argument == "-fPIC" || argument == "-fpic" || argument == "-fPIE" ||
                argument == "-fpie") {
       options.pic = true;
