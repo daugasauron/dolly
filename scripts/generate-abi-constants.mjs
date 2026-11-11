@@ -64,10 +64,38 @@ for (const { name } of hostManifests) {
   await emitConstants(contracts, `host/${name}/abi.mjs`, header, "u", digest, true);
 }
 
+// Each packet struct's size and field offsets, laid out as C lays out its
+// fixed-width fields: each at a multiple of its alignment, the struct padded to
+// its largest. scripts/build.sh compiles the proof that the compiler agrees.
+const layouts = new Map(["uint16_t", "uint32_t", "uint64_t", "int64_t"].map(type => {
+  const size = Number(type.match(/\d+/)[0]) / 8;
+  return [type, { size, alignment: size }];
+}));
+for (const [, body, type] of header.matchAll(/typedef struct \{([^}]*)\}\s*(dolly_process_\w+);/g)) {
+  const offsets = {};
+  let size = 0, alignment = 1;
+  for (const field of body.split(";").map(text => text.trim()).filter(Boolean)) {
+    const [, member, name, count = 1] = field.match(/^(\w+)\s+(\w+)(?:\[(\d+)\])?$/) ??
+      (() => { throw new Error(`process.h: ${type}: unsupported field ${field}`); })();
+    const layout = layouts.get(member) ?? (() => { throw new Error(`process.h: ${type}: unknown type ${member}`); })();
+    size = Math.ceil(size / layout.alignment) * layout.alignment;
+    offsets[name] = size;
+    size += layout.size * Number(count);
+    alignment = Math.max(alignment, layout.alignment);
+  }
+  layouts.set(type, { size: Math.ceil(size / alignment) * alignment, alignment, offsets });
+}
+const packets = [...layouts].filter(([, layout]) => layout.offsets);
+if (!packets.length) throw new Error("process.h has no packet structs");
+
 // The kernel and the libc adapter are compiled against the bootstrap libc:
-// scripts/build.sh compiles this proof that its errno numbers are the contract's.
-await write("build/process-errno-check.c", "#include <errno.h>\n#include <dolly/process.h>\n" +
-  errors.map(([, name]) => `_Static_assert(${name} == DOLLY_PROCESS_${name}, "${name}");\n`).join(""));
+// scripts/build.sh compiles this proof that its errno numbers and the packet
+// layouts are the contract's.
+await write("build/process-abi-check.c", "#include <errno.h>\n#include <dolly/process.h>\n" +
+  errors.map(([, name]) => `_Static_assert(${name} == DOLLY_PROCESS_${name}, "${name}");\n`).join("") +
+  packets.map(([type, { size, offsets }]) => `_Static_assert(sizeof(${type}) == ${size}, "${type}");\n` +
+    Object.entries(offsets).map(([field, offset]) =>
+      `_Static_assert(offsetof(${type}, ${field}) == ${offset}, "${type}.${field}");\n`).join("")).join(""));
 const constants = new Map([["UINT32_MAX", 0xffffffff]]);
 for (const [, name, expression] of header.matchAll(
   /^[ \t]*(?:#define[ \t]+)?(DOLLY_PROCESS_[A-Z0-9_]+)[ \t]*(?:=|[ \t])[ \t]*([^,\n]+?)[ \t]*,?[ \t]*$/gm)) {
@@ -81,13 +109,13 @@ for (const [, name, expression] of header.matchAll(
   constants.set(name, Function(`"use strict"; return (${arithmetic}) >>> 0;`)());
 }
 constants.delete("UINT32_MAX");
-const sizes = [...header.matchAll(/DOLLY_PROCESS_LAYOUT\((dolly_process_\w+), (\d+)\);/g)];
-if (!constants.has("DOLLY_PROCESS_PACKET_LIMIT") || !sizes.length) {
-  throw new Error("process.h has no packet contract");
-}
+if (!constants.has("DOLLY_PROCESS_PACKET_LIMIT")) throw new Error("process.h has no packet contract");
 await write("src/process-constants.mjs", "// Generated from include/dolly/process.h.\n" +
   [...constants].map(([name, value]) => `export const ${name} = ${value};\n`).join("") +
   "export const DOLLY_ERRNO = Object.freeze({\n" +
   errors.map(([, name, value]) => `  ${name}: ${value},\n`).join("") + "});\n" +
   "export const DOLLY_PROCESS_SIZEOF = Object.freeze({\n" +
-  sizes.map(([, type, size]) => `  ${type}: ${size},\n`).join("") + "});\n");
+  packets.map(([type, { size }]) => `  ${type}: ${size},\n`).join("") + "});\n" +
+  "export const DOLLY_PROCESS_OFFSETOF = Object.freeze({\n" +
+  packets.map(([type, { offsets }]) => `  ${type}: Object.freeze(${JSON.stringify(offsets).replaceAll(",", ", ")}),\n`).join("") +
+  "});\n");

@@ -8,7 +8,7 @@ import { executableHostRequirements, checkHostAbi } from "../host/requirements.m
 import {
   DOLLY_PROCESS_EXEC, DOLLY_PROCESS_EXIT, DOLLY_PROCESS_PACKET_LIMIT as packetLimit, DOLLY_PROCESS_SIGALRM, DOLLY_PROCESS_SIGINT,
   DOLLY_PROCESS_SIGKILL, DOLLY_PROCESS_SIGNAL, DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE,
-  DOLLY_PROCESS_SIGWINCH, DOLLY_PROCESS_SIZEOF, DOLLY_PROCESS_SPAWN,
+  DOLLY_PROCESS_SIGWINCH, DOLLY_PROCESS_OFFSETOF, DOLLY_PROCESS_SIZEOF, DOLLY_PROCESS_SPAWN,
   DOLLY_PROCESS_SPAWN_FOREGROUND, DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT,
   DOLLY_PROCESS_SPAWN_INTERACTIVE,
 } from "./process-constants.mjs";
@@ -17,6 +17,9 @@ import { DOLLY_FS_BLOCK_SIZE } from "../host/runtime/abi.mjs";
 
 const encoder = new TextEncoder();
 const spawnHeaderSize = DOLLY_PROCESS_SIZEOF.dolly_process_spawn_request;
+const spawnField = DOLLY_PROCESS_OFFSETOF.dolly_process_spawn_request;
+const mappingField = DOLLY_PROCESS_OFFSETOF.dolly_process_fd_mapping;
+const mappingSize = DOLLY_PROCESS_SIZEOF.dolly_process_fd_mapping;
 // The kernel's deferred-call result; processes never observe it.
 const deferredResult = -(1n << 63n);
 const interruptedSystemCall = -BigInt(DOLLY_ERRNO.EINTR);
@@ -141,23 +144,24 @@ function encodeSpawn(arguments_, flags) {
   }
   const pathBytes = encoder.encode(path);
   const argumentBytes = encodeStrings(arguments_, "process arguments");
-  const size = spawnHeaderSize + pathBytes.length + argumentBytes.length + 3 * 8;
+  const size = spawnHeaderSize + pathBytes.length + argumentBytes.length + 3 * mappingSize;
   if (pathBytes.length > 4096 || size > packetLimit) {
     throw new RangeError("process spawn packet is too large");
   }
   const packet = new Uint8Array(size);
   const view = new DataView(packet.buffer);
-  view.setUint32(0, flags | DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT, true);
-  view.setUint32(4, arguments_.length, true);
-  view.setUint32(16, 3, true);
-  view.setUint32(28, pathBytes.length, true);
-  view.setBigUint64(32, BigInt(argumentBytes.length), true);
-  view.setBigUint64(48, 0xffffffffffffffffn, true);
+  view.setUint32(spawnField.flags, flags | DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT, true);
+  view.setUint32(spawnField.argument_count, arguments_.length, true);
+  view.setUint32(spawnField.mapping_count, 3, true);
+  view.setUint32(spawnField.path_size, pathBytes.length, true);
+  view.setBigUint64(spawnField.argument_bytes, BigInt(argumentBytes.length), true);
+  view.setBigUint64(spawnField.deadline_nanoseconds, 0xffffffffffffffffn, true);
   packet.set(pathBytes, spawnHeaderSize);
   packet.set(argumentBytes, spawnHeaderSize + pathBytes.length);
   for (let descriptor = 0; descriptor < 3; ++descriptor) {
-    view.setUint32(size - 24 + descriptor * 8, descriptor, true);
-    view.setUint32(size - 20 + descriptor * 8, descriptor, true);
+    const mapping = size - 3 * mappingSize + descriptor * mappingSize;
+    view.setUint32(mapping + mappingField.source_descriptor, descriptor, true);
+    view.setUint32(mapping + mappingField.target_descriptor, descriptor, true);
   }
   return packet;
 }

@@ -9,6 +9,7 @@ import { validateDsoInterface, validateDsoHost, requireDsoType } from "../host/d
 import { validateProcess, validateProcessDso } from "../scripts/dolly-abi.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
 import { DOLLY_ERRNO } from "../src/process-constants.mjs";
+import { abiData } from "../scripts/abi-data.mjs";
 
 const fixture = name => new URL(`../build/process-${name}.wasm`, import.meta.url);
 const contractPath = new URL("../dist/dolly-process-0.wasm", import.meta.url);
@@ -135,4 +136,9 @@ test("DSO providers and deferred self definitions are checked by actual signatur
   const badHost = parseWasmInterface(await readFile(fixture("dso-bad-host")));
   validateProcessInterface(contract, badHost, DOLLY_PROCESS_ABI_DIGEST);
   assert.throws(() => validateDsoHost(dsoContract, new Map(badHost.exports.map(entry => [entry.name, entry]))), /DSO __dolly_dso_allocate/);
+});
+
+test("dist/dolly-abi.json holds what the generated modules give the browser", async () => {
+  assert.deepEqual(JSON.parse(await readFile(new URL("../dist/dolly-abi.json", import.meta.url), "utf8")),
+    JSON.parse(JSON.stringify(await abiData())));
 });
