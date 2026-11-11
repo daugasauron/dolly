@@ -1,9 +1,11 @@
-// amy installs the packages this site publishes into the running session.
-// The index is the site's public amy-index.txt, "NAME PATH SHA256 DESCRIPTION"
-// per package, read like any URL under the page's HTTP policy. An install is
-// the Dollyfile row INSTALL PATH SHA256, executed against the live filesystem
-// by /bin/dollyfile and recorded in /etc/dolly/installed; the page's
-// packages@0 service hands over the verified package snapshot. A package's
+// amy installs the packages an image directory publishes into the running session.
+// The server is the directory /etc/dolly/packages-server names (amy server URL),
+// else the one the page loads its images from, which packages@0 names. Its index
+// is its public amy-index.txt, "NAME PATH SHA256 DESCRIPTION" per package, read
+// like any URL under the page's HTTP policy. An install is the Dollyfile row
+// INSTALL PATH SHA256, executed against the live filesystem by /bin/dollyfile
+// and recorded in /etc/dolly/installed; the page's packages@0 service hands
+// over the verified package snapshot from the server. A package's
 // snapshot records the INSTALL rows of its own recipe: those come first. In an
 // image that declares nena@0, amy has nena enable the host modules a package
 // needs that the session lacks; elsewhere the engine refuses the row.
@@ -22,11 +24,9 @@
 #include <dolly/http.h>
 #include <dolly/runtime.h>
 
-#include "version.h"
-
-// A site path names a file of the site that serves this release.
-static const char index_url[] = "/v" DOLLY_VERSION "/amy-index.txt";
 static const char service[] = "https://packages.dolly.invalid/v1/packages/";
+static const char directory_url[] = "https://packages.dolly.invalid/v1/directory";
+static const char server_path[] = "/etc/dolly/packages-server";
 static const char installed_path[] = "/etc/dolly/installed";
 // The engine's receipt of an image, which names its host modules, and the
 // modules the session enabled since, one name@version a line.
@@ -34,7 +34,8 @@ static const char receipt_path[] = "/etc/dolly/artifact";
 static const char enabled_path[] = "/etc/dolly/enabled";
 static const char artifacts_dir[] = "/etc/dolly/artifacts";
 static const char files_dir[] = "/etc/dolly/files";
-enum { MAX_INDEX_BYTES = 64 * 1024, MAX_RECEIPT_BYTES = 16 * 1024 * 1024 };
+enum { MAX_INDEX_BYTES = 64 * 1024, MAX_RECEIPT_BYTES = 16 * 1024 * 1024, MAX_SERVER_BYTES = 2048 };
+static char server[MAX_SERVER_BYTES + 1];
 
 typedef struct { char *name, *recipe, *sha256, *description; } Package;
 typedef struct { Package *items; size_t count; char *text; } Packages;
@@ -44,7 +45,10 @@ static void usage(FILE *stream) {
         "       amy info NAME         its description and INSTALL row\n"
         "       amy install NAME...   install packages; says what each added\n"
         "       amy files NAME        the files NAME installs outside /etc/dolly: SIZE PATH\n"
-        "       amy installed         the installed rows: NAME PATH SHA256\n", stream);
+        "       amy installed         the installed rows: NAME PATH SHA256\n"
+        "       amy server            the image directory packages come from\n"
+        "       amy server URL        take them from URL for this session; remove\n"
+        "                             /etc/dolly/packages-server for the page's own\n", stream);
 }
 
 static size_t append_text(const void *bytes, size_t length, void *context) {
@@ -70,11 +74,12 @@ static size_t write_descriptor(const void *bytes, size_t length, void *context) 
   return length;
 }
 
-// Returns 0, a negative errno, or the HTTP status of a refusal.
-static int fetch(const char *url, dolly_http_write_callback write, void *context) {
+// Returns 0, a negative errno, or the HTTP status of a refusal, whose body
+// `write` receives only without DOLLY_HTTP_FAIL_STATUS.
+static int fetch(const char *url, unsigned flags, dolly_http_write_callback write, void *context) {
   dolly_http_response response = {0};
   dolly_http_request request = {.method = "GET", .url = url, .headers = "",
-                                .flags = DOLLY_HTTP_FAIL_STATUS, .write = write, .write_context = context};
+                                .flags = flags, .write = write, .write_context = context};
   const int status = dolly_http_perform(&request, &response);
   const int code = (int)response.status;
   dolly_http_response_dispose(&response);
@@ -84,6 +89,59 @@ static int fetch(const char *url, dolly_http_write_callback write, void *context
 static void report(const char *subject, int status) {
   if (status < 0) fprintf(stderr, "amy: %s: %s\n", subject, dolly_http_error_message(-status));
   else fprintf(stderr, "amy: %s: HTTP %d\n", subject, status);
+}
+
+// Whether `url` can name an image directory: http or https, ending in /, and
+// nothing a URL reads as a query, a fragment or a separator.
+static int valid_server(const char *url) {
+  const size_t length = strlen(url);
+  if ((strncmp(url, "http://", 7) != 0 && strncmp(url, "https://", 8) != 0) ||
+      length > MAX_SERVER_BYTES || url[length - 1] != '/') return 0;
+  for (const unsigned char *at = (const unsigned char *)url; *at != '\0'; ++at) {
+    if (*at <= ' ' || *at == 0x7f || *at == '?' || *at == '#') return 0;
+  }
+  return 1;
+}
+
+// Sets `server`: the session's choice, else the page's image directory.
+static int find_server(void) {
+  FILE *stream = fopen(server_path, "r");
+  if (stream != NULL) {
+    const int line = fgets(server, sizeof(server), stream) != NULL;
+    fclose(stream);
+    server[strcspn(server, "\n")] = '\0';
+    if (line && valid_server(server)) return 0;
+    fprintf(stderr, "amy: %s holds no http or https URL of an image directory, ending in /\n", server_path);
+    return -1;
+  }
+  if (errno != ENOENT) {
+    fprintf(stderr, "amy: %s: %s\n", server_path, strerror(errno));
+    return -1;
+  }
+  Packages answer = {0};
+  int status = fetch(directory_url, DOLLY_HTTP_FAIL_STATUS, append_text, &answer);
+  if (status == 0 && (answer.text == NULL || !valid_server(answer.text))) status = -EIO;
+  if (status == 0) strcpy(server, answer.text);
+  else if (status == -EACCES) fputs("amy: the package service is unavailable: the image must declare REQUIRES HOST packages@0\n", stderr);
+  else report(directory_url, status);
+  free(answer.text);
+  return status;
+}
+
+// amy server URL: the session's server from now on.
+static int set_server(const char *url) {
+  char named[MAX_SERVER_BYTES + 2];
+  snprintf(named, sizeof(named), "%s%s", url, *url != '\0' && url[strlen(url) - 1] != '/' ? "/" : "");
+  if (!valid_server(named)) {
+    fprintf(stderr, "amy: %s: not an http or https URL of an image directory\n", url);
+    return -1;
+  }
+  FILE *stream = fopen(server_path, "w");
+  if (stream == NULL || fprintf(stream, "%s\n", named) < 0 || fclose(stream) != 0) {
+    fprintf(stderr, "amy: %s: %s\n", server_path, strerror(errno));
+    return -1;
+  }
+  return 0;
 }
 
 // The image a recipe's path names: Dollyfile-NAME, or default for Dollyfile.
@@ -155,7 +213,7 @@ static const Package *find_name(const Packages *index, const char *name) {
   for (size_t position = 0; position < index->count; ++position) {
     if (strcmp(index->items[position].name, name) == 0) return &index->items[position];
   }
-  fprintf(stderr, "amy: %s: this site publishes no such package; amy list shows them\n", name);
+  fprintf(stderr, "amy: %s: %s publishes no such package; amy list shows them\n", name, server);
   return NULL;
 }
 
@@ -321,24 +379,33 @@ static int enable_needed(const char *name, const char *snapshot) {
 }
 
 // Fetches a package's verified snapshot to `path`; the caller removes it.
+// packages@0 takes the package's pin and the server, as one path segment; a
+// refusal's body is its reason.
 static int fetch_snapshot(const Package *package, const char *path) {
-  char url[sizeof(service) + 64];
-  snprintf(url, sizeof(url), "%s%s", service, package->sha256);
+  char url[sizeof(service) + 64 + 6 + 3 * MAX_SERVER_BYTES];
+  size_t used = (size_t)snprintf(url, sizeof(url), "%s%s/from/", service, package->sha256);
+  for (const unsigned char *at = (const unsigned char *)server; *at != '\0'; ++at) {
+    const int plain = (*at >= 'a' && *at <= 'z') || (*at >= 'A' && *at <= 'Z') || (*at >= '0' && *at <= '9') ||
+        *at == '-' || *at == '.' || *at == '_' || *at == '~';
+    used += (size_t)snprintf(url + used, sizeof(url) - used, plain ? "%c" : "%%%02X", *at);
+  }
   int descriptor = mkdir(artifacts_dir, 0755) != 0 && errno != EEXIST ? -1
       : open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
   if (descriptor < 0) {
     fprintf(stderr, "amy: %s: %s\n", path, strerror(errno));
     return -1;
   }
-  fprintf(stderr, "amy: fetching %s\n", package->name);
-  int status = fetch(url, write_descriptor, &descriptor);
+  fprintf(stderr, "amy: fetching %s from %s\n", package->name, server);
+  int status = fetch(url, 0, write_descriptor, &descriptor);
   if (close(descriptor) != 0 && status == 0) status = -EIO;
+  size_t size = 0;
+  char *reason = status > 0 ? read_file(path, &size) : NULL;
   if (status == -EACCES) {
     fputs("amy: the package service is unavailable: the image must declare REQUIRES HOST packages@0\n", stderr);
-  } else if (status == 404) {
-    // The service serves the release the page runs; the index is amy's own release's.
-    fprintf(stderr, "amy: %s: the release this page runs does not publish it\n", package->name);
+  } else if (reason != NULL && size != 0 && size < 1024) {
+    fprintf(stderr, "amy: %s: %s", package->name, reason);
   } else if (status != 0) report(package->name, status);
+  free(reason);
   return status;
 }
 
@@ -451,10 +518,13 @@ int main(int argc, char **argv) {
   const int describing = argc == 3 && strcmp(command, "info") == 0;
   const int naming = argc == 3 && strcmp(command, "files") == 0;
   const int installing = argc >= 3 && strcmp(command, "install") == 0;
-  if (!listing && !recorded && !describing && !naming && !installing) {
+  const int serving = (argc == 2 || argc == 3) && strcmp(command, "server") == 0;
+  if (!listing && !recorded && !describing && !naming && !installing && !serving) {
     usage(stderr);
     return 2;
   }
+  if (serving && argc == 3) return set_server(argv[2]) == 0 ? 0 : 1;
+  if (serving) return find_server() == 0 && printf("%s\n", server) > 0 ? 0 : 1;
   Packages index = {0}, installed = {0};
   int status = read_installed(&installed);
   if (status == 0 && recorded) {
@@ -464,12 +534,14 @@ int main(int argc, char **argv) {
     }
   }
   const int local = recorded || (naming && status == 0 && print_record(argv[2]) == 0);
-  if (status == 0 && !local) {
-    status = fetch(index_url, append_text, &index);
-    if (status == -EACCES) fprintf(stderr, "amy: %s: this page's HTTP policy does not admit the site's package index\n", index_url);
+  char index_url[MAX_SERVER_BYTES + 16];
+  if (status == 0 && !local && (status = find_server()) == 0) {
+    snprintf(index_url, sizeof(index_url), "%samy-index.txt", server);
+    status = fetch(index_url, DOLLY_HTTP_FAIL_STATUS, append_text, &index);
+    if (status == -EACCES) fprintf(stderr, "amy: %s: this page's HTTP policy does not admit the package index\n", index_url);
     else if (status != 0) report(index_url, status);
+    if (status == 0) status = parse_rows(&index, index_url);
   }
-  if (status == 0 && !local) status = parse_rows(&index, index_url);
   if (status == 0 && listing) {
     for (size_t position = 0; position < index.count; ++position) {
       const Package *package = &index.items[position];

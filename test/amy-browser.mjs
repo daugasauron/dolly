@@ -78,7 +78,18 @@ const check = ({ submit, text }) => async command => assert.equal(await submit(c
 const indexRule = origin => ({ origin, path: "/amy-index.txt", methods: ["GET"] });
 // While set, the site answers with this index, as after a newer release.
 const site = { index: null };
-function handle(request, response, path, headers) {
+// Another image directory: the checkout's catalog, packs and index again under
+// /mirror/, which records what it served.
+const mirror = { served: [] };
+async function handle(request, response, path, headers) {
+  const file = path.startsWith("/mirror/") ? path.slice("/mirror/".length) : null;
+  if (file !== null && /^(?:amy-index\.txt|dist\/[\w.-]+(?:\/[\w.-]+)?)$/.test(file)) {
+    const bytes = await readFile(new URL(`../${file}`, import.meta.url)).catch(() => null);
+    if (bytes === null) return false;
+    mirror.served.push(file);
+    response.writeHead(200, { ...headers, "content-type": file.endsWith(".json") ? "application/json" : "application/octet-stream" }).end(bytes);
+    return true;
+  }
   if (path !== "/amy-index.txt" || site.index === null) return false;
   response.writeHead(200, { ...headers, "content-type": "text/plain; charset=utf-8" }).end(site.index);
   return true;
@@ -91,7 +102,8 @@ const timed = async (run, command) => { const started = performance.now(); await
 try {
 await browserTest("amy", { image: "default", timeout: 300_000, server: { fixtures, handle } }, async ({ server, open }) => {
   const policy = { maxRequests: 256, rules: [indexRule(server.origin),
-    { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
+    { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] },
+    { origin: server.origin, pathPrefix: "/mirror/", methods: ["GET"] }] };
   const session = await open({ policy });
   const run = check(session);
   await run(`test "$(amy list | sed 's/ .*//' | sort | tr '\\n' ' ')" = "${packages.join(" ")} "`);
@@ -130,6 +142,18 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   assert.notEqual(await session.submit("amy install gzip 2> /tmp/amy-stale"), 0);
   await run("grep -q '^amy: gzip: ' /tmp/amy-stale && ! amy installed | grep -q '^gzip '");
   site.index = null;
+  // The server is the page's image directory until the session names another,
+  // which the page reads only where its HTTP policy admits it.
+  await run(`test "$(amy server)" = '${server.origin}/'`);
+  const elsewhere = `${server.origin}/elsewhere/`;
+  await run(`amy server ${elsewhere.slice(0, -1)} && test "$(amy server)" = '${elsewhere}'`);
+  assert.notEqual(await session.submit("amy list 2> /tmp/amy-elsewhere"), 0);
+  await run(`grep -qF '${elsewhere}amy-index.txt' /tmp/amy-elsewhere`);
+  assert.notEqual(await session.submit(`curl -fsS https://packages.dolly.invalid/v1/packages/${indexed("gzip")[2]}/from/${encodeURIComponent(elsewhere)} -o /dev/null`), 0);
+  await run(`amy server ${server.origin}/mirror/ && amy install gzip > /tmp/amy-gzip && amy installed | grep -q '^gzip '`);
+  assert.ok(["amy-index.txt", "dist/dolly-images.json", "dist/dolly-gzip-system-snapshot.json"].every(file => mirror.served.includes(file)),
+    mirror.served.join(" "));
+  await run(`rm /etc/dolly/packages-server && test "$(amy server)" = '${server.origin}/'`);
   // An install is the engine's INSTALL row: a package whose host modules the
   // session has, sockets@0 enabled here, installs and is recorded, so amy lists it.
   await run(`mkdir -p /etc/dolly/artifacts && curl -fsS ${server.origin}/fixture/connects.snapshot -o ${artifact}`);

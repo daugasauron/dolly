@@ -341,17 +341,21 @@ EXPORTS TOOL rg
   `` - `NAME`: … `` line of each README, the one description an image has
   (a recipe directive would put prose under the pin: editing a sentence would
   change the image's identity and rebuild what depends on it).
-- `amy` ([`amy.c`](../src/commands/amy.c)) reads the index as the site path
-  `/vX.Y.Z/amy-index.txt`, with the version it was built for, through the
+- `amy` ([`amy.c`](../src/commands/amy.c)) takes packages from one server, an
+  image directory: the one the page loads its images from (boot()'s `images`,
+  the site for its own pages; a host names its own), which `packages@0` gives,
+  unless `amy server URL` names another for the session in
+  `/etc/dolly/packages-server` (removing the file goes back). `amy server`
+  prints it. `amy` reads the server's `amy-index.txt` through the
   [HTTP broker](http.md#transport) and keeps no copy: a published version
   serves it, as all its files, as immutable (`npm run serve` sends `no-store`),
-  and without the site `amy list`,
-  `info` and `install` fail naming the index. `amy list` prints each name,
+  and `amy list`, `info` and `install` name the URL they could not read.
+  `amy list` prints each name,
   whether the record holds it (the image's packages among them) and the
   description; `amy info NAME` adds the `INSTALL` row.
 - `amy install NAME` executes that row in a running session: the page's
   `packages@0` service ([browser boundary](browser-boundary.md#host-modules))
-  hands over the verified snapshot of that pin, and `dollyfile install RECIPE
+  hands over the verified snapshot of that pin from the server, and `dollyfile install RECIPE
   SHA256` moves the files out of it, from its end, so that the kernel never
   holds the package twice, merges the exported variables into
   `/etc/dolly/environment` and records the row as a build does; `amy
@@ -367,16 +371,17 @@ EXPORTS TOOL rg
   session lacks (it reads them from the package's receipt, the image's and
   `/etc/dolly/enabled`) and says so: `amy install tmux` in `default` enables
   `pty@0` and `sockets@0`; the page makes each switch. Looking
-  a name up in the index is the only unpinned step. The index is the one of
-  the release `amy` was built for and the service serves the release the page
-  runs: where they differ, a pin the page's release does not publish fails by
-  name and installs nothing.
+  a name up in the index is the only unpinned step. The service reads a
+  directory other than the page's only where the page's HTTP policy admits a
+  GET of the directory's URL, and passes only packages built for the page's
+  runtime: a pin the server does not publish, or publishes for another, fails
+  by name and installs nothing.
 - `amy install` then says what it added (files, bytes and the commands now in
   `/bin` or `/usr/bin`) and keeps the list in `/etc/dolly/files/NAME`, one
   `SIZE PATH` line per file or link the snapshot holds outside `/etc/dolly`,
   Dolly's own record of an image. `amy files NAME` prints that list, or, for a
   package no session installed, reads it from the release's snapshot.
-- Installed files are session files, within the 512 MiB a save holds. Exported
+- Installed files are session files, within the 8 GiB a save holds. Exported
   variables apply when the session is next loaded; the current shell keeps its
   environment ([sessions](sessions.md)).
 

@@ -116,11 +116,6 @@ if has_image system-build; then
   git -C "${emscripten_system_dir}" show HEAD:system/lib/libc/musl/COPYRIGHT > "${staging}/musl-COPYRIGHT"
   copy_static "${staging}/musl-COPYRIGHT" default/licenses/musl
 fi
-if has_image amy; then
-  # amy asks the site for the package index of the version it was built for.
-  node -p '`#define DOLLY_VERSION "${require("./package.json").version}"`' > "${staging}/version.h"
-  copy_static "${staging}/version.h" default/commands/version.h
-fi
 if has_image ghostty-build; then
   copy_static "${project_dir}/src/ghostty/display.c" default/ghostty/display.c
   copy_static "${stb_header}" default/stb_truetype.h
