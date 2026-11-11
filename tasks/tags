@@ -173,3 +173,4 @@ wine, The Wine demo
 workflow, A sequence of steps a user repeats
 world, The Slopyard world as a whole
 zig, The Zig toolchain
+startup,The start of an image in a page: what it fetches and how long it takes
