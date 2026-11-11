@@ -21,7 +21,7 @@ INSTALL /v0.1.6/Dollyfile-git 5c3483cf0ad5dd4b89a4f6838b174178cb50c1088bb4d98549
 INSTALL /v0.1.6/Dollyfile-curl 24fb8c4a86fc84af77d1470e6685b66fae4d1bf08964a22d452c54f5bc904f1c
 # download and upload, which Pi's prompt teaches (transfer).
 INSTALL /v0.1.6/Dollyfile-transfer 18537911f1c05f4538a89276bb509c7b1af9444c9faae8adef94369065f0b18d
-INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly 4de89145fa139073f99daedc4ea6b15b27adb361bc3d01db1fb767c2c8efc3c0
+INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly e21ed614c093a20511224ae01844214242df8f5ab443553c9477fcfdd865d2a4
 INSTALL /v0.1.6/Dollyfile-amy f8c8e777c5b781d7da0d5ef02cd21b8c7bba1aa2bb6369bf9d8f42b08095a44a
 # nena enables the host modules a package needs beyond these.
 INSTALL /v0.1.6/Dollyfile-nena 5589875174e91242cb7860fb958d2c44e2029d61c382a6f0d6608366722c1852
