@@ -5,7 +5,8 @@ import { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_CHUNK_CAPACITY, DOLLY_HTTP_MAX_METHOD
   DOLLY_HTTP_MAX_HEADERS, DOLLY_HTTP_MAX_BODY, DOLLY_HTTP_HEADER_SIZE, DOLLY_HTTP_WORD_SEQUENCE,
   DOLLY_HTTP_WORD_STATUS, DOLLY_HTTP_WORD_LENGTH, DOLLY_HTTP_WORD_EOF, DOLLY_HTTP_WORD_ERROR,
   DOLLY_HTTP_WORD_KIND, DOLLY_HTTP_STATE_WRITABLE, DOLLY_HTTP_STATE_READABLE, DOLLY_HTTP_STATE_FAILED,
-  DOLLY_HTTP_KIND_URL, DOLLY_HTTP_KIND_HEADER, DOLLY_HTTP_KIND_BODY } from "./abi.mjs";
+  DOLLY_HTTP_KIND_URL, DOLLY_HTTP_KIND_HEADER, DOLLY_HTTP_KIND_BODY, DOLLY_HTTP_FAIL_STATUS,
+  DOLLY_HTTP_FOLLOW_REDIRECTS } from "./abi.mjs";
 
 const encoder = new TextEncoder();
 const now = () => performance.timeOrigin + performance.now();
@@ -54,7 +55,7 @@ export class HttpMailbox {
         message.flags === 0 };
     }
     try {
-      if (!(memory instanceof SharedArrayBuffer) || (message.flags & ~3) !== 0)
+      if (!(memory instanceof SharedArrayBuffer) || (message.flags & ~(DOLLY_HTTP_FAIL_STATUS | DOLLY_HTTP_FOLLOW_REDIRECTS)) !== 0)
         throw new HttpError(errno.EINVAL, "invalid HTTP admission");
       const spans = {};
       for (const [name, maximum] of Object.entries(DOLLY_HTTP_LIMITS)) {
@@ -295,7 +296,7 @@ class HttpTransfer {
         method: upperMethod, headers,
         body: body === null || upperMethod === "GET" || upperMethod === "HEAD" ? undefined : body,
         credentials: "omit",
-        redirect: (flags & 2) && rule.followRedirects === true ? "follow" : "error",
+        redirect: (flags & DOLLY_HTTP_FOLLOW_REDIRECTS) && rule.followRedirects === true ? "follow" : "error",
         referrerPolicy: "no-referrer",
         signal: this.controller.signal,
       };
