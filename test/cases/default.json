@@ -1,0 +1,25 @@
+{
+  "image": "default",
+  "directory": "/tmp/default-test",
+  "steps": [
+    { "script": "test \"$(slop -c 'echo nested')\" = nested", "status": 0 },
+    { "script": "mkdir /tmp/made && echo kept > /tmp/made/file && test \"$(grep -c kept /tmp/made/file | sed 's/1/one/')\" = one", "status": 0 },
+    {
+      "why": "curl and amy are in the image, and the index lists cc.",
+      "script": "curl --version > /dev/null && amy list | grep -q '^cc '",
+      "status": 0
+    },
+    {
+      "why": "The image declares download@0 and upload@0: their commands are in it.",
+      "script": "download --help | grep -q '^usage: download' && test -x /bin/upload && man download | grep -qi download",
+      "status": 0
+    },
+    {
+      "why": "No compiler, make or Git until a package installs them.",
+      "script": "cc --version",
+      "status": 127
+    },
+    { "script": "make --version", "status": 127 },
+    { "script": "git --version", "status": 127 }
+  ]
+}

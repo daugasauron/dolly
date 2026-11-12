@@ -1,0 +1,25 @@
+{
+  "hosts": [
+    "runtime",
+    "display",
+    "input"
+  ],
+  "packages": [
+    "core",
+    "display",
+    "zig"
+  ],
+  "directory": "/tmp/zig-package-test",
+  "steps": [
+    {
+      "why": "An image build installs the rows of a package's record first: zig names cc and holds none of it, and the image has both.",
+      "script": "test -x /usr/bin/zig && echo '#include <stdio.h>' > /tmp/hello.c && echo 'int main(void) { puts(\"HELLO\"); return 0; }' >> /tmp/hello.c && cc /tmp/hello.c -o /tmp/hello && test \"$(/tmp/hello)\" = HELLO",
+      "status": 0
+    },
+    {
+      "why": "cc is recorded before zig.",
+      "script": "names=; while read row path pin; do names=\"$names ${path##*Dollyfile-}\"; done < /etc/dolly/installed; test \"$names\" = ' core display cc zig'",
+      "status": 0
+    }
+  ]
+}

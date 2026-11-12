@@ -1,0 +1,60 @@
+{
+  "image": "system",
+  "hosts": [
+    "sockets"
+  ],
+  "packages": [
+    "libdolly-sockets"
+  ],
+  "directory": "/tmp/sockets-test",
+  "fixtures": {
+    "sockets.c": "test/fixtures/sockets.c"
+  },
+  "steps": [
+    {
+      "why": "A program asks for local stream sockets when it links, -ldolly-sockets, and then records sockets@0; test/fixtures/sockets.c names what each mode proves.",
+      "script": "cc -O1 sockets.c -ldolly-sockets -o /tmp/sockets",
+      "status": 0
+    },
+    {
+      "why": "A pair inherited through spawn carries bytes both ways.",
+      "script": "/tmp/sockets pair",
+      "status": 0
+    },
+    {
+      "why": "Network families, datagrams, abstract names and descriptor passing are refused by name.",
+      "script": "/tmp/sockets refuse",
+      "status": 0
+    },
+    {
+      "why": "A peer that exits or is killed is end of file to a waiting reader and EPIPE to a writer.",
+      "script": "/tmp/sockets peer",
+      "status": 0
+    },
+    {
+      "why": "SIGPIPE ends a writer whose peer is gone, unless it is ignored.",
+      "script": "/tmp/sockets sigpipe",
+      "status": 141
+    },
+    {
+      "why": "Two programs the shell starts, sharing no pipe, meet at a path.",
+      "script": "/tmp/sockets server /tmp/named.sock & /tmp/sockets client /tmp/named.sock && wait $!",
+      "status": 0
+    },
+    {
+      "why": "The server leaves its path behind: a dead listener refuses connections.",
+      "script": "/tmp/sockets stale /tmp/named.sock && test ! -e /tmp/named.sock && test ! -e /tmp/named.sock.moved",
+      "status": 0
+    },
+    { "script": "/tmp/sockets backlog /tmp/backlog.sock", "status": 0 },
+    {
+      "why": "One process can take every socket the kernel holds; exit, a trap (its Worker fails) and forced termination of a CPU loop each give them back.",
+      "script": "/tmp/sockets quota exit",
+      "status": 0
+    },
+    { "script": "/tmp/sockets quota trap 2> /dev/null", "status": 126 },
+    { "script": "/tmp/sockets quota exit", "status": 0 },
+    { "script": "timeout 1 /tmp/sockets quota spin", "status": 124 },
+    { "script": "/tmp/sockets quota exit", "status": 0 }
+  ]
+}

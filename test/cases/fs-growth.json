@@ -1,0 +1,27 @@
+{
+  "image": "system",
+  "directory": "/tmp/fs-growth",
+  "fixtures": {
+    "fs-growth.c": "test/fixtures/fs-growth.c"
+  },
+  "steps": [
+    {
+      "why": "Files live in kernel memory; test/fixtures/fs-growth.c grows one by appending or by setting its size, in MiB.",
+      "script": "cc -O2 fs-growth.c -o fs-growth",
+      "status": 0
+    },
+    { "script": "./fs-growth append under 2047 && test $(stat -c %s under) = 2146435072 && rm under", "status": 0 },
+    { "script": "./fs-growth size sized 3072 && test $(stat -c %s sized) = 3221225472 && rm sized", "status": 0 },
+    {
+      "why": "A growth past what memory can hold fails with ENOSPC (51, Dolly's errno), and the kernel and the shell carry on.",
+      "script": "./fs-growth size huge 9000",
+      "status": 51
+    },
+    { "script": "rm huge && ./fs-growth append full 16384", "status": 51 },
+    {
+      "why": "Appending needs no second copy of the file: it filled most of 8 GiB.",
+      "script": "test $(stat -c %s full) -gt 6442450944 && rm full && ./fs-growth append under 2047 && rm under",
+      "status": 0
+    }
+  ]
+}

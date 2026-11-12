@@ -4,17 +4,20 @@
 // reaches only the host modules it declares.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { browserTest, composed } from "./browser.mjs";
+import { browserTest, composed, runSteps } from "./browser.mjs";
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
+import defaultCases from "./cases/default.json" with { type: "json" };
+import ccCases from "./cases/cc-package.json" with { type: "json" };
+import zigCases from "./cases/zig-package.json" with { type: "json" };
 
 const recipe = inspectDollyfile(await readFile(new URL("../Dollyfile", import.meta.url), "utf8"));
 const welcome = recipe.files.find(({ path }) => path === "/home/dolly/.dollyrc").body;
 const published = (await readFile(new URL("../amy-index.txt", import.meta.url), "utf8")).split("\n").map(row => row.split(" ")[0]);
 
 const check = ({ submit, text }) => async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
-const hello = "echo '#include <stdio.h>' > /tmp/hello.c && echo 'int main(void) { puts(\"HELLO\"); return 0; }' >> /tmp/hello.c";
 
-await browserTest("default", {}, async ({ open }) => {
+// What the image holds is test/cases/default.json; its start-up text and modules are the page's.
+await browserTest("default", {}, async ({ server, open }) => {
   const session = await open();
   const run = check(session);
   // The entry prints the text once; a shell started later prints nothing.
@@ -22,38 +25,22 @@ await browserTest("default", {}, async ({ open }) => {
   assert.ok(installs.length > 0 && installs.every(name => published.includes(name)), `the text names ${installs}`);
   const first = /^echo '([^']+)'/m.exec(welcome)[1];
   assert.equal((await session.text()).split(first).length, 2, "the start-up text is on the first screen once");
-  await run("test \"$(slop -c 'echo nested')\" = nested");
   // The page enables what the recipe declares, no more (host-modules.test.mjs lists that).
   assert.deepEqual(await session.page.evaluate(() => [...__dolly.hostModules].sort()), recipe.hostRequirements.toSorted());
-  await run("mkdir /tmp/made && echo kept > /tmp/made/file && test \"$(grep -c kept /tmp/made/file | sed 's/1/one/')\" = one");
-  await run("curl --version > /dev/null && amy list | grep -q '^cc '");
-  // The image declares download@0 and upload@0; their commands must be in it.
-  await run("download --help | grep -q '^usage: download' && test -x /bin/upload && man download | grep -qi download");
-  for (const absent of ["cc --version", "make --version", "git --version"]) assert.equal(await session.submit(absent), 127, absent);
+  await runSteps(session.submit, server.origin, defaultCases);
 });
 
-// INSTALL cc on the base: C and C++ compile and run. The image declares no
-// http@0, so a program linked with the HTTP client is refused before it runs.
-// A FILE under /workspace, where ENTRY starts, is part of the image (Pi reads its AGENTS.md there).
-await browserTest("composed toolchain", {}, async ({ open }) => {
-  const session = await open(await composed(["runtime", "display", "input"], ["core", "display", "cc"],
+// INSTALL cc on the base (test/cases/cc-package.json). A FILE under /workspace, where ENTRY
+// starts, is part of the image (Pi reads its AGENTS.md there).
+await browserTest("composed toolchain", {}, async ({ server, open }) => {
+  const session = await open(await composed(ccCases.hosts, ccCases.packages,
     { files: { "/workspace/AGENTS.md": "Kept by the image." } }));
-  const run = check(session);
-  await run("test \"$(pwd)\" = /workspace && test \"$(cat AGENTS.md)\" = 'Kept by the image.'");
-  await run(`${hello} && cc /tmp/hello.c -o /tmp/hello && test "$(/tmp/hello)" = HELLO`);
-  await run("echo '#include <iostream>' > /tmp/hello.cpp && echo 'int main() { std::cout << 6 * 7; }' >> /tmp/hello.cpp && " +
-    "c++ /tmp/hello.cpp -o /tmp/hello++ && test \"$(/tmp/hello++)\" = 42");
-  await run("echo '#include <dolly/http.h>' > /tmp/http.c && echo 'int main(void) { dolly_http_response response = {0}; " +
-    "dolly_http_request request = {.method = \"GET\", .url = \"https://example.invalid/\", .headers = \"\"}; " +
-    "return dolly_http_perform(&request, &response) != 0; }' >> /tmp/http.c && cc /tmp/http.c -o /tmp/http");
-  // 126 is the refusal: had the program run, its failed request would be status 1.
-  assert.equal(await session.submit("/tmp/http"), 126);
+  await check(session)("test \"$(pwd)\" = /workspace && test \"$(cat AGENTS.md)\" = 'Kept by the image.'");
+  await runSteps(session.submit, server.origin, ccCases);
 });
 
-// An image build installs the rows of a package's record first: zig names cc
-// and holds none of it, and the composed image has both, cc recorded before zig.
-await browserTest("composed dependency", {}, async ({ open }) => {
-  const run = check(await open(await composed(["runtime", "display", "input"], ["core", "display", "zig"])));
-  await run(`test -x /usr/bin/zig && ${hello} && cc /tmp/hello.c -o /tmp/hello && test "$(/tmp/hello)" = HELLO`);
-  await run("names=; while read row path pin; do names=\"$names ${path##*Dollyfile-}\"; done < /etc/dolly/installed; test \"$names\" = ' core display cc zig'");
+// A package's recorded dependency (test/cases/zig-package.json).
+await browserTest("composed dependency", {}, async ({ server, open }) => {
+  const session = await open(await composed(zigCases.hosts, zigCases.packages));
+  await runSteps(session.submit, server.origin, zigCases);
 });
