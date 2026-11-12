@@ -16,7 +16,7 @@ import { runSideBySide } from "../test/side-by-side.mjs";
 
 const limit = 4;
 // classicube compares the game's pixels and failed one of four runs beside three others.
-const together = ["python", "rts", "bhop", "pi", "closed-source-agent", "codex", "javascript", "cmake", "tmux", "emacs", "neovim", "sdl2"];
+const together = ["python", "rts", "pi", "closed-source-agent", "codex", "javascript", "cmake", "tmux", "emacs", "neovim", "sdl2"];
 const window = "DISPLAY: a GPU window";
 const needs = new Map([
   ["godot/test/godot-gpu-browser.mjs", `${window} on a hardware adapter, in Chrome and the installed Firefox`],

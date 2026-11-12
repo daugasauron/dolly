@@ -4,7 +4,6 @@ Applications built on the core runtime and userspace. Each directory keeps its
 `Dollyfile-*` recipes, sources, `prepare-sources.sh` hook, tests and
 README. Demos may use each other; the core never uses a demo.
 
-- [bhop](bhop/README.md): Airtime's Foundry strafe course with an optional agent.
 - [classicube](classicube/README.md): ClassiCube block world with Pi agents.
 - [closed-source-agent](closed-source-agent/README.md): Claude Code, downloaded from npm into the session after a notice.
 - [cmake](cmake/README.md): CMake and libuv, a base for C/C++ ports.

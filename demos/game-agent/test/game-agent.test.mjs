@@ -25,7 +25,7 @@ test('supervisor exceptions survive cleanup in the saved exit reason', async t =
     },
   };
   const reason=await runAgent({fs:filesystem,spawn:()=>child,world:root,run,scratch,directory:profile,
-    app:{command:'bhop',connect:()=>()=>{},gameEnvironment:()=>({}),idlePrompt:'Try again'}});
+    app:{command:'game',connect:()=>()=>{},gameEnvironment:()=>({}),idlePrompt:'Try again'}});
   assert.equal(reason,'Supervisor error: command queue read failed');
   assert.deepEqual(errors,[reason]);
   assert.equal(fs.readFileSync(`${run}/result.txt`,'utf8'),reason+'\n');

@@ -13,7 +13,7 @@ test("QuickJS reaches only Pi-bearing images, through the janis package", async 
   assert.equal(recipeRecords(defaultGraph).some(({ name }) => name === "janis"), false);
   assert.equal(defaultGraph.exporters.has("HEADER:quickjs-runner"), false);
   assert.equal(defaultGraph.exporters.has("LIB:dolly-js"), false);
-  for (const [demo, image] of [["pi", "pi-agent"], ["bhop", "bhop"]]) {
+  for (const [demo, image] of [["pi", "pi-agent"]]) {
     const graph = await loadProjectGraph(`demos/${demo}/Dollyfile-${image}`);
     const names = recipeRecords(graph).map(({ name }) => name);
     for (const name of ["quickjs", "janis", "janis-install", "pi"]) assert.ok(names.includes(name), `${image}: ${name}`);
