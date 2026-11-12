@@ -14,7 +14,7 @@ REQUIRES HOST threads@0
 INSTALL /v0.1.6/Dollyfile-core a64f50b75a27a2701fd0dfe5576d51dbe8d2935c0d0e8d3246dbb79a7368dd47
 INSTALL /v0.1.6/Dollyfile-posix 469ea6b54a78b9737eb5378aadb9198068c27e621558938468588f0b0d574ebf
 INSTALL /v0.1.6/Dollyfile-display 0ac4795910e07e891278604f39ff54f6fe81c4347384b0a6d2470ba7d1dc5bdb
-INSTALL /v0.1.6/Dollyfile-amy f8c8e777c5b781d7da0d5ef02cd21b8c7bba1aa2bb6369bf9d8f42b08095a44a
+INSTALL /v0.1.6/Dollyfile-amy 9e2eafbce2cfb1abdf40c23239ac720bd4950c30958e09d5756e9ac83b0b8168
 INSTALL /v0.1.6/demos/javascript/Dollyfile-janis-install a3cda4cc5e1f705b7c857c8c9e8be53256984240eef8ae1bdb6101c4b9671f42
 INSTALL /v0.1.6/demos/closed-source-agent/Dollyfile-secretenv 4db2618a9c37735d73c6f524ba2fc0ad4466f3282553b550840d79f782427fbc
 INSTALL /v0.1.6/demos/closed-source-agent/Dollyfile-anykey 70f328bc1579b5e4b3141bee14435b848092186a7782d61a60b968cfa5d83975

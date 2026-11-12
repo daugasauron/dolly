@@ -23,8 +23,8 @@ INSTALL /v0.1.6/Dollyfile-git 5c3483cf0ad5dd4b89a4f6838b174178cb50c1088bb4d98549
 INSTALL /v0.1.6/Dollyfile-curl 24fb8c4a86fc84af77d1470e6685b66fae4d1bf08964a22d452c54f5bc904f1c
 # download and upload, which Pi's prompt teaches (transfer).
 INSTALL /v0.1.6/Dollyfile-transfer 18537911f1c05f4538a89276bb509c7b1af9444c9faae8adef94369065f0b18d
-INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly 42f6908a4ed24940e01f1ed213ed4d732b79d759a47440fe9d6e3a49b692fedc
-INSTALL /v0.1.6/Dollyfile-amy f8c8e777c5b781d7da0d5ef02cd21b8c7bba1aa2bb6369bf9d8f42b08095a44a
+INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly 1937257c0462cffa0338b90368bff3fd76e9fdab96a1adc7a94cc5c3f43090e1
+INSTALL /v0.1.6/Dollyfile-amy 9e2eafbce2cfb1abdf40c23239ac720bd4950c30958e09d5756e9ac83b0b8168
 # nena enables the host modules a package needs beyond these.
 INSTALL /v0.1.6/Dollyfile-nena 5589875174e91242cb7860fb958d2c44e2029d61c382a6f0d6608366722c1852
 INSTALL /v0.1.6/demos/neovim/Dollyfile-nvim 91bbbc4ab1337684808b46a4b6a8e148ee8c43207a8daefc74e5e1e031e26ffd
