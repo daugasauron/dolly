@@ -12,15 +12,13 @@ import { bootFiles } from "../host/runtime/boot-files.mjs";
 const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
 
 // Listen before the host registry loads its manifests: the page's configure
-// message may arrive while that import is still pending.
-const configured = new Promise((resolve, reject) => {
-  const timeout = setTimeout(
-    () => reject(new Error("Dolly boot configuration was not provided")), 10_000,
-  );
+// message may arrive while that import is still pending. The page starts this
+// Worker before its own host modules and configures it once they are up, which
+// a route that builds first takes minutes to be.
+const configured = new Promise(resolve => {
   self.addEventListener("message", function configure(event) {
     if (event.data?.type !== "configure") return;
     self.removeEventListener("message", configure);
-    clearTimeout(timeout);
     resolve(event.data);
   });
 });

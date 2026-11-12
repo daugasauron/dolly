@@ -45,13 +45,31 @@ threads; the source suite):
   canonical image again at the end, about 360 MB/s. On `fix/batch` the Worker checks each part
   against its pack's digest with WebCrypto, and the kernel hashes nothing on this path
   (`abi/dolly-image-0.wat`): the canonical digest is only in the image's own metadata, so the
-  second pass compared two fields of one file. To measure again after the round.
+  second pass compared two fields of one file. Measured again on the batch round's build
+  (2026-11-12 evening, Chrome, no added delay): a warm reload of pi-agent to ready, 2,050 ms on
+  main's build, 900 ms on the round's; its first visit 10.4 s and 4.7 s.
 - Finding 11, measured on release `0d27c879…` (9045) through a proxy that delays every response by
   50 ms, a fresh Chrome profile each run, `default`: 4,021, 4,028 and 4,391 ms to ready without
   preload links, 3,794, 3,809 and 4,122 ms with links to the 17 modules of `src/site.mjs`'s static
   graph (the proxy injected them). On `fix/batch` `generate-routes.mjs` writes those links into
   every route page (`{{DOLLY_PRELOAD}}` in `terminal.html`). The Worker's graph is its own
-  module map, which a page's preload does not fill.
+  module map, which a page's preload does not fill: Chrome 156 refuses `as="worker"` on a
+  modulepreload link and Firefox ignores it, and both fetch the Worker's modules again.
+- Found on the way, measured on `test/events` (`0a471165b`) through a proxy that holds every
+  request 50 ms, `default`, a warm reload (packs in OPFS), Chrome 156: the host providers loaded
+  one after another, on the page and again in the Worker, each with its own imports, about 900 ms
+  a side. `createHost` now starts every provider its modules and their dependencies need before
+  it attaches them in order (`host/modules.mjs`, `load`): 3,400 ms to ready with the preload
+  links, 2,033 ms with this too; the first visit 17.2 s, 10.3 s.
+- The page starts the runtime Worker once it has its route, before its host modules, and
+  configures it when they are up (`src/browser.mjs`); the Worker waits for that message without
+  the 10 s limit, which a rebuild's build exceeds. Same proxy, without preload links: Chrome
+  2,281 to 2,100 ms, Firefox 2,299 to 2,184 ms; first visits 11.5 to 10.6 s and 12.4 to 11.1 s.
+- Left, by the request log: the Worker's own graph is 6 import levels, about as long as the
+  page takes to configure it, and after `configure` it fetches the catalog and the 21 manifests
+  again (JSON modules, one module map a realm) and then its providers, 6 levels. A bundled Worker
+  graph, as `dist/dolly-process-worker.mjs` is, with the module list sent at its start, would
+  overlap those with the page: about 5 round trips of 21 on HTTP/2, by the log, not measured.
 Left: 2 (image contents, the owner's call per image).
 Measured: release 0.1.6 as served on `127.0.0.1:9045` (release `a73ad906…`, 211 images,
 catalog 2,056,929 B), Chrome 156, images default, pi-agent, bhop, neovim, python-data
