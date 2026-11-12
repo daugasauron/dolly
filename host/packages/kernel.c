@@ -106,6 +106,8 @@ static int64_t packages_fetch(int pid, const dolly_packages_request *request, co
   if (strcmp(destination, path) != 0) return -EBUSY;
   const uint32_t chunk = atomic_load(&mailbox.chunk);
   if (chunk == atomic_load(&mailbox.consumed)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
+  // A session's save lists the temporary file: its bytes and its rename wait.
+  if (dolly_kernel_change_waits(descriptor)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
   const uint32_t length = atomic_load(&mailbox.length);
   const uint32_t eof = atomic_load(&mailbox.eof);
   const uint32_t size = atomic_load(&mailbox.size);
