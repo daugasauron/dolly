@@ -21,7 +21,7 @@ Measured for 3 (2026-11-12, release `0d27c879…` on 9045, `default`'s Slop prom
 a keydown dispatched to the terminal, `__dolly.frame()` polled each millisecond until the display's
 frame changes; two image builds ran on the machine): median 25.8 ms, 8.6 to 39.4 ms over 20 keys
 (scratchpad `echo/echo.mjs`). The baseline an ordinary-program emulator must meet; on a quiet
-machine and with the real pointer path (`profiling-dolly-programs`) before deciding.
+machine and with real X key events and ffmpeg's x11grab of a headed Chrome before deciding.
 
 ## Found
 
