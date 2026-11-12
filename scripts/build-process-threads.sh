@@ -30,7 +30,7 @@ for source in libc-adapter runtime-adapter socket-refusals libc-stubs mmap time 
   emcc "${flags[@]}" "${internal[@]}" -c "src/process/$source.c" -o "$target/$source.o"
 done
 # libc's pthreads over threads@0 are the module's (host/threads/).
-emcc "${flags[@]}" "${internal[@]}" -Isrc/process -c host/threads/pthreads.c -o "$target/threads.o"
+emcc "${flags[@]}" "${internal[@]}" -c host/threads/pthreads.c -o "$target/threads.o"
 emcc "${flags[@]}" -c host/threads/pthreads-start.S -o "$target/threads-start.o"
 rm -f "$target/libdolly-process.a" "$target/libdolly-runtime.a"
 emar rcsD "$target/libdolly-process.a" "$target"/{libc-adapter,mmap,time,poll,signal,abort,threads,threads-start}.o
