@@ -32,6 +32,17 @@ engine as files the page verified (`host/runtime/runtime.mjs`, `env.dolly_build_
 Cost: `src/dollyfile.c`, the build Worker, `host/modules.mjs`, `docs/dollyfile.md` (`SOURCE`
 "downloads through the HTTP broker"); the seed is rebuilt, so every image is.
 
+Found (2026-11-12): the catalog's SOURCE rows are all site paths, which the catalog lists with
+size and digest (`staticSources`), so the build Worker can fetch them and hand them over as
+build inputs (`/etc/dolly/sources/SHA256`), and the recipe's text beside them. But a SOURCE row
+may be an external URL: `dolly-build init`'s template documents `SOURCE https://unpkg.com/…`,
+which goes through the broker under the page's HTTP policy today. Without the engine's client the
+Worker fetches those, under the same policy, which is http@0's page side: it needs the page's
+policy as a resource every provider and the build Worker receive, as R5 does
+(`20261104-143110-modules-r5`). Do the two together, in the next full round; the broker's
+"trusted bootstrap sources" exception (`host/http/policy.mjs`, `broker.mjs`, `bootstrapSources`)
+then goes, since nothing of the site passes the broker any more.
+
 ## Done when
 
 - A build reads every `SOURCE` from the page's verified inputs; `system-build` and the five
