@@ -69,7 +69,7 @@ int dolly_kernel_foreground(void) {
                                    memory_order_acquire);
 }
 
-int dolly_process_take_interrupt(void) {
+int dolly_kernel_take_interrupt(void) {
   const uint32_t sequence = atomic_load_explicit(
       &terminal_mailbox.interrupt_sequence, memory_order_acquire);
   if (sequence == consumed_interrupt_sequence) return 0;

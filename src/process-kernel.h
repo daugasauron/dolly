@@ -199,6 +199,9 @@ void dolly_terminal_publish_result(int status);
 void dolly_kernel_foreground_publish(int pid, unsigned interrupt);
 /* The terminal's foreground owner, or zero. */
 int dolly_kernel_foreground(void);
+/* The foreground process the page asked to interrupt (Ctrl-C) since the last
+ * call, or 0: the page's terminal mailbox (abi/dolly-supervisor-0.wat). */
+int dolly_kernel_take_interrupt(void);
 
 int dolly_process_descends_from(int pid, int ancestor_pid);
 void dolly_kernel_terminal_resized(void);

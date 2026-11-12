@@ -1,4 +1,8 @@
 // Generated from abi/dolly-supervisor-0.wat, abi/dolly-image-0.wat, abi/dolly-process-0.wat, abi/dolly-process-gate-0.wat, include/dolly/process.h.
+export const DOLLY_PROCESS_EVENT_LAUNCH = 1;
+export const DOLLY_PROCESS_EVENT_INTERRUPT = 2;
+export const DOLLY_PROCESS_EVENT_TERMINATE = 3;
+export const DOLLY_PROCESS_EVENT_WAKE = 4;
 export const DOLLY_TERMINAL_WORD_RESULT_SEQUENCE = 0;
 export const DOLLY_TERMINAL_WORD_RESULT_STATUS = 1;
 export const DOLLY_TERMINAL_WORD_FOREGROUND_PID = 2;

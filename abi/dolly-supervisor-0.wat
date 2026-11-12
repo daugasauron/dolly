@@ -36,9 +36,28 @@
   ;; Remaining wait from the last dispatch, or -1 for no finite timer.
   ;; This is a wakeup hint; retry dispatch to decide readiness in Wasm.
   (func $deferred_milliseconds (result f64) f64.const -1)
-  ;; 1 when a pipe changed since the last call, so deferred calls may now
-  ;; complete: retry them instead of waiting for the next service tick.
-  (func $take_wakeup (result i32) i32.const 0)
+  ;; The kernel decides what happens to processes; the host carries it out.
+  ;; next_event is the host's next task, kind << 48 | value << 32 | PID, or
+  ;; zero for none, asked after each dispatch, each Worker's ending and when
+  ;; service_milliseconds (the time until the kernel next has a signal's grace,
+  ;; a deadline or an alarm due; zero for now, -1 for nothing) has passed.
+  ;; LAUNCH: a spawned process's executable is open: prepare and start it.
+  ;; INTERRUPT: a signal (value) reached a running process: its blocked call
+  ;; returns EINTR, and an EXEC in progress is refused unless the signal is
+  ;; SIGWINCH. A process that has not taken a delivered signal (a handler, or
+  ;; its default action) within the grace is ended by it.
+  ;; TERMINATE: the kernel ended the process (a kill, a signal not taken in
+  ;; time, its deadline, a signal before it started): stop its Workers and
+  ;; retire it. A deadline ends its descendants by SIGKILL first, deepest
+  ;; first, then the process with status 124; a signal that ends a process
+  ;; reaches its descendants that do not have it yet.
+  ;; WAKE: a pipe, socket or lock changed: retry the deferred calls.
+  (func $next_event (result i64) i64.const 0)
+  (func $service_milliseconds (result f64) f64.const -1)
+  (global (export "DOLLY_PROCESS_EVENT_LAUNCH") i32 (i32.const 1))
+  (global (export "DOLLY_PROCESS_EVENT_INTERRUPT") i32 (i32.const 2))
+  (global (export "DOLLY_PROCESS_EVENT_TERMINATE") i32 (i32.const 3))
+  (global (export "DOLLY_PROCESS_EVENT_WAKE") i32 (i32.const 4))
   ;; The kernel opens the executable of a process to launch and shows its
   ;; bytes only when asked. image_version is the version of those bytes as
   ;; they are now, which every write of the file renews, or zero: a module
@@ -47,7 +66,6 @@
   ;; DOLLY_FS_BLOCK_SIZE bytes, the last short, each at image_block's address
   ;; (zero past the end): the kernel makes no copy. image_consumed closes
   ;; the executable.
-  (func $next_launch (result i32) i32.const 0)
   (func $image_version (param i32) (result i64) i64.const 0)
   (func $image_size (param i32) (result i64) i64.const 0)
   (func $image_block (param i32 i64) (result i64) i64.const 0)
@@ -64,24 +82,16 @@
   ;; 1 once the kernel recorded the process's exit, which an ancestor's EXIT
   ;; can do before the process launches, or when it is unknown; otherwise 0.
   (func $exited (param i32) (result i32) i32.const 0)
-  ;; A child becomes waitable only after its Worker references are retired.
+  ;; A child becomes waitable only after its Worker references are retired;
+  ;; an orphan, which nobody waits for, is reaped then. A process the host
+  ;; spawned is the host's to collect.
   (func $worker_retired (param i32) (result i32) i32.const 0)
   (func $spawn_flags (param i32) (result i32) i32.const 0)
-  ;; PID and signal: 0 once it is pending or has ended the process, 1 when
-  ;; the process ignores it and it is discarded, or a negated errno.
-  (func $signal (param i32 i32) (result i32) i32.const 0)
-  ;; Milliseconds until the spawn deadline, or -1 when none applies.
-  (func $deadline_remaining (param i32) (result f64) f64.const -1)
-  ;; The next signal raised for the supervisor to deliver as it delivers a
-  ;; kill, PID << 32 | signal, or zero: a due alarm no handler takes (handled
-  ;; ones only become pending, ignored ones nothing), and what a module raised,
-  ;; such as a pseudo-terminal's interrupt key, resize or hang-up.
-  (func $take_raised (result i64) i64.const 0)
   ;; EXEC read a program for a running process, whose image the image exports
   ;; then name. Once the supervisor has compiled and admitted it, commit makes
   ;; the process start it: state starting, the old program's CLOEXEC
   ;; descriptors and module state gone; the result is the lowest pending signal
-  ;; the new program must answer within the grace of a delivered one, or zero.
+  ;; the new program must answer within the grace once it starts, or zero.
   ;; Refused, or interrupted by a signal, the staged program is dropped and the
   ;; old one answered; the mailbox holds a diagnostic line of the given size
   ;; for the process's descriptor 2, or nothing.
@@ -89,9 +99,6 @@
   (func $exec_refused (param i32 i64) (result i32) i32.const 0)
   (func $collect (param i32) (result i32) i32.const 0)
   (func $parent (param i32) (result i32) i32.const 0)
-  ;; The signal that ended an exited process; zero when it exited, runs or is
-  ;; unknown.
-  (func $exit_signal (param i32) (result i32) i32.const 0)
   ;; The terminal mailbox, display or not: six atomic little-endian u32 words
   ;; (src/dolly.c mirrors them). Wasm writes result_sequence (incremented and
   ;; notified after each shell result), result_status, foreground_pid and
@@ -99,7 +106,7 @@
   ;; while it has ISIG set, so that key interrupts the foreground rather than
   ;; reaching it as input; 0 when nothing interrupts). The page asks
   ;; for that interrupt by writing interrupt_target_pid, then incrementing
-  ;; interrupt_sequence.
+  ;; interrupt_sequence; the kernel takes it at its next event.
   (global (export "DOLLY_TERMINAL_WORD_RESULT_SEQUENCE") i32 (i32.const 0))
   (global (export "DOLLY_TERMINAL_WORD_RESULT_STATUS") i32 (i32.const 1))
   (global (export "DOLLY_TERMINAL_WORD_FOREGROUND_PID") i32 (i32.const 2))
@@ -109,9 +116,6 @@
   ;; A file's bytes lie in blocks of this size (src/file-blocks.cpp kBlockSize).
   (global (export "DOLLY_FS_BLOCK_SIZE") i32 (i32.const 1048576))
   (func $terminal_mailbox_address (result i64) i64.const 0)
-  ;; Consume the page's latest interrupt request: the targeted PID when it is
-  ;; still the interruptible foreground owner, otherwise zero.
-  (func $take_interrupt (result i32) i32.const 0)
 
   ;; Boot files, beside dolly_write_file (abi/dolly-image-0.wat): the Worker
   ;; reads a guest-writable file only through this bound. Path, buffer and
@@ -124,8 +128,8 @@
   (export "dolly_process_worker_mailbox" (func $worker_mailbox))
   (export "dolly_process_dispatch" (func $dispatch))
   (export "dolly_process_deferred_milliseconds" (func $deferred_milliseconds))
-  (export "dolly_process_take_wakeup" (func $take_wakeup))
-  (export "dolly_process_next_launch" (func $next_launch))
+  (export "dolly_process_next_event" (func $next_event))
+  (export "dolly_process_service_milliseconds" (func $service_milliseconds))
   (export "dolly_process_image_version" (func $image_version))
   (export "dolly_process_image_size" (func $image_size))
   (export "dolly_process_image_block" (func $image_block))
@@ -136,16 +140,11 @@
   (export "dolly_process_exited" (func $exited))
   (export "dolly_process_worker_retired" (func $worker_retired))
   (export "dolly_process_spawn_flags" (func $spawn_flags))
-  (export "dolly_process_signal" (func $signal))
-  (export "dolly_process_deadline_remaining" (func $deadline_remaining))
-  (export "dolly_process_take_raised" (func $take_raised))
   (export "dolly_process_exec_commit" (func $exec_commit))
   (export "dolly_process_exec_refused" (func $exec_refused))
   (export "dolly_process_collect" (func $collect))
   (export "dolly_process_parent" (func $parent))
-  (export "dolly_process_exit_signal" (func $exit_signal))
   (export "dolly_terminal_mailbox_address" (func $terminal_mailbox_address))
-  (export "dolly_process_take_interrupt" (func $take_interrupt))
 
   ;; A device leased per process (gpu@0, audio@0, microphone@0, nena@0): a
   ;; process calls the device's operation with a packet, a
