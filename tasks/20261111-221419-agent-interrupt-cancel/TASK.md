@@ -66,6 +66,8 @@ the default image with the test's server holding the response open until it clos
 - The same with the harness's own steps: `clear_queue` before `abort`, `--session FILE`,
   `--no-prompt-templates`, and both Pis spawned with pipes by a Janis program that writes the
   RPC lines to `child.stdin`, as `mission.mjs` does: player 1's response closes at the abort.
+- And with saves of 1.1 s every 500 ms (the probes' cost here is 1.5 s) while a program rewrites
+  a file throughout, as the game its frames (`8476baa7f` holds such calls during a save).
 
 So the HTTP client, the kernel's cancel and the broker work for a Pi that aborts. What the
 failing case still adds: the `player.js` extension (`--no-extensions --extension`, `--tools
