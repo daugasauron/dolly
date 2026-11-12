@@ -33,6 +33,8 @@ Re-checked 2026-11-12 on `round/batch-1112` (the groups of
   16 (deadline helpers in display, input and touch clients), 18 (download and upload path
   requests), 20 (`write_all` in cat, gzip, slop), 29 (`createHash("sha256")` in 42 scripts and
   tests).
+- S5 and M2 unchanged: `src/slop.c` includes `commands/echo.c`, `printf.c` and `test.c` (lines
+  26-28) and is 5,911 lines in one file; both are seed work.
 
 ## Do
 
