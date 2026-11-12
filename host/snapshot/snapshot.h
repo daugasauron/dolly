@@ -3,12 +3,8 @@
 #include <stdatomic.h>
 
 /* Opaque session transfer, serviced by the kernel. This is the mailbox C
- * layout of dolly-snapshot-0.wat (its sizes and word order), not a process
- * API for invoking kernel functions. */
-enum {
-  DOLLY_SESSION_MAILBOX_HEADER_SIZE = 64,
-  DOLLY_SESSION_TRANSFER_CAPACITY = 1024 * 1024,
-};
+ * layout of dolly-snapshot-0.wat, whose sizes and words kernel.c checks it
+ * against, not a process API for invoking kernel functions. */
 typedef struct {
   _Atomic uint32_t request_sequence, completed_sequence, status;
   _Atomic uint32_t chunk_sequence, chunk_consumed_sequence, chunk_length, chunk_eof;

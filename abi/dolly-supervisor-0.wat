@@ -17,6 +17,11 @@
   ;; Runs the kernel's constructors: once, after instantiation, before any
   ;; other export.
   (func (export "_initialize"))
+  ;; Kernel memory the host fills or reads: a thread's mailbox (the process
+  ;; contract's packet limit), a line for the terminal, a boot file's bytes.
+  ;; malloc gives 16-byte-aligned bytes or zero; free returns them.
+  (func (export "malloc") (param i64) (result i64) i64.const 0)
+  (func (export "free") (param i64))
   ;; The supervisor's mailbox holds DOLLY_PROCESS_PACKET_LIMIT bytes (process.h)
   ;; for its own packets: spawn_serialized, worker_failed and exec_refused.
   (func $mailbox_address (result i64) i64.const 0)

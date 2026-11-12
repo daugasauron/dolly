@@ -12,7 +12,7 @@
   ;; chunk_consumed_sequence, and the kernel ends the request with status
   ;; and completed_sequence (notified). The page writes cancelled_sequence
   ;; to abandon a request.
-  (global (export "DOLLY_SESSION_HEADER_SIZE") i32 (i32.const 64))
+  (global (export "DOLLY_SESSION_MAILBOX_HEADER_SIZE") i32 (i32.const 64))
   (global (export "DOLLY_SESSION_TRANSFER_CAPACITY") i32 (i32.const 1048576))
   (global (export "DOLLY_SESSION_WORD_REQUEST_SEQUENCE") i32 (i32.const 0))
   (global (export "DOLLY_SESSION_WORD_COMPLETED_SEQUENCE") i32 (i32.const 1))
