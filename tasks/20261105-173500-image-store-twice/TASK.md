@@ -1,7 +1,7 @@
 # A page's origin-private storage holds every image it reads twice
 
 - STATUS: OPEN
-- PRIORITY: 200
+- PRIORITY: 100
 - TAGS: browser,performance
 
 The pack store (`src/pack-store.mjs`, `b3faca044`) keeps an image's packs as they are
@@ -50,6 +50,17 @@ base's decoded payload from the cache ("a second build reads its cached payload 
 iteration loop's speed. Each costs a merge of the kept packs per build instead (gzip and the
 record merge of, for `system`, its whole snapshot); measure that against the cached read before
 choosing.
+
+## Measured (2026-11-12)
+
+`work/merge-cost.mjs` in the root: `default`'s snapshot (12.1 MiB, 4 packs), merged from kept
+packs by `packagedSystemSnapshot` against the same bytes read back from an origin-private file:
+Chromium 159 ms (76 MiB/s) against 4 ms (3,022 MiB/s); Firefox 198 ms (61 MiB/s) against 9 ms
+(1,343 MiB/s). For `system`'s snapshot, about 1.6 GiB, a merge per build would be about 25 s
+where the cache reads it in under one. Decided: the build keeps its decoded copy; the second copy
+is the iteration loop's speed. What still halves the storage without that cost: after a build,
+the packs of the images the cache now holds are not kept (a normal start of one of them
+downloads them again, which a build image rarely has). Lowered to 100.
 
 Done when an image read once occupies its snapshot's size (within the packs' framing), it
 starts again without a download, and the image, session and acceptance browser tests pass
