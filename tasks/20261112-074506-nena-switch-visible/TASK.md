@@ -1,6 +1,6 @@
 # A nena switch is shown on the page; the microphone needs a click in each session
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 260
 - TAGS: nena,security,microphone,gpu,ux,audit
 
@@ -9,7 +9,12 @@ don't ask"): the owner's "freely configure" (2026-10-13) stands, and the user se
 
 ## State (2026-11-12)
 
-Filed.
+Done on `fix/batch` (`9aaed3b15`): the page's status line says each switch ("This session
+enabled microphone@0."), a microphone a session enabled itself captures only after Allow on the
+page, once a session (`host/microphone/microphone.mjs`, `switched`), and
+`docs/browser-boundary.md` says that a nena image, a custom image, a build and a session have
+every module, a switch bounded only by each module's row, the browser's prompts and the HTTP
+policy. A microphone the recipe declares asks only the browser: the user opened that image.
 
 ## Found
 
@@ -30,3 +35,9 @@ origin any program in `default` can capture with no prompt.
 
 `test/nena-browser.mjs` sees the line for a switch and a microphone OPEN that waits for the click
 (Chromium, Firefox).
+
+## Closed (2026-11-12)
+
+The batch round (`round/batch-1112` at `0400fa2cc`): `test/nena-browser.mjs` sees the status line
+and the alert, clicks Allow and then captures, in Chromium (37.3 s) and Firefox (41.1 s)
+(`work/modular/build/round-1112b-evidence/browser.log`).
