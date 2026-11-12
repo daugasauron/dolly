@@ -31,6 +31,24 @@ response (`interrupt cancels only the selected player`). It passed on 2026-11-08
   programs allocate with mimalloc" (`-pthread` links take `libmimalloc-mt`). Pi's runtime and
   NetSurf are threaded programs. Not measured yet.
 
+## Measured (2026-11-12)
+
+On the release served at 127.0.0.1:9045 (`a73ad906…`, main of 06:55), Chrome headless, the
+`default` image with `amy install pi`, against a local server streaming chat-completion chunks
+(scripts in the session's scratchpad, `weakref/sdk.mjs`):
+- Pi's own `openai` 7.19.0 in janis, `controller.abort()` mid-stream: the server's response
+  closes at the abort. Two janis processes streaming at once, one aborting at 2.5 s: that one
+  closes at 2.7 s, the other runs on to its own abort.
+- `pi --mode rpc --provider local` driven as the game agent drives it (`prompt`, then `abort`
+  4 s later): `message_end`, `turn_end`, `agent_end`, `agent_settled`, the abort's response, and
+  the server's response closes at the abort.
+- So janis's fetch, the SDK (whose caller signal reaches the fetch through `AbortSignal.any`),
+  the kernel and the broker cancel a running program's request. QuickJS keeps a WeakRef whose
+  target a live WeakMap holds (a first probe that let its WeakMap go was wrong, not janis).
+- Not reproduced: what differs in the ClassiCube test (the game's two players, its provider).
+  The batch round's demo suite (`round/batch-1112`) runs it again on the new seed; next, if it
+  still fails, log the guest's `httpCancel` calls and the kernel's answers in that test.
+
 ## Next
 
 Bisect between 2026-11-08 and the round: the runtime Pi's JavaScript runs on, the HTTP client
