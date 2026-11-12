@@ -19,7 +19,11 @@ On `fix/batch`:
   `recipe.rows` beside it, which the catalog build writes with the one parser, so a host
   rebuilds catalog images without parsing; no second parser in Rust. Only if a host must build
   from text a person writes does the parser move to C in the engine, the page then using it too.
-  Next: the rows files, their digest in the catalog record, and `abi/README.md`.
+  On `fix/catalog-rows`: `generate-routes.mjs` writes `dist/rows/SHA256.rows` for every catalog
+  recipe and `abi/README.md` names them; the Pages release does not carry them yet (its file
+  count, `20261105-005808-pages-files`). Donna rebuilt `core`, `zlib` and, from the seed, `system-build`
+  from them (`donna build --images`, the rows `test/events`' recipes give): byte for byte the
+  published images (`ec862854…`, `e2203801…`, `a4117c4a…`).
 - 2 is done (`report_unkept` at sealing, `src/dollyfile.c`); it prints in the pip case once the
   round runs.
 - 4 is in `docs/dollyfile.md`: INSTALL's and FROM's meaning by role in the table, and the

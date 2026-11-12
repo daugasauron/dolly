@@ -73,9 +73,15 @@ exports of [`dolly-image-0.wat`](dolly-image-0.wat):
   runtime with its `buildId` as image build ID.
 - `dist/dolly-images.json`, the catalog: each record's `image`, `role`, `entry`,
   `dollyfile` with its `byteLength` and `sha256`, `artifacts` (the recipe's
-  `FROM`, `INSTALL`, `USE` and `COPY` rows), `hostRequirements` and
+  `FROM`, `INSTALL`, `USE` and `COPY` rows, each its `operation` in lower case,
+  the input's `image`, its recipe's `location` and `sha256`, the row's `line`,
+  and `source` and `destination` paths, `/` but for a `COPY`; a host follows
+  `install` rows through the inputs' own records), `hostRequirements` and
   `recipesSha256`, the SHA-256 of one line `SHA256 BYTES PATH` per recipe of its
   build.
+- `dist/rows/SHA256.rows`, a catalog recipe's `recipe.rows` by the recipe's
+  `sha256` ([Dollyfile](../docs/dollyfile.md)): what a host writes for a build of
+  that image, made by the page's one parser.
 - `dist/dolly-IMAGE-system-snapshot.json`, an image's metadata, format 2: a
   reader checks `image`, `buildId`, `formatVersion` and `identityVersion` (2),
   that `recipes` digests to the catalog's `recipesSha256`, that
