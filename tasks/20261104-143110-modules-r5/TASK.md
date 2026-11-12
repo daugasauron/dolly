@@ -32,6 +32,27 @@ every image that installs it (`default`, `tmux-panes`, `ghostty-x11`, `x11-deskt
 
 Cost: a module contract, the client in the seed, amy, `default` and the images with amy; a round.
 
+## State (2026-11-12, evening): the channel for the page's own directory
+
+On `fix/packages-channel` (from main): packages@0 has a mailbox of its own,
+`host/packages/dolly-packages-0.wat` (process operation 134), as upload@0 has. amy's one
+operation, `dolly_packages_fetch(kind, directory, pin, destination)` (`client.c`), names the page's
+directory, a directory's `amy-index.txt` or a package snapshot by directory and pin, and a
+destination that must not exist; the kernel (`kernel.c`) writes each chunk into a temporary file
+and renames it at the end; the runtime Worker (`transport.mjs`) answers from the page's own
+directory, the snapshot from `worker.mjs` as before, 64 per page, and refuses another directory
+(`EACCES`). amy (`src/commands/amy.c`) uses it for the page's own directory and keeps HTTP for
+`amy server URL`. The header and client are in the seed (amy is a core source), so the seed and
+every image's inputs change: checked on default and its closure built on that seed in the root,
+with less and jq: `amy server`, `list`, `info`, `install less` and `files` in Chromium and Firefox,
+with no request through http@0's broker (`work/packages-check.mjs`); the source suite passes.
+On merging into the round: `dolly_kernel_change_waits(descriptor)` before the chunk write, as
+upload's has there (main lacks it).
+Left: the page's HTTP policy as a page resource, so a foreign directory comes over the channel
+too, judged by it, with its packs not kept; then `amy` declares `packages@0` alone, `default`
+drops `curl` and `http@0`, and `http@0` stops being fixed; amy-browser in both browsers on a full
+round.
+
 ## Done when
 
 - The owner has decided whether `default` keeps `http@0`. If not: `amy` declares `packages@0`
