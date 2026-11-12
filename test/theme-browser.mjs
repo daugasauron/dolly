@@ -46,6 +46,17 @@ await browserTest("theme", { image: "system", timeout: 300_000 }, async ({ open 
     assert.deepEqual(await terminalColors(page), { background, text, cursor: accent,
       colors: [background, text, text, accent, text, text, text, text, dim, text, text, accent, text, text, text, text] });
     assert.equal(await shownInside(page, "#display"), background);
+    // A program's colours over the page's (OSC 11, the background) until it restores them (OSC 111).
+    for (const [sequence, expected] of [["\\033]11;#102030\\007", "#102030"], ["\\033]111\\007", background]]) {
+      assert.equal(await submit(`printf '${sequence}'`), 0);
+      assert.equal(await page.evaluate(async expected => {
+        for (const deadline = Date.now() + 5000; ; await new Promise(resolve => setTimeout(resolve, 20))) {
+          const { data } = await __dolly.frame();
+          const corner = `#${[...data.subarray(0, 3)].map(channel => channel.toString(16).padStart(2, "0")).join("")}`;
+          if (corner === expected || Date.now() > deadline) return corner;
+        }
+      }, expected), expected);
+    }
     await page.close();
   }
 

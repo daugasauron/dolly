@@ -210,7 +210,8 @@ static bool suspended;
 static bool frame_dirty;
 static GhosttyKittyGraphicsPlacementIterator placements;
 
-// The page's colours (set_palette); the 240 beyond the 16 are Ghostty's.
+// The colours drawn: the page's (set_palette), the 240 beyond the 16 Ghostty's, or what a
+// program set over them (render_frame).
 static GhosttyColorRgb background;
 static GhosttyColorRgb foreground;
 static GhosttyColorRgb cursor_color;
@@ -673,6 +674,12 @@ static void render_frame(void) {
   const bool viewport_at_bottom = scrollbar.offset >= scrollbar.total ||
       scrollbar.len >= scrollbar.total - scrollbar.offset;
   cursor_visible = cursor_visible && viewport_at_bottom;
+  // The colours a program set (OSC 4, 10, 11 and 12) over the page's, which are the
+  // terminal's defaults (set_palette) and what OSC 104 and 110 to 112 restore.
+  (void)ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_COLOR_FOREGROUND, &foreground);
+  (void)ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_COLOR_BACKGROUND, &background);
+  (void)ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_COLOR_CURSOR, &cursor_color);
+  (void)ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_COLOR_PALETTE, terminal_palette);
 
   GhosttySelection selection = {0};
   const bool has_selection = ghostty_terminal_get(
