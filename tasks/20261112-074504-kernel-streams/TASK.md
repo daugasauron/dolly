@@ -8,7 +8,15 @@ From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, K1, K2).
 
 ## State (2026-11-12)
 
-Filed.
+On `fix/streams` (b7f90f722, from the events test branch): a pipe is a stream kind, two ends
+(`dolly_kernel_socket`) over one ring, whose descriptor counts are its readers and writers; the
+process table loses `pipes[]` and `pipe_directions[]`, and reads, writes, polls, flags and fstat
+lose their pipe branches. A stream kind states its access (`FD_GET_FLAGS`). console@0's pipes are
+kernel pipes whose host ends it holds (`dolly_kernel_pipe_open`, `dolly_kernel_socket_release`),
+about 80 lines fewer in console. To test with the events branch in work/events, then land with it.
+Left: the descriptor record (the remaining parallel arrays: file, stream, directory, description,
+flags, terminal) and 2, the display's terminal as a pseudo-terminal, which removes the terminal
+branches; 3's latency measurement before any of 2.
 
 ## Found
 
