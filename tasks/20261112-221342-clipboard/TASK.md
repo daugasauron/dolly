@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 370
-- TAGS: input,clipboard,godot,photocraft,owner
+- TAGS: input,clipboard,godot,photocraft,owner,0.1.6
 
 Owner (2026-11-13): "Also I want copy/paste to work in godot. Copy/paste should work in photcraft
 as well."

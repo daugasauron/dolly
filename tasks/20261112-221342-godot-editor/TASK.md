@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 390
-- TAGS: godot,editor,gpu,owner
+- TAGS: godot,editor,gpu,owner,0.1.6
 
 Owner (2026-11-13): "For both airtime and the other godot game, when I Ctrl+C the games and open
 them in godot editor, I don't see anything. I don't know how godot works at all so might be my

@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 300
-- TAGS: kernel,architecture,terminal,audit
+- TAGS: kernel,architecture,terminal,audit,0.1.6
 
 From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, K1, K2).
 

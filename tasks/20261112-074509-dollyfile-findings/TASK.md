@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 260
-- TAGS: dollyfile,syntax,donna,docs,audit
+- TAGS: dollyfile,syntax,donna,docs,audit,0.1.6
 
 From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, D1-D4).
 

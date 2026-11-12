@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 240
-- TAGS: host-modules,security,docs,browser-boundary,audit
+- TAGS: host-modules,security,docs,browser-boundary,audit,0.1.6
 
 From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, S4, S6, S7, S8, section 6 items 1-3, 2026-11-07 F15).
 

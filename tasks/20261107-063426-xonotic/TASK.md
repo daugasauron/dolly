@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 400
-- TAGS: demo,gpu,bug
+- TAGS: demo,gpu,bug,0.1.6
 
 Owner (2026-11-07): "I just tested xonotic on the deploy and the graphics in game are completely
 broken, create a task to fix that too." Not yet recorded: the browser and system, the domain,

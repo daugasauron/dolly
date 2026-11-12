@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 200
-- TAGS: kernel,lifecycle,signals,audit
+- TAGS: kernel,lifecycle,signals,audit,0.1.6
 
 From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, K3, K4).
 

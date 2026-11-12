@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 150
-- TAGS: architecture,core,hygiene,audit
+- TAGS: architecture,core,hygiene,audit,0.1.6
 
 From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, A6, A7; 2026-11-07 S1, S3, S4, standing).
 

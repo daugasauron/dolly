@@ -176,4 +176,5 @@ water, Water in Slopyard
 wine, The Wine demo
 workflow, A sequence of steps a user repeats
 world, The Slopyard world as a whole
+x11, The X server, its desktop image and programs on it
 zig, The Zig toolchain
