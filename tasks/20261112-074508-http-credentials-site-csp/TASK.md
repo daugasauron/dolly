@@ -1,6 +1,6 @@
 # HTTP: a hardened rule names the headers that may leave; the public site sends a Content-Security-Policy
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: http,security,site,audit,0.1.6
 
@@ -29,3 +29,12 @@ Firefox against the checkout. Tests whose rules sent other headers name them now
 
 `test/http-policy.test.mjs` covers an unlisted credential header under a hardened rule, and the
 site's routes boot under the header with zero violations (`test/csp-browser.mjs` against a release).
+
+## Closed (2026-11-13)
+
+Both on main (`2b8036055`). `test/http-policy.test.mjs` ("a hardened rule lets through only the
+credential headers it names") passes in the source suite of the batch round. The release 0.1.6
+packaged from main (`973b3ad4…`), served by main's `scripts/serve.mjs` on 127.0.0.1:9045, sends the
+site's policy on every route; the menu, `default/`, `sessions/`, `view/default/`, `licences/`,
+`python-data/` and `godot-airtime/` each reach their ready state in Chrome and Firefox with no
+violation reported (`securitypolicyviolation` and the console, Workers included).
