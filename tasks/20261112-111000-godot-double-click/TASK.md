@@ -11,6 +11,13 @@ clicks 90 ms apart, Chrome) selects the file and does not open it; Enter opens i
 setting `double_click`, which the dock (and every Godot control that acts on a double click)
 reads.
 
+## State (2026-11-12)
+
+On `fix/batch`: `read_pointer` marks a second press of the same button within 400 ms and 5 pixels
+`double_click`, as `DisplayServerX11` does (syntax-checked with Dolly's clang against Godot
+4.7.2's headers). Godot builds with it in the batch round. Left: the dock opening a file on a real
+double click, in Chrome and Firefox.
+
 ## Do
 
 Set `double_click` as Godot's other platforms do: the second press of the same button within the
