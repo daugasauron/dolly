@@ -22,7 +22,19 @@ const configured = new Promise(resolve => {
     resolve(event.data);
   });
 });
-const { hostRegistry } = await import("../host/modules.mjs");
+// The page names its image directory and modules as it starts this Worker: their catalog,
+// manifests and providers load while the page starts its own, and configure finds them loaded.
+const registry = import("../host/modules.mjs");
+self.addEventListener("message", function prepare(event) {
+  if (event.data?.type !== "prepare") return;
+  self.removeEventListener("message", prepare);
+  const { images, modules, hostModules } = event.data;
+  void (async () => {
+    await loadImages(images);
+    (await (await registry).hostRegistry(modules)).load(hostModules);
+  })().catch(() => {});
+});
+const { hostRegistry } = await registry;
 
 // The runtime's own files: the kernel and the contracts beside this module.
 const runtimeBase = new URL("../", import.meta.url);

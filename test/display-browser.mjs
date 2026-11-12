@@ -13,7 +13,7 @@ await browserTest("display", { image: "system", server }, async ({ server, open 
   const { page, submit, text, waitForText, waitForSelection } = await open({
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   const dataset = () => page.evaluate(() => ({ ...document.documentElement.dataset }));
-  const runtime = page.workers().find(worker => worker.url().endsWith("/src/runtime-worker.mjs"));
+  const runtime = page.workers().find(worker => worker.url().endsWith("/dist/dolly-runtime-worker.mjs"));
   await runtime.evaluate(() => {
     const request = requestAnimationFrame.bind(self);
     self.animationFrameRequests = 0;

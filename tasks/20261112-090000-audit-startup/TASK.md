@@ -65,11 +65,12 @@ threads; the source suite):
   configures it when they are up (`src/browser.mjs`); the Worker waits for that message without
   the 10 s limit, which a rebuild's build exceeds. Same proxy, without preload links: Chrome
   2,281 to 2,100 ms, Firefox 2,299 to 2,184 ms; first visits 11.5 to 10.6 s and 12.4 to 11.1 s.
-- Left, by the request log: the Worker's own graph is 6 import levels, about as long as the
-  page takes to configure it, and after `configure` it fetches the catalog and the 21 manifests
-  again (JSON modules, one module map a realm) and then its providers, 6 levels. A bundled Worker
-  graph, as `dist/dolly-process-worker.mjs` is, with the module list sent at its start, would
-  overlap those with the page: about 5 round trips of 21 on HTTP/2, by the log, not measured.
+- The runtime Worker is one file, `dist/dolly-runtime-worker.mjs` (`scripts/bundle-process-worker.mjs`
+  bundles `src/runtime-worker.mjs`), and the page's first message to it, `prepare`, names the image
+  directory and the modules, so the catalog, the manifests and the providers load while the page
+  starts its own (`hostRegistry`'s `load`). Same proxy, the batch round's build with its preload
+  links: Chrome 1,833 to 1,684 ms, Firefox 1,717 ms; `prepare` alone 1,816 ms, since the Worker's
+  6 import levels end about when the page configures it. On `fix/worker-bundle`.
 Left: 2 (image contents, the owner's call per image).
 Measured: release 0.1.6 as served on `127.0.0.1:9045` (release `a73ad906…`, 211 images,
 catalog 2,056,929 B), Chrome 156, images default, pi-agent, bhop, neovim, python-data
