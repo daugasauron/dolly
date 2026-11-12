@@ -25,6 +25,7 @@ checkpoint, A verified state of the tree and its images, kept to return to
 chromium, Chromium's or Chrome's behaviour that Dolly meets
 classicube, The ClassiCube demo
 cleanup, Remove unused code or reduce maintenance
+clipboard, Copying and pasting between a program and the browser
 cloudflare, The domain's host
 codex, The Codex agent and its build
 combat, Fighting in Slopyard
@@ -112,6 +113,7 @@ page, The Dolly pages a visitor sees
 performance, Measured speed
 persistence, Saving and restoring user state
 phone, The phone image
+photocraft, The PhotoCraft port
 physics, Slopyard's simulation
 pi, The Pi agent
 pi-local, Pi on a locally run model
@@ -150,6 +152,7 @@ snapshots, Image and session snapshots: building, capturing and restoring them
 sockets, Local stream sockets
 speech, Speech to text
 stack, stack@0 and stack-wrap: recursion deeper than one browser stack
+startup,The start of an image in a page: what it fetches and how long it takes
 studio, Dollyfile Studio
 syntax, The spelling of a recipe line
 teams, The two sides of a Slopyard world
@@ -174,4 +177,3 @@ wine, The Wine demo
 workflow, A sequence of steps a user repeats
 world, The Slopyard world as a whole
 zig, The Zig toolchain
-startup,The start of an image in a page: what it fetches and how long it takes
