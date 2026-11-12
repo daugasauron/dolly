@@ -20,7 +20,7 @@ INSTALL /v0.1.6/Dollyfile-transfer 420ed424bcd0127a54789d4958d128b40fc0a679bd202
 # cc and raylib build the game again, as .dollyrc says.
 INSTALL /v0.1.6/Dollyfile-cc a6f96b01bf8368add739d79a57ed2829615fcfb85461b50bb28c02bede8e6b6a
 INSTALL /v0.1.6/demos/slopyard/Dollyfile-raylib e1219bb70fac16b066f428f501a12c64b628475c9d55c9ea85d9ce24eabca4c6
-INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly db63943ae6ed39a0e2e90612a8547368fe759d98e58986f3b323253f47857720
+INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly af6e7529a79ab347c105f20595a68af6ab191b33b0f69b5f6ce78f315752edfb
 INSTALL /v0.1.6/demos/bhop/Dollyfile-airtime 66a734df2ad527f6bcb52df13959103246605053574bebd2a0ddf8fb7697abfb
 REQUIRES TOOL pi
 REQUIRES TOOL bhop-agent
