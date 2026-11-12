@@ -40,7 +40,14 @@ async function frame(page) {
   if (gpu) {
     const size = await page.evaluate(() => __dolly.gpu.active && `${__dolly.gpu.width}x${__dolly.gpu.height}`);
     if (size !== "1024x768") return null;
-    const png = (await page.screenshot({ clip: await page.locator("#display").boundingBox() })).toString("base64");
+    // The frame's own box: the GPU canvas's may be of another shape, the frame centred in it.
+    const clip = await page.evaluate(() => {
+      const bounds = document.querySelector("#gpu-display").getBoundingClientRect();
+      const scale = Math.min(bounds.width / 1024, bounds.height / 768);
+      return { x: bounds.left + (bounds.width - 1024 * scale) / 2, y: bounds.top + (bounds.height - 768 * scale) / 2,
+        width: 1024 * scale, height: 768 * scale };
+    });
+    const png = (await page.screenshot({ clip })).toString("base64");
     return page.evaluate(async png => {
       const bitmap = await createImageBitmap(new Blob([Uint8Array.from(atob(png), c => c.charCodeAt(0))], { type: "image/png" }));
       const canvas = new OffscreenCanvas(1024, 768), context = canvas.getContext("2d");

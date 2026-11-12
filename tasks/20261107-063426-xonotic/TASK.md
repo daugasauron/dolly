@@ -46,9 +46,11 @@ application's client, data, shaders and settings copied in
   walls missing 0.665 but with `no WGSL` lines). That block alone passed in Chrome on `gpu@0`
   (lit 0.640, `work/xonotic-repro/ultimate-only.mjs`). The whole test, on the same images, stopped
   earlier, at "the screenshot is a frame the page showed": the menu frames after the screenshot
-  match it in the centre (1.2) but not along the top (4.9, the bound is 3). No change here touches
-  the low preset's frames; the batch round of 2026-11-12 runs the test on its own images, without
-  these changes, which says whether it fails there too.
+  match it in the centre (1.2) but not along the top (4.9, the bound is 3). The test cropped its
+  page screenshot to `#display`'s box, of another shape than the frame, which the GPU canvas
+  centres in it (`object-fit: contain`): the edge columns held letterbox. Cropped to the frame's
+  own box, the whole test passed in Chrome on `gpu@0` in 551.7 s (top 0.1; the ultimate preset's
+  frame lit 0.459; `build/xonotic-presets-test2.log` in the root).
 - Firefox here loses the device (`GPU device lost: Device is lost`, reason `unknown`, no
   uncaptured error before it) when the client's frame has rows that are not a multiple of 256
   bytes: 1700, 1800, 1846 and 1848 pixels wide lose it; 1024, 1280, 1600 and 1792 do not, at any
