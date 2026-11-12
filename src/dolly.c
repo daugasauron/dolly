@@ -14,6 +14,7 @@
 
 #include <dolly/runtime.h>
 
+#include "dolly-kernel-contracts.h"
 #include "fs-record.h"
 #include "process-kernel.h"
 #include "system-snapshot.h"
@@ -31,6 +32,14 @@ typedef struct {
   _Atomic uint32_t interrupt_sequence;
   _Atomic uint32_t interrupt_target_pid;
 } dolly_terminal_mailbox;
+_Static_assert(
+    offsetof(dolly_terminal_mailbox, result_sequence) == 4 * DOLLY_TERMINAL_WORD_RESULT_SEQUENCE &&
+    offsetof(dolly_terminal_mailbox, result_status) == 4 * DOLLY_TERMINAL_WORD_RESULT_STATUS &&
+    offsetof(dolly_terminal_mailbox, foreground_pid) == 4 * DOLLY_TERMINAL_WORD_FOREGROUND_PID &&
+    offsetof(dolly_terminal_mailbox, foreground_interrupt) == 4 * DOLLY_TERMINAL_WORD_FOREGROUND_INTERRUPTIBLE &&
+    offsetof(dolly_terminal_mailbox, interrupt_sequence) == 4 * DOLLY_TERMINAL_WORD_INTERRUPT_SEQUENCE &&
+    offsetof(dolly_terminal_mailbox, interrupt_target_pid) == 4 * DOLLY_TERMINAL_WORD_INTERRUPT_TARGET_PID,
+    "terminal mailbox layout differs from dolly-supervisor-0.wat");
 
 _Alignas(64) static dolly_terminal_mailbox terminal_mailbox;
 static uint32_t consumed_interrupt_sequence;
@@ -60,7 +69,7 @@ int dolly_kernel_foreground(void) {
                                    memory_order_acquire);
 }
 
-int dolly_process_take_interrupt(void) {
+int dolly_kernel_take_interrupt(void) {
   const uint32_t sequence = atomic_load_explicit(
       &terminal_mailbox.interrupt_sequence, memory_order_acquire);
   if (sequence == consumed_interrupt_sequence) return 0;

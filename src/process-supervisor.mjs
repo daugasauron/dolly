@@ -4,14 +4,14 @@ import { parseWasmInterface } from "./wasm-interface.mjs";
 import { validateProcessInterface } from "./process-abi.mjs";
 import { executableHostRequirements, checkHostAbi } from "../host/requirements.mjs";
 import {
-  DOLLY_PROCESS_EXEC, DOLLY_PROCESS_EXIT, DOLLY_PROCESS_PACKET_LIMIT as packetLimit, DOLLY_PROCESS_SIGINT,
-  DOLLY_PROCESS_SIGKILL, DOLLY_PROCESS_SIGNAL, DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE,
+  DOLLY_PROCESS_EXEC, DOLLY_PROCESS_EXIT, DOLLY_PROCESS_PACKET_LIMIT as packetLimit,
   DOLLY_PROCESS_SIGWINCH, DOLLY_PROCESS_OFFSETOF, DOLLY_PROCESS_SIZEOF, DOLLY_PROCESS_SPAWN,
   DOLLY_PROCESS_SPAWN_FOREGROUND, DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT,
   DOLLY_PROCESS_SPAWN_INTERACTIVE,
 } from "./process-constants.mjs";
 import { hex } from "./static-asset.mjs";
-import { DOLLY_FS_BLOCK_SIZE } from "../host/runtime/abi.mjs";
+import { DOLLY_FS_BLOCK_SIZE, DOLLY_PROCESS_EVENT_LAUNCH, DOLLY_PROCESS_EVENT_INTERRUPT,
+  DOLLY_PROCESS_EVENT_TERMINATE, DOLLY_PROCESS_EVENT_WAKE } from "../host/runtime/abi.mjs";
 
 const encoder = new TextEncoder();
 const spawnHeaderSize = DOLLY_PROCESS_SIZEOF.dolly_process_spawn_request;
@@ -40,7 +40,6 @@ const reservationPatienceMilliseconds = 5000;
 // A Worker ended mid-copy into its mailbox finishes the copy within
 // microseconds; one that holds the mailbox this long keeps it.
 const mailboxSealMilliseconds = 1000;
-const interruptGraceMilliseconds = 500;
 const compiledModuleCacheEntries = 64;
 const compiledModuleCacheBytes = 256 * 1024 * 1024;
 // File versions known to hold a cached module's bytes (dolly_process_image_version).
@@ -195,6 +194,8 @@ export class DollyProcessSupervisor {
     this.compiledModuleBytes = 0;
     this.compiledVersions = new Map();
     this.launchChain = Promise.resolve();
+    // The processes the kernel announced for launch, in order.
+    this.launches = [];
     this.mailboxAddress = Number(kernel.dolly_process_mailbox_address());
     this.mailboxCapacity = packetLimit;
     if (!Number.isSafeInteger(this.mailboxAddress) || this.mailboxAddress <= 0 ||
@@ -290,7 +291,7 @@ export class DollyProcessSupervisor {
     const completion = new Promise((resolve, reject) => {
       this.#registerProcess(pid, 0, resolve, reject);
     });
-    this.#scheduleLaunches();
+    this.#serviceEvents();
     return completion;
   }
 
@@ -305,68 +306,57 @@ export class DollyProcessSupervisor {
       memoryBytes: 0, messageHandler: null, errorHandler: null,
       messageErrorHandler: null, started: false,
       failure: null, interactive: (flags & DOLLY_PROCESS_SPAWN_INTERACTIVE) !== 0, retiring: false,
-      interruptTimer: null, deadlineTimer: null, retirementTimer: null, lastSignal: 0,
-      reclamationDeadline: 0, tid: 0, threads: new Map(), threaded: false,
-      execution: null, signalAtStart: 0,
+      retirementTimer: null, reclamationDeadline: 0, tid: 0, threads: new Map(), threaded: false,
+      execution: null,
     };
     this.processes.set(pid, process);
-    this.#armDeadline(process);
-  }
-
-  #descendantDepth(process, ancestorPid) {
-    let candidate = process;
-    for (let depth = 0; depth < this.processes.size; ++depth) {
-      if (candidate.parent === ancestorPid) return depth + 1;
-      if (candidate.parent === 0) return 0;
-      candidate = this.processes.get(candidate.parent);
-      if (!candidate) return 0;
-    }
-    return 0;
   }
 
   #serviceTick() {
     this.serviceHost();
-    const interrupted = this.kernel.dolly_process_take_interrupt();
-    if (interrupted > 0) this.#interruptForeground(interrupted);
-    this.#deliverRaised();
+    this.#serviceEvents();
     this.serviceDeferred();
   }
 
-  // What the kernel raised for delivery as a kill (dolly_process_take_raised):
-  // an alarm no handler takes, a pseudo-terminal's interrupt key, resize or hang-up.
-  #deliverRaised() {
-    for (let raised; (raised = this.kernel.dolly_process_take_raised()) > 0n;) {
-      this.#deliverSignal(this.processes.get(Number(raised >> 32n)), Number(raised & 0xffffffffn));
+  // The kernel decides what happens to processes and the supervisor carries
+  // it out (dolly_process_next_event), asked after each dispatch and each
+  // ending, at each tick and when what the kernel has due comes due.
+  #serviceEvents() {
+    for (let event; (event = this.kernel.dolly_process_next_event()) !== 0n;) {
+      const kind = Number(event >> 48n), value = Number((event >> 32n) & 0xffffn), pid = Number(event & 0xffffffffn);
+      if (kind === DOLLY_PROCESS_EVENT_LAUNCH) this.#announced(pid);
+      else if (kind === DOLLY_PROCESS_EVENT_INTERRUPT) this.#interrupt(this.processes.get(pid), value);
+      else if (kind === DOLLY_PROCESS_EVENT_TERMINATE) this.#terminated(pid);
+      else if (kind === DOLLY_PROCESS_EVENT_WAKE) this.serviceDeferred();
+      else throw new Error(`kernel supplied unknown event ${kind}`);
     }
+    const due = this.kernel.dolly_process_service_milliseconds();
+    clearTimeout(this.serviceDue);
+    this.serviceDue = due >= 0 ? setTimeout(() => this.#serviceEvents(), Math.ceil(due)) : undefined;
   }
 
-  #interruptForeground(pid) {
+  // A spawned process to prepare: one the page spawned is known already.
+  #announced(pid) {
+    if (!this.processes.has(pid)) this.#registerProcess(pid, this.kernel.dolly_process_parent(pid));
+    this.launches.push(pid);
+    this.#scheduleLaunches();
+  }
+
+  // The kernel ended the process: its Workers stop, and it retires. One never
+  // announced has none.
+  #terminated(pid) {
     const process = this.processes.get(pid);
-    if (!process || process.retiring) return;
-    const descendants = [...this.processes.values()].filter(
-      (candidate) => !candidate.retiring && candidate.pid !== pid &&
-        this.#descendantDepth(candidate, pid) !== 0,
-    );
-    // Like a job-control shell, an interactive owner's running commands take
-    // SIGINT in its place; without any it takes SIGINT itself.
-    for (const target of process.interactive && descendants.length ? descendants : [process, ...descendants]) {
-      this.#deliverSignal(target);
+    if (process) {
+      if (!process.retiring) this.#retire(process);
+    } else if (this.kernel.dolly_process_worker_retired(pid) !== 0) {
+      throw new Error(`kernel rejected the retirement of process ${pid}`);
     }
   }
 
-  #deliverSignal(process, signalNumber = DOLLY_PROCESS_SIGINT) {
-    if (!process || process.retiring || this.processes.get(process.pid) !== process) return;
-    const result = this.kernel.dolly_process_signal(process.pid, signalNumber);
-    process.lastSignal = signalNumber;
-    // The kernel decides what the signal does: it may have ended the process.
-    if (this.kernel.dolly_process_exited(process.pid) !== 0) {
-      this.#retire(process);
-      return;
-    }
-    // A program not yet entered has no call to interrupt; what the kernel
-    // keeps for it, it takes when it starts. One that ignores the signal
-    // (result 1) has nothing to answer.
-    if (result !== 0 || !process.started) return;
+  // A signal reached a running process: its blocked call returns EINTR, and
+  // an EXEC in progress is refused unless the signal is a resize.
+  #interrupt(process, signalNumber) {
+    if (!process || process.retiring || !process.started) return;
     const receiver = process.threaded
       ? [...process.threads.values()].sort((a, b) => a.tid - b.tid)[0] : process;
     const deferred = this.deferred.get(receiver);
@@ -382,16 +372,6 @@ export class DollyProcessSupervisor {
       this.kernel.dolly_process_exec_refused(process.pid, 0n);
       this.#signal(receiver, message.sequence, interruptedSystemCall);
     }
-    if (signalNumber !== DOLLY_PROCESS_SIGWINCH) this.#armInterrupt(process, signalNumber);
-  }
-
-  // A program that does not finish a delivered signal in time is ended by it.
-  #armInterrupt(process, signalNumber) {
-    if (process.interruptTimer !== null) return;
-    process.interruptTimer = setTimeout(() => {
-      process.interruptTimer = null;
-      this.#forceExit(process.pid, 128 + signalNumber, signalNumber);
-    }, interruptGraceMilliseconds);
   }
 
   #scheduleLaunches() {
@@ -526,18 +506,17 @@ export class DollyProcessSupervisor {
   }
 
   async #launchPending() {
-    for (let pid; (pid = this.kernel.dolly_process_next_launch()) !== 0;) {
+    for (let pid; (pid = this.launches.shift()) !== undefined;) {
       const process = this.processes.get(pid);
+      // Ended before its turn: retired already.
+      if (!process || process.retiring) continue;
       let compiled;
       try {
-        if (!process) throw new Error(`kernel supplied unregistered process ${pid}`);
         compiled = await this.#compiledImage(pid);
         if (this.#canLaunch(process)) this.#start(process, compiled, this.#admit(compiled));
       } catch (error) {
-        // A failed launch ends only its own process; exiting it in the kernel
-        // also stops next_launch from naming it again.
-        if (process) this.#fail(process, error);
-        else this.#recordExit(pid, 126, 0);
+        // A failed launch ends only its own process.
+        this.#fail(process, error);
       } finally {
         if (compiled) this.#release(compiled);
       }
@@ -615,23 +594,20 @@ export class DollyProcessSupervisor {
     }
     if (process.execution !== execution) return unused();
     process.execution = null;
-    const signalAtStart = this.kernel.dolly_process_exec_commit(process.pid);
-    if (signalAtStart < 0) {
+    const committed = this.kernel.dolly_process_exec_commit(process.pid);
+    if (committed < 0) {
       unused();
-      this.#fail(process, new Error(`kernel rejected process ${process.pid} exec: ${signalAtStart}`));
+      this.#fail(process, new Error(`kernel rejected process ${process.pid} exec: ${committed}`));
       return;
     }
     // The old program's memory goes with its Workers. Termination has no
     // completion event: a large interactive one gets the time it gets before
     // a parent may start its replacement (#reclamationDeadline).
     const delay = this.#reclamationDeadline(process) - performance.now();
-    if (process.interruptTimer !== null) clearTimeout(process.interruptTimer);
-    process.interruptTimer = null;
     this.#disposeWorker(process, compiled);
-    Object.assign(process, { started: false, threaded: false, tid: 0, threads: new Map(), signalAtStart });
+    Object.assign(process, { started: false, threaded: false, tid: 0, threads: new Map() });
     // Its descriptors with CLOEXEC are closed: a reader of their pipes goes on now.
-    this.#deliverRaised();
-    if (this.kernel.dolly_process_take_wakeup()) this.serviceDeferred();
+    this.#serviceEvents();
     const start = () => {
       try {
         if (this.#canLaunch(process)) this.#start(process, compiled, local);
@@ -702,19 +678,8 @@ export class DollyProcessSupervisor {
     Atomics.notify(process.control, 1);
   }
 
-  #armDeadline(process) {
-    const remaining = this.kernel.dolly_process_deadline_remaining(process.pid);
-    if (remaining >= 0) {
-      process.deadlineTimer = setTimeout(() => this.#endTree(process.pid, 124), Math.ceil(remaining));
-    }
-  }
-
   #clearTimers(process) {
-    if (process.interruptTimer !== null) clearTimeout(process.interruptTimer);
-    if (process.deadlineTimer !== null) clearTimeout(process.deadlineTimer);
     if (process.retirementTimer !== null) clearTimeout(process.retirementTimer);
-    process.interruptTimer = null;
-    process.deadlineTimer = null;
     process.retirementTimer = null;
   }
 
@@ -754,7 +719,6 @@ export class DollyProcessSupervisor {
     // before its memory took its maximum (src/process-worker.mjs).
     if (!(process.threaded && message.memoryBytes >= process.maximumBytes)) process.memoryBytes = message.memoryBytes;
     let result;
-    let signalDelivery;
     let threadArgument;
     let portTaken = false;
     try {
@@ -815,26 +779,6 @@ export class DollyProcessSupervisor {
             result = -BigInt(DOLLY_ERRNO.EAGAIN);
           }
         }
-        if (message.operation === DOLLY_PROCESS_SPAWN) {
-          if (result !== 8n) throw new Error("invalid kernel spawn response");
-          const pid = mailbox().getUint32(0, true);
-          if (pid === 0 || pid > 0x7fffffff || mailbox().getUint32(4, true) !== 0) {
-            throw new Error("invalid kernel spawn identity");
-          }
-          this.#registerProcess(pid, process.pid);
-        }
-        if (message.operation === DOLLY_PROCESS_SIGNAL) {
-          if (result !== 8n) throw new Error("invalid kernel signal response");
-          signalDelivery = { pid: mailbox().getUint32(0, true), signal: mailbox().getUint32(4, true) };
-          if (signalDelivery.pid === 0 || signalDelivery.pid > 0x7fffffff) {
-            throw new Error("invalid kernel signal target");
-          }
-        }
-        if (message.operation === DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE && result === 4n &&
-            mailbox().getInt32(0, true) === 0 && process.interruptTimer !== null) {
-          clearTimeout(process.interruptTimer);
-          process.interruptTimer = null;
-        }
       }
     } catch (error) {
       message.port?.close();
@@ -843,16 +787,10 @@ export class DollyProcessSupervisor {
     }
     if (!portTaken) message.port?.close();
     this.#signal(thread, message.sequence, result);
-    if (signalDelivery?.signal) {
-      this.#deliverSignal(this.processes.get(signalDelivery.pid), signalDelivery.signal);
-    }
-    this.#deliverRaised();
-    // A spawn that waited for admission is launched like any other.
-    if (!retry || message.operation === DOLLY_PROCESS_SPAWN) this.#scheduleLaunches();
-    if (retry) return;
-    // A pipe write or close can complete another thread's blocked read or poll,
-    // such as an async runtime's waker: retry now, not at the next tick.
-    if (this.kernel.dolly_process_take_wakeup()) this.serviceDeferred();
+    // What the call set in motion: a spawn's launch, a signal's delivery, and
+    // a pipe write or close that completes another thread's blocked read or
+    // poll, such as an async runtime's waker, retried now, not at the next tick.
+    this.#serviceEvents();
   }
 
   #message(process, message, thread = process) {
@@ -866,9 +804,6 @@ export class DollyProcessSupervisor {
         this.#fail(process, new Error(`kernel rejected process ${process.pid} start`));
       } else {
         process.started = true;
-        // A signal pending across EXEC is the new program's to answer.
-        if (process.signalAtStart) this.#armInterrupt(process, process.signalAtStart);
-        process.signalAtStart = 0;
       }
     } else if (message.type === "syscall") {
       this.#syscall(process, message, false, thread);
@@ -904,38 +839,20 @@ export class DollyProcessSupervisor {
 
   #retire(process) {
     process.retiring = true;
-    // A process a signal ends passes it to its descendants, as a signal to its
-    // process group would: Dolly has no groups, so the command of slop -c is
-    // the shell's child unless it is exec'd. Each answers it as it handles it.
-    // A descendant that has it already, as Ctrl-C gives it to the whole
-    // foreground tree, is not given it twice.
-    const signal = this.kernel.dolly_process_exit_signal(process.pid);
-    if (signal !== 0) {
-      for (const descendant of [...this.processes.values()]) {
-        if (descendant.lastSignal !== signal && this.#descendantDepth(descendant, process.pid) !== 0) {
-          this.#deliverSignal(descendant, signal);
-        }
-      }
-    }
     // Its children live on: the kernel has given them parent 0.
     for (const child of this.processes.values()) if (child.parent === process.pid) child.parent = 0;
     process.reclamationDeadline = this.#reclamationDeadline(process);
     this.#stop(process);
     // The kernel has closed the process's descriptors: a reader of its pipe or
-    // a waiter for its lock proceeds now, not at the next tick.
-    this.#deliverRaised();
-    if (this.kernel.dolly_process_take_wakeup()) this.serviceDeferred();
+    // a waiter for its lock proceeds now, not at the next tick; a signal that
+    // ended it has reached its descendants.
+    this.#serviceEvents();
     const retired = () => {
       process.retirementTimer = null;
       if (this.processes.get(process.pid) !== process) return;
       this.#acknowledgeRetirement(process);
       if (process.resolve) this.#finish(process);
-      else {
-        // An orphan, whose parent may have ended after this one did: nobody
-        // waits for it, so it is reaped, as init would.
-        if (this.kernel.dolly_process_parent(process.pid) === 0) this.kernel.dolly_process_collect(process.pid);
-        this.serviceDeferred();
-      }
+      else this.serviceDeferred();
     };
     // Worker.terminate() has no completion event. Drop all references, then allow
     // one bounded reclamation window for large interactive memories before WAIT
@@ -1004,20 +921,6 @@ export class DollyProcessSupervisor {
     if (result !== 0) throw new Error(`kernel refused the exit of process ${pid} (${result})`);
   }
 
-  // A timed command's deadline ends its tree, deepest first, as timeout(1)
-  // signals the command's process group.
-  #endTree(pid, status) {
-    const descendants = [...this.processes.values()]
-      .map((process) => ({ process, depth: this.#descendantDepth(process, pid) }))
-      .filter(({ depth }) => depth !== 0)
-      .sort((left, right) => right.depth - left.depth)
-      .map(({ process }) => process);
-    for (const descendant of descendants) {
-      this.#forceExit(descendant.pid, 128 + DOLLY_PROCESS_SIGKILL, DOLLY_PROCESS_SIGKILL);
-    }
-    this.#forceExit(pid, status);
-  }
-
   #disposeThread(process, thread) {
     this.#clearDeferred(thread);
     if (thread.worker) {
@@ -1073,19 +976,30 @@ export class DollyProcessSupervisor {
   }
 
   serviceDeferred() {
-    for (const deferred of [...this.deferred.values()]) {
-      const { process, thread, message } = deferred;
-      // An earlier retry in this pass may have ended this thread: a completed
-      // EXIT stops the other threads of its process.
-      if (this.deferred.get(thread) !== deferred) continue;
-      if (this.processes.get(process.pid) === process && !process.retiring) {
-        this.#syscall(process, message, true, thread);
-      } else this.#clearDeferred(thread);
+    // A retry that wakes others asks for one more pass, after this one.
+    if (this.servicingDeferred) { this.deferredAgain = true; return; }
+    this.servicingDeferred = true;
+    try {
+      do {
+        this.deferredAgain = false;
+        for (const deferred of [...this.deferred.values()]) {
+          const { process, thread, message } = deferred;
+          // An earlier retry in this pass may have ended this thread: a completed
+          // EXIT stops the other threads of its process.
+          if (this.deferred.get(thread) !== deferred) continue;
+          if (this.processes.get(process.pid) === process && !process.retiring) {
+            this.#syscall(process, message, true, thread);
+          } else this.#clearDeferred(thread);
+        }
+      } while (this.deferredAgain);
+    } finally {
+      this.servicingDeferred = false;
     }
   }
 
   dispose() {
     clearInterval(this.serviceTimer);
+    clearTimeout(this.serviceDue);
     for (const process of this.processes.values()) {
       this.#stop(process);
       process.reject?.(new Error("Dolly runtime closed"));

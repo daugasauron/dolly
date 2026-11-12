@@ -52,13 +52,10 @@ for library in "${host_libraries[@]}"; do
   cp -- "${project_dir}/build/${library}" "${staging}/${library}"
 done
 cp -- "${reserved_libc_symbols}" "${staging}/libc-provider.symbols"
-mkdir "${staging}/threads"
-cp -- "${project_dir}/build/process-threads/"{libdolly-process.a,libdolly-runtime.a,libc-mt.a,crt1.o} "${staging}/threads/"
-# A threaded program's allocator is mimalloc: a heap per thread, where dlmalloc locks one.
-for library in libstandalonewasm-mt-memgrow.a libmimalloc-mt.a \
-    libclang_rt.builtins-wasmsjlj-mt.a; do
-  cp -- "${emscripten_lib}/${library}" "${staging}/threads/"
-done
+# The modules' parts (their manifests' `seed`): build/process-sysroot-parts/NAME/ is NAME/.
+if [[ -d "${project_dir}/build/process-sysroot-parts" ]]; then
+  cp -R -- "${project_dir}/build/process-sysroot-parts/." "${staging}/"
+fi
 
 # Dolly owns signal and timer state, and dladdr. Keeping the replaced objects lets
 # -rdynamic root Emscripten's action_abort/action_terminate helpers and pull in a second owner.

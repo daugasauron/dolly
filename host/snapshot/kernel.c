@@ -1,3 +1,4 @@
+#include "dolly-kernel-contracts.h"
 #include "process-kernel.h"
 #include "session-records.h"
 
@@ -7,6 +8,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <stdatomic.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,7 +18,18 @@
 #include <unistd.h>
 
 #include "snapshot.h"
-_Static_assert(sizeof(dolly_session_mailbox) == 64, "session mailbox layout");
+_Static_assert(sizeof(dolly_session_mailbox) == DOLLY_SESSION_MAILBOX_HEADER_SIZE &&
+    offsetof(dolly_session_mailbox, request_sequence) == 4 * DOLLY_SESSION_WORD_REQUEST_SEQUENCE &&
+    offsetof(dolly_session_mailbox, completed_sequence) == 4 * DOLLY_SESSION_WORD_COMPLETED_SEQUENCE &&
+    offsetof(dolly_session_mailbox, status) == 4 * DOLLY_SESSION_WORD_STATUS &&
+    offsetof(dolly_session_mailbox, chunk_sequence) == 4 * DOLLY_SESSION_WORD_CHUNK_SEQUENCE &&
+    offsetof(dolly_session_mailbox, chunk_consumed_sequence) == 4 * DOLLY_SESSION_WORD_CHUNK_CONSUMED_SEQUENCE &&
+    offsetof(dolly_session_mailbox, chunk_length) == 4 * DOLLY_SESSION_WORD_CHUNK_LENGTH &&
+    offsetof(dolly_session_mailbox, chunk_eof) == 4 * DOLLY_SESSION_WORD_CHUNK_EOF &&
+    offsetof(dolly_session_mailbox, total_size_low) == 4 * DOLLY_SESSION_WORD_TOTAL_SIZE_LOW &&
+    offsetof(dolly_session_mailbox, total_size_high) == 4 * DOLLY_SESSION_WORD_TOTAL_SIZE_HIGH &&
+    offsetof(dolly_session_mailbox, cancelled_sequence) == 4 * DOLLY_SESSION_WORD_CANCELLED_SEQUENCE,
+    "session mailbox layout differs from dolly-snapshot-0.wat");
 
 typedef struct {
   char *path;

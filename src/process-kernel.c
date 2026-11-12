@@ -1,5 +1,6 @@
 #include "device-lease.h"
 #include "fs-record.h"
+#include "dolly-kernel-contracts.h"
 #include "process-kernel.h"
 
 #include <dolly/process.h>
@@ -99,7 +100,25 @@ typedef struct {
   /* The mailbox of the Worker of a process without threads (dolly_process_worker_mailbox). */
   uintptr_t mailbox;
   uint64_t read_deadline; /* When a VMIN 0 terminal read gives up; zero between reads. */
+  /* What the host is to do for it (dolly_process_next_event): stop the
+   * Workers of a process the kernel ended, answer the blocked call of one a
+   * signal reached, prepare a spawned program once. */
+  int terminate_pending;
+  uint32_t interrupt_signals;
+  int launch_announced;
+  /* The signal delivered last: a dying ancestor does not give it twice. */
+  int last_signal;
+  /* A delivered signal the program has not taken by then ends it. */
+  uint64_t grace_deadline;
+  int grace_signal;
+  int grace_at_start;
+  /* Spawned by the host, which collects it; an orphan is reaped instead. */
+  int host_waits;
 } dolly_kernel_process;
+
+/* How long a program has to take a delivered signal (a handler acknowledges
+ * it, a default action exits) before the signal ends it. */
+#define DOLLY_KERNEL_SIGNAL_GRACE_NANOSECONDS (500ull * 1000000ull)
 
 /* The supervisor's own packets: the page's spawn, a refusal or failure line. */
 _Alignas(64) static unsigned char supervisor_mailbox[DOLLY_PROCESS_PACKET_LIMIT];
@@ -406,6 +425,22 @@ static void mark_process_exited(dolly_kernel_process *process, int status,
                                 int signal_number) {
   if (process->state == DOLLY_KERNEL_PROCESS_EXITED) return;
   const int pid = process->pid;
+  /* A signal that ends a process passes to its descendants, as a signal to
+   * its process group would: Dolly has no groups, so the command of slop -c
+   * is the shell's child unless it is exec'd. Each answers it as it handles
+   * it; one that has it already, as Ctrl-C gives it to the whole foreground
+   * tree, is not given it twice. */
+  if (signal_number != 0) {
+    for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
+      dolly_kernel_process *descendant = &process_table[index];
+      if ((descendant->state == DOLLY_KERNEL_PROCESS_PENDING ||
+           descendant->state == DOLLY_KERNEL_PROCESS_RUNNING) && descendant->pid != pid &&
+          descendant->last_signal != signal_number && dolly_process_descends_from(descendant->pid, pid))
+        dolly_process_signal(descendant->pid, signal_number);
+    }
+  }
+  process->grace_deadline = 0;
+  process->interrupt_signals = 0;
   /* The terminal goes back up the tree, as a shell takes it back when a job
    * ends: an orphan that held it is in the background. */
   if (dolly_process_descends_from(foreground_pid, pid)) foreground_pid = pid;
@@ -422,6 +457,20 @@ static void mark_process_exited(dolly_kernel_process *process, int status,
    * from now on, while its Worker retires, is its successor's. */
   if (foreground_pid == pid) dolly_kernel_terminal_discard();
   refresh_foreground();
+}
+
+/* The kernel ends the process: its Workers are the host's to stop. */
+static void terminate_process(dolly_kernel_process *process, int status, int signal_number) {
+  if (process->state == DOLLY_KERNEL_PROCESS_EXITED) return;
+  mark_process_exited(process, status, signal_number);
+  process->terminate_pending = 1;
+}
+
+static void arm_grace(dolly_kernel_process *process, int signal_number) {
+  if (process->grace_deadline != 0) return;
+  process->grace_deadline = saturating_add(clock_nanoseconds(CLOCK_MONOTONIC),
+                                           DOLLY_KERNEL_SIGNAL_GRACE_NANOSECONDS);
+  process->grace_signal = signal_number;
 }
 
 static dolly_kernel_process *allocate_process(void) {
@@ -803,6 +852,7 @@ static int spawn_packet(int parent_pid, size_t size) {
   dolly_kernel_process *process = allocate_process();
   if (process == NULL) return -EAGAIN;
   process->parent_pid = parent_pid;
+  process->host_waits = parent_pid == 0;
   process->spawn_flags = request.flags;
   process->deadline_nanoseconds = request.deadline_nanoseconds;
   process->start_signals = request.signals;
@@ -1924,12 +1974,6 @@ double dolly_process_deferred_milliseconds(void) {
   return deferred_milliseconds;
 }
 
-int dolly_process_take_wakeup(void) {
-  const int pending = wakeup_pending;
-  wakeup_pending = 0;
-  return pending;
-}
-
 int dolly_process_spawn_serialized(uintptr_t request_size) {
   process_mailbox = supervisor_mailbox;
   return spawn_packet(0, (size_t)request_size);
@@ -2540,6 +2584,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       if (!number || number != process->handling_signal) return -EINVAL;
       process->handling_signal = 0;
       const int32_t remaining = next_signal(process);
+      if (remaining == 0) process->grace_deadline = 0;
       return respond(&remaining, sizeof(remaining));
     }
     case DOLLY_PROCESS_ALARM: {
@@ -2747,13 +2792,6 @@ void dolly_kernel_socket_holders(const dolly_kernel_socket *socket, int foregrou
   }
 }
 
-int dolly_process_next_launch(void) {
-  for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
-    if (process_table[index].state == DOLLY_KERNEL_PROCESS_PENDING &&
-        process_table[index].program.image_descriptor >= 0) return process_table[index].pid;
-  }
-  return 0;
-}
 
 /* The size of the executable's bytes, or a negative errno: -EFBIG past what
  * the supervisor compiles. */
@@ -2825,8 +2863,12 @@ int dolly_process_exec_commit(int pid) {
   process->handled_signals = 0;
   process->pending_signals &= ~process->ignored_signals;
   process->state = DOLLY_KERNEL_PROCESS_PENDING;
+  process->interrupt_signals = 0;
+  process->grace_deadline = 0;
+  /* A signal pending across EXEC is the new program's to answer, in time. */
   const uint32_t answered = process->pending_signals & ~notification_signals(process);
-  return answered ? __builtin_ctz(answered) : 0;
+  process->grace_at_start = answered ? __builtin_ctz(answered) : 0;
+  return process->grace_at_start;
 }
 
 /* The supervisor refused the staged program, or a signal interrupted EXEC: the
@@ -2848,6 +2890,8 @@ int dolly_process_worker_started(int pid) {
   if (process == NULL || process->state != DOLLY_KERNEL_PROCESS_PENDING ||
       process->program.image_descriptor >= 0) return -EINVAL;
   process->state = DOLLY_KERNEL_PROCESS_RUNNING;
+  if (process->grace_at_start) arm_grace(process, process->grace_at_start);
+  process->grace_at_start = 0;
   return 0;
 }
 
@@ -2895,10 +2939,11 @@ int dolly_process_worker_retired(int pid) {
   process->worker_retired = 1;
   /* WAIT must see the child as waitable before its parent's handler runs. A
    * parent that ignores SIGCHLD waits for none: the child is reaped now, once
-   * the terminal has gone back up past it. */
+   * the terminal has gone back up past it. So is an orphan nobody waits for,
+   * as init would reap it; the host collects the processes it spawned. */
   dolly_kernel_process *parent = find_process(process->parent_pid);
   const uint32_t child_signal = 1u << DOLLY_PROCESS_SIGCHLD;
-  const int reaped = parent != NULL && (parent->ignored_signals & child_signal) != 0;
+  const int reaped = parent != NULL ? (parent->ignored_signals & child_signal) != 0 : !process->host_waits;
   if (parent != NULL && parent->state != DOLLY_KERNEL_PROCESS_EXITED && !reaped)
     parent->pending_signals |= child_signal;
   refresh_foreground();
@@ -2920,17 +2965,23 @@ int dolly_process_signal(int pid, int signal_number) {
   /* One that has exited is there until it is waited for, and takes nothing. */
   if (signal_number == 0 || process->state == DOLLY_KERNEL_PROCESS_EXITED) return 0;
   const uint32_t signal = 1u << signal_number;
+  process->last_signal = signal_number;
   if (signal_number == DOLLY_PROCESS_SIGKILL) {
-    mark_process_exited(process, 128 + signal_number, signal_number);
+    terminate_process(process, 128 + signal_number, signal_number);
   } else if (process->ignored_signals & signal) {
     return 1;
-  } else if (process->state == DOLLY_KERNEL_PROCESS_RUNNING ||
-             (process->start_signals.blocked_signals & signal) != 0) {
+  } else if (process->state == DOLLY_KERNEL_PROCESS_RUNNING) {
+    /* Its blocked call returns EINTR, and a program that does not take the
+     * signal in time is ended by it; a resize ends nothing. */
+    process->pending_signals |= signal;
+    process->interrupt_signals |= signal;
+    if (signal_number != DOLLY_PROCESS_SIGWINCH) arm_grace(process, signal_number);
+  } else if ((process->start_signals.blocked_signals & signal) != 0) {
     process->pending_signals |= signal;
   } else if (signal_number != DOLLY_PROCESS_SIGWINCH) {
     /* A program not yet entered runs no handler. It blocks what it starts
      * with blocked, and ignores a resize; any other signal ends it. */
-    mark_process_exited(process, 128 + signal_number, signal_number);
+    terminate_process(process, 128 + signal_number, signal_number);
   }
   return 0;
 }
@@ -2964,20 +3015,128 @@ static void raise_due_alarms(void) {
   }
 }
 
-int64_t dolly_process_take_raised(void) {
+static void deliver_raised(void) {
   raise_due_alarms();
-  if (raised_count == 0) return 0;
-  const int64_t next = (int64_t)raised[0].pid << 32 | (uint32_t)raised[0].number;
-  memmove(raised, raised + 1, --raised_count * sizeof(*raised));
-  return next;
+  for (size_t index = 0; index < raised_count; ++index) dolly_process_signal(raised[index].pid, raised[index].number);
+  raised_count = 0;
 }
 
-double dolly_process_deadline_remaining(int pid) {
-  dolly_kernel_process *process = find_process(pid);
-  if (process == NULL || process->deadline_nanoseconds == UINT64_MAX) return -1;
+static int live(const dolly_kernel_process *process) {
+  return process->state == DOLLY_KERNEL_PROCESS_PENDING || process->state == DOLLY_KERNEL_PROCESS_RUNNING;
+}
+
+/* How many parents up PID's ancestor is; zero for none. */
+static size_t descent_depth(int pid, int ancestor_pid) {
+  const dolly_kernel_process *process = find_process(pid);
+  for (size_t depth = 0; process != NULL && depth < DOLLY_KERNEL_PROCESS_LIMIT; ++depth) {
+    if (process->parent_pid == ancestor_pid) return depth + 1;
+    if (process->parent_pid == 0) return 0;
+    process = find_process(process->parent_pid);
+  }
+  return 0;
+}
+
+/* Ctrl-C on the display's terminal: like a job-control shell, an interactive
+ * owner's running commands take SIGINT in its place; without any it takes
+ * SIGINT itself, with its descendants. */
+static void interrupt_foreground(int pid) {
+  dolly_kernel_process *owner = find_process(pid);
+  if (owner == NULL || !live(owner)) return;
+  int commands = 0;
+  for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index)
+    commands |= live(&process_table[index]) && descent_depth(process_table[index].pid, pid) != 0;
+  const int in_place = (owner->spawn_flags & DOLLY_PROCESS_SPAWN_INTERACTIVE) != 0 && commands;
+  if (!in_place) dolly_process_signal(pid, DOLLY_PROCESS_SIGINT);
+  for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
+    const dolly_kernel_process *process = &process_table[index];
+    if (live(process) && descent_depth(process->pid, pid) != 0) dolly_process_signal(process->pid, DOLLY_PROCESS_SIGINT);
+  }
+}
+
+/* A timed command's deadline ends its tree, deepest first, as timeout(1)
+ * signals the command's process group: its descendants by SIGKILL, itself
+ * with status 124. */
+static void end_tree(dolly_kernel_process *root) {
+  for (size_t depth = DOLLY_KERNEL_PROCESS_LIMIT; depth != 0; --depth) {
+    for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
+      dolly_kernel_process *process = &process_table[index];
+      if (live(process) && descent_depth(process->pid, root->pid) == depth)
+        terminate_process(process, 128 + DOLLY_PROCESS_SIGKILL, DOLLY_PROCESS_SIGKILL);
+    }
+  }
+  terminate_process(root, 124, 0);
+}
+
+/* What is due now: raised signals and alarms, the terminal's Ctrl-C, signals
+ * not taken in time and deadlines. */
+static void service(void) {
+  deliver_raised();
+  const int interrupted = dolly_kernel_take_interrupt();
+  if (interrupted > 0) interrupt_foreground(interrupted);
   const uint64_t now = clock_nanoseconds(CLOCK_MONOTONIC);
-  return now >= process->deadline_nanoseconds
-      ? 0 : (double)(process->deadline_nanoseconds - now) / 1000000.0;
+  for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
+    dolly_kernel_process *process = &process_table[index];
+    if (process->state == DOLLY_KERNEL_PROCESS_RUNNING && process->grace_deadline != 0 &&
+        now >= process->grace_deadline)
+      terminate_process(process, 128 + process->grace_signal, process->grace_signal);
+    if (live(process) && process->deadline_nanoseconds != UINT64_MAX && now >= process->deadline_nanoseconds)
+      end_tree(process);
+  }
+}
+
+/* The host's next task, kind << 48 | value << 32 | pid, or zero for none
+ * (abi/dolly-supervisor-0.wat). */
+int64_t dolly_process_next_event(void) {
+  service();
+  const int64_t none = 0;
+  for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
+    dolly_kernel_process *process = &process_table[index];
+    if (process->state == DOLLY_KERNEL_PROCESS_FREE || !process->terminate_pending) continue;
+    process->terminate_pending = 0;
+    return (int64_t)DOLLY_PROCESS_EVENT_TERMINATE << 48 | (uint32_t)process->pid;
+  }
+  for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
+    dolly_kernel_process *process = &process_table[index];
+    const uint32_t signals = process->interrupt_signals;
+    if (signals == 0) continue;
+    process->interrupt_signals = 0;
+    if (process->state != DOLLY_KERNEL_PROCESS_RUNNING) continue;
+    /* A resize interrupts the call alone; any other signal also an exec. */
+    const uint32_t ending = signals & ~(1u << DOLLY_PROCESS_SIGWINCH);
+    const int64_t number = __builtin_ctz(ending ? ending : signals);
+    return (int64_t)DOLLY_PROCESS_EVENT_INTERRUPT << 48 | number << 32 | (uint32_t)process->pid;
+  }
+  for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
+    dolly_kernel_process *process = &process_table[index];
+    if (process->state != DOLLY_KERNEL_PROCESS_PENDING || process->program.image_descriptor < 0 ||
+        process->launch_announced) continue;
+    process->launch_announced = 1;
+    return (int64_t)DOLLY_PROCESS_EVENT_LAUNCH << 48 | (uint32_t)process->pid;
+  }
+  if (wakeup_pending) {
+    wakeup_pending = 0;
+    return (int64_t)DOLLY_PROCESS_EVENT_WAKE << 48;
+  }
+  return none;
+}
+
+/* Milliseconds until the kernel next has something due (a signal's grace, a
+ * deadline, an alarm), zero when it has now, -1 for nothing. */
+double dolly_process_service_milliseconds(void) {
+  uint64_t next = UINT64_MAX;
+  for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
+    const dolly_kernel_process *process = &process_table[index];
+    if (!live(process)) continue;
+    if (process->deadline_nanoseconds < next) next = process->deadline_nanoseconds;
+    /* A grace and an alarm run only while a program does (service). */
+    if (process->state != DOLLY_KERNEL_PROCESS_RUNNING) continue;
+    if (process->grace_deadline != 0 && process->grace_deadline < next) next = process->grace_deadline;
+    if (process->alarm_deadline != 0 && process->alarm_deadline < next) next = process->alarm_deadline;
+  }
+  if (raised_count != 0) return 0;
+  if (next == UINT64_MAX) return -1;
+  const uint64_t now = clock_nanoseconds(CLOCK_MONOTONIC);
+  return now >= next ? 0 : (double)(next - now) / 1000000.0;
 }
 
 /* The exit status and, above its byte, the signal that ended the process. */
@@ -2995,7 +3154,3 @@ int dolly_process_parent(int pid) {
   return process == NULL ? -ESRCH : process->parent_pid;
 }
 
-int dolly_process_exit_signal(int pid) {
-  const dolly_kernel_process *process = find_process(pid);
-  return process != NULL && process->state == DOLLY_KERNEL_PROCESS_EXITED ? process->exit_signal : 0;
-}

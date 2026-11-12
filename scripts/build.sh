@@ -247,7 +247,10 @@ build_process build/process-bin/bootstrap src/process/bootstrap.c
 # Building the C++ process probe materializes the exact wasm64/native-EH libc++
 # profile. Publish only that closed runtime set for the compiler running inside
 # Dolly; no Emscripten driver or JavaScript library enters the process sysroot.
-"${container[@]}" bash scripts/build-process-threads.sh
+# Each module's part of the process sysroot (module.json `seed`), such as
+# threads@0's threaded libc, in build/process-sysroot-parts/NAME/.
+rm -rf -- "${project_dir}/build/process-sysroot-parts"
+while read -r seed; do "${container[@]}" bash "${seed}"; done < <(node scripts/host-modules.mjs seed)
 mapfile -t client_libraries < <(node scripts/host-modules.mjs client | while read -r module _; do
   packaged "${module}" || echo "libdolly-${module}.a"; done | uniq)
 process_sysroot_container_dir="$("${container[@]}" ./scripts/prepare-process-sysroot.sh "${client_libraries[@]}")"
