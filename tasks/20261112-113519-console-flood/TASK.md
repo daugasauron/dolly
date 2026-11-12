@@ -1,4 +1,4 @@
-# The console test's flood runs a program `system` lacks, and after an interrupt it never ends
+# The console test's flood never ends after an earlier console's close or interrupt, on the page
 
 - STATUS: OPEN
 - PRIORITY: 320
@@ -20,11 +20,17 @@ timed out in Chromium (`work/modular/build/round-1112p-evidence/console.log`).
   console did not exit within 3 s and its output did not end for 300 s, where alone it ended at
   once.
 
+- Donna, on main, three rounds of a piped `sleep 30` interrupted after 2 s and then a new console's
+  20 MB `dd | cat`: 130 at 2.0 s, then every byte in 4.9 s. The kernel side holds.
+- The page, main's build, the flood now `dd if=/dev/zero bs=1000000 count=20 | cat` (`system` has
+  `dd` and `cat`): alone it passes in Chromium (waiting at 3 s, all 20,000,000 bytes, status 0), so
+  the window and its resume work; after the endless console's `close()` and the `sleep 30`
+  console's `interrupt()` it hangs as before.
+
 ## Do
 
-Flood with a program `system` has (`head -c 20000000 /dev/zero` or `seq`), then run the whole
-test again to see whether the hang after `interrupt()` stays; if it does, trace the next
-console's processes after `dolly_console_interrupt`.
+Split the two: the flood after `close()` alone, then after `interrupt()` alone, and trace the
+page's console messages (`console-pause`, `console-resume`, `console-output`) of the stuck one.
 
 ## Done when
 

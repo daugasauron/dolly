@@ -102,7 +102,7 @@ await browserTest("console pipes", { image: "system", timeout: 300_000 }, async 
     await sleeper.interrupt();
     // The page holds at most its window of a console's output: a program writing more than
     // anyone reads waits, and every byte comes once the page reads.
-    const flood = await __dolly.openConsole({ pipes: true, argv: ["/bin/slop", "-c", "yes | head -n 10000000"] });
+    const flood = await __dolly.openConsole({ pipes: true, argv: ["/bin/slop", "-c", "dd if=/dev/zero bs=1000000 count=20 2> /dev/null | cat"] });
     await new Promise(resolve => setTimeout(resolve, 3000));
     const early = await Promise.race([flood.exited.then(() => "exited"), new Promise(resolve => setTimeout(() => resolve("waiting"), 100))]);
     const flooded = flood.output.getReader();
