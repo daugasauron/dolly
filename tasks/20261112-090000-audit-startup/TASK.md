@@ -45,7 +45,9 @@ threads; the source suite):
   canonical image again at the end, about 360 MB/s. On `fix/batch` the Worker checks each part
   against its pack's digest with WebCrypto, and the kernel hashes nothing on this path
   (`abi/dolly-image-0.wat`): the canonical digest is only in the image's own metadata, so the
-  second pass compared two fields of one file. To measure again after the round.
+  second pass compared two fields of one file. Measured again on the batch round's build
+  (2026-11-12 evening, Chrome, no added delay): a warm reload of pi-agent to ready, 2,050 ms on
+  main's build, 900 ms on the round's; its first visit 10.4 s and 4.7 s.
 - Finding 11, measured on release `0d27c879…` (9045) through a proxy that delays every response by
   50 ms, a fresh Chrome profile each run, `default`: 4,021, 4,028 and 4,391 ms to ready without
   preload links, 3,794, 3,809 and 4,122 ms with links to the 17 modules of `src/site.mjs`'s static
