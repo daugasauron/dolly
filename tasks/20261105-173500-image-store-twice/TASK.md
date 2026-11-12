@@ -21,6 +21,18 @@ Direction: one copy. The packs kept decoded, each a file, and an image's snapsho
 of its pack files in order (a Blob of files is readable at any size); or the snapshot file
 alone, with the packs it came from not kept.
 
+## Tried (2026-11-12): the snapshot file alone
+
+A build's read of a published image (`image-build.mjs`, whose image cache keeps it decoded) kept
+no pack it downloaded and wrote no record (`openPackStore(image, packs, { keep: false })`, kept
+packs still read). `pack-store-browser.mjs` with that case passed in Chromium and Firefox (and
+failed on the old store), as did the image-input, custom-session and session tests; but
+`image-browser.mjs` failed: building `system` reads the images its recipe names, which share
+packs, and each shared pack was then downloaded once per image instead of once (at least 8 of
+them). So that direction trades the shared packs' single download for storage. The other keeps
+both: packs kept decoded, each a file, and the image cache's snapshot a Blob of an image's pack
+files in order, with no file of its own. Not kept.
+
 Done when an image read once occupies its snapshot's size (within the packs' framing), it
 starts again without a download, and the image, session and acceptance browser tests pass
 in Chromium and Firefox.
