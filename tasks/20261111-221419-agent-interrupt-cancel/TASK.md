@@ -63,11 +63,15 @@ the default image with the test's server holding the response open until it clos
   it, after a save and a restore through `/session/?name=`, and with a reasoning model,
   `--thinking low` and `reasoning_content` deltas: player 1's response closes at the abort,
   player 2's stays open.
+- The same with the harness's own steps: `clear_queue` before `abort`, `--session FILE`,
+  `--no-prompt-templates`, and both Pis spawned with pipes by a Janis program that writes the
+  RPC lines to `child.stdin`, as `mission.mjs` does: player 1's response closes at the abort.
 
 So the HTTP client, the kernel's cancel and the broker work for a Pi that aborts. What the
-failing case adds is the game harness (`demos/game-agent/mission.mjs` on Janis spawning Pi
-with pipes, `clear_queue` before `abort`, `--session`, `--extension player.js`) and the
-ClassiCube game. Pi settles there (the harness records `settled` on Pi's own `agent_settled`),
+failing case still adds: the `player.js` extension (`--no-extensions --extension`, `--tools
+game_input`, `--system-prompt`), the `openrouter` provider at `https://openrouter.ai`, a
+cross-origin request the page's `fetch` sends to the fixture (`redirectFetch`), screenshots in
+the request body (larger than one packet), and the ClassiCube game running beside it. Pi settles there (the harness records `settled` on Pi's own `agent_settled`),
 so Pi takes the abort and its fetch is not cancelled. Janis ignores `ESTALE` from `httpCancel`,
 which is the kernel's answer for a request this process does not own.
 
