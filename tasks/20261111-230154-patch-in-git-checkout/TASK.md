@@ -16,3 +16,12 @@ repository's subdirectory.
 
 Done when `patch` applies relative to its directory wherever that lies (for example by keeping
 `git apply` from finding an enclosing repository), with the test run inside a checkout too.
+
+## State (2026-11-12)
+
+`patch` sets `GIT_CEILING_DIRECTORIES` to its directory's parent, so `git apply` finds no
+repository above it and applies relative to it, as GNU patch does (a repository at the directory
+itself applies from there anyway). The test's work directory is a repository now: it failed with
+the old `patch.c` (the file stayed `one\ntwo\n`) and passes with the new, natively. Left: the same in Dolly, with the `git` package
+rebuilt in the next round; then close.
+

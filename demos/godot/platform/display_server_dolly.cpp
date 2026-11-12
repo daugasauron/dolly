@@ -2,6 +2,7 @@
 
 #include "core/input/input.h"
 #include "core/os/keyboard.h"
+#include "core/os/os.h"
 #include "drivers/gles3/rasterizer_gles3.h"
 #include "main/main.h"
 #include "servers/display/native_menu.h"
@@ -11,7 +12,6 @@
 #include "servers/rendering/renderer_rd/renderer_compositor_rd.h"
 #include "servers/rendering/rendering_device.h"
 #include "core/config/project_settings.h"
-#include "core/os/os.h"
 #endif
 
 #include <platform_gl.h>
@@ -235,6 +235,21 @@ static void read_pointer(const dolly_input_event &p_event, Point2i &mouse_positi
 	event->set_pressed(p_event.action == DOLLY_POINTER_ACTION_PRESS);
 	if (event->is_pressed()) {
 		mask.set_flag(mouse_button_to_mask(buttons[button]));
+		// A second press of the same button within 400 ms and 5 pixels is a
+		// double click, as Godot's X11 platform counts one.
+		static MouseButton last_button = MouseButton::NONE;
+		static uint64_t last_press_ms = 0;
+		static Point2i last_press_position;
+		const uint64_t now = OS::get_singleton()->get_ticks_msec();
+		if (buttons[button] == last_button && now - last_press_ms < 400 &&
+				Vector2(position).distance_to(Vector2(last_press_position)) < 5) {
+			event->set_double_click(true);
+			last_button = MouseButton::NONE;
+		} else {
+			last_button = buttons[button];
+			last_press_ms = now;
+			last_press_position = position;
+		}
 	} else {
 		mask.clear_flag(mouse_button_to_mask(buttons[button]));
 	}

@@ -1,6 +1,6 @@
 # Airtime in Godot: the same strafe course and movement, with much better graphics
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 320
 - TAGS: godot,game,demo,graphics,gpu
 
@@ -9,7 +9,18 @@ but I want a lot better and cooler graphics."
 
 ## State (2026-11-12)
 
-Filed.
+Closed. `demos/godot/airtime` is the Godot project: `movement.gd` ports `bhop-movement.h` at
+100 Hz in Airtime's units and `course.gd` its course; run natively against the C game with the
+same inputs, the state matched at every checkpoint to three decimals. The package
+`airtime-godot` exports it with Dolly's own `godot-editor`; the application `godot-airtime` holds
+the game, the editor and the project (`/home/dolly/airtime`), on the domain site's Applications
+(release `0d27c879…`, 9045). Dolly's display server captures the mouse now.
+`demos/godot/test/godot-gpu-browser.mjs` passes in Chromium and Firefox on main (03372976a, the
+round's `gpu-godot-after.log`): WebGPU forward_plus, autopilot through 16 pads or more with at
+most two falls. Natively the autopilot finishes the course in 20.83 s without a fall.
+Screenshots: `airtime-raylib.jpg` (the C game in Dolly, the release's `bhop`) and
+`airtime-godot.jpg` (Godot, frame 420 of an autopilot run, native at 1920x1200: lava with
+embers, lit plates, glowing pipes and windows, starry sky).
 
 The game today is Airtime: Foundry (`demos/bhop`, package `airtime`), C on raylib: the movement in
 `bhop-movement.h` (air acceleration and strafing, friction, jumps, scroll jumping), the course in

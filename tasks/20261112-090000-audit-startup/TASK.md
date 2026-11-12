@@ -46,7 +46,13 @@ threads; the source suite):
   against its pack's digest with WebCrypto, and the kernel hashes nothing on this path
   (`abi/dolly-image-0.wat`): the canonical digest is only in the image's own metadata, so the
   second pass compared two fields of one file. To measure again after the round.
-Left: 11 (preload), 2 (image contents, the owner's call per image).
+- Finding 11, measured on release `0d27c879…` (9045) through a proxy that delays every response by
+  50 ms, a fresh Chrome profile each run, `default`: 4,021, 4,028 and 4,391 ms to ready without
+  preload links, 3,794, 3,809 and 4,122 ms with links to the 17 modules of `src/site.mjs`'s static
+  graph (the proxy injected them). On `fix/batch` `generate-routes.mjs` writes those links into
+  every route page (`{{DOLLY_PRELOAD}}` in `terminal.html`). The Worker's graph is its own
+  module map, which a page's preload does not fill.
+Left: 2 (image contents, the owner's call per image).
 Measured: release 0.1.6 as served on `127.0.0.1:9045` (release `a73ad906…`, 211 images,
 catalog 2,056,929 B), Chrome 156, images default, pi-agent, bhop, neovim, python-data
 (headless) and godot-lantern-drift, photocraft-photos (headed, Vulkan adapter). Every request

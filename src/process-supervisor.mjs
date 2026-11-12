@@ -169,7 +169,7 @@ function encodeSpawn(arguments_, flags, standard = true) {
 // A process's memory lives in its own Workers alone, never in this one: a
 // shared memory's pages go when the last agent holding it drops it, and a
 // living Worker drops one only when it collects garbage, which a small heap
-// rarely needs (tasks/20261101-102515-retained-process-memory). So each
+// rarely needs. So each
 // Worker makes or receives the memory, holds the gate and copies its requests
 // into a mailbox of its own in kernel memory, and the memory goes with the
 // Worker. This Worker only names that mailbox to the kernel.
@@ -230,8 +230,8 @@ export class DollyProcessSupervisor {
       // 500 KB, which Clang needs: an executable asks for it with a
       // dolly.process.stack section, and only the compiler carries one
       // (src/process/compiler-main.c). Every other program is entered
-      // directly: a Codex build crashed Chrome's tab twice on that stack
-      // (tasks/20260930-232236-llvm-in-dolly), and Firefox 155 reports every
+      // directly: a Codex build crashed Chrome's tab twice on that stack,
+      // and Firefox 155 reports every
       // Worker terminated inside such a call as an uncaught exception that no
       // listener receives. Firefox's holds no more, so the entry is also taken
       // only where it is measured half again as deep (Chrome 151: 1.90
