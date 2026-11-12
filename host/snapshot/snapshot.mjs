@@ -94,11 +94,13 @@ export function worker({ get, ask, configuration: { save, recover } }) {
       }
     } finally { files.remove(path); }
   }
+  const restores = () => save !== undefined && recover === undefined;
   return {
+    restoresFilesystem: restores,
     // The save is the whole filesystem: the kernel empties the boot's and takes
     // it a transfer range at a time as it is decompressed.
     async restoreFilesystem({ kernel, memory, stage }) {
-      if (save === undefined || recover !== undefined) return false;
+      if (!restores()) return false;
       stage("restoring the saved session...");
       const address = Number(kernel.dolly_session_transfer_address());
       if (kernel.dolly_session_restore_begin() !== 0) throw new Error("Dolly could not empty the filesystem for the saved session");

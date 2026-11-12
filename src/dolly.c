@@ -151,12 +151,32 @@ static void terminal_echo(void *terminal, const unsigned char *bytes, size_t len
   dolly_kernel_terminal_write(bytes, length);
 }
 
+/* The terminal's halves, as modules give them (src/process-kernel.h). */
+static int terminal_attached(void) {
+  const dolly_terminal_output *output = dolly_kernel_terminal_output_device();
+  return output != NULL && output->attached();
+}
+
+static void terminal_render(const unsigned char *bytes, size_t length) {
+  dolly_kernel_terminal_output_device()->render(bytes, length);
+}
+
+static int terminal_ready(void) {
+  const dolly_terminal_input *input = dolly_kernel_terminal_input_device();
+  return input != NULL && input->ready();
+}
+
+static int terminal_read(void) {
+  const dolly_terminal_input *input = dolly_kernel_terminal_input_device();
+  return input != NULL ? input->read() : -1;
+}
+
 int dolly_kernel_terminal_readable(void) {
   if ((terminal_mode_flags & DOLLY_TERMINAL_CANONICAL) == 0) {
-    return terminal_line.size != 0 || dolly_kernel_terminal_ready();
+    return terminal_line.size != 0 || terminal_ready();
   }
   for (int byte; terminal_line.ready == 0 && !terminal_line.end &&
-       (byte = dolly_kernel_terminal_read()) >= 0;) {
+       (byte = terminal_read()) >= 0;) {
     dolly_kernel_line_type(&terminal_line, dolly_kernel_terminal_input(terminal_mode_flags, (unsigned char)byte),
         (terminal_mode_flags & DOLLY_TERMINAL_ECHO) != 0 ? terminal_echo : NULL, NULL);
   }
@@ -168,7 +188,7 @@ int64_t dolly_kernel_terminal_receive(unsigned char *bytes, size_t size) {
   const int raw = (terminal_mode_flags & DOLLY_TERMINAL_CANONICAL) == 0;
   size_t count = dolly_kernel_line_take(&terminal_line, bytes, size, raw);
   if (!raw && count == 0) terminal_line.end = 0;
-  for (int byte; raw && count < size && (byte = dolly_kernel_terminal_read()) >= 0;) {
+  for (int byte; raw && count < size && (byte = terminal_read()) >= 0;) {
     bytes[count++] = dolly_kernel_terminal_input(terminal_mode_flags, (unsigned char)byte);
   }
   return (int64_t)count;
@@ -177,12 +197,13 @@ int64_t dolly_kernel_terminal_receive(unsigned char *bytes, size_t size) {
 int dolly_kernel_terminal_key(void) {
   unsigned char byte;
   if (dolly_kernel_line_take(&terminal_line, &byte, 1, 1) == 1) return byte;
-  const int read = dolly_kernel_terminal_read();
+  const int read = terminal_read();
   return read < 0 ? read : dolly_kernel_terminal_input(terminal_mode_flags, (unsigned char)read);
 }
 
 void dolly_kernel_terminal_discard(void) {
-  dolly_terminal_discard_pending_input();
+  const dolly_terminal_input *input = dolly_kernel_terminal_input_device();
+  if (input != NULL) input->discard();
   terminal_line.size = terminal_line.ready = 0;
   terminal_line.end = 0;
 }
@@ -190,26 +211,26 @@ void dolly_kernel_terminal_discard(void) {
 /* The supervisor's words (abi/dolly-supervisor-0.wat): about the executable it
  * prepares, for the terminal of the process that waits for it. */
 int dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length) {
-  if (dolly_kernel_terminal_attached() && !dolly_kernel_launch_diagnostic(bytes, (size_t)length)) return 0;
+  if (terminal_attached() && !dolly_kernel_launch_diagnostic(bytes, (size_t)length)) return 0;
   return dolly_kernel_terminal_write(bytes, length);
 }
 
 int dolly_kernel_terminal_write(const unsigned char *bytes, uintptr_t length) {
   if (bytes == NULL || length == 0) return 0;
-  if (!dolly_kernel_terminal_attached()) return dolly_bootstrap_write_bytes(bytes, length);
+  if (!terminal_attached()) return dolly_bootstrap_write_bytes(bytes, length);
   const uint32_t newline = DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR;
   if ((terminal_mode_flags & newline) == newline) {
     uintptr_t start = 0;
     for (uintptr_t index = 0; index < length; ++index) {
       if (bytes[index] != '\n') continue;
-      if (index > start) dolly_kernel_terminal_render(bytes + start, index - start);
-      dolly_kernel_terminal_render((const unsigned char *)"\r\n", 2);
+      if (index > start) terminal_render(bytes + start, index - start);
+      terminal_render((const unsigned char *)"\r\n", 2);
       start = index + 1;
     }
     bytes += start;
     length -= start;
   }
-  dolly_kernel_terminal_render(bytes, (size_t)length);
+  terminal_render(bytes, (size_t)length);
   return 0;
 }
 

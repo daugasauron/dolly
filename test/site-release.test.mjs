@@ -77,7 +77,7 @@ test("source provenance includes uncommitted inputs but excludes local agent sta
   assert.equal(await readFile(resolve(source, ".pi/private.txt"), "utf8"), "must not enter provenance");
 });
 
-test("the release server serves the current release as deployed: its files under its version, nothing cached", async t => {
+test("the release server serves the current release as deployed: its files under its version, each kept only as its digest", async t => {
   const releases = await mkdtemp(resolve(tmpdir(), "dolly-release-server-"));
   t.after(() => rm(releases, { recursive: true, force: true }));
   async function publish(version, text) {
@@ -121,10 +121,15 @@ test("the release server serves the current release as deployed: its files under
     "/v1.2.3/docs/..%2fAGENTS.md", "/v1.2.3/docs/..%2fsrc%2fcompiler.cpp", "/v1.2.3/dist/..%2fAGENTS.md", "/v1.2.3/..%2f..%2fAGENTS.md"]) {
     assert.equal((await get(path)).status, 404, path);
   }
-  // A candidate keeps its version while it changes, so no response may be kept.
-  for (const path of ["/v1.2.3/default/", "/v1.2.3/src/browser.mjs", `/v1.2.3/dist/packs/${"a".repeat(64)}.snapshot.gz`, "/nowhere"]) {
-    assert.equal((await get(path)).headers.get("cache-control"), "no-store", path);
+  // A candidate keeps its version while it changes: a file is asked for again
+  // each time and kept while its digest is the same; nothing else is kept.
+  for (const path of ["/v1.2.3/default/", "/v1.2.3/src/browser.mjs", `/v1.2.3/dist/packs/${"a".repeat(64)}.snapshot.gz`]) {
+    const { headers } = await get(path), etag = headers.get("etag");
+    assert.equal(headers.get("cache-control"), "no-cache", path);
+    assert.match(etag, /^"[0-9a-f]{64}"$/, path);
+    assert.equal((await fetch(origin + path, { headers: { "if-none-match": etag }, signal: AbortSignal.timeout(5000) })).status, 304, path);
   }
+  assert.equal((await get("/nowhere")).headers.get("cache-control"), "no-store");
   const current = await publish("1.2.3", "new candidate");
   assert.equal(await (await get("/v1.2.3/src/browser.mjs")).text(), "new candidate");
   await publish("1.3.0", "next version");

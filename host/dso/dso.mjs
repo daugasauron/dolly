@@ -10,7 +10,7 @@ export function worker({ get, abi, runtimeBase }) {
     async start() {
       const [contract, bundle] = await Promise.all(["dolly-dso-0.wasm", "dolly-process-dso.mjs"].map(async name => {
         const response = await fetch(new URL(`dist/${name}`, runtimeBase), {
-          cache: "no-store", credentials: "same-origin", redirect: "error",
+          credentials: "same-origin", redirect: "error",
         });
         if (!response.ok) throw new Error(`Dolly ${name} returned HTTP ${response.status}`);
         return response.arrayBuffer();

@@ -1,3 +1,5 @@
+import { Sha256 } from "./sha256.mjs";
+
 // Recipe pins identify instructions; artifact digests identify their results.
 export function imageInputs(artifacts = []) {
   if (!Array.isArray(artifacts) || artifacts.length > 256) throw new Error("invalid image inputs");
@@ -17,4 +19,13 @@ export function imageInputs(artifacts = []) {
 
 export function imageInputsMatch(actual, expected) {
   return JSON.stringify(imageInputs(actual)) === JSON.stringify(imageInputs(expected));
+}
+
+// The catalog's digest of an image's recipe records (its metadata's recipes),
+// one line each, "SHA256 BYTES PATH\n", in their order: a start checks the
+// records against the catalog without the catalog repeating them.
+export function recipesDigest(recipes) {
+  const hash = new Sha256();
+  hash.update(new TextEncoder().encode(recipes.map(({ sha256, byteLength, sourcePath }) => `${sha256} ${byteLength} ${sourcePath}\n`).join("")));
+  return hash.hex();
 }

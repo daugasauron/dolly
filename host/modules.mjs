@@ -1,12 +1,6 @@
 import { hostRequirement, hostRequirements } from "./requirements.mjs";
 import { DOLLY_ERRNO as E } from "../src/process-constants.mjs";
 
-// What a build enables beside the runtime its image declares: the broker the
-// engine fetches sources through, the threads its toolchain uses, the
-// modules its compilers and interpreters load and the fresh stacks of the
-// tools stack-wrap rewrote.
-export const buildHost = Object.freeze(["http@0", "threads@0", "dso@0", "stack@0"]);
-
 // A page's host modules, from the URLs of their manifests. The embedding, trusted
 // code, names them; images select no JS or Worker URLs, and each module's provider
 // is the file its manifest names. A runtime is a module that provides the kernel
@@ -15,7 +9,10 @@ export async function hostRegistry(urls) {
   const definitions = await Promise.all(urls.map(async url => {
     const { default: manifest } = await import(url, { with: { type: "json" } });
     const contract = Object.freeze({ ...manifest, url });
-    return { ...await import(new URL(contract.host, url).href), contract };
+    // A module's provider is imported when the page or a Worker first needs it:
+    // its module attached or admitted, or a session route's boot selected.
+    let provider;
+    return { contract, provider: () => provider ??= import(new URL(contract.host, url).href) };
   }));
   const byName = new Map(), owners = new Map();
   for (const module of definitions) {
@@ -27,8 +24,11 @@ export async function hostRegistry(urls) {
     }
   }
   const contracts = Object.freeze(definitions.map(module => module.contract));
-  const runtimes = Object.freeze(contracts.filter(contract => contract.provides === "kernel")
-    .map(({ name, version }) => `${name}@${version}`));
+  const requirementsOf = keep => Object.freeze(contracts.filter(keep).map(({ name, version }) => `${name}@${version}`));
+  const runtimes = requirementsOf(contract => contract.provides === "kernel");
+  // What a build enables beside the runtime its image declares: the modules
+  // whose manifests say `build` (README.md).
+  const buildHost = requirementsOf(contract => contract.build);
   const registry = { byName, owners, contracts, runtimes };
   return Object.freeze({
     urls: Object.freeze([...urls]),
@@ -38,14 +38,15 @@ export async function hostRegistry(urls) {
   });
 }
 
-// A module may select what a route boots, as a saved session names its image:
-// at most one does, and the page then requires it. The selection carries the
-// image, a bootstrap label, the custom image record it restores and the
+// A module may select what a session route boots, as a saved session names its
+// image: at most one does, and the page then requires it. The selection carries
+// the image, a bootstrap label, the custom image record it restores and the
 // module's configuration, keyed for createHost.
 async function selectBoot(definitions, route) {
+  if (!route.loadSession) return null;
   let selection = null;
   for (const module of definitions) {
-    const selected = await module.boot?.(route);
+    const selected = await (await module.provider()).boot?.(route);
     if (!selected) continue;
     if (selection) throw new Error("two host modules selected the boot");
     const { name, version } = module.contract;
@@ -126,8 +127,9 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
     visiting.delete(name);
     try { requireModules(module.contract.dependencies); }
     catch (error) { reasons.set(name, error.message); return; }
+    const provider = await module.provider();
     if (side === "browser" && !checked) {
-      const reason = await module.check?.(resources);
+      const reason = await provider.check?.(resources);
       if (reason) { reasons.set(name, reason); return; }
     }
     const dependency = name => {
@@ -136,7 +138,7 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
       }
       return get(name);
     };
-    const instance = module[side]?.({ ...resources, send, ask, get: dependency,
+    const instance = provider[side]?.({ ...resources, send, ask, get: dependency,
       service: () => { for (const instance of instances.values()) instance.service?.(); },
       claimsKey, framePoint,
       abi: admittedAbi, modules: module.contract.switches && side === "browser" ? { list, enable, disable } : undefined,
@@ -219,7 +221,7 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
       // later switch: after five seconds the switch is refused and the check
       // told so, that an answer coming later shows nothing on the page.
       const abandoned = new AbortController(), timer = setTimeout(() => abandoned.abort(), 5000);
-      const unavailable = await Promise.race([module.check?.({ ...resources, signal: abandoned.signal }), new Promise(resolve =>
+      const unavailable = await Promise.race([(await module.provider()).check?.({ ...resources, signal: abandoned.signal }), new Promise(resolve =>
         abandoned.signal.addEventListener("abort", () => resolve("the browser did not answer in time")))]);
       clearTimeout(timer);
       if (unavailable) return unavailable;
@@ -270,12 +272,15 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
     require: requireModules, dispose,
     // Executables may use only the modules the image declares. A declared module
     // this host does not enable (a build host) answers its calls with ENOSYS.
-    admit(requirements) {
-      admittedAbi.clear();
+    async admit(requirements) {
+      const admitted = new Map();
       for (const value of hostRequirements(requirements)) {
         const { name, version } = hostRequirement(value), module = byName.get(name);
-        if (module?.digest && module.contract.version === version) admittedAbi.set(value, module.digest);
+        const digest = module?.contract.version === version ? (await module.provider()).digest : undefined;
+        if (digest) admitted.set(value, digest);
       }
+      admittedAbi.clear();
+      for (const [value, digest] of admitted) admittedAbi.set(value, digest);
     },
     // The Worker asks this before it restores the image: a module that restores
     // the whole filesystem itself (a saved session, host/snapshot) says so, and
@@ -283,6 +288,11 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
     async restoreFilesystem(context) {
       for (const instance of instances.values()) if (await instance.restoreFilesystem?.(context)) return true;
       return false;
+    },
+    // Whether restoreFilesystem will restore one, known from the configuration,
+    // before a kernel exists.
+    restoresFilesystem() {
+      return [...instances.values()].some(instance => instance.restoresFilesystem?.());
     },
     // The Worker calls this after restoring the system image and before starting
     // image-phase modules, in registry order.
@@ -348,7 +358,7 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
             const instance = instances.get(name);
             if (!instance) throw new Error(reasons.get(name));
             if (instance.start) await startProvider(name, instance, startContext);
-            const { digest } = byName.get(name);
+            const { digest } = await byName.get(name).provider();
             if (digest) admittedAbi.set(message.module, digest);
           } else if (instances.has(name)) detach(name);
         } catch (error) {

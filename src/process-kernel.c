@@ -154,6 +154,20 @@ static const dolly_kernel_module *const kernel_modules[] = {
 };
 #undef DOLLY_KERNEL_MODULE
 
+const dolly_terminal_output *dolly_kernel_terminal_output_device(void) {
+  for (size_t index = 0; index < sizeof(kernel_modules) / sizeof(*kernel_modules); ++index) {
+    if (kernel_modules[index]->terminal_output) return kernel_modules[index]->terminal_output;
+  }
+  return NULL;
+}
+
+const dolly_terminal_input *dolly_kernel_terminal_input_device(void) {
+  for (size_t index = 0; index < sizeof(kernel_modules) / sizeof(*kernel_modules); ++index) {
+    if (kernel_modules[index]->terminal_input) return kernel_modules[index]->terminal_input;
+  }
+  return NULL;
+}
+
 static void release_modules(int pid, int tid) {
   for (size_t index = 0; index < sizeof(kernel_modules) / sizeof(*kernel_modules); ++index) {
     const dolly_kernel_module *module = kernel_modules[index];
@@ -1777,8 +1791,9 @@ static int64_t terminal_packet(dolly_kernel_process *process,
     if (result < 0) return result;
     refresh_foreground();
   } else {
-    response.columns = dolly_terminal_columns();
-    response.rows = dolly_terminal_rows();
+    const dolly_terminal_output *output = dolly_kernel_terminal_output_device();
+    response.columns = output != NULL ? output->columns() : 0;
+    response.rows = output != NULL ? output->rows() : 0;
   }
   return respond(&response, sizeof(response));
 }
@@ -2921,7 +2936,19 @@ int dolly_process_signal(int pid, int signal_number) {
   return 0;
 }
 
-int dolly_process_take_alarm(void) {
+/* Signals raised for the supervisor to deliver as it delivers a kill
+ * (dolly-supervisor-0.wat take_raised): an alarm no handler takes, and what a
+ * module raises, such as a pseudo-terminal's interrupt key, resize or hang-up. */
+static struct { int pid, number; } raised[256];
+static size_t raised_count;
+
+void dolly_kernel_raise(int pid, int number) {
+  if (raised_count == sizeof(raised) / sizeof(*raised)) return;
+  raised[raised_count].pid = pid;
+  raised[raised_count++].number = number;
+}
+
+static void raise_due_alarms(void) {
   const uint64_t now = clock_nanoseconds(CLOCK_MONOTONIC);
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
     dolly_kernel_process *process = &process_table[index];
@@ -2933,10 +2960,17 @@ int dolly_process_take_alarm(void) {
         : saturating_add(now, interval - (now - process->alarm_deadline) % interval);
     const uint32_t alarm = 1u << DOLLY_PROCESS_SIGALRM;
     if (process->ignored_signals & alarm) continue;
-    if (!(process->handled_signals & alarm)) return process->pid;
-    process->pending_signals |= alarm;
+    if (!(process->handled_signals & alarm)) dolly_kernel_raise(process->pid, DOLLY_PROCESS_SIGALRM);
+    else process->pending_signals |= alarm;
   }
-  return 0;
+}
+
+int64_t dolly_process_take_raised(void) {
+  raise_due_alarms();
+  if (raised_count == 0) return 0;
+  const int64_t next = (int64_t)raised[0].pid << 32 | (uint32_t)raised[0].number;
+  memmove(raised, raised + 1, --raised_count * sizeof(*raised));
+  return next;
 }
 
 double dolly_process_deadline_remaining(int pid) {

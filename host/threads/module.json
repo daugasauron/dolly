@@ -1,8 +1,10 @@
 {
   "name": "threads",
   "version": 0,
+  "build": true,
   "gives": "threads, a Worker each: 32 a process, 64 in all",
   "dependencies": ["runtime@0"],
+  "phase": "kernel",
   "imports": [],
   "host": "threads.mjs",
   "contracts": ["dolly-threads-supervisor-0.wat"],

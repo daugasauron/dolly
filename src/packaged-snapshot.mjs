@@ -4,16 +4,15 @@
 // order into the image's canonical snapshot.
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES, imageBase } from "./images.mjs";
-import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
+import { imageInputs, imageInputsMatch, recipesDigest } from "./image-inputs.mjs";
 import { hostRequirements } from "../host/requirements.mjs";
-import { siteReference, sitePath, decodeStaticAsset, sha256 } from "./static-asset.mjs";
+import { siteReference, decodeStaticAsset } from "./static-asset.mjs";
 import { scanSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 import { unretainedPath } from "./image-names.mjs";
 import { openPackStore } from "./pack-store.mjs";
 import { Sha256 } from "./sha256.mjs";
 const definitionOf = image => DOLLY_IMAGES.find(definition => definition.image === image);
 const encoder = new TextEncoder();
-const expectedRecipes = image => definitionOf(image).recipes;
 
 function validSnapshotPath(path) {
   return typeof path === "string" && path.startsWith("/") && path.length > 1 &&
@@ -21,21 +20,6 @@ function validSnapshotPath(path) {
     !path.includes("//") &&
     !path.split("/").some((part) => part === "." || part === "..") &&
     !unretainedPath(path);
-}
-
-// The recipes the directory serves for IMAGE (its page shows them) are the ones
-// that built the image a boot runs. They are fetched together.
-export async function verifyVisibleRecipes(image) {
-  await Promise.all(expectedRecipes(image).map(async recipe => {
-    const response = await fetch(new URL(sitePath(recipe.sourcePath).slice(1), imageBase), {
-      credentials: "same-origin", redirect: "error",
-    });
-    if (!response.ok) throw new Error(`${recipe.sourcePath} returned HTTP ${response.status}`);
-    const bytes = await response.arrayBuffer();
-    if (bytes.byteLength !== recipe.byteLength || await sha256(bytes) !== recipe.sha256) {
-      throw new Error(`${recipe.sourcePath} does not match the packaged snapshot recipe`);
-    }
-  }));
 }
 
 // The image a FROM, COPY or INSTALL row names: its recipe at that path and pin.
@@ -64,6 +48,14 @@ async function importMetadata(image) {
   }
 }
 
+// The metadata an image starts from: its own, checked against its catalog
+// record (its recipes, the pins of its inputs, its modules). That the snapshots
+// of its inputs are the ones it was built on is the build's and the release's
+// to check (loadPackagedSnapshotMetadata, scripts/site-release.mjs).
+export async function loadImageMetadata(image) {
+  return checkedMetadata(image, await importMetadata(image), null);
+}
+
 // An image's metadata, checked against the catalog and the metadata of every
 // image it is built from, which are fetched together.
 export async function loadPackagedSnapshotMetadata(image) {
@@ -75,13 +67,12 @@ export async function loadPackagedSnapshotMetadata(image) {
 }
 
 // METADATA, checked as IMAGE's against the catalog and CHECKED, the metadata
-// of the images it is built from.
+// of the images it is built from, unless CHECKED is null.
 function checkedMetadata(image, metadata, checked) {
-  const recipes = expectedRecipes(image);
   if (metadata === null || typeof metadata !== "object" ||
       metadata.image !== image || metadata.buildId !== DOLLY_IMAGE_BUILD_ID ||
       metadata.formatVersion !== 2 || metadata.identityVersion !== 2 ||
-      JSON.stringify(metadata.recipes) !== JSON.stringify(recipes) ||
+      !Array.isArray(metadata.recipes) || recipesDigest(metadata.recipes) !== definitionOf(image).recipesSha256 ||
       JSON.stringify(hostRequirements(metadata.hostRequirements)) !== JSON.stringify(definitionOf(image).hostRequirements) ||
       !Number.isSafeInteger(metadata.byteLength) || metadata.byteLength <= 0 ||
       metadata.byteLength > snapshotSizeLimit || metadata.encoding !== "packs" ||
@@ -117,6 +108,7 @@ function checkedMetadata(image, metadata, checked) {
       throw new Error(`The packaged system snapshot is missing ${required}`);
     }
   }
+  if (checked === null) return metadata;
   const expectedInputs = definitionOf(image).artifacts.map(reference =>
     ({ recipeSha256: reference.sha256, sha256: checked.get(referenced(reference).image).sha256 }));
   if (!imageInputsMatch(inputs, expectedInputs)) throw new Error("The packaged system snapshot has stale image inputs");
@@ -129,13 +121,32 @@ function checkedMetadata(image, metadata, checked) {
 // checked against its declared length. The consumer checks each part against
 // its digest and then calls its verified(), which keeps a downloaded pack; a
 // part it does not verify is not kept, or no longer.
+// Packs are asked for ahead of the one being read, at most PREFETCH_PACKS of
+// them and PREFETCH_BYTES of compressed bytes (one at least), and handed over
+// in order: on a network their round trips overlap instead of adding up.
+const PREFETCH_PACKS = 8, PREFETCH_BYTES = 64 * 1024 * 1024;
 async function* packagedSnapshotParts(metadata, signal) {
   const packs = validateSnapshotPacks(metadata), store = await openPackStore(metadata.image, packs);
-  let complete = false;
+  const opened = async pack => {
+    const kept = await store.kept(pack);
+    return kept ? { part: kept, downloaded: false }
+      : { part: await store.keeping(pack, await downloadedPack(pack, signal)), downloaded: true };
+  };
+  const ahead = [];
+  let next = 0, aheadBytes = 0, complete = false;
   try {
-    for (const pack of packs) {
+    while (next < packs.length || ahead.length) {
       signal?.throwIfAborted();
-      const part = await store.kept(pack) ?? await store.keeping(pack, await downloadedPack(pack, signal));
+      while (next < packs.length && (!ahead.length ||
+             ahead.length < PREFETCH_PACKS && aheadBytes + packs[next].encodedByteLength <= PREFETCH_BYTES)) {
+        const pack = packs[next++], opening = opened(pack);
+        opening.catch(() => {});
+        ahead.push({ pack, opening });
+        aheadBytes += pack.encodedByteLength;
+      }
+      const { pack, opening } = ahead.shift();
+      aheadBytes -= pack.encodedByteLength;
+      const { part } = await opening;
       let verified = false;
       try {
         yield { ...pack, body: part.body, verified: () => { verified = true; return part.keep(); } };
@@ -145,6 +156,14 @@ async function* packagedSnapshotParts(metadata, signal) {
     }
     complete = true;
   } finally {
+    // Packs asked for and never read: their downloads stop and are not kept;
+    // a kept one stays kept.
+    for (const { opening } of ahead) {
+      void opening.then(({ part, downloaded }) => {
+        void part.body.cancel().catch(() => {});
+        if (downloaded) void part.discard();
+      }, () => {});
+    }
     store.close(complete);
   }
 }

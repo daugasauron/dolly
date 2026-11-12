@@ -166,8 +166,11 @@ static void apply_palette(void) {
 }
 
 // Tells the terminal's programs of a grid a new surface or font size made.
+static uint32_t terminal_columns(void);
+static uint32_t terminal_rows(void);
+
 static void notify_grid(void) {
-  const uint32_t cols = dolly_terminal_columns(), rows = dolly_terminal_rows();
+  const uint32_t cols = terminal_columns(), rows = terminal_rows();
   if (cols == notified_cols && rows == notified_rows) return;
   notified_cols = cols;
   notified_rows = rows;
@@ -180,25 +183,25 @@ static int process_may_acquire_display(int pid) {
       dolly_process_descends_from(pid, foreground);
 }
 
-uint32_t dolly_terminal_columns(void) {
+static uint32_t terminal_columns(void) {
   return atomic_load_explicit(&display_mailbox.terminal_cols,
                               memory_order_acquire);
 }
 
-uint32_t dolly_terminal_rows(void) {
+static uint32_t terminal_rows(void) {
   return atomic_load_explicit(&display_mailbox.terminal_rows,
                               memory_order_acquire);
 }
 
-int dolly_kernel_terminal_attached(void) {
+static int terminal_attached(void) {
   return driver != NULL;
 }
 
-void dolly_kernel_terminal_render(const unsigned char *bytes, size_t length) {
+static void terminal_render(const unsigned char *bytes, size_t length) {
   driver->write(bytes, length);
 }
 
-size_t dolly_kernel_terminal_replies(unsigned char *output, size_t capacity) {
+static size_t terminal_replies(unsigned char *output, size_t capacity) {
   return driver != NULL ? driver->read(output, capacity) : 0;
 }
 
@@ -212,7 +215,8 @@ int dolly_terminal_present_pending(void) {
   if (driver == NULL) return 0;
   apply_surface();
   apply_palette();
-  const int status = dolly_kernel_terminal_input_service();
+  const dolly_terminal_input *input = dolly_kernel_terminal_input_device();
+  const int status = input != NULL ? input->service() : 0;
   driver->present();
   notify_grid();
   return status;
@@ -287,8 +291,8 @@ int dolly_display_install(const dolly_display_driver_v6 *candidate) {
   fflush(stdout);
   driver = candidate;
   apply_palette();
-  notified_cols = dolly_terminal_columns();
-  notified_rows = dolly_terminal_rows();
+  notified_cols = terminal_columns();
+  notified_rows = terminal_rows();
   return 0;
 }
 
@@ -569,5 +573,10 @@ static void display_release(int pid, int tid) {
   if (tid == 0) release_display_lease_for_pid(pid);
 }
 
+/* The terminal's output half (src/process-kernel.h). */
+static const dolly_terminal_output terminal_output = {
+    terminal_attached, terminal_render, terminal_replies, terminal_columns, terminal_rows};
+
 const dolly_kernel_module dolly_display_kernel = {
-    DOLLY_DISPLAY_ACQUIRE, DOLLY_DISPLAY_RELEASE, display_call, display_release};
+    .first_operation = DOLLY_DISPLAY_ACQUIRE, .last_operation = DOLLY_DISPLAY_RELEASE,
+    .call = display_call, .release = display_release, .terminal_output = &terminal_output};

@@ -121,7 +121,8 @@ test("no two contracts claim one process operation number", async () => {
   for (const { name, url, provides, kernel } of hostManifests) {
     if (provides === "kernel" || !kernel.length) continue;
     const sources = (await Promise.all(kernel.map(file => text(file, url)))).join("\n");
-    const [, first, last] = sources.match(new RegExp(`dolly_kernel_module dolly_${name}_kernel = \\{\\s*(\\w+)(?:,\\s*(\\w+),)?`));
+    const [, first, last] = sources.match(new RegExp(
+      `dolly_kernel_module dolly_${name}_kernel = \\{\\s*(?:\\.first_operation = )?(\\w+)(?:,\\s*(?:\\.last_operation = )?(\\w+),)?`));
     if (first === "0" && !last) continue; // The module handles no process operation.
     const abi = await import(new URL("abi.mjs", url));
     claims.push({ name: `${name}@${first}`, first: abi[first], last: abi[last] });

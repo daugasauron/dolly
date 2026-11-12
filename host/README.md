@@ -22,6 +22,7 @@ a page of the site names those its route uses ([`site.mjs`](../src/site.mjs)).
 | `fixed` | Why the module is never enabled or disabled after boot (below); absent when `nena@0` may switch it |
 | `provides` | `"kernel"` on a runtime (below); absent otherwise |
 | `switches` | `true` on the one module whose page side is given the registry's `list`, `enable` and `disable` (`nena`); absent otherwise |
+| `build` | `true` on a module every build enables beside its recipe's (the network for its steps, threads, libraries and stacks); absent otherwise |
 | `dependencies` | Modules this one uses through `get(name)` |
 | `phase` | When the Worker side's `start` runs: after the kernel loads (`kernel`) or after the image is restored (`image`); absent on a module whose Worker side needs no `start` |
 | `imports` | Kernel Wasm imports this module provides; `abi/dolly-browser-0.wat` is their reviewed allowlist |
@@ -34,6 +35,30 @@ a page of the site names those its route uses ([`site.mjs`](../src/site.mjs)).
 | `client` | Process C linked as `libdolly-NAME.a`; it records `DOLLY_HOST_REQUIRE(NAME, VERSION, DOLLY_NAME_ABI_DIGEST)` |
 | `tools` | Process C of a program a package builds from the module's directory, such as `stack-wrap`; optional |
 | `package` | The package whose recipe installs the module's headers and clients, which the seed then leaves out; absent when the seed holds them |
+
+The core (the kernel, the supervisor, the Workers, `boot()` and the registry)
+names no module but `runtime@0`. A module attaches to it only at these points,
+each a field of its manifest or a member of its provider:
+
+- **Kernel side** (`kernel`): its entry in the kernel's module table
+  (`dolly_NAME_kernel`, [`process-kernel.h`](../src/process-kernel.h)): the
+  process operations it answers and its release hook; `mailbox`, for a module
+  that runs a process on several Workers (`threads`); `device`, for a device
+  leased per process (`gpu`, `audio`, `microphone`, `nena`); `terminal_output`
+  and `terminal_input`, the halves of the terminal the boot starts on
+  (`display`, `input`). It raises signals for delivery with `dolly_kernel_raise`
+  (`pty`) and opens streams with `dolly_kernel_socket_open` (`sockets`, `pty`,
+  `console`).
+- **Browser authority** (`imports`): the kernel imports it provides, each a row
+  of `abi/dolly-browser-0.wat` and [the review map](../docs/browser-boundary.md).
+- **Its own kernel exports** (`contracts`): what its provider calls.
+- **Its provider** (`host`): the registry's hooks below, and two roles the
+  runtime offers: the thread provider (`threads`: which programs are threaded,
+  their Workers and the kernel's bookkeeping) and code served inside process
+  Workers (`processWorker`: `dso`, `stack`). A module that starts programs on
+  streams of its own passes `start` to the supervisor's `spawn` (`console`).
+- **Programs** (`process`, `headers`, `client`): the ABI executables compile
+  against and record.
 
 A provider's `browser()` receives the page's shared resources (`mount`,
 `canvas`, `keyboard`, `applicationBase` (the image directory), `site` (the
