@@ -1,6 +1,6 @@
 # libdolly-process.a linked as an archive; a module's digest covers what its executables link
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: core,libc,abi,build,investigation
 
@@ -32,6 +32,12 @@ every image. Evidence in `work/integrate/build/round-1105b-evidence/`:
 Left: the rust suite in Firefox. `rust-browser.mjs` passes no `browser` to `demoTest`, which
 then opens Chromium, so no round runs it in Firefox. Run it once in Firefox on the round's
 `rust-tools`, then close.
+
+## Closed (2026-11-12)
+
+`rust-browser.mjs` takes `DOLLY_BROWSER` as the Pi demos' tests do (`6c61399c4`), and passed in
+Firefox in 224.2 s on main's `rust-tools` (`0bacb83d7`, the root tree, `build/rust-firefox.log`).
+Every part of the done-when is now met.
 
 Two findings about how an executable is linked and identified. Decided 2026-11-04
 (`tasks/20261102-133353-owner-decisions`): yes to the digest; yes to the archive if its measurement
