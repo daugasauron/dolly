@@ -14,6 +14,12 @@ On `fix/batch`:
   input (`docs/dollyfile.md`, its first paragraph; `DOLLY 7` and the recipe's SHA-256 head it).
   A parser in C as Wasm would move 335 lines and add a module every page that reads a recipe
   loads; no host builds images without a page today (Donna runs built ones).
+  Since (evening): Donna builds a recipe it is given rows for, and asks where the rows of a
+  catalog recipe come from. Decided: the image directory publishes each catalog recipe's
+  `recipe.rows` beside it, which the catalog build writes with the one parser, so a host
+  rebuilds catalog images without parsing; no second parser in Rust. Only if a host must build
+  from text a person writes does the parser move to C in the engine, the page then using it too.
+  Next: the rows files, their digest in the catalog record, and `abi/README.md`.
 - 2 is done (`report_unkept` at sealing, `src/dollyfile.c`); it prints in the pip case once the
   round runs.
 - 4 is in `docs/dollyfile.md`: INSTALL's and FROM's meaning by role in the table, and the
