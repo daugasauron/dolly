@@ -2996,10 +2996,10 @@ static size_t descent_depth(int pid, int ancestor_pid) {
   return 0;
 }
 
-/* Ctrl-C on the display's terminal: like a job-control shell, an interactive
- * owner's running commands take SIGINT in its place; without any it takes
- * SIGINT itself, with its descendants. */
-static void interrupt_foreground(int pid) {
+/* Ctrl-C: like a job-control shell, an interactive owner's running commands
+ * take SIGINT in its place; without any it takes SIGINT itself, with its
+ * descendants. */
+void dolly_kernel_interrupt_tree(int pid) {
   dolly_kernel_process *owner = find_process(pid);
   if (owner == NULL || !live(owner)) return;
   int commands = 0;
@@ -3032,7 +3032,7 @@ static void end_tree(dolly_kernel_process *root) {
 static void service(void) {
   deliver_raised();
   const int interrupted = dolly_kernel_take_interrupt();
-  if (interrupted > 0) interrupt_foreground(interrupted);
+  if (interrupted > 0) dolly_kernel_interrupt_tree(interrupted);
   const uint64_t now = clock_nanoseconds(CLOCK_MONOTONIC);
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
     dolly_kernel_process *process = &process_table[index];

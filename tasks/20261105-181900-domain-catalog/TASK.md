@@ -20,3 +20,10 @@ and the live check.
 
 Done when: 0.1.6's deployment serves them and `amy install matplotlib` plots in the terminal on
 the live site.
+
+## State (2026-11-12)
+
+On the domain release served locally (`127.0.0.1:9045`, release `0d27c879…`, main `03372976a`):
+`default`, `amy install matplotlib` (python-dateutil and the rest with it), then a Matplotlib
+plot saved as a PNG (16,986 bytes, nothing on standard error), in headless Chrome. Left: the same
+on the live site, once the owner deploys 0.1.6.

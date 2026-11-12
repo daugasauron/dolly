@@ -101,7 +101,7 @@ const timed = async (run, command) => { const started = performance.now(); await
 // recorded, and kept by a saved session.
 try {
 await browserTest("amy", { image: "default", timeout: 300_000, server: { fixtures, handle } }, async ({ server, open }) => {
-  const policy = { maxRequests: 256, rules: [indexRule(server.origin),
+  const policy = { maxRequests: 512, rules: [indexRule(server.origin),
     { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] },
     { origin: server.origin, pathPrefix: "/mirror/", methods: ["GET"] }] };
   const session = await open({ policy });
@@ -121,6 +121,11 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   await run("test \"$(amy install curl)\" = 'amy: curl is already installed'");
   await run("! amy install nosuch-package 2> /tmp/amy-error && grep -q nosuch-package /tmp/amy-error");
   await run("! amy 2> /dev/null && ! amy frobnicate 2> /dev/null");
+  // A pin the directory does not publish is a 404 and spends none of the page's 64 snapshots:
+  // after 65 misses the next install is still served.
+  await run("d=$(curl -fsS https://packages.dolly.invalid/v1/directory | sed 's/:/%3A/g; s|/|%2F|g') && " +
+    "for i in $(seq 65); do test \"$(curl -s -o /dev/null -w '%{http_code}' " +
+    "https://packages.dolly.invalid/v1/packages/$(printf '%064d' 0)/from/$d)\" = 404 || exit 1; done");
   console.log(`amy install python: ${await timed(run, "amy install python > /tmp/amy-python")} ms`);
   await run("test \"$(python3 -c 'print(6 * 7)')\" = 42");
   // The install says what it added and keeps the list: no index or service is needed to read it.

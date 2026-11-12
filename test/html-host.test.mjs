@@ -10,9 +10,13 @@ test("html module bounds spans, shows one popup and answers it once", () => {
   const memory = new WebAssembly.Memory({ initial: 32, maximum: 64, shared: true });
   const sent = [];
   let serviced = 0;
-  const module = worker({ send: message => sent.push(message),
-    get: () => ({ memory, serviceDeferred: () => ++serviced }) });
-  const dispatch = (operation, address, length) => module.bindings["env.dolly_html_dispatch"](operation, BigInt(address), BigInt(length));
+  // A module of its own for each popup sequence: an answer or a close starts its quiet period.
+  const fresh = () => {
+    const module = worker({ send: message => sent.push(message),
+      get: () => ({ memory, serviceDeferred: () => ++serviced }) });
+    return [module, (operation, address, length) => module.bindings["env.dolly_html_dispatch"](operation, BigInt(address), BigInt(length))];
+  };
+  let [module, dispatch] = fresh();
   const bytes = new Uint8Array(memory.buffer);
   const document = new TextEncoder().encode("<p>é</p>");
   bytes.set(document, 4096);
@@ -36,25 +40,30 @@ test("html module bounds spans, shows one popup and answers it once", () => {
   assert.equal(serviced, 1, "the waiting program resumes at once");
   assert.equal(dispatch(DOLLY_HTML_ANSWER, 0, 4), -E.EMSGSIZE);
   assert.equal(dispatch(DOLLY_HTML_ANSWER, 0, 16), -E.EBADF, "an answer is given once");
+  // An answer is not a close: a program may ask its next question at once.
+  assert.equal(dispatch(DOLLY_HTML_OPEN, 4096, document.length), 0);
 
+  [module, dispatch] = fresh();
   assert.equal(dispatch(DOLLY_HTML_OPEN, 4096, document.length), 0);
-  module.messages["html-answer"]({ popup: 2, fields: "x".repeat(DOLLY_HTML_FIELDS_MAX + 1) });
+  module.messages["html-answer"]({ popup: 1, fields: "x".repeat(DOLLY_HTML_FIELDS_MAX + 1) });
   assert.equal(dispatch(DOLLY_HTML_ANSWER, 0, DOLLY_HTML_FIELDS_MAX * 2), -E.EMSGSIZE);
+  [module, dispatch] = fresh();
   assert.equal(dispatch(DOLLY_HTML_OPEN, 4096, document.length), 0);
-  module.messages["html-answer"]({ popup: 3, fields: "a=%C3%A9&b=2" });
+  module.messages["html-answer"]({ popup: 1, fields: "a=%C3%A9&b=2" });
   assert.equal(dispatch(DOLLY_HTML_ANSWER, 64, 16), 12);
   assert.equal(new TextDecoder().decode(bytes.slice(64, 76)), "a=%C3%A9&b=2");
 
+  [module, dispatch] = fresh();
   assert.equal(dispatch(DOLLY_HTML_OPEN, 4096, document.length), 0);
   assert.equal(dispatch(DOLLY_HTML_CLOSE, 0, 1), -E.EINVAL);
   assert.equal(dispatch(DOLLY_HTML_CLOSE, 0, 0), 0);
-  assert.deepEqual(sent.at(-1), { type: "html-close", popup: 4 });
+  assert.deepEqual(sent.at(-1), { type: "html-close", popup: 1 });
   assert.equal(dispatch(DOLLY_HTML_ANSWER, 0, 16), -E.EBADF);
 
   // The user's close is ECANCELED, and the next popup waits two seconds.
   assert.equal(dispatch(DOLLY_HTML_OPEN, 4096, document.length), 0);
-  module.messages["html-answer"]({ popup: 5, fields: null });
+  module.messages["html-answer"]({ popup: 2, fields: null });
   assert.equal(dispatch(DOLLY_HTML_ANSWER, 0, 16), -E.ECANCELED);
   assert.equal(dispatch(DOLLY_HTML_OPEN, 4096, document.length), -E.ECANCELED);
-  assert.equal(sent.filter(({ type }) => type === "html-show").length, 5);
+  assert.equal(sent.filter(({ type }) => type === "html-show").length, 6);
 });

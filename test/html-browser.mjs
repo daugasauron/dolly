@@ -125,6 +125,20 @@ await browserTest("html", { image: "system", timeout: 300_000 }, async ({ name, 
   await frame.getByRole("button", { name: "Send" }).click();
   assert.equal(await status, 0);
   await run(`test "$(cat /tmp/fields)" = 'answer=forty+two'`);
+  await page.waitForTimeout(2000);
+  // An answer over the module's 64 KiB is not sent: the page says why, outside the program's
+  // frame, and the popup stays for a shorter one.
+  [status] = await show("html < /home/dolly/question.html > /tmp/fields");
+  await frame.locator("input").fill("x".repeat(70 * 1024));
+  await frame.getByRole("button", { name: "Send" }).click();
+  const notice = popup.locator(".html-popup-notice[role=alert]");
+  await notice.waitFor();
+  assert.match(await notice.textContent(), /64 KiB/);
+  await frame.locator("input").fill("short");
+  await frame.getByRole("button", { name: "Send" }).click();
+  assert.equal(await status, 0);
+  await run(`test "$(cat /tmp/fields)" = 'answer=short'`);
+  await page.waitForTimeout(2000);
   // Ctrl+C on the popup's own button interrupts the program, and its popup goes with it.
   [status] = await show("html /home/dolly/question.html");
   await popup.getByRole("button", { name: "Close" }).focus();

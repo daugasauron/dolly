@@ -17,6 +17,25 @@ regenerated it; the generated files are current after any build (`build.sh` runs
 `generate-abi-constants.mjs` first), not after an edit. Left: the 2026-11-07 re-checks (duplication
 groups, S5, M2).
 
+Re-checked 2026-11-12 on `round/batch-1112` (the groups of
+`work/audit-core-2026-11-07/REPORT.md` 3.4):
+- Gone: 23 (`processChildren()`), 24 (`restore_address`, now only `src/system-snapshot.c`).
+- Done on `fix/console-interrupt`: 10, the static aliases of `display.mjs` (25) and `input.mjs`
+  (18); every use names the ABI constant (−43 lines).
+- Smaller than found: 1, touch holds one lease now; display's and input's lease stacks share
+  about 25 lines (find, release by pid, the descent rule), each release doing its own work after.
+- Not duplication: 26, `ffi.mjs` encodes LEB128 and `wasm-interface.mjs` decodes it.
+- Kept: 27, the configure handshake (11 lines) in the process and runtime Workers: a shared
+  module would be a request more at every start (`20261112-090000-audit-startup`).
+- Still there, in the seed (commands, module clients, fixtures), for a seed round: 3 (five
+  `Dollyfile-libdolly-*`), 6 (`join_path` in cp, du, find, install, ls; `base_name_copy` in cp and
+  mv), 7 (`CHECK` in 13 fixtures), 9 (`call` in audio, gpu and nena clients), 15 (layout asserts),
+  16 (deadline helpers in display, input and touch clients), 18 (download and upload path
+  requests), 20 (`write_all` in cat, gzip, slop), 29 (`createHash("sha256")` in 42 scripts and
+  tests).
+- S5 and M2 unchanged: `src/slop.c` includes `commands/echo.c`, `printf.c` and `test.c` (lines
+  26-28) and is 5,911 lines in one file; both are seed work.
+
 ## Do
 
 - `test:artifacts` (the exact import allowlist) runs in `npm test`.

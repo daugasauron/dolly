@@ -99,7 +99,13 @@ input.addEventListener("change", () => {
   void operation(async () => {
     status.textContent = "Checking session file…";
     const record = await importSessionFile(file);
-    const name = window.prompt("Import session as:", record.name);
+    // The modules the save starts with: its image's, or for a custom image those its Dollyfile
+    // names, which the file's own digest does not vouch for (docs/sessions.md).
+    const modules = record.image === "custom"
+      ? (await import("./dollyfile-view.mjs")).inspectDollyfile(record.customImage.source).hostRequirements
+      : DOLLY_IMAGES.find(({ image }) => image === record.image)?.hostRequirements;
+    const name = window.prompt(`Import session as (it starts ${record.image} with ` +
+      `${modules?.join(", ") ?? "host modules this release does not list"}):`, record.name);
     if (name === null) { await refresh(); return; }
     record.name = name.trim();
     if (!validSessionName(record.name)) throw new Error("Names use 1–64 letters, numbers, '.', '_' or '-'.");

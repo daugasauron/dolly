@@ -127,9 +127,13 @@ ENTRY /bin/foreground -i /bin/slop
   await row.getByRole("button", { name: "Export", exact: true }).click();
   const path = join(scratch, "custom-proof.dolly-session");
   await (await downloadPromise).saveAs(path);
-  page.once("dialog", (dialog) => dialog.accept("custom-imported"));
+  let question;
+  page.once("dialog", dialog => { question = dialog.message(); void dialog.accept("custom-imported"); });
   await page.locator("#import-session").setInputFiles(path);
   await page.locator("#sessions li").filter({ hasText: "custom-imported" }).locator("a").waitFor();
+  // The import names the modules the save's Dollyfile gives it.
+  const declared = [...source.matchAll(/^REQUIRES HOST (\S+)$/gm)].map(([, module]) => module);
+  assert.ok(declared.length && declared.every(module => question.includes(module)), question);
   const imported = await stored(page, "custom-imported");
   assert.deepEqual({ ...imported, name: "custom-proof" }, resaved);
   await page.close();

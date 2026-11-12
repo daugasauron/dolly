@@ -66,7 +66,10 @@ npm run serve build/domain-releases     # the candidate as it will be deployed
 - The catalog: [`domain-pages-images.txt`](../config/domain-pages-images.txt);
   dependencies are included automatically.
 - The second packaging argument, `slopshare.dev`, adds the `/agents/` showcase
-  ([`package-domain.mjs`](../scripts/package-domain.mjs)).
+  ([`package-domain.mjs`](../scripts/package-domain.mjs)). Its videos and posters
+  are in git, `sites/slopshare.dev/agents/`: a new recording goes there with its
+  section before packaging, each file within Pages' 25 MiB
+  (`test/site-release.test.mjs`).
 - [`package-pages.sh`](../scripts/package-pages.sh) `RELEASES SITE` seals a
   release into `RELEASES/ID` and points `RELEASES/current` at it (default
   `build/releases`); [`site-release.mjs`](../scripts/site-release.mjs)

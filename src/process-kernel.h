@@ -210,6 +210,9 @@ int dolly_kernel_foreground(void);
 /* The foreground process the page asked to interrupt (Ctrl-C) since the last
  * call, or 0: the page's terminal mailbox (abi/dolly-supervisor-0.wat). */
 int dolly_kernel_take_interrupt(void);
+/* Ctrl-C's SIGINT for PID's tree (console@0's pipes, which have no
+ * interrupt key): the host carries it out at its next event. */
+void dolly_kernel_interrupt_tree(int pid);
 
 int dolly_process_descends_from(int pid, int ancestor_pid);
 void dolly_kernel_terminal_resized(void);

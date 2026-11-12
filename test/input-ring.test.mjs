@@ -5,15 +5,16 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
+import * as A from "../host/input/abi.mjs";
 import { InputTransport as Input } from "../host/input/input.mjs";
 import { stagedIncludeDirectory } from "../scripts/host-modules.mjs";
 
 const transportOf = (eventCapacity = 8) => new Input(new SharedArrayBuffer(4096), 64, 2048, { eventCapacity, pasteCapacity: 1024 });
 // The records of a transport's ring, oldest first.
 function records(transport) {
-  const view = transport.view, read = transport.words[transport.word + Input.eventRead];
-  return Array.from({ length: transport.words[transport.word + Input.eventWrite] - read }, (_, index) => {
-    const offset = transport.address + Input.headerSize + ((read + index) & (transport.eventCapacity - 1)) * 128;
+  const view = transport.view, read = transport.words[transport.word + A.DOLLY_INPUT_WORD_EVENT_READ];
+  return Array.from({ length: transport.words[transport.word + A.DOLLY_INPUT_WORD_EVENT_WRITE] - read }, (_, index) => {
+    const offset = transport.address + A.DOLLY_INPUT_HEADER_SIZE + ((read + index) & (transport.eventCapacity - 1)) * 128;
     const text = view.getUint16(offset + 36, true);
     return { type: view.getUint32(offset, true), action: view.getUint32(offset + 4, true), y: view.getInt32(offset + 20, true),
       text: Buffer.from(transport.bytes.buffer, offset + 40 + view.getUint16(offset + 32, true) + view.getUint16(offset + 34, true), text) };
@@ -29,7 +30,7 @@ test("text records preserve literal UTF-8 across record boundaries", () => {
   }
   const transport = transportOf();
   assert.equal(transport.pushText("x".repeat(88 * 7 + 1)), false, "text larger than the free ring");
-  assert.deepEqual(records(transport).map(record => record.type), [Input.droppedEvent], "a refused text sends no partial records");
+  assert.deepEqual(records(transport).map(record => record.type), [A.DOLLY_INPUT_EVENT_DROPPED], "a refused text sends no partial records");
   for (const [address, capacity] of [[64, 0], [64, 1], [64, 12], [0, 8], [64, 64]]) {
     assert.throws(() => new Input(new SharedArrayBuffer(4096), address, 2048, { eventCapacity: capacity, pasteCapacity: 1024 }),
       /invalid input mailbox/);
@@ -45,14 +46,14 @@ test("a full ring marks where it lost records, once, in its last slot", () => {
   assert.equal(key(), false);
   assert.deepEqual(counted, [1, 2]);
   assert.deepEqual(records(transport).map(record => [record.type, record.action]),
-    [...Array(7).fill([Input.keyEvent, 1]), [Input.droppedEvent, 1]]);
+    [...Array(7).fill([A.DOLLY_INPUT_EVENT_KEY, 1]), [A.DOLLY_INPUT_EVENT_DROPPED, 1]]);
   // The reader takes three records: later keys follow the mark, and a second loss is marked after them.
-  transport.words[transport.word + Input.eventRead] += 3;
+  transport.words[transport.word + A.DOLLY_INPUT_WORD_EVENT_READ] += 3;
   assert.equal(key(), true);
   assert.equal(key(), true);
   assert.equal(key(), false);
   assert.deepEqual(records(transport).map(record => record.type),
-    [...Array(4).fill(Input.keyEvent), Input.droppedEvent, Input.keyEvent, Input.keyEvent, Input.droppedEvent]);
+    [...Array(4).fill(A.DOLLY_INPUT_EVENT_KEY), A.DOLLY_INPUT_EVENT_DROPPED, A.DOLLY_INPUT_EVENT_KEY, A.DOLLY_INPUT_EVENT_KEY, A.DOLLY_INPUT_EVENT_DROPPED]);
   assert.equal(records(transport).at(-1).action, 3);
 });
 
@@ -60,12 +61,12 @@ test("a wheel delta keeps its unit; a paste goes to the buffer or, under a lease
   const transport = transportOf();
   assert.equal(transport.pushScroll(-1.5, 1), true);
   assert.equal(transport.pushScroll(0.0001, 0), true, "a delta below a thousandth sends nothing");
-  assert.deepEqual(records(transport).map(({ type, action, y }) => [type, action, y]), [[Input.scrollEvent, 1, -1500]]);
+  assert.deepEqual(records(transport).map(({ type, action, y }) => [type, action, y]), [[A.DOLLY_INPUT_EVENT_SCROLL, 1, -1500]]);
   assert.equal(transport.pushPaste("pasted"), true);
   assert.equal(transport.pushPaste("second"), false, "one paste is in flight");
   assert.equal(Buffer.from(transport.bytes.buffer, transport.pasteAddress, 6).toString(), "pasted");
-  assert.equal(records(transport).at(-1).type, Input.pasteEvent);
-  transport.words[transport.word + Input.flags] = 1;
+  assert.equal(records(transport).at(-1).type, A.DOLLY_INPUT_EVENT_PASTE);
+  transport.words[transport.word + A.DOLLY_INPUT_WORD_FLAGS] = 1;
   assert.equal(transport.pushPaste("leased"), true);
   assert.equal(records(transport).at(-1).text.toString(), "leased");
 });

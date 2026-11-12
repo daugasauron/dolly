@@ -30,8 +30,8 @@ export function browser({ ask, send }) {
       // on three pipes. Its `output` (and a pipe console's `errors`) is what
       // the programs write; write() takes bytes or text, Ctrl+C included at a
       // terminal, and resolves to how many it took, fewer while the input is
-      // full; endInput() ends a pipe console's input; `exited` is the
-      // program's status.
+      // full; endInput() ends a pipe console's input and interrupt() is its
+      // Ctrl+C; `exited` is the program's status.
       async openConsole({ columns = 80, rows = 24, argv, pipes = false } = {}) {
         const id = await ask({ type: "console-open", columns, rows, argv, pipes });
         const entry = { streams: [], open: pipes ? 2 : 1, status: undefined, full: new Set() };
@@ -44,7 +44,8 @@ export function browser({ ask, send }) {
         }, new ByteLengthQueuingStrategy({ highWaterMark: WINDOW_BYTES }));
         return {
           output: stream(1),
-          ...pipes ? { errors: stream(2), endInput: () => ask({ type: "console-end-input", id }) } : {},
+          ...pipes ? { errors: stream(2), endInput: () => ask({ type: "console-end-input", id }),
+            interrupt: () => ask({ type: "console-interrupt", id }) } : {},
           exited: new Promise(resolve => { entry.exit = resolve; }),
           write: bytes => ask({ type: "console-write", id, bytes: typeof bytes === "string" ? encoder.encode(bytes) : bytes }),
           resize: (columns, rows) => ask({ type: "console-resize", id, columns, rows }),
@@ -123,6 +124,10 @@ export function worker({ send, get }) {
       },
       "console-end-input"({ id }) {
         checked(kernel.dolly_console_end_input(id));
+        get("runtime").serviceDeferred();
+      },
+      "console-interrupt"({ id }) {
+        checked(kernel.dolly_console_interrupt(id));
         get("runtime").serviceDeferred();
       },
       "console-resize"({ id, columns, rows }) {

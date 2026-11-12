@@ -1,6 +1,6 @@
 # Dollyfile Studio without the local model
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: studio
 
@@ -16,6 +16,12 @@ before the local model, Studio's README and texts stop offering local models as 
 (`demos/studio/README.md` lines 3 and 8), Studio's tests pass, and its snapshot size is recorded
 before and after. Local models stay as their own images and packages (`pi-local`, `pi-llm`).
 
-## State (2026-11-09)
+## Closed (2026-11-12)
 
-Not started.
+Done in `0e9957966` (2026-11-11, on main): Studio's recipe installs no `pi-llm` and declares
+no `gpu@0`, which only it needed; Pi in Studio uses a provider the user chooses with `/model`;
+`demos/studio/README.md`, its skill and its Pi extension no longer offer a local model; `pi-local`
+and `pi-llm` keep the local models and their test. The snapshot: 1,674,832,570 bytes before
+(`work/godot`'s dist, 2026-11-09), 269,437,923 after (72,889,831 bytes of packs; the root's dist
+at main `0bacb83d7`). Studio's test passed in Chromium in the round of 2026-11-11, on `7269d81cd`,
+which holds the change (`build/round-1111-evidence/demos.log`).
