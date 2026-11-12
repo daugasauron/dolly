@@ -91,7 +91,7 @@ Worker URL.
 | `dso@0` | process Worker of an executable that records it, each thread's in a program using `threads@0` | Instantiate Wasm the process supplies into its own memory and function table (each thread's, in the order of the records in that memory), call its table entries with signatures chosen at run time, and wait on a word of its memory (libc's futex in a threaded host); no import, no kernel entry, nothing outside that process | [`host/dso/`](../host/dso/module.json) ([`process.mjs`](../host/dso/process.mjs)) |
 | `stack@0` | process Worker of an executable that records it, each thread's in a program using `threads@0` | Call the program's own `dolly_stack_continue` on a fresh stack (`WebAssembly.promising`, through a trusted module of three functions that catches what it throws) and set its `dolly_stack_room` global; no import, no kernel entry, nothing outside that process | [`host/stack/`](../host/stack/module.json) ([`process.mjs`](../host/stack/process.mjs)) |
 | `build@0` | reserved URL via `http@0` | Start a disposable image build that writes the image cache | [`host/build/`](../host/build/module.json) |
-| `packages@0` | reserved URL via `http@0` | Serve the verified snapshot of a package the page's image directory, or one its HTTP policy admits, publishes, one at a time, 64 per page | [`host/packages/`](../host/packages/module.json) |
+| `packages@0` | mailbox; reserved URL via `http@0` | Hand over the page's image directory's URL, its `amy-index.txt` (one chunk) and the verified snapshot of a package it publishes over the module's mailbox, 2 GiB in 1 MiB chunks into a file of the guest's that must not exist; another directory's, where the page's HTTP policy admits it, through `http@0`'s reserved URL; one at a time, 64 snapshots per page | [`host/packages/`](../host/packages/module.json) |
 
 - `REQUIRES HOST` lines and executable `dolly.host` records
   ([`dolly-host-0.wat`](../abi/dolly-host-0.wat)) are compatibility demands, not
@@ -143,12 +143,14 @@ Worker URL.
   answer `ENOSYS`. Only Dollyfile Studio
   declares `build@0`, and the page admits it only after ENTRY starts
   ([Studio builds](image-build-service.md)). An image declaring `packages@0`
-  (`default`) may GET `https://packages.dolly.invalid/v1/directory`, the page's
-  image directory, and `…/v1/packages/SHA256/from/DIRECTORY` after ENTRY starts:
-  the page serves a published package's snapshot, rebuilt and verified from that
-  directory's packs exactly as a build input
-  ([`service.mjs`](../host/packages/service.mjs)). A directory other than the
-  page's is read only where the page's HTTP policy admits a GET of its URL,
+  (`default`) gets the page's image directory, that directory's
+  `amy-index.txt` and a published package's snapshot, rebuilt and verified
+  from its packs exactly as a build input, over the module's mailbox
+  ([`transport.mjs`](../host/packages/transport.mjs)): the kernel writes them
+  into a file of the guest's that must not exist, as upload@0 does; another
+  directory there is `EACCES`. Another directory's snapshot goes through
+  `http@0`, as `…/v1/packages/SHA256/from/DIRECTORY` after ENTRY starts
+  ([`service.mjs`](../host/packages/service.mjs)), read only where the page's HTTP policy admits a GET of its URL,
   counted and shown as the guest's request (`admit` in
   [`http.mjs`](../host/http/http.mjs)), else 403, and only metadata for this
   runtime passes. A pin the directory does not publish is 404, a second

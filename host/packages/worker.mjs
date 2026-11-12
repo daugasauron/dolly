@@ -12,8 +12,9 @@ onmessage = async ({ data }) => {
       await loadImages(data.directory);
       const definition = DOLLY_IMAGES.find(candidate => candidate.role === "package" && candidate.sha256 === data.sha256);
       if (!definition) return postMessage({ missing: true });
-      chunks = await packagedSystemSnapshot(await loadPackagedSnapshotMetadata(definition.image));
-      postMessage({ done: false });
+      const metadata = await loadPackagedSnapshotMetadata(definition.image);
+      chunks = await packagedSystemSnapshot(metadata);
+      postMessage({ done: false, size: metadata.byteLength });
     } else {
       const { done, value } = await chunks.next();
       postMessage({ done, value }, done ? [] : [value.buffer]);
