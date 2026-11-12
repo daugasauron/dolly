@@ -344,6 +344,14 @@ test("dist registers every image of the catalog", async () => {
     "a single-image run narrowed it, and a plain npm run image registers them all");
 });
 
+// A host rebuilds a catalog image from its recipe's rows, which the one parser wrote (abi/README.md).
+test("each catalog recipe's rows are published by its digest", async () => {
+  const { images } = await json("dolly-images.json");
+  for (const { dollyfile, sha256 } of images) {
+    assert.ok((await readFile(artifact(`rows/${sha256}.rows`), "utf8")).startsWith(`DOLLY 7 ${sha256}\0`), dollyfile);
+  }
+});
+
 test("published inputs are independent exact pinned files", async () => {
   const projectDir = new URL("..", import.meta.url).pathname;
   const { images, staticSources } = await json("dolly-images.json");

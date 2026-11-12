@@ -20,6 +20,7 @@ import { imageDescriptions, menuBody, menuGroup, opens, pageRoutes } from "./ima
 import { bundleProcessWorker } from "./bundle-process-worker.mjs";
 import { renderLicencesPage, upstreamInventory } from "./upstreams.mjs";
 import { amyIndex } from "./image-directory.mjs";
+import { recipeRows } from "../src/dollyfile-view.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 await bundleProcessWorker(projectDir);
@@ -68,6 +69,13 @@ await writeFile(resolve(projectDir, "licences/index.html"),
 await writeFile(resolve(projectDir, "amy-index.txt"), amyIndex(definitions.filter(({ parsed }) => parsed.role === "package")
   .map(({ image, filename, source }) => ({ image, dollyfile: filename, sha256: createHash("sha256").update(source).digest("hex") })),
   descriptions));
+// What the engine executes for each recipe (its recipe.rows), by the recipe's SHA-256: a host
+// rebuilds a catalog image from them without a parser of its own.
+await mkdir(resolve(projectDir, "dist/rows"), { recursive: true });
+await Promise.all(definitions.map(({ source, parsed }) => {
+  const sha256 = createHash("sha256").update(source).digest("hex");
+  return writeFile(resolve(projectDir, `dist/rows/${sha256}.rows`), recipeRows(parsed, sha256));
+}));
 const routes = pageRoutes(definitions.map(({ image }) => ({ image, openable: openable.has(image) })), primaryImage);
 for (const route of routes) {
   const output = resolve(projectDir, route.path);

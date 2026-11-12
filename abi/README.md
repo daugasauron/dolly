@@ -79,6 +79,9 @@ exports of [`dolly-image-0.wat`](dolly-image-0.wat):
   `install` rows through the inputs' own records), `hostRequirements` and
   `recipesSha256`, the SHA-256 of one line `SHA256 BYTES PATH` per recipe of its
   build.
+- `dist/rows/SHA256.rows`, a catalog recipe's `recipe.rows` by the recipe's
+  `sha256` ([Dollyfile](../docs/dollyfile.md)): what a host writes for a build of
+  that image, made by the page's one parser.
 - `dist/dolly-IMAGE-system-snapshot.json`, an image's metadata, format 2: a
   reader checks `image`, `buildId`, `formatVersion` and `identityVersion` (2),
   that `recipes` digests to the catalog's `recipesSha256`, that
