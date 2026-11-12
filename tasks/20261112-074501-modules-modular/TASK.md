@@ -30,18 +30,24 @@ pass; image inputs unchanged, `16a63999…`):
   (`build`, `switches`), not from names. console declares the `pty@0` it is built on.
 - `host/README.md` lists every point a module attaches at.
 
-Measured, still to do. A kernel built with pty and console dropped from `host/manifests.mjs`
-fails before the kernel: the core libc adapter includes `<dolly/pty.h>` for `TIOCSWINSZ`
-(`src/process/libc-adapter.c:1578-1588`). These change the seed or the process ABI, so they go
-with the next full rebuild round:
-- `TIOCSWINSZ` as a generic terminal request in `process.h`, which the kernel hands to the
-  descriptor's stream kind (`dolly_kernel_socket_kind.terminal`, as pty already answers).
-- `host/pty/dolly-pty-supervisor-0.wat`, empty now, deleted.
-- Module code in the core moves to its module: `src/process/threads.c` (libc's pthreads over
-  threads@0), `src/libcurl-fetch.c` (http@0), `src/process/http-check.c`, `dso-check.c`.
-- The browser channels converge (audit A1): html@0 (packaged) and download@0 (seed) onto the
-  leased-device packet; the mailbox modules stay mailboxes (bulk bytes, bounded).
-- Then the drop test again, for pty, console and threads, booting images that do not declare them.
+On `fix/batch`, in the batch round (`round/batch-1112`, work/modular):
+- `TIOCSWINSZ` is a generic terminal request (`DOLLY_PROCESS_TERMINAL_SIZE_SET`), which the
+  kernel hands to the descriptor's stream kind; the libc adapter includes no module header.
+- `host/pty/dolly-pty-supervisor-0.wat` is gone.
+- Module code left the core: libc's pthreads are `host/threads/pthreads.c` (and
+  `pthreads-start.S`), libcurl over http@0 is `host/http/libcurl.c` (a `tools` entry, which the
+  curl package sources), the dso and http checks are test fixtures.
+- A module's part of the seed is its own script (`seed` in module.json): `host/threads/seed.sh`
+  builds the threaded libc into `build/process-sysroot-parts/threads/`, which the sysroot holds
+  as `threads/` (where `cc -pthread` looks). build.sh runs every module's.
+
+Decided, not done (audit A1): html@0 and download@0 stay dispatch imports with their own
+framing. http@0 stays one too (bulk, streamed), so moving one of the three onto the lease bridge
+removes no kind of mechanism and adds lease bookkeeping to its client; download@0 moves bulk
+bytes as upload@0 does the other way. The kinds are listed in `host/README.md`.
+
+Left: the drop test after the round, for pty, console (whose kernel part is built on pty's) and
+threads: a kernel and runtime built without them boot images that do not declare them.
 
 ## Found
 
