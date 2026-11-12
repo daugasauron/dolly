@@ -28,7 +28,7 @@ static dolly_lock action_lock;
 /* What the kernel was last told of the actions. */
 static dolly_process_signal_dispositions reported;
 /* The signal the kernel has handed over. It delivers no other, and the
- * supervisor ends the process 500 ms after a terminating one, until it hears
+ * kernel ends the process 500 ms after a terminating one, until it hears
  * that this one's handler is over. */
 static _Thread_local int32_t taken;
 
