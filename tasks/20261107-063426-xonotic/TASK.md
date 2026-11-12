@@ -49,11 +49,14 @@ application's client, data, shaders and settings copied in
   match it in the centre (1.2) but not along the top (4.9, the bound is 3). No change here touches
   the low preset's frames; the batch round of 2026-11-12 runs the test on its own images, without
   these changes, which says whether it fails there too.
-- Firefox here loses the device (`GPU device lost: Device is lost`) when the client draws wider
-  than about 1700 pixels (1800×900, 1846×962 and 1848×960 lose it; 1600×1100, 1280×720 and
-  1024×768 do not; Chrome draws 1846×962). The image's settings are 1024×768, the owner's frame
-  was 1024×768 stretched; with nothing composited on this display, whether it happens on a
-  hardware display is open.
+- Firefox here loses the device (`GPU device lost: Device is lost`, reason `unknown`, no
+  uncaptured error before it) when the client's frame has rows that are not a multiple of 256
+  bytes: 1700, 1800, 1846 and 1848 pixels wide lose it; 1024, 1280, 1600 and 1792 do not, at any
+  height tried; Chrome draws 1846×962. A Worker's bare WebGPU canvas cleared every frame at
+  1846×962 is not lost (`wide.mjs` in the session's scratchpad), so it is something gpu@0 or
+  dpgpurast does with a frame-wide row; tracing the worker's records slowed it until nothing was
+  lost. The image's settings are 1024×768; with nothing composited on this display, whether it
+  happens on a hardware display is open.
 
 ## State (2026-11-07, later): Firefox's WebGPU
 
