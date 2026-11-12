@@ -17,7 +17,7 @@ test's JavaScript.
   builtins alone, `command`, `pipeline` and `exec` cases start programs.
 - The others (`shell.json`, `toolchain.json`, `process.json`, `cpp.json`,
   `cpp-dso.json`, `pty.json`, `man.json`, `default.json`, `cc-package.json`,
-  `zig-package.json`, `sockets.json`, `sockets-undeclared.json`, `fs-growth.json`, `host-modules.json`, `touch.json`): steps in order in one `directory`, which first gets `files`
+  `zig-package.json`, `sockets.json`, `sockets-undeclared.json`, `fs-growth.json`, `host-modules.json`, `touch.json`, `pager.json`): steps in order in one `directory`, which first gets `files`
   (their text) and `fixtures` (each named by its path in this repository). Each step's `script` runs as
   `/bin/slop -c SCRIPT` there and exits with `status`, or with any nonzero
   status where `fails` is true. Steps share files, not shell state; `terminal`
