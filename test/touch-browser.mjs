@@ -11,12 +11,11 @@
 // Usage: node test/touch-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { devices } from "playwright-core";
-import { browserTest, composed } from "./browser.mjs";
+import { browserTest, composed, runSteps } from "./browser.mjs";
+import touchCases from "./cases/touch.json" with { type: "json" };
 
-const fixtures = { "touch.c": "test/fixtures/touch.c" };
-
-const image = () => composed(["touch"],
-  ["libdolly-touch"], { base: "system" });
+const { fixtures } = touchCases;
+const image = () => composed(touchCases.hosts, touchCases.packages, { base: touchCases.image });
 // `system` with touch@0, in a page of the browser context's options.
 async function opened(open, server, context, initScript) {
   const errors = [], composedImage = await image();
@@ -39,9 +38,8 @@ const line = number => new RegExp(`DOLLY-SCROLL-${String(number).padStart(3, "0"
 await browserTest("touch", { image: "system", server: { fixtures }, timeout: 300_000 }, async ({ name, server, open }) => {
   const session = await opened(open, server, { hasTouch: true });
   const { page, submit, text, waitForText, waitForSelection, run, errors } = session;
-  await run(`curl -fsS ${server.origin}/fixture/touch.c -o /tmp/touch.c && cc /tmp/touch.c -o /tmp/touch`);
-  await run("/tmp/touch refuse");
-  assert.match(await text(), /TOUCH_REFUSALS_OK/);
+  // The program and its refusals are test/cases/touch.json.
+  await runSteps(submit, server.origin, touchCases);
 
   // The holder's buttons are the page's, below the canvas: a press is read as
   // that button's, and its buttons go with the lease.

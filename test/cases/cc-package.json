@@ -1,0 +1,27 @@
+{
+  "hosts": [
+    "runtime",
+    "display",
+    "input"
+  ],
+  "packages": [
+    "core",
+    "display",
+    "cc"
+  ],
+  "directory": "/tmp/cc-package-test",
+  "steps": [
+    {
+      "why": "cc installed on the core: C and C++ compile and run.",
+      "script": "echo '#include <stdio.h>' > /tmp/hello.c && echo 'int main(void) { puts(\"HELLO\"); return 0; }' >> /tmp/hello.c && cc /tmp/hello.c -o /tmp/hello && test \"$(/tmp/hello)\" = HELLO",
+      "status": 0
+    },
+    { "script": "echo '#include <iostream>' > /tmp/hello.cpp && echo 'int main() { std::cout << 6 * 7; }' >> /tmp/hello.cpp && c++ /tmp/hello.cpp -o /tmp/hello++ && test \"$(/tmp/hello++)\" = 42", "status": 0 },
+    { "script": "echo '#include <dolly/http.h>' > /tmp/http.c && echo 'int main(void) { dolly_http_response response = {0}; dolly_http_request request = {.method = \"GET\", .url = \"https://example.invalid/\", .headers = \"\"}; return dolly_http_perform(&request, &response) != 0; }' >> /tmp/http.c && cc /tmp/http.c -o /tmp/http", "status": 0 },
+    {
+      "why": "The image declares no http@0: a program linked with the HTTP client is refused before it runs (126; had it run, its failed request would be 1).",
+      "script": "/tmp/http",
+      "status": 126
+    }
+  ]
+}

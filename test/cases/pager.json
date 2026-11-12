@@ -1,0 +1,29 @@
+{
+  "image": "default",
+  "directory": "/tmp/pager-cases",
+  "steps": [
+    {
+      "why": "Git and less as a session installs them; sixty commits of a file that grows by a line in each and three hundred lines: more than a screen of log, of diff and of page.",
+      "script": "amy install git > /dev/null && amy install less > /dev/null && git config --global user.name Dolly && git config --global user.email dolly@example.invalid",
+      "status": 0
+    },
+    { "script": "git init -q . && seq 1 300 > /tmp/lines && cp /tmp/lines /usr/share/man/cat1/lines.1", "status": 0 },
+    {
+      "why": "The package's Git commits without a word: it holds the system configuration.",
+      "script": "for n in $(seq 101 160); do seq 1 $n > file && git add file && git commit -qm change-$n; done 2> /tmp/said && test ! -s /tmp/said",
+      "status": 0
+    },
+    {
+      "why": "Nothing in the environment asks for a pager.",
+      "script": "test -z \"$PAGER$GIT_PAGER$LESS\"",
+      "status": 0
+    },
+    {
+      "why": "Output that is not a terminal is not paged and never waits for a key, as in a tool call.",
+      "script": "test \"$(git log | grep -c change-)\" = 60 && git show > /tmp/shown && grep -q change-160 /tmp/shown",
+      "status": 0
+    },
+    { "script": "man lines | cmp - /tmp/lines && man lines > /tmp/page && cmp /tmp/page /tmp/lines", "status": 0 },
+    { "script": "less /tmp/lines | cmp - /tmp/lines && seq 1 300 | less > /tmp/page && cmp /tmp/page /tmp/lines", "status": 0 }
+  ]
+}

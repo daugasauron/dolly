@@ -5,9 +5,10 @@
 // the environment asks for it, a pager the person names is the one used, and
 // output that is not a terminal never waits for a key.
 import assert from "node:assert/strict";
-import { browserTest } from "./browser.mjs";
+import { browserTest, runSteps } from "./browser.mjs";
+import pagerCases from "./cases/pager.json" with { type: "json" };
 
-await browserTest("pager", { timeout: 300_000 }, async ({ open }) => {
+await browserTest("pager", { timeout: 300_000 }, async ({ server, open }) => {
   const { page, submit, text } = await open();
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
   // Starts a command and resolves to its status; settled says whether it ended.
@@ -117,8 +118,7 @@ await browserTest("pager", { timeout: 300_000 }, async ({ open }) => {
   for (const command of ["PAGER=cat git log", "GIT_PAGER=cat git log", "git -c core.pager=cat log", "PAGER=cat man lines"]) {
     await printsThrough(command, command.endsWith("log") ? /change-101\n/ : /\n300\n/);
   }
-  // Not a terminal: nothing is paged and nothing waits, as in a tool call.
-  await run("test \"$(git log | grep -c change-)\" = 60 && git show > /tmp/shown && grep -q change-160 /tmp/shown");
-  await run("man lines | cmp - /tmp/lines && man lines > /tmp/page && cmp /tmp/page /tmp/lines");
-  await run("less /tmp/lines | cmp - /tmp/lines && seq 1 300 | less > /tmp/page && cmp /tmp/page /tmp/lines");
+  // Not a terminal: nothing is paged and nothing waits, as in a tool call (test/cases/pager.json,
+  // in a repository of its own).
+  await runSteps(submit, server.origin, pagerCases);
 });

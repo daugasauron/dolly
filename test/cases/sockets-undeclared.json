@@ -1,0 +1,24 @@
+{
+  "image": "system",
+  "packages": [
+    "libdolly-sockets"
+  ],
+  "directory": "/tmp/sockets-undeclared-test",
+  "fixtures": {
+    "sockets.c": "test/fixtures/sockets.c"
+  },
+  "steps": [
+    {
+      "why": "A program that does not ask gets libc's refusals and records nothing, so it runs where sockets@0 is not declared.",
+      "script": "cc -O1 sockets.c -o /tmp/unlinked && /tmp/unlinked unlinked",
+      "status": 0
+    },
+    { "script": "cc -O1 sockets.c -ldolly-sockets -o /tmp/sockets", "status": 0 },
+    {
+      "why": "One that asked is refused before it runs, naming the module.",
+      "script": "/tmp/sockets pair 2> /tmp/refused",
+      "status": 126
+    },
+    { "script": "grep -q 'sockets@0' /tmp/refused", "status": 0 }
+  ]
+}

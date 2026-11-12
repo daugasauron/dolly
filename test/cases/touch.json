@@ -1,0 +1,25 @@
+{
+  "image": "system",
+  "hosts": [
+    "touch"
+  ],
+  "packages": [
+    "libdolly-touch"
+  ],
+  "directory": "/tmp/touch-test",
+  "fixtures": {
+    "touch.c": "test/fixtures/touch.c"
+  },
+  "steps": [
+    {
+      "why": "test/fixtures/touch.c names what each mode proves.",
+      "script": "cc touch.c -o /tmp/touch",
+      "status": 0
+    },
+    {
+      "why": "A process beside the foreground program, and one that holds no lease, are refused.",
+      "script": "/tmp/touch refuse > /tmp/touch-refusals && grep -q TOUCH_REFUSALS_OK /tmp/touch-refusals",
+      "status": 0
+    }
+  ]
+}

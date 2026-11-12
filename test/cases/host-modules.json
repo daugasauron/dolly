@@ -1,0 +1,83 @@
+{
+  "image": "system",
+  "directory": "/tmp/host-modules-test",
+  "files": {
+    "gpu-probe.c": "#include <dolly/gpu.h>\nint main(void){static dolly_gpu g;return dolly_gpu_open(&g,0,0)<0;}\n",
+    "unknown.c": "#include <dolly/host.h>\n#include <dolly/http-abi.h>\n#include <stdio.h>\n#define FLIPPED(first, ...) (first ^ 1), __VA_ARGS__\n#define FIRST_BIT_FLIPPED(...) FLIPPED(__VA_ARGS__)\nDOLLY_HOST_REQUIRE(unknown,0,DOLLY_HTTP_ABI_DIGEST);\nint main(void){FILE*f=fopen(\"/tmp/entered\",\"w\");if(f)fclose(f);return 0;}\n",
+    "http1.c": "#include <dolly/host.h>\n#include <dolly/http-abi.h>\n#include <stdio.h>\n#define FLIPPED(first, ...) (first ^ 1), __VA_ARGS__\n#define FIRST_BIT_FLIPPED(...) FLIPPED(__VA_ARGS__)\nDOLLY_HOST_REQUIRE(http,1,DOLLY_HTTP_ABI_DIGEST);\nint main(void){FILE*f=fopen(\"/tmp/entered\",\"w\");if(f)fclose(f);return 0;}\n",
+    "flipped.c": "#include <dolly/host.h>\n#include <dolly/http-abi.h>\n#include <stdio.h>\n#define FLIPPED(first, ...) (first ^ 1), __VA_ARGS__\n#define FIRST_BIT_FLIPPED(...) FLIPPED(__VA_ARGS__)\nDOLLY_HOST_REQUIRE(http,0,FIRST_BIT_FLIPPED(DOLLY_HTTP_ABI_DIGEST));\nint main(void){FILE*f=fopen(\"/tmp/entered\",\"w\");if(f)fclose(f);return 0;}\n",
+    "forged-gpu.c": "#include <dolly/process.h>\n#include <dolly/gpu-abi.h>\n#include <stdint.h>\n#include <errno.h>\nint main(void){uint64_t p[5]={DOLLY_GPU_OPEN*(1ull<<32),0,1,8,0};char reply[64];return dolly_process_call(DOLLY_GPU_PROCESS_OP,p,sizeof p,reply,sizeof reply)!=-ENOSYS;}\n",
+    "forged-nena.c": "#include <dolly/process.h>\n#include <dolly/nena-abi.h>\n#include <stdint.h>\n#include <errno.h>\nint main(void){uint32_t p[8]={DOLLY_NENA_VERSION,DOLLY_NENA_OPEN,0,0,1};char reply[DOLLY_NENA_REPLY_BYTES];return dolly_process_call(DOLLY_NENA_PROCESS_OP,p,sizeof p,reply,sizeof reply)!=-ENOSYS;}\n",
+    "dl-caller.c": "#include <dlfcn.h>\n#include <errno.h>\n#include <stdio.h>\n#include <dolly/process.h>\n#include <dolly/dso-abi.h>\nint main(void){char p[16]={0},r[256];errno=0;if(dlopen(\"/tmp/none.so\",RTLD_NOW)||errno!=ENOSYS)return 1;const char*e=dlerror();if(!e||dlerror())return 2;puts(e);for(unsigned o=DOLLY_DSO_OPEN;o<=DOLLY_FFI_CLOSURE_PREP;++o)if(dolly_process_call(o,p,sizeof p,r,sizeof r)!=-ENOSYS)return 3;return 0;}\n",
+    "ffi-caller.c": "#include <dolly/dso.h>\nint main(void){dolly_ffi_call_request r={0};return dolly_ffi_call(&r)==0;}\n"
+  },
+  "fixtures": {
+    "nena.c": "src/commands/nena.c",
+    "gpu.h": "host/gpu/gpu.h",
+    "gpu-abi.h": "host/gpu/gpu-abi.h",
+    "gpu-client.c": "host/gpu/client.c"
+  },
+  "steps": [
+    {
+      "why": "gpu@0's header and client, as the libdolly-gpu package installs them.",
+      "script": "cp gpu.h gpu-abi.h /usr/include/dolly/ && cc -O1 -c gpu-client.c -o gpu-client.o && ar rcs /usr/lib/dolly/process/libdolly-gpu.a gpu-client.o",
+      "status": 0
+    },
+    { "script": "cc -O1 gpu-probe.c -ldolly-gpu -o /tmp/gpu-client", "status": 0 },
+    {
+      "why": "A program that needs a module the image does not enable exits 126 before it runs, with one line on its own standard error that names the module.",
+      "script": "/tmp/gpu-client > /tmp/refused.out 2> /tmp/refused.err",
+      "status": 126
+    },
+    { "script": "test ! -s /tmp/refused.out && test $(wc -l < /tmp/refused.err) -eq 1 && grep -q 'gpu@0' /tmp/refused.err", "status": 0 },
+    {
+      "why": "So does one that needs an unknown module, another revision, or a module whose layout differs from its provider's in one digest bit; it never runs.",
+      "script": "cc -O1 unknown.c -o /tmp/unknown",
+      "status": 0
+    },
+    { "script": "/tmp/unknown > /tmp/refused.out 2> /tmp/refused.err", "status": 126 },
+    { "script": "test ! -s /tmp/refused.out && test $(wc -l < /tmp/refused.err) -eq 1 && grep -q 'unknown@0' /tmp/refused.err", "status": 0 },
+    { "script": "test ! -e /tmp/entered", "status": 0 },
+    { "script": "cc -O1 http1.c -o /tmp/http1", "status": 0 },
+    { "script": "/tmp/http1 > /tmp/refused.out 2> /tmp/refused.err", "status": 126 },
+    { "script": "test ! -s /tmp/refused.out && test $(wc -l < /tmp/refused.err) -eq 1 && grep -q 'http@1' /tmp/refused.err", "status": 0 },
+    { "script": "test ! -e /tmp/entered", "status": 0 },
+    { "script": "cc -O1 flipped.c -o /tmp/flipped", "status": 0 },
+    { "script": "/tmp/flipped > /tmp/refused.out 2> /tmp/refused.err", "status": 126 },
+    { "script": "test ! -s /tmp/refused.out && test $(wc -l < /tmp/refused.err) -eq 1 && grep -q 'http@0' /tmp/refused.err", "status": 0 },
+    { "script": "test ! -e /tmp/entered", "status": 0 },
+    {
+      "why": "Without a requirement claim, the disabled provider still denies its operation: ENOSYS.",
+      "script": "cc -O1 forged-gpu.c -o /tmp/forged && /tmp/forged",
+      "status": 0
+    },
+    {
+      "why": "This image does not declare nena@0, so nothing in it switches a module: the command is refused as any program recording an undeclared module.",
+      "script": "cc -O1 nena.c -o /tmp/nena",
+      "status": 0
+    },
+    { "script": "/tmp/nena enable gpu > /tmp/refused.out 2> /tmp/refused.err", "status": 126 },
+    { "script": "test ! -s /tmp/refused.out && test $(wc -l < /tmp/refused.err) -eq 1 && grep -q 'nena@0' /tmp/refused.err", "status": 0 },
+    {
+      "why": "Its operation is ENOSYS to a program that links no client, and the program that needs gpu@0 is refused as before.",
+      "script": "cc -O1 forged-nena.c -o /tmp/forged-nena && /tmp/forged-nena",
+      "status": 0
+    },
+    { "script": "/tmp/gpu-client > /tmp/refused.out 2> /tmp/refused.err", "status": 126 },
+    { "script": "test ! -s /tmp/refused.out && test $(wc -l < /tmp/refused.err) -eq 1 && grep -q 'gpu@0' /tmp/refused.err", "status": 0 },
+    {
+      "why": "A program that only calls dlopen records nothing: libc refuses at the call naming dso@0, and the raw operations are unknown ones.",
+      "script": "cc -O1 dl-caller.c -o /tmp/dl-caller && /tmp/dl-caller > /tmp/dl-refusal && test $(wc -l < /tmp/dl-refusal) -eq 1 && grep -q 'dso@0' /tmp/dl-refusal",
+      "status": 0
+    },
+    {
+      "why": "A host of modules (cc -rdynamic) and a caller of the FFI client record dso@0, which this image does not declare, and are refused.",
+      "script": "cc -O1 -rdynamic dl-caller.c -o /tmp/dl-host && cc -O1 ffi-caller.c -o /tmp/ffi-caller",
+      "status": 0
+    },
+    { "script": "/tmp/dl-host > /tmp/refused.out 2> /tmp/refused.err", "status": 126 },
+    { "script": "test ! -s /tmp/refused.out && test $(wc -l < /tmp/refused.err) -eq 1 && grep -q 'dso@0' /tmp/refused.err", "status": 0 },
+    { "script": "/tmp/ffi-caller > /tmp/refused.out 2> /tmp/refused.err", "status": 126 },
+    { "script": "test ! -s /tmp/refused.out && test $(wc -l < /tmp/refused.err) -eq 1 && grep -q 'dso@0' /tmp/refused.err", "status": 0 }
+  ]
+}

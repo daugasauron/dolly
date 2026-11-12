@@ -1,43 +1,10 @@
 // man and --help in the image people open: every command on PATH has a page,
-// Dolly's own commands answer --help, and a package's pages arrive with it.
-import assert from "node:assert/strict";
-import { browserTest } from "./browser.mjs";
+// Dolly's own commands answer --help, and a package's pages arrive with it
+// (test/cases/man.json).
+import { browserTest, runSteps } from "./browser.mjs";
+import manCases from "./cases/man.json" with { type: "json" };
 
-// Each loop leaves the names that failed in a file and prints them. A page
-// is text: its first line is no macro.
-const everyCommandHasAPage = "rm -f /tmp/pageless; for file in /bin/* /usr/bin/*; do name=${file##*/}; " +
-  "man \"$name\" > /tmp/page && sed 1q /tmp/page | grep -qv '^[.]' || echo \"$name\" >> /tmp/pageless; done; " +
-  "! cat /tmp/pageless 2> /dev/null";
-// Dolly's own pages are their --help, where upstream's begin with their title,
-// NAME(1); test and [ take --help as an expression, echo as an operand. The program is run by its
-// path: command and time are also Slop's own.
-const everyOwnCommandAnswersHelp = "rm -f /tmp/helpless; for file in /bin/* /usr/bin/*; do name=${file##*/}; " +
-  "if test -e \"/usr/share/man/cat1/$name.1\" && ! sed 1q \"/usr/share/man/cat1/$name.1\" | grep -q '^[A-Z].*([1-9])' && " +
-  "test \"$name\" != test && test \"$name\" != \"[\" && test \"$name\" != echo; then " +
-  "\"$file\" --help > /tmp/help && test -s /tmp/help || echo \"$name\" >> /tmp/helpless; fi; done; " +
-  "! cat /tmp/helpless 2> /dev/null";
-
-await browserTest("man and --help", { timeout: 300_000 }, async ({ open }) => {
-  const { submit, text } = await open();
-  const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
-  await run(everyCommandHasAPage);
-  await run(everyOwnCommandAnswersHelp);
-  await run("man foreground > /tmp/page && foreground --help > /tmp/help && cmp /tmp/page /tmp/help");
-  await run("man help > /tmp/page && help > /tmp/help && cmp /tmp/page /tmp/help");
-  // help is the first thing the greeting names: it fits a terminal of 80 columns.
-  await run("test -s /tmp/help && ! grep -q '.\\{81\\}' /tmp/help");
-  // Upstream's pages are formatted when the image is built; man's own is its --help.
-  await run("man grep > /tmp/page && grep -q '^NAME' /tmp/page && grep -q 'search files for patterns' /tmp/page && " +
-    "! grep -Eq '^[.](Dd|Nm|Sh) ' /tmp/page");
-  await run("man man > /tmp/page && man --help > /tmp/help && cmp /tmp/page /tmp/help");
-  assert.equal(await submit("man no-such-command > /tmp/out 2> /tmp/err"), 1);
-  await run("grep -q no-such-command /tmp/err && test ! -s /tmp/out");
-  for (const wrong of ["man", "man grep sed", "help grep", "foreground", "amy", "dollyfile", "xargs --no-such-option"]) {
-    assert.equal(await submit(`${wrong} > /tmp/out 2> /tmp/err`), 2, wrong);
-    await run("test -s /tmp/err && test ! -s /tmp/out");
-  }
-  assert.equal(await submit("man git > /dev/null 2>&1"), 1);
-  await run("amy install git && man git > /tmp/page && git --help > /tmp/help && cmp /tmp/page /tmp/help");
-  await run(everyCommandHasAPage);
-  await run(everyOwnCommandAnswersHelp);
+await browserTest("man and --help", { image: manCases.image, timeout: 300_000 }, async ({ server, open }) => {
+  const { submit } = await open();
+  await runSteps(submit, server.origin, manCases);
 });

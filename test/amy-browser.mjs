@@ -3,11 +3,13 @@ import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { browserTest } from "./browser.mjs";
+import { browserTest, runSteps } from "./browser.mjs";
 import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
 import { siteReference } from "../src/static-asset.mjs";
 import { inspectDollyfile, recipeRows } from "../src/dollyfile-view.mjs";
 import catalog from "../dist/dolly-images.json" with { type: "json" };
+import programCases from "./cases/amy-programs.json" with { type: "json" };
+import toolCases from "./cases/amy-tools.json" with { type: "json" };
 
 const packages = catalog.images.filter(definition => definition.role === "package").map(({ image }) => image).sort();
 // The packages default's recipe installs, and those they install (amy's dollyfile).
@@ -204,137 +206,13 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   await run(`test "$(cat /usr/share/needs)" = top && amy installed | grep -qx "needed ${newer.url} ${newer.sha256}"`);
 });
 
-// Compilers, libraries and an agent: each installs into a running default
-// session and works at once, CMake finding the SDL2 installed beside it. A
-// library installs no compiler: cc, first here, links the programs.
-const programs = {
-  cc: "cc --version > /dev/null && make --version > /dev/null",
-  cmake: "mkdir /tmp/amy-cmake && cd /tmp/amy-cmake && printf 'int main(void) { return 0; }\\n' > main.c && " +
-    "printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(probe C)' 'add_executable(probe main.c)' > CMakeLists.txt && " +
-    "cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/probe",
-  sdl2: "mkdir /tmp/amy-sdl2 && cd /tmp/amy-sdl2 && " +
-    // An accelerated renderer, as upstream's examples ask for, in the session that installed SDL.
-    "printf '#include <SDL.h>\\nint main(void) { SDL_Window *window; int failed = SDL_Init(SDL_INIT_VIDEO) || !(window = SDL_CreateWindow(\"\", 0, 0, 64, 48, 0)) || " +
-    "!SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED); SDL_Quit(); return failed; }\\n' > window.c && " +
-    "printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(window C)' 'find_package(SDL2 REQUIRED)' 'add_executable(window window.c)' " +
-    "'target_link_libraries(window PRIVATE SDL2::SDL2-static)' > CMakeLists.txt && cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/window",
-  rust: "printf 'fn main() { println!(\"{}\", 6 * 7); }\\n' > /tmp/amy.rs && rustc /tmp/amy.rs -o /tmp/amy-rust && test \"$(/tmp/amy-rust)\" = 42",
-  // codex installs ripgrep and fd: their rows come with it.
-  codex: "codex --version | grep -q '^codex-cli ' && fd --version > /dev/null && amy list | grep -q '^ripgrep  *installed '",
-  zlib: "printf '#include <zlib.h>\\n#include <string.h>\\nint main(void) { return strcmp(zlibVersion(), ZLIB_VERSION) != 0; }\\n' > /tmp/amy-zlib.c && " +
-    "cc /tmp/amy-zlib.c -lz -o /tmp/amy-zlib && /tmp/amy-zlib",
-  // The engine as a library: a C program evaluates an expression with it.
-  quickjs: "printf '%s\\n' '#include <quickjs.h>' 'int main(void) { JSRuntime *runtime = JS_NewRuntime(); JSContext *context = JS_NewContext(runtime); int answer = 0; " +
-    "JS_ToInt32(context, &answer, JS_Eval(context, \"6 * 7\", 5, \"amy\", JS_EVAL_TYPE_GLOBAL)); JS_FreeContext(context); JS_FreeRuntime(runtime); return answer != 42; }' " +
-    "> /tmp/amy-quickjs.c && cc -O0 /tmp/amy-quickjs.c -lquickjs -o /tmp/amy-quickjs && /tmp/amy-quickjs",
-  // Janis as a library: a C program that is one script, linked on the engine that janis installs.
-  janis: "echo 'import { readFileSync } from \"node:fs\"; process.exitCode = readFileSync(process.argv[2], \"utf8\").length;' > /tmp/amy-embed.mjs && " +
-    "printf '%s\\n' '#include <dolly/quickjs-runner.h>' 'int main(int argc, char **argv) { return dolly_quickjs_run(argc, argv, \"/tmp/amy-embed.mjs\"); }' " +
-    "> /tmp/amy-embed.c && cc -O0 /tmp/amy-embed.c -ldolly-js -lquickjs -o /tmp/amy-embed && printf 12345 > /tmp/amy-embed.txt; /tmp/amy-embed /tmp/amy-embed.txt; test $? = 5",
-  libuv: "printf '%s\\n' '#include <uv.h>' 'static int fired;' 'static void fire(uv_timer_t *timer) { fired = 1; uv_close((uv_handle_t *)timer, 0); }' " +
-    "'int main(void) { uv_loop_t loop; uv_timer_t timer; uv_loop_init(&loop); uv_timer_init(&loop, &timer); uv_timer_start(&timer, fire, 1, 0); " +
-    "uv_run(&loop, UV_RUN_DEFAULT); return uv_loop_close(&loop) != 0 || !fired; }' > /tmp/amy-uv.c && cc -O0 /tmp/amy-uv.c -luv -o /tmp/amy-uv && /tmp/amy-uv",
-  // A timer writes into a pipe whose other end the same loop watches.
-  libevent: "printf '%s\\n' '#include <event2/event.h>' '#include <unistd.h>' " +
-    "'static void heard(evutil_socket_t end, short what, void *seen) { char byte; *(int *)seen += read(end, &byte, 1) == 1 && byte == *\"p\"; }' " +
-    "'static void fire(evutil_socket_t none, short what, void *end) { write(*(int *)end, \"p\", 1); }' " +
-    "'int main(void) { int ends[2], seen = 0; struct timeval soon = { 0, 1000 }; struct event_base *base = event_base_new(); " +
-    "if (base == NULL || pipe(ends) != 0) return 2; event_base_once(base, ends[0], EV_READ, heard, &seen, NULL); " +
-    "event_base_once(base, -1, EV_TIMEOUT, fire, &ends[1], &soon); return event_base_dispatch(base) < 0 || seen != 1; }' " +
-    "> /tmp/amy-event.c && cc -O0 /tmp/amy-event.c -levent_core -o /tmp/amy-event && /tmp/amy-event",
-  // The description of the display's terminal, and a cursor address written from it.
-  // The stack is dirtied first: the address is formatted from the numbers given, not from what lay there.
-  libterminfo: "printf '%s\\n' '#include <term.h>' '#include <string.h>' " +
-    "'static void dirty(void) { volatile char stack[16384]; memset((char *)stack, 255, sizeof(stack)); }' " +
-    "'int main(void) { int error; if (setupterm(\"xterm-256color\", 1, &error) != OK) return 2; dirty(); " +
-    "return tigetnum(\"colors\") != 256 || strcmp(tiparm(tigetstr(\"cup\"), 4, 9), \"\\033[5;10H\") != 0; }' " +
-    "> /tmp/amy-term.c && cc -O0 /tmp/amy-term.c -lterminfo -o /tmp/amy-term && /tmp/amy-term",
-  // pkg-config knows a library once its package is there, and gives cc its flags.
-  pkgconf: "man pkgconf > /dev/null && ! pkg-config --exists libpng",
-  libpng: "printf '#include <png.h>\\nint main(void) { return png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL) == NULL; }\\n' > /tmp/amy-png.c && " +
-    "cc $(pkg-config --cflags libpng) /tmp/amy-png.c $(pkg-config --static --libs libpng) -o /tmp/amy-png && /tmp/amy-png && " +
-    // As upstream installs it, -lpng links too.
-    "cc /tmp/amy-png.c -lpng -lz -o /tmp/amy-png && /tmp/amy-png",
-  // FreeType reads the terminal's font.
-  freetype: "printf '%s\\n' '#include <ft2build.h>' '#include FT_FREETYPE_H' 'int main(void) { FT_Library library; FT_Face face; " +
-    "if (FT_Init_FreeType(&library) || FT_New_Face(library, \"/usr/share/fonts/IosevkaTerm-SemiBold.ttf\", 0, &face)) return 1; return face->num_glyphs < 100; }' " +
-    "> /tmp/amy-freetype.c && cc $(pkg-config --cflags freetype2) /tmp/amy-freetype.c $(pkg-config --static --libs freetype2) -o /tmp/amy-freetype && /tmp/amy-freetype",
-  // SDL_mixer plays a short silent clip on a channel until it ends: SDL's audio driver pulls it.
-  "sdl2-mixer": "printf '%s\\n' '#include <SDL.h>' '#include <SDL_mixer.h>' 'int main(void) { static Uint8 silence[48000 * 4 / 4]; " +
-    "if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0 || !SDL_CreateWindow(\"\", 0, 0, 64, 48, 0) || Mix_OpenAudio(48000, AUDIO_S16SYS, 2, 1024) != 0) return 2; " +
-    "Mix_Chunk *chunk = Mix_QuickLoad_RAW(silence, sizeof silence); if (!chunk || Mix_PlayChannel(-1, chunk, 0) < 0) return 3; " +
-    "for (Uint32 start = SDL_GetTicks(); Mix_Playing(-1) && SDL_GetTicks() - start < 5000; SDL_Delay(10)) SDL_PumpEvents(); " +
-    "int ended = !Mix_Playing(-1); Mix_CloseAudio(); SDL_Quit(); return !ended; }' > /tmp/amy-mixer.c && " +
-    "cc $(pkg-config --cflags SDL2_mixer) /tmp/amy-mixer.c $(pkg-config --static --libs SDL2_mixer) -o /tmp/amy-mixer && /tmp/amy-mixer",
-  // Swedish collation puts ö after z: ICU finds its data in /usr/share/icu/68.2.
-  icu: "printf '%s\\n' '#include <unicode/ucol.h>' 'int main() { UErrorCode status = U_ZERO_ERROR; UCollator *swedish = ucol_open(\"sv\", &status); " +
-    "int failed = U_FAILURE(status) || ucol_strcollUTF8(swedish, \"z\", 1, \"\\xc3\\xb6\", 2, &status) != UCOL_LESS; ucol_close(swedish); return failed; }' " +
-    "> /tmp/amy-icu.cpp && c++ -O0 -DU_STATIC_IMPLEMENTATION /tmp/amy-icu.cpp -licui18n -licuuc -licudata -o /tmp/amy-icu && /tmp/amy-icu",
-  // An Ogg stream is set up and cleared; Vorbis's encoder takes a stereo 48 kHz setup.
-  libogg: "printf '%s\\n' '#include <ogg/ogg.h>' 'int main(void) { ogg_stream_state stream; return ogg_stream_init(&stream, 7) != 0 || ogg_stream_clear(&stream) != 0; }' " +
-    "> /tmp/amy-ogg.c && cc -O0 /tmp/amy-ogg.c -logg -o /tmp/amy-ogg && /tmp/amy-ogg",
-  libvorbis: "printf '%s\\n' '#include <vorbis/vorbisenc.h>' '#include <string.h>' 'int main(void) { vorbis_info info; vorbis_info_init(&info); " +
-    "int failed = vorbis_encode_init_vbr(&info, 2, 48000, .4f) != 0 || strncmp(vorbis_version_string(), \"Xiph\", 4) != 0; vorbis_info_clear(&info); return failed; }' " +
-    "> /tmp/amy-vorbis.c && cc -O0 /tmp/amy-vorbis.c -lvorbisenc -lvorbis -logg -lm -o /tmp/amy-vorbis && /tmp/amy-vorbis",
-  // SDL_ttf renders a word in the terminal's font: the surface has ink.
-  "sdl2-ttf": "printf '%s\\n' '#include <SDL_ttf.h>' 'int main(void) { SDL_Color white = { 255, 255, 255, 255 }; if (TTF_Init() != 0) return 2; " +
-    "TTF_Font *font = TTF_OpenFont(\"/usr/share/fonts/IosevkaTerm-SemiBold.ttf\", 24); if (font == NULL) return 3; " +
-    "SDL_Surface *text = TTF_RenderUTF8_Blended(font, \"Dolly\", white); if (text == NULL || text->w < 40) return 4; " +
-    "Uint32 *pixel = text->pixels; int inked = 0; for (int i = 0; i < text->pitch / 4 * text->h; i++) inked += pixel[i] >> 24 > 128; return inked < 50; }' " +
-    "> /tmp/amy-ttf.c && cc $(pkg-config --cflags SDL2_ttf) /tmp/amy-ttf.c $(pkg-config --static --libs SDL2_ttf) -o /tmp/amy-ttf && /tmp/amy-ttf",
-  // SDL_image writes a PNG and reads it back, its CMake package found beside SDL2's.
-  "sdl2-image": "mkdir /tmp/amy-image && cd /tmp/amy-image && printf '%s\\n' '#include <SDL_image.h>' " +
-    "'int main(void) { SDL_Surface *made = SDL_CreateRGBSurfaceWithFormat(0, 8, 8, 32, SDL_PIXELFORMAT_RGBA32); " +
-    "SDL_FillRect(made, NULL, SDL_MapRGBA(made->format, 200, 100, 50, 255)); if (IMG_SavePNG(made, \"made.png\") != 0) return 2; " +
-    "SDL_Surface *read = SDL_ConvertSurfaceFormat(IMG_Load(\"made.png\"), SDL_PIXELFORMAT_RGBA32, 0); " +
-    "return read == NULL || read->w != 8 || ((Uint8 *)read->pixels)[0] != 200 || ((Uint8 *)read->pixels)[2] != 50; }' > image.c && " +
-    "printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(image C)' 'find_package(SDL2 REQUIRED)' 'find_package(SDL2_image REQUIRED)' " +
-    "'add_executable(image image.c)' 'target_link_libraries(image PRIVATE SDL2_image::SDL2_image-static SDL2::SDL2-static)' > CMakeLists.txt && " +
-    "cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/image",
-  // One frame drawn by raylib's software renderer and shown through Dolly's adapter.
-  raylib: "printf '%s\\n' '#include <dolly/raylib.h>' 'int main(void) { dolly_raylib window; if (dolly_raylib_open(&window, \"amy\") != 0) return 2; " +
-    "BeginDrawing(); ClearBackground(RAYWHITE); DrawCircle(64, 64, 32, RED); int shown = dolly_raylib_end_frame(&window); " +
-    "return dolly_raylib_close(&window) != 0 || shown != 0; }' > /tmp/amy-raylib.c && " +
-    "cc -O0 /tmp/amy-raylib.c -ldolly-raylib -lraylib -lm -o /tmp/amy-raylib && /tmp/amy-raylib > /dev/null && " +
-    // As raylib's examples are written: InitWindow holds the display and the keys, and
-    // the clock and the frame time run (the page presses Space, below).
-    "printf '%s\\n' '#include <raylib.h>' '#include <stdio.h>' 'int main(void) { InitWindow(320, 180, \"keys\"); SetTargetFPS(60); " +
-    "int frames = 0, pressed = 0; " +
-    "while (!WindowShouldClose() && !pressed && frames < 3600) { BeginDrawing(); ClearBackground(RAYWHITE); EndDrawing(); frames++; pressed = IsKeyPressed(KEY_SPACE); } " +
-    "printf(\"after %d frames %.3f s, frame %.4f s\\n\", frames, GetTime(), GetFrameTime()); CloseWindow(); " +
-    "return !(pressed && GetTime() > 0.1 && GetFrameTime() > 0); }' > /tmp/amy-raylib-keys.c && cc -O0 /tmp/amy-raylib-keys.c -lraylib -lm -o /tmp/amy-raylib-keys && " +
-    // Fingers are raylib's touch points, the first also its mouse (the page puts two down, below).
-    "printf '%s\\n' '#include <raylib.h>' 'int main(void) { InitWindow(320, 180, \"touch\"); SetTargetFPS(60); int frames = 0, most = 0, released = 0; " +
-    "while (!WindowShouldClose() && !(most == 2 && released) && frames < 3600) { BeginDrawing(); ClearBackground(RAYWHITE); EndDrawing(); frames++; " +
-    "if (GetTouchPointCount() > most) most = GetTouchPointCount(); released = IsMouseButtonReleased(MOUSE_BUTTON_LEFT); } " +
-    "CloseWindow(); return !(most == 2 && released); }' > /tmp/amy-raylib-touch.c && cc -O0 /tmp/amy-raylib-touch.c -lraylib -lm -o /tmp/amy-raylib-touch",
-  // A square wave played from a buffer is in the samples the loopback device renders.
-  openal: "printf '%s\\n' '#define AL_ALEXT_PROTOTYPES' '#include <AL/al.h>' '#include <AL/alc.h>' '#include <AL/alext.h>' " +
-    "'int main() { ALCdevice *device = alcLoopbackOpenDeviceSOFT(0); " +
-    "int format[] = { ALC_FORMAT_CHANNELS_SOFT, ALC_MONO_SOFT, ALC_FORMAT_TYPE_SOFT, ALC_SHORT_SOFT, ALC_FREQUENCY, 48000, 0 }; " +
-    "alcMakeContextCurrent(alcCreateContext(device, format)); short wave[4800], heard[4800]; int loud = 0; ALuint buffer, source; " +
-    "for (int at = 0; at < 4800; at++) wave[at] = at % 100 < 50 ? 12000 : -12000; alGenBuffers(1, &buffer); alGenSources(1, &source); " +
-    "alBufferData(buffer, AL_FORMAT_MONO16, wave, sizeof wave, 48000); alSourcei(source, AL_BUFFER, buffer); alSourcePlay(source); " +
-    "alcRenderSamplesSOFT(device, heard, 4800); for (int at = 0; at < 4800; at++) loud += heard[at] > 1000 || heard[at] < -1000; " +
-    "return loud < 2400 || alGetError() != AL_NO_ERROR; }' > /tmp/amy-openal.cpp && c++ -O0 /tmp/amy-openal.cpp -lopenal -o /tmp/amy-openal && /tmp/amy-openal",
-  // A body dropped for a second falls.
-  box3d: "printf '%s\\n' '#include <box3d/box3d.h>' 'int main(void) { b3WorldDef world = b3DefaultWorldDef(); b3WorldId id = b3CreateWorld(&world); " +
-    "b3BodyDef body = b3DefaultBodyDef(); body.type = b3_dynamicBody; b3BodyId ball = b3CreateBody(id, &body); b3ShapeDef shape = b3DefaultShapeDef(); " +
-    "b3Sphere sphere = { { 0.0f, 0.0f, 0.0f }, 0.5f }; b3CreateSphereShape(ball, &shape, &sphere); " +
-    "for (int step = 0; step < 60; ++step) b3World_Step(id, 1.0f / 60.0f, 4); int fell = b3Body_GetPosition(ball).y < -1.0f; b3DestroyWorld(id); return !fell; }' " +
-    "> /tmp/amy-box3d.c && cc -O0 -U__SIZEOF_INT128__ /tmp/amy-box3d.c -lbox3d -o /tmp/amy-box3d && /tmp/amy-box3d",
-};
 // default declares no module for a package it does not hold: amy has nena
-// enable what each needs, as SDL2's audio@0 and touch@0.
+// enable what each needs, as SDL2's audio@0 and touch@0 (test/cases/amy-programs.json).
 const declared = catalog.images.find(definition => definition.image === "default").hostRequirements;
 assert.ok(!declared.includes("audio@0") && !declared.includes("touch@0"), declared.join(" "));
-await browserTest("amy programs", { image: "default", timeout: 600_000 }, async ({ name, open }) => {
-  const session = await open(), run = check(session);
-  for (const [name, program] of Object.entries(programs)) {
-    console.log(`amy install ${name}: ${await timed(run, `amy install ${name}`)} ms`);
-    if (name === "sdl2") await run("grep -qx audio@0 /etc/dolly/enabled && grep -qx touch@0 /etc/dolly/enabled");
-    await run(program);
-  }
+await browserTest("amy programs", { image: programCases.image, timeout: 600_000 }, async ({ name, server, open }) => {
+  const session = await open();
+  await runSteps(session.submit, server.origin, programCases);
   // The program holds the display, so its line does not show: press Space once it runs.
   const keys = session.submit("/tmp/amy-raylib-keys");
   await session.page.locator("#keyboard").focus();
@@ -362,147 +240,6 @@ await browserTest("amy programs", { image: "default", timeout: 600_000 }, async 
   assert.equal(await touches, 0, await session.text());
 });
 
-// Checks of the demos/tools packages. A file that NAME packs is smaller and
-// unpacks to the same bytes, as a file and through a pipe.
-const packs = (pack, unpack, suffix) => `seq 1 20000 > /tmp/amy-${pack} && ${pack} -k /tmp/amy-${pack} && ` +
-  `test "$(stat -c %s /tmp/amy-${pack}.${suffix})" -lt "$(stat -c %s /tmp/amy-${pack})" && ` +
-  `${unpack} -c /tmp/amy-${pack}.${suffix} | cmp - /tmp/amy-${pack} && ${pack} -c < /tmp/amy-${pack} | ${pack} -dc | cmp - /tmp/amy-${pack}`;
-// A program that includes HEADER links LIBRARY, and EXPRESSION is zero in it.
-const links = (header, library, expression) => `printf '%s\\n' '#include <${header}.h>' "int main(void) { return ${expression}; }" > /tmp/amy-${header}.c && ` +
-  `cc -O0 /tmp/amy-${header}.c -l${library} -o /tmp/amy-${header} && /tmp/amy-${header}`;
-// "packed" in the file note, stored.
-const zipped = "\\120\\113\\003\\004\\012\\000\\000\\000\\000\\000\\307\\273\\114\\135\\103\\340\\101\\057\\007\\000\\000\\000\\007\\000\\000\\000\\004\\000\\000\\000" +
-  "\\156\\157\\164\\145\\160\\141\\143\\153\\145\\144\\012\\120\\113\\001\\002\\036\\003\\012\\000\\000\\000\\000\\000\\307\\273\\114\\135\\103\\340\\101\\057\\007\\000" +
-  "\\000\\000\\007\\000\\000\\000\\004\\000\\000\\000\\000\\000\\000\\000\\000\\000\\000\\000\\264\\201\\000\\000\\000\\000\\156\\157\\164\\145\\120\\113\\005\\006\\000\\000" +
-  "\\000\\000\\001\\000\\001\\000\\062\\000\\000\\000\\051\\000\\000\\000\\000\\000";
-
-// The manual pages that packages format when they are built, each with a word
-// of its text: man prints the text, and no macros.
-const pages = {
-  sqlite: { sqlite3: "SQLite" },
-  jq: { jq: "JSON" },
-  xz: { xz: "compress" },
-  zstd: { zstd: "compress" },
-  bzip2: { bzip2: "compress" },
-  lz4: { lz4: "compress" },
-  pigz: { pigz: "compress" },
-  unzip: { unzip: "extract", zipinfo: "archive" },
-  zip: { zip: "compress" },
-  tree: { tree: "director" },
-  bc: { bc: "calculator", dc: "calculator" },
-  xxd: { xxd: "hex" },
-  yacc: { yacc: "parser" },
-  flex: { flex: "scanner" },
-  wabt: { "wasm-objdump": "WebAssembly", wat2wasm: "WebAssembly" },
-  sbase: { yes: "output", cal: "calendar" },
-  mandoc: { mandoc: "manual" },
-  tar: { tar: "archive" },
-  meson: { meson: "build" },
-  lua: { lua: "interpreter" },
-  nvim: { nvim: "edit text" },
-  dte: { dte: "text editor" },
-};
-const reads = name => Object.entries(pages[name] ?? {}).map(([page, word]) =>
-  `man ${page} > /tmp/amy-man && grep -q '${word}' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man`);
-
-// What a session adds one package at a time: each command is absent from
-// default, installs alone and is used. None brings the compiler until zig,
-// which writes C for it.
-const tools = {
-  ninja: ["ninja", "mkdir /tmp/amy-ninja && cd /tmp/amy-ninja && printf '%s\\n' 'rule write' '  command = echo built > $out' 'build out: write' > build.ninja && " +
-    "ninja && test \"$(cat out)\" = built && man ninja > /dev/null"],
-  make: ["make", "mkdir /tmp/amy-make && cd /tmp/amy-make && printf 'out:\\n\\techo made > out\\n' > Makefile && make && test \"$(cat out)\" = made"],
-  // The interpreter and the two modules built for it.
-  lua: ["lua", "test \"$(lua -e 'local lpeg, uv = require(\"lpeg\"), require(\"luv\"); assert(uv.now() >= 0); print(lpeg.match(lpeg.R(\"09\")^1, \"42\") * 14)')\" = 42"],
-  "session-recover": ["session-recover", "session-recover --help | grep -q '^usage: session-recover' && ! session-recover /tmp/missing /tmp/recovered 2> /dev/null"],
-  // "packed", compressed.
-  gzip: ["gzip", "printf '\\037\\213\\010\\000\\000\\000\\000\\000\\002\\003\\053\\110\\114\\316\\116\\115\\341\\002\\000\\103\\340\\101\\057\\007\\000\\000\\000' | gzip -dc | grep -qx packed"],
-  // The engine's own command: it evaluates, and holds no module of Node's.
-  quickjs: ["qjs", "test \"$(qjs -e 'console.log(6 * 7)')\" = 42 && ! qjs -e 'import \"node:fs\"' 2> /dev/null && man qjs > /dev/null"],
-  // A Node-style script reads a file. Janis starts its children with sh, which posix holds.
-  janis: ["janis", "echo read > /tmp/amy-janis.txt && " +
-    "test \"$(janis -e 'console.log(require(\"node:fs\").readFileSync(\"/tmp/amy-janis.txt\", \"utf8\").trim().toUpperCase())')\" = READ && " +
-    "test \"$(janis -e 'console.log(require(\"node:child_process\").execSync(\"echo spawned\").toString().trim())')\" = spawned && " +
-    "man janis > /dev/null && ! command -v tsc"],
-  nvim: ["nvim", "nvim --headless -c 'call writefile([\"written\"], \"/tmp/amy-nvim\")' -c 'qa!' && test \"$(cat /tmp/amy-nvim)\" = written"],
-  emacs: ["emacs", "test \"$(emacs --batch --eval '(princ (* 6 7))')\" = 42"],
-  ripgrep: ["rg", "mkdir /tmp/amy-hay && echo needle > /tmp/amy-hay/stack && rg -q needle /tmp/amy-hay"],
-  fd: ["fd", "test \"$(fd stack /tmp/amy-hay)\" = /tmp/amy-hay/stack"],
-  protox: ["protox", "cd /tmp && printf 'syntax = \"proto3\";\\nmessage Probe { string name = 1; }\\n' > amy.proto && protox amy.proto -o amy.pb && test -s amy.pb"],
-  cbindgen: ["cbindgen", "printf '#[no_mangle]\\npub extern \"C\" fn answer() -> i32 { 42 }\\n' > /tmp/amy-answer.rs && cbindgen /tmp/amy-answer.rs | grep -q 'int32_t answer'"],
-  // yes ends when its reader does.
-  sbase: ["yes", "test \"$(yes | head -n 3 | tr '\\n' ' ')\" = 'y y y ' && test \"$(printf abc | sha1sum | cut -c 1-40)\" = a9993e364706816aba3e25717850c26c9cd0d89d && " +
-    "printf abc | sha512sum | grep -q '^ddaf35a193617aba' && cal 10 2026 | grep -q 2026 && echo sponged > /tmp/amy-sponge && " +
-    "tr a-z A-Z < /tmp/amy-sponge | sponge /tmp/amy-sponge && grep -qx SPONGED /tmp/amy-sponge && " +
-    "uuencode /tmp/amy-sponge sponge | uudecode -o /tmp/amy-uu && cmp /tmp/amy-uu /tmp/amy-sponge"],
-  // janis-install comes after janis, gzip and sbase, whose commands it brings, and both before pi-dolly,
-  // whose pi installs them; without the registry it refuses a git spec by name.
-  "janis-install": ["janis-install", "man janis-install > /dev/null && command -v sha512sum > /dev/null && ! janis-install user/repo 2> /dev/null"],
-  // Pi as pi-agent has it: pi-dolly installs pi and the platform's documents beside the files Pi reads.
-  "pi-dolly": ["pi", "pi --version > /dev/null && ! cc --version 2> /dev/null && amy installed | grep -q '^pi ' && " +
-    "test -s /home/dolly/.pi/agent/SYSTEM.md && test -s /home/dolly/.pi/agent/extensions/dolly-tools.js && test -s /usr/share/doc/dolly/docs/slop.md"],
-  // The two ways its manual page gives: a function for a C program, and a program with the standard library.
-  zig: ["zig", "mkdir /tmp/amy-zig && cd /tmp/amy-zig && printf 'export fn answer() c_int { return 42; }\\n' > answer.zig && " +
-    "printf 'int answer(void); int main(void) { return answer(); }\\n' > main.c && zig build-obj -ofmt=c -femit-bin=answer.c answer.zig && " +
-    "cc -I /usr/lib/zig main.c answer.c -o answer && man zig > /dev/null && ./answer; test $? = 42 && " +
-    "printf 'const std = @import(\"std\");\\npub fn main() void { std.debug.print(\"{d}\", .{6 * 7}); }\\n' > hello.zig && " +
-    "zig build-exe -target wasm64-emscripten -fsingle-threaded -ofmt=c -lc -femit-bin=hello.c hello.zig && " +
-    "cc -Wno-incompatible-pointer-types '-Dzig_unimplemented()=(__builtin_trap(),0)' -I /usr/lib/zig hello.c -o hello && test \"$(./hello 2>&1)\" = 42"],
-  // demos/tools. zig brought cc, so a package that holds a library also links a program with it.
-  // A database written and queried; a second process is told that the first has it.
-  sqlite: ["sqlite3", "sqlite3 /tmp/amy.db \"create table word(n, name); insert into word values (6, 'six'), (7, 'seven'), (9, 'nine'); pragma journal_mode = wal\" > /dev/null && " +
-    "test \"$(sqlite3 /tmp/amy.db \"select sum(n) * 3 + 3, json_group_array(name) from word where name like 's%'\")\" = '42|[\"six\",\"seven\"]' && " +
-    "sqlite3 /tmp/amy.db 'select count(*) from word' \".shell sqlite3 /tmp/amy.db 'select count(*) from word' 2>&1\" | grep -q 'database is locked' && " +
-    links("sqlite3", "sqlite3", "sqlite3_libversion_number() != SQLITE_VERSION_NUMBER")],
-  // A sum, and a number that a regular expression takes out of a string.
-  jq: ["jq", "echo '{\"a\": [1, 20, 21], \"b\": \"x-42\"}' > /tmp/amy.json && " +
-    "test \"$(jq -r '(.a | add | tostring) + \" \" + (.b | capture(\"(?<n>[0-9]+)\").n)' /tmp/amy.json)\" = '42 42'"],
-  xz: ["xz", `${packs("xz", "unxz", "xz")} && ${links("lzma", "lzma", "lzma_version_number() != LZMA_VERSION")}`],
-  zstd: ["zstd", `${packs("zstd", "unzstd", "zst")} && ${links("zstd", "zstd", "ZSTD_versionNumber() != ZSTD_VERSION_NUMBER")}`],
-  bzip2: ["bzip2", `${packs("bzip2", "bunzip2", "bz2")} && ${links("bzlib", "bz2", "BZ2_bzlibVersion()[0] != '1'")}`],
-  lz4: ["lz4", `${packs("lz4", "unlz4", "lz4")} && ${links("lz4", "lz4", "LZ4_versionNumber() != LZ4_VERSION_NUMBER")}`],
-  // gzip, earlier in this table, reads what pigz packs.
-  pigz: ["pigz", `${packs("pigz", "unpigz", "gz")} && pigz -c /tmp/amy-pigz | gzip -dc | cmp - /tmp/amy-pigz`],
-  unzip: ["unzip", `mkdir /tmp/amy-unzip && cd /tmp/amy-unzip && printf '${zipped}' > note.zip && test "$(zipinfo -1 note.zip)" = note && ` +
-    "unzip -q note.zip && grep -qx packed note"],
-  // zip comes with unzip, which zip -T starts.
-  zip: ["zip", "mkdir -p /tmp/amy-zip/in/deep /tmp/amy-zip/out && cd /tmp/amy-zip && seq 1 2000 > in/deep/numbers && zip -q -r in.zip in && zip -T in.zip > /dev/null && " +
-    "unzip -q in.zip -d out && cmp out/in/deep/numbers in/deep/numbers && test \"$(stat -c %s in.zip)\" -lt \"$(stat -c %s in/deep/numbers)\""],
-  tree: ["tree", "mkdir -p /tmp/amy-tree/a/b && touch /tmp/amy-tree/a/b/leaf /tmp/amy-tree/top && cd /tmp/amy-tree && " +
-    "test \"$(tree --noreport -i -f . | tr '\\n' ' ')\" = '. ./a ./a/b ./a/b/leaf ./top ' && tree -J . | grep -q '\"name\":\"leaf\"'"],
-  bc: ["bc", "test \"$(echo '6 * 7; 2 ^ 64; scale = 20; 4 * a(1)' | bc -l | tr '\\n' ' ')\" = '42 18446744073709551616 3.14159265358979323844 ' && " +
-    "test \"$(echo '6 7 * p' | dc)\" = 42"],
-  xxd: ["xxd", "test \"$(echo hello | xxd -p)\" = 68656c6c6f0a && seq 1 300 > /tmp/amy-xxd && xxd /tmp/amy-xxd | xxd -r | cmp - /tmp/amy-xxd"],
-  base64: ["base64", `test "$(echo packed | base64)" = cGFja2VkCg== && seq 1 3000 | base64 > /tmp/amy-base64 && base64 -d /tmp/amy-base64 | tail -n 1 | grep -qx 3000 && ` +
-    links("libbase64", "base64", "base64_decode(0, 0, 0, 0, 0) != 1")],
-  // A module written from text is valid, reads back and loses its names to
-  // wasm-strip; a program cc links here is a module with 64-bit memory.
-  wabt: ["wasm2wat", "cd /tmp && echo '(module (func $answer (export \"answer\") (result i32) i32.const 42))' > amy.wat && wat2wasm --debug-names amy.wat -o amy.wasm && " +
-    "wasm-validate amy.wasm && wasm2wat amy.wasm | grep -q 'i32.const 42' && wasm-objdump -x amy.wasm | grep -q answer && cp amy.wasm amy-named.wasm && " +
-    "wasm-strip amy.wasm && test \"$(stat -c %s amy.wasm)\" -lt \"$(stat -c %s amy-named.wasm)\" && echo 'int main(void) { return 0; }' > amy-wabt.c && " +
-    "cc amy-wabt.c -o amy-wabt && wasm-objdump -x amy-wabt | grep -q i64"],
-  // A grammar becomes a parser that counts its tokens, and a scanner counts the numbers it reads. flex comes with yacc.
-  yacc: ["yacc", "cd /tmp && printf '%s\\n' '%{' 'int count; int yylex(void); void yyerror(const char *message) {}' '%}' '%token A' '%%' 'list: | list A { count++; };' '%%' " +
-    "'#include <stdio.h>' 'int yylex(void) { return getchar() == EOF ? 0 : A; }' 'int main(void) { yyparse(); return count; }' > amy.y && " +
-    "yacc -o amy-y.c amy.y && cc amy-y.c -o amy-y; printf abcdef | ./amy-y; test $? = 6"],
-  flex: ["flex", "cd /tmp && printf '%s\\n' '%{' 'static int numbers;' '%}' '%%' '[0-9]+ numbers++;' '.|\\n ;' '%%' 'int main(void) { yylex(); return numbers; }' > amy.l && " +
-    "flex -o amy-l.c amy.l && cc amy-l.c -lfl -o amy-l; echo 'a 1 bb 22 c 333' | ./amy-l; test $? = 3 && lex --version > /dev/null"],
-  // A page of macros becomes text, and text-page puts it where man reads it.
-  mandoc: ["mandoc", "printf '%s\\n' '.Dd October 13, 2026' '.Dt PROBE 1' '.Os' '.Sh NAME' '.Nm probe' '.Nd a page of macros' > /tmp/amy.1 && " +
-    "mandoc -T ascii /tmp/amy.1 | grep -q 'a page of macros' && text-page /tmp/amy.1 && grep -qx 'NAME' /usr/share/man/cat1/amy.1"],
-  // ex edits by commands; vi at the terminal is the step after this table.
-  vi: ["vi", "printf 'one\\ntwo\\n' > /tmp/amy-ex && printf '%s\\n' '%s/two/2/' w q | ex -s /tmp/amy-ex > /dev/null && test \"$(tr '\\n' ' ' < /tmp/amy-ex)\" = 'one 2 '"],
-  // A syntax file dte holds is written out and loads; dte at the terminal is
-  // the step after this table too.
-  dte: ["dte", "dte -b syntax/json > /tmp/json && dte -s /tmp/json > /dev/null"],
-  // grep and sed with the options the image's lack, in their place: a tree is
-  // searched, edited where it matched, and searched again. Last in this table,
-  // so that the checks above ran the image's own.
-  toybox: ["toybox", "mkdir -p /tmp/amy-toybox/a/b && cd /tmp/amy-toybox && printf 'one\\nneedle\\n' > a/b/hay && echo needle > a/top && echo none > a/other && " +
-    "test \"$(grep -rn needle . | sort | tr '\\n' ' ')\" = './a/b/hay:2:needle ./a/top:1:needle ' && grep -rl needle . | xargs sed -i 's/needle/pin/' && " +
-    "! grep -rq needle . && test \"$(grep -rc pin a | sort | tr '\\n' ' ')\" = 'a/b/hay:1 a/other:0 a/top:1 ' && " +
-    "test \"$(echo 'a needle b' | grep -o 'ne*dle')\" = needle && man sed | grep -q -- '-i'"],
-};
 // The terminal has no line discipline: a program that reads lines there edits
 // them itself. For each command, what the screen shows and what is then typed
 // (\n is Enter, \x1b Escape); the command ends with status 0.
@@ -513,14 +250,9 @@ const typed = {
   // Its status line is up; Ctrl+S saves and Ctrl+Q quits.
   "dte /tmp/amy-dte": [[/INS +UTF-8/, "one\ntwo\x13\x11"]],
 };
-await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ open }) => {
-  const session = await open(), run = check(session);
-  for (const [name, [command, use]] of Object.entries(tools)) {
-    await run(`! command -v ${command}`);
-    console.log(`amy install ${name}: ${await timed(run, `amy install ${name}`)} ms`);
-    await run(use);
-    for (const read of reads(name)) await run(read);
-  }
+await browserTest("amy tools", { image: toolCases.image, timeout: 300_000 }, async ({ server, open }) => {
+  const session = await open();
+  await runSteps(session.submit, server.origin, toolCases);
   for (const [command, steps] of Object.entries(typed)) {
     const running = session.submit(command);
     await session.page.locator("#keyboard").focus();
@@ -536,20 +268,7 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
     }
     assert.equal(await running, 0, `${command}\n${await session.text()}`);
   }
-  await run("test \"$(tr '\\n' ' ' < /tmp/amy-vi)\" = 'one two ' && test \"$(tr '\\n' ' ' < /tmp/amy-dte)\" = 'one two '");
-  await run("amy install dolly-docs && test -f /usr/share/doc/dolly/docs/dollyfile.md");
-  // The core's tar only unpacks files and directories. The tar package puts
-  // sbase's in its place: a tree with a link archived, listed and unpacked.
-  await run("mkdir -p /tmp/amy-tar/in/deep /tmp/amy-tar/out && cd /tmp/amy-tar && seq 1 2000 > in/deep/numbers && ln -s deep/numbers in/link && ! tar -cf in.tar in 2> /dev/null");
-  await run("amy install tar && cd /tmp/amy-tar && tar -cf in.tar in && tar -xf in.tar -C out && cmp out/in/deep/numbers in/deep/numbers && " +
-    "test \"$(readlink out/in/link)\" = deep/numbers && tar -cf - in | pigz | gzip -dc | tar -tf - | grep -qx in/link && " +
-    // -j starts bzip2 and waits for it: the archive is whole when tar ends;
-    // -z reads with the gzip package.
-    "tar -cjf in.tbz in && tar -tjf in.tbz | grep -qx in/link && tar -cf - in | pigz > in.tgz && tar -tzf in.tgz | grep -qx in/link");
-  for (const read of reads("tar")) await run(read);
-  // dolly-llama computes on the GPU, a host module default does not declare:
-  // amy has nena enable gpu@0, which a page admits with or without WebGPU.
-  await run("amy install llama && grep -qx gpu@0 /etc/dolly/enabled && command -v dolly-llama");
+  assert.equal(await session.submit("test \"$(tr '\\n' ' ' < /tmp/amy-vi)\" = 'one two ' && test \"$(tr '\\n' ' ' < /tmp/amy-dte)\" = 'one two '"), 0);
 });
 
 // Every package of the catalog is installed into default and used: by a case
@@ -589,9 +308,11 @@ const elsewhere = {
   "airtime-godot": "demos/godot/test/godot-gpu-browser.mjs",
   photocraft: "demos/photocraft: photocraft-photos installs it", html: "html-browser.mjs",
 };
-const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "llama", "tar", "meson", "typescript", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
+const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "llama", "tar", "meson", "typescript", ...[programCases, toolCases].flatMap(({ steps }) => steps.map(({ script }) => script.match(/^amy install ([^ ]+)$/)?.[1]).filter(Boolean)), ...Object.keys(elsewhere)]);
 assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no test installs and uses");
 
+// What amy-programs.json runs with the package NAME once it is installed.
+const programUse = name => programCases.steps[programCases.steps.findIndex(({ script }) => script === `amy install ${name}`) + 1].script;
 // A package brings the programs its own programs start. rustc links through
 // cc, which default lacks: installed alone, rust links a program and cargo
 // runs a crate.
@@ -607,12 +328,13 @@ const hello = "mkdir /tmp/amy-mojo && cd /tmp/amy-mojo && printf 'def main():\\n
 // Python runs Meson; meson setup configures with the C compiler and meson
 // compile builds with Ninja: the meson package installs the three.
 const mesoned = "mkdir /tmp/amy-meson && cd /tmp/amy-meson && printf 'int main(void) { return 42; }\\n' > main.c && " +
-  "printf '%s\\n' \"project('probe', 'c')\" \"executable('probe', 'main.c')\" > meson.build && meson setup build && meson compile -C build; build/probe; test $? = 42 && " + reads("meson")[0];
+  "printf '%s\\n' \"project('probe', 'c')\" \"executable('probe', 'main.c')\" > meson.build && meson setup build && meson compile -C build; build/probe; test $? = 42 && " +
+  "man meson > /tmp/amy-man && grep -q build /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man";
 // tsc is Janis started on the compiler: the typescript package installs
 // janis, and janis the engine it is built on. tsc compiles and janis runs.
 const compiled = "cd /tmp && echo 'export const answer: number = 6 * 7; console.log(answer);' > amy-answer.ts && tsc --target ES2023 --module ES2022 amy-answer.ts && " +
   "test \"$(janis amy-answer.js)\" = 42 && amy list | grep -q '^janis  *installed ' && amy list | grep -q '^quickjs  *installed ' && man tsc > /dev/null";
-for (const [name, command, program] of [["rust", "rustc", programs.rust], ["cargo", "cargo", crate], ["cmake", "cmake", programs.cmake],
+for (const [name, command, program] of [["rust", "rustc", programUse("rust")], ["cargo", "cargo", crate], ["cmake", "cmake", programUse("cmake")],
   ["mojo", "mojo", hello], ["meson", "meson", mesoned], ["typescript", "tsc", compiled]]) {
   await browserTest(`amy ${name} alone`, { image: "default", timeout: 300_000 }, async ({ open }) => {
     const run = check(await open());
