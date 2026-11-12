@@ -17,7 +17,7 @@ function indicate({ mount, indicators }, state) {
     element.className = "page-indicator";
     element.setAttribute("role", "status");
     element.style.cssText = "position:absolute;left:0.5rem;bottom:2rem;z-index:8;max-width:calc(100% - 1rem);" +
-      "padding:0.15rem 0.45rem;background:#262626;border:1px solid #e98773;color:#e98773;font-size:13px;pointer-events:none";
+      "padding:0.15rem 0.45rem;background:var(--dolly-ui-background);border:1px solid var(--dolly-ui-alert);color:var(--dolly-ui-alert);font-size:13px;pointer-events:none";
   }
   const text = { waiting: "Microphone: waiting for permission", capturing: "Microphone on" }[state];
   element.hidden = !text;

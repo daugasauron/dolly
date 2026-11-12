@@ -584,7 +584,7 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
     const node = document.createElement("button");
     node.type = "button";
     node.textContent = label;
-    node.style.cssText = "padding:0.35rem 0.6rem;color:inherit;background:#333;border:1px solid #f2d45c;" +
+    node.style.cssText = "padding:0.35rem 0.6rem;color:inherit;background:var(--dolly-ui-raised);border:1px solid var(--dolly-ui-accent);" +
       "border-radius:6px;font:inherit;font-size:15px;touch-action:none";
     node.addEventListener("click", press);
     return node;

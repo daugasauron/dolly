@@ -14,20 +14,20 @@ import {
 // An adopted style sheet, which a page's style-src without 'unsafe-inline' allows.
 const style = `
   #session-open { position: absolute; right: 0.5rem; bottom: 0.35rem; z-index: 6;
-    padding: 0.15rem 0.45rem; color: inherit; background: #262626;
-    border: 1px solid #77736c; font: inherit; font-size: 13px; cursor: pointer; }
-  #session-open[data-failed] { border-color: #e98773; }
+    padding: 0.15rem 0.45rem; color: inherit; background: var(--dolly-ui-background);
+    border: 1px solid var(--dolly-ui-quiet); font: inherit; font-size: 13px; cursor: pointer; }
+  #session-open[data-failed] { border-color: var(--dolly-ui-alert); }
   #session-dialog { width: min(420px, calc(100vw - 2rem)); padding: 1.2rem;
-    background: #262626; color: inherit; border: 1px solid #77736c; font: inherit; }
+    background: var(--dolly-ui-background); color: inherit; border: 1px solid var(--dolly-ui-quiet); font: inherit; }
   #session-dialog::backdrop { background: #0008; }
   #session-dialog h2 { margin: 0 0 1rem; font-size: 20px; }
   #session-dialog p { font-size: 14px; line-height: 1.5; }
   #session-dialog label { display: block; margin: 1rem 0 0.4rem; }
   #session-dialog input { width: 100%; padding: 0.4rem; font: inherit;
-    color: inherit; background: #191919; border: 1px solid #77736c; }
+    color: inherit; background: var(--dolly-ui-sunken); border: 1px solid var(--dolly-ui-quiet); }
   #session-dialog button { padding: 0.35rem 0.65rem; font: inherit;
-    color: inherit; background: #333; border: 1px solid #77736c; cursor: pointer; }
-  #session-dialog a { color: #f2d45c; }
+    color: inherit; background: var(--dolly-ui-raised); border: 1px solid var(--dolly-ui-quiet); cursor: pointer; }
+  #session-dialog a { color: var(--dolly-ui-accent); }
   #session-dialog nav { display: flex; gap: 0.6rem; align-items: center; margin-top: 1rem; }
   #session-dialog nav a { margin-right: auto; font-size: 14px; }
 `;

@@ -43,7 +43,7 @@ function indicate(page, info, unavailable) {
     element.className = "page-indicator";
     element.setAttribute("role", "status");
     element.style.cssText = "position:absolute;right:0.5rem;bottom:2rem;z-index:8;max-width:calc(100% - 1rem);" +
-      "padding:0.15rem 0.45rem;background:#262626;border:1px solid;font-size:13px;pointer-events:none";
+      "padding:0.15rem 0.45rem;background:var(--dolly-ui-background);border:1px solid;font-size:13px;pointer-events:none";
   }
   if (unavailable) {
     element.replaceChildren(`No GPU: ${unavailable}`);
@@ -51,17 +51,17 @@ function indicate(page, info, unavailable) {
     if (page.site) {
       const link = Object.assign(document.createElement("a"), { textContent: "How to enable WebGPU ↗",
         href: new URL("docs/gpu.md#enabling-webgpu", page.site).href, target: "_blank", rel: "noopener" });
-      link.style.cssText = "color:#f2d45c;pointer-events:auto";
+      link.style.cssText = "color:var(--dolly-ui-accent);pointer-events:auto";
       element.append(" · ", link);
     }
-    announce(page, element, "unavailable", "#e98773");
+    announce(page, element, "unavailable", "var(--dolly-ui-alert)");
     return {};
   }
   const adapter = [info.vendor, info.architecture, info.description].filter(Boolean).join(" ") || "unnamed WebGPU adapter";
   // SwiftShader and llvmpipe are software adapters even where a browser does not flag them.
   const software = info.isFallbackAdapter || /swiftshader|llvmpipe/i.test(adapter);
   element.textContent = `${software ? "Software adapter, not a GPU" : "GPU"}: ${adapter} · ${info.f16 ? "" : "no "}shader-f16`;
-  announce(page, element, software ? "software" : "hardware", software ? "#f2d45c" : "#77736c");
+  announce(page, element, software ? "software" : "hardware", software ? "var(--dolly-ui-accent)" : "var(--dolly-ui-quiet)");
   return { adapter, isFallbackAdapter: info.isFallbackAdapter };
 }
 
@@ -75,7 +75,7 @@ export function browser(page) {
     // Over the terminal: beside a smaller surface, its letterbox is the terminal's background, as
     // display@0's is.
     canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;" +
-      "background:var(--dolly-background,#262626)";
+      "background:var(--dolly-ui-background)";
     mount.append(canvas);
     surface = canvas.transferControlToOffscreen();
   }
