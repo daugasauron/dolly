@@ -26,6 +26,7 @@ README. Demos may use each other; the core never uses a demo.
 - [ocaml](ocaml/README.md): OCaml 5.5, bytecode, built inside Dolly from upstream's bootstrap compiler, as a package.
 - [pi](pi/README.md): the Pi coding agent.
 - [python](python/README.md): CPython and stock pip over the HTTP broker.
+- [rclone](rclone/README.md): rclone, which keeps a folder of the session in step with a folder a WebDAV server holds, as a package.
 - [rts](rts/README.md): Seven Kingdoms matches between two Pi players.
 - [rust](rust/README.md): rustc and Cargo built inside Dolly, ripgrep and fd.
 - [sdl2](sdl2/README.md): SDL2 over the Dolly framebuffer.

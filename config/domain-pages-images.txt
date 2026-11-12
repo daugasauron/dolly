@@ -106,6 +106,7 @@ sdl2-mixer
 imgui-x11
 zig-llvm
 go-tools
+rclone
 vendor-crates
 ocaml
 lean-std
