@@ -1,6 +1,5 @@
 #include "system-snapshot.h"
 #include "fs-record.h"
-#include "sha256.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -275,17 +274,16 @@ int dolly_snapshot_restore_staged(uintptr_t size, const char *only_path) {
   return result;
 }
 
-// Streaming restore is boot-only: no process observes partial files. The final
-// canonical digest binds the complete image independently of pack boundaries.
+// Streaming restore is boot-only: no process observes partial files. The host
+// checks each part against its pack's digest; the kernel checks its records.
 static struct {
   dolly_snapshot_manifest manifest;
   unsigned char *seen;
-  unsigned char expected[32], part_digest[32], scratch[4096];
+  unsigned char scratch[4096];
   uintptr_t expected_size, total, data_left;
   size_t used, need, index, previous, restored;
-  uint32_t phase, count, remaining, parts;
+  uint32_t phase, count, remaining;
   dolly_fs_record record;
-  Sha256 part_sha;
   int active, descriptor;
 } stream;
 
@@ -303,20 +301,18 @@ static int stream_dispose(int result) {
 }
 
 int dolly_snapshot_stream_begin(uintptr_t size) {
-  if (stream.active || restore_capacity < 32 || size < 16 || size > DOLLY_SNAPSHOT_MAX_SIZE) {
+  if (stream.active || restore_capacity == 0 || size < 16 || size > DOLLY_SNAPSHOT_MAX_SIZE) {
     errno = EINVAL;
     return stream_dispose(-1);
   }
   if (load_manifest(&stream.manifest) != 0) return stream_dispose(-1);
   stream.seen = calloc(stream.manifest.count, 1);
   if (stream.seen == NULL) return stream_dispose(-1);
-  memcpy(stream.expected, restore_bytes, 32);
   stream.expected_size = size;
   stream.total = 16;
   stream.need = 16;
   stream.descriptor = -1;
   stream.active = 1;
-  sha256_init(&stream.part_sha);
   return 0;
 }
 
@@ -397,7 +393,6 @@ int dolly_snapshot_stream_write(uintptr_t size, uint32_t end_part) {
     errno = EINVAL;
     return stream_dispose(-1);
   }
-  sha256_update(&stream.part_sha, restore_bytes, size);
   const unsigned char *cursor = restore_bytes, *end = cursor + size;
   while (cursor != end) {
     if (stream.phase == 4) goto invalid;
@@ -422,11 +417,7 @@ int dolly_snapshot_stream_write(uintptr_t size, uint32_t end_part) {
     } else if (stream.used == stream.need && stream_field() != 0) goto invalid;
   }
   if (end_part) {
-    if (stream.phase != 4 || restore_capacity < 32) goto invalid;
-    sha256_finish(&stream.part_sha, stream.part_digest);
-    memcpy(restore_bytes, stream.part_digest, 32);
-    ++stream.parts;
-    sha256_init(&stream.part_sha);
+    if (stream.phase != 4) goto invalid;
     stream.phase = 0;
     stream.used = 0;
     stream.need = 16;
@@ -441,51 +432,6 @@ int dolly_snapshot_stream_finish(void) {
   if (!stream.active || stream.phase != 0 || stream.used != 0 ||
       stream.restored != stream.manifest.count || stream.total != stream.expected_size) {
     errno = EINVAL;
-    return stream_dispose(-1);
-  }
-  Sha256 sha;
-  if (stream.parts == 1) {
-    if (memcmp(stream.part_digest, stream.expected, 32) != 0) {
-      errno = EBADMSG;
-      return stream_dispose(-1);
-    }
-    return stream_dispose(0);
-  }
-  sha256_init(&sha);
-  unsigned char buffer[64 * 1024], *cursor = buffer;
-  memcpy(cursor, DOLLY_SNAPSHOT_MAGIC, 8); cursor += 8;
-  dolly_fs_put_u32(&cursor, DOLLY_SNAPSHOT_VERSION);
-  dolly_fs_put_u32(&cursor, stream.manifest.count);
-  sha256_update(&sha, buffer, 16);
-  for (size_t index = 0; index < stream.manifest.count; ++index) {
-    dolly_fs_record record = {.path = stream.manifest.paths[index]};
-    if (dolly_fs_metadata(record.path, &record.kind, &record.size) != 0) return stream_dispose(-1);
-    cursor = buffer;
-    dolly_fs_put_u32(&cursor, record.kind);
-    dolly_fs_put_u32(&cursor, strlen(record.path));
-    dolly_fs_put_u64(&cursor, record.size);
-    sha256_update(&sha, buffer, 16);
-    sha256_update(&sha, record.path, strlen(record.path));
-    if (record.kind == DOLLY_FS_FILE) {
-      stream.descriptor = open(record.path, O_RDONLY);
-      if (stream.descriptor < 0) return stream_dispose(-1);
-      while (record.size != 0) {
-        const size_t amount = record.size < sizeof(buffer) ? record.size : sizeof(buffer);
-        if (dolly_fs_read_exact(stream.descriptor, buffer, amount) != 0) return stream_dispose(-1);
-        sha256_update(&sha, buffer, amount);
-        record.size -= amount;
-      }
-      const int descriptor = stream.descriptor;
-      stream.descriptor = -1;
-      if (close(descriptor) != 0) return stream_dispose(-1);
-    } else if (record.kind == DOLLY_FS_SYMLINK) {
-      if (record.size >= sizeof(buffer) || dolly_fs_read_data(&record, buffer) != 0) return stream_dispose(-1);
-      sha256_update(&sha, buffer, record.size);
-    }
-  }
-  sha256_finish(&sha, buffer);
-  if (memcmp(buffer, stream.expected, 32) != 0) {
-    errno = EBADMSG;
     return stream_dispose(-1);
   }
   return stream_dispose(0);

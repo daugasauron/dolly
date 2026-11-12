@@ -16,11 +16,12 @@
   (func (export "dolly_bootstrap_snapshot") (param i64) (result i32)
     i32.const 0)
   ;; Fresh boot streaming uses the same staging range, bounded by the caller.
-  ;; Begin reads 32 expected digest bytes and receives the canonical image size.
-  ;; Write consumes bytes; end_part=1 requires a complete sorted snapshot part
-  ;; and returns its SHA-256 in the first 32 staging bytes. End verifies the
-  ;; complete canonical image and starts the display. On failure discard the
-  ;; runtime: no command or saved session may observe a partial filesystem.
+  ;; Begin receives the canonical image size. Write consumes bytes; end_part=1
+  ;; requires a complete sorted snapshot part. End requires every path of the
+  ;; manifest and the image's size, and starts the display. The kernel hashes
+  ;; nothing: the host checks each part against its pack's SHA-256 before it
+  ;; ends the part. On failure discard the runtime: no command or saved
+  ;; session may observe a partial filesystem.
   (func (export "dolly_bootstrap_snapshot_begin") (param i64) (result i32)
     i32.const 0)
   (func (export "dolly_snapshot_stream_write") (param i64 i32) (result i32)

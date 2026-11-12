@@ -130,25 +130,17 @@ static int roundtrip(void) {
 static int feed_part(const unsigned char *bytes, size_t size, size_t chunk) {
   for (size_t offset = 0; offset < size; offset += chunk) {
     size_t amount = size - offset < chunk ? size - offset : chunk;
-    unsigned char *staged = (unsigned char *)dolly_snapshot_restore_address(chunk < 32 ? 32 : chunk);
+    unsigned char *staged = (unsigned char *)dolly_snapshot_restore_address(chunk);
     CHECK(staged != NULL);
     memcpy(staged, bytes + offset, amount);
     CHECK(dolly_snapshot_stream_write(amount, 0) == 0);
   }
   CHECK(dolly_snapshot_stream_write(0, 1) == 0);
-  Sha256 sha;
-  unsigned char digest[32];
-  sha256_init(&sha); sha256_update(&sha, bytes, size); sha256_finish(&sha, digest);
-  CHECK(memcmp(restore_bytes, digest, 32) == 0);
   return 0;
 }
 
-static int begin_stream(const unsigned char *bytes, size_t size, int corrupt_hash) {
-  unsigned char *staged = (unsigned char *)dolly_snapshot_restore_address(4096);
-  CHECK(staged != NULL);
-  Sha256 sha;
-  sha256_init(&sha); sha256_update(&sha, bytes, size); sha256_finish(&sha, staged);
-  if (corrupt_hash) staged[0] ^= 1;
+static int begin_stream(size_t size) {
+  CHECK(dolly_snapshot_restore_address(4096) != 0);
   CHECK(dolly_snapshot_stream_begin(size) == 0);
   return 0;
 }
@@ -159,7 +151,7 @@ static int stream_roundtrip(void) {
   CHECK(bytes != NULL);
   for (size_t chunk = 1; chunk <= 1024; chunk *= 2) {
     CHECK(dolly_fs_remove_tree(ROOT) == 0);
-    CHECK(begin_stream(bytes, size, 0) == 0);
+    CHECK(begin_stream(size) == 0);
     CHECK(feed_part(bytes, size, chunk) == 0);
     CHECK(dolly_snapshot_stream_finish() == 0);
     CHECK(captures(bytes, size));
@@ -176,7 +168,7 @@ static int stream_roundtrip(void) {
   }
   offsets[6] = size;
   CHECK(dolly_fs_remove_tree(ROOT) == 0);
-  CHECK(begin_stream(bytes, size, 0) == 0);
+  CHECK(begin_stream(size) == 0);
   for (size_t index = 6; index != 0; --index) {
     const size_t length = offsets[index] - offsets[index - 1];
     unsigned char part[4096];
@@ -187,21 +179,18 @@ static int stream_roundtrip(void) {
   }
   CHECK(dolly_snapshot_stream_finish() == 0);
   CHECK(captures(bytes, size));
-  CHECK(begin_stream(bytes, size, 1) == 0);
-  CHECK(feed_part(bytes, size, 31) == 0);
-  CHECK(dolly_snapshot_stream_finish() != 0 && errno == EBADMSG);
   for (size_t cut = 0; cut < size; ++cut) {
-    CHECK(begin_stream(bytes, size, 0) == 0);
+    CHECK(begin_stream(size) == 0);
     memcpy(restore_bytes, bytes, cut);
     CHECK(dolly_snapshot_stream_write(cut, 0) == 0);
     CHECK(dolly_snapshot_stream_write(0, 1) != 0);
     CHECK(dolly_snapshot_stream_finish() != 0);
   }
-  CHECK(begin_stream(bytes, size, 0) == 0);
+  CHECK(begin_stream(size) == 0);
   CHECK(feed_part(bytes, size, 16) == 0);
   memcpy(restore_bytes, bytes, size);
   CHECK(dolly_snapshot_stream_write(size, 1) != 0); // duplicate paths
-  CHECK(begin_stream(bytes, size, 0) == 0);
+  CHECK(begin_stream(size) == 0);
   memcpy(restore_bytes, bytes, size);
   restore_bytes[16] = DOLLY_FS_SYMLINK; // a retained parent cannot be a link
   CHECK(dolly_snapshot_stream_write(size, 1) != 0);
