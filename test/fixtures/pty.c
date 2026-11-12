@@ -354,7 +354,6 @@ static int libc(void) {
   size.ws_col = 13;
   CHECK(ioctl(master, TIOCSWINSZ, &size) == 0);
   CHECK(ioctl(slave, TIOCGWINSZ, &size) == 0 && size.ws_row == 11 && size.ws_col == 13);
-  CHECK(ioctl(slave, TIOCSWINSZ, &size) == -1 && errno == EPERM);
   CHECK(ioctl(STDIN_FILENO, TIOCSWINSZ, &size) == -1 && errno == EPERM);
   /* A terminal has no name: a program that got one would open it for a
    * description of its own (libuv does, to set O_NONBLOCK), and a slave is

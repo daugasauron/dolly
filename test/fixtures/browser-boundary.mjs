@@ -102,7 +102,7 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   await checkAdmissionQueue(broker, errno, asset("host/http/broker.mjs"));
   const observations = [];
   broker.policy = new DollyHttpPolicy({ rules: [{ origin: fixtureOrigin,
-    path: "/fixture/http.txt", methods: ["GET"] }] });
+    path: "/fixture/http.txt", methods: ["GET"], credentialHeaders: ["x-value"] }] });
   broker.fetchRequest = async (url, options) => {
     observations.push(options.headers.get("x-value"));
     throw new Error("metadata probe stops before real Fetch");

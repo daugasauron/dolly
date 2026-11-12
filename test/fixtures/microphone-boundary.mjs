@@ -23,7 +23,10 @@ export async function microphoneBoundaryProof() {
     check(provider.dispatch({ ...packet(M.DOLLY_MICROPHONE_OPEN), body: new Uint8Array(4) }).error === E.EINVAL, "An open with a body");
     check(provider.dispatch(packet(9)).error === E.EBADF, "An unknown operation without a lease");
     check(asked === 0, "The browser was asked before a valid open");
-    check(provider.dispatch(packet(M.DOLLY_MICROPHONE_OPEN)).error === 0 && asked === 1, "Open failed");
+    check(provider.dispatch(packet(M.DOLLY_MICROPHONE_OPEN)).error === 0, "Open failed");
+    // The browser is asked once the capture's consent is given, a turn after the open.
+    await new Promise(resolve => setTimeout(resolve, 0));
+    check(asked === 1, "A valid open did not ask the browser");
     check(provider.dispatch(packet(M.DOLLY_MICROPHONE_OPEN, 2)).error === E.EBUSY && asked === 1, "A second capture was admitted");
     check(provider.dispatch(packet(9)).error === E.ENOSYS, "An unknown operation");
     check(provider.dispatch(packet(M.DOLLY_MICROPHONE_READ, 1, 0)).error === E.EINVAL, "A read of no frames");
