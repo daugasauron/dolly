@@ -3,8 +3,7 @@
   "version": 0,
   "gives": "the standard streams of a program the host starts: a terminal or three pipes",
   "dependencies": [
-    "runtime@0",
-    "pty@0"
+    "runtime@0"
   ],
   "imports": [],
   "host": "console.mjs",
