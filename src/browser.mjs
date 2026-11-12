@@ -13,17 +13,26 @@ import * as processConstants from "./process-constants.mjs";
 const pageStyle = new CSSStyleSheet();
 pageStyle.replaceSync(`
   .dolly-terminal { position: relative; overflow: hidden; outline: none; caret-color: transparent;
-    display: flex; flex-direction: column; }
+    display: flex; flex-direction: column;
+    /* Dolly's own UI in the embedding's colours (docs/embedding.md), unset Dolly's: the three, the
+       terminal's bright black for what is quieter, and mixes of them for raised and sunken parts. */
+    --dolly-ui-background: var(--dolly-background, #262626); --dolly-ui-color: var(--dolly-color, #e8e3d7);
+    --dolly-ui-accent: var(--dolly-accent, #f2d45c); --dolly-ui-quiet: var(--dolly-display-palette-8, #77736c);
+    --dolly-ui-raised: color-mix(in srgb, var(--dolly-ui-color) 7%, var(--dolly-ui-background));
+    --dolly-ui-sunken: color-mix(in srgb, var(--dolly-ui-background) 66%, black);
+    --dolly-ui-alert: #e98773; }
   .dolly-terminal #display { display: block; width: 100%; flex: 1 1 0; min-height: 0; cursor: text; touch-action: none;
     object-fit: contain; }
   .dolly-terminal #display[hidden] { display: none; }
   .dolly-terminal #keyboard { position: fixed; left: -10000px; top: 0; width: 1px; height: 1px; opacity: 0; caret-color: transparent; }
   .dolly-terminal #bootstrap-log { position: absolute; inset: 0; z-index: 1; margin: 0; padding: 1rem 1.15rem; overflow: auto;
-    white-space: pre-wrap; color: #e8e3d7; background: #262626; font: 600 20px/1.35 "Dolly IosevkaTerm SemiBold", monospace;
-    scrollbar-width: thin; scrollbar-color: #f2d45c #262626; }
+    white-space: pre-wrap; color: var(--dolly-ui-color); background: var(--dolly-ui-background);
+    font: 600 20px/1.35 "Dolly IosevkaTerm SemiBold", monospace;
+    scrollbar-width: thin; scrollbar-color: var(--dolly-ui-accent) var(--dolly-ui-background); }
   .dolly-terminal #bootstrap-log[hidden] { display: none; }
   .dolly-terminal #session-status { position: absolute; right: 1rem; top: 1rem; z-index: 5; max-width: calc(100% - 2rem);
-    padding: 0.5rem 0.75rem; color: #e8e3d7; background: #262626; border: 1px solid #77736c; font-size: 14px; }
+    padding: 0.5rem 0.75rem; color: var(--dolly-ui-color); background: var(--dolly-ui-background);
+    border: 1px solid var(--dolly-ui-quiet); font-size: 14px; }
   .dolly-terminal #session-status[hidden] { display: none; }
   html[data-indicators="hidden"] .page-indicator { display: none; }
   @media (max-width: 640px) { .dolly-terminal #bootstrap-log { padding: 0.65rem 0.75rem; } }
@@ -119,9 +128,9 @@ export async function run(mount, { images, modules, site, http }, route) {
       : `exited with status ${code}`;
     const notice = mount.appendChild(element("div", { id: "image-ended" }, { role: "alert" }));
     notice.style.cssText = "position:absolute;left:0;right:0;bottom:0;z-index:9;padding:0.6rem 1rem;" +
-      "color:#e8e3d7;background:#262626;border-top:1px solid #f2d45c;font-size:16px";
+      "color:var(--dolly-ui-color);background:var(--dolly-ui-background);border-top:1px solid var(--dolly-ui-accent);font-size:16px";
     const links = [{ text: "Reload to start again", href: location.href }, ...offers].map(({ text, href }) =>
-      Object.assign(document.createElement("a"), { textContent: text, href, style: "color:#f2d45c;margin-left:1.5ch" }));
+      Object.assign(document.createElement("a"), { textContent: text, href, style: "color:var(--dolly-ui-accent);margin-left:1.5ch" }));
     notice.append(`This image has ended: its program ${how}.`, ...links);
     // The notice takes the element's bottom strip; the last frame and the log keep the rest.
     Object.assign(canvas.style, { flex: "none", height: `calc(100% - ${notice.offsetHeight}px)`, objectFit: "contain",

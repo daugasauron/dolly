@@ -124,7 +124,7 @@ export function chooseUploadFile(mount, controller) {
     dialog.id = "file-upload";
     // An adopted style sheet, which a page's style-src without 'unsafe-inline' allows.
     const look = new CSSStyleSheet();
-    look.replaceSync(`#file-upload { color: #e8e3d7; background: #262626; border: 1px solid #77736c;
+    look.replaceSync(`#file-upload { color: var(--dolly-ui-color); background: var(--dolly-ui-background); border: 1px solid var(--dolly-ui-quiet);
         max-width: calc(100vw - 2rem); font: inherit; } #file-upload::backdrop { background: #0008; }
       #file-upload input, #file-upload button { font: inherit; }`);
     dialog.innerHTML = `<form method="dialog"><p>Upload one file into Dolly</p>

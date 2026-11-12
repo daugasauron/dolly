@@ -80,9 +80,10 @@ WebGPU adapter, a device that fails to open with `ENODEV`.
 
 ## Colours
 
-The terminal's colours and the popups' are the page's, not the image's. Set
-these on the element (or above it) in your style sheet to match your page;
-unset, they are Dolly's:
+The terminal's colours, the popups' and those of the rest of Dolly's own UI in
+the element (the boot log, the status line, the dialogs, the notices and the
+indicators) are the page's, not the image's. Set these on the element (or above
+it) in your style sheet to match your page; unset, they are Dolly's:
 
 ```css
 #dolly {
@@ -98,7 +99,9 @@ and bright yellow (`-3`, `-11`) the accent, bright black (`-8`) `#77736c` and
 the others the text's colour, so a program's red shows as its text does. A
 value may be any CSS colour; one that is not counts as unset. The terminal
 takes them at boot and whenever they change, by any rule or media query; a
-popup as it opens.
+popup as it opens. Dolly's UI draws its quieter lines in bright black (`-8`),
+its raised and sunken parts in mixes of the background and the text, and an
+alert in `#e98773`.
 
 ## Popups
 

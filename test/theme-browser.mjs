@@ -36,6 +36,23 @@ async function shownInside(page, selector) {
   return hex(await shownColor(page, Math.ceil(x) + 2, Math.ceil(y) + 2));
 }
 
+// Dolly's own UI inside boot()'s element: the status line a save shows and the
+// downloads panel an offer opens, each pixel just inside its border.
+async function uiColors(page) {
+  await page.evaluate(() => __dolly.saveSession("theme-proof"));
+  await page.locator("#session-status").getByText("Saved theme-proof").waitFor();
+  const status = await shownInside(page, "#session-status");
+  const offered = page.evaluate(text => __dolly.submit(text), "printf theme > /tmp/theme.txt && download /tmp/theme.txt");
+  const save = page.locator("#downloads button").first();
+  await save.waitFor();
+  const downloads = await shownInside(page, "#downloads");
+  const saved = page.waitForEvent("download");
+  await save.click();
+  await saved;
+  assert.equal(await offered, 0);
+  return { status, downloads };
+}
+
 await browserTest("theme", { image: "system", timeout: 300_000 }, async ({ open }) => {
   // Dolly's own page sets none: its colours, the 16 those of the text but for
   // black, yellow and bright yellow, and bright black.
@@ -46,6 +63,7 @@ await browserTest("theme", { image: "system", timeout: 300_000 }, async ({ open 
     assert.deepEqual(await terminalColors(page), { background, text, cursor: accent,
       colors: [background, text, text, accent, text, text, text, text, dim, text, text, accent, text, text, text, text] });
     assert.equal(await shownInside(page, "#display"), background);
+    assert.deepEqual(await uiColors(page), { status: background, downloads: background });
     await page.close();
   }
 
@@ -74,6 +92,7 @@ await browserTest("theme", { image: "system", timeout: 300_000 }, async ({ open 
     colors: [background, "#c80000", "#008080", accent, text, text, text, text, dim, text, text, accent, text, text, text, text] });
   assert.equal(await shownInside(page, "#display"), background);
   assert.equal(await popupBackground(), background);
+  assert.deepEqual(await uiColors(page), { status: background, downloads: background });
 
   // A change of the page's properties is the terminal's at once, without output.
   await page.evaluate(() => document.querySelector("#terminal").style.setProperty("--dolly-background", "rgb(40, 50, 60)"));
