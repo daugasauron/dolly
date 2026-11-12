@@ -3,7 +3,7 @@
 Xonotic 0.8.6 (DarkPlaces engine), being ported to Dolly. State: the dedicated
 server, the SDL client and gmqcc build inside Dolly, a bot match runs to its
 end headless, gmqcc rebuilds the game logic there, and the client draws on
-`gpu@0` at the engine's normal preset, or, where the browser gives no WebGPU
+`gpu@0` at every effects preset, or, where the browser gives no WebGPU
 adapter, through the engine's own software rasterizer (its SSE2 code compiled
 as Wasm SIMD) into the `sdl2` package's window. Sound plays through SDL's
 audio on `audio@0`. The task is `tasks/20261006-122433-xonotic/TASK.md`.
@@ -17,7 +17,7 @@ audio on `audio@0`. The task is `tasks/20261006-122433-xonotic/TASK.md`.
   `make -f /usr/src/dolly/xonotic/Makefile qc` compiles `progs.dat`,
   `csprogs.dat` and `menu.dat` into `/tmp/xonotic/build/qc`.
 - `gmqcc`: the QuakeC compiler, compiled from the same release source.
-- `xonotic-shaders`: the engine's shader permutations of the normal preset
+- `xonotic-shaders`: the engine's shader permutations of the effects presets
   as WGSL in `/usr/share/xonotic/shaders`, for the client's `gpu@0` path:
   `dpshaders.c` rewrites the engine's GLSL as naga's GLSL front end reads it
   and the `naga` package translates it, in the build.
@@ -58,16 +58,16 @@ Build with `npm run image -- xonotic-build` or `npm run image -- xonotic`.
 
 ## Effects that are off on `gpu@0`
 
-The `normal` and `high` presets draw, water's reflections and refractions
-among them (cut at the water plane, measured on glowplant, solarium,
-afterslime and bromine). What the engine asks for beyond them, or in passing,
-and what each waits for:
+Every preset draws: water's reflections and refractions from `high` up (cut
+at the water plane, measured on glowplant, solarium, afterslime and bromine),
+realtime world lights and offset and relief mapping from `ultra` up
+(space-elevator). What the engine asks for beyond them, or in passing, and
+what each waits for:
 
 | Effect | Preset | Waits for |
 | --- | --- | --- |
 | Corona occlusion queries | `high` and up | occlusion queries, which `gpu@0` lacks; the engine traces instead |
-| Realtime world lights and shadow maps | `ultra` and up | drawing into depth textures in `dpgpurast.c` (`gpu@0` has depth targets and compare samplers) |
-| Offset and relief mapping | `ultra` and up | nothing in `gpu@0`: their permutations are not in `xonotic-shaders`' list |
+| Shadow maps (the lights draw unshadowed) | `ultra` and up | drawing into depth textures in `dpgpurast.c` (`gpu@0` has depth targets and compare samplers) |
 
 A shader permutation outside the list in [`Makefile`](Makefile) draws nothing
 and is printed once (`dpgpurast: no WGSL for shader mode M permutation P`).

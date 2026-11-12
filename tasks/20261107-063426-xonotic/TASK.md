@@ -9,6 +9,57 @@ broken, create a task to fix that too." Not yet recorded: the browser and system
 whether the page drew on `gpu@0` or in the engine's software rasterizer (no WebGPU adapter), and
 what "broken" looks like (a screenshot settles most of it).
 
+## State (2026-11-12): the effects presets above high, in any browser
+
+Firefox 159 now gives a WebGPU adapter on the private Xvfb, but does not composite the Worker's
+WebGPU canvas there (page screenshots and the X display show nothing, "Failed to get SourceSurface
+from DMABufSurface"), so frames were read inside the engine: `screenshot` (dpgpurast reads it back
+from `gpu@0`) and `condump`, taken out with `download`, from the system image with the xonotic
+application's client, data, shaders and settings copied in
+(`work/xonotic-repro/engine-shots.mjs`; `engine-shots-site.mjs` against a served deployment).
+
+- At the image's own settings (low preset), Firefox 159 on `gpu@0` draws correctly, textured:
+  stormkeep, space-elevator, implosion, geoplanetary and erbium on v0.1.6, stormkeep on v0.1.5
+  (the published deployment). So neither release's WGSL nor Firefox's WebGPU is broken as such.
+- The owner's frame is stretched: the crosshair's ring is 61×42 pixels of the 1847×963 picture
+  (a 1024×768 frame stretched to it gives 1.35:1). Firefox 159 and Chrome both letterbox a 2D
+  canvas a Worker draws through `transferControlToOffscreen` (`object-fit: contain`, headless); a
+  WebGPU one cannot be looked at here, where nothing is composited.
+- At `effects-ultra.cfg` the frame is black in Chrome and Firefox alike: the engine renders into a
+  framebuffer whose textures dpgpurast refused (the shadow map's depth format; the "no texture of
+  format" warning is printed once per kind, so only the first showed), whose pixel pointers are
+  therefore NULL and size 0; `DPSOFTRAST_SetRenderTargets` took a target that is not a texture's
+  token for the screen and replaced the frame buffer with a 0×0 one, which `gpu@0` refuses
+  ("Texture descriptor", `0,0,1,1,1,20`), and every later draw names its handle. At `high` both
+  browsers draw correctly. With a target without pixels not drawn, `ultra` drew the owner's
+  picture in both browsers: the floor and walls missing with the planet showing through, the
+  pillars flat. Those surfaces are offset-mapped (`effects-ultra.cfg`: `r_glsl_offsetmapping 1`;
+  ultimate adds relief mapping), and their permutations (modes 7 and 11 with 65536, such as
+  7:73729 and 11:8464393) had no WGSL, so their draws were skipped.
+- Fixed on `fix/xonotic-presets`: `dpgpurast.c` takes a target without pixels for a texture's
+  (not drawn), and `xonotic-shaders` translates the lit modes' permutations with offset mapping
+  and with relief mapping over it too (576 lit pairs, 11 MB; 88 s to build). `ultra` in Firefox
+  and `ultimate` in Chrome then draw space-elevator textured, every wall there, with no missing
+  permutation and no refused packet; shadow maps stay undrawn (the lights draw unshadowed).
+  `xonotic-browser.mjs` runs `ultimate` on space-elevator on `gpu@0`: no `no WGSL` or refused
+  packet in its log, and its screenshot lit (the black frame was lit 0.0, the frame with the
+  walls missing 0.665 but with `no WGSL` lines). That block alone passed in Chrome on `gpu@0`
+  (lit 0.640, `work/xonotic-repro/ultimate-only.mjs`). The whole test, on the same images, stopped
+  earlier, at "the screenshot is a frame the page showed": the menu frames after the screenshot
+  match it in the centre (1.2) but not along the top (4.9, the bound is 3). The test cropped its
+  page screenshot to `#display`'s box, of another shape than the frame, which the GPU canvas
+  centres in it (`object-fit: contain`): the edge columns held letterbox. Cropped to the frame's
+  own box, the whole test passed in Chrome on `gpu@0` in 551.7 s (top 0.1; the ultimate preset's
+  frame lit 0.459; `build/xonotic-presets-test2.log` in the root).
+- Firefox here loses the device (`GPU device lost: Device is lost`, reason `unknown`, no
+  uncaptured error before it) when the client's frame has rows that are not a multiple of 256
+  bytes: 1700, 1800, 1846 and 1848 pixels wide lose it; 1024, 1280, 1600 and 1792 do not, at any
+  height tried; Chrome draws 1846×962. A Worker's bare WebGPU canvas cleared every frame at
+  1846×962 is not lost (`wide.mjs` in the session's scratchpad), so it is something gpu@0 or
+  dpgpurast does with a frame-wide row; tracing the worker's records slowed it until nothing was
+  lost. The image's settings are 1024×768; with nothing composited on this display, whether it
+  happens on a hardware display is open.
+
 ## State (2026-11-07, later): Firefox's WebGPU
 
 The owner's screenshot (`~/Screenshots/Screenshot from 2026-11-07 22-05-43.png`, Firefox on the

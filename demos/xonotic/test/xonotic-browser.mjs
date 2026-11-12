@@ -40,7 +40,14 @@ async function frame(page) {
   if (gpu) {
     const size = await page.evaluate(() => __dolly.gpu.active && `${__dolly.gpu.width}x${__dolly.gpu.height}`);
     if (size !== "1024x768") return null;
-    const png = (await page.screenshot({ clip: await page.locator("#display").boundingBox() })).toString("base64");
+    // The frame's own box: the GPU canvas's may be of another shape, the frame centred in it.
+    const clip = await page.evaluate(() => {
+      const bounds = document.querySelector("#gpu-display").getBoundingClientRect();
+      const scale = Math.min(bounds.width / 1024, bounds.height / 768);
+      return { x: bounds.left + (bounds.width - 1024 * scale) / 2, y: bounds.top + (bounds.height - 768 * scale) / 2,
+        width: 1024 * scale, height: 768 * scale };
+    });
+    const png = (await page.screenshot({ clip })).toString("base64");
     return page.evaluate(async png => {
       const bitmap = await createImageBitmap(new Blob([Uint8Array.from(atob(png), c => c.charCodeAt(0))], { type: "image/png" }));
       const canvas = new OffscreenCanvas(1024, 768), context = canvas.getContext("2d");
@@ -168,6 +175,23 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser,
   await page.waitForFunction(() => !__dolly.transport.graphicsActive()); // the display is released
   await run("echo SHELL-BACK");
   console.log("xonotic: the client drew a frame and quit back to the shell");
+
+  // The ultimate preset asks for offset and relief mapping and renders shadow maps into depth
+  // textures, which dpgpurast does not draw: on gpu@0 no permutation lacks its WGSL, no packet is
+  // refused, and the engine's screenshot of space-elevator is lit (the shadow maps' 0×0 target
+  // once left every frame black, and the missing permutations whole walls).
+  if (gpu) {
+    const ultimate = start(`${client} +exec effects-ultimate.cfg +log_file ultimate.log +map space-elevator ` +
+      "+defer 60 \"screenshot ultimate.tga\" +defer 62 quit");
+    assert.equal(await ultimate.done, 0, "the client must quit back to the shell");
+    await run(`! grep -E 'dpgpurast: (no WGSL|a command packet failed)' ${userdir}/ultimate.log`);
+    await run(`tail -c +19 ${userdir}/ultimate.tga | od -A n -v -t u | awk '{ for (i = 1; i <= NF; i++) { w = $i; ` +
+      "for (j = 0; j < 4; j++) { v[k % 3] = w % 256; w = int(w / 256); if (++k % 3 == 0) lit += (v[0] + v[1] + v[2] > 48) } } } " +
+      "END { printf \"ultimate lit %.3f\\n\", lit / (k / 3) }'");
+    const lit = Number((await text()).match(/ultimate lit ([\d.]+)/)[1]);
+    assert.ok(lit > 0.2, `the ultimate preset's frame is drawn: lit ${lit}`);
+    console.log(`xonotic: the ultimate preset draws space-elevator on gpu@0, lit fraction ${lit.toFixed(3)}`);
+  }
 
   await page.evaluate(() => { audioMeters.length = 0; });
 
