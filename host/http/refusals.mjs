@@ -2,17 +2,21 @@
 // browser's console, and a notice in boot()'s element that stays until the user closes it.
 // Refusals of one method and URL are one notice with a count; the newest few show, with a
 // line for the rest and Close all. A URL is shown without its query, which may hold a key.
+// The list lies over the display: its words let the pointer through to the program, and only
+// its buttons take a click.
 const shownAtOnce = 5;
 
 const style = `
   #http-refusals { position: absolute; left: 0.6rem; top: 0.6rem; z-index: 7; width: min(34rem, calc(100% - 1.2rem));
-    margin: 0; padding: 0.35rem 0.35rem 0; list-style: none; color: #e8e3d7; background: #262626; font-size: 14px; line-height: 1.4; }
+    margin: 0; padding: 0.35rem 0.35rem 0; list-style: none; color: #e8e3d7; background: #262626; font-size: 14px; line-height: 1.4;
+    pointer-events: none; }
   #http-refusals[hidden] { display: none; }
   #http-refusals li { display: flex; gap: 0.5rem; align-items: baseline; margin-bottom: 0.35rem; padding: 0.4rem 0.5rem;
     background: #262626; border: 1px solid #e98773; overflow-wrap: anywhere; }
   #http-refusals li span { flex: 1; }
   #http-refusals li.rest { border-color: #77736c; }
-  #http-refusals button { color: inherit; background: #333; border: 1px solid #77736c; font: inherit; cursor: pointer; }
+  #http-refusals button { color: inherit; background: #333; border: 1px solid #77736c; font: inherit; cursor: pointer;
+    pointer-events: auto; }
 `;
 
 export function refusalNotices(mount, keyboard) {
