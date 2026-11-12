@@ -35,6 +35,11 @@ class DisplayServerDolly : public DisplayServer {
 	Callable input_text_callback;
 	Callable window_event_callback;
 	Point2i mouse_position;
+	// MOUSE_MODE_CAPTURED asks input@0 for relative motion, and the page captures the pointer
+	// at the next click: the mode is CAPTURED while the page has it (POINTER_CAPTURE), and the
+	// request stays while it is wanted, so a click takes the pointer again after Escape.
+	DisplayServerEnums::MouseMode mouse_mode = DisplayServerEnums::MOUSE_MODE_VISIBLE;
+	bool capture_wanted = false;
 	bool focused = true;
 	// The screen is the page's surface as the display lease starts; a maximized or fullscreen
 	// window fills it.
@@ -111,6 +116,8 @@ public:
 	DisplayServerEnums::VSyncMode window_get_vsync_mode(DisplayServerEnums::WindowID p_window = DisplayServerEnums::MAIN_WINDOW_ID) const override { return vsync_mode; }
 
 	Point2i mouse_get_position() const override { return mouse_position; }
+	void mouse_set_mode(DisplayServerEnums::MouseMode p_mode) override;
+	DisplayServerEnums::MouseMode mouse_get_mode() const override { return mouse_mode; }
 	void cursor_set_shape(DisplayServerEnums::CursorShape p_shape) override;
 
 	DisplayServerDolly(const String &p_rendering_driver, DisplayServerEnums::WindowMode p_mode, const Size2i &p_size, DisplayServerEnums::VSyncMode p_vsync_mode, Error &r_error);

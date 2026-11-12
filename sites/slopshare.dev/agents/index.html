@@ -27,9 +27,9 @@
 <main>
   <a href="../">← Dolly</a>
   <h1>Demos</h1>
-  <p class="lead">Dolly in Chrome: Godot playing one of its demos on the GPU, recorded on 8 November 2026, and
-    Claude Opus 5.5 at high effort working in Dolly, recorded on 1 and 2 November 2026. Each video's caption bar
-    names its speed-ups.</p>
+  <p class="lead">Dolly in Chrome: Godot playing one of its demos on the GPU, recorded on 8 November 2026, a C
+    compiler at work on Wine's desktop, recorded on 12 November 2026, and Claude Opus 5.5 at high effort working
+    in Dolly, recorded on 1 and 2 November 2026. Each video's caption bar names its speed-ups.</p>
   <h2>Godot: its Forward+ renderer on WebGPU</h2>
   <p class="lead">Godot 4.7, built inside Dolly from its release, draws through gpu@0, Dolly's interface to the
     browser's WebGPU. A script installs Truck Town with amy, starts it and drives.</p>
@@ -39,6 +39,19 @@
       <div>
         <h3>Truck Town</h3>
         <p>Godot's vehicle physics demo: the minivan, the semi-truck and the tow truck with its impound, by day, at sunset, at night and at sunrise, from behind, above and the driver's seat · 1:36</p>
+      </div>
+    </article>
+  </div>
+  <h2><a href="../wine/">Wine</a>: a C compiler on its desktop</h2>
+  <p class="lead">Wine 4.0, built inside Dolly, runs its own desktop on the page. In its Command Prompt, Notepad
+    writes a 79-line Win32 program and TinyCC 0.9.27's unmodified win64 compiler, run by the x86-64 interpreter
+    x86emu, compiles it in 0.6 s.</p>
+  <div class="grid">
+    <article>
+      <video controls playsinline preload="none" poster="posters/wine-tcc.jpg" aria-label="Plasma by TinyCC recording"><source src="videos/wine-tcc.mp4" type="video/mp4"></video>
+      <div>
+        <h3>Plasma by TinyCC</h3>
+        <p>notepad plasma.c, tcc plasma.c, plasma: an old-school plasma with a bouncing DOLLY in a window on Wine's desktop, drawn by interpreted x86-64 code about 20 times a second · 1:18</p>
       </div>
     </article>
   </div>

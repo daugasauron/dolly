@@ -29,6 +29,8 @@ Dolly, as it exported Dodge the Creeps for `amy install dodge-the-creeps`
 - `truck-town`: Truck Town, the demo projects' vehicle physics demo: a minivan, a semi-truck and a tow truck in a town at four times of day, drawn by Godot's Forward+ renderer on `gpu@0`; `truck-town` plays it.
 - `lantern-drift`: Lantern Drift, Dolly's showcase game for Godot: a paper lantern glides through rings of light over a sky archipelago from sunset into night, drawn by Forward+ on `gpu@0`; `lantern-drift` plays it.
 - `godot-lantern-drift`: Lantern Drift on the page at once, with Godot's editor and a copy of the game's project to open in it.
+- `airtime-godot`: Airtime: Foundry in Godot, the strafe trials of bhop on Airtime's own movement and course, drawn by Forward+ on `gpu@0` as a foundry at night over molten metal; `airtime-godot` plays it.
+- `godot-airtime`: Airtime in Godot on the page, which starts at once; Q leaves a shell where `godot-editor -e --path ~/airtime` opens its project.
 
 ## Lantern Drift
 

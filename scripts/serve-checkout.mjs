@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Serves this checkout and its current dist/ on 127.0.0.1 to a browser, the
 // browser tests and the image builder: npm run dev [-- IMAGE] (DOLLY_PORT,
-// default 8080). Only what a page loads is served: src/*.mjs, host modules,
+// default 8080). Only what a page loads is served: src/*.{mjs,css,svg}, host modules,
 // recipes and their sources, the runtime, snapshot packs and generated pages, and
 // /__dolly_build_page, a blank page for scripts that build images in it.
 import { createReadStream } from "node:fs";
@@ -73,7 +73,7 @@ export async function startCheckoutServer(projectDir, image = "default",
   const listed = async (directory, pattern) => (await readdir(resolve(projectDir, directory), { recursive: true }))
     .filter(name => pattern.test(name)).map(name => `${directory}${name}`);
   const paths = new Set([
-    ...await listed("src/", /^[^/]+\.(?:mjs|css)$/),
+    ...await listed("src/", /^[^/]+\.(?:mjs|css|svg)$/),
     ...await listed("host/", /\.(?:mjs|json)$/),
     "coi-serviceworker.js", "llms.txt", "index.html", "licences/index.html", "custom/index.html", "sessions/index.html",
     "amy-index.txt",
