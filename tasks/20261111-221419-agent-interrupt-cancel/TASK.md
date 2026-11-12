@@ -49,8 +49,35 @@ On the release served at 127.0.0.1:9045 (`a73ad906…`, main of 06:55), Chrome h
   The batch round's demo suite (`round/batch-1112`) runs it again on the new seed; next, if it
   still fails, log the guest's `httpCancel` calls and the kernel's answers in that test.
 
+## Measured again (2026-11-12 evening, `test/events` at `0a471165b`, Chromium)
+
+The ClassiCube test still fails there, at the same check. Everything below it cancels, each in
+the default image with the test's server holding the response open until it closes:
+
+- Janis's `fetch`, aborted by its signal after the first chunk, by `reader.cancel()`, and before
+  the headers: the server sees the close each time.
+- Two Janis processes, one aborting: only its response closes.
+- Pi 1.0.3 in RPC mode (`amy install pi`, a `models.json` provider on the test server), sent
+  `abort` once the server holds its request: the response closes when the abort is written.
+- Two such Pi processes, one sent `abort`; also with `__dolly.saveSession` every 500 ms during
+  it, after a save and a restore through `/session/?name=`, and with a reasoning model,
+  `--thinking low` and `reasoning_content` deltas: player 1's response closes at the abort,
+  player 2's stays open.
+
+So the HTTP client, the kernel's cancel and the broker work for a Pi that aborts. What the
+failing case adds is the game harness (`demos/game-agent/mission.mjs` on Janis spawning Pi
+with pipes, `clear_queue` before `abort`, `--session`, `--extension player.js`) and the
+ClassiCube game. Pi settles there (the harness records `settled` on Pi's own `agent_settled`),
+so Pi takes the abort and its fetch is not cancelled. Janis ignores `ESTALE` from `httpCancel`,
+which is the kernel's answer for a request this process does not own.
+
+Not the suspect named above: Janis does not link `-pthread`, so `88297891a` does not change it.
+
+The probes feed Pi from `/bin/slop FILE | pi`: a brace group on the left of a pipe passes its
+output on when it ends (`docs/slop.md`, Pipelines), so Pi would get the prompt and the abort at once.
+
 ## Next
 
-Bisect between 2026-11-08 and the round: the runtime Pi's JavaScript runs on, the HTTP client
-(`host/http/client.c`) and what calls it, rebuilt today with the new seed compiler
-(`d1cb11dbc`). Done when the ClassiCube test passes in Chromium.
+Log in Janis's `failHttp` and `releaseHttp` (`/usr/lib/dolly/node.js` in the image) what the
+game's Pi does at the abort, and the result of `httpCancel`, written to Pi's standard error,
+which the harness keeps in `agent.stderr.log`. Done when the ClassiCube test passes in Chromium.
