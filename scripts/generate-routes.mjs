@@ -6,7 +6,7 @@
 
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 
 import {
   discoverImageDefinitions,
@@ -25,6 +25,22 @@ const projectDir = resolve(import.meta.dirname, "..");
 await bundleProcessWorker(projectDir);
 const loadGraph = createDollyfileGraphLoader(projectDir);
 const template = await readFile(resolve(projectDir, "terminal.html"), "utf8");
+// The modules a route imports first (src/route.mjs imports src/site.mjs), as
+// static imports name them: fetched together, not a round trip a level.
+async function moduleGraph(entry) {
+  const seen = new Set(), queue = [entry];
+  while (queue.length) {
+    const path = queue.shift();
+    if (seen.has(path)) continue;
+    seen.add(path);
+    const text = await readFile(resolve(projectDir, path), "utf8");
+    for (const [, specifier] of text.matchAll(/^\s*(?:import|export)\b(?:[^;'"`]*?\bfrom)?\s*["']([^"']+\.mjs)["']/gm))
+      queue.push(relative(projectDir, resolve(projectDir, dirname(path), specifier)));
+  }
+  return [...seen];
+}
+const preload = (await moduleGraph("src/site.mjs"))
+  .map(path => `<link rel="modulepreload" href="{{DOLLY_BASE}}${path}">`).join("\n    ");
 const definitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
 const primaryImage = definitions.find(({ image }) => image === "default")?.image ??
   definitions[0].image;
@@ -57,6 +73,7 @@ for (const route of routes) {
   const output = resolve(projectDir, route.path);
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output, template
+    .replaceAll("{{DOLLY_PRELOAD}}", preload)
     .replaceAll("{{DOLLY_BASE}}", "../".repeat(route.path.split("/").length - 1))
     .replaceAll("{{DOLLY_IMAGE}}", route.image)
     .replaceAll("{{DOLLY_MODE}}", route.mode)
