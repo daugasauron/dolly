@@ -89,9 +89,6 @@ if has_image session-recover; then
     copy_static "src/${header}" "session-recovery/${header}"
   done
 fi
-if has_image curl; then
-  copy_static "${project_dir}/src/libcurl-fetch.c" default/libcurl-fetch.c
-fi
 if has_image system-build; then
   # As for the libc headers in scripts/prepare-kernel-seed.sh.
   cp -r -- "${project_dir}/.cache/emscripten/sysroot/include/c++/v1" "${staging}/libcxx"

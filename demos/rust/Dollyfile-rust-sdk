@@ -7,10 +7,10 @@ REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.6/Dollyfile-system-build 2ff106b9223deabbae812860e276f909d55a2193f12854e2a1ed27bea3710d54
-INSTALL /v0.1.6/Dollyfile-zlib 1b267c86d9fc96152c80ab95b271f50e799040724b751fc2e56cdabcc66746b5
-INSTALL /v0.1.6/Dollyfile-gzip 18d12a2ddf80f4cb83266e7faac408c65d70e9170fe4d38fea99491edf2604cc
-INSTALL /v0.1.6/Dollyfile-curl 24fb8c4a86fc84af77d1470e6685b66fae4d1bf08964a22d452c54f5bc904f1c
+FROM /v0.1.6/Dollyfile-system-build 47fc8a7a105ecc1b7de1859851073c27fe52d8d446cef744dc78ccf6ad9575a9
+INSTALL /v0.1.6/Dollyfile-zlib eb62165a59a9599efdb69a5a1296988e6a6e760ec6dc8a2138a756543f1c09c5
+INSTALL /v0.1.6/Dollyfile-gzip 366928611d0b4c8c8e071ea92ff7c00c8e130b2368df21b089bfc2c75b8717de
+INSTALL /v0.1.6/Dollyfile-curl 50830dca6325422d1b1d76d882d1ec4daf856abb9d8c296e6e4459f429486dbf
 REQUIRES LIB z
 REQUIRES LIB curl
 REQUIRES TOOL cc
@@ -23,7 +23,7 @@ REQUIRES TOOL mkdir
 
 # The external seed: rustc and its standard library, linked, and Cargo as one
 # object. The linker adapter is compiled inside Dolly.
-SOURCE /v0.1.6/dist/static/rust/rust-sdk.tar.gz d984dbe75d523bb43a2f0725097fa7a07007a08a16edd421e7c05ceee072a3b4 /tmp/rust-sdk.tar.gz
+SOURCE /v0.1.6/dist/static/rust/rust-sdk.tar.gz 38a48649e61f3763dd595a63635afed9bed488d6e917d4214b6c471199095e85 /tmp/rust-sdk.tar.gz
 SLOP mkdir -p /opt
 SLOP gzip -dc /tmp/rust-sdk.tar.gz | tar -xf - -C /opt
 SOURCE /v0.1.6/dist/static/rust/rustc.sh 03589f0b44268b0bb22c1d5db37aa58cd882a8d2dae81902a23ab2385c3dde6e /opt/rust-sdk/bin/rustc
@@ -55,6 +55,6 @@ EXPORTS FOLDER rust-sdk /opt/rust-sdk
 EXPORTS FOLDER rust-licenses /usr/share/licenses/rust
 SLOP rustc --version --verbose
 SLOP cargo --version
-INSTALL /v0.1.6/Dollyfile-display 0ac4795910e07e891278604f39ff54f6fe81c4347384b0a6d2470ba7d1dc5bdb
+INSTALL /v0.1.6/Dollyfile-display e1328f1decb7f81e8b508cf5f03c18246fdac37d39d259021ea69882d59f4d9f
 
 ENTRY /bin/foreground -i /bin/slop

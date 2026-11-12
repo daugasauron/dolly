@@ -277,6 +277,8 @@ test("diff reports 0/1/2 and patch reads the patch, never a file operand", async
   await mkdir(join(work, "b"));
   await writeFile(join(work, "a/file"), "one\ntwo\n");
   await writeFile(join(work, "b/file"), "one\nTWO\n");
+  // patch applies in its directory inside a repository too, where git apply would take its top.
+  assert.equal(spawnSync("git", ["init", "-q"], { cwd: work }).status, 0);
   const options = { cwd: work };
   assert.equal(run(diff, ["a/file", "a/file"], options).status, 0);
   const unified = run(diff, ["-u", "a/file", "b/file"], options);

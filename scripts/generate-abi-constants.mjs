@@ -91,6 +91,13 @@ for (const { name } of hostManifests) {
   await emitConstants(contracts, `host/${name}/abi.mjs`, header, "u", digest, true, enumerated);
 }
 
+// The constants of every contract at the kernel's boundary (the runtime's
+// manifest lists the core's): the words of its mailboxes, which its C structs
+// assert against.
+const kernelContracts = hostFiles("contracts").map(({ file }) => file);
+await write("build/generated/dolly-kernel-contracts.h", `/* Generated from ${kernelContracts.join(", ")}. */\n#pragma once\n` +
+  (await constantDefines(kernelContracts, "u")).map(([, , define]) => define).join(""));
+
 // Each packet struct's size and field offsets, laid out as C lays out its
 // fixed-width fields: each at a multiple of its alignment, the struct padded to
 // its largest. scripts/build.sh compiles the proof that the compiler agrees.

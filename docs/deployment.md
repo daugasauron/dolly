@@ -178,6 +178,11 @@ pushes, uploads or deploys.
   [`coi-serviceworker.js`](../coi-serviceworker.js) isolates same-origin
   responses below its version and passes cross-origin broker requests through
   unchanged.
+- Send the site's `Content-Security-Policy` (`siteContentSecurityPolicy` in
+  [`serve.mjs`](../scripts/serve.mjs)): the strict policy of
+  [embedding](embedding.md) with inline styles and every destination, as the
+  site's default HTTP policy admits any. The exporter and the release server send
+  it, and release acceptance boots each route under it with no violation.
 - Snapshot `.gz` files are application payloads: never mark them
   `Content-Encoding: gzip`.
 - The Cloudflare exporter splits oversized sources, packs and the compiler seed

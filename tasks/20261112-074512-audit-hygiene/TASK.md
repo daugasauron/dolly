@@ -8,7 +8,14 @@ From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, section 6 it
 
 ## State (2026-11-12)
 
-Filed.
+On `fix/batch`: `npm test` runs `test:artifacts` after the source suite; the four comments that
+cited tasks state their reasons alone. A nena switch's line is asserted already
+(`test/nena-browser.mjs`: "This session enabled microphone@0."). A foreign directory's packs in
+the pack store goes with `20261104-143110-modules-r5`, which stops keeping them.
+Seen today for M6: `src/process-constants.mjs` lagged `TERMINAL_SIZE_SET` until a build
+regenerated it; the generated files are current after any build (`build.sh` runs
+`generate-abi-constants.mjs` first), not after an edit. Left: the 2026-11-07 re-checks (duplication
+groups, S5, M2).
 
 ## Do
 

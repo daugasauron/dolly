@@ -93,7 +93,8 @@ await browserTest("network", { image: "system", server: { fixtures, handle } }, 
       { origin: server.origin, path: "/fixture/http.txt", methods: ["GET"], maxResponseBytes: 8 },
       { origin: server.origin, path: "/fixture/libcurl-contract", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },
       { origin: server.origin, pathPrefix: "/fixture/timeout/", methods: ["GET"], timeoutMilliseconds: timeout },
-      { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"] },
+      // Git's protocol v2 is a header the rule names.
+      { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"], credentialHeaders: ["git-protocol"] },
     ] } });
     const run = async command => assert.equal(await submit(command), 0, command);
     await run(`curl -fsS ${server.origin}/fixture/large -o /tmp/large && test "$(wc -c < /tmp/large)" = 68157457`);

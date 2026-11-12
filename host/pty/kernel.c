@@ -203,12 +203,14 @@ static int64_t pty_terminal(dolly_kernel_socket *shared, const dolly_process_ter
       response->columns = pty->columns;
       response->rows = pty->rows;
       return 0;
+    case DOLLY_PROCESS_TERMINAL_SIZE_SET:
+      return dolly_pty_resize(pty, request->flags >> 16, request->flags & 0xffff);
   }
   return -EINVAL;
 }
 
 static const dolly_kernel_socket_kind pty_kind = {
-    DOLLY_PROCESS_FILE_CHARACTER_DEVICE, pty_close, pty_receive, pty_send, pty_poll, pty_terminal};
+    DOLLY_PROCESS_FILE_CHARACTER_DEVICE, DOLLY_PROCESS_FD_STATUS_READ | DOLLY_PROCESS_FD_STATUS_WRITE, pty_close, pty_receive, pty_send, pty_poll, pty_terminal};
 
 dolly_pty *dolly_pty_pair(uint32_t rows, uint32_t columns, int *error) {
   uint32_t number = 0;
@@ -283,14 +285,8 @@ static int64_t pty_call(int pid, int tid, uint32_t operation, unsigned char *mai
   dolly_pty_request request;
   if (request_size != sizeof(request)) return -EINVAL;
   memcpy(&request, mailbox, sizeof(request));
-  if (operation == DOLLY_PTY_OPEN) return pty_open(pid, &request, mailbox, response_capacity);
-  dolly_kernel_socket *shared;
-  const int found = dolly_kernel_socket_descriptor(pid, request.descriptor, &pty_kind, &shared);
-  if (found != 0) return found == -ENOTSOCK ? -ENOTTY : found;
-  dolly_pty *pty = ((pty_end *)shared)->pty;
-  if (shared != &pty->master.shared) return -ENOTTY;
-  if (request.flags != 0) return -EINVAL;
-  return dolly_pty_resize(pty, request.rows, request.columns);
+  (void)operation;
+  return pty_open(pid, &request, mailbox, response_capacity);
 }
 
-const dolly_kernel_module dolly_pty_kernel = {DOLLY_PTY_OPEN, DOLLY_PTY_RESIZE, pty_call, NULL};
+const dolly_kernel_module dolly_pty_kernel = {DOLLY_PTY_OPEN, DOLLY_PTY_OPEN, pty_call, NULL};

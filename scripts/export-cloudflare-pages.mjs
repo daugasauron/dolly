@@ -13,6 +13,7 @@ import { brotliCompress, constants } from "node:zlib";
 import { compareVersions, releaseVersion, robotsText, versionName } from "./release-layout.mjs";
 import { fileManifest, releaseFiles } from "./site-release.mjs";
 import { sha256 } from "./snapshot-identity.mjs";
+import { siteContentSecurityPolicy } from "./serve.mjs";
 
 const compress = promisify(brotliCompress);
 
@@ -69,7 +70,7 @@ const partsRule = path => `${path}\n  X-Dolly-Parts: 1\n  Content-Type: applicat
 // its deployment.headers.
 export function pagesHeaders(versions) {
   const rules = [
-    "/*\n  Cross-Origin-Opener-Policy: same-origin\n  Cross-Origin-Embedder-Policy: require-corp\n  Cross-Origin-Resource-Policy: same-origin\n  Cache-Control: no-store",
+    `/*\n  Cross-Origin-Opener-Policy: same-origin\n  Cross-Origin-Embedder-Policy: require-corp\n  Cross-Origin-Resource-Policy: same-origin\n  Content-Security-Policy: ${siteContentSecurityPolicy}\n  Cache-Control: no-store`,
     // A published version never changes, so its files are immutable. Its pages
     // (a directory's address) are not: a removed version must stop loading.
     "/:version/*\n  ! Cache-Control\n  Cache-Control: public, max-age=31536000, immutable, no-transform",

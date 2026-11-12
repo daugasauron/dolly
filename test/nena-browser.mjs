@@ -161,8 +161,15 @@ await browserTest("nena", { image: "default", timeout: 300_000, server: { fixtur
   assert.equal(await page.evaluate(() => "audio" in __dolly), false);
   await run("nena enable audio");
   // The microphone a program is recording from is let go: no track of the
-  // stream the browser gave stays live, and the page's mark is gone.
-  await run("nena enable microphone && $HOME/capture");
+  // stream the browser gave stays live, and the page's mark is gone. The
+  // session enabled it itself, so the page asks the user first, and the page
+  // said the switch.
+  const capturing = run("nena enable microphone && $HOME/capture");
+  const asking = page.getByRole("alertdialog");
+  await asking.waitFor();
+  assert.match(await page.locator("#session-status").textContent(), /This session enabled microphone@0\./);
+  await asking.getByRole("button", { name: "Allow" }).click();
+  await capturing;
   assert.deepEqual(await page.evaluate(() => [givenStreams.length, givenStreams.flatMap(stream => stream.getTracks()).filter(track => track.readyState === "live").length,
     document.querySelector("#microphone-status").hidden]), [1, 0, true]);
   // threads@0 is switched the same way.

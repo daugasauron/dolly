@@ -7,6 +7,6 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
 # seaborn: its root of python-data-build (README.md).
-INSTALL /v0.1.6/demos/python/Dollyfile-pandas 4e7c9f185808b1703da4763be1081f77196f02ea18b131c346236697ed9661ef
-INSTALL /v0.1.6/demos/python/Dollyfile-matplotlib 75756c247b7d9c4c672dedbdfad588902d029a5afcf53faf84582e4dbce06272
-COPY /v0.1.6/demos/python/Dollyfile-python-data-build 629ad6f348f89d2a9d3bebfb230fc89b116004efb237cf3d2b0e8ee43dbe73c3 /opt/python-data/seaborn /
+INSTALL /v0.1.6/demos/python/Dollyfile-pandas c21802779245a74c1ba45b75ba565100a545bcc5f235480b833492cd9c7fd69e
+INSTALL /v0.1.6/demos/python/Dollyfile-matplotlib ca70d2c077ffab78fa826c81f26536d39bef040ea243509c332aa38be6af23ac
+COPY /v0.1.6/demos/python/Dollyfile-python-data-build dc622c97cae886365e46afe614501b4f9e7efd568aa13e004b10b24b9d4e077b /opt/python-data/seaborn /

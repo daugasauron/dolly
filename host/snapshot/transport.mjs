@@ -20,12 +20,12 @@ export class SessionTransport {
 
   constructor(buffer, address, transferAddress, wake) {
     const range = (start, size) => Number.isSafeInteger(start) && start > 0 && start <= buffer.byteLength - size;
-    if (!(buffer instanceof SharedArrayBuffer) || !range(address, A.DOLLY_SESSION_HEADER_SIZE) || address % 4 ||
+    if (!(buffer instanceof SharedArrayBuffer) || !range(address, A.DOLLY_SESSION_MAILBOX_HEADER_SIZE) || address % 4 ||
         !range(transferAddress, A.DOLLY_SESSION_TRANSFER_CAPACITY)) {
       throw new Error("Dolly supplied an invalid session mailbox");
     }
     this.bytes = new Uint8Array(buffer);
-    this.words = new Int32Array(buffer, address, A.DOLLY_SESSION_HEADER_SIZE / 4);
+    this.words = new Int32Array(buffer, address, A.DOLLY_SESSION_MAILBOX_HEADER_SIZE / 4);
     this.transferAddress = transferAddress;
     this.transferCapacity = A.DOLLY_SESSION_TRANSFER_CAPACITY;
     this.wake = wake;

@@ -13,7 +13,7 @@ WAT file document its semantics.
 | [`host/dso/dolly-dso-0.wat`](../host/dso/dolly-dso-0.wat) | Optional process-local shared objects and FFI: the side-module profile and the operations of `dso@0` |
 | [`host/threads/dolly-threads-0.wat`](../host/threads/dolly-threads-0.wat), [`host/threads/dolly-threads-supervisor-0.wat`](../host/threads/dolly-threads-supervisor-0.wat) | Optional `-pthread` profile and its supervisor exports |
 | [`host/stack/dolly-stack-0.wat`](../host/stack/dolly-stack-0.wat) | Optional profile of a program `stack-wrap` rewrote to recurse across fresh browser stacks, and operation 116 |
-| [`host/sockets/dolly-sockets-0.wat`](../host/sockets/dolly-sockets-0.wat), [`host/pty/dolly-pty-0.wat`](../host/pty/dolly-pty-0.wat), [`host/pty/dolly-pty-supervisor-0.wat`](../host/pty/dolly-pty-supervisor-0.wat) | Process operations 160-169 (local sockets) and 176-177 (pseudo-terminals), kernel-only, and the signals the supervisor delivers for a pseudo-terminal; no browser import |
+| [`host/sockets/dolly-sockets-0.wat`](../host/sockets/dolly-sockets-0.wat), [`host/pty/dolly-pty-0.wat`](../host/pty/dolly-pty-0.wat) | Process operations 160-169 (local sockets) and 176-177 (pseudo-terminals), kernel-only; a pseudo-terminal's signals reach the supervisor as the kernel's raised ones; no browser import |
 | [`dolly-host-0.wat`](dolly-host-0.wat) | `dolly.host` records naming required host modules and their ABI digests; no authority |
 | [`host/gpu/dolly-gpu-0.wat`](../host/gpu/dolly-gpu-0.wat), [`host/audio/dolly-audio-0.wat`](../host/audio/dolly-audio-0.wat), [`host/microphone/dolly-microphone-0.wat`](../host/microphone/dolly-microphone-0.wat), [`host/nena/dolly-nena-0.wat`](../host/nena/dolly-nena-0.wat) | Additive process operations 128 (GPU), 129 (audio), 130 (microphone) and 133 (nena), and their browser imports |
 | [`dolly-kernel-plugin-0.wat`](dolly-kernel-plugin-0.wat) | The resident display plugin and its registration as the terminal's input decoder; never an ordinary program target |
@@ -58,6 +58,45 @@ Architecture and authority: [architecture](../docs/architecture.md),
 - `process.h` also holds the error numbers of every operation
   (`dolly_process_error`), so the digest covers them. A libc maps its `errno`
   to them; the build proves the bootstrap libc's numbers equal.
+
+## Images and boot files
+
+What a host reads to start an image, and what it hands the kernel, beside the
+exports of [`dolly-image-0.wat`](dolly-image-0.wat):
+
+- `dist/dolly-build-id.json`: `imageBuildId`, the SHA-256 of
+  `dolly-image-build-1\0` and, for each of `dolly.data`, `dolly-process-0.wasm`,
+  `dolly-dso-0.wasm`, `dolly-kernel-plugin-0.wasm` and `dolly-image-0.wasm`, its
+  name, a NUL and its file's SHA-256; `buildId`, the SHA-256 of
+  `dolly-runtime-build-1\0`, the image build ID and `dolly.wasm`
+  ([`write-build-id.mjs`](../scripts/write-build-id.mjs)). An image runs only on a
+  runtime with its `buildId` as image build ID.
+- `dist/dolly-images.json`, the catalog: each record's `image`, `role`, `entry`,
+  `dollyfile` with its `byteLength` and `sha256`, `artifacts` (the recipe's
+  `FROM`, `INSTALL`, `USE` and `COPY` rows), `hostRequirements` and
+  `recipesSha256`, the SHA-256 of one line `SHA256 BYTES PATH` per recipe of its
+  build.
+- `dist/dolly-IMAGE-system-snapshot.json`, an image's metadata, format 2: a
+  reader checks `image`, `buildId`, `formatVersion` and `identityVersion` (2),
+  that `recipes` digests to the catalog's `recipesSha256`, that
+  `hostRequirements` equal the catalog's, that `inputs` name the catalog's
+  `artifacts`, and the `manifest` of retained paths (each once, in UTF-8 order,
+  with `/etc/dolly/Dollyfile`, `environment`, `image` and `recipes.lock`).
+  `sha256` names the image; `byteLength` is its size.
+- `dist/packs/SHA256.snapshot.gz`, the metadata's `packs` in order: each a gzip
+  of one snapshot part (`DOLLYSNP`, version 2, its record count, then records
+  in path order: kind, path bytes, data bytes, path, data), its `sha256` that of
+  the decompressed part, which the host checks before ending the part. The
+  parts hold the manifest's paths once each.
+
+The host writes, under `/etc/dolly/` before a start or a build:
+`image.manifest` (the metadata's manifest, a path a line), `recipe.locator`
+(the recipe's site path), and for a build `recipe.rows` ([Dollyfile](../docs/dollyfile.md)),
+`upload.Dollyfile` (a custom recipe's text) and `artifacts/RECIPE_SHA256.snapshot`
+(each input image). It reads, after the restore, `image` (the image's name)
+and `entry`: `DOLLYENT`, version 1, an argument count, then each argument's
+length and bytes, the first an absolute path. A session's `enabled` is
+nena@0's ([`nena.mjs`](../host/nena/nena.mjs)).
 
 ## Enforcement
 

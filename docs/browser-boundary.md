@@ -108,7 +108,10 @@ Worker URL.
   disables modules freely, by design: assume it can use every module of this
   table that is not fixed, each within its own bounds, the browser's
   permission prompts and the page's HTTP policy, none of which a switch
-  touches. In any other image the provider does not exist: the import answers
+  touches. The page's status line says each switch, and a microphone a
+  session enabled itself captures only after the user allows it on the page,
+  once a session: the browser's own prompt is per origin and remembered. In
+  any other image the provider does not exist: the import answers
   `ENOSYS`, the page handles no such request, and the set stays the recipe's
   list after total compromise of the userspace.
   - The page holds the set and makes each switch
@@ -254,7 +257,7 @@ Worker URL.
 Beside the host modules (each one's directory, named by its manifest), these
 are the trusted files a page and its runtime Worker load, with the build
 identities and ABI constants the runtime's build writes (`dist/dolly-build-id.mjs`,
-`dist/dolly-image-build-id.mjs`, `dist/dolly-process-abi.mjs`); a process Worker
+`dist/dolly-image-build-id.mjs`, `dist/dolly-process-abi.mjs`; `dist/dolly-build-id.json` is the same identities as data); a process Worker
 loads the bundle of [`process-worker.mjs`](../src/process-worker.mjs) and the
 modules it serves. An image directory is data: the page and the Worker import its catalog
 (`dist/dolly-images.json`) and image metadata
@@ -265,7 +268,7 @@ embedding lists.
 
 | Part | Files |
 | --- | --- |
-| Page | [`browser.mjs`](../src/browser.mjs) (`boot()`), [`site.mjs`](../src/site.mjs) (the site's routes), [`source-download.mjs`](../src/source-download.mjs) (the site's source links), [`terminal-text.mjs`](../src/terminal-text.mjs), [`build-log.mjs`](../src/build-log.mjs), [`page-chords.mjs`](../src/page-chords.mjs), [`page-indicators.mjs`](../src/page-indicators.mjs), [`coi-serviceworker.js`](../coi-serviceworker.js) (isolation where a host sends no headers) |
+| Page | [`browser.mjs`](../src/browser.mjs) (`boot()`), [`route.mjs`](../src/route.mjs) (a route page: its image, module list and HTTP policy), [`site.mjs`](../src/site.mjs) (the site's routes), [`source-download.mjs`](../src/source-download.mjs) (the site's source links), [`terminal-text.mjs`](../src/terminal-text.mjs), [`build-log.mjs`](../src/build-log.mjs), [`page-chords.mjs`](../src/page-chords.mjs), [`page-indicators.mjs`](../src/page-indicators.mjs), [`coi-serviceworker.js`](../coi-serviceworker.js) (isolation where a host sends no headers) |
 | Registry | [`modules.mjs`](../host/modules.mjs), [`manifests.mjs`](../host/manifests.mjs) (the site's list), [`requirements.mjs`](../host/requirements.mjs), [`abi.mjs`](../host/abi.mjs) |
 | Images | [`images.mjs`](../src/images.mjs), [`packaged-snapshot.mjs`](../src/packaged-snapshot.mjs), [`pack-store.mjs`](../src/pack-store.mjs), [`image-inputs.mjs`](../src/image-inputs.mjs), [`snapshot-records.mjs`](../src/snapshot-records.mjs), [`image-entry.mjs`](../src/image-entry.mjs), [`image-names.mjs`](../src/image-names.mjs), [`static-asset.mjs`](../src/static-asset.mjs), [`sha256.mjs`](../src/sha256.mjs), [`version.mjs`](../src/version.mjs) |
 | Runtime Worker | [`worker-image.mjs`](../src/worker-image.mjs), [`runtime-worker.mjs`](../src/runtime-worker.mjs) (boot()'s), [`build-worker.mjs`](../src/build-worker.mjs) (the site's and `dolly-build`'s), [`process-supervisor.mjs`](../src/process-supervisor.mjs), [`kernel-plugin.mjs`](../src/kernel-plugin.mjs), [`process-abi.mjs`](../src/process-abi.mjs), [`wasm-interface.mjs`](../src/wasm-interface.mjs), [`process-constants.mjs`](../src/process-constants.mjs) |

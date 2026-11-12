@@ -18,12 +18,12 @@ REQUIRES HOST upload@0
 #   COPY RECIPE SHA256 /opt/python-data/numpy /
 # README.md lists the roots each library needs beside it. The build tools
 # (Meson, meson-python, Cython, pybind11, setuptools) serve this build alone.
-FROM /v0.1.6/Dollyfile-system 303452ea95491694f86ddf98e74eb579620f0274ceee0049fc1ca97c69d3124b
-INSTALL /v0.1.6/demos/python/Dollyfile-python b9561ae6b9e2ad0fa364fba8a31337c7c151329402f1e0b3ada26f4896919bd0
-INSTALL /v0.1.6/demos/tools/Dollyfile-meson ccc80694353d58bde4ffd7618d949b6bb144780bc34bb2bd028ef895174c237e
-INSTALL /v0.1.6/demos/zero-ad/Dollyfile-freetype c2179530af3656d78b88e3839dd9ad59a8b573976d8cf0c81da9f3dd3dac620b
-INSTALL /v0.1.6/demos/zero-ad/Dollyfile-pkgconf c5f883894868dce613d5819edcd59cf1a1cd46dc1db68bd481bcd0c585132342
-INSTALL /v0.1.6/demos/xonotic/Dollyfile-libjpeg b1df817cce8c313035d4542c9c22d0cae40703ceece7fa0674345197de774386
+FROM /v0.1.6/Dollyfile-system 37a435d6491838bf1e1e0d7209f20501e5262de298701a9b571b4053f7fbfdc2
+INSTALL /v0.1.6/demos/python/Dollyfile-python d36534b38272ec06cff3f3e49f48f9d652f1714e44ffa9f6ed1b01d9cf91fee3
+INSTALL /v0.1.6/demos/tools/Dollyfile-meson 03438db18a62c5ad261ce368d650b7385fe1905035a1bbf210dcf835edcaa699
+INSTALL /v0.1.6/demos/zero-ad/Dollyfile-freetype aa6d938ceed228e6fd06ce580414c782596b41ffc091f16760fe2978c5a848eb
+INSTALL /v0.1.6/demos/zero-ad/Dollyfile-pkgconf ca7c31dd0cd12e19fe38e04992126a00a5525c8c361b90a140ee6982e735db45
+INSTALL /v0.1.6/demos/xonotic/Dollyfile-libjpeg ae8d5747759c29dbe4617e15cd41032d27fb5d4a3d0be06417b206cc1e264df6
 REQUIRES HEADER freetype2
 REQUIRES HEADER jpeglib
 REQUIRES HEADER zlib

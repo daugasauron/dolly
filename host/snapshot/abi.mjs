@@ -1,5 +1,5 @@
 // Generated from host/snapshot/dolly-snapshot-0.wat, include/dolly/process.h.
-export const DOLLY_SESSION_HEADER_SIZE = 64;
+export const DOLLY_SESSION_MAILBOX_HEADER_SIZE = 64;
 export const DOLLY_SESSION_TRANSFER_CAPACITY = 1048576;
 export const DOLLY_SESSION_WORD_REQUEST_SEQUENCE = 0;
 export const DOLLY_SESSION_WORD_COMPLETED_SEQUENCE = 1;

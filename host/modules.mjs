@@ -138,7 +138,8 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
       }
       return get(name);
     };
-    const instance = provider[side]?.({ ...resources, send, ask, get: dependency,
+    // `switched`: the page enabled the module after boot (nena@0), not the image.
+    const instance = provider[side]?.({ ...resources, switched: checked, send, ask, get: dependency,
       service: () => { for (const instance of instances.values()) instance.service?.(); },
       claimsKey, framePoint,
       abi: admittedAbi, modules: module.contract.switches && side === "browser" ? { list, enable, disable } : undefined,

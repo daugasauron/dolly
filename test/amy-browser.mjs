@@ -581,6 +581,7 @@ const elsewhere = {
   godot: "demos/godot", "godot-editor": "demos/godot", "dodge-the-creeps": "demos/godot",
   scons: "demos/godot: godot's build uses it", "spirv-wgsl": "demos/godot: godot's build uses it",
   "truck-town": "demos/godot/test/godot-gpu-browser.mjs", "lantern-drift": "demos/godot/test/godot-gpu-browser.mjs",
+  "airtime-godot": "demos/godot/test/godot-gpu-browser.mjs",
   photocraft: "demos/photocraft: photocraft-photos installs it", html: "html-browser.mjs",
 };
 const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "llama", "tar", "meson", "typescript", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);

@@ -4,7 +4,12 @@ A Dollyfile is an ordered recipe that `/bin/dollyfile`
 ([`dollyfile.c`](../src/dollyfile.c)) executes inside Wasm to build an image.
 The page reads the recipe ([`dollyfile-view.mjs`](../src/dollyfile-view.mjs),
 the language's one parser) and gives the engine its rows, the words of each
-line, in `/etc/dolly/recipe.rows`: the engine parses no recipe text.
+line, in `/etc/dolly/recipe.rows`: the engine parses no recipe text. The rows
+are the engine's input contract: NUL-terminated fields, first `DOLLY 7` and
+the SHA-256 of the recipe's text, then for each later line `LINE COUNT` and
+that many fields, the directive first (a `FILE`'s body and a `SLOP` command
+are one field each). A host that builds images gives the engine
+these rows, whichever parser made them.
 A recipe declares its role on its second line: an `APPLICATION` that people
 open, a `TOOLCHAIN` that other recipes build on, or a `PACKAGE` that recipes
 and sessions install. Steps share one filesystem and environment and run in
@@ -99,9 +104,9 @@ mounted, and reads no other version's.
 | `DOLLY 7` | Language version. |
 | `APPLICATION name`, `TOOLCHAIN name`, `PACKAGE name` | Role and name. |
 | `REQUIRES HOST name@abi` | The image uses this host module when it runs. |
-| `FROM RECIPE SHA256` | First operation: start from a completed application or toolchain. |
-| `INSTALL RECIPE SHA256` | Import a completed package, after the packages its recipe installs: files, exports and environment. |
-| `USE RECIPE SHA256` | In a package: `INSTALL` for this build alone. |
+| `FROM RECIPE SHA256` | First operation: start from a completed application or toolchain. An application or toolchain keeps the base; a package is only built in it. |
+| `INSTALL RECIPE SHA256` | Import a completed package, after the packages its recipe installs: files, exports and environment. An application or toolchain keeps it; a package keeps nothing and records the row for whoever installs it. |
+| `USE RECIPE SHA256` | In a package: `INSTALL` for this build alone, recorded nowhere. |
 | `COPY RECIPE SHA256 SOURCE DESTINATION` | Copy a retained file or tree out of a completed image. |
 | `SOURCE LOCATION SHA256 DESTINATION` | Download a file. |
 | `RUN [CWD /directory] /program [word…]` | Run a program; failure stops the build. |
@@ -278,8 +283,9 @@ mounted, and reads no other version's.
 
 ## Entry and startup
 
-The browser runs the retained ENTRY once, in `/workspace` (`PWD` says so),
-and only an image with ENTRY and `display@0` can be opened. Applications enter
+The browser runs the retained ENTRY once, in `/workspace` (`PWD` says so).
+The site opens only an image with ENTRY and `display@0`; a host's own
+terminal (`console@0`) or a native host runs the ENTRY of others. Applications enter
 `/bin/foreground -i /bin/slop /etc/dolly/init.slop`, which starts the program
 and then a recovery shell; toolchains that can be opened enter
 `/bin/foreground -i /bin/slop`. The image ends when its ENTRY process does:

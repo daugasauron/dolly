@@ -12,5 +12,6 @@
   "process": [],
   "headers": ["http.h", "http-abi.h"],
   "kernel": ["kernel.c"],
-  "client": ["client.c"]
+  "client": ["client.c"],
+  "tools": ["libcurl.c"]
 }

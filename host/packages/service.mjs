@@ -57,7 +57,6 @@ export class PackageService {
     if (this.active) return reply("another package snapshot is being served\n", 409);
     if (this.served >= PACKAGE_LIMITS.maxSnapshots) return reply("this page's package snapshot quota is spent\n", 429);
     this.active = true;
-    this.served += 1;
     // The Worker (worker.mjs) answers each message in turn: the first with the
     // package found and its packs checked, every later one with the snapshot's
     // next chunk.
@@ -87,6 +86,8 @@ export class PackageService {
       release();
       return reply(`${directory.href}: ${error.message}\n`, 502);
     }
+    // A package found counts against the quota; a miss or an offline directory does not.
+    this.served += 1;
     const body = new ReadableStream({
       async pull(controller) {
         try {

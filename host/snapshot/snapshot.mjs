@@ -31,7 +31,9 @@ export async function boot(route) {
     throw new Error(`This save belongs to an older runtime. It has not been deleted or overwritten.${listed}`);
   } else if (image === "custom" &&
       await sha256(new TextEncoder().encode(record.customImage.source)) !== record.customImage.artifact.recipeSha256) {
-    // A custom save's Dollyfile names the boot's host modules: it must be its image's.
+    // A custom save's Dollyfile names the boot's host modules. The record carries both the file
+    // and its digest, so this proves the save is whole, not where it came from: an imported save
+    // boots with the modules its file names, as a Dollyfile pasted into /custom/ would.
     throw new Error(`This save's Dollyfile is not the one its image was built from.${listed}`);
   }
   return { image, label: `${recovering ? "RECOVER FILES FROM" : "RESTORE SESSION"} ${name}`,

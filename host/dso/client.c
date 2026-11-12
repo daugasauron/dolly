@@ -28,7 +28,7 @@ __attribute__((visibility("default"), aligned(8)))
 unsigned char __dolly_dso_threads[DOLLY_DSO_THREADS_SIZE];
 
 /* libc's futex wait in a host using threads@0, which places what the other
- * threads loaded; with no address it places them only (src/process/threads.c). */
+ * threads loaded; with no address it places them only (host/threads/pthreads.c). */
 __attribute__((visibility("hidden")))
 int __dolly_dso_wait(volatile void *address, uint32_t value, int64_t timeout) {
   const dolly_dso_wait_request request = {(uint64_t)(uintptr_t)address, value, 0, timeout};

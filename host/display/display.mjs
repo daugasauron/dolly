@@ -262,6 +262,7 @@ export class FramebufferPresenter {
       const length = stride * height;
       const address = this.frameAddresses[index];
       if (index >= A.DOLLY_DISPLAY_FRAME_COUNT || width === 0 || height === 0 || stride !== width * 4 ||
+          width > A.DOLLY_DISPLAY_MAX_WIDTH || height > A.DOLLY_DISPLAY_MAX_HEIGHT ||
           length > this.capacity || address + length > this.buffer.byteLength) {
         throw new Error("Dolly published an invalid framebuffer");
       }

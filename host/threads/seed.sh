@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Runs inside the pinned seed toolchain, like the serial libc adapter build.
+# threads@0's part of the seed (module.json `seed`): the threaded libc that
+# cc -pthread links, which the process sysroot holds as threads/. Runs inside
+# the pinned seed toolchain, like the serial libc adapter build.
 target=build/process-threads
+part=build/process-sysroot-parts/threads
 mkdir -p "$target"
 # mimalloc's options.c prints when it was built (__DATE__, __TIME__): clang takes
 # both from SOURCE_DATE_EPOCH, so the seed is the same bytes in every checkout;
@@ -26,10 +29,12 @@ internal=(-I/emsdk/upstream/emscripten/system/lib/libc/musl/arch/emscripten \
   -I/emsdk/upstream/emscripten/system/lib/libc/musl/include \
   -I/emsdk/upstream/emscripten/system/lib/libc \
   -I/emsdk/upstream/emscripten/system/lib/pthread)
-for source in libc-adapter runtime-adapter socket-refusals libc-stubs mmap time poll signal abort threads crt1; do
+for source in libc-adapter runtime-adapter socket-refusals libc-stubs mmap time poll signal abort crt1; do
   emcc "${flags[@]}" "${internal[@]}" -c "src/process/$source.c" -o "$target/$source.o"
 done
-emcc "${flags[@]}" -c src/process/threads-start.S -o "$target/threads-start.o"
+# libc's pthreads over threads@0 are the module's (host/threads/).
+emcc "${flags[@]}" "${internal[@]}" -c host/threads/pthreads.c -o "$target/threads.o"
+emcc "${flags[@]}" -c host/threads/pthreads-start.S -o "$target/threads-start.o"
 rm -f "$target/libdolly-process.a" "$target/libdolly-runtime.a"
 emar rcsD "$target/libdolly-process.a" "$target"/{libc-adapter,mmap,time,poll,signal,abort,threads,threads-start}.o
 for source in time/getdate legacy/getpass; do
@@ -44,3 +49,9 @@ emar d "$target/libc-mt.a" pthread_create.o pthread_join.o pthread_detach.o \
   pthread_cancel.o pthread_setcanceltype.o library_pthread.o emscripten_futex_wait.o \
   emscripten_futex_wake.o pthread_kill.o raise.o sigaction.o pthread_sigmask.o sigtimedwait.o sched_yield.o \
   setitimer.o getitimer.o dladdr.o
+# A threaded program's allocator is mimalloc: a heap per thread, where dlmalloc locks one.
+mkdir -p "$part"
+cp "$target"/{libdolly-process.a,libdolly-runtime.a,libc-mt.a,crt1.o} "$part/"
+for library in libstandalonewasm-mt-memgrow.a libmimalloc-mt.a libclang_rt.builtins-wasmsjlj-mt.a; do
+  cp "/emsdk/upstream/emscripten/cache/sysroot/lib/wasm64-emscripten/$library" "$part/"
+done

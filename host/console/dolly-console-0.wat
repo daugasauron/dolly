@@ -4,7 +4,7 @@
   ;; place of a process: the host types into it, reads what its programs show,
   ;; sizes it and hangs it up. Its mode, its interrupt key and the signals of
   ;; its size and hang-up are a pseudo-terminal's, delivered as theirs are
-  ;; (dolly-pty-supervisor-0.wat). A pipe console is three pipes of 64 KiB: the
+  ;; (dolly_process_next_event, abi/dolly-supervisor-0.wat). A pipe console is three pipes of 64 KiB: the
   ;; host writes descriptor 0's and reads 1's and 2's, byte for byte. The host
   ;; calls these on its supervisor's thread; none waits. There are at most
   ;; DOLLY_PTY_LIMIT consoles (ENFILE), and a terminal one is a pseudo-terminal

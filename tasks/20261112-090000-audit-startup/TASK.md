@@ -39,8 +39,20 @@ threads; the source suite):
 - Found on the way: the parts-manifest peek read a cancelled clone, which cost the original its
   first bytes in Firefox up to 151 and in Node under the prefetch; it reads the body itself now
   (`20261112-011500-firefox-pack-start`, closed). The oldest Firefox measured since is 146.
-Left: 11 (preload), 12 (the 2 s start from stored packs), 2 (image contents, the owner's call per
-image).
+- Finding 12, measured (pi-agent, release `a73ad906…` on 9045, Chrome 156 headless, third
+  visit, V8 sampling): of the runtime Worker's 2,180 ms, `sha256_transform` in `dolly.wasm` took
+  1,317 ms: the kernel hashed every byte twice, each part as it streamed and then the whole
+  canonical image again at the end, about 360 MB/s. On `fix/batch` the Worker checks each part
+  against its pack's digest with WebCrypto, and the kernel hashes nothing on this path
+  (`abi/dolly-image-0.wat`): the canonical digest is only in the image's own metadata, so the
+  second pass compared two fields of one file. To measure again after the round.
+- Finding 11, measured on release `0d27c879…` (9045) through a proxy that delays every response by
+  50 ms, a fresh Chrome profile each run, `default`: 4,021, 4,028 and 4,391 ms to ready without
+  preload links, 3,794, 3,809 and 4,122 ms with links to the 17 modules of `src/site.mjs`'s static
+  graph (the proxy injected them). On `fix/batch` `generate-routes.mjs` writes those links into
+  every route page (`{{DOLLY_PRELOAD}}` in `terminal.html`). The Worker's graph is its own
+  module map, which a page's preload does not fill.
+Left: 2 (image contents, the owner's call per image).
 Measured: release 0.1.6 as served on `127.0.0.1:9045` (release `a73ad906…`, 211 images,
 catalog 2,056,929 B), Chrome 156, images default, pi-agent, bhop, neovim, python-data
 (headless) and godot-lantern-drift, photocraft-photos (headed, Vulkan adapter). Every request

@@ -11,7 +11,12 @@ const checked = result => {
   return result;
 };
 
-export function browser({ ask }) {
+// What the page holds of a console's output before the Worker stops reading
+// it: a reader that does not read leaves the program waiting, not the page
+// growing.
+const WINDOW_BYTES = 4 * 1024 * 1024;
+
+export function browser({ ask, send }) {
   // Each console's streams and status until all have ended.
   const consoles = new Map();
   const settle = (id, step) => {
@@ -29,9 +34,14 @@ export function browser({ ask }) {
       // program's status.
       async openConsole({ columns = 80, rows = 24, argv, pipes = false } = {}) {
         const id = await ask({ type: "console-open", columns, rows, argv, pipes });
-        const entry = { streams: [], open: pipes ? 2 : 1, status: undefined };
+        const entry = { streams: [], open: pipes ? 2 : 1, status: undefined, full: new Set() };
         consoles.set(id, entry);
-        const stream = descriptor => new ReadableStream({ start(controller) { entry.streams[descriptor] = controller; } });
+        const stream = descriptor => new ReadableStream({
+          start(controller) { entry.streams[descriptor] = controller; },
+          pull() {
+            if (entry.full?.delete(descriptor)) send({ type: "console-resume", id, descriptor });
+          },
+        }, new ByteLengthQueuingStrategy({ highWaterMark: WINDOW_BYTES }));
         return {
           output: stream(1),
           ...pipes ? { errors: stream(2), endInput: () => ask({ type: "console-end-input", id }) } : {},
@@ -43,7 +53,16 @@ export function browser({ ask }) {
       },
     },
     messages: {
-      "console-output"({ id, descriptor, bytes }) { consoles.get(id)?.streams[descriptor].enqueue(bytes); },
+      "console-output"({ id, descriptor, bytes }) {
+        const entry = consoles.get(id);
+        if (!entry) return;
+        const stream = entry.streams[descriptor];
+        stream.enqueue(bytes);
+        if (stream.desiredSize <= 0 && !entry.full.has(descriptor)) {
+          entry.full.add(descriptor);
+          send({ type: "console-pause", id, descriptor });
+        }
+      },
       "console-ended"({ id, descriptor }) { settle(id, entry => { entry.open--; entry.streams[descriptor].close(); }); },
       "console-exited"({ id, status }) { settle(id, entry => { entry.status = status; entry.exit(status); }); },
     },
@@ -55,8 +74,9 @@ export function browser({ ask }) {
 // all a console's output it ends and is freed.
 export function worker({ send, get }) {
   let kernel, supervisor, address;
-  // Each open console's descriptors still read: [1] for a terminal, [1, 2] for pipes.
-  const open = new Map();
+  // Each open console's descriptors still read: [1] for a terminal, [1, 2] for pipes;
+  // and those the page asked to pause until its reader catches up.
+  const open = new Map(), paused = new Set();
   const transfer = () => new Uint8Array(get("runtime").memory.buffer, address, DOLLY_CONSOLE_TRANSFER_BYTES);
   return {
     imageRestored(context) {
@@ -66,6 +86,7 @@ export function worker({ send, get }) {
     service() {
       for (const [id, descriptors] of open) {
         for (const descriptor of [...descriptors]) {
+          if (paused.has(`${id}:${descriptor}`)) continue;
           let count;
           while ((count = Number(kernel.dolly_console_read(id, descriptor, BigInt(DOLLY_CONSOLE_TRANSFER_BYTES)))) > 0) {
             send({ type: "console-output", id, descriptor, bytes: transfer().slice(0, count) });
@@ -76,6 +97,7 @@ export function worker({ send, get }) {
         }
         if (descriptors.size !== 0) continue;
         open.delete(id);
+        for (const descriptor of [1, 2]) paused.delete(`${id}:${descriptor}`);
         kernel.dolly_console_close(id);
       }
     },
@@ -107,10 +129,16 @@ export function worker({ send, get }) {
         checked(kernel.dolly_console_resize(id, columns, rows));
         get("runtime").serviceDeferred();
       },
+      "console-pause"({ id, descriptor }) { paused.add(`${id}:${descriptor}`); },
+      "console-resume"({ id, descriptor }) {
+        paused.delete(`${id}:${descriptor}`);
+        get("runtime").serviceDeferred();
+      },
       "console-close"({ id }) {
         const descriptors = open.get(id);
         if (!descriptors) return;
         open.delete(id);
+        for (const descriptor of [1, 2]) paused.delete(`${id}:${descriptor}`);
         kernel.dolly_console_close(id);
         for (const descriptor of descriptors) send({ type: "console-ended", id, descriptor });
         get("runtime").serviceDeferred();

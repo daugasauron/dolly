@@ -1,6 +1,6 @@
 # Godot's RenderingDevice on gpu@0: a WebGPU driver for its Mobile and Forward+ renderers
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 400
 - TAGS: godot,gpu,port
 
@@ -428,4 +428,14 @@ button, sweeping across rows included; the reference page 14-49 ms under the sam
 - Found on the way: two checkouts of one commit built different seeds (image inputs 7edfaae7
   and 47fbb3e8): mimalloc's `options.c` prints `__DATE__` and `__TIME__`; fixed in 96d9d2827
   (`SOURCE_DATE_EPOCH` for the threaded libraries).
+
+## Closed (2026-11-12)
+
+Its "done when" holds: the editor and 3D projects (Truck Town, Lantern Drift, Airtime) draw
+through the driver on gpu@0 in Chromium and Firefox on this machine's adapter, and
+`demos/godot/test/godot-gpu-browser.mjs` passes in both on main (03372976a, 2026-11-12); the
+editor's frame times are against the baseline above (2026-11-09). The editor's debugger reaches
+a game it runs over sockets@0 since 2026-11-11. What stays: `execute_with_pipe` fails
+explicitly (no fork in Dolly), and the background pipelines are
+`tasks/20261109-143500-gpu-background-pipelines`.
 

@@ -1,7 +1,6 @@
 #define _GNU_SOURCE
 
 #include <dolly/process.h>
-#include <dolly/pty.h>
 #include <dolly/runtime.h>
 
 #include <arpa/inet.h>
@@ -1575,17 +1574,19 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
       memcpy((void *)argument, &group, sizeof(group));
       return 0;
     }
-    /* A pseudo-terminal's master takes a size (pty@0, host/pty). The
-     * display's terminal is the page's to size. */
+    /* A pseudo-terminal takes a size at either end; the display's terminal is
+     * the page's to size (EPERM). */
     case TIOCSWINSZ: {
       if (argument == 0) return -EFAULT;
       struct winsize size;
       memcpy(&size, (const void *)argument, sizeof(size));
-      const dolly_pty_request resize = {(uint32_t)descriptor, 0, size.ws_row, size.ws_col};
-      const int64_t resized = dolly_process_call(DOLLY_PTY_RESIZE, &resize, sizeof(resize), NULL, 0);
-      if (resized != -ENOTTY && resized != -ENOSYS) return (int)resized;
-      const int mode = dolly_terminal_mode_get(descriptor);
-      return mode < 0 ? mode : -EPERM;
+      const dolly_process_terminal_request request = {
+          DOLLY_PROCESS_TERMINAL_SIZE_SET, (uint32_t)descriptor, (uint32_t)size.ws_row << 16 | size.ws_col, 0, 0,
+      };
+      dolly_process_terminal_response response;
+      const int64_t result = dolly_process_call(
+          DOLLY_PROCESS_TERMINAL, &request, sizeof(request), &response, sizeof(response));
+      return result < 0 ? (int)result : 0;
     }
     default: {
       const int flags = fd_flags_get(DOLLY_PROCESS_FD_GET_FLAGS, descriptor);

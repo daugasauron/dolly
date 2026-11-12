@@ -8,7 +8,14 @@ From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, S5; 2026-11-
 
 ## State (2026-11-12)
 
-Filed.
+Both done on `fix/batch`: under a hardened rule only an ordinary request's headers and those the
+rule names leave (`2e0bde0b3`, `host/http/policy.mjs`; the default policy is unchanged), and the
+site sends a Content-Security-Policy, the sessions and custom pages without inline script
+(`2c69b3a4a`). In the batch round: `test/http-policy.test.mjs` ("a hardened rule lets through
+only the credential headers it names") passes, and `test/csp-browser.mjs` in Chromium and
+Firefox against the checkout. Tests whose rules sent other headers name them now
+(`fix/round-1112`). Left: `test/csp-browser.mjs` against the release the round packages
+(`127.0.0.1:9045`).
 
 ## Do
 

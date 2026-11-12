@@ -54,7 +54,9 @@ flowchart LR
   unchanged.
 - Custom-image saves record the Dollyfile, image digest and HTTP restrictions;
   a restore checks the Dollyfile against the digest of the recipe its image
-  was built from, and needs no image in the browser's image cache. Restoring
+  was built from, which shows the save is whole, not where it came from (an
+  imported save boots with the modules its Dollyfile names, as one pasted into
+  `/custom/` does), and needs no image in the browser's image cache. Restoring
   intersects the saved restrictions with the current policy; a save cannot
   widen it.
 - Saves stay in this browser profile and origin; they are never uploaded,

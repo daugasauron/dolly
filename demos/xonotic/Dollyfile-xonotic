@@ -8,19 +8,19 @@ REQUIRES HOST audio@0
 REQUIRES HOST gpu@0
 REQUIRES HOST touch@0
 
-INSTALL /v0.1.6/Dollyfile-core a64f50b75a27a2701fd0dfe5576d51dbe8d2935c0d0e8d3246dbb79a7368dd47
-INSTALL /v0.1.6/Dollyfile-posix 469ea6b54a78b9737eb5378aadb9198068c27e621558938468588f0b0d574ebf
-INSTALL /v0.1.6/Dollyfile-display 0ac4795910e07e891278604f39ff54f6fe81c4347384b0a6d2470ba7d1dc5bdb
-COPY /v0.1.6/demos/xonotic/Dollyfile-xonotic-build 6491ec7450c41cad874847929ff2b14498d7bb8178cab6d4d7cfe590d3bbec56 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
-INSTALL /v0.1.6/demos/xonotic/Dollyfile-xonotic-shaders 9761641a5fa6f624a890a1eca696b45e07c381577b864045640a743cfe415751
-COPY /v0.1.6/demos/xonotic/Dollyfile-xonotic-build 6491ec7450c41cad874847929ff2b14498d7bb8178cab6d4d7cfe590d3bbec56 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
-COPY /v0.1.6/demos/sdl2/Dollyfile-sdl2 3aa3ad0367e97e38ebc73ad37decf6a4c900e09b5bd800504ce6acf4123af046 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+INSTALL /v0.1.6/Dollyfile-core d69d0e16a3e1a7813171966d23fcf5a44d488a6bcf2723a3d32f689fa162fc5c
+INSTALL /v0.1.6/Dollyfile-posix 9773acc9cc5cdbe7b4d9a355092dcf3bed9a77de6f1da50eb925d1d9690c68ba
+INSTALL /v0.1.6/Dollyfile-display e1328f1decb7f81e8b508cf5f03c18246fdac37d39d259021ea69882d59f4d9f
+COPY /v0.1.6/demos/xonotic/Dollyfile-xonotic-build e73c7e1cfdc899e302670b90cce52a6bcd3d93086ad1c91840665aa6bbc144df /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+INSTALL /v0.1.6/demos/xonotic/Dollyfile-xonotic-shaders 4809bc6033ad2c194cb25414c2187334a6fbe300ee0780eff0af59452caf4671
+COPY /v0.1.6/demos/xonotic/Dollyfile-xonotic-build e73c7e1cfdc899e302670b90cce52a6bcd3d93086ad1c91840665aa6bbc144df /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY /v0.1.6/demos/sdl2/Dollyfile-sdl2 176fa1d40f4894619436cad8fd3ee7b2f5b2cd5bdeddd06a4765687823133d53 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
-COPY /v0.1.6/demos/xonotic/Dollyfile-xonotic-build 6491ec7450c41cad874847929ff2b14498d7bb8178cab6d4d7cfe590d3bbec56 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
-COPY /v0.1.6/demos/zero-ad/Dollyfile-freetype c2179530af3656d78b88e3839dd9ad59a8b573976d8cf0c81da9f3dd3dac620b /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY /v0.1.6/demos/zero-ad/Dollyfile-libpng 2416465adacb1fcb2bb27ce300a80c7cc750c56c74b7093e80db3cb5ff0df37a /usr/share/licenses/libpng /usr/share/licenses/libpng
-COPY /v0.1.6/demos/xonotic/Dollyfile-libogg f23bb42e2493705ba5b9f39bccf2bdd9209c3598764b5227934123913e33eddc /usr/share/licenses/libogg /usr/share/licenses/libogg
-COPY /v0.1.6/demos/xonotic/Dollyfile-libvorbis d175d58830866e76b9fda68023b35ed4663cc45319d6b33310e958e43c4f6b94 /usr/share/licenses/libvorbis /usr/share/licenses/libvorbis
+COPY /v0.1.6/demos/xonotic/Dollyfile-xonotic-build e73c7e1cfdc899e302670b90cce52a6bcd3d93086ad1c91840665aa6bbc144df /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
+COPY /v0.1.6/demos/zero-ad/Dollyfile-freetype aa6d938ceed228e6fd06ce580414c782596b41ffc091f16760fe2978c5a848eb /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /v0.1.6/demos/zero-ad/Dollyfile-libpng f1ed670b7cb0cd5d797d8395da020f03e36299446f7d7a0f518f27ca193f96f9 /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY /v0.1.6/demos/xonotic/Dollyfile-libogg d58bcafefa83d080d45a841a6f0f0c2d70c0ec8084b3521f37db4aebe0d7a803 /usr/share/licenses/libogg /usr/share/licenses/libogg
+COPY /v0.1.6/demos/xonotic/Dollyfile-libvorbis edc079cbe6a934d11bef151a577c638dfaf33c6971f0dc208431e1b9edc183a3 /usr/share/licenses/libvorbis /usr/share/licenses/libvorbis
 # Dolly's notices for this image: the IJG sentence, the fonts' terms and the
 # Bitstream Vera glyph sheet (the release carries no notice for it).
 FILE /usr/share/licenses/xonotic/NOTICE

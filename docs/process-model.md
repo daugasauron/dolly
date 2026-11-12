@@ -15,14 +15,14 @@ sequenceDiagram
   participant C as Child Worker
   Sh->>K: SPAWN path, argv, env, fd mappings
   K-->>Sh: child pid
-  S->>K: next launch
+  S->>K: next event: launch
   K-->>S: executable bytes
   S->>C: new Worker, which makes its memory and gate
   Sh->>K: WAIT pid (deferred)
   Note over K,C: Ctrl+C or kill: SIGINT is pending
   K-->>C: next call returns -EINTR
   C->>K: INTERRUPT_POLL, run handler, SIGNAL_ACKNOWLEDGE
-  Note over S,C: handler unfinished 500 ms later: Worker terminated
+  Note over K,C: handler unfinished 500 ms later: the kernel ends it, the supervisor stops its Worker
   C->>K: EXIT status, or signal termination
   S->>K: Worker retired
   K-->>Sh: WAIT returns exit status or signal
@@ -289,8 +289,8 @@ nothing and declares nothing: any program built for Dolly runs on one.
   file to their reads and `EIO` to their writes. A read of the master fails
   with `EIO`, as on Linux, once every descriptor of the slave is closed and its
   output is read.
-- The supervisor delivers these signals as it delivers a kill
-  ([`dolly-pty-supervisor-0.wat`](../host/pty/dolly-pty-supervisor-0.wat)):
+- The kernel delivers these signals as it delivers a kill
+  (`dolly_process_next_event`, [`dolly-supervisor-0.wat`](../abi/dolly-supervisor-0.wat)):
   a program that does not answer `SIGINT` or `SIGHUP` within 500 ms is ended,
   unless it ignores the signal.
 - The kernel holds at most 32 pseudo-terminals; one more fails with `ENFILE`.
@@ -349,7 +349,8 @@ terminal into the session"); another host adds it to the images it runs.
   SIGCHLD while it waits, as POSIX says, so Ctrl+C ends the command and not
   its caller.
 - Timed spawns carry an absolute monotonic deadline at most one day away; the
-  supervisor ends the child with status 124 even inside a pure CPU loop.
+  kernel ends the child with status 124 even inside a pure CPU loop, its
+  descendants first by SIGKILL.
 - `SPAWN_FOREGROUND` and `SPAWN_INTERACTIVE` are explicit roles. Ctrl+C with
   `ISIG` set sends SIGINT to the foreground tree; like a job-control shell, an
   interactive owner with running children is spared. Slop clears `ISIG` while
@@ -424,8 +425,9 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   the ignored and the handled ones after every change
   (`DOLLY_PROCESS_SIGNAL_DISPOSITIONS`). An ignored signal is discarded when
   it is sent; it interrupts no call and ends no process.
-- A process that does not finish a delivered signal within 500 ms is terminated.
-  The filesystem and the shell survive; kernel or supervisor failure is outside
+- A process that does not finish a delivered signal within 500 ms is terminated:
+  the kernel decides (`dolly_process_next_event`), the supervisor stops its
+  Workers. The filesystem and the shell survive; kernel or supervisor failure is outside
   this guarantee. Until a handler is finished the kernel delivers the process
   no other signal.
 - A handler is finished when it returns, and when it leaves by `longjmp`,
@@ -450,7 +452,8 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   returns once none is left, with `ECHILD`. `SIGWINCH` follows terminal
   resizes and never forces termination.
 - `alarm`, `setitimer` and `getitimer` support only `ITIMER_REAL` (others fail
-  with `EINVAL`); the supervisor raises due timers on its 16 ms tick. A
+  with `EINVAL`); the kernel raises due timers when the supervisor asks it at
+  the time it named (`dolly_process_service_milliseconds`). A
   default-action SIGALRM is delivered like `kill`, ending even a CPU loop; a
   handled one only becomes pending and never forces termination.
 - Clock reads use the Worker's clock aligned to the kernel's origin, but enter the

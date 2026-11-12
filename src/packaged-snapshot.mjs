@@ -6,7 +6,7 @@ import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES, imageBase } from "./images.mjs";
 import { imageInputs, imageInputsMatch, recipesDigest } from "./image-inputs.mjs";
 import { hostRequirements } from "../host/requirements.mjs";
-import { siteReference, decodeStaticAsset } from "./static-asset.mjs";
+import { siteReference, decodeStaticAsset, hex } from "./static-asset.mjs";
 import { scanSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 import { unretainedPath } from "./image-names.mjs";
 import { openPackStore } from "./pack-store.mjs";
@@ -224,17 +224,23 @@ function streamOf(bytes) {
   }, { highWaterMark: 0 });
 }
 
-// The sink owns incremental hashing. Every part is checked before another is
-// requested; the caller verifies the complete canonical image before booting.
+// Each part's bytes go to `write` as they arrive and are checked against the
+// pack's digest (WebCrypto's SHA-256, which is native) before `endPart` and
+// before another part is read; a mismatch ends the restore.
 export async function streamPackagedSystemSnapshot(metadata, write, endPart, signal) {
   for await (const part of packagedSnapshotParts(metadata, signal)) {
+    const bytes = new Uint8Array(part.byteLength);
     let size = 0;
     for await (const chunk of chunksOf(gunzip(part.body), signal)) {
       if (chunk.length > part.byteLength - size) throw new Error("snapshot exceeds declared size");
+      bytes.set(chunk, size);
       await write(chunk);
       size += chunk.length;
     }
-    if (size !== part.byteLength || await endPart() !== part.sha256) throw new Error("snapshot integrity mismatch");
+    if (size !== part.byteLength || hex(await crypto.subtle.digest("SHA-256", bytes)) !== part.sha256) {
+      throw new Error("snapshot integrity mismatch");
+    }
+    await endPart();
     await part.verified();
   }
 }

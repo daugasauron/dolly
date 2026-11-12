@@ -8,6 +8,12 @@ Cloudflare Pages takes 20,000 files a deployment, and every published version st
 (`docs/deployment.md`). Found while fitting v0.1.5's header rules
 (`tasks/20261105-003331-pages-rules`).
 
+## Measured (2026-11-12)
+
+The 0.1.6 domain site packaged today (`build/domain-releases/0d27c879…`) is 3,988 files. Beside
+v0.1.0 to v0.1.5 (18,683 with the root's four) it makes 22,671: v0.1.0 (2,277) and v0.1.1 (2,370)
+leave at its deployment, which gives 18,024. Left: the deployment, when the owner asks for it.
+
 ## State (2026-11-07): the oldest versions leave the site
 
 Owner (2026-11-07): "You can just remove older versions, start with 0.1.0 for the cloudflare

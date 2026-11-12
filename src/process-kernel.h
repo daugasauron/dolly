@@ -63,15 +63,17 @@ void dolly_kernel_thread_released(int pid, int tid);
 int64_t dolly_kernel_request_path(int pid, uintptr_t request_size,
                                   char *path, size_t capacity);
 
-/* A stream a host module implements (host/sockets/kernel.c, host/pty/kernel.c):
- * the open description its descriptors name. The kernel counts them, keeps the
- * description's O_NONBLOCK, closes the stream with its last descriptor and
- * passes on reads, writes and polls; `wait` is whether an empty read or a full
- * write may be deferred. A kind that is a terminal answers the terminal
- * request of its descriptors: the response to fill, or a negative errno. */
+/* A stream: the open description its descriptors name, a pipe's end or one a
+ * host module implements (host/sockets/kernel.c, host/pty/kernel.c). The
+ * kernel counts them, keeps the description's O_NONBLOCK, closes the stream
+ * with its last descriptor and passes on reads, writes and polls; `wait` is
+ * whether an empty read or a full write may be deferred. A kind that is a
+ * terminal answers the terminal request of its descriptors: the response to
+ * fill, or a negative errno. */
 typedef struct dolly_kernel_socket dolly_kernel_socket;
 typedef struct {
   uint32_t file_type; /* DOLLY_PROCESS_FILE_*, as fstat reports the descriptor. */
+  uint32_t access;    /* DOLLY_PROCESS_FD_STATUS_READ and _WRITE, as it gives them. */
   void (*close)(dolly_kernel_socket *socket);
   int64_t (*receive)(dolly_kernel_socket *socket, unsigned char *bytes, size_t size, int wait);
   int64_t (*send)(dolly_kernel_socket *socket, const unsigned char *bytes, size_t size, int wait);
@@ -95,6 +97,12 @@ int dolly_kernel_socket_descriptor(int pid, uint32_t descriptor, const dolly_ker
                                    dolly_kernel_socket **socket);
 int dolly_kernel_socket_open(int pid, dolly_kernel_socket *const *sockets, uint32_t count,
                              int close_on_exec, uint32_t *descriptors);
+/* A pipe for a module that holds its ends itself (console@0): its read and
+ * write end, each held once by the module, which gives an end to a process
+ * with dolly_kernel_socket_open and lets its own hold go with
+ * dolly_kernel_socket_release. ENFILE past the kernel's pipes. */
+int dolly_kernel_pipe_open(dolly_kernel_socket *ends[2]);
+void dolly_kernel_socket_release(dolly_kernel_socket *socket);
 int dolly_kernel_process_directory(int pid);
 /* For console@0, which starts a root process as the supervisor does
  * (dolly-supervisor-0.wat): the supervisor's mailbox and its spawn. */
@@ -104,6 +112,9 @@ int dolly_process_spawn_serialized(uintptr_t request_size);
  * that change a file's bytes or times, or remove, rename or truncate one, wait:
  * nothing changes the files being copied. Everything else runs. */
 void dolly_kernel_hold_calls(int held);
+/* 1 while a change to `descriptor`'s bytes or times must wait, a regular
+ * file's; -1 names a path's removal, rename or truncation. */
+int dolly_kernel_change_waits(int descriptor);
 void dolly_kernel_wake(void);
 /* Raises `number` for `pid`, which the supervisor delivers as it delivers a
  * kill: what a module's device decides, as a pseudo-terminal's interrupt key. */
@@ -181,7 +192,7 @@ int dolly_bootstrap_write_bytes(const unsigned char *bytes, uintptr_t length);
 /* What a process writes to the display's terminal. Zero, or the negative
  * errno of a refused boot text write. */
 int dolly_kernel_terminal_write(const unsigned char *bytes, uintptr_t length);
-int dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length);
+int dolly_terminal_write_bytes(int pid, const unsigned char *bytes, uintptr_t length);
 /* The version of the bytes a kernel descriptor reads, src/file-blocks.cpp. */
 uint64_t dolly_fs_version(int descriptor);
 /* The address of block `index` of those bytes (DOLLY_FS_BLOCK_SIZE each, the
@@ -191,11 +202,14 @@ uintptr_t dolly_fs_block(int descriptor, uintptr_t index);
  * bytes, which the Worker holds: 0 or a negative errno. */
 int dolly_fs_input_file(const char *path, uint32_t input, uint64_t size);
 /* The supervisor's words about the executable it prepares, src/process-kernel.c. */
-int dolly_kernel_launch_diagnostic(const unsigned char *bytes, size_t size);
+int dolly_kernel_launch_diagnostic(int pid, const unsigned char *bytes, size_t size);
 void dolly_terminal_publish_result(int status);
 void dolly_kernel_foreground_publish(int pid, unsigned interrupt);
 /* The terminal's foreground owner, or zero. */
 int dolly_kernel_foreground(void);
+/* The foreground process the page asked to interrupt (Ctrl-C) since the last
+ * call, or 0: the page's terminal mailbox (abi/dolly-supervisor-0.wat). */
+int dolly_kernel_take_interrupt(void);
 
 int dolly_process_descends_from(int pid, int ancestor_pid);
 void dolly_kernel_terminal_resized(void);

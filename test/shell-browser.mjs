@@ -31,7 +31,8 @@ async function handle(request, response, path, headers) {
 await browserTest("shell", { image: "system", server: { fixtures: shell.fixtures, handle } }, async ({ server, open }) => {
   recorded.curl = []; // each browser's run, one after the other on one server
   const { page, submit, result } = await open({ policy: { maxRequests: 256,
-    rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"] }] } });
+    // A hardened rule names the headers beyond an ordinary request's that leave: curl's and git's below.
+    rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"], credentialHeaders: ["x-dolly-cli", "git-protocol"] }] } });
   // Input mailbox: ESC [A with empty history, then help with a deleted typo.
   assert.equal(await result(() => page.evaluate(() => __dolly.input("\x1b[Ahelx\x7fp\r"))), 0);
   // Everyday commands (test/cases/shell.json), then those that reach the test server.

@@ -1941,6 +1941,76 @@ static int entry_retained(Engine *engine) {
   return 1;
 }
 
+// What the steps of an application or toolchain left that no row retains is
+// not in the image, silently unless said: one line for each retained
+// directory that holds such files, with the row that keeps them (a pip
+// install's site-packages). A recipe that means to drop them ignores it.
+typedef struct {
+  const Engine *engine;
+  char *parents[20];
+  size_t counts[20], parent_count;
+} UnkeptReport;
+
+static int path_kept(const Engine *engine, const char *path) {
+  return bsearch(&path, engine->keep, engine->keep_count, sizeof(*engine->keep), compare_strings) != NULL;
+}
+
+static size_t count_files(const char *path) {
+  struct stat metadata;
+  if (lstat(path, &metadata) != 0) return 0;
+  if (!S_ISDIR(metadata.st_mode)) return 1;
+  DIR *directory = opendir(path);
+  if (directory == NULL) return 0;
+  size_t count = 0;
+  for (struct dirent *entry; (entry = readdir(directory)) != NULL;) {
+    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
+    char child[PATH_MAX];
+    if (snprintf(child, sizeof(child), "%s/%s", strcmp(path, "/") == 0 ? "" : path, entry->d_name) < (int)sizeof(child))
+      count += count_files(child);
+  }
+  closedir(directory);
+  return count;
+}
+
+static void walk_unkept(UnkeptReport *report, const char *path) {
+  DIR *directory = opendir(path);
+  if (directory == NULL) return;
+  size_t unkept = 0;
+  for (struct dirent *entry; (entry = readdir(directory)) != NULL;) {
+    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
+    char child[PATH_MAX];
+    if (snprintf(child, sizeof(child), "%s/%s", strcmp(path, "/") == 0 ? "" : path, entry->d_name) >= (int)sizeof(child))
+      continue;
+    if (dolly_fs_unretained_path(child) || strncmp(child, "/etc/dolly", 10) == 0 ||
+        strcmp(child, "/dev") == 0 || strcmp(child, "/proc") == 0) continue;
+    struct stat metadata;
+    if (lstat(child, &metadata) != 0) continue;
+    if (path_kept(report->engine, child)) {
+      if (S_ISDIR(metadata.st_mode)) walk_unkept(report, child);
+    } else {
+      unkept += count_files(child);
+    }
+  }
+  closedir(directory);
+  if (unkept == 0 || strcmp(path, "/") == 0 || report->parent_count == 20) return;
+  report->parents[report->parent_count] = strdup(path);
+  report->counts[report->parent_count++] = unkept;
+}
+
+static void report_unkept(const Engine *engine) {
+  const char *kind = engine->recipe_count ? engine->recipes[engine->recipe_count - 1].kind : NULL;
+  if (kind == NULL || strcmp(kind, "PACKAGE") == 0) return;
+  UnkeptReport report = {.engine = engine};
+  walk_unkept(&report, "/");
+  for (size_t index = 0; index < report.parent_count; ++index) {
+    if (report.parents[index] != NULL) {
+      fprintf(stderr, "dollyfile: %zu files under %s are not kept: FOLDER %s keeps them\n",
+              report.counts[index], report.parents[index], report.parents[index]);
+    }
+    free(report.parents[index]);
+  }
+}
+
 static int seal_manifest(Engine *engine) {
   if (engine->selected_image == NULL) return 1;
   if (engine->entry_count != 0 && !entry_retained(engine)) return 1;
@@ -1956,6 +2026,7 @@ static int seal_manifest(Engine *engine) {
   }
   if (write_control_files(engine) != 0 || write_artifact_receipt(engine) != 0) return 1;
   qsort(engine->keep, engine->keep_count, sizeof(*engine->keep), compare_strings);
+  report_unkept(engine);
   Buffer manifest = {.limit = 8 * 1024 * 1024};
   for (size_t index = 0; index < engine->keep_count; ++index) {
     struct stat metadata;

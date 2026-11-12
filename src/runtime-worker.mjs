@@ -3,7 +3,7 @@
 // runs its ENTRY (worker-image.mjs).
 import { imageDefinition } from "./images.mjs";
 import { loadImageMetadata, streamPackagedSystemSnapshot } from "./packaged-snapshot.mjs";
-import { siteReference, hex } from "./static-asset.mjs";
+import { siteReference } from "./static-asset.mjs";
 import { checkedMemoryRange, runImage } from "./worker-image.mjs";
 
 await runImage(async ({ image, files: given = {} }, host) => {
@@ -31,7 +31,6 @@ await runImage(async ({ image, files: given = {} }, host) => {
         const range = checkedMemoryRange(memory, address, capacity);
         return new Uint8Array(memory.buffer, range.address, range.size);
       };
-      staging().set(Uint8Array.from(metadata.sha256.match(/../g), byte => parseInt(byte, 16)));
       if (kernel.dolly_bootstrap_snapshot_begin(BigInt(metadata.byteLength)) !== 0)
         throw new Error("Dolly snapshot stream initialization failed");
       let loaded = 0, reported = 0;
@@ -51,7 +50,6 @@ await runImage(async ({ image, files: given = {} }, host) => {
       }, () => {
         if (kernel.dolly_snapshot_stream_write(0n, 1) !== 0)
           throw new Error("Dolly rejected an incomplete snapshot part");
-        return hex(staging().subarray(0, 32));
       });
       const status = kernel.dolly_bootstrap_snapshot_end();
       // The embedding's files (boot's `files`) lie over the image's.

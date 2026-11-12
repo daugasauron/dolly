@@ -27,6 +27,13 @@ const browserOwnedTransportHeaderNames = new Set([
   "user-agent",
 ]);
 
+// What an ordinary request carries: under a hardened rule these and the
+// headers the rule names leave the sandbox, and nothing else does, a token in
+// a header of any other name included.
+const ordinaryHeaderNames = new Set(["accept", "accept-language", "content-language", "content-type",
+  "range", "if-match", "if-none-match", "if-modified-since", "if-unmodified-since", "if-range",
+  "cache-control", "pragma"]);
+
 export function isDollyCredentialHeader(name) {
   return credentialHeaderNames.has(String(name).toLowerCase());
 }
@@ -86,8 +93,8 @@ function normalizeRule(rule) {
   }
   const credentialHeaders = new Set((rule.credentialHeaders ?? []).map((value) => {
     const name = String(value).toLowerCase();
-    if (!credentialHeaderNames.has(name)) {
-      throw new TypeError(`invalid Dolly HTTP credential header: ${name}`);
+    if (!/^[!#$%&'*+.^_`|~0-9a-z-]+$/.test(name)) {
+      throw new TypeError(`invalid Dolly HTTP header name: ${name}`);
     }
     return name;
   }));
@@ -243,11 +250,11 @@ export class DollyHttpPolicy {
     }
 
     // Credentials are ordinary sandbox state. Development mode preserves
-    // them. A hardened destination rule must explicitly name which common
-    // credential headers may leave for that exact destination.
+    // them. A hardened destination rule names every header beyond an
+    // ordinary request's that may leave for that exact destination.
     if (rule.credentialHeaders !== null) {
-      for (const name of credentialHeaderNames) {
-        if (!rule.credentialHeaders.has(name)) headers.delete(name);
+      for (const name of [...headers.keys()]) {
+        if (!ordinaryHeaderNames.has(name) && !rule.credentialHeaders.has(name)) headers.delete(name);
       }
     }
     const relay = rule.bootstrap ? undefined : relayUrl(this.relays, target, headers);
