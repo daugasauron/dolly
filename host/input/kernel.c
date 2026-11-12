@@ -80,11 +80,11 @@ static void discard_pending_input(int terminal_ui) {
   encoded_input_length = 0;
 }
 
-void dolly_terminal_discard_pending_input(void) {
+static void terminal_discard(void) {
   discard_pending_input(lease_depth == 0);
 }
 
-int dolly_kernel_terminal_input_service(void) {
+static int terminal_service(void) {
   return lease_depth == 0 ? dolly_input_ring_service(&ring) : 0;
 }
 
@@ -109,7 +109,8 @@ static int fill_terminal_input(void) {
     encoded_input_cursor = 0;
     // What the terminal answers itself (a cursor report, the rest of a long
     // paste) comes before the next record.
-    encoded_input_length = dolly_kernel_terminal_replies(encoded_input, sizeof(encoded_input));
+    const dolly_terminal_output *output = dolly_kernel_terminal_output_device();
+    encoded_input_length = output != NULL ? output->replies(encoded_input, sizeof(encoded_input)) : 0;
     if (encoded_input_length != 0) continue;
     // A lessee reads the records itself: no terminal reader may race it for
     // the single-consumer ring.
@@ -119,11 +120,11 @@ static int fill_terminal_input(void) {
   }
 }
 
-int dolly_kernel_terminal_ready(void) {
+static int terminal_ready(void) {
   return fill_terminal_input() > 0;
 }
 
-int dolly_kernel_terminal_read(void) {
+static int terminal_read(void) {
   if (fill_terminal_input() <= 0) return -1;
   return encoded_input[encoded_input_cursor++];
 }
@@ -256,5 +257,10 @@ static void input_release(int pid, int tid) {
   if (tid == 0) release_lease(pid);
 }
 
+/* The terminal's input half (src/process-kernel.h). */
+static const dolly_terminal_input terminal_input = {
+    terminal_read, terminal_ready, terminal_service, terminal_discard};
+
 const dolly_kernel_module dolly_input_kernel = {
-    DOLLY_INPUT_ACQUIRE, DOLLY_INPUT_RELEASE, input_call, input_release};
+    .first_operation = DOLLY_INPUT_ACQUIRE, .last_operation = DOLLY_INPUT_RELEASE,
+    .call = input_call, .release = input_release, .terminal_input = &terminal_input};

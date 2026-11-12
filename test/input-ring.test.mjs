@@ -194,12 +194,19 @@ int dolly_process_descends_from(int pid, int ancestor) { return pid == ancestor 
 int dolly_kernel_deadline_pending(uint64_t deadline) { return deadline != 0; }
 static char replies[8];
 static size_t reply_length;
-size_t dolly_kernel_terminal_replies(unsigned char *output, size_t capacity) {
+static size_t terminal_replies(unsigned char *output, size_t capacity) {
   const size_t length = reply_length < capacity ? reply_length : capacity;
   memcpy(output, replies, length);
   reply_length -= length;
   return length;
 }
+static const dolly_terminal_output display = { .replies = terminal_replies };
+const dolly_terminal_output *dolly_kernel_terminal_output_device(void) { return &display; }
+// The terminal's input half, as the kernel reaches it.
+#define dolly_kernel_terminal_read dolly_input_kernel.terminal_input->read
+#define dolly_kernel_terminal_ready dolly_input_kernel.terminal_input->ready
+#define dolly_kernel_terminal_input_service dolly_input_kernel.terminal_input->service
+#define dolly_terminal_discard_pending_input dolly_input_kernel.terminal_input->discard
 static unsigned notified;
 long long emscripten_atomic_notify(void *address, long long count) { ++notified; return 0; }
 // A decoder whose key records are their action byte and which counts pointer records.

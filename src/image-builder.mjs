@@ -1,4 +1,4 @@
-import { buildHost, hostRegistry } from "../host/modules.mjs";
+import { hostRegistry } from "../host/modules.mjs";
 import { hostRequirement } from "../host/requirements.mjs";
 import { imageBase, imageDefinition } from "./images.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
@@ -19,9 +19,10 @@ export async function buildImage(image, artifacts, configuration, report, { modu
   // inputs declare: it enables only the runtime and the build host, but a step
   // may run a program linked against a declared module's client (transfer's
   // download --help), which the Worker admits by that module's ABI.
-  const needed = new Set([...buildHost, ...declared, ...artifacts.flatMap(artifact => artifact.hostRequirements)]
-    .map(value => hostRequirement(value).name));
   const manifests = await Promise.all(modules.map(async url => ({ url, ...(await import(url, { with: { type: "json" } })).default })));
+  const needed = new Set([...declared, ...artifacts.flatMap(artifact => artifact.hostRequirements)]
+    .map(value => hostRequirement(value).name));
+  for (const { name, build } of manifests) if (build) needed.add(name);
   const registry = await hostRegistry(manifests.filter(({ name }) => needed.has(name)).map(({ url }) => url));
   const host = await registry.createHost("browser", registry.buildHostFor(declared),
     { send: message => worker.postMessage(message), configuration });

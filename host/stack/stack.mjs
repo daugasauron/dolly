@@ -7,7 +7,7 @@ export function worker({ get, runtimeBase }) {
   return {
     async start() {
       const response = await fetch(new URL("dist/dolly-process-stack.mjs", runtimeBase), {
-        cache: "no-store", credentials: "same-origin", redirect: "error",
+        credentials: "same-origin", redirect: "error",
       });
       if (!response.ok) throw new Error(`Dolly dolly-process-stack.mjs returned HTTP ${response.status}`);
       get("runtime").serveInProcess("stack@0", {

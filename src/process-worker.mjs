@@ -1,6 +1,5 @@
 import { DOLLY_ERRNO } from "./process-constants.mjs";
 
-import { DOLLY_THREAD_EXIT, DOLLY_THREAD_SPAWN } from "../host/threads/abi.mjs";
 import {
   DOLLY_PROCESS_CLOCK_MONOTONIC, DOLLY_PROCESS_CLOCK_REALTIME, DOLLY_PROCESS_CLOCK_TIME,
   DOLLY_PROCESS_EXIT, DOLLY_PROCESS_INTERRUPT_POLL, DOLLY_PROCESS_OFFSETOF,
@@ -36,6 +35,9 @@ const configuration = await new Promise((resolve, reject) => {
     resolve(event.data);
   });
 });
+// The operations that start and end a thread, the threads module's
+// (runtime.mjs setThreadProvider), for a threaded program.
+const threadOperations = configuration.threaded ? configuration.threadOperations : {};
 
 if (!(configuration.module instanceof WebAssembly.Module || configuration.module instanceof MessagePort) ||
     !(configuration.gateModule instanceof WebAssembly.Module) ||
@@ -47,7 +49,9 @@ if (!(configuration.module instanceof WebAssembly.Module || configuration.module
     !Number.isSafeInteger(configuration.mailbox) || configuration.mailbox <= 0 ||
     typeof configuration.memory?.initial !== "bigint" || typeof configuration.memory?.maximum !== "bigint" ||
     (configuration.port !== undefined && !(configuration.port instanceof MessagePort)) ||
-    !Number.isInteger(configuration.pid) || configuration.pid <= 0) {
+    !Number.isInteger(configuration.pid) || configuration.pid <= 0 ||
+    (configuration.threaded && !(Number.isInteger(configuration.threadOperations?.spawn) &&
+      Number.isInteger(configuration.threadOperations?.exit)))) {
   throw new Error("Dolly process received an invalid configuration");
 }
 
@@ -206,7 +210,7 @@ function call(operation, requestAddressValue, requestSizeValue,
   for (const module of localModules) {
     if (module.handles(operation)) return module.call(operation, request, response);
   }
-  const exitingResult = operation === DOLLY_THREAD_EXIT && request.size === 8
+  const exitingResult = operation === threadOperations.exit && request.size === 8
     ? new DataView(memory.buffer, request.address, 8).getBigUint64(0, true) : undefined;
   let clock;
   if (operation === DOLLY_PROCESS_CLOCK_TIME && request.size === clockRequestSize && response.size >= clockResponseSize &&
@@ -235,7 +239,7 @@ function call(operation, requestAddressValue, requestSizeValue,
   // supervisor hands it without opening.
   let channel;
   if (openChannels.length) closeReceivedChannels();
-  if (operation === DOLLY_THREAD_SPAWN && configuration.threaded) {
+  if (operation === threadOperations.spawn && configuration.threaded) {
     if (!reserveMaximum()) return -BigInt(DOLLY_ERRNO.EAGAIN);
     channel = new MessageChannel();
   }
@@ -277,7 +281,7 @@ function call(operation, requestAddressValue, requestSizeValue,
   if (result === deferredResult) return ended(PROCESS_EXIT);
   if (result > 0n) gate.exports.response(mailbox, BigInt(response.address), result);
   lastSignalCheck = result === -BigInt(DOLLY_ERRNO.EINTR) ? -Infinity : performance.now();
-  if (operation === DOLLY_THREAD_EXIT && result >= 0n) {
+  if (operation === threadOperations.exit && result >= 0n) {
     threadResult = exitingResult;
     for (const module of localModules) module.leaving?.();
     return ended(THREAD_EXIT);

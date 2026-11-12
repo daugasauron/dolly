@@ -49,7 +49,7 @@ node "${project_dir}/scripts/site-release.mjs" source "${staging}/site" "${proje
 # abi/*.wat is copied whole, whether or not a recipe names a contract as a source.
 mapfile -t sources < <(node "${project_dir}/scripts/list-images.mjs" --sources | grep -v "^abi/.*\.wat$")
 (cd "${project_dir}" && cp --parents -R index.html amy-index.txt 404.html terminal.html coi-serviceworker.js LICENSE llms.txt licences \
-  host src/*.mjs src/*.css abi/*.wat "${sources[@]}" "${image_names[@]}" view rebuild \
+  host src/*.mjs src/*.css src/icon.svg abi/*.wat "${sources[@]}" "${image_names[@]}" view rebuild \
   custom/index.html custom/rebuild custom/run session sessions "${staging}/site/")
 if [[ "${site}" == "slopshare.dev" ]]; then
   node "${project_dir}/scripts/package-domain.mjs" "${staging}/site"
@@ -59,8 +59,10 @@ node "${project_dir}/scripts/package-documentation.mjs" "${project_dir}" "${stag
   "${documents[@]#"${project_dir}/"}"
 cp \
   "${project_dir}/dist/IosevkaTerm-SemiBold.woff2" \
+  "${project_dir}/dist/IosevkaTerm-SemiBold-page.woff" \
   "${project_dir}/dist/dolly-build-id.mjs" \
   "${project_dir}/dist/dolly-image-build-id.mjs" \
+  "${project_dir}/dist/dolly-build-id.json" \
   "${project_dir}/dist/dolly-images.json" \
   "${project_dir}/dist/dolly.data" \
   "${project_dir}/dist/dolly.wasm" \

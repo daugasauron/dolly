@@ -12,8 +12,11 @@ image). Make sure they are not forgotten to be included in the release."
 
 Owner (2026-11-12): "Just add all the videos to git ?" Done in `92d7d3aa4`:
 `sites/slopshare.dev/agents/` is v0.1.5's page (34 videos, deployed in place then) with the Truck
-Town section, 37 videos, every file within Pages' 25 MiB (`test/site-release.test.mjs` passes). The
-Wine video is being recorded; the Godot one waits for `20261112-075500-godot-bhop`.
+Town section, 37 videos, every file within Pages' 25 MiB (`test/site-release.test.mjs` passes).
+Video 1 is in (`feature/videos`): `wine-tcc.mp4` (1:18, 7.7 MiB) and its poster, a section "Wine: a
+C compiler on its desktop"; how it was made is in `work/videos-2026-11-12/wine-tcc/README.md` (a
+take scripted in Chrome, typing past the first 12 s at 12x as its caption says). The Godot one
+waits for `20261112-075500-godot-bhop`.
 
 ## Do
 
