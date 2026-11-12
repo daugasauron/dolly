@@ -1277,8 +1277,10 @@ void DPSOFTRAST_SetRenderTargets(int width, int height, unsigned int *depthpixel
 {
 	SOFTWARE(dpsoft_SetRenderTargets(width, height, depthpixels, colorpixels0, colorpixels1, colorpixels2, colorpixels3));
 	EmitMerged();
+	// The screen is the one target whose pixels are no texture's token. A framebuffer of textures
+	// this file refused (a shadow map's depth format, at ultra) has no pixels at all, and a size of 0.
 	const unsigned char *token = (const unsigned char *)(colorpixels0 ? colorpixels0 : depthpixels);
-	target_is_texture = token >= texture_tokens && token < texture_tokens + MAX_TEXTURES;
+	target_is_texture = !token || (token >= texture_tokens && token < texture_tokens + MAX_TEXTURES);
 	if (target_is_texture)
 		Warn("rendering into textures is not drawn (an effect beyond the normal preset)");
 	else if (width != fb_width || height != fb_height)

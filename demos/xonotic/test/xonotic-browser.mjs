@@ -169,6 +169,23 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser,
   await run("echo SHELL-BACK");
   console.log("xonotic: the client drew a frame and quit back to the shell");
 
+  // The ultimate preset asks for offset and relief mapping and renders shadow maps into depth
+  // textures, which dpgpurast does not draw: on gpu@0 no permutation lacks its WGSL, no packet is
+  // refused, and the engine's screenshot of space-elevator is lit (the shadow maps' 0×0 target
+  // once left every frame black, and the missing permutations whole walls).
+  if (gpu) {
+    const ultimate = start(`${client} +exec effects-ultimate.cfg +log_file ultimate.log +map space-elevator ` +
+      "+defer 60 \"screenshot ultimate.tga\" +defer 62 quit");
+    assert.equal(await ultimate.done, 0, "the client must quit back to the shell");
+    await run(`! grep -E 'dpgpurast: (no WGSL|a command packet failed)' ${userdir}/ultimate.log`);
+    await run(`tail -c +19 ${userdir}/ultimate.tga | od -A n -v -t u | awk '{ for (i = 1; i <= NF; i++) { w = $i; ` +
+      "for (j = 0; j < 4; j++) { v[k % 3] = w % 256; w = int(w / 256); if (++k % 3 == 0) lit += (v[0] + v[1] + v[2] > 48) } } } " +
+      "END { printf \"ultimate lit %.3f\\n\", lit / (k / 3) }'");
+    const lit = Number((await text()).match(/ultimate lit ([\d.]+)/)[1]);
+    assert.ok(lit > 0.2, `the ultimate preset's frame is drawn: lit ${lit}`);
+    console.log(`xonotic: the ultimate preset draws space-elevator on gpu@0, lit fraction ${lit.toFixed(3)}`);
+  }
+
   await page.evaluate(() => { audioMeters.length = 0; });
 
   // A live bot match in the client, recorded from its connection to a stop
