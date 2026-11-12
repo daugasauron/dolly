@@ -210,7 +210,7 @@ static int64_t pty_terminal(dolly_kernel_socket *shared, const dolly_process_ter
 }
 
 static const dolly_kernel_socket_kind pty_kind = {
-    DOLLY_PROCESS_FILE_CHARACTER_DEVICE, pty_close, pty_receive, pty_send, pty_poll, pty_terminal};
+    DOLLY_PROCESS_FILE_CHARACTER_DEVICE, DOLLY_PROCESS_FD_STATUS_READ | DOLLY_PROCESS_FD_STATUS_WRITE, pty_close, pty_receive, pty_send, pty_poll, pty_terminal};
 
 dolly_pty *dolly_pty_pair(uint32_t rows, uint32_t columns, int *error) {
   uint32_t number = 0;

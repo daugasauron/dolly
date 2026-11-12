@@ -63,15 +63,17 @@ void dolly_kernel_thread_released(int pid, int tid);
 int64_t dolly_kernel_request_path(int pid, uintptr_t request_size,
                                   char *path, size_t capacity);
 
-/* A stream a host module implements (host/sockets/kernel.c, host/pty/kernel.c):
- * the open description its descriptors name. The kernel counts them, keeps the
- * description's O_NONBLOCK, closes the stream with its last descriptor and
- * passes on reads, writes and polls; `wait` is whether an empty read or a full
- * write may be deferred. A kind that is a terminal answers the terminal
- * request of its descriptors: the response to fill, or a negative errno. */
+/* A stream: the open description its descriptors name, a pipe's end or one a
+ * host module implements (host/sockets/kernel.c, host/pty/kernel.c). The
+ * kernel counts them, keeps the description's O_NONBLOCK, closes the stream
+ * with its last descriptor and passes on reads, writes and polls; `wait` is
+ * whether an empty read or a full write may be deferred. A kind that is a
+ * terminal answers the terminal request of its descriptors: the response to
+ * fill, or a negative errno. */
 typedef struct dolly_kernel_socket dolly_kernel_socket;
 typedef struct {
   uint32_t file_type; /* DOLLY_PROCESS_FILE_*, as fstat reports the descriptor. */
+  uint32_t access;    /* DOLLY_PROCESS_FD_STATUS_READ and _WRITE, as it gives them. */
   void (*close)(dolly_kernel_socket *socket);
   int64_t (*receive)(dolly_kernel_socket *socket, unsigned char *bytes, size_t size, int wait);
   int64_t (*send)(dolly_kernel_socket *socket, const unsigned char *bytes, size_t size, int wait);
@@ -95,6 +97,12 @@ int dolly_kernel_socket_descriptor(int pid, uint32_t descriptor, const dolly_ker
                                    dolly_kernel_socket **socket);
 int dolly_kernel_socket_open(int pid, dolly_kernel_socket *const *sockets, uint32_t count,
                              int close_on_exec, uint32_t *descriptors);
+/* A pipe for a module that holds its ends itself (console@0): its read and
+ * write end, each held once by the module, which gives an end to a process
+ * with dolly_kernel_socket_open and lets its own hold go with
+ * dolly_kernel_socket_release. ENFILE past the kernel's pipes. */
+int dolly_kernel_pipe_open(dolly_kernel_socket *ends[2]);
+void dolly_kernel_socket_release(dolly_kernel_socket *socket);
 int dolly_kernel_process_directory(int pid);
 /* For console@0, which starts a root process as the supervisor does
  * (dolly-supervisor-0.wat): the supervisor's mailbox and its spawn. */

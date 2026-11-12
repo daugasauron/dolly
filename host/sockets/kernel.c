@@ -147,7 +147,7 @@ static uint16_t socket_poll(const dolly_kernel_socket *shared, uint16_t requeste
 }
 
 static const dolly_kernel_socket_kind socket_kind = {
-    DOLLY_PROCESS_FILE_SOCKET, socket_close, socket_receive, socket_send, socket_poll, NULL};
+    DOLLY_PROCESS_FILE_SOCKET, DOLLY_PROCESS_FD_STATUS_READ | DOLLY_PROCESS_FD_STATUS_WRITE, socket_close, socket_receive, socket_send, socket_poll, NULL};
 
 static int64_t socket_create(int pid, int pair, const dolly_socket_request *request,
                              unsigned char *mailbox, uintptr_t response_capacity) {

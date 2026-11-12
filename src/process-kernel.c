@@ -29,8 +29,6 @@ enum {
   DOLLY_KERNEL_EXECUTABLE_LIMIT = 512 * 1024 * 1024,
   DOLLY_KERNEL_PIPE_LIMIT = 64,
   DOLLY_KERNEL_PIPE_CAPACITY = 64 * 1024,
-  DOLLY_KERNEL_PIPE_READ = 1,
-  DOLLY_KERNEL_PIPE_WRITE = 2,
   DOLLY_KERNEL_SHEBANG_LIMIT = 4096,
   DOLLY_KERNEL_SHEBANG_DEPTH = 4,
   DOLLY_KERNEL_LOCK_LIMIT = 1024,
@@ -39,12 +37,13 @@ enum {
 static const uint64_t DOLLY_KERNEL_SPAWN_DEADLINE_LIMIT =
     UINT64_C(24) * 60 * 60 * 1000000000;
 
+/* A pipe: a ring of bytes between its two ends, each a stream whose
+ * descriptors are its readers or its writers. It goes with the last
+ * descriptor of both. */
 typedef struct {
+  dolly_kernel_socket ends[2]; /* First, the reader: an end's address finds the pipe. */
   size_t offset;
   size_t size;
-  uint32_t readers;
-  uint32_t writers;
-  unsigned char nonblocking[2]; /* Shared by duplicates of each pipe end. */
   unsigned char bytes[DOLLY_KERNEL_PIPE_CAPACITY];
 } dolly_kernel_pipe;
 
@@ -76,8 +75,6 @@ typedef struct {
    * inherited descriptors share its number. Zero for a pipe or none. */
   uint64_t descriptions[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
   unsigned char descriptor_flags[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
-  dolly_kernel_pipe *pipes[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
-  unsigned char pipe_directions[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
   dolly_kernel_socket *sockets[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
   unsigned char terminal_descriptors[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
   DIR *directories[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
@@ -287,13 +284,95 @@ static void dispose_program(dolly_kernel_program *program) {
 static int descriptor_is_open(const dolly_kernel_process *process,
                               uint32_t descriptor) {
   return descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT &&
-      (process->descriptors[descriptor] >= 0 || process->pipes[descriptor] != NULL ||
-       process->sockets[descriptor] != NULL);
+      (process->descriptors[descriptor] >= 0 || process->sockets[descriptor] != NULL);
 }
 
-static void retain_pipe(dolly_kernel_pipe *pipe, unsigned direction) {
-  if (direction == DOLLY_KERNEL_PIPE_READ) ++pipe->readers;
-  else if (direction == DOLLY_KERNEL_PIPE_WRITE) ++pipe->writers;
+static const dolly_kernel_socket_kind pipe_reader, pipe_writer;
+
+static dolly_kernel_pipe *pipe_of(const dolly_kernel_socket *end) {
+  return (dolly_kernel_pipe *)(end - (end->kind == &pipe_writer));
+}
+
+static void pipe_close(dolly_kernel_socket *end) {
+  dolly_kernel_pipe *pipe = pipe_of(end);
+  wakeup_pending = 1;
+  if (pipe->ends[0].descriptors != 0 || pipe->ends[1].descriptors != 0) return;
+  free(pipe);
+  if (live_pipe_count != 0) --live_pipe_count;
+}
+
+/* Empty with writers, a read waits; with none, it is the end of the file. */
+static int64_t pipe_receive(dolly_kernel_socket *end, unsigned char *bytes, size_t size, int wait) {
+  dolly_kernel_pipe *pipe = pipe_of(end);
+  if (end->kind != &pipe_reader) return -EBADF;
+  if (size == 0) return 0;
+  if (pipe->size == 0) {
+    return pipe->ends[1].descriptors == 0 ? 0 : wait && !end->nonblocking ? DOLLY_PROCESS_DISPATCH_DEFERRED : -EAGAIN;
+  }
+  const size_t count = size < pipe->size ? size : pipe->size;
+  size_t first = DOLLY_KERNEL_PIPE_CAPACITY - pipe->offset;
+  if (first > count) first = count;
+  memcpy(bytes, pipe->bytes + pipe->offset, first);
+  memcpy(bytes + first, pipe->bytes, count - first);
+  pipe->offset = (pipe->offset + count) % DOLLY_KERNEL_PIPE_CAPACITY;
+  pipe->size -= count;
+  wakeup_pending = 1;
+  return (int64_t)count;
+}
+
+/* Without readers a write is EPIPE, for which libc raises SIGPIPE; one of at
+ * most PIPE_BUF bytes is written whole or waits. */
+static int64_t pipe_send(dolly_kernel_socket *end, const unsigned char *bytes, size_t size, int wait) {
+  dolly_kernel_pipe *pipe = pipe_of(end);
+  if (end->kind != &pipe_writer) return -EBADF;
+  if (size == 0) return 0;
+  if (pipe->ends[0].descriptors == 0) return -EPIPE;
+  const size_t available = DOLLY_KERNEL_PIPE_CAPACITY - pipe->size;
+  if (available == 0 || (size <= PIPE_BUF && available < size))
+    return wait && !end->nonblocking ? DOLLY_PROCESS_DISPATCH_DEFERRED : -EAGAIN;
+  const size_t completed = size < available ? size : available;
+  const size_t tail = (pipe->offset + pipe->size) % DOLLY_KERNEL_PIPE_CAPACITY;
+  size_t first = DOLLY_KERNEL_PIPE_CAPACITY - tail;
+  if (first > completed) first = completed;
+  memcpy(pipe->bytes + tail, bytes, first);
+  memcpy(pipe->bytes, bytes + first, completed - first);
+  pipe->size += completed;
+  wakeup_pending = 1;
+  return (int64_t)completed;
+}
+
+static uint16_t pipe_poll(const dolly_kernel_socket *end, uint16_t requested) {
+  const dolly_kernel_pipe *pipe = pipe_of(end);
+  if (end->kind == &pipe_reader) {
+    /* A hang-up is the reader's news that the writers went (POSIX). */
+    return (pipe->size != 0 ? requested & DOLLY_PROCESS_POLL_READ : 0) |
+        (pipe->ends[1].descriptors == 0 ? DOLLY_PROCESS_POLL_HANGUP : 0);
+  }
+  /* With no reader a write fails at once: an error, and no wait. */
+  if (pipe->ends[0].descriptors == 0) return DOLLY_PROCESS_POLL_ERROR | (requested & DOLLY_PROCESS_POLL_WRITE);
+  return pipe->size < DOLLY_KERNEL_PIPE_CAPACITY ? requested & DOLLY_PROCESS_POLL_WRITE : 0;
+}
+
+static const dolly_kernel_socket_kind pipe_reader = {
+    DOLLY_PROCESS_FILE_FIFO, DOLLY_PROCESS_FD_STATUS_READ, pipe_close, pipe_receive, pipe_send, pipe_poll, NULL};
+static const dolly_kernel_socket_kind pipe_writer = {
+    DOLLY_PROCESS_FILE_FIFO, DOLLY_PROCESS_FD_STATUS_WRITE, pipe_close, pipe_receive, pipe_send, pipe_poll, NULL};
+
+int dolly_kernel_pipe_open(dolly_kernel_socket *ends[2]) {
+  if (live_pipe_count >= DOLLY_KERNEL_PIPE_LIMIT) return -ENFILE;
+  dolly_kernel_pipe *pipe = calloc(1, sizeof(*pipe));
+  if (pipe == NULL) return -ENOMEM;
+  ++live_pipe_count;
+  pipe->ends[0] = (dolly_kernel_socket){&pipe_reader, 1, 0};
+  pipe->ends[1] = (dolly_kernel_socket){&pipe_writer, 1, 0};
+  ends[0] = &pipe->ends[0];
+  ends[1] = &pipe->ends[1];
+  return 0;
+}
+
+void dolly_kernel_socket_release(dolly_kernel_socket *socket) {
+  wakeup_pending = 1;
+  if (--socket->descriptors == 0) socket->kind->close(socket);
 }
 
 static int description_is_open(uint64_t description) {
@@ -351,26 +430,10 @@ static void release_descriptor(dolly_kernel_process *process,
     close(process->descriptors[descriptor]);
     process->descriptors[descriptor] = -1;
   }
-  dolly_kernel_pipe *pipe = process->pipes[descriptor];
-  if (pipe != NULL) {
-    if (process->pipe_directions[descriptor] == DOLLY_KERNEL_PIPE_READ) {
-      if (pipe->readers != 0) --pipe->readers;
-    } else if (process->pipe_directions[descriptor] == DOLLY_KERNEL_PIPE_WRITE) {
-      if (pipe->writers != 0) --pipe->writers;
-    }
-    process->pipes[descriptor] = NULL;
-    process->pipe_directions[descriptor] = 0;
-    wakeup_pending = 1;
-    if (pipe->readers == 0 && pipe->writers == 0) {
-      free(pipe);
-      if (live_pipe_count != 0) --live_pipe_count;
-    }
-  }
   dolly_kernel_socket *socket = process->sockets[descriptor];
   if (socket != NULL) {
     process->sockets[descriptor] = NULL;
-    if (--socket->descriptors == 0) socket->kind->close(socket);
-    wakeup_pending = 1;
+    dolly_kernel_socket_release(socket);
   }
   process->terminal_descriptors[descriptor] = 0;
   process->descriptor_flags[descriptor] = 0;
@@ -669,14 +732,7 @@ static int copy_descriptor(dolly_kernel_process *process,
                             uint32_t source, uint32_t target) {
   if (source > INT_MAX || target >= DOLLY_KERNEL_DESCRIPTOR_LIMIT ||
       (parent != NULL && !descriptor_is_open(parent, source))) return -EBADF;
-  if (parent != NULL && parent->pipes[source] != NULL) {
-    dolly_kernel_pipe *pipe = parent->pipes[source];
-    const unsigned direction = parent->pipe_directions[source];
-    retain_pipe(pipe, direction);
-    release_descriptor(process, target);
-    process->pipes[target] = pipe;
-    process->pipe_directions[target] = (unsigned char)direction;
-  } else if (parent != NULL && parent->sockets[source] != NULL) {
+  if (parent != NULL && parent->sockets[source] != NULL) {
     dolly_kernel_socket *socket = parent->sockets[source];
     ++socket->descriptors;
     release_descriptor(process, target);
@@ -1031,17 +1087,21 @@ static int unused_descriptor(const dolly_kernel_process *process, uint32_t minim
   return -EMFILE;
 }
 
-static int allocate_pipe_descriptor(dolly_kernel_process *process,
-                                    dolly_kernel_pipe *pipe,
-                                    unsigned direction) {
-  const int descriptor = unused_descriptor(process, 0);
-  if (descriptor >= 0) {
-    process->pipes[descriptor] = pipe;
-    process->pipe_directions[descriptor] = (unsigned char)direction;
-    process->descriptor_flags[descriptor] = 0;
-    retain_pipe(pipe, direction);
+/* COUNT streams on the lowest free descriptors, all or none (EMFILE). */
+static int place_streams(dolly_kernel_process *process, dolly_kernel_socket *const *sockets,
+                         uint32_t count, unsigned char flags, uint32_t *descriptors) {
+  int descriptor = -1;
+  for (uint32_t index = 0; index < count; ++index) {
+    descriptor = unused_descriptor(process, (uint32_t)(descriptor + 1));
+    if (descriptor < 0) return descriptor;
+    descriptors[index] = (uint32_t)descriptor;
   }
-  return descriptor;
+  for (uint32_t index = 0; index < count; ++index) {
+    process->sockets[descriptors[index]] = sockets[index];
+    process->descriptor_flags[descriptors[index]] = flags;
+    ++sockets[index]->descriptors;
+  }
+  return 0;
 }
 
 /* The process that has not exited with the lowest PID above `after`. */
@@ -1072,16 +1132,14 @@ static int64_t open_process_list(dolly_kernel_process *reader, uint32_t flags) {
                  "every process's line fits the pipe");
   if ((flags & ~(DOLLY_PROCESS_OPEN_READ | DOLLY_PROCESS_OPEN_NOFOLLOW |
                  DOLLY_PROCESS_OPEN_CLOEXEC)) != 0) return -EACCES;
-  if (live_pipe_count >= DOLLY_KERNEL_PIPE_LIMIT) return -ENFILE;
-  dolly_kernel_pipe *list = calloc(1, sizeof(*list));
-  if (list == NULL) return -ENOMEM;
-  const int descriptor = allocate_pipe_descriptor(reader, list, DOLLY_KERNEL_PIPE_READ);
-  if (descriptor < 0) {
-    free(list);
-    return descriptor;
-  }
-  ++live_pipe_count;
-  for (const dolly_kernel_process *process = next_live_process(0); process != NULL;
+  dolly_kernel_socket *ends[2];
+  const int made = dolly_kernel_pipe_open(ends);
+  if (made != 0) return made;
+  dolly_kernel_pipe *list = pipe_of(ends[0]);
+  uint32_t descriptor;
+  const int placed = place_streams(reader, ends, 1,
+      (flags & DOLLY_PROCESS_OPEN_CLOEXEC) ? DOLLY_PROCESS_FD_CLOEXEC : 0, &descriptor);
+  for (const dolly_kernel_process *process = placed != 0 ? NULL : next_live_process(0); process != NULL;
        process = next_live_process(process->pid)) {
     char *line = (char *)list->bytes + list->size;
     size_t length = (size_t)snprintf(line, line_limit, "%d %d %s", process->pid, process->parent_pid,
@@ -1097,9 +1155,11 @@ static int64_t open_process_list(dolly_kernel_process *reader, uint32_t flags) {
     line[length++] = '\n';
     list->size += length;
   }
-  reader->descriptor_flags[descriptor] =
-      (flags & DOLLY_PROCESS_OPEN_CLOEXEC) ? DOLLY_PROCESS_FD_CLOEXEC : 0;
-  const dolly_process_path_open_response response = {(uint32_t)descriptor, 0};
+  /* No writer: the reader reads the list to its end. */
+  dolly_kernel_socket_release(ends[1]);
+  dolly_kernel_socket_release(ends[0]);
+  if (placed != 0) return placed;
+  const dolly_process_path_open_response response = {descriptor, 0};
   return respond(&response, sizeof(response));
 }
 
@@ -1414,27 +1474,6 @@ static int64_t fd_read_packet(dolly_kernel_process *process,
   memcpy(&request, process_mailbox, sizeof(request));
   if (request.reserved != 0 || request.size > response_capacity) return -EINVAL;
   if (request.descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT) return -EBADF;
-  dolly_kernel_pipe *pipe = process->pipes[request.descriptor];
-  if (pipe != NULL) {
-    if (process->pipe_directions[request.descriptor] != DOLLY_KERNEL_PIPE_READ) {
-      return -EBADF;
-    }
-    if (request.size == 0) return 0;
-    if (pipe->size == 0) {
-      return pipe->writers == 0 ? 0 : pipe->nonblocking[0] ? -EAGAIN :
-          DOLLY_PROCESS_DISPATCH_DEFERRED;
-    }
-    size_t count = (size_t)request.size;
-    if (count > pipe->size) count = pipe->size;
-    size_t first = DOLLY_KERNEL_PIPE_CAPACITY - pipe->offset;
-    if (first > count) first = count;
-    memcpy(process_mailbox, pipe->bytes + pipe->offset, first);
-    memcpy(process_mailbox + first, pipe->bytes, count - first);
-    pipe->offset = (pipe->offset + count) % DOLLY_KERNEL_PIPE_CAPACITY;
-    pipe->size -= count;
-    wakeup_pending = 1;
-    return (int64_t)count;
-  }
   if (process->sockets[request.descriptor] != NULL) {
     return socket_read(process, process->sockets[request.descriptor], request.descriptor, (size_t)request.size);
   }
@@ -1570,32 +1609,6 @@ static int64_t fd_write_packet(dolly_kernel_process *process,
   memcpy(&request, process_mailbox, sizeof(request));
   if (request.reserved != 0 || request.size != request_size - sizeof(request)) return -EINVAL;
   if (request.descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT) return -EBADF;
-  dolly_kernel_pipe *pipe = process->pipes[request.descriptor];
-  if (pipe != NULL) {
-    if (process->pipe_directions[request.descriptor] != DOLLY_KERNEL_PIPE_WRITE) {
-      return -EBADF;
-    }
-    if (request.size == 0) {
-      const dolly_process_io_result response = {0};
-      return respond(&response, sizeof(response));
-    }
-    if (pipe->readers == 0) return -EPIPE;
-    const size_t available = DOLLY_KERNEL_PIPE_CAPACITY - pipe->size;
-    if (available == 0 || (request.size <= PIPE_BUF && available < request.size))
-      return pipe->nonblocking[1] ? -EAGAIN : DOLLY_PROCESS_DISPATCH_DEFERRED;
-    size_t completed = (size_t)request.size;
-    if (completed > available) completed = available;
-    const size_t tail = (pipe->offset + pipe->size) % DOLLY_KERNEL_PIPE_CAPACITY;
-    size_t first = DOLLY_KERNEL_PIPE_CAPACITY - tail;
-    if (first > completed) first = completed;
-    memcpy(pipe->bytes + tail, process_mailbox + sizeof(request), first);
-    memcpy(pipe->bytes, process_mailbox + sizeof(request) + first,
-           completed - first);
-    pipe->size += completed;
-    wakeup_pending = 1;
-    const dolly_process_io_result response = {completed};
-    return respond(&response, sizeof(response));
-  }
   if (process->sockets[request.descriptor] != NULL) {
     dolly_kernel_socket *socket = process->sockets[request.descriptor];
     const int64_t sent = socket->kind->send(socket, process_mailbox + sizeof(request),
@@ -1864,29 +1877,6 @@ static uint16_t fd_poll_events(dolly_kernel_process *process,
     return DOLLY_PROCESS_POLL_INVALID;
   }
 
-  dolly_kernel_pipe *pipe = process->pipes[query->descriptor];
-  if (pipe != NULL) {
-    const unsigned direction = process->pipe_directions[query->descriptor];
-    uint16_t result = 0;
-    if (direction == DOLLY_KERNEL_PIPE_READ) {
-      if ((requested & DOLLY_PROCESS_POLL_READ) != 0 && pipe->size != 0) {
-        result |= DOLLY_PROCESS_POLL_READ;
-      }
-      if (pipe->writers == 0) result |= DOLLY_PROCESS_POLL_HANGUP;
-    } else if (direction == DOLLY_KERNEL_PIPE_WRITE) {
-      /* With no reader a write fails at once: an error, and no wait. A
-       * hang-up is the reader's news that the writers went (POSIX). */
-      if (pipe->readers == 0) {
-        result |= DOLLY_PROCESS_POLL_ERROR | (requested & DOLLY_PROCESS_POLL_WRITE);
-      } else if ((requested & DOLLY_PROCESS_POLL_WRITE) != 0 &&
-                 pipe->size < DOLLY_KERNEL_PIPE_CAPACITY) {
-        result |= DOLLY_PROCESS_POLL_WRITE;
-      }
-    } else {
-      result |= DOLLY_PROCESS_POLL_INVALID;
-    }
-    return result;
-  }
   if (process->sockets[query->descriptor] != NULL) {
     const dolly_kernel_socket *socket = process->sockets[query->descriptor];
     return socket->kind->poll(socket, requested);
@@ -2171,12 +2161,8 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       const int result = decode_fd_request(process, request_size, &guest);
       if (result != 0) return result;
       uint32_t flags;
-      if (process->pipes[guest] != NULL) {
-        const unsigned end = process->pipe_directions[guest] - 1;
-        flags = end == 0 ? DOLLY_PROCESS_FD_STATUS_READ : DOLLY_PROCESS_FD_STATUS_WRITE;
-        if (process->pipes[guest]->nonblocking[end]) flags |= DOLLY_PROCESS_FD_STATUS_NONBLOCK;
-      } else if (process->sockets[guest] != NULL) {
-        flags = DOLLY_PROCESS_FD_STATUS_READ | DOLLY_PROCESS_FD_STATUS_WRITE |
+      if (process->sockets[guest] != NULL) {
+        flags = process->sockets[guest]->kind->access |
             (process->sockets[guest]->nonblocking ? DOLLY_PROCESS_FD_STATUS_NONBLOCK : 0);
       } else {
         const int descriptor = descriptor_for(process, guest);
@@ -2204,12 +2190,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       const int nonblocking = (request.flags & DOLLY_PROCESS_FD_STATUS_NONBLOCK) != 0;
       if (process->descriptors[request.descriptor] < 0) {
         if (request.flags & DOLLY_PROCESS_FD_STATUS_APPEND) return -ENOTSUP;
-        if (process->sockets[request.descriptor] != NULL) {
-          process->sockets[request.descriptor]->nonblocking = (unsigned char)nonblocking;
-          return 0;
-        }
-        const unsigned end = process->pipe_directions[request.descriptor] - 1;
-        process->pipes[request.descriptor]->nonblocking[end] = (unsigned char)nonblocking;
+        process->sockets[request.descriptor]->nonblocking = (unsigned char)nonblocking;
         return 0;
       }
       const int descriptor = descriptor_for(process, request.descriptor);
@@ -2227,28 +2208,15 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       dolly_process_pipe_request request;
       memcpy(&request, process_mailbox, sizeof(request));
       if (request.reserved != 0 || (request.flags & ~DOLLY_PROCESS_FD_CLOEXEC)) return -EINVAL;
-      if (live_pipe_count >= DOLLY_KERNEL_PIPE_LIMIT) return -ENFILE;
-      dolly_kernel_pipe *pipe = calloc(1, sizeof(*pipe));
-      if (pipe == NULL) return -ENOMEM;
-      ++live_pipe_count;
-      int read_descriptor = allocate_pipe_descriptor(
-          process, pipe, DOLLY_KERNEL_PIPE_READ);
-      if (read_descriptor < 0) {
-        free(pipe);
-        --live_pipe_count;
-        return read_descriptor;
-      }
-      int write_descriptor = allocate_pipe_descriptor(
-          process, pipe, DOLLY_KERNEL_PIPE_WRITE);
-      if (write_descriptor < 0) {
-        release_descriptor(process, (uint32_t)read_descriptor);
-        return write_descriptor;
-      }
-      process->descriptor_flags[read_descriptor] = (unsigned char)request.flags;
-      process->descriptor_flags[write_descriptor] = (unsigned char)request.flags;
-      dolly_process_pipe_response response = {
-          (uint32_t)read_descriptor, (uint32_t)write_descriptor,
-      };
+      dolly_kernel_socket *ends[2];
+      const int made = dolly_kernel_pipe_open(ends);
+      if (made != 0) return made;
+      uint32_t descriptors[2];
+      const int placed = place_streams(process, ends, 2, (unsigned char)request.flags, descriptors);
+      dolly_kernel_socket_release(ends[0]);
+      dolly_kernel_socket_release(ends[1]);
+      if (placed != 0) return placed;
+      dolly_process_pipe_response response = {descriptors[0], descriptors[1]};
       return respond(&response, sizeof(response));
     }
     case DOLLY_PROCESS_FD_READ_DIRECTORY:
@@ -2258,12 +2226,10 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       uint32_t guest;
       const int result = decode_fd_request(process, request_size, &guest);
       if (result != 0) return result;
-      dolly_process_stat_response response = {
-          .mode = 0600, .link_count = 1, .block_size = 4096,
-          .file_type = process->sockets[guest] != NULL
-              ? process->sockets[guest]->kind->file_type : DOLLY_PROCESS_FILE_FIFO,
-      };
-      if (process->descriptors[guest] >= 0) {
+      dolly_process_stat_response response = {.mode = 0600, .link_count = 1, .block_size = 4096};
+      if (process->sockets[guest] != NULL) {
+        response.file_type = process->sockets[guest]->kind->file_type;
+      } else {
         struct stat metadata;
         if (fstat(process->descriptors[guest], &metadata) != 0) return -errno;
         encode_stat(&metadata, &response);
@@ -2740,19 +2706,7 @@ int dolly_kernel_socket_open(int pid, dolly_kernel_socket *const *sockets, uint3
                              int close_on_exec, uint32_t *descriptors) {
   dolly_kernel_process *process = find_process(pid);
   if (process == NULL) return -ESRCH;
-  int descriptor = -1;
-  for (uint32_t index = 0; index < count; ++index) {
-    descriptor = unused_descriptor(process, (uint32_t)(descriptor + 1));
-    if (descriptor < 0) return descriptor;
-    descriptors[index] = (uint32_t)descriptor;
-  }
-  for (uint32_t index = 0; index < count; ++index) {
-    process->sockets[descriptors[index]] = sockets[index];
-    process->descriptor_flags[descriptors[index]] =
-        close_on_exec ? DOLLY_PROCESS_FD_CLOEXEC : 0;
-    ++sockets[index]->descriptors;
-  }
-  return 0;
+  return place_streams(process, sockets, count, close_on_exec ? DOLLY_PROCESS_FD_CLOEXEC : 0, descriptors);
 }
 
 int dolly_kernel_process_directory(int pid) {
