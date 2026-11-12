@@ -251,6 +251,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["html", "/usr/bin/html"],
     ["less", "/usr/bin/less"],
     ["libdolly-audio", "/usr/lib/dolly/process/libdolly-audio.a"],
+    ["libdolly-clipboard", "/usr/lib/dolly/process/libdolly-clipboard.a"],
     ["libdolly-gpu", "/usr/lib/dolly/process/libdolly-gpu.a"],
     ["libdolly-microphone", "/usr/lib/dolly/process/libdolly-microphone.a"],
     ["libdolly-sockets", "/usr/lib/dolly/process/libdolly-sockets.a"],

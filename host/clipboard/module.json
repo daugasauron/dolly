@@ -1,0 +1,15 @@
+{
+  "name": "clipboard",
+  "version": 0,
+  "gives": "a clipboard a program copies to and reads the user's paste from",
+  "dependencies": ["runtime@0", "input@0"],
+  "phase": "image",
+  "imports": [],
+  "host": "clipboard.mjs",
+  "contracts": ["dolly-clipboard-0.wat"],
+  "process": [],
+  "headers": ["clipboard.h", "clipboard-abi.h"],
+  "kernel": ["kernel.c"],
+  "client": ["client.c"],
+  "package": "libdolly-clipboard"
+}
