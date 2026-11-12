@@ -5,9 +5,8 @@ import assert from "node:assert/strict";
 import { browserTest, composed, runSteps } from "./browser.mjs";
 import cppDso from "./cases/cpp-dso.json" with { type: "json" };
 
-const fixtures = Object.fromEntries(["dso-check.c", "dso-library.c", "dso-cpp-check.cpp", "dso-cpp-library.cpp"]
-  .map(name => [name, `src/process/${name}`]));
-for (const name of ["process-signals.c", "dso-threads.c", "dso-threads-library.cpp"]) fixtures[name] = `test/fixtures/${name}`;
+const fixtures = Object.fromEntries(["dso-check.c", "dso-library.c", "dso-cpp-check.cpp", "dso-cpp-library.cpp",
+  "process-signals.c", "dso-threads.c", "dso-threads-library.cpp"].map(name => [name, `test/fixtures/${name}`]));
 const served = { ...fixtures, ...cppDso.fixtures };
 const sources = {
   // A library that records a module this image does not declare.

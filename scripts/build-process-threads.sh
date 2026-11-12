@@ -26,10 +26,12 @@ internal=(-I/emsdk/upstream/emscripten/system/lib/libc/musl/arch/emscripten \
   -I/emsdk/upstream/emscripten/system/lib/libc/musl/include \
   -I/emsdk/upstream/emscripten/system/lib/libc \
   -I/emsdk/upstream/emscripten/system/lib/pthread)
-for source in libc-adapter runtime-adapter socket-refusals libc-stubs mmap time poll signal abort threads crt1; do
+for source in libc-adapter runtime-adapter socket-refusals libc-stubs mmap time poll signal abort crt1; do
   emcc "${flags[@]}" "${internal[@]}" -c "src/process/$source.c" -o "$target/$source.o"
 done
-emcc "${flags[@]}" -c src/process/threads-start.S -o "$target/threads-start.o"
+# libc's pthreads over threads@0 are the module's (host/threads/).
+emcc "${flags[@]}" "${internal[@]}" -Isrc/process -c host/threads/pthreads.c -o "$target/threads.o"
+emcc "${flags[@]}" -c host/threads/pthreads-start.S -o "$target/threads-start.o"
 rm -f "$target/libdolly-process.a" "$target/libdolly-runtime.a"
 emar rcsD "$target/libdolly-process.a" "$target"/{libc-adapter,mmap,time,poll,signal,abort,threads,threads-start}.o
 for source in time/getdate legacy/getpass; do

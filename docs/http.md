@@ -171,7 +171,7 @@ const relays = [{
 - C: [`host/http/http.h`](../host/http/http.h) provides `dolly_http_start`, `_poll`,
   `_cancel` and the synchronous `dolly_http_perform`.
 - libcurl: official curl 8.21 headers over
-  [`libcurl-fetch.c`](../src/libcurl-fetch.c), linked with `-lcurl`. It covers
+  [`libcurl.c`](../host/http/libcurl.c), linked with `-lcurl`. It covers
   easy and multi handles, header lists, common methods,
   read/write/header/debug/progress callbacks, `PRIVATE`, `HTTPAUTH` basic and
   info queries: the subset real ports need, not every libcurl behavior.

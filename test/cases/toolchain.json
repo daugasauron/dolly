@@ -7,7 +7,7 @@
     "io-stress.c": "test/fixtures/process-io-stress.c",
     "env-driver.c": "src/process/env-driver.c",
     "cpp-check.cpp": "src/process/cpp-check.cpp",
-    "http-check.c": "src/process/http-check.c",
+    "http-check.c": "test/fixtures/http-check.c",
     "pipe-check.c": "src/process/pipe-check.c",
     "pipe-driver.c": "src/process/pipe-driver.c",
     "poll-check.c": "src/process/poll-check.c",
