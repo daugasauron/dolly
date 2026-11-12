@@ -102,9 +102,6 @@ await browserTest("html", { image: "system", timeout: 300_000 }, async ({ name, 
   assert.equal(await popup.count(), 0);
   await run(`test "$(cat /tmp/fields)" = 'name=Ada+%3CLovelace%3E+%26+co&lang=c&lang=rust&note=first+%3Cline%3E+%26+more&agree=on&choice=yes'`);
   assert.equal(await page.evaluate(() => document.activeElement.id), "keyboard", "the terminal has the keyboard again");
-  // An answer is followed by the same two seconds without a popup as a close.
-  assert.equal(await submit("html /home/dolly/question.html"), 1);
-  await page.waitForTimeout(2000);
 
   // Closing is the program's status 1; for two seconds after it no popup shows.
   [status] = await show("html /home/dolly/question.html");

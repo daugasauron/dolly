@@ -40,8 +40,8 @@ test("html module bounds spans, shows one popup and answers it once", () => {
   assert.equal(serviced, 1, "the waiting program resumes at once");
   assert.equal(dispatch(DOLLY_HTML_ANSWER, 0, 4), -E.EMSGSIZE);
   assert.equal(dispatch(DOLLY_HTML_ANSWER, 0, 16), -E.EBADF, "an answer is given once");
-  // An answer, as a close, is followed by two seconds without a popup.
-  assert.equal(dispatch(DOLLY_HTML_OPEN, 4096, document.length), -E.ECANCELED);
+  // An answer is not a close: a program may ask its next question at once.
+  assert.equal(dispatch(DOLLY_HTML_OPEN, 4096, document.length), 0);
 
   [module, dispatch] = fresh();
   assert.equal(dispatch(DOLLY_HTML_OPEN, 4096, document.length), 0);
@@ -65,5 +65,5 @@ test("html module bounds spans, shows one popup and answers it once", () => {
   module.messages["html-answer"]({ popup: 2, fields: null });
   assert.equal(dispatch(DOLLY_HTML_ANSWER, 0, 16), -E.ECANCELED);
   assert.equal(dispatch(DOLLY_HTML_OPEN, 4096, document.length), -E.ECANCELED);
-  assert.equal(sent.filter(({ type }) => type === "html-show").length, 5);
+  assert.equal(sent.filter(({ type }) => type === "html-show").length, 6);
 });

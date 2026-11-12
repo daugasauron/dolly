@@ -12,13 +12,15 @@ On `fix/batch` (`dd1087119`): console backpressure (the page holds a 4 MiB windo
 the Worker stops reading past it), html's caption and its notice for an answer over 64 KiB,
 packages counted when found, frame dimensions bounded, the session and review-map wording.
 
-On `fix/console-interrupt`: the quiet period follows an answer as it follows a close; the
-sessions page's Import says which modules the save starts with (its image's, or those its
+On `fix/console-interrupt`: the sessions page's Import says which modules the save starts with (its image's, or those its
 Dollyfile names); a test for each behaviour: `console-browser.mjs` (20 MB nobody reads waits,
-then arrives whole), `html-browser.mjs` and `html-host.test.mjs` (the notice, the quiet period
-after an answer), `amy-browser.mjs` (65 misses, then an install), `display-transport.test.mjs`
+then arrives whole), `html-browser.mjs` (the notice), `amy-browser.mjs` (65 misses, then an install), `display-transport.test.mjs`
 (a frame within the capacity but past the largest width or height; fails without the check),
 `custom-session-browser.mjs` (the import names each module; passed in Chromium and Firefox).
+Not done, decided: the quiet period after an answer. An agent asks its next question at once
+(Pi's ask-user: a form, then the report), which two seconds of refusal would end as if the user
+had closed it. A click meant for the last popup landing on the next is better met by the new
+popup ignoring activation for a moment than by refusing it; not measured as a problem yet.
 Left: the autofill measurement on `email`, `tel` and `cc-number` fields.
 
 ## Do
