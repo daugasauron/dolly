@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # Makefile below from its generic configuration, as projects that vendor it
 # do: Unicode properties, no JIT (a Dolly program generates no code). GLib's
 # regular expressions are PCRE2's.
-FROM /v0.1.6/demos/tools/Dollyfile-tools-build cbe3d6a4d8c9bb085fbc44c5f832b67e42379e333f5ea3d15b7eb9dec6a84e59
+FROM /v0.1.6/demos/tools/Dollyfile-tools-build 1b6a578f4d871b703d80dfc89c1a2985f58b83b1f5674d04b563830decf75501
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar

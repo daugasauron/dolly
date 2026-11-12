@@ -16,12 +16,12 @@ REQUIRES HOST gpu@0
 # browser grants WebGPU, and its Compatibility renderer on Mesa's OpenGL (EGL
 # and softpipe, linked in from mesa-build) where it does not, with its sound on
 # audio@0. It plays on the page or runs a project with --headless.
-FROM /v0.1.6/demos/ghostty-gtk/Dollyfile-mesa-build 9bf7b214abdfc168af9a443c8fbbcbd3ffb5b43990cd3042a33dee132109bd77
-USE /v0.1.6/demos/tools/Dollyfile-scons e2b9364b80eb168df567eae5aa213a4ab038423664571e98b6cdcbc756494e27
-USE /v0.1.6/Dollyfile-mandoc 974091f2d31a9db92d108ca0942554c0f318d3b790f6ed1721171584ffe1733a
+FROM /v0.1.6/demos/ghostty-gtk/Dollyfile-mesa-build b9f0e2ba283973866d1c640f71c6d27f5ee3603328fa66d12790628539cd1372
+USE /v0.1.6/demos/tools/Dollyfile-scons 1f8bf3e0c9dfc8defe80910ed0aede4c185740297ce2edab64dbe956cd2134a3
+USE /v0.1.6/Dollyfile-mandoc 662e1e227c145339f7d7e54bdcecc523bb9b3fc80902720fbb3e179cf82324d8
 USE /v0.1.6/Dollyfile-libdolly-gpu cd9aa3833517983394b056238013d9dde703ac50678c090a1b4b04a9cec6cd46
 USE /v0.1.6/Dollyfile-libdolly-sockets 443718e31849e2212effd848a41f8998faccf2c98a11af46f7669840f0f74d41
-USE /v0.1.6/demos/godot/Dollyfile-spirv-wgsl db7e99fae4637d754f872533af9e9c99136d05ded174b6e32470410626bd36a9
+USE /v0.1.6/demos/godot/Dollyfile-spirv-wgsl 091b819e04fde21dea17e191e5952a812d115b0410f98cc21eb9aa571252ac0a
 USE /v0.1.6/Dollyfile-libdolly-audio 0f949b8e81e54389e2ea64fb25254096bc0222c04ea0c5462a40a93d3732d315
 
 REQUIRES TOOL cp
@@ -34,7 +34,7 @@ REQUIRES TOOL scons
 REQUIRES TOOL tar
 REQUIRES TOOL text-page
 
-SOURCE /v0.1.6/dist/static/godot/source.tar.gz 270cdf9a579a83930bd48e8886be5dff447b7746e2a4f22c5e9ab2154020a87c /tmp/godot-source.tar.gz
+SOURCE /v0.1.6/dist/static/godot/source.tar.gz 3b134af660c6ed3501a54e530b3af0209a694e073c523a8831069c55bedc54be /tmp/godot-source.tar.gz
 SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
 # Godot's modern renderers take only the drivers main.cpp names; glslang builds beside them;
 # Forward+ starts SDFGI only on a device with image atomics, which its voxelization takes.

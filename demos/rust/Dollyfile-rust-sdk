@@ -23,7 +23,7 @@ REQUIRES TOOL mkdir
 
 # The external seed: rustc and its standard library, linked, and Cargo as one
 # object. The linker adapter is compiled inside Dolly.
-SOURCE /v0.1.6/dist/static/rust/rust-sdk.tar.gz d984dbe75d523bb43a2f0725097fa7a07007a08a16edd421e7c05ceee072a3b4 /tmp/rust-sdk.tar.gz
+SOURCE /v0.1.6/dist/static/rust/rust-sdk.tar.gz 38a48649e61f3763dd595a63635afed9bed488d6e917d4214b6c471199095e85 /tmp/rust-sdk.tar.gz
 SLOP mkdir -p /opt
 SLOP gzip -dc /tmp/rust-sdk.tar.gz | tar -xf - -C /opt
 SOURCE /v0.1.6/dist/static/rust/rustc.sh 03589f0b44268b0bb22c1d5db37aa58cd882a8d2dae81902a23ab2385c3dde6e /opt/rust-sdk/bin/rustc
