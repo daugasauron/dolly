@@ -1,8 +1,8 @@
 # The console test's flood never ends after an earlier console's close or interrupt, on the page
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 320
-- TAGS: console,bug,tests
+- TAGS: console,bug,tests,0.1.6
 
 Found on main `2b8036055` (2026-11-12 evening): the post-round console test's "console pipes"
 timed out in Chromium (`work/modular/build/round-1112p-evidence/console.log`).
@@ -35,3 +35,16 @@ page's console messages (`console-pause`, `console-resume`, `console-output`) of
 ## Done when
 
 "console pipes" passes in Chromium and Firefox, its flood delivering 20,000,000 bytes.
+
+## Closed (2026-11-13)
+
+The cause: a closed console's id was the next console's. `dolly_console_close` freed the id at
+once while the closed console's program still ran, `dolly_console_open_pipes` gave the lowest free
+id again, and the page and the Worker route a console's messages by id: the closed program's end
+reached the next console. Split in Chromium on main's build: the flood after the endless console's
+`close()` alone delivered every byte but "exited" at once with 141 (the closed program's
+SIGPIPE); after the sleeper's `interrupt()` alone it was right; after both it received nothing.
+Now an id is a slot and how many consoles the slot has held (`host/console/kernel.c`), so a closed
+console's id names nothing again (`dolly-console-0.wat` says so); image inputs unchanged
+(`46de2b9c…`). `test/console-browser.mjs` passes in Chromium and Firefox, its flood `dd | cat`
+waiting at 3 s and then delivering 20,000,000 bytes with status 0; the three splits likewise.

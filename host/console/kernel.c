@@ -19,7 +19,7 @@ static unsigned char transfer[CONSOLE_TRANSFER_BYTES];
 /* A pipe console is three kernel pipes: the host holds descriptor 0's write
  * end and the read ends of 1 and 2, and gives the process the others. */
 typedef struct {
-  int used;
+  int used, id;
   dolly_pty *pty;                 /* A terminal console's. */
   dolly_kernel_socket *host[3];   /* A pipe console's ends that the host holds. */
   dolly_kernel_socket *given[3];  /* Its ends for the process, until it has them. */
@@ -29,13 +29,23 @@ static console consoles[DOLLY_PTY_LIMIT];
 
 uintptr_t dolly_console_transfer_address(void) { return (uintptr_t)transfer; }
 
+/* An id is a slot and how many consoles the slot has held, so a closed console's id names
+ * nothing again: the end of its program, which the host learns later, cannot reach the
+ * console that takes the slot after it. */
+static uint32_t generations[DOLLY_PTY_LIMIT];
+
 static console *find(int id) {
-  return id >= 0 && id < (int)DOLLY_PTY_LIMIT && consoles[id].used ? &consoles[id] : NULL;
+  if (id < 0) return NULL;
+  console *found = &consoles[(uint32_t)id % DOLLY_PTY_LIMIT];
+  return found->used && found->id == id ? found : NULL;
 }
 
+/* A free slot's next id, or -ENFILE. */
 static int free_id(void) {
-  for (int id = 0; id < (int)DOLLY_PTY_LIMIT; ++id) {
-    if (!consoles[id].used) return id;
+  for (uint32_t slot = 0; slot < DOLLY_PTY_LIMIT; ++slot) {
+    if (consoles[slot].used) continue;
+    generations[slot] = (generations[slot] + 1) % (INT32_MAX / DOLLY_PTY_LIMIT);
+    return (int)(slot + DOLLY_PTY_LIMIT * generations[slot]);
   }
   return -ENFILE;
 }
@@ -51,15 +61,15 @@ int dolly_console_open(uint32_t columns, uint32_t rows) {
   int error;
   dolly_pty *pty = dolly_pty_pair(rows, columns, &error);
   if (pty == NULL) return error;
-  consoles[id] = (console){.used = 1, .pty = pty};
+  consoles[id % DOLLY_PTY_LIMIT] = (console){.used = 1, .id = id, .pty = pty};
   return id;
 }
 
 int dolly_console_open_pipes(void) {
   const int id = free_id();
   if (id < 0) return id;
-  console *opened = &consoles[id];
-  *opened = (console){.used = 1};
+  console *opened = &consoles[id % DOLLY_PTY_LIMIT];
+  *opened = (console){.used = 1, .id = id};
   for (int descriptor = 0; descriptor < 3; ++descriptor) {
     dolly_kernel_socket *ends[2];
     const int made = dolly_kernel_pipe_open(ends);

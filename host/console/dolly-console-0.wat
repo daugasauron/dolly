@@ -8,8 +8,9 @@
   ;; host writes descriptor 0's and reads 1's and 2's, byte for byte. The host
   ;; calls these on its supervisor's thread; none waits. There are at most
   ;; DOLLY_PTY_LIMIT consoles (ENFILE), and a terminal one is a pseudo-terminal
-  ;; too. No process calls them, so this contract records no executable's
-  ;; identity.
+  ;; too. An id names one console for the session: once closed, it names none
+  ;; again, though its program may end later. No process calls them, so this
+  ;; contract records no executable's identity.
 
   ;; What write takes and read gives, in kernel memory, at this address.
   (global (export "DOLLY_CONSOLE_TRANSFER_BYTES") i32 (i32.const 65536))
@@ -56,7 +57,7 @@
   (func (export "dolly_console_resize") (param i32 i32 i32) (result i32)
     i32.const 0)
   ;; The host lets go: SIGHUP for the programs on a terminal's slave, EPIPE for
-  ;; their writes to pipes; the id is free.
+  ;; their writes to pipes; the id names no console after this.
   (func (export "dolly_console_close") (param i32) (result i32)
     i32.const 0)
 )
