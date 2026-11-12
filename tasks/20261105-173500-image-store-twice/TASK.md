@@ -45,6 +45,12 @@ build keeps it for its own run and drops it after, and a later build merges the 
 (no download, the merge's time each build). Custom and rebuilt images, which have no packs, stay
 in the cache.
 
+All three give up what `image-browser.mjs` asserts on purpose: a second build in the tab reads the
+base's decoded payload from the cache ("a second build reads its cached payload only"), the
+iteration loop's speed. Each costs a merge of the kept packs per build instead (gzip and the
+record merge of, for `system`, its whole snapshot); measure that against the cached read before
+choosing.
+
 Done when an image read once occupies its snapshot's size (within the packs' framing), it
 starts again without a download, and the image, session and acceptance browser tests pass
 in Chromium and Firefox.
