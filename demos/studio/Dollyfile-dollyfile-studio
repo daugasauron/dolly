@@ -36,7 +36,7 @@ REQUIRES TOOL sha256sum
 REQUIRES TOOL sed
 # dollyfile-build starts disposable image builds through the page.
 
-SOURCE /v0.1.6/dist/static/studio/studio.tar 8063ba89bf96cb4f4b6b8e8c1c10259ee16095a3623d1d68329632a9d7ac36a7 /tmp/dollyfile-studio/source.tar
+SOURCE /v0.1.6/dist/static/studio/studio.tar 98ff531a89facdb954fe4595b9f57216141c83c6ad869a4e2bd68ee5a325211e /tmp/dollyfile-studio/source.tar
 SLOP tar -xf /tmp/dollyfile-studio/source.tar -C /
 SLOP slop -e /usr/share/dollyfile-studio/install.slop
 SLOP dollyfile-lint /usr/share/dollyfile-studio/examples/Dollyfile-hello
