@@ -255,7 +255,18 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
     answers.clear();
     for (const instance of [...instances.values()].reverse()) instance.dispose?.();
   }
+  // The providers of these modules and their dependencies load together; attach takes them in order.
+  function load(values, seen = new Set()) {
+    for (const value of values) {
+      const { name, version } = hostRequirement(value), module = byName.get(name);
+      if (seen.has(name) || module?.contract.version !== version) continue;
+      seen.add(name);
+      module.provider().catch(() => {});
+      load(module.contract.dependencies, seen);
+    }
+  }
   try {
+    load(selected);
     for (const value of selected) await attach(value);
     if (kernels.length !== 1) {
       // A requested module this page lacks may be the runtime the image declares.

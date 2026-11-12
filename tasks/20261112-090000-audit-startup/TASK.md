@@ -51,7 +51,16 @@ threads; the source suite):
   preload links, 3,794, 3,809 and 4,122 ms with links to the 17 modules of `src/site.mjs`'s static
   graph (the proxy injected them). On `fix/batch` `generate-routes.mjs` writes those links into
   every route page (`{{DOLLY_PRELOAD}}` in `terminal.html`). The Worker's graph is its own
-  module map, which a page's preload does not fill.
+  module map, which a page's preload does not fill: Chrome 156 refuses `as="worker"` on a
+  modulepreload link and Firefox ignores it, and both fetch the Worker's modules again.
+- Found on the way, measured on `test/events` (`0a471165b`) through a proxy that holds every
+  request 50 ms, `default`, a warm reload (packs in OPFS), Chrome 156: the host providers loaded
+  one after another, on the page and again in the Worker, each with its own imports, about 900 ms
+  a side. `createHost` now starts every provider its modules and their dependencies need before
+  it attaches them in order (`host/modules.mjs`, `load`): 3,400 ms to ready with the preload
+  links, 2,033 ms with this too; the first visit 17.2 s, 10.3 s. What the Worker still waits on:
+  it starts once the page's providers have loaded, then its own 6 import levels, and it fetches
+  the catalog and the 21 manifests again (JSON modules, one module map a realm).
 Left: 2 (image contents, the owner's call per image).
 Measured: release 0.1.6 as served on `127.0.0.1:9045` (release `a73ad906…`, 211 images,
 catalog 2,056,929 B), Chrome 156, images default, pi-agent, bhop, neovim, python-data
