@@ -39,6 +39,12 @@ the builder restores, not the packs one after another. Keeping one copy means th
 holding pack references and its reader merging them as `packagedSystemSnapshot` does, with the
 digest checked over the merge.
 
+A third: a published image is not entered in the image cache at all. `describeImageArtifact`
+writes the merge to a file because a Blob of parts past 500 MiB is unreadable in Chrome; the
+build keeps it for its own run and drops it after, and a later build merges the kept packs again
+(no download, the merge's time each build). Custom and rebuilt images, which have no packs, stay
+in the cache.
+
 Done when an image read once occupies its snapshot's size (within the packs' framing), it
 starts again without a download, and the image, session and acceptance browser tests pass
 in Chromium and Firefox.
