@@ -1,6 +1,6 @@
 # Interrupting a Pi agent no longer cancels its model request
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 330
 - TAGS: pi,http,demos,0.1.6
 
@@ -87,3 +87,18 @@ output on when it ends (`docs/slop.md`, Pipelines), so Pi would get the prompt a
 Log in Janis's `failHttp` and `releaseHttp` (`/usr/lib/dolly/node.js` in the image) what the
 game's Pi does at the abort, and the result of `httpCancel`, written to Pi's standard error,
 which the harness keeps in `agent.stderr.log`. Done when the ClassiCube test passes in Chromium.
+
+## Closed (2026-11-12)
+
+Not a cancellation. A trace of http@0's calls in the process Worker during the ClassiCube test
+(each start, cancel and failed poll, with the kernel's answer) shows player 2's Pi cancelling its
+request at the interrupt, taken (0), and player 1's request never cancelled: the Escape went to
+player 2. The screen after the test's click on player 1's tab shows the page's notice of a
+refused request (Pi's `GET https://pi.dev/api/models/providers/openrouter`, which the test's rules
+do not admit) over the display's top left, where the tabs are, and the notice took the click: it
+came on 2026-11-11 (`4ec3519f9`). Fixed in `5a2dc9190`: the notice lets the pointer through, but
+on its buttons. With it, `demos/classicube/test/classicube-browser.mjs` passes in Chromium
+("interrupting one preserves the other") and `test/http-refusals-browser.mjs` in Chromium and
+Firefox (`test/events` at `0a471165b` with the fix). Wine's NetSurf had the same cause, its
+Back button at (18, 58) under the notice of its refused home page: `demos/wine/test/wine-browser.mjs`
+passes in Chromium with the fix ("link, Back and Forward work").
