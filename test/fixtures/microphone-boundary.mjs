@@ -4,6 +4,8 @@ export async function microphoneBoundaryProof() {
     import("../../host/microphone/provider.mjs"), import("../../host/microphone/abi.mjs"), import("../../src/process-constants.mjs")]);
   const check = (ok, message) => { if (!ok) throw Error(message); };
   let sequence = 0, asked = 0;
+  // A valid open asks the browser once the capture's consent is given, a turn later.
+  const turn = () => new Promise(resolve => setTimeout(resolve, 0));
   // A request as the lease bridge hands it on: the bridge checks the header.
   function packet(operation, scope = 1, frames) {
     const body = new Uint8Array(frames === undefined ? 0 : 8);
@@ -24,8 +26,7 @@ export async function microphoneBoundaryProof() {
     check(provider.dispatch(packet(9)).error === E.EBADF, "An unknown operation without a lease");
     check(asked === 0, "The browser was asked before a valid open");
     check(provider.dispatch(packet(M.DOLLY_MICROPHONE_OPEN)).error === 0, "Open failed");
-    // The browser is asked once the capture's consent is given, a turn after the open.
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await turn();
     check(asked === 1, "A valid open did not ask the browser");
     check(provider.dispatch(packet(M.DOLLY_MICROPHONE_OPEN, 2)).error === E.EBUSY && asked === 1, "A second capture was admitted");
     check(provider.dispatch(packet(9)).error === E.ENOSYS, "An unknown operation");
@@ -44,7 +45,9 @@ export async function microphoneBoundaryProof() {
     check(provider.status().liveTracks === 0 && provider.status().active === 0, "Revocation left the device held");
     check(provider.dispatch(packet(M.DOLLY_MICROPHONE_READ, 1, 128)).error === E.EBADF, "A revoked lease read samples");
     check(provider.dispatch(packet(M.DOLLY_MICROPHONE_OPEN)).error === E.ESTALE && asked === 1, "A lease was reused");
-    check(provider.dispatch(packet(M.DOLLY_MICROPHONE_OPEN, 2)).error === 0 && asked === 2, "A new lease was refused");
+    check(provider.dispatch(packet(M.DOLLY_MICROPHONE_OPEN, 2)).error === 0, "A new lease was refused");
+    await turn();
+    check(asked === 2, "A new lease did not ask the browser");
     provider.release(1);
     check(provider.dispatch(packet(M.DOLLY_MICROPHONE_STATUS, 2)).error === 0, "A stale revocation ended a new lease");
     check(provider.dispatch(packet(M.DOLLY_MICROPHONE_CLOSE, 2)).error === 0 && provider.status().active === 0, "Close failed");
