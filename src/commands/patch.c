@@ -65,6 +65,17 @@ int main(int argc, char **argv) {
     fprintf(stderr, "patch: %s: %s\n", directory, strerror(errno));
     return 2;
   }
+  // Inside a repository git apply takes paths from its top and skips those
+  // outside this directory; GNU patch applies here. So git looks for no
+  // repository above this directory.
+  char here[4096];
+  if (getcwd(here, sizeof(here)) == NULL) {
+    fprintf(stderr, "patch: the current directory: %s\n", strerror(errno));
+    return 2;
+  }
+  char *parent = strrchr(here, '/');
+  parent[parent == here] = '\0';
+  if (setenv("GIT_CEILING_DIRECTORIES", here, 1) != 0) return 2;
   const int status = run_program("patch", count, arguments, getenv("PATH"), -1);
   return status <= 1 ? status : 2;
 }
