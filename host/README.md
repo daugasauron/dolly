@@ -34,6 +34,7 @@ a page of the site names those its route uses ([`site.mjs`](../src/site.mjs)).
 | `kernel` | Kernel C; defines `dolly_NAME_kernel`, the process operations it handles and its release hook ([`process-kernel.h`](../src/process-kernel.h)) |
 | `client` | Process C linked as `libdolly-NAME.a`; it records `DOLLY_HOST_REQUIRE(NAME, VERSION, DOLLY_NAME_ABI_DIGEST)` |
 | `tools` | Process C a package builds from the module's directory: a program (`stack-wrap`) or a library over the module (http's `libcurl.c`, which the `curl` package builds); optional |
+| `seed` | A script the build runs in the toolchain container that writes `build/process-sysroot-parts/NAME/`, the module's part of the process sysroot, which the seed holds as `NAME/`: threads@0's is the threaded libc `cc -pthread` links; optional |
 | `package` | The package whose recipe installs the module's headers and clients, which the seed then leaves out; absent when the seed holds them |
 
 The core (the kernel, the supervisor, the Workers, `boot()` and the registry)
@@ -58,8 +59,8 @@ each a field of its manifest or a member of its provider:
   Workers (`processWorker`: `dso`, `stack`). A module that starts programs on
   streams of its own passes `start` to the supervisor's `spawn` (`console`).
 - **Programs** (`process`, `headers`, `client`, `tools`): the ABI executables
-  compile against and record, and the C built over it. libc's pthreads are
-  threads@0's (`host/threads/pthreads.c`), built into the seed's threaded libc.
+  compile against and record, and the C built over it; `seed`, its part of
+  the process sysroot (threads@0's threaded libc, `host/threads/pthreads.c`).
 
 A provider's `browser()` receives the page's shared resources (`mount`,
 `canvas`, `keyboard`, `applicationBase` (the image directory), `site` (the
