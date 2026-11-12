@@ -146,7 +146,8 @@ Worker URL.
   (`default`) gets the page's image directory, that directory's
   `amy-index.txt` and a published package's snapshot, rebuilt and verified
   from its packs exactly as a build input, over the module's mailbox
-  ([`transport.mjs`](../host/packages/transport.mjs)): the kernel writes them
+  ([`dolly-packages-0.wat`](../host/packages/dolly-packages-0.wat),
+  [`transport.mjs`](../host/packages/transport.mjs)): the kernel writes them
   into a file of the guest's that must not exist, as upload@0 does; another
   directory there is `EACCES`. Another directory's snapshot goes through
   `http@0`, as `…/v1/packages/SHA256/from/DIRECTORY` after ENTRY starts
