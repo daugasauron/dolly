@@ -1,13 +1,26 @@
 # Xonotic: the graphics in game are broken on the deployed v0.1.5
 
 - STATUS: OPEN
-- PRIORITY: 300
-- TAGS: demo,gpu,bug,firefox
+- PRIORITY: 400
+- TAGS: demo,gpu,bug
 
 Owner (2026-11-07): "I just tested xonotic on the deploy and the graphics in game are completely
 broken, create a task to fix that too." Not yet recorded: the browser and system, the domain,
 whether the page drew on `gpu@0` or in the engine's software rasterizer (no WebGPU adapter), and
 what "broken" looks like (a screenshot settles most of it).
+
+## State (2026-11-13): walls drawn see-through, in Chrome and Firefox
+
+Owner (2026-11-13), after the fix below: "The xonotix bug is not fixed, it looks a bit better (I can
+see contours of the walls but they are see through). This is the same on firefox and chrome."
+So the fix of 2026-11-12 is not the whole cause: the walls' outlines draw, their surfaces do not
+cover what lies behind them. Presumably tested on the local release, 127.0.0.1:9045 (`973b3ad4…`,
+main `2b8036055`); not recorded: the preset, the map, and whether the frames came from `gpu@0` or
+the engine's software rasterizer. The test's check (lit pixels above 0.2 at ultimate on
+space-elevator) passes on such frames, so it does not see this.
+
+Next: the owner's flow on 9045 in both browsers, a screenshot of a wall, and the preset and path
+it used; then a check that a wall hides what is behind it.
 
 ## State (2026-11-12): the effects presets above high, in any browser
 
